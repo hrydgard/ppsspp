@@ -517,7 +517,7 @@ static void WinMainCleanup() {
 }
 
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow) {
-	setCurrentThreadName("Main");
+	SetCurrentThreadName("Main");
 
 	WinMainInit();
 
@@ -527,9 +527,9 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	bool showLog = true;
 #endif
 
-	const std::string &exePath = File::GetExeDirectory();
-	VFSRegister("", new DirectoryAssetReader((exePath + "/assets/").c_str()));
-	VFSRegister("", new DirectoryAssetReader(exePath.c_str()));
+	const Path &exePath = File::GetExeDirectory();
+	VFSRegister("", new DirectoryAssetReader(exePath / "assets"));
+	VFSRegister("", new DirectoryAssetReader(exePath));
 
 	langRegion = GetDefaultLangRegion();
 	osName = GetWindowsVersion() + " " + GetWindowsSystemArchitecture();
@@ -562,7 +562,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	// On Win32 it makes more sense to initialize the system directories here
 	// because the next place it was called was in the EmuThread, and it's too late by then.
-	g_Config.internalDataDirectory = W32Util::UserDocumentsPath();
+	g_Config.internalDataDirectory = Path(W32Util::UserDocumentsPath());
 	InitSysDirectories();
 
 	// Check for the Vulkan workaround before any serious init.
@@ -583,7 +583,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	// Load config up here, because those changes below would be overwritten
 	// if it's not loaded here first.
-	g_Config.AddSearchPath("");
+	g_Config.AddSearchPath(Path());
 	g_Config.AddSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
 	g_Config.SetDefaultPath(GetSysDirectory(DIRECTORY_SYSTEM));
 	g_Config.Load(configFilename.c_str(), controlsConfigFilename.c_str());

@@ -19,11 +19,10 @@
 #include <cmath>
 #include <cstdarg>
 #include <iostream>
-#include <fstream>
 #include <vector>
 #include "headless/Compare.h"
 
-#include "Common/ColorConv.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
@@ -75,7 +74,7 @@ struct BufferedLineReader {
 	const static int MAX_BUFFER = 5;
 	const static int TEMP_BUFFER_SIZE = 32768;
 
-	BufferedLineReader(const std::string &data) : valid_(0), data_(data), pos_(0) {
+	BufferedLineReader(const std::string &data) : data_(data) {
 	}
 
 	void Fill() {
@@ -135,7 +134,7 @@ struct BufferedLineReader {
 	}
 
 protected:
-	BufferedLineReader() : valid_(0) {
+	BufferedLineReader() {
 	}
 
 	virtual bool HasMoreLines() {
@@ -163,48 +162,23 @@ protected:
 		return s.substr(0, p + 1);
 	}
 
-	int valid_;
+	int valid_ = 0;
 	std::string buffer_[MAX_BUFFER];
 	const std::string data_;
-	size_t pos_;
+	size_t pos_ = 0;
 };
 
-struct BufferedLineReaderFile : public BufferedLineReader {
-	BufferedLineReaderFile(std::ifstream &in) : BufferedLineReader(), in_(in) {
+Path ExpectedScreenshotFromFilename(const Path &bootFilename) {
+	std::string extension = bootFilename.GetFileExtension();
+	if (extension.empty()) {
+		return bootFilename.WithExtraExtension(".bmp");
 	}
 
-protected:
-	virtual bool HasMoreLines() {
-		return !in_.eof();
-	}
-
-	virtual std::string ReadLine() {
-		char temp[TEMP_BUFFER_SIZE];
-		in_.getline(temp, TEMP_BUFFER_SIZE);
-		return temp;
-	}
-
-	std::ifstream &in_;
-};
-
-std::string ExpectedFromFilename(const std::string &bootFilename) {
-	size_t pos = bootFilename.find_last_of('.');
-	if (pos == bootFilename.npos) {
-		return bootFilename + ".expected";
-	}
-	return bootFilename.substr(0, pos) + ".expected";
-}
-
-std::string ExpectedScreenshotFromFilename(const std::string &bootFilename) {
-	size_t pos = bootFilename.find_last_of('.');
-	if (pos == bootFilename.npos) {
-		return bootFilename + ".bmp";
-	}
 	// Let's use pngs as the default for ppdmp tests.
-	if (bootFilename.substr(pos) == ".ppdmp") {
-		return bootFilename.substr(0, pos) + ".png";
+	if (extension == ".ppdmp") {
+		return bootFilename.WithReplacedExtension(".png");
 	}
-	return bootFilename.substr(0, pos) + ".expected.bmp";
+	return bootFilename.WithReplacedExtension(".expected.bmp");
 }
 
 static std::string ChopFront(std::string s, std::string front)
@@ -228,14 +202,14 @@ static std::string ChopEnd(std::string s, std::string end)
 	return s;
 }
 
-std::string GetTestName(const std::string &bootFilename)
+std::string GetTestName(const Path &bootFilename)
 {
 	// Kinda ugly, trying to guesstimate the test name from filename...
-	return ChopEnd(ChopFront(ChopFront(bootFilename, "tests/"), "pspautotests/tests/"), ".prx");
+	return ChopEnd(ChopFront(ChopFront(bootFilename.ToString(), "tests/"), "pspautotests/tests/"), ".prx");
 }
 
-bool CompareOutput(const std::string &bootFilename, const std::string &output, bool verbose) {
-	std::string expect_filename = ExpectedFromFilename(bootFilename);
+bool CompareOutput(const Path &bootFilename, const std::string &output, bool verbose) {
+	Path expect_filename = bootFilename.WithReplacedExtension(".prx", ".expected");
 	std::unique_ptr<FileLoader> expect_loader(ConstructFileLoader(expect_filename));
 
 	if (expect_loader->Exists()) {
@@ -297,7 +271,7 @@ bool CompareOutput(const std::string &bootFilename, const std::string &output, b
 				printf("%s", output.c_str());
 				printf("============== expected output:\n");
 				std::string fullExpected;
-				if (readFileToString(true, expect_filename.c_str(), fullExpected))
+				if (File::ReadFileToString(true, expect_filename, fullExpected))
 					printf("%s", fullExpected.c_str());
 				printf("===============================\n");
 			}
@@ -391,7 +365,7 @@ std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32
 	return data;
 }
 
-double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 h, const std::string& screenshotFilename, std::string &error)
+double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 h, const Path& screenshotFilename, std::string &error)
 {
 	if (pixels.size() < stride * h)
 	{
@@ -407,7 +381,7 @@ double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 
 	if (loader->Exists()) {
 		uint8_t header[2];
 		if (loader->ReadAt(0, 2, header) != 2) {
-			error = "Unable to read screenshot data: " + screenshotFilename;
+			error = "Unable to read screenshot data: " + screenshotFilename.ToVisualString();
 			return -1.0f;
 		}
 
@@ -416,7 +390,7 @@ double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 
 			asBitmap = true;
 			// The bitmap header is 14 + 40 bytes.  We could validate it but the test would fail either way.
 			if (reference && loader->ReadAt(14 + 40, sizeof(u32), stride * h, reference) != stride * h) {
-				error = "Unable to read screenshot data: " + screenshotFilename;
+				error = "Unable to read screenshot data: " + screenshotFilename.ToVisualString();
 				return -1.0f;
 			}
 		} else {
@@ -424,23 +398,23 @@ double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 
 			std::vector<uint8_t> compressed;
 			compressed.resize(loader->FileSize());
 			if (loader->ReadAt(0, compressed.size(), &compressed[0]) != compressed.size()) {
-				error = "Unable to read screenshot data: " + screenshotFilename;
+				error = "Unable to read screenshot data: " + screenshotFilename.ToVisualString();
 				return -1.0f;
 			}
 
 			int width, height;
 			if (!pngLoadPtr(&compressed[0], compressed.size(), &width, &height, (unsigned char **)&reference)) {
-				error = "Unable to read screenshot data: " + screenshotFilename;
+				error = "Unable to read screenshot data: " + screenshotFilename.ToVisualString();
 				return -1.0f;
 			}
 		}
 	} else {
-		error = "Unable to read screenshot: " + screenshotFilename;
+		error = "Unable to read screenshot: " + screenshotFilename.ToVisualString();
 		return -1.0f;
 	}
 
 	if (!reference) {
-		error = "Unable to allocate screenshot data: " + screenshotFilename;
+		error = "Unable to allocate screenshot data: " + screenshotFilename.ToVisualString();
 		return -1.0f;
 	}
 

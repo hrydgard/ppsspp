@@ -22,6 +22,7 @@
 #include <vector>
 #include <algorithm>
 
+#include "Common/Log.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
@@ -38,7 +39,7 @@ static std::vector<TextureShaderInfo> textureShaderInfo;
 
 // Scans the directories for shader ini files and collects info about all the shaders found.
 
-void LoadPostShaderInfo(const std::vector<std::string> &directories) {
+void LoadPostShaderInfo(const std::vector<Path> &directories) {
 	std::vector<ShaderInfo> notVisible;
 
 	shaderInfo.clear();
@@ -78,8 +79,8 @@ void LoadPostShaderInfo(const std::vector<std::string> &directories) {
 	};
 
 	for (size_t d = 0; d < directories.size(); d++) {
-		std::vector<FileInfo> fileInfo;
-		getFilesInDir(directories[d].c_str(), &fileInfo, "ini:");
+		std::vector<File::FileInfo> fileInfo;
+		File::GetFilesInDir(directories[d], &fileInfo, "ini:");
 
 		if (fileInfo.size() == 0) {
 			VFSGetFileListing(directories[d].c_str(), &fileInfo, "ini:");
@@ -88,18 +89,19 @@ void LoadPostShaderInfo(const std::vector<std::string> &directories) {
 		for (size_t f = 0; f < fileInfo.size(); f++) {
 			IniFile ini;
 			bool success = false;
-			std::string name = fileInfo[f].fullName;
-			std::string path = directories[d];
+			Path name = fileInfo[f].fullName;
+			Path path = directories[d];
 			// Hack around Android VFS path bug. really need to redesign this.
-			if (name.substr(0, 7) == "assets/")
-				name = name.substr(7);
-			if (path.substr(0, 7) == "assets/")
-				path = path.substr(7);
+			if (name.ToString().substr(0, 7) == "assets/")
+				name = Path(name.ToString().substr(7));
+			if (path.ToString().substr(0, 7) == "assets/")
+				path = Path(path.ToString().substr(7));
 
-			if (ini.LoadFromVFS(name) || ini.Load(fileInfo[f].fullName)) {
+			if (ini.LoadFromVFS(name.ToString()) || ini.Load(fileInfo[f].fullName)) {
 				success = true;
 				// vsh load. meh.
 			}
+
 			if (!success)
 				continue;
 
@@ -118,13 +120,16 @@ void LoadPostShaderInfo(const std::vector<std::string> &directories) {
 					section.Get("Parent", &info.parent, "");
 					section.Get("Visible", &info.visible, true);
 					section.Get("Fragment", &temp, "");
-					info.fragmentShaderFile = path + "/" + temp;
+					info.fragmentShaderFile = path / temp;
 					section.Get("Vertex", &temp, "");
-					info.vertexShaderFile = path + "/" + temp;
+					info.vertexShaderFile = path / temp;
 					section.Get("OutputResolution", &info.outputResolution, false);
 					section.Get("Upscaling", &info.isUpscalingFilter, false);
 					section.Get("SSAA", &info.SSAAFilterLevel, 0);
 					section.Get("60fps", &info.requires60fps, false);
+
+					if (info.parent == "Off")
+						info.parent = "";
 
 					for (size_t i = 0; i < ARRAY_SIZE(info.settings); ++i) {
 						auto &setting = info.settings[i];
@@ -162,7 +167,7 @@ void LoadPostShaderInfo(const std::vector<std::string> &directories) {
 					section.Get("Name", &info.name, section.name().c_str());
 					section.Get("Compute", &temp, "");
 					section.Get("MaxScale", &info.maxScale, 255);
-					info.computeShaderFile = path + "/" + temp;
+					info.computeShaderFile = path / temp;
 
 					appendTextureShader(info);
 				}
@@ -178,9 +183,9 @@ void LoadPostShaderInfo(const std::vector<std::string> &directories) {
 
 // Scans the directories for shader ini files and collects info about all the shaders found.
 void ReloadAllPostShaderInfo() {
-	std::vector<std::string> directories;
-	directories.push_back("shaders");
-	directories.push_back(g_Config.memStickDirectory + "PSP/shaders");
+	std::vector<Path> directories;
+	directories.push_back(Path("shaders"));  // For VFS
+	directories.push_back(g_Config.memStickDirectory / "PSP" / "shaders");
 	LoadPostShaderInfo(directories);
 }
 
@@ -198,7 +203,7 @@ std::vector<const ShaderInfo *> GetPostShaderChain(const std::string &name) {
 	while (shaderInfo) {
 		backwards.push_back(shaderInfo);
 
-		if (!shaderInfo->parent.empty() && shaderInfo->parent != "Off") {
+		if (!shaderInfo->parent.empty()) {
 			shaderInfo = GetPostShaderInfo(shaderInfo->parent);
 		} else {
 			shaderInfo = nullptr;
@@ -219,8 +224,6 @@ std::vector<const ShaderInfo *> GetPostShaderChain(const std::string &name) {
 std::vector<const ShaderInfo *> GetFullPostShadersChain(const std::vector<std::string> &names) {
 	std::vector<const ShaderInfo *> fullChain;
 	for (auto shaderName : names) {
-		if (shaderName == "Off")
-			break;
 		auto shaderChain = GetPostShaderChain(shaderName);
 		fullChain.insert(fullChain.end(), shaderChain.begin(), shaderChain.end());
 	}

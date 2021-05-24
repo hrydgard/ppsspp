@@ -423,11 +423,10 @@ int sceKernelSendMbx(SceUID id, u32 packetAddr)
 		bool inserted = false;
 		if (m->nmb.attr & SCE_KERNEL_MBA_MSPRI)
 		{
-			NativeMbxPacket p;
 			for (int i = 0, n = m->nmb.numMessages; i < n; i++)
 			{
-				Memory::ReadStructUnchecked<NativeMbxPacket>(next, &p);
-				if (addPacket->priority < p.priority)
+				auto p = PSPPointer<NativeMbxPacket>::Create(next);
+				if (addPacket->priority < p->priority)
 				{
 					if (i == 0)
 						m->AddFirstMessage(prev, packetAddr);
@@ -438,7 +437,7 @@ int sceKernelSendMbx(SceUID id, u32 packetAddr)
 				}
 
 				prev = next;
-				next = Memory::Read_U32(next);
+				next = p->next;
 			}
 		}
 		if (!inserted)

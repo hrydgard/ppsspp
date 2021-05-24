@@ -5,7 +5,7 @@
 
 #include "Common/Profiler/Profiler.h"
 
-#include "Common/ColorConv.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/GraphicsContext.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -2727,8 +2727,11 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 		framebufferManager_->NotifyBlockTransferAfter(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason);
 	}
 
-	NotifyMemInfo(MemBlockFlags::READ, srcBasePtr + (srcY * srcStride + srcX) * bpp, height * srcStride * bpp, "GPUBlockTransfer");
-	NotifyMemInfo(MemBlockFlags::WRITE, dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, "GPUBlockTransfer");
+	const uint32_t src = srcBasePtr + (srcY * srcStride + srcX) * bpp;
+	const uint32_t srcSize = height * srcStride * bpp;
+	const std::string tag = "GPUBlockTransfer/" + GetMemWriteTagAt(src, srcSize);
+	NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag.c_str(), tag.size());
+	NotifyMemInfo(MemBlockFlags::WRITE, dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, tag.c_str(), tag.size());
 
 	// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
 	cyclesExecuted += ((height * width * bpp) * 16) / 10;
@@ -2741,15 +2744,17 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size) {
 			// We use a little hack for PerformMemoryDownload/PerformMemoryUpload using a VRAM mirror.
 			// Since they're identical we don't need to copy.
 			if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
-				Memory::Memcpy(dest, src, size);
+				const std::string tag = "GPUMemcpy/" + GetMemWriteTagAt(src, size);
+				Memory::Memcpy(dest, src, size, tag.c_str(), tag.size());
 			}
 		}
 		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 		return true;
 	}
 
-	NotifyMemInfo(MemBlockFlags::READ, src, size, "GPUMemcpy");
-	NotifyMemInfo(MemBlockFlags::WRITE, dest, size, "GPUMemcpy");
+	const std::string tag = "GPUMemcpy/" + GetMemWriteTagAt(src, size);
+	NotifyMemInfo(MemBlockFlags::READ, src, size, tag.c_str(), tag.size());
+	NotifyMemInfo(MemBlockFlags::WRITE, dest, size, tag.c_str(), tag.size());
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	GPURecord::NotifyMemcpy(dest, src, size);
 	return false;

@@ -20,6 +20,7 @@
 #include <functional>
 #include <memory>
 
+#include "Common/File/Path.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
 #include "UI/MiscScreens.h"
@@ -27,7 +28,7 @@
 
 class GamePauseScreen : public UIDialogScreenWithGameBackground {
 public:
-	GamePauseScreen(const std::string &filename) : UIDialogScreenWithGameBackground(filename), gamePath_(filename) {}
+	GamePauseScreen(const Path &filename) : UIDialogScreenWithGameBackground(filename), gamePath_(filename) {}
 	virtual ~GamePauseScreen();
 
 	virtual void dialogFinished(const Screen *dialog, DialogResult dr) override;
@@ -55,16 +56,14 @@ private:
 
 	// hack
 	bool finishNextFrame_ = false;
-	std::string gamePath_;
+	Path gamePath_;
 };
-
-class PrioritizedWorkQueue;
 
 // AsyncImageFileView loads a texture from a file, and reloads it as necessary.
 // TODO: Actually make async, doh.
 class AsyncImageFileView : public UI::Clickable {
 public:
-	AsyncImageFileView(const std::string &filename, UI::ImageSizeMode sizeMode, PrioritizedWorkQueue *wq, UI::LayoutParams *layoutParams = 0);
+	AsyncImageFileView(const Path &filename, UI::ImageSizeMode sizeMode, UI::LayoutParams *layoutParams = 0);
 	~AsyncImageFileView();
 
 	void GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const override;
@@ -74,7 +73,7 @@ public:
 	void DeviceLost() override;
 	void DeviceRestored(Draw::DrawContext *draw) override;
 
-	void SetFilename(std::string filename);
+	void SetFilename(const Path &filename);
 	void SetColor(uint32_t color) { color_ = color; }
 	void SetOverlayText(std::string text) { text_ = text; }
 	void SetFixedSize(float fixW, float fixH) { fixedSizeW_ = fixW; fixedSizeH_ = fixH; }
@@ -82,11 +81,11 @@ public:
 
 	bool CanBeFocused() const override { return canFocus_; }
 
-	const std::string &GetFilename() const { return filename_; }
+	const Path &GetFilename() const { return filename_; }
 
 private:
 	bool canFocus_;
-	std::string filename_;
+	Path filename_;
 	std::string text_;
 	uint32_t color_;
 	UI::ImageSizeMode sizeMode_;

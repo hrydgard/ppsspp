@@ -849,7 +849,7 @@ struct CacheHeader {
 	int numLinkedPrograms;
 };
 
-void ShaderManagerGLES::Load(const std::string &filename) {
+void ShaderManagerGLES::Load(const Path &filename) {
 	File::IOFile f(filename, "rb");
 	u64 sz = f.GetSize();
 	if (!f.IsOpen()) {
@@ -997,7 +997,7 @@ void ShaderManagerGLES::CancelPrecompile() {
 	diskCachePending_.Clear();
 }
 
-void ShaderManagerGLES::Save(const std::string &filename) {
+void ShaderManagerGLES::Save(const Path &filename) {
 	if (!diskCacheDirty_) {
 		return;
 	}

@@ -31,18 +31,17 @@
 #include "Common/File/FileDescriptor.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Compression.h"
-#include "Common/Buffer.h"
+#include "Common/Net/NetBuffer.h"
 #include "Common/Log.h"
 
 namespace net {
 
-Connection::Connection()
-		: port_(-1), resolved_(NULL), sock_(-1) {
+Connection::Connection() {
 }
 
 Connection::~Connection() {
 	Disconnect();
-	if (resolved_ != NULL)
+	if (resolved_ != nullptr)
 		DNSResolveFree(resolved_);
 }
 
@@ -148,7 +147,6 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 			// Something connected.  Pick the first one that did (if multiple.)
 			for (int sock : sockets) {
 				if ((intptr_t)sock_ == -1 && FD_ISSET(sock, &fds)) {
-					fd_util::SetNonBlocking(sock, false);
 					sock_ = sock;
 				} else {
 					closesocket(sock);
@@ -182,11 +180,11 @@ void Connection::Disconnect() {
 namespace http {
 
 // TODO: do something sane here
-#define USERAGENT "NATIVEAPP 1.0"
+constexpr const char *DEFAULT_USERAGENT = "NATIVEAPP 1.0";
 
 Client::Client() {
 	httpVersion_ = "1.1";
-	userAgent_ = USERAGENT;
+	userAgent_ = DEFAULT_USERAGENT;
 }
 
 Client::~Client() {
@@ -245,35 +243,35 @@ void DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength, float *prog
 	}
 }
 
-int Client::GET(const char *resource, Buffer *output, std::vector<std::string> &responseHeaders, float *progress, bool *cancelled) {
+int Client::GET(const char *resource, Buffer *output, std::vector<std::string> &responseHeaders, RequestProgress *progress) {
 	const char *otherHeaders =
 		"Accept: */*\r\n"
 		"Accept-Encoding: gzip\r\n";
-	int err = SendRequest("GET", resource, otherHeaders, progress, cancelled);
+	int err = SendRequest("GET", resource, otherHeaders, progress);
 	if (err < 0) {
 		return err;
 	}
 
-	Buffer readbuf;
-	int code = ReadResponseHeaders(&readbuf, responseHeaders, progress, cancelled);
+	net::Buffer readbuf;
+	int code = ReadResponseHeaders(&readbuf, responseHeaders, progress);
 	if (code < 0) {
 		return code;
 	}
 
-	err = ReadResponseEntity(&readbuf, responseHeaders, output, progress, cancelled);
+	err = ReadResponseEntity(&readbuf, responseHeaders, output, progress);
 	if (err < 0) {
 		return err;
 	}
 	return code;
 }
 
-int Client::GET(const char *resource, Buffer *output, float *progress, bool *cancelled) {
+int Client::GET(const char *resource, Buffer *output, RequestProgress *progress) {
 	std::vector<std::string> responseHeaders;
-	int code = GET(resource, output, responseHeaders, progress,  cancelled);
+	int code = GET(resource, output, responseHeaders, progress);
 	return code;
 }
 
-int Client::POST(const char *resource, const std::string &data, const std::string &mime, Buffer *output, float *progress) {
+int Client::POST(const char *resource, const std::string &data, const std::string &mime, Buffer *output, RequestProgress *progress) {
 	char otherHeaders[2048];
 	if (mime.empty()) {
 		snprintf(otherHeaders, sizeof(otherHeaders), "Content-Length: %lld\r\n", (long long)data.size());
@@ -285,7 +283,7 @@ int Client::POST(const char *resource, const std::string &data, const std::strin
 		return err;
 	}
 
-	Buffer readbuf;
+	net::Buffer readbuf;
 	std::vector<std::string> responseHeaders;
 	int code = ReadResponseHeaders(&readbuf, responseHeaders, progress);
 	if (code < 0) {
@@ -299,20 +297,18 @@ int Client::POST(const char *resource, const std::string &data, const std::strin
 	return code;
 }
 
-int Client::POST(const char *resource, const std::string &data, Buffer *output, float *progress) {
+int Client::POST(const char *resource, const std::string &data, Buffer *output, RequestProgress *progress) {
 	return POST(resource, data, "", output, progress);
 }
 
-int Client::SendRequest(const char *method, const char *resource, const char *otherHeaders, float *progress, bool *cancelled) {
-	return SendRequestWithData(method, resource, "", otherHeaders, progress, cancelled);
+int Client::SendRequest(const char *method, const char *resource, const char *otherHeaders, RequestProgress *progress) {
+	return SendRequestWithData(method, resource, "", otherHeaders, progress);
 }
 
-int Client::SendRequestWithData(const char *method, const char *resource, const std::string &data, const char *otherHeaders, float *progress, bool *cancelled) {
-	if (progress) {
-		*progress = 0.01f;
-	}
+int Client::SendRequestWithData(const char *method, const char *resource, const std::string &data, const char *otherHeaders, RequestProgress *progress) {
+	progress->progress = 0.01f;
 
-	Buffer buffer;
+	net::Buffer buffer;
 	const char *tpl =
 		"%s %s HTTP/%s\r\n"
 		"Host: %s\r\n"
@@ -324,31 +320,28 @@ int Client::SendRequestWithData(const char *method, const char *resource, const 
 	buffer.Printf(tpl,
 		method, resource, httpVersion_,
 		host_.c_str(),
-		userAgent_,
+		userAgent_.c_str(),
 		otherHeaders ? otherHeaders : "");
 	buffer.Append(data);
-	bool flushed = buffer.FlushSocket(sock(), dataTimeout_);
+	bool flushed = buffer.FlushSocket(sock(), dataTimeout_, progress->cancelled);
 	if (!flushed) {
 		return -1;  // TODO error code.
 	}
 	return 0;
 }
 
-int Client::ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &responseHeaders, float *progress, bool *cancelled) {
+int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &responseHeaders, RequestProgress *progress) {
 	// Snarf all the data we can into RAM. A little unsafe but hey.
 	static constexpr float CANCEL_INTERVAL = 0.25f;
 	bool ready = false;
-	double leftTimeout = dataTimeout_;
+	double endTimeout = time_now_d() + dataTimeout_;
 	while (!ready) {
-		if (cancelled && *cancelled)
+		if (progress->cancelled && *progress->cancelled)
 			return -1;
 		ready = fd_util::WaitUntilReady(sock(), CANCEL_INTERVAL, false);
-		if (!ready && leftTimeout >= 0.0) {
-			leftTimeout -= CANCEL_INTERVAL;
-			if (leftTimeout < 0) {
-				ERROR_LOG(IO, "HTTP headers timed out");
-				return -1;
-			}
+		if (!ready && time_now_d() > endTimeout) {
+			ERROR_LOG(IO, "HTTP headers timed out");
+			return -1;
 		}
 	};
 	// Let's hope all the headers are available in a single packet...
@@ -371,7 +364,7 @@ int Client::ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &respo
 	if (code_pos != line.npos) {
 		code = atoi(&line[code_pos]);
 	} else {
-		ERROR_LOG(IO, "Code not parse HTTP status code");
+		ERROR_LOG(IO, "Could not parse HTTP status code: %s", line.c_str());
 		return -1;
 	}
 
@@ -390,7 +383,7 @@ int Client::ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &respo
 	return code;
 }
 
-int Client::ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, float *progress, bool *cancelled) {
+int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, RequestProgress *progress) {
 	bool gzip = false;
 	bool chunked = false;
 	int contentLength = 0;
@@ -422,51 +415,50 @@ int Client::ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &
 		contentLength = 0;
 	}
 
-	if (!contentLength && progress) {
+	if (!contentLength) {
 		// Content length is unknown.
 		// Set progress to 1% so it looks like something is happening...
-		*progress = 0.1f;
+		progress->progress = 0.1f;
 	}
 
-	if (!contentLength || !progress) {
+	if (!contentLength) {
 		// No way to know how far along we are. Let's just not update the progress counter.
-		if (!readbuf->ReadAllWithProgress(sock(), contentLength, nullptr, cancelled))
+		if (!readbuf->ReadAllWithProgress(sock(), contentLength, nullptr, &progress->kBps, progress->cancelled))
 			return -1;
 	} else {
 		// Let's read in chunks, updating progress between each.
-		if (!readbuf->ReadAllWithProgress(sock(), contentLength, progress, cancelled))
+		if (!readbuf->ReadAllWithProgress(sock(), contentLength, &progress->progress, &progress->kBps, progress->cancelled))
 			return -1;
 	}
 
 	// output now contains the rest of the reply. Dechunk it.
-	if (chunked) {
-		DeChunk(readbuf, output, contentLength, progress);
-	} else {
-		output->Append(*readbuf);
-	}
-
-	// If it's gzipped, we decompress it and put it back in the buffer.
-	if (gzip) {
-		std::string compressed, decompressed;
-		output->TakeAll(&compressed);
-		bool result = decompress_string(compressed, &decompressed);
-		if (!result) {
-			ERROR_LOG(IO, "Error decompressing using zlib");
-			if (progress)
-				*progress = 0.0f;
-			return -1;
+	if (!output->IsVoid()) {
+		if (chunked) {
+			DeChunk(readbuf, output, contentLength, &progress->progress);
+		} else {
+			output->Append(*readbuf);
 		}
-		output->Append(decompressed);
+
+		// If it's gzipped, we decompress it and put it back in the buffer.
+		if (gzip) {
+			std::string compressed, decompressed;
+			output->TakeAll(&compressed);
+			bool result = decompress_string(compressed, &decompressed);
+			if (!result) {
+				ERROR_LOG(IO, "Error decompressing using zlib");
+				progress->progress = 0.0f;
+				return -1;
+			}
+			output->Append(decompressed);
+		}
 	}
 
-	if (progress) {
-		*progress = 1.0f;
-	}
+	progress->progress = 1.0f;
 	return 0;
 }
 
-Download::Download(const std::string &url, const std::string &outfile)
-	: url_(url), outfile_(outfile) {
+Download::Download(const std::string &url, const Path &outfile)
+	: progress_(&cancelled_), url_(url), outfile_(outfile) {
 }
 
 Download::~Download() {
@@ -487,7 +479,7 @@ void Download::Join() {
 
 void Download::SetFailed(int code) {
 	failed_ = true;
-	progress_ = 1.0f;
+	progress_.progress = 1.0f;
 	completed_ = true;
 }
 
@@ -516,7 +508,7 @@ int Download::PerformGET(const std::string &url) {
 		return -1;
 	}
 
-	return client.GET(fileUrl.Resource().c_str(), &buffer_, responseHeaders_, &progress_, &cancelled_);
+	return client.GET(fileUrl.Resource().c_str(), &buffer_, responseHeaders_, &progress_);
 }
 
 std::string Download::RedirectLocation(const std::string &baseUrl) {
@@ -531,7 +523,7 @@ std::string Download::RedirectLocation(const std::string &baseUrl) {
 }
 
 void Download::Do() {
-	setCurrentThreadName("Downloader::Do");
+	SetCurrentThreadName("Downloader::Do");
 	resultCode_ = 0;
 
 	std::string downloadURL = url_;
@@ -560,24 +552,24 @@ void Download::Do() {
 		}
 
 		if (resultCode == 200) {
-			INFO_LOG(IO, "Completed downloading %s to %s", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str());
-			if (!outfile_.empty() && !buffer_.FlushToFile(outfile_.c_str())) {
-				ERROR_LOG(IO, "Failed writing download to %s", outfile_.c_str());
+			INFO_LOG(IO, "Completed downloading %s to %s", url_.c_str(), outfile_.empty() ? "memory" : outfile_.ToVisualString().c_str());
+			if (!outfile_.empty() && !buffer_.FlushToFile(outfile_)) {
+				ERROR_LOG(IO, "Failed writing download to %s", outfile_.ToVisualString().c_str());
 			}
 		} else {
-			ERROR_LOG(IO, "Error downloading %s to %s: %i", url_.c_str(), outfile_.c_str(), resultCode);
+			ERROR_LOG(IO, "Error downloading %s to %s: %i", url_.c_str(), outfile_.ToVisualString().c_str(), resultCode);
 		}
 		resultCode_ = resultCode;
 	}
 
-	progress_ = 1.0f;
+	progress_.progress = 1.0f;
 
 	// Set this last to ensure no race conditions when checking Done. Users must always check
 	// Done before looking at the result code.
 	completed_ = true;
 }
 
-std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const std::string &outfile) {
+std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const Path &outfile) {
 	std::shared_ptr<Download> dl(new Download(url, outfile));
 	downloads_.push_back(dl);
 	dl->Start();
@@ -586,7 +578,7 @@ std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, cons
 
 std::shared_ptr<Download> Downloader::StartDownloadWithCallback(
 	const std::string &url,
-	const std::string &outfile,
+	const Path &outfile,
 	std::function<void(Download &)> callback) {
 	std::shared_ptr<Download> dl(new Download(url, outfile));
 	dl->SetCallback(callback);

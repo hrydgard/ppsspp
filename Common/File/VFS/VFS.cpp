@@ -24,7 +24,8 @@ void VFSShutdown() {
 	num_entries = 0;
 }
 
-static bool IsLocalPath(const char *path) {
+// TODO: Use Path more.
+static bool IsLocalAbsolutePath(const char *path) {
 	bool isUnixLocal = path[0] == '/';
 #ifdef _WIN32
 	bool isWindowsLocal = isalpha(path[0]) && path[1] == ':';
@@ -36,10 +37,10 @@ static bool IsLocalPath(const char *path) {
 
 // The returned data should be free'd with delete[].
 uint8_t *VFSReadFile(const char *filename, size_t *size) {
-	if (IsLocalPath(filename)) {
+	if (IsLocalAbsolutePath(filename)) {
 		// Local path, not VFS.
 		// INFO_LOG(IO, "Not a VFS path: %s . Reading local file.", filename);
-		return ReadLocalFile(filename, size);
+		return File::ReadLocalFile(filename, size);
 	}
 
 	int fn_len = (int)strlen(filename);
@@ -64,11 +65,11 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 	return 0;
 }
 
-bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter) {
-	if (IsLocalPath(path)) {
+bool VFSGetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter) {
+	if (IsLocalAbsolutePath(path)) {
 		// Local path, not VFS.
 		// INFO_LOG(IO, "Not a VFS path: %s . Reading local directory.", path);
-		getFilesInDir(path, listing, filter);
+		File::GetFilesInDir(Path(std::string(path)), listing, filter);
 		return true;
 	}
 
@@ -91,11 +92,11 @@ bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const c
 	return false;
 }
 
-bool VFSGetFileInfo(const char *path, FileInfo *info) {
-	if (IsLocalPath(path)) {
+bool VFSGetFileInfo(const char *path, File::FileInfo *info) {
+	if (IsLocalAbsolutePath(path)) {
 		// Local path, not VFS.
 		// INFO_LOG(IO, "Not a VFS path: %s . Getting local file info.", path);
-		return getFileInfo(path, info);
+		return File::GetFileInfo(Path(std::string(path)), info);
 	}
 
 	bool fileSystemFound = false;

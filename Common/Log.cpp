@@ -42,7 +42,7 @@ bool HandleAssert(const char *function, const char *file, int line, const char *
 	va_end(args);
 
 	// Secondary formatting. Wonder if this can be combined into the vsnprintf somehow.
-	char formatted[LOG_BUF_SIZE];
+	char formatted[LOG_BUF_SIZE + 128];
 	snprintf(formatted, sizeof(formatted), "(%s:%s:%d) %s: [%s] %s", file, function, line, caption, expression, text);
 
 	// Normal logging (will also log to Android log)

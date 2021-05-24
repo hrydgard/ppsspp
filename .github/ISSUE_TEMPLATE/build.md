@@ -9,6 +9,9 @@ They're important. -->
 ### What platform, compiler, and build tools?
 
 
+### What compile flags or command did you run specifically?
+
+
 ### What happens (don't forget logs)?
 
 

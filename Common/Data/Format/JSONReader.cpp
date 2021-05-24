@@ -11,7 +11,7 @@ JsonReader::JsonReader(const std::string &filename) {
 		parse();
 	} else {
 		// Okay, try to read on the local file system
-		buffer_ = (char *)ReadLocalFile(filename.c_str(), &buf_size);
+		buffer_ = (char *)File::ReadLocalFile(filename.c_str(), &buf_size);
 		if (buffer_) {
 			parse();
 		} else {

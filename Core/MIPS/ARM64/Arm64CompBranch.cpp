@@ -113,6 +113,7 @@ void Arm64Jit::BranchRSRTComp(MIPSOpcode op, CCFlags cc, bool likely)
 	}
 
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
+	js.downcountAmount += MIPSGetInstructionCycleEstimate(delaySlotOp);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rt, rs);
 	CONDITIONAL_NICE_DELAYSLOT;
 
@@ -249,6 +250,7 @@ void Arm64Jit::BranchRSZeroComp(MIPSOpcode op, CCFlags cc, bool andLink, bool li
 	}
 
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
+	js.downcountAmount += MIPSGetInstructionCycleEstimate(delaySlotOp);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
 	CONDITIONAL_NICE_DELAYSLOT;
 
@@ -351,6 +353,7 @@ void Arm64Jit::BranchFPFlag(MIPSOpcode op, CCFlags cc, bool likely) {
 	u32 targetAddr = GetCompilerPC() + offset + 4;
 
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
+	js.downcountAmount += MIPSGetInstructionCycleEstimate(delaySlotOp);
 	bool delaySlotIsNice = IsDelaySlotNiceFPU(op, delaySlotOp);
 	CONDITIONAL_NICE_DELAYSLOT;
 	if (!likely && delaySlotIsNice)
@@ -408,6 +411,7 @@ void Arm64Jit::BranchVFPUFlag(MIPSOpcode op, CCFlags cc, bool likely) {
 	u32 targetAddr = GetCompilerPC() + offset + 4;
 
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
+	js.downcountAmount += MIPSGetInstructionCycleEstimate(delaySlotOp);
 
 	// Sometimes there's a VFPU branch in a delay slot (Disgaea 2: Dark Hero Days, Zettai Hero Project, La Pucelle)
 	// The behavior is undefined - the CPU may take the second branch even if the first one passes.
@@ -545,6 +549,7 @@ void Arm64Jit::Comp_JumpReg(MIPSOpcode op)
 	bool andLink = (op & 0x3f) == 9 && rd != MIPS_REG_ZERO;
 
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
+	js.downcountAmount += MIPSGetInstructionCycleEstimate(delaySlotOp);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
 	if (andLink && rs == rd)
 		delaySlotIsNice = false;

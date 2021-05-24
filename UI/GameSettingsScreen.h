@@ -30,21 +30,20 @@ class SettingInfoMessage;
 // per game.
 class GameSettingsScreen : public UIDialogScreenWithGameBackground {
 public:
-	GameSettingsScreen(std::string gamePath, std::string gameID = "", bool editThenRestore = false);
+	GameSettingsScreen(const Path &gamePath, std::string gameID = "", bool editThenRestore = false);
 
 	void update() override;
 	void onFinish(DialogResult result) override;
 	std::string tag() const override { return "settings"; }
 
 protected:
+	void sendMessage(const char *message, const char *value) override;
 	void CreateViews() override;
 	void CallbackRestoreDefaults(bool yes);
 	void CallbackRenderingBackend(bool yes);
 	void CallbackRenderingDevice(bool yes);
 	void CallbackInflightFrames(bool yes);
-#if PPSSPP_PLATFORM(ANDROID)
 	void CallbackMemstickFolder(bool yes);
-#endif
 	bool UseVerticalLayout() const;
 
 private:
@@ -67,6 +66,8 @@ private:
 	bool installed_;
 	bool otherinstalled_;
 #endif
+
+	std::string memstickDisplay_;
 
 	// Event handlers
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
@@ -137,9 +138,8 @@ private:
 	//edit the game-specific settings and restore the global settings after exiting
 	bool editThenRestore_;
 
-#if PPSSPP_PLATFORM(ANDROID)
+	// Android-only
 	std::string pendingMemstickFolder_;
-#endif
 };
 
 class SettingInfoMessage : public UI::LinearLayout {

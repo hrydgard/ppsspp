@@ -27,6 +27,7 @@
 #include "Common/File/DiskFree.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/FileUtil.h"
+#include "Common/File/Path.h"
 #include "Common/Log.h"
 #include "Common/CommonWindows.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
@@ -42,9 +43,9 @@ static const s64 SAFETY_FREE_DISK_SPACE = 768 * 1024 * 1024; // 768 MB
 // Aim to allow this many files cached at once.
 static const u32 CACHE_SPACE_FLEX = 4;
 
-std::string DiskCachingFileLoaderCache::cacheDir_;
+Path DiskCachingFileLoaderCache::cacheDir_;
 
-std::map<std::string, DiskCachingFileLoaderCache *> DiskCachingFileLoader::caches_;
+std::map<Path, DiskCachingFileLoaderCache *> DiskCachingFileLoader::caches_;
 std::mutex DiskCachingFileLoader::cachesMutex_;
 
 // Takes ownership of backend.
@@ -117,11 +118,11 @@ size_t DiskCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, 
 	return readSize;
 }
 
-std::vector<std::string> DiskCachingFileLoader::GetCachedPathsInUse() {
+std::vector<Path> DiskCachingFileLoader::GetCachedPathsInUse() {
 	std::lock_guard<std::mutex> guard(cachesMutex_);
 
 	// This is on the file loader so that it can manage the caches_.
-	std::vector<std::string> files;
+	std::vector<Path> files;
 
 	for (auto it : caches_) {
 		files.push_back(it.first);
@@ -133,7 +134,7 @@ std::vector<std::string> DiskCachingFileLoader::GetCachedPathsInUse() {
 void DiskCachingFileLoader::InitCache() {
 	std::lock_guard<std::mutex> guard(cachesMutex_);
 
-	std::string path = ProxiedFileLoader::Path();
+	Path path = ProxiedFileLoader::GetPath();
 	auto &entry = caches_[path];
 	if (!entry) {
 		entry = new DiskCachingFileLoaderCache(path, filesize_);
@@ -149,12 +150,12 @@ void DiskCachingFileLoader::ShutdownCache() {
 	if (cache_->Release()) {
 		// If it ran out of counts, delete it.
 		delete cache_;
-		caches_.erase(ProxiedFileLoader::Path());
+		caches_.erase(ProxiedFileLoader::GetPath());
 	}
 	cache_ = nullptr;
 }
 
-DiskCachingFileLoaderCache::DiskCachingFileLoaderCache(const std::string &path, u64 filesize)
+DiskCachingFileLoaderCache::DiskCachingFileLoaderCache(const Path &path, u64 filesize)
 	: filesize_(filesize), origPath_(path) {
 	InitCache(path);
 }
@@ -163,7 +164,7 @@ DiskCachingFileLoaderCache::~DiskCachingFileLoaderCache() {
 	ShutdownCache();
 }
 
-void DiskCachingFileLoaderCache::InitCache(const std::string &path) {
+void DiskCachingFileLoaderCache::InitCache(const Path &filename) {
 	cacheSize_ = 0;
 	indexCount_ = 0;
 	oldestGeneration_ = 0;
@@ -171,7 +172,7 @@ void DiskCachingFileLoaderCache::InitCache(const std::string &path) {
 	flags_ = 0;
 	generation_ = 0;
 
-	const std::string cacheFilePath = MakeCacheFilePath(path);
+	const Path cacheFilePath = MakeCacheFilePath(filename);
 	bool fileLoaded = LoadCacheFile(cacheFilePath);
 
 	// We do some basic locking to protect against two things: crashes and concurrency.
@@ -408,21 +409,20 @@ u32 DiskCachingFileLoaderCache::AllocateBlock(u32 indexPos) {
 	return INVALID_BLOCK;
 }
 
-std::string DiskCachingFileLoaderCache::MakeCacheFilename(const std::string &path) {
+std::string DiskCachingFileLoaderCache::MakeCacheFilename(const Path &path) {
 	static const char *const invalidChars = "?*:/\\^|<>\"'";
-	std::string filename = path;
+	std::string filename = path.ToString();
 	for (size_t i = 0; i < filename.size(); ++i) {
 		int c = filename[i];
 		if (strchr(invalidChars, c) != nullptr) {
 			filename[i] = '_';
 		}
 	}
-
 	return filename + ".ppdc";
 }
 
-std::string DiskCachingFileLoaderCache::MakeCacheFilePath(const std::string &path) {
-	std::string dir = cacheDir_;
+::Path DiskCachingFileLoaderCache::MakeCacheFilePath(const Path &filename) {
+	Path dir = cacheDir_;
 	if (dir.empty()) {
 		dir = GetSysDirectory(DIRECTORY_CACHE);
 	}
@@ -431,7 +431,7 @@ std::string DiskCachingFileLoaderCache::MakeCacheFilePath(const std::string &pat
 		File::CreateFullPath(dir);
 	}
 
-	return dir + "/" + MakeCacheFilename(path);
+	return dir / MakeCacheFilename(filename);
 }
 
 s64 DiskCachingFileLoaderCache::GetBlockOffset(u32 block) {
@@ -523,7 +523,7 @@ void DiskCachingFileLoaderCache::WriteIndexData(u32 indexPos, BlockInfo &info) {
 	}
 }
 
-bool DiskCachingFileLoaderCache::LoadCacheFile(const std::string &path) {
+bool DiskCachingFileLoaderCache::LoadCacheFile(const Path &path) {
 	FILE *fp = File::OpenCFile(path, "rb+");
 	if (!fp) {
 		return false;
@@ -607,7 +607,7 @@ void DiskCachingFileLoaderCache::LoadCacheIndex() {
 	}
 }
 
-void DiskCachingFileLoaderCache::CreateCacheFile(const std::string &path) {
+void DiskCachingFileLoaderCache::CreateCacheFile(const Path &path) {
 	maxBlocks_ = DetermineMaxBlocks();
 	if (maxBlocks_ < MAX_BLOCKS_LOWER_BOUND) {
 		GarbageCollectCacheFiles(MAX_BLOCKS_LOWER_BOUND * DEFAULT_BLOCK_SIZE);
@@ -721,7 +721,7 @@ bool DiskCachingFileLoaderCache::LockCacheFile(bool lockStatus) {
 	return true;
 }
 
-bool DiskCachingFileLoaderCache::RemoveCacheFile(const std::string &path) {
+bool DiskCachingFileLoaderCache::RemoveCacheFile(const Path &path) {
 	// Note that some platforms, you can't delete open files.  So we check.
 	CloseFileHandle();
 	return File::Delete(path);
@@ -749,13 +749,14 @@ bool DiskCachingFileLoaderCache::HasData() const {
 }
 
 u64 DiskCachingFileLoaderCache::FreeDiskSpace() {
-	std::string dir = cacheDir_;
+	Path dir = cacheDir_;
 	if (dir.empty()) {
 		dir = GetSysDirectory(DIRECTORY_CACHE);
 	}
 
+	// TODO(scoped):
 	uint64_t result = 0;
-	if (free_disk_space(dir, result)) {
+	if (free_disk_space(dir.ToString(), result)) {
 		return result;
 	}
 
@@ -789,34 +790,34 @@ u32 DiskCachingFileLoaderCache::DetermineMaxBlocks() {
 }
 
 u32 DiskCachingFileLoaderCache::CountCachedFiles() {
-	std::string dir = cacheDir_;
+	Path dir = cacheDir_;
 	if (dir.empty()) {
 		dir = GetSysDirectory(DIRECTORY_CACHE);
 	}
 
-	std::vector<FileInfo> files;
-	return (u32)getFilesInDir(dir.c_str(), &files, "ppdc:");
+	std::vector<File::FileInfo> files;
+	return (u32)GetFilesInDir(dir, &files, "ppdc:");
 }
 
 void DiskCachingFileLoaderCache::GarbageCollectCacheFiles(u64 goalBytes) {
 	// We attempt to free up at least enough files from the cache to get goalBytes more space.
-	const std::vector<std::string> usedPaths = DiskCachingFileLoader::GetCachedPathsInUse();
+	const std::vector<Path> usedPaths = DiskCachingFileLoader::GetCachedPathsInUse();
 	std::set<std::string> used;
-	for (std::string path : usedPaths) {
+	for (const Path &path : usedPaths) {
 		used.insert(MakeCacheFilename(path));
 	}
 
-	std::string dir = cacheDir_;
+	Path dir = cacheDir_;
 	if (dir.empty()) {
 		dir = GetSysDirectory(DIRECTORY_CACHE);
 	}
 
-	std::vector<FileInfo> files;
-	getFilesInDir(dir.c_str(), &files, "ppdc:");
+	std::vector<File::FileInfo> files;
+	File::GetFilesInDir(dir, &files, "ppdc:");
 
 	u64 remaining = goalBytes;
 	// TODO: Could order by LRU or etc.
-	for (FileInfo file : files) {
+	for (File::FileInfo &file : files) {
 		if (file.isDirectory) {
 			continue;
 		}
@@ -826,7 +827,7 @@ void DiskCachingFileLoaderCache::GarbageCollectCacheFiles(u64 goalBytes) {
 		}
 
 #ifdef _WIN32
-		const std::wstring w32path = ConvertUTF8ToWString(file.fullName);
+		const std::wstring w32path = file.fullName.ToWString();
 		bool success = DeleteFileW(w32path.c_str()) != 0;
 #else
 		bool success = unlink(file.fullName.c_str()) == 0;

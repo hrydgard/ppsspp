@@ -17,16 +17,14 @@
 
 #include "ppsspp_config.h"
 #include "ext/xxhash.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/CPUDetect.h"
-#include "Common/ColorConv.h"
 
 #include "GPU/GPU.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/TextureDecoder.h"
 // NEON is in a separate file so that it can be compiled with a runtime check.
 #include "GPU/Common/TextureDecoderNEON.h"
-
-// TODO: Move some common things into here.
 
 #ifdef _M_SSE
 #include <emmintrin.h>

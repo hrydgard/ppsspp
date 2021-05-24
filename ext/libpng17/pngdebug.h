@@ -1,11 +1,10 @@
 
 /* pngdebug.h - Debugging macros for libpng, also used in pngtest.c
  *
- * Copyright (c) 1998-2013 Glenn Randers-Pehrson
+ * Last changed in libpng 1.6.8 [December 19, 2013]
+ * Copyright (c) 1998-2002,2004,2006-2013 Glenn Randers-Pehrson
  * (Version 0.96 Copyright (c) 1996, 1997 Andreas Dilger)
  * (Version 0.88 Copyright (c) 1995, 1996 Guy Eric Schalnat, Group 42, Inc.)
- *
- * Last changed in libpng 1.6.8 [December 19, 2013]
  *
  * This code is released under the libpng license.
  * For conditions of distribution and use, see the disclaimer
@@ -36,14 +35,11 @@
 #define PNGDEBUG_H
 /* These settings control the formatting of messages in png.c and pngerror.c */
 /* Moved to pngdebug.h at 1.5.0 */
-#  ifndef PNG_LITERAL_SHARP
-#    define PNG_LITERAL_SHARP 0x23
-#  endif
 #  ifndef PNG_LITERAL_LEFT_SQUARE_BRACKET
-#    define PNG_LITERAL_LEFT_SQUARE_BRACKET 0x5b
+#    define PNG_LITERAL_LEFT_SQUARE_BRACKET 0x5bU
 #  endif
 #  ifndef PNG_LITERAL_RIGHT_SQUARE_BRACKET
-#    define PNG_LITERAL_RIGHT_SQUARE_BRACKET 0x5d
+#    define PNG_LITERAL_RIGHT_SQUARE_BRACKET 0x5dU
 #  endif
 #  ifndef PNG_STRING_NEWLINE
 #    define PNG_STRING_NEWLINE "\n"

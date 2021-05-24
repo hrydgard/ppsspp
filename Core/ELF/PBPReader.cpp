@@ -15,7 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <fstream>
 #include <string>
 #include <cstring>
 
@@ -26,21 +25,21 @@
 
 PBPReader::PBPReader(FileLoader *fileLoader) : file_(nullptr), header_(), isELF_(false) {
 	if (!fileLoader->Exists()) {
-		ERROR_LOG(LOADER, "Failed to open PBP file %s", fileLoader->Path().c_str());
+		ERROR_LOG(LOADER, "Failed to open PBP file %s", fileLoader->GetPath().c_str());
 		return;
 	}
 
 	fileSize_ = (size_t)fileLoader->FileSize();
 	if (fileLoader->ReadAt(0, sizeof(header_), (u8 *)&header_) != sizeof(header_)) {
-		ERROR_LOG(LOADER, "PBP is too small to be valid: %s", fileLoader->Path().c_str());
+		ERROR_LOG(LOADER, "PBP is too small to be valid: %s", fileLoader->GetPath().c_str());
 		return;
 	}
 	if (memcmp(header_.magic, "\0PBP", 4) != 0) {
 		if (memcmp(header_.magic, "\nFLE", 4) != 0) {
-			VERBOSE_LOG(LOADER, "%s: File actually an ELF, not a PBP", fileLoader->Path().c_str());
+			VERBOSE_LOG(LOADER, "%s: File actually an ELF, not a PBP", fileLoader->GetPath().c_str());
 			isELF_ = true;
 		} else {
-			ERROR_LOG(LOADER, "Magic number in %s indicated no PBP: %s", fileLoader->Path().c_str(), header_.magic);
+			ERROR_LOG(LOADER, "Magic number in %s indicated no PBP: %s", fileLoader->GetPath().c_str(), header_.magic);
 		}
 		return;
 	}

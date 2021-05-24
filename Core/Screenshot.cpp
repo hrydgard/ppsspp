@@ -21,8 +21,9 @@
 #include <png.h>
 #include "ext/jpge/jpge.h"
 
-#include "Common/ColorConv.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/File/FileUtil.h"
+#include "Common/File/Path.h"
 #include "Common/Log.h"
 #include "Common/System/Display.h"
 #include "Core/Config.h"
@@ -37,7 +38,7 @@
 class JPEGFileStream : public jpge::output_stream
 {
 public:
-	JPEGFileStream(const char *filename) {
+	JPEGFileStream(const Path &filename) {
 		fp_ = File::OpenCFile(filename, "wb");
 	}
 	~JPEGFileStream() override {
@@ -65,7 +66,7 @@ private:
 	FILE *fp_;
 };
 
-static bool WriteScreenshotToJPEG(const char *filename, int width, int height, int num_channels, const uint8_t *image_data, const jpge::params &comp_params) {
+static bool WriteScreenshotToJPEG(const Path &filename, int width, int height, int num_channels, const uint8_t *image_data, const jpge::params &comp_params) {
 	JPEGFileStream dst_stream(filename);
 	if (!dst_stream.Valid()) {
 		ERROR_LOG(IO, "Unable to open screenshot file for writing.");
@@ -97,7 +98,7 @@ static bool WriteScreenshotToJPEG(const char *filename, int width, int height, i
 	return dst_stream.Valid();
 }
 
-static bool WriteScreenshotToPNG(png_imagep image, const char *filename, int convert_to_8bit, const void *buffer, png_int_32 row_stride, const void *colormap) {
+static bool WriteScreenshotToPNG(png_imagep image, const Path &filename, int convert_to_8bit, const void *buffer, png_int_32 row_stride, const void *colormap) {
 	FILE *fp = File::OpenCFile(filename, "wb");
 	if (!fp) {
 		ERROR_LOG(IO, "Unable to open screenshot file for writing.");
@@ -110,7 +111,8 @@ static bool WriteScreenshotToPNG(png_imagep image, const char *filename, int con
 	} else {
 		ERROR_LOG(IO, "Screenshot PNG encode failed.");
 		fclose(fp);
-		remove(filename);
+		// Should we even do this?
+		File::Delete(filename);
 		return false;
 	}
 }
@@ -326,7 +328,7 @@ static GPUDebugBuffer ApplyRotation(const GPUDebugBuffer &buf, DisplayRotation r
 	return rotated;
 }
 
-bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotType type, int *width, int *height, int maxRes) {
+bool TakeGameScreenshot(const Path &filename, ScreenshotFormat fmt, ScreenshotType type, int *width, int *height, int maxRes) {
 	if (!gpuDebug) {
 		ERROR_LOG(SYSTEM, "Can't take screenshots when GPU not running");
 		return false;
@@ -378,7 +380,7 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 	return success;
 }
 
-bool Save888RGBScreenshot(const char *filename, ScreenshotFormat fmt, const u8 *bufferRGB888, int w, int h) {
+bool Save888RGBScreenshot(const Path &filename, ScreenshotFormat fmt, const u8 *bufferRGB888, int w, int h) {
 	if (fmt == ScreenshotFormat::PNG) {
 		png_image png;
 		memset(&png, 0, sizeof(png));
@@ -403,7 +405,7 @@ bool Save888RGBScreenshot(const char *filename, ScreenshotFormat fmt, const u8 *
 	}
 }
 
-bool Save8888RGBAScreenshot(const char *filename, const u8 *buffer, int w, int h) {
+bool Save8888RGBAScreenshot(const Path &filename, const u8 *buffer, int w, int h) {
 	png_image png;
 	memset(&png, 0, sizeof(png));
 	png.version = PNG_IMAGE_VERSION;

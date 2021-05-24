@@ -392,7 +392,7 @@ VulkanRenderManager::~VulkanRenderManager() {
 }
 
 void VulkanRenderManager::ThreadFunc() {
-	setCurrentThreadName("RenderMan");
+	SetCurrentThreadName("RenderMan");
 	int threadFrame = threadInitFrame_;
 	bool nextFrame = false;
 	bool firstFrame = true;

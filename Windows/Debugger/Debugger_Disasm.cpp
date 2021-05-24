@@ -848,14 +848,14 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 	}
 }
 
-void CDisasm::Show(bool bShow) {
+void CDisasm::Show(bool bShow, bool includeToTop) {
 	if (deferredSymbolFill_ && bShow) {
 		if (g_symbolMap) {
 			g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
 			deferredSymbolFill_ = false;
 		}
 	}
-	Dialog::Show(bShow);
+	Dialog::Show(bShow, includeToTop);
 }
 
 void CDisasm::NotifyMapLoaded() {

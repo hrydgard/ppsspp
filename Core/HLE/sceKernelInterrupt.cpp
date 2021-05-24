@@ -15,9 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <string>
+#include <algorithm>
 #include <list>
 #include <map>
+#include <string>
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -658,8 +659,9 @@ static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 		}
 	}
 
-	NotifyMemInfo(MemBlockFlags::READ, src, size, "KernelMemcpy");
-	NotifyMemInfo(MemBlockFlags::WRITE, dst, size, "KernelMemcpy");
+	const std::string tag = "KernelMemcpy/" + GetMemWriteTagAt(src, size);
+	NotifyMemInfo(MemBlockFlags::READ, src, size, tag.c_str(), tag.size());
+	NotifyMemInfo(MemBlockFlags::WRITE, dst, size, tag.c_str(), tag.size());
 
 	return dst;
 }
@@ -690,8 +692,9 @@ static u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {
 	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
 		memcpy(Memory::GetPointer(dst), Memory::GetPointer(src), size);
 	}
-	NotifyMemInfo(MemBlockFlags::READ, src, size, "KernelMemcpy");
-	NotifyMemInfo(MemBlockFlags::WRITE, dst, size, "KernelMemcpy");
+	const std::string tag = "KernelMemcpy/" + GetMemWriteTagAt(src, size);
+	NotifyMemInfo(MemBlockFlags::READ, src, size, tag.c_str(), tag.size());
+	NotifyMemInfo(MemBlockFlags::WRITE, dst, size, tag.c_str(), tag.size());
 	return dst;
 }
 
@@ -790,9 +793,35 @@ static u32 sysclib_memmove(u32 dst, u32 src, u32 size) {
 	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
 		memmove(Memory::GetPointer(dst), Memory::GetPointer(src), size);
 	}
-	NotifyMemInfo(MemBlockFlags::READ, src, size, "KernelMemmove");
-	NotifyMemInfo(MemBlockFlags::WRITE, dst, size, "KernelMemmove");
+	const std::string tag = "KernelMemmove/" + GetMemWriteTagAt(src, size);
+	NotifyMemInfo(MemBlockFlags::READ, src, size, tag.c_str(), tag.size());
+	NotifyMemInfo(MemBlockFlags::WRITE, dst, size, tag.c_str(), tag.size());
 	return 0;
+}
+
+static u32 sysclib_strncpy(u32 dest, u32 src, u32 size) {
+	if (!Memory::IsValidAddress(dest) || Memory::IsValidAddress(src)) {
+		return hleLogError(SCEKERNEL, 0, "invalid address");
+	}
+
+	// This is just regular strncpy, but being explicit to avoid warnings/safety fixes on missing null.
+	u32 i = 0;
+	u32 srcSize = Memory::ValidSize(src, size);
+	const u8 *srcp = Memory::GetPointer(src);
+	u8 *destp = Memory::GetPointer(dest);
+	for (i = 0; i < srcSize; ++i) {
+		u8 c = *srcp++;
+		if (c == 0)
+			break;
+		*destp++ = c;
+	}
+
+	u32 destSize = Memory::ValidSize(dest, size);
+	for (; i < destSize; ++i) {
+		*destp++ = 0;
+	}
+
+	return hleLogSuccessX(SCEKERNEL, dest);
 }
 
 const HLEFunction SysclibForKernel[] =
@@ -806,8 +835,9 @@ const HLEFunction SysclibForKernel[] =
 	{0x7661E728, &WrapI_UU<sysclib_sprintf>,                   "sprintf",                             'i', "xx",     HLE_KERNEL_SYSCALL },
 	{0x10F3BB61, &WrapU_UII<sysclib_memset>,                   "memset",                              'x', "xii",    HLE_KERNEL_SYSCALL },
 	{0x0D188658, &WrapI_UU<sysclib_strstr>,                    "strstr",                              'i', "xx",     HLE_KERNEL_SYSCALL },
-	{0x7AB35214, &WrapI_UUU<sysclib_strncmp>,                  "strncmp",                             'i', "xxx",     HLE_KERNEL_SYSCALL },
-	{0xA48D2592, &WrapU_UUU<sysclib_memmove>,                  "memmove",                             'x', "xxx",     HLE_KERNEL_SYSCALL },
+	{0x7AB35214, &WrapI_UUU<sysclib_strncmp>,                  "strncmp",                             'i', "xxx",    HLE_KERNEL_SYSCALL },
+	{0xA48D2592, &WrapU_UUU<sysclib_memmove>,                  "memmove",                             'x', "xxx",    HLE_KERNEL_SYSCALL },
+	{0xB49A7697, &WrapU_UUU<sysclib_strncpy>,                  "strncpy",                             'x', "xxi",    HLE_KERNEL_SYSCALL },
 };
 
 void Register_Kernel_Library()

@@ -18,8 +18,8 @@
 #include <algorithm>
 
 #include "ppsspp_config.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
-#include "Common/ColorConv.h"
 #include "Common/MemoryUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"

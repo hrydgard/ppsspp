@@ -103,7 +103,7 @@ bool XAudioBackend::RunSound() {
 
 	thread_ = (HANDLE)_beginthreadex(0, 0, [](void* param)
 	{
-		setCurrentThreadName("XAudio2");
+		SetCurrentThreadName("XAudio2");
 		XAudioBackend *backend = (XAudioBackend *)param;
 		backend->PollLoop();
 		return 0U;

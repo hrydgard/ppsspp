@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "Common/File/Path.h"
+
 #include "Core/CoreParameter.h"
 #include "Core/Host.h"
 #include "Core/Debugger/SymbolMap.h"
@@ -66,7 +68,7 @@ public:
 		}
 	}
 
-	virtual void SetComparisonScreenshot(const std::string &filename) {
+	virtual void SetComparisonScreenshot(const Path &filename) {
 		comparisonScreenshot_ = filename;
 	}
 
@@ -80,7 +82,7 @@ public:
 protected:
 	void SendOrCollectDebugOutput(const std::string &output);
 
-	std::string comparisonScreenshot_;
+	Path comparisonScreenshot_;
 	std::string debugOutputBuffer_;
 	GPUCore gpuCore_;
 	GraphicsContext *gfx_ = nullptr;

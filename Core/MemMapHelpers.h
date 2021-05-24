@@ -30,31 +30,76 @@ extern MIPSState *currentMIPS;
 namespace Memory
 {
 
-inline void Memcpy(const u32 to_address, const void *from_data, const u32 len, const char *tag = "Memcpy") {
+inline void Memcpy(const u32 to_address, const void *from_data, const u32 len, const char *tag, size_t tagLen) {
 	u8 *to = GetPointer(to_address);
 	if (to) {
 		memcpy(to, from_data, len);
-		size_t tagLen = strlen(tag);
+		if (!tag) {
+			tag = "Memcpy";
+			tagLen = sizeof("Memcpy") - 1;
+		}
 		NotifyMemInfo(MemBlockFlags::WRITE, to_address, len, tag, tagLen);
 	}
 	// if not, GetPointer will log.
 }
 
-inline void Memcpy(void *to_data, const u32 from_address, const u32 len, const char *tag = "Memcpy") {
+inline void Memcpy(void *to_data, const u32 from_address, const u32 len, const char *tag, size_t tagLen) {
 	const u8 *from = GetPointer(from_address);
 	if (from) {
 		memcpy(to_data, from, len);
-		size_t tagLen = strlen(tag);
+		if (!tag) {
+			tag = "Memcpy";
+			tagLen = sizeof("Memcpy") - 1;
+		}
 		NotifyMemInfo(MemBlockFlags::READ, from_address, len, tag, tagLen);
 	}
 	// if not, GetPointer will log.
 }
 
-inline void Memcpy(const u32 to_address, const u32 from_address, const u32 len, const char *tag = "Memcpy") {
-	Memcpy(GetPointer(to_address), from_address, len);
-	size_t tagLen = strlen(tag);
-	NotifyMemInfo(MemBlockFlags::READ, from_address, len, tag, tagLen);
-	NotifyMemInfo(MemBlockFlags::WRITE, to_address, len, tag, tagLen);
+inline void Memcpy(const u32 to_address, const u32 from_address, const u32 len, const char *tag, size_t tagLen) {
+	u8 *to = GetPointer(to_address);
+	if (to) {
+		const u8 *from = GetPointer(from_address);
+		if (from) {
+			memcpy(to, from, len);
+			char tagData[128];
+			if (!tag) {
+				const std::string srcTag = GetMemWriteTagAt(from_address, len);
+				tag = tagData;
+				tagLen = snprintf(tagData, sizeof(tagData), "Memcpy/%s", srcTag.c_str());
+			}
+			NotifyMemInfo(MemBlockFlags::READ, from_address, len, tag, tagLen);
+			NotifyMemInfo(MemBlockFlags::WRITE, to_address, len, tag, tagLen);
+		}
+	}
+	// if not, GetPointer will log.
+}
+
+template<size_t tagLen>
+inline void Memcpy(const u32 to_address, const void *from_data, const u32 len, const char(&tag)[tagLen]) {
+	Memcpy(to_address, from_data, len, tag, tagLen);
+}
+
+template<size_t tagLen>
+inline void Memcpy(void *to_data, const u32 from_address, const u32 len, const char(&tag)[tagLen]) {
+	Memcpy(to_data, from_address, len, tag, tagLen);
+}
+
+template<size_t tagLen>
+inline void Memcpy(const u32 to_address, const u32 from_address, const u32 len, const char(&tag)[tagLen]) {
+	Memcpy(to_address, from_address, len, tag, tagLen);
+}
+
+inline void Memcpy(const u32 to_address, const void *from_data, const u32 len) {
+	Memcpy(to_address, from_data, len, nullptr, 0);
+}
+
+inline void Memcpy(void *to_data, const u32 from_address, const u32 len) {
+	Memcpy(to_data, from_address, len, nullptr, 0);
+}
+
+inline void Memcpy(const u32 to_address, const u32 from_address, const u32 len) {
+	Memcpy(to_address, from_address, len, nullptr, 0);
 }
 
 void Memset(const u32 _Address, const u8 _Data, const u32 _iLength, const char *tag = "Memset");

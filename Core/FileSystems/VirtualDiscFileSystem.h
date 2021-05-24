@@ -21,12 +21,13 @@
 
 #include <map>
 
+#include "Common/File/Path.h"
 #include "Core/FileSystems/FileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 
 class VirtualDiscFileSystem: public IFileSystem {
 public:
-	VirtualDiscFileSystem(IHandleAllocator *_hAlloc, std::string _basePath);
+	VirtualDiscFileSystem(IHandleAllocator *_hAlloc, const Path &_basePath);
 	~VirtualDiscFileSystem();
 
 	void DoState(PointerWrap &p) override;
@@ -39,7 +40,6 @@ public:
 	bool     OwnsHandle(u32 handle) override;
 	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;
 	PSPDevType DevType(u32 handle) override;
-	bool GetHostPath(const std::string &inpath, std::string &outpath) override;
 	std::vector<PSPFileInfo> GetDirListing(std::string path) override;
 	FileSystemFlags Flags() override { return FileSystemFlags::UMD; }
 	u64  FreeSpace(const std::string &path) override { return 0; }
@@ -57,7 +57,7 @@ private:
 	// Warning: modifies input string.
 	int getFileListIndex(std::string &fileName);
 	int getFileListIndex(u32 accessBlock, u32 accessSize, bool blockMode = false);
-	std::string GetLocalPath(std::string localpath);
+	Path GetLocalPath(std::string localpath);
 
 	typedef void *HandlerLibrary;
 	typedef int HandlerHandle;
@@ -99,7 +99,7 @@ private:
 		HandlerFileHandle(Handler *handler_) : handler(handler_), handle(-1) {
 		}
 
-		bool Open(std::string& basePath, std::string& fileName, FileAccess access) {
+		bool Open(const std::string& basePath, const std::string& fileName, FileAccess access) {
 			// Ignore access, read only.
 			handle = handler->Open(basePath.c_str(), fileName.c_str());
 			return handle > 0;
@@ -135,11 +135,11 @@ private:
 		u64 startOffset;	// only used by lbn files
 		u64 size;			// only used by lbn files
 
-		bool Open(std::string& basePath, std::string& fileName, FileAccess access) {
+		bool Open(const Path &basePath, std::string& fileName, FileAccess access) {
 			// Ignored, we're read only.
 			u32 err;
 			if (handler.IsValid()) {
-				return handler.Open(basePath, fileName, access);
+				return handler.Open(basePath.ToString(), fileName, access);
 			} else {
 				return hFile.Open(basePath, fileName, access, err);
 			}
@@ -170,7 +170,7 @@ private:
 	typedef std::map<u32, OpenFileEntry> EntryMap;
 	EntryMap entries;
 	IHandleAllocator *hAlloc;
-	std::string basePath;
+	Path basePath;
 
 	struct FileListEntry {
 		std::string fileName;

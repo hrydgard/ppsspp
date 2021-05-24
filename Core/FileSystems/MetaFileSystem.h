@@ -93,9 +93,6 @@ public:
 
 	std::string NormalizePrefix(std::string prefix) const;
 
-	// Only possible if a file system is a DirectoryFileSystem or similar.
-	bool GetHostPath(const std::string &inpath, std::string &outpath) override;
-
 	std::vector<PSPFileInfo> GetDirListing(std::string path) override;
 	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override;
 	void     CloseFile(u32 handle) override;
@@ -106,8 +103,7 @@ public:
 	size_t   SeekFile(u32 handle, s32 position, FileMove type) override;
 	PSPFileInfo GetFileInfo(std::string filename) override;
 	bool     OwnsHandle(u32 handle) override { return false; }
-	inline size_t GetSeekPos(u32 handle)
-	{
+	inline size_t GetSeekPos(u32 handle) {
 		return SeekFile(handle, 0, FILEMOVE_CURRENT);
 	}
 

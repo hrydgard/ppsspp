@@ -20,6 +20,8 @@
 // TODO: Remove the Windows-specific code, FILE is fine there too.
 
 #include <map>
+
+#include "Common/File/Path.h"
 #include "Core/FileSystems/FileSystem.h"
 
 #ifdef _WIN32
@@ -74,8 +76,8 @@ struct DirectoryFileHandle {
 	DirectoryFileHandle(Flags flags) : replay_(flags != SKIP_REPLAY) {
 	}
 
-	std::string GetLocalPath(const std::string &basePath, std::string localpath);
-	bool Open(const std::string &basePath, std::string &fileName, FileAccess access, u32 &err);
+	Path GetLocalPath(const Path &basePath, std::string localpath);
+	bool Open(const Path &basePath, std::string &fileName, FileAccess access, u32 &err);
 	size_t Read(u8* pointer, s64 size);
 	size_t Write(const u8* pointer, s64 size);
 	size_t Seek(s32 position, FileMove type);
@@ -84,7 +86,7 @@ struct DirectoryFileHandle {
 
 class DirectoryFileSystem : public IFileSystem {
 public:
-	DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath, FileSystemFlags _flags = FileSystemFlags::NONE);
+	DirectoryFileSystem(IHandleAllocator *_hAlloc, const Path &_basePath, FileSystemFlags _flags = FileSystemFlags::NONE);
 	~DirectoryFileSystem();
 
 	void CloseAll();
@@ -107,7 +109,6 @@ public:
 	bool RmDir(const std::string &dirname) override;
 	int  RenameFile(const std::string &from, const std::string &to) override;
 	bool RemoveFile(const std::string &filename) override;
-	bool GetHostPath(const std::string &inpath, std::string &outpath) override;
 	FileSystemFlags Flags() override { return flags; }
 	u64 FreeSpace(const std::string &path) override;
 
@@ -120,11 +121,11 @@ private:
 
 	typedef std::map<u32, OpenFileEntry> EntryMap;
 	EntryMap entries;
-	std::string basePath;
+	Path basePath;
 	IHandleAllocator *hAlloc;
 	FileSystemFlags flags;
 	// In case of Windows: Translate slashes, etc.
-	std::string GetLocalPath(std::string localpath);
+	Path GetLocalPath(std::string internalPath);
 };
 
 // VFSFileSystem: Ability to map in Android APK paths as well! Does not support all features, only meant for fonts.
@@ -152,7 +153,6 @@ public:
 	bool RmDir(const std::string &dirname) override;
 	int  RenameFile(const std::string &from, const std::string &to) override;
 	bool RemoveFile(const std::string &filename) override;
-	bool GetHostPath(const std::string &inpath, std::string &outpath) override;
 	FileSystemFlags Flags() override { return FileSystemFlags::FLASH; }
 	u64 FreeSpace(const std::string &path) override { return 0; }
 

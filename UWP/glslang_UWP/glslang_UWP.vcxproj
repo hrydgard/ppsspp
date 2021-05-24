@@ -383,7 +383,6 @@
     <ClInclude Include="..\..\ext\glslang\glslang\HLSL\pch.h" />
     <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\pch.h" />
     <ClInclude Include="..\..\ext\glslang\SPIRV\GLSL.ext.EXT.h" />
-    <ClInclude Include="..\..\ext\glslang\SPIRV\GLSL.ext.NV.h" />
     <ClInclude Include="..\..\ext\glslang\SPIRV\NonSemanticDebugPrintf.h" />
     <ClInclude Include="..\..\ext\glslang\SPIRV\SpvTools.h" />
     <ClInclude Include="..\..\ext\glslang\glslang\Include\arrays.h" />

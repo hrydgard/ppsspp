@@ -1,5 +1,6 @@
 #include <cstring>
 #include <cstdint>
+#include <zstd.h>
 
 #include "Common/Render/TextureAtlas.h"
 
@@ -22,10 +23,19 @@ public:
 	}
 
 	template<class T>
-	T *ReadMultipleAlloc(size_t count) {
+	T *ReadMultipleAlloc(size_t count, bool compressed) {
 		T *t = new T[count];
-		memcpy(t, data_ + offset_, sizeof(T) * count);
-		offset_ += sizeof(T) * count;
+		if (!compressed) {
+			memcpy(t, data_ + offset_, sizeof(T) * count);
+			offset_ += sizeof(T) * count;
+		} else {
+			uint32_t compressed_size = 0;
+			memcpy(&compressed_size, data_ + offset_, sizeof(uint32_t));
+			offset_ += sizeof(uint32_t);
+
+			ZSTD_decompress(t, sizeof(T) * count, data_ + offset_, compressed_size);
+			offset_ += compressed_size;
+		}
 		return t;
 	}
 
@@ -45,7 +55,8 @@ bool Atlas::Load(const uint8_t *data, size_t data_size) {
 		return false;
 	}
 
-	images = reader.ReadMultipleAlloc<AtlasImage>(num_images);
+	images = reader.ReadMultipleAlloc<AtlasImage>(num_images, header.version >= 1);
+
 	fonts = new AtlasFont[num_fonts];
 	for (int i = 0; i < num_fonts; i++) {
 		AtlasFontHeader font_header = reader.Read<AtlasFontHeader>();
@@ -55,8 +66,8 @@ bool Atlas::Load(const uint8_t *data, size_t data_size) {
 		fonts[i].distslope = font_header.distslope;
 		fonts[i].numRanges = font_header.numRanges;
 		fonts[i].numChars = font_header.numChars;
-		fonts[i].ranges = reader.ReadMultipleAlloc<AtlasCharRange>(font_header.numRanges);
-		fonts[i].charData = reader.ReadMultipleAlloc<AtlasChar>(font_header.numChars);
+		fonts[i].ranges = reader.ReadMultipleAlloc<AtlasCharRange>(font_header.numRanges, header.version >= 1);
+		fonts[i].charData = reader.ReadMultipleAlloc<AtlasChar>(font_header.numChars, header.version >= 1);
 		memcpy(fonts[i].name, font_header.name, sizeof(font_header.name));
 	}
 	return true;

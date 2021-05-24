@@ -131,9 +131,8 @@ void CMemoryDlg::searchBoxRedraw(std::vector<u32> results) {
 }
 
 
-void CMemoryDlg::NotifyMapLoaded()
-{
-	if (m_hDlg)
+void CMemoryDlg::NotifyMapLoaded() {
+	if (m_hDlg && g_symbolMap)
 		g_symbolMap->FillSymbolListBox(symListHdl, ST_DATA);
 	Update(); 
 }

@@ -75,6 +75,7 @@ void PSPDialog::ChangeStatus(DialogStatus newStatus, int delayUs) {
 			}
 		}
 		status = newStatus;
+		pendingStatus = newStatus;
 		pendingStatusTicks = 0;
 	} else {
 		pendingStatus = newStatus;
@@ -93,6 +94,15 @@ void PSPDialog::FinishVolatile() {
 	}
 }
 
+int PSPDialog::FinishInit() {
+	if (ReadStatus() != SCE_UTILITY_STATUS_INITIALIZE)
+		return -1;
+	// The thread already locked.
+	volatileLocked_ = true;
+	ChangeStatus(SCE_UTILITY_STATUS_RUNNING, 0);
+	return 0;
+}
+
 int PSPDialog::FinishShutdown() {
 	if (ReadStatus() != SCE_UTILITY_STATUS_SHUTDOWN)
 		return -1;
@@ -101,12 +111,18 @@ int PSPDialog::FinishShutdown() {
 }
 
 void PSPDialog::ChangeStatusInit(int delayUs) {
-	status = SCE_UTILITY_STATUS_INITIALIZE;
-	ChangeStatus(SCE_UTILITY_STATUS_RUNNING, delayUs);
+	ChangeStatus(SCE_UTILITY_STATUS_INITIALIZE, 0);
+
+	auto params = GetCommonParam();
+	if (params)
+		UtilityDialogInitialize(DialogType(), delayUs, params->accessThread);
+	else
+		ChangeStatus(SCE_UTILITY_STATUS_RUNNING, delayUs);
 }
 
 void PSPDialog::ChangeStatusShutdown(int delayUs) {
-	status = SCE_UTILITY_STATUS_SHUTDOWN;
+	ChangeStatus(SCE_UTILITY_STATUS_SHUTDOWN, 0);
+
 	auto params = GetCommonParam();
 	if (params)
 		UtilityDialogShutdown(DialogType(), delayUs, params->accessThread);

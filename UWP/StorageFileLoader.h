@@ -9,6 +9,7 @@
 #include <string>
 
 #include "Common/CommonTypes.h"
+#include "Common/File/Path.h"
 #include "Core/Loaders.h"
 
 // This thing is a terrible abomination that wraps asynchronous file access behind a synchronous interface,
@@ -24,8 +25,7 @@ public:
 
 	bool IsDirectory() override;
 	s64 FileSize() override;
-	std::string Path() const override;
-	std::string Extension() override;
+	Path GetPath() const override;
 
 	size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override;
 
@@ -54,7 +54,7 @@ private:
 
 	Windows::Storage::StorageFile ^file_;
 	Windows::Storage::Streams::IRandomAccessStreamWithContentType ^stream_;
-	std::string path_;
+	Path path_;
 
 	bool operationRequested_ = false;
 	Operation operation_{ OpType::NONE, 0, 0 };
@@ -74,7 +74,7 @@ private:
 class StorageFileLoaderFactory : public FileLoaderFactory {
 public:
 	StorageFileLoaderFactory(Windows::Storage::StorageFile ^file, IdentifiedFileType fileType) : file_(file), fileType_(fileType) { }
-	FileLoader *ConstructFileLoader(const std::string &filename) override;
+	FileLoader *ConstructFileLoader(const Path &filename) override;
 
 private:
 	Windows::Storage::StorageFile ^file_;

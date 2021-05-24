@@ -35,8 +35,8 @@ void Compatibility::Load(const std::string &gameID) {
 	{
 		IniFile compat2;
 		// This one is user-editable. Need to load it after the system one.
-		std::string path = GetSysDirectory(DIRECTORY_SYSTEM) + "compat.ini";
-		if (compat2.Load(path)) {
+		Path path = GetSysDirectory(DIRECTORY_SYSTEM) / "compat.ini";
+		if (compat2.Load(path.ToString())) {
 			CheckSettings(compat2, gameID);
 		}
 	}
@@ -87,7 +87,6 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "MemstickFixedFree", &flags_.MemstickFixedFree);
 	CheckSetting(iniFile, gameID, "DateLimited", &flags_.DateLimited);
 	CheckSetting(iniFile, gameID, "ReinterpretFramebuffers", &flags_.ReinterpretFramebuffers);
-	CheckSetting(iniFile, gameID, "DoublePrecisionSinCos", &flags_.DoublePrecisionSinCos);
 	CheckSetting(iniFile, gameID, "ShaderColorBitmask", &flags_.ShaderColorBitmask);
 	CheckSetting(iniFile, gameID, "DisableFirstFrameReadback", &flags_.DisableFirstFrameReadback);
 	CheckSetting(iniFile, gameID, "DisableRangeCulling", &flags_.DisableRangeCulling);

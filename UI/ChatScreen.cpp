@@ -196,7 +196,7 @@ void ChatMenu::UpdateChat() {
 }
 
 bool ChatMenu::touch(const TouchInput &touch) {
-	if (!box_ || (touch.flags & TOUCH_DOWN) == 0 || touch.id != 0) {
+	if (!box_ || (touch.flags & TOUCH_DOWN) == 0) {
 		return UIDialogScreen::touch(touch);
 	}
 

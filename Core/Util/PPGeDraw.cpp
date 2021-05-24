@@ -954,13 +954,21 @@ static void PPGeDecimateTextImages(int age) {
 	}
 }
 
+static std::string PPGeSanitizeText(const std::string &text) {
+	return SanitizeUTF8(text);
+}
+
 void PPGeDrawText(const char *text, float x, float y, const PPGeStyle &style) {
-	if (!text || !strlen(text)) {
+	if (!text) {
+		return;
+	}
+	std::string str = PPGeSanitizeText(text);
+	if (str.empty()) {
 		return;
 	}
 
 	if (HasTextDrawer()) {
-		PPGeTextDrawerImage im = PPGeGetTextImage(text, style, 480.0f - x, false);
+		PPGeTextDrawerImage im = PPGeGetTextImage(str.c_str(), style, 480.0f - x, false);
 		if (im.ptr) {
 			PPGeDrawTextImage(im, x, y, style);
 			return;
@@ -1001,7 +1009,7 @@ static std::string CropLinesToCount(const std::string &s, int numLines) {
 }
 
 void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, float wrapHeight, const PPGeStyle &style) {
-	std::string s = text;
+	std::string s = PPGeSanitizeText(text);
 	if (wrapHeight != 0.0f) {
 		s = StripTrailingWhite(s);
 	}

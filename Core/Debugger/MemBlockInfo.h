@@ -34,6 +34,8 @@ enum class MemBlockFlags {
 	READ = 0x0800,
 	FREE = 0x1000,
 	SUB_FREE = 0x2000,
+
+	SKIP_MEMCHECK = 0x00010000,
 };
 ENUM_CLASS_BITOPS(MemBlockFlags);
 
@@ -47,7 +49,8 @@ struct MemBlockInfo {
 	bool allocated;
 };
 
-void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const char *str, size_t strLength);
+void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const char *tag, size_t tagLength);
+void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_t pc, const char *tag, size_t tagLength);
 
 // This lets us avoid calling strlen on string constants, instead the string length (including null,
 // so we have to subtract 1) is computed at compile time.
@@ -63,6 +66,12 @@ inline void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, co
 std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size);
 std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start, uint32_t size);
 
+std::string GetMemWriteTagAt(uint32_t start, uint32_t size);
+
 void MemBlockInfoInit();
 void MemBlockInfoShutdown();
 void MemBlockInfoDoState(PointerWrap &p);
+
+void MemBlockOverrideDetailed();
+void MemBlockReleaseDetailed();
+bool MemBlockInfoDetailed();

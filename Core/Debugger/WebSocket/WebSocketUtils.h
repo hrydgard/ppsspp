@@ -109,3 +109,5 @@ public:
 
 typedef std::function<void(DebuggerRequest &req)> DebuggerEventHandler;
 typedef std::unordered_map<std::string, DebuggerEventHandler> DebuggerEventHandlerMap;
+
+uint32_t RoundMemAddressUp(uint32_t addr);

@@ -182,7 +182,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 		u8 theSector[2048];
 		if (!blockDevice->ReadBlock(secnum, theSector)) {
 			blockDevice->NotifyReadError();
-			ERROR_LOG(FILESYS, "Error reading block for directory %s - skipping", root->name.c_str());
+			ERROR_LOG(FILESYS, "Error reading block for directory '%s' in sector %d - skipping", root->name.c_str(), secnum);
 			root->valid = true;  // Prevents re-reading
 			return;
 		}
@@ -439,6 +439,8 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 
 PSPDevType ISOFileSystem::DevType(u32 handle) {
 	EntryMap::iterator iter = entries.find(handle);
+	if (iter == entries.end())
+		return PSPDevType::FILE;
 	PSPDevType type = iter->second.isBlockSectorMode ? PSPDevType::BLOCK : PSPDevType::FILE;
 	if (iter->second.isRawSector)
 		type |= PSPDevType::EMU_LBN;

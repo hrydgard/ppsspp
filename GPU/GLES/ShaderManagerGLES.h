@@ -21,6 +21,7 @@
 
 #include "Common/Data/Collections/Hashmaps.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "Common/File/Path.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/VertexShaderGenerator.h"
@@ -162,10 +163,10 @@ public:
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 
-	void Load(const std::string &filename);
+	void Load(const Path &filename);
 	bool ContinuePrecompile(float sliceTime = 1.0f / 60.0f);
 	void CancelPrecompile();
-	void Save(const std::string &filename);
+	void Save(const Path &filename);
 
 private:
 	void Clear();

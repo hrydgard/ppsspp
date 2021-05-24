@@ -18,8 +18,8 @@
 #include <algorithm>
 
 #include "Common/Common.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
-#include "Common/ColorConv.h"
 #include "Common/Log.h"
 #include "Core/ThreadPools.h"
 #include "GPU/Common/TextureScalerCommon.h"

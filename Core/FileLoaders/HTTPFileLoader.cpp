@@ -20,14 +20,17 @@
 #include "Common/Common.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Core/Config.h"
 #include "Core/FileLoaders/HTTPFileLoader.h"
 
-HTTPFileLoader::HTTPFileLoader(const std::string &filename)
-	: url_(filename), filename_(filename) {
+HTTPFileLoader::HTTPFileLoader(const ::Path &filename)
+	: url_(filename.ToString()), progress_(&cancel_), filename_(filename) {
 }
 
 void HTTPFileLoader::Prepare() {
 	std::call_once(preparedFlag_, [this](){
+		client_.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
+
 		std::vector<std::string> responseHeaders;
 		Url resourceURL = url_;
 		int redirectsLeft = 20;
@@ -134,7 +137,7 @@ int HTTPFileLoader::SendHEAD(const Url &url, std::vector<std::string> &responseH
 		return -400;
 	}
 
-	int err = client_.SendRequest("HEAD", url.Resource().c_str());
+	int err = client_.SendRequest("HEAD", url.Resource().c_str(), nullptr, &progress_);
 	if (err < 0) {
 		ERROR_LOG(LOADER, "HTTP request failed, failed to send request: %s port %d", url.Host().c_str(), url.Port());
 		latestError_ = "Could not connect (could not request data)";
@@ -142,8 +145,8 @@ int HTTPFileLoader::SendHEAD(const Url &url, std::vector<std::string> &responseH
 		return -400;
 	}
 
-	Buffer readbuf;
-	return client_.ReadResponseHeaders(&readbuf, responseHeaders);
+	net::Buffer readbuf;
+	return client_.ReadResponseHeaders(&readbuf, responseHeaders, &progress_);
 }
 
 HTTPFileLoader::~HTTPFileLoader() {
@@ -169,7 +172,7 @@ s64 HTTPFileLoader::FileSize() {
 	return filesize_;
 }
 
-std::string HTTPFileLoader::Path() const {
+Path HTTPFileLoader::GetPath() const {
 	return filename_;
 }
 
@@ -193,16 +196,16 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags f
 	snprintf(requestHeaders, sizeof(requestHeaders),
 		"Range: bytes=%lld-%lld\r\n", absolutePos, absoluteEnd - 1);
 
-	int err = client_.SendRequest("GET", url_.Resource().c_str(), requestHeaders, nullptr);
+	int err = client_.SendRequest("GET", url_.Resource().c_str(), requestHeaders, &progress_);
 	if (err < 0) {
 		latestError_ = "Invalid response reading data";
 		Disconnect();
 		return 0;
 	}
 
-	Buffer readbuf;
+	net::Buffer readbuf;
 	std::vector<std::string> responseHeaders;
-	int code = client_.ReadResponseHeaders(&readbuf, responseHeaders);
+	int code = client_.ReadResponseHeaders(&readbuf, responseHeaders, &progress_);
 	if (code != 206) {
 		ERROR_LOG(LOADER, "HTTP server did not respond with range, received code=%03d", code);
 		latestError_ = "Invalid response reading data";
@@ -232,8 +235,8 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags f
 	}
 
 	// TODO: Would be nice to read directly.
-	Buffer output;
-	int res = client_.ReadResponseEntity(&readbuf, responseHeaders, &output);
+	net::Buffer output;
+	int res = client_.ReadResponseEntity(&readbuf, responseHeaders, &output, &progress_);
 	if (res != 0) {
 		ERROR_LOG(LOADER, "Unable to read HTTP response entity: %d", res);
 		// Let's take anything we got anyway.  Not worse than returning nothing?
@@ -256,8 +259,8 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags f
 
 void HTTPFileLoader::Connect() {
 	if (!connected_) {
-		cancelConnect_ = false;
+		cancel_ = false;
 		// Latency is important here, so reduce the timeout.
-		connected_ = client_.Connect(3, 10.0, &cancelConnect_);
+		connected_ = client_.Connect(3, 10.0, &cancel_);
 	}
 }

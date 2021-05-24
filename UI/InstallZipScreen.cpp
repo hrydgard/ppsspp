@@ -28,8 +28,8 @@
 void InstallZipScreen::CreateViews() {
 	using namespace UI;
 
-	FileInfo fileInfo;
-	bool success = getFileInfo(zipPath_.c_str(), &fileInfo);
+	File::FileInfo fileInfo;
+	bool success = File::GetFileInfo(zipPath_, &fileInfo);
 
 	auto di = GetI18NCategory("Dialog");
 	auto iz = GetI18NCategory("InstallZip");
@@ -43,7 +43,7 @@ void InstallZipScreen::CreateViews() {
 	root_->Add(leftColumn);
 	root_->Add(rightColumnItems);
 
-	std::string shortFilename = GetFilenameFromPath(zipPath_);
+	std::string shortFilename = zipPath_.GetFilename();
 	
 	// TODO: Do in the background?
 	ZipFileInfo zipInfo;

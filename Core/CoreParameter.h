@@ -55,9 +55,9 @@ struct CoreParameter {
 	GraphicsContext *graphicsContext = nullptr;  // TODO: Find a better place.
 	bool enableSound;  // there aren't multiple sound cores.
 
-	std::string fileToStart;
-	std::string mountIso;  // If non-empty, and fileToStart is an ELF or PBP, will mount this ISO in the background to umd1:.
-	std::string mountRoot;  // If non-empty, and fileToStart is an ELF or PBP, mount this as host0: / umd0:.
+	Path fileToStart;
+	Path mountIso;  // If non-empty, and fileToStart is an ELF or PBP, will mount this ISO in the background to umd1:.
+	Path mountRoot;  // If non-empty, and fileToStart is an ELF or PBP, mount this as host0: / umd0:.
 	std::string errorString;
 
 	bool startBreak;

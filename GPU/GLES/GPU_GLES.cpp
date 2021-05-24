@@ -53,7 +53,7 @@
 #endif
 
 GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
-: GPUCommon(gfxCtx, draw), depalShaderCache_(draw), drawEngine_(draw), fragmentTestCache_(draw) {
+	: GPUCommon(gfxCtx, draw), depalShaderCache_(draw), drawEngine_(draw), fragmentTestCache_(draw) {
 	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
 
@@ -72,6 +72,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	drawEngine_.SetTextureCache(textureCacheGL_);
 	drawEngine_.SetFramebufferManager(framebufferManagerGL_);
 	drawEngine_.SetFragmentTestCache(&fragmentTestCache_);
+	drawEngine_.Init();
 	framebufferManagerGL_->SetTextureCache(textureCacheGL_);
 	framebufferManagerGL_->SetShaderManager(shaderManagerGL_);
 	framebufferManagerGL_->SetDrawEngine(&drawEngine_);
@@ -103,7 +104,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	std::string discID = g_paramSFO.GetDiscID();
 	if (discID.size()) {
 		File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
-		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) + "/" + discID + ".glshadercache";
+		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) / (discID + ".glshadercache");
 		// Actually precompiled by IsReady() since we're single-threaded.
 		shaderManagerGL_->Load(shaderCachePath_);
 	}
@@ -127,7 +128,7 @@ GPU_GLES::~GPU_GLES() {
 	// If we're here during app shutdown (exiting the Windows app in-game, for example)
 	// everything should already be cleared since DeviceLost has been run.
 
-	if (!shaderCachePath_.empty() && draw_) {
+	if (shaderCachePath_.Valid() && draw_) {
 		shaderManagerGL_->Save(shaderCachePath_);
 	}
 
@@ -353,7 +354,7 @@ void GPU_GLES::BeginFrame() {
 	GPUCommon::BeginFrame();
 
 	// Save the cache from time to time. TODO: How often? We save on exit, so shouldn't need to do this all that often.
-	if (!shaderCachePath_.empty() && (gpuStats.numFlips & 4095) == 0) {
+	if (shaderCachePath_.Valid() && (gpuStats.numFlips & 4095) == 0) {
 		shaderManagerGL_->Save(shaderCachePath_);
 	}
 

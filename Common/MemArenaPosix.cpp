@@ -56,7 +56,7 @@ void MemArena::GrabLowMemSpace(size_t size) {
 	// Some platforms (like Raspberry Pi) end up flushing to disk.
 	// To avoid this, we try to use /dev/shm (tmpfs) if it exists.
 	fd = -1;
-	if (File::Exists(tmpfs_location)) {
+	if (File::Exists(Path(tmpfs_location))) {
 		fd = open(tmpfs_ram_temp_file.c_str(), O_RDWR | O_CREAT, mode);
 		if (fd >= 0) {
 			// Great, this definitely shouldn't flush to disk.

@@ -19,10 +19,10 @@
 
 #include "ppsspp_config.h"
 
-#include <fstream>
 #include <mutex>
 #include <vector>
 #include <cstdarg>
+#include <cstdio>
 
 #include "Common/Data/Format/IniFile.h"
 #include "Common/CommonFuncs.h"
@@ -53,18 +53,19 @@ public:
 class FileLogListener : public LogListener {
 public:
 	FileLogListener(const char *filename);
+	~FileLogListener();
 
 	void Log(const LogMessage &msg);
 
-	bool IsValid() { if (!m_logfile) return false; else return true; }
+	bool IsValid() { if (!fp_) return false; else return true; }
 	bool IsEnabled() const { return m_enable; }
 	void SetEnabled(bool enable) { m_enable = enable; }
 
-	const char* GetName() const { return "file"; }
+	const char *GetName() const { return "file"; }
 
 private:
 	std::mutex m_log_lock;
-	std::ofstream m_logfile;
+	FILE *fp_ = nullptr;
 	bool m_enable;
 };
 

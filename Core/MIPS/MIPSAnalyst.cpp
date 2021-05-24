@@ -77,7 +77,7 @@ namespace std {
 
 static std::unordered_set<HashMapFunc> hashMap;
 
-static std::string hashmapFileName;
+static Path hashmapFileName;
 
 #define MIPSTABLE_IMM_MASK 0xFC000000
 
@@ -983,7 +983,8 @@ skip:
 		// We assume the furthest jumpback is within the func.
 		u32 furthestJumpbackAddr = INVALIDTARGET;
 
-		for (u32 ahead = fromAddr; ahead < fromAddr + MAX_AHEAD_SCAN; ahead += 4) {
+		const u32 scanEnd = fromAddr + Memory::ValidSize(fromAddr, MAX_AHEAD_SCAN);
+		for (u32 ahead = fromAddr; ahead < scanEnd; ahead += 4) {
 			MIPSOpcode aheadOp = Memory::Read_Instruction(ahead, true);
 			u32 target = GetBranchTargetNoRA(ahead, aheadOp);
 			if (target == INVALIDTARGET && ((aheadOp & 0xFC000000) == 0x08000000)) {
@@ -1184,7 +1185,7 @@ skip:
 	void FinalizeScan(bool insertSymbols) {
 		HashFunctions();
 
-		std::string hashMapFilename = GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini";
+		Path hashMapFilename = GetSysDirectory(DIRECTORY_SYSTEM) / "knownfuncs.ini";
 		if (g_Config.bFuncHashMap || g_Config.bFuncReplacements) {
 			LoadBuiltinHashMap();
 			if (g_Config.bFuncHashMap) {
@@ -1310,12 +1311,12 @@ skip:
 
 	void SetHashMapFilename(const std::string& filename) {
 		if (filename.empty())
-			hashmapFileName = GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini";
+			hashmapFileName = GetSysDirectory(DIRECTORY_SYSTEM) / "knownfuncs.ini";
 		else
-			hashmapFileName = filename;
+			hashmapFileName = Path(filename);
 	}
 
-	void StoreHashMap(std::string filename) {
+	void StoreHashMap(Path filename) {
 		if (filename.empty())
 			filename = hashmapFileName;
 
@@ -1380,7 +1381,7 @@ skip:
 		}
 	}
 
-	void LoadHashMap(const std::string& filename) {
+	void LoadHashMap(const Path &filename) {
 		FILE *file = File::OpenCFile(filename, "rt");
 		if (!file) {
 			WARN_LOG(LOADER, "Could not load hash map: %s", filename.c_str());

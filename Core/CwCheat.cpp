@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <cstdio>
 #include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
 #include "Common/Serialize/Serializer.h"
@@ -43,14 +44,13 @@ static inline std::string TrimString(const std::string &s) {
 
 class CheatFileParser {
 public:
-	CheatFileParser(const std::string &filename, const std::string &gameID = "") {
-#if defined(_WIN32) && !defined(__MINGW32__)
-		file_.open(ConvertUTF8ToWString(filename));
-#else
-		file_.open(filename.c_str());
-#endif
-
+	CheatFileParser(const Path &filename, const std::string &gameID = "") {
+		fp_ = File::OpenCFile(filename, "rt");
 		validGameID_ = ReplaceAll(gameID, "-", "");
+	}
+	~CheatFileParser() {
+		if (fp_)
+			fclose(fp_);
 	}
 
 	bool Parse();
@@ -75,7 +75,7 @@ protected:
 	void ParseDataLine(const std::string &line, CheatCodeFormat format);
 	bool ValidateGameID(const std::string &gameID);
 
-	std::ifstream file_;
+	FILE *fp_ = nullptr;
 	std::string validGameID_;
 
 	int line_ = 0;
@@ -92,10 +92,13 @@ protected:
 };
 
 bool CheatFileParser::Parse() {
-	for (line_ = 1; file_ && !file_.eof(); ++line_) {
-		std::string line;
-		getline(file_, line, '\n');
-		line = TrimString(line);
+	for (line_ = 1; fp_ && !feof(fp_); ++line_) {
+		char temp[2048];
+		char *tempLine = fgets(temp, sizeof(temp), fp_);
+		if (!tempLine)
+			continue;
+
+		std::string line = TrimString(tempLine);
 
 		// Minimum length 5 is shortest possible _ lines name of the game "_G N+"
 		// and a minimum of 1 displayable character in cheat name string "_C0 1"
@@ -353,7 +356,7 @@ void hleCheat(u64 userdata, int cyclesLate) {
 }
 
 CWCheatEngine::CWCheatEngine(const std::string &gameID) : gameID_(gameID) {
-	filename_ = GetSysDirectory(DIRECTORY_CHEATS) + gameID_ + ".ini";
+	filename_ = GetSysDirectory(DIRECTORY_CHEATS) / (gameID_ + ".ini");
 }
 
 void CWCheatEngine::CreateCheatFile() {
@@ -372,7 +375,7 @@ void CWCheatEngine::CreateCheatFile() {
 	}
 }
 
-std::string CWCheatEngine::CheatFilename() {
+Path CWCheatEngine::CheatFilename() {
 	return filename_;
 }
 
@@ -953,8 +956,7 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 			auto shaderChain = GetFullPostShadersChain(g_Config.vPostShaderNames);
 			if (op.PostShaderUniform.shader < shaderChain.size()) {
 				std::string shaderName = shaderChain[op.PostShaderUniform.shader]->section;
-				if (shaderName != "Off")
-					g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = op.PostShaderUniform.value.f;
+				g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = op.PostShaderUniform.value.f;
 			}
 		}
 		break;
@@ -969,21 +971,19 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 				} value;
 				value.u = Memory::Read_U32(op.addr);
 				std::string shaderName = shaderChain[op.PostShaderUniform.shader]->section;
-				if (shaderName != "Off") {
-					switch (op.PostShaderUniform.format) {
-					case 0:
-						g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.u & 0x000000FF;
-						break;
-					case 1:
-						g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.u & 0x0000FFFF;
-						break;
-					case 2:
-						g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.u;
-						break;
-					case 3:
-						g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.f;
-						break;
-					}
+				switch (op.PostShaderUniform.format) {
+				case 0:
+					g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.u & 0x000000FF;
+					break;
+				case 1:
+					g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.u & 0x0000FFFF;
+					break;
+				case 2:
+					g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.u;
+					break;
+				case 3:
+					g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.f;
+					break;
 				}
 			}
 		}

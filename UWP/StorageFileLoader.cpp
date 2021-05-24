@@ -3,6 +3,7 @@
 
 #include "Common/Log.h"
 #include "Common/File/FileUtil.h"
+#include "Common/File/Path.h"
 #include "Common/File/DirListing.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "StorageFileLoader.h"
@@ -19,7 +20,7 @@ static std::mutex initMutex;
 StorageFileLoader::StorageFileLoader(Windows::Storage::StorageFile ^file) {
 	active_ = false;
 	file_ = file;
-	path_ = FromPlatformString(file_->Path);
+	path_ = Path(FromPlatformString(file_->Path));
 	thread_.reset(new std::thread([this]() { this->threadfunc(); }));
 
 	// Before we proceed, we need to block until the thread has found the size.
@@ -40,7 +41,7 @@ StorageFileLoader::~StorageFileLoader() {
 }
 
 void StorageFileLoader::threadfunc() {
-	setCurrentThreadName("StorageFileLoader");
+	SetCurrentThreadName("StorageFileLoader");
 
 
 	{
@@ -131,12 +132,8 @@ s64 StorageFileLoader::FileSize() {
 	return size_;
 }
 
-std::string StorageFileLoader::Path() const {
+Path StorageFileLoader::GetPath() const {
 	return path_;
-}
-
-std::string StorageFileLoader::Extension() {
-	return "." + getFileExtension(path_);
 }
 
 void StorageFileLoader::EnsureOpen() {
@@ -179,6 +176,6 @@ size_t StorageFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, vo
 	}
 }
 
-FileLoader *StorageFileLoaderFactory::ConstructFileLoader(const std::string &filename) {
+FileLoader *StorageFileLoaderFactory::ConstructFileLoader(const Path &filename) {
 	return file_ ? new StorageFileLoader(file_) : nullptr;
 }

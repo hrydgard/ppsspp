@@ -23,7 +23,9 @@
 #pragma once
 
 #include <thread>
+
 #include "Common/Net/HTTPClient.h"
+#include "Common/File/Path.h"
 
 enum class GameManagerState {
 	IDLE,
@@ -43,10 +45,13 @@ public:
 
 	// This starts off a background process.
 	bool DownloadAndInstall(std::string storeZipUrl);
+	bool IsDownloading(std::string storeZipUrl);
 	bool Uninstall(std::string name);
 
 	// Cancels the download in progress, if any.
 	bool CancelDownload();
+
+	float DownloadSpeedKBps();
 
 	// Call from time to time to check on completed downloads from the
 	// main UI thread.
@@ -68,20 +73,20 @@ public:
 	}
 
 	// Only returns false if there's already an installation in progress.
-	bool InstallGameOnThread(std::string url, std::string tempFileName, bool deleteAfter);
+	bool InstallGameOnThread(const Path &url, const Path &tempFileName, bool deleteAfter);
 
 private:
-	bool InstallGame(const std::string &url, const std::string &tempFileName, bool deleteAfter);
-	bool InstallMemstickGame(struct zip *z, const std::string &zipFile, const std::string &pspGame, const ZipFileInfo &info, bool allowRoot, bool deleteAfter);
-	bool InstallZippedISO(struct zip *z, int isoFileIndex, std::string zipfile, bool deleteAfter);
-	bool InstallRawISO(const std::string &zipFile, const std::string &originalName, bool deleteAfter);
+	bool InstallGame(Path url, Path tempFileName, bool deleteAfter);
+	bool InstallMemstickGame(struct zip *z, const Path &zipFile, const Path &dest, const ZipFileInfo &info, bool allowRoot, bool deleteAfter);
+	bool InstallZippedISO(struct zip *z, int isoFileIndex, const Path &zipfile, bool deleteAfter);
+	bool InstallRawISO(const Path &zipFile, const std::string &originalName, bool deleteAfter);
 	void InstallDone();
-	bool ExtractFile(struct zip *z, int file_index, std::string outFilename, size_t *bytesCopied, size_t allBytes);
-	bool DetectTexturePackDest(struct zip *z, int iniIndex, std::string *dest);
+	bool ExtractFile(struct zip *z, int file_index, const Path &outFilename, size_t *bytesCopied, size_t allBytes);
+	bool DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest);
 	void SetInstallError(const std::string &err);
 
-	std::string GetTempFilename() const;
-	std::string GetGameID(const std::string &path) const;
+	Path GetTempFilename() const;
+	std::string GetGameID(const Path &path) const;
 	std::string GetPBPGameID(FileLoader *loader) const;
 	std::string GetISOGameID(FileLoader *loader) const;
 	std::shared_ptr<http::Download> curDownload_;
@@ -110,4 +115,4 @@ struct ZipFileInfo {
 };
 
 ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info);
-ZipFileContents DetectZipFileContents(std::string fileName, ZipFileInfo *info);
+ZipFileContents DetectZipFileContents(const Path &fileName, ZipFileInfo *info);

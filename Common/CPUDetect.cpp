@@ -26,6 +26,7 @@
 #include <sys/sysctl.h>
 #endif
 
+#include <algorithm>
 #include <cstdint>
 #include <memory.h>
 #include <set>
@@ -119,7 +120,7 @@ static std::vector<int> ParseCPUList(const std::string &filename) {
 	std::string data;
 	std::vector<int> results;
 
-	if (readFileToString(true, filename.c_str(), data)) {
+	if (File::ReadFileToString(true, Path(filename), data)) {
 		std::vector<std::string> ranges;
 		SplitString(data, ',', ranges);
 		for (auto range : ranges) {
@@ -369,9 +370,9 @@ void CPUInfo::Detect() {
 	}
 
 	// This seems to be the count per core.  Hopefully all cores are the same, but we counted each above.
-	logical_cpu_count /= num_cores;
+	logical_cpu_count /= std::max(num_cores, 1);
 #elif PPSSPP_PLATFORM(LINUX)
-	if (File::Exists("/sys/devices/system/cpu/present")) {
+	if (File::Exists(Path("/sys/devices/system/cpu/present"))) {
 		// This may not count unplugged cores, but at least it's a best guess.
 		// Also, this assumes the CPU cores are heterogeneous (e.g. all cores could be active simultaneously.)
 		num_cores = 0;
@@ -396,7 +397,7 @@ void CPUInfo::Detect() {
 	}
 
 	// This seems to be the count per core.  Hopefully all cores are the same, but we counted each above.
-	logical_cpu_count /= num_cores;
+	logical_cpu_count /= std::max(num_cores, 1);
 #elif PPSSPP_PLATFORM(MAC)
 	int num = 0;
 	size_t sz = sizeof(num);
@@ -404,10 +405,12 @@ void CPUInfo::Detect() {
 		num_cores = num;
 		sz = sizeof(num);
 		if (sysctlbyname("hw.logicalcpu_max", &num, &sz, nullptr, 0) == 0) {
-			logical_cpu_count = num / num_cores;
+			logical_cpu_count = num / std::max(num_cores, 1);
 		}
 	}
 #endif
+	if (logical_cpu_count <= 0)
+		logical_cpu_count = 1;
 }
 
 // Turn the cpu info into a string we can show

@@ -32,8 +32,6 @@
     <ClInclude Include="ArmCommon.h" />
     <ClInclude Include="BitSet.h" />
     <ClInclude Include="CodeBlock.h" />
-    <ClInclude Include="ColorConv.h" />
-    <ClInclude Include="ColorConvNEON.h" />
     <ClInclude Include="GL\GLInterface\EGL.h">
       <Filter>GL\GLInterface</Filter>
     </ClInclude>
@@ -70,7 +68,6 @@
     </ClInclude>
     <ClInclude Include="TimeUtil.h" />
     <ClInclude Include="FakeEmitter.h" />
-    <ClInclude Include="Buffer.h" />
     <ClInclude Include="SysError.h" />
     <ClInclude Include="..\ext\libpng17\png.h">
       <Filter>ext\libpng17</Filter>
@@ -100,9 +97,6 @@
       <Filter>Thread</Filter>
     </ClInclude>
     <ClInclude Include="Thread\ThreadUtil.h">
-      <Filter>Thread</Filter>
-    </ClInclude>
-    <ClInclude Include="Thread\Executor.h">
       <Filter>Thread</Filter>
     </ClInclude>
     <ClInclude Include="Input\GestureDetector.h">
@@ -387,11 +381,26 @@
     <ClInclude Include="GPU\ShaderTranslation.h">
       <Filter>GPU</Filter>
     </ClInclude>
+    <ClInclude Include="Data\Convert\ColorConvNEON.h">
+      <Filter>Data\Convert</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Convert\ColorConv.h">
+      <Filter>Data\Convert</Filter>
+    </ClInclude>
+    <ClInclude Include="Buffer.h" />
+    <ClInclude Include="Net\NetBuffer.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="File\Path.h">
+      <Filter>File</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
     <ClCompile Include="ConsoleListener.cpp" />
     <ClCompile Include="CPUDetect.cpp" />
+    <ClCompile Include="FakeCPUDetect.cpp" />
+    <ClCompile Include="MipsCPUDetect.cpp" />
     <ClCompile Include="LogManager.cpp" />
     <ClCompile Include="MemoryUtil.cpp" />
     <ClCompile Include="StringUtils.cpp" />
@@ -411,8 +420,6 @@
     </ClCompile>
     <ClCompile Include="MipsEmitter.cpp" />
     <ClCompile Include="Arm64Emitter.cpp" />
-    <ClCompile Include="ColorConv.cpp" />
-    <ClCompile Include="ColorConvNEON.cpp" />
     <ClCompile Include="GL\GLInterface\EGL.cpp">
       <Filter>GL\GLInterface</Filter>
     </ClCompile>
@@ -433,7 +440,6 @@
     </ClCompile>
     <ClCompile Include="TimeUtil.cpp" />
     <ClCompile Include="Log.cpp" />
-    <ClCompile Include="Buffer.cpp" />
     <ClCompile Include="SysError.cpp" />
     <ClCompile Include="..\ext\libpng17\png.c">
       <Filter>ext\libpng17</Filter>
@@ -490,9 +496,6 @@
       <Filter>Thread</Filter>
     </ClCompile>
     <ClCompile Include="Thread\ThreadUtil.cpp">
-      <Filter>Thread</Filter>
-    </ClCompile>
-    <ClCompile Include="Thread\Executor.cpp">
       <Filter>Thread</Filter>
     </ClCompile>
     <ClCompile Include="Input\GestureDetector.cpp">
@@ -743,6 +746,19 @@
     </ClCompile>
     <ClCompile Include="GPU\ShaderTranslation.cpp">
       <Filter>GPU</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Convert\ColorConvNEON.cpp">
+      <Filter>Data\Convert</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Convert\ColorConv.cpp">
+      <Filter>Data\Convert</Filter>
+    </ClCompile>
+    <ClCompile Include="Buffer.cpp" />
+    <ClCompile Include="Net\NetBuffer.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="File\Path.cpp">
+      <Filter>File</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

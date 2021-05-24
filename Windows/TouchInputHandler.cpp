@@ -26,11 +26,6 @@ TouchInputHandler::TouchInputHandler() {
 		"RegisterTouchWindow");
 }
 
-
-TouchInputHandler::~TouchInputHandler()
-{
-}
-
 int TouchInputHandler::ToTouchID(int windowsID, bool allowAllocate) {
 	// Find the id for the touch.  Avoid 0 (mouse.)
 	for (int localId = 1; localId < (int)ARRAY_SIZE(touchIds); ++localId) {

@@ -18,6 +18,7 @@
 
 #include "Common/Data/Format/IniFile.h"
 #include "Common/File/VFS/VFS.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Data/Text/Parsers.h"
 
 #ifdef _WIN32
@@ -515,23 +516,19 @@ void IniFile::SortSections()
 	std::sort(sections.begin(), sections.end());
 }
 
-bool IniFile::Load(const char* filename)
+bool IniFile::Load(const Path &path)
 {
 	sections.clear();
 	sections.push_back(Section(""));
 	// first section consists of the comments before the first real section
 
 	// Open file
-	std::ifstream in;
-#if defined(_WIN32) && !defined(__MINGW32__)
-	in.open(ConvertUTF8ToWString(filename), std::ios::in);
-#else
-	in.open(filename, std::ios::in);
-#endif
-	if (in.fail()) return false;
-
-	bool success = Load(in);
-	in.close();
+	std::string data;
+	if (!File::ReadFileToString(true, path, data)) {
+		return false;
+	}
+	std::stringstream sstream(data);
+	bool success = Load(sstream);
 	return success;
 }
 
@@ -558,13 +555,13 @@ bool IniFile::Load(std::istream &in) {
 		std::string line = templine;
 
 		// Remove UTF-8 byte order marks.
-		if (line.substr(0, 3) == "\xEF\xBB\xBF")
+		if (line.substr(0, 3) == "\xEF\xBB\xBF") {
 			line = line.substr(3);
+		}
 		 
 #ifndef _WIN32
 		// Check for CRLF eol and convert it to LF
-		if (!line.empty() && line.at(line.size()-1) == '\r')
-		{
+		if (!line.empty() && line.at(line.size()-1) == '\r') {
 			line.erase(line.size()-1);
 		}
 #endif
@@ -595,34 +592,28 @@ bool IniFile::Load(std::istream &in) {
 	return true;
 }
 
-bool IniFile::Save(const char* filename)
+bool IniFile::Save(const Path &filename)
 {
-	std::ofstream out;
-#if defined(_WIN32) && !defined(__MINGW32__)
-	out.open(ConvertUTF8ToWString(filename), std::ios::out);
-#else
-	out.open(filename, std::ios::out);
-#endif
-
-	if (out.fail())
-	{
+	FILE *file = File::OpenCFile(filename, "w");
+	if (!file) {
 		return false;
 	}
 
 	// UTF-8 byte order mark. To make sure notepad doesn't go nuts.
-	out << "\xEF\xBB\xBF";
+	// TODO: Do we still need this? It's annoying.
+	fprintf(file, "\xEF\xBB\xBF");
 
 	for (const Section &section : sections) {
 		if (!section.name().empty() && (!section.lines.empty() || !section.comment.empty())) {
-			out << "[" << section.name() << "]" << section.comment << std::endl;
+			fprintf(file, "[%s]%s\n", section.name().c_str(), section.comment.c_str());
 		}
 
 		for (const std::string &s : section.lines) {
-			out << s << std::endl;
+			fprintf(file, "%s\n", s.c_str());
 		}
 	}
 
-	out.close();
+	fclose(file);
 	return true;
 }
 

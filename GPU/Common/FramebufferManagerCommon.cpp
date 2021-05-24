@@ -21,8 +21,8 @@
 
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Text/I18n.h"
-#include "Common/ColorConv.h"
 #include "Common/Common.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -2181,7 +2181,9 @@ void FramebufferManagerCommon::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 
 	if (destPtr) {
 		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride, "PackFramebufferSync_");
-		NotifyMemInfo(MemBlockFlags::WRITE, fb_address + dstByteOffset, dstSize, "FramebufferPack");
+		char tag[128];
+		size_t len = snprintf(tag, sizeof(tag), "FramebufferPack/%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, w, h, GeBufferFormatToString(vfb->format));
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address + dstByteOffset, dstSize, tag, len);
 	} else {
 		ERROR_LOG(G3D, "PackFramebufferSync_: Tried to readback to bad address %08x (stride = %d)", fb_address + dstByteOffset, vfb->fb_stride);
 	}

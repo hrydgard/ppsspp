@@ -18,7 +18,7 @@
 #include <algorithm>
 
 #include "Common/Common.h"
-#include "Common/ColorConv.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Core/ThreadPools.h"
 #include "GPU/Common/TextureScalerCommon.h"
 #include "GPU/Directx9/TextureScalerDX9.h"

@@ -533,6 +533,28 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			}
 			break;
 
+		case ID_MEMVIEW_EXTENTBEGIN:
+		{
+			std::vector<MemBlockInfo> memRangeInfo = FindMemInfoByFlag(highlightFlags_, curAddress, 1);
+			uint32_t addr = curAddress;
+			for (MemBlockInfo info : memRangeInfo) {
+				addr = info.start;
+			}
+			gotoAddr(addr);
+			break;
+		}
+
+		case ID_MEMVIEW_EXTENTEND:
+		{
+			std::vector<MemBlockInfo> memRangeInfo = FindMemInfoByFlag(highlightFlags_, curAddress, 1);
+			uint32_t addr = curAddress;
+			for (MemBlockInfo info : memRangeInfo) {
+				addr = info.start + info.size - 1;
+			}
+			gotoAddr(addr);
+			break;
+		}
+
 		case ID_MEMVIEW_COPYADDRESS:
 			{
 				char temp[24];
@@ -723,7 +745,7 @@ void CtrlMemView::search(bool continueSearch)
 	u8* dataPointer = 0;
 	if (continueSearch == false || searchQuery.empty())
 	{
-		if (InputBox_GetString(GetModuleHandle(NULL),wnd,L"Search for", "",searchQuery) == false)
+		if (InputBox_GetString(GetModuleHandle(NULL), wnd, L"Search for", searchQuery, searchQuery) == false)
 		{
 			SetFocus(wnd);
 			return;
@@ -845,6 +867,7 @@ void CtrlMemView::toggleOffsetScale(CommonToggles toggle)
 void CtrlMemView::setHighlightType(MemBlockFlags flags) {
 	if (highlightFlags_ != flags) {
 		highlightFlags_ = flags;
+		updateStatusBarText();
 		redraw();
 	}
 }

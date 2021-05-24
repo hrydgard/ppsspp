@@ -65,6 +65,7 @@ void IRFrontend::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely) {
 	u32 targetAddr = GetCompilerPC() + offset + 4;
 
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
+	js.downcountAmount += MIPSGetInstructionCycleEstimate(delaySlotOp);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rt, rs);
 
 	// Often, div/divu are followed by a likely "break" if the divisor was zero.
@@ -121,6 +122,7 @@ void IRFrontend::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, 
 	u32 targetAddr = GetCompilerPC() + offset + 4;
 
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
+	js.downcountAmount += MIPSGetInstructionCycleEstimate(delaySlotOp);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
 
 	MIPSGPReg lhs = rs;
@@ -241,6 +243,7 @@ void IRFrontend::BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 	u32 targetAddr = GetCompilerPC() + offset + 4;
 
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
+	js.downcountAmount += MIPSGetInstructionCycleEstimate(delaySlotOp);
 	ir.Write(IROp::VfpuCtrlToReg, IRTEMP_LHS, VFPU_CTRL_CC);
 
 	// Sometimes there's a VFPU branch in a delay slot (Disgaea 2: Dark Hero Days, Zettai Hero Project, La Pucelle)
@@ -343,6 +346,7 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 	bool andLink = (op & 0x3f) == 9 && rd != MIPS_REG_ZERO;
 
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
+	js.downcountAmount += MIPSGetInstructionCycleEstimate(delaySlotOp);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
 	if (andLink && rs == rd)
 		delaySlotIsNice = false;

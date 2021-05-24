@@ -282,54 +282,34 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 	const float STICK_INV_DEADZONE = g_Config.fXInputAnalogInverseDeadzone;
 	const float STICK_SENSITIVITY = g_Config.fXInputAnalogSensitivity;
 
+	AxisInput axis;
+	axis.deviceId = DEVICE_ID_X360_0 + pad;
+	auto sendAxis = [&](AndroidJoystickAxis axisId, float value) {
+		axis.axisId = axisId;
+		axis.value = value;
+		NativeAxis(axis);
+	};
+
 	if (NormalizedDeadzoneDiffers(prevState[pad].Gamepad.sThumbLX, prevState[pad].Gamepad.sThumbLY, state.Gamepad.sThumbLX, state.Gamepad.sThumbLY, STICK_DEADZONE)) {
 		Stick left = NormalizedDeadzoneFilter(state.Gamepad.sThumbLX, state.Gamepad.sThumbLY, STICK_DEADZONE, STICK_INV_MODE, STICK_INV_DEADZONE, STICK_SENSITIVITY);
 
-		AxisInput axis;
-		axis.deviceId = DEVICE_ID_X360_0 + pad;
-		axis.axisId = JOYSTICK_AXIS_X;
-		axis.value = left.x;
-		if (prevState[pad].Gamepad.sThumbLX != state.Gamepad.sThumbLX) {
-			NativeAxis(axis);
-		}
-		axis.axisId = JOYSTICK_AXIS_Y;
-		axis.value = left.y;
-		if (prevState[pad].Gamepad.sThumbLY != state.Gamepad.sThumbLY) {
-			NativeAxis(axis);
-		}
+		sendAxis(JOYSTICK_AXIS_X, left.x);
+		sendAxis(JOYSTICK_AXIS_Y, left.y);
 	}
 
 	if (NormalizedDeadzoneDiffers(prevState[pad].Gamepad.sThumbRX, prevState[pad].Gamepad.sThumbRY, state.Gamepad.sThumbRX, state.Gamepad.sThumbRY, STICK_DEADZONE)) {
 		Stick right = NormalizedDeadzoneFilter(state.Gamepad.sThumbRX, state.Gamepad.sThumbRY, STICK_DEADZONE, STICK_INV_MODE, STICK_INV_DEADZONE, STICK_SENSITIVITY);
 
-		AxisInput axis;
-		axis.deviceId = DEVICE_ID_X360_0 + pad;
-		axis.axisId = JOYSTICK_AXIS_Z;
-		axis.value = right.x;
-		if (prevState[pad].Gamepad.sThumbRX != state.Gamepad.sThumbRX) {
-			NativeAxis(axis);
-		}
-		axis.axisId = JOYSTICK_AXIS_RZ;
-		axis.value = right.y;
-		if (prevState[pad].Gamepad.sThumbRY != state.Gamepad.sThumbRY) {
-			NativeAxis(axis);
-		}
+		sendAxis(JOYSTICK_AXIS_Z, right.x);
+		sendAxis(JOYSTICK_AXIS_RZ, right.y);
 	}
 
 	if (NormalizedDeadzoneDiffers(prevState[pad].Gamepad.bLeftTrigger, state.Gamepad.bLeftTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD)) {
-		AxisInput axis;
-		axis.deviceId = DEVICE_ID_X360_0 + pad;
-		axis.axisId = JOYSTICK_AXIS_LTRIGGER;
-		axis.value = (float)state.Gamepad.bLeftTrigger / 255.0f;
-		NativeAxis(axis);
+		sendAxis(JOYSTICK_AXIS_LTRIGGER, (float)state.Gamepad.bLeftTrigger / 255.0f);
 	}
 
 	if (NormalizedDeadzoneDiffers(prevState[pad].Gamepad.bRightTrigger, state.Gamepad.bRightTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD)) {
-		AxisInput axis;
-		axis.deviceId = DEVICE_ID_X360_0 + pad;
-		axis.axisId = JOYSTICK_AXIS_RTRIGGER;
-		axis.value = (float)state.Gamepad.bRightTrigger / 255.0f;
-		NativeAxis(axis);
+		sendAxis(JOYSTICK_AXIS_RTRIGGER, (float)state.Gamepad.bRightTrigger / 255.0f);
 	}
 
 	prevState[pad] = state;

@@ -63,7 +63,10 @@ static ServerStatus RetrieveStatus() {
 static bool RegisterServer(int port) {
 	bool success = false;
 	http::Client http;
-	Buffer theVoid;
+	http::RequestProgress progress;
+	Buffer theVoid = Buffer::Void();
+
+	http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
 
 	char resource4[1024] = {};
 	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT, net::DNSType::IPV4)) {
@@ -71,7 +74,7 @@ static bool RegisterServer(int port) {
 			std::string ip = fd_util::GetLocalIP(http.sock());
 			snprintf(resource4, sizeof(resource4) - 1, "/match/update?local=%s&port=%d", ip.c_str(), port);
 
-			if (http.GET(resource4, &theVoid) > 0)
+			if (http.GET(resource4, &theVoid, &progress) > 0)
 				success = true;
 			theVoid.Skip(theVoid.size());
 			http.Disconnect();
@@ -84,7 +87,7 @@ static bool RegisterServer(int port) {
 
 		// We register both IPv4 and IPv6 in case the other client is using a different one.
 		if (resource4[0] != 0 && http.Connect(timeout)) {
-			if (http.GET(resource4, &theVoid) > 0)
+			if (http.GET(resource4, &theVoid, &progress) > 0)
 				success = true;
 			theVoid.Skip(theVoid.size());
 			http.Disconnect();
@@ -96,7 +99,7 @@ static bool RegisterServer(int port) {
 			std::string ip = fd_util::GetLocalIP(http.sock());
 			snprintf(resource6, sizeof(resource6) - 1, "/match/update?local=%s&port=%d", ip.c_str(), port);
 
-			if (http.GET(resource6, &theVoid) > 0)
+			if (http.GET(resource6, &theVoid, &progress) > 0)
 				success = true;
 			theVoid.Skip(theVoid.size());
 			http.Disconnect();
@@ -145,17 +148,17 @@ static std::string RemotePathForRecent(const std::string &filename) {
 	return "";
 }
 
-static std::string LocalFromRemotePath(const std::string &path) {
+static Path LocalFromRemotePath(const std::string &path) {
 	for (const std::string &filename : g_Config.recentIsos) {
 		std::string basename = RemotePathForRecent(filename);
 		if (basename == path) {
-			return filename;
+			return Path(filename);
 		}
 	}
-	return "";
+	return Path();
 }
 
-static void DiscHandler(const http::Request &request, const std::string &filename) {
+static void DiscHandler(const http::Request &request, const Path &filename) {
 	s64 sz = File::GetFileSize(filename);
 
 	std::string range;
@@ -226,7 +229,7 @@ static void HandleListing(const http::Request &request) {
 
 static void HandleFallback(const http::Request &request) {
 	if (serverFlags & (int)WebServerFlags::DISCS) {
-		std::string filename = LocalFromRemotePath(request.resource());
+		Path filename = LocalFromRemotePath(request.resource());
 		if (!filename.empty()) {
 			DiscHandler(request, filename);
 			return;
@@ -247,9 +250,9 @@ static void ForwardDebuggerRequest(const http::Request &request) {
 }
 
 static void ExecuteWebServer() {
-	setCurrentThreadName("HTTPServer");
+	SetCurrentThreadName("HTTPServer");
 
-	auto http = new http::Server(new threading::NewThreadExecutor());
+	auto http = new http::Server(new NewThreadExecutor());
 	http->RegisterHandler("/", &HandleListing);
 	// This lists all the (current) recent ISOs.
 	http->SetFallbackHandler(&HandleFallback);

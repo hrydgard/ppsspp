@@ -149,6 +149,8 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 	}
 
 	if (readp > origp) {
+		if (MemBlockInfoDetailed())
+			NotifyMemInfo(MemBlockFlags::READ, read_, readp - origp, "SasVagDecoder");
 		read_ += readp - origp;
 	}
 }
@@ -426,7 +428,7 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 					pcmIndex = 0;
 					break;
 				}
-				Memory::Memcpy(out, pcmAddr + pcmIndex * sizeof(s16), size * sizeof(s16));
+				Memory::Memcpy(out, pcmAddr + pcmIndex * sizeof(s16), size * sizeof(s16), "SasVoicePCM");
 				pcmIndex += size;
 				needed -= size;
 				out += size;
@@ -581,6 +583,11 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 	if (outputMode == PSP_SAS_OUTPUTMODE_MIXED) {
 		// Okay, apply effects processing to the Send buffer.
 		WriteMixedOutput(outp, inp, leftVol, rightVol);
+		if (MemBlockInfoDetailed()) {
+			if (inp)
+				NotifyMemInfo(MemBlockFlags::READ, inAddr, grainSize * sizeof(u16) * 2, "SasMix");
+			NotifyMemInfo(MemBlockFlags::WRITE, outAddr, grainSize * sizeof(u16) * 2, "SasMix");
+		}
 	} else {
 		s16 *outpL = outp + grainSize * 0;
 		s16 *outpR = outp + grainSize * 1;
@@ -593,6 +600,7 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 			*outpSendL++ = clamp_s16(sendBuffer[i + 0]);
 			*outpSendR++ = clamp_s16(sendBuffer[i + 1]);
 		}
+		NotifyMemInfo(MemBlockFlags::WRITE, outAddr, grainSize * sizeof(u16) * 4, "SasMix");
 	}
 	memset(mixBuffer, 0, grainSize * sizeof(int) * 2);
 	memset(sendBuffer, 0, grainSize * sizeof(int) * 2);

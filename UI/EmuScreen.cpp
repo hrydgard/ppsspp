@@ -47,6 +47,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
 #include "Core/Core.h"
+#include "Core/CwCheat.h"
 #include "Core/Host.h"
 #include "Core/KeyMap.h"
 #include "Core/MemFault.h"
@@ -66,6 +67,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HLE/proAdhoc.h"
+#include "Core/HLE/Plugins.h"
 
 #include "UI/BackgroundAudio.h"
 #include "UI/OnScreenDisplay.h"
@@ -127,7 +129,7 @@ static void __EmuScreenVblank()
 #endif
 }
 
-EmuScreen::EmuScreen(const std::string &filename)
+EmuScreen::EmuScreen(const Path &filename)
 	: bootPending_(true), gamePath_(filename), invalid_(true), quit_(false), pauseTrigger_(false), saveStatePreviewShownTime_(0.0), saveStatePreview_(nullptr) {
 	memset(axisState_, 0, sizeof(axisState_));
 	saveStateSlot_ = SaveState::GetCurrentSlot();
@@ -145,10 +147,11 @@ EmuScreen::EmuScreen(const std::string &filename)
 	OnChatMenu.Handle(this, &EmuScreen::OnChat);
 }
 
-bool EmuScreen::bootAllowStorage(const std::string &filename) {
+bool EmuScreen::bootAllowStorage(const Path &filename) {
 	// No permissions needed.  The easy life.
-	if (filename.find("http://") == 0 || filename.find("https://") == 0)
+	if (filename.Type() == PathType::HTTP)
 		return true;
+
 	if (!System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS))
 		return true;
 
@@ -176,7 +179,7 @@ bool EmuScreen::bootAllowStorage(const std::string &filename) {
 	return false;
 }
 
-void EmuScreen::bootGame(const std::string &filename) {
+void EmuScreen::bootGame(const Path &filename) {
 	if (PSP_IsIniting()) {
 		std::string error_string;
 		bootPending_ = !PSP_InitUpdate(&error_string);
@@ -193,7 +196,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 		return;
 	}
 
-	g_BackgroundAudio.SetGame("");
+	g_BackgroundAudio.SetGame(Path());
 
 	// Check permission status first, in case we came from a shortcut.
 	if (!bootAllowStorage(filename))
@@ -244,8 +247,8 @@ void EmuScreen::bootGame(const std::string &filename) {
 	coreParam.graphicsContext = PSP_CoreParameter().graphicsContext;
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.fileToStart = filename;
-	coreParam.mountIso = "";
-	coreParam.mountRoot = "";
+	coreParam.mountIso.clear();
+	coreParam.mountRoot.clear();
 	coreParam.startBreak = !g_Config.bAutoRun;
 	coreParam.printfEmuLog = false;
 	coreParam.headLess = false;
@@ -411,11 +414,11 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 	} else if (!strcmp(message, "boot")) {
 		const char *ext = strrchr(value, '.');
 		if (ext != nullptr && !strcmp(ext, ".ppst")) {
-			SaveState::Load(value, -1, &AfterStateBoot);
+			SaveState::Load(Path(value), -1, &AfterStateBoot);
 		} else {
 			PSP_Shutdown();
 			bootPending_ = true;
-			gamePath_ = value;
+			gamePath_ = Path(value);
 			// Don't leave it on CORE_POWERDOWN, we'll sometimes aggressively bail.
 			Core_UpdateState(CORE_POWERUP);
 		}
@@ -595,27 +598,27 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 
 	case VIRTKEY_AXIS_X_MIN:
 	case VIRTKEY_AXIS_X_MAX:
-		setVKeyAnalogX(CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
+		setVKeyAnalog('X', CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
 		break;
 	case VIRTKEY_AXIS_Y_MIN:
 	case VIRTKEY_AXIS_Y_MAX:
-		setVKeyAnalogY(CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
+		setVKeyAnalog('Y', CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
 		break;
 
 	case VIRTKEY_AXIS_RIGHT_X_MIN:
 	case VIRTKEY_AXIS_RIGHT_X_MAX:
-		setVKeyAnalogX(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
+		setVKeyAnalog('X', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
 		break;
 	case VIRTKEY_AXIS_RIGHT_Y_MIN:
 	case VIRTKEY_AXIS_RIGHT_Y_MAX:
-		setVKeyAnalogY(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
+		setVKeyAnalog('Y', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
 		break;
 
 	case VIRTKEY_ANALOG_LIGHTLY:
-		setVKeyAnalogX(CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
-		setVKeyAnalogY(CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
-		setVKeyAnalogX(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
-		setVKeyAnalogY(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
+		setVKeyAnalog('X', CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX, false);
+		setVKeyAnalog('Y', CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX, false);
+		setVKeyAnalog('X', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX, false);
+		setVKeyAnalog('Y', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX, false);
 		break;
 
 	case VIRTKEY_REWIND:
@@ -700,27 +703,27 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 
 	case VIRTKEY_AXIS_X_MIN:
 	case VIRTKEY_AXIS_X_MAX:
-		setVKeyAnalogX(CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
+		setVKeyAnalog('X', CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
 		break;
 	case VIRTKEY_AXIS_Y_MIN:
 	case VIRTKEY_AXIS_Y_MAX:
-		setVKeyAnalogY(CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
+		setVKeyAnalog('Y', CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
 		break;
 
 	case VIRTKEY_AXIS_RIGHT_X_MIN:
 	case VIRTKEY_AXIS_RIGHT_X_MAX:
-		setVKeyAnalogX(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
+		setVKeyAnalog('X', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
 		break;
 	case VIRTKEY_AXIS_RIGHT_Y_MIN:
 	case VIRTKEY_AXIS_RIGHT_Y_MAX:
-		setVKeyAnalogY(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
+		setVKeyAnalog('Y', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
 		break;
 
 	case VIRTKEY_ANALOG_LIGHTLY:
-		setVKeyAnalogX(CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
-		setVKeyAnalogY(CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
-		setVKeyAnalogX(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
-		setVKeyAnalogY(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
+		setVKeyAnalog('X', CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX, false);
+		setVKeyAnalog('Y', CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX, false);
+		setVKeyAnalog('X', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX, false);
+		setVKeyAnalog('Y', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX, false);
 		break;
 
 	case VIRTKEY_RAPID_FIRE:
@@ -770,25 +773,19 @@ static void SetPSPAxis(char axis, float value, int stick) {
 		__CtrlSetAnalogY(value, stick);
 }
 
-inline void EmuScreen::setVKeyAnalogX(int stick, int virtualKeyMin, int virtualKeyMax) {
-	const float value = virtKeys[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? g_Config.fAnalogLimiterDeadzone : 1.0f;
-	float axis = 0.0f;
+inline void EmuScreen::setVKeyAnalog(char axis, int stick, int virtualKeyMin, int virtualKeyMax, bool setZero) {
 	// The down events can repeat, so just trust the virtKeys array.
-	if (virtKeys[virtualKeyMin - VIRTKEY_FIRST])
-		axis -= value;
-	if (virtKeys[virtualKeyMax - VIRTKEY_FIRST])
-		axis += value;
-	SetPSPAxis('X', axis, stick);
-}
+	bool minDown = virtKeys[virtualKeyMin - VIRTKEY_FIRST];
+	bool maxDown = virtKeys[virtualKeyMax - VIRTKEY_FIRST];
 
-inline void EmuScreen::setVKeyAnalogY(int stick, int virtualKeyMin, int virtualKeyMax) {
-	const float value = virtKeys[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? g_Config.fAnalogLimiterDeadzone : 1.0f;
-	float axis = 0.0f;
-	if (virtKeys[virtualKeyMin - VIRTKEY_FIRST])
-		axis -= value;
-	if (virtKeys[virtualKeyMax - VIRTKEY_FIRST])
-		axis += value;
-	SetPSPAxis('Y', axis, stick);
+	const float scale = virtKeys[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? g_Config.fAnalogLimiterDeadzone : 1.0f;
+	float value = 0.0f;
+	if (minDown)
+		value -= scale;
+	if (maxDown)
+		value += scale;
+	if (setZero || minDown || maxDown)
+		SetPSPAxis(axis, value, stick);
 }
 
 bool EmuScreen::key(const KeyInput &key) {
@@ -927,36 +924,38 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 		return;
 	}
 
+	const float scale = virtKeys[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? g_Config.fAnalogLimiterDeadzone : 1.0f;
+
 	std::vector<int> results;
 	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, direction, &results);
 
-	for (size_t i = 0; i < results.size(); i++) {
-		int result = results[i];
+	for (int result : results) {
+		float value = fabs(axis.value) * scale;
 		switch (result) {
 		case VIRTKEY_AXIS_X_MIN:
-			SetPSPAxis('X', -fabs(axis.value), CTRL_STICK_LEFT);
+			SetPSPAxis('X', -value, CTRL_STICK_LEFT);
 			break;
 		case VIRTKEY_AXIS_X_MAX:
-			SetPSPAxis('X', fabs(axis.value), CTRL_STICK_LEFT);
+			SetPSPAxis('X', value, CTRL_STICK_LEFT);
 			break;
 		case VIRTKEY_AXIS_Y_MIN:
-			SetPSPAxis('Y', -fabs(axis.value), CTRL_STICK_LEFT);
+			SetPSPAxis('Y', -value, CTRL_STICK_LEFT);
 			break;
 		case VIRTKEY_AXIS_Y_MAX:
-			SetPSPAxis('Y', fabs(axis.value), CTRL_STICK_LEFT);
+			SetPSPAxis('Y', value, CTRL_STICK_LEFT);
 			break;
 
 		case VIRTKEY_AXIS_RIGHT_X_MIN:
-			SetPSPAxis('X', -fabs(axis.value), CTRL_STICK_RIGHT);
+			SetPSPAxis('X', -value, CTRL_STICK_RIGHT);
 			break;
 		case VIRTKEY_AXIS_RIGHT_X_MAX:
-			SetPSPAxis('X', fabs(axis.value), CTRL_STICK_RIGHT);
+			SetPSPAxis('X', value, CTRL_STICK_RIGHT);
 			break;
 		case VIRTKEY_AXIS_RIGHT_Y_MIN:
-			SetPSPAxis('Y', -fabs(axis.value), CTRL_STICK_RIGHT);
+			SetPSPAxis('Y', -value, CTRL_STICK_RIGHT);
 			break;
 		case VIRTKEY_AXIS_RIGHT_Y_MAX:
-			SetPSPAxis('Y', fabs(axis.value), CTRL_STICK_RIGHT);
+			SetPSPAxis('Y', value, CTRL_STICK_RIGHT);
 			break;
 		}
 	}
@@ -1002,7 +1001,7 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 
 class GameInfoBGView : public UI::InertView {
 public:
-	GameInfoBGView(const std::string &gamePath, UI::LayoutParams *layoutParams) : InertView(layoutParams), gamePath_(gamePath) {
+	GameInfoBGView(const Path &gamePath, UI::LayoutParams *layoutParams) : InertView(layoutParams), gamePath_(gamePath) {
 	}
 
 	void Draw(UIContext &dc) override {
@@ -1034,7 +1033,7 @@ public:
 	}
 
 protected:
-	std::string gamePath_;
+	Path gamePath_;
 	uint32_t color_ = 0xFFC0C0C0;
 };
 
@@ -1099,7 +1098,7 @@ void EmuScreen::CreateViews() {
 		chatButton_ = nullptr;
 	}
 
-	saveStatePreview_ = new AsyncImageFileView("", IS_FIXED, nullptr, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, true));
+	saveStatePreview_ = new AsyncImageFileView(Path(), IS_FIXED, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, true));
 	saveStatePreview_->SetFixedSize(160, 90);
 	saveStatePreview_->SetColor(0x90FFFFFF);
 	saveStatePreview_->SetVisibility(V_GONE);
@@ -1213,7 +1212,7 @@ void EmuScreen::update() {
 
 	if (errorMessage_.size()) {
 		auto err = GetI18NCategory("Error");
-		std::string errLoadingFile = gamePath_ + "\n";
+		std::string errLoadingFile = gamePath_.ToVisualString() + "\n";
 		errLoadingFile.append(err->T("Error loading file", "Could not load game"));
 		errLoadingFile.append(" ");
 		errLoadingFile.append(err->T(errorMessage_.c_str()));
@@ -1249,7 +1248,7 @@ void EmuScreen::update() {
 		if (saveStateSlot_ != currentSlot) {
 			saveStateSlot_ = currentSlot;
 
-			std::string fn;
+			Path fn;
 			if (SaveState::HasSaveInSlot(gamePath_, currentSlot)) {
 				fn = SaveState::GenerateSaveSlotFilename(gamePath_, currentSlot, SaveState::SCREENSHOT_EXTENSION);
 			}
@@ -1398,10 +1397,12 @@ BREAK
 	x += columnWidth + 10;
 	y = 50;
 	snprintf(statbuf, sizeof(statbuf),
-		"CPU Core: %s\n"
-		"Locked CPU freq: %d MHz\n",
-		CPUCoreAsString(g_Config.iCpuCore),
-		g_Config.iLockedCPUSpeed);
+		"CPU Core: %s (flags: %08x)\n"
+		"Locked CPU freq: %d MHz\n"
+		"Cheats: %s, Plugins: %s\n",
+		CPUCoreAsString(g_Config.iCpuCore), g_Config.uJitDisableFlags,
+		g_Config.iLockedCPUSpeed,
+		CheatsInEffect() ? "Y" : "N", HLEPlugins::HasEnabled() ? "Y" : "N");
 
 	ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 }
@@ -1560,7 +1561,9 @@ void EmuScreen::render() {
 		const ExceptionInfo &info = Core_GetExceptionInfo();
 		if (info.type != ExceptionType::NONE) {
 			// Clear to blue background screen
-			thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE, 0xFF900000 }, "EmuScreen_RuntimeError");
+			bool dangerousSettings = !Reporting::IsSupported();
+			uint32_t color = dangerousSettings ? 0xFF900050 : 0xFF900000;
+			thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE, color }, "EmuScreen_RuntimeError");
 			// The info is drawn later in renderUI
 		} else {
 			// If we're stepping, it's convenient not to clear the screen entirely, so we copy display to output.

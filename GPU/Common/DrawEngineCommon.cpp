@@ -17,8 +17,8 @@
 
 #include <algorithm>
 
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
-#include "Common/ColorConv.h"
 #include "Core/Config.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/SplineCommon.h"
@@ -36,8 +36,6 @@ DrawEngineCommon::DrawEngineCommon() : decoderMap_(16) {
 	decJitCache_ = new VertexDecoderJitCache();
 	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-	useHWTransform_ = g_Config.bHardwareTransform;
-	useHWTessellation_ = UpdateUseHWTessellation(g_Config.bHardwareTessellation);
 }
 
 DrawEngineCommon::~DrawEngineCommon() {
@@ -48,6 +46,11 @@ DrawEngineCommon::~DrawEngineCommon() {
 		delete decoder;
 	});
 	ClearSplineBezierWeights();
+}
+
+void DrawEngineCommon::Init() {
+	useHWTransform_ = g_Config.bHardwareTransform;
+	useHWTessellation_ = UpdateUseHWTessellation(g_Config.bHardwareTessellation);
 }
 
 VertexDecoder *DrawEngineCommon::GetVertexDecoder(u32 vtype) {

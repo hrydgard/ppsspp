@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 
 #include <algorithm>
+#include <set>
 
 #include "Common/Net/Resolve.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
@@ -78,9 +79,7 @@
 #include "Windows/W32Util/ShellUtil.h"
 #endif
 
-extern bool g_ShaderNameListChanged;
-
-GameSettingsScreen::GameSettingsScreen(std::string gamePath, std::string gameID, bool editThenRestore)
+GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID, bool editThenRestore)
 	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false), editThenRestore_(editThenRestore) {
 	lastVertical_ = UseVerticalLayout();
 	prevInflightFrames_ = g_Config.iInflightFrames;
@@ -315,10 +314,10 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Postprocessing effect")));
 
-	std::vector<std::string> alreadyAddedShader;
-	for (int i = 0; i < g_Config.vPostShaderNames.size() && i < ARRAY_SIZE(shaderNames_); ++i) {
+	std::set<std::string> alreadyAddedShader;
+	for (int i = 0; i < g_Config.vPostShaderNames.size() + 1 && i < ARRAY_SIZE(shaderNames_); ++i) {
 		// Vector element pointer get invalidated on resize, cache name to have always a valid reference in the rendering thread
-		shaderNames_[i] = g_Config.vPostShaderNames[i];
+		shaderNames_[i] = i == g_Config.vPostShaderNames.size() ? "Off" : g_Config.vPostShaderNames[i];
 		postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&shaderNames_[i], StringFromFormat("%s #%d", gr->T("Postprocessing Shader"), i + 1), &PostShaderTranslateName));
 		postProcChoice_->OnClick.Add([=](EventParams &e) {
 			auto gr = GetI18NCategory("Graphics");
@@ -333,11 +332,15 @@ void GameSettingsScreen::CreateViews() {
 			return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 		});
 
+		// No need for settings on the last one.
+		if (i == g_Config.vPostShaderNames.size())
+			continue;
+
 		auto shaderChain = GetPostShaderChain(g_Config.vPostShaderNames[i]);
 		for (auto shaderInfo : shaderChain) {
 			// Disable duplicated shader slider
-			bool duplicated = std::find(alreadyAddedShader.begin(), alreadyAddedShader.end(), shaderInfo->section) != alreadyAddedShader.end();
-			alreadyAddedShader.push_back(shaderInfo->section);
+			bool duplicated = alreadyAddedShader.find(shaderInfo->section) != alreadyAddedShader.end();
+			alreadyAddedShader.insert(shaderInfo->section);
 			for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
 				auto &setting = shaderInfo->settings[i];
 				if (!setting.name.empty()) {
@@ -893,9 +896,23 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab(ms->T("System"), systemSettingsScroll);
 
 	if (!g_Config.bSimpleUI) {
-	systemSettings->Add(new ItemHeader(sy->T("UI Language")));  // Should be renamed "UI"?
+	systemSettings->Add(new ItemHeader(sy->T("UI")));
 	systemSettings->Add(new Choice(dev->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
 	systemSettings->Add(new CheckBox(&g_Config.bUISound, sy->T("UI Sound")));
+	const Path bgPng = GetSysDirectory(DIRECTORY_SYSTEM) / "background.png";
+	const Path bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg";
+	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
+		backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Clear UI background")));
+	} else if (System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER)) {
+		backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Set UI background...")));
+	} else {
+		backgroundChoice_ = nullptr;
+	}
+	if (backgroundChoice_ != nullptr) {
+		backgroundChoice_->OnClick.Handle(this, &GameSettingsScreen::OnChangeBackground);
+	}
+	static const char *backgroundAnimations[] = { "No animation", "Floating symbols", "Recent games" };
+	systemSettings->Add(new PopupMultiChoice(&g_Config.iBackgroundAnimation, sy->T("UI background animation"), backgroundAnimations, 0, ARRAY_SIZE(backgroundAnimations), sy->GetName(), screenManager()));
 
 	systemSettings->Add(new ItemHeader(sy->T("Help the PPSSPP team")));
 	enableReports_ = Reporting::IsEnabled();
@@ -942,18 +959,6 @@ void GameSettingsScreen::CreateViews() {
 #endif
 	if (!g_Config.bSimpleUI) {
 	systemSettings->Add(new CheckBox(&g_Config.bCheckForNewVersion, sy->T("VersionCheck", "Check for new versions of PPSSPP")));
-	const std::string bgPng = GetSysDirectory(DIRECTORY_SYSTEM) + "background.png";
-	const std::string bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg";
-	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
-		backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Clear UI background")));
-	} else if (System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER)) {
-		backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Set UI background...")));
-	} else {
-		backgroundChoice_ = nullptr;
-	}
-	if (backgroundChoice_ != nullptr) {
-		backgroundChoice_->OnClick.Handle(this, &GameSettingsScreen::OnChangeBackground);
-	}
 	}
 	systemSettings->Add(new Choice(sy->T("Restore Default Settings")))->OnClick.Handle(this, &GameSettingsScreen::OnRestoreDefaultSettings);
 	if (!g_Config.bSimpleUI) {
@@ -964,7 +969,8 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bBypassOSKWithKeyboard, sy->T("Use system native keyboard")));
 #endif
 #if PPSSPP_PLATFORM(ANDROID)
-	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.memStickDirectory, sy->T("Change Memory Stick folder"), (const char *)nullptr));
+	memstickDisplay_ = g_Config.memStickDirectory.ToVisualString();
+	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Change Memory Stick folder"), (const char *)nullptr));
 	memstickPath->SetEnabled(!PSP_IsInited());
 	memstickPath->OnClick.Handle(this, &GameSettingsScreen::OnChangeMemStickDir);
 #elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
@@ -975,14 +981,15 @@ void GameSettingsScreen::CreateViews() {
 	SavePathInOtherChoice->SetEnabled(false);
 	SavePathInOtherChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathOther);
 	const bool myDocsExists = W32Util::UserDocumentsPath().size() != 0;
-	const std::string PPSSPPpath = File::GetExeDirectory();
-	const std::string installedFile = PPSSPPpath + "installed.txt";
+
+	const Path &PPSSPPpath = File::GetExeDirectory();
+	const Path installedFile = PPSSPPpath / "installed.txt";
 	installed_ = File::Exists(installedFile);
 	otherinstalled_ = false;
 	if (!installed_ && myDocsExists) {
-		if (File::CreateEmptyFile(PPSSPPpath + "installedTEMP.txt")) {
+		if (File::CreateEmptyFile(PPSSPPpath / "installedTEMP.txt")) {
 			// Disable the setting whether cannot create & delete file
-			if (!(File::Delete(PPSSPPpath + "installedTEMP.txt")))
+			if (!(File::Delete(PPSSPPpath / "installedTEMP.txt")))
 				SavePathInMyDocumentChoice->SetEnabled(false);
 			else
 				SavePathInOtherChoice->SetEnabled(!PSP_IsInited());
@@ -990,25 +997,21 @@ void GameSettingsScreen::CreateViews() {
 			SavePathInMyDocumentChoice->SetEnabled(false);
 	} else {
 		if (installed_ && myDocsExists) {
-#ifdef _MSC_VER
-			std::ifstream inputFile(ConvertUTF8ToWString(installedFile));
-#else
-			std::ifstream inputFile(installedFile);
-#endif
-			if (!inputFile.fail() && inputFile.is_open()) {
-				std::string tempString;
-				std::getline(inputFile, tempString);
-
+			FILE *testInstalled = File::OpenCFile(installedFile, "rt");
+			if (testInstalled) {
+				char temp[2048];
+				char *tempStr = fgets(temp, sizeof(temp), testInstalled);
 				// Skip UTF-8 encoding bytes if there are any. There are 3 of them.
-				if (tempString.substr(0, 3) == "\xEF\xBB\xBF")
-					tempString = tempString.substr(3);
+				if (tempStr && strncmp(tempStr, "\xEF\xBB\xBF", 3) == 0) {
+					tempStr += 3;
+				}
 				SavePathInOtherChoice->SetEnabled(!PSP_IsInited());
-				if (!(tempString == "")) {
+				if (tempStr && strlen(tempStr) != 0 && strcmp(tempStr, "\n") != 0) {
 					installed_ = false;
 					otherinstalled_ = true;
 				}
+				fclose(testInstalled);
 			}
-			inputFile.close();
 		} else if (!myDocsExists) {
 			SavePathInMyDocumentChoice->SetEnabled(false);
 		}
@@ -1145,7 +1148,7 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 	auto sy = GetI18NCategory("System");
-	System_InputBoxGetString(sy->T("Memory Stick Folder"), g_Config.memStickDirectory, [&](bool result, const std::string &value) {
+	System_InputBoxGetString(sy->T("Memory Stick Folder"), g_Config.memStickDirectory.ToString(), [&](bool result, const std::string &value) {
 		auto sy = GetI18NCategory("System");
 		auto di = GetI18NCategory("Dialog");
 
@@ -1163,7 +1166,7 @@ UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 
 			pendingMemstickFolder_ = newPath;
 			std::string promptMessage = sy->T("ChangingMemstickPath", "Save games, save states, and other data will not be copied to this folder.\n\nChange the Memory Stick folder?");
-			if (!File::Exists(newPath)) {
+			if (!File::Exists(Path(newPath))) {
 				promptMessage = sy->T("ChangingMemstickPathNotExists", "That folder doesn't exist yet.\n\nSave games, save states, and other data will not be copied to this folder.\n\nCreate a new Memory Stick folder?");
 			}
 			// Add the path for clarity and proper confirmation.
@@ -1177,41 +1180,40 @@ UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 #elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 
 UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
-	const std::string PPSSPPpath = File::GetExeDirectory();
-	const std::string installedFile = PPSSPPpath + "installed.txt";
+	const Path &PPSSPPpath = File::GetExeDirectory();
+	const Path installedFile = installedFile / "installed.txt";
 	installed_ = File::Exists(installedFile);
 	if (otherinstalled_) {
-		File::Delete(PPSSPPpath + "installed.txt");
-		File::CreateEmptyFile(PPSSPPpath + "installed.txt");
+		File::Delete(PPSSPPpath / "installed.txt");
+		File::CreateEmptyFile(PPSSPPpath / "installed.txt");
 		otherinstalled_ = false;
 		const std::string myDocsPath = W32Util::UserDocumentsPath() + "/PPSSPP/";
-		g_Config.memStickDirectory = myDocsPath;
+		g_Config.memStickDirectory = Path(myDocsPath);
 	} else if (installed_) {
-		File::Delete(PPSSPPpath + "installed.txt");
+		File::Delete(PPSSPPpath / "installed.txt");
 		installed_ = false;
-		g_Config.memStickDirectory = PPSSPPpath + "memstick/";
+		g_Config.memStickDirectory = PPSSPPpath / "memstick";
 	} else {
-		std::ofstream myfile;
-		myfile.open(PPSSPPpath + "installed.txt");
-		if (myfile.is_open()){
-			myfile.close();
+		FILE *f = File::OpenCFile(PPSSPPpath / "installed.txt", "wb");
+		if (f) {
+			fclose(f);
 		}
 
 		const std::string myDocsPath = W32Util::UserDocumentsPath() + "/PPSSPP/";
-		g_Config.memStickDirectory = myDocsPath;
+		g_Config.memStickDirectory = Path(myDocsPath);
 		installed_ = true;
 	}
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnSavePathOther(UI::EventParams &e) {
-	const std::string PPSSPPpath = File::GetExeDirectory();
+	const Path &PPSSPPpath = File::GetExeDirectory();
 	if (otherinstalled_) {
 		auto di = GetI18NCategory("Dialog");
 		std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), di->T("Choose PPSSPP save folder"));
 		if (folder.size()) {
-			g_Config.memStickDirectory = folder;
-			FILE *f = File::OpenCFile(PPSSPPpath + "installed.txt", "wb");
+			g_Config.memStickDirectory = Path(folder);
+			FILE *f = File::OpenCFile(PPSSPPpath / "installed.txt", "wb");
 			if (f) {
 				std::string utfstring("\xEF\xBB\xBF");
 				utfstring.append(folder);
@@ -1224,11 +1226,11 @@ UI::EventReturn GameSettingsScreen::OnSavePathOther(UI::EventParams &e) {
 			otherinstalled_ = false;
 	}
 	else {
-		File::Delete(PPSSPPpath + "installed.txt");
+		File::Delete(PPSSPPpath / "installed.txt");
 		SavePathInMyDocumentChoice->SetEnabled(true);
 		otherinstalled_ = false;
 		installed_ = false;
-		g_Config.memStickDirectory = PPSSPPpath + "memstick/";
+		g_Config.memStickDirectory = PPSSPPpath / "memstick";
 	}
 	return UI::EVENT_DONE;
 }
@@ -1236,8 +1238,9 @@ UI::EventReturn GameSettingsScreen::OnSavePathOther(UI::EventParams &e) {
 #endif
 
 UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
-	const std::string bgPng = GetSysDirectory(DIRECTORY_SYSTEM) + "background.png";
-	const std::string bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg";
+	const Path bgPng = GetSysDirectory(DIRECTORY_SYSTEM) / "background.png";
+	const Path bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg";
+
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
 		if (File::Exists(bgPng)) {
 			File::Delete(bgPng);
@@ -1299,11 +1302,6 @@ void GameSettingsScreen::update() {
 		RecreateViews();
 		lastVertical_ = vertical;
 	}
-	if (g_ShaderNameListChanged) {
-		g_ShaderNameListChanged = false;
-		g_Config.bShaderChainRequires60FPS = PostShaderChainRequires60FPS(GetFullPostShadersChain(g_Config.vPostShaderNames));
-		RecreateViews();
-	}
 }
 
 void GameSettingsScreen::onFinish(DialogResult result) {
@@ -1331,32 +1329,38 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	NativeMessageReceived("gpu_clearCache", "");
 }
 
-#if PPSSPP_PLATFORM(ANDROID)
+void GameSettingsScreen::sendMessage(const char *message, const char *value) {
+	UIDialogScreenWithGameBackground::sendMessage(message, value);
+	if (!strcmp(message, "postshader_updated")) {
+		g_Config.bShaderChainRequires60FPS = PostShaderChainRequires60FPS(GetFullPostShadersChain(g_Config.vPostShaderNames));
+		RecreateViews();
+	}
+}
+
 void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 	auto sy = GetI18NCategory("System");
 
 	if (yes) {
-		std::string memstickDirFile = g_Config.internalDataDirectory + "/memstick_dir.txt";
+		Path memstickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
 		std::string testWriteFile = pendingMemstickFolder_ + "/.write_verify_file";
 
 		// Already, create away.
-		if (!File::Exists(pendingMemstickFolder_)) {
-			File::CreateFullPath(pendingMemstickFolder_);
+		if (!File::Exists(Path(pendingMemstickFolder_))) {
+			File::CreateFullPath(Path(pendingMemstickFolder_));
 		}
-		if (!writeDataToFile(true, "1", 1, testWriteFile.c_str())) {
+		if (!File::WriteDataToFile(true, "1", 1, Path(testWriteFile))) {
 			settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
 			return;
 		}
-		File::Delete(testWriteFile);
+		File::Delete(Path(testWriteFile));
 
-		writeDataToFile(true, pendingMemstickFolder_.c_str(), pendingMemstickFolder_.size(), memstickDirFile.c_str());
+		File::WriteDataToFile(true, pendingMemstickFolder_.c_str(), (unsigned int)pendingMemstickFolder_.size(), memstickDirFile);
 		// Save so the settings, at least, are transferred.
-		g_Config.memStickDirectory = pendingMemstickFolder_ + "/";
+		g_Config.memStickDirectory = Path(pendingMemstickFolder_);
 		g_Config.Save("MemstickPathChanged");
 		screenManager()->RecreateAllViews();
 	}
 }
-#endif
 
 void GameSettingsScreen::TriggerRestart(const char *why) {
 	// Extra save here to make sure the choice really gets saved even if there are shutdown bugs in
@@ -1367,7 +1371,7 @@ void GameSettingsScreen::TriggerRestart(const char *why) {
 		// We won't pass the gameID, so don't resume back into settings.
 		param = "";
 	} else if (!gamePath_.empty()) {
-		param += " \"" + ReplaceAll(ReplaceAll(gamePath_, "\\", "\\\\"), "\"", "\\\"") + "\"";
+		param += " \"" + ReplaceAll(ReplaceAll(gamePath_.ToString(), "\\", "\\\\"), "\"", "\\\"") + "\"";
 	}
 	// Make sure the new instance is considered the first.
 	ShutdownInstanceCounter();
@@ -1569,9 +1573,9 @@ UI::EventReturn GameSettingsScreen::OnLanguageChange(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnPostProcShaderChange(UI::EventParams &e) {
 	g_Config.vPostShaderNames.erase(std::remove(g_Config.vPostShaderNames.begin(), g_Config.vPostShaderNames.end(), "Off"), g_Config.vPostShaderNames.end());
-	g_Config.vPostShaderNames.push_back("Off");
-	g_ShaderNameListChanged = true;
+
 	NativeMessageReceived("gpu_resized", "");
+	NativeMessageReceived("postshader_updated", "");
 	return UI::EVENT_DONE;
 }
 
@@ -1630,7 +1634,7 @@ UI::EventReturn GameSettingsScreen::OnTiltCustomize(UI::EventParams &e) {
 };
 
 UI::EventReturn GameSettingsScreen::OnSavedataManager(UI::EventParams &e) {
-	auto saveData = new SavedataScreen("");
+	auto saveData = new SavedataScreen(Path());
 	screenManager()->push(saveData);
 	return UI::EVENT_DONE;
 }
@@ -1843,9 +1847,9 @@ UI::EventReturn DeveloperToolsScreen::OnLoadLanguageIni(UI::EventParams &e) {
 
 UI::EventReturn DeveloperToolsScreen::OnOpenTexturesIniFile(UI::EventParams &e) {
 	std::string gameID = g_paramSFO.GetDiscID();
-	std::string generatedFilename;
-	if (TextureReplacer::GenerateIni(gameID, &generatedFilename)) {
-		File::openIniFile(generatedFilename);
+	Path generatedFilename;
+	if (TextureReplacer::GenerateIni(gameID, generatedFilename)) {
+		File::OpenFileInEditor(generatedFilename);
 	}
 	return UI::EVENT_DONE;
 }
@@ -1881,22 +1885,21 @@ UI::EventReturn DeveloperToolsScreen::OnJitAffectingSetting(UI::EventParams &e) 
 }
 
 UI::EventReturn DeveloperToolsScreen::OnCopyStatesToRoot(UI::EventParams &e) {
-	std::string savestate_dir = GetSysDirectory(DIRECTORY_SAVESTATE);
-	std::string root_dir = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT);
+	Path savestate_dir = GetSysDirectory(DIRECTORY_SAVESTATE);
+	Path root_dir = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT);
 
-	std::vector<FileInfo> files;
-	getFilesInDir(savestate_dir.c_str(), &files, nullptr, 0);
+	std::vector<File::FileInfo> files;
+	GetFilesInDir(savestate_dir, &files, nullptr, 0);
 
-	for (const FileInfo &file : files) {
-		std::string src = file.fullName;
-		std::string dst = root_dir + file.name;
+	for (const File::FileInfo &file : files) {
+		Path src = file.fullName;
+		Path dst = root_dir / file.name;
 		INFO_LOG(SYSTEM, "Copying file '%s' to '%s'", src.c_str(), dst.c_str());
 		File::Copy(src, dst);
 	}
 
 	return UI::EVENT_DONE;
 }
-
 
 UI::EventReturn DeveloperToolsScreen::OnRemoteDebugger(UI::EventParams &e) {
 	if (allowDebugger_) {

@@ -101,7 +101,7 @@ static SasThreadParams sasThreadParams;
 static int sasMixEvent = -1;
 
 int __SasThread() {
-	setCurrentThreadName("SAS");
+	SetCurrentThreadName("SAS");
 
 	std::unique_lock<std::mutex> guard(sasWakeMutex);
 	while (sasThreadState != SasThreadState::DISABLED) {

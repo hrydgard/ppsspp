@@ -21,6 +21,7 @@
 
 #include "Common/System/Display.h"
 #include "Common/Math/lin/matrix4x4.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/GPU/thin3d.h"
 
@@ -28,7 +29,6 @@
 #include "Common/GPU/Vulkan/VulkanMemory.h"
 #include "Common/GPU/Vulkan/VulkanImage.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
-#include "Common/ColorConv.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"

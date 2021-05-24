@@ -268,47 +268,30 @@ void WindowsHost::BootDone() {
 	SetDebugMode(!g_Config.bAutoRun);
 }
 
-static std::string SymbolMapFilename(const char *currentFilename, const char* ext) {
-	FileInfo info;
-
-	std::string result = currentFilename;
-
+static Path SymbolMapFilename(const Path &currentFilename, const char *ext) {
+	File::FileInfo info;
 	// can't fail, definitely exists if it gets this far
-	getFileInfo(currentFilename, &info);
+	File::GetFileInfo(currentFilename, &info);
 	if (info.isDirectory) {
-#ifdef _WIN32
-		const char* slash = "\\";
-#else
-		const char* slash = "/";
-#endif
-		if (!endsWith(result,slash))
-			result += slash;
-
-		return result + ".ppsspp-symbols" + ext;
-	} else {
-		const size_t dot = result.rfind('.');
-		if (dot == result.npos)
-			return result + ext;
-
-		result.replace(dot, result.npos, ext);
-		return result;
+		return currentFilename / (std::string(".ppsspp-symbols") + ext);
 	}
+	return currentFilename.WithReplacedExtension(ext);
 }
 
 bool WindowsHost::AttemptLoadSymbolMap() {
 	if (!g_symbolMap)
 		return false;
-	bool result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".ppmap").c_str());
+	bool result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".ppmap"));
 	// Load the old-style map file.
 	if (!result1)
-		result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".map").c_str());
-	bool result2 = g_symbolMap->LoadNocashSym(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".sym").c_str());
+		result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".map"));
+	bool result2 = g_symbolMap->LoadNocashSym(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".sym"));
 	return result1 || result2;
 }
 
 void WindowsHost::SaveSymbolMap() {
 	if (g_symbolMap)
-		g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".ppmap").c_str());
+		g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".ppmap"));
 }
 
 void WindowsHost::NotifySymbolMapUpdated() {

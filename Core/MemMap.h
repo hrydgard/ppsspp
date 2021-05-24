@@ -63,21 +63,6 @@ namespace Memory {
 // so be sure to load it into a 64-bit register.
 extern u8 *base; 
 
-// These are guaranteed to point to "low memory" addresses (sub-32-bit).
-// 64-bit: Pointers to low-mem (sub-0x10000000) mirror
-// 32-bit: Same as the corresponding physical/virtual pointers.
-// Broken into three chunks to workaround 32-bit mmap() limits.
-extern u8 *m_pRAM;
-extern u8 *m_pRAM2;
-extern u8 *m_pRAM3;
-extern u8 *m_pScratchPad;
-extern u8 *m_pVRAM;
-
-// 64-bit: Pointers to high-mem mirrors
-// 32-bit: Same as above
-extern u8 *m_pPhysicalRAM;
-extern u8 *m_pUncachedRAM;
-
 // This replaces RAM_NORMAL_SIZE at runtime.
 extern u32 g_MemorySize;
 extern u32 g_PSPModel;
@@ -301,8 +286,8 @@ inline bool IsValidAddress(const u32 address) {
 		return true;
 	} else if ((address & 0x3F800000) == 0x04000000) {
 		return true;
-	} else if ((address & 0xBFFF0000) == 0x00010000) {
-		return (address & 0x0000FFFF) < SCRATCHPAD_SIZE;
+	} else if ((address & 0xBFFFC000) == 0x00010000) {
+		return true;
 	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
 		return true;
 	} else {
@@ -313,13 +298,13 @@ inline bool IsValidAddress(const u32 address) {
 inline u32 ValidSize(const u32 address, const u32 requested_size) {
 	u32 max_size;
 	if ((address & 0x3E000000) == 0x08000000) {
-		max_size = 0x08000000 + g_MemorySize - (address & 0x3E000000);
+		max_size = 0x08000000 + g_MemorySize - (address & 0x3FFFFFFF);
 	} else if ((address & 0x3F800000) == 0x04000000) {
-		max_size = 0x04800000 - (address & 0x3F800000);
-	} else if ((address & 0xBFFF0000) == 0x00010000) {
-		max_size = 0x00014000 - (address & 0xBFFF0000);
+		max_size = 0x04800000 - (address & 0x3FFFFFFF);
+	} else if ((address & 0xBFFFC000) == 0x00010000) {
+		max_size = 0x00014000 - (address & 0x3FFFFFFF);
 	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
-		max_size = 0x08000000 + g_MemorySize - (address & 0x3F000000);
+		max_size = 0x08000000 + g_MemorySize - (address & 0x3FFFFFFF);
 	} else {
 		max_size = 0;
 	}
@@ -459,22 +444,22 @@ struct PSPPointer
 };
 
 
-inline u32 PSP_GetScratchpadMemoryBase() { return 0x00010000;}
-inline u32 PSP_GetScratchpadMemoryEnd() { return 0x00014000;}
+constexpr u32 PSP_GetScratchpadMemoryBase() { return 0x00010000;}
+constexpr u32 PSP_GetScratchpadMemoryEnd() { return 0x00014000;}
 
-inline u32 PSP_GetKernelMemoryBase() { return 0x08000000;}
+constexpr u32 PSP_GetKernelMemoryBase() { return 0x08000000;}
 inline u32 PSP_GetUserMemoryEnd() { return PSP_GetKernelMemoryBase() + Memory::g_MemorySize;}
-inline u32 PSP_GetKernelMemoryEnd() { return 0x08400000;}
+constexpr u32 PSP_GetKernelMemoryEnd() { return 0x08400000;}
 
 // "Volatile" RAM is between 0x08400000 and 0x08800000, can be requested by the
 // game through sceKernelVolatileMemTryLock.
-inline u32 PSP_GetVolatileMemoryStart() { return 0x08400000; }
-inline u32 PSP_GetVolatileMemoryEnd() { return 0x08800000; }
+constexpr u32 PSP_GetVolatileMemoryStart() { return 0x08400000; }
+constexpr u32 PSP_GetVolatileMemoryEnd() { return 0x08800000; }
 
-inline u32 PSP_GetUserMemoryBase() { return 0x08800000;}
-inline u32 PSP_GetDefaultLoadAddress() { return 0;}
-inline u32 PSP_GetVidMemBase() { return 0x04000000;}
-inline u32 PSP_GetVidMemEnd() { return 0x04800000;}
+constexpr u32 PSP_GetUserMemoryBase() { return 0x08800000; }
+constexpr u32 PSP_GetDefaultLoadAddress() { return 0; }
+constexpr u32 PSP_GetVidMemBase() { return 0x04000000; }
+constexpr u32 PSP_GetVidMemEnd() { return 0x04800000; }
 
 template <typename T>
 inline bool operator==(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs) {

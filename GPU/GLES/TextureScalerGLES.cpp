@@ -20,7 +20,7 @@
 
 #include "GPU/Common/TextureScalerCommon.h"
 #include "GPU/GLES/TextureScalerGLES.h"
-#include "Common/ColorConv.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/Log.h"
 #include "Core/ThreadPools.h"
 #include "Common/GPU/DataFormat.h"

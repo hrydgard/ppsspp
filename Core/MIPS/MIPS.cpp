@@ -313,6 +313,10 @@ int MIPSState::RunLoopUntil(u64 globalTicks) {
 	switch (PSP_CoreParameter().cpuCore) {
 	case CPUCore::JIT:
 	case CPUCore::IR_JIT:
+		while (inDelaySlot) {
+			// We must get out of the delay slot before going into jit.
+			SingleStep();
+		}
 		MIPSComp::jit->RunLoopUntil(globalTicks);
 		break;
 

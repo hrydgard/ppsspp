@@ -21,6 +21,7 @@
 #include <memory>
 
 #include "Common/CommonTypes.h"
+#include "Common/File/Path.h"
 
 enum class IdentifiedFileType {
 	ERROR_IDENTIFYING,
@@ -74,24 +75,15 @@ public:
 	}
 	virtual bool IsDirectory() = 0;
 	virtual s64 FileSize() = 0;
-	virtual std::string Path() const = 0;
-	virtual std::string Extension() {
-		const std::string filename = Path();
-		size_t pos = filename.find_last_of('.');
-		if (pos == filename.npos) {
-			return "";
-		} else {
-			return filename.substr(pos);
-		}
-	}
+	virtual Path GetPath() const = 0;
+
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) = 0;
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) {
 		return ReadAt(absolutePos, 1, bytes, data, flags);
 	}
 
 	// Cancel any operations that might block, if possible.
-	virtual void Cancel() {
-	}
+	virtual void Cancel() {}
 
 	virtual std::string LatestError() const {
 		return "";
@@ -121,8 +113,8 @@ public:
 	s64 FileSize() override {
 		return backend_->FileSize();
 	}
-	std::string Path() const override {
-		return backend_->Path();
+	Path GetPath() const override {
+		return backend_->GetPath();
 	}
 	void Cancel() override {
 		backend_->Cancel();
@@ -145,23 +137,23 @@ inline u32 operator & (const FileLoader::Flags &a, const FileLoader::Flags &b) {
 	return (u32)a & (u32)b;
 }
 
-FileLoader *ConstructFileLoader(const std::string &filename);
+FileLoader *ConstructFileLoader(const Path &filename);
 // Resolve to the target binary, ISO, or other file (e.g. from a directory.)
 FileLoader *ResolveFileLoaderTarget(FileLoader *fileLoader);
 
-std::string ResolvePBPDirectory(const std::string &filename);
-std::string ResolvePBPFile(const std::string &filename);
+Path ResolvePBPDirectory(const Path &filename);
+Path ResolvePBPFile(const Path &filename);
 
 IdentifiedFileType Identify_File(FileLoader *fileLoader);
 
 class FileLoaderFactory {
 public:
 	virtual ~FileLoaderFactory() {}
-	virtual FileLoader *ConstructFileLoader(const std::string &filename) = 0;
+	virtual FileLoader *ConstructFileLoader(const Path &filename) = 0;
 };
-void RegisterFileLoaderFactory(std::string name, std::unique_ptr<FileLoaderFactory> factory);
+void RegisterFileLoaderFactory(std::string prefix, std::unique_ptr<FileLoaderFactory> factory);
 
 // Can modify the string filename, as it calls IdentifyFile above.
 bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string);
 
-bool UmdReplace(std::string filepath, std::string &error);
+bool UmdReplace(const Path &filepath, std::string &error);

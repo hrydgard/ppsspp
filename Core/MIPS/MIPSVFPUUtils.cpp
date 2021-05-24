@@ -29,6 +29,11 @@
 #define V(i)   (currentMIPS->v[voffset[i]])
 #define VI(i)  (currentMIPS->vi[voffset[i]])
 
+union float2int {
+	uint32_t i;
+	float f;
+};
+
 void GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg) {
 	int mtx = (vectorReg >> 2) & 7;
 	int col = vectorReg & 3;
@@ -610,10 +615,7 @@ bool GetVFPUCtrlMask(int reg, u32 *mask) {
 
 float Float16ToFloat32(unsigned short l)
 {
-	union float2int {
-		unsigned int i;
-		float f;
-	} float2int;
+	float2int f2i;
 
 	unsigned short float16 = l;
 	unsigned int sign = (float16 >> VFPU_SH_FLOAT16_SIGN) & VFPU_MASK_FLOAT16_SIGN;
@@ -623,10 +625,10 @@ float Float16ToFloat32(unsigned short l)
 	float f;
 	if (exponent == VFPU_FLOAT16_EXP_MAX)
 	{
-		float2int.i = sign << 31;
-		float2int.i |= 255 << 23;
-		float2int.i |= fraction;
-		f = float2int.f;
+		f2i.i = sign << 31;
+		f2i.i |= 255 << 23;
+		f2i.i |= fraction;
+		f = f2i.f;
 	}
 	else if (exponent == 0 && fraction == 0)
 	{
@@ -647,10 +649,10 @@ float Float16ToFloat32(unsigned short l)
 		}
 
 		/* Convert to 32-bit single-precision IEEE754. */
-		float2int.i = sign << 31;
-		float2int.i |= (exponent + 112) << 23;
-		float2int.i |= fraction << 13;
-		f=float2int.f;
+		f2i.i = sign << 31;
+		f2i.i |= (exponent + 112) << 23;
+		f2i.i |= fraction << 13;
+		f=f2i.f;
 	}
 	return f;
 }
@@ -674,10 +676,6 @@ static int32_t get_sign(uint32_t x) {
 
 float vfpu_dot(float a[4], float b[4]) {
 	static const int EXTRA_BITS = 2;
-	union float2int {
-		uint32_t i;
-		float f;
-	};
 	float2int result;
 	float2int src[2];
 
@@ -791,31 +789,27 @@ float vfpu_dot(float a[4], float b[4]) {
 
 // TODO: This is still not completely accurate compared to the PSP's vsqrt.
 float vfpu_sqrt(float a) {
-	union float2int {
-		uint32_t u;
-		float f;
-	};
 	float2int val;
 	val.f = a;
 
-	if ((val.u & 0xff800000) == 0x7f800000) {
-		if ((val.u & 0x007fffff) != 0) {
-			val.u = 0x7f800001;
+	if ((val.i & 0xff800000) == 0x7f800000) {
+		if ((val.i & 0x007fffff) != 0) {
+			val.i = 0x7f800001;
 		}
 		return val.f;
 	}
-	if ((val.u & 0x7f800000) == 0) {
+	if ((val.i & 0x7f800000) == 0) {
 		// Kill any sign.
-		val.u = 0;
+		val.i = 0;
 		return val.f;
 	}
-	if (val.u & 0x80000000) {
-		val.u = 0x7f800001;
+	if (val.i & 0x80000000) {
+		val.i = 0x7f800001;
 		return val.f;
 	}
 
-	int k = get_exp(val.u);
-	uint32_t sp = get_mant(val.u);
+	int k = get_exp(val.i);
+	uint32_t sp = get_mant(val.i);
 	int less_bits = k & 1;
 	k >>= 1;
 
@@ -826,9 +820,9 @@ float vfpu_sqrt(float a) {
 		z = (z >> 1) + (uint32_t)(halfsp / z);
 	}
 
-	val.u = ((k + 127) << 23) | ((z << less_bits) & 0x007FFFFF);
+	val.i = ((k + 127) << 23) | ((z << less_bits) & 0x007FFFFF);
 	// The lower two bits never end up set on the PSP, it seems like.
-	val.u &= 0xFFFFFFFC;
+	val.i &= 0xFFFFFFFC;
 
 	return val.f;
 }
@@ -842,31 +836,27 @@ static inline uint32_t mant_mul(uint32_t a, uint32_t b) {
 }
 
 float vfpu_rsqrt(float a) {
-	union float2int {
-		uint32_t u;
-		float f;
-	};
 	float2int val;
 	val.f = a;
 
-	if (val.u == 0x7f800000) {
+	if (val.i == 0x7f800000) {
 		return 0.0f;
 	}
-	if ((val.u & 0x7fffffff) > 0x7f800000) {
-		val.u = (val.u & 0x80000000) | 0x7f800001;
+	if ((val.i & 0x7fffffff) > 0x7f800000) {
+		val.i = (val.i & 0x80000000) | 0x7f800001;
 		return val.f;
 	}
-	if ((val.u & 0x7f800000) == 0) {
-		val.u = (val.u & 0x80000000) | 0x7f800000;
+	if ((val.i & 0x7f800000) == 0) {
+		val.i = (val.i & 0x80000000) | 0x7f800000;
 		return val.f;
 	}
-	if (val.u & 0x80000000) {
-		val.u = 0xff800001;
+	if (val.i & 0x80000000) {
+		val.i = 0xff800001;
 		return val.f;
 	}
 
-	int k = get_exp(val.u);
-	uint32_t sp = get_mant(val.u);
+	int k = get_exp(val.i);
+	uint32_t sp = get_mant(val.i);
 	int less_bits = k & 1;
 	k = -(k >> 1);
 
@@ -889,91 +879,182 @@ float vfpu_rsqrt(float a) {
 
 	z >>= less_bits;
 
-	val.u = ((k + 127) << 23) | (z & 0x007FFFFF);
-	val.u &= 0xFFFFFFFC;
+	val.i = ((k + 127) << 23) | (z & 0x007FFFFF);
+	val.i &= 0xFFFFFFFC;
 
 	return val.f;
 }
 
-float vfpu_sin_single(float angle) {
-	angle -= floorf(angle * 0.25f) * 4.f;
-	if (angle == 0.0f || angle == 2.0f) {
-		return 0.0f;
-	} else if (angle == 1.0f) {
-		return 1.0f;
-	} else if (angle == 3.0f) {
-		return -1.0f;
+float vfpu_sin(float a) {
+	float2int val;
+	val.f = a;
+
+	int32_t k = get_uexp(val.i);
+	if (k == 255) {
+		val.i = (val.i & 0xFF800001) | 1;
+		return val.f;
 	}
-	angle *= (float)M_PI_2;
-	return sinf(angle);
+
+	if (k < 0x68) {
+		val.i &= 0x80000000;
+		return val.f;
+	}
+
+	// Okay, now modulus by 4 to begin with (identical wave every 4.)
+	int32_t mantissa = get_mant(val.i);
+	if (k > 0x80) {
+		const uint8_t over = k & 0x1F;
+		mantissa = (mantissa << over) & 0x00FFFFFF;
+		k = 0x80;
+	}
+	// This subtracts off the 2.  If we do, flip sign to inverse the wave.
+	if (k == 0x80 && mantissa >= (1 << 23)) {
+		val.i ^= 0x80000000;
+		mantissa -= 1 << 23;
+	}
+
+	int8_t norm_shift = mantissa == 0 ? 32 : (int8_t)clz32_nonzero(mantissa) - 8;
+	mantissa <<= norm_shift;
+	k -= norm_shift;
+
+	if (k <= 0 || mantissa == 0) {
+		val.i &= 0x80000000;
+		return val.f;
+	}
+
+	// This is the value with modulus applied.
+	val.i = (val.i & 0x80000000) | (k << 23) | (mantissa & ~(1 << 23));
+	val.f = (float)sin((double)val.f * M_PI_2);
+	val.i &= 0xFFFFFFFC;
+	return val.f;
 }
 
-float vfpu_cos_single(float angle) {
-	angle -= floorf(angle * 0.25f) * 4.f;
-	if (angle == 1.0f || angle == 3.0f) {
-		return 0.0f;
-	} else if (angle == 0.0f) {
-		return 1.0f;
-	} else if (angle == 2.0f) {
-		return -1.0f;
+float vfpu_cos(float a) {
+	float2int val;
+	val.f = a;
+	bool negate = false;
+
+	int32_t k = get_uexp(val.i);
+	if (k == 255) {
+		// Note: unlike sin, cos always returns +NAN.
+		val.i = (val.i & 0x7F800001) | 1;
+		return val.f;
 	}
-	angle *= (float)M_PI_2;
-	return cosf(angle);
+
+	if (k < 0x68)
+		return 1.0f;
+
+	// Okay, now modulus by 4 to begin with (identical wave every 4.)
+	int32_t mantissa = get_mant(val.i);
+	if (k > 0x80) {
+		const uint8_t over = k & 0x1F;
+		mantissa = (mantissa << over) & 0x00FFFFFF;
+		k = 0x80;
+	}
+	// This subtracts off the 2.  If we do, negate the result value.
+	if (k == 0x80 && mantissa >= (1 << 23)) {
+		mantissa -= 1 << 23;
+		negate = true;
+	}
+
+	int8_t norm_shift = mantissa == 0 ? 32 : (int8_t)clz32_nonzero(mantissa) - 8;
+	mantissa <<= norm_shift;
+	k -= norm_shift;
+
+	if (k <= 0 || mantissa == 0)
+		return negate ? -1.0f : 1.0f;
+
+	// This is the value with modulus applied.
+	val.i = (val.i & 0x80000000) | (k << 23) | (mantissa & ~(1 << 23));
+	if (val.f == 1.0f || val.f == -1.0f) {
+		return negate ? 0.0f : -0.0f;
+	}
+	val.f = (float)cos((double)val.f * M_PI_2);
+	val.i &= 0xFFFFFFFC;
+	return negate ? -val.f : val.f;
 }
 
-void vfpu_sincos_single(float angle, float &sine, float &cosine) {
-	angle -= floorf(angle * 0.25f) * 4.f;
-	if (angle == 0.0f) {
-		sine = 0.0f;
-		cosine = 1.0f;
-	} else if (angle == 1.0f) {
-		sine = 1.0f;
-		cosine = 0.0f;
-	} else if (angle == 2.0f) {
-		sine = 0.0f;
-		cosine = -1.0f;
-	} else if (angle == 3.0f) {
-		sine = -1.0f;
-		cosine = 0.0f;
+void vfpu_sincos(float a, float &s, float &c) {
+	float2int val;
+	val.f = a;
+	// For sin, negate the input, for cos negate the output.
+	bool negate = false;
+
+	int32_t k = get_uexp(val.i);
+	if (k == 255) {
+		val.i = (val.i & 0xFF800001) | 1;
+		s = val.f;
+		val.i &= 0x7F800001;
+		c = val.f;
+		return;
+	}
+
+	if (k < 0x68) {
+		val.i &= 0x80000000;
+		s = val.f;
+		c = 1.0f;
+		return;
+	}
+
+	// Okay, now modulus by 4 to begin with (identical wave every 4.)
+	int32_t mantissa = get_mant(val.i);
+	if (k > 0x80) {
+		const uint8_t over = k & 0x1F;
+		mantissa = (mantissa << over) & 0x00FFFFFF;
+		k = 0x80;
+	}
+	// This subtracts off the 2.  If we do, flip signs.
+	if (k == 0x80 && mantissa >= (1 << 23)) {
+		mantissa -= 1 << 23;
+		negate = true;
+	}
+
+	int8_t norm_shift = mantissa == 0 ? 32 : (int8_t)clz32_nonzero(mantissa) - 8;
+	mantissa <<= norm_shift;
+	k -= norm_shift;
+
+	if (k <= 0 || mantissa == 0) {
+		val.i &= 0x80000000;
+		if (negate)
+			val.i ^= 0x80000000;
+		s = val.f;
+		c = negate ? -1.0f : 1.0f;
+		return;
+	}
+
+	// This is the value with modulus applied.
+	val.i = (val.i & 0x80000000) | (k << 23) | (mantissa & ~(1 << 23));
+	float2int i_sine, i_cosine;
+	if (val.f == 1.0f) {
+		i_sine.f = negate ? -1.0f : 1.0f;
+		i_cosine.f = negate ? 0.0f : -0.0f;
+	} else if (val.f == -1.0f) {
+		i_sine.f = negate ? 1.0f : -1.0f;
+		i_cosine.f = negate ? 0.0f : -0.0f;
+	} else if (negate) {
+		i_sine.f = (float)sin((double)-val.f * M_PI_2);
+		i_cosine.f = -(float)cos((double)val.f * M_PI_2);
 	} else {
-		angle *= (float)M_PI_2;
+		double angle = (double)val.f * M_PI_2;
 #if defined(__linux__)
-		sincosf(angle, &sine, &cosine);
+		double d_sine;
+		double d_cosine;
+		sincos(angle, &d_sine, &d_cosine);
+		i_sine.f = (float)d_sine;
+		i_cosine.f = (float)d_cosine;
 #else
-		sine = sinf(angle);
-		cosine = cosf(angle);
+		i_sine.f = (float)sin(angle);
+		i_cosine.f = (float)cos(angle);
 #endif
 	}
+
+	i_sine.i &= 0xFFFFFFFC;
+	i_cosine.i &= 0xFFFFFFFC;
+	s = i_sine.f;
+	c = i_cosine.f;
+	return ;
 }
 
-float vfpu_sin_double(float angle) {
-	return (float)sin((double)angle * M_PI_2);
-}
-
-float vfpu_cos_double(float angle) {
-	return (float)cos((double)angle * M_PI_2);
-}
-
-void vfpu_sincos_double(float angle_f, float &sine, float &cosine) {
-	double angle = (double)angle_f * M_PI_2;
-#if defined(__linux__)
-	double d_sine;
-	double d_cosine;
-	sincos(angle, &d_sine, &d_cosine);
-	sine = (float)d_sine;
-	cosine = (float)d_cosine;
-#else
-	sine = (float)sin(angle);
-	cosine = (float)cos(angle);
-#endif
-}
-
-float (*vfpu_sin)(float);
-float (*vfpu_cos)(float);
-void (*vfpu_sincos)(float, float&, float&);
-
-void InitVFPUSinCos(bool useDoublePrecision) {
-	vfpu_sin = useDoublePrecision ? vfpu_sin_double : vfpu_sin_single;
-	vfpu_cos = useDoublePrecision ? vfpu_cos_double : vfpu_cos_single;
-	vfpu_sincos = useDoublePrecision ? vfpu_sincos_double : vfpu_sincos_single;
+void InitVFPUSinCos() {
+	// TODO: Could prepare a CORDIC table here.
 }

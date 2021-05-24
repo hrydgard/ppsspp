@@ -28,7 +28,7 @@ class CWCheatEngine;
 
 class CwCheatScreen : public UIDialogScreenWithBackground {
 public:
-	CwCheatScreen(const std::string &gamePath);
+	CwCheatScreen(const Path &gamePath);
 	~CwCheatScreen();
 
 	void LoadCheatInfo();
@@ -53,7 +53,7 @@ private:
 	UI::ScrollView *rightScroll_ = nullptr;
 	CWCheatEngine *engine_ = nullptr;
 	std::vector<CheatFileInfo> fileInfo_;
-	std::string gamePath_;
+	Path gamePath_;
 	std::string gameID_;
 	int fileCheckCounter_ = 0;
 	uint64_t fileCheckHash_;

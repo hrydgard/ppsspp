@@ -60,6 +60,7 @@ struct JNIEnv {};
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/File/Path.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/AssetReader.h"
 #include "Common/Input/InputState.h"
@@ -248,9 +249,9 @@ int Android_OpenContentUriFd(const std::string &filename) {
 
 class ContentURIFileLoader : public ProxiedFileLoader {
 public:
-	ContentURIFileLoader(const std::string &filename)
+	ContentURIFileLoader(const Path &filename)
 		: ProxiedFileLoader(nullptr) {  // we overwrite the nullptr below
-		int fd = Android_OpenContentUriFd(filename);
+		int fd = Android_OpenContentUriFd(filename.ToString());
 		INFO_LOG(SYSTEM, "Fd %d for content URI: '%s'", fd, filename.c_str());
 		backend_ = new LocalFileLoader(fd, filename);
 	}
@@ -267,7 +268,7 @@ public:
 class AndroidContentLoaderFactory : public FileLoaderFactory {
 public:
 	AndroidContentLoaderFactory() {}
-	FileLoader *ConstructFileLoader(const std::string &filename) override {
+	FileLoader *ConstructFileLoader(const Path &filename) override {
 		return new ContentURIFileLoader(filename);
 	}
 };
@@ -308,7 +309,7 @@ static void EmuThreadFunc() {
 	JNIEnv *env;
 	gJvm->AttachCurrentThread(&env, nullptr);
 
-	setCurrentThreadName("Emu");
+	SetCurrentThreadName("Emu");
 	INFO_LOG(SYSTEM, "Entering emu thread");
 
 	// Wait for render loop to get started.
@@ -618,7 +619,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	(JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
 		jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jadditionalStorageDirs, jstring jlibraryDir, jstring jcacheDir, jstring jshortcutParam,
 		jint jAndroidVersion, jstring jboard) {
-	setCurrentThreadName("androidInit");
+	SetCurrentThreadName("androidInit");
 
 	// Makes sure we get early permission grants.
 	ProcessFrameCommands(env);
@@ -1025,7 +1026,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	static bool hasSetThreadName = false;
 	if (!hasSetThreadName) {
 		hasSetThreadName = true;
-		setCurrentThreadName("AndroidRender");
+		SetCurrentThreadName("AndroidRender");
 	}
 
 	if (useCPUThread) {
@@ -1416,7 +1417,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 		static bool hasSetThreadName = false;
 		if (!hasSetThreadName) {
 			hasSetThreadName = true;
-			setCurrentThreadName("AndroidRender");
+			SetCurrentThreadName("AndroidRender");
 		}
 	}
 
@@ -1459,7 +1460,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 }
 
 extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv *env, jclass, jstring jpath) {
-	std::string path = GetJavaString(env, jpath);
+	Path path = Path(GetJavaString(env, jpath));
 	std::string result = "";
 
 	GameInfoCache *cache = new GameInfoCache();

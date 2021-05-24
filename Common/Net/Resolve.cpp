@@ -17,10 +17,13 @@
 #undef min
 #undef max
 #else
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <net/if.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <sys/socket.h>
+#include <ifaddrs.h>
 #include <unistd.h>
 #endif
 
@@ -106,7 +109,8 @@ void DNSResolveFree(addrinfo *res)
 
 bool GetIPList(std::vector<std::string> &IP4s) {
 	char ipstr[INET6_ADDRSTRLEN]; // We use IPv6 length since it's longer than IPv4
-#if defined(getifaddrs) // On Android: Requires __ANDROID_API__ >= 24
+#if (__GLIBC__ > 2) || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 3) || (__ANDROID_API__ >= 24) // getifaddrs first appeared in glibc 2.3, On Android officially supported since __ANDROID_API__ >= 24
+	INFO_LOG(SCENET, "GetIPList from getifaddrs");
 	struct ifaddrs* ifAddrStruct = NULL;
 	struct ifaddrs* ifa = NULL;
 
@@ -134,7 +138,7 @@ bool GetIPList(std::vector<std::string> &IP4s) {
 		return true;
 	}
 #elif defined(SIOCGIFCONF) // Better detection on Linux/UNIX/MacOS/some Android
-#include <linux/if.h>
+	INFO_LOG(SCENET, "GetIPList from SIOCGIFCONF");
 	static struct ifreq ifreqs[32];
 	struct ifconf ifconf;
 	memset(&ifconf, 0, sizeof(ifconf));
@@ -166,6 +170,7 @@ bool GetIPList(std::vector<std::string> &IP4s) {
 	close(sd);
 	return true;
 #else // Fallback to POSIX/Cross-platform way but may not works well on Linux (ie. only shows 127.0.0.1)
+	INFO_LOG(SCENET, "GetIPList from Fallback");
 	struct addrinfo hints, * res, * p;
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC; // AF_INET or AF_INET6 to force version

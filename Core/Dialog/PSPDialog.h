@@ -86,6 +86,7 @@ public:
 	void EndDraw();
 
 	void FinishVolatile();
+	int FinishInit();
 	int FinishShutdown();
 
 protected:

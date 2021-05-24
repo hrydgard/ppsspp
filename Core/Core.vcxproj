@@ -138,7 +138,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext;../ext/zstd/lib</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WITH_UPNP;WIN32;_ARCH_32=1;_M_IX86=1;_DEBUG;_LIB;_UNICODE;UNICODE;MINIUPNP_STATICLIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -161,7 +161,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext;../ext/zstd/lib;../ext/zstd/lib</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WITH_UPNP;WIN32;_ARCH_64=1;_M_X64=1;_DEBUG;_LIB;_UNICODE;UNICODE;MINIUPNP_STATICLIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -185,7 +185,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\aarch64\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\aarch64\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext;../ext/zstd/lib</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WITH_UPNP;WIN32;_ARCH_64=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -209,7 +209,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\arm\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\arm\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext;../ext/zstd/lib</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WITH_UPNP;WIN32;_ARCH_32=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -237,7 +237,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext;../ext/zstd/lib</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -268,7 +268,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext;../ext/zstd/lib;../ext/zstd/lib</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -299,7 +299,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\aarch64\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\aarch64\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext;../ext/zstd/lib</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -330,7 +330,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\arm\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\arm\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext;../ext/zstd/lib</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -361,14 +361,17 @@
     <ClCompile Include="..\ext\gason\gason.cpp" />
     <ClCompile Include="..\ext\jpge\jpgd.cpp" />
     <ClCompile Include="..\ext\jpge\jpge.cpp" />
-    <ClCompile Include="..\ext\libzip\mkstemp.c" />
     <ClCompile Include="..\ext\libzip\zip_add.c" />
     <ClCompile Include="..\ext\libzip\zip_add_dir.c" />
+    <ClCompile Include="..\ext\libzip\zip_add_entry.c" />
+    <ClCompile Include="..\ext\libzip\zip_algorithm_deflate.c" />
+    <ClCompile Include="..\ext\libzip\zip_buffer.c" />
     <ClCompile Include="..\ext\libzip\zip_close.c" />
     <ClCompile Include="..\ext\libzip\zip_delete.c" />
     <ClCompile Include="..\ext\libzip\zip_dirent.c" />
-    <ClCompile Include="..\ext\libzip\zip_entry_free.c" />
-    <ClCompile Include="..\ext\libzip\zip_entry_new.c" />
+    <ClCompile Include="..\ext\libzip\zip_dir_add.c" />
+    <ClCompile Include="..\ext\libzip\zip_discard.c" />
+    <ClCompile Include="..\ext\libzip\zip_entry.c" />
     <ClCompile Include="..\ext\libzip\zip_error.c" />
     <ClCompile Include="..\ext\libzip\zip_error_clear.c" />
     <ClCompile Include="..\ext\libzip\zip_error_get.c" />
@@ -376,45 +379,123 @@
     <ClCompile Include="..\ext\libzip\zip_error_strerror.c" />
     <ClCompile Include="..\ext\libzip\zip_error_to_str.c" />
     <ClCompile Include="..\ext\libzip\zip_err_str.c" />
+    <ClCompile Include="..\ext\libzip\zip_extra_field.c" />
+    <ClCompile Include="..\ext\libzip\zip_extra_field_api.c" />
     <ClCompile Include="..\ext\libzip\zip_fclose.c" />
-    <ClCompile Include="..\ext\libzip\zip_filerange_crc.c" />
+    <ClCompile Include="..\ext\libzip\zip_fdopen.c" />
+    <ClCompile Include="..\ext\libzip\zip_file_add.c" />
     <ClCompile Include="..\ext\libzip\zip_file_error_clear.c" />
     <ClCompile Include="..\ext\libzip\zip_file_error_get.c" />
+    <ClCompile Include="..\ext\libzip\zip_file_get_comment.c" />
+    <ClCompile Include="..\ext\libzip\zip_file_get_external_attributes.c" />
     <ClCompile Include="..\ext\libzip\zip_file_get_offset.c" />
+    <ClCompile Include="..\ext\libzip\zip_file_rename.c" />
+    <ClCompile Include="..\ext\libzip\zip_file_replace.c" />
+    <ClCompile Include="..\ext\libzip\zip_file_set_comment.c" />
+    <ClCompile Include="..\ext\libzip\zip_file_set_encryption.c" />
+    <ClCompile Include="..\ext\libzip\zip_file_set_external_attributes.c" />
+    <ClCompile Include="..\ext\libzip\zip_file_set_mtime.c" />
     <ClCompile Include="..\ext\libzip\zip_file_strerror.c" />
     <ClCompile Include="..\ext\libzip\zip_fopen.c" />
+    <ClCompile Include="..\ext\libzip\zip_fopen_encrypted.c" />
     <ClCompile Include="..\ext\libzip\zip_fopen_index.c" />
+    <ClCompile Include="..\ext\libzip\zip_fopen_index_encrypted.c" />
     <ClCompile Include="..\ext\libzip\zip_fread.c" />
-    <ClCompile Include="..\ext\libzip\zip_free.c" />
+    <ClCompile Include="..\ext\libzip\zip_fseek.c" />
+    <ClCompile Include="..\ext\libzip\zip_ftell.c" />
     <ClCompile Include="..\ext\libzip\zip_get_archive_comment.c" />
     <ClCompile Include="..\ext\libzip\zip_get_archive_flag.c" />
+    <ClCompile Include="..\ext\libzip\zip_get_encryption_implementation.c" />
     <ClCompile Include="..\ext\libzip\zip_get_file_comment.c" />
     <ClCompile Include="..\ext\libzip\zip_get_name.c" />
+    <ClCompile Include="..\ext\libzip\zip_get_num_entries.c" />
     <ClCompile Include="..\ext\libzip\zip_get_num_files.c" />
+    <ClCompile Include="..\ext\libzip\zip_hash.c" />
+    <ClCompile Include="..\ext\libzip\zip_io_util.c" />
+    <ClCompile Include="..\ext\libzip\zip_libzip_version.c" />
     <ClCompile Include="..\ext\libzip\zip_memdup.c" />
+    <ClCompile Include="..\ext\libzip\zip_mkstempm.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="..\ext\libzip\zip_name_locate.c" />
     <ClCompile Include="..\ext\libzip\zip_new.c" />
     <ClCompile Include="..\ext\libzip\zip_open.c" />
+    <ClCompile Include="..\ext\libzip\zip_pkware.c" />
+    <ClCompile Include="..\ext\libzip\zip_progress.c" />
+    <ClCompile Include="..\ext\libzip\zip_random_uwp.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\ext\libzip\zip_random_win32.c" />
     <ClCompile Include="..\ext\libzip\zip_rename.c" />
     <ClCompile Include="..\ext\libzip\zip_replace.c" />
     <ClCompile Include="..\ext\libzip\zip_set_archive_comment.c" />
     <ClCompile Include="..\ext\libzip\zip_set_archive_flag.c" />
+    <ClCompile Include="..\ext\libzip\zip_set_default_password.c" />
     <ClCompile Include="..\ext\libzip\zip_set_file_comment.c" />
+    <ClCompile Include="..\ext\libzip\zip_set_file_compression.c" />
     <ClCompile Include="..\ext\libzip\zip_set_name.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_accept_empty.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_begin_write.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_begin_write_cloning.c" />
     <ClCompile Include="..\ext\libzip\zip_source_buffer.c" />
-    <ClCompile Include="..\ext\libzip\zip_source_file.c" />
-    <ClCompile Include="..\ext\libzip\zip_source_filep.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_call.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_close.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_commit_write.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_compress.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_crc.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_error.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_file_common.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_file_stdio.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_file_win32.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_file_win32_ansi.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_file_win32_named.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_file_win32_utf16.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_file_win32_utf8.c" />
     <ClCompile Include="..\ext\libzip\zip_source_free.c" />
     <ClCompile Include="..\ext\libzip\zip_source_function.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_get_file_attributes.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_is_deleted.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_layered.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_open.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_pkware_decode.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_pkware_encode.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_read.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_remove.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_rollback_write.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_seek.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_seek_write.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_stat.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_supports.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_tell.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_tell_write.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_window.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_write.c" />
     <ClCompile Include="..\ext\libzip\zip_source_zip.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_zip_new.c" />
     <ClCompile Include="..\ext\libzip\zip_stat.c" />
     <ClCompile Include="..\ext\libzip\zip_stat_index.c" />
     <ClCompile Include="..\ext\libzip\zip_stat_init.c" />
     <ClCompile Include="..\ext\libzip\zip_strerror.c" />
+    <ClCompile Include="..\ext\libzip\zip_string.c" />
     <ClCompile Include="..\ext\libzip\zip_unchange.c" />
     <ClCompile Include="..\ext\libzip\zip_unchange_all.c" />
     <ClCompile Include="..\ext\libzip\zip_unchange_archive.c" />
     <ClCompile Include="..\ext\libzip\zip_unchange_data.c" />
+    <ClCompile Include="..\ext\libzip\zip_utf-8.c" />
     <ClCompile Include="..\ext\sfmt19937\SFMT.c" />
     <ClCompile Include="..\ext\sha1\sha1.cpp" />
     <ClCompile Include="..\ext\snappy\snappy-c.cpp" />
@@ -442,6 +523,7 @@
     <ClCompile Include="Debugger\WebSocket\InputSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\LogBroadcaster.cpp" />
     <ClCompile Include="Debugger\WebSocket\DisasmSubscriber.cpp" />
+    <ClCompile Include="Debugger\WebSocket\MemoryInfoSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\MemorySubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\SteppingBroadcaster.cpp" />
     <ClCompile Include="Debugger\WebSocket\SteppingSubscriber.cpp" />
@@ -956,9 +1038,14 @@
     <ClInclude Include="..\ext\gason\gason.h" />
     <ClInclude Include="..\ext\jpge\jpgd.h" />
     <ClInclude Include="..\ext\jpge\jpge.h" />
+    <ClInclude Include="..\ext\libzip\compat.h" />
     <ClInclude Include="..\ext\libzip\config.h" />
     <ClInclude Include="..\ext\libzip\zip.h" />
+    <ClInclude Include="..\ext\libzip\zipconf.h" />
     <ClInclude Include="..\ext\libzip\zipint.h" />
+    <ClInclude Include="..\ext\libzip\zip_source_file.h" />
+    <ClInclude Include="..\ext\libzip\zip_source_file_stdio.h" />
+    <ClInclude Include="..\ext\libzip\zip_source_file_win32.h" />
     <ClInclude Include="..\ext\sfmt19937\SFMT-common.h" />
     <ClInclude Include="..\ext\sfmt19937\SFMT-params.h" />
     <ClInclude Include="..\ext\sfmt19937\SFMT-params19937.h" />
@@ -988,6 +1075,7 @@
     <ClInclude Include="Debugger\WebSocket\HLESubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\InputBroadcaster.h" />
     <ClInclude Include="Debugger\WebSocket\InputSubscriber.h" />
+    <ClInclude Include="Debugger\WebSocket\MemoryInfoSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\SteppingSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\WebSocketUtils.h" />
     <ClInclude Include="Debugger\WebSocket\CPUCoreSubscriber.h" />

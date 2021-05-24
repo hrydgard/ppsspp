@@ -1444,7 +1444,7 @@ void game_product_override(SceNetAdhocctlProductCode * product)
 void update_status()
 {
 	// Open Logfile
-	FILE * log = File::OpenCFile(SERVER_STATUS_XMLOUT, "w");
+	FILE * log = File::OpenCFile(Path(SERVER_STATUS_XMLOUT), "w");
 
 	// Opened Logfile
 	if(log != NULL)
@@ -1696,7 +1696,7 @@ const char * strcpyxml(char * out, const char * in, uint32_t size)
  */
 int proAdhocServerThread(int port) // (int argc, char * argv[])
 {
-	setCurrentThreadName("AdhocServer");
+	SetCurrentThreadName("AdhocServer");
 	// Result
 	int result = 0;
 

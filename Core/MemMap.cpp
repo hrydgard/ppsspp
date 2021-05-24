@@ -30,20 +30,20 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 
-#include "Core/MemMap.h"
-#include "Core/MemFault.h"
-#include "Core/HDRemaster.h"
-#include "Core/MIPS/MIPS.h"
-#include "Core/HLE/HLE.h"
-
 #include "Core/Core.h"
-#include "Core/Debugger/SymbolMap.h"
-#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "Core/Debugger/MemBlockInfo.h"
+#include "Core/HDRemaster.h"
+#include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
+#include "Core/MemMap.h"
+#include "Core/MemFault.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/ThreadPools.h"
 #include "UI/OnScreenDisplay.h"
 
 namespace Memory {
@@ -59,26 +59,17 @@ u8 *m_pPhysicalScratchPad;
 u8 *m_pUncachedScratchPad;
 // 64-bit: Pointers to high-mem mirrors
 // 32-bit: Same as above
-u8 *m_pPhysicalRAM;
-u8 *m_pUncachedRAM;
-u8 *m_pKernelRAM;	// RAM mirrored up to "kernel space". Fully accessible at all times currently.
-u8 *m_pPhysicalRAM2;
-u8 *m_pUncachedRAM2;
-u8 *m_pKernelRAM2;
-u8 *m_pPhysicalRAM3;
-u8 *m_pUncachedRAM3;
-u8 *m_pKernelRAM3;
+u8 *m_pPhysicalRAM[3];
+u8 *m_pUncachedRAM[3];
+u8 *m_pKernelRAM[3];	// RAM mirrored up to "kernel space". Fully accessible at all times currently.
+// Technically starts at 0xA0000000, which we don't properly support (but we don't really support kernel code.)
+// This matches how we handle 32-bit masking.
+u8 *m_pUncachedKernelRAM[3];
 
 // VRAM is mirrored 4 times.  The second and fourth mirrors are swizzled.
 // In practice, a game accessing the mirrors most likely is deswizzling the depth buffer.
-u8 *m_pPhysicalVRAM1;
-u8 *m_pPhysicalVRAM2;
-u8 *m_pPhysicalVRAM3;
-u8 *m_pPhysicalVRAM4;
-u8 *m_pUncachedVRAM1;
-u8 *m_pUncachedVRAM2;
-u8 *m_pUncachedVRAM3;
-u8 *m_pUncachedVRAM4;
+u8 *m_pPhysicalVRAM[4];
+u8 *m_pUncachedVRAM[4];
 
 // Holds the ending address of the PSP's user space.
 // Required for HD Remasters to work properly.
@@ -94,25 +85,28 @@ static MemoryView views[] =
 {
 	{&m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, 0},
 	{&m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
-	{&m_pPhysicalVRAM1,       0x04000000, 0x00200000, 0},
-	{&m_pPhysicalVRAM2,       0x04200000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pPhysicalVRAM3,       0x04400000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pPhysicalVRAM4,       0x04600000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pUncachedVRAM1,       0x44000000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pUncachedVRAM2,       0x44200000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pUncachedVRAM3,       0x44400000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pUncachedVRAM4,       0x44600000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pPhysicalRAM,         0x08000000, g_MemorySize, MV_IS_PRIMARY_RAM},	// only from 0x08800000 is it usable (last 24 megs)
-	{&m_pUncachedRAM,         0x48000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
-	{&m_pKernelRAM,           0x88000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM | MV_KERNEL},
+	{&m_pPhysicalVRAM[0],     0x04000000, 0x00200000, 0},
+	{&m_pPhysicalVRAM[1],     0x04200000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pPhysicalVRAM[2],     0x04400000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pPhysicalVRAM[3],     0x04600000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pUncachedVRAM[0],     0x44000000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pUncachedVRAM[1],     0x44200000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pUncachedVRAM[2],     0x44400000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pUncachedVRAM[3],     0x44600000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pPhysicalRAM[0],      0x08000000, g_MemorySize, MV_IS_PRIMARY_RAM},	// only from 0x08800000 is it usable (last 24 megs)
+	{&m_pUncachedRAM[0],      0x48000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
+	{&m_pKernelRAM[0],        0x88000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM | MV_KERNEL},
+	{&m_pUncachedKernelRAM[0],0xC0000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM | MV_KERNEL},
 	// Starts at memory + 31 MB.
-	{&m_pPhysicalRAM2,        0x09F00000, g_MemorySize, MV_IS_EXTRA1_RAM},
-	{&m_pUncachedRAM2,        0x49F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM},
-	{&m_pKernelRAM2,          0x89F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM | MV_KERNEL},
+	{&m_pPhysicalRAM[1],      0x09F00000, g_MemorySize, MV_IS_EXTRA1_RAM},
+	{&m_pUncachedRAM[1],      0x49F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM},
+	{&m_pKernelRAM[1],        0x89F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM | MV_KERNEL},
+	{&m_pUncachedKernelRAM[1],0xC9F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM | MV_KERNEL},
 	// Starts at memory + 31 * 2 MB.
-	{&m_pPhysicalRAM3,        0x0BE00000, g_MemorySize, MV_IS_EXTRA2_RAM},
-	{&m_pUncachedRAM3,        0x4BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM},
-	{&m_pKernelRAM3,          0x8BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM | MV_KERNEL},
+	{&m_pPhysicalRAM[2],      0x0BE00000, g_MemorySize, MV_IS_EXTRA2_RAM},
+	{&m_pUncachedRAM[2],      0x4BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM},
+	{&m_pKernelRAM[2],        0x8BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM | MV_KERNEL},
+	{&m_pUncachedKernelRAM[2],0xCBE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM | MV_KERNEL},
 
 	// TODO: There are a few swizzled mirrors of VRAM, not sure about the best way to
 	// implement those.
@@ -314,6 +308,34 @@ void Reinit() {
 	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITED);
 }
 
+static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
+	uint8_t *d = GetPointer(start);
+	uint8_t *&storage = *p.ptr;
+
+	// We only handle aligned data and sizes.
+	if ((size & 0x3F) != 0 || ((uintptr_t)d & 0x3F) != 0)
+		return p.DoVoid(d, size);
+
+	switch (p.mode) {
+	case PointerWrap::MODE_READ:
+		GlobalThreadPool::Memcpy(d, storage, size);
+		break;
+	case PointerWrap::MODE_WRITE:
+		GlobalThreadPool::Memcpy(storage, d, size);
+		break;
+	case PointerWrap::MODE_MEASURE:
+		// Nothing to do here.
+		break;
+	case PointerWrap::MODE_VERIFY:
+		GlobalThreadPool::Loop([&](int l, int h) {
+			for (int i = l; i < h; i++)
+				_dbg_assert_msg_(d[i] == storage[i], "Savestate verification failure: %d (0x%X) (at %p) != %d (0x%X) (at %p).\n", d[i], d[i], &d[i], storage[i], storage[i], &storage[i]);
+		}, 0, size);
+		break;
+	}
+	storage += size;
+}
+
 void DoState(PointerWrap &p) {
 	auto s = p.Section("Memory", 1, 3);
 	if (!s)
@@ -346,10 +368,10 @@ void DoState(PointerWrap &p) {
 		}
 	}
 
-	DoArray(p, GetPointer(PSP_GetKernelMemoryBase()), g_MemorySize);
+	DoMemoryVoid(p, PSP_GetKernelMemoryBase(), g_MemorySize);
 	p.DoMarker("RAM");
 
-	DoArray(p, m_pPhysicalVRAM1, VRAM_SIZE);
+	DoMemoryVoid(p, PSP_GetVidMemBase(), VRAM_SIZE);
 	p.DoMarker("VRAM");
 	DoArray(p, m_pPhysicalScratchPad, SCRATCHPAD_SIZE);
 	p.DoMarker("ScratchPad");
@@ -361,15 +383,6 @@ void Shutdown() {
 	MemoryMap_Shutdown(flags);
 	base = nullptr;
 	DEBUG_LOG(MEMMAP, "Memory system shut down.");
-}
-
-void Clear() {
-	if (m_pPhysicalRAM)
-		memset(GetPointerUnchecked(PSP_GetKernelMemoryBase()), 0, g_MemorySize);
-	if (m_pPhysicalScratchPad)
-		memset(m_pPhysicalScratchPad, 0, SCRATCHPAD_SIZE);
-	if (m_pPhysicalVRAM1)
-		memset(m_pPhysicalVRAM1, 0, VRAM_SIZE);
 }
 
 bool IsActive() {

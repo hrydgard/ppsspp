@@ -20,6 +20,8 @@
 #include <functional>
 #include <string>
 
+#include "Common/File/Path.h"
+
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
@@ -34,7 +36,7 @@ enum class SavedataSortOption {
 
 class SavedataBrowser : public UI::LinearLayout {
 public:
-	SavedataBrowser(std::string path, UI::LayoutParams *layoutParams = 0);
+	SavedataBrowser(const Path &path, UI::LayoutParams *layoutParams = 0);
 
 	void Update() override;
 
@@ -56,7 +58,7 @@ private:
 	UI::ViewGroup *gameList_ = nullptr;
 	UI::TextView *noMatchView_ = nullptr;
 	UI::TextView *searchingView_ = nullptr;
-	std::string path_;
+	Path path_;
 	std::string searchFilter_;
 	bool searchPending_ = false;
 };
@@ -64,7 +66,7 @@ private:
 class SavedataScreen : public UIDialogScreenWithGameBackground {
 public:
 	// gamePath can be empty, in that case this screen will show all savedata in the save directory.
-	SavedataScreen(std::string gamePath);
+	SavedataScreen(const Path &gamePath);
 	~SavedataScreen();
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;

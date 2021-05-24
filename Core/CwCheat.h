@@ -8,6 +8,7 @@
 #include <iostream>
 #include <sstream>
 
+#include "Common/File/Path.h"
 #include "Core/MemMap.h"
 
 class PointerWrap;
@@ -49,7 +50,7 @@ public:
 	std::vector<CheatFileInfo> FileInfo();
 	void ParseCheats();
 	void CreateCheatFile();
-	std::string CheatFilename();
+	Path CheatFilename();
 	void Run();
 	bool HasCheats();
 	void InvalidateICache(u32 addr, int size);
@@ -67,5 +68,5 @@ private:
 
 	std::vector<CheatCode> cheats_;
 	std::string gameID_;
-	std::string filename_;
+	Path filename_;
 };

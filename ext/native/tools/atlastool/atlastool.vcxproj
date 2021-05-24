@@ -14,6 +14,9 @@
     <ProjectReference Include="..\..\..\..\Common\Common.vcxproj">
       <Project>{3fcdbae2-5103-4350-9a8e-848ce9c73195}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\..\..\libzstd.vcxproj">
+      <Project>{8bfd8150-94d5-4bf9-8a50-7bd9929a0850}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\..\..\zlib\zlib.vcxproj">
       <Project>{f761046e-6c38-4428-a5f1-38391a37bb34}</Project>
     </ProjectReference>
@@ -92,7 +95,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>../../../../;../../ext;../../;../../../../ext;../prebuilt</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../../../../;../../ext;../../;../../../../ext;../prebuilt;../../../../ext/zstd/lib</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
     </ClCompile>

@@ -136,7 +136,7 @@
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;_M_IX86=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..;../ext/zstd/lib</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -161,7 +161,7 @@
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;_M_X64=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..;../ext/zstd/lib</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -187,7 +187,7 @@
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..;../ext/zstd/lib</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -214,7 +214,7 @@
       </ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..;../ext/zstd/lib</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -246,7 +246,7 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
-      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..;../ext/zstd/lib</AdditionalIncludeDirectories>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -275,7 +275,7 @@
       <PreprocessorDefinitions>USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;_M_X64=1;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>
       </ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..;../ext/zstd/lib</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -309,7 +309,7 @@
       <PreprocessorDefinitions>USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>
       </ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..;../ext/zstd/lib</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -343,7 +343,7 @@
       <PreprocessorDefinitions>USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>
       </ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..;../ext/zstd/lib</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -413,6 +413,7 @@
     <ClInclude Include="File\DiskFree.h" />
     <ClInclude Include="File\FileDescriptor.h" />
     <ClInclude Include="File\FileUtil.h" />
+    <ClInclude Include="File\Path.h" />
     <ClInclude Include="File\PathBrowser.h" />
     <ClInclude Include="File\VFS\VFS.h" />
     <ClInclude Include="File\VFS\AssetReader.h" />
@@ -452,6 +453,7 @@
     <ClInclude Include="Math\lin\matrix4x4.h" />
     <ClInclude Include="Math\lin\vec3.h" />
     <ClInclude Include="Math\math_util.h" />
+    <ClInclude Include="Net\NetBuffer.h" />
     <ClInclude Include="Net\HTTPClient.h" />
     <ClInclude Include="Net\HTTPHeaders.h" />
     <ClInclude Include="Net\HTTPServer.h" />
@@ -469,12 +471,12 @@
     <ClInclude Include="Render\Text\draw_text_win.h" />
     <ClInclude Include="Serialize\SerializeDeque.h" />
     <ClInclude Include="Serialize\SerializeFuncs.h" />
-    <ClInclude Include="ColorConvNEON.h" />
+    <ClInclude Include="Data\Convert\ColorConvNEON.h" />
     <ClInclude Include="Serialize\SerializeList.h" />
     <ClInclude Include="Serialize\SerializeMap.h" />
     <ClInclude Include="Serialize\Serializer.h" />
     <ClInclude Include="CodeBlock.h" />
-    <ClInclude Include="ColorConv.h" />
+    <ClInclude Include="Data\Convert\ColorConv.h" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="CommonFuncs.h" />
     <ClInclude Include="CommonTypes.h" />
@@ -523,7 +525,6 @@
     <ClInclude Include="System\Display.h" />
     <ClInclude Include="System\NativeApp.h" />
     <ClInclude Include="System\System.h" />
-    <ClInclude Include="Thread\Executor.h" />
     <ClInclude Include="Thread\PrioritizedWorkQueue.h" />
     <ClInclude Include="Thread\ThreadPool.h" />
     <ClInclude Include="Thread\ThreadUtil.h" />
@@ -706,7 +707,7 @@
     </ClCompile>
     <ClCompile Include="ArmEmitter.cpp" />
     <ClCompile Include="Buffer.cpp" />
-    <ClCompile Include="ColorConvNEON.cpp">
+    <ClCompile Include="Data\Convert\ColorConvNEON.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
@@ -736,6 +737,7 @@
     <ClCompile Include="File\DiskFree.cpp" />
     <ClCompile Include="File\FileDescriptor.cpp" />
     <ClCompile Include="File\FileUtil.cpp" />
+    <ClCompile Include="File\Path.cpp" />
     <ClCompile Include="File\PathBrowser.cpp" />
     <ClCompile Include="File\VFS\VFS.cpp" />
     <ClCompile Include="File\VFS\AssetReader.cpp" />
@@ -776,6 +778,7 @@
     <ClCompile Include="Math\lin\matrix4x4.cpp" />
     <ClCompile Include="Math\lin\vec3.cpp" />
     <ClCompile Include="Math\math_util.cpp" />
+    <ClCompile Include="Net\NetBuffer.cpp" />
     <ClCompile Include="Net\HTTPClient.cpp" />
     <ClCompile Include="Net\HTTPHeaders.cpp" />
     <ClCompile Include="Net\HTTPServer.cpp" />
@@ -792,9 +795,29 @@
     <ClCompile Include="Render\Text\draw_text_uwp.cpp" />
     <ClCompile Include="Render\Text\draw_text_win.cpp" />
     <ClCompile Include="Serialize\Serializer.cpp" />
-    <ClCompile Include="ColorConv.cpp" />
+    <ClCompile Include="Data\Convert\ColorConv.cpp" />
     <ClCompile Include="ConsoleListener.cpp" />
     <ClCompile Include="CPUDetect.cpp" />
+    <ClCompile Include="MipsCPUDetect.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="FakeCPUDetect.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="Crypto\md5.cpp" />
     <ClCompile Include="Crypto\sha1.cpp" />
     <ClCompile Include="Crypto\sha256.cpp" />
@@ -840,7 +863,6 @@
     <ClCompile Include="OSVersion.cpp" />
     <ClCompile Include="StringUtils.cpp" />
     <ClCompile Include="System\Display.cpp" />
-    <ClCompile Include="Thread\Executor.cpp" />
     <ClCompile Include="Thread\PrioritizedWorkQueue.cpp" />
     <ClCompile Include="Thread\ThreadPool.cpp" />
     <ClCompile Include="Thread\ThreadUtil.cpp" />

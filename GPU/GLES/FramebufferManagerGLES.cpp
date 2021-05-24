@@ -17,12 +17,12 @@
 
 #include <algorithm>
 
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/OpenGL/GLDebugLog.h"
 #include "Common/GPU/OpenGL/GLSLProgram.h"
 #include "Common/GPU/thin3d.h"
-#include "Common/ColorConv.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"

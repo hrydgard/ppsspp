@@ -32,6 +32,7 @@ enum {
 	ZIM_ETC1_MEDIUM = 1024,
 	ZIM_ETC1_HIGH = 0, // default
 	ZIM_ETC1_DITHER = 2048,
+	ZIM_ZSTD_COMPRESSED = 4096,
 };
 
 // ZIM will only ever support up to 12 levels (4096x4096 max).

@@ -197,11 +197,13 @@ void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int buffer
 	uniforms->setting[3] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue4"];
 }
 
-static std::string ReadShaderSrc(const std::string &filename) {
+static std::string ReadShaderSrc(const Path &filename) {
 	size_t sz = 0;
+	// TODO(scoped): VFS paths not handled well.
 	char *data = (char *)VFSReadFile(filename.c_str(), &sz);
-	if (!data)
+	if (!data) {
 		return "";
+	}
 
 	std::string src(data, sz);
 	delete[] data;
@@ -211,7 +213,7 @@ static std::string ReadShaderSrc(const std::string &filename) {
 // Note: called on resize and settings changes.
 bool PresentationCommon::UpdatePostShader() {
 	std::vector<const ShaderInfo *> shaderInfo;
-	if (!g_Config.vPostShaderNames.empty() && g_Config.vPostShaderNames[0] != "Off") {
+	if (!g_Config.vPostShaderNames.empty()) {
 		ReloadAllPostShaderInfo();
 		shaderInfo = GetFullPostShadersChain(g_Config.vPostShaderNames);
 	}
@@ -735,7 +737,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 void PresentationCommon::CalculateRenderResolution(int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa) {
 	// Check if postprocessing shader is doing upscaling as it requires native resolution
 	std::vector<const ShaderInfo *> shaderInfo;
-	if (!g_Config.vPostShaderNames.empty() && g_Config.vPostShaderNames[0] != "Off") {
+	if (!g_Config.vPostShaderNames.empty()) {
 		ReloadAllPostShaderInfo();
 		shaderInfo = GetFullPostShadersChain(g_Config.vPostShaderNames);
 	}

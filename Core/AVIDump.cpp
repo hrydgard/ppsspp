@@ -23,8 +23,9 @@ extern "C" {
 
 #endif
 
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/File/FileUtil.h"
-#include "Common/ColorConv.h"
+#include "Common/File/Path.h"
 
 #include "Core/Config.h"
 #include "Core/AVIDump.h"
@@ -94,7 +95,7 @@ bool AVIDump::CreateAVI() {
 
 	// Use gameID_EmulatedTimestamp for filename
 	std::string discID = g_paramSFO.GetDiscID();
-	std::string video_file_name = StringFromFormat("%s%s_%s.avi", GetSysDirectory(DIRECTORY_VIDEO).c_str(), discID.c_str(), KernelTimeNowFormatted().c_str()).c_str();
+	Path video_file_name = GetSysDirectory(DIRECTORY_VIDEO) / StringFromFormat("%s_%s.avi", discID.c_str(), KernelTimeNowFormatted().c_str());
 
 	s_format_context = avformat_alloc_context();
 
@@ -106,14 +107,14 @@ bool AVIDump::CreateAVI() {
 	const char *filename = s_format_context->filename;
 	snprintf(s_format_context->filename, sizeof(s_format_context->filename), "%s", video_file_name.c_str());
 #endif
-	INFO_LOG(COMMON, "Recording Video to: %s", filename);
+	INFO_LOG(COMMON, "Recording Video to: %s", video_file_name.ToVisualString().c_str());
 
 	// Make sure that the path exists
 	if (!File::Exists(GetSysDirectory(DIRECTORY_VIDEO)))
 		File::CreateDir(GetSysDirectory(DIRECTORY_VIDEO));
 
-	if (File::Exists(filename))
-		File::Delete(filename);
+	if (File::Exists(video_file_name))
+		File::Delete(video_file_name);
 
 	s_format_context->oformat = av_guess_format("avi", nullptr, nullptr);
 	if (!s_format_context->oformat)

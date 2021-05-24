@@ -57,6 +57,7 @@
 #include "Core/Debugger/WebSocket/GPURecordSubscriber.h"
 #include "Core/Debugger/WebSocket/HLESubscriber.h"
 #include "Core/Debugger/WebSocket/InputSubscriber.h"
+#include "Core/Debugger/WebSocket/MemoryInfoSubscriber.h"
 #include "Core/Debugger/WebSocket/MemorySubscriber.h"
 #include "Core/Debugger/WebSocket/SteppingSubscriber.h"
 
@@ -70,6 +71,7 @@ static const std::vector<SubscriberInit> subscribers({
 	&WebSocketGPURecordInit,
 	&WebSocketHLEInit,
 	&WebSocketInputInit,
+	&WebSocketMemoryInfoInit,
 	&WebSocketMemoryInit,
 	&WebSocketSteppingInit,
 });
@@ -124,7 +126,7 @@ void HandleDebuggerRequest(const http::Request &request) {
 	if (!ws)
 		return;
 
-	setCurrentThreadName("Debugger");
+	SetCurrentThreadName("Debugger");
 	UpdateConnected(1);
 	SetupDebuggerLock();
 

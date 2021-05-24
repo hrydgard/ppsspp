@@ -158,7 +158,7 @@ void CompatRatingChoice::SetupChoices() {
 	AddChoice(4, rp->T("Nothing"));
 }
 
-ReportScreen::ReportScreen(const std::string &gamePath)
+ReportScreen::ReportScreen(const Path &gamePath)
 	: UIDialogScreenWithGameBackground(gamePath) {
 	enableReporting_ = Reporting::IsEnabled();
 	ratingEnabled_ = enableReporting_;
@@ -168,12 +168,12 @@ void ReportScreen::postRender() {
 	// We do this after render because we need it to be within the frame (so the screenshot works).
 	// We could do it mid frame, but then we have to reapply viewport/scissor.
 	if (!tookScreenshot_) {
-		std::string path = GetSysDirectory(DIRECTORY_SCREENSHOT);
+		Path path = GetSysDirectory(DIRECTORY_SCREENSHOT);
 		if (!File::Exists(path)) {
 			File::CreateDir(path);
 		}
-		screenshotFilename_ = path + ".reporting.jpg";
-		if (TakeGameScreenshot(screenshotFilename_.c_str(), ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, 4)) {
+		screenshotFilename_ = path / ".reporting.jpg";
+		if (TakeGameScreenshot(screenshotFilename_, ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, 4)) {
 			// Redo the views already, now with a screenshot included.
 			RecreateViews();
 		} else {
@@ -285,7 +285,7 @@ void ReportScreen::CreateViews() {
 
 	if (tookScreenshot_ && !screenshotFilename_.empty()) {
 		leftColumnItems->Add(new CheckBox(&includeScreenshot_, rp->T("FeedbackIncludeScreen", "Include a screenshot")))->SetEnabledPtr(&enableReporting_);
-		screenshot_ = leftColumnItems->Add(new AsyncImageFileView(screenshotFilename_, IS_KEEP_ASPECT, nullptr, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 0))));
+		screenshot_ = leftColumnItems->Add(new AsyncImageFileView(screenshotFilename_, IS_KEEP_ASPECT, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 0))));
 	} else {
 		if (tookScreenshot_) {
 			includeScreenshot_ = false;
@@ -381,7 +381,7 @@ EventReturn ReportScreen::HandleSubmit(EventParams &e) {
 		g_Config.Save("ReportScreen::HandleSubmit");
 	}
 
-	std::string filename = tookScreenshot_ && includeScreenshot_ ? screenshotFilename_ : "";
+	std::string filename = tookScreenshot_ && includeScreenshot_ ? screenshotFilename_.ToString() : "";
 	Reporting::ReportCompatibility(compat, graphics_ + 1, speed_ + 1, gameplay_ + 1, filename);
 	TriggerFinish(DR_OK);
 	screenManager()->push(new ReportFinishScreen(gamePath_, overall_));
@@ -400,7 +400,7 @@ EventReturn ReportScreen::HandleShowCRC(EventParams &e) {
 	return EVENT_DONE;
 }
 
-ReportFinishScreen::ReportFinishScreen(const std::string &gamePath, ReportingOverallScore score)
+ReportFinishScreen::ReportFinishScreen(const Path &gamePath, ReportingOverallScore score)
 	: UIDialogScreenWithGameBackground(gamePath), score_(score) {
 }
 

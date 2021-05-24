@@ -46,7 +46,7 @@ private:
 		uint64_t ticks = 0;
 		uint32_t pc = 0;
 		bool allocated = false;
-		char tag[32]{};
+		char tag[128]{};
 		Slab *prev = nullptr;
 		Slab *next = nullptr;
 
@@ -77,7 +77,7 @@ struct PendingNotifyMem {
 	uint32_t size;
 	uint64_t ticks;
 	uint32_t pc;
-	char tag[32];
+	char tag[128];
 };
 
 static constexpr size_t MAX_PENDING_NOTIFIES = 512;
@@ -87,6 +87,7 @@ static MemSlabMap writeMap;
 static MemSlabMap textureMap;
 static std::vector<PendingNotifyMem> pendingNotifies;
 static std::mutex pendingMutex;
+static int detailedOverride;
 
 MemSlabMap::MemSlabMap() {
 	Reset();
@@ -199,7 +200,7 @@ void MemSlabMap::DoState(PointerWrap &p) {
 }
 
 void MemSlabMap::Slab::DoState(PointerWrap &p) {
-	auto s = p.Section("MemSlabMapSlab", 1, 2);
+	auto s = p.Section("MemSlabMapSlab", 1, 3);
 	if (!s)
 		return;
 
@@ -208,8 +209,12 @@ void MemSlabMap::Slab::DoState(PointerWrap &p) {
 	Do(p, ticks);
 	Do(p, pc);
 	Do(p, allocated);
-	if (s >= 2) {
+	if (s >= 3) {
 		Do(p, tag);
+	} else if (s >= 2) {
+		char shortTag[32];
+		Do(p, shortTag);
+		memcpy(tag, shortTag, sizeof(shortTag));
 	} else {
 		std::string stringTag;
 		Do(p, stringTag);
@@ -369,7 +374,7 @@ void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_
 
 	bool needFlush = false;
 	// When the setting is off, we skip smaller info to keep things fast.
-	if (g_Config.bDebugMemInfoDetailed || size >= 0x100) {
+	if (size >= 0x100 || MemBlockInfoDetailed()) {
 		PendingNotifyMem info{ flags, start, size };
 		info.ticks = CoreTiming::GetTicks();
 		info.pc = pc;
@@ -390,10 +395,12 @@ void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_
 		FlushPendingMemInfo();
 	}
 
-	if (flags & MemBlockFlags::WRITE) {
-		CBreakPoints::ExecMemCheck(start, true, size, pc, tagStr);
-	} else if (flags & MemBlockFlags::READ) {
-		CBreakPoints::ExecMemCheck(start, false, size, pc, tagStr);
+	if (!(flags & MemBlockFlags::SKIP_MEMCHECK)) {
+		if (flags & MemBlockFlags::WRITE) {
+			CBreakPoints::ExecMemCheck(start, true, size, pc, tagStr);
+		} else if (flags & MemBlockFlags::READ) {
+			CBreakPoints::ExecMemCheck(start, false, size, pc, tagStr);
+		}
 	}
 }
 
@@ -429,6 +436,20 @@ std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start,
 	return results;
 }
 
+std::string GetMemWriteTagAt(uint32_t start, uint32_t size) {
+	std::vector<MemBlockInfo> memRangeInfo = FindMemInfoByFlag(MemBlockFlags::WRITE, start, size);
+	for (auto range : memRangeInfo) {
+		return range.tag;
+	}
+
+	// Fall back to alloc and texture, especially for VRAM.  We prefer write above.
+	memRangeInfo = FindMemInfoByFlag(MemBlockFlags::ALLOC | MemBlockFlags::TEXTURE, start, size);
+	for (auto range : memRangeInfo) {
+		return range.tag;
+	}
+	return "none";
+}
+
 void MemBlockInfoInit() {
 	std::lock_guard<std::mutex> guard(pendingMutex);
 	pendingNotifies.reserve(MAX_PENDING_NOTIFIES);
@@ -453,4 +474,17 @@ void MemBlockInfoDoState(PointerWrap &p) {
 	suballocMap.DoState(p);
 	writeMap.DoState(p);
 	textureMap.DoState(p);
+}
+
+// Used by the debugger.
+void MemBlockOverrideDetailed() {
+	detailedOverride++;
+}
+
+void MemBlockReleaseDetailed() {
+	detailedOverride--;
+}
+
+bool MemBlockInfoDetailed() {
+	return g_Config.bDebugMemInfoDetailed || detailedOverride != 0;
 }

@@ -1,6 +1,7 @@
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
+#include <zstd.h>
 
 #include "zlib.h"
 
@@ -106,6 +107,14 @@ int LoadZIMPtr(const uint8_t *zim, size_t datasize, int *width, int *height, int
 			// Shouldn't happen if return value was Z_OK.
 			ERROR_LOG(IO, "Wrong size data in ZIM: %i vs %i", (int)outlen, (int)total_data_size);
 		}
+	} else if (*flags & ZIM_ZSTD_COMPRESSED) {
+		size_t outlen = ZSTD_decompress(*image, total_data_size, zim + 16, datasize - 16);
+		if (outlen != (size_t)total_data_size) {
+			ERROR_LOG(IO, "ZIM zstd format decompression failed: %lld", (long long)outlen);
+			free(*image);
+			*image = 0;
+			return 0;
+		}
 	} else {
 		memcpy(*image, zim + 16, datasize - 16);
 		if (datasize - 16 != (size_t)total_data_size) {
@@ -119,7 +128,7 @@ int LoadZIM(const char *filename, int *width, int *height, int *format, uint8_t 
 	size_t size;
 	uint8_t *buffer = VFSReadFile(filename, &size);
 	if (!buffer) {
-		ERROR_LOG(IO, "Couldn't read data for '%s'", buffer);
+		ERROR_LOG(IO, "Couldn't read data for '%s'", filename);
 		return 0;
 	}
 

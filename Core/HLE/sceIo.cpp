@@ -26,6 +26,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/Serialize/SerializeSet.h"
+#include "Common/StringUtils.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -559,7 +560,7 @@ static VFSFileSystem *flash0System = nullptr;
 #endif
 
 static void __IoManagerThread() {
-	setCurrentThreadName("IO");
+	SetCurrentThreadName("IO");
 	while (ioManagerThreadEnabled && coreState != CORE_BOOT_ERROR && coreState != CORE_RUNTIME_ERROR && coreState != CORE_POWERDOWN) {
 		ioManager.RunEventsUntil(CoreTiming::GetTicks() + msToCycles(1000));
 	}
@@ -638,7 +639,7 @@ void __IoInit() {
 
 	if (g_RemasterMode) {
 		const std::string gameId = g_paramSFO.GetDiscID();
-		const std::string exdataPath = g_Config.memStickDirectory + "exdata/" + gameId + "/";
+		const Path exdataPath = g_Config.memStickDirectory / "exdata" / gameId;
 		if (File::Exists(exdataPath)) {
 			exdataSystem = new DirectoryFileSystem(&pspFileSystem, exdataPath, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
 			pspFileSystem.Mount("exdata0:", exdataSystem);
@@ -773,8 +774,17 @@ void __IoShutdown() {
 	delete flash0System;
 	flash0System = nullptr;
 
+	MemoryStick_Shutdown();
 	memStickCallbacks.clear();
 	memStickFatCallbacks.clear();
+}
+
+static std::string IODetermineFilename(FileNode *f) {
+	uint64_t offset = pspFileSystem.GetSeekPos(f->handle);
+	if ((pspFileSystem.DevType(f->handle) & PSPDevType::BLOCK) != 0) {
+		return StringFromFormat("%s offset 0x%08llx", f->fullpath.c_str(), offset * 2048);
+	}
+	return StringFromFormat("%s offset 0x%08llx", f->fullpath.c_str(), offset);
 }
 
 u32 __IoGetFileHandleFromId(u32 id, u32 &outError)
@@ -940,11 +950,15 @@ static u32 sceIoGetstat(const char *filename, u32 addr) {
 }
 
 static u32 sceIoChstat(const char *filename, u32 iostatptr, u32 changebits) {
+	auto iostat = PSPPointer<SceIoStat>::Create(iostatptr);
+	if (!iostat.IsValid())
+		return hleReportError(SCEIO, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad address");
+
 	ERROR_LOG_REPORT(SCEIO, "UNIMPL sceIoChstat(%s, %08x, %08x)", filename, iostatptr, changebits);
 	if (changebits & SCE_CST_MODE)
-		ERROR_LOG(SCEIO, "sceIoChstat: change mode requested");
+		ERROR_LOG_REPORT(SCEIO, "sceIoChstat: change mode to %03o requested", iostat->st_mode);
 	if (changebits & SCE_CST_ATTR)
-		ERROR_LOG(SCEIO, "sceIoChstat: change attr requested");
+		ERROR_LOG_REPORT(SCEIO, "sceIoChstat: change attr to %04x requested", iostat->st_attr);
 	if (changebits & SCE_CST_SIZE)
 		ERROR_LOG(SCEIO, "sceIoChstat: change size requested");
 	if (changebits & SCE_CST_CT)
@@ -952,7 +966,7 @@ static u32 sceIoChstat(const char *filename, u32 iostatptr, u32 changebits) {
 	if (changebits & SCE_CST_AT)
 		ERROR_LOG(SCEIO, "sceIoChstat: change access time requested");
 	if (changebits & SCE_CST_MT)
-		ERROR_LOG(SCEIO, "sceIoChstat: change modification time requested");
+		ERROR_LOG_REPORT(SCEIO, "sceIoChstat: change modification time to %04d-%02d-%02d requested", iostat->st_m_time.year, iostat->st_m_time.month, iostat->st_m_time.day);
 	if (changebits & SCE_CST_PRVT)
 		ERROR_LOG(SCEIO, "sceIoChstat: change private data requested");
 	return 0;
@@ -1026,7 +1040,8 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 			result = SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 			return true;
 		} else if (Memory::IsValidAddress(data_addr)) {
-			NotifyMemInfo(MemBlockFlags::WRITE, data_addr, size, "IoRead");
+			const std::string tag = "IoRead/" + IODetermineFilename(f);
+			NotifyMemInfo(MemBlockFlags::WRITE, data_addr, size, tag.c_str(), tag.size());
 			u8 *data = (u8 *)Memory::GetPointer(data_addr);
 			u32 validSize = Memory::ValidSize(data_addr, size);
 			if (f->npdrm) {
@@ -1162,7 +1177,8 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 			return true;
 		}
 
-		NotifyMemInfo(MemBlockFlags::READ, data_addr, size, "IoWrite");
+		const std::string tag = "IoWrite/" + IODetermineFilename(f);
+		NotifyMemInfo(MemBlockFlags::READ, data_addr, size, tag.c_str(), tag.size());
 
 		bool useThread = __KernelIsDispatchEnabled() && ioManagerThreadEnabled && size > IO_THREAD_MIN_DATA_SIZE;
 		if (useThread) {

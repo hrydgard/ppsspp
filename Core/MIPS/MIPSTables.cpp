@@ -452,7 +452,7 @@ const MIPSInstruction tableCop1S[64] = // 010001 10000 ..... ..... ..... xxxxxx
 	INSTR("add.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT|IS_FPU),
 	INSTR("sub.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT|IS_FPU),
 	INSTR("mul.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT|IS_FPU),
-	INSTR("div.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT|IS_FPU),
+	INSTR("div.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, MIPSInfo(OUT_FD|IN_FS|IN_FT|IS_FPU, 29)),
 	INSTR("sqrt.s", JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
 	INSTR("abs.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
 	INSTR("mov.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
@@ -521,8 +521,8 @@ const MIPSInstruction tableCop1W[64] = // 010001 10100 ..... ..... ..... xxxxxx
 
 const MIPSInstruction tableVFPU0[8] = // 011000 xxx ....... . ....... . .......
 {
-	INSTR("vadd", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_VecDo3, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vsub", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_VecDo3, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vadd", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_VecDo3, MIPSInfo(IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX, 2)),
+	INSTR("vsub", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_VecDo3, MIPSInfo(IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX, 2)),
 	// TODO: Disasm is wrong.
 	INSTR("vsbn", JITFUNC(Comp_Generic), Dis_VectorSet3, Int_Vsbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INVALID, INVALID, INVALID, INVALID,
@@ -991,10 +991,10 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 
 				bool wasInDelaySlot = curMips->inDelaySlot;
 				MIPSInterpret(op);
+				curMips->downcount -= MIPSGetInstructionCycleEstimate(op);
 
 				if (curMips->inDelaySlot)
 				{
-					curMips->downcount -= 1;
 					// The reason we have to check this is the delay slot hack in Int_Syscall.
 					if (wasInDelaySlot)
 					{
@@ -1006,7 +1006,6 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 				}
 			}
 
-			curMips->downcount -= 1;
 			if (CoreTiming::GetTicks() > globalTicks)
 			{
 				// DEBUG_LOG(CPU, "Hit the max ticks, bailing 1 : %llu, %llu", globalTicks, CoreTiming::GetTicks());
@@ -1051,10 +1050,7 @@ MIPSInterpretFunc MIPSGetInterpretFunc(MIPSOpcode op)
 int MIPSGetInstructionCycleEstimate(MIPSOpcode op)
 {
 	MIPSInfo info = MIPSGetInfo(op);
-	if (info & DELAYSLOT)
-		return 2;
-	else
-		return 1;
+	return info.cycles;
 }
 
 const char *MIPSDisasmAt(u32 compilerPC) {

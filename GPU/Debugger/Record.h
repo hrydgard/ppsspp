@@ -19,7 +19,9 @@
 
 #include <functional>
 #include <string>
+
 #include "Common/CommonTypes.h"
+#include "Common/File/Path.h"
 
 namespace GPURecord {
 
@@ -27,7 +29,7 @@ bool IsActive();
 bool IsActivePending();
 bool Activate();
 // Call only if Activate() returns true.
-void SetCallback(const std::function<void(const std::string &)> callback);
+void SetCallback(const std::function<void(const Path &)> callback);
 
 void NotifyCommand(u32 pc);
 void NotifyMemcpy(u32 dest, u32 src, u32 sz);

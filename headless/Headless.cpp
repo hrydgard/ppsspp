@@ -160,7 +160,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 
 	std::string error_string;
 	if (!PSP_Init(coreParameter, &error_string)) {
-		fprintf(stderr, "Failed to start %s. Error: %s\n", coreParameter.fileToStart.c_str(), error_string.c_str());
+		fprintf(stderr, "Failed to start '%s'. Error: %s\n", coreParameter.fileToStart.c_str(), error_string.c_str());
 		printf("TESTERROR\n");
 		TeamCityPrint("testIgnored name='%s' message='PRX/ELF missing'", currentTestName.c_str());
 		GitHubActionsPrint("error", "PRX/ELF missing for %s", currentTestName.c_str());
@@ -245,9 +245,9 @@ int main(int argc, const char* argv[])
 	int debuggerPort = -1;
 
 	std::vector<std::string> testFilenames;
-	const char *mountIso = 0;
-	const char *mountRoot = 0;
-	const char *screenshotFilename = 0;
+	const char *mountIso = nullptr;
+	const char *mountRoot = nullptr;
+	const char *screenshotFilename = nullptr;
 	float timeout = std::numeric_limits<float>::infinity();
 
 	for (int i = 1; i < argc; i++)
@@ -355,8 +355,8 @@ int main(int argc, const char* argv[])
 	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_SOFTWARE;
 	coreParameter.graphicsContext = graphicsContext;
 	coreParameter.enableSound = false;
-	coreParameter.mountIso = mountIso ? mountIso : "";
-	coreParameter.mountRoot = mountRoot ? mountRoot : "";
+	coreParameter.mountIso = mountIso ? Path(std::string(mountIso)) : Path();
+	coreParameter.mountRoot = mountRoot ? Path(std::string(mountRoot)) : Path();
 	coreParameter.startBreak = false;
 	coreParameter.printfEmuLog = !autoCompare;
 	coreParameter.headLess = true;
@@ -405,34 +405,34 @@ int main(int argc, const char* argv[])
 	g_Config.iPSPModel = PSP_MODEL_SLIM;
 
 #ifdef _WIN32
-	g_Config.internalDataDirectory = "";
+	g_Config.internalDataDirectory.clear();
 	InitSysDirectories();
 #endif
 
 #if !defined(__ANDROID__) && !defined(_WIN32)
-	g_Config.memStickDirectory = std::string(getenv("HOME")) + "/.ppsspp/";
+	g_Config.memStickDirectory = Path(std::string(getenv("HOME"))) / ".ppsspp";
 #endif
 
 	// Try to find the flash0 directory.  Often this is from a subdirectory.
 	for (int i = 0; i < 4 && !File::Exists(g_Config.flash0Directory); ++i) {
-		if (File::Exists(g_Config.flash0Directory + "../assets/flash0/"))
-			g_Config.flash0Directory += "../assets/flash0/";
+		if (File::Exists(g_Config.flash0Directory / ".." / "assets/flash0"))
+			g_Config.flash0Directory = g_Config.flash0Directory / ".." / "assets/flash0";
 		else
-			g_Config.flash0Directory += "../../flash0/";
+			g_Config.flash0Directory = g_Config.flash0Directory / ".." / ".." / "flash0";
 	}
 	// Or else, maybe in the executable's dir.
 	if (!File::Exists(g_Config.flash0Directory))
-		g_Config.flash0Directory = File::GetExeDirectory() + "assets/flash0/";
+		g_Config.flash0Directory = File::GetExeDirectory() / "assets/flash0";
 
 	if (screenshotFilename != 0)
-		headlessHost->SetComparisonScreenshot(screenshotFilename);
+		headlessHost->SetComparisonScreenshot(Path(std::string(screenshotFilename)));
 
 #ifdef __ANDROID__
 	// For some reason the debugger installs it with this name?
-	if (File::Exists("/data/app/org.ppsspp.ppsspp-2.apk")) {
+	if (File::Exists(Path("/data/app/org.ppsspp.ppsspp-2.apk"))) {
 		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp-2.apk", "assets/"));
 	}
-	if (File::Exists("/data/app/org.ppsspp.ppsspp.apk")) {
+	if (File::Exists(Path("/data/app/org.ppsspp.ppsspp.apk"))) {
 		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp.apk", "assets/"));
 	}
 #endif
@@ -446,13 +446,13 @@ int main(int argc, const char* argv[])
 	}
 
 	if (stateToLoad != NULL)
-		SaveState::Load(stateToLoad, -1);
+		SaveState::Load(Path(stateToLoad), -1);
 
 	std::vector<std::string> failedTests;
 	std::vector<std::string> passedTests;
 	for (size_t i = 0; i < testFilenames.size(); ++i)
 	{
-		coreParameter.fileToStart = testFilenames[i];
+		coreParameter.fileToStart = Path(testFilenames[i]);
 		if (autoCompare)
 			printf("%s:\n", coreParameter.fileToStart.c_str());
 		bool passed = RunAutoTest(headlessHost, coreParameter, autoCompare, verbose, timeout);

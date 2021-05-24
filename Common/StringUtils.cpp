@@ -125,22 +125,6 @@ bool SplitPath(const std::string& full_path, std::string* _pPath, std::string* _
 	return true;
 }
 
-std::string GetFilenameFromPath(std::string full_path) {
-	size_t pos;
-#ifdef _WIN32
-	pos = full_path.rfind('\\');
-	if (pos != std::string::npos) {
-		return full_path.substr(pos + 1);
-	}
-#endif
-	pos = full_path.rfind('/');
-	if (pos != std::string::npos) {
-		return full_path.substr(pos + 1);
-	}
-	// No directory components, just return the full path.
-	return full_path;
-}
-
 std::string LineNumberString(const std::string &str) {
 	std::stringstream input(str);
 	std::stringstream output;
@@ -187,7 +171,7 @@ void DataToHexString(const uint8_t *data, size_t size, std::string *output) {
 	buffer.TakeAll(output);
 }
 
-void DataToHexString(const char* prefix, uint32_t startAddr, const uint8_t* data, size_t size, std::string* output) {
+void DataToHexString(int indent, uint32_t startAddr, const uint8_t* data, size_t size, std::string* output) {
 	Buffer buffer;
 	size_t i = 0;
 	for (; i < size; i++) {
@@ -199,7 +183,7 @@ void DataToHexString(const char* prefix, uint32_t startAddr, const uint8_t* data
 			buffer.Printf("\n");
 		}
 		if (!(i & 15))
-			buffer.Printf("%s%08x  ", prefix, startAddr + i);
+			buffer.Printf("%*s%08x  ", indent, "", startAddr + i);
 		buffer.Printf("%02x ", data[i]);
 	}
 	if (size & 15) {
@@ -207,8 +191,10 @@ void DataToHexString(const char* prefix, uint32_t startAddr, const uint8_t* data
 		for (size_t j = size; j < padded_size; j++) {
 			buffer.Printf("   ");
 		}
+	}
+	if (size > 0) {
 		buffer.Printf(" ");
-		for (size_t j = size & ~UINT64_C(0xF); j < size; j++) {
+		for (size_t j = (size - 1ULL) & ~UINT64_C(0xF); j < size; j++) {
 			buffer.Printf("%c", ((data[j] < 0x20) || (data[j] > 0x7e)) ? 0x2e : data[j]);
 		}
 	}
