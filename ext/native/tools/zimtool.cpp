@@ -14,7 +14,7 @@ const char *format_strings[4] = { "8888", "4444", "565", "ETC1" };
 int formats[3] = { ZIM_RGBA8888, ZIM_RGBA4444, ZIM_RGB565 };
 
 void printusage() {
-	fprintf(stderr, "Usage: zimtool infile.png outfile.zim [-f=FORMAT] [-m] [-g]\n");
+	fprintf(stderr, "Usage: zimtool infile.png outfile.zim [-f=FORMAT] [-m] [-g] [-z[LEVEL]]\n");
 	fprintf(stderr, "Formats: 8888 4444 565 ETC1\n");
 }
 
@@ -40,6 +40,7 @@ int main(int argc, char **argv) {
 	}
 
 	int flags = 0;
+	int level = 0;
 	bool format_set = false;
 	for (int i = 3; i < argc; i++) {
 		if (argv[i][0] != '-') {
@@ -68,6 +69,16 @@ int main(int argc, char **argv) {
 			}
 		}
 		break;
+		case 'z':
+			flags |= ZIM_ZSTD_COMPRESSED;
+			if (argv[i][2] != '\0') {
+				int pos = 2;
+				while (argv[i][pos] >= '0' && argv[i][pos] <= '9') {
+					level = level * 10 + argv[i][pos] - '0';
+					pos++;
+				}
+			}
+			break;
 		}
 	}
 	// TODO: make setting?
@@ -87,7 +98,7 @@ int main(int argc, char **argv) {
 	}
 
 	FILE *f = fopen(FLAGS_outfile, "wb");
-	SaveZIM(f, width, height, width * 4, flags, image_data);
+	SaveZIM(f, width, height, width * 4, flags, image_data, level);
 	fclose(f);
 	int in_file_size = filesize(FLAGS_infile);
 	int out_file_size = filesize(FLAGS_outfile);
