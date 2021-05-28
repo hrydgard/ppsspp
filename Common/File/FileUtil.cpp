@@ -752,7 +752,7 @@ const Path &GetExeDirectory() {
 		ExePath = Path(program_path);
 
 #elif (defined(__APPLE__) && !PPSSPP_PLATFORM(IOS)) || defined(__linux__) || defined(KERN_PROC_PATHNAME)
-		char program_path[4096];
+		char program_path[4096]{};
 		uint32_t program_path_size = sizeof(program_path) - 1;
 
 #if defined(__linux__)
