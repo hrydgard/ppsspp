@@ -581,38 +581,47 @@ CoreParameter &PSP_CoreParameter() {
 }
 
 Path GetSysDirectory(PSPDirectories directoryType) {
+	Path memStickDirectory = g_Config.memStickDirectory;
+	Path pspDirectory;
+	if (memStickDirectory.GetFilename() == "PSP") {
+		// Let's strip this off, to easily allow choosing a root directory named "PSP" on Android.
+		pspDirectory = memStickDirectory;
+	} else {
+		pspDirectory = memStickDirectory / "PSP";
+	}
+
 	switch (directoryType) {
 	case DIRECTORY_CHEATS:
-		return g_Config.memStickDirectory / "PSP/Cheats";
+		return pspDirectory / "Cheats";
 	case DIRECTORY_GAME:
-		return g_Config.memStickDirectory / "PSP/GAME";
+		return pspDirectory / "GAME";
 	case DIRECTORY_SAVEDATA:
-		return g_Config.memStickDirectory / "PSP/SAVEDATA";
+		return pspDirectory / "SAVEDATA";
 	case DIRECTORY_SCREENSHOT:
-		return g_Config.memStickDirectory / "PSP/SCREENSHOT";
+		return pspDirectory / "SCREENSHOT";
 	case DIRECTORY_SYSTEM:
-		return g_Config.memStickDirectory / "PSP/SYSTEM";
+		return pspDirectory / "SYSTEM";
 	case DIRECTORY_PAUTH:
-		return g_Config.memStickDirectory / "PAUTH";
+		return memStickDirectory / "PAUTH";  // This one's at the root...
 	case DIRECTORY_DUMP:
-		return g_Config.memStickDirectory / "PSP/SYSTEM/DUMP";
+		return pspDirectory / "SYSTEM/DUMP";
 	case DIRECTORY_SAVESTATE:
-		return g_Config.memStickDirectory / "PSP/PPSSPP_STATE";
+		return pspDirectory / "PPSSPP_STATE";
 	case DIRECTORY_CACHE:
-		return g_Config.memStickDirectory / "PSP/SYSTEM/CACHE";
+		return pspDirectory / "SYSTEM/CACHE";
 	case DIRECTORY_TEXTURES:
-		return g_Config.memStickDirectory / "PSP/TEXTURES";
+		return pspDirectory / "TEXTURES";
 	case DIRECTORY_PLUGINS:
-		return g_Config.memStickDirectory / "PSP/PLUGINS";
+		return pspDirectory / "PLUGINS";
 	case DIRECTORY_APP_CACHE:
 		if (!g_Config.appCacheDirectory.empty()) {
 			return g_Config.appCacheDirectory;
 		}
-		return g_Config.memStickDirectory / "PSP/SYSTEM/CACHE";
+		return pspDirectory / "SYSTEM/CACHE";
 	case DIRECTORY_VIDEO:
-		return g_Config.memStickDirectory / "PSP/VIDEO";
+		return pspDirectory / "VIDEO";
 	case DIRECTORY_AUDIO:
-		return g_Config.memStickDirectory / "PSP/AUDIO";
+		return pspDirectory / "AUDIO";
 	case DIRECTORY_MEMSTICK_ROOT:
 		return g_Config.memStickDirectory;
 	// Just return the memory stick root if we run into some sort of problem.

@@ -338,11 +338,19 @@ static void PostLoadConfig() {
 		i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
 }
 
-void CreateDirectoriesAndroid() {
+static bool CreateDirectoriesAndroid() {
 	// On Android, create a PSP directory tree in the external_dir,
 	// to hopefully reduce confusion a bit.
-	INFO_LOG(IO, "Creating %s and subdirs:", (g_Config.memStickDirectory / "PSP").c_str());
-	File::CreateFullPath(g_Config.memStickDirectory / "PSP");
+
+	Path pspDir = g_Config.memStickDirectory / "PSP";
+
+	INFO_LOG(IO, "Creating '%s' and subdirs:", pspDir.c_str());
+	File::CreateFullPath(pspDir);
+	if (!File::Exists(pspDir)) {
+		INFO_LOG(IO, "Not a workable memstick directory. Giving up");
+		return false;
+	}
+
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVEDATA));
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVESTATE));
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_GAME));
@@ -357,6 +365,7 @@ void CreateDirectoriesAndroid() {
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SYSTEM) / ".nomedia");
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_TEXTURES) / ".nomedia");
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_PLUGINS) / ".nomedia");
+	return true;
 }
 
 static void CheckFailedGPUBackends() {
@@ -487,18 +496,21 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_Config.internalDataDirectory = Path(savegame_dir);
 
 #if PPSSPP_PLATFORM(ANDROID)
+	// In Android 12 with scoped storage, due to the above, the external directory
+	// is no longer the plain root of external storage, but it's an app specific directory
+	// on external storage (g_extFilesDir).
 	if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
-		g_Config.externalDirectory = Path(g_extFilesDir);
+		g_Config.defaultCurrentDirectory = Path(g_extFilesDir);
 	} else {
-		g_Config.externalDirectory = Path(external_dir);
+		// Maybe there should be an option to use internal memory instead, but I think
+		// that for most people, using external memory (SDCard/USB Storage) makes the
+		// most sense.
+		g_Config.defaultCurrentDirectory = Path(external_dir);
 	}
 
-	// TODO: This needs to change in Android 12.
-	//
-	// Maybe there should be an option to use internal memory instead, but I think
-	// that for most people, using external memory (SDCard/USB Storage) makes the
-	// most sense.
-	g_Config.defaultCurrentDirectory = Path(external_dir);
+	// Might also add an option to move it to internal / non-visible storage, but there's
+	// little point, really.
+
 	g_Config.memStickDirectory = Path(external_dir);
 	g_Config.flash0Directory = Path(external_dir) / "flash0";
 
@@ -506,13 +518,15 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	if (File::Exists(memstickDirFile)) {
 		std::string memstickDir;
 		if (File::ReadFileToString(true, memstickDirFile, memstickDir)) {
-
 			Path memstickPath(memstickDir);
 			if (!memstickPath.empty() && File::Exists(memstickPath)) {
 				g_Config.memStickDirectory = memstickPath;
-				INFO_LOG(SYSTEM, "Memstick Directory from memstick_dir.txt: %s", g_Config.memStickDirectory.c_str());
+				INFO_LOG(SYSTEM, "Memstick Directory from memstick_dir.txt: '%s'", g_Config.memStickDirectory.c_str());
 			} else {
 				ERROR_LOG(SYSTEM, "Couldn't read directory '%s' specified by memstick_dir.txt.", memstickDir.c_str());
+				if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
+					//
+				}
 			}
 		}
 	} else {

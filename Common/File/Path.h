@@ -44,7 +44,7 @@ public:
 		return path_.size();
 	}
 
-	// WARNING: Unsafe usage.
+	// WARNING: Potentially unsafe usage, if it's not NATIVE.
 	const char *c_str() const {
 		return path_.c_str();
 	}

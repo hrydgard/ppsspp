@@ -327,13 +327,13 @@ bool Delete(const Path &filename) {
 	// Return true because we care about the file no 
 	// being there, not the actual delete.
 	if (!Exists(filename)) {
-		WARN_LOG(COMMON, "Delete: %s does not exists", filename.c_str());
+		WARN_LOG(COMMON, "Delete: '%s' already does not exist", filename.c_str());
 		return true;
 	}
 
 	// We can't delete a directory
 	if (IsDirectory(filename)) {
-		WARN_LOG(COMMON, "Delete failed: %s is a directory", filename.c_str());
+		WARN_LOG(COMMON, "Delete failed: '%s' is a directory", filename.c_str());
 		return false;
 	}
 

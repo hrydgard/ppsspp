@@ -1278,10 +1278,13 @@ void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 		}
 		File::Delete(Path(testWriteFile));
 
-		File::WriteDataToFile(true, pendingMemstickFolder_.c_str(), (unsigned int)pendingMemstickFolder_.size(), memstickDirFile);
-		// Save so the settings, at least, are transferred.
-		g_Config.memStickDirectory = Path(pendingMemstickFolder_);
-		g_Config.Save("MemstickPathChanged");
+		if (!File::WriteDataToFile(true, pendingMemstickFolder_.c_str(), (unsigned int)pendingMemstickFolder_.size(), memstickDirFile)) {
+			WARN_LOG(SYSTEM, "Failed to write memstick folder to '%s'", memstickDirFile.c_str());
+		} else {
+			// Save so the settings, at least, are transferred.
+			g_Config.memStickDirectory = Path(pendingMemstickFolder_);
+			g_Config.Save("MemstickPathChanged");
+		}
 		screenManager()->RecreateAllViews();
 	}
 }

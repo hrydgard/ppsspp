@@ -132,8 +132,11 @@ public:
 		}
 
 		if (!CanNavigateUp()) {
-			// Kinda useless to get the "primary:" volume.
-			return std::string();
+			size_t colon = file.rfind(':');
+			if (colon == std::string::npos) {
+				return std::string();
+			}
+			return file.substr(colon + 1);
 		}
 
 		size_t slash = file.rfind('/');

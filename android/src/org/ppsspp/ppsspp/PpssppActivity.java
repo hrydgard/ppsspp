@@ -129,7 +129,7 @@ public class PpssppActivity extends NativeActivity {
 			}
 			return filePfd.detachFd();  // Take ownership of the fd.
 		} catch (Exception e) {
-			Log.e(TAG, "Exception opening content uri: " + e.toString());
+			Log.e(TAG, "openContentUri exception: " + e.toString());
 			return -1;
 		}
 	}
@@ -159,7 +159,7 @@ public class PpssppActivity extends NativeActivity {
 			String[] strings = new String[listing.size()];
 			return listing.toArray(strings);
 		} catch (Exception e) {
-			Log.e(TAG, "Exception opening content uri: " + e.toString());
+			Log.e(TAG, "listContentUriDir exception: " + e.toString());
 			return new String[]{};
 		}
 	}
@@ -175,7 +175,7 @@ public class PpssppActivity extends NativeActivity {
 				return false;
 			}
 		} catch (Exception e) {
-			Log.e(TAG, "Exception opening content uri: " + e.toString());
+			Log.e(TAG, "contentUriCreateDirectory exception: " + e.toString());
 			return false;
 		}
 	}
@@ -191,7 +191,7 @@ public class PpssppActivity extends NativeActivity {
 				return false;
 			}
 		} catch (Exception e) {
-			Log.e(TAG, "Exception opening content uri: " + e.toString());
+			Log.e(TAG, "contentUriCreateFile exception: " + e.toString());
 			return false;
 		}
 	}
@@ -206,7 +206,7 @@ public class PpssppActivity extends NativeActivity {
 				return false;
 			}
 		} catch (Exception e) {
-			Log.e(TAG, "Exception opening content uri: " + e.toString());
+			Log.e(TAG, "contentUriRemoveFile exception: " + e.toString());
 			return false;
 		}
 	}
@@ -222,7 +222,7 @@ public class PpssppActivity extends NativeActivity {
 				return null;
 			}
 		} catch (Exception e) {
-			Log.e(TAG, "Exception opening content uri: " + e.toString());
+			Log.e(TAG, "contentUriGetFileInfo exception: " + e.toString());
 			return null;
 		}
 	}
@@ -246,7 +246,7 @@ public class PpssppActivity extends NativeActivity {
 			long availableBytes = storageManager.getAllocatableBytes(volumeUUID);
 			return availableBytes;
 		}  catch (Exception e) {
-			Log.e(TAG, "Exception checking free space: " + e.toString());
+			Log.e(TAG, "contentUriGetFreeStorageSpace exception: " + e.toString());
 			return -1;
 		}
 	}
@@ -259,7 +259,7 @@ public class PpssppActivity extends NativeActivity {
 			long availableBytes = storageManager.getAllocatableBytes(volumeUUID);
 			return availableBytes;
 		}  catch (Exception e) {
-			Log.e(TAG, "Exception checking free space: " + e.toString());
+			Log.e(TAG, "filePathGetFreeStorageSpace exception: " + e.toString());
 			return -1;
 		}
 	}
