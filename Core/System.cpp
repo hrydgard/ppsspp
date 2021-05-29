@@ -697,7 +697,7 @@ void InitSysDirectories() {
 	File::CreateDir(GetSysDirectory(DIRECTORY_SAVESTATE));
 
 	if (g_Config.currentDirectory.empty()) {
-		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_GAME).ToString();
+		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_GAME);
 	}
 }
 #endif

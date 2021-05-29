@@ -318,20 +318,9 @@ static bool CheckFontIsUsable(const wchar_t *fontFace) {
 
 static void PostLoadConfig() {
 	// On Windows, we deal with currentDirectory in InitSysDirectories().
-#ifndef _WIN32
+#if !PPSSPP_PLATFORM(WINDOWS)
 	if (g_Config.currentDirectory.empty()) {
-#if defined(__ANDROID__)
-		g_Config.currentDirectory = g_Config.externalDirectory.ToString();
-#elif PPSSPP_PLATFORM(IOS)
-		g_Config.currentDirectory = g_Config.internalDataDirectory.ToString();
-#elif PPSSPP_PLATFORM(SWITCH)
-		g_Config.currentDirectory = "/";
-#else
-		if (getenv("HOME") != nullptr)
-			g_Config.currentDirectory = getenv("HOME");
-		else
-			g_Config.currentDirectory = "./";
-#endif
+		g_Config.currentDirectory = g_Config.defaultCurrentDirectory;
 	}
 #endif
 
@@ -457,6 +446,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	user_data_path += "/";
 #endif
 
+	// external_dir has all kinds of meanings depending on platform.
+	// on iOS it's even the path to bundled app assets. It's a mess.
+
 	// We want this to be FIRST.
 #if PPSSPP_PLATFORM(IOS)
 	// Packed assets are included in app
@@ -487,8 +479,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 #endif
 
+	g_Config.defaultCurrentDirectory = Path("/");
 	g_Config.internalDataDirectory = Path(savegame_dir);
-	g_Config.externalDirectory = Path(external_dir);
 
 #if defined(__ANDROID__)
 	// TODO: This needs to change in Android 12.
@@ -496,6 +488,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// Maybe there should be an option to use internal memory instead, but I think
 	// that for most people, using external memory (SDCard/USB Storage) makes the
 	// most sense.
+	g_Config.defaultCurrentDirectory = Path(external_dir);
 	g_Config.memStickDirectory = Path(external_dir);
 	g_Config.flash0Directory = Path(external_dir) / "flash0";
 
@@ -511,6 +504,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		}
 	}
 #elif PPSSPP_PLATFORM(IOS)
+	g_Config.defaultCurrentDirectory = g_Config.internalDataDirectory.ToString();
 	g_Config.memStickDirectory = Path(user_data_path);
 	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
 #elif PPSSPP_PLATFORM(SWITCH)
@@ -527,6 +521,13 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	g_Config.memStickDirectory = Path(config) / "ppsspp";
 	g_Config.flash0Directory = File::GetExeDirectory() / "assets/flash0";
+	if (getenv("HOME") != nullptr) {
+		g_Config.defaultCurrentDirectory = Path(getenv("HOME"));
+	} else {
+		// Hm, should probably actually explicitly set the current directory..
+		// Though it's not many platforms that'll land us here.
+		g_Config.currentDirectory = Path(".");
+	}
 #endif
 
 	if (cache_dir && strlen(cache_dir)) {
