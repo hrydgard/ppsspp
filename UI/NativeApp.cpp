@@ -1017,9 +1017,9 @@ void TakeScreenshot() {
 	Path filename;
 	while (i < 10000){
 		if (g_Config.bScreenshotsAsPNG)
-			filename = path / StringFromFormat("%s_%05d.png", path.c_str(), gameId.c_str(), i);
+			filename = path / StringFromFormat("%s_%05d.png", gameId.c_str(), i);
 		else
-			filename = path / StringFromFormat("%s_%05d.jpg", path.c_str(), gameId.c_str(), i);
+			filename = path / StringFromFormat("%s_%05d.jpg", gameId.c_str(), i);
 		File::FileInfo info;
 		if (!File::Exists(filename))
 			break;
