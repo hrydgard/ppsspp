@@ -122,7 +122,7 @@ void MainWindow::loadAct()
 	if (QFile::exists(filename))
 	{
 		QFileInfo info(filename);
-		g_Config.currentDirectory = info.absolutePath().toStdString();
+		g_Config.currentDirectory = Path(info.absolutePath().toStdString());
 		NativeMessageReceived("boot", filename.toStdString().c_str());
 	}
 }
@@ -252,7 +252,7 @@ void MainWindow::switchUMDAct()
 	if (QFile::exists(filename))
 	{
 		QFileInfo info(filename);
-		g_Config.currentDirectory = info.absolutePath().toStdString();
+		g_Config.currentDirectory = Path(info.absolutePath().toStdString());
 		__UmdReplace(Path(filename.toStdString()));
 	}
 }

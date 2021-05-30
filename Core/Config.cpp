@@ -71,13 +71,15 @@ struct ConfigSetting {
 		TYPE_FLOAT,
 		TYPE_STRING,
 		TYPE_TOUCH_POS,
+		TYPE_PATH,
 	};
-	union Value {
+	union DefaultValue {
 		bool b;
 		int i;
 		uint32_t u;
 		float f;
 		const char *s;
+		const char *p;  // not sure how much point..
 		ConfigTouchPos touchPos;
 	};
 	union SettingPtr {
@@ -86,6 +88,7 @@ struct ConfigSetting {
 		uint32_t *u;
 		float *f;
 		std::string *s;
+		Path *p;
 		ConfigTouchPos *touchPos;
 	};
 
@@ -94,7 +97,8 @@ struct ConfigSetting {
 	typedef uint32_t (*Uint32DefaultCallback)();
 	typedef float (*FloatDefaultCallback)();
 	typedef const char *(*StringDefaultCallback)();
-	typedef ConfigTouchPos (*TouchPosDefaultCallback)();
+	typedef ConfigTouchPos(*TouchPosDefaultCallback)();
+	typedef const char *(*PathDefaultCallback)();
 
 	union Callback {
 		BoolDefaultCallback b;
@@ -102,102 +106,110 @@ struct ConfigSetting {
 		Uint32DefaultCallback u;
 		FloatDefaultCallback f;
 		StringDefaultCallback s;
+		PathDefaultCallback p;
 		TouchPosDefaultCallback touchPos;
 	};
 
 	ConfigSetting(bool v)
-		: ini_(""), type_(TYPE_TERMINATOR), report_(false), save_(false), perGame_(false) {
+		: iniKey_(""), type_(TYPE_TERMINATOR), report_(false), save_(false), perGame_(false) {
 		ptr_.b = nullptr;
 		cb_.b = nullptr;
 	}
 
 	ConfigSetting(const char *ini, bool *v, bool def, bool save = true, bool perGame = false)
-		: ini_(ini), type_(TYPE_BOOL), report_(false), save_(save), perGame_(perGame) {
+		: iniKey_(ini), type_(TYPE_BOOL), report_(false), save_(save), perGame_(perGame) {
 		ptr_.b = v;
 		cb_.b = nullptr;
 		default_.b = def;
 	}
 
 	ConfigSetting(const char *ini, int *v, int def, bool save = true, bool perGame = false)
-		: ini_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame) {
+		: iniKey_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame) {
 		ptr_.i = v;
 		cb_.i = nullptr;
 		default_.i = def;
 	}
 
 	ConfigSetting(const char *ini, int *v, int def, std::function<std::string(int)> transTo, std::function<int(const std::string &)> transFrom, bool save = true, bool perGame = false)
-		: ini_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame), translateTo_(transTo), translateFrom_(transFrom) {
+		: iniKey_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame), translateTo_(transTo), translateFrom_(transFrom) {
 		ptr_.i = v;
 		cb_.i = nullptr;
 		default_.i = def;
 	}
 
 	ConfigSetting(const char *ini, uint32_t *v, uint32_t def, bool save = true, bool perGame = false)
-		: ini_(ini), type_(TYPE_UINT32), report_(false), save_(save), perGame_(perGame) {
+		: iniKey_(ini), type_(TYPE_UINT32), report_(false), save_(save), perGame_(perGame) {
 		ptr_.u = v;
 		cb_.u = nullptr;
 		default_.u = def;
 	}
 
 	ConfigSetting(const char *ini, float *v, float def, bool save = true, bool perGame = false)
-		: ini_(ini), type_(TYPE_FLOAT), report_(false), save_(save), perGame_(perGame) {
+		: iniKey_(ini), type_(TYPE_FLOAT), report_(false), save_(save), perGame_(perGame) {
 		ptr_.f = v;
 		cb_.f = nullptr;
 		default_.f = def;
 	}
 
 	ConfigSetting(const char *ini, std::string *v, const char *def, bool save = true, bool perGame = false)
-		: ini_(ini), type_(TYPE_STRING), report_(false), save_(save), perGame_(perGame) {
+		: iniKey_(ini), type_(TYPE_STRING), report_(false), save_(save), perGame_(perGame) {
 		ptr_.s = v;
 		cb_.s = nullptr;
 		default_.s = def;
 	}
 
+	ConfigSetting(const char *ini, Path *p, const char *def, bool save = true, bool perGame = false)
+		: iniKey_(ini), type_(TYPE_PATH), report_(false), save_(save), perGame_(perGame) {
+		ptr_.p = p;
+		cb_.p = nullptr;
+		default_.p = def;
+	}
+
 	ConfigSetting(const char *iniX, const char *iniY, const char *iniScale, const char *iniShow, ConfigTouchPos *v, ConfigTouchPos def, bool save = true, bool perGame = false)
-		: ini_(iniX), ini2_(iniY), ini3_(iniScale), ini4_(iniShow), type_(TYPE_TOUCH_POS), report_(false), save_(save), perGame_(perGame) {
+		: iniKey_(iniX), ini2_(iniY), ini3_(iniScale), ini4_(iniShow), type_(TYPE_TOUCH_POS), report_(false), save_(save), perGame_(perGame) {
 		ptr_.touchPos = v;
 		cb_.touchPos = nullptr;
 		default_.touchPos = def;
 	}
 
 	ConfigSetting(const char *ini, bool *v, BoolDefaultCallback def, bool save = true, bool perGame = false)
-		: ini_(ini), type_(TYPE_BOOL), report_(false), save_(save), perGame_(perGame) {
+		: iniKey_(ini), type_(TYPE_BOOL), report_(false), save_(save), perGame_(perGame) {
 		ptr_.b = v;
 		cb_.b = def;
 	}
 
 	ConfigSetting(const char *ini, int *v, IntDefaultCallback def, bool save = true, bool perGame = false)
-		: ini_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame) {
+		: iniKey_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame) {
 		ptr_ .i = v;
 		cb_.i = def;
 	}
 
 	ConfigSetting(const char *ini, int *v, IntDefaultCallback def, std::function<std::string(int)> transTo, std::function<int(const std::string &)> transFrom, bool save = true, bool perGame = false)
-		: ini_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame), translateTo_(transTo), translateFrom_(transFrom) {
+		: iniKey_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame), translateTo_(transTo), translateFrom_(transFrom) {
 		ptr_.i = v;
 		cb_.i = def;
 	}
 
 	ConfigSetting(const char *ini, uint32_t *v, Uint32DefaultCallback def, bool save = true, bool perGame = false)
-		: ini_(ini), type_(TYPE_UINT32), report_(false), save_(save), perGame_(perGame) {
+		: iniKey_(ini), type_(TYPE_UINT32), report_(false), save_(save), perGame_(perGame) {
 		ptr_ .u = v;
 		cb_.u = def;
 	}
 
 	ConfigSetting(const char *ini, float *v, FloatDefaultCallback def, bool save = true, bool perGame = false)
-		: ini_(ini), type_(TYPE_FLOAT), report_(false), save_(save), perGame_(perGame) {
+		: iniKey_(ini), type_(TYPE_FLOAT), report_(false), save_(save), perGame_(perGame) {
 		ptr_.f = v;
 		cb_.f = def;
 	}
 
 	ConfigSetting(const char *ini, std::string *v, StringDefaultCallback def, bool save = true, bool perGame = false)
-		: ini_(ini), type_(TYPE_STRING), report_(false), save_(save), perGame_(perGame) {
+		: iniKey_(ini), type_(TYPE_STRING), report_(false), save_(save), perGame_(perGame) {
 		ptr_.s = v;
 		cb_.s = def;
 	}
 
 	ConfigSetting(const char *iniX, const char *iniY, const char *iniScale, const char *iniShow, ConfigTouchPos *v, TouchPosDefaultCallback def, bool save = true, bool perGame = false)
-		: ini_(iniX), ini2_(iniY), ini3_(iniScale), ini4_(iniShow), type_(TYPE_TOUCH_POS), report_(false), save_(save), perGame_(perGame) {
+		: iniKey_(iniX), ini2_(iniY), ini3_(iniScale), ini4_(iniShow), type_(TYPE_TOUCH_POS), report_(false), save_(save), perGame_(perGame) {
 		ptr_.touchPos = v;
 		cb_.touchPos = def;
 	}
@@ -212,39 +224,39 @@ struct ConfigSetting {
 			if (cb_.b) {
 				default_.b = cb_.b();
 			}
-			return section->Get(ini_, ptr_.b, default_.b);
+			return section->Get(iniKey_, ptr_.b, default_.b);
 		case TYPE_INT:
 			if (cb_.i) {
 				default_.i = cb_.i();
 			}
 			if (translateFrom_) {
 				std::string value;
-				if (section->Get(ini_, &value, nullptr)) {
+				if (section->Get(iniKey_, &value, nullptr)) {
 					*ptr_.i = translateFrom_(value);
 					return true;
 				}
 			}
-			return section->Get(ini_, ptr_.i, default_.i);
+			return section->Get(iniKey_, ptr_.i, default_.i);
 		case TYPE_UINT32:
 			if (cb_.u) {
 				default_.u = cb_.u();
 			}
-			return section->Get(ini_, ptr_.u, default_.u);
+			return section->Get(iniKey_, ptr_.u, default_.u);
 		case TYPE_FLOAT:
 			if (cb_.f) {
 				default_.f = cb_.f();
 			}
-			return section->Get(ini_, ptr_.f, default_.f);
+			return section->Get(iniKey_, ptr_.f, default_.f);
 		case TYPE_STRING:
 			if (cb_.s) {
 				default_.s = cb_.s();
 			}
-			return section->Get(ini_, ptr_.s, default_.s);
+			return section->Get(iniKey_, ptr_.s, default_.s);
 		case TYPE_TOUCH_POS:
 			if (cb_.touchPos) {
 				default_.touchPos = cb_.touchPos();
 			}
-			section->Get(ini_, &ptr_.touchPos->x, default_.touchPos.x);
+			section->Get(iniKey_, &ptr_.touchPos->x, default_.touchPos.x);
 			section->Get(ini2_, &ptr_.touchPos->y, default_.touchPos.y);
 			section->Get(ini3_, &ptr_.touchPos->scale, default_.touchPos.scale);
 			if (ini4_) {
@@ -253,6 +265,18 @@ struct ConfigSetting {
 				ptr_.touchPos->show = default_.touchPos.show;
 			}
 			return true;
+		case TYPE_PATH:
+		{
+			std::string tmp;
+			if (cb_.p) {
+				default_.p = cb_.p();
+			}
+			bool result = section->Get(iniKey_, &tmp, default_.p);
+			if (result) {
+				*ptr_.p = Path(tmp);
+			}
+			return result;
+		}
 		default:
 			_dbg_assert_msg_(false, "Unexpected ini setting type");
 			return false;
@@ -265,21 +289,23 @@ struct ConfigSetting {
 
 		switch (type_) {
 		case TYPE_BOOL:
-			return section->Set(ini_, *ptr_.b);
+			return section->Set(iniKey_, *ptr_.b);
 		case TYPE_INT:
 			if (translateTo_) {
 				std::string value = translateTo_(*ptr_.i);
-				return section->Set(ini_, value);
+				return section->Set(iniKey_, value);
 			}
-			return section->Set(ini_, *ptr_.i);
+			return section->Set(iniKey_, *ptr_.i);
 		case TYPE_UINT32:
-			return section->Set(ini_, *ptr_.u);
+			return section->Set(iniKey_, *ptr_.u);
 		case TYPE_FLOAT:
-			return section->Set(ini_, *ptr_.f);
+			return section->Set(iniKey_, *ptr_.f);
 		case TYPE_STRING:
-			return section->Set(ini_, *ptr_.s);
+			return section->Set(iniKey_, *ptr_.s);
+		case TYPE_PATH:
+			return section->Set(iniKey_, ptr_.p->ToString());
 		case TYPE_TOUCH_POS:
-			section->Set(ini_, ptr_.touchPos->x);
+			section->Set(iniKey_, ptr_.touchPos->x);
 			section->Set(ini2_, ptr_.touchPos->y);
 			section->Set(ini3_, ptr_.touchPos->scale);
 			if (ini4_) {
@@ -298,15 +324,17 @@ struct ConfigSetting {
 
 		switch (type_) {
 		case TYPE_BOOL:
-			return data.Add(prefix + ini_, *ptr_.b);
+			return data.Add(prefix + iniKey_, *ptr_.b);
 		case TYPE_INT:
-			return data.Add(prefix + ini_, *ptr_.i);
+			return data.Add(prefix + iniKey_, *ptr_.i);
 		case TYPE_UINT32:
-			return data.Add(prefix + ini_, *ptr_.u);
+			return data.Add(prefix + iniKey_, *ptr_.u);
 		case TYPE_FLOAT:
-			return data.Add(prefix + ini_, *ptr_.f);
+			return data.Add(prefix + iniKey_, *ptr_.f);
 		case TYPE_STRING:
-			return data.Add(prefix + ini_, *ptr_.s);
+			return data.Add(prefix + iniKey_, *ptr_.s);
+		case TYPE_PATH:
+			return data.Add(prefix + iniKey_, ptr_.p->ToString());
 		case TYPE_TOUCH_POS:
 			// Doesn't report.
 			return;
@@ -316,7 +344,7 @@ struct ConfigSetting {
 		}
 	}
 
-	const char *ini_;
+	const char *iniKey_;
 	const char *ini2_;
 	const char *ini3_;
 	const char *ini4_;
@@ -325,7 +353,7 @@ struct ConfigSetting {
 	bool save_;
 	bool perGame_;
 	SettingPtr ptr_;
-	Value default_;
+	DefaultValue default_;
 	Callback cb_;
 
 	// We only support transform for ints.
@@ -1213,7 +1241,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	iRunCount++;
 	if (!File::Exists(Path(currentDirectory)))
-		currentDirectory = "";
+		currentDirectory = defaultCurrentDirectory;
 
 	Section *log = iniFile.GetOrCreateSection(logSectionName);
 
@@ -1595,7 +1623,7 @@ void Config::RestoreDefaults() {
 		if (File::Exists(iniFilename_))
 			File::Delete(iniFilename_);
 		recentIsos.clear();
-		currentDirectory = "";
+		currentDirectory = defaultCurrentDirectory;
 	}
 	Load();
 }

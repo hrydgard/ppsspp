@@ -477,8 +477,9 @@ public:
 	bool bShowFrameProfiler;
 
 	// Various directories. Autoconfigured, not read from ini.
-	std::string currentDirectory;
-	Path externalDirectory;
+	Path currentDirectory;  // The directory selected in the game browsing window.
+	Path defaultCurrentDirectory;  // Platform dependent, initialized at startup.
+
 	Path memStickDirectory;
 	Path flash0Directory;
 	Path internalDataDirectory;

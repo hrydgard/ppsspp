@@ -592,7 +592,7 @@ void SystemInfoScreen::CreateViews() {
 	storage->Add(new InfoItem("MemStickDirectory", g_Config.memStickDirectory.ToVisualString()));
 	storage->Add(new InfoItem("InternalDataDirectory", g_Config.internalDataDirectory.ToVisualString()));
 	storage->Add(new InfoItem("AppCacheDir", g_Config.appCacheDirectory.ToVisualString()));
-	storage->Add(new InfoItem("ExtStorageDir", g_Config.externalDirectory.ToVisualString()));
+	storage->Add(new InfoItem("DefaultCurrentDir", g_Config.defaultCurrentDirectory.ToVisualString()));
 
 #if PPSSPP_PLATFORM(ANDROID)
 	storage->Add(new InfoItem("ExtFilesDir", g_extFilesDir));
