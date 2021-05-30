@@ -539,14 +539,13 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		LogManager::Init(&g_Config.bEnableLogging);
 
 #if !PPSSPP_PLATFORM(WINDOWS)
-	g_Config.AddSearchPath(Path(user_data_path));
-	g_Config.AddSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
-	g_Config.SetDefaultPath(GetSysDirectory(DIRECTORY_SYSTEM));
+	g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
 
 	// Note that if we don't have storage permission here, loading the config will
 	// fail and it will be set to the default. Later, we load again when we get permission.
 	g_Config.Load();
 #endif
+
 	LogManager *logman = LogManager::GetInstance();
 
 #if PPSSPP_PLATFORM(ANDROID)

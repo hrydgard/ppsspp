@@ -1577,12 +1577,8 @@ void Config::CleanRecent() {
 	recentIsos = cleanedRecent;
 }
 
-void Config::SetDefaultPath(const Path &defaultPath) {
-	defaultPath_ = defaultPath;
-}
-
-void Config::AddSearchPath(const Path &path) {
-	searchPath_.push_back(path);
+void Config::SetSearchPath(const Path &searchPath) {
+	searchPath_ = searchPath;
 }
 
 const Path Config::FindConfigFile(const std::string &baseFilename) {
@@ -1596,17 +1592,15 @@ const Path Config::FindConfigFile(const std::string &baseFilename) {
 	}
 #endif
 
-	for (size_t i = 0; i < searchPath_.size(); ++i) {
-		Path filename = searchPath_[i] / baseFilename;
-		if (File::Exists(filename)) {
-			return filename;
-		}
+	Path filename = searchPath_ / baseFilename;
+	if (File::Exists(filename)) {
+		return filename;
 	}
 
-	const Path filename = defaultPath_ / baseFilename;
-	if (!File::Exists(filename)) {
-		// Make sure at least the directory it's supposed to be in exists.
-		Path path = filename.NavigateUp();
+	// Make sure at least the directory it's supposed to be in exists.
+	Path path = filename.NavigateUp();
+	// This check is just to avoid logging.
+	if (!File::Exists(path)) {
 		File::CreateFullPath(path);
 	}
 	return filename;
