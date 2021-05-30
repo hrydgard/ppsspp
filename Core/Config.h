@@ -538,7 +538,6 @@ private:
 	Path controllerIniFilename_;
 	std::vector<Path> searchPath_;
 	Path defaultPath_;
-	Path createdPath_;
 };
 
 std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();
