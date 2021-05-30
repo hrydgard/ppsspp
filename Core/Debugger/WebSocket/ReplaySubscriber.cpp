@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cstdint>
+#include "Common/Data/Encoding/Base64.h"
 #include "Common/Swap.h"
 #include "Core/HLE/sceRtc.h"
 #include "Core/Replay.h"
@@ -54,28 +55,69 @@ void WebSocketReplayBegin(DebuggerRequest &req) {
 //
 // No parameters.
 //
-// Empty response.
+// Response (same event name) with no extra data.
 void WebSocketReplayAbort(DebuggerRequest &req) {
 	ReplayAbort();
 	req.Respond();
 }
 
+// Flush current recording data (replay.flush)
+//
+// Flushes event data and returns it.  Note when combining, you must decode first.
+//
+// No parameters.
+//
+// Response (same event name):
+//  - version: unsigned integer, version number of data.
+//  - base64: base64 encode of binary data.
 void WebSocketReplayFlush(DebuggerRequest &req) {
 	if (!PSP_IsInited())
 		return req.Fail("Game not running");
 
-	// TODO
+	std::vector<uint8_t> data;
+	ReplayFlushBlob(&data);
+
+	JsonWriter &json = req.Respond();
+	json.writeInt("version", ReplayVersion());
+	json.writeString("base64", Base64Encode(data.data(), data.size()));
 }
 
+// Begin executing a replay (replay.execute)
+//
+// Parameters:
+//  - version: unsigned integer, same version from replay.flush.
+//  - base64: base64 encoded replay data.
+//
+// Response (same event name) with no extra data.
 void WebSocketReplayExecute(DebuggerRequest &req) {
 	if (!PSP_IsInited())
 		return req.Fail("Game not running");
 
-	// TODO
+	uint32_t version = -1;
+	if (!req.ParamU32("version", &version))
+		return;
+	std::string encoded;
+	if (!req.ParamString("base64", &encoded))
+		return;
+
+	std::vector<uint8_t> data = Base64Decode(encoded.data(), encoded.size());
+	if (!ReplayExecuteBlob(version, data))
+		return req.Fail("Invalid replay data or version");
+
+	req.Respond();
 }
 
+// Get replay status (replay.status)
+//
+// No parameters.
+//
+// Response (same event name):
+//  - executing: boolean if a replay is being executed.
+//  - saving: boolean if a replay is being recorded.
 void WebSocketReplayStatus(DebuggerRequest &req) {
-	// TODO
+	JsonWriter &json = req.Respond();
+	json.writeBool("executing", ReplayIsExecuting());
+	json.writeBool("saving", ReplayIsSaving());
 }
 
 // Get the base RTC (real time clock) time for replay data (replay.time.get)
