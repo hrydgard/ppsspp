@@ -103,8 +103,7 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 
 	// Load config up here, because those changes below would be overwritten
 	// if it's not loaded here first.
-	g_Config.AddSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
-	g_Config.SetDefaultPath(GetSysDirectory(DIRECTORY_SYSTEM));
+	g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
 	g_Config.Load();
 
 	bool debugLogLevel = false;
