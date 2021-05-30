@@ -504,7 +504,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		}
 	}
 #elif PPSSPP_PLATFORM(IOS)
-	g_Config.defaultCurrentDirectory = g_Config.internalDataDirectory.ToString();
+	g_Config.defaultCurrentDirectory = g_Config.internalDataDirectory;
 	g_Config.memStickDirectory = Path(user_data_path);
 	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
 #elif PPSSPP_PLATFORM(SWITCH)
