@@ -18,13 +18,46 @@
 #include "Core/Debugger/WebSocket/GameSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/ELF/ParamSFO.h"
+#include "Core/Host.h"
 #include "Core/System.h"
 
 DebuggerSubscriber *WebSocketGameInit(DebuggerEventHandlerMap &map) {
+	map["game.reset"] = &WebSocketGameReset;
 	map["game.status"] = &WebSocketGameStatus;
 	map["version"] = &WebSocketVersion;
 
 	return nullptr;
+}
+
+// Reset emulation (game.reset)
+//
+// Use this if you need to break on start and do something before the game starts.
+//
+// Parameters:
+//  - break: optional boolean, true to break CPU on start.  Use cpu.resume afterward.
+//
+// Response (same event name) with no extra data or error.
+void WebSocketGameReset(DebuggerRequest &req) {
+	if (!PSP_IsInited())
+		return req.Fail("Game not running");
+
+	bool needBreak = false;
+	if (!req.ParamBool("break", &needBreak, DebuggerParamType::OPTIONAL))
+		return;
+
+	if (needBreak)
+		PSP_CoreParameter().startBreak = true;
+
+	PSP_Shutdown();
+	std::string resetError;
+	if (!PSP_Init(PSP_CoreParameter(), &resetError)) {
+		ERROR_LOG(BOOT, "Error resetting: %s", resetError.c_str());
+		return req.Fail("Could not reset");
+	}
+	host->BootDone();
+	host->UpdateDisassembly();
+
+	req.Respond();
 }
 
 // Check game status (game.status)
