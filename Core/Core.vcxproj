@@ -525,6 +525,7 @@
     <ClCompile Include="Debugger\WebSocket\DisasmSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\MemoryInfoSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\MemorySubscriber.cpp" />
+    <ClCompile Include="Debugger\WebSocket\ReplaySubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\SteppingBroadcaster.cpp" />
     <ClCompile Include="Debugger\WebSocket\SteppingSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\WebSocketUtils.cpp" />
@@ -1076,6 +1077,7 @@
     <ClInclude Include="Debugger\WebSocket\InputBroadcaster.h" />
     <ClInclude Include="Debugger\WebSocket\InputSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\MemoryInfoSubscriber.h" />
+    <ClInclude Include="Debugger\WebSocket\ReplaySubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\SteppingSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\WebSocketUtils.h" />
     <ClInclude Include="Debugger\WebSocket\CPUCoreSubscriber.h" />

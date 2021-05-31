@@ -700,6 +700,9 @@
     <ClCompile Include="..\..\Core\Debugger\WebSocket\MemoryInfoSubscriber.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\ReplaySubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\Debugger\WebSocket\SteppingBroadcaster.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
@@ -1699,6 +1702,9 @@
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\Debugger\WebSocket\MemoryInfoSubscriber.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\ReplaySubscriber.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\Debugger\WebSocket\SteppingBroadcaster.h">
