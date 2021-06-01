@@ -108,6 +108,11 @@ public:
 		return file.size() > root.size();
 	}
 
+	// Only goes downwards in hierarchies. No ".." will ever be generated.
+	std::string PathTo(const AndroidContentURI &other) const {
+		return other.FilePath().substr(FilePath().size() + 1);
+	}
+
 	std::string GetFileExtension() const {
 		size_t pos = file.rfind(".");
 		if (pos == std::string::npos) {

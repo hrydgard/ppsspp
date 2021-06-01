@@ -605,6 +605,9 @@ static bool TestPath() {
 	EXPECT_EQ_STR(Path("C:\\Yo").GetFilename(), std::string("Yo"));
 	EXPECT_EQ_STR(Path("C:\\Yo\\Lo").GetDirectory(), std::string("C:/Yo"));
 	EXPECT_EQ_STR(Path("C:\\Yo\\Lo").GetFilename(), std::string("Lo"));
+
+	EXPECT_EQ_STR(Path("/a/b").PathTo(Path("/a/b/c/d/e")), std::string("c/d/e"));
+
 	return true;
 }
 
@@ -633,6 +636,10 @@ static bool TestAndroidContentURI() {
 	EXPECT_EQ_STR(fileURI.FilePath(), fileURI.RootPath());
 
 	EXPECT_EQ_STR(fileURI.ToString(), std::string(directoryURIString));
+
+	std::string diff = dirURI.PathTo(fileURI);
+	EXPECT_EQ_STR(diff, std::string("Tekken 6.iso"));
+
 	return true;
 }
 

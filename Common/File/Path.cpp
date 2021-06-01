@@ -260,6 +260,29 @@ Path Path::NavigateUp() const {
 	return Path(dir);
 }
 
+Path Path::GetRootVolume() const {
+	if (!IsAbsolute()) {
+		// Can't do anything
+		return Path(path_);
+	}
+
+	if (type_ == PathType::CONTENT_URI) {
+		AndroidContentURI uri(path_);
+		std::string rootPath = uri.RootPath();
+		return Path(rootPath);
+	}
+
+#if PPSSPP_PLATFORM(WINDOWS)
+	if (path_[1] == ':') {
+		// Windows path with drive letter
+		std::string path = path_.substr(0, 2);
+		return Path(path);
+	}
+#endif
+
+	return Path("/");
+}
+
 bool Path::IsAbsolute() const {
 	if (type_ == PathType::CONTENT_URI) {
 		// These don't exist in relative form.
@@ -276,4 +299,27 @@ bool Path::IsAbsolute() const {
 #endif
 	else
 		return false;
+}
+
+std::string Path::PathTo(const Path &other) {
+	if (!other.StartsWith(*this)) {
+		// Can't do this. Should return an error.
+		return std::string();
+	}
+
+	std::string diff;
+
+	if (type_ == PathType::CONTENT_URI) {
+		AndroidContentURI a(path_);
+		AndroidContentURI b(other.path_);
+		if (a.RootPath() != b.RootPath()) {
+			// No common root, can't do anything
+			return std::string();
+		}
+		diff = a.PathTo(b);
+	} else {
+		diff = other.path_.substr(path_.size() + 1);
+	}
+
+	return diff;
 }

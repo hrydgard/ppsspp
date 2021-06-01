@@ -413,48 +413,37 @@ bool CreateFullPath(const Path &path) {
 
 	switch (path.Type()) {
 	case PathType::NATIVE:
-		break; // OK
 	case PathType::CONTENT_URI:
+		break; // OK
+	default:
 		ERROR_LOG(COMMON, "CreateFullPath(%s): Not yet supported", path.c_str());
 		return false;
-	default:
+	}
+
+	// The below code is entirely agnostic of path format.
+
+	Path root = path.GetRootVolume();
+
+	std::string diff = root.PathTo(path);  // always with forward slashes
+
+	std::vector<std::string> parts;
+	SplitString(diff, '/', parts);
+
+	// Probably not necessary sanity check, ported from the old code.
+	if (parts.size() > 100) {
+		ERROR_LOG(COMMON, "CreateFullPath: directory structure too deep");
 		return false;
 	}
 
-	std::string fullPath = path.ToString();
-	int panicCounter = 100;
-	VERBOSE_LOG(COMMON, "CreateFullPath: '%s'", fullPath.c_str());
-		
-	size_t position = 0;
+	Path curPath = root;
 
-#ifdef _WIN32
-	// Skip the drive letter when looking for slashes, no need to create C:\.
-	if (path.IsAbsolute()) {
-		position = 3;
-	}
-#endif
+	for (auto &part : parts) {
+		curPath /= part;
+		INFO_LOG(COMMON, "Creating %s", curPath.c_str());
 
-	while (true) {
-		// Find next sub path
-		position = fullPath.find_first_of(DIR_SEP_CHRS, position);
-		// we're done, yay!
-		if (position == fullPath.npos) {
-			if (!File::Exists(Path(fullPath)))
-				return File::CreateDir(Path(fullPath));
-			return true;
+		if (!File::Exists(curPath)) {
+			File::CreateDir(curPath);
 		}
-		std::string subPath = fullPath.substr(0, position);
-		if (position != 0 && !File::Exists(Path(subPath))) {
-			File::CreateDir(Path(subPath));
-		}
-
-		// A safety check
-		panicCounter--;
-		if (panicCounter <= 0) {
-			ERROR_LOG(COMMON, "CreateFullPath: directory structure too deep");
-			return false;
-		}
-		position++;
 	}
 }
 

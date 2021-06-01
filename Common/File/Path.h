@@ -78,6 +78,10 @@ public:
 	bool CanNavigateUp() const;
 	Path NavigateUp() const;
 
+	Path GetRootVolume() const;  // Navigates as far up as possible on the current volume, whatever that is. If not possible, returns the same path.
+
+	std::string PathTo(const Path &child);
+
 	bool operator ==(const Path &other) const {
 		return path_ == other.path_ && type_ == other.type_;
 	}
