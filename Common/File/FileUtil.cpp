@@ -101,15 +101,42 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 	case PathType::NATIVE:
 		break;
 	case PathType::CONTENT_URI:
+		// We're gonna need some error codes..
 		if (!strcmp(mode, "r") || !strcmp(mode, "rb")) {
+			INFO_LOG(COMMON, "Opening content file for read: '%s'", path.c_str());
 			// Read, let's support this - easy one.
 			int descriptor = Android_OpenContentUriFd(path.ToString(), Android_OpenContentUriMode::READ);
 			if (descriptor == -1) {
-				// Set last error message?
-				// We're gonna need some error codes..
 				return nullptr;
 			}
 			return fdopen(descriptor, "rb");
+		} else if (!strcmp(mode, "w") || !strcmp(mode, "wb")) {
+			// Need to be able to create the file here if it doesn't exist.
+			// Not exactly sure which abstractions are best, let's start simple.
+			if (!File::Exists(path)) {
+				INFO_LOG(COMMON, "Opening content file '%s' for write. Doesn't exist, creating empty and reopening.", path.c_str());
+				std::string name = path.GetFilename();
+				if (path.CanNavigateUp()) {
+					Path parent = path.NavigateUp();
+					if (!Android_CreateFile(parent.ToString(), name)) {
+						WARN_LOG(COMMON, "Failed to create file '%s' in '%s'", name.c_str(), parent.c_str());
+						return nullptr;
+					}
+				} else {
+					INFO_LOG(COMMON, "Failed to navigate up to create file");
+					return nullptr;
+				}
+			} else {
+				INFO_LOG(COMMON, "Opening file by fd for write");
+			}
+
+			// Read, let's support this - easy one.
+			int descriptor = Android_OpenContentUriFd(path.ToString(), Android_OpenContentUriMode::READ_WRITE_TRUNCATE);
+			if (descriptor == -1) {
+				INFO_LOG(COMMON, "Opening '%s' for write failed", path.ToString().c_str());
+				return nullptr;
+			}
+			return fdopen(descriptor, "wb");
 		} else {
 			ERROR_LOG(COMMON, "OpenCFile(%s): Mode not yet supported: %s", path.c_str(), mode);
 			return nullptr;
@@ -365,6 +392,7 @@ bool CreateDir(const Path &path) {
 		AndroidContentURI uri(path.ToString());
 		std::string newDirName = uri.GetLastPart();
 		if (uri.NavigateUp()) {
+			INFO_LOG(COMMON, "Calling Android_CreateDirectory(%s, %s)", uri.ToString().c_str(), newDirName.c_str());
 			return Android_CreateDirectory(uri.ToString(), newDirName);
 		} else {
 			// Bad path - can't create this directory.
@@ -437,14 +465,18 @@ bool CreateFullPath(const Path &path) {
 
 	Path curPath = root;
 
+	INFO_LOG(COMMON, "About to create folder tree '%s', rooted at '%s'", path.c_str(), root.c_str());
+
 	for (auto &part : parts) {
 		curPath /= part;
-		INFO_LOG(COMMON, "Creating %s", curPath.c_str());
-
 		if (!File::Exists(curPath)) {
+			INFO_LOG(COMMON, "Creating folder '%s', doesn't already exist", curPath.c_str());
 			File::CreateDir(curPath);
 		}
 	}
+	INFO_LOG(COMMON, "Done");
+
+	return true;
 }
 
 // Deletes a directory filename, returns true on success

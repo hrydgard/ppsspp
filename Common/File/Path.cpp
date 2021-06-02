@@ -268,8 +268,8 @@ Path Path::GetRootVolume() const {
 
 	if (type_ == PathType::CONTENT_URI) {
 		AndroidContentURI uri(path_);
-		std::string rootPath = uri.RootPath();
-		return Path(rootPath);
+		AndroidContentURI rootPath = uri.WithRootFilePath("");
+		return Path(rootPath.ToString());
 	}
 
 #if PPSSPP_PLATFORM(WINDOWS)

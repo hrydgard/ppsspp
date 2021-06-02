@@ -172,6 +172,7 @@ public class PpssppActivity extends NativeActivity {
 				DocumentFile createdDir = documentFile.createDirectory(dirName);
 				return createdDir != null;
 			} else {
+				Log.e(TAG, "contentUriCreateDirectory: fromTreeUri returned null");
 				return false;
 			}
 		} catch (Exception e) {
@@ -185,9 +186,10 @@ public class PpssppActivity extends NativeActivity {
 			Uri uri = Uri.parse(rootTreeUri);
 			DocumentFile documentFile = DocumentFile.fromTreeUri(this, uri);
 			if (documentFile != null) {
-				DocumentFile createdFile = documentFile.createFile("application/arbitrary", fileName);
+				DocumentFile createdFile = documentFile.createFile("application/octet-stream", fileName);
 				return createdFile != null;
 			} else {
+				Log.e(TAG, "contentUriCreateFile: fromTreeUri returned null");
 				return false;
 			}
 		} catch (Exception e) {
@@ -216,8 +218,12 @@ public class PpssppActivity extends NativeActivity {
 			Uri uri = Uri.parse(fileName);
 			DocumentFile documentFile = DocumentFile.fromSingleUri(this, uri);
 			if (documentFile != null) {
-				String str = fileInfoToString(documentFile);
-				return str;
+				if (documentFile.exists()) {
+					String str = fileInfoToString(documentFile);
+					return str;
+				} else {
+					return null;
+				}
 			} else {
 				return null;
 			}

@@ -63,7 +63,10 @@ public:
 
 	AndroidContentURI WithRootFilePath(const std::string &filePath) {
 		AndroidContentURI uri = *this;
-		uri.file = uri.root + "/" + filePath;
+		uri.file = uri.root;
+		if (!filePath.empty()) {
+			uri.file += "/" + filePath;
+		}
 		return uri;
 	}
 

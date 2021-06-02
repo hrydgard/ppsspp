@@ -131,8 +131,10 @@ bool GameManager::Uninstall(std::string name) {
 void GameManager::Update() {
 	if (curDownload_.get() && curDownload_->Done()) {
 		INFO_LOG(HLE, "Download completed! Status = %d", curDownload_->ResultCode());
-		Path fileName = Path(curDownload_->outfile());
+		Path fileName = curDownload_->outfile();
 		if (curDownload_->ResultCode() == 200) {
+			// TODO: This fails. Wonder if there's a race condition?
+
 			if (!File::Exists(fileName)) {
 				ERROR_LOG(HLE, "Downloaded file '%s' does not exist :(", fileName.c_str());
 				curDownload_.reset();

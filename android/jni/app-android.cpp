@@ -61,6 +61,7 @@ struct JNIEnv {};
 #include "Common/System/System.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/File/Path.h"
+#include "Common/File/DirListing.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/AssetReader.h"
 #include "Common/Input/InputState.h"
@@ -269,7 +270,7 @@ int Android_OpenContentUriFd(const std::string &filename, Android_OpenContentUri
 
 bool Android_CreateDirectory(const std::string &rootTreeUri, const std::string &dirName) {
 	if (!nativeActivity) {
-		return -1;
+		return false;
 	}
 	auto env = getEnv();
 	jstring paramRoot = env->NewStringUTF(rootTreeUri.c_str());
@@ -279,7 +280,7 @@ bool Android_CreateDirectory(const std::string &rootTreeUri, const std::string &
 
 bool Android_CreateFile(const std::string &parentTreeUri, const std::string &fileName) {
 	if (!nativeActivity) {
-		return -1;
+		return false;
 	}
 	auto env = getEnv();
 	jstring paramRoot = env->NewStringUTF(parentTreeUri.c_str());
@@ -289,20 +290,46 @@ bool Android_CreateFile(const std::string &parentTreeUri, const std::string &fil
 
 bool Android_RemoveFile(const std::string &fileUri) {
 	if (!nativeActivity) {
-		return -1;
+		return false;
 	}
 	auto env = getEnv();
 	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
 	return env->CallBooleanMethod(nativeActivity, contentUriRemoveFile, paramFileName);
 }
 
-bool Android_GetFileInfo(const std::string &fileUri, File::FileInfo *info) {
+static bool ParseFileInfo(const std::string &line, File::FileInfo *fileInfo) {
+	INFO_LOG(FILESYS, "!! %s", line.c_str());
+	std::vector<std::string> parts;
+	SplitString(line, '|', parts);
+	if (parts.size() != 5) {
+		ERROR_LOG(FILESYS, "Bad format: %s", line.c_str());
+		return false;
+	}
+	fileInfo->name = std::string(parts[2]);
+	fileInfo->isDirectory = parts[0][0] == 'D';
+	fileInfo->exists = true;
+	sscanf(parts[1].c_str(), "%ld", &fileInfo->size);
+	fileInfo->fullName = Path(parts[3]);
+	fileInfo->isWritable = false;  // TODO: We don't yet request write access
+	sscanf(parts[4].c_str(), "%ld", &fileInfo->lastModified);
+	return true;
+}
+
+bool Android_GetFileInfo(const std::string &fileUri, File::FileInfo *fileInfo) {
 	if (!nativeActivity) {
-		return -1;
+		return false;
 	}
 	auto env = getEnv();
 	jstring paramFileUri = env->NewStringUTF(fileUri.c_str());
-	return env->CallObjectMethod(nativeActivity, contentUriGetFileInfo, paramFileUri);
+
+	jstring str = (jstring)env->CallObjectMethod(nativeActivity, contentUriGetFileInfo, paramFileUri);
+	if (!str) {
+		return false;
+	}
+	const char *charArray = env->GetStringUTFChars(str, 0);
+	bool retval = ParseFileInfo(std::string(charArray), fileInfo);
+	env->DeleteLocalRef(str);
+	return retval && fileInfo->exists;
 }
 
 std::vector<File::FileInfo> Android_ListContentUri(const std::string &path) {
@@ -321,21 +348,10 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &path) {
         const char *charArray = env->GetStringUTFChars(str, 0);
         if (charArray) {  // paranoia
             std::string file = charArray;
-			INFO_LOG(FILESYS, "!! %s", file.c_str());
-			std::vector<std::string> parts;
-			SplitString(file, '|', parts);
-			if (parts.size() != 5) {
-				continue;
-			}
 			File::FileInfo info;
-			info.name = parts[2];
-			info.isDirectory = parts[0][0] == 'D';
-			info.exists = true;
-			sscanf(parts[1].c_str(), "%ld", &info.size);
-			info.fullName = Path(parts[3]);
-			info.isWritable = false;  // We don't yet request write access
-			sscanf(parts[4].c_str(), "%ld", &info.lastModified);
-			items.push_back(info);
+			if (ParseFileInfo(file, &info)) {
+				items.push_back(info);
+			}
         }
         env->ReleaseStringUTFChars(str, charArray);
         env->DeleteLocalRef(str);
@@ -345,6 +361,9 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &path) {
 }
 
 int64_t Android_GetFreeSpaceByContentUri(const std::string &uri) {
+	if (!nativeActivity) {
+		return false;
+	}
     auto env = getEnv();
 
     jstring param = env->NewStringUTF(uri.c_str());
@@ -352,6 +371,9 @@ int64_t Android_GetFreeSpaceByContentUri(const std::string &uri) {
 }
 
 int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath) {
+	if (!nativeActivity) {
+		return false;
+	}
 	auto env = getEnv();
 
 	jstring param = env->NewStringUTF(filePath.c_str());
