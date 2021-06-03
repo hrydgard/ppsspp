@@ -1,4 +1,4 @@
-// Copyright (c) 2018- PPSSPP Project.
+// Copyright (c) 2021- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,8 +19,12 @@
 
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 
-DebuggerSubscriber *WebSocketGameInit(DebuggerEventHandlerMap &map);
+DebuggerSubscriber *WebSocketReplayInit(DebuggerEventHandlerMap &map);
 
-void WebSocketGameReset(DebuggerRequest &req);
-void WebSocketGameStatus(DebuggerRequest &req);
-void WebSocketVersion(DebuggerRequest &req);
+void WebSocketReplayBegin(DebuggerRequest &req);
+void WebSocketReplayAbort(DebuggerRequest &req);
+void WebSocketReplayFlush(DebuggerRequest &req);
+void WebSocketReplayExecute(DebuggerRequest &req);
+void WebSocketReplayStatus(DebuggerRequest &req);
+void WebSocketReplayTimeGet(DebuggerRequest &req);
+void WebSocketReplayTimeSet(DebuggerRequest &req);

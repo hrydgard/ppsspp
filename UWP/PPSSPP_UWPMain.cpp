@@ -92,9 +92,6 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 		langRegion = "en_US";
 	}
 
-	char configFilename[MAX_PATH] = { 0 };
-	char controlsConfigFilename[MAX_PATH] = { 0 };
-
 	std::wstring memstickFolderW = ApplicationData::Current->LocalFolder->Path->Data();
 	g_Config.memStickDirectory = Path(memstickFolderW);
 
@@ -106,9 +103,8 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 
 	// Load config up here, because those changes below would be overwritten
 	// if it's not loaded here first.
-	g_Config.AddSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
-	g_Config.SetDefaultPath(GetSysDirectory(DIRECTORY_SYSTEM));
-	g_Config.Load(configFilename, controlsConfigFilename);
+	g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
+	g_Config.Load();
 
 	bool debugLogLevel = false;
 

@@ -72,7 +72,9 @@ Request::Request(int fd)
 Request::~Request() {
 	Close();
 
-	_assert_(in_->Empty());
+	if (!in_->Empty()) {
+		ERROR_LOG(IO, "Input not empty - invalid request?");
+	}
 	delete in_;
 	if (!out_->Empty()) {
 		ERROR_LOG(IO, "Output not empty - connection abort?");
@@ -330,6 +332,10 @@ void Server::HandleRequest(const Request &request) {
 }
 
 void Server::HandleRequestDefault(const Request &request) {
+	if (request.resource() == nullptr) {
+		fallback_(request);
+		return;
+	}
 	// First, look through all handlers. If we got one, use it.
 	auto handler = handlers_.find(request.resource());
 	if (handler != handlers_.end()) {

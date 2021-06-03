@@ -468,7 +468,8 @@ bool PSP_InitUpdate(std::string *error_string) {
 }
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
-	PSP_InitStart(coreParam, error_string);
+	if (!PSP_InitStart(coreParam, error_string))
+		return false;
 
 	while (!PSP_InitUpdate(error_string))
 		sleep_ms(10);
@@ -697,7 +698,7 @@ void InitSysDirectories() {
 	File::CreateDir(GetSysDirectory(DIRECTORY_SAVESTATE));
 
 	if (g_Config.currentDirectory.empty()) {
-		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_GAME).ToString();
+		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_GAME);
 	}
 }
 #endif

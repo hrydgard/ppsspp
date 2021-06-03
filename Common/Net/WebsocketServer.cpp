@@ -341,8 +341,8 @@ bool WebSocketServer::ReadFrame() {
 
 		mask = &header[10];
 		// Read from big endian.
-		uint64_t high = (header[2] << 24) | (header[3] << 16) || (header[4] << 8) | (header[5] << 0);
-		uint64_t low = (header[6] << 24) | (header[7] << 16) || (header[8] << 8) | (header[9] << 0);
+		uint64_t high = (header[2] << 24) | (header[3] << 16) | (header[4] << 8) | (header[5] << 0);
+		uint64_t low = (header[6] << 24) | (header[7] << 16) | (header[8] << 8) | (header[9] << 0);
 		sz = (high << 32) | low;
 
 		if ((sz & 0x8000000000000000ULL) != 0) {

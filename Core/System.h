@@ -97,7 +97,10 @@ bool IsAudioInitialised();
 
 void UpdateLoadedFile(FileLoader *fileLoader);
 
+// NOTE: These are almost all derived from g_Config.memStickDirectory directly -
+// they are not stored anywhere.
 Path GetSysDirectory(PSPDirectories directoryType);
+
 #ifdef _WIN32
 void InitSysDirectories();
 #endif

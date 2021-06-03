@@ -116,7 +116,7 @@ struct ReplayFileInfo {
 
 struct ReplayItem {
 	ReplayItemHeader info;
-	std::vector<u8> data;
+	std::vector<uint8_t> data;
 
 	ReplayItem(ReplayItemHeader h) : info(h) {
 	}
@@ -136,7 +136,16 @@ static uint8_t lastAnalog[2][2]{};
 static size_t replayDiskPos = 0;
 static bool diskFailed = false;
 
-void ReplayExecuteBlob(const std::vector<u8> &data) {
+bool ReplayExecuteBlob(int version, const std::vector<uint8_t> &data) {
+	if (version < REPLAY_VERSION_MIN || version > REPLAY_VERSION_CURRENT) {
+		ERROR_LOG(SYSTEM, "Bad replay data version: %d", version);
+		return false;
+	}
+	if (data.size() == 0) {
+		ERROR_LOG(SYSTEM, "Empty replay data");
+		return false;
+	}
+
 	ReplayAbort();
 
 	// Rough estimate.
@@ -167,6 +176,7 @@ void ReplayExecuteBlob(const std::vector<u8> &data) {
 
 	replayState = ReplayState::EXECUTE;
 	INFO_LOG(SYSTEM, "Executing replay with %lld items", (long long)replayItems.size());
+	return true;
 }
 
 bool ReplayExecuteFile(const Path &filename) {
@@ -178,7 +188,8 @@ bool ReplayExecuteFile(const Path &filename) {
 		return false;
 	}
 
-	std::vector<u8> data;
+	int version = -1;
+	std::vector<uint8_t> data;
 	auto loadData = [&]() {
 		// TODO: Maybe stream instead.
 		size_t sz = File::GetFileSize(fp);
@@ -206,6 +217,9 @@ bool ReplayExecuteFile(const Path &filename) {
 			WARN_LOG(SYSTEM, "Replay version %d scary and futuristic, trying anyway", fh.version);
 		}
 
+		RtcSetBaseTime((int32_t)fh.rtcBaseSeconds, 0);
+		version = fh.version;
+
 		data.resize(sz);
 
 		if (fread(&data[0], sz, 1, fp) != 1) {
@@ -218,7 +232,7 @@ bool ReplayExecuteFile(const Path &filename) {
 
 	if (loadData()) {
 		fclose(fp);
-		ReplayExecuteBlob(data);
+		ReplayExecuteBlob(version, data);
 		return true;
 	}
 
@@ -243,7 +257,7 @@ void ReplayBeginSave() {
 	replayState = ReplayState::SAVE;
 }
 
-void ReplayFlushBlob(std::vector<u8> *data) {
+void ReplayFlushBlob(std::vector<uint8_t> *data) {
 	size_t sz = replayItems.size() * sizeof(ReplayItemHeader);
 	// Add in any side data.
 	for (const auto &item : replayItems) {
@@ -289,7 +303,7 @@ bool ReplayFlushFile(const Path &filename) {
 	size_t c = replayItems.size();
 	if (success && c != 0) {
 		// TODO: Maybe stream instead.
-		std::vector<u8> data;
+		std::vector<uint8_t> data;
 		ReplayFlushBlob(&data);
 
 		success = fwrite(&data[0], data.size(), 1, fp) == 1;
@@ -302,6 +316,10 @@ bool ReplayFlushFile(const Path &filename) {
 		ERROR_LOG(SYSTEM, "Could not write %lld replay items (disk full?)", (long long)c);
 	}
 	return success;
+}
+
+int ReplayVersion() {
+	return REPLAY_VERSION_CURRENT;
 }
 
 void ReplayAbort() {
@@ -317,6 +335,14 @@ void ReplayAbort() {
 
 	replayDiskPos = 0;
 	diskFailed = false;
+}
+
+bool ReplayIsExecuting() {
+	return replayState == ReplayState::EXECUTE;
+}
+
+bool ReplayIsSaving() {
+	return replayState == ReplayState::SAVE;
 }
 
 static void ReplaySaveCtrl(uint32_t &buttons, uint8_t analog[2][2], uint64_t t) {

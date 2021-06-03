@@ -505,7 +505,7 @@ void GameBrowser::FocusGame(const Path &gamePath) {
 
 void GameBrowser::SetPath(const Path &path) {
 	path_.SetPath(path);
-	g_Config.currentDirectory = path_.GetPath().ToString();
+	g_Config.currentDirectory = path_.GetPath();
 	Refresh();
 }
 
@@ -905,7 +905,7 @@ UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 	} else {
 		path_.Navigate(text.ToString());
 	}
-	g_Config.currentDirectory = path_.GetPath().ToString();
+	g_Config.currentDirectory = path_.GetPath();
 	Refresh();
 	return UI::EVENT_DONE;
 }

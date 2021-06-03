@@ -364,10 +364,10 @@ bool CreateFullPath(const Path &path) {
 
 	std::string fullPath = path.ToString();
 	int panicCounter = 100;
-	VERBOSE_LOG(COMMON, "CreateFullPath: path %s", fullPath.c_str());
+	VERBOSE_LOG(COMMON, "CreateFullPath: '%s'", fullPath.c_str());
 		
 	if (File::Exists(fullPath)) {
-		DEBUG_LOG(COMMON, "CreateFullPath: path exists %s", fullPath.c_str());
+		DEBUG_LOG(COMMON, "CreateFullPath: path already exists: '%s'", fullPath.c_str());
 		return true;
 	}
 
@@ -752,7 +752,7 @@ const Path &GetExeDirectory() {
 		ExePath = Path(program_path);
 
 #elif (defined(__APPLE__) && !PPSSPP_PLATFORM(IOS)) || defined(__linux__) || defined(KERN_PROC_PATHNAME)
-		char program_path[4096];
+		char program_path[4096]{};
 		uint32_t program_path_size = sizeof(program_path) - 1;
 
 #if defined(__linux__)
