@@ -356,7 +356,10 @@ inline vector<CharRange> merge(const vector<CharRange> &a, const vector<CharRang
 
 void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges, float *metrics_height, Bucket *bucket) {
 	FT_Library freetype = 0;
-	assert(FT_Init_FreeType(&freetype) == 0);
+	if (FT_Init_FreeType(&freetype) != 0) {
+		printf("ERROR: Failed to init freetype\n");
+		exit(1);
+	}
 
 	vector<FT_Face> fonts;
 	fonts.resize(fontRefs.size());
@@ -368,14 +371,18 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 
 	for (size_t i = 0, n = fontRefs.size(); i < n; ++i) {
 		FT_Face &font = fonts[i];
-		if (FT_New_Face(freetype, fontRefs[i].file_.c_str(), 0, &font) != 0) {
-			printf("Failed to load font file %s\n", fontRefs[i].file_.c_str());
+		int err = FT_New_Face(freetype, fontRefs[i].file_.c_str(), 0, &font);
+		if (err != 0) {
+			printf("Failed to load font file %s (%d)\n", fontRefs[i].file_.c_str(), err);
 			printf("bailing");
-			exit(0);
+			exit(1);
 		}
 		printf("TTF info: %d glyphs, %08x flags, %d units, %d strikes\n", (int)font->num_glyphs, (int)font->face_flags, (int)font->units_per_EM, (int)font->num_fixed_sizes);
 
-		assert(FT_Set_Pixel_Sizes(font, 0, fontRefs[i].size_ * supersample) == 0);
+		if (FT_Set_Pixel_Sizes(font, 0, fontRefs[i].size_ * supersample) != 0) {
+			printf("ERROR: Failed to set font size\n");
+			exit(1);
+		}
 
 		ranges = merge(ranges, fontRefs[i].ranges_);
 		for (size_t r = 0, rn = fontRefs[i].ranges_.size(); r < rn; ++r) {
