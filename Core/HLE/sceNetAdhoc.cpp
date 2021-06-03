@@ -111,6 +111,7 @@ int FlushPtpSocket(int socketId);
 int NetAdhocGameMode_DeleteMaster();
 int NetAdhocctl_ExitGameMode();
 int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect = true);
+static int sceNetAdhocPdpCreate(const char* mac, int port, int bufferSize, u32 flag);
 static int sceNetAdhocPdpSend(int id, const char* mac, u32 port, void* data, int len, int timeout, int flag);
 static int sceNetAdhocPdpRecv(int id, void* addr, void* port, void* buf, void* dataLength, u32 timeout, int flag);
 
@@ -144,18 +145,40 @@ void __NetAdhocShutdown() {
 }
 
 bool IsGameModeActive() {
-	return netAdhocGameModeEntered && gameModeBuffer != nullptr && gameModeSocket > 0 && adhocSockets[gameModeSocket - 1] != nullptr;
+	return netAdhocGameModeEntered;
 }
 
 static void __GameModeNotify(u64 userdata, int cyclesLate) {
 	SceUID threadID = userdata >> 32;
-	int uid = (int)(userdata & 0xFFFFFFFF);
 
 	if (IsGameModeActive()) {
-		auto sock = adhocSockets[gameModeSocket - 1];
-
 		// Need to make sure all replicas have been created before we start syncing data
 		if (replicaGameModeAreas.size() == (gameModeMacs.size() - 1)) {
+			// Socket's buffer size should fit the largest size from master/replicas, so we waited until Master & all Replicas to be created first before creating the socket, since there are games (ie. Fading Shadows) that use different buffer size for Master and Replica.
+			if (gameModeSocket < 0 && !isZeroMAC(&masterGameModeArea.mac)) {
+				u8* buf = (u8*)realloc(gameModeBuffer, gameModeBuffSize);
+				if (buf)
+					gameModeBuffer = buf;
+
+				if ((gameModeSocket = sceNetAdhocPdpCreate((const char*)&masterGameModeArea.mac, ADHOC_GAMEMODE_PORT, gameModeBuffSize, 0)) < 0) {
+					ERROR_LOG(SCENET, "GameMode: Failed to create socket (Error %08x)", gameModeSocket);
+					__KernelResumeThreadFromWait(threadID, gameModeSocket);
+					return;
+				}
+				else 
+					INFO_LOG(SCENET, "GameMode: Synchronizer (%d, %d) has started", gameModeSocket, gameModeBuffSize);
+			}
+			if (gameModeSocket < 0) {
+				// ReSchedule
+				CoreTiming::ScheduleEvent(usToCycles(GAMEMODE_UPDATE_INTERVAL) - cyclesLate, gameModeNotifyEvent, userdata);
+				return;
+			}
+			auto sock = adhocSockets[gameModeSocket - 1];
+			if (!sock) {
+				WARN_LOG(SCENET, "GameMode: Socket (%d) got deleted", gameModeSocket);
+				return;
+			}
+
 			// Send Master data
 			if (masterGameModeArea.dataUpdated) {
 				int sentcount = 0;
@@ -177,7 +200,7 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 			else {
 				u32 error;
 				SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
-				if (error == 0 && waitID == sock->data.pdp.id) {
+				if (error == 0 && waitID == GAMEMODE_WAITID) {
 					// Resume thread after all replicas data have been received
 					int recvd = 0;
 					for (auto& gma : replicaGameModeAreas) {
@@ -218,7 +241,7 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 			if (IsSocketReady(sock->data.pdp.id, true, false) > 0) {
 				SceNetEtherAddr sendermac;
 				s32_le senderport = ADHOC_GAMEMODE_PORT;
-				s32_le bufsz = uid; // GAMEMODE_BUFFER_SIZE;
+				s32_le bufsz = gameModeBuffSize;
 				int ret = sceNetAdhocPdpRecv(gameModeSocket, &sendermac, &senderport, gameModeBuffer, &bufsz, 0, ADHOC_F_NONBLOCK);
 				if (ret >= 0 && bufsz > 0) {
 					for (auto& gma : replicaGameModeAreas) {
@@ -238,7 +261,7 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 		CoreTiming::ScheduleEvent(usToCycles(GAMEMODE_UPDATE_INTERVAL) - cyclesLate, gameModeNotifyEvent, userdata);
 		return;
 	}
-	INFO_LOG(SCENET, "GameMode Scheduler (%d, %d) has finished", gameModeSocket, uid);
+	INFO_LOG(SCENET, "GameMode Scheduler (%d, %d) has ended", gameModeSocket, gameModeBuffSize);
 }
 
 static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
@@ -384,14 +407,10 @@ int ScheduleAdhocctlState(int event, int newState, int usec, const char* reason)
 	return 0;
 }
 
-int StartGameModeScheduler(int bufSize) {
-	if (gameModeSocket < 0)
-		return -1;
-
-	INFO_LOG(SCENET, "GameMode Scheduler (%d, %d) has started", gameModeSocket, bufSize);
-	u64 param = ((u64)__KernelGetCurThread()) << 32 | bufSize;
+int StartGameModeScheduler() {
+	INFO_LOG(SCENET, "Initiating GameMode Scheduler");
+	u64 param = ((u64)__KernelGetCurThread()) << 32;
 	CoreTiming::ScheduleEvent(usToCycles(GAMEMODE_INIT_DELAY), gameModeNotifyEvent, param);
-
 	return 0;
 }
 
@@ -4148,22 +4167,17 @@ static int sceNetAdhocGameModeCreateMaster(u32 dataAddr, int size) {
 	hleEatMicro(1000);
 	SceNetEtherAddr localMac;
 	getLocalMac(&localMac);
-	u8* buf = (u8*)realloc(gameModeBuffer, size);
-	if (buf)
-		gameModeBuffer = buf;
+	gameModeBuffSize = std::max(gameModeBuffSize, size);
 
 	u8* data = (u8*)malloc(size);
 	if (data) {
 		Memory::Memcpy(data, dataAddr, size);
 		masterGameModeArea = { 0, size, dataAddr, CoreTiming::GetGlobalTimeUsScaled(), 1, 0, localMac, data };
-		// Socket's buffer size should fit the largest size from master/replicas, should we waited until master & all replicas to be created first before creating the socket? (ie. the first time UpdateMaster being called?)
-		gameModeSocket = sceNetAdhocPdpCreate((const char*)&localMac, ADHOC_GAMEMODE_PORT, size, 0); 
-		StartGameModeScheduler(size);
+		StartGameModeScheduler();
 
 		// Block current thread to sync initial master data
-		if (gameModeSocket > 0 && replicaGameModeAreas.size() == (gameModeMacs.size() - 1)) {
-			auto sock = adhocSockets[gameModeSocket - 1];
-			__KernelWaitCurThread(WAITTYPE_NET, sock->data.pdp.id, 0, 0, false, "syncing master data");
+		if (replicaGameModeAreas.size() == (gameModeMacs.size() - 1)) {
+			__KernelWaitCurThread(WAITTYPE_NET, GAMEMODE_WAITID, 0, 0, false, "syncing master data");
 			DEBUG_LOG(SCENET, "GameMode: Blocking Thread %d to Sync initial Master data", __KernelGetCurThread());
 		}
 		return hleLogDebug(SCENET, 0, "success"); // returned an id just like CreateReplica? always return 0?
@@ -4209,6 +4223,8 @@ static int sceNetAdhocGameModeCreateReplica(const char *mac, u32 dataAddr, int s
 	}
 
 	int ret = 0;
+	gameModeBuffSize = std::max(gameModeBuffSize, size);
+
 	u8* data = (u8*)malloc(size);
 	if (data) {
 		Memory::Memcpy(data, dataAddr, size);
@@ -4218,9 +4234,8 @@ static int sceNetAdhocGameModeCreateReplica(const char *mac, u32 dataAddr, int s
 		ret = gma.id; // Valid id for replica is higher than 0?
 
 		// Block current thread to sync initial master data
-		if (gameModeSocket > 0 && replicaGameModeAreas.size() == (gameModeMacs.size() - 1)) {
-			auto sock = adhocSockets[gameModeSocket - 1];
-			__KernelWaitCurThread(WAITTYPE_NET, sock->data.pdp.id, ret, 0, false, "syncing master data");
+		if (replicaGameModeAreas.size() == (gameModeMacs.size() - 1)) {
+			__KernelWaitCurThread(WAITTYPE_NET, GAMEMODE_WAITID, ret, 0, false, "syncing master data");
 			DEBUG_LOG(SCENET, "GameMode: Blocking Thread %d to Sync initial Master data", __KernelGetCurThread());
 		}
 		return hleLogSuccessInfoI(SCENET, ret, "success");
