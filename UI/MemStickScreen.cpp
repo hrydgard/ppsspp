@@ -41,9 +41,7 @@
 
 #include "Core/Config.h"
 
-MemStickScreen::~MemStickScreen() {
-
-}
+MemStickScreen::~MemStickScreen() { }
 
 void MemStickScreen::CreateViews() {
 	using namespace UI;
@@ -51,7 +49,7 @@ void MemStickScreen::CreateViews() {
 	auto di = GetI18NCategory("Dialog");
 	auto iz = GetI18NCategory("MemStick");
 
-	Margins actionMenuMargins(0, 100, 15, 0);
+	Margins actionMenuMargins(15, 15, 15, 0);
 
 	root_ = new AnchorLayout();
 
@@ -80,9 +78,8 @@ void MemStickScreen::CreateViews() {
 	root_->Add(settingInfo_);
 
 	leftColumn->Add(new TextView(iz->T("Memory Stick Storage"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
-	leftColumn->Add(new TextView(iz->T("MemoryStickDescription"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 50, NONE, NONE)));
+	leftColumn->Add(new TextView(iz->T("MemoryStickDescription", "Choose where your PSP memory stick data (savegames, etc) is stored"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 50, NONE, NONE)));
 	leftColumn->Add(new TextView(g_Config.memStickDirectory.ToVisualString(), ALIGN_LEFT, false, new AnchorLayoutParams(10, 140, NONE, NONE)));
-	leftColumn->Add(new TextView(g_Config.memStickDirectory.ToVisualString(), ALIGN_LEFT, false, new AnchorLayoutParams(10, 180, NONE, NONE)));
 
 	std::string freeSpaceText = "Free space: N/A";
 	if (freeSpaceAtMemStick >= 0) {
@@ -97,38 +94,7 @@ void MemStickScreen::CreateViews() {
 
 UI::EventReturn MemStickScreen::OnBrowse(UI::EventParams &params) {
 	auto sy = GetI18NCategory("System");
-	// New version - lets you use the Android file browser
 	System_SendMessage("browse_folder", "");
-	/*
-	// Old version - uses just an input box.
-	System_InputBoxGetString(sy->T("Memory Stick Folder"), g_Config.memStickDirectory, [&](bool result, const std::string &value) {
-		auto sy = GetI18NCategory("System");
-		auto di = GetI18NCategory("Dialog");
-
-		if (result) {
-			std::string newPath = value;
-			size_t pos = newPath.find_last_not_of("/");
-			// Gotta have at least something but a /, and also needs to start with a /.
-			if (newPath.empty() || pos == newPath.npos || newPath[0] != '/') {
-				settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
-				return;
-			}
-			if (pos != newPath.size() - 1) {
-				newPath = newPath.substr(0, pos + 1);
-			}
-
-			pendingMemStickFolder_ = newPath;
-			std::string promptMessage = sy->T("ChangingMemstickPath", "Save games, save states, and other data will not be copied to this folder.\n\nChange the Memory Stick folder?");
-
-			//if (!File::Exists(newPath)) {
-			//	promptMessage = sy->T("ChangingMemstickPathNotExists", "That folder doesn't exist yet.\n\nSave games, save states, and other data will not be copied to this folder.\n\nCreate a new Memory Stick folder?");
-			//}
-			// Add the path for clarity and proper confirmation.
-			promptMessage += "\n\n" + newPath + "/";
-			screenManager()->push(new PromptScreen(promptMessage, di->T("Yes"), di->T("No"), std::bind(&MemStickScreen::CallbackMemStickFolder, this, std::placeholders::_1)));
-		}
-	});
-	*/
 	return UI::EVENT_DONE;
 }
 
