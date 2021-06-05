@@ -337,6 +337,9 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &path) {
 		return std::vector<File::FileInfo>();
 	}
 	auto env = getEnv();
+
+	double start = time_now_d();
+
 	jstring param = env->NewStringUTF(path.c_str());
 	jobject retval = env->CallObjectMethod(nativeActivity, listContentUriDir, param);
 
@@ -357,6 +360,9 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &path) {
         env->DeleteLocalRef(str);
     }
 	env->DeleteLocalRef(fileList);
+
+	double elapsed = time_now_d() - start;
+	INFO_LOG(FILESYS, "Listing directory on content URI took %0.3f s");
 	return items;
 }
 
@@ -379,33 +385,6 @@ int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath) {
 	jstring param = env->NewStringUTF(filePath.c_str());
 	return env->CallLongMethod(nativeActivity, filePathGetFreeStorageSpace, param);
 }
-
-
-class ContentURIFileLoader : public ProxiedFileLoader {
-public:
-	ContentURIFileLoader(const Path &filename)
-		: ProxiedFileLoader(nullptr) {  // we overwrite the nullptr below
-		int fd = Android_OpenContentUriFd(filename.ToString(), Android_OpenContentUriMode::READ);
-		INFO_LOG(SYSTEM, "Fd %d for content URI: '%s'", fd, filename.c_str());
-		backend_ = new LocalFileLoader(fd, filename);
-	}
-
-	bool ExistsFast() override {
-		if (!nativeActivity) {
-			// Assume it does if we don't have a NativeActivity right now.
-			return true;
-		}
-		return backend_->ExistsFast();
-	}
-};
-
-class AndroidContentLoaderFactory : public FileLoaderFactory {
-public:
-	AndroidContentLoaderFactory() {}
-	FileLoader *ConstructFileLoader(const Path &filename) override {
-		return new ContentURIFileLoader(filename);
-	}
-};
 
 JNIEnv* getEnv() {
 	JNIEnv *env;
@@ -850,11 +829,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	}
 
 	NativeInit((int)args.size(), &args[0], user_data_path.c_str(), externalStorageDir.c_str(), cacheDir.c_str());
-
-	std::unique_ptr<FileLoaderFactory> factory(new AndroidContentLoaderFactory());
-
-	// Register a content URI file loader.
-	RegisterFileLoaderFactory("content://", std::move(factory));
 
 	// No need to use EARLY_LOG anymore.
 

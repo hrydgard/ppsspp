@@ -25,6 +25,10 @@
 #include "Common/File/DirListing.h"
 #include "Core/FileLoaders/LocalFileLoader.h"
 
+#if PPSSPP_PLATFORM(ANDROID)
+#include "android/jni/app-android.h"
+#endif
+
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 #else
@@ -32,11 +36,6 @@
 #endif
 
 #ifndef _WIN32
-LocalFileLoader::LocalFileLoader(int fd, const Path &filename) : fd_(fd), filename_(filename), isOpenedByFd_(fd != -1) {
-	if (fd != -1) {
-		DetectSizeFd();
-	}
-}
 
 void LocalFileLoader::DetectSizeFd() {
 #if PPSSPP_PLATFORM(ANDROID) || (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64)
@@ -52,11 +51,27 @@ void LocalFileLoader::DetectSizeFd() {
 #endif
 
 LocalFileLoader::LocalFileLoader(const Path &filename)
-	: filesize_(0), filename_(filename), isOpenedByFd_(false) {
+	: filesize_(0), filename_(filename) {
 	if (filename.empty()) {
 		ERROR_LOG(FILESYS, "LocalFileLoader can't load empty filenames");
 		return;
 	}
+
+#if PPSSPP_PLATFORM(ANDROID)
+	if (filename.Type() == PathType::CONTENT_URI) {
+		int fd = Android_OpenContentUriFd(filename.ToString(), Android_OpenContentUriMode::READ);
+		INFO_LOG(SYSTEM, "Fd %d for content URI: '%s'", fd, filename.c_str());
+		if (fd == -1) {
+			ERROR_LOG(FILESYS, "LoadFileLoader failed to open content URI: '%s'", filename.c_str());
+			return;
+		}
+		fd_ = fd;
+		isOpenedByFd_ = true;
+		DetectSizeFd();
+		return;
+	}
+#endif
+
 #ifndef _WIN32
 
 	fd_ = open(filename.c_str(), O_RDONLY | O_CLOEXEC);
@@ -106,14 +121,18 @@ bool LocalFileLoader::Exists() {
 	// If we couldn't open it for reading, we say it does not exist.
 #ifndef _WIN32
 	if (isOpenedByFd_) {
-		return true;
+		return fd_ != -1;
 	}
 	if (fd_ != -1 || IsDirectory()) {
 #else
 	if (handle_ != INVALID_HANDLE_VALUE || IsDirectory()) {
 #endif
 		File::FileInfo info;
-		return File::GetFileInfo(filename_, &info);
+		if (File::GetFileInfo(filename_, &info)) {
+			return info.exists;
+		} else {
+			return false;
+		}
 	}
 	return false;
 }
@@ -121,7 +140,7 @@ bool LocalFileLoader::Exists() {
 bool LocalFileLoader::IsDirectory() {
 	File::FileInfo info;
 	if (File::GetFileInfo(filename_, &info)) {
-		return info.isDirectory;
+		return info.exists && info.isDirectory;
 	}
 	return false;
 }
@@ -133,6 +152,11 @@ s64 LocalFileLoader::FileSize() {
 size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags) {
 	if (bytes == 0)
 		return 0;
+
+	if (filesize_ == 0) {
+		ERROR_LOG(FILESYS, "ReadAt from 0-sized file: %s", filename_.c_str());
+		return 0;
+	}
 
 #if PPSSPP_PLATFORM(SWITCH)
 	// Toolchain has no fancy IO API.  We must lock.
