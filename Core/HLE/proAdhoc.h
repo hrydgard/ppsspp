@@ -120,6 +120,7 @@ inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode ==
 #define GAMEMODE_UPDATE_INTERVAL 500 // 12000 usec on JPCSP, but lower value works better on BattleZone (in order to get full speed 60 FPS)
 #define GAMEMODE_INIT_DELAY 10000
 #define GAMEMODE_SYNC_TIMEOUT 250000
+#define GAMEMODE_WAITID 0x2001 // Just to differentiate WaitID with other ID on WAITTYPE_NET
 
 // GameMode Type
 #define ADHOCCTL_GAMETYPE_1A	1
@@ -934,6 +935,7 @@ extern int adhocctlCurrentMode;
 extern int adhocConnectionType;
 
 extern int gameModeSocket;
+extern int gameModeBuffSize;
 extern u8* gameModeBuffer;
 extern GameModeArea masterGameModeArea;
 extern std::vector<GameModeArea> replicaGameModeAreas;
