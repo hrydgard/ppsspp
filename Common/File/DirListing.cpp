@@ -42,6 +42,8 @@ bool GetFileInfo(const Path &path, FileInfo * fileInfo) {
 	switch (path.Type()) {
 	case PathType::NATIVE:
 		break;  // OK
+	case PathType::CONTENT_URI:
+		return Android_GetFileInfo(path.ToString(), fileInfo);
 	default:
 		return false;
 	}
