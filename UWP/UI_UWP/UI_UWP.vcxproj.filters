@@ -18,6 +18,7 @@
     <ClCompile Include="..\..\UI\GPUDriverTestScreen.cpp" />
     <ClCompile Include="..\..\UI\InstallZipScreen.cpp" />
     <ClCompile Include="..\..\UI\MainScreen.cpp" />
+    <ClCompile Include="..\..\UI\MemStickScreen.cpp" />
     <ClCompile Include="..\..\UI\MiscScreens.cpp" />
     <ClCompile Include="..\..\UI\NativeApp.cpp" />
     <ClCompile Include="..\..\UI\OnScreenDisplay.cpp" />
@@ -53,6 +54,7 @@
     <ClInclude Include="..\..\UI\HostTypes.h" />
     <ClInclude Include="..\..\UI\InstallZipScreen.h" />
     <ClInclude Include="..\..\UI\MainScreen.h" />
+    <ClInclude Include="..\..\UI\MemStickScreen.h" />
     <ClInclude Include="..\..\UI\MiscScreens.h" />
     <ClInclude Include="..\..\UI\OnScreenDisplay.h" />
     <ClInclude Include="..\..\UI\PauseScreen.h" />
