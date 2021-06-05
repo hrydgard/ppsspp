@@ -49,6 +49,26 @@
 
 GameManager g_GameManager;
 
+static struct zip *ZipOpenPath(Path fileName) {
+	int error = 0;
+	// Need to special case for content URI here, similar to OpenCFile.
+	struct zip *z;
+#if PPSSPP_PLATFORM(ANDROID)
+	if (fileName.Type() == PathType::CONTENT_URI) {
+		int fd = File::OpenFD(fileName, File::OPEN_READ);
+		z = zip_fdopen(fd, 0, &error);
+	} else
+#endif
+	{  // continuation of above else in the ifdef
+		z = zip_open(fileName.c_str(), 0, &error);
+	}
+
+	if (!z) {
+		ERROR_LOG(HLE, "Failed to open ZIP file '%s', error code=%i", fileName.c_str(), error);
+	}
+	return z;
+}
+
 GameManager::GameManager() {
 }
 
@@ -174,8 +194,7 @@ static void countSlashes(const std::string &fileName, int *slashLocation, int *s
 }
 
 ZipFileContents DetectZipFileContents(const Path &fileName, ZipFileInfo *info) {
-	int error = 0;
-	struct zip *z = zip_open(fileName.c_str(), 0, &error);
+	struct zip *z = ZipOpenPath(fileName);
 	if (!z) {
 		return ZipFileContents::UNKNOWN;
 	}
@@ -285,10 +304,9 @@ bool GameManager::InstallGame(Path url, Path fileName, bool deleteAfter) {
 	Path dest = pspGame;
 	int error = 0;
 
-	// TODO(scoped): zip_open ain't gonna work. zip_fdopen though..
-	struct zip *z = zip_open(fileName.c_str(), 0, &error);
+	struct zip *z = ZipOpenPath(fileName);
 	if (!z) {
-		ERROR_LOG(HLE, "Failed to open ZIP file '%s', error code=%i", fileName.c_str(), error);
+		installInProgress_ = false;
 		return false;
 	}
 
