@@ -270,9 +270,11 @@ foreach (LANGUAGE C CXX)
 endforeach()
 
 if(NOT MSVC)
+	# NEON optimizations in libpng17 seem to cause PNG load errors, see #14485.
+	add_definitions(-DPNG_ARM_NEON_OPT=0)
+
 	if(ANDROID)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
-		add_definitions(-DPNG_ARM_NEON_OPT=0)
 	endif()
 	if(CLANG)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-switch -Wno-uninitialized")
