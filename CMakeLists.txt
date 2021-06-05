@@ -502,6 +502,8 @@ add_library(Common STATIC
 	Common/File/VFS/VFS.cpp
 	Common/File/VFS/AssetReader.cpp
 	Common/File/VFS/AssetReader.h
+	Common/File/AndroidStorage.h
+	Common/File/AndroidStorage.cpp
 	Common/File/DiskFree.h
 	Common/File/DiskFree.cpp
 	Common/File/Path.h

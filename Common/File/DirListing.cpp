@@ -23,7 +23,7 @@
 #include "Common/Net/URL.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/FileUtil.h"
-#include "android/jni/app-android.h"
+#include "Common/File/AndroidStorage.h"
 
 #if !defined(__linux__) && !defined(_WIN32) && !defined(__QNX__)
 #define stat64 stat

@@ -249,6 +249,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Data/Text/I18n.cpp \
   $(SRC)/Common/Data/Text/Parsers.cpp \
   $(SRC)/Common/Data/Text/WrapText.cpp \
+  $(SRC)/Common/File/AndroidStorage.cpp \
   $(SRC)/Common/File/VFS/VFS.cpp \
   $(SRC)/Common/File/VFS/AssetReader.cpp \
   $(SRC)/Common/File/DiskFree.cpp \

@@ -64,6 +64,7 @@ struct JNIEnv {};
 #include "Common/File/DirListing.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/AssetReader.h"
+#include "Common/File/AndroidStorage.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Profiler/Profiler.h"
@@ -172,15 +173,6 @@ static float g_safeInsetBottom = 0.0;
 
 static jmethodID postCommand;
 
-static jmethodID openContentUri;
-static jmethodID listContentUriDir;
-static jmethodID contentUriCreateFile;
-static jmethodID contentUriCreateDirectory;
-static jmethodID contentUriRemoveFile;
-static jmethodID contentUriGetFileInfo;
-static jmethodID contentUriGetFreeStorageSpace;
-static jmethodID filePathGetFreeStorageSpace;
-
 static jobject nativeActivity;
 static volatile bool exitRenderLoop;
 static bool renderLoopRunning;
@@ -238,152 +230,6 @@ void AndroidLogger::Log(const LogMessage &message) {
 		ILOG("[%s] !!! %s", message.log, message.msg.c_str());
 		break;
 	}
-}
-
-bool Android_IsContentUri(const std::string &filename) {
-	return startsWith(filename, "content://");
-}
-
-int Android_OpenContentUriFd(const std::string &filename, Android_OpenContentUriMode mode) {
-	if (!nativeActivity) {
-		return -1;
-	}
-
-	std::string fname = filename;
-	// PPSSPP adds an ending slash to directories before looking them up.
-	// TODO: Fix that in the caller (or don't call this for directories).
-	if (fname.back() == '/')
-		fname.pop_back();
-
-	auto env = getEnv();
-	const char *modeStr = "";
-	switch (mode) {
-	case Android_OpenContentUriMode::READ: modeStr = "r"; break;
-	case Android_OpenContentUriMode::READ_WRITE: modeStr = "rw"; break;
-	case Android_OpenContentUriMode::READ_WRITE_TRUNCATE: modeStr = "rwt"; break;
-	}
-	jstring j_filename = env->NewStringUTF(fname.c_str());
-	jstring j_mode = env->NewStringUTF(modeStr);
-	int fd = env->CallIntMethod(nativeActivity, openContentUri, j_filename, j_mode);
-	return fd;
-}
-
-bool Android_CreateDirectory(const std::string &rootTreeUri, const std::string &dirName) {
-	if (!nativeActivity) {
-		return false;
-	}
-	auto env = getEnv();
-	jstring paramRoot = env->NewStringUTF(rootTreeUri.c_str());
-	jstring paramDirName = env->NewStringUTF(dirName.c_str());
-	return env->CallBooleanMethod(nativeActivity, contentUriCreateDirectory, paramRoot, paramDirName);
-}
-
-bool Android_CreateFile(const std::string &parentTreeUri, const std::string &fileName) {
-	if (!nativeActivity) {
-		return false;
-	}
-	auto env = getEnv();
-	jstring paramRoot = env->NewStringUTF(parentTreeUri.c_str());
-	jstring paramFileName = env->NewStringUTF(fileName.c_str());
-	return env->CallBooleanMethod(nativeActivity, contentUriCreateFile, paramRoot, paramFileName);
-}
-
-bool Android_RemoveFile(const std::string &fileUri) {
-	if (!nativeActivity) {
-		return false;
-	}
-	auto env = getEnv();
-	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
-	return env->CallBooleanMethod(nativeActivity, contentUriRemoveFile, paramFileName);
-}
-
-static bool ParseFileInfo(const std::string &line, File::FileInfo *fileInfo) {
-	INFO_LOG(FILESYS, "!! %s", line.c_str());
-	std::vector<std::string> parts;
-	SplitString(line, '|', parts);
-	if (parts.size() != 5) {
-		ERROR_LOG(FILESYS, "Bad format: %s", line.c_str());
-		return false;
-	}
-	fileInfo->name = std::string(parts[2]);
-	fileInfo->isDirectory = parts[0][0] == 'D';
-	fileInfo->exists = true;
-	sscanf(parts[1].c_str(), "%ld", &fileInfo->size);
-	fileInfo->fullName = Path(parts[3]);
-	fileInfo->isWritable = false;  // TODO: We don't yet request write access
-	sscanf(parts[4].c_str(), "%ld", &fileInfo->lastModified);
-	return true;
-}
-
-bool Android_GetFileInfo(const std::string &fileUri, File::FileInfo *fileInfo) {
-	if (!nativeActivity) {
-		return false;
-	}
-	auto env = getEnv();
-	jstring paramFileUri = env->NewStringUTF(fileUri.c_str());
-
-	jstring str = (jstring)env->CallObjectMethod(nativeActivity, contentUriGetFileInfo, paramFileUri);
-	if (!str) {
-		return false;
-	}
-	const char *charArray = env->GetStringUTFChars(str, 0);
-	bool retval = ParseFileInfo(std::string(charArray), fileInfo);
-	env->DeleteLocalRef(str);
-	return retval && fileInfo->exists;
-}
-
-std::vector<File::FileInfo> Android_ListContentUri(const std::string &path) {
-	if (!nativeActivity) {
-		return std::vector<File::FileInfo>();
-	}
-	auto env = getEnv();
-
-	double start = time_now_d();
-
-	jstring param = env->NewStringUTF(path.c_str());
-	jobject retval = env->CallObjectMethod(nativeActivity, listContentUriDir, param);
-
-	jobjectArray fileList = (jobjectArray)retval;
-	std::vector<File::FileInfo> items;
-	int size = env->GetArrayLength(fileList);
-	for (int i = 0; i < size; i++) {
-        jstring str = (jstring) env->GetObjectArrayElement(fileList, i);
-        const char *charArray = env->GetStringUTFChars(str, 0);
-        if (charArray) {  // paranoia
-            std::string file = charArray;
-			File::FileInfo info;
-			if (ParseFileInfo(file, &info)) {
-				items.push_back(info);
-			}
-        }
-        env->ReleaseStringUTFChars(str, charArray);
-        env->DeleteLocalRef(str);
-    }
-	env->DeleteLocalRef(fileList);
-
-	double elapsed = time_now_d() - start;
-	INFO_LOG(FILESYS, "Listing directory on content URI took %0.3f s");
-	return items;
-}
-
-int64_t Android_GetFreeSpaceByContentUri(const std::string &uri) {
-	if (!nativeActivity) {
-		return false;
-	}
-    auto env = getEnv();
-
-    jstring param = env->NewStringUTF(uri.c_str());
-	return env->CallLongMethod(nativeActivity, contentUriGetFreeStorageSpace, param);
-}
-
-int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath) {
-	if (!nativeActivity) {
-		return false;
-	}
-	auto env = getEnv();
-
-	jstring param = env->NewStringUTF(filePath.c_str());
-	return env->CallLongMethod(nativeActivity, filePathGetFreeStorageSpace, param);
 }
 
 JNIEnv* getEnv() {
@@ -633,25 +479,12 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_registerCallbacks(JNIEnv *
 	postCommand = env->GetMethodID(env->GetObjectClass(obj), "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
 	_dbg_assert_(postCommand);
 
-	openContentUri = env->GetMethodID(env->GetObjectClass(obj), "openContentUri", "(Ljava/lang/String;Ljava/lang/String;)I");
-	_dbg_assert_(openContentUri);
-	listContentUriDir = env->GetMethodID(env->GetObjectClass(obj), "listContentUriDir", "(Ljava/lang/String;)[Ljava/lang/String;");
-	_dbg_assert_(listContentUriDir);
-	contentUriCreateDirectory = env->GetMethodID(env->GetObjectClass(obj), "contentUriCreateDirectory", "(Ljava/lang/String;Ljava/lang/String;)Z");
-	_dbg_assert_(contentUriCreateDirectory);
-	contentUriCreateFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriCreateFile", "(Ljava/lang/String;Ljava/lang/String;)Z");
-	_dbg_assert_(contentUriCreateFile);
-	contentUriRemoveFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriRemoveFile", "(Ljava/lang/String;)Z");
-	_dbg_assert_(contentUriRemoveFile);
-	contentUriGetFileInfo = env->GetMethodID(env->GetObjectClass(obj), "contentUriGetFileInfo", "(Ljava/lang/String;)Ljava/lang/String;");
-	_dbg_assert_(contentUriGetFileInfo);
-	contentUriGetFreeStorageSpace = env->GetMethodID(env->GetObjectClass(obj), "contentUriGetFreeStorageSpace", "(Ljava/lang/String;)J");
-	_dbg_assert_(contentUriGetFreeStorageSpace);
-	filePathGetFreeStorageSpace = env->GetMethodID(env->GetObjectClass(obj), "filePathGetFreeStorageSpace", "(Ljava/lang/String;)J");
-	_dbg_assert_(filePathGetFreeStorageSpace);
+	Android_RegisterStorageCallbacks(env, obj);
+	Android_StorageSetNativeActivity(nativeActivity);
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_unregisterCallbacks(JNIEnv *env, jobject obj) {
+	Android_StorageSetNativeActivity(nullptr);
 	env->DeleteGlobalRef(nativeActivity);
 	nativeActivity = nullptr;
 }
