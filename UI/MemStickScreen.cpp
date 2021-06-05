@@ -141,7 +141,6 @@ void MemStickScreen::sendMessage(const char *message, const char *value) {
 			std::string filename;
 			filename = value;
 			INFO_LOG(SYSTEM, "Got folder: '%s'", filename.c_str());
-			// Don't allow browsing in the other tabs (I don't think it's possible to reach the option though)
 			pendingMemStickFolder_ = Path(filename);
 			CallbackMemStickFolder(true);
 		}

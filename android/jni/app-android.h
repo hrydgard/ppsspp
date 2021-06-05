@@ -18,7 +18,7 @@ enum class Android_OpenContentUriMode {
 	READ_WRITE_TRUNCATE = 2,  // "rwt"
 };
 
-#if PPSSPP_PLATFORM(ANDROID)
+#if PPSSPP_PLATFORM(ANDROID) && !defined(__LIBRETRO__)
 
 #include <jni.h>
 
