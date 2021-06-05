@@ -1013,6 +1013,7 @@ void SymbolMap::GetLabels(std::vector<LabelDefinition> &dest) {
 		LabelDefinition entry;
 		entry.value = it->first;
 		entry.name = ConvertUTF8ToWString(it->second.name);
+		std::transform(entry.name.begin(), entry.name.end(), entry.name.begin(), ::towlower);
 		dest.push_back(entry);
 	}
 }
