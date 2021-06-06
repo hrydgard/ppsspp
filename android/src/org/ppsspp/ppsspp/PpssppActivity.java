@@ -136,10 +136,13 @@ public class PpssppActivity extends NativeActivity {
 
 	private static String fileInfoToString(DocumentFile file) {
 		String str = "F|";
-		if (file.isDirectory()) {
+		if (file.isVirtual()) {
+			// This we don't want to see.
+			str = "V|";
+			Log.e(TAG, "Got virtual file: " + file.getUri());
+		} else if (file.isDirectory()) {
 			str = "D|";
 		}
-		// TODO: Should we do something with child.isVirtual()?.
 		str += file.length() + "|" + file.getName() + "|" + file.getUri() + "|" + file.lastModified();
 		return str;
 	}
@@ -186,6 +189,7 @@ public class PpssppActivity extends NativeActivity {
 			Uri uri = Uri.parse(rootTreeUri);
 			DocumentFile documentFile = DocumentFile.fromTreeUri(this, uri);
 			if (documentFile != null) {
+				// TODO: Check the file extension and choose MIME type appropriately.
 				DocumentFile createdFile = documentFile.createFile("application/octet-stream", fileName);
 				return createdFile != null;
 			} else {

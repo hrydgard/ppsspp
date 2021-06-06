@@ -130,7 +130,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 				INFO_LOG(COMMON, "Opening file by fd for write");
 			}
 
-			// Read, let's support this - easy one.
+			// TODO: Support append modes and stuff... For now let's go with the most common one.
 			int descriptor = Android_OpenContentUriFd(path.ToString(), Android_OpenContentUriMode::READ_WRITE_TRUNCATE);
 			if (descriptor == -1) {
 				INFO_LOG(COMMON, "Opening '%s' for write failed", path.ToString().c_str());
@@ -143,7 +143,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 		}
 		break;
 	default:
-		ERROR_LOG(COMMON, "OpenCFile(%s): Not yet supported", path.c_str());
+		ERROR_LOG(COMMON, "OpenCFile(%s): PathType not yet supported", path.c_str());
 		return nullptr;
 	}
 
@@ -163,13 +163,23 @@ int OpenFD(const Path &path, OpenFlag flags) {
 		return -1;
 	}
 
-	if (flags != OPEN_READ) {
-		// TODO
-		ERROR_LOG(COMMON, "Modes other than plain OPEN_READ not yet supported");
+	Android_OpenContentUriMode mode;
+	if (flags == OPEN_READ) {
+		mode = Android_OpenContentUriMode::READ;
+	} else if (flags & OPEN_WRITE) {
+		if (flags & OPEN_TRUNCATE) {
+			mode = Android_OpenContentUriMode::READ_WRITE;
+		} else {
+			mode = Android_OpenContentUriMode::READ_WRITE_TRUNCATE;
+		}
+		// TODO: Maybe better checking of additional flags here.
+	} else {
+		// TODO: Add support for more modes if possible.
+		ERROR_LOG(COMMON, "OpenFlag 0x%x not yet supported", flags);
 		return -1;
 	}
 
-	int descriptor = Android_OpenContentUriFd(path.ToString(), Android_OpenContentUriMode::READ);
+	int descriptor = Android_OpenContentUriFd(path.ToString(), mode);
 	return descriptor;
 }
 
@@ -305,7 +315,7 @@ bool IsDirectory(const Path &filename) {
 		if (!Android_GetFileInfo(filename.ToString(), &info)) {
 			return false;
 		}
-		return info.isDirectory;
+		return info.exists && info.isDirectory;
 	}
 	default:
 		return false;
@@ -341,10 +351,7 @@ bool Delete(const Path &filename) {
 	case PathType::NATIVE:
 		break; // OK
 	case PathType::CONTENT_URI:
-	{
-		FileInfo info;
 		return Android_RemoveFile(filename.ToString());
-	}
 	default:
 		return false;
 	}

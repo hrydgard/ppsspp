@@ -153,8 +153,6 @@ void GameManager::Update() {
 		INFO_LOG(HLE, "Download completed! Status = %d", curDownload_->ResultCode());
 		Path fileName = curDownload_->outfile();
 		if (curDownload_->ResultCode() == 200) {
-			// TODO: This fails. Wonder if there's a race condition?
-
 			if (!File::Exists(fileName)) {
 				ERROR_LOG(HLE, "Downloaded file '%s' does not exist :(", fileName.c_str());
 				curDownload_.reset();

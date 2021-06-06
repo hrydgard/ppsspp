@@ -280,12 +280,20 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 			flags |= File::OPEN_TRUNCATE;
 
 		int fd = File::OpenFD(fullName, (File::OpenFlag)flags);
-		hFile = fd;
 		// Try to detect reads/writes to PSP/GAME to avoid them in replays.
 		if (fullName.FilePathContains("PSP/GAME/")) {
 			inGameDir_ = true;
 		}
-		return fd != -1;
+		hFile = fd;
+		if (fd != -1) {
+			// Success
+			return true;
+		} else {
+			// TODO: Need better error codes from OpenFD so we can distinguish
+			// disk full. Just set not found for now.
+			error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
+			return false;
+		}
 	}
 
 	int flags = 0;
@@ -814,7 +822,7 @@ static void tmFromFiletime(tm &dest, FILETIME &src) {
 //
 // Note: PSP-created files would stay lowercase, but this uppercases them too.
 // Hopefully no PSP games read directories after they create files in them...
-std::string SimulateVFATBug(std::string filename) {
+static std::string SimulateVFATBug(std::string filename) {
 	// These are the characters allowed in DOS filenames.
 	static const char *FAT_UPPER_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&'(){}-_`~";
 	static const char *FAT_LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&'(){}-_`~";

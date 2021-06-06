@@ -6,9 +6,8 @@
 
 enum class PathType {
 	UNDEFINED = 0,
-	NATIVE = 1,
-	// RELATIVE, // (do we need this?)
-	CONTENT_URI = 2,  // Android only
+	NATIVE = 1,  // Can be relative.
+	CONTENT_URI = 2,  // Android only. Can only be absolute!
 	HTTP = 3,  // http://, https://
 };
 

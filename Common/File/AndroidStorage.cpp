@@ -99,7 +99,6 @@ bool Android_RemoveFile(const std::string &fileUri) {
 }
 
 static bool ParseFileInfo(const std::string &line, File::FileInfo *fileInfo) {
-	INFO_LOG(FILESYS, "!! %s", line.c_str());
 	std::vector<std::string> parts;
 	SplitString(line, '|', parts);
 	if (parts.size() != 5) {
@@ -109,10 +108,10 @@ static bool ParseFileInfo(const std::string &line, File::FileInfo *fileInfo) {
 	fileInfo->name = std::string(parts[2]);
 	fileInfo->isDirectory = parts[0][0] == 'D';
 	fileInfo->exists = true;
-	sscanf(parts[1].c_str(), "%ld", &fileInfo->size);
+	sscanf(parts[1].c_str(), "%" PRIu64, &fileInfo->size);
 	fileInfo->fullName = Path(parts[3]);
-	fileInfo->isWritable = false;  // TODO: We don't yet request write access
-	sscanf(parts[4].c_str(), "%ld", &fileInfo->lastModified);
+	fileInfo->isWritable = true;  // TODO: Should be passed as part of the string.
+	sscanf(parts[4].c_str(), "%" PRIu64, &fileInfo->lastModified);
 	return true;
 }
 
@@ -151,9 +150,8 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &path) {
 		jstring str = (jstring)env->GetObjectArrayElement(fileList, i);
 		const char *charArray = env->GetStringUTFChars(str, 0);
 		if (charArray) {  // paranoia
-			std::string file = charArray;
 			File::FileInfo info;
-			if (ParseFileInfo(file, &info)) {
+			if (ParseFileInfo(std::string(charArray), &info)) {
 				items.push_back(info);
 			}
 		}

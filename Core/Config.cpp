@@ -1246,7 +1246,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	iRunCount++;
 
-	// TODO: What layer's responsibility is it to handle content:// URIs?
 	// This check is probably not really necessary here anyway, you can always
 	// press Home or Browse if you're in a bad directory.
 	if (!File::Exists(currentDirectory))
@@ -1254,7 +1253,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	Section *log = iniFile.GetOrCreateSection(logSectionName);
 
-	bool debugDefaults = true;
+	bool debugDefaults = false;
 #ifdef _DEBUG
 	debugDefaults = true;
 #endif
