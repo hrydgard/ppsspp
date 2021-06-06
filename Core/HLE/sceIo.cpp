@@ -1506,10 +1506,10 @@ static FileNode *__IoOpen(int &error, const char *filename, int flags, int mode)
 	error = 0;
 
 	FileNode *f = new FileNode();
-	SceUID id = kernelObjects.Create(f);
+	kernelObjects.Create(f);
 	f->handle = h;
 	f->fullpath = filename;
-	f->asyncResult = id;
+	f->asyncResult = h;
 	f->info = info;
 	f->openMode = access;
 	f->isTTY = isTTY;
@@ -2118,7 +2118,8 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode) {
 			return hleLogError(SCEIO, error, "device not found");
 
 		f = new FileNode();
-		f->handle = kernelObjects.Create(f);
+		kernelObjects.Create(f);
+		f->handle = -1;
 		f->fullpath = filename;
 		f->closePending = true;
 	}
