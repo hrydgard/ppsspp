@@ -35,7 +35,6 @@ bool GetFileInfo(const Path &path, FileInfo *fileInfo);
 
 enum {
 	GETFILES_GETHIDDEN = 1,
-	GETFILES_URIENCODE_ANDROID = 2,  // Android shenanigans
 };
 
 size_t GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *filter = nullptr, int flags = 0);

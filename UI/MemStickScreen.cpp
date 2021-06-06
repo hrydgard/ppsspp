@@ -83,7 +83,7 @@ void MemStickScreen::CreateViews() {
 
 	std::string freeSpaceText = "Free space: N/A";
 	if (freeSpaceAtMemStick >= 0) {
-		freeSpaceText = StringFromFormat("free space: %lld bytes", freeSpaceAtMemStick);
+		freeSpaceText = StringFromFormat("free space: %lld MB", freeSpaceAtMemStick / (1024 * 1024));
 	}
 
 	leftColumn->Add(new TextView(freeSpaceText, ALIGN_LEFT, false, new AnchorLayoutParams(10, 240, NONE, NONE)));
@@ -117,8 +117,8 @@ void MemStickScreen::CallbackMemStickFolder(bool yes) {
 	auto sy = GetI18NCategory("System");
 
 	if (yes) {
-		Path memStickDirFile = Path(g_Config.internalDataDirectory) / "memstick_dir.txt";
-		Path testWriteFile = Path(pendingMemStickFolder_) / ".write_verify_file";
+		Path memStickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
+		Path testWriteFile = pendingMemStickFolder_ / ".write_verify_file";
 
 		// Doesn't already exist, create.
 		// Should this ever happen?

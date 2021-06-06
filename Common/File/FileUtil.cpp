@@ -479,7 +479,7 @@ bool CreateFullPath(const Path &path) {
 	return true;
 }
 
-// Deletes a directory filename, returns true on success
+// Deletes an empty directory, returns true on success
 bool DeleteDir(const Path &path) {
 	switch (path.Type()) {
 	case PathType::NATIVE:
@@ -492,8 +492,7 @@ bool DeleteDir(const Path &path) {
 	INFO_LOG(COMMON, "DeleteDir: directory %s", path.c_str());
 
 	// check if a directory
-	if (!File::IsDirectory(path))
-	{
+	if (!File::IsDirectory(path)) {
 		ERROR_LOG(COMMON, "DeleteDir: Not a directory %s", path.c_str());
 		return false;
 	}
@@ -650,13 +649,21 @@ bool Move(const Path &srcFilename, const Path &destFilename) {
 // Returns the size of file (64bit)
 // TODO: Add a way to return an error.
 uint64_t GetFileSize(const Path &filename) {
-	if (Android_IsContentUri(filename.ToString())) {
-		FileInfo info;
-		if (Android_GetFileInfo(filename.ToString(), &info)) {
-			return info.size;
-		} else {
-			return 0;
+	switch (filename.Type()) {
+	case PathType::NATIVE:
+		break; // OK
+	case PathType::CONTENT_URI:
+		{
+			FileInfo info;
+			if (Android_GetFileInfo(filename.ToString(), &info)) {
+				return info.size;
+			} else {
+				return 0;
+			}
 		}
+		break;
+	default:
+		return false;
 	}
 
 #if defined(_WIN32) && defined(UNICODE)
@@ -738,84 +745,38 @@ bool CreateEmptyFile(const Path &filename) {
 }
 
 // Deletes the given directory and anything under it. Returns true on success.
-bool DeleteDirRecursively(const Path &directory) {	
-	if (Android_IsContentUri(directory.ToString())) {
-		ERROR_LOG(COMMON, "DeleteDirRecursively(%s) not yet supported on content URIs", directory.c_str());
+bool DeleteDirRecursively(const Path &directory) {
+	switch (directory.Type()) {
+	case PathType::CONTENT_URI:
+	case PathType::NATIVE:
+		break;  // OK
+	default:
+		ERROR_LOG(COMMON, "DeleteDirRecursively: Path type not supported");
 		return false;
 	}
 
-	//Removed check, it prevents the UWP from deleting store downloads
-	INFO_LOG(COMMON, "DeleteDirRecursively: %s", directory.c_str());
-
-#ifdef _WIN32
-
-	// Find the first file in the directory.
-	WIN32_FIND_DATA ffd;
-	HANDLE hFind = FindFirstFile((directory.ToWString() + L"\\*").c_str(), &ffd);
-	if (hFind == INVALID_HANDLE_VALUE) {
-		return false;
-	}
-		
-	// windows loop
-	do {
-		const std::string virtualName = ConvertWStringToUTF8(ffd.cFileName);
-#else
-	struct dirent *result = NULL;
-	DIR *dirp = opendir(directory.c_str());
-	if (!dirp)
-		return false;
-
-	// non windows loop
-	while ((result = readdir(dirp))) {
-		const std::string virtualName = result->d_name;
-#endif
-		// check for "." and ".."
-		if (((virtualName[0] == '.') && (virtualName[1] == '\0')) ||
-			((virtualName[0] == '.') && (virtualName[1] == '.') && 
-			 (virtualName[2] == '\0')))
-			continue;
-
-		Path newPath = directory / virtualName;
-		if (IsDirectory(newPath)) {
-			if (!DeleteDirRecursively(newPath)) {
-#ifndef _WIN32
-				closedir(dirp);
-#else
-				FindClose(hFind);
-#endif
-				return false;
-			}
+	std::vector<FileInfo> files;
+	GetFilesInDir(directory, &files, nullptr, GETFILES_GETHIDDEN);
+	for (const auto &file : files) {
+		if (file.isDirectory) {
+			DeleteDirRecursively(file.fullName);
+		} else {
+			Delete(file.fullName);
 		}
-		else {
-			if (!File::Delete(newPath)) {
-#ifndef _WIN32
-				closedir(dirp);
-#else
-				FindClose(hFind);
-#endif
-				return false;
-			}
-		}
-
-#ifdef _WIN32
-	} while (FindNextFile(hFind, &ffd) != 0);
-	FindClose(hFind);
-#else
 	}
-	closedir(dirp);
-#endif
-	return File::DeleteDir(directory);
+	return DeleteDir(directory);
 }
 
 bool OpenFileInEditor(const Path &fileName) {
-	if (Android_IsContentUri(fileName.ToString())) {
-		// TODO: This might even be supportable?
-
-		ERROR_LOG(COMMON, "OpenFileInEditor(%s) not yet supported on content URIs", fileName.c_str());
+	switch (fileName.Type()) {
+	case PathType::NATIVE:
+		break;  // OK
+	default:
+		ERROR_LOG(COMMON, "OpenFileInEditor(%s): Path type not supported", fileName.c_str());
 		return false;
 	}
 
-#if defined(_WIN32)
+#if PPSSPP_PLATFORM(WINDOWS)
 #if PPSSPP_PLATFORM(UWP)
 	// Do nothing.
 #else

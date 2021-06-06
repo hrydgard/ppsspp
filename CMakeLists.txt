@@ -1132,35 +1132,65 @@ list(APPEND NativeAppSource
 	android/jni/TestRunner.cpp
 	UI/DiscordIntegration.cpp
 	UI/NativeApp.cpp
+	UI/BackgroundAudio.h
 	UI/BackgroundAudio.cpp
+	UI/ChatScreen.h
 	UI/ChatScreen.cpp
 	UI/DevScreens.cpp
+	UI/DevScreens.h
 	UI/DisplayLayoutEditor.cpp
+	UI/DisplayLayoutEditor.h
 	UI/DisplayLayoutScreen.cpp
+	UI/DisplayLayoutScreen.h
+	UI/EmuScreen.h
 	UI/EmuScreen.cpp
+	UI/GameInfoCache.h
 	UI/GameInfoCache.cpp
+	UI/MainScreen.h
 	UI/MainScreen.cpp
+	UI/MiscScreens.h
 	UI/MiscScreens.cpp
+	UI/PauseScreen.h
 	UI/PauseScreen.cpp
+	UI/GameScreen.h
 	UI/GameScreen.cpp
+	UI/GameSettingsScreen.h
 	UI/GameSettingsScreen.cpp
+	UI/GPUDriverTestScreen.h
 	UI/GPUDriverTestScreen.cpp
+	UI/TiltAnalogSettingsScreen.h
 	UI/TiltAnalogSettingsScreen.cpp
+	UI/TiltEventProcessor.h
 	UI/TiltEventProcessor.cpp
+	UI/TouchControlLayoutScreen.h
 	UI/TouchControlLayoutScreen.cpp
+	UI/TouchControlVisibilityScreen.h
 	UI/TouchControlVisibilityScreen.cpp
+	UI/GamepadEmu.h
 	UI/GamepadEmu.cpp
+	UI/OnScreenDisplay.h
 	UI/OnScreenDisplay.cpp
+	UI/ControlMappingScreen.h
 	UI/ControlMappingScreen.cpp
+	UI/RemoteISOScreen.h
 	UI/RemoteISOScreen.cpp
+	UI/ReportScreen.h
 	UI/ReportScreen.cpp
+	UI/SavedataScreen.h
 	UI/SavedataScreen.cpp
+	UI/Store.h
 	UI/Store.cpp
+	UI/CwCheatScreen.h
 	UI/CwCheatScreen.cpp
+	UI/InstallZipScreen.h
 	UI/InstallZipScreen.cpp
+	UI/MemStickScreen.h
 	UI/MemStickScreen.cpp
+	UI/ProfilerDraw.h
 	UI/ProfilerDraw.cpp
+	UI/TextureUtil.h
 	UI/TextureUtil.cpp
+	UI/ComboKeyMappingScreen.h
 	UI/ComboKeyMappingScreen.cpp
 )
 

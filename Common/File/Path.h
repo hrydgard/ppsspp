@@ -78,7 +78,9 @@ public:
 	bool CanNavigateUp() const;
 	Path NavigateUp() const;
 
-	Path GetRootVolume() const;  // Navigates as far up as possible on the current volume, whatever that is. If not possible, returns the same path.
+	// Navigates as far up as possible from this path. If not possible to navigate upwards, returns the same path.
+	// Not actually always the root of the volume, especially on systems like Mac and Linux where things are often mounted.
+	Path GetRootVolume() const;
 
 	std::string PathTo(const Path &child);
 
