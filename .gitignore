@@ -64,10 +64,9 @@ PPSSPPControls.dat
 .idea
 *.iml
 build
-build.ios
+/build*/
 versionname.txt
 versioncode.txt
-build*/
 android/.cxx
 
 # Temp file used by jenkins windows build (TODO: remove)
@@ -75,7 +74,7 @@ desc.txt
 
 Logs
 Memstick
-memstick*
+/memstick*
 Cheats
 
 /git-version.cpp
