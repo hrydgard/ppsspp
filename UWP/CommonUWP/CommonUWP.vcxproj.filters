@@ -100,6 +100,7 @@
     <ClCompile Include="..\..\Common\ExceptionHandlerSetup.cpp" />
     <ClCompile Include="..\..\Common\Log.cpp" />
     <ClCompile Include="..\..\Common\LogManager.cpp" />
+    <ClCompile Include="..\..\Common\LogReporting.cpp" />
     <ClCompile Include="..\..\Common\MemArenaAndroid.cpp" />
     <ClCompile Include="..\..\Common\MemArenaDarwin.cpp" />
     <ClCompile Include="..\..\Common\MemArenaPosix.cpp" />
@@ -398,6 +399,7 @@
     <ClInclude Include="..\..\Common\GraphicsContext.h" />
     <ClInclude Include="..\..\Common\Log.h" />
     <ClInclude Include="..\..\Common\LogManager.h" />
+    <ClInclude Include="..\..\Common\LogReporting.h" />
     <ClInclude Include="..\..\Common\MemArena.h" />
     <ClInclude Include="..\..\Common\MemoryUtil.h" />
     <ClInclude Include="..\..\Common\MipsEmitter.h" />

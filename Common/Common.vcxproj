@@ -469,6 +469,7 @@
     <ClInclude Include="Render\Text\draw_text_qt.h" />
     <ClInclude Include="Render\Text\draw_text_uwp.h" />
     <ClInclude Include="Render\Text\draw_text_win.h" />
+    <ClInclude Include="LogReporting.h" />
     <ClInclude Include="Serialize\SerializeDeque.h" />
     <ClInclude Include="Serialize\SerializeFuncs.h" />
     <ClInclude Include="Data\Convert\ColorConvNEON.h" />
@@ -891,6 +892,7 @@
     <ClCompile Include="Render\Text\draw_text_qt.cpp" />
     <ClCompile Include="Render\Text\draw_text_uwp.cpp" />
     <ClCompile Include="Render\Text\draw_text_win.cpp" />
+    <ClCompile Include="LogReporting.cpp" />
     <ClCompile Include="Serialize\Serializer.cpp" />
     <ClCompile Include="Data\Convert\ColorConv.cpp" />
     <ClCompile Include="ConsoleListener.cpp" />
