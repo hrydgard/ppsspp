@@ -394,6 +394,7 @@
     <ClInclude Include="File\Path.h">
       <Filter>File</Filter>
     </ClInclude>
+    <ClInclude Include="LogReporting.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -760,6 +761,7 @@
     <ClCompile Include="File\Path.cpp">
       <Filter>File</Filter>
     </ClCompile>
+    <ClCompile Include="LogReporting.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">

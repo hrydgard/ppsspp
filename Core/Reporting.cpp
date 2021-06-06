@@ -60,9 +60,6 @@ namespace Reporting
 	static u32 spamProtectionCount = 0;
 	// Temporarily stores a reference to the hostname.
 	static std::string lastHostname;
-	// Keeps track of report-only-once identifiers.  Since they're always constants, a pointer is okay.
-	static std::map<const char *, int> logNTimes;
-	static std::mutex logNTimesLock;
 
 	// Keeps track of whether a harmful setting was ever used.
 	static bool everUnsupported = false;
@@ -331,14 +328,18 @@ namespace Reporting
 #endif
 	}
 
+	bool MessageAllowed();
+	void SendReportMessage(const char *message, const char *formatted);
+
 	void Init()
 	{
 		// New game, clean slate.
 		spamProtectionCount = 0;
-		logNTimes.clear();
+		ResetCounts();
 		everUnsupported = false;
 		currentSupported = IsSupported();
 		pendingMessagesDone = false;
+		Reporting::SetupCallbacks(&MessageAllowed, &SendReportMessage);
 	}
 
 	void Shutdown()
@@ -375,29 +376,6 @@ namespace Reporting
 		currentSupported = IsSupported();
 		if (!currentSupported && PSP_IsInited())
 			everUnsupported = true;
-	}
-
-	bool ShouldLogNTimes(const char *identifier, int count)
-	{
-		// True if it wasn't there already -> so yes, log.
-		std::lock_guard<std::mutex> lock(logNTimesLock);
-		auto iter = logNTimes.find(identifier);
-		if (iter == logNTimes.end()) {
-			logNTimes.insert(std::pair<const char*, int>(identifier, 1));
-			return true;
-		} else {
-			if (iter->second >= count) {
-				return false;
-			} else {
-				iter->second++;
-				return true;
-			}
-		}
-	}
-
-	void ResetCounts() {
-		std::lock_guard<std::mutex> lock(logNTimesLock);
-		logNTimes.clear();
 	}
 
 	std::string CurrentGameID()
@@ -639,41 +617,13 @@ namespace Reporting
 		return 0;
 	}
 
-	void ReportMessage(const char *message, ...)
-	{
+	bool MessageAllowed() {
 		if (!IsEnabled() || CheckSpamLimited())
-			return;
-		int pos = NextFreePos();
-		if (pos == -1)
-			return;
-
-		const int MESSAGE_BUFFER_SIZE = 65536;
-		char temp[MESSAGE_BUFFER_SIZE];
-
-		va_list args;
-		va_start(args, message);
-		vsnprintf(temp, MESSAGE_BUFFER_SIZE - 1, message, args);
-		temp[MESSAGE_BUFFER_SIZE - 1] = '\0';
-		va_end(args);
-
-		Payload &payload = payloadBuffer[pos];
-		payload.type = RequestType::MESSAGE;
-		payload.string1 = message;
-		payload.string2 = temp;
-
-		std::lock_guard<std::mutex> guard(pendingMessageLock);
-		pendingMessages.push_back(pos);
-		pendingMessageCond.notify_one();
-
-		if (!messageThread.joinable()) {
-			messageThread = std::thread(ProcessPending);
-		}
+			return false;
+		return true;
 	}
 
-	void ReportMessageFormatted(const char *message, const char *formatted)
-	{
-		if (!IsEnabled() || CheckSpamLimited())
-			return;
+	void SendReportMessage(const char *message, const char *formatted) {
 		int pos = NextFreePos();
 		if (pos == -1)
 			return;

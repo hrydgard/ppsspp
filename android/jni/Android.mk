@@ -302,6 +302,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/FakeCPUDetect.cpp \
   $(SRC)/Common/Log.cpp \
   $(SRC)/Common/LogManager.cpp \
+  $(SRC)/Common/LogReporting.cpp \
   $(SRC)/Common/MemArenaAndroid.cpp \
   $(SRC)/Common/MemArenaDarwin.cpp \
   $(SRC)/Common/MemArenaWin32.cpp \
