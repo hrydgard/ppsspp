@@ -208,9 +208,10 @@ static int asyncDefaultPriority = -1;
 
 class FileNode : public KernelObject {
 public:
-	FileNode() : callbackID(0), callbackArg(0), asyncResult(0), hasAsyncResult(false), pendingAsyncResult(false), sectorBlockMode(false), closePending(false), npdrm(0), pgdInfo(NULL) {}
+	FileNode() {}
 	~FileNode() {
-		pspFileSystem.CloseFile(handle);
+		if (handle != -1)
+			pspFileSystem.CloseFile(handle);
 		pgd_close(pgdInfo);
 	}
 	const char *GetName() override { return fullpath.c_str(); }
@@ -228,7 +229,7 @@ public:
 	}
 
 	void DoState(PointerWrap &p) override {
-		auto s = p.Section("FileNode", 1, 2);
+		auto s = p.Section("FileNode", 1, 3);
 		if (!s)
 			return;
 
@@ -262,35 +263,40 @@ public:
 		if (s >= 2) {
 			Do(p, waitingSyncThreads);
 		}
+		if (s >= 3) {
+			Do(p, isTTY);
+		}
 		Do(p, pausedWaits);
 	}
 
 	std::string fullpath;
 	u32 handle;
 
-	u32 callbackID;
-	u32 callbackArg;
+	u32 callbackID = 0;
+	u32 callbackArg = 0;
 
-	s64 asyncResult;
-	bool hasAsyncResult;
-	bool pendingAsyncResult;
+	s64 asyncResult = 0;
+	bool hasAsyncResult = false;
+	bool pendingAsyncResult = false;
 
-	bool sectorBlockMode;
+	bool sectorBlockMode = false;
 	// TODO: Use an enum instead?
-	bool closePending;
+	bool closePending = false;
 
 	PSPFileInfo info;
-	u32 openMode;
+	u32 openMode = 0;
 
-	u32 npdrm;
-	u32 pgd_offset;
-	PGD_DESC *pgdInfo;
+	u32 npdrm = 0;
+	u32 pgd_offset = 0;
+	PGD_DESC *pgdInfo = nullptr;
 
 	std::vector<SceUID> waitingThreads;
 	std::vector<SceUID> waitingSyncThreads;
 	// Key is the callback id it was for, or if no callback, the thread id.
 	// Value is actually meaningless but kept for consistency with other wait types.
 	std::map<SceUID, u64> pausedWaits;
+
+	bool isTTY = false;
 };
 
 /******************************************************************************/
@@ -1180,6 +1186,14 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 		const std::string tag = "IoWrite/" + IODetermineFilename(f);
 		NotifyMemInfo(MemBlockFlags::READ, data_addr, size, tag.c_str(), tag.size());
 
+		if (f->isTTY) {
+			const char *str = (const char *)data_ptr;
+			const int str_size = size <= 0 ? 0 : (str[validSize - 1] == '\n' ? validSize - 1 : validSize);
+			INFO_LOG(SCEIO, "%s: %.*s", "tty", str_size, str);
+			result = validSize;
+			return true;
+		}
+
 		bool useThread = __KernelIsDispatchEnabled() && ioManagerThreadEnabled && size > IO_THREAD_MIN_DATA_SIZE;
 		if (useThread) {
 			// If there's a pending operation on this file, wait for it to finish and don't overwrite it.
@@ -1284,6 +1298,8 @@ static u32 sceIoGetDevType(int id) {
 	if (f) {
 		// TODO: When would this return PSP_DEV_TYPE_ALIAS?
 		WARN_LOG(SCEIO, "sceIoGetDevType(%d - %s)", id, f->fullpath.c_str());
+		if (f->isTTY)
+			result = (u32)PSPDevType::FILE;
 		result = (u32)pspFileSystem.DevType(f->handle) & (u32)PSPDevType::EMU_MASK;
 	} else {
 		ERROR_LOG(SCEIO, "sceIoGetDevType: unknown id %d", id);
@@ -1468,22 +1484,35 @@ static FileNode *__IoOpen(int &error, const char *filename, int flags, int mode)
 	if (flags & PSP_O_EXCL)
 		access |= FILEACCESS_EXCL;
 
-	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
+	PSPFileInfo info;
+	int h = -1;
+	bool isTTY = false;
+	// TODO: Technically, tty1, etc. too and space doesn't matter.
+	if (startsWithNoCase(filename, "tty0:")) {
+		info.name = filename;
+		info.access = 0777;
+		info.exists = true;
 
-	int h = pspFileSystem.OpenFile(filename, (FileAccess)access);
-	if (h < 0) {
-		error = h;
-		return nullptr;
+		isTTY = true;
+	} else {
+		info = pspFileSystem.GetFileInfo(filename);
+
+		h = pspFileSystem.OpenFile(filename, (FileAccess)access);
+		if (h < 0) {
+			error = h;
+			return nullptr;
+		}
 	}
 	error = 0;
 
 	FileNode *f = new FileNode();
-	SceUID id = kernelObjects.Create(f);
+	kernelObjects.Create(f);
 	f->handle = h;
 	f->fullpath = filename;
-	f->asyncResult = id;
+	f->asyncResult = h;
 	f->info = info;
 	f->openMode = access;
+	f->isTTY = isTTY;
 
 	f->npdrm = (flags & PSP_O_NPDRM)? true: false;
 	f->pgd_offset = 0;
@@ -1527,7 +1556,7 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 	} else {
 		asyncParams[id].priority = asyncDefaultPriority;
 		IFileSystem *sys = pspFileSystem.GetSystemFromFilename(filename);
-		if (sys && (sys->DevType(f->handle) & (PSPDevType::BLOCK | PSPDevType::EMU_LBN))) {
+		if (sys && !f->isTTY && (sys->DevType(f->handle) & (PSPDevType::BLOCK | PSPDevType::EMU_LBN))) {
 			// These are fast to open, no delay or even rescheduling happens.
 			return hleLogSuccessI(SCEIO, id);
 		}
@@ -2089,7 +2118,8 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode) {
 			return hleLogError(SCEIO, error, "device not found");
 
 		f = new FileNode();
-		f->handle = kernelObjects.Create(f);
+		kernelObjects.Create(f);
+		f->handle = -1;
 		f->fullpath = filename;
 		f->closePending = true;
 	}
