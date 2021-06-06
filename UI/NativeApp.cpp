@@ -342,7 +342,10 @@ static bool CreateDirectoriesAndroid() {
 	// On Android, create a PSP directory tree in the external_dir,
 	// to hopefully reduce confusion a bit.
 
-	Path pspDir = g_Config.memStickDirectory / "PSP";
+	Path pspDir = g_Config.memStickDirectory;
+	if (pspDir.GetFilename() != "PSP") {
+		pspDir /= "PSP";
+	}
 
 	INFO_LOG(IO, "Creating '%s' and subdirs:", pspDir.c_str());
 	File::CreateFullPath(pspDir);
@@ -525,7 +528,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 			} else {
 				ERROR_LOG(SYSTEM, "Couldn't read directory '%s' specified by memstick_dir.txt.", memstickDir.c_str());
 				if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
-					//
+					// TODO: Gotta resolve this somehow...
 				}
 			}
 		}

@@ -1157,15 +1157,16 @@ public abstract class NativeActivity extends Activity {
 			if (selectedDirectoryUri != null) {
 				String path = selectedDirectoryUri.toString();
 				Log.i(TAG, "Browse folder finished: " + path);
-				Log.i(TAG, "is tree:" + DocumentsContract.isTreeUri(selectedDirectoryUri));
-				getContentResolver().takePersistableUriPermission(selectedDirectoryUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-
+				getContentResolver().takePersistableUriPermission(selectedDirectoryUri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
 				DocumentFile documentFile = DocumentFile.fromTreeUri(this, selectedDirectoryUri);
 				Log.i(TAG, "Document name: " + documentFile.getUri());
+				/*
+				// Old debug log
 				DocumentFile[] children = documentFile.listFiles();
 				for (DocumentFile child : children) {
 					Log.i(TAG, "Child: " + child.getUri() + " " + child.getName());
 				}
+				*/
 				NativeApp.sendMessage("browse_folderSelect", documentFile.getUri().toString());
 			}
 		}

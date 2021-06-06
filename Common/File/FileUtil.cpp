@@ -38,6 +38,7 @@
 #include <memory>
 
 #include "Common/Log.h"
+#include "Common/LogReporting.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/SysError.h"
@@ -123,7 +124,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 						return nullptr;
 					}
 				} else {
-					INFO_LOG(COMMON, "Failed to navigate up to create file");
+					INFO_LOG_REPORT_ONCE(openCFileFailedNavigateUp, COMMON, "Failed to navigate up to create file: %s", path.c_str());
 					return nullptr;
 				}
 			} else {
@@ -175,7 +176,7 @@ int OpenFD(const Path &path, OpenFlag flags) {
 		// TODO: Maybe better checking of additional flags here.
 	} else {
 		// TODO: Add support for more modes if possible.
-		ERROR_LOG(COMMON, "OpenFlag 0x%x not yet supported", flags);
+		ERROR_LOG_REPORT_ONCE(openFlagNotSupported, COMMON, "OpenFlag 0x%x not yet supported", flags);
 		return -1;
 	}
 
@@ -471,17 +472,12 @@ bool CreateFullPath(const Path &path) {
 	}
 
 	Path curPath = root;
-
-	INFO_LOG(COMMON, "About to create folder tree '%s', rooted at '%s'", path.c_str(), root.c_str());
-
 	for (auto &part : parts) {
 		curPath /= part;
 		if (!File::Exists(curPath)) {
-			INFO_LOG(COMMON, "Creating folder '%s', doesn't already exist", curPath.c_str());
 			File::CreateDir(curPath);
 		}
 	}
-	INFO_LOG(COMMON, "Done");
 
 	return true;
 }
@@ -528,7 +524,7 @@ bool Rename(const Path &srcFilename, const Path &destFilename)
 	case PathType::NATIVE:
 		break; // OK
 	case PathType::CONTENT_URI:
-		ERROR_LOG(COMMON, "Moving files by Android URI is not yet supported");
+		ERROR_LOG_REPORT_ONCE(renameUriNotSupported, COMMON, "Moving files by Android URI is not yet supported");
 		return false;
 	default:
 		return false;
@@ -558,7 +554,7 @@ bool Copy(const Path &srcFilename, const Path &destFilename)
 	case PathType::NATIVE:
 		break; // OK
 	case PathType::CONTENT_URI:
-		ERROR_LOG(COMMON, "Copying files by Android URI is not yet supported");
+		ERROR_LOG_REPORT_ONCE(copyUriNotSupported, COMMON, "Copying files by Android URI is not yet supported");
 		break;
 	default:
 		return false;
@@ -567,7 +563,7 @@ bool Copy(const Path &srcFilename, const Path &destFilename)
 	case PathType::NATIVE:
 		break; // OK
 	case PathType::CONTENT_URI:
-		ERROR_LOG(COMMON, "Copying files by Android URI is not yet supported");
+		ERROR_LOG_REPORT_ONCE(copyUriNotSupported, COMMON, "Copying files by Android URI is not yet supported");
 		return false;
 	default:
 		return false;
