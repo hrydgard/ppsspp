@@ -2268,7 +2268,7 @@ int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr) {
 			// Multithreading Unlock
 			peerlock.unlock();
 
-			hleEatMicro(2000);
+			hleEatMicro(200);
 			// Return Success
 			return 0;
 		}
@@ -4264,7 +4264,7 @@ static int sceNetAdhocGameModeUpdateMaster() {
 			gma.dataSent = 0;
 	}
 	
-	hleEatMicro(1000);
+	hleEatMicro(100);
 	return 0;
 }
 
@@ -4329,7 +4329,7 @@ static int sceNetAdhocGameModeUpdateReplica(int id, u32 infoAddr) {
 		}
 	}
 
-	hleEatMicro(1000);
+	hleEatMicro(100);
 	return 0;
 }
 
@@ -5297,7 +5297,7 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 	}
 
 	// Return Success
-	return hleDelayResult(0, "delay 1 ~ 10ms", 1000); // seems to have different thread running within the delay duration
+	return hleDelayResult(0, "delay 100 ~ 1000us", 100); // seems to have different thread running within the delay duration
 }
 
 // Gran Turismo may replace the 1st bit of the 1st byte of MAC address's OUI with 0 (unicast bit), or replace the whole 6-bytes of MAC address with all 00 (invalid mac) for unknown reason
@@ -5684,7 +5684,7 @@ static int sceNetAdhocctlGetGameModeInfo(u32 infoAddr) {
 			break;
 	}
 
-	hleEatMicro(1000);
+	hleEatMicro(100);
 	return 0;
 }
 
@@ -5771,7 +5771,7 @@ static int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 			peerlock.unlock();
 
 			// Return Success
-			return hleDelayResult(0, "delay 1 ~ 10ms", 1000); // seems to have different thread running within the delay duration
+			return hleDelayResult(0, "delay 100 ~ 1000us", 100); // seems to have different thread running within the delay duration
 		}
 
 		// Invalid Arguments
@@ -5888,7 +5888,7 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 			peerlock.unlock();
 
 			// Return Success
-			return hleLogDebug(SCENET, hleDelayResult(0, "delay 1 ~ 10ms", 1000), "success"); // FIXME: Might have similar delay with GetPeerList? need to know which games using this tho
+			return hleLogDebug(SCENET, hleDelayResult(0, "delay 100 ~ 1000us", 100), "success"); // FIXME: Might have similar delay with GetPeerList? need to know which games using this tho
 		}
 
 		// Invalid Arguments
