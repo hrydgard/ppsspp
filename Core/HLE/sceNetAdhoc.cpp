@@ -1526,7 +1526,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 									// Free Network Lock
 									//_freeNetworkLock();
 
-									hleEatMicro(1000); // Can be longer than 1ms tho
+									hleEatMicro(50); // Can be longer than 1ms tho
 									// Sent Data
 									if (sent >= 0) {
 										DEBUG_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u]: Sent %u bytes to %s:%u\n", id, getLocalPort(pdpsocket.id), sent, ip2str(target.sin_addr).c_str(), ntohs(target.sin_port));
@@ -1618,7 +1618,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 								// Free Network Lock
 								//_freeNetworkLock();
 
-								hleEatMicro(1000);
+								hleEatMicro(50);
 								// Success, Broadcast never fails!
 								return 0; // len;
 							}
@@ -1779,7 +1779,7 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 					return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 				}
 				
-				hleEatMicro(1000);
+				hleEatMicro(50);
 				// Received Data. UDP can also receives 0 data, while on TCP 0 data = connection gracefully closed, but not sure about PDP tho
 				if (received >= 0) {
 					DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %s:%u\n", id, getLocalPort(pdpsocket.id), received, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
@@ -2024,7 +2024,7 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 					}
 				}
 				// Workaround to get 30 FPS instead of the too fast 60 FPS on Fate Unlimited Codes, it's abit absurd for a non-blocking call to have this much delay tho, and hleDelayResult doesn't works as good as hleEatMicro for this workaround.
-				hleEatMicro(1000); // hleEatMicro(7500); // normally 1ms, but using 7.5ms here seems to show better result for Bleach Heat the Soul 7 and other games with too high FPS, but may have a risk of slowing down games that already runs at normal FPS? (need more games to test this)
+				hleEatMicro(50); // hleEatMicro(7500); // normally 1ms, but using 7.5ms here seems to show better result for Bleach Heat the Soul 7 and other games with too high FPS, but may have a risk of slowing down games that already runs at normal FPS? (need more games to test this)
 				return hleLogDebug(SCENET, affectedsockets, "success");
 			}
 			//else if (nonblock && affectedsockets < 0)
@@ -3090,7 +3090,7 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 			// Update Buffer Length
 			*buflen = i * sizeof(SceNetAdhocPtpStat);
 			
-			hleEatMicro(1000); // Not sure how long it takes, since GetPtpStat didn't get logged when using prx files on JPCSP
+			hleEatMicro(50); // Not sure how long it takes, since GetPtpStat didn't get logged when using prx files on JPCSP
 			// Success
 			return 0;
 		}
@@ -3431,7 +3431,7 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 
 				// Listener Socket
 				if (ptpsocket.state == ADHOC_PTP_STATE_LISTEN) {
-					hleEatMicro(500);
+					hleEatMicro(50);
 					// Address Information
 					struct sockaddr_in peeraddr;
 					memset(&peeraddr, 0, sizeof(peeraddr));
@@ -3512,7 +3512,7 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 
 			// Valid Client Socket
 			if (ptpsocket.state == ADHOC_PTP_STATE_CLOSED || ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT) {
-				hleEatMicro(500);
+				hleEatMicro(50);
 				// Target Address
 				struct sockaddr_in sin;
 				memset(&sin, 0, sizeof(sin));
@@ -3894,7 +3894,7 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					
 					// Success
 					if (sent > 0) {
-						hleEatMicro(1000); // mostly 1ms, sometimes 1~10ms ? doesn't seems to be switching to a different thread during this duration
+						hleEatMicro(50); // mostly 1ms, sometimes 1~10ms ? doesn't seems to be switching to a different thread during this duration
 						// Save Length
 						*len = sent;
 
@@ -4007,7 +4007,7 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					// Free Network Lock
 					// _freeNetworkLock();
 
-					hleEatMicro(1000); 
+					hleEatMicro(50); 
 
 					// Received Data
 					if (received > 0) {
@@ -4103,7 +4103,7 @@ static int sceNetAdhocPtpFlush(int id, int timeout, int nonblock) {
 
 			// Connected Socket
 			if (ptpsocket.state == ADHOC_PTP_STATE_ESTABLISHED) {
-				hleEatMicro(1000);
+				hleEatMicro(50);
 				// There are two ways to flush, you can either set TCP_NODELAY to 1 or TCP_CORK to 0.
 				// Apply Send Timeout Settings to Socket
 				setSockTimeout(ptpsocket.id, SO_SNDTIMEO, timeout);
