@@ -1537,7 +1537,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 
 									// Non-Blocking
 									if (flag) 
-										return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
+										return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 
 									// Does PDP can Timeout? There is no concept of Timeout when sending UDP due to no ACK, but might happen if the socket buffer is full, not sure about PDP since some games did use the timeout arg
 									return hleLogDebug(SCENET, ERROR_NET_ADHOC_TIMEOUT, "timeout?"); // ERROR_NET_ADHOC_INVALID_ADDR;
@@ -1761,7 +1761,7 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 					// Free Network Lock
 					//_freeNetworkLock();
 
-					return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_NOT_ENOUGH_SPACE, "not enough space"); //received;
+					return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_NOT_ENOUGH_SPACE, "not enough space"); //received;
 				}
 				sinlen = sizeof(sin);
 				memset(&sin, 0, sinlen);
@@ -1776,7 +1776,7 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 						return WaitBlockingAdhocSocket(threadSocketId, PDP_RECV, id, buf, len, timeout, saddr, sport, "pdp recv");
 					}
 
-					return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
+					return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 				}
 				
 				hleEatMicro(1000);
@@ -3467,26 +3467,26 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 
 					// Action would block
 					if (flag)
-						return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
+						return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 
 					// Timeout
-					return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_TIMEOUT, "timeout");
+					return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_TIMEOUT, "timeout");
 				}
 
 				// Client Socket
-				return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_NOT_LISTENED, "not listened");
+				return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_NOT_LISTENED, "not listened");
 			}
 
 			// Invalid Socket
-			return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_INVALID_SOCKET_ID, "invalid socket id");
+			return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_INVALID_SOCKET_ID, "invalid socket id");
 		}
 
 		// Invalid Arguments
-		return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg");
+		return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg");
 	}
 	
 	// Library is uninitialized
-	return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized");
+	return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized");
 }
 
 int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) {
@@ -3912,7 +3912,7 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					else if (sent == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && (error == ENOTCONN || connectInProgress(error))))) {
 						// Non-Blocking
 						if (flag) 
-							return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
+							return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 						
 						// Simulate blocking behaviour with non-blocking socket
 						u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
@@ -4001,7 +4001,7 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 							return WaitBlockingAdhocSocket(threadSocketId, PTP_RECV, id, buf, len, timeout, nullptr, nullptr, "ptp recv");
 						}
 
-						return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
+						return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 					}
 
 					// Free Network Lock
@@ -4113,7 +4113,7 @@ static int sceNetAdhocPtpFlush(int id, int timeout, int nonblock) {
 				if (error == EAGAIN || error == EWOULDBLOCK) {
 					// Non-Blocking
 					if (nonblock)
-						return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
+						return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 
 					// Simulate blocking behaviour with non-blocking socket
 					u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
