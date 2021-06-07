@@ -529,6 +529,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				ERROR_LOG(SYSTEM, "Couldn't read directory '%s' specified by memstick_dir.txt.", memstickDir.c_str());
 				if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
 					// TODO: Gotta resolve this somehow...
+					// I think we wanna pop up the memstick dir chooser before any other screen in this case.
+					// For now we just choose a default.
+					g_Config.memStickDirectory = g_Config.defaultCurrentDirectory;
 				}
 			}
 		}
