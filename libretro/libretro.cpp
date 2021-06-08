@@ -612,7 +612,7 @@ bool retro_load_game(const struct retro_game_info *game)
    if (retro_base_dir.empty())
       retro_base_dir = Path(game->path).NavigateUp();
 
-   retro_base_dir            /= "PPSSPP";
+   retro_base_dir /= "PPSSPP";
 
    if (retro_save_dir.empty())
       retro_save_dir = Path(game->path).NavigateUp();

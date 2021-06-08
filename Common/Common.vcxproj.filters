@@ -395,6 +395,9 @@
       <Filter>File</Filter>
     </ClInclude>
     <ClInclude Include="LogReporting.h" />
+    <ClInclude Include="File\AndroidStorage.h">
+      <Filter>File</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -762,6 +765,9 @@
       <Filter>File</Filter>
     </ClCompile>
     <ClCompile Include="LogReporting.cpp" />
+    <ClCompile Include="File\AndroidStorage.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">

@@ -120,6 +120,9 @@
 #if PPSSPP_PLATFORM(UWP)
 #include <dwrite_3.h>
 #endif
+#if PPSSPP_PLATFORM(ANDROID)
+#include "android/jni/app-android.h"
+#endif
 
 // The new UI framework, for initialization
 
@@ -335,11 +338,22 @@ static void PostLoadConfig() {
 		i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
 }
 
-void CreateDirectoriesAndroid() {
+static bool CreateDirectoriesAndroid() {
 	// On Android, create a PSP directory tree in the external_dir,
 	// to hopefully reduce confusion a bit.
-	INFO_LOG(IO, "Creating %s", (g_Config.memStickDirectory / "PSP").c_str());
-	File::CreateFullPath(g_Config.memStickDirectory / "PSP");
+
+	Path pspDir = g_Config.memStickDirectory;
+	if (pspDir.GetFilename() != "PSP") {
+		pspDir /= "PSP";
+	}
+
+	INFO_LOG(IO, "Creating '%s' and subdirs:", pspDir.c_str());
+	File::CreateFullPath(pspDir);
+	if (!File::Exists(pspDir)) {
+		INFO_LOG(IO, "Not a workable memstick directory. Giving up");
+		return false;
+	}
+
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVEDATA));
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVESTATE));
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_GAME));
@@ -354,6 +368,7 @@ void CreateDirectoriesAndroid() {
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SYSTEM) / ".nomedia");
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_TEXTURES) / ".nomedia");
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_PLUGINS) / ".nomedia");
+	return true;
 }
 
 static void CheckFailedGPUBackends() {
@@ -465,6 +480,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	VFSRegister("", new DirectoryAssetReader(Path("/usr/share/ppsspp/assets")));
 	VFSRegister("", new DirectoryAssetReader(Path("/usr/share/games/ppsspp/assets")));
 #endif
+
 #if PPSSPP_PLATFORM(SWITCH)
 	Path assetPath = Path(user_data_path) / "assets";
 	VFSRegister("", new DirectoryAssetReader(assetPath));
@@ -482,27 +498,47 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_Config.defaultCurrentDirectory = Path("/");
 	g_Config.internalDataDirectory = Path(savegame_dir);
 
-#if defined(__ANDROID__)
-	// TODO: This needs to change in Android 12.
-	//
-	// Maybe there should be an option to use internal memory instead, but I think
-	// that for most people, using external memory (SDCard/USB Storage) makes the
-	// most sense.
-	g_Config.defaultCurrentDirectory = Path(external_dir);
+#if PPSSPP_PLATFORM(ANDROID)
+	// In Android 12 with scoped storage, due to the above, the external directory
+	// is no longer the plain root of external storage, but it's an app specific directory
+	// on external storage (g_extFilesDir).
+	if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
+		g_Config.defaultCurrentDirectory = Path(g_extFilesDir);
+	} else {
+		// Maybe there should be an option to use internal memory instead, but I think
+		// that for most people, using external memory (SDCard/USB Storage) makes the
+		// most sense.
+		g_Config.defaultCurrentDirectory = Path(external_dir);
+	}
+
+	// Might also add an option to move it to internal / non-visible storage, but there's
+	// little point, really.
+
 	g_Config.memStickDirectory = Path(external_dir);
 	g_Config.flash0Directory = Path(external_dir) / "flash0";
 
 	Path memstickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
 	if (File::Exists(memstickDirFile)) {
 		std::string memstickDir;
-		File::ReadFileToString(true, memstickDirFile, memstickDir);
-		Path memstickPath(memstickDir);
-		if (!memstickPath.empty() && File::Exists(memstickPath)) {
-			g_Config.memStickDirectory = memstickPath;
-		} else {
-		    ERROR_LOG(SYSTEM, "Couldn't read directory '%s' specified by memstick_dir.txt.", memstickDir.c_str());
+		if (File::ReadFileToString(true, memstickDirFile, memstickDir)) {
+			Path memstickPath(memstickDir);
+			if (!memstickPath.empty() && File::Exists(memstickPath)) {
+				g_Config.memStickDirectory = memstickPath;
+				INFO_LOG(SYSTEM, "Memstick Directory from memstick_dir.txt: '%s'", g_Config.memStickDirectory.c_str());
+			} else {
+				ERROR_LOG(SYSTEM, "Couldn't read directory '%s' specified by memstick_dir.txt.", memstickDir.c_str());
+				if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
+					// TODO: Gotta resolve this somehow...
+					// I think we wanna pop up the memstick dir chooser before any other screen in this case.
+					// For now we just choose a default.
+					g_Config.memStickDirectory = g_Config.defaultCurrentDirectory;
+				}
+			}
 		}
+	} else {
+		INFO_LOG(SYSTEM, "No memstick directory file found. Using '%s'", memstickDirFile.c_str());
 	}
+
 #elif PPSSPP_PLATFORM(IOS)
 	g_Config.defaultCurrentDirectory = g_Config.internalDataDirectory;
 	g_Config.memStickDirectory = Path(user_data_path);

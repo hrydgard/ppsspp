@@ -552,12 +552,12 @@ void Download::Do() {
 		}
 
 		if (resultCode == 200) {
-			INFO_LOG(IO, "Completed downloading %s to %s", url_.c_str(), outfile_.empty() ? "memory" : outfile_.ToVisualString().c_str());
+			INFO_LOG(IO, "Completed downloading %s to %s", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str());
 			if (!outfile_.empty() && !buffer_.FlushToFile(outfile_)) {
-				ERROR_LOG(IO, "Failed writing download to %s", outfile_.ToVisualString().c_str());
+				ERROR_LOG(IO, "Failed writing download to '%s'", outfile_.c_str());
 			}
 		} else {
-			ERROR_LOG(IO, "Error downloading %s to %s: %i", url_.c_str(), outfile_.ToVisualString().c_str(), resultCode);
+			ERROR_LOG(IO, "Error downloading '%s' to '%s': %i", url_.c_str(), outfile_.c_str(), resultCode);
 		}
 		resultCode_ = resultCode;
 	}

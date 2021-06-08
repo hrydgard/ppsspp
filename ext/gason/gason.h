@@ -29,7 +29,7 @@ union JsonValue {
         : fval(x) {
     }
     JsonValue(JsonTag tag = JSON_NULL, void *payload = nullptr) {
-        assert((uintptr_t)payload <= JSON_VALUE_PAYLOAD_MASK);
+        assert((uint64_t)payload <= JSON_VALUE_PAYLOAD_MASK);
         ival = JSON_VALUE_NAN_MASK | ((uint64_t)tag << JSON_VALUE_TAG_SHIFT) | (uintptr_t)payload;
     }
     bool isDouble() const {

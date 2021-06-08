@@ -24,6 +24,9 @@
 
 #include "ppsspp_config.h"
 
+#include "android/jni/app-android.h"
+#include "android/jni/AndroidContentURI.h"
+
 #ifdef __MINGW32__
 #include <unistd.h>
 #ifndef _POSIX_THREAD_SAFE_FUNCTIONS
@@ -35,6 +38,7 @@
 #include <memory>
 
 #include "Common/Log.h"
+#include "Common/LogReporting.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/SysError.h"
@@ -97,16 +101,87 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 	switch (path.Type()) {
 	case PathType::NATIVE:
 		break;
+	case PathType::CONTENT_URI:
+		// We're gonna need some error codes..
+		if (!strcmp(mode, "r") || !strcmp(mode, "rb")) {
+			INFO_LOG(COMMON, "Opening content file for read: '%s'", path.c_str());
+			// Read, let's support this - easy one.
+			int descriptor = Android_OpenContentUriFd(path.ToString(), Android_OpenContentUriMode::READ);
+			if (descriptor == -1) {
+				return nullptr;
+			}
+			return fdopen(descriptor, "rb");
+		} else if (!strcmp(mode, "w") || !strcmp(mode, "wb")) {
+			// Need to be able to create the file here if it doesn't exist.
+			// Not exactly sure which abstractions are best, let's start simple.
+			if (!File::Exists(path)) {
+				INFO_LOG(COMMON, "Opening content file '%s' for write. Doesn't exist, creating empty and reopening.", path.c_str());
+				std::string name = path.GetFilename();
+				if (path.CanNavigateUp()) {
+					Path parent = path.NavigateUp();
+					if (!Android_CreateFile(parent.ToString(), name)) {
+						WARN_LOG(COMMON, "Failed to create file '%s' in '%s'", name.c_str(), parent.c_str());
+						return nullptr;
+					}
+				} else {
+					INFO_LOG_REPORT_ONCE(openCFileFailedNavigateUp, COMMON, "Failed to navigate up to create file: %s", path.c_str());
+					return nullptr;
+				}
+			} else {
+				INFO_LOG(COMMON, "Opening file by fd for write");
+			}
+
+			// TODO: Support append modes and stuff... For now let's go with the most common one.
+			int descriptor = Android_OpenContentUriFd(path.ToString(), Android_OpenContentUriMode::READ_WRITE_TRUNCATE);
+			if (descriptor == -1) {
+				INFO_LOG(COMMON, "Opening '%s' for write failed", path.ToString().c_str());
+				return nullptr;
+			}
+			return fdopen(descriptor, "wb");
+		} else {
+			ERROR_LOG(COMMON, "OpenCFile(%s): Mode not yet supported: %s", path.c_str(), mode);
+			return nullptr;
+		}
+		break;
 	default:
-		ERROR_LOG(COMMON, "OpenCFile(%s): Not yet supported", path.c_str());
+		ERROR_LOG(COMMON, "OpenCFile(%s): PathType not yet supported", path.c_str());
 		return nullptr;
 	}
 
 #if defined(_WIN32) && defined(UNICODE)
 	return _wfopen(path.ToWString().c_str(), ConvertUTF8ToWString(mode).c_str());
 #else
-	return fopen(path.ToString().c_str(), mode);
+	return fopen(path.c_str(), mode);
 #endif
+}
+
+int OpenFD(const Path &path, OpenFlag flags) {
+	switch (path.Type()) {
+	case PathType::CONTENT_URI:
+		break;
+	default:
+		// Not yet supported.
+		return -1;
+	}
+
+	Android_OpenContentUriMode mode;
+	if (flags == OPEN_READ) {
+		mode = Android_OpenContentUriMode::READ;
+	} else if (flags & OPEN_WRITE) {
+		if (flags & OPEN_TRUNCATE) {
+			mode = Android_OpenContentUriMode::READ_WRITE;
+		} else {
+			mode = Android_OpenContentUriMode::READ_WRITE_TRUNCATE;
+		}
+		// TODO: Maybe better checking of additional flags here.
+	} else {
+		// TODO: Add support for more modes if possible.
+		ERROR_LOG_REPORT_ONCE(openFlagNotSupported, COMMON, "OpenFlag 0x%x not yet supported", flags);
+		return -1;
+	}
+
+	int descriptor = Android_OpenContentUriFd(path.ToString(), mode);
+	return descriptor;
 }
 
 #ifdef _WIN32
@@ -146,7 +221,13 @@ std::string ResolvePath(const std::string &path) {
 	if (startsWith(path, "http://") || startsWith(path, "https://")) {
 		return path;
 	}
-#if PPSSPP_PLATFORM(WINDOWS)
+
+	if (Android_IsContentUri(path)) {
+		// Nothing to do?
+		return path;
+	}
+
+#ifdef _WIN32
 	static const int BUF_SIZE = 32768;
 	wchar_t *buf = new wchar_t[BUF_SIZE] {};
 
@@ -190,39 +271,28 @@ std::string ResolvePath(const std::string &path) {
 #endif
 }
 
-// Remove any ending forward slashes from directory paths
-// Modifies argument.
-static void StripTailDirSlashes(std::string &fname) {
-	if (fname.length() > 1) {
-		size_t i = fname.length() - 1;
-#if PPSSPP_PLATFORM(WINDOWS)
-		if (i == 2 && fname[1] == ':' && fname[2] == '\\')
-			return;
-#endif
-		while (strchr(DIR_SEP_CHRS, fname[i]))
-			fname[i--] = '\0';
-	}
-	return;
-}
-
 // Returns true if file filename exists. Will return true on directories.
 bool ExistsInDir(const Path &path, const std::string &filename) {
 	return Exists(path / filename);
 }
 
-bool Exists(const std::string &filename) {
-	std::string fn = filename;
-	StripTailDirSlashes(fn);
+bool Exists(const Path &path) {
+	if (path.Type() == PathType::CONTENT_URI) {
+		FileInfo info;
+		if (!Android_GetFileInfo(path.c_str(), &info)) {
+			return false;
+		}
+		return info.exists;
+	}
 
 #if defined(_WIN32)
-	std::wstring copy = ConvertUTF8ToWString(fn);
 
 	// Make sure Windows will no longer handle critical errors, which means no annoying "No disk" dialog
 #if !PPSSPP_PLATFORM(UWP)
 	int OldMode = SetErrorMode(SEM_FAILCRITICALERRORS);
 #endif
 	WIN32_FILE_ATTRIBUTE_DATA data{};
-	if (!GetFileAttributesEx(copy.c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
+	if (!GetFileAttributesEx(path.ToWString().c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
 		return false;
 	}
 #if !PPSSPP_PLATFORM(UWP)
@@ -231,13 +301,8 @@ bool Exists(const std::string &filename) {
 	return true;
 #else
 	struct stat file_info;
-	return stat(fn.c_str(), &file_info) == 0;
+	return stat(path.c_str(), &file_info) == 0;
 #endif
-}
-
-bool Exists(const Path &path) {
-	// Temporary forward.
-	return Exists(path.ToString());
 }
 
 // Returns true if filename exists and is a directory
@@ -245,29 +310,35 @@ bool IsDirectory(const Path &filename) {
 	switch (filename.Type()) {
 	case PathType::NATIVE:
 		break; // OK
+	case PathType::CONTENT_URI:
+	{
+		FileInfo info;
+		if (!Android_GetFileInfo(filename.ToString(), &info)) {
+			return false;
+		}
+		return info.exists && info.isDirectory;
+	}
 	default:
 		return false;
 	}
 
-	std::string fn = filename.ToString();
-	StripTailDirSlashes(fn);
-
 #if defined(_WIN32)
-	std::wstring copy = ConvertUTF8ToWString(fn);
 	WIN32_FILE_ATTRIBUTE_DATA data{};
-	if (!GetFileAttributesEx(copy.c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
+	if (!GetFileAttributesEx(filename.ToWString().c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
 		auto err = GetLastError();
-		WARN_LOG(COMMON, "GetFileAttributes failed on %s: %08x %s", fn.c_str(), (uint32_t)err, GetStringErrorMsg(err).c_str());
+		if (err != ERROR_FILE_NOT_FOUND) {
+			WARN_LOG(COMMON, "GetFileAttributes failed on %s: %08x %s", filename.ToVisualString().c_str(), (uint32_t)err, GetStringErrorMsg(err).c_str());
+		}
 		return false;
 	}
 	DWORD result = data.dwFileAttributes;
 	return (result & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY;
 #else
-	std::string copy(fn);
+	std::string copy = filename.ToString();
 	struct stat file_info;
 	int result = stat(copy.c_str(), &file_info);
 	if (result < 0) {
-		WARN_LOG(COMMON, "IsDirectory: stat failed on %s: %s", fn.c_str(), GetLastErrorMsg().c_str());
+		WARN_LOG(COMMON, "IsDirectory: stat failed on %s: %s", copy.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
 	return S_ISDIR(file_info.st_mode);
@@ -280,6 +351,8 @@ bool Delete(const Path &filename) {
 	switch (filename.Type()) {
 	case PathType::NATIVE:
 		break; // OK
+	case PathType::CONTENT_URI:
+		return Android_RemoveFile(filename.ToString());
 	default:
 		return false;
 	}
@@ -289,13 +362,13 @@ bool Delete(const Path &filename) {
 	// Return true because we care about the file no 
 	// being there, not the actual delete.
 	if (!Exists(filename)) {
-		WARN_LOG(COMMON, "Delete: %s does not exists", filename.c_str());
+		WARN_LOG(COMMON, "Delete: '%s' already does not exist", filename.c_str());
 		return true;
 	}
 
 	// We can't delete a directory
 	if (IsDirectory(filename)) {
-		WARN_LOG(COMMON, "Delete failed: %s is a directory", filename.c_str());
+		WARN_LOG(COMMON, "Delete failed: '%s' is a directory", filename.c_str());
 		return false;
 	}
 
@@ -320,103 +393,109 @@ bool CreateDir(const Path &path) {
 	switch (path.Type()) {
 	case PathType::NATIVE:
 		break; // OK
+	case PathType::CONTENT_URI:
+	{
+		// Convert it to a "CreateDirIn" call, if possible, since that's
+		// what we can do with the storage API.
+		AndroidContentURI uri(path.ToString());
+		std::string newDirName = uri.GetLastPart();
+		if (uri.NavigateUp()) {
+			INFO_LOG(COMMON, "Calling Android_CreateDirectory(%s, %s)", uri.ToString().c_str(), newDirName.c_str());
+			return Android_CreateDirectory(uri.ToString(), newDirName);
+		} else {
+			// Bad path - can't create this directory.
+			WARN_LOG(COMMON, "CreateDir failed: '%s'", path.c_str());
+			return false;
+		}
+		break;
+	}
 	default:
 		return false;
 	}
 
-	std::string fn = path.ToString();
-	DEBUG_LOG(COMMON, "CreateDir('%s')", fn.c_str());
+	DEBUG_LOG(COMMON, "CreateDir('%s')", path.c_str());
 #ifdef _WIN32
-	if (::CreateDirectory(ConvertUTF8ToWString(fn).c_str(), NULL))
+	if (::CreateDirectory(path.ToWString().c_str(), NULL))
 		return true;
 	DWORD error = GetLastError();
-	if (error == ERROR_ALREADY_EXISTS)
-	{
+	if (error == ERROR_ALREADY_EXISTS) {
 		WARN_LOG(COMMON, "CreateDir: CreateDirectory failed on %s: already exists", path.c_str());
 		return true;
 	}
 	ERROR_LOG(COMMON, "CreateDir: CreateDirectory failed on %s: %08x %s", path.c_str(), (uint32_t)error, GetStringErrorMsg(error).c_str());
 	return false;
 #else
-	if (mkdir(fn.c_str(), 0755) == 0)
-		return true;
-
-	int err = errno;
-	if (err == EEXIST)
-	{
-		WARN_LOG(COMMON, "CreateDir: mkdir failed on %s: already exists", fn.c_str());
+	if (mkdir(path.ToString().c_str(), 0755) == 0) {
 		return true;
 	}
 
-	ERROR_LOG(COMMON, "CreateDir: mkdir failed on %s: %s", fn.c_str(), strerror(err));
+	int err = errno;
+	if (err == EEXIST) {
+		WARN_LOG(COMMON, "CreateDir: mkdir failed on %s: already exists", path.c_str());
+		return true;
+	}
+
+	ERROR_LOG(COMMON, "CreateDir: mkdir failed on %s: %s", path.c_str(), strerror(err));
 	return false;
 #endif
 }
 
 // Creates the full path of fullPath returns true on success
 bool CreateFullPath(const Path &path) {
-	switch (path.Type()) {
-	case PathType::NATIVE:
-		break; // OK
-	default:
-		return false;
-	}
-
-	std::string fullPath = path.ToString();
-	int panicCounter = 100;
-	VERBOSE_LOG(COMMON, "CreateFullPath: '%s'", fullPath.c_str());
-		
-	if (File::Exists(fullPath)) {
-		DEBUG_LOG(COMMON, "CreateFullPath: path already exists: '%s'", fullPath.c_str());
+	if (File::Exists(path)) {
+		DEBUG_LOG(COMMON, "CreateFullPath: path exists %s", path.c_str());
 		return true;
 	}
 
-	size_t position = 0;
-
-#ifdef _WIN32
-	// Skip the drive letter when looking for slashes, no need to create C:\.
-	if (path.IsAbsolute()) {
-		position = 3;
+	switch (path.Type()) {
+	case PathType::NATIVE:
+	case PathType::CONTENT_URI:
+		break; // OK
+	default:
+		ERROR_LOG(COMMON, "CreateFullPath(%s): Not yet supported", path.c_str());
+		return false;
 	}
-#endif
 
-	while (true) {
-		// Find next sub path
-		position = fullPath.find_first_of(DIR_SEP_CHRS, position);
-		// we're done, yay!
-		if (position == fullPath.npos) {
-			if (!File::Exists(fullPath))
-				return File::CreateDir(Path(fullPath));
-			return true;
-		}
-		std::string subPath = fullPath.substr(0, position);
-		if (position != 0 && !File::Exists(subPath)) {
-			File::CreateDir(Path(subPath));
-		}
+	// The below code is entirely agnostic of path format.
 
-		// A safety check
-		panicCounter--;
-		if (panicCounter <= 0) {
-			ERROR_LOG(COMMON, "CreateFullPath: directory structure too deep");
-			return false;
-		}
-		position++;
+	Path root = path.GetRootVolume();
+
+	std::string diff = root.PathTo(path);  // always with forward slashes
+
+	std::vector<std::string> parts;
+	SplitString(diff, '/', parts);
+
+	// Probably not necessary sanity check, ported from the old code.
+	if (parts.size() > 100) {
+		ERROR_LOG(COMMON, "CreateFullPath: directory structure too deep");
+		return false;
 	}
+
+	Path curPath = root;
+	for (auto &part : parts) {
+		curPath /= part;
+		if (!File::Exists(curPath)) {
+			File::CreateDir(curPath);
+		}
+	}
+
+	return true;
 }
 
-// Deletes a directory filename, returns true on success
+// Deletes an empty directory, returns true on success
 bool DeleteDir(const Path &path) {
 	switch (path.Type()) {
 	case PathType::NATIVE:
 		break; // OK
+	case PathType::CONTENT_URI:
+		return Android_RemoveFile(path.ToString());
 	default:
 		return false;
 	}
 	INFO_LOG(COMMON, "DeleteDir: directory %s", path.c_str());
 
 	// check if a directory
-	if (!File::IsDirectory(path))
-	{
+	if (!File::IsDirectory(path)) {
 		ERROR_LOG(COMMON, "DeleteDir: Not a directory %s", path.c_str());
 		return false;
 	}
@@ -444,11 +523,15 @@ bool Rename(const Path &srcFilename, const Path &destFilename)
 	switch (srcFilename.Type()) {
 	case PathType::NATIVE:
 		break; // OK
+	case PathType::CONTENT_URI:
+		ERROR_LOG_REPORT_ONCE(renameUriNotSupported, COMMON, "Moving files by Android URI is not yet supported");
+		return false;
 	default:
 		return false;
 	}
 
 	INFO_LOG(COMMON, "Rename: %s --> %s", srcFilename.c_str(), destFilename.c_str());
+
 #if defined(_WIN32) && defined(UNICODE)
 	std::wstring srcw = srcFilename.ToWString();
 	std::wstring destw = destFilename.ToWString();
@@ -470,12 +553,18 @@ bool Copy(const Path &srcFilename, const Path &destFilename)
 	switch (srcFilename.Type()) {
 	case PathType::NATIVE:
 		break; // OK
+	case PathType::CONTENT_URI:
+		ERROR_LOG_REPORT_ONCE(copyUriNotSupported, COMMON, "Copying files by Android URI is not yet supported");
+		break;
 	default:
 		return false;
 	}
 	switch (destFilename.Type()) {
 	case PathType::NATIVE:
 		break; // OK
+	case PathType::CONTENT_URI:
+		ERROR_LOG_REPORT_ONCE(copyUriNotSupported, COMMON, "Copying files by Android URI is not yet supported");
+		return false;
 	default:
 		return false;
 	}
@@ -563,6 +652,23 @@ bool Move(const Path &srcFilename, const Path &destFilename) {
 // Returns the size of file (64bit)
 // TODO: Add a way to return an error.
 uint64_t GetFileSize(const Path &filename) {
+	switch (filename.Type()) {
+	case PathType::NATIVE:
+		break; // OK
+	case PathType::CONTENT_URI:
+		{
+			FileInfo info;
+			if (Android_GetFileInfo(filename.ToString(), &info)) {
+				return info.size;
+			} else {
+				return 0;
+			}
+		}
+		break;
+	default:
+		return false;
+	}
+
 #if defined(_WIN32) && defined(UNICODE)
 	WIN32_FILE_ATTRIBUTE_DATA attr;
 	if (!GetFileAttributesEx(filename.ToWString().c_str(), GetFileExInfoStandard, &attr))
@@ -591,8 +697,7 @@ uint64_t GetFileSize(const Path &filename) {
 #endif
 }
 
-uint64_t GetFileSize(FILE *f)
-{
+uint64_t GetFileSize(FILE *f) {
 	// This will only support 64-bit when large file support is available.
 	// That won't be the case on some versions of Android, at least.
 #if defined(__ANDROID__) || (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64)
@@ -632,11 +737,10 @@ uint64_t GetFileSize(FILE *f)
 
 // creates an empty file filename, returns true on success 
 bool CreateEmptyFile(const Path &filename) {
-
 	INFO_LOG(COMMON, "CreateEmptyFile: %s", filename.c_str()); 
 	FILE *pFile = OpenCFile(filename, "wb");
 	if (!pFile) {
-		ERROR_LOG(COMMON, "CreateEmptyFile: failed %s: %s", filename.c_str(), GetLastErrorMsg().c_str());
+		ERROR_LOG(COMMON, "CreateEmptyFile: failed to create '%s': %s", filename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
 	fclose(pFile);
@@ -644,72 +748,38 @@ bool CreateEmptyFile(const Path &filename) {
 }
 
 // Deletes the given directory and anything under it. Returns true on success.
-bool DeleteDirRecursively(const Path &directory) {	
-	//Removed check, it prevents the UWP from deleting store downloads
-	INFO_LOG(COMMON, "DeleteDirRecursively: %s", directory.c_str());
-
-#ifdef _WIN32
-
-	// Find the first file in the directory.
-	WIN32_FIND_DATA ffd;
-	HANDLE hFind = FindFirstFile((directory.ToWString() + L"\\*").c_str(), &ffd);
-	if (hFind == INVALID_HANDLE_VALUE) {
+bool DeleteDirRecursively(const Path &directory) {
+	switch (directory.Type()) {
+	case PathType::CONTENT_URI:
+	case PathType::NATIVE:
+		break;  // OK
+	default:
+		ERROR_LOG(COMMON, "DeleteDirRecursively: Path type not supported");
 		return false;
 	}
-		
-	// windows loop
-	do {
-		const std::string virtualName = ConvertWStringToUTF8(ffd.cFileName);
-#else
-	struct dirent *result = NULL;
-	DIR *dirp = opendir(directory.c_str());
-	if (!dirp)
-		return false;
 
-	// non windows loop
-	while ((result = readdir(dirp))) {
-		const std::string virtualName = result->d_name;
-#endif
-		// check for "." and ".."
-		if (((virtualName[0] == '.') && (virtualName[1] == '\0')) ||
-			((virtualName[0] == '.') && (virtualName[1] == '.') && 
-			 (virtualName[2] == '\0')))
-			continue;
-
-		Path newPath = directory / virtualName;
-		if (IsDirectory(newPath)) {
-			if (!DeleteDirRecursively(newPath)) {
-#ifndef _WIN32
-				closedir(dirp);
-#else
-				FindClose(hFind);
-#endif
-				return false;
-			}
+	std::vector<FileInfo> files;
+	GetFilesInDir(directory, &files, nullptr, GETFILES_GETHIDDEN);
+	for (const auto &file : files) {
+		if (file.isDirectory) {
+			DeleteDirRecursively(file.fullName);
+		} else {
+			Delete(file.fullName);
 		}
-		else {
-			if (!File::Delete(newPath)) {
-#ifndef _WIN32
-				closedir(dirp);
-#else
-				FindClose(hFind);
-#endif
-				return false;
-			}
-		}
-
-#ifdef _WIN32
-	} while (FindNextFile(hFind, &ffd) != 0);
-	FindClose(hFind);
-#else
 	}
-	closedir(dirp);
-#endif
-	return File::DeleteDir(directory);
+	return DeleteDir(directory);
 }
 
-void OpenFileInEditor(const Path &fileName) {
-#if defined(_WIN32)
+bool OpenFileInEditor(const Path &fileName) {
+	switch (fileName.Type()) {
+	case PathType::NATIVE:
+		break;  // OK
+	default:
+		ERROR_LOG(COMMON, "OpenFileInEditor(%s): Path type not supported", fileName.c_str());
+		return false;
+	}
+
+#if PPSSPP_PLATFORM(WINDOWS)
 #if PPSSPP_PLATFORM(UWP)
 	// Do nothing.
 #else
@@ -729,6 +799,7 @@ void OpenFileInEditor(const Path &fileName) {
 		ERROR_LOG(COMMON, "Failed to launch ini file");
 	}
 #endif
+	return true;
 }
 
 const Path &GetExeDirectory() {
@@ -791,30 +862,13 @@ const Path &GetExeDirectory() {
 	return ExePath;
 }
 
-IOFile::IOFile() {}
 
-IOFile::IOFile(std::FILE* file)
-	: m_file(file)
-{}
-
-IOFile::IOFile(const std::string &filename, const char openmode[]) {
+IOFile::IOFile(const Path &filename, const char openmode[]) {
 	Open(filename, openmode);
-}
-
-IOFile::IOFile(const Path &filename, const char openmode[])  {
-	Open(filename.ToString(), openmode);
 }
 
 IOFile::~IOFile() {
 	Close();
-}
-
-bool IOFile::Open(const std::string& filename, const char openmode[])
-{
-	Close();
-	m_file = File::OpenCFile(Path(filename), openmode);
-	m_good = IsOpen();
-	return m_good;
 }
 
 bool IOFile::Open(const Path& filename, const char openmode[])

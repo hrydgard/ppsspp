@@ -20,8 +20,10 @@
 
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/StringUtils.h"
+#include "Common/Net/URL.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/FileUtil.h"
+#include "Common/File/AndroidStorage.h"
 
 #if !defined(__linux__) && !defined(_WIN32) && !defined(__QNX__)
 #define stat64 stat
@@ -40,6 +42,8 @@ bool GetFileInfo(const Path &path, FileInfo * fileInfo) {
 	switch (path.Type()) {
 	case PathType::NATIVE:
 		break;  // OK
+	case PathType::CONTENT_URI:
+		return Android_GetFileInfo(path.ToString(), fileInfo);
 	default:
 		return false;
 	}
@@ -129,7 +133,40 @@ bool FileInfo::operator <(const FileInfo & other) const {
 		return false;
 }
 
+std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const char *filter) {
+	std::set<std::string> filters;
+	if (filter) {
+		std::string tmp;
+		while (*filter) {
+			if (*filter == ':') {
+				filters.insert("." + tmp);
+				tmp.clear();
+			} else {
+				tmp.push_back(*filter);
+			}
+			filter++;
+		}
+		if (!tmp.empty())
+			filters.insert("." + tmp);
+	}
+
+	auto pred = [&](const File::FileInfo &info) {
+		if (info.isDirectory || !filter)
+			return false;
+		std::string ext = info.fullName.GetFileExtension();
+		return filters.find(ext) == filters.end();
+	};
+	files.erase(std::remove_if(files.begin(), files.end(), pred), files.end());
+	return files;
+}
+
 size_t GetFilesInDir(const Path &directory, std::vector<FileInfo> * files, const char *filter, int flags) {
+	if (directory.Type() == PathType::CONTENT_URI) {
+		std::vector<File::FileInfo> fileList = Android_ListContentUri(directory.ToString());
+		*files = ApplyFilter(fileList, filter);
+		return true;
+	}
+
 	size_t foundEntries = 0;
 	std::set<std::string> filters;
 	if (filter) {

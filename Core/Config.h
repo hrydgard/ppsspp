@@ -508,6 +508,8 @@ public:
 	void SetSearchPath(const Path &path);
 	const Path FindConfigFile(const std::string &baseFilename);
 
+	void UpdateIniLocation(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
+
 	// Utility functions for "recent" management
 	void AddRecent(const std::string &file);
 	void RemoveRecent(const std::string &file);

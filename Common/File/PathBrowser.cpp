@@ -9,12 +9,18 @@
 
 #include "Common/File/PathBrowser.h"
 #include "Common/File/FileUtil.h"
+#include "Common/File/DirListing.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 #include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
 
 #include "Core/System.h"
+
+#if PPSSPP_PLATFORM(ANDROID)
+#include "android/jni/app-android.h"
+#include "android/jni/AndroidContentURI.h"
+#endif
 
 bool LoadRemoteFileList(const Path &url, bool *cancel, std::vector<File::FileInfo> &files) {
 	_dbg_assert_(url.Type() == PathType::HTTP);
@@ -95,33 +101,6 @@ bool LoadRemoteFileList(const Path &url, bool *cancel, std::vector<File::FileInf
 	}
 
 	return !files.empty();
-}
-
-std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const char *filter) {
-	std::set<std::string> filters;
-	if (filter) {
-		std::string tmp;
-		while (*filter) {
-			if (*filter == ':') {
-				filters.insert("." + tmp);
-				tmp.clear();
-			} else {
-				tmp.push_back(*filter);
-			}
-			filter++;
-		}
-		if (!tmp.empty())
-			filters.insert("." + tmp);
-	}
-
-	auto pred = [&](const File::FileInfo &info) {
-		if (info.isDirectory || !filter)
-			return false;
-		std::string ext = info.fullName.GetFileExtension();
-		return filters.find(ext) == filters.end();
-	};
-	files.erase(std::remove_if(files.begin(), files.end(), pred), files.end());
-	return files;
 }
 
 PathBrowser::~PathBrowser() {
@@ -231,11 +210,11 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 	while (!IsListingReady() && (!cancel || !*cancel)) {
 		// In case cancel changes, just sleep.
 		guard.unlock();
-		sleep_ms(100);
+		sleep_ms(50);
 		guard.lock();
 	}
 
-#ifdef _WIN32
+#if PPSSPP_PLATFORM(WINDOWS)
 	if (path_.IsRoot()) {
 		// Special path that means root of file system.
 		std::vector<std::string> drives = File::GetWindowsDrives();

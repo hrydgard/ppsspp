@@ -14,8 +14,10 @@ dependencies {
 	def appcompat_version = "1.2.0"
 
 	implementation "androidx.appcompat:appcompat:$appcompat_version"
-	// For loading and tinting drawables on older versions of the platform
-	implementation "androidx.appcompat:appcompat-resources:$appcompat_version"
+
+	// Convenient wrapper around DocumentContract. Might look into writing our own
+	// to see if there's some performance to squeeze at some point, but doubt it.
+	implementation "androidx.documentfile:documentfile:1.0.1"
 }
 
 android {

@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,38 +17,32 @@
 
 #pragma once
 
-#include <mutex>
+#include <functional>
+#include <string>
 
-#include "Common/CommonTypes.h"
+#include "ppsspp_config.h"
+
 #include "Common/File/Path.h"
-#include "Core/Loaders.h"
+#include "UI/MiscScreens.h"
+#include "Common/UI/UIScreen.h"
 
-#ifdef _WIN32
-typedef void *HANDLE;
-#endif
-
-class LocalFileLoader : public FileLoader {
+// MemStickScreen - let's you configure your memory stick directory.
+// Currently only useful for Android.
+class MemStickScreen : public UIDialogScreenWithBackground {
 public:
-	LocalFileLoader(const Path &filename);
-	virtual ~LocalFileLoader();
+	MemStickScreen() {}
+    virtual ~MemStickScreen();
 
-	virtual bool Exists() override;
-	virtual bool IsDirectory() override;
-	virtual s64 FileSize() override;
-	virtual Path GetPath() const override {
-		return filename_;
-	}
-	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override;
+	std::string tag() const override { return "game"; }
+
+protected:
+	void CreateViews() override;
+	void CallbackMemStickFolder(bool yes);
+	void sendMessage(const char *message, const char *value) override;
 
 private:
-#ifndef _WIN32
-	void DetectSizeFd();
-	int fd_ = -1;
-#else
-	HANDLE handle_ = 0;
-#endif
-	u64 filesize_ = 0;
-	Path filename_;
-	std::mutex readLock_;
-	bool isOpenedByFd_ = false;
+	// Event handlers
+	UI::EventReturn OnBrowse(UI::EventParams &e);
+	Path pendingMemStickFolder_;
+	SettingInfoMessage *settingInfo_;
 };

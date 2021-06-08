@@ -285,8 +285,7 @@ int VirtualDiscFileSystem::getFileListIndex(std::string &fileName)
 #endif
 	}
 
-	FileType type = File::IsDirectory(fullName) ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
-	if (type == FILETYPE_DIRECTORY)
+	if (File::IsDirectory(fullName))
 		return -1;
 
 	FileListEntry entry = {""};

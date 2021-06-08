@@ -17,6 +17,12 @@
 
 #include "ppsspp_config.h"
 
+#if PPSSPP_PLATFORM(ANDROID)
+
+#include <android/log.h>
+
+#endif
+
 #include <algorithm>
 #include <cstring>
 
@@ -51,8 +57,14 @@ void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char 
 		instance->Log(level, type, file, line, fmt, args);
 	} else {
 		// Fall back to printf if we're before the log manager has been initialized.
+#if PPSSPP_PLATFORM(ANDROID)
+		char temp[512];
+		vsnprintf(temp, sizeof(temp), fmt, args);
+		__android_log_print(ANDROID_LOG_INFO, "PPSSPP", "EARLY: %s", temp);
+#else
 		vprintf(fmt, args);
 		printf("\n");
+#endif
 	}
 	va_end(args);
 }
