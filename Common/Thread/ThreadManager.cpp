@@ -38,6 +38,7 @@ ThreadManager::~ThreadManager() {
 	}
 	for (size_t i = 0; i < global_->threads_.size(); i++) {
 		global_->threads_[i]->thread.join();
+		delete global_->threads_[i];
 	}
 	global_->threads_.clear();
 	delete global_;
