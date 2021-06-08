@@ -285,7 +285,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Net/WebsocketServer.cpp \
   $(SRC)/Common/Profiler/Profiler.cpp \
   $(SRC)/Common/System/Display.cpp \
-  $(SRC)/Common/Thread/Executor.cpp \
   $(SRC)/Common/Thread/ThreadUtil.cpp \
   $(SRC)/Common/Thread/ThreadManager.cpp \
   $(SRC)/Common/Thread/ParallelLoop.cpp \
