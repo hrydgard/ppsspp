@@ -725,6 +725,7 @@ ifeq ($(UNITTEST),1)
     $(SRC)/unittest/JitHarness.cpp \
     $(SRC)/unittest/TestShaderGenerators.cpp \
     $(SRC)/unittest/TestVertexJit.cpp \
+    $(SRC)/unittest/TestThreadManager.cpp \
     $(TESTARMEMITTER_FILE) \
     $(SRC)/unittest/UnitTest.cpp
 
