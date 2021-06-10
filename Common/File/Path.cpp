@@ -317,6 +317,8 @@ std::string Path::PathTo(const Path &other) {
 			return std::string();
 		}
 		diff = a.PathTo(b);
+	} else if (path_ == "/") {
+		diff = other.path_.substr(1);
 	} else {
 		diff = other.path_.substr(path_.size() + 1);
 	}

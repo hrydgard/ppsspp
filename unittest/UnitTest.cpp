@@ -607,6 +607,7 @@ static bool TestPath() {
 	EXPECT_EQ_STR(Path("C:\\Yo\\Lo").GetFilename(), std::string("Lo"));
 
 	EXPECT_EQ_STR(Path("/a/b").PathTo(Path("/a/b/c/d/e")), std::string("c/d/e"));
+	EXPECT_EQ_STR(Path("/").PathTo(Path("/home/foo/bar")), std::string("home/foo/bar"));
 
 	return true;
 }
