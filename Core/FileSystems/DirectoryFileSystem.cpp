@@ -655,15 +655,15 @@ int DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const
 	err = ReplayApplyDisk(ReplayAction::FILE_OPEN, err, CoreTiming::GetGlobalTimeUs());
 	if (err != 0) {
 		std::string errorString;
-		int err;
+		int logError;
 #ifdef _WIN32
 		auto win32err = GetLastError();
-		err = (int)win32err;
+		logError = (int)win32err;
 		errorString = GetStringErrorMsg(win32err);
 #else
-		err = (int)errno;
+		logError = (int)errno;
 #endif
-		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile(%s): FAILED, %i - access = %d '%s'", filename.c_str(), err, (int)access, errorString.c_str());
+		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile(%s): FAILED, %i - access = %d '%s'", filename.c_str(), logError, (int)access, errorString.c_str());
 		return err;
 	} else {
 #ifdef _WIN32
