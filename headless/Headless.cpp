@@ -388,7 +388,6 @@ int main(int argc, const char* argv[])
 	g_Config.iInternalResolution = 1;
 	g_Config.iUnthrottleMode = (int)UnthrottleMode::CONTINUOUS;
 	g_Config.bEnableLogging = fullLog;
-	g_Config.iNumWorkerThreads = 1;
 	g_Config.bSoftwareSkinning = true;
 	g_Config.bVertexDecoderJit = true;
 	g_Config.bBlockTransferGPU = true;

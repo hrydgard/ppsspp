@@ -11,10 +11,24 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Thread/ThreadManager.h"
 
+// Threads and task scheduling
+//
+// * The threadpool should contain a number of threads that's the the number of cores,
+//   plus a fixed number more for I/O-limited background tasks.
+// * Parallel compute-limited loops should use as many threads as there are cores.
+//   They should always be scheduled to the first N threads.
+// * For some tasks, splitting the input values up linearly between the threads
+//   is not fair. However, we ignore that for now.
+
+const int MAX_CORES_TO_USE = 16;
+const int EXTRA_THREADS = 4;  // For I/O limited tasks
+
 struct GlobalThreadContext {
 	std::mutex mutex; // associated with each respective condition variable
 	std::deque<Task *> queue;
 	std::vector<ThreadContext *> threads_;
+
+	int roundRobin;
 };
 
 struct ThreadContext {
@@ -80,7 +94,11 @@ static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread)
 	}
 }
 
-void ThreadManager::Init(int numThreads) {
+void ThreadManager::Init(int numRealCores, int numLogicalCores) {
+	numComputeThreads_ = std::min(numRealCores, MAX_CORES_TO_USE);
+	int numThreads = numComputeThreads_ + EXTRA_THREADS;
+	numThreads_ = numThreads;
+
 	for (int i = 0; i < numThreads; i++) {
 		ThreadContext *thread = new ThreadContext();
 		thread->cancelled.store(false);
@@ -91,9 +109,25 @@ void ThreadManager::Init(int numThreads) {
 }
 
 void ThreadManager::EnqueueTask(Task *task, TaskType taskType) {
+	int maxThread;
+	int threadOffset = 0;
+	if (taskType == TaskType::CPU_COMPUTE) {
+		// only the threads reserved for heavy compute.
+		maxThread = numComputeThreads_;
+		threadOffset = 0;
+	} else {
+		// any free thread
+		maxThread = numThreads_;
+		threadOffset = numComputeThreads_;
+	}
+
 	// Find a thread with no outstanding work.
-	for (int i = 0; i < global_->threads_.size(); i++) {
-		ThreadContext *thread = global_->threads_[i];
+	int threadNum = threadOffset;
+	for (int i = 0; i < maxThread; i++, threadNum++) {
+		if (threadNum >= global_->threads_.size()) {
+			threadNum = 0;
+		}
+		ThreadContext *thread = global_->threads_[threadNum];
 		if (thread->queueSize.load() == 0) {
 			std::unique_lock<std::mutex> lock(thread->mutex);
 			thread->private_queue.push_back(task);
@@ -104,11 +138,13 @@ void ThreadManager::EnqueueTask(Task *task, TaskType taskType) {
 		}
 	}
 
-	// Still not scheduled? Put it on the global queue and notify a random thread.
+	// Still not scheduled? Put it on the global queue and notify a thread chosen by round-robin.
+	// Not particularly scientific, but hopefully we should not run into this too much.
 	{
 		std::unique_lock<std::mutex> lock(global_->mutex);
 		global_->queue.push_back(task);
-		global_->threads_[0]->cond.notify_one();
+		global_->threads_[global_->roundRobin % maxThread]->cond.notify_one();
+		global_->roundRobin++;
 	}
 }
 
@@ -123,10 +159,7 @@ void ThreadManager::EnqueueTaskOnThread(int threadNum, Task *task, TaskType task
 }
 
 int ThreadManager::GetNumLooperThreads() const {
-	// If possible, let's use all threads but one for parallel loops.
-	// Not sure what's the best policy here. Maybe we should just have more threads than CPUs.
-	int numLooperThreads = (int)(global_->threads_.size()) - 1;
-	return std::max(numLooperThreads, 1);
+	return numComputeThreads_;
 }
 
 void ThreadManager::TryCancelTask(uint64_t taskID) {

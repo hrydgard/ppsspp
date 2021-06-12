@@ -72,7 +72,6 @@ public:
 	bool bBrowse; // when opening the emulator, immediately show a file browser
 
 	// General
-	int iNumWorkerThreads;
 	bool bScreenshotsAsPNG;
 	bool bUseFFV1;
 	bool bDumpFrames;

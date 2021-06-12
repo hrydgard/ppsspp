@@ -1,6 +1,7 @@
 #include <cstring>
 
-#include "ParallelLoop.h"
+#include "Common/Thread/ParallelLoop.h"
+#include "Common/CPUDetect.h"
 
 class LoopRangeTask : public Task {
 public:
@@ -24,7 +25,6 @@ WaitableCounter *ParallelRangeLoopWaitable(ThreadManager *threadMan, const std::
 		minSize = 1;
 	}
 
-	// TODO: Optimize using minSize.
 	int numTasks = threadMan->GetNumLooperThreads();
 
 	int range = upper - lower;
@@ -37,7 +37,7 @@ WaitableCounter *ParallelRangeLoopWaitable(ThreadManager *threadMan, const std::
 		// Just assign one task per thread, as many as we have.
 		WaitableCounter *counter = new WaitableCounter(range);
 		for (int i = 0; i < range; i++) {
-			threadMan->EnqueueTaskOnThread(i, new LoopRangeTask(counter, loop, i, i + 1));
+			threadMan->EnqueueTaskOnThread(i, new LoopRangeTask(counter, loop, i, i + 1), TaskType::CPU_COMPUTE);
 		}
 		return counter;
 	} else {
@@ -50,7 +50,7 @@ WaitableCounter *ParallelRangeLoopWaitable(ThreadManager *threadMan, const std::
 			int start = lastEnd;
 			d += dx;
 			int end = i == numTasks - 1 ? range : (int)d;
-			threadMan->EnqueueTaskOnThread(i, new LoopRangeTask(counter, loop, start, end));
+			threadMan->EnqueueTaskOnThread(i, new LoopRangeTask(counter, loop, start, end), TaskType::CPU_COMPUTE);
 			lastEnd = end;
 		}
 		return counter;
@@ -58,6 +58,13 @@ WaitableCounter *ParallelRangeLoopWaitable(ThreadManager *threadMan, const std::
 }
 
 void ParallelRangeLoop(ThreadManager *threadMan, const std::function<void(int, int)> &loop, int lower, int upper, int minSize) {
+	if (cpu_info.num_cores == 1) {
+		// "Optimization" for single-core devices.
+		// No point in adding threading overhead, let's just do it inline.
+		loop(lower, upper);
+		return;
+	}
+
 	if (minSize == -1) {
 		minSize = 4;
 	}

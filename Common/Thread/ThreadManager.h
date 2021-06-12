@@ -41,9 +41,12 @@ public:
 	ThreadManager();
 	~ThreadManager();
 
-	void Init(int numWorkerThreads);
-	void EnqueueTask(Task *task, TaskType taskType = TaskType::CPU_COMPUTE);
-	void EnqueueTaskOnThread(int threadNum, Task *task, TaskType taskType = TaskType::CPU_COMPUTE);
+	// The distinction here is to be able to take hyper-threading into account.
+	// It gets even trickier when you think about mobile chips with BIG/LITTLE, but we'll
+	// just ignore it and let the OS handle it.
+	void Init(int numRealCores, int numLogicalCores);
+	void EnqueueTask(Task *task, TaskType taskType);
+	void EnqueueTaskOnThread(int threadNum, Task *task, TaskType taskType);
 
 	// Currently does nothing. It will always be best-effort - maybe it cancels,
 	// maybe it doesn't. Note that the id is the id() returned by the task. You need to make that
@@ -56,6 +59,9 @@ public:
 
 private:
 	GlobalThreadContext *global_;
+
+	int numThreads_ = 0;
+	int numComputeThreads_ = 0;
 
 	friend struct ThreadContext;
 };

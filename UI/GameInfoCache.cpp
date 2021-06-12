@@ -752,7 +752,7 @@ std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const 
 	}
 
 	GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info);
-	g_threadManager.EnqueueTask(item);
+	g_threadManager.EnqueueTask(item, TaskType::IO_BLOCKING);
 
 	// Don't re-insert if we already have it.
 	if (info_.find(pathStr) == info_.end())

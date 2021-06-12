@@ -10,13 +10,11 @@ class PromiseTask : public Task {
 public:
 	PromiseTask() {}
 	~PromiseTask() {
-		tx_->Release();
 	}
 
 	void Run() override {
 		T *value = fun_();
 		tx_->Send(value);
-		tx_->Release();
 	}
 
 	std::function<T *()> fun_;
@@ -30,18 +28,17 @@ public:
 template<class T>
 class Promise {
 public:
-	static Promise<T> *Spawn(ThreadManager *threadman, std::function<T *()> fun) {
+	static Promise<T> *Spawn(ThreadManager *threadman, std::function<T *()> fun, TaskType taskType) {
 		// std::pair<Rx<T>, Tx<T>> channel = CreateChannel<T>();
 		Mailbox<T> *mailbox = new Mailbox<T>();
 
 		PromiseTask<T> *task = new PromiseTask<T>();
 		task->fun_ = fun;
 		task->tx_ = mailbox;
-		threadman->EnqueueTask(task);
+		threadman->EnqueueTask(task, taskType);
 
 		Promise<T> *promise = new Promise<T>();
 		promise->rx_ = mailbox;
-		mailbox->AddRef();
 		return promise;
 	}
 

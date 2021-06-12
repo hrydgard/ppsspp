@@ -338,7 +338,7 @@ static void PostLoadConfig() {
 	else
 		i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
 
-	g_threadManager.Init(g_Config.iNumWorkerThreads);
+	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
 }
 
 static bool CreateDirectoriesAndroid() {

@@ -2,11 +2,18 @@
 
 #include <mutex>
 #include <condition_variable>
+#include <cassert>
+
+// Named Channel.h because I originally intended to support a multi item channel as
+// well as a simple blocking mailbox. Let's see if we get there.
 
 // Single item mailbox.
 template<class T>
 struct Mailbox {
 	Mailbox() : refcount_(1) {}
+	~Mailbox() {
+		assert(refcount_ == 0);
+	}
 
 	std::mutex mutex_;
 	std::condition_variable condvar_;
