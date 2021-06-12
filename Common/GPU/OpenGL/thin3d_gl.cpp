@@ -299,7 +299,7 @@ public:
 
 	// TODO: Optimize by getting the locations first and putting in a custom struct
 	UniformBufferDesc dynamicUniforms;
-	GLint samplerLocs_[8]{};
+	GLint samplerLocs_[MAX_TEXTURE_SLOTS]{};
 	std::vector<GLint> dynamicUniformLocs_;
 	GLRProgram *program_ = nullptr;
 
@@ -1149,13 +1149,13 @@ bool OpenGLPipeline::LinkShaders() {
 	queries.push_back({ &samplerLocs_[0], "sampler0" });
 	queries.push_back({ &samplerLocs_[1], "sampler1" });
 	queries.push_back({ &samplerLocs_[2], "sampler2" });
+	_assert_(queries.size() >= MAX_TEXTURE_SLOTS);
 	for (size_t i = 0; i < dynamicUniforms.uniforms.size(); ++i) {
 		queries.push_back({ &dynamicUniformLocs_[i], dynamicUniforms.uniforms[i].name });
 	}
 	std::vector<GLRProgram::Initializer> initialize;
-	initialize.push_back({ &samplerLocs_[0], 0, 0 });
-	initialize.push_back({ &samplerLocs_[1], 0, 1 });
-	initialize.push_back({ &samplerLocs_[2], 0, 2 });
+	for (int i = 0; i < MAX_TEXTURE_SLOTS; ++i)
+		initialize.push_back({ &samplerLocs_[i], 0, i });
 	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, false);
 	return true;
 }

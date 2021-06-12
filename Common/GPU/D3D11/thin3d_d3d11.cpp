@@ -1331,7 +1331,7 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 
 void D3D11DrawContext::BindTextures(int start, int count, Texture **textures) {
 	// Collect the resource views from the textures.
-	ID3D11ShaderResourceView *views[8];
+	ID3D11ShaderResourceView *views[MAX_BOUND_TEXTURES];
 	_assert_(start + count <= ARRAY_SIZE(views));
 	for (int i = 0; i < count; i++) {
 		D3D11Texture *tex = (D3D11Texture *)textures[i];
@@ -1341,7 +1341,7 @@ void D3D11DrawContext::BindTextures(int start, int count, Texture **textures) {
 }
 
 void D3D11DrawContext::BindSamplerStates(int start, int count, SamplerState **states) {
-	ID3D11SamplerState *samplers[8];
+	ID3D11SamplerState *samplers[MAX_BOUND_TEXTURES];
 	_assert_(start + count <= ARRAY_SIZE(samplers));
 	for (int i = 0; i < count; i++) {
 		D3D11SamplerState *samp = (D3D11SamplerState *)states[i];

@@ -357,6 +357,7 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 
 void GLRenderManager::BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, int aspectBit, int attachment) {
 	_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+	_dbg_assert_(binding < MAX_GL_TEXTURE_SLOTS);
 	GLRRenderData data{ GLRRenderCommand::BIND_FB_TEXTURE };
 	data.bind_fb_texture.slot = binding;
 	data.bind_fb_texture.framebuffer = fb;
