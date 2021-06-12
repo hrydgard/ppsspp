@@ -47,7 +47,6 @@ ThreadManager::ThreadManager() : global_(new GlobalThreadContext()) {
 
 ThreadManager::~ThreadManager() {
 	delete global_;
-	global_ = nullptr;;
 }
 
 void ThreadManager::Teardown() {
