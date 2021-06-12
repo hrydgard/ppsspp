@@ -1,5 +1,3 @@
-#pragma once
-
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Common/Thread/ThreadManager.h"

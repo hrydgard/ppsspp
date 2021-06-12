@@ -132,7 +132,11 @@ void AssertCurrentThreadName(const char *threadName) {
 int GetCurrentThreadIdForDebug() {
 #if PPSSPP_PLATFORM(WINDOWS)
 	return (int)GetCurrentThreadId();
+#elif PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS) || defined(__OpenBSD__) || defined(__FreeBSD__)
+	uint64_t tid = 0;
+	pthread_threadid_np(NULL, &tid);
+	return (int)tid;
 #else
-	return gettid();
+	return (int)gettid();
 #endif
 }
