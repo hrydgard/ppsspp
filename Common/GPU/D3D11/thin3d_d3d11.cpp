@@ -26,6 +26,8 @@
 
 namespace Draw {
 
+static constexpr int MAX_BOUND_TEXTURES = 8;
+
 // A problem is that we can't get the D3Dcompiler.dll without using a later SDK than 7.1, which was the last that
 // supported XP. A possible solution might be here:
 // https://tedwvc.wordpress.com/2014/01/01/how-to-target-xp-with-vc2012-or-vc2013-and-continue-to-use-the-windows-8-x-sdk/
@@ -1162,6 +1164,7 @@ void D3D11DrawContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t 
 }
 
 void D3D11DrawContext::BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) {
+	_assert_(start + count <= ARRAY_SIZE(nextVertexBuffers_));
 	// Lazy application
 	for (int i = 0; i < count; i++) {
 		D3D11Buffer *buf = (D3D11Buffer *)buffers[i];
@@ -1329,6 +1332,7 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 void D3D11DrawContext::BindTextures(int start, int count, Texture **textures) {
 	// Collect the resource views from the textures.
 	ID3D11ShaderResourceView *views[8];
+	_assert_(start + count <= ARRAY_SIZE(views));
 	for (int i = 0; i < count; i++) {
 		D3D11Texture *tex = (D3D11Texture *)textures[i];
 		views[i] = tex ? tex->view : nullptr;
@@ -1338,6 +1342,7 @@ void D3D11DrawContext::BindTextures(int start, int count, Texture **textures) {
 
 void D3D11DrawContext::BindSamplerStates(int start, int count, SamplerState **states) {
 	ID3D11SamplerState *samplers[8];
+	_assert_(start + count <= ARRAY_SIZE(samplers));
 	for (int i = 0; i < count; i++) {
 		D3D11SamplerState *samp = (D3D11SamplerState *)states[i];
 		samplers[i] = samp->ss;
@@ -1613,6 +1618,7 @@ void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Ren
 }
 
 void D3D11DrawContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {
+	_assert_(binding < MAX_BOUND_TEXTURES);
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
 	switch (channelBit) {
 	case FBChannel::FB_COLOR_BIT:
