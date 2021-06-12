@@ -17,7 +17,7 @@
 #include "GLRenderManager.h"
 #include "DataFormatGL.h"
 
-#define TEXCACHE_NAME_CACHE_SIZE 16
+static constexpr int TEXCACHE_NAME_CACHE_SIZE = 16;
 
 #if PPSSPP_PLATFORM(IOS)
 extern void bindDefaultFBO();
@@ -800,7 +800,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 	GLuint blendEqColor = (GLuint)-1;
 	GLuint blendEqAlpha = (GLuint)-1;
 
-	GLRTexture *curTex[8]{};
+	GLRTexture *curTex[MAX_GL_TEXTURE_SLOTS]{};
 
 	CHECK_GL_ERROR_IF_DEBUG();
 	auto &commands = step.commands;

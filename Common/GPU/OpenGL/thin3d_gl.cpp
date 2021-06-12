@@ -299,7 +299,7 @@ public:
 
 	// TODO: Optimize by getting the locations first and putting in a custom struct
 	UniformBufferDesc dynamicUniforms;
-	GLint samplerLocs_[8]{};
+	GLint samplerLocs_[MAX_TEXTURE_SLOTS]{};
 	std::vector<GLint> dynamicUniformLocs_;
 	GLRProgram *program_ = nullptr;
 
@@ -368,9 +368,7 @@ public:
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
-		if (start + count > MAX_TEXTURE_SLOTS) {
-			return;
-		}
+		_assert_(start + count <= MAX_TEXTURE_SLOTS);
 		for (int i = 0; i < count; i++) {
 			int index = i + start;
 			boundSamplers_[index] = static_cast<OpenGLSamplerState *>(states[i]);
@@ -402,6 +400,7 @@ public:
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindPipeline(Pipeline *pipeline) override;
 	void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) override {
+		_assert_(start + count <= ARRAY_SIZE(curVBuffers_));
 		for (int i = 0; i < count; i++) {
 			curVBuffers_[i + start] = (OpenGLBuffer *)buffers[i];
 			curVBufferOffsets_[i + start] = offsets ? offsets[i] : 0;
@@ -1070,9 +1069,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 }
 
 void OpenGLContext::BindTextures(int start, int count, Texture **textures) {
-	if (start + count > MAX_TEXTURE_SLOTS) {
-		return;
-	}
+	_assert_(start + count <= MAX_TEXTURE_SLOTS);
 	for (int i = start; i < start + count; i++) {
 		OpenGLTexture *glTex = static_cast<OpenGLTexture *>(textures[i - start]);
 		if (!glTex) {
@@ -1151,12 +1148,14 @@ bool OpenGLPipeline::LinkShaders() {
 	std::vector<GLRProgram::UniformLocQuery> queries;
 	queries.push_back({ &samplerLocs_[0], "sampler0" });
 	queries.push_back({ &samplerLocs_[1], "sampler1" });
+	queries.push_back({ &samplerLocs_[2], "sampler2" });
+	_assert_(queries.size() >= MAX_TEXTURE_SLOTS);
 	for (size_t i = 0; i < dynamicUniforms.uniforms.size(); ++i) {
 		queries.push_back({ &dynamicUniformLocs_[i], dynamicUniforms.uniforms[i].name });
 	}
 	std::vector<GLRProgram::Initializer> initialize;
-	initialize.push_back({ &samplerLocs_[0], 0, 0 });
-	initialize.push_back({ &samplerLocs_[1], 0, 1 });
+	for (int i = 0; i < MAX_TEXTURE_SLOTS; ++i)
+		initialize.push_back({ &samplerLocs_[i], 0, i });
 	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, false);
 	return true;
 }
@@ -1354,6 +1353,7 @@ bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, in
 
 void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int color) {
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
+	_assert_(binding < MAX_TEXTURE_SLOTS);
 
 	GLuint aspect = 0;
 	if (channelBit & FB_COLOR_BIT) {

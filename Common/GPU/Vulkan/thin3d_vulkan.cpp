@@ -295,7 +295,7 @@ class VKBuffer;
 class VKSamplerState;
 
 enum {
-	MAX_BOUND_TEXTURES = 2
+	MAX_BOUND_TEXTURES = MAX_TEXTURE_SLOTS,
 };
 
 struct DescriptorSetKey {
@@ -416,6 +416,7 @@ public:
 
 	// TODO: Make VKBuffers proper buffers, and do a proper binding model. This is just silly.
 	void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) override {
+		_assert_(start + count <= ARRAY_SIZE(curVBuffers_));
 		for (int i = 0; i < count; i++) {
 			curVBuffers_[i + start] = (VKBuffer *)buffers[i];
 			curVBufferOffsets_[i + start] = offsets ? offsets[i] : 0;
@@ -689,6 +690,7 @@ RasterState *VKContext::CreateRasterState(const RasterStateDesc &desc) {
 }
 
 void VKContext::BindSamplerStates(int start, int count, SamplerState **state) {
+	_assert_(start + count <= MAX_BOUND_TEXTURES);
 	for (int i = start; i < start + count; i++) {
 		boundSamplers_[i] = (VKSamplerState *)state[i - start];
 	}
@@ -1271,6 +1273,7 @@ void VKContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset,
 }
 
 void VKContext::BindTextures(int start, int count, Texture **textures) {
+	_assert_(start + count <= MAX_BOUND_TEXTURES);
 	for (int i = start; i < start + count; i++) {
 		boundTextures_[i] = static_cast<VKTexture *>(textures[i - start]);
 		boundImageView_[i] = boundTextures_[i] ? boundTextures_[i]->GetImageView() : GetNullTexture()->GetImageView();
@@ -1544,6 +1547,7 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 
 void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
+	_assert_(binding < MAX_BOUND_TEXTURES);
 
 	// TODO: There are cases where this is okay, actually. But requires layout transitions and stuff -
 	// we're not ready for this.

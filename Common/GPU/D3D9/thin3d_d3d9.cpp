@@ -28,6 +28,8 @@
 
 namespace Draw {
 
+static constexpr int MAX_BOUND_TEXTURES = 8;
+
 // Could be declared as u8
 static const D3DCMPFUNC compareToD3D9[] = {
 	D3DCMP_NEVER,
@@ -525,12 +527,14 @@ public:
 
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
+		_assert_(start + count <= MAX_BOUND_TEXTURES);
 		for (int i = 0; i < count; ++i) {
 			D3D9SamplerState *s = static_cast<D3D9SamplerState *>(states[i]);
 			s->Apply(device_, start + i);
 		}
 	}
 	void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) override {
+		_assert_(start + count <= ARRAY_SIZE(curVBuffers_));
 		for (int i = 0; i < count; i++) {
 			curVBuffers_[i + start] = (D3D9Buffer *)buffers[i];
 			curVBufferOffsets_[i + start] = offsets ? offsets[i] : 0;
@@ -785,6 +789,7 @@ Texture *D3D9Context::CreateTexture(const TextureDesc &desc) {
 }
 
 void D3D9Context::BindTextures(int start, int count, Texture **textures) {
+	_assert_(start + count <= MAX_BOUND_TEXTURES);
 	for (int i = start; i < start + count; i++) {
 		D3D9Texture *tex = static_cast<D3D9Texture *>(textures[i - start]);
 		if (tex) {
@@ -1182,6 +1187,7 @@ uintptr_t D3D9Context::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit
 }
 
 void D3D9Context::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int color) {
+	_assert_(binding < MAX_BOUND_TEXTURES);
 	D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
 	switch (channelBit) {
 	case FB_DEPTH_BIT:

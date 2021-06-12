@@ -31,6 +31,7 @@ struct CardboardSettings {
 struct PostShaderUniforms {
 	float texelDelta[2]; float pixelDelta[2];
 	float time[4];
+	float timeDelta[4];
 	float setting[4];
 	float video; float pad[3];
 	// Used on Direct3D9.
@@ -131,6 +132,9 @@ protected:
 	std::vector<Draw::Pipeline *> postShaderPipelines_;
 	std::vector<Draw::Framebuffer *> postShaderFramebuffers_;
 	std::vector<ShaderInfo> postShaderInfo_;
+	std::vector<Draw::Framebuffer *> previousFramebuffers_;
+	int previousIndex_ = 0;
+	PostShaderUniforms previousUniforms_{};
 
 	Draw::Texture *srcTexture_ = nullptr;
 	Draw::Framebuffer *srcFramebuffer_ = nullptr;
