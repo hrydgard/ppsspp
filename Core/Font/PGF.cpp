@@ -230,13 +230,13 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 
 	const u8 *uptr = (const u8 *)wptr;
 
-	if (uptr >= startPtr + dataSize) {
-		return false;
-	}
-
 	int shadowCharMapSize = ((header.shadowMapLength * header.shadowMapBpe + 31) & ~31) / 8;
 	const u8 *shadowCharMap = uptr;
 	uptr += shadowCharMapSize;
+
+	if (uptr < startPtr || uptr >= startPtr + dataSize) {
+		return false;
+	}
 
 	const u16_le *sptr = (const u16_le *)uptr;
 	if (header.revision == 3) {
@@ -257,10 +257,6 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 
 	uptr = (const u8 *)sptr;
 
-	if (uptr >= startPtr + dataSize) {
-		return false;
-	}
-
 	int charMapSize = ((header.charMapLength * header.charMapBpe + 31) & ~31) / 8;
 	const u8 *charMap = uptr;
 	uptr += charMapSize;
@@ -268,6 +264,10 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	int charPointerSize = (((header.charPointerLength * header.charPointerBpe + 31) & ~31) / 8);
 	const u8 *charPointerTable = uptr;
 	uptr += charPointerSize;
+
+	if (uptr < startPtr || uptr >= startPtr + dataSize) {
+		return false;
+	}
 
 	// PGF Fontdata.
 	u32 fontDataOffset = (u32)(uptr - startPtr);
