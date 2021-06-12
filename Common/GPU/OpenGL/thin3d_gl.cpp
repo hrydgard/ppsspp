@@ -1148,12 +1148,14 @@ bool OpenGLPipeline::LinkShaders() {
 	std::vector<GLRProgram::UniformLocQuery> queries;
 	queries.push_back({ &samplerLocs_[0], "sampler0" });
 	queries.push_back({ &samplerLocs_[1], "sampler1" });
+	queries.push_back({ &samplerLocs_[2], "sampler2" });
 	for (size_t i = 0; i < dynamicUniforms.uniforms.size(); ++i) {
 		queries.push_back({ &dynamicUniformLocs_[i], dynamicUniforms.uniforms[i].name });
 	}
 	std::vector<GLRProgram::Initializer> initialize;
 	initialize.push_back({ &samplerLocs_[0], 0, 0 });
 	initialize.push_back({ &samplerLocs_[1], 0, 1 });
+	initialize.push_back({ &samplerLocs_[2], 0, 2 });
 	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, false);
 	return true;
 }

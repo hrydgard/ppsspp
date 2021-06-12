@@ -135,12 +135,9 @@ std::string Postprocess(std::string code, ShaderLanguage lang, ShaderStage stage
 	std::string line;
 	std::stringstream instream(code);
 	while (std::getline(instream, line)) {
-		if (line == "uniform sampler2D sampler0;" && lang == HLSL_D3D9) {
-			out << "sampler2D sampler0 : register(s0);\n";
-			continue;
-		}
-		if (line == "uniform sampler2D sampler1;" && lang == HLSL_D3D9) {
-			out << "sampler2D sampler1 : register(s1);\n";
+		int num;
+		if (lang == HLSL_D3D9 && sscanf(line.c_str(), "uniform sampler2D sampler%d;", &num) == 1) {
+			out << "sampler2D sampler" << num << " : register(s" << num << ");\n";
 			continue;
 		}
 		if (line.find("uniform float") != std::string::npos) {
@@ -184,7 +181,9 @@ bool ConvertToVulkanGLSL(std::string *dest, TranslatedShaderMetadata *destMetada
 		if (line.find("uniform bool") != std::string::npos) {
 			continue;
 		} else if (line.find("uniform sampler2D") == 0) {
-			if (line.find("sampler0") != line.npos)
+			if (sscanf(line.c_str(), "uniform sampler2D sampler%d", &num) == 1)
+				line = StringFromFormat("layout(set = 0, binding = %d) ", num + 1) + line;
+			else if (line.find("sampler0") != line.npos)
 				line = "layout(set = 0, binding = 1) " + line;
 			else
 				line = "layout(set = 0, binding = 2) " + line;
@@ -299,8 +298,11 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, const ShaderLan
 
 		int i = 0;
 		for (auto &resource : resources.sampled_images) {
-			// int location = hlsl.get_decoration(resource.id, spv::DecorationLocation);
-			hlsl.set_decoration(resource.id, spv::DecorationLocation, i);
+			const std::string &name = hlsl.get_name(resource.id);
+			int num;
+			if (sscanf(name.c_str(), "sampler%d", &num) != 1)
+				num = i;
+			hlsl.set_decoration(resource.id, spv::DecorationBinding, num);
 			i++;
 		}
 		spirv_cross::CompilerHLSL::Options options{};
