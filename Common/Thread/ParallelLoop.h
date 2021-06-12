@@ -1,33 +1,37 @@
 #pragma once
 
 #include <functional>
-#include <atomic>
 #include <mutex>
 #include <condition_variable>
 
 #include "Common/Thread/ThreadManager.h"
 
-// Kind of like a semaphore I guess.
+// Same as the latch from C++21, just counting upwards for no particular reason.
 struct WaitableCounter : public Waitable {
 public:
-	WaitableCounter(int maxValue) : maxValue_(maxValue) {}
+	WaitableCounter(int count) : count_(count) {}
 
 	void Count() {
-		if (count_.fetch_add(1) == maxValue_ - 1) {
+		std::unique_lock<std::mutex> lock(mutex_);
+		if (count_ == 0) {
+			return;
+		}
+		count_--;
+		if (count_ == 0) {
 			// We were the last one to increment
-			cond_.notify_one();
+			cond_.notify_all();
 		}
 	}
 
 	void Wait() override {
 		std::unique_lock<std::mutex> lock(mutex_);
-		while (count_.load() != maxValue_) {
-			cond_.wait(lock);
+		if (count_ == 0) {
+			return;
 		}
+		cond_.wait(lock);
 	}
 
-	int maxValue_;
-	std::atomic<int> count_;
+	int count_;
 	std::mutex mutex_;
 	std::condition_variable cond_;
 };
