@@ -222,11 +222,34 @@ bool PresentationCommon::UpdatePostShader() {
 	if (shaderInfo.empty())
 		return false;
 
+	bool usePreviousFrame = false;
+	bool usePreviousAtOutputResolution = false;
 	for (int i = 0; i < shaderInfo.size(); ++i) {
 		const ShaderInfo *next = i + 1 < shaderInfo.size() ? shaderInfo[i + 1] : nullptr;
 		if (!BuildPostShader(shaderInfo[i], next)) {
 			DestroyPostShader();
 			return false;
+		}
+		if (shaderInfo[i]->usePreviousFrame) {
+			usePreviousFrame = true;
+			usePreviousAtOutputResolution = shaderInfo[i]->outputResolution;
+		}
+	}
+
+	if (usePreviousFrame) {
+		int w = usePreviousAtOutputResolution ? pixelWidth_ : renderWidth_;
+		int h = usePreviousAtOutputResolution ? pixelHeight_ : renderHeight_;
+
+		static constexpr int FRAMES = 2;
+		previousFramebuffers_.resize(FRAMES);
+		previousIndex_ = 0;
+
+		for (int i = 0; i < FRAMES; ++i) {
+			previousFramebuffers_[i] = draw_->CreateFramebuffer({ w, h, 1, 1, false, "inter_presentation" });
+			if (!previousFramebuffers_[i]) {
+				DestroyPostShader();
+				return false;
+			}
 		}
 	}
 
@@ -467,6 +490,7 @@ void PresentationCommon::DestroyPostShader() {
 	DoReleaseVector(postShaderModules_);
 	DoReleaseVector(postShaderPipelines_);
 	DoReleaseVector(postShaderFramebuffers_);
+	DoReleaseVector(previousFramebuffers_);
 	postShaderInfo_.clear();
 	postShaderFBOUsage_.clear();
 }
@@ -531,7 +555,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	bool useNearest = flags & OutputFlags::NEAREST;
 	const bool usePostShader = usePostShader_ && !(flags & OutputFlags::RB_SWIZZLE);
 	const bool isFinalAtOutputResolution = usePostShader && postShaderFramebuffers_.size() < postShaderPipelines_.size();
-	bool usePostShaderOutput = false;
+	Draw::Framebuffer *postShaderOutput = nullptr;
 	int lastWidth = srcWidth_;
 	int lastHeight = srcHeight_;
 
@@ -615,6 +639,47 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		}
 	}
 
+	// Grab the previous framebuffer early so we can change previousIndex_ when we want.
+	Draw::Framebuffer *previousFramebuffer = previousFramebuffers_.empty() ? nullptr : previousFramebuffers_[previousIndex_];
+
+	const auto performShaderPass = [&](const ShaderInfo *shaderInfo, Draw::Framebuffer *postShaderFramebuffer, Draw::Pipeline *postShaderPipeline) {
+		if (postShaderOutput) {
+			draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::FB_COLOR_BIT, 0);
+		} else {
+			BindSource(0);
+		}
+		BindSource(1);
+		if (shaderInfo->usePreviousFrame)
+			draw_->BindFramebufferAsTexture(previousFramebuffer, 2, Draw::FB_COLOR_BIT, 0);
+
+		int nextWidth, nextHeight;
+		draw_->GetFramebufferDimensions(postShaderFramebuffer, &nextWidth, &nextHeight);
+		Draw::Viewport viewport{ 0, 0, (float)nextWidth, (float)nextHeight, 0.0f, 1.0f };
+		draw_->SetViewports(1, &viewport);
+		draw_->SetScissorRect(0, 0, nextWidth, nextHeight);
+
+		PostShaderUniforms uniforms;
+		CalculatePostShaderUniforms(lastWidth, lastHeight, nextWidth, nextHeight, shaderInfo, &uniforms);
+
+		draw_->BindPipeline(postShaderPipeline);
+		draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
+
+		Draw::SamplerState *sampler = useNearest || shaderInfo->isUpscalingFilter ? samplerNearest_ : samplerLinear_;
+		draw_->BindSamplerStates(0, 1, &sampler);
+		draw_->BindSamplerStates(1, 1, &sampler);
+		if (shaderInfo->usePreviousFrame)
+			draw_->BindSamplerStates(2, 1, &sampler);
+
+		draw_->BindVertexBuffers(0, 1, &vdata_, &postVertsOffset);
+		draw_->BindIndexBuffer(idata_, 0);
+		draw_->DrawIndexed(6, 0);
+		draw_->BindIndexBuffer(nullptr, 0);
+
+		postShaderOutput = postShaderFramebuffer;
+		lastWidth = nextWidth;
+		lastHeight = nextHeight;
+	};
+
 	if (usePostShader) {
 		bool flipped = flags & OutputFlags::POSITION_FLIPPED;
 		float post_v0 = !flipped ? 1.0f : 0.0f;
@@ -629,40 +694,17 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 			Draw::Pipeline *postShaderPipeline = postShaderPipelines_[i];
 			const ShaderInfo *shaderInfo = &postShaderInfo_[i];
 			Draw::Framebuffer *postShaderFramebuffer = postShaderFramebuffers_[i];
+			if (!isFinalAtOutputResolution && i == postShaderFramebuffers_.size() - 1 && !previousFramebuffers_.empty()) {
+				// This is the last pass and we're going direct to the backbuffer after this.
+				// Redirect output to a separate framebuffer to keep the previous frame.
+				previousIndex_++;
+				if (previousIndex_ >= previousFramebuffers_.size())
+					previousIndex_ = 0;
+				postShaderFramebuffer = previousFramebuffers_[previousIndex_];
+			}
 
 			draw_->BindFramebufferAsRenderTarget(postShaderFramebuffer, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "PostShader");
-
-			if (usePostShaderOutput) {
-				draw_->BindFramebufferAsTexture(postShaderFramebuffers_[i - 1], 0, Draw::FB_COLOR_BIT, 0);
-			} else {
-				BindSource(0);
-			}
-			BindSource(1);
-
-			int nextWidth, nextHeight;
-			draw_->GetFramebufferDimensions(postShaderFramebuffer, &nextWidth, &nextHeight);
-			Draw::Viewport viewport{ 0, 0, (float)nextWidth, (float)nextHeight, 0.0f, 1.0f };
-			draw_->SetViewports(1, &viewport);
-			draw_->SetScissorRect(0, 0, nextWidth, nextHeight);
-
-			PostShaderUniforms uniforms;
-			CalculatePostShaderUniforms(lastWidth, lastHeight, nextWidth, nextHeight, shaderInfo, &uniforms);
-
-			draw_->BindPipeline(postShaderPipeline);
-			draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
-
-			Draw::SamplerState *sampler = useNearest || shaderInfo->isUpscalingFilter ? samplerNearest_ : samplerLinear_;
-			draw_->BindSamplerStates(0, 1, &sampler);
-			draw_->BindSamplerStates(1, 1, &sampler);
-
-			draw_->BindVertexBuffers(0, 1, &vdata_, &postVertsOffset);
-			draw_->BindIndexBuffer(idata_, 0);
-			draw_->DrawIndexed(6, 0);
-			draw_->BindIndexBuffer(nullptr, 0);
-
-			usePostShaderOutput = true;
-			lastWidth = nextWidth;
-			lastHeight = nextHeight;
+			performShaderPass(shaderInfo, postShaderFramebuffer, postShaderPipeline);
 		}
 
 		if (isFinalAtOutputResolution && postShaderInfo_.back().isUpscalingFilter)
@@ -671,8 +713,23 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		draw_->UpdateBuffer(vdata_, (const uint8_t *)verts, 0, postVertsOffset, Draw::UPDATE_DISCARD);
 	}
 
+	// If we need to save the previous frame, we have to save any final pass in a framebuffer.
+	if (isFinalAtOutputResolution && !previousFramebuffers_.empty()) {
+		Draw::Pipeline *postShaderPipeline = postShaderPipelines_.back();
+		const ShaderInfo *shaderInfo = &postShaderInfo_.back();
+
+		// Pick the next to render to.
+		previousIndex_++;
+		if (previousIndex_ >= previousFramebuffers_.size())
+			previousIndex_ = 0;
+		Draw::Framebuffer *postShaderFramebuffer = previousFramebuffers_[previousIndex_];
+
+		draw_->BindFramebufferAsRenderTarget(postShaderFramebuffer, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "InterFrameBlit");
+		performShaderPass(shaderInfo, postShaderFramebuffer, postShaderPipeline);
+	}
+
 	Draw::Pipeline *pipeline = flags & OutputFlags::RB_SWIZZLE ? texColorRBSwizzle_ : texColor_;
-	if (isFinalAtOutputResolution) {
+	if (isFinalAtOutputResolution && previousFramebuffers_.empty()) {
 		pipeline = postShaderPipelines_.back();
 	}
 
@@ -681,14 +738,14 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 
 	draw_->BindPipeline(pipeline);
 
-	if (usePostShaderOutput) {
-		draw_->BindFramebufferAsTexture(postShaderFramebuffers_.back(), 0, Draw::FB_COLOR_BIT, 0);
+	if (postShaderOutput) {
+		draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::FB_COLOR_BIT, 0);
 	} else {
 		BindSource(0);
 	}
 	BindSource(1);
 
-	if (isFinalAtOutputResolution) {
+	if (isFinalAtOutputResolution && previousFramebuffers_.empty()) {
 		PostShaderUniforms uniforms;
 		CalculatePostShaderUniforms(lastWidth, lastHeight, (int)rc.w, (int)rc.h, &postShaderInfo_.back(), &uniforms);
 		draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));

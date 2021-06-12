@@ -131,6 +131,8 @@ protected:
 	std::vector<Draw::Pipeline *> postShaderPipelines_;
 	std::vector<Draw::Framebuffer *> postShaderFramebuffers_;
 	std::vector<ShaderInfo> postShaderInfo_;
+	std::vector<Draw::Framebuffer *> previousFramebuffers_;
+	int previousIndex_ = 0;
 
 	Draw::Texture *srcTexture_ = nullptr;
 	Draw::Framebuffer *srcFramebuffer_ = nullptr;

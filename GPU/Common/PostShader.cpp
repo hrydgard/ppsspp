@@ -127,6 +127,7 @@ void LoadPostShaderInfo(const std::vector<Path> &directories) {
 					section.Get("Upscaling", &info.isUpscalingFilter, false);
 					section.Get("SSAA", &info.SSAAFilterLevel, 0);
 					section.Get("60fps", &info.requires60fps, false);
+					section.Get("UsePreviousFrame", &info.usePreviousFrame, false);
 
 					if (info.parent == "Off")
 						info.parent = "";
