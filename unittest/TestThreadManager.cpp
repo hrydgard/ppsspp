@@ -31,22 +31,26 @@ bool TestMailbox() {
 
 void rangeFunc(int lower, int upper) {
 	sleep_ms(30);
-	printf("range %d-%d (thread %d)\n", lower, upper, GetCurrentThreadIdForDebug());
+	printf(" - range %d-%d (thread %d)\n", lower, upper, GetCurrentThreadIdForDebug());
 }
 
 // This always passes unless something is badly broken, the interesting thing is the
 // logged output.
 bool TestParallelLoop(ThreadManager *threadMan) {
-	printf("tester thread ID: %d", GetCurrentThreadIdForDebug());
+	printf("tester thread ID: %d\n", GetCurrentThreadIdForDebug());
 
+	printf("waitable test\n");
 	WaitableCounter *waitable = ParallelRangeLoopWaitable(threadMan, rangeFunc, 0, 7, 1);
 	// Can do stuff here if we like.
 	waitable->WaitAndRelease();
 	// Now it's done.
 
-	ParallelRangeLoop(threadMan, rangeFunc, 0, 65);
-
-	// Try a few synchronous loops (can be slightly more efficient) with various ranges.
+	// Try a loop with stragglers.
+	printf("blocking test #1\n");
+	ParallelRangeLoop(threadMan, rangeFunc, 0, 65, 1);
+	// Try a loop with a relatively large minimum size.
+	printf("blocking test #2\n");
+	ParallelRangeLoop(threadMan, rangeFunc, 0, 100, 40);
 	return true;
 }
 

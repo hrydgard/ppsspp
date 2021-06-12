@@ -42,15 +42,15 @@ void TextureScalerDX9::ConvertTo8888(u32 format, u32* source, u32* &dest, int wi
 		break;
 
 	case D3DFMT_A4R4G4B4:
-		ParallelRangeLoop(&g_threadManager, std::bind(&convert4444_dx9, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height);
+		ParallelRangeLoop(&g_threadManager, std::bind(&convert4444_dx9, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_TEXSCALE_LINES_PER_THREAD);
 		break;
 
 	case D3DFMT_R5G6B5:
-		ParallelRangeLoop(&g_threadManager, std::bind(&convert565_dx9, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height);
+		ParallelRangeLoop(&g_threadManager, std::bind(&convert565_dx9, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_TEXSCALE_LINES_PER_THREAD);
 		break;
 
 	case D3DFMT_A1R5G5B5:
-		ParallelRangeLoop(&g_threadManager, std::bind(&convert5551_dx9, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height);
+		ParallelRangeLoop(&g_threadManager, std::bind(&convert5551_dx9, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_TEXSCALE_LINES_PER_THREAD);
 		break;
 
 	default:

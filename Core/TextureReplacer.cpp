@@ -748,12 +748,13 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 
 		int w, h, f;
 		uint8_t *image;
+		const int MIN_LINES_PER_THREAD = 4;
 		if (LoadZIMPtr(&zim[0], zimSize, &w, &h, &f, &image)) {
 			ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
 				for (int y = l; y < h; ++y) {
 					memcpy((uint8_t *)out + rowPitch * y, image + w * 4 * y, w * 4);
 				}
-			}, 0, h);
+			}, 0, h, MIN_LINES_PER_THREAD);
 			free(image);
 		}
 

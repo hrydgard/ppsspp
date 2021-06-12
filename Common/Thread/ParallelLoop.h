@@ -37,7 +37,7 @@ public:
 WaitableCounter *ParallelRangeLoopWaitable(ThreadManager *threadMan, const std::function<void(int, int)> &loop, int lower, int upper, int minSize);
 
 // This one optimizes by running the remainder on the calling thread.
-void ParallelRangeLoop(ThreadManager *threadMan, const std::function<void(int, int)> &loop, int lower, int upper, int minSize = -1);
+void ParallelRangeLoop(ThreadManager *threadMan, const std::function<void(int, int)> &loop, int lower, int upper, int minSize);
 
 // Common utilities for large (!) memory copies.
 // Will only fall back to threads if it seems to make sense.

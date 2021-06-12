@@ -40,15 +40,15 @@ void TextureScalerD3D11::ConvertTo8888(u32 format, u32* source, u32* &dest, int 
 		break;
 
 	case DXGI_FORMAT_B4G4R4A4_UNORM:
-		ParallelRangeLoop(&g_threadManager, std::bind(&convert4444_dx9, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height);
+		ParallelRangeLoop(&g_threadManager, std::bind(&convert4444_dx9, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_TEXSCALE_LINES_PER_THREAD);
 		break;
 
 	case DXGI_FORMAT_B5G6R5_UNORM:
-		ParallelRangeLoop(&g_threadManager, std::bind(&convert565_dx9, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height);
+		ParallelRangeLoop(&g_threadManager, std::bind(&convert565_dx9, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_TEXSCALE_LINES_PER_THREAD);
 		break;
 
 	case DXGI_FORMAT_B5G5R5A1_UNORM:
-		ParallelRangeLoop(&g_threadManager, std::bind(&convert5551_dx9, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height);
+		ParallelRangeLoop(&g_threadManager, std::bind(&convert5551_dx9, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_TEXSCALE_LINES_PER_THREAD);
 		break;
 
 	default:

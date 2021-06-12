@@ -22,6 +22,8 @@
 
 #include <vector>
 
+static const int MIN_TEXSCALE_LINES_PER_THREAD = 4;
+
 class TextureScalerCommon {
 public:
 	TextureScalerCommon();

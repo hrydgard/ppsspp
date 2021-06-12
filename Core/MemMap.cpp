@@ -330,7 +330,7 @@ static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
 		ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
 			for (int i = l; i < h; i++)
 				_dbg_assert_msg_(d[i] == storage[i], "Savestate verification failure: %d (0x%X) (at %p) != %d (0x%X) (at %p).\n", d[i], d[i], &d[i], storage[i], storage[i], &storage[i]);
-		}, 0, size);
+		}, 0, size, 128);
 		break;
 	}
 	storage += size;

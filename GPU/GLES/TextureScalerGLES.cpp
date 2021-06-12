@@ -42,15 +42,15 @@ void TextureScalerGLES::ConvertTo8888(u32 format, u32* source, u32* &dest, int w
 		break;
 
 	case Draw::DataFormat::R4G4B4A4_UNORM_PACK16:
-		ParallelRangeLoop(&g_threadManager, std::bind(&convert4444_gl, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height);
+		ParallelRangeLoop(&g_threadManager, std::bind(&convert4444_gl, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height, 1);
 		break;
 
 	case Draw::DataFormat::R5G6B5_UNORM_PACK16:
-		ParallelRangeLoop(&g_threadManager, std::bind(&convert565_gl, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height);
+		ParallelRangeLoop(&g_threadManager, std::bind(&convert565_gl, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height, 1);
 		break;
 
 	case Draw::DataFormat::R5G5B5A1_UNORM_PACK16:
-		ParallelRangeLoop(&g_threadManager, std::bind(&convert5551_gl, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height);
+		ParallelRangeLoop(&g_threadManager, std::bind(&convert5551_gl, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height, 1);
 		break;
 
 	default:

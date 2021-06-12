@@ -58,15 +58,16 @@ WaitableCounter *ParallelRangeLoopWaitable(ThreadManager *threadMan, const std::
 }
 
 void ParallelRangeLoop(ThreadManager *threadMan, const std::function<void(int, int)> &loop, int lower, int upper, int minSize) {
-	if (cpu_info.num_cores == 1) {
-		// "Optimization" for single-core devices.
-		// No point in adding threading overhead, let's just do it inline.
+	if (cpu_info.num_cores == 1 || (minSize >= (upper - lower) && upper > lower)) {
+		// "Optimization" for single-core devices, or minSize larger than the range.
+		// No point in adding threading overhead, let's just do it inline (since this is the blocking variant).
 		loop(lower, upper);
 		return;
 	}
 
-	if (minSize == -1) {
-		minSize = 4;
+	if (minSize < 1) {
+		// There's no obvious value to default to.
+		minSize = 1;
 	}
 
 	WaitableCounter *counter = ParallelRangeLoopWaitable(threadMan, loop, lower, upper, minSize);
@@ -77,6 +78,7 @@ void ParallelRangeLoop(ThreadManager *threadMan, const std::function<void(int, i
 	}
 }
 
+// NOTE: Supports a max of 2GB.
 void ParallelMemcpy(ThreadManager *threadMan, void *dst, const void *src, size_t bytes) {
 	// This threshold can probably be a lot bigger.
 	if (bytes < 512) {
@@ -91,10 +93,10 @@ void ParallelMemcpy(ThreadManager *threadMan, void *dst, const void *src, size_t
 	char *s = (char *)src;
 	ParallelRangeLoop(threadMan, [&](int l, int h) {
 		memmove(d + l, s + l, h - l);
-	}, 0, 128);
+	}, 0, (int)bytes, 128);
 }
 
-
+// NOTE: Supports a max of 2GB.
 void ParallelMemset(ThreadManager *threadMan, void *dst, uint8_t value, size_t bytes) {
 	// This threshold can probably be a lot bigger.
 	if (bytes < 512) {
@@ -108,5 +110,5 @@ void ParallelMemset(ThreadManager *threadMan, void *dst, uint8_t value, size_t b
 	char *d = (char *)dst;
 	ParallelRangeLoop(threadMan, [&](int l, int h) {
 		memset(d + l, value, h - l);
-	}, 0, 128);
+	}, 0, (int)bytes, 128);
 }
