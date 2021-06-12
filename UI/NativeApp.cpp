@@ -457,9 +457,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	std::string user_data_path = savegame_dir;
 	pendingMessages.clear();
 	pendingInputBoxes.clear();
-#if PPSSPP_PLATFORM(IOS)
-	user_data_path += "/";
-#endif
 
 	// external_dir has all kinds of meanings depending on platform.
 	// on iOS it's even the path to bundled app assets. It's a mess.
