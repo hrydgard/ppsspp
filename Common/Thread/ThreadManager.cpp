@@ -97,14 +97,16 @@ static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread)
 	}
 }
 
-void ThreadManager::Init(int numRealCores, int numLogicalCores) {
+void ThreadManager::Init(int numRealCores, int numLogicalCoresPerCpu) {
 	if (!global_->threads_.empty()) {
 		Teardown();
 	}
 
-	numComputeThreads_ = std::min(numRealCores, MAX_CORES_TO_USE);
+	numComputeThreads_ = std::min(numRealCores * numLogicalCoresPerCpu, MAX_CORES_TO_USE);
 	int numThreads = numComputeThreads_ + EXTRA_THREADS;
 	numThreads_ = numThreads;
+
+	INFO_LOG(SYSTEM, "ThreadManager::Init(compute threads: %d, all: %d)", numComputeThreads_, numThreads_);
 
 	for (int i = 0; i < numThreads; i++) {
 		ThreadContext *thread = new ThreadContext();

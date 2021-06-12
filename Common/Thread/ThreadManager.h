@@ -44,7 +44,7 @@ public:
 	// The distinction here is to be able to take hyper-threading into account.
 	// It gets even trickier when you think about mobile chips with BIG/LITTLE, but we'll
 	// just ignore it and let the OS handle it.
-	void Init(int numRealCores, int numLogicalCores);
+	void Init(int numCores, int numLogicalCoresPerCpu);
 	void EnqueueTask(Task *task, TaskType taskType);
 	void EnqueueTaskOnThread(int threadNum, Task *task, TaskType taskType);
 
