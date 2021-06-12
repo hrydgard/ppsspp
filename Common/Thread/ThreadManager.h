@@ -58,7 +58,9 @@ public:
 	int GetNumLooperThreads() const;
 
 private:
-	GlobalThreadContext *global_;
+	void Teardown();
+
+	GlobalThreadContext *global_ = nullptr;
 
 	int numThreads_ = 0;
 	int numComputeThreads_ = 0;

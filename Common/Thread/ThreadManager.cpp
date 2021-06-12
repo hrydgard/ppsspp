@@ -46,6 +46,11 @@ ThreadManager::ThreadManager() : global_(new GlobalThreadContext()) {
 }
 
 ThreadManager::~ThreadManager() {
+	delete global_;
+	global_ = nullptr;;
+}
+
+void ThreadManager::Teardown() {
 	for (size_t i = 0; i < global_->threads_.size(); i++) {
 		global_->threads_[i]->cancelled = true;
 		global_->threads_[i]->cond.notify_one();
@@ -55,7 +60,6 @@ ThreadManager::~ThreadManager() {
 		delete global_->threads_[i];
 	}
 	global_->threads_.clear();
-	delete global_;
 }
 
 static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread) {
@@ -95,6 +99,10 @@ static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread)
 }
 
 void ThreadManager::Init(int numRealCores, int numLogicalCores) {
+	if (!global_->threads_.empty()) {
+		Teardown();
+	}
+
 	numComputeThreads_ = std::min(numRealCores, MAX_CORES_TO_USE);
 	int numThreads = numComputeThreads_ + EXTRA_THREADS;
 	numThreads_ = numThreads;

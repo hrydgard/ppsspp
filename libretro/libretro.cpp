@@ -6,6 +6,7 @@
 #include <vector>
 #include <cstdlib>
 
+#include "Common/CPUDetect.h"
 #include "Common/Log.h"
 #include "Common/LogManager.h"
 #include "Common/System/Display.h"
@@ -17,6 +18,7 @@
 #include "Common/ConsoleListener.h"
 #include "Common/Input/InputState.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/Thread/ThreadManager.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/AssetReader.h"
 
@@ -399,6 +401,8 @@ void retro_init(void)
    g_Config.iPSPModel = PSP_MODEL_SLIM;
 
    LogManager::Init(&g_Config.bEnableLogging);
+
+   g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
 
    host = new LibretroHost;
 
