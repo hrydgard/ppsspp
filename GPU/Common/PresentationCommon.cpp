@@ -185,6 +185,10 @@ void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int buffer
 	uniforms->pixelDelta[0] = u_pixel_delta;
 	uniforms->pixelDelta[1] = v_pixel_delta;
 	memcpy(uniforms->time, time, 4 * sizeof(float));
+	uniforms->timeDelta[0] = time[0] - previousUniforms_.time[0];
+	uniforms->timeDelta[1] = (time[2] - previousUniforms_.time[2]) * (1.0f / 60.0f);
+	uniforms->timeDelta[2] = time[2] - previousUniforms_.time[2];
+	uniforms->timeDelta[3] = time[3] != previousUniforms_.time[3] ? 1.0f : 0.0f;
 	uniforms->video = hasVideo_ ? 1.0f : 0.0f;
 
 	// The shader translator tacks this onto our shaders, if we don't set it they render garbage.
@@ -286,8 +290,9 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const Sha
 		{ "u_texelDelta", 1, 1, UniformType::FLOAT2, offsetof(PostShaderUniforms, texelDelta) },
 		{ "u_pixelDelta", 2, 2, UniformType::FLOAT2, offsetof(PostShaderUniforms, pixelDelta) },
 		{ "u_time", 3, 3, UniformType::FLOAT4, offsetof(PostShaderUniforms, time) },
-		{ "u_setting", 4, 4, UniformType::FLOAT4, offsetof(PostShaderUniforms, setting) },
-		{ "u_video", 5, 5, UniformType::FLOAT1, offsetof(PostShaderUniforms, video) },
+		{ "u_timeDelta", 4, 4, UniformType::FLOAT4, offsetof(PostShaderUniforms, timeDelta) },
+		{ "u_setting", 5, 5, UniformType::FLOAT4, offsetof(PostShaderUniforms, setting) },
+		{ "u_video", 6, 6, UniformType::FLOAT1, offsetof(PostShaderUniforms, video) },
 	} };
 
 	Draw::Pipeline *pipeline = CreatePipeline({ vs, fs }, true, &postShaderDesc);
@@ -642,6 +647,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	// Grab the previous framebuffer early so we can change previousIndex_ when we want.
 	Draw::Framebuffer *previousFramebuffer = previousFramebuffers_.empty() ? nullptr : previousFramebuffers_[previousIndex_];
 
+	PostShaderUniforms uniforms;
 	const auto performShaderPass = [&](const ShaderInfo *shaderInfo, Draw::Framebuffer *postShaderFramebuffer, Draw::Pipeline *postShaderPipeline) {
 		if (postShaderOutput) {
 			draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::FB_COLOR_BIT, 0);
@@ -658,7 +664,6 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		draw_->SetViewports(1, &viewport);
 		draw_->SetScissorRect(0, 0, nextWidth, nextHeight);
 
-		PostShaderUniforms uniforms;
 		CalculatePostShaderUniforms(lastWidth, lastHeight, nextWidth, nextHeight, shaderInfo, &uniforms);
 
 		draw_->BindPipeline(postShaderPipeline);
@@ -746,7 +751,6 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	BindSource(1);
 
 	if (isFinalAtOutputResolution && previousFramebuffers_.empty()) {
-		PostShaderUniforms uniforms;
 		CalculatePostShaderUniforms(lastWidth, lastHeight, (int)rc.w, (int)rc.h, &postShaderInfo_.back(), &uniforms);
 		draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
 	} else {
@@ -789,6 +793,8 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 
 	// Unbinds all textures and samplers too, needed since sometimes a MakePixelTexture is deleted etc.
 	draw_->BindPipeline(nullptr);
+
+	previousUniforms_ = uniforms;
 }
 
 void PresentationCommon::CalculateRenderResolution(int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa) {
