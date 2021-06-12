@@ -338,21 +338,22 @@ public:
 	}
 
 	~GameInfoWorkItem() override {
+		info_->pending.store(false);
+		info_->working.store(false);
 		info_->DisposeFileLoader();
+		info_->readyEvent.Notify();
 	}
 
 	void Run() override {
-		// NOTE! DO NOT early-return from this, always use "goto done". It's essential
-		// that we trigger the event.
+		// An early-return will result in the destructor running, where we can set
+		// flags like working and pending.
 
 		if (!info_->LoadFromPath(gamePath_)) {
-			info_->pending = false;
-			goto done;
+			return;
 		}
 		// In case of a remote file, check if it actually exists before locking.
 		if (!info_->GetFileLoader()->Exists()) {
-			info_->pending = false;
-			goto done;
+			return;
 		}
 
 		info_->working = true;
@@ -375,7 +376,7 @@ public:
 						goto handleELF;
 					}
 					ERROR_LOG(LOADER, "invalid pbp '%s'\n", pbpLoader->GetPath().c_str());
-					goto done;
+					return;
 				}
 
 				// First, PARAM.SFO.
@@ -542,11 +543,11 @@ handleELF:
 				// few files.
 				auto fl = info_->GetFileLoader();
 				if (!fl) {
-					goto done;
+					return;
 				}
 				BlockDevice *bd = constructBlockDevice(info_->GetFileLoader().get());
 				if (!bd) {
-					goto done;
+					return;
 				}
 				ISOFileSystem umd(&handles, bd);
 
@@ -626,10 +627,6 @@ handleELF:
 			info_->installDataSize = info_->GetInstallDataSizeInBytes();
 		}
 
-done:
-		info_->pending.store(false);
-		info_->working.store(false);
-		info_->readyEvent.Notify();
 		// INFO_LOG(SYSTEM, "Completed writing info for %s", info_->GetTitle().c_str());
 	}
 
