@@ -627,8 +627,8 @@ handleELF:
 		}
 
 done:
-		info_->pending = false;
-		info_->working = false;
+		info_->pending.store(false);
+		info_->working.store(false);
 		info_->readyEvent.Notify();
 		// INFO_LOG(SYSTEM, "Completed writing info for %s", info_->GetTitle().c_str());
 	}

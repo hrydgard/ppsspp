@@ -35,25 +35,52 @@ WaitableCounter *ParallelRangeLoopWaitable(ThreadManager *threadMan, const std::
 
 	if (range <= numTasks) {
 		// Just assign one task per thread, as many as we have.
-		WaitableCounter *counter = new WaitableCounter(range);
+		WaitableCounter *waitableCounter = new WaitableCounter(range);
 		for (int i = 0; i < range; i++) {
-			threadMan->EnqueueTaskOnThread(i, new LoopRangeTask(counter, loop, i, i + 1), TaskType::CPU_COMPUTE);
+			threadMan->EnqueueTaskOnThread(i, new LoopRangeTask(waitableCounter, loop, i, i + 1), TaskType::CPU_COMPUTE);
 		}
-		return counter;
+		return waitableCounter;
 	} else {
-		WaitableCounter *counter = new WaitableCounter(numTasks);
-		// Split the range between threads. 
-		double dx = (double)range / (double)numTasks;
-		double d = 0.0;
-		int lastEnd = 0;
+		// Split the range between threads. Allow for some fractional bits.
+		const int fractionalBits = 8;
+
+		int64_t totalFrac = (int64_t)range << fractionalBits;
+		int64_t delta = totalFrac / numTasks;
+
+		delta = std::max(delta, (int64_t)minSize << fractionalBits);
+
+		// Now we can compute the actual number of tasks.
+		// Remember that stragglers are done on the current thread
+		// so we don't round up.
+		numTasks = (int)(totalFrac / delta);
+
+		WaitableCounter *waitableCounter = new WaitableCounter(numTasks);
+		int64_t counter = (int64_t)lower << fractionalBits;
+
+		// Split up tasks as equitable as possible.
 		for (int i = 0; i < numTasks; i++) {
-			int start = lastEnd;
-			d += dx;
-			int end = i == numTasks - 1 ? range : (int)d;
-			threadMan->EnqueueTaskOnThread(i, new LoopRangeTask(counter, loop, start, end), TaskType::CPU_COMPUTE);
-			lastEnd = end;
+			int start = (int)(counter >> fractionalBits);
+			int end = (int)((counter + delta) >> fractionalBits);
+			if (end > upper) {
+				// Let's do the stragglers on the current thread.
+				break;
+			}
+			threadMan->EnqueueTaskOnThread(i, new LoopRangeTask(waitableCounter, loop, start, end), TaskType::CPU_COMPUTE);
+			counter += delta;
+			if ((counter >> fractionalBits) > upper) {
+				break;
+			}
 		}
-		return counter;
+
+		// Run stragglers on the calling thread directly.
+		// We might add a flag later to avoid this for some cases.
+		int stragglerStart = (int)(counter >> fractionalBits);
+		int stragglerEnd = upper;
+		if (stragglerStart < stragglerEnd) {
+			// printf("doing stragglers: %d-%d\n", start, upper);
+			loop(stragglerStart, stragglerEnd);
+		}
+		return waitableCounter;
 	}
 }
 

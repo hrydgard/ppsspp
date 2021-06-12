@@ -32,11 +32,10 @@ public:
 	std::condition_variable cond_;
 };
 
-// Note that upper bounds are non-inclusive.
-// This one never executes the remainer on the calling thread.
+// Note that upper bounds are non-inclusive: range is [lower, upper)
 WaitableCounter *ParallelRangeLoopWaitable(ThreadManager *threadMan, const std::function<void(int, int)> &loop, int lower, int upper, int minSize);
 
-// This one optimizes by running the remainder on the calling thread.
+// Note that upper bounds are non-inclusive: range is [lower, upper)
 void ParallelRangeLoop(ThreadManager *threadMan, const std::function<void(int, int)> &loop, int lower, int upper, int minSize);
 
 // Common utilities for large (!) memory copies.
