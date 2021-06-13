@@ -57,10 +57,6 @@ bool TestParallelLoop(ThreadManager *threadMan) {
 }
 
 bool TestThreadManager() {
-	if (!TestMailbox()) {
-		return false;
-	}
-
 	ThreadManager manager;
 	manager.Init(8, 1);
 
@@ -73,11 +69,14 @@ bool TestThreadManager() {
 
 	ResultObject *result = object->BlockUntilReady();
 	if (result) {
-		// Note that the data is owned by the promise so we don't
-		// delete it here.
 		printf("Got result back!");
 	}
 
 	delete object;
+
+	if (!TestMailbox()) {
+		return false;
+	}
+
 	return true;
 }
