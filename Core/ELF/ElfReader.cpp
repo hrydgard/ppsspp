@@ -65,6 +65,8 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 
 	DEBUG_LOG(LOADER, "Loading %i relocations...", numRelocs);
 	std::atomic<int> numErrors;
+	numErrors.store(0);
+
 	ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
 		for (int r = l; r < h; r++) {
 			u32 info = rels[r].r_info;
