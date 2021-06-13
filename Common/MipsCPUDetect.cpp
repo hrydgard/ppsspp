@@ -180,6 +180,7 @@ void CPUInfo::Detect()
 	Mode64bit = false;
 #endif
 	vendor = VENDOR_OTHER;
+	logical_cpu_count = 1;
 	
 	// Get the information about the CPU 
 #if !defined(__linux__)

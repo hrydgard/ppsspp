@@ -49,7 +49,6 @@ WaitableCounter *ParallelRangeLoopWaitable(ThreadManager *threadMan, const std::
 		// Remember that stragglers are done on the current thread
 		// so we don't round up.
 		numTasks = (int)(totalFrac / delta);
-		printf("numTasks: %d\n", numTasks);
 
 		WaitableCounter *waitableCounter = new WaitableCounter(numTasks);
 		int64_t counter = (int64_t)lower << fractionalBits;

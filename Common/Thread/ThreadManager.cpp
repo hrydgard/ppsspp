@@ -158,7 +158,7 @@ void ThreadManager::EnqueueTask(Task *task, TaskType taskType) {
 }
 
 void ThreadManager::EnqueueTaskOnThread(int threadNum, Task *task, TaskType taskType) {
-	_assert_(threadNum >= 0 && threadNum < (int)global_->threads_.size())
+	_assert_(threadNum >= 0 && threadNum < (int)global_->threads_.size());
 	ThreadContext *thread = global_->threads_[threadNum];
 	{
 		std::unique_lock<std::mutex> lock(thread->mutex);
