@@ -26,6 +26,7 @@
 #include "Common/Common.h"
 #include "Common/Log.h"
 #include "Common/CommonFuncs.h"
+#include "Common/Thread/ParallelLoop.h"
 #include "Core/ThreadPools.h"
 #include "Common/CPUDetect.h"
 #include "ext/xbrz/xbrz.h"
@@ -605,24 +606,26 @@ bool TextureScalerCommon::Scale(u32* &data, u32 &dstFmt, int &width, int &height
 	return false;
 }
 
+const int MIN_LINES_PER_THREAD = 4;
+
 void TextureScalerCommon::ScaleXBRZ(int factor, u32* source, u32* dest, int width, int height) {
 	xbrz::ScalerCfg cfg;
-	GlobalThreadPool::Loop(std::bind(&xbrz::scale, factor, source, dest, width, height, xbrz::ColorFormat::ARGB, cfg, std::placeholders::_1, std::placeholders::_2), 0, height);
+	ParallelRangeLoop(&g_threadManager, std::bind(&xbrz::scale, factor, source, dest, width, height, xbrz::ColorFormat::ARGB, cfg, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
 }
 
 void TextureScalerCommon::ScaleBilinear(int factor, u32* source, u32* dest, int width, int height) {
-	bufTmp1.resize(width*height*factor);
+	bufTmp1.resize(width * height * factor);
 	u32 *tmpBuf = bufTmp1.data();
-	GlobalThreadPool::Loop(std::bind(&bilinearH, factor, source, tmpBuf, width, std::placeholders::_1, std::placeholders::_2), 0, height);
-	GlobalThreadPool::Loop(std::bind(&bilinearV, factor, tmpBuf, dest, width, 0, height, std::placeholders::_1, std::placeholders::_2), 0, height);
+	ParallelRangeLoop(&g_threadManager, std::bind(&bilinearH, factor, source, tmpBuf, width, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
+	ParallelRangeLoop(&g_threadManager, std::bind(&bilinearV, factor, tmpBuf, dest, width, 0, height, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
 }
 
 void TextureScalerCommon::ScaleBicubicBSpline(int factor, u32* source, u32* dest, int width, int height) {
-	GlobalThreadPool::Loop(std::bind(&scaleBicubicBSpline, factor, source, dest, width, height, std::placeholders::_1, std::placeholders::_2), 0, height);
+	ParallelRangeLoop(&g_threadManager,std::bind(&scaleBicubicBSpline, factor, source, dest, width, height, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
 }
 
 void TextureScalerCommon::ScaleBicubicMitchell(int factor, u32* source, u32* dest, int width, int height) {
-	GlobalThreadPool::Loop(std::bind(&scaleBicubicMitchell, factor, source, dest, width, height, std::placeholders::_1, std::placeholders::_2), 0, height);
+	ParallelRangeLoop(&g_threadManager,std::bind(&scaleBicubicMitchell, factor, source, dest, width, height, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
 }
 
 void TextureScalerCommon::ScaleHybrid(int factor, u32* source, u32* dest, int width, int height, bool bicubic) {
@@ -638,8 +641,9 @@ void TextureScalerCommon::ScaleHybrid(int factor, u32* source, u32* dest, int wi
 	bufTmp1.resize(width*height);
 	bufTmp2.resize(width*height*factor*factor);
 	bufTmp3.resize(width*height*factor*factor);
-	GlobalThreadPool::Loop(std::bind(&generateDistanceMask, source, bufTmp1.data(), width, height, std::placeholders::_1, std::placeholders::_2), 0, height);
-	GlobalThreadPool::Loop(std::bind(&convolve3x3, bufTmp1.data(), bufTmp2.data(), KERNEL_SPLAT, width, height, std::placeholders::_1, std::placeholders::_2), 0, height);
+
+	ParallelRangeLoop(&g_threadManager,std::bind(&generateDistanceMask, source, bufTmp1.data(), width, height, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
+	ParallelRangeLoop(&g_threadManager,std::bind(&convolve3x3, bufTmp1.data(), bufTmp2.data(), KERNEL_SPLAT, width, height, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
 	ScaleBilinear(factor, bufTmp2.data(), bufTmp3.data(), width, height);
 	// mask C is now in bufTmp3
 
@@ -652,13 +656,13 @@ void TextureScalerCommon::ScaleHybrid(int factor, u32* source, u32* dest, int wi
 
 	// Now we can mix it all together
 	// The factor 8192 was found through practical testing on a variety of textures
-	GlobalThreadPool::Loop(std::bind(&mix, dest, bufTmp2.data(), bufTmp3.data(), 8192, width*factor, std::placeholders::_1, std::placeholders::_2), 0, height*factor);
+	ParallelRangeLoop(&g_threadManager,std::bind(&mix, dest, bufTmp2.data(), bufTmp3.data(), 8192, width*factor, std::placeholders::_1, std::placeholders::_2), 0, height*factor, MIN_LINES_PER_THREAD);
 }
 
 void TextureScalerCommon::DePosterize(u32* source, u32* dest, int width, int height) {
 	bufTmp3.resize(width*height);
-	GlobalThreadPool::Loop(std::bind(&deposterizeH, source, bufTmp3.data(), width, std::placeholders::_1, std::placeholders::_2), 0, height);
-	GlobalThreadPool::Loop(std::bind(&deposterizeV, bufTmp3.data(), dest, width, height, std::placeholders::_1, std::placeholders::_2), 0, height);
-	GlobalThreadPool::Loop(std::bind(&deposterizeH, dest, bufTmp3.data(), width, std::placeholders::_1, std::placeholders::_2), 0, height);
-	GlobalThreadPool::Loop(std::bind(&deposterizeV, bufTmp3.data(), dest, width, height, std::placeholders::_1, std::placeholders::_2), 0, height);
+	ParallelRangeLoop(&g_threadManager,std::bind(&deposterizeH, source, bufTmp3.data(), width, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
+	ParallelRangeLoop(&g_threadManager,std::bind(&deposterizeV, bufTmp3.data(), dest, width, height, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
+	ParallelRangeLoop(&g_threadManager,std::bind(&deposterizeH, dest, bufTmp3.data(), width, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
+	ParallelRangeLoop(&g_threadManager,std::bind(&deposterizeV, bufTmp3.data(), dest, width, height, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
 }

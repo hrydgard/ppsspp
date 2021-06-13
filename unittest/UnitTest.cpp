@@ -77,8 +77,9 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_CAN_JIT:
 		return true;
+	default:
+		return false;
 	}
-	return false;
 }
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -656,6 +657,7 @@ bool TestArmEmitter();
 bool TestArm64Emitter();
 bool TestX64Emitter();
 bool TestShaderGenerators();
+bool TestThreadManager();
 
 TestItem availableTests[] = {
 #if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
@@ -682,6 +684,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(ShaderGenerators),
 	TEST_ITEM(Path),
 	TEST_ITEM(AndroidContentURI),
+	TEST_ITEM(ThreadManager),
 };
 
 int main(int argc, const char *argv[]) {

@@ -23,6 +23,7 @@
 #include <mutex>
 #include <atomic>
 
+#include "Common/Thread/Event.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Common/File/Path.h"
 #include "UI/TextureUtil.h"
@@ -31,7 +32,6 @@ namespace Draw {
 	class DrawContext;
 	class Texture;
 }
-class PrioritizedWorkQueue;
 
 // A GameInfo holds information about a game, and also lets you do things that the VSH
 // does on the PSP, namely checking for and deleting savedata, and similar things.
@@ -140,8 +140,11 @@ public:
 	u64 gameSize = 0;
 	u64 saveDataSize = 0;
 	u64 installDataSize = 0;
+
 	std::atomic<bool> pending{};
 	std::atomic<bool> working{};
+
+	Event readyEvent;
 
 protected:
 	// Note: this can change while loading, use GetTitle().
@@ -182,9 +185,6 @@ private:
 	// Maps ISO path to info. Need to use shared_ptr as we can return these pointers - 
 	// and if they get destructed while being in use, that's bad.
 	std::map<std::string, std::shared_ptr<GameInfo> > info_;
-
-	// Work queue and management
-	PrioritizedWorkQueue *gameInfoWQ_;
 };
 
 // This one can be global, no good reason not to.

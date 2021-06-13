@@ -10,16 +10,18 @@
 class NewThreadExecutor {
 public:
 	~NewThreadExecutor();
-	void Run(std::function<void()> &&func);
+	void Run(std::function<void()> func);
 
 private:
 	std::vector<std::thread> threads_;
 };
 
 namespace net {
+
 class InputSink;
 class OutputSink;
-};
+
+}  // namespace net
 
 namespace http {
 

@@ -14,11 +14,13 @@
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 
+#include "Common/CPUDetect.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/AssetReader.h"
 #include "Common/File/FileUtil.h"
 #include "Common/GraphicsContext.h"
 #include "Common/TimeUtil.h"
+#include "Common/Thread/ThreadManager.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
@@ -330,6 +332,8 @@ int main(int argc, const char* argv[])
 	if (testFilenames.empty())
 		return printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
 
+	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
+
 	LogManager::Init(&g_Config.bEnableLogging);
 	LogManager *logman = LogManager::GetInstance();
 
@@ -388,7 +392,6 @@ int main(int argc, const char* argv[])
 	g_Config.iInternalResolution = 1;
 	g_Config.iUnthrottleMode = (int)UnthrottleMode::CONTINUOUS;
 	g_Config.bEnableLogging = fullLog;
-	g_Config.iNumWorkerThreads = 1;
 	g_Config.bSoftwareSkinning = true;
 	g_Config.bVertexDecoderJit = true;
 	g_Config.bBlockTransferGPU = true;

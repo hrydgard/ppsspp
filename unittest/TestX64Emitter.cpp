@@ -1,3 +1,7 @@
+#include "ppsspp_config.h"
+
+#if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
+
 #include "Common/x64Emitter.h"
 #include "Core/MIPS/x86/RegCacheFPU.h"
 #include "Core/MIPS/x86/Jit.h"
@@ -41,3 +45,11 @@ bool TestX64Emitter() {
 	PrintLast(emitter);
 	return true;
 }
+
+#else
+
+bool TestX64Emitter() {
+	return true;
+}
+
+#endif

@@ -21,10 +21,12 @@
 #include <functional>
 #include <set>
 #include <vector>
+#include <mutex>
 #include <zstd.h>
 
 #include "Common/Common.h"
 #include "Common/File/FileUtil.h"
+#include "Common/Thread/ParallelLoop.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 
@@ -179,7 +181,7 @@ static const u8 *mymemmem(const u8 *haystack, size_t off, size_t hlen, const u8 
 	std::mutex resultLock;
 
 	int range = (int)(last_possible - first_possible);
-	GlobalThreadPool::Loop([&](int l, int h) {
+	ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
 		const u8 *p = haystack + off + l;
 		const u8 *pend = haystack + off + h;
 

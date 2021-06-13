@@ -15,7 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <atomic>
+
 #include "Common/StringUtils.h"
+#include "Common/Thread/ParallelLoop.h"
+
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/ThreadPools.h"
@@ -60,9 +64,8 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 	relocOps.resize(numRelocs);
 
 	DEBUG_LOG(LOADER, "Loading %i relocations...", numRelocs);
-
-	int numErrors = 0;
-	GlobalThreadPool::Loop([&](int l, int h) {
+	std::atomic<int> numErrors;
+	ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
 		for (int r = l; r < h; r++) {
 			u32 info = rels[r].r_info;
 			u32 addr = rels[r].r_offset;
@@ -96,7 +99,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 		}
 	}, 0, numRelocs, 128);
 
-	GlobalThreadPool::Loop([&](int l, int h) {
+	ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
 		for (int r = l; r < h; r++) {
 			VERBOSE_LOG(LOADER, "Loading reloc %i  (%p)...", r, rels + r);
 			u32 info = rels[r].r_info;
@@ -210,7 +213,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 	}, 0, numRelocs, 128);
 
 	if (numErrors) {
-		WARN_LOG(LOADER, "%i bad relocations found!!!", numErrors);
+		WARN_LOG(LOADER, "%i bad relocations found!!!", numErrors.load());
 	}
 	return numErrors == 0;
 }

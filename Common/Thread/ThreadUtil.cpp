@@ -1,3 +1,5 @@
+#include "ppsspp_config.h"
+
 #ifdef _WIN32
 #include <windows.h>
 #ifdef __MINGW32__
@@ -16,6 +18,9 @@
 
 #if defined(__ANDROID__) || defined(__APPLE__) || (defined(__GLIBC__) && defined(_GNU_SOURCE))
 #include <pthread.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/syscall.h>
 #endif
 
 #ifdef TLS_SUPPORTED
@@ -41,12 +46,14 @@ static EXCEPTION_DISPOSITION NTAPI ignore_handler(EXCEPTION_RECORD *rec,
 #endif
 
 void SetCurrentThreadName(const char* threadName) {
-#ifdef _WIN32
+#if PPSSPP_PLATFORM(WINDOWS)
 	// Set the debugger-visible threadname through an unholy magic hack
 	static const DWORD MS_VC_EXCEPTION = 0x406D1388;
 #endif
 
-#if defined(_WIN32) && defined(__MINGW32__)
+	// TODO: Use the new function SetThreadDescription available since Windows 10, version 1607.
+
+#if PPSSPP_PLATFORM(WINDOWS) && defined(__MINGW32__)
 	// Thread information for VS compatible debugger. -1 sets current thread.
 	THREADNAME_INFO ti;
 	ti.dwType = 0x1000;
@@ -67,7 +74,7 @@ void SetCurrentThreadName(const char* threadName) {
 
 	// Pop exception handler
 	tib->ExceptionList = tib->ExceptionList->Next;
-#elif defined(_WIN32)
+#elif PPSSPP_PLATFORM(WINDOWS)
 #pragma pack(push,8)
 	struct THREADNAME_INFO {
 		DWORD dwType; // must be 0x1000
@@ -119,5 +126,17 @@ void AssertCurrentThreadName(const char *threadName) {
 	if (strcmp(curThreadName, threadName) != 0) {
 		ERROR_LOG(SYSTEM, "Thread name assert failed: Expected %s, was %s", threadName, curThreadName);
 	}
+#endif
+}
+
+int GetCurrentThreadIdForDebug() {
+#if PPSSPP_PLATFORM(WINDOWS)
+	return (int)GetCurrentThreadId();
+#elif PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS) || defined(__OpenBSD__) || defined(__FreeBSD__)
+	uint64_t tid = 0;
+	pthread_threadid_np(NULL, &tid);
+	return (int)tid;
+#else
+	return (int)gettid();
 #endif
 }
