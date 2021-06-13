@@ -26,19 +26,14 @@ WaitableCounter *ParallelRangeLoopWaitable(ThreadManager *threadMan, const std::
 	}
 
 	int numTasks = threadMan->GetNumLooperThreads();
-
 	int range = upper - lower;
 	if (range <= 0) {
-		// Bad range. A finished counter allocated.
+		// Nothing to do. A finished counter allocated to keep the API.
 		return new WaitableCounter(0);
-	}
-
-	if (range <= numTasks) {
-		// Just assign one task per thread, as many as we have.
-		WaitableCounter *waitableCounter = new WaitableCounter(range);
-		for (int i = 0; i < range; i++) {
-			threadMan->EnqueueTaskOnThread(i, new LoopRangeTask(waitableCounter, loop, i, i + 1), TaskType::CPU_COMPUTE);
-		}
+	} else if (range <= minSize) {
+		// Single background task.
+		WaitableCounter *waitableCounter = new WaitableCounter(1);
+		threadMan->EnqueueTaskOnThread(0, new LoopRangeTask(waitableCounter, loop, lower, upper), TaskType::CPU_COMPUTE);
 		return waitableCounter;
 	} else {
 		// Split the range between threads. Allow for some fractional bits.
@@ -68,7 +63,7 @@ WaitableCounter *ParallelRangeLoopWaitable(ThreadManager *threadMan, const std::
 			}
 			threadMan->EnqueueTaskOnThread(i, new LoopRangeTask(waitableCounter, loop, start, end), TaskType::CPU_COMPUTE);
 			counter += delta;
-			if ((counter >> fractionalBits) > upper) {
+			if ((counter >> fractionalBits) >= upper) {
 				break;
 			}
 		}
@@ -78,7 +73,6 @@ WaitableCounter *ParallelRangeLoopWaitable(ThreadManager *threadMan, const std::
 		int stragglerStart = (int)(counter >> fractionalBits);
 		int stragglerEnd = upper;
 		if (stragglerStart < stragglerEnd) {
-			// printf("doing stragglers: %d-%d\n", start, upper);
 			loop(stragglerStart, stragglerEnd);
 		}
 		return waitableCounter;
@@ -114,14 +108,13 @@ void ParallelMemcpy(ThreadManager *threadMan, void *dst, const void *src, size_t
 		return;
 	}
 
-	// 128 is the largest cacheline size on common CPUs.
-	// Still I suspect that the optimal minSize is a lot higher.
+	// unknown's testing showed that 128kB is an appropriate minimum size.
 
 	char *d = (char *)dst;
-	char *s = (char *)src;
+	const char *s = (const char *)src;
 	ParallelRangeLoop(threadMan, [&](int l, int h) {
 		memmove(d + l, s + l, h - l);
-	}, 0, (int)bytes, 128);
+	}, 0, (int)bytes, 128 * 1024);
 }
 
 // NOTE: Supports a max of 2GB.
@@ -132,11 +125,10 @@ void ParallelMemset(ThreadManager *threadMan, void *dst, uint8_t value, size_t b
 		return;
 	}
 
-	// 128 is the largest cacheline size on common CPUs.
-	// Still I suspect that the optimal minSize is a lot higher.
+	// unknown's testing showed that 128kB is an appropriate minimum size.
 
 	char *d = (char *)dst;
 	ParallelRangeLoop(threadMan, [&](int l, int h) {
 		memset(d + l, value, h - l);
-	}, 0, (int)bytes, 128);
+	}, 0, (int)bytes, 128 * 1024);
 }

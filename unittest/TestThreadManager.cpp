@@ -49,6 +49,10 @@ bool TestParallelLoop(ThreadManager *threadMan) {
 	// Try a loop with a relatively large minimum size.
 	printf("blocking test #2 [0-100)\n");
 	ParallelRangeLoop(threadMan, rangeFunc, 0, 100, 40);
+	// Try a loop with minimum size larger than range.
+	printf("waitable test [10-30)\n");
+	WaitableCounter *waitable2 = ParallelRangeLoopWaitable(threadMan, rangeFunc, 10, 30, 40);
+	waitable2->WaitAndRelease();
 	return true;
 }
 

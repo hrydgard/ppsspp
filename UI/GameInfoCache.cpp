@@ -630,15 +630,6 @@ handleELF:
 		// INFO_LOG(SYSTEM, "Completed writing info for %s", info_->GetTitle().c_str());
 	}
 
-	float Priority() override {
-		auto fl = info_->GetFileLoader();
-		if (fl && fl->IsRemote()) {
-			// Increase the value so remote info loads after non-remote.
-			return info_->lastAccessedTime + 1000.0f;
-		}
-		return info_->lastAccessedTime;
-	}
-
 private:
 	Path gamePath_;
 	std::shared_ptr<GameInfo> info_;

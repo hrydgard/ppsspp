@@ -28,7 +28,7 @@ struct GlobalThreadContext {
 	std::deque<Task *> queue;
 	std::vector<ThreadContext *> threads_;
 
-	int roundRobin;
+	int roundRobin = 0;
 };
 
 struct ThreadContext {

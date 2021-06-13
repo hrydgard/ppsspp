@@ -16,15 +16,16 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/. 
 
 #include <algorithm>
-#include "Common/GPU/OpenGL/GLCommon.h"
 
-#include "GPU/Common/TextureScalerCommon.h"
-#include "GPU/GLES/TextureScalerGLES.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Log.h"
 #include "Common/Thread/ParallelLoop.h"
-#include "Core/ThreadPools.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/DataFormat.h"
+
+#include "Core/ThreadPools.h"
+#include "GPU/Common/TextureScalerCommon.h"
+#include "GPU/GLES/TextureScalerGLES.h"
 
 int TextureScalerGLES::BytesPerPixel(u32 format) {
 	return ((Draw::DataFormat)format == Draw::DataFormat::R8G8B8A8_UNORM) ? 4 : 2;
@@ -42,15 +43,15 @@ void TextureScalerGLES::ConvertTo8888(u32 format, u32* source, u32* &dest, int w
 		break;
 
 	case Draw::DataFormat::R4G4B4A4_UNORM_PACK16:
-		ParallelRangeLoop(&g_threadManager, std::bind(&convert4444_gl, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height, 1);
+		ParallelRangeLoop(&g_threadManager, std::bind(&convert4444_gl, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_TEXSCALE_LINES_PER_THREAD);
 		break;
 
 	case Draw::DataFormat::R5G6B5_UNORM_PACK16:
-		ParallelRangeLoop(&g_threadManager, std::bind(&convert565_gl, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height, 1);
+		ParallelRangeLoop(&g_threadManager, std::bind(&convert565_gl, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_TEXSCALE_LINES_PER_THREAD);
 		break;
 
 	case Draw::DataFormat::R5G5B5A1_UNORM_PACK16:
-		ParallelRangeLoop(&g_threadManager, std::bind(&convert5551_gl, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height, 1);
+		ParallelRangeLoop(&g_threadManager, std::bind(&convert5551_gl, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_TEXSCALE_LINES_PER_THREAD);
 		break;
 
 	default:

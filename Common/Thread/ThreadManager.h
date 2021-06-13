@@ -17,7 +17,6 @@ public:
 	virtual void Run() = 0;
 	virtual bool Cancellable() { return false; }
 	virtual void Cancel() {}
-	virtual float Priority() { return 1.0f; }
 	virtual uint64_t id() { return 0; }
 };
 
@@ -53,8 +52,8 @@ public:
 	// something meaningful yourself.
 	void TryCancelTask(uint64_t id);
 
-	// Parallel loops get to use half the threads,
-	// so we still have some worker threads for other tasks.
+	// Parallel loops (assumed compute-limited) get one thread per logical core. We have a few extra threads too
+	// for I/O bounds tasks, that can be run concurrently with those.
 	int GetNumLooperThreads() const;
 
 private:
