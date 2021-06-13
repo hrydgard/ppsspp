@@ -62,7 +62,7 @@ bool TestThreadManager() {
 	}
 
 	ThreadManager manager;
-	manager.Init(8, 8);
+	manager.Init(8, 1);
 
 	Promise<ResultObject> *object(Promise<ResultObject>::Spawn(&manager, &ResultProducer, TaskType::IO_BLOCKING));
 
