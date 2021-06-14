@@ -113,7 +113,7 @@ static std::atomic<int> emuThreadState((int)EmuThreadState::DISABLED);
 
 void UpdateRunLoopAndroid(JNIEnv *env);
 
-static AndroidAudioState *g_audioState;
+AndroidAudioState *g_audioState;
 
 struct FrameCommand {
 	FrameCommand() {}
