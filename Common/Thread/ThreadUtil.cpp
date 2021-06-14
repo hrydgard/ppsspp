@@ -16,7 +16,7 @@
 #include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
 
-#if defined(__ANDROID__) || defined(__APPLE__) || (defined(__GLIBC__) && defined(_GNU_SOURCE))
+#if defined(__ANDROID__) || defined(__APPLE__) || PPSSPP_PLATFORM(LINUX) || (defined(__GLIBC__) && defined(_GNU_SOURCE))
 #include <pthread.h>
 #include <sys/types.h>
 #include <unistd.h>
