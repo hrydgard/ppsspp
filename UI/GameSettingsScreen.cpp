@@ -80,6 +80,14 @@
 #include "Windows/W32Util/ShellUtil.h"
 #endif
 
+#if PPSSPP_PLATFORM(ANDROID)
+
+#include "android/jni/AndroidAudio.h"
+
+extern AndroidAudioState *g_audioState;
+
+#endif
+
 GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID, bool editThenRestore)
 	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false), editThenRestore_(editThenRestore) {
 	lastVertical_ = UseVerticalLayout();
@@ -640,6 +648,12 @@ void GameSettingsScreen::CreateViews() {
 #if defined(__ANDROID__)
 	CheckBox *extraAudio = audioSettings->Add(new CheckBox(&g_Config.bExtraAudioBuffering, a->T("AudioBufferingForBluetooth", "Bluetooth-friendly buffer (slower)")));
 	extraAudio->SetEnabledPtr(&g_Config.bEnableSound);
+
+	// Show OpenSL debug info
+	const std::string audioErrorStr = AndroidAudio_GetErrorString(g_audioState);
+	if (!audioErrorStr.empty()) {
+		audioSettings->Add(new InfoItem(a->T("Audio Error"), audioErrorStr));
+	}
 #endif
 
 	// Control

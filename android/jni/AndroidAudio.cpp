@@ -132,3 +132,13 @@ bool AndroidAudio_Shutdown(AndroidAudioState *state) {
 	INFO_LOG(AUDIO, "OpenSLWrap completely unloaded.");
 	return true;
 }
+
+const std::string AndroidAudio_GetErrorString(AndroidAudioState *state) {
+	if (!state) {
+		return "No state";
+	}
+	if (!state->ctx) {
+		return "No context";
+	}
+	return state->ctx->GetErrorString();
+}

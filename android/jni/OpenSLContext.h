@@ -10,11 +10,15 @@ public:
 	OpenSLContext(AndroidAudioCallback cb, int framesPerBuffer, int sampleRate);
 
 	bool Init() override;
-	int AudioRecord_Start(int sampleRate) override;
-	int AudioRecord_Stop() override;
+	bool AudioRecord_Start(int sampleRate) override;
+	bool AudioRecord_Stop() override;
+
 	~OpenSLContext();
 
 private:
+	bool CheckResult(SLresult result, const char *str);
+	static bool CheckResultStatic(SLresult result, const char *str);
+
 	// Should be no reason to need more than two buffers, but make it clear in the code.
 	enum {
 		NUM_BUFFERS = 2,

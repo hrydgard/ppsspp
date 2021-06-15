@@ -10,6 +10,7 @@
 #include <SLES/OpenSLES_Android.h>
 
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "OpenSLContext.h"
 #include "Core/HLE/sceUsbMic.h"
 
@@ -19,18 +20,14 @@ void OpenSLContext::bqRecorderCallback(SLAndroidSimpleBufferQueueItf bq, void *c
 
 	SLuint32 recordsState;
 	result = (*ctx->recorderRecord)->GetRecordState(ctx->recorderRecord, &recordsState);
-	if(result != SL_RESULT_SUCCESS) {
-		ERROR_LOG(AUDIO, "GetRecordState error: %d", result);
+	if (!CheckResultStatic(result, "GetRecordState error: %d"))
 		return;
-	}
 
 	Microphone::addAudioData((uint8_t*) ctx->recordBuffer[ctx->activeRecordBuffer], ctx->recordBufferSize);
 
 	if (recordsState == SL_RECORDSTATE_RECORDING) {
 		result = (*ctx->recorderBufferQueue)->Enqueue(ctx->recorderBufferQueue, ctx->recordBuffer[ctx->activeRecordBuffer], ctx->recordBufferSize);
-		if (result != SL_RESULT_SUCCESS) {
-			ERROR_LOG(AUDIO, "Enqueue error: %d", result);
-		}
+		CheckResultStatic(result, "Enqueue error");
 	}
 
 	ctx->activeRecordBuffer += 1; // Switch buffer
@@ -61,7 +58,7 @@ void OpenSLContext::BqPlayerCallback(SLAndroidSimpleBufferQueueItf bq) {
 		memset(buffer[curBuffer] + renderedFrames * 2, 0, byteCount);
 	}
 	SLresult result = (*bqPlayerBufferQueue)->Enqueue(bqPlayerBufferQueue, buffer[curBuffer], sizeInBytes);
-
+	CheckResult(result, StringFromFormat("Failed to enqueue: %d %d", renderedFrames, sizeInBytes).c_str());
 	// Comment from sample code:
 	// the most likely other result is SL_RESULT_BUFFER_INSUFFICIENT,
 	// which for this code example would indicate a programming error
@@ -82,27 +79,30 @@ bool OpenSLContext::Init() {
 	SLresult result;
 	// create engine
 	result = slCreateEngine(&engineObject, 0, NULL, 0, NULL, NULL);
-	if (result != SL_RESULT_SUCCESS) {
-		ERROR_LOG(AUDIO, "OpenSL: Failed to create the engine: %d", (int)result);
+	if (!CheckResult(result, "slCreateEngine")) {
 		engineObject = nullptr;
 		return false;
 	}
+
 	result = (*engineObject)->Realize(engineObject, SL_BOOLEAN_FALSE);
-	_assert_(SL_RESULT_SUCCESS == result);
+	if (!CheckResult(result, "engine->Realize"))
+		return false;
 
 	result = (*engineObject)->GetInterface(engineObject, SL_IID_ENGINE, &engineEngine);
-	_assert_(SL_RESULT_SUCCESS == result);
+	if (!CheckResult(result, "engine->GetInterface(ENGINE)"))
+		return false;
 
 	result = (*engineEngine)->CreateOutputMix(engineEngine, &outputMixObject, 0, 0, 0);
-	if (result != SL_RESULT_SUCCESS) {
-		ERROR_LOG(AUDIO, "OpenSL: Failed to create output mix: %d", (int)result);
+	if (!CheckResult(result, "engine->CreateOutputMix(ENGINE)")) {
 		(*engineObject)->Destroy(engineObject);
 		engineEngine = nullptr;
 		engineObject = nullptr;
 		return false;
 	}
+
 	result = (*outputMixObject)->Realize(outputMixObject, SL_BOOLEAN_FALSE);
-	_assert_(SL_RESULT_SUCCESS == result);
+	if (!CheckResult(result, "outputMix->Realize"))
+		return false;
 
 	// The constants, such as SL_SAMPLINGRATE_44_1, are just 44100000.
 	SLuint32 sr = (SLuint32)sampleRate * 1000;
@@ -142,18 +142,23 @@ bool OpenSLContext::Init() {
 	}
 
 	result = (*bqPlayerObject)->Realize(bqPlayerObject, SL_BOOLEAN_FALSE);
-	_assert_(SL_RESULT_SUCCESS == result);
+	if (!CheckResult(result, "player->Realize"))
+		return false;  // TODO: Release stuff!
 	result = (*bqPlayerObject)->GetInterface(bqPlayerObject, SL_IID_PLAY, &bqPlayerPlay);
-	_assert_(SL_RESULT_SUCCESS == result);
-	result = (*bqPlayerObject)->GetInterface(bqPlayerObject, SL_IID_BUFFERQUEUE,
-		&bqPlayerBufferQueue);
-	_assert_(SL_RESULT_SUCCESS == result);
+	if (!CheckResult(result, "player->GetInterface(PLAY)"))
+		return false;  // TODO: Release stuff!
+	result = (*bqPlayerObject)->GetInterface(bqPlayerObject, SL_IID_BUFFERQUEUE, &bqPlayerBufferQueue);
+	if (!CheckResult(result, "player->GetInterface(BUFFER_QUEUE)"))
+		return false;  // TODO: Release stuff!
 	result = (*bqPlayerBufferQueue)->RegisterCallback(bqPlayerBufferQueue, &bqPlayerCallbackWrap, this);
-	_assert_(SL_RESULT_SUCCESS == result);
+	if (!CheckResult(result, "playerbq->RegisterCallback()"))
+		return false;  // TODO: Release stuff!
 	result = (*bqPlayerObject)->GetInterface(bqPlayerObject, SL_IID_VOLUME, &bqPlayerVolume);
-	_assert_(SL_RESULT_SUCCESS == result);
+	if (!CheckResult(result, "playerbq->GetInterface()"))
+		return false;  // TODO: Release stuff!
 	result = (*bqPlayerPlay)->SetPlayState(bqPlayerPlay, SL_PLAYSTATE_PLAYING);
-	_assert_(SL_RESULT_SUCCESS == result);
+	if (!CheckResult(result, "playerbq->SetPlayState(PLAYING)"))
+		return false;  // TODO: Release stuff!
 
 	// Allocate and enqueue N empty buffers.
 	for (int i = 0; i < NUM_BUFFERS; i++) {
@@ -172,8 +177,13 @@ bool OpenSLContext::Init() {
 	return true;
 }
 
-int OpenSLContext::AudioRecord_Start(int sampleRate) {
+bool OpenSLContext::AudioRecord_Start(int sampleRate) {
 	SLresult result;
+
+	if (!engineEngine) {
+		SetErrorString("AudioRecord_Start: No engine");
+		return false;
+	}
 
 	// configure audio source
 	SLDataLocator_IODevice loc_dev = {SL_DATALOCATOR_IODEVICE, SL_IODEVICE_AUDIOINPUT, SL_DEFAULTDEVICEID_AUDIOINPUT, NULL};
@@ -197,38 +207,29 @@ int OpenSLContext::AudioRecord_Start(int sampleRate) {
 	const SLboolean req[1] = {SL_BOOLEAN_TRUE};
 	result = (*engineEngine)->CreateAudioRecorder(engineEngine, &recorderObject, &audioSrc, &audioSnk,
 			sizeof(id)/sizeof(id[0]), id, req);
-	if (SL_RESULT_SUCCESS != result) {
-		ERROR_LOG(AUDIO, "CreateAudioRecorder failed: %d", result);
+	if (!CheckResult(result, "CreateAudioRecorder failed"))
 		return false;
-	}
 
 	// realize the audio recorder
 	result = (*recorderObject)->Realize(recorderObject, SL_BOOLEAN_FALSE);
-	if (SL_RESULT_SUCCESS != result) {
-		ERROR_LOG(AUDIO, "Realize failed: %d", result);
+	if (!CheckResult(result, "recorderObject->Realize failed"))
 		return false;
-	}
+
 
 	// get the record interface
 	result = (*recorderObject)->GetInterface(recorderObject, SL_IID_RECORD, &recorderRecord);
-	if (SL_RESULT_SUCCESS != result) {
-		ERROR_LOG(AUDIO, "GetInterface(record) failed: %d", result);
+	if (!CheckResult(result, "GetInterface(recorderObject) failed"))
 		return false;
-	}
 
 	// get the buffer queue interface
 	result = (*recorderObject)->GetInterface(recorderObject, SL_IID_ANDROIDSIMPLEBUFFERQUEUE, (void*) &recorderBufferQueue);
-	if (SL_RESULT_SUCCESS != result) {
-		ERROR_LOG(AUDIO, "GetInterface(queue interface) failed: %d", result);
+	if (!CheckResult(result, "GetInterface(queue interface) failed"))
 		return false;
-	}
 
 	// register callback on the buffer queue
 	result = (*recorderBufferQueue)->RegisterCallback(recorderBufferQueue, &bqRecorderCallback, this);
-	if (SL_RESULT_SUCCESS != result) {
-		ERROR_LOG(AUDIO, "RegisterCallback failed: %d", result);
+	if (!CheckResult(result, "RegisterCallback failed"))
 		return false;
-	}
 
 	recordBufferSize = (44100 * 20 / 1000 * 2);
 	for (int i = 0; i < NUM_BUFFERS; i++) {
@@ -236,22 +237,18 @@ int OpenSLContext::AudioRecord_Start(int sampleRate) {
 	}
 	for (int i = 0; i < NUM_BUFFERS; i++) {
 		result = (*recorderBufferQueue)->Enqueue(recorderBufferQueue, recordBuffer[i], recordBufferSize);
-		if (SL_RESULT_SUCCESS != result) {
-			ERROR_LOG(AUDIO, "Enqueue failed: %d", result);
+		if (!CheckResult(result, "Enqueue failed"))
 			return false;
-		}
 	}
 
 	result = (*recorderRecord)->SetRecordState(recorderRecord, SL_RECORDSTATE_RECORDING);
-	_assert_(SL_RESULT_SUCCESS == result);
-
-	return true;
+	return CheckResult(result, "SetRecordState(recording) failed");
 }
 
-int OpenSLContext::AudioRecord_Stop() {
+bool OpenSLContext::AudioRecord_Stop() {
 	if (recorderRecord != nullptr) {
 		SLresult result = (*recorderRecord)->SetRecordState(recorderRecord, SL_RECORDSTATE_STOPPED);
-		_assert_(SL_RESULT_SUCCESS == result);
+		CheckResult(result, "SetRecordState(stopped) failed");
 	}
 	if (recorderObject != nullptr) {
 		(*recorderObject)->Destroy(recorderObject);
@@ -274,9 +271,7 @@ OpenSLContext::~OpenSLContext() {
 		INFO_LOG(AUDIO, "OpenSL: Shutdown - stopping playback");
 		SLresult result;
 		result = (*bqPlayerPlay)->SetPlayState(bqPlayerPlay, SL_PLAYSTATE_STOPPED);
-		if (SL_RESULT_SUCCESS != result) {
-			ERROR_LOG(AUDIO, "SetPlayState failed");
-		}
+		CheckResult(result, "SetPlayState(stopped) failed");
 	}
 
 	INFO_LOG(AUDIO, "OpenSL: Shutdown - deleting player object");
@@ -310,4 +305,23 @@ OpenSLContext::~OpenSLContext() {
 		buffer[i] = nullptr;
 	}
 	INFO_LOG(AUDIO, "OpenSL: Shutdown - finished");
+}
+
+bool OpenSLContext::CheckResult(SLresult result, const char *str) {
+	if (result != SL_RESULT_SUCCESS) {
+		ERROR_LOG(AUDIO, "OpenSL failure (%s): %d", str, result);
+		SetErrorString(str);
+		return false;
+	} else {
+		return true;
+	}
+}
+
+bool OpenSLContext::CheckResultStatic(SLresult result, const char *str) {
+	if (result != SL_RESULT_SUCCESS) {
+		ERROR_LOG(AUDIO, "OpenSL failure (%s): %d", str, result);
+		return false;
+	} else {
+		return true;
+	}
 }
