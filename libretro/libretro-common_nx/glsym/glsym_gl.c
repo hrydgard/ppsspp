@@ -1389,10 +1389,14 @@ RGLSYMGLWINDOWPOS3SARBPROC __glWindowPos3sARB;
 RGLSYMGLWINDOWPOS3SPROC __glWindowPos3s;
 RGLSYMGLWINDOWPOS3SVARBPROC __glWindowPos3svARB;
 RGLSYMGLWINDOWPOS3SVPROC __glWindowPos3sv;
+PFNGLBINDFRAGDATALOCATIONINDEXEDEXTPROC __glBindFragDataLocationIndexedEXT;
+PFNGLCOPYIMAGESUBDATAOES __glCopyImageSubDataOES;
 // Not actually used for Switch
 RGLSYMGETTEXTURESUBIMAGEPROC __glGetTextureSubImage;
 
 const struct rglgen_sym_map rglgen_symbol_map_ppsspp[] = {
+    SYM(BindFragDataLocationIndexedEXT),
+    SYM(CopyImageSubDataOES),
     SYM(Accum),
     SYM(AccumxOES),
     SYM(ActiveShaderProgram),
