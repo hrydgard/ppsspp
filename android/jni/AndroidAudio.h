@@ -11,23 +11,15 @@ public:
 	virtual bool Init() { return false; }
 	virtual bool AudioRecord_Start(int sampleRate) { return false; };
 	virtual bool AudioRecord_Stop() { return false; };
-	const std::string &GetErrorString() {
-		std::unique_lock<std::mutex> lock(errorMutex_);
-		return error_;
-	}
 
 	virtual ~AudioContext() {}
 
 protected:
-	void SetErrorString(const std::string &error) {
-		std::unique_lock<std::mutex> lock(errorMutex_);
-		error_ = error;
-	}
+	void SetErrorString(const std::string &error);
 	AndroidAudioCallback audioCallback;
 
 	int framesPerBuffer;
 	int sampleRate;
-	std::string error_ = "";
 	std::mutex errorMutex_;
 };
 
