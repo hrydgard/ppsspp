@@ -2715,7 +2715,7 @@ int sceNetAdhocctlCreate(const char *groupName) {
 
 	adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
 	adhocConnectionType = ADHOC_CREATE;
-	return NetAdhocctl_Create(groupName);
+	return hleLogDebug(SCENET, NetAdhocctl_Create(groupName), "");
 }
 
 int sceNetAdhocctlConnect(const char* groupName) {
@@ -2729,7 +2729,7 @@ int sceNetAdhocctlConnect(const char* groupName) {
 
 	adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
 	adhocConnectionType = ADHOC_CONNECT;
-	return NetAdhocctl_Create(groupName);
+	return hleLogDebug(SCENET, NetAdhocctl_Create(groupName), "");
 }
 
 int sceNetAdhocctlJoin(u32 scanInfoAddr) {
@@ -2753,7 +2753,7 @@ int sceNetAdhocctlJoin(u32 scanInfoAddr) {
 			// TODO: Adhoc Server may need to be changed to differentiate between Host/Create and Join, otherwise it can't support multiple Host using the same Group name, thus causing one of the Host to be confused being treated as Join.
 			adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
 			adhocConnectionType = ADHOC_JOIN;
-			return NetAdhocctl_Create(grpName);
+			return hleLogDebug(SCENET, NetAdhocctl_Create(grpName), "");
 		}
 
 		// Invalid Argument
