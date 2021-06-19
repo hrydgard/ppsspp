@@ -1,13 +1,19 @@
 #include "ppsspp_config.h"
 
-#ifdef _WIN32
+#if PPSSPP_PLATFORM(WINDOWS)
+
 #include <windows.h>
+
 #ifdef __MINGW32__
 #include <excpt.h>
 #endif
+
 #define TLS_SUPPORTED
+
 #elif defined(__ANDROID__)
+
 #define TLS_SUPPORTED
+
 #endif
 
 #include <cstring>
@@ -16,7 +22,11 @@
 #include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
 
-#if defined(__ANDROID__) || defined(__APPLE__) || (defined(__GLIBC__) && defined(_GNU_SOURCE))
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX)
+#define _GNU_SOURCE
+#endif
+
+#if !PPSSPP_PLATFORM(WINDOWS)
 #include <pthread.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -105,12 +115,10 @@ void SetCurrentThreadName(const char* threadName) {
 	{}
 #else
 
-#if defined(__ANDROID__) || (defined(__GLIBC__) && defined(_GNU_SOURCE))
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX)
 	pthread_setname_np(pthread_self(), threadName);
 #elif defined(__APPLE__)
 	pthread_setname_np(threadName);
-// #else
-//	pthread_setname_np(threadName);
 #endif
 
 	// Do nothing
@@ -140,7 +148,9 @@ int GetCurrentThreadIdForDebug() {
 	uint64_t tid = 0;
 	pthread_threadid_np(NULL, &tid);
 	return (int)tid;
-#else
+#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX)
 	return (int)gettid();
+#else
+	return 1;
 #endif
 }
