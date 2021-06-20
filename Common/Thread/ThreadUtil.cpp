@@ -149,7 +149,9 @@ int GetCurrentThreadIdForDebug() {
 	pthread_threadid_np(NULL, &tid);
 	return (int)tid;
 #elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX)
-	return (int)gettid();
+	// See issue 14545
+	return (int)syscall(__NR_gettid);
+	// return (int)gettid();
 #else
 	return 1;
 #endif
