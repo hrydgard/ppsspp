@@ -47,7 +47,7 @@ const static int OSK_SHUTDOWN_DELAY_US = 40000;
 static std::map<std::string, std::pair<std::string, int>> languageMapping;
 
 const int numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13, 12, 12, 12, 12, 12};
-const int numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 5, 5, 5, 4, 4, 4, 4};
+const int numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 6, 6, 5, 4, 4, 4, 4};
 
 // Japanese (Kana) diacritics
 static const wchar_t diacritics[2][103] =
@@ -74,7 +74,7 @@ const int kor_lconsCom[] = {18,0,2,21,3,4,26,3,5,0,7,8,15,7,9,16,7,10,18,7,11,24
 // Korean (Hangul) last consonant Separation key
 const int kor_lconsSpr[] = {2,1,9,4,4,12,5,4,18,8,8,0,9,8,6,10,8,7,11,8,9,12,8,16,13,8,17,14,8,18,17,17,9};
 
-static const char16_t oskKeys[OSK_KEYBOARD_COUNT][5][14] =
+static const char16_t oskKeys[OSK_KEYBOARD_COUNT][6][14] =
 {
 	{
 		// Latin Lowercase
@@ -97,6 +97,7 @@ static const char16_t oskKeys[OSK_KEYBOARD_COUNT][5][14] =
 		{u"うくすつぬふむゆるをぅゅ゛"},
 		{u"えけせてねへめ　れ　ぇ　゜"},
 		{u"おこそとのほもよろんぉょー"},
+		{u"・。、「」『』〜     "},
 	},
 	{
 		// Katakana
@@ -105,6 +106,7 @@ static const char16_t oskKeys[OSK_KEYBOARD_COUNT][5][14] =
 		{u"ウクスツヌフムユルヲゥュ゛"},
 		{u"エケセテネヘメ　レ　ェ　゜"},
 		{u"オコソトノホモヨロンォョー"},
+		{u"・。、「」『』〜     "},
 	},
 	{
 		// Korean(Hangul)
