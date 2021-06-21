@@ -1303,10 +1303,16 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 f
 					if (isLocalServer) {
 						getLocalIp(&addr);
 					}
-
-					addr.sin_port = htons(static_cast<int>(port + static_cast<int>(portOffset)));
-					// The port might be under 1024 (ie. GTA:VCS use port 1, Ford Street Racing use port 0 (UNUSED_PORT), etc) and already used by other application/host OS, should we add 1024 to the port whenever it tried to use an already used port?
-
+					uint16_t requestedport = static_cast<int>(port + static_cast<int>(portOffset));
+					// Avoid getting random port due to port offset when original port wasn't 0 (ie. original_port + port_offset = 65536 = 0)
+					if (requestedport == 0 && port > 0)
+						requestedport = 65535; // Hopefully it will be safe to default it to 65535 since there can't be more than one port that can bumped into 65536
+					// Show a warning about privileged ports
+					if (requestedport != 0 && requestedport < 1024) {
+						WARN_LOG(SCENET, "sceNetAdhocPdpCreate - Ports below 1024(ie. %hu) may require Admin Privileges", requestedport);
+					}
+					addr.sin_port = htons(requestedport);
+					
 					// Bound Socket to local Port
 					int iResult = bind(usocket, (struct sockaddr*)&addr, sizeof(addr));
 
@@ -3182,7 +3188,15 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 					if (isLocalServer) {
 						getLocalIp(&addr);
 					}
-					addr.sin_port = htons(static_cast<int>(sport + static_cast<int>(portOffset)));
+					uint16_t requestedport = static_cast<int>(sport + static_cast<int>(portOffset));
+					// Avoid getting random port due to port offset when original port wasn't 0 (ie. original_port + port_offset = 65536 = 0)
+					if (requestedport == 0 && sport > 0)
+						requestedport = 65535; // Hopefully it will be safe to default it to 65535 since there can't be more than one port that can bumped into 65536
+					// Show a warning about privileged ports
+					if (requestedport != 0 && requestedport < 1024) {
+						WARN_LOG(SCENET, "sceNetAdhocPtpOpen - Ports below 1024(ie. %hu) may require Admin Privileges", requestedport);
+					}
+					addr.sin_port = htons(requestedport);
 
 					// Bound Socket to local Port
 					if (bind(tcpsocket, (struct sockaddr*)&addr, sizeof(addr)) == 0) {
@@ -3744,7 +3758,15 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 					if (isLocalServer) {
 						getLocalIp(&addr);
 					}
-					addr.sin_port = htons(static_cast<int>(sport + static_cast<int>(portOffset)));
+					uint16_t requestedport = static_cast<int>(sport + static_cast<int>(portOffset));
+					// Avoid getting random port due to port offset when original port wasn't 0 (ie. original_port + port_offset = 65536 = 0)
+					if (requestedport == 0 && sport > 0)
+						requestedport = 65535; // Hopefully it will be safe to default it to 65535 since there can't be more than one port that can bumped into 65536
+					// Show a warning about privileged ports
+					if (requestedport != 0 && requestedport < 1024) {
+						WARN_LOG(SCENET, "sceNetAdhocPtpListen - Ports below 1024(ie. %hu) may require Admin Privileges", requestedport);
+					}
+					addr.sin_port = htons(requestedport);
 
 					int iResult = 0;
 					// Bound Socket to local Port
