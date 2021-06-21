@@ -1324,9 +1324,10 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 f
 						// Update sport with the port assigned internal->lport = ntohs(local.sin_port)
 						socklen_t len = sizeof(addr);
 						if (getsockname(usocket, (struct sockaddr*)&addr, &len) == 0) {
-							if (port + static_cast<int>(portOffset) > 65535 || static_cast<int>(ntohs(addr.sin_port)) - static_cast<int>(portOffset) <= 0)
-								WARN_LOG(SCENET, "sceNetAdhocPdpCreate - Shifting to Negative Port: %d -> %d -> %d", port, port + portOffset, ntohs(addr.sin_port) - portOffset);
-							port = ntohs(addr.sin_port) - portOffset;
+							uint16_t boundport = ntohs(addr.sin_port);
+							if (port + static_cast<int>(portOffset) >= 65536 || static_cast<int>(boundport) - static_cast<int>(portOffset) <= 0)
+								WARN_LOG(SCENET, "sceNetAdhocPdpCreate - Wrapped Port Detected: Original(%d) -> Requested(%d), Bound(%d) -> BoundOriginal(%d)", port, requestedport, boundport, boundport - portOffset);
+							port = boundport - portOffset;
 						}
 
 						// Allocate Memory for Internal Data
@@ -3203,9 +3204,10 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 						// Update sport with the port assigned internal->lport = ntohs(local.sin_port)
 						socklen_t len = sizeof(addr);
 						if (getsockname(tcpsocket, (struct sockaddr*)&addr, &len) == 0) {
-							if (sport + static_cast<int>(portOffset) > 65535 || static_cast<int>(ntohs(addr.sin_port)) - static_cast<int>(portOffset) <= 0)
-								WARN_LOG(SCENET, "sceNetAdhocPtpOpen - Shifting to Negative Port: %d -> %d -> %d", sport, sport + portOffset, ntohs(addr.sin_port) - portOffset);
-							sport = ntohs(addr.sin_port) - portOffset;
+							uint16_t boundport = ntohs(addr.sin_port);
+							if (sport + static_cast<int>(portOffset) >= 65536 || static_cast<int>(boundport) - static_cast<int>(portOffset) <= 0)
+								WARN_LOG(SCENET, "sceNetAdhocPtpOpen - Wrapped Port Detected: Original(%d) -> Requested(%d), Bound(%d) -> BoundOriginal(%d)", sport, requestedport, boundport, boundport - portOffset);
+							sport = boundport - portOffset;
 						}
 
 						// Allocate Memory
@@ -3774,9 +3776,10 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 						// Update sport with the port assigned internal->lport = ntohs(local.sin_port)
 						socklen_t len = sizeof(addr);
 						if (getsockname(tcpsocket, (struct sockaddr*)&addr, &len) == 0) {
-							if (sport + static_cast<int>(portOffset) > 65535 || static_cast<int>(ntohs(addr.sin_port)) - static_cast<int>(portOffset) <= 0)
-								WARN_LOG(SCENET, "sceNetAdhocPtpListen - Shifting to Negative Port: %d -> %d -> %d", sport, sport + portOffset, ntohs(addr.sin_port) - portOffset);
-							sport = ntohs(addr.sin_port) - portOffset;
+							uint16_t boundport = ntohs(addr.sin_port);
+							if (sport + static_cast<int>(portOffset) >= 65536 || static_cast<int>(boundport) - static_cast<int>(portOffset) <= 0)
+								WARN_LOG(SCENET, "sceNetAdhocPtpListen - Wrapped Port Detected: Original(%d) -> Requested(%d), Bound(%d) -> BoundOriginal(%d)", sport, requestedport, boundport, boundport - portOffset);
+							sport = boundport - portOffset;
 						}
 						// Switch into Listening Mode
 						if ((iResult = listen(tcpsocket, backlog)) == 0) {
