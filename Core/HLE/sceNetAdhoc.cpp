@@ -1303,10 +1303,16 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 f
 					if (isLocalServer) {
 						getLocalIp(&addr);
 					}
-
-					addr.sin_port = htons(static_cast<int>(port + static_cast<int>(portOffset)));
-					// The port might be under 1024 (ie. GTA:VCS use port 1, Ford Street Racing use port 0 (UNUSED_PORT), etc) and already used by other application/host OS, should we add 1024 to the port whenever it tried to use an already used port?
-
+					uint16_t requestedport = static_cast<int>(port + static_cast<int>(portOffset));
+					// Avoid getting random port due to port offset when original port wasn't 0 (ie. original_port + port_offset = 65536 = 0)
+					if (requestedport == 0 && port > 0)
+						requestedport = 65535; // Hopefully it will be safe to default it to 65535 since there can't be more than one port that can bumped into 65536
+					// Show a warning about privileged ports
+					if (requestedport != 0 && requestedport < 1024) {
+						WARN_LOG(SCENET, "sceNetAdhocPdpCreate - Ports below 1024(ie. %hu) may require Admin Privileges", requestedport);
+					}
+					addr.sin_port = htons(requestedport);
+					
 					// Bound Socket to local Port
 					int iResult = bind(usocket, (struct sockaddr*)&addr, sizeof(addr));
 
@@ -1318,9 +1324,10 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 f
 						// Update sport with the port assigned internal->lport = ntohs(local.sin_port)
 						socklen_t len = sizeof(addr);
 						if (getsockname(usocket, (struct sockaddr*)&addr, &len) == 0) {
-							if (port + static_cast<int>(portOffset) > 65535 || static_cast<int>(ntohs(addr.sin_port)) - static_cast<int>(portOffset) <= 0)
-								WARN_LOG(SCENET, "sceNetAdhocPdpCreate - Shifting to Negative Port: %d -> %d -> %d", port, port + portOffset, ntohs(addr.sin_port) - portOffset);
-							port = ntohs(addr.sin_port) - portOffset;
+							uint16_t boundport = ntohs(addr.sin_port);
+							if (port + static_cast<int>(portOffset) >= 65536 || static_cast<int>(boundport) - static_cast<int>(portOffset) <= 0)
+								WARN_LOG(SCENET, "sceNetAdhocPdpCreate - Wrapped Port Detected: Original(%d) -> Requested(%d), Bound(%d) -> BoundOriginal(%d)", port, requestedport, boundport, boundport - portOffset);
+							port = boundport - portOffset;
 						}
 
 						// Allocate Memory for Internal Data
@@ -2715,7 +2722,7 @@ int sceNetAdhocctlCreate(const char *groupName) {
 
 	adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
 	adhocConnectionType = ADHOC_CREATE;
-	return NetAdhocctl_Create(groupName);
+	return hleLogDebug(SCENET, NetAdhocctl_Create(groupName), "");
 }
 
 int sceNetAdhocctlConnect(const char* groupName) {
@@ -2729,7 +2736,7 @@ int sceNetAdhocctlConnect(const char* groupName) {
 
 	adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
 	adhocConnectionType = ADHOC_CONNECT;
-	return NetAdhocctl_Create(groupName);
+	return hleLogDebug(SCENET, NetAdhocctl_Create(groupName), "");
 }
 
 int sceNetAdhocctlJoin(u32 scanInfoAddr) {
@@ -2753,7 +2760,7 @@ int sceNetAdhocctlJoin(u32 scanInfoAddr) {
 			// TODO: Adhoc Server may need to be changed to differentiate between Host/Create and Join, otherwise it can't support multiple Host using the same Group name, thus causing one of the Host to be confused being treated as Join.
 			adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
 			adhocConnectionType = ADHOC_JOIN;
-			return NetAdhocctl_Create(grpName);
+			return hleLogDebug(SCENET, NetAdhocctl_Create(grpName), "");
 		}
 
 		// Invalid Argument
@@ -3182,16 +3189,25 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 					if (isLocalServer) {
 						getLocalIp(&addr);
 					}
-					addr.sin_port = htons(static_cast<int>(sport + static_cast<int>(portOffset)));
+					uint16_t requestedport = static_cast<int>(sport + static_cast<int>(portOffset));
+					// Avoid getting random port due to port offset when original port wasn't 0 (ie. original_port + port_offset = 65536 = 0)
+					if (requestedport == 0 && sport > 0)
+						requestedport = 65535; // Hopefully it will be safe to default it to 65535 since there can't be more than one port that can bumped into 65536
+					// Show a warning about privileged ports
+					if (requestedport != 0 && requestedport < 1024) {
+						WARN_LOG(SCENET, "sceNetAdhocPtpOpen - Ports below 1024(ie. %hu) may require Admin Privileges", requestedport);
+					}
+					addr.sin_port = htons(requestedport);
 
 					// Bound Socket to local Port
 					if (bind(tcpsocket, (struct sockaddr*)&addr, sizeof(addr)) == 0) {
 						// Update sport with the port assigned internal->lport = ntohs(local.sin_port)
 						socklen_t len = sizeof(addr);
 						if (getsockname(tcpsocket, (struct sockaddr*)&addr, &len) == 0) {
-							if (sport + static_cast<int>(portOffset) > 65535 || static_cast<int>(ntohs(addr.sin_port)) - static_cast<int>(portOffset) <= 0)
-								WARN_LOG(SCENET, "sceNetAdhocPtpOpen - Shifting to Negative Port: %d -> %d -> %d", sport, sport + portOffset, ntohs(addr.sin_port) - portOffset);
-							sport = ntohs(addr.sin_port) - portOffset;
+							uint16_t boundport = ntohs(addr.sin_port);
+							if (sport + static_cast<int>(portOffset) >= 65536 || static_cast<int>(boundport) - static_cast<int>(portOffset) <= 0)
+								WARN_LOG(SCENET, "sceNetAdhocPtpOpen - Wrapped Port Detected: Original(%d) -> Requested(%d), Bound(%d) -> BoundOriginal(%d)", sport, requestedport, boundport, boundport - portOffset);
+							sport = boundport - portOffset;
 						}
 
 						// Allocate Memory
@@ -3744,7 +3760,15 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 					if (isLocalServer) {
 						getLocalIp(&addr);
 					}
-					addr.sin_port = htons(static_cast<int>(sport + static_cast<int>(portOffset)));
+					uint16_t requestedport = static_cast<int>(sport + static_cast<int>(portOffset));
+					// Avoid getting random port due to port offset when original port wasn't 0 (ie. original_port + port_offset = 65536 = 0)
+					if (requestedport == 0 && sport > 0)
+						requestedport = 65535; // Hopefully it will be safe to default it to 65535 since there can't be more than one port that can bumped into 65536
+					// Show a warning about privileged ports
+					if (requestedport != 0 && requestedport < 1024) {
+						WARN_LOG(SCENET, "sceNetAdhocPtpListen - Ports below 1024(ie. %hu) may require Admin Privileges", requestedport);
+					}
+					addr.sin_port = htons(requestedport);
 
 					int iResult = 0;
 					// Bound Socket to local Port
@@ -3752,9 +3776,10 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 						// Update sport with the port assigned internal->lport = ntohs(local.sin_port)
 						socklen_t len = sizeof(addr);
 						if (getsockname(tcpsocket, (struct sockaddr*)&addr, &len) == 0) {
-							if (sport + static_cast<int>(portOffset) > 65535 || static_cast<int>(ntohs(addr.sin_port)) - static_cast<int>(portOffset) <= 0)
-								WARN_LOG(SCENET, "sceNetAdhocPtpListen - Shifting to Negative Port: %d -> %d -> %d", sport, sport + portOffset, ntohs(addr.sin_port) - portOffset);
-							sport = ntohs(addr.sin_port) - portOffset;
+							uint16_t boundport = ntohs(addr.sin_port);
+							if (sport + static_cast<int>(portOffset) >= 65536 || static_cast<int>(boundport) - static_cast<int>(portOffset) <= 0)
+								WARN_LOG(SCENET, "sceNetAdhocPtpListen - Wrapped Port Detected: Original(%d) -> Requested(%d), Bound(%d) -> BoundOriginal(%d)", sport, requestedport, boundport, boundport - portOffset);
+							sport = boundport - portOffset;
 						}
 						// Switch into Listening Mode
 						if ((iResult = listen(tcpsocket, backlog)) == 0) {
