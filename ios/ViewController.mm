@@ -718,7 +718,7 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 		axisInput.deviceId = DEVICE_ID_PAD_0;
 		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_X;
-		axisInput.value = value * g_Config.fXInputAnalogSensitivity;
+		axisInput.value = value;
 		NativeAxis(axisInput);
 	};
 	
@@ -727,7 +727,7 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 		axisInput.deviceId = DEVICE_ID_PAD_0;
 		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_Y;
-		axisInput.value = -value * g_Config.fXInputAnalogSensitivity;
+		axisInput.value = -value;
 		NativeAxis(axisInput);
 	};
 	
@@ -737,7 +737,7 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 		axisInput.deviceId = DEVICE_ID_PAD_0;
 		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_Z;
-		axisInput.value = value * g_Config.fXInputAnalogSensitivity;
+		axisInput.value = value;
 		NativeAxis(axisInput);
 	};
 	
@@ -746,7 +746,7 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 		axisInput.deviceId = DEVICE_ID_PAD_0;
 		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_RZ;
-		axisInput.value = -value * g_Config.fXInputAnalogSensitivity;
+		axisInput.value = -value;
 		NativeAxis(axisInput);
 	};
 }
