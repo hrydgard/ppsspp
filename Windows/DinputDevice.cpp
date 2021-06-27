@@ -176,7 +176,7 @@ DinputDevice::DinputDevice(int devnum) {
 	dipw.diph.dwHow        = DIPH_DEVICE;
 	dipw.diph.dwObj        = 0;
 	// dwData 10000 is deadzone(0% - 100%), multiply by config scalar
-	dipw.dwData            = (int)(g_Config.fDInputAnalogDeadzone * 10000);
+	dipw.dwData            = 0;
 
 	analog |= FAILED(pJoystick->SetProperty(DIPROP_DEADZONE, &dipw.diph)) ? false : true;
 }
@@ -209,60 +209,6 @@ void SendNativeAxis(int deviceId, int value, int &lastValue, int axisId) {
 	lastValue = value;
 }
 
-inline int Signs(int val) {
-	return (0 < val) - (val < 0);
-}
-
-inline int LinearMaps(int val, int a0, int a1, int b0, int b1) {
-	return b0 + (((val - a0) * (b1 - b0)) / (a1 - a0));
-}
-inline float LinearMaps(float val, float a0, float a1, float b0, float b1) {
-	return b0 + (((val - a0) * (b1 - b0)) / (a1 - a0));
-}
-
-static void ApplyNormalization(LONG &jsx, LONG &jsy) {
-	// Circle to Square mapping, cribbed from XInputDevice
-	float sx = (float)jsx;
-	float sy = (float)jsy;
-	float scaleFactor = sqrtf((sx * sx + sy * sy) / std::max(sx * sx, sy * sy));
-	jsx = (int)(sx * scaleFactor);
-	jsy = (int)(sy * scaleFactor);
-
-	// Linear range mapping (used to invert deadzones)
-	float dz = g_Config.fDInputAnalogDeadzone;
-	int idzm = g_Config.iDInputAnalogInverseMode;
-	float idz = g_Config.fDInputAnalogInverseDeadzone;
-	float md = std::max(dz, idz);
-	float st = g_Config.fDInputAnalogSensitivity;
-
-	float magnitude = sqrtf((float)(jsx * jsx + jsy * jsy));
-	if (magnitude > dz * 10000.0f) {
-		if (idzm == 1) {
-			int xSign = Signs(jsx);
-			if (xSign != 0) {
-				jsx = LinearMaps(jsx, xSign * (int)(dz * 10000), xSign * 10000, xSign * (int)(md * 10000), xSign * (int)(st * 10000));
-			}
-		} else if (idzm == 2) {
-			int ySign = Signs(jsy);
-			if (ySign != 0) {
-				jsy = LinearMaps(jsy, ySign * (int)(dz * 10000.0f), ySign * 10000, ySign * (int)(md * 10000.0f), ySign * (int)(st * 10000));
-			}
-		} else if (idzm == 3) {
-			float xNorm = (float)jsx / magnitude;
-			float yNorm = (float)jsy / magnitude;
-			float mapMag = LinearMaps(magnitude, dz * 10000.0f, 10000.0f, md * 10000.0f, 10000.0f * st);
-			jsx = (short)(xNorm * mapMag);
-			jsy = (short)(yNorm * mapMag);
-		}
-	} else {
-		jsx = 0;
-		jsy = 0;
-	}
-
-	jsx = (short)std::min(10000.0f, std::max((float)jsx, -10000.0f));
-	jsy = (short)std::min(10000.0f, std::max((float)jsy, -10000.0f));
-}
-
 static LONG *ValueForAxisId(DIJOYSTATE2 &js, int axisId) {
 	switch (axisId) {
 	case JOYSTICK_AXIS_X: return &js.lX;
@@ -272,14 +218,6 @@ static LONG *ValueForAxisId(DIJOYSTATE2 &js, int axisId) {
 	case JOYSTICK_AXIS_RY: return &js.lRy;
 	case JOYSTICK_AXIS_RZ: return &js.lRz;
 	default: return nullptr;
-	}
-}
-
-static void ApplyNormalization(DIJOYSTATE2 &js, int xAxisId, int yAxisId) {
-	LONG *nrmX = ValueForAxisId(js, xAxisId);
-	LONG *nrmY = ValueForAxisId(js, yAxisId);
-	if (nrmX != nullptr && nrmY != nullptr) {
-		ApplyNormalization(*nrmX, *nrmY);
 	}
 }
 
@@ -303,10 +241,6 @@ int DinputDevice::UpdateState() {
 		axis.deviceId = DEVICE_ID_PAD_0 + pDevNum;
 
 		auto axesToSquare = KeyMap::MappedAxesForDevice(axis.deviceId);
-		ApplyNormalization(js, axesToSquare.leftX.axisId, axesToSquare.leftY.axisId);
-		// Prevent double normalization.
-		if (axesToSquare.leftX.axisId != axesToSquare.rightX.axisId && axesToSquare.leftX.axisId != axesToSquare.rightY.axisId)
-			ApplyNormalization(js, axesToSquare.rightX.axisId, axesToSquare.rightY.axisId);
 
 		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lX, last_lX_, JOYSTICK_AXIS_X);
 		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lY, last_lY_, JOYSTICK_AXIS_Y);

@@ -1082,9 +1082,6 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
 	axis.deviceId = deviceId;
 	axis.value = value;
 
-	float sensitivity = g_Config.fXInputAnalogSensitivity;
-	axis.value *= sensitivity;
-
 	return NativeAxis(axis);
 }
 
