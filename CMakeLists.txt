@@ -429,6 +429,12 @@ set(CommonMIPS
 )
 source_group(MIPS FILES ${CommonMIPS})
 
+set(CommonRISCV64
+	Core/MIPS/fake/FakeJit.cpp
+	Core/MIPS/fake/FakeJit.h
+)
+source_group(RISCV64 FILES ${CommonRISCV64})
+
 if(WIN32)
 	set(CommonD3D
 		Common/GPU/D3D9/D3D9ShaderCompiler.cpp
@@ -448,6 +454,7 @@ add_library(Common STATIC
 	${CommonARM}
 	${CommonARM64}
 	${CommonMIPS}
+	${CommonRISCV64}
 	${CommonD3D}
 	Common/Serialize/Serializer.cpp
 	Common/Serialize/Serializer.h
