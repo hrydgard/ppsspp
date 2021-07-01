@@ -5950,7 +5950,7 @@ const HLEFunction sceNetAdhocctl[] = {
 };
 
 int sceNetAdhocDiscoverInitStart() {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverInitStart()");
+	ERROR_LOG_REPORT_ONCE(sceNetAdhocDiscoverInitStart, SCENET, "UNIMPL sceNetAdhocDiscoverInitStart() at %08x", currentMIPS->pc);
 	return 0;
 }
 
@@ -5965,13 +5965,13 @@ int sceNetAdhocDiscoverTerm() {
 }
 
 int sceNetAdhocDiscoverUpdate() {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverUpdate()");
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverUpdate() at %08x", currentMIPS->pc);
 	return 0;
 }
 
 int sceNetAdhocDiscoverGetStatus() {
 	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverGetStatus()");
-	return 0;
+	return 0; // returning 2 will trigger Legend Of The Dragon to call sceNetAdhocctlGetPeerList
 }
 
 int sceNetAdhocDiscoverRequestSuspend()
