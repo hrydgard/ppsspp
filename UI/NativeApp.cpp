@@ -1392,6 +1392,11 @@ static bool AnalogStickAxis(const AxisInput &axis) {
 }
 
 bool NativeAxis(const AxisInput &axis) {
+	if (!screenManager) {
+		// Too early.
+		return false;
+	}
+
 	using namespace TiltEventProcessor;
 
 	switch (axis.axisId) {
