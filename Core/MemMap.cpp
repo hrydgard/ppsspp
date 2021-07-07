@@ -213,7 +213,10 @@ bool MemoryMap_Setup(u32 flags) {
 	}
 
 	// Grab some pagefile backed memory out of the void ...
-	g_arena.GrabLowMemSpace(total_mem);
+	if (!g_arena.GrabMemSpace(total_mem)) {
+		// It'll already have logged.
+		return false;
+	}
 #endif
 
 #if !PPSSPP_PLATFORM(ANDROID)

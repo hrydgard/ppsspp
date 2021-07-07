@@ -36,7 +36,7 @@ struct MemArenaData;
 class MemArena {
 public:
 	size_t roundup(size_t x);
-	void GrabLowMemSpace(size_t size);
+	bool GrabMemSpace(size_t size);
 	void ReleaseSpace();
 	void *CreateView(s64 offset, size_t size, void *base = 0);
 	void ReleaseView(void *view, size_t size);
