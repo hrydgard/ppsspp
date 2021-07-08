@@ -675,6 +675,8 @@ void retro_unload_game(void)
 	delete ctx;
 	ctx = nullptr;
 	PSP_CoreParameter().graphicsContext = nullptr;
+
+   g_threadManager.Teardown();
 }
 
 void retro_reset(void)

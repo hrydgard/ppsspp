@@ -98,10 +98,6 @@ static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread)
 }
 
 void ThreadManager::Init(int numRealCores, int numLogicalCoresPerCpu) {
-	if (!global_->threads_.empty()) {
-		Teardown();
-	}
-
 	numComputeThreads_ = std::min(numRealCores * numLogicalCoresPerCpu, MAX_CORES_TO_USE);
 	int numThreads = numComputeThreads_ + EXTRA_THREADS;
 	numThreads_ = numThreads;
