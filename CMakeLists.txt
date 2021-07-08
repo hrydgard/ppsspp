@@ -1565,6 +1565,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Config.cpp
 	Core/Config.h
 	Core/ConfigValues.h
+	Core/ControlMapper.cpp
+	Core/ControlMapper.h
 	Core/Core.cpp
 	Core/Core.h
 	Core/Compatibility.cpp

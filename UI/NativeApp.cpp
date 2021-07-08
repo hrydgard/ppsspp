@@ -78,6 +78,7 @@
 #include "Common/OSVersion.h"
 #include "Common/GPU/ShaderTranslation.h"
 
+#include "Core/ControlMapper.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
@@ -1324,35 +1325,6 @@ bool NativeKey(const KeyInput &key) {
 	if (screenManager)
 		retval = screenManager->key(key);
 	return retval;
-}
-
-static float MapAxisValue(float v) {
-	const float deadzone = g_Config.fAnalogDeadzone;
-	const float invDeadzone = g_Config.fAnalogInverseDeadzone;
-	const float sensitivity = g_Config.fAnalogSensitivity;
-	const float sign = v >= 0.0f ? 1.0f : -1.0f;
-	return sign * Clamp(invDeadzone + (abs(v) - deadzone) / (1.0f - deadzone) * (sensitivity - invDeadzone), 0.0f, 1.0f);
-}
-
-static void ConvertAnalogStick(float &x, float &y) {
-	const bool isCircular = g_Config.bAnalogIsCircular;
-
-	float norm = std::max(fabsf(x), fabsf(y));
-
-	if (norm == 0.0f)
-		return;
-
-	if (isCircular) {
-		float newNorm = sqrtf(x * x + y * y);
-		float factor = newNorm / norm;
-		x *= factor;
-		y *= factor;
-		norm = newNorm;
-	}
-
-	float mappedNorm = MapAxisValue(norm);
-	x = Clamp(x / norm * mappedNorm, -1.0f, 1.0f);
-	y = Clamp(y / norm * mappedNorm, -1.0f, 1.0f);
 }
 
 static bool AnalogStickAxis(const AxisInput &axis) {

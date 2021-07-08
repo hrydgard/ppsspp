@@ -18,6 +18,9 @@
 #include "ppsspp_config.h"
 
 #include <algorithm>
+#include <functional>
+
+using namespace std::placeholders;
 
 #include "Common/Render/TextureAtlas.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
@@ -93,6 +96,7 @@
 static AVIDump avi;
 #endif
 
+// TODO: Ugly!
 static bool frameStep_;
 static int lastNumFlips;
 static bool startDumping;
@@ -129,14 +133,45 @@ static void __EmuScreenVblank()
 #endif
 }
 
+// Handles control rotation due to internal screen rotation.
+// TODO: This should be a callback too, so we don't actually call the __Ctrl functions
+// from settings screens, etc.
+static void SetPSPAxis(char axis, float value, int stick) {
+	switch (g_Config.iInternalScreenRotation) {
+	case ROTATION_LOCKED_HORIZONTAL:
+		// Standard rotation.
+		break;
+	case ROTATION_LOCKED_HORIZONTAL180:
+		value = -value;
+		break;
+	case ROTATION_LOCKED_VERTICAL:
+		value = axis == 'Y' ? value : -value;
+		axis = (axis == 'X') ? 'Y' : 'X';
+		break;
+	case ROTATION_LOCKED_VERTICAL180:
+		value = axis == 'Y' ? -value : value;
+		axis = (axis == 'X') ? 'Y' : 'X';
+		break;
+	default:
+		break;
+	}
+	if (axis == 'X')
+		__CtrlSetAnalogX(value, stick);
+	else if (axis == 'Y')
+		__CtrlSetAnalogY(value, stick);
+}
+
 EmuScreen::EmuScreen(const Path &filename)
-	: bootPending_(true), gamePath_(filename), invalid_(true), quit_(false), pauseTrigger_(false), saveStatePreviewShownTime_(0.0), saveStatePreview_(nullptr) {
-	memset(axisState_, 0, sizeof(axisState_));
+	: gamePath_(filename) {
 	saveStateSlot_ = SaveState::GetCurrentSlot();
 	__DisplayListenVblank(__EmuScreenVblank);
 	frameStep_ = false;
 	lastNumFlips = gpuStats.numFlips;
 	startDumping = false;
+	controlMapper_.SetCallbacks(
+		std::bind(&EmuScreen::onVKeyDown, this, _1),
+		std::bind(&EmuScreen::onVKeyUp, this, _1),
+		&SetPSPAxis);
 
 	// Make sure we don't leave it at powerdown after the last game.
 	// TODO: This really should be handled elsewhere if it isn't.
@@ -308,7 +343,6 @@ void EmuScreen::bootComplete() {
 		osm.Show(sc->T("PressESC", "Press ESC to open the pause menu"), 3.0f);
 	}
 #endif
-	memset(virtKeys, 0, sizeof(virtKeys));
 
 #if !PPSSPP_PLATFORM(UWP)
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
@@ -596,31 +630,6 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 	}
 #endif
 
-	case VIRTKEY_AXIS_X_MIN:
-	case VIRTKEY_AXIS_X_MAX:
-		setVKeyAnalog('X', CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
-		break;
-	case VIRTKEY_AXIS_Y_MIN:
-	case VIRTKEY_AXIS_Y_MAX:
-		setVKeyAnalog('Y', CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
-		break;
-
-	case VIRTKEY_AXIS_RIGHT_X_MIN:
-	case VIRTKEY_AXIS_RIGHT_X_MAX:
-		setVKeyAnalog('X', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
-		break;
-	case VIRTKEY_AXIS_RIGHT_Y_MIN:
-	case VIRTKEY_AXIS_RIGHT_Y_MAX:
-		setVKeyAnalog('Y', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
-		break;
-
-	case VIRTKEY_ANALOG_LIGHTLY:
-		setVKeyAnalog('X', CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX, false);
-		setVKeyAnalog('Y', CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX, false);
-		setVKeyAnalog('X', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX, false);
-		setVKeyAnalog('Y', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX, false);
-		break;
-
 	case VIRTKEY_REWIND:
 		if (SaveState::CanRewind()) {
 			SaveState::Rewind(&AfterSaveStateAction);
@@ -701,31 +710,6 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 		}
 		break;
 
-	case VIRTKEY_AXIS_X_MIN:
-	case VIRTKEY_AXIS_X_MAX:
-		setVKeyAnalog('X', CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
-		break;
-	case VIRTKEY_AXIS_Y_MIN:
-	case VIRTKEY_AXIS_Y_MAX:
-		setVKeyAnalog('Y', CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
-		break;
-
-	case VIRTKEY_AXIS_RIGHT_X_MIN:
-	case VIRTKEY_AXIS_RIGHT_X_MAX:
-		setVKeyAnalog('X', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
-		break;
-	case VIRTKEY_AXIS_RIGHT_Y_MIN:
-	case VIRTKEY_AXIS_RIGHT_Y_MAX:
-		setVKeyAnalog('Y', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
-		break;
-
-	case VIRTKEY_ANALOG_LIGHTLY:
-		setVKeyAnalog('X', CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX, false);
-		setVKeyAnalog('Y', CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX, false);
-		setVKeyAnalog('X', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX, false);
-		setVKeyAnalog('Y', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX, false);
-		break;
-
 	case VIRTKEY_RAPID_FIRE:
 		__CtrlSetRapidFire(false);
 		break;
@@ -747,233 +731,16 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 	}
 }
 
-// Handles control rotation due to internal screen rotation.
-static void SetPSPAxis(char axis, float value, int stick) {
-	switch (g_Config.iInternalScreenRotation) {
-	case ROTATION_LOCKED_HORIZONTAL:
-		// Standard rotation.
-		break;
-	case ROTATION_LOCKED_HORIZONTAL180:
-		value = -value;
-		break;
-	case ROTATION_LOCKED_VERTICAL:
-		value = axis == 'Y' ? value : -value;
-		axis = (axis == 'X') ? 'Y' : 'X';
-		break;
-	case ROTATION_LOCKED_VERTICAL180:
-		value = axis == 'Y' ? -value : value;
-		axis = (axis == 'X') ? 'Y' : 'X';
-		break;
-	default:
-		break;
-	}
-	if (axis == 'X')
-		__CtrlSetAnalogX(value, stick);
-	else if (axis == 'Y')
-		__CtrlSetAnalogY(value, stick);
-}
-
-inline void EmuScreen::setVKeyAnalog(char axis, int stick, int virtualKeyMin, int virtualKeyMax, bool setZero) {
-	// The down events can repeat, so just trust the virtKeys array.
-	bool minDown = virtKeys[virtualKeyMin - VIRTKEY_FIRST];
-	bool maxDown = virtKeys[virtualKeyMax - VIRTKEY_FIRST];
-
-	const float scale = virtKeys[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? g_Config.fAnalogLimiterDeadzone : 1.0f;
-	float value = 0.0f;
-	if (minDown)
-		value -= scale;
-	if (maxDown)
-		value += scale;
-	if (setZero || minDown || maxDown)
-		SetPSPAxis(axis, value, stick);
-}
-
 bool EmuScreen::key(const KeyInput &key) {
 	Core_NotifyActivity();
 
-	std::vector<int> pspKeys;
-	KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys);
-
-	if (pspKeys.size() && (key.flags & KEY_IS_REPEAT)) {
-		// Claim that we handled this. Prevents volume key repeats from popping up the volume control on Android.
-		return true;
-	}
-
-	for (size_t i = 0; i < pspKeys.size(); i++) {
-		pspKey(pspKeys[i], key.flags);
-	}
-
-	if (!pspKeys.size() || key.deviceId == DEVICE_ID_DEFAULT) {
-		if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_BACK) {
-			pauseTrigger_ = true;
-			return true;
-		}
-	}
-
-	return pspKeys.size() > 0;
-}
-
-static int RotatePSPKeyCode(int x) {
-	switch (x) {
-	case CTRL_UP: return CTRL_RIGHT;
-	case CTRL_RIGHT: return CTRL_DOWN;
-	case CTRL_DOWN: return CTRL_LEFT;
-	case CTRL_LEFT: return CTRL_UP;
-	default:
-		return x;
-	}
-}
-
-void EmuScreen::pspKey(int pspKeyCode, int flags) {
-	int rotations = 0;
-	switch (g_Config.iInternalScreenRotation) {
-	case ROTATION_LOCKED_HORIZONTAL180:
-		rotations = 2;
-		break;
-	case ROTATION_LOCKED_VERTICAL:
-		rotations = 1;
-		break;
-	case ROTATION_LOCKED_VERTICAL180:
-		rotations = 3;
-		break;
-	}
-
-	for (int i = 0; i < rotations; i++) {
-		pspKeyCode = RotatePSPKeyCode(pspKeyCode);
-	}
-
-	if (pspKeyCode >= VIRTKEY_FIRST) {
-		int vk = pspKeyCode - VIRTKEY_FIRST;
-		if (flags & KEY_DOWN) {
-			virtKeys[vk] = true;
-			onVKeyDown(pspKeyCode);
-		}
-		if (flags & KEY_UP) {
-			virtKeys[vk] = false;
-			onVKeyUp(pspKeyCode);
-		}
-	} else {
-		// INFO_LOG(SYSTEM, "pspKey %i %i", pspKeyCode, flags);
-		if (flags & KEY_DOWN)
-			__CtrlButtonDown(pspKeyCode);
-		if (flags & KEY_UP)
-			__CtrlButtonUp(pspKeyCode);
-	}
+	return controlMapper_.Key(key, &pauseTrigger_);
 }
 
 bool EmuScreen::axis(const AxisInput &axis) {
 	Core_NotifyActivity();
 
-	if (axis.value > 0) {
-		processAxis(axis, 1);
-		return true;
-	} else if (axis.value < 0) {
-		processAxis(axis, -1);
-		return true;
-	} else if (axis.value == 0) {
-		// Both directions! Prevents sticking for digital input devices that are axises (like HAT)
-		processAxis(axis, 1);
-		processAxis(axis, -1);
-		return true;
-	}
-	return false;
-}
-
-inline bool IsAnalogStickKey(int key) {
-	switch (key) {
-	case VIRTKEY_AXIS_X_MIN:
-	case VIRTKEY_AXIS_X_MAX:
-	case VIRTKEY_AXIS_Y_MIN:
-	case VIRTKEY_AXIS_Y_MAX:
-	case VIRTKEY_AXIS_RIGHT_X_MIN:
-	case VIRTKEY_AXIS_RIGHT_X_MAX:
-	case VIRTKEY_AXIS_RIGHT_Y_MIN:
-	case VIRTKEY_AXIS_RIGHT_Y_MAX:
-		return true;
-	default:
-		return false;
-	}
-}
-
-void EmuScreen::processAxis(const AxisInput &axis, int direction) {
-	// Sanity check
-	if (axis.axisId < 0 || axis.axisId >= JOYSTICK_AXIS_MAX) {
-		return;
-	}
-
-	const float scale = virtKeys[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? g_Config.fAnalogLimiterDeadzone : 1.0f;
-
-	std::vector<int> results;
-	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, direction, &results);
-
-	for (int result : results) {
-		float value = fabs(axis.value) * scale;
-		switch (result) {
-		case VIRTKEY_AXIS_X_MIN:
-			SetPSPAxis('X', -value, CTRL_STICK_LEFT);
-			break;
-		case VIRTKEY_AXIS_X_MAX:
-			SetPSPAxis('X', value, CTRL_STICK_LEFT);
-			break;
-		case VIRTKEY_AXIS_Y_MIN:
-			SetPSPAxis('Y', -value, CTRL_STICK_LEFT);
-			break;
-		case VIRTKEY_AXIS_Y_MAX:
-			SetPSPAxis('Y', value, CTRL_STICK_LEFT);
-			break;
-
-		case VIRTKEY_AXIS_RIGHT_X_MIN:
-			SetPSPAxis('X', -value, CTRL_STICK_RIGHT);
-			break;
-		case VIRTKEY_AXIS_RIGHT_X_MAX:
-			SetPSPAxis('X', value, CTRL_STICK_RIGHT);
-			break;
-		case VIRTKEY_AXIS_RIGHT_Y_MIN:
-			SetPSPAxis('Y', -value, CTRL_STICK_RIGHT);
-			break;
-		case VIRTKEY_AXIS_RIGHT_Y_MAX:
-			SetPSPAxis('Y', value, CTRL_STICK_RIGHT);
-			break;
-		}
-	}
-
-	std::vector<int> resultsOpposite;
-	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, -direction, &resultsOpposite);
-
-	int axisState = 0;
-	float threshold = axis.deviceId == DEVICE_ID_MOUSE ? AXIS_BIND_THRESHOLD_MOUSE : AXIS_BIND_THRESHOLD;
-	if (direction == 1 && axis.value >= threshold) {
-		axisState = 1;
-	} else if (direction == -1 && axis.value <= -threshold) {
-		axisState = -1;
-	} else {
-		axisState = 0;
-	}
-
-	if (axisState != axisState_[axis.axisId]) {
-		axisState_[axis.axisId] = axisState;
-		if (axisState != 0) {
-			for (size_t i = 0; i < results.size(); i++) {
-				if (!IsAnalogStickKey(results[i]))
-					pspKey(results[i], KEY_DOWN);
-			}
-			// Also unpress the other direction (unless both directions press the same key.)
-			for (size_t i = 0; i < resultsOpposite.size(); i++) {
-				if (!IsAnalogStickKey(resultsOpposite[i]) && std::find(results.begin(), results.end(), resultsOpposite[i]) == results.end())
-					pspKey(resultsOpposite[i], KEY_UP);
-			}
-		} else if (axisState == 0) {
-			// Release both directions, trying to deal with some erratic controllers that can cause it to stick.
-			for (size_t i = 0; i < results.size(); i++) {
-				if (!IsAnalogStickKey(results[i]))
-					pspKey(results[i], KEY_UP);
-			}
-			for (size_t i = 0; i < resultsOpposite.size(); i++) {
-				if (!IsAnalogStickKey(resultsOpposite[i]))
-					pspKey(resultsOpposite[i], KEY_UP);
-			}
-		}
-	}
+	return controlMapper_.Axis(axis);
 }
 
 class GameInfoBGView : public UI::InertView {
