@@ -155,10 +155,23 @@ static void SetPSPAxis(char axis, float value, int stick) {
 	default:
 		break;
 	}
-	if (axis == 'X')
-		__CtrlSetAnalogX(value, stick);
-	else if (axis == 'Y')
-		__CtrlSetAnalogY(value, stick);
+
+	// TODO: Can we move the rest of this logic into ControlMapping too?
+
+	static float history[2][2] = {};
+
+	int axisId = axis == 'X' ? 0 : 1;
+
+	history[stick][axisId] = value;
+
+	float x = history[stick][0];
+	float y = history[stick][1];
+
+	// It's a bit non-ideal to run through this twice, once for each axis, but...
+	ConvertAnalogStick(x, y);
+
+	__CtrlSetAnalogX(x, stick);
+	__CtrlSetAnalogY(y, stick);
 }
 
 EmuScreen::EmuScreen(const Path &filename)
