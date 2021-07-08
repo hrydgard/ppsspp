@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "Common/Math/math_util.h"
 #include "Core/KeyMap.h"
 #include "Core/ControlMapper.h"
