@@ -50,7 +50,7 @@ bool MemArena::NeedsProbing() {
 	return false;
 }
 
-void MemArena::GrabLowMemSpace(size_t size) {
+bool MemArena::GrabMemSpace(size_t size) {
 	mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
 
 	// Some platforms (like Raspberry Pi) end up flushing to disk.
@@ -61,15 +61,20 @@ void MemArena::GrabLowMemSpace(size_t size) {
 		if (fd >= 0) {
 			// Great, this definitely shouldn't flush to disk.
 			ram_temp_file = tmpfs_ram_temp_file;
+		} else {
+			INFO_LOG(MEMMAP, "Got tmpfs ram file: %s", tmpfs_ram_temp_file.c_str());
 		}
+	} else {
+		INFO_LOG(MEMMAP, "'%s' does not exist. Trying other ram file options.", tmpfs_location.c_str());
 	}
 
 	if (fd < 0) {
+		INFO_LOG(MEMMAP, "Trying '%s' as ram temp file", ram_temp_file.c_str());
 		fd = open(ram_temp_file.c_str(), O_RDWR | O_CREAT, mode);
 	}
 	if (fd < 0) {
-		ERROR_LOG(MEMMAP, "Failed to grab memory space as a file: %s of size: %08x  errno: %d", ram_temp_file.c_str(), (int)size, (int)(errno));
-		return;
+		ERROR_LOG(MEMMAP, "Failed to grab memory space as a file: %s of size: %08x. Error: %s", ram_temp_file.c_str(), (int)size, strerror(errno));
+		return false;
 	}
 	// delete immediately, we keep the fd so it still lives
 	if (unlink(ram_temp_file.c_str()) != 0) {
@@ -77,8 +82,9 @@ void MemArena::GrabLowMemSpace(size_t size) {
 	}
 	if (ftruncate(fd, size) != 0) {
 		ERROR_LOG(MEMMAP, "Failed to ftruncate %d (%s) to size %08x", (int)fd, ram_temp_file.c_str(), (int)size);
+		// Should this be a failure?
 	}
-	return;
+	return true;
 }
 
 void MemArena::ReleaseSpace() {
@@ -95,7 +101,7 @@ void *MemArena::CreateView(s64 offset, size_t size, void *base)
 		((base == 0) ? 0 : MAP_FIXED), fd, offset);
 
 	if (retval == MAP_FAILED) {
-		NOTICE_LOG(MEMMAP, "mmap on %s (fd: %d) failed", ram_temp_file.c_str(), (int)fd);
+		NOTICE_LOG(MEMMAP, "mmap on %s (fd: %d) failed: %s", ram_temp_file.c_str(), (int)fd, strerror(errno));
 		return 0;
 	}
 	return retval;
@@ -122,7 +128,7 @@ u8* MemArena::Find4GBBase() {
 		return reinterpret_cast<u8 *>(aligned_base);
 	} else {
 		u8 *hardcoded_ptr = reinterpret_cast<u8*>(0x2300000000ULL);
-		INFO_LOG(MEMMAP, "Failed to anonymously map 8GB. Fall back to the hardcoded pointer %p.", hardcoded_ptr);
+		INFO_LOG(MEMMAP, "Failed to anonymously map 8GB (%s). Fall back to the hardcoded pointer %p.", strerror(errno), hardcoded_ptr);
 		// Just grab some random 4GB...
 		// This has been known to fail lately though, see issue #12249.
 		return hardcoded_ptr;
