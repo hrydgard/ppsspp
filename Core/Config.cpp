@@ -962,18 +962,11 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("AnalogRotationCWKeyX", "AnalogRotationKeyCWY", "AnalogRotationKeyCWScale", "ShowAnalogRotationCWKey", &g_Config.touchAnalogRotationCWKey, defaultTouchPosHide, true, true),
 	ConfigSetting("AnalogRotationCCWKeyX", "AnalogRotationKeyCCWY", "AnalogRotationKeyCCWScale", "ShowAnalogRotationCCWKey", &g_Config.touchAnalogRotationCCWKey, defaultTouchPosHide, true, true),
 
-#ifdef _WIN32
-	ConfigSetting("DInputAnalogDeadzone", &g_Config.fDInputAnalogDeadzone, 0.1f, true, true),
-	ConfigSetting("DInputAnalogInverseMode", &g_Config.iDInputAnalogInverseMode, 0, true, true),
-	ConfigSetting("DInputAnalogInverseDeadzone", &g_Config.fDInputAnalogInverseDeadzone, 0.0f, true, true),
-	ConfigSetting("DInputAnalogSensitivity", &g_Config.fDInputAnalogSensitivity, 1.0f, true, true),
+	ConfigSetting("AnalogDeadzone", &g_Config.fAnalogDeadzone, 0.0f, true, true),
+	ConfigSetting("AnalogInverseDeadzone", &g_Config.fAnalogInverseDeadzone, 0.0f, true, true),
+	ConfigSetting("AnalogSensitivity", &g_Config.fAnalogSensitivity, 1.0f, true, true),
+	ConfigSetting("AnalogIsCircular", &g_Config.bAnalogIsCircular, true, true, true),
 
-	ConfigSetting("XInputAnalogDeadzone", &g_Config.fXInputAnalogDeadzone, 0.24f, true, true),
-	ConfigSetting("XInputAnalogInverseMode", &g_Config.iXInputAnalogInverseMode, 0, true, true),
-	ConfigSetting("XInputAnalogInverseDeadzone", &g_Config.fXInputAnalogInverseDeadzone, 0.0f, true, true),
-#endif
-	// Also reused as generic analog sensitivity
-	ConfigSetting("XInputAnalogSensitivity", &g_Config.fXInputAnalogSensitivity, 1.0f, true, true),
 	ConfigSetting("AnalogLimiterDeadzone", &g_Config.fAnalogLimiterDeadzone, 0.6f, true, true),
 
 	ConfigSetting("UseMouse", &g_Config.bMouseControl, false, true, true),

@@ -1326,8 +1326,88 @@ bool NativeKey(const KeyInput &key) {
 	return retval;
 }
 
+static float MapAxisValue(float v) {
+	const float deadzone = g_Config.fAnalogDeadzone;
+	const float invDeadzone = g_Config.fAnalogInverseDeadzone;
+	const float sensitivity = g_Config.fAnalogSensitivity;
+	const float sign = v >= 0.0f ? 1.0f : -1.0f;
+	return sign * Clamp(invDeadzone + (abs(v) - deadzone) / (1.0f - deadzone) * (sensitivity - invDeadzone), 0.0f, 1.0f);
+}
+
+static void ConvertAnalogStick(float &x, float &y) {
+	const bool isCircular = g_Config.bAnalogIsCircular;
+
+	float norm = std::max(fabsf(x), fabsf(y));
+
+	if (norm == 0.0f)
+		return;
+
+	if (isCircular) {
+		float newNorm = sqrtf(x * x + y * y);
+		float factor = newNorm / norm;
+		x *= factor;
+		y *= factor;
+		norm = newNorm;
+	}
+
+	float mappedNorm = MapAxisValue(norm);
+	x = Clamp(x / norm * mappedNorm, -1.0f, 1.0f);
+	y = Clamp(y / norm * mappedNorm, -1.0f, 1.0f);
+}
+
+static bool AnalogStickAxis(const AxisInput &axis) {
+	static float history[JOYSTICK_AXIS_MAX+1] = { 0.0f };
+
+	if (history[axis.axisId] == axis.value) {
+		return true;
+	}
+
+	history[axis.axisId] = axis.value;
+	AxisInput axisA = axis;
+	AxisInput axisB = axis;
+
+	switch (axis.axisId) {
+		case JOYSTICK_AXIS_X:
+		case JOYSTICK_AXIS_Y:
+			axisA.axisId = JOYSTICK_AXIS_X;
+			axisB.axisId = JOYSTICK_AXIS_Y;
+			axisA.value = history[JOYSTICK_AXIS_X];
+			axisB.value = history[JOYSTICK_AXIS_Y];
+			break;
+		case JOYSTICK_AXIS_Z:
+		case JOYSTICK_AXIS_RZ:
+			axisA.axisId = JOYSTICK_AXIS_Z;
+			axisB.axisId = JOYSTICK_AXIS_RZ;
+			axisA.value = history[JOYSTICK_AXIS_Z];
+			axisB.value = history[JOYSTICK_AXIS_RZ];
+			break;
+		default:
+			break;
+	}
+
+	ConvertAnalogStick(axisA.value, axisB.value);
+	bool retA = screenManager->axis(axisA);
+	bool retB = screenManager->axis(axisB);
+	return retA && retB;
+}
+
 bool NativeAxis(const AxisInput &axis) {
+	if (!screenManager) {
+		// Too early.
+		return false;
+	}
+
 	using namespace TiltEventProcessor;
+
+	switch (axis.axisId) {
+		case JOYSTICK_AXIS_X:
+		case JOYSTICK_AXIS_Y:
+		case JOYSTICK_AXIS_Z:
+		case JOYSTICK_AXIS_RZ:
+			return AnalogStickAxis(axis);
+		default:
+			break;
+	}
 
 	// only handle tilt events if tilt is enabled.
 	if (g_Config.iTiltInputType == TILT_NULL) {

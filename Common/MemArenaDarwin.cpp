@@ -39,13 +39,15 @@ size_t MemArena::roundup(size_t x) {
 	return x;
 }
 
-void MemArena::GrabLowMemSpace(size_t size) {
+bool MemArena::GrabMemSpace(size_t size) {
 	vm_size = size;
 	kern_return_t retval = vm_allocate(mach_task_self(), &vm_mem, size, VM_FLAGS_ANYWHERE);
 	if (retval != KERN_SUCCESS) {
 		ERROR_LOG(MEMMAP, "Failed to grab a block of virtual memory");
+		return false;
 	} else {
 		INFO_LOG(MEMMAP, "Successfully allocated %d bytes at %p", (int)size, (void *)vm_mem);
+		return true;
 	}
 }
 
