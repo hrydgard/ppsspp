@@ -1358,10 +1358,6 @@ static void ConvertAnalogStick(float &x, float &y) {
 static bool AnalogStickAxis(const AxisInput &axis) {
 	static float history[JOYSTICK_AXIS_MAX+1] = { 0.0f };
 
-	if (history[axis.axisId] == axis.value) {
-		return true;
-	}
-
 	history[axis.axisId] = axis.value;
 	AxisInput axisA = axis;
 	AxisInput axisB = axis;
