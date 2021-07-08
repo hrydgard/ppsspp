@@ -28,7 +28,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "UI/MiscScreens.h"
 
-class ControlMapper;
+class SingleControlMapper;
 
 class ControlMappingScreen : public UIDialogScreenWithBackground {
 public:
@@ -47,7 +47,7 @@ private:
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) override;
 
 	UI::ScrollView *rightScroll_;
-	std::vector<ControlMapper *> mappers_;
+	std::vector<SingleControlMapper *> mappers_;
 };
 
 class KeyMappingNewKeyDialog : public PopupScreen {

@@ -42,9 +42,9 @@
 #include "UI/ControlMappingScreen.h"
 #include "UI/GameSettingsScreen.h"
 
-class ControlMapper : public UI::LinearLayout {
+class SingleControlMapper : public UI::LinearLayout {
 public:
-	ControlMapper(ControlMappingScreen *ctrlScreen, int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams = 0);
+	SingleControlMapper(ControlMappingScreen *ctrlScreen, int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams = 0);
 
 	void Update() override;
 	int GetPspKey() const { return pspKey_; }
@@ -75,12 +75,12 @@ private:
 	bool refresh_;
 };
 
-ControlMapper::ControlMapper(ControlMappingScreen *ctrlScreen, int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams)
+SingleControlMapper::SingleControlMapper(ControlMappingScreen *ctrlScreen, int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams)
 	: UI::LinearLayout(UI::ORIENT_VERTICAL, layoutParams), ctrlScreen_(ctrlScreen), action_(NONE), pspKey_(pspKey), keyName_(keyName), scrm_(scrm), refresh_(false) {
 	Refresh();
 }
 
-void ControlMapper::Update() {
+void SingleControlMapper::Update() {
 	if (refresh_) {
 		refresh_ = false;
 		Refresh();
@@ -88,7 +88,7 @@ void ControlMapper::Update() {
 	}
 }
 
-void ControlMapper::Refresh() {
+void SingleControlMapper::Refresh() {
 	bool hasFocus = UI::GetFocusedView() == this;
 	Clear();
 	auto mc = GetI18NCategory("MappableControls");
@@ -114,19 +114,19 @@ void ControlMapper::Refresh() {
 	// First, look among images.
 	if (iter != keyImages.end()) {
 		Choice *c = root->Add(new Choice(iter->second, new LinearLayoutParams(200, itemH)));
-		c->OnClick.Handle(this, &ControlMapper::OnReplaceAll);
+		c->OnClick.Handle(this, &SingleControlMapper::OnReplaceAll);
 	} else {
 		// No image? Let's translate.
 		Choice *c = new Choice(mc->T(keyName_.c_str()), new LinearLayoutParams(200, itemH));
 		c->SetCentered(true);
-		root->Add(c)->OnClick.Handle(this, &ControlMapper::OnReplaceAll);
+		root->Add(c)->OnClick.Handle(this, &SingleControlMapper::OnReplaceAll);
 	}
 
 	Choice *p = root->Add(new Choice(" + ", new LayoutParams(WRAP_CONTENT, itemH)));
-	p->OnClick.Handle(this, &ControlMapper::OnAdd);
+	p->OnClick.Handle(this, &SingleControlMapper::OnAdd);
 	if (g_Config.bMouseControl) {
 		Choice *p = root->Add(new Choice("M", new LayoutParams(WRAP_CONTENT, itemH)));
-		p->OnClick.Handle(this, &ControlMapper::OnAddMouse);
+		p->OnClick.Handle(this, &SingleControlMapper::OnAddMouse);
 	}
 
 	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
@@ -145,24 +145,24 @@ void ControlMapper::Refresh() {
 		char tagbuf[16];
 		sprintf(tagbuf, "%i", (int)i);
 		c->SetTag(tagbuf);
-		c->OnClick.Handle(this, &ControlMapper::OnReplace);
+		c->OnClick.Handle(this, &SingleControlMapper::OnReplace);
 
 		Choice *d = row->Add(new Choice(" X ", new LayoutParams(WRAP_CONTENT, itemH)));
 		d->SetTag(tagbuf);
-		d->OnClick.Handle(this, &ControlMapper::OnDelete);
+		d->OnClick.Handle(this, &SingleControlMapper::OnDelete);
 	}
 
 	if (mappings.size() == 0) {
 		// look like an empty line
 		Choice *c = rightColumn->Add(new Choice("", new LinearLayoutParams(FILL_PARENT, itemH)));
-		c->OnClick.Handle(this, &ControlMapper::OnAdd);
+		c->OnClick.Handle(this, &SingleControlMapper::OnAdd);
 	}
 
 	if (hasFocus)
 		this->SetFocus();
 }
 
-void ControlMapper::MappedCallback(KeyDef kdf) {
+void SingleControlMapper::MappedCallback(KeyDef kdf) {
 	switch (action_) {
 	case ADD:
 		KeyMap::SetKeyMapping(pspKey_, kdf, false);
@@ -183,36 +183,36 @@ void ControlMapper::MappedCallback(KeyDef kdf) {
 	// After this, we do not exist any more. So the refresh_ = true is probably irrelevant.
 }
 
-UI::EventReturn ControlMapper::OnReplace(UI::EventParams &params) {
+UI::EventReturn SingleControlMapper::OnReplace(UI::EventParams &params) {
 	actionIndex_ = atoi(params.v->Tag().c_str());
 	action_ = REPLACEONE;
 	auto km = GetI18NCategory("KeyMapping");
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1), km));
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), km));
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ControlMapper::OnReplaceAll(UI::EventParams &params) {
+UI::EventReturn SingleControlMapper::OnReplaceAll(UI::EventParams &params) {
 	action_ = REPLACEALL;
 	auto km = GetI18NCategory("KeyMapping");
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1), km));
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), km));
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ControlMapper::OnAdd(UI::EventParams &params) {
+UI::EventReturn SingleControlMapper::OnAdd(UI::EventParams &params) {
 	action_ = ADD;
 	auto km = GetI18NCategory("KeyMapping");
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1), km));
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), km));
 	return UI::EVENT_DONE;
 }
-UI::EventReturn ControlMapper::OnAddMouse(UI::EventParams &params) {
+UI::EventReturn SingleControlMapper::OnAddMouse(UI::EventParams &params) {
 	action_ = ADD;
 	g_Config.bMapMouse = true;
 	auto km = GetI18NCategory("KeyMapping");
-	scrm_->push(new KeyMappingNewMouseKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1), km));
+	scrm_->push(new KeyMappingNewMouseKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), km));
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ControlMapper::OnDelete(UI::EventParams &params) {
+UI::EventReturn SingleControlMapper::OnDelete(UI::EventParams &params) {
 	int index = atoi(params.v->Tag().c_str());
 	KeyMap::g_controllerMap[pspKey_].erase(KeyMap::g_controllerMap[pspKey_].begin() + index);
 	KeyMap::g_controllerMapGeneration++;
@@ -252,7 +252,7 @@ void ControlMappingScreen::CreateViews() {
 
 	std::vector<KeyMap::KeyMap_IntStrPair> mappableKeys = KeyMap::GetMappableKeys();
 	for (size_t i = 0; i < mappableKeys.size(); i++) {
-		ControlMapper *mapper = rightColumn->Add(new ControlMapper(this, mappableKeys[i].key, mappableKeys[i].name, screenManager(), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		SingleControlMapper *mapper = rightColumn->Add(new SingleControlMapper(this, mappableKeys[i].key, mappableKeys[i].name, screenManager(), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		mappers_.push_back(mapper);
 	}
 }
