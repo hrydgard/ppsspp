@@ -462,7 +462,7 @@ void JoystickHistoryView::Draw(UIContext &dc) {
 	}
 	float minRadius = std::min(bounds_.w, bounds_.h) * 0.5f - image->w;
 	dc.Begin();
-	dc.DrawTextShadow(title_.c_str(), bounds_.centerX(), bounds_.y2(), 0xFFFFFFFF, ALIGN_BOTTOM | ALIGN_HCENTER);
+	dc.DrawTextShadow(title_.c_str(), bounds_.centerX(), bounds_.centerY() + minRadius + 5.0, 0xFFFFFFFF, ALIGN_TOP | ALIGN_HCENTER);
 	dc.Flush();
 	dc.BeginNoTex();
 	dc.Draw()->RectOutline(bounds_.centerX() - minRadius, bounds_.centerY() - minRadius, minRadius * 2.0f, minRadius * 2.0f, 0x80FFFFFF);
@@ -608,17 +608,20 @@ void AnalogSetupScreen::CreateViews() {
 	LinearLayout *scrollContents = scroll->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300.0f, WRAP_CONTENT)));
 
 	scrollContents->Add(new ItemHeader(co->T("Analog Settings", "Analog Settings")));
-	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogDeadzone, 0.0f, 1.0f, co->T("Deadzone Radius"), 0.01f, screenManager(), "/ 1.0"));
-	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogInverseDeadzone, 0.0f, 1.0f, co->T("Low End Radius", "Low End"), 0.01f, screenManager(), "/ 1.0"));
-	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogSensitivity, 0.0f, 10.0f, co->T("Sensitivity", "Sensitivity (scale factor)"), 0.01f, screenManager(), "x"));
-	scrollContents->Add(new CheckBox(&g_Config.bAnalogIsCircular, co->T("Circular Stick Input")));
-	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAutoRotSpeed, 0.0f, 25.0f, co->T("Auto-rotation speed"), 1.0f, screenManager()));
+
+	// TODO: Would be nicer if these didn't pop up...
+	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogDeadzone, 0.0f, 0.5f, co->T("Deadzone radius"), 0.01f, screenManager(), "/ 1.0"));
+	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogInverseDeadzone, 0.0f, 1.0f, co->T("Low end radius"), 0.01f, screenManager(), "/ 1.0"));
+	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogSensitivity, 0.0f, 2.0f, co->T("Sensitivity (scale)", "Sensitivity"), 0.01f, screenManager(), "x"));
+	// TODO: This should probably be a slider.
+	scrollContents->Add(new CheckBox(&g_Config.bAnalogIsCircular, co->T("Circular stick input")));
+	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAutoRotSpeed, 0.0f, 20.0f, co->T("Auto-rotation speed"), 1.0f, screenManager()));
 	scrollContents->Add(new Choice(co->T("Reset to defaults")))->OnClick.Handle(this, &AnalogSetupScreen::OnResetToDefaults);
 
 	LinearLayout *theTwo = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0f));
 
 	stickView_[0] = theTwo->Add(new JoystickHistoryView(StickHistoryViewType::OUTPUT, co->T("Calibrated"), new LinearLayoutParams(1.0f)));
-	stickView_[1] = theTwo->Add(new JoystickHistoryView(StickHistoryViewType::INPUT, co->T("Raw Stick Input"), new LinearLayoutParams(1.0f)));
+	stickView_[1] = theTwo->Add(new JoystickHistoryView(StickHistoryViewType::INPUT, co->T("Raw input"), new LinearLayoutParams(1.0f)));
 
 	rightColumn->Add(theTwo);
 
