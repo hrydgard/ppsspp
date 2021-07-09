@@ -1,6 +1,8 @@
 #include <algorithm>
 
 #include "Common/Math/math_util.h"
+#include "Common/TimeUtil.h"
+
 #include "Core/KeyMap.h"
 #include "Core/ControlMapper.h"
 #include "Core/Config.h"
@@ -101,6 +103,23 @@ bool ControlMapper::Axis(const AxisInput &axis) {
 		return true;
 	}
 	return false;
+}
+
+void ControlMapper::Update() {
+	if (autoRotatingAnalogCW_) {
+		const double now = time_now_d();
+		// Clamp to a square
+		float x = std::min(1.0f, std::max(-1.0f, 1.42f * (float)cos(now * -g_Config.fAnalogAutoRotSpeed)));
+		float y = std::min(1.0f, std::max(-1.0f, 1.42f * (float)sin(now * -g_Config.fAnalogAutoRotSpeed)));
+
+		setPSPAnalog_(0, x, y);
+	} else if (autoRotatingAnalogCCW_) {
+		const double now = time_now_d();
+		float x = std::min(1.0f, std::max(-1.0f, 1.42f * (float)cos(now * g_Config.fAnalogAutoRotSpeed)));
+		float y = std::min(1.0f, std::max(-1.0f, 1.42f * (float)sin(now * g_Config.fAnalogAutoRotSpeed)));
+
+		setPSPAnalog_(0, x, y);
+	}
 }
 
 
@@ -212,6 +231,15 @@ void ControlMapper::onVKeyDown(int vkey) {
 		setVKeyAnalog('Y', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX, false);
 		break;
 
+	case VIRTKEY_ANALOG_ROTATE_CW:
+		autoRotatingAnalogCW_ = true;
+		autoRotatingAnalogCCW_ = false;
+		break;
+	case VIRTKEY_ANALOG_ROTATE_CCW:
+		autoRotatingAnalogCW_ = false;
+		autoRotatingAnalogCCW_ = true;
+		break;
+
 	default:
 		if (onVKeyDown_)
 			onVKeyDown_(vkey);
@@ -245,6 +273,16 @@ void ControlMapper::onVKeyUp(int vkey) {
 		setVKeyAnalog('Y', CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX, false);
 		setVKeyAnalog('X', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX, false);
 		setVKeyAnalog('Y', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX, false);
+		break;
+
+	case VIRTKEY_ANALOG_ROTATE_CW:
+		autoRotatingAnalogCW_ = false;
+		__CtrlSetAnalogXY(0, 0.0f, 0.0f);
+		break;
+
+	case VIRTKEY_ANALOG_ROTATE_CCW:
+		autoRotatingAnalogCCW_ = false;
+		__CtrlSetAnalogXY(0, 0.0f, 0.0f);
 		break;
 
 	default:

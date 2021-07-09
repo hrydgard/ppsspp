@@ -489,7 +489,35 @@ void JoystickHistoryView::Update() {
 	}
 }
 
+AnalogSetupScreen::AnalogSetupScreen() {
+	mapper_.SetCallbacks([](int vkey) {}, [](int vkey) {}, [&](int stick, float x, float y) {
+		analogX_[stick] = x;
+		analogY_[stick] = y;
+	});
+	mapper_.SetRawCallback([&](int stick, float x, float y) {
+		rawX_[stick] = x;
+		rawY_[stick] = y;
+	});
+}
+
+void AnalogSetupScreen::update() {
+	mapper_.Update();
+	// We ignore the secondary stick for now and just use the two views
+	// for raw and psp input.
+	if (stickView_[0]) {
+		stickView_[0]->SetXY(rawX_[0], rawY_[0]);
+	}
+	if (stickView_[1]) {
+		stickView_[1]->SetXY(analogX_[0], analogY_[0]);
+	}
+	UIScreen::update();
+}
+
 bool AnalogSetupScreen::key(const KeyInput &key) {
+	// Allow testing auto-rotation
+	bool pauseTrigger = false;
+	mapper_.Key(key, &pauseTrigger);
+
 	bool retval = true;
 	if (UI::IsEscapeKey(key)) {
 		TriggerFinish(DR_BACK);
@@ -537,17 +565,6 @@ bool AnalogSetupScreen::axis(const AxisInput &axis) {
 	return false;
 }
 
-AnalogSetupScreen::AnalogSetupScreen() {
-	mapper_.SetCallbacks([](int vkey) {}, [](int vkey) {}, [&](int stick, float x, float y) {
-		analogX_[stick] = x;
-		analogY_[stick] = y;
-	});
-	mapper_.SetRawCallback([&](int stick, float x, float y) {
-		rawX_[stick] = x;
-		rawY_[stick] = y;
-	});
-}
-
 void AnalogSetupScreen::CreateViews() {
 	using namespace UI;
 
@@ -579,18 +596,6 @@ void AnalogSetupScreen::CreateViews() {
 
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0)));
 	leftColumn->Add(new Button(di->T("Back"), new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-}
-
-void AnalogSetupScreen::update() {
-	// We ignore the secondary stick for now and just use the two views
-	// for raw and psp input.
-	if (stickView_[0]) {
-		stickView_[0]->SetXY(rawX_[0], rawY_[0]);
-	}
-	if (stickView_[1]) {
-		stickView_[1]->SetXY(analogX_[0], analogY_[0]);
-	}
-	UIScreen::update();
 }
 
 bool TouchTestScreen::touch(const TouchInput &touch) {

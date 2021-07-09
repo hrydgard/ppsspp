@@ -683,14 +683,6 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 	case VIRTKEY_MUTE_TOGGLE:
 		g_Config.bEnableSound = !g_Config.bEnableSound;
 		break;
-	case VIRTKEY_ANALOG_ROTATE_CW:
-		autoRotatingAnalogCW_ = true;
-		autoRotatingAnalogCCW_ = false;
-		break;
-	case VIRTKEY_ANALOG_ROTATE_CCW:
-		autoRotatingAnalogCW_ = false;
-		autoRotatingAnalogCCW_ = true;
-		break;
 	}
 }
 
@@ -717,16 +709,6 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 
 	case VIRTKEY_RAPID_FIRE:
 		__CtrlSetRapidFire(false);
-		break;
-
-	case VIRTKEY_ANALOG_ROTATE_CW:
-		autoRotatingAnalogCW_ = false;
-		__CtrlSetAnalogXY(0, 0.0f, 0.0f);
-		break;
-
-	case VIRTKEY_ANALOG_ROTATE_CCW:
-		autoRotatingAnalogCCW_ = false;
-		__CtrlSetAnalogXY(0, 0.0f, 0.0f);
 		break;
 
 	default:
@@ -973,18 +955,7 @@ void EmuScreen::update() {
 	if (invalid_)
 		return;
 
-	if (autoRotatingAnalogCW_) {
-		const float now = time_now_d();
-		// Clamp to a square
-		float x = std::min(1.0f, std::max(-1.0f, 1.42f * cosf(now * -g_Config.fAnalogAutoRotSpeed)));
-		float y = std::min(1.0f, std::max(-1.0f, 1.42f * sinf(now * -g_Config.fAnalogAutoRotSpeed)));
-		__CtrlSetAnalogXY(0, x, y);
-	} else if (autoRotatingAnalogCCW_) {
-		const float now = time_now_d();
-		float x = std::min(1.0f, std::max(-1.0f, 1.42f * cosf(now * g_Config.fAnalogAutoRotSpeed)));
-		float y = std::min(1.0f, std::max(-1.0f, 1.42f * sinf(now * g_Config.fAnalogAutoRotSpeed)));
-		__CtrlSetAnalogXY(0, x, y);
-	}
+	controlMapper_.Update();
 
 	// This is here to support the iOS on screen back button.
 	if (pauseTrigger_) {

@@ -13,6 +13,8 @@
 
 class ControlMapper {
 public:
+	void Update();
+
 	bool Key(const KeyInput &key, bool *pauseTrigger);
 	bool Axis(const AxisInput &axis);
 
@@ -40,6 +42,10 @@ private:
 
 	// De-noise mapped axis updates
 	int axisState_[JOYSTICK_AXIS_MAX]{};
+
+	// Mappable auto-rotation. Useful for keyboard/dpad->analog in a few games.
+	bool autoRotatingAnalogCW_ = false;
+	bool autoRotatingAnalogCCW_ = false;
 
 	// Callbacks
 	std::function<void(int)> onVKeyDown_;
