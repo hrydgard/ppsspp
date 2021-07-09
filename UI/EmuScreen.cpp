@@ -136,21 +136,7 @@ static void __EmuScreenVblank()
 // Handles control rotation due to internal screen rotation.
 // TODO: This should be a callback too, so we don't actually call the __Ctrl functions
 // from settings screens, etc.
-static void SetPSPAxis(char axis, float value, int stick) {
-	// TODO: Can we move the rest of this logic into ControlMapping too?
-
-	static float history[2][2] = {};
-
-	int axisId = axis == 'X' ? 0 : 1;
-
-	history[stick][axisId] = value;
-
-	float x = history[stick][0];
-	float y = history[stick][1];
-
-	// It's a bit non-ideal to run through this twice, once for each axis, but...
-	ConvertAnalogStick(x, y);
-
+static void SetPSPAnalog(int stick, float x, float y) {
 	switch (g_Config.iInternalScreenRotation) {
 	case ROTATION_LOCKED_HORIZONTAL:
 		// Standard rotation. No change.
@@ -190,7 +176,7 @@ EmuScreen::EmuScreen(const Path &filename)
 	controlMapper_.SetCallbacks(
 		std::bind(&EmuScreen::onVKeyDown, this, _1),
 		std::bind(&EmuScreen::onVKeyUp, this, _1),
-		&SetPSPAxis);
+		&SetPSPAnalog);
 
 	// Make sure we don't leave it at powerdown after the last game.
 	// TODO: This really should be handled elsewhere if it isn't.

@@ -13,7 +13,7 @@ static float MapAxisValue(float v) {
 	return sign * Clamp(invDeadzone + (abs(v) - deadzone) / (1.0f - deadzone) * (sensitivity - invDeadzone), 0.0f, 1.0f);
 }
 
-void ConvertAnalogStick(float &x, float &y) {
+static void ConvertAnalogStick(float &x, float &y) {
 	const bool isCircular = g_Config.bAnalogIsCircular;
 
 	float norm = std::max(fabsf(x), fabsf(y));
@@ -34,10 +34,25 @@ void ConvertAnalogStick(float &x, float &y) {
 	y = Clamp(y / norm * mappedNorm, -1.0f, 1.0f);
 }
 
-void ControlMapper::SetCallbacks(std::function<void(int)> onVKeyDown, std::function<void(int)> onVKeyUp, std::function<void(char, float, int)> setPSPAxis) {
+void ControlMapper::SetCallbacks(std::function<void(int)> onVKeyDown, std::function<void(int)> onVKeyUp, std::function<void(int, float, float)> setPSPAnalog) {
 	onVKeyDown_ = onVKeyDown;
 	onVKeyUp_ = onVKeyUp;
-	setPSPAxis_ = setPSPAxis;
+	setPSPAnalog_ = setPSPAnalog;
+}
+
+void ControlMapper::SetPSPAxis(char axis, float value, int stick) {
+	static float history[2][2] = {};
+
+	int axisId = axis == 'X' ? 0 : 1;
+
+	history[stick][axisId] = value;
+
+	float x = history[stick][0];
+	float y = history[stick][1];
+
+	ConvertAnalogStick(x, y);
+
+	setPSPAnalog_(stick, x, y);
 }
 
 bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
@@ -119,7 +134,7 @@ void ControlMapper::setVKeyAnalog(char axis, int stick, int virtualKeyMin, int v
 	if (maxDown)
 		value += scale;
 	if (setZero || minDown || maxDown) {
-		setPSPAxis_(axis, value, stick);
+		SetPSPAxis(axis, value, stick);
 	}
 }
 
@@ -245,29 +260,29 @@ void ControlMapper::processAxis(const AxisInput &axis, int direction) {
 		float value = fabs(axis.value) * scale;
 		switch (result) {
 		case VIRTKEY_AXIS_X_MIN:
-			setPSPAxis_('X', -value, CTRL_STICK_LEFT);
+			SetPSPAxis('X', -value, CTRL_STICK_LEFT);
 			break;
 		case VIRTKEY_AXIS_X_MAX:
-			setPSPAxis_('X', value, CTRL_STICK_LEFT);
+			SetPSPAxis('X', value, CTRL_STICK_LEFT);
 			break;
 		case VIRTKEY_AXIS_Y_MIN:
-			setPSPAxis_('Y', -value, CTRL_STICK_LEFT);
+			SetPSPAxis('Y', -value, CTRL_STICK_LEFT);
 			break;
 		case VIRTKEY_AXIS_Y_MAX:
-			setPSPAxis_('Y', value, CTRL_STICK_LEFT);
+			SetPSPAxis('Y', value, CTRL_STICK_LEFT);
 			break;
 
 		case VIRTKEY_AXIS_RIGHT_X_MIN:
-			setPSPAxis_('X', -value, CTRL_STICK_RIGHT);
+			SetPSPAxis('X', -value, CTRL_STICK_RIGHT);
 			break;
 		case VIRTKEY_AXIS_RIGHT_X_MAX:
-			setPSPAxis_('X', value, CTRL_STICK_RIGHT);
+			SetPSPAxis('X', value, CTRL_STICK_RIGHT);
 			break;
 		case VIRTKEY_AXIS_RIGHT_Y_MIN:
-			setPSPAxis_('Y', -value, CTRL_STICK_RIGHT);
+			SetPSPAxis('Y', -value, CTRL_STICK_RIGHT);
 			break;
 		case VIRTKEY_AXIS_RIGHT_Y_MAX:
-			setPSPAxis_('Y', value, CTRL_STICK_RIGHT);
+			SetPSPAxis('Y', value, CTRL_STICK_RIGHT);
 			break;
 		}
 	}
