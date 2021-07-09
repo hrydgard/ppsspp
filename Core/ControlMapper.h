@@ -16,10 +16,14 @@ public:
 	bool Key(const KeyInput &key, bool *pauseTrigger);
 	bool Axis(const AxisInput &axis);
 
+	// Required callbacks
 	void SetCallbacks(
 		std::function<void(int)> onVKeyDown,
 		std::function<void(int)> onVKeyUp,
 		std::function<void(int, float, float)> setPSPAnalog);
+
+	// Optional callback, only used in config
+	void SetRawCallback(std::function<void(int, float, float)> setRawAnalog);
 
 private:
 	void processAxis(const AxisInput &axis, int direction);
@@ -41,4 +45,7 @@ private:
 	std::function<void(int)> onVKeyDown_;
 	std::function<void(int)> onVKeyUp_;
 	std::function<void(int, float, float)> setPSPAnalog_;
+	std::function<void(int, float, float)> setRawAnalog_;
 };
+
+void ConvertAnalogStick(float &x, float &y);

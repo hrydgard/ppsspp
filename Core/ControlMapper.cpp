@@ -13,7 +13,7 @@ static float MapAxisValue(float v) {
 	return sign * Clamp(invDeadzone + (abs(v) - deadzone) / (1.0f - deadzone) * (sensitivity - invDeadzone), 0.0f, 1.0f);
 }
 
-static void ConvertAnalogStick(float &x, float &y) {
+void ConvertAnalogStick(float &x, float &y) {
 	const bool isCircular = g_Config.bAnalogIsCircular;
 
 	float norm = std::max(fabsf(x), fabsf(y));
@@ -40,6 +40,11 @@ void ControlMapper::SetCallbacks(std::function<void(int)> onVKeyDown, std::funct
 	setPSPAnalog_ = setPSPAnalog;
 }
 
+void ControlMapper::SetRawCallback(std::function<void(int, float, float)> setRawAnalog) {
+	setRawAnalog_ = setRawAnalog;
+}
+
+
 void ControlMapper::SetPSPAxis(char axis, float value, int stick) {
 	static float history[2][2] = {};
 
@@ -49,6 +54,10 @@ void ControlMapper::SetPSPAxis(char axis, float value, int stick) {
 
 	float x = history[stick][0];
 	float y = history[stick][1];
+
+	if (setRawAnalog_) {
+		setRawAnalog_(stick, x, y);
+	}
 
 	ConvertAnalogStick(x, y);
 

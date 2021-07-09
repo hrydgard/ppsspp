@@ -69,6 +69,7 @@ private:
 
 	// Event handlers
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
+	UI::EventReturn OnCalibrateAnalogs(UI::EventParams &e);
 	UI::EventReturn OnTouchControlLayout(UI::EventParams &e);
 	UI::EventReturn OnDumpNextFrameToLog(UI::EventParams &e);
 	UI::EventReturn OnTiltTypeChange(UI::EventParams &e);

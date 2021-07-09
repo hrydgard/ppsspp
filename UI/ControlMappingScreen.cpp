@@ -237,7 +237,7 @@ void ControlMappingScreen::CreateViews() {
 	if (!KeyMap::HasBuiltinController(sysName) && KeyMap::GetSeenPads().size()) {
 		leftColumn->Add(new Choice(km->T("Autoconfigure")))->OnClick.Handle(this, &ControlMappingScreen::OnAutoConfigure);
 	}
-	leftColumn->Add(new Choice(km->T("Test Analogs")))->OnClick.Handle(this, &ControlMappingScreen::OnTestAnalogs);
+
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
 	AddStandardBack(leftColumn);
 
@@ -280,11 +280,6 @@ UI::EventReturn ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 	if (params.v)
 		autoConfList->SetPopupOrigin(params.v);
 	screenManager()->push(autoConfList);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn ControlMappingScreen::OnTestAnalogs(UI::EventParams &params) {
-	screenManager()->push(new AnalogTestScreen());
 	return UI::EVENT_DONE;
 }
 
@@ -430,20 +425,14 @@ bool KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 
 class JoystickHistoryView : public UI::InertView {
 public:
-	JoystickHistoryView(int xAxis, int xDevice, int xDir, int yAxis, int yDevice, int yDir, UI::LayoutParams *layoutParams = nullptr)
-		: UI::InertView(layoutParams),
-			xAxis_(xAxis), xDir_(xDir),
-			yAxis_(yAxis), yDir_(yDir) {}
+	JoystickHistoryView(std::string title, UI::LayoutParams *layoutParams = nullptr)
+		: UI::InertView(layoutParams), title_(title) {}
 	void Draw(UIContext &dc) override;
-	std::string DescribeText() const override { return ""; }
+	std::string DescribeText() const override { return "Analog Stick View"; }
 	void Update() override;
-	void Axis(const AxisInput &input) override {
-		// TODO: Check input.deviceId?
-		if (input.axisId == xAxis_) {
-			curX_ = input.value * xDir_;
-		} else if (input.axisId == yAxis_) {
-			curY_ = input.value * yDir_;
-		}
+	void SetXY(float x, float y) {
+		curX_ = x;
+		curY_ = y;
 	}
 
 private:
@@ -452,58 +441,55 @@ private:
 		float y;
 	};
 
-	int xAxis_;
-	int xDir_;
-	int yAxis_;
-	int yDir_;
-
 	float curX_ = 0.0f;
 	float curY_ = 0.0f;
 
 	std::deque<Location> locations_;
 	int maxCount_ = 500;
+	std::string title_;
 };
 
 void JoystickHistoryView::Draw(UIContext &dc) {
-	if (xAxis_ > -1 && yAxis_ > -1) {
-		const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(ImageID("I_CROSS"));
-		if (!image) {
-			return;
-		}
-		float minRadius = std::min(bounds_.w, bounds_.h) * 0.5f - image->w;
-		dc.BeginNoTex();
-		dc.Draw()->RectOutline(bounds_.centerX() - minRadius, bounds_.centerY() - minRadius, minRadius * 2.0f, minRadius * 2.0f, 0x80FFFFFF);
-		dc.Flush();
-		dc.Begin();
-		int a = maxCount_ - (int)locations_.size();
-		for (auto iter = locations_.begin(); iter != locations_.end(); ++iter) {
-			float x = bounds_.centerX() + minRadius * iter->x;
-			float y = bounds_.centerY() - minRadius * iter->y;
-			float alpha = (float)a / maxCount_;
-			if (alpha < 0.0f) {
-				alpha = 0.0f;
-			}
-			dc.Draw()->DrawImage(ImageID("I_CROSS"), x, y, 0.8f, colorAlpha(0xFFFFFF, alpha), ALIGN_CENTER);
-			a++;
-		}
-		dc.Flush();
-	} else {
-		dc.Begin();
-		dc.DrawText("N/A", bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER);
-		dc.Flush();
+	const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(ImageID("I_CROSS"));
+	if (!image) {
+		return;
 	}
+	float minRadius = std::min(bounds_.w, bounds_.h) * 0.5f - image->w;
+	dc.Begin();
+	dc.DrawTextShadow(title_.c_str(), bounds_.centerX(), bounds_.y2(), 0xFFFFFFFF, ALIGN_BOTTOM | ALIGN_HCENTER);
+	dc.Flush();
+	dc.BeginNoTex();
+	dc.Draw()->RectOutline(bounds_.centerX() - minRadius, bounds_.centerY() - minRadius, minRadius * 2.0f, minRadius * 2.0f, 0x80FFFFFF);
+	dc.Flush();
+	dc.Begin();
+	int a = maxCount_ - (int)locations_.size();
+	for (auto iter = locations_.begin(); iter != locations_.end(); ++iter) {
+		float x = bounds_.centerX() + minRadius * iter->x;
+		float y = bounds_.centerY() - minRadius * iter->y;
+		float alpha = (float)a / (float)(maxCount_ - 1);
+		if (alpha < 0.0f) {
+			alpha = 0.0f;
+		}
+		// Emphasize the newest (higher) ones.
+		alpha = powf(alpha, 3.7f);
+		if (alpha >= 1.0f) {
+			dc.Draw()->DrawImage(ImageID("I_CIRCLE"), x, y, 1.0f, colorAlpha(0xFFFFFF, 1.0), ALIGN_CENTER);
+		} else {
+			dc.Draw()->DrawImage(ImageID("I_CIRCLE"), x, y, 0.8f, colorAlpha(0xC0C0C0, alpha * 0.5f), ALIGN_CENTER);
+		}
+		a++;
+	}
+	dc.Flush();
 }
 
 void JoystickHistoryView::Update() {
-	if (xAxis_ > -1 && yAxis_ > -1) {
-		locations_.push_back(Location{ curX_, curY_ });
-		if ((int)locations_.size() > maxCount_) {
-			locations_.pop_front();
-		}
+	locations_.push_back(Location{ curX_, curY_ });
+	if ((int)locations_.size() > maxCount_) {
+		locations_.pop_front();
 	}
 }
 
-bool AnalogTestScreen::key(const KeyInput &key) {
+bool AnalogSetupScreen::key(const KeyInput &key) {
 	bool retval = true;
 	if (UI::IsEscapeKey(key)) {
 		TriggerFinish(DR_BACK);
@@ -523,8 +509,13 @@ bool AnalogTestScreen::key(const KeyInput &key) {
 	return retval;
 }
 
-bool AnalogTestScreen::axis(const AxisInput &axis) {
-	UIScreen::axis(axis);
+bool AnalogSetupScreen::axis(const AxisInput &axis) {
+	// We DON'T call UIScreen::Axis here! Otherwise it'll try to move the UI focus around.
+	// UIScreen::axis(axis);
+
+	// Instead we just send the input directly to the mapper, that we'll visualize.
+	mapper_.Axis(axis);
+
 	// This is mainly to catch axis events that would otherwise get translated
 	// into arrow keys, since seeing keyboard arrow key events appear when using
 	// a controller would be confusing for the user.
@@ -546,35 +537,60 @@ bool AnalogTestScreen::axis(const AxisInput &axis) {
 	return false;
 }
 
-void AnalogTestScreen::CreateViews() {
+AnalogSetupScreen::AnalogSetupScreen() {
+	mapper_.SetCallbacks([](int vkey) {}, [](int vkey) {}, [&](int stick, float x, float y) {
+		analogX_[stick] = x;
+		analogY_[stick] = y;
+	});
+	mapper_.SetRawCallback([&](int stick, float x, float y) {
+		rawX_[stick] = x;
+		rawY_[stick] = y;
+	});
+}
+
+void AnalogSetupScreen::CreateViews() {
 	using namespace UI;
 
 	auto di = GetI18NCategory("Dialog");
 
-	root_ = new LinearLayout(ORIENT_VERTICAL);
+	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+
+	LinearLayout *leftColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300.0f, FILL_PARENT)));
+	LinearLayout *rightColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+
+	auto co = GetI18NCategory("Controls");
+	leftColumn->Add(new ItemHeader(co->T("Analog Settings", "Analog Settings")));
+	leftColumn->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogDeadzone, 0.0f, 1.0f, co->T("Deadzone Radius"), 0.01f, screenManager(), "/ 1.0"));
+	leftColumn->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogInverseDeadzone, 0.0f, 1.0f, co->T("Analog Mapper Low End", "Analog Mapper Low End (Inverse Deadzone)"), 0.01f, screenManager(), "/ 1.0"));
+	leftColumn->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogSensitivity, 0.0f, 10.0f, co->T("Analog Mapper High End", "Analog Mapper High End (Axis Sensitivity)"), 0.01f, screenManager(), "x"));
+	leftColumn->Add(new CheckBox(&g_Config.bAnalogIsCircular, co->T("Circular Analog Stick Input")));
+	leftColumn->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAutoRotSpeed, 0.0f, 25.0f, co->T("Analog auto-rotation speed"), 1.0f, screenManager()));
 
 	LinearLayout *theTwo = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0f));
 
-	int axis1, device1, dir1;
-	int axis2, device2, dir2;
+	stickView_[0] = theTwo->Add(new JoystickHistoryView(co->T("Raw Stick Input"), new LinearLayoutParams(1.0f)));
+	stickView_[1] = theTwo->Add(new JoystickHistoryView(co->T("Emulated PSP Input"), new LinearLayoutParams(1.0f)));
 
-	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_X_MAX, &device1, &axis1, &dir1)) axis1 = -1;
-	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_Y_MAX, &device2, &axis2, &dir2)) axis2 = -1;
+	rightColumn->Add(theTwo);
 
-	theTwo->Add(new JoystickHistoryView(axis1, device1, dir1, axis2, device2, dir2, new LinearLayoutParams(1.0f)));
-
-	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_RIGHT_X_MAX, &device1, &axis1, &dir1)) axis1 = -1;
-	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_RIGHT_Y_MAX, &device2, &axis2, &dir2)) axis2 = -1;
-
-	theTwo->Add(new JoystickHistoryView(axis1, device1, dir1, axis2, device2, dir2, new LinearLayoutParams(1.0f)));
-
-	root_->Add(theTwo);
-
-	lastLastKeyEvent_ = root_->Add(new TextView("-", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	lastLastKeyEvent_ = rightColumn->Add(new TextView("-", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	lastLastKeyEvent_->SetTextColor(0x80FFFFFF);   // semi-transparent
-	lastKeyEvent_ = root_->Add(new TextView("-", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	lastKeyEvent_ = rightColumn->Add(new TextView("-", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
-	root_->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0)));
+	leftColumn->Add(new Button(di->T("Back"), new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+}
+
+void AnalogSetupScreen::update() {
+	// We ignore the secondary stick for now and just use the two views
+	// for raw and psp input.
+	if (stickView_[0]) {
+		stickView_[0]->SetXY(rawX_[0], rawY_[0]);
+	}
+	if (stickView_[1]) {
+		stickView_[1]->SetXY(analogX_[0], analogY_[0]);
+	}
+	UIScreen::update();
 }
 
 bool TouchTestScreen::touch(const TouchInput &touch) {

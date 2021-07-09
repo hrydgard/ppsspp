@@ -24,8 +24,10 @@
 
 #include "Common/UI/View.h"
 #include "Common/UI/UIScreen.h"
-
 #include "Common/Data/Text/I18n.h"
+
+#include "Core/ControlMapper.h"
+
 #include "UI/MiscScreens.h"
 
 class SingleControlMapper;
@@ -96,15 +98,28 @@ private:
 	bool mapped_;  // Prevent double registrations
 };
 
-class AnalogTestScreen : public UIDialogScreenWithBackground {
+class JoystickHistoryView;
+
+class AnalogSetupScreen : public UIDialogScreenWithBackground {
 public:
-	AnalogTestScreen() {}
+	AnalogSetupScreen();
 
 	bool key(const KeyInput &key) override;
 	bool axis(const AxisInput &axis) override;
 
+	void update() override;
+
 protected:
 	virtual void CreateViews() override;
+
+	ControlMapper mapper_;
+
+	float analogX_[2]{};
+	float analogY_[2]{};
+	float rawX_[2]{};
+	float rawY_[2]{};
+
+	JoystickHistoryView *stickView_[2];
 
 	UI::TextView *lastKeyEvent_ = nullptr;
 	UI::TextView *lastLastKeyEvent_ = nullptr;
