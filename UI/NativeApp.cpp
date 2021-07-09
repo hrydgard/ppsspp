@@ -205,7 +205,7 @@ public:
 };
 
 #ifdef _WIN32
-int Win32Mix(short *buffer, int numSamples, int bits, int rate, int channels) {
+int Win32Mix(short *buffer, int numSamples, int bits, int rate) {
 	return NativeMix(buffer, numSamples);
 }
 #endif
