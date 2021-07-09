@@ -603,13 +603,17 @@ void AnalogSetupScreen::CreateViews() {
 	LinearLayout *rightColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 
 	auto co = GetI18NCategory("Controls");
-	leftColumn->Add(new ItemHeader(co->T("Analog Settings", "Analog Settings")));
-	leftColumn->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogDeadzone, 0.0f, 1.0f, co->T("Deadzone Radius"), 0.01f, screenManager(), "/ 1.0"));
-	leftColumn->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogInverseDeadzone, 0.0f, 1.0f, co->T("Low End Radius", "Low End"), 0.01f, screenManager(), "/ 1.0"));
-	leftColumn->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogSensitivity, 0.0f, 10.0f, co->T("Sensitivity", "Sensitivity (scale factor)"), 0.01f, screenManager(), "x"));
-	leftColumn->Add(new CheckBox(&g_Config.bAnalogIsCircular, co->T("Circular Stick Input")));
-	leftColumn->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAutoRotSpeed, 0.0f, 25.0f, co->T("Auto-rotation speed"), 1.0f, screenManager()));
-	leftColumn->Add(new Choice(co->T("Reset to defaults")))->OnClick.Handle(this, &AnalogSetupScreen::OnResetToDefaults);
+	ScrollView *scroll = leftColumn->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0)));
+
+	LinearLayout *scrollContents = scroll->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300.0f, WRAP_CONTENT)));
+
+	scrollContents->Add(new ItemHeader(co->T("Analog Settings", "Analog Settings")));
+	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogDeadzone, 0.0f, 1.0f, co->T("Deadzone Radius"), 0.01f, screenManager(), "/ 1.0"));
+	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogInverseDeadzone, 0.0f, 1.0f, co->T("Low End Radius", "Low End"), 0.01f, screenManager(), "/ 1.0"));
+	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogSensitivity, 0.0f, 10.0f, co->T("Sensitivity", "Sensitivity (scale factor)"), 0.01f, screenManager(), "x"));
+	scrollContents->Add(new CheckBox(&g_Config.bAnalogIsCircular, co->T("Circular Stick Input")));
+	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAutoRotSpeed, 0.0f, 25.0f, co->T("Auto-rotation speed"), 1.0f, screenManager()));
+	scrollContents->Add(new Choice(co->T("Reset to defaults")))->OnClick.Handle(this, &AnalogSetupScreen::OnResetToDefaults);
 
 	LinearLayout *theTwo = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0f));
 
@@ -618,12 +622,11 @@ void AnalogSetupScreen::CreateViews() {
 
 	rightColumn->Add(theTwo);
 
-	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0)));
 	leftColumn->Add(new Button(di->T("Back"), new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
 UI::EventReturn AnalogSetupScreen::OnResetToDefaults(UI::EventParams &e) {
-	g_Config.fAnalogDeadzone = 0.15;
+	g_Config.fAnalogDeadzone = 0.15f;
 	g_Config.fAnalogInverseDeadzone = 0.0f;
 	g_Config.fAnalogSensitivity = 1.1f;
 	g_Config.bAnalogIsCircular = false;
