@@ -605,20 +605,30 @@ void AnalogSetupScreen::CreateViews() {
 	auto co = GetI18NCategory("Controls");
 	leftColumn->Add(new ItemHeader(co->T("Analog Settings", "Analog Settings")));
 	leftColumn->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogDeadzone, 0.0f, 1.0f, co->T("Deadzone Radius"), 0.01f, screenManager(), "/ 1.0"));
-	leftColumn->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogInverseDeadzone, 0.0f, 1.0f, co->T("Analog Mapper Low End", "Analog Mapper Low End (Inverse Deadzone)"), 0.01f, screenManager(), "/ 1.0"));
-	leftColumn->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogSensitivity, 0.0f, 10.0f, co->T("Analog Mapper High End", "Analog Mapper High End (Axis Sensitivity)"), 0.01f, screenManager(), "x"));
-	leftColumn->Add(new CheckBox(&g_Config.bAnalogIsCircular, co->T("Circular Analog Stick Input")));
-	leftColumn->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAutoRotSpeed, 0.0f, 25.0f, co->T("Analog auto-rotation speed"), 1.0f, screenManager()));
+	leftColumn->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogInverseDeadzone, 0.0f, 1.0f, co->T("Low End Radius", "Low End"), 0.01f, screenManager(), "/ 1.0"));
+	leftColumn->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogSensitivity, 0.0f, 10.0f, co->T("Sensitivity", "Sensitivity (scale factor)"), 0.01f, screenManager(), "x"));
+	leftColumn->Add(new CheckBox(&g_Config.bAnalogIsCircular, co->T("Circular Stick Input")));
+	leftColumn->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAutoRotSpeed, 0.0f, 25.0f, co->T("Auto-rotation speed"), 1.0f, screenManager()));
+	leftColumn->Add(new Choice(co->T("Reset to defaults")))->OnClick.Handle(this, &AnalogSetupScreen::OnResetToDefaults);
 
 	LinearLayout *theTwo = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0f));
 
-	stickView_[0] = theTwo->Add(new JoystickHistoryView(StickHistoryViewType::OUTPUT, co->T("Emulated PSP Input"), new LinearLayoutParams(1.0f)));
+	stickView_[0] = theTwo->Add(new JoystickHistoryView(StickHistoryViewType::OUTPUT, co->T("Calibrated"), new LinearLayoutParams(1.0f)));
 	stickView_[1] = theTwo->Add(new JoystickHistoryView(StickHistoryViewType::INPUT, co->T("Raw Stick Input"), new LinearLayoutParams(1.0f)));
 
 	rightColumn->Add(theTwo);
 
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0)));
 	leftColumn->Add(new Button(di->T("Back"), new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+}
+
+UI::EventReturn AnalogSetupScreen::OnResetToDefaults(UI::EventParams &e) {
+	g_Config.fAnalogDeadzone = 0.15;
+	g_Config.fAnalogInverseDeadzone = 0.0f;
+	g_Config.fAnalogSensitivity = 1.1f;
+	g_Config.bAnalogIsCircular = false;
+	g_Config.fAnalogAutoRotSpeed = 8.0f;
+	return UI::EVENT_DONE;
 }
 
 bool TouchTestScreen::touch(const TouchInput &touch) {

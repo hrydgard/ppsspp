@@ -962,10 +962,10 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("AnalogRotationCWKeyX", "AnalogRotationKeyCWY", "AnalogRotationKeyCWScale", "ShowAnalogRotationCWKey", &g_Config.touchAnalogRotationCWKey, defaultTouchPosHide, true, true),
 	ConfigSetting("AnalogRotationCCWKeyX", "AnalogRotationKeyCCWY", "AnalogRotationKeyCCWScale", "ShowAnalogRotationCCWKey", &g_Config.touchAnalogRotationCCWKey, defaultTouchPosHide, true, true),
 
-	ConfigSetting("AnalogDeadzone", &g_Config.fAnalogDeadzone, 0.0f, true, true),
+	ConfigSetting("AnalogDeadzone", &g_Config.fAnalogDeadzone, 0.15f, true, true),
 	ConfigSetting("AnalogInverseDeadzone", &g_Config.fAnalogInverseDeadzone, 0.0f, true, true),
-	ConfigSetting("AnalogSensitivity", &g_Config.fAnalogSensitivity, 1.0f, true, true),
-	ConfigSetting("AnalogIsCircular", &g_Config.bAnalogIsCircular, true, true, true),
+	ConfigSetting("AnalogSensitivity", &g_Config.fAnalogSensitivity, 1.1f, true, true),
+	ConfigSetting("AnalogIsCircular", &g_Config.bAnalogIsCircular, false , true, true),
 
 	ConfigSetting("AnalogLimiterDeadzone", &g_Config.fAnalogLimiterDeadzone, 0.6f, true, true),
 

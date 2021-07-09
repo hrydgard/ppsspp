@@ -110,7 +110,10 @@ public:
 	void update() override;
 
 protected:
-	virtual void CreateViews() override;
+	void CreateViews() override;
+
+private:
+	UI::EventReturn OnResetToDefaults(UI::EventParams &e);
 
 	ControlMapper mapper_;
 
