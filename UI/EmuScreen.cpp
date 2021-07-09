@@ -170,8 +170,7 @@ static void SetPSPAxis(char axis, float value, int stick) {
 	// It's a bit non-ideal to run through this twice, once for each axis, but...
 	ConvertAnalogStick(x, y);
 
-	__CtrlSetAnalogX(x, stick);
-	__CtrlSetAnalogY(y, stick);
+	__CtrlSetAnalogXY(stick, x, y);
 }
 
 EmuScreen::EmuScreen(const Path &filename)
@@ -729,14 +728,12 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 
 	case VIRTKEY_ANALOG_ROTATE_CW:
 		autoRotatingAnalogCW_ = false;
-		__CtrlSetAnalogX(0.0f, 0);
-		__CtrlSetAnalogY(0.0f, 0);
+		__CtrlSetAnalogXY(0, 0.0f, 0.0f);
 		break;
 
 	case VIRTKEY_ANALOG_ROTATE_CCW:
 		autoRotatingAnalogCCW_ = false;
-		__CtrlSetAnalogX(0.0f, 0);
-		__CtrlSetAnalogY(0.0f, 0);
+		__CtrlSetAnalogXY(0, 0.0f, 0.0f);
 		break;
 
 	default:
@@ -986,12 +983,14 @@ void EmuScreen::update() {
 	if (autoRotatingAnalogCW_) {
 		const float now = time_now_d();
 		// Clamp to a square
-		__CtrlSetAnalogX(std::min(1.0f, std::max(-1.0f, 1.42f*cosf(now*-g_Config.fAnalogAutoRotSpeed))), 0);
-		__CtrlSetAnalogY(std::min(1.0f, std::max(-1.0f, 1.42f*sinf(now*-g_Config.fAnalogAutoRotSpeed))), 0);
+		float x = std::min(1.0f, std::max(-1.0f, 1.42f * cosf(now * -g_Config.fAnalogAutoRotSpeed)));
+		float y = std::min(1.0f, std::max(-1.0f, 1.42f * sinf(now * -g_Config.fAnalogAutoRotSpeed)));
+		__CtrlSetAnalogXY(0, x, y);
 	} else if (autoRotatingAnalogCCW_) {
 		const float now = time_now_d();
-		__CtrlSetAnalogX(std::min(1.0f, std::max(-1.0f, 1.42f*cosf(now*g_Config.fAnalogAutoRotSpeed))), 0);
-		__CtrlSetAnalogY(std::min(1.0f, std::max(-1.0f, 1.42f*sinf(now*g_Config.fAnalogAutoRotSpeed))), 0);
+		float x = std::min(1.0f, std::max(-1.0f, 1.42f * cosf(now * g_Config.fAnalogAutoRotSpeed)));
+		float y = std::min(1.0f, std::max(-1.0f, 1.42f * sinf(now * g_Config.fAnalogAutoRotSpeed)));
+		__CtrlSetAnalogXY(0, x, y);
 	}
 
 	// This is here to support the iOS on screen back button.
