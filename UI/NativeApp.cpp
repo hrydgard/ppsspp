@@ -1327,38 +1327,6 @@ bool NativeKey(const KeyInput &key) {
 	return retval;
 }
 
-static bool AnalogStickAxis(const AxisInput &axis) {
-	static float history[JOYSTICK_AXIS_MAX+1] = { 0.0f };
-
-	history[axis.axisId] = axis.value;
-	AxisInput axisA = axis;
-	AxisInput axisB = axis;
-
-	switch (axis.axisId) {
-		case JOYSTICK_AXIS_X:
-		case JOYSTICK_AXIS_Y:
-			axisA.axisId = JOYSTICK_AXIS_X;
-			axisB.axisId = JOYSTICK_AXIS_Y;
-			axisA.value = history[JOYSTICK_AXIS_X];
-			axisB.value = history[JOYSTICK_AXIS_Y];
-			break;
-		case JOYSTICK_AXIS_Z:
-		case JOYSTICK_AXIS_RZ:
-			axisA.axisId = JOYSTICK_AXIS_Z;
-			axisB.axisId = JOYSTICK_AXIS_RZ;
-			axisA.value = history[JOYSTICK_AXIS_Z];
-			axisB.value = history[JOYSTICK_AXIS_RZ];
-			break;
-		default:
-			break;
-	}
-
-	ConvertAnalogStick(axisA.value, axisB.value);
-	bool retA = screenManager->axis(axisA);
-	bool retB = screenManager->axis(axisB);
-	return retA && retB;
-}
-
 bool NativeAxis(const AxisInput &axis) {
 	if (!screenManager) {
 		// Too early.
@@ -1366,16 +1334,6 @@ bool NativeAxis(const AxisInput &axis) {
 	}
 
 	using namespace TiltEventProcessor;
-
-	switch (axis.axisId) {
-		case JOYSTICK_AXIS_X:
-		case JOYSTICK_AXIS_Y:
-		case JOYSTICK_AXIS_Z:
-		case JOYSTICK_AXIS_RZ:
-			return AnalogStickAxis(axis);
-		default:
-			break;
-	}
 
 	// only handle tilt events if tilt is enabled.
 	if (g_Config.iTiltInputType == TILT_NULL) {
@@ -1388,8 +1346,7 @@ bool NativeAxis(const AxisInput &axis) {
 	}
 
 	// create the base coordinate tilt system from the calibration data.
-	// This is static for no particular reason, can be un-static'ed
-	static Tilt baseTilt;
+	Tilt baseTilt;
 	baseTilt.x_ = g_Config.fTiltBaseX;
 	baseTilt.y_ = g_Config.fTiltBaseY;
 

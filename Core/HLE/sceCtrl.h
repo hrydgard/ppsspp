@@ -72,10 +72,9 @@ void __CtrlButtonDown(u32 buttonBit);
 void __CtrlButtonUp(u32 buttonBit);
 
 // Call this to set the position of an analog stick, ideally when it changes.
-// Position value should be from -1 to 1, inclusive, in a square (no need to force to a circle.)
+// X and Y values should be from -1 to 1, inclusive, in a square (no need to force to a circle.)
 // No deadzone filtering is done (but note that this applies to the actual PSP as well.)
-void __CtrlSetAnalogX(float value, int stick = CTRL_STICK_LEFT);
-void __CtrlSetAnalogY(float value, int stick = CTRL_STICK_LEFT);
+void __CtrlSetAnalogXY(int stick, float x, float y);
 
 // Call this to enable rapid-fire.  This will cause buttons other than arrows to alternate.
 void __CtrlSetRapidFire(bool state);

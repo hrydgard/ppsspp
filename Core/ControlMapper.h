@@ -8,11 +8,8 @@
 // Utilities for mapping input events to PSP inputs and virtual keys.
 // Main use is of course from EmuScreen.cpp, but also useful from control settings etc.
 
-
-// Maps analog stick input to a distorted space according to
-// the deadzone and shape settings.
-void ConvertAnalogStick(float &x, float &y);
-
+// At some point I want to refactor this from using callbacks to simply providing lists of events.
+// Still it won't be able to be completely stateless due to the 2-D processing of analog sticks.
 
 class ControlMapper {
 public:
@@ -22,12 +19,14 @@ public:
 	void SetCallbacks(
 		std::function<void(int)> onVKeyDown,
 		std::function<void(int)> onVKeyUp,
-		std::function<void(char, float, int)> setPSPAxis);
+		std::function<void(int, float, float)> setPSPAnalog);
 
 private:
 	void processAxis(const AxisInput &axis, int direction);
 	void pspKey(int pspKeyCode, int flags);
 	void setVKeyAnalog(char axis, int stick, int virtualKeyMin, int virtualKeyMax, bool setZero = true);
+
+	void SetPSPAxis(char axis, float value, int stick);
 
 	void onVKeyDown(int vkey);
 	void onVKeyUp(int vkey);
@@ -41,5 +40,5 @@ private:
 	// Callbacks
 	std::function<void(int)> onVKeyDown_;
 	std::function<void(int)> onVKeyUp_;
-	std::function<void(char, float, int)> setPSPAxis_;
+	std::function<void(int, float, float)> setPSPAnalog_;
 };

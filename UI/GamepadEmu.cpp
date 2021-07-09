@@ -199,8 +199,7 @@ void AnalogRotationButton::Touch(const TouchInput &input) {
 		autoRotating_ = true;
 	} else if (lastDown && !down) {
 		autoRotating_ = false;
-		__CtrlSetAnalogX(0.0f, 0);
-		__CtrlSetAnalogY(0.0f, 0);
+		__CtrlSetAnalogXY(0, 0.0f, 0.0f);
 	}
 }
 
@@ -215,8 +214,9 @@ void AnalogRotationButton::Update() {
 	if (autoRotating_) {
 		float speed = clockWise_ ? -g_Config.fAnalogAutoRotSpeed : g_Config.fAnalogAutoRotSpeed;
 		// Clamp to a square
-		__CtrlSetAnalogX(std::min(1.0f, std::max(-1.0f, 1.42f*cosf(now*speed))), 0);
-		__CtrlSetAnalogY(std::min(1.0f, std::max(-1.0f, 1.42f*sinf(now*speed))), 0);
+		__CtrlSetAnalogXY(0,
+			std::min(1.0f, std::max(-1.0f, 1.42f*cosf(now*speed))),
+			std::min(1.0f, std::max(-1.0f, 1.42f*sinf(now*speed))));
 	}
 }
 
@@ -441,8 +441,7 @@ void PSPStick::Touch(const TouchInput &input) {
 		dragPointerId_ = -1;
 		centerX_ = bounds_.centerX();
 		centerY_ = bounds_.centerY();
-		__CtrlSetAnalogX(0.0f, stick_);
-		__CtrlSetAnalogY(0.0f, stick_);
+		__CtrlSetAnalogXY(stick_, 0.0f, 0.0f);
 		return;
 	}
 	if (input.flags & TOUCH_DOWN) {
@@ -492,11 +491,9 @@ void PSPStick::ProcessTouch(float x, float y, bool down) {
 		dx = std::min(1.0f, std::max(-1.0f, dx));
 		dy = std::min(1.0f, std::max(-1.0f, dy));
 
-		__CtrlSetAnalogX(dx, stick_);
-		__CtrlSetAnalogY(-dy, stick_);
+		__CtrlSetAnalogXY(stick_, dx, -dy);
 	} else {
-		__CtrlSetAnalogX(0.0f, stick_);
-		__CtrlSetAnalogY(0.0f, stick_);
+		__CtrlSetAnalogXY(stick_, 0.0f, 0.0f);
 	}
 }
 

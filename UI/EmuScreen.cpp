@@ -136,29 +136,34 @@ static void __EmuScreenVblank()
 // Handles control rotation due to internal screen rotation.
 // TODO: This should be a callback too, so we don't actually call the __Ctrl functions
 // from settings screens, etc.
-static void SetPSPAxis(char axis, float value, int stick) {
+static void SetPSPAnalog(int stick, float x, float y) {
 	switch (g_Config.iInternalScreenRotation) {
 	case ROTATION_LOCKED_HORIZONTAL:
-		// Standard rotation.
+		// Standard rotation. No change.
 		break;
 	case ROTATION_LOCKED_HORIZONTAL180:
-		value = -value;
+		x = -x;
+		y = -y;
 		break;
 	case ROTATION_LOCKED_VERTICAL:
-		value = axis == 'Y' ? value : -value;
-		axis = (axis == 'X') ? 'Y' : 'X';
+	{
+		float new_y = -x;
+		x = y;
+		y = new_y;
 		break;
+	}
 	case ROTATION_LOCKED_VERTICAL180:
-		value = axis == 'Y' ? -value : value;
-		axis = (axis == 'X') ? 'Y' : 'X';
+	{
+		float new_y = y = x;
+		x = -y;
+		y = new_y;
 		break;
+	}
 	default:
 		break;
 	}
-	if (axis == 'X')
-		__CtrlSetAnalogX(value, stick);
-	else if (axis == 'Y')
-		__CtrlSetAnalogY(value, stick);
+
+	__CtrlSetAnalogXY(stick, x, y);
 }
 
 EmuScreen::EmuScreen(const Path &filename)
@@ -171,7 +176,7 @@ EmuScreen::EmuScreen(const Path &filename)
 	controlMapper_.SetCallbacks(
 		std::bind(&EmuScreen::onVKeyDown, this, _1),
 		std::bind(&EmuScreen::onVKeyUp, this, _1),
-		&SetPSPAxis);
+		&SetPSPAnalog);
 
 	// Make sure we don't leave it at powerdown after the last game.
 	// TODO: This really should be handled elsewhere if it isn't.
@@ -716,14 +721,12 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 
 	case VIRTKEY_ANALOG_ROTATE_CW:
 		autoRotatingAnalogCW_ = false;
-		__CtrlSetAnalogX(0.0f, 0);
-		__CtrlSetAnalogY(0.0f, 0);
+		__CtrlSetAnalogXY(0, 0.0f, 0.0f);
 		break;
 
 	case VIRTKEY_ANALOG_ROTATE_CCW:
 		autoRotatingAnalogCCW_ = false;
-		__CtrlSetAnalogX(0.0f, 0);
-		__CtrlSetAnalogY(0.0f, 0);
+		__CtrlSetAnalogXY(0, 0.0f, 0.0f);
 		break;
 
 	default:
@@ -973,12 +976,14 @@ void EmuScreen::update() {
 	if (autoRotatingAnalogCW_) {
 		const float now = time_now_d();
 		// Clamp to a square
-		__CtrlSetAnalogX(std::min(1.0f, std::max(-1.0f, 1.42f*cosf(now*-g_Config.fAnalogAutoRotSpeed))), 0);
-		__CtrlSetAnalogY(std::min(1.0f, std::max(-1.0f, 1.42f*sinf(now*-g_Config.fAnalogAutoRotSpeed))), 0);
+		float x = std::min(1.0f, std::max(-1.0f, 1.42f * cosf(now * -g_Config.fAnalogAutoRotSpeed)));
+		float y = std::min(1.0f, std::max(-1.0f, 1.42f * sinf(now * -g_Config.fAnalogAutoRotSpeed)));
+		__CtrlSetAnalogXY(0, x, y);
 	} else if (autoRotatingAnalogCCW_) {
 		const float now = time_now_d();
-		__CtrlSetAnalogX(std::min(1.0f, std::max(-1.0f, 1.42f*cosf(now*g_Config.fAnalogAutoRotSpeed))), 0);
-		__CtrlSetAnalogY(std::min(1.0f, std::max(-1.0f, 1.42f*sinf(now*g_Config.fAnalogAutoRotSpeed))), 0);
+		float x = std::min(1.0f, std::max(-1.0f, 1.42f * cosf(now * g_Config.fAnalogAutoRotSpeed)));
+		float y = std::min(1.0f, std::max(-1.0f, 1.42f * sinf(now * g_Config.fAnalogAutoRotSpeed)));
+		__CtrlSetAnalogXY(0, x, y);
 	}
 
 	// This is here to support the iOS on screen back button.

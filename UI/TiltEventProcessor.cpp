@@ -96,8 +96,7 @@ void TiltEventProcessor::TranslateTiltToInput(const Tilt &tilt) {
 }
 
 void TiltEventProcessor::GenerateAnalogStickEvent(const Tilt &tilt) {
-	__CtrlSetAnalogX(clamp(tilt.x_), CTRL_STICK_LEFT);
-	__CtrlSetAnalogY(clamp(tilt.y_), CTRL_STICK_LEFT);
+	__CtrlSetAnalogXY(CTRL_STICK_LEFT, clamp(tilt.x_), clamp(tilt.y_));
 	tiltAnalogSet = true;
 }
 
@@ -182,8 +181,7 @@ void TiltEventProcessor::ResetTiltEvents() {
 	tiltButtonsDown = 0;
 
 	if (tiltAnalogSet) {
-		__CtrlSetAnalogX(0.0f, CTRL_STICK_LEFT);
-		__CtrlSetAnalogY(0.0f, CTRL_STICK_LEFT);
+		__CtrlSetAnalogXY(CTRL_STICK_LEFT, 0.0f, 0.0f);
 		tiltAnalogSet = false;
 	}
 }
