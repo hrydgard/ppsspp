@@ -137,25 +137,6 @@ static void __EmuScreenVblank()
 // TODO: This should be a callback too, so we don't actually call the __Ctrl functions
 // from settings screens, etc.
 static void SetPSPAxis(char axis, float value, int stick) {
-	switch (g_Config.iInternalScreenRotation) {
-	case ROTATION_LOCKED_HORIZONTAL:
-		// Standard rotation.
-		break;
-	case ROTATION_LOCKED_HORIZONTAL180:
-		value = -value;
-		break;
-	case ROTATION_LOCKED_VERTICAL:
-		value = axis == 'Y' ? value : -value;
-		axis = (axis == 'X') ? 'Y' : 'X';
-		break;
-	case ROTATION_LOCKED_VERTICAL180:
-		value = axis == 'Y' ? -value : value;
-		axis = (axis == 'X') ? 'Y' : 'X';
-		break;
-	default:
-		break;
-	}
-
 	// TODO: Can we move the rest of this logic into ControlMapping too?
 
 	static float history[2][2] = {};
@@ -169,6 +150,32 @@ static void SetPSPAxis(char axis, float value, int stick) {
 
 	// It's a bit non-ideal to run through this twice, once for each axis, but...
 	ConvertAnalogStick(x, y);
+
+	switch (g_Config.iInternalScreenRotation) {
+	case ROTATION_LOCKED_HORIZONTAL:
+		// Standard rotation. No change.
+		break;
+	case ROTATION_LOCKED_HORIZONTAL180:
+		x = -x;
+		y = -y;
+		break;
+	case ROTATION_LOCKED_VERTICAL:
+	{
+		float new_y = -x;
+		x = y;
+		y = new_y;
+		break;
+	}
+	case ROTATION_LOCKED_VERTICAL180:
+	{
+		float new_y = y = x;
+		x = -y;
+		y = new_y;
+		break;
+	}
+	default:
+		break;
+	}
 
 	__CtrlSetAnalogXY(stick, x, y);
 }
