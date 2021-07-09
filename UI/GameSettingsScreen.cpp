@@ -665,6 +665,7 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab(ms->T("Controls"), controlsSettingsScroll);
 	controlsSettings->Add(new ItemHeader(ms->T("Controls")));
 	controlsSettings->Add(new Choice(co->T("Control Mapping")))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
+	controlsSettings->Add(new Choice(co->T("Calibrate Analog Stick")))->OnClick.Handle(this, &GameSettingsScreen::OnCalibrateAnalogs);
 
 #if defined(USING_WIN_UI)
 	controlsSettings->Add(new CheckBox(&g_Config.bSystemControls, co->T("Enable standard shortcut keys")));
@@ -726,14 +727,6 @@ void GameSettingsScreen::CreateViews() {
 		View *style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iTouchButtonStyle, co->T("Button style"), touchControlStyles, 0, ARRAY_SIZE(touchControlStyles), co->GetName(), screenManager()));
 		style->SetEnabledPtr(&g_Config.bShowTouchControls);
 	}
-
-	controlsSettings->Add(new ItemHeader(co->T("Analog Settings", "Analog Settings")));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogDeadzone, 0.0f, 1.0f, co->T("Deadzone Radius"), 0.01f, screenManager(), "/ 1.0"));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogInverseDeadzone, 0.0f, 1.0f, co->T("Analog Mapper Low End", "Analog Mapper Low End (Inverse Deadzone)"), 0.01f, screenManager(), "/ 1.0"));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogSensitivity, 0.0f, 10.0f, co->T("Analog Mapper High End", "Analog Mapper High End (Axis Sensitivity)"), 0.01f, screenManager(), "x"));
-	controlsSettings->Add(new CheckBox(&g_Config.bAnalogIsCircular, co->T("Circular Analog Stick Input")));
-
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAutoRotSpeed, 0.0f, 25.0f, co->T("Analog auto-rotation speed"), 1.0f, screenManager()));
 
 	controlsSettings->Add(new ItemHeader(co->T("Keyboard", "Keyboard Control Settings")));
 #if defined(USING_WIN_UI)
@@ -1540,6 +1533,11 @@ UI::EventReturn GameSettingsScreen::OnRemoteISO(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnControlMapping(UI::EventParams &e) {
 	screenManager()->push(new ControlMappingScreen());
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnCalibrateAnalogs(UI::EventParams &e) {
+	screenManager()->push(new AnalogSetupScreen());
 	return UI::EVENT_DONE;
 }
 

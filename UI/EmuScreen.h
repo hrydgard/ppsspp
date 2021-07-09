@@ -103,8 +103,5 @@ private:
 	UI::Button *cardboardDisableButton_ = nullptr;
 	OnScreenMessagesView *onScreenMessagesView_ = nullptr;
 
-	bool autoRotatingAnalogCW_ = false;
-	bool autoRotatingAnalogCCW_ = false;
-
 	ControlMapper controlMapper_;
 };
