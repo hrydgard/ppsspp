@@ -82,15 +82,15 @@ public:
 		pspBtn_ = btn;
 	}
 
-	virtual bool key(const KeyInput &key) override;
-	virtual bool axis(const AxisInput &axis) override;
+	bool key(const KeyInput &key) override;
+	bool axis(const AxisInput &axis) override;
 
 protected:
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 
-	virtual bool FillVertical() const override { return false; }
-	virtual bool ShowButtons() const override { return true; }
-	virtual void OnCompleted(DialogResult result) override {}
+	bool FillVertical() const override { return false; }
+	bool ShowButtons() const override { return true; }
+	void OnCompleted(DialogResult result) override {}
 
 private:
 	int pspBtn_;
@@ -119,10 +119,7 @@ protected:
 	float rawX_[2]{};
 	float rawY_[2]{};
 
-	JoystickHistoryView *stickView_[2];
-
-	UI::TextView *lastKeyEvent_ = nullptr;
-	UI::TextView *lastLastKeyEvent_ = nullptr;
+	JoystickHistoryView *stickView_[2]{};
 };
 
 class TouchTestScreen : public UIDialogScreenWithBackground {
@@ -136,6 +133,9 @@ public:
 	bool touch(const TouchInput &touch) override;
 	void render() override;
 
+	bool key(const KeyInput &key) override;
+	bool axis(const AxisInput &axis) override;
+
 protected:
 	struct TrackedTouch {
 		int id;
@@ -146,6 +146,9 @@ protected:
 		MAX_TOUCH_POINTS = 10,
 	};
 	TrackedTouch touches_[MAX_TOUCH_POINTS]{};
+
+	UI::TextView *lastKeyEvent_ = nullptr;
+	UI::TextView *lastLastKeyEvent_ = nullptr;
 
 	void CreateViews() override;
 
