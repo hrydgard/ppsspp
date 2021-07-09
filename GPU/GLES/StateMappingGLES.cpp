@@ -230,7 +230,23 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		GLenum cullMode = cullingMode[gstate.getCullMode() ^ !useBufferedRendering];
 
 		cullEnable = !gstate.isModeClear() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-		renderManager->SetRaster(cullEnable, GL_CCW, cullMode, dither);
+
+		bool depthClampEnable = false;
+		if (gstate.isModeClear() || gstate.isModeThrough()) {
+			// TODO: Might happen in clear mode if not through...
+			depthClampEnable = false;
+		} else {
+			if (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 65535) {
+				// TODO: Still has a bug where we clamp to depth range if one is not the full range.
+				// But the alternate is not clamping in either direction...
+				depthClampEnable = gstate.isDepthClampEnabled() && gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP);
+			} else {
+				// We just want to clip in this case, the clamp would be clipped anyway.
+				depthClampEnable = false;
+			}
+		}
+
+		renderManager->SetRaster(cullEnable, GL_CCW, cullMode, dither, depthClampEnable);
 	}
 
 	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {

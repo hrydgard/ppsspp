@@ -133,7 +133,7 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 		// We must bind the program after starting the render pass, and set the color mask after clearing.
 		render_->SetScissor({ 0, 0, vfb->renderWidth, vfb->renderHeight });
 		render_->SetDepth(false, false, GL_ALWAYS);
-		render_->SetRaster(false, GL_CCW, GL_FRONT, GL_FALSE);
+		render_->SetRaster(false, GL_CCW, GL_FRONT, GL_FALSE, GL_FALSE);
 		render_->BindProgram(depthDownloadProgram_);
 
 		if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {

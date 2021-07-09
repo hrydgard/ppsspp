@@ -188,7 +188,7 @@ public:
 class OpenGLRasterState : public RasterState {
 public:
 	void Apply(GLRenderManager *render) {
-		render->SetRaster(cullEnable, frontFace, cullMode, false);
+		render->SetRaster(cullEnable, frontFace, cullMode, GL_FALSE, GL_FALSE);
 	}
 
 	GLboolean cullEnable;
@@ -533,6 +533,12 @@ OpenGLContext::OpenGLContext() {
 	}
 	caps_.framebufferBlitSupported = gl_extensions.NV_framebuffer_blit || gl_extensions.ARB_framebuffer_object;
 	caps_.framebufferDepthBlitSupported = caps_.framebufferBlitSupported;
+	caps_.depthClampSupported = gl_extensions.ARB_depth_clamp;
+
+	// Interesting potential hack for emulating GL_DEPTH_CLAMP (use a separate varying, force depth in fragment shader):
+	// This will induce a performance penalty on many architectures though so a blanket enable of this
+	// is probably not a good idea.
+	// https://stackoverflow.com/questions/5960757/how-to-emulate-gl-depth-clamp-nv
 
 	switch (gl_extensions.gpuVendor) {
 	case GPU_VENDOR_AMD: caps_.vendor = GPUVendor::VENDOR_AMD; break;

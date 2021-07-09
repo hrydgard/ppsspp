@@ -221,6 +221,14 @@ void GPU_GLES::CheckGPUFeatures() {
 	if (gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float)
 		features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 
+	if (draw_->GetDeviceCaps().depthClampSupported) {
+		features |= GPU_SUPPORTS_DEPTH_CLAMP | GPU_SUPPORTS_ACCURATE_DEPTH;
+		// Our implementation of depth texturing needs simple Z range, so can't
+		// use the extension hacks (yet).
+		if (gl_extensions.GLES3)
+			features |= GPU_SUPPORTS_DEPTH_TEXTURE;
+	}
+
 	// If we already have a 16-bit depth buffer, we don't need to round.
 	bool prefer24 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D24_S8;
 	if (prefer24) {

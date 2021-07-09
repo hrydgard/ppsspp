@@ -220,7 +220,7 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	}
 
 	// Might enable this later - in the first round we are mostly looking at depth/stencil/discard.
-	// if (g_Config.bDisableVendorBugChecks)
+	// if (!g_Config.bEnableVendorBugChecks)
 	// 	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 
 	// Mandatory features on Vulkan, which may be checked in "centralized" code

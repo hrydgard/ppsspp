@@ -813,13 +813,14 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void SetRaster(GLboolean cullEnable, GLenum frontFace, GLenum cullFace, GLboolean ditherEnable) {
+	void SetRaster(GLboolean cullEnable, GLenum frontFace, GLenum cullFace, GLboolean ditherEnable, GLboolean depthClamp) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::RASTER };
 		data.raster.cullEnable = cullEnable;
 		data.raster.frontFace = frontFace;
 		data.raster.cullFace = cullFace;
 		data.raster.ditherEnable = ditherEnable;
+		data.raster.depthClampEnable = depthClamp;
 		curRenderStep_->commands.push_back(data);
 	}
 	
