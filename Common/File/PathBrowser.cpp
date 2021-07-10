@@ -128,13 +128,6 @@ void PathBrowser::HandlePath() {
 		return;
 	}
 
-	if (path_.Type() != PathType::HTTP) {
-		if (pendingActive_)
-			ResetPending();
-		ready_ = true;
-		return;
-	}
-
 	std::lock_guard<std::mutex> guard(pendingLock_);
 	ready_ = false;
 	pendingActive_ = true;
@@ -162,6 +155,12 @@ void PathBrowser::HandlePath() {
 				guard.unlock();
 				results.clear();
 				success = LoadRemoteFileList(lastPath, &pendingCancel_, results);
+				guard.lock();
+			} else {
+				guard.unlock();
+				results.clear();
+				File::GetFilesInDir(lastPath, &results, nullptr);
+				success = true;
 				guard.lock();
 			}
 
@@ -214,12 +213,7 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 		guard.lock();
 	}
 
-	if (path_.Type() == PathType::HTTP) {
-		fileInfo = ApplyFilter(pendingFiles_, filter);
-		return true;
-	}
-
-	File::GetFilesInDir(path_, &fileInfo, filter);
+	fileInfo = ApplyFilter(pendingFiles_, filter);
 	return true;
 }
 
