@@ -833,7 +833,7 @@ void GameSettingsScreen::CreateViews() {
 	qc5->SetEnabledPtr(&g_Config.bEnableQuickChat);
 #endif
 
-	networkingSettings->Add(new ItemHeader(n->T("Misc", "Misc (default = compatibility)")));
+	networkingSettings->Add(new ItemHeader(n->T("Misc"));
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, n->T("Port offset", "Port offset (0 = PSP compatibility)"), 100, screenManager()));
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iMinTimeout, 0, 15000, n->T("Minimum Timeout", "Minimum Timeout (override in ms, 0 = default)"), 50, screenManager()));
 	networkingSettings->Add(new CheckBox(&g_Config.bForcedFirstConnect, n->T("Forced First Connect", "Forced First Connect (faster Connect)")));
