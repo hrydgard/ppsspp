@@ -220,6 +220,7 @@ T hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, T res, const char *
 #define hleLogError(t, res, ...) hleLogHelper(t, LERROR, res, 'x', ##__VA_ARGS__)
 #define hleLogWarning(t, res, ...) hleLogHelper(t, LWARNING, res, 'x', ##__VA_ARGS__)
 #define hleLogDebug(t, res, ...) hleLogHelper(t, HLE_LOG_LDEBUG, res, 'x', ##__VA_ARGS__)
+#define hleLogVerbose(t, res, ...) hleLogHelper(t, HLE_LOG_LVERBOSE, res, 'x', ##__VA_ARGS__)
 #define hleLogSuccessX(t, res, ...) hleLogHelper(t, HLE_LOG_LDEBUG, res, 'x', ##__VA_ARGS__)
 #define hleLogSuccessI(t, res, ...) hleLogHelper(t, HLE_LOG_LDEBUG, res, 'i', ##__VA_ARGS__)
 #define hleLogSuccessInfoX(t, res, ...) hleLogHelper(t, LINFO, res, 'x', ##__VA_ARGS__)
