@@ -443,7 +443,7 @@ static bool IsRunningSlow() {
 			best = std::max(fpsHistory[index], best);
 		}
 
-		return best < System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE) * 0.999;
+		return best < System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE) * 0.97;
 	}
 
 	return false;
@@ -770,7 +770,10 @@ void __DisplayFlip(int cyclesLate) {
 		// Let the user know if we're running slow, so they know to adjust settings.
 		// Sometimes users just think the sound emulation is broken.
 		static bool hasNotifiedSlow = false;
-		if (!g_Config.bHideSlowWarnings && !hasNotifiedSlow && PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL && IsRunningSlow()) {
+		if (!g_Config.bHideSlowWarnings &&
+			!hasNotifiedSlow &&
+			PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL &&
+			IsRunningSlow()) {
 #ifndef _DEBUG
 			auto err = GetI18NCategory("Error");
 			if (g_Config.bSoftwareRendering) {
