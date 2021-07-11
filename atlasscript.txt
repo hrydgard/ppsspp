@@ -52,3 +52,9 @@ image I_FULLSCREEN source_assets/image/fullscreen.png copy
 image I_RESTORE source_assets/image/restore.png copy
 image I_SDCARD source_assets/image/sdcard.png copy
 image I_HOME source_assets/image/home.png copy
+image I_A source_assets/image/a.png copy
+image I_B source_assets/image/b.png copy
+image I_C source_assets/image/c.png copy
+image I_D source_assets/image/d.png copy
+image I_E source_assets/image/e.png copy
+image I_F source_assets/image/f.png copy

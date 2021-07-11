@@ -170,6 +170,10 @@ void Section::Set(const char* key, uint32_t newValue) {
 	Set(key, StringFromFormat("0x%08x", newValue).c_str());
 }
 
+void Section::Set(const char* key, uint64_t newValue) {
+	Set(key, StringFromFormat("0x%016lx", newValue).c_str());
+}
+
 void Section::Set(const char* key, float newValue) {
 	Set(key, StringFromFormat("%f", newValue).c_str());
 }
@@ -302,6 +306,16 @@ bool Section::Get(const char* key, int* value, int defaultValue)
 }
 
 bool Section::Get(const char* key, uint32_t* value, uint32_t defaultValue)
+{
+	std::string temp;
+	bool retval = Get(key, &temp, 0);
+	if (retval && TryParse(temp, value))
+		return true;
+	*value = defaultValue;
+	return false;
+}
+
+bool Section::Get(const char* key, uint64_t* value, uint64_t defaultValue)
 {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
@@ -649,6 +663,17 @@ bool IniFile::Get(const char* sectionName, const char* key, int* value, int defa
 }
 
 bool IniFile::Get(const char* sectionName, const char* key, uint32_t* value, uint32_t defaultValue)
+{
+	Section *section = GetSection(sectionName);
+	if (!section) {
+		*value = defaultValue;
+		return false;
+	} else {
+		return section->Get(key, value, defaultValue);
+	}
+}
+
+bool IniFile::Get(const char* sectionName, const char* key, uint64_t* value, uint64_t defaultValue)
 {
 	Section *section = GetSection(sectionName);
 	if (!section) {
