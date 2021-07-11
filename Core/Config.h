@@ -366,6 +366,10 @@ public:
 	ConfigTouchPos touchCombo8;
 	ConfigTouchPos touchCombo9;
 
+	float fLeftStickHeadScale;
+	float fRightStickHeadScale;
+	bool bHideStickBackground;
+
 	// Controls Visibility
 	bool bShowTouchControls;
 

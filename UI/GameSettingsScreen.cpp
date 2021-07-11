@@ -704,6 +704,10 @@ void GameSettingsScreen::CreateViews() {
 		CheckBox *floatingAnalog = controlsSettings->Add(new CheckBox(&g_Config.bAutoCenterTouchAnalog, co->T("Auto-centering analog stick")));
 		floatingAnalog->SetEnabledPtr(&g_Config.bShowTouchControls);
 
+		// Hide stick background, usefull when increasing the size
+		CheckBox *hideStickBackground = controlsSettings->Add(new CheckBox(&g_Config.bHideStickBackground, co->T("Hide touch analog stick background circle")));
+		hideStickBackground->SetEnabledPtr(&g_Config.bShowTouchControls);
+
 		// On non iOS systems, offer to let the user see this button.
 		// Some Windows touch devices don't have a back button or other button to call up the menu.
 		if (System_GetPropertyBool(SYSPROP_HAS_BACK_BUTTON)) {
