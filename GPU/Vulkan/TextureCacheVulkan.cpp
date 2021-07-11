@@ -43,6 +43,7 @@
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/TextureDecoder.h"
+#include "GPU/Vulkan/VulkanContext.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
 #include "GPU/Vulkan/DepalettizeShaderVulkan.h"
@@ -52,17 +53,6 @@
 #define TEXCACHE_MIN_SLAB_SIZE (8 * 1024 * 1024)
 #define TEXCACHE_MAX_SLAB_SIZE (32 * 1024 * 1024)
 #define TEXCACHE_SLAB_PRESSURE 4
-
-// Note: some drivers prefer B4G4R4A4_UNORM_PACK16 over R4G4B4A4_UNORM_PACK16.
-#define VULKAN_4444_FORMAT VK_FORMAT_B4G4R4A4_UNORM_PACK16
-#define VULKAN_1555_FORMAT VK_FORMAT_A1R5G5B5_UNORM_PACK16
-#define VULKAN_565_FORMAT  VK_FORMAT_B5G6R5_UNORM_PACK16
-#define VULKAN_8888_FORMAT VK_FORMAT_R8G8B8A8_UNORM
-
-static const VkComponentMapping VULKAN_4444_SWIZZLE = { VK_COMPONENT_SWIZZLE_A, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B };
-static const VkComponentMapping VULKAN_1555_SWIZZLE = { VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_A };
-static const VkComponentMapping VULKAN_565_SWIZZLE = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
-static const VkComponentMapping VULKAN_8888_SWIZZLE = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 
 const char *copyShader = R"(
 #version 450

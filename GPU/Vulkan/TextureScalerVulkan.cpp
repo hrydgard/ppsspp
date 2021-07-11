@@ -25,13 +25,7 @@
 #include "Core/ThreadPools.h"
 #include "GPU/Common/TextureScalerCommon.h"
 #include "GPU/Vulkan/TextureScalerVulkan.h"
-
-// TODO: Share in TextureCacheVulkan.h?
-// Note: some drivers prefer B4G4R4A4_UNORM_PACK16 over R4G4B4A4_UNORM_PACK16.
-#define VULKAN_4444_FORMAT VK_FORMAT_B4G4R4A4_UNORM_PACK16
-#define VULKAN_1555_FORMAT VK_FORMAT_A1R5G5B5_UNORM_PACK16
-#define VULKAN_565_FORMAT  VK_FORMAT_B5G6R5_UNORM_PACK16
-#define VULKAN_8888_FORMAT VK_FORMAT_R8G8B8A8_UNORM
+#include "GPU/Vulkan/VulkanUtil.h"
 
 int TextureScalerVulkan::BytesPerPixel(u32 format) {
 	return (format == VULKAN_8888_FORMAT) ? 4 : 2;
