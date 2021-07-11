@@ -167,6 +167,26 @@ size_t GetFilesInDir(const Path &directory, std::vector<FileInfo> * files, const
 		return true;
 	}
 
+#if PPSSPP_PLATFORM(WINDOWS)
+	if (directory.IsRoot()) {
+		// Special path that means root of file system.
+		std::vector<std::string> drives = File::GetWindowsDrives();
+		for (auto drive = drives.begin(); drive != drives.end(); ++drive) {
+			if (*drive == "A:/" || *drive == "B:/")
+				continue;
+			File::FileInfo fake;
+			fake.fullName = Path(*drive);
+			fake.name = *drive;
+			fake.isDirectory = true;
+			fake.exists = true;
+			fake.size = 0;
+			fake.isWritable = false;
+			files->push_back(fake);
+		}
+		return files->size();
+	}
+#endif
+
 	size_t foundEntries = 0;
 	std::set<std::string> filters;
 	if (filter) {
