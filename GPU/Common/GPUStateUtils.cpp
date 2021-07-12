@@ -575,9 +575,6 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		renderHeightFactor = renderHeight / 272.0f;
 	}
 
-	_assert_(renderWidthFactor > 0.0);
-	_assert_(renderHeightFactor > 0.0);
-
 	renderX = gstate_c.curRTOffsetX;
 
 	// Scissor
@@ -667,6 +664,12 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 				left += overageLeft;
 				right -= overageRight;
 
+				// Protect against the viewport being entirely outside the scissor.
+				// Emit a tiny but valid viewport. Really, we should probably emit a flag to ignore draws.
+				if (right <= left) {
+					right = left + 1.0f;
+				}
+
 				wScale = vpWidth / (right - left);
 				xOffset = drift / (right - left);
 			}
@@ -690,6 +693,12 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 				top += overageTop;
 				bottom -= overageBottom;
 
+				// Protect against the viewport being entirely outside the scissor.
+				// Emit a tiny but valid  viewport. Really, we should probably emit a flag to ignore draws.
+				if (bottom <= top) {
+					bottom = top + 1.0f;
+				}
+
 				hScale = vpHeight / (bottom - top);
 				yOffset = drift / (bottom - top);
 			}
@@ -697,11 +706,8 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 
 		out.viewportX = left * renderWidthFactor + displayOffsetX;
 		out.viewportY = top * renderHeightFactor + displayOffsetY;
-
-		// The calculations should end up with zero or positive values, but let's protect against any
-		// precision issues. See #13921.
-		out.viewportW = std::max(0.0f, (right - left) * renderWidthFactor);
-		out.viewportH = std::max(0.0f, (bottom - top) * renderHeightFactor);
+		out.viewportW = (right - left) * renderWidthFactor;
+		out.viewportH = (bottom - top) * renderHeightFactor;
 
 		// The depth viewport parameters are the same, but we handle it a bit differently.
 		// When clipping is enabled, depth is clamped to [0, 65535].  And minz/maxz discard.
