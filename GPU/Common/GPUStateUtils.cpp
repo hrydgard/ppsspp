@@ -664,6 +664,12 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 				left += overageLeft;
 				right -= overageRight;
 
+				// Protect against the viewport being entirely outside the scissor.
+				// Emit a tiny but valid viewport. Really, we should probably emit a flag to ignore draws.
+				if (right <= left) {
+					right = left + 1.0f;
+				}
+
 				wScale = vpWidth / (right - left);
 				xOffset = drift / (right - left);
 			}
@@ -686,6 +692,12 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 			if (overageTop != 0.0f || overageBottom != 0.0f) {
 				top += overageTop;
 				bottom -= overageBottom;
+
+				// Protect against the viewport being entirely outside the scissor.
+				// Emit a tiny but valid  viewport. Really, we should probably emit a flag to ignore draws.
+				if (bottom <= top) {
+					bottom = top + 1.0f;
+				}
 
 				hScale = vpHeight / (bottom - top);
 				yOffset = drift / (bottom - top);
