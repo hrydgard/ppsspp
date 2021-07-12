@@ -164,6 +164,7 @@ size_t GetFilesInDir(const Path &directory, std::vector<FileInfo> * files, const
 	if (directory.Type() == PathType::CONTENT_URI) {
 		std::vector<File::FileInfo> fileList = Android_ListContentUri(directory.ToString());
 		*files = ApplyFilter(fileList, filter);
+		std::sort(files->begin(), files->end());
 		return true;
 	}
 
