@@ -627,13 +627,6 @@ void GameSettingsScreen::CreateViews() {
 	}
 #endif
 
-	std::vector<std::string> micList = Microphone::getDeviceList();
-	if (!micList.empty()) {
-		audioSettings->Add(new ItemHeader(a->T("Microphone")));
-		PopupMultiChoiceDynamic *MicChoice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sMicDevice, a->T("Microphone Device"), micList, nullptr, screenManager()));
-		MicChoice->OnChoice.Handle(this, &GameSettingsScreen::OnMicDeviceChange);
-	}
-
 	bool sdlAudio = false;
 #if defined(SDL)
 	std::vector<std::string> audioDeviceList;
@@ -658,6 +651,13 @@ void GameSettingsScreen::CreateViews() {
 		audioSettings->Add(new InfoItem(a->T("Audio Error"), audioErrorStr));
 	}
 #endif
+
+	std::vector<std::string> micList = Microphone::getDeviceList();
+	if (!micList.empty()) {
+		audioSettings->Add(new ItemHeader(a->T("Microphone")));
+		PopupMultiChoiceDynamic *MicChoice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sMicDevice, a->T("Microphone Device"), micList, nullptr, screenManager()));
+		MicChoice->OnChoice.Handle(this, &GameSettingsScreen::OnMicDeviceChange);
+	}
 
 	// Control
 	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
