@@ -338,10 +338,14 @@ void hleCheat(u64 userdata, int cyclesLate) {
 		} else if (gameTitle == "ULES00033" || gameTitle == "ULES00034" || gameTitle == "ULES00035") {  // euro, also 34 and 35
 			cheatEngine->InvalidateICache(0x088655D8, 72);
 			cheatEngine->InvalidateICache(0x08865668, 4);
-		} else if (gameTitle == "ULUS10138") {  // MTX MotoTrax. No hack for ULES00581 known.
+		} else if (gameTitle == "ULUS10138") {  // MTX MotoTrax US
 			cheatEngine->InvalidateICache(0x0886DCC0, 72);
 			cheatEngine->InvalidateICache(0x0886DC20, 4);
 			cheatEngine->InvalidateICache(0x0886DD40, 4);
+		} else if (gameTitle == "ULES00581") {  // MTX MotoTrax EU (ported from US cwcheat codes)
+			cheatEngine->InvalidateICache(0x0886E1D8, 72);
+			cheatEngine->InvalidateICache(0x0886E138, 4);
+			cheatEngine->InvalidateICache(0x0886E258, 4);
 		}
 	}
 
