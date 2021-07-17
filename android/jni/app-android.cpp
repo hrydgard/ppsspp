@@ -97,8 +97,18 @@ struct JNIEnv {};
 
 bool useCPUThread = true;
 
-// We'll turn this on when we target Android 12.
-bool useScopedStorageIfRequired = false;
+// We turn this on now that when we target Android 11+.
+// Along with adding:
+//   android:preserveLegacyExternalStorage="true"
+// To the already requested:
+//   android:requestLegacyExternalStorage="true"
+//
+// This will cause Android 11+ to still behave like Android 10 until the app
+// is manually uninstalled. We can detect this state with
+// Android_IsExternalStoragePreservedLegacy(), but most of the app will just see
+// that scoped storage enforcement is disabled in this case.
+
+static const bool useScopedStorageIfRequired = true;
 
 enum class EmuThreadState {
 	DISABLED,
@@ -433,7 +443,15 @@ float System_GetPropertyFloat(SystemProperty prop) {
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_SUPPORTS_PERMISSIONS:
-		return androidVersion >= 23;	// 6.0 Marshmallow introduced run time permissions.
+		if (androidVersion < 23) {
+			// 6.0 Marshmallow introduced run time permissions.
+			return false;
+		} else {
+			// It gets a bit complicated here. If scoped storage enforcement is on,
+			// we also don't need to request permissions. We'll have the access we request
+			// on a per-folder basis.
+			return !System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE);
+		}
 	case SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE:
 		return sustainedPerfSupported;  // 7.0 introduced sustained performance mode as an optional feature.
 	case SYSPROP_HAS_ADDITIONAL_STORAGE:
@@ -458,8 +476,14 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_CAN_JIT:
 		return true;
 	case SYSPROP_ANDROID_SCOPED_STORAGE:
-		if (useScopedStorageIfRequired && androidVersion >= 28)
-			return true;
+		if (useScopedStorageIfRequired && androidVersion >= 28) {
+			// Here we do a check to see if we ended up in the preserveLegacyExternalStorage path.
+			// That won't last if the user uninstalls/reinstalls though, but would preserve the user
+			// experience for simple upgrades so maybe let's support it.
+			return !Android_IsExternalStoragePreservedLegacy();
+		} else {
+			return false;
+		}
 	default:
 		return false;
 	}

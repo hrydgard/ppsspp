@@ -23,6 +23,7 @@
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/File/AndroidStorage.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Net/HTTPClient.h"
 #include "Common/UI/Context.h"
@@ -59,11 +60,7 @@
 int GetD3DCompilerVersion();
 #endif
 
-#if PPSSPP_PLATFORM(ANDROID)
-
 #include "android/jni/app-android.h"
-
-#endif
 
 static const char *logLevelList[] = {
 	"Notice",
@@ -595,6 +592,7 @@ void SystemInfoScreen::CreateViews() {
 	if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
 		storage->Add(new InfoItem("Scoped Storage", di->T("Yes")));
 	}
+	storage->Add(new InfoItem("IsStoragePreservedLegacy", Android_IsExternalStoragePreservedLegacy() ? di->T("Yes") : di->T("No")));
 #endif
 
 	ViewGroup *buildConfigScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
