@@ -59,7 +59,7 @@ public:
 		deviceChanged_ = false;
 	}
 
-	bool HasDeviceChanged() {
+	bool HasDefaultDeviceChanged() const {
 		return deviceChanged_;
 	}
 
@@ -529,7 +529,7 @@ void WASAPIAudioThread::Run() {
 		}
 
 		// Check if we should use a new device.
-		if (notificationClient_ && notificationClient_->HasDeviceChanged()) {
+		if (notificationClient_ && notificationClient_->HasDefaultDeviceChanged() && g_Config.bAutoAudioDevice) {
 			hresult = audioInterface_->Stop();
 			ShutdownAudioDevice();
 
