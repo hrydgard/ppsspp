@@ -28,13 +28,14 @@ size_t MemArena::roundup(size_t x) {
 	return (x + gran - 1) & ~(gran - 1);
 }
 
-void MemArena::GrabLowMemSpace(size_t size) {
+bool MemArena::GrabMemSpace(size_t size) {
 #if !PPSSPP_PLATFORM(UWP)
 	hMemoryMapping = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, (DWORD)(size), NULL);
 	GetSystemInfo(&sysInfo);
 #else
 	hMemoryMapping = 0;
 #endif
+	return true;
 }
 
 void MemArena::ReleaseSpace() {

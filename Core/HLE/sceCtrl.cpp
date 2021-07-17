@@ -188,18 +188,14 @@ void __CtrlButtonUp(u32 buttonBit)
 	ctrlCurrent.buttons &= ~buttonBit;
 }
 
-void __CtrlSetAnalogX(float x, int stick)
+void __CtrlSetAnalogXY(int stick, float x, float y)
 {
-	u8 scaled = clamp_u8((int)ceilf(x * 127.5f + 127.5f));
+	u8 scaledX = clamp_u8((int)ceilf(x * 127.5f + 127.5f));
+	// TODO: We might have too many negations of Y...
+	u8 scaledY = clamp_u8((int)ceilf(-y * 127.5f + 127.5f));
 	std::lock_guard<std::mutex> guard(ctrlMutex);
-	ctrlCurrent.analog[stick][CTRL_ANALOG_X] = scaled;
-}
-
-void __CtrlSetAnalogY(float y, int stick)
-{
-	u8 scaled = clamp_u8((int)ceilf(-y * 127.5f + 127.5f));
-	std::lock_guard<std::mutex> guard(ctrlMutex);
-	ctrlCurrent.analog[stick][CTRL_ANALOG_Y] = scaled;
+	ctrlCurrent.analog[stick][CTRL_ANALOG_X] = scaledX;
+	ctrlCurrent.analog[stick][CTRL_ANALOG_Y] = scaledY;
 }
 
 void __CtrlSetRapidFire(bool state)

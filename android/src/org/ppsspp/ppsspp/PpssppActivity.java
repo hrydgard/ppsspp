@@ -8,6 +8,11 @@ import android.os.Bundle;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
+import android.os.storage.StorageManager;
+import androidx.documentfile.provider.DocumentFile;
+import java.util.ArrayList;
+import java.util.UUID;
+import java.io.File;
 
 public class PpssppActivity extends NativeActivity {
 	private static final String TAG = "PpssppActivity";
@@ -114,17 +119,157 @@ public class PpssppActivity extends NativeActivity {
 		});
 	}
 
-	public int openContentUri(String uriString) {
+	public int openContentUri(String uriString, String mode) {
 		try {
 			Uri uri = Uri.parse(uriString);
-			ParcelFileDescriptor filePfd = getContentResolver().openFileDescriptor(uri, "r");
+			ParcelFileDescriptor filePfd = getContentResolver().openFileDescriptor(uri, mode);
 			if (filePfd == null) {
 				Log.e(TAG, "Failed to get file descriptor for " + uriString);
 				return -1;
 			}
 			return filePfd.detachFd();  // Take ownership of the fd.
 		} catch (Exception e) {
-			Log.e(TAG, "Exception opening content uri: " + e.toString());
+			Log.e(TAG, "openContentUri exception: " + e.toString());
+			return -1;
+		}
+	}
+
+	private static String fileInfoToString(DocumentFile file) {
+		String str = "F|";
+		if (file.isVirtual()) {
+			// This we don't want to see.
+			str = "V|";
+			Log.e(TAG, "Got virtual file: " + file.getUri());
+		} else if (file.isDirectory()) {
+			str = "D|";
+		}
+		str += file.length() + "|" + file.getName() + "|" + file.getUri() + "|" + file.lastModified();
+		return str;
+	}
+
+	public String[] listContentUriDir(String uriString) {
+		try {
+			Uri uri = Uri.parse(uriString);
+			DocumentFile documentFile = DocumentFile.fromTreeUri(this, uri);
+			DocumentFile[] children = documentFile.listFiles();
+			ArrayList<String> listing = new ArrayList<String>();
+			// Encode entries into strings for JNI simplicity.
+			for (DocumentFile file : children) {
+				String str = fileInfoToString(file);
+				listing.add(str);
+			}
+			// Is ArrayList weird or what?
+			String[] strings = new String[listing.size()];
+			return listing.toArray(strings);
+		} catch (Exception e) {
+			Log.e(TAG, "listContentUriDir exception: " + e.toString());
+			return new String[]{};
+		}
+	}
+
+	public boolean contentUriCreateDirectory(String rootTreeUri, String dirName) {
+		try {
+			Uri uri = Uri.parse(rootTreeUri);
+			DocumentFile documentFile = DocumentFile.fromTreeUri(this, uri);
+			if (documentFile != null) {
+				DocumentFile createdDir = documentFile.createDirectory(dirName);
+				return createdDir != null;
+			} else {
+				Log.e(TAG, "contentUriCreateDirectory: fromTreeUri returned null");
+				return false;
+			}
+		} catch (Exception e) {
+			Log.e(TAG, "contentUriCreateDirectory exception: " + e.toString());
+			return false;
+		}
+	}
+
+	public boolean contentUriCreateFile(String rootTreeUri, String fileName) {
+		try {
+			Uri uri = Uri.parse(rootTreeUri);
+			DocumentFile documentFile = DocumentFile.fromTreeUri(this, uri);
+			if (documentFile != null) {
+				// TODO: Check the file extension and choose MIME type appropriately.
+				DocumentFile createdFile = documentFile.createFile("application/octet-stream", fileName);
+				return createdFile != null;
+			} else {
+				Log.e(TAG, "contentUriCreateFile: fromTreeUri returned null");
+				return false;
+			}
+		} catch (Exception e) {
+			Log.e(TAG, "contentUriCreateFile exception: " + e.toString());
+			return false;
+		}
+	}
+
+	public boolean contentUriRemoveFile(String fileName) {
+		try {
+			Uri uri = Uri.parse(fileName);
+			DocumentFile documentFile = DocumentFile.fromSingleUri(this, uri);
+			if (documentFile != null) {
+				return documentFile.delete();
+			} else {
+				return false;
+			}
+		} catch (Exception e) {
+			Log.e(TAG, "contentUriRemoveFile exception: " + e.toString());
+			return false;
+		}
+	}
+
+	public String contentUriGetFileInfo(String fileName) {
+		try {
+			Uri uri = Uri.parse(fileName);
+			DocumentFile documentFile = DocumentFile.fromSingleUri(this, uri);
+			if (documentFile != null) {
+				if (documentFile.exists()) {
+					String str = fileInfoToString(documentFile);
+					return str;
+				} else {
+					return null;
+				}
+			} else {
+				return null;
+			}
+		} catch (Exception e) {
+			Log.e(TAG, "contentUriGetFileInfo exception: " + e.toString());
+			return null;
+		}
+	}
+
+	// The example in Android documentation uses this.getFilesDir for path.
+	// There's also a way to beg the OS for more space, which might clear caches, but
+	// let's just not bother with that for now.
+	public long contentUriGetFreeStorageSpace(String uriString) {
+		try {
+			StorageManager storageManager = getApplicationContext().getSystemService(StorageManager.class);
+
+			// In 29 and later, we can directly get the UUID for the storage volume
+			// through the URI.
+			UUID volumeUUID;
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+				Uri uri = Uri.parse(uriString);
+				volumeUUID = UUID.fromString(storageManager.getStorageVolume(uri).getUuid());
+			} else {
+				volumeUUID = storageManager.getUuidForPath(this.getFilesDir());
+			}
+			long availableBytes = storageManager.getAllocatableBytes(volumeUUID);
+			return availableBytes;
+		}  catch (Exception e) {
+			Log.e(TAG, "contentUriGetFreeStorageSpace exception: " + e.toString());
+			return -1;
+		}
+	}
+
+	public long filePathGetFreeStorageSpace(String filePath) {
+		try {
+			StorageManager storageManager = getApplicationContext().getSystemService(StorageManager.class);
+			File file = new File(filePath);
+			UUID volumeUUID = storageManager.getUuidForPath(file);
+			long availableBytes = storageManager.getAllocatableBytes(volumeUUID);
+			return availableBytes;
+		}  catch (Exception e) {
+			Log.e(TAG, "filePathGetFreeStorageSpace exception: " + e.toString());
 			return -1;
 		}
 	}

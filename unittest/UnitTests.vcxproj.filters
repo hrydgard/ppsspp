@@ -12,6 +12,7 @@
       <Filter>Windows</Filter>
     </ClCompile>
     <ClCompile Include="TestShaderGenerators.cpp" />
+    <ClCompile Include="TestThreadManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="JitHarness.h" />

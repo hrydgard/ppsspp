@@ -3,6 +3,9 @@
 #include "android/jni/AndroidAudio.h"
 #include "android/jni/OpenSLContext.h"
 
+std::string g_error;
+std::mutex g_errorMutex;
+
 AudioContext::AudioContext(AndroidAudioCallback cb, int _FramesPerBuffer, int _SampleRate)
 	: audioCallback(cb), framesPerBuffer(_FramesPerBuffer), sampleRate(_SampleRate) {
 	if (framesPerBuffer == 0)
@@ -13,6 +16,12 @@ AudioContext::AudioContext(AndroidAudioCallback cb, int _FramesPerBuffer, int _S
 		framesPerBuffer = 4096;
 
 	sampleRate = _SampleRate;
+	g_error = "";
+}
+
+void AudioContext::SetErrorString(const std::string &error) {
+	std::unique_lock<std::mutex> lock(g_errorMutex);
+	g_error = error;
 }
 
 struct AndroidAudioState {
@@ -131,4 +140,12 @@ bool AndroidAudio_Shutdown(AndroidAudioState *state) {
 	delete state;
 	INFO_LOG(AUDIO, "OpenSLWrap completely unloaded.");
 	return true;
+}
+
+const std::string AndroidAudio_GetErrorString(AndroidAudioState *state) {
+	if (!state) {
+		return "No state";
+	}
+	std::unique_lock<std::mutex> lock(g_errorMutex);
+	return g_error;
 }

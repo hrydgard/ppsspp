@@ -304,11 +304,8 @@ void ProductView::Update() {
 
 std::string ProductView::DownloadURL() {
 	if (entry_.downloadURL.empty()) {
-		// Construct the URL, easy to predict from our server
-		std::string shortName = entry_.file;
-		if (shortName.find('.') == std::string::npos)
-			shortName += ".zip";
-		return storeBaseUrl + "files/" + shortName;
+		// Construct the URL.
+		return storeBaseUrl + "files/" + entry_.file + ".zip";
 	} else {
 		// Use the provided URL, for external hosting.
 		return entry_.downloadURL;
@@ -557,14 +554,6 @@ void StoreScreen::SetFilter(const StoreFilter &filter) {
 UI::EventReturn StoreScreen::OnRetry(UI::EventParams &e) {
 	SetFilter(filter_);
 	return UI::EVENT_DONE;
-}
-
-std::string StoreScreen::GetStoreJsonURL(std::string storePath) const {
-	std::string path = storeBaseUrl + storePath;
-	if (*path.rbegin() != '/')
-		path += '/';
-	path += "index.json";
-	return path;
 }
 
 std::string StoreScreen::GetTranslatedString(const json::JsonGet json, std::string key, const char *fallback) const {

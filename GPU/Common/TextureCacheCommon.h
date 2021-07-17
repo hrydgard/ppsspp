@@ -139,7 +139,7 @@ struct TexCacheEntry {
 	int status;
 
 	u32 addr;
-	u32 hash;
+	u32 minihash;
 	u32 sizeInRAM;  // Could be computed
 	u8 format;  // GeTextureFormat
 	u8 maxLevel;

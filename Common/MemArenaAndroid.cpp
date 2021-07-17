@@ -98,7 +98,7 @@ size_t MemArena::roundup(size_t x) {
 	return x;
 }
 
-void MemArena::GrabLowMemSpace(size_t size) {
+bool MemArena::GrabMemSpace(size_t size) {
 	// Use ashmem so we don't have to allocate a file on disk!
 	const char* name = "PPSSPP_RAM";
 
@@ -111,8 +111,9 @@ void MemArena::GrabLowMemSpace(size_t size) {
 	// Note that it appears that ashmem is pinned by default, so no need to pin.
 	if (fd < 0) {
 		ERROR_LOG(MEMMAP, "Failed to grab ashmem space of size: %08x  errno: %d", (int)size, (int)(errno));
-		return;
+		return false;
 	}
+	return true;
 }
 
 void MemArena::ReleaseSpace() {

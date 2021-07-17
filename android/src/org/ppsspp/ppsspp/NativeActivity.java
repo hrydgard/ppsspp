@@ -27,6 +27,7 @@ import android.os.PowerManager;
 import android.os.Vibrator;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
+import androidx.documentfile.provider.DocumentFile;
 import android.text.InputType;
 import android.util.Log;
 import android.view.Gravity;
@@ -102,7 +103,7 @@ public abstract class NativeActivity extends Activity {
 	private boolean shuttingDown;
 
 	private static final int RESULT_LOAD_IMAGE = 1;
-	private static final int RESULT_BROWSE_FILE = 2;
+	private static final int RESULT_OPEN_DOCUMENT = 2;
 	private static final int RESULT_OPEN_DOCUMENT_TREE = 3;
 
 	// Allow for multiple connected gamepads but just consider them the same for now.
@@ -1141,7 +1142,7 @@ public abstract class NativeActivity extends Activity {
 				cursor.close();
 				NativeApp.sendMessage("bgImage_updated", picturePath);
 			}
-		} else if (requestCode == RESULT_BROWSE_FILE) {
+		} else if (requestCode == RESULT_OPEN_DOCUMENT) {
 			Uri selectedFile = data.getData();
 			if (selectedFile != null) {
 				// Grab permanent permission so we can show it in recents list etc.
@@ -1152,12 +1153,21 @@ public abstract class NativeActivity extends Activity {
 				NativeApp.sendMessage("browse_fileSelect", selectedFile.toString());
 			}
 		} else if (requestCode == RESULT_OPEN_DOCUMENT_TREE) {
-			Uri selectedFile = data.getData();
-			if (selectedFile != null) {
-				// Convert URI to normal path. (This might not be possible in Android 12+)
-				String path = selectedFile.toString();
+			Uri selectedDirectoryUri = data.getData();
+			if (selectedDirectoryUri != null) {
+				String path = selectedDirectoryUri.toString();
 				Log.i(TAG, "Browse folder finished: " + path);
-				NativeApp.sendMessage("browse_folderSelect", path);
+				getContentResolver().takePersistableUriPermission(selectedDirectoryUri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+				DocumentFile documentFile = DocumentFile.fromTreeUri(this, selectedDirectoryUri);
+				Log.i(TAG, "Document name: " + documentFile.getUri());
+				/*
+				// Old debug log
+				DocumentFile[] children = documentFile.listFiles();
+				for (DocumentFile child : children) {
+					Log.i(TAG, "Child: " + child.getUri() + " " + child.getName());
+				}
+				*/
+				NativeApp.sendMessage("browse_folderSelect", documentFile.getUri().toString());
 			}
 		}
 	}
@@ -1296,8 +1306,11 @@ public abstract class NativeActivity extends Activity {
 				intent.addCategory(Intent.CATEGORY_OPENABLE);
 				intent.setType("*/*");
 				intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-				//intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, pickerInitialUri);
-				startActivityForResult(intent, RESULT_BROWSE_FILE);
+				// Possible alternative approach:
+				// String[] mimeTypes = {"application/octet-stream", "/x-iso9660-image"};
+				// intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
+				startActivityForResult(intent, RESULT_OPEN_DOCUMENT);
+				// intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, pickerInitialUri);
 			} catch (Exception e) {
 				Log.e(TAG, e.toString());
 				return false;
@@ -1305,9 +1318,9 @@ public abstract class NativeActivity extends Activity {
 		} else if (command.equals("browse_folder")) {
 			try {
 				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-				intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+				intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
 				intent.addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
-				intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);  // not yet used properly
+				intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
 				intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);  // Only allow local folders.
 				startActivityForResult(intent, RESULT_OPEN_DOCUMENT_TREE);
 				return true;

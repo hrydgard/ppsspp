@@ -538,6 +538,9 @@
     <ClInclude Include="..\android\jni\OpenSLContext.h">
       <Filter>Other Platforms\Android</Filter>
     </ClInclude>
+    <ClInclude Include="..\android\jni\AndroidContentURI.h">
+      <Filter>Other Platforms\Android</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="icon1.ico">

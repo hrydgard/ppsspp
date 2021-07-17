@@ -56,6 +56,13 @@ struct ConfigTouchPos {
 	bool show;
 };
 
+struct ConfigCustomButton {
+	uint64_t key;
+	int image;
+	int shape;
+	bool toggle;
+};
+
 struct Config {
 public:
 	Config();
@@ -73,7 +80,6 @@ public:
 	bool bBrowse; // when opening the emulator, immediately show a file browser
 
 	// General
-	int iNumWorkerThreads;
 	bool bScreenshotsAsPNG;
 	bool bScreenshotsAtRenderRes;
 	bool bSavestateScreenshotResLimit;
@@ -309,8 +315,6 @@ public:
 	bool bGridView1;
 	bool bGridView2;
 	bool bGridView3;
-	//Combo key screen flag
-	int iComboMode;
 
 	// Right analog binding
 	int iRightAnalogUp;
@@ -359,11 +363,11 @@ public:
 	ConfigTouchPos touchCombo2;
 	ConfigTouchPos touchCombo3;
 	ConfigTouchPos touchCombo4;
-	ConfigTouchPos touchSpeed1Key;
-	ConfigTouchPos touchSpeed2Key;
-	ConfigTouchPos touchRapidFireKey;
-	ConfigTouchPos touchAnalogRotationCWKey;
-	ConfigTouchPos touchAnalogRotationCCWKey;
+	ConfigTouchPos touchCombo5;
+	ConfigTouchPos touchCombo6;
+	ConfigTouchPos touchCombo7;
+	ConfigTouchPos touchCombo8;
+	ConfigTouchPos touchCombo9;
 
 	// Controls Visibility
 	bool bShowTouchControls;
@@ -373,35 +377,30 @@ public:
 	bool bShowTouchTriangle;
 	bool bShowTouchSquare;
 
-	// Combo_key mapping. These are bitfields.
-	int iCombokey0;
-	int iCombokey1;
-	int iCombokey2;
-	int iCombokey3;
-	int iCombokey4;
-
-	bool bComboToggle0;
-	bool bComboToggle1;
-	bool bComboToggle2;
-	bool bComboToggle3;
-	bool bComboToggle4;
+	ConfigCustomButton CustomKey0;
+	ConfigCustomButton CustomKey1;
+	ConfigCustomButton CustomKey2;
+	ConfigCustomButton CustomKey3;
+	ConfigCustomButton CustomKey4;
+	ConfigCustomButton CustomKey5;
+	ConfigCustomButton CustomKey6;
+	ConfigCustomButton CustomKey7;
+	ConfigCustomButton CustomKey8;
+	ConfigCustomButton CustomKey9;	
 
 	// Ignored on iOS and other platforms that lack pause.
 	bool bShowTouchPause;
 
 	bool bHapticFeedback;
 
-	float fDInputAnalogDeadzone;
-	int iDInputAnalogInverseMode;
-	float fDInputAnalogInverseDeadzone;
-	float fDInputAnalogSensitivity;
 	bool bEnableDInputWithXInput;
-
 	// We also use the XInput settings as analog settings on other platforms like Android.
-	float fXInputAnalogDeadzone;
-	int iXInputAnalogInverseMode;
-	float fXInputAnalogInverseDeadzone;
-	float fXInputAnalogSensitivity;
+	float fAnalogDeadzone;
+	float fAnalogInverseDeadzone;
+	float fAnalogSensitivity;
+	// convert analog stick circle to square
+	bool bAnalogIsCircular;
+
 
 	float fAnalogLimiterDeadzone;
 	float fAxisBindThreshold;
@@ -523,6 +522,8 @@ public:
 
 	void SetSearchPath(const Path &path);
 	const Path FindConfigFile(const std::string &baseFilename);
+
+	void UpdateIniLocation(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 
 	// Utility functions for "recent" management
 	void AddRecent(const std::string &file);

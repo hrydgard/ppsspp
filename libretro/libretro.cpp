@@ -6,6 +6,7 @@
 #include <vector>
 #include <cstdlib>
 
+#include "Common/CPUDetect.h"
 #include "Common/Log.h"
 #include "Common/LogManager.h"
 #include "Common/System/Display.h"
@@ -17,6 +18,7 @@
 #include "Common/ConsoleListener.h"
 #include "Common/Input/InputState.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/Thread/ThreadManager.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/AssetReader.h"
 
@@ -400,6 +402,8 @@ void retro_init(void)
 
    LogManager::Init(&g_Config.bEnableLogging);
 
+   g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
+
    host = new LibretroHost;
 
    if (environ_cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &log))
@@ -612,7 +616,7 @@ bool retro_load_game(const struct retro_game_info *game)
    if (retro_base_dir.empty())
       retro_base_dir = Path(game->path).NavigateUp();
 
-   retro_base_dir            /= "PPSSPP";
+   retro_base_dir /= "PPSSPP";
 
    if (retro_save_dir.empty())
       retro_save_dir = Path(game->path).NavigateUp();
@@ -671,6 +675,8 @@ void retro_unload_game(void)
 	delete ctx;
 	ctx = nullptr;
 	PSP_CoreParameter().graphicsContext = nullptr;
+
+   g_threadManager.Teardown();
 }
 
 void retro_reset(void)
@@ -746,10 +752,12 @@ static void retro_input(void)
       }
    }
 
-   __CtrlSetAnalogX(input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X) / 32768.0f, CTRL_STICK_LEFT);
-   __CtrlSetAnalogY(input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y) / -32768.0f, CTRL_STICK_LEFT);
-   __CtrlSetAnalogX(input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_X) / 32768.0f, CTRL_STICK_RIGHT);
-   __CtrlSetAnalogY(input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y) / -32768.0f, CTRL_STICK_RIGHT);
+   float x_left = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X) / 32767.0f;
+   float y_left = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y) / -32767.0f;
+   float x_right = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_X) / 32767.0f;
+   float y_right = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y) / -32767.0f;
+   __CtrlSetAnalogXY(CTRL_STICK_LEFT, x_left, y_left);
+   __CtrlSetAnalogXY(CTRL_STICK_RIGHT, x_right, y_right);
 }
 
 void retro_run(void)

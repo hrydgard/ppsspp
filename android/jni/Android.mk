@@ -249,6 +249,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Data/Text/I18n.cpp \
   $(SRC)/Common/Data/Text/Parsers.cpp \
   $(SRC)/Common/Data/Text/WrapText.cpp \
+  $(SRC)/Common/File/AndroidStorage.cpp \
   $(SRC)/Common/File/VFS/VFS.cpp \
   $(SRC)/Common/File/VFS/AssetReader.cpp \
   $(SRC)/Common/File/DiskFree.cpp \
@@ -284,9 +285,9 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Net/WebsocketServer.cpp \
   $(SRC)/Common/Profiler/Profiler.cpp \
   $(SRC)/Common/System/Display.cpp \
-  $(SRC)/Common/Thread/PrioritizedWorkQueue.cpp \
-  $(SRC)/Common/Thread/ThreadPool.cpp \
   $(SRC)/Common/Thread/ThreadUtil.cpp \
+  $(SRC)/Common/Thread/ThreadManager.cpp \
+  $(SRC)/Common/Thread/ParallelLoop.cpp \
   $(SRC)/Common/UI/Root.cpp \
   $(SRC)/Common/UI/Screen.cpp \
   $(SRC)/Common/UI/UI.cpp \
@@ -302,6 +303,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/FakeCPUDetect.cpp \
   $(SRC)/Common/Log.cpp \
   $(SRC)/Common/LogManager.cpp \
+  $(SRC)/Common/LogReporting.cpp \
   $(SRC)/Common/MemArenaAndroid.cpp \
   $(SRC)/Common/MemArenaDarwin.cpp \
   $(SRC)/Common/MemArenaWin32.cpp \
@@ -376,6 +378,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HW/SasAudio.cpp.arm \
   $(SRC)/Core/HW/SasReverb.cpp.arm \
   $(SRC)/Core/HW/StereoResampler.cpp.arm \
+  $(SRC)/Core/ControlMapper.cpp \
   $(SRC)/Core/Core.cpp \
   $(SRC)/Core/Compatibility.cpp \
   $(SRC)/Core/Config.cpp \
@@ -646,6 +649,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/DisplayLayoutScreen.cpp \
   $(SRC)/UI/EmuScreen.cpp \
   $(SRC)/UI/MainScreen.cpp \
+  $(SRC)/UI/MemStickScreen.cpp \
   $(SRC)/UI/MiscScreens.cpp \
   $(SRC)/UI/RemoteISOScreen.cpp \
   $(SRC)/UI/ReportScreen.cpp \
@@ -722,6 +726,7 @@ ifeq ($(UNITTEST),1)
     $(SRC)/unittest/JitHarness.cpp \
     $(SRC)/unittest/TestShaderGenerators.cpp \
     $(SRC)/unittest/TestVertexJit.cpp \
+    $(SRC)/unittest/TestThreadManager.cpp \
     $(TESTARMEMITTER_FILE) \
     $(SRC)/unittest/UnitTest.cpp
 

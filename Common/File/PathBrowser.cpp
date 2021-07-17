@@ -9,12 +9,18 @@
 
 #include "Common/File/PathBrowser.h"
 #include "Common/File/FileUtil.h"
+#include "Common/File/DirListing.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 #include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
 
 #include "Core/System.h"
+
+#if PPSSPP_PLATFORM(ANDROID)
+#include "android/jni/app-android.h"
+#include "android/jni/AndroidContentURI.h"
+#endif
 
 bool LoadRemoteFileList(const Path &url, bool *cancel, std::vector<File::FileInfo> &files) {
 	_dbg_assert_(url.Type() == PathType::HTTP);
@@ -97,33 +103,6 @@ bool LoadRemoteFileList(const Path &url, bool *cancel, std::vector<File::FileInf
 	return !files.empty();
 }
 
-std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const char *filter) {
-	std::set<std::string> filters;
-	if (filter) {
-		std::string tmp;
-		while (*filter) {
-			if (*filter == ':') {
-				filters.insert("." + tmp);
-				tmp.clear();
-			} else {
-				tmp.push_back(*filter);
-			}
-			filter++;
-		}
-		if (!tmp.empty())
-			filters.insert("." + tmp);
-	}
-
-	auto pred = [&](const File::FileInfo &info) {
-		if (info.isDirectory || !filter)
-			return false;
-		std::string ext = info.fullName.GetFileExtension();
-		return filters.find(ext) == filters.end();
-	};
-	files.erase(std::remove_if(files.begin(), files.end(), pred), files.end());
-	return files;
-}
-
 PathBrowser::~PathBrowser() {
 	std::unique_lock<std::mutex> guard(pendingLock_);
 	pendingCancel_ = true;
@@ -143,13 +122,6 @@ void PathBrowser::SetPath(const Path &path) {
 
 void PathBrowser::HandlePath() {
 	if (!path_.empty() && path_.ToString()[0] == '!') {
-		if (pendingActive_)
-			ResetPending();
-		ready_ = true;
-		return;
-	}
-
-	if (path_.Type() != PathType::HTTP) {
 		if (pendingActive_)
 			ResetPending();
 		ready_ = true;
@@ -183,6 +155,12 @@ void PathBrowser::HandlePath() {
 				guard.unlock();
 				results.clear();
 				success = LoadRemoteFileList(lastPath, &pendingCancel_, results);
+				guard.lock();
+			} else {
+				guard.unlock();
+				results.clear();
+				File::GetFilesInDir(lastPath, &results, nullptr);
+				success = true;
 				guard.lock();
 			}
 
@@ -231,36 +209,12 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 	while (!IsListingReady() && (!cancel || !*cancel)) {
 		// In case cancel changes, just sleep.
 		guard.unlock();
-		sleep_ms(100);
+		sleep_ms(50);
 		guard.lock();
 	}
 
-#ifdef _WIN32
-	if (path_.IsRoot()) {
-		// Special path that means root of file system.
-		std::vector<std::string> drives = File::GetWindowsDrives();
-		for (auto drive = drives.begin(); drive != drives.end(); ++drive) {
-			if (*drive == "A:/" || *drive == "B:/")
-				continue;
-			File::FileInfo fake;
-			fake.fullName = Path(*drive);
-			fake.name = *drive;
-			fake.isDirectory = true;
-			fake.exists = true;
-			fake.size = 0;
-			fake.isWritable = false;
-			fileInfo.push_back(fake);
-		}
-	}
-#endif
-
-	if (path_.Type() == PathType::HTTP) {
-		fileInfo = ApplyFilter(pendingFiles_, filter);
-		return true;
-	} else {
-		File::GetFilesInDir(path_, &fileInfo, filter);
-		return true;
-	}
+	fileInfo = ApplyFilter(pendingFiles_, filter);
+	return true;
 }
 
 bool PathBrowser::CanNavigateUp() {

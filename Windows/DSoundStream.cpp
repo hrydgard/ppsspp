@@ -123,7 +123,7 @@ int DSoundAudioBackend::RunThread() {
 		int numBytesToRender = RoundDown128(ModBufferSize(currentPos_ - lastPos_)); 
 
 		if (numBytesToRender >= 256) {
-			int numBytesRendered = 4 * (*callback_)(realtimeBuffer_, numBytesToRender >> 2, 16, 44100, 2);
+			int numBytesRendered = 4 * (*callback_)(realtimeBuffer_, numBytesToRender >> 2, 16, 44100);
 			//We need to copy the full buffer, regardless of what the mixer claims to have filled
 			//If we don't do this then the sound will loop if the sound stops and the mixer writes only zeroes
 			numBytesRendered = numBytesToRender;

@@ -30,7 +30,6 @@ typedef void *HANDLE;
 class LocalFileLoader : public FileLoader {
 public:
 	LocalFileLoader(const Path &filename);
-	LocalFileLoader(const int fd, const Path &filename);
 	virtual ~LocalFileLoader();
 
 	virtual bool Exists() override;
@@ -44,12 +43,12 @@ public:
 private:
 #ifndef _WIN32
 	void DetectSizeFd();
-	int fd_;
+	int fd_ = -1;
 #else
-	HANDLE handle_;
+	HANDLE handle_ = 0;
 #endif
-	u64 filesize_;
+	u64 filesize_ = 0;
 	Path filename_;
 	std::mutex readLock_;
-	bool isOpenedByFd_;
+	bool isOpenedByFd_ = false;
 };

@@ -367,7 +367,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	int bufw = GetTextureBufw(0, texaddr, format);
 	u8 maxLevel = gstate.getTextureMaxLevel();
 
-	u32 texhash = MiniHash((const u32 *)Memory::GetPointerUnchecked(texaddr));
+	u32 minihash = MiniHash((const u32 *)Memory::GetPointerUnchecked(texaddr));
 
 	TexCache::iterator entryIter = cache_.find(cachekey);
 	TexCacheEntry *entry = nullptr;
@@ -437,7 +437,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 				rehash = true;
 			}
 
-			if (texhash != entry->hash) {
+			if (minihash != entry->minihash) {
 				match = false;
 				reason = "minihash";
 			} else if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
@@ -548,7 +548,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 	// We have to decode it, let's setup the cache entry first.
 	entry->addr = texaddr;
-	entry->hash = texhash;
+	entry->minihash = minihash;
 	entry->dim = dim;
 	entry->format = format;
 	entry->maxLevel = maxLevel;
@@ -1306,6 +1306,39 @@ static inline void ConvertFormatToRGBA8888(GEPaletteFormat format, u32 *dst, con
 	ConvertFormatToRGBA8888(GETextureFormat(format), dst, src, numPixels);
 }
 
+template <typename DXTBlock, int n>
+static void DecodeDXTBlock(uint8_t *out, int outPitch, uint32_t texaddr, const uint8_t *texptr, int w, int h, int bufw, bool reverseColors, bool useBGRA) {
+	int minw = std::min(bufw, w);
+	uint32_t *dst = (uint32_t *)out;
+	int outPitch32 = outPitch / sizeof(uint32_t);
+	const DXTBlock *src = (const DXTBlock *)texptr;
+
+	if (!Memory::IsValidRange(texaddr, (h / 4) * (bufw / 4) * sizeof(DXTBlock))) {
+		ERROR_LOG_REPORT(G3D, "DXT%d texture extends beyond valid RAM: %08x + %d x %d", n, texaddr, bufw, h);
+		uint32_t limited = Memory::ValidSize(texaddr, (h / 4) * (bufw / 4) * sizeof(DXTBlock));
+		// This might possibly be 0, but try to decode what we can (might even be how the PSP behaves.)
+		h = (((int)limited / sizeof(DXTBlock)) / (bufw / 4)) * 4;
+	}
+
+	for (int y = 0; y < h; y += 4) {
+		u32 blockIndex = (y / 4) * (bufw / 4);
+		int blockHeight = std::min(h - y, 4);
+		for (int x = 0; x < minw; x += 4) {
+			if (n == 1)
+				DecodeDXT1Block(dst + outPitch32 * y + x, (const DXT1Block *)src + blockIndex, outPitch32, blockHeight, false);
+			if (n == 3)
+				DecodeDXT3Block(dst + outPitch32 * y + x, (const DXT3Block *)src + blockIndex, outPitch32, blockHeight);
+			if (n == 5)
+				DecodeDXT5Block(dst + outPitch32 * y + x, (const DXT5Block *)src + blockIndex, outPitch32, blockHeight);
+			blockIndex++;
+		}
+	}
+	w = (w + 3) & ~3;
+	if (reverseColors) {
+		ReverseColors(out, out, GE_TFMT_8888, outPitch32 * h, useBGRA);
+	}
+}
+
 void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool useBGRA, bool expandTo32bit) {
 	bool swizzled = gstate.isTextureSwizzled();
 	if ((texaddr & 0x00600000) != 0 && Memory::IsVRAMAddress(texaddr)) {
@@ -1481,70 +1514,16 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 		break;
 
 	case GE_TFMT_DXT1:
-	{
-		int minw = std::min(bufw, w);
-		u32 *dst = (u32 *)out;
-		int outPitch32 = outPitch / sizeof(u32);
-		DXT1Block *src = (DXT1Block*)texptr;
-
-		for (int y = 0; y < h; y += 4) {
-			u32 blockIndex = (y / 4) * (bufw / 4);
-			int blockHeight = std::min(h - y, 4);
-			for (int x = 0; x < minw; x += 4) {
-				DecodeDXT1Block(dst + outPitch32 * y + x, src + blockIndex, outPitch32, blockHeight, false);
-				blockIndex++;
-			}
-		}
-		w = (w + 3) & ~3;
-		if (reverseColors) {
-			ReverseColors(out, out, GE_TFMT_8888, outPitch32 * h, useBGRA);
-		}
+		DecodeDXTBlock<DXT1Block, 1>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors, useBGRA);
 		break;
-	}
 
 	case GE_TFMT_DXT3:
-	{
-		int minw = std::min(bufw, w);
-		u32 *dst = (u32 *)out;
-		int outPitch32 = outPitch / sizeof(u32);
-		DXT3Block *src = (DXT3Block*)texptr;
-
-		for (int y = 0; y < h; y += 4) {
-			u32 blockIndex = (y / 4) * (bufw / 4);
-			int blockHeight = std::min(h - y, 4);
-			for (int x = 0; x < minw; x += 4) {
-				DecodeDXT3Block(dst + outPitch32 * y + x, src + blockIndex, outPitch32, blockHeight);
-				blockIndex++;
-			}
-		}
-		w = (w + 3) & ~3;
-		if (reverseColors) {
-			ReverseColors(out, out, GE_TFMT_8888, outPitch32 * h, useBGRA);
-		}
+		DecodeDXTBlock<DXT3Block, 3>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors, useBGRA);
 		break;
-	}
 
 	case GE_TFMT_DXT5:
-	{
-		int minw = std::min(bufw, w);
-		u32 *dst = (u32 *)out;
-		int outPitch32 = outPitch / sizeof(u32);
-		DXT5Block *src = (DXT5Block*)texptr;
-
-		for (int y = 0; y < h; y += 4) {
-			u32 blockIndex = (y / 4) * (bufw / 4);
-			int blockHeight = std::min(h - y, 4);
-			for (int x = 0; x < minw; x += 4) {
-				DecodeDXT5Block(dst + outPitch32 * y + x, src + blockIndex, outPitch32, blockHeight);
-				blockIndex++;
-			}
-		}
-		w = (w + 3) & ~3;
-		if (reverseColors) {
-			ReverseColors(out, out, GE_TFMT_8888, outPitch32 * h, useBGRA);
-		}
+		DecodeDXTBlock<DXT5Block, 5>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors, useBGRA);
 		break;
-	}
 
 	default:
 		ERROR_LOG_REPORT(G3D, "Unknown Texture Format %d!!!", format);
@@ -1843,7 +1822,7 @@ void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type
 			if (type == GPU_INVALIDATE_FORCE) {
 				// Just random values to force the hash not to match.
 				entry->fullhash = (entry->fullhash ^ 0x12345678) + 13;
-				entry->hash = (entry->hash ^ 0x89ABCDEF) + 89;
+				entry->minihash = (entry->minihash ^ 0x89ABCDEF) + 89;
 			}
 			if (type != GPU_INVALIDATE_ALL) {
 				gpuStats.numTextureInvalidations++;

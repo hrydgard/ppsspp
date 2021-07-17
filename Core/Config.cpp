@@ -68,46 +68,56 @@ struct ConfigSetting {
 		TYPE_BOOL,
 		TYPE_INT,
 		TYPE_UINT32,
+		TYPE_UINT64,
 		TYPE_FLOAT,
 		TYPE_STRING,
 		TYPE_TOUCH_POS,
 		TYPE_PATH,
+		TYPE_CUSTOM_BUTTON
 	};
 	union DefaultValue {
 		bool b;
 		int i;
 		uint32_t u;
+		uint64_t lu;
 		float f;
 		const char *s;
 		const char *p;  // not sure how much point..
 		ConfigTouchPos touchPos;
+		ConfigCustomButton customButton;
 	};
 	union SettingPtr {
 		bool *b;
 		int *i;
 		uint32_t *u;
+		uint64_t *lu;
 		float *f;
 		std::string *s;
 		Path *p;
 		ConfigTouchPos *touchPos;
+		ConfigCustomButton *customButton;
 	};
 
 	typedef bool (*BoolDefaultCallback)();
 	typedef int (*IntDefaultCallback)();
 	typedef uint32_t (*Uint32DefaultCallback)();
+	typedef uint64_t (*Uint64DefaultCallback)();
 	typedef float (*FloatDefaultCallback)();
 	typedef const char *(*StringDefaultCallback)();
 	typedef ConfigTouchPos(*TouchPosDefaultCallback)();
 	typedef const char *(*PathDefaultCallback)();
+	typedef ConfigCustomButton (*CustomButtonDefaultCallback)();
 
 	union Callback {
 		BoolDefaultCallback b;
 		IntDefaultCallback i;
 		Uint32DefaultCallback u;
+		Uint64DefaultCallback lu;
 		FloatDefaultCallback f;
 		StringDefaultCallback s;
 		PathDefaultCallback p;
 		TouchPosDefaultCallback touchPos;
+		CustomButtonDefaultCallback customButton;
 	};
 
 	ConfigSetting(bool v)
@@ -144,6 +154,13 @@ struct ConfigSetting {
 		default_.u = def;
 	}
 
+	ConfigSetting(const char *ini, uint64_t *v, uint64_t def, bool save = true, bool perGame = false)
+		: iniKey_(ini), type_(TYPE_UINT64), report_(false), save_(save), perGame_(perGame) {
+		ptr_.lu = v;
+		cb_.lu = nullptr;
+		default_.lu = def;
+	}
+
 	ConfigSetting(const char *ini, float *v, float def, bool save = true, bool perGame = false)
 		: iniKey_(ini), type_(TYPE_FLOAT), report_(false), save_(save), perGame_(perGame) {
 		ptr_.f = v;
@@ -170,6 +187,13 @@ struct ConfigSetting {
 		ptr_.touchPos = v;
 		cb_.touchPos = nullptr;
 		default_.touchPos = def;
+	}
+
+	ConfigSetting(const char *iniKey, const char *iniImage, const char *iniShape, const char *iniToggle, ConfigCustomButton *v, ConfigCustomButton def, bool save = true, bool perGame = false)
+		: iniKey_(iniKey), ini2_(iniImage), ini3_(iniShape), ini4_(iniToggle), type_(TYPE_CUSTOM_BUTTON), report_(false), save_(save), perGame_(perGame) {
+		ptr_.customButton = v;
+		cb_.customButton = nullptr;
+		default_.customButton = def;
 	}
 
 	ConfigSetting(const char *ini, bool *v, BoolDefaultCallback def, bool save = true, bool perGame = false)
@@ -242,6 +266,11 @@ struct ConfigSetting {
 				default_.u = cb_.u();
 			}
 			return section->Get(iniKey_, ptr_.u, default_.u);
+		case TYPE_UINT64:
+			if (cb_.lu) {
+				default_.lu = cb_.lu();
+			}
+			return section->Get(iniKey_, ptr_.lu, default_.lu);
 		case TYPE_FLOAT:
 			if (cb_.f) {
 				default_.f = cb_.f();
@@ -277,6 +306,15 @@ struct ConfigSetting {
 			}
 			return result;
 		}
+		case TYPE_CUSTOM_BUTTON:
+			if (cb_.customButton) {
+				default_.customButton = cb_.customButton();
+			}
+			section->Get(iniKey_, &ptr_.customButton->key, default_.customButton.key);
+			section->Get(ini2_, &ptr_.customButton->image, default_.customButton.image);
+			section->Get(ini3_, &ptr_.customButton->shape, default_.customButton.shape);
+			section->Get(ini4_, &ptr_.customButton->toggle, default_.customButton.toggle);
+			return true;
 		default:
 			_dbg_assert_msg_(false, "Unexpected ini setting type");
 			return false;
@@ -298,6 +336,8 @@ struct ConfigSetting {
 			return section->Set(iniKey_, *ptr_.i);
 		case TYPE_UINT32:
 			return section->Set(iniKey_, *ptr_.u);
+		case TYPE_UINT64:
+			return section->Set(iniKey_, *ptr_.lu);
 		case TYPE_FLOAT:
 			return section->Set(iniKey_, *ptr_.f);
 		case TYPE_STRING:
@@ -311,6 +351,12 @@ struct ConfigSetting {
 			if (ini4_) {
 				section->Set(ini4_, ptr_.touchPos->show);
 			}
+			return;
+		case TYPE_CUSTOM_BUTTON:
+			section->Set(iniKey_, ptr_.customButton->key);
+			section->Set(ini2_, ptr_.customButton->image);
+			section->Set(ini3_, ptr_.customButton->shape);
+			section->Set(ini4_, ptr_.customButton->toggle);
 			return;
 		default:
 			_dbg_assert_msg_(false, "Unexpected ini setting type");
@@ -329,6 +375,8 @@ struct ConfigSetting {
 			return data.Add(prefix + iniKey_, *ptr_.i);
 		case TYPE_UINT32:
 			return data.Add(prefix + iniKey_, *ptr_.u);
+		case TYPE_UINT64:
+			return data.Add(prefix + iniKey_, *ptr_.lu);
 		case TYPE_FLOAT:
 			return data.Add(prefix + iniKey_, *ptr_.f);
 		case TYPE_STRING:
@@ -336,6 +384,9 @@ struct ConfigSetting {
 		case TYPE_PATH:
 			return data.Add(prefix + iniKey_, ptr_.p->ToString());
 		case TYPE_TOUCH_POS:
+			// Doesn't report.
+			return;
+		case TYPE_CUSTOM_BUTTON:
 			// Doesn't report.
 			return;
 		default:
@@ -423,12 +474,6 @@ std::string CreateRandMAC() {
 	return randStream.str();
 }
 
-static int DefaultNumWorkers() {
-	// Let's cap the global thread pool at 16 threads. Nothing we do really should have much
-	// use for more...
-	return std::min(16, cpu_info.num_cores);
-}
-
 static int DefaultCpuCore() {
 #if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	return (int)CPUCore::JIT;
@@ -477,7 +522,6 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("DiscordPresence", &g_Config.bDiscordPresence, false, true, false),  // Or maybe it makes sense to have it per-game? Race conditions abound...
 	ConfigSetting("UISound", &g_Config.bUISound, false, true, false),
 
-	ReportedConfigSetting("NumWorkerThreads", &g_Config.iNumWorkerThreads, &DefaultNumWorkers, true, true),
 	ConfigSetting("AutoLoadSaveState", &g_Config.iAutoLoadSaveState, 0, true, true),
 	ReportedConfigSetting("EnableCheats", &g_Config.bEnableCheats, true, true, true),
 	ConfigSetting("CwCheatRefreshRate", &g_Config.iCwCheatRefreshRate, 77, true, true),
@@ -503,7 +547,6 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("GridView1", &g_Config.bGridView1, true),
 	ConfigSetting("GridView2", &g_Config.bGridView2, true),
 	ConfigSetting("GridView3", &g_Config.bGridView3, false),
-	ConfigSetting("ComboMode", &g_Config.iComboMode, 0),
 	ConfigSetting("RightAnalogUp", &g_Config.iRightAnalogUp, 0, true, true),
 	ConfigSetting("RightAnalogDown", &g_Config.iRightAnalogDown, 0, true, true),
 	ConfigSetting("RightAnalogLeft", &g_Config.iRightAnalogLeft, 0, true, true),
@@ -905,17 +948,16 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("ShowTouchSquare", &g_Config.bShowTouchSquare, true, true, true),
 	ConfigSetting("ShowTouchTriangle", &g_Config.bShowTouchTriangle, true, true, true),
 
-	ConfigSetting("ComboKey0Mapping", &g_Config.iCombokey0, 0, true, true),
-	ConfigSetting("ComboKey1Mapping", &g_Config.iCombokey1, 0, true, true),
-	ConfigSetting("ComboKey2Mapping", &g_Config.iCombokey2, 0, true, true),
-	ConfigSetting("ComboKey3Mapping", &g_Config.iCombokey3, 0, true, true),
-	ConfigSetting("ComboKey4Mapping", &g_Config.iCombokey4, 0, true, true),
-
-	ConfigSetting("ComboKey0Toggle", &g_Config.bComboToggle0, false, true, true),
-	ConfigSetting("ComboKey1Toggle", &g_Config.bComboToggle1, false, true, true),
-	ConfigSetting("ComboKey2Toggle", &g_Config.bComboToggle2, false, true, true),
-	ConfigSetting("ComboKey3Toggle", &g_Config.bComboToggle3, false, true, true),
-	ConfigSetting("ComboKey4Toggle", &g_Config.bComboToggle4, false, true, true),
+	ConfigSetting("Custom0Mapping", "Custom0Image", "Custom0Shape", "Custom0Toggle", &g_Config.CustomKey0, {0, 0, 0, false}, true, true),
+	ConfigSetting("Custom1Mapping", "Custom1Image", "Custom1Shape", "Custom1Toggle", &g_Config.CustomKey1, {0, 1, 0, false}, true, true),
+	ConfigSetting("Custom2Mapping", "Custom2Image", "Custom2Shape", "Custom2Toggle", &g_Config.CustomKey2, {0, 2, 0, false}, true, true),
+	ConfigSetting("Custom3Mapping", "Custom3Image", "Custom3Shape", "Custom3Toggle", &g_Config.CustomKey3, {0, 3, 0, false}, true, true),
+	ConfigSetting("Custom4Mapping", "Custom4Image", "Custom4Shape", "Custom4Toggle", &g_Config.CustomKey4, {0, 4, 0, false}, true, true),
+	ConfigSetting("Custom5Mapping", "Custom5Image", "Custom5Shape", "Custom5Toggle", &g_Config.CustomKey5, {0, 0, 1, false}, true, true),
+	ConfigSetting("Custom6Mapping", "Custom6Image", "Custom6Shape", "Custom6Toggle", &g_Config.CustomKey6, {0, 1, 1, false}, true, true),
+	ConfigSetting("Custom7Mapping", "Custom7Image", "Custom7Shape", "Custom7Toggle", &g_Config.CustomKey7, {0, 2, 1, false}, true, true),
+	ConfigSetting("Custom8Mapping", "Custom8Image", "Custom8Shape", "Custom8Toggle", &g_Config.CustomKey8, {0, 3, 1, false}, true, true),
+	ConfigSetting("Custom9Mapping", "Custom9Image", "Custom9Shape", "Custom9Toggle", &g_Config.CustomKey9, {0, 4, 1, false}, true, true),
 
 #if defined(_WIN32)
 	// A win32 user seeing touch controls is likely using PPSSPP on a tablet. There it makes
@@ -948,7 +990,7 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("TouchButtonOpacity", &g_Config.iTouchButtonOpacity, 65, true, true),
 	ConfigSetting("TouchButtonHideSeconds", &g_Config.iTouchButtonHideSeconds, 20, true, true),
 	ConfigSetting("AutoCenterTouchAnalog", &g_Config.bAutoCenterTouchAnalog, false, true, true),
-	ConfigSetting("AnalogAutoRotSpeed", &g_Config.fAnalogAutoRotSpeed, 15.0f, true, true),
+	ConfigSetting("AnalogAutoRotSpeed", &g_Config.fAnalogAutoRotSpeed, 8.0f, true, true),
 
 	// Snap touch control position
 	ConfigSetting("TouchSnapToGrid", &g_Config.bTouchSnapToGrid, false, true, true),
@@ -974,25 +1016,18 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("fcombo2X", "fcombo2Y", "comboKeyScale2", "ShowComboKey2", &g_Config.touchCombo2, defaultTouchPosHide, true, true),
 	ConfigSetting("fcombo3X", "fcombo3Y", "comboKeyScale3", "ShowComboKey3", &g_Config.touchCombo3, defaultTouchPosHide, true, true),
 	ConfigSetting("fcombo4X", "fcombo4Y", "comboKeyScale4", "ShowComboKey4", &g_Config.touchCombo4, defaultTouchPosHide, true, true),
-	ConfigSetting("Speed1KeyX", "Speed1KeyY", "Speed1KeyScale", "ShowSpeed1Key", &g_Config.touchSpeed1Key, defaultTouchPosHide, true, true),
-	ConfigSetting("Speed2KeyX", "Speed2KeyY", "Speed2KeyScale", "ShowSpeed2Key", &g_Config.touchSpeed2Key, defaultTouchPosHide, true, true),
-	ConfigSetting("RapidFireKeyX", "RapidFireKeyY", "RapidFireKeyScale", "ShowRapidFireKey", &g_Config.touchRapidFireKey, defaultTouchPosHide, true, true),
-	ConfigSetting("AnalogRotationCWKeyX", "AnalogRotationKeyCWY", "AnalogRotationKeyCWScale", "ShowAnalogRotationCWKey", &g_Config.touchAnalogRotationCWKey, defaultTouchPosHide, true, true),
-	ConfigSetting("AnalogRotationCCWKeyX", "AnalogRotationKeyCCWY", "AnalogRotationKeyCCWScale", "ShowAnalogRotationCCWKey", &g_Config.touchAnalogRotationCCWKey, defaultTouchPosHide, true, true),
+	ConfigSetting("fcombo5X", "fcombo5Y", "comboKeyScale5", "ShowComboKey5", &g_Config.touchCombo5, defaultTouchPosHide, true, true),
+	ConfigSetting("fcombo6X", "fcombo6Y", "comboKeyScale6", "ShowComboKey6", &g_Config.touchCombo6, defaultTouchPosHide, true, true),
+	ConfigSetting("fcombo7X", "fcombo7Y", "comboKeyScale7", "ShowComboKey7", &g_Config.touchCombo7, defaultTouchPosHide, true, true),
+	ConfigSetting("fcombo8X", "fcombo8Y", "comboKeyScale8", "ShowComboKey8", &g_Config.touchCombo8, defaultTouchPosHide, true, true),
+	ConfigSetting("fcombo9X", "fcombo9Y", "comboKeyScale9", "ShowComboKey9", &g_Config.touchCombo9, defaultTouchPosHide, true, true),
 
-#ifdef _WIN32
-	ConfigSetting("DInputAnalogDeadzone", &g_Config.fDInputAnalogDeadzone, 0.1f, true, true),
-	ConfigSetting("DInputAnalogInverseMode", &g_Config.iDInputAnalogInverseMode, 0, true, true),
-	ConfigSetting("DInputAnalogInverseDeadzone", &g_Config.fDInputAnalogInverseDeadzone, 0.0f, true, true),
-	ConfigSetting("DInputAnalogSensitivity", &g_Config.fDInputAnalogSensitivity, 1.0f, true, true),
+	ConfigSetting("AnalogDeadzone", &g_Config.fAnalogDeadzone, 0.15f, true, true),
+	ConfigSetting("AnalogInverseDeadzone", &g_Config.fAnalogInverseDeadzone, 0.0f, true, true),
+	ConfigSetting("AnalogSensitivity", &g_Config.fAnalogSensitivity, 1.1f, true, true),
+	ConfigSetting("AnalogIsCircular", &g_Config.bAnalogIsCircular, false , true, true),
 	ConfigSetting("EnableDInputWithXInput", &g_Config.bEnableDInputWithXInput, false, true, true),
 
-	ConfigSetting("XInputAnalogDeadzone", &g_Config.fXInputAnalogDeadzone, 0.24f, true, true),
-	ConfigSetting("XInputAnalogInverseMode", &g_Config.iXInputAnalogInverseMode, 0, true, true),
-	ConfigSetting("XInputAnalogInverseDeadzone", &g_Config.fXInputAnalogInverseDeadzone, 0.0f, true, true),
-#endif
-	// Also reused as generic analog sensitivity
-	ConfigSetting("XInputAnalogSensitivity", &g_Config.fXInputAnalogSensitivity, 1.0f, true, true),
 	ConfigSetting("AnalogLimiterDeadzone", &g_Config.fAnalogLimiterDeadzone, 0.6f, true, true),
 	ConfigSetting("AxisBindThreshold", &g_Config.fAxisBindThreshold, 0.25f, true, true),
 
@@ -1229,17 +1264,22 @@ void Config::Reload() {
 	reload_ = false;
 }
 
-void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
+// Call this if you change the search path (such as when changing memstick directory. can't
+// really think of any other legit uses).
+void Config::UpdateIniLocation(const char *iniFileName, const char *controllerIniFilename) {
 	const bool useIniFilename = iniFileName != nullptr && strlen(iniFileName) > 0;
 	iniFilename_ = FindConfigFile(useIniFilename ? iniFileName : "ppsspp.ini");
+	const bool useControllerIniFilename = controllerIniFilename != nullptr && strlen(controllerIniFilename) > 0;
+	controllerIniFilename_ = FindConfigFile(useControllerIniFilename ? controllerIniFilename : "controls.ini");
+}
 
+void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	if (!bUpdatedInstanceCounter) {
 		InitInstanceCounter();
 		bUpdatedInstanceCounter = true;
 	}
 
-	const bool useControllerIniFilename = controllerIniFilename != nullptr && strlen(controllerIniFilename) > 0;
-	controllerIniFilename_ = FindConfigFile(useControllerIniFilename ? controllerIniFilename : "controls.ini");
+	UpdateIniLocation(iniFileName, controllerIniFilename);
 
 	INFO_LOG(LOADER, "Loading config: %s", iniFilename_.c_str());
 	bSaveSettings = true;
@@ -1255,7 +1295,10 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	});
 
 	iRunCount++;
-	if (!File::Exists(Path(currentDirectory)))
+
+	// This check is probably not really necessary here anyway, you can always
+	// press Home or Browse if you're in a bad directory.
+	if (!File::Exists(currentDirectory))
 		currentDirectory = defaultCurrentDirectory;
 
 	Section *log = iniFile.GetOrCreateSection(logSectionName);
@@ -1809,11 +1852,11 @@ void Config::ResetControlLayout() {
 	reset(g_Config.touchCombo2);
 	reset(g_Config.touchCombo3);
 	reset(g_Config.touchCombo4);
-	reset(g_Config.touchSpeed1Key);
-	reset(g_Config.touchSpeed2Key);
-	reset(g_Config.touchRapidFireKey);
-	reset(g_Config.touchAnalogRotationCWKey);
-	reset(g_Config.touchAnalogRotationCCWKey);
+	reset(g_Config.touchCombo5);
+	reset(g_Config.touchCombo6);
+	reset(g_Config.touchCombo7);
+	reset(g_Config.touchCombo8);
+	reset(g_Config.touchCombo9);
 }
 
 void Config::GetReportingInfo(UrlEncoder &data) {

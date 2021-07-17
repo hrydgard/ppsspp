@@ -24,8 +24,6 @@
 #include "Common/UI/UIScreen.h"
 #include "UI/MiscScreens.h"
 
-class SettingInfoMessage;
-
 // Per-game settings screen - enables you to configure graphic options, control options, etc
 // per game.
 class GameSettingsScreen : public UIDialogScreenWithGameBackground {
@@ -71,11 +69,11 @@ private:
 
 	// Event handlers
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
+	UI::EventReturn OnCalibrateAnalogs(UI::EventParams &e);
 	UI::EventReturn OnTouchControlLayout(UI::EventParams &e);
 	UI::EventReturn OnDumpNextFrameToLog(UI::EventParams &e);
 	UI::EventReturn OnTiltTypeChange(UI::EventParams &e);
 	UI::EventReturn OnTiltCustomize(UI::EventParams &e);
-	UI::EventReturn OnComboKey(UI::EventParams &e);
 
 	// Global settings handlers
 	UI::EventReturn OnLanguage(UI::EventParams &e);
@@ -109,9 +107,8 @@ private:
 	UI::EventReturn OnMicDeviceChange(UI::EventParams& e);
 	UI::EventReturn OnAudioDevice(UI::EventParams &e);
 	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
-#if PPSSPP_PLATFORM(ANDROID)
 	UI::EventReturn OnChangeMemStickDir(UI::EventParams &e);
-#elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	UI::EventReturn OnSavePathMydoc(UI::EventParams &e);
 	UI::EventReturn OnSavePathOther(UI::EventParams &e);
 #endif
@@ -140,23 +137,6 @@ private:
 
 	// Android-only
 	std::string pendingMemstickFolder_;
-};
-
-class SettingInfoMessage : public UI::LinearLayout {
-public:
-	SettingInfoMessage(int align, UI::AnchorLayoutParams *lp);
-
-	void SetBottomCutoff(float y) {
-		cutOffY_ = y;
-	}
-	void Show(const std::string &text, UI::View *refView = nullptr);
-
-	void Draw(UIContext &dc);
-
-private:
-	UI::TextView *text_ = nullptr;
-	double timeShown_ = 0.0;
-	float cutOffY_;
 };
 
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {

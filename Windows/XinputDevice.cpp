@@ -151,88 +151,6 @@ struct Stick {
 	float y;
 };
 
-inline float Clampf(float val, float min, float max) {
-	if (val < min) return min;
-	if (val > max) return max;
-	return val;
-}
-
-inline float Signf(float val) {
-	return (float)((0.0f < val) - (val < 0.0f));
-}
-
-inline float LinearMapf(float val, float a0, float a1, float b0, float b1) {
-	return b0 + (((val - a0) * (b1 - b0)) / (a1 - a0));
-}
-
-static Stick NormalizedDeadzoneFilter(short x, short y, float dz, int idzm, float idz, float st) {
-	Stick s(x, y, 1.0f / 32767.0f);
-
-	float magnitude = sqrtf(s.x * s.x + s.y * s.y);
-	if (magnitude > dz) {
-
-		// Circle to square mapping (the PSP stick outputs the full -1..1 square of values)
-#if 1
-		// Looks way better than the old one, below, in the axis tester.
-		float sx = s.x;
-		float sy = s.y;
-		float scaleFactor = sqrtf((sx * sx + sy * sy) / std::max(sx * sx, sy * sy));
-		s.x = sx * scaleFactor;
-		s.y = sy * scaleFactor;
-#else
-		if (magnitude > 1.0f) {
-			s.x *= 1.41421f;
-			s.y *= 1.41421f;
-		}
-#endif
-
-		// Linear range mapping (used to invert deadzones)
-		float md = std::max(dz, idz);
-
-		if (idzm == 1)
-		{
-			float xSign = Signf(s.x);
-			if (xSign != 0.0f) {
-				s.x = LinearMapf(s.x, xSign * dz, xSign, xSign * md, xSign * st);
-			}
-		}
-		else if (idzm == 2)
-		{
-			float ySign = Signf(s.y);
-			if (ySign != 0.0f) {
-				s.y = LinearMapf(s.y, ySign * dz, ySign, ySign * md, ySign * st);
-			}
-		}
-		else if (idzm == 3)
-		{
-			float xNorm = s.x / magnitude;
-			float yNorm = s.y / magnitude;
-			float mapMag = LinearMapf(magnitude, dz, 1.0f, md, st);
-			s.x = xNorm * mapMag;
-			s.y = yNorm * mapMag;
-		}
-
-		s.x = Clampf(s.x, -1.0f, 1.0f);
-		s.y = Clampf(s.y, -1.0f, 1.0f);
-	} else {
-		s.x = 0.0f;
-		s.y = 0.0f;
-	}
-	return s;
-}
-
-bool NormalizedDeadzoneDiffers(short x1, short y1, short x2, short y2, const float dz) {
-	Stick s1(x1, y1, 1.0f / 32767.0f);
-	Stick s2(x2, y2, 1.0f / 32767.0f);
-
-	float magnitude1 = sqrtf(s1.x * s1.x + s1.y * s1.y);
-	float magnitude2 = sqrtf(s2.x * s2.x + s2.y * s2.y);
-	if (magnitude1 > dz || magnitude2 > dz) {
-		return x1 != x2 || y1 != y2;
-	}
-	return false;
-}
-
 bool NormalizedDeadzoneDiffers(u8 x1, u8 x2, const u8 thresh) {
 	if (x1 > thresh || x2 > thresh) {
 		return x1 != x2;
@@ -277,11 +195,6 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 	ApplyButtons(pad, state);
 	ApplyVibration(pad, vibration);
 
-	const float STICK_DEADZONE = g_Config.fXInputAnalogDeadzone;
-	const int STICK_INV_MODE = g_Config.iXInputAnalogInverseMode;
-	const float STICK_INV_DEADZONE = g_Config.fXInputAnalogInverseDeadzone;
-	const float STICK_SENSITIVITY = g_Config.fXInputAnalogSensitivity;
-
 	AxisInput axis;
 	axis.deviceId = DEVICE_ID_X360_0 + pad;
 	auto sendAxis = [&](AndroidJoystickAxis axisId, float value) {
@@ -290,19 +203,10 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 		NativeAxis(axis);
 	};
 
-	if (NormalizedDeadzoneDiffers(prevState[pad].Gamepad.sThumbLX, prevState[pad].Gamepad.sThumbLY, state.Gamepad.sThumbLX, state.Gamepad.sThumbLY, STICK_DEADZONE)) {
-		Stick left = NormalizedDeadzoneFilter(state.Gamepad.sThumbLX, state.Gamepad.sThumbLY, STICK_DEADZONE, STICK_INV_MODE, STICK_INV_DEADZONE, STICK_SENSITIVITY);
-
-		sendAxis(JOYSTICK_AXIS_X, left.x);
-		sendAxis(JOYSTICK_AXIS_Y, left.y);
-	}
-
-	if (NormalizedDeadzoneDiffers(prevState[pad].Gamepad.sThumbRX, prevState[pad].Gamepad.sThumbRY, state.Gamepad.sThumbRX, state.Gamepad.sThumbRY, STICK_DEADZONE)) {
-		Stick right = NormalizedDeadzoneFilter(state.Gamepad.sThumbRX, state.Gamepad.sThumbRY, STICK_DEADZONE, STICK_INV_MODE, STICK_INV_DEADZONE, STICK_SENSITIVITY);
-
-		sendAxis(JOYSTICK_AXIS_Z, right.x);
-		sendAxis(JOYSTICK_AXIS_RZ, right.y);
-	}
+	sendAxis(JOYSTICK_AXIS_X, (float)state.Gamepad.sThumbLX / 32767.0f);
+	sendAxis(JOYSTICK_AXIS_Y, (float)state.Gamepad.sThumbLY / 32767.0f);
+	sendAxis(JOYSTICK_AXIS_Z, (float)state.Gamepad.sThumbRX / 32767.0f);
+	sendAxis(JOYSTICK_AXIS_RZ, (float)state.Gamepad.sThumbRY / 32767.0f);
 
 	if (NormalizedDeadzoneDiffers(prevState[pad].Gamepad.bLeftTrigger, state.Gamepad.bLeftTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD)) {
 		sendAxis(JOYSTICK_AXIS_LTRIGGER, (float)state.Gamepad.bLeftTrigger / 255.0f);

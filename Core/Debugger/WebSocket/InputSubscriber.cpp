@@ -254,8 +254,7 @@ void WebSocketInputState::AnalogSend(DebuggerRequest &req) {
 	if (!AnalogValue(req, &x, "x") || !AnalogValue(req, &y, "y"))
 		return;
 
-	__CtrlSetAnalogX(x, stick == "left" ? CTRL_STICK_LEFT : CTRL_STICK_RIGHT);
-	__CtrlSetAnalogY(y, stick == "left" ? CTRL_STICK_LEFT : CTRL_STICK_RIGHT);
+	__CtrlSetAnalogXY(stick == "left" ? CTRL_STICK_LEFT : CTRL_STICK_RIGHT, x, y);
 
 	req.Respond();
 }

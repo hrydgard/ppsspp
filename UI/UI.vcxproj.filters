@@ -78,6 +78,9 @@
     <ClCompile Include="Store.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="MemStickScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -155,6 +158,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="Store.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="MemStickScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
   </ItemGroup>

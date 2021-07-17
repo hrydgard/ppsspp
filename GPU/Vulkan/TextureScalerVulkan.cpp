@@ -21,16 +21,11 @@
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/Log.h"
+#include "Common/Thread/ParallelLoop.h"
 #include "Core/ThreadPools.h"
 #include "GPU/Common/TextureScalerCommon.h"
 #include "GPU/Vulkan/TextureScalerVulkan.h"
-
-// TODO: Share in TextureCacheVulkan.h?
-// Note: some drivers prefer B4G4R4A4_UNORM_PACK16 over R4G4B4A4_UNORM_PACK16.
-#define VULKAN_4444_FORMAT VK_FORMAT_B4G4R4A4_UNORM_PACK16
-#define VULKAN_1555_FORMAT VK_FORMAT_A1R5G5B5_UNORM_PACK16
-#define VULKAN_565_FORMAT  VK_FORMAT_B5G6R5_UNORM_PACK16
-#define VULKAN_8888_FORMAT VK_FORMAT_R8G8B8A8_UNORM
+#include "GPU/Vulkan/VulkanUtil.h"
 
 int TextureScalerVulkan::BytesPerPixel(u32 format) {
 	return (format == VULKAN_8888_FORMAT) ? 4 : 2;
@@ -47,15 +42,15 @@ void TextureScalerVulkan::ConvertTo8888(u32 format, u32* source, u32* &dest, int
 		break;
 
 	case VULKAN_4444_FORMAT:
-		GlobalThreadPool::Loop(std::bind(&convert4444_dx9, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height);
+		ParallelRangeLoop(&g_threadManager, std::bind(&convert4444_dx9, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_TEXSCALE_LINES_PER_THREAD);
 		break;
 
 	case VULKAN_565_FORMAT:
-		GlobalThreadPool::Loop(std::bind(&convert565_dx9, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height);
+		ParallelRangeLoop(&g_threadManager, std::bind(&convert565_dx9, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_TEXSCALE_LINES_PER_THREAD);
 		break;
 
 	case VULKAN_1555_FORMAT:
-		GlobalThreadPool::Loop(std::bind(&convert5551_dx9, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height);
+		ParallelRangeLoop(&g_threadManager, std::bind(&convert5551_dx9, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_TEXSCALE_LINES_PER_THREAD);
 		break;
 
 	default:

@@ -191,7 +191,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, StencilUplo
 	render_->SetDepth(false, false, GL_ALWAYS);
 	render_->Clear(0, 0, 0, GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, 0x8, 0, 0, 0, 0);
 	render_->SetStencilFunc(GL_TRUE, GL_ALWAYS, 0xFF, 0xFF);
-	render_->SetRaster(false, GL_CCW, GL_FRONT, GL_FALSE);
+	render_->SetRaster(false, GL_CCW, GL_FRONT, GL_FALSE, GL_FALSE);
 	render_->BindProgram(stencilUploadProgram_);
 	render_->SetNoBlendAndMask(0x8);
 

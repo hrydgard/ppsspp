@@ -187,7 +187,7 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 	error = 0;
 
 #if HOST_IS_CASE_SENSITIVE
-	if (access & (FILEACCESS_APPEND|FILEACCESS_CREATE|FILEACCESS_WRITE)) {
+	if (access & (FILEACCESS_APPEND | FILEACCESS_CREATE | FILEACCESS_WRITE)) {
 		DEBUG_LOG(FILESYS, "Checking case for path %s", fileName.c_str());
 		if (!FixPathCase(basePath.ToString(), fileName, FPC_PATH_MUST_EXIST)) {
 			error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
@@ -208,7 +208,7 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 	}
 
 	//TODO: tests, should append seek to end of file? seeking in a file opened for append?
-#ifdef _WIN32
+#if PPSSPP_PLATFORM(WINDOWS)
 	// Convert parameters to Windows permissions and access
 	DWORD desired = 0;
 	DWORD sharemode = 0;
@@ -265,6 +265,37 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 		}
 	}
 #else
+	if (fullName.Type() == PathType::CONTENT_URI) {
+		// Convert flags. Don't want to share this type, bad dependency.
+		u32 flags = File::OPEN_NONE;
+		if (access & FILEACCESS_READ)
+			flags |= File::OPEN_READ;
+		if (access & FILEACCESS_WRITE)
+			flags |= File::OPEN_WRITE;
+		if (access & FILEACCESS_APPEND)
+			flags |= File::OPEN_APPEND;
+		if (access & FILEACCESS_CREATE)
+			flags |= File::OPEN_CREATE;
+		if (access & FILEACCESS_TRUNCATE)
+			flags |= File::OPEN_TRUNCATE;
+
+		int fd = File::OpenFD(fullName, (File::OpenFlag)flags);
+		// Try to detect reads/writes to PSP/GAME to avoid them in replays.
+		if (fullName.FilePathContains("PSP/GAME/")) {
+			inGameDir_ = true;
+		}
+		hFile = fd;
+		if (fd != -1) {
+			// Success
+			return true;
+		} else {
+			// TODO: Need better error codes from OpenFD so we can distinguish
+			// disk full. Just set not found for now.
+			error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
+			return false;
+		}
+	}
+
 	int flags = 0;
 	if (access & FILEACCESS_APPEND) {
 		flags |= O_APPEND;
@@ -623,18 +654,22 @@ int DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const
 
 	err = ReplayApplyDisk(ReplayAction::FILE_OPEN, err, CoreTiming::GetGlobalTimeUs());
 	if (err != 0) {
+		std::string errorString;
+		int logError;
 #ifdef _WIN32
 		auto win32err = GetLastError();
-		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile: FAILED, %i - access = %i, %s", (int)win32err, (int)access, GetStringErrorMsg(win32err).c_str());
+		logError = (int)win32err;
+		errorString = GetStringErrorMsg(win32err);
 #else
-		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile: FAILED, %i - access = %i", errno, (int)access);
+		logError = (int)errno;
 #endif
-		//wwwwaaaaahh!!
+		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile(%s): FAILED, %i - access = %d '%s'", filename.c_str(), logError, (int)access, errorString.c_str());
 		return err;
 	} else {
 #ifdef _WIN32
-		if (access & FILEACCESS_APPEND)
-			entry.hFile.Seek(0,FILEMOVE_END);
+		if (access & FILEACCESS_APPEND) {
+			entry.hFile.Seek(0, FILEMOVE_END);
+		}
 #endif
 
 		u32 newHandle = hAlloc->GetNewHandle();

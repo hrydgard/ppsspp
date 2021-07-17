@@ -27,6 +27,7 @@
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/Tween.h"
 #include "Core/KeyMap.h"
+#include "Core/ControlMapper.h"
 
 struct AxisInput;
 
@@ -62,43 +63,34 @@ private:
 	void bootComplete();
 	bool hasVisibleUI();
 	void renderUI();
-	void processAxis(const AxisInput &axis, int direction);
 
-	void pspKey(int pspKeyCode, int flags);
 	void onVKeyDown(int virtualKeyCode);
 	void onVKeyUp(int virtualKeyCode);
-	void setVKeyAnalog(char axis, int stick, int virtualKeyMin, int virtualKeyMax, bool setZero = true);
 
 	void autoLoad();
 	void checkPowerDown();
 
 	UI::Event OnDevMenu;
 	UI::Event OnChatMenu;
-	bool bootPending_;
+	bool bootPending_ = true;
 	Path gamePath_;
 
 	// Something invalid was loaded, don't try to emulate
-	bool invalid_;
-	bool quit_;
+	bool invalid_ = true;
+	bool quit_ = false;
 	bool stopRender_ = false;
 	std::string errorMessage_;
 
 	// If set, pauses at the end of the frame.
-	bool pauseTrigger_;
-
-	// To track mappable virtual keys. We can have as many as we want.
-	bool virtKeys[VIRTKEY_COUNT];
+	bool pauseTrigger_ = false;
 
 	// In-memory save state used for freezeFrame, which is useful for debugging.
 	std::vector<u8> freezeState_;
 
 	std::string tag_;
 
-	// De-noise mapped axis updates
-	int axisState_[JOYSTICK_AXIS_MAX];
-
-	double saveStatePreviewShownTime_;
-	AsyncImageFileView *saveStatePreview_;
+	double saveStatePreviewShownTime_ = 0.0;
+	AsyncImageFileView *saveStatePreview_ = nullptr;
 	int saveStateSlot_;
 
 	UI::CallbackColorTween *loadingViewColor_ = nullptr;
@@ -111,6 +103,5 @@ private:
 	UI::Button *cardboardDisableButton_ = nullptr;
 	OnScreenMessagesView *onScreenMessagesView_ = nullptr;
 
-	bool autoRotatingAnalogCW_ = false;
-	bool autoRotatingAnalogCCW_ = false;
+	ControlMapper controlMapper_;
 };

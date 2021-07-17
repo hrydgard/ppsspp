@@ -6,9 +6,8 @@
 
 enum class PathType {
 	UNDEFINED = 0,
-	NATIVE = 1,
-	// RELATIVE, // (do we need this?)
-	// CONTENT_URI = 2,  // Android only
+	NATIVE = 1,  // Can be relative.
+	CONTENT_URI = 2,  // Android only. Can only be absolute!
 	HTTP = 3,  // http://, https://
 };
 
@@ -44,7 +43,7 @@ public:
 		return path_.size();
 	}
 
-	// WARNING: Unsafe usage.
+	// WARNING: Potentially unsafe usage, if it's not NATIVE.
 	const char *c_str() const {
 		return path_.c_str();
 	}
@@ -77,6 +76,12 @@ public:
 
 	bool CanNavigateUp() const;
 	Path NavigateUp() const;
+
+	// Navigates as far up as possible from this path. If not possible to navigate upwards, returns the same path.
+	// Not actually always the root of the volume, especially on systems like Mac and Linux where things are often mounted.
+	Path GetRootVolume() const;
+
+	std::string PathTo(const Path &child);
 
 	bool operator ==(const Path &other) const {
 		return path_ == other.path_ && type_ == other.type_;

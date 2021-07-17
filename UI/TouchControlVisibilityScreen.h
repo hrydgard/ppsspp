@@ -28,6 +28,7 @@ struct TouchButtonToggle {
 	const char *key;
 	bool *show;
 	ImageID img;
+	std::function<UI::EventReturn(UI::EventParams&)> handle;
 };
 
 class TouchControlVisibilityScreen : public UIDialogScreenWithBackground {

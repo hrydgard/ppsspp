@@ -21,6 +21,8 @@ namespace Draw {
 class DrawContext;
 }
 
+constexpr int MAX_GL_TEXTURE_SLOTS = 8;
+
 class GLRTexture {
 public:
 	GLRTexture(int width, int height, int numMips);
@@ -571,8 +573,8 @@ public:
 
 	void BindTexture(int slot, GLRTexture *tex) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(slot < MAX_GL_TEXTURE_SLOTS);
 		GLRRenderData data{ GLRRenderCommand::BINDTEXTURE };
-		_dbg_assert_(slot < 16);
 		data.texture.slot = slot;
 		data.texture.texture = tex;
 		curRenderStep_->commands.push_back(data);
@@ -811,19 +813,21 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void SetRaster(GLboolean cullEnable, GLenum frontFace, GLenum cullFace, GLboolean ditherEnable) {
+	void SetRaster(GLboolean cullEnable, GLenum frontFace, GLenum cullFace, GLboolean ditherEnable, GLboolean depthClamp) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::RASTER };
 		data.raster.cullEnable = cullEnable;
 		data.raster.frontFace = frontFace;
 		data.raster.cullFace = cullFace;
 		data.raster.ditherEnable = ditherEnable;
+		data.raster.depthClampEnable = depthClamp;
 		curRenderStep_->commands.push_back(data);
 	}
 	
 	// Modifies the current texture as per GL specs, not global state.
 	void SetTextureSampler(int slot, GLenum wrapS, GLenum wrapT, GLenum magFilter, GLenum minFilter, float anisotropy) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(slot < MAX_GL_TEXTURE_SLOTS);
 		GLRRenderData data{ GLRRenderCommand::TEXTURESAMPLER };
 		data.textureSampler.slot = slot;
 		data.textureSampler.wrapS = wrapS;
@@ -836,6 +840,7 @@ public:
 
 	void SetTextureLod(int slot, float minLod, float maxLod, float lodBias) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(slot < MAX_GL_TEXTURE_SLOTS);
 		GLRRenderData data{ GLRRenderCommand::TEXTURELOD};
 		data.textureLod.slot = slot;
 		data.textureLod.minLod = minLod;

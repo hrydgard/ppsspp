@@ -248,6 +248,7 @@ void CPUInfo::Detect()
 	Mode64bit = false;
 #endif
 	vendor = VENDOR_ARM;
+	logical_cpu_count = 1;
 
 	// Get the information about the CPU 
 #if !PPSSPP_PLATFORM(LINUX)

@@ -1021,9 +1021,6 @@
     <ClCompile Include="..\..\ext\libzip\zip_pkware.c">
       <Filter>Ext\libzip</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\libzip\zip_mkstempm.c">
-      <Filter>Ext\libzip</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_libzip_version.c">
       <Filter>Ext\libzip</Filter>
     </ClCompile>
@@ -1110,6 +1107,7 @@
     </ClCompile>
     <ClCompile Include="..\..\Core\KeyMap.cpp" />
     <ClCompile Include="..\..\Core\ThreadPools.cpp" />
+    <ClCompile Include="..\..\Core\ControlMapper.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1748,6 +1746,7 @@
     </ClInclude>
     <ClInclude Include="..\..\Core\KeyMap.h" />
     <ClInclude Include="..\..\Core\ThreadPools.h" />
+    <ClInclude Include="..\..\Core\ControlMapper.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\gason\LICENSE">

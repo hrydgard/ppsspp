@@ -163,3 +163,20 @@ private:
 
 	double startTime_ = 0.0;
 };
+
+class SettingInfoMessage : public UI::LinearLayout {
+public:
+	SettingInfoMessage(int align, UI::AnchorLayoutParams *lp);
+
+	void SetBottomCutoff(float y) {
+		cutOffY_ = y;
+	}
+	void Show(const std::string &text, UI::View *refView = nullptr);
+
+	void Draw(UIContext &dc);
+
+private:
+	UI::TextView *text_ = nullptr;
+	double timeShown_ = 0.0;
+	float cutOffY_;
+};

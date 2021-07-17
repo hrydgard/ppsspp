@@ -278,7 +278,7 @@ enum class Event {
 	PRESENTED,
 };
 
-constexpr uint32_t MAX_TEXTURE_SLOTS = 2;
+constexpr uint32_t MAX_TEXTURE_SLOTS = 3;
 
 struct FramebufferDesc {
 	int width;

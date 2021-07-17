@@ -43,6 +43,8 @@ struct ShaderInfo {
 	int SSAAFilterLevel;
 	// Force constant/max refresh for animated filters
 	bool requires60fps;
+	// Takes previous frame as input (for blending effects.)
+	bool usePreviousFrame;
 
 	struct Setting {
 		std::string name;

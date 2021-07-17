@@ -39,7 +39,10 @@ struct CPUInfo {
 	bool Mode64bit;
 
 	bool HTT;
+
+	// Number of real CPU cores.
 	int num_cores;
+	// Number of logical CPUs per core.
 	int logical_cpu_count;
 
 	bool bAtom;

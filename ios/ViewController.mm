@@ -682,31 +682,31 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 	};
 
 #if defined(__IPHONE_12_1) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_12_1
-	if (extendedProfile.leftThumbstickButton != nil) {
+	if ([extendedProfile respondsToSelector:@selector(leftThumbstickButton)] && extendedProfile.leftThumbstickButton != nil) {
 		extendedProfile.leftThumbstickButton.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_11];
 		};
 	}
-	if (extendedProfile.rightThumbstickButton != nil) {
+	if ([extendedProfile respondsToSelector:@selector(rightThumbstickButton)] && extendedProfile.rightThumbstickButton != nil) {
 		extendedProfile.rightThumbstickButton.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_12];
 		};
 	}
 #endif
 #if defined(__IPHONE_13_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_13_0
-	if (extendedProfile.buttonOptions != nil) {
+	if ([extendedProfile respondsToSelector:@selector(buttonOptions)] && extendedProfile.buttonOptions != nil) {
 		extendedProfile.buttonOptions.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_13];
 		};
 	}
-	if (extendedProfile.buttonMenu != nil) {
+	if ([extendedProfile respondsToSelector:@selector(buttonMenu)] && extendedProfile.buttonMenu != nil) {
 		extendedProfile.buttonMenu.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_14];
 		};
 	}
 #endif
 #if defined(__IPHONE_14_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_14_0
-	if (extendedProfile.buttonHome != nil) {
+	if ([extendedProfile respondsToSelector:@selector(buttonHome)] && extendedProfile.buttonHome != nil) {
 		extendedProfile.buttonHome.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_15];
 		};
@@ -718,7 +718,7 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 		axisInput.deviceId = DEVICE_ID_PAD_0;
 		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_X;
-		axisInput.value = value * g_Config.fXInputAnalogSensitivity;
+		axisInput.value = value;
 		NativeAxis(axisInput);
 	};
 	
@@ -727,7 +727,7 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 		axisInput.deviceId = DEVICE_ID_PAD_0;
 		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_Y;
-		axisInput.value = -value * g_Config.fXInputAnalogSensitivity;
+		axisInput.value = -value;
 		NativeAxis(axisInput);
 	};
 	
@@ -737,7 +737,7 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 		axisInput.deviceId = DEVICE_ID_PAD_0;
 		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_Z;
-		axisInput.value = value * g_Config.fXInputAnalogSensitivity;
+		axisInput.value = value;
 		NativeAxis(axisInput);
 	};
 	
@@ -746,7 +746,7 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 		axisInput.deviceId = DEVICE_ID_PAD_0;
 		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_RZ;
-		axisInput.value = -value * g_Config.fXInputAnalogSensitivity;
+		axisInput.value = -value;
 		NativeAxis(axisInput);
 	};
 }

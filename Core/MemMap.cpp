@@ -43,7 +43,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
-#include "Core/ThreadPools.h"
+#include "Common/Thread/ParallelLoop.h"
 #include "UI/OnScreenDisplay.h"
 
 namespace Memory {
@@ -213,7 +213,10 @@ bool MemoryMap_Setup(u32 flags) {
 	}
 
 	// Grab some pagefile backed memory out of the void ...
-	g_arena.GrabLowMemSpace(total_mem);
+	if (!g_arena.GrabMemSpace(total_mem)) {
+		// It'll already have logged.
+		return false;
+	}
 #endif
 
 #if !PPSSPP_PLATFORM(ANDROID)
@@ -318,19 +321,19 @@ static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
 
 	switch (p.mode) {
 	case PointerWrap::MODE_READ:
-		GlobalThreadPool::Memcpy(d, storage, size);
+		ParallelMemcpy(&g_threadManager, d, storage, size);
 		break;
 	case PointerWrap::MODE_WRITE:
-		GlobalThreadPool::Memcpy(storage, d, size);
+		ParallelMemcpy(&g_threadManager, storage, d, size);
 		break;
 	case PointerWrap::MODE_MEASURE:
 		// Nothing to do here.
 		break;
 	case PointerWrap::MODE_VERIFY:
-		GlobalThreadPool::Loop([&](int l, int h) {
+		ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
 			for (int i = l; i < h; i++)
 				_dbg_assert_msg_(d[i] == storage[i], "Savestate verification failure: %d (0x%X) (at %p) != %d (0x%X) (at %p).\n", d[i], d[i], &d[i], storage[i], storage[i], &storage[i]);
-		}, 0, size);
+		}, 0, size, 128);
 		break;
 	}
 	storage += size;

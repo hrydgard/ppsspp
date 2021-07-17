@@ -475,6 +475,7 @@
     <ClInclude Include="..\..\Common\GraphicsContext.h" />
     <ClInclude Include="..\..\Common\Log.h" />
     <ClInclude Include="..\..\Common\LogManager.h" />
+    <ClInclude Include="..\..\Common\LogReporting.h" />
     <ClInclude Include="..\..\Common\MemArena.h" />
     <ClInclude Include="..\..\Common\MemoryUtil.h" />
     <ClInclude Include="..\..\Common\MipsEmitter.h" />
@@ -485,9 +486,11 @@
     <ClInclude Include="..\..\Common\System\Display.h" />
     <ClInclude Include="..\..\Common\System\NativeApp.h" />
     <ClInclude Include="..\..\Common\System\System.h" />
-    <ClInclude Include="..\..\Common\Thread\PrioritizedWorkQueue.h" />
-    <ClInclude Include="..\..\Common\Thread\ThreadPool.h" />
+    <ClInclude Include="..\..\Common\Thread\Channel.h" />
+    <ClInclude Include="..\..\Common\Thread\Promise.h" />
     <ClInclude Include="..\..\Common\Thread\ThreadUtil.h" />
+    <ClInclude Include="..\..\Common\Thread\ThreadManager.h" />
+    <ClInclude Include="..\..\Common\Thread\ParallelLoop.h" />
     <ClInclude Include="..\..\Common\Thunk.h" />
     <ClInclude Include="..\..\Common\TimeUtil.h" />
     <ClInclude Include="..\..\Common\UI\Context.h" />
@@ -583,6 +586,7 @@
     <ClCompile Include="..\..\Common\ExceptionHandlerSetup.cpp" />
     <ClCompile Include="..\..\Common\Log.cpp" />
     <ClCompile Include="..\..\Common\LogManager.cpp" />
+    <ClCompile Include="..\..\Common\LogReporting.cpp" />
     <ClCompile Include="..\..\Common\MemArenaAndroid.cpp" />
     <ClCompile Include="..\..\Common\MemArenaDarwin.cpp" />
     <ClCompile Include="..\..\Common\MemArenaPosix.cpp" />
@@ -594,9 +598,9 @@
     <ClCompile Include="..\..\Common\OSVersion.cpp" />
     <ClCompile Include="..\..\Common\StringUtils.cpp" />
     <ClCompile Include="..\..\Common\System\Display.cpp" />
-    <ClCompile Include="..\..\Common\Thread\PrioritizedWorkQueue.cpp" />
-    <ClCompile Include="..\..\Common\Thread\ThreadPool.cpp" />
     <ClCompile Include="..\..\Common\Thread\ThreadUtil.cpp" />
+    <ClCompile Include="..\..\Common\Thread\ThreadManager.cpp" />
+    <ClCompile Include="..\..\Common\Thread\ParallelLoop.cpp" />
     <ClCompile Include="..\..\Common\Thunk.cpp" />
     <ClCompile Include="..\..\Common\TimeUtil.cpp" />
     <ClCompile Include="..\..\Common\UI\Context.cpp" />

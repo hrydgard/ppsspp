@@ -233,6 +233,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Data/Text/WrapText.cpp \
 	$(COMMONDIR)/File/VFS/VFS.cpp \
 	$(COMMONDIR)/File/VFS/AssetReader.cpp \
+	$(COMMONDIR)/File/AndroidStorage.cpp \
 	$(COMMONDIR)/File/DiskFree.cpp \
 	$(COMMONDIR)/File/Path.cpp \
 	$(COMMONDIR)/File/PathBrowser.cpp \
@@ -277,8 +278,8 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Render/TextureAtlas.cpp \
 	$(COMMONDIR)/Serialize/Serializer.cpp \
 	$(COMMONDIR)/Thread/ThreadUtil.cpp \
-	$(COMMONDIR)/Thread/ThreadPool.cpp \
-	$(COMMONDIR)/Thread/PrioritizedWorkQueue.cpp \
+	$(COMMONDIR)/Thread/ParallelLoop.cpp \
+	$(COMMONDIR)/Thread/ThreadManager.cpp \
 	$(COMMONDIR)/UI/Root.cpp \
 	$(COMMONDIR)/UI/Screen.cpp \
 	$(COMMONDIR)/UI/UI.cpp \
@@ -299,6 +300,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/OSVersion.cpp \
 	$(COMMONDIR)/MemoryUtil.cpp \
 	$(COMMONDIR)/MipsCPUDetect.cpp \
+	$(COMMONDIR)/LogReporting.cpp \
 	$(COMMONDIR)/SysError.cpp \
 	$(COMMONDIR)/StringUtils.cpp \
 	$(COMMONDIR)/TimeUtil.cpp
@@ -425,6 +427,7 @@ SOURCES_CXX += \
 	       $(EXTDIR)/jpge/jpge.cpp \
 	       $(COREDIR)/AVIDump.cpp \
 	       $(COREDIR)/Config.cpp \
+	       $(COREDIR)/ControlMapper.cpp \
 	       $(COREDIR)/TextureReplacer.cpp \
 	       $(COREDIR)/Core.cpp \
 	       $(COREDIR)/WaveFile.cpp \
@@ -581,7 +584,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/SaveState.cpp \
 	       $(COREDIR)/Screenshot.cpp \
 	       $(COREDIR)/System.cpp \
-		   $(COREDIR)/ThreadPools.cpp \
+	       $(COREDIR)/ThreadPools.cpp \
 	       $(COREDIR)/Util/BlockAllocator.cpp \
 	       $(COREDIR)/Util/PPGeDraw.cpp \
 	       $(COREDIR)/Util/AudioFormat.cpp \

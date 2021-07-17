@@ -27,6 +27,8 @@
 #include "Common/Common.h"
 #include "Common/File/Path.h"
 
+// Some functions here support Android content URIs. These are marked as such.
+
 #ifdef _MSC_VER
 inline struct tm* localtime_r(const time_t *clock, struct tm *result) {
 	if (localtime_s(result, clock) == 0)
@@ -39,6 +41,21 @@ namespace File {
 
 // Mostly to handle UTF-8 filenames better on Windows.
 FILE *OpenCFile(const Path &filename, const char *mode);
+
+// Reminiscent of PSP's FileAccess enum, due to its use in emulating it.
+enum OpenFlag {
+	OPEN_NONE = 0,
+	OPEN_READ = 1,
+	OPEN_WRITE = 2,
+	OPEN_APPEND = 4,
+	OPEN_CREATE = 8,
+	OPEN_TRUNCATE = 16,
+	// EXCL?
+};
+
+// TODO: This currently only handles Android Content URIs, but might port the rest
+// of DirectoryFileSystem::Open here eventually for symmetry.
+int OpenFD(const Path &filename, OpenFlag flags);
 
 // Resolves symlinks and similar.
 std::string ResolvePath(const std::string &path);
@@ -97,7 +114,7 @@ bool CreateEmptyFile(const Path &filename);
 
 // Opens ini file (cheats, texture replacements etc.)
 // TODO: Belongs in System or something.
-void OpenFileInEditor(const Path &fileName);
+bool OpenFileInEditor(const Path &fileName);
 
 // TODO: Belongs in System or something.
 const Path &GetExeDirectory();
@@ -107,8 +124,7 @@ const Path &GetExeDirectory();
 // and make forgetting an fclose() harder
 class IOFile {
 public:
-	IOFile();
-	IOFile(FILE* file);
+	IOFile() {}
 	IOFile(const Path &filename, const char openmode[]);
 	~IOFile();
 
@@ -173,9 +189,6 @@ public:
 	}
 
 private:
-	IOFile(const std::string &filename, const char openmode[]);
-	bool Open(const std::string &filename, const char openmode[]);
-
 	std::FILE *m_file = nullptr;
 	bool m_good = true;
 };

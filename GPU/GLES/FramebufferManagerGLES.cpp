@@ -203,7 +203,7 @@ void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float 
 
 	// We always want a plain state here, well, except for when it's used by the stencil stuff...
 	render_->SetDepth(false, false, GL_ALWAYS);
-	render_->SetRaster(false, GL_CCW, GL_FRONT, GL_FALSE);
+	render_->SetRaster(false, GL_CCW, GL_FRONT, GL_FALSE, GL_FALSE);
 	if (!(flags & DRAWTEX_KEEP_STENCIL_ALPHA)) {
 		render_->SetNoBlendAndMask(0xF);
 		render_->SetStencilDisabled();
