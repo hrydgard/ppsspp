@@ -661,7 +661,8 @@ void GameSettingsScreen::CreateViews() {
 //#if defined(__ANDROID__)
 	CheckBox *extraAudio = audioSettings->Add(new CheckBox(&g_Config.bExtraAudioBuffering, a->T("AudioBufferingForBluetooth", "Bluetooth-friendly buffer (slower)")));
 	extraAudio->SetEnabledPtr(&g_Config.bEnableSound);
-//#endif#if defined(__ANDROID__)
+//#endif
+#if defined(__ANDROID__)
 	// Show OpenSL debug info
 	const std::string audioErrorStr = AndroidAudio_GetErrorString(g_audioState);
 	if (!audioErrorStr.empty()) {
@@ -935,7 +936,8 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bMemStickInserted, sy->T("Memory Stick inserted")));
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iMemStickSizeGB, 1, 32, sy->T("Change Memory Stick Size", "Memory Stick Size (GB)"), screenManager(), "GB"));
 
-	}#if PPSSPP_PLATFORM(ANDROID)
+	}
+#if PPSSPP_PLATFORM(ANDROID)
 	memstickDisplay_ = g_Config.memStickDirectory.ToVisualString();
 	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Change Memory Stick folder", "Memory Stick folder"), (const char *)nullptr));
 	memstickPath->SetEnabled(!PSP_IsInited());
@@ -1011,7 +1013,7 @@ void GameSettingsScreen::CreateViews() {
 #if PPSSPP_ARCH(AMD64)
 	systemSettings->Add(new CheckBox(&g_Config.bCacheFullIsoInRam, sy->T("Cache ISO in RAM", "Cache full ISO in RAM")))->SetEnabled(!PSP_IsInited());
 #endif
-
+	if (!g_Config.bSimpleUI) {
 	systemSettings->Add(new ItemHeader(sy->T("Cheats", "Cheats (experimental, see forums)")));
 	CheckBox *enableCheats = systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, sy->T("Enable Cheats")));
 	enableCheats->OnClick.Add([&](UI::EventParams &) {
@@ -1710,8 +1712,6 @@ void OtherSettingsScreen::CreateViews() {
 	list->SetSpacing(0);
 
 	list->Add(new ItemHeader(sy->T("Settings that should not be changed by most users")));
-	PopupSliderChoice *workerThreads = list->Add(new PopupSliderChoice(&g_Config.iNumWorkerThreads, 1, 128, gr->T("Number of threads(software rendering/texture scaling)"), 1, screenManager(), gr->T("Threads")));
-	workerThreads->SetFormat("%i Threads");
 	list->Add(new CheckBox(&g_Config.bEncryptSave, sy->T("Encrypt savedata")));
 	list->Add(new CheckBox(&g_Config.bSavedataUpgrade, sy->T("Allow savedata with wrong encryption(unsafe workaround for outdated PSP savedata)")));
 	list->Add(new CheckBox(&g_Config.bShowFrameProfiler, gr->T("Display frame profiler(heavy!)")));
