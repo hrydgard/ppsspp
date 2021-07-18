@@ -21,6 +21,7 @@
 #include "Common/Thread/ThreadManager.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/AssetReader.h"
+#include "Common/Data/Text/I18n.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -346,6 +347,17 @@ static void check_variables(CoreParameter &coreParam)
    ppsspp_language.Update(&g_Config.iLanguage);
    if (g_Config.iLanguage < 0)
       g_Config.iLanguage = get_language_auto();
+
+   g_Config.sLanguageIni = "en_US";
+   auto langValuesMapping = GetLangValuesMapping();
+   for (auto i = langValuesMapping.begin(); i != langValuesMapping.end(); ++i)
+   {
+      if (i->second.second == g_Config.iLanguage)
+      {
+         g_Config.sLanguageIni = i->first;
+      }
+   }
+   i18nrepo.LoadIni(g_Config.sLanguageIni);
 
    if (!PSP_IsInited() && ppsspp_internal_resolution.Update(&g_Config.iInternalResolution))
    {
