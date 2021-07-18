@@ -1,6 +1,7 @@
 #include "Common/Log.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/AssetReader.h"
+#include "Common/File/AndroidStorage.h"
 
 struct VFSEntry {
 	const char *prefix;
@@ -32,7 +33,8 @@ static bool IsLocalAbsolutePath(const char *path) {
 #else
 	bool isWindowsLocal = false;
 #endif
-	return isUnixLocal || isWindowsLocal;
+	bool isContentURI = Android_IsContentUri(path);
+	return isUnixLocal || isWindowsLocal || isContentURI;
 }
 
 // The returned data should be free'd with delete[].
@@ -40,7 +42,7 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 	if (IsLocalAbsolutePath(filename)) {
 		// Local path, not VFS.
 		// INFO_LOG(IO, "Not a VFS path: %s . Reading local file.", filename);
-		return File::ReadLocalFile(filename, size);
+		return File::ReadLocalFile(Path(filename), size);
 	}
 
 	int fn_len = (int)strlen(filename);

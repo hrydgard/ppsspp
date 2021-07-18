@@ -201,6 +201,6 @@ bool WriteDataToFile(bool text_file, const void* data, const unsigned int size, 
 
 bool ReadFileToString(bool text_file, const Path &filename, std::string &str);
 // Return value must be delete[]-d.
-uint8_t *ReadLocalFile(const char *filename, size_t *size);
+uint8_t *ReadLocalFile(const Path &filename, size_t *size);
 
 }  // namespace

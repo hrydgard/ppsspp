@@ -987,10 +987,8 @@ bool ReadFileToString(bool text_file, const Path &filename, std::string &str) {
 	return success;
 }
 
-// This is an odd one, mainly used for asset reading, so doesn't really
-// need to support Path.
-uint8_t *ReadLocalFile(const char *filename, size_t * size) {
-	FILE *file = File::OpenCFile(Path(filename), "rb");
+uint8_t *ReadLocalFile(const Path &filename, size_t *size) {
+	FILE *file = File::OpenCFile(filename, "rb");
 	if (!file) {
 		*size = 0;
 		return nullptr;

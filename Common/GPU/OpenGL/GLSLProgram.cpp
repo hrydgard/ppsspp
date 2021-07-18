@@ -104,7 +104,7 @@ bool glsl_recompile(GLSLProgram *program, std::string *error_message) {
 		program->vshader_mtime = vs.st_mtime;
 		if (!program->vshader_source) {
 			size_t sz;
-			vsh_src.reset((char *)File::ReadLocalFile(program->vshader_filename, &sz));
+			vsh_src.reset((char *)File::ReadLocalFile(Path(program->vshader_filename), &sz));
 		}
 	} else {
 		program->vshader_mtime = 0;
@@ -114,7 +114,7 @@ bool glsl_recompile(GLSLProgram *program, std::string *error_message) {
 		program->fshader_mtime = fs.st_mtime;
 		if (!program->fshader_source) {
 			size_t sz;
-			fsh_src.reset((char *)File::ReadLocalFile(program->fshader_filename, &sz));
+			fsh_src.reset((char *)File::ReadLocalFile(Path(program->fshader_filename), &sz));
 		}
 	} else {
 		program->fshader_mtime = 0;
