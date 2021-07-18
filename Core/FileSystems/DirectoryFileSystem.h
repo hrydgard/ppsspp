@@ -116,7 +116,7 @@ private:
 	struct OpenFileEntry {
 		DirectoryFileHandle hFile = DirectoryFileHandle::NORMAL;
 		std::string guestFilename;
-		FileAccess access;
+		FileAccess access = FILEACCESS_NONE;
 	};
 
 	typedef std::map<u32, OpenFileEntry> EntryMap;

@@ -19,10 +19,10 @@ struct FileInfo {
 	bool isWritable = false;
 	uint64_t size = 0;
 
-	uint64_t atime;
-	uint64_t mtime;
-	uint64_t ctime;
-	uint32_t access;  // st_mode & 0x1ff
+	uint64_t atime = 0;
+	uint64_t mtime = 0;
+	uint64_t ctime = 0;
+	uint32_t access = 0;  // st_mode & 0x1ff
 
 	// Currently only supported for Android storage files.
 	// Other places use different methods to get this.
