@@ -278,11 +278,7 @@ bool ExistsInDir(const Path &path, const std::string &filename) {
 
 bool Exists(const Path &path) {
 	if (path.Type() == PathType::CONTENT_URI) {
-		FileInfo info;
-		if (!Android_GetFileInfo(path.c_str(), &info)) {
-			return false;
-		}
-		return info.exists;
+		return Android_FileExists(path.c_str());
 	}
 
 #if defined(_WIN32)

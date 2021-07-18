@@ -149,6 +149,8 @@ public class PpssppActivity extends NativeActivity {
 	}
 
 	// TODO: Maybe add a cheaper version that doesn't extract all the file information?
+	// TODO: Replace with a proper query:
+	// * https://stackoverflow.com/questions/42186820/documentfile-is-very-slow
 	public String[] listContentUriDir(String uriString) {
 		try {
 			Uri uri = Uri.parse(uriString);
@@ -231,6 +233,26 @@ public class PpssppActivity extends NativeActivity {
 			return true;
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriRenameFile exception: " + e.toString());
+			return false;
+		}
+	}
+
+	// Possibly faster than contentUriGetFileInfo.
+	public boolean contentUriFileExists(String fileUri) {
+		try {
+			Uri uri = Uri.parse(fileUri);
+			DocumentFile documentFile = DocumentFile.fromSingleUri(this, uri);
+			if (documentFile != null) {
+				if (documentFile.exists()) {
+					return true;
+				} else {
+					return false;
+				}
+			} else {
+				return false;
+			}
+		} catch (Exception e) {
+			Log.e(TAG, "contentUriFileExists exception: " + e.toString());
 			return false;
 		}
 	}

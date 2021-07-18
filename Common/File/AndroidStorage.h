@@ -28,6 +28,7 @@ bool Android_CreateFile(const std::string &parentTreeUri, const std::string &fil
 bool Android_RemoveFile(const std::string &fileUri);
 bool Android_RenameFileTo(const std::string &fileUri, const std::string &newName);
 bool Android_GetFileInfo(const std::string &fileUri, File::FileInfo *info);
+bool Android_FileExists(const std::string &fileUri);
 int64_t Android_GetFreeSpaceByContentUri(const std::string &uri);
 int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath);
 
@@ -44,8 +45,9 @@ inline int Android_OpenContentUriFd(const std::string &uri, const Android_OpenCo
 inline bool Android_CreateDirectory(const std::string &parentTreeUri, const std::string &dirName) { return false; }
 inline bool Android_CreateFile(const std::string &parentTreeUri, const std::string &fileName) { return false; }
 inline bool Android_RemoveFile(const std::string &fileUri) { return false; }
-inline bool Android_GetFileInfo(const std::string &fileUri, File::FileInfo *info) { return false; }
 inline bool Android_RenameFileTo(const std::string &fileUri, const std::string &newName) { return false; }
+inline bool Android_GetFileInfo(const std::string &fileUri, File::FileInfo *info) { return false; }
+inline bool Android_FileExists(const std::string &fileUri) { return false; }
 inline int64_t Android_GetFreeSpaceByContentUri(const std::string &uri) { return -1; }
 inline int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath) { return -1; }
 inline std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri) {
