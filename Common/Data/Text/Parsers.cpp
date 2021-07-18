@@ -79,7 +79,7 @@ bool TryParse(const std::string &str, uint64_t *const output) {
 	// Reset errno to a value other than ERANGE
 	errno = 0;
 
-	uint64_t value = strtoul(str.c_str(), &endptr, 0);
+	uint64_t value = strtoull(str.c_str(), &endptr, 0);
 
 	if (!endptr || *endptr)
 		return false;
