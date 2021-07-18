@@ -603,6 +603,8 @@ Path GetSysDirectory(PSPDirectories directoryType) {
 		return pspDirectory / "SYSTEM";
 	case DIRECTORY_PAUTH:
 		return memStickDirectory / "PAUTH";  // This one's at the root...
+	case DIRECTORY_EXDATA:
+		return memStickDirectory / "EXDATA";  // This one's traditionally at the root...
 	case DIRECTORY_DUMP:
 		return pspDirectory / "SYSTEM/DUMP";
 	case DIRECTORY_SAVESTATE:
@@ -622,6 +624,9 @@ Path GetSysDirectory(PSPDirectories directoryType) {
 		return pspDirectory / "VIDEO";
 	case DIRECTORY_AUDIO:
 		return pspDirectory / "AUDIO";
+	case DIRECTORY_CUSTOM_SHADERS:
+		return pspDirectory / "shaders";
+
 	case DIRECTORY_MEMSTICK_ROOT:
 		return g_Config.memStickDirectory;
 	// Just return the memory stick root if we run into some sort of problem.

@@ -115,7 +115,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 			// Need to be able to create the file here if it doesn't exist.
 			// Not exactly sure which abstractions are best, let's start simple.
 			if (!File::Exists(path)) {
-				INFO_LOG(COMMON, "Opening content file '%s' for write. Doesn't exist, creating empty and reopening.", path.c_str());
+				INFO_LOG(COMMON, "OpenCFile(%s): Opening content file for write. Doesn't exist, creating empty and reopening.", path.c_str());
 				std::string name = path.GetFilename();
 				if (path.CanNavigateUp()) {
 					Path parent = path.NavigateUp();
@@ -128,7 +128,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 					return nullptr;
 				}
 			} else {
-				INFO_LOG(COMMON, "Opening file by fd for write");
+				INFO_LOG(COMMON, "OpenCFile(%s): Opening existing content file for write (truncating). Requested mode: '%s'", path.c_str(), mode);
 			}
 
 			// TODO: Support append modes and stuff... For now let's go with the most common one.
