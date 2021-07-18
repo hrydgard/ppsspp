@@ -350,10 +350,12 @@ static void check_variables(CoreParameter &coreParam)
 
    g_Config.sLanguageIni = "en_US";
    auto langValuesMapping = GetLangValuesMapping();
-   for(auto i = langValuesMapping.begin(); i != langValuesMapping.end(); ++i){
-      if(i->second.second == g_Config.iLanguage){
+   for (auto i = langValuesMapping.begin(); i != langValuesMapping.end(); ++i)
+   {
+      if (i->second.second == g_Config.iLanguage)
+      {
          g_Config.sLanguageIni = i->first;
-	  }
+      }
    }
    i18nrepo.LoadIni(g_Config.sLanguageIni);
 
