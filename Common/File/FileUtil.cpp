@@ -513,19 +513,27 @@ bool DeleteDir(const Path &path) {
 }
 
 // renames file srcFilename to destFilename, returns true on success 
-bool Rename(const Path &srcFilename, const Path &destFilename)
-{
+bool Rename(const Path &srcFilename, const Path &destFilename) {
 	if (srcFilename.Type() != destFilename.Type()) {
-		// Impossible.
+		// Impossible. You're gonna need to make a copy, and delete the original. Not the responsibility
+		// of Rename.
 		return false;
 	}
 
+	// We've already asserted that they're the same Type, so only need to check either src or dest.
 	switch (srcFilename.Type()) {
 	case PathType::NATIVE:
-		break; // OK
+		// OK, proceed with the regular code.
+		break;
 	case PathType::CONTENT_URI:
-		ERROR_LOG_REPORT_ONCE(renameUriNotSupported, COMMON, "Moving files by Android URI is not yet supported");
-		return false;
+		// Content URI: Can only rename if in the same folder.
+		if (srcFilename.GetDirectory() != destFilename.GetDirectory()) {
+			INFO_LOG(COMMON, "Content URI rename: Directories not matching, failing. %s --> %s", srcFilename.c_str(), destFilename.c_str());
+			return false;
+		}
+		INFO_LOG(COMMON, "Content URI rename: %s --> %s", srcFilename.c_str(), destFilename.c_str());
+
+		return Android_RenameFileTo(srcFilename.ToString(), destFilename.GetFilename());
 	default:
 		return false;
 	}

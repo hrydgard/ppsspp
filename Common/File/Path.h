@@ -79,6 +79,7 @@ public:
 
 	// Navigates as far up as possible from this path. If not possible to navigate upwards, returns the same path.
 	// Not actually always the root of the volume, especially on systems like Mac and Linux where things are often mounted.
+	// For Android directory trees, navigates to the root of the tree.
 	Path GetRootVolume() const;
 
 	std::string PathTo(const Path &child);

@@ -12,6 +12,7 @@ static jmethodID listContentUriDir;
 static jmethodID contentUriCreateFile;
 static jmethodID contentUriCreateDirectory;
 static jmethodID contentUriRemoveFile;
+static jmethodID contentUriRenameFileTo;
 static jmethodID contentUriGetFileInfo;
 static jmethodID contentUriGetFreeStorageSpace;
 static jmethodID filePathGetFreeStorageSpace;
@@ -33,6 +34,8 @@ void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj) {
 	_dbg_assert_(contentUriCreateFile);
 	contentUriRemoveFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriRemoveFile", "(Ljava/lang/String;)Z");
 	_dbg_assert_(contentUriRemoveFile);
+	contentUriRenameFileTo = env->GetMethodID(env->GetObjectClass(obj), "contentUriRenameFileTo", "(Ljava/lang/String;Ljava/lang/String;)Z");
+	_dbg_assert_(contentUriRenameFileTo);
 	contentUriGetFileInfo = env->GetMethodID(env->GetObjectClass(obj), "contentUriGetFileInfo", "(Ljava/lang/String;)Ljava/lang/String;");
 	_dbg_assert_(contentUriGetFileInfo);
 	contentUriGetFreeStorageSpace = env->GetMethodID(env->GetObjectClass(obj), "contentUriGetFreeStorageSpace", "(Ljava/lang/String;)J");
@@ -96,6 +99,16 @@ bool Android_RemoveFile(const std::string &fileUri) {
 	auto env = getEnv();
 	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
 	return env->CallBooleanMethod(g_nativeActivity, contentUriRemoveFile, paramFileName);
+}
+
+bool Android_RenameFileTo(const std::string &fileUri, const std::string &newName) {
+	if (!g_nativeActivity) {
+		return false;
+	}
+	auto env = getEnv();
+	jstring paramFileUri = env->NewStringUTF(fileUri.c_str());
+	jstring paramNewName = env->NewStringUTF(newName.c_str());
+	return env->CallBooleanMethod(g_nativeActivity, contentUriRenameFileTo, paramFileUri, paramNewName);
 }
 
 static bool ParseFileInfo(const std::string &line, File::FileInfo *fileInfo) {
