@@ -148,6 +148,7 @@ public class PpssppActivity extends NativeActivity {
 		return str;
 	}
 
+	// TODO: Maybe add a cheaper version that doesn't extract all the file information?
 	public String[] listContentUriDir(String uriString) {
 		try {
 			Uri uri = Uri.parse(uriString);

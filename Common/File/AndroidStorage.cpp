@@ -124,7 +124,18 @@ static bool ParseFileInfo(const std::string &line, File::FileInfo *fileInfo) {
 	sscanf(parts[1].c_str(), "%" PRIu64, &fileInfo->size);
 	fileInfo->fullName = Path(parts[3]);
 	fileInfo->isWritable = true;  // TODO: Should be passed as part of the string.
-	sscanf(parts[4].c_str(), "%" PRIu64, &fileInfo->lastModified);
+	fileInfo->access = 0777;  // TODO: For read-only mappings, reflect that here, similarly as with isWritable.
+
+	uint64_t lastModifiedMs = 0;
+	sscanf(parts[4].c_str(), "%" PRIu64, &lastModifiedMs);
+
+	// Convert from milliseconds
+	uint32_t lastModified = lastModifiedMs / 1000;
+
+	// We don't have better information, so let's just spam lastModified into all the date/time fields.
+	fileInfo->mtime = lastModified;
+	fileInfo->ctime = lastModified;
+	fileInfo->atime = lastModified;
 	return true;
 }
 

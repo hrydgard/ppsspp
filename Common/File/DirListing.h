@@ -24,10 +24,6 @@ struct FileInfo {
 	uint64_t ctime = 0;
 	uint32_t access = 0;  // st_mode & 0x1ff
 
-	// Currently only supported for Android storage files.
-	// Other places use different methods to get this.
-	uint64_t lastModified = 0;
-
 	bool operator <(const FileInfo &other) const;
 };
 
