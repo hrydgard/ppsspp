@@ -159,8 +159,7 @@ void PathBrowser::HandlePath() {
 			} else {
 				guard.unlock();
 				results.clear();
-				File::GetFilesInDir(lastPath, &results, nullptr);
-				success = true;
+				success = File::GetFilesInDir(lastPath, &results, nullptr);
 				guard.lock();
 			}
 

@@ -1,6 +1,6 @@
 #include "ppsspp_config.h"
 
-#ifdef _WIN32
+#if PPSSPP_PLATFORM(WINDOWS)
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <direct.h>
@@ -38,6 +38,15 @@
 
 namespace File {
 
+#if PPSSPP_PLATFORM(WINDOWS)
+static uint64_t FiletimeToStatTime(FILETIME ft) {
+	const int windowsTickResolution = 10000000;
+	const int64_t secToUnixEpoch = 11644473600LL;
+	int64_t ticks = ((uint64_t)ft.dwHighDateTime << 32) | ft.dwLowDateTime;
+	return (int64_t)(ticks / windowsTickResolution - secToUnixEpoch);
+};
+#endif
+
 bool GetFileInfo(const Path &path, FileInfo * fileInfo) {
 	switch (path.Type()) {
 	case PathType::NATIVE:
@@ -51,14 +60,7 @@ bool GetFileInfo(const Path &path, FileInfo * fileInfo) {
 	// TODO: Expand relative paths?
 	fileInfo->fullName = path;
 
-#ifdef _WIN32
-	auto FiletimeToStatTime = [](FILETIME ft) {
-		const int windowsTickResolution = 10000000;
-		const int64_t secToUnixEpoch = 11644473600LL;
-		int64_t ticks = ((uint64_t)ft.dwHighDateTime << 32) | ft.dwLowDateTime;
-		return (int64_t)(ticks / windowsTickResolution - secToUnixEpoch);
-	};
-
+#if PPSSPP_PLATFORM(WINDOWS)
 	WIN32_FILE_ATTRIBUTE_DATA attrs;
 	if (!GetFileAttributesExW(path.ToWString().c_str(), GetFileExInfoStandard, &attrs)) {
 		fileInfo->size = 0;
@@ -160,12 +162,28 @@ std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const
 	return files;
 }
 
-size_t GetFilesInDir(const Path &directory, std::vector<FileInfo> * files, const char *filter, int flags) {
+bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *filter, int flags) {
 	if (directory.Type() == PathType::CONTENT_URI) {
 		std::vector<File::FileInfo> fileList = Android_ListContentUri(directory.ToString());
 		*files = ApplyFilter(fileList, filter);
 		std::sort(files->begin(), files->end());
 		return true;
+	}
+
+	std::set<std::string> filters;
+	if (filter) {
+		std::string tmp;
+		while (*filter) {
+			if (*filter == ':') {
+				filters.insert(std::move(tmp));
+				tmp.clear();
+			} else {
+				tmp.push_back(*filter);
+			}
+			filter++;
+		}
+		if (!tmp.empty())
+			filters.insert(std::move(tmp));
 	}
 
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -186,74 +204,33 @@ size_t GetFilesInDir(const Path &directory, std::vector<FileInfo> * files, const
 		}
 		return files->size();
 	}
-#endif
-
-	size_t foundEntries = 0;
-	std::set<std::string> filters;
-	if (filter) {
-		std::string tmp;
-		while (*filter) {
-			if (*filter == ':') {
-				filters.insert(std::move(tmp));
-				tmp.clear();
-			} else {
-				tmp.push_back(*filter);
-			}
-			filter++;
-		}
-		if (!tmp.empty())
-			filters.insert(std::move(tmp));
-	}
-#ifdef _WIN32
 	// Find the first file in the directory.
 	WIN32_FIND_DATA ffd;
 	HANDLE hFind = FindFirstFileEx((directory.ToWString() + L"\\*").c_str(), FindExInfoStandard, &ffd, FindExSearchNameMatch, NULL, 0);
 	if (hFind == INVALID_HANDLE_VALUE) {
 		return 0;
 	}
-	// windows loop
-	do
-	{
+	do {
 		const std::string virtualName = ConvertWStringToUTF8(ffd.cFileName);
-#else
-	struct dirent *result = NULL;
-
-	//std::string directoryWithSlash = directory;
-	//if (directoryWithSlash.back() != '/')
-	//	directoryWithSlash += "/";
-
-	DIR *dirp = opendir(directory.c_str());
-	if (!dirp)
-		return 0;
-	// non windows loop
-	while ((result = readdir(dirp)))
-	{
-		const std::string virtualName(result->d_name);
-#endif
 		// check for "." and ".."
-		if (virtualName == "." || virtualName == "..")
+		if (!(flags & GETFILES_GET_NAVIGATION_ENTRIES) && (virtualName == "." || virtualName == ".."))
 			continue;
-
 		// Remove dotfiles (optional with flag.)
-		if (!(flags & GETFILES_GETHIDDEN))
-		{
-#ifdef _WIN32
+		if (!(flags & GETFILES_GETHIDDEN)) {
 			if ((ffd.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN) != 0)
 				continue;
-#else
-			if (virtualName[0] == '.')
-				continue;
-#endif
 		}
 
 		FileInfo info;
 		info.name = virtualName;
-
 		info.fullName = directory / virtualName;
-		info.isDirectory = IsDirectory(info.fullName);
 		info.exists = true;
-		info.size = 0;
-		info.isWritable = false;  // TODO - implement some kind of check
+		info.size = ((uint64_t)ffd.nFileSizeHigh << 32) | ffd.nFileSizeLow;
+		info.isDirectory = (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+		info.isWritable = (ffd.dwFileAttributes & FILE_ATTRIBUTE_READONLY) == 0;
+		info.atime = FiletimeToStatTime(ffd.ftLastAccessTime);
+		info.mtime = FiletimeToStatTime(ffd.ftLastWriteTime);
+		info.ctime = FiletimeToStatTime(ffd.ftCreationTime);
 		if (!info.isDirectory) {
 			std::string ext = info.fullName.GetFileExtension();
 			if (!ext.empty()) {
@@ -263,20 +240,48 @@ size_t GetFilesInDir(const Path &directory, std::vector<FileInfo> * files, const
 				}
 			}
 		}
-
-		if (files)
-			files->push_back(std::move(info));
-		foundEntries++;
-#ifdef _WIN32
+		files->push_back(info);
 	} while (FindNextFile(hFind, &ffd) != 0);
 	FindClose(hFind);
 #else
+	struct dirent *result = NULL;
+	DIR *dirp = opendir(directory.c_str());
+	if (!dirp)
+		return 0;
+	while ((result = readdir(dirp))) {
+		const std::string virtualName(result->d_name);
+		// check for "." and ".."
+		if (!(flags & GETFILES_GET_NAVIGATION_ENTRIES) && (virtualName == "." || virtualName == ".."))
+			continue;
+
+		// Remove dotfiles (optional with flag.)
+		if (!(flags & GETFILES_GETHIDDEN)) {
+			if (virtualName[0] == '.')
+				continue;
+		}
+
+		// Let's just reuse GetFileInfo. We're calling stat anyway to get isDirectory information.
+		Path fullName = directory / virtualName;
+
+		FileInfo info;
+		if (!GetFileInfo(fullName, &info)) {
+			continue;
+		}
+		if (!info.isDirectory) {
+			std::string ext = info.fullName.GetFileExtension();
+			if (!ext.empty()) {
+				ext = ext.substr(1);  // Remove the dot.
+				if (filter && filters.find(ext) == filters.end()) {
+					continue;
+				}
+			}
+		}
+		files->push_back(info);
 	}
 	closedir(dirp);
 #endif
-	if (files)
-		std::sort(files->begin(), files->end());
-	return foundEntries;
+	std::sort(files->begin(), files->end());
+	return true;
 }
 
 int64_t GetDirectoryRecursiveSize(const Path &path, const char *filter, int flags) {
@@ -295,7 +300,7 @@ int64_t GetDirectoryRecursiveSize(const Path &path, const char *filter, int flag
 	return sizeSum;
 }
 
-#ifdef _WIN32
+#if PPSSPP_PLATFORM(WINDOWS)
 // Returns a vector with the device names
 std::vector<std::string> GetWindowsDrives()
 {
@@ -321,8 +326,8 @@ std::vector<std::string> GetWindowsDrives()
 		}
 	}
 	return drives;
-#endif
+#endif  // PPSSPP_PLATFORM(UWP)
 }
-#endif
+#endif  // PPSSPP_PLATFORM(WINDOWS)
 
 }  // namespace File
