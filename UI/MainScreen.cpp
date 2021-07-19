@@ -541,10 +541,20 @@ UI::EventReturn GameBrowser::StorageClick(UI::EventParams &e) {
 }
 
 UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
+	if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
+		if (path_.GetPath().Type() == PathType::CONTENT_URI) {
+			path_.SetPath(path_.GetPath().GetRootVolume());
+			return UI::EVENT_DONE;
+		}
+	}
+
 	SetPath(HomePath());
 	return UI::EVENT_DONE;
 }
 
+// TODO: This doesn't make that much sense for Android, especially after scoped storage..
+// Maybe we should have no home directory in this case. Or it should just navigate to the root
+// of the current folder tree.
 Path GameBrowser::HomePath() {
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH) || defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP)
 	return g_Config.memStickDirectory;
@@ -776,7 +786,6 @@ void GameBrowser::Refresh() {
 		// Add any pinned paths before other directories.
 		auto pinnedPaths = GetPinnedPaths();
 		for (auto it = pinnedPaths.begin(), end = pinnedPaths.end(); it != end; ++it) {
-			// TODO(scoped): Hmm
 			gameList_->Add(new DirButton(*it, GetBaseName((*it).ToString()), *gridStyle_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
 				OnClick.Handle(this, &GameBrowser::NavigateClick);
 		}

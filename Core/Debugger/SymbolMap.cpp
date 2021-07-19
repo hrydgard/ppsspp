@@ -70,7 +70,8 @@ bool SymbolMap::LoadSymbolMap(const Path &filename) {
 
 	std::lock_guard<std::recursive_mutex> guard(lock_);
 
-	// TODO(scoped): We're screwed here
+	// TODO(scoped): Use gzdopen instead.
+
 #if defined(_WIN32) && defined(UNICODE)
 	gzFile f = gzopen_w(filename.ToWString().c_str(), "r");
 #else
@@ -195,10 +196,10 @@ void SymbolMap::SaveSymbolMap(const Path &filename) const {
 		return;
 	}
 
+	// TODO(scoped): Use gzdopen
 #if defined(_WIN32) && defined(UNICODE)
 	gzFile f = gzopen_w(filename.ToWString().c_str(), "w9");
 #else
-	// TODO(scoped): Use gzdopen? If we care, otherwise just compress into a buffer.
 	gzFile f = gzopen(filename.c_str(), "w9");
 #endif
 

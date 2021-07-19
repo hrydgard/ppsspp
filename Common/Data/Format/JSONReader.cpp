@@ -1,4 +1,5 @@
 #include "Common/File/VFS/VFS.h"
+#include "Common/File/Path.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Data/Format/JSONReader.h"
 
@@ -11,7 +12,7 @@ JsonReader::JsonReader(const std::string &filename) {
 		parse();
 	} else {
 		// Okay, try to read on the local file system
-		buffer_ = (char *)File::ReadLocalFile(filename.c_str(), &buf_size);
+		buffer_ = (char *)File::ReadLocalFile(Path(filename), &buf_size);
 		if (buffer_) {
 			parse();
 		} else {
