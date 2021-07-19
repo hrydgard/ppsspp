@@ -187,7 +187,7 @@ void ComboKey::Touch(const TouchInput &input) {
 		if (g_Config.bHapticFeedback)
 			Vibrate(HAPTIC_VIRTUAL_KEY);
 		for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++) {
-			if (pspButtonBit_ & (1UL << i)) {
+			if (pspButtonBit_ & (1ULL << i)) {
 				controllMapper_->pspKey(comboKeyList[i].c, (on_ && toggle_) ? KEY_UP : KEY_DOWN);
 			}
 		}
@@ -195,7 +195,7 @@ void ComboKey::Touch(const TouchInput &input) {
 			on_ = !on_;
 	} else if (!toggle_ && lastDown && !down) {
 		for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++) {
-			if (pspButtonBit_ & (1UL << i)) {
+			if (pspButtonBit_ & (1ULL << i)) {
 				controllMapper_->pspKey(comboKeyList[i].c, KEY_UP);
 			}
 		}
