@@ -137,18 +137,34 @@ public class PpssppActivity extends NativeActivity {
 		}
 	}
 
-	private static String fileInfoToString(DocumentFile file) {
-		// TODO: Replace with a DocumentsContract query.
+	private static final String[] columns = new String[] {
+		DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+		DocumentsContract.Document.COLUMN_SIZE,
+		DocumentsContract.Document.COLUMN_FLAGS,
+		DocumentsContract.Document.COLUMN_MIME_TYPE,  // check for MIME_TYPE_DIR
+		DocumentsContract.Document.COLUMN_LAST_MODIFIED
+	};
+
+	private String cursorToString(Cursor c) {
+		final int flags = c.getInt(2);
+		// Filter out any virtual or partial nonsense.
+		// There's a bunch of potentially-interesting flags here btw,
+		// to figure out how to set access flags better, etc.
+		if ((flags & (DocumentsContract.Document.FLAG_PARTIAL | DocumentsContract.Document.FLAG_VIRTUAL_DOCUMENT)) != 0) {
+			return null;
+		}
+
+		final String mimeType = c.getString(3);
+		final boolean isDirectory = mimeType.equals(DocumentsContract.Document.MIME_TYPE_DIR);
+		final String documentName = c.getString(0);
+		final long size = c.getLong(1);
+		final long lastModified = c.getLong(4);
+
 		String str = "F|";
-		if (file.isVirtual()) {
-			// This we don't want to see.
-			str = "V|";
-			Log.e(TAG, "Got virtual file: " + file.getUri());
-		} else if (file.isDirectory()) {
+		if (isDirectory) {
 			str = "D|";
 		}
-		str += file.length() + "|" + file.getName() + "|" + file.lastModified();
-		return str;
+		return str + size + "|" + documentName + "|" + lastModified;
 	}
 
 	// TODO: Maybe add a cheaper version that doesn't extract all the file information?
@@ -164,39 +180,19 @@ public class PpssppActivity extends NativeActivity {
 			final ArrayList<String> listing = new ArrayList<>();
 			Cursor c = null;
 			try {
-				c = resolver.query(childrenUri, new String[] {
-						DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-						DocumentsContract.Document.COLUMN_SIZE,
-						DocumentsContract.Document.COLUMN_FLAGS,
-						DocumentsContract.Document.COLUMN_MIME_TYPE,  // check for MIME_TYPE_DIR
-						DocumentsContract.Document.COLUMN_LAST_MODIFIED
-				}, null, null, null);
+				c = resolver.query(childrenUri, columns, null, null, null);
 				while (c.moveToNext()) {
-					final String documentName = c.getString(0);
-					final long size = c.getLong(1);
-					final int flags = c.getInt(2);
-					final String mimeType = c.getString(3);
-					final long lastModified = c.getLong(4);
-
-					final boolean isDirectory = mimeType.equals(DocumentsContract.Document.MIME_TYPE_DIR);
-
-					// Filter out any nonsense.
-					if ((flags & (DocumentsContract.Document.FLAG_PARTIAL | DocumentsContract.Document.FLAG_VIRTUAL_DOCUMENT)) != 0) {
-						continue;
+					String str = cursorToString(c);
+					if (str != null) {
+						listing.add(str);
 					}
-
-					String str = "F|";
-					if (isDirectory) {
-						str = "D|";
-					}
-					str += size + "|" + documentName + "|" + lastModified;
-
-					listing.add(str);
 				}
 			} catch (Exception e) {
 				Log.w(TAG, "Failed query: " + e);
 			} finally {
-				c.close();
+				if (c != null) {
+					c.close();
+				}
 			}
 			// Is ArrayList weird or what?
 			String[] strings = new String[listing.size()];
@@ -294,22 +290,24 @@ public class PpssppActivity extends NativeActivity {
 	}
 
 	public String contentUriGetFileInfo(String fileName) {
+		Cursor c = null;
 		try {
 			Uri uri = Uri.parse(fileName);
-			DocumentFile documentFile = DocumentFile.fromSingleUri(this, uri);
-			if (documentFile != null) {
-				if (documentFile.exists()) {
-					String str = fileInfoToString(documentFile);
-					return str;
-				} else {
-					return null;
-				}
+			final ContentResolver resolver = getContentResolver();
+			c = resolver.query(uri, columns, null, null, null);
+			if (c.moveToNext()) {
+				String str = cursorToString(c);
+				return str;
 			} else {
 				return null;
 			}
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriGetFileInfo exception: " + e.toString());
 			return null;
+		} finally {
+			if (c != null) {
+				c.close();
+			}
 		}
 	}
 
