@@ -546,11 +546,6 @@ bool DirectoryFileSystem::RmDir(const std::string &dirname) {
 	fullName = GetLocalPath(fullPath);
 #endif
 
-/*#ifdef _WIN32
-	return RemoveDirectory(fullName.c_str()) == TRUE;
-#else
-	return 0 == rmdir(fullName.c_str());
-#endif*/
 	bool result = File::DeleteDirRecursively(fullName);
 	return ReplayApplyDisk(ReplayAction::RMDIR, result, CoreTiming::GetGlobalTimeUs()) != 0;
 }
@@ -582,14 +577,10 @@ int DirectoryFileSystem::RenameFile(const std::string &from, const std::string &
 
 	Path fullToPath = GetLocalPath(fullTo);
 
-#ifdef _WIN32
-	bool retValue = (MoveFileEx(fullFrom.ToWString().c_str(), fullToPath.ToWString().c_str(), 0) == TRUE);
-#else
-	bool retValue = (0 == rename(fullFrom.c_str(), fullToPath.c_str()));
-#endif
+	bool retValue = File::Rename(fullFrom, fullToPath);
 
 #if HOST_IS_CASE_SENSITIVE
-	if (! retValue)
+	if (!retValue)
 	{
 		// May have failed due to case sensitivity on FROM, so try again.  Check error code?
 		std::string fullFromPath = from;
@@ -597,11 +588,7 @@ int DirectoryFileSystem::RenameFile(const std::string &from, const std::string &
 			return ReplayApplyDisk(ReplayAction::FILE_RENAME, -1, CoreTiming::GetGlobalTimeUs());
 		fullFrom = GetLocalPath(fullFromPath);
 
-#ifdef _WIN32
-		retValue = (MoveFile(fullFrom.c_str(), fullToPath.c_str()) == TRUE);
-#else
-		retValue = (0 == rename(fullFrom.c_str(), fullToPath.c_str()));
-#endif
+		retValue = File::Rename(fullFrom, fullToPath);
 	}
 #endif
 
@@ -611,27 +598,20 @@ int DirectoryFileSystem::RenameFile(const std::string &from, const std::string &
 }
 
 bool DirectoryFileSystem::RemoveFile(const std::string &filename) {
-	Path fullName = GetLocalPath(filename);
-#ifdef _WIN32
-	bool retValue = (::DeleteFileA(fullName.c_str()) == TRUE);
-#else
-	bool retValue = (0 == unlink(fullName.c_str()));
-#endif
+	Path localPath = GetLocalPath(filename);
+
+	bool retValue = File::Delete(localPath);
 
 #if HOST_IS_CASE_SENSITIVE
-	if (! retValue)
+	if (!retValue)
 	{
 		// May have failed due to case sensitivity, so try again.  Try even if it fails?
 		std::string fullNamePath = filename;
 		if (!FixPathCase(basePath.ToString(), fullNamePath, FPC_FILE_MUST_EXIST))
 			return (bool)ReplayApplyDisk(ReplayAction::FILE_REMOVE, false, CoreTiming::GetGlobalTimeUs());
-		fullName = GetLocalPath(fullNamePath);
+		localPath = GetLocalPath(fullNamePath);
 
-#ifdef _WIN32
-		retValue = (::DeleteFileA(fullName.c_str()) == TRUE);
-#else
-		retValue = (0 == unlink(fullName.c_str()));
-#endif
+		retValue = File::Delete(localPath);
 	}
 #endif
 
@@ -657,7 +637,7 @@ int DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const
 #else
 		logError = (int)errno;
 #endif
-		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile(%s): FAILED, %i - access = %d '%s'", filename.c_str(), logError, (int)access, errorString.c_str());
+		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile('%s'): FAILED, %d - access = %d '%s'", filename.c_str(), logError, (int)access, errorString.c_str());
 		return err;
 	} else {
 #ifdef _WIN32
@@ -718,7 +698,7 @@ size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &use
 		size_t bytesRead = iter->second.hFile.Read(pointer,size);
 		return bytesRead;
 	} else {
-		//This shouldn't happen...
+		// This shouldn't happen...
 		ERROR_LOG(FILESYS,"Cannot read file that hasn't been opened: %08x", handle);
 		return 0;
 	}
@@ -731,8 +711,7 @@ size_t DirectoryFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size) {
 
 size_t DirectoryFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) {
 	EntryMap::iterator iter = entries.find(handle);
-	if (iter != entries.end())
-	{
+	if (iter != entries.end()) {
 		size_t bytesWritten = iter->second.hFile.Write(pointer,size);
 		return bytesWritten;
 	} else {
@@ -770,6 +749,9 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 		return ReplayApplyDiskFileInfo(x, CoreTiming::GetGlobalTimeUs());
 #endif
 	}
+
+	// TODO: Consolidate to just a File::GetFileInfo call.
+
 	x.type = File::IsDirectory(fullName) ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 	x.exists = true;
 
@@ -973,7 +955,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 
 u64 DirectoryFileSystem::FreeSpace(const std::string &path) {
 	uint64_t result = 0;
-	if (free_disk_space(GetLocalPath(path).ToString(), result)) {
+	if (free_disk_space(GetLocalPath(path), result)) {
 		return ReplayApplyDisk64(ReplayAction::FREESPACE, result, CoreTiming::GetGlobalTimeUs());
 	}
 

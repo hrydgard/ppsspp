@@ -754,9 +754,8 @@ u64 DiskCachingFileLoaderCache::FreeDiskSpace() {
 		dir = GetSysDirectory(DIRECTORY_CACHE);
 	}
 
-	// TODO(scoped):
 	uint64_t result = 0;
-	if (free_disk_space(dir.ToString(), result)) {
+	if (free_disk_space(dir, result)) {
 		return result;
 	}
 
