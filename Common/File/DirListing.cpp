@@ -1,6 +1,6 @@
 #include "ppsspp_config.h"
 
-#ifdef _WIN32
+#if PPSSPP_PLATFORM(WINDOWS)
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <direct.h>
@@ -265,7 +265,6 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 
 		FileInfo info;
 		if (!GetFileInfo(fullName, &info)) {
-			WARN_LOG(COMMON, "GetFileInfo failed in GetFilesInDir: '%s'", fullName.c_str());
 			continue;
 		}
 		if (!info.isDirectory) {
