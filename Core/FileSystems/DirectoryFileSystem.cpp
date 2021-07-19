@@ -509,13 +509,7 @@ Path DirectoryFileSystem::GetLocalPath(std::string internalPath) {
 
 	if (internalPath[0] == '/')
 		internalPath.erase(0, 1);
-	//Convert slashes
-#ifdef _WIN32
-	for (size_t i = 0; i < internalPath.size(); i++) {
-		if (internalPath[i] == '/')
-			internalPath[i] = '\\';
-	}
-#endif
+
 	return basePath / internalPath;
 }
 
