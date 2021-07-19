@@ -35,9 +35,10 @@ bool GetFileInfo(const Path &path, FileInfo *fileInfo);
 
 enum {
 	GETFILES_GETHIDDEN = 1,
+	GETFILES_GET_NAVIGATION_ENTRIES = 2,  // If you don't set this, "." and ".." will be skipped.
 };
 
-size_t GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *filter = nullptr, int flags = 0);
+bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *filter = nullptr, int flags = 0);
 int64_t GetDirectoryRecursiveSize(const Path &path, const char *filter = nullptr, int flags = 0);
 std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const char *filter);
 
