@@ -861,7 +861,8 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 
 	std::vector<File::FileInfo> files;
 	Path localPath = GetLocalPath(path);
-	if (!File::GetFilesInDir(localPath, &files, nullptr, 0)) {
+	const int flags = File::GETFILES_GETHIDDEN | File::GETFILES_GET_NAVIGATION_ENTRIES;
+	if (!File::GetFilesInDir(localPath, &files, nullptr, flags)) {
 		// TODO: Case sensitivity should be checked on a file system basis, right?
 #if HOST_IS_CASE_SENSITIVE
 		if (FixPathCase(basePath, path, FPC_FILE_MUST_EXIST)) {
