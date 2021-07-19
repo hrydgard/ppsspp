@@ -264,6 +264,7 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 		Path fullName = directory / virtualName;
 
 		FileInfo info;
+		info.name = virtualName;
 		if (!GetFileInfo(fullName, &info)) {
 			continue;
 		}
