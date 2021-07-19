@@ -850,105 +850,55 @@ static std::string SimulateVFATBug(std::string filename) {
 
 std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 	std::vector<PSPFileInfo> myVector;
-	bool listingRoot = path == "/" || path == "\\";
 
-#ifdef _WIN32
-	WIN32_FIND_DATA findData;
-	HANDLE hFind;
-
-	std::wstring w32path = GetLocalPath(path).ToWString() + L"\\*.*";
-
-	hFind = FindFirstFileEx(w32path.c_str(), FindExInfoStandard, &findData, FindExSearchNameMatch, NULL, 0);
-
-	if (hFind == INVALID_HANDLE_VALUE) {
-		// Just return the empty array.
-		return ReplayApplyDiskListing(myVector, CoreTiming::GetGlobalTimeUs());
-	}
-
-	bool hideISOFiles = PSP_CoreParameter().compat.flags().HideISOFiles;
-	while (true) {
-		PSPFileInfo entry;
-		if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-			entry.type = FILETYPE_DIRECTORY;
-		else
-			entry.type = FILETYPE_NORMAL;
-
-		// TODO: Make this more correct?
-		entry.access = entry.type == FILETYPE_NORMAL ? 0666 : 0777;
-		// TODO: is this just for .. or all subdirectories? Need to add a directory to the test
-		// to find out. Also why so different than the old test results?
-		if (!wcscmp(findData.cFileName, L".."))
-			entry.size = 4096;
-		else
-			entry.size = findData.nFileSizeLow | ((u64)findData.nFileSizeHigh<<32);
-		entry.name = ConvertWStringToUTF8(findData.cFileName);
-		if (Flags() & FileSystemFlags::SIMULATE_FAT32)
-			entry.name = SimulateVFATBug(entry.name);
-
-		bool hideFile = false;
-		if (hideISOFiles && (endsWithNoCase(entry.name, ".cso") || endsWithNoCase(entry.name, ".iso"))) {
-			// Workaround for DJ Max Portable, see compat.ini.
-			hideFile = true;
-		}
-		tmFromFiletime(entry.atime, findData.ftLastAccessTime);
-		tmFromFiletime(entry.ctime, findData.ftCreationTime);
-		tmFromFiletime(entry.mtime, findData.ftLastWriteTime);
-		if (!hideFile && (!listingRoot || (wcscmp(findData.cFileName, L"..") && wcscmp(findData.cFileName, L"."))))
-			myVector.push_back(entry);
-
-		int retval = FindNextFile(hFind, &findData);
-		if (!retval)
-			break;
-	}
-	FindClose(hFind);
-#else
-	dirent *dirp;
-	Path localPath = GetLocalPath(path);
-	DIR *dp = opendir(localPath.c_str());
-
+	std::vector<File::FileInfo> files;
+	if (!File::GetFilesInDir(GetLocalPath(path), &files, nullptr, 0)) {
+		// TODO: Case sensitivity should be checked on a file system basis, right?
 #if HOST_IS_CASE_SENSITIVE
-	if (dp == NULL && FixPathCase(basePath.ToString(), path, FPC_FILE_MUST_EXIST)) {
-		// May have failed due to case sensitivity, try again
-		localPath = GetLocalPath(path);
-		dp = opendir(localPath.c_str());
-	}
-#endif
-
-	if (dp == NULL) {
-		ERROR_LOG(FILESYS,"Error opening directory %s\n",path.c_str());
+		if (FixPathCase(basePath.ToString(), path, FPC_FILE_MUST_EXIST)) {
+			// May have failed due to case sensitivity, try again
+			localPath = GetLocalPath(path);
+			if (!File::GetFilesInDir(GetLocalPath(path), &files, nullptr, 0)) {
+				return ReplayApplyDiskListing(myVector, CoreTiming::GetGlobalTimeUs());
+			}
+		}
+#else
 		return ReplayApplyDiskListing(myVector, CoreTiming::GetGlobalTimeUs());
+#endif
 	}
 
 	bool hideISOFiles = PSP_CoreParameter().compat.flags().HideISOFiles;
-	while ((dirp = readdir(dp)) != NULL) {
-		PSPFileInfo entry;
-		struct stat s;
-		Path fullName = GetLocalPath(path) / std::string(dirp->d_name);
-		stat(fullName.c_str(), &s);
-		if (S_ISDIR(s.st_mode))
-			entry.type = FILETYPE_DIRECTORY;
-		else
-			entry.type = FILETYPE_NORMAL;
-		entry.access = s.st_mode & 0x1FF;
-		entry.name = dirp->d_name;
-		if (Flags() & FileSystemFlags::SIMULATE_FAT32)
-			entry.name = SimulateVFATBug(entry.name);
-		entry.size = s.st_size;
 
-		bool hideFile = false;
+	// Then apply transforms to match PSP idiosynchrasies, as we convert the entries.
+	for (auto &file : files) {
+		PSPFileInfo entry;
+		if (Flags() & FileSystemFlags::SIMULATE_FAT32) {
+			entry.name = SimulateVFATBug(file.name);
+		} else {
+			entry.name = file.name;
+		}
 		if (hideISOFiles && (endsWithNoCase(entry.name, ".cso") || endsWithNoCase(entry.name, ".iso"))) {
 			// Workaround for DJ Max Portable, see compat.ini.
-			hideFile = true;
+			continue;
 		}
+		if (file.name == "..") {
+			entry.size = 4096;
+		} else {
+			entry.size = file.size;
+		}
+		if (file.isDirectory) {
+			entry.type = FILETYPE_DIRECTORY;
+		} else {
+			entry.type = FILETYPE_NORMAL;
+		}
+		entry.access = file.access;
 
-		localtime_r((time_t*)&s.st_atime,&entry.atime);
-		localtime_r((time_t*)&s.st_ctime,&entry.ctime);
-		localtime_r((time_t*)&s.st_mtime,&entry.mtime);
-		if (!hideFile && (!listingRoot || (strcmp(dirp->d_name, "..") && strcmp(dirp->d_name, "."))))
-			myVector.push_back(entry);
+		localtime_r((time_t*)&file.atime, &entry.atime);
+		localtime_r((time_t*)&file.ctime, &entry.ctime);
+		localtime_r((time_t*)&file.mtime, &entry.mtime);
+
+		myVector.push_back(entry);
 	}
-	closedir(dp);
-#endif
 
 	return ReplayApplyDiskListing(myVector, CoreTiming::GetGlobalTimeUs());
 }

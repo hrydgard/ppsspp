@@ -127,7 +127,7 @@ static bool ParseFileInfo(const std::string &line, File::FileInfo *fileInfo) {
 	sscanf(parts[1].c_str(), "%" PRIu64, &fileInfo->size);
 	fileInfo->fullName = Path(parts[3]);
 	fileInfo->isWritable = true;  // TODO: Should be passed as part of the string.
-	fileInfo->access = 0777;  // TODO: For read-only mappings, reflect that here, similarly as with isWritable.
+	fileInfo->access = fileInfo->isDirectory ? 0666 : 0777;  // TODO: For read-only mappings, reflect that here, similarly as with isWritable.
 
 	uint64_t lastModifiedMs = 0;
 	sscanf(parts[4].c_str(), "%" PRIu64, &lastModifiedMs);
