@@ -3997,7 +3997,8 @@ png_image_read_direct(png_voidp argument)
 #  endif
 
       /* This is actually an internal error. */
-      affirm(out_format == format /* else unimplemented transformations */);
+      // HACK to prevent crash: See issue #14628
+      // affirm(out_format == format /* else unimplemented transformations */);
    }
 
    /* Now read the rows.  If do_local_compose is set then it is necessary to use
