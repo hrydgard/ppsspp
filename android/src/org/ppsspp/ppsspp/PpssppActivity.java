@@ -9,6 +9,8 @@ import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import android.os.storage.StorageManager;
+import android.content.ContentResolver;
+import android.database.Cursor;
 import android.provider.DocumentsContract;
 import androidx.documentfile.provider.DocumentFile;
 import java.util.ArrayList;
@@ -136,6 +138,7 @@ public class PpssppActivity extends NativeActivity {
 	}
 
 	private static String fileInfoToString(DocumentFile file) {
+		// TODO: Replace with a DocumentsContract query.
 		String str = "F|";
 		if (file.isVirtual()) {
 			// This we don't want to see.
@@ -144,7 +147,7 @@ public class PpssppActivity extends NativeActivity {
 		} else if (file.isDirectory()) {
 			str = "D|";
 		}
-		str += file.length() + "|" + file.getName() + "|" + file.getUri() + "|" + file.lastModified();
+		str += file.length() + "|" + file.getName() + "|" + file.lastModified();
 		return str;
 	}
 
@@ -154,13 +157,46 @@ public class PpssppActivity extends NativeActivity {
 	public String[] listContentUriDir(String uriString) {
 		try {
 			Uri uri = Uri.parse(uriString);
-			DocumentFile documentFile = DocumentFile.fromTreeUri(this, uri);
-			DocumentFile[] children = documentFile.listFiles();
-			ArrayList<String> listing = new ArrayList<String>();
-			// Encode entries into strings for JNI simplicity.
-			for (DocumentFile file : children) {
-				String str = fileInfoToString(file);
-				listing.add(str);
+
+			final ContentResolver resolver = getContentResolver();
+			final Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(uri,
+					DocumentsContract.getDocumentId(uri));
+			final ArrayList<String> listing = new ArrayList<>();
+			Cursor c = null;
+			try {
+				c = resolver.query(childrenUri, new String[] {
+						DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+						DocumentsContract.Document.COLUMN_SIZE,
+						DocumentsContract.Document.COLUMN_FLAGS,
+						DocumentsContract.Document.COLUMN_MIME_TYPE,  // check for MIME_TYPE_DIR
+						DocumentsContract.Document.COLUMN_LAST_MODIFIED
+				}, null, null, null);
+				while (c.moveToNext()) {
+					final String documentName = c.getString(0);
+					final long size = c.getLong(1);
+					final int flags = c.getInt(2);
+					final String mimeType = c.getString(3);
+					final long lastModified = c.getLong(4);
+
+					final boolean isDirectory = mimeType.equals(DocumentsContract.Document.MIME_TYPE_DIR);
+
+					// Filter out any nonsense.
+					if ((flags & (DocumentsContract.Document.FLAG_PARTIAL | DocumentsContract.Document.FLAG_VIRTUAL_DOCUMENT)) != 0) {
+						continue;
+					}
+
+					String str = "F|";
+					if (isDirectory) {
+						str = "D|";
+					}
+					str += size + "|" + documentName + "|" + lastModified;
+
+					listing.add(str);
+				}
+			} catch (Exception e) {
+				Log.w(TAG, "Failed query: " + e);
+			} finally {
+				c.close();
 			}
 			// Is ArrayList weird or what?
 			String[] strings = new String[listing.size()];
