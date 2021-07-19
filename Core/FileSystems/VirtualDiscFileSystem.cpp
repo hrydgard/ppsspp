@@ -274,7 +274,7 @@ int VirtualDiscFileSystem::getFileListIndex(std::string &fileName)
 	Path fullName = GetLocalPath(fileName);
 	if (! File::Exists(fullName)) {
 #if HOST_IS_CASE_SENSITIVE
-		if (! FixPathCase(basePath.ToString(), fileName, FPC_FILE_MUST_EXIST))
+		if (! FixPathCase(basePath, fileName, FPC_FILE_MUST_EXIST))
 			return -1;
 		fullName = GetLocalPath(fileName);
 
@@ -602,7 +602,7 @@ PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 	Path fullName = GetLocalPath(filename);
 	if (!File::Exists(fullName)) {
 #if HOST_IS_CASE_SENSITIVE
-		if (! FixPathCase(basePath.ToString(), filename, FPC_FILE_MUST_EXIST))
+		if (! FixPathCase(basePath, filename, FPC_FILE_MUST_EXIST))
 			return x;
 		fullName = GetLocalPath(filename);
 
@@ -661,6 +661,9 @@ static void tmFromFiletime(tm &dest, FILETIME &src)
 std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 {
 	std::vector<PSPFileInfo> myVector;
+
+	// TODO(scoped): Switch this over to GetFilesInDir!
+
 #ifdef _WIN32
 	WIN32_FIND_DATA findData;
 	HANDLE hFind;
@@ -708,7 +711,7 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 	DIR *dp = opendir(localPath.c_str());
 
 #if HOST_IS_CASE_SENSITIVE
-	if(dp == NULL && FixPathCase(basePath.ToString(), path, FPC_FILE_MUST_EXIST)) {
+	if(dp == NULL && FixPathCase(basePath, path, FPC_FILE_MUST_EXIST)) {
 		// May have failed due to case sensitivity, try again
 		localPath = GetLocalPath(path);
 		dp = opendir(localPath.c_str());

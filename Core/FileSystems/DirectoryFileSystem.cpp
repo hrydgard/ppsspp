@@ -67,8 +67,7 @@
 #endif
 
 #if HOST_IS_CASE_SENSITIVE
-static bool FixFilenameCase(const std::string &path, std::string &filename)
-{
+static bool FixFilenameCase(const std::string &path, std::string &filename) {
 	// Are we lucky?
 	if (File::Exists(Path(path + filename)))
 		return true;
@@ -112,8 +111,14 @@ static bool FixFilenameCase(const std::string &path, std::string &filename)
 	return retValue;
 }
 
-bool FixPathCase(const std::string &basePath, std::string &path, FixPathCaseBehavior behavior)
-{
+bool FixPathCase(const Path &realBasePath, std::string &path, FixPathCaseBehavior behavior) {
+	if (realBasePath.Type() == PathType::CONTENT_URI) {
+		// Nothing to do. These are already case insensitive, I think.
+		return true;
+	}
+
+	std::string basePath = realBasePath.ToString();
+
 	size_t len = path.size();
 
 	if (len == 0)
@@ -189,7 +194,7 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 #if HOST_IS_CASE_SENSITIVE
 	if (access & (FILEACCESS_APPEND | FILEACCESS_CREATE | FILEACCESS_WRITE)) {
 		DEBUG_LOG(FILESYS, "Checking case for path %s", fileName.c_str());
-		if (!FixPathCase(basePath.ToString(), fileName, FPC_PATH_MUST_EXIST)) {
+		if (!FixPathCase(basePath, fileName, FPC_PATH_MUST_EXIST)) {
 			error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 			return false;  // or go on and attempt (for a better error code than just 0?)
 		}
@@ -198,7 +203,7 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 #endif
 
 	Path fullName = GetLocalPath(basePath, fileName);
-	VERBOSE_LOG(FILESYS, "Actually opening %s", fullName.c_str());
+	INFO_LOG(FILESYS, "Actually opening %s", fullName.c_str());
 
 	// On the PSP, truncating doesn't lose data.  If you seek later, you'll recover it.
 	// This is abnormal, so we deviate from the PSP's behavior and truncate on write/close.
@@ -289,12 +294,15 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 			// Success
 			return true;
 		} else {
+			ERROR_LOG(FILESYS, "File::OpenFD returned an error");
 			// TODO: Need better error codes from OpenFD so we can distinguish
 			// disk full. Just set not found for now.
 			error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 			return false;
 		}
 	}
+
+	INFO_LOG(FILESYS, "Opening '%s' straight", fullName.c_str());
 
 	int flags = 0;
 	if (access & FILEACCESS_APPEND) {
@@ -320,7 +328,7 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 
 #if HOST_IS_CASE_SENSITIVE
 	if (!success && !(access & FILEACCESS_CREATE)) {
-		if (!FixPathCase(basePath.ToString(), fileName, FPC_PATH_MUST_EXIST)) {
+		if (!FixPathCase(basePath, fileName, FPC_PATH_MUST_EXIST)) {
 			error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 			return false;
 		}
@@ -520,7 +528,7 @@ bool DirectoryFileSystem::MkDir(const std::string &dirname) {
 	// duplicate (different case) directories
 
 	std::string fixedCase = dirname;
-	if (!FixPathCase(basePath.ToString(), fixedCase, FPC_PARTIAL_ALLOWED))
+	if (!FixPathCase(basePath, fixedCase, FPC_PARTIAL_ALLOWED))
 		result = false;
 	else
 		result = File::CreateFullPath(GetLocalPath(fixedCase));
@@ -540,7 +548,7 @@ bool DirectoryFileSystem::RmDir(const std::string &dirname) {
 
 	// Nope, fix case and try again.  Should we try again?
 	std::string fullPath = dirname;
-	if (!FixPathCase(basePath.ToString(), fullPath, FPC_FILE_MUST_EXIST))
+	if (!FixPathCase(basePath, fullPath, FPC_FILE_MUST_EXIST))
 		return (bool)ReplayApplyDisk(ReplayAction::RMDIR, false, CoreTiming::GetGlobalTimeUs());
 
 	fullName = GetLocalPath(fullPath);
@@ -571,7 +579,7 @@ int DirectoryFileSystem::RenameFile(const std::string &from, const std::string &
 
 #if HOST_IS_CASE_SENSITIVE
 	// In case TO should overwrite a file with different case.  Check error code?
-	if (!FixPathCase(basePath.ToString(), fullTo, FPC_PATH_MUST_EXIST))
+	if (!FixPathCase(basePath, fullTo, FPC_PATH_MUST_EXIST))
 		return ReplayApplyDisk(ReplayAction::FILE_RENAME, -1, CoreTiming::GetGlobalTimeUs());
 #endif
 
@@ -584,7 +592,7 @@ int DirectoryFileSystem::RenameFile(const std::string &from, const std::string &
 	{
 		// May have failed due to case sensitivity on FROM, so try again.  Check error code?
 		std::string fullFromPath = from;
-		if (!FixPathCase(basePath.ToString(), fullFromPath, FPC_FILE_MUST_EXIST))
+		if (!FixPathCase(basePath, fullFromPath, FPC_FILE_MUST_EXIST))
 			return ReplayApplyDisk(ReplayAction::FILE_RENAME, -1, CoreTiming::GetGlobalTimeUs());
 		fullFrom = GetLocalPath(fullFromPath);
 
@@ -607,7 +615,7 @@ bool DirectoryFileSystem::RemoveFile(const std::string &filename) {
 	{
 		// May have failed due to case sensitivity, so try again.  Try even if it fails?
 		std::string fullNamePath = filename;
-		if (!FixPathCase(basePath.ToString(), fullNamePath, FPC_FILE_MUST_EXIST))
+		if (!FixPathCase(basePath, fullNamePath, FPC_FILE_MUST_EXIST))
 			return (bool)ReplayApplyDisk(ReplayAction::FILE_REMOVE, false, CoreTiming::GetGlobalTimeUs());
 		localPath = GetLocalPath(fullNamePath);
 
@@ -739,7 +747,7 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 	Path fullName = GetLocalPath(filename);
 	if (!File::Exists(fullName)) {
 #if HOST_IS_CASE_SENSITIVE
-		if (! FixPathCase(basePath.ToString(), filename, FPC_FILE_MUST_EXIST))
+		if (! FixPathCase(basePath, filename, FPC_FILE_MUST_EXIST))
 			return ReplayApplyDiskFileInfo(x, CoreTiming::GetGlobalTimeUs());
 		fullName = GetLocalPath(filename);
 
@@ -852,13 +860,14 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 	std::vector<PSPFileInfo> myVector;
 
 	std::vector<File::FileInfo> files;
-	if (!File::GetFilesInDir(GetLocalPath(path), &files, nullptr, 0)) {
+	Path localPath = GetLocalPath(path);
+	if (!File::GetFilesInDir(localPath, &files, nullptr, 0)) {
 		// TODO: Case sensitivity should be checked on a file system basis, right?
 #if HOST_IS_CASE_SENSITIVE
-		if (FixPathCase(basePath.ToString(), path, FPC_FILE_MUST_EXIST)) {
+		if (FixPathCase(basePath, path, FPC_FILE_MUST_EXIST)) {
 			// May have failed due to case sensitivity, try again
 			localPath = GetLocalPath(path);
-			if (!File::GetFilesInDir(GetLocalPath(path), &files, nullptr, 0)) {
+			if (!File::GetFilesInDir(localPath, &files, nullptr, 0)) {
 				return ReplayApplyDiskListing(myVector, CoreTiming::GetGlobalTimeUs());
 			}
 		}
@@ -911,9 +920,9 @@ u64 DirectoryFileSystem::FreeSpace(const std::string &path) {
 
 #if HOST_IS_CASE_SENSITIVE
 	std::string fixedCase = path;
-	if (FixPathCase(basePath.ToString(), fixedCase, FPC_FILE_MUST_EXIST)) {
+	if (FixPathCase(basePath, fixedCase, FPC_FILE_MUST_EXIST)) {
 		// May have failed due to case sensitivity, try again.
-		if (free_disk_space(GetLocalPath(fixedCase).ToString(), result)) {
+		if (free_disk_space(GetLocalPath(fixedCase), result)) {
 			return ReplayApplyDisk64(ReplayAction::FREESPACE, result, CoreTiming::GetGlobalTimeUs());
 		}
 	}
@@ -1022,7 +1031,7 @@ int VFSFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 
 	std::string fullName = GetLocalPath(filename);
 	const char *fullNameC = fullName.c_str();
-	VERBOSE_LOG(FILESYS,"VFSFileSystem actually opening %s (%s)", fullNameC, filename.c_str());
+	VERBOSE_LOG(FILESYS, "VFSFileSystem actually opening %s (%s)", fullNameC, filename.c_str());
 
 	size_t size;
 	u8 *data = VFSReadFile(fullNameC, &size);

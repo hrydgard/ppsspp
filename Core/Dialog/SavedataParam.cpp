@@ -208,12 +208,12 @@ void SavedataParam::Init()
 		pspFileSystem.MkDir(savePath);
 	}
 	// Create a nomedia file to hide save icons form Android image viewer
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
 	int handle = pspFileSystem.OpenFile(savePath + ".nomedia", (FileAccess)(FILEACCESS_CREATE | FILEACCESS_WRITE), 0);
 	if (handle >= 0) {
 		pspFileSystem.CloseFile(handle);
 	} else {
-		ERROR_LOG(IO, "Failed to create .nomedia file");
+		INFO_LOG(IO, "Failed to create .nomedia file (might be ok if it already exists)");
 	}
 #endif
 }

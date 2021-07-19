@@ -155,13 +155,51 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 #endif
 }
 
+static std::string OpenFlagToString(OpenFlag flags) {
+	std::string s;
+	if (flags & OPEN_READ)
+		s += "READ|";
+	if (flags & OPEN_WRITE)
+		s += "WRITE|";
+	if (flags & OPEN_APPEND)
+		s += "APPEND|";
+	if (flags & OPEN_CREATE)
+		s += "CREATE|";
+	if (flags & OPEN_TRUNCATE)
+		s += "TRUNCATE|";
+	if (!s.empty()) {
+		s.pop_back();  // Remove trailing separator.
+	}
+	return s;
+}
+
 int OpenFD(const Path &path, OpenFlag flags) {
 	switch (path.Type()) {
 	case PathType::CONTENT_URI:
 		break;
 	default:
-		// Not yet supported.
+		ERROR_LOG(COMMON, "OpenFD: Only supports Content URI paths. Not '%s' (%s)!", path.c_str(), OpenFlagToString(flags).c_str());
+		// Not yet supported - use other paths.
 		return -1;
+	}
+
+	if (flags & OPEN_CREATE) {
+		if (!File::Exists(path)) {
+			INFO_LOG(COMMON, "OpenFD(%s): Creating file.", path.c_str());
+			std::string name = path.GetFilename();
+			if (path.CanNavigateUp()) {
+				Path parent = path.NavigateUp();
+				if (!Android_CreateFile(parent.ToString(), name)) {
+					WARN_LOG(COMMON, "OpenFD: Failed to create file '%s' in '%s'", name.c_str(), parent.c_str());
+					return -1;
+				}
+			} else {
+				INFO_LOG(COMMON, "Failed to navigate up to create file: %s", path.c_str());
+				return -1;
+			}
+		} else {
+			INFO_LOG(COMMON, "OpenCFile(%s): Opening existing content file ('%s')", path.c_str(), OpenFlagToString(flags).c_str());
+		}
 	}
 
 	Android_OpenContentUriMode mode;
@@ -169,18 +207,22 @@ int OpenFD(const Path &path, OpenFlag flags) {
 		mode = Android_OpenContentUriMode::READ;
 	} else if (flags & OPEN_WRITE) {
 		if (flags & OPEN_TRUNCATE) {
-			mode = Android_OpenContentUriMode::READ_WRITE;
-		} else {
 			mode = Android_OpenContentUriMode::READ_WRITE_TRUNCATE;
+		} else {
+			mode = Android_OpenContentUriMode::READ_WRITE;
 		}
 		// TODO: Maybe better checking of additional flags here.
 	} else {
 		// TODO: Add support for more modes if possible.
-		ERROR_LOG_REPORT_ONCE(openFlagNotSupported, COMMON, "OpenFlag 0x%x not yet supported", flags);
+		ERROR_LOG_REPORT_ONCE(openFlagNotSupported, COMMON, "OpenFlag %s not yet supported", OpenFlagToString(flags).c_str());
 		return -1;
 	}
 
+	INFO_LOG(COMMON, "Android_OpenContentUriFd: %s (%s)", path.c_str(), OpenFlagToString(flags).c_str());
 	int descriptor = Android_OpenContentUriFd(path.ToString(), mode);
+	if (descriptor < 0) {
+		ERROR_LOG(COMMON, "Android_OpenContentUriFd failed: '%s'", path.c_str());
+	}
 	return descriptor;
 }
 
