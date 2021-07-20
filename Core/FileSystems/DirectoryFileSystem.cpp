@@ -203,7 +203,6 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 #endif
 
 	Path fullName = GetLocalPath(basePath, fileName);
-	INFO_LOG(FILESYS, "Actually opening %s", fullName.c_str());
 
 	// On the PSP, truncating doesn't lose data.  If you seek later, you'll recover it.
 	// This is abnormal, so we deviate from the PSP's behavior and truncate on write/close.
@@ -301,8 +300,6 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 			return false;
 		}
 	}
-
-	INFO_LOG(FILESYS, "Opening '%s' straight", fullName.c_str());
 
 	int flags = 0;
 	if (access & FILEACCESS_APPEND) {

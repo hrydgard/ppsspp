@@ -8,6 +8,8 @@ import android.os.Bundle;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
+import android.system.StructStatVfs;
+import android.system.Os;
 import android.os.storage.StorageManager;
 import android.content.ContentResolver;
 import android.database.Cursor;
@@ -314,22 +316,23 @@ public class PpssppActivity extends NativeActivity {
 	// The example in Android documentation uses this.getFilesDir for path.
 	// There's also a way to beg the OS for more space, which might clear caches, but
 	// let's just not bother with that for now.
-	public long contentUriGetFreeStorageSpace(String uriString) {
+	public long contentUriGetFreeStorageSpace(String fileName) {
 		try {
+			Uri uri = Uri.parse(fileName);
 			StorageManager storageManager = getApplicationContext().getSystemService(StorageManager.class);
 
-			// In 29 and later, we can directly get the UUID for the storage volume
-			// through the URI.
-			UUID volumeUUID;
-			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-				Uri uri = Uri.parse(uriString);
-				volumeUUID = UUID.fromString(storageManager.getStorageVolume(uri).getUuid());
-			} else {
-				volumeUUID = storageManager.getUuidForPath(this.getFilesDir());
+			ParcelFileDescriptor pfd = getContentResolver().openFileDescriptor(uri, "r");
+			if (pfd == null) {
+				Log.w(TAG, "Failed to get free storage space from URI: " + fileName);
+				return -1;
 			}
-			long availableBytes = storageManager.getAllocatableBytes(volumeUUID);
-			return availableBytes;
-		}  catch (Exception e) {
+			StructStatVfs stats = Os.fstatvfs(pfd.getFileDescriptor());
+			long freeSpace = stats.f_bavail * stats.f_bsize;
+			pfd.close();
+			return freeSpace;
+		} catch (Exception e) {
+			// FileNotFoundException | ErrnoException e
+			// Log.getStackTraceString(e)
 			Log.e(TAG, "contentUriGetFreeStorageSpace exception: " + e.toString());
 			return -1;
 		}
