@@ -11,6 +11,7 @@ static jmethodID openContentUri;
 static jmethodID listContentUriDir;
 static jmethodID contentUriCreateFile;
 static jmethodID contentUriCreateDirectory;
+static jmethodID contentUriCopyFile;
 static jmethodID contentUriRemoveFile;
 static jmethodID contentUriRenameFileTo;
 static jmethodID contentUriGetFileInfo;
@@ -33,6 +34,8 @@ void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj) {
 	_dbg_assert_(contentUriCreateDirectory);
 	contentUriCreateFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriCreateFile", "(Ljava/lang/String;Ljava/lang/String;)Z");
 	_dbg_assert_(contentUriCreateFile);
+	contentUriCopyFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriCopyFile", "(Ljava/lang/String;Ljava/lang/String;)Z");
+	_dbg_assert_(contentUriCopyFile);
 	contentUriRemoveFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriRemoveFile", "(Ljava/lang/String;)Z");
 	_dbg_assert_(contentUriRemoveFile);
 	contentUriRenameFileTo = env->GetMethodID(env->GetObjectClass(obj), "contentUriRenameFileTo", "(Ljava/lang/String;Ljava/lang/String;)Z");
@@ -95,6 +98,16 @@ bool Android_CreateFile(const std::string &parentTreeUri, const std::string &fil
 	return env->CallBooleanMethod(g_nativeActivity, contentUriCreateFile, paramRoot, paramFileName);
 }
 
+bool Android_CopyFile(const std::string &fileUri, const std::string &destParentUri) {
+	if (!g_nativeActivity) {
+		return false;
+	}
+	auto env = getEnv();
+	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
+	jstring paramDestParentUri = env->NewStringUTF(destParentUri.c_str());
+	return env->CallBooleanMethod(g_nativeActivity, contentUriCopyFile, paramFileName, paramDestParentUri);
+}
+
 bool Android_RemoveFile(const std::string &fileUri) {
 	if (!g_nativeActivity) {
 		return false;
@@ -130,7 +143,7 @@ static bool ParseFileInfo(const std::string &line, File::FileInfo *fileInfo) {
 	fileInfo->access = fileInfo->isDirectory ? 0666 : 0777;  // TODO: For read-only mappings, reflect that here, similarly as with isWritable.
 
 	uint64_t lastModifiedMs = 0;
-	sscanf(parts[4].c_str(), "%" PRIu64, &lastModifiedMs);
+	sscanf(parts[3].c_str(), "%" PRIu64, &lastModifiedMs);
 
 	// Convert from milliseconds
 	uint32_t lastModified = lastModifiedMs / 1000;

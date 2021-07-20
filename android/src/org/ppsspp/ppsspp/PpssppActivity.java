@@ -173,35 +173,36 @@ public class PpssppActivity extends NativeActivity {
 	// TODO: Replace with a proper query:
 	// * https://stackoverflow.com/questions/42186820/documentfile-is-very-slow
 	public String[] listContentUriDir(String uriString) {
+		Cursor c = null;
 		try {
 			Uri uri = Uri.parse(uriString);
-
 			final ContentResolver resolver = getContentResolver();
-			final Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(uri,
-					DocumentsContract.getDocumentId(uri));
+			final Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
+					uri, DocumentsContract.getDocumentId(uri));
 			final ArrayList<String> listing = new ArrayList<>();
-			Cursor c = null;
-			try {
-				c = resolver.query(childrenUri, columns, null, null, null);
-				while (c.moveToNext()) {
-					String str = cursorToString(c);
-					if (str != null) {
-						listing.add(str);
-					}
-				}
-			} catch (Exception e) {
-				Log.w(TAG, "Failed query: " + e);
-			} finally {
-				if (c != null) {
-					c.close();
+			c = resolver.query(childrenUri, columns, null, null, null);
+			while (c.moveToNext()) {
+				String str = cursorToString(c);
+				if (str != null) {
+					listing.add(str);
 				}
 			}
 			// Is ArrayList weird or what?
 			String[] strings = new String[listing.size()];
 			return listing.toArray(strings);
-		} catch (Exception e) {
+		}
+		catch (IllegalArgumentException e) {
+			// Due to sloppy exception handling in resolver.query, we get this wrapping
+			// a FileNotFoundException if the directory doesn't exist.
+			return new String[]{};
+		}
+		catch (Exception e) {
 			Log.e(TAG, "listContentUriDir exception: " + e.toString());
 			return new String[]{};
+		} finally {
+			if (c != null) {
+				c.close();
+			}
 		}
 	}
 
@@ -255,15 +256,27 @@ public class PpssppActivity extends NativeActivity {
 		}
 	}
 
+	// NOTE: The destination is the parent directory! This means that contentUriCopyFile
+	// cannot rename things as part of the operation.
+	public boolean contentUriCopyFile(String srcFileUri, String dstParentDirUri) {
+		try {
+			Uri srcUri = Uri.parse(srcFileUri);
+			Uri dstParentUri = Uri.parse(dstParentDirUri);
+			DocumentsContract.copyDocument(getContentResolver(), srcUri, dstParentUri);
+			return true;
+		} catch (Exception e) {
+			Log.e(TAG, "contentUriCopyFile exception: " + e.toString());
+			return false;
+		}
+	}
+
 	public boolean contentUriRenameFileTo(String fileUri, String newName) {
 		try {
 			Uri uri = Uri.parse(fileUri);
-
 			// Due to a design flaw, we can't use DocumentFile.renameTo().
 			// Instead we use the DocumentsContract API directly.
 			// See https://stackoverflow.com/questions/37168200/android-5-0-new-sd-card-access-api-documentfile-renameto-unsupportedoperation.
 			Uri newUri = DocumentsContract.renameDocument(getContentResolver(), uri, newName);
-			// Log.i(TAG, "New uri: " + newUri.toString());
 			return true;
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriRenameFile exception: " + e.toString());
@@ -271,23 +284,30 @@ public class PpssppActivity extends NativeActivity {
 		}
 	}
 
-	// Possibly faster than contentUriGetFileInfo.
+	private static void closeQuietly(AutoCloseable closeable) {
+		if (closeable != null) {
+			try {
+				closeable.close();
+			} catch (RuntimeException rethrown) {
+				throw rethrown;
+			} catch (Exception ignored) {
+			}
+		}
+	}
+
+	// Probably slightly faster than contentUriGetFileInfo.
+	// Smaller difference now than before I changed that one to a query...
 	public boolean contentUriFileExists(String fileUri) {
+		Cursor c = null;
 		try {
 			Uri uri = Uri.parse(fileUri);
-			DocumentFile documentFile = DocumentFile.fromSingleUri(this, uri);
-			if (documentFile != null) {
-				if (documentFile.exists()) {
-					return true;
-				} else {
-					return false;
-				}
-			} else {
-				return false;
-			}
+			c = getContentResolver().query(uri, new String[] { DocumentsContract.Document.COLUMN_DOCUMENT_ID }, null, null, null);
+			return c.getCount() > 0;
 		} catch (Exception e) {
-			Log.e(TAG, "contentUriFileExists exception: " + e.toString());
+			// Log.w(TAG, "Failed query: " + e);
 			return false;
+		} finally {
+			closeQuietly(c);
 		}
 	}
 
