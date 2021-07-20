@@ -18,6 +18,7 @@ static jmethodID contentUriGetFileInfo;
 static jmethodID contentUriFileExists;
 static jmethodID contentUriGetFreeStorageSpace;
 static jmethodID filePathGetFreeStorageSpace;
+static jmethodID isExternalStoragePreservedLegacy;
 
 static jobject g_nativeActivity;
 
@@ -48,6 +49,8 @@ void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj) {
 	_dbg_assert_(contentUriGetFreeStorageSpace);
 	filePathGetFreeStorageSpace = env->GetMethodID(env->GetObjectClass(obj), "filePathGetFreeStorageSpace", "(Ljava/lang/String;)J");
 	_dbg_assert_(filePathGetFreeStorageSpace);
+	isExternalStoragePreservedLegacy = env->GetMethodID(env->GetObjectClass(obj), "isExternalStoragePreservedLegacy", "()Z");
+	_dbg_assert_(isExternalStoragePreservedLegacy);
 }
 
 bool Android_IsContentUri(const std::string &filename) {
@@ -239,6 +242,24 @@ int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath) {
 
 	jstring param = env->NewStringUTF(filePath.c_str());
 	return env->CallLongMethod(g_nativeActivity, filePathGetFreeStorageSpace, param);
+}
+
+bool Android_IsExternalStoragePreservedLegacy() {
+	if (!g_nativeActivity) {
+		return false;
+	}
+	auto env = getEnv();
+	return env->CallBooleanMethod(g_nativeActivity, isExternalStoragePreservedLegacy);
+}
+
+const char *Android_ErrorToString(ContentError error) {
+	switch (error) {
+	case ContentError::SUCCESS: return "SUCCESS";
+	case ContentError::OTHER: return "OTHER";
+	case ContentError::NOT_FOUND: return "NOT_FOUND";
+	case ContentError::DISK_FULL: return "DISK_FULL";
+	default: return "(UNKNOWN)";
+	}
 }
 
 #endif

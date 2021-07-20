@@ -107,7 +107,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 			INFO_LOG(COMMON, "Opening content file for read: '%s'", path.c_str());
 			// Read, let's support this - easy one.
 			int descriptor = Android_OpenContentUriFd(path.ToString(), Android_OpenContentUriMode::READ);
-			if (descriptor == -1) {
+			if (descriptor < 0) {
 				return nullptr;
 			}
 			return fdopen(descriptor, "rb");
@@ -133,7 +133,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 
 			// TODO: Support append modes and stuff... For now let's go with the most common one.
 			int descriptor = Android_OpenContentUriFd(path.ToString(), Android_OpenContentUriMode::READ_WRITE_TRUNCATE);
-			if (descriptor == -1) {
+			if (descriptor < 0) {
 				INFO_LOG(COMMON, "Opening '%s' for write failed", path.ToString().c_str());
 				return nullptr;
 			}

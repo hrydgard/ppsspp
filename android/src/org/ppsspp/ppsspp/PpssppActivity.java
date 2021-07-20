@@ -31,6 +31,12 @@ public class PpssppActivity extends NativeActivity {
 
 	public static boolean libraryLoaded = false;
 
+	// Matches the enum in AndroidStorage.h.
+	private static final int CONTENT_ERROR_SUCCESS = 0;
+	private static final int CONTENT_ERROR_OTHER = -1;
+	private static final int CONTENT_ERROR_NOT_FOUND = -2;
+	private static final int CONTENT_ERROR_DISK_FULL = -3;
+
 	@SuppressWarnings("deprecation")
 	public static void CheckABIAndLoadLibrary() {
 		if (Build.CPU_ABI.equals("armeabi")) {
