@@ -24,11 +24,13 @@
 
 #include "Common/UI/View.h"
 #include "Common/UI/UIScreen.h"
-
 #include "Common/Data/Text/I18n.h"
+
+#include "Core/ControlMapper.h"
+
 #include "UI/MiscScreens.h"
 
-class ControlMapper;
+class SingleControlMapper;
 
 class ControlMappingScreen : public UIDialogScreenWithBackground {
 public:
@@ -47,7 +49,7 @@ private:
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) override;
 
 	UI::ScrollView *rightScroll_;
-	std::vector<ControlMapper *> mappers_;
+	std::vector<SingleControlMapper *> mappers_;
 };
 
 class KeyMappingNewKeyDialog : public PopupScreen {
@@ -80,15 +82,15 @@ public:
 		pspBtn_ = btn;
 	}
 
-	virtual bool key(const KeyInput &key) override;
-	virtual bool axis(const AxisInput &axis) override;
+	bool key(const KeyInput &key) override;
+	bool axis(const AxisInput &axis) override;
 
 protected:
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 
-	virtual bool FillVertical() const override { return false; }
-	virtual bool ShowButtons() const override { return true; }
-	virtual void OnCompleted(DialogResult result) override {}
+	bool FillVertical() const override { return false; }
+	bool ShowButtons() const override { return true; }
+	void OnCompleted(DialogResult result) override {}
 
 private:
 	int pspBtn_;
@@ -96,18 +98,31 @@ private:
 	bool mapped_;  // Prevent double registrations
 };
 
-class AnalogTestScreen : public UIDialogScreenWithBackground {
+class JoystickHistoryView;
+
+class AnalogSetupScreen : public UIDialogScreenWithBackground {
 public:
-	AnalogTestScreen() {}
+	AnalogSetupScreen();
 
 	bool key(const KeyInput &key) override;
 	bool axis(const AxisInput &axis) override;
 
-protected:
-	virtual void CreateViews() override;
+	void update() override;
 
-	UI::TextView *lastKeyEvent_ = nullptr;
-	UI::TextView *lastLastKeyEvent_ = nullptr;
+protected:
+	void CreateViews() override;
+
+private:
+	UI::EventReturn OnResetToDefaults(UI::EventParams &e);
+
+	ControlMapper mapper_;
+
+	float analogX_[2]{};
+	float analogY_[2]{};
+	float rawX_[2]{};
+	float rawY_[2]{};
+
+	JoystickHistoryView *stickView_[2]{};
 };
 
 class TouchTestScreen : public UIDialogScreenWithBackground {
@@ -121,6 +136,9 @@ public:
 	bool touch(const TouchInput &touch) override;
 	void render() override;
 
+	bool key(const KeyInput &key) override;
+	bool axis(const AxisInput &axis) override;
+
 protected:
 	struct TrackedTouch {
 		int id;
@@ -131,6 +149,9 @@ protected:
 		MAX_TOUCH_POINTS = 10,
 	};
 	TrackedTouch touches_[MAX_TOUCH_POINTS]{};
+
+	UI::TextView *lastKeyEvent_ = nullptr;
+	UI::TextView *lastLastKeyEvent_ = nullptr;
 
 	void CreateViews() override;
 

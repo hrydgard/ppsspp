@@ -21,6 +21,7 @@
 #include "Common/Thread/ThreadManager.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/AssetReader.h"
+#include "Common/Data/Text/I18n.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -346,6 +347,17 @@ static void check_variables(CoreParameter &coreParam)
    ppsspp_language.Update(&g_Config.iLanguage);
    if (g_Config.iLanguage < 0)
       g_Config.iLanguage = get_language_auto();
+
+   g_Config.sLanguageIni = "en_US";
+   auto langValuesMapping = GetLangValuesMapping();
+   for (auto i = langValuesMapping.begin(); i != langValuesMapping.end(); ++i)
+   {
+      if (i->second.second == g_Config.iLanguage)
+      {
+         g_Config.sLanguageIni = i->first;
+      }
+   }
+   i18nrepo.LoadIni(g_Config.sLanguageIni);
 
    if (!PSP_IsInited() && ppsspp_internal_resolution.Update(&g_Config.iInternalResolution))
    {
@@ -675,6 +687,8 @@ void retro_unload_game(void)
 	delete ctx;
 	ctx = nullptr;
 	PSP_CoreParameter().graphicsContext = nullptr;
+
+   g_threadManager.Teardown();
 }
 
 void retro_reset(void)
@@ -750,10 +764,12 @@ static void retro_input(void)
       }
    }
 
-   __CtrlSetAnalogX(input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X) / 32767.0f, CTRL_STICK_LEFT);
-   __CtrlSetAnalogY(input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y) / -32767.0f, CTRL_STICK_LEFT);
-   __CtrlSetAnalogX(input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_X) / 32767.0f, CTRL_STICK_RIGHT);
-   __CtrlSetAnalogY(input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y) / -32767.0f, CTRL_STICK_RIGHT);
+   float x_left = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X) / 32767.0f;
+   float y_left = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y) / -32767.0f;
+   float x_right = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_X) / 32767.0f;
+   float y_right = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y) / -32767.0f;
+   __CtrlSetAnalogXY(CTRL_STICK_LEFT, x_left, y_left);
+   __CtrlSetAnalogXY(CTRL_STICK_RIGHT, x_right, y_right);
 }
 
 void retro_run(void)

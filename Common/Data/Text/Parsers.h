@@ -57,6 +57,7 @@ bool ParseMacAddress(std::string str, uint8_t macAddr[6]);
 
 bool TryParse(const std::string &str, bool *const output);
 bool TryParse(const std::string &str, uint32_t *const output);
+bool TryParse(const std::string &str, uint64_t *const output);
 
 template <typename N>
 static bool TryParse(const std::string &str, N *const output) {

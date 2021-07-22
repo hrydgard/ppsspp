@@ -55,7 +55,7 @@ enum FixPathCaseBehavior {
 	FPC_PARTIAL_ALLOWED,  // don't care how many exist (mkdir recursive)
 };
 
-bool FixPathCase(const std::string &basePath, std::string &path, FixPathCaseBehavior behavior);
+bool FixPathCase(const Path &basePath, std::string &path, FixPathCaseBehavior behavior);
 #endif
 
 struct DirectoryFileHandle {
@@ -116,7 +116,7 @@ private:
 	struct OpenFileEntry {
 		DirectoryFileHandle hFile = DirectoryFileHandle::NORMAL;
 		std::string guestFilename;
-		FileAccess access;
+		FileAccess access = FILEACCESS_NONE;
 	};
 
 	typedef std::map<u32, OpenFileEntry> EntryMap;

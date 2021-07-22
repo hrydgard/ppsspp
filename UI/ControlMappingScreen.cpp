@@ -42,9 +42,9 @@
 #include "UI/ControlMappingScreen.h"
 #include "UI/GameSettingsScreen.h"
 
-class ControlMapper : public UI::LinearLayout {
+class SingleControlMapper : public UI::LinearLayout {
 public:
-	ControlMapper(ControlMappingScreen *ctrlScreen, int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams = 0);
+	SingleControlMapper(ControlMappingScreen *ctrlScreen, int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams = 0);
 
 	void Update() override;
 	int GetPspKey() const { return pspKey_; }
@@ -75,12 +75,12 @@ private:
 	bool refresh_;
 };
 
-ControlMapper::ControlMapper(ControlMappingScreen *ctrlScreen, int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams)
+SingleControlMapper::SingleControlMapper(ControlMappingScreen *ctrlScreen, int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams)
 	: UI::LinearLayout(UI::ORIENT_VERTICAL, layoutParams), ctrlScreen_(ctrlScreen), action_(NONE), pspKey_(pspKey), keyName_(keyName), scrm_(scrm), refresh_(false) {
 	Refresh();
 }
 
-void ControlMapper::Update() {
+void SingleControlMapper::Update() {
 	if (refresh_) {
 		refresh_ = false;
 		Refresh();
@@ -88,7 +88,7 @@ void ControlMapper::Update() {
 	}
 }
 
-void ControlMapper::Refresh() {
+void SingleControlMapper::Refresh() {
 	bool hasFocus = UI::GetFocusedView() == this;
 	Clear();
 	auto mc = GetI18NCategory("MappableControls");
@@ -114,19 +114,19 @@ void ControlMapper::Refresh() {
 	// First, look among images.
 	if (iter != keyImages.end()) {
 		Choice *c = root->Add(new Choice(iter->second, new LinearLayoutParams(200, itemH)));
-		c->OnClick.Handle(this, &ControlMapper::OnReplaceAll);
+		c->OnClick.Handle(this, &SingleControlMapper::OnReplaceAll);
 	} else {
 		// No image? Let's translate.
 		Choice *c = new Choice(mc->T(keyName_.c_str()), new LinearLayoutParams(200, itemH));
 		c->SetCentered(true);
-		root->Add(c)->OnClick.Handle(this, &ControlMapper::OnReplaceAll);
+		root->Add(c)->OnClick.Handle(this, &SingleControlMapper::OnReplaceAll);
 	}
 
 	Choice *p = root->Add(new Choice(" + ", new LayoutParams(WRAP_CONTENT, itemH)));
-	p->OnClick.Handle(this, &ControlMapper::OnAdd);
+	p->OnClick.Handle(this, &SingleControlMapper::OnAdd);
 	if (g_Config.bMouseControl) {
 		Choice *p = root->Add(new Choice("M", new LayoutParams(WRAP_CONTENT, itemH)));
-		p->OnClick.Handle(this, &ControlMapper::OnAddMouse);
+		p->OnClick.Handle(this, &SingleControlMapper::OnAddMouse);
 	}
 
 	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
@@ -145,24 +145,24 @@ void ControlMapper::Refresh() {
 		char tagbuf[16];
 		sprintf(tagbuf, "%i", (int)i);
 		c->SetTag(tagbuf);
-		c->OnClick.Handle(this, &ControlMapper::OnReplace);
+		c->OnClick.Handle(this, &SingleControlMapper::OnReplace);
 
 		Choice *d = row->Add(new Choice(" X ", new LayoutParams(WRAP_CONTENT, itemH)));
 		d->SetTag(tagbuf);
-		d->OnClick.Handle(this, &ControlMapper::OnDelete);
+		d->OnClick.Handle(this, &SingleControlMapper::OnDelete);
 	}
 
 	if (mappings.size() == 0) {
 		// look like an empty line
 		Choice *c = rightColumn->Add(new Choice("", new LinearLayoutParams(FILL_PARENT, itemH)));
-		c->OnClick.Handle(this, &ControlMapper::OnAdd);
+		c->OnClick.Handle(this, &SingleControlMapper::OnAdd);
 	}
 
 	if (hasFocus)
 		this->SetFocus();
 }
 
-void ControlMapper::MappedCallback(KeyDef kdf) {
+void SingleControlMapper::MappedCallback(KeyDef kdf) {
 	switch (action_) {
 	case ADD:
 		KeyMap::SetKeyMapping(pspKey_, kdf, false);
@@ -183,36 +183,36 @@ void ControlMapper::MappedCallback(KeyDef kdf) {
 	// After this, we do not exist any more. So the refresh_ = true is probably irrelevant.
 }
 
-UI::EventReturn ControlMapper::OnReplace(UI::EventParams &params) {
+UI::EventReturn SingleControlMapper::OnReplace(UI::EventParams &params) {
 	actionIndex_ = atoi(params.v->Tag().c_str());
 	action_ = REPLACEONE;
 	auto km = GetI18NCategory("KeyMapping");
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1), km));
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), km));
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ControlMapper::OnReplaceAll(UI::EventParams &params) {
+UI::EventReturn SingleControlMapper::OnReplaceAll(UI::EventParams &params) {
 	action_ = REPLACEALL;
 	auto km = GetI18NCategory("KeyMapping");
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1), km));
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), km));
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ControlMapper::OnAdd(UI::EventParams &params) {
+UI::EventReturn SingleControlMapper::OnAdd(UI::EventParams &params) {
 	action_ = ADD;
 	auto km = GetI18NCategory("KeyMapping");
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1), km));
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), km));
 	return UI::EVENT_DONE;
 }
-UI::EventReturn ControlMapper::OnAddMouse(UI::EventParams &params) {
+UI::EventReturn SingleControlMapper::OnAddMouse(UI::EventParams &params) {
 	action_ = ADD;
 	g_Config.bMapMouse = true;
 	auto km = GetI18NCategory("KeyMapping");
-	scrm_->push(new KeyMappingNewMouseKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1), km));
+	scrm_->push(new KeyMappingNewMouseKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), km));
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ControlMapper::OnDelete(UI::EventParams &params) {
+UI::EventReturn SingleControlMapper::OnDelete(UI::EventParams &params) {
 	int index = atoi(params.v->Tag().c_str());
 	KeyMap::g_controllerMap[pspKey_].erase(KeyMap::g_controllerMap[pspKey_].begin() + index);
 	KeyMap::g_controllerMapGeneration++;
@@ -237,7 +237,7 @@ void ControlMappingScreen::CreateViews() {
 	if (!KeyMap::HasBuiltinController(sysName) && KeyMap::GetSeenPads().size()) {
 		leftColumn->Add(new Choice(km->T("Autoconfigure")))->OnClick.Handle(this, &ControlMappingScreen::OnAutoConfigure);
 	}
-	leftColumn->Add(new Choice(km->T("Test Analogs")))->OnClick.Handle(this, &ControlMappingScreen::OnTestAnalogs);
+
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
 	AddStandardBack(leftColumn);
 
@@ -252,7 +252,7 @@ void ControlMappingScreen::CreateViews() {
 
 	std::vector<KeyMap::KeyMap_IntStrPair> mappableKeys = KeyMap::GetMappableKeys();
 	for (size_t i = 0; i < mappableKeys.size(); i++) {
-		ControlMapper *mapper = rightColumn->Add(new ControlMapper(this, mappableKeys[i].key, mappableKeys[i].name, screenManager(), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		SingleControlMapper *mapper = rightColumn->Add(new SingleControlMapper(this, mappableKeys[i].key, mappableKeys[i].name, screenManager(), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		mappers_.push_back(mapper);
 	}
 }
@@ -280,11 +280,6 @@ UI::EventReturn ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 	if (params.v)
 		autoConfList->SetPopupOrigin(params.v);
 	screenManager()->push(autoConfList);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn ControlMappingScreen::OnTestAnalogs(UI::EventParams &params) {
-	screenManager()->push(new AnalogTestScreen());
 	return UI::EVENT_DONE;
 }
 
@@ -428,22 +423,21 @@ bool KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 	return true;
 }
 
+enum class StickHistoryViewType {
+	INPUT,
+	OUTPUT
+};
+
 class JoystickHistoryView : public UI::InertView {
 public:
-	JoystickHistoryView(int xAxis, int xDevice, int xDir, int yAxis, int yDevice, int yDir, UI::LayoutParams *layoutParams = nullptr)
-		: UI::InertView(layoutParams),
-			xAxis_(xAxis), xDir_(xDir),
-			yAxis_(yAxis), yDir_(yDir) {}
+	JoystickHistoryView(StickHistoryViewType type, std::string title, UI::LayoutParams *layoutParams = nullptr)
+		: UI::InertView(layoutParams), title_(title), type_(type) {}
 	void Draw(UIContext &dc) override;
-	std::string DescribeText() const override { return ""; }
+	std::string DescribeText() const override { return "Analog Stick View"; }
 	void Update() override;
-	void Axis(const AxisInput &input) override {
-		// TODO: Check input.deviceId?
-		if (input.axisId == xAxis_) {
-			curX_ = input.value * xDir_;
-		} else if (input.axisId == yAxis_) {
-			curY_ = input.value * yDir_;
-		}
+	void SetXY(float x, float y) {
+		curX_ = x;
+		curY_ = y;
 	}
 
 private:
@@ -452,129 +446,195 @@ private:
 		float y;
 	};
 
-	int xAxis_;
-	int xDir_;
-	int yAxis_;
-	int yDir_;
-
 	float curX_ = 0.0f;
 	float curY_ = 0.0f;
 
 	std::deque<Location> locations_;
 	int maxCount_ = 500;
+	std::string title_;
+	StickHistoryViewType type_;
 };
 
 void JoystickHistoryView::Draw(UIContext &dc) {
-	if (xAxis_ > -1 && yAxis_ > -1) {
-		const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(ImageID("I_CROSS"));
-		if (!image) {
-			return;
-		}
-		float minRadius = std::min(bounds_.w, bounds_.h) * 0.5f - image->w;
-		dc.BeginNoTex();
-		dc.Draw()->RectOutline(bounds_.centerX() - minRadius, bounds_.centerY() - minRadius, minRadius * 2.0f, minRadius * 2.0f, 0x80FFFFFF);
-		dc.Flush();
-		dc.Begin();
-		int a = maxCount_ - (int)locations_.size();
-		for (auto iter = locations_.begin(); iter != locations_.end(); ++iter) {
-			float x = bounds_.centerX() + minRadius * iter->x;
-			float y = bounds_.centerY() - minRadius * iter->y;
-			float alpha = (float)a / maxCount_;
-			if (alpha < 0.0f) {
-				alpha = 0.0f;
-			}
-			dc.Draw()->DrawImage(ImageID("I_CROSS"), x, y, 0.8f, colorAlpha(0xFFFFFF, alpha), ALIGN_CENTER);
-			a++;
-		}
-		dc.Flush();
-	} else {
-		dc.Begin();
-		dc.DrawText("N/A", bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER);
-		dc.Flush();
+	const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(ImageID("I_CROSS"));
+	if (!image) {
+		return;
 	}
+	float minRadius = std::min(bounds_.w, bounds_.h) * 0.5f - image->w;
+	dc.Begin();
+	dc.DrawTextShadow(title_.c_str(), bounds_.centerX(), bounds_.centerY() + minRadius + 5.0, 0xFFFFFFFF, ALIGN_TOP | ALIGN_HCENTER);
+	dc.Flush();
+	dc.BeginNoTex();
+	dc.Draw()->RectOutline(bounds_.centerX() - minRadius, bounds_.centerY() - minRadius, minRadius * 2.0f, minRadius * 2.0f, 0x80FFFFFF);
+	dc.Flush();
+	dc.Begin();
+
+	// First draw a grid.
+	float dx = 1.0f / 10.0f;
+	for (int ix = -10; ix <= 10; ix++) {
+		// First draw vertical lines.
+		float fx = ix * dx;
+		for (int iy = -10; iy < 10; iy++) {
+			float ax = fx;
+			float ay = iy * dx;
+			float bx = fx;
+			float by = (iy + 1) * dx;
+
+			if (type_ == StickHistoryViewType::OUTPUT) {
+				ConvertAnalogStick(ax, ay);
+				ConvertAnalogStick(bx, by);
+			}
+
+			ax = ax * minRadius + bounds_.centerX();
+			ay = ay * minRadius + bounds_.centerY();
+
+			bx = bx * minRadius + bounds_.centerX();
+			by = by * minRadius + bounds_.centerY();
+
+			dc.Draw()->Line(dc.theme->whiteImage, ax, ay, bx, by, 1.0, 0x70FFFFFF);
+		}
+	}
+
+	for (int iy = -10; iy <= 10; iy++) {
+		// Then horizontal.
+		float fy = iy * dx;
+		for (int ix = -10; ix < 10; ix++) {
+			float ax = ix * dx;
+			float ay = fy;
+			float bx = (ix + 1) * dx;
+			float by = fy;
+
+			if (type_ == StickHistoryViewType::OUTPUT) {
+				ConvertAnalogStick(ax, ay);
+				ConvertAnalogStick(bx, by);
+			}
+
+			ax = ax * minRadius + bounds_.centerX();
+			ay = ay * minRadius + bounds_.centerY();
+
+			bx = bx * minRadius + bounds_.centerX();
+			by = by * minRadius + bounds_.centerY();
+
+			dc.Draw()->Line(dc.theme->whiteImage, ax, ay, bx, by, 1.0, 0x70FFFFFF);
+		}
+	}
+
+
+	int a = maxCount_ - (int)locations_.size();
+	for (auto iter = locations_.begin(); iter != locations_.end(); ++iter) {
+		float x = bounds_.centerX() + minRadius * iter->x;
+		float y = bounds_.centerY() - minRadius * iter->y;
+		float alpha = (float)a / (float)(maxCount_ - 1);
+		if (alpha < 0.0f) {
+			alpha = 0.0f;
+		}
+		// Emphasize the newest (higher) ones.
+		alpha = powf(alpha, 3.7f);
+		// Highlight the output.
+		if (alpha >= 1.0f && type_ == StickHistoryViewType::OUTPUT) {
+			dc.Draw()->DrawImage(ImageID("I_CIRCLE"), x, y, 1.0f, colorAlpha(0xFFFFFF, 1.0), ALIGN_CENTER);
+		} else {
+			dc.Draw()->DrawImage(ImageID("I_CIRCLE"), x, y, 0.8f, colorAlpha(0xC0C0C0, alpha * 0.5f), ALIGN_CENTER);
+		}
+		a++;
+	}
+	dc.Flush();
 }
 
 void JoystickHistoryView::Update() {
-	if (xAxis_ > -1 && yAxis_ > -1) {
-		locations_.push_back(Location{ curX_, curY_ });
-		if ((int)locations_.size() > maxCount_) {
-			locations_.pop_front();
-		}
+	locations_.push_back(Location{ curX_, curY_ });
+	if ((int)locations_.size() > maxCount_) {
+		locations_.pop_front();
 	}
 }
 
-bool AnalogTestScreen::key(const KeyInput &key) {
-	bool retval = true;
+AnalogSetupScreen::AnalogSetupScreen() {
+	mapper_.SetCallbacks([](int vkey) {}, [](int vkey) {}, [&](int stick, float x, float y) {
+		analogX_[stick] = x;
+		analogY_[stick] = y;
+	});
+	mapper_.SetRawCallback([&](int stick, float x, float y) {
+		rawX_[stick] = x;
+		rawY_[stick] = y;
+	});
+}
+
+void AnalogSetupScreen::update() {
+	mapper_.Update();
+	// We ignore the secondary stick for now and just use the two views
+	// for raw and psp input.
+	if (stickView_[0]) {
+		stickView_[0]->SetXY(analogX_[0], analogY_[0]);
+	}
+	if (stickView_[1]) {
+		stickView_[1]->SetXY(rawX_[0], rawY_[0]);
+	}
+	UIScreen::update();
+}
+
+bool AnalogSetupScreen::key(const KeyInput &key) {
+	// Allow testing auto-rotation
+	bool pauseTrigger = false;
+	mapper_.Key(key, &pauseTrigger);
+
 	if (UI::IsEscapeKey(key)) {
 		TriggerFinish(DR_BACK);
 		return true;
 	}
-
-	char buf[512];
-	snprintf(buf, sizeof(buf), "Keycode: %d Device ID: %d [%s%s%s%s]", key.keyCode, key.deviceId,
-		(key.flags & KEY_IS_REPEAT) ? "REP" : "",
-		(key.flags & KEY_UP) ? "UP" : "",
-		(key.flags & KEY_DOWN) ? "DOWN" : "",
-		(key.flags & KEY_CHAR) ? "CHAR" : "");
-	if (lastLastKeyEvent_ && lastKeyEvent_) {
-		lastLastKeyEvent_->SetText(lastKeyEvent_->GetText());
-		lastKeyEvent_->SetText(buf);
-	}
-	return retval;
+	return true;
 }
 
-bool AnalogTestScreen::axis(const AxisInput &axis) {
-	UIScreen::axis(axis);
-	// This is mainly to catch axis events that would otherwise get translated
-	// into arrow keys, since seeing keyboard arrow key events appear when using
-	// a controller would be confusing for the user.
-	if (IgnoreAxisForMapping(axis.axisId))
-		return false;
+bool AnalogSetupScreen::axis(const AxisInput &axis) {
+	// We DON'T call UIScreen::Axis here! Otherwise it'll try to move the UI focus around.
+	// UIScreen::axis(axis);
 
-	const float AXIS_LOG_THRESHOLD = AXIS_BIND_THRESHOLD * 0.5f;
-	if (axis.value > AXIS_LOG_THRESHOLD || axis.value < -AXIS_LOG_THRESHOLD) {
-		char buf[512];
-		snprintf(buf, sizeof(buf), "Axis: %d (value %1.3f) Device ID: %d",
-			axis.axisId, axis.value, axis.deviceId);
-		// Null-check just in case they weren't created yet.
-		if (lastLastKeyEvent_ && lastKeyEvent_) {
-			lastLastKeyEvent_->SetText(lastKeyEvent_->GetText());
-			lastKeyEvent_->SetText(buf);
-		}
-		return true;
-	}
-	return false;
+	// Instead we just send the input directly to the mapper, that we'll visualize.
+	return mapper_.Axis(axis);
 }
 
-void AnalogTestScreen::CreateViews() {
+void AnalogSetupScreen::CreateViews() {
 	using namespace UI;
 
 	auto di = GetI18NCategory("Dialog");
 
-	root_ = new LinearLayout(ORIENT_VERTICAL);
+	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+
+	LinearLayout *leftColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300.0f, FILL_PARENT)));
+	LinearLayout *rightColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+
+	auto co = GetI18NCategory("Controls");
+	ScrollView *scroll = leftColumn->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0)));
+
+	LinearLayout *scrollContents = scroll->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300.0f, WRAP_CONTENT)));
+
+	scrollContents->Add(new ItemHeader(co->T("Analog Settings", "Analog Settings")));
+
+	// TODO: Would be nicer if these didn't pop up...
+	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogDeadzone, 0.0f, 0.5f, co->T("Deadzone radius"), 0.01f, screenManager(), "/ 1.0"));
+	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogInverseDeadzone, 0.0f, 1.0f, co->T("Low end radius"), 0.01f, screenManager(), "/ 1.0"));
+	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogSensitivity, 0.0f, 2.0f, co->T("Sensitivity (scale)", "Sensitivity"), 0.01f, screenManager(), "x"));
+	// TODO: This should probably be a slider.
+	scrollContents->Add(new CheckBox(&g_Config.bAnalogIsCircular, co->T("Circular stick input")));
+	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAutoRotSpeed, 0.0f, 20.0f, co->T("Auto-rotation speed"), 1.0f, screenManager()));
+	scrollContents->Add(new Choice(co->T("Reset to defaults")))->OnClick.Handle(this, &AnalogSetupScreen::OnResetToDefaults);
 
 	LinearLayout *theTwo = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0f));
 
-	int axis1, device1, dir1;
-	int axis2, device2, dir2;
+	stickView_[0] = theTwo->Add(new JoystickHistoryView(StickHistoryViewType::OUTPUT, co->T("Calibrated"), new LinearLayoutParams(1.0f)));
+	stickView_[1] = theTwo->Add(new JoystickHistoryView(StickHistoryViewType::INPUT, co->T("Raw input"), new LinearLayoutParams(1.0f)));
 
-	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_X_MAX, &device1, &axis1, &dir1)) axis1 = -1;
-	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_Y_MAX, &device2, &axis2, &dir2)) axis2 = -1;
+	rightColumn->Add(theTwo);
 
-	theTwo->Add(new JoystickHistoryView(axis1, device1, dir1, axis2, device2, dir2, new LinearLayoutParams(1.0f)));
+	leftColumn->Add(new Button(di->T("Back"), new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+}
 
-	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_RIGHT_X_MAX, &device1, &axis1, &dir1)) axis1 = -1;
-	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_RIGHT_Y_MAX, &device2, &axis2, &dir2)) axis2 = -1;
-
-	theTwo->Add(new JoystickHistoryView(axis1, device1, dir1, axis2, device2, dir2, new LinearLayoutParams(1.0f)));
-
-	root_->Add(theTwo);
-
-	lastLastKeyEvent_ = root_->Add(new TextView("-", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	lastLastKeyEvent_->SetTextColor(0x80FFFFFF);   // semi-transparent
-	lastKeyEvent_ = root_->Add(new TextView("-", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
-
-	root_->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+UI::EventReturn AnalogSetupScreen::OnResetToDefaults(UI::EventParams &e) {
+	g_Config.fAnalogDeadzone = 0.15f;
+	g_Config.fAnalogInverseDeadzone = 0.0f;
+	g_Config.fAnalogSensitivity = 1.1f;
+	g_Config.bAnalogIsCircular = false;
+	g_Config.fAnalogAutoRotSpeed = 8.0f;
+	return UI::EVENT_DONE;
 }
 
 bool TouchTestScreen::touch(const TouchInput &touch) {
@@ -635,7 +695,12 @@ void TouchTestScreen::CreateViews() {
 	auto di = GetI18NCategory("Dialog");
 	auto gr = GetI18NCategory("Graphics");
 	root_ = new LinearLayout(ORIENT_VERTICAL);
-	LinearLayout *theTwo = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0f));
+	LinearLayout *theTwo = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+
+	lastLastKeyEvent_ = theTwo->Add(new TextView("-", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	lastLastKeyEvent_->SetTextColor(0x80FFFFFF);   // semi-transparent
+	lastKeyEvent_ = theTwo->Add(new TextView("-", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+
 	root_->Add(theTwo);
 
 #if !PPSSPP_PLATFORM(UWP)
@@ -664,6 +729,42 @@ void TouchTestScreen::CreateViews() {
 extern int display_xres;
 extern int display_yres;
 #endif
+
+bool TouchTestScreen::key(const KeyInput &key) {
+	char buf[512];
+	snprintf(buf, sizeof(buf), "Keycode: %d Device ID: %d [%s%s%s%s]", key.keyCode, key.deviceId,
+		(key.flags & KEY_IS_REPEAT) ? "REP" : "",
+		(key.flags & KEY_UP) ? "UP" : "",
+		(key.flags & KEY_DOWN) ? "DOWN" : "",
+		(key.flags & KEY_CHAR) ? "CHAR" : "");
+	if (lastLastKeyEvent_ && lastKeyEvent_) {
+		lastLastKeyEvent_->SetText(lastKeyEvent_->GetText());
+		lastKeyEvent_->SetText(buf);
+	}
+	return true;
+}
+
+bool TouchTestScreen::axis(const AxisInput &axis) {
+
+	// This is mainly to catch axis events that would otherwise get translated
+	// into arrow keys, since seeing keyboard arrow key events appear when using
+	// a controller would be confusing for the user.
+	if (IgnoreAxisForMapping(axis.axisId))
+		return false;
+
+	const float AXIS_LOG_THRESHOLD = AXIS_BIND_THRESHOLD * 0.5f;
+	if (axis.value > AXIS_LOG_THRESHOLD || axis.value < -AXIS_LOG_THRESHOLD) {
+		char buf[512];
+		snprintf(buf, sizeof(buf), "Axis: %d (value %1.3f) Device ID: %d",
+			axis.axisId, axis.value, axis.deviceId);
+		// Null-check just in case they weren't created yet.
+		if (lastLastKeyEvent_ && lastKeyEvent_) {
+			lastLastKeyEvent_->SetText(lastKeyEvent_->GetText());
+			lastKeyEvent_->SetText(buf);
+		}
+	}
+	return true;
+}
 
 void TouchTestScreen::render() {
 	UIDialogScreenWithBackground::render();
@@ -707,7 +808,7 @@ void TouchTestScreen::render() {
 		g_dpi_scale_x, g_dpi_scale_y,
 		g_dpi_scale_real_x, g_dpi_scale_real_y);
 
-	ui_context->DrawTextShadow(buffer, bounds.x + 20.0f, bounds.y + 20.0f, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	ui_context->DrawTextShadow(buffer, bounds.centerX(), bounds.y + 20.0f, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	ui_context->Flush();
 }
 

@@ -863,7 +863,6 @@ namespace SaveState
 			case SAVESTATE_SAVE_SCREENSHOT:
 			{
 				int maxRes = g_Config.iInternalResolution > 2 ? 2 : -1;
-				// TODO(scoped): Pass the path properly into TakeGameScreenshot.
 				tempResult = TakeGameScreenshot(op.filename, ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, maxRes);
 				callbackResult = tempResult ? Status::SUCCESS : Status::FAILURE;
 				if (!tempResult) {

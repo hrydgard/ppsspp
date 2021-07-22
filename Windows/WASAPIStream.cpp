@@ -5,6 +5,7 @@
 #include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "Core/Util/AudioFormat.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #include "Common/Thread/ThreadUtil.h"
 
@@ -50,10 +51,15 @@ public:
 		if (!device || FAILED(device->GetId(&currentDevice_))) {
 			currentDevice_ = nullptr;
 		}
+
+		if (currentDevice_) {
+			INFO_LOG(SCEAUDIO, "Switching to WASAPI audio device: '%s'", GetDeviceName(currentDevice_).c_str());
+		}
+
 		deviceChanged_ = false;
 	}
 
-	bool HasDeviceChanged() {
+	bool HasDefaultDeviceChanged() const {
 		return deviceChanged_;
 	}
 
@@ -89,7 +95,7 @@ public:
 	HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(EDataFlow flow, ERole role, LPCWSTR pwstrDeviceId) override {
 		std::lock_guard<std::mutex> guard(lock_);
 
-		if (flow != eRender || role != eMultimedia) {
+		if (flow != eRender || role != eConsole) {
 			// Not relevant to us.
 			return S_OK;
 		}
@@ -105,7 +111,7 @@ public:
 		}
 
 		deviceChanged_ = true;
-		INFO_LOG(SCEAUDIO, "New default WASAPI audio device detected");
+		INFO_LOG(SCEAUDIO, "New default eRender/eConsole WASAPI audio device detected: '%s'", GetDeviceName(pwstrDeviceId).c_str());
 		return S_OK;
 	}
 
@@ -134,6 +140,45 @@ public:
 			key.fmtid.Data4[6], key.fmtid.Data4[7],
 			(int)key.pid);
 		return S_OK;
+	}
+
+	std::string GetDeviceName(LPCWSTR pwstrId)
+	{
+		HRESULT hr = S_OK;
+		IMMDevice *pDevice = NULL;
+		IPropertyStore *pProps = NULL;
+		PROPVARIANT varString;
+		PropVariantInit(&varString);
+
+		if (_pEnumerator == NULL)
+		{
+			// Get enumerator for audio endpoint devices.
+			hr = CoCreateInstance(__uuidof(MMDeviceEnumerator),
+				NULL, CLSCTX_INPROC_SERVER,
+				__uuidof(IMMDeviceEnumerator),
+				(void**)&_pEnumerator);
+		}
+		if (hr == S_OK)
+		{
+			hr = _pEnumerator->GetDevice(pwstrId, &pDevice);
+		}
+		if (hr == S_OK)
+		{
+			hr = pDevice->OpenPropertyStore(STGM_READ, &pProps);
+		}
+		if (hr == S_OK)
+		{
+			// Get the endpoint device's friendly-name property.
+			hr = pProps->GetValue(PKEY_Device_FriendlyName, &varString);
+		}
+
+		std::string name = ConvertWStringToUTF8((hr == S_OK) ? varString.pwszVal : L"null device");
+
+		PropVariantClear(&varString);
+
+		SAFE_RELEASE(pProps)
+		SAFE_RELEASE(pDevice)
+		return name;
 	}
 
 private:
@@ -236,7 +281,7 @@ WASAPIAudioThread::~WASAPIAudioThread() {
 
 bool WASAPIAudioThread::ActivateDefaultDevice() {
 	_assert_(device_ == nullptr);
-	HRESULT hresult = deviceEnumerator_->GetDefaultAudioEndpoint(eRender, eMultimedia, &device_);
+	HRESULT hresult = deviceEnumerator_->GetDefaultAudioEndpoint(eRender, eConsole, &device_);
 	if (FAILED(hresult) || device_ == nullptr)
 		return false;
 
@@ -341,7 +386,7 @@ bool WASAPIAudioThread::ValidateFormat(const WAVEFORMATEXTENSIBLE *fmt) {
 
 	if (fmt->Format.wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
 		if (!memcmp(&fmt->SubFormat, &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, sizeof(fmt->SubFormat))) {
-			if (fmt->Format.nChannels >= 2)
+			if (fmt->Format.nChannels >= 1)
 				format_ = Format::IEEE_FLOAT;
 		} else {
 			ERROR_LOG_REPORT_ONCE(unexpectedformat, SCEAUDIO, "Got unexpected WASAPI 0xFFFE stream format, expected float!");
@@ -350,7 +395,7 @@ bool WASAPIAudioThread::ValidateFormat(const WAVEFORMATEXTENSIBLE *fmt) {
 			}
 		}
 	} else if (fmt->Format.wFormatTag == WAVE_FORMAT_IEEE_FLOAT) {
-		if (fmt->Format.nChannels >= 2)
+		if (fmt->Format.nChannels >= 1)
 			format_ = Format::IEEE_FLOAT;
 	} else {
 		ERROR_LOG_REPORT_ONCE(unexpectedformat2, SCEAUDIO, "Got unexpected non-extensible WASAPI stream format, expected extensible float!");
@@ -374,7 +419,8 @@ bool WASAPIAudioThread::PrepareFormat() {
 	const int numSamples = numBufferFrames * deviceFormat_->Format.nChannels;
 	if (format_ == Format::IEEE_FLOAT) {
 		memset(pData, 0, sizeof(float) * numSamples);
-		shortBuf_ = new short[numSamples];
+		// This buffer is always stereo - PPSSPP writes to it.
+		shortBuf_ = new short[numBufferFrames * 2];
 	} else if (format_ == Format::PCM16) {
 		memset(pData, 0, sizeof(short) * numSamples);
 	}
@@ -394,6 +440,7 @@ void WASAPIAudioThread::Run() {
 	HRESULT hresult = CoCreateInstance(CLSID_MMDeviceEnumerator,
 		nullptr, /* Object is not created as the part of the aggregate */
 		CLSCTX_ALL, IID_IMMDeviceEnumerator, (void **)&deviceEnumerator_);
+
 	if (FAILED(hresult) || deviceEnumerator_ == nullptr)
 		return;
 
@@ -446,8 +493,14 @@ void WASAPIAudioThread::Run() {
 			int chans = deviceFormat_->Format.nChannels;
 			switch (format_) {
 			case Format::IEEE_FLOAT:
-				callback_(shortBuf_, pNumAvFrames, 16, sampleRate_, chans);
-				if (chans == 2) {
+				callback_(shortBuf_, pNumAvFrames, 16, sampleRate_);
+				if (chans == 1) {
+					float *ptr = (float *)pData;
+					memset(ptr, 0, pNumAvFrames * chans * sizeof(float));
+					for (UINT32 i = 0; i < pNumAvFrames; i++) {
+						ptr[i * chans + 0] = 0.5f * ((float)shortBuf_[i * 2] + (float)shortBuf_[i * 2 + 1]) * (1.0f / 32768.0f);
+					}
+				} else if (chans == 2) {
 					ConvertS16ToF32((float *)pData, shortBuf_, pNumAvFrames * chans);
 				} else if (chans > 2) {
 					float *ptr = (float *)pData;
@@ -459,7 +512,7 @@ void WASAPIAudioThread::Run() {
 				}
 				break;
 			case Format::PCM16:
-				callback_((short *)pData, pNumAvFrames, 16, sampleRate_, chans);
+				callback_((short *)pData, pNumAvFrames, 16, sampleRate_);
 				break;
 			}
 		}
@@ -476,12 +529,13 @@ void WASAPIAudioThread::Run() {
 		}
 
 		// Check if we should use a new device.
-		if (notificationClient_ && notificationClient_->HasDeviceChanged()) {
+		if (notificationClient_ && notificationClient_->HasDefaultDeviceChanged() && g_Config.bAutoAudioDevice) {
 			hresult = audioInterface_->Stop();
 			ShutdownAudioDevice();
 
 			if (!ActivateDefaultDevice()) {
 				ERROR_LOG(SCEAUDIO, "WASAPI: Could not activate default device");
+				// TODO: Return to the old device here?
 				return;
 			}
 			notificationClient_->SetCurrentDevice(device_);

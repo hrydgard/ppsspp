@@ -16,20 +16,29 @@
 #include <ctype.h>
 #include <fcntl.h>
 #endif
+#include <inttypes.h>
 
+#include "Common/Log.h"
+#include "Common/File/Path.h"
+#include "Common/File/AndroidStorage.h"
 #include "Common/Data/Encoding/Utf8.h"
 
-bool free_disk_space(const std::string &dir, uint64_t &space) {
+bool free_disk_space(const Path &path, uint64_t &space) {
 #ifdef _WIN32
-	const std::wstring w32path = ConvertUTF8ToWString(dir);
 	ULARGE_INTEGER free;
-	if (GetDiskFreeSpaceExW(w32path.c_str(), &free, nullptr, nullptr)) {
+	if (GetDiskFreeSpaceExW(path.ToWString().c_str(), &free, nullptr, nullptr)) {
 		space = free.QuadPart;
 		return true;
 	}
 #else
+	if (path.Type() == PathType::CONTENT_URI) {
+		space = Android_GetFreeSpaceByContentUri(path.ToString());
+		INFO_LOG(COMMON, "Free space at '%s': %" PRIu64, path.c_str(), space);
+		return space >= 0;
+	}
+
 	struct statvfs diskstat;
-	int res = statvfs(dir.c_str(), &diskstat);
+	int res = statvfs(path.c_str(), &diskstat);
 
 	if (res == 0) {
 #ifndef __ANDROID__

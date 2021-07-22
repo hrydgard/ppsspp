@@ -71,6 +71,26 @@ bool TryParse(const std::string &str, uint32_t *const output) {
 	return true;
 }
 
+bool TryParse(const std::string &str, uint64_t *const output) {
+	char *endptr = NULL;
+
+	// Holy crap this is ugly.
+
+	// Reset errno to a value other than ERANGE
+	errno = 0;
+
+	uint64_t value = strtoull(str.c_str(), &endptr, 0);
+
+	if (!endptr || *endptr)
+		return false;
+
+	if (errno == ERANGE)
+		return false;
+
+	*output = value;
+	return true;
+}
+
 bool TryParse(const std::string &str, bool *const output) {
 	if ("1" == str || !strcasecmp("true", str.c_str()))
 		*output = true;

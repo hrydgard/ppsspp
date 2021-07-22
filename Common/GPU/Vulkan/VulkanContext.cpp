@@ -565,33 +565,16 @@ void VulkanContext::ChooseDevice(int physical_device) {
 	}
 
 	deviceFeatures_.enabled = {};
-
 	// Enable a few safe ones if they are available.
-	if (deviceFeatures_.available.dualSrcBlend) {
-		deviceFeatures_.enabled.dualSrcBlend = true;
-	}
-	if (deviceFeatures_.available.largePoints) {
-		deviceFeatures_.enabled.largePoints = true;
-	}
-	if (deviceFeatures_.available.wideLines) {
-		deviceFeatures_.enabled.wideLines = true;
-	}
-	if (deviceFeatures_.available.logicOp) {
-		deviceFeatures_.enabled.logicOp = true;
-	}
-	if (deviceFeatures_.available.depthClamp) {
-		deviceFeatures_.enabled.depthClamp = true;
-	}
-	if (deviceFeatures_.available.depthBounds) {
-		deviceFeatures_.enabled.depthBounds = true;
-	}
-	if (deviceFeatures_.available.samplerAnisotropy) {
-		deviceFeatures_.enabled.samplerAnisotropy = true;
-	}
+	deviceFeatures_.enabled.dualSrcBlend = deviceFeatures_.available.dualSrcBlend;
+	deviceFeatures_.enabled.largePoints = deviceFeatures_.available.largePoints;
+	deviceFeatures_.enabled.wideLines = deviceFeatures_.available.wideLines;
+	deviceFeatures_.enabled.logicOp = deviceFeatures_.available.logicOp;
+	deviceFeatures_.enabled.depthClamp = deviceFeatures_.available.depthClamp;
+	deviceFeatures_.enabled.depthBounds = deviceFeatures_.available.depthBounds;
+	deviceFeatures_.enabled.samplerAnisotropy = deviceFeatures_.available.samplerAnisotropy;
 	// For easy wireframe mode, someday.
-	if (deviceFeatures_.available.fillModeNonSolid) {
-		deviceFeatures_.enabled.fillModeNonSolid = true;
-	}
+	deviceFeatures_.enabled.fillModeNonSolid = deviceFeatures_.available.fillModeNonSolid;
 
 	GetDeviceLayerExtensionList(nullptr, device_extension_properties_);
 

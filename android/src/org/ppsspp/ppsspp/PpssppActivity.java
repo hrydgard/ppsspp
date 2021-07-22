@@ -9,6 +9,7 @@ import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import android.os.storage.StorageManager;
+import android.provider.DocumentsContract;
 import androidx.documentfile.provider.DocumentFile;
 import java.util.ArrayList;
 import java.util.UUID;
@@ -147,6 +148,9 @@ public class PpssppActivity extends NativeActivity {
 		return str;
 	}
 
+	// TODO: Maybe add a cheaper version that doesn't extract all the file information?
+	// TODO: Replace with a proper query:
+	// * https://stackoverflow.com/questions/42186820/documentfile-is-very-slow
 	public String[] listContentUriDir(String uriString) {
 		try {
 			Uri uri = Uri.parse(uriString);
@@ -213,6 +217,42 @@ public class PpssppActivity extends NativeActivity {
 			}
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriRemoveFile exception: " + e.toString());
+			return false;
+		}
+	}
+
+	public boolean contentUriRenameFileTo(String fileUri, String newName) {
+		try {
+			Uri uri = Uri.parse(fileUri);
+
+			// Due to a design flaw, we can't use DocumentFile.renameTo().
+			// Instead we use the DocumentsContract API directly.
+			// See https://stackoverflow.com/questions/37168200/android-5-0-new-sd-card-access-api-documentfile-renameto-unsupportedoperation.
+			Uri newUri = DocumentsContract.renameDocument(getContentResolver(), uri, newName);
+			// Log.i(TAG, "New uri: " + newUri.toString());
+			return true;
+		} catch (Exception e) {
+			Log.e(TAG, "contentUriRenameFile exception: " + e.toString());
+			return false;
+		}
+	}
+
+	// Possibly faster than contentUriGetFileInfo.
+	public boolean contentUriFileExists(String fileUri) {
+		try {
+			Uri uri = Uri.parse(fileUri);
+			DocumentFile documentFile = DocumentFile.fromSingleUri(this, uri);
+			if (documentFile != null) {
+				if (documentFile.exists()) {
+					return true;
+				} else {
+					return false;
+				}
+			} else {
+				return false;
+			}
+		} catch (Exception e) {
+			Log.e(TAG, "contentUriFileExists exception: " + e.toString());
 			return false;
 		}
 	}

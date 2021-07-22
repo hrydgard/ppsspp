@@ -128,13 +128,6 @@ void PathBrowser::HandlePath() {
 		return;
 	}
 
-	if (path_.Type() != PathType::HTTP) {
-		if (pendingActive_)
-			ResetPending();
-		ready_ = true;
-		return;
-	}
-
 	std::lock_guard<std::mutex> guard(pendingLock_);
 	ready_ = false;
 	pendingActive_ = true;
@@ -162,6 +155,11 @@ void PathBrowser::HandlePath() {
 				guard.unlock();
 				results.clear();
 				success = LoadRemoteFileList(lastPath, &pendingCancel_, results);
+				guard.lock();
+			} else {
+				guard.unlock();
+				results.clear();
+				success = File::GetFilesInDir(lastPath, &results, nullptr);
 				guard.lock();
 			}
 
@@ -214,32 +212,8 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 		guard.lock();
 	}
 
-#if PPSSPP_PLATFORM(WINDOWS)
-	if (path_.IsRoot()) {
-		// Special path that means root of file system.
-		std::vector<std::string> drives = File::GetWindowsDrives();
-		for (auto drive = drives.begin(); drive != drives.end(); ++drive) {
-			if (*drive == "A:/" || *drive == "B:/")
-				continue;
-			File::FileInfo fake;
-			fake.fullName = Path(*drive);
-			fake.name = *drive;
-			fake.isDirectory = true;
-			fake.exists = true;
-			fake.size = 0;
-			fake.isWritable = false;
-			fileInfo.push_back(fake);
-		}
-	}
-#endif
-
-	if (path_.Type() == PathType::HTTP) {
-		fileInfo = ApplyFilter(pendingFiles_, filter);
-		return true;
-	} else {
-		File::GetFilesInDir(path_, &fileInfo, filter);
-		return true;
-	}
+	fileInfo = ApplyFilter(pendingFiles_, filter);
+	return true;
 }
 
 bool PathBrowser::CanNavigateUp() {

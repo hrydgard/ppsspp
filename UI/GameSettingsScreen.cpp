@@ -49,7 +49,6 @@
 #include "UI/TouchControlVisibilityScreen.h"
 #include "UI/TiltAnalogSettingsScreen.h"
 #include "UI/TiltEventProcessor.h"
-#include "UI/ComboKeyMappingScreen.h"
 #include "UI/GPUDriverTestScreen.h"
 #include "UI/MemStickScreen.h"
 
@@ -628,22 +627,19 @@ void GameSettingsScreen::CreateViews() {
 	}
 #endif
 
-	std::vector<std::string> micList = Microphone::getDeviceList();
-	if (!micList.empty()) {
-		audioSettings->Add(new ItemHeader(a->T("Microphone")));
-		PopupMultiChoiceDynamic *MicChoice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sMicDevice, a->T("Microphone Device"), micList, nullptr, screenManager()));
-		MicChoice->OnChoice.Handle(this, &GameSettingsScreen::OnMicDeviceChange);
-	}
-
+	bool sdlAudio = false;
 #if defined(SDL)
 	std::vector<std::string> audioDeviceList;
 	SplitString(System_GetProperty(SYSPROP_AUDIO_DEVICE_LIST), '\0', audioDeviceList);
 	audioDeviceList.insert(audioDeviceList.begin(), a->T("Auto"));
 	PopupMultiChoiceDynamic *audioDevice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sAudioDevice, a->T("Device"), audioDeviceList, nullptr, screenManager()));
 	audioDevice->OnChoice.Handle(this, &GameSettingsScreen::OnAudioDevice);
-
-	audioSettings->Add(new CheckBox(&g_Config.bAutoAudioDevice, a->T("Switch on new audio device")));
+	sdlAudio = true;
 #endif
+
+	if (sdlAudio || g_Config.iAudioBackend == AUDIO_BACKEND_WASAPI) {
+		audioSettings->Add(new CheckBox(&g_Config.bAutoAudioDevice, a->T("Use new audio devices automatically")));
+	}
 
 #if defined(__ANDROID__)
 	CheckBox *extraAudio = audioSettings->Add(new CheckBox(&g_Config.bExtraAudioBuffering, a->T("AudioBufferingForBluetooth", "Bluetooth-friendly buffer (slower)")));
@@ -656,6 +652,13 @@ void GameSettingsScreen::CreateViews() {
 	}
 #endif
 
+	std::vector<std::string> micList = Microphone::getDeviceList();
+	if (!micList.empty()) {
+		audioSettings->Add(new ItemHeader(a->T("Microphone")));
+		PopupMultiChoiceDynamic *MicChoice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sMicDevice, a->T("Microphone Device"), micList, nullptr, screenManager()));
+		MicChoice->OnChoice.Handle(this, &GameSettingsScreen::OnMicDeviceChange);
+	}
+
 	// Control
 	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	controlsSettingsScroll->SetTag("GameSettingsControls");
@@ -665,6 +668,7 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab(ms->T("Controls"), controlsSettingsScroll);
 	controlsSettings->Add(new ItemHeader(ms->T("Controls")));
 	controlsSettings->Add(new Choice(co->T("Control Mapping")))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
+	controlsSettings->Add(new Choice(co->T("Calibrate Analog Stick")))->OnClick.Handle(this, &GameSettingsScreen::OnCalibrateAnalogs);
 
 #if defined(USING_WIN_UI)
 	controlsSettings->Add(new CheckBox(&g_Config.bSystemControls, co->T("Enable standard shortcut keys")));
@@ -687,18 +691,13 @@ void GameSettingsScreen::CreateViews() {
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_TV) {
 		controlsSettings->Add(new ItemHeader(co->T("OnScreen", "On-Screen Touch Controls")));
 		controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, co->T("OnScreen", "On-Screen Touch Controls")));
-		layoutEditorChoice_ = controlsSettings->Add(new Choice(co->T("Custom layout...")));
+		layoutEditorChoice_ = controlsSettings->Add(new Choice(co->T("Customize Touch Controls")));
 		layoutEditorChoice_->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlLayout);
 		layoutEditorChoice_->SetEnabledPtr(&g_Config.bShowTouchControls);
 
 		// Re-centers itself to the touch location on touch-down.
 		CheckBox *floatingAnalog = controlsSettings->Add(new CheckBox(&g_Config.bAutoCenterTouchAnalog, co->T("Auto-centering analog stick")));
 		floatingAnalog->SetEnabledPtr(&g_Config.bShowTouchControls);
-
-		// Combo key setup
-		Choice *comboKey = controlsSettings->Add(new Choice(co->T("Combo Key Setup")));
-		comboKey->OnClick.Handle(this, &GameSettingsScreen::OnComboKey);
-		comboKey->SetEnabledPtr(&g_Config.bShowTouchControls);
 
 		// On non iOS systems, offer to let the user see this button.
 		// Some Windows touch devices don't have a back button or other button to call up the menu.
@@ -726,14 +725,6 @@ void GameSettingsScreen::CreateViews() {
 		View *style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iTouchButtonStyle, co->T("Button style"), touchControlStyles, 0, ARRAY_SIZE(touchControlStyles), co->GetName(), screenManager()));
 		style->SetEnabledPtr(&g_Config.bShowTouchControls);
 	}
-
-	controlsSettings->Add(new ItemHeader(co->T("Analog Settings", "Analog Settings")));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogDeadzone, 0.0f, 1.0f, co->T("Deadzone Radius"), 0.01f, screenManager(), "/ 1.0"));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogInverseDeadzone, 0.0f, 1.0f, co->T("Analog Mapper Low End", "Analog Mapper Low End (Inverse Deadzone)"), 0.01f, screenManager(), "/ 1.0"));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogSensitivity, 0.0f, 10.0f, co->T("Analog Mapper High End", "Analog Mapper High End (Axis Sensitivity)"), 0.01f, screenManager(), "x"));
-	controlsSettings->Add(new CheckBox(&g_Config.bAnalogIsCircular, co->T("Circular Analog Stick Input")));
-
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAutoRotSpeed, 0.0f, 25.0f, co->T("Analog auto-rotation speed"), 1.0f, screenManager()));
 
 	controlsSettings->Add(new ItemHeader(co->T("Keyboard", "Keyboard Control Settings")));
 #if defined(USING_WIN_UI)
@@ -1479,11 +1470,6 @@ UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameSettingsScreen::OnComboKey(UI::EventParams &e) {
-	screenManager()->push(new ComboKeyScreen(&g_Config.iComboMode));
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn GameSettingsScreen::OnLanguage(UI::EventParams &e) {
 	auto dev = GetI18NCategory("Developer");
 	auto langScreen = new NewLanguageScreen(dev->T("Language"));
@@ -1540,6 +1526,11 @@ UI::EventReturn GameSettingsScreen::OnRemoteISO(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnControlMapping(UI::EventParams &e) {
 	screenManager()->push(new ControlMappingScreen());
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnCalibrateAnalogs(UI::EventParams &e) {
+	screenManager()->push(new AnalogSetupScreen());
 	return UI::EVENT_DONE;
 }
 
@@ -1813,7 +1804,7 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	buttonsRow2->Add(new Button(di->T("Toggle List")))->OnClick.Handle(this, &HostnameSelectScreen::OnShowIPListClick);
 	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, G_RIGHT)));
 
-	std::vector<std::string> listIP = {"myneighborsushicat.com", "socom.cc", "localhost"}; // TODO: Add some saved recent history too?
+	std::vector<std::string> listIP = {"socom.cc", "myneighborsushicat.com", "localhost"}; // TODO: Add some saved recent history too?
 	net::GetIPList(listIP);
 	ipRows_ = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
 	ScrollView* scrollView = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));

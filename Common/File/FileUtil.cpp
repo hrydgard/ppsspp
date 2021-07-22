@@ -115,7 +115,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 			// Need to be able to create the file here if it doesn't exist.
 			// Not exactly sure which abstractions are best, let's start simple.
 			if (!File::Exists(path)) {
-				INFO_LOG(COMMON, "Opening content file '%s' for write. Doesn't exist, creating empty and reopening.", path.c_str());
+				INFO_LOG(COMMON, "OpenCFile(%s): Opening content file for write. Doesn't exist, creating empty and reopening.", path.c_str());
 				std::string name = path.GetFilename();
 				if (path.CanNavigateUp()) {
 					Path parent = path.NavigateUp();
@@ -128,7 +128,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 					return nullptr;
 				}
 			} else {
-				INFO_LOG(COMMON, "Opening file by fd for write");
+				INFO_LOG(COMMON, "OpenCFile(%s): Opening existing content file for write (truncating). Requested mode: '%s'", path.c_str(), mode);
 			}
 
 			// TODO: Support append modes and stuff... For now let's go with the most common one.
@@ -155,13 +155,51 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 #endif
 }
 
+static std::string OpenFlagToString(OpenFlag flags) {
+	std::string s;
+	if (flags & OPEN_READ)
+		s += "READ|";
+	if (flags & OPEN_WRITE)
+		s += "WRITE|";
+	if (flags & OPEN_APPEND)
+		s += "APPEND|";
+	if (flags & OPEN_CREATE)
+		s += "CREATE|";
+	if (flags & OPEN_TRUNCATE)
+		s += "TRUNCATE|";
+	if (!s.empty()) {
+		s.pop_back();  // Remove trailing separator.
+	}
+	return s;
+}
+
 int OpenFD(const Path &path, OpenFlag flags) {
 	switch (path.Type()) {
 	case PathType::CONTENT_URI:
 		break;
 	default:
-		// Not yet supported.
+		ERROR_LOG(COMMON, "OpenFD: Only supports Content URI paths. Not '%s' (%s)!", path.c_str(), OpenFlagToString(flags).c_str());
+		// Not yet supported - use other paths.
 		return -1;
+	}
+
+	if (flags & OPEN_CREATE) {
+		if (!File::Exists(path)) {
+			INFO_LOG(COMMON, "OpenFD(%s): Creating file.", path.c_str());
+			std::string name = path.GetFilename();
+			if (path.CanNavigateUp()) {
+				Path parent = path.NavigateUp();
+				if (!Android_CreateFile(parent.ToString(), name)) {
+					WARN_LOG(COMMON, "OpenFD: Failed to create file '%s' in '%s'", name.c_str(), parent.c_str());
+					return -1;
+				}
+			} else {
+				INFO_LOG(COMMON, "Failed to navigate up to create file: %s", path.c_str());
+				return -1;
+			}
+		} else {
+			INFO_LOG(COMMON, "OpenCFile(%s): Opening existing content file ('%s')", path.c_str(), OpenFlagToString(flags).c_str());
+		}
 	}
 
 	Android_OpenContentUriMode mode;
@@ -169,18 +207,22 @@ int OpenFD(const Path &path, OpenFlag flags) {
 		mode = Android_OpenContentUriMode::READ;
 	} else if (flags & OPEN_WRITE) {
 		if (flags & OPEN_TRUNCATE) {
-			mode = Android_OpenContentUriMode::READ_WRITE;
-		} else {
 			mode = Android_OpenContentUriMode::READ_WRITE_TRUNCATE;
+		} else {
+			mode = Android_OpenContentUriMode::READ_WRITE;
 		}
 		// TODO: Maybe better checking of additional flags here.
 	} else {
 		// TODO: Add support for more modes if possible.
-		ERROR_LOG_REPORT_ONCE(openFlagNotSupported, COMMON, "OpenFlag 0x%x not yet supported", flags);
+		ERROR_LOG_REPORT_ONCE(openFlagNotSupported, COMMON, "OpenFlag %s not yet supported", OpenFlagToString(flags).c_str());
 		return -1;
 	}
 
+	INFO_LOG(COMMON, "Android_OpenContentUriFd: %s (%s)", path.c_str(), OpenFlagToString(flags).c_str());
 	int descriptor = Android_OpenContentUriFd(path.ToString(), mode);
+	if (descriptor < 0) {
+		ERROR_LOG(COMMON, "Android_OpenContentUriFd failed: '%s'", path.c_str());
+	}
 	return descriptor;
 }
 
@@ -278,11 +320,7 @@ bool ExistsInDir(const Path &path, const std::string &filename) {
 
 bool Exists(const Path &path) {
 	if (path.Type() == PathType::CONTENT_URI) {
-		FileInfo info;
-		if (!Android_GetFileInfo(path.c_str(), &info)) {
-			return false;
-		}
-		return info.exists;
+		return Android_FileExists(path.c_str());
 	}
 
 #if defined(_WIN32)
@@ -513,19 +551,27 @@ bool DeleteDir(const Path &path) {
 }
 
 // renames file srcFilename to destFilename, returns true on success 
-bool Rename(const Path &srcFilename, const Path &destFilename)
-{
+bool Rename(const Path &srcFilename, const Path &destFilename) {
 	if (srcFilename.Type() != destFilename.Type()) {
-		// Impossible.
+		// Impossible. You're gonna need to make a copy, and delete the original. Not the responsibility
+		// of Rename.
 		return false;
 	}
 
+	// We've already asserted that they're the same Type, so only need to check either src or dest.
 	switch (srcFilename.Type()) {
 	case PathType::NATIVE:
-		break; // OK
+		// OK, proceed with the regular code.
+		break;
 	case PathType::CONTENT_URI:
-		ERROR_LOG_REPORT_ONCE(renameUriNotSupported, COMMON, "Moving files by Android URI is not yet supported");
-		return false;
+		// Content URI: Can only rename if in the same folder.
+		if (srcFilename.GetDirectory() != destFilename.GetDirectory()) {
+			INFO_LOG(COMMON, "Content URI rename: Directories not matching, failing. %s --> %s", srcFilename.c_str(), destFilename.c_str());
+			return false;
+		}
+		INFO_LOG(COMMON, "Content URI rename: %s --> %s", srcFilename.c_str(), destFilename.c_str());
+
+		return Android_RenameFileTo(srcFilename.ToString(), destFilename.GetFilename());
 	default:
 		return false;
 	}
@@ -979,10 +1025,8 @@ bool ReadFileToString(bool text_file, const Path &filename, std::string &str) {
 	return success;
 }
 
-// This is an odd one, mainly used for asset reading, so doesn't really
-// need to support Path.
-uint8_t *ReadLocalFile(const char *filename, size_t * size) {
-	FILE *file = File::OpenCFile(Path(filename), "rb");
+uint8_t *ReadLocalFile(const Path &filename, size_t *size) {
+	FILE *file = File::OpenCFile(filename, "rb");
 	if (!file) {
 		*size = 0;
 		return nullptr;

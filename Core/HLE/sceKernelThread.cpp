@@ -1344,7 +1344,7 @@ int __KernelGetThreadExitStatus(SceUID threadID) {
 	if (t->nt.status == THREADSTATUS_DORMANT) {
 		return hleLogSuccessI(SCEKERNEL, t->nt.exitStatus);
 	}
-	return hleLogDebug(SCEKERNEL, SCE_KERNEL_ERROR_NOT_DORMANT, "not dormant");
+	return hleLogVerbose(SCEKERNEL, SCE_KERNEL_ERROR_NOT_DORMANT, "not dormant");
 }
 
 int sceKernelGetThreadExitStatus(SceUID threadID) {

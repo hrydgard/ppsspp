@@ -367,7 +367,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	int bufw = GetTextureBufw(0, texaddr, format);
 	u8 maxLevel = gstate.getTextureMaxLevel();
 
-	u32 texhash = MiniHash((const u32 *)Memory::GetPointerUnchecked(texaddr));
+	u32 minihash = MiniHash((const u32 *)Memory::GetPointerUnchecked(texaddr));
 
 	TexCache::iterator entryIter = cache_.find(cachekey);
 	TexCacheEntry *entry = nullptr;
@@ -437,7 +437,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 				rehash = true;
 			}
 
-			if (texhash != entry->hash) {
+			if (minihash != entry->minihash) {
 				match = false;
 				reason = "minihash";
 			} else if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
@@ -548,7 +548,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 	// We have to decode it, let's setup the cache entry first.
 	entry->addr = texaddr;
-	entry->hash = texhash;
+	entry->minihash = minihash;
 	entry->dim = dim;
 	entry->format = format;
 	entry->maxLevel = maxLevel;
@@ -1822,7 +1822,7 @@ void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type
 			if (type == GPU_INVALIDATE_FORCE) {
 				// Just random values to force the hash not to match.
 				entry->fullhash = (entry->fullhash ^ 0x12345678) + 13;
-				entry->hash = (entry->hash ^ 0x89ABCDEF) + 89;
+				entry->minihash = (entry->minihash ^ 0x89ABCDEF) + 89;
 			}
 			if (type != GPU_INVALIDATE_ALL) {
 				gpuStats.numTextureInvalidations++;
