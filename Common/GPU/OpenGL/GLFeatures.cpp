@@ -162,7 +162,8 @@ void CheckGLExtensions() {
 			|| vendor == "nouveau") {
 			gl_extensions.gpuVendor = GPU_VENDOR_NVIDIA;
 		} else if (vendor == "Advanced Micro Devices, Inc."
-			|| vendor == "ATI Technologies Inc.") {
+			|| vendor == "ATI Technologies Inc."
+			|| vendor == "AMD") {
 			gl_extensions.gpuVendor = GPU_VENDOR_AMD;
 		} else if (vendor == "Intel"
 			|| vendor == "Intel Inc."
