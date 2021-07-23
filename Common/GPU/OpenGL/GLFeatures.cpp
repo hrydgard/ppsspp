@@ -192,7 +192,7 @@ void CheckGLExtensions() {
 		gl_extensions.gpuVendor = GPU_VENDOR_UNKNOWN;
 	}
 
-	INFO_LOG(G3D, "GPU Vendor : %s ; renderer: %s version str: %s ; GLSL version str: %s", cvendor, renderer ? renderer : "N/A", versionStr ? versionStr : "N/A", glslVersionStr ? glslVersionStr : "N/A");
+	INFO_LOG(G3D, "GPU Vendor : %s ; renderer: %s version str: %s ; GLSL version str: %s", cvendor ? cvendor : "N/A", renderer ? renderer : "N/A", versionStr ? versionStr : "N/A", glslVersionStr ? glslVersionStr : "N/A");
 
 	if (renderer) {
 		strncpy(gl_extensions.model, renderer, sizeof(gl_extensions.model));
