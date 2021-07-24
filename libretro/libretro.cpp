@@ -307,6 +307,38 @@ static int get_language_auto(void)
    }
 }
 
+static std::string map_psp_language_to_i18n_locale(int val)
+{
+   switch (val)
+   {
+      default:
+      case PSP_SYSTEMPARAM_LANGUAGE_ENGLISH:
+         return "en_US";
+      case PSP_SYSTEMPARAM_LANGUAGE_JAPANESE:
+         return "ja_JP";
+      case PSP_SYSTEMPARAM_LANGUAGE_FRENCH:
+         return "fr_FR";
+      case PSP_SYSTEMPARAM_LANGUAGE_GERMAN:
+         return "de_DE";
+      case PSP_SYSTEMPARAM_LANGUAGE_SPANISH:
+         return "es_ES";
+      case PSP_SYSTEMPARAM_LANGUAGE_ITALIAN:
+         return "it_IT";
+      case PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE:
+         return "pt_PT";
+      case PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN:
+         return "ru_RU";
+      case PSP_SYSTEMPARAM_LANGUAGE_DUTCH:
+         return "nl_NL";
+      case PSP_SYSTEMPARAM_LANGUAGE_KOREAN:
+         return "ko_KR";
+      case PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL:
+         return "zh_TW";
+      case PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED:
+         return "zh_CN";
+   }
+}
+
 static void check_variables(CoreParameter &coreParam)
 {
    bool updated = false;
@@ -348,15 +380,7 @@ static void check_variables(CoreParameter &coreParam)
    if (g_Config.iLanguage < 0)
       g_Config.iLanguage = get_language_auto();
 
-   g_Config.sLanguageIni = "en_US";
-   auto langValuesMapping = GetLangValuesMapping();
-   for (auto i = langValuesMapping.begin(); i != langValuesMapping.end(); ++i)
-   {
-      if (i->second.second == g_Config.iLanguage)
-      {
-         g_Config.sLanguageIni = i->first;
-      }
-   }
+   g_Config.sLanguageIni = map_psp_language_to_i18n_locale(g_Config.iLanguage);
    i18nrepo.LoadIni(g_Config.sLanguageIni);
 
    if (!PSP_IsInited() && ppsspp_internal_resolution.Update(&g_Config.iInternalResolution))
