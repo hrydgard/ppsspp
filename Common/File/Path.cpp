@@ -299,27 +299,32 @@ bool Path::IsAbsolute() const {
 		return false;
 }
 
-std::string Path::PathTo(const Path &other) const {
+bool Path::ComputePathTo(const Path &other, std::string &path) const {
 	if (!other.StartsWith(*this)) {
 		// Can't do this. Should return an error.
-		return std::string();
+		return false;
+	}
+
+	if (*this == other) {
+		// Equal, the path is empty.
+		path.clear();
+		return true;
 	}
 
 	std::string diff;
-
 	if (type_ == PathType::CONTENT_URI) {
 		AndroidContentURI a(path_);
 		AndroidContentURI b(other.path_);
 		if (a.RootPath() != b.RootPath()) {
 			// No common root, can't do anything
-			return std::string();
+			return false;
 		}
-		diff = a.PathTo(b);
+		return a.ComputePathTo(b, path);
 	} else if (path_ == "/") {
-		diff = other.path_.substr(1);
+		path = other.path_.substr(1);
+		return true;
 	} else {
-		diff = other.path_.substr(path_.size() + 1);
+		path = other.path_.substr(path_.size() + 1);
+		return true;
 	}
-
-	return diff;
 }

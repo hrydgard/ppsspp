@@ -40,6 +40,15 @@ protected:
 	void sendMessage(const char *message, const char *value) override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	void update() override;
+	void render() override {
+		// Simple anti-flicker due to delayed finish.
+		if (!done_) {
+			// render as usual.
+			UIDialogScreenWithBackground::render();
+		} else {
+			// no render. black frame insertion is better than flicker.
+		}
+	}
 
 private:
 	// Event handlers

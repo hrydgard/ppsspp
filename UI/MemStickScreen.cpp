@@ -207,10 +207,18 @@ static bool ListFileSuffixesRecursively(const Path &root, Path folder, std::vect
 
 	for (auto &file : files) {
 		if (file.isDirectory) {
-			dirSuffixes.push_back(root.PathTo(folder));
-			ListFileSuffixesRecursively(root, folder / file.name, dirSuffixes, fileSuffixes);
+			std::string dirSuffix;
+			if (root.ComputePathTo(file.fullName, dirSuffix)) {
+				dirSuffixes.push_back(dirSuffix);
+				ListFileSuffixesRecursively(root, folder / file.name, dirSuffixes, fileSuffixes);
+			} else {
+				ERROR_LOG(SYSTEM, "Failed to compute PathTo from '%s' to '%s'", root.c_str(), folder.c_str());
+			}
 		} else {
-			fileSuffixes.push_back(root.PathTo(file.fullName));
+			std::string fileSuffix;
+			if (root.ComputePathTo(file.fullName, fileSuffix)) {
+				fileSuffixes.push_back(fileSuffix);
+			}
 		}
 	}
 
@@ -307,7 +315,7 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 			return UI::EVENT_DONE;
 		}
 
-		bool dryRun = true;  // Useful for debugging.
+		bool dryRun = false;  // Useful for debugging.
 
 		size_t moveFailures = 0;
 
@@ -320,11 +328,13 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 				if (dryRun) {
 					INFO_LOG(SYSTEM, "dry run: Would have created dir '%s'", dir.c_str());
 				} else {
+					INFO_LOG(SYSTEM, "Creating dir '%s'", dir.c_str());
 					if (!File::Exists(dir)) {
 						File::CreateDir(dir);
 					}
 				}
 			}
+
 			for (auto &fileSuffix : fileSuffixesToMove) {
 				Path from = moveSrc / fileSuffix;
 				Path to = moveDest / fileSuffix;
@@ -337,6 +347,8 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 						ERROR_LOG(SYSTEM, "Failed to move file '%s' to '%s'", from.c_str(), to.c_str());
 						moveFailures++;
 						// Should probably just bail?
+					} else {
+						INFO_LOG(SYSTEM, "Moved file '%s' to '%s'", from.c_str(), to.c_str());
 					}
 				}
 			}

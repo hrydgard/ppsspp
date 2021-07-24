@@ -112,8 +112,16 @@ public:
 	}
 
 	// Only goes downwards in hierarchies. No ".." will ever be generated.
-	std::string PathTo(const AndroidContentURI &other) const {
-		return other.FilePath().substr(FilePath().size() + 1);
+	bool ComputePathTo(const AndroidContentURI &other, std::string &path) const {
+		size_t offset = FilePath().size() + 1;
+		std::string otherFilePath = other.FilePath();
+		if (offset >= otherFilePath.size()) {
+			ERROR_LOG(SYSTEM, "Bad call to PathTo. '%s' -> '%s'", FilePath().c_str(), other.FilePath().c_str());
+			return false;
+		}
+
+		path = other.FilePath().substr(FilePath().size() + 1);
+		return true;
 	}
 
 	std::string GetFileExtension() const {

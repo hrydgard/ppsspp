@@ -510,7 +510,10 @@ bool CreateFullPath(const Path &path) {
 
 	Path root = path.GetRootVolume();
 
-	std::string diff = root.PathTo(path);  // always with forward slashes
+	std::string diff;
+	if (!root.ComputePathTo(path, diff)) {
+		return false;
+	}
 
 	std::vector<std::string> parts;
 	SplitString(diff, '/', parts);

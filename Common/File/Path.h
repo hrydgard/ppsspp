@@ -82,7 +82,7 @@ public:
 	// For Android directory trees, navigates to the root of the tree.
 	Path GetRootVolume() const;
 
-	std::string PathTo(const Path &child) const;
+	bool ComputePathTo(const Path &other, std::string &path) const;
 
 	bool operator ==(const Path &other) const {
 		return path_ == other.path_ && type_ == other.type_;

@@ -1257,6 +1257,12 @@ void GameSettingsScreen::sendMessage(const char *message, const char *value) {
 	}
 }
 
+void GameSettingsScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	if (result == DialogResult::DR_OK) {
+		RecreateViews();
+	}
+}
+
 void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 	auto sy = GetI18NCategory("System");
 
