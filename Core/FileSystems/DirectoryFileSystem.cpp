@@ -177,15 +177,38 @@ DirectoryFileSystem::~DirectoryFileSystem() {
 	CloseAll();
 }
 
-Path DirectoryFileHandle::GetLocalPath(const Path &basePath, std::string localpath)
-{
+// TODO(scoped): Merge the two below functions somehow.
+
+Path DirectoryFileHandle::GetLocalPath(const Path &basePath, std::string localpath) const {
 	if (localpath.empty())
 		return basePath;
 
 	if (localpath[0] == '/')
 		localpath.erase(0, 1);
 
+	if (fileSystemFlags_ & FileSystemFlags::STRIP_PSP) {
+		if (startsWith(localpath, "/PSP")) {
+			localpath = localpath.substr(4);
+		}
+	}
+
 	return basePath / localpath;
+}
+
+Path DirectoryFileSystem::GetLocalPath(std::string internalPath) const {
+	if (internalPath.empty())
+		return basePath;
+
+	if (internalPath[0] == '/')
+		internalPath.erase(0, 1);
+
+	if (flags & FileSystemFlags::STRIP_PSP) {
+		if (startsWith(internalPath, "/PSP")) {
+			internalPath = internalPath.substr(4);
+		}
+	}
+
+	return basePath / internalPath;
 }
 
 bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, FileAccess access, u32 &error) {
@@ -506,16 +529,6 @@ void DirectoryFileSystem::CloseAll() {
 		iter->second.hFile.Close();
 	}
 	entries.clear();
-}
-
-Path DirectoryFileSystem::GetLocalPath(std::string internalPath) {
-	if (internalPath.empty())
-		return basePath;
-
-	if (internalPath[0] == '/')
-		internalPath.erase(0, 1);
-
-	return basePath / internalPath;
 }
 
 bool DirectoryFileSystem::MkDir(const std::string &dirname) {
