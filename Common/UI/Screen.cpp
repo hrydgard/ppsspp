@@ -163,6 +163,8 @@ void ScreenManager::render() {
 				iter--;
 				Layer backback = *iter;
 
+				_assert_(backback.screen);
+
 				// TODO: Make really sure that this "mismatched" pre/post only happens
 				// when screens are "compatible" (both are UIScreens, for example).
 				backback.screen->preRender();
@@ -174,6 +176,7 @@ void ScreenManager::render() {
 				break;
 			}
 		default:
+			_assert_(stack_.back().screen);
 			stack_.back().screen->preRender();
 			stack_.back().screen->render();
 			if (postRenderCb_)

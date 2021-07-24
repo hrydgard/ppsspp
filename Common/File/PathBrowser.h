@@ -35,6 +35,10 @@ public:
 	}
 	std::string GetFriendlyPath() const;
 
+	bool empty() const {
+		return path_.empty();
+	}
+
 private:
 	void HandlePath();
 	void ResetPending();

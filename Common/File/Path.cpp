@@ -236,7 +236,6 @@ bool Path::CanNavigateUp() const {
 	if (type_ == PathType::CONTENT_URI) {
 		return AndroidContentURI(path_).CanNavigateUp();
 	}
-
 	if (path_ == "/" || path_ == "") {
 		return false;
 	}

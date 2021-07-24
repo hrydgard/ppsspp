@@ -33,6 +33,7 @@
 #include "Common/File/AndroidStorage.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/Path.h"
+#include "Common/File/DiskFree.h"
 
 #include "Core/Util/GameManager.h"
 #include "Core/System.h"
@@ -42,7 +43,63 @@
 #include "UI/MainScreen.h"
 #include "UI/MiscScreens.h"
 
-MemStickScreen::~MemStickScreen() {
+static bool FolderSeemsToBeUsed(Path newMemstickFolder) {
+	// Inspect the potential new folder.
+	if (File::Exists(newMemstickFolder / "PSP") || File::Exists(newMemstickFolder / "SYSTEM")) {
+		// Does seem likely. We could add more critera like checking for actual savegames or something.
+		return true;
+	} else {
+		return false;
+	}
+}
+
+static bool SwitchMemstickFolderTo(Path newMemstickFolder) {
+	Path testWriteFile = newMemstickFolder / ".write_verify_file";
+
+	// Doesn't already exist, create.
+	// Should this ever happen?
+	if (newMemstickFolder.Type() == PathType::NATIVE) {
+		if (!File::Exists(newMemstickFolder)) {
+			File::CreateFullPath(newMemstickFolder);
+		}
+		if (!File::WriteDataToFile(true, "1", 1, testWriteFile)) {
+			// settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
+			// TODO: Display an error!
+			return UI::EVENT_DONE;
+		}
+		File::Delete(testWriteFile);
+	} else {
+		// TODO: Do the same but with scoped storage? Not really necessary, right? If it came from a browse
+		// for folder, we can assume it exists and is writable, barring wacky race conditions like the user
+		// being connected by USB and deleting it.
+	}
+
+	Path memStickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
+	std::string str = newMemstickFolder.ToString();
+	if (!File::WriteDataToFile(true, str.c_str(), (unsigned int)str.size(), memStickDirFile)) {
+		ERROR_LOG(SYSTEM, "Failed to write memstick path '%s' to '%s'", newMemstickFolder.c_str(), memStickDirFile.c_str());
+		// Not sure what to do if this file.
+	}
+
+	// Save so the settings, at least, are transferred.
+	g_Config.memStickDirectory = newMemstickFolder;
+	g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
+	g_Config.UpdateIniLocation();
+
+	return true;
+}
+
+static std::string FormatSpaceString(int64_t space) {
+	if (space >= 0) {
+		// TODO: Smarter display (MB, GB as appropriate). Don't we have one of these somewhere?
+		return StringFromFormat("%lld MB", space / (1024 * 1024));
+	} else {
+		return "N/A";
+	}
+}
+
+MemStickScreen::MemStickScreen(bool initialSetup)
+	: initialSetup_(initialSetup) {
 	pendingMemStickFolder_ = g_Config.memStickDirectory;
 }
 
@@ -54,7 +111,7 @@ void MemStickScreen::CreateViews() {
 
 	Margins actionMenuMargins(15, 15, 15, 0);
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
+	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
 	Spacer *spacerColumn = new Spacer(new LinearLayoutParams(20.0, FILL_PARENT, 0.0f));
 	ViewGroup *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
@@ -70,29 +127,6 @@ void MemStickScreen::CreateViews() {
 
 	leftColumn->Add(new TextView(iz->T("MemoryStickDescription", "Choose PSP data storage (Memory Stick)"), ALIGN_LEFT, false));
 
-#if !PPSSPP_PLATFORM(WINDOWS)
-	if (!pendingMemStickFolder_.empty()) {
-		int64_t freeSpaceAtMemStick = -1;
-		if (Android_IsContentUri(pendingMemStickFolder_.ToString())) {
-			freeSpaceAtMemStick = Android_GetFreeSpaceByContentUri(pendingMemStickFolder_.ToString());
-		} else {
-			freeSpaceAtMemStick = Android_GetFreeSpaceByFilePath(pendingMemStickFolder_.ToString());
-		}
-
-		leftColumn->Add(new TextView(pendingMemStickFolder_.ToVisualString(), ALIGN_LEFT, false));
-		std::string freeSpaceText = "Free space: N/A";
-		if (freeSpaceAtMemStick >= 0) {
-			freeSpaceText = StringFromFormat("free space: %lld MB", freeSpaceAtMemStick / (1024 * 1024));
-			leftColumn->Add(new TextView(freeSpaceText, ALIGN_LEFT, false));
-		}
-	}
-
-	if (!g_Config.memStickDirectory.empty()) {
-		TextView *view = leftColumn->Add(new TextView(g_Config.memStickDirectory.ToVisualString(), ALIGN_LEFT, false));
-		view->SetShadow(true);
-	}
-#endif
-
 	leftColumn->Add(new Choice(iz->T("Create or Choose a PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnBrowse);
 	leftColumn->Add(new TextView(iz->T("ChooseFolderDesc", "* Data will stay even if you uninstall PPSSPP.\n* Data can be shared with PPSSPP Gold\n* Easy USB access"), ALIGN_LEFT, false));
 
@@ -101,13 +135,8 @@ void MemStickScreen::CreateViews() {
 
 	leftColumn->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 12.0f, 0.0f)));
 
-	Choice *confirmButton = rightColumnItems->Add(new Choice(iz->T("Confirm")));
-	confirmButton->OnClick.Handle(this, &MemStickScreen::OnConfirm);
-	confirmButton->SetEnabled(!pendingMemStickFolder_.empty());
-
 	if (!initialSetup_) {
-		rightColumnItems->Add(new CheckBox(&moveData_, iz->T("Move Data")));
-		rightColumnItems->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
+		leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	}
 
 	INFO_LOG(SYSTEM, "MemStickScreen: initialSetup=%d", (int)initialSetup_);
@@ -115,6 +144,16 @@ void MemStickScreen::CreateViews() {
 
 UI::EventReturn MemStickScreen::OnUseInternalStorage(UI::EventParams &params) {
 	pendingMemStickFolder_ = Path(g_extFilesDir);
+
+	if (initialSetup_) {
+		// There's not gonna be any files here in this case since it's a fresh install.
+		// Let's just accept it and move on. No need to move files either.
+		SwitchMemstickFolderTo(pendingMemStickFolder_);
+		TriggerFinish(DialogResult::DR_OK);
+	} else {
+		// Always ask for confirmation when called from the UI. Likely there's already some data.
+		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder_, false));
+	}
 	return UI::EVENT_DONE;
 }
 
@@ -133,51 +172,195 @@ void MemStickScreen::sendMessage(const char *message, const char *value) {
 			std::string filename;
 			filename = value;
 			INFO_LOG(SYSTEM, "Got folder: '%s'", filename.c_str());
+
+			// Browse finished. Let's pop up the confirmation dialog.
 			pendingMemStickFolder_ = Path(filename);
-			RecreateViews();
+			bool existingFiles = FolderSeemsToBeUsed(pendingMemStickFolder_);
+			screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder_, initialSetup_));
 		}
 	}
 }
 
-UI::EventReturn MemStickScreen::OnConfirm(UI::EventParams &params) {
-	auto sy = GetI18NCategory("System");
+void MemStickScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	if (result == DialogResult::DR_OK) {
+		INFO_LOG(SYSTEM, "Confirmation screen done - moving on.");
+		// There's a screen manager bug if we call TriggerFinish directly.
+		// Can't be bothered right now, so we pick this up in update().
+		done_ = true;
+	}
+	// otherwise, we just keep going.
+}
 
-	Path memStickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
-	Path testWriteFile = pendingMemStickFolder_ / ".write_verify_file";
+void MemStickScreen::update() {
+	UIDialogScreenWithBackground::update();
+	if (done_) {
+		TriggerFinish(DialogResult::DR_OK);
+		done_ = false;
+	}
+}
 
-	// Doesn't already exist, create.
-	// Should this ever happen?
-	if (pendingMemStickFolder_.Type() == PathType::NATIVE) {
-		if (!File::Exists(pendingMemStickFolder_)) {
-			File::CreateFullPath(pendingMemStickFolder_);
+static bool ListFileSuffixesRecursively(const Path &root, Path folder, std::vector<std::string> &dirSuffixes, std::vector<std::string> &fileSuffixes) {
+	std::vector<File::FileInfo> files;
+	if (!File::GetFilesInDir(folder, &files)) {
+		return false;
+	}
+
+	for (auto &file : files) {
+		if (file.isDirectory) {
+			dirSuffixes.push_back(root.PathTo(folder));
+			ListFileSuffixesRecursively(root, folder / file.name, dirSuffixes, fileSuffixes);
+		} else {
+			fileSuffixes.push_back(root.PathTo(file.fullName));
 		}
-		if (!File::WriteDataToFile(true, "1", 1, testWriteFile)) {
-			// settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
+	}
+
+	return true;
+}
+
+ConfirmMemstickMoveScreen::ConfirmMemstickMoveScreen(Path newMemstickFolder, bool initialSetup)
+	: newMemstickFolder_(newMemstickFolder), initialSetup_(initialSetup) {
+	existingFilesInNewFolder_ = FolderSeemsToBeUsed(newMemstickFolder);
+	if (initialSetup_) {
+		moveData_ = false;
+	}
+}
+
+void ConfirmMemstickMoveScreen::CreateViews() {
+	using namespace UI;
+	auto di = GetI18NCategory("Dialog");
+	auto sy = GetI18NCategory("System");
+	auto iz = GetI18NCategory("MemStick");
+
+	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+
+	Path oldMemstickFolder = g_Config.memStickDirectory;
+
+	Spacer *spacerColumn = new Spacer(new LinearLayoutParams(20.0, FILL_PARENT, 0.0f));
+	ViewGroup *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
+	ViewGroup *rightColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
+	root_->Add(spacerColumn);
+	root_->Add(leftColumn);
+	root_->Add(rightColumn);
+
+	int64_t freeSpaceNew;
+	int64_t freeSpaceOld;
+	free_disk_space(newMemstickFolder_, freeSpaceNew);
+	free_disk_space(oldMemstickFolder, freeSpaceOld);
+
+	leftColumn->Add(new TextView(iz->T("New PSP Data Folder"), ALIGN_LEFT, false));
+	leftColumn->Add(new TextView(newMemstickFolder_.ToVisualString(), ALIGN_LEFT, false));
+	std::string newFreeSpaceText = std::string(iz->T("Free space")) + ": " + FormatSpaceString(freeSpaceNew);
+	leftColumn->Add(new TextView(newFreeSpaceText, ALIGN_LEFT, false));
+	if (existingFilesInNewFolder_) {
+		leftColumn->Add(new TextView(iz->T("Warning: Already contains data"), ALIGN_LEFT, false));
+	}
+	if (!error_.empty()) {
+		leftColumn->Add(new TextView(error_, ALIGN_LEFT, false));
+	}
+
+	if (!oldMemstickFolder.empty()) {
+		std::string oldFreeSpaceText = std::string(iz->T("Free space")) + ": " + FormatSpaceString(freeSpaceOld);
+		rightColumn->Add(new TextView(iz->T("Old PSP Data Folder"), ALIGN_LEFT, false));
+		rightColumn->Add(new TextView(oldMemstickFolder.ToVisualString(), ALIGN_LEFT, false));
+		rightColumn->Add(new TextView(oldFreeSpaceText, ALIGN_LEFT, false));
+	}
+
+	if (!initialSetup_) {
+		leftColumn->Add(new CheckBox(&moveData_, iz->T("Move Data")));
+	}
+
+	leftColumn->Add(new Choice(di->T("OK")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnConfirm);
+	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+}
+
+UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
+	auto sy = GetI18NCategory("System");
+	auto iz = GetI18NCategory("MemStick");
+
+	// Transfer all the files in /PSP from the original directory.
+	// Should probably be done on a background thread so we can show some UI.
+	// So we probably need another screen for this with a progress bar..
+	// If the directory itself is called PSP, don't go below.
+
+	if (moveData_) {
+		Path moveSrc = g_Config.memStickDirectory;
+		Path moveDest = newMemstickFolder_;
+		if (moveSrc.GetFilename() != "PSP") {
+			moveSrc = moveSrc / "PSP";
+		}
+		if (moveDest.GetFilename() != "PSP") {
+			moveDest = moveDest / "PSP";
+			File::CreateDir(moveDest);
+		}
+
+		INFO_LOG(SYSTEM, "About to move PSP data from '%s' to '%s'", moveSrc.c_str(), moveDest.c_str());
+
+		// Search through recursively, listing the files to move and also summing their sizes.
+		std::vector<std::string> fileSuffixesToMove;
+		std::vector<std::string> directorySuffixesToCreate;
+
+		// NOTE: It's correct to pass moveSrc twice here, it's to keep the root in the recursion.
+		if (!ListFileSuffixesRecursively(moveSrc, moveSrc, directorySuffixesToCreate, fileSuffixesToMove)) {
+			// TODO: Handle failure listing files.
+			error_ = "Failed to read old directory";
+			INFO_LOG(SYSTEM, "%s", error_.c_str());
 			return UI::EVENT_DONE;
 		}
-		File::Delete(testWriteFile);
-	} else {
-		// TODO: Do the same but with scoped storage? Not really necessary, right? If it came from a browse
-		// for folder, we can assume it exists and is writable, barring wacky race conditions like the user
-		// being connected by USB and deleting it.
+
+		bool dryRun = true;  // Useful for debugging.
+
+		size_t moveFailures = 0;
+
+		if (!moveSrc.empty()) {
+			// Better not interrupt the app while this is happening!
+
+			// Create all the necessary directories.
+			for (auto &dirSuffix : directorySuffixesToCreate) {
+				Path dir = moveDest / dirSuffix;
+				if (dryRun) {
+					INFO_LOG(SYSTEM, "dry run: Would have created dir '%s'", dir.c_str());
+				} else {
+					if (!File::Exists(dir)) {
+						File::CreateDir(dir);
+					}
+				}
+			}
+			for (auto &fileSuffix : fileSuffixesToMove) {
+				Path from = moveSrc / fileSuffix;
+				Path to = moveDest / fileSuffix;
+				if (dryRun) {
+					INFO_LOG(SYSTEM, "dry run: Would have moved '%s' to '%s'", from.c_str(), to.c_str());
+				} else {
+					// Remove the "from" prefix from the path.
+					// We have to drop down to string operations for this.
+					if (!File::Move(from, to)) {
+						ERROR_LOG(SYSTEM, "Failed to move file '%s' to '%s'", from.c_str(), to.c_str());
+						moveFailures++;
+						// Should probably just bail?
+					}
+				}
+			}
+		}
+
+		if (moveFailures > 0) {
+			error_ = "Failed to move some files!";
+			RecreateViews();
+			return UI::EVENT_DONE;
+		}
 	}
 
-	// This doesn't need the storage API - this path is accessible the normal way.
-	std::string str = pendingMemStickFolder_.ToString();
-	if (!File::WriteDataToFile(true, str.c_str(), (unsigned int)str.size(), memStickDirFile)) {
-		ERROR_LOG(SYSTEM, "Failed to write memstick path '%s' to '%s'", pendingMemStickFolder_.c_str(), memStickDirFile.c_str());
-		// Not sure what to do if this file.
-	}
+	// Successful so far, switch the memstick folder.
+	SwitchMemstickFolderTo(newMemstickFolder_);
 
-	// Save so the settings, at least, are transferred.
-	g_Config.memStickDirectory = pendingMemStickFolder_;
-	g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
-	g_Config.UpdateIniLocation();
+	// If the chosen folder already had a config, reload it!
+	g_Config.Load();
+
+
 
 	if (g_Config.Save("MemstickPathChanged")) {
 		TriggerFinish(DialogResult::DR_OK);
 	} else {
-		error_ = sy->T("Failed to save config");
+		error_ = iz->T("Failed to save config");
 		RecreateViews();
 	}
 

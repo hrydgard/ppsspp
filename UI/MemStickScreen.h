@@ -30,27 +30,43 @@
 // Currently only useful for Android.
 class MemStickScreen : public UIDialogScreenWithBackground {
 public:
-	MemStickScreen(bool initialSetup)
-		: initialSetup_(initialSetup) {}
-    virtual ~MemStickScreen();
+	MemStickScreen(bool initialSetup);
+	~MemStickScreen() {}
 
 	std::string tag() const override { return "game"; }
 	void CreateViews() override;
 
 protected:
 	void sendMessage(const char *message, const char *value) override;
+	void dialogFinished(const Screen *dialog, DialogResult result) override;
+	void update() override;
 
 private:
 	// Event handlers
 	UI::EventReturn OnBrowse(UI::EventParams &e);
-	UI::EventReturn OnConfirm(UI::EventParams &params);
 	UI::EventReturn OnUseInternalStorage(UI::EventParams &params);
 
+	// TODO: probably not necessary to store here, we just forward to the confirmation dialog.
 	Path pendingMemStickFolder_;
 	SettingInfoMessage *settingInfo_ = nullptr;
 
-	std::string error_;
-
 	bool initialSetup_;
+	bool done_ = false;
+};
+
+class ConfirmMemstickMoveScreen : public UIDialogScreenWithBackground {
+public:
+	ConfirmMemstickMoveScreen(Path newMemstickFolder, bool initialSetup);
+
+	void CreateViews() override;
+
+private:
+	UI::EventReturn OnConfirm(UI::EventParams &params);
+
+	Path newMemstickFolder_;
+	bool existingFilesInNewFolder_;
 	bool moveData_ = true;
+	bool initialSetup_;
+
+	std::string error_;
 };

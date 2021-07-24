@@ -322,7 +322,9 @@ static bool CheckFontIsUsable(const wchar_t *fontFace) {
 }
 #endif
 
-static void PostLoadConfig() {
+bool CreateDirectoriesAndroid();
+
+void PostLoadConfig() {
 	// On Windows, we deal with currentDirectory in InitSysDirectories().
 #if !PPSSPP_PLATFORM(WINDOWS)
 	if (g_Config.currentDirectory.empty()) {
@@ -339,11 +341,14 @@ static void PostLoadConfig() {
 		i18nrepo.LoadIni(g_Config.sLanguageIni);
 	else
 		i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
+
+#if PPSSPP_PLATFORM(ANDROID)
+	CreateDirectoriesAndroid();
+#endif
 }
 
-static bool CreateDirectoriesAndroid() {
-	// On Android, create a PSP directory tree in the external_dir,
-	// to hopefully reduce confusion a bit.
+bool CreateDirectoriesAndroid() {
+	// TODO: Really not sure why this code is Android-exclusive, except the ".nomedia" part.
 
 	Path pspDir = g_Config.memStickDirectory;
 	if (pspDir.GetFilename() != "PSP") {
@@ -530,9 +535,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 			} else {
 				ERROR_LOG(SYSTEM, "Couldn't read directory '%s' specified by memstick_dir.txt.", memstickDir.c_str());
 				if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
-				    // Ask the user to configure a memstick directory.
-                    INFO_LOG(SYSTEM, "Asking the user.");
-                    g_Config.memStickDirectory.clear();
+					// Ask the user to configure a memstick directory.
+					INFO_LOG(SYSTEM, "Asking the user.");
+					g_Config.memStickDirectory.clear();
 				}
 			}
 		}
@@ -785,7 +790,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	screenManager = new ScreenManager();
 	if (g_Config.memStickDirectory.empty()) {
 		INFO_LOG(SYSTEM, "No memstick directory! Asking for one to be configured.");
-		screenManager->switchScreen(new MainScreen());
+		screenManager->switchScreen(new LogoScreen(false));
 		screenManager->push(new MemStickScreen(true));
 	} else if (gotoGameSettings) {
 		screenManager->switchScreen(new LogoScreen(true));
