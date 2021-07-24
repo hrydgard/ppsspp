@@ -143,7 +143,8 @@ public:
 		if (p.error != p.ERROR_FAILURE) {
 			return ERROR_NONE;
 		} else {
-			*errorString = std::string("Failure at ") + p.GetBadSectionTitle();
+			std::string badSectionTitle = p.GetBadSectionTitle() ? p.GetBadSectionTitle() : "(unknown bad section)";
+			*errorString = std::string("Failure at ") + badSectionTitle;
 			return ERROR_BROKEN_STATE;
 		}
 	}
