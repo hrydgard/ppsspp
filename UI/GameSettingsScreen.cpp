@@ -1097,7 +1097,7 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
-	screenManager()->push(new MemStickScreen());
+	screenManager()->push(new MemStickScreen(false));
 	return UI::EVENT_DONE;
 }
 

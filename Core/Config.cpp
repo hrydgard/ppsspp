@@ -1412,12 +1412,14 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	INFO_LOG(LOADER, "Config loaded: '%s'", iniFilename_.c_str());
 }
 
-void Config::Save(const char *saveReason) {
+bool Config::Save(const char *saveReason) {
 	if (!IsFirstInstance()) {
 		// TODO: Should we allow saving config if started from a different directory?
 		// How do we tell?
 		WARN_LOG(LOADER, "Not saving config - secondary instances don't.");
-		return;
+
+		// Don't want to retry or something.
+		return true;
 	}
 
 	if (jitForcedOff) {
@@ -1488,7 +1490,7 @@ void Config::Save(const char *saveReason) {
 		if (!iniFile.Save(iniFilename_)) {
 			ERROR_LOG(LOADER, "Error saving config (%s)- can't write ini '%s'", saveReason, iniFilename_.c_str());
 			System_SendMessage("toast", "Failed to save settings!\nCheck permissions, or try to restart the device.");
-			return;
+			return false;
 		}
 		INFO_LOG(LOADER, "Config saved (%s): '%s'", saveReason, iniFilename_.c_str());
 
@@ -1501,7 +1503,7 @@ void Config::Save(const char *saveReason) {
 			KeyMap::SaveToIni(controllerIniFile);
 			if (!controllerIniFile.Save(controllerIniFilename_)) {
 				ERROR_LOG(LOADER, "Error saving config - can't write ini '%s'", controllerIniFilename_.c_str());
-				return;
+				return false;
 			}
 			INFO_LOG(LOADER, "Controller config saved: %s", controllerIniFilename_.c_str());
 		}
@@ -1512,6 +1514,7 @@ void Config::Save(const char *saveReason) {
 		// force JIT off again just in case Config::Save() is called without exiting PPSSPP
 		g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
 	}
+	return true;
 }
 
 // Use for debugging the version check without messing with the server

@@ -30,19 +30,27 @@
 // Currently only useful for Android.
 class MemStickScreen : public UIDialogScreenWithBackground {
 public:
-	MemStickScreen() {}
+	MemStickScreen(bool initialSetup)
+		: initialSetup_(initialSetup) {}
     virtual ~MemStickScreen();
 
 	std::string tag() const override { return "game"; }
+	void CreateViews() override;
 
 protected:
-	void CreateViews() override;
-	void CallbackMemStickFolder(bool yes);
 	void sendMessage(const char *message, const char *value) override;
 
 private:
 	// Event handlers
 	UI::EventReturn OnBrowse(UI::EventParams &e);
+	UI::EventReturn OnConfirm(UI::EventParams &params);
+	UI::EventReturn OnUseInternalStorage(UI::EventParams &params);
+
 	Path pendingMemStickFolder_;
-	SettingInfoMessage *settingInfo_;
+	SettingInfoMessage *settingInfo_ = nullptr;
+
+	std::string error_;
+
+	bool initialSetup_;
+	bool moveData_ = true;
 };

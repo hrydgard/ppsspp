@@ -108,6 +108,7 @@
 #include "UI/GPUDriverTestScreen.h"
 #include "UI/HostTypes.h"
 #include "UI/MiscScreens.h"
+#include "UI/MemStickScreen.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/TiltEventProcessor.h"
@@ -338,8 +339,6 @@ static void PostLoadConfig() {
 		i18nrepo.LoadIni(g_Config.sLanguageIni);
 	else
 		i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
-
-	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
 }
 
 static bool CreateDirectoriesAndroid() {
@@ -436,7 +435,7 @@ static void ClearFailedGPUBackends() {
 	// We've successfully started graphics without crashing, hurray.
 	// In case they update drivers and have totally different problems much later, clear the failed list.
 	g_Config.sFailedGPUBackends.clear();
-	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
+	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS) || System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
 		File::Delete(GetSysDirectory(DIRECTORY_APP_CACHE) / "FailedGraphicsBackends.txt");
 	} else {
 		g_Config.Save("clearFailedGPUBackends");
@@ -449,6 +448,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	ShaderTranslationInit();
 
 	InitFastMath(cpu_info.bNEON);
+	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
+
 	SetupAudioFormats();
 
 	g_Discord.SetPresenceMenu();
@@ -504,22 +505,22 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// is no longer the plain root of external storage, but it's an app specific directory
 	// on external storage (g_extFilesDir).
 	if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
-		g_Config.defaultCurrentDirectory = Path(g_extFilesDir);
+		// There's no sensible default directory. Let the user browse for files.
+		g_Config.defaultCurrentDirectory.clear();
 	} else {
-		// Maybe there should be an option to use internal memory instead, but I think
-		// that for most people, using external memory (SDCard/USB Storage) makes the
-		// most sense.
+		g_Config.memStickDirectory = Path(external_dir);
 		g_Config.defaultCurrentDirectory = Path(external_dir);
+		CreateDirectoriesAndroid();
 	}
 
 	// Might also add an option to move it to internal / non-visible storage, but there's
 	// little point, really.
 
-	g_Config.memStickDirectory = Path(external_dir);
 	g_Config.flash0Directory = Path(external_dir) / "flash0";
 
 	Path memstickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
 	if (File::Exists(memstickDirFile)) {
+		INFO_LOG(SYSTEM, "Reading '%s' to find memstick dir.", memstickDirFile.c_str());
 		std::string memstickDir;
 		if (File::ReadFileToString(true, memstickDirFile, memstickDir)) {
 			Path memstickPath(memstickDir);
@@ -529,15 +530,14 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 			} else {
 				ERROR_LOG(SYSTEM, "Couldn't read directory '%s' specified by memstick_dir.txt.", memstickDir.c_str());
 				if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
-					// TODO: Gotta resolve this somehow...
-					// I think we wanna pop up the memstick dir chooser before any other screen in this case.
-					// For now we just choose a default.
-					g_Config.memStickDirectory = g_Config.defaultCurrentDirectory;
+				    // Ask the user to configure a memstick directory.
+                    INFO_LOG(SYSTEM, "Asking the user.");
+                    g_Config.memStickDirectory.clear();
 				}
 			}
 		}
 	} else {
-		INFO_LOG(SYSTEM, "No memstick directory file found. Using '%s'", memstickDirFile.c_str());
+		INFO_LOG(SYSTEM, "No memstick directory file found (tried to open '%s')", memstickDirFile.c_str());
 	}
 
 #elif PPSSPP_PLATFORM(IOS)
@@ -572,8 +572,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		DiskCachingFileLoaderCache::SetCacheDir(g_Config.appCacheDirectory);
 	}
 
-	if (!LogManager::GetInstance())
+	if (!LogManager::GetInstance()) {
 		LogManager::Init(&g_Config.bEnableLogging);
+	}
 
 #if !PPSSPP_PLATFORM(WINDOWS)
 	g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
@@ -584,11 +585,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 
 	LogManager *logman = LogManager::GetInstance();
-
-#if PPSSPP_PLATFORM(ANDROID)
-	// On early versions of Android we don't need to ask permission.
-	CreateDirectoriesAndroid();
-#endif
 
 	const char *fileToLog = 0;
 	Path stateToLoad;
@@ -785,8 +781,13 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		});
 	}
 
+	INFO_LOG(SYSTEM, "ScreenManager!");
 	screenManager = new ScreenManager();
-	if (gotoGameSettings) {
+	if (g_Config.memStickDirectory.empty()) {
+		INFO_LOG(SYSTEM, "No memstick directory! Asking for one to be configured.");
+		screenManager->switchScreen(new MainScreen());
+		screenManager->push(new MemStickScreen(true));
+	} else if (gotoGameSettings) {
 		screenManager->switchScreen(new LogoScreen(true));
 	} else if (gotoTouchScreenTest) {
 		screenManager->switchScreen(new MainScreen());
@@ -832,7 +833,6 @@ static UI::Style MakeStyle(uint32_t fg, uint32_t bg) {
 	UI::Style s;
 	s.background = UI::Drawable(bg);
 	s.fgColor = fg;
-
 	return s;
 }
 
@@ -1476,6 +1476,8 @@ void NativeShutdown() {
 		delete logger;
 		logger = nullptr;
 	}
+
+	g_threadManager.Teardown();
 
 	// Previously we did exit() here on Android but that makes it hard to do things like restart on backend change.
 	// I think we handle most globals correctly or correct-enough now.
