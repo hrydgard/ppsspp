@@ -223,6 +223,12 @@ int OpenFD(const Path &path, OpenFlag flags) {
 	if (descriptor < 0) {
 		ERROR_LOG(COMMON, "Android_OpenContentUriFd failed: '%s'", path.c_str());
 	}
+
+	if (flags & OPEN_APPEND) {
+		// Simply seek to the end of the file to simulate append mode.
+		lseek(descriptor, 0, SEEK_END);
+	}
+
 	return descriptor;
 }
 
