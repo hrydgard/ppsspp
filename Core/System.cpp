@@ -351,6 +351,7 @@ void CPU_Shutdown() {
 	if (coreParameter.enableSound) {
 		Audio_Shutdown();
 	}
+
 	pspFileSystem.Shutdown();
 	mipsr4k.Shutdown();
 	Memory::Shutdown();
