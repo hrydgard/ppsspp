@@ -31,6 +31,13 @@ public class PpssppActivity extends NativeActivity {
 
 	public static boolean libraryLoaded = false;
 
+	// Matches the enum in AndroidStorage.h.
+	private static final int STORAGE_ERROR_SUCCESS = 0;
+	private static final int STORAGE_ERROR_UNKNOWN = -1;
+	private static final int STORAGE_ERROR_NOT_FOUND = -2;
+	private static final int STORAGE_ERROR_DISK_FULL = -3;
+	private static final int STORAGE_ERROR_ALREADY_EXISTS = -4;
+
 	@SuppressWarnings("deprecation")
 	public static void CheckABIAndLoadLibrary() {
 		if (Build.CPU_ABI.equals("armeabi")) {
@@ -206,81 +213,95 @@ public class PpssppActivity extends NativeActivity {
 		}
 	}
 
-	public boolean contentUriCreateDirectory(String rootTreeUri, String dirName) {
+	public int contentUriCreateDirectory(String rootTreeUri, String dirName) {
 		try {
 			Uri uri = Uri.parse(rootTreeUri);
 			DocumentFile documentFile = DocumentFile.fromTreeUri(this, uri);
 			if (documentFile != null) {
 				DocumentFile createdDir = documentFile.createDirectory(dirName);
-				return createdDir != null;
+				return createdDir != null ? STORAGE_ERROR_SUCCESS : STORAGE_ERROR_UNKNOWN;
 			} else {
 				Log.e(TAG, "contentUriCreateDirectory: fromTreeUri returned null");
-				return false;
+				return STORAGE_ERROR_UNKNOWN;
 			}
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriCreateDirectory exception: " + e.toString());
-			return false;
+			return STORAGE_ERROR_UNKNOWN;
 		}
 	}
 
-	public boolean contentUriCreateFile(String rootTreeUri, String fileName) {
+	public int contentUriCreateFile(String rootTreeUri, String fileName) {
 		try {
 			Uri uri = Uri.parse(rootTreeUri);
 			DocumentFile documentFile = DocumentFile.fromTreeUri(this, uri);
 			if (documentFile != null) {
 				// TODO: Check the file extension and choose MIME type appropriately.
 				DocumentFile createdFile = documentFile.createFile("application/octet-stream", fileName);
-				return createdFile != null;
+				return createdFile != null ? STORAGE_ERROR_SUCCESS : STORAGE_ERROR_UNKNOWN;
 			} else {
 				Log.e(TAG, "contentUriCreateFile: fromTreeUri returned null");
-				return false;
+				return STORAGE_ERROR_UNKNOWN;
 			}
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriCreateFile exception: " + e.toString());
-			return false;
+			return STORAGE_ERROR_UNKNOWN;
 		}
 	}
 
-	public boolean contentUriRemoveFile(String fileName) {
+	public int contentUriRemoveFile(String fileName) {
 		try {
 			Uri uri = Uri.parse(fileName);
 			DocumentFile documentFile = DocumentFile.fromSingleUri(this, uri);
 			if (documentFile != null) {
-				return documentFile.delete();
+				return documentFile.delete() ? STORAGE_ERROR_SUCCESS : STORAGE_ERROR_UNKNOWN;
 			} else {
-				return false;
+				return STORAGE_ERROR_UNKNOWN;
 			}
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriRemoveFile exception: " + e.toString());
-			return false;
+			return STORAGE_ERROR_UNKNOWN;
 		}
 	}
 
 	// NOTE: The destination is the parent directory! This means that contentUriCopyFile
 	// cannot rename things as part of the operation.
-	public boolean contentUriCopyFile(String srcFileUri, String dstParentDirUri) {
+	public int contentUriCopyFile(String srcFileUri, String dstParentDirUri) {
 		try {
 			Uri srcUri = Uri.parse(srcFileUri);
 			Uri dstParentUri = Uri.parse(dstParentDirUri);
-			DocumentsContract.copyDocument(getContentResolver(), srcUri, dstParentUri);
-			return true;
+			return DocumentsContract.copyDocument(getContentResolver(), srcUri, dstParentUri) != null ? STORAGE_ERROR_SUCCESS : STORAGE_ERROR_UNKNOWN;
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriCopyFile exception: " + e.toString());
-			return false;
+			return STORAGE_ERROR_UNKNOWN;
 		}
 	}
 
-	public boolean contentUriRenameFileTo(String fileUri, String newName) {
+	// NOTE: The destination is the parent directory! This means that contentUriCopyFile
+	// cannot rename things as part of the operation.
+	public int contentUriMoveFile(String srcFileUri, String srcParentDirUri, String dstParentDirUri) {
+		try {
+			Uri srcUri = Uri.parse(srcFileUri);
+			Uri srcParentUri = Uri.parse(srcParentDirUri);
+			Uri dstParentUri = Uri.parse(dstParentDirUri);
+			return DocumentsContract.moveDocument(getContentResolver(), srcUri, srcParentUri, dstParentUri) != null ? STORAGE_ERROR_SUCCESS : STORAGE_ERROR_UNKNOWN;
+		} catch (Exception e) {
+			Log.e(TAG, "contentUriMoveFile exception: " + e.toString());
+			return STORAGE_ERROR_UNKNOWN;
+		}
+	}
+
+	public int contentUriRenameFileTo(String fileUri, String newName) {
 		try {
 			Uri uri = Uri.parse(fileUri);
 			// Due to a design flaw, we can't use DocumentFile.renameTo().
 			// Instead we use the DocumentsContract API directly.
 			// See https://stackoverflow.com/questions/37168200/android-5-0-new-sd-card-access-api-documentfile-renameto-unsupportedoperation.
 			Uri newUri = DocumentsContract.renameDocument(getContentResolver(), uri, newName);
-			return true;
+			return STORAGE_ERROR_SUCCESS;
 		} catch (Exception e) {
+			// TODO: More detailed exception processing.
 			Log.e(TAG, "contentUriRenameFile exception: " + e.toString());
-			return false;
+			return STORAGE_ERROR_UNKNOWN;
 		}
 	}
 

@@ -592,6 +592,8 @@ Path GetSysDirectory(PSPDirectories directoryType) {
 	}
 
 	switch (directoryType) {
+	case DIRECTORY_PSP:
+		return pspDirectory;
 	case DIRECTORY_CHEATS:
 		return pspDirectory / "Cheats";
 	case DIRECTORY_GAME:

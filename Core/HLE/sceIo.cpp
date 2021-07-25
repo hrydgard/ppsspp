@@ -631,19 +631,28 @@ void __IoInit() {
 	asyncNotifyEvent = CoreTiming::RegisterEvent("IoAsyncNotify", __IoAsyncNotify);
 	syncNotifyEvent = CoreTiming::RegisterEvent("IoSyncNotify", __IoSyncNotify);
 
-	auto memstickSystem = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, g_Config.memStickDirectory, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD));
+	// TODO(scoped): This won't work if memStickDirectory points at the contents of /PSP...
 #if defined(USING_WIN_UI) || defined(APPLE)
 	auto flash0System = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, g_Config.flash0Directory, FileSystemFlags::FLASH));
 #else
 	auto flash0System = std::shared_ptr<IFileSystem>(new VFSFileSystem(&pspFileSystem, "flash0"));
 #endif
+	FileSystemFlags memstickFlags = FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD;
 
-	// TODO(scoped): This won't work if memStickDirectory points at the contents of /PSP...
-	// Will fix later with dual mounts (first mount ms0:/PSP/ at memstickSystem), then also mount ms0:/ on it)
+	Path pspDir = GetSysDirectory(DIRECTORY_PSP);
+	if (pspDir == g_Config.memStickDirectory) {
+		// Initially tried to do this with dual mounts, but failed due to save state compatibility issues.
+		INFO_LOG(SCEIO, "Enabling /PSP compatibility mode");
+		memstickFlags |= FileSystemFlags::STRIP_PSP;
+	}
+
+	auto memstickSystem = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, g_Config.memStickDirectory, memstickFlags));
+
 	pspFileSystem.Mount("ms0:", memstickSystem);
 	pspFileSystem.Mount("fatms0:", memstickSystem);
 	pspFileSystem.Mount("fatms:", memstickSystem);
 	pspFileSystem.Mount("pfat0:", memstickSystem);
+
 	pspFileSystem.Mount("flash0:", flash0System);
 
 	if (g_RemasterMode) {
@@ -768,7 +777,6 @@ void __IoShutdown() {
 
 	pspFileSystem.UnmountAll();
 
-	// All the file systems will be removed when we shut down pspFileSystem later.
 	MemoryStick_Shutdown();
 	memStickCallbacks.clear();
 	memStickFatCallbacks.clear();

@@ -301,7 +301,7 @@ bool Path::IsAbsolute() const {
 		return false;
 }
 
-std::string Path::PathTo(const Path &other) {
+std::string Path::PathTo(const Path &other) const {
 	if (!other.StartsWith(*this)) {
 		// Can't do this. Should return an error.
 		return std::string();

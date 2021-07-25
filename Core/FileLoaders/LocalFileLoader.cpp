@@ -61,7 +61,7 @@ LocalFileLoader::LocalFileLoader(const Path &filename)
 	if (filename.Type() == PathType::CONTENT_URI) {
 		int fd = Android_OpenContentUriFd(filename.ToString(), Android_OpenContentUriMode::READ);
 		INFO_LOG(SYSTEM, "Fd %d for content URI: '%s'", fd, filename.c_str());
-		if (fd == -1) {
+		if (fd < 0) {
 			ERROR_LOG(FILESYS, "LoadFileLoader failed to open content URI: '%s'", filename.c_str());
 			return;
 		}
