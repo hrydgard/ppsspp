@@ -32,9 +32,9 @@ void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj) {
 	_dbg_assert_(openContentUri);
 	listContentUriDir = env->GetMethodID(env->GetObjectClass(obj), "listContentUriDir", "(Ljava/lang/String;)[Ljava/lang/String;");
 	_dbg_assert_(listContentUriDir);
-	contentUriCreateDirectory = env->GetMethodID(env->GetObjectClass(obj), "contentUriCreateDirectory", "(Ljava/lang/String;Ljava/lang/String;)Z");
+	contentUriCreateDirectory = env->GetMethodID(env->GetObjectClass(obj), "contentUriCreateDirectory", "(Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriCreateDirectory);
-	contentUriCreateFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriCreateFile", "(Ljava/lang/String;Ljava/lang/String;)Z");
+	contentUriCreateFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriCreateFile", "(Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriCreateFile);
 	contentUriCopyFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriCopyFile", "(Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriCopyFile);
@@ -84,24 +84,24 @@ int Android_OpenContentUriFd(const std::string &filename, Android_OpenContentUri
 	return fd;
 }
 
-bool Android_CreateDirectory(const std::string &rootTreeUri, const std::string &dirName) {
+StorageError Android_CreateDirectory(const std::string &rootTreeUri, const std::string &dirName) {
 	if (!g_nativeActivity) {
-		return false;
+		return StorageError::UNKNOWN;
 	}
 	auto env = getEnv();
 	jstring paramRoot = env->NewStringUTF(rootTreeUri.c_str());
 	jstring paramDirName = env->NewStringUTF(dirName.c_str());
-	return env->CallBooleanMethod(g_nativeActivity, contentUriCreateDirectory, paramRoot, paramDirName);
+	return StorageErrorFromInt(env->CallIntMethod(g_nativeActivity, contentUriCreateDirectory, paramRoot, paramDirName));
 }
 
-bool Android_CreateFile(const std::string &parentTreeUri, const std::string &fileName) {
+StorageError Android_CreateFile(const std::string &parentTreeUri, const std::string &fileName) {
 	if (!g_nativeActivity) {
-		return false;
+		return StorageError::UNKNOWN;
 	}
 	auto env = getEnv();
 	jstring paramRoot = env->NewStringUTF(parentTreeUri.c_str());
 	jstring paramFileName = env->NewStringUTF(fileName.c_str());
-	return env->CallBooleanMethod(g_nativeActivity, contentUriCreateFile, paramRoot, paramFileName);
+	return StorageErrorFromInt(env->CallIntMethod(g_nativeActivity, contentUriCreateFile, paramRoot, paramFileName));
 }
 
 StorageError Android_CopyFile(const std::string &fileUri, const std::string &destParentUri) {

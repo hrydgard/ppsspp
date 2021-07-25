@@ -119,7 +119,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 				std::string name = path.GetFilename();
 				if (path.CanNavigateUp()) {
 					Path parent = path.NavigateUp();
-					if (!Android_CreateFile(parent.ToString(), name)) {
+					if (Android_CreateFile(parent.ToString(), name) != StorageError::SUCCESS) {
 						WARN_LOG(COMMON, "Failed to create file '%s' in '%s'", name.c_str(), parent.c_str());
 						return nullptr;
 					}
@@ -189,7 +189,7 @@ int OpenFD(const Path &path, OpenFlag flags) {
 			std::string name = path.GetFilename();
 			if (path.CanNavigateUp()) {
 				Path parent = path.NavigateUp();
-				if (!Android_CreateFile(parent.ToString(), name)) {
+				if (Android_CreateFile(parent.ToString(), name) != StorageError::SUCCESS) {
 					WARN_LOG(COMMON, "OpenFD: Failed to create file '%s' in '%s'", name.c_str(), parent.c_str());
 					return -1;
 				}
@@ -451,7 +451,7 @@ bool CreateDir(const Path &path) {
 		std::string newDirName = uri.GetLastPart();
 		if (uri.NavigateUp()) {
 			INFO_LOG(COMMON, "Calling Android_CreateDirectory(%s, %s)", uri.ToString().c_str(), newDirName.c_str());
-			return Android_CreateDirectory(uri.ToString(), newDirName);
+			return Android_CreateDirectory(uri.ToString(), newDirName) == StorageError::SUCCESS;
 		} else {
 			// Bad path - can't create this directory.
 			WARN_LOG(COMMON, "CreateDir failed: '%s'", path.c_str());

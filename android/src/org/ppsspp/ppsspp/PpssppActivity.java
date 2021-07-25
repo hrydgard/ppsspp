@@ -213,38 +213,38 @@ public class PpssppActivity extends NativeActivity {
 		}
 	}
 
-	public boolean contentUriCreateDirectory(String rootTreeUri, String dirName) {
+	public int contentUriCreateDirectory(String rootTreeUri, String dirName) {
 		try {
 			Uri uri = Uri.parse(rootTreeUri);
 			DocumentFile documentFile = DocumentFile.fromTreeUri(this, uri);
 			if (documentFile != null) {
 				DocumentFile createdDir = documentFile.createDirectory(dirName);
-				return createdDir != null;
+				return createdDir != null ? STORAGE_ERROR_SUCCESS : STORAGE_ERROR_UNKNOWN;
 			} else {
 				Log.e(TAG, "contentUriCreateDirectory: fromTreeUri returned null");
-				return false;
+				return STORAGE_ERROR_UNKNOWN;
 			}
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriCreateDirectory exception: " + e.toString());
-			return false;
+			return STORAGE_ERROR_UNKNOWN;
 		}
 	}
 
-	public boolean contentUriCreateFile(String rootTreeUri, String fileName) {
+	public int contentUriCreateFile(String rootTreeUri, String fileName) {
 		try {
 			Uri uri = Uri.parse(rootTreeUri);
 			DocumentFile documentFile = DocumentFile.fromTreeUri(this, uri);
 			if (documentFile != null) {
 				// TODO: Check the file extension and choose MIME type appropriately.
 				DocumentFile createdFile = documentFile.createFile("application/octet-stream", fileName);
-				return createdFile != null;
+				return createdFile != null ? STORAGE_ERROR_SUCCESS : STORAGE_ERROR_UNKNOWN;
 			} else {
 				Log.e(TAG, "contentUriCreateFile: fromTreeUri returned null");
-				return false;
+				return STORAGE_ERROR_UNKNOWN;
 			}
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriCreateFile exception: " + e.toString());
-			return false;
+			return STORAGE_ERROR_UNKNOWN;
 		}
 	}
 
