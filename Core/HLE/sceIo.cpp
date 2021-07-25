@@ -558,13 +558,6 @@ static void __IoAsyncEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	}
 }
 
-static DirectoryFileSystem *exdataSystem = nullptr;
-#if defined(USING_WIN_UI) || defined(APPLE)
-static DirectoryFileSystem *flash0System = nullptr;
-#else
-static VFSFileSystem *flash0System = nullptr;
-#endif
-
 static void __IoManagerThread() {
 	SetCurrentThreadName("IO");
 	while (ioManagerThreadEnabled && coreState != CORE_BOOT_ERROR && coreState != CORE_RUNTIME_ERROR && coreState != CORE_POWERDOWN) {
