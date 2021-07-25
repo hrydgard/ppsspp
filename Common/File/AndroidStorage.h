@@ -14,18 +14,19 @@ enum class Android_OpenContentUriMode {
 };
 
 // Matches the constants in PpssppActivity.java.
-enum class ContentError {
+enum class StorageError {
 	SUCCESS = 0,
-	OTHER = -1,
+	UNKNOWN = -1,
 	NOT_FOUND = -2,
 	DISK_FULL = -3,
+	ALREADY_EXISTS = -4,
 };
 
-inline ContentError ContentErrorFromInt(int ival) {
+inline StorageError StorageErrorFromInt(int ival) {
 	if (ival >= 0) {
-		return ContentError::SUCCESS;
+		return StorageError::SUCCESS;
 	} else {
-		return (ContentError)ival;
+		return (StorageError)ival;
 	}
 }
 
@@ -44,13 +45,13 @@ bool Android_CreateFile(const std::string &parentTreeUri, const std::string &fil
 bool Android_MoveFile(const std::string &fileUri, const std::string &srcParentUri, const std::string &destParentUri);
 bool Android_CopyFile(const std::string &fileUri, const std::string &destParentUri);
 bool Android_RemoveFile(const std::string &fileUri);
-bool Android_RenameFileTo(const std::string &fileUri, const std::string &newName);
+StorageError Android_RenameFileTo(const std::string &fileUri, const std::string &newName);
 bool Android_GetFileInfo(const std::string &fileUri, File::FileInfo *info);
 bool Android_FileExists(const std::string &fileUri);
 int64_t Android_GetFreeSpaceByContentUri(const std::string &uri);
 int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath);
 bool Android_IsExternalStoragePreservedLegacy();
-const char *Android_ErrorToString(ContentError error);
+const char *Android_ErrorToString(StorageError error);
 
 std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri);
 
@@ -69,13 +70,13 @@ inline bool Android_CreateFile(const std::string &parentTreeUri, const std::stri
 inline bool Android_MoveFile(const std::string &fileUri, const std::string &srcParentUri, const std::string &destParentUri) { return false; }
 inline bool Android_CopyFile(const std::string &fileUri, const std::string &destParentUri) { return false; }
 inline bool Android_RemoveFile(const std::string &fileUri) { return false; }
-inline bool Android_RenameFileTo(const std::string &fileUri, const std::string &newName) { return false; }
+inline StorageError Android_RenameFileTo(const std::string &fileUri, const std::string &newName) { return StorageError::UNKNOWN; }
 inline bool Android_GetFileInfo(const std::string &fileUri, File::FileInfo *info) { return false; }
 inline bool Android_FileExists(const std::string &fileUri) { return false; }
 inline int64_t Android_GetFreeSpaceByContentUri(const std::string &uri) { return -1; }
 inline int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath) { return -1; }
 inline bool Android_IsExternalStoragePreservedLegacy() { return false; }
-inline const char *Android_ErrorToString(ContentError error) { return ""; }
+inline const char *Android_ErrorToString(StorageError error) { return ""; }
 inline std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri) {
 	return std::vector<File::FileInfo>();
 }

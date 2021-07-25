@@ -42,7 +42,7 @@ void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj) {
 	_dbg_assert_(contentUriRemoveFile);
 	contentUriMoveFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriMoveFile", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Z");
 	_dbg_assert_(contentUriMoveFile);
-	contentUriRenameFileTo = env->GetMethodID(env->GetObjectClass(obj), "contentUriRenameFileTo", "(Ljava/lang/String;Ljava/lang/String;)Z");
+	contentUriRenameFileTo = env->GetMethodID(env->GetObjectClass(obj), "contentUriRenameFileTo", "(Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriRenameFileTo);
 	contentUriGetFileInfo = env->GetMethodID(env->GetObjectClass(obj), "contentUriGetFileInfo", "(Ljava/lang/String;)Ljava/lang/String;");
 	_dbg_assert_(contentUriGetFileInfo);
@@ -134,14 +134,14 @@ bool Android_RemoveFile(const std::string &fileUri) {
 	return env->CallBooleanMethod(g_nativeActivity, contentUriRemoveFile, paramFileName);
 }
 
-bool Android_RenameFileTo(const std::string &fileUri, const std::string &newName) {
+StorageError Android_RenameFileTo(const std::string &fileUri, const std::string &newName) {
 	if (!g_nativeActivity) {
-		return false;
+		return StorageError::UNKNOWN;
 	}
 	auto env = getEnv();
 	jstring paramFileUri = env->NewStringUTF(fileUri.c_str());
 	jstring paramNewName = env->NewStringUTF(newName.c_str());
-	return env->CallBooleanMethod(g_nativeActivity, contentUriRenameFileTo, paramFileUri, paramNewName);
+	return StorageErrorFromInt(env->CallIntMethod(g_nativeActivity, contentUriRenameFileTo, paramFileUri, paramNewName));
 }
 
 // NOTE: Does not set fullName - you're supposed to already know it.
@@ -266,12 +266,13 @@ bool Android_IsExternalStoragePreservedLegacy() {
 	return env->CallBooleanMethod(g_nativeActivity, isExternalStoragePreservedLegacy);
 }
 
-const char *Android_ErrorToString(ContentError error) {
+const char *Android_ErrorToString(StorageError error) {
 	switch (error) {
-	case ContentError::SUCCESS: return "SUCCESS";
-	case ContentError::OTHER: return "OTHER";
-	case ContentError::NOT_FOUND: return "NOT_FOUND";
-	case ContentError::DISK_FULL: return "DISK_FULL";
+	case StorageError::SUCCESS: return "SUCCESS";
+	case StorageError::UNKNOWN: return "UNKNOWN";
+	case StorageError::NOT_FOUND: return "NOT_FOUND";
+	case StorageError::DISK_FULL: return "DISK_FULL";
+	case StorageError::ALREADY_EXISTS: return "ALREADY_EXISTS";
 	default: return "(UNKNOWN)";
 	}
 }

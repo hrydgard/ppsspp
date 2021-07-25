@@ -32,10 +32,11 @@ public class PpssppActivity extends NativeActivity {
 	public static boolean libraryLoaded = false;
 
 	// Matches the enum in AndroidStorage.h.
-	private static final int CONTENT_ERROR_SUCCESS = 0;
-	private static final int CONTENT_ERROR_OTHER = -1;
-	private static final int CONTENT_ERROR_NOT_FOUND = -2;
-	private static final int CONTENT_ERROR_DISK_FULL = -3;
+	private static final int STORAGE_ERROR_SUCCESS = 0;
+	private static final int STORAGE_ERROR_UNKNOWN = -1;
+	private static final int STORAGE_ERROR_NOT_FOUND = -2;
+	private static final int STORAGE_ERROR_DISK_FULL = -3;
+	private static final int STORAGE_ERROR_ALREADY_EXISTS = -4;
 
 	@SuppressWarnings("deprecation")
 	public static void CheckABIAndLoadLibrary() {
@@ -289,17 +290,18 @@ public class PpssppActivity extends NativeActivity {
 		}
 	}
 
-	public boolean contentUriRenameFileTo(String fileUri, String newName) {
+	public int contentUriRenameFileTo(String fileUri, String newName) {
 		try {
 			Uri uri = Uri.parse(fileUri);
 			// Due to a design flaw, we can't use DocumentFile.renameTo().
 			// Instead we use the DocumentsContract API directly.
 			// See https://stackoverflow.com/questions/37168200/android-5-0-new-sd-card-access-api-documentfile-renameto-unsupportedoperation.
 			Uri newUri = DocumentsContract.renameDocument(getContentResolver(), uri, newName);
-			return true;
+			return STORAGE_ERROR_SUCCESS;
 		} catch (Exception e) {
+			// TODO: More detailed exception processing.
 			Log.e(TAG, "contentUriRenameFile exception: " + e.toString());
-			return false;
+			return STORAGE_ERROR_UNKNOWN;
 		}
 	}
 

@@ -578,7 +578,7 @@ bool Rename(const Path &srcFilename, const Path &destFilename) {
 		}
 		INFO_LOG(COMMON, "Content URI rename: %s --> %s", srcFilename.c_str(), destFilename.c_str());
 
-		return Android_RenameFileTo(srcFilename.ToString(), destFilename.GetFilename());
+		return Android_RenameFileTo(srcFilename.ToString(), destFilename.GetFilename()) == StorageError::SUCCESS;
 	default:
 		return false;
 	}
