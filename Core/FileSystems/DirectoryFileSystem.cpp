@@ -187,7 +187,7 @@ Path DirectoryFileHandle::GetLocalPath(const Path &basePath, std::string localpa
 		localpath.erase(0, 1);
 
 	if (fileSystemFlags_ & FileSystemFlags::STRIP_PSP) {
-		if (startsWith(localpath, "/PSP")) {
+		if (startsWith(localpath, "PSP/")) {
 			localpath = localpath.substr(4);
 		}
 	}
@@ -203,7 +203,7 @@ Path DirectoryFileSystem::GetLocalPath(std::string internalPath) const {
 		internalPath.erase(0, 1);
 
 	if (flags & FileSystemFlags::STRIP_PSP) {
-		if (startsWith(internalPath, "/PSP")) {
+		if (startsWith(internalPath, "PSP/")) {
 			internalPath = internalPath.substr(4);
 		}
 	}
@@ -638,6 +638,7 @@ bool DirectoryFileSystem::RemoveFile(const std::string &filename) {
 
 int DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename) {
 	OpenFileEntry entry;
+	entry.hFile.fileSystemFlags_ = flags;
 	u32 err = 0;
 	bool success = entry.hFile.Open(basePath, filename, access, err);
 	if (err == 0 && !success) {
@@ -964,6 +965,7 @@ void DirectoryFileSystem::DoState(PointerWrap &p) {
 		CloseAll();
 		u32 key;
 		OpenFileEntry entry;
+		entry.hFile.fileSystemFlags_ = flags;
 		for (u32 i = 0; i < num; i++) {
 			Do(p, key);
 			Do(p, entry.guestFilename);

@@ -279,7 +279,6 @@ Path Path::GetRootVolume() const {
 		return Path(path);
 	}
 #endif
-
 	return Path("/");
 }
 
