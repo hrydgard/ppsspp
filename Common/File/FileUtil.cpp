@@ -571,6 +571,7 @@ bool Rename(const Path &srcFilename, const Path &destFilename) {
 		break;
 	case PathType::CONTENT_URI:
 		// Content URI: Can only rename if in the same folder.
+		// TODO: Fallback to move + rename? Or do we even care about that use case?
 		if (srcFilename.GetDirectory() != destFilename.GetDirectory()) {
 			INFO_LOG(COMMON, "Content URI rename: Directories not matching, failing. %s --> %s", srcFilename.c_str(), destFilename.c_str());
 			return false;
@@ -600,23 +601,20 @@ bool Rename(const Path &srcFilename, const Path &destFilename) {
 }
 
 // copies file srcFilename to destFilename, returns true on success 
-bool Copy(const Path &srcFilename, const Path &destFilename)
-{
+bool Copy(const Path &srcFilename, const Path &destFilename) {
 	switch (srcFilename.Type()) {
 	case PathType::NATIVE:
 		break; // OK
 	case PathType::CONTENT_URI:
-		ERROR_LOG_REPORT_ONCE(copyUriNotSupported, COMMON, "Copying files by Android URI is not yet supported");
+		if (destFilename.Type() == PathType::CONTENT_URI && destFilename.CanNavigateUp()) {
+			Path destParent = destFilename.NavigateUp();
+			// Use native file copy.
+			if (Android_CopyFile(srcFilename.ToString(), destParent.ToString())) {
+				return true;
+			}
+			// Else fall through, and try using file I/O.
+		}
 		break;
-	default:
-		return false;
-	}
-	switch (destFilename.Type()) {
-	case PathType::NATIVE:
-		break; // OK
-	case PathType::CONTENT_URI:
-		ERROR_LOG_REPORT_ONCE(copyUriNotSupported, COMMON, "Copying files by Android URI is not yet supported");
-		return false;
 	default:
 		return false;
 	}
@@ -637,7 +635,7 @@ bool Copy(const Path &srcFilename, const Path &destFilename)
 #else
 
 	// buffer size
-#define BSIZE 4096
+#define BSIZE 16384
 
 	char buffer[BSIZE];
 
@@ -692,6 +690,19 @@ bool Copy(const Path &srcFilename, const Path &destFilename)
 }
 
 bool Move(const Path &srcFilename, const Path &destFilename) {
+	// Try a shortcut in Android Storage scenarios.
+	if (srcFilename.Type() == PathType::CONTENT_URI && destFilename.Type() == PathType::CONTENT_URI && srcFilename.CanNavigateUp() && destFilename.CanNavigateUp()) {
+		// We do not handle simultaneous renames here.
+		if (srcFilename.GetFilename() == destFilename.GetFilename()) {
+			Path srcParent = srcFilename.NavigateUp();
+			Path dstParent = destFilename.NavigateUp();
+			if (Android_MoveFile(srcFilename.ToString(), srcParent.ToString(), dstParent.ToString())) {
+				return true;
+			}
+			// If failed, fall through and try other ways.
+		}
+	}
+
 	if (Rename(srcFilename, destFilename)) {
 		return true;
 	} else if (Copy(srcFilename, destFilename)) {

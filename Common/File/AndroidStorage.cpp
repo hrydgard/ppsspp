@@ -12,6 +12,7 @@ static jmethodID listContentUriDir;
 static jmethodID contentUriCreateFile;
 static jmethodID contentUriCreateDirectory;
 static jmethodID contentUriCopyFile;
+static jmethodID contentUriMoveFile;
 static jmethodID contentUriRemoveFile;
 static jmethodID contentUriRenameFileTo;
 static jmethodID contentUriGetFileInfo;
@@ -39,6 +40,8 @@ void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj) {
 	_dbg_assert_(contentUriCopyFile);
 	contentUriRemoveFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriRemoveFile", "(Ljava/lang/String;)Z");
 	_dbg_assert_(contentUriRemoveFile);
+	contentUriMoveFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriMoveFile", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Z");
+	_dbg_assert_(contentUriMoveFile);
 	contentUriRenameFileTo = env->GetMethodID(env->GetObjectClass(obj), "contentUriRenameFileTo", "(Ljava/lang/String;Ljava/lang/String;)Z");
 	_dbg_assert_(contentUriRenameFileTo);
 	contentUriGetFileInfo = env->GetMethodID(env->GetObjectClass(obj), "contentUriGetFileInfo", "(Ljava/lang/String;)Ljava/lang/String;");
@@ -109,6 +112,17 @@ bool Android_CopyFile(const std::string &fileUri, const std::string &destParentU
 	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
 	jstring paramDestParentUri = env->NewStringUTF(destParentUri.c_str());
 	return env->CallBooleanMethod(g_nativeActivity, contentUriCopyFile, paramFileName, paramDestParentUri);
+}
+
+bool Android_MoveFile(const std::string &fileUri, const std::string &srcParentUri, const std::string &destParentUri) {
+	if (!g_nativeActivity) {
+		return false;
+	}
+	auto env = getEnv();
+	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
+	jstring paramSrcParentUri = env->NewStringUTF(srcParentUri.c_str());
+	jstring paramDestParentUri = env->NewStringUTF(destParentUri.c_str());
+	return env->CallBooleanMethod(g_nativeActivity, contentUriMoveFile, paramFileName, paramSrcParentUri, paramDestParentUri);
 }
 
 bool Android_RemoveFile(const std::string &fileUri) {
@@ -261,5 +275,10 @@ const char *Android_ErrorToString(ContentError error) {
 	default: return "(UNKNOWN)";
 	}
 }
+
+#else
+
+// This string should never appear except on Android.
+std::string g_extFilesDir = "(IF YOU SEE THIS THERE'S A BUG)";
 
 #endif

@@ -41,6 +41,7 @@ bool Android_IsContentUri(const std::string &uri);
 int Android_OpenContentUriFd(const std::string &uri, const Android_OpenContentUriMode mode);
 bool Android_CreateDirectory(const std::string &parentTreeUri, const std::string &dirName);
 bool Android_CreateFile(const std::string &parentTreeUri, const std::string &fileName);
+bool Android_MoveFile(const std::string &fileUri, const std::string &srcParentUri, const std::string &destParentUri);
 bool Android_CopyFile(const std::string &fileUri, const std::string &destParentUri);
 bool Android_RemoveFile(const std::string &fileUri);
 bool Android_RenameFileTo(const std::string &fileUri, const std::string &newName);
@@ -57,12 +58,15 @@ void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj);
 
 #else
 
+extern std::string g_extFilesDir;
+
 // Stub out the Android Storage wrappers, so that we can avoid ifdefs everywhere.
 
 inline bool Android_IsContentUri(const std::string &uri) { return false; }
 inline int Android_OpenContentUriFd(const std::string &uri, const Android_OpenContentUriMode mode) { return -1; }
 inline bool Android_CreateDirectory(const std::string &parentTreeUri, const std::string &dirName) { return false; }
 inline bool Android_CreateFile(const std::string &parentTreeUri, const std::string &fileName) { return false; }
+inline bool Android_MoveFile(const std::string &fileUri, const std::string &srcParentUri, const std::string &destParentUri) { return false; }
 inline bool Android_CopyFile(const std::string &fileUri, const std::string &destParentUri) { return false; }
 inline bool Android_RemoveFile(const std::string &fileUri) { return false; }
 inline bool Android_RenameFileTo(const std::string &fileUri, const std::string &newName) { return false; }

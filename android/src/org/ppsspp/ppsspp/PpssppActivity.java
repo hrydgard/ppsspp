@@ -268,10 +268,23 @@ public class PpssppActivity extends NativeActivity {
 		try {
 			Uri srcUri = Uri.parse(srcFileUri);
 			Uri dstParentUri = Uri.parse(dstParentDirUri);
-			DocumentsContract.copyDocument(getContentResolver(), srcUri, dstParentUri);
-			return true;
+			return DocumentsContract.copyDocument(getContentResolver(), srcUri, dstParentUri) != null;
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriCopyFile exception: " + e.toString());
+			return false;
+		}
+	}
+
+	// NOTE: The destination is the parent directory! This means that contentUriCopyFile
+	// cannot rename things as part of the operation.
+	public boolean contentUriMoveFile(String srcFileUri, String srcParentDirUri, String dstParentDirUri) {
+		try {
+			Uri srcUri = Uri.parse(srcFileUri);
+			Uri srcParentUri = Uri.parse(srcParentDirUri);
+			Uri dstParentUri = Uri.parse(dstParentDirUri);
+			return DocumentsContract.moveDocument(getContentResolver(), srcUri, srcParentUri, dstParentUri) != null;
+		} catch (Exception e) {
+			Log.e(TAG, "contentUriMoveFile exception: " + e.toString());
 			return false;
 		}
 	}
