@@ -248,45 +248,45 @@ public class PpssppActivity extends NativeActivity {
 		}
 	}
 
-	public boolean contentUriRemoveFile(String fileName) {
+	public int contentUriRemoveFile(String fileName) {
 		try {
 			Uri uri = Uri.parse(fileName);
 			DocumentFile documentFile = DocumentFile.fromSingleUri(this, uri);
 			if (documentFile != null) {
-				return documentFile.delete();
+				return documentFile.delete() ? STORAGE_ERROR_SUCCESS : STORAGE_ERROR_UNKNOWN;
 			} else {
-				return false;
+				return STORAGE_ERROR_UNKNOWN;
 			}
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriRemoveFile exception: " + e.toString());
-			return false;
+			return STORAGE_ERROR_UNKNOWN;
 		}
 	}
 
 	// NOTE: The destination is the parent directory! This means that contentUriCopyFile
 	// cannot rename things as part of the operation.
-	public boolean contentUriCopyFile(String srcFileUri, String dstParentDirUri) {
+	public int contentUriCopyFile(String srcFileUri, String dstParentDirUri) {
 		try {
 			Uri srcUri = Uri.parse(srcFileUri);
 			Uri dstParentUri = Uri.parse(dstParentDirUri);
-			return DocumentsContract.copyDocument(getContentResolver(), srcUri, dstParentUri) != null;
+			return DocumentsContract.copyDocument(getContentResolver(), srcUri, dstParentUri) != null ? STORAGE_ERROR_SUCCESS : STORAGE_ERROR_UNKNOWN;
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriCopyFile exception: " + e.toString());
-			return false;
+			return STORAGE_ERROR_UNKNOWN;
 		}
 	}
 
 	// NOTE: The destination is the parent directory! This means that contentUriCopyFile
 	// cannot rename things as part of the operation.
-	public boolean contentUriMoveFile(String srcFileUri, String srcParentDirUri, String dstParentDirUri) {
+	public int contentUriMoveFile(String srcFileUri, String srcParentDirUri, String dstParentDirUri) {
 		try {
 			Uri srcUri = Uri.parse(srcFileUri);
 			Uri srcParentUri = Uri.parse(srcParentDirUri);
 			Uri dstParentUri = Uri.parse(dstParentDirUri);
-			return DocumentsContract.moveDocument(getContentResolver(), srcUri, srcParentUri, dstParentUri) != null;
+			return DocumentsContract.moveDocument(getContentResolver(), srcUri, srcParentUri, dstParentUri) != null ? STORAGE_ERROR_SUCCESS : STORAGE_ERROR_UNKNOWN;
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriMoveFile exception: " + e.toString());
-			return false;
+			return STORAGE_ERROR_UNKNOWN;
 		}
 	}
 

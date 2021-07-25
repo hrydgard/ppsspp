@@ -42,9 +42,9 @@ bool Android_IsContentUri(const std::string &uri);
 int Android_OpenContentUriFd(const std::string &uri, const Android_OpenContentUriMode mode);
 bool Android_CreateDirectory(const std::string &parentTreeUri, const std::string &dirName);
 bool Android_CreateFile(const std::string &parentTreeUri, const std::string &fileName);
-bool Android_MoveFile(const std::string &fileUri, const std::string &srcParentUri, const std::string &destParentUri);
-bool Android_CopyFile(const std::string &fileUri, const std::string &destParentUri);
-bool Android_RemoveFile(const std::string &fileUri);
+StorageError Android_MoveFile(const std::string &fileUri, const std::string &srcParentUri, const std::string &destParentUri);
+StorageError Android_CopyFile(const std::string &fileUri, const std::string &destParentUri);
+StorageError Android_RemoveFile(const std::string &fileUri);
 StorageError Android_RenameFileTo(const std::string &fileUri, const std::string &newName);
 bool Android_GetFileInfo(const std::string &fileUri, File::FileInfo *info);
 bool Android_FileExists(const std::string &fileUri);
@@ -67,9 +67,9 @@ inline bool Android_IsContentUri(const std::string &uri) { return false; }
 inline int Android_OpenContentUriFd(const std::string &uri, const Android_OpenContentUriMode mode) { return -1; }
 inline bool Android_CreateDirectory(const std::string &parentTreeUri, const std::string &dirName) { return false; }
 inline bool Android_CreateFile(const std::string &parentTreeUri, const std::string &fileName) { return false; }
-inline bool Android_MoveFile(const std::string &fileUri, const std::string &srcParentUri, const std::string &destParentUri) { return false; }
-inline bool Android_CopyFile(const std::string &fileUri, const std::string &destParentUri) { return false; }
-inline bool Android_RemoveFile(const std::string &fileUri) { return false; }
+inline StorageError Android_MoveFile(const std::string &fileUri, const std::string &srcParentUri, const std::string &destParentUri) { return StorageError::UNKNOWN; }
+inline StorageError Android_CopyFile(const std::string &fileUri, const std::string &destParentUri) { return StorageError::UNKNOWN; }
+inline StorageError Android_RemoveFile(const std::string &fileUri) { return StorageError::UNKNOWN; }
 inline StorageError Android_RenameFileTo(const std::string &fileUri, const std::string &newName) { return StorageError::UNKNOWN; }
 inline bool Android_GetFileInfo(const std::string &fileUri, File::FileInfo *info) { return false; }
 inline bool Android_FileExists(const std::string &fileUri) { return false; }

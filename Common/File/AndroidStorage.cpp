@@ -36,11 +36,11 @@ void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj) {
 	_dbg_assert_(contentUriCreateDirectory);
 	contentUriCreateFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriCreateFile", "(Ljava/lang/String;Ljava/lang/String;)Z");
 	_dbg_assert_(contentUriCreateFile);
-	contentUriCopyFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriCopyFile", "(Ljava/lang/String;Ljava/lang/String;)Z");
+	contentUriCopyFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriCopyFile", "(Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriCopyFile);
-	contentUriRemoveFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriRemoveFile", "(Ljava/lang/String;)Z");
+	contentUriRemoveFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriRemoveFile", "(Ljava/lang/String;)I");
 	_dbg_assert_(contentUriRemoveFile);
-	contentUriMoveFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriMoveFile", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Z");
+	contentUriMoveFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriMoveFile", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriMoveFile);
 	contentUriRenameFileTo = env->GetMethodID(env->GetObjectClass(obj), "contentUriRenameFileTo", "(Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriRenameFileTo);
@@ -104,34 +104,34 @@ bool Android_CreateFile(const std::string &parentTreeUri, const std::string &fil
 	return env->CallBooleanMethod(g_nativeActivity, contentUriCreateFile, paramRoot, paramFileName);
 }
 
-bool Android_CopyFile(const std::string &fileUri, const std::string &destParentUri) {
+StorageError Android_CopyFile(const std::string &fileUri, const std::string &destParentUri) {
 	if (!g_nativeActivity) {
-		return false;
+		return StorageError::UNKNOWN;
 	}
 	auto env = getEnv();
 	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
 	jstring paramDestParentUri = env->NewStringUTF(destParentUri.c_str());
-	return env->CallBooleanMethod(g_nativeActivity, contentUriCopyFile, paramFileName, paramDestParentUri);
+	return StorageErrorFromInt(env->CallIntMethod(g_nativeActivity, contentUriCopyFile, paramFileName, paramDestParentUri));
 }
 
-bool Android_MoveFile(const std::string &fileUri, const std::string &srcParentUri, const std::string &destParentUri) {
+StorageError Android_MoveFile(const std::string &fileUri, const std::string &srcParentUri, const std::string &destParentUri) {
 	if (!g_nativeActivity) {
-		return false;
+		return StorageError::UNKNOWN;
 	}
 	auto env = getEnv();
 	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
 	jstring paramSrcParentUri = env->NewStringUTF(srcParentUri.c_str());
 	jstring paramDestParentUri = env->NewStringUTF(destParentUri.c_str());
-	return env->CallBooleanMethod(g_nativeActivity, contentUriMoveFile, paramFileName, paramSrcParentUri, paramDestParentUri);
+	return StorageErrorFromInt(env->CallIntMethod(g_nativeActivity, contentUriMoveFile, paramFileName, paramSrcParentUri, paramDestParentUri));
 }
 
-bool Android_RemoveFile(const std::string &fileUri) {
+StorageError Android_RemoveFile(const std::string &fileUri) {
 	if (!g_nativeActivity) {
-		return false;
+		return StorageError::UNKNOWN;
 	}
 	auto env = getEnv();
 	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
-	return env->CallBooleanMethod(g_nativeActivity, contentUriRemoveFile, paramFileName);
+	return StorageErrorFromInt(env->CallIntMethod(g_nativeActivity, contentUriRemoveFile, paramFileName));
 }
 
 StorageError Android_RenameFileTo(const std::string &fileUri, const std::string &newName) {

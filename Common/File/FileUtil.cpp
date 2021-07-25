@@ -396,7 +396,7 @@ bool Delete(const Path &filename) {
 	case PathType::NATIVE:
 		break; // OK
 	case PathType::CONTENT_URI:
-		return Android_RemoveFile(filename.ToString());
+		return Android_RemoveFile(filename.ToString()) == StorageError::SUCCESS;
 	default:
 		return false;
 	}
@@ -439,6 +439,12 @@ bool CreateDir(const Path &path) {
 		break; // OK
 	case PathType::CONTENT_URI:
 	{
+		// NOTE: The Android storage API will simply create a renamed directory (append a number) if it already exists.
+		// We want to avoid that, so let's just return true if the directory already is there.
+		if (File::Exists(path)) {
+			return true;
+		}
+
 		// Convert it to a "CreateDirIn" call, if possible, since that's
 		// what we can do with the storage API.
 		AndroidContentURI uri(path.ToString());
@@ -532,7 +538,7 @@ bool DeleteDir(const Path &path) {
 	case PathType::NATIVE:
 		break; // OK
 	case PathType::CONTENT_URI:
-		return Android_RemoveFile(path.ToString());
+		return Android_RemoveFile(path.ToString()) == StorageError::SUCCESS;
 	default:
 		return false;
 	}
@@ -609,7 +615,7 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 		if (destFilename.Type() == PathType::CONTENT_URI && destFilename.CanNavigateUp()) {
 			Path destParent = destFilename.NavigateUp();
 			// Use native file copy.
-			if (Android_CopyFile(srcFilename.ToString(), destParent.ToString())) {
+			if (Android_CopyFile(srcFilename.ToString(), destParent.ToString()) == StorageError::SUCCESS) {
 				return true;
 			}
 			// Else fall through, and try using file I/O.
@@ -689,6 +695,7 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 #endif
 }
 
+// Will overwrite the target.
 bool Move(const Path &srcFilename, const Path &destFilename) {
 	// Try a shortcut in Android Storage scenarios.
 	if (srcFilename.Type() == PathType::CONTENT_URI && destFilename.Type() == PathType::CONTENT_URI && srcFilename.CanNavigateUp() && destFilename.CanNavigateUp()) {
@@ -696,7 +703,7 @@ bool Move(const Path &srcFilename, const Path &destFilename) {
 		if (srcFilename.GetFilename() == destFilename.GetFilename()) {
 			Path srcParent = srcFilename.NavigateUp();
 			Path dstParent = destFilename.NavigateUp();
-			if (Android_MoveFile(srcFilename.ToString(), srcParent.ToString(), dstParent.ToString())) {
+			if (Android_MoveFile(srcFilename.ToString(), srcParent.ToString(), dstParent.ToString()) == StorageError::SUCCESS) {
 				return true;
 			}
 			// If failed, fall through and try other ways.
