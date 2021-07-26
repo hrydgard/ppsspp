@@ -64,9 +64,7 @@ static bool SwitchMemstickFolderTo(Path newMemstickFolder) {
 			File::CreateFullPath(newMemstickFolder);
 		}
 		if (!File::WriteDataToFile(true, "1", 1, testWriteFile)) {
-			// settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
-			// TODO: Display an error!
-			return UI::EVENT_DONE;
+			return false;
 		}
 		File::Delete(testWriteFile);
 	} else {
@@ -150,8 +148,11 @@ UI::EventReturn MemStickScreen::OnUseInternalStorage(UI::EventParams &params) {
 	if (initialSetup_) {
 		// There's not gonna be any files here in this case since it's a fresh install.
 		// Let's just accept it and move on. No need to move files either.
-		SwitchMemstickFolderTo(pendingMemStickFolder_);
-		TriggerFinish(DialogResult::DR_OK);
+		if (SwitchMemstickFolderTo(pendingMemStickFolder_)) {
+			TriggerFinish(DialogResult::DR_OK);
+		} else {
+			// This can't really happen?? Not worth making an error message.
+		}
 	} else {
 		// Always ask for confirmation when called from the UI. Likely there's already some data.
 		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder_, false));
@@ -364,12 +365,14 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 	}
 
 	// Successful so far, switch the memstick folder.
-	SwitchMemstickFolderTo(newMemstickFolder_);
+	if (!SwitchMemstickFolderTo(newMemstickFolder_)) {
+		// TODO: More precise errors.
+		error_ = iz->T("That folder doesn't work as a memstick folder.");
+		return UI::EVENT_DONE;
+	}
 
 	// If the chosen folder already had a config, reload it!
 	g_Config.Load();
-
-
 
 	if (g_Config.Save("MemstickPathChanged")) {
 		TriggerFinish(DialogResult::DR_OK);
