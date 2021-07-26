@@ -1591,8 +1591,9 @@ int friendFinder(){
 						}
 
 						// Update HUD User Count
+						name = (char*)packet->name.data;
 						incoming = "";
-						incoming.append((char*)packet->name.data);
+						incoming.append(name.substr(0, 8));
 						incoming.append(" Joined ");
 						//do we need ip?
 						//joined.append((char *)packet->ip);
