@@ -1045,11 +1045,11 @@ int SavedataParam::BuildHash(unsigned char *output,
 	return 0;
 }
 
+// TODO: Merge with NiceSizeFormat? That one has a decimal though.
 std::string SavedataParam::GetSpaceText(u64 size, bool roundUp)
 {
-	static const char *suffixes[] = {"B", "KB", "MB", "GB"};
 	char text[50];
-
+	static const char *suffixes[] = {"B", "KB", "MB", "GB"};
 	for (size_t i = 0; i < ARRAY_SIZE(suffixes); ++i)
 	{
 		if (size < 1024)
@@ -1063,7 +1063,6 @@ std::string SavedataParam::GetSpaceText(u64 size, bool roundUp)
 			size /= 1024;
 		}
 	}
-
 	snprintf(text, sizeof(text), "%llu TB", size);
 	return std::string(text);
 }

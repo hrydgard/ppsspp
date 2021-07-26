@@ -348,7 +348,7 @@ void PostLoadConfig() {
 }
 
 bool CreateDirectoriesAndroid() {
-	// TODO: Really not sure why this code is Android-exclusive, except the ".nomedia" part.
+	// TODO: We should probably simply use this as the shared function to create memstick directories.
 
 	Path pspDir = g_Config.memStickDirectory;
 	if (pspDir.GetFilename() != "PSP") {

@@ -29,6 +29,7 @@
 #include "Common/System/NativeApp.h"
 #include "Common/System/Display.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/Data/Text/Parsers.h"
 
 #include "Common/File/AndroidStorage.h"
 #include "Common/File/FileUtil.h"
@@ -91,8 +92,9 @@ static bool SwitchMemstickFolderTo(Path newMemstickFolder) {
 
 static std::string FormatSpaceString(int64_t space) {
 	if (space >= 0) {
-		// TODO: Smarter display (MB, GB as appropriate). Don't we have one of these somewhere?
-		return StringFromFormat("%lld MB", space / (1024 * 1024));
+		char buffer[50];
+		NiceSizeFormat(space, buffer, sizeof(buffer));
+		return buffer;
 	} else {
 		return "N/A";
 	}

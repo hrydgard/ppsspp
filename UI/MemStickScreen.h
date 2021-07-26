@@ -34,9 +34,10 @@ public:
 	~MemStickScreen() {}
 
 	std::string tag() const override { return "game"; }
-	void CreateViews() override;
 
 protected:
+	void CreateViews() override;
+
 	void sendMessage(const char *message, const char *value) override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	void update() override;
@@ -67,6 +68,7 @@ class ConfirmMemstickMoveScreen : public UIDialogScreenWithBackground {
 public:
 	ConfirmMemstickMoveScreen(Path newMemstickFolder, bool initialSetup);
 
+protected:
 	void CreateViews() override;
 
 private:

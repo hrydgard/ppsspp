@@ -41,9 +41,11 @@ bool free_disk_space(const Path &path, int64_t &space) {
 	int res = statvfs(path.c_str(), &diskstat);
 
 	if (res == 0) {
+		// Not sure why we're excluding Android here anyway...
 #ifndef __ANDROID__
 		if (diskstat.f_flag & ST_RDONLY) {
-			space = -1;
+			// No space to write.
+			space = 0;
 			return true;
 		}
 #endif
