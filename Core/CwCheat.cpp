@@ -98,6 +98,9 @@ bool CheatFileParser::Parse() {
 		if (!tempLine)
 			continue;
 
+		// Detect UTF-8 BOM sequence, and ignore it.
+		if (line_ == 1 && memcmp(tempLine, "\xEF\xBB\xBF", 3) == 0)
+			tempLine += 3;
 		std::string line = TrimString(tempLine);
 
 		// Minimum length 5 is shortest possible _ lines name of the game "_G N+"
