@@ -62,6 +62,7 @@ public:
 	bool Remount(std::string prefix, std::shared_ptr<IFileSystem> system);
 
 	void UnmountAll();
+	void Unmount(std::string prefix);
 
 	// The pointer returned from these are for temporary usage only. Do not store.
 	IFileSystem *GetSystem(const std::string &prefix);
