@@ -775,7 +775,12 @@ void __IoShutdown() {
 	}
 	asyncDefaultPriority = -1;
 
-	pspFileSystem.UnmountAll();
+	pspFileSystem.Unmount("ms0:");
+	pspFileSystem.Unmount("fatms0:");
+	pspFileSystem.Unmount("fatms:");
+	pspFileSystem.Unmount("pfat0:");
+	pspFileSystem.Unmount("flash0:");
+	pspFileSystem.Unmount("exdata0:");
 
 	MemoryStick_Shutdown();
 	memStickCallbacks.clear();

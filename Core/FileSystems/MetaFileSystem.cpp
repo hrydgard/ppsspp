@@ -298,6 +298,15 @@ void MetaFileSystem::UnmountAll() {
 	currentDir.clear();
 }
 
+void MetaFileSystem::Unmount(std::string prefix) {
+	for (auto iter = fileSystems.begin(); iter != fileSystems.end(); iter++) {
+		if (iter->prefix == prefix) {
+			fileSystems.erase(iter);
+			return;
+		}
+	}
+}
+
 bool MetaFileSystem::Remount(std::string prefix, std::shared_ptr<IFileSystem> system) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	for (auto &it : fileSystems) {
