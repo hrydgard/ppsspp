@@ -197,12 +197,6 @@ UI::EventReturn TouchControlVisibilityScreen::OnToggleAll(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn TouchControlVisibilityScreen::RightAnalogBindScreen(UI::EventParams &e) {
-	screenManager()->push(new RightAnalogMappingScreen());
-
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn CheckBoxChoice::HandleClick(UI::EventParams &e) {
 	checkbox_->Toggle();
 
