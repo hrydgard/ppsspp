@@ -64,7 +64,7 @@
     #define PPSSPP_ARCH_32BIT 1
 #endif
 
-#if defined(__riscv)
+#if defined(__riscv) && defined(__riscv_xlen) && __riscv_xlen == 64
 	#define PPSSPP_ARCH_RISCV64 1
 	#define PPSSPP_ARCH_64BIT 1
 #endif
