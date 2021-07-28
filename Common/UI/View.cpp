@@ -972,6 +972,7 @@ bool TextEdit::Key(const KeyInput &input) {
 			}
 			break;
 		case NKCODE_ENTER:
+		case NKCODE_NUMPAD_ENTER:
 			{
 				EventParams e{};
 				e.v = this;

@@ -87,17 +87,15 @@ private:
 		ReadFunc Read;
 		CloseFunc Close;
 
-		bool IsValid() const { return library != NULL; }
+		bool IsValid() const { return library != nullptr; }
 	};
 
 	struct HandlerFileHandle {
 		Handler *handler;
 		HandlerHandle handle;
 
-		HandlerFileHandle() : handler(NULL), handle(0) {
-		}
-		HandlerFileHandle(Handler *handler_) : handler(handler_), handle(-1) {
-		}
+		HandlerFileHandle() : handler(nullptr), handle(0) {}
+		HandlerFileHandle(Handler *handler_) : handler(handler_), handle(-1) {}
 
 		bool Open(const std::string& basePath, const std::string& fileName, FileAccess access) {
 			// Ignore access, read only.
@@ -115,7 +113,7 @@ private:
 		}
 
 		bool IsValid() {
-			return handler != NULL && handler->IsValid();
+			return handler != nullptr && handler->IsValid();
 		}
 
 		HandlerFileHandle &operator =(Handler *_handler) {
@@ -127,13 +125,18 @@ private:
 	typedef enum { VFILETYPE_NORMAL, VFILETYPE_LBN, VFILETYPE_ISO } VirtualFileType;
 
 	struct OpenFileEntry {
-		DirectoryFileHandle hFile = DirectoryFileHandle::SKIP_REPLAY;
+		OpenFileEntry() {}
+		OpenFileEntry(FileSystemFlags fileSystemFlags) {
+			hFile = DirectoryFileHandle(DirectoryFileHandle::SKIP_REPLAY, fileSystemFlags);
+		}
+
+		DirectoryFileHandle hFile;
 		HandlerFileHandle handler;
-		VirtualFileType type;
-		u32 fileIndex;
-		u64 curOffset;
-		u64 startOffset;	// only used by lbn files
-		u64 size;			// only used by lbn files
+		VirtualFileType type = VFILETYPE_NORMAL;
+		u32 fileIndex = 0;
+		u64 curOffset = 0;
+		u64 startOffset = 0;	// only used by lbn files
+		u64 size = 0;			// only used by lbn files
 
 		bool Open(const Path &basePath, std::string& fileName, FileAccess access) {
 			// Ignored, we're read only.
@@ -168,6 +171,7 @@ private:
 	};
 
 	typedef std::map<u32, OpenFileEntry> EntryMap;
+
 	EntryMap entries;
 	IHandleAllocator *hAlloc;
 	Path basePath;

@@ -540,10 +540,15 @@ UI::EventReturn GameBrowser::StorageClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
-	if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
-		if (path_.GetPath().Type() == PathType::CONTENT_URI) {
-			path_.SetPath(path_.GetPath().GetRootVolume());
+UI::EventReturn GameBrowser::OnHomeClick(UI::EventParams &e) {
+	if (path_.GetPath().Type() == PathType::CONTENT_URI) {
+		Path rootPath = path_.GetPath().GetRootVolume();
+		if (rootPath != path_.GetPath()) {
+			SetPath(rootPath);
+			return UI::EVENT_DONE;
+		}
+		if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
+			// There'll be no sensible home, ignore.
 			return UI::EVENT_DONE;
 		}
 	}
@@ -669,7 +674,7 @@ void GameBrowser::Refresh() {
 		if (browseFlags_ & BrowseFlags::NAVIGATE) {
 			topBar->Add(new Spacer(2.0f));
 			topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
-			topBar->Add(new Choice(ImageID("I_HOME"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::HomeClick);
+			topBar->Add(new Choice(ImageID("I_HOME"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::OnHomeClick);
 			if (System_GetPropertyBool(SYSPROP_HAS_ADDITIONAL_STORAGE)) {
 				topBar->Add(new Choice(ImageID("I_SDCARD"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::StorageClick);
 			}

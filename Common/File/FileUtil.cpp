@@ -107,7 +107,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 			INFO_LOG(COMMON, "Opening content file for read: '%s'", path.c_str());
 			// Read, let's support this - easy one.
 			int descriptor = Android_OpenContentUriFd(path.ToString(), Android_OpenContentUriMode::READ);
-			if (descriptor == -1) {
+			if (descriptor < 0) {
 				return nullptr;
 			}
 			return fdopen(descriptor, "rb");
@@ -119,7 +119,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 				std::string name = path.GetFilename();
 				if (path.CanNavigateUp()) {
 					Path parent = path.NavigateUp();
-					if (!Android_CreateFile(parent.ToString(), name)) {
+					if (Android_CreateFile(parent.ToString(), name) != StorageError::SUCCESS) {
 						WARN_LOG(COMMON, "Failed to create file '%s' in '%s'", name.c_str(), parent.c_str());
 						return nullptr;
 					}
@@ -133,7 +133,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 
 			// TODO: Support append modes and stuff... For now let's go with the most common one.
 			int descriptor = Android_OpenContentUriFd(path.ToString(), Android_OpenContentUriMode::READ_WRITE_TRUNCATE);
-			if (descriptor == -1) {
+			if (descriptor < 0) {
 				INFO_LOG(COMMON, "Opening '%s' for write failed", path.ToString().c_str());
 				return nullptr;
 			}
@@ -189,7 +189,7 @@ int OpenFD(const Path &path, OpenFlag flags) {
 			std::string name = path.GetFilename();
 			if (path.CanNavigateUp()) {
 				Path parent = path.NavigateUp();
-				if (!Android_CreateFile(parent.ToString(), name)) {
+				if (Android_CreateFile(parent.ToString(), name) != StorageError::SUCCESS) {
 					WARN_LOG(COMMON, "OpenFD: Failed to create file '%s' in '%s'", name.c_str(), parent.c_str());
 					return -1;
 				}
@@ -223,6 +223,12 @@ int OpenFD(const Path &path, OpenFlag flags) {
 	if (descriptor < 0) {
 		ERROR_LOG(COMMON, "Android_OpenContentUriFd failed: '%s'", path.c_str());
 	}
+
+	if (flags & OPEN_APPEND) {
+		// Simply seek to the end of the file to simulate append mode.
+		lseek(descriptor, 0, SEEK_END);
+	}
+
 	return descriptor;
 }
 
@@ -390,7 +396,7 @@ bool Delete(const Path &filename) {
 	case PathType::NATIVE:
 		break; // OK
 	case PathType::CONTENT_URI:
-		return Android_RemoveFile(filename.ToString());
+		return Android_RemoveFile(filename.ToString()) == StorageError::SUCCESS;
 	default:
 		return false;
 	}
@@ -433,13 +439,19 @@ bool CreateDir(const Path &path) {
 		break; // OK
 	case PathType::CONTENT_URI:
 	{
+		// NOTE: The Android storage API will simply create a renamed directory (append a number) if it already exists.
+		// We want to avoid that, so let's just return true if the directory already is there.
+		if (File::Exists(path)) {
+			return true;
+		}
+
 		// Convert it to a "CreateDirIn" call, if possible, since that's
 		// what we can do with the storage API.
 		AndroidContentURI uri(path.ToString());
 		std::string newDirName = uri.GetLastPart();
 		if (uri.NavigateUp()) {
 			INFO_LOG(COMMON, "Calling Android_CreateDirectory(%s, %s)", uri.ToString().c_str(), newDirName.c_str());
-			return Android_CreateDirectory(uri.ToString(), newDirName);
+			return Android_CreateDirectory(uri.ToString(), newDirName) == StorageError::SUCCESS;
 		} else {
 			// Bad path - can't create this directory.
 			WARN_LOG(COMMON, "CreateDir failed: '%s'", path.c_str());
@@ -526,7 +538,7 @@ bool DeleteDir(const Path &path) {
 	case PathType::NATIVE:
 		break; // OK
 	case PathType::CONTENT_URI:
-		return Android_RemoveFile(path.ToString());
+		return Android_RemoveFile(path.ToString()) == StorageError::SUCCESS;
 	default:
 		return false;
 	}
@@ -565,13 +577,14 @@ bool Rename(const Path &srcFilename, const Path &destFilename) {
 		break;
 	case PathType::CONTENT_URI:
 		// Content URI: Can only rename if in the same folder.
+		// TODO: Fallback to move + rename? Or do we even care about that use case?
 		if (srcFilename.GetDirectory() != destFilename.GetDirectory()) {
 			INFO_LOG(COMMON, "Content URI rename: Directories not matching, failing. %s --> %s", srcFilename.c_str(), destFilename.c_str());
 			return false;
 		}
 		INFO_LOG(COMMON, "Content URI rename: %s --> %s", srcFilename.c_str(), destFilename.c_str());
 
-		return Android_RenameFileTo(srcFilename.ToString(), destFilename.GetFilename());
+		return Android_RenameFileTo(srcFilename.ToString(), destFilename.GetFilename()) == StorageError::SUCCESS;
 	default:
 		return false;
 	}
@@ -594,23 +607,20 @@ bool Rename(const Path &srcFilename, const Path &destFilename) {
 }
 
 // copies file srcFilename to destFilename, returns true on success 
-bool Copy(const Path &srcFilename, const Path &destFilename)
-{
+bool Copy(const Path &srcFilename, const Path &destFilename) {
 	switch (srcFilename.Type()) {
 	case PathType::NATIVE:
 		break; // OK
 	case PathType::CONTENT_URI:
-		ERROR_LOG_REPORT_ONCE(copyUriNotSupported, COMMON, "Copying files by Android URI is not yet supported");
+		if (destFilename.Type() == PathType::CONTENT_URI && destFilename.CanNavigateUp()) {
+			Path destParent = destFilename.NavigateUp();
+			// Use native file copy.
+			if (Android_CopyFile(srcFilename.ToString(), destParent.ToString()) == StorageError::SUCCESS) {
+				return true;
+			}
+			// Else fall through, and try using file I/O.
+		}
 		break;
-	default:
-		return false;
-	}
-	switch (destFilename.Type()) {
-	case PathType::NATIVE:
-		break; // OK
-	case PathType::CONTENT_URI:
-		ERROR_LOG_REPORT_ONCE(copyUriNotSupported, COMMON, "Copying files by Android URI is not yet supported");
-		return false;
 	default:
 		return false;
 	}
@@ -631,7 +641,7 @@ bool Copy(const Path &srcFilename, const Path &destFilename)
 #else
 
 	// buffer size
-#define BSIZE 4096
+#define BSIZE 16384
 
 	char buffer[BSIZE];
 
@@ -685,7 +695,21 @@ bool Copy(const Path &srcFilename, const Path &destFilename)
 #endif
 }
 
+// Will overwrite the target.
 bool Move(const Path &srcFilename, const Path &destFilename) {
+	// Try a shortcut in Android Storage scenarios.
+	if (srcFilename.Type() == PathType::CONTENT_URI && destFilename.Type() == PathType::CONTENT_URI && srcFilename.CanNavigateUp() && destFilename.CanNavigateUp()) {
+		// We do not handle simultaneous renames here.
+		if (srcFilename.GetFilename() == destFilename.GetFilename()) {
+			Path srcParent = srcFilename.NavigateUp();
+			Path dstParent = destFilename.NavigateUp();
+			if (Android_MoveFile(srcFilename.ToString(), srcParent.ToString(), dstParent.ToString()) == StorageError::SUCCESS) {
+				return true;
+			}
+			// If failed, fall through and try other ways.
+		}
+	}
+
 	if (Rename(srcFilename, destFilename)) {
 		return true;
 	} else if (Copy(srcFilename, destFilename)) {

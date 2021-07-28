@@ -375,6 +375,9 @@
     <ClCompile Include="..\..\Common\GPU\ShaderTranslation.cpp">
       <Filter>GPU</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\File\AndroidStorage.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -690,6 +693,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\GPU\ShaderTranslation.h">
       <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\AndroidStorage.h">
+      <Filter>File</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

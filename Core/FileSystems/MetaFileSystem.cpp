@@ -172,10 +172,11 @@ IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle)
 	for (size_t i = 0; i < fileSystems.size(); i++)
 	{
 		if (fileSystems[i].system->OwnsHandle(handle))
-			return fileSystems[i].system; //got it!
+			return fileSystems[i].system.get();
 	}
-	//none found?
-	return 0;
+
+	// Not found
+	return nullptr;
 }
 
 int MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath, MountPoint **system)
@@ -274,41 +275,47 @@ std::string MetaFileSystem::NormalizePrefix(std::string prefix) const {
 	return prefix;
 }
 
-void MetaFileSystem::Mount(std::string prefix, IFileSystem *system) {
+void MetaFileSystem::Mount(std::string prefix, std::shared_ptr<IFileSystem> system) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
+
 	MountPoint x;
 	x.prefix = prefix;
 	x.system = system;
+	for (auto &it : fileSystems) {
+		if (it.prefix == prefix) {
+			// Overwrite the old mount. Don't create a new one.
+			it = x;
+			return;
+		}
+	}
+
+	// Prefix not yet mounted, do so.
 	fileSystems.push_back(x);
 }
 
-void MetaFileSystem::Unmount(std::string prefix, IFileSystem *system) {
-	std::lock_guard<std::recursive_mutex> guard(lock);
-	MountPoint x;
-	x.prefix = prefix;
-	x.system = system;
-	fileSystems.erase(std::remove(fileSystems.begin(), fileSystems.end(), x), fileSystems.end());
+void MetaFileSystem::UnmountAll() {
+	fileSystems.clear();
+	currentDir.clear();
 }
 
-void MetaFileSystem::Remount(std::string prefix, IFileSystem *newSystem) {
+void MetaFileSystem::Unmount(std::string prefix) {
+	for (auto iter = fileSystems.begin(); iter != fileSystems.end(); iter++) {
+		if (iter->prefix == prefix) {
+			fileSystems.erase(iter);
+			return;
+		}
+	}
+}
+
+bool MetaFileSystem::Remount(std::string prefix, std::shared_ptr<IFileSystem> system) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
-	IFileSystem *oldSystem = nullptr;
 	for (auto &it : fileSystems) {
 		if (it.prefix == prefix) {
-			oldSystem = it.system;
-			it.system = newSystem;
+			it.system = system;
+			return true;
 		}
 	}
-
-	bool delOldSystem = true;
-	for (auto &it : fileSystems) {
-		if (it.system == oldSystem) {
-			delOldSystem = false;
-		}
-	}
-
-	if (delOldSystem)
-		delete oldSystem;
+	return false;
 }
 
 IFileSystem *MetaFileSystem::GetSystemFromFilename(const std::string &filename) {
@@ -321,31 +328,16 @@ IFileSystem *MetaFileSystem::GetSystemFromFilename(const std::string &filename) 
 IFileSystem *MetaFileSystem::GetSystem(const std::string &prefix) {
 	for (auto it = fileSystems.begin(); it != fileSystems.end(); ++it) {
 		if (it->prefix == NormalizePrefix(prefix))
-			return it->system;
+			return it->system.get();
 	}
 	return NULL;
 }
 
-void MetaFileSystem::Shutdown()
-{
+void MetaFileSystem::Shutdown() {
 	std::lock_guard<std::recursive_mutex> guard(lock);
-	current = 6;
 
-	// Ownership is a bit convoluted. Let's just delete everything once.
-
-	std::set<IFileSystem *> toDelete;
-	for (size_t i = 0; i < fileSystems.size(); i++) {
-		toDelete.insert(fileSystems[i].system);
-	}
-
-	for (auto iter = toDelete.begin(); iter != toDelete.end(); ++iter)
-	{
-		delete *iter;
-	}
-
-	fileSystems.clear();
-	currentDir.clear();
-	startingDirectory = "";
+	UnmountAll();
+	Reset();
 }
 
 int MetaFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename)

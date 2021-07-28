@@ -72,11 +72,14 @@ struct DirectoryFileHandle {
 	s64 needsTrunc_ = -1;
 	bool replay_ = true;
 	bool inGameDir_ = false;
+	FileSystemFlags fileSystemFlags_ = (FileSystemFlags)0;
 
-	DirectoryFileHandle(Flags flags) : replay_(flags != SKIP_REPLAY) {
-	}
+	DirectoryFileHandle() {}
 
-	Path GetLocalPath(const Path &basePath, std::string localpath);
+	DirectoryFileHandle(Flags flags, FileSystemFlags fileSystemFlags)
+		: replay_(flags != SKIP_REPLAY), fileSystemFlags_(fileSystemFlags) {}
+
+	Path GetLocalPath(const Path &basePath, std::string localpath) const;
 	bool Open(const Path &basePath, std::string &fileName, FileAccess access, u32 &err);
 	size_t Read(u8* pointer, s64 size);
 	size_t Write(const u8* pointer, s64 size);
@@ -114,7 +117,7 @@ public:
 
 private:
 	struct OpenFileEntry {
-		DirectoryFileHandle hFile = DirectoryFileHandle::NORMAL;
+		DirectoryFileHandle hFile;
 		std::string guestFilename;
 		FileAccess access = FILEACCESS_NONE;
 	};
@@ -124,8 +127,8 @@ private:
 	Path basePath;
 	IHandleAllocator *hAlloc;
 	FileSystemFlags flags;
-	// In case of Windows: Translate slashes, etc.
-	Path GetLocalPath(std::string internalPath);
+
+	Path GetLocalPath(std::string internalPath) const;
 };
 
 // VFSFileSystem: Ability to map in Android APK paths as well! Does not support all features, only meant for fonts.

@@ -187,7 +187,7 @@ void VirtualDiscFileSystem::DoState(PointerWrap &p)
 		for (int i = 0; i < entryCount; i++)
 		{
 			u32 fd = 0;
-			OpenFileEntry of;
+			OpenFileEntry of(Flags());
 
 			Do(p, fd);
 			Do(p, of.fileIndex);
@@ -214,6 +214,7 @@ void VirtualDiscFileSystem::DoState(PointerWrap &p)
 				}
 			}
 
+			// TODO: I think we only need to write to the map on load?
 			entries[fd] = of;
 		}
 	} else {
@@ -321,7 +322,7 @@ int VirtualDiscFileSystem::getFileListIndex(u32 accessBlock, u32 accessSize, boo
 
 int VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename)
 {
-	OpenFileEntry entry;
+	OpenFileEntry entry(Flags());
 	entry.curOffset = 0;
 	entry.size = 0;
 	entry.startOffset = 0;
@@ -471,7 +472,7 @@ size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &u
 				return 0;
 			}
 
-			OpenFileEntry temp;
+			OpenFileEntry temp(Flags());
 			if (fileList[fileIndex].handler != NULL) {
 				temp.handler = fileList[fileIndex].handler;
 			}
