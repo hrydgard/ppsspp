@@ -423,6 +423,8 @@ const char *GetCompilerABI() {
 	return "x86";
 #elif PPSSPP_ARCH(AMD64)
 	return "x86-64";
+#elif PPSSPP_ARCH(RISCV64)
+	return "rv64";
 #else
 	return "other";
 #endif

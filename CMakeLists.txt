@@ -430,6 +430,7 @@ set(CommonMIPS
 source_group(MIPS FILES ${CommonMIPS})
 
 set(CommonRISCV64
+	Common/RiscVCPUDetect.cpp
 	Core/MIPS/fake/FakeJit.cpp
 	Core/MIPS/fake/FakeJit.h
 )

@@ -64,6 +64,11 @@
     #define PPSSPP_ARCH_32BIT 1
 #endif
 
+#if defined(__riscv64__)
+	#define PPSSPP_ARCH_RISCV64 1
+	#define PPSSPP_ARCH_64BIT 1
+#endif
+
 
 // PLATFORM defines
 #if defined(_WIN32)
