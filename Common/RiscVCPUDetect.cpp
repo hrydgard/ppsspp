@@ -100,7 +100,6 @@ void CPUInfo::Detect()
 	num_cores = 1;
 #else // __linux__
 	strncpy(cpu_string, GetCPUString().c_str(), sizeof(cpu_string));
-	unsigned short CPUPart = GetCPUPart();
 	num_cores = GetCoreCount();
 #endif
 }
