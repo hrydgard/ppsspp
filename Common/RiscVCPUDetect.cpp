@@ -44,7 +44,7 @@ int GetCoreCount()
 	int cores = 1;
 
 	std::string presentData;
-	bool presentSuccess = File::ReadFileToString(true, syscpupresentfile, presentData);
+	bool presentSuccess = File::ReadFileToString(true, Path(syscpupresentfile), presentData);
 	std::istringstream presentFile(presentData);
 
 	if (presentSuccess) {
@@ -58,7 +58,7 @@ int GetCoreCount()
 	}
 
 	std::string procdata;
-	if (!File::ReadFileToString(true, procfile, procdata))
+	if (!File::ReadFileToString(true, Path(procfile), procdata))
 		return 1;
 	std::istringstream file(procdata);
 	
