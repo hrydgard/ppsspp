@@ -11,12 +11,15 @@ static jmethodID openContentUri;
 static jmethodID listContentUriDir;
 static jmethodID contentUriCreateFile;
 static jmethodID contentUriCreateDirectory;
+static jmethodID contentUriCopyFile;
+static jmethodID contentUriMoveFile;
 static jmethodID contentUriRemoveFile;
 static jmethodID contentUriRenameFileTo;
 static jmethodID contentUriGetFileInfo;
 static jmethodID contentUriFileExists;
 static jmethodID contentUriGetFreeStorageSpace;
 static jmethodID filePathGetFreeStorageSpace;
+static jmethodID isExternalStoragePreservedLegacy;
 
 static jobject g_nativeActivity;
 
@@ -29,13 +32,17 @@ void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj) {
 	_dbg_assert_(openContentUri);
 	listContentUriDir = env->GetMethodID(env->GetObjectClass(obj), "listContentUriDir", "(Ljava/lang/String;)[Ljava/lang/String;");
 	_dbg_assert_(listContentUriDir);
-	contentUriCreateDirectory = env->GetMethodID(env->GetObjectClass(obj), "contentUriCreateDirectory", "(Ljava/lang/String;Ljava/lang/String;)Z");
+	contentUriCreateDirectory = env->GetMethodID(env->GetObjectClass(obj), "contentUriCreateDirectory", "(Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriCreateDirectory);
-	contentUriCreateFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriCreateFile", "(Ljava/lang/String;Ljava/lang/String;)Z");
+	contentUriCreateFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriCreateFile", "(Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriCreateFile);
-	contentUriRemoveFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriRemoveFile", "(Ljava/lang/String;)Z");
+	contentUriCopyFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriCopyFile", "(Ljava/lang/String;Ljava/lang/String;)I");
+	_dbg_assert_(contentUriCopyFile);
+	contentUriRemoveFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriRemoveFile", "(Ljava/lang/String;)I");
 	_dbg_assert_(contentUriRemoveFile);
-	contentUriRenameFileTo = env->GetMethodID(env->GetObjectClass(obj), "contentUriRenameFileTo", "(Ljava/lang/String;Ljava/lang/String;)Z");
+	contentUriMoveFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriMoveFile", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I");
+	_dbg_assert_(contentUriMoveFile);
+	contentUriRenameFileTo = env->GetMethodID(env->GetObjectClass(obj), "contentUriRenameFileTo", "(Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriRenameFileTo);
 	contentUriGetFileInfo = env->GetMethodID(env->GetObjectClass(obj), "contentUriGetFileInfo", "(Ljava/lang/String;)Ljava/lang/String;");
 	_dbg_assert_(contentUriGetFileInfo);
@@ -45,6 +52,8 @@ void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj) {
 	_dbg_assert_(contentUriGetFreeStorageSpace);
 	filePathGetFreeStorageSpace = env->GetMethodID(env->GetObjectClass(obj), "filePathGetFreeStorageSpace", "(Ljava/lang/String;)J");
 	_dbg_assert_(filePathGetFreeStorageSpace);
+	isExternalStoragePreservedLegacy = env->GetMethodID(env->GetObjectClass(obj), "isExternalStoragePreservedLegacy", "()Z");
+	_dbg_assert_(isExternalStoragePreservedLegacy);
 }
 
 bool Android_IsContentUri(const std::string &filename) {
@@ -75,49 +84,71 @@ int Android_OpenContentUriFd(const std::string &filename, Android_OpenContentUri
 	return fd;
 }
 
-bool Android_CreateDirectory(const std::string &rootTreeUri, const std::string &dirName) {
+StorageError Android_CreateDirectory(const std::string &rootTreeUri, const std::string &dirName) {
 	if (!g_nativeActivity) {
-		return false;
+		return StorageError::UNKNOWN;
 	}
 	auto env = getEnv();
 	jstring paramRoot = env->NewStringUTF(rootTreeUri.c_str());
 	jstring paramDirName = env->NewStringUTF(dirName.c_str());
-	return env->CallBooleanMethod(g_nativeActivity, contentUriCreateDirectory, paramRoot, paramDirName);
+	return StorageErrorFromInt(env->CallIntMethod(g_nativeActivity, contentUriCreateDirectory, paramRoot, paramDirName));
 }
 
-bool Android_CreateFile(const std::string &parentTreeUri, const std::string &fileName) {
+StorageError Android_CreateFile(const std::string &parentTreeUri, const std::string &fileName) {
 	if (!g_nativeActivity) {
-		return false;
+		return StorageError::UNKNOWN;
 	}
 	auto env = getEnv();
 	jstring paramRoot = env->NewStringUTF(parentTreeUri.c_str());
 	jstring paramFileName = env->NewStringUTF(fileName.c_str());
-	return env->CallBooleanMethod(g_nativeActivity, contentUriCreateFile, paramRoot, paramFileName);
+	return StorageErrorFromInt(env->CallIntMethod(g_nativeActivity, contentUriCreateFile, paramRoot, paramFileName));
 }
 
-bool Android_RemoveFile(const std::string &fileUri) {
+StorageError Android_CopyFile(const std::string &fileUri, const std::string &destParentUri) {
 	if (!g_nativeActivity) {
-		return false;
+		return StorageError::UNKNOWN;
 	}
 	auto env = getEnv();
 	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
-	return env->CallBooleanMethod(g_nativeActivity, contentUriRemoveFile, paramFileName);
+	jstring paramDestParentUri = env->NewStringUTF(destParentUri.c_str());
+	return StorageErrorFromInt(env->CallIntMethod(g_nativeActivity, contentUriCopyFile, paramFileName, paramDestParentUri));
 }
 
-bool Android_RenameFileTo(const std::string &fileUri, const std::string &newName) {
+StorageError Android_MoveFile(const std::string &fileUri, const std::string &srcParentUri, const std::string &destParentUri) {
 	if (!g_nativeActivity) {
-		return false;
+		return StorageError::UNKNOWN;
+	}
+	auto env = getEnv();
+	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
+	jstring paramSrcParentUri = env->NewStringUTF(srcParentUri.c_str());
+	jstring paramDestParentUri = env->NewStringUTF(destParentUri.c_str());
+	return StorageErrorFromInt(env->CallIntMethod(g_nativeActivity, contentUriMoveFile, paramFileName, paramSrcParentUri, paramDestParentUri));
+}
+
+StorageError Android_RemoveFile(const std::string &fileUri) {
+	if (!g_nativeActivity) {
+		return StorageError::UNKNOWN;
+	}
+	auto env = getEnv();
+	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
+	return StorageErrorFromInt(env->CallIntMethod(g_nativeActivity, contentUriRemoveFile, paramFileName));
+}
+
+StorageError Android_RenameFileTo(const std::string &fileUri, const std::string &newName) {
+	if (!g_nativeActivity) {
+		return StorageError::UNKNOWN;
 	}
 	auto env = getEnv();
 	jstring paramFileUri = env->NewStringUTF(fileUri.c_str());
 	jstring paramNewName = env->NewStringUTF(newName.c_str());
-	return env->CallBooleanMethod(g_nativeActivity, contentUriRenameFileTo, paramFileUri, paramNewName);
+	return StorageErrorFromInt(env->CallIntMethod(g_nativeActivity, contentUriRenameFileTo, paramFileUri, paramNewName));
 }
 
+// NOTE: Does not set fullName - you're supposed to already know it.
 static bool ParseFileInfo(const std::string &line, File::FileInfo *fileInfo) {
 	std::vector<std::string> parts;
 	SplitString(line, '|', parts);
-	if (parts.size() != 5) {
+	if (parts.size() != 4) {
 		ERROR_LOG(FILESYS, "Bad format: %s", line.c_str());
 		return false;
 	}
@@ -125,12 +156,11 @@ static bool ParseFileInfo(const std::string &line, File::FileInfo *fileInfo) {
 	fileInfo->isDirectory = parts[0][0] == 'D';
 	fileInfo->exists = true;
 	sscanf(parts[1].c_str(), "%" PRIu64, &fileInfo->size);
-	fileInfo->fullName = Path(parts[3]);
 	fileInfo->isWritable = true;  // TODO: Should be passed as part of the string.
 	fileInfo->access = fileInfo->isDirectory ? 0666 : 0777;  // TODO: For read-only mappings, reflect that here, similarly as with isWritable.
 
 	uint64_t lastModifiedMs = 0;
-	sscanf(parts[4].c_str(), "%" PRIu64, &lastModifiedMs);
+	sscanf(parts[3].c_str(), "%" PRIu64, &lastModifiedMs);
 
 	// Convert from milliseconds
 	uint32_t lastModified = lastModifiedMs / 1000;
@@ -155,6 +185,8 @@ bool Android_GetFileInfo(const std::string &fileUri, File::FileInfo *fileInfo) {
 	}
 	const char *charArray = env->GetStringUTFChars(str, 0);
 	bool retval = ParseFileInfo(std::string(charArray), fileInfo);
+	fileInfo->fullName = Path(fileUri);
+
 	env->DeleteLocalRef(str);
 	return retval && fileInfo->exists;
 }
@@ -189,6 +221,8 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &path) {
 		if (charArray) {  // paranoia
 			File::FileInfo info;
 			if (ParseFileInfo(std::string(charArray), &info)) {
+				// We can just reconstruct the URI.
+				info.fullName = Path(path) / info.name;
 				items.push_back(info);
 			}
 		}
@@ -223,5 +257,29 @@ int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath) {
 	jstring param = env->NewStringUTF(filePath.c_str());
 	return env->CallLongMethod(g_nativeActivity, filePathGetFreeStorageSpace, param);
 }
+
+bool Android_IsExternalStoragePreservedLegacy() {
+	if (!g_nativeActivity) {
+		return false;
+	}
+	auto env = getEnv();
+	return env->CallBooleanMethod(g_nativeActivity, isExternalStoragePreservedLegacy);
+}
+
+const char *Android_ErrorToString(StorageError error) {
+	switch (error) {
+	case StorageError::SUCCESS: return "SUCCESS";
+	case StorageError::UNKNOWN: return "UNKNOWN";
+	case StorageError::NOT_FOUND: return "NOT_FOUND";
+	case StorageError::DISK_FULL: return "DISK_FULL";
+	case StorageError::ALREADY_EXISTS: return "ALREADY_EXISTS";
+	default: return "(UNKNOWN)";
+	}
+}
+
+#else
+
+// This string should never appear except on Android.
+std::string g_extFilesDir = "(IF YOU SEE THIS THERE'S A BUG)";
 
 #endif

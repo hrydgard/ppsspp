@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <set>
 #include <thread>
+#include <memory>
 
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Profiler/Profiler.h"
@@ -557,7 +558,6 @@ static void __IoAsyncEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	}
 }
 
-static DirectoryFileSystem *memstickSystem = nullptr;
 static DirectoryFileSystem *exdataSystem = nullptr;
 #if defined(USING_WIN_UI) || defined(APPLE)
 static DirectoryFileSystem *flash0System = nullptr;
@@ -631,23 +631,35 @@ void __IoInit() {
 	asyncNotifyEvent = CoreTiming::RegisterEvent("IoAsyncNotify", __IoAsyncNotify);
 	syncNotifyEvent = CoreTiming::RegisterEvent("IoSyncNotify", __IoSyncNotify);
 
-	memstickSystem = new DirectoryFileSystem(&pspFileSystem, g_Config.memStickDirectory, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
+	// TODO(scoped): This won't work if memStickDirectory points at the contents of /PSP...
 #if defined(USING_WIN_UI) || defined(APPLE)
-	flash0System = new DirectoryFileSystem(&pspFileSystem, g_Config.flash0Directory, FileSystemFlags::FLASH);
+	auto flash0System = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, g_Config.flash0Directory, FileSystemFlags::FLASH));
 #else
-	flash0System = new VFSFileSystem(&pspFileSystem, "flash0");
+	auto flash0System = std::shared_ptr<IFileSystem>(new VFSFileSystem(&pspFileSystem, "flash0"));
 #endif
+	FileSystemFlags memstickFlags = FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD;
+
+	Path pspDir = GetSysDirectory(DIRECTORY_PSP);
+	if (pspDir == g_Config.memStickDirectory) {
+		// Initially tried to do this with dual mounts, but failed due to save state compatibility issues.
+		INFO_LOG(SCEIO, "Enabling /PSP compatibility mode");
+		memstickFlags |= FileSystemFlags::STRIP_PSP;
+	}
+
+	auto memstickSystem = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, g_Config.memStickDirectory, memstickFlags));
+
 	pspFileSystem.Mount("ms0:", memstickSystem);
 	pspFileSystem.Mount("fatms0:", memstickSystem);
 	pspFileSystem.Mount("fatms:", memstickSystem);
 	pspFileSystem.Mount("pfat0:", memstickSystem);
+
 	pspFileSystem.Mount("flash0:", flash0System);
 
 	if (g_RemasterMode) {
 		const std::string gameId = g_paramSFO.GetDiscID();
 		const Path exdataPath = GetSysDirectory(DIRECTORY_EXDATA) / gameId;
 		if (File::Exists(exdataPath)) {
-			exdataSystem = new DirectoryFileSystem(&pspFileSystem, exdataPath, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
+			auto exdataSystem = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, exdataPath, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD));
 			pspFileSystem.Mount("exdata0:", exdataSystem);
 			INFO_LOG(SCEIO, "Mounted exdata/%s/ under memstick for exdata0:/", gameId.c_str());
 		} else {
@@ -763,22 +775,12 @@ void __IoShutdown() {
 	}
 	asyncDefaultPriority = -1;
 
-	pspFileSystem.Unmount("ms0:", memstickSystem);
-	pspFileSystem.Unmount("fatms0:", memstickSystem);
-	pspFileSystem.Unmount("fatms:", memstickSystem);
-	pspFileSystem.Unmount("pfat0:", memstickSystem);
-	pspFileSystem.Unmount("flash0:", flash0System);
-
-	if (g_RemasterMode && exdataSystem) {
-		pspFileSystem.Unmount("exdata0:", exdataSystem);
-		delete exdataSystem;
-		exdataSystem = nullptr;
-	}
-
-	delete memstickSystem;
-	memstickSystem = nullptr;
-	delete flash0System;
-	flash0System = nullptr;
+	pspFileSystem.Unmount("ms0:");
+	pspFileSystem.Unmount("fatms0:");
+	pspFileSystem.Unmount("fatms:");
+	pspFileSystem.Unmount("pfat0:");
+	pspFileSystem.Unmount("flash0:");
+	pspFileSystem.Unmount("exdata0:");
 
 	MemoryStick_Shutdown();
 	memStickCallbacks.clear();

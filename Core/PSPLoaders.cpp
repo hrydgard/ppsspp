@@ -80,11 +80,11 @@ void InitMemoryForGameISO(FileLoader *fileLoader) {
 		return;
 	}
 
-	IFileSystem *fileSystem = nullptr;
-	IFileSystem *blockSystem = nullptr;
+	std::shared_ptr<IFileSystem> fileSystem;
+	std::shared_ptr<IFileSystem> blockSystem;
 
 	if (fileLoader->IsDirectory()) {
-		fileSystem = new VirtualDiscFileSystem(&pspFileSystem, fileLoader->GetPath());
+		fileSystem = std::shared_ptr<IFileSystem>(new VirtualDiscFileSystem(&pspFileSystem, fileLoader->GetPath()));
 		blockSystem = fileSystem;
 	} else {
 		auto bd = constructBlockDevice(fileLoader);
@@ -92,9 +92,9 @@ void InitMemoryForGameISO(FileLoader *fileLoader) {
 		if (!bd)
 			return;
 
-		ISOFileSystem *iso = new ISOFileSystem(&pspFileSystem, bd);
+		std::shared_ptr<IFileSystem> iso = std::shared_ptr<IFileSystem>(new ISOFileSystem(&pspFileSystem, bd));
 		fileSystem = iso;
-		blockSystem = new ISOBlockSystem(iso);
+		blockSystem = std::shared_ptr<IFileSystem>(new ISOBlockSystem(iso));
 	}
 
 	pspFileSystem.Mount("umd0:", blockSystem);
@@ -148,20 +148,20 @@ bool ReInitMemoryForGameISO(FileLoader *fileLoader) {
 		return false;
 	}
 
-	IFileSystem *fileSystem = nullptr;
-	IFileSystem *blockSystem = nullptr;
+	std::shared_ptr<IFileSystem> fileSystem;
+	std::shared_ptr<IFileSystem> blockSystem;
 
 	if (fileLoader->IsDirectory()) {
-		fileSystem = new VirtualDiscFileSystem(&pspFileSystem, fileLoader->GetPath());
+		fileSystem = std::shared_ptr<IFileSystem>(new VirtualDiscFileSystem(&pspFileSystem, fileLoader->GetPath()));
 		blockSystem = fileSystem;
 	} else {
 		auto bd = constructBlockDevice(fileLoader);
 		if (!bd)
 			return false;
 
-		ISOFileSystem *iso = new ISOFileSystem(&pspFileSystem, bd);
+		std::shared_ptr<IFileSystem> iso = std::shared_ptr<IFileSystem>(new ISOFileSystem(&pspFileSystem, bd));
 		fileSystem = iso;
-		blockSystem = new ISOBlockSystem(iso);
+		blockSystem = std::shared_ptr<IFileSystem>(new ISOBlockSystem(iso));
 	}
 
 	pspFileSystem.Remount("umd0:", blockSystem);
@@ -367,14 +367,15 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	if (PSP_CoreParameter().mountIsoLoader != nullptr) {
 		auto bd = constructBlockDevice(PSP_CoreParameter().mountIsoLoader);
 		if (bd != NULL) {
-			ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, bd);
-			ISOBlockSystem *blockSystem = new ISOBlockSystem(umd2);
+			std::shared_ptr<IFileSystem> umd2 = std::shared_ptr<IFileSystem>(new ISOFileSystem(&pspFileSystem, bd));
+			std::shared_ptr<IFileSystem> blockSystem = std::shared_ptr<IFileSystem>(new ISOBlockSystem(umd2));
 
 			pspFileSystem.Mount("umd1:", blockSystem);
 			pspFileSystem.Mount("disc0:", umd2);
 			pspFileSystem.Mount("umd:", blockSystem);
 		}
 	}
+
 	Path full_path = fileLoader->GetPath();
 	std::string path = full_path.GetDirectory();
 	std::string extension = full_path.GetFileExtension();
@@ -411,7 +412,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		pspFileSystem.SetStartingDirectory(ms_path);
 	}
 
-	DirectoryFileSystem *fs = new DirectoryFileSystem(&pspFileSystem, Path(path), FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
+	std::shared_ptr<IFileSystem> fs = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, Path(path), FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD));
 	pspFileSystem.Mount("umd0:", fs);
 
 	std::string finalName = ms_path + file;
@@ -469,7 +470,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 }
 
 bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
-	BlobFileSystem *umd = new BlobFileSystem(&pspFileSystem, fileLoader, "data.ppdmp");
+	std::shared_ptr<IFileSystem> umd = std::shared_ptr<IFileSystem>(new BlobFileSystem(&pspFileSystem, fileLoader, "data.ppdmp"));
 	pspFileSystem.Mount("disc0:", umd);
 
 	PSPLoaders_Shutdown();

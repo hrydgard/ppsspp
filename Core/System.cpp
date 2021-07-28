@@ -351,6 +351,7 @@ void CPU_Shutdown() {
 	if (coreParameter.enableSound) {
 		Audio_Shutdown();
 	}
+
 	pspFileSystem.Shutdown();
 	mipsr4k.Shutdown();
 	Memory::Shutdown();
@@ -591,6 +592,8 @@ Path GetSysDirectory(PSPDirectories directoryType) {
 	}
 
 	switch (directoryType) {
+	case DIRECTORY_PSP:
+		return pspDirectory;
 	case DIRECTORY_CHEATS:
 		return pspDirectory / "Cheats";
 	case DIRECTORY_GAME:
@@ -705,8 +708,8 @@ void InitSysDirectories() {
 
 	// Create the default directories that a real PSP creates. Good for homebrew so they can
 	// expect a standard environment. Skipping THEME though, that's pointless.
-	File::CreateDir(g_Config.memStickDirectory / "PSP");
-	File::CreateDir(g_Config.memStickDirectory / "PSP/COMMON");
+	File::CreateDir(GetSysDirectory(DIRECTORY_PSP));
+	File::CreateDir(GetSysDirectory(DIRECTORY_PSP) / "COMMON");
 	File::CreateDir(GetSysDirectory(DIRECTORY_GAME));
 	File::CreateDir(GetSysDirectory(DIRECTORY_SAVEDATA));
 	File::CreateDir(GetSysDirectory(DIRECTORY_SAVESTATE));

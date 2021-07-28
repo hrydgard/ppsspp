@@ -63,6 +63,7 @@ enum class FileSystemFlags {
 	UMD = 2,
 	CARD = 4,
 	FLASH = 8,
+	STRIP_PSP = 16,
 };
 ENUM_CLASS_BITOPS(FileSystemFlags);
 
