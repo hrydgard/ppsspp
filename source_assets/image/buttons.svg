@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg
-   xmlns:dc="http://purl.org/dc/elements/1.1/"
-   xmlns:cc="http://creativecommons.org/ns#"
-   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-   xmlns:svg="http://www.w3.org/2000/svg"
-   xmlns="http://www.w3.org/2000/svg"
-   xmlns:xlink="http://www.w3.org/1999/xlink"
-   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
-   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    width="744.09448819"
    height="1052.3622047"
    id="svg2"
    version="1.1"
-   inkscape:version="1.0.1 (3bc2e813f5, 2020-09-07)"
-   sodipodi:docname="buttons.svg">
+   inkscape:version="1.1 (c4e8f9ed74, 2021-05-24)"
+   sodipodi:docname="buttons.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
   <defs
      id="defs4">
     <inkscape:path-effect
@@ -657,7 +657,11 @@
     <filter
        id="filter5060"
        style="color-interpolation-filters:sRGB;"
-       inkscape:label="Drop Shadow">
+       inkscape:label="Drop Shadow"
+       x="-0.054592123"
+       y="-0.05570625"
+       width="1.1091842"
+       height="1.1114125">
       <feFlood
          id="feFlood5062"
          flood-opacity="0.2"
@@ -689,7 +693,11 @@
     <filter
        id="filter5084"
        style="color-interpolation-filters:sRGB;"
-       inkscape:label="Drop Shadow">
+       inkscape:label="Drop Shadow"
+       x="-0.04962921"
+       y="-0.06902453"
+       width="1.105516"
+       height="1.1380491">
       <feFlood
          id="feFlood5086"
          flood-opacity="0.2"
@@ -721,7 +729,11 @@
     <filter
        id="filter5096"
        style="color-interpolation-filters:sRGB;"
-       inkscape:label="Drop Shadow">
+       inkscape:label="Drop Shadow"
+       x="-0.036887906"
+       y="-0.097644459"
+       width="1.0737758"
+       height="1.1952889">
       <feFlood
          id="feFlood5098"
          flood-opacity="0.2"
@@ -753,7 +765,11 @@
     <filter
        id="filter5108"
        style="color-interpolation-filters:sRGB;"
-       inkscape:label="Drop Shadow">
+       inkscape:label="Drop Shadow"
+       x="-0.02998049"
+       y="-0.081521392"
+       width="1.0568565"
+       height="1.1630411">
       <feFlood
          id="feFlood5110"
          flood-opacity="0.2"
@@ -785,7 +801,11 @@
     <filter
        id="filter5120"
        style="color-interpolation-filters:sRGB;"
-       inkscape:label="Drop Shadow">
+       inkscape:label="Drop Shadow"
+       x="-0.508148"
+       y="-0.254074"
+       width="2.016296"
+       height="1.3785184">
       <feFlood
          id="feFlood5122"
          flood-opacity="0.2"
@@ -817,7 +837,11 @@
     <filter
        id="filter5132"
        style="color-interpolation-filters:sRGB;"
-       inkscape:label="Drop Shadow">
+       inkscape:label="Drop Shadow"
+       x="-0.062045457"
+       y="-0.072835148"
+       width="1.1240909"
+       height="1.1455263">
       <feFlood
          id="feFlood5134"
          flood-opacity="0.2"
@@ -849,7 +873,11 @@
     <filter
        id="filter5144"
        style="color-interpolation-filters:sRGB;"
-       inkscape:label="Drop Shadow">
+       inkscape:label="Drop Shadow"
+       x="-0.1358691"
+       y="-0.11974271"
+       width="1.2717382"
+       height="1.2394854">
       <feFlood
          id="feFlood5146"
          flood-opacity="0.2"
@@ -881,7 +909,11 @@
     <filter
        id="filter5156"
        style="color-interpolation-filters:sRGB;"
-       inkscape:label="Drop Shadow">
+       inkscape:label="Drop Shadow"
+       x="-0.19164064"
+       y="-0.11974273"
+       width="1.3832813"
+       height="1.2394855">
       <feFlood
          id="feFlood5158"
          flood-opacity="0.2"
@@ -913,7 +945,11 @@
     <filter
        id="filter5168"
        style="color-interpolation-filters:sRGB;"
-       inkscape:label="Drop Shadow">
+       inkscape:label="Drop Shadow"
+       x="-0.031096265"
+       y="-0.13509237"
+       width="1.0621925"
+       height="1.2701847">
       <feFlood
          id="feFlood5170"
          flood-opacity="0.2"
@@ -945,7 +981,11 @@
     <filter
        id="filter5180"
        style="color-interpolation-filters:sRGB;"
-       inkscape:label="Drop Shadow">
+       inkscape:label="Drop Shadow"
+       x="-0.026115784"
+       y="-0.13509236"
+       width="1.0522316"
+       height="1.2701847">
       <feFlood
          id="feFlood5182"
          flood-opacity="0.2"
@@ -977,7 +1017,11 @@
     <filter
        id="filter5192"
        style="color-interpolation-filters:sRGB;"
-       inkscape:label="Drop Shadow">
+       inkscape:label="Drop Shadow"
+       x="-0.055887848"
+       y="-0.055882291"
+       width="1.1117757"
+       height="1.1117646">
       <feFlood
          id="feFlood5194"
          flood-opacity="0.2"
@@ -1009,7 +1053,11 @@
     <filter
        id="filter5204"
        style="color-interpolation-filters:sRGB;"
-       inkscape:label="Drop Shadow">
+       inkscape:label="Drop Shadow"
+       x="-0.1428398"
+       y="-0.072277018"
+       width="1.2856796"
+       height="1.144554">
       <feFlood
          id="feFlood5206"
          flood-opacity="0.2"
@@ -1041,7 +1089,11 @@
     <filter
        id="filter5216"
        style="color-interpolation-filters:sRGB;"
-       inkscape:label="Drop Shadow">
+       inkscape:label="Drop Shadow"
+       x="-0.062221817"
+       y="-0.40834883"
+       width="1.1244436"
+       height="1.8166977">
       <feFlood
          id="feFlood5218"
          flood-opacity="0.2"
@@ -1073,7 +1125,11 @@
     <filter
        id="filter5228"
        style="color-interpolation-filters:sRGB;"
-       inkscape:label="Drop Shadow">
+       inkscape:label="Drop Shadow"
+       x="-0.053283034"
+       y="-0.061528298"
+       width="1.1065661"
+       height="1.1230566">
       <feFlood
          id="feFlood5230"
          flood-opacity="0.2"
@@ -1105,7 +1161,11 @@
     <filter
        id="filter5240"
        style="color-interpolation-filters:sRGB;"
-       inkscape:label="Drop Shadow">
+       inkscape:label="Drop Shadow"
+       x="-0.05898663"
+       y="-0.058986649"
+       width="1.1179733"
+       height="1.1179733">
       <feFlood
          id="feFlood5242"
          flood-opacity="0.2"
@@ -1137,7 +1197,11 @@
     <filter
        id="filter5264"
        style="color-interpolation-filters:sRGB;"
-       inkscape:label="Drop Shadow">
+       inkscape:label="Drop Shadow"
+       x="-0.033653883"
+       y="-0.034340698"
+       width="1.0673078"
+       height="1.0686814">
       <feFlood
          id="feFlood5266"
          flood-opacity="0.2"
@@ -1169,7 +1233,11 @@
     <filter
        id="filter5276"
        style="color-interpolation-filters:sRGB;"
-       inkscape:label="Drop Shadow">
+       inkscape:label="Drop Shadow"
+       x="-0.01355557"
+       y="-0.013832215"
+       width="1.0271111"
+       height="1.0276644">
       <feFlood
          id="feFlood5278"
          flood-opacity="0.2"
@@ -1201,7 +1269,11 @@
     <filter
        color-interpolation-filters="sRGB"
        id="filter5216-2"
-       inkscape:label="Drop Shadow">
+       inkscape:label="Drop Shadow"
+       x="-0.062221817"
+       y="-0.061394242"
+       width="1.1244436"
+       height="1.1227885">
       <feFlood
          id="feFlood5218-0"
          flood-opacity="0.2"
@@ -1232,7 +1304,11 @@
     <filter
        id="filter5328"
        style="color-interpolation-filters:sRGB;"
-       inkscape:label="Drop Shadow">
+       inkscape:label="Drop Shadow"
+       x="-0.26503537"
+       y="-0.2139469"
+       width="1.5432305"
+       height="1.634546">
       <feFlood
          id="feFlood5330"
          flood-opacity="0.2"
@@ -1264,10 +1340,10 @@
     <filter
        id="filter4781"
        inkscape:label="Drop shadow"
-       width="1.5"
-       height="1.5"
-       x="-.25"
-       y="-.25">
+       width="1.3394475"
+       height="1.3227315"
+       x="-0.16972376"
+       y="-0.16136573">
       <feGaussianBlur
          id="feGaussianBlur4783"
          in="SourceAlpha"
@@ -1297,7 +1373,11 @@
     <filter
        style="color-interpolation-filters:sRGB;"
        inkscape:label="Drop Shadow"
-       id="filter4775">
+       id="filter4775"
+       x="-0.20105123"
+       y="-0.11971503"
+       width="1.4021025"
+       height="1.2394301">
       <feFlood
          flood-opacity="0.498039"
          flood-color="rgb(0,0,0)"
@@ -1391,7 +1471,11 @@
     <filter
        style="color-interpolation-filters:sRGB"
        inkscape:label="Drop Shadow"
-       id="filter4775-3">
+       id="filter4775-3"
+       x="-0.13065391"
+       y="-0.11971503"
+       width="1.2613078"
+       height="1.2394301">
       <feFlood
          flood-opacity="0.498039"
          flood-color="rgb(0,0,0)"
@@ -1423,7 +1507,11 @@
     <filter
        style="color-interpolation-filters:sRGB"
        inkscape:label="Drop Shadow"
-       id="filter4775-3-9">
+       id="filter4775-3-9"
+       x="-0.16877672"
+       y="-0.11971503"
+       width="1.3375534"
+       height="1.2394301">
       <feFlood
          flood-opacity="0.498039"
          flood-color="rgb(0,0,0)"
@@ -1455,7 +1543,11 @@
     <filter
        style="color-interpolation-filters:sRGB"
        inkscape:label="Drop Shadow"
-       id="filter4775-3-0">
+       id="filter4775-3-0"
+       x="-0.14845062"
+       y="-0.11538705"
+       width="1.2969012"
+       height="1.2307741">
       <feFlood
          flood-opacity="0.498039"
          flood-color="rgb(0,0,0)"
@@ -1487,7 +1579,11 @@
     <filter
        style="color-interpolation-filters:sRGB"
        inkscape:label="Drop Shadow"
-       id="filter4775-3-02">
+       id="filter4775-3-02"
+       x="-0.14241796"
+       y="-0.11971503"
+       width="1.2848359"
+       height="1.2394301">
       <feFlood
          flood-opacity="0.498039"
          flood-color="rgb(0,0,0)"
@@ -1519,7 +1615,11 @@
     <filter
        style="color-interpolation-filters:sRGB"
        inkscape:label="Drop Shadow"
-       id="filter4775-3-97">
+       id="filter4775-3-97"
+       x="-0.20831532"
+       y="-0.11971503"
+       width="1.4166306"
+       height="1.2394301">
       <feFlood
          flood-opacity="0.498039"
          flood-color="rgb(0,0,0)"
@@ -1551,7 +1651,11 @@
     <filter
        style="color-interpolation-filters:sRGB"
        inkscape:label="Drop Shadow"
-       id="filter4775-3-8">
+       id="filter4775-3-8"
+       x="-0.18579475"
+       y="-0.11971503"
+       width="1.3715895"
+       height="1.2394301">
       <feFlood
          flood-opacity="0.498039"
          flood-color="rgb(0,0,0)"
@@ -1580,6 +1684,111 @@
          result="composite2"
          id="feComposite4785-5-6" />
     </filter>
+    <filter
+       id="filter5096-3"
+       style="color-interpolation-filters:sRGB"
+       inkscape:label="Drop Shadow"
+       x="-0.065"
+       y="-0.065"
+       width="1.13"
+       height="1.13">
+      <feFlood
+         id="feFlood5098-6"
+         flood-opacity="0.2"
+         flood-color="rgb(0,0,0)"
+         result="flood" />
+      <feComposite
+         id="feComposite5100-7"
+         in2="SourceGraphic"
+         in="flood"
+         operator="in"
+         result="composite1" />
+      <feGaussianBlur
+         id="feGaussianBlur5102-5"
+         stdDeviation="0.5"
+         result="blur" />
+      <feOffset
+         id="feOffset5104-3"
+         dx="0"
+         dy="0"
+         result="offset" />
+      <feComposite
+         id="feComposite5106-5"
+         in2="offset"
+         in="SourceGraphic"
+         operator="over"
+         result="composite2" />
+    </filter>
+    <filter
+       color-interpolation-filters="sRGB"
+       id="filter5216-2-0"
+       inkscape:label="Drop Shadow"
+       x="-0.062221817"
+       y="-0.061394242"
+       width="1.1244436"
+       height="1.1227885">
+      <feFlood
+         id="feFlood5218-0-9"
+         flood-opacity="0.2"
+         flood-color="rgb(0,0,0)"
+         result="flood" />
+      <feComposite
+         id="feComposite5220-7-3"
+         in2="SourceGraphic"
+         in="flood"
+         operator="in"
+         result="composite1" />
+      <feGaussianBlur
+         id="feGaussianBlur5222-0-6"
+         stdDeviation="0.5"
+         result="blur" />
+      <feOffset
+         id="feOffset5224-6-0"
+         dx="0"
+         dy="0"
+         result="offset" />
+      <feComposite
+         id="feComposite5226-0-6"
+         in2="offset"
+         in="SourceGraphic"
+         operator="over"
+         result="composite2" />
+    </filter>
+    <filter
+       id="filter5328-2"
+       style="color-interpolation-filters:sRGB"
+       inkscape:label="Drop Shadow"
+       x="-0.26503537"
+       y="-0.2139469"
+       width="1.5432305"
+       height="1.634546">
+      <feFlood
+         id="feFlood5330-6"
+         flood-opacity="0.2"
+         flood-color="rgb(0,0,0)"
+         result="flood" />
+      <feComposite
+         id="feComposite5332-1"
+         in2="SourceGraphic"
+         in="flood"
+         operator="in"
+         result="composite1" />
+      <feGaussianBlur
+         id="feGaussianBlur5334-8"
+         stdDeviation="0.5"
+         result="blur" />
+      <feOffset
+         id="feOffset5336-7"
+         dx="0"
+         dy="0"
+         result="offset" />
+      <feComposite
+         id="feComposite5338-9"
+         in2="offset"
+         in="SourceGraphic"
+         operator="over"
+         result="composite2" />
+    </filter>
   </defs>
   <sodipodi:namedview
      id="base"
@@ -1588,9 +1797,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="3.959798"
-     inkscape:cx="287.37168"
-     inkscape:cy="17.065748"
+     inkscape:zoom="7.9195959"
+     inkscape:cx="334.36049"
+     inkscape:cy="215.3519"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -1599,7 +1808,8 @@
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
-     inkscape:document-rotation="0">
+     inkscape:document-rotation="0"
+     inkscape:pagecheckerboard="0">
     <inkscape:grid
        type="xygrid"
        id="grid4352" />
@@ -1637,27 +1847,27 @@
          inkscape:export-xdpi="135"
          inkscape:export-filename="D:\Dev\Emulatorer\potemkin\gfx\round.png"
          transform="matrix(0.12501803,0,0,0.12501803,39.336944,16.936311)"
+         id="path4099"
+         style="fill:#ffffff;fill-opacity:0.67021275;stroke:none"
          d="m 257.14286,175.21933 a 142.85715,140 0 1 1 -285.714294,0 142.85715,140 0 1 1 285.714294,0 z"
+         sodipodi:type="arc"
          sodipodi:ry="140"
          sodipodi:rx="142.85715"
          sodipodi:cy="175.21933"
-         sodipodi:cx="114.28571"
-         id="path4099"
-         style="fill:#ffffff;fill-opacity:0.67021275;stroke:none"
-         sodipodi:type="arc" />
+         sodipodi:cx="114.28571" />
       <path
          inkscape:export-ydpi="135"
          inkscape:export-xdpi="135"
          inkscape:export-filename="D:\Dev\Emulatorer\potemkin\gfx\round.png"
          transform="matrix(0.10265859,0,0,0.10265859,41.892308,20.854117)"
+         id="path4099-1"
+         style="fill:#ffffff;fill-opacity:0.67021275;stroke:none"
          d="m 257.14286,175.21933 a 142.85715,140 0 1 1 -285.714294,0 142.85715,140 0 1 1 285.714294,0 z"
+         sodipodi:type="arc"
          sodipodi:ry="140"
          sodipodi:rx="142.85715"
          sodipodi:cy="175.21933"
-         sodipodi:cx="114.28571"
-         id="path4099-1"
-         style="fill:#ffffff;fill-opacity:0.67021275;stroke:none"
-         sodipodi:type="arc" />
+         sodipodi:cx="114.28571" />
     </g>
     <g
        id="g3922">
@@ -1705,6 +1915,33 @@
          width="47.278622"
          id="rect4948-9"
          style="fill:#ffffff;fill-opacity:0.67021275;stroke:none" />
+    </g>
+    <g
+       id="g3914-9"
+       inkscape:export-filename="square_shape.png"
+       inkscape:export-xdpi="135"
+       inkscape:export-ydpi="135"
+       transform="matrix(1.009758,0,0,1.1824906,296.82679,84.989682)">
+      <rect
+         inkscape:export-ydpi="135"
+         inkscape:export-xdpi="135"
+         inkscape:export-filename="D:\Dev\Emulatorer\potemkin\gfx\rect.png"
+         y="114.53461"
+         x="34.285713"
+         height="30"
+         width="35.131901"
+         id="rect4948-12"
+         style="fill:#ffffff;fill-opacity:0.670213;stroke:none" />
+      <rect
+         inkscape:export-ydpi="135"
+         inkscape:export-xdpi="135"
+         inkscape:export-filename="D:\Dev\Emulatorer\potemkin\gfx\rect.png"
+         y="116.80621"
+         x="37.077831"
+         height="25.5"
+         width="29.862116"
+         id="rect4948-9-7"
+         style="fill:#ffffff;fill-opacity:0.670213;stroke:none" />
     </g>
     <path
        style="fill:#ffffff;fill-opacity:1;stroke:none;filter:url(#filter5240)"
@@ -1757,27 +1994,27 @@
          inkscape:export-xdpi="135"
          inkscape:export-filename="D:\Dev\Emulatorer\potemkin\gfx\stick.png"
          transform="matrix(0.20279977,0,0,0.20279977,128.34577,81.426482)"
+         id="path4099-17"
+         style="fill:#ffffff;fill-opacity:0.67021275;stroke:none"
          d="m 257.14286,175.21933 a 142.85715,140 0 1 1 -285.714294,0 142.85715,140 0 1 1 285.714294,0 z"
+         sodipodi:type="arc"
          sodipodi:ry="140"
          sodipodi:rx="142.85715"
          sodipodi:cy="175.21933"
-         sodipodi:cx="114.28571"
-         id="path4099-17"
-         style="fill:#ffffff;fill-opacity:0.67021275;stroke:none"
-         sodipodi:type="arc" />
+         sodipodi:cx="114.28571" />
       <path
          inkscape:export-ydpi="135"
          inkscape:export-xdpi="135"
          inkscape:export-filename="D:\Dev\Emulatorer\potemkin\gfx\stick.png"
          transform="matrix(0.18067123,0,0,0.18067123,130.87474,85.303838)"
+         id="path4099-1-1"
+         style="opacity:0.46902651;fill:url(#Polkadots-largewhite);fill-opacity:1;stroke:none"
          d="m 257.14286,175.21933 a 142.85715,140 0 1 1 -285.714294,0 142.85715,140 0 1 1 285.714294,0 z"
+         sodipodi:type="arc"
          sodipodi:ry="140"
          sodipodi:rx="142.85715"
          sodipodi:cy="175.21933"
-         sodipodi:cx="114.28571"
-         id="path4099-1-1"
-         style="opacity:0.46902651;fill:url(#Polkadots-largewhite);fill-opacity:1;stroke:none"
-         sodipodi:type="arc" />
+         sodipodi:cx="114.28571" />
     </g>
     <g
        id="g3910"
@@ -1800,18 +2037,18 @@
          transform="matrix(-1,0,-0.40979055,0.91217965,0,0)" />
     </g>
     <path
-       sodipodi:type="arc"
        style="fill:#808080;fill-opacity:0.0851064;stroke:#000000;opacity:1;stroke-opacity:0.18617021000000000;stroke-width:6.34753159999999990;stroke-miterlimit:4;stroke-dasharray:none"
        id="path4099-17-1"
-       sodipodi:cx="114.28571"
-       sodipodi:cy="175.21933"
-       sodipodi:rx="142.85715"
-       sodipodi:ry="140"
-       d="m 257.14286,175.21933 a 142.85715,140 0 1 1 -285.714294,0 142.85715,140 0 1 1 285.714294,0 z"
        transform="matrix(0.28058151,0,0,0.28058151,198.50086,68.302704)"
        inkscape:export-filename="D:\Dev\Emulatorer\potemkin\android\source_assets\image\stick_bg.png"
        inkscape:export-xdpi="135"
-       inkscape:export-ydpi="135" />
+       inkscape:export-ydpi="135"
+       d="m 257.14286,175.21933 a 142.85715,140 0 1 1 -285.714294,0 142.85715,140 0 1 1 285.714294,0 z"
+       sodipodi:type="arc"
+       sodipodi:ry="140"
+       sodipodi:rx="142.85715"
+       sodipodi:cy="175.21933"
+       sodipodi:cx="114.28571" />
     <g
        style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#ffffff;fill-opacity:1;stroke:none;font-family:Sans;filter:url(#filter5180)"
        id="text3903"
@@ -2033,6 +2270,24 @@
          style="fill:none;fill-opacity:0.67021275000000002;stroke:#ffffff;color:#000000;fill-rule:nonzero;stroke-width:1.50000000000000000;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0" />
     </g>
     <g
+       transform="matrix(1.1742907,0,0,1.1742907,291.64268,41.971985)"
+       id="g3914-2-6"
+       inkscape:export-filename="square_shape_line.png"
+       inkscape:export-xdpi="135"
+       inkscape:export-ydpi="135"
+       style="color:#000000;display:inline;overflow:visible;visibility:visible;fill:none;stroke:#ffffff;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;filter:url(#filter5096-3);enable-background:accumulate">
+      <rect
+         inkscape:export-ydpi="135"
+         inkscape:export-xdpi="135"
+         inkscape:export-filename="D:\Dev\Emulatorer\potemkin\gfx\rect.png"
+         y="114.53461"
+         x="34.285713"
+         height="30"
+         width="30"
+         id="rect4948-4-2"
+         style="color:#000000;display:inline;overflow:visible;visibility:visible;fill:none;fill-opacity:0.670213;fill-rule:nonzero;stroke:#ffffff;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;enable-background:accumulate" />
+    </g>
+    <g
        transform="translate(-49.660865,31.263025)"
        id="g3910-2"
        inkscape:export-filename="C:\dev\ppsspp\source_assets\image\shoulder_line.png"
@@ -2048,18 +2303,18 @@
          transform="matrix(-1,0,-0.4247234,0.90532316,0,0)" />
     </g>
     <path
-       sodipodi:type="arc"
        style="fill:none;fill-opacity:0.08510640000000000;stroke:#ffffff;stroke-width:5.34604008999999980;stroke-miterlimit:4;stroke-opacity:0.56914896000000004;stroke-dasharray:none;color:#000000;stroke-linecap:butt;stroke-linejoin:miter;stroke-dashoffset:0;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate;filter:url(#filter5276)"
        id="path4099-17-1-2"
-       sodipodi:cx="114.28571"
-       sodipodi:cy="175.21933"
-       sodipodi:rx="142.85715"
-       sodipodi:ry="140"
-       d="m 257.14286,175.21933 a 142.85715,140 0 1 1 -285.714294,0 142.85715,140 0 1 1 285.714294,0 z"
        transform="matrix(0.28058151,0,0,0.28058151,304.00497,66.056021)"
        inkscape:export-filename="C:\dev\ppsspp\source_assets\image\stick_bg_line.png"
        inkscape:export-xdpi="135"
-       inkscape:export-ydpi="135" />
+       inkscape:export-ydpi="135"
+       d="m 257.14286,175.21933 a 142.85715,140 0 1 1 -285.714294,0 142.85715,140 0 1 1 285.714294,0 z"
+       sodipodi:type="arc"
+       sodipodi:ry="140"
+       sodipodi:rx="142.85715"
+       sodipodi:cy="175.21933"
+       sodipodi:cx="114.28571" />
     <g
        transform="translate(131.26418,115.8781)"
        id="g4642-0"
