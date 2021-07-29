@@ -36,6 +36,8 @@
 #include "Common/File/Path.h"
 #include "Common/File/DiskFree.h"
 
+#include "Common/Thread/ThreadManager.h"
+
 #include "Core/Util/GameManager.h"
 #include "Core/System.h"
 #include "Core/Config.h"
@@ -236,6 +238,14 @@ ConfirmMemstickMoveScreen::ConfirmMemstickMoveScreen(Path newMemstickFolder, boo
 	}
 }
 
+ConfirmMemstickMoveScreen::~ConfirmMemstickMoveScreen() {
+	if (moveDataTask_) {
+		INFO_LOG(SYSTEM, "Move Data task still running, blocking on it");
+		moveDataTask_->BlockUntilReady();
+		delete moveDataTask_;
+	}
+}
+
 void ConfirmMemstickMoveScreen::CreateViews() {
 	using namespace UI;
 	auto di = GetI18NCategory("Dialog");
@@ -276,13 +286,49 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 		rightColumn->Add(new TextView(oldFreeSpaceText, ALIGN_LEFT, false));
 	}
 
-	if (!initialSetup_) {
-		leftColumn->Add(new CheckBox(&moveData_, iz->T("Move Data")));
+	if (moveDataTask_) {
+		progressView_ = leftColumn->Add(new TextView(progressReporter_.Get()));
+	} else {
+		progressView_ = nullptr;
 	}
 
-	leftColumn->Add(new Choice(di->T("OK")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnConfirm);
-	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	if (!moveDataTask_) {
+		if (!initialSetup_) {
+			leftColumn->Add(new CheckBox(&moveData_, iz->T("Move Data")));
+		}
+
+		leftColumn->Add(new Choice(di->T("OK")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnConfirm);
+		leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	}
 }
+
+void ConfirmMemstickMoveScreen::update() {
+	UIDialogScreenWithBackground::update();
+
+	if (moveDataTask_) {
+		if (progressView_) {
+			progressView_->SetText(progressReporter_.Get());
+		}
+
+		bool *result = moveDataTask_->Poll();
+
+		if (result) {
+			if (*result) {
+				progressReporter_.Set("Done!");
+				INFO_LOG(SYSTEM, "Move data task finished successfully!");
+				// Succeeded!
+				FinishFolderMove();
+			} else {
+				INFO_LOG(SYSTEM, "Move data task failed!");
+				// What do we do here? We might be in the middle of a move... Bad.
+				RecreateViews();
+			}
+			delete moveDataTask_;
+			moveDataTask_ = nullptr;
+		}
+	}
+}
+
 
 UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 	auto sy = GetI18NCategory("System");
@@ -294,81 +340,113 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 	// If the directory itself is called PSP, don't go below.
 
 	if (moveData_) {
-		Path moveSrc = g_Config.memStickDirectory;
-		Path moveDest = newMemstickFolder_;
-		if (moveSrc.GetFilename() != "PSP") {
-			moveSrc = moveSrc / "PSP";
-		}
-		if (moveDest.GetFilename() != "PSP") {
-			moveDest = moveDest / "PSP";
-			File::CreateDir(moveDest);
-		}
+		progressReporter_.Set("Starting move...");
 
-		INFO_LOG(SYSTEM, "About to move PSP data from '%s' to '%s'", moveSrc.c_str(), moveDest.c_str());
-
-		// Search through recursively, listing the files to move and also summing their sizes.
-		std::vector<std::string> fileSuffixesToMove;
-		std::vector<std::string> directorySuffixesToCreate;
-
-		// NOTE: It's correct to pass moveSrc twice here, it's to keep the root in the recursion.
-		if (!ListFileSuffixesRecursively(moveSrc, moveSrc, directorySuffixesToCreate, fileSuffixesToMove)) {
-			// TODO: Handle failure listing files.
-			error_ = "Failed to read old directory";
-			INFO_LOG(SYSTEM, "%s", error_.c_str());
-			return UI::EVENT_DONE;
-		}
-
-		bool dryRun = false;  // Useful for debugging.
-
-		size_t moveFailures = 0;
-
-		if (!moveSrc.empty()) {
-			// Better not interrupt the app while this is happening!
-
-			// Create all the necessary directories.
-			for (auto &dirSuffix : directorySuffixesToCreate) {
-				Path dir = moveDest / dirSuffix;
-				if (dryRun) {
-					INFO_LOG(SYSTEM, "dry run: Would have created dir '%s'", dir.c_str());
-				} else {
-					INFO_LOG(SYSTEM, "Creating dir '%s'", dir.c_str());
-					if (!File::Exists(dir)) {
-						File::CreateDir(dir);
-					}
-				}
+		moveDataTask_ = Promise<bool>::Spawn(&g_threadManager, [&]() -> bool * {
+			Path moveSrc = g_Config.memStickDirectory;
+			Path moveDest = newMemstickFolder_;
+			if (moveSrc.GetFilename() != "PSP") {
+				moveSrc = moveSrc / "PSP";
+			}
+			if (moveDest.GetFilename() != "PSP") {
+				moveDest = moveDest / "PSP";
+				File::CreateDir(moveDest);
 			}
 
-			for (auto &fileSuffix : fileSuffixesToMove) {
-				Path from = moveSrc / fileSuffix;
-				Path to = moveDest / fileSuffix;
-				if (dryRun) {
-					INFO_LOG(SYSTEM, "dry run: Would have moved '%s' to '%s'", from.c_str(), to.c_str());
-				} else {
-					// Remove the "from" prefix from the path.
-					// We have to drop down to string operations for this.
-					if (!File::Move(from, to)) {
-						ERROR_LOG(SYSTEM, "Failed to move file '%s' to '%s'", from.c_str(), to.c_str());
-						moveFailures++;
-						// Should probably just bail?
+			INFO_LOG(SYSTEM, "About to move PSP data from '%s' to '%s'", moveSrc.c_str(), moveDest.c_str());
+
+			// Search through recursively, listing the files to move and also summing their sizes.
+			std::vector<std::string> fileSuffixesToMove;
+			std::vector<std::string> directorySuffixesToCreate;
+
+			// NOTE: It's correct to pass moveSrc twice here, it's to keep the root in the recursion.
+			if (!ListFileSuffixesRecursively(moveSrc, moveSrc, directorySuffixesToCreate, fileSuffixesToMove)) {
+				// TODO: Handle failure listing files.
+				std::string error = "Failed to read old directory";
+				INFO_LOG(SYSTEM, "%s", error.c_str());
+				progressReporter_.Set(error);
+				return new bool(false);
+			}
+
+			bool dryRun = false;  // Useful for debugging.
+
+			size_t moveFailures = 0;
+
+			if (!moveSrc.empty()) {
+				// Better not interrupt the app while this is happening!
+
+				// Create all the necessary directories.
+				for (auto &dirSuffix : directorySuffixesToCreate) {
+					Path dir = moveDest / dirSuffix;
+					if (dryRun) {
+						INFO_LOG(SYSTEM, "dry run: Would have created dir '%s'", dir.c_str());
 					} else {
-						INFO_LOG(SYSTEM, "Moved file '%s' to '%s'", from.c_str(), to.c_str());
+						INFO_LOG(SYSTEM, "Creating dir '%s'", dir.c_str());
+						if (!File::Exists(dir)) {
+							File::CreateDir(dir);
+						}
+					}
+				}
+
+				for (auto &fileSuffix : fileSuffixesToMove) {
+					progressReporter_.Set(fileSuffix);
+
+					Path from = moveSrc / fileSuffix;
+					Path to = moveDest / fileSuffix;
+					if (dryRun) {
+						INFO_LOG(SYSTEM, "dry run: Would have moved '%s' to '%s'", from.c_str(), to.c_str());
+					} else {
+						// Remove the "from" prefix from the path.
+						// We have to drop down to string operations for this.
+						if (!File::Move(from, to)) {
+							ERROR_LOG(SYSTEM, "Failed to move file '%s' to '%s'", from.c_str(), to.c_str());
+							moveFailures++;
+							// Should probably just bail?
+						} else {
+							INFO_LOG(SYSTEM, "Moved file '%s' to '%s'", from.c_str(), to.c_str());
+						}
+					}
+				}
+
+				// Delete all the old, now hopefully empty, directories.
+				for (auto &dirSuffix : directorySuffixesToCreate) {
+					Path dir = moveSrc / dirSuffix;
+					if (dryRun) {
+						INFO_LOG(SYSTEM, "dry run: Would have deleted dir '%s'", dir.c_str());
+					} else {
+						INFO_LOG(SYSTEM, "Deleting dir '%s'", dir.c_str());
+						if (!File::Exists(dir)) {
+							File::DeleteDir(dir);
+						}
 					}
 				}
 			}
-		}
 
-		if (moveFailures > 0) {
-			error_ = "Failed to move some files!";
-			RecreateViews();
-			return UI::EVENT_DONE;
-		}
+			if (moveFailures > 0) {
+				std::string error = "Failed to move some files!";
+				progressReporter_.Set(error);
+				return new bool(false);
+			}
+
+			return new bool(true);
+		}, TaskType::IO_BLOCKING);
+
+		RecreateViews();
+	} else {
+		FinishFolderMove();
 	}
+
+	return UI::EVENT_DONE;
+}
+
+void ConfirmMemstickMoveScreen::FinishFolderMove() {
+	auto iz = GetI18NCategory("MemStick");
 
 	// Successful so far, switch the memstick folder.
 	if (!SwitchMemstickFolderTo(newMemstickFolder_)) {
 		// TODO: More precise errors.
 		error_ = iz->T("That folder doesn't work as a memstick folder.");
-		return UI::EVENT_DONE;
+		return;
 	}
 
 	// If the chosen folder already had a config, reload it!
@@ -380,6 +458,4 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 		error_ = iz->T("Failed to save config");
 		RecreateViews();
 	}
-
-	return UI::EVENT_DONE;
 }

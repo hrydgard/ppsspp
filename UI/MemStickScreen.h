@@ -19,12 +19,15 @@
 
 #include <functional>
 #include <string>
+#include <atomic>
 
 #include "ppsspp_config.h"
 
 #include "Common/File/Path.h"
-#include "UI/MiscScreens.h"
 #include "Common/UI/UIScreen.h"
+#include "Common/Thread/Promise.h"
+
+#include "UI/MiscScreens.h"
 
 // MemStickScreen - let's you configure your memory stick directory.
 // Currently only useful for Android.
@@ -64,20 +67,45 @@ private:
 	bool done_ = false;
 };
 
+class ProgressReporter {
+public:
+	void Set(std::string value) {
+		std::lock_guard<std::mutex> guard(mutex_);
+		progress_ = value;
+	}
+
+	std::string Get() {
+		std::lock_guard<std::mutex> guard(mutex_);
+		return progress_;
+	}
+
+private:
+	std::string progress_;
+	std::mutex mutex_;
+};
+
 class ConfirmMemstickMoveScreen : public UIDialogScreenWithBackground {
 public:
 	ConfirmMemstickMoveScreen(Path newMemstickFolder, bool initialSetup);
-
+	~ConfirmMemstickMoveScreen();
 protected:
+	void update() override;
 	void CreateViews() override;
 
 private:
+	void FinishFolderMove();
+
 	UI::EventReturn OnConfirm(UI::EventParams &params);
 
 	Path newMemstickFolder_;
 	bool existingFilesInNewFolder_;
 	bool moveData_ = true;
 	bool initialSetup_;
+
+	ProgressReporter progressReporter_;
+	UI::TextView *progressView_ = nullptr;
+
+	Promise<bool> *moveDataTask_ = nullptr;
 
 	std::string error_;
 };
