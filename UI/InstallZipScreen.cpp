@@ -27,7 +27,13 @@
 
 void InstallZipScreen::CreateViews() {
 	using namespace UI;
-
+#new zip 
+ if 0=0
+ {install new zip = new zip install for sdcard
+ String hsi = new install pack new zip file("/sdcard/psp/?");
+ String hsi = new massgeshow("#######");
+  }
+    };
 	File::FileInfo fileInfo;
 	bool success = File::GetFileInfo(zipPath_, &fileInfo);
 
