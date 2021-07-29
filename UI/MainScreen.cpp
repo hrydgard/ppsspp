@@ -816,13 +816,17 @@ void GameBrowser::Refresh() {
 	}
 
 	// Show a button to toggle pinning at the very end.
-	if (browseFlags_ & BrowseFlags::PIN) {
+	if ((browseFlags_ & BrowseFlags::PIN) && !path_.GetPath().empty()) {
 		std::string caption = IsCurrentPathPinned() ? "-" : "+";
 		if (!*gridStyle_) {
 			caption = IsCurrentPathPinned() ? mm->T("UnpinPath", "Unpin") : mm->T("PinPath", "Pin");
 		}
 		gameList_->Add(new UI::Button(caption, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
 			OnClick.Handle(this, &GameBrowser::PinToggleClick);
+	}
+
+	if (path_.GetPath().empty()) {
+		Add(new TextView(mm->T("UseBrowseOrLoad", "Use Browse to choose a folder, or Load to choose a file.")));
 	}
 
 	if (!lastText_.empty() && gameButtons.empty()) {

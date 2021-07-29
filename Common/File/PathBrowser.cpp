@@ -144,10 +144,13 @@ void PathBrowser::HandlePath() {
 
 		std::unique_lock<std::mutex> guard(pendingLock_);
 		std::vector<File::FileInfo> results;
-		Path lastPath;
+		Path lastPath("NONSENSE THAT WONT EQUAL A PATH");
 		while (!pendingStop_) {
 			while (lastPath == pendingPath_ && !pendingCancel_) {
 				pendingCond_.wait(guard);
+			}
+			if (pendingStop_) {
+				break;
 			}
 			lastPath = pendingPath_;
 			bool success = false;
@@ -156,6 +159,9 @@ void PathBrowser::HandlePath() {
 				results.clear();
 				success = LoadRemoteFileList(lastPath, &pendingCancel_, results);
 				guard.lock();
+			} else if (lastPath.empty()) {
+				results.clear();
+				success = true;
 			} else {
 				guard.unlock();
 				results.clear();
