@@ -65,6 +65,7 @@
 #endif
 
 #if defined(__riscv) && defined(__riscv_xlen) && __riscv_xlen == 64
+    //https://github.com/riscv/riscv-c-api-doc/blob/master/riscv-c-api.md
 	#define PPSSPP_ARCH_RISCV64 1
 	#define PPSSPP_ARCH_64BIT 1
 #endif

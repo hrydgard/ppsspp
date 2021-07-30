@@ -424,7 +424,17 @@ const char *GetCompilerABI() {
 #elif PPSSPP_ARCH(AMD64)
 	return "x86-64";
 #elif PPSSPP_ARCH(RISCV64)
-	return "rv64";
+    //https://github.com/riscv/riscv-toolchain-conventions#cc-preprocessor-definitions
+    //https://github.com/riscv/riscv-c-api-doc/blob/master/riscv-c-api.md#abi-related-preprocessor-definitions
+    #if defined(__riscv_float_abi_single)
+        return "lp64f";
+    #elif defined(__riscv_float_abi_double)
+        return "lp64d";
+    #elif defined(__riscv_float_abi_quad)
+        return "lp64q";
+    #elif defined(__riscv_float_abi_soft)
+        return "lp64";
+    #endif
 #else
 	return "other";
 #endif

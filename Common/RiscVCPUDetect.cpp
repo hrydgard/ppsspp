@@ -33,8 +33,8 @@ const char procfile[] = "/proc/cpuinfo";
 const char syscpupresentfile[] = "/sys/devices/system/cpu/present";
 
 std::string GetCPUString() {
-	std::string cpu_string = "Unknown";
-
+	std::string cpu_string;
+	cpu_string = "Unknown";
 	return cpu_string;
 }
 
