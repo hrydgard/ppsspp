@@ -33,9 +33,17 @@ const char procfile[] = "/proc/cpuinfo";
 const char syscpupresentfile[] = "/sys/devices/system/cpu/present";
 
 std::string GetCPUString() {
+    //TODO
 	std::string cpu_string;
 	cpu_string = "Unknown";
 	return cpu_string;
+}
+
+std::string GetCPUBrandString() {
+    //TODO
+    std::string brand_string;
+    brand_string = "Unknown";
+    return brand_string;
 }
 
 int GetCoreCount()
@@ -99,7 +107,8 @@ void CPUInfo::Detect()
 #if !defined(__linux__)
 	num_cores = 1;
 #else // __linux__
-	strncpy(cpu_string, GetCPUString().c_str(), sizeof(cpu_string));
+	truncate_cpy(cpu_string, GetCPUString().c_str());
+	truncate_cpy(brand_string, GetCPUBrandString().c_str());
 	num_cores = GetCoreCount();
 #endif
 }
@@ -113,6 +122,8 @@ std::string CPUInfo::Summarize()
 	else
 		sum = StringFromFormat("%s, %i cores", cpu_string, num_cores);
 	if (CPU64bit) sum += ", 64-bit";
+
+	//TODO: parse "isa : rv64imafdc" from /proc/cpuinfo
 
 	return sum;
 }
