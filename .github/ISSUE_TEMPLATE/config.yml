@@ -7,5 +7,5 @@ contact_links:
     url: http://report.ppsspp.org/games
     about: Look here for user reports on best settings and compatibility.
   - name: Translations
-    url: https://github.com/hrydgard/ppsspp-lang
+    url: 'https://github.com/hrydgard/ppsspp/tree/master/assets/lang#readme'
     about: Look here to contribute translations to PPSSPP.
