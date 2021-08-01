@@ -1,0 +1,73 @@
+name: New feature or behavior change
+description: "Choose when something isn't broken, but you want it to be better."
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Want the improvement faster?  Check the wiki for tips:
+        https://github.com/hrydgard/ppsspp/wiki/How-to-report-an-issue-properly
+
+  - type: textarea
+    id: desired
+    validations:
+      required: true
+    attributes:
+      label: What should happen
+      placeholder: |
+        PPSSPP should have a button that makes all graphics look like the screen was cracked.
+        
+        The button should always be present on the screen and be labeled "Drop PSP".
+      description: >
+        Be specific and descriptive.
+
+  - type: textarea
+    id: audience
+    validations:
+      required: true
+    attributes:
+      label: Who would this benefit
+      placeholder: |
+        No one really.  I know it'd be a lot of work but it'd be fun for a 2 minute nostalgia trip since I've dropped by PSP before.
+      description: >
+        PPSSPP features are contributed by the community, so explaining who else would benefit may help your case.
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform (if relevant)
+      options:
+        - Android
+        - Windows
+        - libretro / Retroarch
+        - iOS
+        - Switch
+        - Raspberry Pi
+        - Linux / BSD
+        - macOS
+        - Other
+
+  - type: input
+    id: game
+    validations:
+      required: true
+    attributes:
+      label: Games this would be useful in
+      placeholder: 'ULUS-10336 - Crisis Core, ULUS-10482 - Lunar: Silver Star Harmony'
+      description: >
+        Requests for mods to game logic belong in the forum or Discord.  This isn't the place to request game hacks.
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Other emulators or software with a similar feature
+      description: >
+        May be helpful in showing someone how it'd be helpful.
+
+  - type: checkboxes
+    attributes:
+      label: Checklist
+      options:
+        - label: "Check the [latest git build](https://buildbot.orphis.net/ppsspp/) in case it's already implemented."
+          required: true
+        - label: "[Search for other requests](https://github.com/hrydgard/ppsspp/search?q=my+issue&type=issues) of the same feature."
+          required: true

@@ -1,0 +1,133 @@
+name: Slowdown or performance problem
+description: Choose when things got slower from a previous version or a specific scene runs really poorly.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Want the issue fixed faster?  Check the wiki for tips:
+        https://github.com/hrydgard/ppsspp/wiki/How-to-report-an-issue-properly
+
+  - type: input
+    id: game
+    validations:
+      required: true
+    attributes:
+      label: Game or games this happens in
+      placeholder: ULUS-10336 - Crisis Core
+      description: >
+        Shown in the title bar, logs, and long press on the game icon.
+
+  - type: textarea
+    id: reproduction
+    validations:
+      required: true
+    attributes:
+      label: What area of the game
+      placeholder: 'At the start of Chapter 3, in Sector 8.  It got slow when I talked to the Sephiroth fan.'
+      description: >
+        If it happens from the start of any game, just say "After new game".  Try to explain so someone else could do the same thing.
+
+  - type: input
+    id: speed
+    attributes:
+      label: Speed seen in PPSSPP
+      placeholder: 75% (45/60)
+      description: Enable FPS and Speed display in settings.
+
+  - type: markdown
+    attributes:
+      value: |
+        Many performance issues are graphics related.  Instructions are available [on the wiki][] to create a frame capture.
+        
+        Please also include 1 or 2 screenshots during the performance problem while "Show debug statistics" (in Settings) is enabled.
+        [on the wiki]: https://github.com/hrydgard/ppsspp/wiki/How-to-create-a-frame-dump
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: GE frame capture and debug statistics
+      placeholder: '[drag files here...]'
+      description: >
+        You can upload the frame capture as a zip file, and upload screenshots directly.
+
+  - type: markdown
+    attributes:
+      value: |
+        ## Your device
+        
+        If you're not sure about any of these questions, check Settings -> Tools -> System Information.
+
+  - type: dropdown
+    id: platform
+    validations:
+      required: true
+    attributes:
+      label: Platform
+      options:
+        - Android
+        - Windows
+        - libretro / Retroarch
+        - iOS
+        - Switch
+        - Raspberry Pi
+        - Linux / BSD
+        - macOS
+        - Other
+
+  - type: input
+    id: device
+    validations:
+      required: true
+    attributes:
+      label: Mobile phone model or graphics card
+      placeholder: Google Pixel 4a or NVIDIA GeForce GTX 1080Ti
+      description: >
+        If you don't know, copy what's under 'Driver version' in System Information.
+
+  - type: input
+    id: version
+    validations:
+      required: true
+    attributes:
+      label: PPSSPP version affected
+      placeholder: v2.0.0-999-gabcdef123
+      description: >
+        Shown on the main screen of PPSSPP where games are listed.
+
+  - type: input
+    id: workingversion
+    attributes:
+      label: Last working version
+      placeholder: v2.0.0-500-g321fedcba
+      description: >
+        If it worked before, it's usually easier to narrow down a fix.
+
+  - type: dropdown
+    id: gpubackend
+    validations:
+      required: true
+    attributes:
+      label: Graphics backend (3D API)
+      options:
+        - Vulkan
+        - OpenGL / GLES
+        - Direct3D 11
+        - Direct3D 9
+        - Other
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Any other notes or things you've tried
+
+  - type: checkboxes
+    attributes:
+      label: Checklist
+      options:
+        - label: "Test in the [latest git build](https://buildbot.orphis.net/ppsspp/) in case it's already fixed."
+          required: true
+        - label: "[Search for other reports](https://github.com/hrydgard/ppsspp/search?q=my+issue&type=issues) of the same issue."
+          required: true
+        - label: "Try resetting settings or older versions and include if the issue is related."
+        - label: "Try changing graphics settings to determine if one causes the slowdown."
+        - label: "Include logs or screenshots of issue."
