@@ -1954,6 +1954,10 @@ if(WIN32)
 	set(GlslangLibs ${GlslangLibs} spirv-cross-hlsl)
 endif()
 
+if(OpenGL_OpenGL_FOUND AND NOT APPLE)
+    set(OPENGL_LIBRARIES OpenGL::OpenGL)
+endif()
+
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 
