@@ -138,7 +138,7 @@ void TouchControlVisibilityScreen::CreateViews() {
 		row->Add(checkbox);
 		Choice *choice;
 		if (toggle.handle) {
-			choice = new Choice(std::string(mc->T(toggle.key))+mc->T(" (tap to customize)"), "", false, new LinearLayoutParams(1.0f));
+			choice = new Choice(std::string(mc->T(toggle.key))+" ("+mc->T("tap to customize")+")", "", false, new LinearLayoutParams(1.0f));
 			choice->OnClick.Add(toggle.handle);
 		} else if (toggle.img.isValid()) {
 			choice = new CheckBoxChoice(toggle.img, checkbox, new LinearLayoutParams(1.0f));
