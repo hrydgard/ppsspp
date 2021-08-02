@@ -330,15 +330,17 @@ void __DisplayDoState(PointerWrap &p) {
 		Do(p, nextFlipCycles);
 	}
 
-	gpu->DoState(p);
+	if(gpu) {
+		gpu->DoState(p);
 
-	if (p.mode == p.MODE_READ) {
-		gpu->ReapplyGfxState();
+		if (p.mode == p.MODE_READ) {
+			gpu->ReapplyGfxState();
 
-		if (hasSetMode) {
-			gpu->InitClear();
+			if (hasSetMode) {
+				gpu->InitClear();
+			}
+			gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.stride, framebuf.fmt);
 		}
-		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.stride, framebuf.fmt);
 	}
 }
 
