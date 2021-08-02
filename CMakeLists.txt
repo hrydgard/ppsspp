@@ -1954,7 +1954,7 @@ if(WIN32)
 	set(GlslangLibs ${GlslangLibs} spirv-cross-hlsl)
 endif()
 
-if(OpenGL_OpenGL_FOUND AND NOT APPLE)
+if(OPENGL_opengl_LIBRARY AND OpenGL_GL_PREFERENCE STREQUAL GLVND AND NOT APPLE)
     set(OPENGL_LIBRARIES OpenGL::OpenGL)
 endif()
 
