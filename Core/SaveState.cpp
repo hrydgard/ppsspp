@@ -531,8 +531,8 @@ namespace SaveState
 
 	bool HasUndoSaveInSlot(const Path &gameFilename, int slot)
 	{
-		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
-		return File::Exists(fn.WithExtraExtension(".undo"));
+		Path fn = GenerateSaveSlotFilename(gameFilename, slot, UNDO_STATE_EXTENSION);
+		return File::Exists(fn);
 	}
 
 	bool HasScreenshotInSlot(const Path &gameFilename, int slot)
