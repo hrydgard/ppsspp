@@ -860,9 +860,8 @@ namespace SaveState
 
 size_t retro_serialize_size(void)
 {
-   std::string error_string;
-   while (!PSP_InitUpdate(&error_string))
-      sleep_ms(4);
+   while (!PSP_IsInited())
+      retro_run();
 
    SaveState::SaveStart state;
    // TODO: Libretro API extension to use the savestate queue
