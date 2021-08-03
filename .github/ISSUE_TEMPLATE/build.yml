@@ -1,0 +1,95 @@
+name: Building or contributing
+description: Choose for issues building PPSSPP on certain platforms or with certain toolsets.
+body:
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Android
+        - Windows
+        - libretro / Retroarch
+        - iOS
+        - Switch
+        - Raspberry Pi
+        - Linux / BSD
+        - macOS
+        - Other
+
+  - type: input
+    id: buildversions
+    validations:
+      required: true
+    attributes:
+      label: Compiler and build tool versions
+      placeholder: Clang 8.0.0 + CMake 3.21.1
+      description: >
+        The more detail, the better.
+
+  - type: input
+    id: osversion
+    validations:
+      required: true
+    attributes:
+      label: Operating system version
+      placeholder: Arch Linux 2021.08.01
+
+  - type: textarea
+    id: commands
+    validations:
+      required: true
+    attributes:
+      label: Build commands used
+      placeholder: './b.sh --release'
+      description: >
+        Include the command or commands you ran, script you used, build arguments, etc.
+
+  - type: textarea
+    id: problem
+    validations:
+      required: true
+    attributes:
+      label: What happens
+      placeholder: |
+        I receive the following error:
+        ```
+        ld.gold: undefined reference to function 'vkCreateWaylandSurfaceKHR'
+        ```
+        
+        Here's the entire build log:
+        [upload zip file of log]
+      description: >
+        Include logs and as much detail as possible.  Paste exact error messages.
+
+  - type: input
+    id: version
+    validations:
+      required: true
+    attributes:
+      label: PPSSPP version affected
+      placeholder: v2.0.0-999-gabcdef123
+      description: >
+        Use `git describe` if a git checkout.  Please try the latest git build if using an older version.
+
+  - type: input
+    id: workingversion
+    attributes:
+      label: Last working version
+      placeholder: v2.0.0-500-g321fedcba
+      description: >
+        If it worked before, it's usually easier to narrow down a fix.
+
+  - type: checkboxes
+    attributes:
+      label: Checklist
+      options:
+        - label: "Test in the [latest git build](https://buildbot.orphis.net/ppsspp/) in case it's already fixed."
+          required: true
+        - label: "Make sure to run `git submodule update --init --recursive` before building."
+          required: true
+        - label: "[Search for other reports](https://github.com/hrydgard/ppsspp/search?q=my+issue&type=issues) of the same issue."
+          required: true
+        - label: "Try deleting the build directory and running the build again."
+          required: true
+        - label: "Check GitHub Actions, which builds every merge and PR."
+        - label: "Include logs and help us reproduce."
