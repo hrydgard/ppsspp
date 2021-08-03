@@ -396,6 +396,12 @@ void GamePauseScreen::CreateViews() {
 		rewindButton->OnClick.Handle(this, &GamePauseScreen::OnRewind);
 	}
 
+	if (g_Config.bEnableStateUndo) {
+		UI::Choice *loadUndoButton = leftColumnItems->Add(new Choice(pa->T("Undo last state load")));
+		loadUndoButton->SetEnabled(SaveState::HasUndoLoad(gamePath_));
+		loadUndoButton->OnClick.Handle(this, &GamePauseScreen::OnLoadUndo);
+	}
+
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	root_->Add(rightColumn);
 
@@ -487,6 +493,13 @@ UI::EventReturn GamePauseScreen::OnReportFeedback(UI::EventParams &e) {
 
 UI::EventReturn GamePauseScreen::OnRewind(UI::EventParams &e) {
 	SaveState::Rewind(&AfterSaveStateAction);
+
+	TriggerFinish(DR_CANCEL);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GamePauseScreen::OnLoadUndo(UI::EventParams &e) {
+	SaveState::UndoLoad(gamePath_, &AfterSaveStateAction);
 
 	TriggerFinish(DR_CANCEL);
 	return UI::EVENT_DONE;

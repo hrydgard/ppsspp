@@ -37,6 +37,8 @@ namespace SaveState
 	static const char *UNDO_STATE_EXTENSION = "undo.ppst";
 	static const char *UNDO_SCREENSHOT_EXTENSION = "undo.jpg";
 
+	static const char *LOAD_UNDO_NAME = "load_undo.ppst";
+
 	void Init();
 	void Shutdown();
 
@@ -45,9 +47,11 @@ namespace SaveState
 	void SaveSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData = 0);
 	void LoadSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData = 0);
 	bool UndoSaveSlot(const Path &gameFilename, int slot);
+	bool UndoLoad(const Path &gameFilename, Callback callback, void *cbUserData = 0);
 	// Checks whether there's an existing save in the specified slot.
 	bool HasSaveInSlot(const Path &gameFilename, int slot);
 	bool HasUndoSaveInSlot(const Path &gameFilename, int slot);
+	bool HasUndoLoad(const Path &gameFilename);
 	bool HasScreenshotInSlot(const Path &gameFilename, int slot);
 
 	int GetCurrentSlot();
@@ -57,6 +61,7 @@ namespace SaveState
 	int GetOldestSlot(const Path &gameFilename);
 	
 	std::string GetSlotDateAsString(const Path &gameFilename, int slot);
+	std::string GenerateFullDiskId(const Path &gameFilename);
 	Path GenerateSaveSlotFilename(const Path &gameFilename, int slot, const char *extension);
 
 	std::string GetTitle(const Path &filename);

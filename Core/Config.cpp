@@ -532,6 +532,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("SaveLoadResetsAVdumping", &g_Config.bSaveLoadResetsAVdumping, false),
 	ConfigSetting("StateSlot", &g_Config.iCurrentStateSlot, 0, true, true),
 	ConfigSetting("EnableStateUndo", &g_Config.bEnableStateUndo, &DefaultEnableStateUndo, true, true),
+	ConfigSetting("StateLoadUndoGame", &g_Config.sStateLoadUndoGame, "NA", true, false),
 	ConfigSetting("RewindFlipFrequency", &g_Config.iRewindFlipFrequency, 0, true, true),
 
 	ConfigSetting("ShowOnScreenMessage", &g_Config.bShowOnScreenMessages, true, true, false),

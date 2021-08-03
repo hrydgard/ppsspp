@@ -412,18 +412,19 @@ namespace SaveState
 		return filename.GetFilename() + " " + sy->T("(broken)");
 	}
 
-	Path GenerateSaveSlotFilename(const Path &gameFilename, int slot, const char *extension)
-	{
+	std::string GenerateFullDiskId(const Path &gameFilename) {
 		std::string discId = g_paramSFO.GetValueString("DISC_ID");
 		std::string discVer = g_paramSFO.GetValueString("DISC_VERSION");
-		std::string fullDiscId;
 		if (discId.empty()) {
 			discId = g_paramSFO.GenerateFakeID();
 			discVer = "1.00";
 		}
-		fullDiscId = StringFromFormat("%s_%s", discId.c_str(), discVer.c_str());
+		return StringFromFormat("%s_%s", discId.c_str(), discVer.c_str());
+	}
 
-		std::string filename = StringFromFormat("%s_%d.%s", fullDiscId.c_str(), slot, extension);
+	Path GenerateSaveSlotFilename(const Path &gameFilename, int slot, const char *extension)
+	{
+		std::string filename = StringFromFormat("%s_%d.%s", GenerateFullDiskId(gameFilename).c_str(), slot, extension);
 		return GetSysDirectory(DIRECTORY_SAVESTATE) / filename;
 	}
 
@@ -435,18 +436,6 @@ namespace SaveState
 	void NextSlot()
 	{
 		g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot + 1) % NUM_SLOTS;
-	}
-
-	void LoadSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData)
-	{
-		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
-		if (!fn.empty()) {
-			Load(fn, slot, callback, cbUserData);
-		} else {
-			auto sy = GetI18NCategory("System");
-			if (callback)
-				callback(Status::FAILURE, sy->T("Failed to load state. Error in the file system."), cbUserData);
-		}
 	}
 
 	static void DeleteIfExists(const Path &fn) {
@@ -468,6 +457,63 @@ namespace SaveState
 			File::Rename(from, temp);
 			File::Rename(to, from);
 			File::Rename(temp, to);
+		}
+	}
+
+	void LoadSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData)
+	{
+		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
+		if (!fn.empty()) {
+			// This add only 1 extra state, should we just always enable it?
+			if (g_Config.bEnableStateUndo) {
+				Path backup = GetSysDirectory(DIRECTORY_SAVESTATE) / LOAD_UNDO_NAME;
+				
+				auto saveCallback = [=](Status status, const std::string &message, void *data) {
+					if (status != Status::FAILURE) {
+						DeleteIfExists(backup);
+						File::Rename(backup.WithExtraExtension(".tmp"), backup);
+						g_Config.sStateLoadUndoGame = GenerateFullDiskId(gameFilename);
+						Load(fn, slot, callback, cbUserData);
+					} else if (callback) {
+						callback(status, message, data);
+					}
+				};
+
+				if (!backup.empty()) {
+					Save(backup.WithExtraExtension(".tmp"), -2, saveCallback, cbUserData);
+				} else {
+					auto sy = GetI18NCategory("System");
+					if (callback)
+						callback(Status::FAILURE, sy->T("Failed to save state for load undo. Error in the file system."), cbUserData);
+				}
+			} else {
+				Load(fn, slot, callback, cbUserData);
+			}
+		} else {
+			auto sy = GetI18NCategory("System");
+			if (callback)
+				callback(Status::FAILURE, sy->T("Failed to load state. Error in the file system."), cbUserData);
+		}
+	}
+
+	bool UndoLoad(const Path &gameFilename, Callback callback, void *cbUserData)
+	{
+		if (g_Config.sStateLoadUndoGame != GenerateFullDiskId(gameFilename)) {
+			auto sy = GetI18NCategory("System");
+			if (callback)
+				callback(Status::FAILURE, sy->T("Error: load undo state is from a different game"), cbUserData);
+			return false;
+		}
+
+		Path fn = GetSysDirectory(DIRECTORY_SAVESTATE) / LOAD_UNDO_NAME;
+		if (!fn.empty()) {
+			Load(fn, -2, callback, cbUserData); // Slot number is visual only, -2 will display special message (kinda have to find a better way)
+			return true;
+		} else {
+			auto sy = GetI18NCategory("System");
+			if (callback)
+				callback(Status::FAILURE, sy->T("Failed to load state for load undo. Error in the file system."), cbUserData);
+			return false;
 		}
 	}
 
@@ -539,6 +585,12 @@ namespace SaveState
 	{
 		Path fn = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
 		return File::Exists(fn);
+	}
+
+	bool HasUndoLoad(const Path &gameFilename)
+	{
+		Path fn = GetSysDirectory(DIRECTORY_SAVESTATE) / LOAD_UNDO_NAME;
+		return File::Exists(fn) && g_Config.sStateLoadUndoGame == GenerateFullDiskId(gameFilename);
 	}
 
 	bool operator < (const tm &t1, const tm &t2) {
@@ -752,7 +804,7 @@ namespace SaveState
 				// Use the state's latest version as a guess for saveStateInitialGitVersion.
 				result = CChunkFileReader::Load(op.filename, &saveStateInitialGitVersion, state, &errorString);
 				if (result == CChunkFileReader::ERROR_NONE) {
-					callbackMessage = slot_prefix + sc->T("Loaded State");
+					callbackMessage = op.slot != -2 ? slot_prefix + sc->T("Loaded State") : sc->T("State load undone");
 					callbackResult = Status::SUCCESS;
 					hasLoadedState = true;
 
