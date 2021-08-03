@@ -432,6 +432,7 @@ void retro_init(void)
    g_Config.bFragmentTestCache = true;
    g_Config.bSavedataUpgrade= true;
    g_Config.bSeparateSASThread = true;
+   g_Config.sMACAddress = "12:34:56:78:9A:BC";
 
    g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;
    g_Config.iPSPModel = PSP_MODEL_SLIM;
