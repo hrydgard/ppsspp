@@ -97,19 +97,6 @@ struct JNIEnv {};
 
 bool useCPUThread = true;
 
-// We turn this on now that when we target Android 11+.
-// Along with adding:
-//   android:preserveLegacyExternalStorage="true"
-// To the already requested:
-//   android:requestLegacyExternalStorage="true"
-//
-// This will cause Android 11+ to still behave like Android 10 until the app
-// is manually uninstalled. We can detect this state with
-// Android_IsExternalStoragePreservedLegacy(), but most of the app will just see
-// that scoped storage enforcement is disabled in this case.
-
-static const bool useScopedStorageIfRequired = true;
-
 enum class EmuThreadState {
 	DISABLED,
 	START_REQUESTED,
@@ -466,6 +453,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return androidVersion >= 19;  // when ACTION_OPEN_DOCUMENT was added
 	case SYSPROP_HAS_FOLDER_BROWSER:
 		// Uses OPEN_DOCUMENT_TREE to let you select a folder.
+		// Doesn't actually mean it's usable though, in many early versions of Android
+		// this dialog is complete garbage and only lets you select subfolders of the Downloads folder.
 		return androidVersion >= 21;  // when ACTION_OPEN_DOCUMENT_TREE was added
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
@@ -476,7 +465,17 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_CAN_JIT:
 		return true;
 	case SYSPROP_ANDROID_SCOPED_STORAGE:
-		if (useScopedStorageIfRequired && androidVersion >= 28) {
+		// We turn this on for Android 30+ (11) now that when we target Android 11+.
+		// Along with adding:
+		//   android:preserveLegacyExternalStorage="true"
+		// To the already requested:
+		//   android:requestLegacyExternalStorage="true"
+		//
+		// This will cause Android 11+ to still behave like Android 10 until the app
+		// is manually uninstalled. We can detect this state with
+		// Android_IsExternalStoragePreservedLegacy(), but most of the app will just see
+		// that scoped storage enforcement is disabled in this case.
+		if (androidVersion >= 30) {
 			// Here we do a check to see if we ended up in the preserveLegacyExternalStorage path.
 			// That won't last if the user uninstalls/reinstalls though, but would preserve the user
 			// experience for simple upgrades so maybe let's support it.
