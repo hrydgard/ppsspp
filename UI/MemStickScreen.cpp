@@ -102,7 +102,6 @@ static std::string FormatSpaceString(int64_t space) {
 
 MemStickScreen::MemStickScreen(bool initialSetup)
 	: initialSetup_(initialSetup) {
-	pendingMemStickFolder_ = g_Config.memStickDirectory;
 }
 
 void MemStickScreen::CreateViews() {
@@ -129,6 +128,14 @@ void MemStickScreen::CreateViews() {
 
 	leftColumn->Add(new TextView(iz->T("MemoryStickDescription", "Choose PSP data storage (Memory Stick)"), ALIGN_LEFT, false));
 
+	// For legacy Android systems, so you can switch back to the old ways if you move to SD or something.
+	// TODO: Gonna need a scroll view.
+#if PPSSPP_PLATFORM(ANDROID)
+	if (!System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
+		leftColumn->Add(new Choice(iz->T("Use PSP folder at root of storage")))->OnClick.Handle(this, &MemStickScreen::OnUseStorageRoot);
+	}
+#endif
+
 	leftColumn->Add(new Choice(iz->T("Create or Choose a PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnBrowse);
 	leftColumn->Add(new TextView(iz->T("ChooseFolderDesc", "* Data will stay even if you uninstall PPSSPP.\n* Data can be shared with PPSSPP Gold\n* Easy USB access"), ALIGN_LEFT, false));
 
@@ -145,19 +152,37 @@ void MemStickScreen::CreateViews() {
 }
 
 UI::EventReturn MemStickScreen::OnUseInternalStorage(UI::EventParams &params) {
-	pendingMemStickFolder_ = Path(g_extFilesDir);
+	Path pendingMemStickFolder = Path(g_extFilesDir);
 
 	if (initialSetup_) {
 		// There's not gonna be any files here in this case since it's a fresh install.
 		// Let's just accept it and move on. No need to move files either.
-		if (SwitchMemstickFolderTo(pendingMemStickFolder_)) {
+		if (SwitchMemstickFolderTo(pendingMemStickFolder)) {
 			TriggerFinish(DialogResult::DR_OK);
 		} else {
 			// This can't really happen?? Not worth making an error message.
 		}
 	} else {
 		// Always ask for confirmation when called from the UI. Likely there's already some data.
-		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder_, false));
+		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, false));
+	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MemStickScreen::OnUseStorageRoot(UI::EventParams &params) {
+	Path pendingMemStickFolder = Path(g_externalDir);
+
+	if (initialSetup_) {
+		// There's not gonna be any files here in this case since it's a fresh install.
+		// Let's just accept it and move on. No need to move files either.
+		if (SwitchMemstickFolderTo(pendingMemStickFolder)) {
+			TriggerFinish(DialogResult::DR_OK);
+		} else {
+			// This can't really happen?? Not worth making an error message.
+		}
+	} else {
+		// Always ask for confirmation when called from the UI. Likely there's already some data.
+		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, false));
 	}
 	return UI::EVENT_DONE;
 }
@@ -179,9 +204,9 @@ void MemStickScreen::sendMessage(const char *message, const char *value) {
 			INFO_LOG(SYSTEM, "Got folder: '%s'", filename.c_str());
 
 			// Browse finished. Let's pop up the confirmation dialog.
-			pendingMemStickFolder_ = Path(filename);
-			bool existingFiles = FolderSeemsToBeUsed(pendingMemStickFolder_);
-			screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder_, initialSetup_));
+			Path pendingMemStickFolder = Path(filename);
+			bool existingFiles = FolderSeemsToBeUsed(pendingMemStickFolder);
+			screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, initialSetup_));
 		}
 	}
 }

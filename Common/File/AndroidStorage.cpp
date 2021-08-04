@@ -279,7 +279,9 @@ const char *Android_ErrorToString(StorageError error) {
 
 #else
 
-// This string should never appear except on Android.
+// These strings should never appear except on Android.
+// Very hacky.
 std::string g_extFilesDir = "(IF YOU SEE THIS THERE'S A BUG)";
+std::string g_externalDir = "(IF YOU SEE THIS THERE'S A BUG (2))";
 
 #endif

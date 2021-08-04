@@ -128,7 +128,8 @@ std::string langRegion;
 std::string mogaVersion;
 std::string boardName;
 
-std::string g_extFilesDir;
+std::string g_externalDir;  // Original external dir (root of Android storage).
+std::string g_extFilesDir;  // App private external dir.
 
 std::vector<std::string> g_additionalStorageDirs;
 
@@ -637,6 +638,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	std::string additionalStorageDirsString = GetJavaString(env, jadditionalStorageDirs);
 	std::string externalFilesDir = GetJavaString(env, jexternalFilesDir);
 
+	g_externalDir = externalStorageDir;
 	g_extFilesDir = externalFilesDir;
 
 	if (!additionalStorageDirsString.empty()) {

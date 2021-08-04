@@ -58,9 +58,8 @@ private:
 	// Event handlers
 	UI::EventReturn OnBrowse(UI::EventParams &e);
 	UI::EventReturn OnUseInternalStorage(UI::EventParams &params);
+	UI::EventReturn OnUseStorageRoot(UI::EventParams &params);
 
-	// TODO: probably not necessary to store here, we just forward to the confirmation dialog.
-	Path pendingMemStickFolder_;
 	SettingInfoMessage *settingInfo_ = nullptr;
 
 	bool initialSetup_;

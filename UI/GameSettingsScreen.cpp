@@ -903,9 +903,6 @@ void GameSettingsScreen::CreateViews() {
 
 	systemSettings->Add(new ItemHeader(sy->T("PSP Memory Stick")));
 
-	systemSettings->Add(new CheckBox(&g_Config.bMemStickInserted, sy->T("Memory Stick inserted")));
-	systemSettings->Add(new PopupSliderChoice(&g_Config.iMemStickSizeGB, 1, 32, sy->T("Change Memory Stick Size", "Memory Stick Size (GB)"), screenManager(), "GB"));
-
 #if PPSSPP_PLATFORM(ANDROID)
 	memstickDisplay_ = g_Config.memStickDirectory.ToVisualString();
 	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Change Memory Stick folder", "Memory Stick folder"), (const char *)nullptr));
@@ -955,6 +952,9 @@ void GameSettingsScreen::CreateViews() {
 		}
 	}
 #endif
+	systemSettings->Add(new CheckBox(&g_Config.bMemStickInserted, sy->T("Memory Stick inserted")));
+	systemSettings->Add(new PopupSliderChoice(&g_Config.iMemStickSizeGB, 1, 32, sy->T("Change Memory Stick Size", "Memory Stick Size (GB)"), screenManager(), "GB"));
+
 	systemSettings->Add(new ItemHeader(sy->T("General")));
 
 #if PPSSPP_PLATFORM(ANDROID)
