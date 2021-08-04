@@ -177,6 +177,15 @@ bool ComboKey::IsDown() {
 	return (toggle_ && on_) || (!toggle_ && pointerDownMask_ != 0);
 }
 
+void ComboKey::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	MultiTouchButton::GetContentDimensions(dc, w, h);
+	if (invertedContextDimension_) {
+		float tmp = w;
+		w = h;
+		h = tmp;
+	}
+}
+
 void ComboKey::Touch(const TouchInput &input) {
 	using namespace CustomKey;
 	bool lastDown = pointerDownMask_ != 0;
@@ -739,7 +748,7 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, ControlMappe
 		if (touch.show) {
 			auto aux = root->Add(new ComboKey(cfg.key, key, cfg.toggle, controllMapper, 
 					g_Config.iTouchButtonStyle == 0 ? comboKeyShapes[cfg.shape].i : comboKeyShapes[cfg.shape].l, comboKeyShapes[cfg.shape].i, 
-					comboKeyImages[cfg.image].i, touch.scale, buttonLayoutParams(touch)));
+					comboKeyImages[cfg.image].i, touch.scale, comboKeyShapes[cfg.shape].d, buttonLayoutParams(touch)));
 			aux->SetAngle(comboKeyImages[cfg.image].r, comboKeyShapes[cfg.shape].r);
 			aux->FlipImageH(comboKeyShapes[cfg.shape].f);
 			return aux;
