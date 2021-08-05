@@ -216,7 +216,10 @@ void MemStickScreen::sendMessage(const char *message, const char *value) {
 
 			if (pendingMemStickFolder == g_Config.memStickDirectory) {
 				auto iz = GetI18NCategory("MemStick");
+#if PPSSPP_PLATFORM(ANDROID)
 				SystemToast(iz->T("That's the folder being used!"));
+#endif
+				return;
 			}
 
 			bool existingFiles = FolderSeemsToBeUsed(pendingMemStickFolder);
