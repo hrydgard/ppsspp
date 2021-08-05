@@ -169,16 +169,19 @@ const int baseActionButtonSpacing = 60;
 
 class ComboKey : public MultiTouchButton {
 public:
-	ComboKey(uint64_t pspButtonBit, const char *key, bool toggle, ControlMapper* controllMapper, ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, UI::LayoutParams *layoutParams)
-		: MultiTouchButton(key, bgImg, bgDownImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit), toggle_(toggle), controllMapper_(controllMapper), on_(false) {
+	ComboKey(uint64_t pspButtonBit, const char *key, bool toggle, ControlMapper* controllMapper, ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, bool invertedContextDimension, UI::LayoutParams *layoutParams)
+		: MultiTouchButton(key, bgImg, bgDownImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit), toggle_(toggle), controllMapper_(controllMapper), on_(false), invertedContextDimension_(invertedContextDimension) {
 	}
 	void Touch(const TouchInput &input) override;
 	bool IsDown() override;
+
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 private:
 	uint64_t pspButtonBit_;
 	bool toggle_;
 	ControlMapper* controllMapper_;
 	bool on_;
+	bool invertedContextDimension_; // Swap width and height
 };
 
 // Just edit this to add new image, shape or button function
@@ -227,17 +230,18 @@ namespace CustomKey {
 		ImageID l; // ImageID line version
 		float r; // Rotation angle in dregree
 		bool f; // Flip Horizontally
+		bool d; // Invert height and width for context dimension (for example for 90 degree rot)
 	};
 	static const keyShape comboKeyShapes[] = {
-		{ "Circle", ImageID("I_ROUND"), ImageID("I_ROUND_LINE"), 0.0f, false },
-		{ "Rectangle", ImageID("I_RECT"), ImageID("I_RECT_LINE"), 0.0f, false },
-		{ "Vertical Rectangle", ImageID("I_RECT"), ImageID("I_RECT_LINE"), 90.0f, false },
-		{ "L button", ImageID("I_SHOULDER"), ImageID("I_SHOULDER_LINE"), 0.0f, false },
-		{ "R button", ImageID("I_SHOULDER"), ImageID("I_SHOULDER_LINE"), 0.0f, true },
-		{ "Arrow up", ImageID("I_DIR"), ImageID("I_DIR_LINE"), 270.0f, false },
-		{ "Arrow down", ImageID("I_DIR"), ImageID("I_DIR_LINE"), 90.0f, false },
-		{ "Arrow left", ImageID("I_DIR"), ImageID("I_DIR_LINE"), 180.0f, false },
-		{ "Arrow right", ImageID("I_DIR"), ImageID("I_DIR_LINE"), 0.0f, false },
+		{ "Circle", ImageID("I_ROUND"), ImageID("I_ROUND_LINE"), 0.0f, false, false },
+		{ "Rectangle", ImageID("I_RECT"), ImageID("I_RECT_LINE"), 0.0f, false, false },
+		{ "Vertical Rectangle", ImageID("I_RECT"), ImageID("I_RECT_LINE"), 90.0f, false, true },
+		{ "L button", ImageID("I_SHOULDER"), ImageID("I_SHOULDER_LINE"), 0.0f, false, false },
+		{ "R button", ImageID("I_SHOULDER"), ImageID("I_SHOULDER_LINE"), 0.0f, true, false },
+		{ "Arrow up", ImageID("I_DIR"), ImageID("I_DIR_LINE"), 270.0f, false, true },
+		{ "Arrow down", ImageID("I_DIR"), ImageID("I_DIR_LINE"), 90.0f, false, true },
+		{ "Arrow left", ImageID("I_DIR"), ImageID("I_DIR_LINE"), 180.0f, false, false },
+		{ "Arrow right", ImageID("I_DIR"), ImageID("I_DIR_LINE"), 0.0f, false, false },
 	};
 
 	// Button list
