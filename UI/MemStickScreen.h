@@ -92,6 +92,7 @@ protected:
 	void CreateViews() override;
 
 private:
+	UI::EventReturn OnMoveDataClick(UI::EventParams &params);
 	void FinishFolderMove();
 
 	UI::EventReturn OnConfirm(UI::EventParams &params);

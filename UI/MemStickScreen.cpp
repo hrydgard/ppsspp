@@ -48,8 +48,8 @@
 
 static bool FolderSeemsToBeUsed(Path newMemstickFolder) {
 	// Inspect the potential new folder.
-	if (File::Exists(newMemstickFolder / "PSP") || File::Exists(newMemstickFolder / "SYSTEM")) {
-		// Does seem likely. We could add more critera like checking for actual savegames or something.
+	if (File::Exists(newMemstickFolder / "PSP/SAVEDATA") || File::Exists(newMemstickFolder / "SAVEDATA")) {
+		// Does seem likely. We could add more criteria like checking for actual savegames or something.
 		return true;
 	} else {
 		return false;
@@ -115,15 +115,23 @@ void MemStickScreen::CreateViews() {
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
 	Spacer *spacerColumn = new Spacer(new LinearLayoutParams(20.0, FILL_PARENT, 0.0f));
-	ViewGroup *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
+	ScrollView *leftColumnScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
+
+	ViewGroup *leftColumn = new LinearLayoutList(ORIENT_VERTICAL);
 	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	root_->Add(spacerColumn);
-	root_->Add(leftColumn);
+	root_->Add(leftColumnScroll);
 	root_->Add(rightColumnItems);
+
+	leftColumnScroll->Add(leftColumn);
 
 	if (initialSetup_) {
 		leftColumn->Add(new TextView(iz->T("Welcome to PPSSPP!"), ALIGN_LEFT, false));
 		leftColumn->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 12.0f, 0.0f)));
+	}
+
+	if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
+		leftColumn->Add(new TextView(iz->T("ScopedStorageWarning", "WARNING: BETA ANDROID SCOPED STORAGE SUPPORT\nMAY EAT YOUR DATA"), ALIGN_LEFT, false));
 	}
 
 	leftColumn->Add(new TextView(iz->T("MemoryStickDescription", "Choose PSP data storage (Memory Stick)"), ALIGN_LEFT, false));
@@ -133,6 +141,7 @@ void MemStickScreen::CreateViews() {
 #if PPSSPP_PLATFORM(ANDROID)
 	if (!System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
 		leftColumn->Add(new Choice(iz->T("Use PSP folder at root of storage")))->OnClick.Handle(this, &MemStickScreen::OnUseStorageRoot);
+		leftColumn->Add(new TextView(iz->T("ChooseFolderDesc", "* Data will stay even if you uninstall PPSSPP.\n* Data can be shared with PPSSPP Gold\n* Easy USB access"), ALIGN_LEFT, false));
 	}
 #endif
 
@@ -145,7 +154,7 @@ void MemStickScreen::CreateViews() {
 	leftColumn->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 12.0f, 0.0f)));
 
 	if (!initialSetup_) {
-		leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		rightColumnItems->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	}
 
 	INFO_LOG(SYSTEM, "MemStickScreen: initialSetup=%d", (int)initialSetup_);
@@ -188,7 +197,6 @@ UI::EventReturn MemStickScreen::OnUseStorageRoot(UI::EventParams &params) {
 }
 
 UI::EventReturn MemStickScreen::OnBrowse(UI::EventParams &params) {
-	auto sy = GetI18NCategory("System");
 	System_SendMessage("browse_folder", "");
 	return UI::EVENT_DONE;
 }
@@ -205,6 +213,12 @@ void MemStickScreen::sendMessage(const char *message, const char *value) {
 
 			// Browse finished. Let's pop up the confirmation dialog.
 			Path pendingMemStickFolder = Path(filename);
+
+			if (pendingMemStickFolder == g_Config.memStickDirectory) {
+				auto iz = GetI18NCategory("MemStick");
+				SystemToast(iz->T("That's the folder being used!"));
+			}
+
 			bool existingFiles = FolderSeemsToBeUsed(pendingMemStickFolder);
 			screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, initialSetup_));
 		}
@@ -294,11 +308,17 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 	free_disk_space(oldMemstickFolder, freeSpaceOld);
 
 	leftColumn->Add(new TextView(iz->T("New PSP Data Folder"), ALIGN_LEFT, false));
+	if (!initialSetup_) {
+		leftColumn->Add(new TextView(iz->T("PPSSPP will restart after the change."), ALIGN_LEFT, false));
+	}
 	leftColumn->Add(new TextView(newMemstickFolder_.ToVisualString(), ALIGN_LEFT, false));
 	std::string newFreeSpaceText = std::string(iz->T("Free space")) + ": " + FormatSpaceString(freeSpaceNew);
 	leftColumn->Add(new TextView(newFreeSpaceText, ALIGN_LEFT, false));
 	if (existingFilesInNewFolder_) {
-		leftColumn->Add(new TextView(iz->T("Warning: Already contains data"), ALIGN_LEFT, false));
+		leftColumn->Add(new TextView(iz->T("Already contains data."), ALIGN_LEFT, false));
+		if (!moveData_) {
+			leftColumn->Add(new TextView(iz->T("No data will be changed."), ALIGN_LEFT, false));
+		}
 	}
 	if (!error_.empty()) {
 		leftColumn->Add(new TextView(error_, ALIGN_LEFT, false));
@@ -319,12 +339,17 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 
 	if (!moveDataTask_) {
 		if (!initialSetup_) {
-			leftColumn->Add(new CheckBox(&moveData_, iz->T("Move Data")));
+			leftColumn->Add(new CheckBox(&moveData_, iz->T("Move Data")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnMoveDataClick);
 		}
 
 		leftColumn->Add(new Choice(di->T("OK")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnConfirm);
 		leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	}
+}
+
+UI::EventReturn ConfirmMemstickMoveScreen::OnMoveDataClick(UI::EventParams &params) {
+	RecreateViews();
+	return UI::EVENT_DONE;
 }
 
 void ConfirmMemstickMoveScreen::update() {
@@ -476,6 +501,11 @@ void ConfirmMemstickMoveScreen::FinishFolderMove() {
 
 	// If the chosen folder already had a config, reload it!
 	g_Config.Load();
+
+	if (!initialSetup_) {
+		// We restart the app here, to get the new settings.
+		System_SendMessage("graphics_restart", "");
+	}
 
 	if (g_Config.Save("MemstickPathChanged")) {
 		TriggerFinish(DialogResult::DR_OK);
