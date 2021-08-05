@@ -61,7 +61,7 @@ namespace SaveState
 	int GetOldestSlot(const Path &gameFilename);
 	
 	std::string GetSlotDateAsString(const Path &gameFilename, int slot);
-	std::string GenerateFullDiskId(const Path &gameFilename);
+	std::string GenerateFullDiscId(const Path &gameFilename);
 	Path GenerateSaveSlotFilename(const Path &gameFilename, int slot, const char *extension);
 
 	std::string GetTitle(const Path &filename);
