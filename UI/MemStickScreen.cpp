@@ -141,15 +141,21 @@ void MemStickScreen::CreateViews() {
 #if PPSSPP_PLATFORM(ANDROID)
 	if (!System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
 		leftColumn->Add(new Choice(iz->T("Use PSP folder at root of storage")))->OnClick.Handle(this, &MemStickScreen::OnUseStorageRoot);
-		leftColumn->Add(new TextView(iz->T("ChooseFolderDesc", "* Data will stay even if you uninstall PPSSPP.\n* Data can be shared with PPSSPP Gold\n* Easy USB access"), ALIGN_LEFT, false));
+		leftColumn->Add(new TextView(iz->T("ChooseFolderDesc", "* Data will stay even if you uninstall PPSSPP.\n* Data can be shared between PPSSPP regular/Gold.\n* Easy USB access"), ALIGN_LEFT, false));
 	}
 #endif
 
 	leftColumn->Add(new Choice(iz->T("Create or Choose a PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnBrowse);
-	leftColumn->Add(new TextView(iz->T("ChooseFolderDesc", "* Data will stay even if you uninstall PPSSPP.\n* Data can be shared with PPSSPP Gold\n* Easy USB access"), ALIGN_LEFT, false));
+	leftColumn->Add(new TextView(iz->T("ChooseFolderDesc", "* Data will stay even if you uninstall PPSSPP.\n* Data can be shared between PPSSPP regular/Gold\n* Easy USB access"), ALIGN_LEFT, false));
 
 	leftColumn->Add(new Choice(iz->T("Use App Private Directory")))->OnClick.Handle(this, &MemStickScreen::OnUseInternalStorage);
-	leftColumn->Add(new TextView(iz->T("InternalStorageDesc", "* Warning! Data will be deleted if you uninstall PPSSPP!\n* Data cannot be shared with PPSSPP Gold\n* USB access through Android/data/org.ppsspp.ppsspp/files"), ALIGN_LEFT, false));
+	leftColumn->Add(new TextView(iz->T("InternalStorageDesc", "* Warning! Data will be deleted if you uninstall PPSSPP!\n* Data cannot be shared between PPSSPP regular/Gold\n* USB access through "
+#ifdef GOLD
+	"Android/data/org.ppsspp.ppssppgold/files"
+#else
+	"Android/data/org.ppsspp.ppsspp/files"
+#endif
+	), ALIGN_LEFT, false));
 
 	leftColumn->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 12.0f, 0.0f)));
 
