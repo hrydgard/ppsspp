@@ -841,6 +841,7 @@ public:
 	void SetShadow(bool shadow) { shadow_ = shadow; }
 	void SetFocusable(bool focusable) { focusable_ = focusable; }
 	void SetClip(bool clip) { clip_ = clip; }
+	void SetBullet(bool bullet) { bullet_ = bullet; }
 
 	bool CanBeFocused() const override { return focusable_; }
 
@@ -853,6 +854,7 @@ private:
 	bool shadow_;
 	bool focusable_;
 	bool clip_;
+	bool bullet_ = false;
 };
 
 class TextEdit : public View {
