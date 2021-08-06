@@ -155,9 +155,9 @@ void MemStickScreen::CreateViews() {
 	leftColumn->Add(new Choice(iz->T("Use App Private Directory")))->OnClick.Handle(this, &MemStickScreen::OnUseInternalStorage);
 	// Consider https://www.compart.com/en/unicode/U+26A0 (unicode warning sign?)? or a graphic?
 	leftColumn->Add(new TextView(iz->T("DataWillBeLostOnUninstall", "Warning! Data will be lost when you uninstall PPSSPP!")))->SetBullet(true);
-	leftColumn->Add(new TextView(iz->T("DataCannotBeShared", "Data cannot be shared between PPSSPP regular / Gold!")))->SetBullet(true);
+	leftColumn->Add(new TextView(iz->T("DataCannotBeShared", "Data CANNOT be shared between PPSSPP regular/Gold!")))->SetBullet(true);
 #if GOLD
-	leftColumn->Add(new TextView(iz->T("USBAccessThrough", "USB access through Android/data/org.ppsspp.ppssppgold/files")))->SetBullet(true);
+	leftColumn->Add(new TextView(iz->T("USBAccessThroughGold", "USB access through Android/data/org.ppsspp.ppssppgold/files")))->SetBullet(true);
 #else
 	leftColumn->Add(new TextView(iz->T("USBAccessThrough", "USB access through Android/data/org.ppsspp.ppsspp/files")))->SetBullet(true);
 #endif
