@@ -801,6 +801,8 @@ void ImageView::Draw(UIContext &dc) {
 	}
 }
 
+const float bulletOffset = 25;
+
 void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
 	Bounds bounds(0, 0, layoutParams_->width, layoutParams_->height);
 	if (bounds.w < 0) {
@@ -812,6 +814,10 @@ void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 	}
 	ApplyBoundsBySpec(bounds, horiz, vert);
 	dc.MeasureTextRect(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), (int)text_.length(), bounds, &w, &h, textAlign_);
+
+	if (bullet_) {
+		w += bulletOffset;
+	}
 }
 
 void TextView::Draw(UIContext &dc) {
@@ -838,11 +844,23 @@ void TextView::Draw(UIContext &dc) {
 		dc.FillRect(style.background, bounds_);
 	}
 	dc.SetFontStyle(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont);
+
+	Bounds textBounds = bounds_;
+
+	if (bullet_) {
+		// Possible alternatives: •●■
+		// TODO: Maybe draw an actual circle if we don't have real unicode fonts. So far this is only
+		// used on Android.
+		dc.DrawTextRect("●", textBounds, textColor, ALIGN_LEFT);
+		textBounds.x += bulletOffset;
+		textBounds.w -= bulletOffset;
+	}
+
 	if (shadow_) {
 		uint32_t shadowColor = 0x80000000;
-		dc.DrawTextRect(text_.c_str(), bounds_.Offset(1.0f, 1.0f), shadowColor, textAlign_);
+		dc.DrawTextRect(text_.c_str(), textBounds.Offset(1.0f, 1.0f), shadowColor, textAlign_);
 	}
-	dc.DrawTextRect(text_.c_str(), bounds_, textColor, textAlign_);
+	dc.DrawTextRect(text_.c_str(), textBounds, textColor, textAlign_);
 	if (small_) {
 		// If we changed font style, reset it.
 		dc.SetFontStyle(dc.theme->uiFont);
