@@ -925,9 +925,9 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 }
 
 u64 DirectoryFileSystem::FreeSpace(const std::string &path) {
-	uint64_t result = 0;
+	int64_t result = 0;
 	if (free_disk_space(GetLocalPath(path), result)) {
-		return ReplayApplyDisk64(ReplayAction::FREESPACE, result, CoreTiming::GetGlobalTimeUs());
+		return ReplayApplyDisk64(ReplayAction::FREESPACE, (uint64_t)result, CoreTiming::GetGlobalTimeUs());
 	}
 
 #if HOST_IS_CASE_SENSITIVE

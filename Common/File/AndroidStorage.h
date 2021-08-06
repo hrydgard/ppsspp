@@ -30,11 +30,12 @@ inline StorageError StorageErrorFromInt(int ival) {
 	}
 }
 
+extern std::string g_extFilesDir;
+extern std::string g_externalDir;
+
 #if PPSSPP_PLATFORM(ANDROID) && !defined(__LIBRETRO__)
 
 #include <jni.h>
-
-extern std::string g_extFilesDir;
 
 void Android_StorageSetNativeActivity(jobject nativeActivity);
 
@@ -58,8 +59,6 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri);
 void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj);
 
 #else
-
-extern std::string g_extFilesDir;
 
 // Stub out the Android Storage wrappers, so that we can avoid ifdefs everywhere.
 

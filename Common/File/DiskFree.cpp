@@ -23,7 +23,7 @@
 #include "Common/File/AndroidStorage.h"
 #include "Common/Data/Encoding/Utf8.h"
 
-bool free_disk_space(const Path &path, uint64_t &space) {
+bool free_disk_space(const Path &path, int64_t &space) {
 #ifdef _WIN32
 	ULARGE_INTEGER free;
 	if (GetDiskFreeSpaceExW(path.ToWString().c_str(), &free, nullptr, nullptr)) {
@@ -41,8 +41,10 @@ bool free_disk_space(const Path &path, uint64_t &space) {
 	int res = statvfs(path.c_str(), &diskstat);
 
 	if (res == 0) {
+		// Not sure why we're excluding Android here anyway...
 #ifndef __ANDROID__
 		if (diskstat.f_flag & ST_RDONLY) {
+			// No space to write.
 			space = 0;
 			return true;
 		}

@@ -6,6 +6,23 @@
 
 #include "Common/StringUtils.h"
 
+// Not strictly a parser...
+void NiceSizeFormat(size_t size, char *out, size_t bufSize) {
+	const char *sizes[] = { "B","KB","MB","GB","TB","PB","EB" };
+	int s = 0;
+	int frac = 0;
+	while (size >= 1024) {
+		s++;
+		frac = (int)size & 1023;
+		size /= 1024;
+	}
+	float f = (float)size + ((float)frac / 1024.0f);
+	if (s == 0)
+		snprintf(out, bufSize, "%d B", (int)size);
+	else
+		snprintf(out, bufSize, "%3.1f %s", f, sizes[s]);
+}
+
 bool Version::ParseVersionString(std::string str) {
 	if (str.empty())
 		return false;

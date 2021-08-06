@@ -10,16 +10,6 @@
 #include "android/jni/AndroidContentURI.h"
 
 Path::Path(const std::string &str) {
-	if (str.empty()) {
-		type_ = PathType::UNDEFINED;
-	} else if (startsWith(str, "http://") || startsWith(str, "https://")) {
-		type_ = PathType::HTTP;
-	} else if (Android_IsContentUri(str)) {
-		type_ = PathType::CONTENT_URI;
-	} else {
-		type_ = PathType::NATIVE;
-	}
-
 	Init(str);
 }
 
@@ -31,7 +21,35 @@ Path::Path(const std::wstring &str) {
 #endif
 
 void Path::Init(const std::string &str) {
-	path_ = str;
+	if (str.empty()) {
+		type_ = PathType::UNDEFINED;
+		path_.clear();
+	} else if (startsWith(str, "http://") || startsWith(str, "https://")) {
+		type_ = PathType::HTTP;
+		path_ = str;
+	} else if (Android_IsContentUri(str)) {
+		// Content URIs on non scoped-storage (and possibly other cases?) can contain
+		// "raw:/" URIs inside. This happens when picking the Download folder using the folder browser
+		// on Android 9.
+		// Here's an example:
+		// content://com.android.providers.downloads.documents/tree/raw%3A%2Fstorage%2Femulated%2F0%2FDownload%2Fp/document/raw%3A%2Fstorage%2Femulated%2F0%2FDownload%2Fp
+		//
+		// Since this is a legacy use case, I think it's safe enough to just detect this
+		// and flip it to a NATIVE url and hope for the best.
+		AndroidContentURI uri(str);
+		if (startsWith(uri.FilePath(), "raw:/")) {
+			INFO_LOG(SYSTEM, "Raw path detected: %s", uri.FilePath().c_str());
+			path_ = uri.FilePath().substr(4);
+			type_ = PathType::NATIVE;
+		} else {
+			// A normal content URI path.
+			type_ = PathType::CONTENT_URI;
+			path_ = str;
+		}
+	} else {
+		type_ = PathType::NATIVE;
+		path_ = str;
+	}
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	// Flip all the slashes around. We flip them back on ToWString().
@@ -236,7 +254,6 @@ bool Path::CanNavigateUp() const {
 	if (type_ == PathType::CONTENT_URI) {
 		return AndroidContentURI(path_).CanNavigateUp();
 	}
-
 	if (path_ == "/" || path_ == "") {
 		return false;
 	}
@@ -300,27 +317,32 @@ bool Path::IsAbsolute() const {
 		return false;
 }
 
-std::string Path::PathTo(const Path &other) const {
+bool Path::ComputePathTo(const Path &other, std::string &path) const {
 	if (!other.StartsWith(*this)) {
 		// Can't do this. Should return an error.
-		return std::string();
+		return false;
+	}
+
+	if (*this == other) {
+		// Equal, the path is empty.
+		path.clear();
+		return true;
 	}
 
 	std::string diff;
-
 	if (type_ == PathType::CONTENT_URI) {
 		AndroidContentURI a(path_);
 		AndroidContentURI b(other.path_);
 		if (a.RootPath() != b.RootPath()) {
 			// No common root, can't do anything
-			return std::string();
+			return false;
 		}
-		diff = a.PathTo(b);
+		return a.ComputePathTo(b, path);
 	} else if (path_ == "/") {
-		diff = other.path_.substr(1);
+		path = other.path_.substr(1);
+		return true;
 	} else {
-		diff = other.path_.substr(path_.size() + 1);
+		path = other.path_.substr(path_.size() + 1);
+		return true;
 	}
-
-	return diff;
 }

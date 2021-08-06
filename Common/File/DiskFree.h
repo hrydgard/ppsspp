@@ -4,4 +4,5 @@
 
 #include "Common/File/Path.h"
 
-bool free_disk_space(const Path &path, uint64_t &space);
+// If this fails, false is returned and space is negative.
+bool free_disk_space(const Path &path, int64_t &space);

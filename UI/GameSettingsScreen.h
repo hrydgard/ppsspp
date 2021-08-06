@@ -43,6 +43,7 @@ protected:
 	void CallbackInflightFrames(bool yes);
 	void CallbackMemstickFolder(bool yes);
 	bool UseVerticalLayout() const;
+	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
 private:
 	void TriggerRestart(const char *why);

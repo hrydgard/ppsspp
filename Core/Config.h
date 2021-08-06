@@ -490,7 +490,7 @@ public:
 	std::string dismissedVersion;
 
 	void Load(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
-	void Save(const char *saveReason);
+	bool Save(const char *saveReason);
 	void Reload();
 	void RestoreDefaults();
 

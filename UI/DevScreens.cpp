@@ -23,6 +23,7 @@
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/File/AndroidStorage.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Net/HTTPClient.h"
 #include "Common/UI/Context.h"
@@ -59,11 +60,7 @@
 int GetD3DCompilerVersion();
 #endif
 
-#if PPSSPP_PLATFORM(ANDROID)
-
 #include "android/jni/app-android.h"
-
-#endif
 
 static const char *logLevelList[] = {
 	"Notice",
@@ -592,8 +589,11 @@ void SystemInfoScreen::CreateViews() {
 
 #if PPSSPP_PLATFORM(ANDROID)
 	storage->Add(new InfoItem("ExtFilesDir", g_extFilesDir));
-	if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
-		storage->Add(new InfoItem("Scoped Storage", di->T("Yes")));
+	bool scoped = System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE);
+	storage->Add(new InfoItem("Scoped Storage Enabled", scoped ? di->T("Yes") : di->T("No")));
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 30) {
+		// This flag is only relevant on Android API 30+.
+		storage->Add(new InfoItem("IsStoragePreservedLegacy", Android_IsExternalStoragePreservedLegacy() ? di->T("Yes") : di->T("No")));
 	}
 #endif
 
