@@ -315,6 +315,7 @@ public:
 	int iRightAnalogRight;
 	int iRightAnalogPress;
 	bool bRightAnalogCustom;
+	bool bRightAnalogDisableDiagonal;
 
 	// Disable diagonals
 	bool bDisableDpadDiagonals;
