@@ -385,10 +385,10 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const s
 				if (!ctx) {
 					success = false;
 				} else {
-					ZSTD_CCtx_setParameter(ctx, ZSTD_c_compressionLevel, 1);
+					// TODO: If free disk space is low, we could max this out to 22?
+					ZSTD_CCtx_setParameter(ctx, ZSTD_c_compressionLevel, ZSTD_CLEVEL_DEFAULT);
 					ZSTD_CCtx_setParameter(ctx, ZSTD_c_checksumFlag, 1);
 					ZSTD_CCtx_setPledgedSrcSize(ctx, sz);
-					// TODO: If free disk space is low, we could max this out to 22?
 					write_len = ZSTD_compress2(ctx, compressed_buffer, write_len, buffer, sz);
 					success = !ZSTD_isError(write_len);
 				}
