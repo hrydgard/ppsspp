@@ -25,6 +25,14 @@
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 
+enum class SerializeCompressType {
+	NONE = 0,
+	SNAPPY = 1,
+	ZSTD = 2,
+};
+
+static constexpr SerializeCompressType SAVE_TYPE = SerializeCompressType::ZSTD;
+
 PointerWrapSection PointerWrap::Section(const char *title, int ver) {
 	return Section(title, ver, ver);
 }
@@ -289,12 +297,17 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 		u8 *uncomp_buffer = new u8[header.UncompressedSize];
 		size_t uncomp_size = header.UncompressedSize;
 		bool success = false;
-		if (header.Compress == 1) {
+		if (SerializeCompressType(header.Compress) == SerializeCompressType::SNAPPY) {
 			auto status = snappy_uncompress((const char *)buffer, sz, (char *)uncomp_buffer, &uncomp_size);
 			success = status == SNAPPY_OK;
-		} else {
-			auto status = ZSTD_decompress((char *)uncomp_buffer, uncomp_size, (const char *)buffer, sz);
+		} else if (SerializeCompressType(header.Compress) == SerializeCompressType::ZSTD) {
+			size_t status = ZSTD_decompress((char *)uncomp_buffer, uncomp_size, (const char *)buffer, sz);
 			success = !ZSTD_isError(status);
+			if (success) {
+				uncomp_size = status;
+			}
+		} else {
+			ERROR_LOG(SAVESTATE, "ChunkReader: Unexpected compression type %d", header.Compress);
 		}
 		if (!success) {
 			ERROR_LOG(SAVESTATE, "ChunkReader: Failed to decompress file");
@@ -336,24 +349,70 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const s
 	}
 
 	// Make sure we can allocate a buffer to compress before compressing.
-	size_t write_len = ZSTD_compressBound(sz);
-	u8 *compressed_buffer = (u8 *)malloc(write_len);
+	size_t write_len;
+	SerializeCompressType usedType = SAVE_TYPE;
+	switch (usedType) {
+	case SerializeCompressType::NONE:
+		write_len = 0;
+		break;
+	case SerializeCompressType::SNAPPY:
+		write_len = snappy_max_compressed_length(sz);
+		break;
+	case SerializeCompressType::ZSTD:
+		write_len = ZSTD_compressBound(sz);
+		break;
+	}
+	u8 *compressed_buffer = write_len == 0 ? nullptr : (u8 *)malloc(write_len);
 	u8 *write_buffer = buffer;
 	if (!compressed_buffer) {
-		ERROR_LOG(SAVESTATE, "ChunkReader: Unable to allocate compressed buffer");
+		if (write_len != 0)
+			ERROR_LOG(SAVESTATE, "ChunkReader: Unable to allocate compressed buffer");
 		// We'll save uncompressed.  Better than not saving...
 		write_len = sz;
+		usedType = SerializeCompressType::NONE;
 	} else {
-		// TODO: If free disk space is low, we could max this out to 22?
-		write_len = ZSTD_compress(compressed_buffer, write_len, buffer, sz, 1);
-		free(buffer);
+		bool success = true;
+		switch (usedType) {
+		case SerializeCompressType::NONE:
+			_assert_(false);
+			break;
+		case SerializeCompressType::SNAPPY:
+			success = snappy_compress((const char *)buffer, sz, (char *)compressed_buffer, &write_len) == SNAPPY_OK;
+			break;
+		case SerializeCompressType::ZSTD:
+			{
+				auto ctx = ZSTD_createCCtx();
+				if (!ctx) {
+					success = false;
+				} else {
+					// TODO: If free disk space is low, we could max this out to 22?
+					ZSTD_CCtx_setParameter(ctx, ZSTD_c_compressionLevel, ZSTD_CLEVEL_DEFAULT);
+					ZSTD_CCtx_setParameter(ctx, ZSTD_c_checksumFlag, 1);
+					ZSTD_CCtx_setPledgedSrcSize(ctx, sz);
+					write_len = ZSTD_compress2(ctx, compressed_buffer, write_len, buffer, sz);
+					success = !ZSTD_isError(write_len);
+				}
+				ZSTD_freeCCtx(ctx);
+			}
+			break;
+		}
 
-		write_buffer = compressed_buffer;
+		if (success) {
+			free(buffer);
+			write_buffer = compressed_buffer;
+		} else {
+			ERROR_LOG(SAVESTATE, "ChunkReader: Compression failed");
+			free(compressed_buffer);
+
+			// We can still save uncompressed.
+			write_len = sz;
+			usedType = SerializeCompressType::NONE;
+		}
 	}
 
 	// Create header
 	SChunkHeader header{};
-	header.Compress = compressed_buffer ? 2 : 0;
+	header.Compress = (int)usedType;
 	header.Revision = REVISION_CURRENT;
 	header.ExpectedSize = (u32)write_len;
 	header.UncompressedSize = (u32)sz;
