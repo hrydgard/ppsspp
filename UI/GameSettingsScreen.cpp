@@ -1232,7 +1232,10 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 
 	Reporting::Enable(enableReports_, "report.ppsspp.org");
 	Reporting::UpdateConfig();
-	g_Config.Save("GameSettingsScreen::onFinish");
+	if (!g_Config.Save("GameSettingsScreen::onFinish")) {
+		System_SendMessage("toast", "Failed to save settings!\nCheck permissions, or try to restart the device.");
+	}
+
 	if (editThenRestore_) {
 		// In case we didn't have the title yet before, try again.
 		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, 0);
