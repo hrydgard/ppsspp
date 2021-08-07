@@ -4,6 +4,7 @@
 
 #include "Common/StringUtils.h"
 #include "Common/Net/URL.h"
+#include "Common/Log.h"
 
 // Utility to deal with Android storage URIs of the forms:
 // content://com.android.externalstorage.documents/tree/primary%3APSP%20ISO
@@ -39,12 +40,20 @@ public:
 		if (parts.size() == 3) {
 			// Single file URI.
 			provider = parts[0];
-			if (parts[1] != "tree") {
+			if (parts[1] == "tree") {
+				// Single directory URI.
+				// Not sure when we encounter these?
+				// file empty signals this type.
+				root = UriDecode(parts[2]);
+				return true;
+			} else if (parts[1] == "document") {
+				// root empty signals this type.
+				file = UriDecode(parts[2]);
+				return true;
+			} else {
+				// What's this?
 				return false;
 			}
-			root = UriDecode(parts[2]);
-			// file empty signals this type.
-			return true;
 		} else if (parts.size() == 5) {
 			// Tree URI
 			provider = parts[0];
@@ -65,6 +74,11 @@ public:
 	}
 
 	AndroidContentURI WithRootFilePath(const std::string &filePath) {
+		if (root.empty()) {
+			ERROR_LOG(SYSTEM, "WithRootFilePath cannot be used with single file URIs.");
+			return *this;
+		}
+
 		AndroidContentURI uri = *this;
 		uri.file = uri.root;
 		if (!filePath.empty()) {
@@ -106,11 +120,10 @@ public:
 		return uri;
 	}
 
-	bool IsTreeURI() const {
-		return file.empty();
-	}
-
 	bool CanNavigateUp() const {
+		if (root.empty()) {
+			return false;
+		}
 		return file.size() > root.size();
 	}
 
@@ -145,7 +158,7 @@ public:
 	}
 
 	std::string GetLastPart() const {
-		if (IsTreeURI()) {
+		if (file.empty()) {
 			// Can't do anything anyway.
 			return std::string();
 		}
@@ -182,7 +195,7 @@ public:
 	}
 
 	bool TreeContains(const AndroidContentURI &fileURI) {
-		if (!IsTreeURI()) {
+		if (root.empty()) {
 			return false;
 		}
 		return startsWith(fileURI.file, root);
@@ -192,8 +205,11 @@ public:
 		if (file.empty()) {
 			// Tree URI
 			return StringFromFormat("content://%s/tree/%s", provider.c_str(), UriEncode(root).c_str());
+		} else if (root.empty()) {
+			// Single file URI
+			return StringFromFormat("content://%s/document/%s", provider.c_str(), UriEncode(file).c_str());
 		} else {
-			// File URI
+			// File URI from Tree
 			return StringFromFormat("content://%s/tree/%s/document/%s", provider.c_str(), UriEncode(root).c_str(), UriEncode(file).c_str());
 		}
 	}
@@ -208,6 +224,6 @@ public:
 	}
 
 	const std::string &RootPath() const {
-		return root;
+		return root.empty() ? file : root;
 	}
 };
