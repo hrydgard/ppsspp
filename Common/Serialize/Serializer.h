@@ -160,12 +160,13 @@ public:
 
 	// Expects ptr to have at least MeasurePtr bytes at ptr.
 	template<class T>
-	static Error SavePtr(u8 *ptr, T &_class)
+	static Error SavePtr(u8 *ptr, T &_class, size_t expected_size)
 	{
+		const u8 *expected_end = ptr + expected_size;
 		PointerWrap p(&ptr, PointerWrap::MODE_WRITE);
 		_class.DoState(p);
 
-		if (p.error != p.ERROR_FAILURE) {
+		if (p.error != p.ERROR_FAILURE && (expected_end == ptr || expected_size == 0)) {
 			return ERROR_NONE;
 		} else {
 			return ERROR_BROKEN_STATE;
@@ -201,7 +202,7 @@ public:
 		u8 *buffer = (u8 *)malloc(sz);
 		if (!buffer)
 			return ERROR_BAD_ALLOC;
-		Error error = SavePtr(buffer, _class);
+		Error error = SavePtr(buffer, _class, sz);
 
 		// SaveFile takes ownership of buffer
 		if (error == ERROR_NONE)
