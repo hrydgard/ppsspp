@@ -56,6 +56,8 @@ if(CMAKE_SYSTEM_PROCESSOR)
 		set(X86_DEVICE ON)
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^mips")
 		set(MIPS_DEVICE ON)
+	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^riscv64")
+		set(RISCV64_DEVICE ON)
 	else()
 		message("Unknown CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 	endif()
@@ -113,6 +115,7 @@ endif()
 option(ARMV7 "Set to ON if targeting an ARMv7 processor" ${ARMV7_DEVICE})
 option(ARM "Set to ON if targeting an ARM processor" ${ARM_DEVICE})
 option(MIPS "Set to ON if targeting a MIPS processor" ${MIPS_DEVICE})
+option(RISCV64 "Set to ON if targeting a RISCV64 processor" ${RISCV64_DEVICE})
 option(X86 "Set to ON if targeting an X86 processor" ${X86_DEVICE})
 option(X86_64 "Set to ON if targeting an X86_64 processor" ${X86_64_DEVICE})
 # :: Environments
@@ -247,6 +250,9 @@ if(MIPS AND X86)
 endif()
 if(MIPS)
 	message("Generating for MIPS, ${CMAKE_BUILD_TYPE}")
+endif()
+if(RISCV64)
+	message("Generating for RISCV64, ${CMAKE_BUILD_TYPE}")
 endif()
 if(X86)
 	message("Generating for x86, ${CMAKE_BUILD_TYPE}")
@@ -423,6 +429,13 @@ set(CommonMIPS
 )
 source_group(MIPS FILES ${CommonMIPS})
 
+set(CommonRISCV64
+	Common/RiscVCPUDetect.cpp
+	Core/MIPS/fake/FakeJit.cpp
+	Core/MIPS/fake/FakeJit.h
+)
+source_group(RISCV64 FILES ${CommonRISCV64})
+
 if(WIN32)
 	set(CommonD3D
 		Common/GPU/D3D9/D3D9ShaderCompiler.cpp
@@ -442,6 +455,7 @@ add_library(Common STATIC
 	${CommonARM}
 	${CommonARM64}
 	${CommonMIPS}
+	${CommonRISCV64}
 	${CommonD3D}
 	Common/Serialize/Serializer.cpp
 	Common/Serialize/Serializer.h
@@ -712,6 +726,8 @@ if(USE_FFMPEG)
 					set(PLATFORM_ARCH "linux/arm")
 				elseif(MIPS)
 					set(PLATFORM_ARCH "linux/mips32")
+				elseif(RISCV64)
+					set(PLATFORM_ARCH "linux/riscv64")
 				elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
 					set(PLATFORM_ARCH "linux/x86_64")
 				elseif(X86)
