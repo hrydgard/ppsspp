@@ -216,7 +216,7 @@ bool DiscIDFromGEDumpPath(const Path &path, FileLoader *fileLoader, std::string 
 	}
 }
 
-bool CPU_Init() {
+bool CPU_Init(std::string *errorString) {
 	coreState = CORE_POWERUP;
 	currentMIPS = &mipsr4k;
 
@@ -237,7 +237,8 @@ bool CPU_Init() {
 		loadedFile = new RamCachingFileLoader(loadedFile);
 	}
 #endif
-	IdentifiedFileType type = Identify_File(loadedFile);
+
+	IdentifiedFileType type = Identify_File(loadedFile, errorString);
 
 	// TODO: Put this somewhere better?
 	if (!coreParameter.mountIso.empty()) {
@@ -277,6 +278,8 @@ bool CPU_Init() {
 		allowPlugins = false;
 		break;
 	default:
+		// Can we even get here?
+		WARN_LOG(LOADER, "CPU_Init didn't recognize file. %s", errorString->c_str());
 		break;
 	}
 
@@ -413,7 +416,7 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	pspIsIniting = true;
 	PSP_SetLoading("Loading game...");
 
-	if (!CPU_Init()) {
+	if (!CPU_Init(&coreParameter.errorString)) {
 		*error_string = coreParameter.errorString;
 		if (error_string->empty()) {
 			*error_string = "Failed initializing CPU/Memory";

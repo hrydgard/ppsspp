@@ -74,7 +74,8 @@ bool LaunchFile(ScreenManager *screenManager, const Path &path) {
 		return false;
 	}
 
-	IdentifiedFileType type = Identify_File(loader);
+	std::string errorString;
+	IdentifiedFileType type = Identify_File(loader, &errorString);
 	delete loader;
 
 	switch (type) {

@@ -426,7 +426,8 @@ bool SavedataBrowser::ByFilename(const UI::View *v1, const UI::View *v2) {
 
 static time_t GetTotalSize(const SavedataButton *b) {
 	auto fileLoader = std::unique_ptr<FileLoader>(ConstructFileLoader(b->GamePath()));
-	switch (Identify_File(fileLoader.get())) {
+	std::string errorString;
+	switch (Identify_File(fileLoader.get(), &errorString)) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
 		return File::GetDirectoryRecursiveSize(ResolvePBPDirectory(b->GamePath()), nullptr, File::GETFILES_GETHIDDEN);
@@ -449,7 +450,8 @@ static time_t GetDateSeconds(const SavedataButton *b) {
 	auto fileLoader = std::unique_ptr<FileLoader>(ConstructFileLoader(b->GamePath()));
 	tm datetm;
 	bool success;
-	if (Identify_File(fileLoader.get()) == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
+	std::string errorString;
+	if (Identify_File(fileLoader.get(), &errorString) == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
 		success = File::GetModifTime(b->GamePath() / "PARAM.SFO", datetm);
 	} else {
 		success = File::GetModifTime(b->GamePath(), datetm);

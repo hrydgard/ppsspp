@@ -356,8 +356,10 @@ public:
 			return;
 		}
 
+		std::string errorString;
+
 		info_->working = true;
-		info_->fileType = Identify_File(info_->GetFileLoader().get());
+		info_->fileType = Identify_File(info_->GetFileLoader().get(), &errorString);
 		switch (info_->fileType) {
 		case IdentifiedFileType::PSP_PBP:
 		case IdentifiedFileType::PSP_PBP_DIRECTORY:
