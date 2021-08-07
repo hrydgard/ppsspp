@@ -31,7 +31,7 @@ enum class SerializeCompressType {
 	ZSTD = 2,
 };
 
-static constexpr SerializeCompressType SAVE_TYPE = SerializeCompressType::SNAPPY;
+static constexpr SerializeCompressType SAVE_TYPE = SerializeCompressType::ZSTD;
 
 PointerWrapSection PointerWrap::Section(const char *title, int ver) {
 	return Section(title, ver, ver);
@@ -371,21 +371,43 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const s
 		write_len = sz;
 		usedType = SerializeCompressType::NONE;
 	} else {
+		bool success = true;
 		switch (usedType) {
 		case SerializeCompressType::NONE:
 			_assert_(false);
 			break;
 		case SerializeCompressType::SNAPPY:
-			snappy_compress((const char *)buffer, sz, (char *)compressed_buffer, &write_len);
+			success = snappy_compress((const char *)buffer, sz, (char *)compressed_buffer, &write_len) == SNAPPY_OK;
 			break;
 		case SerializeCompressType::ZSTD:
-			// TODO: If free disk space is low, we could max this out to 22?
-			write_len = ZSTD_compress(compressed_buffer, write_len, buffer, sz, 1);
+			{
+				auto ctx = ZSTD_createCCtx();
+				if (!ctx) {
+					success = false;
+				} else {
+					ZSTD_CCtx_setParameter(ctx, ZSTD_c_compressionLevel, 1);
+					ZSTD_CCtx_setParameter(ctx, ZSTD_c_checksumFlag, 1);
+					ZSTD_CCtx_setPledgedSrcSize(ctx, sz);
+					// TODO: If free disk space is low, we could max this out to 22?
+					write_len = ZSTD_compress2(ctx, compressed_buffer, write_len, buffer, sz);
+					success = !ZSTD_isError(write_len);
+				}
+				ZSTD_freeCCtx(ctx);
+			}
 			break;
 		}
-		free(buffer);
 
-		write_buffer = compressed_buffer;
+		if (success) {
+			free(buffer);
+			write_buffer = compressed_buffer;
+		} else {
+			ERROR_LOG(SAVESTATE, "ChunkReader: Compression failed");
+			free(compressed_buffer);
+
+			// We can still save uncompressed.
+			write_len = sz;
+			usedType = SerializeCompressType::NONE;
+		}
 	}
 
 	// Create header
