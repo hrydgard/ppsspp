@@ -548,6 +548,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("RightAnalogRight", &g_Config.iRightAnalogRight, 0, true, true),
 	ConfigSetting("RightAnalogPress", &g_Config.iRightAnalogPress, 0, true, true),
 	ConfigSetting("RightAnalogCustom", &g_Config.bRightAnalogCustom, false, true, true),
+	ConfigSetting("RightAnalogDisableDiagonal", &g_Config.bRightAnalogDisableDiagonal, false, true, true),
 
 	// "default" means let emulator decide, "" means disable.
 	ConfigSetting("ReportingHost", &g_Config.sReportHost, "default"),

@@ -529,25 +529,25 @@ void PSPCustomStick::ProcessTouch(float x, float y, bool down) {
 		dy = std::min(1.0f, std::max(-1.0f, dy));
 
 		if (g_Config.iRightAnalogRight != 0) {
-			if (dx > 0.5f)
+			if (dx > 0.5f && (!g_Config.bRightAnalogDisableDiagonal || fabs(dx) > fabs(dy)))
 				__CtrlButtonDown(button[g_Config.iRightAnalogRight-1]);
 			else
 				__CtrlButtonUp(button[g_Config.iRightAnalogRight-1]);
 		}
 		if (g_Config.iRightAnalogLeft != 0) {
-			if (dx < -0.5f)
+			if (dx < -0.5f && (!g_Config.bRightAnalogDisableDiagonal || fabs(dx) > fabs(dy)))
 				__CtrlButtonDown(button[g_Config.iRightAnalogLeft-1]);
 			else
 				__CtrlButtonUp(button[g_Config.iRightAnalogLeft-1]);
 		}
 		if (g_Config.iRightAnalogUp != 0) {
-			if (dy < -0.5f)
+			if (dy < -0.5f && (!g_Config.bRightAnalogDisableDiagonal || fabs(dx) <= fabs(dy)))
 				__CtrlButtonDown(button[g_Config.iRightAnalogUp-1]);
 			else
 				__CtrlButtonUp(button[g_Config.iRightAnalogUp-1]);
 		}
 		if (g_Config.iRightAnalogDown != 0) {
-			if (dy > 0.5f)
+			if (dy > 0.5f && (!g_Config.bRightAnalogDisableDiagonal || fabs(dx) <= fabs(dy)))
 				__CtrlButtonDown(button[g_Config.iRightAnalogDown-1]);
 			else
 				__CtrlButtonUp(button[g_Config.iRightAnalogDown-1]);
