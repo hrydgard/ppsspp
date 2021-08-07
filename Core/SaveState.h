@@ -102,6 +102,9 @@ namespace SaveState
 	// Check if there's any save stating needing to be done.  Normally called once per frame.
 	void Process();
 
+	// Notify save state code that new save data has been written.
+	void NotifySaveData();
+
 	// Cleanup by triggering a restart if needed.
 	void Cleanup();
 };

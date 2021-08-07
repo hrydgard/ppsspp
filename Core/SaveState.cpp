@@ -260,6 +260,8 @@ namespace SaveState
 	// 4 hours of total gameplay since the virtual PSP started the game.
 	static const u64 STALE_STATE_TIME = 4 * 3600 * 1000000ULL;
 	static int saveStateGeneration = 0;
+	static int saveDataGeneration = 0;
+	static int lastSaveDataGeneration = 0;
 	static std::string saveStateInitialGitVersion = "";
 
 	// TODO: Should this be configurable?
@@ -288,6 +290,12 @@ namespace SaveState
 			Do(p, saveStateInitialGitVersion);
 		} else {
 			saveStateGeneration = 1;
+		}
+		if (s >= 3) {
+			// Keep track of savedata (not save states) too.
+			Do(p, saveDataGeneration);
+		} else {
+			saveDataGeneration = 0;
 		}
 
 		// Gotta do CoreTiming first since we'll restore into it.
@@ -779,6 +787,37 @@ namespace SaveState
 		return state < gitVer;
 	}
 
+	static Status TriggerLoadWarnings(std::string &callbackMessage) {
+		auto sc = GetI18NCategory("Screen");
+
+		if (g_Config.bHideStateWarnings)
+			return Status::SUCCESS;
+
+		if (IsStale()) {
+			// For anyone wondering why (too long to put on the screen in an osm):
+			// Using save states instead of saves simulates many hour play sessions.
+			// Sometimes this exposes game bugs that were rarely seen on real devices,
+			// because few people played on a real PSP for 10 hours straight.
+			callbackMessage = sc->T("Loaded. Save in game, restart, and load for less bugs.");
+			return Status::WARNING;
+		}
+		if (IsOldVersion()) {
+			// Save states also preserve bugs from old PPSSPP versions, so warn.
+			callbackMessage = sc->T("Loaded. Save in game, restart, and load for less bugs.");
+			return Status::WARNING;
+		}
+		// If the loaded state (saveDataGeneration) is older, the game may prevent saving again.
+		// This can happen with newer too, but ignore to/from 0 as a common likely safe case.
+		if (saveDataGeneration != lastSaveDataGeneration && saveDataGeneration != 0 && lastSaveDataGeneration != 0) {
+			if (saveDataGeneration < lastSaveDataGeneration)
+				callbackMessage = sc->T("Loaded. Game may refuse to save over newer savedata.");
+			else
+				callbackMessage = sc->T("Loaded. Game may refuse to save over different savedata.");
+			return Status::WARNING;
+		}
+		return Status::SUCCESS;
+	}
+
 	void Process()
 	{
 		if (g_Config.iRewindFlipFrequency != 0 && gpuStats.numFlips != 0)
@@ -824,22 +863,12 @@ namespace SaveState
 				// Use the state's latest version as a guess for saveStateInitialGitVersion.
 				result = CChunkFileReader::Load(op.filename, &saveStateInitialGitVersion, state, &errorString);
 				if (result == CChunkFileReader::ERROR_NONE) {
-					callbackMessage = op.slot != LOAD_UNDO_SLOT ? slot_prefix + sc->T("Loaded State") : sc->T("State load undone");
-					callbackResult = Status::SUCCESS;
+					callbackMessage = op.slot != LOAD_UNDO_SLOT ? sc->T("Loaded State") : sc->T("State load undone");
+					callbackResult = TriggerLoadWarnings(callbackMessage);
 					hasLoadedState = true;
 
-					if (!g_Config.bHideStateWarnings && IsStale()) {
-						// For anyone wondering why (too long to put on the screen in an osm):
-						// Using save states instead of saves simulates many hour play sessions.
-						// Sometimes this exposes game bugs that were rarely seen on real devices,
-						// because few people played on a real PSP for 10 hours straight.
-						callbackMessage = slot_prefix + sc->T("Loaded. Save in game, restart, and load for less bugs.");
-						callbackResult = Status::WARNING;
-					} else if (!g_Config.bHideStateWarnings && IsOldVersion()) {
-						// Save states also preserve bugs from old PPSSPP versions, so warn.
-						callbackMessage = slot_prefix + sc->T("Loaded. Save in game, restart, and load for less bugs.");
-						callbackResult = Status::WARNING;
-					}
+					if (!slot_prefix.empty())
+						callbackMessage = slot_prefix + callbackMessage;
 
 #ifndef MOBILE_DEVICE
 					if (g_Config.bSaveLoadResetsAVdumping) {
@@ -963,6 +992,11 @@ namespace SaveState
 		}
 	}
 
+	void NotifySaveData() {
+		saveDataGeneration++;
+		lastSaveDataGeneration = saveDataGeneration;
+	}
+
 	void Cleanup() {
 		if (needsRestart) {
 			PSP_Shutdown();
@@ -989,6 +1023,8 @@ namespace SaveState
 
 		hasLoadedState = false;
 		saveStateGeneration = 0;
+		saveDataGeneration = 0;
+		lastSaveDataGeneration = 0;
 		saveStateInitialGitVersion.clear();
 	}
 
