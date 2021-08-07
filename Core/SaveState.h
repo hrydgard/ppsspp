@@ -47,10 +47,12 @@ namespace SaveState
 	void SaveSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData = 0);
 	void LoadSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData = 0);
 	bool UndoSaveSlot(const Path &gameFilename, int slot);
+	bool UndoLastSave(const Path &gameFilename);
 	bool UndoLoad(const Path &gameFilename, Callback callback, void *cbUserData = 0);
 	// Checks whether there's an existing save in the specified slot.
 	bool HasSaveInSlot(const Path &gameFilename, int slot);
 	bool HasUndoSaveInSlot(const Path &gameFilename, int slot);
+	bool HasUndoLastSave(const Path &gameFilename);
 	bool HasUndoLoad(const Path &gameFilename);
 	bool HasScreenshotInSlot(const Path &gameFilename, int slot);
 

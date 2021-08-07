@@ -531,6 +531,8 @@ namespace SaveState
 					if (g_Config.bEnableStateUndo) {
 						DeleteIfExists(fnUndo);
 						RenameIfExists(fn, fnUndo);
+						g_Config.sStateUndoLastSaveGame = GenerateFullDiscId(gameFilename);
+						g_Config.iStateUndoLastSaveSlot = slot;
 					} else {
 						DeleteIfExists(fn);
 					}
@@ -571,6 +573,14 @@ namespace SaveState
 		return false;
 	}
 
+
+	bool UndoLastSave(const Path &gameFilename) {
+		if (g_Config.sStateUndoLastSaveGame != GenerateFullDiscId(gameFilename))
+			return false;
+
+		return UndoSaveSlot(gameFilename, g_Config.iStateUndoLastSaveSlot);
+	}
+
 	bool HasSaveInSlot(const Path &gameFilename, int slot)
 	{
 		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
@@ -581,6 +591,14 @@ namespace SaveState
 	{
 		Path fn = GenerateSaveSlotFilename(gameFilename, slot, UNDO_STATE_EXTENSION);
 		return File::Exists(fn);
+	}
+
+	bool HasUndoLastSave(const Path &gameFilename) 
+	{
+		if (g_Config.sStateUndoLastSaveGame != GenerateFullDiscId(gameFilename))
+			return false;
+
+		return HasUndoSaveInSlot(gameFilename, g_Config.iStateUndoLastSaveSlot);
 	}
 
 	bool HasScreenshotInSlot(const Path &gameFilename, int slot)
