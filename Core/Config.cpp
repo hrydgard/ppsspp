@@ -1490,7 +1490,6 @@ bool Config::Save(const char *saveReason) {
 
 		if (!iniFile.Save(iniFilename_)) {
 			ERROR_LOG(LOADER, "Error saving config (%s)- can't write ini '%s'", saveReason, iniFilename_.c_str());
-			System_SendMessage("toast", "Failed to save settings!\nCheck permissions, or try to restart the device.");
 			return false;
 		}
 		INFO_LOG(LOADER, "Config saved (%s): '%s'", saveReason, iniFilename_.c_str());
