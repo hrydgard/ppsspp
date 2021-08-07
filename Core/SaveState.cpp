@@ -94,7 +94,7 @@ namespace SaveState
 		size_t sz = CChunkFileReader::MeasurePtr(state);
 		if (data.size() < sz)
 			data.resize(sz);
-		return CChunkFileReader::SavePtr(&data[0], state);
+		return CChunkFileReader::SavePtr(&data[0], state, sz);
 	}
 
 	CChunkFileReader::Error LoadFromRam(std::vector<u8> &data, std::string *errorString) {

@@ -877,9 +877,10 @@ bool retro_serialize(void *data, size_t size)
    if (useEmuThread)
       EmuThreadPause(); // Does nothing if already paused
 
-   assert(CChunkFileReader::MeasurePtr(state) <= size);
-   retVal = CChunkFileReader::SavePtr((u8 *)data, state) 
-      == CChunkFileReader::ERROR_NONE;
+   size_t measured = CChunkFileReader::MeasurePtr(state);
+   assert(measured <= size);
+   auto err = CChunkFileReader::SavePtr((u8 *)data, state, measured);
+   retVal = err == CChunkFileReader::ERROR_NONE;
 
    if (useEmuThread)
    {
