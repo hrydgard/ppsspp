@@ -392,9 +392,13 @@ void GamePauseScreen::CreateViews() {
 
 	LinearLayout *buttonRow = leftColumnItems->Add(new LinearLayout(ORIENT_HORIZONTAL));
 	if (g_Config.bEnableStateUndo) {
-		UI::Choice *loadUndoButton = buttonRow->Add(new Choice(pa->T("Undo last state load")));
+		UI::Choice *loadUndoButton = buttonRow->Add(new Choice(pa->T("Undo last load")));
 		loadUndoButton->SetEnabled(SaveState::HasUndoLoad(gamePath_));
 		loadUndoButton->OnClick.Handle(this, &GamePauseScreen::OnLoadUndo);
+
+		UI::Choice *saveUndoButton = buttonRow->Add(new Choice(pa->T("Undo last save")));
+		saveUndoButton->SetEnabled(SaveState::HasUndoLastSave(gamePath_));
+		saveUndoButton->OnClick.Handle(this, &GamePauseScreen::OnLastSaveUndo);
 	}
 
 	if (g_Config.iRewindFlipFrequency > 0) {
@@ -503,6 +507,13 @@ UI::EventReturn GamePauseScreen::OnLoadUndo(UI::EventParams &e) {
 	SaveState::UndoLoad(gamePath_, &AfterSaveStateAction);
 
 	TriggerFinish(DR_CANCEL);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GamePauseScreen::OnLastSaveUndo(UI::EventParams &e) {
+	SaveState::UndoLastSave(gamePath_);
+
+	RecreateViews();
 	return UI::EVENT_DONE;
 }
 
