@@ -18,6 +18,7 @@
 #include <fcntl.h>
 
 #include "Common/Common.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/File/FileDescriptor.h"
 #include "Common/Log.h"
 
@@ -159,10 +160,11 @@ std::string GetLocalIP(int sock) {
 			addr = &server_addr.ipv4.sin_addr;
 		}
 #ifdef _WIN32
+		wchar_t wtemp[sizeof(temp)];
 		DWORD len = (DWORD)sizeof(temp);
 		// Windows XP doesn't support inet_ntop.
-		if (WSAAddressToStringA((struct sockaddr *)&server_addr, sizeof(server_addr), nullptr, temp, &len) == 0) {
-			return temp;
+		if (WSAAddressToStringW((struct sockaddr *)&server_addr, sizeof(server_addr), nullptr, wtemp, &len) == 0) {
+			return ConvertWStringToUTF8(wtemp);
 		}
 #else
 		const char *result = inet_ntop(server_addr.sa.sa_family, addr, temp, sizeof(temp));
