@@ -37,13 +37,16 @@ public:
 		std::vector<std::string> parts;
 		SplitString(components, '/', parts);
 		if (parts.size() == 3) {
+			// Single file URI.
 			provider = parts[0];
 			if (parts[1] != "tree") {
 				return false;
 			}
 			root = UriDecode(parts[2]);
+			// file empty signals this type.
 			return true;
 		} else if (parts.size() == 5) {
+			// Tree URI
 			provider = parts[0];
 			if (parts[1] != "tree") {
 				return false;

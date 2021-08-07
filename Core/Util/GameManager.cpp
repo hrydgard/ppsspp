@@ -399,7 +399,8 @@ std::string GameManager::GetGameID(const Path &path) const {
 	auto loader = ConstructFileLoader(path);
 	std::string id;
 
-	switch (Identify_File(loader)) {
+	std::string errorString;
+	switch (Identify_File(loader, &errorString)) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 		delete loader;
 		loader = ConstructFileLoader(ResolvePBPFile(path));
