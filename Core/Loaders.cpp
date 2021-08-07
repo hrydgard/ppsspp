@@ -344,8 +344,6 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 
 	case IdentifiedFileType::ERROR_IDENTIFYING:
 		*error_string = *error_string + ": " + (fileLoader ? fileLoader->LatestError() : "");
-		if (error_string->empty())
-			*error_string = "Error reading file";
 		ERROR_LOG(LOADER, "Error while identifying file: %s", error_string->c_str());
 		break;
 
