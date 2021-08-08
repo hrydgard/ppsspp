@@ -32,6 +32,8 @@ enum {
 	ERROR_FONT_INVALID_FONT_DATA    = 0x8046000a,
 };
 
+constexpr int MAX_FONT_REFS = 4;
+
 // For the save states.
 static bool useAllocCallbacks = true;
 
@@ -596,7 +598,7 @@ public:
 		if (foundFontIndex < 0)
 			foundFontIndex = FindFreeIndex();
 
-		if (foundFontIndex < 0) {
+		if (foundFontIndex < 0 || fontRefCount_[foundFontIndex] >= MAX_FONT_REFS) {
 			ERROR_LOG(SCEFONT, "Too many fonts opened in FontLib");
 			error = ERROR_FONT_TOO_MANY_OPEN_FONTS;
 			return nullptr;
