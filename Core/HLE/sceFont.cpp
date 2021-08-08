@@ -32,11 +32,6 @@ enum {
 	ERROR_FONT_INVALID_FONT_DATA    = 0x8046000a,
 };
 
-enum {
-	FONT_IS_CLOSED = 0,
-	FONT_IS_OPEN   = 1,
-};
-
 // For the save states.
 static bool useAllocCallbacks = true;
 
@@ -511,8 +506,8 @@ public:
 
 	void Done() {
 		for (size_t i = 0; i < fonts_.size(); i++) {
-			if (isfontopen_[i] == FONT_IS_OPEN) {
-				CloseFont(fontMap[fonts_[i]]);
+			if (fontRefCount_[i] > 0) {
+				CloseFont(fontMap[fonts_[i]], true);
 				delete fontMap[fonts_[i]];
 				fontMap.erase(fonts_[i]);
 			}
@@ -526,18 +521,18 @@ public:
 		}
 		handle_ = 0;
 		fonts_.clear();
-		isfontopen_.clear();
+		fontRefCount_.clear();
 		openAllocatedAddresses_.clear();
 	}
 
 	void AllocDone(u32 allocatedAddr) {
 		handle_ = allocatedAddr;
 		fonts_.resize(params_.numFonts);
-		isfontopen_.resize(params_.numFonts);
+		fontRefCount_.resize(params_.numFonts);
 		openAllocatedAddresses_.resize(params_.numFonts);
 		for (size_t i = 0; i < fonts_.size(); i++) {
 			u32 addr = allocatedAddr + 0x4C + (u32)i * 0x4C;
-			isfontopen_[i] = 0;
+			fontRefCount_[i] = 0;
 			fonts_[i] = addr;
 		}
 
@@ -588,34 +583,40 @@ public:
 	LoadedFont *OpenFont(Font *font, FontOpenMode mode, int &error) {
 		// TODO: Do something with mode, possibly save it where the PSP does in the struct.
 		// Maybe needed in Font, though?  Handlers seem... difficult to emulate.
-		int freeFontIndex = -1;
-		for (size_t i = 0; i < fonts_.size(); i++) {
-			if (isfontopen_[i] == 0) {
-				freeFontIndex = (int)i;
-				break;
-			}
-		}
-		if (freeFontIndex < 0) {
+
+		// First, check if the font is already open.  We need to refcount, see font/open test.
+		int foundFontIndex = FindExistingIndex(font);
+		if (foundFontIndex < 0)
+			foundFontIndex = FindFreeIndex();
+
+		if (foundFontIndex < 0) {
 			ERROR_LOG(SCEFONT, "Too many fonts opened in FontLib");
 			error = ERROR_FONT_TOO_MANY_OPEN_FONTS;
-			return 0;
+			return nullptr;
 		}
 		if (!font->IsValid()) {
 			ERROR_LOG(SCEFONT, "Invalid font data");
 			error = ERROR_FONT_INVALID_FONT_DATA;
-			return 0;
+			return nullptr;
 		}
-		LoadedFont *loadedFont = new LoadedFont(font, mode, GetListID(), fonts_[freeFontIndex]);
-		isfontopen_[freeFontIndex] = 1;
 
-		auto prevFont = fontMap.find(loadedFont->Handle());
-		if (prevFont != fontMap.end()) {
-			// Before replacing it and forgetting about it, let's free it.
-			delete prevFont->second;
+		LoadedFont *loadedFont = nullptr;
+		if (fontRefCount_[foundFontIndex] == 0) {
+			loadedFont = new LoadedFont(font, mode, GetListID(), fonts_[foundFontIndex]);
+
+			auto prevFont = fontMap.find(loadedFont->Handle());
+			if (prevFont != fontMap.end()) {
+				// Before replacing it and forgetting about it, let's free it.
+				delete prevFont->second;
+			}
+			fontMap[loadedFont->Handle()] = loadedFont;
+		} else {
+			loadedFont = fontMap[fonts_[foundFontIndex]];
 		}
-		fontMap[loadedFont->Handle()] = loadedFont;
+		fontRefCount_[foundFontIndex]++;
 
-		if (!useAllocCallbacks)
+		// Only need to allocate the first time.
+		if (!useAllocCallbacks || fontRefCount_[foundFontIndex] > 1)
 			return loadedFont;
 
 		u32 allocSize = 12;
@@ -627,7 +628,7 @@ public:
 
 		PostOpenAllocCallback *action = (PostOpenAllocCallback *)__KernelCreateAction(actionPostOpenAllocCallback);
 		action->SetFontLib(GetListID());
-		action->SetFont(loadedFont->Handle(), freeFontIndex);
+		action->SetFont(loadedFont->Handle(), foundFontIndex);
 
 		u32 args[2] = { userDataAddr(), allocSize };
 		hleEnqueueCall(allocFuncAddr(), 2, args, action);
@@ -635,11 +636,18 @@ public:
 		return loadedFont;
 	}
 
-	void CloseFont(LoadedFont *font) {
+	void CloseFont(LoadedFont *font, bool releaseAll) {
+		bool allowClose = true;
 		for (size_t i = 0; i < fonts_.size(); i++) {
-			if (fonts_[i] == font->Handle()) {
-				isfontopen_[i] = 0;
-				if (openAllocatedAddresses_[i] != 0 && coreState != CORE_POWERDOWN) {
+			if (fonts_[i] == font->Handle() && fontRefCount_[i] > 0) {
+				if (releaseAll)
+					fontRefCount_[i] = 0;
+				else
+					fontRefCount_[i]--;
+
+				allowClose = fontRefCount_[i] == 0;
+				bool deallocate = allowClose && openAllocatedAddresses_[i] != 0;
+				if (deallocate && coreState != CORE_POWERDOWN) {
 					u32 args[2] = { userDataAddr(), openAllocatedAddresses_[i] };
 					hleEnqueueCall(freeFuncAddr(), 2, args);
 					openAllocatedAddresses_[i] = 0;
@@ -648,7 +656,8 @@ public:
 			}
 		}
 		flushFont();
-		font->Close();
+		if (allowClose)
+			font->Close();
 	}
 
 	void flushFont() {
@@ -665,7 +674,7 @@ public:
 			return;
 
 		Do(p, fonts_);
-		Do(p, isfontopen_);
+		Do(p, fontRefCount_);
 		Do(p, params_);
 		Do(p, fontHRes_);
 		Do(p, fontVRes_);
@@ -708,8 +717,31 @@ public:
 	void SetCharInfoBitmapAddress(u32 addr) { charInfoBitmapAddress_ = addr; }
 
 private:
+	int FindExistingIndex(Font *font) const {
+		// TODO: Should this also match for memory fonts, or only internal fonts?
+		for (auto it : fontMap) {
+			if (it.second->GetFont() != font || it.second->GetFontLib() != this)
+				continue;
+			for (size_t i = 0; i < fonts_.size(); i++) {
+				if (fonts_[i] == it.first) {
+					return (int)i;
+				}
+			}
+		}
+		return -1;
+	}
+
+	int FindFreeIndex() const {
+		for (size_t i = 0; i < fonts_.size(); i++) {
+			if (fontRefCount_[i] == 0) {
+				return (int)i;
+			}
+		}
+		return -1;
+	}
+
 	std::vector<u32> fonts_;
-	std::vector<u32> isfontopen_;
+	std::vector<u32> fontRefCount_;
 
 	FontNewLibParams params_;
 	float fontHRes_;
@@ -897,7 +929,7 @@ void __FontShutdown() {
 	for (auto iter = fontMap.begin(); iter != fontMap.end(); iter++) {
 		FontLib *fontLib = iter->second->GetFontLib();
 		if (fontLib)
-			fontLib->CloseFont(iter->second);
+			fontLib->CloseFont(iter->second, true);
 		delete iter->second;
 	}
 	fontMap.clear();
@@ -1106,7 +1138,7 @@ static int sceFontClose(u32 fontHandle) {
 		DEBUG_LOG(SCEFONT, "sceFontClose(%x)", fontHandle);
 		FontLib *fontLib = font->GetFontLib();
 		if (fontLib) {
-			fontLib->CloseFont(font);
+			fontLib->CloseFont(font, false);
 		}
 	} else
 		ERROR_LOG(SCEFONT, "sceFontClose(%x) - font not open?", fontHandle);
