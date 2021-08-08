@@ -448,6 +448,7 @@ public:
 
 	// Fake RTTI
 	virtual bool IsViewGroup() const { return false; }
+	virtual bool ContainsSubview(const View *view) const { return false; }
 
 	Point GetFocusPosition(FocusDirection dir);
 

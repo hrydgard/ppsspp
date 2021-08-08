@@ -57,6 +57,14 @@ void ViewGroup::RemoveSubview(View *view) {
 	}
 }
 
+bool ViewGroup::ContainsSubview(const View *view) const {
+	for (const View *subview : views_) {
+		if (subview == view || subview->ContainsSubview(view))
+			return true;
+	}
+	return false;
+}
+
 void ViewGroup::Clear() {
 	std::lock_guard<std::mutex> guard(modifyLock_);
 	for (size_t i = 0; i < views_.size(); i++) {
@@ -444,9 +452,55 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 			return result;
 		}
 
+	case FOCUS_PREV_PAGE:
+	case FOCUS_NEXT_PAGE:
+		return FindScrollNeighbor(view, Point(INFINITY, INFINITY), direction, result);
+
 	default:
 		return result;
 	}
+}
+
+float GetTargetScore(const Point &target, View *view) {
+	if (!view->CanBeFocused())
+		return 0.0f;
+	if (view->IsEnabled() == false)
+		return 0.0f;
+	if (view->GetVisibility() != V_VISIBLE)
+		return 0.0f;
+
+	Point viewPos = view->GetBounds().Center();
+	float dx = viewPos.x - target.x;
+	float dy = viewPos.y - target.y;
+
+	float distance = sqrtf(dx * dx + dy * dy);
+	return 10.0f / std::max(1.0f, distance);
+}
+
+NeighborResult ViewGroup::FindScrollNeighbor(View *view, const Point &target, FocusDirection direction, NeighborResult best) {
+	if (!IsEnabled())
+		return best;
+	if (GetVisibility() != V_VISIBLE)
+		return best;
+
+	if (target.x < INFINITY && target.y < INFINITY) {
+		for (auto v : views_) {
+			// Note: we consider the origin itself, which might already be the best option.
+			float score = GetTargetScore(target, v);
+			if (score > best.score) {
+				best.score = score;
+				best.view = v;
+			}
+		}
+	}
+	for (auto v : views_) {
+		if (v->IsViewGroup()) {
+			ViewGroup *vg = static_cast<ViewGroup *>(v);
+			if (vg)
+				best = vg->FindScrollNeighbor(view, target, direction, best);
+		}
+	}
+	return best;
 }
 
 // TODO: This code needs some cleanup/restructuring...
@@ -792,12 +846,6 @@ bool ScrollView::Key(const KeyInput &input) {
 		case NKCODE_EXT_MOUSEWHEEL_DOWN:
 			ScrollRelative(250);
 			break;
-		case NKCODE_PAGE_DOWN:
-			ScrollRelative((orientation_ == ORIENT_VERTICAL ? bounds_.h : bounds_.w) - 50);
-			break;
-		case NKCODE_PAGE_UP:
-			ScrollRelative(-(orientation_ == ORIENT_VERTICAL ? bounds_.h : bounds_.w) + 50);
-			break;
 		}
 	}
 	return ViewGroup::Key(input);
@@ -901,6 +949,47 @@ bool ScrollView::SubviewFocused(View *view) {
 	}
 
 	return true;
+}
+
+NeighborResult ScrollView::FindScrollNeighbor(View *view, const Point &target, FocusDirection direction, NeighborResult best) {
+	if (ContainsSubview(view) && views_[0]->IsViewGroup()) {
+		ViewGroup *vg = static_cast<ViewGroup *>(views_[0]);
+		int found = -1;
+		for (int i = 0, n = vg->GetNumSubviews(); i < n; ++i) {
+			View *child = vg->GetViewByIndex(i);
+			if (child == view || child->ContainsSubview(view)) {
+				found = i;
+				break;
+			}
+		}
+
+		// Okay, the previously focused view is inside this.
+		if (found != -1) {
+			float mult = 0.0f;
+			switch (direction) {
+			case FOCUS_PREV_PAGE:
+				mult = -1.0f;
+				break;
+			case FOCUS_NEXT_PAGE:
+				mult = 1.0f;
+				break;
+			default:
+				break;
+			}
+
+			// Okay, now where is our ideal target?
+			Point targetPos = view->GetBounds().Center();
+			if (orientation_ == ORIENT_VERTICAL)
+				targetPos.y += mult * bounds_.h;
+			else
+				targetPos.x += mult * bounds_.x;
+
+			// Okay, which subview is closest to that?
+			return vg->FindScrollNeighbor(view, targetPos, direction, best);
+		}
+	}
+
+	return ViewGroup::FindScrollNeighbor(view, target, direction, best);
 }
 
 void ScrollView::PersistData(PersistStatus status, std::string anonId, PersistMap &storage) {

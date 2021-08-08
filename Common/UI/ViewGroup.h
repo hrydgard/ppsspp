@@ -63,9 +63,11 @@ public:
 
 	// Assumes that layout has taken place.
 	NeighborResult FindNeighbor(View *view, FocusDirection direction, NeighborResult best);
+	virtual NeighborResult FindScrollNeighbor(View *view, const Point &target, FocusDirection direction, NeighborResult best);
 
-	virtual bool CanBeFocused() const override { return false; }
-	virtual bool IsViewGroup() const override { return true; }
+	bool CanBeFocused() const override { return false; }
+	bool IsViewGroup() const override { return true; }
+	bool ContainsSubview(const View *view) const override;
 
 	virtual void SetBG(const Drawable &bg) { bg_ = bg; }
 
@@ -267,6 +269,8 @@ public:
 	bool SubviewFocused(View *view) override;
 	void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) override;
 	void SetVisibility(Visibility visibility) override;
+
+	NeighborResult FindScrollNeighbor(View *view, const Point &target, FocusDirection direction, NeighborResult best) override;
 
 	// Quick hack to prevent scrolling to top in some lists
 	void SetScrollToTop(bool t) { scrollToTopOnSizeChange_ = t; }
