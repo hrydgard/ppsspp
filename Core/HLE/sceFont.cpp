@@ -579,6 +579,13 @@ public:
 		return fonts_[index];
 	}
 
+	int GetFontRefCount(Font *font) const {
+		int foundFontIndex = FindExistingIndex(font);
+		if (foundFontIndex >= 0)
+			return fontRefCount_.at(foundFontIndex);
+		return 0;
+	}
+
 	// For FONT_OPEN_USER* modes, the font will automatically be freed.
 	LoadedFont *OpenFont(Font *font, FontOpenMode mode, int &error) {
 		// TODO: Do something with mode, possibly save it where the PSP does in the struct.
@@ -1033,10 +1040,12 @@ static u32 sceFontOpen(u32 libHandle, u32 index, u32 mode, u32 errorCodePtr) {
 	LoadedFont *font = fontLib->OpenFont(internalFonts[index], openMode, *errorCode);
 	if (font) {
 		*errorCode = 0;
-		return hleDelayResult(font->Handle(), "font open", 10000);
-	} else {
-		return 0;
+		// Delay only on the first open.
+		if (fontLib->GetFontRefCount(internalFonts[index]) == 1)
+			return hleDelayResult(font->Handle(), "font open", 10000);
+		return font->Handle();
 	}
+	return 0;
 }
 
 // Open a user font in RAM into a FontLib
