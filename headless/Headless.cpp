@@ -332,8 +332,6 @@ int main(int argc, const char* argv[])
 	if (testFilenames.empty())
 		return printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
 
-	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
-
 	LogManager::Init(&g_Config.bEnableLogging);
 	LogManager *logman = LogManager::GetInstance();
 
@@ -345,6 +343,9 @@ int main(int argc, const char* argv[])
 		logman->SetLogLevel(type, LogTypes::LDEBUG);
 	}
 	logman->AddListener(printfLogger);
+
+	// Needs to be after log so we don't interfere with test output.
+	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
 
 	HeadlessHost *headlessHost = getHost(gpuCore);
 	headlessHost->SetGraphicsCore(gpuCore);
