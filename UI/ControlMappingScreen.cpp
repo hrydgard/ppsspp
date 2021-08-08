@@ -107,17 +107,20 @@ void SingleControlMapper::Refresh() {
 
 	float itemH = 45;
 
-	LinearLayout *root = Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(550, WRAP_CONTENT)));
+	float leftColumnWidth = 200;
+	float rightColumnWidth = 250;  // TODO: Should be flexible somehow. Maybe we need to implement Measure.
+
+	LinearLayout *root = Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	root->SetSpacing(3.0f);
 
 	auto iter = keyImages.find(keyName_);
 	// First, look among images.
 	if (iter != keyImages.end()) {
-		Choice *c = root->Add(new Choice(iter->second, new LinearLayoutParams(200, itemH)));
+		Choice *c = root->Add(new Choice(iter->second, new LinearLayoutParams(leftColumnWidth, itemH)));
 		c->OnClick.Handle(this, &SingleControlMapper::OnReplaceAll);
 	} else {
 		// No image? Let's translate.
-		Choice *c = new Choice(mc->T(keyName_.c_str()), new LinearLayoutParams(200, itemH));
+		Choice *c = new Choice(mc->T(keyName_.c_str()), new LinearLayoutParams(leftColumnWidth, itemH));
 		c->SetCentered(true);
 		root->Add(c)->OnClick.Handle(this, &SingleControlMapper::OnReplaceAll);
 	}
@@ -129,7 +132,7 @@ void SingleControlMapper::Refresh() {
 		p->OnClick.Handle(this, &SingleControlMapper::OnAddMouse);
 	}
 
-	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
+	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(rightColumnWidth, WRAP_CONTENT)));
 	rightColumn->SetSpacing(2.0f);
 	std::vector<KeyDef> mappings;
 	KeyMap::KeyFromPspButton(pspKey_, &mappings, false);
@@ -141,9 +144,10 @@ void SingleControlMapper::Refresh() {
 		LinearLayout *row = rightColumn->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		row->SetSpacing(1.0f);
 
-		Choice *c = row->Add(new Choice(deviceName + "." + keyName, new LinearLayoutParams(FILL_PARENT, itemH, 1.0f)));
 		char tagbuf[16];
-		sprintf(tagbuf, "%i", (int)i);
+		sprintf(tagbuf, "%d", (int)i);
+
+		Choice *c = row->Add(new Choice(deviceName + "." + keyName, new LinearLayoutParams(FILL_PARENT, itemH, 1.0f)));
 		c->SetTag(tagbuf);
 		c->OnClick.Handle(this, &SingleControlMapper::OnReplace);
 
@@ -244,7 +248,7 @@ void ControlMappingScreen::CreateViews() {
 	rightScroll_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 	rightScroll_->SetTag("ControlMapping");
 	rightScroll_->SetScrollToTop(false);
-	LinearLayout *rightColumn = new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+	LinearLayout *rightColumn = new LinearLayoutList(ORIENT_VERTICAL);
 	rightScroll_->Add(rightColumn);
 
 	root_->Add(leftColumn);
@@ -252,7 +256,9 @@ void ControlMappingScreen::CreateViews() {
 
 	std::vector<KeyMap::KeyMap_IntStrPair> mappableKeys = KeyMap::GetMappableKeys();
 	for (size_t i = 0; i < mappableKeys.size(); i++) {
-		SingleControlMapper *mapper = rightColumn->Add(new SingleControlMapper(this, mappableKeys[i].key, mappableKeys[i].name, screenManager(), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		SingleControlMapper *mapper = rightColumn->Add(
+			new SingleControlMapper(this, mappableKeys[i].key, mappableKeys[i].name, screenManager(),
+				                    new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		mappers_.push_back(mapper);
 	}
 }
