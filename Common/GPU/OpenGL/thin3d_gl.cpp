@@ -399,7 +399,7 @@ public:
 
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindPipeline(Pipeline *pipeline) override;
-	void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) override {
+	void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) override {
 		_assert_(start + count <= ARRAY_SIZE(curVBuffers_));
 		for (int i = 0; i < count; i++) {
 			curVBuffers_[i + start] = (OpenGLBuffer *)buffers[i];

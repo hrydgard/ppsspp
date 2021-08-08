@@ -603,6 +603,10 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 		reinterpretSampler_ = draw_->CreateSamplerState(samplerDesc);
 	}
 
+	if (!reinterpretVBuf_) {
+		reinterpretVBuf_ = draw_->CreateBuffer(12 * 3, Draw::BufferUsageFlag::DYNAMIC | Draw::BufferUsageFlag::VERTEXDATA);
+	}
+
 	// See if we need to create a new pipeline.
 
 	Draw::Pipeline *pipeline = reinterpretFromTo_[(int)oldFormat][(int)newFormat];
@@ -650,7 +654,9 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 	draw_->SetScissorRect(0, 0, vfb->renderWidth, vfb->renderHeight);
 	Draw::Viewport vp = Draw::Viewport{ 0.0f, 0.0f, (float)vfb->renderWidth, (float)vfb->renderHeight, 0.0f, 1.0f };
 	draw_->SetViewports(1, &vp);
-	// No vertex buffer - generate vertices in shader. TODO: Switch to a vertex buffer for GLES2/D3D9 compat.
+	// Vertex buffer not used - vertices generated in shader.
+	// TODO: Switch to a vertex buffer for GLES2/D3D9 compat.
+	draw_->BindVertexBuffers(0, 1, &reinterpretVBuf_, nullptr);
 	draw_->Draw(3, 0);
 	draw_->InvalidateCachedState();
 
@@ -2318,24 +2324,23 @@ std::vector<FramebufferInfo> FramebufferManagerCommon::GetFramebufferList() {
 	return list;
 }
 
+template <typename T>
+static void DoRelease(T *&obj) {
+	if (obj)
+		obj->Release();
+	obj = nullptr;
+}
+
 void FramebufferManagerCommon::DeviceLost() {
 	DestroyAllFBOs();
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 3; j++) {
-			if (reinterpretFromTo_[i][j]) {
-				reinterpretFromTo_[i][j]->Release();
-				reinterpretFromTo_[i][j] = nullptr;
-			}
+			DoRelease(reinterpretFromTo_[i][j]);
 		}
 	}
-	if (reinterpretSampler_) {
-		reinterpretSampler_->Release();
-		reinterpretSampler_ = nullptr;
-	}
-	if (reinterpretVS_) {
-		reinterpretVS_->Release();
-		reinterpretVS_ = nullptr;
-	}
+	DoRelease(reinterpretVBuf_);
+	DoRelease(reinterpretSampler_);
+	DoRelease(reinterpretVS_);
 	presentation_->DeviceLost();
 	draw_ = nullptr;
 }

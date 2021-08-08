@@ -533,7 +533,7 @@ public:
 			s->Apply(device_, start + i);
 		}
 	}
-	void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) override {
+	void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) override {
 		_assert_(start + count <= ARRAY_SIZE(curVBuffers_));
 		for (int i = 0; i < count; i++) {
 			curVBuffers_[i + start] = (D3D9Buffer *)buffers[i];

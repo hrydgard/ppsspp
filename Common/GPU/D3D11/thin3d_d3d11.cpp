@@ -87,7 +87,7 @@ public:
 
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override;
-	void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) override;
+	void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) override;
 	void BindIndexBuffer(Buffer *indexBuffer, int offset) override;
 	void BindPipeline(Pipeline *pipeline) override;
 
@@ -1163,7 +1163,7 @@ void D3D11DrawContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t 
 	context_->UpdateSubresource(buf->buf, 0, &box, data, 0, 0);
 }
 
-void D3D11DrawContext::BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) {
+void D3D11DrawContext::BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) {
 	_assert_(start + count <= ARRAY_SIZE(nextVertexBuffers_));
 	// Lazy application
 	for (int i = 0; i < count; i++) {

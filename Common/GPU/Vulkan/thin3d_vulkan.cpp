@@ -415,7 +415,7 @@ public:
 	}
 
 	// TODO: Make VKBuffers proper buffers, and do a proper binding model. This is just silly.
-	void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) override {
+	void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) override {
 		_assert_(start + count <= ARRAY_SIZE(curVBuffers_));
 		for (int i = 0; i < count; i++) {
 			curVBuffers_[i + start] = (VKBuffer *)buffers[i];
