@@ -280,7 +280,7 @@ static float VerticalOverlap(const Bounds &a, const Bounds &b) {
 		return std::min(1.0f, overlap / std::min(a.h, b.h));
 }
 
-float GetDirectionScore(int originIndex, View *origin, View *destination, FocusDirection direction) {
+float GetTargetScore(const Point &originPos, int originIndex, View *origin, View *destination, FocusDirection direction) {
 	// Skip labels and things like that.
 	if (!destination->CanBeFocused())
 		return 0.0f;
@@ -289,7 +289,6 @@ float GetDirectionScore(int originIndex, View *origin, View *destination, FocusD
 	if (destination->GetVisibility() != V_VISIBLE)
 		return 0.0f;
 
-	Point originPos = origin->GetFocusPosition(direction);
 	Point destPos = destination->GetFocusPosition(Opposite(direction));
 
 	float dx = destPos.x - originPos.x;
@@ -305,8 +304,10 @@ float GetDirectionScore(int originIndex, View *origin, View *destination, FocusD
 	float horizOverlap = HorizontalOverlap(origin->GetBounds(), destination->GetBounds());
 	float vertOverlap = VerticalOverlap(origin->GetBounds(), destination->GetBounds());
 	if (horizOverlap == 1.0f && vertOverlap == 1.0f) {
-		INFO_LOG(SYSTEM, "Contain overlap");
-		return 0.0;
+		if (direction != FOCUS_PREV_PAGE && direction != FOCUS_NEXT_PAGE) {
+			INFO_LOG(SYSTEM, "Contain overlap");
+			return 0.0;
+		}
 	}
 	float originSize = 0.0f;
 	switch (direction) {
@@ -354,6 +355,11 @@ float GetDirectionScore(int originIndex, View *origin, View *destination, FocusD
 			return 0.0f;
 		// More distance is good.
 		return distance;
+	case FOCUS_PREV_PAGE:
+	case FOCUS_NEXT_PAGE:
+		// Not always, but let's go with the bonus on height.
+		vertical = true;
+		break;
 	case FOCUS_PREV:
 	case FOCUS_NEXT:
 		ERROR_LOG(SYSTEM, "Invalid focus direction");
@@ -383,6 +389,11 @@ float GetDirectionScore(int originIndex, View *origin, View *destination, FocusD
 		return 0.0f;
 	else
 		return 10.0f / std::max(1.0f, distance - distanceBonus) + overlap;
+}
+
+float GetDirectionScore(int originIndex, View *origin, View *destination, FocusDirection direction) {
+	Point originPos = origin->GetFocusPosition(direction);
+	return GetTargetScore(originPos, originIndex, origin, destination, direction);
 }
 
 NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, NeighborResult result) {
@@ -461,22 +472,6 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 	}
 }
 
-float GetTargetScore(const Point &target, View *view) {
-	if (!view->CanBeFocused())
-		return 0.0f;
-	if (view->IsEnabled() == false)
-		return 0.0f;
-	if (view->GetVisibility() != V_VISIBLE)
-		return 0.0f;
-
-	Point viewPos = view->GetBounds().Center();
-	float dx = viewPos.x - target.x;
-	float dy = viewPos.y - target.y;
-
-	float distance = sqrtf(dx * dx + dy * dy);
-	return 10.0f / std::max(1.0f, distance);
-}
-
 NeighborResult ViewGroup::FindScrollNeighbor(View *view, const Point &target, FocusDirection direction, NeighborResult best) {
 	if (!IsEnabled())
 		return best;
@@ -486,7 +481,7 @@ NeighborResult ViewGroup::FindScrollNeighbor(View *view, const Point &target, Fo
 	if (target.x < INFINITY && target.y < INFINITY) {
 		for (auto v : views_) {
 			// Note: we consider the origin itself, which might already be the best option.
-			float score = GetTargetScore(target, v);
+			float score = GetTargetScore(target, -1, view, v, direction);
 			if (score > best.score) {
 				best.score = score;
 				best.view = v;
