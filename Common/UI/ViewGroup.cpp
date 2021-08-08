@@ -272,7 +272,7 @@ static float VerticalOverlap(const Bounds &a, const Bounds &b) {
 		return std::min(1.0f, overlap / std::min(a.h, b.h));
 }
 
-float GetDirectionScore(View *origin, View *destination, FocusDirection direction) {
+float GetDirectionScore(int originIndex, View *origin, View *destination, FocusDirection direction) {
 	// Skip labels and things like that.
 	if (!destination->CanBeFocused())
 		return 0.0f;
@@ -332,6 +332,20 @@ float GetDirectionScore(View *origin, View *destination, FocusDirection directio
 		}
 		vertical = true;
 		break;
+	case FOCUS_FIRST:
+		if (originIndex == -1)
+			return 0.0f;
+		if (dirX > 0.0f || dirY > 0.0f)
+			return 0.0f;
+		// More distance is good.
+		return distance;
+	case FOCUS_LAST:
+		if (originIndex == -1)
+			return 0.0f;
+		if (dirX < 0.0f || dirY < 0.0f)
+			return 0.0f;
+		// More distance is good.
+		return distance;
 	case FOCUS_PREV:
 	case FOCUS_NEXT:
 		ERROR_LOG(SYSTEM, "Invalid focus direction");
@@ -398,13 +412,15 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 	case FOCUS_LEFT:
 	case FOCUS_RIGHT:
 	case FOCUS_DOWN:
+	case FOCUS_FIRST:
+	case FOCUS_LAST:
 		{
 			// First, try the child views themselves as candidates
 			for (size_t i = 0; i < views_.size(); i++) {
 				if (views_[i] == view)
 					continue;
 
-				float score = GetDirectionScore(view, views_[i], direction);
+				float score = GetDirectionScore(num, view, views_[i], direction);
 				if (score > result.score) {
 					result.score = score;
 					result.view = views_[i];
@@ -781,13 +797,6 @@ bool ScrollView::Key(const KeyInput &input) {
 			break;
 		case NKCODE_PAGE_UP:
 			ScrollRelative(-(orientation_ == ORIENT_VERTICAL ? bounds_.h : bounds_.w) + 50);
-			break;
-		case NKCODE_MOVE_HOME:
-			ScrollTo(0);
-			break;
-		case NKCODE_MOVE_END:
-			if (views_.size())
-				ScrollTo(orientation_ == ORIENT_VERTICAL ? views_[0]->GetBounds().h : views_[0]->GetBounds().w);
 			break;
 		}
 	}
