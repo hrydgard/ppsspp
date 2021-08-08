@@ -980,7 +980,11 @@ NeighborResult ScrollView::FindScrollNeighbor(View *view, const Point &target, F
 				targetPos.x += mult * bounds_.x;
 
 			// Okay, which subview is closest to that?
-			return vg->FindScrollNeighbor(view, targetPos, direction, best);
+			best = vg->FindScrollNeighbor(view, targetPos, direction, best);
+			// Avoid reselecting the same view.
+			if (best.view == view)
+				best.view = nullptr;
+			return best;
 		}
 	}
 
