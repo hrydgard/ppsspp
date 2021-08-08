@@ -1038,7 +1038,7 @@ static u32 sceFontOpen(u32 libHandle, u32 index, u32 mode, u32 errorCodePtr) {
 		return 0;
 	}
 
-	FontOpenMode openMode = mode == 0 ? FONT_OPEN_INTERNAL_STINGY : FONT_OPEN_INTERNAL_FULL;
+	FontOpenMode openMode = mode != 1 ? FONT_OPEN_INTERNAL_STINGY : FONT_OPEN_INTERNAL_FULL;
 	LoadedFont *font = fontLib->OpenFont(internalFonts[index], openMode, *errorCode);
 	if (font) {
 		*errorCode = 0;
