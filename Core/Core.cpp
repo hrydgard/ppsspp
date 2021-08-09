@@ -85,6 +85,10 @@ void Core_ListenLifecycle(CoreLifecycleFunc func) {
 }
 
 void Core_NotifyLifecycle(CoreLifecycle stage) {
+	if (stage == CoreLifecycle::STARTING) {
+		g_exceptionInfo.type = ExceptionType::NONE;
+	}
+
 	for (auto func : lifecycleFuncs) {
 		func(stage);
 	}
