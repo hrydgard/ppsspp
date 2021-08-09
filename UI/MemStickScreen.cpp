@@ -368,6 +368,7 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnMoveDataClick(UI::EventParams &para
 
 void ConfirmMemstickMoveScreen::update() {
 	UIDialogScreenWithBackground::update();
+	auto iz = GetI18NCategory("MemStick");
 
 	if (moveDataTask_) {
 		if (progressView_) {
@@ -378,7 +379,7 @@ void ConfirmMemstickMoveScreen::update() {
 
 		if (result) {
 			if (*result) {
-				progressReporter_.Set("Done!");
+				progressReporter_.Set(iz->T("Done!"));
 				INFO_LOG(SYSTEM, "Move data task finished successfully!");
 				// Succeeded!
 				FinishFolderMove();
@@ -404,7 +405,7 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 	// If the directory itself is called PSP, don't go below.
 
 	if (moveData_) {
-		progressReporter_.Set("Starting move...");
+		progressReporter_.Set(iz->T("Starting move..."));
 
 		moveDataTask_ = Promise<bool>::Spawn(&g_threadManager, [&]() -> bool * {
 			Path moveSrc = g_Config.memStickDirectory;
@@ -428,7 +429,7 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 				// TODO: Handle failure listing files.
 				std::string error = "Failed to read old directory";
 				INFO_LOG(SYSTEM, "%s", error.c_str());
-				progressReporter_.Set(error);
+				progressReporter_.Set(iz->T(error.c_str()));
 				return new bool(false);
 			}
 
@@ -487,8 +488,7 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 			}
 
 			if (moveFailures > 0) {
-				std::string error = "Failed to move some files!";
-				progressReporter_.Set(error);
+				progressReporter_.Set(iz->T("Failed to move some files!"));
 				return new bool(false);
 			}
 
