@@ -252,7 +252,7 @@ void retro_set_environment(retro_environment_t cb)
    vars.push_back(ppsspp_software_skinning.GetOptions());
    vars.push_back(ppsspp_lazy_texture_caching.GetOptions());
    vars.push_back(ppsspp_retain_changed_textures.GetOptions());
-   vars.push_back(ppsspp_force_lag_sync.GetOptions());   
+   vars.push_back(ppsspp_force_lag_sync.GetOptions());
    vars.push_back(ppsspp_disable_slow_framebuffer_effects.GetOptions());
    vars.push_back(ppsspp_lower_resolution_for_effects.GetOptions());
    vars.push_back(ppsspp_texture_scaling_level.GetOptions());
@@ -343,8 +343,8 @@ static void check_variables(CoreParameter &coreParam)
 {
    bool updated = false;
 
-   if (     coreState != CORE_POWERUP 
-         && environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated) 
+   if (     coreState != CORE_POWERUP
+         && environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated)
          && !updated)
       return;
 
@@ -638,13 +638,13 @@ bool retro_load_game(const struct retro_game_info *game)
       g_Config.sNickName = std::string(nickname);
 
 
-   if (environ_cb(RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY, &dir_ptr) 
+   if (environ_cb(RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY, &dir_ptr)
          && dir_ptr)
    {
       retro_base_dir = Path(dir_ptr);
    }
 
-   if (environ_cb(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &dir_ptr) 
+   if (environ_cb(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &dir_ptr)
          && dir_ptr)
    {
       retro_save_dir = Path(dir_ptr);
@@ -827,7 +827,7 @@ void retro_run(void)
 
    if (useEmuThread)
    {
-      if(   emuThreadState == EmuThreadState::PAUSED || 
+      if(   emuThreadState == EmuThreadState::PAUSED ||
             emuThreadState == EmuThreadState::PAUSE_REQUESTED)
       {
          ctx->SwapBuffers();
@@ -860,17 +860,25 @@ namespace SaveState
 
 size_t retro_serialize_size(void)
 {
+   if(!gpu) { // The HW renderer isn't ready on first pass.
+      return 134217728; // 128MB ought to be enough for anybody.
+   }
+
    SaveState::SaveStart state;
    // TODO: Libretro API extension to use the savestate queue
    if (useEmuThread)
       EmuThreadPause();
 
-   return (CChunkFileReader::MeasurePtr(state) + 0x800000) 
+   return (CChunkFileReader::MeasurePtr(state) + 0x800000)
       & ~0x7FFFFF; // We don't unpause intentionally
 }
 
 bool retro_serialize(void *data, size_t size)
 {
+   if(!gpu) { // The HW renderer isn't ready on first pass.
+      return false;
+   }
+
    bool retVal;
    SaveState::SaveStart state;
    // TODO: Libretro API extension to use the savestate queue
@@ -900,7 +908,7 @@ bool retro_unserialize(const void *data, size_t size)
       EmuThreadPause(); // Does nothing if already paused
 
    std::string errorString;
-   retVal = CChunkFileReader::LoadPtr((u8 *)data, state, &errorString) 
+   retVal = CChunkFileReader::LoadPtr((u8 *)data, state, &errorString)
       == CChunkFileReader::ERROR_NONE;
 
    if (useEmuThread)
