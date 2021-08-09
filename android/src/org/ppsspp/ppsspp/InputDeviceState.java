@@ -12,7 +12,7 @@ import android.view.MotionEvent;
 public class InputDeviceState {
 	private static final String TAG = "InputDeviceState";
 
-	private static final int deviceId = NativeApp.DEVICE_ID_PAD_0;
+	public static final int deviceId = NativeApp.DEVICE_ID_PAD_0;
 
 	private InputDevice mDevice;
 	private int[] mAxes;
