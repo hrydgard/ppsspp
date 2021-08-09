@@ -128,6 +128,10 @@ enum FocusDirection {
 	FOCUS_RIGHT,
 	FOCUS_NEXT,
 	FOCUS_PREV,
+	FOCUS_FIRST,
+	FOCUS_LAST,
+	FOCUS_PREV_PAGE,
+	FOCUS_NEXT_PAGE,
 };
 
 enum {
@@ -177,6 +181,10 @@ inline FocusDirection Opposite(FocusDirection d) {
 	case FOCUS_RIGHT: return FOCUS_LEFT;
 	case FOCUS_PREV: return FOCUS_NEXT;
 	case FOCUS_NEXT: return FOCUS_PREV;
+	case FOCUS_FIRST: return FOCUS_LAST;
+	case FOCUS_LAST: return FOCUS_FIRST;
+	case FOCUS_PREV_PAGE: return FOCUS_NEXT_PAGE;
+	case FOCUS_NEXT_PAGE: return FOCUS_PREV_PAGE;
 	}
 	return d;
 }
@@ -440,6 +448,7 @@ public:
 
 	// Fake RTTI
 	virtual bool IsViewGroup() const { return false; }
+	virtual bool ContainsSubview(const View *view) const { return false; }
 
 	Point GetFocusPosition(FocusDirection dir);
 
