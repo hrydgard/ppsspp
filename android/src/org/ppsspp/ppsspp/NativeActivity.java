@@ -968,27 +968,27 @@ public abstract class NativeActivity extends Activity {
 
 			int sources = event.getSource();
 
+			// Is this really only for the Xperia Play special handling in OnKeyDown?
+			// And if so, can we just handle it here instead?
 			switch (event.getKeyCode()) {
 			case KeyEvent.KEYCODE_BACK:
-			case KeyEvent.KEYCODE_MENU:
 				passThrough = true;
-				Log.i(TAG, "Passing through key, source = " + sources);
 				break;
 			default:
 				break;
 			}
 
-			// Don't passthrough back or menu button if from gamepad.
+			// Don't passthrough back button if from gamepad.
 			// XInput device on Android returns source 1281 or 0x501, which equals GAMEPAD | KEYBOARD.
 			// Shield Remote returns 769 or 0x301 which equals DPAD | KEYBOARD.
 
-			if ((sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
+			// Don't disable passthrough if app at top level.
+			if (((sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
 					(sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK ||
-					(sources & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD)
+					(sources & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD))
 			{
 				passThrough = false;
 			}
-			Log.i(TAG, "Input event device sources: " + sources);
 
 			if (!passThrough) {
 				switch (event.getAction()) {
@@ -1064,7 +1064,7 @@ public abstract class NativeActivity extends Activity {
 			if (event.isAltPressed()) {
 				NativeApp.keyDown(InputDeviceState.deviceId, 1004, repeat); // special custom keycode for the O button on Xperia Play
 			} else if (NativeApp.isAtTopLevel()) {
- 				Log.i(TAG, "IsAtTopLevel returned true.");
+				Log.i(TAG, "IsAtTopLevel returned true.");
 				// Pass through the back event.
 				return super.onKeyDown(keyCode, event);
 			} else {
