@@ -480,7 +480,12 @@ void SystemInfoScreen::CreateViews() {
 #endif
 
 	deviceSpecs->Add(new ItemHeader(si->T("CPU Information")));
-	deviceSpecs->Add(new InfoItem(si->T("CPU Name", "Name"), cpu_info.brand_string));
+
+	// Don't bother showing the CPU name if we don't have one.
+	if (cpu_info.brand_string != "Unknown") {
+		deviceSpecs->Add(new InfoItem(si->T("CPU Name", "Name"), cpu_info.brand_string));
+	}
+
 	int totalThreads = cpu_info.num_cores * cpu_info.logical_cpu_count;
 	std::string cores = StringFromFormat(si->T("%d (%d per core, %d cores)"), totalThreads, cpu_info.logical_cpu_count, cpu_info.num_cores);
 	deviceSpecs->Add(new InfoItem(si->T("Threads"), cores));
