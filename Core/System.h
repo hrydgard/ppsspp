@@ -33,6 +33,7 @@ enum GlobalUIState {
 	UISTATE_PAUSEMENU,
 	UISTATE_INGAME,
 	UISTATE_EXIT,
+	UISTATE_EXCEPTION,
 };
 
 // Use these in conjunction with GetSysDirectory.

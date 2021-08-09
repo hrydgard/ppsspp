@@ -791,9 +791,10 @@ void CDisasm::SavePosition()
 void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 {
 	HWND hDlg = m_hDlg;
+	bool ingame = (GetUIState() == UISTATE_INGAME || GetUIState() == UISTATE_EXCEPTION) && PSP_IsInited();
 
 	// Update Dialog Windows
-	if (_bDebug && GetUIState() == UISTATE_INGAME && PSP_IsInited())
+	if (_bDebug && ingame)
 	{
 		Core_WaitInactive(TEMP_BREAKPOINT_WAIT_MS);
 		breakpointList->reloadBreakpoints();
@@ -827,7 +828,7 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 	{
 		updateThreadLabel(true);
 		
-		if (GetUIState() == UISTATE_INGAME && PSP_IsInited())
+		if (ingame)
 		{
 			SetDlgItemText(m_hDlg, IDC_STOPGO, L"Break");
 			EnableWindow(GetDlgItem(hDlg, IDC_STOPGO), TRUE);

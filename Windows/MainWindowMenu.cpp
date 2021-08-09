@@ -68,7 +68,8 @@ namespace MainWindow {
 	LRESULT CALLBACK About(HWND, UINT, WPARAM, LPARAM);
 
 	void SetIngameMenuItemStates(HMENU menu, const GlobalUIState state) {
-		UINT menuEnable = state == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
+		UINT menuEnable = state == UISTATE_INGAME || state == UISTATE_EXCEPTION ? MF_ENABLED : MF_GRAYED;
+		UINT menuInGameEnable = state == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
 		UINT umdSwitchEnable = state == UISTATE_INGAME && getUMDReplacePermit() ? MF_ENABLED : MF_GRAYED;
 
 		EnableMenuItem(menu, ID_FILE_SAVESTATEFILE, menuEnable);
@@ -86,7 +87,7 @@ namespace MainWindow {
 		EnableMenuItem(menu, ID_DEBUG_SAVESYMFILE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_RESETSYMBOLTABLE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_TAKESCREENSHOT, menuEnable);
-		EnableMenuItem(menu, ID_DEBUG_SHOWDEBUGSTATISTICS, menuEnable);
+		EnableMenuItem(menu, ID_DEBUG_SHOWDEBUGSTATISTICS, menuInGameEnable);
 		EnableMenuItem(menu, ID_DEBUG_EXTRACTFILE, menuEnable);
 
 		// While playing, this pop up doesn't work - and probably doesn't make sense.
@@ -394,7 +395,7 @@ namespace MainWindow {
 				Core_EnableStepping(false);
 			}
 		} else {
-			if (GetUIState() == UISTATE_INGAME || GetUIState() == UISTATE_PAUSEMENU) {
+			if (GetUIState() == UISTATE_INGAME || GetUIState() == UISTATE_EXCEPTION || GetUIState() == UISTATE_PAUSEMENU) {
 				Core_EnableStepping(false);
 			}
 

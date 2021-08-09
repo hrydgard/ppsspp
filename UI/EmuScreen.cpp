@@ -952,8 +952,8 @@ void EmuScreen::update() {
 	PSP_CoreParameter().pixelHeight = pixel_yres * bounds.h / dp_yres;
 #endif
 
-	if (!invalid_ && coreState != CORE_RUNTIME_ERROR) {
-		UpdateUIState(UISTATE_INGAME);
+	if (!invalid_) {
+		UpdateUIState(coreState != CORE_RUNTIME_ERROR ? UISTATE_INGAME : UISTATE_EXCEPTION);
 	}
 
 	if (errorMessage_.size()) {
