@@ -211,22 +211,26 @@ static const DefMappingStruct defaultMOQI7SKeyMap[] = {
 };
 
 static const DefMappingStruct defaultPadMap[] = {
-#if defined(__ANDROID__)
+#if PPSSPP_PLATFORM(ANDROID)
 	{CTRL_CROSS          , NKCODE_BUTTON_A},
 	{CTRL_CIRCLE         , NKCODE_BUTTON_B},
 	{CTRL_SQUARE         , NKCODE_BUTTON_X},
 	{CTRL_TRIANGLE       , NKCODE_BUTTON_Y},
 	// The hat for DPAD is standard for bluetooth pads, which is the most likely pads on Android I think.
 	{CTRL_LEFT           , JOYSTICK_AXIS_HAT_X, -1},
+	{CTRL_LEFT           , NKCODE_DPAD_LEFT},
 	{CTRL_RIGHT          , JOYSTICK_AXIS_HAT_X, +1},
+	{CTRL_RIGHT          , NKCODE_DPAD_RIGHT},
 	{CTRL_UP             , JOYSTICK_AXIS_HAT_Y, -1},
+	{CTRL_UP             , NKCODE_DPAD_UP},
 	{CTRL_DOWN           , JOYSTICK_AXIS_HAT_Y, +1},
+	{CTRL_DOWN           , NKCODE_DPAD_DOWN},
 	{CTRL_START          , NKCODE_BUTTON_START},
-	{CTRL_SELECT         , NKCODE_BUTTON_SELECT},
+	{CTRL_SELECT         , NKCODE_BACK},
 	{CTRL_LTRIGGER       , NKCODE_BUTTON_L1},
 	{CTRL_RTRIGGER       , NKCODE_BUTTON_R1},
 	{VIRTKEY_UNTHROTTLE  , NKCODE_BUTTON_R2},
-	{VIRTKEY_PAUSE       , NKCODE_BUTTON_THUMBR},
+	{VIRTKEY_PAUSE       , JOYSTICK_AXIS_LTRIGGER, +1},
 	{VIRTKEY_SPEED_TOGGLE, NKCODE_BUTTON_L2},
 	{VIRTKEY_AXIS_X_MIN, JOYSTICK_AXIS_X, -1},
 	{VIRTKEY_AXIS_X_MAX, JOYSTICK_AXIS_X, +1},
@@ -249,6 +253,7 @@ static const DefMappingStruct defaultPadMap[] = {
 	{VIRTKEY_AXIS_X_MAX, JOYSTICK_AXIS_X, +1},
 	{VIRTKEY_AXIS_Y_MIN, JOYSTICK_AXIS_Y, +1},
 	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, -1},
+	{VIRTKEY_PAUSE       , JOYSTICK_AXIS_LTRIGGER, +1},
 #endif
 };
 
@@ -936,17 +941,17 @@ void RestoreDefault() {
 	// Autodetect a few common (and less common) devices
 	std::string name = System_GetProperty(SYSPROP_NAME);
 	if (IsNvidiaShield(name) || IsNvidiaShieldTV(name)) {
-		SetDefaultKeyMap(DEFAULT_MAPPING_SHIELD, true);
+		SetDefaultKeyMap(DEFAULT_MAPPING_SHIELD, false);
 	} else if (IsOuya(name)) {
-		SetDefaultKeyMap(DEFAULT_MAPPING_OUYA, true);
+		SetDefaultKeyMap(DEFAULT_MAPPING_OUYA, false);
 	} else if (IsXperiaPlay(name)) {
-		SetDefaultKeyMap(DEFAULT_MAPPING_XPERIA_PLAY, true);
+		SetDefaultKeyMap(DEFAULT_MAPPING_XPERIA_PLAY, false);
 	} else if (IsMOQII7S(name)) {
 		INFO_LOG(SYSTEM, "MOQI pad map");
-		SetDefaultKeyMap(DEFAULT_MAPPING_MOQI_I7S, true);
+		SetDefaultKeyMap(DEFAULT_MAPPING_MOQI_I7S, false);
 	} else {
 		INFO_LOG(SYSTEM, "Default pad map");
-		SetDefaultKeyMap(DEFAULT_MAPPING_PAD, true);
+		SetDefaultKeyMap(DEFAULT_MAPPING_PAD, false);
 	}
 #else
 	SetDefaultKeyMap(DEFAULT_MAPPING_KEYBOARD, true);
@@ -1037,11 +1042,13 @@ void NotifyPadConnected(const std::string &name) {
 }
 
 void AutoConfForPad(const std::string &name) {
+	g_controllerMap.clear();
+
 	INFO_LOG(SYSTEM, "Autoconfiguring pad for '%s'", name.c_str());
 	if (name == "Xbox 360 Pad") {
-		SetDefaultKeyMap(DEFAULT_MAPPING_X360, true);
+		SetDefaultKeyMap(DEFAULT_MAPPING_X360, false);
 	} else {
-		SetDefaultKeyMap(DEFAULT_MAPPING_PAD, true);
+		SetDefaultKeyMap(DEFAULT_MAPPING_PAD, false);
 	}
 
 #ifndef MOBILE_DEVICE
