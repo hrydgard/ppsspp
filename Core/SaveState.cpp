@@ -335,11 +335,15 @@ namespace SaveState
 
 	void Load(const Path &filename, int slot, Callback callback, void *cbUserData)
 	{
+		if (coreState == CoreState::CORE_RUNTIME_ERROR)
+			Core_EnableStepping(true);
 		Enqueue(Operation(SAVESTATE_LOAD, filename, slot, callback, cbUserData));
 	}
 
 	void Save(const Path &filename, int slot, Callback callback, void *cbUserData)
 	{
+		if (coreState == CoreState::CORE_RUNTIME_ERROR)
+			Core_EnableStepping(true);
 		Enqueue(Operation(SAVESTATE_SAVE, filename, slot, callback, cbUserData));
 	}
 
@@ -350,6 +354,8 @@ namespace SaveState
 
 	void Rewind(Callback callback, void *cbUserData)
 	{
+		if (coreState == CoreState::CORE_RUNTIME_ERROR)
+			Core_EnableStepping(true);
 		Enqueue(Operation(SAVESTATE_REWIND, Path(), -1, callback, cbUserData));
 	}
 
@@ -866,6 +872,7 @@ namespace SaveState
 					callbackMessage = op.slot != LOAD_UNDO_SLOT ? sc->T("Loaded State") : sc->T("State load undone");
 					callbackResult = TriggerLoadWarnings(callbackMessage);
 					hasLoadedState = true;
+					Core_ResetException();
 
 					if (!slot_prefix.empty())
 						callbackMessage = slot_prefix + callbackMessage;
@@ -944,6 +951,7 @@ namespace SaveState
 					callbackMessage = sc->T("Loaded State");
 					callbackResult = Status::SUCCESS;
 					hasLoadedState = true;
+					Core_ResetException();
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					// Cripes.  Good news is, we might have more.  Let's try those too, better than a reset.
 					if (HandleLoadFailure()) {
@@ -951,6 +959,7 @@ namespace SaveState
 						callbackMessage = sc->T("Loaded State");
 						callbackResult = Status::SUCCESS;
 						hasLoadedState = true;
+						Core_ResetException();
 					} else {
 						callbackMessage = std::string(i18nLoadFailure) + ": " + errorString;
 						callbackResult = Status::FAILURE;
