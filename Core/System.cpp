@@ -131,6 +131,7 @@ void UpdateUIState(GlobalUIState newState) {
 		case UISTATE_INGAME: state = "ingame"; break;
 		case UISTATE_MENU: state = "menu"; break;
 		case UISTATE_PAUSEMENU: state = "pausemenu"; break;
+		case UISTATE_EXCEPTION: state = "exception"; break;
 		}
 		if (state) {
 			System_SendMessage("uistate", state);

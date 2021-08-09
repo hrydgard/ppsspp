@@ -779,9 +779,18 @@ void EmuScreen::CreateViews() {
 	if (g_Config.bShowDeveloperMenu) {
 		root_->Add(new Button(dev->T("DevMenu")))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
-	resumeButton_ = root_->Add(new Button(dev->T("Resume"), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 60, true)));
+
+	LinearLayout *buttons = new LinearLayout(Orientation::ORIENT_HORIZONTAL, new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 60, true));
+	buttons->SetSpacing(20.0f);
+	root_->Add(buttons);
+
+	resumeButton_ = buttons->Add(new Button(dev->T("Resume")));
 	resumeButton_->OnClick.Handle(this, &EmuScreen::OnResume);
 	resumeButton_->SetVisibility(V_GONE);
+
+	resetButton_ = buttons->Add(new Button(dev->T("Reset")));
+	resetButton_->OnClick.Handle(this, &EmuScreen::OnReset);
+	resetButton_->SetVisibility(V_GONE);
 
 	cardboardDisableButton_ = root_->Add(new Button(sc->T("Cardboard VR OFF"), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 30, true)));
 	cardboardDisableButton_->OnClick.Handle(this, &EmuScreen::OnDisableCardboard);
@@ -914,12 +923,20 @@ UI::EventReturn EmuScreen::OnResume(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn EmuScreen::OnReset(UI::EventParams &params) {
+	if (coreState == CoreState::CORE_RUNTIME_ERROR) {
+		NativeMessageReceived("reset", "");
+	}
+	return UI::EVENT_DONE;
+}
+
 void EmuScreen::update() {
 	using namespace UI;
 
 	UIScreen::update();
 	onScreenMessagesView_->SetVisibility(g_Config.bShowOnScreenMessages ? V_VISIBLE : V_GONE);
 	resumeButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR && Memory::MemFault_MayBeResumable() ? V_VISIBLE : V_GONE);
+	resetButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR ? V_VISIBLE : V_GONE);
 
 	if (bootPending_) {
 		bootGame(gamePath_);
@@ -935,8 +952,8 @@ void EmuScreen::update() {
 	PSP_CoreParameter().pixelHeight = pixel_yres * bounds.h / dp_yres;
 #endif
 
-	if (!invalid_ && coreState != CORE_RUNTIME_ERROR) {
-		UpdateUIState(UISTATE_INGAME);
+	if (!invalid_) {
+		UpdateUIState(coreState != CORE_RUNTIME_ERROR ? UISTATE_INGAME : UISTATE_EXCEPTION);
 	}
 
 	if (errorMessage_.size()) {
