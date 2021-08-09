@@ -8,8 +8,9 @@
 #include "Common/System/Display.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/I18n.h"
-
 #include "Common/Log.h"
+#include "Common/OSVersion.h"
+
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Reporting.h"
@@ -34,14 +35,6 @@ void D3D9Context::SwapBuffers() {
 }
 
 typedef HRESULT (__stdcall *DIRECT3DCREATE9EX)(UINT, IDirect3D9Ex**);
-
-bool IsWin7OrLater() {
-	DWORD version = GetVersion();
-	DWORD major = (DWORD)(LOBYTE(LOWORD(version)));
-	DWORD minor = (DWORD)(HIBYTE(LOWORD(version)));
-
-	return (major > 6) || ((major == 6) && (minor >= 1));
-}
 
 static void GetRes(HWND hWnd, int &xres, int &yres) {
 	RECT rc;
@@ -149,7 +142,7 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	presentParams_.PresentationInterval = swapInterval_ == 1 ? D3DPRESENT_INTERVAL_ONE : D3DPRESENT_INTERVAL_IMMEDIATE;
 
 	if (has9Ex_) {
-		if (windowed && IsWin7OrLater()) {
+		if (windowed && IsWin7OrHigher()) {
 			// This "new" flip mode should give higher performance but doesn't.
 			//pp.BackBufferCount = 2;
 			//pp.SwapEffect = D3DSWAPEFFECT_FLIPEX;
@@ -170,7 +163,7 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	DX9::pD3Ddevice = device_;
 	DX9::pD3DdeviceEx = deviceEx_;
 
-	if (deviceEx_ && IsWin7OrLater()) {
+	if (deviceEx_ && IsWin7OrHigher()) {
 		// TODO: This makes it slower?
 		//deviceEx->SetMaximumFrameLatency(1);
 	}
