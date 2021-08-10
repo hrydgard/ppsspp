@@ -124,6 +124,7 @@ option(USING_FBDEV "Set to ON if target environment uses fbdev (eg. Pandora)" ${
 option(USING_GLES2 "Set to ON if target device uses OpenGL ES 2.0" ${USING_GLES2})
 option(USING_X11_VULKAN "Set to OFF if target environment doesn't use X11 for Vulkan" ON)
 option(USE_WAYLAND_WSI "Enable or disable Wayland WSI support for Vulkan" ${USE_WAYLAND_WSI})
+option(USE_VULKAN_DISPLAY_KHR "Enable or disable full screen display of Vulkan" ${USE_VULKAN_DISPLAY_KHR})
 # :: Frontends
 option(USING_QT_UI "Set to ON if you wish to use the Qt frontend wrapper" ${USING_QT_UI})
 option(MOBILE_DEVICE "Set to ON when targeting a mobile device" ${MOBILE_DEVICE})
@@ -148,6 +149,7 @@ if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
 	else()
 		message("NOT using X11 for Vulkan")
 	endif()
+
 	# add_definitions(-DVK_USE_PLATFORM_XCB_KHR)
 	if(USE_WAYLAND_WSI)
 		find_package(Wayland)
@@ -157,6 +159,11 @@ if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
 			include_directories(${WAYLAND_INCLUDE_DIR})
 			add_definitions(-DVK_USE_PLATFORM_WAYLAND_KHR)
 		endif()
+	endif()
+
+	if(USE_VULKAN_DISPLAY_KHR)
+		message(STATUS "Using experimental full-screen display for Vulkan.")
+		add_definitions(-DVK_USE_PLATFORM_DISPLAY_KHR)
 	endif()
 endif()
 

@@ -186,6 +186,9 @@ PFN_vkCreateXlibSurfaceKHR vkCreateXlibSurfaceKHR;
 #if defined(VK_USE_PLATFORM_WAYLAND_KHR)
 PFN_vkCreateWaylandSurfaceKHR vkCreateWaylandSurfaceKHR;
 #endif
+#if defined(VK_USE_PLATFORM_DISPLAY_KHR)
+PFN_vkCreateDisplayPlaneSurfaceKHR vkCreateDisplayPlaneSurfaceKHR;
+#endif
 
 PFN_vkDestroySurfaceKHR vkDestroySurfaceKHR;
 
@@ -534,6 +537,9 @@ void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &en
 #endif
 #if defined(VK_USE_PLATFORM_WAYLAND_KHR)
 	LOAD_INSTANCE_FUNC(instance, vkCreateWaylandSurfaceKHR);
+#endif
+#if defined(VK_USE_PLATFORM_DISPLAY_KHR)
+	LOAD_INSTANCE_FUNC(instance, vkCreateDisplayPlaneSurfaceKHR);
 #endif
 
 	LOAD_INSTANCE_FUNC(instance, vkDestroySurfaceKHR);

@@ -184,6 +184,9 @@ extern PFN_vkCreateXlibSurfaceKHR vkCreateXlibSurfaceKHR;
 #if defined(VK_USE_PLATFORM_WAYLAND_KHR)
 extern PFN_vkCreateWaylandSurfaceKHR vkCreateWaylandSurfaceKHR;
 #endif
+#if defined(VK_USE_PLATFORM_DISPLAY_KHR)
+extern PFN_vkCreateDisplayPlaneSurfaceKHR vkCreateDisplayPlaneSurfaceKHR;
+#endif
 
 extern PFN_vkDestroySurfaceKHR vkDestroySurfaceKHR;
 
