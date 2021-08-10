@@ -420,7 +420,8 @@ void retro_init(void)
    // libretro does its own timing, so this should stay CONTINUOUS.
    g_Config.iUnthrottleMode = (int)UnthrottleMode::CONTINUOUS;
    g_Config.bMemStickInserted = true;
-   g_Config.iGlobalVolume = VOLUME_MAX - 1;
+   g_Config.iGlobalVolume = VOLUME_FULL - 1;
+   g_Config.iReverbVolume = VOLUME_FULL;
    g_Config.iAltSpeedVolume = -1;
    g_Config.bEnableSound = true;
    g_Config.iCwCheatRefreshRate = 60;

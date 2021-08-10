@@ -18,6 +18,8 @@
 #include <cstdint>
 #include <cstring>
 
+#include "Common/Math/math_util.h"
+#include "Core/Config.h"
 #include "Core/HW/SasReverb.h"
 #include "Core/Util/AudioFormat.h"
 
@@ -219,6 +221,15 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 		return;
 	}
 
+	const uint8_t reverbVolume = Clamp(g_Config.iReverbVolume, 0, 25);
+	// Standard volume is 10, which pairs with a normal shift of 15.
+	const uint8_t finalShift = 25 - reverbVolume;
+	if (reverbVolume == 0) {
+		// Force to zero output, which is not the same as "Off."
+		memset(output, 0, inputSize * 4);
+		return;
+	}
+
 	const SasReverbData &d = presets[preset_];
 
 	// We put this on the stack instead of in the object to let the compiler optimize better (avoid mem r/w).
@@ -255,8 +266,8 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 		b[d.mRAPF2] = clamp_s16(Rout - (d.vAPF2*b[(d.mRAPF2 - d.dAPF2)] >> 15));
 		Rout = b[(d.mRAPF2 - d.dAPF2)] + (b[d.mRAPF2] * d.vAPF2 >> 15);
 		// ___Output to Mixer(Output volume multiplied with input from APF2)___________
-		output[i * 4 + 0] = clamp_s16(Lout * volLeft >> 15);
-		output[i * 4 + 1] = clamp_s16(Rout * volRight >> 15);
+		output[i * 4 + 0] = clamp_s16((Lout * volLeft) >> finalShift);
+		output[i * 4 + 1] = clamp_s16((Rout * volRight) >> finalShift);
 		output[i * 4 + 2] = 0;
 		output[i * 4 + 3] = 0;
 

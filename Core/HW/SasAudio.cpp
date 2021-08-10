@@ -680,7 +680,7 @@ void SasInstance::ApplyWaveformEffect() {
 		sendBufferDownsampled[i * 2 + 1] = clamp_s16(sendBuffer[i * 4 + 1]);
 	}
 
-	// Volume max is 0x1000, while our factor is up to 0x8000. Shifting right by 3 fixes that.
+	// Volume max is 0x1000, while our factor is up to 0x8000. Shifting left by 3 fixes that.
 	reverb_.ProcessReverb(sendBufferProcessed, sendBufferDownsampled, grainSize / 2, waveformEffect.leftVol << 3, waveformEffect.rightVol << 3);
 }
 
