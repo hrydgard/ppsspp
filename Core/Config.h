@@ -238,6 +238,7 @@ public:
 	bool bEnableSound;
 	int iAudioBackend;
 	int iGlobalVolume;
+	int iReverbVolume;
 	int iAltSpeedVolume;
 	bool bExtraAudioBuffering;  // For bluetooth
 	std::string sAudioDevice;

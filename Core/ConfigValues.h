@@ -28,7 +28,7 @@ const int PSP_MODEL_FAT = 0;
 const int PSP_MODEL_SLIM = 1;
 const int PSP_DEFAULT_FIRMWARE = 660;
 static const int8_t VOLUME_OFF = 0;
-static const int8_t VOLUME_MAX = 10;
+static const int8_t VOLUME_FULL = 10;
 
 enum class CPUCore {
 	INTERPRETER = 0,

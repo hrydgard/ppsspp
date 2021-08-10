@@ -149,12 +149,12 @@ inline void ClampBufferToS16WithVolume(s16 *out, const s32 *in, size_t size) {
 		}
 	}
 
-	if (volume >= VOLUME_MAX) {
+	if (volume >= VOLUME_FULL) {
 		ClampBufferToS16<false>(out, in, size, 0);
 	} else if (volume <= VOLUME_OFF) {
 		memset(out, 0, size * sizeof(s16));
 	} else {
-		ClampBufferToS16<true>(out, in, size, VOLUME_MAX - (s8)volume);
+		ClampBufferToS16<true>(out, in, size, VOLUME_FULL - (s8)volume);
 	}
 }
 
