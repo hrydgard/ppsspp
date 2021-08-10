@@ -33,7 +33,7 @@
 #include <sys/syscall.h>
 #endif
 
-#if defined(__DragonFly__) || defined(__FreeBSD__)
+#if defined(__DragonFly__) || defined(__FreeBSD__) || defined(__OpenBSD__)
 #include <pthread_np.h>
 #elif defined(__NetBSD__)
 #include <lwp.h>
@@ -125,6 +125,10 @@ void SetCurrentThreadName(const char* threadName) {
 	pthread_setname_np(pthread_self(), threadName);
 #elif defined(__APPLE__)
 	pthread_setname_np(threadName);
+#elif defined(__DragonFly__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+	pthread_set_name_np(pthread_self(), threadName);
+#elif defined(__NetBSD__)
+	pthread_setname_np(pthread_self(), "%s", (void*)threadName);
 #endif
 
 	// Do nothing
