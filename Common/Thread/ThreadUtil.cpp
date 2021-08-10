@@ -33,6 +33,12 @@
 #include <sys/syscall.h>
 #endif
 
+#if defined(__DragonFly__) || defined(__FreeBSD__)
+#include <pthread_np.h>
+#elif defined(__NetBSD__)
+#include <lwp.h>
+#endif
+
 #ifdef TLS_SUPPORTED
 static thread_local const char *curThreadName;
 #endif
@@ -144,7 +150,7 @@ int GetCurrentThreadIdForDebug() {
 	return 1;
 #elif PPSSPP_PLATFORM(WINDOWS)
 	return (int)GetCurrentThreadId();
-#elif PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS) || defined(__OpenBSD__) || defined(__FreeBSD__)
+#elif PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 	uint64_t tid = 0;
 	pthread_threadid_np(NULL, &tid);
 	return (int)tid;
@@ -152,6 +158,12 @@ int GetCurrentThreadIdForDebug() {
 	// See issue 14545
 	return (int)syscall(__NR_gettid);
 	// return (int)gettid();
+#elif defined(__DragonFly__) || defined(__FreeBSD__)
+	return pthread_getthreadid_np();
+#elif defined(__NetBSD__)
+	return _lwp_self();
+#elif defined(__OpenBSD__)
+	return getthrid();
 #else
 	return 1;
 #endif
