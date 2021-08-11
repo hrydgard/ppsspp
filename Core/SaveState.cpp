@@ -490,6 +490,7 @@ namespace SaveState
 						DeleteIfExists(backup);
 						File::Rename(backup.WithExtraExtension(".tmp"), backup);
 						g_Config.sStateLoadUndoGame = GenerateFullDiscId(gameFilename);
+						g_Config.Save("Saving config for savestate last load undo");
 					} else {
 						ERROR_LOG(SAVESTATE, "Saving load undo state failed: %s", message.c_str());
 					}
@@ -547,6 +548,7 @@ namespace SaveState
 						RenameIfExists(fn, fnUndo);
 						g_Config.sStateUndoLastSaveGame = GenerateFullDiscId(gameFilename);
 						g_Config.iStateUndoLastSaveSlot = slot;
+						g_Config.Save("Saving config for savestate last save undo");
 					} else {
 						DeleteIfExists(fn);
 					}
