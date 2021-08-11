@@ -103,7 +103,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 		break;
 	case PathType::CONTENT_URI:
 		// We're gonna need some error codes..
-		if (!strcmp(mode, "r") || !strcmp(mode, "rb")) {
+		if (!strcmp(mode, "r") || !strcmp(mode, "rb") || !strcmp(mode, "rt")) {
 			INFO_LOG(COMMON, "Opening content file for read: '%s'", path.c_str());
 			// Read, let's support this - easy one.
 			int descriptor = Android_OpenContentUriFd(path.ToString(), Android_OpenContentUriMode::READ);
@@ -111,7 +111,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 				return nullptr;
 			}
 			return fdopen(descriptor, "rb");
-		} else if (!strcmp(mode, "w") || !strcmp(mode, "wb")) {
+		} else if (!strcmp(mode, "w") || !strcmp(mode, "wb") || !strcmp(mode, "wt")) {
 			// Need to be able to create the file here if it doesn't exist.
 			// Not exactly sure which abstractions are best, let's start simple.
 			if (!File::Exists(path)) {
