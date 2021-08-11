@@ -1218,9 +1218,6 @@ UI::EventReturn GameSettingsScreen::OnDumpNextFrameToLog(UI::EventParams &e) {
 void GameSettingsScreen::update() {
 	UIScreen::update();
 
-	g_Config.iFpsLimit1 = iAlternateSpeedPercent1_ < 0 ? -1 : (iAlternateSpeedPercent1_ * 60) / 100;
-	g_Config.iFpsLimit2 = iAlternateSpeedPercent2_ < 0 ? -1 : (iAlternateSpeedPercent2_ * 60) / 100;
-
 	bool vertical = UseVerticalLayout();
 	if (vertical != lastVertical_) {
 		RecreateViews();
@@ -1266,6 +1263,9 @@ void GameSettingsScreen::sendMessage(const char *message, const char *value) {
 
 void GameSettingsScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (result == DialogResult::DR_OK) {
+		g_Config.iFpsLimit1 = iAlternateSpeedPercent1_ < 0 ? -1 : (iAlternateSpeedPercent1_ * 60) / 100;
+		g_Config.iFpsLimit2 = iAlternateSpeedPercent2_ < 0 ? -1 : (iAlternateSpeedPercent2_ * 60) / 100;
+
 		RecreateViews();
 	}
 }
