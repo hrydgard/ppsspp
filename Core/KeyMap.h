@@ -163,4 +163,6 @@ namespace KeyMap {
 
 	const std::set<std::string> &GetSeenPads();
 	void AutoConfForPad(const std::string &name);
+
+	bool IsKeyMapped(int device, int key);
 }

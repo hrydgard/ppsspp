@@ -506,10 +506,14 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		}
 #endif
 	} else if (!strcmp(message, "app_resumed") && screenManager()->topScreen() == this) {
-		// If there's no back button mapped, use this as the way to get into the menu.
+		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
+			if (!KeyMap::IsKeyMapped(DEVICE_ID_PAD_0, VIRTKEY_PAUSE) || !KeyMap::IsKeyMapped(DEVICE_ID_PAD_1, VIRTKEY_PAUSE)) {
+				// If it's a TV (so no built-in back button), and there's no back button mapped to a pad,
+				// use this as the fallback way to get into the menu.
 
-		// TODO: Check mappings.
-		screenManager()->push(new GamePauseScreen(gamePath_));
+				screenManager()->push(new GamePauseScreen(gamePath_));
+			}
+		}
 	}
 }
 

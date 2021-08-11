@@ -905,6 +905,17 @@ void RemoveButtonMapping(int btn) {
 	}
 }
 
+bool IsKeyMapped(int device, int key) {
+	for (auto &iter : g_controllerMap) {
+		for (auto &mappedKey : iter.second) {
+			if (mappedKey == KeyDef(device, key)) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 void SetKeyMapping(int btn, KeyDef key, bool replace) {
 	if (key.keyCode < 0)
 		return;
