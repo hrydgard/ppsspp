@@ -505,6 +505,11 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			OnChatMenu.Trigger(e);
 		}
 #endif
+	} else if (!strcmp(message, "app_resumed") && screenManager()->topScreen() == this) {
+		// If there's no back button mapped, use this as the way to get into the menu.
+
+		// TODO: Check mappings.
+		screenManager()->push(new GamePauseScreen(gamePath_));
 	}
 }
 
