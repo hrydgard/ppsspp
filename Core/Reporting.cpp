@@ -523,7 +523,7 @@ namespace Reporting
 		// Don't report from games without a version ID (i.e. random hashed homebrew IDs.)
 		// The problem is, these aren't useful because the hashes end up different for different people.
 		// TODO: Should really hash the ELF instead of the path, but then that affects savestates/cheats.
-		if (g_paramSFO.GetValueString("DISC_VERSION").empty())
+		if (PSP_IsInited() && g_paramSFO.GetValueString("DISC_VERSION").empty())
 			return false;
 
 		// Some users run the exe from a zip or something, and don't have fonts.
