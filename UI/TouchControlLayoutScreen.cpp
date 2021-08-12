@@ -99,10 +99,8 @@ public:
 	}
 
 	void Draw(UIContext &dc) override {
-		float opacity = g_Config.iTouchButtonOpacity / 100.0f;
-
-		uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
-		uint32_t color = colorAlpha(0xFFFFFF, opacity);
+		uint32_t colorBg = colorAlpha(GetButtonColor(), GetButtonOpacity());
+		uint32_t color = colorAlpha(0xFFFFFF, GetButtonOpacity());
 
 		int centerX = bounds_.centerX();
 		int centerY = bounds_.centerY();
@@ -160,10 +158,8 @@ public:
 	}
 
 	void Draw(UIContext &dc) override {
-		float opacity = g_Config.iTouchButtonOpacity / 100.0f;
-
-		uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
-		uint32_t color = colorAlpha(0xFFFFFF, opacity);
+		uint32_t colorBg = colorAlpha(GetButtonColor(), GetButtonOpacity());
+		uint32_t color = colorAlpha(0xFFFFFF, GetButtonOpacity());
 
 		static const float xoff[4] = {1, 0, -1, 0};
 		static const float yoff[4] = {0, 1, 0, -1};
