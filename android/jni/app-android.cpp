@@ -790,6 +790,8 @@ bool audioRecording_State() {
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_resume(JNIEnv *, jclass) {
 	INFO_LOG(SYSTEM, "NativeApp.resume() - resuming audio");
 	AndroidAudio_Resume(g_audioState);
+
+	NativeMessageReceived("app_resumed", "");
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {

@@ -505,6 +505,15 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			OnChatMenu.Trigger(e);
 		}
 #endif
+	} else if (!strcmp(message, "app_resumed") && screenManager()->topScreen() == this) {
+		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
+			if (!KeyMap::IsKeyMapped(DEVICE_ID_PAD_0, VIRTKEY_PAUSE) || !KeyMap::IsKeyMapped(DEVICE_ID_PAD_1, VIRTKEY_PAUSE)) {
+				// If it's a TV (so no built-in back button), and there's no back button mapped to a pad,
+				// use this as the fallback way to get into the menu.
+
+				screenManager()->push(new GamePauseScreen(gamePath_));
+			}
+		}
 	}
 }
 

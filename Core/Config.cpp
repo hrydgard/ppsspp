@@ -1300,12 +1300,12 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	LogManager::GetInstance()->LoadConfig(log, debugDefaults);
 
 	Section *recent = iniFile.GetOrCreateSection("Recent");
-	recent->Get("MaxRecent", &iMaxRecent, 30);
+	recent->Get("MaxRecent", &iMaxRecent, 60);
 
 	// Fix issue from switching from uint (hex in .ini) to int (dec)
 	// -1 is okay, though. We'll just ignore recent stuff if it is.
 	if (iMaxRecent == 0)
-		iMaxRecent = 30;
+		iMaxRecent = 60;
 
 	if (iMaxRecent > 0) {
 		recentIsos.clear();
