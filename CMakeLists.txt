@@ -188,7 +188,7 @@ else()
 	set(CoreLinkType STATIC)
 endif()
 
-# Work around for some misfeature of the current glslang build system 
+# Work around for some misfeature of the current glslang build system
 include_directories(ext/glslang)
 
 # Not sure if this is the best way - what about system glew?
@@ -1152,7 +1152,6 @@ if(TARGET SDL2::SDL2 AND NOT IOS)
 	target_link_libraries(Common SDL2::SDL2)
 endif()
 
-
 list(APPEND NativeAppSource
 	android/jni/TestRunner.cpp
 	UI/DiscordIntegration.cpp
@@ -1986,6 +1985,8 @@ target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz 
 
 if(FFmpeg_FOUND)
 	target_compile_definitions(${CoreLibName} PRIVATE USE_FFMPEG=1)
+	set_target_properties(${CoreLibName} PROPERTIES NO_SYSTEM_FROM_IMPORTED true)
+	target_include_directories(${CoreLibName} BEFORE PUBLIC ${FFmpeg_INCLUDE_avcodec})
 	target_link_libraries(${CoreLibName}
 		FFmpeg::avcodec
 		FFmpeg::avformat
@@ -2012,7 +2013,7 @@ if(USE_MINIUPNPC)
 	if (NO_GETADDRINFO)
 	  add_definitions(-DNO_GETADDRINFO)
 	endif()
-	
+
 	if (NOT WIN32)
 	  add_definitions (-DMINIUPNPC_SET_SOCKET_TIMEOUT)
 	  add_definitions (-D_BSD_SOURCE -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200112L)
@@ -2025,7 +2026,7 @@ if(USE_MINIUPNPC)
 	else()
 		add_definitions(-fPIC)
 	endif()
-	
+
 	add_definitions(-DWITH_UPNP -DMINIUPNP_STATICLIB)
 	set(MINIUPNP_DIR "ext/miniupnp/miniupnpc")
 	include_directories(${CMAKE_CURRENT_BINARY_DIR})
