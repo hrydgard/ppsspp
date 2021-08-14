@@ -37,6 +37,7 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/scePower.h"
 #include "Core/HLE/sceUtility.h"
 
 #include "Core/Dialog/PSPSaveDialog.h"
@@ -358,6 +359,11 @@ static int sceUtilitySavedataInitStart(u32 paramAddr) {
 	if (currentDialogActive && currentDialogType != UtilityDialogType::SAVEDATA) {
 		if (PSP_CoreParameter().compat.flags().YugiohSaveFix) {
 			WARN_LOG(SCEUTILITY, "Yugioh Savedata Correction");
+			if (accessThread) {
+				accessThread->Terminate();
+				// Try to unlock in case other dialog was shutting down.
+				KernelVolatileMemUnlock(0);
+			}
 		} else {
 			return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 		}
