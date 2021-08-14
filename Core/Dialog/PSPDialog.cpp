@@ -121,10 +121,12 @@ void PSPDialog::ChangeStatusInit(int delayUs) {
 }
 
 void PSPDialog::ChangeStatusShutdown(int delayUs) {
+	// If we're doing shutdown right away and skipped start, we don't run the dialog thread.
+	bool skipDialogShutdown = status == SCE_UTILITY_STATUS_NONE;
 	ChangeStatus(SCE_UTILITY_STATUS_SHUTDOWN, 0);
 
 	auto params = GetCommonParam();
-	if (params)
+	if (params && !skipDialogShutdown)
 		UtilityDialogShutdown(DialogType(), delayUs, params->accessThread);
 	else
 		ChangeStatus(SCE_UTILITY_STATUS_NONE, delayUs);
