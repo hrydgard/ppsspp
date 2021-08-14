@@ -1110,7 +1110,7 @@ UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 	const Path &PPSSPPpath = File::GetExeDirectory();
-	const Path installedFile = installedFile / "installed.txt";
+	const Path installedFile = PPSSPPpath / "installed.txt";
 	installed_ = File::Exists(installedFile);
 	if (otherinstalled_) {
 		File::Delete(PPSSPPpath / "installed.txt");
