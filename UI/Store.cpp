@@ -270,13 +270,16 @@ void ProductView::CreateViews() {
 	cancelButton_->SetVisibility(isDownloading ? V_VISIBLE : V_GONE);
 
 	// Add star rating, comments etc?
-	Add(new TextView(entry_.description, ALIGN_LEFT | FLAG_WRAP_TEXT, false));
+
+	// Draw each line separately so focusing can scroll.
+	std::vector<std::string> lines;
+	SplitString(entry_.description, '\n', lines);
+	for (auto &line : lines) {
+		Add(new TextView(line, ALIGN_LEFT | FLAG_WRAP_TEXT, false))->SetFocusable(true);
+	}
 
 	float size = entry_.size / (1024.f * 1024.f);
-	char temp[256];
-	sprintf(temp, "%s: %.2f %s", st->T("Size"), size, st->T("MB"));
-
-	Add(new TextView(temp));
+	Add(new TextView(StringFromFormat("%s: %.2f %s", st->T("Size"), size, st->T("MB"))));
 }
 
 void ProductView::Update() {
