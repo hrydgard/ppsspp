@@ -362,6 +362,7 @@ bool CreateDirectoriesAndroid() {
 		return false;
 	}
 
+	File::CreateFullPath(GetSysDirectory(DIRECTORY_CHEATS));
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVEDATA));
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVESTATE));
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_GAME));

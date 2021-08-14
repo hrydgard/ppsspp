@@ -111,7 +111,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 				return nullptr;
 			}
 			return fdopen(descriptor, "rb");
-		} else if (!strcmp(mode, "w") || !strcmp(mode, "wb") || !strcmp(mode, "wt")) {
+		} else if (!strcmp(mode, "w") || !strcmp(mode, "wb") || !strcmp(mode, "wt") || !strcmp(mode, "at") || !strcmp(mode, "a")) {
 			// Need to be able to create the file here if it doesn't exist.
 			// Not exactly sure which abstractions are best, let's start simple.
 			if (!File::Exists(path)) {
@@ -137,7 +137,12 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 				INFO_LOG(COMMON, "Opening '%s' for write failed", path.ToString().c_str());
 				return nullptr;
 			}
-			return fdopen(descriptor, "wb");
+			FILE *f = fdopen(descriptor, "wb");
+			if (!strcmp(mode, "at") || !strcmp(mode, "a")) {
+				// Append mode.
+				fseek(f, 0, SEEK_END);
+			}
+			return f;
 		} else {
 			ERROR_LOG(COMMON, "OpenCFile(%s): Mode not yet supported: %s", path.c_str(), mode);
 			return nullptr;
