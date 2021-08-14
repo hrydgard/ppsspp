@@ -987,7 +987,7 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bCacheFullIsoInRam, sy->T("Cache ISO in RAM", "Cache full ISO in RAM")))->SetEnabled(!PSP_IsInited());
 #endif
 
-	systemSettings->Add(new ItemHeader(sy->T("Cheats", "Cheats (experimental, see forums)")));
+	systemSettings->Add(new ItemHeader(sy->T("Cheats", "Cheats")));
 	CheckBox *enableCheats = systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, sy->T("Enable Cheats")));
 	enableCheats->OnClick.Add([&](UI::EventParams &) {
 		enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
