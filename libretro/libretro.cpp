@@ -495,8 +495,8 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
    info->timing.fps            = 60.0f / 1.001f;
    info->timing.sample_rate    = SAMPLERATE;
 
-   info->geometry.base_width   = g_Config.iInternalResolution * 480;
-   info->geometry.base_height  = g_Config.iInternalResolution * 272;
+   info->geometry.base_width   = 480;
+   info->geometry.base_height  = 272;
    info->geometry.max_width    = g_Config.iInternalResolution * 480;
    info->geometry.max_height   = g_Config.iInternalResolution * 272;
    info->geometry.aspect_ratio = 480.0 / 272.0;  // Not 16:9! But very, very close.
