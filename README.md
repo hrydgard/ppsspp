@@ -27,7 +27,7 @@ As far as I know, I was only able to implement these features on a Windows
 system. If I learn more about cross-platform development, I might be able to 
 expand it to other systems. For now, it's Windows Only.
 
-When you open the Disassembly Viewer, it automatically creates a new file named
+When you open the Disassembly Viewer, it automatically creates a new filename
 based on timestamp in the /Trace Logs/ directory. (It also makes that
 directory if it doesn't yet exist). When you push any of the Step functions,
 it prints out the currently read address, instruction name, parameters, values
@@ -37,12 +37,13 @@ line specifying the type of step done, printing this after the current step.
 When "Go" or "Break" are pushed, lines indicating these actions are also
 written to the file. If the current instruction being executed is in a Delay
 Slot, that also gets written, so it's hopefully a bit easier to follow branch
-logic. 
+logic. The file stream closes after every write so the file will update after
+every instruction written, which should make dynamically watching the file a
+bit easier. 
 
-The file doesn't actually get written to unless you close the Disassembly
-Viewer (which can be done by closing the main program). 
-
-Every time you open the Disassembly Viewer, a *new* file is then created. 
+Every time you close the disassembly viewer, it ends a write session so any
+subsequent instruction prints when you reopen it will be in a new file based
+on the timestamp when you opened the disassembly viewer.
 
 Executed instructions are printed and formatted as follows:
 
