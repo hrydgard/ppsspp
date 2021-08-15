@@ -8,7 +8,7 @@ Email: chronikerDelta@gmail.com
 
 Twitter: @chronikerDelta.
 
-Fundraiser for Tooth Implant: https://gofund.me/2806655c
+Fundraiser for Tooth Implant (Deadline 09/17/2021): https://gofund.me/2806655c
 
 Shoutout to the PPSSPP Development Discord for all the help in understanding 
 some of this code the past few days! It's a chill space and in particular, 
