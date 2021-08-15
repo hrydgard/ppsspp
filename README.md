@@ -18,7 +18,7 @@ system. If I learn more about cross-platform development, I might be able to
 expand it to other systems. For now, it's Windows Only.
 
 When you open the Disassembly Viewer, it automatically creates a new file named
-based on timestamp in the /Windows/Trace Logs/ directory. (It also makes that
+based on timestamp in the /Trace Logs/ directory. (It also makes that
 directory if it doesn't yet exist). When you push any of the Step functions,
 it prints out the currently read address, instruction name, parameters, values
 for the registers referenced, and four bytes of memory from wherever an offset
