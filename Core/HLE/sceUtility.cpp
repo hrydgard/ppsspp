@@ -35,6 +35,7 @@
 #include "Core/System.h"
 
 #include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/scePower.h"
@@ -326,8 +327,12 @@ void UtilityDialogShutdown(UtilityDialogType type, int delayUs, int priority) {
 
 	CleanupDialogThreads();
 	_assert_(accessThread == nullptr);
+	bool prevInterrupts = __InterruptsEnabled();
+	__DisableInterrupts();
 	accessThread = new HLEHelperThread("ScePafJob", insts, (uint32_t)ARRAY_SIZE(insts), priority, 0x200);
 	accessThread->Start(partDelay, 0);
+	if (prevInterrupts)
+		__EnableInterrupts();
 }
 
 static int UtilityWorkUs(int us) {

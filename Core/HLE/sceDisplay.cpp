@@ -972,8 +972,13 @@ void __DisplaySetFramebuf(u32 topaddr, int linesize, int pixelFormat, int sync) 
 		// IMMEDIATE means that the buffer is fine. We can just flip immediately.
 		// Doing it in non-buffered though creates problems (black screen) on occasion though
 		// so let's not.
-		if (!flippedThisFrame && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE)
+		if (!flippedThisFrame && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
+			double before_flip = time_now_d();
 			__DisplayFlip(0);
+			double after_flip = time_now_d();
+			// Ignore for debug stats.
+			hleSetFlipTime(after_flip - before_flip);
+		}
 	} else {
 		// Delay the write until vblank
 		latchedFramebuf = fbstate;
