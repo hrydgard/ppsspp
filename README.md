@@ -41,8 +41,8 @@ Executed instructions are printed and formatted as follows:
 That is: 10 characters for executed address, a tab character, 10 more characters for
 instruction name (max possible is 9), another tab character; the list of parameters
 which has a (flexible, can beincreased by changing the value in getOpcodeText) 32
-character maximum; NO TAB, and then a list registers, their values, with spaces 
-separating them.
+character maximum; NO TAB OR SPACE, and then a list registers, their values, with 
+commas and spaces separating them.
 
 
 MODIFICATIONS I'D LIKE TO MAKE IN THE FUTURE:
