@@ -697,9 +697,13 @@ void *GetQuickSyscallFunc(MIPSOpcode op) {
 }
 
 static double hleSteppingTime = 0.0;
-void hleSetSteppingTime(double t)
-{
+void hleSetSteppingTime(double t) {
 	hleSteppingTime += t;
+}
+
+static double hleFlipTime = 0.0;
+void hleSetFlipTime(double t) {
+	hleFlipTime = t;
 }
 
 void CallSyscall(MIPSOpcode op)
@@ -734,8 +738,11 @@ void CallSyscall(MIPSOpcode op)
 		int funcnum = callno & 0xFFF;
 		int modulenum = (callno & 0xFF000) >> 12;
 		double total = time_now_d() - start - hleSteppingTime;
+		if (total >= hleFlipTime)
+			total -= hleFlipTime;
 		_dbg_assert_msg_(total >= 0.0, "Time spent in syscall became negative");
 		hleSteppingTime = 0.0;
+		hleFlipTime = 0.0;
 		updateSyscallStats(modulenum, funcnum, total);
 	}
 }
