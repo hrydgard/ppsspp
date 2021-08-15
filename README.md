@@ -3,7 +3,10 @@ PPSSPP - Manual Trace Logger Edition! (Windows Only)
 v. 1.0: released 08/15/2021
 
 I go by Sylvie Wrath, and I forked PPSSPP to enable easier trace logging.
-My email address is chronikerDelta@gmail.com. 
+My email address is chronikerDelta@gmail.com. Shoutout to the PPSSPP
+Development Discord for all the help in understanding some of this code the
+past few days! It's a chill space and in particular, [Unknown] was very kind
+and helpful while I stumbled my way through this!
 
 This is a fork of PPSSPP designed to enable the user to manually trace log as
 they use the functions in the Disassembly viewer. The changes are rudimentary:
