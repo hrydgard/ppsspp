@@ -276,21 +276,22 @@ void __UtilityShutdown() {
 void UtilityDialogInitialize(UtilityDialogType type, int delayUs, int priority) {
 	int partDelay = delayUs / 4;
 	const u32_le insts[] = {
-		// Make sure we don't discard/deadbeef 'em.
+		// Make sure we don't discard/deadbeef a0.
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_S0, MIPS_REG_A0, 0),
-		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
-		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
-		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
-		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
-		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
-		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
-		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
 
-		// Now actually lock the volatile memory.  Maybe this should be earlier...
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_ZERO, 0),
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A1, MIPS_REG_ZERO, 0),
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A2, MIPS_REG_ZERO, 0),
 		(u32_le)MIPS_MAKE_SYSCALL("sceSuspendForUser", "sceKernelVolatileMemLock"),
+
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
+		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
+		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
+		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
+		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
 
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_ZERO, (int)type),
 		(u32_le)MIPS_MAKE_JR_RA(),
