@@ -1,6 +1,7 @@
 PPSSPP - Manual Trace Logger Edition! (Windows Only)
 ===============================================================================
 v. 1.0: release 08/15/2021
+
 I go by Sylvie Wrath, and I forked PPSSPP to enable easier trace logging.
 My email address is chronikerDelta@gmail.com. 
 
