@@ -117,6 +117,8 @@ void hleDebugBreak();
 void hleSkipDeadbeef();
 // Set time spent in debugger (for more useful debug stats while debugging.)
 void hleSetSteppingTime(double t);
+// Set time spent in realtime sync.
+void hleSetFlipTime(double t);
 // Check if the current syscall context is kernel.
 bool hleIsKernelMode();
 // Enqueue a MIPS function to be called after this HLE call finishes.

@@ -40,10 +40,6 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
-void __DisableInterrupts();
-void __EnableInterrupts();
-bool __InterruptsEnabled();
-
 // Seems like some > 16 are taken but not available.  Probably kernel only?
 static const u32 PSP_NUMBER_SUBINTERRUPTS = 32;
 
