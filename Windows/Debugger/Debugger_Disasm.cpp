@@ -49,6 +49,7 @@ static FAR WNDPROC DefGotoEditProc;
 int check = CreateDirectoryA("Trace Logs\\", NULL);
 std::string traceLogDir = "Trace Logs\\";
 char traceLogFilename[30];
+std::string traceLogPath;
 time_t rawtime;
 struct tm* timeinfo;
 std::ofstream traceLogger;
@@ -231,6 +232,7 @@ void CDisasm::stepInto()
 	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu,currentPc);
 
 	// Trace Logger Changes
+	traceLogger.open(traceLogPath.c_str(), std::ios::app);
 	char OpcodeText[80];
 	char ParamsText[100];
 	ptr->getOpcodeText(currentPc, OpcodeText, 80);
@@ -248,7 +250,7 @@ void CDisasm::stepInto()
 	traceLogger << "\n";
 
 	// When the user hits "break", also print to log. When the user hits "go", add line breaks to the log. When the user steps out, add line breaks and print. step over: maybe one line break and print, or just print?? TBD
-
+	traceLogger.close();
 	// End trace logger changes
 	
 	if (info.isBranch)
@@ -301,6 +303,7 @@ void CDisasm::stepOver()
 	u32 currentPc = cpu->GetPC();
 
 	// Trace Logger Changes
+	traceLogger.open(traceLogPath.c_str(), std::ios::app);
 	char OpcodeText[80];
 	char ParamsText[100];
 	ptr->getOpcodeText(currentPc, OpcodeText, 80);
@@ -318,6 +321,7 @@ void CDisasm::stepOver()
 	traceLogger << OpcodeText << ParamsText;
 	traceLogger << "\n";
 	traceLogger << "// Step Over\n";
+	traceLogger.close();
 	// End trace logger changes
 
 	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu,cpu->GetPC());
@@ -389,6 +393,7 @@ void CDisasm::stepOut()
 
 
 	// Trace Logger Changes
+	traceLogger.open(traceLogPath.c_str(), std::ios::app);
 	char OpcodeText[80];
 	char ParamsText[100];
 	ptr->getOpcodeText(currentPc, OpcodeText, 80);
@@ -406,6 +411,7 @@ void CDisasm::stepOut()
 	traceLogger << OpcodeText << ParamsText;
 	traceLogger << "\n";
 	traceLogger << "// Step Out!\n\n";
+	traceLogger.close();
 	// End trace logger changes
 
 
@@ -618,7 +624,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				UpdateDialog();
 				vfpudlg->Update();
 				// Begin trace logger changes
+				traceLogger.open(traceLogPath.c_str(),std::ios::app);
 				traceLogger << "// STOP!\n";
+				traceLogger.close();
 				// End trace logger changes
 			}
 			else {					// go
@@ -630,7 +638,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				SetDebugMode(false, true);
 				Core_EnableStepping(false);
 				// Begin trace logger changes
+				traceLogger.open(traceLogPath.c_str(), std::ios::app);
 				traceLogger << "// Gooooooo!\n";
+				traceLogger.close();
 				// End trace logger changes
 			}
 		}
@@ -807,15 +817,12 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			// ^^^ Code shamelessly stolen from cplusplus.com strftime tutorial
 
 			strftime(traceLogFilename, 30, "%Y_%m_%d_%H_%M_%S.txt", timeinfo);
-			std::string traceLogPath = traceLogDir + traceLogFilename;
-			traceLogger.open(traceLogPath.c_str());
+			traceLogPath = traceLogDir + traceLogFilename;
 
-			/* Whenever the Disassembly viewer is opened, it makes a new timestamped file. If the window is not-yet-opened 
+			/* Whenever the Disassembly viewer is opened, we set a new file name. If the window is not-yet-opened 
 				but will be, then !IsWindowVisible is true. WM_SHOWWINDOW happens when window visibility *changes at all*.
+				We only open the file when it's time to write. 
 				*/
-			
-			// Secondary Goal: Put files into \Trace Logs\ directory. 
-
 		}
 		// END TRACE LOGER CHANGES
 	}
