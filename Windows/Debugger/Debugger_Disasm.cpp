@@ -32,10 +32,28 @@
 #include <windowsx.h>
 #include <commctrl.h>
 
+// Includes for Trace Logger Mod
+#include <fstream>
+#include <string>
+#include <sstream>
+
+
+
 // How long (max) to wait for Core to pause before clearing temp breakpoints.
 static const int TEMP_BREAKPOINT_WAIT_MS = 100;
 
 static FAR WNDPROC DefGotoEditProc;
+
+// Begin Trace Logger Changes
+// TODO: Move to a Trace Log directory
+int check = CreateDirectoryA("Trace Logs\\", NULL);
+std::string traceLogDir = "Trace Logs\\";
+char traceLogFilename[30];
+time_t rawtime;
+struct tm* timeinfo;
+std::ofstream traceLogger;
+
+// End Trace Logger Changes
 
 LRESULT CALLBACK GotoEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -181,12 +199,13 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	MoveWindow(m_hDlg,x,y,1,1,FALSE);
 	MoveWindow(m_hDlg,x,y,w,h,TRUE);
 	SetDebugMode(true, true);
+
 }
 
 CDisasm::~CDisasm()
 {
+	traceLogger.close();
 	DestroyWindow(statusBarWnd);
-
 	delete leftTabs;
 	delete bottomTabs;
 	delete breakpointList;
@@ -210,6 +229,28 @@ void CDisasm::stepInto()
 	u32 newAddress = currentPc+ptr->getInstructionSizeAt(currentPc);
 
 	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu,currentPc);
+
+	// Trace Logger Changes
+	char OpcodeText[80];
+	char ParamsText[100];
+	ptr->getOpcodeText(currentPc, OpcodeText, 80);
+	ptr->getGPRsText(currentPc, ParamsText, 100);
+	
+	std::stringstream addressStream;
+	traceLogger << "0x";
+	addressStream << std::hex << currentPc;
+	
+	// 0 padding
+	for (int i = 1; i <= 8 - addressStream.str().length(); i++) traceLogger << "0";
+
+	traceLogger << std::uppercase << std::hex << currentPc << "\t";
+	traceLogger << OpcodeText << ParamsText;
+	traceLogger << "\n";
+
+	// When the user hits "break", also print to log. When the user hits "go", add line breaks to the log. When the user steps out, add line breaks and print. step over: maybe one line break and print, or just print?? TBD
+
+	// End trace logger changes
+	
 	if (info.isBranch)
 	{
 		ptr->scrollStepping(newAddress);
@@ -253,9 +294,31 @@ void CDisasm::stepOver()
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	lastTicks = CoreTiming::GetTicks();
 
+
+
 	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 	CBreakPoints::SetSkipFirst(currentMIPS->pc);
 	u32 currentPc = cpu->GetPC();
+
+	// Trace Logger Changes
+	char OpcodeText[80];
+	char ParamsText[100];
+	ptr->getOpcodeText(currentPc, OpcodeText, 80);
+	ptr->getGPRsText(currentPc, ParamsText, 100);
+
+	std::stringstream addressStream;
+
+	traceLogger << "0x";
+	addressStream << std::hex << currentPc;
+
+	// 0 padding
+	for (int i = 1; i <= 8 - addressStream.str().length(); i++) traceLogger << "0";
+
+	traceLogger << std::uppercase << std::hex << currentPc << "\t";
+	traceLogger << OpcodeText << ParamsText;
+	traceLogger << "\n";
+	traceLogger << "// Step Over\n";
+	// End trace logger changes
 
 	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu,cpu->GetPC());
 	ptr->setDontRedraw(true);
@@ -322,6 +385,30 @@ void CDisasm::stepOut()
 	
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	ptr->setDontRedraw(true);
+	u32 currentPc = cpu->GetPC();
+
+
+	// Trace Logger Changes
+	char OpcodeText[80];
+	char ParamsText[100];
+	ptr->getOpcodeText(currentPc, OpcodeText, 80);
+	ptr->getGPRsText(currentPc, ParamsText, 100);
+
+	std::stringstream addressStream;
+
+	traceLogger << "0x";
+	addressStream << std::hex << currentPc;
+
+	// 0 padding
+	for (int i = 1; i <= 8 - addressStream.str().length(); i++) traceLogger << "0";
+
+	traceLogger << std::uppercase << std::hex << currentPc << "\t";
+	traceLogger << OpcodeText << ParamsText;
+	traceLogger << "\n";
+	traceLogger << "// Step Out!\n\n";
+	// End trace logger changes
+
+
 
 	SetDebugMode(false, true);
 	CBreakPoints::AddBreakPoint(breakpointAddress,true);
@@ -349,14 +436,16 @@ void CDisasm::runToLine()
 
 BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 {
+
 	//if (!m_hDlg) return FALSE;
-	switch(message)
+	switch (message)
 	{
 	case WM_INITDIALOG:
-		{
-			return TRUE;
-		}
-		break;
+	{
+
+		return TRUE;
+	}
+	break;
 
 	case WM_NOTIFY:
 		switch (wParam)
@@ -382,218 +471,225 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case WM_COMMAND:
+	{
+		CtrlDisAsmView* ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+		switch (LOWORD(wParam)) {
+		case ID_TOGGLE_BREAK:
+			SendMessage(MainWindow::GetHWND(), WM_COMMAND, ID_TOGGLE_BREAK, 0);
+			break;
+
+		case ID_DEBUG_DISPLAYMEMVIEW:
+			bottomTabs->ShowTab(GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW));
+			break;
+
+		case ID_DEBUG_DISPLAYBREAKPOINTLIST:
+			bottomTabs->ShowTab(breakpointList->GetHandle());
+			break;
+
+		case ID_DEBUG_DISPLAYTHREADLIST:
+			bottomTabs->ShowTab(threadList->GetHandle());
+			break;
+
+		case ID_DEBUG_DISPLAYSTACKFRAMELIST:
+			bottomTabs->ShowTab(stackTraceView->GetHandle());
+			break;
+
+		case ID_DEBUG_DSIPLAYREGISTERLIST:
+			leftTabs->ShowTab(0);
+			break;
+
+		case ID_DEBUG_DSIPLAYFUNCTIONLIST:
+			leftTabs->ShowTab(1);
+			break;
+
+		case ID_DEBUG_ADDBREAKPOINT:
 		{
-			CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
-			switch (LOWORD(wParam)) {
-			case ID_TOGGLE_BREAK:
-				SendMessage(MainWindow::GetHWND(), WM_COMMAND, ID_TOGGLE_BREAK, 0);
-				break;
-				
-			case ID_DEBUG_DISPLAYMEMVIEW:
-				bottomTabs->ShowTab(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW));
-				break;
-
-			case ID_DEBUG_DISPLAYBREAKPOINTLIST:
-				bottomTabs->ShowTab(breakpointList->GetHandle());
-				break;
-
-			case ID_DEBUG_DISPLAYTHREADLIST:
-				bottomTabs->ShowTab(threadList->GetHandle());
-				break;
-
-			case ID_DEBUG_DISPLAYSTACKFRAMELIST:
-				bottomTabs->ShowTab(stackTraceView->GetHandle());
-				break;
-
-			case ID_DEBUG_DSIPLAYREGISTERLIST:
-				leftTabs->ShowTab(0);
-				break;
-				
-			case ID_DEBUG_DSIPLAYFUNCTIONLIST:
-				leftTabs->ShowTab(1);
-				break;
-
-			case ID_DEBUG_ADDBREAKPOINT:
-				{
-					keepStatusBarText = true;
-					bool isRunning = Core_IsActive();
-					if (isRunning)
-					{
-						SetDebugMode(true, false);
-						Core_EnableStepping(true);
-						Core_WaitInactive(200);
-					}
-
-					BreakpointWindow bpw(m_hDlg,cpu);
-					if (bpw.exec()) bpw.addBreakpoint();
-
-					if (isRunning)
-					{
-						SetDebugMode(false, false);
-						Core_EnableStepping(false);
-					}
-					keepStatusBarText = false;
-				}
-				break;
-
-			case ID_DEBUG_STEPOVER:
-				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) stepOver();
-				break;
-
-			case ID_DEBUG_STEPINTO:
-				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) stepInto();
-				break;
-
-			case ID_DEBUG_RUNTOLINE:
-				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) runToLine();
-				break;
-
-			case ID_DEBUG_STEPOUT:
-				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) stepOut();
-				break;
-
-			case ID_DEBUG_HIDEBOTTOMTABS:
-				{
-					RECT rect;
-					hideBottomTabs = !hideBottomTabs;
-					GetClientRect(m_hDlg,&rect);
-					UpdateSize(rect.right-rect.left,rect.bottom-rect.top);
-				}
-				break;
-
-			case ID_DEBUG_TOGGLEBOTTOMTABTITLES:
-				bottomTabs->SetShowTabTitles(!bottomTabs->GetShowTabTitles());
-				break;
-
-			case IDC_SHOWVFPU:
-				vfpudlg->Show(true);
-				break;
-
-			case IDC_FUNCTIONLIST: 
-				switch (HIWORD(wParam))
-				{
-				case CBN_DBLCLK:
-					{
-						HWND lb = GetDlgItem(m_hDlg,LOWORD(wParam));
-						int n = ListBox_GetCurSel(lb);
-						if (n!=-1)
-						{
-							unsigned int addr = (unsigned int)ListBox_GetItemData(lb,n);
-							ptr->gotoAddr(addr);
-							SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
-						}
-					}
-					break;
-				case CBN_SELCHANGE:
-					{
-						HWND lb = GetDlgItem(m_hDlg,LOWORD(wParam));
-						int n = ListBox_GetCurSel(lb);
-
-						wchar_t buffer[512];
-						ListBox_GetText(lb,n,buffer);
-						SendMessage(statusBarWnd,SB_SETTEXT,1,(LPARAM) buffer);
-					}
-				};
-				break;
-
-			case IDC_GOTOINT:
-				switch (HIWORD(wParam))
-				{
-				case LBN_SELCHANGE:
-					{
-						HWND lb =GetDlgItem(m_hDlg,LOWORD(wParam));
-						int n = ComboBox_GetCurSel(lb);
-						unsigned int addr = (unsigned int)ComboBox_GetItemData(lb,n);
-						if (addr != 0xFFFFFFFF)
-						{
-							ptr->gotoAddr(addr);
-							SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
-						}
-					}
-					break;
-				};
-				break;
-
-			case IDC_STOPGO:
-				{
-					if (!PSP_IsInited()) {
-						break;
-					}
-					if (!Core_IsStepping())		// stop
-					{
-						ptr->setDontRedraw(false);
-						SetDebugMode(true, true);
-						Core_EnableStepping(true);
-						Sleep(1); //let cpu catch up
-						ptr->gotoPC();
-						UpdateDialog();
-						vfpudlg->Update();
-					} else {					// go
-						lastTicks = CoreTiming::GetTicks();
-
-						// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-						CBreakPoints::SetSkipFirst(currentMIPS->pc);
-
-						SetDebugMode(false, true);
-						Core_EnableStepping(false);
-					}
-				}
-				break;
-
-			case IDC_STEP:
-				stepInto();
-				break;
-
-			case IDC_STEPOVER:
-				stepOver();
-				break;
-
-			case IDC_STEPOUT:
-				stepOut();
-				break;
-				
-			case IDC_STEPHLE:
-				{
-					if (Core_IsActive())
-						break;
-					lastTicks = CoreTiming::GetTicks();
-
-					// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-					CBreakPoints::SetSkipFirst(currentMIPS->pc);
-
-					hleDebugBreak();
-					SetDebugMode(false, true);
-					Core_EnableStepping(false);
-				}
-				break;
-
-			case IDC_MEMCHECK:
-				SendMessage(m_hDlg,WM_COMMAND,ID_DEBUG_ADDBREAKPOINT,0);
-				break;
-
-			case IDC_GOTOPC:
-				{
-					ptr->gotoPC();	
-					SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
-					UpdateDialog();
-				}
-				break;
-			case IDC_GOTOLR:
-				{
-					ptr->gotoAddr(cpu->GetLR());
-					SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
-				}
-				break;
-
-			case IDC_ALLFUNCTIONS:
-				if (g_symbolMap)
-					g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST),ST_FUNCTION);
-				break;
-			default:
-				return FALSE;
+			keepStatusBarText = true;
+			bool isRunning = Core_IsActive();
+			if (isRunning)
+			{
+				SetDebugMode(true, false);
+				Core_EnableStepping(true);
+				Core_WaitInactive(200);
 			}
-			return TRUE;
+
+			BreakpointWindow bpw(m_hDlg, cpu);
+			if (bpw.exec()) bpw.addBreakpoint();
+
+			if (isRunning)
+			{
+				SetDebugMode(false, false);
+				Core_EnableStepping(false);
+			}
+			keepStatusBarText = false;
 		}
+		break;
+
+		case ID_DEBUG_STEPOVER:
+			if (GetFocus() == GetDlgItem(m_hDlg, IDC_DISASMVIEW)) stepOver();
+			break;
+
+		case ID_DEBUG_STEPINTO:
+			if (GetFocus() == GetDlgItem(m_hDlg, IDC_DISASMVIEW)) stepInto();
+			break;
+
+		case ID_DEBUG_RUNTOLINE:
+			if (GetFocus() == GetDlgItem(m_hDlg, IDC_DISASMVIEW)) runToLine();
+			break;
+
+		case ID_DEBUG_STEPOUT:
+			if (GetFocus() == GetDlgItem(m_hDlg, IDC_DISASMVIEW)) stepOut();
+			break;
+
+		case ID_DEBUG_HIDEBOTTOMTABS:
+		{
+			RECT rect;
+			hideBottomTabs = !hideBottomTabs;
+			GetClientRect(m_hDlg, &rect);
+			UpdateSize(rect.right - rect.left, rect.bottom - rect.top);
+		}
+		break;
+
+		case ID_DEBUG_TOGGLEBOTTOMTABTITLES:
+			bottomTabs->SetShowTabTitles(!bottomTabs->GetShowTabTitles());
+			break;
+
+		case IDC_SHOWVFPU:
+			vfpudlg->Show(true);
+			break;
+
+		case IDC_FUNCTIONLIST:
+			switch (HIWORD(wParam))
+			{
+			case CBN_DBLCLK:
+			{
+				HWND lb = GetDlgItem(m_hDlg, LOWORD(wParam));
+				int n = ListBox_GetCurSel(lb);
+				if (n != -1)
+				{
+					unsigned int addr = (unsigned int)ListBox_GetItemData(lb, n);
+					ptr->gotoAddr(addr);
+					SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+				}
+			}
+			break;
+			case CBN_SELCHANGE:
+			{
+				HWND lb = GetDlgItem(m_hDlg, LOWORD(wParam));
+				int n = ListBox_GetCurSel(lb);
+
+				wchar_t buffer[512];
+				ListBox_GetText(lb, n, buffer);
+				SendMessage(statusBarWnd, SB_SETTEXT, 1, (LPARAM)buffer);
+			}
+			};
+			break;
+
+		case IDC_GOTOINT:
+			switch (HIWORD(wParam))
+			{
+			case LBN_SELCHANGE:
+			{
+				HWND lb = GetDlgItem(m_hDlg, LOWORD(wParam));
+				int n = ComboBox_GetCurSel(lb);
+				unsigned int addr = (unsigned int)ComboBox_GetItemData(lb, n);
+				if (addr != 0xFFFFFFFF)
+				{
+					ptr->gotoAddr(addr);
+					SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+				}
+			}
+			break;
+			};
+			break;
+
+		case IDC_STOPGO:
+		{
+			if (!PSP_IsInited()) {
+				break;
+			}
+			if (!Core_IsStepping())		// stop
+			{
+				ptr->setDontRedraw(false);
+				SetDebugMode(true, true);
+				Core_EnableStepping(true);
+				Sleep(1); //let cpu catch up
+				ptr->gotoPC();
+				UpdateDialog();
+				vfpudlg->Update();
+				// Begin trace logger changes
+				traceLogger << "// STOP!\n";
+				// End trace logger changes
+			}
+			else {					// go
+				lastTicks = CoreTiming::GetTicks();
+
+				// If the current PC is on a breakpoint, the user doesn't want to do nothing.
+				CBreakPoints::SetSkipFirst(currentMIPS->pc);
+
+				SetDebugMode(false, true);
+				Core_EnableStepping(false);
+				// Begin trace logger changes
+				traceLogger << "// Gooooooo!\n";
+				// End trace logger changes
+			}
+		}
+		break;
+
+		case IDC_STEP:
+			stepInto();
+			break;
+
+		case IDC_STEPOVER:
+			stepOver();
+			break;
+
+		case IDC_STEPOUT:
+			stepOut();
+			break;
+
+		case IDC_STEPHLE:
+		{
+			if (Core_IsActive())
+				break;
+			lastTicks = CoreTiming::GetTicks();
+
+			// If the current PC is on a breakpoint, the user doesn't want to do nothing.
+			CBreakPoints::SetSkipFirst(currentMIPS->pc);
+
+			hleDebugBreak();
+			SetDebugMode(false, true);
+			Core_EnableStepping(false);
+		}
+		break;
+
+		case IDC_MEMCHECK:
+			SendMessage(m_hDlg, WM_COMMAND, ID_DEBUG_ADDBREAKPOINT, 0);
+			break;
+
+		case IDC_GOTOPC:
+		{
+			ptr->gotoPC();
+			SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+			UpdateDialog();
+		}
+		break;
+		case IDC_GOTOLR:
+		{
+			ptr->gotoAddr(cpu->GetLR());
+			SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+		}
+		break;
+
+		case IDC_ALLFUNCTIONS:
+			if (g_symbolMap)
+				g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
+			break;
+		default:
+			return FALSE;
+		}
+		return TRUE;
+	}
 
 	case WM_DEB_MAPLOADED:
 		NotifyMapLoaded();
@@ -601,31 +697,32 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 	case WM_DEB_GOTOWPARAM:
 	{
-		CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
+		CtrlDisAsmView* ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 		ptr->gotoAddr(wParam);
-		SetFocus(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
+		SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 		break;
 	}
 	case WM_DEB_GOTOADDRESSEDIT:
-		{
-			if (!PSP_IsInited()) {
-				break;
-			}
-			wchar_t szBuffer[256];
-			CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
-			GetWindowText(GetDlgItem(m_hDlg,IDC_ADDRESS),szBuffer,256);
-
-			u32 addr;
-			if (parseExpression(ConvertWStringToUTF8(szBuffer).c_str(),cpu,addr) == false)
-			{
-				displayExpressionError(GetDlgItem(m_hDlg,IDC_ADDRESS));
-			} else {
-				ptr->gotoAddr(addr);
-				SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
-			}
-			UpdateDialog();
+	{
+		if (!PSP_IsInited()) {
+			break;
 		}
-		break;
+		wchar_t szBuffer[256];
+		CtrlDisAsmView* ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+		GetWindowText(GetDlgItem(m_hDlg, IDC_ADDRESS), szBuffer, 256);
+
+		u32 addr;
+		if (parseExpression(ConvertWStringToUTF8(szBuffer).c_str(), cpu, addr) == false)
+		{
+			displayExpressionError(GetDlgItem(m_hDlg, IDC_ADDRESS));
+		}
+		else {
+			ptr->gotoAddr(addr);
+			SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+		}
+		UpdateDialog();
+	}
+	break;
 
 	case WM_DEB_SETDEBUGLPARAM:
 		SetDebugMode(lParam != 0, true);
@@ -646,52 +743,82 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			if (wParam == 0)
 			{
 				// erase the second part if the first is set
-				SendMessage(statusBarWnd,SB_SETTEXT,0,(LPARAM)ConvertUTF8ToWString((const char *)lParam).c_str());
-				SendMessage(statusBarWnd,SB_SETTEXT,1,(LPARAM)L"");
-			} else if (wParam == 1)
+				SendMessage(statusBarWnd, SB_SETTEXT, 0, (LPARAM)ConvertUTF8ToWString((const char*)lParam).c_str());
+				SendMessage(statusBarWnd, SB_SETTEXT, 1, (LPARAM)L"");
+			}
+			else if (wParam == 1)
 			{
-				SendMessage(statusBarWnd,SB_SETTEXT,1,(LPARAM)ConvertUTF8ToWString((const char *)lParam).c_str());
+				SendMessage(statusBarWnd, SB_SETTEXT, 1, (LPARAM)ConvertUTF8ToWString((const char*)lParam).c_str());
 			}
 		}
 		break;
 	case WM_DEB_GOTOHEXEDIT:
-		{
-			CtrlMemView *memory = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW));
-			memory->gotoAddr(wParam);
-			
-			// display the memory viewer too
-			bottomTabs->ShowTab(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW));
-		}
-		break;
+	{
+		CtrlMemView* memory = CtrlMemView::getFrom(GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW));
+		memory->gotoAddr(wParam);
+
+		// display the memory viewer too
+		bottomTabs->ShowTab(GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW));
+	}
+	break;
 	case WM_SIZE:
-		{
-			UpdateSize(LOWORD(lParam), HIWORD(lParam));
-			SendMessage(statusBarWnd,WM_SIZE,0,10);
-			SavePosition();
-			return TRUE;
-		}
+	{
+		UpdateSize(LOWORD(lParam), HIWORD(lParam));
+		SendMessage(statusBarWnd, WM_SIZE, 0, 10);
+		SavePosition();
+		return TRUE;
+	}
 
 	case WM_MOVE:
 		SavePosition();
 		break;
 	case WM_GETMINMAXINFO:
-		{
-			MINMAXINFO *m = (MINMAXINFO *)lParam;
-			// Reduce the minimum size slightly, so they can size it however they like.
-			m->ptMinTrackSize.x = minWidth;
-			//m->ptMaxTrackSize.x = m->ptMinTrackSize.x;
-			m->ptMinTrackSize.y = minHeight;
-		}
-		return TRUE;
+	{
+		MINMAXINFO* m = (MINMAXINFO*)lParam;
+		// Reduce the minimum size slightly, so they can size it however they like.
+		m->ptMinTrackSize.x = minWidth;
+		//m->ptMaxTrackSize.x = m->ptMinTrackSize.x;
+		m->ptMinTrackSize.y = minHeight;
+	}
+	return TRUE;
 	case WM_CLOSE:
+		// BEGIN TRACE LOGGER CHANGES
+		traceLogger.close();
+		
+		// END TRACE LOGGER CHANGES
+
+
 		Show(false);
 		return TRUE;
 	case WM_ACTIVATE:
+
 		if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE)
 		{
 			g_activeWindow = WINDOW_CPUDEBUGGER;
 		}
 		break;
+		// BEGIN TRACE LOGGER CHANGES
+	case WM_SHOWWINDOW:
+	{
+		if (!IsWindowVisible(m_hDlg)) {
+
+			time(&rawtime);
+			timeinfo = localtime(&rawtime);
+			// ^^^ Code shamelessly stolen from cplusplus.com strftime tutorial
+
+			strftime(traceLogFilename, 30, "%Y_%m_%d_%H_%M_%S.txt", timeinfo);
+			std::string traceLogPath = traceLogDir + traceLogFilename;
+			traceLogger.open(traceLogPath.c_str());
+
+			/* Whenever the Disassembly viewer is opened, it makes a new timestamped file. If the window is not-yet-opened 
+				but will be, then !IsWindowVisible is true. WM_SHOWWINDOW happens when window visibility *changes at all*.
+				*/
+			
+			// Secondary Goal: Put files into \Trace Logs\ directory. 
+
+		}
+		// END TRACE LOGER CHANGES
+	}
 	}
 	return FALSE;
 }
