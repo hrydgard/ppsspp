@@ -8,8 +8,8 @@
 
 #import <AVFoundation/AVFoundation.h>
 
-#if __has_include(<AltKit/AltKit.h>)
-#import <AltKit/AltKit.h>
+#if __has_include("AltKit-Swift.h")
+#import "AltKit-Swift.h"
 #define __HAS_ALTKIT_FRAMEWORK__
 #endif
 
