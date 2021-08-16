@@ -202,5 +202,11 @@
 			</dict>
 		</dict>
 	</array>
+	<key>NSBonjourServices</key>
+	<array>
+    	<string>_altserver._tcp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>PPSSPP uses the local network to find and communicate with AltServer.</string>
 </dict>
 </plist>
