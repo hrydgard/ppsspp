@@ -17,7 +17,8 @@ add_definitions(
   -DGL_ETC1_RGB8_OES=0
 )
 
-add_definitions($<$<NOT:$<COMPILE_LANGUAGE:Swift>>:-U__STRICT_ANSI__ >)
+# TODO: Not sure how to do this, need to conditionally flag or else Swift test fails
+#add_definitions($<$<NOT:$<COMPILE_LANGUAGE:Swift>>:-U__STRICT_ANSI__ >)
 
 set(OPENGL_LIBRARIES "-framework OpenGLES")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mios-version-min=${IPHONEOS_DEPLOYMENT_TARGET}")
