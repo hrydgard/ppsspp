@@ -1033,6 +1033,12 @@ if(ANDROID)
 	)
 	# No target
 elseif(IOS)
+	# AltKit
+	# TODO: Move me probably and use a flag to disable if wanted.
+	add_compile_options($<$<NOT:$<COMPILE_LANGUAGE:Swift>>:-fPIC>)
+	enable_language(Swift)
+	add_subdirectory(ext/AltKit)
+
 	set(nativeExtra ${nativeExtra}
 		ios/main.mm
 		ios/AppDelegate.mm
