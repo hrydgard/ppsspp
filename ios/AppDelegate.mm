@@ -7,7 +7,11 @@
 #import "Common/Log.h"
 
 #import <AVFoundation/AVFoundation.h>
+
+#if __has_include(<AltKit/AltKit.h>)
 #import <AltKit/AltKit.h>
+#define __HAS_ALTKIT_FRAMEWORK__
+#endif
 
 @implementation AppDelegate
 
@@ -120,7 +124,9 @@
 		Audio_Init();
 	}
 	
+	#ifdef __HAS_ALTKIT_FRAMEWORK__
 	[self initAltKit];
+	#endif
 	NativeMessageReceived("got_focus", "");	
 }
 
@@ -129,6 +135,7 @@
 }
 
 #pragma mark - AltKit
+#ifdef __HAS_ALTKIT_FRAMEWORK__
 - (void)initAltKit {
 	[[ALTServerManager sharedManager] startDiscovering];
 
@@ -153,5 +160,5 @@
 		}];
 	}];
 }
-
+#endif
 @end
