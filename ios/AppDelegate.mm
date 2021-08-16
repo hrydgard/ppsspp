@@ -7,7 +7,7 @@
 #import "Common/Log.h"
 
 #import <AVFoundation/AVFoundation.h>
-@import AltKit;
+#import <AltKit/AltKit.h>
 
 @implementation AppDelegate
 
