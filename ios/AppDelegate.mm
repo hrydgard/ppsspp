@@ -7,6 +7,7 @@
 #import "Common/Log.h"
 
 #import <AVFoundation/AVFoundation.h>
+@import AltKit;
 
 @implementation AppDelegate
 
@@ -119,11 +120,38 @@
 		Audio_Init();
 	}
 	
+	[self initAltKit];
 	NativeMessageReceived("got_focus", "");	
 }
 
 - (void)applicationWillTerminate:(UIApplication *)application {
 	exit(0);
+}
+
+#pragma mark - AltKit
+- (void)initAltKit {
+	[[ALTServerManager sharedManager] startDiscovering];
+
+	[[ALTServerManager sharedManager] autoconnectWithCompletionHandler:^(ALTServerConnection *connection, NSError *error) {
+		if (error)
+		{
+			return ERROR_LOG(SYSTEM, "Could not auto-connect to server. %@", error);
+		}
+
+		[connection enableUnsignedCodeExecutionWithCompletionHandler:^(BOOL success, NSError *error) {
+			if (success)
+			{
+				INFO_LOG(SYSTEM, "Successfully enabled JIT compilation!");
+				[[ALTServerManager sharedManager] stopDiscovering];
+			}
+			else
+			{
+				ERROR_LOG(SYSTEM, "Could not enable JIT compilation. %@", error);
+			}
+
+			[connection disconnect];
+		}];
+	}];
 }
 
 @end
