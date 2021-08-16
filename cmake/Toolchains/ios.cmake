@@ -12,7 +12,7 @@
 # PPSSPP platform flags
 set(MOBILE_DEVICE ON)
 set(USING_GLES2 ON)
-set(IPHONEOS_DEPLOYMENT_TARGET 6.0)
+set(IPHONEOS_DEPLOYMENT_TARGET 9.0)
 add_definitions(
   -DGL_ETC1_RGB8_OES=0
   -U__STRICT_ANSI__
@@ -96,3 +96,7 @@ set(CMAKE_SYSTEM_FRAMEWORK_PATH
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 
+add_compile_options($<$<NOT:$<COMPILE_LANGUAGE:Swift>>:-fPIC>)
+# Causes error
+# project(Common LANGUAGES C Swift)
+add_subdirectory(ext/AltKit)

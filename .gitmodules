@@ -31,3 +31,6 @@
 [submodule "zstd"]
 	path = ext/zstd
 	url = https://github.com/facebook/zstd.git
+[submodule "ext/AltKit"]
+	path = ext/AltKit
+	url = https://github.com/jpd002/AltKit.git
