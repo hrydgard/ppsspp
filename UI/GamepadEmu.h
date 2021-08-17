@@ -288,3 +288,26 @@ namespace CustomKey {
 	};
 	static_assert(ARRAY_SIZE(comboKeyList) <= 64, "Too many key for a uint64_t bit mask");
 };
+
+class GestureGamepad : public UI::View {
+public:
+	GestureGamepad() {};
+
+	void Touch(const TouchInput &input) override;
+	void Update() override;
+
+protected:
+
+	float lastX_ = 0.0f;
+	float lastY_ = 0.0f;
+	float deltaX_ = 0.0f;
+	float deltaY_ = 0.0f;
+	float lastTapRelease_ = 0.0f;
+	float lastTouchDown_ = 0.0f;
+	int dragPointerId_ = -1;
+	bool swipeLeftReleased_ = true;
+	bool swipeRightReleased_ = true;
+	bool swipeUpReleased_ = true;
+	bool swipeDownReleased_ = true;
+	bool haveDoubleTapped_ = false;
+};

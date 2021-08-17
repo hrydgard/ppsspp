@@ -551,6 +551,14 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("RightAnalogPress", &g_Config.iRightAnalogPress, 0, true, true),
 	ConfigSetting("RightAnalogCustom", &g_Config.bRightAnalogCustom, false, true, true),
 	ConfigSetting("RightAnalogDisableDiagonal", &g_Config.bRightAnalogDisableDiagonal, false, true, true),
+	ConfigSetting("SwipeUp", &g_Config.iSwipeUp, 0, true, true),
+	ConfigSetting("SwipeDown", &g_Config.iSwipeDown, 0, true, true),
+	ConfigSetting("SwipeLeft", &g_Config.iSwipeLeft, 0, true, true),
+	ConfigSetting("SwipeRight", &g_Config.iSwipeRight, 0, true, true),
+	ConfigSetting("SwipeSensitivity", &g_Config.fSwipeSensitivity, 1.0f, true, true),
+	ConfigSetting("SwipeSmoothing", &g_Config.fSwipeSmoothing, 0.3f, true, true),
+	ConfigSetting("DoubleTapGesture", &g_Config.iDoubleTapGesture, 0, true, true),
+	ConfigSetting("GestureControlEnabled", &g_Config.bGestureControlEnabled, false, true, true),
 
 	// "default" means let emulator decide, "" means disable.
 	ConfigSetting("ReportingHost", &g_Config.sReportHost, "default"),
