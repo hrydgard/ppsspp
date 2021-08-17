@@ -640,9 +640,9 @@ void InitPadLayout(float xres, float yres, float globalScale) {
 	int select_key_Y = yres - 60 * scale;
 	initTouchPos(g_Config.touchSelectKey, select_key_X, select_key_Y);
 
-	int unthrottle_key_X = halfW - bottom_key_spacing * scale;
-	int unthrottle_key_Y = yres - 60 * scale;
-	initTouchPos(g_Config.touchUnthrottleKey, unthrottle_key_X, unthrottle_key_Y);
+	int fast_forward_key_X = halfW - bottom_key_spacing * scale;
+	int fast_forward_key_Y = yres - 60 * scale;
+	initTouchPos(g_Config.touchFastForwardKey, fast_forward_key_X, fast_forward_key_Y);
 
 	// L and R------------------------------------------------------------
 	// Put them above the analog stick / above the buttons to the right.
@@ -773,10 +773,10 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, ControlMappe
 	addPSPButton(CTRL_START, "Start button", rectImage, ImageID("I_RECT"), ImageID("I_START"), g_Config.touchStartKey);
 	addPSPButton(CTRL_SELECT, "Select button", rectImage, ImageID("I_RECT"), ImageID("I_SELECT"), g_Config.touchSelectKey);
 
-	BoolButton *unthrottle = addBoolButton(&PSP_CoreParameter().unthrottle, "Unthrottle button", rectImage, ImageID("I_RECT"), ImageID("I_ARROW"), g_Config.touchUnthrottleKey);
-	if (unthrottle) {
-		unthrottle->SetAngle(180.0f);
-		unthrottle->OnChange.Add([](UI::EventParams &e) {
+	BoolButton *fastForward = addBoolButton(&PSP_CoreParameter().fastForward, "Fast-forward button", rectImage, ImageID("I_RECT"), ImageID("I_ARROW"), g_Config.touchFastForwardKey);
+	if (fastForward) {
+		fastForward->SetAngle(180.0f);
+		fastForward->OnChange.Add([](UI::EventParams &e) {
 			if (e.a && coreState == CORE_STEPPING) {
 				Core_EnableStepping(false);
 			}

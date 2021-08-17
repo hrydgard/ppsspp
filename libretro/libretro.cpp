@@ -418,7 +418,7 @@ void retro_init(void)
 
    g_Config.bEnableLogging = true;
    // libretro does its own timing, so this should stay CONTINUOUS.
-   g_Config.iUnthrottleMode = (int)UnthrottleMode::CONTINUOUS;
+   g_Config.iFastForwardMode = (int)FastForwardMode::CONTINUOUS;
    g_Config.bMemStickInserted = true;
    g_Config.iGlobalVolume = VOLUME_FULL - 1;
    g_Config.iReverbVolume = VOLUME_FULL;
@@ -683,7 +683,7 @@ bool retro_load_game(const struct retro_game_info *game)
    coreParam.startBreak      = false;
    coreParam.printfEmuLog    = true;
    coreParam.headLess        = true;
-   coreParam.unthrottle      = true;
+   coreParam.fastForward      = true;
    coreParam.graphicsContext = ctx;
    coreParam.gpuCore         = ctx->GetGPUCore();
    coreParam.cpuCore         = CPUCore::JIT;

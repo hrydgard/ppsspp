@@ -111,7 +111,7 @@ enum class AutoLoadSaveState {
 	NEWEST = 2,
 };
 
-enum class UnthrottleMode {
+enum class FastForwardMode {
 	CONTINUOUS = 0,
 	SKIP_DRAW = 1,
 	SKIP_FLIP = 2,

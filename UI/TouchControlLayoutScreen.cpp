@@ -369,8 +369,8 @@ void ControlLayoutView::CreateViews() {
 	addDragDropButton(g_Config.touchSelectKey, "Select button", rectImage, ImageID("I_SELECT"));
 	addDragDropButton(g_Config.touchStartKey, "Start button", rectImage, ImageID("I_START"));
 
-	if (auto *unthrottle = addDragDropButton(g_Config.touchUnthrottleKey, "Unthrottle button", rectImage, ImageID("I_ARROW"))) {
-		unthrottle->SetAngle(180.0f);
+	if (auto *fastForward = addDragDropButton(g_Config.touchFastForwardKey, "Fast-forward button", rectImage, ImageID("I_ARROW"))) {
+		fastForward->SetAngle(180.0f);
 	}
 	addDragDropButton(g_Config.touchLKey, "Left shoulder button", shoulderImage, ImageID("I_L"));
 	if (auto *rbutton = addDragDropButton(g_Config.touchRKey, "Right shoulder button", shoulderImage, ImageID("I_R"))) {
