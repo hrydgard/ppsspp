@@ -482,7 +482,7 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new ItemHeader(si->T("CPU Information")));
 
 	// Don't bother showing the CPU name if we don't have one.
-	if (cpu_info.brand_string != "Unknown") {
+	if (strcmp(cpu_info.brand_string, "Unknown") != 0) {
 		deviceSpecs->Add(new InfoItem(si->T("CPU Name", "Name"), cpu_info.brand_string));
 	}
 
