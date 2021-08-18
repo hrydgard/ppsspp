@@ -264,7 +264,7 @@ namespace CustomKey {
 		{ "L", ImageID("I_L"), CTRL_LTRIGGER },
 		{ "R", ImageID("I_R"), CTRL_RTRIGGER },
 		{ "RapidFire", ImageID::invalid(), VIRTKEY_RAPID_FIRE },
-		{ "FastForward", ImageID::invalid(), VIRTKEY_FASTFORWARD },
+		{ "Fast-forward", ImageID::invalid(), VIRTKEY_FASTFORWARD },
 		{ "SpeedToggle", ImageID::invalid(), VIRTKEY_SPEED_TOGGLE },
 		{ "Rewind", ImageID::invalid(), VIRTKEY_REWIND },
 		{ "Save State", ImageID::invalid(), VIRTKEY_SAVE_STATE },

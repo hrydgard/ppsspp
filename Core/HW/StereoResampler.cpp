@@ -266,7 +266,7 @@ void StereoResampler::PushSamples(const s32 *samples, unsigned int numSamples) {
 	u32 indexW = m_indexW.load();
 
 	u32 cap = m_maxBufsize * 2;
-	// If unthrottling, no need to fill up the entire buffer, just screws up timing after releasing the fast-forward button.
+	// If fast-forwarding, no need to fill up the entire buffer, just screws up timing after releasing the fast-forward button.
 	if (PSP_CoreParameter().fastForward) {
 		cap = m_targetBufsize * 2;
 	}

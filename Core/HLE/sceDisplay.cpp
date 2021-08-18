@@ -756,7 +756,7 @@ void __DisplayFlip(int cyclesLate) {
 		fastForwardNeedsSkip = true;
 	}
 
-	// postEffectRequiresFlip is not compatible with frameskip unthrottling, see #12325.
+	// postEffectRequiresFlip is not compatible with frameskip fast-forward, see #12325.
 	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && !(fastForwardNeedsSkip && !FrameTimingThrottled())) {
 		postEffectRequiresFlip = duplicateFrames || g_Config.bShaderChainRequires60FPS;
 	}
