@@ -553,11 +553,11 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 	auto sc = GetI18NCategory("Screen");
 
 	switch (virtualKeyCode) {
-	case VIRTKEY_UNTHROTTLE:
+	case VIRTKEY_FASTFORWARD:
 		if (coreState == CORE_STEPPING) {
 			Core_EnableStepping(false);
 		}
-		PSP_CoreParameter().unthrottle = true;
+		PSP_CoreParameter().fastForward = true;
 		break;
 
 	case VIRTKEY_SPEED_TOGGLE:
@@ -699,8 +699,8 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 	auto sc = GetI18NCategory("Screen");
 
 	switch (virtualKeyCode) {
-	case VIRTKEY_UNTHROTTLE:
-		PSP_CoreParameter().unthrottle = false;
+	case VIRTKEY_FASTFORWARD:
+		PSP_CoreParameter().fastForward = false;
 		break;
 
 	case VIRTKEY_SPEED_CUSTOM1:

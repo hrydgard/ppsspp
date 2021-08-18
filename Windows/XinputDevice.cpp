@@ -250,7 +250,7 @@ void XinputDevice::ApplyVibration(int pad, XINPUT_VIBRATION &vibration) {
 	if (PSP_IsInited()) {
 		newVibrationTime = time_now_d();
 		// We have to run PPSSPP_XInputSetState at time intervals
-		// since it bugs otherwise with very high unthrottle speeds
+		// since it bugs otherwise with very high fast-forward speeds
 		// and freezes at constant vibration or no vibration at all.
 		if (newVibrationTime - prevVibrationTime >= 1.0 / 64.0) {
 			if (GetUIState() == UISTATE_INGAME) {

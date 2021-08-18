@@ -173,7 +173,7 @@ public:
 	bool bVSync;
 	int iFrameSkip;
 	int iFrameSkipType;
-	int iUnthrottleMode; // See UnthrottleMode in ConfigValues.h.
+	int iFastForwardMode; // See FastForwardMode in ConfigValues.h.
 	bool bAutoFrameSkip;
 
 	bool bEnableCardboardVR; // Cardboard Master Switch
@@ -348,7 +348,7 @@ public:
 	float fDpadSpacing;
 	ConfigTouchPos touchStartKey;
 	ConfigTouchPos touchSelectKey;
-	ConfigTouchPos touchUnthrottleKey;
+	ConfigTouchPos touchFastForwardKey;
 	ConfigTouchPos touchLKey;
 	ConfigTouchPos touchRKey;
 	ConfigTouchPos touchAnalogStick;

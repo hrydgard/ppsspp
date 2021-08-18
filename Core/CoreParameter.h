@@ -75,7 +75,7 @@ struct CoreParameter {
 	int pixelHeight;
 
 	// Can be modified at runtime.
-	bool unthrottle = false;
+	bool fastForward = false;
 	FPSLimit fpsLimit = FPSLimit::NORMAL;
 
 	bool updateRecent = true;

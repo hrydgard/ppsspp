@@ -69,7 +69,7 @@ enum {
 	PAD_BUTTON_LEFT_TRIGGER = 1 << 21,   // Click left thumb stick on X360
 	PAD_BUTTON_RIGHT_TRIGGER = 1 << 22,   // Click left thumb stick on X360
 
-	PAD_BUTTON_UNTHROTTLE = 1 << 20, // Click Tab to unthrottle
+	PAD_BUTTON_FASTFORWARD = 1 << 20, // Click Tab to unthrottle
 };
 
 #ifndef MAX_KEYQUEUESIZE

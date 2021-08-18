@@ -621,11 +621,11 @@ static int DefaultInternalResolution() {
 #endif
 }
 
-static int DefaultUnthrottleMode() {
+static int DefaultFastForwardMode() {
 #if PPSSPP_PLATFORM(ANDROID) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS)
-	return (int)UnthrottleMode::SKIP_FLIP;
+	return (int)FastForwardMode::SKIP_FLIP;
 #else
-	return (int)UnthrottleMode::CONTINUOUS;
+	return (int)FastForwardMode::CONTINUOUS;
 #endif
 }
 
@@ -792,23 +792,23 @@ struct ConfigTranslator {
 
 typedef ConfigTranslator<GPUBackend, GPUBackendToString, GPUBackendFromString> GPUBackendTranslator;
 
-static int UnthrottleModeFromString(const std::string &s) {
+static int FastForwardModeFromString(const std::string &s) {
 	if (!strcasecmp(s.c_str(), "CONTINUOUS"))
-		return (int)UnthrottleMode::CONTINUOUS;
+		return (int)FastForwardMode::CONTINUOUS;
 	if (!strcasecmp(s.c_str(), "SKIP_DRAW"))
-		return (int)UnthrottleMode::SKIP_DRAW;
+		return (int)FastForwardMode::SKIP_DRAW;
 	if (!strcasecmp(s.c_str(), "SKIP_FLIP"))
-		return (int)UnthrottleMode::SKIP_FLIP;
-	return DefaultUnthrottleMode();
+		return (int)FastForwardMode::SKIP_FLIP;
+	return DefaultFastForwardMode();
 }
 
-std::string UnthrottleModeToString(int v) {
-	switch (UnthrottleMode(v)) {
-	case UnthrottleMode::CONTINUOUS:
+std::string FastForwardModeToString(int v) {
+	switch (FastForwardMode(v)) {
+	case FastForwardMode::CONTINUOUS:
 		return "CONTINUOUS";
-	case UnthrottleMode::SKIP_DRAW:
+	case FastForwardMode::SKIP_DRAW:
 		return "SKIP_DRAW";
-	case UnthrottleMode::SKIP_FLIP:
+	case FastForwardMode::SKIP_FLIP:
 		return "SKIP_FLIP";
 	}
 	return "CONTINUOUS";
@@ -843,7 +843,7 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("AutoFrameSkip", &g_Config.bAutoFrameSkip, false, true, true),
 	ConfigSetting("FrameRate", &g_Config.iFpsLimit1, 0, true, true),
 	ConfigSetting("FrameRate2", &g_Config.iFpsLimit2, -1, true, true),
-	ConfigSetting("UnthrottlingMode", &g_Config.iUnthrottleMode, &DefaultUnthrottleMode, &UnthrottleModeToString, &UnthrottleModeFromString, true, true),
+	ConfigSetting("UnthrottlingMode", &g_Config.iFastForwardMode, &DefaultFastForwardMode, &FastForwardModeToString, &FastForwardModeFromString, true, true),
 #if defined(USING_WIN_UI)
 	ConfigSetting("RestartRequired", &g_Config.bRestartRequired, false, false),
 #endif
@@ -999,7 +999,7 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("DPadSpacing", &g_Config.fDpadSpacing, 1.0f, true, true),
 	ConfigSetting("StartKeyX", "StartKeyY", "StartKeyScale", "ShowTouchStart", &g_Config.touchStartKey, defaultTouchPosShow, true, true),
 	ConfigSetting("SelectKeyX", "SelectKeyY", "SelectKeyScale", "ShowTouchSelect", &g_Config.touchSelectKey, defaultTouchPosShow, true, true),
-	ConfigSetting("UnthrottleKeyX", "UnthrottleKeyY", "UnthrottleKeyScale", "ShowTouchUnthrottle", &g_Config.touchUnthrottleKey, defaultTouchPosShow, true, true),
+	ConfigSetting("UnthrottleKeyX", "UnthrottleKeyY", "UnthrottleKeyScale", "ShowTouchUnthrottle", &g_Config.touchFastForwardKey, defaultTouchPosShow, true, true),
 	ConfigSetting("LKeyX", "LKeyY", "LKeyScale", "ShowTouchLTrigger", &g_Config.touchLKey, defaultTouchPosShow, true, true),
 	ConfigSetting("RKeyX", "RKeyY", "RKeyScale", "ShowTouchRTrigger", &g_Config.touchRKey, defaultTouchPosShow, true, true),
 	ConfigSetting("AnalogStickX", "AnalogStickY", "AnalogStickScale", "ShowAnalogStick", &g_Config.touchAnalogStick, defaultTouchPosShow, true, true),
@@ -1834,7 +1834,7 @@ void Config::ResetControlLayout() {
 	g_Config.fDpadSpacing = 1.0f;
 	reset(g_Config.touchStartKey);
 	reset(g_Config.touchSelectKey);
-	reset(g_Config.touchUnthrottleKey);
+	reset(g_Config.touchFastForwardKey);
 	reset(g_Config.touchLKey);
 	reset(g_Config.touchRKey);
 	reset(g_Config.touchAnalogStick);
