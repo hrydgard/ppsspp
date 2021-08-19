@@ -68,6 +68,15 @@ public:
 	virtual float GetSpacing() const { return 1.0f; }
 	virtual void SetSpacing(float s) { }
 
+	virtual bool Contains(float x, float y) {
+		const float thresholdFactor = 0.25f;
+		const float thresholdW = thresholdFactor * bounds_.w;
+		const float thresholdH = thresholdFactor * bounds_.h;
+
+		Bounds tolerantBounds(bounds_.x - thresholdW * 0.5, bounds_.y - thresholdH * 0.5 , bounds_.w + thresholdW, bounds_.h + thresholdH);
+		return tolerantBounds.Contains(x, y);
+	}
+
 protected:
 	float GetButtonOpacity() override {
 		float opacity = g_Config.iTouchButtonOpacity / 100.0f;
@@ -147,6 +156,73 @@ public:
 	float GetSpacing() const override { return spacing_; }
 	void SetSpacing(float s) override { spacing_ = s; }
 
+	bool Contains(float x, float y) override {
+		float xFac = 0.0f;
+		float wFac = 0.0f;
+		float yFac = 0.0f;
+		float hFac = 0.0f;
+
+		// Many cases sadly...
+		if (circleVisible_ && !squareVisible_) {
+			if (crossVisible_ || triangleVisible_) {
+				xFac = 1.0f;
+				wFac = -1.0f;
+			} else {
+				xFac = 2.0f;
+				wFac = -2.0f;
+				yFac = 1.0f;
+				hFac = -2.0f;
+			}
+		} else if (!circleVisible_ && squareVisible_) {
+			if (crossVisible_ || triangleVisible_) {
+				wFac = -1.0f;
+			} else {
+				wFac = -2.0f;
+				yFac = 1.0f;
+				hFac = -2.0f;
+			}
+		} else if (circleVisible_ && squareVisible_ && !crossVisible_ && !triangleVisible_) {
+			yFac = 1.0f;
+			hFac = -2.0f;
+		}
+
+		// No else here is intentional
+		if (crossVisible_ && !triangleVisible_) {
+			if (circleVisible_ || squareVisible_) {
+				yFac = 1.0f;
+				hFac = -1.0f;
+			} else {
+				yFac = 2.0f;
+				hFac = -2.0f;
+				xFac = 1.0f;
+				wFac = -2.0f;
+			}
+		} else if (!crossVisible_ && triangleVisible_) {
+			if (circleVisible_ || squareVisible_) {
+				hFac = -1.0f;
+			} else {
+				hFac = -2.0f;
+				xFac = 1.0f;
+				wFac = -2.0f;
+			}
+		} else if (!circleVisible_ && !squareVisible_ && crossVisible_ && triangleVisible_) {
+			xFac = 1.0f;
+			wFac = -2.0f;
+		}
+
+		const float thresholdFactor = 0.25f;
+		const float thresholdW = thresholdFactor * bounds_.w;
+		const float thresholdH = thresholdFactor * bounds_.h;
+
+		float tolerantX = bounds_.x - thresholdW*0.5 + xFac*baseActionButtonSpacing*spacing_;
+		float tolerantY = bounds_.y - thresholdH*0.5 + yFac*baseActionButtonSpacing*spacing_;
+		float tolerantW = bounds_.w + thresholdW + wFac*baseActionButtonSpacing*spacing_;
+		float tolerantH = bounds_.h + thresholdH + hFac*baseActionButtonSpacing*spacing_;
+
+		Bounds tolerantBounds(tolerantX, tolerantY, tolerantW, tolerantH);
+		return tolerantBounds.Contains(x, y);
+	}
+
 private:
 	bool circleVisible_ = true, crossVisible_ = true, triangleVisible_ = true, squareVisible_ = true;
 
@@ -190,7 +266,6 @@ public:
 	}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
-		// TODO: if not all button are visible this dimension is off
 		const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(ImageID("I_DIR"));
 		w = 2 * D_pad_Radius * spacing_ + image->w * scale_;
 		h = 2 * D_pad_Radius * spacing_ + image->h * scale_;
@@ -432,13 +507,8 @@ DragDropButton *ControlLayoutView::getPickedControl(const int x, const int y) {
 	float bestDistance;
 	for (size_t i = 0; i < controls_.size(); i++) {
 		DragDropButton *control = controls_[i];
-		const Bounds &bounds = control->GetBounds();
-		const float thresholdFactor = 0.25f;
-		const float thresholdW = thresholdFactor * bounds.w;
-		const float thresholdH = thresholdFactor * bounds.h;
-
-		Bounds tolerantBounds(bounds.x - thresholdW * 0.5, bounds.y - thresholdH * 0.5 , bounds.w + thresholdW, bounds.h + thresholdH);
-		if (tolerantBounds.Contains(x, y)) {
+		if (control->Contains(x, y)) {
+			const Bounds &bounds = control->GetBounds();
 			float distance = (bounds.centerX()-x)*(bounds.centerX()-x)+(bounds.centerY()-y)*(bounds.centerY()-y);
 			if (!bestMatch || distance < bestDistance) {
 				bestDistance = distance;
