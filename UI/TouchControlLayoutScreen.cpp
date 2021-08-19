@@ -50,6 +50,12 @@ public:
 		return false;
 	};
 
+	void Draw(UIContext &dc) override {
+		dc.PushScissor(screenBounds_);
+		MultiTouchButton::Draw(dc);
+		dc.PopScissor();
+	}
+
 	virtual void SavePosition() {
 		x_ = (bounds_.centerX() - screenBounds_.x) / screenBounds_.w;
 		y_ = (bounds_.centerY() - screenBounds_.y) / screenBounds_.h;
@@ -62,16 +68,25 @@ public:
 	virtual float GetSpacing() const { return 1.0f; }
 	virtual void SetSpacing(float s) { }
 
+	virtual bool Contains(float x, float y) {
+		const float thresholdFactor = 0.25f;
+		const float thresholdW = thresholdFactor * bounds_.w;
+		const float thresholdH = thresholdFactor * bounds_.h;
+
+		Bounds tolerantBounds(bounds_.x - thresholdW * 0.5, bounds_.y - thresholdH * 0.5 , bounds_.w + thresholdW, bounds_.h + thresholdH);
+		return tolerantBounds.Contains(x, y);
+	}
+
 protected:
 	float GetButtonOpacity() override {
 		float opacity = g_Config.iTouchButtonOpacity / 100.0f;
 		return std::max(0.5f, opacity);
 	}
+	const Bounds &screenBounds_;
 
 private:
 	float &x_, &y_;
 	float &theScale_;
-	const Bounds &screenBounds_;
 };
 
 class PSPActionButtons : public DragDropButton {
@@ -99,6 +114,7 @@ public:
 	}
 
 	void Draw(UIContext &dc) override {
+		dc.PushScissor(screenBounds_);
 		uint32_t colorBg = colorAlpha(GetButtonColor(), GetButtonOpacity());
 		uint32_t color = colorAlpha(0xFFFFFF, GetButtonOpacity());
 
@@ -127,6 +143,7 @@ public:
 			dc.Draw()->DrawImageRotated(roundId_, centerX - spacing, centerY, scale_, 0, colorBg, false);
 			dc.Draw()->DrawImageRotated(squareId_, centerX - spacing, centerY, scale_, 0, color, false);
 		}
+		dc.PopScissor();
 	};
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
@@ -138,6 +155,73 @@ public:
 
 	float GetSpacing() const override { return spacing_; }
 	void SetSpacing(float s) override { spacing_ = s; }
+
+	bool Contains(float x, float y) override {
+		float xFac = 0.0f;
+		float wFac = 0.0f;
+		float yFac = 0.0f;
+		float hFac = 0.0f;
+
+		// Many cases sadly...
+		if (circleVisible_ && !squareVisible_) {
+			if (crossVisible_ || triangleVisible_) {
+				xFac = 1.0f;
+				wFac = -1.0f;
+			} else {
+				xFac = 2.0f;
+				wFac = -2.0f;
+				yFac = 1.0f;
+				hFac = -2.0f;
+			}
+		} else if (!circleVisible_ && squareVisible_) {
+			if (crossVisible_ || triangleVisible_) {
+				wFac = -1.0f;
+			} else {
+				wFac = -2.0f;
+				yFac = 1.0f;
+				hFac = -2.0f;
+			}
+		} else if (circleVisible_ && squareVisible_ && !crossVisible_ && !triangleVisible_) {
+			yFac = 1.0f;
+			hFac = -2.0f;
+		}
+
+		// No else here is intentional
+		if (crossVisible_ && !triangleVisible_) {
+			if (circleVisible_ || squareVisible_) {
+				yFac = 1.0f;
+				hFac = -1.0f;
+			} else {
+				yFac = 2.0f;
+				hFac = -2.0f;
+				xFac = 1.0f;
+				wFac = -2.0f;
+			}
+		} else if (!crossVisible_ && triangleVisible_) {
+			if (circleVisible_ || squareVisible_) {
+				hFac = -1.0f;
+			} else {
+				hFac = -2.0f;
+				xFac = 1.0f;
+				wFac = -2.0f;
+			}
+		} else if (!circleVisible_ && !squareVisible_ && crossVisible_ && triangleVisible_) {
+			xFac = 1.0f;
+			wFac = -2.0f;
+		}
+
+		const float thresholdFactor = 0.25f;
+		const float thresholdW = thresholdFactor * bounds_.w;
+		const float thresholdH = thresholdFactor * bounds_.h;
+
+		float tolerantX = bounds_.x - thresholdW*0.5 + xFac*baseActionButtonSpacing*spacing_;
+		float tolerantY = bounds_.y - thresholdH*0.5 + yFac*baseActionButtonSpacing*spacing_;
+		float tolerantW = bounds_.w + thresholdW + wFac*baseActionButtonSpacing*spacing_;
+		float tolerantH = bounds_.h + thresholdH + hFac*baseActionButtonSpacing*spacing_;
+
+		Bounds tolerantBounds(tolerantX, tolerantY, tolerantW, tolerantH);
+		return tolerantBounds.Contains(x, y);
+	}
 
 private:
 	bool circleVisible_ = true, crossVisible_ = true, triangleVisible_ = true, squareVisible_ = true;
@@ -158,6 +242,7 @@ public:
 	}
 
 	void Draw(UIContext &dc) override {
+		dc.PushScissor(screenBounds_);
 		uint32_t colorBg = colorAlpha(GetButtonColor(), GetButtonOpacity());
 		uint32_t color = colorAlpha(0xFFFFFF, GetButtonOpacity());
 
@@ -177,6 +262,7 @@ public:
 			dc.Draw()->DrawImageRotated(dirImage, x, y, scale_, angle + PI, colorBg, false);
 			dc.Draw()->DrawImageRotated(ImageID("I_ARROW"), x2, y2, scale_, angle + PI, color);
 		}
+		dc.PopScissor();
 	}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
@@ -272,10 +358,11 @@ void ControlLayoutView::Touch(const TouchInput &touch) {
 			validRange.x = 0.0f;
 			validRange.y = 0.0f;
 
-			validRange.x += controlBounds.w * 0.5f;
-			validRange.w -= controlBounds.w;
-			validRange.y += controlBounds.h * 0.5f;
-			validRange.h -= controlBounds.h;
+			// This make cure the controll is all inside the screen (commended out only half)
+			//validRange.x += controlBounds.w * 0.5f;
+			//validRange.w -= controlBounds.w;
+			//validRange.y += controlBounds.h * 0.5f;
+			//validRange.h -= controlBounds.h;
 
 			Point newPos;
 			newPos.x = startObjectX_ + (touch.x - startDragX_);
@@ -339,13 +426,14 @@ void ControlLayoutView::CreateViews() {
 
 	// Create all the views.
 
-	PSPActionButtons *actionButtons = new PSPActionButtons(g_Config.touchActionButtonCenter, "Action buttons", g_Config.fActionButtonSpacing, bounds);
-	actionButtons->setCircleVisibility(g_Config.bShowTouchCircle);
-	actionButtons->setCrossVisibility(g_Config.bShowTouchCross);
-	actionButtons->setTriangleVisibility(g_Config.bShowTouchTriangle);
-	actionButtons->setSquareVisibility(g_Config.bShowTouchSquare);
-
-	controls_.push_back(actionButtons);
+	if (g_Config.bShowTouchCircle || g_Config.bShowTouchCross || g_Config.bShowTouchTriangle || g_Config.bShowTouchSquare) {
+		PSPActionButtons *actionButtons = new PSPActionButtons(g_Config.touchActionButtonCenter, "Action buttons", g_Config.fActionButtonSpacing, bounds);
+		actionButtons->setCircleVisibility(g_Config.bShowTouchCircle);
+		actionButtons->setCrossVisibility(g_Config.bShowTouchCross);
+		actionButtons->setTriangleVisibility(g_Config.bShowTouchTriangle);
+		actionButtons->setSquareVisibility(g_Config.bShowTouchSquare);
+		controls_.push_back(actionButtons);
+	}
 
 	ImageID rectImage = g_Config.iTouchButtonStyle ? ImageID("I_RECT_LINE") : ImageID("I_RECT");
 	ImageID shoulderImage = g_Config.iTouchButtonStyle ? ImageID("I_SHOULDER_LINE") : ImageID("I_SHOULDER");
@@ -415,20 +503,21 @@ DragDropButton *ControlLayoutView::getPickedControl(const int x, const int y) {
 		return pickedControl_;
 	}
 
+	DragDropButton *bestMatch = nullptr;
+	float bestDistance;
 	for (size_t i = 0; i < controls_.size(); i++) {
 		DragDropButton *control = controls_[i];
-		const Bounds &bounds = control->GetBounds();
-		const float thresholdFactor = 0.25f;
-		const float thresholdW = thresholdFactor * bounds.w;
-		const float thresholdH = thresholdFactor * bounds.h;
-
-		Bounds tolerantBounds(bounds.x - thresholdW * 0.5, bounds.y - thresholdH * 0.5 , bounds.w + thresholdW, bounds.h + thresholdH);
-		if (tolerantBounds.Contains(x, y)) {
-			return control;
+		if (control->Contains(x, y)) {
+			const Bounds &bounds = control->GetBounds();
+			float distance = (bounds.centerX()-x)*(bounds.centerX()-x)+(bounds.centerY()-y)*(bounds.centerY()-y);
+			if (!bestMatch || distance < bestDistance) {
+				bestDistance = distance;
+				bestMatch = control;
+			}
 		}
 	}
 
-	return 0;
+	return bestMatch;
 }
 
 TouchControlLayoutScreen::TouchControlLayoutScreen() {}
@@ -533,9 +622,4 @@ void TouchControlLayoutScreen::CreateViews() {
 	auto ms = GetI18NCategory("MainSettings");
 
 	//tabHolder->AddTab(ms->T("Controls"), controlsHolder);
-
-	if (!g_Config.bShowTouchControls) {
-		// Shouldn't even be able to get here as the way into this dialog should be closed.
-		return;
-	}
 }
