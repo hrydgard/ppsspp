@@ -43,6 +43,8 @@
 
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 
+using namespace PPSSPP;
+
 namespace Draw {
 
 // This can actually be replaced with a cast as the values are in the right order.

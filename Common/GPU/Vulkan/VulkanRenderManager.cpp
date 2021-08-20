@@ -20,6 +20,8 @@
 #define UINT64_MAX 0xFFFFFFFFFFFFFFFFULL
 #endif
 
+using namespace PPSSPP;
+
 VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VkRenderPass renderPass, int _width, int _height, const char *tag) : vulkan_(vk) {
 	width = _width;
 	height = _height;

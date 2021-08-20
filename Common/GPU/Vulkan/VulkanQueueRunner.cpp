@@ -6,6 +6,8 @@
 #include "VulkanQueueRunner.h"
 #include "VulkanRenderManager.h"
 
+using namespace PPSSPP;
+
 // Debug help: adb logcat -s DEBUG PPSSPPNativeActivity PPSSPP NativeGLView NativeRenderer NativeSurfaceView PowerSaveModeReceiver InputDeviceState
 
 static void MergeRenderAreaRectInto(VkRect2D *dest, VkRect2D &src) {

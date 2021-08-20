@@ -27,6 +27,8 @@
 #define new DBG_NEW
 #endif
 
+using namespace PPSSPP;
+
 VulkanLogOptions g_LogOptions;
 
 static const char *validationLayers[] = {
