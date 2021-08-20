@@ -42,6 +42,7 @@ private:
 	void stepOver();
 	void stepOut();
 	void runToLine();
+	void writeToTraceLogger(int writeCode);
 
 public:
 	int index;
@@ -62,4 +63,7 @@ public:
 
 	void Goto(u32 addr);
 	void NotifyMapLoaded();
+
 };
+
+

@@ -56,6 +56,13 @@ std::ofstream traceLogger;
 
 // End Trace Logger Changes
 
+const int STEP_INTO = 0;
+const int STEP_OVER = 1;
+const int STEP_OUT = 2;
+const int STEP_GO = 3;
+const int STEP_BREAK = 4;
+
+
 LRESULT CALLBACK GotoEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch(message)
@@ -231,27 +238,7 @@ void CDisasm::stepInto()
 
 	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu,currentPc);
 
-	// Trace Logger Changes
-	traceLogger.open(traceLogPath.c_str(), std::ios::app);
-	char OpcodeText[80];
-	char ParamsText[100];
-	ptr->getOpcodeText(currentPc, OpcodeText, 80);
-	ptr->getGPRsText(currentPc, ParamsText, 100);
-	
-	std::stringstream addressStream;
-	traceLogger << "0x";
-	addressStream << std::hex << currentPc;
-	
-	// 0 padding
-	for (int i = 1; i <= 8 - addressStream.str().length(); i++) traceLogger << "0";
-
-	traceLogger << std::uppercase << std::hex << currentPc << "\t";
-	traceLogger << OpcodeText << ParamsText;
-	traceLogger << "\n";
-
-	// When the user hits "break", also print to log. When the user hits "go", add line breaks to the log. When the user steps out, add line breaks and print. step over: maybe one line break and print, or just print?? TBD
-	traceLogger.close();
-	// End trace logger changes
+	writeToTraceLogger(STEP_INTO);
 	
 	if (info.isBranch)
 	{
@@ -302,27 +289,7 @@ void CDisasm::stepOver()
 	CBreakPoints::SetSkipFirst(currentMIPS->pc);
 	u32 currentPc = cpu->GetPC();
 
-	// Trace Logger Changes
-	traceLogger.open(traceLogPath.c_str(), std::ios::app);
-	char OpcodeText[80];
-	char ParamsText[100];
-	ptr->getOpcodeText(currentPc, OpcodeText, 80);
-	ptr->getGPRsText(currentPc, ParamsText, 100);
-
-	std::stringstream addressStream;
-
-	traceLogger << "0x";
-	addressStream << std::hex << currentPc;
-
-	// 0 padding
-	for (int i = 1; i <= 8 - addressStream.str().length(); i++) traceLogger << "0";
-
-	traceLogger << std::uppercase << std::hex << currentPc << "\t";
-	traceLogger << OpcodeText << ParamsText;
-	traceLogger << "\n";
-	traceLogger << "// Step Over\n";
-	traceLogger.close();
-	// End trace logger changes
+	writeToTraceLogger(STEP_OVER);
 
 	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu,cpu->GetPC());
 	ptr->setDontRedraw(true);
@@ -392,27 +359,7 @@ void CDisasm::stepOut()
 	u32 currentPc = cpu->GetPC();
 
 
-	// Trace Logger Changes
-	traceLogger.open(traceLogPath.c_str(), std::ios::app);
-	char OpcodeText[80];
-	char ParamsText[100];
-	ptr->getOpcodeText(currentPc, OpcodeText, 80);
-	ptr->getGPRsText(currentPc, ParamsText, 100);
-
-	std::stringstream addressStream;
-
-	traceLogger << "0x";
-	addressStream << std::hex << currentPc;
-
-	// 0 padding
-	for (int i = 1; i <= 8 - addressStream.str().length(); i++) traceLogger << "0";
-
-	traceLogger << std::uppercase << std::hex << currentPc << "\t";
-	traceLogger << OpcodeText << ParamsText;
-	traceLogger << "\n";
-	traceLogger << "// Step Out!\n\n";
-	traceLogger.close();
-	// End trace logger changes
+	writeToTraceLogger(STEP_OUT);
 
 
 
@@ -624,9 +571,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				UpdateDialog();
 				vfpudlg->Update();
 				// Begin trace logger changes
-				traceLogger.open(traceLogPath.c_str(),std::ios::app);
-				traceLogger << "// STOP!\n";
-				traceLogger.close();
+				writeToTraceLogger(STEP_BREAK);
 				// End trace logger changes
 			}
 			else {					// go
@@ -638,9 +583,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				SetDebugMode(false, true);
 				Core_EnableStepping(false);
 				// Begin trace logger changes
-				traceLogger.open(traceLogPath.c_str(), std::ios::app);
-				traceLogger << "// Gooooooo!\n";
-				traceLogger.close();
+				writeToTraceLogger(STEP_GO);
 				// End trace logger changes
 			}
 		}
@@ -1045,4 +988,44 @@ void CDisasm::UpdateDialog(bool _bComplete)
 	// redraw. all others are updated manually
 	InvalidateRect (GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW), NULL, TRUE);
 	UpdateWindow (GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW));
+}
+
+// More trace logger changes
+void CDisasm::writeToTraceLogger(int writeCode) {
+	CtrlDisAsmView* ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+	u32 currentPc = cpu->GetPC();
+	u32 newAddress = currentPc + ptr->getInstructionSizeAt(currentPc);
+	traceLogger.open(traceLogPath.c_str(), std::ios::app);
+	char OpcodeText[80];
+	char ParamsText[100];
+	ptr->getOpcodeText(currentPc, OpcodeText, 80);
+	ptr->getGPRsText(currentPc, ParamsText, 100);
+
+	std::stringstream addressStream;
+	traceLogger << "0x";
+	addressStream << std::hex << currentPc;
+
+	// 0 padding
+	for (int i = 1; i <= 8 - addressStream.str().length(); i++) traceLogger << "0";
+
+	traceLogger << std::uppercase << std::hex << currentPc << "\t";
+	traceLogger << OpcodeText << ParamsText;
+	traceLogger << "\n";
+	switch (writeCode) {
+	case STEP_OVER:
+		traceLogger << "// Step Over\n";
+		break;
+	case STEP_OUT:
+		traceLogger << "// Step Out!\n\n";
+		break;
+	case STEP_GO:
+		traceLogger << "// Gooooooo!\n";
+		break;
+	case STEP_BREAK:
+		traceLogger << "// STOP! \n";
+		break;
+	}
+
+
+	traceLogger.close();
 }
