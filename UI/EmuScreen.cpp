@@ -806,7 +806,7 @@ void EmuScreen::CreateViews() {
 	cardboardDisableButton_->SetVisibility(V_GONE);
 	cardboardDisableButton_->SetScale(0.65f);  // make it smaller - this button can be in the way otherwise.
 
-	if (g_Config.bEnableNetworkChat) {
+	if (g_Config.bEnableNetworkChat && g_Config.iChatButtonPosition != 8) {
 		AnchorLayoutParams *layoutParams = nullptr;
 		switch (g_Config.iChatButtonPosition) {
 		case 0:
