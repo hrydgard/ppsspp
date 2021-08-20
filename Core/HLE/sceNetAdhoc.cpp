@@ -7270,6 +7270,16 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 					else {
 						WARN_LOG(SCENET, "InputLoop[%d]: Unknown Peer[%s:%u] (Recved=%i, Length=%i)", matchingId, mac2str(&sendermac).c_str(), senderport, recvresult, rxbuflen);
 					}
+
+					// Show a warning if other player is having their port being re-mapped, thus that other player may have issue with the communication. 
+					// Note: That other player may need to switch side between host and join, or reboot their router to solve this issue.
+					if (context->port != senderport && senderport != (*context->peerPort)[sendermac]) {
+						char name[9] = {};
+						if (peer != NULL)
+							truncate_cpy(name, sizeof(name), (const char*)peer->nickname.data);
+						WARN_LOG(SCENET, "InputLoop[%d]: Unknown Source Port from [%s][%s:%u -> %u] (Recved=%i, Length=%i)", matchingId, name, mac2str(&sendermac).c_str(), senderport, context->port, recvresult, rxbuflen);
+						host->NotifyUserMessage(std::string(n->T("AM: Data from Unknown Port")) + std::string(" [") + std::string(name) + std::string("]:") + std::to_string(senderport) + std::string(" -> ") + std::to_string(context->port) + std::string(" (") + std::to_string(portOffset) + std::string(")"), 2.0, 0x0080ff);
+					}
 					peerlock.unlock();
 
 					// Ping Packet
