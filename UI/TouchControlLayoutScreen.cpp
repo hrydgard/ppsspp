@@ -32,6 +32,8 @@
 #include "UI/TouchControlLayoutScreen.h"
 #include "UI/TouchControlVisibilityScreen.h"
 
+static float layoutAreaScale = 1.0f;
+
 static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;
 }
@@ -51,9 +53,11 @@ public:
 	};
 
 	void Draw(UIContext &dc) override {
+		scale_ = theScale_*layoutAreaScale; // Scale down just for rendering
 		dc.PushScissor(screenBounds_);
 		MultiTouchButton::Draw(dc);
 		dc.PopScissor();
+		scale_ = theScale_/layoutAreaScale; // is this is needed?
 	}
 
 	virtual void SavePosition() {
@@ -83,10 +87,8 @@ protected:
 		return std::max(0.5f, opacity);
 	}
 	const Bounds &screenBounds_;
-
-private:
-	float &x_, &y_;
 	float &theScale_;
+	float &x_, &y_;
 };
 
 class PSPActionButtons : public DragDropButton {
@@ -114,6 +116,7 @@ public:
 	}
 
 	void Draw(UIContext &dc) override {
+		scale_ = theScale_*layoutAreaScale;
 		dc.PushScissor(screenBounds_);
 		uint32_t colorBg = colorAlpha(GetButtonColor(), GetButtonOpacity());
 		uint32_t color = colorAlpha(0xFFFFFF, GetButtonOpacity());
@@ -121,7 +124,7 @@ public:
 		int centerX = bounds_.centerX();
 		int centerY = bounds_.centerY();
 
-		float spacing = spacing_ * baseActionButtonSpacing;
+		float spacing = spacing_ * baseActionButtonSpacing * layoutAreaScale;
 		if (circleVisible_) {
 			dc.Draw()->DrawImageRotated(roundId_, centerX + spacing, centerY, scale_, 0, colorBg, false);
 			dc.Draw()->DrawImageRotated(circleId_,  centerX + spacing, centerY, scale_, 0, color, false);
@@ -144,6 +147,7 @@ public:
 			dc.Draw()->DrawImageRotated(squareId_, centerX - spacing, centerY, scale_, 0, color, false);
 		}
 		dc.PopScissor();
+		scale_ = theScale_/layoutAreaScale;
 	};
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
@@ -242,6 +246,7 @@ public:
 	}
 
 	void Draw(UIContext &dc) override {
+		scale_ = theScale_*layoutAreaScale;
 		dc.PushScissor(screenBounds_);
 		uint32_t colorBg = colorAlpha(GetButtonColor(), GetButtonOpacity());
 		uint32_t color = colorAlpha(0xFFFFFF, GetButtonOpacity());
@@ -252,7 +257,7 @@ public:
 		ImageID dirImage = g_Config.iTouchButtonStyle ? ImageID("I_DIR_LINE") : ImageID("I_DIR");
 
 		for (int i = 0; i < 4; i++) {
-			float r = D_pad_Radius * spacing_;
+			float r = D_pad_Radius * spacing_ * layoutAreaScale;
 			float x = bounds_.centerX() + xoff[i] * r;
 			float y = bounds_.centerY() + yoff[i] * r;
 			float x2 = bounds_.centerX() + xoff[i] * (r + 10.f * scale_);
@@ -263,6 +268,7 @@ public:
 			dc.Draw()->DrawImageRotated(ImageID("I_ARROW"), x2, y2, scale_, angle + PI, color);
 		}
 		dc.PopScissor();
+		scale_ = theScale_/layoutAreaScale;
 	}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
@@ -574,6 +580,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	InitPadLayout(bounds.w, bounds.h);
 
 	const float leftColumnWidth = 140.0f;
+	layoutAreaScale = 1.0-(leftColumnWidth+10)/bounds.w;
 
 	using namespace UI;
 
@@ -612,7 +619,8 @@ void TouchControlLayoutScreen::CreateViews() {
 	tabHolder->SetTag("TouchControlLayout");
 	root_->Add(tabHolder);
 
-	layoutView_ = root_->Add(new ControlLayoutView(new AnchorLayoutParams(leftColumnWidth + 10, 0.0f, 0.0f, 0.0f, false)));
+	root_->Add(new ItemHeader("", new AnchorLayoutParams(leftColumnWidth + 10, bounds.h*(1.0-layoutAreaScale)-40, NONE, NONE, false)));
+	layoutView_ = root_->Add(new ControlLayoutView(new AnchorLayoutParams(leftColumnWidth + 10, bounds.h*(1.0-layoutAreaScale), 0.0f, 0.0f, false)));
 
 	// this is more for show than anything else. It's used to provide a boundary
 	// so that buttons like back can be placed within the boundary.
