@@ -50,6 +50,7 @@
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
 #include "GPU/Vulkan/GPU_Vulkan.h"
 
+using namespace PPSSPP_VK;
 
 enum {
 	VERTEX_CACHE_SIZE = 8192 * 1024

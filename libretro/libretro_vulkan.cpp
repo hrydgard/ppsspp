@@ -12,11 +12,14 @@
 #include <mutex>
 #include <condition_variable>
 
+#include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
 
 #define VK_NO_PROTOTYPES
 #include "libretro/libretro_vulkan.h"
+
+using namespace PPSSPP_VK;
 
 static retro_hw_render_interface_vulkan *vulkan;
 
@@ -32,17 +35,6 @@ static struct {
 	const VkPhysicalDeviceFeatures *required_features;
 } vk_init_info;
 static bool DEDICATED_ALLOCATION;
-
-extern PFN_vkCreateInstance vkCreateInstance;
-extern PFN_vkGetPhysicalDeviceMemoryProperties vkGetPhysicalDeviceMemoryProperties;
-extern PFN_vkGetImageMemoryRequirements vkGetImageMemoryRequirements;
-extern PFN_vkAllocateMemory vkAllocateMemory;
-extern PFN_vkBindImageMemory vkBindImageMemory;
-extern PFN_vkCreateImage vkCreateImage;
-extern PFN_vkDestroyImage vkDestroyImage;
-extern PFN_vkCreateImageView vkCreateImageView;
-extern PFN_vkDestroyImageView vkDestroyImageView;
-extern PFN_vkFreeMemory vkFreeMemory;
 
 #define VULKAN_MAX_SWAPCHAIN_IMAGES 8
 struct VkSwapchainKHR_T {
@@ -76,7 +68,6 @@ static VkSwapchainKHR_T chain;
 	LIBRETRO_VK_WARP_FUNC(vkCreateRenderPass);
 
 #define LIBRETRO_VK_WARP_FUNC(x)                                     \
-	extern PFN_##x x;                                                 \
 	PFN_##x x##_org
 
 LIBRETRO_VK_WARP_FUNC(vkGetInstanceProcAddr);
