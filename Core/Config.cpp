@@ -661,6 +661,11 @@ static int DefaultAndroidHwScale() {
 #endif
 }
 
+// See issue 14439. Should possibly even block these devices from selecting VK.
+const char * const vulkanDefaultBlacklist[] = {
+	"Sony:BRAVIA VH1",
+};
+
 static int DefaultGPUBackend() {
 #if PPSSPP_PLATFORM(WINDOWS)
 	// If no Vulkan, use Direct3D 11 on Windows 8+ (most importantly 10.)
@@ -668,6 +673,13 @@ static int DefaultGPUBackend() {
 		return (int)GPUBackend::DIRECT3D11;
 	}
 #elif PPSSPP_PLATFORM(ANDROID)
+	// Check blacklist.
+	for (size_t i = 0; i < ARRAY_SIZE(vulkanDefaultBlacklist); i++) {
+		if (System_GetProperty(SYSPROP_NAME) == vulkanDefaultBlacklist[i]) {
+			return (int)GPUBackend::OPENGL;
+		}
+	}
+
 	// Default to Vulkan only on Oreo 8.1 (level 27) devices or newer, and only
 	// on ARM64 and x86-64. Drivers before, and on other archs, are generally too
 	// unreliable to default to (with some exceptions, of course).
