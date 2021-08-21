@@ -16,7 +16,7 @@
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 
-using namespace PPSSPP;
+using namespace PPSSPP_VK;
 
 PipelineManagerVulkan::PipelineManagerVulkan(VulkanContext *vulkan) : pipelines_(256), vulkan_(vulkan) {
 	// The pipeline cache is created on demand (or explicitly through Load).

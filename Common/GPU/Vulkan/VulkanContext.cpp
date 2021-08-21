@@ -27,7 +27,7 @@
 #define new DBG_NEW
 #endif
 
-using namespace PPSSPP;
+using namespace PPSSPP_VK;
 
 VulkanLogOptions g_LogOptions;
 

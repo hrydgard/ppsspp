@@ -43,7 +43,7 @@
 
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 
-using namespace PPSSPP;
+using namespace PPSSPP_VK;
 
 namespace Draw {
 

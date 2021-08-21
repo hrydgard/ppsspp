@@ -24,7 +24,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/GPU/Vulkan/VulkanMemory.h"
 
-using namespace PPSSPP;
+using namespace PPSSPP_VK;
 
 VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, size_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryPropertyMask)
 		: vulkan_(vulkan), memoryPropertyMask_(memoryPropertyMask), size_(size), usage_(usage) {

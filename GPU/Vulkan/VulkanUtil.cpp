@@ -20,7 +20,7 @@
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
-using namespace PPSSPP;
+using namespace PPSSPP_VK;
 
 const VkComponentMapping VULKAN_4444_SWIZZLE = { VK_COMPONENT_SWIZZLE_A, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B };
 const VkComponentMapping VULKAN_1555_SWIZZLE = { VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_A };

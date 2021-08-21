@@ -48,7 +48,7 @@
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
-using namespace PPSSPP;
+using namespace PPSSPP_VK;
 
 static const char tex_fs[] = R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable

@@ -19,7 +19,7 @@
 #define VK_NO_PROTOTYPES
 #include "libretro/libretro_vulkan.h"
 
-using namespace PPSSPP;
+using namespace PPSSPP_VK;
 
 static retro_hw_render_interface_vulkan *vulkan;
 
