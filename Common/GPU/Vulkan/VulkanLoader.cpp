@@ -117,7 +117,7 @@ PFN_vkDestroyCommandPool vkDestroyCommandPool;
 PFN_vkResetCommandPool vkResetCommandPool;
 PFN_vkAllocateCommandBuffers vkAllocateCommandBuffers;
 PFN_vkFreeCommandBuffers vkFreeCommandBuffers;
-    
+
 // Used frequently together
 PFN_vkCmdBindPipeline vkCmdBindPipeline;
 PFN_vkCmdSetViewport vkCmdSetViewport;
@@ -133,7 +133,7 @@ PFN_vkCmdDraw vkCmdDraw;
 PFN_vkCmdDrawIndexed vkCmdDrawIndexed;
 PFN_vkCmdPipelineBarrier vkCmdPipelineBarrier;
 PFN_vkCmdPushConstants vkCmdPushConstants;
-    
+
 // Every frame to a few times per frame
 PFN_vkWaitForFences vkWaitForFences;
 PFN_vkResetFences vkResetFences;
@@ -151,7 +151,7 @@ PFN_vkCmdCopyImage vkCmdCopyImage;
 PFN_vkCmdBlitImage vkCmdBlitImage;
 PFN_vkCmdCopyBufferToImage vkCmdCopyBufferToImage;
 PFN_vkCmdCopyImageToBuffer vkCmdCopyImageToBuffer;
-    
+
 // Rare or not used
 PFN_vkCmdSetDepthBounds vkCmdSetDepthBounds;
 PFN_vkCmdSetLineWidth vkCmdSetLineWidth;
@@ -172,7 +172,7 @@ PFN_vkCmdWriteTimestamp vkCmdWriteTimestamp;
 PFN_vkCmdCopyQueryPoolResults vkCmdCopyQueryPoolResults;
 PFN_vkCmdNextSubpass vkCmdNextSubpass;
 PFN_vkCmdExecuteCommands vkCmdExecuteCommands;
-    
+
 #ifdef __ANDROID__
 PFN_vkCreateAndroidSurfaceKHR vkCreateAndroidSurfaceKHR;
 #elif defined(_WIN32)
