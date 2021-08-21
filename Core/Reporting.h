@@ -63,6 +63,8 @@ namespace Reporting
 	// Returns true if the hash is available, does not queue if not.
 	bool HasCRC(const Path &gamePath);
 
+	void CancelCRC();
+
 	// Blocks until the CRC hash is available for game, and returns it.
 	// To avoid stalling, call HasCRC() in update() or similar and call this if it returns true.
 	uint32_t RetrieveCRC(const Path &gamePath);

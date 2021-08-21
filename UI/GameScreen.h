@@ -66,18 +66,21 @@ private:
 	UI::EventReturn OnDoCRC32(UI::EventParams& e);
 
 	// As we load metadata in the background, we need to be able to update these after the fact.
-	UI::TextView *tvTitle_;
-	UI::TextView *tvGameSize_;
-	UI::TextView *tvSaveDataSize_;
-	UI::TextView *tvInstallDataSize_;
-	UI::TextView *tvRegion_;
-	UI::TextView *tvCRC_;
+	UI::TextView *tvTitle_ = nullptr;
+	UI::TextView *tvGameSize_ = nullptr;
+	UI::TextView *tvSaveDataSize_ = nullptr;
+	UI::TextView *tvInstallDataSize_ = nullptr;
+	UI::TextView *tvRegion_ = nullptr;
+	UI::TextView *tvCRC_ = nullptr;
 
-	UI::Choice *btnGameSettings_;
-	UI::Choice *btnCreateGameConfig_;
-	UI::Choice *btnDeleteGameConfig_;
-	UI::Choice *btnDeleteSaveData_;
-	UI::Choice *btnSetBackground_;
+	UI::Choice *btnGameSettings_ = nullptr;
+	UI::Choice *btnCreateGameConfig_ = nullptr;
+	UI::Choice *btnDeleteGameConfig_ = nullptr;
+	UI::Choice *btnDeleteSaveData_ = nullptr;
+	UI::Choice *btnSetBackground_ = nullptr;
+
+	UI::Choice *btnCalcCRC_ = nullptr;
+
 	std::vector<UI::Choice *> otherChoices_;
 	std::vector<Path> saveDirs;
 	std::string CRC32string;

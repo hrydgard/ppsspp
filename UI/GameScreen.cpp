@@ -49,6 +49,9 @@ GameScreen::GameScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(
 }
 
 GameScreen::~GameScreen() {
+	if (CRC32string == "...") {
+		Reporting::CancelCRC();
+	}
 }
 
 template <typename I> std::string int2hexstr(I w, size_t hex_len = sizeof(I) << 1) {
@@ -68,6 +71,9 @@ void GameScreen::update() {
 		if (Reporting::HasCRC(gamePath_)) {
 			uint32_t crcvalue = Reporting::RetrieveCRC(gamePath_);
 			CRC32string = int2hexstr(crcvalue);
+			tvCRC_->SetVisibility(UI::V_VISIBLE);
+			tvCRC_->SetText(CRC32string);
+			btnCalcCRC_->SetVisibility(UI::V_GONE);
 		}
 	}
 }
@@ -171,7 +177,13 @@ void GameScreen::CreateViews() {
 	btnSetBackground_ = rightColumnItems->Add(new Choice(ga->T("Use UI background")));
 	btnSetBackground_->OnClick.Handle(this, &GameScreen::OnSetBackground);
 	btnSetBackground_->SetVisibility(V_GONE);
-	rightColumnItems->Add(new ChoiceWithValueDisplay(&CRC32string, ga->T("CRC32 CALC"), (const char*)nullptr))->OnClick.Handle(this, &GameScreen::OnDoCRC32);
+
+	if (!Reporting::HasCRC(gamePath_)) {
+		btnCalcCRC_ = rightColumnItems->Add(new ChoiceWithValueDisplay(&CRC32string, ga->T("Calculate CRC"), (const char*)nullptr));
+		btnCalcCRC_->OnClick.Handle(this, &GameScreen::OnDoCRC32);
+	} else {
+		btnCalcCRC_ = nullptr;
+	}
 }
 
 UI::Choice *GameScreen::AddOtherChoice(UI::Choice *choice) {
@@ -303,6 +315,8 @@ UI::EventReturn GameScreen::OnCwCheat(UI::EventParams &e) {
 
 UI::EventReturn GameScreen::OnDoCRC32(UI::EventParams& e) {
 	CRC32string = "...";
+	Reporting::QueueCRC(gamePath_);
+	btnCalcCRC_->SetEnabled(false);
 	return UI::EVENT_DONE;
 }
 
