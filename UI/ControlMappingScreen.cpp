@@ -579,15 +579,17 @@ void AnalogSetupScreen::update() {
 }
 
 bool AnalogSetupScreen::key(const KeyInput &key) {
-	// Allow testing auto-rotation
+	bool retval = UIScreen::key(key);
+
+	// Allow testing auto-rotation. If it collides with UI keys, too bad.
 	bool pauseTrigger = false;
 	mapper_.Key(key, &pauseTrigger);
 
 	if (UI::IsEscapeKey(key)) {
 		TriggerFinish(DR_BACK);
-		return true;
+		return retval;
 	}
-	return true;
+	return retval;
 }
 
 bool AnalogSetupScreen::axis(const AxisInput &axis) {
