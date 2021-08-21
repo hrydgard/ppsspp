@@ -668,11 +668,15 @@ static int DefaultGPUBackend() {
 		return (int)GPUBackend::DIRECT3D11;
 	}
 #elif PPSSPP_PLATFORM(ANDROID)
-	// Default to Vulkan only on Oreo 8.1 (level 27) devices or newer. Drivers before
-	// were generally too unreliable to default to (with some exceptions, of course).
+	// Default to Vulkan only on Oreo 8.1 (level 27) devices or newer, and only
+	// on ARM64 and x86-64. Drivers before, and on other archs, are generally too
+	// unreliable to default to (with some exceptions, of course).
+#if PPSSPP_ARCH(64BIT)
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 27) {
 		return (int)GPUBackend::VULKAN;
 	}
+#endif
+
 #endif
 	// TODO: On some additional Linux platforms, we should also default to Vulkan.
 	return (int)GPUBackend::OPENGL;
