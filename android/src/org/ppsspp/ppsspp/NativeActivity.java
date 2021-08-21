@@ -108,10 +108,7 @@ public abstract class NativeActivity extends Activity {
 
 	// Allow for multiple connected gamepads but just consider them the same for now.
 	// Actually this is not entirely true, see the code.
-	private InputDeviceState inputPlayerA;
-	private InputDeviceState inputPlayerB;
-	private InputDeviceState inputPlayerC;
-	private String inputPlayerADesc;
+	private ArrayList<InputDeviceState> inputPlayers;
 
 	private PowerSaveModeReceiver mPowerSaveModeReceiver = null;
 	private SizeManager sizeManager = null;
@@ -918,35 +915,18 @@ public abstract class NativeActivity extends Activity {
 		if (device == null) {
 			return null;
 		}
-		if (inputPlayerA == null) {
-			inputPlayerADesc = getInputDesc(device);
-			Log.i(TAG, "Input player A registered: desc = " + inputPlayerADesc);
-			inputPlayerA = new InputDeviceState(device);
+
+		for (InputDeviceState input : inputPlayers) {
+			if (input.getDevice() == device) {
+				return input;
+			}
 		}
 
-		if (inputPlayerA.getDevice() == device) {
-			return inputPlayerA;
-		}
-
-		if (inputPlayerB == null) {
-			Log.i(TAG, "Input player B registered: desc = " + getInputDesc(device));
-			inputPlayerB = new InputDeviceState(device);
-		}
-
-		if (inputPlayerB.getDevice() == device) {
-			return inputPlayerB;
-		}
-
-		if (inputPlayerC == null) {
-			Log.i(TAG, "Input player C registered");
-			inputPlayerC = new InputDeviceState(device);
-		}
-
-		if (inputPlayerC.getDevice() == device) {
-			return inputPlayerC;
-		}
-
-		return inputPlayerA;
+		// None was found, just add and return it.
+		InputDeviceState state = new InputDeviceState(device);
+		inputPlayers.add(state);
+		Log.i(TAG, "Input player registered: desc = " + getInputDesc(device));
+		return state;
 	}
 
 	public boolean IsXperiaPlay() {
