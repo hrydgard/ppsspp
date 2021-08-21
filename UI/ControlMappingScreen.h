@@ -44,7 +44,6 @@ private:
 	UI::EventReturn OnDefaultMapping(UI::EventParams &params);
 	UI::EventReturn OnClearMapping(UI::EventParams &params);
 	UI::EventReturn OnAutoConfigure(UI::EventParams &params);
-	UI::EventReturn OnTestAnalogs(UI::EventParams &params);
 
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) override;
 
