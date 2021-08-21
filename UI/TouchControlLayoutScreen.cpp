@@ -291,10 +291,8 @@ public:
 	}
 
 	void Draw(UIContext &dc) override {
-		float opacity = g_Config.iTouchButtonOpacity / 100.0f;
-
-		uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
-		uint32_t downBg = colorAlpha(0x00FFFFFF, opacity * 0.5f);
+		uint32_t colorBg = colorAlpha(GetButtonColor(), GetButtonOpacity());
+		uint32_t downBg = colorAlpha(0x00FFFFFF, GetButtonOpacity() * 0.5f);
 
 		const ImageID stickImage = g_Config.iTouchButtonStyle ? ImageID("I_STICK_LINE") : ImageID("I_STICK");
 		const ImageID stickBg = g_Config.iTouchButtonStyle ? ImageID("I_STICK_BG_LINE") : ImageID("I_STICK_BG");
