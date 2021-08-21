@@ -108,7 +108,7 @@ public abstract class NativeActivity extends Activity {
 
 	// Allow for multiple connected gamepads but just consider them the same for now.
 	// Actually this is not entirely true, see the code.
-	private ArrayList<InputDeviceState> inputPlayers;
+	private ArrayList<InputDeviceState> inputPlayers = new ArrayList<InputDeviceState>();
 
 	private PowerSaveModeReceiver mPowerSaveModeReceiver = null;
 	private SizeManager sizeManager = null;
