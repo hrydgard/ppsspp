@@ -253,6 +253,7 @@ bool ViewGroup::SubviewFocused(View *view) {
 	return false;
 }
 
+// Returns the percentage the smaller one overlaps the bigger one.
 static float HorizontalOverlap(const Bounds &a, const Bounds &b) {
 	if (a.x2() < b.x || b.x2() < a.x)
 		return 0.0f;
@@ -366,29 +367,15 @@ float GetTargetScore(const Point &originPos, int originIndex, View *origin, View
 		break;
 	}
 
-	// Add a small bonus if the views are the same size. This prioritizes moving to the next item
-	// upwards in a scroll view instead of moving up to the top bar.
-	float distanceBonus = 0.0f;
-	if (vertical) {
-		float widthDifference = origin->GetBounds().w - destination->GetBounds().w;
-		if (widthDifference == 0) {
-			distanceBonus = 40;
-		}
-	} else {
-		float heightDifference = origin->GetBounds().h - destination->GetBounds().h;
-		if (heightDifference == 0) {
-			distanceBonus = 40;
-		}
-	}
-
 	// At large distances, ignore overlap.
-	if (distance > 2 * originSize)
-		overlap = 0;
+	if (distance > 2.0 * originSize)
+		overlap = 0.0f;
 
-	if (wrongDirection)
+	if (wrongDirection) {
 		return 0.0f;
-	else
-		return 10.0f / std::max(1.0f, distance - distanceBonus) + overlap;
+	} else {
+		return 10.0f / std::max(1.0f, distance) + overlap * 2.0;
+	}
 }
 
 float GetDirectionScore(int originIndex, View *origin, View *destination, FocusDirection direction) {
@@ -411,22 +398,25 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 		}
 	}
 
-	// TODO: Do the cardinal directions right. Now we just map to
-	// prev/next.
+	if (direction == FOCUS_PREV || direction == FOCUS_NEXT) {
+		switch (direction) {
+		case FOCUS_PREV:
+			// If view not found, no neighbor to find.
+			if (num == -1)
+				return NeighborResult(0, 0.0f);
+			return NeighborResult(views_[(num + views_.size() - 1) % views_.size()], 0.0f);
+
+		case FOCUS_NEXT:
+			// If view not found, no neighbor to find.
+			if (num == -1)
+				return NeighborResult(0, 0.0f);
+			return NeighborResult(views_[(num + 1) % views_.size()], 0.0f);
+		default:
+			return NeighborResult(nullptr, 0.0f);
+		}
+	}
 
 	switch (direction) {
-	case FOCUS_PREV:
-		// If view not found, no neighbor to find.
-		if (num == -1)
-			return NeighborResult(0, 0.0f);
-		return NeighborResult(views_[(num + views_.size() - 1) % views_.size()], 0.0f);
-
-	case FOCUS_NEXT:
-		// If view not found, no neighbor to find.
-		if (num == -1)
-			return NeighborResult(0, 0.0f);
-		return NeighborResult(views_[(num + 1) % views_.size()], 0.0f);
-
 	case FOCUS_UP:
 	case FOCUS_LEFT:
 	case FOCUS_RIGHT:
@@ -459,7 +449,6 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 			if (num != -1) {
 				//result.score += 100.0f;
 			}
-
 			return result;
 		}
 
