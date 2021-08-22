@@ -19,7 +19,7 @@ private:
 	void Init(const std::string &str);
 
 public:
-	Path() : type_(PathType::UNDEFINED) {}
+	Path() : path_(""), type_(PathType::UNDEFINED) {}
 	explicit Path(const std::string &str);
 
 #if PPSSPP_PLATFORM(WINDOWS)
