@@ -282,7 +282,7 @@ namespace Reporting
 
 		if (http.Resolve(serverHost, ServerPort())) {
 			http.Connect();
-			int result = http.POST(uri, data, mimeType, output, &progress);
+			int result = http.POST(http::RequestParams(uri), data, mimeType, output, &progress);
 			http.Disconnect();
 
 			return result >= 200 && result < 300;
