@@ -134,7 +134,9 @@ void HttpImageFileView::DownloadCompletedCallback(http::Download &download) {
 void HttpImageFileView::Draw(UIContext &dc) {
 	using namespace Draw;
 	if (!texture_ && !textureFailed_ && !path_.empty() && !download_) {
-		download_ = downloader_->StartDownloadWithCallback(path_, Path(), std::bind(&HttpImageFileView::DownloadCompletedCallback, this, std::placeholders::_1));
+		auto cb = std::bind(&HttpImageFileView::DownloadCompletedCallback, this, std::placeholders::_1);
+		const char *acceptMime = "image/png, image/jpeg, image/*; q=0.9, */*; q=0.8";
+		download_ = downloader_->StartDownloadWithCallback(path_, Path(), cb, acceptMime);
 		download_->SetHidden(true);
 	}
 
@@ -366,8 +368,8 @@ StoreScreen::StoreScreen() {
 	loading_ = true;
 
 	std::string indexPath = storeBaseUrl + "index.json";
-
-	listing_ = g_DownloadManager.StartDownload(indexPath, Path());
+	const char *acceptMime = "application/json, */*; q=0.8";
+	listing_ = g_DownloadManager.StartDownload(indexPath, Path(), acceptMime);
 }
 
 StoreScreen::~StoreScreen() {

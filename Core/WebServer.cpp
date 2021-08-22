@@ -74,7 +74,7 @@ static bool RegisterServer(int port) {
 			std::string ip = fd_util::GetLocalIP(http.sock());
 			snprintf(resource4, sizeof(resource4) - 1, "/match/update?local=%s&port=%d", ip.c_str(), port);
 
-			if (http.GET(resource4, &theVoid, &progress) > 0)
+			if (http.GET(http::RequestParams(resource4), &theVoid, &progress) > 0)
 				success = true;
 			theVoid.Skip(theVoid.size());
 			http.Disconnect();
@@ -87,7 +87,7 @@ static bool RegisterServer(int port) {
 
 		// We register both IPv4 and IPv6 in case the other client is using a different one.
 		if (resource4[0] != 0 && http.Connect(timeout)) {
-			if (http.GET(resource4, &theVoid, &progress) > 0)
+			if (http.GET(http::RequestParams(resource4), &theVoid, &progress) > 0)
 				success = true;
 			theVoid.Skip(theVoid.size());
 			http.Disconnect();
@@ -99,7 +99,7 @@ static bool RegisterServer(int port) {
 			std::string ip = fd_util::GetLocalIP(http.sock());
 			snprintf(resource6, sizeof(resource6) - 1, "/match/update?local=%s&port=%d", ip.c_str(), port);
 
-			if (http.GET(resource6, &theVoid, &progress) > 0)
+			if (http.GET(http::RequestParams(resource6), &theVoid, &progress) > 0)
 				success = true;
 			theVoid.Skip(theVoid.size());
 			http.Disconnect();

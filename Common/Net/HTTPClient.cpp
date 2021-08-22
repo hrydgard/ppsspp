@@ -243,11 +243,10 @@ void DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength, float *prog
 	}
 }
 
-int Client::GET(const char *resource, Buffer *output, std::vector<std::string> &responseHeaders, RequestProgress *progress) {
+int Client::GET(const RequestParams &req, Buffer *output, std::vector<std::string> &responseHeaders, RequestProgress *progress) {
 	const char *otherHeaders =
-		"Accept: */*\r\n"
 		"Accept-Encoding: gzip\r\n";
-	int err = SendRequest("GET", resource, otherHeaders, progress);
+	int err = SendRequest("GET", req, otherHeaders, progress);
 	if (err < 0) {
 		return err;
 	}
@@ -265,20 +264,20 @@ int Client::GET(const char *resource, Buffer *output, std::vector<std::string> &
 	return code;
 }
 
-int Client::GET(const char *resource, Buffer *output, RequestProgress *progress) {
+int Client::GET(const RequestParams &req, Buffer *output, RequestProgress *progress) {
 	std::vector<std::string> responseHeaders;
-	int code = GET(resource, output, responseHeaders, progress);
+	int code = GET(req, output, responseHeaders, progress);
 	return code;
 }
 
-int Client::POST(const char *resource, const std::string &data, const std::string &mime, Buffer *output, RequestProgress *progress) {
+int Client::POST(const RequestParams &req, const std::string &data, const std::string &mime, Buffer *output, RequestProgress *progress) {
 	char otherHeaders[2048];
 	if (mime.empty()) {
 		snprintf(otherHeaders, sizeof(otherHeaders), "Content-Length: %lld\r\n", (long long)data.size());
 	} else {
 		snprintf(otherHeaders, sizeof(otherHeaders), "Content-Length: %lld\r\nContent-Type: %s\r\n", (long long)data.size(), mime.c_str());
 	}
-	int err = SendRequestWithData("POST", resource, data, otherHeaders, progress);
+	int err = SendRequestWithData("POST", req, data, otherHeaders, progress);
 	if (err < 0) {
 		return err;
 	}
@@ -297,15 +296,15 @@ int Client::POST(const char *resource, const std::string &data, const std::strin
 	return code;
 }
 
-int Client::POST(const char *resource, const std::string &data, Buffer *output, RequestProgress *progress) {
-	return POST(resource, data, "", output, progress);
+int Client::POST(const RequestParams &req, const std::string &data, Buffer *output, RequestProgress *progress) {
+	return POST(req, data, "", output, progress);
 }
 
-int Client::SendRequest(const char *method, const char *resource, const char *otherHeaders, RequestProgress *progress) {
-	return SendRequestWithData(method, resource, "", otherHeaders, progress);
+int Client::SendRequest(const char *method, const RequestParams &req, const char *otherHeaders, RequestProgress *progress) {
+	return SendRequestWithData(method, req, "", otherHeaders, progress);
 }
 
-int Client::SendRequestWithData(const char *method, const char *resource, const std::string &data, const char *otherHeaders, RequestProgress *progress) {
+int Client::SendRequestWithData(const char *method, const RequestParams &req, const std::string &data, const char *otherHeaders, RequestProgress *progress) {
 	progress->progress = 0.01f;
 
 	net::Buffer buffer;
@@ -313,14 +312,16 @@ int Client::SendRequestWithData(const char *method, const char *resource, const 
 		"%s %s HTTP/%s\r\n"
 		"Host: %s\r\n"
 		"User-Agent: %s\r\n"
+		"Accept: %s\r\n"
 		"Connection: close\r\n"
 		"%s"
 		"\r\n";
 
 	buffer.Printf(tpl,
-		method, resource, httpVersion_,
+		method, req.resource.c_str(), httpVersion_,
 		host_.c_str(),
 		userAgent_.c_str(),
+		req.acceptMime,
 		otherHeaders ? otherHeaders : "");
 	buffer.Append(data);
 	bool flushed = buffer.FlushSocket(sock(), dataTimeout_, progress->cancelled);
@@ -508,7 +509,8 @@ int Download::PerformGET(const std::string &url) {
 		return -1;
 	}
 
-	return client.GET(fileUrl.Resource().c_str(), &buffer_, responseHeaders_, &progress_);
+	RequestParams req(fileUrl.Resource(), acceptMime_);
+	return client.GET(req, &buffer_, responseHeaders_, &progress_);
 }
 
 std::string Download::RedirectLocation(const std::string &baseUrl) {
@@ -569,8 +571,10 @@ void Download::Do() {
 	completed_ = true;
 }
 
-std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const Path &outfile) {
+std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const Path &outfile, const char *acceptMime) {
 	std::shared_ptr<Download> dl(new Download(url, outfile));
+	if (acceptMime)
+		dl->SetAccept(acceptMime);
 	downloads_.push_back(dl);
 	dl->Start();
 	return dl;
@@ -579,8 +583,11 @@ std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, cons
 std::shared_ptr<Download> Downloader::StartDownloadWithCallback(
 	const std::string &url,
 	const Path &outfile,
-	std::function<void(Download &)> callback) {
+	std::function<void(Download &)> callback,
+	const char *acceptMime) {
 	std::shared_ptr<Download> dl(new Download(url, outfile));
+	if (acceptMime)
+		dl->SetAccept(acceptMime);
 	dl->SetCallback(callback);
 	downloads_.push_back(dl);
 	dl->Start();
