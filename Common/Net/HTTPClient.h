@@ -144,6 +144,7 @@ private:
 	int PerformGET(const std::string &url);
 	std::string RedirectLocation(const std::string &baseUrl);
 	void SetFailed(int code);
+
 	RequestProgress progress_;
 	Buffer buffer_;
 	std::vector<std::string> responseHeaders_;
