@@ -509,7 +509,7 @@ int Download::PerformGET(const std::string &url) {
 		return -1;
 	}
 
-	RequestParams req(fileUrl.Resource(), "*/*");
+	RequestParams req(fileUrl.Resource(), acceptMime_);
 	return client.GET(req, &buffer_, responseHeaders_, &progress_);
 }
 
@@ -571,8 +571,10 @@ void Download::Do() {
 	completed_ = true;
 }
 
-std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const Path &outfile) {
+std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const Path &outfile, const char *acceptMime) {
 	std::shared_ptr<Download> dl(new Download(url, outfile));
+	if (acceptMime)
+		dl->SetAccept(acceptMime);
 	downloads_.push_back(dl);
 	dl->Start();
 	return dl;
@@ -581,8 +583,11 @@ std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, cons
 std::shared_ptr<Download> Downloader::StartDownloadWithCallback(
 	const std::string &url,
 	const Path &outfile,
-	std::function<void(Download &)> callback) {
+	std::function<void(Download &)> callback,
+	const char *acceptMime) {
 	std::shared_ptr<Download> dl(new Download(url, outfile));
+	if (acceptMime)
+		dl->SetAccept(acceptMime);
 	dl->SetCallback(callback);
 	downloads_.push_back(dl);
 	dl->Start();

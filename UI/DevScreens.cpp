@@ -1206,7 +1206,8 @@ void FrameDumpTestScreen::update() {
 	UIScreen::update();
 
 	if (!listing_) {
-		listing_ = g_DownloadManager.StartDownload(framedumpsBaseUrl, Path());
+		const char *acceptMime = "text/html, */*; q=0.8";
+		listing_ = g_DownloadManager.StartDownload(framedumpsBaseUrl, Path(), acceptMime);
 	}
 
 	if (listing_ && listing_->Done() && files_.empty()) {

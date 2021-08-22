@@ -100,7 +100,8 @@ bool GameManager::DownloadAndInstall(std::string storeFileUrl) {
 	}
 
 	Path filename = GetTempFilename();
-	curDownload_ = g_DownloadManager.StartDownload(storeFileUrl, filename);
+	const char *acceptMime = "application/zip, application/x-cso, application/x-iso9660-image, application/octet-stream; q=0.9, */*; q=0.8";
+	curDownload_ = g_DownloadManager.StartDownload(storeFileUrl, filename, acceptMime);
 	return true;
 }
 

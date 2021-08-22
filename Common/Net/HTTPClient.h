@@ -120,6 +120,10 @@ public:
 	std::string url() const { return url_; }
 	const Path &outfile() const { return outfile_; }
 
+	void SetAccept(const char *mime) {
+		acceptMime_ = mime;
+	}
+
 	// If not downloading to a file, access this to get the result.
 	Buffer &buffer() { return buffer_; }
 	const Buffer &buffer() const { return buffer_; }
@@ -160,6 +164,7 @@ private:
 	std::string url_;
 	Path outfile_;
 	std::thread thread_;
+	const char *acceptMime_ = "*/*";
 	int resultCode_ = 0;
 	bool completed_ = false;
 	bool failed_ = false;
@@ -177,12 +182,13 @@ public:
 		CancelAll();
 	}
 
-	std::shared_ptr<Download> StartDownload(const std::string &url, const Path &outfile);
+	std::shared_ptr<Download> StartDownload(const std::string &url, const Path &outfile, const char *acceptMime = nullptr);
 
 	std::shared_ptr<Download> StartDownloadWithCallback(
 		const std::string &url,
 		const Path &outfile,
-		std::function<void(Download &)> callback);
+		std::function<void(Download &)> callback,
+		const char *acceptMime = nullptr);
 
 	// Drops finished downloads from the list.
 	void Update();

@@ -1393,8 +1393,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// splash screen quickly), but then we'll just show the notification next time instead, we store the
 	// upgrade number in the ini.
 	if (iRunCount % 10 == 0 && bCheckForNewVersion) {
-		std::shared_ptr<http::Download> dl = g_DownloadManager.StartDownloadWithCallback(
-			"http://www.ppsspp.org/version.json", Path(), &DownloadCompletedCallback);
+		const char *versionUrl = "http://www.ppsspp.org/version.json";
+		const char *acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
+		auto dl = g_DownloadManager.StartDownloadWithCallback(versionUrl, Path(), &DownloadCompletedCallback, acceptMime);
 		dl->SetHidden(true);
 	}
 
