@@ -32,12 +32,16 @@ static uint32_t FlagsFromConfig() {
 }
 
 bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message) {
+#if !defined (VK_USE_PLATFORM_DISPLAY_KHR)
+	// No SDL_Window can be created when using DISPLAY_KHR, because SDL2 KMSDRM backend uses the
+	// same resources as Vulkan. The right way to do all this would be to let SDL2 create
+	// a Vulkan window (SDL_WINDOW_VULKAN) and create the Vulkan surface (SDL_Vulkan_CreateSurface).
 	window = SDL_CreateWindow("Initializing Vulkan...", x, y, pixel_xres, pixel_yres, mode);
 	if (!window) {
 		fprintf(stderr, "Error creating SDL window: %s\n", SDL_GetError());
 		exit(1);
 	}
-
+#endif
 	init_glslang();
 
 	g_LogOptions.breakOnError = true;
@@ -74,6 +78,9 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 
 	SDL_SysWMinfo sys_info{};
 	SDL_VERSION(&sys_info.version); //Set SDL version
+
+
+#if !defined (VK_USE_PLATFORM_DISPLAY_KHR)
 	if (!SDL_GetWindowWMInfo(window, &sys_info)) {
 		fprintf(stderr, "Error getting SDL window wm info: %s\n", SDL_GetError());
 		exit(1);
@@ -110,6 +117,9 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 		break;
 	}
 
+#else // KHR_DISPLAY
+	vulkan_->InitSurface(WINDOWSYSTEM_DISPLAY, nullptr, nullptr);
+#endif
 	if (!vulkan_->InitSwapchain()) {
 		*error_message = vulkan_->InitError();
 		Shutdown();
