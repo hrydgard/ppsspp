@@ -780,6 +780,169 @@ VkResult VulkanContext::ReinitSurface() {
 	case WINDOWSYSTEM_DISPLAY:
 	{
 		VkDisplaySurfaceCreateInfoKHR display{ VK_STRUCTURE_TYPE_DISPLAY_SURFACE_CREATE_INFO_KHR };
+#if !defined(__LIBRETRO__)
+
+		// When using the VK_KHR_display extension and not using LIBRETRO, a complete
+		// VkDisplaySurfaceCreateInfoKHR is needed.
+
+		uint32_t display_count;
+		uint32_t plane_count;
+
+		VkDisplayPropertiesKHR *display_props = NULL;
+		VkDisplayModePropertiesKHR *modes_props = NULL;
+		VkDisplayPlanePropertiesKHR *plane_props = NULL;
+
+		VkExtent2D image_size;
+		// This is the chosen physical_device, it has been chosen elsewhere.
+		VkPhysicalDevice phys_device = physical_devices_[physical_device_];
+		VkDisplayModeKHR myMode = VK_NULL_HANDLE;
+		VkDisplayPlaneAlphaFlagBitsKHR alpha_mode;
+		uint32_t bestPlane = UINT32_MAX;
+
+		VkResult result;
+		bool ret = false;
+		bool mode_found = false;
+
+		int i, j, k;
+
+		// 1 physical device can have N displays connected.
+		// Vulkan only counts the connected displays.
+
+		// Get a list of displays on the physical device.
+		display_count = 0;
+		vkGetPhysicalDeviceDisplayPropertiesKHR(phys_device, &display_count, NULL);
+		if (display_count == 0) {
+			_assert_msg_(false, "KMSDRM Vulkan couldn't find any displays.");
+			return VK_ERROR_INITIALIZATION_FAILED;
+		}
+		display_props = (VkDisplayPropertiesKHR *) malloc(display_count * sizeof(*display_props));
+		vkGetPhysicalDeviceDisplayPropertiesKHR(phys_device, &display_count, display_props);
+
+		// Get a list of display planes on the physical device.
+		plane_count = 0;
+		vkGetPhysicalDeviceDisplayPlanePropertiesKHR(phys_device, &plane_count, NULL);
+		if (plane_count == 0) {
+			_assert_msg_(false, "KMSDRM Vulkan couldn't find any planes on the physical device");
+			return VK_ERROR_INITIALIZATION_FAILED;
+
+		}
+		plane_props = (VkDisplayPlanePropertiesKHR *) malloc(sizeof(VkDisplayPlanePropertiesKHR) * plane_count);
+		vkGetPhysicalDeviceDisplayPlanePropertiesKHR(phys_device, &plane_count, plane_props);
+
+		// Get the list of modes each display supports,
+		// then look for the appropiate video mode on the displays,
+		// then look for a plane that supports that display and video mode.
+		for (i = 0; i < display_count; ++i)
+		{
+
+			VkDisplayKHR display = display_props[i].display;
+			VkDisplayModePropertiesKHR* mode_props;
+			uint32_t mode_count = 0;
+
+			// Get the list of display modes of this display
+			vkGetDisplayModePropertiesKHR(phys_device, display, &mode_count, NULL);
+			mode_props = (VkDisplayModePropertiesKHR*)malloc(sizeof(VkDisplayModePropertiesKHR) * mode_count);
+			vkGetDisplayModePropertiesKHR(phys_device, display, &mode_count, mode_props);
+
+			// See if there's an appropiate mode available on this display 
+			myMode = VK_NULL_HANDLE;
+			for (j = 0; j < mode_count; ++j)
+			{
+				const VkDisplayModePropertiesKHR* mode = &mode_props[i];
+
+				if (mode->parameters.visibleRegion.width == pixel_xres &&
+				    mode->parameters.visibleRegion.height == pixel_yres)
+				{
+					myMode = mode->displayMode;
+					mode_found = true;
+					break;
+				}
+			}
+
+			free(mode_props);
+
+			// If there are no useable modes found then check the next display.
+			if (myMode == VK_NULL_HANDLE)
+				continue;
+
+			// Find a plane that matches these criteria, in order of preference:
+			// -Is compatible with the chosen display + mode.
+			// -Isn't currently bound to another display.
+			// -Supports per-pixel alpha, if possible.
+			for (j = 0; j < plane_count; ++j)
+			{
+				uint32_t supported_count = 0;
+				VkDisplayKHR* supported_displays;
+				VkDisplayPlaneCapabilitiesKHR plane_caps;
+				// See if the plane is compatible with the current display.
+				vkGetDisplayPlaneSupportedDisplaysKHR(phys_device, j, &supported_count, NULL);
+
+				// Plane doesn't support any displays.  This might happen on a card
+				// that has a fixed mapping between planes and connectors when no
+				// displays are currently attached to this plane's conector, for
+				// example.
+				if (supported_count == 0)
+					continue;
+
+				supported_displays = (VkDisplayKHR*)malloc(sizeof(VkDisplayKHR) * supported_count);
+				vkGetDisplayPlaneSupportedDisplaysKHR(phys_device, j, &supported_count, supported_displays);
+
+				for (k = 0; k < supported_count; ++k) {
+					if (supported_displays[k] == display) {
+						// If no supported plane has yet been found, this is
+						// currently the best available plane.
+						if (bestPlane == UINT32_MAX) {
+							bestPlane = j;
+							break;
+						}
+
+						// If the plane can't be used with the chosen display, keep looking.
+						// Each display must have at least one compatible plane.
+						if (k == supported_count)
+							continue;
+
+						// If the plane passed the above test and is currently bound to the
+						// desired display, or is not in use, it is the best plane found so
+						// far.
+						if ((plane_props[j].currentDisplay == VK_NULL_HANDLE) &&
+							(plane_props[j].currentDisplay == display)) 
+						{
+							bestPlane = j;
+						} else {
+							continue;
+						}
+						vkGetDisplayPlaneCapabilitiesKHR(phys_device, myMode, j, &plane_caps);
+
+						// Prefer a plane that supports per-pixel alpha.
+						if (plane_caps.supportedAlpha & VK_DISPLAY_PLANE_ALPHA_PER_PIXEL_BIT_KHR)
+						{
+							// This is the perfect plane for the given criteria.  Use it.
+							bestPlane = j;
+							alpha_mode = VK_DISPLAY_PLANE_ALPHA_PER_PIXEL_BIT_KHR;
+							break;
+						}
+					} // if (supported_displays[i] == display
+				} // for (supported_count)
+			} // for (plane_count)
+		} // for (display_count)
+
+		free(display_props);
+
+		// Finally, create the vulkan surface.
+
+		image_size.width = pixel_xres;
+		image_size.height = pixel_yres;
+
+		display.sType = VK_STRUCTURE_TYPE_DISPLAY_SURFACE_CREATE_INFO_KHR;
+		display.displayMode = myMode;
+		display.imageExtent = image_size;
+		display.transform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+		display.alphaMode = alpha_mode;
+		display.globalAlpha = 1.0f;
+		display.planeIndex = bestPlane;
+		display.planeStackIndex = plane_props[bestPlane].currentStackIndex;
+		display.pNext = nullptr;
+#endif
 		display.flags = 0;
 		retval = vkCreateDisplayPlaneSurfaceKHR(instance_, &display, nullptr, &surface_);
 		break;
