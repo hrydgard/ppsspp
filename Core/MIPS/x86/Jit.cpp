@@ -57,13 +57,14 @@ std::pair<B,A> flip_pair(const std::pair<A,B> &p) {
 	return std::pair<B, A>(p.second, p.first);
 }
 
-u32 JitBreakpoint()
+// This is called when Jit hits a breakpoint.  Returns 1 when hit.
+u32 JitBreakpoint(uint32_t addr)
 {
 	// Should we skip this breakpoint?
-	if (CBreakPoints::CheckSkipFirst() == currentMIPS->pc)
+	if (CBreakPoints::CheckSkipFirst() == currentMIPS->pc || CBreakPoints::CheckSkipFirst() == addr)
 		return 0;
 
-	BreakAction result = CBreakPoints::ExecBreakPoint(currentMIPS->pc);
+	BreakAction result = CBreakPoints::ExecBreakPoint(addr);
 	if ((result & BREAK_ACTION_PAUSE) == 0)
 		return 0;
 
@@ -795,7 +796,7 @@ bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset) {
 		FlushAll();
 		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
 		RestoreRoundingMode();
-		ABI_CallFunction(&JitBreakpoint);
+		ABI_CallFunctionC(&JitBreakpoint, addr);
 
 		// If 0, the conditional breakpoint wasn't taken.
 		CMP(32, R(EAX), Imm32(0));

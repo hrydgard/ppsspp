@@ -62,12 +62,12 @@ static void DisassembleArm64Print(const u8 *data, int size) {
 	INFO_LOG(JIT, "===");*/
 }
 
-static u32 JitBreakpoint() {
+static u32 JitBreakpoint(uint32_t addr) {
 	// Should we skip this breakpoint?
-	if (CBreakPoints::CheckSkipFirst() == currentMIPS->pc)
+	if (CBreakPoints::CheckSkipFirst() == currentMIPS->pc || CBreakPoints::CheckSkipFirst() == addr)
 		return 0;
 
-	BreakAction result = CBreakPoints::ExecBreakPoint(currentMIPS->pc);
+	BreakAction result = CBreakPoints::ExecBreakPoint(addr);
 	if ((result & BREAK_ACTION_PAUSE) == 0)
 		return 0;
 
@@ -720,7 +720,9 @@ bool Arm64Jit::CheckJitBreakpoint(u32 addr, int downcountOffset) {
 		FlushAll();
 		MOVI2R(SCRATCH1, GetCompilerPC());
 		MovToPC(SCRATCH1);
+		SaveStaticRegisters();
 		RestoreRoundingMode();
+		MOVI2R(W0, addr);
 		QuickCallFunction(SCRATCH1_64, &JitBreakpoint);
 
 		// If 0, the conditional breakpoint wasn't taken.
@@ -728,10 +730,12 @@ bool Arm64Jit::CheckJitBreakpoint(u32 addr, int downcountOffset) {
 		FixupBranch skip = B(CC_EQ);
 		WriteDownCount(downcountOffset);
 		ApplyRoundingMode();
+		LoadStaticRegisters();
 		B((const void *)dispatcherCheckCoreState);
 		SetJumpTarget(skip);
 
 		ApplyRoundingMode();
+		LoadStaticRegisters();
 		_MSR(FIELD_NZCV, FLAGTEMPREG);
 		return true;
 	}
