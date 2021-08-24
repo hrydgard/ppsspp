@@ -815,7 +815,7 @@ VkResult VulkanContext::ReinitSurface() {
 			_assert_msg_(false, "KMSDRM Vulkan couldn't find any displays.");
 			return VK_ERROR_INITIALIZATION_FAILED;
 		}
-		display_props = (VkDisplayPropertiesKHR *) malloc(display_count * sizeof(*display_props));
+		display_props = (VkDisplayPropertiesKHR *)malloc(display_count * sizeof(*display_props));
 		vkGetPhysicalDeviceDisplayPropertiesKHR(phys_device, &display_count, display_props);
 
 		// Get a list of display planes on the physical device.
@@ -859,7 +859,8 @@ VkResult VulkanContext::ReinitSurface() {
 				}
 			}
 
-			free(mode_props);
+			if (mode_props)
+				free(mode_props);
 
 			// If there are no useable modes found then check the next display.
 			if (myMode == VK_NULL_HANDLE)
@@ -871,23 +872,24 @@ VkResult VulkanContext::ReinitSurface() {
 			// -Supports per-pixel alpha, if possible.
 			for (j = 0; j < plane_count; ++j)
 			{
-				uint32_t supported_count = 0;
+				uint32_t supported_displays_count = 0;
 				VkDisplayKHR* supported_displays;
 				VkDisplayPlaneCapabilitiesKHR plane_caps;
 				// See if the plane is compatible with the current display.
-				vkGetDisplayPlaneSupportedDisplaysKHR(phys_device, j, &supported_count, NULL);
+				vkGetDisplayPlaneSupportedDisplaysKHR(phys_device, j, &supported_displays_count, NULL);
 
 				// Plane doesn't support any displays.  This might happen on a card
 				// that has a fixed mapping between planes and connectors when no
 				// displays are currently attached to this plane's conector, for
 				// example.
-				if (supported_count == 0)
+				if (supported_displays_count == 0)
 					continue;
 
-				supported_displays = (VkDisplayKHR*)malloc(sizeof(VkDisplayKHR) * supported_count);
-				vkGetDisplayPlaneSupportedDisplaysKHR(phys_device, j, &supported_count, supported_displays);
+				supported_displays = (VkDisplayKHR*)malloc(sizeof(VkDisplayKHR) * supported_displays_count);
+				vkGetDisplayPlaneSupportedDisplaysKHR(phys_device, j,
+					&supported_displays_count, supported_displays);
 
-				for (k = 0; k < supported_count; ++k) {
+				for (k = 0; k < supported_displays_count; ++k) {
 					if (supported_displays[k] == display) {
 						// If no supported plane has yet been found, this is
 						// currently the best available plane.
@@ -898,7 +900,7 @@ VkResult VulkanContext::ReinitSurface() {
 
 						// If the plane can't be used with the chosen display, keep looking.
 						// Each display must have at least one compatible plane.
-						if (k == supported_count)
+						if (k == supported_displays_count)
 							continue;
 
 						// If the plane passed the above test and is currently bound to the
@@ -922,14 +924,22 @@ VkResult VulkanContext::ReinitSurface() {
 							break;
 						}
 					} // if (supported_displays[i] == display
-				} // for (supported_count)
+				} // for (supported_displays_count)
+				
+				// Free the supported display list of this plane.
+				if (supported_displays)
+					free(supported_displays);
+
 			} // for (plane_count)
 		} // for (display_count)
 
-		free(display_props);
+		if (display_props)
+			free(display_props);
 
+		if (plane_props)
+			free(plane_props);
+		
 		// Finally, create the vulkan surface.
-
 		image_size.width = pixel_xres;
 		image_size.height = pixel_yres;
 
