@@ -1192,7 +1192,7 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 		for (size_t i = 0; i < validDir.size(); ++i) {
 			// GetFileName(param) == NUll here
 			// so use sfo files to set the date.
-			sfoFile = pspFileSystem.GetFileInfo(savePath + validDir[i].name + "/" + "PARAM.SFO");
+			sfoFile = pspFileSystem.GetFileInfo(savePath + validDir[i].name + "/" + SFO_FILENAME);
 			sfoFiles.push_back(sfoFile);
 		}
 
@@ -1262,7 +1262,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 	fileList->resultNumNormalEntries = 0;
 	fileList->resultNumSystemEntries = 0;
 
-	// We need PARAMS.SFO's SAVEDATA_FILE_LIST to determine which entries are secure.
+	// We need PARAM.SFO's SAVEDATA_FILE_LIST to determine which entries are secure.
 	PSPFileInfo sfoFileInfo = pspFileSystem.GetFileInfo(dirPath + "/" + SFO_FILENAME);
 	std::set<std::string> secureFilenames;
 
