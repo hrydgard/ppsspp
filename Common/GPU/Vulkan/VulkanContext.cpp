@@ -815,7 +815,7 @@ VkResult VulkanContext::ReinitSurface() {
 		display_count = 0;
 		vkGetPhysicalDeviceDisplayPropertiesKHR(phys_device, &display_count, NULL);
 		if (display_count == 0) {
-			_assert_msg_(false, "KMSDRM Vulkan couldn't find any displays.");
+			_assert_msg_(false, "DISPLAY Vulkan couldn't find any displays.");
 			return VK_ERROR_INITIALIZATION_FAILED;
 		}
 		display_props = (VkDisplayPropertiesKHR *)malloc(display_count * sizeof(*display_props));
@@ -825,7 +825,7 @@ VkResult VulkanContext::ReinitSurface() {
 		plane_count = 0;
 		vkGetPhysicalDeviceDisplayPlanePropertiesKHR(phys_device, &plane_count, NULL);
 		if (plane_count == 0) {
-			_assert_msg_(false, "KMSDRM Vulkan couldn't find any planes on the physical device");
+			_assert_msg_(false, "DISPLAY Vulkan couldn't find any planes on the physical device");
 			return VK_ERROR_INITIALIZATION_FAILED;
 
 		}
@@ -839,7 +839,7 @@ VkResult VulkanContext::ReinitSurface() {
 		uint32_t mode_count = 0;
 		vkGetDisplayModePropertiesKHR(phys_device, myDisplay, &mode_count, NULL);
 		if (mode_count == 0) {
-			_assert_msg_(false, "KMSDRM Vulkan couldn't find any video modes on the display");
+			_assert_msg_(false, "DISPLAY Vulkan couldn't find any video modes on the display");
 			return VK_ERROR_INITIALIZATION_FAILED;
 		}
 		mode_props = (VkDisplayModePropertiesKHR*)malloc(sizeof(VkDisplayModePropertiesKHR) * mode_count);
@@ -867,15 +867,15 @@ VkResult VulkanContext::ReinitSurface() {
 		// If there are no useable modes found on the display, error out
 		if (myMode == VK_NULL_HANDLE)
 		{
-			_assert_msg_(false, "KMSDRM Vulkan couldn't find any video modes on the display");
+			_assert_msg_(false, "DISPLAY Vulkan couldn't find any video modes on the display");
 			return VK_ERROR_INITIALIZATION_FAILED;
 		}
 
-
-		// Find a plane that matches these criteria, in order of preference:
-		// -Is compatible with the chosen display + mode.
-		// -Isn't currently bound to another display.
-		// -Supports per-pixel alpha, if possible.
+		// Iterate on the list of planes of the physical device
+		// to find a plane that matches these criteria, in order of preference:
+		// -It must be compatible with the chosen display + mode.
+		// -It isn't currently bound to another display.
+		// -It supports per-pixel alpha, if possible.
 		for (i = 0; i < plane_count; ++i)
 		{
 			uint32_t supported_displays_count = 0;
@@ -886,7 +886,7 @@ VkResult VulkanContext::ReinitSurface() {
 			vkGetDisplayPlaneSupportedDisplaysKHR(phys_device, i, &supported_displays_count, NULL);
 			if (supported_displays_count == 0)
 			{
-				// Plane doesn't support any displays. Continue to the next plane.
+				// This plane doesn't support any displays. Continue to the next plane.
 				continue;
 			}
 
@@ -909,16 +909,14 @@ VkResult VulkanContext::ReinitSurface() {
 						break;
 					}
 
-					
 					// If the plane can't be used with the chosen display
 					// and we have got to the end of the list of displays supported by the plane,
-					// iterate immediately on the list of planes.
+					// go to the next plane immediately.
 					if (j == supported_displays_count)
 						continue;
 
 					// If the plane passed the above test and is currently bound to the
-					// desired display, or is not in use, it is the best plane found so
-					// far.
+					// desired display, or is not in use, it is the best plane found so far.
 					if ((plane_props[i].currentDisplay == VK_NULL_HANDLE) &&
 						(plane_props[i].currentDisplay == myDisplay)) 
 					{
@@ -926,6 +924,7 @@ VkResult VulkanContext::ReinitSurface() {
 					} else {
 						continue;
 					}
+
 					vkGetDisplayPlaneCapabilitiesKHR(phys_device, myMode, i, &plane_caps);
 
 					// Prefer a plane that supports per-pixel alpha.
@@ -950,7 +949,14 @@ VkResult VulkanContext::ReinitSurface() {
 
 		if (plane_props)
 			free(plane_props);
-		
+
+		// If we couldn't find a plane, error out.	
+		if (bestPlane == UINT32_MAX)
+		{
+			_assert_msg_(false, "DISPLAY Vulkan couldn't find a valid plane.");
+			return VK_ERROR_INITIALIZATION_FAILED;
+		}
+	
 		// Finally, create the vulkan surface.
 		image_size.width = pixel_xres;
 		image_size.height = pixel_yres;
