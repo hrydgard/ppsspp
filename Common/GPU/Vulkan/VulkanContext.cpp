@@ -795,9 +795,9 @@ VkResult VulkanContext::ReinitSurface() {
 		VkExtent2D image_size;
 		// This is the chosen physical_device, it has been chosen elsewhere.
 		VkPhysicalDevice phys_device = physical_devices_[physical_device_];
-		VkDisplayModeKHR myMode = VK_NULL_HANDLE;
+		VkDisplayModeKHR display_mode = VK_NULL_HANDLE;
 		VkDisplayPlaneAlphaFlagBitsKHR alpha_mode;
-		uint32_t bestPlane = UINT32_MAX;
+		uint32_t plane = UINT32_MAX;
 
 		// For now, use the first available (connected) display.
 		int display_index = 0;
@@ -846,7 +846,7 @@ VkResult VulkanContext::ReinitSurface() {
 		vkGetDisplayModePropertiesKHR(phys_device, myDisplay, &mode_count, mode_props);
 
 		// See if there's an appropiate mode available on the display 
-		myMode = VK_NULL_HANDLE;
+		display_mode = VK_NULL_HANDLE;
 		for (i = 0; i < mode_count; ++i)
 		{
 			const VkDisplayModePropertiesKHR* mode = &mode_props[i];
@@ -854,7 +854,7 @@ VkResult VulkanContext::ReinitSurface() {
 			if (mode->parameters.visibleRegion.width == pixel_xres &&
 			    mode->parameters.visibleRegion.height == pixel_yres)
 			{
-				myMode = mode->displayMode;
+				display_mode = mode->displayMode;
 				mode_found = true;
 				break;
 			}
@@ -865,95 +865,70 @@ VkResult VulkanContext::ReinitSurface() {
 			free(mode_props);
 
 		// If there are no useable modes found on the display, error out
-		if (myMode == VK_NULL_HANDLE)
+		if (display_mode == VK_NULL_HANDLE)
 		{
 			_assert_msg_(false, "DISPLAY Vulkan couldn't find any video modes on the display");
 			return VK_ERROR_INITIALIZATION_FAILED;
 		}
 
-		// Iterate on the list of planes of the physical device
-		// to find a plane that matches these criteria, in order of preference:
-		// -It must be compatible with the chosen display + mode.
-		// -It isn't currently bound to another display.
-		// -It supports per-pixel alpha, if possible.
-		for (i = 0; i < plane_count; ++i)
-		{
+		/* Iterate on the list of planes of the physical device
+		   to find a plane that matches these criteria:
+		   -It must be compatible with the chosen display + mode.
+		   -It isn't currently bound to another display.
+		   -It supports per-pixel alpha, if possible. */
+		for (i = 0; i < plane_count; i++) {
 			uint32_t supported_displays_count = 0;
 			VkDisplayKHR* supported_displays;
 			VkDisplayPlaneCapabilitiesKHR plane_caps;
 
-			// See if the plane is compatible with the current display.
+			/* See if the plane is compatible with the current display. */
 			vkGetDisplayPlaneSupportedDisplaysKHR(phys_device, i, &supported_displays_count, NULL);
-			if (supported_displays_count == 0)
-			{
-				// This plane doesn't support any displays. Continue to the next plane.
+			if (supported_displays_count == 0) {
+				/* This plane doesn't support any displays. Continue to the next plane. */
 				continue;
 			}
 
-			// Get the list of displays supported by this plane.
+			/* Get the list of displays supported by this plane. */
 			supported_displays = (VkDisplayKHR*)malloc(sizeof(VkDisplayKHR) * supported_displays_count);
 			vkGetDisplayPlaneSupportedDisplaysKHR(phys_device, i,
-				&supported_displays_count, supported_displays);
+			    &supported_displays_count, supported_displays);
 
-			// Iterate the list of displays supported by this plane
-			// in order to find out if our display is among them.
-			for (j = 0; j < supported_displays_count; ++j)
-			{
-				if (supported_displays[j] == myDisplay)
-				{
-					// If no supported plane has yet been found, this is
-					// currently the best available plane.
-					if (bestPlane == UINT32_MAX)
-					{
-						bestPlane = i;
-						break;
-					}
+			/* The plane must be bound to the chosen display, or not in use.
+			   If none of these is true, iterate to another plane. */
+			if ( !( (plane_props[i].currentDisplay == myDisplay) ||
+			        (plane_props[i].currentDisplay == VK_NULL_HANDLE))) 
+				continue;
 
-					// If the plane can't be used with the chosen display
-					// and we have got to the end of the list of displays supported by the plane,
-					// go to the next plane immediately.
-					if (j == supported_displays_count)
-						continue;
+			/* Iterate the list of displays supported by this plane
+			   in order to find out if the chosen display is among them. */
+			bool plane_supports_display = false;
+			for (j = 0; j < supported_displays_count; j++) {
+				if (supported_displays[j] == myDisplay) {
+					plane_supports_display = true;
+					break;
+				}
+			}
 
-					// If the plane passed the above test and is currently bound to the
-					// desired display, or is not in use, it is the best plane found so far.
-					if ((plane_props[i].currentDisplay == VK_NULL_HANDLE) &&
-						(plane_props[i].currentDisplay == myDisplay)) 
-					{
-						bestPlane = i;
-					} else {
-						continue;
-					}
-
-					vkGetDisplayPlaneCapabilitiesKHR(phys_device, myMode, i, &plane_caps);
-
-					// Prefer a plane that supports per-pixel alpha.
-					if (plane_caps.supportedAlpha & VK_DISPLAY_PLANE_ALPHA_PER_PIXEL_BIT_KHR)
-					{
-						// This is the perfect plane for the given criteria.  Use it.
-						bestPlane = i;
-						alpha_mode = VK_DISPLAY_PLANE_ALPHA_PER_PIXEL_BIT_KHR;
-						break;
-					}
-				} // if (supported_displays[j] == myDisplay
-			} // for (supported_displays_count)
-			
-			// Free the supported display list of this plane.
+			/* Free the list of displays supported by this plane. */
 			if (supported_displays)
 				free(supported_displays);
 
-		} // for (plane_count)
+			/* If the display is not supported by this plane, iterate to the next plane. */
+			if (!plane_supports_display)
+				continue;
 
-		if (display_props)
-			free(display_props);
+			/* Want a plane that supports the alpha mode we have chosen. */
+			vkGetDisplayPlaneCapabilitiesKHR(phys_device, display_mode, i, &plane_caps);
+			if (plane_caps.supportedAlpha & alpha_mode) {
+				/* Yep, this plane is alright. */
+				plane = i;
+				break;
+			}
+		}
 
-		if (plane_props)
-			free(plane_props);
-
-		// If we couldn't find a plane, error out.	
-		if (bestPlane == UINT32_MAX)
-		{
-			_assert_msg_(false, "DISPLAY Vulkan couldn't find a valid plane.");
+		/* If we couldn't find an appropiate plane, error out. */
+		if (plane == UINT32_MAX) {
+			_assert_msg_(false, "DISPLAY Vulkan couldn't find an appropiate plane");
 			return VK_ERROR_INITIALIZATION_FAILED;
 		}
 	
@@ -962,13 +937,13 @@ VkResult VulkanContext::ReinitSurface() {
 		image_size.height = pixel_yres;
 
 		display.sType = VK_STRUCTURE_TYPE_DISPLAY_SURFACE_CREATE_INFO_KHR;
-		display.displayMode = myMode;
+		display.displayMode = display_mode;
 		display.imageExtent = image_size;
 		display.transform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 		display.alphaMode = alpha_mode;
 		display.globalAlpha = 1.0f;
-		display.planeIndex = bestPlane;
-		display.planeStackIndex = plane_props[bestPlane].currentStackIndex;
+		display.planeIndex = plane;
+		display.planeStackIndex = plane_props[plane].currentStackIndex;
 		display.pNext = nullptr;
 #endif
 		display.flags = 0;
