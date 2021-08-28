@@ -160,6 +160,8 @@ protected:
 	UI::EventReturn OnRecreateActivity(UI::EventParams &e);
 };
 
+class MockPSP;
+
 class VisualMappingScreen : public UIDialogScreenWithBackground {
 public:
 	VisualMappingScreen() {}
@@ -171,7 +173,11 @@ protected:
 
 private:
 	UI::EventReturn OnMapButton(UI::EventParams &e);
+	UI::EventReturn OnBindAll(UI::EventParams &e);
 	void HandleKeyMapping(KeyDef key);
 
+	MockPSP *psp_ = nullptr;
 	int nextKey_ = 0;
+	int bindAll_ = -1;
+	bool replace_ = false;
 };

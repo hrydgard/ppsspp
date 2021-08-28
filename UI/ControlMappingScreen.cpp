@@ -334,7 +334,7 @@ bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 
 		mapped_ = true;
 		KeyDef kdf(key.deviceId, key.keyCode);
-		TriggerFinish(DR_OK);
+		TriggerFinish(DR_YES);
 		if (callback_)
 			callback_(kdf);
 	}
@@ -361,7 +361,7 @@ bool KeyMappingNewMouseKeyDialog::key(const KeyInput &key) {
 
 		mapped_ = true;
 		KeyDef kdf(key.deviceId, key.keyCode);
-		TriggerFinish(DR_OK);
+		TriggerFinish(DR_YES);
 		g_Config.bMapMouse = false;
 		if (callback_)
 			callback_(kdf);
@@ -399,7 +399,7 @@ bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	if (axis.value > AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
 		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, 1));
-		TriggerFinish(DR_OK);
+		TriggerFinish(DR_YES);
 		if (callback_)
 			callback_(kdf);
 	}
@@ -407,7 +407,7 @@ bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	if (axis.value < -AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
 		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, -1));
-		TriggerFinish(DR_OK);
+		TriggerFinish(DR_YES);
 		if (callback_)
 			callback_(kdf);
 	}
@@ -423,7 +423,7 @@ bool KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 	if (axis.value > AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
 		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, 1));
-		TriggerFinish(DR_OK);
+		TriggerFinish(DR_YES);
 		if (callback_)
 			callback_(kdf);
 	}
@@ -431,7 +431,7 @@ bool KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 	if (axis.value < -AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
 		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, -1));
-		TriggerFinish(DR_OK);
+		TriggerFinish(DR_YES);
 		if (callback_)
 			callback_(kdf);
 	}
@@ -939,7 +939,7 @@ public:
 
 	void Draw(UIContext &dc) override {
 		uint32_t c = 0xFFFFFFFF;
-		if (HasFocus())
+		if (HasFocus() || Selected())
 			c = dc.theme->buttonFocusedStyle.background.color;
 
 		float scales[2]{};
@@ -968,76 +968,121 @@ public:
 		return this;
 	}
 
+	MockButton *SetSelectedButton(int *s) {
+		selectedButton_ = s;
+		return this;
+	}
+
+	bool Selected() {
+		return selectedButton_ && *selectedButton_ == button_;
+	}
+
 	int Button() {
 		return button_;
 	}
 
-protected:
+private:
 	int button_;
 	ImageID img_;
 	ImageID bgImg_;
 	float angle_;
 	float scale_ = 1.0f;
-	float flipHBG_ = false;
 	float offsetX_ = 0.0f;
 	float offsetY_ = 0.0f;
+	bool flipHBG_ = false;
+	int *selectedButton_ = nullptr;
 };
 
 class MockPSP : public UI::AnchorLayout {
 public:
 	static constexpr float SCALE = 1.4f;
 
-	MockPSP(UI::LayoutParams *layoutParams = nullptr) : AnchorLayout(layoutParams) {
-		Add(new Backplate(SCALE));
-		Add(new MockScreen(LayoutAt(99.0f, 13.0f, 97.0f, 33.0f)));
-
-		// Left side.
-		AddButton(0, ImageID("I_STICK_LINE"), ImageID("I_STICK_BG_LINE"), 0.0f, LayoutSize(34.0f, 34.0f, 35.0f, 133.0f));
-		AddButton(CTRL_LEFT, ImageID("I_ARROW"), ImageID("I_DIR_LINE"), M_PI * 0.0f, LayoutSize(28.0f, 20.0f, 14.0f, 75.0f))->SetOffset(-4.0f * SCALE, 0.0f);
-		AddButton(CTRL_UP, ImageID("I_ARROW"), ImageID("I_DIR_LINE"), M_PI * 0.5f, LayoutSize(20.0f, 28.0f, 40.0f, 50.0f))->SetOffset(0.0f, -4.0f * SCALE);
-		AddButton(CTRL_RIGHT, ImageID("I_ARROW"), ImageID("I_DIR_LINE"), M_PI * 1.0f, LayoutSize(28.0f, 20.0f, 58.0f, 75.0f))->SetOffset(4.0f * SCALE, 0.0f);
-		AddButton(CTRL_DOWN, ImageID("I_ARROW"), ImageID("I_DIR_LINE"), M_PI * 1.5f, LayoutSize(20.0f, 28.0f, 40.0f, 92.0f))->SetOffset(0.0f, 4.0f * SCALE);
-
-		// Top.
-		AddButton(CTRL_LTRIGGER, ImageID("I_L"), ImageID("I_SHOULDER_LINE"), 0.0f, LayoutSize(50.0f, 16.0f, 29.0f, 0.0f));
-		AddButton(CTRL_RTRIGGER, ImageID("I_R"), ImageID("I_SHOULDER_LINE"), 0.0f, LayoutSize(50.0f, 16.0f, 397.0f, 0.0f))->SetFlipHBG(true);
-
-		// Bottom.
-		AddButton(CTRL_HOME, ImageID("I_ICON"), ImageID("I_RECT_LINE"), 0.0f, LayoutSize(28.0f, 14.0f, 88.0f, 181.0f))->SetScale(0.4f);
-		AddButton(CTRL_SELECT, ImageID("I_SELECT"), ImageID("I_RECT_LINE"), 0.0f, LayoutSize(28.0f, 14.0f, 330.0f, 181.0f));
-		AddButton(CTRL_START, ImageID("I_START"), ImageID("I_RECT_LINE"), 0.0f, LayoutSize(28.0f, 14.0f, 361.0f, 181.0f));
-
-		// Right side.
-		AddButton(CTRL_TRIANGLE, ImageID("I_TRIANGLE"), ImageID("I_ROUND_LINE"), 0.0f, LayoutSize(23.0f, 23.0f, 419.0f, 46.0f))->SetScale(0.7f)->SetOffset(0.0f, -1.0f * SCALE);
-		AddButton(CTRL_CIRCLE, ImageID("I_CIRCLE"), ImageID("I_ROUND_LINE"), 0.0f, LayoutSize(23.0f, 23.0f, 446.0f, 74.0f))->SetScale(0.7f);
-		AddButton(CTRL_CROSS, ImageID("I_CROSS"), ImageID("I_ROUND_LINE"), 0.0f, LayoutSize(23.0f, 23.0f, 419.0f, 102.0f))->SetScale(0.7f);
-		AddButton(CTRL_SQUARE, ImageID("I_SQUARE"), ImageID("I_ROUND_LINE"), 0.0f, LayoutSize(23.0f, 23.0f, 392.0f, 74.0f))->SetScale(0.7f);
-	}
+	MockPSP(UI::LayoutParams *layoutParams = nullptr);
+	void SelectButton(int btn);
 
 	UI::Event ButtonClick;
 
 private:
-	UI::AnchorLayoutParams *LayoutAt(float l, float t, float r, float b) {
-		return new UI::AnchorLayoutParams(l * SCALE, t * SCALE, r * SCALE, b * SCALE);
-	}
-	UI::AnchorLayoutParams *LayoutSize(float w, float h, float l, float t) {
-		return new UI::AnchorLayoutParams(w * SCALE, h * SCALE, l * SCALE, t * SCALE, UI::NONE, UI::NONE);
-	}
+	UI::AnchorLayoutParams *LayoutAt(float l, float t, float r, float b);
+	UI::AnchorLayoutParams *LayoutSize(float w, float h, float l, float t);
+	MockButton *AddButton(int button, ImageID img, ImageID bg, float angle, UI::LayoutParams *lp);
 
-	MockButton *AddButton(int button, ImageID img, ImageID bg, float angle, UI::LayoutParams *lp) {
-		MockButton *view = Add(new MockButton(button, img, bg, angle, lp));
-		view->OnClick.Handle(this, &MockPSP::OnSelectButton);
-		buttons_[button] = view;
-		return view;
-	}
-
-	UI::EventReturn OnSelectButton(UI::EventParams &e) {
-		auto view = (MockButton *)e.v;
-		e.a = view->Button();
-		return ButtonClick.Dispatch(e);
-	}
+	UI::EventReturn OnSelectButton(UI::EventParams &e);
 
 	std::unordered_map<int, MockButton *> buttons_;
+	int selectedButton_ = 0;
+};
+
+MockPSP::MockPSP(UI::LayoutParams *layoutParams) : AnchorLayout(layoutParams) {
+	Add(new Backplate(SCALE));
+	Add(new MockScreen(LayoutAt(99.0f, 13.0f, 97.0f, 33.0f)));
+
+	// Left side.
+	AddButton(VIRTKEY_AXIS_Y_MAX, ImageID("I_STICK_LINE"), ImageID("I_STICK_BG_LINE"), 0.0f, LayoutSize(34.0f, 34.0f, 35.0f, 133.0f));
+	AddButton(CTRL_LEFT, ImageID("I_ARROW"), ImageID("I_DIR_LINE"), M_PI * 0.0f, LayoutSize(28.0f, 20.0f, 14.0f, 75.0f))->SetOffset(-4.0f * SCALE, 0.0f);
+	AddButton(CTRL_UP, ImageID("I_ARROW"), ImageID("I_DIR_LINE"), M_PI * 0.5f, LayoutSize(20.0f, 28.0f, 40.0f, 50.0f))->SetOffset(0.0f, -4.0f * SCALE);
+	AddButton(CTRL_RIGHT, ImageID("I_ARROW"), ImageID("I_DIR_LINE"), M_PI * 1.0f, LayoutSize(28.0f, 20.0f, 58.0f, 75.0f))->SetOffset(4.0f * SCALE, 0.0f);
+	AddButton(CTRL_DOWN, ImageID("I_ARROW"), ImageID("I_DIR_LINE"), M_PI * 1.5f, LayoutSize(20.0f, 28.0f, 40.0f, 92.0f))->SetOffset(0.0f, 4.0f * SCALE);
+
+	// Top.
+	AddButton(CTRL_LTRIGGER, ImageID("I_L"), ImageID("I_SHOULDER_LINE"), 0.0f, LayoutSize(50.0f, 16.0f, 29.0f, 0.0f));
+	AddButton(CTRL_RTRIGGER, ImageID("I_R"), ImageID("I_SHOULDER_LINE"), 0.0f, LayoutSize(50.0f, 16.0f, 397.0f, 0.0f))->SetFlipHBG(true);
+
+	// Bottom.
+	AddButton(CTRL_HOME, ImageID("I_ICON"), ImageID("I_RECT_LINE"), 0.0f, LayoutSize(28.0f, 14.0f, 88.0f, 181.0f))->SetScale(0.4f);
+	AddButton(CTRL_SELECT, ImageID("I_SELECT"), ImageID("I_RECT_LINE"), 0.0f, LayoutSize(28.0f, 14.0f, 330.0f, 181.0f));
+	AddButton(CTRL_START, ImageID("I_START"), ImageID("I_RECT_LINE"), 0.0f, LayoutSize(28.0f, 14.0f, 361.0f, 181.0f));
+
+	// Right side.
+	AddButton(CTRL_TRIANGLE, ImageID("I_TRIANGLE"), ImageID("I_ROUND_LINE"), 0.0f, LayoutSize(23.0f, 23.0f, 419.0f, 46.0f))->SetScale(0.7f)->SetOffset(0.0f, -1.0f * SCALE);
+	AddButton(CTRL_CIRCLE, ImageID("I_CIRCLE"), ImageID("I_ROUND_LINE"), 0.0f, LayoutSize(23.0f, 23.0f, 446.0f, 74.0f))->SetScale(0.7f);
+	AddButton(CTRL_CROSS, ImageID("I_CROSS"), ImageID("I_ROUND_LINE"), 0.0f, LayoutSize(23.0f, 23.0f, 419.0f, 102.0f))->SetScale(0.7f);
+	AddButton(CTRL_SQUARE, ImageID("I_SQUARE"), ImageID("I_ROUND_LINE"), 0.0f, LayoutSize(23.0f, 23.0f, 392.0f, 74.0f))->SetScale(0.7f);
+}
+
+void MockPSP::SelectButton(int btn) {
+	selectedButton_ = btn;
+}
+
+UI::AnchorLayoutParams *MockPSP::LayoutAt(float l, float t, float r, float b) {
+	return new UI::AnchorLayoutParams(l * SCALE, t * SCALE, r * SCALE, b * SCALE);
+}
+UI::AnchorLayoutParams *MockPSP::LayoutSize(float w, float h, float l, float t) {
+	return new UI::AnchorLayoutParams(w * SCALE, h * SCALE, l * SCALE, t * SCALE, UI::NONE, UI::NONE);
+}
+
+MockButton *MockPSP::AddButton(int button, ImageID img, ImageID bg, float angle, UI::LayoutParams *lp) {
+	MockButton *view = Add(new MockButton(button, img, bg, angle, lp));
+	view->OnClick.Handle(this, &MockPSP::OnSelectButton);
+	view->SetSelectedButton(&selectedButton_);
+	buttons_[button] = view;
+	return view;
+}
+
+UI::EventReturn MockPSP::OnSelectButton(UI::EventParams &e) {
+	auto view = (MockButton *)e.v;
+	e.a = view->Button();
+	return ButtonClick.Dispatch(e);
+}
+
+static std::vector<int> bindAllOrder{
+	CTRL_LTRIGGER,
+	CTRL_RTRIGGER,
+	CTRL_UP,
+	CTRL_DOWN,
+	CTRL_LEFT,
+	CTRL_RIGHT,
+	VIRTKEY_AXIS_Y_MAX,
+	VIRTKEY_AXIS_Y_MIN,
+	VIRTKEY_AXIS_X_MIN,
+	VIRTKEY_AXIS_X_MAX,
+	CTRL_HOME,
+	CTRL_SELECT,
+	CTRL_START,
+	CTRL_CROSS,
+	CTRL_CIRCLE,
+	CTRL_TRIANGLE,
+	CTRL_SQUARE,
 };
 
 void VisualMappingScreen::CreateViews() {
@@ -1049,6 +1094,8 @@ void VisualMappingScreen::CreateViews() {
 
 	constexpr float leftColumnWidth = 200.0f;
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(leftColumnWidth, FILL_PARENT, Margins(10, 0, 0, 10)));
+	leftColumn->Add(new Choice(km->T("Bind All")))->OnClick.Handle(this, &VisualMappingScreen::OnBindAll);
+	leftColumn->Add(new CheckBox(&replace_, km->T("Replace"), ""));
 
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
 	AddStandardBack(leftColumn);
@@ -1058,8 +1105,8 @@ void VisualMappingScreen::CreateViews() {
 	bounds.w -= leftColumnWidth + 10.0f;
 
 	AnchorLayout *rightColumn = new AnchorLayout(new LinearLayoutParams(bounds.w, FILL_PARENT, 1.0f));
-	MockPSP *psp = rightColumn->Add(new MockPSP(new AnchorLayoutParams(bounds.centerX(), bounds.centerY(), NONE, NONE, true)));
-	psp->ButtonClick.Handle(this, &VisualMappingScreen::OnMapButton);
+	psp_ = rightColumn->Add(new MockPSP(new AnchorLayoutParams(bounds.centerX(), bounds.centerY(), NONE, NONE, true)));
+	psp_->ButtonClick.Handle(this, &VisualMappingScreen::OnMapButton);
 
 	root_->Add(leftColumn);
 	root_->Add(rightColumn);
@@ -1069,33 +1116,54 @@ UI::EventReturn VisualMappingScreen::OnMapButton(UI::EventParams &e) {
 	auto km = GetI18NCategory("KeyMapping");
 
 	nextKey_ = e.a;
-	if (e.a == 0) {
-		nextKey_ = VIRTKEY_AXIS_Y_MAX;
-	}
+	psp_->SelectButton(nextKey_);
+
+	screenManager()->push(new KeyMappingNewKeyDialog(nextKey_, true, std::bind(&VisualMappingScreen::HandleKeyMapping, this, std::placeholders::_1), km));
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn VisualMappingScreen::OnBindAll(UI::EventParams &e) {
+	auto km = GetI18NCategory("KeyMapping");
+
+	bindAll_ = 0;
+	nextKey_ = bindAllOrder[bindAll_];
+	psp_->SelectButton(nextKey_);
+
 	screenManager()->push(new KeyMappingNewKeyDialog(nextKey_, true, std::bind(&VisualMappingScreen::HandleKeyMapping, this, std::placeholders::_1), km));
 	return UI::EVENT_DONE;
 }
 
 void VisualMappingScreen::HandleKeyMapping(KeyDef key) {
-	KeyMap::SetKeyMapping(nextKey_, key, false);
+	KeyMap::SetKeyMapping(nextKey_, key, replace_);
 
-	// For analog, we do each direction in a row.
-	if (nextKey_ == VIRTKEY_AXIS_Y_MAX)
-		nextKey_ = VIRTKEY_AXIS_Y_MIN;
-	else if (nextKey_ == VIRTKEY_AXIS_Y_MIN)
-		nextKey_ = VIRTKEY_AXIS_X_MIN;
-	else if (nextKey_ == VIRTKEY_AXIS_X_MIN)
-		nextKey_ = VIRTKEY_AXIS_X_MAX;
-	else
+	if (bindAll_ < 0) {
+		// For analog, we do each direction in a row.
+		if (nextKey_ == VIRTKEY_AXIS_Y_MAX)
+			nextKey_ = VIRTKEY_AXIS_Y_MIN;
+		else if (nextKey_ == VIRTKEY_AXIS_Y_MIN)
+			nextKey_ = VIRTKEY_AXIS_X_MIN;
+		else if (nextKey_ == VIRTKEY_AXIS_X_MIN)
+			nextKey_ = VIRTKEY_AXIS_X_MAX;
+		else
+			nextKey_ = 0;
+	} else if ((size_t)bindAll_ + 1 < bindAllOrder.size()) {
+		bindAll_++;
+		nextKey_ = bindAllOrder[bindAll_];
+	} else {
+		bindAll_ = -1;
 		nextKey_ = 0;
+	}
 }
 
 void VisualMappingScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	auto km = GetI18NCategory("KeyMapping");
 
-	if (result == DR_OK && nextKey_ != 0) {
+	if (result == DR_YES && nextKey_ != 0) {
 		screenManager()->push(new KeyMappingNewKeyDialog(nextKey_, true, std::bind(&VisualMappingScreen::HandleKeyMapping, this, std::placeholders::_1), km));
 	} else {
 		nextKey_ = 0;
+		bindAll_ = -1;
+		psp_->SelectButton(0);
 	}
+
 }
