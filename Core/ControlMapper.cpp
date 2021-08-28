@@ -80,7 +80,7 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 		pspKey(pspKeys[i], key.flags);
 	}
 
-	INFO_LOG(SYSTEM, "Key: %d DeviceId: %d", key.keyCode, key.deviceId);
+	DEBUG_LOG(SYSTEM, "Key: %d DeviceId: %d", key.keyCode, key.deviceId);
 
 	if (!pspKeys.size() || key.deviceId == DEVICE_ID_DEFAULT) {
 		if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_BACK) {

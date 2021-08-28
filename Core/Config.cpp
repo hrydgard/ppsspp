@@ -1767,7 +1767,7 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 	Path iniFileNameFull = getGameConfigFile(pGameId);
 
 	if (!hasGameConfig(pGameId)) {
-		INFO_LOG(LOADER, "Failed to read %s. No game-specific settings found, using global defaults.", iniFileNameFull.c_str());
+		DEBUG_LOG(LOADER, "No game-specific settings found in %s. Using global defaults.", iniFileNameFull.c_str());
 		return false;
 	}
 

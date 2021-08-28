@@ -187,7 +187,7 @@ namespace Reporting
 				crcCond.wait(guard);
 			}
 		} else {
-			INFO_LOG(SYSTEM, "no CRC pending");
+			DEBUG_LOG(SYSTEM, "No CRC pending");
 		}
 
 		if (crcThread.joinable())

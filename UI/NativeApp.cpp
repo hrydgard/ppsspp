@@ -787,7 +787,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		});
 	}
 
-	INFO_LOG(SYSTEM, "ScreenManager!");
+	DEBUG_LOG(SYSTEM, "ScreenManager!");
 	screenManager = new ScreenManager();
 	if (g_Config.memStickDirectory.empty()) {
 		INFO_LOG(SYSTEM, "No memstick directory! Asking for one to be configured.");
