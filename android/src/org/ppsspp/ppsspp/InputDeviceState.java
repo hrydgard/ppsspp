@@ -12,7 +12,7 @@ import android.view.MotionEvent;
 public class InputDeviceState {
 	private static final String TAG = "InputDeviceState";
 
-	public static final int deviceId = NativeApp.DEVICE_ID_PAD_0;
+	private int deviceId = NativeApp.DEVICE_ID_DEFAULT;
 
 	private InputDevice mDevice;
 	private int[] mAxes;
@@ -27,6 +27,19 @@ public class InputDeviceState {
 	}
 
 	public InputDeviceState(InputDevice device) {
+		int sources = device.getSources();
+		if ((sources & InputDevice.SOURCE_KEYBOARD) == InputDevice.SOURCE_KEYBOARD) {
+			this.deviceId = NativeApp.DEVICE_ID_KEYBOARD;
+		} else if ((sources & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE) {
+			this.deviceId = NativeApp.DEVICE_ID_MOUSE;
+		} else if (((sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
+				(sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK ||
+				(sources & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD)) {
+			this.deviceId = NativeApp.DEVICE_ID_PAD_0;
+		} else {
+			this.deviceId = NativeApp.DEVICE_ID_DEFAULT;
+		}
+
 		mDevice = device;
 		int numAxes = 0;
 		for (MotionRange range : device.getMotionRanges()) {

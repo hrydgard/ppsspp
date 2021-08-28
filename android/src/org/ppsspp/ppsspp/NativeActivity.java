@@ -1042,18 +1042,18 @@ public abstract class NativeActivity extends Activity {
 		switch (keyCode) {
 		case KeyEvent.KEYCODE_BACK:
 			if (event.isAltPressed()) {
-				NativeApp.keyDown(InputDeviceState.deviceId, 1004, repeat); // special custom keycode for the O button on Xperia Play
+				NativeApp.keyDown(NativeApp.DEVICE_ID_PAD_0, 1004, repeat); // special custom keycode for the O button on Xperia Play
 			} else if (NativeApp.isAtTopLevel()) {
 				Log.i(TAG, "IsAtTopLevel returned true.");
 				// Pass through the back event.
 				return super.onKeyDown(keyCode, event);
 			} else {
-				NativeApp.keyDown(InputDeviceState.deviceId, keyCode, repeat);
+				NativeApp.keyDown(NativeApp.DEVICE_ID_DEFAULT, keyCode, repeat);
 			}
 			return true;
 		case KeyEvent.KEYCODE_MENU:
 		case KeyEvent.KEYCODE_SEARCH:
-			NativeApp.keyDown(InputDeviceState.deviceId, keyCode, repeat);
+			NativeApp.keyDown(NativeApp.DEVICE_ID_DEFAULT, keyCode, repeat);
 			return true;
 
 		case KeyEvent.KEYCODE_DPAD_UP:
@@ -1070,7 +1070,7 @@ public abstract class NativeActivity extends Activity {
 			// send the rest of the keys through.
 			// TODO: get rid of the three special cases above by adjusting the native side of the code.
 			// Log.d(TAG, "Key down: " + keyCode + ", KeyEvent: " + event);
-			return NativeApp.keyDown(InputDeviceState.deviceId, keyCode, repeat);
+			return NativeApp.keyDown(NativeApp.DEVICE_ID_DEFAULT, keyCode, repeat);
 		}
 	}
 
@@ -1080,18 +1080,18 @@ public abstract class NativeActivity extends Activity {
 		switch (keyCode) {
 		case KeyEvent.KEYCODE_BACK:
 			if (event.isAltPressed()) {
-				NativeApp.keyUp(0, 1004); // special custom keycode
+				NativeApp.keyUp(NativeApp.DEVICE_ID_PAD_0, 1004); // special custom keycode
 			} else if (NativeApp.isAtTopLevel()) {
 				Log.i(TAG, "IsAtTopLevel returned true.");
 				return super.onKeyUp(keyCode, event);
 			} else {
-				NativeApp.keyUp(0, keyCode);
+				NativeApp.keyUp(NativeApp.DEVICE_ID_DEFAULT, keyCode);
 			}
 			return true;
 		case KeyEvent.KEYCODE_MENU:
 		case KeyEvent.KEYCODE_SEARCH:
 			// Search probably should also be ignored. We send it to the app.
-			NativeApp.keyUp(0, keyCode);
+			NativeApp.keyUp(NativeApp.DEVICE_ID_DEFAULT, keyCode);
 			return true;
 
 		case KeyEvent.KEYCODE_DPAD_UP:
@@ -1106,7 +1106,7 @@ public abstract class NativeActivity extends Activity {
 		default:
 			// send the rest of the keys through.
 			// Log.d(TAG, "Key down: " + keyCode + ", KeyEvent: " + event);
-			return NativeApp.keyUp(0, keyCode);
+			return NativeApp.keyUp(NativeApp.DEVICE_ID_DEFAULT, keyCode);
 		}
 	}
 
