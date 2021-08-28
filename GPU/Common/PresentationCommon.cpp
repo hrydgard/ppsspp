@@ -151,10 +151,11 @@ void PresentationCommon::GetCardboardSettings(CardboardSettings *cardboardSettin
 		cardboardSettings->enabled = false;
 		return;
 	}
+
 	// Calculate Cardboard Settings
 	float cardboardScreenScale = g_Config.iCardboardScreenSize / 100.0f;
 	float cardboardScreenWidth = pixelWidth_ / 2.0f * cardboardScreenScale;
-	float cardboardScreenHeight = pixelHeight_ / 2.0f * cardboardScreenScale;
+	float cardboardScreenHeight = pixelHeight_ * cardboardScreenScale;
 	float cardboardMaxXShift = (pixelWidth_ / 2.0f - cardboardScreenWidth) / 2.0f;
 	float cardboardUserXShift = g_Config.iCardboardXShift / 100.0f * cardboardMaxXShift;
 	float cardboardLeftEyeX = cardboardMaxXShift + cardboardUserXShift;
@@ -563,8 +564,17 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	int lastWidth = srcWidth_;
 	int lastHeight = srcHeight_;
 
+	int pixelWidth = pixelWidth_;
+	int pixelHeight = pixelHeight_;
+
 	// These are the output coordinates.
-	FRect frame = GetScreenFrame((float)pixelWidth_, (float)pixelHeight_);
+	FRect frame = GetScreenFrame((float)pixelWidth, (float)pixelHeight);
+	// Note: In cardboard mode, we halve the width here to compensate
+	// for splitting the window in half, while still reusing normal centering.
+	if (g_Config.bEnableCardboardVR) {
+		frame.w /= 2.0;
+		pixelWidth /= 2;
+	}
 	FRect rc;
 	CenterDisplayOutputRect(&rc, 480.0f, 272.0f, frame, uvRotation);
 
@@ -587,8 +597,8 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		{ rc.x + rc.w, rc.y, 0, u1, v0, 0xFFFFFFFF }, // TR
 	};
 
-	float invDestW = 1.0f / (pixelWidth_ * 0.5f);
-	float invDestH = 1.0f / (pixelHeight_ * 0.5f);
+	float invDestW = 2.0f / pixelWidth;
+	float invDestH = 2.0f / pixelHeight;
 	for (int i = 0; i < 4; i++) {
 		verts[i].x = verts[i].x * invDestW - 1.0f;
 		verts[i].y = verts[i].y * invDestH - 1.0f;
@@ -689,9 +699,9 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		float post_v0 = !flipped ? 1.0f : 0.0f;
 		float post_v1 = !flipped ? 0.0f : 1.0f;
 		verts[4] = { -1, -1, 0, 0, post_v1, 0xFFFFFFFF }; // TL
-		verts[5] = { -1, 1, 0, 0, post_v0, 0xFFFFFFFF }; // BL
-		verts[6] = { 1, 1, 0, 1, post_v0, 0xFFFFFFFF }; // BR
-		verts[7] = { 1, -1, 0, 1, post_v1, 0xFFFFFFFF }; // TR
+		verts[5] = { -1,  1, 0, 0, post_v0, 0xFFFFFFFF }; // BL
+		verts[6] = {  1,  1, 0, 1, post_v0, 0xFFFFFFFF }; // BR
+		verts[7] = {  1, -1, 0, 1, post_v1, 0xFFFFFFFF }; // TR
 		draw_->UpdateBuffer(vdata_, (const uint8_t *)verts, 0, sizeof(verts), Draw::UPDATE_DISCARD);
 
 		for (size_t i = 0; i < postShaderFramebuffers_.size(); ++i) {
