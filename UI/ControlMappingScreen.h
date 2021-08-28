@@ -166,4 +166,7 @@ public:
 
 protected:
 	void CreateViews() override;
+
+private:
+	UI::EventReturn OnMapButton(UI::EventParams &e);
 };

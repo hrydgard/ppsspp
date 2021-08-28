@@ -931,19 +931,16 @@ public:
 	}
 };
 
-class MockButton : public UI::View {
+class MockButton : public UI::Clickable {
 public:
 	MockButton(int button, ImageID img, ImageID bg, float angle, UI::LayoutParams *layoutParams = nullptr)
-		: View(layoutParams), button_(button), img_(img), bgImg_(bg), angle_(angle) {
+		: Clickable(layoutParams), button_(button), img_(img), bgImg_(bg), angle_(angle) {
 	}
 
 	void Draw(UIContext &dc) override {
 		uint32_t c = 0xFFFFFFFF;
-		if (selected_) {
-			c = dc.theme->buttonDownStyle.background.color;
-		} else if (HasFocus()) {
+		if (HasFocus())
 			c = dc.theme->buttonFocusedStyle.background.color;
-		}
 
 		float scales[2]{};
 		if (bgImg_.isValid())
@@ -971,9 +968,8 @@ public:
 		return this;
 	}
 
-	MockButton *SetSelected(bool s) {
-		selected_ = s;
-		return this;
+	int Button() {
+		return button_;
 	}
 
 protected:
@@ -985,7 +981,6 @@ protected:
 	float flipHBG_ = false;
 	float offsetX_ = 0.0f;
 	float offsetY_ = 0.0f;
-	bool selected_ = false;
 };
 
 class MockPSP : public UI::AnchorLayout {
@@ -1019,6 +1014,8 @@ public:
 		AddButton(CTRL_SQUARE, ImageID("I_SQUARE"), ImageID("I_ROUND_LINE"), 0.0f, LayoutSize(23.0f, 23.0f, 392.0f, 74.0f))->SetScale(0.7f);
 	}
 
+	UI::Event ButtonClick;
+
 private:
 	UI::AnchorLayoutParams *LayoutAt(float l, float t, float r, float b) {
 		return new UI::AnchorLayoutParams(l * SCALE, t * SCALE, r * SCALE, b * SCALE);
@@ -1028,8 +1025,16 @@ private:
 	}
 
 	MockButton *AddButton(int button, ImageID img, ImageID bg, float angle, UI::LayoutParams *lp) {
-		buttons_[button] = Add(new MockButton(button, img, bg, angle, lp));
-		return buttons_[button];
+		MockButton *view = Add(new MockButton(button, img, bg, angle, lp));
+		view->OnClick.Handle(this, &MockPSP::OnSelectButton);
+		buttons_[button] = view;
+		return view;
+	}
+
+	UI::EventReturn OnSelectButton(UI::EventParams &e) {
+		auto view = (MockButton *)e.v;
+		e.a = view->Button();
+		return ButtonClick.Dispatch(e);
 	}
 
 	std::unordered_map<int, MockButton *> buttons_;
@@ -1053,8 +1058,23 @@ void VisualMappingScreen::CreateViews() {
 	bounds.w -= leftColumnWidth + 10.0f;
 
 	AnchorLayout *rightColumn = new AnchorLayout(new LinearLayoutParams(bounds.w, FILL_PARENT, 1.0f));
-	rightColumn->Add(new MockPSP(new AnchorLayoutParams(bounds.centerX(), bounds.centerY(), NONE, NONE, true)));
+	MockPSP *psp = rightColumn->Add(new MockPSP(new AnchorLayoutParams(bounds.centerX(), bounds.centerY(), NONE, NONE, true)));
+	psp->ButtonClick.Handle(this, &VisualMappingScreen::OnMapButton);
 
 	root_->Add(leftColumn);
 	root_->Add(rightColumn);
+}
+
+UI::EventReturn VisualMappingScreen::OnMapButton(UI::EventParams &e) {
+	auto km = GetI18NCategory("KeyMapping");
+
+	if (e.a == 0) {
+		// TODO
+	} else {
+		auto callback = [=](KeyDef key) {
+			KeyMap::SetKeyMapping(e.a, key, false);
+		};
+		screenManager()->push(new KeyMappingNewKeyDialog(e.a, true, callback, km));
+	}
+	return UI::EVENT_DONE;
 }
