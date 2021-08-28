@@ -44,6 +44,7 @@ private:
 	UI::EventReturn OnDefaultMapping(UI::EventParams &params);
 	UI::EventReturn OnClearMapping(UI::EventParams &params);
 	UI::EventReturn OnAutoConfigure(UI::EventParams &params);
+	UI::EventReturn OnVisualizeMapping(UI::EventParams &params);
 
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) override;
 
@@ -157,4 +158,12 @@ protected:
 	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
 	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
 	UI::EventReturn OnRecreateActivity(UI::EventParams &e);
+};
+
+class VisualMappingScreen : public UIDialogScreenWithBackground {
+public:
+	VisualMappingScreen() {}
+
+protected:
+	void CreateViews() override;
 };

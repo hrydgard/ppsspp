@@ -1197,7 +1197,8 @@ void AnchorLayout::Layout() {
 		if (vBounds.w > bounds_.w) vBounds.w = bounds_.w;
 		if (vBounds.h > bounds_.h) vBounds.h = bounds_.h;
 
-		float left = 0, top = 0, right = 0, bottom = 0, center = false;
+		float left = 0, top = 0, right = 0, bottom = 0;
+		bool center = false;
 		if (params) {
 			left = params->left;
 			top = params->top;
