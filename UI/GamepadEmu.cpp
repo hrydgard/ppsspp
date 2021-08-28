@@ -698,7 +698,7 @@ void InitPadLayout(float xres, float yres, float globalScale) {
 	initTouchPos(g_Config.touchCombo9, combo9_key_X, combo9_key_Y);
 }
 
-UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, ControlMapper* controllMapper) {
+UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPauseButton, ControlMapper* controllMapper) {
 	using namespace UI;
 
 	AnchorLayout *root = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
@@ -756,7 +756,7 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, ControlMappe
 		return nullptr;
 	};
 
-	if (!System_GetPropertyBool(SYSPROP_HAS_BACK_BUTTON) || g_Config.bShowTouchPause) {
+	if (showPauseButton) {
 		root->Add(new BoolButton(pause, "Pause button", roundImage, ImageID("I_ROUND"), ImageID("I_ARROW"), 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, true)))->SetAngle(90);
 	}
 

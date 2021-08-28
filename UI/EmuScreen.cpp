@@ -784,7 +784,11 @@ void EmuScreen::CreateViews() {
 
 	const Bounds &bounds = screenManager()->getUIContext()->GetLayoutBounds();
 	InitPadLayout(bounds.w, bounds.h);
-	root_ = CreatePadLayout(bounds.w, bounds.h, &pauseTrigger_, &controlMapper_);
+
+	// Devices without a back button like iOS need an on-screen touch back button.
+	bool showPauseButton = !System_GetPropertyBool(SYSPROP_HAS_BACK_BUTTON) || g_Config.bShowTouchPause;
+
+	root_ = CreatePadLayout(bounds.w, bounds.h, &pauseTrigger_, showPauseButton, &controlMapper_);
 	if (g_Config.bShowDeveloperMenu) {
 		root_->Add(new Button(dev->T("DevMenu")))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
@@ -983,7 +987,6 @@ void EmuScreen::update() {
 
 	controlMapper_.Update();
 
-	// This is here to support the iOS on screen back button.
 	if (pauseTrigger_) {
 		pauseTrigger_ = false;
 		screenManager()->push(new GamePauseScreen(gamePath_));
