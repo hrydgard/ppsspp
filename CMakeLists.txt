@@ -1604,6 +1604,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Instance.h
 	Core/KeyMap.cpp
 	Core/KeyMap.h
+	Core/KeyMapDefaults.cpp
+	Core/KeyMapDefaults.h
 	Core/ThreadEventQueue.h
 	Core/WebServer.cpp
 	Core/WebServer.h

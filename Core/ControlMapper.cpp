@@ -2,6 +2,7 @@
 
 #include "Common/Math/math_util.h"
 #include "Common/TimeUtil.h"
+#include "Common/Log.h"
 
 #include "Core/KeyMap.h"
 #include "Core/ControlMapper.h"
@@ -78,6 +79,8 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 	for (size_t i = 0; i < pspKeys.size(); i++) {
 		pspKey(pspKeys[i], key.flags);
 	}
+
+	INFO_LOG(SYSTEM, "Key: %d DeviceId: %d", key.keyCode, key.deviceId);
 
 	if (!pspKeys.size() || key.deviceId == DEVICE_ID_DEFAULT) {
 		if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_BACK) {
