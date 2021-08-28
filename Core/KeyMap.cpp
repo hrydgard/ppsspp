@@ -629,7 +629,7 @@ void RestoreDefault() {
 #elif PPSSPP_PLATFORM(ANDROID)
 	// Autodetect a few common (and less common) devices
 	std::string name = System_GetProperty(SYSPROP_NAME);
-	if (IsNvidiaShield(name) || IsNvidiaShieldTV(name)) {
+	if (IsNvidiaShield(name)) {
 		SetDefaultKeyMap(DEFAULT_MAPPING_SHIELD, false);
 	} else if (IsOuya(name)) {
 		SetDefaultKeyMap(DEFAULT_MAPPING_OUYA, false);

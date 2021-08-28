@@ -44,18 +44,14 @@ public class InputDeviceState {
 		mDevice = device;
 		int numAxes = 0;
 		for (MotionRange range : device.getMotionRanges()) {
-			if ((range.getSource() & InputDevice.SOURCE_CLASS_JOYSTICK) != 0) {
-				numAxes += 1;
-			}
+			numAxes += 1;
 		}
 
 		mAxes = new int[numAxes];
 
 		int i = 0;
 		for (MotionRange range : device.getMotionRanges()) {
-			if ((range.getSource() & InputDevice.SOURCE_CLASS_JOYSTICK) != 0) {
-				mAxes[i++] = range.getAxis();
-			}
+			mAxes[i++] = range.getAxis();
 		}
 
 		Log.i(TAG, "Registering input device with " + numAxes + " axes: " + device.getName());
