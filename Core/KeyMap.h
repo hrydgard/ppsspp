@@ -21,9 +21,11 @@
 #include <map>
 #include <vector>
 #include <set>
+
 #include "Common/Input/InputState.h" // KeyDef
 #include "Common/Input/KeyCodes.h"     // keyboard keys
-#include "../Core/HLE/sceCtrl.h"   // psp keys
+#include "Core/HLE/sceCtrl.h"   // psp keys
+#include "Core/KeyMapDefaults.h"
 
 #define KEYMAP_ERROR_KEY_ALREADY_USED -1
 #define KEYMAP_ERROR_UNKNOWN_KEY 0
@@ -65,16 +67,6 @@ enum {
 	VIRTKEY_COUNT = VIRTKEY_LAST - VIRTKEY_FIRST
 };
 
-enum DefaultMaps {
-	DEFAULT_MAPPING_KEYBOARD,
-	DEFAULT_MAPPING_PAD,
-	DEFAULT_MAPPING_X360,
-	DEFAULT_MAPPING_SHIELD,
-	DEFAULT_MAPPING_OUYA,
-	DEFAULT_MAPPING_XPERIA_PLAY,
-	DEFAULT_MAPPING_MOQI_I7S,
-};
-
 const float AXIS_BIND_THRESHOLD = 0.75f;
 const float AXIS_BIND_THRESHOLD_MOUSE = 0.01f;
 
@@ -106,6 +98,7 @@ class IniFile;
 
 namespace KeyMap {
 	extern KeyMapping g_controllerMap;
+	extern std::set<int> g_seenDeviceIds;
 	extern int g_controllerMapGeneration;
 
 	// Key & Button names

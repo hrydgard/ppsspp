@@ -1178,6 +1178,9 @@
     <ClCompile Include="ControlMapper.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="KeyMapDefaults.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1896,6 +1899,9 @@
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
     <ClInclude Include="ControlMapper.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="KeyMapDefaults.h">
       <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
