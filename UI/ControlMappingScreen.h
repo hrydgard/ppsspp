@@ -170,11 +170,13 @@ protected:
 	void CreateViews() override;
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
+	void resized() override;
 
 private:
 	UI::EventReturn OnMapButton(UI::EventParams &e);
 	UI::EventReturn OnBindAll(UI::EventParams &e);
 	void HandleKeyMapping(KeyDef key);
+	void MapNext();
 
 	MockPSP *psp_ = nullptr;
 	int nextKey_ = 0;

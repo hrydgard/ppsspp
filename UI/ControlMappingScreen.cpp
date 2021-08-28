@@ -999,6 +999,7 @@ public:
 
 	MockPSP(UI::LayoutParams *layoutParams = nullptr);
 	void SelectButton(int btn);
+	float GetPopupOffset();
 
 	UI::Event ButtonClick;
 
@@ -1042,6 +1043,18 @@ MockPSP::MockPSP(UI::LayoutParams *layoutParams) : AnchorLayout(layoutParams) {
 
 void MockPSP::SelectButton(int btn) {
 	selectedButton_ = btn;
+}
+
+float MockPSP::GetPopupOffset() {
+	MockButton *view = buttons_[selectedButton_];
+	if (!view)
+		return 0.0f;
+
+	float ypos = view->GetBounds().centerY();
+	if (ypos > bounds_.centerY()) {
+		return -0.25f;
+	}
+	return 0.25f;
 }
 
 UI::AnchorLayoutParams *MockPSP::LayoutAt(float l, float t, float r, float b) {
@@ -1112,24 +1125,20 @@ void VisualMappingScreen::CreateViews() {
 	root_->Add(rightColumn);
 }
 
+void VisualMappingScreen::resized() {
+	RecreateViews();
+}
+
 UI::EventReturn VisualMappingScreen::OnMapButton(UI::EventParams &e) {
-	auto km = GetI18NCategory("KeyMapping");
-
 	nextKey_ = e.a;
-	psp_->SelectButton(nextKey_);
-
-	screenManager()->push(new KeyMappingNewKeyDialog(nextKey_, true, std::bind(&VisualMappingScreen::HandleKeyMapping, this, std::placeholders::_1), km));
+	MapNext();
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn VisualMappingScreen::OnBindAll(UI::EventParams &e) {
-	auto km = GetI18NCategory("KeyMapping");
-
 	bindAll_ = 0;
 	nextKey_ = bindAllOrder[bindAll_];
-	psp_->SelectButton(nextKey_);
-
-	screenManager()->push(new KeyMappingNewKeyDialog(nextKey_, true, std::bind(&VisualMappingScreen::HandleKeyMapping, this, std::placeholders::_1), km));
+	MapNext();
 	return UI::EVENT_DONE;
 }
 
@@ -1156,14 +1165,26 @@ void VisualMappingScreen::HandleKeyMapping(KeyDef key) {
 }
 
 void VisualMappingScreen::dialogFinished(const Screen *dialog, DialogResult result) {
-	auto km = GetI18NCategory("KeyMapping");
-
 	if (result == DR_YES && nextKey_ != 0) {
-		screenManager()->push(new KeyMappingNewKeyDialog(nextKey_, true, std::bind(&VisualMappingScreen::HandleKeyMapping, this, std::placeholders::_1), km));
+		MapNext();
 	} else {
 		nextKey_ = 0;
 		bindAll_ = -1;
 		psp_->SelectButton(0);
 	}
+}
 
+void VisualMappingScreen::MapNext() {
+	auto km = GetI18NCategory("KeyMapping");
+
+	if (nextKey_ == VIRTKEY_AXIS_Y_MIN || nextKey_ == VIRTKEY_AXIS_X_MIN || nextKey_ == VIRTKEY_AXIS_X_MAX) {
+		psp_->SelectButton(VIRTKEY_AXIS_Y_MAX);
+	} else {
+		psp_->SelectButton(nextKey_);
+	}
+	auto dialog = new KeyMappingNewKeyDialog(nextKey_, true, std::bind(&VisualMappingScreen::HandleKeyMapping, this, std::placeholders::_1), km);
+
+	Bounds bounds = screenManager()->getUIContext()->GetLayoutBounds();
+	dialog->SetPopupOffset(psp_->GetPopupOffset() * bounds.h);
+	screenManager()->push(dialog);
 }
