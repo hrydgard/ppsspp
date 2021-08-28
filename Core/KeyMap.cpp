@@ -43,7 +43,7 @@ namespace KeyMap {
 KeyDef AxisDef(int deviceId, int axisId, int direction);
 
 KeyMapping g_controllerMap;
-int g_controllerMapGeneration = 0;
+int g_controllerMapGeneration = 0;  // Just used to check if we need to update the Windows menu or not.
 std::set<std::string> g_seenPads;
 std::set<int> g_seenDeviceIds;
 
@@ -620,12 +620,11 @@ void SetAxisMapping(int btn, int deviceId, int axisId, int direction, bool repla
 	SetKeyMapping(btn, KeyDef(deviceId, key), replace);
 }
 
-// Note that it's easy to add other defaults if desired.
 void RestoreDefault() {
 	g_controllerMap.clear();
 #if PPSSPP_PLATFORM(WINDOWS)
 	SetDefaultKeyMap(DEFAULT_MAPPING_KEYBOARD, true);
-	SetDefaultKeyMap(DEFAULT_MAPPING_X360, false);
+	SetDefaultKeyMap(DEFAULT_MAPPING_XINPUT, false);
 	SetDefaultKeyMap(DEFAULT_MAPPING_PAD, false);
 #elif PPSSPP_PLATFORM(ANDROID)
 	// Autodetect a few common (and less common) devices
@@ -641,7 +640,7 @@ void RestoreDefault() {
 		SetDefaultKeyMap(DEFAULT_MAPPING_MOQI_I7S, false);
 	} else {
 		INFO_LOG(SYSTEM, "Default pad map");
-		SetDefaultKeyMap(DEFAULT_MAPPING_PAD, false);
+		SetDefaultKeyMap(DEFAULT_MAPPING_ANDROID_PAD, false);
 	}
 #else
 	SetDefaultKeyMap(DEFAULT_MAPPING_KEYBOARD, true);
@@ -735,18 +734,26 @@ void AutoConfForPad(const std::string &name) {
 	g_controllerMap.clear();
 
 	INFO_LOG(SYSTEM, "Autoconfiguring pad for '%s'", name.c_str());
-	if (name == "Xbox 360 Pad") {
-		SetDefaultKeyMap(DEFAULT_MAPPING_X360, false);
+
+#if PPSSPP_PLATFORM(ANDROID)
+	if (name.find("Xbox") != std::string::npos) {
+		SetDefaultKeyMap(DEFAULT_MAPPING_ANDROID_XBOX, false);
+	} else {
+		SetDefaultKeyMap(DEFAULT_MAPPING_ANDROID_PAD, false);
+	}
+#else
+	// TODO: Should actually check for XInput?
+	if (name.find("Xbox") != std::string::npos) {
+		SetDefaultKeyMap(DEFAULT_MAPPING_XINPUT, false);
 	} else {
 		SetDefaultKeyMap(DEFAULT_MAPPING_PAD, false);
 	}
+#endif
 
-#ifndef MOBILE_DEVICE
 	// Add a couple of convenient keyboard mappings by default, too.
 	g_controllerMap[VIRTKEY_PAUSE].push_back(KeyDef(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE));
 	g_controllerMap[VIRTKEY_FASTFORWARD].push_back(KeyDef(DEVICE_ID_KEYBOARD, NKCODE_TAB));
 	g_controllerMapGeneration++;
-#endif
 }
 
 const std::set<std::string> &GetSeenPads() {

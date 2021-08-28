@@ -1,9 +1,13 @@
 #pragma once
 
+namespace KeyMap {
+
 enum DefaultMaps {
 	DEFAULT_MAPPING_KEYBOARD,
 	DEFAULT_MAPPING_PAD,
-	DEFAULT_MAPPING_X360,
+	DEFAULT_MAPPING_ANDROID_PAD,
+	DEFAULT_MAPPING_XINPUT,
+	DEFAULT_MAPPING_ANDROID_XBOX,  // XBox controller or similar on Android
 	DEFAULT_MAPPING_SHIELD,
 	DEFAULT_MAPPING_OUYA,
 	DEFAULT_MAPPING_XPERIA_PLAY,
@@ -11,3 +15,5 @@ enum DefaultMaps {
 };
 
 void SetDefaultKeyMap(DefaultMaps dmap, bool replace);
+
+}

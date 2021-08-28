@@ -196,7 +196,7 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 	ApplyVibration(pad, vibration);
 
 	AxisInput axis;
-	axis.deviceId = DEVICE_ID_X360_0 + pad;
+	axis.deviceId = DEVICE_ID_XINPUT_0 + pad;
 	auto sendAxis = [&](AndroidJoystickAxis axisId, float value) {
 		axis.axisId = axisId;
 		axis.value = value;
@@ -230,14 +230,14 @@ void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state) {
 	for (int i = 0; i < xinput_ctrl_map_size; i++) {
 		if (downMask & xinput_ctrl_map[i].from) {
 			KeyInput key;
-			key.deviceId = DEVICE_ID_X360_0 + pad;
+			key.deviceId = DEVICE_ID_XINPUT_0 + pad;
 			key.flags = KEY_DOWN;
 			key.keyCode = xinput_ctrl_map[i].to;
 			NativeKey(key);
 		}
 		if (upMask & xinput_ctrl_map[i].from) {
 			KeyInput key;
-			key.deviceId = DEVICE_ID_X360_0 + pad;
+			key.deviceId = DEVICE_ID_XINPUT_0 + pad;
 			key.flags = KEY_UP;
 			key.keyCode = xinput_ctrl_map[i].to;
 			NativeKey(key);
