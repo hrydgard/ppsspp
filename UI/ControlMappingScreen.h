@@ -167,6 +167,11 @@ public:
 protected:
 	void CreateViews() override;
 
+	void dialogFinished(const Screen *dialog, DialogResult result) override;
+
 private:
 	UI::EventReturn OnMapButton(UI::EventParams &e);
+	void HandleKeyMapping(KeyDef key);
+
+	int nextKey_ = 0;
 };

@@ -1068,13 +1068,34 @@ void VisualMappingScreen::CreateViews() {
 UI::EventReturn VisualMappingScreen::OnMapButton(UI::EventParams &e) {
 	auto km = GetI18NCategory("KeyMapping");
 
+	nextKey_ = e.a;
 	if (e.a == 0) {
-		// TODO
-	} else {
-		auto callback = [=](KeyDef key) {
-			KeyMap::SetKeyMapping(e.a, key, false);
-		};
-		screenManager()->push(new KeyMappingNewKeyDialog(e.a, true, callback, km));
+		nextKey_ = VIRTKEY_AXIS_Y_MAX;
 	}
+	screenManager()->push(new KeyMappingNewKeyDialog(nextKey_, true, std::bind(&VisualMappingScreen::HandleKeyMapping, this, std::placeholders::_1), km));
 	return UI::EVENT_DONE;
+}
+
+void VisualMappingScreen::HandleKeyMapping(KeyDef key) {
+	KeyMap::SetKeyMapping(nextKey_, key, false);
+
+	// For analog, we do each direction in a row.
+	if (nextKey_ == VIRTKEY_AXIS_Y_MAX)
+		nextKey_ = VIRTKEY_AXIS_Y_MIN;
+	else if (nextKey_ == VIRTKEY_AXIS_Y_MIN)
+		nextKey_ = VIRTKEY_AXIS_X_MIN;
+	else if (nextKey_ == VIRTKEY_AXIS_X_MIN)
+		nextKey_ = VIRTKEY_AXIS_X_MAX;
+	else
+		nextKey_ = 0;
+}
+
+void VisualMappingScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	auto km = GetI18NCategory("KeyMapping");
+
+	if (result == DR_OK && nextKey_ != 0) {
+		screenManager()->push(new KeyMappingNewKeyDialog(nextKey_, true, std::bind(&VisualMappingScreen::HandleKeyMapping, this, std::placeholders::_1), km));
+	} else {
+		nextKey_ = 0;
+	}
 }
