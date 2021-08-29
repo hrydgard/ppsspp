@@ -742,7 +742,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		performShaderPass(shaderInfo, postShaderFramebuffer, postShaderPipeline);
 	}
 
-	Draw::Pipeline *pipeline = flags & OutputFlags::RB_SWIZZLE ? texColorRBSwizzle_ : texColor_;
+	Draw::Pipeline *pipeline = (flags & OutputFlags::RB_SWIZZLE) ? texColorRBSwizzle_ : texColor_;
 	if (isFinalAtOutputResolution && previousFramebuffers_.empty()) {
 		pipeline = postShaderPipelines_.back();
 	}
