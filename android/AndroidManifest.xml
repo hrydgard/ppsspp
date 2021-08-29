@@ -91,6 +91,13 @@
 					android:mimeType="*/*"
 					android:pathPattern=".*\\.ISO"
 					android:scheme="file" />
+
+         <data
+					android:host="*"
+					android:mimeType="*/*"
+					android:pathPattern=".*\\.IDX"
+					android:scheme="file" />
+          
 				<data
 					android:host="*"
 					android:mimeType="*/*"
