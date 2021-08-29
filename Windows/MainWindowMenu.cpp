@@ -351,7 +351,7 @@ namespace MainWindow {
 		bool changed = false;
 
 		const std::string curLanguageID = i18nrepo.LanguageID();
-		if (curLanguageID != menuLanguageID || menuKeymapGeneration != KeyMap::g_controllerMapGeneration) {
+		if (curLanguageID != menuLanguageID || KeyMap::HasChanged(menuKeymapGeneration)) {
 			DoTranslateMenus(hWnd, menu);
 			menuLanguageID = curLanguageID;
 			changed = true;

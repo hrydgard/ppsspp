@@ -39,16 +39,20 @@ public:
 	std::string tag() const override { return "control mapping"; }
 
 protected:
-	virtual void CreateViews() override;
+	void CreateViews() override;
+	void update() override;
+
 private:
 	UI::EventReturn OnDefaultMapping(UI::EventParams &params);
 	UI::EventReturn OnClearMapping(UI::EventParams &params);
 	UI::EventReturn OnAutoConfigure(UI::EventParams &params);
+	UI::EventReturn OnVisualizeMapping(UI::EventParams &params);
 
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) override;
 
 	UI::ScrollView *rightScroll_;
 	std::vector<SingleControlMapper *> mappers_;
+	int keyMapGeneration_ = -1;
 };
 
 class KeyMappingNewKeyDialog : public PopupScreen {
@@ -157,4 +161,28 @@ protected:
 	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
 	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
 	UI::EventReturn OnRecreateActivity(UI::EventParams &e);
+};
+
+class MockPSP;
+
+class VisualMappingScreen : public UIDialogScreenWithBackground {
+public:
+	VisualMappingScreen() {}
+
+protected:
+	void CreateViews() override;
+
+	void dialogFinished(const Screen *dialog, DialogResult result) override;
+	void resized() override;
+
+private:
+	UI::EventReturn OnMapButton(UI::EventParams &e);
+	UI::EventReturn OnBindAll(UI::EventParams &e);
+	void HandleKeyMapping(KeyDef key);
+	void MapNext();
+
+	MockPSP *psp_ = nullptr;
+	int nextKey_ = 0;
+	int bindAll_ = -1;
+	bool replace_ = false;
 };

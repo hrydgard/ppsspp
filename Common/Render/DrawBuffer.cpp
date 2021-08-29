@@ -311,6 +311,56 @@ void DrawBuffer::DrawImageRotated(ImageID atlas_image, float x, float y, float s
 	}
 }
 
+void DrawBuffer::DrawImageRotatedStretch(ImageID atlas_image, const Bounds &bounds, float scales[2], float angle, Color color, bool mirror_h) {
+	const AtlasImage *image = atlas->getImage(atlas_image);
+	if (!image)
+		return;
+
+	if (scales[0] == 0.0f || scales[1] == 0.0f) {
+		float rotatedSize[2]{ (float)image->w, (float)image->h };
+		rot(rotatedSize, angle, 0.0f, 0.0f);
+
+		// With that, we calculate the scale to stretch to, and rotate it back.
+		scales[0] = bounds.w / rotatedSize[0];
+		scales[1] = bounds.h / rotatedSize[1];
+		rot(scales, -angle, 0.0f, 0.0f);
+	}
+
+	float w = (float)image->w * scales[0];
+	float h = (float)image->h * scales[1];
+	float x1 = bounds.centerX() - w / 2;
+	float x2 = bounds.centerX() + w / 2;
+	float y1 = bounds.centerY() - h / 2;
+	float y2 = bounds.centerY() + h / 2;
+	float v[6][2] = {
+		{x1, y1},
+		{x2, y1},
+		{x2, y2},
+		{x1, y1},
+		{x2, y2},
+		{x1, y2},
+	};
+	float u1 = image->u1;
+	float u2 = image->u2;
+	if (mirror_h) {
+		float temp = u1;
+		u1 = u2;
+		u2 = temp;
+	}
+	const float uv[6][2] = {
+		{u1, image->v1},
+		{u2, image->v1},
+		{u2, image->v2},
+		{u1, image->v1},
+		{u2, image->v2},
+		{u1, image->v2},
+	};
+	for (int i = 0; i < 6; i++) {
+		rot(v[i], angle, bounds.centerX(), bounds.centerY());
+		V(v[i][0], v[i][1], 0, color, uv[i][0], uv[i][1]);
+	}
+}
+
 // TODO: add arc support
 void DrawBuffer::Circle(float xc, float yc, float radius, float thickness, int segments, float startAngle, uint32_t color, float u_mul) {
 	float angleDelta = PI * 2 / segments;
