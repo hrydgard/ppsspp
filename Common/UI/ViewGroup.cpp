@@ -756,6 +756,8 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 			}
 			views_[0]->Measure(dc, MeasureSpec(UNSPECIFIED, measuredWidth_), v);
 			MeasureBySpec(layoutParams_->height, views_[0]->GetMeasuredHeight(), vert, &measuredHeight_);
+			if (layoutParams_->width == WRAP_CONTENT)
+				MeasureBySpec(layoutParams_->width, views_[0]->GetMeasuredWidth(), horiz, &measuredWidth_);
 		} else {
 			MeasureSpec h = MeasureSpec(AT_MOST, measuredWidth_ - margins.horiz());
 			if (measuredWidth_ == 0.0f && (horiz.type == UNSPECIFIED || layoutParams_->width == WRAP_CONTENT)) {
@@ -763,16 +765,16 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 			}
 			views_[0]->Measure(dc, h, MeasureSpec(UNSPECIFIED, measuredHeight_));
 			MeasureBySpec(layoutParams_->width, views_[0]->GetMeasuredWidth(), horiz, &measuredWidth_);
+			if (layoutParams_->height == WRAP_CONTENT)
+				MeasureBySpec(layoutParams_->height, views_[0]->GetMeasuredHeight(), vert, &measuredHeight_);
 		}
 		if (orientation_ == ORIENT_VERTICAL && vert.type != EXACTLY) {
-			if (measuredHeight_ < views_[0]->GetMeasuredHeight() && layoutParams_->height < 0.0f) {
-				measuredHeight_ = views_[0]->GetMeasuredHeight();
-			}
-			if (measuredHeight_ < views_[0]->GetBounds().h && layoutParams_->height < 0.0f) {
-				measuredHeight_ = views_[0]->GetBounds().h;
-			}
-			if (vert.type == AT_MOST && measuredHeight_ > vert.size) {
-				measuredHeight_ = vert.size;
+			float bestHeight = std::max(views_[0]->GetMeasuredHeight(), views_[0]->GetBounds().h);
+			if (vert.type == AT_MOST)
+				bestHeight = std::min(bestHeight, vert.size);
+
+			if (measuredHeight_ < bestHeight && layoutParams_->height < 0.0f) {
+				measuredHeight_ = bestHeight;
 			}
 		}
 	}
