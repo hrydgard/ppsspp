@@ -46,7 +46,7 @@
 
 class SingleControlMapper : public UI::LinearLayout {
 public:
-	SingleControlMapper(ControlMappingScreen *ctrlScreen, int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams = 0);
+	SingleControlMapper(int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams = nullptr);
 
 	void Update() override;
 	int GetPspKey() const { return pspKey_; }
@@ -68,17 +68,19 @@ private:
 		ADD,
 	};
 
-	ControlMappingScreen *ctrlScreen_;
-	Action action_;
+	UI::Choice *addButton_ = nullptr;
+	UI::Choice *replaceAllButton_ = nullptr;
+	std::vector<UI::View *> rows_;
+	Action action_ = NONE;
 	int actionIndex_;
 	int pspKey_;
 	std::string keyName_;
 	ScreenManager *scrm_;
-	bool refresh_;
+	bool refresh_ = false;
 };
 
-SingleControlMapper::SingleControlMapper(ControlMappingScreen *ctrlScreen, int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams)
-	: UI::LinearLayout(UI::ORIENT_VERTICAL, layoutParams), ctrlScreen_(ctrlScreen), action_(NONE), pspKey_(pspKey), keyName_(keyName), scrm_(scrm), refresh_(false) {
+SingleControlMapper::SingleControlMapper(int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams)
+	: UI::LinearLayout(UI::ORIENT_VERTICAL, layoutParams), pspKey_(pspKey), keyName_(keyName), scrm_(scrm) {
 	Refresh();
 }
 
@@ -117,17 +119,16 @@ void SingleControlMapper::Refresh() {
 	auto iter = keyImages.find(keyName_);
 	// First, look among images.
 	if (iter != keyImages.end()) {
-		Choice *c = root->Add(new Choice(iter->second, new LinearLayoutParams(leftColumnWidth, itemH)));
-		c->OnClick.Handle(this, &SingleControlMapper::OnReplaceAll);
+		replaceAllButton_ = new Choice(iter->second, new LinearLayoutParams(leftColumnWidth, itemH));
 	} else {
 		// No image? Let's translate.
-		Choice *c = new Choice(mc->T(keyName_.c_str()), new LinearLayoutParams(leftColumnWidth, itemH));
-		c->SetCentered(true);
-		root->Add(c)->OnClick.Handle(this, &SingleControlMapper::OnReplaceAll);
+		replaceAllButton_ = new Choice(mc->T(keyName_.c_str()), new LinearLayoutParams(leftColumnWidth, itemH));
+		replaceAllButton_->SetCentered(true);
 	}
+	root->Add(replaceAllButton_)->OnClick.Handle(this, &SingleControlMapper::OnReplaceAll);
 
-	Choice *p = root->Add(new Choice(" + ", new LayoutParams(WRAP_CONTENT, itemH)));
-	p->OnClick.Handle(this, &SingleControlMapper::OnAdd);
+	addButton_ = root->Add(new Choice(" + ", new LayoutParams(WRAP_CONTENT, itemH)));
+	addButton_->OnClick.Handle(this, &SingleControlMapper::OnAdd);
 	if (g_Config.bMouseControl) {
 		Choice *p = root->Add(new Choice("M", new LayoutParams(WRAP_CONTENT, itemH)));
 		p->OnClick.Handle(this, &SingleControlMapper::OnAddMouse);
@@ -138,22 +139,21 @@ void SingleControlMapper::Refresh() {
 	std::vector<KeyDef> mappings;
 	KeyMap::KeyFromPspButton(pspKey_, &mappings, false);
 
+	rows_.empty();
 	for (size_t i = 0; i < mappings.size(); i++) {
 		std::string deviceName = GetDeviceName(mappings[i].deviceId);
 		std::string keyName = KeyMap::GetKeyOrAxisName(mappings[i].keyCode);
 
 		LinearLayout *row = rightColumn->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		row->SetSpacing(1.0f);
-
-		char tagbuf[16];
-		sprintf(tagbuf, "%d", (int)i);
+		rows_.push_back(row);
 
 		Choice *c = row->Add(new Choice(deviceName + "." + keyName, new LinearLayoutParams(FILL_PARENT, itemH, 1.0f)));
-		c->SetTag(tagbuf);
+		c->SetTag(StringFromFormat("%d_Change%d", (int)i, pspKey_));
 		c->OnClick.Handle(this, &SingleControlMapper::OnReplace);
 
 		Choice *d = row->Add(new Choice(" X ", new LayoutParams(WRAP_CONTENT, itemH)));
-		d->SetTag(tagbuf);
+		d->SetTag(StringFromFormat("%d_Del%d", (int)i, pspKey_));
 		d->OnClick.Handle(this, &SingleControlMapper::OnDelete);
 	}
 
@@ -168,20 +168,26 @@ void SingleControlMapper::MappedCallback(KeyDef kdf) {
 	switch (action_) {
 	case ADD:
 		KeyMap::SetKeyMapping(pspKey_, kdf, false);
+		addButton_->SetFocus();
 		break;
 	case REPLACEALL:
 		KeyMap::SetKeyMapping(pspKey_, kdf, true);
+		replaceAllButton_->SetFocus();
 		break;
 	case REPLACEONE:
 		KeyMap::g_controllerMap[pspKey_][actionIndex_] = kdf;
 		KeyMap::g_controllerMapGeneration++;
+		if (actionIndex_ < rows_.size())
+			rows_[actionIndex_]->SetFocus();
+		else
+			SetFocus();
 		break;
 	default:
-		;
+		SetFocus();
+		break;
 	}
 	g_Config.bMapMouse = false;
 	refresh_ = true;
-	SetFocus();
 	// After this, we do not exist any more. So the refresh_ = true is probably irrelevant.
 }
 
@@ -219,7 +225,11 @@ UI::EventReturn SingleControlMapper::OnDelete(UI::EventParams &params) {
 	KeyMap::g_controllerMap[pspKey_].erase(KeyMap::g_controllerMap[pspKey_].begin() + index);
 	KeyMap::g_controllerMapGeneration++;
 	refresh_ = true;
-	SetFocus();
+
+	if (index + 1 < rows_.size())
+		rows_[index]->SetFocus();
+	else
+		SetFocus();
 	return UI::EVENT_DONE;
 }
 
@@ -258,7 +268,7 @@ void ControlMappingScreen::CreateViews() {
 	std::vector<KeyMap::KeyMap_IntStrPair> mappableKeys = KeyMap::GetMappableKeys();
 	for (size_t i = 0; i < mappableKeys.size(); i++) {
 		SingleControlMapper *mapper = rightColumn->Add(
-			new SingleControlMapper(this, mappableKeys[i].key, mappableKeys[i].name, screenManager(),
+			new SingleControlMapper(mappableKeys[i].key, mappableKeys[i].name, screenManager(),
 				                    new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		mapper->SetTag(StringFromFormat("KeyMap%s", mappableKeys[i].name));
 		mappers_.push_back(mapper);
