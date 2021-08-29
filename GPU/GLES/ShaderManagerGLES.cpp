@@ -676,9 +676,9 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTess
 	if (!vs)	{
 		// Vertex shader not in cache. Let's compile it.
 		vs = CompileVertexShader(*VSID);
-		if (vs->Failed()) {
+		if (!vs || vs->Failed()) {
 			auto gr = GetI18NCategory("Graphics");
-			ERROR_LOG(G3D, "Shader compilation failed, falling back to software transform");
+			ERROR_LOG(G3D, "Vertex shader generation failed, falling back to software transform");
 			if (!g_Config.bHideSlowWarnings) {
 				host->NotifyUserMessage(gr->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF);
 			}
@@ -728,6 +728,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	if (!fs)	{
 		// Fragment shader not in cache. Let's compile it.
 		// Can't really tell if we succeeded since the compile is on the GPU thread later.
+		// Could fail to generate, in which case we're kinda screwed.
 		fs = CompileFragmentShader(FSID);
 		fsCache_.Insert(FSID, fs);
 		diskCacheDirty_ = true;
