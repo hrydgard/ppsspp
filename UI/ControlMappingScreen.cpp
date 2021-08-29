@@ -33,6 +33,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Input/InputState.h"
+#include "Common/StringUtils.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Core/KeyMap.h"
@@ -90,7 +91,6 @@ void SingleControlMapper::Update() {
 }
 
 void SingleControlMapper::Refresh() {
-	bool hasFocus = UI::GetFocusedView() == this;
 	Clear();
 	auto mc = GetI18NCategory("MappableControls");
 
@@ -162,9 +162,6 @@ void SingleControlMapper::Refresh() {
 		Choice *c = rightColumn->Add(new Choice("", new LinearLayoutParams(FILL_PARENT, itemH)));
 		c->OnClick.Handle(this, &SingleControlMapper::OnAdd);
 	}
-
-	if (hasFocus)
-		this->SetFocus();
 }
 
 void SingleControlMapper::MappedCallback(KeyDef kdf) {
@@ -184,7 +181,7 @@ void SingleControlMapper::MappedCallback(KeyDef kdf) {
 	}
 	g_Config.bMapMouse = false;
 	refresh_ = true;
-	ctrlScreen_->KeyMapped(pspKey_);
+	SetFocus();
 	// After this, we do not exist any more. So the refresh_ = true is probably irrelevant.
 }
 
@@ -222,6 +219,7 @@ UI::EventReturn SingleControlMapper::OnDelete(UI::EventParams &params) {
 	KeyMap::g_controllerMap[pspKey_].erase(KeyMap::g_controllerMap[pspKey_].begin() + index);
 	KeyMap::g_controllerMapGeneration++;
 	refresh_ = true;
+	SetFocus();
 	return UI::EVENT_DONE;
 }
 
@@ -262,6 +260,7 @@ void ControlMappingScreen::CreateViews() {
 		SingleControlMapper *mapper = rightColumn->Add(
 			new SingleControlMapper(this, mappableKeys[i].key, mappableKeys[i].name, screenManager(),
 				                    new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		mapper->SetTag(StringFromFormat("KeyMap%s", mappableKeys[i].name));
 		mappers_.push_back(mapper);
 	}
 
@@ -311,13 +310,6 @@ void ControlMappingScreen::dialogFinished(const Screen *dialog, DialogResult res
 	if (result == DR_OK && dialog->tag() == "listpopup") {
 		ListPopupScreen *popup = (ListPopupScreen *)dialog;
 		KeyMap::AutoConfForPad(popup->GetChoiceString());
-	}
-}
-
-void ControlMappingScreen::KeyMapped(int pspkey) {  // Notification to let us refocus the same one after recreating views.
-	for (size_t i = 0; i < mappers_.size(); i++) {
-		if (mappers_[i]->GetPspKey() == pspkey)
-			SetFocusedView(mappers_[i]);
 	}
 }
 
