@@ -39,7 +39,9 @@ public:
 	std::string tag() const override { return "control mapping"; }
 
 protected:
-	virtual void CreateViews() override;
+	void CreateViews() override;
+	void update() override;
+
 private:
 	UI::EventReturn OnDefaultMapping(UI::EventParams &params);
 	UI::EventReturn OnClearMapping(UI::EventParams &params);
@@ -50,6 +52,7 @@ private:
 
 	UI::ScrollView *rightScroll_;
 	std::vector<SingleControlMapper *> mappers_;
+	int keyMapGeneration_ = -1;
 };
 
 class KeyMappingNewKeyDialog : public PopupScreen {

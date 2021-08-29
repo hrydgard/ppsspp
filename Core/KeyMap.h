@@ -158,4 +158,6 @@ namespace KeyMap {
 	void AutoConfForPad(const std::string &name);
 
 	bool IsKeyMapped(int device, int key);
+
+	bool HasChanged(int &prevGeneration);
 }

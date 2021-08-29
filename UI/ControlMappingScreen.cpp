@@ -264,17 +264,26 @@ void ControlMappingScreen::CreateViews() {
 				                    new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		mappers_.push_back(mapper);
 	}
+
+	keyMapGeneration_ = KeyMap::g_controllerMapGeneration;
+}
+
+void ControlMappingScreen::update() {
+	if (KeyMap::HasChanged(keyMapGeneration_)) {
+		RecreateViews();
+	}
+
+	UIDialogScreenWithBackground::update();
 }
 
 UI::EventReturn ControlMappingScreen::OnClearMapping(UI::EventParams &params) {
 	KeyMap::g_controllerMap.clear();
-	RecreateViews();
+	KeyMap::g_controllerMapGeneration++;
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn ControlMappingScreen::OnDefaultMapping(UI::EventParams &params) {
 	KeyMap::RestoreDefault();
-	RecreateViews();
 	return UI::EVENT_DONE;
 }
 
@@ -302,7 +311,6 @@ void ControlMappingScreen::dialogFinished(const Screen *dialog, DialogResult res
 	if (result == DR_OK && dialog->tag() == "listpopup") {
 		ListPopupScreen *popup = (ListPopupScreen *)dialog;
 		KeyMap::AutoConfForPad(popup->GetChoiceString());
-		RecreateViews();
 	}
 }
 
@@ -1126,6 +1134,7 @@ void VisualMappingScreen::CreateViews() {
 }
 
 void VisualMappingScreen::resized() {
+	UIDialogScreenWithBackground::resized();
 	RecreateViews();
 }
 

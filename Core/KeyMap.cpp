@@ -43,7 +43,8 @@ namespace KeyMap {
 KeyDef AxisDef(int deviceId, int axisId, int direction);
 
 KeyMapping g_controllerMap;
-int g_controllerMapGeneration = 0;  // Just used to check if we need to update the Windows menu or not.
+// Incremented on modification, so we know when to update menus.
+int g_controllerMapGeneration = 0;
 std::set<std::string> g_seenPads;
 std::set<int> g_seenDeviceIds;
 
@@ -622,6 +623,7 @@ void SetAxisMapping(int btn, int deviceId, int axisId, int direction, bool repla
 
 void RestoreDefault() {
 	g_controllerMap.clear();
+	g_controllerMapGeneration++;
 #if PPSSPP_PLATFORM(WINDOWS)
 	SetDefaultKeyMap(DEFAULT_MAPPING_KEYBOARD, true);
 	SetDefaultKeyMap(DEFAULT_MAPPING_XINPUT, false);
@@ -763,6 +765,14 @@ const std::set<std::string> &GetSeenPads() {
 // Swap direction buttons and left analog axis
 void SwapAxis() {
 	g_swapped_keys = !g_swapped_keys;
+}
+
+bool HasChanged(int &prevGeneration) {
+	if (prevGeneration != g_controllerMapGeneration) {
+		prevGeneration = g_controllerMapGeneration;
+		return true;
+	}
+	return false;
 }
 
 }  // KeyMap
