@@ -364,8 +364,8 @@ void KeyMappingDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	LinearLayout *items = new LinearLayoutList(ORIENT_VERTICAL);
 	items->SetSpacing(5.0f);
 
-	static const std::string hint = "Hint: you may map the same key to different PSP button to be able to press multiple one with a single key!";
-	parent->Add(new TextView(km->T(hint), FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT, true, new LinearLayoutParams(Margins(10,0))));
+	static const std::string hint = "Hint: Mapping the same key to multiple PSP buttons will press both at once";
+	parent->Add(new TextView(km->T(hint), FLAG_WRAP_TEXT, true, new LinearLayoutParams(Margins(10,0))));
 
 	std::vector<KeyDef> mappings;
 	KeyMap::KeyFromPspButton(pspBtn_, &mappings, false);
@@ -414,8 +414,8 @@ void KeyMappingDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	}
 
 	items->Add(new Spacer(10.0));
-	Choice *b = items->Add(new Choice(di->T("Back"), new LinearLayoutParams(FILL_PARENT, 45)));
-	b->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	Button *b = items->Add(new Button(di->T("Cancel"), new LinearLayoutParams(FILL_PARENT, 45)));
+	b->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
 
 	scroll->Add(items);
 	parent->Add(scroll);

@@ -24,6 +24,7 @@
 
 #include "Common/UI/View.h"
 #include "Common/UI/UIScreen.h"
+#include "Common/StringUtils.h"
 #include "Common/Data/Text/I18n.h"
 
 #include "Core/ControlMapper.h"
@@ -61,15 +62,11 @@ public:
 		pspBtn_ = btn;
 	}
 
-	virtual bool key(const KeyInput &key) override;
-	virtual bool axis(const AxisInput &axis) override;
+	bool key(const KeyInput &key) override;
+	bool axis(const AxisInput &axis) override;
 
 protected:
 	void CreatePopupContents(UI::ViewGroup *parent) override;
-
-	virtual bool FillVertical() const override { return false; }
-	virtual bool ShowButtons() const override { return true; }
-	virtual void OnCompleted(DialogResult result) override {}
 
 private:
 	int pspBtn_;
@@ -82,16 +79,13 @@ class BindingChoice;
 class KeyMappingDialog : public PopupScreen {
 public:
 	explicit KeyMappingDialog(int btn, std::shared_ptr<I18NCategory> i18n)
-		: PopupScreen(std::string(i18n->T("Mapping for"))+" "+i18n->T(KeyMap::GetPspButtonName(btn))), pspBtn_(btn) {}
+		: PopupScreen(ReplaceAll(i18n->T("Mapping for %1"), "%1", i18n->T(KeyMap::GetPspButtonName(btn)))), pspBtn_(btn) {}
 
-	virtual bool key(const KeyInput &key) override;
-	virtual bool axis(const AxisInput &axis) override;
+	bool key(const KeyInput &key) override;
+	bool axis(const AxisInput &axis) override;
 
 protected:
 	void CreatePopupContents(UI::ViewGroup *parent) override;
-
-	virtual bool FillVertical() const override { return false; }
-	virtual bool ShowButtons() const override { return true; }
 
 private:
 	int pspBtn_;
