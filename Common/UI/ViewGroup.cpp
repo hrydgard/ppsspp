@@ -765,10 +765,10 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 			MeasureBySpec(layoutParams_->width, views_[0]->GetMeasuredWidth(), horiz, &measuredWidth_);
 		}
 		if (orientation_ == ORIENT_VERTICAL && vert.type != EXACTLY) {
-			if (measuredHeight_ < views_[0]->GetMeasuredHeight()) {
+			if (measuredHeight_ < views_[0]->GetMeasuredHeight() && layoutParams_->height < 0.0f) {
 				measuredHeight_ = views_[0]->GetMeasuredHeight();
 			}
-			if (measuredHeight_ < views_[0]->GetBounds().h) {
+			if (measuredHeight_ < views_[0]->GetBounds().h && layoutParams_->height < 0.0f) {
 				measuredHeight_ = views_[0]->GetBounds().h;
 			}
 			if (vert.type == AT_MOST && measuredHeight_ > vert.size) {
