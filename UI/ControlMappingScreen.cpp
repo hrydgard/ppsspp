@@ -36,6 +36,7 @@
 #include "Common/StringUtils.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
+#include "Common/TimeUtil.h"
 #include "Core/KeyMap.h"
 #include "Core/Host.h"
 #include "Core/HLE/sceCtrl.h"
@@ -53,25 +54,13 @@ public:
 private:
 	void Refresh();
 
-	UI::EventReturn OnAdd(UI::EventParams &params);
-	UI::EventReturn OnAddMouse(UI::EventParams &params);
 	UI::EventReturn OnDelete(UI::EventParams &params);
-	UI::EventReturn OnReplace(UI::EventParams &params);
-	UI::EventReturn OnReplaceAll(UI::EventParams &params);
-
-	void MappedCallback(KeyDef key);
-
-	enum Action {
-		NONE,
-		REPLACEONE,
-		REPLACEALL,
-		ADD,
-	};
+	UI::EventReturn OnMap(UI::EventParams &params);
 
 	UI::Choice *addButton_ = nullptr;
 	UI::Choice *replaceAllButton_ = nullptr;
 	std::vector<UI::View *> rows_;
-	Action action_ = NONE;
+
 	int actionIndex_;
 	int pspKey_;
 	std::string keyName_;
@@ -116,14 +105,10 @@ void SingleControlMapper::Refresh() {
 		replaceAllButton_ = new Choice(mc->T(keyName_.c_str()), new LinearLayoutParams(leftColumnWidth, itemH));
 		replaceAllButton_->SetCentered(true);
 	}
-	root->Add(replaceAllButton_)->OnClick.Handle(this, &SingleControlMapper::OnReplaceAll);
+	root->Add(replaceAllButton_)->OnClick.Handle(this, &SingleControlMapper::OnMap);
 
 	addButton_ = root->Add(new Choice(" + ", new LayoutParams(WRAP_CONTENT, itemH)));
-	addButton_->OnClick.Handle(this, &SingleControlMapper::OnAdd);
-	if (g_Config.bMouseControl) {
-		Choice *p = root->Add(new Choice("M", new LayoutParams(WRAP_CONTENT, itemH)));
-		p->OnClick.Handle(this, &SingleControlMapper::OnAddMouse);
-	}
+	addButton_->OnClick.Handle(this, &SingleControlMapper::OnMap);
 
 	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(rightColumnWidth, WRAP_CONTENT)));
 	rightColumn->SetSpacing(2.0f);
@@ -140,8 +125,7 @@ void SingleControlMapper::Refresh() {
 		rows_.push_back(row);
 
 		Choice *c = row->Add(new Choice(deviceName + "." + keyName, new LinearLayoutParams(FILL_PARENT, itemH, 1.0f)));
-		c->SetTag(StringFromFormat("%d_Change%d", (int)i, pspKey_));
-		c->OnClick.Handle(this, &SingleControlMapper::OnReplace);
+		c->OnClick.Handle(this, &SingleControlMapper::OnMap);
 
 		Choice *d = row->Add(new Choice(" X ", new LayoutParams(WRAP_CONTENT, itemH)));
 		d->SetTag(StringFromFormat("%d_Del%d", (int)i, pspKey_));
@@ -151,11 +135,11 @@ void SingleControlMapper::Refresh() {
 	if (mappings.size() == 0) {
 		// look like an empty line
 		Choice *c = rightColumn->Add(new Choice("", new LinearLayoutParams(FILL_PARENT, itemH)));
-		c->OnClick.Handle(this, &SingleControlMapper::OnAdd);
+		c->OnClick.Handle(this, &SingleControlMapper::OnMap);
 	}
 }
 
-void SingleControlMapper::MappedCallback(KeyDef kdf) {
+/*void SingleControlMapper::MappedCallback(KeyDef kdf) {
 	switch (action_) {
 	case ADD:
 		KeyMap::SetKeyMapping(pspKey_, kdf, false);
@@ -178,34 +162,12 @@ void SingleControlMapper::MappedCallback(KeyDef kdf) {
 		break;
 	}
 	g_Config.bMapMouse = false;
-}
+}*/
 
-UI::EventReturn SingleControlMapper::OnReplace(UI::EventParams &params) {
-	actionIndex_ = atoi(params.v->Tag().c_str());
-	action_ = REPLACEONE;
-	auto km = GetI18NCategory("KeyMapping");
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), km));
-	return UI::EVENT_DONE;
-}
+UI::EventReturn SingleControlMapper::OnMap(UI::EventParams &params) {
+	auto mc = GetI18NCategory("MappableControls");
+	scrm_->push(new KeyMappingDialog(pspKey_, mc));
 
-UI::EventReturn SingleControlMapper::OnReplaceAll(UI::EventParams &params) {
-	action_ = REPLACEALL;
-	auto km = GetI18NCategory("KeyMapping");
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), km));
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn SingleControlMapper::OnAdd(UI::EventParams &params) {
-	action_ = ADD;
-	auto km = GetI18NCategory("KeyMapping");
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), km));
-	return UI::EVENT_DONE;
-}
-UI::EventReturn SingleControlMapper::OnAddMouse(UI::EventParams &params) {
-	action_ = ADD;
-	g_Config.bMapMouse = true;
-	auto km = GetI18NCategory("KeyMapping");
-	scrm_->push(new KeyMappingNewMouseKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), km));
 	return UI::EVENT_DONE;
 }
 
@@ -339,30 +301,148 @@ bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 	return true;
 }
 
-void KeyMappingNewMouseKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
+class BindingChoice : public UI::Choice {
+private:
+	std::string bindingText_;
+	bool binding_ = false;
+
+public:
+	BindingChoice(const std::string &text, const std::string& bindingText, UI::LayoutParams *layoutParams = nullptr)
+		: Choice(text, layoutParams), bindingText_(bindingText) {}
+
+	void Draw(UIContext &dc) override;
+	void SetBinding(bool b) { binding_ = b; }
+};
+
+void BindingChoice::Draw(UIContext &dc) {
+	using namespace UI;
+	
+	Style style = dc.theme->itemStyle;
+	if (highlighted_) {
+		style = dc.theme->itemHighlightedStyle;
+	}
+	if (down_) {
+		style = dc.theme->itemDownStyle;
+	}
+	if (HasFocus()) {
+		style = dc.theme->itemFocusedStyle;
+	}
+	if (binding_) {
+		style = dc.theme->itemStyle;
+	}
+	DrawBG(dc, style);
+	
+	if (binding_) {
+		float opacity = sin(5.0*time_now_d())*0.5 + 0.5;
+		uint32_t col = colorAlpha(dc.theme->itemFocusedStyle.background.color, opacity);
+		dc.FillRect(Drawable(col), bounds_);
+	}
+
+	style = dc.theme->itemStyle;
+	dc.SetFontStyle(dc.theme->uiFont);
+
+	const int paddingX = 12;
+	const float availWidth = bounds_.w - paddingX * 2 - textPadding_.horiz();
+	float scale = CalculateTextScale(dc, availWidth);
+
+	dc.SetFontScale(scale, scale);
+
+	Bounds textBounds(bounds_.x + paddingX + textPadding_.left, bounds_.y, availWidth, bounds_.h);
+
+	dc.DrawTextRect(binding_ ? bindingText_.c_str() : text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+	dc.SetFontScale(1.0f, 1.0f);
+}
+
+void KeyMappingDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
 	auto km = GetI18NCategory("KeyMapping");
+	auto mc = GetI18NCategory("MappableControls");
+	auto di = GetI18NCategory("Dialog");
 
-	parent->Add(new TextView(std::string(km->T("You can press ESC to cancel.")), new LinearLayoutParams(Margins(10, 0))));
+	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
+	LinearLayout *items = new LinearLayoutList(ORIENT_VERTICAL);
+	items->SetSpacing(5.0f);
+
+	static const std::string hint = "Hint: you may map the same key to different PSP button to be able to press multiple one with a single key!";
+	parent->Add(new TextView(km->T(hint), FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT, true, new LinearLayoutParams(Margins(10,0))));
+
+	std::vector<KeyDef> mappings;
+	KeyMap::KeyFromPspButton(pspBtn_, &mappings, false);
+
+	for (size_t i = 0; i < mappings.size(); i++) {
+		std::string deviceName = GetDeviceName(mappings[i].deviceId);
+		std::string keyName = KeyMap::GetKeyOrAxisName(mappings[i].keyCode);
+
+		LinearLayout *row = items->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		row->SetSpacing(1.0f);
+
+		BindingChoice *c = row->Add(new BindingChoice(deviceName + "." + keyName, km->T("Press a key"), new LinearLayoutParams(FILL_PARENT, 45, 1.0f)));
+		c->OnClick.Add([=](EventParams &e) {
+			this->selected_ = c; 
+			this->selectedIndex_ = i+1;
+			c->SetBinding(true);
+			return UI::EVENT_CONTINUE;
+		});
+
+		Choice *d = row->Add(new Choice(km->T("Delete"), new LinearLayoutParams(WRAP_CONTENT, 45)));
+		d->OnClick.Add([=](EventParams &e) {
+			KeyMap::g_controllerMap[pspBtn_].erase(KeyMap::g_controllerMap[pspBtn_].begin() + i);
+			KeyMap::g_controllerMapGeneration++;
+			RecreateViews();
+			return UI::EVENT_CONTINUE;
+		});
+	}
+
+	BindingChoice *n = items->Add(new BindingChoice(km->T("Add new key binding"), km->T("Press a key"), new LinearLayoutParams(FILL_PARENT, 45)));
+	n->OnClick.Add([=](EventParams &e) {
+		this->selected_ = n;
+		this->selectedIndex_ = 0;
+		n->SetBinding(true);
+		return UI::EVENT_CONTINUE;
+	});
+
+	if (g_Config.bMouseControl) {
+		BindingChoice *m = items->Add(new BindingChoice(km->T("Add new mouse binding"), km->T("Press ESC to cancel"), new LinearLayoutParams(FILL_PARENT, 45)));
+		m->OnClick.Add([=](EventParams &e) {
+			this->selected_ = m;
+			this->selectedIndex_ = 0;
+			m->SetBinding(true);
+			g_Config.bMapMouse = true;
+			return UI::EVENT_CONTINUE;
+		});
+	}
+
+	items->Add(new Spacer(10.0));
+	Choice *b = items->Add(new Choice(di->T("Back"), new LinearLayoutParams(FILL_PARENT, 45)));
+	b->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+
+	scroll->Add(items);
+	parent->Add(scroll);
 }
 
-bool KeyMappingNewMouseKeyDialog::key(const KeyInput &key) {
-	if (mapped_)
-		return false;
+bool KeyMappingDialog::key(const KeyInput &key) {
+	if (selectedIndex_ < 0)
+		return PopupScreen::key(key);
+
 	if (key.flags & KEY_DOWN) {
-		if (key.keyCode == NKCODE_ESCAPE) {
-			TriggerFinish(DR_OK);
-			g_Config.bMapMouse = false;
-			return false;
+
+		// Have a way out key in both mode
+		if (key.keyCode != (g_Config.bMapMouse ? NKCODE_ESCAPE : NKCODE_EXT_MOUSEBUTTON_1)) {
+			KeyDef kdf(key.deviceId, key.keyCode);
+			if (selectedIndex_ == 0) {
+				KeyMap::SetKeyMapping(pspBtn_, kdf, false);
+			} else {
+				KeyMap::g_controllerMap[pspBtn_][selectedIndex_-1] = kdf;
+			}
+			KeyMap::g_controllerMapGeneration++;
 		}
 
-		mapped_ = true;
-		KeyDef kdf(key.deviceId, key.keyCode);
-		TriggerFinish(DR_YES);
+		selected_->SetBinding(false);
+		selectedIndex_ = -1;
 		g_Config.bMapMouse = false;
-		if (callback_)
-			callback_(kdf);
+
+		RecreateViews();
 	}
 	return true;
 }
@@ -386,7 +466,6 @@ static bool IgnoreAxisForMapping(int axis) {
 		return false;
 	}
 }
-
 
 bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	if (mapped_)
@@ -412,26 +491,24 @@ bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	return true;
 }
 
-bool KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
-	if (mapped_)
-		return false;
-	if (IgnoreAxisForMapping(axis.axisId))
-		return false;
+bool KeyMappingDialog::axis(const AxisInput &axis) {
+	if (IgnoreAxisForMapping(axis.axisId) || selectedIndex_ < 0)
+		return PopupScreen::axis(axis);
 
-	if (axis.value > AXIS_BIND_THRESHOLD) {
-		mapped_ = true;
-		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, 1));
-		TriggerFinish(DR_YES);
-		if (callback_)
-			callback_(kdf);
-	}
+	if (abs(axis.value) > AXIS_BIND_THRESHOLD) {
+		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, axis.value > 0 ? 1 : -1));
+		if (selectedIndex_ == 0) {
+			KeyMap::SetKeyMapping(pspBtn_, kdf, false);
+		} else {
+			KeyMap::g_controllerMap[pspBtn_][selectedIndex_-1] = kdf;
+		}
 
-	if (axis.value < -AXIS_BIND_THRESHOLD) {
-		mapped_ = true;
-		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, -1));
-		TriggerFinish(DR_YES);
-		if (callback_)
-			callback_(kdf);
+		KeyMap::g_controllerMapGeneration++;
+		selected_->SetBinding(false);
+		selectedIndex_ = -1;
+		g_Config.bMapMouse = false;
+
+		RecreateViews();
 	}
 	return true;
 }

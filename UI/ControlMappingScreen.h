@@ -77,27 +77,26 @@ private:
 	bool mapped_;  // Prevent double registrations
 };
 
-class KeyMappingNewMouseKeyDialog : public PopupScreen {
-public:
-	explicit KeyMappingNewMouseKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, std::shared_ptr<I18NCategory> i18n)
-		: PopupScreen(i18n->T("Map Mouse"), "", ""), callback_(callback), mapped_(false) {
-		pspBtn_ = btn;
-	}
+class BindingChoice;
 
-	bool key(const KeyInput &key) override;
-	bool axis(const AxisInput &axis) override;
+class KeyMappingDialog : public PopupScreen {
+public:
+	explicit KeyMappingDialog(int btn, std::shared_ptr<I18NCategory> i18n)
+		: PopupScreen(std::string(i18n->T("Mapping for"))+" "+i18n->T(KeyMap::GetPspButtonName(btn))), pspBtn_(btn) {}
+
+	virtual bool key(const KeyInput &key) override;
+	virtual bool axis(const AxisInput &axis) override;
 
 protected:
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 
-	bool FillVertical() const override { return false; }
-	bool ShowButtons() const override { return true; }
-	void OnCompleted(DialogResult result) override {}
+	virtual bool FillVertical() const override { return false; }
+	virtual bool ShowButtons() const override { return true; }
 
 private:
 	int pspBtn_;
-	std::function<void(KeyDef)> callback_;
-	bool mapped_;  // Prevent double registrations
+	BindingChoice *selected_;
+	int selectedIndex_ = -1;
 };
 
 class JoystickHistoryView;
