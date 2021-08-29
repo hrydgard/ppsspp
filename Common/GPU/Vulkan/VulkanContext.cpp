@@ -796,7 +796,7 @@ VkResult VulkanContext::ReinitSurface() {
 		// This is the chosen physical_device, it has been chosen elsewhere.
 		VkPhysicalDevice phys_device = physical_devices_[physical_device_];
 		VkDisplayModeKHR display_mode = VK_NULL_HANDLE;
-		VkDisplayPlaneAlphaFlagBitsKHR alpha_mode;
+		VkDisplayPlaneAlphaFlagBitsKHR alpha_mode = VK_DISPLAY_PLANE_ALPHA_OPAQUE_BIT_KHR;
 		uint32_t plane = UINT32_MAX;
 
 		// For now, use the first available (connected) display.
@@ -936,7 +936,6 @@ VkResult VulkanContext::ReinitSurface() {
 		image_size.width = pixel_xres;
 		image_size.height = pixel_yres;
 
-		display.sType = VK_STRUCTURE_TYPE_DISPLAY_SURFACE_CREATE_INFO_KHR;
 		display.displayMode = display_mode;
 		display.imageExtent = image_size;
 		display.transform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
