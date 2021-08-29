@@ -307,6 +307,7 @@ enum LayoutParamsType {
 	LP_PLAIN = 0,
 	LP_LINEAR = 1,
 	LP_ANCHOR = 2,
+	LP_GRID = 3,
 };
 
 // Need a virtual destructor so vtables are created, otherwise RTTI can't work

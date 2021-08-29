@@ -1246,7 +1246,9 @@ void GridLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 		views_[i]->Measure(dc, MeasureSpec(measureType, settings_.columnWidth), MeasureSpec(measureType, settings_.rowHeight));
 	}
 
-	MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
+	// Use the max possible width so AT_MOST gives us the full size.
+	float maxWidth = (settings_.columnWidth + settings_.spacing) * views_.size() + settings_.spacing;
+	MeasureBySpec(layoutParams_->width, maxWidth, horiz, &measuredWidth_);
 
 	// Okay, got the width we are supposed to adjust to. Now we can calculate the number of columns.
 	numColumns_ = (measuredWidth_ - settings_.spacing) / (settings_.columnWidth + settings_.spacing);
@@ -1263,7 +1265,9 @@ void GridLayout::Layout() {
 	int x = 0;
 	int count = 0;
 	for (size_t i = 0; i < views_.size(); i++) {
+		const GridLayoutParams *lp = views_[i]->GetLayoutParams()->As<GridLayoutParams>();
 		Bounds itemBounds, innerBounds;
+		Gravity grav = lp ? lp->gravity : G_CENTER;
 
 		itemBounds.x = bounds_.x + x;
 		itemBounds.y = bounds_.y + y;
@@ -1272,7 +1276,7 @@ void GridLayout::Layout() {
 
 		ApplyGravity(itemBounds, Margins(0.0f),
 			views_[i]->GetMeasuredWidth(), views_[i]->GetMeasuredHeight(),
-			G_HCENTER | G_VCENTER, innerBounds);
+			grav, innerBounds);
 
 		views_[i]->SetBounds(innerBounds);
 		views_[i]->Layout();
