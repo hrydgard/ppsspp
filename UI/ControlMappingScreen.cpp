@@ -1009,6 +1009,7 @@ public:
 
 	MockPSP(UI::LayoutParams *layoutParams = nullptr);
 	void SelectButton(int btn);
+	void FocusButton(int btn);
 	float GetPopupOffset();
 
 	UI::Event ButtonClick;
@@ -1053,6 +1054,12 @@ MockPSP::MockPSP(UI::LayoutParams *layoutParams) : AnchorLayout(layoutParams) {
 
 void MockPSP::SelectButton(int btn) {
 	selectedButton_ = btn;
+}
+
+void MockPSP::FocusButton(int btn) {
+	MockButton *view = buttons_[selectedButton_];
+	if (view)
+		view->SetFocus();
 }
 
 float MockPSP::GetPopupOffset() {
@@ -1164,8 +1171,13 @@ void VisualMappingScreen::HandleKeyMapping(KeyDef key) {
 			nextKey_ = VIRTKEY_AXIS_X_MIN;
 		else if (nextKey_ == VIRTKEY_AXIS_X_MIN)
 			nextKey_ = VIRTKEY_AXIS_X_MAX;
-		else
+		else {
+			if (nextKey_ == VIRTKEY_AXIS_X_MAX)
+				psp_->FocusButton(VIRTKEY_AXIS_Y_MAX);
+			else
+				psp_->FocusButton(nextKey_);
 			nextKey_ = 0;
+		}
 	} else if ((size_t)bindAll_ + 1 < bindAllOrder.size()) {
 		bindAll_++;
 		nextKey_ = bindAllOrder[bindAll_];
@@ -1179,6 +1191,9 @@ void VisualMappingScreen::dialogFinished(const Screen *dialog, DialogResult resu
 	if (result == DR_YES && nextKey_ != 0) {
 		MapNext();
 	} else {
+		// This means they canceled.
+		if (nextKey_ != 0)
+			psp_->FocusButton(nextKey_);
 		nextKey_ = 0;
 		bindAll_ = -1;
 		psp_->SelectButton(0);
