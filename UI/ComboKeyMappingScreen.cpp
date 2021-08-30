@@ -178,7 +178,7 @@ void ComboKeyScreen::CreateViews() {
 	gridsettings.fillCells = true;
 	GridLayout *grid = vertLayout->Add(new GridLayout(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
-	// Button name, image and action are defined in GamepadEmu.h
+	// Button image and action are defined in GamepadEmu.h
 	for (int i = 0; i < ARRAY_SIZE(comboKeyList); ++i) {
 		LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		row->SetSpacing(0);
@@ -190,7 +190,7 @@ void ComboKeyScreen::CreateViews() {
 		if (comboKeyList[i].i.isValid()) {
 			choice = new Choice(comboKeyList[i].i, new LinearLayoutParams(1.0f));
 		} else {
-			choice = new Choice(mc->T(comboKeyList[i].n), new LinearLayoutParams(1.0f));
+			choice = new Choice(mc->T(KeyMap::GetPspButtonNameCharPointer(comboKeyList[i].c)), new LinearLayoutParams(1.0f));
 		}
 
 		ChoiceEventHandler *choiceEventHandler = new ChoiceEventHandler(checkbox);

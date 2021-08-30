@@ -446,6 +446,13 @@ std::string GetPspButtonName(int btn) {
 	return FindName(btn, psp_button_names, ARRAY_SIZE(psp_button_names));
 }
 
+const char* GetPspButtonNameCharPointer(int btn) {
+	for (size_t i = 0; i < ARRAY_SIZE(psp_button_names); i++)
+		if (psp_button_names[i].key == btn)
+			return psp_button_names[i].name;
+	return nullptr;
+}
+
 std::vector<KeyMap_IntStrPair> GetMappableKeys() {
 	std::vector<KeyMap_IntStrPair> temp;
 	for (size_t i = 0; i < ARRAY_SIZE(psp_button_names); i++) {
