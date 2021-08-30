@@ -184,6 +184,30 @@ private:
 	bool invertedContextDimension_; // Swap width and height
 };
 
+class GestureGamepad : public UI::View {
+public:
+	GestureGamepad(ControlMapper* controllMapper) : controllMapper_(controllMapper) {};
+
+	void Touch(const TouchInput &input) override;
+	void Update() override;
+
+protected:
+
+	float lastX_ = 0.0f;
+	float lastY_ = 0.0f;
+	float deltaX_ = 0.0f;
+	float deltaY_ = 0.0f;
+	float lastTapRelease_ = 0.0f;
+	float lastTouchDown_ = 0.0f;
+	int dragPointerId_ = -1;
+	bool swipeLeftReleased_ = true;
+	bool swipeRightReleased_ = true;
+	bool swipeUpReleased_ = true;
+	bool swipeDownReleased_ = true;
+	bool haveDoubleTapped_ = false;
+	ControlMapper* controllMapper_;
+};
+
 // Just edit this to add new image, shape or button function
 namespace CustomKey {
 	// Image list
@@ -289,25 +313,44 @@ namespace CustomKey {
 	static_assert(ARRAY_SIZE(comboKeyList) <= 64, "Too many key for a uint64_t bit mask");
 };
 
-class GestureGamepad : public UI::View {
-public:
-	GestureGamepad() {};
-
-	void Touch(const TouchInput &input) override;
-	void Update() override;
-
-protected:
-
-	float lastX_ = 0.0f;
-	float lastY_ = 0.0f;
-	float deltaX_ = 0.0f;
-	float deltaY_ = 0.0f;
-	float lastTapRelease_ = 0.0f;
-	float lastTouchDown_ = 0.0f;
-	int dragPointerId_ = -1;
-	bool swipeLeftReleased_ = true;
-	bool swipeRightReleased_ = true;
-	bool swipeUpReleased_ = true;
-	bool swipeDownReleased_ = true;
-	bool haveDoubleTapped_ = false;
-};
+// Gesture key only have virtual button that can work without constant press
+namespace GestureKey {
+	struct key {
+		const char* n; // UI name
+		uint32_t c; // Key code
+	};
+	static const key keyList[] = {
+		{ "Square", CTRL_SQUARE },
+		{ "Triangle", CTRL_TRIANGLE },
+		{ "Circle", CTRL_CIRCLE },
+		{ "Cross", CTRL_CROSS },
+		{ "Up", CTRL_UP },
+		{ "Down", CTRL_DOWN },
+		{ "Left", CTRL_LEFT },
+		{ "Right", CTRL_RIGHT },
+		{ "Start", CTRL_START },
+		{ "Select", CTRL_SELECT },
+		{ "L", CTRL_LTRIGGER },
+		{ "R", CTRL_RTRIGGER },
+		{ "An.Up", VIRTKEY_AXIS_Y_MAX },
+		{ "An.Down", VIRTKEY_AXIS_Y_MIN },
+		{ "An.Left", VIRTKEY_AXIS_X_MIN },
+		{ "An.Right", VIRTKEY_AXIS_X_MAX },
+		{ "SpeedToggle", VIRTKEY_SPEED_TOGGLE },
+		{ "Rewind", VIRTKEY_REWIND },
+		{ "Save State", VIRTKEY_SAVE_STATE },
+		{ "Load State", VIRTKEY_LOAD_STATE },
+		{ "Next Slot", VIRTKEY_NEXT_SLOT },
+		{ "Toggle Fullscreen", VIRTKEY_TOGGLE_FULLSCREEN },
+		{ "Texture Dumping", VIRTKEY_TEXTURE_DUMP },
+		{ "Texture Replacement", VIRTKEY_TEXTURE_REPLACE },
+		{ "Screenshot", VIRTKEY_SCREENSHOT },
+		{ "Mute toggle", VIRTKEY_MUTE_TOGGLE },
+		{ "OpenChat", VIRTKEY_OPENCHAT },
+		{ "Pause", VIRTKEY_PAUSE },
+		{ "DevMenu", VIRTKEY_DEVMENU },
+#ifndef MOBILE_DEVICE
+		{ "Record", VIRTKEY_RECORD },
+#endif
+	};
+}

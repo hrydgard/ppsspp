@@ -827,15 +827,13 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 	addComboKey(g_Config.CustomKey9, "Custom 10 button", g_Config.touchCombo9);
 
 	if (g_Config.bGestureControlEnabled)
-		root->Add(new GestureGamepad());
+		root->Add(new GestureGamepad(controllMapper));
 
 	return root;
 }
 
 
 void GestureGamepad::Touch(const TouchInput &input) {
-	static const int button[16] = {CTRL_LTRIGGER, CTRL_RTRIGGER, CTRL_SQUARE, CTRL_TRIANGLE, CTRL_CIRCLE, CTRL_CROSS, CTRL_UP, CTRL_DOWN, CTRL_LEFT, CTRL_RIGHT, CTRL_START, CTRL_SELECT};
-
 	if (usedPointerMask & (1 << input.id)) {
 		if (input.id == dragPointerId_)
 			dragPointerId_ = -1;
@@ -856,7 +854,7 @@ void GestureGamepad::Touch(const TouchInput &input) {
 			const float now = time_now_d();
 			if (now - lastTapRelease_ < 0.3f && !haveDoubleTapped_) {
 				if (g_Config.iDoubleTapGesture != 0 )
-					__CtrlButtonDown(button[g_Config.iDoubleTapGesture-1]);
+					controllMapper_->pspKey(GestureKey::keyList[g_Config.iDoubleTapGesture-1].c, KEY_DOWN);
 				haveDoubleTapped_ = true;
 			}
 
@@ -879,7 +877,7 @@ void GestureGamepad::Touch(const TouchInput &input) {
 
 			if (haveDoubleTapped_) {
 				if (g_Config.iDoubleTapGesture != 0)
-					__CtrlButtonUp(button[g_Config.iDoubleTapGesture-1]);
+					controllMapper_->pspKey(GestureKey::keyList[g_Config.iDoubleTapGesture-1].c, KEY_UP);
 				haveDoubleTapped_ = false;
 			}
 		}
@@ -887,44 +885,42 @@ void GestureGamepad::Touch(const TouchInput &input) {
 }
 
 void GestureGamepad::Update() {
-	static const int button[16] = {CTRL_LTRIGGER, CTRL_RTRIGGER, CTRL_SQUARE, CTRL_TRIANGLE, CTRL_CIRCLE, CTRL_CROSS, CTRL_UP, CTRL_DOWN, CTRL_LEFT, CTRL_RIGHT, CTRL_START, CTRL_SELECT};
-
 	const float th = 1.0f;
 	float dx = deltaX_ * g_dpi_scale_x * g_Config.fSwipeSensitivity;
 	float dy = deltaY_ * g_dpi_scale_y * g_Config.fSwipeSensitivity;
 	if (g_Config.iSwipeRight != 0) {
 		if (dx > th) {
-			__CtrlButtonDown(button[g_Config.iSwipeRight-1]);
+			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeRight-1].c, KEY_DOWN);
 			swipeRightReleased_ = false;
 		} else if (!swipeRightReleased_) {
-			__CtrlButtonUp(button[g_Config.iSwipeRight-1]);
+			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeRight-1].c, KEY_UP);
 			swipeRightReleased_ = true;
 		}
 	}
 	if (g_Config.iSwipeLeft != 0) {
 		if (dx < -th) {
-			__CtrlButtonDown(button[g_Config.iSwipeLeft-1]);
+			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeLeft-1].c, KEY_DOWN);
 			swipeLeftReleased_ = false;
 		} else if (!swipeLeftReleased_) {
-			__CtrlButtonUp(button[g_Config.iSwipeLeft-1]);
+			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeLeft-1].c, KEY_UP);
 			swipeLeftReleased_ = true;
 		}
 	}
 	if (g_Config.iSwipeUp != 0) {
 		if (dy < -th) {
-			__CtrlButtonDown(button[g_Config.iSwipeUp-1]);
+			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeUp-1].c, KEY_DOWN);
 			swipeUpReleased_ = false;
 		} else if (!swipeUpReleased_) {
-			__CtrlButtonUp(button[g_Config.iSwipeUp-1]);
+			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeUp-1].c, KEY_UP);
 			swipeUpReleased_ = true;
 		}
 	}
 	if (g_Config.iSwipeDown != 0) {
 		if (dy > th) {
-			__CtrlButtonDown(button[g_Config.iSwipeDown-1]);
+			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeDown-1].c, KEY_DOWN);
 			swipeDownReleased_ = false;
 		} else if (!swipeDownReleased_) {
-			__CtrlButtonUp(button[g_Config.iSwipeDown-1]);
+			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeDown-1].c, KEY_UP);
 			swipeDownReleased_ = true;
 		}
 	}
