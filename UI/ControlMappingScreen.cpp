@@ -48,8 +48,8 @@ class SingleControlMapper : public UI::LinearLayout {
 public:
 	SingleControlMapper(int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams = nullptr);
 
-	void Update() override;
 	int GetPspKey() const { return pspKey_; }
+
 private:
 	void Refresh();
 
@@ -76,20 +76,11 @@ private:
 	int pspKey_;
 	std::string keyName_;
 	ScreenManager *scrm_;
-	bool refresh_ = false;
 };
 
 SingleControlMapper::SingleControlMapper(int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams)
 	: UI::LinearLayout(UI::ORIENT_VERTICAL, layoutParams), pspKey_(pspKey), keyName_(keyName), scrm_(scrm) {
 	Refresh();
-}
-
-void SingleControlMapper::Update() {
-	if (refresh_) {
-		refresh_ = false;
-		Refresh();
-		host->UpdateUI();
-	}
 }
 
 void SingleControlMapper::Refresh() {
@@ -187,8 +178,6 @@ void SingleControlMapper::MappedCallback(KeyDef kdf) {
 		break;
 	}
 	g_Config.bMapMouse = false;
-	refresh_ = true;
-	// After this, we do not exist any more. So the refresh_ = true is probably irrelevant.
 }
 
 UI::EventReturn SingleControlMapper::OnReplace(UI::EventParams &params) {
@@ -224,7 +213,6 @@ UI::EventReturn SingleControlMapper::OnDelete(UI::EventParams &params) {
 	int index = atoi(params.v->Tag().c_str());
 	KeyMap::g_controllerMap[pspKey_].erase(KeyMap::g_controllerMap[pspKey_].begin() + index);
 	KeyMap::g_controllerMapGeneration++;
-	refresh_ = true;
 
 	if (index + 1 < rows_.size())
 		rows_[index]->SetFocus();
