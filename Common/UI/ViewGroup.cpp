@@ -756,6 +756,8 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 			}
 			views_[0]->Measure(dc, MeasureSpec(UNSPECIFIED, measuredWidth_), v);
 			MeasureBySpec(layoutParams_->height, views_[0]->GetMeasuredHeight(), vert, &measuredHeight_);
+			if (layoutParams_->width == WRAP_CONTENT)
+				MeasureBySpec(layoutParams_->width, views_[0]->GetMeasuredWidth(), horiz, &measuredWidth_);
 		} else {
 			MeasureSpec h = MeasureSpec(AT_MOST, measuredWidth_ - margins.horiz());
 			if (measuredWidth_ == 0.0f && (horiz.type == UNSPECIFIED || layoutParams_->width == WRAP_CONTENT)) {
@@ -763,16 +765,16 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 			}
 			views_[0]->Measure(dc, h, MeasureSpec(UNSPECIFIED, measuredHeight_));
 			MeasureBySpec(layoutParams_->width, views_[0]->GetMeasuredWidth(), horiz, &measuredWidth_);
+			if (layoutParams_->height == WRAP_CONTENT)
+				MeasureBySpec(layoutParams_->height, views_[0]->GetMeasuredHeight(), vert, &measuredHeight_);
 		}
 		if (orientation_ == ORIENT_VERTICAL && vert.type != EXACTLY) {
-			if (measuredHeight_ < views_[0]->GetMeasuredHeight() && layoutParams_->height < 0.0f) {
-				measuredHeight_ = views_[0]->GetMeasuredHeight();
-			}
-			if (measuredHeight_ < views_[0]->GetBounds().h && layoutParams_->height < 0.0f) {
-				measuredHeight_ = views_[0]->GetBounds().h;
-			}
-			if (vert.type == AT_MOST && measuredHeight_ > vert.size) {
-				measuredHeight_ = vert.size;
+			float bestHeight = std::max(views_[0]->GetMeasuredHeight(), views_[0]->GetBounds().h);
+			if (vert.type == AT_MOST)
+				bestHeight = std::min(bestHeight, vert.size);
+
+			if (measuredHeight_ < bestHeight && layoutParams_->height < 0.0f) {
+				measuredHeight_ = bestHeight;
 			}
 		}
 	}
@@ -793,7 +795,7 @@ void ScrollView::Layout() {
 	scrolled.w = views_[0]->GetMeasuredWidth() - margins.horiz();
 	scrolled.h = views_[0]->GetMeasuredHeight() - margins.vert();
 
-	float layoutScrollPos = ClampedScrollPos(scrollPos_);
+	layoutScrollPos_ = ClampedScrollPos(scrollPos_);
 
 	switch (orientation_) {
 	case ORIENT_HORIZONTAL:
@@ -801,7 +803,7 @@ void ScrollView::Layout() {
 			ScrollTo(0.0f);
 			lastViewSize_ = scrolled.w;
 		}
-		scrolled.x = bounds_.x - layoutScrollPos;
+		scrolled.x = bounds_.x - layoutScrollPos_;
 		scrolled.y = bounds_.y + margins.top;
 		break;
 	case ORIENT_VERTICAL:
@@ -810,7 +812,7 @@ void ScrollView::Layout() {
 			lastViewSize_ = scrolled.h;
 		}
 		scrolled.x = bounds_.x + margins.left;
-		scrolled.y = bounds_.y - layoutScrollPos;
+		scrolled.y = bounds_.y - layoutScrollPos_;
 		break;
 	}
 
@@ -913,23 +915,25 @@ bool ScrollView::SubviewFocused(View *view) {
 	const float overscroll = std::min(view->GetBounds().h / 1.5f, GetBounds().h / 4.0f);
 
 	float pos = ClampedScrollPos(scrollPos_);
+	float visibleSize = orientation_ == ORIENT_VERTICAL ? bounds_.h : bounds_.w;
+	float visibleEnd = scrollPos_ + visibleSize;
+
+	float viewStart, viewEnd;
 	switch (orientation_) {
 	case ORIENT_HORIZONTAL:
-		if (vBounds.x2() > bounds_.x2()) {
-			ScrollTo(pos + vBounds.x2() - bounds_.x2() + overscroll);
-		}
-		if (vBounds.x < bounds_.x) {
-			ScrollTo(pos + (vBounds.x - bounds_.x) - overscroll);
-		}
+		viewStart = layoutScrollPos_ + vBounds.x - bounds_.x;
+		viewEnd = layoutScrollPos_ + vBounds.x2() - bounds_.x;
 		break;
 	case ORIENT_VERTICAL:
-		if (vBounds.y2() > bounds_.y2()) {
-			ScrollTo(pos + vBounds.y2() - bounds_.y2() + overscroll);
-		}
-		if (vBounds.y < bounds_.y) {
-			ScrollTo(pos + (vBounds.y - bounds_.y) - overscroll);
-		}
+		viewStart = layoutScrollPos_ + vBounds.y - bounds_.y;
+		viewEnd = layoutScrollPos_ + vBounds.y2() - bounds_.y;
 		break;
+	}
+
+	if (viewEnd > visibleEnd) {
+		ScrollTo(viewEnd - visibleSize + overscroll);
+	} else if (viewStart < pos) {
+		ScrollTo(viewStart - overscroll);
 	}
 
 	return true;

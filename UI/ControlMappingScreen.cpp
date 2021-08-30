@@ -33,6 +33,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Input/InputState.h"
+#include "Common/StringUtils.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Core/KeyMap.h"
@@ -45,10 +46,10 @@
 
 class SingleControlMapper : public UI::LinearLayout {
 public:
-	SingleControlMapper(ControlMappingScreen *ctrlScreen, int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams = 0);
+	SingleControlMapper(int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams = nullptr);
 
-	void Update() override;
 	int GetPspKey() const { return pspKey_; }
+
 private:
 	void Refresh();
 
@@ -67,30 +68,22 @@ private:
 		ADD,
 	};
 
-	ControlMappingScreen *ctrlScreen_;
-	Action action_;
+	UI::Choice *addButton_ = nullptr;
+	UI::Choice *replaceAllButton_ = nullptr;
+	std::vector<UI::View *> rows_;
+	Action action_ = NONE;
 	int actionIndex_;
 	int pspKey_;
 	std::string keyName_;
 	ScreenManager *scrm_;
-	bool refresh_;
 };
 
-SingleControlMapper::SingleControlMapper(ControlMappingScreen *ctrlScreen, int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams)
-	: UI::LinearLayout(UI::ORIENT_VERTICAL, layoutParams), ctrlScreen_(ctrlScreen), action_(NONE), pspKey_(pspKey), keyName_(keyName), scrm_(scrm), refresh_(false) {
+SingleControlMapper::SingleControlMapper(int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams)
+	: UI::LinearLayout(UI::ORIENT_VERTICAL, layoutParams), pspKey_(pspKey), keyName_(keyName), scrm_(scrm) {
 	Refresh();
 }
 
-void SingleControlMapper::Update() {
-	if (refresh_) {
-		refresh_ = false;
-		Refresh();
-		host->UpdateUI();
-	}
-}
-
 void SingleControlMapper::Refresh() {
-	bool hasFocus = UI::GetFocusedView() == this;
 	Clear();
 	auto mc = GetI18NCategory("MappableControls");
 
@@ -117,17 +110,16 @@ void SingleControlMapper::Refresh() {
 	auto iter = keyImages.find(keyName_);
 	// First, look among images.
 	if (iter != keyImages.end()) {
-		Choice *c = root->Add(new Choice(iter->second, new LinearLayoutParams(leftColumnWidth, itemH)));
-		c->OnClick.Handle(this, &SingleControlMapper::OnReplaceAll);
+		replaceAllButton_ = new Choice(iter->second, new LinearLayoutParams(leftColumnWidth, itemH));
 	} else {
 		// No image? Let's translate.
-		Choice *c = new Choice(mc->T(keyName_.c_str()), new LinearLayoutParams(leftColumnWidth, itemH));
-		c->SetCentered(true);
-		root->Add(c)->OnClick.Handle(this, &SingleControlMapper::OnReplaceAll);
+		replaceAllButton_ = new Choice(mc->T(keyName_.c_str()), new LinearLayoutParams(leftColumnWidth, itemH));
+		replaceAllButton_->SetCentered(true);
 	}
+	root->Add(replaceAllButton_)->OnClick.Handle(this, &SingleControlMapper::OnReplaceAll);
 
-	Choice *p = root->Add(new Choice(" + ", new LayoutParams(WRAP_CONTENT, itemH)));
-	p->OnClick.Handle(this, &SingleControlMapper::OnAdd);
+	addButton_ = root->Add(new Choice(" + ", new LayoutParams(WRAP_CONTENT, itemH)));
+	addButton_->OnClick.Handle(this, &SingleControlMapper::OnAdd);
 	if (g_Config.bMouseControl) {
 		Choice *p = root->Add(new Choice("M", new LayoutParams(WRAP_CONTENT, itemH)));
 		p->OnClick.Handle(this, &SingleControlMapper::OnAddMouse);
@@ -138,22 +130,21 @@ void SingleControlMapper::Refresh() {
 	std::vector<KeyDef> mappings;
 	KeyMap::KeyFromPspButton(pspKey_, &mappings, false);
 
+	rows_.empty();
 	for (size_t i = 0; i < mappings.size(); i++) {
 		std::string deviceName = GetDeviceName(mappings[i].deviceId);
 		std::string keyName = KeyMap::GetKeyOrAxisName(mappings[i].keyCode);
 
 		LinearLayout *row = rightColumn->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		row->SetSpacing(1.0f);
-
-		char tagbuf[16];
-		sprintf(tagbuf, "%d", (int)i);
+		rows_.push_back(row);
 
 		Choice *c = row->Add(new Choice(deviceName + "." + keyName, new LinearLayoutParams(FILL_PARENT, itemH, 1.0f)));
-		c->SetTag(tagbuf);
+		c->SetTag(StringFromFormat("%d_Change%d", (int)i, pspKey_));
 		c->OnClick.Handle(this, &SingleControlMapper::OnReplace);
 
 		Choice *d = row->Add(new Choice(" X ", new LayoutParams(WRAP_CONTENT, itemH)));
-		d->SetTag(tagbuf);
+		d->SetTag(StringFromFormat("%d_Del%d", (int)i, pspKey_));
 		d->OnClick.Handle(this, &SingleControlMapper::OnDelete);
 	}
 
@@ -162,30 +153,31 @@ void SingleControlMapper::Refresh() {
 		Choice *c = rightColumn->Add(new Choice("", new LinearLayoutParams(FILL_PARENT, itemH)));
 		c->OnClick.Handle(this, &SingleControlMapper::OnAdd);
 	}
-
-	if (hasFocus)
-		this->SetFocus();
 }
 
 void SingleControlMapper::MappedCallback(KeyDef kdf) {
 	switch (action_) {
 	case ADD:
 		KeyMap::SetKeyMapping(pspKey_, kdf, false);
+		addButton_->SetFocus();
 		break;
 	case REPLACEALL:
 		KeyMap::SetKeyMapping(pspKey_, kdf, true);
+		replaceAllButton_->SetFocus();
 		break;
 	case REPLACEONE:
 		KeyMap::g_controllerMap[pspKey_][actionIndex_] = kdf;
 		KeyMap::g_controllerMapGeneration++;
+		if (actionIndex_ < rows_.size())
+			rows_[actionIndex_]->SetFocus();
+		else
+			SetFocus();
 		break;
 	default:
-		;
+		SetFocus();
+		break;
 	}
 	g_Config.bMapMouse = false;
-	refresh_ = true;
-	ctrlScreen_->KeyMapped(pspKey_);
-	// After this, we do not exist any more. So the refresh_ = true is probably irrelevant.
 }
 
 UI::EventReturn SingleControlMapper::OnReplace(UI::EventParams &params) {
@@ -221,7 +213,11 @@ UI::EventReturn SingleControlMapper::OnDelete(UI::EventParams &params) {
 	int index = atoi(params.v->Tag().c_str());
 	KeyMap::g_controllerMap[pspKey_].erase(KeyMap::g_controllerMap[pspKey_].begin() + index);
 	KeyMap::g_controllerMapGeneration++;
-	refresh_ = true;
+
+	if (index + 1 < rows_.size())
+		rows_[index]->SetFocus();
+	else
+		SetFocus();
 	return UI::EVENT_DONE;
 }
 
@@ -260,8 +256,9 @@ void ControlMappingScreen::CreateViews() {
 	std::vector<KeyMap::KeyMap_IntStrPair> mappableKeys = KeyMap::GetMappableKeys();
 	for (size_t i = 0; i < mappableKeys.size(); i++) {
 		SingleControlMapper *mapper = rightColumn->Add(
-			new SingleControlMapper(this, mappableKeys[i].key, mappableKeys[i].name, screenManager(),
+			new SingleControlMapper(mappableKeys[i].key, mappableKeys[i].name, screenManager(),
 				                    new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		mapper->SetTag(StringFromFormat("KeyMap%s", mappableKeys[i].name));
 		mappers_.push_back(mapper);
 	}
 
@@ -311,13 +308,6 @@ void ControlMappingScreen::dialogFinished(const Screen *dialog, DialogResult res
 	if (result == DR_OK && dialog->tag() == "listpopup") {
 		ListPopupScreen *popup = (ListPopupScreen *)dialog;
 		KeyMap::AutoConfForPad(popup->GetChoiceString());
-	}
-}
-
-void ControlMappingScreen::KeyMapped(int pspkey) {  // Notification to let us refocus the same one after recreating views.
-	for (size_t i = 0; i < mappers_.size(); i++) {
-		if (mappers_[i]->GetPspKey() == pspkey)
-			SetFocusedView(mappers_[i]);
 	}
 }
 
@@ -1007,6 +997,7 @@ public:
 
 	MockPSP(UI::LayoutParams *layoutParams = nullptr);
 	void SelectButton(int btn);
+	void FocusButton(int btn);
 	float GetPopupOffset();
 
 	UI::Event ButtonClick;
@@ -1051,6 +1042,12 @@ MockPSP::MockPSP(UI::LayoutParams *layoutParams) : AnchorLayout(layoutParams) {
 
 void MockPSP::SelectButton(int btn) {
 	selectedButton_ = btn;
+}
+
+void MockPSP::FocusButton(int btn) {
+	MockButton *view = buttons_[selectedButton_];
+	if (view)
+		view->SetFocus();
 }
 
 float MockPSP::GetPopupOffset() {
@@ -1162,8 +1159,13 @@ void VisualMappingScreen::HandleKeyMapping(KeyDef key) {
 			nextKey_ = VIRTKEY_AXIS_X_MIN;
 		else if (nextKey_ == VIRTKEY_AXIS_X_MIN)
 			nextKey_ = VIRTKEY_AXIS_X_MAX;
-		else
+		else {
+			if (nextKey_ == VIRTKEY_AXIS_X_MAX)
+				psp_->FocusButton(VIRTKEY_AXIS_Y_MAX);
+			else
+				psp_->FocusButton(nextKey_);
 			nextKey_ = 0;
+		}
 	} else if ((size_t)bindAll_ + 1 < bindAllOrder.size()) {
 		bindAll_++;
 		nextKey_ = bindAllOrder[bindAll_];
@@ -1177,6 +1179,9 @@ void VisualMappingScreen::dialogFinished(const Screen *dialog, DialogResult resu
 	if (result == DR_YES && nextKey_ != 0) {
 		MapNext();
 	} else {
+		// This means they canceled.
+		if (nextKey_ != 0)
+			psp_->FocusButton(nextKey_);
 		nextKey_ = 0;
 		bindAll_ = -1;
 		psp_->SelectButton(0);

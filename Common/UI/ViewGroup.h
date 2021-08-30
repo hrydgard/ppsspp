@@ -300,6 +300,7 @@ private:
 	float scrollTarget_ = 0.0f;
 	int scrollTouchId_ = -1;
 	bool scrollToTarget_ = false;
+	float layoutScrollPos_ = 0.0f;
 	float inertia_ = 0.0f;
 	float pull_ = 0.0f;
 	float lastViewSize_ = 0.0f;
