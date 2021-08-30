@@ -854,7 +854,7 @@ void GestureGamepad::Touch(const TouchInput &input) {
 			const float now = time_now_d();
 			if (now - lastTapRelease_ < 0.3f && !haveDoubleTapped_) {
 				if (g_Config.iDoubleTapGesture != 0 )
-					controllMapper_->pspKey(GestureKey::keyList[g_Config.iDoubleTapGesture-1].c, KEY_DOWN);
+					controllMapper_->pspKey(GestureKey::keyList[g_Config.iDoubleTapGesture-1], KEY_DOWN);
 				haveDoubleTapped_ = true;
 			}
 
@@ -877,7 +877,7 @@ void GestureGamepad::Touch(const TouchInput &input) {
 
 			if (haveDoubleTapped_) {
 				if (g_Config.iDoubleTapGesture != 0)
-					controllMapper_->pspKey(GestureKey::keyList[g_Config.iDoubleTapGesture-1].c, KEY_UP);
+					controllMapper_->pspKey(GestureKey::keyList[g_Config.iDoubleTapGesture-1], KEY_UP);
 				haveDoubleTapped_ = false;
 			}
 		}
@@ -890,37 +890,37 @@ void GestureGamepad::Update() {
 	float dy = deltaY_ * g_dpi_scale_y * g_Config.fSwipeSensitivity;
 	if (g_Config.iSwipeRight != 0) {
 		if (dx > th) {
-			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeRight-1].c, KEY_DOWN);
+			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeRight-1], KEY_DOWN);
 			swipeRightReleased_ = false;
 		} else if (!swipeRightReleased_) {
-			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeRight-1].c, KEY_UP);
+			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeRight-1], KEY_UP);
 			swipeRightReleased_ = true;
 		}
 	}
 	if (g_Config.iSwipeLeft != 0) {
 		if (dx < -th) {
-			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeLeft-1].c, KEY_DOWN);
+			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeLeft-1], KEY_DOWN);
 			swipeLeftReleased_ = false;
 		} else if (!swipeLeftReleased_) {
-			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeLeft-1].c, KEY_UP);
+			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeLeft-1], KEY_UP);
 			swipeLeftReleased_ = true;
 		}
 	}
 	if (g_Config.iSwipeUp != 0) {
 		if (dy < -th) {
-			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeUp-1].c, KEY_DOWN);
+			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeUp-1], KEY_DOWN);
 			swipeUpReleased_ = false;
 		} else if (!swipeUpReleased_) {
-			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeUp-1].c, KEY_UP);
+			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeUp-1], KEY_UP);
 			swipeUpReleased_ = true;
 		}
 	}
 	if (g_Config.iSwipeDown != 0) {
 		if (dy > th) {
-			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeDown-1].c, KEY_DOWN);
+			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeDown-1], KEY_DOWN);
 			swipeDownReleased_ = false;
 		} else if (!swipeDownReleased_) {
-			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeDown-1].c, KEY_UP);
+			controllMapper_->pspKey(GestureKey::keyList[g_Config.iSwipeDown-1], KEY_UP);
 			swipeDownReleased_ = true;
 		}
 	}

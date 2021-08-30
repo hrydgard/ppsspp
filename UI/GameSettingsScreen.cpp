@@ -2012,7 +2012,7 @@ void GestureMappingScreen::CreateViews() {
 	static const char *gestureButton[ARRAY_SIZE(GestureKey::keyList)+1];
 	gestureButton[0] = "None";
 	for (int i = 1; i < ARRAY_SIZE(gestureButton); ++i) {
-		gestureButton[i] = GestureKey::keyList[i-1].n;
+		gestureButton[i] = KeyMap::GetPspButtonNameCharPointer(GestureKey::keyList[i-1]);
 	}
 
 	vert->Add(new CheckBox(&g_Config.bGestureControlEnabled, co->T("Enable gesture control")));

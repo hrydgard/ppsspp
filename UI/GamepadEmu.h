@@ -315,42 +315,38 @@ namespace CustomKey {
 
 // Gesture key only have virtual button that can work without constant press
 namespace GestureKey {
-	struct key {
-		const char* n; // UI name
-		uint32_t c; // Key code
-	};
-	static const key keyList[] = {
-		{ "Square", CTRL_SQUARE },
-		{ "Triangle", CTRL_TRIANGLE },
-		{ "Circle", CTRL_CIRCLE },
-		{ "Cross", CTRL_CROSS },
-		{ "Up", CTRL_UP },
-		{ "Down", CTRL_DOWN },
-		{ "Left", CTRL_LEFT },
-		{ "Right", CTRL_RIGHT },
-		{ "Start", CTRL_START },
-		{ "Select", CTRL_SELECT },
-		{ "L", CTRL_LTRIGGER },
-		{ "R", CTRL_RTRIGGER },
-		{ "An.Up", VIRTKEY_AXIS_Y_MAX },
-		{ "An.Down", VIRTKEY_AXIS_Y_MIN },
-		{ "An.Left", VIRTKEY_AXIS_X_MIN },
-		{ "An.Right", VIRTKEY_AXIS_X_MAX },
-		{ "SpeedToggle", VIRTKEY_SPEED_TOGGLE },
-		{ "Rewind", VIRTKEY_REWIND },
-		{ "Save State", VIRTKEY_SAVE_STATE },
-		{ "Load State", VIRTKEY_LOAD_STATE },
-		{ "Next Slot", VIRTKEY_NEXT_SLOT },
-		{ "Toggle Fullscreen", VIRTKEY_TOGGLE_FULLSCREEN },
-		{ "Texture Dumping", VIRTKEY_TEXTURE_DUMP },
-		{ "Texture Replacement", VIRTKEY_TEXTURE_REPLACE },
-		{ "Screenshot", VIRTKEY_SCREENSHOT },
-		{ "Mute toggle", VIRTKEY_MUTE_TOGGLE },
-		{ "OpenChat", VIRTKEY_OPENCHAT },
-		{ "Pause", VIRTKEY_PAUSE },
-		{ "DevMenu", VIRTKEY_DEVMENU },
+	static const uint32_t keyList[] = {
+		CTRL_SQUARE,
+		CTRL_TRIANGLE,
+		CTRL_CIRCLE,
+		CTRL_CROSS,
+		CTRL_UP,
+		CTRL_DOWN,
+		CTRL_LEFT,
+		CTRL_RIGHT,
+		CTRL_START,
+		CTRL_SELECT,
+		CTRL_LTRIGGER,
+		CTRL_RTRIGGER,
+		VIRTKEY_AXIS_Y_MAX,
+		VIRTKEY_AXIS_Y_MIN,
+		VIRTKEY_AXIS_X_MIN,
+		VIRTKEY_AXIS_X_MAX, 
+		VIRTKEY_SPEED_TOGGLE,
+		VIRTKEY_REWIND, 
+		VIRTKEY_SAVE_STATE,
+		VIRTKEY_LOAD_STATE,
+		VIRTKEY_NEXT_SLOT,	
+		VIRTKEY_TOGGLE_FULLSCREEN,
+		VIRTKEY_TEXTURE_DUMP, 
+		VIRTKEY_TEXTURE_REPLACE,
+		VIRTKEY_SCREENSHOT,
+		VIRTKEY_MUTE_TOGGLE,
+		VIRTKEY_OPENCHAT,
+		VIRTKEY_PAUSE,
+		VIRTKEY_DEVMENU,
 #ifndef MOBILE_DEVICE
-		{ "Record", VIRTKEY_RECORD },
+		VIRTKEY_RECORD,
 #endif
 	};
 }
