@@ -55,12 +55,20 @@ private:
 	void Refresh();
 
 	UI::EventReturn OnDelete(UI::EventParams &params);
-	UI::EventReturn OnMap(UI::EventParams &params);
+
+	void MappedCallback();
+
+	enum Action {
+		NONE,
+		REPLACEONE,
+		REPLACEALL,
+		ADD,
+	};
 
 	UI::Choice *addButton_ = nullptr;
 	UI::Choice *replaceAllButton_ = nullptr;
 	std::vector<UI::View *> rows_;
-
+	Action action_ = NONE;
 	int actionIndex_;
 	int pspKey_;
 	std::string keyName_;
@@ -105,10 +113,22 @@ void SingleControlMapper::Refresh() {
 		replaceAllButton_ = new Choice(mc->T(keyName_.c_str()), new LinearLayoutParams(leftColumnWidth, itemH));
 		replaceAllButton_->SetCentered(true);
 	}
-	root->Add(replaceAllButton_)->OnClick.Handle(this, &SingleControlMapper::OnMap);
+	root->Add(replaceAllButton_)->OnClick.Add([=](EventParams &e) {
+		auto mc = GetI18NCategory("MappableControls");
+		action_ = REPLACEALL;
+		scrm_->push(new KeyMappingDialog(pspKey_, std::bind(&SingleControlMapper::MappedCallback, this), mc));
+
+		return UI::EVENT_DONE;
+	});
 
 	addButton_ = root->Add(new Choice(" + ", new LayoutParams(WRAP_CONTENT, itemH)));
-	addButton_->OnClick.Handle(this, &SingleControlMapper::OnMap);
+	addButton_->OnClick.Add([=](EventParams &e) {
+		auto mc = GetI18NCategory("MappableControls");
+		action_ = ADD;
+		scrm_->push(new KeyMappingDialog(pspKey_, std::bind(&SingleControlMapper::MappedCallback, this), mc));
+
+		return UI::EVENT_DONE;
+	});
 
 	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(rightColumnWidth, WRAP_CONTENT)));
 	rightColumn->SetSpacing(2.0f);
@@ -125,7 +145,13 @@ void SingleControlMapper::Refresh() {
 		rows_.push_back(row);
 
 		Choice *c = row->Add(new Choice(deviceName + "." + keyName, new LinearLayoutParams(FILL_PARENT, itemH, 1.0f)));
-		c->OnClick.Handle(this, &SingleControlMapper::OnMap);
+		c->OnClick.Add([=](EventParams &e) {
+			auto mc = GetI18NCategory("MappableControls");
+			action_ = REPLACEONE;
+			scrm_->push(new KeyMappingDialog(pspKey_, std::bind(&SingleControlMapper::MappedCallback, this), mc));
+
+			return UI::EVENT_DONE;
+		});
 
 		Choice *d = row->Add(new Choice(" X ", new LayoutParams(WRAP_CONTENT, itemH)));
 		d->SetTag(StringFromFormat("%d_Del%d", (int)i, pspKey_));
@@ -135,23 +161,25 @@ void SingleControlMapper::Refresh() {
 	if (mappings.size() == 0) {
 		// look like an empty line
 		Choice *c = rightColumn->Add(new Choice("", new LinearLayoutParams(FILL_PARENT, itemH)));
-		c->OnClick.Handle(this, &SingleControlMapper::OnMap);
+		c->OnClick.Add([=](EventParams &e) {
+			auto mc = GetI18NCategory("MappableControls");
+			action_ = ADD;
+			scrm_->push(new KeyMappingDialog(pspKey_, std::bind(&SingleControlMapper::MappedCallback, this), mc));
+
+			return UI::EVENT_DONE;
+		});
 	}
 }
 
-/*void SingleControlMapper::MappedCallback(KeyDef kdf) {
+void SingleControlMapper::MappedCallback() {
 	switch (action_) {
 	case ADD:
-		KeyMap::SetKeyMapping(pspKey_, kdf, false);
 		addButton_->SetFocus();
 		break;
 	case REPLACEALL:
-		KeyMap::SetKeyMapping(pspKey_, kdf, true);
 		replaceAllButton_->SetFocus();
 		break;
 	case REPLACEONE:
-		KeyMap::g_controllerMap[pspKey_][actionIndex_] = kdf;
-		KeyMap::g_controllerMapGeneration++;
 		if (actionIndex_ < rows_.size())
 			rows_[actionIndex_]->SetFocus();
 		else
@@ -162,13 +190,6 @@ void SingleControlMapper::Refresh() {
 		break;
 	}
 	g_Config.bMapMouse = false;
-}*/
-
-UI::EventReturn SingleControlMapper::OnMap(UI::EventParams &params) {
-	auto mc = GetI18NCategory("MappableControls");
-	scrm_->push(new KeyMappingDialog(pspKey_, mc));
-
-	return UI::EVENT_DONE;
 }
 
 UI::EventReturn SingleControlMapper::OnDelete(UI::EventParams &params) {
@@ -421,12 +442,16 @@ void KeyMappingDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	parent->Add(scroll);
 }
 
+void KeyMappingDialog::OnCompleted(DialogResult result) {
+	if (callback_)
+		callback_();
+}
+
 bool KeyMappingDialog::key(const KeyInput &key) {
 	if (selectedIndex_ < 0)
 		return PopupScreen::key(key);
 
 	if (key.flags & KEY_DOWN) {
-
 		// Have a way out key in both mode
 		if (key.keyCode != (g_Config.bMapMouse ? NKCODE_ESCAPE : NKCODE_EXT_MOUSEBUTTON_1)) {
 			KeyDef kdf(key.deviceId, key.keyCode);

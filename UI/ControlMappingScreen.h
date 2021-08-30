@@ -78,17 +78,19 @@ class BindingChoice;
 
 class KeyMappingDialog : public PopupScreen {
 public:
-	explicit KeyMappingDialog(int btn, std::shared_ptr<I18NCategory> i18n)
-		: PopupScreen(ReplaceAll(i18n->T("Mapping for %1"), "%1", i18n->T(KeyMap::GetPspButtonName(btn)))), pspBtn_(btn) {}
+	explicit KeyMappingDialog(int btn, std::function<void(void)> callback, std::shared_ptr<I18NCategory> i18n)
+		: PopupScreen(ReplaceAll(i18n->T("Mapping for %1"), "%1", i18n->T(KeyMap::GetPspButtonName(btn)))), callback_(callback), pspBtn_(btn) {}
 
 	bool key(const KeyInput &key) override;
 	bool axis(const AxisInput &axis) override;
 
 protected:
 	void CreatePopupContents(UI::ViewGroup *parent) override;
+	void OnCompleted(DialogResult result) override;
 
 private:
 	int pspBtn_;
+	std::function<void(void)> callback_;
 	BindingChoice *selected_;
 	int selectedIndex_ = -1;
 };
