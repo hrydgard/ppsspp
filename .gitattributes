@@ -1,14 +1,9 @@
-*.cpp            text diff=cpp
-*.h              text diff=cpp
-*.mm             text diff=objc
-*.m              text diff=objc
-*.java           text diff=java
-*.sh             text eol=lf
-*.vcproj         text eol=crlf
-*.vcproj.filters text eol=crlf
-*.sln            text eol=crlf
-*.properties     text
-*.xml            text
+# Set the default behavior, in case people don't have core.autocrlf set.
+* text=auto
 
-# To avoid mucking up the utf-8 characters.
-Core/Dialog/PSPOskDialog.cpp binary
+# Explicitly declare text files you want to always be normalized and converted
+# to native line endings on checkout.
+*.cpp text
+*.c text
+*.h text
+*.rc text
