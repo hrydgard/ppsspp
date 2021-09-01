@@ -296,6 +296,10 @@ void PopupScreen::SetPopupOrigin(const UI::View *view) {
 	popupOrigin_ = view->GetBounds().Center();
 }
 
+void PopupScreen::SetPopupOffset(float y) {
+	offsetY_ = y;
+}
+
 void PopupScreen::TriggerFinish(DialogResult result) {
 	if (CanComplete(result)) {
 		finishFrame_ = frames_;
@@ -320,7 +324,7 @@ void PopupScreen::CreateViews() {
 	float yres = screenManager()->getUIContext()->GetBounds().h;
 
 	box_ = new LinearLayout(ORIENT_VERTICAL,
-		new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, dc.GetBounds().centerX(), dc.GetBounds().centerY(), NONE, NONE, true));
+		new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, dc.GetBounds().centerX(), dc.GetBounds().centerY() + offsetY_, NONE, NONE, true));
 
 	root_->Add(box_);
 	box_->SetBG(dc.theme->popupStyle.background);

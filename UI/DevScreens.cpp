@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <cstring>
 
 #include "ppsspp_config.h"
 
@@ -482,7 +483,7 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new ItemHeader(si->T("CPU Information")));
 
 	// Don't bother showing the CPU name if we don't have one.
-	if (cpu_info.brand_string != "Unknown") {
+	if (strcmp(cpu_info.brand_string, "Unknown") != 0) {
 		deviceSpecs->Add(new InfoItem(si->T("CPU Name", "Name"), cpu_info.brand_string));
 	}
 
@@ -1205,7 +1206,8 @@ void FrameDumpTestScreen::update() {
 	UIScreen::update();
 
 	if (!listing_) {
-		listing_ = g_DownloadManager.StartDownload(framedumpsBaseUrl, Path());
+		const char *acceptMime = "text/html, */*; q=0.8";
+		listing_ = g_DownloadManager.StartDownload(framedumpsBaseUrl, Path(), acceptMime);
 	}
 
 	if (listing_ && listing_->Done() && files_.empty()) {

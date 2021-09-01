@@ -186,7 +186,7 @@ protected:
 		auto pa = GetI18NCategory("Pause");
 		auto di = GetI18NCategory("Dialog");
 
-		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, 50, 1.0f));
+		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 		LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
 		Margins contentMargins(10, 0);
 		content->Add(new AsyncImageFileView(filename_, IS_KEEP_ASPECT, new LinearLayoutParams(480, 272, contentMargins)))->SetCanBeFocused(false);

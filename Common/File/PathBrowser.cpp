@@ -38,10 +38,11 @@ bool LoadRemoteFileList(const Path &url, bool *cancel, std::vector<File::FileInf
 	}
 
 	// Start by requesting the list of files from the server.
+	http::RequestParams req(baseURL.Resource(), "text/plain, text/html; q=0.9, */*; q=0.8");
 	if (http.Resolve(baseURL.Host().c_str(), baseURL.Port())) {
 		if (http.Connect(2, 20.0, cancel)) {
 			http::RequestProgress progress(cancel);
-			code = http.GET(baseURL.Resource().c_str(), &result, responseHeaders, &progress);
+			code = http.GET(req, &result, responseHeaders, &progress);
 			http.Disconnect();
 		}
 	}

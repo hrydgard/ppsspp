@@ -12,7 +12,7 @@ import android.view.MotionEvent;
 public class InputDeviceState {
 	private static final String TAG = "InputDeviceState";
 
-	public static final int deviceId = NativeApp.DEVICE_ID_PAD_0;
+	private int deviceId = NativeApp.DEVICE_ID_DEFAULT;
 
 	private InputDevice mDevice;
 	private int[] mAxes;
@@ -27,21 +27,31 @@ public class InputDeviceState {
 	}
 
 	public InputDeviceState(InputDevice device) {
+		int sources = device.getSources();
+		if ((sources & InputDevice.SOURCE_KEYBOARD) == InputDevice.SOURCE_KEYBOARD && device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC) {
+			this.deviceId = NativeApp.DEVICE_ID_KEYBOARD;
+		} else if ((sources & InputDevice.SOURCE_CLASS_POINTER) == InputDevice.SOURCE_CLASS_POINTER) {
+			this.deviceId = NativeApp.DEVICE_ID_MOUSE;
+		} else if (((sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
+				(sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK ||
+				(sources & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD)) {
+			this.deviceId = NativeApp.DEVICE_ID_PAD_0;
+		} else {
+			// Built-in buttons like Back etc.
+			this.deviceId = NativeApp.DEVICE_ID_DEFAULT;
+		}
+
 		mDevice = device;
 		int numAxes = 0;
 		for (MotionRange range : device.getMotionRanges()) {
-			if ((range.getSource() & InputDevice.SOURCE_CLASS_JOYSTICK) != 0) {
-				numAxes += 1;
-			}
+			numAxes += 1;
 		}
 
 		mAxes = new int[numAxes];
 
 		int i = 0;
 		for (MotionRange range : device.getMotionRanges()) {
-			if ((range.getSource() & InputDevice.SOURCE_CLASS_JOYSTICK) != 0) {
-				mAxes[i++] = range.getAxis();
-			}
+			mAxes[i++] = range.getAxis();
 		}
 
 		Log.i(TAG, "Registering input device with " + numAxes + " axes: " + device.getName());

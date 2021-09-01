@@ -50,6 +50,8 @@
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 
+using namespace PPSSPP_VK;
+
 #define TEXCACHE_MIN_SLAB_SIZE (8 * 1024 * 1024)
 #define TEXCACHE_MAX_SLAB_SIZE (32 * 1024 * 1024)
 #define TEXCACHE_SLAB_PRESSURE 4

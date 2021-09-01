@@ -173,7 +173,7 @@ public:
 	bool bVSync;
 	int iFrameSkip;
 	int iFrameSkipType;
-	int iUnthrottleMode; // See UnthrottleMode in ConfigValues.h.
+	int iFastForwardMode; // See FastForwardMode in ConfigValues.h.
 	bool bAutoFrameSkip;
 
 	bool bEnableCardboardVR; // Cardboard Master Switch
@@ -292,6 +292,7 @@ public:
 	//the base x and y tilt. this inclination is treated as (0,0) and the tilt input
 	//considers this orientation to be equal to no movement of the analog stick.
 	float fTiltBaseX, fTiltBaseY;
+	int iTiltOrientation;
 	//whether the x axes and y axes should invert directions (left becomes right, top becomes bottom.)
 	bool bInvertTiltX, bInvertTiltY;
 	//the sensitivity of the tilt in the x direction
@@ -319,6 +320,16 @@ public:
 	int iRightAnalogPress;
 	bool bRightAnalogCustom;
 	bool bRightAnalogDisableDiagonal;
+
+	// Motion gesture controller
+	bool bGestureControlEnabled;
+	int iSwipeUp;
+	int iSwipeDown;
+	int iSwipeLeft;
+	int iSwipeRight;
+	float fSwipeSensitivity;
+	float fSwipeSmoothing;
+	int iDoubleTapGesture;
 
 	// Disable diagonals
 	bool bDisableDpadDiagonals;
@@ -348,7 +359,7 @@ public:
 	float fDpadSpacing;
 	ConfigTouchPos touchStartKey;
 	ConfigTouchPos touchSelectKey;
-	ConfigTouchPos touchUnthrottleKey;
+	ConfigTouchPos touchFastForwardKey;
 	ConfigTouchPos touchLKey;
 	ConfigTouchPos touchRKey;
 	ConfigTouchPos touchAnalogStick;

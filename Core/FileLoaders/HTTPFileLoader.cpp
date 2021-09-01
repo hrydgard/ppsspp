@@ -137,7 +137,8 @@ int HTTPFileLoader::SendHEAD(const Url &url, std::vector<std::string> &responseH
 		return -400;
 	}
 
-	int err = client_.SendRequest("HEAD", url.Resource().c_str(), nullptr, &progress_);
+	http::RequestParams req(url.Resource(), "*/*");
+	int err = client_.SendRequest("HEAD", req, nullptr, &progress_);
 	if (err < 0) {
 		ERROR_LOG(LOADER, "HTTP request failed, failed to send request: %s port %d", url.Host().c_str(), url.Port());
 		latestError_ = "Could not connect (could not request data)";
@@ -196,7 +197,8 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags f
 	snprintf(requestHeaders, sizeof(requestHeaders),
 		"Range: bytes=%lld-%lld\r\n", absolutePos, absoluteEnd - 1);
 
-	int err = client_.SendRequest("GET", url_.Resource().c_str(), requestHeaders, &progress_);
+	http::RequestParams req(url_.Resource(), "*/*");
+	int err = client_.SendRequest("GET", req, requestHeaders, &progress_);
 	if (err < 0) {
 		latestError_ = "Invalid response reading data";
 		Disconnect();

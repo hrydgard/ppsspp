@@ -81,6 +81,7 @@ public:
 	virtual void TriggerFinish(DialogResult result) override;
 
 	void SetPopupOrigin(const UI::View *view);
+	void SetPopupOffset(float y);
 
 protected:
 	virtual bool FillVertical() const { return false; }
@@ -109,6 +110,7 @@ private:
 	DialogResult finishResult_;
 	bool hasPopupOrigin_ = false;
 	Point popupOrigin_;
+	float offsetY_ = 0.0f;
 };
 
 class ListPopupScreen : public PopupScreen {

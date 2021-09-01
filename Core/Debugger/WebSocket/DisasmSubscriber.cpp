@@ -320,8 +320,10 @@ void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 			req.ParamU32("address", &start);
 		end = disasm_.getNthNextAddress(start, count);
 	} else if (req.ParamU32("end", &end)) {
-		end = std::min(std::max(start, end), start + MAX_RANGE * 4);
-		// Let's assume everything is two instructions.
+		end = std::max(start, end);
+		if (end - start > MAX_RANGE * 4)
+			end = start + MAX_RANGE * 4;
+		// Let's assume everything is two instructions at most.
 		disasm_.analyze(start - 4, end - start + 8);
 		start = disasm_.getStartAddress(start);
 		if (start == -1)
@@ -329,8 +331,14 @@ void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 		// Correct end and calculate count based on it.
 		// This accounts for macros as one line, although two instructions.
 		u32 stop = end;
+		u32 next = start;
 		count = 0;
-		for (end = start; end < stop; end = disasm_.getNthNextAddress(end, 1)) {
+		if (stop < start) {
+			for (next = start; next > stop; next = disasm_.getNthNextAddress(next, 1)) {
+				count++;
+			}
+		}
+		for (end = next; end < stop && end >= next; end = disasm_.getNthNextAddress(end, 1)) {
 			count++;
 		}
 	} else {

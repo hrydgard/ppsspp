@@ -138,9 +138,11 @@ namespace Reporting
 
 		if (crcPending) {
 			// Already in process.
+			INFO_LOG(SYSTEM, "CRC already pending");
 			return;
 		}
 
+		INFO_LOG(SYSTEM, "Starting CRC calculation");
 		crcFilename = gamePath;
 		crcPending = true;
 		crcCancel = false;
@@ -178,13 +180,22 @@ namespace Reporting
 
 	static void PurgeCRC() {
 		std::unique_lock<std::mutex> guard(crcLock);
-		crcCancel = true;
-		while (crcPending) {
-			crcCond.wait(guard);
+		if (crcPending) {
+			INFO_LOG(SYSTEM, "Cancelling CRC calculation");
+			crcCancel = true;
+			while (crcPending) {
+				crcCond.wait(guard);
+			}
+		} else {
+			DEBUG_LOG(SYSTEM, "No CRC pending");
 		}
 
 		if (crcThread.joinable())
 			crcThread.join();
+	}
+
+	void CancelCRC() {
+		PurgeCRC();
 	}
 
 	// Returns the full host (e.g. report.ppsspp.org:80.)
@@ -271,7 +282,7 @@ namespace Reporting
 
 		if (http.Resolve(serverHost, ServerPort())) {
 			http.Connect();
-			int result = http.POST(uri, data, mimeType, output, &progress);
+			int result = http.POST(http::RequestParams(uri), data, mimeType, output, &progress);
 			http.Disconnect();
 
 			return result >= 200 && result < 300;

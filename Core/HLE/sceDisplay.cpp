@@ -518,7 +518,7 @@ static bool FrameTimingThrottled() {
 	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2 && g_Config.iFpsLimit2 == 0) {
 		return false;
 	}
-	return !PSP_CoreParameter().unthrottle;
+	return !PSP_CoreParameter().fastForward;
 }
 
 static void DoFrameDropLogging(float scaledTimestep) {
@@ -557,16 +557,16 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	// we have nothing to do here.
 	bool doFrameSkip = g_Config.iFrameSkip != 0;
 
-	bool unthrottleNeedsSkip = g_Config.iUnthrottleMode == (int)UnthrottleMode::SKIP_DRAW;
+	bool fastForwardNeedsSkip = g_Config.iFastForwardMode == (int)FastForwardMode::SKIP_DRAW;
 	if (g_Config.bVSync && GetGPUBackend() == GPUBackend::VULKAN) {
 		// Vulkan doesn't support the interval setting, so we force frameskip.
-		unthrottleNeedsSkip = true;
+		fastForwardNeedsSkip = true;
 		// If it's not a clean multiple of 60, we may need frameskip to achieve it.
 		if (fpsLimit == 0 || (fpsLimit >= 0 && fpsLimit != 15 && fpsLimit != 30 && fpsLimit != 60)) {
 			doFrameSkip = true;
 		}
 	}
-	if (!throttle && unthrottleNeedsSkip) {
+	if (!throttle && fastForwardNeedsSkip) {
 		doFrameSkip = true;
 		skipFrame = true;
 		if (numSkippedFrames >= 7) {
@@ -599,7 +599,7 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	}
 
 	// Auto-frameskip automatically if speed limit is set differently than the default.
-	bool forceFrameskip = fpsLimit > 60 && unthrottleNeedsSkip;
+	bool forceFrameskip = fpsLimit > 60 && fastForwardNeedsSkip;
 	int frameSkipNum = CalculateFrameSkip();
 	if (g_Config.bAutoFrameSkip || forceFrameskip) {
 		// autoframeskip
@@ -622,7 +622,7 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	// timestamp to push it to display, and sleep in the render thread to achieve that.
 
 	if (curFrameTime < nextFrameTime && throttle) {
-		// If time gap is huge just jump (somebody unthrottled)
+		// If time gap is huge just jump (somebody fast-forwarded)
 		if (nextFrameTime - curFrameTime > 2*scaledTimestep) {
 			nextFrameTime = curFrameTime;
 		} else {
@@ -750,14 +750,14 @@ void __DisplayFlip(int cyclesLate) {
 
 	bool duplicateFrames = g_Config.bRenderDuplicateFrames && g_Config.iFrameSkip == 0;
 
-	bool unthrottleNeedsSkip = g_Config.iUnthrottleMode != (int)UnthrottleMode::CONTINUOUS;
+	bool fastForwardNeedsSkip = g_Config.iFastForwardMode != (int)FastForwardMode::CONTINUOUS;
 	if (g_Config.bVSync && GetGPUBackend() == GPUBackend::VULKAN) {
 		// Vulkan doesn't support the interval setting, so we force frameskip.
-		unthrottleNeedsSkip = true;
+		fastForwardNeedsSkip = true;
 	}
 
-	// postEffectRequiresFlip is not compatible with frameskip unthrottling, see #12325.
-	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && !(unthrottleNeedsSkip && !FrameTimingThrottled())) {
+	// postEffectRequiresFlip is not compatible with frameskip fast-forward, see #12325.
+	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && !(fastForwardNeedsSkip && !FrameTimingThrottled())) {
 		postEffectRequiresFlip = duplicateFrames || g_Config.bShaderChainRequires60FPS;
 	}
 
@@ -786,9 +786,9 @@ void __DisplayFlip(int cyclesLate) {
 		}
 
 		bool forceNoFlip = false;
-		// Alternative to frameskip unthrottle, where we draw everything.
+		// Alternative to frameskip fast-forward, where we draw everything.
 		// Useful if skipping a frame breaks graphics or for checking drawing speed.
-		if (g_Config.iUnthrottleMode == (int)UnthrottleMode::SKIP_FLIP && !FrameTimingThrottled()) {
+		if (g_Config.iFastForwardMode == (int)FastForwardMode::SKIP_FLIP && !FrameTimingThrottled()) {
 			static double lastFlip = 0;
 			double now = time_now_d();
 			if ((now - lastFlip) < 1.0f / System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE)) {

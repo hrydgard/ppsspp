@@ -23,15 +23,6 @@ and adjust -j32 depending on your number of logical CPUs - might not need that m
 To debug from within MSVC, open retroarch.exe (or retroarch_debug.exe) as a Project/Solution, then open a few of the cpp files,
 set some breakpoints and just launch using F5.
 
-If you get
-
-```
-../git-version.cpp(3): error C2374: 'PPSSPP_GIT_VERSION': redefinition; multiple initialization
-../git-version.cpp(1): note: see declaration of 'PPSSPP_GIT_VERSION'
-```
-just do `rm ../git-version.cpp`.
-
-
 Useful libretro/vulkan sample code:
 
 https://github.com/libretro/libretro-samples/blob/master/video/vulkan/vk_rendering/libretro-test.c

@@ -28,6 +28,7 @@
 #include <dlfcn.h>
 #endif
 
+namespace PPSSPP_VK {
 PFN_vkCreateInstance vkCreateInstance;
 PFN_vkDestroyInstance vkDestroyInstance;
 PFN_vkEnumeratePhysicalDevices vkEnumeratePhysicalDevices;
@@ -216,6 +217,9 @@ PFN_vkGetBufferMemoryRequirements2KHR vkGetBufferMemoryRequirements2KHR;
 PFN_vkGetImageMemoryRequirements2KHR vkGetImageMemoryRequirements2KHR;
 PFN_vkGetPhysicalDeviceProperties2KHR vkGetPhysicalDeviceProperties2KHR;
 PFN_vkGetPhysicalDeviceFeatures2KHR vkGetPhysicalDeviceFeatures2KHR;
+} // namespace PPSSPP_VK
+
+using namespace PPSSPP_VK;
 
 #ifdef _WIN32
 static HINSTANCE vulkanLibrary;

@@ -553,11 +553,11 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 	auto sc = GetI18NCategory("Screen");
 
 	switch (virtualKeyCode) {
-	case VIRTKEY_UNTHROTTLE:
+	case VIRTKEY_FASTFORWARD:
 		if (coreState == CORE_STEPPING) {
 			Core_EnableStepping(false);
 		}
-		PSP_CoreParameter().unthrottle = true;
+		PSP_CoreParameter().fastForward = true;
 		break;
 
 	case VIRTKEY_SPEED_TOGGLE:
@@ -699,8 +699,8 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 	auto sc = GetI18NCategory("Screen");
 
 	switch (virtualKeyCode) {
-	case VIRTKEY_UNTHROTTLE:
-		PSP_CoreParameter().unthrottle = false;
+	case VIRTKEY_FASTFORWARD:
+		PSP_CoreParameter().fastForward = false;
 		break;
 
 	case VIRTKEY_SPEED_CUSTOM1:
@@ -784,7 +784,11 @@ void EmuScreen::CreateViews() {
 
 	const Bounds &bounds = screenManager()->getUIContext()->GetLayoutBounds();
 	InitPadLayout(bounds.w, bounds.h);
-	root_ = CreatePadLayout(bounds.w, bounds.h, &pauseTrigger_, &controlMapper_);
+
+	// Devices without a back button like iOS need an on-screen touch back button.
+	bool showPauseButton = !System_GetPropertyBool(SYSPROP_HAS_BACK_BUTTON) || g_Config.bShowTouchPause;
+
+	root_ = CreatePadLayout(bounds.w, bounds.h, &pauseTrigger_, showPauseButton, &controlMapper_);
 	if (g_Config.bShowDeveloperMenu) {
 		root_->Add(new Button(dev->T("DevMenu")))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
@@ -806,7 +810,7 @@ void EmuScreen::CreateViews() {
 	cardboardDisableButton_->SetVisibility(V_GONE);
 	cardboardDisableButton_->SetScale(0.65f);  // make it smaller - this button can be in the way otherwise.
 
-	if (g_Config.bEnableNetworkChat) {
+	if (g_Config.bEnableNetworkChat && g_Config.iChatButtonPosition != 8) {
 		AnchorLayoutParams *layoutParams = nullptr;
 		switch (g_Config.iChatButtonPosition) {
 		case 0:
@@ -983,7 +987,6 @@ void EmuScreen::update() {
 
 	controlMapper_.Update();
 
-	// This is here to support the iOS on screen back button.
 	if (pauseTrigger_) {
 		pauseTrigger_ = false;
 		screenManager()->push(new GamePauseScreen(gamePath_));

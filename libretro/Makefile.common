@@ -433,6 +433,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/Core.cpp \
 	       $(COREDIR)/WaveFile.cpp \
 	       $(COREDIR)/KeyMap.cpp \
+	       $(COREDIR)/KeyMapDefaults.cpp \
 	       $(COREDIR)/FileLoaders/HTTPFileLoader.cpp \
 	       $(COREDIR)/FileLoaders/CachingFileLoader.cpp \
 	       $(COREDIR)/FileLoaders/DiskCachingFileLoader.cpp \
@@ -838,7 +839,7 @@ ifneq (,$(findstring $(GIT_VERSION),$(shell grep -s char $(GIT_VERSION_SRC))))
 endif
 
 ifneq ($(GIT_VERSION_NO_UPDATE),1)
-   $(shell echo 'const char *PPSSPP_GIT_VERSION = "${GIT_VERSION}";' >> $(GIT_VERSION_SRC))
+   $(shell echo 'const char *PPSSPP_GIT_VERSION = "${GIT_VERSION}";' > $(GIT_VERSION_SRC))
    $(shell echo '#define PPSSPP_GIT_VERSION_NO_UPDATE 0' >> $(GIT_VERSION_SRC))
 endif
 

@@ -222,6 +222,21 @@ struct GridLayoutSettings {
 	bool fillCells;
 };
 
+class GridLayoutParams : public LayoutParams {
+public:
+	GridLayoutParams()
+		: LayoutParams(LP_GRID), gravity(G_CENTER) {}
+	explicit GridLayoutParams(Gravity grav)
+		: LayoutParams(LP_GRID), gravity(grav) {
+	}
+
+	Gravity gravity;
+
+	static LayoutParamsType StaticType() {
+		return LP_GRID;
+	}
+};
+
 class GridLayout : public ViewGroup {
 public:
 	GridLayout(GridLayoutSettings settings, LayoutParams *layoutParams = 0);
@@ -285,6 +300,7 @@ private:
 	float scrollTarget_ = 0.0f;
 	int scrollTouchId_ = -1;
 	bool scrollToTarget_ = false;
+	float layoutScrollPos_ = 0.0f;
 	float inertia_ = 0.0f;
 	float pull_ = 0.0f;
 	float lastViewSize_ = 0.0f;

@@ -253,6 +253,7 @@ bool ViewGroup::SubviewFocused(View *view) {
 	return false;
 }
 
+// Returns the percentage the smaller one overlaps the bigger one.
 static float HorizontalOverlap(const Bounds &a, const Bounds &b) {
 	if (a.x2() < b.x || b.x2() < a.x)
 		return 0.0f;
@@ -366,29 +367,15 @@ float GetTargetScore(const Point &originPos, int originIndex, View *origin, View
 		break;
 	}
 
-	// Add a small bonus if the views are the same size. This prioritizes moving to the next item
-	// upwards in a scroll view instead of moving up to the top bar.
-	float distanceBonus = 0.0f;
-	if (vertical) {
-		float widthDifference = origin->GetBounds().w - destination->GetBounds().w;
-		if (widthDifference == 0) {
-			distanceBonus = 40;
-		}
-	} else {
-		float heightDifference = origin->GetBounds().h - destination->GetBounds().h;
-		if (heightDifference == 0) {
-			distanceBonus = 40;
-		}
-	}
-
 	// At large distances, ignore overlap.
-	if (distance > 2 * originSize)
-		overlap = 0;
+	if (distance > 2.0 * originSize)
+		overlap = 0.0f;
 
-	if (wrongDirection)
+	if (wrongDirection) {
 		return 0.0f;
-	else
-		return 10.0f / std::max(1.0f, distance - distanceBonus) + overlap;
+	} else {
+		return 10.0f / std::max(1.0f, distance) + overlap * 2.0;
+	}
 }
 
 float GetDirectionScore(int originIndex, View *origin, View *destination, FocusDirection direction) {
@@ -411,22 +398,25 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 		}
 	}
 
-	// TODO: Do the cardinal directions right. Now we just map to
-	// prev/next.
+	if (direction == FOCUS_PREV || direction == FOCUS_NEXT) {
+		switch (direction) {
+		case FOCUS_PREV:
+			// If view not found, no neighbor to find.
+			if (num == -1)
+				return NeighborResult(0, 0.0f);
+			return NeighborResult(views_[(num + views_.size() - 1) % views_.size()], 0.0f);
+
+		case FOCUS_NEXT:
+			// If view not found, no neighbor to find.
+			if (num == -1)
+				return NeighborResult(0, 0.0f);
+			return NeighborResult(views_[(num + 1) % views_.size()], 0.0f);
+		default:
+			return NeighborResult(nullptr, 0.0f);
+		}
+	}
 
 	switch (direction) {
-	case FOCUS_PREV:
-		// If view not found, no neighbor to find.
-		if (num == -1)
-			return NeighborResult(0, 0.0f);
-		return NeighborResult(views_[(num + views_.size() - 1) % views_.size()], 0.0f);
-
-	case FOCUS_NEXT:
-		// If view not found, no neighbor to find.
-		if (num == -1)
-			return NeighborResult(0, 0.0f);
-		return NeighborResult(views_[(num + 1) % views_.size()], 0.0f);
-
 	case FOCUS_UP:
 	case FOCUS_LEFT:
 	case FOCUS_RIGHT:
@@ -459,7 +449,6 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 			if (num != -1) {
 				//result.score += 100.0f;
 			}
-
 			return result;
 		}
 
@@ -767,6 +756,8 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 			}
 			views_[0]->Measure(dc, MeasureSpec(UNSPECIFIED, measuredWidth_), v);
 			MeasureBySpec(layoutParams_->height, views_[0]->GetMeasuredHeight(), vert, &measuredHeight_);
+			if (layoutParams_->width == WRAP_CONTENT)
+				MeasureBySpec(layoutParams_->width, views_[0]->GetMeasuredWidth(), horiz, &measuredWidth_);
 		} else {
 			MeasureSpec h = MeasureSpec(AT_MOST, measuredWidth_ - margins.horiz());
 			if (measuredWidth_ == 0.0f && (horiz.type == UNSPECIFIED || layoutParams_->width == WRAP_CONTENT)) {
@@ -774,16 +765,16 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 			}
 			views_[0]->Measure(dc, h, MeasureSpec(UNSPECIFIED, measuredHeight_));
 			MeasureBySpec(layoutParams_->width, views_[0]->GetMeasuredWidth(), horiz, &measuredWidth_);
+			if (layoutParams_->height == WRAP_CONTENT)
+				MeasureBySpec(layoutParams_->height, views_[0]->GetMeasuredHeight(), vert, &measuredHeight_);
 		}
 		if (orientation_ == ORIENT_VERTICAL && vert.type != EXACTLY) {
-			if (measuredHeight_ < views_[0]->GetMeasuredHeight()) {
-				measuredHeight_ = views_[0]->GetMeasuredHeight();
-			}
-			if (measuredHeight_ < views_[0]->GetBounds().h) {
-				measuredHeight_ = views_[0]->GetBounds().h;
-			}
-			if (vert.type == AT_MOST && measuredHeight_ > vert.size) {
-				measuredHeight_ = vert.size;
+			float bestHeight = std::max(views_[0]->GetMeasuredHeight(), views_[0]->GetBounds().h);
+			if (vert.type == AT_MOST)
+				bestHeight = std::min(bestHeight, vert.size);
+
+			if (measuredHeight_ < bestHeight && layoutParams_->height < 0.0f) {
+				measuredHeight_ = bestHeight;
 			}
 		}
 	}
@@ -804,7 +795,7 @@ void ScrollView::Layout() {
 	scrolled.w = views_[0]->GetMeasuredWidth() - margins.horiz();
 	scrolled.h = views_[0]->GetMeasuredHeight() - margins.vert();
 
-	float layoutScrollPos = ClampedScrollPos(scrollPos_);
+	layoutScrollPos_ = ClampedScrollPos(scrollPos_);
 
 	switch (orientation_) {
 	case ORIENT_HORIZONTAL:
@@ -812,7 +803,7 @@ void ScrollView::Layout() {
 			ScrollTo(0.0f);
 			lastViewSize_ = scrolled.w;
 		}
-		scrolled.x = bounds_.x - layoutScrollPos;
+		scrolled.x = bounds_.x - layoutScrollPos_;
 		scrolled.y = bounds_.y + margins.top;
 		break;
 	case ORIENT_VERTICAL:
@@ -821,7 +812,7 @@ void ScrollView::Layout() {
 			lastViewSize_ = scrolled.h;
 		}
 		scrolled.x = bounds_.x + margins.left;
-		scrolled.y = bounds_.y - layoutScrollPos;
+		scrolled.y = bounds_.y - layoutScrollPos_;
 		break;
 	}
 
@@ -924,23 +915,25 @@ bool ScrollView::SubviewFocused(View *view) {
 	const float overscroll = std::min(view->GetBounds().h / 1.5f, GetBounds().h / 4.0f);
 
 	float pos = ClampedScrollPos(scrollPos_);
+	float visibleSize = orientation_ == ORIENT_VERTICAL ? bounds_.h : bounds_.w;
+	float visibleEnd = scrollPos_ + visibleSize;
+
+	float viewStart, viewEnd;
 	switch (orientation_) {
 	case ORIENT_HORIZONTAL:
-		if (vBounds.x2() > bounds_.x2()) {
-			ScrollTo(pos + vBounds.x2() - bounds_.x2() + overscroll);
-		}
-		if (vBounds.x < bounds_.x) {
-			ScrollTo(pos + (vBounds.x - bounds_.x) - overscroll);
-		}
+		viewStart = layoutScrollPos_ + vBounds.x - bounds_.x;
+		viewEnd = layoutScrollPos_ + vBounds.x2() - bounds_.x;
 		break;
 	case ORIENT_VERTICAL:
-		if (vBounds.y2() > bounds_.y2()) {
-			ScrollTo(pos + vBounds.y2() - bounds_.y2() + overscroll);
-		}
-		if (vBounds.y < bounds_.y) {
-			ScrollTo(pos + (vBounds.y - bounds_.y) - overscroll);
-		}
+		viewStart = layoutScrollPos_ + vBounds.y - bounds_.y;
+		viewEnd = layoutScrollPos_ + vBounds.y2() - bounds_.y;
 		break;
+	}
+
+	if (viewEnd > visibleEnd) {
+		ScrollTo(viewEnd - visibleSize + overscroll);
+	} else if (viewStart < pos) {
+		ScrollTo(viewStart - overscroll);
 	}
 
 	return true;
@@ -1208,7 +1201,8 @@ void AnchorLayout::Layout() {
 		if (vBounds.w > bounds_.w) vBounds.w = bounds_.w;
 		if (vBounds.h > bounds_.h) vBounds.h = bounds_.h;
 
-		float left = 0, top = 0, right = 0, bottom = 0, center = false;
+		float left = 0, top = 0, right = 0, bottom = 0;
+		bool center = false;
 		if (params) {
 			left = params->left;
 			top = params->top;
@@ -1256,7 +1250,9 @@ void GridLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 		views_[i]->Measure(dc, MeasureSpec(measureType, settings_.columnWidth), MeasureSpec(measureType, settings_.rowHeight));
 	}
 
-	MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
+	// Use the max possible width so AT_MOST gives us the full size.
+	float maxWidth = (settings_.columnWidth + settings_.spacing) * views_.size() + settings_.spacing;
+	MeasureBySpec(layoutParams_->width, maxWidth, horiz, &measuredWidth_);
 
 	// Okay, got the width we are supposed to adjust to. Now we can calculate the number of columns.
 	numColumns_ = (measuredWidth_ - settings_.spacing) / (settings_.columnWidth + settings_.spacing);
@@ -1273,7 +1269,9 @@ void GridLayout::Layout() {
 	int x = 0;
 	int count = 0;
 	for (size_t i = 0; i < views_.size(); i++) {
+		const GridLayoutParams *lp = views_[i]->GetLayoutParams()->As<GridLayoutParams>();
 		Bounds itemBounds, innerBounds;
+		Gravity grav = lp ? lp->gravity : G_CENTER;
 
 		itemBounds.x = bounds_.x + x;
 		itemBounds.y = bounds_.y + y;
@@ -1282,7 +1280,7 @@ void GridLayout::Layout() {
 
 		ApplyGravity(itemBounds, Margins(0.0f),
 			views_[i]->GetMeasuredWidth(), views_[i]->GetMeasuredHeight(),
-			G_HCENTER | G_VCENTER, innerBounds);
+			grav, innerBounds);
 
 		views_[i]->SetBounds(innerBounds);
 		views_[i]->Layout();

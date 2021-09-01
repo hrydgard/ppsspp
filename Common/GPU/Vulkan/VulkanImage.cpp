@@ -2,6 +2,8 @@
 #include "Common/GPU/Vulkan/VulkanMemory.h"
 #include "Common/Log.h"
 
+using namespace PPSSPP_VK;
+
 void VulkanTexture::Wipe() {
 	if (image_) {
 		vulkan_->Delete().QueueDeleteImage(image_);

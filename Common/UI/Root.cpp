@@ -341,10 +341,10 @@ bool AxisEvent(const AxisInput &axis, ViewGroup *root) {
 	case DEVICE_ID_PAD_1:
 	case DEVICE_ID_PAD_2:
 	case DEVICE_ID_PAD_3:
-	case DEVICE_ID_X360_0:
-	case DEVICE_ID_X360_1:
-	case DEVICE_ID_X360_2:
-	case DEVICE_ID_X360_3:
+	case DEVICE_ID_XINPUT_0:
+	case DEVICE_ID_XINPUT_1:
+	case DEVICE_ID_XINPUT_2:
+	case DEVICE_ID_XINPUT_3:
 	{
 		PrevState &old = state[stateKey];
 		DirState dir = DirState::NONE;

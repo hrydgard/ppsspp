@@ -16,35 +16,32 @@ enum JsonTag {
 
 struct JsonNode;
 
-#define JSON_VALUE_PAYLOAD_MASK 0x00007FFFFFFFFFFFULL
-#define JSON_VALUE_NAN_MASK 0x7FF8000000000000ULL
-#define JSON_VALUE_TAG_MASK 0xF
-#define JSON_VALUE_TAG_SHIFT 47
-
-union JsonValue {
-    uint64_t ival;
-    double fval;
+struct JsonValue {
+    union {
+        uint64_t ival_;
+        double fval_;
+    };
+    uint8_t tag_ = JSON_NULL;
 
     JsonValue(double x)
-        : fval(x) {
+        : fval_(x), tag_(JSON_NUMBER) {
     }
-    JsonValue(JsonTag tag = JSON_NULL, void *payload = nullptr) {
-        assert((uint64_t)payload <= JSON_VALUE_PAYLOAD_MASK);
-        ival = JSON_VALUE_NAN_MASK | ((uint64_t)tag << JSON_VALUE_TAG_SHIFT) | (uintptr_t)payload;
+    JsonValue(JsonTag tag = JSON_NULL, void *payload = nullptr)
+        : ival_((uintptr_t)payload), tag_(tag) {
     }
     bool isDouble() const {
-        return (int64_t)ival <= (int64_t)JSON_VALUE_NAN_MASK;
+        return tag_ == JSON_NUMBER;
     }
     JsonTag getTag() const {
-        return isDouble() ? JSON_NUMBER : JsonTag((ival >> JSON_VALUE_TAG_SHIFT) & JSON_VALUE_TAG_MASK);
+        return JsonTag(tag_);
     }
     uint64_t getPayload() const {
         assert(!isDouble());
-        return ival & JSON_VALUE_PAYLOAD_MASK;
+        return ival_;
     }
     double toNumber() const {
         assert(getTag() == JSON_NUMBER);
-        return fval;
+        return fval_;
     }
     char *toString() const {
         assert(getTag() == JSON_STRING);

@@ -370,7 +370,7 @@ int main(int argc, const char* argv[])
 	coreParameter.renderHeight = 272;
 	coreParameter.pixelWidth = 480;
 	coreParameter.pixelHeight = 272;
-	coreParameter.unthrottle = true;
+	coreParameter.fastForward = true;
 
 	g_Config.bEnableSound = false;
 	g_Config.bFirstRun = false;
@@ -391,7 +391,7 @@ int main(int argc, const char* argv[])
 	g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CROSS;
 	g_Config.iLockParentalLevel = 9;
 	g_Config.iInternalResolution = 1;
-	g_Config.iUnthrottleMode = (int)UnthrottleMode::CONTINUOUS;
+	g_Config.iFastForwardMode = (int)FastForwardMode::CONTINUOUS;
 	g_Config.bEnableLogging = fullLog;
 	g_Config.bSoftwareSkinning = true;
 	g_Config.bVertexDecoderJit = true;
