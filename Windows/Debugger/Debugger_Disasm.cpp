@@ -45,7 +45,6 @@ static const int TEMP_BREAKPOINT_WAIT_MS = 100;
 static FAR WNDPROC DefGotoEditProc;
 
 // Begin Trace Logger Changes
-// TODO: Move to a Trace Log directory
 int check = CreateDirectoryA("Trace Logs\\", NULL);
 std::string traceLogDir = "Trace Logs\\";
 char traceLogFilename[30];
@@ -61,6 +60,7 @@ const int STEP_OVER = 1;
 const int STEP_OUT = 2;
 const int STEP_GO = 3;
 const int STEP_BREAK = 4;
+const int STEP_BREAKPOINT = 5;
 
 
 LRESULT CALLBACK GotoEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
@@ -154,6 +154,9 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	ptr->setDebugger(cpu);
 	ptr->gotoAddr(0x00000000);
+//	SendMessage(m_hDlg, IDC_TRACETOGGLER, BM_SETCHECK, BST_UNCHECKED);
+	ptr->disableTraceLogger();
+
 
 	CtrlRegisterList *rl = CtrlRegisterList::getFrom(GetDlgItem(m_hDlg,IDC_REGLIST));
 	rl->setCPU(cpu);
@@ -238,7 +241,7 @@ void CDisasm::stepInto()
 
 	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu,currentPc);
 
-	writeToTraceLogger(STEP_INTO);
+	if (ptr->getTraceLoggerStatus()) writeToTraceLogger(STEP_INTO);
 	
 	if (info.isBranch)
 	{
@@ -289,7 +292,7 @@ void CDisasm::stepOver()
 	CBreakPoints::SetSkipFirst(currentMIPS->pc);
 	u32 currentPc = cpu->GetPC();
 
-	writeToTraceLogger(STEP_OVER);
+	if (ptr->getTraceLoggerStatus()) writeToTraceLogger(STEP_OVER);
 
 	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu,cpu->GetPC());
 	ptr->setDontRedraw(true);
@@ -356,10 +359,10 @@ void CDisasm::stepOut()
 	
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	ptr->setDontRedraw(true);
-	u32 currentPc = cpu->GetPC();
+//	u32 currentPc = cpu->GetPC();
 
 
-	writeToTraceLogger(STEP_OUT);
+	if (ptr->getTraceLoggerStatus()) writeToTraceLogger(STEP_OUT);
 
 
 
@@ -379,6 +382,8 @@ void CDisasm::runToLine()
 
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	u32 pos = ptr->getSelection();
+	
+
 
 	lastTicks = CoreTiming::GetTicks();
 	ptr->setDontRedraw(true);
@@ -571,7 +576,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				UpdateDialog();
 				vfpudlg->Update();
 				// Begin trace logger changes
-				writeToTraceLogger(STEP_BREAK);
+				if (ptr->getTraceLoggerStatus())  writeToTraceLogger(STEP_BREAK);
 				// End trace logger changes
 			}
 			else {					// go
@@ -583,7 +588,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				SetDebugMode(false, true);
 				Core_EnableStepping(false);
 				// Begin trace logger changes
-				writeToTraceLogger(STEP_GO);
+				if (ptr->getTraceLoggerStatus()) writeToTraceLogger(STEP_GO);
 				// End trace logger changes
 			}
 		}
@@ -633,7 +638,12 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 		}
 		break;
-
+		case IDC_TRACETOGGLER:
+		{
+			if (ptr->getTraceLoggerStatus()) ptr->disableTraceLogger();
+			else ptr->enableTraceLogger();
+		}
+		break;
 		case IDC_ALLFUNCTIONS:
 			if (g_symbolMap)
 				g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
@@ -767,7 +777,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				We only open the file when it's time to write. 
 				*/
 		}
-		// END TRACE LOGER CHANGES
+		// END TRACE LOGGER CHANGES
 	}
 	}
 	return FALSE;
@@ -996,6 +1006,9 @@ void CDisasm::writeToTraceLogger(int writeCode) {
 	u32 currentPc = cpu->GetPC();
 	u32 newAddress = currentPc + ptr->getInstructionSizeAt(currentPc);
 	traceLogger.open(traceLogPath.c_str(), std::ios::app);
+
+	if (writeCode == STEP_GO) traceLogger << "// Gooooooo!\n";
+
 	char OpcodeText[80];
 	char ParamsText[100];
 	ptr->getOpcodeText(currentPc, OpcodeText, 80);
@@ -1018,11 +1031,11 @@ void CDisasm::writeToTraceLogger(int writeCode) {
 	case STEP_OUT:
 		traceLogger << "// Step Out!\n\n";
 		break;
-	case STEP_GO:
-		traceLogger << "// Gooooooo!\n";
-		break;
 	case STEP_BREAK:
-		traceLogger << "// STOP! \n";
+		traceLogger << "// STOP!\n";
+		break;
+	case STEP_BREAKPOINT:
+		traceLogger << "// BreakPoint!\n";
 		break;
 	}
 

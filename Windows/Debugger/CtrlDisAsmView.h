@@ -109,6 +109,7 @@ public:
 	// new methods for Trace Logging
 	void enableTraceLogger();
 	void disableTraceLogger();
+	bool getTraceLoggerStatus();
 	void getGPRsText(u32 address, char* dest, int bufsize); // Maybe make a thing so this utility can be access via right click? Might be weird if you're grabbing it from an inactive line though. Maybe not necessary.
 	void getFPUsText(u32 address, char* dest, int bufsize); // For printing referenced FPU registers. TODO
 	void getVFPUsText(u32 address, char* dest, int bufsize); // TODO

@@ -29,8 +29,6 @@
 #include <set>
 // Extras for Trace Logger Mods
 #include <string>
-//#include <iostream>
-//#include <stdlib.h>
 #include <sstream>
 
 TCHAR CtrlDisAsmView::szClassName[] = _T("CtrlDisAsmView");
@@ -52,7 +50,6 @@ void CtrlDisAsmView::init()
 	wc.cbClsExtra     = 0;
 	wc.cbWndExtra     = sizeof( CtrlDisAsmView * );
 	wc.hIconSm        = 0;
-	// traceLogging = 1;
 
 	RegisterClassEx(&wc);
 }
@@ -1361,7 +1358,6 @@ void CtrlDisAsmView::disassembleToFile() {
 
 // The following member has been modified to accomodate "nicer-looking" output (according to my needs). Assumes maximum length of an instruction name is 9 or 10 chars.
 // What's the maximum length the params string could reasonably be?
-// TODO: Also output the register values within params. 
 void CtrlDisAsmView::getOpcodeText(u32 address, char* dest, int bufsize)
 {
 	DisassemblyLineInfo line;
@@ -1405,6 +1401,11 @@ void CtrlDisAsmView::disableTraceLogger()
 {
 	traceLogging = false;
 	return;
+}
+
+bool CtrlDisAsmView::getTraceLoggerStatus()
+{
+	return traceLogging;
 }
 
 void CtrlDisAsmView::getGPRsText(u32 address, char* dest, int bufsize)
@@ -1474,7 +1475,7 @@ void CtrlDisAsmView::getGPRsText(u32 address, char* dest, int bufsize)
 				std::stringstream memStream;
 				std::stringstream addressStream;
 
-				int offsetAddress;
+				int offsetAddress= currentMIPS->r[regStringToMIPSGPReg(arg.c_str())] + offsetValue;
 				addressStream << std::hex << offsetAddress;
 				memStream << "0x";
 				// 0 padding
