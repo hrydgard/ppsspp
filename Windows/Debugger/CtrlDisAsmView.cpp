@@ -1424,8 +1424,14 @@ void CtrlDisAsmView::getGPRsText(u32 address, char* dest, int bufsize)
 
 	size_t p = 0, nextp = parameters.find(',');
 
-	while (nextp != parameters.npos) {
-		std::string arg = parameters.substr(p, nextp - p);
+	while (p != parameters.npos) {
+		std::string arg = "";
+		if (nextp != parameters.npos) {
+			arg = parameters.substr(p, nextp - p);
+		}
+		else {
+			arg = parameters.substr(p, parameters.length() - p);
+		}
 
 		// checks if arg is a register and if arg isn't already listed in the output
 		if (GPR_NAMES.find(arg) != GPR_NAMES.set::end() && output.find(arg) == arg.npos) {
@@ -1495,77 +1501,14 @@ void CtrlDisAsmView::getGPRsText(u32 address, char* dest, int bufsize)
 				output += memStream.str();
 			}
 
-		} // Not even gonna else this, YOLO (but you can compile Many Times if there's problems);
-		p = nextp + 1;
-		nextp = parameters.find(',', p);
-
-	}
-	// Check the last substring, because i dont know how to do this more efficiently lol
-	std::string argFinal = parameters.substr(p, parameters.length() - p);
-
-	if (GPR_NAMES.find(argFinal) != GPR_NAMES.set::end() && output.find(argFinal) == argFinal.npos) {
-		std::string immediateOutput = "";
-		immediateOutput += argFinal + "=";
-		std::stringstream argValue;
-
-		argValue << std::uppercase << std::hex << currentMIPS->r[regStringToMIPSGPReg(argFinal.c_str())];
-		for (int i = 1; i <= 8 - argValue.str().length(); i++) immediateOutput += "0";
-		immediateOutput += argValue.str();
-		immediateOutput += ", ";
-		output += immediateOutput;
-	}
-	else if (argFinal.find('(') != argFinal.npos) {
-		// Code copied from above but arg is argFinal
-		std::string offset = argFinal.substr(0, argFinal.find('('));
-		long int offsetValue = strtol(offset.c_str(), NULL, 16);
-
-		// isolates the register mentioned in the offset
-		argFinal = argFinal.substr(argFinal.find('(') + 1, argFinal.find(')') - argFinal.find('(') - 1);
-
-		if (GPR_NAMES.find(argFinal) != GPR_NAMES.set::end()) {
-			// Do not reprint an already printed register.
-			if (output.find(argFinal) == argFinal.npos) {
-				std::string immediateOutput = "";
-				immediateOutput += argFinal + "=";
-				std::stringstream argValue;
-				argValue << std::uppercase << std::hex << currentMIPS->r[regStringToMIPSGPReg(argFinal.c_str())];
-				for (int i = 1; i <= 8 - argValue.str().length(); i++) immediateOutput += "0";
-				immediateOutput += argValue.str();
-				immediateOutput += ", ";
-				output += immediateOutput;
-			}
-			// Even if the argument is a duplicate, either way, this will print 4 bytes of memory from the offset addres.
-
-			std::stringstream temp;
-			std::stringstream memStream;
-			std::stringstream addressStream;
-
-
-			int offsetAddress = currentMIPS->r[regStringToMIPSGPReg(argFinal.c_str())] + offsetValue;
-			addressStream << "0x";
-			temp << std::hex << offsetAddress;
-			// 0 padding
-			for (int i = 1; i <= 8 - temp.str().length(); i++) addressStream << "0";
-			addressStream << std::uppercase << std::hex << offsetAddress;
-			addressStream << ": ";
-			
-			// output four bytes starting from arg+offsetvalue in memory
-			for (int i = 0; i < 4; i++) {
-				offsetAddress = currentMIPS->r[regStringToMIPSGPReg(argFinal.c_str())] + offsetValue + i;
-
-				// If valid address, read a byte.
-				if (Memory::IsValidAddress(offsetAddress)) {
-					// padded with 0
-					if (Memory::Read_U8(offsetAddress) < 16) memStream << "0";
-					memStream << std::uppercase << std::hex << int(Memory::Read_U8(offsetAddress));
-				}
-				// If we're not reading the last byte, add a space.
-				if (i < 3) memStream << " ";
-			}
-			output += addressStream.str();
-			output += memStream.str();
+		} 
+		if (nextp != parameters.npos) {
+			p = nextp + 1;
+			nextp = parameters.find(',', p);
 		}
+		else p = parameters.npos;
 	}
+
 	// Make sure there isn't a dangling ", " at the end of output
 	if (output.find_last_of(',') == output.length() - 2) {
 		output.erase(output.find_last_of(','), 2);
