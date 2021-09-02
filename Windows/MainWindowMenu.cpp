@@ -1225,11 +1225,12 @@ namespace MainWindow {
 			ID_OPTIONS_TEXTUREFILTERING_AUTO,
 			ID_OPTIONS_NEARESTFILTERING,
 			ID_OPTIONS_LINEARFILTERING,
+			ID_OPTIONS_AUTOMAXQUALITYFILTERING,
 		};
 		if (g_Config.iTexFiltering < TEX_FILTER_AUTO)
 			g_Config.iTexFiltering = TEX_FILTER_AUTO;
-		else if (g_Config.iTexFiltering > TEX_FILTER_FORCE_LINEAR)
-			g_Config.iTexFiltering = TEX_FILTER_FORCE_LINEAR;
+		else if (g_Config.iTexFiltering > TEX_FILTER_AUTO_MAX_QUALITY)
+			g_Config.iTexFiltering = TEX_FILTER_AUTO_MAX_QUALITY;
 
 		for (int i = 0; i < ARRAY_SIZE(texfilteringitems); i++) {
 			CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iTexFiltering ? MF_CHECKED : MF_UNCHECKED));

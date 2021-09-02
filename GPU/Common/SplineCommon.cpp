@@ -532,7 +532,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 
 	int vertexSize = vdecoder->VertexSize();
 	if (vertexSize != sizeof(SimpleVertex)) {
-		ERROR_LOG(G3D, "Something went really wrong, vertex size: %i vs %i", vertexSize, (int)sizeof(SimpleVertex));
+		ERROR_LOG(G3D, "Something went really wrong, vertex size: %d vs %d", vertexSize, (int)sizeof(SimpleVertex));
 	}
 
 	// Make an array of pointers to the control points, to get rid of indices.

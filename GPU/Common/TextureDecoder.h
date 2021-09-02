@@ -27,15 +27,10 @@ enum CheckAlphaResult {
 #include "Common/Common.h"
 #include "Common/Swap.h"
 #include "Core/MemMap.h"
+#include "Core/ConfigValues.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/TextureDecoderNEON.h"
 #include "GPU/GPUState.h"
-
-enum TextureFiltering {
-	TEX_FILTER_AUTO = 1,
-	TEX_FILTER_FORCE_NEAREST = 2,
-	TEX_FILTER_FORCE_LINEAR = 3,
-};
 
 void SetupTextureDecoder();
 
