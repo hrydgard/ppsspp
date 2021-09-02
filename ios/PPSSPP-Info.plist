@@ -208,5 +208,7 @@
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>PPSSPP uses the local network to find and communicate with AltServer.</string>
+	<key>ALTDeviceID</key>
+	<string></string>
 </dict>
 </plist>
