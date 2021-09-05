@@ -754,11 +754,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY) {
 		// Boost the number of mipmaps.
 		int maxPossibleMipmaps = log2i(std::min(gstate.getTextureWidth(0), gstate.getTextureHeight(0)));
-		if (maxPossibleMipmaps != maxLevelToGenerate) {
-			maxLevelToGenerate = maxPossibleMipmaps;
-		}
+		maxLevelToGenerate = maxPossibleMipmaps;
 	}
-
 
 	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
 	VkFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
@@ -807,7 +804,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		}
 	}
 
-	// TODO
+	// TODO: Support mip levels for upscaled images.
+	// Probably can just remove this check?
 	if (scaleFactor > 1) {
 		maxLevel = 0;
 	}
