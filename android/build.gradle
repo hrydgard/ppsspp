@@ -103,7 +103,6 @@ android {
 			assets.srcDirs = [
 					'../assets',
 			]
-			jni.srcDirs = ['..']
 		}
 		gold {
 			res.srcDirs = ['gold/res']
