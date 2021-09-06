@@ -209,6 +209,7 @@ static RetroOption<int> ppsspp_internal_resolution("ppsspp_internal_resolution",
 static RetroOption<int> ppsspp_button_preference("ppsspp_button_preference", "Confirmation Button", { { "Cross", PSP_SYSTEMPARAM_BUTTON_CROSS }, { "Circle", PSP_SYSTEMPARAM_BUTTON_CIRCLE } });
 static RetroOption<bool> ppsspp_fast_memory("ppsspp_fast_memory", "Fast Memory (Speedhack)", true);
 static RetroOption<bool> ppsspp_block_transfer_gpu("ppsspp_block_transfer_gpu", "Block Transfer GPU", true);
+static RetroOption<int> ppsspp_inflight_frames("ppsspp_inflight_frames", "Buffered frames (Slower, less lag, restart)", { "No buffer", "Up to 1", "Up to 2" });
 static RetroOption<int> ppsspp_texture_scaling_level("ppsspp_texture_scaling_level", "Texture Scaling Level", { { "Auto", 0 }, { "Off", 1 }, { "2x", 2 }, { "3x", 3 }, { "4x", 4 }, { "5x", 5 } });
 static RetroOption<int> ppsspp_texture_scaling_type("ppsspp_texture_scaling_type", "Texture Scaling Type", { { "xbrz", TextureScalerCommon::XBRZ }, { "hybrid", TextureScalerCommon::HYBRID }, { "bicubic", TextureScalerCommon::BICUBIC }, { "hybrid_bicubic", TextureScalerCommon::HYBRID_BICUBIC } });
 static RetroOption<int> ppsspp_texture_filtering("ppsspp_texture_filtering", "Texture Filtering", { { "Auto", 1 }, { "Nearest", 2 }, { "Linear", 3 } });
@@ -249,6 +250,7 @@ void retro_set_environment(retro_environment_t cb)
    vars.push_back(ppsspp_vertex_cache.GetOptions());
    vars.push_back(ppsspp_fast_memory.GetOptions());
    vars.push_back(ppsspp_block_transfer_gpu.GetOptions());
+   vars.push_back(ppsspp_inflight_frames.GetOptions());
    vars.push_back(ppsspp_software_skinning.GetOptions());
    vars.push_back(ppsspp_lazy_texture_caching.GetOptions());
    vars.push_back(ppsspp_retain_changed_textures.GetOptions());
@@ -375,6 +377,7 @@ static void check_variables(CoreParameter &coreParam)
    ppsspp_force_lag_sync.Update(&g_Config.bForceLagSync);
    ppsspp_spline_quality.Update(&g_Config.iSplineBezierQuality);
    ppsspp_disable_slow_framebuffer_effects.Update(&g_Config.bDisableSlowFramebufEffects);
+   ppsspp_inflight_frames.Update(&g_Config.iInflightFrames);
 
    ppsspp_language.Update(&g_Config.iLanguage);
    if (g_Config.iLanguage < 0)
