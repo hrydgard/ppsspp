@@ -401,14 +401,7 @@ static void check_variables(CoreParameter &coreParam)
    }
 
    bool isFastForwarding = environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &isFastForwarding);
-   if (isFastForwarding)
-   {
-      coreParam.fastForward = true;
-   }
-   else
-   {
-      coreParam.fastForward = false;
-   }
+   coreParam.fastForward = isFastForwarding;
 
    if (ppsspp_texture_scaling_type.Update(&g_Config.iTexScalingType) && gpu)
       gpu->ClearCacheNextFrame();
@@ -490,7 +483,7 @@ void retro_init(void)
 
    VFSRegister("", new DirectoryAssetReader(retro_base_dir));
 
-   host = new LibretroHost;
+   host = new LibretroHost();
 }
 
 void retro_deinit(void)
