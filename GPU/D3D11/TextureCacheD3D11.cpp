@@ -447,7 +447,10 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 
 	// Adjust maxLevel to actually present levels..
 	bool badMipSizes = false;
+
+	// maxLevel here is the max level to upload. Not the count.
 	int maxLevel = entry->maxLevel;
+
 	for (int i = 0; i <= maxLevel; i++) {
 		// If encountering levels pointing to nothing, adjust max level.
 		u32 levelTexaddr = gstate.getTextureAddress(i);
