@@ -343,7 +343,7 @@ static void check_variables(CoreParameter &coreParam)
 {
    bool updated = false;
 
-   if (     coreState != CORE_POWERUP
+   if (     coreState != CoreState::CORE_POWERUP
          && environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated)
          && !updated)
       return;
@@ -421,58 +421,78 @@ void retro_set_input_state(retro_input_state_t cb) { input_state_cb = cb; }
 
 void retro_init(void)
 {
-   struct retro_log_callback log;
-#if 0
-   g_Config.Load("");
-#endif
-
-   g_Config.bEnableLogging = true;
-   // libretro does its own timing, so this should stay CONTINUOUS.
-   g_Config.iFastForwardMode = (int)FastForwardMode::CONTINUOUS;
-   g_Config.bMemStickInserted = true;
-   g_Config.iGlobalVolume = VOLUME_FULL - 1;
-   g_Config.iReverbVolume = VOLUME_FULL;
-   g_Config.iAltSpeedVolume = -1;
-   g_Config.bEnableSound = true;
-   g_Config.iCwCheatRefreshRate = 60;
-   g_Config.iMemStickSizeGB = 16;
-   g_Config.bFuncReplacements = true;
-   g_Config.bEncryptSave = true;
-   g_Config.bHighQualityDepth = true;
-   g_Config.bLoadPlugins = true;
-   g_Config.bFragmentTestCache = true;
-   g_Config.bSavedataUpgrade= true;
-   g_Config.bSeparateSASThread = true;
-   g_Config.sMACAddress = "12:34:56:78:9A:BC";
-
-   g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;
-   g_Config.iPSPModel = PSP_MODEL_SLIM;
-
-   LogManager::Init(&g_Config.bEnableLogging);
-
    g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
 
-   host = new LibretroHost;
+   struct retro_input_descriptor desc[] = {
+      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "D-Pad Left" },
+      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP, "D-Pad Up" },
+      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN, "D-Pad Down" },
+      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "D-Pad Right" },
+      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B, "Cross" },
+      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A, "Circle" },
+      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_X, "Triangle" },
+      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_Y, "Square" },
+      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L, "L" },
+      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R, "R" },
+      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT, "Select" },
+      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START, "Start" },
+      { 0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_X, "Right Analog X" },
+      { 0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y, "Right Analog Y" },
+      { 0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, "Left Analog X" },
+      { 0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y, "Left Analog Y" },
+      { 0 },
+   };
+   environ_cb(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, desc);
 
+   if (environ_cb(RETRO_ENVIRONMENT_GET_INPUT_BITMASKS, NULL))
+      libretro_supports_bitmasks = true;
+
+   struct retro_log_callback log;
    if (environ_cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &log))
    {
+      LogManager::Init(&g_Config.bEnableLogging);
       printfLogger = new PrintfLogger(log);
-      LogManager *logman = LogManager::GetInstance();
+      LogManager* logman = LogManager::GetInstance();
       logman->RemoveListener(logman->GetConsoleListener());
       logman->RemoveListener(logman->GetDebuggerListener());
       logman->ChangeFileLog(nullptr);
       logman->AddListener(printfLogger);
-#if 1
       logman->SetAllLogLevels(LogTypes::LINFO);
-#endif
    }
 
-   if (environ_cb(RETRO_ENVIRONMENT_GET_INPUT_BITMASKS, NULL))
-      libretro_supports_bitmasks = true;
+   g_Config.Load("", "");
+   g_Config.iInternalResolution = 0;
+   g_Config.sMACAddress = "12:34:56:78:9A:BC";
+
+   const char* nickname = NULL;
+   if (environ_cb(RETRO_ENVIRONMENT_GET_USERNAME, &nickname) && nickname)
+      g_Config.sNickName = std::string(nickname);
+
+   Path retro_base_dir;
+   Path retro_save_dir;
+   const char* dir_ptr = NULL;
+   if (environ_cb(RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY, &dir_ptr) && dir_ptr)
+      retro_base_dir = Path(dir_ptr);
+
+   if (environ_cb(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &dir_ptr) && dir_ptr)
+      retro_save_dir = Path(dir_ptr);
+
+   retro_base_dir /= "PPSSPP";
+
+   g_Config.currentDirectory = retro_base_dir;
+   g_Config.defaultCurrentDirectory = retro_base_dir;
+   g_Config.memStickDirectory = retro_save_dir;
+   g_Config.flash0Directory = retro_base_dir / "flash0";
+   g_Config.internalDataDirectory = retro_base_dir;
+
+   VFSRegister("", new DirectoryAssetReader(retro_base_dir));
+
+   host = new LibretroHost;
 }
 
 void retro_deinit(void)
 {
+   g_threadManager.Teardown();
    LogManager::Shutdown();
 
    delete printfLogger;
@@ -611,71 +631,12 @@ namespace Libretro
 
 bool retro_load_game(const struct retro_game_info *game)
 {
-   static Path retro_base_dir;
-   static Path retro_save_dir;
-   std::string error_string;
-   enum retro_pixel_format fmt          = RETRO_PIXEL_FORMAT_XRGB8888;
-   const char *nickname                 = NULL;
-   const char *dir_ptr                  = NULL;
-   struct retro_input_descriptor desc[] = {
-      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "D-Pad Left" },
-      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP, "D-Pad Up" },
-      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN, "D-Pad Down" },
-      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "D-Pad Right" },
-      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B, "Cross" },
-      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A, "Circle" },
-      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_X, "Triangle" },
-      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_Y, "Square" },
-      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L, "L" },
-      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R, "R" },
-      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT, "Select" },
-      { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START, "Start" },
-      { 0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_X, "Right Analog X" },
-      { 0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y, "Right Analog Y" },
-      { 0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, "Left Analog X" },
-      { 0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y, "Left Analog Y" },
-      { 0 },
-   };
-
-   environ_cb(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, desc);
-
+   retro_pixel_format fmt = retro_pixel_format::RETRO_PIXEL_FORMAT_XRGB8888;
    if (!environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt))
    {
       ERROR_LOG(SYSTEM, "XRGB8888 is not supported.\n");
       return false;
    }
-
-   if (environ_cb(RETRO_ENVIRONMENT_GET_USERNAME, &nickname) && nickname)
-      g_Config.sNickName = std::string(nickname);
-
-
-   if (environ_cb(RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY, &dir_ptr)
-         && dir_ptr)
-   {
-      retro_base_dir = Path(dir_ptr);
-   }
-
-   if (environ_cb(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &dir_ptr)
-         && dir_ptr)
-   {
-      retro_save_dir = Path(dir_ptr);
-   }
-
-   if (retro_base_dir.empty())
-      retro_base_dir = Path(game->path).NavigateUp();
-
-   retro_base_dir /= "PPSSPP";
-
-   if (retro_save_dir.empty())
-      retro_save_dir = Path(game->path).NavigateUp();
-
-   g_Config.currentDirectory = retro_base_dir;
-   g_Config.defaultCurrentDirectory = retro_base_dir;
-   g_Config.memStickDirectory     = retro_save_dir;
-   g_Config.flash0Directory       = retro_base_dir / "flash0";
-   g_Config.internalDataDirectory = retro_base_dir;
-
-   VFSRegister("", new DirectoryAssetReader(retro_base_dir));
 
    coreState = CORE_POWERUP;
    ctx       = LibretroGraphicsContext::CreateGraphicsContext();
@@ -695,13 +656,10 @@ bool retro_load_game(const struct retro_game_info *game)
    coreParam.headLess        = true;
    coreParam.graphicsContext = ctx;
    coreParam.gpuCore         = ctx->GetGPUCore();
-   coreParam.cpuCore         = CPUCore::JIT;
+   coreParam.cpuCore         = (CPUCore)g_Config.iCpuCore;
    check_variables(coreParam);
 
-#if 0
-   g_Config.bVertexDecoderJit = (coreParam.cpuCore == CPU_JIT) ? true : false;
-#endif
-
+   std::string error_string;
    if (!PSP_InitStart(coreParam, &error_string))
    {
       ERROR_LOG(BOOT, "%s", error_string.c_str());
@@ -722,8 +680,6 @@ void retro_unload_game(void)
 	delete ctx;
 	ctx = nullptr;
 	PSP_CoreParameter().graphicsContext = nullptr;
-
-   g_threadManager.Teardown();
 }
 
 void retro_reset(void)
@@ -732,20 +688,11 @@ void retro_reset(void)
 
    PSP_Shutdown();
 
-#if 0
-   coreState = CORE_POWERUP;
-   if (!PSP_InitStart(PSP_CoreParameter(), &error_string))
-   {
-      ERROR_LOG(BOOT, "%s", error_string.c_str());
-      environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
-   }
-#else
    if (!PSP_Init(PSP_CoreParameter(), &error_string))
    {
       ERROR_LOG(BOOT, "%s", error_string.c_str());
       environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
    }
-#endif
 }
 
 static void retro_input(void)
@@ -787,7 +734,7 @@ static void retro_input(void)
 
    for (i = 0; i < sizeof(map) / sizeof(*map); i++)
    {
-      bool pressed          = ret & (1 << map[i].retro);
+      bool pressed = ret & (1 << map[i].retro);
 
       if (pressed)
       {
@@ -812,16 +759,8 @@ void retro_run(void)
    if (PSP_IsIniting())
    {
       std::string error_string;
-#if 0
-      if (!PSP_InitUpdate(&error_string))
-      {
-         graphics_context->SwapBuffers();
-         return;
-      }
-#else
       while (!PSP_InitUpdate(&error_string))
          sleep_ms(4);
-#endif
 
       if (!PSP_IsInited())
       {
