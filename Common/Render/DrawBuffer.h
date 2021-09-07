@@ -73,7 +73,6 @@ public:
 	void Rect(float x, float y, float w, float h, uint32_t color, int align = ALIGN_TOPLEFT);
 	void hLine(float x1, float y, float x2, uint32_t color);
 	void vLine(float x, float y1, float y2, uint32_t color);
-	void vLineAlpha50(float x, float y1, float y2, uint32_t color);
 
 	void Line(ImageID atlas_image, float x1, float y1, float x2, float y2, float thickness, uint32_t color);
 

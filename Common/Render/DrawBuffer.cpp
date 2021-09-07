@@ -123,15 +123,15 @@ void DrawBuffer::Rect(float x, float y, float w, float h, uint32_t color, int al
 }
 
 void DrawBuffer::hLine(float x1, float y, float x2, uint32_t color) {
+	// Round Y to the closest full pixel, since we're making it 1-pixel-thin.
+	y -= fmodf(y, pixel_in_dps_y);
 	Rect(x1, y, x2 - x1, pixel_in_dps_y, color);
 }
 
 void DrawBuffer::vLine(float x, float y1, float y2, uint32_t color) {
+	// Round X to the closest full pixel, since we're making it 1-pixel-thin.
+	x -= fmodf(x, pixel_in_dps_x);
 	Rect(x, y1, pixel_in_dps_x, y2 - y1, color);
-}
-
-void DrawBuffer::vLineAlpha50(float x, float y1, float y2, uint32_t color) {
-	Rect(x, y1, pixel_in_dps_x, y2 - y1, (color | 0xFF000000) & 0x7F000000);
 }
 
 void DrawBuffer::RectVGradient(float x, float y, float w, float h, uint32_t colorTop, uint32_t colorBottom) {
