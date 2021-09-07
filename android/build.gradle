@@ -45,7 +45,6 @@ android {
 		}
 	}
 	compileSdkVersion 30
-	buildToolsVersion '30.0.0'
 	defaultConfig {
 		applicationId 'org.ppsspp.ppsspp'
 		if (androidGitVersion.name() != "unknown" && androidGitVersion.code() >= 14000000) {

@@ -130,7 +130,7 @@ void SingleControlMapper::Refresh() {
 	std::vector<KeyDef> mappings;
 	KeyMap::KeyFromPspButton(pspKey_, &mappings, false);
 
-	rows_.empty();
+	rows_.clear();
 	for (size_t i = 0; i < mappings.size(); i++) {
 		std::string deviceName = GetDeviceName(mappings[i].deviceId);
 		std::string keyName = KeyMap::GetKeyOrAxisName(mappings[i].keyCode);
