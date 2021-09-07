@@ -751,14 +751,14 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	// such as when using replacement textures - but let's keep the same amount of levels.
 	int maxLevelToGenerate = maxLevel;
 
-	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY) {
+	VkFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
+
+	// TODO: Really should inspect the format capabilities.
+	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY && dstFmt == VK_FORMAT_R8G8B8A8_UNORM) {
 		// Boost the number of mipmaps.
 		int maxPossibleMipmaps = log2i(std::min(gstate.getTextureWidth(0), gstate.getTextureHeight(0)));
 		maxLevelToGenerate = maxPossibleMipmaps;
 	}
-
-	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
-	VkFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
 	int scaleFactor = standardScaleFactor_;
 	if (scaleFactor > maxScaleFactor_)
