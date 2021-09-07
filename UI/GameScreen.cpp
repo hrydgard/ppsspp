@@ -190,7 +190,7 @@ void GameScreen::CreateViews() {
 		}
 	}
 
-	bool isHomebrew = info->region > GAMEREGION_MAX;
+	bool isHomebrew = info && info->region > GAMEREGION_MAX;
 	if (fileTypeSupportCRC && !isHomebrew && !Reporting::HasCRC(gamePath_) ) {
 		btnCalcCRC_ = rightColumnItems->Add(new ChoiceWithValueDisplay(&CRC32string, ga->T("Calculate CRC"), (const char*)nullptr));
 		btnCalcCRC_->OnClick.Handle(this, &GameScreen::OnDoCRC32);
