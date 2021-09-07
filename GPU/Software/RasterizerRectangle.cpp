@@ -86,7 +86,8 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 	Sampler::NearestFunc nearestFunc = Sampler::GetNearestFunc();  // Looks at gstate.
 
 	DrawingCoords pos0 = TransformUnit::ScreenToDrawing(v0.screenpos);
-	DrawingCoords pos1 = TransformUnit::ScreenToDrawing(v1.screenpos);
+	// Include the ending pixel based on its center, not start.
+	DrawingCoords pos1 = TransformUnit::ScreenToDrawing(v1.screenpos + ScreenCoords(7, 7, 0));
 
 	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1(), 0);
 	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2(), 0);
