@@ -266,7 +266,7 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 		uint64_t uniformMask = 0;  // Not used
 		uint32_t attributeMask = 0;  // Not used
 		bool success = GenerateVertexShader(VSID, codeBuffer_, compat_, draw_->GetBugs(), &attributeMask, &uniformMask, &genErrorString);
-		_assert_(success);
+		_assert_msg_(success, "VS gen error: %s", genErrorString.c_str());
 		vs = new VulkanVertexShader(vulkan_, VSID, codeBuffer_, useHWTransform);
 		vsCache_.Insert(VSID, vs);
 	}
@@ -279,7 +279,7 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 		std::string genErrorString;
 		uint64_t uniformMask = 0;  // Not used
 		bool success = GenerateFragmentShader(FSID, codeBuffer_, compat_, draw_->GetBugs(), &uniformMask, &genErrorString);
-		_assert_(success);
+		_assert_msg_(success, "FS gen error: %s", genErrorString.c_str());
 		fs = new VulkanFragmentShader(vulkan_, FSID, codeBuffer_);
 		fsCache_.Insert(FSID, fs);
 	}
