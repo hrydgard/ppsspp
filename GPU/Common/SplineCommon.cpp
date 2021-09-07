@@ -492,7 +492,6 @@ template void DrawEngineCommon::SubmitCurve<SplineSurface>(const void *control_p
 template<class Surface>
 void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indices, Surface &surface, u32 vertType, int *bytesRead, const char *scope) {
 	PROFILE_THIS_SCOPE(scope);
-	DispatchFlush();
 
 	// Real hardware seems to draw nothing when given < 4 either U or V.
 	// This would result in num_patches_u / num_patches_v being 0.
