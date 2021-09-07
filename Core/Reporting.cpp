@@ -107,8 +107,7 @@ namespace Reporting
 	static int CalculateCRCThread() {
 		SetCurrentThreadName("ReportCRC");
 
-		// TODO: Use the blockDevice from pspFileSystem?
-		FileLoader *fileLoader = ConstructFileLoader(crcFilename);
+		FileLoader *fileLoader = ResolveFileLoaderTarget(ConstructFileLoader(crcFilename));
 		BlockDevice *blockDevice = constructBlockDevice(fileLoader);
 
 		u32 crc = 0;

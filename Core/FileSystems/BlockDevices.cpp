@@ -44,10 +44,13 @@ BlockDevice *constructBlockDevice(FileLoader *fileLoader) {
 	size_t size = fileLoader->ReadAt(0, 1, 4, buffer);
 	if (size == 4 && !memcmp(buffer, "CISO", 4))
 		return new CISOFileBlockDevice(fileLoader);
-	else if (size == 4 && !memcmp(buffer, "\x00PBP", 4))
-		return new NPDRMDemoBlockDevice(fileLoader);
-	else
-		return new FileBlockDevice(fileLoader);
+	if (size == 4 && !memcmp(buffer, "\x00PBP", 4)) {
+		uint32_t psarOffset = 0;
+		size = fileLoader->ReadAt(0x24, 1, 4, &psarOffset);
+		if (size == 4 && psarOffset < fileLoader->FileSize())
+			return new NPDRMDemoBlockDevice(fileLoader);
+	}
+	return new FileBlockDevice(fileLoader);
 }
 
 u32 BlockDevice::CalculateCRC(volatile bool *cancel) {
