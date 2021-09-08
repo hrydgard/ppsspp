@@ -79,6 +79,32 @@ public:
 	virtual void Draw(UIContext &dc, double t, float alpha) = 0;
 };
 
+class WaveAnimation : public Animation {
+public:
+	void Draw(UIContext &dc, double t, float alpha) override {
+		const uint32_t color = 0x30FFFFFF;
+		const float speed = 1.0;
+
+		Bounds bounds = dc.GetBounds();
+		dc.Flush();
+		dc.BeginNoTex();
+
+		t *= speed;
+		for (int x = 0; x < bounds.w; ++x) {
+			float i = x * 1280/bounds.w;
+
+			float wave0 = sin(i*0.005+t*0.8)*0.05 + sin(i*0.002+t*0.25)*0.02 + sin(i*0.001+t*0.3)*0.03 + 0.625;
+			dc.Draw()->RectVGradient(x, wave0*bounds.h, pixel_in_dps_x, (1.0-wave0)*bounds.h, color, 0x00000000);
+
+			float wave1 = sin(i*0.0044+t*0.4)*0.07 + sin(i*0.003+t*0.1)*0.02 + sin(i*0.001+t*0.3)*0.01 + 0.625;
+			dc.Draw()->RectVGradient(x, wave1*bounds.h, pixel_in_dps_x, (1.0-wave1)*bounds.h, color, 0x00000000);
+		}
+
+		dc.Flush();
+		dc.Begin();
+	}
+};
+
 class FloatingSymbolsAnimation : public Animation {
 public:
 	~FloatingSymbolsAnimation() override {}
@@ -235,6 +261,9 @@ void DrawBackground(UIContext &dc, float alpha) {
 			break;
 		case BackgroundAnimation::RECENT_GAMES:
 			g_Animation.reset(new RecentGamesAnimation());
+			break;
+		case BackgroundAnimation::WAVE:
+			g_Animation.reset(new WaveAnimation());
 			break;
 		default:
 			g_Animation.reset(nullptr);
