@@ -46,6 +46,7 @@
 
 #include "Common/Net/HTTPClient.h"
 #include "Common/Net/Resolve.h"
+#include "Common/Net/URL.h"
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Render/Text/draw_text.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
@@ -683,7 +684,14 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 					}
 				}
 				if (okToLoad) {
-					boot_filename = Path(std::string(argv[i]));
+					std::string str = std::string(argv[i]);
+					// Handle file:/// URIs, since you get those when creating shortcuts on some Android systems.
+					if (startsWith(str, "file:///")) {
+						str = UriDecode(str.substr(7));
+						INFO_LOG(IO, "Decoding '%s' to '%s'", argv[i], str.c_str());
+					}
+
+					boot_filename = Path(str);
 					skipLogo = true;
 				}
 				if (okToLoad && okToCheck) {

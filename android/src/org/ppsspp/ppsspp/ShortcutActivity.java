@@ -103,6 +103,12 @@ public class ShortcutActivity extends Activity {
 			} catch (Exception e) {
 				Log.i(TAG, "Exception getting name: " + e);
 			}
+		} else if (path.startsWith("file:///")) {
+			try {
+				pathStr = java.net.URLDecoder.decode(path.substring(7), StandardCharsets.UTF_8.name());
+			} catch (Exception e) {
+				Log.i(TAG, "Exception getting name: " + e);
+			}
 		} else {
 			pathStr = path;
 		}
@@ -111,6 +117,8 @@ public class ShortcutActivity extends Activity {
 		name = pathSegments[pathSegments.length - 1];
 
 		/*
+		// No longer working for various reasons.
+
 		PpssppActivity.CheckABIAndLoadLibrary();
 		String name = queryGameName(path);
 		if (name.equals("")) {
@@ -119,7 +127,7 @@ public class ShortcutActivity extends Activity {
 			return;
 		}*/
 
-		Log.i(TAG, "Game name: " + name + " : Creating shortcut to " + path);
+		Log.i(TAG, "Game name: " + name + " : Creating shortcut to " + uri.toString());
 
 		// This is Intent that will be returned by this method, as response to
 		// ACTION_CREATE_SHORTCUT. Wrap shortcut intent inside this intent.
