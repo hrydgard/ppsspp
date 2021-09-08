@@ -11,6 +11,7 @@ import android.os.Environment;
 import android.os.Looper;
 import android.util.Log;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 
 /**
  * This class will respond to android.intent.action.CREATE_SHORTCUT intent from launcher homescreen.
@@ -27,8 +28,8 @@ public class ShortcutActivity extends Activity {
 		super.onCreate(savedInstanceState);
 
 		// Show file selector dialog here. If Android version is more than or equal to 11,
-		// use the native file browser instead of our SimpleFileChooser.
-		scoped = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q);
+		// use the native document file browser instead of our SimpleFileChooser.
+		scoped = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R);
 
 		if (scoped) {
 			try {
@@ -41,6 +42,7 @@ public class ShortcutActivity extends Activity {
 				// intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
 				startActivityForResult(intent, RESULT_OPEN_DOCUMENT);
 				// intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, pickerInitialUri);
+				Log.i(TAG, "Starting open document activity");
 			} catch (Exception e) {
 				Log.e(TAG, e.toString());
 			}
@@ -53,17 +55,23 @@ public class ShortcutActivity extends Activity {
 	// Respond to native file dialog.
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-		if (resultCode == RESULT_OPEN_DOCUMENT) {
+		super.onActivityResult(requestCode, resultCode, data);
+		if (requestCode == RESULT_OPEN_DOCUMENT && data != null) {
 			Uri selectedFile = data.getData();
 			if (selectedFile != null) {
 				// Grab permanent permission so we can show it in recents list etc.
 				if (Build.VERSION.SDK_INT >= 19) {
+					Log.i(TAG, "Taking URI permission");
 					getContentResolver().takePersistableUriPermission(selectedFile, Intent.FLAG_GRANT_READ_URI_PERMISSION);
 				}
 				Log.i(TAG, "Browse file finished:" + selectedFile.toString());
-
+				respondToShortcutRequest(selectedFile);  // finishes.
+				return;
 			}
 		}
+
+		// We're done, no matter how it went.
+		finish();
 	}
 
 	public static native String queryGameName(String path);
@@ -76,15 +84,40 @@ public class ShortcutActivity extends Activity {
 		Intent shortcutIntent = new Intent(this, PpssppActivity.class);
 		Log.i(TAG, "Shortcut URI: " + uri.toString());
 		shortcutIntent.setData(uri);
-
+		String path = uri.toString();
 		shortcutIntent.putExtra(PpssppActivity.SHORTCUT_EXTRA_KEY, path);
 
+		// We can't call C++ functions here that use storage APIs since there's no
+		// NativeActivity and all the AndroidStorage methods are methods on that.
+		// Should probably change that. In the meantime, let's just process the URI to make
+		// up a name.
+
+		String name = "PPSSPP Game";
+		String pathStr = "PPSSPP Game";
+		if (path.startsWith("content://")) {
+			String [] segments = path.split("/");
+			try {
+				pathStr = java.net.URLDecoder.decode(segments[segments.length - 1], StandardCharsets.UTF_8.name());
+			} catch (Exception e) {
+				Log.i(TAG, "Exception getting name: " + e);
+			}
+		} else {
+			pathStr = path;
+		}
+
+		String[] pathSegments = pathStr.split("/");
+		name = pathSegments[pathSegments.length - 1];
+
+		/*
 		PpssppActivity.CheckABIAndLoadLibrary();
-		String name = queryGameName(uri.toString());
+		String name = queryGameName(path);
 		if (name.equals("")) {
+			Log.i(TAG, "Failed to retrieve game name - ignoring.");
 			showBadGameMessage();
 			return;
-		}
+		}*/
+
+		Log.i(TAG, "Game name: " + name + " : Creating shortcut to " + path);
 
 		// This is Intent that will be returned by this method, as response to
 		// ACTION_CREATE_SHORTCUT. Wrap shortcut intent inside this intent.
@@ -118,8 +151,6 @@ public class ShortcutActivity extends Activity {
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
-
-		System.exit(-1);
 	}
 
 	// Event when a file is selected on file dialog.
