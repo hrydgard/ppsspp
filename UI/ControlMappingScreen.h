@@ -24,6 +24,7 @@
 
 #include "Common/UI/View.h"
 #include "Common/UI/UIScreen.h"
+#include "Common/StringUtils.h"
 #include "Common/Data/Text/I18n.h"
 
 #include "Core/ControlMapper.h"
@@ -61,15 +62,11 @@ public:
 		pspBtn_ = btn;
 	}
 
-	virtual bool key(const KeyInput &key) override;
-	virtual bool axis(const AxisInput &axis) override;
+	bool key(const KeyInput &key) override;
+	bool axis(const AxisInput &axis) override;
 
 protected:
 	void CreatePopupContents(UI::ViewGroup *parent) override;
-
-	virtual bool FillVertical() const override { return false; }
-	virtual bool ShowButtons() const override { return true; }
-	virtual void OnCompleted(DialogResult result) override {}
 
 private:
 	int pspBtn_;
@@ -77,27 +74,27 @@ private:
 	bool mapped_;  // Prevent double registrations
 };
 
-class KeyMappingNewMouseKeyDialog : public PopupScreen {
+class BindingChoice;
+
+class KeyMappingDialog : public PopupScreen {
 public:
-	explicit KeyMappingNewMouseKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, std::shared_ptr<I18NCategory> i18n)
-		: PopupScreen(i18n->T("Map Mouse"), "", ""), callback_(callback), mapped_(false) {
-		pspBtn_ = btn;
-	}
+	explicit KeyMappingDialog(int btn, int action, std::function<void(void)> callback, std::shared_ptr<I18NCategory> i18n)
+		: PopupScreen(ReplaceAll(i18n->T("Mapping for %1"), "%1", i18n->T(KeyMap::GetPspButtonName(btn)))), 
+		pspBtn_(btn), action_(action), callback_(callback) {}
 
 	bool key(const KeyInput &key) override;
 	bool axis(const AxisInput &axis) override;
 
 protected:
 	void CreatePopupContents(UI::ViewGroup *parent) override;
-
-	bool FillVertical() const override { return false; }
-	bool ShowButtons() const override { return true; }
-	void OnCompleted(DialogResult result) override {}
+	void OnCompleted(DialogResult result) override;
 
 private:
 	int pspBtn_;
-	std::function<void(KeyDef)> callback_;
-	bool mapped_;  // Prevent double registrations
+	int action_;	
+	std::function<void(void)> callback_;
+	BindingChoice *selected_;
+	int selectedIndex_ = -1;
 };
 
 class JoystickHistoryView;
