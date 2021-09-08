@@ -212,6 +212,7 @@ static RetroOption<bool> ppsspp_block_transfer_gpu("ppsspp_block_transfer_gpu", 
 static RetroOption<int> ppsspp_inflight_frames("ppsspp_inflight_frames", "Buffered frames (Slower, less lag, restart)", { { "Up to 2", 2 }, { "Up to 1", 1 }, { "No buffer", 0 }, });
 static RetroOption<int> ppsspp_texture_scaling_level("ppsspp_texture_scaling_level", "Texture Scaling Level", { { "Off", 1 }, { "2x", 2 }, { "3x", 3 }, { "4x", 4 }, { "5x", 5 }, { "Auto", 0 } });
 static RetroOption<int> ppsspp_texture_scaling_type("ppsspp_texture_scaling_type", "Texture Scaling Type", { { "xbrz", TextureScalerCommon::XBRZ }, { "hybrid", TextureScalerCommon::HYBRID }, { "bicubic", TextureScalerCommon::BICUBIC }, { "hybrid_bicubic", TextureScalerCommon::HYBRID_BICUBIC } });
+static RetroOption<std::string> ppsspp_texture_shader("ppsspp_texture_shader", "Texture Shader (Vulkan only, overrides Texture Scaling Type)", { {"Off", "Off"},  {"4xBRZ", "Tex4xBRZ"}, {"MMPX", "TexMMPX"} });
 static RetroOption<int> ppsspp_texture_filtering("ppsspp_texture_filtering", "Texture Filtering", { { "Auto", 1 }, { "Nearest", 2 }, { "Linear", 3 }, {"Auto max quality", 4}});
 static RetroOption<int> ppsspp_texture_anisotropic_filtering("ppsspp_texture_anisotropic_filtering", "Anisotropic Filtering", { "off", "2x", "4x", "8x", "16x" });
 static RetroOption<int> ppsspp_lower_resolution_for_effects("ppsspp_lower_resolution_for_effects", "Lower resolution for effects", { {"Off", 0}, {"Safe", 1}, {"Balanced", 2}, {"Aggressive", 3} });
@@ -259,6 +260,7 @@ void retro_set_environment(retro_environment_t cb)
    vars.push_back(ppsspp_lower_resolution_for_effects.GetOptions());
    vars.push_back(ppsspp_texture_scaling_level.GetOptions());
    vars.push_back(ppsspp_texture_scaling_type.GetOptions());
+   vars.push_back(ppsspp_texture_shader.GetOptions());
    vars.push_back(ppsspp_texture_filtering.GetOptions());
    vars.push_back(ppsspp_texture_deposterize.GetOptions());
    vars.push_back(ppsspp_texture_replacement.GetOptions());
@@ -378,6 +380,17 @@ static void check_variables(CoreParameter &coreParam)
    ppsspp_spline_quality.Update(&g_Config.iSplineBezierQuality);
    ppsspp_disable_slow_framebuffer_effects.Update(&g_Config.bDisableSlowFramebufEffects);
    ppsspp_inflight_frames.Update(&g_Config.iInflightFrames);
+   const bool do_scaling_type_update = ppsspp_texture_scaling_type.Update(&g_Config.iTexScalingType);
+   const bool do_scaling_level_update = ppsspp_texture_scaling_level.Update(&g_Config.iTexScalingLevel);
+   const bool do_texture_shader_update = ppsspp_texture_shader.Update(&g_Config.sTextureShaderName);
+   
+   g_Config.bTexHardwareScaling = "Off" != g_Config.sTextureShaderName;
+   
+   if (gpu && (do_scaling_type_update || do_scaling_level_update || do_texture_shader_update))
+   {
+      gpu->ClearCacheNextFrame();
+      gpu->Resized();
+   }
 
    ppsspp_language.Update(&g_Config.iLanguage);
    if (g_Config.iLanguage < 0)
@@ -386,7 +399,7 @@ static void check_variables(CoreParameter &coreParam)
    g_Config.sLanguageIni = map_psp_language_to_i18n_locale(g_Config.iLanguage);
    i18nrepo.LoadIni(g_Config.sLanguageIni);
 
-   if (!PSP_IsInited() && ppsspp_internal_resolution.Update(&g_Config.iInternalResolution))
+   if (ppsspp_internal_resolution.Update(&g_Config.iInternalResolution) && !PSP_IsInited())
    {
       coreParam.pixelWidth  = coreParam.renderWidth  = g_Config.iInternalResolution * 480;
       coreParam.pixelHeight = coreParam.renderHeight = g_Config.iInternalResolution * 272;
@@ -402,18 +415,6 @@ static void check_variables(CoreParameter &coreParam)
 
    bool isFastForwarding = environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &isFastForwarding);
    coreParam.fastForward = isFastForwarding;
-
-   if (ppsspp_texture_scaling_type.Update(&g_Config.iTexScalingType) && gpu)
-   {
-      gpu->ClearCacheNextFrame();
-      gpu->Resized();
-   }
-
-   if (ppsspp_texture_scaling_level.Update(&g_Config.iTexScalingLevel) && gpu)
-   {
-      gpu->ClearCacheNextFrame();
-      gpu->Resized();
-   }
 }
 
 void retro_set_audio_sample_batch(retro_audio_sample_batch_t cb) { audio_batch_cb = cb; }

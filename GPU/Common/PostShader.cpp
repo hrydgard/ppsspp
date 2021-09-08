@@ -81,10 +81,10 @@ void LoadPostShaderInfo(const std::vector<Path> &directories) {
 
 	for (size_t d = 0; d < directories.size(); d++) {
 		std::vector<File::FileInfo> fileInfo;
-		File::GetFilesInDir(directories[d], &fileInfo, "ini:");
+		VFSGetFileListing(directories[d].c_str(), &fileInfo, "ini:");
 
 		if (fileInfo.size() == 0) {
-			VFSGetFileListing(directories[d].c_str(), &fileInfo, "ini:");
+			File::GetFilesInDir(directories[d], &fileInfo, "ini:");
 		}
 
 		for (size_t f = 0; f < fileInfo.size(); f++) {
