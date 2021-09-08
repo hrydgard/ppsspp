@@ -98,7 +98,7 @@ static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread)
 }
 
 void ThreadManager::Init(int numRealCores, int numLogicalCoresPerCpu) {
-	if (!global_->threads_.empty()) {
+	if (IsInitialized()) {
 		Teardown();
 	}
 
@@ -118,6 +118,8 @@ void ThreadManager::Init(int numRealCores, int numLogicalCoresPerCpu) {
 }
 
 void ThreadManager::EnqueueTask(Task *task, TaskType taskType) {
+	_assert_msg_(IsInitialized(), "ThreadManager not initialized");
+
 	int maxThread;
 	int threadOffset = 0;
 	if (taskType == TaskType::CPU_COMPUTE) {
@@ -158,7 +160,7 @@ void ThreadManager::EnqueueTask(Task *task, TaskType taskType) {
 }
 
 void ThreadManager::EnqueueTaskOnThread(int threadNum, Task *task, TaskType taskType) {
-	_assert_(threadNum >= 0 && threadNum < (int)global_->threads_.size());
+	_assert_msg_(threadNum >= 0 && threadNum < (int)global_->threads_.size(), "Bad threadnum or not initialized");
 	ThreadContext *thread = global_->threads_[threadNum];
 	{
 		std::unique_lock<std::mutex> lock(thread->mutex);
@@ -172,5 +174,9 @@ int ThreadManager::GetNumLooperThreads() const {
 }
 
 void ThreadManager::TryCancelTask(uint64_t taskID) {
-	// Do nothing
+	// Do nothing for now, just let it finish.
+}
+
+bool ThreadManager::IsInitialized() const {
+	return !global_->threads_.empty();
 }
