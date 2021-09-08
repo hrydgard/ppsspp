@@ -166,13 +166,17 @@ void SingleControlMapper::MappedCallback(KeyDef kdf) {
 		replaceAllButton_->SetFocus();
 		break;
 	case REPLACEONE:
-		KeyMap::g_controllerMap[pspKey_][actionIndex_] = kdf;
-		KeyMap::g_controllerMapGeneration++;
-		if (actionIndex_ < rows_.size())
+	{
+		bool success = KeyMap::ReplaceSingleKeyMapping(pspKey_, actionIndex_, kdf);
+		if (!success) {
+			replaceAllButton_->SetFocus(); // Last got removed as a duplicate
+		} else if (actionIndex_ < rows_.size()) {
 			rows_[actionIndex_]->SetFocus();
-		else
+		} else {
 			SetFocus();
+		}
 		break;
+	}
 	default:
 		SetFocus();
 		break;
