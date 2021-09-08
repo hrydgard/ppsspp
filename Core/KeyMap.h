@@ -128,6 +128,8 @@ namespace KeyMap {
 	// Configure the key mapping.
 	// Any configuration will be saved to the Core config.
 	void SetKeyMapping(int psp_key, KeyDef key, bool replace);
+	// Return false if bind was a duplicate and got removed
+	bool ReplaceSingleKeyMapping(int btn, int index, KeyDef key);
 
 	// Configure an axis mapping, saves the configuration.
 	// Direction is negative or positive.
