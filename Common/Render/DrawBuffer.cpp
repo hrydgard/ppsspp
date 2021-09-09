@@ -14,11 +14,6 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 
-enum {
-	// Enough?
-	MAX_VERTS = 65536,
-};
-
 DrawBuffer::DrawBuffer() : count_(0), atlas(0) {
 	verts_ = new Vertex[MAX_VERTS];
 	fontscalex = 1.0f;
