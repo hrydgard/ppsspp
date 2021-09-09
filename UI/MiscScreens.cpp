@@ -79,6 +79,48 @@ public:
 	virtual void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) = 0;
 };
 
+class MovingBackground : public Animation {
+public:
+	void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) override {
+		if (!bgTexture)
+			return;
+
+		dc.Flush();
+		dc.GetDrawContext()->BindTexture(0, bgTexture->GetTexture());
+		Bounds bounds = dc.GetBounds();
+
+		x = std::min(std::max(x/bounds.w, 0.0f), 1.0f) * XFAC;
+		y = std::min(std::max(y/bounds.h, 0.0f), 1.0f) * YFAC;
+		z = 1.0f + std::max(XFAC, YFAC) + (z-1.0f) * ZFAC;
+
+		lastX_ = abs(x-lastX_) > 0.001f ? x*XSPEED+lastX_*(1.0f-XSPEED) : x;
+		lastY_ = abs(y-lastY_) > 0.001f ? y*YSPEED+lastY_*(1.0f-YSPEED) : y;
+		lastZ_ = abs(z-lastZ_) > 0.001f ? z*ZSPEED+lastZ_*(1.0f-ZSPEED) : z;
+
+		float u1 = lastX_/lastZ_;
+		float v1 = lastY_/lastZ_;
+		float u2 = (1.0f+lastX_)/lastZ_;
+		float v2 = (1.0f+lastY_)/lastZ_;
+
+		dc.Draw()->DrawTexRect(bounds, u1, v1, u2, v2, whiteAlpha(alpha));
+
+		dc.Flush();
+		dc.RebindTexture();
+	}
+
+private:
+		static constexpr float XFAC = 0.3f;
+		static constexpr float YFAC = 0.3f;
+		static constexpr float ZFAC = 0.12f;
+		static constexpr float XSPEED = 0.05f;
+		static constexpr float YSPEED = 0.05f;
+		static constexpr float ZSPEED = 0.1f;
+
+		float lastX_ = 0.0f;
+		float lastY_ = 0.0f;
+		float lastZ_ = 1.0f + std::max(XFAC, YFAC);
+};
+
 class WaveAnimation : public Animation {
 public:
 	void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) override {
@@ -267,6 +309,9 @@ void DrawBackground(UIContext &dc, float alpha, float x, float y, float z) {
 			break;
 		case BackgroundAnimation::WAVE:
 			g_Animation.reset(new WaveAnimation());
+			break;
+		case BackgroundAnimation::MOVING_BACKGROUND:
+			g_Animation.reset(new MovingBackground());
 			break;
 		default:
 			g_Animation.reset(nullptr);
