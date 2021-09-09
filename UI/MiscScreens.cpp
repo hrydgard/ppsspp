@@ -76,12 +76,12 @@ static std::unique_ptr<ManagedTexture> bgTexture;
 class Animation {
 public:
 	virtual ~Animation() {}
-	virtual void Draw(UIContext &dc, double t, float alpha) = 0;
+	virtual void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) = 0;
 };
 
 class WaveAnimation : public Animation {
 public:
-	void Draw(UIContext &dc, double t, float alpha) override {
+	void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) override {
 		const uint32_t color = colorAlpha(0xFFFFFFFF, alpha * 0.2f);
 		const float speed = 1.0;
 
@@ -111,7 +111,7 @@ public:
 class FloatingSymbolsAnimation : public Animation {
 public:
 	~FloatingSymbolsAnimation() override {}
-	void Draw(UIContext &dc, double t, float alpha) override {
+	void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) override {
 		float xres = dc.GetBounds().w;
 		float yres = dc.GetBounds().h;
 		if (last_xres != xres || last_yres != yres) {
@@ -150,7 +150,7 @@ private:
 class RecentGamesAnimation : public Animation {
 public:
 	~RecentGamesAnimation() override {}
-	void Draw(UIContext &dc, double t, float alpha) override {
+	void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) override {
 		if (lastIndex_ == nextIndex_) {
 			CheckNext(dc, t);
 		} else if (t > nextT_) {
@@ -250,7 +250,7 @@ void UIBackgroundShutdown() {
 	bgTextureInited = false;
 }
 
-void DrawBackground(UIContext &dc, float alpha) {
+void DrawBackground(UIContext &dc, float alpha, float x, float y, float z) {
 	if (!bgTextureInited) {
 		UIBackgroundInit(dc);
 		bgTextureInited = true;
@@ -298,11 +298,11 @@ void DrawBackground(UIContext &dc, float alpha) {
 #endif
 
 	if (g_Animation) {
-		g_Animation->Draw(dc, t, alpha);
+		g_Animation->Draw(dc, t, alpha, x, y, z);
 	}
 }
 
-void DrawGameBackground(UIContext &dc, const Path &gamePath) {
+void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, float z) {
 	std::shared_ptr<GameInfo> ginfo;
 	if (!gamePath.empty())
 		ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath, GAMEINFO_WANTBG);
@@ -318,7 +318,7 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath) {
 		dc.Flush();
 		dc.RebindTexture();
 	} else {
-		::DrawBackground(dc, 1.0f);
+		::DrawBackground(dc, 1.0f, x, y, z);
 		dc.RebindTexture();
 		dc.Flush();
 	}
@@ -364,15 +364,19 @@ void HandleCommonMessages(const char *message, const char *value, ScreenManager 
 }
 
 void UIScreenWithBackground::DrawBackground(UIContext &dc) {
-	::DrawBackground(dc, 1.0f);
+	float x, y, z;
+	screenManager()->getFocusPosition(x, y, z);
+	::DrawBackground(dc, 1.0f, x, y, z);
 	dc.Flush();
 }
 
 void UIScreenWithGameBackground::DrawBackground(UIContext &dc) {
+	float x, y, z;
+	screenManager()->getFocusPosition(x, y, z);
 	if (!gamePath_.empty()) {
-		DrawGameBackground(dc, gamePath_);
+		DrawGameBackground(dc, gamePath_, x, y, z);
 	} else {
-		::DrawBackground(dc, 1.0f);
+		::DrawBackground(dc, 1.0f, x, y, z);
 		dc.Flush();
 	}
 }
@@ -386,7 +390,9 @@ void UIScreenWithGameBackground::sendMessage(const char *message, const char *va
 }
 
 void UIDialogScreenWithGameBackground::DrawBackground(UIContext &dc) {
-	DrawGameBackground(dc, gamePath_);
+	float x, y, z;
+	screenManager()->getFocusPosition(x, y, z);
+	DrawGameBackground(dc, gamePath_, x, y, z);
 }
 
 void UIDialogScreenWithGameBackground::sendMessage(const char *message, const char *value) {
@@ -402,7 +408,9 @@ void UIScreenWithBackground::sendMessage(const char *message, const char *value)
 }
 
 void UIDialogScreenWithBackground::DrawBackground(UIContext &dc) {
-	::DrawBackground(dc, 1.0f);
+	float x, y, z;
+	screenManager()->getFocusPosition(x, y, z);
+	::DrawBackground(dc, 1.0f, x, y, z);
 	dc.Flush();
 }
 
@@ -686,7 +694,9 @@ void LogoScreen::render() {
 		alphaText = 3.0f - t;
 	uint32_t textColor = colorAlpha(dc.theme->infoStyle.fgColor, alphaText);
 
-	::DrawBackground(dc, alpha);
+	float x, y, z;
+	screenManager()->getFocusPosition(x, y, z);
+	::DrawBackground(dc, alpha, x, y, z);
 
 	auto cr = GetI18NCategory("PSPCredits");
 	auto gr = GetI18NCategory("Graphics");

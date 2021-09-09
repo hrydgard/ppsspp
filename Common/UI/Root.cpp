@@ -24,7 +24,6 @@ static std::mutex eventMutex_;
 static std::function<void(UISound)> soundCallback;
 static bool soundEnabled = true;
 
-
 struct DispatchQueueItem {
 	Event *e;
 	EventParams params;
