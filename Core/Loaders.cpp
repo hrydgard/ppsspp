@@ -71,7 +71,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 	}
 
 	if (!fileLoader->Exists()) {
-		*errorString = "IdentifyFile: File doesn't exist" + fileLoader->GetPath().ToString();
+		*errorString = "IdentifyFile: File doesn't exist: " + fileLoader->GetPath().ToString();
 		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
 

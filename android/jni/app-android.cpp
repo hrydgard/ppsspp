@@ -1441,15 +1441,30 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 	return true;
 }
 
+// NOTE: This is defunct and not working, due to how the Android storage functions currently require
+// a PpssppActivity specifically and we don't have one here.
 extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv *env, jclass, jstring jpath) {
+	bool teardownThreadManager = false;
+	if (!g_threadManager.IsInitialized()) {
+		INFO_LOG(SYSTEM, "No thread manager - initializing one");
+		// Need a thread manager.
+		teardownThreadManager = true;
+		g_threadManager.Init(1, 1);
+	}
+
 	Path path = Path(GetJavaString(env, jpath));
+
+	INFO_LOG(SYSTEM, "queryGameName(%s)", path.c_str());
+
 	std::string result = "";
 
 	GameInfoCache *cache = new GameInfoCache();
 	std::shared_ptr<GameInfo> info = cache->GetInfo(nullptr, path, 0);
 	// Wait until it's done: this is synchronous, unfortunately.
 	if (info) {
+		INFO_LOG(SYSTEM, "GetInfo successful, waiting");
 		cache->WaitUntilDone(info);
+		INFO_LOG(SYSTEM, "Done waiting");
 		if (info->fileType != IdentifiedFileType::UNKNOWN) {
 			result = info->GetTitle();
 
@@ -1458,9 +1473,19 @@ extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv 
 			if (result.length() > strlen("The ") && startsWithNoCase(result, "The ")) {
 				result = result.substr(strlen("The "));
 			}
+
+			INFO_LOG(SYSTEM, "queryGameName: Got '%s'", result.c_str());
+		} else {
+			INFO_LOG(SYSTEM, "queryGameName: Filetype unknown");
 		}
+	} else {
+		INFO_LOG(SYSTEM, "No info from cache");
 	}
 	delete cache;
+
+	if (teardownThreadManager) {
+		g_threadManager.Teardown();
+	}
 
 	return env->NewStringUTF(result.c_str());
 }
