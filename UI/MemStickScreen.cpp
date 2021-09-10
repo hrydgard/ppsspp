@@ -182,9 +182,12 @@ UI::EventReturn MemStickScreen::OnUseInternalStorage(UI::EventParams &params) {
 		} else {
 			// This can't really happen?? Not worth making an error message.
 		}
-	} else {
+	} else if (pendingMemStickFolder != g_Config.memStickDirectory) {
 		// Always ask for confirmation when called from the UI. Likely there's already some data.
 		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, false));
+	} else {
+		// User chose the same directory it's already in. Let's just bail.
+		TriggerFinish(DialogResult::DR_OK);
 	}
 	return UI::EVENT_DONE;
 }
@@ -200,9 +203,12 @@ UI::EventReturn MemStickScreen::OnUseStorageRoot(UI::EventParams &params) {
 		} else {
 			// This can't really happen?? Not worth making an error message.
 		}
-	} else {
+	} else if (pendingMemStickFolder != g_Config.memStickDirectory) {
 		// Always ask for confirmation when called from the UI. Likely there's already some data.
 		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, false));
+	} else {
+		// User chose the same directory it's already in. Let's just bail.
+		TriggerFinish(DialogResult::DR_OK);
 	}
 	return UI::EVENT_DONE;
 }
@@ -227,9 +233,6 @@ void MemStickScreen::sendMessage(const char *message, const char *value) {
 
 			if (pendingMemStickFolder == g_Config.memStickDirectory) {
 				auto iz = GetI18NCategory("MemStick");
-#if PPSSPP_PLATFORM(ANDROID)
-				SystemToast(iz->T("That's the folder being used!"));
-#endif
 				return;
 			}
 
