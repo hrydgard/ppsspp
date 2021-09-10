@@ -22,6 +22,7 @@
 #include "GPU/Software/Clipper.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/RasterizerRectangle.h"
+#include "GPU/Software/TransformUnit.h"
 
 #include "Common/Profiler/Profiler.h"
 
@@ -29,11 +30,6 @@ namespace Clipper {
 
 enum {
 	SKIP_FLAG = -1,
-	CLIP_POS_X_BIT = 0x01,
-	CLIP_NEG_X_BIT = 0x02,
-	CLIP_POS_Y_BIT = 0x04,
-	CLIP_NEG_Y_BIT = 0x08,
-	CLIP_POS_Z_BIT = 0x10,
 	CLIP_NEG_Z_BIT = 0x20,
 };
 
@@ -41,11 +37,6 @@ static inline int CalcClipMask(const ClipCoords& v)
 {
 	int mask = 0;
 	// This checks `x / w` compared to 1 or -1, skipping the division.
-	if (v.x > v.w) mask |= CLIP_POS_X_BIT;
-	if (v.x < -v.w) mask |= CLIP_NEG_X_BIT;
-	if (v.y > v.w) mask |= CLIP_POS_Y_BIT;
-	if (v.y < -v.w) mask |= CLIP_NEG_Y_BIT;
-	if (v.z > v.w) mask |= CLIP_POS_Z_BIT;
 	if (v.z < -v.w) mask |= CLIP_NEG_Z_BIT;
 	return mask;
 }
@@ -134,9 +125,37 @@ static void RotateUVThrough(const VertexData &tl, const VertexData &br, VertexDa
 	}
 }
 
+void ProcessTriangleInternal(VertexData &v0, VertexData &v1, VertexData &v2, const VertexData &provoking, bool fromRectangle);
+
+static inline bool CheckOutsideZ(ClipCoords p, int &pos, int &neg) {
+	constexpr float outsideValue = 1.000030517578125f;
+	float z = p.z / p.w;
+	if (z >= outsideValue) {
+		pos++;
+		return true;
+	}
+	if (-z >= outsideValue) {
+		neg++;
+		return true;
+	}
+	return false;
+}
+
 void ProcessRect(const VertexData& v0, const VertexData& v1)
 {
 	if (!gstate.isModeThrough()) {
+		// We may discard the entire rect based on depth values.
+		int outsidePos = 0, outsideNeg = 0;
+		CheckOutsideZ(v0.clippos, outsidePos, outsideNeg);
+		CheckOutsideZ(v1.clippos, outsidePos, outsideNeg);
+
+		// With depth clamp off, we discard the rectangle if even one vert is outside.
+		if (outsidePos + outsideNeg > 0 && !gstate.isDepthClampEnabled())
+			return;
+		// With it on, both must be outside in the same direction.
+		else if (outsidePos >= 2 || outsideNeg >= 2)
+			return;
+
 		VertexData buf[4];
 		buf[0].clippos = ClipCoords(v0.clippos.x, v0.clippos.y, v1.clippos.z, v1.clippos.w);
 		buf[0].texturecoords = v0.texturecoords;
@@ -171,10 +190,10 @@ void ProcessRect(const VertexData& v0, const VertexData& v1)
 		}
 
 		// Four triangles to do backfaces as well. Two of them will get backface culled.
-		ProcessTriangle(*topleft, *topright, *bottomright, buf[3]);
-		ProcessTriangle(*bottomright, *topright, *topleft, buf[3]);
-		ProcessTriangle(*bottomright, *bottomleft, *topleft, buf[3]);
-		ProcessTriangle(*topleft, *bottomleft, *bottomright, buf[3]);
+		ProcessTriangleInternal(*topleft, *topright, *bottomright, buf[3], true);
+		ProcessTriangleInternal(*bottomright, *topright, *topleft, buf[3], true);
+		ProcessTriangleInternal(*bottomright, *bottomleft, *topleft, buf[3], true);
+		ProcessTriangleInternal(*topleft, *bottomleft, *bottomright, buf[3], true);
 	} else {
 		// through mode handling
 
@@ -245,23 +264,23 @@ void ProcessLine(VertexData& v0, VertexData& v1)
 		return;
 	}
 
+	int outsidePos = 0, outsideNeg = 0;
+	CheckOutsideZ(v0.clippos, outsidePos, outsideNeg);
+	CheckOutsideZ(v1.clippos, outsidePos, outsideNeg);
+
+	// With depth clamp off, we discard the line if even one vert is outside.
+	if (outsidePos + outsideNeg > 0 && !gstate.isDepthClampEnabled())
+		return;
+	// With it on, both must be outside in the same direction.
+	else if (outsidePos >= 2 || outsideNeg >= 2)
+		return;
+
 	VertexData *Vertices[2] = {&v0, &v1};
 
 	int mask0 = CalcClipMask(v0.clippos);
 	int mask1 = CalcClipMask(v1.clippos);
 	int mask = mask0 | mask1;
-
-	if (mask0 & mask1) {
-		// Even if clipping is disabled, we can discard if the line is entirely outside.
-		return;
-	}
-
 	if (mask) {
-		CLIP_LINE(CLIP_POS_X_BIT, -1,  0,  0, 1);
-		CLIP_LINE(CLIP_NEG_X_BIT,  1,  0,  0, 1);
-		CLIP_LINE(CLIP_POS_Y_BIT,  0, -1,  0, 1);
-		CLIP_LINE(CLIP_NEG_Y_BIT,  0,  1,  0, 1);
-		CLIP_LINE(CLIP_POS_Z_BIT,  0,  0,  0, 1);
 		CLIP_LINE(CLIP_NEG_Z_BIT,  0,  0,  1, 1);
 	}
 
@@ -271,7 +290,7 @@ void ProcessLine(VertexData& v0, VertexData& v1)
 	Rasterizer::DrawLine(data[0], data[1]);
 }
 
-void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2, const VertexData &provoking) {
+void ProcessTriangleInternal(VertexData &v0, VertexData &v1, VertexData &v2, const VertexData &provoking, bool fromRectangle) {
 	if (gstate.isModeThrough()) {
 		// In case of cull reordering, make sure the right color is on the final vertex.
 		if (gstate.getShadeMode() == GE_SHADE_FLAT) {
@@ -307,7 +326,20 @@ void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2, const Verte
 	mask |= CalcClipMask(v1.clippos);
 	mask |= CalcClipMask(v2.clippos);
 
-	if (mask) {
+	if (mask && !fromRectangle) {
+		// We may discard the entire triangle based on depth values.  First check what's outside.
+		int outsidePos = 0, outsideNeg = 0;
+		for (int i = 0; i < 3; ++i) {
+			CheckOutsideZ(Vertices[i]->clippos, outsidePos, outsideNeg);
+		}
+
+		// With depth clamp off, we discard the triangle if even one vert is outside.
+		if (outsidePos + outsideNeg > 0 && !gstate.isDepthClampEnabled())
+			return;
+		// With it on, all three must be outside in the same direction.
+		else if (outsidePos >= 3 || outsideNeg >= 3)
+			return;
+
 		for (int i = 0; i < 3; i += 3) {
 			int vlist[2][2*6+1];
 			int *inlist = vlist[0], *outlist = vlist[1];
@@ -323,13 +355,8 @@ void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2, const Verte
 			indices[1] = SKIP_FLAG;
 			indices[2] = SKIP_FLAG;
 
-			// The PSP doesn't clip on the sides (so, commented out) but it does appear to have a Z clipper.
-			// POLY_CLIP(CLIP_POS_X_BIT, -1,  0,  0, 1);
-			// POLY_CLIP(CLIP_NEG_X_BIT,  1,  0,  0, 1);
-			// POLY_CLIP(CLIP_POS_Y_BIT,  0, -1,  0, 1);
-			// POLY_CLIP(CLIP_NEG_Y_BIT,  0,  1,  0, 1);
-			POLY_CLIP(CLIP_POS_Z_BIT,  0,  0,  0, 1);
-			POLY_CLIP(CLIP_NEG_Z_BIT,  0,  0,  1, 1);
+			// The PSP only clips on negative Z (importantly, regardless of viewport.)
+			POLY_CLIP(CLIP_NEG_Z_BIT, 0, 0, 1, 1);
 
 			// transform the poly in inlist into triangles
 			indices[0] = inlist[0];
@@ -341,10 +368,6 @@ void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2, const Verte
 				indices[numIndices++] = inlist[j];
 			}
 		}
-	} else if (CalcClipMask(v0.clippos) & CalcClipMask(v1.clippos) & CalcClipMask(v2.clippos))  {
-		// If clipping is disabled, only discard the current primitive
-		// if all three vertices lie outside one of the clipping planes
-		return;
 	}
 
 	for (int i = 0; i + 3 <= numIndices; i += 3) {
@@ -363,6 +386,10 @@ void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2, const Verte
 			Rasterizer::DrawTriangle(data[0], data[1], data[2]);
 		}
 	}
+}
+
+void ProcessTriangle(VertexData &v0, VertexData &v1, VertexData &v2, const VertexData &provoking) {
+	ProcessTriangleInternal(v0, v1, v2, provoking, false);
 }
 
 } // namespace
