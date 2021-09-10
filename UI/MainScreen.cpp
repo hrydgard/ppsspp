@@ -1541,10 +1541,7 @@ void GridSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	items->Add(new CheckBox(&g_Config.bGridView1, sy->T("Display Recent on a grid")));
 	items->Add(new CheckBox(&g_Config.bGridView2, sy->T("Display Games on a grid")));
 	items->Add(new CheckBox(&g_Config.bGridView3, sy->T("Display Homebrew on a grid")));
-
-	items->Add(new ItemHeader(sy->T("Grid icon size")));
-	items->Add(new Choice(sy->T("Increase size")))->OnClick.Handle(this, &GridSettingsScreen::GridPlusClick);
-	items->Add(new Choice(sy->T("Decrease size")))->OnClick.Handle(this, &GridSettingsScreen::GridMinusClick);
+	items->Add(new PopupSliderChoiceFloat(&g_Config.fGameGridScale, 0.8, 3.0, sy->T("Grid icon size"), 0.1,screenManager()));
 
 	items->Add(new ItemHeader(sy->T("Display Extra Info")));
 	items->Add(new CheckBox(&g_Config.bShowIDOnGameIcon, sy->T("Show ID")));
@@ -1557,16 +1554,6 @@ void GridSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	scroll->Add(items);
 	parent->Add(scroll);
-}
-
-UI::EventReturn GridSettingsScreen::GridPlusClick(UI::EventParams &e) {
-	g_Config.fGameGridScale = std::min(g_Config.fGameGridScale*1.25f, MAX_GAME_GRID_SCALE);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GridSettingsScreen::GridMinusClick(UI::EventParams &e) {
-	g_Config.fGameGridScale = std::max(g_Config.fGameGridScale/1.25f, MIN_GAME_GRID_SCALE);
-	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GridSettingsScreen::OnRecentClearClick(UI::EventParams &e) {

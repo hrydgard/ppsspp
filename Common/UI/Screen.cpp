@@ -152,38 +152,26 @@ void ScreenManager::resized() {
 
 void ScreenManager::render() {
 	if (!stack_.empty()) {
-		switch (stack_.back().flags) {
-		case LAYER_SIDEMENU:
-		case LAYER_TRANSPARENT:
-			if (stack_.size() == 1) {
-				ERROR_LOG(SYSTEM, "Can't have sidemenu over nothing");
+		// Get backward to the first solid layer
+		int i;
+		for (i = stack_.size()-1; i >= 0; --i) {
+			if (stack_[i].flags != LAYER_SIDEMENU && stack_[i].flags != LAYER_TRANSPARENT)
 				break;
-			} else {
-				auto iter = stack_.end();
-				iter--;
-				iter--;
-				Layer backback = *iter;
+		}
+		if (i < 0) {
+			ERROR_LOG(SYSTEM, "Can't have sidemenu over nothing");
+		} else {
+			_assert_(stack_[i].screen);
 
-				_assert_(backback.screen);
-
-				// TODO: Make really sure that this "mismatched" pre/post only happens
-				// when screens are "compatible" (both are UIScreens, for example).
-				backback.screen->preRender();
-				backback.screen->render();
-				stack_.back().screen->render();
-				if (postRenderCb_)
-					postRenderCb_(getUIContext(), postRenderUserdata_);
-				backback.screen->postRender();
-				break;
+			// TODO: Make really sure that this "mismatched" pre/post only happens
+			// when screens are "compatible" (both are UIScreens, for example).
+			stack_[i].screen->preRender();
+			for (int j = i; j < stack_.size(); ++j) {
+				stack_[j].screen->render();
 			}
-		default:
-			_assert_(stack_.back().screen);
-			stack_.back().screen->preRender();
-			stack_.back().screen->render();
 			if (postRenderCb_)
 				postRenderCb_(getUIContext(), postRenderUserdata_);
-			stack_.back().screen->postRender();
-			break;
+			stack_[i].screen->postRender();
 		}
 	} else {
 		ERROR_LOG(SYSTEM, "No current screen!");
