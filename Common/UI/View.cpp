@@ -848,10 +848,12 @@ void TextView::Draw(UIContext &dc) {
 	Bounds textBounds = bounds_;
 
 	if (bullet_) {
-		// Possible alternatives: •●■
-		// TODO: Maybe draw an actual circle if we don't have real unicode fonts. So far this is only
-		// used on Android.
-		dc.DrawTextRect("●", textBounds, textColor, ALIGN_LEFT);
+		float radius = 7.0f;
+		dc.Flush();
+		dc.BeginNoTex();
+		dc.Draw()->FillCircle(textBounds.x + radius, textBounds.centerY(), radius, 20, textColor);
+		dc.Flush();
+		dc.Begin();
 		textBounds.x += bulletOffset;
 		textBounds.w -= bulletOffset;
 	}

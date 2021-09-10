@@ -356,7 +356,6 @@ void DrawBuffer::DrawImageRotatedStretch(ImageID atlas_image, const Bounds &boun
 	}
 }
 
-// TODO: add arc support
 void DrawBuffer::Circle(float xc, float yc, float radius, float thickness, int segments, float startAngle, uint32_t color, float u_mul) {
 	float angleDelta = PI * 2 / segments;
 	float uDelta = 1.0f / segments;
@@ -372,12 +371,31 @@ void DrawBuffer::Circle(float xc, float yc, float radius, float thickness, int s
 		float c1 = cosf(angle1), s1 = sinf(angle1), c2 = cosf(angle2), s2 = sinf(angle2);
 		const float x[4] = {c1 * r1 + xc, c2 * r1 + xc, c1 * r2 + xc, c2 * r2 + xc};
 		const float y[4] = {s1 * r1 + yc, s2 * r1 + yc, s1 * r2 + yc, s2 * r2 + yc};
-		V(x[0],	y[0], color, u1, 0);
-		V(x[1],	y[1], color, u2, 0);
-		V(x[2],	y[2], color, u1, 1);
-		V(x[1],	y[1], color, u2, 0);
-		V(x[3],	y[3], color, u2, 1);
-		V(x[2],	y[2], color, u1, 1);
+		V(x[0],	y[0], color, u1, 0.0f);
+		V(x[1],	y[1], color, u2, 0.0f);
+		V(x[2],	y[2], color, u1, 1.0f);
+		V(x[1],	y[1], color, u2, 0.0f);
+		V(x[3],	y[3], color, u2, 1.0f);
+		V(x[2],	y[2], color, u1, 1.0f);
+	}
+}
+
+void DrawBuffer::FillCircle(float xc, float yc, float radius, int segments, uint32_t color) {
+	float angleDelta = PI * 2 / segments;
+	float uDelta = 1.0f / segments;
+	float r1 = radius;
+	for (int i = 0; i < segments + 1; i++) {
+		float angle1 = i * angleDelta;
+		float angle2 = (i + 1) * angleDelta;
+		float u1 = i * uDelta;
+		float u2 = (i + 1) * uDelta;
+		// TODO: get rid of one pair of cos/sin per loop, can reuse from last iteration
+		float c1 = cosf(angle1), s1 = sinf(angle1), c2 = cosf(angle2), s2 = sinf(angle2);
+		const float x[2] = { c1 * r1 + xc, c2 * r1 + xc };
+		const float y[2] = { s1 * r1 + yc, s2 * r1 + yc };
+		V(xc, yc, color, 0.0f, 0.0f);
+		V(x[0], y[0], color, u1, 0.0f);
+		V(x[1], y[1], color, u2, 1.0f);
 	}
 }
 
