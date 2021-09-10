@@ -185,13 +185,22 @@ public:
 
 		// Clamp to curWidth_/curHeight_. Apparently an issue.
 		if ((int)(rc.offset.x + rc.extent.width) > curWidth_) {
-			rc.extent.width = curWidth_ - rc.offset.x;
+			int newWidth = curWidth_ - rc.offset.x;
+			rc.extent.width = std::max(1, newWidth);
+			if (rc.offset.x >= curWidth_) {
+				// Fallback.
+				rc.offset.x = curWidth_ - rc.extent.width;
+			}
 		}
+
 		if ((int)(rc.offset.y + rc.extent.height) > curHeight_) {
-			rc.extent.height = curHeight_ - rc.offset.y;
+			int newHeight = curHeight_ - rc.offset.y;
+			rc.extent.height = std::max(1, newHeight);
+			if (rc.offset.y >= curHeight_) {
+				// Fallback.
+				rc.offset.y = curHeight_ - rc.extent.height;
+			}
 		}
-		_dbg_assert_((int)(rc.offset.x + rc.extent.width) <= curWidth_);
-		_dbg_assert_((int)(rc.offset.y + rc.extent.height) <= curHeight_);
 		curRenderArea_.Apply(rc);
 
 		VkRenderData data{ VKRRenderCommand::SCISSOR };
