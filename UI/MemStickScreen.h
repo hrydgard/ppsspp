@@ -59,6 +59,7 @@ private:
 	UI::EventReturn OnBrowse(UI::EventParams &e);
 	UI::EventReturn OnUseInternalStorage(UI::EventParams &params);
 	UI::EventReturn OnUseStorageRoot(UI::EventParams &params);
+	UI::EventReturn OnSetFolderManually(UI::EventParams &params);
 
 	SettingInfoMessage *settingInfo_ = nullptr;
 

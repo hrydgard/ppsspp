@@ -156,6 +156,10 @@ void MemStickScreen::CreateViews() {
 		leftColumn->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP.")))->SetBullet(true);
 		leftColumn->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold.")))->SetBullet(true);
 		leftColumn->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access")))->SetBullet(true);
+	} else {
+		leftColumn->Add(new Choice(iz->T("Manually specify PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnSetFolderManually);
+		leftColumn->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP.")))->SetBullet(true);
+		leftColumn->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold.")))->SetBullet(true);
 	}
 
 	leftColumn->Add(new Choice(iz->T("Use App Private Directory")))->OnClick.Handle(this, &MemStickScreen::OnUseInternalStorage);
@@ -175,6 +179,44 @@ void MemStickScreen::CreateViews() {
 	}
 
 	INFO_LOG(SYSTEM, "MemStickScreen: initialSetup=%d", (int)initialSetup_);
+}
+
+UI::EventReturn MemStickScreen::OnSetFolderManually(UI::EventParams &params) {
+	// The old way, from before scoped storage.
+
+	auto sy = GetI18NCategory("System");
+	System_InputBoxGetString(sy->T("Memory Stick Folder"), g_Config.memStickDirectory.ToString(), [&](bool result, const std::string &value) {
+		auto sy = GetI18NCategory("System");
+		auto di = GetI18NCategory("Dialog");
+
+		if (result) {
+			std::string newPath = value;
+			size_t pos = newPath.find_last_not_of("/");
+			// Gotta have at least something but a /, and also needs to start with a /.
+			if (newPath.empty() || pos == newPath.npos || newPath[0] != '/') {
+				settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
+				return;
+			}
+			if (pos != newPath.size() - 1) {
+				newPath = newPath.substr(0, pos + 1);
+			}
+
+			Path pendingMemStickFolder(newPath);
+			if (pendingMemStickFolder == g_Config.memStickDirectory) {
+				// Same directory as before - all good.
+				TriggerFinish(DialogResult::DR_OK);
+				return;
+			}
+
+			if (!File::Exists(pendingMemStickFolder)) {
+				SystemToast(sy->T("Path does not exist!"));
+				return;
+			}
+
+			screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, false));
+		}
+	});
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn MemStickScreen::OnUseInternalStorage(UI::EventParams &params) {
