@@ -14,6 +14,11 @@
 struct Atlas;
 
 enum {
+	// Enough?
+	MAX_VERTS = 65536,
+};
+
+enum {
 	ALIGN_LEFT = 0,
 	ALIGN_RIGHT = 16,
 	ALIGN_TOP = 0,
