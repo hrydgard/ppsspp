@@ -268,7 +268,13 @@ int64_t Android_ComputeRecursiveDirectorySize(const std::string &uri) {
 	auto env = getEnv();
 
 	jstring param = env->NewStringUTF(uri.c_str());
-	return env->CallLongMethod(g_nativeActivity, computeRecursiveDirectorySize, param);
+
+	double start = time_now_d();
+	int64_t size = env->CallLongMethod(g_nativeActivity, computeRecursiveDirectorySize, param);
+	double elapsed = time_now_d() - start;
+
+	ERROR_LOG(IO, "ComputeRecursiveDirectorySize(%s) in %0.3f s", uri.c_str(), elapsed);
+	return size;
 }
 
 bool Android_IsExternalStoragePreservedLegacy() {

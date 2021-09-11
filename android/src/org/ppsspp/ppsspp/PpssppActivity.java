@@ -236,7 +236,6 @@ public class PpssppActivity extends NativeActivity {
 		try {
 			Uri uri = Uri.parse(uriString);
 			long totalSize = directorySizeRecursion(uri);
-			Log.i(TAG, "directorySizeRecursion(" + uriString + ") returned " + totalSize);
 			return totalSize;
 		}
 		catch (Exception e) {
