@@ -430,8 +430,7 @@ static time_t GetTotalSize(const SavedataButton *b) {
 	switch (Identify_File(fileLoader.get(), &errorString)) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
-		return File::GetDirectoryRecursiveSize(ResolvePBPDirectory(b->GamePath()), nullptr, File::GETFILES_GETHIDDEN);
-
+		return File::ComputeRecursiveDirectorySize(ResolvePBPDirectory(b->GamePath()));
 	default:
 		return fileLoader->FileSize();
 	}

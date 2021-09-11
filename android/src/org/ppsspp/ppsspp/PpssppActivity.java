@@ -17,6 +17,8 @@ import android.database.Cursor;
 import android.provider.DocumentsContract;
 import android.os.Environment;
 import androidx.documentfile.provider.DocumentFile;
+
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.UUID;
 import java.io.File;
@@ -178,34 +180,46 @@ public class PpssppActivity extends NativeActivity {
 		return str + size + "|" + documentName + "|" + lastModified;
 	}
 
-	private long directorySizeRecursion(Uri uri, String documentId) {
+	private long directorySizeRecursion(Uri uri) {
 		Cursor c = null;
 		try {
-			Log.i(TAG, "recursing into " + uri.toString());
+			// Log.i(TAG, "recursing into " + uri.toString());
 			final String[] columns = new String[]{
 					DocumentsContract.Document.COLUMN_DOCUMENT_ID,
 					DocumentsContract.Document.COLUMN_SIZE,
 					DocumentsContract.Document.COLUMN_MIME_TYPE,  // check for MIME_TYPE_DIR
 			};
 			final ContentResolver resolver = getContentResolver();
+			final String documentId = DocumentsContract.getDocumentId(uri);
 			final Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(uri, documentId);
 			c = resolver.query(childrenUri, columns, null, null, null);
 			long sizeSum = 0;
+
+			// Buffer the URIs so we only have one cursor active at once. I don't trust the storage framework
+			// to handle more than one...
+			ArrayList<Uri> childDirs = new ArrayList<Uri>();
+
 			while (c.moveToNext()) {
 				final String mimeType = c.getString(2);
 				final boolean isDirectory = mimeType.equals(DocumentsContract.Document.MIME_TYPE_DIR);
 				if (isDirectory) {
 					final String childDocumentId = c.getString(0);
-					long dirSize = directorySizeRecursion(
-						DocumentsContract.buildDocumentUriUsingTree(uri, childDocumentId),
-						documentId
-					);
-					if (dirSize >= 0) {
-						sizeSum += dirSize;
-					}
+					final Uri childUri = DocumentsContract.buildDocumentUriUsingTree(uri, childDocumentId);
+					childDirs.add(childUri);
 				} else {
 					final long fileSize = c.getLong(1);
 					sizeSum += fileSize;
+				}
+			}
+			c.close();
+			c = null;
+
+			for (Uri childUri : childDirs) {
+				long dirSize = directorySizeRecursion(childUri);
+				if (dirSize >= 0) {
+					sizeSum += dirSize;
+				} else {
+					return dirSize;
 				}
 			}
 			return sizeSum;
@@ -221,8 +235,7 @@ public class PpssppActivity extends NativeActivity {
 	public long computeRecursiveDirectorySize(String uriString) {
 		try {
 			Uri uri = Uri.parse(uriString);
-			String documentId = DocumentsContract.getDocumentId(uri);
-			long totalSize = directorySizeRecursion(uri, documentId);
+			long totalSize = directorySizeRecursion(uri);
 			Log.i(TAG, "directorySizeRecursion(" + uriString + ") returned " + totalSize);
 			return totalSize;
 		}

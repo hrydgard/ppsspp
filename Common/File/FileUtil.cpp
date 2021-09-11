@@ -327,20 +327,18 @@ std::string ResolvePath(const std::string &path) {
 static int64_t RecursiveSize(const Path &path) {
 	// TODO: Some file systems can optimize this.
 	std::vector<FileInfo> fileInfo;
-	if (!GetFilesInDir(path, &fileInfo)) {
+	if (!GetFilesInDir(path, &fileInfo, nullptr, GETFILES_GETHIDDEN)) {
 		return -1;
 	}
-	int64_t result = 0;
+	int64_t sizeSum = 0;
 	for (const auto &file : fileInfo) {
-		if (file.name == "." || file.name == "..")
-			continue;
 		if (file.isDirectory) {
-			result += RecursiveSize(file.fullName);
+			sizeSum += RecursiveSize(file.fullName);
 		} else {
-			result += file.size;
+			sizeSum += file.size;
 		}
 	}
-	return result;
+	return sizeSum;
 }
 
 uint64_t ComputeRecursiveDirectorySize(const Path &path) {

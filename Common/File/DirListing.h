@@ -35,7 +35,6 @@ enum {
 };
 
 bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *filter = nullptr, int flags = 0);
-int64_t GetDirectoryRecursiveSize(const Path &path, const char *filter = nullptr, int flags = 0);
 std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const char *filter);
 
 #ifdef _WIN32

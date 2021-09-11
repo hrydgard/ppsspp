@@ -285,19 +285,6 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 	return true;
 }
 
-int64_t GetDirectoryRecursiveSize(const Path &path, const char *filter, int flags) {
-	std::vector<FileInfo> fileInfo;
-	GetFilesInDir(path, &fileInfo, filter, flags);
-	int64_t sizeSum = 0;
-	for (const auto &finfo : fileInfo) {
-		if (!finfo.isDirectory)
-			sizeSum += finfo.size;
-		else
-			sizeSum += GetDirectoryRecursiveSize(finfo.fullName, filter, flags);
-	}
-	return sizeSum;
-}
-
 #if PPSSPP_PLATFORM(WINDOWS)
 // Returns a vector with the device names
 std::vector<std::string> GetWindowsDrives()
