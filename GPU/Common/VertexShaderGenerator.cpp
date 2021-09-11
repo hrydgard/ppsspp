@@ -105,6 +105,8 @@ const char *boneWeightAttrInitHLSL[9] = {
 // to 0 and 65535 if a depth clamping/clipping flag is set (x/y clipping is performed only if depth
 // needs to be clamped.)
 //
+// Additionally, depth is clipped to negative z based on vec.z (before viewport), at -1.
+//
 // All this above is for full transform mode.
 // In through mode, the Z coordinate just goes straight through and there is no perspective division.
 // We simulate this of course with pretty much an identity matrix. Rounding Z becomes very easy.
@@ -1107,6 +1109,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "      outPos.xyzw = u_cullRangeMax.wwww;\n");
 		WRITE(p, "    }\n");
 		WRITE(p, "  }\n");
+
+		if (compat.shaderLanguage == GLSL_VULKAN) {
+			WRITE(p, "  %sgl_ClipDistance[0] = projZ * outPos.w + outPos.w;\n", compat.vsOutPrefix);
+		}
 	}
 
 	// We've named the output gl_Position in HLSL as well.
