@@ -201,9 +201,37 @@ UI::EventReturn MemStickScreen::OnSetFolderManually(UI::EventParams &params) {
 				newPath = newPath.substr(0, pos + 1);
 			}
 
+			if (newPath.empty()) {
+				// Reuse below message instead of adding yet another string.
+				SystemToast(sy->T("Path does not exist!"));
+				return;
+			}
+
 			Path pendingMemStickFolder(newPath);
+
+			if (!File::Exists(pendingMemStickFolder)) {
+				// Try to fix the path string, apparently some users got used to leaving out the /.
+				if (newPath[0] != '/') {
+					newPath = "/" + newPath;
+				}
+
+				pendingMemStickFolder = Path(newPath);
+			}
+
+			if (!File::Exists(pendingMemStickFolder) && pendingMemStickFolder.Type() == PathType::NATIVE) {
+				// Still no path? Try to automatically fix the case.
+				std::string oldNewPath = newPath;
+				FixPathCase(Path(""), newPath, FixPathCaseBehavior::FPC_FILE_MUST_EXIST);
+				if (oldNewPath != newPath) {
+					NOTICE_LOG(IO, "Fixed path case: %s -> %s", oldNewPath.c_str(), newPath.c_str());
+					pendingMemStickFolder = Path(newPath);
+				} else {
+					NOTICE_LOG(IO, "Failed to fix case of path %s (result: %s)", newPath.c_str(), oldNewPath.c_str());
+				}
+			}
+
 			if (pendingMemStickFolder == g_Config.memStickDirectory) {
-				// Same directory as before - all good.
+				// Same directory as before - all good. Nothing to do.
 				TriggerFinish(DialogResult::DR_OK);
 				return;
 			}
