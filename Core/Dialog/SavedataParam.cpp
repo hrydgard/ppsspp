@@ -1919,16 +1919,3 @@ bool SavedataParam::IsInSaveDataList(std::string saveName, int count) {
 	}
 	return false;
 }
-
-bool SavedataParam::IsSaveDirectoryExist(SceUtilitySavedataParam* param) {
-	std::string dirPath = savePath + GetGameName(param) + GetSaveName(param);
-	PSPFileInfo directoryInfo = pspFileSystem.GetFileInfo(dirPath);
-	return directoryInfo.exists;
-}
-
-bool SavedataParam::IsSfoFileExist(SceUtilitySavedataParam* param) {
-	std::string dirPath = savePath + GetGameName(param) + GetSaveName(param);
-	std::string sfoPath = dirPath + "/" + SFO_FILENAME;
-	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfoPath);
-	return sfoInfo.exists;
-}

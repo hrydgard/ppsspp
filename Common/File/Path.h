@@ -4,6 +4,26 @@
 
 #include <string>
 
+#if defined(__APPLE__)
+
+#if TARGET_OS_IPHONE
+#define HOST_IS_CASE_SENSITIVE 1
+#elif TARGET_IPHONE_SIMULATOR
+#define HOST_IS_CASE_SENSITIVE 0
+#else
+// Mac OSX case sensitivity defaults off, but is user configurable (when
+// creating a filesytem), so assume the worst:
+#define HOST_IS_CASE_SENSITIVE 1
+#endif
+
+#elif defined(_WIN32)
+#define HOST_IS_CASE_SENSITIVE 0
+
+#else  // Android, Linux, BSD (and the rest?)
+#define HOST_IS_CASE_SENSITIVE 1
+
+#endif
+
 enum class PathType {
 	UNDEFINED = 0,
 	NATIVE = 1,  // Can be relative.
@@ -108,3 +128,18 @@ private:
 
 	PathType type_;
 };
+
+
+// Utility function for fixing the case of paths. Only present on Unix-like systems.
+
+#if HOST_IS_CASE_SENSITIVE
+
+enum FixPathCaseBehavior {
+	FPC_FILE_MUST_EXIST,  // all path components must exist (rmdir, move from)
+	FPC_PATH_MUST_EXIST,  // all except the last one must exist - still tries to fix last one (fopen, move to)
+	FPC_PARTIAL_ALLOWED,  // don't care how many exist (mkdir recursive)
+};
+
+bool FixPathCase(const Path &basePath, std::string &path, FixPathCaseBehavior behavior);
+
+#endif
