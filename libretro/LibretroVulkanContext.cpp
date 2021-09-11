@@ -11,6 +11,7 @@
 
 #include "libretro/LibretroVulkanContext.h"
 #include "libretro/libretro_vulkan.h"
+#include <GPU/Vulkan/VulkanRenderManager.h>
 
 static VulkanContext *vk;
 
@@ -140,6 +141,8 @@ void LibretroVulkanContext::CreateDrawContext() {
    }
 
    draw_ = Draw::T3DCreateVulkanContext(vk, false);
+   ((VulkanRenderManager*)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER))->SetInflightFrames(g_Config.iInflightFrames);
+   SetGPUBackend(GPUBackend::VULKAN);
 }
 
 void LibretroVulkanContext::Shutdown() {
