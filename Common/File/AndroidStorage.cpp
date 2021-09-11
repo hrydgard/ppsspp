@@ -273,7 +273,7 @@ int64_t Android_ComputeRecursiveDirectorySize(const std::string &uri) {
 	int64_t size = env->CallLongMethod(g_nativeActivity, computeRecursiveDirectorySize, param);
 	double elapsed = time_now_d() - start;
 
-	ERROR_LOG(IO, "ComputeRecursiveDirectorySize(%s) in %0.3f s", uri.c_str(), elapsed);
+	INFO_LOG(IO, "ComputeRecursiveDirectorySize(%s) in %0.3f s", uri.c_str(), elapsed);
 	return size;
 }
 

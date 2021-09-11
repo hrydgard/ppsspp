@@ -115,7 +115,6 @@ public:
 	FileSystemFlags Flags() override { return flags; }
 	u64 FreeSpace(const std::string &path) override;
 
-	// TODO: Replace with optimized implementation.
 	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override;
 
 private:

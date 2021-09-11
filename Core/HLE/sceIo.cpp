@@ -2331,7 +2331,7 @@ static u32 sceIoDopen(const char *path) {
 	double listTime = time_now_d() - startTime;
 
 	if (listTime > 0.01) {
-		ERROR_LOG(IO, "Dir listing '%s' took %0.3f", path, listTime);
+		INFO_LOG(IO, "Dir listing '%s' took %0.3f", path, listTime);
 	}
 
 	// Blacklist some directories that games should not be able to find out about.
