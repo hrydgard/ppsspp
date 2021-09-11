@@ -178,6 +178,60 @@ public class PpssppActivity extends NativeActivity {
 		return str + size + "|" + documentName + "|" + lastModified;
 	}
 
+	private long directorySizeRecursion(Uri uri, String documentId) {
+		Cursor c = null;
+		try {
+			Log.i(TAG, "recursing into " + uri.toString());
+			final String[] columns = new String[]{
+					DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+					DocumentsContract.Document.COLUMN_SIZE,
+					DocumentsContract.Document.COLUMN_MIME_TYPE,  // check for MIME_TYPE_DIR
+			};
+			final ContentResolver resolver = getContentResolver();
+			final Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(uri, documentId);
+			c = resolver.query(childrenUri, columns, null, null, null);
+			long sizeSum = 0;
+			while (c.moveToNext()) {
+				final String mimeType = c.getString(2);
+				final boolean isDirectory = mimeType.equals(DocumentsContract.Document.MIME_TYPE_DIR);
+				if (isDirectory) {
+					final String childDocumentId = c.getString(0);
+					long dirSize = directorySizeRecursion(
+						DocumentsContract.buildDocumentUriUsingTree(uri, childDocumentId),
+						documentId
+					);
+					if (dirSize >= 0) {
+						sizeSum += dirSize;
+					}
+				} else {
+					final long fileSize = c.getLong(1);
+					sizeSum += fileSize;
+				}
+			}
+			return sizeSum;
+		} catch (Exception e) {
+			return -1;
+		} finally {
+			if (c != null) {
+				c.close();
+			}
+		}
+	}
+
+	public long computeRecursiveDirectorySize(String uriString) {
+		try {
+			Uri uri = Uri.parse(uriString);
+			String documentId = DocumentsContract.getDocumentId(uri);
+			long totalSize = directorySizeRecursion(uri, documentId);
+			Log.i(TAG, "directorySizeRecursion(" + uriString + ") returned " + totalSize);
+			return totalSize;
+		}
+		catch (Exception e) {
+			Log.e(TAG, "computeRecursiveSize exception: " + e.toString());
+			return -1;
+		}
+	}
+
 	// TODO: Maybe add a cheaper version that doesn't extract all the file information?
 	// TODO: Replace with a proper query:
 	// * https://stackoverflow.com/questions/42186820/documentfile-is-very-slow
