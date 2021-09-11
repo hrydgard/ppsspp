@@ -654,7 +654,6 @@ u64 MetaFileSystem::getDirSize(const std::string &dirPath) {
 	for (auto file : allFiles) {
 		if (file.name == "." || file.name == "..")
 			continue;
-		_assert_(!file.name.empty());
 		if (file.type == FILETYPE_DIRECTORY) {
 			result += getDirSize(dirPath + file.name);
 		} else {
