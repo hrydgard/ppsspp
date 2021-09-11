@@ -2,12 +2,19 @@
 #include <cstring>
 
 #include "Common/File/Path.h"
+#include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
 #include "Common/Data/Encoding/Utf8.h"
 
 #include "android/jni/app-android.h"
 #include "android/jni/AndroidContentURI.h"
+
+#if HOST_IS_CASE_SENSITIVE
+#include <dirent.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#endif
 
 Path::Path(const std::string &str) {
 	Init(str);
@@ -346,3 +353,106 @@ bool Path::ComputePathTo(const Path &other, std::string &path) const {
 		return true;
 	}
 }
+
+#if HOST_IS_CASE_SENSITIVE
+
+static bool FixFilenameCase(const std::string &path, std::string &filename) {
+	// Are we lucky?
+	if (File::Exists(Path(path + filename)))
+		return true;
+
+	size_t filenameSize = filename.size();  // size in bytes, not characters
+	for (size_t i = 0; i < filenameSize; i++)
+	{
+		filename[i] = tolower(filename[i]);
+	}
+
+	//TODO: lookup filename in cache for "path"
+	struct dirent *result = NULL;
+
+	DIR *dirp = opendir(path.c_str());
+	if (!dirp)
+		return false;
+
+	bool retValue = false;
+
+	while ((result = readdir(dirp)))
+	{
+		if (strlen(result->d_name) != filenameSize)
+			continue;
+
+		size_t i;
+		for (i = 0; i < filenameSize; i++)
+		{
+			if (filename[i] != tolower(result->d_name[i]))
+				break;
+		}
+
+		if (i < filenameSize)
+			continue;
+
+		filename = result->d_name;
+		retValue = true;
+	}
+
+	closedir(dirp);
+
+	return retValue;
+}
+
+bool FixPathCase(const Path &realBasePath, std::string &path, FixPathCaseBehavior behavior) {
+	if (realBasePath.Type() == PathType::CONTENT_URI) {
+		// Nothing to do. These are already case insensitive, I think.
+		return true;
+	}
+
+	std::string basePath = realBasePath.ToString();
+
+	size_t len = path.size();
+
+	if (len == 0)
+		return true;
+
+	if (path[len - 1] == '/')
+	{
+		len--;
+
+		if (len == 0)
+			return true;
+	}
+
+	std::string fullPath;
+	fullPath.reserve(basePath.size() + len + 1);
+	fullPath.append(basePath);
+
+	size_t start = 0;
+	while (start < len)
+	{
+		size_t i = path.find('/', start);
+		if (i == std::string::npos)
+			i = len;
+
+		if (i > start)
+		{
+			std::string component = path.substr(start, i - start);
+
+			// Fix case and stop on nonexistant path component
+			if (FixFilenameCase(fullPath, component) == false) {
+				// Still counts as success if partial matches allowed or if this
+				// is the last component and only the ones before it are required
+				return (behavior == FPC_PARTIAL_ALLOWED || (behavior == FPC_PATH_MUST_EXIST && i >= len));
+			}
+
+			path.replace(start, i - start, component);
+
+			fullPath.append(1, '/');
+			fullPath.append(component);
+		}
+
+		start = i + 1;
+	}
+
+	return true;
+}
+
+#endif

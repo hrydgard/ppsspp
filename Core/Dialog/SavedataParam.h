@@ -319,8 +319,6 @@ public:
 	bool GetSize(SceUtilitySavedataParam* param);
 	int GetSaveCryptMode(SceUtilitySavedataParam* param, const std::string &saveDirName);
 	bool IsInSaveDataList(std::string saveName, int count);
-	bool IsSaveDirectoryExist(SceUtilitySavedataParam* param);
-	bool IsSfoFileExist(SceUtilitySavedataParam* param);
 
 	std::string GetGameName(const SceUtilitySavedataParam *param) const;
 	std::string GetSaveName(const SceUtilitySavedataParam *param) const;
