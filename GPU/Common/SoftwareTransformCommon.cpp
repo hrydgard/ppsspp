@@ -633,7 +633,11 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 
 				// If both transformed verts are outside Z, cull this rectangle entirely.
 				constexpr float outsideValue = 1.000030517578125f;
-				if (fabsf(tl.z) >= outsideValue && fabsf(br.z) >= outsideValue)
+				bool tlOutside = fabsf(tl.z / tl.w) >= outsideValue;
+				bool brOutside = fabsf(br.z / br.w) >= outsideValue;
+				if (tlOutside && brOutside)
+					continue;
+				if (!gstate.isDepthClampEnabled() && (tlOutside || brOutside))
 					continue;
 
 				RotateUV(trans, tl, br, flippedY);
