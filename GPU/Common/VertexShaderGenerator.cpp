@@ -332,10 +332,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				}
 			}
 
-			if (!isModeThrough && gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "vec4 u_depthRange : register(c%i);\n", CONST_VS_DEPTHRANGE);
-			}
 			if (!isModeThrough) {
+				WRITE(p, "vec4 u_depthRange : register(c%i);\n", CONST_VS_DEPTHRANGE);
 				WRITE(p, "vec4 u_cullRangeMin : register(c%i);\n", CONST_VS_CULLRANGEMIN);
 				WRITE(p, "vec4 u_cullRangeMax : register(c%i);\n", CONST_VS_CULLRANGEMAX);
 			}
@@ -517,15 +515,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			*uniformMask |= DIRTY_FOGCOEF;
 		}
 
-		if (!isModeThrough && gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-			WRITE(p, "uniform highp vec4 u_depthRange;\n");
-			*uniformMask |= DIRTY_DEPTHRANGE;
-		}
-
 		if (!isModeThrough) {
+			WRITE(p, "uniform highp vec4 u_depthRange;\n");
 			WRITE(p, "uniform highp vec4 u_cullRangeMin;\n");
 			WRITE(p, "uniform highp vec4 u_cullRangeMax;\n");
-			*uniformMask |= DIRTY_CULLRANGE;
+			*uniformMask |= DIRTY_DEPTHRANGE | DIRTY_CULLRANGE;
 		}
 
 		WRITE(p, "%s%s lowp vec4 v_color0;\n", shading, compat.varying_vs);
@@ -554,7 +548,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  float z = v.z / v.w;\n");
 		WRITE(p, "  z = z * u_depthRange.x + u_depthRange.y;\n");
 		WRITE(p, "  z = floor(z);\n");
-		WRITE(p, "  z = (z - u_depthRange.z) * u_depthRange.w;\n");
+		WRITE(p, "  z = (z - u_depthRange.y) / u_depthRange.x;\n");
 		WRITE(p, "  return vec4(v.x, v.y, z * v.w, v.w);\n");
 		WRITE(p, "}\n\n");
 	}
@@ -1099,11 +1093,17 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	if (vertexRangeCulling) {
 		WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w;\n");
-		// Vertex range culling doesn't happen when depth is clamped, so only do this if in range.
-		WRITE(p, "  if (u_cullRangeMin.w <= 0.0 || (projPos.z >= u_cullRangeMin.z && projPos.z <= u_cullRangeMax.z)) {\n");
-		const char *outMin = "projPos.x < u_cullRangeMin.x || projPos.y < u_cullRangeMin.y || projPos.z < u_cullRangeMin.z";
-		const char *outMax = "projPos.x > u_cullRangeMax.x || projPos.y > u_cullRangeMax.y || projPos.z > u_cullRangeMax.z";
+		WRITE(p, "  float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
+		// Vertex range culling doesn't happen when Z clips, note sign of w is important.
+		WRITE(p, "  if (u_cullRangeMin.w <= 0.0 || projZ * outPos.w > -outPos.w) {\n");
+		const char *outMin = "projPos.x < u_cullRangeMin.x || projPos.y < u_cullRangeMin.y";
+		const char *outMax = "projPos.x > u_cullRangeMax.x || projPos.y > u_cullRangeMax.y";
 		WRITE(p, "    if (%s || %s) {\n", outMin, outMax);
+		WRITE(p, "      outPos.xyzw = u_cullRangeMax.wwww;\n");
+		WRITE(p, "    }\n");
+		WRITE(p, "  }\n");
+		WRITE(p, "  if (u_cullRangeMin.w <= 0.0) {\n");
+		WRITE(p, "    if (projPos.z < u_cullRangeMin.z || projPos.z > u_cullRangeMax.z) {\n");
 		WRITE(p, "      outPos.xyzw = u_cullRangeMax.wwww;\n");
 		WRITE(p, "    }\n");
 		WRITE(p, "  }\n");

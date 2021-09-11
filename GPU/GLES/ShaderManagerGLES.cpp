@@ -476,14 +476,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 			viewZCenter = vpZCenter;
 		}
 
-		float viewZInvScale;
-		if (viewZScale != 0.0) {
-			viewZInvScale = 1.0f / viewZScale;
-		} else {
-			viewZInvScale = 0.0;
-		}
-
-		float data[4] = { viewZScale, viewZCenter, viewZCenter, viewZInvScale };
+		float data[4] = { viewZScale, viewZCenter, gstate_c.vpZOffset, 1.0f / gstate_c.vpDepthScale };
 		SetFloatUniform4(render_, &u_depthRange, data);
 	}
 	if (dirty & DIRTY_CULLRANGE) {
