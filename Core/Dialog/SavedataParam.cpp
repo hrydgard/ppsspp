@@ -453,9 +453,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 
 	// SAVE PARAM.SFO
 	ParamSFOData sfoFile;
-	std::string sfopath = dirPath+"/" + SFO_FILENAME;
-	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfopath);
-	if (sfoInfo.exists) // Read old sfo if exist
+	std::string sfopath = dirPath + "/" + SFO_FILENAME;
 	{
 		std::vector<u8> sfoData;
 		if (pspFileSystem.ReadEntireFile(sfopath, sfoData) >= 0)
@@ -575,14 +573,12 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		std::string pic1path = dirPath + "/" + PIC1_FILENAME;
 		WritePSPFile(pic1path, param->pic1FileData.buf, param->pic1FileData.size);
 	}
-
 	// Save SND
 	if (param->snd0FileData.buf.IsValid())
 	{
 		std::string snd0path = dirPath + "/" + SND0_FILENAME;
 		WritePSPFile(snd0path, param->snd0FileData.buf, param->snd0FileData.size);
 	}
-
 	return 0;
 }
 
@@ -614,7 +610,7 @@ int SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &saveD
 	// Don't know what it is, but PSP always respond this and this unlock some game
 	param->bind = 1021;
 
-	// Load another files, seems these are required by some games, e.g. Fushigi no Dungeon Fuurai no Shiren 4 Plus.
+	// Load other files, seems these are required by some games, e.g. Fushigi no Dungeon Fuurai no Shiren 4 Plus.
 
 	// Load ICON0.PNG
 	LoadFile(dirPath, ICON0_FILENAME, &param->icon0FileData);
@@ -1180,11 +1176,11 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 		std::vector<PSPFileInfo> sfoFiles;
 		std::vector<PSPFileInfo> allDir = pspFileSystem.GetDirListing(savePath);
 
-		std::string searchString = GetGameName(param)+GetSaveName(param);
+		std::string searchString = GetGameName(param) + GetSaveName(param);
 		for (size_t i = 0; i < allDir.size() && validDir.size() < maxFile; i++)
 		{
 			std::string dirName = allDir[i].name;
-			if(PSPMatch(dirName, searchString))
+			if (PSPMatch(dirName, searchString))
 			{
 				validDir.push_back(allDir[i]);
 			}
@@ -1192,7 +1188,7 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 
 		PSPFileInfo sfoFile;
 		for (size_t i = 0; i < validDir.size(); ++i) {
-			// GetFileName(param) == NUll here
+			// GetFileName(param) == null here
 			// so use sfo files to set the date.
 			sfoFile = pspFileSystem.GetFileInfo(savePath + validDir[i].name + "/" + SFO_FILENAME);
 			sfoFiles.push_back(sfoFile);
