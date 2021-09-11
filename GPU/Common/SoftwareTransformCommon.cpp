@@ -64,14 +64,8 @@ static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
 
 // Note: 0 is BR and 2 is TL.
 
-static void RotateUV(TransformedVertex v[4], float flippedMatrix[16], bool flippedY) {
-	// Transform these two coordinates to figure out whether they're flipped or not.
-	Vec4f tl;
-	Vec3ByMatrix44(tl.AsArray(), v[2].pos, flippedMatrix);
-
-	Vec4f br;
-	Vec3ByMatrix44(br.AsArray(), v[0].pos, flippedMatrix);
-
+static void RotateUV(TransformedVertex v[4], Vec4f tl, Vec4f br, bool flippedY) {
+	// We use the transformed tl/br coordinates to figure out whether they're flipped or not.
 	float ySign = flippedY ? -1.0 : 1.0;
 
 	const float invtlw = 1.0f / tl.w;
@@ -629,10 +623,21 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 			trans[3].u = transVtxTL.u;
 
 			// That's the four corners. Now process UV rotation.
-			if (throughmode)
+			if (throughmode) {
 				RotateUVThrough(trans);
-			else
-				RotateUV(trans, flippedMatrix, flippedY);
+			} else {
+				Vec4f tl;
+				Vec3ByMatrix44(tl.AsArray(), transVtxTL.pos, flippedMatrix);
+				Vec4f br;
+				Vec3ByMatrix44(br.AsArray(), transVtxBR.pos, flippedMatrix);
+
+				// If both transformed verts are outside Z, cull this rectangle entirely.
+				constexpr float outsideValue = 1.000030517578125f;
+				if (fabsf(tl.z) >= outsideValue && fabsf(br.z) >= outsideValue)
+					continue;
+
+				RotateUV(trans, tl, br, flippedY);
+			}
 
 			// Triangle: BR-TR-TL
 			indsOut[0] = i * 2 + 0;
