@@ -66,9 +66,12 @@ namespace
 		if (handle < 0)
 			return false;
 
-		if(dataSize == -1)
-		{
-			dataSize = pspFileSystem.GetFileInfo(filename).size;
+		if (dataSize == -1) {
+			// Determine the size through seeking instead of querying.
+			pspFileSystem.SeekFile(handle, 0, FILEMOVE_END);
+			dataSize = pspFileSystem.GetSeekPos(handle);
+			pspFileSystem.SeekFile(handle, 0, FILEMOVE_BEGIN);
+
 			*data = new u8[(size_t)dataSize];
 		}
 
