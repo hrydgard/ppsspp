@@ -878,6 +878,18 @@ static std::string SimulateVFATBug(std::string filename) {
 	return filename;
 }
 
+bool DirectoryFileSystem::ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) {
+	Path localPath = GetLocalPath(path);
+
+	int64_t sizeTemp = File::ComputeRecursiveDirectorySize(localPath);
+	if (sizeTemp >= 0) {
+		*size = sizeTemp;
+		return true;
+	} else {
+		return false;
+	}
+}
+
 std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 	std::vector<PSPFileInfo> myVector;
 

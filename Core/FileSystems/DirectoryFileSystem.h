@@ -115,6 +115,8 @@ public:
 	FileSystemFlags Flags() override { return flags; }
 	u64 FreeSpace(const std::string &path) override;
 
+	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override;
+
 private:
 	struct OpenFileEntry {
 		DirectoryFileHandle hFile;
@@ -158,6 +160,8 @@ public:
 	bool RemoveFile(const std::string &filename) override;
 	FileSystemFlags Flags() override { return FileSystemFlags::FLASH; }
 	u64 FreeSpace(const std::string &path) override { return 0; }
+
+	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override { return false; }
 
 private:
 	struct OpenFileEntry {

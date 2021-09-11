@@ -114,7 +114,7 @@ u64 GameInfo::GetGameSizeInBytes() {
 	switch (fileType) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
-		return File::GetDirectoryRecursiveSize(ResolvePBPDirectory(filePath_), nullptr, File::GETFILES_GETHIDDEN);
+		return File::ComputeRecursiveDirectorySize(ResolvePBPDirectory(filePath_));
 
 	default:
 		return GetFileLoader()->FileSize();
@@ -343,13 +343,11 @@ public:
 	void Run() override {
 		// An early-return will result in the destructor running, where we can set
 		// flags like working and pending.
-
 		if (!info_->LoadFromPath(gamePath_)) {
 			return;
 		}
 
 		// In case of a remote file, check if it actually exists before locking.
-		// This is likely not necessary at a
 		if (!info_->GetFileLoader()->Exists()) {
 			return;
 		}

@@ -54,6 +54,8 @@ public:
 	int  RenameFile(const std::string &from, const std::string &to) override { return -1; }
 	bool RemoveFile(const std::string &filename) override { return false; }
 
+	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override { return false; }
+
 private:
 	struct TreeEntry {
 		~TreeEntry();
@@ -149,6 +151,8 @@ public:
 	bool RmDir(const std::string &dirname) override { return false; }
 	int  RenameFile(const std::string &from, const std::string &to) override { return -1; }
 	bool RemoveFile(const std::string &filename) override { return false; }
+
+	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override { return false; }
 
 private:
 	std::shared_ptr<IFileSystem> isoFileSystem_;
