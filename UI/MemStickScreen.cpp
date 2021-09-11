@@ -183,7 +183,7 @@ void MemStickScreen::CreateViews() {
 
 UI::EventReturn MemStickScreen::OnSetFolderManually(UI::EventParams &params) {
 	// The old way, from before scoped storage.
-
+#if PPSSPP_PLATFORM(ANDROID)
 	auto sy = GetI18NCategory("System");
 	System_InputBoxGetString(sy->T("Memory Stick Folder"), g_Config.memStickDirectory.ToString(), [&](bool result, const std::string &value) {
 		auto sy = GetI18NCategory("System");
@@ -216,6 +216,7 @@ UI::EventReturn MemStickScreen::OnSetFolderManually(UI::EventParams &params) {
 			screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, false));
 		}
 	});
+#endif
 	return UI::EVENT_DONE;
 }
 
