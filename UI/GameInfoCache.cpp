@@ -152,12 +152,9 @@ u64 GameInfo::GetSaveDataSizeInBytes() {
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
 		std::vector<File::FileInfo> fileInfo;
 		File::GetFilesInDir(saveDataDir[j], &fileInfo);
-		// Note: GetFilesInDir does not fill in fileSize properly.
-		for (size_t i = 0; i < fileInfo.size(); i++) {
-			File::FileInfo finfo;
-			File::GetFileInfo(fileInfo[i].fullName, &finfo);
-			if (!finfo.isDirectory)
-				filesSizeInDir += finfo.size;
+		for (auto const &file : fileInfo) {
+			if (!file.isDirectory)
+				filesSizeInDir += file.size;
 		}
 		if (filesSizeInDir < 0xA00000) {
 			// HACK: Generally the savedata size in a dir shouldn't be more than 10MB.
@@ -179,12 +176,11 @@ u64 GameInfo::GetInstallDataSizeInBytes() {
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
 		std::vector<File::FileInfo> fileInfo;
 		File::GetFilesInDir(saveDataDir[j], &fileInfo);
-		// Note: GetFilesInDir does not fill in fileSize properly.
-		for (size_t i = 0; i < fileInfo.size(); i++) {
-			File::FileInfo finfo;
-			File::GetFileInfo(fileInfo[i].fullName, &finfo);
-			if (!finfo.isDirectory)
-				filesSizeInDir += finfo.size;
+		for (auto const &file : fileInfo) {
+			// TODO: Might want to recurse here? Don't know games that use directories
+			// for install-data though.
+			if (!file.isDirectory)
+				filesSizeInDir += file.size;
 		}
 		if (filesSizeInDir >= 0xA00000) { 
 			// HACK: Generally the savedata size in a dir shouldn't be more than 10MB.
@@ -351,7 +347,9 @@ public:
 		if (!info_->LoadFromPath(gamePath_)) {
 			return;
 		}
+
 		// In case of a remote file, check if it actually exists before locking.
+		// This is likely not necessary at a
 		if (!info_->GetFileLoader()->Exists()) {
 			return;
 		}
