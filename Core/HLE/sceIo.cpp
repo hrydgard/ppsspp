@@ -2339,6 +2339,7 @@ static u32 sceIoDopen(const char *path) {
 			"SCREENSHOT",
 			"TEXTURES",
 			"DUMP",
+			"SHADERS",
 		};
 		std::vector<PSPFileInfo> filtered;
 		for (const auto &entry : dir->listing) {
