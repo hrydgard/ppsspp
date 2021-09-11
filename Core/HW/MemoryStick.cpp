@@ -33,6 +33,8 @@ static MemStickFatState memStickFatState;
 static bool memStickNeedsAssign = false;
 static u64 memStickInsertedAt = 0;
 static uint64_t memstickInitialFree = 0;
+static uint64_t memstickCurrentUse = 0;
+static bool memstickCurrentUseValid = false;
 
 enum FreeCalcStatus {
 	NONE,
@@ -122,11 +124,16 @@ u64 MemoryStick_FreeSpace() {
 	// not planned for back then (even though 2GB cards were available.)
 	// We have a compat setting to make it even smaller for Harry Potter : Goblet of Fire, see #13266.
 	const u64 memStickSize = flags.ReportSmallMemstick ? smallMemstickSize : (u64)g_Config.iMemStickSizeGB * 1024 * 1024 * 1024;
+
 	// Assume the memory stick is only used to store savedata.
-	u64 usedSpace = pspFileSystem.getDirSize("ms0:/PSP/SAVEDATA/");
+	if (!memstickCurrentUseValid) {
+		memstickCurrentUse = pspFileSystem.getDirSize("ms0:/PSP/SAVEDATA/");
+		memstickCurrentUseValid = true;
+	}
+
 	u64 simulatedFreeSpace = 0;
-	if (usedSpace < memStickSize) {
-		simulatedFreeSpace = memStickSize - usedSpace;
+	if (memstickCurrentUse < memStickSize) {
+		simulatedFreeSpace = memStickSize - memstickCurrentUse;
 	} else if (flags.ReportSmallMemstick) {
 		// There's more stuff in the memstick than the size we report.
 		// This doesn't work, so we'll just have to lie. Not sure what the best way is.
@@ -135,12 +142,16 @@ u64 MemoryStick_FreeSpace() {
 	if (flags.MemstickFixedFree) {
 		// Assassin's Creed: Bloodlines fails to save if free space changes incorrectly during game.
 		realFreeSpace = 0;
-		if (usedSpace <= memstickInitialFree) {
-			realFreeSpace = memstickInitialFree - usedSpace;
+		if (memstickCurrentUse <= memstickInitialFree) {
+			realFreeSpace = memstickInitialFree - memstickCurrentUse;
 		}
 	}
 
 	return std::min(simulatedFreeSpace, realFreeSpace);
+}
+
+void MemoryStick_NotifyWrite() {
+	memstickCurrentUseValid = false;
 }
 
 void MemoryStick_SetFatState(MemStickFatState state) {
