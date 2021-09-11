@@ -95,6 +95,7 @@
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
 #include "Core/HLE/proAdhoc.h"
+#include "Core/HW/MemoryStick.h"
 #include "Core/Util/GameManager.h"
 #include "Core/Util/AudioFormat.h"
 #include "Core/WebServer.h"
@@ -1259,6 +1260,10 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		g_Config.Reload();
 		PostLoadConfig();
 		g_Config.iGPUBackend = gpuBackend;
+	}
+	if (msg == "app_resumed" || msg == "got_focus") {
+		// Assume that the user may have modified things.
+		MemoryStick_NotifyWrite();
 	}
 }
 

@@ -392,6 +392,9 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 	if (fullName.FilePathContains("PSP/GAME/")) {
 		inGameDir_ = true;
 	}
+	if (access & (FILEACCESS_APPEND | FILEACCESS_CREATE | FILEACCESS_WRITE)) {
+		MemoryStick_NotifyWrite();
+	}
 
 	return success;
 }
@@ -445,6 +448,8 @@ size_t DirectoryFileHandle::Write(const u8* pointer, s64 size)
 	if (replay_) {
 		bytesWritten = ReplayApplyDiskWrite(pointer, (uint64_t)bytesWritten, (uint64_t)size, &diskFull, inGameDir_, CoreTiming::GetGlobalTimeUs());
 	}
+
+	MemoryStick_NotifyWrite();
 
 	if (diskFull) {
 		ERROR_LOG(FILESYS, "Disk full");
@@ -545,6 +550,7 @@ bool DirectoryFileSystem::MkDir(const std::string &dirname) {
 #else
 	result = File::CreateFullPath(GetLocalPath(dirname));
 #endif
+	MemoryStick_NotifyWrite();
 	return ReplayApplyDisk(ReplayAction::MKDIR, result, CoreTiming::GetGlobalTimeUs()) != 0;
 }
 
@@ -553,8 +559,10 @@ bool DirectoryFileSystem::RmDir(const std::string &dirname) {
 
 #if HOST_IS_CASE_SENSITIVE
 	// Maybe we're lucky?
-	if (File::DeleteDirRecursively(fullName))
+	if (File::DeleteDirRecursively(fullName)) {
+		MemoryStick_NotifyWrite();
 		return (bool)ReplayApplyDisk(ReplayAction::RMDIR, true, CoreTiming::GetGlobalTimeUs());
+	}
 
 	// Nope, fix case and try again.  Should we try again?
 	std::string fullPath = dirname;
@@ -565,6 +573,7 @@ bool DirectoryFileSystem::RmDir(const std::string &dirname) {
 #endif
 
 	bool result = File::DeleteDirRecursively(fullName);
+	MemoryStick_NotifyWrite();
 	return ReplayApplyDisk(ReplayAction::RMDIR, result, CoreTiming::GetGlobalTimeUs()) != 0;
 }
 
@@ -612,6 +621,7 @@ int DirectoryFileSystem::RenameFile(const std::string &from, const std::string &
 
 	// TODO: Better error codes.
 	int result = retValue ? 0 : (int)SCE_KERNEL_ERROR_ERRNO_FILE_ALREADY_EXISTS;
+	MemoryStick_NotifyWrite();
 	return ReplayApplyDisk(ReplayAction::FILE_RENAME, result, CoreTiming::GetGlobalTimeUs());
 }
 
@@ -633,6 +643,7 @@ bool DirectoryFileSystem::RemoveFile(const std::string &filename) {
 	}
 #endif
 
+	MemoryStick_NotifyWrite();
 	return ReplayApplyDisk(ReplayAction::FILE_REMOVE, retValue, CoreTiming::GetGlobalTimeUs()) != 0;
 }
 
