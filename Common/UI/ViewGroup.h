@@ -264,6 +264,7 @@ class ScrollView : public ViewGroup {
 public:
 	ScrollView(Orientation orientation, LayoutParams *layoutParams = 0, bool rememberPosition = false)
 		: ViewGroup(layoutParams), orientation_(orientation), rememberPosition_(rememberPosition) {}
+	~ScrollView();
 
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 	void Layout() override;
@@ -279,6 +280,9 @@ public:
 	float GetScrollPosition();
 	bool CanScroll() const;
 	void Update() override;
+
+	// Get the last moved scroll view position
+	static void GetLastScrollPosition(float &x, float &y);
 
 	// Override so that we can scroll to the active one after moving the focus.
 	bool SubviewFocused(View *view) override;
@@ -306,6 +310,9 @@ private:
 	float lastViewSize_ = 0.0f;
 	bool scrollToTopOnSizeChange_ = false;
 	bool rememberPosition_;
+
+	static float lastScrollPosX;
+	static float lastScrollPosY;
 };
 
 class ViewPager : public ScrollView {

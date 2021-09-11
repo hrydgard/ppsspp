@@ -129,4 +129,5 @@ enum class BackgroundAnimation {
 	FLOATING_SYMBOLS = 1,
 	RECENT_GAMES = 2,
 	WAVE = 3,
+	MOVING_BACKGROUND = 4,
 };

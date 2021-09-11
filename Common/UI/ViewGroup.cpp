@@ -1091,11 +1091,25 @@ bool ScrollView::CanScroll() const {
 	}
 }
 
+float ScrollView::lastScrollPosX = 0;
+float ScrollView::lastScrollPosY = 0;
+
+ScrollView::~ScrollView() {
+	lastScrollPosX = 0;
+	lastScrollPosY = 0;
+}
+
+void ScrollView::GetLastScrollPosition(float &x, float &y) {
+	x = lastScrollPosX;
+	y = lastScrollPosY;
+}
+
 void ScrollView::Update() {
 	if (visibility_ != V_VISIBLE) {
 		inertia_ = 0.0f;
 	}
 	ViewGroup::Update();
+	float oldPos = scrollPos_;
 
 	Gesture gesture = orientation_ == ORIENT_VERTICAL ? GESTURE_DRAG_VERTICAL : GESTURE_DRAG_HORIZONTAL;
 	gesture_.UpdateFrame();
@@ -1124,6 +1138,9 @@ void ScrollView::Update() {
 			pull_ = 0.0f;
 		}
 	}
+
+	if (oldPos != scrollPos_)
+		orientation_ == ORIENT_HORIZONTAL ? lastScrollPosX = scrollPos_ : lastScrollPosY = scrollPos_;
 }
 
 void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
