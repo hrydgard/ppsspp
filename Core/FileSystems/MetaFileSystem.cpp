@@ -598,6 +598,7 @@ int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> 
 
 	if (result != dataSize)
 		return SCE_KERNEL_ERROR_ERROR;
+
 	return 0;
 }
 

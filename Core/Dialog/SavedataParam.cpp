@@ -602,19 +602,19 @@ int SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &saveD
 		return isRWMode ? SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA : SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
 	}
 
-	if (!pspFileSystem.GetFileInfo(sfoPath).exists)
+	// Load sfo
+	if (!LoadSFO(param, dirPath)) {
 		return isRWMode ? SCE_UTILITY_SAVEDATA_ERROR_RW_DATA_BROKEN : SCE_UTILITY_SAVEDATA_ERROR_LOAD_DATA_BROKEN;
+	}
 
 	if (fileName != "" && !pspFileSystem.GetFileInfo(filePath).exists) {
 		return isRWMode ? SCE_UTILITY_SAVEDATA_ERROR_RW_FILE_NOT_FOUND : SCE_UTILITY_SAVEDATA_ERROR_LOAD_FILE_NOT_FOUND;
 	}
 
-	LoadSFO(param, dirPath);  // Load sfo
-
 	// Don't know what it is, but PSP always respond this and this unlock some game
 	param->bind = 1021;
 
-	// Load another files,seems these are required by some games, e.g. Fushigi no Dungeon Fuurai no Shiren 4 Plus.
+	// Load another files, seems these are required by some games, e.g. Fushigi no Dungeon Fuurai no Shiren 4 Plus.
 
 	// Load ICON0.PNG
 	LoadFile(dirPath, ICON0_FILENAME, &param->icon0FileData);
@@ -793,35 +793,33 @@ u32 SavedataParam::LoadNotCryptedSave(SceUtilitySavedataParam *param, u8 *data, 
 	return 0;
 }
 
-void SavedataParam::LoadSFO(SceUtilitySavedataParam *param, const std::string& dirPath) {
+bool SavedataParam::LoadSFO(SceUtilitySavedataParam *param, const std::string& dirPath) {
 	ParamSFOData sfoFile;
-	std::string sfopath = dirPath+"/" + SFO_FILENAME;
-	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfopath);
-	if (sfoInfo.exists) {
-		// Read sfo
-		std::vector<u8> sfoData;
-		if (pspFileSystem.ReadEntireFile(sfopath, sfoData) >= 0) {
-			sfoFile.ReadSFO(sfoData);
+	std::string sfopath = dirPath + "/" + SFO_FILENAME;
+	std::vector<u8> sfoData;
+	if (pspFileSystem.ReadEntireFile(sfopath, sfoData) >= 0) {
+		sfoFile.ReadSFO(sfoData);
 
-			// copy back info in request
-			strncpy(param->sfoParam.title,sfoFile.GetValueString("TITLE").c_str(),128);
-			strncpy(param->sfoParam.savedataTitle,sfoFile.GetValueString("SAVEDATA_TITLE").c_str(),128);
-			strncpy(param->sfoParam.detail,sfoFile.GetValueString("SAVEDATA_DETAIL").c_str(),1024);
-			param->sfoParam.parentalLevel = sfoFile.GetValueInt("PARENTAL_LEVEL");
-		}
+		// copy back info in request
+		strncpy(param->sfoParam.title,sfoFile.GetValueString("TITLE").c_str(),128);
+		strncpy(param->sfoParam.savedataTitle,sfoFile.GetValueString("SAVEDATA_TITLE").c_str(),128);
+		strncpy(param->sfoParam.detail,sfoFile.GetValueString("SAVEDATA_DETAIL").c_str(),1024);
+		param->sfoParam.parentalLevel = sfoFile.GetValueInt("PARENTAL_LEVEL");
 	}
+	return true;
 }
 
 std::vector<SaveSFOFileListEntry> SavedataParam::GetSFOEntries(const std::string &dirPath) {
 	std::vector<SaveSFOFileListEntry> result;
 	const std::string sfoPath = dirPath + "/" + SFO_FILENAME;
-	if (!pspFileSystem.GetFileInfo(sfoPath).exists)
-		return result;
 
 	ParamSFOData sfoFile;
 	std::vector<u8> sfoData;
-	if (pspFileSystem.ReadEntireFile(dirPath + "/" + SFO_FILENAME, sfoData) >= 0)
+	if (pspFileSystem.ReadEntireFile(sfoPath, sfoData) >= 0) {
 		sfoFile.ReadSFO(sfoData);
+	} else {
+		return result;
+	}
 
 	const int FILE_LIST_COUNT_MAX = 99;
 	u32 sfoFileListSize = 0;
@@ -1164,7 +1162,6 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 		NotifyMemInfo(MemBlockFlags::WRITE, param->utilityData.ptr, sizeof(SceUtilitySavedataUsedDataInfo), "SavedataGetSizes");
 	}
 	return ret;
-
 }
 
 bool SavedataParam::GetList(SceUtilitySavedataParam *param)
