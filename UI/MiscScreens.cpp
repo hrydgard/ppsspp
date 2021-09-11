@@ -1086,4 +1086,9 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 
 	text_->SetTextColor(whiteAlpha(alpha));
 	ViewGroup::Draw(dc);
+	showing_ = sinceShow <= timeToShow; // Don't consider fade time
+}
+
+std::string SettingInfoMessage::GetText() const {
+	return showing_ && text_ ? text_->GetText() : "";
 }
