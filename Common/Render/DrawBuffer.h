@@ -101,6 +101,7 @@ public:
 	}
 
 	void Circle(float x, float y, float radius, float thickness, int segments, float startAngle, uint32_t color, float u_mul);
+	void FillCircle(float x, float y, float radius, int segments, uint32_t color);
 
 	// New drawing APIs
 
