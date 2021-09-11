@@ -2322,7 +2322,6 @@ static u32 sceIoDopen(const char *path) {
 	DirListing *dir = new DirListing();
 	SceUID id = kernelObjects.Create(dir);
 
-	double time = time_now_d();
 	dir->listing = pspFileSystem.GetDirListing(path);
 	dir->index = 0;
 	dir->name = std::string(path);
@@ -2359,11 +2358,6 @@ static u32 sceIoDopen(const char *path) {
 		dir->listing = filtered;
 	}
 	
-	double diff = time_now_d() - time;
-	//if (diff > 0.01) {
-		ERROR_LOG(IO, "sceIoDopen(%s) took %0.3f seconds", path, diff);
-	//}
-
 	// TODO: The result is delayed only from the memstick, it seems.
 	return id;
 }
