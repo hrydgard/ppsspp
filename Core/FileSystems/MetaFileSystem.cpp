@@ -588,7 +588,9 @@ int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> 
 	if (handle < 0)
 		return handle;
 
-	size_t dataSize = (size_t)GetFileInfo(filename).size;
+	SeekFile(handle, 0, FILEMOVE_END);
+	size_t dataSize = GetSeekPos(handle);
+	SeekFile(handle, 0, FILEMOVE_BEGIN);
 	data.resize(dataSize);
 
 	size_t result = ReadFile(handle, (u8 *)&data[0], dataSize);
@@ -596,6 +598,7 @@ int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> 
 
 	if (result != dataSize)
 		return SCE_KERNEL_ERROR_ERROR;
+
 	return 0;
 }
 
