@@ -805,8 +805,10 @@ bool SavedataParam::LoadSFO(SceUtilitySavedataParam *param, const std::string& d
 		strncpy(param->sfoParam.savedataTitle,sfoFile.GetValueString("SAVEDATA_TITLE").c_str(),128);
 		strncpy(param->sfoParam.detail,sfoFile.GetValueString("SAVEDATA_DETAIL").c_str(),1024);
 		param->sfoParam.parentalLevel = sfoFile.GetValueInt("PARENTAL_LEVEL");
+		return true;
+	} else {
+		return false;
 	}
-	return true;
 }
 
 std::vector<SaveSFOFileListEntry> SavedataParam::GetSFOEntries(const std::string &dirPath) {
