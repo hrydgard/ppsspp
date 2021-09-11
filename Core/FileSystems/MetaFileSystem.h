@@ -136,5 +136,19 @@ public:
 		startingDirectory = dir;
 	}
 
-	u64 getDirSize(const std::string &dirPath);
+	int64_t ComputeRecursiveDirectorySize(const std::string &dirPath);
+
+	// Shouldn't ever be called, but meh.
+	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override {
+		int64_t sizeTemp = ComputeRecursiveDirectorySize(path);
+		if (sizeTemp >= 0) {
+			*size = sizeTemp;
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+private:
+	int64_t RecursiveSize(const std::string &dirPath);
 };

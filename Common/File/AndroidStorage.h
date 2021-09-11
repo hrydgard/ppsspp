@@ -73,7 +73,7 @@ inline StorageError Android_RemoveFile(const std::string &fileUri) { return Stor
 inline StorageError Android_RenameFileTo(const std::string &fileUri, const std::string &newName) { return StorageError::UNKNOWN; }
 inline bool Android_GetFileInfo(const std::string &fileUri, File::FileInfo *info) { return false; }
 inline bool Android_FileExists(const std::string &fileUri) { return false; }
-inline int64_t Android_GetRecursiveDirectorySize(const std::string &fileUri) { return -1; }
+inline int64_t Android_ComputeRecursiveDirectorySize(const std::string &fileUri) { return -1; }
 inline int64_t Android_GetFreeSpaceByContentUri(const std::string &uri) { return -1; }
 inline int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath) { return -1; }
 inline bool Android_IsExternalStoragePreservedLegacy() { return false; }

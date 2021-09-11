@@ -500,12 +500,9 @@ bool MetaFileSystem::RemoveFile(const std::string &filename)
 	std::string of;
 	IFileSystem *system;
 	int error = MapFilePath(filename, of, &system);
-	if (error == 0)
-	{
+	if (error == 0) {
 		return system->RemoveFile(of);
-	}
-	else
-	{
+	} else {
 		return false;
 	}
 }
@@ -648,17 +645,36 @@ void MetaFileSystem::DoState(PointerWrap &p)
 	}
 }
 
-u64 MetaFileSystem::getDirSize(const std::string &dirPath) {
+int64_t MetaFileSystem::RecursiveSize(const std::string &dirPath) {
 	u64 result = 0;
 	auto allFiles = GetDirListing(dirPath);
 	for (auto file : allFiles) {
 		if (file.name == "." || file.name == "..")
 			continue;
 		if (file.type == FILETYPE_DIRECTORY) {
-			result += getDirSize(dirPath + file.name);
+			result += RecursiveSize(dirPath + file.name);
 		} else {
 			result += file.size;
 		}
 	}
 	return result;
+}
+
+int64_t MetaFileSystem::ComputeRecursiveDirectorySize(const std::string &filename) {
+	std::lock_guard<std::recursive_mutex> guard(lock);
+	std::string of;
+	IFileSystem *system;
+	int error = MapFilePath(filename, of, &system);
+	if (error == 0) {
+		int64_t size;
+		if (system->ComputeRecursiveDirSizeIfFast(of, &size)) {
+			// Some file systems can optimize this.
+			return size;
+		} else {
+			// Those that can't, we just run a generic implementation.
+			return RecursiveSize(filename);
+		}
+	} else {
+		return false;
+	}
 }

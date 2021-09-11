@@ -96,7 +96,7 @@ static void MemoryStick_CalcInitialFree() {
 	std::unique_lock<std::mutex> guard(freeCalcMutex);
 	freeCalcStatus = FreeCalcStatus::RUNNING;
 	freeCalcThread = std::thread([] {
-		memstickInitialFree = pspFileSystem.FreeSpace("ms0:/") + pspFileSystem.getDirSize("ms0:/PSP/SAVEDATA/");
+		memstickInitialFree = pspFileSystem.FreeSpace("ms0:/") + pspFileSystem.ComputeRecursiveDirectorySize("ms0:/PSP/SAVEDATA/");
 
 		std::unique_lock<std::mutex> guard(freeCalcMutex);
 		freeCalcStatus = FreeCalcStatus::DONE;
@@ -127,7 +127,7 @@ u64 MemoryStick_FreeSpace() {
 
 	// Assume the memory stick is only used to store savedata.
 	if (!memstickCurrentUseValid) {
-		memstickCurrentUse = pspFileSystem.getDirSize("ms0:/PSP/SAVEDATA/");
+		memstickCurrentUse = pspFileSystem.ComputeRecursiveDirectorySize("ms0:/PSP/SAVEDATA/");
 		memstickCurrentUseValid = true;
 	}
 

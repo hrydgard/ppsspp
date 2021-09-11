@@ -52,6 +52,8 @@ public:
 	int  RenameFile(const std::string &from, const std::string &to) override;
 	bool RemoveFile(const std::string &filename) override;
 
+	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override { return false; }
+
 private:
 	void LoadFileListIndex();
 	// Warning: modifies input string.
