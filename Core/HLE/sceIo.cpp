@@ -22,6 +22,7 @@
 
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Profiler/Profiler.h"
+#include "Common/TimeUtil.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -2321,15 +2322,25 @@ static u32 sceIoDopen(const char *path) {
 	DirListing *dir = new DirListing();
 	SceUID id = kernelObjects.Create(dir);
 
+	double startTime = time_now_d();
+
 	dir->listing = pspFileSystem.GetDirListing(path);
 	dir->index = 0;
 	dir->name = std::string(path);
+
+	double listTime = time_now_d() - startTime;
+
+	if (listTime > 0.01) {
+		ERROR_LOG(IO, "Dir listing '%s' took %0.3f", path, listTime);
+	}
 
 	// Blacklist some directories that games should not be able to find out about.
 	// Speeds up directory iteration on slow Android Scoped Storage implementations :(
 	// Might also want to filter out PSP/GAME if not a homebrew, maybe also irrelevant directories
 	// in PSP/SAVEDATA, though iffy to know which ones are irrelevant..
-	if (!strcmp(path, "ms0:/PSP")) {
+	// Also if we're stripping PSP from the path due to setting a directory named PSP as the memstick root,
+	// these will also show up at ms0: which is not ideal. Should find some other way to deal with that.
+	if (!strcmp(path, "ms0:/PSP") || !strcmp(path, "ms0:")) {
 		static const char *const pspFolderBlacklist[] = {
 			"CHEATS",
 			"PPSSPP_STATE",
@@ -2348,6 +2359,10 @@ static u32 sceIoDopen(const char *path) {
 					blacklisted = true;
 					break;
 				}
+			}
+			// Also don't let games see a GAME directory in the root. This confuses Wipeout...
+			if (!strcasecmp(entry.name.c_str(), "GAME") && !strcmp(path, "ms0:")) {
+				blacklisted = true;
 			}
 
 			if (!blacklisted) {
