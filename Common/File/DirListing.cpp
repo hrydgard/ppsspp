@@ -289,10 +289,7 @@ int64_t GetDirectoryRecursiveSize(const Path &path, const char *filter, int flag
 	std::vector<FileInfo> fileInfo;
 	GetFilesInDir(path, &fileInfo, filter, flags);
 	int64_t sizeSum = 0;
-	// Note: GetFilesInDir does not fill in fileSize.
-	for (size_t i = 0; i < fileInfo.size(); i++) {
-		FileInfo finfo;
-		GetFileInfo(fileInfo[i].fullName, &finfo);
+	for (const auto &finfo : fileInfo) {
 		if (!finfo.isDirectory)
 			sizeSum += finfo.size;
 		else
