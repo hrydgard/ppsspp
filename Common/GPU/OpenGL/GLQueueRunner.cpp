@@ -20,6 +20,8 @@
 // These are the same value, alias for simplicity.
 #if defined(GL_CLIP_DISTANCE0_EXT) && !defined(GL_CLIP_DISTANCE0)
 #define GL_CLIP_DISTANCE0 GL_CLIP_DISTANCE0_EXT
+#elif !defined(GL_CLIP_DISTANCE0)
+#define GL_CLIP_DISTANCE0 0x3000
 #endif
 
 static constexpr int TEXCACHE_NAME_CACHE_SIZE = 16;
