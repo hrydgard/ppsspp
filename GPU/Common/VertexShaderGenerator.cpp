@@ -400,6 +400,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  vec4 gl_Position   : POSITION;\n");
 		} else {
 			WRITE(p, "  vec4 gl_Position   : SV_Position;\n");
+			if (vertexRangeCulling && gstate_c.Supports(GPU_SUPPORTS_CLIP_CULL_DISTANCE)) {
+				WRITE(p, "  float gl_ClipDistance : SV_ClipDistance0;\n");
+				WRITE(p, "  float2 gl_CullDistance : SV_CullDistance0;\n");
+			}
 		}
 		WRITE(p, "};\n");
 	} else {
@@ -1113,13 +1117,16 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "    }\n");
 		WRITE(p, "  }\n");
 
-		if (gstate_c.Supports(GPU_SUPPORTS_CLIP_CULL_DISTANCE) && (compat.shaderLanguage == GLSL_VULKAN || ShaderLanguageIsOpenGL(compat.shaderLanguage))) {
+		const char *clip0 = compat.shaderLanguage == HLSL_D3D11 ? "" : "[0]";
+		const char *cull0 = compat.shaderLanguage == HLSL_D3D11 ? ".x" : "[0]";
+		const char *cull1 = compat.shaderLanguage == HLSL_D3D11 ? ".y" : "[1]";
+		if (gstate_c.Supports(GPU_SUPPORTS_CLIP_CULL_DISTANCE)) {
 			// TODO: Not rectangles...
-			WRITE(p, "  %sgl_ClipDistance[0] = projZ * outPos.w + outPos.w;\n", compat.vsOutPrefix);
+			WRITE(p, "  %sgl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", compat.vsOutPrefix, clip0);
 			// Cull any triangle fully outside in the same direction when depth clamp enabled.
 			WRITE(p, "  if (u_cullRangeMin.w > 0.0) {\n");
-			WRITE(p, "    %sgl_CullDistance[0] = projPos.z - u_cullRangeMin.z;\n", compat.vsOutPrefix);
-			WRITE(p, "    %sgl_CullDistance[1] = u_cullRangeMax.z - projPos.z;\n", compat.vsOutPrefix);
+			WRITE(p, "    %sgl_CullDistance%s = projPos.z - u_cullRangeMin.z;\n", compat.vsOutPrefix, cull0);
+			WRITE(p, "    %sgl_CullDistance%s = u_cullRangeMax.z - projPos.z;\n", compat.vsOutPrefix, cull1);
 			WRITE(p, "  }\n");
 		}
 	}
