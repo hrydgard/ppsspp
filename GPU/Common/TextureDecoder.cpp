@@ -375,20 +375,19 @@ void DXTDecoder::DecodeColors(const DXT1Block *src, bool ignore1bitAlpha) {
 }
 
 static inline u8 lerp8(const DXT5Block *src, int n) {
-	// These weights translate alpha1/alpha2 to fixed 8.8 point, pre-divided by 7.
-	int weight1 = ((7 - n) << 8) / 7;
-	int weight2 = (n << 8) / 7;
-	return (u8)((src->alpha1 * weight1 + src->alpha2 * weight2 + 255) >> 8);
+	// These weights multiple alpha1/alpha2 to fixed 8.8 point.
+	int alpha1 = (src->alpha1 * ((7 - n) << 8)) / 7;
+	int alpha2 = (src->alpha2 * (n << 8)) / 7;
+	return (u8)((alpha1 + alpha2 + 31) >> 8);
 }
 
 static inline u8 lerp6(const DXT5Block *src, int n) {
-	int weight1 = ((5 - n) << 8) / 5;
-	int weight2 = (n << 8) / 5;
-	return (u8)((src->alpha1 * weight1 + src->alpha2 * weight2 + 255) >> 8);
+	int alpha1 = (src->alpha1 * ((5 - n) << 8)) / 5;
+	int alpha2 = (src->alpha2 * (n << 8)) / 5;
+	return (u8)((alpha1 + alpha2 + 31) >> 8);
 }
 
 void DXTDecoder::DecodeAlphaDXT5(const DXT5Block *src) {
-	// TODO: Check if alpha is still not 100% correct.
 	alpha_[0] = src->alpha1;
 	alpha_[1] = src->alpha2;
 	if (alpha_[0] > alpha_[1]) {
@@ -460,7 +459,6 @@ void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch, int height) {
 	dxt.WriteColorsDXT3(dst, src, pitch, height);
 }
 
-// The alpha channel is not 100% correct 
 void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch, int height) {
 	DXTDecoder dxt;
 	dxt.DecodeColors(&src->color, true);
