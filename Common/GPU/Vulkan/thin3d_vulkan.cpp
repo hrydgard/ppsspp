@@ -780,6 +780,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	caps_.multiViewport = vulkan->GetDeviceFeatures().enabled.multiViewport != 0;
 	caps_.dualSourceBlend = vulkan->GetDeviceFeatures().enabled.dualSrcBlend != 0;
 	caps_.depthClampSupported = vulkan->GetDeviceFeatures().enabled.depthClamp != 0;
+	caps_.clipCullDistanceSupported = vulkan->GetDeviceFeatures().enabled.shaderClipDistance != 0 && vulkan->GetDeviceFeatures().enabled.shaderCullDistance != 0;
 	caps_.framebufferBlitSupported = true;
 	caps_.framebufferCopySupported = true;
 	caps_.framebufferDepthBlitSupported = false;  // Can be checked for.
