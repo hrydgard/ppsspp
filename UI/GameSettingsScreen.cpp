@@ -218,6 +218,11 @@ void GameSettingsScreen::CreateViews() {
 	settingInfo_->SetBottomCutoff(dp_yres - 200.0f);
 	root_->Add(settingInfo_);
 
+	// Show it again if we recreated the view
+	if (oldSettingInfo_ != "") {
+		settingInfo_->Show(oldSettingInfo_, nullptr);
+	}
+
 	// TODO: These currently point to global settings, not game specific ones.
 
 	// Graphics
@@ -1271,6 +1276,11 @@ void GameSettingsScreen::dialogFinished(const Screen *dialog, DialogResult resul
 
 		RecreateViews();
 	}
+}
+
+void GameSettingsScreen::RecreateViews() {
+	oldSettingInfo_ = settingInfo_->GetText();
+	UIScreen::RecreateViews();
 }
 
 void GameSettingsScreen::CallbackMemstickFolder(bool yes) {

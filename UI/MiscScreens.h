@@ -175,9 +175,11 @@ public:
 	void Show(const std::string &text, UI::View *refView = nullptr);
 
 	void Draw(UIContext &dc);
+	std::string GetText() const;
 
 private:
 	UI::TextView *text_ = nullptr;
 	double timeShown_ = 0.0;
 	float cutOffY_;
+	bool showing_ = false;
 };

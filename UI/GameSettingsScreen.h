@@ -44,6 +44,7 @@ protected:
 	void CallbackMemstickFolder(bool yes);
 	bool UseVerticalLayout() const;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
+	void RecreateViews() override;
 
 private:
 	void TriggerRestart(const char *why);
@@ -137,6 +138,9 @@ private:
 
 	// Android-only
 	std::string pendingMemstickFolder_;
+
+	// If we recreate the views while this is active we show it again
+	std::string oldSettingInfo_;
 };
 
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {
