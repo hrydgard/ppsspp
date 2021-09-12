@@ -1116,6 +1116,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (gstate_c.Supports(GPU_SUPPORTS_CLIP_CULL_DISTANCE) && (compat.shaderLanguage == GLSL_VULKAN || ShaderLanguageIsOpenGL(compat.shaderLanguage))) {
 			// TODO: Not rectangles...
 			WRITE(p, "  %sgl_ClipDistance[0] = projZ * outPos.w + outPos.w;\n", compat.vsOutPrefix);
+			// Cull any triangle fully outside in the same direction when depth clamp enabled.
+			WRITE(p, "  if (u_cullRangeMin.w > 0.0) {\n");
+			WRITE(p, "    %sgl_CullDistance[0] = projPos.z - u_cullRangeMin.z;\n", compat.vsOutPrefix);
+			WRITE(p, "    %sgl_CullDistance[1] = u_cullRangeMax.z - projPos.z;\n", compat.vsOutPrefix);
+			WRITE(p, "  }\n");
 		}
 	}
 
