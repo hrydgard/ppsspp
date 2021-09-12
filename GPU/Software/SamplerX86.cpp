@@ -346,7 +346,18 @@ bool SamplerJitCache::Jit_ReadTextureFormat(const SamplerID &id) {
 		success = Jit_GetDXT1Color(id, 8, 255);
 		break;
 
-	// TODO: DXT?
+	case GE_TFMT_DXT3:
+		success = Jit_GetDXT1Color(id, 16, 0);
+		if (success)
+			success = Jit_ApplyDXTAlpha(id);
+		break;
+
+	case GE_TFMT_DXT5:
+		success = Jit_GetDXT1Color(id, 16, 0);
+		if (success)
+			success = Jit_ApplyDXTAlpha(id);
+		break;
+
 	default:
 		success = false;
 	}
@@ -533,6 +544,23 @@ bool SamplerJitCache::Jit_GetDXT1Color(const SamplerID &id, int blockSize, int a
 	SetJumpTarget(finishZero);
 
 	return true;
+}
+
+bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
+	GETextureFormat fmt = (GETextureFormat)id.texfmt;
+	if (fmt == GE_TFMT_DXT3) {
+		MOVZX(32, 16, tempReg1, MComplex(srcReg, vReg, SCALE_2, 8));
+		LEA(32, RCX, MScaled(uReg, SCALE_4, 0));
+		SHR(32, R(tempReg1), R(CL));
+		SHL(32, R(tempReg1), Imm8(28));
+		OR(32, R(resultReg), R(tempReg1));
+		return true;
+	} else if (fmt == GE_TFMT_DXT5) {
+		return false;
+	}
+
+	_dbg_assert_(false);
+	return false;
 }
 
 bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {

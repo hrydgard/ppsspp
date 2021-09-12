@@ -131,6 +131,7 @@ private:
 	bool Jit_TransformClutIndex(const SamplerID &id, int bitsPerIndex);
 	bool Jit_ReadClutColor(const SamplerID &id);
 	bool Jit_GetDXT1Color(const SamplerID &id, int blockSize, int alpha);
+	bool Jit_ApplyDXTAlpha(const SamplerID &id);
 
 #if PPSSPP_ARCH(ARM64)
 	Arm64Gen::ARM64FloatEmitter fp;
