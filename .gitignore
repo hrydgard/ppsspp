@@ -115,3 +115,5 @@ debian/ppsspp/
 
 # RenderDoc
 *.rdc
+/.project
+/.settings

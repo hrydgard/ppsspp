@@ -12,11 +12,13 @@
 # PPSSPP platform flags
 set(MOBILE_DEVICE ON)
 set(USING_GLES2 ON)
-set(IPHONEOS_DEPLOYMENT_TARGET 6.0)
+set(IPHONEOS_DEPLOYMENT_TARGET 9.0)
 add_definitions(
   -DGL_ETC1_RGB8_OES=0
-  -U__STRICT_ANSI__
 )
+
+# TODO: Not sure how to do this, need to conditionally flag or else Swift test fails
+#add_definitions($<$<NOT:$<COMPILE_LANGUAGE:Swift>>:-U__STRICT_ANSI__ >)
 
 set(OPENGL_LIBRARIES "-framework OpenGLES")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mios-version-min=${IPHONEOS_DEPLOYMENT_TARGET}")
@@ -95,4 +97,3 @@ set(CMAKE_SYSTEM_FRAMEWORK_PATH
 # only search the iOS sdks, not the remainder of the host filesystem
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
-

@@ -8,6 +8,11 @@
 
 #import <AVFoundation/AVFoundation.h>
 
+#if __has_include("AltKit-Swift.h")
+#import "AltKit-Swift.h"
+#define __HAS_ALTKIT_FRAMEWORK__
+#endif
+
 @implementation AppDelegate
 
 // This will be called when the user receives and dismisses a phone call
@@ -119,6 +124,9 @@
 		Audio_Init();
 	}
 	
+	#ifdef __HAS_ALTKIT_FRAMEWORK__
+	[self initAltKit];
+	#endif
 	NativeMessageReceived("got_focus", "");	
 }
 
@@ -126,4 +134,31 @@
 	exit(0);
 }
 
+#pragma mark - AltKit
+#ifdef __HAS_ALTKIT_FRAMEWORK__
+- (void)initAltKit {
+	[[ALTServerManager sharedManager] startDiscovering];
+
+	[[ALTServerManager sharedManager] autoconnectWithCompletionHandler:^(ALTServerConnection *connection, NSError *error) {
+		if (error)
+		{
+			return ERROR_LOG(SYSTEM, "Could not auto-connect to server. %@", error);
+		}
+
+		[connection enableUnsignedCodeExecutionWithCompletionHandler:^(BOOL success, NSError *error) {
+			if (success)
+			{
+				INFO_LOG(SYSTEM, "Successfully enabled JIT compilation!");
+				[[ALTServerManager sharedManager] stopDiscovering];
+			}
+			else
+			{
+				ERROR_LOG(SYSTEM, "Could not enable JIT compilation. %@", error);
+			}
+
+			[connection disconnect];
+		}];
+	}];
+}
+#endif
 @end

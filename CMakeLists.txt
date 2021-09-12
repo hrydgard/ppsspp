@@ -1033,6 +1033,20 @@ if(ANDROID)
 	)
 	# No target
 elseif(IOS)
+	# AltKit
+	# TODO: Move me probably and use a flag to disable if wanted.
+	add_compile_options($<$<NOT:$<COMPILE_LANGUAGE:Swift>>:-fPIC>)
+	enable_language(Swift)
+	add_subdirectory(ext/AltKit)
+	# if(NOT TARGET AltKit)
+	# add_subdirectory(
+	# 	${CMAKE_CURRENT_SOURCE_DIR}/ext/AltKit
+	# 	${CMAKE_CURRENT_BINARY_DIR}/AltKit
+	# )
+	# endif()
+	list(APPEND PROJECT_LIBS AltKit)
+
+
 	set(nativeExtra ${nativeExtra}
 		ios/main.mm
 		ios/AppDelegate.mm
