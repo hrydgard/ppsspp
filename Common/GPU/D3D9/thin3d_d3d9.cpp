@@ -530,7 +530,8 @@ public:
 		_assert_(start + count <= MAX_BOUND_TEXTURES);
 		for (int i = 0; i < count; ++i) {
 			D3D9SamplerState *s = static_cast<D3D9SamplerState *>(states[i]);
-			s->Apply(device_, start + i);
+			if (s)
+				s->Apply(device_, start + i);
 		}
 	}
 	void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) override {

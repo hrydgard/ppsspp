@@ -1347,7 +1347,7 @@ void D3D11DrawContext::BindSamplerStates(int start, int count, SamplerState **st
 	_assert_(start + count <= ARRAY_SIZE(samplers));
 	for (int i = 0; i < count; i++) {
 		D3D11SamplerState *samp = (D3D11SamplerState *)states[i];
-		samplers[i] = samp->ss;
+		samplers[i] = samp ? samp->ss : nullptr;
 	}
 	context_->PSSetSamplers(start, count, samplers);
 }
