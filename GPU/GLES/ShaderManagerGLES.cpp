@@ -51,10 +51,10 @@
 
 using namespace Lin;
 
-Shader::Shader(GLRenderManager *render, const char *code, const std::string &desc, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask)
-	  : render_(render), failed_(false), useHWTransform_(useHWTransform), attrMask_(attrMask), uniformMask_(uniformMask) {
+Shader::Shader(GLRenderManager *render, const char *code, const std::string &desc, const ShaderDescGLES &params)
+	  : render_(render), useHWTransform_(params.useHWTransform), attrMask_(params.attrMask), uniformMask_(params.uniformMask) {
 	PROFILE_THIS_SCOPE("shadercomp");
-	isFragment_ = glShaderType == GL_FRAGMENT_SHADER;
+	isFragment_ = params.glShaderType == GL_FRAGMENT_SHADER;
 	source_ = code;
 #ifdef SHADERLOG
 #ifdef _WIN32
@@ -63,7 +63,7 @@ Shader::Shader(GLRenderManager *render, const char *code, const std::string &des
 	printf("%s\n", code);
 #endif
 #endif
-	shader = render->CreateShader(glShaderType, source_, desc);
+	shader = render->CreateShader(params.glShaderType, source_, desc);
 }
 
 Shader::~Shader() {
@@ -182,7 +182,9 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	initialize.push_back({ &u_tess_weights_u, 0, 5 });
 	initialize.push_back({ &u_tess_weights_v, 0, 6 });
 
-	program = render->CreateProgram(shaders, semantics, queries, initialize, gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND);
+	bool useDualSource = (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) != 0;
+	bool useClip0 = VSID.Bit(VS_BIT_VERTEX_RANGE_CULLING) && gstate_c.Supports(GPU_SUPPORTS_CLIP_CULL_DISTANCE);
+	program = render->CreateProgram(shaders, semantics, queries, initialize, useDualSource, useClip0);
 
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL_UNIFORMS;
@@ -633,7 +635,8 @@ Shader *ShaderManagerGLES::CompileFragmentShader(FShaderID FSID) {
 		return nullptr;
 	}
 	std::string desc = FragmentShaderDesc(FSID);
-	return new Shader(render_, codeBuffer_, desc, GL_FRAGMENT_SHADER, false, 0, uniformMask);
+	ShaderDescGLES params{ GL_FRAGMENT_SHADER, 0, uniformMask };
+	return new Shader(render_, codeBuffer_, desc, params);
 }
 
 Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
@@ -646,7 +649,9 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 		return nullptr;
 	}
 	std::string desc = VertexShaderDesc(VSID);
-	return new Shader(render_, codeBuffer_, desc, GL_VERTEX_SHADER, useHWTransform, attrMask, uniformMask);
+	ShaderDescGLES params{ GL_VERTEX_SHADER, attrMask, uniformMask };
+	params.useHWTransform = useHWTransform;
+	return new Shader(render_, codeBuffer_, desc, params);
 }
 
 Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTessellation, u32 vertType, bool weightsAsFloat, VShaderID *VSID) {

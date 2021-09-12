@@ -1163,7 +1163,7 @@ bool OpenGLPipeline::LinkShaders() {
 	std::vector<GLRProgram::Initializer> initialize;
 	for (int i = 0; i < MAX_TEXTURE_SLOTS; ++i)
 		initialize.push_back({ &samplerLocs_[i], 0, i });
-	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, false);
+	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, false, false);
 	return true;
 }
 

@@ -141,6 +141,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (gl_extensions.EXT_gpu_shader4) {
 			gl_exts.push_back("#extension GL_EXT_gpu_shader4 : enable");
 		}
+		if (gl_extensions.EXT_clip_cull_distance && id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) {
+			gl_exts.push_back("#extension GL_EXT_clip_cull_distance : enable");
+		}
 	}
 	ShaderWriter p(buffer, compat, ShaderStage::Vertex, gl_exts.data(), gl_exts.size());
 
@@ -1110,7 +1113,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "    }\n");
 		WRITE(p, "  }\n");
 
-		if (compat.shaderLanguage == GLSL_VULKAN && gstate_c.Supports(GPU_SUPPORTS_CLIP_CULL_DISTANCE)) {
+		if (gstate_c.Supports(GPU_SUPPORTS_CLIP_CULL_DISTANCE) && (compat.shaderLanguage == GLSL_VULKAN || ShaderLanguageIsOpenGL(compat.shaderLanguage))) {
 			// TODO: Not rectangles...
 			WRITE(p, "  %sgl_ClipDistance[0] = projZ * outPos.w + outPos.w;\n", compat.vsOutPrefix);
 		}
