@@ -1110,7 +1110,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "    }\n");
 		WRITE(p, "  }\n");
 
-		if (compat.shaderLanguage == GLSL_VULKAN) {
+		if (compat.shaderLanguage == GLSL_VULKAN && gstate_c.Supports(GPU_SUPPORTS_CLIP_CULL_DISTANCE)) {
+			// TODO: Not rectangles...
 			WRITE(p, "  %sgl_ClipDistance[0] = projZ * outPos.w + outPos.w;\n", compat.vsOutPrefix);
 		}
 	}

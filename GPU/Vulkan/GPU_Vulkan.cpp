@@ -238,21 +238,26 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_FRAMEBUFFER_BLIT_TO_DEPTH;
 	}
 
-	if (vulkan_->GetDeviceFeatures().enabled.wideLines) {
+	auto &enabledFeatures = vulkan_->GetDeviceFeatures().enabled;
+	if (enabledFeatures.wideLines) {
 		features |= GPU_SUPPORTS_WIDE_LINES;
 	}
-	if (vulkan_->GetDeviceFeatures().enabled.depthClamp) {
+	if (enabledFeatures.depthClamp) {
 		features |= GPU_SUPPORTS_DEPTH_CLAMP;
 	}
-	if (vulkan_->GetDeviceFeatures().enabled.dualSrcBlend) {
+	if (enabledFeatures.shaderClipDistance && enabledFeatures.shaderCullDistance) {
+		// Must support at least 8 if feature supported, so we're fine.
+		features |= GPU_SUPPORTS_CLIP_CULL_DISTANCE;
+	}
+	if (enabledFeatures.dualSrcBlend) {
 		if (!g_Config.bVendorBugChecksEnabled || !draw_->GetBugs().Has(Draw::Bugs::DUAL_SOURCE_BLENDING_BROKEN)) {
 			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 		}
 	}
-	if (vulkan_->GetDeviceFeatures().enabled.logicOp) {
+	if (enabledFeatures.logicOp) {
 		features |= GPU_SUPPORTS_LOGIC_OP;
 	}
-	if (vulkan_->GetDeviceFeatures().enabled.samplerAnisotropy) {
+	if (enabledFeatures.samplerAnisotropy) {
 		features |= GPU_SUPPORTS_ANISOTROPY;
 	}
 
