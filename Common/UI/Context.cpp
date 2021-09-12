@@ -56,7 +56,11 @@ void UIContext::BeginNoTex() {
 
 void UIContext::BeginPipeline(Draw::Pipeline *pipeline, Draw::SamplerState *samplerState) {
 	_assert_(pipeline != nullptr);
-	draw_->BindSamplerStates(0, 1, &samplerState);
+	// Also clear out any other textures bound.
+	Draw::SamplerState *samplers[3]{ samplerState };
+	draw_->BindSamplerStates(0, 3, samplers);
+	Draw::Texture *textures[2]{};
+	draw_->BindTextures(1, 2, textures);
 	RebindTexture();
 	UIBegin(pipeline);
 }
