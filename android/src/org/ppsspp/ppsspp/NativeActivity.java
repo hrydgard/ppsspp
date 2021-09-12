@@ -400,7 +400,8 @@ public abstract class NativeActivity extends Activity {
 
 		String extStorageState = Environment.getExternalStorageState();
 		String extStorageDir = Environment.getExternalStorageDirectory().getAbsolutePath();
-		String externalFilesDir = this.getExternalFilesDir(null).getAbsolutePath();
+		File externalFiles = this.getExternalFilesDir(null);
+		String externalFilesDir = externalFiles == null ? "" : externalFiles.getAbsolutePath();
 
 		Log.i(TAG, "Ext storage: " + extStorageState + " " + extStorageDir);
 		Log.i(TAG, "Ext files dir: " + externalFilesDir);
