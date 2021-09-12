@@ -92,6 +92,10 @@ void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, int height, bool
 void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch, int height);
 void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch, int height);
 
+uint32_t GetDXT1Texel(const DXT1Block *src, int x, int y);
+uint32_t GetDXT3Texel(const DXT3Block *src, int x, int y);
+uint32_t GetDXT5Texel(const DXT5Block *src, int x, int y);
+
 static const u8 textureBitsPerPixel[16] = {
 	16,  //GE_TFMT_5650,
 	16,  //GE_TFMT_5551,

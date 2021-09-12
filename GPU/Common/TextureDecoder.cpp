@@ -19,6 +19,7 @@
 #include "ext/xxhash.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/CPUDetect.h"
+#include "Common/Log.h"
 
 #include "GPU/GPU.h"
 #include "GPU/GPUState.h"
@@ -444,6 +445,69 @@ void DXTDecoder::WriteColorsDXT5(u32 *dst, const DXT5Block *src, int pitch, int 
 		}
 		dst += pitch;
 	}
+}
+
+uint32_t GetDXTTexelColor(const DXT1Block *src, int x, int y, int alpha) {
+	_dbg_assert_(x >= 0 && x < 4);
+	_dbg_assert_(y >= 0 && y < 4);
+
+	uint16_t c1 = src->color1;
+	uint16_t c2 = src->color2;
+	int red1 = (c1 << 3) & 0xF8;
+	int red2 = (c2 << 3) & 0xF8;
+	int green1 = (c1 >> 3) & 0xFC;
+	int green2 = (c2 >> 3) & 0xFC;
+	int blue1 = (c1 >> 8) & 0xF8;
+	int blue2 = (c2 >> 8) & 0xF8;
+
+	int colorIndex = (src->lines[y] >> (x * 2)) & 3;
+	if (colorIndex == 0) {
+		return makecol(red1, green1, blue1, alpha);
+	} else if (colorIndex == 1) {
+		return makecol(red2, green2, blue2, alpha);
+	} else if (c1 > c2) {
+		if (colorIndex == 2) {
+			return makecol(mix_2_3(red1, red2), mix_2_3(green1, green2), mix_2_3(blue1, blue2), alpha);
+		}
+		return makecol(mix_2_3(red2, red1), mix_2_3(green2, green1), mix_2_3(blue2, blue1), alpha);
+	} else if (colorIndex == 3) {
+		return makecol(0, 0, 0, 0);
+	}
+
+	// Average - these are always left shifted, so no need to worry about ties.
+	int red3 = (red1 + red2) / 2;
+	int green3 = (green1 + green2) / 2;
+	int blue3 = (blue1 + blue2) / 2;
+	return makecol(red3, green3, blue3, alpha);
+}
+
+uint32_t GetDXT1Texel(const DXT1Block *src, int x, int y) {
+	return GetDXTTexelColor(src, x, y, 255);
+}
+
+uint32_t GetDXT3Texel(const DXT3Block *src, int x, int y) {
+	uint32_t color = GetDXTTexelColor(&src->color, x, y, 0);
+	u32 alpha = (src->alphaLines[y] >> (x * 4)) & 0xF;
+	return color | (alpha << 28);
+}
+
+uint32_t GetDXT5Texel(const DXT5Block *src, int x, int y) {
+	uint32_t color = GetDXTTexelColor(&src->color, x, y, 0);
+	uint64_t alphadata = ((uint64_t)(uint16_t)src->alphadata1 << 32) | (uint32_t)src->alphadata2;
+	int alphaIndex = (alphadata >> (y * 12 + x * 3)) & 7;
+
+	if (alphaIndex == 0) {
+		return color | (src->alpha1 << 24);
+	} else if (alphaIndex == 1) {
+		return color | (src->alpha2 << 24);
+	} else if (src->alpha1 > src->alpha2) {
+		return color | (lerp8(src, alphaIndex - 1) << 24);
+	} else if (alphaIndex == 6) {
+		return color;
+	} else if (alphaIndex == 7) {
+		return color | 0xFF000000;
+	}
+	return color | (lerp6(src, alphaIndex - 1) << 24);
 }
 
 // This could probably be done faster by decoding two or four blocks at a time with SSE/NEON.
