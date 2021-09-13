@@ -556,7 +556,94 @@ bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
 		OR(32, R(resultReg), R(tempReg1));
 		return true;
 	} else if (fmt == GE_TFMT_DXT5) {
-		return false;
+		// Let's figure out the alphaIndex bit offset so we can read the right byte.
+		// bitOffset = (u + v * 4) * 3;
+		LEA(32, uReg, MComplex(uReg, vReg, SCALE_4, 0));
+		LEA(32, uReg, MComplex(uReg, uReg, SCALE_2, 0));
+		// And now the byte offset and bit from there, from those.
+		MOV(32, R(vReg), R(uReg));
+		SHR(32, R(vReg), Imm8(3));
+		AND(32, R(uReg), Imm32(7));
+
+		// Load 16 bits and mask, in case it straddles bytes.
+		MOVZX(32, 16, vReg, MComplex(srcReg, vReg, SCALE_1, 8));
+		// If not, it's in bufwReg.
+		if (uReg != RCX)
+			MOV(32, R(RCX), R(uReg));
+		SHR(32, R(vReg), R(CL));
+		AND(32, R(vReg), Imm32(7));
+
+		// Okay, now check for 0 or 1 alphaIndex in tempReg1, those are simple.
+		CMP(32, R(vReg), Imm32(1));
+		FixupBranch handleSimple = J_CC(CC_BE, true);
+
+		// Now load a1 and a2, since the rest depend on those values.  Frees up srcReg.
+		MOVZX(32, 8, tempReg1, MDisp(srcReg, 14));
+		MOVZX(32, 8, tempReg2, MDisp(srcReg, 15));
+
+		CMP(32, R(tempReg1), R(tempReg2));
+		FixupBranch handleLerp8 = J_CC(CC_A);
+
+		// Okay, check for zero or full alpha, at alphaIndex 6 or 7.
+		XOR(32, R(srcReg), R(srcReg));
+		CMP(32, R(vReg), Imm32(6));
+		FixupBranch finishZero = J_CC(CC_E, true);
+		// Remember, MOV doesn't affect flags.
+		MOV(32, R(srcReg), Imm32(0xFF));
+		FixupBranch finishFull = J_CC(CC_A, true);
+
+		// At this point, we're handling a 6-step lerp between alpha1 and alpha2.
+		SHL(32, R(vReg), Imm8(8));
+		// Prepare a multiplier in uReg and multiply alpha1 by it.
+		MOV(32, R(uReg), Imm32(6 << 8));
+		SUB(32, R(uReg), R(vReg));
+		IMUL(32, tempReg1, R(uReg));
+		// And now the same for alpha2, using vReg.
+		SUB(32, R(vReg), Imm32(1 << 8));
+		IMUL(32, tempReg2, R(vReg));
+
+		// Let's skip a step and sum before dividing by 5, also adding the 31.
+		LEA(32, srcReg, MComplex(tempReg1, tempReg2, SCALE_1, 5 * 31));
+		// To divide by 5, we will actually multiply by 0x3334 and shift.
+		IMUL(32, srcReg, Imm32(0x3334));
+		SHR(32, R(srcReg), Imm8(24));
+		FixupBranch finishLerp6 = J(true);
+
+		// This will be a 8-step lerp between alpha1 and alpha2.
+		SetJumpTarget(handleLerp8);
+		SHL(32, R(vReg), Imm8(8));
+		// Prepare a multiplier in uReg and multiply alpha1 by it.
+		MOV(32, R(uReg), Imm32(8 << 8));
+		SUB(32, R(uReg), R(vReg));
+		IMUL(32, tempReg1, R(uReg));
+		// And now the same for alpha2, using vReg.
+		SUB(32, R(vReg), Imm32(1 << 8));
+		IMUL(32, tempReg2, R(vReg));
+
+		// And divide by 7 together here too, also adding the 31.
+		LEA(32, srcReg, MComplex(tempReg1, tempReg2, SCALE_1, 7 * 31));
+		// Our magic constant here is 0x124A, but it's a bit more complex than just a shift.
+		IMUL(32, tempReg1, R(srcReg), Imm32(0x124A));
+		SHR(32, R(tempReg1), Imm8(15));
+		SUB(32, R(srcReg), R(tempReg1));
+		SHR(32, R(srcReg), Imm8(1));
+		ADD(32, R(srcReg), R(tempReg1));
+		SHR(32, R(srcReg), Imm8(10));
+
+		FixupBranch finishLerp8 = J();
+
+		SetJumpTarget(handleSimple);
+		// Just load the specified alpha byte.
+		MOVZX(32, 8, srcReg, MComplex(srcReg, vReg, SCALE_1, 14));
+
+		SetJumpTarget(finishFull);
+		SetJumpTarget(finishZero);
+		SetJumpTarget(finishLerp6);
+		SetJumpTarget(finishLerp8);
+
+		SHL(32, R(srcReg), Imm8(24));
+		OR(32, R(resultReg), R(srcReg));
+		return true;
 	}
 
 	_dbg_assert_(false);
