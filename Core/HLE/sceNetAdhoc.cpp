@@ -440,7 +440,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	if (ret >= 0 && ret <= *req.length) {
 		sinlen = sizeof(sin);
         memset(&sin, 0, sinlen);
-		ret = recvfrom(uid, (char*)req.buffer, *req.length, MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
+		ret = recvfrom(uid, (char*)req.buffer, std::max(0, *req.length), MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
 		// UDP can also receives 0 data, while on TCP receiving 0 data = connection gracefully closed, but not sure whether PDP can send/recv 0 data or not tho
 		*req.length = 0;
 		if (ret >= 0) {
@@ -635,7 +635,7 @@ int DoBlockingPtpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 		return 0;
 	}
 
-	int ret = recv(uid, (char*)req.buffer, *req.length, MSG_NOSIGNAL);
+	int ret = recv(uid, (char*)req.buffer, std::max(0, *req.length), MSG_NOSIGNAL);
 	int sockerr = errno;
 
 	// Received Data. POSIX: May received 0 bytes when the remote peer already closed the connection.
@@ -1499,7 +1499,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 								target.sin_family = AF_INET;
 								target.sin_port = htons(dport + portOffset);
 
-								// Get Peer IP
+								// Get Peer IP. Some games (ie. Vulcanus Seek and Destroy) seems to try to send to zero-MAC (ie. 00:00:00:00:00:00) first before sending to the actual destination MAC.. So may be sending to zero-MAC has a special meaning? (ie. to peek send buffer availability may be?)
 								if (resolveMAC((SceNetEtherAddr *)daddr, (uint32_t *)&target.sin_addr.s_addr)) {
 									// Some games (ie. PSP2) might try to talk to it's self, not sure if they talked through WAN or LAN when using public Adhoc Server tho
 									target.sin_port = htons(dport + ((isOriPort && !isPrivateIP(target.sin_addr.s_addr)) ? 0 : portOffset));
@@ -1772,7 +1772,8 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 				}
 				sinlen = sizeof(sin);
 				memset(&sin, 0, sinlen);
-				received = recvfrom(pdpsocket.id, (char*)buf, *len, MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
+				// On Windows: Socket Error 10014 may happen when buffer size is less than the minimum allowed/required (ie. negative number on Vulcanus Seek and Destroy), the address is not a valid part of the user address space (ie. on the stack or when buffer overflow occurred), or the address is not properly aligned (ie. multiple of 4 on 32bit and multiple of 8 on 64bit) https://stackoverflow.com/questions/861154/winsock-error-code-10014
+				received = recvfrom(pdpsocket.id, (char*)buf, std::max(0, *len), MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
 				error = errno;
 
 				// On Windows: recvfrom on UDP can get error WSAECONNRESET when previous sendto's destination is unreachable (or destination port is not bound), may need to disable SIO_UDP_CONNRESET
@@ -4016,7 +4017,7 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					int error = 0;
 
 					// Receive Data. POSIX: May received 0 bytes when the remote peer already closed the connection.
-					received = recv(ptpsocket.id, (char*)buf, *len, MSG_NOSIGNAL);
+					received = recv(ptpsocket.id, (char*)buf, std::max(0, *len), MSG_NOSIGNAL);
 					error = errno;
 
 					if (received == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && (error == ENOTCONN || connectInProgress(error))))) {
