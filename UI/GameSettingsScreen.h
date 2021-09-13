@@ -129,7 +129,8 @@ private:
 	int iAlternateSpeedPercent1_;
 	int iAlternateSpeedPercent2_;
 	int prevInflightFrames_;
-	bool enableReports_;
+	bool enableReports_ = false;
+	bool enableReportsSet_ = false;
 	bool tessHWEnable_;
 	std::string shaderNames_[256];
 
