@@ -542,7 +542,7 @@ bool EmuScreen::touch(const TouchInput &touch) {
 	Core_NotifyActivity();
 
 	if (chatMenu_ && (touch.flags & TOUCH_DOWN) != 0 && !chatMenu_->Contains(touch.x, touch.y)) {
-		chatMenu_->SetVisibility(UI::V_GONE);
+		chatMenu_->Close();
 		if (chatButton_)
 			chatButton_->SetVisibility(UI::V_VISIBLE);
 		UI::EnableFocusMovement(false);
@@ -738,7 +738,7 @@ bool EmuScreen::key(const KeyInput &key) {
 	if (UI::IsFocusMovementEnabled()) {
 		if ((key.flags & KEY_DOWN) != 0 && UI::IsEscapeKey(key)) {
 			if (chatMenu_)
-				chatMenu_->SetVisibility(UI::V_GONE);
+				chatMenu_->Close();
 			if (chatButton_)
 				chatButton_->SetVisibility(UI::V_VISIBLE);
 			UI::EnableFocusMovement(false);

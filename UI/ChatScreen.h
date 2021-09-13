@@ -8,9 +8,10 @@ public:
 	ChatMenu(const Bounds &screenBounds, UI::LayoutParams *lp = nullptr): UI::AnchorLayout(lp) {
 		CreateSubviews(screenBounds);
 	}
-	~ChatMenu();
 	void Update() override;
 	bool SubviewFocused(UI::View *view) override;
+
+	void Close();
 
 	bool Contains(float x, float y) const {
 		if (box_)

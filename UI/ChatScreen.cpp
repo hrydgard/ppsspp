@@ -84,8 +84,6 @@ void ChatMenu::CreateSubviews(const Bounds &screenBounds) {
 
 		CreateContents(box_);
 	}
-	chatScreenVisible = true;
-	newChat = 0;
 
 	UpdateChat();
 }
@@ -179,6 +177,9 @@ void ChatMenu::Update() {
 		updateChatScreen = false;
 	}
 
+	chatScreenVisible = true;
+	newChat = 0;
+
 #if defined(USING_WIN_UI)
 	// Could remove the fullscreen check here, it works now.
 	if (promptInput_ && g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen) {
@@ -197,10 +198,10 @@ bool ChatMenu::SubviewFocused(UI::View *view) {
 		return false;
 
 	promptInput_ = true;
-
 	return true;
 }
 
-ChatMenu::~ChatMenu() {
+void ChatMenu::Close() {
+	SetVisibility(UI::V_GONE);
 	chatScreenVisible = false;
 }
