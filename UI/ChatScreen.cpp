@@ -15,7 +15,7 @@
 #include "Core/HLE/proAdhoc.h"
 #include "UI/ChatScreen.h"
 
-void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
+void ChatMenu::CreateContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	auto n = GetI18NCategory("Networking");
 	LinearLayout *outer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT,400));
@@ -53,37 +53,31 @@ void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	parent->Add(outer);
 }
 
-void ChatMenu::CreateViews() {
+void ChatMenu::CreateSubviews(const Bounds &screenBounds) {
 	using namespace UI;
 
 	auto n = GetI18NCategory("Networking");
-	UIContext &dc = *screenManager()->getUIContext();
-
-	AnchorLayout *anchor = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-	anchor->Overflow(false);
-	root_ = anchor;
-
-	float yres = screenManager()->getUIContext()->GetBounds().h;
+	float width = 550.0f;
 
 	switch (g_Config.iChatScreenPosition) {
 	// the chat screen size is still static 280x240 need a dynamic size based on device resolution 
 	case 0:
-		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, 280, NONE, NONE, 240, true));
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(width, WRAP_CONTENT, 280, NONE, NONE, 240, true));
 		break;
 	case 1:
-		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, dc.GetBounds().centerX(), NONE, NONE, 240, true));
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(width, WRAP_CONTENT, screenBounds.centerX(), NONE, NONE, 240, true));
 		break;
 	case 2:
-		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, NONE, NONE, 280, 240, true));
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(width, WRAP_CONTENT, NONE, NONE, 280, 240, true));
 		break;
 	case 3:
-		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, 280, 240, NONE, NONE, true));
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(width, WRAP_CONTENT, 280, 240, NONE, NONE, true));
 		break;
 	case 4:
-		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, dc.GetBounds().centerX(), 240, NONE, NONE, true));
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(width, WRAP_CONTENT, screenBounds.centerX(), 240, NONE, NONE, true));
 		break;
 	case 5:
-		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, NONE, 240, 280, NONE, true));
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(width, WRAP_CONTENT, NONE, 240, 280, NONE, true));
 		break;
 	default:
 		box_ = nullptr;
@@ -91,33 +85,19 @@ void ChatMenu::CreateViews() {
 	}
 
 	if (box_) {
-		root_->Add(box_);
+		Add(box_);
 		box_->SetBG(UI::Drawable(0x99303030));
 		box_->SetHasDropShadow(false);
 
 		View *title = new PopupHeader(n->T("Chat"));
 		box_->Add(title);
 
-		CreatePopupContents(box_);
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(SDL)
-		UI::EnableFocusMovement(true);
-		root_->SetDefaultFocusView(box_);
-		box_->SubviewFocused(chatEdit_);
-		root_->SetFocus();
-#else
-		//root_->SetDefaultFocusView(box_);
-		//box_->SubviewFocused(scroll_);
-		//root_->SetFocus();
-#endif
+		CreateContents(box_);
 	}
 	chatScreenVisible = true;
 	newChat = 0;
 
 	UpdateChat();
-}
-
-void ChatMenu::dialogFinished(const Screen *dialog, DialogResult result) {
-	UpdateUIState(UISTATE_INGAME);
 }
 
 UI::EventReturn ChatMenu::OnSubmit(UI::EventParams &e) {
@@ -195,20 +175,8 @@ void ChatMenu::UpdateChat() {
 	}
 }
 
-bool ChatMenu::touch(const TouchInput &touch) {
-	if (!box_ || (touch.flags & TOUCH_DOWN) == 0) {
-		return UIDialogScreen::touch(touch);
-	}
-
-	if (!box_->GetBounds().Contains(touch.x, touch.y)){
-		screenManager()->finishDialog(this, DR_BACK);
-	}
-
-	return UIDialogScreen::touch(touch);
-}
-
-void ChatMenu::update() {
-	PopupScreen::update();
+void ChatMenu::Update() {
+	AnchorLayout::Update();
 	if (scroll_ && toBottom_) {
 		toBottom_ = false;
 		scroll_->ScrollToBottom();

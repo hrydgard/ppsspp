@@ -3,20 +3,25 @@
 #include "ppsspp_config.h"
 #include "Common/UI/UIScreen.h"
 
-class ChatMenu : public PopupScreen {
+class ChatMenu : public UI::AnchorLayout {
 public:
-	ChatMenu(): PopupScreen("Chat") {}
+	ChatMenu(const Bounds &screenBounds, UI::LayoutParams *lp = nullptr): UI::AnchorLayout(lp) {
+		CreateSubviews(screenBounds);
+	}
 	~ChatMenu();
-	void CreatePopupContents(UI::ViewGroup *parent) override;
-	void CreateViews() override;
-	void dialogFinished(const Screen *dialog, DialogResult result) override;
-	bool touch(const TouchInput &touch) override;
-	void update() override;
-	void UpdateChat();
+	void Update() override;
 
-	bool toBottom_ = true;
+	bool Contains(float x, float y) const {
+		if (box_)
+			return box_->GetBounds().Contains(x, y);
+		return false;
+	}
 
 private:
+	void CreateSubviews(const Bounds &screenBounds);
+	void CreateContents(UI::ViewGroup *parent);
+	void UpdateChat();
+
 	UI::EventReturn OnSubmit(UI::EventParams &e);
 	UI::EventReturn OnQuickChat1(UI::EventParams &e);
 	UI::EventReturn OnQuickChat2(UI::EventParams &e);
@@ -30,4 +35,6 @@ private:
 	UI::ScrollView *scroll_ = nullptr;
 	UI::LinearLayout *chatVert_ = nullptr;
 	UI::ViewGroup *box_ = nullptr;
+
+	bool toBottom_ = true;
 };

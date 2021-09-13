@@ -541,6 +541,13 @@ inline float clamp1(float x) {
 bool EmuScreen::touch(const TouchInput &touch) {
 	Core_NotifyActivity();
 
+	if (chatMenu_ && (touch.flags & TOUCH_DOWN) != 0 && !chatMenu_->Contains(touch.x, touch.y)) {
+		chatMenu_->SetVisibility(UI::V_GONE);
+		if (chatButton_)
+			chatButton_->SetVisibility(UI::V_VISIBLE);
+		UI::EnableFocusMovement(false);
+	}
+
 	if (root_) {
 		root_->Touch(touch);
 		return true;
@@ -729,7 +736,14 @@ bool EmuScreen::key(const KeyInput &key) {
 	Core_NotifyActivity();
 
 	if (UI::IsFocusMovementEnabled()) {
-		if (UIScreen::key(key)) {
+		if ((key.flags & KEY_DOWN) != 0 && UI::IsEscapeKey(key)) {
+			if (chatMenu_)
+				chatMenu_->SetVisibility(UI::V_GONE);
+			if (chatButton_)
+				chatButton_->SetVisibility(UI::V_VISIBLE);
+			UI::EnableFocusMovement(false);
+			return true;
+		} else if (UIScreen::key(key)) {
 			return true;
 		}
 	}
@@ -851,8 +865,11 @@ void EmuScreen::CreateViews() {
 		ChoiceWithValueDisplay *btn = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), layoutParams);
 		root_->Add(btn)->OnClick.Handle(this, &EmuScreen::OnChat);
 		chatButton_ = btn;
+		chatMenu_ = root_->Add(new ChatMenu(screenManager()->getUIContext()->GetBounds(), new LayoutParams(FILL_PARENT, FILL_PARENT)));
+		chatMenu_->SetVisibility(UI::V_GONE);
 	} else {
 		chatButton_ = nullptr;
+		chatMenu_ = nullptr;
 	}
 
 	saveStatePreview_ = new AsyncImageFileView(Path(), IS_FIXED, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, true));
@@ -929,7 +946,15 @@ UI::EventReturn EmuScreen::OnChat(UI::EventParams &params) {
 	if (chatButton_ != nullptr && chatButton_->GetVisibility() == UI::V_VISIBLE) {
 		chatButton_->SetVisibility(UI::V_GONE);
 	}
-	screenManager()->push(new ChatMenu());
+	if (chatMenu_ != nullptr) {
+		chatMenu_->SetVisibility(UI::V_VISIBLE);
+
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(SDL)
+		UI::EnableFocusMovement(true);
+		root_->SetDefaultFocusView(chatMenu_);
+		chatMenu_->SetFocus();
+#endif
+	}
 	return UI::EVENT_DONE;
 }
 
