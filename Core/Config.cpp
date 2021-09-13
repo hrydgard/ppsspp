@@ -1048,6 +1048,10 @@ static ConfigSetting controlSettings[] = {
 
 	ConfigSetting("AnalogLimiterDeadzone", &g_Config.fAnalogLimiterDeadzone, 0.6f, true, true),
 
+	ConfigSetting("LeftStickHeadScale", &g_Config.fLeftStickHeadScale, 1.0f, true, true),
+	ConfigSetting("RightStickHeadScale", &g_Config.fRightStickHeadScale, 1.0f, true, true),
+	ConfigSetting("HideStickBackground", &g_Config.bHideStickBackground, false, true, true),
+
 	ConfigSetting("UseMouse", &g_Config.bMouseControl, false, true, true),
 	ConfigSetting("MapMouse", &g_Config.bMapMouse, false, true, true),
 	ConfigSetting("ConfineMap", &g_Config.bMouseConfine, false, true, true),
@@ -1875,6 +1879,8 @@ void Config::ResetControlLayout() {
 	reset(g_Config.touchCombo7);
 	reset(g_Config.touchCombo8);
 	reset(g_Config.touchCombo9);
+	g_Config.fLeftStickHeadScale = 1.0f;
+	g_Config.fRightStickHeadScale = 1.0f;
 }
 
 void Config::GetReportingInfo(UrlEncoder &data) {
