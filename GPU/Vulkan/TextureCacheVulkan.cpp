@@ -757,8 +757,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY) {
 		// Boost the number of mipmaps.
 		int maxPossibleMipmaps = log2i(std::min(gstate.getTextureWidth(0), gstate.getTextureHeight(0)));
-		maxLevelToGenerate = maxPossibleMipmaps;
-		dstFmt = VK_FORMAT_R8G8B8A8_UNORM;
+		if (maxPossibleMipmaps > maxLevelToGenerate) {
+			maxLevelToGenerate = maxPossibleMipmaps;
+			dstFmt = VK_FORMAT_R8G8B8A8_UNORM;
+		}
 	}
 
 	int scaleFactor = standardScaleFactor_;
