@@ -339,7 +339,7 @@ protected:
 };
 
 static inline u32 makecol(int r, int g, int b, int a) {
-	return (a << 24) | (r << 16) | (g << 8) | b;
+	return (a << 24) | (b << 16) | (g << 8) | r;
 }
 
 static inline int mix_2_3(int c1, int c2) {
@@ -350,12 +350,12 @@ static inline int mix_2_3(int c1, int c2) {
 void DXTDecoder::DecodeColors(const DXT1Block *src, bool ignore1bitAlpha) {
 	u16 c1 = src->color1;
 	u16 c2 = src->color2;
-	int red1 = (c1 << 3) & 0xF8;
-	int red2 = (c2 << 3) & 0xF8;
+	int blue1 = (c1 << 3) & 0xF8;
+	int blue2 = (c2 << 3) & 0xF8;
 	int green1 = (c1 >> 3) & 0xFC;
 	int green2 = (c2 >> 3) & 0xFC;
-	int blue1 = (c1 >> 8) & 0xF8;
-	int blue2 = (c2 >> 8) & 0xF8;
+	int red1 = (c1 >> 8) & 0xF8;
+	int red2 = (c2 >> 8) & 0xF8;
 
 	// Keep alpha zero for non-DXT1 to skip masking the colors.
 	int alpha = ignore1bitAlpha ? 0 : 255;
@@ -453,12 +453,12 @@ uint32_t GetDXTTexelColor(const DXT1Block *src, int x, int y, int alpha) {
 
 	uint16_t c1 = src->color1;
 	uint16_t c2 = src->color2;
-	int red1 = (c1 << 3) & 0xF8;
-	int red2 = (c2 << 3) & 0xF8;
+	int blue1 = (c1 << 3) & 0xF8;
+	int blue2 = (c2 << 3) & 0xF8;
 	int green1 = (c1 >> 3) & 0xFC;
 	int green2 = (c2 >> 3) & 0xFC;
-	int blue1 = (c1 >> 8) & 0xF8;
-	int blue2 = (c2 >> 8) & 0xF8;
+	int red1 = (c1 >> 8) & 0xF8;
+	int red2 = (c2 >> 8) & 0xF8;
 
 	int colorIndex = (src->lines[y] >> (x * 2)) & 3;
 	if (colorIndex == 0) {
