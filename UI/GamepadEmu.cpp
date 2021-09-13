@@ -239,8 +239,14 @@ PSPDpad::PSPDpad(ImageID arrowIndex, const char *key, ImageID arrowDownIndex, Im
 }
 
 void PSPDpad::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	w = D_pad_Radius * spacing_ * 4;
-	h = D_pad_Radius * spacing_ * 4;
+	const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(arrowIndex_);
+	if (image) {
+		w = 2.0f * D_pad_Radius * spacing_ + image->w * scale_;
+		h = w;
+	} else {
+		w = 0.0f;
+		h = 0.0f;
+	}
 }
 
 void PSPDpad::Touch(const TouchInput &input) {
@@ -274,20 +280,20 @@ void PSPDpad::Touch(const TouchInput &input) {
 }
 
 void PSPDpad::ProcessTouch(float x, float y, bool down) {
-	float stick_size = spacing_ * D_pad_Radius * scale_;
+	float stick_size = bounds_.w;
 	float inv_stick_size = 1.0f / stick_size;
-	const float deadzone = 0.17f;
+	const float deadzone = 0.05f;
 
 	float dx = (x - bounds_.centerX()) * inv_stick_size;
 	float dy = (y - bounds_.centerY()) * inv_stick_size;
 	float rad = sqrtf(dx*dx + dy*dy);
-	if (rad < deadzone || rad > 2.0f)
+	if (rad < deadzone || fabs(dx) > 0.5f || fabs(dy) > 0.5)
 		down = false;
 
 	int ctrlMask = 0;
 	int lastDown = down_;
 
-	bool fourWay = g_Config.bDisableDpadDiagonals || rad < 0.7f;
+	bool fourWay = g_Config.bDisableDpadDiagonals || rad < 0.2f;
 	if (down) {
 		if (fourWay) {
 			int direction = (int)(floorf((atan2f(dy, dx) / (2 * M_PI) * 4) + 0.5f)) & 3;
