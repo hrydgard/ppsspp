@@ -728,6 +728,12 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 bool EmuScreen::key(const KeyInput &key) {
 	Core_NotifyActivity();
 
+	if (UI::IsFocusMovementEnabled()) {
+		if (UIScreen::key(key)) {
+			return true;
+		}
+	}
+
 	return controlMapper_.Key(key, &pauseTrigger_);
 }
 
