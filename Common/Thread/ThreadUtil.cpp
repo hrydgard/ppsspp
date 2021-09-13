@@ -22,7 +22,7 @@
 #include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
 
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX)
+#if (PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX)) && !defined(_GNU_SOURCE)
 #define _GNU_SOURCE
 #endif
 
