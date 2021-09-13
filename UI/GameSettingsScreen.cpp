@@ -88,7 +88,7 @@ extern AndroidAudioState *g_audioState;
 #endif
 
 GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID, bool editThenRestore)
-	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false), editThenRestore_(editThenRestore) {
+	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), editThenRestore_(editThenRestore) {
 	lastVertical_ = UseVerticalLayout();
 	prevInflightFrames_ = g_Config.iInflightFrames;
 }
@@ -889,7 +889,9 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iBackgroundAnimation, sy->T("UI background animation"), backgroundAnimations, 0, ARRAY_SIZE(backgroundAnimations), sy->GetName(), screenManager()));
 
 	systemSettings->Add(new ItemHeader(sy->T("Help the PPSSPP team")));
-	enableReports_ = Reporting::IsEnabled();
+	if (!enableReportsSet_)
+		enableReports_ = Reporting::IsEnabled();
+	enableReportsSet_ = true;
 	enableReportsCheckbox_ = new CheckBox(&enableReports_, sy->T("Enable Compatibility Server Reports"));
 	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
 	systemSettings->Add(enableReportsCheckbox_);
@@ -1094,8 +1096,9 @@ UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
 	// We do not want to report when rendering mode is Framebuffer to memory - so many issues
 	// are caused by that (framebuffer copies overwriting display lists, etc).
 	Reporting::UpdateConfig();
-	enableReports_ = Reporting::IsEnabled();
 	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
+	if (!Reporting::IsSupported())
+		enableReports_ = Reporting::IsEnabled();
 
 	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
 		g_Config.bAutoFrameSkip = false;
