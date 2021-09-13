@@ -10,6 +10,7 @@ public:
 	}
 	~ChatMenu();
 	void Update() override;
+	bool SubviewFocused(UI::View *view) override;
 
 	bool Contains(float x, float y) const {
 		if (box_)
@@ -37,4 +38,5 @@ private:
 	UI::ViewGroup *box_ = nullptr;
 
 	bool toBottom_ = true;
+	bool promptInput_ = false;
 };

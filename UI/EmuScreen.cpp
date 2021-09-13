@@ -952,7 +952,12 @@ UI::EventReturn EmuScreen::OnChat(UI::EventParams &params) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(SDL)
 		UI::EnableFocusMovement(true);
 		root_->SetDefaultFocusView(chatMenu_);
+
 		chatMenu_->SetFocus();
+		UI::View *focused = UI::GetFocusedView();
+		if (focused) {
+			root_->SubviewFocused(focused);
+		}
 #endif
 	}
 	return UI::EVENT_DONE;

@@ -23,16 +23,6 @@ void ChatMenu::CreateContents(UI::ViewGroup *parent) {
 	LinearLayout *bottom = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(SDL)
 	chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat message"), n->T("Chat Here"), new LinearLayoutParams(1.0)));
-#if defined(USING_WIN_UI)
-	// freeze the ui when using ctrl + C hotkey need workaround
-	if (g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen) {
-		System_InputBoxGetString(n->T("Chat"), n->T("Chat Here"), [](bool result, const std::string &value) {
-			if (result) {
-				sendChat(value);
-			}
-		});
-	}
-#endif
 	chatEdit_->OnEnter.Handle(this, &ChatMenu::OnSubmit);
 
 #elif PPSSPP_PLATFORM(ANDROID)
@@ -176,6 +166,8 @@ void ChatMenu::UpdateChat() {
 }
 
 void ChatMenu::Update() {
+	auto n = GetI18NCategory("Networking");
+
 	AnchorLayout::Update();
 	if (scroll_ && toBottom_) {
 		toBottom_ = false;
@@ -186,6 +178,27 @@ void ChatMenu::Update() {
 		UpdateChat();
 		updateChatScreen = false;
 	}
+
+#if defined(USING_WIN_UI)
+	// Could remove the fullscreen check here, it works now.
+	if (promptInput_ && g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen) {
+		System_InputBoxGetString(n->T("Chat"), n->T("Chat Here"), [](bool result, const std::string &value) {
+			if (result) {
+				sendChat(value);
+			}
+		});
+		promptInput_ = false;
+	}
+#endif
+}
+
+bool ChatMenu::SubviewFocused(UI::View *view) {
+	if (!AnchorLayout::SubviewFocused(view))
+		return false;
+
+	promptInput_ = true;
+
+	return true;
 }
 
 ChatMenu::~ChatMenu() {
