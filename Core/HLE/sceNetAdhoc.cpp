@@ -4201,10 +4201,12 @@ static int sceNetAdhocGameModeCreateMaster(u32 dataAddr, int size) {
 		masterGameModeArea = { 0, size, dataAddr, CoreTiming::GetGlobalTimeUsScaled(), 1, 0, localMac, data };
 		StartGameModeScheduler();
 
-		// Block current thread to sync initial master data
+		// Block current thread to sync initial master data after Master and all Replicas have been created
 		if (replicaGameModeAreas.size() == (gameModeMacs.size() - 1)) {
-			__KernelWaitCurThread(WAITTYPE_NET, GAMEMODE_WAITID, 0, 0, false, "syncing master data");
-			DEBUG_LOG(SCENET, "GameMode: Blocking Thread %d to Sync initial Master data", __KernelGetCurThread());
+			if (CoreTiming::IsScheduled(gameModeNotifyEvent)) {
+				__KernelWaitCurThread(WAITTYPE_NET, GAMEMODE_WAITID, 0, 0, false, "syncing master data");
+				DEBUG_LOG(SCENET, "GameMode: Blocking Thread %d to Sync initial Master data", __KernelGetCurThread());
+			}
 		}
 		return hleLogDebug(SCENET, 0, "success"); // returned an id just like CreateReplica? always return 0?
 	}
@@ -4259,10 +4261,12 @@ static int sceNetAdhocGameModeCreateReplica(const char *mac, u32 dataAddr, int s
 		replicaGameModeAreas.push_back(gma);
 		ret = gma.id; // Valid id for replica is higher than 0?
 
-		// Block current thread to sync initial master data
+		// Block current thread to sync initial master data after Master and all Replicas have been created
 		if (replicaGameModeAreas.size() == (gameModeMacs.size() - 1)) {
-			__KernelWaitCurThread(WAITTYPE_NET, GAMEMODE_WAITID, ret, 0, false, "syncing master data");
-			DEBUG_LOG(SCENET, "GameMode: Blocking Thread %d to Sync initial Master data", __KernelGetCurThread());
+			if (CoreTiming::IsScheduled(gameModeNotifyEvent)) {
+				__KernelWaitCurThread(WAITTYPE_NET, GAMEMODE_WAITID, ret, 0, false, "syncing master data");
+				DEBUG_LOG(SCENET, "GameMode: Blocking Thread %d to Sync initial Master data", __KernelGetCurThread());
+			}
 		}
 		return hleLogSuccessInfoI(SCENET, ret, "success");
 	}
