@@ -948,6 +948,7 @@ UI::EventReturn EmuScreen::OnChat(UI::EventParams &params) {
 	}
 	if (chatMenu_ != nullptr) {
 		chatMenu_->SetVisibility(UI::V_VISIBLE);
+		updateChatScreen = true;
 
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(SDL)
 		UI::EnableFocusMovement(true);
