@@ -19,6 +19,7 @@
 
 #if !defined(_WIN32) && !defined(ANDROID) && !defined(__APPLE__)
 
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -51,21 +52,34 @@ bool MemArena::NeedsProbing() {
 }
 
 bool MemArena::GrabMemSpace(size_t size) {
-	mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+	constexpr mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
 
-	// Some platforms (like Raspberry Pi) end up flushing to disk.
-	// To avoid this, we try to use /dev/shm (tmpfs) if it exists.
-	fd = -1;
-	if (File::Exists(Path(tmpfs_location))) {
+	// Try a few times in case multiple instances are started near each other.
+	char ram_temp_filename[128]{};
+	bool is_shm = false;
+	for (int i = 0; i < 256; ++i) {
+		snprintf(ram_temp_filename, sizeof(ram_temp_filename), "/ppsspp_%d.ram", i);
+		// This opens atomically, so will fail if another process is starting.
+		fd = open(ram_temp_filename, O_RDWR | O_CREAT | O_EXCL, mode);
+		if (fd >= 0) {
+			INFO_LOG(MEMMAP, "Got shm file: %s", ram_temp_filename);
+			is_shm = true;
+			// Our handle persists per POSIX, so no need to keep it around.
+			if (shm_unlink(ram_temp_filename) != 0) {
+				WARN_LOG(MEMMAP, "Failed to shm_unlink %s", ram_temp_file.c_str());
+			}
+			break;
+		}
+	}
+
+	// Fall back to old tmpfs behavior.
+	if (fd < 0 && File::Exists(Path(tmpfs_location))) {
 		fd = open(tmpfs_ram_temp_file.c_str(), O_RDWR | O_CREAT, mode);
 		if (fd >= 0) {
 			// Great, this definitely shouldn't flush to disk.
 			ram_temp_file = tmpfs_ram_temp_file;
-		} else {
 			INFO_LOG(MEMMAP, "Got tmpfs ram file: %s", tmpfs_ram_temp_file.c_str());
 		}
-	} else {
-		INFO_LOG(MEMMAP, "'%s' does not exist. Trying other ram file options.", tmpfs_location.c_str());
 	}
 
 	if (fd < 0) {
@@ -77,7 +91,7 @@ bool MemArena::GrabMemSpace(size_t size) {
 		return false;
 	}
 	// delete immediately, we keep the fd so it still lives
-	if (unlink(ram_temp_file.c_str()) != 0) {
+	if (!is_shm && unlink(ram_temp_file.c_str()) != 0) {
 		WARN_LOG(MEMMAP, "Failed to unlink %s", ram_temp_file.c_str());
 	}
 	if (ftruncate(fd, size) != 0) {
