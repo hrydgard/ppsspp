@@ -44,6 +44,8 @@ private:
 	UI::EventReturn OnReportFeedback(UI::EventParams &e);
 
 	UI::EventReturn OnRewind(UI::EventParams &e);
+	UI::EventReturn OnLoadUndo(UI::EventParams &e);
+	UI::EventReturn OnLastSaveUndo(UI::EventParams &e);
 
 	UI::EventReturn OnScreenshotClicked(UI::EventParams &e);
 	UI::EventReturn OnCwCheat(UI::EventParams &e);

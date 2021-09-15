@@ -134,7 +134,9 @@ void HttpImageFileView::DownloadCompletedCallback(http::Download &download) {
 void HttpImageFileView::Draw(UIContext &dc) {
 	using namespace Draw;
 	if (!texture_ && !textureFailed_ && !path_.empty() && !download_) {
-		download_ = downloader_->StartDownloadWithCallback(path_, Path(), std::bind(&HttpImageFileView::DownloadCompletedCallback, this, std::placeholders::_1));
+		auto cb = std::bind(&HttpImageFileView::DownloadCompletedCallback, this, std::placeholders::_1);
+		const char *acceptMime = "image/png, image/jpeg, image/*; q=0.9, */*; q=0.8";
+		download_ = downloader_->StartDownloadWithCallback(path_, Path(), cb, acceptMime);
 		download_->SetHidden(true);
 	}
 
@@ -270,13 +272,16 @@ void ProductView::CreateViews() {
 	cancelButton_->SetVisibility(isDownloading ? V_VISIBLE : V_GONE);
 
 	// Add star rating, comments etc?
-	Add(new TextView(entry_.description, ALIGN_LEFT | FLAG_WRAP_TEXT, false));
+
+	// Draw each line separately so focusing can scroll.
+	std::vector<std::string> lines;
+	SplitString(entry_.description, '\n', lines);
+	for (auto &line : lines) {
+		Add(new TextView(line, ALIGN_LEFT | FLAG_WRAP_TEXT, false))->SetFocusable(true);
+	}
 
 	float size = entry_.size / (1024.f * 1024.f);
-	char temp[256];
-	sprintf(temp, "%s: %.2f %s", st->T("Size"), size, st->T("MB"));
-
-	Add(new TextView(temp));
+	Add(new TextView(StringFromFormat("%s: %.2f %s", st->T("Size"), size, st->T("MB"))));
 }
 
 void ProductView::Update() {
@@ -363,8 +368,8 @@ StoreScreen::StoreScreen() {
 	loading_ = true;
 
 	std::string indexPath = storeBaseUrl + "index.json";
-
-	listing_ = g_DownloadManager.StartDownload(indexPath, Path());
+	const char *acceptMime = "application/json, */*; q=0.8";
+	listing_ = g_DownloadManager.StartDownload(indexPath, Path(), acceptMime);
 }
 
 StoreScreen::~StoreScreen() {
@@ -378,6 +383,7 @@ void StoreScreen::update() {
 	g_DownloadManager.Update();
 
 	if (listing_.get() != 0 && listing_->Done()) {
+		resultCode_ = listing_->ResultCode();
 		if (listing_->ResultCode() == 200) {
 			std::string listingJson;
 			listing_->buffer().TakeAll(&listingJson);
@@ -389,7 +395,7 @@ void StoreScreen::update() {
 			RecreateViews();
 		} else {
 			// Failed to contact store. Don't do anything.
-			ERROR_LOG(IO, "Download failed : error code %d", listing_->ResultCode());
+			ERROR_LOG(IO, "Download failed : error code %d", resultCode_);
 			connectionError_ = true;
 			loading_ = false;
 			RecreateViews();
@@ -465,7 +471,7 @@ void StoreScreen::CreateViews() {
 	LinearLayout *content;
 	if (connectionError_ || loading_) {
 		content = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
-		content->Add(new TextView(loading_ ? st->T("Loading...") : st->T("Connection Error")));
+		content->Add(new TextView(loading_ ? std::string(st->T("Loading...")) : StringFromFormat("%s: %d", st->T("Connection Error"), resultCode_)));
 		content->Add(new Button(di->T("Retry")))->OnClick.Handle(this, &StoreScreen::OnRetry);
 		content->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 

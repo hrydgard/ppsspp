@@ -538,6 +538,9 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("SaveLoadResetsAVdumping", &g_Config.bSaveLoadResetsAVdumping, false),
 	ConfigSetting("StateSlot", &g_Config.iCurrentStateSlot, 0, true, true),
 	ConfigSetting("EnableStateUndo", &g_Config.bEnableStateUndo, false/*&DefaultEnableStateUndo*/, true, true),
+	ConfigSetting("StateLoadUndoGame", &g_Config.sStateLoadUndoGame, "NA", true, false),
+	ConfigSetting("StateUndoLastSaveGame", &g_Config.sStateUndoLastSaveGame, "NA", true, false),
+	ConfigSetting("StateUndoLastSaveSlot", &g_Config.iStateUndoLastSaveSlot, -5, true, false), // Start with an "invalid" value
 	ConfigSetting("RewindFlipFrequency", &g_Config.iRewindFlipFrequency, 0, true, true),
 
 	ConfigSetting("ShowOnScreenMessage", &g_Config.bShowOnScreenMessages, true, true, false),
@@ -553,6 +556,15 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("RightAnalogRight", &g_Config.iRightAnalogRight, 0, true, true),
 	ConfigSetting("RightAnalogPress", &g_Config.iRightAnalogPress, 0, true, true),
 	ConfigSetting("RightAnalogCustom", &g_Config.bRightAnalogCustom, false, true, true),
+	ConfigSetting("RightAnalogDisableDiagonal", &g_Config.bRightAnalogDisableDiagonal, false, true, true),
+	ConfigSetting("SwipeUp", &g_Config.iSwipeUp, 0, true, true),
+	ConfigSetting("SwipeDown", &g_Config.iSwipeDown, 0, true, true),
+	ConfigSetting("SwipeLeft", &g_Config.iSwipeLeft, 0, true, true),
+	ConfigSetting("SwipeRight", &g_Config.iSwipeRight, 0, true, true),
+	ConfigSetting("SwipeSensitivity", &g_Config.fSwipeSensitivity, 1.0f, true, true),
+	ConfigSetting("SwipeSmoothing", &g_Config.fSwipeSmoothing, 0.3f, true, true),
+	ConfigSetting("DoubleTapGesture", &g_Config.iDoubleTapGesture, 0, true, true),
+	ConfigSetting("GestureControlEnabled", &g_Config.bGestureControlEnabled, false, true, true),
 
 	// "default" means let emulator decide, "" means disable.
 	ConfigSetting("ReportingHost", &g_Config.sReportHost, "default"),
@@ -623,11 +635,11 @@ static int DefaultInternalResolution() {
 #endif
 }
 
-static int DefaultUnthrottleMode() {
+static int DefaultFastForwardMode() {
 #if PPSSPP_PLATFORM(ANDROID) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS)
-	return (int)UnthrottleMode::SKIP_FLIP;
+	return (int)FastForwardMode::SKIP_FLIP;
 #else
-	return (int)UnthrottleMode::CONTINUOUS;
+	return (int)FastForwardMode::CONTINUOUS;
 #endif
 }
 
@@ -663,6 +675,11 @@ static int DefaultAndroidHwScale() {
 #endif
 }
 
+// See issue 14439. Should possibly even block these devices from selecting VK.
+const char * const vulkanDefaultBlacklist[] = {
+	"Sony:BRAVIA VH1",
+};
+
 static int DefaultGPUBackend() {
 #if PPSSPP_PLATFORM(WINDOWS)
 	// If no Vulkan, use Direct3D 11 on Windows 8+ (most importantly 10.)
@@ -670,11 +687,22 @@ static int DefaultGPUBackend() {
 		return (int)GPUBackend::DIRECT3D11;
 	}
 #elif PPSSPP_PLATFORM(ANDROID)
-	// Default to Vulkan only on Oreo 8.1 (level 27) devices or newer. Drivers before
-	// were generally too unreliable to default to (with some exceptions, of course).
+	// Check blacklist.
+	for (size_t i = 0; i < ARRAY_SIZE(vulkanDefaultBlacklist); i++) {
+		if (System_GetProperty(SYSPROP_NAME) == vulkanDefaultBlacklist[i]) {
+			return (int)GPUBackend::OPENGL;
+		}
+	}
+
+	// Default to Vulkan only on Oreo 8.1 (level 27) devices or newer, and only
+	// on ARM64 and x86-64. Drivers before, and on other archs, are generally too
+	// unreliable to default to (with some exceptions, of course).
+#if PPSSPP_ARCH(64BIT)
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 27) {
 		return (int)GPUBackend::VULKAN;
 	}
+#endif
+
 #endif
 	// TODO: On some additional Linux platforms, we should also default to Vulkan.
 	return (int)GPUBackend::OPENGL;
@@ -773,10 +801,6 @@ bool Config::IsBackendEnabled(GPUBackend backend, bool validate) {
 	return true;
 }
 
-static bool DefaultVertexCache() {
-	return DefaultGPUBackend() == (int)GPUBackend::OPENGL;
-}
-
 template <typename T, std::string (*FTo)(T), T (*FFrom)(const std::string &)>
 struct ConfigTranslator {
 	static std::string To(int v) {
@@ -794,23 +818,23 @@ struct ConfigTranslator {
 
 typedef ConfigTranslator<GPUBackend, GPUBackendToString, GPUBackendFromString> GPUBackendTranslator;
 
-static int UnthrottleModeFromString(const std::string &s) {
+static int FastForwardModeFromString(const std::string &s) {
 	if (!strcasecmp(s.c_str(), "CONTINUOUS"))
-		return (int)UnthrottleMode::CONTINUOUS;
+		return (int)FastForwardMode::CONTINUOUS;
 	if (!strcasecmp(s.c_str(), "SKIP_DRAW"))
-		return (int)UnthrottleMode::SKIP_DRAW;
+		return (int)FastForwardMode::SKIP_DRAW;
 	if (!strcasecmp(s.c_str(), "SKIP_FLIP"))
-		return (int)UnthrottleMode::SKIP_FLIP;
-	return DefaultUnthrottleMode();
+		return (int)FastForwardMode::SKIP_FLIP;
+	return DefaultFastForwardMode();
 }
 
-std::string UnthrottleModeToString(int v) {
-	switch (UnthrottleMode(v)) {
-	case UnthrottleMode::CONTINUOUS:
+std::string FastForwardModeToString(int v) {
+	switch (FastForwardMode(v)) {
+	case FastForwardMode::CONTINUOUS:
 		return "CONTINUOUS";
-	case UnthrottleMode::SKIP_DRAW:
+	case FastForwardMode::SKIP_DRAW:
 		return "SKIP_DRAW";
-	case UnthrottleMode::SKIP_FLIP:
+	case FastForwardMode::SKIP_FLIP:
 		return "SKIP_FLIP";
 	}
 	return "CONTINUOUS";
@@ -845,7 +869,7 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("AutoFrameSkip", &g_Config.bAutoFrameSkip, false, true, true),
 	ConfigSetting("FrameRate", &g_Config.iFpsLimit1, 0, true, true),
 	ConfigSetting("FrameRate2", &g_Config.iFpsLimit2, -1, true, true),
-	ConfigSetting("UnthrottlingMode", &g_Config.iUnthrottleMode, &DefaultUnthrottleMode, &UnthrottleModeToString, &UnthrottleModeFromString, true, true),
+	ConfigSetting("UnthrottlingMode", &g_Config.iFastForwardMode, &DefaultFastForwardMode, &FastForwardModeToString, &FastForwardModeFromString, true, true),
 #if defined(USING_WIN_UI)
 	ConfigSetting("RestartRequired", &g_Config.bRestartRequired, false, false),
 #endif
@@ -853,7 +877,7 @@ static ConfigSetting graphicsSettings[] = {
 	// Most low-performance (and many high performance) mobile GPUs do not support aniso anyway so defaulting to 4 is fine.
 	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 4, true, true),
 
-	ReportedConfigSetting("VertexDecCache", &g_Config.bVertexCache, false/*&DefaultVertexCache*/, true, true),
+	ReportedConfigSetting("VertexDecCache", &g_Config.bVertexCache, false, true, true),
 	ReportedConfigSetting("TextureBackoffCache", &g_Config.bTextureBackoffCache, false, true, true),
 	ReportedConfigSetting("TextureSecondaryCache", &g_Config.bTextureSecondaryCache, false, true, true),
 	ReportedConfigSetting("VertexDecJit", &g_Config.bVertexDecoderJit, &DefaultCodeGen, false),
@@ -909,7 +933,8 @@ static ConfigSetting soundSettings[] = {
 	ConfigSetting("Enable", &g_Config.bEnableSound, true, true, true),
 	ConfigSetting("AudioBackend", &g_Config.iAudioBackend, 0, true, true),
 	ConfigSetting("ExtraAudioBuffering", &g_Config.bExtraAudioBuffering, false, true, false),
-	ConfigSetting("GlobalVolume", &g_Config.iGlobalVolume, VOLUME_MAX, true, true),
+	ConfigSetting("GlobalVolume", &g_Config.iGlobalVolume, VOLUME_FULL, true, true),
+	ConfigSetting("ReverbVolume", &g_Config.iReverbVolume, VOLUME_FULL, true, true),
 	ConfigSetting("SASVolume", &g_Config.iSASVolume, 8, true, true),
 	ConfigSetting("ATRACMP3Volume", &g_Config.iATRACMP3Volume, 8, true, true),
 	ConfigSetting("AltSpeedVolume", &g_Config.iAltSpeedVolume, -1, true, true),
@@ -975,6 +1000,7 @@ static ConfigSetting controlSettings[] = {
 #ifdef MOBILE_DEVICE
 	ConfigSetting("TiltBaseX", &g_Config.fTiltBaseX, 0.0f, true, true),
 	ConfigSetting("TiltBaseY", &g_Config.fTiltBaseY, 0.0f, true, true),
+	ConfigSetting("TiltOrientation", &g_Config.iTiltOrientation, 0, true, true),
 	ConfigSetting("InvertTiltX", &g_Config.bInvertTiltX, false, true, true),
 	ConfigSetting("InvertTiltY", &g_Config.bInvertTiltY, true, true, true),
 	ConfigSetting("TiltSensitivityX", &g_Config.iTiltSensitivityX, 100, true, true),
@@ -1005,7 +1031,7 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("DPadSpacing", &g_Config.fDpadSpacing, 1.0f, true, true),
 	ConfigSetting("StartKeyX", "StartKeyY", "StartKeyScale", "ShowTouchStart", &g_Config.touchStartKey, defaultTouchPosShow, true, true),
 	ConfigSetting("SelectKeyX", "SelectKeyY", "SelectKeyScale", "ShowTouchSelect", &g_Config.touchSelectKey, defaultTouchPosShow, true, true),
-	ConfigSetting("UnthrottleKeyX", "UnthrottleKeyY", "UnthrottleKeyScale", "ShowTouchUnthrottle", &g_Config.touchUnthrottleKey, defaultTouchPosShow, true, true),
+	ConfigSetting("UnthrottleKeyX", "UnthrottleKeyY", "UnthrottleKeyScale", "ShowTouchUnthrottle", &g_Config.touchFastForwardKey, defaultTouchPosShow, true, true),
 	ConfigSetting("LKeyX", "LKeyY", "LKeyScale", "ShowTouchLTrigger", &g_Config.touchLKey, defaultTouchPosShow, true, true),
 	ConfigSetting("RKeyX", "RKeyY", "RKeyScale", "ShowTouchRTrigger", &g_Config.touchRKey, defaultTouchPosShow, true, true),
 	ConfigSetting("AnalogStickX", "AnalogStickY", "AnalogStickScale", "ShowAnalogStick", &g_Config.touchAnalogStick, defaultTouchPosShow, true, true),
@@ -1031,6 +1057,10 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("AnalogLimiterDeadzone", &g_Config.fAnalogLimiterDeadzone, 0.6f, true, true),
 	ConfigSetting("AxisBindThreshold", &g_Config.fAxisBindThreshold, 0.25f, true, true),
 
+	ConfigSetting("LeftStickHeadScale", &g_Config.fLeftStickHeadScale, 1.0f, true, true),
+	ConfigSetting("RightStickHeadScale", &g_Config.fRightStickHeadScale, 1.0f, true, true),
+	ConfigSetting("HideStickBackground", &g_Config.bHideStickBackground, false, true, true),
+
 	ConfigSetting("UseMouse", &g_Config.bMouseControl, false, true, true),
 	ConfigSetting("MapMouse", &g_Config.bMapMouse, false, true, true),
 	ConfigSetting("ConfineMap", &g_Config.bMouseConfine, false, true, true),
@@ -1046,7 +1076,7 @@ static ConfigSetting networkSettings[] = {
 	ConfigSetting("EnableWlan", &g_Config.bEnableWlan, false, true, true),
 	ConfigSetting("EnableAdhocServer", &g_Config.bEnableAdhocServer, false, true, true),
 	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "localhost", true, true),
-	ConfigSetting("PortOffset", &g_Config.iPortOffset, 0, true, true),
+	ConfigSetting("PortOffset", &g_Config.iPortOffset, 10000, true, true),
 	ConfigSetting("MinTimeout", &g_Config.iMinTimeout, 0, true, true),
 	ConfigSetting("TCPNoDelay", &g_Config.bTCPNoDelay, true, true, true),
 	ConfigSetting("ForcedFirstConnect", &g_Config.bForcedFirstConnect, false, true, true),
@@ -1386,8 +1416,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// splash screen quickly), but then we'll just show the notification next time instead, we store the
 	// upgrade number in the ini.
 	if (iRunCount % 10 == 0 && bCheckForNewVersion) {
-		std::shared_ptr<http::Download> dl = g_DownloadManager.StartDownloadWithCallback(
-			"http://www.ppsspp.org/version.json", Path(), &DownloadCompletedCallback);
+		const char *versionUrl = "http://www.ppsspp.org/version.json";
+		const char *acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
+		auto dl = g_DownloadManager.StartDownloadWithCallback(versionUrl, Path(), &DownloadCompletedCallback, acceptMime);
 		dl->SetHidden(true);
 	}
 
@@ -1427,12 +1458,14 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	INFO_LOG(LOADER, "Config loaded: '%s'", iniFilename_.c_str());
 }
 
-void Config::Save(const char *saveReason) {
+bool Config::Save(const char *saveReason) {
 	if (!IsFirstInstance()) {
 		// TODO: Should we allow saving config if started from a different directory?
 		// How do we tell?
 		WARN_LOG(LOADER, "Not saving config - secondary instances don't.");
-		return;
+
+		// Don't want to retry or something.
+		return true;
 	}
 
 	if (jitForcedOff) {
@@ -1502,8 +1535,7 @@ void Config::Save(const char *saveReason) {
 
 		if (!iniFile.Save(iniFilename_)) {
 			ERROR_LOG(LOADER, "Error saving config (%s)- can't write ini '%s'", saveReason, iniFilename_.c_str());
-			System_SendMessage("toast", "Failed to save settings!\nCheck permissions, or try to restart the device.");
-			return;
+			return false;
 		}
 		INFO_LOG(LOADER, "Config saved (%s): '%s'", saveReason, iniFilename_.c_str());
 
@@ -1516,7 +1548,7 @@ void Config::Save(const char *saveReason) {
 			KeyMap::SaveToIni(controllerIniFile);
 			if (!controllerIniFile.Save(controllerIniFilename_)) {
 				ERROR_LOG(LOADER, "Error saving config - can't write ini '%s'", controllerIniFilename_.c_str());
-				return;
+				return false;
 			}
 			INFO_LOG(LOADER, "Controller config saved: %s", controllerIniFilename_.c_str());
 		}
@@ -1527,6 +1559,7 @@ void Config::Save(const char *saveReason) {
 		// force JIT off again just in case Config::Save() is called without exiting PPSSPP
 		g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
 	}
+	return true;
 }
 
 // Use for debugging the version check without messing with the server
@@ -1757,7 +1790,7 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 	Path iniFileNameFull = getGameConfigFile(pGameId);
 
 	if (!hasGameConfig(pGameId)) {
-		INFO_LOG(LOADER, "Failed to read %s. No game-specific settings found, using global defaults.", iniFileNameFull.c_str());
+		DEBUG_LOG(LOADER, "No game-specific settings found in %s. Using global defaults.", iniFileNameFull.c_str());
 		return false;
 	}
 
@@ -1842,7 +1875,7 @@ void Config::ResetControlLayout() {
 	g_Config.fDpadSpacing = 1.0f;
 	reset(g_Config.touchStartKey);
 	reset(g_Config.touchSelectKey);
-	reset(g_Config.touchUnthrottleKey);
+	reset(g_Config.touchFastForwardKey);
 	reset(g_Config.touchLKey);
 	reset(g_Config.touchRKey);
 	reset(g_Config.touchAnalogStick);
@@ -1857,6 +1890,8 @@ void Config::ResetControlLayout() {
 	reset(g_Config.touchCombo7);
 	reset(g_Config.touchCombo8);
 	reset(g_Config.touchCombo9);
+	g_Config.fLeftStickHeadScale = 1.0f;
+	g_Config.fRightStickHeadScale = 1.0f;
 }
 
 void Config::GetReportingInfo(UrlEncoder &data) {

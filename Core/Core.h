@@ -101,6 +101,8 @@ void Core_MemoryExceptionInfo(u32 address, u32 pc, MemoryExceptionType type, std
 
 void Core_ExecException(u32 address, u32 pc, ExecExceptionType type);
 void Core_Break();
+// Call when loading save states, etc.
+void Core_ResetException();
 
 enum class ExceptionType {
 	NONE,

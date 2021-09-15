@@ -21,9 +21,11 @@
 #include <map>
 #include <vector>
 #include <set>
+
 #include "Common/Input/InputState.h" // KeyDef
 #include "Common/Input/KeyCodes.h"     // keyboard keys
-#include "../Core/HLE/sceCtrl.h"   // psp keys
+#include "Core/HLE/sceCtrl.h"   // psp keys
+#include "Core/KeyMapDefaults.h"
 
 #define KEYMAP_ERROR_KEY_ALREADY_USED -1
 #define KEYMAP_ERROR_UNKNOWN_KEY 0
@@ -35,7 +37,7 @@ enum {
 	VIRTKEY_AXIS_X_MAX = 0x40000003,
 	VIRTKEY_AXIS_Y_MAX = 0x40000004,
 	VIRTKEY_RAPID_FIRE = 0x40000005,
-	VIRTKEY_UNTHROTTLE = 0x40000006,
+	VIRTKEY_FASTFORWARD = 0x40000006,
 	VIRTKEY_PAUSE = 0x40000007,
 	VIRTKEY_SPEED_TOGGLE = 0x40000008,
 	VIRTKEY_AXIS_RIGHT_X_MIN = 0x40000009,
@@ -63,16 +65,6 @@ enum {
 	VIRTKEY_ANALOG_ROTATE_CCW = 0x4000001F,
 	VIRTKEY_LAST,
 	VIRTKEY_COUNT = VIRTKEY_LAST - VIRTKEY_FIRST
-};
-
-enum DefaultMaps {
-	DEFAULT_MAPPING_KEYBOARD,
-	DEFAULT_MAPPING_PAD,
-	DEFAULT_MAPPING_X360,
-	DEFAULT_MAPPING_SHIELD,
-	DEFAULT_MAPPING_OUYA,
-	DEFAULT_MAPPING_XPERIA_PLAY,
-	DEFAULT_MAPPING_MOQI_I7S,
 };
 
 const float AXIS_BIND_THRESHOLD = 0.75f;
@@ -105,6 +97,7 @@ class IniFile;
 
 namespace KeyMap {
 	extern KeyMapping g_controllerMap;
+	extern std::set<int> g_seenDeviceIds;
 	extern int g_controllerMapGeneration;
 
 	// Key & Button names
@@ -118,6 +111,7 @@ namespace KeyMap {
 	std::string GetKeyOrAxisName(int keyCode);
 	std::string GetAxisName(int axisId);
 	std::string GetPspButtonName(int btn);
+	const char* GetPspButtonNameCharPointer(int btn);
 
 	std::vector<KeyMap_IntStrPair> GetMappableKeys();
 
@@ -133,6 +127,8 @@ namespace KeyMap {
 	// Configure the key mapping.
 	// Any configuration will be saved to the Core config.
 	void SetKeyMapping(int psp_key, KeyDef key, bool replace);
+	// Return false if bind was a duplicate and got removed
+	bool ReplaceSingleKeyMapping(int btn, int index, KeyDef key);
 
 	// Configure an axis mapping, saves the configuration.
 	// Direction is negative or positive.
@@ -162,4 +158,8 @@ namespace KeyMap {
 
 	const std::set<std::string> &GetSeenPads();
 	void AutoConfForPad(const std::string &name);
+
+	bool IsKeyMapped(int device, int key);
+
+	bool HasChanged(int &prevGeneration);
 }

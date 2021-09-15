@@ -85,6 +85,10 @@ void Core_ListenLifecycle(CoreLifecycleFunc func) {
 }
 
 void Core_NotifyLifecycle(CoreLifecycle stage) {
+	if (stage == CoreLifecycle::STARTING) {
+		Core_ResetException();
+	}
+
 	for (auto func : lifecycleFuncs) {
 		func(stage);
 	}
@@ -95,7 +99,7 @@ void Core_ListenStopRequest(CoreStopRequestFunc func) {
 }
 
 void Core_Stop() {
-	g_exceptionInfo.type = ExceptionType::NONE;
+	Core_ResetException();
 	Core_UpdateState(CORE_POWERDOWN);
 	for (auto func : stopFuncs) {
 		func();
@@ -263,7 +267,7 @@ void Core_UpdateSingleStep() {
 }
 
 void Core_SingleStep() {
-	g_exceptionInfo.type = ExceptionType::NONE;
+	Core_ResetException();
 	currentMIPS->SingleStep();
 	if (coreState == CORE_STEPPING)
 		steppingCounter++;
@@ -362,7 +366,7 @@ void Core_EnableStepping(bool step) {
 	} else {
 		host->SetDebugMode(false);
 		// Clear the exception if we resume.
-		g_exceptionInfo.type = ExceptionType::NONE;
+		Core_ResetException();
 		coreState = CORE_RUNNING;
 		coreStatePending = false;
 		m_StepCond.notify_all();
@@ -483,6 +487,10 @@ void Core_Break() {
 		Core_EnableStepping(true);
 		host->SetDebugMode(true);
 	}
+}
+
+void Core_ResetException() {
+	g_exceptionInfo.type = ExceptionType::NONE;
 }
 
 const ExceptionInfo &Core_GetExceptionInfo() {

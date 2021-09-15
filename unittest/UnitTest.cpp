@@ -607,8 +607,14 @@ static bool TestPath() {
 	EXPECT_EQ_STR(Path("C:\\Yo\\Lo").GetDirectory(), std::string("C:/Yo"));
 	EXPECT_EQ_STR(Path("C:\\Yo\\Lo").GetFilename(), std::string("Lo"));
 
-	EXPECT_EQ_STR(Path("/a/b").PathTo(Path("/a/b/c/d/e")), std::string("c/d/e"));
-	EXPECT_EQ_STR(Path("/").PathTo(Path("/home/foo/bar")), std::string("home/foo/bar"));
+	std::string computedPath;
+
+	EXPECT_TRUE(Path("/a/b").ComputePathTo(Path("/a/b/c/d/e"), computedPath));
+
+	EXPECT_EQ_STR(computedPath, std::string("c/d/e"));
+
+	EXPECT_TRUE(Path("/").ComputePathTo(Path("/home/foo/bar"), computedPath));
+	EXPECT_EQ_STR(computedPath, std::string("home/foo/bar"));
 
 	return true;
 }
@@ -616,31 +622,39 @@ static bool TestPath() {
 static bool TestAndroidContentURI() {
 	static const char *treeURIString = "content://com.android.externalstorage.documents/tree/primary%3APSP%20ISO";
 	static const char *directoryURIString = "content://com.android.externalstorage.documents/tree/primary%3APSP%20ISO/document/primary%3APSP%20ISO";
-	static const char *fileURIString = "content://com.android.externalstorage.documents/tree/primary%3APSP%20ISO/document/primary%3APSP%20ISO%2FTekken%206.iso";
+	static const char *fileTreeURIString = "content://com.android.externalstorage.documents/tree/primary%3APSP%20ISO/document/primary%3APSP%20ISO%2FTekken%206.iso";
+	static const char *fileNonTreeString = "content://com.android.externalstorage.documents/document/primary%3APSP%2Fcrash_bad_execaddr.prx";
+
 
 	AndroidContentURI treeURI;
 	EXPECT_TRUE(treeURI.Parse(std::string(treeURIString)));
 	AndroidContentURI dirURI;
 	EXPECT_TRUE(dirURI.Parse(std::string(directoryURIString)));
+	AndroidContentURI fileTreeURI;
+	EXPECT_TRUE(fileTreeURI.Parse(std::string(fileTreeURIString)));
+	AndroidContentURI fileTreeURICopy;
+	EXPECT_TRUE(fileTreeURICopy.Parse(std::string(fileTreeURIString)));
 	AndroidContentURI fileURI;
-	EXPECT_TRUE(fileURI.Parse(std::string(fileURIString)));
+	EXPECT_TRUE(fileURI.Parse(std::string(fileNonTreeString)));
 
-	std::string lastPart = dirURI.GetLastPart();
+	EXPECT_EQ_STR(fileTreeURI.GetLastPart(), std::string("Tekken 6.iso"));
 
-	EXPECT_EQ_STR(fileURI.GetLastPart(), std::string("Tekken 6.iso"));
+	EXPECT_TRUE(treeURI.TreeContains(fileTreeURI));
 
-	EXPECT_TRUE(treeURI.TreeContains(fileURI));
-
-	EXPECT_TRUE(fileURI.CanNavigateUp());
-	fileURI.NavigateUp();
-	EXPECT_FALSE(fileURI.CanNavigateUp());
+	EXPECT_TRUE(fileTreeURI.CanNavigateUp());
+	fileTreeURI.NavigateUp();
+	EXPECT_FALSE(fileTreeURI.CanNavigateUp());
 	
-	EXPECT_EQ_STR(fileURI.FilePath(), fileURI.RootPath());
+	EXPECT_EQ_STR(fileTreeURI.FilePath(), fileTreeURI.RootPath());
 
-	EXPECT_EQ_STR(fileURI.ToString(), std::string(directoryURIString));
+	EXPECT_EQ_STR(fileTreeURI.ToString(), std::string(directoryURIString));
 
-	std::string diff = dirURI.PathTo(fileURI);
+	std::string diff;
+	EXPECT_TRUE(dirURI.ComputePathTo(fileTreeURICopy, diff));
 	EXPECT_EQ_STR(diff, std::string("Tekken 6.iso"));
+
+	EXPECT_EQ_STR(fileURI.GetFileExtension(), std::string(".prx"));
+	EXPECT_FALSE(fileURI.CanNavigateUp());
 
 	return true;
 }

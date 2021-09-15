@@ -144,7 +144,7 @@ FileLoader *ResolveFileLoaderTarget(FileLoader *fileLoader);
 Path ResolvePBPDirectory(const Path &filename);
 Path ResolvePBPFile(const Path &filename);
 
-IdentifiedFileType Identify_File(FileLoader *fileLoader);
+IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorString);
 
 class FileLoaderFactory {
 public:

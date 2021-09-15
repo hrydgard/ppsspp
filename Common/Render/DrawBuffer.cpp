@@ -14,11 +14,6 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 
-enum {
-	// Enough?
-	MAX_VERTS = 65536,
-};
-
 DrawBuffer::DrawBuffer() : count_(0), atlas(0) {
 	verts_ = new Vertex[MAX_VERTS];
 	fontscalex = 1.0f;
@@ -123,15 +118,15 @@ void DrawBuffer::Rect(float x, float y, float w, float h, uint32_t color, int al
 }
 
 void DrawBuffer::hLine(float x1, float y, float x2, uint32_t color) {
+	// Round Y to the closest full pixel, since we're making it 1-pixel-thin.
+	y -= fmodf(y, pixel_in_dps_y);
 	Rect(x1, y, x2 - x1, pixel_in_dps_y, color);
 }
 
 void DrawBuffer::vLine(float x, float y1, float y2, uint32_t color) {
+	// Round X to the closest full pixel, since we're making it 1-pixel-thin.
+	x -= fmodf(x, pixel_in_dps_x);
 	Rect(x, y1, pixel_in_dps_x, y2 - y1, color);
-}
-
-void DrawBuffer::vLineAlpha50(float x, float y1, float y2, uint32_t color) {
-	Rect(x, y1, pixel_in_dps_x, y2 - y1, (color | 0xFF000000) & 0x7F000000);
 }
 
 void DrawBuffer::RectVGradient(float x, float y, float w, float h, uint32_t colorTop, uint32_t colorBottom) {
@@ -311,7 +306,56 @@ void DrawBuffer::DrawImageRotated(ImageID atlas_image, float x, float y, float s
 	}
 }
 
-// TODO: add arc support
+void DrawBuffer::DrawImageRotatedStretch(ImageID atlas_image, const Bounds &bounds, float scales[2], float angle, Color color, bool mirror_h) {
+	const AtlasImage *image = atlas->getImage(atlas_image);
+	if (!image)
+		return;
+
+	if (scales[0] == 0.0f || scales[1] == 0.0f) {
+		float rotatedSize[2]{ (float)image->w, (float)image->h };
+		rot(rotatedSize, angle, 0.0f, 0.0f);
+
+		// With that, we calculate the scale to stretch to, and rotate it back.
+		scales[0] = bounds.w / rotatedSize[0];
+		scales[1] = bounds.h / rotatedSize[1];
+		rot(scales, -angle, 0.0f, 0.0f);
+	}
+
+	float w = (float)image->w * scales[0];
+	float h = (float)image->h * scales[1];
+	float x1 = bounds.centerX() - w / 2;
+	float x2 = bounds.centerX() + w / 2;
+	float y1 = bounds.centerY() - h / 2;
+	float y2 = bounds.centerY() + h / 2;
+	float v[6][2] = {
+		{x1, y1},
+		{x2, y1},
+		{x2, y2},
+		{x1, y1},
+		{x2, y2},
+		{x1, y2},
+	};
+	float u1 = image->u1;
+	float u2 = image->u2;
+	if (mirror_h) {
+		float temp = u1;
+		u1 = u2;
+		u2 = temp;
+	}
+	const float uv[6][2] = {
+		{u1, image->v1},
+		{u2, image->v1},
+		{u2, image->v2},
+		{u1, image->v1},
+		{u2, image->v2},
+		{u1, image->v2},
+	};
+	for (int i = 0; i < 6; i++) {
+		rot(v[i], angle, bounds.centerX(), bounds.centerY());
+		V(v[i][0], v[i][1], 0, color, uv[i][0], uv[i][1]);
+	}
+}
+
 void DrawBuffer::Circle(float xc, float yc, float radius, float thickness, int segments, float startAngle, uint32_t color, float u_mul) {
 	float angleDelta = PI * 2 / segments;
 	float uDelta = 1.0f / segments;
@@ -327,12 +371,31 @@ void DrawBuffer::Circle(float xc, float yc, float radius, float thickness, int s
 		float c1 = cosf(angle1), s1 = sinf(angle1), c2 = cosf(angle2), s2 = sinf(angle2);
 		const float x[4] = {c1 * r1 + xc, c2 * r1 + xc, c1 * r2 + xc, c2 * r2 + xc};
 		const float y[4] = {s1 * r1 + yc, s2 * r1 + yc, s1 * r2 + yc, s2 * r2 + yc};
-		V(x[0],	y[0], color, u1, 0);
-		V(x[1],	y[1], color, u2, 0);
-		V(x[2],	y[2], color, u1, 1);
-		V(x[1],	y[1], color, u2, 0);
-		V(x[3],	y[3], color, u2, 1);
-		V(x[2],	y[2], color, u1, 1);
+		V(x[0],	y[0], color, u1, 0.0f);
+		V(x[1],	y[1], color, u2, 0.0f);
+		V(x[2],	y[2], color, u1, 1.0f);
+		V(x[1],	y[1], color, u2, 0.0f);
+		V(x[3],	y[3], color, u2, 1.0f);
+		V(x[2],	y[2], color, u1, 1.0f);
+	}
+}
+
+void DrawBuffer::FillCircle(float xc, float yc, float radius, int segments, uint32_t color) {
+	float angleDelta = PI * 2 / segments;
+	float uDelta = 1.0f / segments;
+	float r1 = radius;
+	for (int i = 0; i < segments + 1; i++) {
+		float angle1 = i * angleDelta;
+		float angle2 = (i + 1) * angleDelta;
+		float u1 = i * uDelta;
+		float u2 = (i + 1) * uDelta;
+		// TODO: get rid of one pair of cos/sin per loop, can reuse from last iteration
+		float c1 = cosf(angle1), s1 = sinf(angle1), c2 = cosf(angle2), s2 = sinf(angle2);
+		const float x[2] = { c1 * r1 + xc, c2 * r1 + xc };
+		const float y[2] = { s1 * r1 + yc, s2 * r1 + yc };
+		V(xc, yc, color, 0.0f, 0.0f);
+		V(x[0], y[0], color, u1, 0.0f);
+		V(x[1], y[1], color, u2, 1.0f);
 	}
 }
 

@@ -1019,9 +1019,8 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet);
 */
 void sendChat(std::string chatString);
 std::vector<std::string> getChatLog();
-extern bool chatScreenVisible;
-extern bool updateChatScreen;
-extern int newChat;
+int GetChatChangeID();
+int GetChatMessageCount();
 
 /*
  * Find a Peer/Friend by MAC address

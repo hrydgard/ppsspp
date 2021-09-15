@@ -53,6 +53,6 @@ private:
 	size_t vm_size;
 	vm_address_t vm_mem;  // same type as vm_address_t
 #else
-	int fd;
+	int fd = -1;
 #endif
 };

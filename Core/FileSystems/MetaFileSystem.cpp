@@ -172,10 +172,11 @@ IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle)
 	for (size_t i = 0; i < fileSystems.size(); i++)
 	{
 		if (fileSystems[i].system->OwnsHandle(handle))
-			return fileSystems[i].system; //got it!
+			return fileSystems[i].system.get();
 	}
-	//none found?
-	return 0;
+
+	// Not found
+	return nullptr;
 }
 
 int MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath, MountPoint **system)
@@ -274,41 +275,47 @@ std::string MetaFileSystem::NormalizePrefix(std::string prefix) const {
 	return prefix;
 }
 
-void MetaFileSystem::Mount(std::string prefix, IFileSystem *system) {
+void MetaFileSystem::Mount(std::string prefix, std::shared_ptr<IFileSystem> system) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
+
 	MountPoint x;
 	x.prefix = prefix;
 	x.system = system;
+	for (auto &it : fileSystems) {
+		if (it.prefix == prefix) {
+			// Overwrite the old mount. Don't create a new one.
+			it = x;
+			return;
+		}
+	}
+
+	// Prefix not yet mounted, do so.
 	fileSystems.push_back(x);
 }
 
-void MetaFileSystem::Unmount(std::string prefix, IFileSystem *system) {
-	std::lock_guard<std::recursive_mutex> guard(lock);
-	MountPoint x;
-	x.prefix = prefix;
-	x.system = system;
-	fileSystems.erase(std::remove(fileSystems.begin(), fileSystems.end(), x), fileSystems.end());
+void MetaFileSystem::UnmountAll() {
+	fileSystems.clear();
+	currentDir.clear();
 }
 
-void MetaFileSystem::Remount(std::string prefix, IFileSystem *newSystem) {
+void MetaFileSystem::Unmount(std::string prefix) {
+	for (auto iter = fileSystems.begin(); iter != fileSystems.end(); iter++) {
+		if (iter->prefix == prefix) {
+			fileSystems.erase(iter);
+			return;
+		}
+	}
+}
+
+bool MetaFileSystem::Remount(std::string prefix, std::shared_ptr<IFileSystem> system) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
-	IFileSystem *oldSystem = nullptr;
 	for (auto &it : fileSystems) {
 		if (it.prefix == prefix) {
-			oldSystem = it.system;
-			it.system = newSystem;
+			it.system = system;
+			return true;
 		}
 	}
-
-	bool delOldSystem = true;
-	for (auto &it : fileSystems) {
-		if (it.system == oldSystem) {
-			delOldSystem = false;
-		}
-	}
-
-	if (delOldSystem)
-		delete oldSystem;
+	return false;
 }
 
 IFileSystem *MetaFileSystem::GetSystemFromFilename(const std::string &filename) {
@@ -321,31 +328,16 @@ IFileSystem *MetaFileSystem::GetSystemFromFilename(const std::string &filename) 
 IFileSystem *MetaFileSystem::GetSystem(const std::string &prefix) {
 	for (auto it = fileSystems.begin(); it != fileSystems.end(); ++it) {
 		if (it->prefix == NormalizePrefix(prefix))
-			return it->system;
+			return it->system.get();
 	}
 	return NULL;
 }
 
-void MetaFileSystem::Shutdown()
-{
+void MetaFileSystem::Shutdown() {
 	std::lock_guard<std::recursive_mutex> guard(lock);
-	current = 6;
 
-	// Ownership is a bit convoluted. Let's just delete everything once.
-
-	std::set<IFileSystem *> toDelete;
-	for (size_t i = 0; i < fileSystems.size(); i++) {
-		toDelete.insert(fileSystems[i].system);
-	}
-
-	for (auto iter = toDelete.begin(); iter != toDelete.end(); ++iter)
-	{
-		delete *iter;
-	}
-
-	fileSystems.clear();
-	currentDir.clear();
-	startingDirectory = "";
+	UnmountAll();
+	Reset();
 }
 
 int MetaFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename)
@@ -508,12 +500,9 @@ bool MetaFileSystem::RemoveFile(const std::string &filename)
 	std::string of;
 	IFileSystem *system;
 	int error = MapFilePath(filename, of, &system);
-	if (error == 0)
-	{
+	if (error == 0) {
 		return system->RemoveFile(of);
-	}
-	else
-	{
+	} else {
 		return false;
 	}
 }
@@ -599,7 +588,9 @@ int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> 
 	if (handle < 0)
 		return handle;
 
-	size_t dataSize = (size_t)GetFileInfo(filename).size;
+	SeekFile(handle, 0, FILEMOVE_END);
+	size_t dataSize = GetSeekPos(handle);
+	SeekFile(handle, 0, FILEMOVE_BEGIN);
 	data.resize(dataSize);
 
 	size_t result = ReadFile(handle, (u8 *)&data[0], dataSize);
@@ -607,6 +598,7 @@ int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> 
 
 	if (result != dataSize)
 		return SCE_KERNEL_ERROR_ERROR;
+
 	return 0;
 }
 
@@ -656,17 +648,36 @@ void MetaFileSystem::DoState(PointerWrap &p)
 	}
 }
 
-u64 MetaFileSystem::getDirSize(const std::string &dirPath) {
+int64_t MetaFileSystem::RecursiveSize(const std::string &dirPath) {
 	u64 result = 0;
 	auto allFiles = GetDirListing(dirPath);
 	for (auto file : allFiles) {
 		if (file.name == "." || file.name == "..")
 			continue;
 		if (file.type == FILETYPE_DIRECTORY) {
-			result += getDirSize(dirPath + file.name + "/");
+			result += RecursiveSize(dirPath + file.name);
 		} else {
 			result += file.size;
 		}
 	}
 	return result;
+}
+
+int64_t MetaFileSystem::ComputeRecursiveDirectorySize(const std::string &filename) {
+	std::lock_guard<std::recursive_mutex> guard(lock);
+	std::string of;
+	IFileSystem *system;
+	int error = MapFilePath(filename, of, &system);
+	if (error == 0) {
+		int64_t size;
+		if (system->ComputeRecursiveDirSizeIfFast(of, &size)) {
+			// Some file systems can optimize this.
+			return size;
+		} else {
+			// Those that can't, we just run a generic implementation.
+			return RecursiveSize(filename);
+		}
+	} else {
+		return false;
+	}
 }

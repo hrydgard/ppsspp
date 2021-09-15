@@ -455,10 +455,10 @@ bool TextureReplacer::PopulateLevel(ReplacedTextureLevel &level) {
 	auto imageType = Identify(fp);
 	if (imageType == ReplacedImageType::ZIM) {
 		fseek(fp, 4, SEEK_SET);
-		fread(&level.w, 1, 4, fp);
-		fread(&level.h, 1, 4, fp);
+		good = good && fread(&level.w, 4, 1, fp) == 1;
+		good = good && fread(&level.h, 4, 1, fp) == 1;
 		int flags;
-		if (fread(&flags, 1, 4, fp) == 4) {
+		if (good && fread(&flags, 4, 1, fp) == 1) {
 			good = (flags & ZIM_FORMAT_MASK) == ZIM_RGBA8888;
 		}
 	} else if (imageType == ReplacedImageType::PNG) {
@@ -744,7 +744,10 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 	if (imageType == ReplacedImageType::ZIM) {
 		size_t zimSize = File::GetFileSize(fp);
 		std::unique_ptr<uint8_t[]> zim(new uint8_t[zimSize]);
-		fread(&zim[0], 1, zimSize, fp);
+		if (fread(&zim[0], 1, zimSize, fp) != zimSize) {
+			ERROR_LOG(G3D, "Could not load texture replacement: %s - failed to read ZIM", info.file.c_str());
+			return;
+		}
 
 		int w, h, f;
 		uint8_t *image;

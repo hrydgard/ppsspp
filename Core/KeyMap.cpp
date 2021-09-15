@@ -36,265 +36,19 @@
 #include "Core/HLE/sceUtility.h"
 #include "Core/Config.h"
 #include "Core/KeyMap.h"
+#include "Core/KeyMapDefaults.h"
 
 namespace KeyMap {
 
 KeyDef AxisDef(int deviceId, int axisId, int direction);
 
-struct DefMappingStruct {
-	int pspKey;
-	int key;
-	int direction;
-};
-
 KeyMapping g_controllerMap;
+// Incremented on modification, so we know when to update menus.
 int g_controllerMapGeneration = 0;
 std::set<std::string> g_seenPads;
-static std::set<int> g_seenDeviceIds;
+std::set<int> g_seenDeviceIds;
 
 bool g_swapped_keys = false;
-
-static const DefMappingStruct defaultQwertyKeyboardKeyMap[] = {
-	{CTRL_SQUARE, NKCODE_W},
-	{CTRL_TRIANGLE, NKCODE_E},
-	{CTRL_CIRCLE, NKCODE_D},
-	{CTRL_CROSS, NKCODE_S},
-	{CTRL_LTRIGGER, NKCODE_Q},
-	{CTRL_RTRIGGER, NKCODE_R},
-
-	{CTRL_START, NKCODE_C},
-	{CTRL_SELECT, NKCODE_X},
-	{CTRL_UP   , NKCODE_DPAD_UP},
-	{CTRL_DOWN , NKCODE_DPAD_DOWN},
-	{CTRL_LEFT , NKCODE_DPAD_LEFT},
-	{CTRL_RIGHT, NKCODE_DPAD_RIGHT},
-
-	{CTRL_HOME, NKCODE_MOVE_HOME},
-	{CTRL_VOL_UP, NKCODE_PAGE_UP},
-	{CTRL_VOL_DOWN, NKCODE_PAGE_DOWN},
-	{CTRL_NOTE, NKCODE_MOVE_END},
-	{CTRL_SCREEN, NKCODE_INSERT},
-	{CTRL_WLAN, NKCODE_FORWARD_DEL},
-
-	{VIRTKEY_AXIS_Y_MAX, NKCODE_I},
-	{VIRTKEY_AXIS_Y_MIN, NKCODE_K},
-	{VIRTKEY_AXIS_X_MIN, NKCODE_J},
-	{VIRTKEY_AXIS_X_MAX, NKCODE_L},
-	{VIRTKEY_RAPID_FIRE, NKCODE_SHIFT_LEFT},
-	{VIRTKEY_UNTHROTTLE, NKCODE_TAB},
-	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
-	{VIRTKEY_PAUSE       , NKCODE_ESCAPE},
-	{VIRTKEY_REWIND      , NKCODE_DEL},
-	{VIRTKEY_ANALOG_LIGHTLY, NKCODE_SHIFT_RIGHT},
-};
-
-static const DefMappingStruct defaultAzertyKeyboardKeyMap[] = {
-	{CTRL_SQUARE, NKCODE_Q},
-	{CTRL_TRIANGLE, NKCODE_S},
-	{CTRL_CIRCLE, NKCODE_X},
-	{CTRL_CROSS, NKCODE_W},
-	{CTRL_LTRIGGER, NKCODE_A},
-	{CTRL_RTRIGGER, NKCODE_Z},
-
-	{CTRL_START, NKCODE_SPACE},
-#ifdef _WIN32
-	{CTRL_SELECT, NKCODE_V},
-#else
-	{CTRL_SELECT, NKCODE_ENTER},
-#endif
-	{CTRL_UP   , NKCODE_DPAD_UP},
-	{CTRL_DOWN , NKCODE_DPAD_DOWN},
-	{CTRL_LEFT , NKCODE_DPAD_LEFT},
-	{CTRL_RIGHT, NKCODE_DPAD_RIGHT},
-	{VIRTKEY_AXIS_Y_MAX, NKCODE_I},
-	{VIRTKEY_AXIS_Y_MIN, NKCODE_K},
-	{VIRTKEY_AXIS_X_MIN, NKCODE_J},
-	{VIRTKEY_AXIS_X_MAX, NKCODE_L},
-	{VIRTKEY_RAPID_FIRE, NKCODE_SHIFT_LEFT},
-	{VIRTKEY_UNTHROTTLE, NKCODE_TAB},
-	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
-	{VIRTKEY_PAUSE       , NKCODE_ESCAPE},
-	{VIRTKEY_REWIND      , NKCODE_DEL},
-	{VIRTKEY_ANALOG_LIGHTLY, NKCODE_SHIFT_RIGHT},
-};
-
-static const DefMappingStruct defaultQwertzKeyboardKeyMap[] = {
-	{CTRL_SQUARE, NKCODE_A},
-	{CTRL_TRIANGLE, NKCODE_S},
-	{CTRL_CIRCLE, NKCODE_X},
-	{CTRL_CROSS, NKCODE_Y},
-	{CTRL_LTRIGGER, NKCODE_Q},
-	{CTRL_RTRIGGER, NKCODE_W},
-
-	{CTRL_START, NKCODE_SPACE},
-#ifdef _WIN32
-	{CTRL_SELECT, NKCODE_V},
-#else
-	{CTRL_SELECT, NKCODE_ENTER},
-#endif
-	{CTRL_UP   , NKCODE_DPAD_UP},
-	{CTRL_DOWN , NKCODE_DPAD_DOWN},
-	{CTRL_LEFT , NKCODE_DPAD_LEFT},
-	{CTRL_RIGHT, NKCODE_DPAD_RIGHT},
-	{VIRTKEY_AXIS_Y_MAX, NKCODE_I},
-	{VIRTKEY_AXIS_Y_MIN, NKCODE_K},
-	{VIRTKEY_AXIS_X_MIN, NKCODE_J},
-	{VIRTKEY_AXIS_X_MAX, NKCODE_L},
-	{VIRTKEY_RAPID_FIRE, NKCODE_SHIFT_LEFT},
-	{VIRTKEY_UNTHROTTLE, NKCODE_TAB},
-	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
-	{VIRTKEY_PAUSE       , NKCODE_ESCAPE},
-	{VIRTKEY_REWIND      , NKCODE_DEL},
-	{VIRTKEY_ANALOG_LIGHTLY, NKCODE_SHIFT_RIGHT},
-};
-
-static const DefMappingStruct default360KeyMap[] = {
-	{VIRTKEY_AXIS_X_MIN, JOYSTICK_AXIS_X, -1},
-	{VIRTKEY_AXIS_X_MAX, JOYSTICK_AXIS_X, +1},
-	{VIRTKEY_AXIS_Y_MIN, JOYSTICK_AXIS_Y, -1},
-	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, +1},
-	{CTRL_CROSS          , NKCODE_BUTTON_A},
-	{CTRL_CIRCLE         , NKCODE_BUTTON_B},
-	{CTRL_SQUARE         , NKCODE_BUTTON_X},
-	{CTRL_TRIANGLE       , NKCODE_BUTTON_Y},
-	{CTRL_UP             , NKCODE_DPAD_UP},
-	{CTRL_RIGHT          , NKCODE_DPAD_RIGHT},
-	{CTRL_DOWN           , NKCODE_DPAD_DOWN},
-	{CTRL_LEFT           , NKCODE_DPAD_LEFT},
-	{CTRL_START          , NKCODE_BUTTON_START},
-	{CTRL_SELECT         , NKCODE_BUTTON_SELECT},
-	{CTRL_LTRIGGER       , NKCODE_BUTTON_L1},
-	{CTRL_RTRIGGER       , NKCODE_BUTTON_R1},
-	{VIRTKEY_UNTHROTTLE  , JOYSTICK_AXIS_RTRIGGER, +1},
-	{VIRTKEY_SPEED_TOGGLE, NKCODE_BUTTON_THUMBR},
-	{VIRTKEY_PAUSE       , JOYSTICK_AXIS_LTRIGGER, +1},
-	{VIRTKEY_PAUSE,        NKCODE_HOME},
-};
-
-static const DefMappingStruct defaultShieldKeyMap[] = {
-	{CTRL_CROSS, NKCODE_BUTTON_A},
-	{CTRL_CIRCLE   ,NKCODE_BUTTON_B},
-	{CTRL_SQUARE   ,NKCODE_BUTTON_X},
-	{CTRL_TRIANGLE ,NKCODE_BUTTON_Y},
-	{CTRL_START,  NKCODE_BUTTON_START},
-	{CTRL_SELECT, JOYSTICK_AXIS_LTRIGGER, +1},
-	{CTRL_LTRIGGER, NKCODE_BUTTON_L1},
-	{CTRL_RTRIGGER, NKCODE_BUTTON_R1},
-	{VIRTKEY_AXIS_X_MIN, JOYSTICK_AXIS_X, -1},
-	{VIRTKEY_AXIS_X_MAX, JOYSTICK_AXIS_X, +1},
-	{VIRTKEY_AXIS_Y_MIN, JOYSTICK_AXIS_Y, +1},
-	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, -1},
-	{CTRL_LEFT, JOYSTICK_AXIS_HAT_X, -1},
-	{CTRL_RIGHT, JOYSTICK_AXIS_HAT_X, +1},
-	{CTRL_UP, JOYSTICK_AXIS_HAT_Y, -1},
-	{CTRL_DOWN, JOYSTICK_AXIS_HAT_Y, +1},
-	{VIRTKEY_SPEED_TOGGLE, JOYSTICK_AXIS_LTRIGGER, +1 },
-	{VIRTKEY_UNTHROTTLE, JOYSTICK_AXIS_RTRIGGER, +1 },
-	{VIRTKEY_PAUSE, NKCODE_BACK },
-};
-
-static const DefMappingStruct defaultMOQI7SKeyMap[] = {
-	{CTRL_CROSS, NKCODE_BUTTON_A},
-	{CTRL_CIRCLE, NKCODE_BUTTON_B},
-	{CTRL_SQUARE, NKCODE_BUTTON_X},
-	{CTRL_TRIANGLE, NKCODE_BUTTON_Y},
-	{CTRL_START,  JOYSTICK_AXIS_Z, +1},
-	{CTRL_SELECT, JOYSTICK_AXIS_Z, -1},
-	{CTRL_LTRIGGER, NKCODE_BUTTON_L1},
-	{CTRL_RTRIGGER, NKCODE_BUTTON_R1},
-	{VIRTKEY_AXIS_X_MIN, JOYSTICK_AXIS_X, -1},
-	{VIRTKEY_AXIS_X_MAX, JOYSTICK_AXIS_X, +1},
-	{VIRTKEY_AXIS_Y_MIN, JOYSTICK_AXIS_Y, +1},
-	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, -1},
-	{CTRL_LEFT, JOYSTICK_AXIS_HAT_X, -1},
-	{CTRL_RIGHT, JOYSTICK_AXIS_HAT_X, +1},
-	{CTRL_UP, JOYSTICK_AXIS_HAT_Y, -1},
-	{CTRL_DOWN, JOYSTICK_AXIS_HAT_Y, +1},
-	{VIRTKEY_UNTHROTTLE, JOYSTICK_AXIS_RZ, +1 },
-	{VIRTKEY_PAUSE, NKCODE_BACK },
-};
-
-static const DefMappingStruct defaultPadMap[] = {
-#if defined(__ANDROID__)
-	{CTRL_CROSS          , NKCODE_BUTTON_A},
-	{CTRL_CIRCLE         , NKCODE_BUTTON_B},
-	{CTRL_SQUARE         , NKCODE_BUTTON_X},
-	{CTRL_TRIANGLE       , NKCODE_BUTTON_Y},
-	// The hat for DPAD is standard for bluetooth pads, which is the most likely pads on Android I think.
-	{CTRL_LEFT           , JOYSTICK_AXIS_HAT_X, -1},
-	{CTRL_RIGHT          , JOYSTICK_AXIS_HAT_X, +1},
-	{CTRL_UP             , JOYSTICK_AXIS_HAT_Y, -1},
-	{CTRL_DOWN           , JOYSTICK_AXIS_HAT_Y, +1},
-	{CTRL_START          , NKCODE_BUTTON_START},
-	{CTRL_SELECT         , NKCODE_BUTTON_SELECT},
-	{CTRL_LTRIGGER       , NKCODE_BUTTON_L1},
-	{CTRL_RTRIGGER       , NKCODE_BUTTON_R1},
-	{VIRTKEY_UNTHROTTLE  , NKCODE_BUTTON_R2},
-	{VIRTKEY_PAUSE       , NKCODE_BUTTON_THUMBR},
-	{VIRTKEY_SPEED_TOGGLE, NKCODE_BUTTON_L2},
-	{VIRTKEY_AXIS_X_MIN, JOYSTICK_AXIS_X, -1},
-	{VIRTKEY_AXIS_X_MAX, JOYSTICK_AXIS_X, +1},
-	{VIRTKEY_AXIS_Y_MIN, JOYSTICK_AXIS_Y, +1},
-	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, -1},
-#else
-	{CTRL_CROSS          , NKCODE_BUTTON_2},
-	{CTRL_CIRCLE         , NKCODE_BUTTON_3},
-	{CTRL_SQUARE         , NKCODE_BUTTON_4},
-	{CTRL_TRIANGLE       , NKCODE_BUTTON_1},
-	{CTRL_UP             , NKCODE_DPAD_UP},
-	{CTRL_RIGHT          , NKCODE_DPAD_RIGHT},
-	{CTRL_DOWN           , NKCODE_DPAD_DOWN},
-	{CTRL_LEFT           , NKCODE_DPAD_LEFT},
-	{CTRL_START          , NKCODE_BUTTON_10},
-	{CTRL_SELECT         , NKCODE_BUTTON_9},
-	{CTRL_LTRIGGER       , NKCODE_BUTTON_7},
-	{CTRL_RTRIGGER       , NKCODE_BUTTON_8},
-	{VIRTKEY_AXIS_X_MIN, JOYSTICK_AXIS_X, -1},
-	{VIRTKEY_AXIS_X_MAX, JOYSTICK_AXIS_X, +1},
-	{VIRTKEY_AXIS_Y_MIN, JOYSTICK_AXIS_Y, +1},
-	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, -1},
-#endif
-};
-
-static const DefMappingStruct defaultOuyaMap[] = {
-	{CTRL_CROSS          , NKCODE_BUTTON_A},
-	{CTRL_CIRCLE         , NKCODE_BUTTON_B},
-	{CTRL_SQUARE         , NKCODE_BUTTON_X},
-	{CTRL_TRIANGLE       , NKCODE_BUTTON_Y},
-	{CTRL_UP             , NKCODE_DPAD_UP},
-	{CTRL_RIGHT          , NKCODE_DPAD_RIGHT},
-	{CTRL_DOWN           , NKCODE_DPAD_DOWN},
-	{CTRL_LEFT           , NKCODE_DPAD_LEFT},
-	{CTRL_START          , NKCODE_BUTTON_R2},
-	{CTRL_SELECT         , NKCODE_BUTTON_L2},
-	{CTRL_LTRIGGER       , NKCODE_BUTTON_L1},
-	{CTRL_RTRIGGER       , NKCODE_BUTTON_R1},
-	{VIRTKEY_UNTHROTTLE  , NKCODE_BUTTON_THUMBL},
-	{VIRTKEY_PAUSE       , NKCODE_BUTTON_THUMBR},
-	{VIRTKEY_AXIS_X_MIN, JOYSTICK_AXIS_X, -1},
-	{VIRTKEY_AXIS_X_MAX, JOYSTICK_AXIS_X, +1},
-	{VIRTKEY_AXIS_Y_MIN, JOYSTICK_AXIS_Y, +1},
-	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, -1},
-};
-
-static const DefMappingStruct defaultXperiaPlay[] = {
-	{CTRL_CROSS          , NKCODE_BUTTON_CROSS},
-	{CTRL_CIRCLE         , NKCODE_BUTTON_CIRCLE},
-	{CTRL_SQUARE         , NKCODE_BUTTON_X},
-	{CTRL_TRIANGLE       , NKCODE_BUTTON_Y},
-	{CTRL_UP             , NKCODE_DPAD_UP},
-	{CTRL_RIGHT          , NKCODE_DPAD_RIGHT},
-	{CTRL_DOWN           , NKCODE_DPAD_DOWN},
-	{CTRL_LEFT           , NKCODE_DPAD_LEFT},
-	{CTRL_START          , NKCODE_BUTTON_START},
-	{CTRL_SELECT         , NKCODE_BUTTON_SELECT},
-	{CTRL_LTRIGGER       , NKCODE_BUTTON_L1},
-	{CTRL_RTRIGGER       , NKCODE_BUTTON_R1},
-	{VIRTKEY_AXIS_X_MIN, JOYSTICK_AXIS_X, -1},
-	{VIRTKEY_AXIS_X_MAX, JOYSTICK_AXIS_X, +1},
-	{VIRTKEY_AXIS_Y_MIN, JOYSTICK_AXIS_Y, -1},
-	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, +1},
-};
 
 void KeyCodesFromPspButton(int btn, std::vector<keycode_t> *keycodes) {
 	for (auto i = g_controllerMap[btn].begin(), end = g_controllerMap[btn].end(); i != end; ++i) {
@@ -365,79 +119,6 @@ void UpdateNativeMenuKeys() {
 		flipYByDeviceId[deviceId] = analogs.leftY.direction;
 	}
 	SetAnalogFlipY(flipYByDeviceId);
-}
-
-static void SetDefaultKeyMap(int deviceId, const DefMappingStruct *array, size_t count, bool replace) {
-	for (size_t i = 0; i < count; i++) {
-		if (array[i].direction == 0)
-			SetKeyMapping(array[i].pspKey, KeyDef(deviceId, array[i].key), replace);
-		else
-			SetAxisMapping(array[i].pspKey, deviceId, array[i].key, array[i].direction, replace);
-	}
-	g_seenDeviceIds.insert(deviceId);
-}
-
-void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
-	switch (dmap) {
-	case DEFAULT_MAPPING_KEYBOARD:
-		{
-			bool azerty = false;
-			bool qwertz = false;
-#if defined(SDL)
-			char q, w, y;
-			q = SDL_GetKeyFromScancode(SDL_SCANCODE_Q);
-			w = SDL_GetKeyFromScancode(SDL_SCANCODE_W);
-			y = SDL_GetKeyFromScancode(SDL_SCANCODE_Y);
-			if (q == 'a' && w == 'z' && y == 'y')
-				azerty = true;
-			else if (q == 'q' && w == 'w' && y == 'z')
-				qwertz = true;
-#elif defined(USING_WIN_UI)
-			HKL localeId = GetKeyboardLayout(0);
-			// TODO: Is this list complete enough?
-			switch ((int)(intptr_t)localeId & 0xFFFF) {
-			case 0x407:
-				qwertz = true;
-				break;
-			case 0x040c:
-			case 0x080c:
-			case 0x1009:
-				azerty = true;
-				break;
-			default:
-				break;
-			}
-#endif
-			if (azerty) {
-				SetDefaultKeyMap(DEVICE_ID_KEYBOARD, defaultAzertyKeyboardKeyMap, ARRAY_SIZE(defaultAzertyKeyboardKeyMap), replace);
-			} else if (qwertz) {
-				SetDefaultKeyMap(DEVICE_ID_KEYBOARD, defaultQwertzKeyboardKeyMap, ARRAY_SIZE(defaultQwertzKeyboardKeyMap), replace);
-			} else {
-				SetDefaultKeyMap(DEVICE_ID_KEYBOARD, defaultQwertyKeyboardKeyMap, ARRAY_SIZE(defaultQwertyKeyboardKeyMap), replace);
-			}
-		}
-		break;
-	case DEFAULT_MAPPING_X360:
-		SetDefaultKeyMap(DEVICE_ID_X360_0, default360KeyMap, ARRAY_SIZE(default360KeyMap), replace);
-		break;
-	case DEFAULT_MAPPING_SHIELD:
-		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultShieldKeyMap, ARRAY_SIZE(defaultShieldKeyMap), replace);
-		break;
-	case DEFAULT_MAPPING_MOQI_I7S:
-		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultMOQI7SKeyMap, ARRAY_SIZE(defaultMOQI7SKeyMap), replace);
-		break;
-	case DEFAULT_MAPPING_PAD:
-		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultPadMap, ARRAY_SIZE(defaultPadMap), replace);
-		break;
-	case DEFAULT_MAPPING_OUYA:
-		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultOuyaMap, ARRAY_SIZE(defaultOuyaMap), replace);
-		break;
-	case DEFAULT_MAPPING_XPERIA_PLAY:
-		SetDefaultKeyMap(DEVICE_ID_DEFAULT, defaultXperiaPlay, ARRAY_SIZE(defaultXperiaPlay), replace);
-		break;
-	}
-
-	UpdateNativeMenuKeys();
 }
 
 static const KeyMap_IntStrPair key_names[] = {
@@ -688,7 +369,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_ANALOG_LIGHTLY, "Analog limiter"},
 
 	{VIRTKEY_RAPID_FIRE, "RapidFire"},
-	{VIRTKEY_UNTHROTTLE, "Unthrottle"},
+	{VIRTKEY_FASTFORWARD, "Fast-forward"},
 	{VIRTKEY_SPEED_TOGGLE, "SpeedToggle"},
 	{VIRTKEY_SPEED_CUSTOM1, "Alt speed 1"},
 	{VIRTKEY_SPEED_CUSTOM2, "Alt speed 2"},
@@ -763,6 +444,13 @@ std::string GetAxisName(int axisId) {
 
 std::string GetPspButtonName(int btn) {
 	return FindName(btn, psp_button_names, ARRAY_SIZE(psp_button_names));
+}
+
+const char* GetPspButtonNameCharPointer(int btn) {
+	for (size_t i = 0; i < ARRAY_SIZE(psp_button_names); i++)
+		if (psp_button_names[i].key == btn)
+			return psp_button_names[i].name;
+	return nullptr;
 }
 
 std::vector<KeyMap_IntStrPair> GetMappableKeys() {
@@ -904,6 +592,36 @@ void RemoveButtonMapping(int btn) {
 	}
 }
 
+bool IsKeyMapped(int device, int key) {
+	for (auto &iter : g_controllerMap) {
+		for (auto &mappedKey : iter.second) {
+			if (mappedKey == KeyDef(device, key)) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+bool ReplaceSingleKeyMapping(int btn, int index, KeyDef key) {
+	// Check for duplicate
+	for (int i = 0; i < g_controllerMap[btn].size(); ++i) {
+		if (i != index && g_controllerMap[btn][i] == key) {
+			g_controllerMap[btn].erase(g_controllerMap[btn].begin()+index);
+			g_controllerMapGeneration++;
+
+			UpdateNativeMenuKeys();
+			return false;
+		}
+	}
+	KeyMap::g_controllerMap[btn][index] = key;
+	g_controllerMapGeneration++;
+
+	g_seenDeviceIds.insert(key.deviceId);
+	UpdateNativeMenuKeys();
+	return true;
+}
+
 void SetKeyMapping(int btn, KeyDef key, bool replace) {
 	if (key.keyCode < 0)
 		return;
@@ -929,28 +647,28 @@ void SetAxisMapping(int btn, int deviceId, int axisId, int direction, bool repla
 	SetKeyMapping(btn, KeyDef(deviceId, key), replace);
 }
 
-// Note that it's easy to add other defaults if desired.
 void RestoreDefault() {
 	g_controllerMap.clear();
+	g_controllerMapGeneration++;
 #if PPSSPP_PLATFORM(WINDOWS)
 	SetDefaultKeyMap(DEFAULT_MAPPING_KEYBOARD, true);
-	SetDefaultKeyMap(DEFAULT_MAPPING_X360, false);
+	SetDefaultKeyMap(DEFAULT_MAPPING_XINPUT, false);
 	SetDefaultKeyMap(DEFAULT_MAPPING_PAD, false);
 #elif PPSSPP_PLATFORM(ANDROID)
 	// Autodetect a few common (and less common) devices
 	std::string name = System_GetProperty(SYSPROP_NAME);
-	if (IsNvidiaShield(name) || IsNvidiaShieldTV(name)) {
-		SetDefaultKeyMap(DEFAULT_MAPPING_SHIELD, true);
+	if (IsNvidiaShield(name)) {
+		SetDefaultKeyMap(DEFAULT_MAPPING_SHIELD, false);
 	} else if (IsOuya(name)) {
-		SetDefaultKeyMap(DEFAULT_MAPPING_OUYA, true);
+		SetDefaultKeyMap(DEFAULT_MAPPING_OUYA, false);
 	} else if (IsXperiaPlay(name)) {
-		SetDefaultKeyMap(DEFAULT_MAPPING_XPERIA_PLAY, true);
+		SetDefaultKeyMap(DEFAULT_MAPPING_XPERIA_PLAY, false);
 	} else if (IsMOQII7S(name)) {
 		INFO_LOG(SYSTEM, "MOQI pad map");
-		SetDefaultKeyMap(DEFAULT_MAPPING_MOQI_I7S, true);
+		SetDefaultKeyMap(DEFAULT_MAPPING_MOQI_I7S, false);
 	} else {
 		INFO_LOG(SYSTEM, "Default pad map");
-		SetDefaultKeyMap(DEFAULT_MAPPING_PAD, true);
+		SetDefaultKeyMap(DEFAULT_MAPPING_ANDROID_PAD, false);
 	}
 #else
 	SetDefaultKeyMap(DEFAULT_MAPPING_KEYBOARD, true);
@@ -1041,19 +759,29 @@ void NotifyPadConnected(const std::string &name) {
 }
 
 void AutoConfForPad(const std::string &name) {
-	INFO_LOG(SYSTEM, "Autoconfiguring pad for '%s'", name.c_str());
-	if (name == "Xbox 360 Pad") {
-		SetDefaultKeyMap(DEFAULT_MAPPING_X360, true);
-	} else {
-		SetDefaultKeyMap(DEFAULT_MAPPING_PAD, true);
-	}
+	g_controllerMap.clear();
 
-#ifndef MOBILE_DEVICE
+	INFO_LOG(SYSTEM, "Autoconfiguring pad for '%s'", name.c_str());
+
+#if PPSSPP_PLATFORM(ANDROID)
+	if (name.find("Xbox") != std::string::npos) {
+		SetDefaultKeyMap(DEFAULT_MAPPING_ANDROID_XBOX, false);
+	} else {
+		SetDefaultKeyMap(DEFAULT_MAPPING_ANDROID_PAD, false);
+	}
+#else
+	// TODO: Should actually check for XInput?
+	if (name.find("Xbox") != std::string::npos) {
+		SetDefaultKeyMap(DEFAULT_MAPPING_XINPUT, false);
+	} else {
+		SetDefaultKeyMap(DEFAULT_MAPPING_PAD, false);
+	}
+#endif
+
 	// Add a couple of convenient keyboard mappings by default, too.
 	g_controllerMap[VIRTKEY_PAUSE].push_back(KeyDef(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE));
-	g_controllerMap[VIRTKEY_UNTHROTTLE].push_back(KeyDef(DEVICE_ID_KEYBOARD, NKCODE_TAB));
+	g_controllerMap[VIRTKEY_FASTFORWARD].push_back(KeyDef(DEVICE_ID_KEYBOARD, NKCODE_TAB));
 	g_controllerMapGeneration++;
-#endif
 }
 
 const std::set<std::string> &GetSeenPads() {
@@ -1063,6 +791,14 @@ const std::set<std::string> &GetSeenPads() {
 // Swap direction buttons and left analog axis
 void SwapAxis() {
 	g_swapped_keys = !g_swapped_keys;
+}
+
+bool HasChanged(int &prevGeneration) {
+	if (prevGeneration != g_controllerMapGeneration) {
+		prevGeneration = g_controllerMapGeneration;
+		return true;
+	}
+	return false;
 }
 
 }  // KeyMap

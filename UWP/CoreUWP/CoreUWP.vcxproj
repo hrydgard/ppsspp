@@ -527,6 +527,7 @@
     <ClInclude Include="..\..\Core\HW\SimpleAudioDec.h" />
     <ClInclude Include="..\..\Core\HW\StereoResampler.h" />
     <ClInclude Include="..\..\Core\KeyMap.h" />
+    <ClInclude Include="..\..\Core\KeyMapDefaults.h" />
     <ClInclude Include="..\..\Core\Loaders.h" />
     <ClInclude Include="..\..\Core\MemFault.h" />
     <ClInclude Include="..\..\Core\MemMap.h" />
@@ -757,6 +758,7 @@
     <ClCompile Include="..\..\Core\HW\SimpleAudioDec.cpp" />
     <ClCompile Include="..\..\Core\HW\StereoResampler.cpp" />
     <ClCompile Include="..\..\Core\KeyMap.cpp" />
+    <ClCompile Include="..\..\Core\KeyMapDefaults.cpp" />
     <ClCompile Include="..\..\Core\Loaders.cpp" />
     <ClCompile Include="..\..\Core\MemFault.cpp" />
     <ClCompile Include="..\..\Core\MemMap.cpp" />

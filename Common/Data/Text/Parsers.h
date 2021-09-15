@@ -70,3 +70,5 @@ static bool TryParse(const std::string &str, N *const output) {
 	} else
 		return false;
 }
+
+void NiceSizeFormat(size_t size, char *out, size_t bufSize);

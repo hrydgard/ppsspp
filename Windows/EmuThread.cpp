@@ -230,7 +230,7 @@ void MainThreadFunc() {
 		NativeResized();
 	}
 
-	INFO_LOG(BOOT, "Done.");
+	DEBUG_LOG(BOOT, "Done.");
 
 	if (coreState == CORE_POWERDOWN) {
 		INFO_LOG(BOOT, "Exit before core loop.");

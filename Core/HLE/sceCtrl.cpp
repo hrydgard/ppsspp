@@ -501,7 +501,8 @@ static int sceCtrlReadBufferNegative(u32 ctrlDataPtr, u32 nBufs)
 static int sceCtrlPeekBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 {
 	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, false, true);
-	DEBUG_LOG(SCECTRL, "%d=sceCtrlPeekBufferPositive(%08x, %i)", done, ctrlDataPtr, nBufs);
+	// Some homebrew call this in a tight loop - so VERBOSE it is.
+	VERBOSE_LOG(SCECTRL, "%d=sceCtrlPeekBufferPositive(%08x, %i)", done, ctrlDataPtr, nBufs);
 	hleEatCycles(330);
 	return done;
 }
@@ -509,7 +510,8 @@ static int sceCtrlPeekBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 static int sceCtrlPeekBufferNegative(u32 ctrlDataPtr, u32 nBufs)
 {
 	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, true, true);
-	DEBUG_LOG(SCECTRL, "%d=sceCtrlPeekBufferNegative(%08x, %i)", done, ctrlDataPtr, nBufs);
+	// Some homebrew call this in a tight loop - so VERBOSE it is.
+	VERBOSE_LOG(SCECTRL, "%d=sceCtrlPeekBufferNegative(%08x, %i)", done, ctrlDataPtr, nBufs);
 	hleEatCycles(330);
 	return done;
 }

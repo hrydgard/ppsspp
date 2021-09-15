@@ -196,7 +196,7 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 	ApplyVibration(pad, vibration);
 
 	AxisInput axis;
-	axis.deviceId = DEVICE_ID_X360_0 + pad;
+	axis.deviceId = DEVICE_ID_XINPUT_0 + pad;
 	auto sendAxis = [&](AndroidJoystickAxis axisId, float value) {
 		axis.axisId = axisId;
 		axis.value = value;
@@ -230,14 +230,14 @@ void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state) {
 	for (int i = 0; i < xinput_ctrl_map_size; i++) {
 		if (downMask & xinput_ctrl_map[i].from) {
 			KeyInput key;
-			key.deviceId = DEVICE_ID_X360_0 + pad;
+			key.deviceId = DEVICE_ID_XINPUT_0 + pad;
 			key.flags = KEY_DOWN;
 			key.keyCode = xinput_ctrl_map[i].to;
 			NativeKey(key);
 		}
 		if (upMask & xinput_ctrl_map[i].from) {
 			KeyInput key;
-			key.deviceId = DEVICE_ID_X360_0 + pad;
+			key.deviceId = DEVICE_ID_XINPUT_0 + pad;
 			key.flags = KEY_UP;
 			key.keyCode = xinput_ctrl_map[i].to;
 			NativeKey(key);
@@ -250,7 +250,7 @@ void XinputDevice::ApplyVibration(int pad, XINPUT_VIBRATION &vibration) {
 	if (PSP_IsInited()) {
 		newVibrationTime = time_now_d();
 		// We have to run PPSSPP_XInputSetState at time intervals
-		// since it bugs otherwise with very high unthrottle speeds
+		// since it bugs otherwise with very high fast-forward speeds
 		// and freezes at constant vibration or no vibration at all.
 		if (newVibrationTime - prevVibrationTime >= 1.0 / 64.0) {
 			if (GetUIState() == UISTATE_INGAME) {

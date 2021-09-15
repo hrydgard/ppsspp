@@ -5,7 +5,7 @@
 class LibretroVulkanContext : public LibretroHWRenderContext {
 public:
 	LibretroVulkanContext();
-	~LibretroVulkanContext() override {}
+   ~LibretroVulkanContext() override { Shutdown(); }
 	bool Init() override;
 	void Shutdown() override;
 	void SwapBuffers() override;
@@ -14,6 +14,7 @@ public:
 	void CreateDrawContext() override;
 
    void ContextReset() override;
+   void ContextDestroy() override;
 
 	GPUCore GetGPUCore() override { return GPUCORE_VULKAN; }
 	const char *Ident() override { return "Vulkan"; }

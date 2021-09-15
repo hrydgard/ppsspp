@@ -2064,7 +2064,8 @@ int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bo
 			Core_ExecException(startThread->context.pc, currentMIPS->pc, ExecExceptionType::THREAD);
 		}
 		__KernelChangeReadyState(cur, currentThread, true);
-		hleReSchedule("thread started");
+		if (__InterruptsEnabled())
+			hleReSchedule("thread started");
 	}
 
 	// Starting a thread automatically resumes the dispatch thread if the new thread has worse priority.

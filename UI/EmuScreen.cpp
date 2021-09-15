@@ -505,6 +505,15 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			OnChatMenu.Trigger(e);
 		}
 #endif
+	} else if (!strcmp(message, "app_resumed") && screenManager()->topScreen() == this) {
+		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
+			if (!KeyMap::IsKeyMapped(DEVICE_ID_PAD_0, VIRTKEY_PAUSE) || !KeyMap::IsKeyMapped(DEVICE_ID_PAD_1, VIRTKEY_PAUSE)) {
+				// If it's a TV (so no built-in back button), and there's no back button mapped to a pad,
+				// use this as the fallback way to get into the menu.
+
+				screenManager()->push(new GamePauseScreen(gamePath_));
+			}
+		}
 	}
 }
 
@@ -532,6 +541,13 @@ inline float clamp1(float x) {
 bool EmuScreen::touch(const TouchInput &touch) {
 	Core_NotifyActivity();
 
+	if (chatMenu_ && (touch.flags & TOUCH_DOWN) != 0 && !chatMenu_->Contains(touch.x, touch.y)) {
+		chatMenu_->Close();
+		if (chatButton_)
+			chatButton_->SetVisibility(UI::V_VISIBLE);
+		UI::EnableFocusMovement(false);
+	}
+
 	if (root_) {
 		root_->Touch(touch);
 		return true;
@@ -544,11 +560,11 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 	auto sc = GetI18NCategory("Screen");
 
 	switch (virtualKeyCode) {
-	case VIRTKEY_UNTHROTTLE:
+	case VIRTKEY_FASTFORWARD:
 		if (coreState == CORE_STEPPING) {
 			Core_EnableStepping(false);
 		}
-		PSP_CoreParameter().unthrottle = true;
+		PSP_CoreParameter().fastForward = true;
 		break;
 
 	case VIRTKEY_SPEED_TOGGLE:
@@ -690,8 +706,8 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 	auto sc = GetI18NCategory("Screen");
 
 	switch (virtualKeyCode) {
-	case VIRTKEY_UNTHROTTLE:
-		PSP_CoreParameter().unthrottle = false;
+	case VIRTKEY_FASTFORWARD:
+		PSP_CoreParameter().fastForward = false;
 		break;
 
 	case VIRTKEY_SPEED_CUSTOM1:
@@ -718,6 +734,19 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 
 bool EmuScreen::key(const KeyInput &key) {
 	Core_NotifyActivity();
+
+	if (UI::IsFocusMovementEnabled()) {
+		if ((key.flags & KEY_DOWN) != 0 && UI::IsEscapeKey(key)) {
+			if (chatMenu_)
+				chatMenu_->Close();
+			if (chatButton_)
+				chatButton_->SetVisibility(UI::V_VISIBLE);
+			UI::EnableFocusMovement(false);
+			return true;
+		} else if (UIScreen::key(key)) {
+			return true;
+		}
+	}
 
 	return controlMapper_.Key(key, &pauseTrigger_);
 }
@@ -775,20 +804,33 @@ void EmuScreen::CreateViews() {
 
 	const Bounds &bounds = screenManager()->getUIContext()->GetLayoutBounds();
 	InitPadLayout(bounds.w, bounds.h);
-	root_ = CreatePadLayout(bounds.w, bounds.h, &pauseTrigger_, &controlMapper_);
+
+	// Devices without a back button like iOS need an on-screen touch back button.
+	bool showPauseButton = !System_GetPropertyBool(SYSPROP_HAS_BACK_BUTTON) || g_Config.bShowTouchPause;
+
+	root_ = CreatePadLayout(bounds.w, bounds.h, &pauseTrigger_, showPauseButton, &controlMapper_);
 	if (g_Config.bShowDeveloperMenu) {
 		root_->Add(new Button(dev->T("DevMenu")))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
-	resumeButton_ = root_->Add(new Button(dev->T("Resume"), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 60, true)));
+
+	LinearLayout *buttons = new LinearLayout(Orientation::ORIENT_HORIZONTAL, new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 60, true));
+	buttons->SetSpacing(20.0f);
+	root_->Add(buttons);
+
+	resumeButton_ = buttons->Add(new Button(dev->T("Resume")));
 	resumeButton_->OnClick.Handle(this, &EmuScreen::OnResume);
 	resumeButton_->SetVisibility(V_GONE);
+
+	resetButton_ = buttons->Add(new Button(dev->T("Reset")));
+	resetButton_->OnClick.Handle(this, &EmuScreen::OnReset);
+	resetButton_->SetVisibility(V_GONE);
 
 	cardboardDisableButton_ = root_->Add(new Button(sc->T("Cardboard VR OFF"), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 30, true)));
 	cardboardDisableButton_->OnClick.Handle(this, &EmuScreen::OnDisableCardboard);
 	cardboardDisableButton_->SetVisibility(V_GONE);
 	cardboardDisableButton_->SetScale(0.65f);  // make it smaller - this button can be in the way otherwise.
 
-	if (g_Config.bEnableNetworkChat) {
+	if (g_Config.bEnableNetworkChat && g_Config.iChatButtonPosition != 8) {
 		AnchorLayoutParams *layoutParams = nullptr;
 		switch (g_Config.iChatButtonPosition) {
 		case 0:
@@ -820,11 +862,14 @@ void EmuScreen::CreateViews() {
 			break;
 		}
 
-		ChoiceWithValueDisplay *btn = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), layoutParams);
+		ChoiceWithValueDisplay *btn = new ChoiceWithValueDisplay(&newChatMessages_, n->T("Chat"), layoutParams);
 		root_->Add(btn)->OnClick.Handle(this, &EmuScreen::OnChat);
 		chatButton_ = btn;
+		chatMenu_ = root_->Add(new ChatMenu(screenManager()->getUIContext()->GetBounds(), new LayoutParams(FILL_PARENT, FILL_PARENT)));
+		chatMenu_->SetVisibility(UI::V_GONE);
 	} else {
 		chatButton_ = nullptr;
+		chatMenu_ = nullptr;
 	}
 
 	saveStatePreview_ = new AsyncImageFileView(Path(), IS_FIXED, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, true));
@@ -901,7 +946,20 @@ UI::EventReturn EmuScreen::OnChat(UI::EventParams &params) {
 	if (chatButton_ != nullptr && chatButton_->GetVisibility() == UI::V_VISIBLE) {
 		chatButton_->SetVisibility(UI::V_GONE);
 	}
-	screenManager()->push(new ChatMenu());
+	if (chatMenu_ != nullptr) {
+		chatMenu_->SetVisibility(UI::V_VISIBLE);
+
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(SDL)
+		UI::EnableFocusMovement(true);
+		root_->SetDefaultFocusView(chatMenu_);
+
+		chatMenu_->SetFocus();
+		UI::View *focused = UI::GetFocusedView();
+		if (focused) {
+			root_->SubviewFocused(focused);
+		}
+#endif
+	}
 	return UI::EVENT_DONE;
 }
 
@@ -914,12 +972,31 @@ UI::EventReturn EmuScreen::OnResume(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn EmuScreen::OnReset(UI::EventParams &params) {
+	if (coreState == CoreState::CORE_RUNTIME_ERROR) {
+		NativeMessageReceived("reset", "");
+	}
+	return UI::EVENT_DONE;
+}
+
 void EmuScreen::update() {
 	using namespace UI;
 
 	UIScreen::update();
 	onScreenMessagesView_->SetVisibility(g_Config.bShowOnScreenMessages ? V_VISIBLE : V_GONE);
 	resumeButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR && Memory::MemFault_MayBeResumable() ? V_VISIBLE : V_GONE);
+	resetButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR ? V_VISIBLE : V_GONE);
+
+	if (chatButton_ && chatMenu_) {
+		if (chatMenu_->GetVisibility() != V_GONE) {
+			chatMessages_ = GetChatMessageCount();
+			newChatMessages_ = 0;
+		} else {
+			int diff = GetChatMessageCount() - chatMessages_;
+			// Cap the count at 50.
+			newChatMessages_ = diff > 50 ? 50 : diff;
+		}
+	}
 
 	if (bootPending_) {
 		bootGame(gamePath_);
@@ -935,8 +1012,8 @@ void EmuScreen::update() {
 	PSP_CoreParameter().pixelHeight = pixel_yres * bounds.h / dp_yres;
 #endif
 
-	if (!invalid_ && coreState != CORE_RUNTIME_ERROR) {
-		UpdateUIState(UISTATE_INGAME);
+	if (!invalid_) {
+		UpdateUIState(coreState != CORE_RUNTIME_ERROR ? UISTATE_INGAME : UISTATE_EXCEPTION);
 	}
 
 	if (errorMessage_.size()) {
@@ -957,7 +1034,6 @@ void EmuScreen::update() {
 
 	controlMapper_.Update();
 
-	// This is here to support the iOS on screen back button.
 	if (pauseTrigger_) {
 		pauseTrigger_ = false;
 		screenManager()->push(new GamePauseScreen(gamePath_));

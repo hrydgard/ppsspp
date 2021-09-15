@@ -53,24 +53,6 @@ namespace W32Util
 		MoveWindow(hwnd, x, y, width, height, FALSE);
 	}
  
-	void NiceSizeFormat(size_t size, char *out)
-	{
-		const char *sizes[] = {"B","KB","MB","GB","TB","PB","EB"};
-		int s = 0;
-		int frac = 0;
-		while (size>=1024)
-		{
-			s++;
-			frac = (int)size & 1023;
-			size /= 1024;
-		}
-		float f = (float)size + ((float)frac / 1024.0f);
-		if (s==0)
-			sprintf(out, "%d B", (int)size);
-		else
-			sprintf(out, "%3.1f %s", f, sizes[s]);
-	}
-
 	BOOL CopyTextToClipboard(HWND hwnd, const char *text) {
 		std::wstring wtext = ConvertUTF8ToWString(text);
 		return CopyTextToClipboard(hwnd, wtext);

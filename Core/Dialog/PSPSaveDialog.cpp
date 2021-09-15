@@ -25,23 +25,23 @@
 #include <ctime>
 #include <thread>
 
-#include "Common/Data/Text/I18n.h"
 #include "Common/Data/Encoding/Utf8.h"
-#include "Common/Thread/ThreadUtil.h"
-
+#include "Common/Data/Text/I18n.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
+#include "Common/Thread/ThreadUtil.h"
+#include "Core/Dialog/PSPSaveDialog.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUtility.h"
+#include "Core/HW/MemoryStick.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
-#include "Core/HW/MemoryStick.h"
-#include "Core/Dialog/PSPSaveDialog.h"
+#include "Core/SaveState.h"
 
 const static float FONT_SCALE = 0.55f;
 
@@ -1018,6 +1018,10 @@ int PSPSaveDialog::Update(int animSpeed)
 			case SAVEIO_PENDING:
 			case SAVEIO_DONE:
 				// To make sure there aren't any timing variations, we sync the next frame.
+				if (g_Config.iIOTimingMethod == IOTIMING_HOST && ioThreadStatus == SAVEIO_PENDING) {
+					// ... except in Host IO timing, where we wait as long as needed.
+					break;
+				}
 				JoinIOThread();
 				ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 				break;
@@ -1048,6 +1052,7 @@ void PSPSaveDialog::ExecuteIOAction() {
 		}
 		break;
 	case DS_SAVE_SAVING:
+		SaveState::NotifySaveData();
 		if (param.Save(param.GetPspParam(), GetSelectedSaveDirName()) == 0) {
 			display = DS_SAVE_DONE;
 		} else {
@@ -1085,6 +1090,7 @@ void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_SAVE: // Only save and exit
 	case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
+		SaveState::NotifySaveData();
 		result = param.Save(param.GetPspParam(), GetSelectedSaveDirName());
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_SIZES:
@@ -1129,6 +1135,7 @@ void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 	// TODO: Should reset the directory's other files.
 	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
 	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
+		SaveState::NotifySaveData();
 		result = param.Save(param.GetPspParam(), GetSelectedSaveDirName(), param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE);
 		if (result == SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE) {
 			result = SCE_UTILITY_SAVEDATA_ERROR_RW_MEMSTICK_FULL;
@@ -1136,6 +1143,7 @@ void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA:
 	case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE:
+		SaveState::NotifySaveData();
 		result = param.Save(param.GetPspParam(), GetSelectedSaveDirName(), param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE);
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_READDATA:

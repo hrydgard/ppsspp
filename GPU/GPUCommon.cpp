@@ -486,7 +486,7 @@ void GPUCommon::DeviceRestore() {
 void GPUCommon::UpdateVsyncInterval(bool force) {
 #if !(PPSSPP_PLATFORM(ANDROID) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS))
 	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
-	if (PSP_CoreParameter().unthrottle) {
+	if (PSP_CoreParameter().fastForward) {
 		desiredVSyncInterval = 0;
 	}
 	if (PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL) {
@@ -1832,6 +1832,9 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 		DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
 	}
 
+	// Can't flush after setting gstate_c.submitType below since it'll be a mess - it must be done already.
+	drawEngineCommon_->DispatchFlush();
+
 	Spline::BezierSurface surface;
 	surface.tess_u = gstate.getPatchDivisionU();
 	surface.tess_v = gstate.getPatchDivisionV();
@@ -1896,6 +1899,9 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
 		DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
 	}
+
+	// Can't flush after setting gstate_c.submitType below since it'll be a mess - it must be done already.
+	drawEngineCommon_->DispatchFlush();
 
 	Spline::SplineSurface surface;
 	surface.tess_u = gstate.getPatchDivisionU();

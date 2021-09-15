@@ -72,12 +72,12 @@ void DisassembleArm(const u8 *data, int size) {
 	}
 }
 
-static u32 JitBreakpoint() {
+static u32 JitBreakpoint(uint32_t addr) {
 	// Should we skip this breakpoint?
-	if (CBreakPoints::CheckSkipFirst() == currentMIPS->pc)
+	if (CBreakPoints::CheckSkipFirst() == currentMIPS->pc || CBreakPoints::CheckSkipFirst() == addr)
 		return 0;
 
-	BreakAction result = CBreakPoints::ExecBreakPoint(currentMIPS->pc);
+	BreakAction result = CBreakPoints::ExecBreakPoint(addr);
 	if ((result & BREAK_ACTION_PAUSE) == 0)
 		return 0;
 
@@ -746,7 +746,8 @@ bool ArmJit::CheckJitBreakpoint(u32 addr, int downcountOffset) {
 		MOVI2R(SCRATCHREG1, GetCompilerPC());
 		MovToPC(SCRATCHREG1);
 		RestoreRoundingMode();
-		QuickCallFunction(SCRATCHREG1, &JitBreakpoint);
+		MOVI2R(R0, addr);
+		QuickCallFunction(SCRATCHREG2, &JitBreakpoint);
 
 		// If 0, the conditional breakpoint wasn't taken.
 		CMPI2R(R0, 0, SCRATCHREG2);

@@ -172,7 +172,7 @@ DirectoryAssetReader::DirectoryAssetReader(const Path &path) {
 
 uint8_t *DirectoryAssetReader::ReadAsset(const char *path, size_t *size) {
 	Path new_path = Path(path).StartsWith(path_) ? Path(path) : path_ / path;
-	return File::ReadLocalFile(new_path.c_str(), size);
+	return File::ReadLocalFile(new_path, size);
 }
 
 bool DirectoryAssetReader::GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = nullptr) {

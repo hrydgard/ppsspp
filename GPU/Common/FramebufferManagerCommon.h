@@ -445,4 +445,5 @@ protected:
 	Draw::Pipeline *reinterpretFromTo_[3][3]{};
 	Draw::ShaderModule *reinterpretVS_ = nullptr;
 	Draw::SamplerState *reinterpretSampler_ = nullptr;
+	Draw::Buffer *reinterpretVBuf_ = nullptr;
 };

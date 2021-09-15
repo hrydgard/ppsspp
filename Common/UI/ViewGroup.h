@@ -63,9 +63,11 @@ public:
 
 	// Assumes that layout has taken place.
 	NeighborResult FindNeighbor(View *view, FocusDirection direction, NeighborResult best);
+	virtual NeighborResult FindScrollNeighbor(View *view, const Point &target, FocusDirection direction, NeighborResult best);
 
-	virtual bool CanBeFocused() const override { return false; }
-	virtual bool IsViewGroup() const override { return true; }
+	bool CanBeFocused() const override { return false; }
+	bool IsViewGroup() const override { return true; }
+	bool ContainsSubview(const View *view) const override;
 
 	virtual void SetBG(const Drawable &bg) { bg_ = bg; }
 
@@ -220,6 +222,21 @@ struct GridLayoutSettings {
 	bool fillCells;
 };
 
+class GridLayoutParams : public LayoutParams {
+public:
+	GridLayoutParams()
+		: LayoutParams(LP_GRID), gravity(G_CENTER) {}
+	explicit GridLayoutParams(Gravity grav)
+		: LayoutParams(LP_GRID), gravity(grav) {
+	}
+
+	Gravity gravity;
+
+	static LayoutParamsType StaticType() {
+		return LP_GRID;
+	}
+};
+
 class GridLayout : public ViewGroup {
 public:
 	GridLayout(GridLayoutSettings settings, LayoutParams *layoutParams = 0);
@@ -247,6 +264,7 @@ class ScrollView : public ViewGroup {
 public:
 	ScrollView(Orientation orientation, LayoutParams *layoutParams = 0, bool rememberPosition = false)
 		: ViewGroup(layoutParams), orientation_(orientation), rememberPosition_(rememberPosition) {}
+	~ScrollView();
 
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 	void Layout() override;
@@ -263,10 +281,15 @@ public:
 	bool CanScroll() const;
 	void Update() override;
 
+	// Get the last moved scroll view position
+	static void GetLastScrollPosition(float &x, float &y);
+
 	// Override so that we can scroll to the active one after moving the focus.
 	bool SubviewFocused(View *view) override;
 	void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) override;
 	void SetVisibility(Visibility visibility) override;
+
+	NeighborResult FindScrollNeighbor(View *view, const Point &target, FocusDirection direction, NeighborResult best) override;
 
 	// Quick hack to prevent scrolling to top in some lists
 	void SetScrollToTop(bool t) { scrollToTopOnSizeChange_ = t; }
@@ -281,11 +304,15 @@ private:
 	float scrollTarget_ = 0.0f;
 	int scrollTouchId_ = -1;
 	bool scrollToTarget_ = false;
+	float layoutScrollPos_ = 0.0f;
 	float inertia_ = 0.0f;
 	float pull_ = 0.0f;
 	float lastViewSize_ = 0.0f;
 	bool scrollToTopOnSizeChange_ = false;
 	bool rememberPosition_;
+
+	static float lastScrollPosX;
+	static float lastScrollPosY;
 };
 
 class ViewPager : public ScrollView {

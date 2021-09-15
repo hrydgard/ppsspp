@@ -56,6 +56,9 @@
 #include "Core/HLE/__sceAudio.h"
 #endif
 
+// Slot number is visual only, -2 will display special message
+constexpr int LOAD_UNDO_SLOT = -2;
+
 namespace SaveState
 {
 	struct SaveStart
@@ -92,7 +95,7 @@ namespace SaveState
 		size_t sz = CChunkFileReader::MeasurePtr(state);
 		if (data.size() < sz)
 			data.resize(sz);
-		return CChunkFileReader::SavePtr(&data[0], state);
+		return CChunkFileReader::SavePtr(&data[0], state, sz);
 	}
 
 	CChunkFileReader::Error LoadFromRam(std::vector<u8> &data, std::string *errorString) {
@@ -258,6 +261,8 @@ namespace SaveState
 	// 4 hours of total gameplay since the virtual PSP started the game.
 	static const u64 STALE_STATE_TIME = 4 * 3600 * 1000000ULL;
 	static int saveStateGeneration = 0;
+	static int saveDataGeneration = 0;
+	static int lastSaveDataGeneration = 0;
 	static std::string saveStateInitialGitVersion = "";
 
 	// TODO: Should this be configurable?
@@ -286,6 +291,12 @@ namespace SaveState
 			Do(p, saveStateInitialGitVersion);
 		} else {
 			saveStateGeneration = 1;
+		}
+		if (s >= 3) {
+			// Keep track of savedata (not save states) too.
+			Do(p, saveDataGeneration);
+		} else {
+			saveDataGeneration = 0;
 		}
 
 		// Gotta do CoreTiming first since we'll restore into it.
@@ -325,11 +336,15 @@ namespace SaveState
 
 	void Load(const Path &filename, int slot, Callback callback, void *cbUserData)
 	{
+		if (coreState == CoreState::CORE_RUNTIME_ERROR)
+			Core_EnableStepping(true);
 		Enqueue(Operation(SAVESTATE_LOAD, filename, slot, callback, cbUserData));
 	}
 
 	void Save(const Path &filename, int slot, Callback callback, void *cbUserData)
 	{
+		if (coreState == CoreState::CORE_RUNTIME_ERROR)
+			Core_EnableStepping(true);
 		Enqueue(Operation(SAVESTATE_SAVE, filename, slot, callback, cbUserData));
 	}
 
@@ -340,6 +355,8 @@ namespace SaveState
 
 	void Rewind(Callback callback, void *cbUserData)
 	{
+		if (coreState == CoreState::CORE_RUNTIME_ERROR)
+			Core_EnableStepping(true);
 		Enqueue(Operation(SAVESTATE_REWIND, Path(), -1, callback, cbUserData));
 	}
 
@@ -413,18 +430,19 @@ namespace SaveState
 		return filename.GetFilename() + " " + sy->T("(broken)");
 	}
 
-	Path GenerateSaveSlotFilename(const Path &gameFilename, int slot, const char *extension)
-	{
+	std::string GenerateFullDiscId(const Path &gameFilename) {
 		std::string discId = g_paramSFO.GetValueString("DISC_ID");
 		std::string discVer = g_paramSFO.GetValueString("DISC_VERSION");
-		std::string fullDiscId;
 		if (discId.empty()) {
 			discId = g_paramSFO.GenerateFakeID();
 			discVer = "1.00";
 		}
-		fullDiscId = StringFromFormat("%s_%s", discId.c_str(), discVer.c_str());
+		return StringFromFormat("%s_%s", discId.c_str(), discVer.c_str());
+	}
 
-		std::string filename = StringFromFormat("%s_%d.%s", fullDiscId.c_str(), slot, extension);
+	Path GenerateSaveSlotFilename(const Path &gameFilename, int slot, const char *extension)
+	{
+		std::string filename = StringFromFormat("%s_%d.%s", GenerateFullDiscId(gameFilename).c_str(), slot, extension);
 		return GetSysDirectory(DIRECTORY_SAVESTATE) / filename;
 	}
 
@@ -436,18 +454,6 @@ namespace SaveState
 	void NextSlot()
 	{
 		g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot + 1) % NUM_SLOTS;
-	}
-
-	void LoadSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData)
-	{
-		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
-		if (!fn.empty()) {
-			Load(fn, slot, callback, cbUserData);
-		} else {
-			auto sy = GetI18NCategory("System");
-			if (callback)
-				callback(Status::FAILURE, sy->T("Failed to load state. Error in the file system."), cbUserData);
-		}
 	}
 
 	static void DeleteIfExists(const Path &fn) {
@@ -472,6 +478,63 @@ namespace SaveState
 		}
 	}
 
+	void LoadSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData)
+	{
+		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
+		if (!fn.empty()) {
+			// This add only 1 extra state, should we just always enable it?
+			if (g_Config.bEnableStateUndo) {
+				Path backup = GetSysDirectory(DIRECTORY_SAVESTATE) / LOAD_UNDO_NAME;
+				
+				auto saveCallback = [=](Status status, const std::string &message, void *data) {
+					if (status != Status::FAILURE) {
+						DeleteIfExists(backup);
+						File::Rename(backup.WithExtraExtension(".tmp"), backup);
+						g_Config.sStateLoadUndoGame = GenerateFullDiscId(gameFilename);
+						g_Config.Save("Saving config for savestate last load undo");
+					} else {
+						ERROR_LOG(SAVESTATE, "Saving load undo state failed: %s", message.c_str());
+					}
+					Load(fn, slot, callback, cbUserData);
+				};
+
+				if (!backup.empty()) {
+					Save(backup.WithExtraExtension(".tmp"), LOAD_UNDO_SLOT, saveCallback, cbUserData);
+				} else {
+					ERROR_LOG(SAVESTATE, "Saving load undo state failed. Error in the file system.");
+					Load(fn, slot, callback, cbUserData);
+				}
+			} else {
+				Load(fn, slot, callback, cbUserData);
+			}
+		} else {
+			auto sy = GetI18NCategory("System");
+			if (callback)
+				callback(Status::FAILURE, sy->T("Failed to load state. Error in the file system."), cbUserData);
+		}
+	}
+
+	bool UndoLoad(const Path &gameFilename, Callback callback, void *cbUserData)
+	{
+		if (g_Config.sStateLoadUndoGame != GenerateFullDiscId(gameFilename)) {
+			auto sy = GetI18NCategory("System");
+			if (callback)
+				callback(Status::FAILURE, sy->T("Error: load undo state is from a different game"), cbUserData);
+			return false;
+		}
+
+		Path fn = GetSysDirectory(DIRECTORY_SAVESTATE) / LOAD_UNDO_NAME;
+		if (!fn.empty()) {
+			Load(fn, LOAD_UNDO_SLOT, callback, cbUserData);
+			return true;
+		} else {
+			auto sy = GetI18NCategory("System");
+			if (callback)
+				callback(Status::FAILURE, sy->T("Failed to load state for load undo. Error in the file system."), cbUserData);
+			return false;
+		}
+	}
+
 	void SaveSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData)
 	{
 		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
@@ -484,6 +547,9 @@ namespace SaveState
 					if (g_Config.bEnableStateUndo) {
 						DeleteIfExists(fnUndo);
 						RenameIfExists(fn, fnUndo);
+						g_Config.sStateUndoLastSaveGame = GenerateFullDiscId(gameFilename);
+						g_Config.iStateUndoLastSaveSlot = slot;
+						g_Config.Save("Saving config for savestate last save undo");
 					} else {
 						DeleteIfExists(fn);
 					}
@@ -524,6 +590,14 @@ namespace SaveState
 		return false;
 	}
 
+
+	bool UndoLastSave(const Path &gameFilename) {
+		if (g_Config.sStateUndoLastSaveGame != GenerateFullDiscId(gameFilename))
+			return false;
+
+		return UndoSaveSlot(gameFilename, g_Config.iStateUndoLastSaveSlot);
+	}
+
 	bool HasSaveInSlot(const Path &gameFilename, int slot)
 	{
 		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
@@ -532,14 +606,28 @@ namespace SaveState
 
 	bool HasUndoSaveInSlot(const Path &gameFilename, int slot)
 	{
-		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
-		return File::Exists(fn.WithExtraExtension(".undo"));
+		Path fn = GenerateSaveSlotFilename(gameFilename, slot, UNDO_STATE_EXTENSION);
+		return File::Exists(fn);
+	}
+
+	bool HasUndoLastSave(const Path &gameFilename) 
+	{
+		if (g_Config.sStateUndoLastSaveGame != GenerateFullDiscId(gameFilename))
+			return false;
+
+		return HasUndoSaveInSlot(gameFilename, g_Config.iStateUndoLastSaveSlot);
 	}
 
 	bool HasScreenshotInSlot(const Path &gameFilename, int slot)
 	{
 		Path fn = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
 		return File::Exists(fn);
+	}
+
+	bool HasUndoLoad(const Path &gameFilename)
+	{
+		Path fn = GetSysDirectory(DIRECTORY_SAVESTATE) / LOAD_UNDO_NAME;
+		return File::Exists(fn) && g_Config.sStateLoadUndoGame == GenerateFullDiscId(gameFilename);
 	}
 
 	bool operator < (const tm &t1, const tm &t2) {
@@ -708,6 +796,37 @@ namespace SaveState
 		return state < gitVer;
 	}
 
+	static Status TriggerLoadWarnings(std::string &callbackMessage) {
+		auto sc = GetI18NCategory("Screen");
+
+		if (g_Config.bHideStateWarnings)
+			return Status::SUCCESS;
+
+		if (IsStale()) {
+			// For anyone wondering why (too long to put on the screen in an osm):
+			// Using save states instead of saves simulates many hour play sessions.
+			// Sometimes this exposes game bugs that were rarely seen on real devices,
+			// because few people played on a real PSP for 10 hours straight.
+			callbackMessage = sc->T("Loaded. Save in game, restart, and load for less bugs.");
+			return Status::WARNING;
+		}
+		if (IsOldVersion()) {
+			// Save states also preserve bugs from old PPSSPP versions, so warn.
+			callbackMessage = sc->T("Loaded. Save in game, restart, and load for less bugs.");
+			return Status::WARNING;
+		}
+		// If the loaded state (saveDataGeneration) is older, the game may prevent saving again.
+		// This can happen with newer too, but ignore to/from 0 as a common likely safe case.
+		if (saveDataGeneration != lastSaveDataGeneration && saveDataGeneration != 0 && lastSaveDataGeneration != 0) {
+			if (saveDataGeneration < lastSaveDataGeneration)
+				callbackMessage = sc->T("Loaded. Game may refuse to save over newer savedata.");
+			else
+				callbackMessage = sc->T("Loaded. Game may refuse to save over different savedata.");
+			return Status::WARNING;
+		}
+		return Status::SUCCESS;
+	}
+
 	void Process()
 	{
 		if (g_Config.iRewindFlipFrequency != 0 && gpuStats.numFlips != 0)
@@ -753,22 +872,13 @@ namespace SaveState
 				// Use the state's latest version as a guess for saveStateInitialGitVersion.
 				result = CChunkFileReader::Load(op.filename, &saveStateInitialGitVersion, state, &errorString);
 				if (result == CChunkFileReader::ERROR_NONE) {
-					callbackMessage = slot_prefix + sc->T("Loaded State");
-					callbackResult = Status::SUCCESS;
+					callbackMessage = op.slot != LOAD_UNDO_SLOT ? sc->T("Loaded State") : sc->T("State load undone");
+					callbackResult = TriggerLoadWarnings(callbackMessage);
 					hasLoadedState = true;
+					Core_ResetException();
 
-					if (!g_Config.bHideStateWarnings && IsStale()) {
-						// For anyone wondering why (too long to put on the screen in an osm):
-						// Using save states instead of saves simulates many hour play sessions.
-						// Sometimes this exposes game bugs that were rarely seen on real devices,
-						// because few people played on a real PSP for 10 hours straight.
-						callbackMessage = slot_prefix + sc->T("Loaded. Save in game, restart, and load for less bugs.");
-						callbackResult = Status::WARNING;
-					} else if (!g_Config.bHideStateWarnings && IsOldVersion()) {
-						// Save states also preserve bugs from old PPSSPP versions, so warn.
-						callbackMessage = slot_prefix + sc->T("Loaded. Save in game, restart, and load for less bugs.");
-						callbackResult = Status::WARNING;
-					}
+					if (!slot_prefix.empty())
+						callbackMessage = slot_prefix + callbackMessage;
 
 #ifndef MOBILE_DEVICE
 					if (g_Config.bSaveLoadResetsAVdumping) {
@@ -844,6 +954,7 @@ namespace SaveState
 					callbackMessage = sc->T("Loaded State");
 					callbackResult = Status::SUCCESS;
 					hasLoadedState = true;
+					Core_ResetException();
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					// Cripes.  Good news is, we might have more.  Let's try those too, better than a reset.
 					if (HandleLoadFailure()) {
@@ -851,6 +962,7 @@ namespace SaveState
 						callbackMessage = sc->T("Loaded State");
 						callbackResult = Status::SUCCESS;
 						hasLoadedState = true;
+						Core_ResetException();
 					} else {
 						callbackMessage = std::string(i18nLoadFailure) + ": " + errorString;
 						callbackResult = Status::FAILURE;
@@ -896,6 +1008,11 @@ namespace SaveState
 		}
 	}
 
+	void NotifySaveData() {
+		saveDataGeneration++;
+		lastSaveDataGeneration = saveDataGeneration;
+	}
+
 	void Cleanup() {
 		if (needsRestart) {
 			PSP_Shutdown();
@@ -922,6 +1039,8 @@ namespace SaveState
 
 		hasLoadedState = false;
 		saveStateGeneration = 0;
+		saveDataGeneration = 0;
+		lastSaveDataGeneration = 0;
 		saveStateInitialGitVersion.clear();
 	}
 

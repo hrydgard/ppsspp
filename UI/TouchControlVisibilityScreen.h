@@ -38,7 +38,6 @@ public:
 
 protected:
 	UI::EventReturn OnToggleAll(UI::EventParams &e);
-	UI::EventReturn RightAnalogBindScreen(UI::EventParams &e);
 
 private:
 	std::vector<TouchButtonToggle> toggles_;

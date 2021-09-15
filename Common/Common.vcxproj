@@ -898,6 +898,7 @@
     <ClCompile Include="Render\Text\draw_text_uwp.cpp" />
     <ClCompile Include="Render\Text\draw_text_win.cpp" />
     <ClCompile Include="LogReporting.cpp" />
+    <ClCompile Include="RiscVCPUDetect.cpp" />
     <ClCompile Include="Serialize\Serializer.cpp" />
     <ClCompile Include="Data\Convert\ColorConv.cpp" />
     <ClCompile Include="ConsoleListener.cpp" />

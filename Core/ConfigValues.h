@@ -28,7 +28,7 @@ const int PSP_MODEL_FAT = 0;
 const int PSP_MODEL_SLIM = 1;
 const int PSP_DEFAULT_FIRMWARE = 660;
 static const int8_t VOLUME_OFF = 0;
-static const int8_t VOLUME_MAX = 10;
+static const int8_t VOLUME_FULL = 10;
 
 enum class CPUCore {
 	INTERPRETER = 0,
@@ -43,6 +43,13 @@ enum {
 	ROTATION_LOCKED_HORIZONTAL180 = 3,
 	ROTATION_LOCKED_VERTICAL180 = 4,
 	ROTATION_AUTO_HORIZONTAL = 5,
+};
+
+enum TextureFiltering {
+	TEX_FILTER_AUTO = 1,
+	TEX_FILTER_FORCE_NEAREST = 2,
+	TEX_FILTER_FORCE_LINEAR = 3,
+	TEX_FILTER_AUTO_MAX_QUALITY = 4,
 };
 
 enum BufferFilter {
@@ -111,7 +118,7 @@ enum class AutoLoadSaveState {
 	NEWEST = 2,
 };
 
-enum class UnthrottleMode {
+enum class FastForwardMode {
 	CONTINUOUS = 0,
 	SKIP_DRAW = 1,
 	SKIP_FLIP = 2,
@@ -121,4 +128,6 @@ enum class BackgroundAnimation {
 	OFF = 0,
 	FLOATING_SYMBOLS = 1,
 	RECENT_GAMES = 2,
+	WAVE = 3,
+	MOVING_BACKGROUND = 4,
 };

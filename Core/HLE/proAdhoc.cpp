@@ -51,6 +51,7 @@
 #define TCP_MAXSEG 2
 #endif // defined(HAVE_LIBNX) || PPSSPP_PLATFORM(SWITCH)
 
+#include <mutex>
 #include <cstring>
 
 #include "Common/Data/Text/I18n.h"
@@ -111,19 +112,17 @@ SceNetAdhocctlAdhocId product_code;
 std::thread friendFinderThread;
 std::recursive_mutex peerlock;
 AdhocSocket* adhocSockets[MAX_SOCKET];
-std::vector<std::string> chatLog;
-std::string name = "";
-std::string incoming = "";
-std::string message = "";
-bool chatScreenVisible = false;
-bool updateChatScreen = false;
-int newChat = 0;
 bool isOriPort = false;
 bool isLocalServer = false;
 SockAddrIN4 g_adhocServerIP;
 SockAddrIN4 g_localhostIP;
 sockaddr LocalIP;
 int defaultWlanChannel = PSP_SYSTEMPARAM_ADHOC_CHANNEL_11; // Don't put 0(Auto) here, it needed to be a valid/actual channel number
+
+static std::mutex chatLogLock;
+static std::vector<std::string> chatLog;
+static int chatMessageGeneration = 0;
+static int chatMessageCount = 0;
 
 bool isMacMatch(const SceNetEtherAddr* addr1, const SceNetEtherAddr* addr2) {
 	// Ignoring the 1st byte since there are games (ie. Gran Turismo) who tamper with the 1st byte of OUI to change the unicast/multicast bit
@@ -1290,40 +1289,45 @@ void sendChat(std::string chatString) {
 	auto n = GetI18NCategory("Networking");
 	chat.base.opcode = OPCODE_CHAT;
 	//TODO check network inited, check send success or not, chatlog.pushback error on failed send, pushback error on not connected
-	if (friendFinderRunning)
-	{
+	if (friendFinderRunning) {
 		// Send Chat to Server 
 		if (!chatString.empty()) {
 			//maximum char allowed is 64 character for compability with original server (pro.coldbird.net)
-			message = chatString.substr(0, 60); // 64 return chat variable corrupted is it out of memory?
+			std::string message = chatString.substr(0, 60); // 64 return chat variable corrupted is it out of memory?
 			strcpy(chat.message, message.c_str());
 			//Send Chat Messages
 			if (IsSocketReady(metasocket, false, true) > 0) {
 				int chatResult = send(metasocket, (const char*)&chat, sizeof(chat), MSG_NOSIGNAL);
 				NOTICE_LOG(SCENET, "Send Chat %s to Adhoc Server", chat.message);
-				name = g_Config.sNickName.c_str();
+				std::string name = g_Config.sNickName.c_str();
+
+				std::lock_guard<std::mutex> guard(chatLogLock);
 				chatLog.push_back(name.substr(0, 8) + ": " + chat.message);
-				if (chatScreenVisible) {
-					updateChatScreen = true;
-				}
+				chatMessageGeneration++;
 			}
 		}
-	}
-	else {
+	} else {
+		std::lock_guard<std::mutex> guard(chatLogLock);
 		chatLog.push_back(n->T("You're in Offline Mode, go to lobby or online hall"));
-		if (chatScreenVisible) {
-			updateChatScreen = true;
-		}
+		chatMessageGeneration++;
 	}
 }
 
 std::vector<std::string> getChatLog() {
-	// this log used by chat screen
+	std::lock_guard<std::mutex> guard(chatLogLock);
+	// If the log gets large, trim it down.
 	if (chatLog.size() > 50) {
-		//erase the first 40 element limit the chatlog size
-		chatLog.erase(chatLog.begin(), chatLog.begin() + 40);
+		chatLog.erase(chatLog.begin(), chatLog.begin() + (chatLog.size() - 50));
 	}
 	return chatLog;
+}
+
+int GetChatChangeID() {
+	return chatMessageGeneration;
+}
+
+int GetChatMessageCount() {
+	return chatMessageCount;
 }
 
 int friendFinder(){
@@ -1516,21 +1520,16 @@ int friendFinder(){
 
 						// Add Incoming Chat to HUD
 						NOTICE_LOG(SCENET, "Received chat message %s", packet->base.message);
-						incoming = "";
-						name = (char*)packet->name.data;
+						std::string incoming = "";
+						std::string name = (char*)packet->name.data;
 						incoming.append(name.substr(0, 8));
 						incoming.append(": ");
 						incoming.append((char*)packet->base.message);
+
+						std::lock_guard<std::mutex> guard(chatLogLock);
 						chatLog.push_back(incoming);
-						//im new to pointer btw :( doesn't know its safe or not this should update the chat screen when data coming
-						if (chatScreenVisible) {
-							updateChatScreen = true;
-						}
-						else {
-							if (newChat < 50) {
-								newChat += 1;
-							}
-						}
+						chatMessageGeneration++;
+						chatMessageCount++;
 
 						// Move RX Buffer
 						memmove(rx, rx + sizeof(SceNetAdhocctlChatPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlChatPacketS2C));
@@ -1591,16 +1590,16 @@ int friendFinder(){
 						}
 
 						// Update HUD User Count
-						incoming = "";
-						incoming.append((char*)packet->name.data);
+						std::string name = (char*)packet->name.data;
+						std::string incoming = "";
+						incoming.append(name.substr(0, 8));
 						incoming.append(" Joined ");
 						//do we need ip?
 						//joined.append((char *)packet->ip);
+
+						std::lock_guard<std::mutex> guard(chatLogLock);
 						chatLog.push_back(incoming);
-						//im new to pointer btw :( doesn't know its safe or not this should update the chat screen when data coming
-						if (chatScreenVisible) {
-							updateChatScreen = true;
-						}
+						chatMessageGeneration++;
 
 #ifdef LOCALHOST_AS_PEER
 						setUserCount(getActivePeerCount());
@@ -1608,7 +1607,7 @@ int friendFinder(){
 						// setUserCount(getActivePeerCount()+1);
 #endif
 
-					// Move RX Buffer
+						// Move RX Buffer
 						memmove(rx, rx + sizeof(SceNetAdhocctlConnectPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlConnectPacketS2C));
 
 						// Fix RX Buffer Length

@@ -317,13 +317,13 @@ void SavedataButton::Draw(UIContext &dc) {
 	int availableWidth = bounds_.w - 150;
 	float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
 
-	float tx = 150;
+	float tx = 150.0f;
 	if (availableWidth < tw) {
 		float overageRatio = 1.5f * availableWidth * 1.0f / tw;
 		tx -= (1.0f + sin(time_now_d() * overageRatio)) * sineWidth;
 		Bounds tb = bounds_;
-		tb.x = bounds_.x + 150;
-		tb.w = bounds_.w - 150;
+		tb.x = bounds_.x + 150.0f;
+		tb.w = std::max(1.0f, bounds_.w - 150.0f);
 		dc.PushScissor(tb);
 	}
 	dc.DrawText(title_.c_str(), bounds_.x + tx, bounds_.y + 4, style.fgColor, ALIGN_TOPLEFT);
@@ -426,11 +426,11 @@ bool SavedataBrowser::ByFilename(const UI::View *v1, const UI::View *v2) {
 
 static time_t GetTotalSize(const SavedataButton *b) {
 	auto fileLoader = std::unique_ptr<FileLoader>(ConstructFileLoader(b->GamePath()));
-	switch (Identify_File(fileLoader.get())) {
+	std::string errorString;
+	switch (Identify_File(fileLoader.get(), &errorString)) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
-		return File::GetDirectoryRecursiveSize(ResolvePBPDirectory(b->GamePath()), nullptr, File::GETFILES_GETHIDDEN);
-
+		return File::ComputeRecursiveDirectorySize(ResolvePBPDirectory(b->GamePath()));
 	default:
 		return fileLoader->FileSize();
 	}
@@ -442,6 +442,8 @@ bool SavedataBrowser::BySize(const UI::View *v1, const UI::View *v2) {
 
 	if (GetTotalSize(b1) > GetTotalSize(b2))
 		return true;
+	else if (GetTotalSize(b1) < GetTotalSize(b2))
+		return false;
 	return strcmp(b1->GamePath().c_str(), b2->GamePath().c_str()) < 0;
 }
 
@@ -449,7 +451,8 @@ static time_t GetDateSeconds(const SavedataButton *b) {
 	auto fileLoader = std::unique_ptr<FileLoader>(ConstructFileLoader(b->GamePath()));
 	tm datetm;
 	bool success;
-	if (Identify_File(fileLoader.get()) == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
+	std::string errorString;
+	if (Identify_File(fileLoader.get(), &errorString) == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
 		success = File::GetModifTime(b->GamePath() / "PARAM.SFO", datetm);
 	} else {
 		success = File::GetModifTime(b->GamePath(), datetm);
@@ -467,6 +470,8 @@ bool SavedataBrowser::ByDate(const UI::View *v1, const UI::View *v2) {
 
 	if (GetDateSeconds(b1) > GetDateSeconds(b2))
 		return true;
+	if (GetDateSeconds(b1) < GetDateSeconds(b2))
+		return false;
 	return strcmp(b1->GamePath().c_str(), b2->GamePath().c_str()) < 0;
 }
 

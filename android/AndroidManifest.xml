@@ -19,6 +19,9 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
+    <!-- I tried using android:maxSdkVersion="29" on WRITE/READ_EXTERNAL_STORAGE, but that made
+    <it so that in legacy mode, you can't ask for permission anymore. So removed that. -->
+
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -45,7 +48,8 @@
         android:logo="@drawable/ic_banner"
         android:isGame="true"
         android:banner="@drawable/tv_banner"
-        android:requestLegacyExternalStorage="true">
+        android:requestLegacyExternalStorage="true"
+        android:preserveLegacyExternalStorage="true">
         <meta-data android:name="android.max_aspect" android:value="2.4" />
         <activity
             android:name=".PpssppActivity"

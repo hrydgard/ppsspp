@@ -1,6 +1,8 @@
 #pragma once
 
-#include <string>
 #include <cstdint>
 
-bool free_disk_space(const std::string &dir, uint64_t &space);
+#include "Common/File/Path.h"
+
+// If this fails, false is returned and space is negative.
+bool free_disk_space(const Path &path, int64_t &space);

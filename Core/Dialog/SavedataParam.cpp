@@ -66,9 +66,12 @@ namespace
 		if (handle < 0)
 			return false;
 
-		if(dataSize == -1)
-		{
-			dataSize = pspFileSystem.GetFileInfo(filename).size;
+		if (dataSize == -1) {
+			// Determine the size through seeking instead of querying.
+			pspFileSystem.SeekFile(handle, 0, FILEMOVE_END);
+			dataSize = pspFileSystem.GetSeekPos(handle);
+			pspFileSystem.SeekFile(handle, 0, FILEMOVE_BEGIN);
+
 			*data = new u8[(size_t)dataSize];
 		}
 
@@ -208,12 +211,12 @@ void SavedataParam::Init()
 		pspFileSystem.MkDir(savePath);
 	}
 	// Create a nomedia file to hide save icons form Android image viewer
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
 	int handle = pspFileSystem.OpenFile(savePath + ".nomedia", (FileAccess)(FILEACCESS_CREATE | FILEACCESS_WRITE), 0);
 	if (handle >= 0) {
 		pspFileSystem.CloseFile(handle);
 	} else {
-		ERROR_LOG(IO, "Failed to create .nomedia file");
+		INFO_LOG(IO, "Failed to create .nomedia file (might be ok if it already exists)");
 	}
 #endif
 }
@@ -450,9 +453,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 
 	// SAVE PARAM.SFO
 	ParamSFOData sfoFile;
-	std::string sfopath = dirPath+"/" + SFO_FILENAME;
-	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfopath);
-	if (sfoInfo.exists) // Read old sfo if exist
+	std::string sfopath = dirPath + "/" + SFO_FILENAME;
 	{
 		std::vector<u8> sfoData;
 		if (pspFileSystem.ReadEntireFile(sfopath, sfoData) >= 0)
@@ -572,14 +573,12 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		std::string pic1path = dirPath + "/" + PIC1_FILENAME;
 		WritePSPFile(pic1path, param->pic1FileData.buf, param->pic1FileData.size);
 	}
-
 	// Save SND
 	if (param->snd0FileData.buf.IsValid())
 	{
 		std::string snd0path = dirPath + "/" + SND0_FILENAME;
 		WritePSPFile(snd0path, param->snd0FileData.buf, param->snd0FileData.size);
 	}
-
 	return 0;
 }
 
@@ -599,19 +598,19 @@ int SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &saveD
 		return isRWMode ? SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA : SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
 	}
 
-	if (!pspFileSystem.GetFileInfo(sfoPath).exists)
+	// Load sfo
+	if (!LoadSFO(param, dirPath)) {
 		return isRWMode ? SCE_UTILITY_SAVEDATA_ERROR_RW_DATA_BROKEN : SCE_UTILITY_SAVEDATA_ERROR_LOAD_DATA_BROKEN;
+	}
 
 	if (fileName != "" && !pspFileSystem.GetFileInfo(filePath).exists) {
 		return isRWMode ? SCE_UTILITY_SAVEDATA_ERROR_RW_FILE_NOT_FOUND : SCE_UTILITY_SAVEDATA_ERROR_LOAD_FILE_NOT_FOUND;
 	}
 
-	LoadSFO(param, dirPath);  // Load sfo
-
 	// Don't know what it is, but PSP always respond this and this unlock some game
 	param->bind = 1021;
 
-	// Load another files,seems these are required by some games, e.g. Fushigi no Dungeon Fuurai no Shiren 4 Plus.
+	// Load other files, seems these are required by some games, e.g. Fushigi no Dungeon Fuurai no Shiren 4 Plus.
 
 	// Load ICON0.PNG
 	LoadFile(dirPath, ICON0_FILENAME, &param->icon0FileData);
@@ -649,7 +648,7 @@ int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::strin
 	std::string filename = GetFileName(param);
 	std::string filePath = dirPath + "/" + filename;
 	s64 readSize;
-	INFO_LOG(SCEUTILITY,"Loading file with size %u in %s",param->dataBufSize,filePath.c_str());
+	INFO_LOG(SCEUTILITY, "Loading file with size %u in %s", param->dataBufSize, filePath.c_str());
 	u8 *saveData = nullptr;
 	int saveSize = -1;
 	if (!ReadPSPFile(filePath, &saveData, saveSize, &readSize)) {
@@ -790,35 +789,35 @@ u32 SavedataParam::LoadNotCryptedSave(SceUtilitySavedataParam *param, u8 *data, 
 	return 0;
 }
 
-void SavedataParam::LoadSFO(SceUtilitySavedataParam *param, const std::string& dirPath) {
+bool SavedataParam::LoadSFO(SceUtilitySavedataParam *param, const std::string& dirPath) {
 	ParamSFOData sfoFile;
-	std::string sfopath = dirPath+"/" + SFO_FILENAME;
-	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfopath);
-	if (sfoInfo.exists) {
-		// Read sfo
-		std::vector<u8> sfoData;
-		if (pspFileSystem.ReadEntireFile(sfopath, sfoData) >= 0) {
-			sfoFile.ReadSFO(sfoData);
+	std::string sfopath = dirPath + "/" + SFO_FILENAME;
+	std::vector<u8> sfoData;
+	if (pspFileSystem.ReadEntireFile(sfopath, sfoData) >= 0) {
+		sfoFile.ReadSFO(sfoData);
 
-			// copy back info in request
-			strncpy(param->sfoParam.title,sfoFile.GetValueString("TITLE").c_str(),128);
-			strncpy(param->sfoParam.savedataTitle,sfoFile.GetValueString("SAVEDATA_TITLE").c_str(),128);
-			strncpy(param->sfoParam.detail,sfoFile.GetValueString("SAVEDATA_DETAIL").c_str(),1024);
-			param->sfoParam.parentalLevel = sfoFile.GetValueInt("PARENTAL_LEVEL");
-		}
+		// copy back info in request
+		strncpy(param->sfoParam.title,sfoFile.GetValueString("TITLE").c_str(),128);
+		strncpy(param->sfoParam.savedataTitle,sfoFile.GetValueString("SAVEDATA_TITLE").c_str(),128);
+		strncpy(param->sfoParam.detail,sfoFile.GetValueString("SAVEDATA_DETAIL").c_str(),1024);
+		param->sfoParam.parentalLevel = sfoFile.GetValueInt("PARENTAL_LEVEL");
+		return true;
+	} else {
+		return false;
 	}
 }
 
 std::vector<SaveSFOFileListEntry> SavedataParam::GetSFOEntries(const std::string &dirPath) {
 	std::vector<SaveSFOFileListEntry> result;
 	const std::string sfoPath = dirPath + "/" + SFO_FILENAME;
-	if (!pspFileSystem.GetFileInfo(sfoPath).exists)
-		return result;
 
 	ParamSFOData sfoFile;
 	std::vector<u8> sfoData;
-	if (pspFileSystem.ReadEntireFile(dirPath + "/" + SFO_FILENAME, sfoData) >= 0)
+	if (pspFileSystem.ReadEntireFile(sfoPath, sfoData) >= 0) {
 		sfoFile.ReadSFO(sfoData);
+	} else {
+		return result;
+	}
 
 	const int FILE_LIST_COUNT_MAX = 99;
 	u32 sfoFileListSize = 0;
@@ -1045,11 +1044,11 @@ int SavedataParam::BuildHash(unsigned char *output,
 	return 0;
 }
 
+// TODO: Merge with NiceSizeFormat? That one has a decimal though.
 std::string SavedataParam::GetSpaceText(u64 size, bool roundUp)
 {
-	static const char *suffixes[] = {"B", "KB", "MB", "GB"};
 	char text[50];
-
+	static const char *suffixes[] = {"B", "KB", "MB", "GB"};
 	for (size_t i = 0; i < ARRAY_SIZE(suffixes); ++i)
 	{
 		if (size < 1024)
@@ -1063,7 +1062,6 @@ std::string SavedataParam::GetSpaceText(u64 size, bool roundUp)
 			size /= 1024;
 		}
 	}
-
 	snprintf(text, sizeof(text), "%llu TB", size);
 	return std::string(text);
 }
@@ -1162,7 +1160,6 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 		NotifyMemInfo(MemBlockFlags::WRITE, param->utilityData.ptr, sizeof(SceUtilitySavedataUsedDataInfo), "SavedataGetSizes");
 	}
 	return ret;
-
 }
 
 bool SavedataParam::GetList(SceUtilitySavedataParam *param)
@@ -1179,11 +1176,11 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 		std::vector<PSPFileInfo> sfoFiles;
 		std::vector<PSPFileInfo> allDir = pspFileSystem.GetDirListing(savePath);
 
-		std::string searchString = GetGameName(param)+GetSaveName(param);
+		std::string searchString = GetGameName(param) + GetSaveName(param);
 		for (size_t i = 0; i < allDir.size() && validDir.size() < maxFile; i++)
 		{
 			std::string dirName = allDir[i].name;
-			if(PSPMatch(dirName, searchString))
+			if (PSPMatch(dirName, searchString))
 			{
 				validDir.push_back(allDir[i]);
 			}
@@ -1191,9 +1188,9 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 
 		PSPFileInfo sfoFile;
 		for (size_t i = 0; i < validDir.size(); ++i) {
-			// GetFileName(param) == NUll here
+			// GetFileName(param) == null here
 			// so use sfo files to set the date.
-			sfoFile = pspFileSystem.GetFileInfo(savePath + validDir[i].name + "/" + "PARAM.SFO");
+			sfoFile = pspFileSystem.GetFileInfo(savePath + validDir[i].name + "/" + SFO_FILENAME);
 			sfoFiles.push_back(sfoFile);
 		}
 
@@ -1263,7 +1260,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 	fileList->resultNumNormalEntries = 0;
 	fileList->resultNumSystemEntries = 0;
 
-	// We need PARAMS.SFO's SAVEDATA_FILE_LIST to determine which entries are secure.
+	// We need PARAM.SFO's SAVEDATA_FILE_LIST to determine which entries are secure.
 	PSPFileInfo sfoFileInfo = pspFileSystem.GetFileInfo(dirPath + "/" + SFO_FILENAME);
 	std::set<std::string> secureFilenames;
 
@@ -1921,17 +1918,4 @@ bool SavedataParam::IsInSaveDataList(std::string saveName, int count) {
 			return true;
 	}
 	return false;
-}
-
-bool SavedataParam::IsSaveDirectoryExist(SceUtilitySavedataParam* param) {
-	std::string dirPath = savePath + GetGameName(param) + GetSaveName(param);
-	PSPFileInfo directoryInfo = pspFileSystem.GetFileInfo(dirPath);
-	return directoryInfo.exists;
-}
-
-bool SavedataParam::IsSfoFileExist(SceUtilitySavedataParam* param) {
-	std::string dirPath = savePath + GetGameName(param) + GetSaveName(param);
-	std::string sfoPath = dirPath + "/" + SFO_FILENAME;
-	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfoPath);
-	return sfoInfo.exists;
 }

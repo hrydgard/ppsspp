@@ -68,7 +68,8 @@ namespace MainWindow {
 	LRESULT CALLBACK About(HWND, UINT, WPARAM, LPARAM);
 
 	void SetIngameMenuItemStates(HMENU menu, const GlobalUIState state) {
-		UINT menuEnable = state == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
+		UINT menuEnable = state == UISTATE_INGAME || state == UISTATE_EXCEPTION ? MF_ENABLED : MF_GRAYED;
+		UINT menuInGameEnable = state == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
 		UINT umdSwitchEnable = state == UISTATE_INGAME && getUMDReplacePermit() ? MF_ENABLED : MF_GRAYED;
 
 		EnableMenuItem(menu, ID_FILE_SAVESTATEFILE, menuEnable);
@@ -86,7 +87,7 @@ namespace MainWindow {
 		EnableMenuItem(menu, ID_DEBUG_SAVESYMFILE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_RESETSYMBOLTABLE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_TAKESCREENSHOT, menuEnable);
-		EnableMenuItem(menu, ID_DEBUG_SHOWDEBUGSTATISTICS, menuEnable);
+		EnableMenuItem(menu, ID_DEBUG_SHOWDEBUGSTATISTICS, menuInGameEnable);
 		EnableMenuItem(menu, ID_DEBUG_EXTRACTFILE, menuEnable);
 
 		// While playing, this pop up doesn't work - and probably doesn't make sense.
@@ -338,6 +339,7 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_OPTIONS_TEXTUREFILTERING_AUTO);
 		TranslateMenuItem(menu, ID_OPTIONS_NEARESTFILTERING);
 		TranslateMenuItem(menu, ID_OPTIONS_LINEARFILTERING);
+		TranslateMenuItem(menu, ID_OPTIONS_AUTOMAXQUALITYFILTERING);
 		TranslateMenuItem(menu, ID_OPTIONS_SCREENFILTER_MENU);
 		TranslateMenuItem(menu, ID_OPTIONS_BUFLINEARFILTER);
 		TranslateMenuItem(menu, ID_OPTIONS_BUFNEARESTFILTER);
@@ -365,7 +367,7 @@ namespace MainWindow {
 		bool changed = false;
 
 		const std::string curLanguageID = i18nrepo.LanguageID();
-		if (curLanguageID != menuLanguageID || menuKeymapGeneration != KeyMap::g_controllerMapGeneration) {
+		if (curLanguageID != menuLanguageID || KeyMap::HasChanged(menuKeymapGeneration)) {
 			DoTranslateMenus(hWnd, menu);
 			menuLanguageID = curLanguageID;
 			changed = true;
@@ -409,7 +411,7 @@ namespace MainWindow {
 				Core_EnableStepping(false);
 			}
 		} else {
-			if (GetUIState() == UISTATE_INGAME || GetUIState() == UISTATE_PAUSEMENU) {
+			if (GetUIState() == UISTATE_INGAME || GetUIState() == UISTATE_EXCEPTION || GetUIState() == UISTATE_PAUSEMENU) {
 				Core_EnableStepping(false);
 			}
 
@@ -994,9 +996,10 @@ namespace MainWindow {
 			g_Config.iShowFPSCounter = g_Config.iShowFPSCounter ? 0 : 3;  // 3 = both speed and FPS
 			break;
 
-		case ID_OPTIONS_TEXTUREFILTERING_AUTO: setTexFiltering(TEX_FILTER_AUTO); break;
-		case ID_OPTIONS_NEARESTFILTERING:      setTexFiltering(TEX_FILTER_FORCE_NEAREST); break;
-		case ID_OPTIONS_LINEARFILTERING:       setTexFiltering(TEX_FILTER_FORCE_LINEAR); break;
+		case ID_OPTIONS_TEXTUREFILTERING_AUTO:   setTexFiltering(TEX_FILTER_AUTO); break;
+		case ID_OPTIONS_NEARESTFILTERING:        setTexFiltering(TEX_FILTER_FORCE_NEAREST); break;
+		case ID_OPTIONS_LINEARFILTERING:         setTexFiltering(TEX_FILTER_FORCE_LINEAR); break;
+		case ID_OPTIONS_AUTOMAXQUALITYFILTERING: setTexFiltering(TEX_FILTER_AUTO_MAX_QUALITY); break;
 
 		case ID_OPTIONS_BUFLINEARFILTER:       setBufFilter(SCALE_LINEAR); break;
 		case ID_OPTIONS_BUFNEARESTFILTER:      setBufFilter(SCALE_NEAREST); break;
@@ -1244,11 +1247,12 @@ namespace MainWindow {
 			ID_OPTIONS_TEXTUREFILTERING_AUTO,
 			ID_OPTIONS_NEARESTFILTERING,
 			ID_OPTIONS_LINEARFILTERING,
+			ID_OPTIONS_AUTOMAXQUALITYFILTERING,
 		};
 		if (g_Config.iTexFiltering < TEX_FILTER_AUTO)
 			g_Config.iTexFiltering = TEX_FILTER_AUTO;
-		else if (g_Config.iTexFiltering > TEX_FILTER_FORCE_LINEAR)
-			g_Config.iTexFiltering = TEX_FILTER_FORCE_LINEAR;
+		else if (g_Config.iTexFiltering > TEX_FILTER_AUTO_MAX_QUALITY)
+			g_Config.iTexFiltering = TEX_FILTER_AUTO_MAX_QUALITY;
 
 		for (int i = 0; i < ARRAY_SIZE(texfilteringitems); i++) {
 			CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iTexFiltering ? MF_CHECKED : MF_UNCHECKED));

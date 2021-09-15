@@ -128,6 +128,8 @@ private:
 	std::map<int, SubIntrHandler> subIntrHandlers;
 };
 
+void __DisableInterrupts();
+void __EnableInterrupts();
 bool __InterruptsEnabled();
 bool __IsInInterrupt();
 void __InterruptsInit();

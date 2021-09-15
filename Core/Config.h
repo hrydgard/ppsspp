@@ -168,7 +168,7 @@ public:
 	bool bVendorBugChecksEnabled;
 
 	int iRenderingMode; // 0 = non-buffered rendering 1 = buffered rendering
-	int iTexFiltering; // 1 = off , 2 = nearest , 3 = linear , 4 = linear(CG)
+	int iTexFiltering; // 1 = auto , 2 = nearest , 3 = linear , 4 = auto max quality
 	int iBufFilter; // 1 = linear, 2 = nearest
 	int iSmallDisplayZoomType;  // Used to fit display into screen 0 = stretch, 1 = partial stretch, 2 = auto scaling, 3 = manual scaling.
 	float fSmallDisplayOffsetX; // Along with Y it goes from 0.0 to 1.0, XY (0.5, 0.5) = center of the screen
@@ -180,7 +180,7 @@ public:
 	bool bVSync;
 	int iFrameSkip;
 	int iFrameSkipType;
-	int iUnthrottleMode; // See UnthrottleMode in ConfigValues.h.
+	int iFastForwardMode; // See FastForwardMode in ConfigValues.h.
 	bool bAutoFrameSkip;
 
 	bool bEnableCardboardVR; // Cardboard Master Switch
@@ -218,6 +218,9 @@ public:
 	int iRewindFlipFrequency;
 	bool bUISound;
 	bool bEnableStateUndo;
+	std::string sStateLoadUndoGame;
+	std::string sStateUndoLastSaveGame;
+	int iStateUndoLastSaveSlot;
 	int iAutoLoadSaveState; // 0 = off, 1 = oldest, 2 = newest, >2 = slot number + 3
 	bool bEnableCheats;
 	bool bReloadCheats;
@@ -244,6 +247,7 @@ public:
 	bool bEnableSound;
 	int iAudioBackend;
 	int iGlobalVolume, iSASVolume, iATRACMP3Volume;
+	int iReverbVolume;
 	int iAltSpeedVolume;
 	bool bExtraAudioBuffering;  // For bluetooth
 	std::string sAudioDevice;
@@ -297,6 +301,7 @@ public:
 	//the base x and y tilt. this inclination is treated as (0,0) and the tilt input
 	//considers this orientation to be equal to no movement of the analog stick.
 	float fTiltBaseX, fTiltBaseY;
+	int iTiltOrientation;
 	//whether the x axes and y axes should invert directions (left becomes right, top becomes bottom.)
 	bool bInvertTiltX, bInvertTiltY;
 	//the sensitivity of the tilt in the x direction
@@ -323,6 +328,17 @@ public:
 	int iRightAnalogRight;
 	int iRightAnalogPress;
 	bool bRightAnalogCustom;
+	bool bRightAnalogDisableDiagonal;
+
+	// Motion gesture controller
+	bool bGestureControlEnabled;
+	int iSwipeUp;
+	int iSwipeDown;
+	int iSwipeLeft;
+	int iSwipeRight;
+	float fSwipeSensitivity;
+	float fSwipeSmoothing;
+	int iDoubleTapGesture;
 
 	// Disable diagonals
 	bool bDisableDpadDiagonals;
@@ -352,7 +368,7 @@ public:
 	float fDpadSpacing;
 	ConfigTouchPos touchStartKey;
 	ConfigTouchPos touchSelectKey;
-	ConfigTouchPos touchUnthrottleKey;
+	ConfigTouchPos touchFastForwardKey;
 	ConfigTouchPos touchLKey;
 	ConfigTouchPos touchRKey;
 	ConfigTouchPos touchAnalogStick;
@@ -368,6 +384,10 @@ public:
 	ConfigTouchPos touchCombo7;
 	ConfigTouchPos touchCombo8;
 	ConfigTouchPos touchCombo9;
+
+	float fLeftStickHeadScale;
+	float fRightStickHeadScale;
+	bool bHideStickBackground;
 
 	// Controls Visibility
 	bool bShowTouchControls;
@@ -506,7 +526,7 @@ public:
 	std::string dismissedVersion;
 
 	void Load(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
-	void Save(const char *saveReason);
+	bool Save(const char *saveReason);
 	void Reload();
 	void RestoreDefaults();
 

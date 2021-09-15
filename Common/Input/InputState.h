@@ -28,10 +28,10 @@ enum {
 	DEVICE_ID_PAD_7 = 17,
 	DEVICE_ID_PAD_8 = 18,
 	DEVICE_ID_PAD_9 = 19,
-	DEVICE_ID_X360_0 = 20,  // XInput joypads
-	DEVICE_ID_X360_1 = 21,
-	DEVICE_ID_X360_2 = 22,
-	DEVICE_ID_X360_3 = 23,
+	DEVICE_ID_XINPUT_0 = 20,  // XInput joypads
+	DEVICE_ID_XINPUT_1 = 21,
+	DEVICE_ID_XINPUT_2 = 22,
+	DEVICE_ID_XINPUT_3 = 23,
 	DEVICE_ID_ACCELEROMETER = 30,
 };
 
@@ -69,7 +69,7 @@ enum {
 	PAD_BUTTON_LEFT_TRIGGER = 1 << 21,   // Click left thumb stick on X360
 	PAD_BUTTON_RIGHT_TRIGGER = 1 << 22,   // Click left thumb stick on X360
 
-	PAD_BUTTON_UNTHROTTLE = 1 << 20, // Click Tab to unthrottle
+	PAD_BUTTON_FASTFORWARD = 1 << 20, // Click Tab to unthrottle
 };
 
 #ifndef MAX_KEYQUEUESIZE

@@ -18,9 +18,11 @@
 #include <cstdlib>
 #include <set>
 #include <thread>
+#include <memory>
 
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Profiler/Profiler.h"
+#include "Common/TimeUtil.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -557,14 +559,6 @@ static void __IoAsyncEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	}
 }
 
-static DirectoryFileSystem *memstickSystem = nullptr;
-static DirectoryFileSystem *exdataSystem = nullptr;
-#if defined(USING_WIN_UI) || defined(APPLE)
-static DirectoryFileSystem *flash0System = nullptr;
-#else
-static VFSFileSystem *flash0System = nullptr;
-#endif
-
 static void __IoManagerThread() {
 	SetCurrentThreadName("IO");
 	while (ioManagerThreadEnabled && coreState != CORE_BOOT_ERROR && coreState != CORE_RUNTIME_ERROR && coreState != CORE_POWERDOWN) {
@@ -631,23 +625,35 @@ void __IoInit() {
 	asyncNotifyEvent = CoreTiming::RegisterEvent("IoAsyncNotify", __IoAsyncNotify);
 	syncNotifyEvent = CoreTiming::RegisterEvent("IoSyncNotify", __IoSyncNotify);
 
-	memstickSystem = new DirectoryFileSystem(&pspFileSystem, g_Config.memStickDirectory, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
+	// TODO(scoped): This won't work if memStickDirectory points at the contents of /PSP...
 #if defined(USING_WIN_UI) || defined(APPLE)
-	flash0System = new DirectoryFileSystem(&pspFileSystem, g_Config.flash0Directory, FileSystemFlags::FLASH);
+	auto flash0System = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, g_Config.flash0Directory, FileSystemFlags::FLASH));
 #else
-	flash0System = new VFSFileSystem(&pspFileSystem, "flash0");
+	auto flash0System = std::shared_ptr<IFileSystem>(new VFSFileSystem(&pspFileSystem, "flash0"));
 #endif
+	FileSystemFlags memstickFlags = FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD;
+
+	Path pspDir = GetSysDirectory(DIRECTORY_PSP);
+	if (pspDir == g_Config.memStickDirectory) {
+		// Initially tried to do this with dual mounts, but failed due to save state compatibility issues.
+		INFO_LOG(SCEIO, "Enabling /PSP compatibility mode");
+		memstickFlags |= FileSystemFlags::STRIP_PSP;
+	}
+
+	auto memstickSystem = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, g_Config.memStickDirectory, memstickFlags));
+
 	pspFileSystem.Mount("ms0:", memstickSystem);
 	pspFileSystem.Mount("fatms0:", memstickSystem);
 	pspFileSystem.Mount("fatms:", memstickSystem);
 	pspFileSystem.Mount("pfat0:", memstickSystem);
+
 	pspFileSystem.Mount("flash0:", flash0System);
 
 	if (g_RemasterMode) {
 		const std::string gameId = g_paramSFO.GetDiscID();
-		const Path exdataPath = g_Config.memStickDirectory / "exdata" / gameId;
+		const Path exdataPath = GetSysDirectory(DIRECTORY_EXDATA) / gameId;
 		if (File::Exists(exdataPath)) {
-			exdataSystem = new DirectoryFileSystem(&pspFileSystem, exdataPath, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
+			auto exdataSystem = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, exdataPath, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD));
 			pspFileSystem.Mount("exdata0:", exdataSystem);
 			INFO_LOG(SCEIO, "Mounted exdata/%s/ under memstick for exdata0:/", gameId.c_str());
 		} else {
@@ -763,22 +769,12 @@ void __IoShutdown() {
 	}
 	asyncDefaultPriority = -1;
 
-	pspFileSystem.Unmount("ms0:", memstickSystem);
-	pspFileSystem.Unmount("fatms0:", memstickSystem);
-	pspFileSystem.Unmount("fatms:", memstickSystem);
-	pspFileSystem.Unmount("pfat0:", memstickSystem);
-	pspFileSystem.Unmount("flash0:", flash0System);
-
-	if (g_RemasterMode && exdataSystem) {
-		pspFileSystem.Unmount("exdata0:", exdataSystem);
-		delete exdataSystem;
-		exdataSystem = nullptr;
-	}
-
-	delete memstickSystem;
-	memstickSystem = nullptr;
-	delete flash0System;
-	flash0System = nullptr;
+	pspFileSystem.Unmount("ms0:");
+	pspFileSystem.Unmount("fatms0:");
+	pspFileSystem.Unmount("fatms:");
+	pspFileSystem.Unmount("pfat0:");
+	pspFileSystem.Unmount("flash0:");
+	pspFileSystem.Unmount("exdata0:");
 
 	MemoryStick_Shutdown();
 	memStickCallbacks.clear();
@@ -2326,10 +2322,57 @@ static u32 sceIoDopen(const char *path) {
 	DirListing *dir = new DirListing();
 	SceUID id = kernelObjects.Create(dir);
 
+	double startTime = time_now_d();
+
 	dir->listing = pspFileSystem.GetDirListing(path);
 	dir->index = 0;
 	dir->name = std::string(path);
 
+	double listTime = time_now_d() - startTime;
+
+	if (listTime > 0.01) {
+		INFO_LOG(IO, "Dir listing '%s' took %0.3f", path, listTime);
+	}
+
+	// Blacklist some directories that games should not be able to find out about.
+	// Speeds up directory iteration on slow Android Scoped Storage implementations :(
+	// Might also want to filter out PSP/GAME if not a homebrew, maybe also irrelevant directories
+	// in PSP/SAVEDATA, though iffy to know which ones are irrelevant..
+	// Also if we're stripping PSP from the path due to setting a directory named PSP as the memstick root,
+	// these will also show up at ms0: which is not ideal. Should find some other way to deal with that.
+	if (!strcmp(path, "ms0:/PSP") || !strcmp(path, "ms0:")) {
+		static const char *const pspFolderBlacklist[] = {
+			"CHEATS",
+			"PPSSPP_STATE",
+			"PLUGINS",
+			"SYSTEM",
+			"SCREENSHOT",
+			"TEXTURES",
+			"DUMP",
+			"SHADERS",
+		};
+		std::vector<PSPFileInfo> filtered;
+		for (const auto &entry : dir->listing) {
+			bool blacklisted = false;
+			for (auto black : pspFolderBlacklist) {
+				if (!strcasecmp(entry.name.c_str(), black)) {
+					blacklisted = true;
+					break;
+				}
+			}
+			// Also don't let games see a GAME directory in the root. This confuses Wipeout...
+			if (!strcasecmp(entry.name.c_str(), "GAME") && !strcmp(path, "ms0:")) {
+				blacklisted = true;
+			}
+
+			if (!blacklisted) {
+				filtered.push_back(entry);
+			}
+		}
+
+		dir->listing = filtered;
+	}
+	
 	// TODO: The result is delayed only from the memstick, it seems.
 	return id;
 }
@@ -2354,7 +2397,7 @@ static u32 sceIoDread(int id, u32 dirent_addr) {
 		SceIoDirEnt *entry = (SceIoDirEnt*) Memory::GetPointer(dirent_addr);
 
 		if (dir->index == (int) dir->listing.size()) {
-			DEBUG_LOG(SCEIO, "sceIoDread( %d %08x ) - end of the line", id, dirent_addr);
+			DEBUG_LOG(SCEIO, "sceIoDread( %d %08x ) - end", id, dirent_addr);
 			entry->d_name[0] = '\0';
 			return 0;
 		}

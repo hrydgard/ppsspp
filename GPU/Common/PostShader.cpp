@@ -28,9 +28,10 @@
 #include "Common/File/DirListing.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
-
 #include "Common/StringUtils.h"
+
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "GPU/Common/PostShader.h"
 
 static std::vector<ShaderInfo> shaderInfo;
@@ -80,10 +81,10 @@ void LoadPostShaderInfo(const std::vector<Path> &directories) {
 
 	for (size_t d = 0; d < directories.size(); d++) {
 		std::vector<File::FileInfo> fileInfo;
-		File::GetFilesInDir(directories[d], &fileInfo, "ini:");
+		VFSGetFileListing(directories[d].c_str(), &fileInfo, "ini:");
 
-		if (fileInfo.size() == 0) {
-			VFSGetFileListing(directories[d].c_str(), &fileInfo, "ini:");
+		if (fileInfo.empty()) {
+			File::GetFilesInDir(directories[d], &fileInfo, "ini:");
 		}
 
 		for (size_t f = 0; f < fileInfo.size(); f++) {
@@ -186,7 +187,7 @@ void LoadPostShaderInfo(const std::vector<Path> &directories) {
 void ReloadAllPostShaderInfo() {
 	std::vector<Path> directories;
 	directories.push_back(Path("shaders"));  // For VFS
-	directories.push_back(g_Config.memStickDirectory / "PSP" / "shaders");
+	directories.push_back(GetSysDirectory(DIRECTORY_CUSTOM_SHADERS));
 	LoadPostShaderInfo(directories);
 }
 

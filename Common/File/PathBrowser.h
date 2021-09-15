@@ -27,12 +27,17 @@ public:
 
 	bool CanNavigateUp();
 	void NavigateUp();
+
 	void Navigate(const std::string &subdir);
 
-	Path GetPath() const {
+	const Path &GetPath() const {
 		return path_;
 	}
 	std::string GetFriendlyPath() const;
+
+	bool empty() const {
+		return path_.empty();
+	}
 
 private:
 	void HandlePath();

@@ -28,6 +28,7 @@
 #include <dlfcn.h>
 #endif
 
+namespace PPSSPP_VK {
 PFN_vkCreateInstance vkCreateInstance;
 PFN_vkDestroyInstance vkDestroyInstance;
 PFN_vkEnumeratePhysicalDevices vkEnumeratePhysicalDevices;
@@ -186,6 +187,9 @@ PFN_vkCreateXlibSurfaceKHR vkCreateXlibSurfaceKHR;
 #if defined(VK_USE_PLATFORM_WAYLAND_KHR)
 PFN_vkCreateWaylandSurfaceKHR vkCreateWaylandSurfaceKHR;
 #endif
+#if defined(VK_USE_PLATFORM_DISPLAY_KHR)
+PFN_vkCreateDisplayPlaneSurfaceKHR vkCreateDisplayPlaneSurfaceKHR;
+#endif
 
 PFN_vkDestroySurfaceKHR vkDestroySurfaceKHR;
 
@@ -213,6 +217,9 @@ PFN_vkGetBufferMemoryRequirements2KHR vkGetBufferMemoryRequirements2KHR;
 PFN_vkGetImageMemoryRequirements2KHR vkGetImageMemoryRequirements2KHR;
 PFN_vkGetPhysicalDeviceProperties2KHR vkGetPhysicalDeviceProperties2KHR;
 PFN_vkGetPhysicalDeviceFeatures2KHR vkGetPhysicalDeviceFeatures2KHR;
+} // namespace PPSSPP_VK
+
+using namespace PPSSPP_VK;
 
 #ifdef _WIN32
 static HINSTANCE vulkanLibrary;
@@ -534,6 +541,9 @@ void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &en
 #endif
 #if defined(VK_USE_PLATFORM_WAYLAND_KHR)
 	LOAD_INSTANCE_FUNC(instance, vkCreateWaylandSurfaceKHR);
+#endif
+#if defined(VK_USE_PLATFORM_DISPLAY_KHR)
+	LOAD_INSTANCE_FUNC(instance, vkCreateDisplayPlaneSurfaceKHR);
 #endif
 
 	LOAD_INSTANCE_FUNC(instance, vkDestroySurfaceKHR);

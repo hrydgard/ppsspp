@@ -44,8 +44,7 @@ android {
 			}
 		}
 	}
-	compileSdkVersion 29
-	buildToolsVersion '29.0.3'
+	compileSdkVersion 30
 	defaultConfig {
 		applicationId 'org.ppsspp.ppssppluna'
 		if (androidGitVersion.name() != "unknown" && androidGitVersion.code() >= 14000000) {
@@ -61,7 +60,7 @@ android {
 		new File("versioncode.txt").write(androidGitVersion.code().toString())
 
 		minSdkVersion 9
-		targetSdkVersion 29
+		targetSdkVersion 30
 		if (project.hasProperty("ANDROID_VERSION_CODE") && project.hasProperty("ANDROID_VERSION_NAME")) {
 			versionCode ANDROID_VERSION_CODE
 			versionName ANDROID_VERSION_NAME
@@ -103,7 +102,6 @@ android {
 			assets.srcDirs = [
 					'../assets',
 			]
-			jni.srcDirs = ['..']
 		}
 		gold {
 			res.srcDirs = ['gold/res']

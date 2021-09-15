@@ -50,6 +50,7 @@
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
 #include "GPU/Vulkan/GPU_Vulkan.h"
 
+using namespace PPSSPP_VK;
 
 enum {
 	VERTEX_CACHE_SIZE = 8192 * 1024
@@ -818,6 +819,10 @@ void DrawEngineVulkan::DoFlush() {
 			}
 
 			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, true, useHWTessellation_, decOptions_.expandAllWeightsToFloat);  // usehwtransform
+			if (!vshader) {
+				// We're screwed.
+				return;
+			}
 			_dbg_assert_msg_(vshader->UseHWTransform(), "Bad vshader");
 
 			Draw::NativeObject object = framebufferManager_->UseBufferedRendering() ? Draw::NativeObject::FRAMEBUFFER_RENDERPASS : Draw::NativeObject::BACKBUFFER_RENDERPASS;

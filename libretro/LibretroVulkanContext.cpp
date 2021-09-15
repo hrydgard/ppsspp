@@ -11,6 +11,7 @@
 
 #include "libretro/LibretroVulkanContext.h"
 #include "libretro/libretro_vulkan.h"
+#include <GPU/Vulkan/VulkanRenderManager.h>
 
 static VulkanContext *vk;
 
@@ -66,6 +67,8 @@ static bool create_device(retro_vulkan_context *context, VkInstance instance, Vk
 	vk->InitSurface(WINDOWSYSTEM_XCB, nullptr, nullptr);
 #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
 	vk->InitSurface(WINDOWSYSTEM_WAYLAND, nullptr, nullptr);
+#elif defined(VK_USE_PLATFORM_DISPLAY_KHR)
+	vk->InitSurface(WINDOWSYSTEM_DISPLAY, nullptr, nullptr);
 #endif
 
 	context->gpu = vk->GetPhysicalDevice(physical_device);
@@ -123,6 +126,13 @@ void LibretroVulkanContext::ContextReset() {
    LibretroHWRenderContext::ContextReset();
 }
 
+void LibretroVulkanContext::ContextDestroy() {
+   INFO_LOG(G3D, "LibretroVulkanContext::ContextDestroy()");
+
+   LostBackbuffer();
+   gpu->DeviceLost();
+}
+
 void LibretroVulkanContext::CreateDrawContext() {
    vk->ReinitSurface();
 
@@ -131,6 +141,8 @@ void LibretroVulkanContext::CreateDrawContext() {
    }
 
    draw_ = Draw::T3DCreateVulkanContext(vk, false);
+   ((VulkanRenderManager*)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER))->SetInflightFrames(g_Config.iInflightFrames);
+   SetGPUBackend(GPUBackend::VULKAN);
 }
 
 void LibretroVulkanContext::Shutdown() {

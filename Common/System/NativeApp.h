@@ -89,3 +89,5 @@ void NativeSetMixer(void* mixer);
 // Main thread.
 void NativeShutdownGraphics();
 void NativeShutdown();
+
+void PostLoadConfig();

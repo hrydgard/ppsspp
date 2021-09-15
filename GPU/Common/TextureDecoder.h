@@ -27,15 +27,10 @@ enum CheckAlphaResult {
 #include "Common/Common.h"
 #include "Common/Swap.h"
 #include "Core/MemMap.h"
+#include "Core/ConfigValues.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/TextureDecoderNEON.h"
 #include "GPU/GPUState.h"
-
-enum TextureFiltering {
-	TEX_FILTER_AUTO = 1,
-	TEX_FILTER_FORCE_NEAREST = 2,
-	TEX_FILTER_FORCE_LINEAR = 3,
-};
 
 void SetupTextureDecoder();
 
@@ -96,6 +91,10 @@ struct DXT5Block {
 void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, int height, bool ignore1bitAlpha);
 void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch, int height);
 void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch, int height);
+
+uint32_t GetDXT1Texel(const DXT1Block *src, int x, int y);
+uint32_t GetDXT3Texel(const DXT3Block *src, int x, int y);
+uint32_t GetDXT5Texel(const DXT5Block *src, int x, int y);
 
 static const u8 textureBitsPerPixel[16] = {
 	16,  //GE_TFMT_5650,

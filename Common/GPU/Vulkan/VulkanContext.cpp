@@ -27,6 +27,8 @@
 #define new DBG_NEW
 #endif
 
+using namespace PPSSPP_VK;
+
 VulkanLogOptions g_LogOptions;
 
 static const char *validationLayers[] = {
@@ -112,6 +114,11 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 #if defined(VK_USE_PLATFORM_WAYLAND_KHR)
 	if (IsInstanceExtensionAvailable(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME)) {
 		instance_extensions_enabled_.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
+	}
+#endif
+#if defined(VK_USE_PLATFORM_DISPLAY_KHR)
+	if (IsInstanceExtensionAvailable(VK_KHR_DISPLAY_EXTENSION_NAME)) {
+		instance_extensions_enabled_.push_back(VK_KHR_DISPLAY_EXTENSION_NAME);
 	}
 #endif
 #if defined(VK_USE_PLATFORM_METAL_EXT)
@@ -766,6 +773,15 @@ VkResult VulkanContext::ReinitSurface() {
 		wayland.display = (wl_display *)winsysData1_;
 		wayland.surface = (wl_surface *)winsysData2_;
 		retval = vkCreateWaylandSurfaceKHR(instance_, &wayland, nullptr, &surface_);
+		break;
+	}
+#endif
+#if defined(VK_USE_PLATFORM_DISPLAY_KHR)
+	case WINDOWSYSTEM_DISPLAY:
+	{
+		VkDisplaySurfaceCreateInfoKHR display{ VK_STRUCTURE_TYPE_DISPLAY_SURFACE_CREATE_INFO_KHR };
+		display.flags = 0;
+		retval = vkCreateDisplayPlaneSurfaceKHR(instance_, &display, nullptr, &surface_);
 		break;
 	}
 #endif

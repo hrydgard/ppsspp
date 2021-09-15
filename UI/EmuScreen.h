@@ -33,6 +33,7 @@ struct AxisInput;
 
 class AsyncImageFileView;
 class OnScreenMessagesView;
+class ChatMenu;
 
 class EmuScreen : public UIScreen {
 public:
@@ -57,6 +58,7 @@ private:
 	UI::EventReturn OnDisableCardboard(UI::EventParams &params);
 	UI::EventReturn OnChat(UI::EventParams &params);
 	UI::EventReturn OnResume(UI::EventParams &params);
+	UI::EventReturn OnReset(UI::EventParams &params);
 
 	void bootGame(const Path &filename);
 	bool bootAllowStorage(const Path &filename);
@@ -84,6 +86,10 @@ private:
 	// If set, pauses at the end of the frame.
 	bool pauseTrigger_ = false;
 
+	// The last read chat message count, and how many new ones there are.
+	int chatMessages_ = 0;
+	int newChatMessages_ = 0;
+
 	// In-memory save state used for freezeFrame, which is useful for debugging.
 	std::vector<u8> freezeState_;
 
@@ -98,7 +104,9 @@ private:
 	UI::Spinner *loadingSpinner_ = nullptr;
 	UI::TextView *loadingTextView_ = nullptr;
 	UI::Button *resumeButton_ = nullptr;
+	UI::Button *resetButton_ = nullptr;
 	UI::View *chatButton_ = nullptr;
+	ChatMenu *chatMenu_ = nullptr;
 
 	UI::Button *cardboardDisableButton_ = nullptr;
 	OnScreenMessagesView *onScreenMessagesView_ = nullptr;

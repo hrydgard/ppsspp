@@ -51,3 +51,4 @@ void MemoryStick_SetFatState(MemStickFatState state);
 
 u64 MemoryStick_SectorSize();
 u64 MemoryStick_FreeSpace();
+void MemoryStick_NotifyWrite();

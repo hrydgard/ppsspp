@@ -28,36 +28,6 @@
 typedef void * HANDLE;
 #endif
 
-#if defined(__APPLE__)
-
-#if TARGET_OS_IPHONE
-#define HOST_IS_CASE_SENSITIVE 1
-#elif TARGET_IPHONE_SIMULATOR
-#define HOST_IS_CASE_SENSITIVE 0
-#else
-// Mac OSX case sensitivity defaults off, but is user configurable (when
-// creating a filesytem), so assume the worst:
-#define HOST_IS_CASE_SENSITIVE 1
-#endif
-
-#elif defined(_WIN32)
-#define HOST_IS_CASE_SENSITIVE 0
-
-#else  // Android, Linux, BSD (and the rest?)
-#define HOST_IS_CASE_SENSITIVE 1
-
-#endif
-
-#if HOST_IS_CASE_SENSITIVE
-enum FixPathCaseBehavior {
-	FPC_FILE_MUST_EXIST,  // all path components must exist (rmdir, move from)
-	FPC_PATH_MUST_EXIST,  // all except the last one must exist - still tries to fix last one (fopen, move to)
-	FPC_PARTIAL_ALLOWED,  // don't care how many exist (mkdir recursive)
-};
-
-bool FixPathCase(const std::string &basePath, std::string &path, FixPathCaseBehavior behavior);
-#endif
-
 struct DirectoryFileHandle {
 	enum Flags {
 		NORMAL,
@@ -72,11 +42,14 @@ struct DirectoryFileHandle {
 	s64 needsTrunc_ = -1;
 	bool replay_ = true;
 	bool inGameDir_ = false;
+	FileSystemFlags fileSystemFlags_ = (FileSystemFlags)0;
 
-	DirectoryFileHandle(Flags flags) : replay_(flags != SKIP_REPLAY) {
-	}
+	DirectoryFileHandle() {}
 
-	Path GetLocalPath(const Path &basePath, std::string localpath);
+	DirectoryFileHandle(Flags flags, FileSystemFlags fileSystemFlags)
+		: replay_(flags != SKIP_REPLAY), fileSystemFlags_(fileSystemFlags) {}
+
+	Path GetLocalPath(const Path &basePath, std::string localpath) const;
 	bool Open(const Path &basePath, std::string &fileName, FileAccess access, u32 &err);
 	size_t Read(u8* pointer, s64 size);
 	size_t Write(const u8* pointer, s64 size);
@@ -112,11 +85,13 @@ public:
 	FileSystemFlags Flags() override { return flags; }
 	u64 FreeSpace(const std::string &path) override;
 
+	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override;
+
 private:
 	struct OpenFileEntry {
-		DirectoryFileHandle hFile = DirectoryFileHandle::NORMAL;
+		DirectoryFileHandle hFile;
 		std::string guestFilename;
-		FileAccess access;
+		FileAccess access = FILEACCESS_NONE;
 	};
 
 	typedef std::map<u32, OpenFileEntry> EntryMap;
@@ -124,8 +99,8 @@ private:
 	Path basePath;
 	IHandleAllocator *hAlloc;
 	FileSystemFlags flags;
-	// In case of Windows: Translate slashes, etc.
-	Path GetLocalPath(std::string internalPath);
+
+	Path GetLocalPath(std::string internalPath) const;
 };
 
 // VFSFileSystem: Ability to map in Android APK paths as well! Does not support all features, only meant for fonts.
@@ -155,6 +130,8 @@ public:
 	bool RemoveFile(const std::string &filename) override;
 	FileSystemFlags Flags() override { return FileSystemFlags::FLASH; }
 	u64 FreeSpace(const std::string &path) override { return 0; }
+
+	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override { return false; }
 
 private:
 	struct OpenFileEntry {

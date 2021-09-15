@@ -53,23 +53,32 @@ struct RequestProgress {
 	bool *cancelled = nullptr;
 };
 
+struct RequestParams {
+	RequestParams() {}
+	explicit RequestParams(const char *r) : resource(r) {}
+	RequestParams(const std::string &r, const char *a) : resource(r), acceptMime(a) {}
+
+	std::string resource;
+	const char *acceptMime = "*/*";
+};
+
 class Client : public net::Connection {
 public:
 	Client();
 	~Client();
 
 	// Return value is the HTTP return code. 200 means OK. < 0 means some local error.
-	int GET(const char *resource, Buffer *output, RequestProgress *progress);
-	int GET(const char *resource, Buffer *output, std::vector<std::string> &responseHeaders, RequestProgress *progress);
+	int GET(const RequestParams &req, Buffer *output, RequestProgress *progress);
+	int GET(const RequestParams &req, Buffer *output, std::vector<std::string> &responseHeaders, RequestProgress *progress);
 
 	// Return value is the HTTP return code.
-	int POST(const char *resource, const std::string &data, const std::string &mime, Buffer *output, RequestProgress *progress);
-	int POST(const char *resource, const std::string &data, Buffer *output, RequestProgress *progress);
+	int POST(const RequestParams &req, const std::string &data, const std::string &mime, Buffer *output, RequestProgress *progress);
+	int POST(const RequestParams &req, const std::string &data, Buffer *output, RequestProgress *progress);
 
 	// HEAD, PUT, DELETE aren't implemented yet, but can be done with SendRequest.
 
-	int SendRequest(const char *method, const char *resource, const char *otherHeaders, RequestProgress *progress);
-	int SendRequestWithData(const char *method, const char *resource, const std::string &data, const char *otherHeaders, RequestProgress *progress);
+	int SendRequest(const char *method, const RequestParams &req, const char *otherHeaders, RequestProgress *progress);
+	int SendRequestWithData(const char *method, const RequestParams &req, const std::string &data, const char *otherHeaders, RequestProgress *progress);
 	int ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &responseHeaders, RequestProgress *progress);
 	// If your response contains a response, you must read it.
 	int ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, RequestProgress *progress);
@@ -111,6 +120,10 @@ public:
 	std::string url() const { return url_; }
 	const Path &outfile() const { return outfile_; }
 
+	void SetAccept(const char *mime) {
+		acceptMime_ = mime;
+	}
+
 	// If not downloading to a file, access this to get the result.
 	Buffer &buffer() { return buffer_; }
 	const Buffer &buffer() const { return buffer_; }
@@ -144,12 +157,14 @@ private:
 	int PerformGET(const std::string &url);
 	std::string RedirectLocation(const std::string &baseUrl);
 	void SetFailed(int code);
+
 	RequestProgress progress_;
 	Buffer buffer_;
 	std::vector<std::string> responseHeaders_;
 	std::string url_;
 	Path outfile_;
 	std::thread thread_;
+	const char *acceptMime_ = "*/*";
 	int resultCode_ = 0;
 	bool completed_ = false;
 	bool failed_ = false;
@@ -167,12 +182,13 @@ public:
 		CancelAll();
 	}
 
-	std::shared_ptr<Download> StartDownload(const std::string &url, const Path &outfile);
+	std::shared_ptr<Download> StartDownload(const std::string &url, const Path &outfile, const char *acceptMime = nullptr);
 
 	std::shared_ptr<Download> StartDownloadWithCallback(
 		const std::string &url,
 		const Path &outfile,
-		std::function<void(Download &)> callback);
+		std::function<void(Download &)> callback,
+		const char *acceptMime = nullptr);
 
 	// Drops finished downloads from the list.
 	void Update();

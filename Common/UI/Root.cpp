@@ -24,7 +24,6 @@ static std::mutex eventMutex_;
 static std::function<void(UISound)> soundCallback;
 static bool soundEnabled = true;
 
-
 struct DispatchQueueItem {
 	Event *e;
 	EventParams params;
@@ -195,11 +194,23 @@ static std::set<HeldKey> heldKeys;
 const double repeatDelay = 15 * (1.0 / 60.0f);  // 15 frames like before.
 const double repeatInterval = 5 * (1.0 / 60.0f);  // 5 frames like before.
 
+bool IsScrollKey(const KeyInput &input) {
+	switch (input.keyCode) {
+	case NKCODE_PAGE_UP:
+	case NKCODE_PAGE_DOWN:
+	case NKCODE_MOVE_HOME:
+	case NKCODE_MOVE_END:
+		return true;
+	default:
+		return false;
+	}
+}
+
 bool KeyEvent(const KeyInput &key, ViewGroup *root) {
 	bool retval = false;
 	// Ignore repeats for focus moves.
 	if ((key.flags & (KEY_DOWN | KEY_IS_REPEAT)) == KEY_DOWN) {
-		if (IsDPadKey(key)) {
+		if (IsDPadKey(key) || IsScrollKey(key)) {
 			// Let's only repeat DPAD initially.
 			HeldKey hk;
 			hk.key = key.keyCode;
@@ -329,10 +340,10 @@ bool AxisEvent(const AxisInput &axis, ViewGroup *root) {
 	case DEVICE_ID_PAD_1:
 	case DEVICE_ID_PAD_2:
 	case DEVICE_ID_PAD_3:
-	case DEVICE_ID_X360_0:
-	case DEVICE_ID_X360_1:
-	case DEVICE_ID_X360_2:
-	case DEVICE_ID_X360_3:
+	case DEVICE_ID_XINPUT_0:
+	case DEVICE_ID_XINPUT_1:
+	case DEVICE_ID_XINPUT_2:
+	case DEVICE_ID_XINPUT_3:
 	{
 		PrevState &old = state[stateKey];
 		DirState dir = DirState::NONE;
@@ -399,6 +410,10 @@ void UpdateViewHierarchy(ViewGroup *root) {
 				case NKCODE_DPAD_RIGHT: MoveFocus(root, FOCUS_RIGHT); break;
 				case NKCODE_DPAD_UP: MoveFocus(root, FOCUS_UP); break;
 				case NKCODE_DPAD_DOWN: MoveFocus(root, FOCUS_DOWN); break;
+				case NKCODE_PAGE_UP: MoveFocus(root, FOCUS_PREV_PAGE); break;
+				case NKCODE_PAGE_DOWN: MoveFocus(root, FOCUS_NEXT_PAGE); break;
+				case NKCODE_MOVE_HOME: MoveFocus(root, FOCUS_FIRST); break;
+				case NKCODE_MOVE_END: MoveFocus(root, FOCUS_LAST); break;
 				}
 			}
 		}

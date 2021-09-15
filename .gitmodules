@@ -1,9 +1,6 @@
 [submodule "pspautotests"]
 	path = pspautotests
 	url = https://github.com/hrydgard/pspautotests.git
-[submodule "lang"]
-	path = assets/lang
-	url = https://github.com/hrydgard/ppsspp-lang.git
 [submodule "ffmpeg"]
 	path = ffmpeg
 	url = https://github.com/hrydgard/ppsspp-ffmpeg.git

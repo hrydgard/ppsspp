@@ -14,6 +14,11 @@
 struct Atlas;
 
 enum {
+	// Enough?
+	MAX_VERTS = 65536,
+};
+
+enum {
 	ALIGN_LEFT = 0,
 	ALIGN_RIGHT = 16,
 	ALIGN_TOP = 0,
@@ -73,7 +78,6 @@ public:
 	void Rect(float x, float y, float w, float h, uint32_t color, int align = ALIGN_TOPLEFT);
 	void hLine(float x1, float y, float x2, uint32_t color);
 	void vLine(float x, float y1, float y2, uint32_t color);
-	void vLineAlpha50(float x, float y1, float y2, uint32_t color);
 
 	void Line(ImageID atlas_image, float x1, float y1, float x2, float y2, float thickness, uint32_t color);
 
@@ -97,6 +101,7 @@ public:
 	}
 
 	void Circle(float x, float y, float radius, float thickness, int segments, float startAngle, uint32_t color, float u_mul);
+	void FillCircle(float x, float y, float radius, int segments, uint32_t color);
 
 	// New drawing APIs
 
@@ -116,6 +121,7 @@ public:
 		DrawImageStretch(atlas_image, bounds.x, bounds.y, bounds.x2(), bounds.y2(), color);
 	}
 	void DrawImageRotated(ImageID atlas_image, float x, float y, float scale, float angle, Color color = COLOR(0xFFFFFF), bool mirror_h = false);	// Always centers
+	void DrawImageRotatedStretch(ImageID atlas_image, const Bounds &bounds, float scales[2], float angle, Color color = COLOR(0xFFFFFF), bool mirror_h = false);
 	void DrawTexRect(float x1, float y1, float x2, float y2, float u1, float v1, float u2, float v2, Color color);
 	void DrawTexRect(const Bounds &bounds, float u1, float v1, float u2, float v2, Color color) {
 		DrawTexRect(bounds.x, bounds.y, bounds.x2(), bounds.y2(), u1, v1, u2, v2, color);

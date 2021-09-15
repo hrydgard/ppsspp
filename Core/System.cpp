@@ -131,6 +131,7 @@ void UpdateUIState(GlobalUIState newState) {
 		case UISTATE_INGAME: state = "ingame"; break;
 		case UISTATE_MENU: state = "menu"; break;
 		case UISTATE_PAUSEMENU: state = "pausemenu"; break;
+		case UISTATE_EXCEPTION: state = "exception"; break;
 		}
 		if (state) {
 			System_SendMessage("uistate", state);
@@ -216,7 +217,7 @@ bool DiscIDFromGEDumpPath(const Path &path, FileLoader *fileLoader, std::string 
 	}
 }
 
-bool CPU_Init() {
+bool CPU_Init(std::string *errorString) {
 	coreState = CORE_POWERUP;
 	currentMIPS = &mipsr4k;
 
@@ -237,7 +238,8 @@ bool CPU_Init() {
 		loadedFile = new RamCachingFileLoader(loadedFile);
 	}
 #endif
-	IdentifiedFileType type = Identify_File(loadedFile);
+
+	IdentifiedFileType type = Identify_File(loadedFile, errorString);
 
 	// TODO: Put this somewhere better?
 	if (!coreParameter.mountIso.empty()) {
@@ -277,6 +279,8 @@ bool CPU_Init() {
 		allowPlugins = false;
 		break;
 	default:
+		// Can we even get here?
+		WARN_LOG(LOADER, "CPU_Init didn't recognize file. %s", errorString->c_str());
 		break;
 	}
 
@@ -351,6 +355,7 @@ void CPU_Shutdown() {
 	if (coreParameter.enableSound) {
 		Audio_Shutdown();
 	}
+
 	pspFileSystem.Shutdown();
 	mipsr4k.Shutdown();
 	Memory::Shutdown();
@@ -412,7 +417,7 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	pspIsIniting = true;
 	PSP_SetLoading("Loading game...");
 
-	if (!CPU_Init()) {
+	if (!CPU_Init(&coreParameter.errorString)) {
 		*error_string = coreParameter.errorString;
 		if (error_string->empty()) {
 			*error_string = "Failed initializing CPU/Memory";
@@ -591,6 +596,8 @@ Path GetSysDirectory(PSPDirectories directoryType) {
 	}
 
 	switch (directoryType) {
+	case DIRECTORY_PSP:
+		return pspDirectory;
 	case DIRECTORY_CHEATS:
 		return pspDirectory / "Cheats";
 	case DIRECTORY_GAME:
@@ -603,6 +610,8 @@ Path GetSysDirectory(PSPDirectories directoryType) {
 		return pspDirectory / "SYSTEM";
 	case DIRECTORY_PAUTH:
 		return memStickDirectory / "PAUTH";  // This one's at the root...
+	case DIRECTORY_EXDATA:
+		return memStickDirectory / "EXDATA";  // This one's traditionally at the root...
 	case DIRECTORY_DUMP:
 		return pspDirectory / "SYSTEM/DUMP";
 	case DIRECTORY_SAVESTATE:
@@ -622,6 +631,9 @@ Path GetSysDirectory(PSPDirectories directoryType) {
 		return pspDirectory / "VIDEO";
 	case DIRECTORY_AUDIO:
 		return pspDirectory / "AUDIO";
+	case DIRECTORY_CUSTOM_SHADERS:
+		return pspDirectory / "shaders";
+
 	case DIRECTORY_MEMSTICK_ROOT:
 		return g_Config.memStickDirectory;
 	// Just return the memory stick root if we run into some sort of problem.
@@ -700,8 +712,8 @@ void InitSysDirectories() {
 
 	// Create the default directories that a real PSP creates. Good for homebrew so they can
 	// expect a standard environment. Skipping THEME though, that's pointless.
-	File::CreateDir(g_Config.memStickDirectory / "PSP");
-	File::CreateDir(g_Config.memStickDirectory / "PSP/COMMON");
+	File::CreateDir(GetSysDirectory(DIRECTORY_PSP));
+	File::CreateDir(GetSysDirectory(DIRECTORY_PSP) / "COMMON");
 	File::CreateDir(GetSysDirectory(DIRECTORY_GAME));
 	File::CreateDir(GetSysDirectory(DIRECTORY_SAVEDATA));
 	File::CreateDir(GetSysDirectory(DIRECTORY_SAVESTATE));

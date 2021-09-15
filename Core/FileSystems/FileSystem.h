@@ -63,6 +63,7 @@ enum class FileSystemFlags {
 	UMD = 2,
 	CARD = 4,
 	FLASH = 8,
+	STRIP_PSP = 16,
 };
 ENUM_CLASS_BITOPS(FileSystemFlags);
 
@@ -135,11 +136,11 @@ public:
 	virtual PSPDevType DevType(u32 handle) = 0;
 	virtual FileSystemFlags Flags() = 0;
 	virtual u64      FreeSpace(const std::string &path) = 0;
+	virtual bool     ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) = 0;
 };
 
 
-class EmptyFileSystem : public IFileSystem
-{
+class EmptyFileSystem : public IFileSystem {
 public:
 	virtual void DoState(PointerWrap &p) override {}
 	std::vector<PSPFileInfo> GetDirListing(std::string path) override {std::vector<PSPFileInfo> vec; return vec;}
@@ -160,6 +161,7 @@ public:
 	virtual PSPDevType DevType(u32 handle) override { return PSPDevType::INVALID; }
 	virtual FileSystemFlags Flags() override { return FileSystemFlags::NONE; }
 	virtual u64 FreeSpace(const std::string &path) override { return 0; }
+	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override { return false; }
 };
 
 

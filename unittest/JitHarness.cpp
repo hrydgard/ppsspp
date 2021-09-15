@@ -87,7 +87,7 @@ static void SetupJitHarness() {
 	g_symbolMap = new SymbolMap();
 	Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE;
 	PSP_CoreParameter().cpuCore = CPUCore::INTERPRETER;
-	PSP_CoreParameter().unthrottle = true;
+	PSP_CoreParameter().fastForward = true;
 
 	Memory::Init();
 	mipsr4k.Reset();

@@ -19,6 +19,7 @@
 
 #include <map>
 #include <list>
+#include <memory>
 
 #include "FileSystem.h"
 
@@ -53,23 +54,24 @@ public:
 	int  RenameFile(const std::string &from, const std::string &to) override { return -1; }
 	bool RemoveFile(const std::string &filename) override { return false; }
 
+	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override { return false; }
+
 private:
 	struct TreeEntry {
-		TreeEntry() : flags(0), valid(false) {}
 		~TreeEntry();
 
 		std::string name;
-		u32 flags;
-		u32 startingPosition;
-		s64 size;
-		bool isDirectory;
+		u32 flags = 0;
+		u32 startingPosition = 0;
+		s64 size = 0;
+		bool isDirectory = false;
 
-		u32 startsector;
-		u32 dirsize;
+		u32 startsector = 0;
+		u32 dirsize = 0;
 
-		TreeEntry *parent;
+		TreeEntry *parent = nullptr;
 
-		bool valid;
+		bool valid = false;
 		std::vector<TreeEntry *> children;
 	};
 
@@ -101,7 +103,7 @@ private:
 // the filenames to "", to achieve this.
 class ISOBlockSystem : public IFileSystem {
 public:
-	ISOBlockSystem(ISOFileSystem *isoFileSystem) : isoFileSystem_(isoFileSystem) {}
+	ISOBlockSystem(std::shared_ptr<IFileSystem> isoFileSystem) : isoFileSystem_(isoFileSystem) {}
 
 	void DoState(PointerWrap &p) override {
 		// This is a bit iffy, as block device savestates already are iffy (loads/saves multiple times for multiple mounts..)
@@ -150,6 +152,8 @@ public:
 	int  RenameFile(const std::string &from, const std::string &to) override { return -1; }
 	bool RemoveFile(const std::string &filename) override { return false; }
 
+	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override { return false; }
+
 private:
-	ISOFileSystem *isoFileSystem_;
+	std::shared_ptr<IFileSystem> isoFileSystem_;
 };

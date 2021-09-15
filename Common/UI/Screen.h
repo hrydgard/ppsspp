@@ -141,6 +141,8 @@ public:
 
 	Screen *topScreen() const;
 
+	void getFocusPosition(float &x, float &y, float &z);
+
 	std::recursive_mutex inputLock_;
 
 private:

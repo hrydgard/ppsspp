@@ -43,7 +43,7 @@ class Command(object):
 
   def run(self, timeout):
     def target():
-      self.process = subprocess.Popen(self.cmd, bufsize=1, stdin=subprocess.PIPE, stdout=sys.stdout, stderr=subprocess.STDOUT)
+      self.process = subprocess.Popen(self.cmd, stdin=subprocess.PIPE, stdout=sys.stdout, stderr=subprocess.STDOUT)
       self.process.stdin.write(self.data.encode('utf-8'))
       self.process.stdin.close()
       self.process.communicate()
@@ -52,7 +52,7 @@ class Command(object):
     thread.start()
 
     thread.join(timeout)
-    if thread.isAlive():
+    if thread.is_alive():
       self.timeout = True
       if sys.version_info < (2, 6):
         os.kill(self.process.pid, signal.SIGKILL)

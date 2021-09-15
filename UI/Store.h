@@ -92,6 +92,7 @@ private:
 
 	bool loading_ = true;
 	bool connectionError_ = false;
+	int resultCode_ = 0;
 
 	std::map<std::string, StoreCategory> categories_;
 

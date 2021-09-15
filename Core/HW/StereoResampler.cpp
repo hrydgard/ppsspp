@@ -143,18 +143,18 @@ inline void ClampBufferToS16(s16 *out, const s32 *in, size_t size, s8 volShift) 
 
 inline void ClampBufferToS16WithVolume(s16 *out, const s32 *in, size_t size) {
 	int volume = g_Config.iGlobalVolume;
-	if (PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL || PSP_CoreParameter().unthrottle) {
+	if (PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL || PSP_CoreParameter().fastForward) {
 		if (g_Config.iAltSpeedVolume != -1) {
 			volume = g_Config.iAltSpeedVolume;
 		}
 	}
 
-	if (volume >= VOLUME_MAX) {
+	if (volume >= VOLUME_FULL) {
 		ClampBufferToS16<false>(out, in, size, 0);
 	} else if (volume <= VOLUME_OFF) {
 		memset(out, 0, size * sizeof(s16));
 	} else {
-		ClampBufferToS16<true>(out, in, size, VOLUME_MAX - (s8)volume);
+		ClampBufferToS16<true>(out, in, size, VOLUME_FULL - (s8)volume);
 	}
 }
 
@@ -266,15 +266,15 @@ void StereoResampler::PushSamples(const s32 *samples, unsigned int numSamples) {
 	u32 indexW = m_indexW.load();
 
 	u32 cap = m_maxBufsize * 2;
-	// If unthrottling, no need to fill up the entire buffer, just screws up timing after releasing unthrottle.
-	if (PSP_CoreParameter().unthrottle) {
+	// If fast-forwarding, no need to fill up the entire buffer, just screws up timing after releasing the fast-forward button.
+	if (PSP_CoreParameter().fastForward) {
 		cap = m_targetBufsize * 2;
 	}
 
 	// Check if we have enough free space
 	// indexW == m_indexR results in empty buffer, so indexR must always be smaller than indexW
 	if (numSamples * 2 + ((indexW - m_indexR.load()) & INDEX_MASK) >= cap) {
-		if (!PSP_CoreParameter().unthrottle) {
+		if (!PSP_CoreParameter().fastForward) {
 			overrunCount_++;
 		}
 		// TODO: "Timestretch" by doing a windowed overlap with existing buffer content?

@@ -56,6 +56,8 @@ if(CMAKE_SYSTEM_PROCESSOR)
 		set(X86_DEVICE ON)
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^mips")
 		set(MIPS_DEVICE ON)
+	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^riscv64")
+		set(RISCV64_DEVICE ON)
 	else()
 		message("Unknown CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 	endif()
@@ -113,6 +115,7 @@ endif()
 option(ARMV7 "Set to ON if targeting an ARMv7 processor" ${ARMV7_DEVICE})
 option(ARM "Set to ON if targeting an ARM processor" ${ARM_DEVICE})
 option(MIPS "Set to ON if targeting a MIPS processor" ${MIPS_DEVICE})
+option(RISCV64 "Set to ON if targeting a RISCV64 processor" ${RISCV64_DEVICE})
 option(X86 "Set to ON if targeting an X86 processor" ${X86_DEVICE})
 option(X86_64 "Set to ON if targeting an X86_64 processor" ${X86_64_DEVICE})
 # :: Environments
@@ -121,6 +124,7 @@ option(USING_FBDEV "Set to ON if target environment uses fbdev (eg. Pandora)" ${
 option(USING_GLES2 "Set to ON if target device uses OpenGL ES 2.0" ${USING_GLES2})
 option(USING_X11_VULKAN "Set to OFF if target environment doesn't use X11 for Vulkan" ON)
 option(USE_WAYLAND_WSI "Enable or disable Wayland WSI support for Vulkan" ${USE_WAYLAND_WSI})
+option(USE_VULKAN_DISPLAY_KHR "Enable or disable full screen display of Vulkan" ${USE_VULKAN_DISPLAY_KHR})
 # :: Frontends
 option(USING_QT_UI "Set to ON if you wish to use the Qt frontend wrapper" ${USING_QT_UI})
 option(MOBILE_DEVICE "Set to ON when targeting a mobile device" ${MOBILE_DEVICE})
@@ -145,6 +149,7 @@ if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
 	else()
 		message("NOT using X11 for Vulkan")
 	endif()
+
 	# add_definitions(-DVK_USE_PLATFORM_XCB_KHR)
 	if(USE_WAYLAND_WSI)
 		find_package(Wayland)
@@ -154,6 +159,11 @@ if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
 			include_directories(${WAYLAND_INCLUDE_DIR})
 			add_definitions(-DVK_USE_PLATFORM_WAYLAND_KHR)
 		endif()
+	endif()
+
+	if(USE_VULKAN_DISPLAY_KHR)
+		message(STATUS "Using experimental full-screen display for Vulkan.")
+		add_definitions(-DVK_USE_PLATFORM_DISPLAY_KHR)
 	endif()
 endif()
 
@@ -178,7 +188,7 @@ else()
 	set(CoreLinkType STATIC)
 endif()
 
-# Work around for some misfeature of the current glslang build system 
+# Work around for some misfeature of the current glslang build system
 include_directories(ext/glslang)
 
 # Not sure if this is the best way - what about system glew?
@@ -247,6 +257,9 @@ if(MIPS AND X86)
 endif()
 if(MIPS)
 	message("Generating for MIPS, ${CMAKE_BUILD_TYPE}")
+endif()
+if(RISCV64)
+	message("Generating for RISCV64, ${CMAKE_BUILD_TYPE}")
 endif()
 if(X86)
 	message("Generating for x86, ${CMAKE_BUILD_TYPE}")
@@ -423,6 +436,13 @@ set(CommonMIPS
 )
 source_group(MIPS FILES ${CommonMIPS})
 
+set(CommonRISCV64
+	Common/RiscVCPUDetect.cpp
+	Core/MIPS/fake/FakeJit.cpp
+	Core/MIPS/fake/FakeJit.h
+)
+source_group(RISCV64 FILES ${CommonRISCV64})
+
 if(WIN32)
 	set(CommonD3D
 		Common/GPU/D3D9/D3D9ShaderCompiler.cpp
@@ -442,6 +462,7 @@ add_library(Common STATIC
 	${CommonARM}
 	${CommonARM64}
 	${CommonMIPS}
+	${CommonRISCV64}
 	${CommonD3D}
 	Common/Serialize/Serializer.cpp
 	Common/Serialize/Serializer.h
@@ -712,6 +733,8 @@ if(USE_FFMPEG)
 					set(PLATFORM_ARCH "linux/arm")
 				elseif(MIPS)
 					set(PLATFORM_ARCH "linux/mips32")
+				elseif(RISCV64)
+					set(PLATFORM_ARCH "linux/riscv64")
 				elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
 					set(PLATFORM_ARCH "linux/x86_64")
 				elseif(X86)
@@ -1128,7 +1151,6 @@ endif()
 if(TARGET SDL2::SDL2 AND NOT IOS)
 	target_link_libraries(Common SDL2::SDL2)
 endif()
-
 
 list(APPEND NativeAppSource
 	android/jni/TestRunner.cpp
@@ -1582,6 +1604,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Instance.h
 	Core/KeyMap.cpp
 	Core/KeyMap.h
+	Core/KeyMapDefaults.cpp
+	Core/KeyMapDefaults.h
 	Core/ThreadEventQueue.h
 	Core/WebServer.cpp
 	Core/WebServer.h
@@ -1954,11 +1978,17 @@ if(WIN32)
 	set(GlslangLibs ${GlslangLibs} spirv-cross-hlsl)
 endif()
 
+if(OPENGL_opengl_LIBRARY AND OpenGL_GL_PREFERENCE STREQUAL GLVND AND NOT APPLE)
+    set(OPENGL_LIBRARIES OpenGL::OpenGL)
+endif()
+
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 
 if(FFmpeg_FOUND)
 	target_compile_definitions(${CoreLibName} PRIVATE USE_FFMPEG=1)
+	set_target_properties(${CoreLibName} PROPERTIES NO_SYSTEM_FROM_IMPORTED true)
+	target_include_directories(${CoreLibName} BEFORE PUBLIC ${FFmpeg_INCLUDE_avcodec})
 	target_link_libraries(${CoreLibName}
 		FFmpeg::avcodec
 		FFmpeg::avformat
@@ -1985,7 +2015,7 @@ if(USE_MINIUPNPC)
 	if (NO_GETADDRINFO)
 	  add_definitions(-DNO_GETADDRINFO)
 	endif()
-	
+
 	if (NOT WIN32)
 	  add_definitions (-DMINIUPNPC_SET_SOCKET_TIMEOUT)
 	  add_definitions (-D_BSD_SOURCE -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200112L)
@@ -1998,7 +2028,7 @@ if(USE_MINIUPNPC)
 	else()
 		add_definitions(-fPIC)
 	endif()
-	
+
 	add_definitions(-DWITH_UPNP -DMINIUPNP_STATICLIB)
 	set(MINIUPNP_DIR "ext/miniupnp/miniupnpc")
 	include_directories(${CMAKE_CURRENT_BINARY_DIR})

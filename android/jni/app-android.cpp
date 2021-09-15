@@ -97,9 +97,6 @@ struct JNIEnv {};
 
 bool useCPUThread = true;
 
-// We'll turn this on when we target Android 12.
-bool useScopedStorageIfRequired = false;
-
 enum class EmuThreadState {
 	DISABLED,
 	START_REQUESTED,
@@ -131,7 +128,8 @@ std::string langRegion;
 std::string mogaVersion;
 std::string boardName;
 
-std::string g_extFilesDir;
+std::string g_externalDir;  // Original external dir (root of Android storage).
+std::string g_extFilesDir;  // App private external dir.
 
 std::vector<std::string> g_additionalStorageDirs;
 
@@ -433,7 +431,15 @@ float System_GetPropertyFloat(SystemProperty prop) {
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_SUPPORTS_PERMISSIONS:
-		return androidVersion >= 23;	// 6.0 Marshmallow introduced run time permissions.
+		if (androidVersion < 23) {
+			// 6.0 Marshmallow introduced run time permissions.
+			return false;
+		} else {
+			// It gets a bit complicated here. If scoped storage enforcement is on,
+			// we also don't need to request permissions. We'll have the access we request
+			// on a per-folder basis.
+			return !System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE);
+		}
 	case SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE:
 		return sustainedPerfSupported;  // 7.0 introduced sustained performance mode as an optional feature.
 	case SYSPROP_HAS_ADDITIONAL_STORAGE:
@@ -448,6 +454,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return androidVersion >= 19;  // when ACTION_OPEN_DOCUMENT was added
 	case SYSPROP_HAS_FOLDER_BROWSER:
 		// Uses OPEN_DOCUMENT_TREE to let you select a folder.
+		// Doesn't actually mean it's usable though, in many early versions of Android
+		// this dialog is complete garbage and only lets you select subfolders of the Downloads folder.
 		return androidVersion >= 21;  // when ACTION_OPEN_DOCUMENT_TREE was added
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
@@ -458,8 +466,24 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_CAN_JIT:
 		return true;
 	case SYSPROP_ANDROID_SCOPED_STORAGE:
-		if (useScopedStorageIfRequired && androidVersion >= 28)
-			return true;
+		// We turn this on for Android 30+ (11) now that when we target Android 11+.
+		// Along with adding:
+		//   android:preserveLegacyExternalStorage="true"
+		// To the already requested:
+		//   android:requestLegacyExternalStorage="true"
+		//
+		// This will cause Android 11+ to still behave like Android 10 until the app
+		// is manually uninstalled. We can detect this state with
+		// Android_IsExternalStoragePreservedLegacy(), but most of the app will just see
+		// that scoped storage enforcement is disabled in this case.
+		if (androidVersion >= 30) {
+			// Here we do a check to see if we ended up in the preserveLegacyExternalStorage path.
+			// That won't last if the user uninstalls/reinstalls though, but would preserve the user
+			// experience for simple upgrades so maybe let's support it.
+			return !Android_IsExternalStoragePreservedLegacy();
+		} else {
+			return false;
+		}
 	default:
 		return false;
 	}
@@ -614,6 +638,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	std::string additionalStorageDirsString = GetJavaString(env, jadditionalStorageDirs);
 	std::string externalFilesDir = GetJavaString(env, jexternalFilesDir);
 
+	g_externalDir = externalStorageDir;
 	g_extFilesDir = externalFilesDir;
 
 	if (!additionalStorageDirsString.empty()) {
@@ -765,6 +790,8 @@ bool audioRecording_State() {
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_resume(JNIEnv *, jclass) {
 	INFO_LOG(SYSTEM, "NativeApp.resume() - resuming audio");
 	AndroidAudio_Resume(g_audioState);
+
+	NativeMessageReceived("app_resumed", "");
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
@@ -1414,15 +1441,30 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 	return true;
 }
 
+// NOTE: This is defunct and not working, due to how the Android storage functions currently require
+// a PpssppActivity specifically and we don't have one here.
 extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv *env, jclass, jstring jpath) {
+	bool teardownThreadManager = false;
+	if (!g_threadManager.IsInitialized()) {
+		INFO_LOG(SYSTEM, "No thread manager - initializing one");
+		// Need a thread manager.
+		teardownThreadManager = true;
+		g_threadManager.Init(1, 1);
+	}
+
 	Path path = Path(GetJavaString(env, jpath));
+
+	INFO_LOG(SYSTEM, "queryGameName(%s)", path.c_str());
+
 	std::string result = "";
 
 	GameInfoCache *cache = new GameInfoCache();
 	std::shared_ptr<GameInfo> info = cache->GetInfo(nullptr, path, 0);
 	// Wait until it's done: this is synchronous, unfortunately.
 	if (info) {
+		INFO_LOG(SYSTEM, "GetInfo successful, waiting");
 		cache->WaitUntilDone(info);
+		INFO_LOG(SYSTEM, "Done waiting");
 		if (info->fileType != IdentifiedFileType::UNKNOWN) {
 			result = info->GetTitle();
 
@@ -1431,9 +1473,19 @@ extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv 
 			if (result.length() > strlen("The ") && startsWithNoCase(result, "The ")) {
 				result = result.substr(strlen("The "));
 			}
+
+			INFO_LOG(SYSTEM, "queryGameName: Got '%s'", result.c_str());
+		} else {
+			INFO_LOG(SYSTEM, "queryGameName: Filetype unknown");
 		}
+	} else {
+		INFO_LOG(SYSTEM, "No info from cache");
 	}
 	delete cache;
+
+	if (teardownThreadManager) {
+		g_threadManager.Teardown();
+	}
 
 	return env->NewStringUTF(result.c_str());
 }

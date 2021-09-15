@@ -34,6 +34,7 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
+#include "Core/Loaders.h"
 #include "UI/CwCheatScreen.h"
 #include "UI/EmuScreen.h"
 #include "UI/GameScreen.h"
@@ -42,12 +43,40 @@
 #include "UI/MiscScreens.h"
 #include "UI/MainScreen.h"
 #include "UI/BackgroundAudio.h"
+#include "Core/Reporting.h"
 
 GameScreen::GameScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
 	g_BackgroundAudio.SetGame(gamePath);
 }
 
 GameScreen::~GameScreen() {
+	if (CRC32string == "...") {
+		Reporting::CancelCRC();
+	}
+}
+
+template <typename I> std::string int2hexstr(I w, size_t hex_len = sizeof(I) << 1) {
+	static const char* digits = "0123456789ABCDEF";
+	std::string rc(hex_len, '0');
+	for (size_t i = 0, j = (hex_len - 1) * 4; i < hex_len; ++i, j -= 4)
+		rc[i] = digits[(w >> j) & 0x0f];
+	return rc;
+}
+
+void GameScreen::update() {
+	UIScreen::update();
+
+	// Has the user requested a CRC32?
+	if (CRC32string == "...") {
+		// Wait until the CRC32 is ready.  It might take time on some devices.
+		if (Reporting::HasCRC(gamePath_)) {
+			uint32_t crcvalue = Reporting::RetrieveCRC(gamePath_);
+			CRC32string = int2hexstr(crcvalue);
+			tvCRC_->SetVisibility(UI::V_VISIBLE);
+			tvCRC_->SetText(CRC32string);
+			btnCalcCRC_->SetVisibility(UI::V_GONE);
+		}
+	}
 }
 
 void GameScreen::CreateViews() {
@@ -149,6 +178,25 @@ void GameScreen::CreateViews() {
 	btnSetBackground_ = rightColumnItems->Add(new Choice(ga->T("Use UI background")));
 	btnSetBackground_->OnClick.Handle(this, &GameScreen::OnSetBackground);
 	btnSetBackground_->SetVisibility(V_GONE);
+
+	bool fileTypeSupportCRC = false;
+	if (info) {
+		switch (info->fileType) {
+		case IdentifiedFileType::PSP_PBP:
+		case IdentifiedFileType::PSP_PBP_DIRECTORY:
+		case IdentifiedFileType::PSP_ISO_NP:
+		case IdentifiedFileType::PSP_ISO:
+			fileTypeSupportCRC = true;
+		}
+	}
+
+	bool isHomebrew = info && info->region > GAMEREGION_MAX;
+	if (fileTypeSupportCRC && !isHomebrew && !Reporting::HasCRC(gamePath_) ) {
+		btnCalcCRC_ = rightColumnItems->Add(new ChoiceWithValueDisplay(&CRC32string, ga->T("Calculate CRC"), (const char*)nullptr));
+		btnCalcCRC_->OnClick.Handle(this, &GameScreen::OnDoCRC32);
+	} else {
+		btnCalcCRC_ = nullptr;
+	}
 }
 
 UI::Choice *GameScreen::AddOtherChoice(UI::Choice *choice) {
@@ -277,6 +325,14 @@ UI::EventReturn GameScreen::OnCwCheat(UI::EventParams &e) {
 	screenManager()->push(new CwCheatScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
+
+UI::EventReturn GameScreen::OnDoCRC32(UI::EventParams& e) {
+	CRC32string = "...";
+	Reporting::QueueCRC(gamePath_);
+	btnCalcCRC_->SetEnabled(false);
+	return UI::EVENT_DONE;
+}
+
 
 UI::EventReturn GameScreen::OnSwitchBack(UI::EventParams &e) {
 	TriggerFinish(DR_OK);

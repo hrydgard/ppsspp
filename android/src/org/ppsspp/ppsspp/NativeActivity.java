@@ -108,10 +108,7 @@ public abstract class NativeActivity extends Activity {
 
 	// Allow for multiple connected gamepads but just consider them the same for now.
 	// Actually this is not entirely true, see the code.
-	private InputDeviceState inputPlayerA;
-	private InputDeviceState inputPlayerB;
-	private InputDeviceState inputPlayerC;
-	private String inputPlayerADesc;
+	private ArrayList<InputDeviceState> inputPlayers = new ArrayList<InputDeviceState>();
 
 	private PowerSaveModeReceiver mPowerSaveModeReceiver = null;
 	private SizeManager sizeManager = null;
@@ -403,7 +400,8 @@ public abstract class NativeActivity extends Activity {
 
 		String extStorageState = Environment.getExternalStorageState();
 		String extStorageDir = Environment.getExternalStorageDirectory().getAbsolutePath();
-		String externalFilesDir = this.getExternalFilesDir(null).getAbsolutePath();
+		File externalFiles = this.getExternalFilesDir(null);
+		String externalFilesDir = externalFiles == null ? "" : externalFiles.getAbsolutePath();
 
 		Log.i(TAG, "Ext storage: " + extStorageState + " " + extStorageDir);
 		Log.i(TAG, "Ext files dir: " + externalFilesDir);
@@ -912,42 +910,24 @@ public abstract class NativeActivity extends Activity {
 		}
 	}
 
-	// We simply grab the first input device to produce an event and ignore all others that are connected.
 	@TargetApi(Build.VERSION_CODES.GINGERBREAD)
 	private InputDeviceState getInputDeviceState(InputEvent event) {
 		InputDevice device = event.getDevice();
 		if (device == null) {
 			return null;
 		}
-		if (inputPlayerA == null) {
-			inputPlayerADesc = getInputDesc(device);
-			Log.i(TAG, "Input player A registered: desc = " + inputPlayerADesc);
-			inputPlayerA = new InputDeviceState(device);
+
+		for (InputDeviceState input : inputPlayers) {
+			if (input.getDevice() == device) {
+				return input;
+			}
 		}
 
-		if (inputPlayerA.getDevice() == device) {
-			return inputPlayerA;
-		}
-
-		if (inputPlayerB == null) {
-			Log.i(TAG, "Input player B registered: desc = " + getInputDesc(device));
-			inputPlayerB = new InputDeviceState(device);
-		}
-
-		if (inputPlayerB.getDevice() == device) {
-			return inputPlayerB;
-		}
-
-		if (inputPlayerC == null) {
-			Log.i(TAG, "Input player C registered");
-			inputPlayerC = new InputDeviceState(device);
-		}
-
-		if (inputPlayerC.getDevice() == device) {
-			return inputPlayerC;
-		}
-
-		return inputPlayerA;
+		// None was found, just add and return it.
+		InputDeviceState state = new InputDeviceState(device);
+		inputPlayers.add(state);
+		Log.i(TAG, "Input player registered: desc = " + getInputDesc(device));
+		return state;
 	}
 
 	public boolean IsXperiaPlay() {
@@ -967,23 +947,28 @@ public abstract class NativeActivity extends Activity {
 			// Let's let back and menu through to dispatchKeyEvent.
 			boolean passThrough = false;
 
+			int sources = event.getSource();
+
+			// Is this really only for the Xperia Play special handling in OnKeyDown?
+			// And if so, can we just handle it here instead?
 			switch (event.getKeyCode()) {
 			case KeyEvent.KEYCODE_BACK:
-			case KeyEvent.KEYCODE_MENU:
 				passThrough = true;
 				break;
 			default:
 				break;
 			}
 
-			// Don't passthrough back button if gamepad.
-			int sources = event.getSource();
-			switch (sources) {
-			case InputDevice.SOURCE_GAMEPAD:
-			case InputDevice.SOURCE_JOYSTICK:
-			case InputDevice.SOURCE_DPAD:
+			// Don't passthrough back button if from gamepad.
+			// XInput device on Android returns source 1281 or 0x501, which equals GAMEPAD | KEYBOARD.
+			// Shield Remote returns 769 or 0x301 which equals DPAD | KEYBOARD.
+
+			// Don't disable passthrough if app at top level.
+			if (((sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
+					(sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK ||
+					(sources & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD))
+			{
 				passThrough = false;
-				break;
 			}
 
 			if (!passThrough) {
@@ -1058,18 +1043,18 @@ public abstract class NativeActivity extends Activity {
 		switch (keyCode) {
 		case KeyEvent.KEYCODE_BACK:
 			if (event.isAltPressed()) {
-				NativeApp.keyDown(0, 1004, repeat); // special custom keycode for the O button on Xperia Play
+				NativeApp.keyDown(NativeApp.DEVICE_ID_PAD_0, 1004, repeat); // special custom keycode for the O button on Xperia Play
 			} else if (NativeApp.isAtTopLevel()) {
 				Log.i(TAG, "IsAtTopLevel returned true.");
 				// Pass through the back event.
 				return super.onKeyDown(keyCode, event);
 			} else {
-				NativeApp.keyDown(0, keyCode, repeat);
+				NativeApp.keyDown(NativeApp.DEVICE_ID_DEFAULT, keyCode, repeat);
 			}
 			return true;
 		case KeyEvent.KEYCODE_MENU:
 		case KeyEvent.KEYCODE_SEARCH:
-			NativeApp.keyDown(0, keyCode, repeat);
+			NativeApp.keyDown(NativeApp.DEVICE_ID_DEFAULT, keyCode, repeat);
 			return true;
 
 		case KeyEvent.KEYCODE_DPAD_UP:
@@ -1078,6 +1063,7 @@ public abstract class NativeActivity extends Activity {
 		case KeyEvent.KEYCODE_DPAD_RIGHT:
 			// Joysticks are supported in Honeycomb MR1 and later via the onGenericMotionEvent method.
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1 && event.getSource() == InputDevice.SOURCE_JOYSTICK) {
+				// Pass through / ignore
 				return super.onKeyDown(keyCode, event);
 			}
 			// Fall through
@@ -1085,7 +1071,7 @@ public abstract class NativeActivity extends Activity {
 			// send the rest of the keys through.
 			// TODO: get rid of the three special cases above by adjusting the native side of the code.
 			// Log.d(TAG, "Key down: " + keyCode + ", KeyEvent: " + event);
-			return NativeApp.keyDown(0, keyCode, repeat);
+			return NativeApp.keyDown(NativeApp.DEVICE_ID_DEFAULT, keyCode, repeat);
 		}
 	}
 
@@ -1095,18 +1081,18 @@ public abstract class NativeActivity extends Activity {
 		switch (keyCode) {
 		case KeyEvent.KEYCODE_BACK:
 			if (event.isAltPressed()) {
-				NativeApp.keyUp(0, 1004); // special custom keycode
+				NativeApp.keyUp(NativeApp.DEVICE_ID_PAD_0, 1004); // special custom keycode
 			} else if (NativeApp.isAtTopLevel()) {
 				Log.i(TAG, "IsAtTopLevel returned true.");
 				return super.onKeyUp(keyCode, event);
 			} else {
-				NativeApp.keyUp(0, keyCode);
+				NativeApp.keyUp(NativeApp.DEVICE_ID_DEFAULT, keyCode);
 			}
 			return true;
 		case KeyEvent.KEYCODE_MENU:
 		case KeyEvent.KEYCODE_SEARCH:
 			// Search probably should also be ignored. We send it to the app.
-			NativeApp.keyUp(0, keyCode);
+			NativeApp.keyUp(NativeApp.DEVICE_ID_DEFAULT, keyCode);
 			return true;
 
 		case KeyEvent.KEYCODE_DPAD_UP:
@@ -1121,7 +1107,7 @@ public abstract class NativeActivity extends Activity {
 		default:
 			// send the rest of the keys through.
 			// Log.d(TAG, "Key down: " + keyCode + ", KeyEvent: " + event);
-			return NativeApp.keyUp(0, keyCode);
+			return NativeApp.keyUp(NativeApp.DEVICE_ID_DEFAULT, keyCode);
 		}
 	}
 
@@ -1134,13 +1120,20 @@ public abstract class NativeActivity extends Activity {
 		if (requestCode == RESULT_LOAD_IMAGE) {
 			Uri selectedImage = data.getData();
 			if (selectedImage != null) {
-				String[] filePathColumn = {MediaStore.Images.Media.DATA};
-				Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
-				cursor.moveToFirst();
-				int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
-				String picturePath = cursor.getString(columnIndex);
-				cursor.close();
-				NativeApp.sendMessage("bgImage_updated", picturePath);
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+					NativeApp.sendMessage("bgImage_updated", selectedImage.toString());
+				} else {
+					String[] filePathColumn = {MediaStore.Images.Media.DATA};
+					Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
+					if (cursor != null) {
+						cursor.moveToFirst();
+						int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
+						String picturePath = cursor.getString(columnIndex);
+						cursor.close();
+
+						NativeApp.sendMessage("bgImage_updated", picturePath);
+					}
+				}
 			}
 		} else if (requestCode == RESULT_OPEN_DOCUMENT) {
 			Uri selectedFile = data.getData();

@@ -51,9 +51,7 @@ public:
 	bool Init(bool cache_context);
 	void SetRenderTarget() override {}
 	void SwapBuffers() override {
-		if (!gstate_c.skipDrawReason) {
-			video_cb(RETRO_HW_FRAME_BUFFER_VALID, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, 0);
-		}
+      video_cb(RETRO_HW_FRAME_BUFFER_VALID, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, 0);
 	}
 	virtual void ContextReset();
 	virtual void ContextDestroy();

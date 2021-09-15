@@ -74,7 +74,7 @@ private:
 	UI::EventReturn LastClick(UI::EventParams &e);
 	UI::EventReturn BrowseClick(UI::EventParams &e);
 	UI::EventReturn StorageClick(UI::EventParams &e);
-	UI::EventReturn HomeClick(UI::EventParams &e);
+	UI::EventReturn OnHomeClick(UI::EventParams &e);
 	UI::EventReturn PinToggleClick(UI::EventParams &e);
 	UI::EventReturn GridSettingsClick(UI::EventParams &e);
 	UI::EventReturn OnRecentClear(UI::EventParams &e);

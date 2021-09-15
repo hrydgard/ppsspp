@@ -2,6 +2,7 @@
 #include <cstring>
 
 #include "Common/File/Path.h"
+#include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -9,17 +10,13 @@
 #include "android/jni/app-android.h"
 #include "android/jni/AndroidContentURI.h"
 
-Path::Path(const std::string &str) {
-	if (str.empty()) {
-		type_ = PathType::UNDEFINED;
-	} else if (startsWith(str, "http://") || startsWith(str, "https://")) {
-		type_ = PathType::HTTP;
-	} else if (Android_IsContentUri(str)) {
-		type_ = PathType::CONTENT_URI;
-	} else {
-		type_ = PathType::NATIVE;
-	}
+#if HOST_IS_CASE_SENSITIVE
+#include <dirent.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#endif
 
+Path::Path(const std::string &str) {
 	Init(str);
 }
 
@@ -31,7 +28,35 @@ Path::Path(const std::wstring &str) {
 #endif
 
 void Path::Init(const std::string &str) {
-	path_ = str;
+	if (str.empty()) {
+		type_ = PathType::UNDEFINED;
+		path_.clear();
+	} else if (startsWith(str, "http://") || startsWith(str, "https://")) {
+		type_ = PathType::HTTP;
+		path_ = str;
+	} else if (Android_IsContentUri(str)) {
+		// Content URIs on non scoped-storage (and possibly other cases?) can contain
+		// "raw:/" URIs inside. This happens when picking the Download folder using the folder browser
+		// on Android 9.
+		// Here's an example:
+		// content://com.android.providers.downloads.documents/tree/raw%3A%2Fstorage%2Femulated%2F0%2FDownload%2Fp/document/raw%3A%2Fstorage%2Femulated%2F0%2FDownload%2Fp
+		//
+		// Since this is a legacy use case, I think it's safe enough to just detect this
+		// and flip it to a NATIVE url and hope for the best.
+		AndroidContentURI uri(str);
+		if (startsWith(uri.FilePath(), "raw:/")) {
+			INFO_LOG(SYSTEM, "Raw path detected: %s", uri.FilePath().c_str());
+			path_ = uri.FilePath().substr(4);
+			type_ = PathType::NATIVE;
+		} else {
+			// A normal content URI path.
+			type_ = PathType::CONTENT_URI;
+			path_ = str;
+		}
+	} else {
+		type_ = PathType::NATIVE;
+		path_ = str;
+	}
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	// Flip all the slashes around. We flip them back on ToWString().
@@ -236,7 +261,6 @@ bool Path::CanNavigateUp() const {
 	if (type_ == PathType::CONTENT_URI) {
 		return AndroidContentURI(path_).CanNavigateUp();
 	}
-
 	if (path_ == "/" || path_ == "") {
 		return false;
 	}
@@ -279,7 +303,6 @@ Path Path::GetRootVolume() const {
 		return Path(path);
 	}
 #endif
-
 	return Path("/");
 }
 
@@ -301,27 +324,135 @@ bool Path::IsAbsolute() const {
 		return false;
 }
 
-std::string Path::PathTo(const Path &other) {
+bool Path::ComputePathTo(const Path &other, std::string &path) const {
 	if (!other.StartsWith(*this)) {
 		// Can't do this. Should return an error.
-		return std::string();
+		return false;
+	}
+
+	if (*this == other) {
+		// Equal, the path is empty.
+		path.clear();
+		return true;
 	}
 
 	std::string diff;
-
 	if (type_ == PathType::CONTENT_URI) {
 		AndroidContentURI a(path_);
 		AndroidContentURI b(other.path_);
 		if (a.RootPath() != b.RootPath()) {
 			// No common root, can't do anything
-			return std::string();
+			return false;
 		}
-		diff = a.PathTo(b);
+		return a.ComputePathTo(b, path);
 	} else if (path_ == "/") {
-		diff = other.path_.substr(1);
+		path = other.path_.substr(1);
+		return true;
 	} else {
-		diff = other.path_.substr(path_.size() + 1);
+		path = other.path_.substr(path_.size() + 1);
+		return true;
+	}
+}
+
+#if HOST_IS_CASE_SENSITIVE
+
+static bool FixFilenameCase(const std::string &path, std::string &filename) {
+	// Are we lucky?
+	if (File::Exists(Path(path + filename)))
+		return true;
+
+	size_t filenameSize = filename.size();  // size in bytes, not characters
+	for (size_t i = 0; i < filenameSize; i++)
+	{
+		filename[i] = tolower(filename[i]);
 	}
 
-	return diff;
+	//TODO: lookup filename in cache for "path"
+	struct dirent *result = NULL;
+
+	DIR *dirp = opendir(path.c_str());
+	if (!dirp)
+		return false;
+
+	bool retValue = false;
+
+	while ((result = readdir(dirp)))
+	{
+		if (strlen(result->d_name) != filenameSize)
+			continue;
+
+		size_t i;
+		for (i = 0; i < filenameSize; i++)
+		{
+			if (filename[i] != tolower(result->d_name[i]))
+				break;
+		}
+
+		if (i < filenameSize)
+			continue;
+
+		filename = result->d_name;
+		retValue = true;
+	}
+
+	closedir(dirp);
+
+	return retValue;
 }
+
+bool FixPathCase(const Path &realBasePath, std::string &path, FixPathCaseBehavior behavior) {
+	if (realBasePath.Type() == PathType::CONTENT_URI) {
+		// Nothing to do. These are already case insensitive, I think.
+		return true;
+	}
+
+	std::string basePath = realBasePath.ToString();
+
+	size_t len = path.size();
+
+	if (len == 0)
+		return true;
+
+	if (path[len - 1] == '/')
+	{
+		len--;
+
+		if (len == 0)
+			return true;
+	}
+
+	std::string fullPath;
+	fullPath.reserve(basePath.size() + len + 1);
+	fullPath.append(basePath);
+
+	size_t start = 0;
+	while (start < len)
+	{
+		size_t i = path.find('/', start);
+		if (i == std::string::npos)
+			i = len;
+
+		if (i > start)
+		{
+			std::string component = path.substr(start, i - start);
+
+			// Fix case and stop on nonexistant path component
+			if (FixFilenameCase(fullPath, component) == false) {
+				// Still counts as success if partial matches allowed or if this
+				// is the last component and only the ones before it are required
+				return (behavior == FPC_PARTIAL_ALLOWED || (behavior == FPC_PATH_MUST_EXIST && i >= len));
+			}
+
+			path.replace(start, i - start, component);
+
+			fullPath.append(1, '/');
+			fullPath.append(component);
+		}
+
+		start = i + 1;
+	}
+
+	return true;
+}
+
+#endif

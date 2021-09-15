@@ -332,8 +332,6 @@ int main(int argc, const char* argv[])
 	if (testFilenames.empty())
 		return printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
 
-	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
-
 	LogManager::Init(&g_Config.bEnableLogging);
 	LogManager *logman = LogManager::GetInstance();
 
@@ -345,6 +343,9 @@ int main(int argc, const char* argv[])
 		logman->SetLogLevel(type, LogTypes::LDEBUG);
 	}
 	logman->AddListener(printfLogger);
+
+	// Needs to be after log so we don't interfere with test output.
+	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
 
 	HeadlessHost *headlessHost = getHost(gpuCore);
 	headlessHost->SetGraphicsCore(gpuCore);
@@ -369,7 +370,7 @@ int main(int argc, const char* argv[])
 	coreParameter.renderHeight = 272;
 	coreParameter.pixelWidth = 480;
 	coreParameter.pixelHeight = 272;
-	coreParameter.unthrottle = true;
+	coreParameter.fastForward = true;
 
 	g_Config.bEnableSound = false;
 	g_Config.bFirstRun = false;
@@ -380,7 +381,7 @@ int main(int argc, const char* argv[])
 	g_Config.iRenderingMode = FB_BUFFERED_MODE;
 	g_Config.bHardwareTransform = true;
 	g_Config.iAnisotropyLevel = 0;  // When testing mipmapping we really don't want this.
-	g_Config.bVertexCache = true;
+	g_Config.bVertexCache = false;
 	g_Config.iLanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 	g_Config.iTimeFormat = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
 	g_Config.bEncryptSave = true;
@@ -390,7 +391,7 @@ int main(int argc, const char* argv[])
 	g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CROSS;
 	g_Config.iLockParentalLevel = 9;
 	g_Config.iInternalResolution = 1;
-	g_Config.iUnthrottleMode = (int)UnthrottleMode::CONTINUOUS;
+	g_Config.iFastForwardMode = (int)FastForwardMode::CONTINUOUS;
 	g_Config.bEnableLogging = fullLog;
 	g_Config.bSoftwareSkinning = true;
 	g_Config.iATRACMP3Volume = MAX_CONFIG_VOLUME;
@@ -406,6 +407,8 @@ int main(int argc, const char* argv[])
 	g_Config.sMACAddress = "12:34:56:78:9A:BC";
 	g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;
 	g_Config.iPSPModel = PSP_MODEL_SLIM;
+	g_Config.iGlobalVolume = VOLUME_FULL;
+	g_Config.iReverbVolume = VOLUME_FULL;
 
 #ifdef _WIN32
 	g_Config.internalDataDirectory.clear();

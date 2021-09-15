@@ -6603,7 +6603,9 @@ check_tRNS_for_alpha(png_structrp png_ptr)
    }
 
    /* All entries opaque; remove the tRNS data: */
-   png_ptr->num_trans = 0U;
+   // TODO: This optimization doesn't handle adding it back if RGBA is requested.
+   // See PPSSPP issue #14628.
+   //png_ptr->num_trans = 0U;
 }
 #endif /* READ_tRNS */
 

@@ -38,10 +38,11 @@ bool LoadRemoteFileList(const Path &url, bool *cancel, std::vector<File::FileInf
 	}
 
 	// Start by requesting the list of files from the server.
+	http::RequestParams req(baseURL.Resource(), "text/plain, text/html; q=0.9, */*; q=0.8");
 	if (http.Resolve(baseURL.Host().c_str(), baseURL.Port())) {
 		if (http.Connect(2, 20.0, cancel)) {
 			http::RequestProgress progress(cancel);
-			code = http.GET(baseURL.Resource().c_str(), &result, responseHeaders, &progress);
+			code = http.GET(req, &result, responseHeaders, &progress);
 			http.Disconnect();
 		}
 	}
@@ -144,10 +145,13 @@ void PathBrowser::HandlePath() {
 
 		std::unique_lock<std::mutex> guard(pendingLock_);
 		std::vector<File::FileInfo> results;
-		Path lastPath;
+		Path lastPath("NONSENSE THAT WONT EQUAL A PATH");
 		while (!pendingStop_) {
 			while (lastPath == pendingPath_ && !pendingCancel_) {
 				pendingCond_.wait(guard);
+			}
+			if (pendingStop_) {
+				break;
 			}
 			lastPath = pendingPath_;
 			bool success = false;
@@ -156,11 +160,13 @@ void PathBrowser::HandlePath() {
 				results.clear();
 				success = LoadRemoteFileList(lastPath, &pendingCancel_, results);
 				guard.lock();
+			} else if (lastPath.empty()) {
+				results.clear();
+				success = true;
 			} else {
 				guard.unlock();
 				results.clear();
-				File::GetFilesInDir(lastPath, &results, nullptr);
-				success = true;
+				success = File::GetFilesInDir(lastPath, &results, nullptr);
 				guard.lock();
 			}
 

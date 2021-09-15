@@ -107,8 +107,7 @@ namespace Reporting
 	static int CalculateCRCThread() {
 		SetCurrentThreadName("ReportCRC");
 
-		// TODO: Use the blockDevice from pspFileSystem?
-		FileLoader *fileLoader = ConstructFileLoader(crcFilename);
+		FileLoader *fileLoader = ResolveFileLoaderTarget(ConstructFileLoader(crcFilename));
 		BlockDevice *blockDevice = constructBlockDevice(fileLoader);
 
 		u32 crc = 0;
@@ -138,9 +137,11 @@ namespace Reporting
 
 		if (crcPending) {
 			// Already in process.
+			INFO_LOG(SYSTEM, "CRC already pending");
 			return;
 		}
 
+		INFO_LOG(SYSTEM, "Starting CRC calculation");
 		crcFilename = gamePath;
 		crcPending = true;
 		crcCancel = false;
@@ -178,13 +179,22 @@ namespace Reporting
 
 	static void PurgeCRC() {
 		std::unique_lock<std::mutex> guard(crcLock);
-		crcCancel = true;
-		while (crcPending) {
-			crcCond.wait(guard);
+		if (crcPending) {
+			INFO_LOG(SYSTEM, "Cancelling CRC calculation");
+			crcCancel = true;
+			while (crcPending) {
+				crcCond.wait(guard);
+			}
+		} else {
+			DEBUG_LOG(SYSTEM, "No CRC pending");
 		}
 
 		if (crcThread.joinable())
 			crcThread.join();
+	}
+
+	void CancelCRC() {
+		PurgeCRC();
 	}
 
 	// Returns the full host (e.g. report.ppsspp.org:80.)
@@ -271,7 +281,7 @@ namespace Reporting
 
 		if (http.Resolve(serverHost, ServerPort())) {
 			http.Connect();
-			int result = http.POST(uri, data, mimeType, output, &progress);
+			int result = http.POST(http::RequestParams(uri), data, mimeType, output, &progress);
 			http.Disconnect();
 
 			return result >= 200 && result < 300;
@@ -523,7 +533,7 @@ namespace Reporting
 		// Don't report from games without a version ID (i.e. random hashed homebrew IDs.)
 		// The problem is, these aren't useful because the hashes end up different for different people.
 		// TODO: Should really hash the ELF instead of the path, but then that affects savestates/cheats.
-		if (g_paramSFO.GetValueString("DISC_VERSION").empty())
+		if (PSP_IsInited() && g_paramSFO.GetValueString("DISC_VERSION").empty())
 			return false;
 
 		// Some users run the exe from a zip or something, and don't have fonts.

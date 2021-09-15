@@ -74,7 +74,8 @@ bool LaunchFile(ScreenManager *screenManager, const Path &path) {
 		return false;
 	}
 
-	IdentifiedFileType type = Identify_File(loader);
+	std::string errorString;
+	IdentifiedFileType type = Identify_File(loader, &errorString);
 	delete loader;
 
 	switch (type) {
@@ -540,11 +541,26 @@ UI::EventReturn GameBrowser::StorageClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
+UI::EventReturn GameBrowser::OnHomeClick(UI::EventParams &e) {
+	if (path_.GetPath().Type() == PathType::CONTENT_URI) {
+		Path rootPath = path_.GetPath().GetRootVolume();
+		if (rootPath != path_.GetPath()) {
+			SetPath(rootPath);
+			return UI::EVENT_DONE;
+		}
+		if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
+			// There'll be no sensible home, ignore.
+			return UI::EVENT_DONE;
+		}
+	}
+
 	SetPath(HomePath());
 	return UI::EVENT_DONE;
 }
 
+// TODO: This doesn't make that much sense for Android, especially after scoped storage..
+// Maybe we should have no home directory in this case. Or it should just navigate to the root
+// of the current folder tree.
 Path GameBrowser::HomePath() {
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH) || defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP)
 	return g_Config.memStickDirectory;
@@ -659,7 +675,7 @@ void GameBrowser::Refresh() {
 		if (browseFlags_ & BrowseFlags::NAVIGATE) {
 			topBar->Add(new Spacer(2.0f));
 			topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
-			topBar->Add(new Choice(ImageID("I_HOME"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::HomeClick);
+			topBar->Add(new Choice(ImageID("I_HOME"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::OnHomeClick);
 			if (System_GetPropertyBool(SYSPROP_HAS_ADDITIONAL_STORAGE)) {
 				topBar->Add(new Choice(ImageID("I_SDCARD"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::StorageClick);
 			}
@@ -776,7 +792,6 @@ void GameBrowser::Refresh() {
 		// Add any pinned paths before other directories.
 		auto pinnedPaths = GetPinnedPaths();
 		for (auto it = pinnedPaths.begin(), end = pinnedPaths.end(); it != end; ++it) {
-			// TODO(scoped): Hmm
 			gameList_->Add(new DirButton(*it, GetBaseName((*it).ToString()), *gridStyle_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
 				OnClick.Handle(this, &GameBrowser::NavigateClick);
 		}
@@ -802,13 +817,17 @@ void GameBrowser::Refresh() {
 	}
 
 	// Show a button to toggle pinning at the very end.
-	if (browseFlags_ & BrowseFlags::PIN) {
+	if ((browseFlags_ & BrowseFlags::PIN) && !path_.GetPath().empty()) {
 		std::string caption = IsCurrentPathPinned() ? "-" : "+";
 		if (!*gridStyle_) {
 			caption = IsCurrentPathPinned() ? mm->T("UnpinPath", "Unpin") : mm->T("PinPath", "Pin");
 		}
 		gameList_->Add(new UI::Button(caption, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
 			OnClick.Handle(this, &GameBrowser::PinToggleClick);
+	}
+
+	if (path_.GetPath().empty()) {
+		Add(new TextView(mm->T("UseBrowseOrLoad", "Use Browse to choose a folder, or Load to choose a file.")));
 	}
 
 	if (!lastText_.empty() && gameButtons.empty()) {
@@ -964,7 +983,8 @@ void MainScreen::CreateViews() {
 	tabHolder_->SetClip(true);
 
 	bool showRecent = g_Config.iMaxRecent > 0;
-	bool hasStorageAccess = System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE) == PERMISSION_STATUS_GRANTED;
+	bool hasStorageAccess = !System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS) ||
+		System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE) == PERMISSION_STATUS_GRANTED;
 	bool storageIsTemporary = IsTempPath(GetSysDirectory(DIRECTORY_SAVEDATA)) && !confirmedTemporary_;
 	if (showRecent && !hasStorageAccess) {
 		showRecent = !g_Config.recentIsos.empty();
@@ -1395,7 +1415,9 @@ UI::EventReturn MainScreen::OnForums(UI::EventParams &e) {
 
 UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 	// Let's make sure the config was saved, since it may not have been.
-	g_Config.Save("MainScreen::OnExit");
+	if (!g_Config.Save("MainScreen::OnExit")) {
+		System_SendMessage("toast", "Failed to save settings!\nCheck permissions, or try to restart the device.");
+	}
 
 	// Request the framework to exit cleanly.
 	System_SendMessage("finish", "");
@@ -1518,7 +1540,7 @@ void GridSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	auto di = GetI18NCategory("Dialog");
 	auto sy = GetI18NCategory("System");
 
-	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, 50, 1.0f));
+	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 	LinearLayout *items = new LinearLayoutList(ORIENT_VERTICAL);
 
 	items->Add(new CheckBox(&g_Config.bGridView1, sy->T("Display Recent on a grid")));

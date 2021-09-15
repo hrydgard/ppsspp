@@ -643,7 +643,7 @@ public:
 
 	virtual void BindSamplerStates(int start, int count, SamplerState **state) = 0;
 	virtual void BindTextures(int start, int count, Texture **textures) = 0;
-	virtual void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) = 0;
+	virtual void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) = 0;
 	virtual void BindIndexBuffer(Buffer *indexBuffer, int offset) = 0;
 
 	// Only supports a single dynamic uniform buffer, for maximum compatibility with the old APIs and ease of emulation.

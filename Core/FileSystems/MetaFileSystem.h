@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 #include <mutex>
+#include <memory>
 
 #include "Core/FileSystems/FileSystem.h"
 
@@ -28,13 +29,14 @@ private:
 	s32 current;
 	struct MountPoint {
 		std::string prefix;
-		IFileSystem *system;
+		std::shared_ptr<IFileSystem> system;
 
 		bool operator == (const MountPoint &other) const {
 			return prefix == other.prefix && system == other.system;
 		}
 	};
 
+	// The order of this vector is meaningful - lookups are always a linear search from the start.
 	std::vector<MountPoint> fileSystems;
 
 	typedef std::map<int, std::string> currentDir_t;
@@ -43,26 +45,35 @@ private:
 	std::string startingDirectory;
 	std::recursive_mutex lock;  // must be recursive
 
-public:
-	MetaFileSystem() {
+	void Reset() {
 		// This used to be 6, probably an attempt to replicate PSP handles.
 		// However, that's an artifact of using psplink anyway...
 		current = 1;
+		startingDirectory.clear();
 	}
 
-	void Mount(std::string prefix, IFileSystem *system);
-	void Unmount(std::string prefix, IFileSystem *system);
-	void Remount(std::string prefix, IFileSystem *newSystem);
+public:
+	MetaFileSystem() {
+		Reset();
+	}
 
+	void Mount(std::string prefix, std::shared_ptr<IFileSystem> system);
+	// Fails if there's not already a file system at prefix.
+	bool Remount(std::string prefix, std::shared_ptr<IFileSystem> system);
+
+	void UnmountAll();
+	void Unmount(std::string prefix);
+
+	// The pointer returned from these are for temporary usage only. Do not store.
 	IFileSystem *GetSystem(const std::string &prefix);
 	IFileSystem *GetSystemFromFilename(const std::string &filename);
+	IFileSystem *GetHandleOwner(u32 handle);
 	FileSystemFlags FlagsFromFilename(const std::string &filename) {
 		IFileSystem *sys = GetSystemFromFilename(filename);
 		return sys ? sys->Flags() : FileSystemFlags::NONE;
 	}
 
 	void ThreadEnded(int threadID);
-
 	void Shutdown();
 
 	u32 GetNewHandle() override {
@@ -77,14 +88,13 @@ public:
 
 	void DoState(PointerWrap &p) override;
 
-	IFileSystem *GetHandleOwner(u32 handle);
 	int MapFilePath(const std::string &inpath, std::string &outpath, MountPoint **system);
 
 	inline int MapFilePath(const std::string &_inpath, std::string &outpath, IFileSystem **system) {
 		MountPoint *mountPoint;
 		int error = MapFilePath(_inpath, outpath, &mountPoint);
 		if (error == 0) {
-			*system = mountPoint->system;
+			*system = mountPoint->system.get();
 			return error;
 		}
 
@@ -126,5 +136,19 @@ public:
 		startingDirectory = dir;
 	}
 
-	u64 getDirSize(const std::string &dirPath);
+	int64_t ComputeRecursiveDirectorySize(const std::string &dirPath);
+
+	// Shouldn't ever be called, but meh.
+	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override {
+		int64_t sizeTemp = ComputeRecursiveDirectorySize(path);
+		if (sizeTemp >= 0) {
+			*size = sizeTemp;
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+private:
+	int64_t RecursiveSize(const std::string &dirPath);
 };

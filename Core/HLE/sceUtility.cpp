@@ -35,8 +35,10 @@
 #include "Core/System.h"
 
 #include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/scePower.h"
 #include "Core/HLE/sceUtility.h"
 
 #include "Core/Dialog/PSPSaveDialog.h"
@@ -275,21 +277,22 @@ void __UtilityShutdown() {
 void UtilityDialogInitialize(UtilityDialogType type, int delayUs, int priority) {
 	int partDelay = delayUs / 4;
 	const u32_le insts[] = {
-		// Make sure we don't discard/deadbeef 'em.
+		// Make sure we don't discard/deadbeef a0.
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_S0, MIPS_REG_A0, 0),
-		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
-		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
-		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
-		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
-		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
-		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
-		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
 
-		// Now actually lock the volatile memory.  Maybe this should be earlier...
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_ZERO, 0),
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A1, MIPS_REG_ZERO, 0),
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A2, MIPS_REG_ZERO, 0),
 		(u32_le)MIPS_MAKE_SYSCALL("sceSuspendForUser", "sceKernelVolatileMemLock"),
+
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
+		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
+		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
+		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
+		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
 
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_ZERO, (int)type),
 		(u32_le)MIPS_MAKE_JR_RA(),
@@ -324,8 +327,12 @@ void UtilityDialogShutdown(UtilityDialogType type, int delayUs, int priority) {
 
 	CleanupDialogThreads();
 	_assert_(accessThread == nullptr);
+	bool prevInterrupts = __InterruptsEnabled();
+	__DisableInterrupts();
 	accessThread = new HLEHelperThread("ScePafJob", insts, (uint32_t)ARRAY_SIZE(insts), priority, 0x200);
 	accessThread->Start(partDelay, 0);
+	if (prevInterrupts)
+		__EnableInterrupts();
 }
 
 static int UtilityWorkUs(int us) {
@@ -358,6 +365,11 @@ static int sceUtilitySavedataInitStart(u32 paramAddr) {
 	if (currentDialogActive && currentDialogType != UtilityDialogType::SAVEDATA) {
 		if (PSP_CoreParameter().compat.flags().YugiohSaveFix) {
 			WARN_LOG(SCEUTILITY, "Yugioh Savedata Correction");
+			if (accessThread) {
+				accessThread->Terminate();
+				// Try to unlock in case other dialog was shutting down.
+				KernelVolatileMemUnlock(0);
+			}
 		} else {
 			return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 		}

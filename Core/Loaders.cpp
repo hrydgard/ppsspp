@@ -59,17 +59,19 @@ FileLoader *ConstructFileLoader(const Path &filename) {
 }
 
 // TODO : improve, look in the file more
-IdentifiedFileType Identify_File(FileLoader *fileLoader) {
+IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorString) {
+	*errorString = "";
 	if (fileLoader == nullptr) {
-		ERROR_LOG(LOADER, "Invalid fileLoader");
+		*errorString = "Invalid fileLoader";
 		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
 	if (fileLoader->GetPath().size() == 0) {
-		ERROR_LOG(LOADER, "Invalid filename %s", fileLoader->GetPath().c_str());
+		*errorString = "Invalid filename " + fileLoader->GetPath().ToString();
 		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
 
 	if (!fileLoader->Exists()) {
+		*errorString = "IdentifyFile: File doesn't exist: " + fileLoader->GetPath().ToString();
 		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
 
@@ -82,10 +84,11 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 
 			// each sector in a mode2 image starts with these 12 bytes
 			if (memcmp(sync,"\x00\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x00", 12) == 0) {
+				*errorString = "ISO in Mode 2: Not a PSP game";
 				return IdentifiedFileType::ISO_MODE2;
 			}
 
-			// maybe it also just happened to have that size, 
+			// maybe it also just happened to have that size, let's assume it's a PSP ISO and error out later if it's not.
 		}
 		return IdentifiedFileType::PSP_ISO;
 	} else if (extension == ".cso") {
@@ -127,7 +130,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 
 	size_t readSize = fileLoader->ReadAt(0, 4, 1, &id);
 	if (readSize != 1) {
-		ERROR_LOG(LOADER, "Failed to read identification bytes");
+		*errorString = "Failed to read identification bytes";
 		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
 
@@ -201,7 +204,8 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 }
 
 FileLoader *ResolveFileLoaderTarget(FileLoader *fileLoader) {
-	IdentifiedFileType type = Identify_File(fileLoader);
+	std::string errorString;
+	IdentifiedFileType type = Identify_File(fileLoader, &errorString);
 	if (type == IdentifiedFileType::PSP_PBP_DIRECTORY) {
 		const Path ebootFilename = ResolvePBPFile(fileLoader->GetPath());
 		if (ebootFilename != fileLoader->GetPath()) {
@@ -232,14 +236,15 @@ Path ResolvePBPFile(const Path &filename) {
 bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 	FileLoader *&fileLoader = *fileLoaderPtr;
 	// Note that this can modify filename!
-	switch (Identify_File(fileLoader)) {
+	IdentifiedFileType type = Identify_File(fileLoader, error_string);
+	switch (type) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 		{
 			// TODO: Perhaps we should/can never get here now?
 			fileLoader = ResolveFileLoaderTarget(fileLoader);
 			if (fileLoader->Exists()) {
 				INFO_LOG(LOADER, "File is a PBP in a directory!");
-				IdentifiedFileType ebootType = Identify_File(fileLoader);
+				IdentifiedFileType ebootType = Identify_File(fileLoader, error_string);
 				if (ebootType == IdentifiedFileType::PSP_ISO_NP) {
 					InitMemoryForGameISO(fileLoader);
 					pspFileSystem.SetStartingDirectory("disc0:/PSP_GAME/USRDIR");
@@ -247,6 +252,10 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 				}
 				else if (ebootType == IdentifiedFileType::PSP_PS1_PBP) {
 					*error_string = "PS1 EBOOTs are not supported by PPSSPP.";
+					coreState = CORE_BOOT_ERROR;
+					return false;
+				} else if (ebootType == IdentifiedFileType::ERROR_IDENTIFYING) {
+					// IdentifyFile will have written to errorString.
 					coreState = CORE_BOOT_ERROR;
 					return false;
 				}
@@ -268,7 +277,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 	case IdentifiedFileType::PSP_PBP:
 	case IdentifiedFileType::PSP_ELF:
 		{
-			INFO_LOG(LOADER,"File is an ELF or loose PBP!");
+			INFO_LOG(LOADER, "File is an ELF or loose PBP!");
 			return Load_PSP_ELF_PBP(fileLoader, error_string);
 		}
 
@@ -280,13 +289,6 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 
 	case IdentifiedFileType::PSP_PS1_PBP:
 		*error_string = "PS1 EBOOTs are not supported by PPSSPP.";
-		break;
-
-	case IdentifiedFileType::ERROR_IDENTIFYING:
-		ERROR_LOG(LOADER, "Could not read file enough to identify it");
-		*error_string = fileLoader ? fileLoader->LatestError() : "";
-		if (error_string->empty())
-			*error_string = "Error reading file";
 		break;
 
 	case IdentifiedFileType::ARCHIVE_RAR:
@@ -336,9 +338,18 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 	case IdentifiedFileType::UNKNOWN_BIN:
 	case IdentifiedFileType::UNKNOWN_ELF:
 	case IdentifiedFileType::UNKNOWN:
+		ERROR_LOG(LOADER, "Unknown file type: %s (%s)", fileLoader->GetPath().c_str(), error_string->c_str());
+		*error_string = "Unknown file type: " + fileLoader->GetPath().ToString();
+		break;
+
+	case IdentifiedFileType::ERROR_IDENTIFYING:
+		*error_string = *error_string + ": " + (fileLoader ? fileLoader->LatestError() : "");
+		ERROR_LOG(LOADER, "Error while identifying file: %s", error_string->c_str());
+		break;
+
 	default:
-		ERROR_LOG(LOADER, "Failed to identify file: %s", fileLoader->GetPath().c_str());
-		*error_string = "Failed to identify file";
+		*error_string = StringFromFormat("Unhandled identified file type %d", (int)type);
+		ERROR_LOG(LOADER, "%s", error_string->c_str());
 		break;
 	}
 
@@ -347,7 +358,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 }
 
 bool UmdReplace(const Path &filepath, std::string &error) {
-	IFileSystem* currentUMD = pspFileSystem.GetSystem("disc0:");
+	IFileSystem *currentUMD = pspFileSystem.GetSystem("disc0:");
 
 	if (!currentUMD) {
 		error = "has no disc";
@@ -364,7 +375,10 @@ bool UmdReplace(const Path &filepath, std::string &error) {
 	UpdateLoadedFile(loadedFile);
 
 	loadedFile = ResolveFileLoaderTarget(loadedFile);
-	IdentifiedFileType type = Identify_File(loadedFile);
+
+
+	std::string errorString;
+	IdentifiedFileType type = Identify_File(loadedFile, &errorString);
 
 	switch (type) {
 	case IdentifiedFileType::PSP_ISO:
@@ -377,7 +391,7 @@ bool UmdReplace(const Path &filepath, std::string &error) {
 
 		break;
 	default:
-		error = "Unsupported file type:" + std::to_string((int)type);
+		error = "Unsupported file type: " + std::to_string((int)type) + " " + errorString;
 		return false;
 		break;
 	}

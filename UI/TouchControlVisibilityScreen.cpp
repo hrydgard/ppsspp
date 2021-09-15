@@ -87,7 +87,7 @@ void TouchControlVisibilityScreen::CreateViews() {
 		screenManager()->push(new RightAnalogMappingScreen());
 		return UI::EVENT_DONE;
 	}});
-	toggles_.push_back({ "Unthrottle", &g_Config.touchUnthrottleKey.show, ImageID::invalid(), nullptr });
+	toggles_.push_back({ "Fast-forward", &g_Config.touchFastForwardKey.show, ImageID::invalid(), nullptr });
 	toggles_.push_back({ "Custom 1", &g_Config.touchCombo0.show, ImageID::invalid(), [=](EventParams &e) {
 		screenManager()->push(new ComboKeyScreen(0));
 		return UI::EVENT_DONE;
@@ -138,7 +138,7 @@ void TouchControlVisibilityScreen::CreateViews() {
 		row->Add(checkbox);
 		Choice *choice;
 		if (toggle.handle) {
-			choice = new Choice(std::string(mc->T(toggle.key))+mc->T(" (tap to customize)"), "", false, new LinearLayoutParams(1.0f));
+			choice = new Choice(std::string(mc->T(toggle.key))+" ("+mc->T("tap to customize")+")", "", false, new LinearLayoutParams(1.0f));
 			choice->OnClick.Add(toggle.handle);
 		} else if (toggle.img.isValid()) {
 			choice = new CheckBoxChoice(toggle.img, checkbox, new LinearLayoutParams(1.0f));
@@ -174,8 +174,12 @@ void RightAnalogMappingScreen::CreateViews() {
 
 	static const char *rightAnalogButton[] = {"None", "L", "R", "Square", "Triangle", "Circle", "Cross", "D-pad up", "D-pad down", "D-pad left", "D-pad right", "Start", "Select"};
 	
+	vert->Add(new ItemHeader(co->T("Analog Style")));
 	vert->Add(new CheckBox(&g_Config.touchRightAnalogStick.show, co->T("Visible")));
 	vert->Add(new CheckBox(&g_Config.bRightAnalogCustom, co->T("Use custom right analog")));
+	vert->Add(new CheckBox(&g_Config.bRightAnalogDisableDiagonal, co->T("Disable diagonal input")))->SetEnabledPtr(&g_Config.bRightAnalogCustom);
+
+	vert->Add(new ItemHeader(co->T("Analog Binding")));
 	PopupMultiChoice *rightAnalogUp = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogUp, mc->T("RightAn.Up"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), mc->GetName(), screenManager()));
 	PopupMultiChoice *rightAnalogDown = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogDown, mc->T("RightAn.Down"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), mc->GetName(), screenManager()));
 	PopupMultiChoice *rightAnalogLeft = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogLeft, mc->T("RightAn.Left"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), mc->GetName(), screenManager()));
@@ -193,12 +197,6 @@ UI::EventReturn TouchControlVisibilityScreen::OnToggleAll(UI::EventParams &e) {
 		*toggle.show = nextToggleAll_;
 	}
 	nextToggleAll_ = !nextToggleAll_;
-
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn TouchControlVisibilityScreen::RightAnalogBindScreen(UI::EventParams &e) {
-	screenManager()->push(new RightAnalogMappingScreen());
 
 	return UI::EVENT_DONE;
 }
