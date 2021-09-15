@@ -661,7 +661,7 @@ BEGIN
         MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "Enable Cheats",                       ID_EMULATION_CHEATS
         MENUITEM "", 0, MFT_SEPARATOR
-        MENUITEM "Enable Chat",                         ID_EMULATION_CHAT
+        MENUITEM "Open Chat",                           ID_EMULATION_CHAT
     END
 
     POPUP "Help",                                       ID_HELP_MENU

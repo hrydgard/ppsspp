@@ -19,7 +19,7 @@ void ChatMenu::CreateContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	auto n = GetI18NCategory("Networking");
 	LinearLayout *outer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT,400));
-	scroll_ = outer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0)));
+	scroll_ = outer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0)));
 	LinearLayout *bottom = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(SDL)
 	chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat message"), n->T("Chat Here"), new LinearLayoutParams(1.0)));

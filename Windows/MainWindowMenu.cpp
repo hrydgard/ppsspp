@@ -80,6 +80,7 @@ namespace MainWindow {
 		EnableMenuItem(menu, ID_EMULATION_STOP, menuEnable);
 		EnableMenuItem(menu, ID_EMULATION_RESET, menuEnable);
 		EnableMenuItem(menu, ID_EMULATION_SWITCH_UMD, umdSwitchEnable);
+		EnableMenuItem(menu, ID_EMULATION_CHAT, g_Config.bEnableNetworkChat ? menuInGameEnable : MF_GRAYED);
 		EnableMenuItem(menu, ID_TOGGLE_BREAK, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_LOADMAPFILE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_SAVEMAPFILE, menuEnable);
@@ -651,10 +652,6 @@ namespace MainWindow {
 			osm.ShowOnOff(gr->T("Cheats"), g_Config.bEnableCheats);
 			break;
 		case ID_EMULATION_CHAT:
-			if (!g_Config.bEnableNetworkChat) {
-				g_Config.bEnableNetworkChat = true;
-				UpdateCommands();
-			}
 			if (GetUIState() == UISTATE_INGAME) {
 				NativeMessageReceived("chat screen", "");
 			}
@@ -1391,7 +1388,7 @@ namespace MainWindow {
 		static CoreState lastCoreState = CORE_BOOT_ERROR;
 
 		HMENU menu = GetMenu(GetHWND());
-		EnableMenuItem(menu, ID_DEBUG_LOG, !g_Config.bEnableLogging);
+		EnableMenuItem(menu, ID_DEBUG_LOG, g_Config.bEnableLogging ? MF_ENABLED : MF_GRAYED);
 		SetIngameMenuItemStates(menu, GetUIState());
 
 		if (lastGlobalUIState == GetUIState() && lastCoreState == coreState)
@@ -1402,7 +1399,6 @@ namespace MainWindow {
 
 		bool isPaused = Core_IsStepping() && GetUIState() == UISTATE_INGAME;
 		TranslateMenuItem(menu, ID_TOGGLE_BREAK, L"\tF8", isPaused ? "Run" : "Break");
-		TranslateMenuItem(menu, ID_EMULATION_CHAT, L"\tCtrl+C", g_Config.bEnableNetworkChat ? "Open Chat" : "Enable Chat");
 	}
 
 	void UpdateSwitchUMD() {

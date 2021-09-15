@@ -227,7 +227,6 @@ private:
 
 	std::string *value_;
 	UI::TextEdit *addrView_ = nullptr;
-	UI::TextView *errorView_ = nullptr;
 	UI::TextView *progressView_ = nullptr;
 	UI::LinearLayout *ipRows_ = nullptr;
 

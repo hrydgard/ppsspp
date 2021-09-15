@@ -1972,12 +1972,8 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	parent->Add(ipRows_);
 	listIP.clear(); listIP.shrink_to_fit();
 
-	errorView_ = parent->Add(new TextView(n->T("Invalid IP or hostname"), ALIGN_HCENTER, false, new LinearLayoutParams(Margins(0, 10, 0, 0))));
-	errorView_->SetTextColor(0xFF3030FF);
-	errorView_->SetVisibility(V_GONE);
-
 	progressView_ = parent->Add(new TextView(n->T("Validating address..."), ALIGN_HCENTER, false, new LinearLayoutParams(Margins(0, 10, 0, 0))));
-	progressView_->SetVisibility(V_GONE);
+	progressView_->SetVisibility(V_INVISIBLE);
 }
 
 void HostnameSelectScreen::SendEditKey(int keyCode, int flags) {
@@ -2064,6 +2060,8 @@ void HostnameSelectScreen::ResolverThread() {
 }
 
 bool HostnameSelectScreen::CanComplete(DialogResult result) {
+	auto n = GetI18NCategory("Networking");
+
 	if (result != DR_OK)
 		return true;
 
@@ -2095,12 +2093,12 @@ bool HostnameSelectScreen::CanComplete(DialogResult result) {
 			lastResolvedResult_ = toResolveResult_;
 
 			if (lastResolvedResult_) {
-				errorView_->SetVisibility(UI::V_GONE);
+				progressView_->SetVisibility(UI::V_INVISIBLE);
 			} else {
-				errorView_->SetVisibility(UI::V_VISIBLE);
+				progressView_->SetText(n->T("Invalid IP or hostname"));
+				progressView_->SetTextColor(0xFF3030FF);
+				progressView_->SetVisibility(UI::V_VISIBLE);
 			}
-			progressView_->SetVisibility(UI::V_GONE);
-
 			return true;
 		}
 
@@ -2112,8 +2110,9 @@ bool HostnameSelectScreen::CanComplete(DialogResult result) {
 	toResolve_ = value;
 	resolverCond_.notify_one();
 
+	progressView_->SetText(n->T("Validating address..."));
+	progressView_->SetTextColor(0xFFFFFFFF);
 	progressView_->SetVisibility(UI::V_VISIBLE);
-	errorView_->SetVisibility(UI::V_GONE);
 
 	return false;
 }
