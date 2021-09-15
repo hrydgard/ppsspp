@@ -815,8 +815,6 @@ typedef ConfigTranslator<GPUBackend, GPUBackendToString, GPUBackendFromString> G
 static int FastForwardModeFromString(const std::string &s) {
 	if (!strcasecmp(s.c_str(), "CONTINUOUS"))
 		return (int)FastForwardMode::CONTINUOUS;
-	if (!strcasecmp(s.c_str(), "SKIP_DRAW"))
-		return (int)FastForwardMode::SKIP_DRAW;
 	if (!strcasecmp(s.c_str(), "SKIP_FLIP"))
 		return (int)FastForwardMode::SKIP_FLIP;
 	return DefaultFastForwardMode();
@@ -826,8 +824,6 @@ std::string FastForwardModeToString(int v) {
 	switch (FastForwardMode(v)) {
 	case FastForwardMode::CONTINUOUS:
 		return "CONTINUOUS";
-	case FastForwardMode::SKIP_DRAW:
-		return "SKIP_DRAW";
 	case FastForwardMode::SKIP_FLIP:
 		return "SKIP_FLIP";
 	}

@@ -120,7 +120,6 @@ enum class AutoLoadSaveState {
 
 enum class FastForwardMode {
 	CONTINUOUS = 0,
-	SKIP_DRAW = 1,
 	SKIP_FLIP = 2,
 };
 

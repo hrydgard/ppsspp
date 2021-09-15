@@ -557,16 +557,6 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	// Check if the frameskipping code should be enabled. If neither throttling or frameskipping is on,
 	// we have nothing to do here.
 	bool doFrameSkip = g_Config.iFrameSkip != 0;
-
-	bool fastForwardNeedsSkip = g_Config.iFastForwardMode == (int)FastForwardMode::SKIP_DRAW;
-	if (!throttle && fastForwardNeedsSkip) {
-		skipFrame = true;
-		if (numSkippedFrames >= 7) {
-			skipFrame = false;
-		}
-		return;
-	}
-
 	if (!throttle && !doFrameSkip)
 		return;
 
@@ -591,16 +581,12 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	}
 
 	// Auto-frameskip automatically if speed limit is set differently than the default.
-	bool forceFrameskip = fpsLimit > 60 && fastForwardNeedsSkip;
 	int frameSkipNum = CalculateFrameSkip();
-	if (g_Config.bAutoFrameSkip || forceFrameskip) {
+	if (g_Config.bAutoFrameSkip) {
 		// autoframeskip
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
 		if (curFrameTime > nextFrameTime && doFrameSkip) {
 			skipFrame = true;
-			if (forceFrameskip) {
-				throttle = false;
-			}
 		}
 	} else if (frameSkipNum >= 1) {
 		// fixed frameskip
@@ -741,15 +727,13 @@ void __DisplayFlip(int cyclesLate) {
 
 	bool duplicateFrames = g_Config.bRenderDuplicateFrames && g_Config.iFrameSkip == 0;
 
-	bool fastForwardNeedsSkip = g_Config.iFastForwardMode != (int)FastForwardMode::CONTINUOUS;
-	bool fastForwardSkipFlip = g_Config.iFastForwardMode == (int)FastForwardMode::SKIP_FLIP;
+	bool fastForwardSkipFlip = g_Config.iFastForwardMode != (int)FastForwardMode::CONTINUOUS;
 	if (g_Config.bVSync && GetGPUBackend() == GPUBackend::VULKAN) {
 		// Vulkan doesn't support the interval setting, so we force skipping the flip.
 		fastForwardSkipFlip = true;
 	}
 
-	// postEffectRequiresFlip is not compatible with frameskip fast-forward, see #12325.
-	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && !(fastForwardNeedsSkip && !FrameTimingThrottled())) {
+	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
 		postEffectRequiresFlip = duplicateFrames || g_Config.bShaderChainRequires60FPS;
 	}
 
