@@ -862,7 +862,7 @@ void EmuScreen::CreateViews() {
 			break;
 		}
 
-		ChoiceWithValueDisplay *btn = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), layoutParams);
+		ChoiceWithValueDisplay *btn = new ChoiceWithValueDisplay(&newChatMessages_, n->T("Chat"), layoutParams);
 		root_->Add(btn)->OnClick.Handle(this, &EmuScreen::OnChat);
 		chatButton_ = btn;
 		chatMenu_ = root_->Add(new ChatMenu(screenManager()->getUIContext()->GetBounds(), new LayoutParams(FILL_PARENT, FILL_PARENT)));
@@ -986,6 +986,18 @@ void EmuScreen::update() {
 	onScreenMessagesView_->SetVisibility(g_Config.bShowOnScreenMessages ? V_VISIBLE : V_GONE);
 	resumeButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR && Memory::MemFault_MayBeResumable() ? V_VISIBLE : V_GONE);
 	resetButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR ? V_VISIBLE : V_GONE);
+
+	if (chatButton_ && chatMenu_) {
+		if (chatMenu_->GetVisibility() != V_GONE) {
+			chatMessages_ = GetChatMessageCount();
+			newChatMessages_ = 0;
+		} else {
+			int diff = GetChatMessageCount() - chatMessages_;
+			chatMessages_ += diff;
+			// Cap the count at 50.
+			newChatMessages_ = diff > 50 ? 50 : diff;
+		}
+	}
 
 	if (bootPending_) {
 		bootGame(gamePath_);

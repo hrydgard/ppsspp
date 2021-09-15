@@ -177,9 +177,6 @@ void ChatMenu::Update() {
 		UpdateChat();
 	}
 
-	chatScreenVisible = true;
-	newChat = 0;
-
 #if defined(USING_WIN_UI)
 	// Could remove the fullscreen check here, it works now.
 	if (promptInput_ && g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen) {
@@ -203,5 +200,4 @@ bool ChatMenu::SubviewFocused(UI::View *view) {
 
 void ChatMenu::Close() {
 	SetVisibility(UI::V_GONE);
-	chatScreenVisible = false;
 }

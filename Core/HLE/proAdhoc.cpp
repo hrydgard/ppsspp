@@ -115,8 +115,6 @@ std::vector<std::string> chatLog;
 std::string name = "";
 std::string incoming = "";
 std::string message = "";
-bool chatScreenVisible = false;
-int newChat = 0;
 bool isOriPort = false;
 bool isLocalServer = false;
 SockAddrIN4 g_adhocServerIP;
@@ -125,6 +123,7 @@ sockaddr LocalIP;
 int defaultWlanChannel = PSP_SYSTEMPARAM_ADHOC_CHANNEL_11; // Don't put 0(Auto) here, it needed to be a valid/actual channel number
 
 static int chatMessageGeneration = 0;
+static int chatMessageCount = 0;
 
 bool isMacMatch(const SceNetEtherAddr* addr1, const SceNetEtherAddr* addr2) {
 	// Ignoring the 1st byte since there are games (ie. Gran Turismo) who tamper with the 1st byte of OUI to change the unicast/multicast bit
@@ -1325,6 +1324,10 @@ int GetChatChangeID() {
 	return chatMessageGeneration;
 }
 
+int GetChatMessageCount() {
+	return chatMessageCount;
+}
+
 int friendFinder(){
 	SetCurrentThreadName("FriendFinder");
 	auto n = GetI18NCategory("Networking");
@@ -1522,11 +1525,7 @@ int friendFinder(){
 						incoming.append((char*)packet->base.message);
 						chatLog.push_back(incoming);
 						chatMessageGeneration++;
-						if (!chatScreenVisible) {
-							if (newChat < 50) {
-								newChat += 1;
-							}
-						}
+						chatMessageCount++;
 
 						// Move RX Buffer
 						memmove(rx, rx + sizeof(SceNetAdhocctlChatPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlChatPacketS2C));

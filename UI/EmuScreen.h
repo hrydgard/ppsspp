@@ -86,6 +86,10 @@ private:
 	// If set, pauses at the end of the frame.
 	bool pauseTrigger_ = false;
 
+	// The last read chat message count, and how many new ones there are.
+	int chatMessages_ = 0;
+	int newChatMessages_ = 0;
+
 	// In-memory save state used for freezeFrame, which is useful for debugging.
 	std::vector<u8> freezeState_;
 
