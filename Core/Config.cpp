@@ -795,10 +795,6 @@ bool Config::IsBackendEnabled(GPUBackend backend, bool validate) {
 	return true;
 }
 
-static bool DefaultVertexCache() {
-	return DefaultGPUBackend() == (int)GPUBackend::OPENGL;
-}
-
 template <typename T, std::string (*FTo)(T), T (*FFrom)(const std::string &)>
 struct ConfigTranslator {
 	static std::string To(int v) {
@@ -875,7 +871,7 @@ static ConfigSetting graphicsSettings[] = {
 	// Most low-performance (and many high performance) mobile GPUs do not support aniso anyway so defaulting to 4 is fine.
 	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 4, true, true),
 
-	ReportedConfigSetting("VertexDecCache", &g_Config.bVertexCache, &DefaultVertexCache, true, true),
+	ReportedConfigSetting("VertexDecCache", &g_Config.bVertexCache, false, true, true),
 	ReportedConfigSetting("TextureBackoffCache", &g_Config.bTextureBackoffCache, false, true, true),
 	ReportedConfigSetting("TextureSecondaryCache", &g_Config.bTextureSecondaryCache, false, true, true),
 	ReportedConfigSetting("VertexDecJit", &g_Config.bVertexDecoderJit, &DefaultCodeGen, false),
