@@ -185,9 +185,9 @@ private slots:
 
 	// Chat
 	void chatAct() {
-		g_Config.bEnableNetworkChat = true;
-		updateMenus();
-		NativeMessageReceived("chat screen", "");
+		if (GetUIState() == UISTATE_INGAME) {
+			NativeMessageReceived("chat screen", "");
+		}
 	}
 
 	void fullscrAct();
@@ -244,7 +244,7 @@ class MenuAction : public QAction
 public:
 	// Add to QMenu
 	MenuAction(QWidget* parent, const char *callback, const char *text, QKeySequence key = 0) :
-		QAction(parent), _text(text), _eventCheck(0), _eventUncheck(0), _stateEnable(-1), _stateDisable(-1), _enableStepping(false)
+		QAction(parent), _text(text)
 	{
 		if (key != (QKeySequence)0) {
 			this->setShortcut(key);
@@ -256,7 +256,7 @@ public:
 	}
 	// Add to QActionGroup
 	MenuAction(QWidget* parent, QActionGroup* group, QVariant data, QString text, QKeySequence key = 0) :
-		QAction(parent), _eventCheck(0), _eventUncheck(0), _stateEnable(-1), _stateDisable(-1), _enableStepping(false)
+		QAction(parent)
 	{
 		this->setCheckable(true);
 		this->setData(data);
@@ -284,14 +284,19 @@ public:
 	}
 	// UI State which causes it to be enabled
 	void addEnableState(int state) {
+		_enabledFunc = nullptr;
 		_stateEnable = state;
+		_stateDisable = -1;
 	}
 	void addDisableState(int state) {
+		_enabledFunc = nullptr;
+		_stateEnable = -1;
 		_stateDisable = state;
 	}
-	MenuAction* addEnableStepping() {
-		_enableStepping = true;
-		return this;
+	void SetEnabledFunc(std::function<bool()> func) {
+		_enabledFunc = func;
+		_stateEnable = -1;
+		_stateDisable = -1;
 	}
 public slots:
 	void retranslate() {
@@ -306,15 +311,16 @@ public slots:
 			setEnabled(GetUIState() == _stateEnable);
 		if (_stateDisable >= 0)
 			setEnabled(GetUIState() != _stateDisable);
-		if (_enableStepping && Core_IsStepping())
-			setEnabled(true);
+		if (_enabledFunc)
+			setEnabled(_enabledFunc());
 	}
 private:
 	const char *_text;
-	bool *_eventCheck;
-	bool *_eventUncheck;
-	int _stateEnable, _stateDisable;
-	bool _enableStepping;
+	bool *_eventCheck = nullptr;
+	bool *_eventUncheck = nullptr;
+	int _stateEnable = -1;
+	int _stateDisable = -1;
+	std::function<bool()> _enabledFunc;
 };
 
 class MenuActionGroup : public QActionGroup
