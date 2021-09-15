@@ -488,6 +488,8 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			gstate_c.skipDrawReason &= ~SKIPDRAW_WINDOW_MINIMIZED;
 		}
 	} else if (!strcmp(message, "chat screen")) {
+		if (!chatButton_)
+			RecreateViews();
 
 #if defined(USING_WIN_UI)
 		//temporary workaround for hotkey its freeze the ui when open chat screen using hotkey and native keyboard is enable
