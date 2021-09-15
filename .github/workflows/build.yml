@@ -279,6 +279,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
       with:
+        # Doing this to ensure correct git-version generation.
+        fetch-depth: 0
         submodules: false
 
     - name: Fetch tests
