@@ -118,7 +118,7 @@ void MemStickScreen::CreateViews() {
 	ScrollView *leftColumnScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
 
 	ViewGroup *leftColumn = new LinearLayoutList(ORIENT_VERTICAL);
-	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
+	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT, actionMenuMargins));
 	root_->Add(spacerColumn);
 	root_->Add(leftColumnScroll);
 	root_->Add(rightColumnItems);
