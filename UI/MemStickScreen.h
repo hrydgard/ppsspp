@@ -57,6 +57,7 @@ protected:
 private:
 	// Event handlers
 	UI::EventReturn OnBrowse(UI::EventParams &e);
+	UI::EventReturn OnHelp(UI::EventParams &e);
 	UI::EventReturn OnUseInternalStorage(UI::EventParams &params);
 	UI::EventReturn OnUseStorageRoot(UI::EventParams &params);
 	UI::EventReturn OnSetFolderManually(UI::EventParams &params);

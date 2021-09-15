@@ -176,9 +176,16 @@ void MemStickScreen::CreateViews() {
 
 	if (!initialSetup_) {
 		rightColumnItems->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		rightColumnItems->Add(new Choice(di->T("Help")))->OnClick.Handle<MemStickScreen>(this, &MemStickScreen::OnHelp);
 	}
 
 	INFO_LOG(SYSTEM, "MemStickScreen: initialSetup=%d", (int)initialSetup_);
+}
+
+UI::EventReturn MemStickScreen::OnHelp(UI::EventParams &params) {
+	LaunchBrowser("https://ppsspp.org/guide_storage.html");
+
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn MemStickScreen::OnSetFolderManually(UI::EventParams &params) {
