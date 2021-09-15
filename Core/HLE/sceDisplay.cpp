@@ -511,14 +511,18 @@ void __DisplaySetWasPaused() {
 	wasPaused = true;
 }
 
+static int FrameTimingLimit() {
+	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1)
+		return g_Config.iFpsLimit1;
+	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2)
+		return g_Config.iFpsLimit2;
+	if (PSP_CoreParameter().fastForward)
+		return 0;
+	return 60;
+}
+
 static bool FrameTimingThrottled() {
-	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 && g_Config.iFpsLimit1 == 0) {
-		return false;
-	}
-	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2 && g_Config.iFpsLimit2 == 0) {
-		return false;
-	}
-	return !PSP_CoreParameter().fastForward;
+	return FrameTimingLimit() != 0;
 }
 
 static void DoFrameDropLogging(float scaledTimestep) {
@@ -546,10 +550,7 @@ static int CalculateFrameSkip() {
 // Let's collect all the throttling and frameskipping logic here.
 static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	PROFILE_THIS_SCOPE("timing");
-	FPSLimit fpsLimiter = PSP_CoreParameter().fpsLimit;
-	int fpsLimit = 60;
-	if (fpsLimiter != FPSLimit::NORMAL)
-		fpsLimit = fpsLimiter == FPSLimit::CUSTOM1 ? g_Config.iFpsLimit1 : g_Config.iFpsLimit2;
+	int fpsLimit = FrameTimingLimit();
 	throttle = FrameTimingThrottled();
 	skipFrame = false;
 
@@ -648,11 +649,10 @@ static void DoFrameIdleTiming() {
 	}
 
 	float scaledVblank = timePerVblank;
-	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 && g_Config.iFpsLimit1 > 0) {
+	int fpsLimit = FrameTimingLimit();
+	if (fpsLimit != 0 && fpsLimit != 60) {
 		// 0 is handled in FrameTimingThrottled().
-		scaledVblank *= 60.0f / g_Config.iFpsLimit1;
-	} else if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2 && g_Config.iFpsLimit2 > 0) {
-		scaledVblank *= 60.0f / g_Config.iFpsLimit2;
+		scaledVblank *= 60.0f / fpsLimit;
 	}
 
 	// If we have over at least a vblank of spare time, maintain at least 30fps in delay.
@@ -778,12 +778,13 @@ void __DisplayFlip(int cyclesLate) {
 		}
 
 		bool forceNoFlip = false;
+		float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
 		// Alternative to frameskip fast-forward, where we draw everything.
 		// Useful if skipping a frame breaks graphics or for checking drawing speed.
-		if (fastForwardSkipFlip && !FrameTimingThrottled()) {
+		if (fastForwardSkipFlip && (!FrameTimingThrottled() || FrameTimingLimit() > refreshRate)) {
 			static double lastFlip = 0;
 			double now = time_now_d();
-			if ((now - lastFlip) < 1.0f / System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE)) {
+			if ((now - lastFlip) < 1.0f / refreshRate) {
 				forceNoFlip = true;
 			} else {
 				lastFlip = now;
@@ -876,11 +877,10 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 	}
 
 	float scale = 1.0f;
-	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 && g_Config.iFpsLimit1 > 0) {
+	int fpsLimit = FrameTimingLimit();
+	if (fpsLimit != 0 && fpsLimit != 60) {
 		// 0 is handled in FrameTimingThrottled().
-		scale = 60.0f / g_Config.iFpsLimit1;
-	} else if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2 && g_Config.iFpsLimit2 > 0) {
-		scale = 60.0f / g_Config.iFpsLimit2;
+		scale = 60.0f / fpsLimit;
 	}
 
 	const double goal = lastLagSync + (scale / 1000.0f);
