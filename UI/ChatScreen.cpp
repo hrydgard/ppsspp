@@ -172,9 +172,9 @@ void ChatMenu::Update() {
 		scroll_->ScrollToBottom();
 	}
 
-	if (updateChatScreen) {
+	if (chatChangeID_ != GetChatChangeID()) {
+		chatChangeID_ = GetChatChangeID();
 		UpdateChat();
-		updateChatScreen = false;
 	}
 
 	chatScreenVisible = true;

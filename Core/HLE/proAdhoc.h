@@ -1015,8 +1015,9 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet);
 */
 void sendChat(std::string chatString);
 std::vector<std::string> getChatLog();
+int GetChatChangeID();
+
 extern bool chatScreenVisible;
-extern bool updateChatScreen;
 extern int newChat;
 
 /*
