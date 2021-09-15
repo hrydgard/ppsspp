@@ -249,13 +249,13 @@ jobs:
         name: ${{ matrix.os }} build
         path: ppsspp/
 
-    - name: Create release
+    - name: Create macOS release
       if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS' && matrix.extra == 'test'
       run: |
         cd ppsspp || exit 1
-        mv PPSSPPSDL.zip PPSSPPSDL-${GITHUB_REF##*/}.zip || exit 1
+        mv PPSSPPSDL.zip PPSSPPSDL-macOS-${GITHUB_REF##*/}.zip || exit 1
 
-    - name: Upload release
+    - name: Upload macOS release
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS' && matrix.extra == 'test'
       with:
