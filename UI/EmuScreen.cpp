@@ -993,7 +993,6 @@ void EmuScreen::update() {
 			newChatMessages_ = 0;
 		} else {
 			int diff = GetChatMessageCount() - chatMessages_;
-			chatMessages_ += diff;
 			// Cap the count at 50.
 			newChatMessages_ = diff > 50 ? 50 : diff;
 		}
