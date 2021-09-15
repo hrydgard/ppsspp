@@ -51,6 +51,7 @@
 #define TCP_MAXSEG 2
 #endif // defined(HAVE_LIBNX) || PPSSPP_PLATFORM(SWITCH)
 
+#include <mutex>
 #include <cstring>
 
 #include "Common/Data/Text/I18n.h"
@@ -111,10 +112,6 @@ SceNetAdhocctlAdhocId product_code;
 std::thread friendFinderThread;
 std::recursive_mutex peerlock;
 AdhocSocket* adhocSockets[MAX_SOCKET];
-std::vector<std::string> chatLog;
-std::string name = "";
-std::string incoming = "";
-std::string message = "";
 bool isOriPort = false;
 bool isLocalServer = false;
 SockAddrIN4 g_adhocServerIP;
@@ -122,6 +119,8 @@ SockAddrIN4 g_localhostIP;
 sockaddr LocalIP;
 int defaultWlanChannel = PSP_SYSTEMPARAM_ADHOC_CHANNEL_11; // Don't put 0(Auto) here, it needed to be a valid/actual channel number
 
+static std::mutex chatLogLock;
+static std::vector<std::string> chatLog;
 static int chatMessageGeneration = 0;
 static int chatMessageCount = 0;
 
@@ -1294,28 +1293,31 @@ void sendChat(std::string chatString) {
 		// Send Chat to Server 
 		if (!chatString.empty()) {
 			//maximum char allowed is 64 character for compability with original server (pro.coldbird.net)
-			message = chatString.substr(0, 60); // 64 return chat variable corrupted is it out of memory?
+			std::string message = chatString.substr(0, 60); // 64 return chat variable corrupted is it out of memory?
 			strcpy(chat.message, message.c_str());
 			//Send Chat Messages
 			if (IsSocketReady(metasocket, false, true) > 0) {
 				int chatResult = send(metasocket, (const char*)&chat, sizeof(chat), MSG_NOSIGNAL);
 				NOTICE_LOG(SCENET, "Send Chat %s to Adhoc Server", chat.message);
-				name = g_Config.sNickName.c_str();
+				std::string name = g_Config.sNickName.c_str();
+
+				std::lock_guard<std::mutex> guard(chatLogLock);
 				chatLog.push_back(name.substr(0, 8) + ": " + chat.message);
 				chatMessageGeneration++;
 			}
 		}
 	} else {
+		std::lock_guard<std::mutex> guard(chatLogLock);
 		chatLog.push_back(n->T("You're in Offline Mode, go to lobby or online hall"));
 		chatMessageGeneration++;
 	}
 }
 
 std::vector<std::string> getChatLog() {
-	// this log used by chat screen
+	std::lock_guard<std::mutex> guard(chatLogLock);
+	// If the log gets large, trim it down.
 	if (chatLog.size() > 50) {
-		//erase the first 40 element limit the chatlog size
-		chatLog.erase(chatLog.begin(), chatLog.begin() + 40);
+		chatLog.erase(chatLog.begin(), chatLog.begin() + (chatLog.size() - 50));
 	}
 	return chatLog;
 }
@@ -1518,11 +1520,13 @@ int friendFinder(){
 
 						// Add Incoming Chat to HUD
 						NOTICE_LOG(SCENET, "Received chat message %s", packet->base.message);
-						incoming = "";
-						name = (char*)packet->name.data;
+						std::string incoming = "";
+						std::string name = (char*)packet->name.data;
 						incoming.append(name.substr(0, 8));
 						incoming.append(": ");
 						incoming.append((char*)packet->base.message);
+
+						std::lock_guard<std::mutex> guard(chatLogLock);
 						chatLog.push_back(incoming);
 						chatMessageGeneration++;
 						chatMessageCount++;
@@ -1586,12 +1590,14 @@ int friendFinder(){
 						}
 
 						// Update HUD User Count
-						name = (char*)packet->name.data;
-						incoming = "";
+						std::string name = (char*)packet->name.data;
+						std::string incoming = "";
 						incoming.append(name.substr(0, 8));
 						incoming.append(" Joined ");
 						//do we need ip?
 						//joined.append((char *)packet->ip);
+
+						std::lock_guard<std::mutex> guard(chatLogLock);
 						chatLog.push_back(incoming);
 						chatMessageGeneration++;
 
@@ -1601,7 +1607,7 @@ int friendFinder(){
 						// setUserCount(getActivePeerCount()+1);
 #endif
 
-					// Move RX Buffer
+						// Move RX Buffer
 						memmove(rx, rx + sizeof(SceNetAdhocctlConnectPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlConnectPacketS2C));
 
 						// Fix RX Buffer Length
