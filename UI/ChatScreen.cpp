@@ -172,13 +172,10 @@ void ChatMenu::Update() {
 		scroll_->ScrollToBottom();
 	}
 
-	if (updateChatScreen) {
+	if (chatChangeID_ != GetChatChangeID()) {
+		chatChangeID_ = GetChatChangeID();
 		UpdateChat();
-		updateChatScreen = false;
 	}
-
-	chatScreenVisible = true;
-	newChat = 0;
 
 #if defined(USING_WIN_UI)
 	// Could remove the fullscreen check here, it works now.
@@ -203,5 +200,4 @@ bool ChatMenu::SubviewFocused(UI::View *view) {
 
 void ChatMenu::Close() {
 	SetVisibility(UI::V_GONE);
-	chatScreenVisible = false;
 }

@@ -38,6 +38,7 @@ private:
 	UI::LinearLayout *chatVert_ = nullptr;
 	UI::ViewGroup *box_ = nullptr;
 
+	int chatChangeID_ = 0;
 	bool toBottom_ = true;
 	bool promptInput_ = false;
 };
