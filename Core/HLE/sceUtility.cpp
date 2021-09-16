@@ -136,11 +136,12 @@ static int oldStatus = -1;
 static std::map<int, u32> currentlyLoadedModules;
 static int volatileUnlockEvent = -1;
 static HLEHelperThread *accessThread = nullptr;
+static bool accessThreadFinished = true;
 static const char *accessThreadState = "initial";
 
 static void CleanupDialogThreads(bool force = false) {
 	if (accessThread) {
-		if (accessThread->Stopped()) {
+		if (accessThread->Stopped() || accessThreadFinished) {
 			delete accessThread;
 			accessThread = nullptr;
 			accessThreadState = "cleaned up";
@@ -219,7 +220,7 @@ void __UtilityInit() {
 }
 
 void __UtilityDoState(PointerWrap &p) {
-	auto s = p.Section("sceUtility", 1, 4);
+	auto s = p.Section("sceUtility", 1, 5);
 	if (!s) {
 		return;
 	}
@@ -262,6 +263,9 @@ void __UtilityDoState(PointerWrap &p) {
 		hasAccessThread = false;
 	}
 
+	if (s >= 5)
+		Do(p, accessThreadFinished);
+
 	if (!hasAccessThread && accessThread) {
 		accessThread->Forget();
 		delete accessThread;
@@ -283,6 +287,7 @@ void __UtilityShutdown() {
 		accessThread = nullptr;
 		accessThreadState = "shutdown";
 	}
+	accessThreadFinished = true;
 
 	delete saveDialog;
 	delete msgDialog;
@@ -320,6 +325,7 @@ void UtilityDialogInitialize(UtilityDialogType type, int delayUs, int priority) 
 	CleanupDialogThreads(true);
 	accessThread = new HLEHelperThread("ScePafJob", insts, (uint32_t)ARRAY_SIZE(insts), priority, 0x200);
 	accessThread->Start(partDelay, 0);
+	accessThreadFinished = false;
 	accessThreadState = "initializing";
 }
 
@@ -348,6 +354,7 @@ void UtilityDialogShutdown(UtilityDialogType type, int delayUs, int priority) {
 	__DisableInterrupts();
 	accessThread = new HLEHelperThread("ScePafJob", insts, (uint32_t)ARRAY_SIZE(insts), priority, 0x200);
 	accessThread->Start(partDelay, 0);
+	accessThreadFinished = false;
 	accessThreadState = "shutting down";
 	if (prevInterrupts)
 		__EnableInterrupts();
@@ -367,6 +374,7 @@ static int UtilityWorkUs(int us) {
 
 static int UtilityInitDialog(int type) {
 	PSPDialog *dialog = CurrentDialog((UtilityDialogType)type);
+	accessThreadFinished = true;
 	accessThreadState = "init finished";
 	if (dialog)
 		return hleLogSuccessI(SCEUTILITY, dialog->FinishInit());
@@ -375,6 +383,7 @@ static int UtilityInitDialog(int type) {
 
 static int UtilityFinishDialog(int type) {
 	PSPDialog *dialog = CurrentDialog((UtilityDialogType)type);
+	accessThreadFinished = true;
 	accessThreadState = "shutdown finished";
 	if (dialog)
 		return hleLogSuccessI(SCEUTILITY, dialog->FinishShutdown());
@@ -389,6 +398,7 @@ static int sceUtilitySavedataInitStart(u32 paramAddr) {
 				accessThread->Terminate();
 				delete accessThread;
 				accessThread = nullptr;
+				accessThreadFinished = true;
 				accessThreadState = "terminated";
 				// Try to unlock in case other dialog was shutting down.
 				KernelVolatileMemUnlock(0);
