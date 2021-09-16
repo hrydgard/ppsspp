@@ -55,13 +55,24 @@ protected:
 	}
 
 private:
+	void Browse();
+	void UseInternalStorage();
+	void UseStorageRoot();
+	void SetFolderManually();
+
 	// Event handlers
-	UI::EventReturn OnBrowse(UI::EventParams &e);
-	UI::EventReturn OnUseInternalStorage(UI::EventParams &params);
-	UI::EventReturn OnUseStorageRoot(UI::EventParams &params);
-	UI::EventReturn OnSetFolderManually(UI::EventParams &params);
+	UI::EventReturn OnChoiceClick(UI::EventParams &e);
+	UI::EventReturn OnContinueClick(UI::EventParams &e);
 
 	SettingInfoMessage *settingInfo_ = nullptr;
+
+	struct ChoiceStruct {
+		std::function<void()> func;
+		UI::LinearLayout *info;
+	};
+
+	std::map<UI::StickyChoice *, ChoiceStruct> choices_;
+	UI::StickyChoice *selected_ = nullptr;
 
 	bool initialSetup_;
 	bool done_ = false;
