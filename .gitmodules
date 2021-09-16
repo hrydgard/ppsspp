@@ -31,3 +31,6 @@
 [submodule "zstd"]
 	path = ext/zstd
 	url = https://github.com/facebook/zstd.git
+[submodule "SDL/macOS"]
+	path = SDL/macOS
+	url = https://github.com/hrydgard/ppsspp-mac-sdl

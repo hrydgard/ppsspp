@@ -180,6 +180,12 @@ jobs:
       with:
         submodules: recursive
 
+    - name: Fetch tags for macOS releases
+      if: runner.os == 'macOS'
+      # This is required for git describe --always to work for git-version.cpp.
+      run: |
+        git pull --unshallow
+
     - name: Cache Qt
       uses: actions/cache@v1
       if: matrix.extra == 'qt'
@@ -207,10 +213,11 @@ jobs:
         sudo apt-get update -y -qq
         sudo apt-get install libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev
 
-    - name: Install macOS dependencies
-      if: runner.os == 'macOS' && matrix.extra != 'ios'
+    - name: Create macOS git-version.cpp for tagged release
+      if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS' && matrix.extra == 'test'
       run: |
-        brew install sdl2
+        echo "const char *PPSSPP_GIT_VERSION = \"${GITHUB_REF##*/}\";" > git-version.cpp
+        echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
 
     - name: Execute build
       env:
@@ -279,8 +286,6 @@ jobs:
     steps:
     - uses: actions/checkout@v2
       with:
-        # Doing this to ensure correct git-version generation.
-        fetch-depth: 0
         submodules: false
 
     - name: Fetch tests
@@ -298,7 +303,7 @@ jobs:
     - name: Install macOS dependencies
       if: runner.os == 'macOS'
       run: |
-        brew install sdl2
+        git submodule update --init SDL/macOS
 
     - name: Download build
       uses: actions/download-artifact@v2
