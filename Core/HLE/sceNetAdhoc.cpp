@@ -5468,16 +5468,16 @@ int sceNetAdhocMatchingAbortSendData(int matchingId, const char *mac) {
 
 // Get the maximum memory usage by the matching library
 static int sceNetAdhocMatchingGetPoolMaxAlloc() {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingGetPoolMaxAlloc()");
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingGetPoolMaxAlloc() at %08x", currentMIPS->pc);
 	if (!g_Config.bEnableWlan)
 		return -1;
 	
 	// Lazy way out - hardcoded return value
-	return fakePoolSize/2; // (50 * 1024);
+	return hleLogDebug(SCENET, fakePoolSize/2, "faked value");
 }
 
 int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
-	DEBUG_LOG(SCENET, "UNTESTED sceNetAdhocMatchingGetPoolStat(%08x)", poolstatPtr);
+	DEBUG_LOG(SCENET, "UNTESTED sceNetAdhocMatchingGetPoolStat(%08x) at %08x", poolstatPtr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan)
 		return -1;
 	
@@ -5500,11 +5500,11 @@ int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
 		}
 
 		// Invalid Argument
-		return ERROR_NET_ADHOC_MATCHING_INVALID_ARG;
+		return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "adhocmatching invalid arg");
 	}
 
 	// Uninitialized Library
-	return ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED;
+	return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
 }
 
 void __NetTriggerCallbacks()
