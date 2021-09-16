@@ -184,7 +184,7 @@ jobs:
       if: runner.os == 'macOS'
       # This is required for git describe --always to work for git-version.cpp.
       run: |
-        git pull --unshallow
+        git pull --unshallow || exit 0
 
     - name: Cache Qt
       uses: actions/cache@v1
