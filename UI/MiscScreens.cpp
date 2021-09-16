@@ -707,7 +707,7 @@ void LogoScreen::sendMessage(const char *message, const char *value) {
 }
 
 bool LogoScreen::key(const KeyInput &key) {
-	if (key.deviceId != DEVICE_ID_MOUSE) {
+	if (key.deviceId != DEVICE_ID_MOUSE && (key.flags & KEY_DOWN)) {
 		Next();
 		return true;
 	}
