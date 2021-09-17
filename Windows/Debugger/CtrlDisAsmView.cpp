@@ -1407,7 +1407,7 @@ void CtrlDisAsmView::getOpcodeText(u32 address, char* dest, int bufsize)
 {
 	DisassemblyLineInfo line;
 	address = manager.getStartAddress(address);
-	manager.getLine(address, displaySymbols, line);
+	manager.getLine(address,displaySymbols,line);
 	
 	// Begin trace logger mods
 	std::string instructionName = line.name;
