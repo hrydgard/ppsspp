@@ -95,7 +95,7 @@ void CtrlDisAsmView::init()
 	wc.cbClsExtra     = 0;
 	wc.cbWndExtra     = sizeof( CtrlDisAsmView * );
 	wc.hIconSm        = 0;
-		
+
 	RegisterClassEx(&wc);
 }
 
