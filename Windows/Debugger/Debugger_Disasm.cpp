@@ -621,7 +621,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 			case IDC_GOTOPC:
 				{
-					ptr->gotoPC();    
+					ptr->gotoPC();  
 					SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 					UpdateDialog();
 				}
@@ -632,6 +632,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 				}
 				break;
+
 			case IDC_TRACETOGGLER:
 				{
 					if (ptr->getTraceLoggerStatus()) ptr->disableTraceLogger();
@@ -709,7 +710,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_DEB_GOTOHEXEDIT:
 		{
-			CtrlMemView* memory = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW));
+			CtrlMemView *memory = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW));
 			memory->gotoAddr(wParam);
 			
 			// display the memory viewer too
