@@ -213,6 +213,7 @@ CDisasm::~CDisasm()
 {
 	traceLogger.close();
 	DestroyWindow(statusBarWnd);
+
 	delete leftTabs;
 	delete bottomTabs;
 	delete breakpointList;
@@ -621,7 +622,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 			case IDC_GOTOPC:
 				{
-					ptr->gotoPC();  
+					ptr->gotoPC();	
 					SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 					UpdateDialog();
 				}
@@ -654,12 +655,12 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 
 	case WM_DEB_GOTOWPARAM:
-		{
-			CtrlDisAsmView* ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
-			ptr->gotoAddr(wParam);
-			SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
-			break;
-		}
+	{
+		CtrlDisAsmView* ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+		ptr->gotoAddr(wParam);
+		SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+		break;
+	}
 	case WM_DEB_GOTOADDRESSEDIT:
 		{
 			if (!PSP_IsInited()) {
