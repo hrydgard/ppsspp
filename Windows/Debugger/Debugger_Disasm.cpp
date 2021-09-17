@@ -656,9 +656,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 	case WM_DEB_GOTOWPARAM:
 	{
-		CtrlDisAsmView* ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+		CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 		ptr->gotoAddr(wParam);
-		SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+		SetFocus(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 		break;
 	}
 	case WM_DEB_GOTOADDRESSEDIT:
