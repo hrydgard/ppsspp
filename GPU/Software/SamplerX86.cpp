@@ -77,6 +77,7 @@ NearestFunc SamplerJitCache::Compile(const SamplerID &id) {
 		SetJumpTarget(nonZeroSrc);
 	}
 
+	// This reads the pixel data into resultReg from the args.
 	if (!Jit_ReadTextureFormat(id)) {
 		EndWrite();
 		ResetCodePtr(GetOffset(start));
@@ -160,6 +161,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	// At this point:
 	// R12=uptr, R13=vptr, stack+24=frac_u, stack+32=frac_v, R14=src, R15=bufw, stack+X=level
 
+	// This stores the result on the stack for later processing.
 	auto doNearestCall = [&](int off) {
 		MOV(32, R(uReg), MDisp(R12, off));
 		MOV(32, R(vReg), MDisp(R13, off));
@@ -340,12 +342,312 @@ bool SamplerJitCache::Jit_ReadTextureFormat(const SamplerID &id) {
 			success = Jit_ReadClutColor(id);
 		break;
 
-	// TODO: DXT?
+	case GE_TFMT_DXT1:
+		success = Jit_GetDXT1Color(id, 8, 255);
+		break;
+
+	case GE_TFMT_DXT3:
+		success = Jit_GetDXT1Color(id, 16, 0);
+		if (success)
+			success = Jit_ApplyDXTAlpha(id);
+		break;
+
+	case GE_TFMT_DXT5:
+		success = Jit_GetDXT1Color(id, 16, 0);
+		if (success)
+			success = Jit_ApplyDXTAlpha(id);
+		break;
+
 	default:
 		success = false;
 	}
 
 	return success;
+}
+
+// Note: afterward, srcReg points at the block, and uReg/vReg have offset into block.
+bool SamplerJitCache::Jit_GetDXT1Color(const SamplerID &id, int blockSize, int alpha) {
+	// Like Jit_GetTexData, this gets the color into resultReg.
+	// Note: color low bits are red, high bits are blue.
+	_assert_msg_(blockSize == 8 || blockSize == 16, "Invalid DXT block size");
+
+	// First, we need to get the block's offset, which is:
+	// blockPos = src + (v/4 * bufw/4 + u/4) * blockSize
+	// We distribute the blockSize constant for convenience:
+	// blockPos = src + (blockSize*v/4 * bufw/4 + blockSize*u/4)
+
+	// Copy u (we'll need it later), and round down to the nearest 4 after scaling.
+	LEA(32, tempReg1, MScaled(uReg, blockSize / 4, 0));
+	AND(32, R(tempReg1), Imm32(blockSize == 8 ? ~7 : ~15));
+	// Add in srcReg already, since we'll be multiplying soon.
+	ADD(64, R(tempReg1), R(srcReg));
+
+	LEA(32, tempReg2, MScaled(vReg, blockSize / 4, 0));
+	AND(32, R(tempReg2), Imm32(blockSize == 8 ? ~7 : ~15));
+	// Modify bufw in place and then multiply.
+	SHR(32, R(bufwReg), Imm8(2));
+	IMUL(32, tempReg2, R(bufwReg));
+
+	// And now let's chop off the offset for u and v.
+	AND(32, R(uReg), Imm32(3));
+	AND(32, R(vReg), Imm32(3));
+
+	// Okay, at this point tempReg1 + tempReg2 = blockPos.  To free up regs, put back in srcReg.
+	LEA(64, srcReg, MRegSum(tempReg1, tempReg2));
+
+	// The colorIndex is simply the 2 bits at blockPos + (v & 3), shifted right by (u & 3) twice.
+	MOVZX(32, 8, tempReg1, MRegSum(srcReg, vReg));
+	if (uReg == ECX) {
+		SHR(32, R(tempReg1), R(CL));
+		SHR(32, R(tempReg1), R(CL));
+	} else {
+		LEA(32, ECX, MScaled(uReg, SCALE_2, 0));
+		SHR(32, R(tempReg1), R(CL));
+	}
+	AND(32, R(tempReg1), Imm32(3));
+
+	// For colorIndex 0 or 1, we'll simply take the 565 color and convert.
+	CMP(32, R(tempReg1), Imm32(1));
+	FixupBranch handleSimple565 = J_CC(CC_BE);
+
+	// Otherwise, it depends if color1 or color2 is higher, so fetch them.
+	MOVZX(32, 16, bufwReg, MDisp(srcReg, 4));
+	MOVZX(32, 16, tempReg2, MDisp(srcReg, 6));
+
+	CMP(32, R(bufwReg), R(tempReg2));
+	FixupBranch handleMix23 = J_CC(CC_A, true);
+
+	// If we're still here, then colorIndex is either 3 for 0 (easy) or 2 for 50% mix.
+	XOR(32, R(resultReg), R(resultReg));
+	CMP(32, R(tempReg1), Imm32(3));
+	FixupBranch finishZero = J_CC(CC_E, true);
+
+	// We'll need more regs.  Grab two more.
+	PUSH(R12);
+	PUSH(R13);
+
+	// At this point, bufwReg=c1, tempReg2=c2, resultReg=FREE, tempReg1=FREE, R12=FREE, R13=FREE
+	// We'll add, then shift from 565 a bit less to "divide" by 2 for a 50/50 mix.
+
+	// Start with summing R, then shift into position.
+	MOV(32, R(resultReg), R(bufwReg));
+	AND(32, R(resultReg), Imm32(0x0000F800));
+	MOV(32, R(tempReg1), R(tempReg2));
+	AND(32, R(tempReg1), Imm32(0x0000F800));
+	LEA(32, R12, MRegSum(resultReg, tempReg1));
+	// The position is 9, instead of 8, due to doubling.
+	SHR(32, R(R12), Imm8(9));
+
+	// For G, summing leaves it 4 right (doubling made it not need more.)
+	MOV(32, R(resultReg), R(bufwReg));
+	AND(32, R(resultReg), Imm32(0x000007E0));
+	MOV(32, R(tempReg1), R(tempReg2));
+	AND(32, R(tempReg1), Imm32(0x000007E0));
+	LEA(32, resultReg, MRegSum(resultReg, tempReg1));
+	SHL(32, R(resultReg), Imm8(5 - 1));
+	// Now add G and R together.
+	OR(32, R(resultReg), R(R12));
+
+	// At B, we're free to modify the regs in place, finally.
+	AND(32, R(bufwReg), Imm32(0x0000001F));
+	AND(32, R(tempReg2), Imm32(0x0000001F));
+	LEA(32, tempReg1, MRegSum(bufwReg, tempReg2));
+	// We shift left 2 into position (not 3 due to doubling), then 16 more into the B slot.
+	SHL(32, R(tempReg1), Imm8(16 + 2));
+	// And combine into the result.
+	OR(32, R(resultReg), R(tempReg1));
+
+	POP(R13);
+	POP(R12);
+	FixupBranch finishMix50 = J(true);
+
+	// Simply load the 565 color, and convert to 0888.
+	SetJumpTarget(handleSimple565);
+	MOVZX(32, 16, tempReg1, MComplex(srcReg, tempReg1, SCALE_2, 4));
+
+	// Start with R, shifting it into place.
+	MOV(32, R(resultReg), R(tempReg1));
+	AND(32, R(resultReg), Imm32(0x0000F800));
+	SHR(32, R(resultReg), Imm8(8));
+
+	// Then take G and shift it too.
+	MOV(32, R(tempReg2), R(tempReg1));
+	AND(32, R(tempReg2), Imm32(0x000007E0));
+	SHL(32, R(tempReg2), Imm8(5));
+	// And now combine with R, shifting that in the process.
+	OR(32, R(resultReg), R(tempReg2));
+
+	// Modify B in place and OR in.
+	AND(32, R(tempReg1), Imm32(0x0000001F));
+	SHL(32, R(tempReg1), Imm8(16 + 3));
+	OR(32, R(resultReg), R(tempReg1));
+	FixupBranch finish565 = J(true);
+
+	// Here we'll mix color1 and color2 by 2/3 (which gets the 2 depends on tempReg1.)
+	SetJumpTarget(handleMix23);
+	// We'll need more regs.  Grab two more to keep the stack aligned.
+	PUSH(R12);
+	PUSH(R13);
+
+	// If tempReg1 is 2, it's bufwReg * 2 + tempReg2, but if tempReg1 is 3, it's reversed.
+	// Let's swap the regs in that case.
+	CMP(32, R(tempReg1), Imm32(2));
+	FixupBranch skipSwap23 = J_CC(CC_E);
+	XCHG(32, R(bufwReg), R(tempReg2));
+	SetJumpTarget(skipSwap23);
+
+	// Start off with R, adding together first...
+	MOV(32, R(resultReg), R(bufwReg));
+	AND(32, R(resultReg), Imm32(0x0000F800));
+	MOV(32, R(tempReg1), R(tempReg2));
+	AND(32, R(tempReg1), Imm32(0x0000F800));
+	LEA(32, resultReg, MComplex(tempReg1, resultReg, SCALE_2, 0));
+	// We'll overflow if we divide here, so shift into place already.
+	SHR(32, R(resultReg), Imm8(8));
+	// Now we divide that by 3, by actually multiplying by AAAB and shifting off.
+	IMUL(32, R12, R(resultReg), Imm32(0x0000AAAB));
+	// Now we SHR off the extra bits we added on.
+	SHR(32, R(R12), Imm8(17));
+
+	// Now add up G.  We leave this in place and shift right more.
+	MOV(32, R(resultReg), R(bufwReg));
+	AND(32, R(resultReg), Imm32(0x000007E0));
+	MOV(32, R(tempReg1), R(tempReg2));
+	AND(32, R(tempReg1), Imm32(0x000007E0));
+	LEA(32, resultReg, MComplex(tempReg1, resultReg, SCALE_2, 0));
+	// Again, multiply and now we use AAAB, this time masking.
+	IMUL(32, resultReg, R(resultReg), Imm32(0x0000AAAB));
+	SHR(32, R(resultReg), Imm8(17 - 5));
+	AND(32, R(resultReg), Imm32(0x0000FF00));
+	// Let's combine R in already.
+	OR(32, R(resultReg), R(R12));
+
+	// Now for B, it starts in the lowest place so we'll need to mask.
+	AND(32, R(bufwReg), Imm32(0x0000001F));
+	AND(32, R(tempReg2), Imm32(0x0000001F));
+	LEA(32, tempReg1, MComplex(tempReg2, bufwReg, SCALE_2, 0));
+	// Instead of shifting left, though, we multiply by a bit more.
+	IMUL(32, tempReg1, R(tempReg1), Imm32(0x0002AAAB));
+	AND(32, R(tempReg1), Imm32(0x00FF0000));
+	OR(32, R(resultReg), R(tempReg1));
+
+	POP(R13);
+	POP(R12);
+
+	SetJumpTarget(finishMix50);
+	SetJumpTarget(finish565);
+	// In all these cases, it's time to add in alpha.  Zero doesn't get it.
+	if (alpha != 0) {
+		OR(32, R(resultReg), Imm32(alpha << 24));
+	}
+
+	SetJumpTarget(finishZero);
+
+	return true;
+}
+
+bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
+	GETextureFormat fmt = (GETextureFormat)id.texfmt;
+	if (fmt == GE_TFMT_DXT3) {
+		MOVZX(32, 16, tempReg1, MComplex(srcReg, vReg, SCALE_2, 8));
+		LEA(32, RCX, MScaled(uReg, SCALE_4, 0));
+		SHR(32, R(tempReg1), R(CL));
+		SHL(32, R(tempReg1), Imm8(28));
+		OR(32, R(resultReg), R(tempReg1));
+		return true;
+	} else if (fmt == GE_TFMT_DXT5) {
+		// Let's figure out the alphaIndex bit offset so we can read the right byte.
+		// bitOffset = (u + v * 4) * 3;
+		LEA(32, uReg, MComplex(uReg, vReg, SCALE_4, 0));
+		LEA(32, uReg, MComplex(uReg, uReg, SCALE_2, 0));
+		// And now the byte offset and bit from there, from those.
+		MOV(32, R(vReg), R(uReg));
+		SHR(32, R(vReg), Imm8(3));
+		AND(32, R(uReg), Imm32(7));
+
+		// Load 16 bits and mask, in case it straddles bytes.
+		MOVZX(32, 16, vReg, MComplex(srcReg, vReg, SCALE_1, 8));
+		// If not, it's in bufwReg.
+		if (uReg != RCX)
+			MOV(32, R(RCX), R(uReg));
+		SHR(32, R(vReg), R(CL));
+		AND(32, R(vReg), Imm32(7));
+
+		// Okay, now check for 0 or 1 alphaIndex in tempReg1, those are simple.
+		CMP(32, R(vReg), Imm32(1));
+		FixupBranch handleSimple = J_CC(CC_BE, true);
+
+		// Now load a1 and a2, since the rest depend on those values.  Frees up srcReg.
+		MOVZX(32, 8, tempReg1, MDisp(srcReg, 14));
+		MOVZX(32, 8, tempReg2, MDisp(srcReg, 15));
+
+		CMP(32, R(tempReg1), R(tempReg2));
+		FixupBranch handleLerp8 = J_CC(CC_A);
+
+		// Okay, check for zero or full alpha, at alphaIndex 6 or 7.
+		XOR(32, R(srcReg), R(srcReg));
+		CMP(32, R(vReg), Imm32(6));
+		FixupBranch finishZero = J_CC(CC_E, true);
+		// Remember, MOV doesn't affect flags.
+		MOV(32, R(srcReg), Imm32(0xFF));
+		FixupBranch finishFull = J_CC(CC_A, true);
+
+		// At this point, we're handling a 6-step lerp between alpha1 and alpha2.
+		SHL(32, R(vReg), Imm8(8));
+		// Prepare a multiplier in uReg and multiply alpha1 by it.
+		MOV(32, R(uReg), Imm32(6 << 8));
+		SUB(32, R(uReg), R(vReg));
+		IMUL(32, tempReg1, R(uReg));
+		// And now the same for alpha2, using vReg.
+		SUB(32, R(vReg), Imm32(1 << 8));
+		IMUL(32, tempReg2, R(vReg));
+
+		// Let's skip a step and sum before dividing by 5, also adding the 31.
+		LEA(32, srcReg, MComplex(tempReg1, tempReg2, SCALE_1, 5 * 31));
+		// To divide by 5, we will actually multiply by 0x3334 and shift.
+		IMUL(32, srcReg, Imm32(0x3334));
+		SHR(32, R(srcReg), Imm8(24));
+		FixupBranch finishLerp6 = J(true);
+
+		// This will be a 8-step lerp between alpha1 and alpha2.
+		SetJumpTarget(handleLerp8);
+		SHL(32, R(vReg), Imm8(8));
+		// Prepare a multiplier in uReg and multiply alpha1 by it.
+		MOV(32, R(uReg), Imm32(8 << 8));
+		SUB(32, R(uReg), R(vReg));
+		IMUL(32, tempReg1, R(uReg));
+		// And now the same for alpha2, using vReg.
+		SUB(32, R(vReg), Imm32(1 << 8));
+		IMUL(32, tempReg2, R(vReg));
+
+		// And divide by 7 together here too, also adding the 31.
+		LEA(32, srcReg, MComplex(tempReg1, tempReg2, SCALE_1, 7 * 31));
+		// Our magic constant here is 0x124A, but it's a bit more complex than just a shift.
+		IMUL(32, tempReg1, R(srcReg), Imm32(0x124A));
+		SHR(32, R(tempReg1), Imm8(15));
+		SUB(32, R(srcReg), R(tempReg1));
+		SHR(32, R(srcReg), Imm8(1));
+		ADD(32, R(srcReg), R(tempReg1));
+		SHR(32, R(srcReg), Imm8(10));
+
+		FixupBranch finishLerp8 = J();
+
+		SetJumpTarget(handleSimple);
+		// Just load the specified alpha byte.
+		MOVZX(32, 8, srcReg, MComplex(srcReg, vReg, SCALE_1, 14));
+
+		SetJumpTarget(finishFull);
+		SetJumpTarget(finishZero);
+		SetJumpTarget(finishLerp6);
+		SetJumpTarget(finishLerp8);
+
+		SHL(32, R(srcReg), Imm8(24));
+		OR(32, R(resultReg), R(srcReg));
+		return true;
+	}
+
+	_dbg_assert_(false);
+	return false;
 }
 
 bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {
@@ -529,7 +831,7 @@ bool SamplerJitCache::Jit_Decode5650() {
 	SHR(32, R(tempReg1), Imm8(2 + 4));
 	OR(32, R(resultReg), R(tempReg1));
 	AND(32, R(resultReg), Imm32(0x0000FF00));
-	OR(32, R(resultReg), R(tempReg2));;
+	OR(32, R(resultReg), R(tempReg2));
 
 	return true;
 }

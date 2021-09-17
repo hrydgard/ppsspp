@@ -795,10 +795,6 @@ bool Config::IsBackendEnabled(GPUBackend backend, bool validate) {
 	return true;
 }
 
-static bool DefaultVertexCache() {
-	return DefaultGPUBackend() == (int)GPUBackend::OPENGL;
-}
-
 template <typename T, std::string (*FTo)(T), T (*FFrom)(const std::string &)>
 struct ConfigTranslator {
 	static std::string To(int v) {
@@ -875,7 +871,7 @@ static ConfigSetting graphicsSettings[] = {
 	// Most low-performance (and many high performance) mobile GPUs do not support aniso anyway so defaulting to 4 is fine.
 	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 4, true, true),
 
-	ReportedConfigSetting("VertexDecCache", &g_Config.bVertexCache, &DefaultVertexCache, true, true),
+	ReportedConfigSetting("VertexDecCache", &g_Config.bVertexCache, false, true, true),
 	ReportedConfigSetting("TextureBackoffCache", &g_Config.bTextureBackoffCache, false, true, true),
 	ReportedConfigSetting("TextureSecondaryCache", &g_Config.bTextureSecondaryCache, false, true, true),
 	ReportedConfigSetting("VertexDecJit", &g_Config.bVertexDecoderJit, &DefaultCodeGen, false),
@@ -1047,6 +1043,10 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("AnalogIsCircular", &g_Config.bAnalogIsCircular, false , true, true),
 
 	ConfigSetting("AnalogLimiterDeadzone", &g_Config.fAnalogLimiterDeadzone, 0.6f, true, true),
+
+	ConfigSetting("LeftStickHeadScale", &g_Config.fLeftStickHeadScale, 1.0f, true, true),
+	ConfigSetting("RightStickHeadScale", &g_Config.fRightStickHeadScale, 1.0f, true, true),
+	ConfigSetting("HideStickBackground", &g_Config.bHideStickBackground, false, true, true),
 
 	ConfigSetting("UseMouse", &g_Config.bMouseControl, false, true, true),
 	ConfigSetting("MapMouse", &g_Config.bMapMouse, false, true, true),
@@ -1875,6 +1875,8 @@ void Config::ResetControlLayout() {
 	reset(g_Config.touchCombo7);
 	reset(g_Config.touchCombo8);
 	reset(g_Config.touchCombo9);
+	g_Config.fLeftStickHeadScale = 1.0f;
+	g_Config.fRightStickHeadScale = 1.0f;
 }
 
 void Config::GetReportingInfo(UrlEncoder &data) {

@@ -284,6 +284,33 @@ private:
 	float &spacing_;
 };
 
+class PSPStickDragDrop : public DragDropButton {
+public:
+	PSPStickDragDrop(ConfigTouchPos &pos, const char *key, ImageID bgImg, ImageID img, const Bounds &screenBounds, float &spacing)
+		: DragDropButton(pos, key, bgImg, img, screenBounds), spacing_(spacing) {
+	}
+
+	void Draw(UIContext &dc) override {
+		uint32_t colorBg = colorAlpha(GetButtonColor(), GetButtonOpacity());
+		uint32_t downBg = colorAlpha(0x00FFFFFF, GetButtonOpacity() * 0.5f);
+
+		const ImageID stickImage = g_Config.iTouchButtonStyle ? ImageID("I_STICK_LINE") : ImageID("I_STICK");
+		const ImageID stickBg = g_Config.iTouchButtonStyle ? ImageID("I_STICK_BG_LINE") : ImageID("I_STICK_BG");
+
+		dc.Draw()->DrawImage(stickBg, bounds_.centerX(), bounds_.centerY(), scale_, colorBg, ALIGN_CENTER);
+		dc.Draw()->DrawImage(stickImage, bounds_.centerX(), bounds_.centerY(), scale_ * spacing_, colorBg, ALIGN_CENTER);
+	}
+
+	float GetSpacing() const override { return spacing_; }
+	void SetSpacing(float s) override {
+		// In mapping spacing is clamped between 0.5 and 3.0 and passed to this method
+		spacing_ = s/3;
+	}
+
+private:
+	float &spacing_;
+};
+
 class SnapGrid : public UI::View {
 public:
 	SnapGrid(int leftMargin, int rightMargin, int topMargin, int bottomMargin, u32 color) {
@@ -471,8 +498,12 @@ void ControlLayoutView::CreateViews() {
 		rbutton->FlipImageH(true);
 	}
 
-	addDragDropButton(g_Config.touchAnalogStick, "Left analog stick", stickBg, stickImage);
-	addDragDropButton(g_Config.touchRightAnalogStick, "Right analog stick", stickBg, stickImage);
+	if (g_Config.touchAnalogStick.show) {
+		controls_.push_back(new PSPStickDragDrop(g_Config.touchAnalogStick, "Left analog stick", stickBg, stickImage, bounds, g_Config.fLeftStickHeadScale));
+	}
+	if (g_Config.touchRightAnalogStick.show) {
+		controls_.push_back(new PSPStickDragDrop(g_Config.touchRightAnalogStick, "Right analog stick", stickBg, stickImage, bounds, g_Config.fRightStickHeadScale));
+	}
 
 	auto addDragComboKey = [&](ConfigTouchPos &pos, const char *key, const ConfigCustomButton& cfg) {
 		DragDropButton *b = nullptr;

@@ -1137,7 +1137,7 @@ static inline Vec4<float> EdgeRecip(const Vec4<int> &w0, const Vec4<int> &w1, co
 template <bool clearMode>
 void DrawTriangleSlice(
 	const VertexData& v0, const VertexData& v1, const VertexData& v2,
-	int minX, int minY, int maxX, int maxY,
+	int x1, int y1, int x2, int y2,
 	bool byY, int h1, int h2)
 {
 	Vec4<int> bias0 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v0.screenpos.xy(), v1.screenpos.xy(), v2.screenpos.xy()) ? -1 : 0);
@@ -1170,6 +1170,7 @@ void DrawTriangleSlice(
 	TriangleEdge e1;
 	TriangleEdge e2;
 
+	int64_t minX = x1, maxX = x2, minY = y1, maxY = y2;
 	if (byY) {
 		maxY = std::min(maxY, minY + h2 * 16 * 2) - 1;
 		minY += h1 * 16 * 2;
@@ -1189,7 +1190,7 @@ void DrawTriangleSlice(
 
 	Sampler::Funcs sampler = Sampler::GetFuncs();
 
-	for (pprime.y = minY; pprime.y <= maxY; pprime.y += 32,
+	for (int64_t curY = minY; curY <= maxY; curY += 32,
 										w0_base = e0.StepY(w0_base),
 										w1_base = e1.StepY(w1_base),
 										w2_base = e2.StepY(w2_base)) {
@@ -1198,14 +1199,13 @@ void DrawTriangleSlice(
 		Vec4<int> w2 = w2_base;
 
 		// TODO: Maybe we can clip the edges instead?
-		int scissorYPlus1 = pprime.y + 16 > maxY ? -1 : 0;
+		int scissorYPlus1 = curY + 16 > maxY ? -1 : 0;
 		Vec4<int> scissor_mask = Vec4<int>(0, maxX - minX, scissorYPlus1, (maxX - minX) | scissorYPlus1);
 		Vec4<int> scissor_step = Vec4<int>(0, -32, 0, -32);
 
-		pprime.x = minX;
-		DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+		DrawingCoords p = TransformUnit::ScreenToDrawing(ScreenCoords(minX, curY, 0));
 
-		for (; pprime.x <= maxX; pprime.x += 32,
+		for (int64_t curX = minX; curX <= maxX; curX += 32,
 			w0 = e0.StepX(w0),
 			w1 = e1.StepX(w1),
 			w2 = e2.StepX(w2),

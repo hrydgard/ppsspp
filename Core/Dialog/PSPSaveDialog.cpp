@@ -1018,6 +1018,10 @@ int PSPSaveDialog::Update(int animSpeed)
 			case SAVEIO_PENDING:
 			case SAVEIO_DONE:
 				// To make sure there aren't any timing variations, we sync the next frame.
+				if (g_Config.iIOTimingMethod == IOTIMING_HOST && ioThreadStatus == SAVEIO_PENDING) {
+					// ... except in Host IO timing, where we wait as long as needed.
+					break;
+				}
 				JoinIOThread();
 				ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 				break;

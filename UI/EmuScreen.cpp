@@ -488,23 +488,23 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			gstate_c.skipDrawReason &= ~SKIPDRAW_WINDOW_MINIMIZED;
 		}
 	} else if (!strcmp(message, "chat screen")) {
+		if (g_Config.bEnableNetworkChat) {
+			if (!chatButton_)
+				RecreateViews();
 
 #if defined(USING_WIN_UI)
-		//temporary workaround for hotkey its freeze the ui when open chat screen using hotkey and native keyboard is enable
-		if (g_Config.bBypassOSKWithKeyboard) {
-			osm.Show("Disable windows native keyboard options to use ctrl + c hotkey", 2.0f);
-		} else {
-			if (g_Config.bEnableNetworkChat) {
+			//temporary workaround for hotkey its freeze the ui when open chat screen using hotkey and native keyboard is enable
+			if (g_Config.bBypassOSKWithKeyboard) {
+				osm.Show("Disable windows native keyboard options to use ctrl + c hotkey", 2.0f);
+			} else {
 				UI::EventParams e{};
 				OnChatMenu.Trigger(e);
 			}
-		}
 #else
-		if (g_Config.bEnableNetworkChat) {
 			UI::EventParams e{};
 			OnChatMenu.Trigger(e);
-		}
 #endif
+		}
 	} else if (!strcmp(message, "app_resumed") && screenManager()->topScreen() == this) {
 		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
 			if (!KeyMap::IsKeyMapped(DEVICE_ID_PAD_0, VIRTKEY_PAUSE) || !KeyMap::IsKeyMapped(DEVICE_ID_PAD_1, VIRTKEY_PAUSE)) {
@@ -540,6 +540,13 @@ inline float clamp1(float x) {
 
 bool EmuScreen::touch(const TouchInput &touch) {
 	Core_NotifyActivity();
+
+	if (chatMenu_ && (touch.flags & TOUCH_DOWN) != 0 && !chatMenu_->Contains(touch.x, touch.y)) {
+		chatMenu_->Close();
+		if (chatButton_)
+			chatButton_->SetVisibility(UI::V_VISIBLE);
+		UI::EnableFocusMovement(false);
+	}
 
 	if (root_) {
 		root_->Touch(touch);
@@ -728,6 +735,19 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 bool EmuScreen::key(const KeyInput &key) {
 	Core_NotifyActivity();
 
+	if (UI::IsFocusMovementEnabled()) {
+		if ((key.flags & KEY_DOWN) != 0 && UI::IsEscapeKey(key)) {
+			if (chatMenu_)
+				chatMenu_->Close();
+			if (chatButton_)
+				chatButton_->SetVisibility(UI::V_VISIBLE);
+			UI::EnableFocusMovement(false);
+			return true;
+		} else if (UIScreen::key(key)) {
+			return true;
+		}
+	}
+
 	return controlMapper_.Key(key, &pauseTrigger_);
 }
 
@@ -842,11 +862,14 @@ void EmuScreen::CreateViews() {
 			break;
 		}
 
-		ChoiceWithValueDisplay *btn = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), layoutParams);
+		ChoiceWithValueDisplay *btn = new ChoiceWithValueDisplay(&newChatMessages_, n->T("Chat"), layoutParams);
 		root_->Add(btn)->OnClick.Handle(this, &EmuScreen::OnChat);
 		chatButton_ = btn;
+		chatMenu_ = root_->Add(new ChatMenu(screenManager()->getUIContext()->GetBounds(), new LayoutParams(FILL_PARENT, FILL_PARENT)));
+		chatMenu_->SetVisibility(UI::V_GONE);
 	} else {
 		chatButton_ = nullptr;
+		chatMenu_ = nullptr;
 	}
 
 	saveStatePreview_ = new AsyncImageFileView(Path(), IS_FIXED, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, true));
@@ -923,7 +946,20 @@ UI::EventReturn EmuScreen::OnChat(UI::EventParams &params) {
 	if (chatButton_ != nullptr && chatButton_->GetVisibility() == UI::V_VISIBLE) {
 		chatButton_->SetVisibility(UI::V_GONE);
 	}
-	screenManager()->push(new ChatMenu());
+	if (chatMenu_ != nullptr) {
+		chatMenu_->SetVisibility(UI::V_VISIBLE);
+
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(SDL)
+		UI::EnableFocusMovement(true);
+		root_->SetDefaultFocusView(chatMenu_);
+
+		chatMenu_->SetFocus();
+		UI::View *focused = UI::GetFocusedView();
+		if (focused) {
+			root_->SubviewFocused(focused);
+		}
+#endif
+	}
 	return UI::EVENT_DONE;
 }
 
@@ -950,6 +986,17 @@ void EmuScreen::update() {
 	onScreenMessagesView_->SetVisibility(g_Config.bShowOnScreenMessages ? V_VISIBLE : V_GONE);
 	resumeButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR && Memory::MemFault_MayBeResumable() ? V_VISIBLE : V_GONE);
 	resetButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR ? V_VISIBLE : V_GONE);
+
+	if (chatButton_ && chatMenu_) {
+		if (chatMenu_->GetVisibility() != V_GONE) {
+			chatMessages_ = GetChatMessageCount();
+			newChatMessages_ = 0;
+		} else {
+			int diff = GetChatMessageCount() - chatMessages_;
+			// Cap the count at 50.
+			newChatMessages_ = diff > 50 ? 50 : diff;
+		}
+	}
 
 	if (bootPending_) {
 		bootGame(gamePath_);

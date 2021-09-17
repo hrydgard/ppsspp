@@ -633,6 +633,7 @@ BEGIN
             MENUITEM "Auto",                                ID_OPTIONS_TEXTUREFILTERING_AUTO
             MENUITEM "Nearest",                             ID_OPTIONS_NEARESTFILTERING
             MENUITEM "Linear",                              ID_OPTIONS_LINEARFILTERING
+            MENUITEM "Auto Max Quality",                    ID_OPTIONS_AUTOMAXQUALITYFILTERING
         END
         POPUP "Screen Scaling Filter",                      ID_OPTIONS_SCREENFILTER_MENU
         BEGIN
@@ -664,7 +665,7 @@ BEGIN
         MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "Enable Cheats",                       ID_EMULATION_CHEATS
         MENUITEM "", 0, MFT_SEPARATOR
-        MENUITEM "Enable Chat",                         ID_EMULATION_CHAT
+        MENUITEM "Open Chat",                           ID_EMULATION_CHAT
     END
 
     POPUP "Help",                                       ID_HELP_MENU

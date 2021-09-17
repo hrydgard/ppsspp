@@ -35,6 +35,7 @@
 #include "UI/GamepadEmu.h"
 
 static uint32_t usedPointerMask = 0;
+static uint32_t analogPointerMask = 0;
 
 static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;
@@ -96,6 +97,9 @@ void MultiTouchButton::GetContentDimensions(const UIContext &dc, float &w, float
 }
 
 void MultiTouchButton::Touch(const TouchInput &input) {
+	if (analogPointerMask & (1 << input.id))
+		return;
+
 	GamepadView::Touch(input);
 	if ((input.flags & TOUCH_DOWN) && bounds_.Contains(input.x, input.y)) {
 		pointerDownMask_ |= 1 << input.id;
@@ -152,6 +156,9 @@ void MultiTouchButton::Draw(UIContext &dc) {
 }
 
 void BoolButton::Touch(const TouchInput &input) {
+	if (analogPointerMask & (1 << input.id))
+		return;
+
 	bool lastDown = pointerDownMask_ != 0;
 	MultiTouchButton::Touch(input);
 	bool down = pointerDownMask_ != 0;
@@ -165,6 +172,9 @@ void BoolButton::Touch(const TouchInput &input) {
 }
 
 void PSPButton::Touch(const TouchInput &input) {
+	if (analogPointerMask & (1 << input.id))
+		return;
+
 	bool lastDown = pointerDownMask_ != 0;
 	MultiTouchButton::Touch(input);
 	bool down = pointerDownMask_ != 0;
@@ -192,6 +202,9 @@ void ComboKey::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 }
 
 void ComboKey::Touch(const TouchInput &input) {
+	if (analogPointerMask & (1 << input.id))
+		return;
+
 	using namespace CustomKey;
 	bool lastDown = pointerDownMask_ != 0;
 	MultiTouchButton::Touch(input);
@@ -231,6 +244,9 @@ void PSPDpad::GetContentDimensions(const UIContext &dc, float &w, float &h) cons
 }
 
 void PSPDpad::Touch(const TouchInput &input) {
+	if (analogPointerMask & (1 << input.id))
+		return;
+
 	GamepadView::Touch(input);
 
 	if (input.flags & TOUCH_DOWN) {
@@ -241,6 +257,9 @@ void PSPDpad::Touch(const TouchInput &input) {
 		}
 	}
 	if (input.flags & TOUCH_MOVE) {
+		if (dragPointerId_ == -1 && bounds_.Contains(input.x, input.y)) {
+			dragPointerId_ = input.id;
+		}
 		if (input.id == dragPointerId_) {
 			ProcessTouch(input.x, input.y, true);
 		}
@@ -358,6 +377,8 @@ PSPStick::PSPStick(ImageID bgImg, const char *key, ImageID stickImg, ImageID sti
 
 void PSPStick::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	dc.Draw()->GetAtlas()->measureImage(bgImg_, &w, &h);
+	w *= scale_;
+	h *= scale_;
 }
 
 void PSPStick::Draw(UIContext &dc) {
@@ -383,10 +404,12 @@ void PSPStick::Draw(UIContext &dc) {
 	float dx, dy;
 	__CtrlPeekAnalog(stick_, &dx, &dy);
 
-	dc.Draw()->DrawImage(bgImg_, stickX, stickY, 1.0f * scale_, colorBg, ALIGN_CENTER);
+	if (!g_Config.bHideStickBackground)
+		dc.Draw()->DrawImage(bgImg_, stickX, stickY, 1.0f * scale_, colorBg, ALIGN_CENTER);
+	float headScale = stick_ ? g_Config.fRightStickHeadScale : g_Config.fLeftStickHeadScale;
 	if (dragPointerId_ != -1 && g_Config.iTouchButtonStyle == 2 && stickDownImg_ != stickImageIndex_)
-		dc.Draw()->DrawImage(stickDownImg_, stickX + dx * stick_size_ * scale_, stickY - dy * stick_size_ * scale_, 1.0f * scale_, downBg, ALIGN_CENTER);
-	dc.Draw()->DrawImage(stickImageIndex_, stickX + dx * stick_size_ * scale_, stickY - dy * stick_size_ * scale_, 1.0f * scale_, colorBg, ALIGN_CENTER);
+		dc.Draw()->DrawImage(stickDownImg_, stickX + dx * stick_size_ * scale_, stickY - dy * stick_size_ * scale_, 1.0f * scale_ * headScale, downBg, ALIGN_CENTER);
+	dc.Draw()->DrawImage(stickImageIndex_, stickX + dx * stick_size_ * scale_, stickY - dy * stick_size_ * scale_, 1.0f * scale_ * headScale, colorBg, ALIGN_CENTER);
 }
 
 void PSPStick::Touch(const TouchInput &input) {
@@ -397,10 +420,12 @@ void PSPStick::Touch(const TouchInput &input) {
 		centerY_ = bounds_.centerY();
 		__CtrlSetAnalogXY(stick_, 0.0f, 0.0f);
 		usedPointerMask = 0;
+		analogPointerMask = 0;
 		return;
 	}
 	if (input.flags & TOUCH_DOWN) {
-		if (dragPointerId_ == -1 && bounds_.Contains(input.x, input.y)) {
+		float fac = 0.5f*(stick_ ? g_Config.fRightStickHeadScale : g_Config.fLeftStickHeadScale)-0.5f;
+		if (dragPointerId_ == -1 && bounds_.Expand(bounds_.w*fac, bounds_.h*fac).Contains(input.x, input.y)) {
 			if (g_Config.bAutoCenterTouchAnalog) {
 				centerX_ = input.x;
 				centerY_ = input.y;
@@ -410,6 +435,7 @@ void PSPStick::Touch(const TouchInput &input) {
 			}
 			dragPointerId_ = input.id;
 			usedPointerMask |= 1 << input.id;
+			analogPointerMask |= 1 << input.id;
 			ProcessTouch(input.x, input.y, true);
 		}
 	}
@@ -424,6 +450,7 @@ void PSPStick::Touch(const TouchInput &input) {
 			centerX_ = bounds_.centerX();
 			centerY_ = bounds_.centerY();
 			usedPointerMask &= ~(1 << input.id);
+			analogPointerMask &= ~(1 << input.id);
 			ProcessTouch(input.x, input.y, false);
 		}
 	}
@@ -482,10 +509,11 @@ void PSPCustomStick::Draw(UIContext &dc) {
 	dx = posX_;
 	dy = -posY_;
 
-	dc.Draw()->DrawImage(bgImg_, stickX, stickY, 1.0f * scale_, colorBg, ALIGN_CENTER);
+	if (!g_Config.bHideStickBackground)
+		dc.Draw()->DrawImage(bgImg_, stickX, stickY, 1.0f * scale_, colorBg, ALIGN_CENTER);
 	if (dragPointerId_ != -1 && g_Config.iTouchButtonStyle == 2 && stickDownImg_ != stickImageIndex_)
-		dc.Draw()->DrawImage(stickDownImg_, stickX + dx * stick_size_ * scale_, stickY - dy * stick_size_ * scale_, 1.0f * scale_, downBg, ALIGN_CENTER);
-	dc.Draw()->DrawImage(stickImageIndex_, stickX + dx * stick_size_ * scale_, stickY - dy * stick_size_ * scale_, 1.0f * scale_, colorBg, ALIGN_CENTER);
+		dc.Draw()->DrawImage(stickDownImg_, stickX + dx * stick_size_ * scale_, stickY - dy * stick_size_ * scale_, 1.0f*scale_*g_Config.fRightStickHeadScale, downBg, ALIGN_CENTER);
+	dc.Draw()->DrawImage(stickImageIndex_, stickX + dx * stick_size_ * scale_, stickY - dy * stick_size_ * scale_, 1.0f*scale_*g_Config.fRightStickHeadScale, colorBg, ALIGN_CENTER);
 }
 
 void PSPCustomStick::Touch(const TouchInput &input) {
@@ -497,10 +525,12 @@ void PSPCustomStick::Touch(const TouchInput &input) {
 		posX_ = 0.0f;
 		posY_ = 0.0f;
 		usedPointerMask = 0;
+		analogPointerMask = 0;
 		return;
 	}
 	if (input.flags & TOUCH_DOWN) {
-		if (dragPointerId_ == -1 && bounds_.Contains(input.x, input.y)) {
+		float fac = 0.5f*g_Config.fRightStickHeadScale-0.5f;
+		if (dragPointerId_ == -1 && bounds_.Expand(bounds_.w*fac, bounds_.h*fac).Contains(input.x, input.y)) {
 			if (g_Config.bAutoCenterTouchAnalog) {
 				centerX_ = input.x;
 				centerY_ = input.y;
@@ -510,6 +540,7 @@ void PSPCustomStick::Touch(const TouchInput &input) {
 			}
 			dragPointerId_ = input.id;
 			usedPointerMask |= 1 << input.id;
+			analogPointerMask |= 1 << input.id;
 			ProcessTouch(input.x, input.y, true);
 		}
 	}
@@ -524,6 +555,7 @@ void PSPCustomStick::Touch(const TouchInput &input) {
 			centerX_ = bounds_.centerX();
 			centerY_ = bounds_.centerY();
 			usedPointerMask &= ~(1 << input.id);
+			analogPointerMask &= ~(1 << input.id);
 			ProcessTouch(input.x, input.y, false);
 		}
 	}

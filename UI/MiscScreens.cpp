@@ -76,13 +76,87 @@ static std::unique_ptr<ManagedTexture> bgTexture;
 class Animation {
 public:
 	virtual ~Animation() {}
-	virtual void Draw(UIContext &dc, double t, float alpha) = 0;
+	virtual void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) = 0;
+};
+
+static constexpr float XFAC = 0.3f;
+static constexpr float YFAC = 0.3f;
+static constexpr float ZFAC = 0.12f;
+static constexpr float XSPEED = 0.05f;
+static constexpr float YSPEED = 0.05f;
+static constexpr float ZSPEED = 0.1f;
+
+class MovingBackground : public Animation {
+public:
+	void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) override {
+		if (!bgTexture)
+			return;
+
+		dc.Flush();
+		dc.GetDrawContext()->BindTexture(0, bgTexture->GetTexture());
+		Bounds bounds = dc.GetBounds();
+
+		x = std::min(std::max(x/bounds.w, 0.0f), 1.0f) * XFAC;
+		y = std::min(std::max(y/bounds.h, 0.0f), 1.0f) * YFAC;
+		z = 1.0f + std::max(XFAC, YFAC) + (z-1.0f) * ZFAC;
+
+		lastX_ = abs(x-lastX_) > 0.001f ? x*XSPEED+lastX_*(1.0f-XSPEED) : x;
+		lastY_ = abs(y-lastY_) > 0.001f ? y*YSPEED+lastY_*(1.0f-YSPEED) : y;
+		lastZ_ = abs(z-lastZ_) > 0.001f ? z*ZSPEED+lastZ_*(1.0f-ZSPEED) : z;
+
+		float u1 = lastX_/lastZ_;
+		float v1 = lastY_/lastZ_;
+		float u2 = (1.0f+lastX_)/lastZ_;
+		float v2 = (1.0f+lastY_)/lastZ_;
+
+		dc.Draw()->DrawTexRect(bounds, u1, v1, u2, v2, whiteAlpha(alpha));
+
+		dc.Flush();
+		dc.RebindTexture();
+	}
+
+private:
+	float lastX_ = 0.0f;
+	float lastY_ = 0.0f;
+	float lastZ_ = 1.0f + std::max(XFAC, YFAC);
+};
+
+class WaveAnimation : public Animation {
+public:
+	void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) override {
+		const uint32_t color = colorAlpha(0xFFFFFFFF, alpha * 0.2f);
+		const float speed = 1.0;
+
+		Bounds bounds = dc.GetBounds();
+		dc.Flush();
+		dc.BeginNoTex();
+
+		// Be sure to not overflow our vertex buffer
+		const float step = ceil(24*bounds.w/pixel_in_dps_x) > MAX_VERTS ? 24*bounds.w/(MAX_VERTS-48) : pixel_in_dps_x;
+
+		t *= speed;
+		for (float x = 0; x < bounds.w; x += step) {
+			float i = x * 1280/bounds.w;
+
+			float wave0 = sin(i*0.005+t*0.8)*0.05 + sin(i*0.002+t*0.25)*0.02 + sin(i*0.001+t*0.3)*0.03 + 0.625;
+			float wave1 = sin(i*0.0044+t*0.4)*0.07 + sin(i*0.003+t*0.1)*0.02 + sin(i*0.001+t*0.3)*0.01 + 0.625;
+			dc.Draw()->RectVGradient(x, wave0*bounds.h, step, (1.0-wave0)*bounds.h, color, 0x00000000);
+			dc.Draw()->RectVGradient(x, wave1*bounds.h, step, (1.0-wave1)*bounds.h, color, 0x00000000);
+
+			// Add some "antialiasing"
+			dc.Draw()->RectVGradient(x, wave0*bounds.h-3*pixel_in_dps_y, step, 3*pixel_in_dps_y, 0x00000000, color);
+			dc.Draw()->RectVGradient(x, wave1*bounds.h-3*pixel_in_dps_y, step, 3*pixel_in_dps_y, 0x00000000, color);
+		}
+
+		dc.Flush();
+		dc.Begin();
+	}
 };
 
 class FloatingSymbolsAnimation : public Animation {
 public:
 	~FloatingSymbolsAnimation() override {}
-	void Draw(UIContext &dc, double t, float alpha) override {
+	void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) override {
 		float xres = dc.GetBounds().w;
 		float yres = dc.GetBounds().h;
 		if (last_xres != xres || last_yres != yres) {
@@ -121,7 +195,7 @@ private:
 class RecentGamesAnimation : public Animation {
 public:
 	~RecentGamesAnimation() override {}
-	void Draw(UIContext &dc, double t, float alpha) override {
+	void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) override {
 		if (lastIndex_ == nextIndex_) {
 			CheckNext(dc, t);
 		} else if (t > nextT_) {
@@ -221,7 +295,7 @@ void UIBackgroundShutdown() {
 	bgTextureInited = false;
 }
 
-void DrawBackground(UIContext &dc, float alpha) {
+void DrawBackground(UIContext &dc, float alpha, float x, float y, float z) {
 	if (!bgTextureInited) {
 		UIBackgroundInit(dc);
 		bgTextureInited = true;
@@ -235,6 +309,12 @@ void DrawBackground(UIContext &dc, float alpha) {
 			break;
 		case BackgroundAnimation::RECENT_GAMES:
 			g_Animation.reset(new RecentGamesAnimation());
+			break;
+		case BackgroundAnimation::WAVE:
+			g_Animation.reset(new WaveAnimation());
+			break;
+		case BackgroundAnimation::MOVING_BACKGROUND:
+			g_Animation.reset(new MovingBackground());
 			break;
 		default:
 			g_Animation.reset(nullptr);
@@ -266,11 +346,11 @@ void DrawBackground(UIContext &dc, float alpha) {
 #endif
 
 	if (g_Animation) {
-		g_Animation->Draw(dc, t, alpha);
+		g_Animation->Draw(dc, t, alpha, x, y, z);
 	}
 }
 
-void DrawGameBackground(UIContext &dc, const Path &gamePath) {
+void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, float z) {
 	std::shared_ptr<GameInfo> ginfo;
 	if (!gamePath.empty())
 		ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath, GAMEINFO_WANTBG);
@@ -286,7 +366,7 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath) {
 		dc.Flush();
 		dc.RebindTexture();
 	} else {
-		::DrawBackground(dc, 1.0f);
+		::DrawBackground(dc, 1.0f, x, y, z);
 		dc.RebindTexture();
 		dc.Flush();
 	}
@@ -332,15 +412,19 @@ void HandleCommonMessages(const char *message, const char *value, ScreenManager 
 }
 
 void UIScreenWithBackground::DrawBackground(UIContext &dc) {
-	::DrawBackground(dc, 1.0f);
+	float x, y, z;
+	screenManager()->getFocusPosition(x, y, z);
+	::DrawBackground(dc, 1.0f, x, y, z);
 	dc.Flush();
 }
 
 void UIScreenWithGameBackground::DrawBackground(UIContext &dc) {
+	float x, y, z;
+	screenManager()->getFocusPosition(x, y, z);
 	if (!gamePath_.empty()) {
-		DrawGameBackground(dc, gamePath_);
+		DrawGameBackground(dc, gamePath_, x, y, z);
 	} else {
-		::DrawBackground(dc, 1.0f);
+		::DrawBackground(dc, 1.0f, x, y, z);
 		dc.Flush();
 	}
 }
@@ -354,7 +438,9 @@ void UIScreenWithGameBackground::sendMessage(const char *message, const char *va
 }
 
 void UIDialogScreenWithGameBackground::DrawBackground(UIContext &dc) {
-	DrawGameBackground(dc, gamePath_);
+	float x, y, z;
+	screenManager()->getFocusPosition(x, y, z);
+	DrawGameBackground(dc, gamePath_, x, y, z);
 }
 
 void UIDialogScreenWithGameBackground::sendMessage(const char *message, const char *value) {
@@ -370,7 +456,9 @@ void UIScreenWithBackground::sendMessage(const char *message, const char *value)
 }
 
 void UIDialogScreenWithBackground::DrawBackground(UIContext &dc) {
-	::DrawBackground(dc, 1.0f);
+	float x, y, z;
+	screenManager()->getFocusPosition(x, y, z);
+	::DrawBackground(dc, 1.0f, x, y, z);
 	dc.Flush();
 }
 
@@ -654,7 +742,9 @@ void LogoScreen::render() {
 		alphaText = 3.0f - t;
 	uint32_t textColor = colorAlpha(dc.theme->infoStyle.fgColor, alphaText);
 
-	::DrawBackground(dc, alpha);
+	float x, y, z;
+	screenManager()->getFocusPosition(x, y, z);
+	::DrawBackground(dc, alpha, x, y, z);
 
 	auto cr = GetI18NCategory("PSPCredits");
 	auto gr = GetI18NCategory("Graphics");
@@ -996,4 +1086,9 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 
 	text_->SetTextColor(whiteAlpha(alpha));
 	ViewGroup::Draw(dc);
+	showing_ = sinceShow <= timeToShow; // Don't consider fade time
+}
+
+std::string SettingInfoMessage::GetText() const {
+	return showing_ && text_ ? text_->GetText() : "";
 }

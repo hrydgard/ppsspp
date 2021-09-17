@@ -66,108 +66,6 @@
 #include <fcntl.h>
 #endif
 
-#if HOST_IS_CASE_SENSITIVE
-static bool FixFilenameCase(const std::string &path, std::string &filename) {
-	// Are we lucky?
-	if (File::Exists(Path(path + filename)))
-		return true;
-
-	size_t filenameSize = filename.size();  // size in bytes, not characters
-	for (size_t i = 0; i < filenameSize; i++)
-	{
-		filename[i] = tolower(filename[i]);
-	}
-
-	//TODO: lookup filename in cache for "path"
-	struct dirent *result = NULL;
-
-	DIR *dirp = opendir(path.c_str());
-	if (!dirp)
-		return false;
-
-	bool retValue = false;
-
-	while ((result = readdir(dirp)))
-	{
-		if (strlen(result->d_name) != filenameSize)
-			continue;
-
-		size_t i;
-		for (i = 0; i < filenameSize; i++)
-		{
-			if (filename[i] != tolower(result->d_name[i]))
-				break;
-		}
-
-		if (i < filenameSize)
-			continue;
-
-		filename = result->d_name;
-		retValue = true;
-	}
-
-	closedir(dirp);
-
-	return retValue;
-}
-
-bool FixPathCase(const Path &realBasePath, std::string &path, FixPathCaseBehavior behavior) {
-	if (realBasePath.Type() == PathType::CONTENT_URI) {
-		// Nothing to do. These are already case insensitive, I think.
-		return true;
-	}
-
-	std::string basePath = realBasePath.ToString();
-
-	size_t len = path.size();
-
-	if (len == 0)
-		return true;
-
-	if (path[len - 1] == '/')
-	{
-		len--;
-
-		if (len == 0)
-			return true;
-	}
-
-	std::string fullPath;
-	fullPath.reserve(basePath.size() + len + 1);
-	fullPath.append(basePath); 
-
-	size_t start = 0;
-	while (start < len)
-	{
-		size_t i = path.find('/', start);
-		if (i == std::string::npos)
-			i = len;
-
-		if (i > start)
-		{
-			std::string component = path.substr(start, i - start);
-
-			// Fix case and stop on nonexistant path component
-			if (FixFilenameCase(fullPath, component) == false) {
-				// Still counts as success if partial matches allowed or if this
-				// is the last component and only the ones before it are required
-				return (behavior == FPC_PARTIAL_ALLOWED || (behavior == FPC_PATH_MUST_EXIST && i >= len));
-			}
-
-			path.replace(start, i - start, component);
-
-			fullPath.append(1, '/');
-			fullPath.append(component);
-		}
-
-		start = i + 1;
-	}
-
-	return true;
-}
-
-#endif
-
 DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, const Path & _basePath, FileSystemFlags _flags) : basePath(_basePath), flags(_flags) {
 	File::CreateFullPath(basePath);
 	hAlloc = _hAlloc;
@@ -392,6 +290,9 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 	if (fullName.FilePathContains("PSP/GAME/")) {
 		inGameDir_ = true;
 	}
+	if (access & (FILEACCESS_APPEND | FILEACCESS_CREATE | FILEACCESS_WRITE)) {
+		MemoryStick_NotifyWrite();
+	}
 
 	return success;
 }
@@ -445,6 +346,8 @@ size_t DirectoryFileHandle::Write(const u8* pointer, s64 size)
 	if (replay_) {
 		bytesWritten = ReplayApplyDiskWrite(pointer, (uint64_t)bytesWritten, (uint64_t)size, &diskFull, inGameDir_, CoreTiming::GetGlobalTimeUs());
 	}
+
+	MemoryStick_NotifyWrite();
 
 	if (diskFull) {
 		ERROR_LOG(FILESYS, "Disk full");
@@ -545,6 +448,7 @@ bool DirectoryFileSystem::MkDir(const std::string &dirname) {
 #else
 	result = File::CreateFullPath(GetLocalPath(dirname));
 #endif
+	MemoryStick_NotifyWrite();
 	return ReplayApplyDisk(ReplayAction::MKDIR, result, CoreTiming::GetGlobalTimeUs()) != 0;
 }
 
@@ -553,8 +457,10 @@ bool DirectoryFileSystem::RmDir(const std::string &dirname) {
 
 #if HOST_IS_CASE_SENSITIVE
 	// Maybe we're lucky?
-	if (File::DeleteDirRecursively(fullName))
+	if (File::DeleteDirRecursively(fullName)) {
+		MemoryStick_NotifyWrite();
 		return (bool)ReplayApplyDisk(ReplayAction::RMDIR, true, CoreTiming::GetGlobalTimeUs());
+	}
 
 	// Nope, fix case and try again.  Should we try again?
 	std::string fullPath = dirname;
@@ -565,6 +471,7 @@ bool DirectoryFileSystem::RmDir(const std::string &dirname) {
 #endif
 
 	bool result = File::DeleteDirRecursively(fullName);
+	MemoryStick_NotifyWrite();
 	return ReplayApplyDisk(ReplayAction::RMDIR, result, CoreTiming::GetGlobalTimeUs()) != 0;
 }
 
@@ -612,6 +519,7 @@ int DirectoryFileSystem::RenameFile(const std::string &from, const std::string &
 
 	// TODO: Better error codes.
 	int result = retValue ? 0 : (int)SCE_KERNEL_ERROR_ERRNO_FILE_ALREADY_EXISTS;
+	MemoryStick_NotifyWrite();
 	return ReplayApplyDisk(ReplayAction::FILE_RENAME, result, CoreTiming::GetGlobalTimeUs());
 }
 
@@ -633,6 +541,7 @@ bool DirectoryFileSystem::RemoveFile(const std::string &filename) {
 	}
 #endif
 
+	MemoryStick_NotifyWrite();
 	return ReplayApplyDisk(ReplayAction::FILE_REMOVE, retValue, CoreTiming::GetGlobalTimeUs()) != 0;
 }
 
@@ -865,6 +774,18 @@ static std::string SimulateVFATBug(std::string filename) {
 	}
 
 	return filename;
+}
+
+bool DirectoryFileSystem::ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) {
+	Path localPath = GetLocalPath(path);
+
+	int64_t sizeTemp = File::ComputeRecursiveDirectorySize(localPath);
+	if (sizeTemp >= 0) {
+		*size = sizeTemp;
+		return true;
+	} else {
+		return false;
+	}
 }
 
 std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {

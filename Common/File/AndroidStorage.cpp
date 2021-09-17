@@ -20,6 +20,7 @@ static jmethodID contentUriFileExists;
 static jmethodID contentUriGetFreeStorageSpace;
 static jmethodID filePathGetFreeStorageSpace;
 static jmethodID isExternalStoragePreservedLegacy;
+static jmethodID computeRecursiveDirectorySize;
 
 static jobject g_nativeActivity;
 
@@ -54,6 +55,8 @@ void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj) {
 	_dbg_assert_(filePathGetFreeStorageSpace);
 	isExternalStoragePreservedLegacy = env->GetMethodID(env->GetObjectClass(obj), "isExternalStoragePreservedLegacy", "()Z");
 	_dbg_assert_(isExternalStoragePreservedLegacy);
+	computeRecursiveDirectorySize = env->GetMethodID(env->GetObjectClass(obj), "computeRecursiveDirectorySize", "(Ljava/lang/String;)J");
+	_dbg_assert_(computeRecursiveDirectorySize);
 }
 
 bool Android_IsContentUri(const std::string &filename) {
@@ -256,6 +259,22 @@ int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath) {
 
 	jstring param = env->NewStringUTF(filePath.c_str());
 	return env->CallLongMethod(g_nativeActivity, filePathGetFreeStorageSpace, param);
+}
+
+int64_t Android_ComputeRecursiveDirectorySize(const std::string &uri) {
+	if (!g_nativeActivity) {
+		return false;
+	}
+	auto env = getEnv();
+
+	jstring param = env->NewStringUTF(uri.c_str());
+
+	double start = time_now_d();
+	int64_t size = env->CallLongMethod(g_nativeActivity, computeRecursiveDirectorySize, param);
+	double elapsed = time_now_d() - start;
+
+	INFO_LOG(IO, "ComputeRecursiveDirectorySize(%s) in %0.3f s", uri.c_str(), elapsed);
+	return size;
 }
 
 bool Android_IsExternalStoragePreservedLegacy() {

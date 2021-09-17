@@ -80,6 +80,7 @@ namespace MainWindow {
 		EnableMenuItem(menu, ID_EMULATION_STOP, menuEnable);
 		EnableMenuItem(menu, ID_EMULATION_RESET, menuEnable);
 		EnableMenuItem(menu, ID_EMULATION_SWITCH_UMD, umdSwitchEnable);
+		EnableMenuItem(menu, ID_EMULATION_CHAT, g_Config.bEnableNetworkChat ? menuInGameEnable : MF_GRAYED);
 		EnableMenuItem(menu, ID_TOGGLE_BREAK, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_LOADMAPFILE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_SAVEMAPFILE, menuEnable);
@@ -325,6 +326,7 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_OPTIONS_TEXTUREFILTERING_AUTO);
 		TranslateMenuItem(menu, ID_OPTIONS_NEARESTFILTERING);
 		TranslateMenuItem(menu, ID_OPTIONS_LINEARFILTERING);
+		TranslateMenuItem(menu, ID_OPTIONS_AUTOMAXQUALITYFILTERING);
 		TranslateMenuItem(menu, ID_OPTIONS_SCREENFILTER_MENU);
 		TranslateMenuItem(menu, ID_OPTIONS_BUFLINEARFILTER);
 		TranslateMenuItem(menu, ID_OPTIONS_BUFNEARESTFILTER);
@@ -635,10 +637,6 @@ namespace MainWindow {
 			osm.ShowOnOff(gr->T("Cheats"), g_Config.bEnableCheats);
 			break;
 		case ID_EMULATION_CHAT:
-			if (!g_Config.bEnableNetworkChat) {
-				g_Config.bEnableNetworkChat = true;
-				UpdateCommands();
-			}
 			if (GetUIState() == UISTATE_INGAME) {
 				NativeMessageReceived("chat screen", "");
 			}
@@ -979,9 +977,10 @@ namespace MainWindow {
 			g_Config.iShowFPSCounter = g_Config.iShowFPSCounter ? 0 : 3;  // 3 = both speed and FPS
 			break;
 
-		case ID_OPTIONS_TEXTUREFILTERING_AUTO: setTexFiltering(TEX_FILTER_AUTO); break;
-		case ID_OPTIONS_NEARESTFILTERING:      setTexFiltering(TEX_FILTER_FORCE_NEAREST); break;
-		case ID_OPTIONS_LINEARFILTERING:       setTexFiltering(TEX_FILTER_FORCE_LINEAR); break;
+		case ID_OPTIONS_TEXTUREFILTERING_AUTO:   setTexFiltering(TEX_FILTER_AUTO); break;
+		case ID_OPTIONS_NEARESTFILTERING:        setTexFiltering(TEX_FILTER_FORCE_NEAREST); break;
+		case ID_OPTIONS_LINEARFILTERING:         setTexFiltering(TEX_FILTER_FORCE_LINEAR); break;
+		case ID_OPTIONS_AUTOMAXQUALITYFILTERING: setTexFiltering(TEX_FILTER_AUTO_MAX_QUALITY); break;
 
 		case ID_OPTIONS_BUFLINEARFILTER:       setBufFilter(SCALE_LINEAR); break;
 		case ID_OPTIONS_BUFNEARESTFILTER:      setBufFilter(SCALE_NEAREST); break;
@@ -1225,11 +1224,12 @@ namespace MainWindow {
 			ID_OPTIONS_TEXTUREFILTERING_AUTO,
 			ID_OPTIONS_NEARESTFILTERING,
 			ID_OPTIONS_LINEARFILTERING,
+			ID_OPTIONS_AUTOMAXQUALITYFILTERING,
 		};
 		if (g_Config.iTexFiltering < TEX_FILTER_AUTO)
 			g_Config.iTexFiltering = TEX_FILTER_AUTO;
-		else if (g_Config.iTexFiltering > TEX_FILTER_FORCE_LINEAR)
-			g_Config.iTexFiltering = TEX_FILTER_FORCE_LINEAR;
+		else if (g_Config.iTexFiltering > TEX_FILTER_AUTO_MAX_QUALITY)
+			g_Config.iTexFiltering = TEX_FILTER_AUTO_MAX_QUALITY;
 
 		for (int i = 0; i < ARRAY_SIZE(texfilteringitems); i++) {
 			CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iTexFiltering ? MF_CHECKED : MF_UNCHECKED));
@@ -1368,7 +1368,7 @@ namespace MainWindow {
 		static CoreState lastCoreState = CORE_BOOT_ERROR;
 
 		HMENU menu = GetMenu(GetHWND());
-		EnableMenuItem(menu, ID_DEBUG_LOG, !g_Config.bEnableLogging);
+		EnableMenuItem(menu, ID_DEBUG_LOG, g_Config.bEnableLogging ? MF_ENABLED : MF_GRAYED);
 		SetIngameMenuItemStates(menu, GetUIState());
 
 		if (lastGlobalUIState == GetUIState() && lastCoreState == coreState)
@@ -1379,7 +1379,6 @@ namespace MainWindow {
 
 		bool isPaused = Core_IsStepping() && GetUIState() == UISTATE_INGAME;
 		TranslateMenuItem(menu, ID_TOGGLE_BREAK, L"\tF8", isPaused ? "Run" : "Break");
-		TranslateMenuItem(menu, ID_EMULATION_CHAT, L"\tCtrl+C", g_Config.bEnableNetworkChat ? "Open Chat" : "Enable Chat");
 	}
 
 	void UpdateSwitchUMD() {

@@ -88,7 +88,7 @@ extern AndroidAudioState *g_audioState;
 #endif
 
 GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID, bool editThenRestore)
-	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false), editThenRestore_(editThenRestore) {
+	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), editThenRestore_(editThenRestore) {
 	lastVertical_ = UseVerticalLayout();
 	prevInflightFrames_ = g_Config.iInflightFrames;
 }
@@ -217,6 +217,11 @@ void GameSettingsScreen::CreateViews() {
 	settingInfo_ = new SettingInfoMessage(ALIGN_CENTER | FLAG_WRAP_TEXT, new AnchorLayoutParams(dp_xres - leftSide - 40.0f, WRAP_CONTENT, leftSide, dp_yres - 80.0f - 40.0f, NONE, NONE));
 	settingInfo_->SetBottomCutoff(dp_yres - 200.0f);
 	root_->Add(settingInfo_);
+
+	// Show it again if we recreated the view
+	if (oldSettingInfo_ != "") {
+		settingInfo_->Show(oldSettingInfo_, nullptr);
+	}
 
 	// TODO: These currently point to global settings, not game specific ones.
 
@@ -547,7 +552,7 @@ void GameSettingsScreen::CreateViews() {
 	PopupMultiChoice *anisoFiltering = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gr->T("Anisotropic Filtering"), anisoLevels, 0, ARRAY_SIZE(anisoLevels), gr->GetName(), screenManager()));
 	anisoFiltering->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	static const char *texFilters[] = { "Auto", "Nearest", "Linear" };
+	static const char *texFilters[] = { "Auto", "Nearest", "Linear", "Auto Max Quality"};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gr->T("Texture Filter"), texFilters, 1, ARRAY_SIZE(texFilters), gr->GetName(), screenManager()));
 
 	static const char *bufFilters[] = { "Linear", "Nearest", };
@@ -703,6 +708,10 @@ void GameSettingsScreen::CreateViews() {
 		// Re-centers itself to the touch location on touch-down.
 		CheckBox *floatingAnalog = controlsSettings->Add(new CheckBox(&g_Config.bAutoCenterTouchAnalog, co->T("Auto-centering analog stick")));
 		floatingAnalog->SetEnabledPtr(&g_Config.bShowTouchControls);
+
+		// Hide stick background, usefull when increasing the size
+		CheckBox *hideStickBackground = controlsSettings->Add(new CheckBox(&g_Config.bHideStickBackground, co->T("Hide touch analog stick background circle")));
+		hideStickBackground->SetEnabledPtr(&g_Config.bShowTouchControls);
 
 		// On non iOS systems, offer to let the user see this button.
 		// Some Windows touch devices don't have a back button or other button to call up the menu.
@@ -880,11 +889,13 @@ void GameSettingsScreen::CreateViews() {
 	if (backgroundChoice_ != nullptr) {
 		backgroundChoice_->OnClick.Handle(this, &GameSettingsScreen::OnChangeBackground);
 	}
-	static const char *backgroundAnimations[] = { "No animation", "Floating symbols", "Recent games" };
+	static const char *backgroundAnimations[] = { "No animation", "Floating symbols", "Recent games", "Waves", "Moving background" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iBackgroundAnimation, sy->T("UI background animation"), backgroundAnimations, 0, ARRAY_SIZE(backgroundAnimations), sy->GetName(), screenManager()));
 
 	systemSettings->Add(new ItemHeader(sy->T("Help the PPSSPP team")));
-	enableReports_ = Reporting::IsEnabled();
+	if (!enableReportsSet_)
+		enableReports_ = Reporting::IsEnabled();
+	enableReportsSet_ = true;
 	enableReportsCheckbox_ = new CheckBox(&enableReports_, sy->T("Enable Compatibility Server Reports"));
 	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
 	systemSettings->Add(enableReportsCheckbox_);
@@ -1089,8 +1100,9 @@ UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
 	// We do not want to report when rendering mode is Framebuffer to memory - so many issues
 	// are caused by that (framebuffer copies overwriting display lists, etc).
 	Reporting::UpdateConfig();
-	enableReports_ = Reporting::IsEnabled();
 	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
+	if (!Reporting::IsSupported())
+		enableReports_ = Reporting::IsEnabled();
 
 	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
 		g_Config.bAutoFrameSkip = false;
@@ -1271,6 +1283,11 @@ void GameSettingsScreen::dialogFinished(const Screen *dialog, DialogResult resul
 
 		RecreateViews();
 	}
+}
+
+void GameSettingsScreen::RecreateViews() {
+	oldSettingInfo_ = settingInfo_->GetText();
+	UIScreen::RecreateViews();
 }
 
 void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
@@ -1841,12 +1858,8 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	parent->Add(ipRows_);
 	listIP.clear(); listIP.shrink_to_fit();
 
-	errorView_ = parent->Add(new TextView(n->T("Invalid IP or hostname"), ALIGN_HCENTER, false, new LinearLayoutParams(Margins(0, 10, 0, 0))));
-	errorView_->SetTextColor(0xFF3030FF);
-	errorView_->SetVisibility(V_GONE);
-
 	progressView_ = parent->Add(new TextView(n->T("Validating address..."), ALIGN_HCENTER, false, new LinearLayoutParams(Margins(0, 10, 0, 0))));
-	progressView_->SetVisibility(V_GONE);
+	progressView_->SetVisibility(V_INVISIBLE);
 }
 
 void HostnameSelectScreen::SendEditKey(int keyCode, int flags) {
@@ -1933,6 +1946,8 @@ void HostnameSelectScreen::ResolverThread() {
 }
 
 bool HostnameSelectScreen::CanComplete(DialogResult result) {
+	auto n = GetI18NCategory("Networking");
+
 	if (result != DR_OK)
 		return true;
 
@@ -1964,12 +1979,12 @@ bool HostnameSelectScreen::CanComplete(DialogResult result) {
 			lastResolvedResult_ = toResolveResult_;
 
 			if (lastResolvedResult_) {
-				errorView_->SetVisibility(UI::V_GONE);
+				progressView_->SetVisibility(UI::V_INVISIBLE);
 			} else {
-				errorView_->SetVisibility(UI::V_VISIBLE);
+				progressView_->SetText(n->T("Invalid IP or hostname"));
+				progressView_->SetTextColor(0xFF3030FF);
+				progressView_->SetVisibility(UI::V_VISIBLE);
 			}
-			progressView_->SetVisibility(UI::V_GONE);
-
 			return true;
 		}
 
@@ -1981,8 +1996,9 @@ bool HostnameSelectScreen::CanComplete(DialogResult result) {
 	toResolve_ = value;
 	resolverCond_.notify_one();
 
+	progressView_->SetText(n->T("Validating address..."));
+	progressView_->SetTextColor(0xFFFFFFFF);
 	progressView_->SetVisibility(UI::V_VISIBLE);
-	errorView_->SetVisibility(UI::V_GONE);
 
 	return false;
 }

@@ -324,6 +324,32 @@ std::string ResolvePath(const std::string &path) {
 #endif
 }
 
+static int64_t RecursiveSize(const Path &path) {
+	// TODO: Some file systems can optimize this.
+	std::vector<FileInfo> fileInfo;
+	if (!GetFilesInDir(path, &fileInfo, nullptr, GETFILES_GETHIDDEN)) {
+		return -1;
+	}
+	int64_t sizeSum = 0;
+	for (const auto &file : fileInfo) {
+		if (file.isDirectory) {
+			sizeSum += RecursiveSize(file.fullName);
+		} else {
+			sizeSum += file.size;
+		}
+	}
+	return sizeSum;
+}
+
+uint64_t ComputeRecursiveDirectorySize(const Path &path) {
+	if (path.Type() == PathType::CONTENT_URI) {
+		return Android_ComputeRecursiveDirectorySize(path.ToString());
+	}
+
+	// Generic solution.
+	return RecursiveSize(path);
+}
+
 // Returns true if file filename exists. Will return true on directories.
 bool ExistsInDir(const Path &path, const std::string &filename) {
 	return Exists(path / filename);

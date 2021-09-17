@@ -603,6 +603,25 @@ bool IsKeyMapped(int device, int key) {
 	return false;
 }
 
+bool ReplaceSingleKeyMapping(int btn, int index, KeyDef key) {
+	// Check for duplicate
+	for (int i = 0; i < g_controllerMap[btn].size(); ++i) {
+		if (i != index && g_controllerMap[btn][i] == key) {
+			g_controllerMap[btn].erase(g_controllerMap[btn].begin()+index);
+			g_controllerMapGeneration++;
+
+			UpdateNativeMenuKeys();
+			return false;
+		}
+	}
+	KeyMap::g_controllerMap[btn][index] = key;
+	g_controllerMapGeneration++;
+
+	g_seenDeviceIds.insert(key.deviceId);
+	UpdateNativeMenuKeys();
+	return true;
+}
+
 void SetKeyMapping(int btn, KeyDef key, bool replace) {
 	if (key.keyCode < 0)
 		return;

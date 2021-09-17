@@ -819,6 +819,10 @@ void DrawEngineVulkan::DoFlush() {
 			}
 
 			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, true, useHWTessellation_, decOptions_.expandAllWeightsToFloat);  // usehwtransform
+			if (!vshader) {
+				// We're screwed.
+				return;
+			}
 			_dbg_assert_msg_(vshader->UseHWTransform(), "Bad vshader");
 
 			Draw::NativeObject object = framebufferManager_->UseBufferedRendering() ? Draw::NativeObject::FRAMEBUFFER_RENDERPASS : Draw::NativeObject::BACKBUFFER_RENDERPASS;

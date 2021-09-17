@@ -221,6 +221,9 @@ void TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 
 void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
 	using namespace Draw;
+	if (!str)
+		return;
+
 	std::string text(NormalizeString(std::string(str)));
 	if (text.empty())
 		return;

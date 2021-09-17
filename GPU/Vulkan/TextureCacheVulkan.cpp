@@ -751,8 +751,17 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	// such as when using replacement textures - but let's keep the same amount of levels.
 	int maxLevelToGenerate = maxLevel;
 
-	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
 	VkFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
+
+	// TODO: Really should inspect the format capabilities.
+	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY) {
+		// Boost the number of mipmaps.
+		int maxPossibleMipmaps = log2i(std::min(gstate.getTextureWidth(0), gstate.getTextureHeight(0)));
+		if (maxPossibleMipmaps > maxLevelToGenerate) {
+			maxLevelToGenerate = maxPossibleMipmaps;
+			dstFmt = VK_FORMAT_R8G8B8A8_UNORM;
+		}
+	}
 
 	int scaleFactor = standardScaleFactor_;
 	if (scaleFactor > maxScaleFactor_)
@@ -798,7 +807,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		}
 	}
 
-	// TODO
+	// TODO: Support mip levels for upscaled images.
+	// Probably can just remove this check?
 	if (scaleFactor > 1) {
 		maxLevel = 0;
 	}
@@ -1085,7 +1095,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 			decPitch = w * bpp;
 		}
 
-		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS);
+		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || dstFmt == VK_FORMAT_R8G8B8A8_UNORM;
 		DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, expand32);
 		gpuStats.numTexturesDecoded++;
 

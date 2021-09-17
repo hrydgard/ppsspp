@@ -48,6 +48,8 @@ public:
 	void EnqueueTaskOnThread(int threadNum, Task *task, TaskType taskType);
 	void Teardown();
 
+	bool IsInitialized() const;
+
 	// Currently does nothing. It will always be best-effort - maybe it cancels,
 	// maybe it doesn't. Note that the id is the id() returned by the task. You need to make that
 	// something meaningful yourself.
@@ -58,7 +60,8 @@ public:
 	int GetNumLooperThreads() const;
 
 private:
-	GlobalThreadContext *global_ = nullptr;
+	// This is always pointing to a context, initialized in the constructor.
+	GlobalThreadContext *global_;
 
 	int numThreads_ = 0;
 	int numComputeThreads_ = 0;

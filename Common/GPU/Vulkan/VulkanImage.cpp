@@ -1,6 +1,9 @@
+#include <algorithm>
+
+#include "Common/Log.h"
+
 #include "Common/GPU/Vulkan/VulkanImage.h"
 #include "Common/GPU/Vulkan/VulkanMemory.h"
-#include "Common/Log.h"
 
 using namespace PPSSPP_VK;
 
@@ -211,15 +214,15 @@ void VulkanTexture::GenerateMip(VkCommandBuffer cmd, int mip, VkImageLayout imag
 	blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	blit.srcSubresource.layerCount = 1;
 	blit.srcSubresource.mipLevel = mip - 1;
-	blit.srcOffsets[1].x = width_ >> (mip - 1);
-	blit.srcOffsets[1].y = height_ >> (mip - 1);
+	blit.srcOffsets[1].x = std::max(width_ >> (mip - 1), 1);
+	blit.srcOffsets[1].y = std::max(height_ >> (mip - 1), 1);
 	blit.srcOffsets[1].z = 1;
 
 	blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	blit.dstSubresource.layerCount = 1;
 	blit.dstSubresource.mipLevel = mip;
-	blit.dstOffsets[1].x = width_ >> mip;
-	blit.dstOffsets[1].y = height_ >> mip;
+	blit.dstOffsets[1].x = std::max(width_ >> mip, 1);
+	blit.dstOffsets[1].y = std::max(height_ >> mip, 1);
 	blit.dstOffsets[1].z = 1;
 
 	// TODO: We could do better with the image transitions - would be enough with one per level

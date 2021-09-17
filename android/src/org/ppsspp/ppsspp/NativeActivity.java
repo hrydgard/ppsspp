@@ -400,7 +400,8 @@ public abstract class NativeActivity extends Activity {
 
 		String extStorageState = Environment.getExternalStorageState();
 		String extStorageDir = Environment.getExternalStorageDirectory().getAbsolutePath();
-		String externalFilesDir = this.getExternalFilesDir(null).getAbsolutePath();
+		File externalFiles = this.getExternalFilesDir(null);
+		String externalFilesDir = externalFiles == null ? "" : externalFiles.getAbsolutePath();
 
 		Log.i(TAG, "Ext storage: " + extStorageState + " " + extStorageDir);
 		Log.i(TAG, "Ext files dir: " + externalFilesDir);
@@ -1119,13 +1120,20 @@ public abstract class NativeActivity extends Activity {
 		if (requestCode == RESULT_LOAD_IMAGE) {
 			Uri selectedImage = data.getData();
 			if (selectedImage != null) {
-				String[] filePathColumn = {MediaStore.Images.Media.DATA};
-				Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
-				cursor.moveToFirst();
-				int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
-				String picturePath = cursor.getString(columnIndex);
-				cursor.close();
-				NativeApp.sendMessage("bgImage_updated", picturePath);
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+					NativeApp.sendMessage("bgImage_updated", selectedImage.toString());
+				} else {
+					String[] filePathColumn = {MediaStore.Images.Media.DATA};
+					Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
+					if (cursor != null) {
+						cursor.moveToFirst();
+						int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
+						String picturePath = cursor.getString(columnIndex);
+						cursor.close();
+
+						NativeApp.sendMessage("bgImage_updated", picturePath);
+					}
+				}
 			}
 		} else if (requestCode == RESULT_OPEN_DOCUMENT) {
 			Uri selectedFile = data.getData();

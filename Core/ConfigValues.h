@@ -45,6 +45,13 @@ enum {
 	ROTATION_AUTO_HORIZONTAL = 5,
 };
 
+enum TextureFiltering {
+	TEX_FILTER_AUTO = 1,
+	TEX_FILTER_FORCE_NEAREST = 2,
+	TEX_FILTER_FORCE_LINEAR = 3,
+	TEX_FILTER_AUTO_MAX_QUALITY = 4,
+};
+
 enum BufferFilter {
 	SCALE_LINEAR = 1,
 	SCALE_NEAREST = 2,
@@ -121,4 +128,6 @@ enum class BackgroundAnimation {
 	OFF = 0,
 	FLOATING_SYMBOLS = 1,
 	RECENT_GAMES = 2,
+	WAVE = 3,
+	MOVING_BACKGROUND = 4,
 };

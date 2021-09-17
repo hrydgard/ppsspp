@@ -54,6 +54,8 @@ public:
 	bool RemoveFile(const std::string &filename) override;
 	u64 FreeSpace(const std::string &path) override;
 
+	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override { return false; }
+
 private:
 	// File positions.
 	std::map<u32, s64> entries_;

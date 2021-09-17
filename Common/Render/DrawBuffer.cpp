@@ -14,11 +14,6 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 
-enum {
-	// Enough?
-	MAX_VERTS = 65536,
-};
-
 DrawBuffer::DrawBuffer() : count_(0), atlas(0) {
 	verts_ = new Vertex[MAX_VERTS];
 	fontscalex = 1.0f;
@@ -123,15 +118,15 @@ void DrawBuffer::Rect(float x, float y, float w, float h, uint32_t color, int al
 }
 
 void DrawBuffer::hLine(float x1, float y, float x2, uint32_t color) {
+	// Round Y to the closest full pixel, since we're making it 1-pixel-thin.
+	y -= fmodf(y, pixel_in_dps_y);
 	Rect(x1, y, x2 - x1, pixel_in_dps_y, color);
 }
 
 void DrawBuffer::vLine(float x, float y1, float y2, uint32_t color) {
+	// Round X to the closest full pixel, since we're making it 1-pixel-thin.
+	x -= fmodf(x, pixel_in_dps_x);
 	Rect(x, y1, pixel_in_dps_x, y2 - y1, color);
-}
-
-void DrawBuffer::vLineAlpha50(float x, float y1, float y2, uint32_t color) {
-	Rect(x, y1, pixel_in_dps_x, y2 - y1, (color | 0xFF000000) & 0x7F000000);
 }
 
 void DrawBuffer::RectVGradient(float x, float y, float w, float h, uint32_t colorTop, uint32_t colorBottom) {
@@ -361,7 +356,6 @@ void DrawBuffer::DrawImageRotatedStretch(ImageID atlas_image, const Bounds &boun
 	}
 }
 
-// TODO: add arc support
 void DrawBuffer::Circle(float xc, float yc, float radius, float thickness, int segments, float startAngle, uint32_t color, float u_mul) {
 	float angleDelta = PI * 2 / segments;
 	float uDelta = 1.0f / segments;
@@ -377,12 +371,31 @@ void DrawBuffer::Circle(float xc, float yc, float radius, float thickness, int s
 		float c1 = cosf(angle1), s1 = sinf(angle1), c2 = cosf(angle2), s2 = sinf(angle2);
 		const float x[4] = {c1 * r1 + xc, c2 * r1 + xc, c1 * r2 + xc, c2 * r2 + xc};
 		const float y[4] = {s1 * r1 + yc, s2 * r1 + yc, s1 * r2 + yc, s2 * r2 + yc};
-		V(x[0],	y[0], color, u1, 0);
-		V(x[1],	y[1], color, u2, 0);
-		V(x[2],	y[2], color, u1, 1);
-		V(x[1],	y[1], color, u2, 0);
-		V(x[3],	y[3], color, u2, 1);
-		V(x[2],	y[2], color, u1, 1);
+		V(x[0],	y[0], color, u1, 0.0f);
+		V(x[1],	y[1], color, u2, 0.0f);
+		V(x[2],	y[2], color, u1, 1.0f);
+		V(x[1],	y[1], color, u2, 0.0f);
+		V(x[3],	y[3], color, u2, 1.0f);
+		V(x[2],	y[2], color, u1, 1.0f);
+	}
+}
+
+void DrawBuffer::FillCircle(float xc, float yc, float radius, int segments, uint32_t color) {
+	float angleDelta = PI * 2 / segments;
+	float uDelta = 1.0f / segments;
+	float r1 = radius;
+	for (int i = 0; i < segments + 1; i++) {
+		float angle1 = i * angleDelta;
+		float angle2 = (i + 1) * angleDelta;
+		float u1 = i * uDelta;
+		float u2 = (i + 1) * uDelta;
+		// TODO: get rid of one pair of cos/sin per loop, can reuse from last iteration
+		float c1 = cosf(angle1), s1 = sinf(angle1), c2 = cosf(angle2), s2 = sinf(angle2);
+		const float x[2] = { c1 * r1 + xc, c2 * r1 + xc };
+		const float y[2] = { s1 * r1 + yc, s2 * r1 + yc };
+		V(xc, yc, color, 0.0f, 0.0f);
+		V(x[0], y[0], color, u1, 0.0f);
+		V(x[1], y[1], color, u2, 1.0f);
 	}
 }
 

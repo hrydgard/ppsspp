@@ -147,10 +147,20 @@ void MemStickScreen::CreateViews() {
 	}
 #endif
 
-	leftColumn->Add(new Choice(iz->T("Create or Choose a PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnBrowse);
-	leftColumn->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP.")))->SetBullet(true);
-	leftColumn->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold.")))->SetBullet(true);
-	leftColumn->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access")))->SetBullet(true);
+	// Let's only offer the browse-for-folder choice on Android 10 or later.
+	// Earlier versions often don't really have working folder browsers.
+	bool storageBrowserWorking = System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 29;
+
+	if (storageBrowserWorking) {
+		leftColumn->Add(new Choice(iz->T("Create or Choose a PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnBrowse);
+		leftColumn->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP.")))->SetBullet(true);
+		leftColumn->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold.")))->SetBullet(true);
+		leftColumn->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access")))->SetBullet(true);
+	} else {
+		leftColumn->Add(new Choice(iz->T("Manually specify PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnSetFolderManually);
+		leftColumn->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP.")))->SetBullet(true);
+		leftColumn->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold.")))->SetBullet(true);
+	}
 
 	leftColumn->Add(new Choice(iz->T("Use App Private Directory")))->OnClick.Handle(this, &MemStickScreen::OnUseInternalStorage);
 	// Consider https://www.compart.com/en/unicode/U+26A0 (unicode warning sign?)? or a graphic?
@@ -171,6 +181,73 @@ void MemStickScreen::CreateViews() {
 	INFO_LOG(SYSTEM, "MemStickScreen: initialSetup=%d", (int)initialSetup_);
 }
 
+UI::EventReturn MemStickScreen::OnSetFolderManually(UI::EventParams &params) {
+	// The old way, from before scoped storage.
+#if PPSSPP_PLATFORM(ANDROID)
+	auto sy = GetI18NCategory("System");
+	System_InputBoxGetString(sy->T("Memory Stick Folder"), g_Config.memStickDirectory.ToString(), [&](bool result, const std::string &value) {
+		auto sy = GetI18NCategory("System");
+		auto di = GetI18NCategory("Dialog");
+
+		if (result) {
+			std::string newPath = value;
+			size_t pos = newPath.find_last_not_of("/");
+			// Gotta have at least something but a /, and also needs to start with a /.
+			if (newPath.empty() || pos == newPath.npos || newPath[0] != '/') {
+				settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
+				return;
+			}
+			if (pos != newPath.size() - 1) {
+				newPath = newPath.substr(0, pos + 1);
+			}
+
+			if (newPath.empty()) {
+				// Reuse below message instead of adding yet another string.
+				SystemToast(sy->T("Path does not exist!"));
+				return;
+			}
+
+			Path pendingMemStickFolder(newPath);
+
+			if (!File::Exists(pendingMemStickFolder)) {
+				// Try to fix the path string, apparently some users got used to leaving out the /.
+				if (newPath[0] != '/') {
+					newPath = "/" + newPath;
+				}
+
+				pendingMemStickFolder = Path(newPath);
+			}
+
+			if (!File::Exists(pendingMemStickFolder) && pendingMemStickFolder.Type() == PathType::NATIVE) {
+				// Still no path? Try to automatically fix the case.
+				std::string oldNewPath = newPath;
+				FixPathCase(Path(""), newPath, FixPathCaseBehavior::FPC_FILE_MUST_EXIST);
+				if (oldNewPath != newPath) {
+					NOTICE_LOG(IO, "Fixed path case: %s -> %s", oldNewPath.c_str(), newPath.c_str());
+					pendingMemStickFolder = Path(newPath);
+				} else {
+					NOTICE_LOG(IO, "Failed to fix case of path %s (result: %s)", newPath.c_str(), oldNewPath.c_str());
+				}
+			}
+
+			if (pendingMemStickFolder == g_Config.memStickDirectory) {
+				// Same directory as before - all good. Nothing to do.
+				TriggerFinish(DialogResult::DR_OK);
+				return;
+			}
+
+			if (!File::Exists(pendingMemStickFolder)) {
+				SystemToast(sy->T("Path does not exist!"));
+				return;
+			}
+
+			screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, false));
+		}
+	});
+#endif
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn MemStickScreen::OnUseInternalStorage(UI::EventParams &params) {
 	Path pendingMemStickFolder = Path(g_extFilesDir);
 
@@ -182,9 +259,12 @@ UI::EventReturn MemStickScreen::OnUseInternalStorage(UI::EventParams &params) {
 		} else {
 			// This can't really happen?? Not worth making an error message.
 		}
-	} else {
+	} else if (pendingMemStickFolder != g_Config.memStickDirectory) {
 		// Always ask for confirmation when called from the UI. Likely there's already some data.
 		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, false));
+	} else {
+		// User chose the same directory it's already in. Let's just bail.
+		TriggerFinish(DialogResult::DR_OK);
 	}
 	return UI::EVENT_DONE;
 }
@@ -200,9 +280,12 @@ UI::EventReturn MemStickScreen::OnUseStorageRoot(UI::EventParams &params) {
 		} else {
 			// This can't really happen?? Not worth making an error message.
 		}
-	} else {
+	} else if (pendingMemStickFolder != g_Config.memStickDirectory) {
 		// Always ask for confirmation when called from the UI. Likely there's already some data.
 		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, false));
+	} else {
+		// User chose the same directory it's already in. Let's just bail.
+		TriggerFinish(DialogResult::DR_OK);
 	}
 	return UI::EVENT_DONE;
 }
@@ -227,9 +310,6 @@ void MemStickScreen::sendMessage(const char *message, const char *value) {
 
 			if (pendingMemStickFolder == g_Config.memStickDirectory) {
 				auto iz = GetI18NCategory("MemStick");
-#if PPSSPP_PLATFORM(ANDROID)
-				SystemToast(iz->T("That's the folder being used!"));
-#endif
 				return;
 			}
 

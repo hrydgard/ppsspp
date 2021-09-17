@@ -44,6 +44,7 @@ protected:
 	void CallbackMemstickFolder(bool yes);
 	bool UseVerticalLayout() const;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
+	void RecreateViews() override;
 
 private:
 	void TriggerRestart(const char *why);
@@ -128,7 +129,8 @@ private:
 	int iAlternateSpeedPercent1_;
 	int iAlternateSpeedPercent2_;
 	int prevInflightFrames_;
-	bool enableReports_;
+	bool enableReports_ = false;
+	bool enableReportsSet_ = false;
 	bool tessHWEnable_;
 	std::string shaderNames_[256];
 
@@ -137,6 +139,9 @@ private:
 
 	// Android-only
 	std::string pendingMemstickFolder_;
+
+	// If we recreate the views while this is active we show it again
+	std::string oldSettingInfo_;
 };
 
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {
@@ -208,7 +213,6 @@ private:
 
 	std::string *value_;
 	UI::TextEdit *addrView_ = nullptr;
-	UI::TextView *errorView_ = nullptr;
 	UI::TextView *progressView_ = nullptr;
 	UI::LinearLayout *ipRows_ = nullptr;
 

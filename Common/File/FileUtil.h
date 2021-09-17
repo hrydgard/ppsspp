@@ -79,6 +79,9 @@ uint64_t GetFileSize(const Path &filename);
 // Overloaded GetSize, accepts FILE*
 uint64_t GetFileSize(FILE *f);
 
+// Computes the recursive size of a directory. Warning: Might be slow!
+uint64_t ComputeRecursiveDirectorySize(const Path &path);
+
 // Returns true if successful, or path already exists.
 bool CreateDir(const Path &filename);
 

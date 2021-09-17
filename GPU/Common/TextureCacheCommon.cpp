@@ -241,9 +241,17 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 			}
 			break;
 		case TEX_FILTER_FORCE_NEAREST:
-		default:
 			// Just force to nearest without checks. Safe (but ugly).
 			forceFiltering = TEX_FILTER_FORCE_NEAREST;
+			break;
+		case TEX_FILTER_AUTO_MAX_QUALITY:
+		default:
+			forceFiltering = TEX_FILTER_AUTO_MAX_QUALITY;
+			if (gstate.isModeThrough() && g_Config.iInternalResolution != 1) {
+				bool uglyColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && gstate.getColorTestRef() != 0;
+				if (uglyColorTest)
+					forceFiltering = TEX_FILTER_FORCE_NEAREST;
+			}
 			break;
 		}
 	}
@@ -259,6 +267,18 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 	case TEX_FILTER_FORCE_NEAREST:
 		key.magFilt = 0;
 		key.minFilt = 0;
+		break;
+	case TEX_FILTER_AUTO_MAX_QUALITY:
+		// NOTE: We do not override magfilt here. If a game should have pixellated filtering,
+		// let it keep it. But we do enforce minification and mipmap filtering and max out the level.
+		// Later we'll also auto-generate any missing mipmaps.
+		key.minFilt = 1;
+		key.mipFilt = 1;
+		key.maxLevel = 9 * 256;
+		key.lodBias = 0.0f;
+		if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+			key.aniso = true;
+		}
 		break;
 	}
 

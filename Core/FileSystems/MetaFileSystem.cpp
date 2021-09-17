@@ -500,12 +500,9 @@ bool MetaFileSystem::RemoveFile(const std::string &filename)
 	std::string of;
 	IFileSystem *system;
 	int error = MapFilePath(filename, of, &system);
-	if (error == 0)
-	{
+	if (error == 0) {
 		return system->RemoveFile(of);
-	}
-	else
-	{
+	} else {
 		return false;
 	}
 }
@@ -591,7 +588,9 @@ int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> 
 	if (handle < 0)
 		return handle;
 
-	size_t dataSize = (size_t)GetFileInfo(filename).size;
+	SeekFile(handle, 0, FILEMOVE_END);
+	size_t dataSize = GetSeekPos(handle);
+	SeekFile(handle, 0, FILEMOVE_BEGIN);
 	data.resize(dataSize);
 
 	size_t result = ReadFile(handle, (u8 *)&data[0], dataSize);
@@ -599,6 +598,7 @@ int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> 
 
 	if (result != dataSize)
 		return SCE_KERNEL_ERROR_ERROR;
+
 	return 0;
 }
 
@@ -648,18 +648,36 @@ void MetaFileSystem::DoState(PointerWrap &p)
 	}
 }
 
-u64 MetaFileSystem::getDirSize(const std::string &dirPath) {
+int64_t MetaFileSystem::RecursiveSize(const std::string &dirPath) {
 	u64 result = 0;
 	auto allFiles = GetDirListing(dirPath);
 	for (auto file : allFiles) {
 		if (file.name == "." || file.name == "..")
 			continue;
-		_assert_(!file.name.empty());
 		if (file.type == FILETYPE_DIRECTORY) {
-			result += getDirSize(dirPath + file.name);
+			result += RecursiveSize(dirPath + file.name);
 		} else {
 			result += file.size;
 		}
 	}
 	return result;
+}
+
+int64_t MetaFileSystem::ComputeRecursiveDirectorySize(const std::string &filename) {
+	std::lock_guard<std::recursive_mutex> guard(lock);
+	std::string of;
+	IFileSystem *system;
+	int error = MapFilePath(filename, of, &system);
+	if (error == 0) {
+		int64_t size;
+		if (system->ComputeRecursiveDirSizeIfFast(of, &size)) {
+			// Some file systems can optimize this.
+			return size;
+		} else {
+			// Those that can't, we just run a generic implementation.
+			return RecursiveSize(filename);
+		}
+	} else {
+		return false;
+	}
 }

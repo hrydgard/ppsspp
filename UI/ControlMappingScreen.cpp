@@ -130,7 +130,7 @@ void SingleControlMapper::Refresh() {
 	std::vector<KeyDef> mappings;
 	KeyMap::KeyFromPspButton(pspKey_, &mappings, false);
 
-	rows_.empty();
+	rows_.clear();
 	for (size_t i = 0; i < mappings.size(); i++) {
 		std::string deviceName = GetDeviceName(mappings[i].deviceId);
 		std::string keyName = KeyMap::GetKeyOrAxisName(mappings[i].keyCode);
@@ -166,13 +166,17 @@ void SingleControlMapper::MappedCallback(KeyDef kdf) {
 		replaceAllButton_->SetFocus();
 		break;
 	case REPLACEONE:
-		KeyMap::g_controllerMap[pspKey_][actionIndex_] = kdf;
-		KeyMap::g_controllerMapGeneration++;
-		if (actionIndex_ < rows_.size())
+	{
+		bool success = KeyMap::ReplaceSingleKeyMapping(pspKey_, actionIndex_, kdf);
+		if (!success) {
+			replaceAllButton_->SetFocus(); // Last got removed as a duplicate
+		} else if (actionIndex_ < rows_.size()) {
 			rows_[actionIndex_]->SetFocus();
-		else
+		} else {
 			SetFocus();
+		}
 		break;
+	}
 	default:
 		SetFocus();
 		break;
@@ -884,8 +888,10 @@ public:
 		V(64.0f, 184.0f); V(76.0f, 200.0f); V(76.0f, 184.0f);
 		R(64.0f, 13.0f, 76.0f, 184.0f);
 		// Center.
-		V(76.0f, 0.0f); V(400.0f, 0.0f); V(400.0f, 200.0f);
-		V(76.0f, 0.0f); V(400.0f, 200.0f); V(76.0f, 200.0f);
+		R(76.0f, 0.0f, 400.0f, 13.0f);
+		R(76.0f, 167.0f, 400.0f, 200.0f);
+		R(76.0f, 13.0f, 99.0f, 167.0f);
+		R(377.0f, 13.0f, 400.0f, 167.0f);
 		// Right side.
 		V(400.0f, 0.0f); V(412.0f, 13.0f); V(400.0f, 13.0f);
 		V(400.0f, 184.0f); V(412.0f, 184.0f); V(400.0f, 200.0f);
@@ -917,15 +923,8 @@ public:
 	}
 
 	void Draw(UIContext &dc) override {
-		ImageID bg = ImageID("I_BG");
-		dc.Draw()->DrawImageStretch(bg, bounds_, 0xFFFFFFFF);
-
-		if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-			dc.Draw()->DrawImage(ImageID("I_ICONGOLD"), bounds_.centerX() - 120, bounds_.centerY() - 30, 1.2f, 0xFFFFFFFF, ALIGN_CENTER);
-		} else {
-			dc.Draw()->DrawImage(ImageID("I_ICON"), bounds_.centerX() - 120, bounds_.centerY() - 30, 1.2f, 0xFFFFFFFF, ALIGN_CENTER);
-		}
-		dc.Draw()->DrawImage(ImageID("I_LOGO"), bounds_.centerX() + 40, bounds_.centerY() - 30, 1.5f, 0xFFFFFFFF, ALIGN_CENTER);
+		ImageID bg = ImageID("I_PSP_DISPLAY");
+		dc.Draw()->DrawImageStretch(bg, bounds_, 0x7FFFFFFF);
 	}
 };
 
@@ -944,14 +943,21 @@ public:
 		if (bgImg_.isValid())
 			dc.Draw()->DrawImageRotatedStretch(bgImg_, bounds_, scales, angle_, c, flipHBG_);
 		if (img_.isValid()) {
-			scales[0] *= scale_;
-			scales[1] *= scale_;
+			scales[0] *= scaleX_;
+			scales[1] *= scaleY_;
 			dc.Draw()->DrawImageRotatedStretch(img_, bounds_.Offset(offsetX_, offsetY_), scales, angle_, c);
 		}
 	}
 
 	MockButton *SetScale(float s) {
-		scale_ = s;
+		scaleX_ = s;
+		scaleY_ = s;
+		return this;
+	}
+
+	MockButton *SetScale(float x, float y) {
+		scaleX_ = x;
+		scaleY_ = y;
 		return this;
 	}
 
@@ -984,7 +990,8 @@ private:
 	ImageID img_;
 	ImageID bgImg_;
 	float angle_;
-	float scale_ = 1.0f;
+	float scaleX_ = 1.0f;
+	float scaleY_ = 1.0f;
 	float offsetX_ = 0.0f;
 	float offsetY_ = 0.0f;
 	bool flipHBG_ = false;
@@ -1029,7 +1036,7 @@ MockPSP::MockPSP(UI::LayoutParams *layoutParams) : AnchorLayout(layoutParams) {
 	AddButton(CTRL_RTRIGGER, ImageID("I_R"), ImageID("I_SHOULDER_LINE"), 0.0f, LayoutSize(50.0f, 16.0f, 397.0f, 0.0f))->SetFlipHBG(true);
 
 	// Bottom.
-	AddButton(CTRL_HOME, ImageID("I_ICON"), ImageID("I_RECT_LINE"), 0.0f, LayoutSize(28.0f, 14.0f, 88.0f, 181.0f))->SetScale(0.4f);
+	AddButton(CTRL_HOME, ImageID("I_HOME"), ImageID("I_RECT_LINE"), 0.0f, LayoutSize(28.0f, 14.0f, 88.0f, 181.0f))->SetScale(1.0f, 0.65f);
 	AddButton(CTRL_SELECT, ImageID("I_SELECT"), ImageID("I_RECT_LINE"), 0.0f, LayoutSize(28.0f, 14.0f, 330.0f, 181.0f));
 	AddButton(CTRL_START, ImageID("I_START"), ImageID("I_RECT_LINE"), 0.0f, LayoutSize(28.0f, 14.0f, 361.0f, 181.0f));
 

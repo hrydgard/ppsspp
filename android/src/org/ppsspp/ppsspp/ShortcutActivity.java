@@ -5,11 +5,13 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.Intent.ShortcutIconResource;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Looper;
 import android.util.Log;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 
 /**
  * This class will respond to android.intent.action.CREATE_SHORTCUT intent from launcher homescreen.
@@ -18,35 +20,114 @@ import java.io.File;
 public class ShortcutActivity extends Activity {
 	private static final String TAG = "PPSSPP";
 
+	private boolean scoped = false;
+	private static final int RESULT_OPEN_DOCUMENT = 2;
+
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
-		// Show file selector dialog here.
-		SimpleFileChooser fileDialog = new SimpleFileChooser(this, Environment.getExternalStorageDirectory(), onFileSelectedListener);
-		fileDialog.showDialog();
+		// Show file selector dialog here. If Android version is more than or equal to 11,
+		// use the native document file browser instead of our SimpleFileChooser.
+		scoped = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R);
+
+		if (scoped) {
+			try {
+				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+				intent.addCategory(Intent.CATEGORY_OPENABLE);
+				intent.setType("*/*");
+				intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+				// Possible alternative approach:
+				// String[] mimeTypes = {"application/octet-stream", "/x-iso9660-image"};
+				// intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
+				startActivityForResult(intent, RESULT_OPEN_DOCUMENT);
+				// intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, pickerInitialUri);
+				Log.i(TAG, "Starting open document activity");
+			} catch (Exception e) {
+				Log.e(TAG, e.toString());
+			}
+		} else {
+			SimpleFileChooser fileDialog = new SimpleFileChooser(this, Environment.getExternalStorageDirectory(), onFileSelectedListener);
+			fileDialog.showDialog();
+		}
+	}
+
+	// Respond to native file dialog.
+	@Override
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		super.onActivityResult(requestCode, resultCode, data);
+		if (requestCode == RESULT_OPEN_DOCUMENT && data != null) {
+			Uri selectedFile = data.getData();
+			if (selectedFile != null) {
+				// Grab permanent permission so we can show it in recents list etc.
+				if (Build.VERSION.SDK_INT >= 19) {
+					Log.i(TAG, "Taking URI permission");
+					getContentResolver().takePersistableUriPermission(selectedFile, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+				}
+				Log.i(TAG, "Browse file finished:" + selectedFile.toString());
+				respondToShortcutRequest(selectedFile);  // finishes.
+				return;
+			}
+		}
+
+		// We're done, no matter how it went.
+		finish();
 	}
 
 	public static native String queryGameName(String path);
 
 	// Create shortcut as response for ACTION_CREATE_SHORTCUT intent.
-	private void respondToShortcutRequest(String path) {
+	private void respondToShortcutRequest(Uri uri) {
 		// This is Intent that will be sent when user execute our shortcut on
 		// homescreen. Set our app as target Context. Set Main activity as
 		// target class. Add any parameter as data.
-		Intent shortcutIntent = new Intent(this, PpssppActivity.class);
-		Uri uri = Uri.fromFile(new File(path));
+		Intent shortcutIntent = new Intent(getApplicationContext(), PpssppActivity.class);
+		shortcutIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+		shortcutIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
 		Log.i(TAG, "Shortcut URI: " + uri.toString());
 		shortcutIntent.setData(uri);
-
+		String path = uri.toString();
 		shortcutIntent.putExtra(PpssppActivity.SHORTCUT_EXTRA_KEY, path);
+
+		// We can't call C++ functions here that use storage APIs since there's no
+		// NativeActivity and all the AndroidStorage methods are methods on that.
+		// Should probably change that. In the meantime, let's just process the URI to make
+		// up a name.
+
+		String name = "PPSSPP Game";
+		String pathStr = "PPSSPP Game";
+		if (path.startsWith("content://")) {
+			String [] segments = path.split("/");
+			try {
+				pathStr = java.net.URLDecoder.decode(segments[segments.length - 1], StandardCharsets.UTF_8.name());
+			} catch (Exception e) {
+				Log.i(TAG, "Exception getting name: " + e);
+			}
+		} else if (path.startsWith("file:///")) {
+			try {
+				pathStr = java.net.URLDecoder.decode(path.substring(7), StandardCharsets.UTF_8.name());
+			} catch (Exception e) {
+				Log.i(TAG, "Exception getting name: " + e);
+			}
+		} else {
+			pathStr = path;
+		}
+
+		String[] pathSegments = pathStr.split("/");
+		name = pathSegments[pathSegments.length - 1];
+
+		/*
+		// No longer working for various reasons.
 
 		PpssppActivity.CheckABIAndLoadLibrary();
 		String name = queryGameName(path);
 		if (name.equals("")) {
+			Log.i(TAG, "Failed to retrieve game name - ignoring.");
 			showBadGameMessage();
 			return;
-		}
+		}*/
+
+		Log.i(TAG, "Game name: " + name + " : Creating shortcut to " + uri.toString());
 
 		// This is Intent that will be returned by this method, as response to
 		// ACTION_CREATE_SHORTCUT. Wrap shortcut intent inside this intent.
@@ -80,8 +161,6 @@ public class ShortcutActivity extends Activity {
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
-
-		System.exit(-1);
 	}
 
 	// Event when a file is selected on file dialog.
@@ -89,7 +168,8 @@ public class ShortcutActivity extends Activity {
 		@Override
 		public void onFileSelected(File file) {
 			// create shortcut using file path
-			respondToShortcutRequest(file.getAbsolutePath());
+			Uri uri = Uri.fromFile(new File(file.getAbsolutePath()));
+			respondToShortcutRequest(uri);
 		}
 	};
 }

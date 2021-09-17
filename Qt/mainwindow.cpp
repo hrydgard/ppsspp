@@ -657,7 +657,10 @@ void MainWindow::createMenus()
 	gameSettingsMenu->add(new MenuAction(this, SLOT(cheatsAct()),   QT_TR_NOOP("Enable &cheats"), Qt::CTRL + Qt::Key_T))
 		->addEventChecked(&g_Config.bEnableCheats);
 	gameSettingsMenu->addSeparator();
-	gameSettingsMenu->add(new MenuAction(this, SLOT(chatAct()),   QT_TR_NOOP("Enable chat"), Qt::CTRL + Qt::Key_C));
+	gameSettingsMenu->add(new MenuAction(this, SLOT(chatAct()),   QT_TR_NOOP("Open chat"), Qt::CTRL + Qt::Key_C))
+		->SetEnabledFunc([=]() {
+			return g_Config.bEnableNetworkChat && GetUIState() == UISTATE_INGAME;
+		});
 
 	// Help
 	MenuTree* helpMenu = new MenuTree(this, menuBar(),    QT_TR_NOOP("&Help"));

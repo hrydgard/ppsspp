@@ -4,6 +4,7 @@
 #include "Common/UI/Screen.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
@@ -189,6 +190,15 @@ void ScreenManager::render() {
 	}
 
 	processFinishDialog();
+}
+
+void ScreenManager::getFocusPosition(float &x, float &y, float &z) {
+	UI::ScrollView::GetLastScrollPosition(x, y);
+
+	UI::View *v = UI::GetFocusedView();
+	x += v ? v->GetBounds().x : 0;
+	y += v ? v->GetBounds().y : 0;
+	z = stack_.size();
 }
 
 void ScreenManager::sendMessage(const char *msg, const char *value) {

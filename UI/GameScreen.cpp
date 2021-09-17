@@ -34,6 +34,7 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
+#include "Core/Loaders.h"
 #include "UI/CwCheatScreen.h"
 #include "UI/EmuScreen.h"
 #include "UI/GameScreen.h"
@@ -178,7 +179,19 @@ void GameScreen::CreateViews() {
 	btnSetBackground_->OnClick.Handle(this, &GameScreen::OnSetBackground);
 	btnSetBackground_->SetVisibility(V_GONE);
 
-	if (!Reporting::HasCRC(gamePath_)) {
+	bool fileTypeSupportCRC = false;
+	if (info) {
+		switch (info->fileType) {
+		case IdentifiedFileType::PSP_PBP:
+		case IdentifiedFileType::PSP_PBP_DIRECTORY:
+		case IdentifiedFileType::PSP_ISO_NP:
+		case IdentifiedFileType::PSP_ISO:
+			fileTypeSupportCRC = true;
+		}
+	}
+
+	bool isHomebrew = info && info->region > GAMEREGION_MAX;
+	if (fileTypeSupportCRC && !isHomebrew && !Reporting::HasCRC(gamePath_) ) {
 		btnCalcCRC_ = rightColumnItems->Add(new ChoiceWithValueDisplay(&CRC32string, ga->T("Calculate CRC"), (const char*)nullptr));
 		btnCalcCRC_->OnClick.Handle(this, &GameScreen::OnDoCRC32);
 	} else {

@@ -17,6 +17,8 @@ import android.database.Cursor;
 import android.provider.DocumentsContract;
 import android.os.Environment;
 import androidx.documentfile.provider.DocumentFile;
+
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.UUID;
 import java.io.File;
@@ -98,7 +100,7 @@ public class PpssppActivity extends NativeActivity {
 		// String action = intent.getAction();
 		Uri data = intent.getData();
 		if (data != null) {
-			String path = intent.getData().getPath();
+			String path = data.toString();
 			Log.i(TAG, "Found Shortcut Parameter in data: " + path);
 			super.setShortcutParam("\"" + path.replace("\\", "\\\\").replace("\"", "\\\"") + "\"");
 			// Toast.makeText(getApplicationContext(), path, Toast.LENGTH_SHORT).show();
@@ -176,6 +178,70 @@ public class PpssppActivity extends NativeActivity {
 			str = "D|";
 		}
 		return str + size + "|" + documentName + "|" + lastModified;
+	}
+
+	private long directorySizeRecursion(Uri uri) {
+		Cursor c = null;
+		try {
+			// Log.i(TAG, "recursing into " + uri.toString());
+			final String[] columns = new String[]{
+					DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+					DocumentsContract.Document.COLUMN_SIZE,
+					DocumentsContract.Document.COLUMN_MIME_TYPE,  // check for MIME_TYPE_DIR
+			};
+			final ContentResolver resolver = getContentResolver();
+			final String documentId = DocumentsContract.getDocumentId(uri);
+			final Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(uri, documentId);
+			c = resolver.query(childrenUri, columns, null, null, null);
+			long sizeSum = 0;
+
+			// Buffer the URIs so we only have one cursor active at once. I don't trust the storage framework
+			// to handle more than one...
+			ArrayList<Uri> childDirs = new ArrayList<Uri>();
+
+			while (c.moveToNext()) {
+				final String mimeType = c.getString(2);
+				final boolean isDirectory = mimeType.equals(DocumentsContract.Document.MIME_TYPE_DIR);
+				if (isDirectory) {
+					final String childDocumentId = c.getString(0);
+					final Uri childUri = DocumentsContract.buildDocumentUriUsingTree(uri, childDocumentId);
+					childDirs.add(childUri);
+				} else {
+					final long fileSize = c.getLong(1);
+					sizeSum += fileSize;
+				}
+			}
+			c.close();
+			c = null;
+
+			for (Uri childUri : childDirs) {
+				long dirSize = directorySizeRecursion(childUri);
+				if (dirSize >= 0) {
+					sizeSum += dirSize;
+				} else {
+					return dirSize;
+				}
+			}
+			return sizeSum;
+		} catch (Exception e) {
+			return -1;
+		} finally {
+			if (c != null) {
+				c.close();
+			}
+		}
+	}
+
+	public long computeRecursiveDirectorySize(String uriString) {
+		try {
+			Uri uri = Uri.parse(uriString);
+			long totalSize = directorySizeRecursion(uri);
+			return totalSize;
+		}
+		catch (Exception e) {
+			Log.e(TAG, "computeRecursiveSize exception: " + e.toString());
+			return -1;
+		}
 	}
 
 	// TODO: Maybe add a cheaper version that doesn't extract all the file information?
