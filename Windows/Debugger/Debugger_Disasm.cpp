@@ -430,7 +430,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			case ID_TOGGLE_BREAK:
 				SendMessage(MainWindow::GetHWND(), WM_COMMAND, ID_TOGGLE_BREAK, 0);
 				break;
-
+				
 			case ID_DEBUG_DISPLAYMEMVIEW:
 				bottomTabs->ShowTab(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW));
 				break;
@@ -450,7 +450,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			case ID_DEBUG_DSIPLAYREGISTERLIST:
 				leftTabs->ShowTab(0);
 				break;
-
+				
 			case ID_DEBUG_DSIPLAYFUNCTIONLIST:
 				leftTabs->ShowTab(1);
 				break;
@@ -533,7 +533,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 						wchar_t buffer[512];
 						ListBox_GetText(lb,n,buffer);
-						SendMessage(statusBarWnd,SB_SETTEXT,1,(LPARAM)buffer);
+						SendMessage(statusBarWnd,SB_SETTEXT,1,(LPARAM) buffer);
 					}
 				};
 				break;
@@ -622,7 +622,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 			case IDC_GOTOPC:
 				{
-					ptr->gotoPC();
+					ptr->gotoPC(); 
 					SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 					UpdateDialog();
 				}
@@ -666,15 +666,14 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 			}
 			wchar_t szBuffer[256];
-			CtrlDisAsmView* ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
-			GetWindowText(GetDlgItem(m_hDlg, IDC_ADDRESS), szBuffer, 256);
+			CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
+			GetWindowText(GetDlgItem(m_hDlg,IDC_ADDRESS),szBuffer,256);
 
 			u32 addr;
-			if (parseExpression(ConvertWStringToUTF8(szBuffer).c_str(), cpu, addr) == false)
+			if (parseExpression(ConvertWStringToUTF8(szBuffer).c_str(),cpu,addr) == false)
 			{
-				displayExpressionError(GetDlgItem(m_hDlg, IDC_ADDRESS));
-			}
-			else {
+				displayExpressionError(GetDlgItem(m_hDlg,IDC_ADDRESS));
+			} else {
 				ptr->gotoAddr(addr);
 				SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 			}
@@ -701,12 +700,11 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			if (wParam == 0)
 			{
 				// erase the second part if the first is set
-				SendMessage(statusBarWnd, SB_SETTEXT, 0, (LPARAM)ConvertUTF8ToWString((const char*)lParam).c_str());
-				SendMessage(statusBarWnd, SB_SETTEXT, 1, (LPARAM)L"");
-			}
-			else if (wParam == 1)
+				SendMessage(statusBarWnd,SB_SETTEXT,0,(LPARAM)ConvertUTF8ToWString((const char*)lParam).c_str());
+				SendMessage(statusBarWnd,SB_SETTEXT,1,(LPARAM)L"");
+			} else if (wParam == 1)
 			{
-				SendMessage(statusBarWnd, SB_SETTEXT, 1, (LPARAM)ConvertUTF8ToWString((const char*)lParam).c_str());
+				SendMessage(statusBarWnd,SB_SETTEXT,1,(LPARAM)ConvertUTF8ToWString((const char*)lParam).c_str());
 			}
 		}
 		break;
