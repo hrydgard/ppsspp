@@ -78,7 +78,6 @@ const regStringPair regNames[]{
 	{MIPS_REG_LO, "lo"}
 
 };
-const std::set<std::string> GPR_NAMES = { "at","v0", "v1","a0","a1","a2","a3","a4","a5","t0","t1","t2","t3","t4","t5","t6","t7","s0","s1","s2","s3","s4","s5","s6","s7","t8","t9","k0","k1","gp","sp","fp","ra","pc","hi","lo" };
 
 void CtrlDisAsmView::init()
 {
@@ -1480,7 +1479,8 @@ void CtrlDisAsmView::getGPRsText(u32 address, char* dest, int bufsize)
 		}
 
 		// checks if arg is a register and if arg isn't already listed in the output
-		if (GPR_NAMES.find(arg) != GPR_NAMES.set::end() && output.find(arg) == arg.npos) {
+
+		if (regStringToMIPSGPReg(arg.c_str()) != -1 && output.find(arg) == arg.npos) {
 			std::string immediateOutput = "";
 			immediateOutput += arg + "=";
 			std::stringstream argValue;
@@ -1511,14 +1511,14 @@ void CtrlDisAsmView::getGPRsText(u32 address, char* dest, int bufsize)
 
 			// checks if arg is a register and if arg isn't already listed in the output.
 			// If it is listed, it will skip adding the register but will display memory from the offset register (TODO)
-					// Needs a bit more subtlety in case the params have different offsets of the same registry...
-			if (GPR_NAMES.find(arg) != GPR_NAMES.set::end()) {
+			// Needs a bit more subtlety in case the params have different offsets of the same registry...
+			int regIdentifier = regStringToMIPSGPReg(arg.c_str());
+			if (regIdentifier != -1 ) {
 				// Do not reprint an already printed register.
 				if (output.find(arg) == arg.npos) {
 					std::string immediateOutput = "";
 					immediateOutput += arg + "=";
 					std::stringstream argValue;
-					int regIdentifier = regStringToMIPSGPReg(arg.c_str());
 					argValue << std::uppercase << std::hex << currentMIPS->r[regIdentifier];
 					for (int i = 1; i <= 8 - argValue.str().length(); i++) immediateOutput += "0";
 					immediateOutput += argValue.str();
@@ -1529,7 +1529,7 @@ void CtrlDisAsmView::getGPRsText(u32 address, char* dest, int bufsize)
 				std::stringstream memStream;
 				std::stringstream addressStream;
 
-				int regIdentifier = regStringToMIPSGPReg(arg.c_str());
+
 				int offsetAddress= currentMIPS->r[regIdentifier] + offsetValue;
 				addressStream << std::hex << offsetAddress;
 				memStream << "0x";
@@ -1568,12 +1568,6 @@ void CtrlDisAsmView::getGPRsText(u32 address, char* dest, int bufsize)
 
 }
 
-
-
-// TODO: Methods for printing from FPUs and VFPUs.
-// FPUs: all formatted f0-f31
-// VFPUs: have formats Mx00, Rx0y, Cxy0, Sxyz where x is between 0 and 7, and y and z are between 0 and 3. Alternatively, v000-v080 with hex numbering.
-
 void CtrlDisAsmView::scrollStepping(u32 newPc)
 {
 	u32 windowEnd = manager.getNthNextAddress(windowStart,visibleRows);
@@ -1592,9 +1586,14 @@ u32 CtrlDisAsmView::getInstructionSizeAt(u32 address)
 	return next-address;
 }
 
+
+// TODO: Methods for printing from FPUs and VFPUs.
+// FPUs: all formatted f0-f31
+// VFPUs: have formats Mx00, Rx0y, Cxy0, Sxyz where x is between 0 and 7, and y and z are between 0 and 3. Alternatively, v000-v080 with hex numbering.
+
 int regStringToMIPSGPReg(const char* name) {
 	for (int i = 0; i < 36; i++) {
-		if (regNames[i].name == name)
+		if (std::string(regNames[i].name) == std::string(name))
 			return regNames[i].reg;
 	}
 	return MIPS_REG_INVALID;
