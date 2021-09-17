@@ -4488,6 +4488,8 @@ int NetAdhocMatching_Delete(int matchingId) {
 			free(item->hello);
 			free(item->rxbuf);
 			clearPeerList(item); //deleteAllMembers(item);
+			(*item->peerPort).clear();
+			delete item->peerPort;
 			// Destroy locks
 			item->eventlock->lock(); // Make sure it's not locked when being deleted
 			item->eventlock->unlock();
@@ -4638,6 +4640,7 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 							context->timeout = (((u64)(keepalive_int)+(u64)rexmt_int) * (u64)init_count);
 							context->timeout += adhocDefaultTimeout; // For internet play we need higher timeout than what the game wanted
 							context->handler = handler;
+							context->peerPort = new std::map<SceNetEtherAddr, u16_le>();
 
 							// Fill in Selfpeer
 							context->mac = localmac;
@@ -6010,9 +6013,24 @@ void broadcastPingMessage(SceNetAdhocMatchingContext * context)
 	uint8_t ping = PSP_ADHOC_MATCHING_PACKET_PING;
 
 	// Send Broadcast
-	context->socketlock->lock();
-	sceNetAdhocPdpSend(context->socket, (const char*)(SceNetEtherAddr *)broadcastMAC, context->port, &ping, sizeof(ping), 0, ADHOC_F_NONBLOCK);
-	context->socketlock->unlock();
+	// FIXME: Not sure whether this PING supposed to be sent only to AdhocMatching members or to everyone in Adhocctl Group, since we already pinging the AdhocServer to avoid getting kicked out of Adhocctl Group
+	peerlock.lock();
+	auto peer = friends; // Use context->peerlist if only need to send to AdhocMatching members
+	for (; peer != NULL; peer = peer->next) {
+		// Skipping soon to be removed peer
+		if (peer->last_recv == 0)
+			continue;
+
+		u16_le port = context->port;
+		auto it = (*context->peerPort).find(peer->mac_addr);
+		if (it != (*context->peerPort).end())
+			port = it->second;
+
+		context->socketlock->lock();
+		sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac_addr, port, &ping, sizeof(ping), 0, ADHOC_F_NONBLOCK);
+		context->socketlock->unlock();
+	}
+	peerlock.unlock();
 }
 
 /**
@@ -6053,10 +6071,24 @@ void broadcastHelloMessage(SceNetAdhocMatchingContext * context)
 		DataToHexString(10, 0, context->hello, context->hellolen, &hellohex);
 		DEBUG_LOG(SCENET, "HELLO Dump (%d bytes):\n%s", context->hellolen, hellohex.c_str());
 
-		// Send Broadcast
-		context->socketlock->lock();
-		sceNetAdhocPdpSend(context->socket, (const char*)(SceNetEtherAddr *)broadcastMAC, context->port, hello, 5 + context->hellolen, 0, ADHOC_F_NONBLOCK);
-		context->socketlock->unlock();
+		// Send Broadcast, so everyone know we have a room here
+		peerlock.lock();
+		SceNetAdhocctlPeerInfo* peer = friends;
+		for (; peer != NULL; peer = peer->next) {
+			// Skipping soon to be removed peer
+			if (peer->last_recv == 0)
+				continue;
+
+			u16_le port = context->port;
+			auto it = (*context->peerPort).find(peer->mac_addr);
+			if (it != (*context->peerPort).end())
+				port = it->second;
+
+			context->socketlock->lock();
+			sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac_addr, port, hello, 5 + context->hellolen, 0, ADHOC_F_NONBLOCK);
+			context->socketlock->unlock();
+		}
+		peerlock.unlock();
 
 		// Free Memory, not needed since it may be reused again later
 		//free(hello);
@@ -6132,7 +6164,7 @@ void sendAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 
 			// Send Data
 			context->socketlock->lock();
-			sceNetAdhocPdpSend(context->socket, (const char*)mac, context->port, accept, 9 + optlen + siblingbuflen, 0, ADHOC_F_NONBLOCK);
+			sceNetAdhocPdpSend(context->socket, (const char*)mac, (*context->peerPort)[*mac], accept, 9 + optlen + siblingbuflen, 0, ADHOC_F_NONBLOCK);
 			context->socketlock->unlock();
 
 			// Free Memory
@@ -6176,7 +6208,7 @@ void sendJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac,
 
 			// Send Data
 			context->socketlock->lock();
-			sceNetAdhocPdpSend(context->socket, (const char*)mac, context->port, join, 5 + optlen, 0, ADHOC_F_NONBLOCK);
+			sceNetAdhocPdpSend(context->socket, (const char*)mac, (*context->peerPort)[*mac], join, 5 + optlen, 0, ADHOC_F_NONBLOCK);
 			context->socketlock->unlock();
 
 			// Free Memory
@@ -6211,7 +6243,7 @@ void sendCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 
 		// Send Data
 		context->socketlock->lock();
-		sceNetAdhocPdpSend(context->socket, (const char*)mac, context->port, cancel, 5 + optlen, 0, ADHOC_F_NONBLOCK);
+		sceNetAdhocPdpSend(context->socket, (const char*)mac, (*context->peerPort)[*mac], cancel, 5 + optlen, 0, ADHOC_F_NONBLOCK);
 		context->socketlock->unlock();
 
 		// Free Memory
@@ -6273,7 +6305,7 @@ void sendBulkDataPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 
 			// Send Data
 			context->socketlock->lock();
-			sceNetAdhocPdpSend(context->socket, (const char*)mac, context->port, send, 5 + datalen, 0, ADHOC_F_NONBLOCK);
+			sceNetAdhocPdpSend(context->socket, (const char*)mac, (*context->peerPort)[*mac], send, 5 + datalen, 0, ADHOC_F_NONBLOCK);
 			context->socketlock->unlock();
 
 			// Free Memory
@@ -6322,7 +6354,7 @@ void sendBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 			{
 				// Send Packet
 				context->socketlock->lock();
-				int sent = sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, context->port, packet, sizeof(packet), 0, ADHOC_F_NONBLOCK);
+				int sent = sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], packet, sizeof(packet), 0, ADHOC_F_NONBLOCK);
 				context->socketlock->unlock();
 
 				// Log Send Success
@@ -6365,7 +6397,7 @@ void sendDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 
 				// Send Bye Packet
 				context->socketlock->lock();
-				sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, context->port, packet, sizeof(packet[0]), 0, ADHOC_F_NONBLOCK);
+				sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], packet, sizeof(packet[0]), 0, ADHOC_F_NONBLOCK);
 				context->socketlock->unlock();
 			}
 			else
@@ -6377,7 +6409,7 @@ void sendDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 
 				// Send Death Packet
 				context->socketlock->lock();
-				sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, context->port, packet, sizeof(packet), 0, ADHOC_F_NONBLOCK);
+				sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], packet, sizeof(packet), 0, ADHOC_F_NONBLOCK);
 				context->socketlock->unlock();
 			}
 		}
@@ -6405,7 +6437,7 @@ void sendByePacket(SceNetAdhocMatchingContext * context)
 
 			// Send Bye Packet
 			context->socketlock->lock();
-			sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, context->port, &opcode, sizeof(opcode), 0, ADHOC_F_NONBLOCK);
+			sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], &opcode, sizeof(opcode), 0, ADHOC_F_NONBLOCK);
 			context->socketlock->unlock();
 		}
 	}
@@ -7280,6 +7312,9 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 						WARN_LOG(SCENET, "InputLoop[%d]: Unknown Source Port from [%s][%s:%u -> %u] (Recved=%i, Length=%i)", matchingId, name, mac2str(&sendermac).c_str(), senderport, context->port, recvresult, rxbuflen);
 						host->NotifyUserMessage(std::string(n->T("AM: Data from Unknown Port")) + std::string(" [") + std::string(name) + std::string("]:") + std::to_string(senderport) + std::string(" -> ") + std::to_string(context->port) + std::string(" (") + std::to_string(portOffset) + std::string(")"), 2.0, 0x0080ff);
 					}
+					// Keep tracks of re-mapped peer's ports for further communication. 
+					// Note: This will only works if this player were able to receives data on normal port from other players (ie. this player's port wasn't remapped)
+					(*context->peerPort)[sendermac] = senderport;
 					peerlock.unlock();
 
 					// Ping Packet
