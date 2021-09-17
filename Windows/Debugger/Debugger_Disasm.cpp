@@ -36,31 +36,27 @@
 #include <fstream>
 #include <string>
 #include <sstream>
-
-
-
 // How long (max) to wait for Core to pause before clearing temp breakpoints.
 static const int TEMP_BREAKPOINT_WAIT_MS = 100;
 
 static FAR WNDPROC DefGotoEditProc;
 
 // Begin Trace Logger Changes
-int check = CreateDirectoryA("Trace Logs\\", NULL);
-std::string traceLogDir = "Trace Logs\\";
-char traceLogFilename[30];
-std::string traceLogPath;
-time_t rawtime;
-struct tm* timeinfo;
-std::ofstream traceLogger;
-
+static int check = CreateDirectoryA("Trace Logs\\", NULL);
+static std::string traceLogDir = "Trace Logs\\";
+static char traceLogFilename[30];
+static std::string traceLogPath;
+static time_t rawtime;
+static struct tm* timeinfo;
+static std::ofstream traceLogger;
+static const int STEP_INTO = 0;
+static const int STEP_OVER = 1;
+static const int STEP_OUT = 2;
+static const int STEP_GO = 3;
+static const int STEP_BREAK = 4;
+static const int STEP_BREAKPOINT = 5;
 // End Trace Logger Changes
 
-const int STEP_INTO = 0;
-const int STEP_OVER = 1;
-const int STEP_OUT = 2;
-const int STEP_GO = 3;
-const int STEP_BREAK = 4;
-const int STEP_BREAKPOINT = 5;
 
 
 LRESULT CALLBACK GotoEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
