@@ -425,7 +425,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_COMMAND:
 		{
-			CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+			CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 			switch (LOWORD(wParam)) {
 			case ID_TOGGLE_BREAK:
 				SendMessage(MainWindow::GetHWND(), WM_COMMAND, ID_TOGGLE_BREAK, 0);
@@ -466,7 +466,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						Core_WaitInactive(200);
 					}
 
-					BreakpointWindow bpw(m_hDlg, cpu);
+					BreakpointWindow bpw(m_hDlg,cpu);
 					if (bpw.exec()) bpw.addBreakpoint();
 
 					if (isRunning)
@@ -498,10 +498,10 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				{
 					RECT rect;
 					hideBottomTabs = !hideBottomTabs;
-					GetClientRect(m_hDlg, &rect);
-					UpdateSize(rect.right - rect.left, rect.bottom - rect.top);
+					GetClientRect(m_hDlg,&rect);
+					UpdateSize(rect.right-rect.left,rect.bottom-rect.top);
 				}
-			break;
+				break;
 
 			case ID_DEBUG_TOGGLEBOTTOMTABTITLES:
 				bottomTabs->SetShowTabTitles(!bottomTabs->GetShowTabTitles());
@@ -511,16 +511,16 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				vfpudlg->Show(true);
 				break;
 
-			case IDC_FUNCTIONLIST:
+			case IDC_FUNCTIONLIST: 
 				switch (HIWORD(wParam))
 				{
 				case CBN_DBLCLK:
 					{
-						HWND lb = GetDlgItem(m_hDlg, LOWORD(wParam));
+						HWND lb = GetDlgItem(m_hDlg,LOWORD(wParam));
 						int n = ListBox_GetCurSel(lb);
-						if (n != -1)
+						if (n!=-1)
 						{
-							unsigned int addr = (unsigned int)ListBox_GetItemData(lb, n);
+							unsigned int addr = (unsigned int)ListBox_GetItemData(lb,n);
 							ptr->gotoAddr(addr);
 							SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 						}
@@ -528,12 +528,12 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					break;
 				case CBN_SELCHANGE:
 					{
-						HWND lb = GetDlgItem(m_hDlg, LOWORD(wParam));
+						HWND lb = GetDlgItem(m_hDlg,LOWORD(wParam));
 						int n = ListBox_GetCurSel(lb);
 
 						wchar_t buffer[512];
-						ListBox_GetText(lb, n, buffer);
-						SendMessage(statusBarWnd, SB_SETTEXT, 1, (LPARAM)buffer);
+						ListBox_GetText(lb,n,buffer);
+						SendMessage(statusBarWnd,SB_SETTEXT,1,(LPARAM)buffer);
 					}
 				};
 				break;
@@ -543,9 +543,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				{
 				case LBN_SELCHANGE:
 					{
-						HWND lb = GetDlgItem(m_hDlg, LOWORD(wParam));
+						HWND lb =GetDlgItem(m_hDlg,LOWORD(wParam));
 						int n = ComboBox_GetCurSel(lb);
-						unsigned int addr = (unsigned int)ComboBox_GetItemData(lb, n);
+						unsigned int addr = (unsigned int)ComboBox_GetItemData(lb,n);
 						if (addr != 0xFFFFFFFF)
 						{
 							ptr->gotoAddr(addr);
@@ -557,37 +557,37 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case IDC_STOPGO:
-			{
-				if (!PSP_IsInited()) {
-					break;
-				}
-				if (!Core_IsStepping())		// stop
 				{
-					ptr->setDontRedraw(false);
-					SetDebugMode(true, true);
-					Core_EnableStepping(true);
-					Sleep(1); //let cpu catch up
-					ptr->gotoPC();
-					UpdateDialog();
-					vfpudlg->Update();
-					// Begin trace logger changes
-					if (ptr->getTraceLoggerStatus())  writeToTraceLogger(STEP_BREAK);
-					// End trace logger changes
-				}
-				else {					// go
-					lastTicks = CoreTiming::GetTicks();
+					if (!PSP_IsInited()) {
+						break;
+					}
+					if (!Core_IsStepping())		// stop
+					{
+						ptr->setDontRedraw(false);
+						SetDebugMode(true, true);
+						Core_EnableStepping(true);
+						Sleep(1); //let cpu catch up
+						ptr->gotoPC();
+						UpdateDialog();
+						vfpudlg->Update();
+						// Begin trace logger changes
+						if (ptr->getTraceLoggerStatus())  writeToTraceLogger(STEP_BREAK);
+						// End trace logger changes
+					}
+					else {					// go
+						lastTicks = CoreTiming::GetTicks();
 
-					// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-					CBreakPoints::SetSkipFirst(currentMIPS->pc);
+						// If the current PC is on a breakpoint, the user doesn't want to do nothing.
+						CBreakPoints::SetSkipFirst(currentMIPS->pc);
 
-					SetDebugMode(false, true);
-					Core_EnableStepping(false);
-					// Begin trace logger changes
-					if (ptr->getTraceLoggerStatus()) writeToTraceLogger(STEP_GO);
-					// End trace logger changes
+						SetDebugMode(false, true);
+						Core_EnableStepping(false);
+						// Begin trace logger changes
+						if (ptr->getTraceLoggerStatus()) writeToTraceLogger(STEP_GO);
+						// End trace logger changes
+					}
 				}
-			}
-			break;
+				break;
 
 			case IDC_STEP:
 				stepInto();
