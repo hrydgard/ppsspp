@@ -39,7 +39,7 @@ struct regStringPair {
 	const char* name;
 };
 
-const regStringPair regNames[]{
+static const regStringPair regNames[]{
 	{MIPS_REG_ZERO, "zero"},
 	{MIPS_REG_COMPILER_SCRATCH, "at"},
 	{MIPS_REG_V0, "v0"},
@@ -95,7 +95,7 @@ void CtrlDisAsmView::init()
 	wc.cbClsExtra     = 0;
 	wc.cbWndExtra     = sizeof( CtrlDisAsmView * );
 	wc.hIconSm        = 0;
-
+		
 	RegisterClassEx(&wc);
 }
 
