@@ -425,14 +425,14 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_COMMAND:
 		{
-			CtrlDisAsmView* ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+			CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 			switch (LOWORD(wParam)) {
 			case ID_TOGGLE_BREAK:
 				SendMessage(MainWindow::GetHWND(), WM_COMMAND, ID_TOGGLE_BREAK, 0);
 				break;
 
 			case ID_DEBUG_DISPLAYMEMVIEW:
-				bottomTabs->ShowTab(GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW));
+				bottomTabs->ShowTab(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW));
 				break;
 
 			case ID_DEBUG_DISPLAYBREAKPOINTLIST:
@@ -456,51 +456,51 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case ID_DEBUG_ADDBREAKPOINT:
-			{
-				keepStatusBarText = true;
-				bool isRunning = Core_IsActive();
-				if (isRunning)
 				{
-					SetDebugMode(true, false);
-					Core_EnableStepping(true);
-					Core_WaitInactive(200);
-				}
+					keepStatusBarText = true;
+					bool isRunning = Core_IsActive();
+					if (isRunning)
+					{
+						SetDebugMode(true, false);
+						Core_EnableStepping(true);
+						Core_WaitInactive(200);
+					}
 
-				BreakpointWindow bpw(m_hDlg, cpu);
-				if (bpw.exec()) bpw.addBreakpoint();
+					BreakpointWindow bpw(m_hDlg, cpu);
+					if (bpw.exec()) bpw.addBreakpoint();
 
-				if (isRunning)
-				{
-					SetDebugMode(false, false);
-					Core_EnableStepping(false);
+					if (isRunning)
+					{
+						SetDebugMode(false, false);
+						Core_EnableStepping(false);
+					}
+					keepStatusBarText = false;
 				}
-				keepStatusBarText = false;
-			}
-			break;
+				break;
 
 			case ID_DEBUG_STEPOVER:
-				if (GetFocus() == GetDlgItem(m_hDlg, IDC_DISASMVIEW)) stepOver();
+				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) stepOver();
 				break;
 
 			case ID_DEBUG_STEPINTO:
-				if (GetFocus() == GetDlgItem(m_hDlg, IDC_DISASMVIEW)) stepInto();
+				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) stepInto();
 				break;
 
 			case ID_DEBUG_RUNTOLINE:
-				if (GetFocus() == GetDlgItem(m_hDlg, IDC_DISASMVIEW)) runToLine();
+				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) runToLine();
 				break;
 
 			case ID_DEBUG_STEPOUT:
-				if (GetFocus() == GetDlgItem(m_hDlg, IDC_DISASMVIEW)) stepOut();
+				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) stepOut();
 				break;
 
 			case ID_DEBUG_HIDEBOTTOMTABS:
-			{
-				RECT rect;
-				hideBottomTabs = !hideBottomTabs;
-				GetClientRect(m_hDlg, &rect);
-				UpdateSize(rect.right - rect.left, rect.bottom - rect.top);
-			}
+				{
+					RECT rect;
+					hideBottomTabs = !hideBottomTabs;
+					GetClientRect(m_hDlg, &rect);
+					UpdateSize(rect.right - rect.left, rect.bottom - rect.top);
+				}
 			break;
 
 			case ID_DEBUG_TOGGLEBOTTOMTABTITLES:
@@ -515,26 +515,26 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				switch (HIWORD(wParam))
 				{
 				case CBN_DBLCLK:
-				{
-					HWND lb = GetDlgItem(m_hDlg, LOWORD(wParam));
-					int n = ListBox_GetCurSel(lb);
-					if (n != -1)
 					{
-						unsigned int addr = (unsigned int)ListBox_GetItemData(lb, n);
-						ptr->gotoAddr(addr);
-						SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+						HWND lb = GetDlgItem(m_hDlg, LOWORD(wParam));
+						int n = ListBox_GetCurSel(lb);
+						if (n != -1)
+						{
+							unsigned int addr = (unsigned int)ListBox_GetItemData(lb, n);
+							ptr->gotoAddr(addr);
+							SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+						}
 					}
-				}
-				break;
+					break;
 				case CBN_SELCHANGE:
-				{
-					HWND lb = GetDlgItem(m_hDlg, LOWORD(wParam));
-					int n = ListBox_GetCurSel(lb);
+					{
+						HWND lb = GetDlgItem(m_hDlg, LOWORD(wParam));
+						int n = ListBox_GetCurSel(lb);
 
-					wchar_t buffer[512];
-					ListBox_GetText(lb, n, buffer);
-					SendMessage(statusBarWnd, SB_SETTEXT, 1, (LPARAM)buffer);
-				}
+						wchar_t buffer[512];
+						ListBox_GetText(lb, n, buffer);
+						SendMessage(statusBarWnd, SB_SETTEXT, 1, (LPARAM)buffer);
+					}
 				};
 				break;
 
@@ -542,17 +542,17 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				switch (HIWORD(wParam))
 				{
 				case LBN_SELCHANGE:
-				{
-					HWND lb = GetDlgItem(m_hDlg, LOWORD(wParam));
-					int n = ComboBox_GetCurSel(lb);
-					unsigned int addr = (unsigned int)ComboBox_GetItemData(lb, n);
-					if (addr != 0xFFFFFFFF)
 					{
-						ptr->gotoAddr(addr);
-						SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+						HWND lb = GetDlgItem(m_hDlg, LOWORD(wParam));
+						int n = ComboBox_GetCurSel(lb);
+						unsigned int addr = (unsigned int)ComboBox_GetItemData(lb, n);
+						if (addr != 0xFFFFFFFF)
+						{
+							ptr->gotoAddr(addr);
+							SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+						}
 					}
-				}
-				break;
+					break;
 				};
 				break;
 
