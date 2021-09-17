@@ -1414,9 +1414,8 @@ void CtrlDisAsmView::getOpcodeText(u32 address, char* dest, int bufsize)
 	std::string parameters = line.params;
 
 	// Remove any extra \t characters at the beginning of parameters, because they exist for some reason when instructionName is long enough. 
-	if (parameters.find('\t') != parameters.npos) {
-		parameters.erase(0,1);
-	}
+	if (parameters.find('\t') != parameters.npos)
+		parameters.erase(parameters.find('\t'));
 
 	// Formatting: Maximum length of an instruction seems to be 9 characters. We want the instruction "column" to be uniformly 10 characters long.
 	while (instructionName.length() < 10) {
@@ -1534,20 +1533,24 @@ void CtrlDisAsmView::getGPRsText(u32 address, char* dest, int bufsize)
 				addressStream << std::hex << offsetAddress;
 				memStream << "0x";
 				// 0 padding
-				for (int i = 1; i <= 8 - memStream.str().length(); i++) memStream << "0";
+				for (int i = 1; i <= 8 - addressStream.str().length(); i++) memStream << "0";
 
 				memStream << std::uppercase << std::hex << offsetAddress;
 				memStream << ": ";
 				// output four bytes starting from arg+offsetvalue in memory
+				std::stringstream byteReads;
 				for (int i = 0; i < 4; i++) {
 					offsetAddress = currentMIPS->r[regIdentifier] + offsetValue + i;
 					// If valid address, read a byte.
-					if (Memory::IsValidAddress(offsetAddress))
-						memStream << std::uppercase << std::hex << Memory::Read_U8(offsetAddress);
+					if (Memory::IsValidAddress(offsetAddress)) {
+						if (Memory::Read_U8(offsetAddress) < 16) byteReads << "0"; // add a leading 0 if byte <= F.
+						byteReads << std::uppercase << std::hex << int(Memory::Read_U8(offsetAddress));
+					}
 					// If we're not reading the last byte, add a space.
-					if (i < 3) memStream << " ";
+					if (i < 3) byteReads << " ";
 				}
 				output += memStream.str();
+				output += byteReads.str();
 			}
 
 		} 
