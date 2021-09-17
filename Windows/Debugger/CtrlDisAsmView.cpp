@@ -34,6 +34,52 @@
 TCHAR CtrlDisAsmView::szClassName[] = _T("CtrlDisAsmView");
 extern HMENU g_hPopupMenus;
 
+struct regStringPair {
+	int reg;
+	const char* name;
+};
+
+const regStringPair regNames[]{
+	{MIPS_REG_ZERO, "zero"},
+	{MIPS_REG_COMPILER_SCRATCH, "at"},
+	{MIPS_REG_V0, "v0"},
+	{MIPS_REG_V1, "v1"},
+	{MIPS_REG_A0, "a0"},
+	{MIPS_REG_A1, "a1"},
+	{MIPS_REG_A2, "a2"},
+	{MIPS_REG_A3, "a3"},
+	{MIPS_REG_A4, "a4"},
+	{MIPS_REG_A5, "a5"},
+	{MIPS_REG_T0, "t0"},
+	{MIPS_REG_T1, "t1"},
+	{MIPS_REG_T2, "t2"},
+	{MIPS_REG_T3, "t3"},
+	{MIPS_REG_T4, "t4"},
+	{MIPS_REG_T5, "t5"},
+	{MIPS_REG_T6, "t6"},
+	{MIPS_REG_T7, "t7"},
+	{MIPS_REG_S0, "s0"},
+	{MIPS_REG_S1, "s1"},
+	{MIPS_REG_S2, "s2"},
+	{MIPS_REG_S3, "s3"},
+	{MIPS_REG_S4, "s4"},
+	{MIPS_REG_S5, "s5"},
+	{MIPS_REG_S6, "s6"},
+	{MIPS_REG_S7, "s7"},
+	{MIPS_REG_T8, "t8"},
+	{MIPS_REG_T9, "t9"},
+	{MIPS_REG_K0, "k0"},
+	{MIPS_REG_K1, "k1"},
+	{MIPS_REG_GP, "gp"},
+	{MIPS_REG_SP, "sp"},
+	{MIPS_REG_FP, "fp"},
+	{MIPS_REG_RA, "ra"},
+	{MIPS_REG_HI, "hi"},
+	{MIPS_REG_LO, "lo"}
+
+};
+const std::set<std::string> GPR_NAMES = { "at","v0", "v1","a0","a1","a2","a3","a4","a5","t0","t1","t2","t3","t4","t5","t6","t7","s0","s1","s2","s3","s4","s5","s6","s7","t8","t9","k0","k1","gp","sp","fp","ra","pc","hi","lo" };
+
 void CtrlDisAsmView::init()
 {
 	WNDCLASSEX wc;
@@ -1365,8 +1411,8 @@ void CtrlDisAsmView::getOpcodeText(u32 address, char* dest, int bufsize)
 	manager.getLine(address, displaySymbols, line);
 	
 	// Begin trace logger mods
-	std::string instructionName = std::string(line.name.c_str());
-	std::string parameters = std::string(line.params.c_str());
+	std::string instructionName = line.name;
+	std::string parameters = line.params;
 
 	// Remove any extra \t characters at the beginning of parameters, because they exist for some reason when instructionName is long enough. 
 	if (parameters.find('\t') != parameters.npos) {
@@ -1413,7 +1459,7 @@ void CtrlDisAsmView::getGPRsText(u32 address, char* dest, int bufsize)
 	DisassemblyLineInfo line;
 	address = manager.getStartAddress(address);
 	manager.getLine(address, displaySymbols, line);
-	std::string parameters = std::string(line.params.c_str());
+	std::string parameters = line.params;
 	std::string output = "";
 
 	// no registers used, no problem.
@@ -1438,7 +1484,8 @@ void CtrlDisAsmView::getGPRsText(u32 address, char* dest, int bufsize)
 			std::string immediateOutput = "";
 			immediateOutput += arg + "=";
 			std::stringstream argValue;
-			argValue << std::uppercase << std::hex << currentMIPS->r[regStringToMIPSGPReg(arg.c_str())];
+			int regIdentifier = regStringToMIPSGPReg(arg.c_str());
+			argValue << std::uppercase << std::hex << currentMIPS->r[regIdentifier];
 			for (int i = 1; i <= 8 - argValue.str().length(); i++) immediateOutput += "0";
 
 			immediateOutput += argValue.str();
@@ -1471,7 +1518,8 @@ void CtrlDisAsmView::getGPRsText(u32 address, char* dest, int bufsize)
 					std::string immediateOutput = "";
 					immediateOutput += arg + "=";
 					std::stringstream argValue;
-					argValue << std::uppercase << std::hex << currentMIPS->r[regStringToMIPSGPReg(arg.c_str())];
+					int regIdentifier = regStringToMIPSGPReg(arg.c_str());
+					argValue << std::uppercase << std::hex << currentMIPS->r[regIdentifier];
 					for (int i = 1; i <= 8 - argValue.str().length(); i++) immediateOutput += "0";
 					immediateOutput += argValue.str();
 					immediateOutput += ", ";
@@ -1481,7 +1529,8 @@ void CtrlDisAsmView::getGPRsText(u32 address, char* dest, int bufsize)
 				std::stringstream memStream;
 				std::stringstream addressStream;
 
-				int offsetAddress= currentMIPS->r[regStringToMIPSGPReg(arg.c_str())] + offsetValue;
+				int regIdentifier = regStringToMIPSGPReg(arg.c_str());
+				int offsetAddress= currentMIPS->r[regIdentifier] + offsetValue;
 				addressStream << std::hex << offsetAddress;
 				memStream << "0x";
 				// 0 padding
@@ -1491,7 +1540,7 @@ void CtrlDisAsmView::getGPRsText(u32 address, char* dest, int bufsize)
 				memStream << ": ";
 				// output four bytes starting from arg+offsetvalue in memory
 				for (int i = 0; i < 4; i++) {
-					offsetAddress = currentMIPS->r[regStringToMIPSGPReg(arg.c_str())] + offsetValue + i;
+					offsetAddress = currentMIPS->r[regIdentifier] + offsetValue + i;
 					// If valid address, read a byte.
 					if (Memory::IsValidAddress(offsetAddress))
 						memStream << std::uppercase << std::hex << Memory::Read_U8(offsetAddress);
@@ -1544,48 +1593,9 @@ u32 CtrlDisAsmView::getInstructionSizeAt(u32 address)
 }
 
 int regStringToMIPSGPReg(const char* name) {
-	std::string Name = name;
-
-	if (GPR_NAMES.find(Name) != GPR_NAMES.end()) {
-		if (Name == "v0") return MIPS_REG_V0;
-		if (Name == "v1") return MIPS_REG_V1;
-		if (Name == "a0") return MIPS_REG_A0;
-		if (Name == "a1") return MIPS_REG_A1;
-		if (Name == "a2") return MIPS_REG_A2;
-		if (Name == "a3") return MIPS_REG_A3;
-		if (Name == "a4") return MIPS_REG_A4;
-		if (Name == "a5") return MIPS_REG_A5;
-		if (Name == "t0") return MIPS_REG_T0;
-		if (Name == "t1") return MIPS_REG_T1;
-		if (Name == "t2") return MIPS_REG_T2;
-		if (Name == "t3") return MIPS_REG_T3;
-		if (Name == "t4") return MIPS_REG_T4;
-		if (Name == "t5") return MIPS_REG_T5;
-		if (Name == "t6") return MIPS_REG_T6;
-		if (Name == "t7") return MIPS_REG_T7;
-		if (Name == "t8") return MIPS_REG_T8;
-		if (Name == "t9") return MIPS_REG_T9;
-		if (Name == "s0") return MIPS_REG_S0;
-		if (Name == "s1") return MIPS_REG_S1;
-		if (Name == "s2") return MIPS_REG_S2;
-		if (Name == "s3") return MIPS_REG_S3;
-		if (Name == "s4") return MIPS_REG_S4;
-		if (Name == "s5") return MIPS_REG_S5;
-		if (Name == "s6") return MIPS_REG_S6;
-		if (Name == "s7") return MIPS_REG_S7;
-		if (Name == "k0") return MIPS_REG_K0;
-		if (Name == "k1") return MIPS_REG_K1;
-		if (Name == "gp") return MIPS_REG_GP;
-		if (Name == "sp") return MIPS_REG_SP;
-		if (Name == "fp") return MIPS_REG_FP;
-		if (Name == "ra") return MIPS_REG_RA;
-		if (Name == "hi") return MIPS_REG_HI;
-		if (Name == "lo") return MIPS_REG_LO;
+	for (int i = 0; i < 36; i++) {
+		if (regNames[i].name == name)
+			return regNames[i].reg;
 	}
-	else if (Name == "zero") {
-		return MIPS_REG_ZERO;
-	}
-	else return MIPS_REG_INVALID;
-	// extra return just to make the compiler happy.
 	return MIPS_REG_INVALID;
 }
