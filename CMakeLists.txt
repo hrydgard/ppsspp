@@ -25,7 +25,15 @@ endif()
 
 # Detect CPU from CMAKE configuration. Toolchains should set this up
 if(CMAKE_SYSTEM_PROCESSOR)
-	if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^aarch64")
+	if(CMAKE_OSX_ARCHITECTURES)
+		if("${CMAKE_OSX_ARCHITECTURES}" MATCHES ".*86.*")
+			set(X86_DEVICE ON)
+			set(X86_64_DEVICE ON)
+		endif()
+		if("${CMAKE_OSX_ARCHITECTURES}" MATCHES "arm64")
+			set(ARM64 ON)
+		endif()
+	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^aarch64")
 		set(ARM64 ON)
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm64")
 		# M1 Mac
@@ -94,8 +102,12 @@ if(ANDROID OR WIN32 OR (UNIX AND NOT ARM_NO_VULKAN))
 endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
-if(NOT ((ARM64 AND MACOSX) OR IOS))
+if(NOT IOS)
 	list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/sdl)
+endif()
+
+if(MACOSX AND NOT USE_SYSTEM_LIBSDL2)
+	set(SDL2_LIBRARY ${CMAKE_SOURCE_DIR}/SDL/macOS/SDL2.framework)
 endif()
 
 include(ccache)
@@ -139,6 +151,8 @@ option(USE_MINIUPNPC "Build with miniUPnPc support" ON)
 option(USE_SYSTEM_SNAPPY "Dynamically link against system snappy" ${USE_SYSTEM_SNAPPY})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
 option(USE_SYSTEM_LIBZIP "Dynamically link against system libzip" ${USE_SYSTEM_LIBZIP})
+option(USE_SYSTEM_LIBSDL2 "Dynamically link against system SDL2" ON)
+option(USE_SYSTEM_LIBPNG "Dynamically link against system libpng" ON)
 option(USE_ASAN "Use address sanitizer" OFF)
 option(USE_UBSAN "Use undefined behaviour sanitizer" OFF)
 
@@ -959,7 +973,9 @@ else()
 	set(PNG_REQUIRED_VERSION 1.6)
 endif()
 
+if(USE_SYSTEM_LIBPNG)
 find_package(PNG ${PNG_REQUIRED_VERSION})
+endif()
 if(PNG_FOUND)
 	include_directories(${PNG_INCLUDE_DIRS})
 else()
@@ -2317,10 +2333,10 @@ if(TargetBin)
 		endif()
 
 		if(IOS)
-			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard" "MoltenVK/iOS/Frameworks")
+			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard" "ext/vulkan/iOS/Frameworks")
 		else()
 			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
-			file(INSTALL "${CMAKE_SOURCE_DIR}/MoltenVK/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPPSDL.app/Contents/Frameworks/")
+			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPPSDL.app/Contents/Frameworks/")
 			if(TARGET SDL2::SDL2 AND NOT USING_QT_UI)
 				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/SDL/macbundle.sh" "${CMAKE_BINARY_DIR}/PPSSPPSDL.app")
 			elseif(USING_QT_UI)
@@ -2379,7 +2395,7 @@ if(IOS)
 		MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist"
 		RESOURCE "ios/Launch Screen.storyboard"
 		RESOURCE "ios/Settings.bundle"
-		RESOURCE "MoltenVK/iOS/Frameworks"
+		RESOURCE "ext/vulkan/iOS/Frameworks"
 		XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
 		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
 		XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES

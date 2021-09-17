@@ -6,6 +6,8 @@ on:
     - master
     # For testing.
     - actions
+    tags:
+      - "v*.*.*"
     paths-ignore:
     - '*.{txt,md}'
     - 'Tools/**'
@@ -165,7 +167,7 @@ jobs:
           extra: test
           cc: clang
           cxx: clang++
-          args: ./b.sh --headless
+          args: ./b.sh --headless --fat --no-png --no-sdl2
         - os: macos-latest
           extra: ios
           cc: clang
@@ -177,6 +179,12 @@ jobs:
     - uses: actions/checkout@v2
       with:
         submodules: recursive
+
+    - name: Fetch tags for macOS releases
+      if: runner.os == 'macOS'
+      # This is required for git describe --always to work for git-version.cpp.
+      run: |
+        git fetch --deepen=15000 --tags || exit 0
 
     - name: Cache Qt
       uses: actions/cache@v1
@@ -205,10 +213,11 @@ jobs:
         sudo apt-get update -y -qq
         sudo apt-get install libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev
 
-    - name: Install macOS dependencies
-      if: runner.os == 'macOS' && matrix.extra != 'ios'
+    - name: Create macOS git-version.cpp for tagged release
+      if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS' && matrix.extra == 'test'
       run: |
-        brew install sdl2
+        echo "const char *PPSSPP_GIT_VERSION = \"${GITHUB_REF##*/}\";" > git-version.cpp
+        echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
 
     - name: Execute build
       env:
@@ -224,7 +233,12 @@ jobs:
         if [ -e build*/$BUILD_CONFIGURATION/PPSSPPSDL ]; then
           cp build*/$BUILD_CONFIGURATION/PPSSPPSDL ppsspp/
         elif [ -e build*/PPSSPPSDL.app ]; then
-          cp -r build*/PPSSPPSDL.app ppsspp/
+          cp -a build*/PPSSPPSDL.app ppsspp/
+          # GitHub Actions zipping kills symlinks and permissions.
+          cd ppsspp
+          zip -qry PPSSPPSDL.zip PPSSPPSDL.app
+          rm -rf PPSSPPSDL.app
+          cd -
         elif [ -e build*/PPSSPPSDL ]; then
           cp build*/PPSSPPSDL ppsspp/
           cp -r assets ppsspp/assets
@@ -241,6 +255,24 @@ jobs:
       with:
         name: ${{ matrix.os }} build
         path: ppsspp/
+
+    - name: Create macOS release
+      if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS' && matrix.extra == 'test'
+      run: |
+        cd ppsspp || exit 1
+        mv PPSSPPSDL.zip PPSSPPSDL-macOS-${GITHUB_REF##*/}.zip || exit 1
+
+    - name: Upload macOS release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS' && matrix.extra == 'test'
+      with:
+        files: ppsspp/*.zip
+        body: >
+          PPSSPP is a cross-platform PSP emulator.
+          Visit PPSSPP [official website](https://ppsspp.org)
+          for a [full changelog](https://ppsspp.org/index.html#news)
+          as well as the [downloads section](https://ppsspp.org/downloads.html)
+          for other platforms.
 
   test:
     strategy:
@@ -271,7 +303,7 @@ jobs:
     - name: Install macOS dependencies
       if: runner.os == 'macOS'
       run: |
-        brew install sdl2
+        git submodule update --init SDL/macOS
 
     - name: Download build
       uses: actions/download-artifact@v2
