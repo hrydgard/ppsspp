@@ -573,8 +573,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						// Begin trace logger changes
 						if (ptr->getTraceLoggerStatus())  writeToTraceLogger(STEP_BREAK);
 						// End trace logger changes
-					}
-					else {					// go
+					} else {					// go
 						lastTicks = CoreTiming::GetTicks();
 
 						// If the current PC is on a breakpoint, the user doesn't want to do nothing.
@@ -622,7 +621,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 			case IDC_GOTOPC:
 				{
-					ptr->gotoPC(); 
+					ptr->gotoPC();    
 					SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 					UpdateDialog();
 				}
@@ -641,7 +640,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 			case IDC_ALLFUNCTIONS:
 				if (g_symbolMap)
-					g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
+					g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST),ST_FUNCTION);
 				break;
 			default:
 				return FALSE;
@@ -700,27 +699,27 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			if (wParam == 0)
 			{
 				// erase the second part if the first is set
-				SendMessage(statusBarWnd,SB_SETTEXT,0,(LPARAM)ConvertUTF8ToWString((const char*)lParam).c_str());
+				SendMessage(statusBarWnd,SB_SETTEXT,0,(LPARAM)ConvertUTF8ToWString((const char *)lParam).c_str());
 				SendMessage(statusBarWnd,SB_SETTEXT,1,(LPARAM)L"");
 			} else if (wParam == 1)
 			{
-				SendMessage(statusBarWnd,SB_SETTEXT,1,(LPARAM)ConvertUTF8ToWString((const char*)lParam).c_str());
+				SendMessage(statusBarWnd,SB_SETTEXT,1,(LPARAM)ConvertUTF8ToWString((const char *)lParam).c_str());
 			}
 		}
 		break;
 	case WM_DEB_GOTOHEXEDIT:
 		{
-			CtrlMemView* memory = CtrlMemView::getFrom(GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW));
+			CtrlMemView* memory = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW));
 			memory->gotoAddr(wParam);
-
+			
 			// display the memory viewer too
-			bottomTabs->ShowTab(GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW));
+			bottomTabs->ShowTab(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW));
 		}
-	break;
+		break;
 	case WM_SIZE:
 		{
 			UpdateSize(LOWORD(lParam), HIWORD(lParam));
-			SendMessage(statusBarWnd, WM_SIZE, 0, 10);
+			SendMessage(statusBarWnd,WM_SIZE,0,10);
 			SavePosition();
 			return TRUE;
 		}
@@ -730,7 +729,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_GETMINMAXINFO:
 		{
-			MINMAXINFO* m = (MINMAXINFO*)lParam;
+			MINMAXINFO *m = (MINMAXINFO *)lParam;
 			// Reduce the minimum size slightly, so they can size it however they like.
 			m->ptMinTrackSize.x = minWidth;
 			//m->ptMaxTrackSize.x = m->ptMinTrackSize.x;
