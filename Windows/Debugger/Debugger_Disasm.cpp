@@ -600,45 +600,45 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			case IDC_STEPOUT:
 				stepOut();
 				break;
-
+				
 			case IDC_STEPHLE:
-			{
-				if (Core_IsActive())
-					break;
-				lastTicks = CoreTiming::GetTicks();
+				{
+					if (Core_IsActive())
+						break;
+					lastTicks = CoreTiming::GetTicks();
 
-				// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-				CBreakPoints::SetSkipFirst(currentMIPS->pc);
+					// If the current PC is on a breakpoint, the user doesn't want to do nothing.
+					CBreakPoints::SetSkipFirst(currentMIPS->pc);
 
-				hleDebugBreak();
-				SetDebugMode(false, true);
-				Core_EnableStepping(false);
-			}
-			break;
+					hleDebugBreak();
+					SetDebugMode(false, true);
+					Core_EnableStepping(false);
+				}
+				break;
 
 			case IDC_MEMCHECK:
-				SendMessage(m_hDlg, WM_COMMAND, ID_DEBUG_ADDBREAKPOINT, 0);
+				SendMessage(m_hDlg,WM_COMMAND,ID_DEBUG_ADDBREAKPOINT,0);
 				break;
 
 			case IDC_GOTOPC:
-			{
-				ptr->gotoPC();
-				SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
-				UpdateDialog();
-			}
-			break;
+				{
+					ptr->gotoPC();
+					SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+					UpdateDialog();
+				}
+				break;
 			case IDC_GOTOLR:
-			{
-				ptr->gotoAddr(cpu->GetLR());
-				SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
-			}
-			break;
+				{
+					ptr->gotoAddr(cpu->GetLR());
+					SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+				}
+				break;
 			case IDC_TRACETOGGLER:
-			{
-				if (ptr->getTraceLoggerStatus()) ptr->disableTraceLogger();
-				else ptr->enableTraceLogger();
-			}
-			break;
+				{
+					if (ptr->getTraceLoggerStatus()) ptr->disableTraceLogger();
+					else ptr->enableTraceLogger();
+				}
+				break;
 			case IDC_ALLFUNCTIONS:
 				if (g_symbolMap)
 					g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
