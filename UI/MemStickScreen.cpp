@@ -130,10 +130,6 @@ void MemStickScreen::CreateViews() {
 		leftColumn->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 12.0f, 0.0f)));
 	}
 
-	if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
-		leftColumn->Add(new TextView(iz->T("ScopedStorageWarning", "WARNING: BETA ANDROID SCOPED STORAGE SUPPORT\nMAY EAT YOUR DATA"), ALIGN_LEFT, false));
-	}
-
 	leftColumn->Add(new TextView(iz->T("MemoryStickDescription", "Choose PSP data storage (Memory Stick):"), ALIGN_LEFT, false));
 
 	// For legacy Android systems, so you can switch back to the old ways if you move to SD or something.
@@ -344,7 +340,14 @@ void MemStickScreen::update() {
 	}
 }
 
-static bool ListFileSuffixesRecursively(const Path &root, Path folder, std::vector<std::string> &dirSuffixes, std::vector<std::string> &fileSuffixes) {
+// Keep the size with the file, so we can skip overly large ones in the move.
+// The user will have to take care of them afterwards, it'll just take too long probably.
+struct FileSuffix {
+	std::string suffix;
+	u64 fileSize;
+};
+
+static bool ListFileSuffixesRecursively(const Path &root, Path folder, std::vector<std::string> &dirSuffixes, std::vector<FileSuffix> &fileSuffixes) {
 	std::vector<File::FileInfo> files;
 	if (!File::GetFilesInDir(folder, &files)) {
 		return false;
@@ -362,7 +365,7 @@ static bool ListFileSuffixesRecursively(const Path &root, Path folder, std::vect
 		} else {
 			std::string fileSuffix;
 			if (root.ComputePathTo(file.fullName, fileSuffix)) {
-				fileSuffixes.push_back(fileSuffix);
+				fileSuffixes.push_back(FileSuffix{ fileSuffix, file.size });
 			}
 		}
 	}
@@ -462,15 +465,16 @@ void ConfirmMemstickMoveScreen::update() {
 			progressView_->SetText(progressReporter_.Get());
 		}
 
-		bool *result = moveDataTask_->Poll();
+		MoveResult *result = moveDataTask_->Poll();
 
 		if (result) {
-			if (*result) {
+			if (result->success) {
 				progressReporter_.Set(iz->T("Done!"));
 				INFO_LOG(SYSTEM, "Move data task finished successfully!");
 				// Succeeded!
 				FinishFolderMove();
 			} else {
+				progressReporter_.Set(iz->T("Failed to move some files!"));
 				INFO_LOG(SYSTEM, "Move data task failed!");
 				// What do we do here? We might be in the middle of a move... Bad.
 				RecreateViews();
@@ -480,7 +484,6 @@ void ConfirmMemstickMoveScreen::update() {
 		}
 	}
 }
-
 
 UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 	auto sy = GetI18NCategory("System");
@@ -494,7 +497,7 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 	if (moveData_) {
 		progressReporter_.Set(iz->T("Starting move..."));
 
-		moveDataTask_ = Promise<bool>::Spawn(&g_threadManager, [&]() -> bool * {
+		moveDataTask_ = Promise<MoveResult>::Spawn(&g_threadManager, [&]() -> MoveResult * {
 			Path moveSrc = g_Config.memStickDirectory;
 			Path moveDest = newMemstickFolder_;
 			if (moveSrc.GetFilename() != "PSP") {
@@ -508,7 +511,7 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 			INFO_LOG(SYSTEM, "About to move PSP data from '%s' to '%s'", moveSrc.c_str(), moveDest.c_str());
 
 			// Search through recursively, listing the files to move and also summing their sizes.
-			std::vector<std::string> fileSuffixesToMove;
+			std::vector<FileSuffix> fileSuffixesToMove;
 			std::vector<std::string> directorySuffixesToCreate;
 
 			// NOTE: It's correct to pass moveSrc twice here, it's to keep the root in the recursion.
@@ -517,12 +520,17 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 				std::string error = "Failed to read old directory";
 				INFO_LOG(SYSTEM, "%s", error.c_str());
 				progressReporter_.Set(iz->T(error.c_str()));
-				return new bool(false);
+				return new MoveResult{ false, error };
 			}
 
 			bool dryRun = false;  // Useful for debugging.
 
-			size_t moveFailures = 0;
+			size_t failedFiles = 0;
+			size_t skippedFiles = 0;
+
+			// We're not moving huge files like ISOs during this process, unless
+			// they can be directly moved, without rewriting the file.
+			const uint64_t BIG_FILE_THRESHOLD = 24 * 1024 * 1024;
 
 			if (!moveSrc.empty()) {
 				// Better not interrupt the app while this is happening!
@@ -534,28 +542,42 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 						INFO_LOG(SYSTEM, "dry run: Would have created dir '%s'", dir.c_str());
 					} else {
 						INFO_LOG(SYSTEM, "Creating dir '%s'", dir.c_str());
-						if (!File::Exists(dir)) {
-							File::CreateDir(dir);
-						}
+						// Just ignore already-exists errors.
+						File::CreateDir(dir);
 					}
 				}
 
 				for (auto &fileSuffix : fileSuffixesToMove) {
-					progressReporter_.Set(fileSuffix);
+					progressReporter_.Set(StringFromFormat("%s (%s)", fileSuffix.suffix.c_str(), NiceSizeFormat(fileSuffix.fileSize).c_str()));
 
-					Path from = moveSrc / fileSuffix;
-					Path to = moveDest / fileSuffix;
-					if (dryRun) {
-						INFO_LOG(SYSTEM, "dry run: Would have moved '%s' to '%s'", from.c_str(), to.c_str());
-					} else {
-						// Remove the "from" prefix from the path.
-						// We have to drop down to string operations for this.
-						if (!File::Move(from, to)) {
-							ERROR_LOG(SYSTEM, "Failed to move file '%s' to '%s'", from.c_str(), to.c_str());
-							moveFailures++;
-							// Should probably just bail?
+					Path from = moveSrc / fileSuffix.suffix;
+					Path to = moveDest / fileSuffix.suffix;
+
+					if (fileSuffix.fileSize > BIG_FILE_THRESHOLD) {
+						// We only move big files if it's fast to do so.
+						if (dryRun) {
+							INFO_LOG(SYSTEM, "dry run: Would have moved '%s' to '%s' (%d bytes) if fast", from.c_str(), to.c_str(), (int)fileSuffix.fileSize);
 						} else {
-							INFO_LOG(SYSTEM, "Moved file '%s' to '%s'", from.c_str(), to.c_str());
+							if (!File::MoveIfFast(from, to)) {
+								INFO_LOG(SYSTEM, "Skipped moving file '%s' to '%s' (%s)", from.c_str(), to.c_str(), NiceSizeFormat(fileSuffix.fileSize).c_str());
+								skippedFiles++;
+							} else {
+								INFO_LOG(SYSTEM, "Moved file '%s' to '%s'", from.c_str(), to.c_str());
+							}
+						}
+					} else {
+						if (dryRun) {
+							INFO_LOG(SYSTEM, "dry run: Would have moved '%s' to '%s' (%d bytes)", from.c_str(), to.c_str(), (int)fileSuffix.fileSize);
+						} else {
+							// Remove the "from" prefix from the path.
+							// We have to drop down to string operations for this.
+							if (!File::Move(from, to)) {
+								ERROR_LOG(SYSTEM, "Failed to move file '%s' to '%s'", from.c_str(), to.c_str());
+								failedFiles++;
+								// Should probably just bail?
+							} else {
+								INFO_LOG(SYSTEM, "Moved file '%s' to '%s'", from.c_str(), to.c_str());
+							}
 						}
 					}
 				}
@@ -574,12 +596,7 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 				}
 			}
 
-			if (moveFailures > 0) {
-				progressReporter_.Set(iz->T("Failed to move some files!"));
-				return new bool(false);
-			}
-
-			return new bool(true);
+			return new MoveResult{ true, "", failedFiles };
 		}, TaskType::IO_BLOCKING);
 
 		RecreateViews();
