@@ -1983,9 +1983,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="1.4"
-     inkscape:cx="219.83013"
-     inkscape:cy="828.91508"
+     inkscape:zoom="3.959798"
+     inkscape:cx="210.98798"
+     inkscape:cy="737.76391"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -2821,13 +2821,14 @@
        sodipodi:nodetypes="ccccccccc"
        inkscape:connector-curvature="0"
        id="path6608"
-       d="m 191.84554,294.00448 2.58928,-5.08929 h 10.80357 l 2.14285,4.375 h 15.11482 l 0.77805,0.53571 v 20.27312 h -31.42857 z"
+       d="m 191.84554,294.00448 2.58928,-5.08929 h 10.80357 l 2.14285,4.375 11.83182,0 0.77805,0.53571 v 20.27312 l -28.14557,0 z"
        style="color:#000000;display:inline;overflow:visible;visibility:visible;fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;filter:url(#filter5132-3);enable-background:accumulate" />
     <g
        transform="translate(-57.593223,6.8901763)"
        id="g6616"
        inkscape:export-xdpi="135"
-       inkscape:export-ydpi="135">
+       inkscape:export-ydpi="135"
+       inkscape:export-filename="C:\Users\hrydg\folder_open_line.png">
       <path
          inkscape:export-ydpi="135"
          inkscape:export-xdpi="135"
@@ -2835,7 +2836,7 @@
          sodipodi:nodetypes="ccccccccc"
          inkscape:connector-curvature="0"
          id="path6612"
-         d="m 327.46062,307.20884 h -31.42857 l 0.12627,-20.09454 2.46301,-5.08929 h 10.80357 l 2.14285,4.375 h 15.11482 l 0.77805,0.53571 0.12627,2.88756"
+         d="m 323.92509,307.20884 h -27.89304 l 0.12627,-20.09454 2.46301,-5.08929 h 10.80357 l 2.14285,4.375 h 11.57929 l 0.77805,0.53571 0.12627,2.88756"
          style="color:#000000;display:inline;overflow:visible;visibility:visible;fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;filter:url(#filter5132-3);enable-background:accumulate" />
       <path
          inkscape:export-ydpi="135"
@@ -2844,14 +2845,14 @@
          sodipodi:nodetypes="ccccc"
          inkscape:connector-curvature="0"
          id="path6610"
-         d="m 302.46697,290.20495 30.44007,-0.0893 -5.44642,17.09319 h -31.04976 z"
+         d="m 302.46697,290.20495 26.90454,-0.0893 -5.44642,17.09319 h -27.51423 z"
          style="color:#000000;display:inline;overflow:visible;visibility:visible;fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;filter:url(#filter5132-3);enable-background:accumulate" />
     </g>
     <g
        transform="translate(-57.593223,6.8901763)"
        id="g6705"
-       inkscape:export-xdpi="150"
-       inkscape:export-ydpi="150">
+       inkscape:export-xdpi="135"
+       inkscape:export-ydpi="135">
       <path
          sodipodi:nodetypes="cccc"
          inkscape:connector-curvature="0"
