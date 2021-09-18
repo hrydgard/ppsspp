@@ -126,9 +126,11 @@ void MemStickScreen::CreateViews() {
 	leftColumnScroll->Add(leftColumn);
 
 	if (initialSetup_) {
-		leftColumn->Add(new TextView(iz->T("Welcome to PPSSPP!"), ALIGN_LEFT, false));
 		leftColumn->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 12.0f, 0.0f)));
+		leftColumn->Add(new TextView(iz->T("Welcome to PPSSPP!"), ALIGN_LEFT, false));
 	}
+
+	leftColumn->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 12.0f, 0.0f)));
 
 	leftColumn->Add(new TextView(iz->T("MemoryStickDescription", "Choose PSP data storage (Memory Stick)"), ALIGN_LEFT, false));
 
@@ -151,7 +153,7 @@ void MemStickScreen::CreateViews() {
 #endif
 
 	if (storageBrowserWorking) {
-		leftColumn->Add(new Button(iz->T("Create or Choose a PSP folder"), ImageID("I_FOLDER")))->OnClick.Handle(this, &MemStickScreen::OnBrowse);
+		leftColumn->Add(new Button(iz->T("Create or Choose a PSP folder"), ImageID("I_FOLDER_OPEN")))->OnClick.Handle(this, &MemStickScreen::OnBrowse);
 		leftColumn->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP.")))->SetBullet(true);
 		leftColumn->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold.")))->SetBullet(true);
 		leftColumn->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access")))->SetBullet(true);
@@ -161,7 +163,7 @@ void MemStickScreen::CreateViews() {
 		leftColumn->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold.")))->SetBullet(true);
 	}
 
-	leftColumn->Add(new Button(iz->T("Use App Private Directory")))->OnClick.Handle(this, &MemStickScreen::OnUseInternalStorage);
+	leftColumn->Add(new Button(iz->T("Skip for now - use App Private Directory"), ImageID("I_WARNING")))->OnClick.Handle(this, &MemStickScreen::OnUseInternalStorage);
 	// Consider https://www.compart.com/en/unicode/U+26A0 (unicode warning sign?)? or a graphic?
 	leftColumn->Add(new TextView(iz->T("DataWillBeLostOnUninstall", "Warning! Data will be lost when you uninstall PPSSPP!")))->SetBullet(true);
 	leftColumn->Add(new TextView(iz->T("DataCannotBeShared", "Data CANNOT be shared between PPSSPP regular/Gold!")))->SetBullet(true);
