@@ -730,8 +730,22 @@ void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 	if (imageID_.isValid()) {
 		dc.Draw()->GetAtlas()->measureImage(imageID_, &w, &h);
 	} else {
-		dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), &w, &h);
+		w = 0.0f;
+		h = 0.0f;
 	}
+
+	if (!text_.empty() && !ignoreText_) {
+		float width = 0.0f;
+		float height = 0.0f;
+		dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), &width, &height);
+
+		w += width;
+		if (imageID_.isValid()) {
+			w += paddingW_;
+		}
+		h = std::max(h, height);
+	}
+
 	// Add some internal padding to not look totally ugly
 	w += paddingW_;
 	h += paddingH_;
@@ -772,13 +786,15 @@ void Button::Draw(UIContext &dc) {
 	if (imageID_.isValid() && (ignoreText_ || text_.empty())) {
 		dc.Draw()->DrawImage(imageID_, bounds_.centerX(), bounds_.centerY(), scale_, 0xFFFFFFFF, ALIGN_CENTER);
 	} else if (!text_.empty()) {
-		dc.DrawText(text_.c_str(), bounds_.centerX(), bounds_.centerY(), style.fgColor, ALIGN_CENTER);
+		float textX = bounds_.centerX();
 		if (imageID_.isValid()) {
 			const AtlasImage *img = dc.Draw()->GetAtlas()->getImage(imageID_);
 			if (img) {
-				dc.Draw()->DrawImage(imageID_, bounds_.centerX() - tw / 2 - 5 - img->w / 2, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
+				dc.Draw()->DrawImage(imageID_, bounds_.centerX() - tw / 2 - 5, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
+				textX += img->w / 2.0f;
 			}
 		}
+		dc.DrawText(text_.c_str(), textX, bounds_.centerY(), style.fgColor, ALIGN_CENTER);
 	}
 	dc.SetFontScale(1.0f, 1.0f);
 
