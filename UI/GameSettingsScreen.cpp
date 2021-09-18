@@ -892,33 +892,6 @@ void GameSettingsScreen::CreateViews() {
 	static const char *backgroundAnimations[] = { "No animation", "Floating symbols", "Recent games", "Waves", "Moving background" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iBackgroundAnimation, sy->T("UI background animation"), backgroundAnimations, 0, ARRAY_SIZE(backgroundAnimations), sy->GetName(), screenManager()));
 
-	systemSettings->Add(new ItemHeader(sy->T("Help the PPSSPP team")));
-	if (!enableReportsSet_)
-		enableReports_ = Reporting::IsEnabled();
-	enableReportsSet_ = true;
-	enableReportsCheckbox_ = new CheckBox(&enableReports_, sy->T("Enable Compatibility Server Reports"));
-	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
-	systemSettings->Add(enableReportsCheckbox_);
-
-	systemSettings->Add(new ItemHeader(sy->T("Emulation")));
-
-	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, sy->T("Fast Memory", "Fast Memory")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
-	systemSettings->Add(new CheckBox(&g_Config.bIgnoreBadMemAccess, sy->T("Ignore bad memory accesses")));
-
-	systemSettings->Add(new CheckBox(&g_Config.bSeparateIOThread, sy->T("I/O on thread (experimental)")))->SetEnabled(!PSP_IsInited());
-	static const char *ioTimingMethods[] = { "Fast (lag on slow storage)", "Host (bugs, less lag)", "Simulate UMD delays" };
-	View *ioTimingMethod = systemSettings->Add(new PopupMultiChoice(&g_Config.iIOTimingMethod, sy->T("IO timing method"), ioTimingMethods, 0, ARRAY_SIZE(ioTimingMethods), sy->GetName(), screenManager()));
-	ioTimingMethod->SetEnabledPtr(&g_Config.bSeparateIOThread);
-	systemSettings->Add(new CheckBox(&g_Config.bForceLagSync, sy->T("Force real clock sync (slower, less lag)")));
-	PopupSliderChoice *lockedMhz = systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, sy->T("Change CPU Clock", "Change CPU Clock (unstable)"), screenManager(), sy->T("MHz, 0:default")));
-	lockedMhz->OnChange.Add([&](UI::EventParams &) {
-		enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
-		return UI::EVENT_CONTINUE;
-	});
-	lockedMhz->SetZeroLabel(sy->T("Auto"));
-	PopupSliderChoice *rewindFreq = systemSettings->Add(new PopupSliderChoice(&g_Config.iRewindFlipFrequency, 0, 1800, sy->T("Rewind Snapshot Frequency", "Rewind Snapshot Frequency (mem hog)"), screenManager(), sy->T("frames, 0:off")));
-	rewindFreq->SetZeroLabel(sy->T("Off"));
-
 	systemSettings->Add(new ItemHeader(sy->T("PSP Memory Stick")));
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -972,6 +945,33 @@ void GameSettingsScreen::CreateViews() {
 #endif
 	systemSettings->Add(new CheckBox(&g_Config.bMemStickInserted, sy->T("Memory Stick inserted")));
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iMemStickSizeGB, 1, 32, sy->T("Change Memory Stick Size", "Memory Stick Size (GB)"), screenManager(), "GB"));
+
+	systemSettings->Add(new ItemHeader(sy->T("Help the PPSSPP team")));
+	if (!enableReportsSet_)
+		enableReports_ = Reporting::IsEnabled();
+	enableReportsSet_ = true;
+	enableReportsCheckbox_ = new CheckBox(&enableReports_, sy->T("Enable Compatibility Server Reports"));
+	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
+	systemSettings->Add(enableReportsCheckbox_);
+
+	systemSettings->Add(new ItemHeader(sy->T("Emulation")));
+
+	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, sy->T("Fast Memory", "Fast Memory")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
+	systemSettings->Add(new CheckBox(&g_Config.bIgnoreBadMemAccess, sy->T("Ignore bad memory accesses")));
+
+	systemSettings->Add(new CheckBox(&g_Config.bSeparateIOThread, sy->T("I/O on thread (experimental)")))->SetEnabled(!PSP_IsInited());
+	static const char *ioTimingMethods[] = { "Fast (lag on slow storage)", "Host (bugs, less lag)", "Simulate UMD delays" };
+	View *ioTimingMethod = systemSettings->Add(new PopupMultiChoice(&g_Config.iIOTimingMethod, sy->T("IO timing method"), ioTimingMethods, 0, ARRAY_SIZE(ioTimingMethods), sy->GetName(), screenManager()));
+	ioTimingMethod->SetEnabledPtr(&g_Config.bSeparateIOThread);
+	systemSettings->Add(new CheckBox(&g_Config.bForceLagSync, sy->T("Force real clock sync (slower, less lag)")));
+	PopupSliderChoice *lockedMhz = systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, sy->T("Change CPU Clock", "Change CPU Clock (unstable)"), screenManager(), sy->T("MHz, 0:default")));
+	lockedMhz->OnChange.Add([&](UI::EventParams &) {
+		enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
+		return UI::EVENT_CONTINUE;
+	});
+	lockedMhz->SetZeroLabel(sy->T("Auto"));
+	PopupSliderChoice *rewindFreq = systemSettings->Add(new PopupSliderChoice(&g_Config.iRewindFlipFrequency, 0, 1800, sy->T("Rewind Snapshot Frequency", "Rewind Snapshot Frequency (mem hog)"), screenManager(), sy->T("frames, 0:off")));
+	rewindFreq->SetZeroLabel(sy->T("Off"));
 
 	systemSettings->Add(new ItemHeader(sy->T("General")));
 

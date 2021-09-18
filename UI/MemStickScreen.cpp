@@ -47,7 +47,7 @@
 #include "UI/MiscScreens.h"
 
 static bool FolderSeemsToBeUsed(Path newMemstickFolder) {
-	// Inspect the potential new folder.
+	// Inspect the potential new folder, quickly.
 	if (File::Exists(newMemstickFolder / "PSP/SAVEDATA") || File::Exists(newMemstickFolder / "SAVEDATA")) {
 		// Does seem likely. We could add more criteria like checking for actual savegames or something.
 		return true;
@@ -130,7 +130,7 @@ void MemStickScreen::CreateViews() {
 		leftColumn->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 12.0f, 0.0f)));
 	}
 
-	leftColumn->Add(new TextView(iz->T("MemoryStickDescription", "Choose PSP data storage (Memory Stick):"), ALIGN_LEFT, false));
+	leftColumn->Add(new TextView(iz->T("MemoryStickDescription", "Choose PSP data storage (Memory Stick)"), ALIGN_LEFT, false));
 
 	// For legacy Android systems, so you can switch back to the old ways if you move to SD or something.
 	// TODO: Gonna need a scroll view.
@@ -148,7 +148,7 @@ void MemStickScreen::CreateViews() {
 	bool storageBrowserWorking = System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 29;
 
 	if (storageBrowserWorking) {
-		leftColumn->Add(new Choice(iz->T("Create or Choose a PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnBrowse);
+		leftColumn->Add(new Button(iz->T("Create or Choose a PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnBrowse);
 		leftColumn->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP.")))->SetBullet(true);
 		leftColumn->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold.")))->SetBullet(true);
 		leftColumn->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access")))->SetBullet(true);
@@ -411,7 +411,7 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 	free_disk_space(newMemstickFolder_, freeSpaceNew);
 	free_disk_space(oldMemstickFolder, freeSpaceOld);
 
-	leftColumn->Add(new TextView(iz->T("New PSP Data Folder"), ALIGN_LEFT, false));
+	leftColumn->Add(new TextView(iz->T("Selected PSP Data Folder"), ALIGN_LEFT, false));
 	if (!initialSetup_) {
 		leftColumn->Add(new TextView(iz->T("PPSSPP will restart after the change."), ALIGN_LEFT, false));
 	}
@@ -419,7 +419,7 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 	std::string newFreeSpaceText = std::string(iz->T("Free space")) + ": " + FormatSpaceString(freeSpaceNew);
 	leftColumn->Add(new TextView(newFreeSpaceText, ALIGN_LEFT, false));
 	if (existingFilesInNewFolder_) {
-		leftColumn->Add(new TextView(iz->T("Already contains data."), ALIGN_LEFT, false));
+		leftColumn->Add(new TextView(iz->T("Already contains PSP data."), ALIGN_LEFT, false));
 		if (!moveData_) {
 			leftColumn->Add(new TextView(iz->T("No data will be changed."), ALIGN_LEFT, false));
 		}
