@@ -623,12 +623,15 @@ void ConfirmMemstickMoveScreen::FinishFolderMove() {
 	if (!initialSetup_) {
 		// We restart the app here, to get the new settings.
 		System_SendMessage("graphics_restart", "");
-	}
-
-	if (g_Config.Save("MemstickPathChanged")) {
-		TriggerFinish(DialogResult::DR_OK);
 	} else {
-		error_ = iz->T("Failed to save config");
-		RecreateViews();
+		// This is initial setup, we now switch to the main screen, if we were successful
+		// (which we better have been...)
+		if (g_Config.Save("MemstickPathChanged")) {
+			// TriggerFinish(DialogResult::DR_OK);
+			screenManager()->switchScreen(new MainScreen());
+		} else {
+			error_ = iz->T("Failed to save config");
+			RecreateViews();
+		}
 	}
 }
