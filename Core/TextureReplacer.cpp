@@ -455,7 +455,7 @@ bool TextureReplacer::PopulateLevel(ReplacedTextureLevel &level) {
 	auto imageType = Identify(fp);
 	if (imageType == ReplacedImageType::ZIM) {
 		fseek(fp, 4, SEEK_SET);
-		good = good && fread(&level.w, 4, 1, fp) == 1;
+		good = fread(&level.w, 4, 1, fp) == 1;
 		good = good && fread(&level.h, 4, 1, fp) == 1;
 		int flags;
 		if (good && fread(&flags, 4, 1, fp) == 1) {
