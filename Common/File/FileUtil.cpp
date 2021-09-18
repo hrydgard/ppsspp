@@ -813,6 +813,8 @@ uint64_t GetFileSize(FILE *f) {
 		// Should error here.
 		return 0;
 	}
+	if (size == -1)
+		return 0;
 	return size;
 #else
 #ifdef _WIN32
@@ -835,6 +837,8 @@ uint64_t GetFileSize(FILE *f) {
 		// Should error here.
 		return 0;
 	}
+	if (size == -1)
+		return 0;
 	return size;
 #endif
 }
@@ -1062,7 +1066,7 @@ bool ReadFileToString(bool text_file, const Path &filename, std::string &str) {
 	// Warning: some files, like in /sys/, may return a fixed size like 4096.
 	size_t len = (size_t)File::GetFileSize(f);
 	bool success;
-	if (len == -1) {
+	if (len == 0) {
 		size_t totalSize = 1024;
 		size_t totalRead = 0;
 		do {
