@@ -266,6 +266,7 @@ namespace CustomKey {
 		{ "Arrow down", ImageID("I_DIR"), ImageID("I_DIR_LINE"), 90.0f, false, true },
 		{ "Arrow left", ImageID("I_DIR"), ImageID("I_DIR_LINE"), 180.0f, false, false },
 		{ "Arrow right", ImageID("I_DIR"), ImageID("I_DIR_LINE"), 0.0f, false, false },
+		{ "Square", ImageID("I_SQUARE_SHAPE"), ImageID("I_SQUARE_SHAPE_LINE"), 0.0f, false, false },
 	};
 
 	// Button list
