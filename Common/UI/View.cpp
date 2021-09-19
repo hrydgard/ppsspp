@@ -541,7 +541,7 @@ void InfoItem::Draw(UIContext &dc) {
 	UI::Style style = HasFocus() ? dc.theme->itemFocusedStyle : dc.theme->infoStyle;
 
 	if (choiceStyle_) {
-		style = dc.theme->buttonStyle;
+		style = HasFocus() ? dc.theme->buttonFocusedStyle : dc.theme->buttonStyle;
 	}
 
 
