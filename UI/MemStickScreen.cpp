@@ -265,8 +265,12 @@ void MemStickScreen::CreateViews() {
 		confirmButtonImage = ImageID("I_FOLDER_OPEN");
 		break;
 	case CHOICE_PRIVATE_DIRECTORY:
-		confirmButtonText = di->T("Skip");
-		confirmButtonImage = ImageID("I_WARNING");
+		if (initialSetup_) {
+			confirmButtonText = di->T("Skip");
+			confirmButtonImage = ImageID("I_WARNING");
+		} else {
+			confirmButtonText = di->T("Confirm");
+		}
 		break;
 	case CHOICE_STORAGE_ROOT:
 	case CHOICE_SET_MANUAL:
