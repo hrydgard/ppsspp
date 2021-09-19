@@ -38,6 +38,13 @@ public:
 
 	std::string tag() const override { return "game"; }
 
+	enum Choice {
+		CHOICE_BROWSE_FOLDER,
+		CHOICE_PRIVATE_DIRECTORY,
+		CHOICE_STORAGE_ROOT,
+		CHOICE_SET_MANUAL,
+	};
+
 protected:
 	void CreateViews() override;
 
@@ -69,13 +76,6 @@ private:
 	UI::EventReturn OnChoiceClick(UI::EventParams &params);
 
 	SettingInfoMessage *settingInfo_ = nullptr;
-
-	enum {
-		CHOICE_BROWSE_FOLDER,
-		CHOICE_PRIVATE_DIRECTORY,
-		CHOICE_STORAGE_ROOT,
-		CHOICE_SET_MANUAL,
-	};
 
 	bool initialSetup_;
 	bool storageBrowserWorking_;

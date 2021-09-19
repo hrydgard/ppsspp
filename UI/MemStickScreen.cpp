@@ -134,6 +134,56 @@ MemStickScreen::MemStickScreen(bool initialSetup)
 	}
 }
 
+static void AddExplanation(UI::ViewGroup *viewGroup, MemStickScreen::Choice choice, UI::View *extraView = nullptr) {
+	auto iz = GetI18NCategory("MemStick");
+	using namespace UI;
+
+	int flags = FLAG_WRAP_TEXT;
+
+	UI::ViewGroup *holder = new UI::LinearLayout(ORIENT_VERTICAL);
+
+	UI::ViewGroup *indentHolder = new UI::LinearLayout(ORIENT_HORIZONTAL);
+	indentHolder->Add(new Spacer(20.0));
+	indentHolder->Add(holder);
+
+	viewGroup->Add(indentHolder);
+
+	if (extraView) {
+		holder->Add(extraView);
+	}
+
+	switch (choice) {
+	case MemStickScreen::CHOICE_STORAGE_ROOT:
+		// Old school choice
+		holder->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP."), flags, false))->SetBullet(true);
+		holder->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold."), flags, false))->SetBullet(true);
+		holder->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access"), flags, false))->SetBullet(true);
+		break;
+	case MemStickScreen::CHOICE_BROWSE_FOLDER:
+		holder->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP."), flags, false))->SetBullet(true);
+		holder->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold."), flags, false))->SetBullet(true);
+		holder->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access"), flags, false))->SetBullet(true);
+		break;
+	case MemStickScreen::CHOICE_PRIVATE_DIRECTORY:
+		// Consider https://www.compart.com/en/unicode/U+26A0 (unicode warning sign?)? or a graphic?
+		holder->Add(new TextView(iz->T("DataWillBeLostOnUninstall", "Warning! Data will be lost when you uninstall PPSSPP!"), flags, false))->SetBullet(true);
+		holder->Add(new TextView(iz->T("DataCannotBeShared", "Data CANNOT be shared between PPSSPP regular/Gold!"), flags, false))->SetBullet(true);
+#if GOLD
+		holder->Add(new TextView(iz->T("USBAccessThroughGold", "USB access through Android/data/org.ppsspp.ppssppgold/files"), flags, false))->SetBullet(true);
+#else
+		holder->Add(new TextView(iz->T("USBAccessThrough", "USB access through Android/data/org.ppsspp.ppsspp/files"), flags, false))->SetBullet(true);
+#endif
+		break;
+	case MemStickScreen::CHOICE_SET_MANUAL:
+	default:
+		holder->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access"), flags, false))->SetBullet(true);
+		// What more?
+
+		// Should we have a special text here? It'll popup a text window for editing.
+		break;
+	}
+}
+
 void MemStickScreen::CreateViews() {
 	using namespace UI;
 
@@ -165,16 +215,21 @@ void MemStickScreen::CreateViews() {
 	leftColumn->Add(new TextView(iz->T("MemoryStickDescription", "Choose PSP data storage (Memory Stick)"), ALIGN_LEFT, false));
 
 	// For legacy Android systems, so you can switch back to the old ways if you move to SD or something.
-	// TODO: Gonna need a scroll view.
+	// Trying to avoid needing a scroll view, so only showing the explanation for one option at a time.
+
 #if PPSSPP_PLATFORM(ANDROID)
 	if (!System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
 		leftColumn->Add(new RadioButton(&choice_, CHOICE_STORAGE_ROOT, iz->T("Use PSP folder at root of storage")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
+		if (choice_ == CHOICE_STORAGE_ROOT) {
+			AddExplanation(leftColumn, (MemStickScreen::Choice)choice_);
+		}
 	}
 #endif
 
 	if (storageBrowserWorking_) {
 		//ImageID("I_FOLDER_OPEN")
 		leftColumn->Add(new RadioButton(&choice_, CHOICE_BROWSE_FOLDER, iz->T("Create or Choose a PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
+
 		// TODO: Show current folder here if we have one set.
 	} else {
 		leftColumn->Add(new RadioButton(&choice_, CHOICE_SET_MANUAL, iz->T("Manually specify PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
@@ -182,51 +237,40 @@ void MemStickScreen::CreateViews() {
 		leftColumn->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold.")))->SetBullet(true);
 		// TODO: Show current folder here if we have one set.
 	}
-	if (!g_Config.memStickDirectory.empty()) {
-		leftColumn->Add(new TextView(StringFromFormat("    %s: %s", iz->T("Current PSP Data Folder"), g_Config.memStickDirectory.ToVisualString().c_str()), ALIGN_LEFT, false));
+	if (choice_ == CHOICE_BROWSE_FOLDER || choice_ == CHOICE_SET_MANUAL) {
+		UI::View *extraView = nullptr;
+		if (!g_Config.memStickDirectory.empty()) {
+			extraView = new TextView(StringFromFormat("    %s: %s", iz->T("Current"), g_Config.memStickDirectory.ToVisualString().c_str()), ALIGN_LEFT, false);
+		}
+		AddExplanation(leftColumn, (MemStickScreen::Choice)choice_, extraView);
 	}
 
-	leftColumn->Add(new RadioButton(&choice_, CHOICE_PRIVATE_DIRECTORY, iz->T("Skip for now - use App Private Directory")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
+	std::string privateString = iz->T("App Private Data");
+	if (initialSetup_) {
+		privateString = StringFromFormat("%s (%s)", iz->T("Skip for now"), privateString.c_str());
+	}
+
+	leftColumn->Add(new RadioButton(&choice_, CHOICE_PRIVATE_DIRECTORY, privateString.c_str()))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
+	if (choice_ == CHOICE_PRIVATE_DIRECTORY) {
+		AddExplanation(leftColumn, (MemStickScreen::Choice)choice_);
+	}
 
 	leftColumn->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 12.0f, 0.0f)));
 
 	const char *confirmButtonText = nullptr;
 	ImageID confirmButtonImage = ImageID::invalid();
 	switch (choice_) {
-	case CHOICE_STORAGE_ROOT:
-		// Old school choice
-		leftColumn->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP.")))->SetBullet(true);
-		leftColumn->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold.")))->SetBullet(true);
-		leftColumn->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access")))->SetBullet(true);
-
-		confirmButtonText = di->T("Confirm");
-		break;
 	case CHOICE_BROWSE_FOLDER:
-		leftColumn->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP.")))->SetBullet(true);
-		leftColumn->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold.")))->SetBullet(true);
-		leftColumn->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access")))->SetBullet(true);
-
 		confirmButtonText = di->T("Browse");
 		confirmButtonImage = ImageID("I_FOLDER_OPEN");
 		break;
 	case CHOICE_PRIVATE_DIRECTORY:
-		// Consider https://www.compart.com/en/unicode/U+26A0 (unicode warning sign?)? or a graphic?
-		leftColumn->Add(new TextView(iz->T("DataWillBeLostOnUninstall", "Warning! Data will be lost when you uninstall PPSSPP!")))->SetBullet(true);
-		leftColumn->Add(new TextView(iz->T("DataCannotBeShared", "Data CANNOT be shared between PPSSPP regular/Gold!")))->SetBullet(true);
-#if GOLD
-		leftColumn->Add(new TextView(iz->T("USBAccessThroughGold", "USB access through Android/data/org.ppsspp.ppssppgold/files")))->SetBullet(true);
-#else
-		leftColumn->Add(new TextView(iz->T("USBAccessThrough", "USB access through Android/data/org.ppsspp.ppsspp/files")))->SetBullet(true);
-#endif
-		confirmButtonText = di->T("Confirm");
+		confirmButtonText = di->T("Skip");
 		confirmButtonImage = ImageID("I_WARNING");
 		break;
+	case CHOICE_STORAGE_ROOT:
 	case CHOICE_SET_MANUAL:
 	default:
-		leftColumn->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access")))->SetBullet(true);
-		// What more?
-
-		// Should we have a special text here? It'll popup a text window for editing.
 		confirmButtonText = di->T("Confirm");
 		break;
 	}
@@ -235,9 +279,9 @@ void MemStickScreen::CreateViews() {
 	rightColumnItems->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 12.0f, 0.0f)));
 
 	if (!initialSetup_) {
-		rightColumnItems->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		rightColumnItems->Add(new UI::Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	}
-	rightColumnItems->Add(new Choice(di->T("Help")))->OnClick.Handle<MemStickScreen>(this, &MemStickScreen::OnHelp);
+	rightColumnItems->Add(new UI::Choice(di->T("WhatsThis", "What's this?")))->OnClick.Handle<MemStickScreen>(this, &MemStickScreen::OnHelp);
 
 	INFO_LOG(SYSTEM, "MemStickScreen: initialSetup=%d", (int)initialSetup_);
 }
@@ -500,15 +544,15 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 
 	leftColumn->Add(new TextView(iz->T("Selected PSP Data Folder"), ALIGN_LEFT, false));
 	if (!initialSetup_) {
-		leftColumn->Add(new TextView(iz->T("PPSSPP will restart after the change."), ALIGN_LEFT, false));
+		leftColumn->Add(new TextView(iz->T("PPSSPP will restart after the change"), ALIGN_LEFT, false));
 	}
 	leftColumn->Add(new TextView(newMemstickFolder_.ToVisualString(), ALIGN_LEFT, false));
 	std::string newFreeSpaceText = std::string(iz->T("Free space")) + ": " + FormatSpaceString(freeSpaceNew);
 	leftColumn->Add(new TextView(newFreeSpaceText, ALIGN_LEFT, false));
 	if (existingFilesInNewFolder_) {
-		leftColumn->Add(new TextView(iz->T("Already contains PSP data."), ALIGN_LEFT, false));
+		leftColumn->Add(new TextView(iz->T("Already contains PSP data"), ALIGN_LEFT, false));
 		if (!moveData_) {
-			leftColumn->Add(new TextView(iz->T("No data will be changed."), ALIGN_LEFT, false));
+			leftColumn->Add(new TextView(iz->T("No data will be changed"), ALIGN_LEFT, false));
 		}
 	}
 	if (!error_.empty()) {
@@ -517,7 +561,7 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 
 	if (!oldMemstickFolder.empty()) {
 		std::string oldFreeSpaceText = std::string(iz->T("Free space")) + ": " + FormatSpaceString(freeSpaceOld);
-		rightColumn->Add(new TextView(iz->T("Current PSP Data Folder"), ALIGN_LEFT, false));
+		rightColumn->Add(new TextView(std::string(iz->T("Current")) + ":", ALIGN_LEFT, false));
 		rightColumn->Add(new TextView(oldMemstickFolder.ToVisualString(), ALIGN_LEFT, false));
 		rightColumn->Add(new TextView(oldFreeSpaceText, ALIGN_LEFT, false));
 	}
