@@ -25,16 +25,16 @@ void __DisplayShutdown();
 
 void Register_sceDisplay();
 
-// will return true once after every end-of-frame.
-bool __DisplayFrameDone();
-
 // Get information about the current framebuffer.
 bool __DisplayGetFramebuf(PSPPointer<u8> *topaddr, u32 *linesize, u32 *pixelFormat, int mode);
 void __DisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync);
 
 typedef void (*VblankCallback)();
-// Listen for vblank events.  Only register during init.
+// Listen for vblank events.
 void __DisplayListenVblank(VblankCallback callback);
+typedef void (*FlipCallback)(void *userdata);
+void __DisplayListenFlip(FlipCallback callback, void *userdata);
+void __DisplayForgetFlip(FlipCallback callback, void *userdata);
 
 void __DisplayGetDebugStats(char stats[], size_t bufsize);
 void __DisplayGetFPS(float *out_vps, float *out_fps, float *out_actual_fps);
