@@ -520,7 +520,8 @@ struct DeviceCaps {
 	bool dualSourceBlend;
 	bool logicOpSupported;
 	bool depthClampSupported;
-	bool clipCullDistanceSupported;
+	bool clipDistanceSupported;
+	bool cullDistanceSupported;
 	bool framebufferCopySupported;
 	bool framebufferBlitSupported;
 	bool framebufferDepthCopySupported;
