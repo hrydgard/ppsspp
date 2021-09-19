@@ -99,6 +99,7 @@ GameModeArea masterGameModeArea;
 std::vector<GameModeArea> replicaGameModeAreas;
 std::vector<SceNetEtherAddr> requiredGameModeMacs;
 std::vector<SceNetEtherAddr> gameModeMacs;
+std::map<SceNetEtherAddr, u16_le> gameModePeerPorts;
 
 int actionAfterAdhocMipsCall;
 int actionAfterMatchingMipsCall;
