@@ -7176,7 +7176,7 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 	u64_le now;
 
 	static SceNetEtherAddr sendermac;
-	static uint16_t senderport;
+	static u32_le senderport;
 	static int rxbuflen;
 
 	// Log Startup
