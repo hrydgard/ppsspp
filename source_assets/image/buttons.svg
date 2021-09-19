@@ -1975,6 +1975,37 @@
          operator="over"
          result="composite2" />
     </filter>
+    <filter
+       id="filter5132-3-1"
+       style="color-interpolation-filters:sRGB"
+       inkscape:label="Drop Shadow">
+      <feFlood
+         id="feFlood5134-8-0"
+         flood-opacity="0.2"
+         flood-color="rgb(0,0,0)"
+         result="flood" />
+      <feComposite
+         id="feComposite5136-8-9"
+         in2="SourceGraphic"
+         in="flood"
+         operator="in"
+         result="composite1" />
+      <feGaussianBlur
+         id="feGaussianBlur5138-1-8"
+         stdDeviation="0.5"
+         result="blur" />
+      <feOffset
+         id="feOffset5140-6-0"
+         dx="0"
+         dy="0"
+         result="offset" />
+      <feComposite
+         id="feComposite5142-3-4"
+         in2="offset"
+         in="SourceGraphic"
+         operator="over"
+         result="composite2" />
+    </filter>
   </defs>
   <sodipodi:namedview
      id="base"
@@ -1983,9 +2014,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="3.959798"
-     inkscape:cx="210.98798"
-     inkscape:cy="737.76391"
+     inkscape:zoom="1.979899"
+     inkscape:cx="188.31194"
+     inkscape:cy="810.8481"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -1993,7 +2024,7 @@
      inkscape:window-height="906"
      inkscape:window-x="252"
      inkscape:window-y="290"
-     inkscape:window-maximized="0"
+     inkscape:window-maximized="1"
      inkscape:document-rotation="0"
      inkscape:pagecheckerboard="0">
     <inkscape:grid
@@ -2880,6 +2911,33 @@
          transform="matrix(0.86714358,0,0,3.1461971,21.314959,-625.68775)"
          style="opacity:1;vector-effect:none;fill:#ffffff;fill-opacity:1;stroke:#ffffff;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;filter:url(#filter5132-3)"
          id="ellipse6694" />
+    </g>
+    <g
+       id="g1326"
+       transform="translate(-164.28571,-0.71428571)"
+       inkscape:export-xdpi="133.77763"
+       inkscape:export-ydpi="133.77763">
+      <ellipse
+         transform="matrix(1,0,0,-1,161.53734,607.43232)"
+         style="opacity:1;vector-effect:none;fill:#ffffff;fill-opacity:1;stroke:#ffffff;stroke-width:0.69999999;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;filter:url(#filter5132-3)"
+         id="ellipse1272"
+         cx="141.81953"
+         cy="311.01419"
+         rx="1.7191756"
+         ry="1.6728485" />
+      <circle
+         r="12.857142"
+         cx="303.35687"
+         cy="303.09442"
+         id="path1285"
+         style="opacity:1;vector-effect:none;fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;filter:url(#filter5132-3)" />
+      <rect
+         y="299.79086"
+         x="301.66043"
+         height="11.517866"
+         width="3.3928592"
+         id="rect1321"
+         style="opacity:1;vector-effect:none;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;filter:url(#filter5132-3)" />
     </g>
   </g>
 </svg>
