@@ -539,7 +539,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		if (PPGeIsFontTextureAddress(texaddr)) {
 			// It's the builtin font texture.
 			entry->status = TexCacheEntry::STATUS_RELIABLE;
-		} else if (g_Config.bTextureBackoffCache) {
+		} else if (g_Config.bTextureBackoffCache && !IsVideo(texaddr)) {
 			entry->status = TexCacheEntry::STATUS_HASHING;
 		} else {
 			entry->status = TexCacheEntry::STATUS_UNRELIABLE;
@@ -1724,6 +1724,15 @@ void TextureCacheCommon::DeleteTexture(TexCache::iterator it) {
 bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
+	bool isVideo = IsVideo(entry->addr);
+
+	// Don't even check the texture, just assume it has changed.
+	if (isVideo && g_Config.bTextureBackoffCache) {
+		// Attempt to ensure the hash doesn't incorrectly match in if the video stops.
+		entry->fullhash = (entry->fullhash + 0xA535A535) * 11 + (entry->fullhash & 4);
+		return false;
+	}
+
 	u32 fullhash;
 	{
 		PROFILE_THIS_SCOPE("texhash");
@@ -1731,7 +1740,7 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	}
 
 	if (fullhash == entry->fullhash) {
-		if (g_Config.bTextureBackoffCache) {
+		if (g_Config.bTextureBackoffCache && !isVideo) {
 			if (entry->GetHashStatus() != TexCacheEntry::STATUS_HASHING && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
 				// Reset to STATUS_HASHING.
 				entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
