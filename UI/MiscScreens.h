@@ -125,9 +125,16 @@ private:
 	std::vector<TextureShaderInfo> shaders_;
 };
 
+enum class AfterLogoScreen {
+	TO_GAME_SETTINGS,
+	DEFAULT,
+	MEMSTICK_SCREEN_INITIAL_SETUP,
+};
+
 class LogoScreen : public UIScreen {
 public:
-	LogoScreen(bool gotoGameSettings = false);
+	LogoScreen(AfterLogoScreen afterLogoScreen = AfterLogoScreen::DEFAULT);
+
 	bool key(const KeyInput &key) override;
 	bool touch(const TouchInput &touch) override;
 	void update() override;
@@ -140,7 +147,7 @@ private:
 	int frames_ = 0;
 	double sinceStart_ = 0.0;
 	bool switched_ = false;
-	bool gotoGameSettings_ = false;
+	AfterLogoScreen afterLogoScreen_;
 };
 
 class CreditsScreen : public UIDialogScreenWithBackground {

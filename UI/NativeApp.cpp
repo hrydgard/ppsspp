@@ -807,17 +807,16 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	screenManager = new ScreenManager();
 	if (g_Config.memStickDirectory.empty()) {
 		INFO_LOG(SYSTEM, "No memstick directory! Asking for one to be configured.");
-		screenManager->switchScreen(new LogoScreen(false));
-		screenManager->push(new MemStickScreen(true));
+		screenManager->switchScreen(new LogoScreen(AfterLogoScreen::MEMSTICK_SCREEN_INITIAL_SETUP));
 	} else if (gotoGameSettings) {
-		screenManager->switchScreen(new LogoScreen(true));
+		screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
 	} else if (gotoTouchScreenTest) {
 		screenManager->switchScreen(new MainScreen());
 		screenManager->push(new TouchTestScreen());
 	} else if (skipLogo) {
 		screenManager->switchScreen(new EmuScreen(boot_filename));
 	} else {
-		screenManager->switchScreen(new LogoScreen());
+		screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));
 	}
 
 	// Easy testing

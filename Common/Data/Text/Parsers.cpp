@@ -3,11 +3,10 @@
 #include <string>
 
 #include "Common/Data/Text/Parsers.h"
-
 #include "Common/StringUtils.h"
 
 // Not strictly a parser...
-void NiceSizeFormat(size_t size, char *out, size_t bufSize) {
+void NiceSizeFormat(uint64_t size, char *out, size_t bufSize) {
 	const char *sizes[] = { "B","KB","MB","GB","TB","PB","EB" };
 	int s = 0;
 	int frac = 0;
@@ -21,6 +20,12 @@ void NiceSizeFormat(size_t size, char *out, size_t bufSize) {
 		snprintf(out, bufSize, "%d B", (int)size);
 	else
 		snprintf(out, bufSize, "%3.1f %s", f, sizes[s]);
+}
+
+std::string NiceSizeFormat(uint64_t size) {
+	char buffer[16];
+	NiceSizeFormat(size, buffer, sizeof(buffer));
+	return std::string(buffer);
 }
 
 bool Version::ParseVersionString(std::string str) {

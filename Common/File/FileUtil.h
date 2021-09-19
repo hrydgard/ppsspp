@@ -112,6 +112,9 @@ bool Copy(const Path &srcFilename, const Path &destFilename);
 // returns false, otherwise returns true.
 bool Move(const Path &srcFilename, const Path &destFilename);
 
+// Move file, but only if it can be done quickly (rename or similar).
+bool MoveIfFast(const Path &srcFilename, const Path &destFilename);
+
 // creates an empty file filename, returns true on success 
 bool CreateEmptyFile(const Path &filename);
 

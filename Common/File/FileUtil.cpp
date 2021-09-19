@@ -753,6 +753,27 @@ bool Move(const Path &srcFilename, const Path &destFilename) {
 	}
 }
 
+bool MoveIfFast(const Path &srcFilename, const Path &destFilename) {
+	if (srcFilename.Type() == PathType::CONTENT_URI && destFilename.Type() == PathType::CONTENT_URI && srcFilename.CanNavigateUp() && destFilename.CanNavigateUp()) {
+		if (srcFilename.GetFilename() == destFilename.GetFilename()) {
+			Path srcParent = srcFilename.NavigateUp();
+			Path dstParent = destFilename.NavigateUp();
+			return Android_MoveFile(srcFilename.ToString(), srcParent.ToString(), dstParent.ToString()) == StorageError::SUCCESS;
+			// If failed, fall through and try other ways.
+		} else {
+			// We do not handle simultaneous renames here.
+			return false;
+		}
+	}
+
+	if (srcFilename.Type() != destFilename.Type()) {
+		// No way it's gonna work.
+		return false;
+	}
+
+	return Rename(srcFilename, destFilename);
+}
+
 // Returns the size of file (64bit)
 // TODO: Add a way to return an error.
 uint64_t GetFileSize(const Path &filename) {

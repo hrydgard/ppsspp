@@ -522,6 +522,8 @@ protected:
 	bool down_ = false;
 };
 
+// TODO: Very similar to Choice, should probably merge them.
+// Right now more flexible image support though.
 class Button : public Clickable {
 public:
 	Button(const std::string &text, LayoutParams *layoutParams = 0)
@@ -544,12 +546,10 @@ public:
 	void SetIgnoreText(bool ignore) {
 		ignoreText_ = ignore;
 	}
-
 	// Needed an extra small button...
 	void SetScale(float f) {
 		scale_ = f;
 	}
-
 private:
 	Style style_;
 	std::string text_;
@@ -558,6 +558,26 @@ private:
 	int paddingH_ = 8;
 	float scale_ = 1.0f;
 	bool ignoreText_ = false;
+};
+
+class RadioButton : public Clickable {
+public:
+	RadioButton(int *value, int thisButtonValue, const std::string &text, LayoutParams *layoutParams = 0)
+		: Clickable(layoutParams), value_(value), thisButtonValue_(thisButtonValue), text_(text) {}
+	void Click() override;
+	void Draw(UIContext &dc) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	std::string DescribeText() const override;
+
+private:
+	int *value_;
+	int thisButtonValue_;
+	std::string text_;
+	const float paddingW_ = 8;
+	const float paddingH_ = 4;
+
+	const float radioRadius_ = 16.0f;
+	const float radioInnerRadius_ = 8.0f;
 };
 
 class Slider : public Clickable {
@@ -669,10 +689,12 @@ class Choice : public ClickableItem {
 public:
 	Choice(const std::string &text, LayoutParams *layoutParams = nullptr)
 		: Choice(text, std::string(), false, layoutParams) {}
+	Choice(const std::string &text, ImageID image, LayoutParams *layoutParams = nullptr)
+		: ClickableItem(layoutParams), text_(text), image_(image) {}
 	Choice(const std::string &text, const std::string &smallText, bool selected = false, LayoutParams *layoutParams = nullptr)
-		: ClickableItem(layoutParams), text_(text), smallText_(smallText), atlasImage_(ImageID::invalid()), iconImage_(ImageID::invalid()), centered_(false), highlighted_(false), selected_(selected) {}
+		: ClickableItem(layoutParams), text_(text), smallText_(smallText), image_(ImageID::invalid()) {}
 	Choice(ImageID image, LayoutParams *layoutParams = nullptr)
-		: ClickableItem(layoutParams), atlasImage_(image), iconImage_(ImageID::invalid()), centered_(false), highlighted_(false), selected_(false) {}
+		: ClickableItem(layoutParams), image_(image), rightIconImage_(ImageID::invalid()) {}
 
 	void Click() override;
 	virtual void HighlightChanged(bool highlighted);
@@ -683,7 +705,7 @@ public:
 		centered_ = c;
 	}
 	virtual void SetIcon(ImageID iconImage) {
-		iconImage_ = iconImage;
+		rightIconImage_ = iconImage;
 	}
 
 protected:
@@ -693,14 +715,14 @@ protected:
 
 	std::string text_;
 	std::string smallText_;
-	ImageID atlasImage_;
-	ImageID iconImage_;  // Only applies for text, non-centered
+	ImageID image_;  // Centered if no text, on the left if text.
+	ImageID rightIconImage_ = ImageID::invalid();  // Shows in the right. Only used for the Gold icon on the main menu.
 	Padding textPadding_;
-	bool centered_;
-	bool highlighted_;
+	bool centered_ = false;
+	bool highlighted_ = false;
 
 private:
-	bool selected_;
+	bool selected_ = false;
 };
 
 // Different key handling.
@@ -743,6 +765,9 @@ public:
 	void SetRightText(const std::string &text) {
 		rightText_ = text;
 	}
+	void SetChoiceStyle(bool choiceStyle) {
+		choiceStyle_ = choiceStyle;
+	}
 
 private:
 	CallbackColorTween *bgColor_ = nullptr;
@@ -750,6 +775,8 @@ private:
 
 	std::string text_;
 	std::string rightText_;
+
+	bool choiceStyle_ = false;
 };
 
 class ItemHeader : public Item {

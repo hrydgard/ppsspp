@@ -52,6 +52,7 @@
 #include "UI/GameSettingsScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/MiscScreens.h"
+#include "UI/MemStickScreen.h"
 
 #ifdef _MSC_VER
 #pragma execution_character_set("utf-8")
@@ -668,25 +669,35 @@ void LogoScreen::Next() {
 	if (!switched_) {
 		switched_ = true;
 		Path gamePath = boot_filename;
-		if (gotoGameSettings_) {
+
+		switch (afterLogoScreen_) {
+		case AfterLogoScreen::TO_GAME_SETTINGS:
 			if (!gamePath.empty()) {
 				screenManager()->switchScreen(new EmuScreen(gamePath));
 			} else {
 				screenManager()->switchScreen(new MainScreen());
 			}
 			screenManager()->push(new GameSettingsScreen(gamePath));
-		} else if (boot_filename.size()) {
-			screenManager()->switchScreen(new EmuScreen(gamePath));
-		} else {
-			screenManager()->switchScreen(new MainScreen());
+			break;
+		case AfterLogoScreen::MEMSTICK_SCREEN_INITIAL_SETUP:
+			screenManager()->switchScreen(new MemStickScreen(true));
+			break;
+		case AfterLogoScreen::DEFAULT:
+		default:
+			if (boot_filename.size()) {
+				screenManager()->switchScreen(new EmuScreen(gamePath));
+			} else {
+				screenManager()->switchScreen(new MainScreen());
+			}
+			break;
 		}
 	}
 }
 
 const float logoScreenSeconds = 2.5f;
 
-LogoScreen::LogoScreen(bool gotoGameSettings)
-	: gotoGameSettings_(gotoGameSettings) {
+LogoScreen::LogoScreen(AfterLogoScreen afterLogoScreen)
+	: afterLogoScreen_(afterLogoScreen) {
 }
 
 void LogoScreen::update() {
