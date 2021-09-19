@@ -102,6 +102,36 @@ static std::string FormatSpaceString(int64_t space) {
 
 MemStickScreen::MemStickScreen(bool initialSetup)
 	: initialSetup_(initialSetup) {
+#if PPSSPP_PLATFORM(ANDROID)
+	// Let's only offer the browse-for-folder choice on Android 10 or later.
+	// Earlier versions often don't really have working folder browsers.
+	storageBrowserWorking_ = System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 29;
+#else
+	// For testing UI only
+	storageBrowserWorking_ = true;
+#endif
+
+	if (initialSetup_) {
+		// Preselect current choice.
+		if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
+			choice_ = CHOICE_BROWSE_FOLDER;
+		} else {
+			WARN_LOG(SYSTEM, "Scoped storage not enabled - shouldn't be in MemStickScreen at initial setup");
+			choice_ = CHOICE_STORAGE_ROOT;
+			// Shouldn't really be here in initial setup.
+		}
+	} else {
+		// Detect the current choice, so it's preselected in the UI.
+		if (g_Config.memStickDirectory == Path(g_extFilesDir)) {
+			choice_ = CHOICE_PRIVATE_DIRECTORY;
+		} else if (g_Config.memStickDirectory == Path(g_externalDir)) {
+			choice_ = CHOICE_STORAGE_ROOT;
+		} else if (storageBrowserWorking_) {
+			choice_ = CHOICE_BROWSE_FOLDER;
+		} else {
+			choice_ = CHOICE_SET_MANUAL;
+		}
+	}
 }
 
 void MemStickScreen::CreateViews() {
@@ -138,42 +168,71 @@ void MemStickScreen::CreateViews() {
 	// TODO: Gonna need a scroll view.
 #if PPSSPP_PLATFORM(ANDROID)
 	if (!System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
-		leftColumn->Add(new Button(iz->T("Use PSP folder at root of storage")))->OnClick.Handle(this, &MemStickScreen::OnUseStorageRoot);
-		leftColumn->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP.")))->SetBullet(true);
-		leftColumn->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold.")))->SetBullet(true);
-		leftColumn->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access")))->SetBullet(true);
+		leftColumn->Add(new RadioButton(&choice_, CHOICE_STORAGE_ROOT, iz->T("Use PSP folder at root of storage")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
 	}
-
-	// Let's only offer the browse-for-folder choice on Android 10 or later.
-	// Earlier versions often don't really have working folder browsers.
-	bool storageBrowserWorking = System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 29;
-#else
-	// For testing UI only
-	bool storageBrowserWorking = true;
 #endif
 
-	if (storageBrowserWorking) {
-		leftColumn->Add(new Button(iz->T("Create or Choose a PSP folder"), ImageID("I_FOLDER_OPEN")))->OnClick.Handle(this, &MemStickScreen::OnBrowse);
-		leftColumn->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP.")))->SetBullet(true);
-		leftColumn->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold.")))->SetBullet(true);
-		leftColumn->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access")))->SetBullet(true);
+	if (storageBrowserWorking_) {
+		//ImageID("I_FOLDER_OPEN")
+		leftColumn->Add(new RadioButton(&choice_, CHOICE_BROWSE_FOLDER, iz->T("Create or Choose a PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
+		// TODO: Show current folder here if we have one set.
 	} else {
-		leftColumn->Add(new Button(iz->T("Manually specify PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnSetFolderManually);
+		leftColumn->Add(new RadioButton(&choice_, CHOICE_SET_MANUAL, iz->T("Manually specify PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
 		leftColumn->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP.")))->SetBullet(true);
 		leftColumn->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold.")))->SetBullet(true);
+		// TODO: Show current folder here if we have one set.
+	}
+	if (!g_Config.memStickDirectory.empty()) {
+		leftColumn->Add(new TextView(StringFromFormat("    %s: %s", iz->T("Current PSP Data Folder"), g_Config.memStickDirectory.ToVisualString().c_str()), ALIGN_LEFT, false));
 	}
 
-	leftColumn->Add(new Button(iz->T("Skip for now - use App Private Directory"), ImageID("I_WARNING")))->OnClick.Handle(this, &MemStickScreen::OnUseInternalStorage);
-	// Consider https://www.compart.com/en/unicode/U+26A0 (unicode warning sign?)? or a graphic?
-	leftColumn->Add(new TextView(iz->T("DataWillBeLostOnUninstall", "Warning! Data will be lost when you uninstall PPSSPP!")))->SetBullet(true);
-	leftColumn->Add(new TextView(iz->T("DataCannotBeShared", "Data CANNOT be shared between PPSSPP regular/Gold!")))->SetBullet(true);
-#if GOLD
-	leftColumn->Add(new TextView(iz->T("USBAccessThroughGold", "USB access through Android/data/org.ppsspp.ppssppgold/files")))->SetBullet(true);
-#else
-	leftColumn->Add(new TextView(iz->T("USBAccessThrough", "USB access through Android/data/org.ppsspp.ppsspp/files")))->SetBullet(true);
-#endif
+	leftColumn->Add(new RadioButton(&choice_, CHOICE_PRIVATE_DIRECTORY, iz->T("Skip for now - use App Private Directory")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
 
 	leftColumn->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 12.0f, 0.0f)));
+
+	const char *confirmButtonText = nullptr;
+	ImageID confirmButtonImage = ImageID::invalid();
+	switch (choice_) {
+	case CHOICE_STORAGE_ROOT:
+		// Old school choice
+		leftColumn->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP.")))->SetBullet(true);
+		leftColumn->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold.")))->SetBullet(true);
+		leftColumn->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access")))->SetBullet(true);
+
+		confirmButtonText = di->T("Confirm");
+		break;
+	case CHOICE_BROWSE_FOLDER:
+		leftColumn->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP.")))->SetBullet(true);
+		leftColumn->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold.")))->SetBullet(true);
+		leftColumn->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access")))->SetBullet(true);
+
+		confirmButtonText = di->T("Browse");
+		confirmButtonImage = ImageID("I_FOLDER_OPEN");
+		break;
+	case CHOICE_PRIVATE_DIRECTORY:
+		// Consider https://www.compart.com/en/unicode/U+26A0 (unicode warning sign?)? or a graphic?
+		leftColumn->Add(new TextView(iz->T("DataWillBeLostOnUninstall", "Warning! Data will be lost when you uninstall PPSSPP!")))->SetBullet(true);
+		leftColumn->Add(new TextView(iz->T("DataCannotBeShared", "Data CANNOT be shared between PPSSPP regular/Gold!")))->SetBullet(true);
+#if GOLD
+		leftColumn->Add(new TextView(iz->T("USBAccessThroughGold", "USB access through Android/data/org.ppsspp.ppssppgold/files")))->SetBullet(true);
+#else
+		leftColumn->Add(new TextView(iz->T("USBAccessThrough", "USB access through Android/data/org.ppsspp.ppsspp/files")))->SetBullet(true);
+#endif
+		confirmButtonText = di->T("Confirm");
+		confirmButtonImage = ImageID("I_WARNING");
+		break;
+	case CHOICE_SET_MANUAL:
+	default:
+		leftColumn->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access")))->SetBullet(true);
+		// What more?
+
+		// Should we have a special text here? It'll popup a text window for editing.
+		confirmButtonText = di->T("Confirm");
+		break;
+	}
+
+	rightColumnItems->Add(new Button(confirmButtonText, confirmButtonImage))->OnClick.Handle<MemStickScreen>(this, &MemStickScreen::OnConfirmClick);
+	rightColumnItems->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 12.0f, 0.0f)));
 
 	if (!initialSetup_) {
 		rightColumnItems->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
@@ -189,7 +248,30 @@ UI::EventReturn MemStickScreen::OnHelp(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn MemStickScreen::OnSetFolderManually(UI::EventParams &params) {
+UI::EventReturn MemStickScreen::OnChoiceClick(UI::EventParams &params) {
+	// Change the confirm button to match the choice,
+	// and change the text that we show.
+	RecreateViews();
+
+	return UI::EVENT_DONE;
+}
+
+
+UI::EventReturn MemStickScreen::OnConfirmClick(UI::EventParams &params) {
+	switch (choice_) {
+	case CHOICE_SET_MANUAL:
+		return SetFolderManually(params);
+	case CHOICE_STORAGE_ROOT:
+		return UseStorageRoot(params);
+	case CHOICE_PRIVATE_DIRECTORY:
+		return UseInternalStorage(params);
+	case CHOICE_BROWSE_FOLDER:
+		return Browse(params);
+	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MemStickScreen::SetFolderManually(UI::EventParams &params) {
 	// The old way, from before scoped storage.
 #if PPSSPP_PLATFORM(ANDROID)
 	auto sy = GetI18NCategory("System");
@@ -256,7 +338,7 @@ UI::EventReturn MemStickScreen::OnSetFolderManually(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn MemStickScreen::OnUseInternalStorage(UI::EventParams &params) {
+UI::EventReturn MemStickScreen::UseInternalStorage(UI::EventParams &params) {
 	Path pendingMemStickFolder = Path(g_extFilesDir);
 
 	if (initialSetup_) {
@@ -277,7 +359,7 @@ UI::EventReturn MemStickScreen::OnUseInternalStorage(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn MemStickScreen::OnUseStorageRoot(UI::EventParams &params) {
+UI::EventReturn MemStickScreen::UseStorageRoot(UI::EventParams &params) {
 	Path pendingMemStickFolder = Path(g_externalDir);
 
 	if (initialSetup_) {
@@ -298,7 +380,7 @@ UI::EventReturn MemStickScreen::OnUseStorageRoot(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn MemStickScreen::OnBrowse(UI::EventParams &params) {
+UI::EventReturn MemStickScreen::Browse(UI::EventParams &params) {
 	System_SendMessage("browse_folder", "");
 	return UI::EVENT_DONE;
 }
@@ -435,7 +517,7 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 
 	if (!oldMemstickFolder.empty()) {
 		std::string oldFreeSpaceText = std::string(iz->T("Free space")) + ": " + FormatSpaceString(freeSpaceOld);
-		rightColumn->Add(new TextView(iz->T("Old PSP Data Folder"), ALIGN_LEFT, false));
+		rightColumn->Add(new TextView(iz->T("Current PSP Data Folder"), ALIGN_LEFT, false));
 		rightColumn->Add(new TextView(oldMemstickFolder.ToVisualString(), ALIGN_LEFT, false));
 		rightColumn->Add(new TextView(oldFreeSpaceText, ALIGN_LEFT, false));
 	}

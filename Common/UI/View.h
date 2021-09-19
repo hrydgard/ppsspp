@@ -522,6 +522,8 @@ protected:
 	bool down_ = false;
 };
 
+// TODO: Very similar to Choice, should probably merge them.
+// Right now more flexible image support though.
 class Button : public Clickable {
 public:
 	Button(const std::string &text, LayoutParams *layoutParams = 0)
@@ -544,12 +546,10 @@ public:
 	void SetIgnoreText(bool ignore) {
 		ignoreText_ = ignore;
 	}
-
 	// Needed an extra small button...
 	void SetScale(float f) {
 		scale_ = f;
 	}
-
 private:
 	Style style_;
 	std::string text_;
@@ -558,6 +558,26 @@ private:
 	int paddingH_ = 8;
 	float scale_ = 1.0f;
 	bool ignoreText_ = false;
+};
+
+class RadioButton : public Clickable {
+public:
+	RadioButton(int *value, int thisButtonValue, const std::string &text, LayoutParams *layoutParams = 0)
+		: Clickable(layoutParams), value_(value), thisButtonValue_(thisButtonValue), text_(text) {}
+	void Click() override;
+	void Draw(UIContext &dc) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	std::string DescribeText() const override;
+
+private:
+	int *value_;
+	int thisButtonValue_;
+	std::string text_;
+	const float paddingW_ = 8;
+	const float paddingH_ = 4;
+
+	const float radioRadius_ = 16.0f;
+	const float radioInnerRadius_ = 8.0f;
 };
 
 class Slider : public Clickable {

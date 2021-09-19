@@ -803,6 +803,69 @@ void Button::Draw(UIContext &dc) {
 	}
 }
 
+void RadioButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	w = 0.0f;
+	h = 0.0f;
+
+	if (!text_.empty()) {
+		dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), &w, &h);
+	}
+
+	// Add some internal padding to not look totally ugly
+	w += paddingW_ * 3.0f + radioRadius_ * 2.0f;
+	h = std::max(h, radioRadius_ * 2) + paddingH_ * 2;
+}
+
+std::string RadioButton::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return ReplaceAll(u->T("%1 radio button"), "%1", text_);
+}
+
+void RadioButton::Click() {
+	Clickable::Click();
+	UI::PlayUISound(UI::UISound::CONFIRM);
+	*value_ = thisButtonValue_;
+}
+
+void RadioButton::Draw(UIContext &dc) {
+	Style style = dc.theme->buttonStyle;
+
+	bool checked = *value_ == thisButtonValue_;
+
+	if (HasFocus()) style = dc.theme->buttonFocusedStyle;
+	if (down_) style = dc.theme->buttonDownStyle;
+	if (!IsEnabled()) style = dc.theme->buttonDisabledStyle;
+
+	DrawBG(dc, style);
+
+	dc.Flush();
+	dc.BeginNoTex();
+	dc.Draw()->Circle(bounds_.x + paddingW_ + radioRadius_, bounds_.centerY(), radioRadius_, 2.5f, 36, 0, style.fgColor, 1.0f);
+	if (checked) {
+		dc.Draw()->FillCircle(bounds_.x + paddingW_ + radioRadius_, bounds_.centerY(), radioInnerRadius_, 36, style.fgColor);
+	}
+	dc.Flush();
+	dc.Begin();
+
+	float tw, th;
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), &tw, &th);
+
+	if (tw > bounds_.w) {
+		dc.PushScissor(bounds_);
+	}
+
+	dc.SetFontStyle(dc.theme->uiFont);
+
+	if (!text_.empty()) {
+		float textX = bounds_.x + paddingW_ * 2.0f + radioRadius_ * 2.0f;
+		dc.DrawText(text_.c_str(), textX, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+	}
+
+	if (tw > bounds_.w) {
+		dc.PopScissor();
+	}
+}
+
 void ImageView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	dc.Draw()->GetAtlas()->measureImage(atlasImage_, &w, &h);
 	// TODO: involve sizemode

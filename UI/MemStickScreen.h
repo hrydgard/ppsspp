@@ -56,16 +56,32 @@ protected:
 
 private:
 	// Event handlers
-	UI::EventReturn OnBrowse(UI::EventParams &e);
 	UI::EventReturn OnHelp(UI::EventParams &e);
-	UI::EventReturn OnUseInternalStorage(UI::EventParams &params);
-	UI::EventReturn OnUseStorageRoot(UI::EventParams &params);
-	UI::EventReturn OnSetFolderManually(UI::EventParams &params);
+
+	// Confirm button sub handlers
+	UI::EventReturn Browse(UI::EventParams &e);
+	UI::EventReturn UseInternalStorage(UI::EventParams &params);
+	UI::EventReturn UseStorageRoot(UI::EventParams &params);
+	UI::EventReturn SetFolderManually(UI::EventParams &params);
+
+	// Button handlers.
+	UI::EventReturn OnConfirmClick(UI::EventParams &params);
+	UI::EventReturn OnChoiceClick(UI::EventParams &params);
 
 	SettingInfoMessage *settingInfo_ = nullptr;
 
+	enum {
+		CHOICE_BROWSE_FOLDER,
+		CHOICE_PRIVATE_DIRECTORY,
+		CHOICE_STORAGE_ROOT,
+		CHOICE_SET_MANUAL,
+	};
+
 	bool initialSetup_;
+	bool storageBrowserWorking_;
 	bool done_ = false;
+
+	int choice_ = 0;
 };
 
 class ProgressReporter {
