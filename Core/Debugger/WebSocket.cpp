@@ -55,6 +55,7 @@
 #include "Core/Debugger/WebSocket/GameSubscriber.h"
 #include "Core/Debugger/WebSocket/GPUBufferSubscriber.h"
 #include "Core/Debugger/WebSocket/GPURecordSubscriber.h"
+#include "Core/Debugger/WebSocket/GPUStatsSubscriber.h"
 #include "Core/Debugger/WebSocket/HLESubscriber.h"
 #include "Core/Debugger/WebSocket/InputSubscriber.h"
 #include "Core/Debugger/WebSocket/MemoryInfoSubscriber.h"
@@ -70,6 +71,7 @@ static const std::vector<SubscriberInit> subscribers({
 	&WebSocketGameInit,
 	&WebSocketGPUBufferInit,
 	&WebSocketGPURecordInit,
+	&WebSocketGPUStatsInit,
 	&WebSocketHLEInit,
 	&WebSocketInputInit,
 	&WebSocketMemoryInfoInit,
