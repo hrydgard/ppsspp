@@ -957,6 +957,7 @@ extern GameModeArea masterGameModeArea;
 extern std::vector<GameModeArea> replicaGameModeAreas;
 extern std::vector<SceNetEtherAddr> requiredGameModeMacs;
 extern std::vector<SceNetEtherAddr> gameModeMacs;
+extern std::map<SceNetEtherAddr, u16_le> gameModePeerPorts;
 // End of Aux vars
 
 enum AdhocConnectionType : int

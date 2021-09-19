@@ -184,7 +184,12 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 				int sentcount = 0;
 				for (auto& gma : replicaGameModeAreas) {
 					if (!gma.dataSent && IsSocketReady(sock->data.pdp.id, false, true) > 0) {
-						int sent = sceNetAdhocPdpSend(gameModeSocket, (const char*)&gma.mac, ADHOC_GAMEMODE_PORT, masterGameModeArea.data, masterGameModeArea.size, 0, ADHOC_F_NONBLOCK);
+						u16_le port = ADHOC_GAMEMODE_PORT;
+						auto it = gameModePeerPorts.find(gma.mac);
+						if (it != gameModePeerPorts.end())
+							port = it->second;
+							
+						int sent = sceNetAdhocPdpSend(gameModeSocket, (const char*)&gma.mac, port, masterGameModeArea.data, masterGameModeArea.size, 0, ADHOC_F_NONBLOCK);
 						if (sent != ERROR_NET_ADHOC_WOULD_BLOCK) {
 							gma.dataSent = 1;
 							DEBUG_LOG(SCENET, "GameMode: Master data Sent %d bytes to Area #%d [%s]", masterGameModeArea.size, gma.id, mac2str(&gma.mac).c_str());
@@ -209,7 +214,12 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 							recvd++;
 							// Since we're able to receive data, now we're certain that remote player is listening and ready to receive data, so we send initial data one more time in case they're not listening yet on previous attempt (ie. Pocket Pool)
 							if (gma.dataUpdated) {
-								sceNetAdhocPdpSend(gameModeSocket, (const char*)&gma.mac, ADHOC_GAMEMODE_PORT, masterGameModeArea.data, masterGameModeArea.size, 0, ADHOC_F_NONBLOCK);
+								u16_le port = ADHOC_GAMEMODE_PORT;
+								auto it = gameModePeerPorts.find(gma.mac);
+								if (it != gameModePeerPorts.end())
+									port = it->second;
+
+								sceNetAdhocPdpSend(gameModeSocket, (const char*)&gma.mac, port, masterGameModeArea.data, masterGameModeArea.size, 0, ADHOC_F_NONBLOCK);
 							}
 						}
 					}
@@ -2798,6 +2808,7 @@ int NetAdhocctl_CreateEnterGameMode(const char* group_name, int game_type, int n
 		return ERROR_NET_ADHOCCTL_INVALID_ARG;
 
 	deleteAllGMB();
+	gameModePeerPorts.clear();
 
 	SceNetEtherAddr* addrs = PSPPointer<SceNetEtherAddr>::Create(membersAddr); // List of participating MAC addresses (started from host)
 	for (int i = 0; i < num_members; i++) {
@@ -4318,6 +4329,7 @@ int NetAdhocGameMode_DeleteMaster() {
 		free(masterGameModeArea.data);
 	}
 	//NetAdhocPdp_Delete(masterGameModeArea.socket, 0);
+	gameModePeerPorts.erase(masterGameModeArea.mac);
 	masterGameModeArea = { 0 };
 
 	if (replicaGameModeAreas.size() <= 0) {
@@ -4393,6 +4405,7 @@ static int sceNetAdhocGameModeDeleteReplica(int id) {
 		it->data = nullptr;
 	}
 	//sceNetAdhocPdpDelete(it->socket, 0);
+	gameModePeerPorts.erase(it->mac);
 	replicaGameModeAreas.erase(it);
 
 	if (replicaGameModeAreas.size() <= 0 && isZeroMAC(&masterGameModeArea.mac)) {
@@ -5700,6 +5713,7 @@ int NetAdhocctl_ExitGameMode() {
 	}
 
 	deleteAllGMB();
+	gameModePeerPorts.clear();
 
 	adhocctlCurrentMode = ADHOCCTL_MODE_NONE;
 	netAdhocGameModeEntered = false;
