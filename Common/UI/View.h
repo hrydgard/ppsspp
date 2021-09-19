@@ -765,6 +765,9 @@ public:
 	void SetRightText(const std::string &text) {
 		rightText_ = text;
 	}
+	void SetChoiceStyle(bool choiceStyle) {
+		choiceStyle_ = choiceStyle;
+	}
 
 private:
 	CallbackColorTween *bgColor_ = nullptr;
@@ -772,6 +775,8 @@ private:
 
 	std::string text_;
 	std::string rightText_;
+
+	bool choiceStyle_ = false;
 };
 
 class ItemHeader : public Item {

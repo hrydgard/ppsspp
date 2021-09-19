@@ -540,6 +540,11 @@ void InfoItem::Draw(UIContext &dc) {
 
 	UI::Style style = HasFocus() ? dc.theme->itemFocusedStyle : dc.theme->infoStyle;
 
+	if (choiceStyle_) {
+		style = dc.theme->buttonStyle;
+	}
+
+
 	if (style.background.type == DRAW_SOLID_COLOR) {
 		// For a smoother fade, using the same color with 0 alpha.
 		if ((style.background.color & 0xFF000000) == 0)

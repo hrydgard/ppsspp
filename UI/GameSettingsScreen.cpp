@@ -82,6 +82,7 @@
 #if PPSSPP_PLATFORM(ANDROID)
 
 #include "android/jni/AndroidAudio.h"
+#include "android/jni/AndroidContentURI.h"
 
 extern AndroidAudioState *g_audioState;
 
@@ -161,6 +162,31 @@ static std::string *GPUDeviceNameSetting() {
 	}
 #endif
 	return nullptr;
+}
+
+bool PathToVisualUsbPath(Path path, std::string &outPath) {
+	switch (path.Type()) {
+	case PathType::NATIVE:
+		if (path.StartsWith(g_Config.memStickDirectory)) {
+			return g_Config.memStickDirectory.ComputePathTo(path, outPath);
+		}
+		break;
+	case PathType::CONTENT_URI:
+#if PPSSPP_PLATFORM(ANDROID)
+	{
+		// Try to parse something sensible out of the content URI.
+		AndroidContentURI uri(path.ToString());
+		outPath = uri.RootPath();
+		if (startsWith(outPath, "primary:")) {
+			outPath = "/" + outPath.substr(8);
+		}
+		return true;
+	}
+#endif
+	default:
+		break;
+	}
+	return false;
 }
 
 void GameSettingsScreen::CreateViews() {
@@ -896,9 +922,19 @@ void GameSettingsScreen::CreateViews() {
 
 #if PPSSPP_PLATFORM(ANDROID)
 	memstickDisplay_ = g_Config.memStickDirectory.ToVisualString();
-	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Change Memory Stick folder", "Memory Stick folder"), (const char *)nullptr));
+	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Memory Stick folder", "Memory Stick folder"), (const char *)nullptr));
 	memstickPath->SetEnabled(!PSP_IsInited());
 	memstickPath->OnClick.Handle(this, &GameSettingsScreen::OnChangeMemStickDir);
+
+	// Display USB path for convenience.
+	std::string usbPath;
+	if (PathToVisualUsbPath(g_Config.memStickDirectory, usbPath)) {
+		if (usbPath.empty()) {
+			// Probably it's just the root. So let's add PSP to make it clear.
+			usbPath = "/PSP";
+		}
+		systemSettings->Add(new InfoItem(sy->T("USB"), usbPath))->SetChoiceStyle(true);
+	}
 #elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	SavePathInMyDocumentChoice = systemSettings->Add(new CheckBox(&installed_, sy->T("Save path in My Documents", "Save path in My Documents")));
 	SavePathInMyDocumentChoice->SetEnabled(!PSP_IsInited());
@@ -944,7 +980,8 @@ void GameSettingsScreen::CreateViews() {
 	}
 #endif
 	systemSettings->Add(new CheckBox(&g_Config.bMemStickInserted, sy->T("Memory Stick inserted")));
-	systemSettings->Add(new PopupSliderChoice(&g_Config.iMemStickSizeGB, 1, 32, sy->T("Change Memory Stick Size", "Memory Stick Size (GB)"), screenManager(), "GB"));
+	UI::PopupSliderChoice *sizeChoice = systemSettings->Add(new PopupSliderChoice(&g_Config.iMemStickSizeGB, 1, 32, sy->T("Memory Stick size", "Memory Stick size"), screenManager(), "GB"));
+	sizeChoice->SetFormat("%d GB");
 
 	systemSettings->Add(new ItemHeader(sy->T("Help the PPSSPP team")));
 	if (!enableReportsSet_)
