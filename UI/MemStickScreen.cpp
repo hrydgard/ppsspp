@@ -177,8 +177,8 @@ void MemStickScreen::CreateViews() {
 
 	if (!initialSetup_) {
 		rightColumnItems->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-		rightColumnItems->Add(new Choice(di->T("Help")))->OnClick.Handle<MemStickScreen>(this, &MemStickScreen::OnHelp);
 	}
+	rightColumnItems->Add(new Choice(di->T("Help")))->OnClick.Handle<MemStickScreen>(this, &MemStickScreen::OnHelp);
 
 	INFO_LOG(SYSTEM, "MemStickScreen: initialSetup=%d", (int)initialSetup_);
 }
