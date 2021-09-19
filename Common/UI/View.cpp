@@ -904,6 +904,9 @@ void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 		bounds.h = vert.size == 0 ? MAX_ITEM_SIZE : vert.size;
 	}
 	ApplyBoundsBySpec(bounds, horiz, vert);
+	if (bullet_) {
+		bounds.w -= bulletOffset;
+	}
 	dc.MeasureTextRect(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), (int)text_.length(), bounds, &w, &h, textAlign_);
 
 	if (bullet_) {

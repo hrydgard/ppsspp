@@ -190,30 +190,37 @@ void MemStickScreen::CreateViews() {
 	auto di = GetI18NCategory("Dialog");
 	auto iz = GetI18NCategory("MemStick");
 
-	Margins actionMenuMargins(15, 15, 15, 0);
+	Margins actionMenuMargins(15, 0, 15, 0);
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
 	Spacer *spacerColumn = new Spacer(new LinearLayoutParams(20.0, FILL_PARENT, 0.0f));
-	ScrollView *leftColumnScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
+	ScrollView *mainColumnScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
 
-	ViewGroup *leftColumn = new LinearLayoutList(ORIENT_VERTICAL);
-	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(220, FILL_PARENT, actionMenuMargins));
+	ViewGroup *mainColumn = new LinearLayoutList(ORIENT_VERTICAL);
+	mainColumnScroll->Add(mainColumn);
+
 	root_->Add(spacerColumn);
-	root_->Add(leftColumnScroll);
-	root_->Add(rightColumnItems);
-
-	leftColumnScroll->Add(leftColumn);
+	root_->Add(mainColumnScroll);
 
 	if (initialSetup_) {
-		leftColumn->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 12.0f, 0.0f)));
-		leftColumn->Add(new TextView(iz->T("Welcome to PPSSPP!"), ALIGN_LEFT, false));
+		mainColumn->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 12.0f, 0.0f)));
+		mainColumn->Add(new TextView(iz->T("Welcome to PPSSPP!"), ALIGN_LEFT, false));
 	}
 
-	leftColumn->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 18.0f, 0.0f)));
+	mainColumn->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 18.0f, 0.0f)));
 
-	leftColumn->Add(new TextView(iz->T("MemoryStickDescription", "Choose where to keep PSP data (Memory Stick)"), ALIGN_LEFT, false));
-	leftColumn->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 18.0f, 0.0f)));
+	mainColumn->Add(new TextView(iz->T("MemoryStickDescription", "Choose where to keep PSP data (Memory Stick)"), ALIGN_LEFT, false));
+	mainColumn->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 18.0f, 0.0f)));
+
+	ViewGroup *subColumns = new LinearLayoutList(ORIENT_HORIZONTAL);
+	mainColumn->Add(subColumns);
+
+	ViewGroup *leftColumn = new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
+	subColumns->Add(leftColumn);
+
+	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(220, FILL_PARENT, actionMenuMargins));
+	subColumns->Add(rightColumnItems);
 
 	// For legacy Android systems, so you can switch back to the old ways if you move to SD or something.
 	// Trying to avoid needing a scroll view, so only showing the explanation for one option at a time.
@@ -262,7 +269,7 @@ void MemStickScreen::CreateViews() {
 	ImageID confirmButtonImage = ImageID::invalid();
 	switch (choice_) {
 	case CHOICE_BROWSE_FOLDER:
-		confirmButtonText = di->T("Browse");
+		confirmButtonText = di->T("OK");
 		confirmButtonImage = ImageID("I_FOLDER_OPEN");
 		break;
 	case CHOICE_PRIVATE_DIRECTORY:
