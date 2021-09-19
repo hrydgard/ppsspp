@@ -539,7 +539,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		if (PPGeIsFontTextureAddress(texaddr)) {
 			// It's the builtin font texture.
 			entry->status = TexCacheEntry::STATUS_RELIABLE;
-		} else if (g_Config.bTextureBackoffCache) {
+		} else if (g_Config.bTextureBackoffCache && !IsVideo(texaddr)) {
 			entry->status = TexCacheEntry::STATUS_HASHING;
 		} else {
 			entry->status = TexCacheEntry::STATUS_UNRELIABLE;
@@ -1731,7 +1731,7 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	}
 
 	if (fullhash == entry->fullhash) {
-		if (g_Config.bTextureBackoffCache) {
+		if (g_Config.bTextureBackoffCache && !IsVideo(entry->addr)) {
 			if (entry->GetHashStatus() != TexCacheEntry::STATUS_HASHING && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
 				// Reset to STATUS_HASHING.
 				entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
