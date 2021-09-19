@@ -497,7 +497,7 @@ static void CalculateFPS() {
 		}
 	}
 
-	if (g_Config.bDrawFrameGraph) {
+	if (g_Config.bDrawFrameGraph || coreCollectDebugStats) {
 		frameTimeHistory[frameTimeHistoryPos++] = now - lastFrameTimeHistory;
 		lastFrameTimeHistory = now;
 		frameTimeHistoryPos = frameTimeHistoryPos % frameTimeHistorySize;
@@ -682,7 +682,7 @@ static void DoFrameIdleTiming() {
 #endif
 		}
 
-		if (g_Config.bDrawFrameGraph) {
+		if (g_Config.bDrawFrameGraph || coreCollectDebugStats) {
 			frameSleepHistory[frameTimeHistoryPos] += time_now_d() - before;
 		}
 	}
@@ -848,7 +848,7 @@ void __DisplayFlip(int cyclesLate) {
 		CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
 		numVBlanksSinceFlip = 0;
 
-		if (g_Config.bDrawFrameGraph) {
+		if (g_Config.bDrawFrameGraph || coreCollectDebugStats) {
 			// Track how long we sleep (whether vsync or sleep_ms.)
 			frameSleepHistory[frameSleepPos] += time_now_d() - lastFrameTimeHistory;
 		}
@@ -913,7 +913,7 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 	const int over = (int)((now - goal) * 1000000);
 	ScheduleLagSync(over - emuOver);
 
-	if (g_Config.bDrawFrameGraph) {
+	if (g_Config.bDrawFrameGraph || coreCollectDebugStats) {
 		frameSleepHistory[frameTimeHistoryPos] += now - before;
 	}
 }
