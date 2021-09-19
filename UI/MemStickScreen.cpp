@@ -198,7 +198,7 @@ void MemStickScreen::CreateViews() {
 	ScrollView *leftColumnScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
 
 	ViewGroup *leftColumn = new LinearLayoutList(ORIENT_VERTICAL);
-	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT, actionMenuMargins));
+	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(220, FILL_PARENT, actionMenuMargins));
 	root_->Add(spacerColumn);
 	root_->Add(leftColumnScroll);
 	root_->Add(rightColumnItems);
@@ -245,7 +245,7 @@ void MemStickScreen::CreateViews() {
 		AddExplanation(leftColumn, (MemStickScreen::Choice)choice_, extraView);
 	}
 
-	std::string privateString = iz->T("App Private Data");
+	std::string privateString = iz->T("Use App Private Data");
 	if (initialSetup_) {
 		privateString = StringFromFormat("%s (%s)", iz->T("Skip for now"), privateString.c_str());
 	}
