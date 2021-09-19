@@ -244,6 +244,21 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 				s32_le bufsz = gameModeBuffSize;
 				int ret = sceNetAdhocPdpRecv(gameModeSocket, &sendermac, &senderport, gameModeBuffer, &bufsz, 0, ADHOC_F_NONBLOCK);
 				if (ret >= 0 && bufsz > 0) {
+					// Shows a warning if the sender/source port is different than what it supposed to be.
+					if (senderport != ADHOC_GAMEMODE_PORT && senderport != gameModePeerPorts[sendermac]) {
+						char name[9] = {};
+						auto n = GetI18NCategory("Networking");
+						peerlock.lock();
+						SceNetAdhocctlPeerInfo* peer = findFriend(&sendermac);
+						if (peer != NULL)
+							truncate_cpy(name, sizeof(name), (const char*)peer->nickname.data);
+						WARN_LOG(SCENET, "GameMode: Unknown Source Port from [%s][%s:%u -> %u] (Result=%i, Size=%i)", name, mac2str(&sendermac).c_str(), senderport, ADHOC_GAMEMODE_PORT, ret, bufsz);
+						host->NotifyUserMessage(std::string(n->T("GM: Data from Unknown Port")) + std::string(" [") + std::string(name) + std::string("]:") + std::to_string(senderport) + std::string(" -> ") + std::to_string(ADHOC_GAMEMODE_PORT) + std::string(" (") + std::to_string(portOffset) + std::string(")"), 2.0, 0x0080ff);
+						peerlock.unlock();
+					}
+					// Keeping track of the source port for further communication, in case it was re-mapped by router or ISP for some reason.
+					gameModePeerPorts[sendermac] = senderport;
+
 					for (auto& gma : replicaGameModeAreas) {
 						if (IsMatch(gma.mac, sendermac)) {
 							DEBUG_LOG(SCENET, "GameMode: Replica data Received %d bytes for Area #%d [%s]", bufsz, gma.id, mac2str(&sendermac).c_str());
