@@ -689,10 +689,12 @@ class Choice : public ClickableItem {
 public:
 	Choice(const std::string &text, LayoutParams *layoutParams = nullptr)
 		: Choice(text, std::string(), false, layoutParams) {}
+	Choice(const std::string &text, ImageID image, LayoutParams *layoutParams = nullptr)
+		: ClickableItem(layoutParams), text_(text), image_(image) {}
 	Choice(const std::string &text, const std::string &smallText, bool selected = false, LayoutParams *layoutParams = nullptr)
-		: ClickableItem(layoutParams), text_(text), smallText_(smallText), atlasImage_(ImageID::invalid()), iconImage_(ImageID::invalid()), centered_(false), highlighted_(false), selected_(selected) {}
+		: ClickableItem(layoutParams), text_(text), smallText_(smallText), image_(ImageID::invalid()) {}
 	Choice(ImageID image, LayoutParams *layoutParams = nullptr)
-		: ClickableItem(layoutParams), atlasImage_(image), iconImage_(ImageID::invalid()), centered_(false), highlighted_(false), selected_(false) {}
+		: ClickableItem(layoutParams), image_(image), rightIconImage_(ImageID::invalid()) {}
 
 	void Click() override;
 	virtual void HighlightChanged(bool highlighted);
@@ -703,7 +705,7 @@ public:
 		centered_ = c;
 	}
 	virtual void SetIcon(ImageID iconImage) {
-		iconImage_ = iconImage;
+		rightIconImage_ = iconImage;
 	}
 
 protected:
@@ -713,14 +715,14 @@ protected:
 
 	std::string text_;
 	std::string smallText_;
-	ImageID atlasImage_;
-	ImageID iconImage_;  // Only applies for text, non-centered
+	ImageID image_;  // Centered if no text, on the left if text.
+	ImageID rightIconImage_ = ImageID::invalid();  // Shows in the right. Only used for the Gold icon on the main menu.
 	Padding textPadding_;
-	bool centered_;
-	bool highlighted_;
+	bool centered_ = false;
+	bool highlighted_ = false;
 
 private:
-	bool selected_;
+	bool selected_ = false;
 };
 
 // Different key handling.

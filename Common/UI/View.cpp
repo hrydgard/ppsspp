@@ -431,8 +431,8 @@ void Choice::Click() {
 }
 
 void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
-	if (atlasImage_.isValid()) {
-		dc.Draw()->GetAtlas()->measureImage(atlasImage_, &w, &h);
+	if (image_.isValid()) {
+		dc.Draw()->GetAtlas()->measureImage(image_, &w, &h);
 	} else {
 		const int paddingX = 12;
 		float availWidth = horiz.size - paddingX * 2 - textPadding_.horiz();
@@ -486,23 +486,30 @@ void Choice::Draw(UIContext &dc) {
 		style = dc.theme->itemDisabledStyle;
 	}
 
-	if (atlasImage_.isValid()) {
-		dc.Draw()->DrawImage(atlasImage_, bounds_.centerX(), bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
+	if (image_.isValid() && text_.empty()) {
+		dc.Draw()->DrawImage(image_, bounds_.centerX(), bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
 	} else {
 		dc.SetFontStyle(dc.theme->uiFont);
 
-		const int paddingX = 12;
-		const float availWidth = bounds_.w - paddingX * 2 - textPadding_.horiz();
+		int paddingX = 12;
+		float availWidth = bounds_.w - paddingX * 2 - textPadding_.horiz();
+
+		if (image_.isValid()) {
+			const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(image_);
+			paddingX += image->w + 12;
+			availWidth -= image->w + 12;
+			dc.Draw()->DrawImage(image_, bounds_.x + 6, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
+		}
+
 		float scale = CalculateTextScale(dc, availWidth);
 
 		dc.SetFontScale(scale, scale);
 		if (centered_) {
 			dc.DrawTextRect(text_.c_str(), bounds_, style.fgColor, ALIGN_CENTER | FLAG_WRAP_TEXT);
 		} else {
-			if (iconImage_.isValid()) {
-				dc.Draw()->DrawImage(iconImage_, bounds_.x2() - 32 - paddingX, bounds_.centerY(), 0.5f, style.fgColor, ALIGN_CENTER);
+			if (rightIconImage_.isValid()) {
+				dc.Draw()->DrawImage(rightIconImage_, bounds_.x2() - 32 - paddingX, bounds_.centerY(), 0.5f, style.fgColor, ALIGN_CENTER);
 			}
-
 			Bounds textBounds(bounds_.x + paddingX + textPadding_.left, bounds_.y, availWidth, bounds_.h);
 			dc.DrawTextRect(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		}

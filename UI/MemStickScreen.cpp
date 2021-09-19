@@ -275,7 +275,7 @@ void MemStickScreen::CreateViews() {
 		break;
 	}
 
-	rightColumnItems->Add(new Button(confirmButtonText, confirmButtonImage))->OnClick.Handle<MemStickScreen>(this, &MemStickScreen::OnConfirmClick);
+	rightColumnItems->Add(new UI::Choice(confirmButtonText, confirmButtonImage))->OnClick.Handle<MemStickScreen>(this, &MemStickScreen::OnConfirmClick);
 	rightColumnItems->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 12.0f, 0.0f)));
 
 	if (!initialSetup_) {
