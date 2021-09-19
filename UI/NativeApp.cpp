@@ -612,6 +612,13 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	for (int i = 1; i < argc; i++) {
 		if (argv[i][0] == '-') {
+#if defined(__APPLE__)
+			// On Apple system debugged executable may get -NSDocumentRevisionsDebugMode YES in argv.
+			if (!strcmp(argv[i], "-NSDocumentRevisionsDebugMode") && argc - 1 > i) {
+				i++;
+				continue;
+			}
+#endif
 			switch (argv[i][1]) {
 			case 'd':
 				// Enable debug logging
