@@ -1659,6 +1659,7 @@ void ARMXEmitter::VMOV_neon(u32 Size, ARMReg Vd, ARMReg Rt, int lane)
 	case I_16: opc1 = lane >> 1; opc2 = 1 | ((lane & 1) << 1); break;
 	case I_32:
 	case F_32:
+		_assert_msg_((Size & I_UNSIGNED) == 0, "Cannot use UNSIGNED for I_32 or F_32");
 		opc1 = lane & 1;
 		break;
 	default:
@@ -1671,7 +1672,7 @@ void ARMXEmitter::VMOV_neon(u32 Size, ARMReg Vd, ARMReg Rt, int lane)
 		ARMReg Src = Rt;
 		ARMReg Dest = Vd;
 
-		_dbg_assert_msg_((Size & (I_UNSIGNED | I_SIGNED | F_32)) != 0, "Must specify I_SIGNED or I_UNSIGNED in VMOV, unless F_32");
+		_dbg_assert_msg_((Size & (I_UNSIGNED | I_SIGNED | F_32 | I_32)) != 0, "Must specify I_SIGNED or I_UNSIGNED in VMOV, unless F_32/I_32");
 		int U = (Size & I_UNSIGNED) ? (1 << 23) : 0;
 
 		Write32(condition | (0xE1 << 20) | U | (opc1 << 21) | EncodeVn(Src) | (Dest << 12) | (0xB << 8) | (opc2 << 5) | (1 << 4));
