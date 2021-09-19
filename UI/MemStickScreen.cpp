@@ -287,7 +287,7 @@ void MemStickScreen::CreateViews() {
 }
 
 UI::EventReturn MemStickScreen::OnHelp(UI::EventParams &params) {
-	LaunchBrowser("https://ppsspp.org/guide_storage.html");
+	LaunchBrowser("https://www.ppsspp.org/guide_storage.html");
 
 	return UI::EVENT_DONE;
 }
