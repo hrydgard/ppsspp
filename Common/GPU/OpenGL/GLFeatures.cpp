@@ -385,6 +385,7 @@ void CheckGLExtensions() {
 		gl_extensions.OES_texture_float = g_set_gl_extensions.count("GL_OES_texture_float") != 0;
 		gl_extensions.EXT_buffer_storage = g_set_gl_extensions.count("GL_EXT_buffer_storage") != 0;
 		gl_extensions.EXT_clip_cull_distance = g_set_gl_extensions.count("GL_EXT_clip_cull_distance") != 0;
+		gl_extensions.APPLE_clip_distance = g_set_gl_extensions.count("GL_APPLE_clip_distance") != 0;
 
 #if defined(__ANDROID__)
 		// On Android, incredibly, this is not consistently non-zero! It does seem to have the same value though.

@@ -144,6 +144,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (gl_extensions.EXT_clip_cull_distance && id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) {
 			gl_exts.push_back("#extension GL_EXT_clip_cull_distance : enable");
 		}
+		if (gl_extensions.APPLE_clip_distance && id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) {
+			gl_exts.push_back("#extension GL_APPLE_clip_distance : enable");
+		}
 	}
 	ShaderWriter p(buffer, compat, ShaderStage::Vertex, gl_exts.data(), gl_exts.size());
 

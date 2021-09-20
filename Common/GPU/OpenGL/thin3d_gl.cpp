@@ -534,8 +534,13 @@ OpenGLContext::OpenGLContext() {
 	caps_.framebufferBlitSupported = gl_extensions.NV_framebuffer_blit || gl_extensions.ARB_framebuffer_object;
 	caps_.framebufferDepthBlitSupported = caps_.framebufferBlitSupported;
 	caps_.depthClampSupported = gl_extensions.ARB_depth_clamp;
-	caps_.clipDistanceSupported = gl_extensions.EXT_clip_cull_distance || (!gl_extensions.IsGLES && gl_extensions.VersionGEThan(3, 0));
-	caps_.cullDistanceSupported = gl_extensions.EXT_clip_cull_distance || gl_extensions.ARB_cull_distance;
+	if (gl_extensions.IsGLES) {
+		caps_.clipDistanceSupported = gl_extensions.EXT_clip_cull_distance || gl_extensions.APPLE_clip_distance;
+		caps_.cullDistanceSupported = gl_extensions.EXT_clip_cull_distance;
+	} else {
+		caps_.clipDistanceSupported = gl_extensions.VersionGEThan(3, 0);
+		caps_.cullDistanceSupported = gl_extensions.ARB_cull_distance;
+	}
 
 	// Interesting potential hack for emulating GL_DEPTH_CLAMP (use a separate varying, force depth in fragment shader):
 	// This will induce a performance penalty on many architectures though so a blanket enable of this
