@@ -155,13 +155,13 @@ static void AddExplanation(UI::ViewGroup *viewGroup, MemStickScreen::Choice choi
 	switch (choice) {
 	case MemStickScreen::CHOICE_STORAGE_ROOT:
 		// Old school choice
-		holder->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP."), flags, false))->SetBullet(true);
-		holder->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold."), flags, false))->SetBullet(true);
+		holder->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP"), flags, false))->SetBullet(true);
+		holder->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold"), flags, false))->SetBullet(true);
 		holder->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access"), flags, false))->SetBullet(true);
 		break;
 	case MemStickScreen::CHOICE_BROWSE_FOLDER:
-		holder->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP."), flags, false))->SetBullet(true);
-		holder->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold."), flags, false))->SetBullet(true);
+		holder->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP"), flags, false))->SetBullet(true);
+		holder->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold"), flags, false))->SetBullet(true);
 		holder->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access"), flags, false))->SetBullet(true);
 		break;
 	case MemStickScreen::CHOICE_PRIVATE_DIRECTORY:
