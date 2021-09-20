@@ -241,9 +241,12 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	if (enabledFeatures.depthClamp) {
 		features |= GPU_SUPPORTS_DEPTH_CLAMP;
 	}
-	if (enabledFeatures.shaderClipDistance && enabledFeatures.shaderCullDistance) {
+	if (enabledFeatures.shaderClipDistance) {
+		features |= GPU_SUPPORTS_CLIP_DISTANCE;
+	}
+	if (enabledFeatures.shaderCullDistance) {
 		// Must support at least 8 if feature supported, so we're fine.
-		features |= GPU_SUPPORTS_CLIP_CULL_DISTANCE;
+		features |= GPU_SUPPORTS_CULL_DISTANCE;
 	}
 	if (enabledFeatures.dualSrcBlend) {
 		if (!g_Config.bVendorBugChecksEnabled || !draw_->GetBugs().Has(Draw::Bugs::DUAL_SOURCE_BLENDING_BROKEN)) {

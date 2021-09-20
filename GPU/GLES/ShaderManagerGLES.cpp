@@ -183,7 +183,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	initialize.push_back({ &u_tess_weights_v, 0, 6 });
 
 	bool useDualSource = (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) != 0;
-	bool useClip0 = VSID.Bit(VS_BIT_VERTEX_RANGE_CULLING) && gstate_c.Supports(GPU_SUPPORTS_CLIP_CULL_DISTANCE);
+	bool useClip0 = VSID.Bit(VS_BIT_VERTEX_RANGE_CULLING) && gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE);
 	program = render->CreateProgram(shaders, semantics, queries, initialize, useDualSource, useClip0);
 
 	// The rest, use the "dirty" mechanism.
