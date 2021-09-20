@@ -216,7 +216,7 @@ fn main() {
     }
 
     for filename in filenames {
-        if filename == "langtool" {
+        if filename == "langtool" || !filename.ends_with("ini") {
             // Get this from cargo run for some reason.
             continue;
         }
