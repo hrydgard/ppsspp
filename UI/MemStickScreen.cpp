@@ -277,13 +277,13 @@ void MemStickScreen::CreateViews() {
 			confirmButtonText = di->T("Skip");
 			confirmButtonImage = ImageID("I_WARNING");
 		} else {
-			confirmButtonText = di->T("Confirm");
+			confirmButtonText = di->T("OK");
 		}
 		break;
 	case CHOICE_STORAGE_ROOT:
 	case CHOICE_SET_MANUAL:
 	default:
-		confirmButtonText = di->T("Confirm");
+		confirmButtonText = di->T("OK");
 		break;
 	}
 
