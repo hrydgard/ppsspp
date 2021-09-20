@@ -1,4 +1,3 @@
-use std::ascii::AsciiExt;
 use std::fs::File;
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
@@ -11,6 +10,7 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone)]
 struct Section {
     name: String,
+    title_line: String,
     lines: Vec<String>,
 }
 
@@ -50,6 +50,7 @@ struct IniFile {
     filename: PathBuf,
     preamble: Vec<String>,
     sections: Vec<Section>,
+    has_bom: bool,
 }
 
 impl IniFile {
@@ -60,10 +61,13 @@ impl IniFile {
         let mut preamble = vec![];
         let mut cur_section = None;
 
+        let mut has_bom = false;
+
         for line in lines {
             let line = line.unwrap();
 
             let line = if line.starts_with("\u{feff}") {
+                has_bom = true;
                 &line[3..]
             } else {
                 &line
@@ -78,6 +82,7 @@ impl IniFile {
                     let name = &line[1..right_bracket];
                     cur_section = Some(Section {
                         name: name.to_owned(),
+                        title_line: line.to_owned(), // preserves comment and bom
                         lines: vec![],
                     });
                 } else {
@@ -101,6 +106,7 @@ impl IniFile {
             filename: PathBuf::from(filename),
             preamble,
             sections,
+            has_bom,
         };
         Ok(ini)
     }
@@ -109,12 +115,17 @@ impl IniFile {
         let file = std::fs::File::create(&self.filename)?;
         let mut file = std::io::LineWriter::new(file);
 
+        // Write BOM
+        if self.has_bom {
+            file.write_all("\u{feff}".as_bytes())?;
+        }
         for line in &self.preamble {
             file.write_all(line.as_bytes())?;
             file.write(b"\n")?;
         }
         for section in &self.sections {
-            file.write_fmt(format_args!("[{}]\n", section.name))?;
+            file.write_all(section.title_line.as_bytes())?;
+            file.write(b"\n")?;
             for line in &section.lines {
                 file.write_all(line.as_bytes())?;
                 file.write(b"\n")?;
@@ -182,7 +193,7 @@ fn copy_missing_lines(reference_ini: &IniFile, target_ini: &mut IniFile) {
 }
 
 fn main() {
-    let args: Vec<_> = std::env::args().skip(2).collect();
+    let args: Vec<_> = std::env::args().skip(1).collect();
 
     let mut filenames = args;
 
@@ -205,6 +216,10 @@ fn main() {
     }
 
     for filename in filenames {
+        if filename == "langtool" {
+            // Get this from cargo run for some reason.
+            continue;
+        }
         let target_ini_filename = format!("{}/{}", root, filename);
         println!("Langtool processing {}", target_ini_filename);
         let mut target_ini = IniFile::parse(&target_ini_filename).unwrap();
