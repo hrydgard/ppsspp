@@ -293,7 +293,7 @@ void MemStickScreen::CreateViews() {
 	if (!initialSetup_) {
 		rightColumnItems->Add(new UI::Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	}
-	rightColumnItems->Add(new UI::Choice(di->T("WhatsThis", "What's this?")))->OnClick.Handle<MemStickScreen>(this, &MemStickScreen::OnHelp);
+	rightColumnItems->Add(new UI::Choice(iz->T("WhatsThis", "What's this?")))->OnClick.Handle<MemStickScreen>(this, &MemStickScreen::OnHelp);
 
 	INFO_LOG(SYSTEM, "MemStickScreen: initialSetup=%d", (int)initialSetup_);
 }
