@@ -38,9 +38,10 @@
 
 #include "Common/Thread/ThreadManager.h"
 
-#include "Core/Util/GameManager.h"
-#include "Core/System.h"
 #include "Core/Config.h"
+#include "Core/Reporting.h"
+#include "Core/System.h"
+#include "Core/Util/GameManager.h"
 
 #include "UI/MemStickScreen.h"
 #include "UI/MainScreen.h"
@@ -79,7 +80,7 @@ static bool SwitchMemstickFolderTo(Path newMemstickFolder) {
 	std::string str = newMemstickFolder.ToString();
 	if (!File::WriteDataToFile(true, str.c_str(), (unsigned int)str.size(), memStickDirFile)) {
 		ERROR_LOG(SYSTEM, "Failed to write memstick path '%s' to '%s'", newMemstickFolder.c_str(), memStickDirFile.c_str());
-		// Not sure what to do if this file.
+		// Not sure what to do if this file can't be written.  Disk full?
 	}
 
 	// Save so the settings, at least, are transferred.
@@ -116,7 +117,7 @@ MemStickScreen::MemStickScreen(bool initialSetup)
 		if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
 			choice_ = CHOICE_BROWSE_FOLDER;
 		} else {
-			WARN_LOG(SYSTEM, "Scoped storage not enabled - shouldn't be in MemStickScreen at initial setup");
+			WARN_LOG_REPORT(SYSTEM, "Scoped storage not enabled - shouldn't be in MemStickScreen at initial setup");
 			choice_ = CHOICE_STORAGE_ROOT;
 			// Shouldn't really be here in initial setup.
 		}
@@ -277,13 +278,13 @@ void MemStickScreen::CreateViews() {
 			confirmButtonText = di->T("Skip");
 			confirmButtonImage = ImageID("I_WARNING");
 		} else {
-			confirmButtonText = di->T("Confirm");
+			confirmButtonText = di->T("OK");
 		}
 		break;
 	case CHOICE_STORAGE_ROOT:
 	case CHOICE_SET_MANUAL:
 	default:
-		confirmButtonText = di->T("Confirm");
+		confirmButtonText = di->T("OK");
 		break;
 	}
 
@@ -404,6 +405,7 @@ UI::EventReturn MemStickScreen::UseInternalStorage(UI::EventParams &params) {
 			TriggerFinish(DialogResult::DR_OK);
 		} else {
 			// This can't really happen?? Not worth making an error message.
+			ERROR_LOG_REPORT(SYSTEM, "Could not switch memstick path in setup (internal)");
 		}
 	} else if (pendingMemStickFolder != g_Config.memStickDirectory) {
 		// Always ask for confirmation when called from the UI. Likely there's already some data.
@@ -425,6 +427,7 @@ UI::EventReturn MemStickScreen::UseStorageRoot(UI::EventParams &params) {
 			TriggerFinish(DialogResult::DR_OK);
 		} else {
 			// This can't really happen?? Not worth making an error message.
+			ERROR_LOG_REPORT(SYSTEM, "Could not switch memstick path in setup");
 		}
 	} else if (pendingMemStickFolder != g_Config.memStickDirectory) {
 		// Always ask for confirmation when called from the UI. Likely there's already some data.
@@ -503,7 +506,7 @@ static bool ListFileSuffixesRecursively(const Path &root, Path folder, std::vect
 				dirSuffixes.push_back(dirSuffix);
 				ListFileSuffixesRecursively(root, folder / file.name, dirSuffixes, fileSuffixes);
 			} else {
-				ERROR_LOG(SYSTEM, "Failed to compute PathTo from '%s' to '%s'", root.c_str(), folder.c_str());
+				ERROR_LOG_REPORT(SYSTEM, "Failed to compute PathTo from '%s' to '%s'", root.c_str(), folder.c_str());
 			}
 		} else {
 			std::string fileSuffix;
