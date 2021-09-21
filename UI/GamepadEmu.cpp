@@ -97,16 +97,13 @@ void MultiTouchButton::GetContentDimensions(const UIContext &dc, float &w, float
 }
 
 void MultiTouchButton::Touch(const TouchInput &input) {
-	if (analogPointerMask & (1 << input.id))
-		return;
-
 	GamepadView::Touch(input);
 	if ((input.flags & TOUCH_DOWN) && bounds_.Contains(input.x, input.y)) {
 		pointerDownMask_ |= 1 << input.id;
 		usedPointerMask |= 1 << input.id;
 	}
 	if (input.flags & TOUCH_MOVE) {
-		if (bounds_.Contains(input.x, input.y))
+		if (bounds_.Contains(input.x, input.y) && !(analogPointerMask & (1 << input.id)))
 			pointerDownMask_ |= 1 << input.id;
 		else
 			pointerDownMask_ &= ~(1 << input.id);
@@ -156,9 +153,6 @@ void MultiTouchButton::Draw(UIContext &dc) {
 }
 
 void BoolButton::Touch(const TouchInput &input) {
-	if (analogPointerMask & (1 << input.id))
-		return;
-
 	bool lastDown = pointerDownMask_ != 0;
 	MultiTouchButton::Touch(input);
 	bool down = pointerDownMask_ != 0;
@@ -172,9 +166,6 @@ void BoolButton::Touch(const TouchInput &input) {
 }
 
 void PSPButton::Touch(const TouchInput &input) {
-	if (analogPointerMask & (1 << input.id))
-		return;
-
 	bool lastDown = pointerDownMask_ != 0;
 	MultiTouchButton::Touch(input);
 	bool down = pointerDownMask_ != 0;
@@ -202,9 +193,6 @@ void ComboKey::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 }
 
 void ComboKey::Touch(const TouchInput &input) {
-	if (analogPointerMask & (1 << input.id))
-		return;
-
 	using namespace CustomKey;
 	bool lastDown = pointerDownMask_ != 0;
 	MultiTouchButton::Touch(input);
@@ -244,9 +232,6 @@ void PSPDpad::GetContentDimensions(const UIContext &dc, float &w, float &h) cons
 }
 
 void PSPDpad::Touch(const TouchInput &input) {
-	if (analogPointerMask & (1 << input.id))
-		return;
-
 	GamepadView::Touch(input);
 
 	if (input.flags & TOUCH_DOWN) {
@@ -257,7 +242,7 @@ void PSPDpad::Touch(const TouchInput &input) {
 		}
 	}
 	if (input.flags & TOUCH_MOVE) {
-		if (dragPointerId_ == -1 && bounds_.Contains(input.x, input.y)) {
+		if (dragPointerId_ == -1 && bounds_.Contains(input.x, input.y) && !(analogPointerMask & (1 << input.id))) {
 			dragPointerId_ = input.id;
 		}
 		if (input.id == dragPointerId_) {
