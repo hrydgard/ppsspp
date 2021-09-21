@@ -21,6 +21,14 @@ impl Section {
         } else {
             return false;
         };
+        // Ignore comments when copying lines.
+        if prefix.starts_with("#") {
+            return false;
+        }
+        // Need to decide a policy for these.
+        if prefix.starts_with("translators") {
+            return false;
+        }
         let prefix = prefix.to_owned();
 
         for iter_line in &self.lines {
