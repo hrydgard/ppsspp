@@ -145,7 +145,7 @@ void InitInstanceCounter() {
 	// TODO : replace shm_open & shm_unlink with ashmem or android-shmem
 #else
 	// Create shared memory object
-	hIDMapFile = shm_open(ID_SHM_NAME, O_CREAT | O_RDWR, 0);
+	hIDMapFile = shm_open(ID_SHM_NAME, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 	BUF_SIZE = (BUF_SIZE < sysconf(_SC_PAGE_SIZE)) ? sysconf(_SC_PAGE_SIZE) : BUF_SIZE;
 
 	if (hIDMapFile < 0 || (ftruncate(hIDMapFile, BUF_SIZE)) == -1) {    // Set the size
