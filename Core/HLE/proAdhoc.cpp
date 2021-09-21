@@ -2252,7 +2252,7 @@ bool resolveIP(uint32_t ip, SceNetEtherAddr * mac) {
 	}
 
 	// Multithreading Lock
-	peerlock.lock();
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
 
 	// Peer Reference
 	SceNetAdhocctlPeerInfo * peer = friends;
@@ -2264,16 +2264,10 @@ bool resolveIP(uint32_t ip, SceNetEtherAddr * mac) {
 			// Copy Data
 			*mac = peer->mac_addr;
 
-			// Multithreading Unlock
-			peerlock.unlock();
-
 			// Return Success
 			return true;
 		}
 	}
-
-	// Multithreading Unlock
-	peerlock.unlock();
 
 	// Peer not found
 	return false;
@@ -2293,7 +2287,7 @@ bool resolveMAC(SceNetEtherAddr * mac, uint32_t * ip) {
 	}
 
 	// Multithreading Lock
-	std::lock_guard<std::recursive_mutex> guard(peerlock);
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
 
 	// Peer Reference
 	SceNetAdhocctlPeerInfo * peer = friends;
