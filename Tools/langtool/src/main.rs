@@ -39,15 +39,26 @@ impl Section {
         }
 
         // Now try to insert it at an alphabetic-ish location.
+        let prefix = prefix.to_ascii_lowercase();
 
         // Then, find a suitable insertion spot
         for (i, iter_line) in self.lines.iter().enumerate() {
-            if iter_line > &prefix {
+            if iter_line.to_ascii_lowercase() > prefix {
                 println!("Inserting line {} into {}", line, self.name);
                 self.lines.insert(i, line.to_owned());
                 return true;
             }
         }
+
+        for i in (0..self.lines.len()).rev() {
+            if self.lines[i].is_empty() {
+                continue;
+            }
+            println!("Inserting line {} into {}", line, self.name);
+            self.lines.insert(i + 1, line.to_owned());
+            return true;
+        }
+
         println!("failed to insert {}", line);
         true
     }
@@ -62,7 +73,7 @@ impl Section {
                 // Keep non-key lines.
                 continue;
             };
-            if prefix.starts_with("Font") {
+            if prefix.starts_with("Font") || prefix.starts_with('#') {
                 continue;
             }
             if !other.lines.iter().any(|line| line.starts_with(prefix)) {
@@ -71,6 +82,27 @@ impl Section {
                 *line = "#".to_owned() + line;
             }
         }
+    }
+
+    fn remove_lines_if_not_in(&mut self, other: &Section) {
+        // Brute force (O(n^2)). Bad but not a problem.
+
+        self.lines.retain(|line| {
+            let prefix = if let Some(pos) = line.find(" =") {
+                &line[0..pos + 2]
+            } else {
+                // Keep non-key lines.
+                return true;
+            };
+            if prefix.starts_with("Font") || prefix.starts_with('#') {
+                return true;
+            }
+            if !other.lines.iter().any(|line| line.starts_with(prefix)) {
+                false
+            } else {
+                true
+            }
+        });
     }
 }
 
@@ -213,6 +245,7 @@ fn copy_missing_lines(reference_ini: &IniFile, target_ini: &mut IniFile) -> io::
                     target_section.insert_line_if_missing(line);
                 }
 
+                //target_section.remove_lines_if_not_in(reference_section);
                 target_section.comment_out_lines_if_not_in(reference_section);
             }
         }
