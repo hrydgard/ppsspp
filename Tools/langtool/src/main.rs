@@ -39,15 +39,26 @@ impl Section {
         }
 
         // Now try to insert it at an alphabetic-ish location.
+        let prefix = prefix.to_ascii_lowercase();
 
         // Then, find a suitable insertion spot
         for (i, iter_line) in self.lines.iter().enumerate() {
-            if iter_line > &prefix {
+            if iter_line.to_ascii_lowercase() > prefix {
                 println!("Inserting line {} into {}", line, self.name);
                 self.lines.insert(i, line.to_owned());
                 return true;
             }
         }
+
+        for i in (0..self.lines.len()).rev() {
+            if self.lines[i].is_empty() {
+                continue;
+            }
+            println!("Inserting line {} into {}", line, self.name);
+            self.lines.insert(i + 1, line.to_owned());
+            return true;
+        }
+
         println!("failed to insert {}", line);
         true
     }
@@ -62,7 +73,7 @@ impl Section {
                 // Keep non-key lines.
                 continue;
             };
-            if prefix.starts_with("Font") {
+            if prefix.starts_with("Font") || prefix.starts_with('#') {
                 continue;
             }
             if !other.lines.iter().any(|line| line.starts_with(prefix)) {
