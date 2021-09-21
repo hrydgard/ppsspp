@@ -5390,6 +5390,9 @@ int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u3
 					void* data = NULL;
 					if (Memory::IsValidAddress(dataAddr)) data = Memory::GetPointer(dataAddr);
 
+					// Lock the peer
+					std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 					// Find Target Peer
 					SceNetAdhocMatchingMemberInternal* peer = findPeer(context, (SceNetEtherAddr*)mac);
 
@@ -7306,9 +7309,12 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 				// FIXME: When using JPCSP + prx files, the "SceNetAdhocMatchingInput" thread is using blocking PdpRecv with infinite(0) timeout, which can be stopped/aborted using SetSocketAlert, while "SceNetAdhocMatchingEvent" thread is using non-blocking for sending
 				rxbuflen = context->rxbuflen;
 				senderport = 0;
+				// Lock the peer first before locking the socket to avoid race condiion
+				peerlock.lock();
 				context->socketlock->lock();
 				int recvresult = sceNetAdhocPdpRecv(context->socket, &sendermac, &senderport, context->rxbuf, &rxbuflen, 0, ADHOC_F_NONBLOCK);
 				context->socketlock->unlock();
+				peerlock.unlock();
 
 				// Received Data from a Sender that interests us
 				// Note: There are cases where the sender port might be re-mapped by router or ISP, so we shouldn't check the source port.
