@@ -22,7 +22,7 @@ impl Section {
             return false;
         };
         // Ignore comments when copying lines.
-        if prefix.starts_with("#") {
+        if prefix.starts_with('#') {
             return false;
         }
         // Need to decide a policy for these.
@@ -49,7 +49,7 @@ impl Section {
             }
         }
         println!("failed to insert {}", line);
-        return true;
+        true
     }
 }
 
@@ -74,9 +74,9 @@ impl IniFile {
         for line in lines {
             let line = line.unwrap();
 
-            let line = if line.starts_with("\u{feff}") {
+            let line = if let Some(line) = line.strip_prefix('\u{feff}') {
                 has_bom = true;
-                &line[3..]
+                line
             } else {
                 &line
             };
@@ -97,12 +97,10 @@ impl IniFile {
                     // Bad syntax
                     break;
                 }
+            } else if let Some(cur_section) = &mut cur_section {
+                cur_section.lines.push(line.to_owned());
             } else {
-                if let Some(cur_section) = &mut cur_section {
-                    cur_section.lines.push(line.to_owned());
-                } else {
-                    preamble.push(line.to_owned());
-                }
+                preamble.push(line.to_owned());
             }
         }
 
@@ -129,14 +127,14 @@ impl IniFile {
         }
         for line in &self.preamble {
             file.write_all(line.as_bytes())?;
-            file.write(b"\n")?;
+            file.write_all(b"\n")?;
         }
         for section in &self.sections {
             file.write_all(section.title_line.as_bytes())?;
-            file.write(b"\n")?;
+            file.write_all(b"\n")?;
             for line in &section.lines {
                 file.write_all(line.as_bytes())?;
-                file.write(b"\n")?;
+                file.write_all(b"\n")?;
             }
         }
 
@@ -163,7 +161,7 @@ impl IniFile {
         }
         // Reached the end for some reason? Add it.
         self.sections.push(section.clone());
-        return true;
+        true
     }
 
     fn get_section_mut(&mut self, section_name: &str) -> Option<&mut Section> {
@@ -185,7 +183,7 @@ where
     Ok(io::BufReader::new(file).lines())
 }
 
-fn copy_missing_lines(reference_ini: &IniFile, target_ini: &mut IniFile) {
+fn copy_missing_lines(reference_ini: &IniFile, target_ini: &mut IniFile) -> io::Result<()> {
     // Insert any missing full sections.
     for section in &reference_ini.sections {
         if !target_ini.insert_section_if_missing(section) {
@@ -197,7 +195,8 @@ fn copy_missing_lines(reference_ini: &IniFile, target_ini: &mut IniFile) {
         }
     }
 
-    target_ini.write();
+    target_ini.write()?;
+    Ok(())
 }
 
 fn main() {
@@ -231,7 +230,7 @@ fn main() {
         let target_ini_filename = format!("{}/{}", root, filename);
         println!("Langtool processing {}", target_ini_filename);
         let mut target_ini = IniFile::parse(&target_ini_filename).unwrap();
-        copy_missing_lines(&reference_ini, &mut target_ini);
+        copy_missing_lines(&reference_ini, &mut target_ini).unwrap();
     }
 
     // println!("{:#?}", target_ini);
