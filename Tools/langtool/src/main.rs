@@ -51,6 +51,27 @@ impl Section {
         println!("failed to insert {}", line);
         true
     }
+
+    fn comment_out_lines_if_not_in(&mut self, other: &Section) {
+        // Brute force (O(n^2)). Bad but not a problem.
+
+        for line in &mut self.lines {
+            let prefix = if let Some(pos) = line.find(" =") {
+                &line[0..pos + 2]
+            } else {
+                // Keep non-key lines.
+                continue;
+            };
+            if prefix.starts_with("Font") {
+                continue;
+            }
+            if !other.lines.iter().any(|line| line.starts_with(prefix)) {
+                println!("Commenting out: {}", line);
+                // Comment out the line.
+                *line = "#".to_owned() + line;
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -185,12 +206,14 @@ where
 
 fn copy_missing_lines(reference_ini: &IniFile, target_ini: &mut IniFile) -> io::Result<()> {
     // Insert any missing full sections.
-    for section in &reference_ini.sections {
-        if !target_ini.insert_section_if_missing(section) {
-            if let Some(target_section) = target_ini.get_section_mut(&section.name) {
-                for line in &section.lines {
+    for reference_section in &reference_ini.sections {
+        if !target_ini.insert_section_if_missing(reference_section) {
+            if let Some(target_section) = target_ini.get_section_mut(&reference_section.name) {
+                for line in &reference_section.lines {
                     target_section.insert_line_if_missing(line);
                 }
+
+                target_section.comment_out_lines_if_not_in(reference_section);
             }
         }
     }
