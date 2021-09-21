@@ -83,6 +83,27 @@ impl Section {
             }
         }
     }
+
+    fn remove_lines_if_not_in(&mut self, other: &Section) {
+        // Brute force (O(n^2)). Bad but not a problem.
+
+        self.lines.retain(|line| {
+            let prefix = if let Some(pos) = line.find(" =") {
+                &line[0..pos + 2]
+            } else {
+                // Keep non-key lines.
+                return true;
+            };
+            if prefix.starts_with("Font") || prefix.starts_with('#') {
+                return true;
+            }
+            if !other.lines.iter().any(|line| line.starts_with(prefix)) {
+                false
+            } else {
+                true
+            }
+        });
+    }
 }
 
 #[derive(Debug)]
@@ -224,6 +245,7 @@ fn copy_missing_lines(reference_ini: &IniFile, target_ini: &mut IniFile) -> io::
                     target_section.insert_line_if_missing(line);
                 }
 
+                //target_section.remove_lines_if_not_in(reference_section);
                 target_section.comment_out_lines_if_not_in(reference_section);
             }
         }
