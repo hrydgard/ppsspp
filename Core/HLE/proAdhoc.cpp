@@ -1357,7 +1357,7 @@ int friendFinder(){
 	addrinfo* resolved = nullptr;
 	std::string err;
 	g_adhocServerIP.in.sin_addr.s_addr = INADDR_NONE;
-	if (!net::DNSResolve(g_Config.proAdhocServer, "", &resolved, err)) {
+	if (g_Config.bEnableWlan && !net::DNSResolve(g_Config.proAdhocServer, "", &resolved, err)) {
 		ERROR_LOG(SCENET, "DNS Error Resolving %s\n", g_Config.proAdhocServer.c_str());
 		host->NotifyUserMessage(n->T("DNS Error Resolving ") + g_Config.proAdhocServer, 2.0f, 0x0000ff);
 	}
