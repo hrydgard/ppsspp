@@ -1,9 +1,8 @@
 [package]
-name = "langtool"
-version = "0.1.0"
 authors = ["Henrik Rydgård <hrydgard@gmail.com>"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+name = "langtool"
+version = "0.1.0"
 
 [dependencies]
+structopt = "0.3"
