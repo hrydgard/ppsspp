@@ -1,8 +1,8 @@
 # Language ini file processor tool
 
-Wrote it quickly in rust as a little exercise.
+To install Rust and cargo, [go here](https://www.rust-lang.org/learn/get-started).
 
-To run, with rust installed:
+To run, with rust installed, change to this Tools/langtool directory, then:
 
 ```rust
 cargo run
