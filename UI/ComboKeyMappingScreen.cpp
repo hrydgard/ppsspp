@@ -152,7 +152,7 @@ void ComboKeyScreen::CreateViews() {
 	LinearLayout *vertLayout = new LinearLayout(ORIENT_VERTICAL);
 	rightScroll_->Add(vertLayout);
 	
-	vertLayout->Add(new ItemHeader(co->T("Button Style")));
+	vertLayout->Add(new ItemHeader(co->T("Button style")));
 	vertLayout->Add(new CheckBox(show, co->T("Visible")));
 
 	// All icon and name are defined in GamepadEmu.h
