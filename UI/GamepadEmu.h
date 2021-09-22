@@ -212,44 +212,42 @@ protected:
 namespace CustomKey {
 	// Image list
 	struct keyImage {
-		const char* n; // UI name
 		ImageID i; // ImageID
 		float r; // Rotation angle in degree
 	};
 	static const keyImage comboKeyImages[] = {
-		{ "1", ImageID("I_1"), 0.0f },
-		{ "2", ImageID("I_2"), 0.0f },
-		{ "3", ImageID("I_3"), 0.0f },
-		{ "4", ImageID("I_4"), 0.0f },
-		{ "5", ImageID("I_5"), 0.0f },
-		{ "6", ImageID("I_6"), 0.0f },
-		{ "A", ImageID("I_A"), 0.0f },
-		{ "B", ImageID("I_B"), 0.0f },
-		{ "C", ImageID("I_C"), 0.0f },
-		{ "D", ImageID("I_D"), 0.0f },
-		{ "E", ImageID("I_E"), 0.0f },
-		{ "F", ImageID("I_F"), 0.0f },
-		{ "Circle", ImageID("I_CIRCLE"), 0.0f },
-		{ "Cross", ImageID("I_CROSS"), 0.0f },
-		{ "Square", ImageID("I_SQUARE"), 0.0f },
-		{ "Triangle", ImageID("I_TRIANGLE"), 0.0f },
-		{ "L", ImageID("I_L"), 0.0f },
-		{ "R", ImageID("I_R"),  0.0f },
-		{ "Start", ImageID("I_START"), 0.0f },
-		{ "Select", ImageID("I_SELECT"), 0.0f },
-		{ "Plus", ImageID("I_CROSS"), 45.0f },
-		{ "Rhombus", ImageID("I_SQUARE"), 45.0f },
-		{ "Down Triangle", ImageID("I_TRIANGLE"), 180.0f },
-		{ "Arrow up", ImageID("I_ARROW"), 90.0f},
-		{ "Arrow down", ImageID("I_ARROW"), 270.0f},
-		{ "Arrow left", ImageID("I_ARROW"), 0.0f},
-		{ "Arrow right", ImageID("I_ARROW"), 180.0f},
-		{ "Gear", ImageID("I_GEAR"), 0.0f},
+		{ ImageID("I_1"), 0.0f },
+		{ ImageID("I_2"), 0.0f },
+		{ ImageID("I_3"), 0.0f },
+		{ ImageID("I_4"), 0.0f },
+		{ ImageID("I_5"), 0.0f },
+		{ ImageID("I_6"), 0.0f },
+		{ ImageID("I_A"), 0.0f },
+		{ ImageID("I_B"), 0.0f },
+		{ ImageID("I_C"), 0.0f },
+		{ ImageID("I_D"), 0.0f },
+		{ ImageID("I_E"), 0.0f },
+		{ ImageID("I_F"), 0.0f },
+		{ ImageID("I_CIRCLE"), 0.0f },
+		{ ImageID("I_CROSS"), 0.0f },
+		{ ImageID("I_SQUARE"), 0.0f },
+		{ ImageID("I_TRIANGLE"), 0.0f },
+		{ ImageID("I_L"), 0.0f },
+		{ ImageID("I_R"),  0.0f },
+		{ ImageID("I_START"), 0.0f },
+		{ ImageID("I_SELECT"), 0.0f },
+		{ ImageID("I_CROSS"), 45.0f },
+		{ ImageID("I_SQUARE"), 45.0f },
+		{ ImageID("I_TRIANGLE"), 180.0f },
+		{ ImageID("I_ARROW"), 90.0f},
+		{ ImageID("I_ARROW"), 270.0f},
+		{ ImageID("I_ARROW"), 0.0f},
+		{ ImageID("I_ARROW"), 180.0f},
+		{ ImageID("I_GEAR"), 0.0f},
 	};
 
 	// Shape list
 	struct keyShape {
-		const char* n; // UI name
 		ImageID i; // ImageID
 		ImageID l; // ImageID line version
 		float r; // Rotation angle in dregree
@@ -257,16 +255,16 @@ namespace CustomKey {
 		bool d; // Invert height and width for context dimension (for example for 90 degree rot)
 	};
 	static const keyShape comboKeyShapes[] = {
-		{ "Circle", ImageID("I_ROUND"), ImageID("I_ROUND_LINE"), 0.0f, false, false },
-		{ "Rectangle", ImageID("I_RECT"), ImageID("I_RECT_LINE"), 0.0f, false, false },
-		{ "Vertical Rectangle", ImageID("I_RECT"), ImageID("I_RECT_LINE"), 90.0f, false, true },
-		{ "L button", ImageID("I_SHOULDER"), ImageID("I_SHOULDER_LINE"), 0.0f, false, false },
-		{ "R button", ImageID("I_SHOULDER"), ImageID("I_SHOULDER_LINE"), 0.0f, true, false },
-		{ "Arrow up", ImageID("I_DIR"), ImageID("I_DIR_LINE"), 270.0f, false, true },
-		{ "Arrow down", ImageID("I_DIR"), ImageID("I_DIR_LINE"), 90.0f, false, true },
-		{ "Arrow left", ImageID("I_DIR"), ImageID("I_DIR_LINE"), 180.0f, false, false },
-		{ "Arrow right", ImageID("I_DIR"), ImageID("I_DIR_LINE"), 0.0f, false, false },
-		{ "Square", ImageID("I_SQUARE_SHAPE"), ImageID("I_SQUARE_SHAPE_LINE"), 0.0f, false, false },
+		{ ImageID("I_ROUND"), ImageID("I_ROUND_LINE"), 0.0f, false, false },
+		{ ImageID("I_RECT"), ImageID("I_RECT_LINE"), 0.0f, false, false },
+		{ ImageID("I_RECT"), ImageID("I_RECT_LINE"), 90.0f, false, true },
+		{ ImageID("I_SHOULDER"), ImageID("I_SHOULDER_LINE"), 0.0f, false, false },
+		{ ImageID("I_SHOULDER"), ImageID("I_SHOULDER_LINE"), 0.0f, true, false },
+		{ ImageID("I_DIR"), ImageID("I_DIR_LINE"), 270.0f, false, true },
+		{ ImageID("I_DIR"), ImageID("I_DIR_LINE"), 90.0f, false, true },
+		{ ImageID("I_DIR"), ImageID("I_DIR_LINE"), 180.0f, false, false },
+		{ ImageID("I_DIR"), ImageID("I_DIR_LINE"), 0.0f, false, false },
+		{ ImageID("I_SQUARE_SHAPE"), ImageID("I_SQUARE_SHAPE_LINE"), 0.0f, false, false },
 	};
 
 	// Button list

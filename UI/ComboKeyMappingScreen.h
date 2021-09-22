@@ -32,7 +32,10 @@ public:
 
 	void CreateViews() override;
 	void onFinish(DialogResult result) override;
-	UI::EventReturn onCombo(UI::EventParams &e);
+
+protected:
+	void dialogFinished(const Screen *dialog, DialogResult result) override;
+
 private:
 	void saveArray();
 

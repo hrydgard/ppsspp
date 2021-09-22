@@ -1130,7 +1130,7 @@ void MainScreen::CreateViews() {
 	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		Choice *gold = rightColumnItems->Add(new Choice(mm->T("Buy PPSSPP Gold")));
 		gold->OnClick.Handle(this, &MainScreen::OnSupport);
-		gold->SetIcon(ImageID("I_ICONGOLD"));
+		gold->SetIcon(ImageID("I_ICONGOLD"), 0.5f);
 	}
 
 #if !PPSSPP_PLATFORM(UWP)
