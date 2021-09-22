@@ -32,6 +32,62 @@
 
 #include "UI/ComboKeyMappingScreen.h"
 
+class ButtonShapeScreen : public PopupScreen {
+public:
+	ButtonShapeScreen(std::string title, int *setting) : PopupScreen(title), setting_(setting) {}
+
+	void CreatePopupContents(UI::ViewGroup *parent) override {
+		using namespace UI;
+		using namespace CustomKey;
+
+		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
+		LinearLayout *items = new LinearLayoutList(ORIENT_VERTICAL);
+
+		for (int i = 0; i < ARRAY_SIZE(comboKeyShapes); ++i) {
+			Choice *c = items->Add(new Choice(ImageID(comboKeyShapes[i].l), 0.6f, comboKeyShapes[i].r*PI/180, comboKeyShapes[i].f));
+			c->OnClick.Add([=](UI::EventParams &e) {
+				*setting_ = i;
+				TriggerFinish(DR_OK);
+				return UI::EVENT_DONE;
+			});
+		}
+
+		scroll->Add(items);
+		parent->Add(scroll);
+	}
+
+private:
+	int *setting_;
+};
+
+class ButtonIconScreen : public PopupScreen {
+public:
+	ButtonIconScreen(std::string title, int *setting) : PopupScreen(title), setting_(setting) {}
+
+	void CreatePopupContents(UI::ViewGroup *parent) override {
+		using namespace UI;
+		using namespace CustomKey;
+
+		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
+		LinearLayout *items = new LinearLayoutList(ORIENT_VERTICAL);
+
+		for (int i = 0; i < ARRAY_SIZE(comboKeyImages); ++i) {
+			Choice *c = items->Add(new Choice(ImageID(comboKeyImages[i].i), 1.0f, comboKeyImages[i].r*PI/180));
+			c->OnClick.Add([=](UI::EventParams &e) {
+				*setting_ = i;
+				TriggerFinish(DR_OK);
+				return UI::EVENT_DONE;
+			});
+		}
+
+		scroll->Add(items);
+		parent->Add(scroll);
+	}
+
+private:
+	int *setting_;
+};
+
 class ButtonPreview : public UI::View {
 public:
 	ButtonPreview(ImageID bgImg, ImageID img, float rotationIcon, bool flipShape, float rotationShape, int x, int y)
@@ -155,20 +211,27 @@ void ComboKeyScreen::CreateViews() {
 	vertLayout->Add(new ItemHeader(co->T("Button style")));
 	vertLayout->Add(new CheckBox(show, co->T("Visible")));
 
-	// All icon and name are defined in GamepadEmu.h
-	static const char *imageNames[ARRAY_SIZE(comboKeyImages)];
-	for (int i = 0; i < ARRAY_SIZE(imageNames); ++i) {
-		imageNames[i] = comboKeyImages[i].n;
-	}
-	PopupMultiChoice *icon = vertLayout->Add(new PopupMultiChoice(&(cfg->image), co->T("Icon"), imageNames, 0, ARRAY_SIZE(imageNames), mc->GetName(), screenManager()));
-	icon->OnChoice.Handle(this, &ComboKeyScreen::onCombo);
-	
-	// All shape and name are defined in GamepadEmu.h
-	static const char *shapeNames[ARRAY_SIZE(comboKeyShapes)];
-	for (int i = 0; i < ARRAY_SIZE(shapeNames); ++i) {
-		shapeNames[i] = comboKeyShapes[i].n;
-	}
-	vertLayout->Add(new PopupMultiChoice(&(cfg->shape), co->T("Shape"), shapeNames, 0, ARRAY_SIZE(shapeNames), mc->GetName(), screenManager()))->OnChoice.Handle(this, &ComboKeyScreen::onCombo);
+	Choice *icon = vertLayout->Add(new Choice(co->T("Icon")));
+	icon->SetIcon(ImageID(comboKeyImages[cfg->image].i), 1.0f, comboKeyImages[cfg->image].r*PI/180); // Set right icon on the choice
+	icon->OnClick.Add([=](UI::EventParams &e) {
+		auto iconScreen = new ButtonIconScreen(co->T("Icon"), &(cfg->image));
+		if (e.v)
+			iconScreen->SetPopupOrigin(e.v);
+
+		screenManager()->push(iconScreen);
+		return UI::EVENT_DONE;
+	});
+
+	Choice *shape = vertLayout->Add(new Choice(co->T("Shape")));
+	shape->SetIcon(ImageID(comboKeyShapes[cfg->shape].l), 0.6f, comboKeyShapes[cfg->shape].r*PI/180, comboKeyShapes[cfg->shape].f); // Set right icon on the choice
+	shape->OnClick.Add([=](UI::EventParams &e) {
+		auto shape = new ButtonShapeScreen(co->T("Shape"), &(cfg->shape));
+		if (e.v)
+			shape->SetPopupOrigin(e.v);
+
+		screenManager()->push(shape);
+		return UI::EVENT_DONE;
+	});
 
 	vertLayout->Add(new ItemHeader(co->T("Button Binding")));
 	vertLayout->Add(new CheckBox(&(cfg->toggle), co->T("Toggle mode")));
@@ -249,6 +312,11 @@ void ComboKeyScreen::saveArray() {
 	}
 }
 
+void ComboKeyScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	saveArray();
+	RecreateViews();
+}
+
 void ComboKeyScreen::onFinish(DialogResult result) {
 	saveArray();
 	g_Config.Save("ComboKeyScreen::onFinish");
@@ -258,9 +326,3 @@ UI::EventReturn ComboKeyScreen::ChoiceEventHandler::onChoiceClick(UI::EventParam
 	checkbox_->Toggle();
 	return UI::EVENT_DONE;
 };
-
-UI::EventReturn ComboKeyScreen::onCombo(UI::EventParams &e) {
-	saveArray();
-	CreateViews();
-	return UI::EVENT_DONE;
-}

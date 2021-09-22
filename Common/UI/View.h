@@ -695,6 +695,8 @@ public:
 		: ClickableItem(layoutParams), text_(text), smallText_(smallText), image_(ImageID::invalid()) {}
 	Choice(ImageID image, LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), image_(image), rightIconImage_(ImageID::invalid()) {}
+	Choice(ImageID image, float imgScale, float imgRot, bool imgFlipH = false, LayoutParams *layoutParams = nullptr)
+		: ClickableItem(layoutParams), image_(image), rightIconImage_(ImageID::invalid()), imgScale_(imgScale), imgRot_(imgRot), imgFlipH_(imgFlipH) {}
 
 	void Click() override;
 	virtual void HighlightChanged(bool highlighted);
@@ -704,7 +706,10 @@ public:
 	virtual void SetCentered(bool c) {
 		centered_ = c;
 	}
-	virtual void SetIcon(ImageID iconImage) {
+	virtual void SetIcon(ImageID iconImage, float scale = 1.0f, float rot = 0.0f, bool flipH = false) {
+		rightIconScale_ = scale;
+		rightIconRot_ = rot;
+		rightIconFlipH_ = flipH;
 		rightIconImage_ = iconImage;
 	}
 
@@ -716,10 +721,16 @@ protected:
 	std::string text_;
 	std::string smallText_;
 	ImageID image_;  // Centered if no text, on the left if text.
-	ImageID rightIconImage_ = ImageID::invalid();  // Shows in the right. Only used for the Gold icon on the main menu.
+	ImageID rightIconImage_ = ImageID::invalid();  // Shows in the right.
+	float rightIconScale_;
+	float rightIconRot_;
+	bool rightIconFlipH_;
 	Padding textPadding_;
 	bool centered_ = false;
 	bool highlighted_ = false;
+	float imgScale_ = 1.0f;
+	float imgRot_ = 0.0f;
+	bool imgFlipH_ = false;
 
 private:
 	bool selected_ = false;

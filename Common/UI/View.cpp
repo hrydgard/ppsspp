@@ -487,7 +487,7 @@ void Choice::Draw(UIContext &dc) {
 	}
 
 	if (image_.isValid() && text_.empty()) {
-		dc.Draw()->DrawImage(image_, bounds_.centerX(), bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
+		dc.Draw()->DrawImageRotated(image_, bounds_.centerX(), bounds_.centerY(), imgScale_, imgRot_, style.fgColor, imgFlipH_);
 	} else {
 		dc.SetFontStyle(dc.theme->uiFont);
 
@@ -498,6 +498,7 @@ void Choice::Draw(UIContext &dc) {
 			const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(image_);
 			paddingX += image->w + 12;
 			availWidth -= image->w + 12;
+			// TODO: Use scale rotation and flip here as well (DrawImageRotated is always ALIGN_CENTER for now)
 			dc.Draw()->DrawImage(image_, bounds_.x + 6, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
 		}
 
@@ -508,7 +509,7 @@ void Choice::Draw(UIContext &dc) {
 			dc.DrawTextRect(text_.c_str(), bounds_, style.fgColor, ALIGN_CENTER | FLAG_WRAP_TEXT);
 		} else {
 			if (rightIconImage_.isValid()) {
-				dc.Draw()->DrawImage(rightIconImage_, bounds_.x2() - 32 - paddingX, bounds_.centerY(), 0.5f, style.fgColor, ALIGN_CENTER);
+				dc.Draw()->DrawImageRotated(rightIconImage_, bounds_.x2() - 32 - paddingX, bounds_.centerY(), rightIconScale_, rightIconRot_, style.fgColor, rightIconFlipH_);
 			}
 			Bounds textBounds(bounds_.x + paddingX + textPadding_.left, bounds_.y, availWidth, bounds_.h);
 			dc.DrawTextRect(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
