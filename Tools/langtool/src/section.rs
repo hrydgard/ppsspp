@@ -1,4 +1,3 @@
-
 // Super simplified ini file processor.
 // Doesn't even bother with understanding comments.
 // Just understands section headings and
@@ -18,6 +17,7 @@ impl Section {
         } else {
             return false;
         };
+
         // Ignore comments when copying lines.
         if prefix.starts_with('#') {
             return false;
