@@ -1809,7 +1809,8 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 						return WaitBlockingAdhocSocket(threadSocketId, PDP_RECV, id, buf, len, timeout, saddr, sport, "pdp recv");
 					}
 
-					return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
+					VERBOSE_LOG(SCENET, "%08x=sceNetAdhocPdpRecv: would block", ERROR_NET_ADHOC_WOULD_BLOCK); // Temporary fix to avoid a crash on the Logs due to trying to Logs syscall's argument from another thread (ie. AdhocMatchingInput thread)
+					return ERROR_NET_ADHOC_WOULD_BLOCK; // hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 				}
 				
 				hleEatMicro(50);
@@ -6136,6 +6137,9 @@ void broadcastHelloMessage(SceNetAdhocMatchingContext * context)
 */
 void sendAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac, int optlen, void * opt)
 {
+	// Lock the peer
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 	// Find Peer
 	SceNetAdhocMatchingMemberInternal * peer = findPeer(context, mac);
 
@@ -6217,6 +6221,9 @@ void sendAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 */
 void sendJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac, int optlen, void * opt)
 {
+	// Lock the peer
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 	// Find Peer
 	SceNetAdhocMatchingMemberInternal * peer = findPeer(context, mac);
 
@@ -6258,6 +6265,9 @@ void sendJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac,
 */
 void sendCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac, int optlen, void * opt)
 {
+	// Lock the peer
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 	// Allocate Cancel Message Buffer
 	uint8_t * cancel = (uint8_t *)malloc(5LL + optlen);
 
@@ -6282,7 +6292,6 @@ void sendCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 		free(cancel);
 	}
 
-	peerlock.lock();
 	// Find Peer
 	SceNetAdhocMatchingMemberInternal * peer = findPeer(context, mac);
 
@@ -6299,7 +6308,6 @@ void sendCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 		// Delete Peer
 		else deletePeer(context, peer);
 	}
-	peerlock.unlock();
 }
 
 /**
@@ -6311,6 +6319,9 @@ void sendCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 */
 void sendBulkDataPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac, int datalen, void * data)
 {
+	// Lock the peer
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 	// Find Peer
 	SceNetAdhocMatchingMemberInternal * peer = findPeer(context, mac);
 
@@ -6359,6 +6370,9 @@ void sendBulkDataPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 */
 void sendBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac)
 {
+	// Lock the peer
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 	// Find Newborn Child
 	SceNetAdhocMatchingMemberInternal * newborn = findPeer(context, mac);
 
@@ -6406,6 +6420,9 @@ void sendBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 */
 void sendDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac)
 {
+	// Lock the peer
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 	// Find abandoned Child
 	SceNetAdhocMatchingMemberInternal * deadkid = findPeer(context, mac);
 
@@ -6457,6 +6474,9 @@ void sendDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 */
 void sendByePacket(SceNetAdhocMatchingContext * context)
 {
+	// Lock the peer
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 	// Iterate Peers
 	SceNetAdhocMatchingMemberInternal * peer = context->peerlist; 
 	for (; peer != NULL; peer = peer->next)
