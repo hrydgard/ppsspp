@@ -667,6 +667,9 @@ s32_le countChildren(SceNetAdhocMatchingContext * context, const bool excludeTim
 */
 SceNetAdhocMatchingMemberInternal * findPeer(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac)
 {
+	if (mac == NULL)
+		return NULL;
+
 	// Iterate Peer List for Matching Target
 	SceNetAdhocMatchingMemberInternal * peer = context->peerlist; 
 	for (; peer != NULL; peer = peer->next)
