@@ -460,42 +460,30 @@ void PopupMultiChoice::ChoiceCallback(int num) {
 	}
 }
 
-void PopupMultiChoice::Draw(UIContext &dc) {
-	Style style = dc.theme->itemStyle;
-	if (!IsEnabled()) {
-		style = dc.theme->itemDisabledStyle;
-	}
-	int paddingX = 12;
-	dc.SetFontStyle(dc.theme->uiFont);
-
-	float ignore;
-	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, valueText_.c_str(), &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
-	textPadding_.right += paddingX;
-
-	Choice::Draw(dc);
-	dc.DrawText(valueText_.c_str(), bounds_.x2() - paddingX, bounds_.centerY(), style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
+std::string PopupMultiChoice::ValueText() const {
+	return valueText_;
 }
 
 PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
-	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(1), units_(units), screenManager_(screenManager) {
+	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(1), units_(units), screenManager_(screenManager) {
 	fmt_ = "%i";
 	OnClick.Handle(this, &PopupSliderChoice::HandleClick);
 }
 
 PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, int step, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
-	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step), units_(units), screenManager_(screenManager) {
+	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step), units_(units), screenManager_(screenManager) {
 	fmt_ = "%i";
 	OnClick.Handle(this, &PopupSliderChoice::HandleClick);
 }
 
 PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
-	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(1.0f), units_(units), screenManager_(screenManager) {
+	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(1.0f), units_(units), screenManager_(screenManager) {
 	fmt_ = "%2.2f";
 	OnClick.Handle(this, &PopupSliderChoiceFloat::HandleClick);
 }
 
 PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, float step, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
-	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step), units_(units), screenManager_(screenManager) {
+	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step), units_(units), screenManager_(screenManager) {
 	fmt_ = "%2.2f";
 	OnClick.Handle(this, &PopupSliderChoiceFloat::HandleClick);
 }
@@ -523,14 +511,7 @@ EventReturn PopupSliderChoice::HandleChange(EventParams &e) {
 	return EVENT_DONE;
 }
 
-void PopupSliderChoice::Draw(UIContext &dc) {
-	Style style = dc.theme->itemStyle;
-	if (!IsEnabled()) {
-		style = dc.theme->itemDisabledStyle;
-	}
-	int paddingX = 12;
-	dc.SetFontStyle(dc.theme->uiFont);
-
+std::string PopupSliderChoice::ValueText() const {
 	// Always good to have space for Unicode.
 	char temp[256];
 	if (zeroLabel_.size() && *value_ == 0) {
@@ -541,12 +522,7 @@ void PopupSliderChoice::Draw(UIContext &dc) {
 		sprintf(temp, fmt_, *value_);
 	}
 
-	float ignore;
-	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, temp, &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
-	textPadding_.right += paddingX;
-
-	Choice::Draw(dc);
-	dc.DrawText(temp, bounds_.x2() - paddingX, bounds_.centerY(), style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
+	return temp;
 }
 
 EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
@@ -570,14 +546,7 @@ EventReturn PopupSliderChoiceFloat::HandleChange(EventParams &e) {
 	return EVENT_DONE;
 }
 
-void PopupSliderChoiceFloat::Draw(UIContext &dc) {
-	Style style = dc.theme->itemStyle;
-	if (!IsEnabled()) {
-		style = dc.theme->itemDisabledStyle;
-	}
-	int paddingX = 12;
-	dc.SetFontStyle(dc.theme->uiFont);
-
+std::string PopupSliderChoiceFloat::ValueText() const {
 	char temp[256];
 	if (zeroLabel_.size() && *value_ == 0.0f) {
 		strcpy(temp, zeroLabel_.c_str());
@@ -585,12 +554,7 @@ void PopupSliderChoiceFloat::Draw(UIContext &dc) {
 		sprintf(temp, fmt_, *value_);
 	}
 
-	float ignore;
-	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, temp, &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
-	textPadding_.right += paddingX;
-
-	Choice::Draw(dc);
-	dc.DrawText(temp, bounds_.x2() - paddingX, bounds_.centerY(), style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
+	return temp;
 }
 
 EventReturn SliderPopupScreen::OnDecrease(EventParams &params) {
@@ -776,7 +740,7 @@ void SliderFloatPopupScreen::OnCompleted(DialogResult result) {
 }
 
 PopupTextInputChoice::PopupTextInputChoice(std::string *value, const std::string &title, const std::string &placeholder, int maxLen, ScreenManager *screenManager, LayoutParams *layoutParams)
-: Choice(title, "", false, layoutParams), screenManager_(screenManager), value_(value), placeHolder_(placeholder), maxLen_(maxLen) {
+: AbstractChoiceWithValueDisplay(title, layoutParams), screenManager_(screenManager), value_(value), placeHolder_(placeholder), maxLen_(maxLen) {
 	OnClick.Handle(this, &PopupTextInputChoice::HandleClick);
 }
 
@@ -791,20 +755,8 @@ EventReturn PopupTextInputChoice::HandleClick(EventParams &e) {
 	return EVENT_DONE;
 }
 
-void PopupTextInputChoice::Draw(UIContext &dc) {
-	Style style = dc.theme->itemStyle;
-	if (!IsEnabled()) {
-		style = dc.theme->itemDisabledStyle;
-	}
-	int paddingX = 12;
-	dc.SetFontStyle(dc.theme->uiFont);
-
-	float ignore;
-	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, value_->c_str(), &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
-	textPadding_.right += paddingX;
-
-	Choice::Draw(dc);
-	dc.DrawText(value_->c_str(), bounds_.x2() - 12, bounds_.centerY(), style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
+std::string PopupTextInputChoice::ValueText() const {
+	return *value_;
 }
 
 EventReturn PopupTextInputChoice::HandleChange(EventParams &e) {
@@ -841,7 +793,31 @@ void TextEditPopupScreen::OnCompleted(DialogResult result) {
 	}
 }
 
-void ChoiceWithValueDisplay::Draw(UIContext &dc) {
+void AbstractChoiceWithValueDisplay::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
+	const std::string valueText = ValueText();
+	int paddingX = 12;
+	// Assume we want at least 20% of the size for the label, at a minimum.
+	float availWidth = (horiz.size - paddingX * 2) * 0.8f;
+	if (availWidth < 0) {
+		availWidth = 65535.0f;
+	}
+	float scale = CalculateValueScale(dc, valueText, availWidth);
+	Bounds availBounds(0, 0, availWidth, vert.size);
+
+	float valueW, valueH;
+	dc.MeasureTextRect(dc.theme->uiFont, scale, scale, valueText.c_str(), (int)valueText.size(), availBounds, &valueW, &valueH, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+	valueW += paddingX;
+
+	// Give the choice itself less space to grow in, so it shrinks if needed.
+	MeasureSpec horizLabel = horiz;
+	horizLabel.size -= valueW;
+	Choice::GetContentDimensionsBySpec(dc, horiz, vert, w, h);
+
+	w += valueW;
+	h = std::max(h, valueH);
+}
+
+void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 	Style style = dc.theme->itemStyle;
 	if (!IsEnabled()) {
 		style = dc.theme->itemDisabledStyle;
@@ -849,6 +825,34 @@ void ChoiceWithValueDisplay::Draw(UIContext &dc) {
 	int paddingX = 12;
 	dc.SetFontStyle(dc.theme->uiFont);
 
+	const std::string valueText = ValueText();
+	// Assume we want at least 20% of the size for the label, at a minimum.
+	float availWidth = (bounds_.w - paddingX * 2) * 0.8f;
+	float scale = CalculateValueScale(dc, valueText, availWidth);
+
+	float ignore;
+	Bounds availBounds(0, 0, availWidth, bounds_.h);
+	dc.MeasureTextRect(dc.theme->uiFont, scale, scale, valueText.c_str(), (int)valueText.size(), availBounds, &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+	textPadding_.right += paddingX;
+
+	Choice::Draw(dc);
+	dc.SetFontScale(scale, scale);
+	Bounds valueBounds(bounds_.x2() - textPadding_.right, bounds_.y, textPadding_.right - paddingX, bounds_.h);
+	dc.DrawTextRect(valueText.c_str(), valueBounds, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+	dc.SetFontScale(1.0f, 1.0f);
+}
+
+float AbstractChoiceWithValueDisplay::CalculateValueScale(const UIContext &dc, const std::string &valueText, float availWidth) const {
+	float actualWidth, actualHeight;
+	Bounds availBounds(0, 0, availWidth, bounds_.h);
+	dc.MeasureTextRect(dc.theme->uiFont, 1.0f, 1.0f, valueText.c_str(), (int)valueText.size(), availBounds, &actualWidth, &actualHeight);
+	if (actualWidth > availWidth) {
+		return std::max(0.8f, availWidth / actualWidth);
+	}
+	return 1.0f;
+}
+
+std::string ChoiceWithValueDisplay::ValueText() const {
 	auto category = GetI18NCategory(category_);
 	std::ostringstream valueText;
 	if (translateCallback_ && sValue_) {
@@ -862,12 +866,7 @@ void ChoiceWithValueDisplay::Draw(UIContext &dc) {
 		valueText << *iValue_;
 	}
 
-	float ignore;
-	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, valueText.str().c_str(), &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
-	textPadding_.right += paddingX;
-
-	Choice::Draw(dc);
-	dc.DrawText(valueText.str().c_str(), bounds_.x2() - paddingX, bounds_.centerY(), style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
+	return valueText.str();
 }
 
 }  // namespace UI
