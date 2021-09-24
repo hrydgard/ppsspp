@@ -138,7 +138,7 @@ private:
 
 class SortedLinearLayout : public UI::LinearLayoutList {
 public:
-	typedef std::function<bool(const View *, const View *)> CompareFunc;
+	typedef std::function<bool(View *, View *)> CompareFunc;
 	typedef std::function<bool()> DoneFunc;
 
 	SortedLinearLayout(UI::Orientation orientation, UI::LayoutParams *layoutParams = nullptr)
@@ -184,13 +184,51 @@ public:
 
 	const Path &GamePath() const { return savePath_; }
 
+	uint64_t GetTotalSize();
+	int64_t GetDateSeconds();
+
 private:
 	void UpdateText(const std::shared_ptr<GameInfo> &ginfo);
 
 	Path savePath_;
 	std::string title_;
 	std::string subtitle_;
+	uint64_t totalSize_ = 0;
+	int64_t dateSeconds_ = 0;
+	bool hasTotalSize_ = false;
+	bool hasDateSeconds_ = false;
 };
+
+uint64_t SavedataButton::GetTotalSize() {
+	if (hasTotalSize_)
+		return totalSize_;
+
+	File::FileInfo info;
+	if (File::GetFileInfo(savePath_, &info)) {
+		totalSize_ = info.size;
+		if (info.isDirectory)
+			totalSize_ = File::ComputeRecursiveDirectorySize(savePath_);
+	}
+
+	hasTotalSize_ = true;
+	return totalSize_;
+}
+
+int64_t SavedataButton::GetDateSeconds() {
+	if (hasDateSeconds_)
+		return dateSeconds_;
+
+	File::FileInfo info;
+	if (File::GetFileInfo(savePath_, &info)) {
+		dateSeconds_ = info.mtime;
+		if (info.isDirectory && File::GetFileInfo(savePath_ / "PARAM.SFO", &info)) {
+			dateSeconds_ = info.mtime;
+		}
+	}
+
+	hasDateSeconds_ = true;
+	return dateSeconds_;
+}
 
 UI::EventReturn SavedataPopupScreen::OnDeleteButtonClick(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GAMEINFO_WANTSIZE);
@@ -417,28 +455,18 @@ void SavedataBrowser::SetSortOption(SavedataSortOption opt) {
 	}
 }
 
-bool SavedataBrowser::ByFilename(const UI::View *v1, const UI::View *v2) {
-	const SavedataButton *b1 = static_cast<const SavedataButton *>(v1);
-	const SavedataButton *b2 = static_cast<const SavedataButton *>(v2);
+bool SavedataBrowser::ByFilename(UI::View *v1, UI::View *v2) {
+	SavedataButton *b1 = static_cast<SavedataButton *>(v1);
+	SavedataButton *b2 = static_cast<SavedataButton *>(v2);
 
 	return strcmp(b1->GamePath().c_str(), b2->GamePath().c_str()) < 0;
 }
 
-static uint64_t GetTotalSize(const SavedataButton *b) {
-	File::FileInfo info;
-	if (File::GetFileInfo(b->GamePath(), &info)) {
-		if (info.isDirectory)
-			return File::ComputeRecursiveDirectorySize(b->GamePath());
-		return info.size;
-	}
-	return 0;
-}
-
-bool SavedataBrowser::BySize(const UI::View *v1, const UI::View *v2) {
-	const SavedataButton *b1 = static_cast<const SavedataButton *>(v1);
-	const SavedataButton *b2 = static_cast<const SavedataButton *>(v2);
-	const uint64_t size1 = GetTotalSize(b1);
-	const uint64_t size2 = GetTotalSize(b2);
+bool SavedataBrowser::BySize(UI::View *v1, UI::View *v2) {
+	SavedataButton *b1 = static_cast<SavedataButton *>(v1);
+	SavedataButton *b2 = static_cast<SavedataButton *>(v2);
+	const uint64_t size1 = b1->GetTotalSize();
+	const uint64_t size2 = b2->GetTotalSize();
 
 	if (size1 > size2)
 		return true;
@@ -447,23 +475,11 @@ bool SavedataBrowser::BySize(const UI::View *v1, const UI::View *v2) {
 	return strcmp(b1->GamePath().c_str(), b2->GamePath().c_str()) < 0;
 }
 
-static int64_t GetDateSeconds(const SavedataButton *b) {
-	File::FileInfo info;
-	if (File::GetFileInfo(b->GamePath(), &info)) {
-		if (info.isDirectory && File::GetFileInfo(b->GamePath() / "PARAM.SFO", &info)) {
-			return info.mtime;
-		}
-		return info.mtime;
-	}
-
-	return 0;
-}
-
-bool SavedataBrowser::ByDate(const UI::View *v1, const UI::View *v2) {
-	const SavedataButton *b1 = static_cast<const SavedataButton *>(v1);
-	const SavedataButton *b2 = static_cast<const SavedataButton *>(v2);
-	const int64_t time1 = GetDateSeconds(b1);
-	const int64_t time2 = GetDateSeconds(b2);
+bool SavedataBrowser::ByDate(UI::View *v1, UI::View *v2) {
+	SavedataButton *b1 = static_cast<SavedataButton *>(v1);
+	SavedataButton *b2 = static_cast<SavedataButton *>(v2);
+	const int64_t time1 = b1->GetDateSeconds();
+	const int64_t time2 = b2->GetDateSeconds();
 
 	if (time1 > time2)
 		return true;

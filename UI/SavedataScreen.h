@@ -46,9 +46,9 @@ public:
 	UI::Event OnChoice;
 
 private:
-	static bool ByFilename(const UI::View *, const UI::View *);
-	static bool BySize(const UI::View *, const UI::View *);
-	static bool ByDate(const UI::View *, const UI::View *);
+	static bool ByFilename(UI::View *, UI::View *);
+	static bool BySize(UI::View *, UI::View *);
+	static bool ByDate(UI::View *, UI::View *);
 	static bool SortDone();
 
 	void Refresh();
