@@ -138,32 +138,49 @@ private:
 
 class SortedLinearLayout : public UI::LinearLayoutList {
 public:
-	typedef std::function<bool(View *, View *)> CompareFunc;
-	typedef std::function<bool()> DoneFunc;
+	typedef std::function<void(View *)> PrepFunc;
+	typedef std::function<bool(const View *, const View *)> CompareFunc;
 
 	SortedLinearLayout(UI::Orientation orientation, UI::LayoutParams *layoutParams = nullptr)
 		: UI::LinearLayoutList(orientation, layoutParams) {
 	}
 
-	void SetCompare(CompareFunc lessFunc, DoneFunc doneFunc) {
+	void SetCompare(const PrepFunc &prepFunc, const CompareFunc &lessFunc) {
+		prepIndex_ = 0;
+		prepFunc_ = prepFunc;
 		lessFunc_ = lessFunc;
-		doneFunc_ = doneFunc;
 	}
 
 	void Update() override;
 
 private:
+	size_t prepIndex_ = 0;
+	PrepFunc prepFunc_;
 	CompareFunc lessFunc_;
-	DoneFunc doneFunc_;
 };
 
 void SortedLinearLayout::Update() {
+	if (prepFunc_) {
+		// Try to avoid dropping more than a frame, prefer items shift.
+		constexpr double ALLOWED_TIME = 0.95 / 60.0;
+		double start_time = time_now_d();
+		for (; prepIndex_ < views_.size(); ++prepIndex_) {
+			prepFunc_(views_[prepIndex_]);
+			if (time_now_d() > start_time + ALLOWED_TIME) {
+				break;
+			}
+		}
+	}
 	if (lessFunc_) {
+		// We may sort several times while calculating.
 		std::stable_sort(views_.begin(), views_.end(), lessFunc_);
 	}
-	if (doneFunc_ && doneFunc_()) {
+	// We're done if we got through all items.
+	if (prepIndex_ >= views_.size()) {
+		prepFunc_ = PrepFunc();
 		lessFunc_ = CompareFunc();
 	}
+
 	UI::LinearLayout::Update();
 }
 
@@ -184,8 +201,15 @@ public:
 
 	const Path &GamePath() const { return savePath_; }
 
-	uint64_t GetTotalSize();
-	int64_t GetDateSeconds();
+	uint64_t GetTotalSize() const {
+		return totalSize_;
+	}
+	int64_t GetDateSeconds() const {
+		return dateSeconds_;
+	}
+
+	void UpdateTotalSize();
+	void UpdateDateSeconds();
 
 private:
 	void UpdateText(const std::shared_ptr<GameInfo> &ginfo);
@@ -199,9 +223,9 @@ private:
 	bool hasDateSeconds_ = false;
 };
 
-uint64_t SavedataButton::GetTotalSize() {
+void SavedataButton::UpdateTotalSize() {
 	if (hasTotalSize_)
-		return totalSize_;
+		return;
 
 	File::FileInfo info;
 	if (File::GetFileInfo(savePath_, &info)) {
@@ -211,12 +235,11 @@ uint64_t SavedataButton::GetTotalSize() {
 	}
 
 	hasTotalSize_ = true;
-	return totalSize_;
 }
 
-int64_t SavedataButton::GetDateSeconds() {
+void SavedataButton::UpdateDateSeconds() {
 	if (hasDateSeconds_)
-		return dateSeconds_;
+		return;
 
 	File::FileInfo info;
 	if (File::GetFileInfo(savePath_, &info)) {
@@ -227,7 +250,6 @@ int64_t SavedataButton::GetDateSeconds() {
 	}
 
 	hasDateSeconds_ = true;
-	return dateSeconds_;
 }
 
 UI::EventReturn SavedataPopupScreen::OnDeleteButtonClick(UI::EventParams &e) {
@@ -446,25 +468,34 @@ void SavedataBrowser::SetSortOption(SavedataSortOption opt) {
 	if (gameList_) {
 		SortedLinearLayout *gl = static_cast<SortedLinearLayout *>(gameList_);
 		if (sortOption_ == SavedataSortOption::FILENAME) {
-			gl->SetCompare(&ByFilename, &SortDone);
+			gl->SetCompare(&PrepFilename, &ByFilename);
 		} else if (sortOption_ == SavedataSortOption::SIZE) {
-			gl->SetCompare(&BySize, &SortDone);
+			gl->SetCompare(&PrepSize, &BySize);
 		} else if (sortOption_ == SavedataSortOption::DATE) {
-			gl->SetCompare(&ByDate, &SortDone);
+			gl->SetCompare(&PrepDate, &ByDate);
 		}
 	}
 }
 
-bool SavedataBrowser::ByFilename(UI::View *v1, UI::View *v2) {
-	SavedataButton *b1 = static_cast<SavedataButton *>(v1);
-	SavedataButton *b2 = static_cast<SavedataButton *>(v2);
+void SavedataBrowser::PrepFilename(UI::View *v) {
+	// Nothing needed.
+}
+
+bool SavedataBrowser::ByFilename(const UI::View *v1, const UI::View *v2) {
+	const SavedataButton *b1 = static_cast<const SavedataButton *>(v1);
+	const SavedataButton *b2 = static_cast<const SavedataButton *>(v2);
 
 	return strcmp(b1->GamePath().c_str(), b2->GamePath().c_str()) < 0;
 }
 
-bool SavedataBrowser::BySize(UI::View *v1, UI::View *v2) {
-	SavedataButton *b1 = static_cast<SavedataButton *>(v1);
-	SavedataButton *b2 = static_cast<SavedataButton *>(v2);
+void SavedataBrowser::PrepSize(UI::View *v) {
+	SavedataButton *b = static_cast<SavedataButton *>(v);
+	b->UpdateTotalSize();
+}
+
+bool SavedataBrowser::BySize(const UI::View *v1, const UI::View *v2) {
+	const SavedataButton *b1 = static_cast<const SavedataButton *>(v1);
+	const SavedataButton *b2 = static_cast<const SavedataButton *>(v2);
 	const uint64_t size1 = b1->GetTotalSize();
 	const uint64_t size2 = b2->GetTotalSize();
 
@@ -475,9 +506,14 @@ bool SavedataBrowser::BySize(UI::View *v1, UI::View *v2) {
 	return strcmp(b1->GamePath().c_str(), b2->GamePath().c_str()) < 0;
 }
 
-bool SavedataBrowser::ByDate(UI::View *v1, UI::View *v2) {
-	SavedataButton *b1 = static_cast<SavedataButton *>(v1);
-	SavedataButton *b2 = static_cast<SavedataButton *>(v2);
+void SavedataBrowser::PrepDate(UI::View *v) {
+	SavedataButton *b = static_cast<SavedataButton *>(v);
+	b->UpdateDateSeconds();
+}
+
+bool SavedataBrowser::ByDate(const UI::View *v1, const UI::View *v2) {
+	const SavedataButton *b1 = static_cast<const SavedataButton *>(v1);
+	const SavedataButton *b2 = static_cast<const SavedataButton *>(v2);
 	const int64_t time1 = b1->GetDateSeconds();
 	const int64_t time2 = b2->GetDateSeconds();
 
@@ -486,10 +522,6 @@ bool SavedataBrowser::ByDate(UI::View *v1, UI::View *v2) {
 	if (time1 < time2)
 		return false;
 	return strcmp(b1->GamePath().c_str(), b2->GamePath().c_str()) < 0;
-}
-
-bool SavedataBrowser::SortDone() {
-	return true;
 }
 
 void SavedataBrowser::Refresh() {

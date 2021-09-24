@@ -46,10 +46,12 @@ public:
 	UI::Event OnChoice;
 
 private:
-	static bool ByFilename(UI::View *, UI::View *);
-	static bool BySize(UI::View *, UI::View *);
-	static bool ByDate(UI::View *, UI::View *);
-	static bool SortDone();
+	static void PrepFilename(UI::View *);
+	static void PrepSize(UI::View *);
+	static void PrepDate(UI::View *);
+	static bool ByFilename(const UI::View *, const UI::View *);
+	static bool BySize(const UI::View *, const UI::View *);
+	static bool ByDate(const UI::View *, const UI::View *);
 
 	void Refresh();
 	UI::EventReturn SavedataButtonClick(UI::EventParams &e);
