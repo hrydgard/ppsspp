@@ -246,12 +246,27 @@ private:
 	int maxLen_;
 };
 
+class AbstractChoiceWithValueDisplay : public UI::Choice {
+public:
+	AbstractChoiceWithValueDisplay(const std::string &text, LayoutParams *layoutParams = nullptr)
+		: Choice(text, layoutParams) {
+	}
+
+	virtual void Draw(UIContext &dc) override;
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const;
+
+protected:
+	virtual std::string ValueText() const = 0;
+
+	float CalculateValueScale(const UIContext &dc, const std::string &valueText, float availWidth) const;
+};
+
 // Reads and writes value to determine the current selection.
-class PopupMultiChoice : public UI::Choice {
+class PopupMultiChoice : public AbstractChoiceWithValueDisplay {
 public:
 	PopupMultiChoice(int *value, const std::string &text, const char **choices, int minVal, int numChoices,
 		const char *category, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr)
-		: UI::Choice(text, "", false, layoutParams), value_(value), choices_(choices), minVal_(minVal), numChoices_(numChoices), 
+		: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), choices_(choices), minVal_(minVal), numChoices_(numChoices),
 		category_(category), screenManager_(screenManager) {
 		if (*value >= numChoices + minVal)
 			*value = numChoices + minVal - 1;
@@ -261,8 +276,7 @@ public:
 		UpdateText();
 	}
 
-	virtual void Draw(UIContext &dc) override;
-	virtual void Update() override;
+	void Update() override;
 
 	void HideChoice(int c) {
 		hidden_.insert(c);
@@ -271,6 +285,8 @@ public:
 	UI::Event OnChoice;
 
 protected:
+	std::string ValueText() const override;
+
 	int *value_;
 	const char **choices_;
 	int minVal_;
@@ -325,12 +341,10 @@ private:
 	std::string *valueStr_;
 };
 
-class PopupSliderChoice : public Choice {
+class PopupSliderChoice : public AbstractChoiceWithValueDisplay {
 public:
 	PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
 	PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, int step, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
-
-	virtual void Draw(UIContext &dc) override;
 
 	void SetFormat(const char *fmt) {
 		fmt_ = fmt;
@@ -343,6 +357,9 @@ public:
 	}
 
 	Event OnChange;
+
+protected:
+	std::string ValueText() const override;
 
 private:
 	EventReturn HandleClick(EventParams &e);
@@ -360,12 +377,10 @@ private:
 	bool restoreFocus_;
 };
 
-class PopupSliderChoiceFloat : public Choice {
+class PopupSliderChoiceFloat : public AbstractChoiceWithValueDisplay {
 public:
 	PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
 	PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, float step, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
-
-	virtual void Draw(UIContext &dc) override;
 
 	void SetFormat(const char *fmt) {
 		fmt_ = fmt;
@@ -375,6 +390,9 @@ public:
 	}
 
 	Event OnChange;
+
+protected:
+	std::string ValueText() const override;
 
 private:
 	EventReturn HandleClick(EventParams &e);
@@ -390,13 +408,14 @@ private:
 	bool restoreFocus_;
 };
 
-class PopupTextInputChoice: public Choice {
+class PopupTextInputChoice: public AbstractChoiceWithValueDisplay {
 public:
 	PopupTextInputChoice(std::string *value, const std::string &title, const std::string &placeholder, int maxLen, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
 
-	virtual void Draw(UIContext &dc) override;
-
 	Event OnChange;
+
+protected:
+	std::string ValueText() const override;
 
 private:
 	EventReturn HandleClick(EventParams &e);
@@ -409,24 +428,20 @@ private:
 	bool restoreFocus_;
 };
 
-class ChoiceWithValueDisplay : public UI::Choice {
+class ChoiceWithValueDisplay : public AbstractChoiceWithValueDisplay {
 public:
 	ChoiceWithValueDisplay(int *value, const std::string &text, LayoutParams *layoutParams = 0)
-		: Choice(text, layoutParams), iValue_(value) {}
+		: AbstractChoiceWithValueDisplay(text, layoutParams), iValue_(value) {}
 
 	ChoiceWithValueDisplay(std::string *value, const std::string &text, const char *category, LayoutParams *layoutParams = 0)
-		: Choice(text, layoutParams), sValue_(value), category_(category) {}
+		: AbstractChoiceWithValueDisplay(text, layoutParams), sValue_(value), category_(category) {}
 
 	ChoiceWithValueDisplay(std::string *value, const std::string &text, std::string (*translateCallback)(const char *value), LayoutParams *layoutParams = 0)
-		: Choice(text, layoutParams), sValue_(value), translateCallback_(translateCallback) {
+		: AbstractChoiceWithValueDisplay(text, layoutParams), sValue_(value), translateCallback_(translateCallback) {
 	}
 
-	void Draw(UIContext &dc) override;
-	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
-
 private:
-	std::string ValueText() const;
-	float CalculateValueScale(const UIContext &dc, const std::string &valueText, float availWidth) const;
+	std::string ValueText() const override;
 
 	int *iValue_ = nullptr;
 	std::string *sValue_ = nullptr;
