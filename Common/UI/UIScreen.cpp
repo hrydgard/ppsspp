@@ -849,6 +849,33 @@ void ChoiceWithValueDisplay::Draw(UIContext &dc) {
 	int paddingX = 12;
 	dc.SetFontStyle(dc.theme->uiFont);
 
+	const std::string valueText = ValueText();
+
+	float ignore;
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, valueText.c_str(), &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
+	textPadding_.right += paddingX;
+
+	Choice::Draw(dc);
+	dc.DrawText(valueText.c_str(), bounds_.x2() - paddingX, bounds_.centerY(), style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
+}
+
+void ChoiceWithValueDisplay::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
+	const std::string valueText = ValueText();
+	int paddingX = 12;
+	float valueW, valueH;
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, valueText.c_str(), &valueW, &valueH, ALIGN_RIGHT | ALIGN_VCENTER);
+	valueW += paddingX;
+
+	// Give the choice itself less space to grow in, so it shrinks if needed.
+	MeasureSpec horizLabel = horiz;
+	horizLabel.size -= valueW;
+	Choice::GetContentDimensionsBySpec(dc, horiz, vert, w, h);
+
+	w += valueW;
+	h = std::max(h, valueH);
+}
+
+std::string ChoiceWithValueDisplay::ValueText() const {
 	auto category = GetI18NCategory(category_);
 	std::ostringstream valueText;
 	if (translateCallback_ && sValue_) {
@@ -862,12 +889,7 @@ void ChoiceWithValueDisplay::Draw(UIContext &dc) {
 		valueText << *iValue_;
 	}
 
-	float ignore;
-	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, valueText.str().c_str(), &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
-	textPadding_.right += paddingX;
-
-	Choice::Draw(dc);
-	dc.DrawText(valueText.str().c_str(), bounds_.x2() - paddingX, bounds_.centerY(), style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
+	return valueText.str();
 }
 
 }  // namespace UI

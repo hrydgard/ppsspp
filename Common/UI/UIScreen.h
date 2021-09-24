@@ -421,9 +421,12 @@ public:
 		: Choice(text, layoutParams), sValue_(value), translateCallback_(translateCallback) {
 	}
 
-	virtual void Draw(UIContext &dc) override;
+	void Draw(UIContext &dc) override;
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 
 private:
+	std::string ValueText() const;
+
 	int *iValue_ = nullptr;
 	std::string *sValue_ = nullptr;
 	const char *category_ = nullptr;
