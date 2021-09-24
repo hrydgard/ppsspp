@@ -850,20 +850,35 @@ void ChoiceWithValueDisplay::Draw(UIContext &dc) {
 	dc.SetFontStyle(dc.theme->uiFont);
 
 	const std::string valueText = ValueText();
+	// Assume we want at least 20% of the size for the label, at a minimum.
+	float availWidth = (bounds_.w - paddingX * 2) * 0.8f;
+	float scale = CalculateValueScale(dc, valueText, availWidth);
 
 	float ignore;
-	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, valueText.c_str(), &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
+	Bounds availBounds(0, 0, availWidth, bounds_.h);
+	dc.MeasureTextRect(dc.theme->uiFont, scale, scale, valueText.c_str(), (int)valueText.size(), availBounds, &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 	textPadding_.right += paddingX;
 
 	Choice::Draw(dc);
-	dc.DrawText(valueText.c_str(), bounds_.x2() - paddingX, bounds_.centerY(), style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.SetFontScale(scale, scale);
+	Bounds valueBounds(bounds_.x2() - textPadding_.right, bounds_.y, textPadding_.right - paddingX, bounds_.h);
+	dc.DrawTextRect(valueText.c_str(), valueBounds, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+	dc.SetFontScale(1.0f, 1.0f);
 }
 
 void ChoiceWithValueDisplay::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
-	const std::string valueText = ValueText();
 	int paddingX = 12;
+	const std::string valueText = ValueText();
+	// Assume we want at least 20% of the size for the label, at a minimum.
+	float availWidth = (horiz.size - paddingX * 2) * 0.8f;
+	if (availWidth < 0) {
+		availWidth = 65535.0f;
+	}
+	float scale = CalculateValueScale(dc, valueText, availWidth);
+	Bounds availBounds(0, 0, availWidth, vert.size);
+
 	float valueW, valueH;
-	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, valueText.c_str(), &valueW, &valueH, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.MeasureTextRect(dc.theme->uiFont, scale, scale, valueText.c_str(), (int)valueText.size(), availBounds, &valueW, &valueH, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 	valueW += paddingX;
 
 	// Give the choice itself less space to grow in, so it shrinks if needed.
@@ -873,6 +888,16 @@ void ChoiceWithValueDisplay::GetContentDimensionsBySpec(const UIContext &dc, Mea
 
 	w += valueW;
 	h = std::max(h, valueH);
+}
+
+float ChoiceWithValueDisplay::CalculateValueScale(const UIContext &dc, const std::string &valueText, float availWidth) const {
+	float actualWidth, actualHeight;
+	Bounds availBounds(0, 0, availWidth, bounds_.h);
+	dc.MeasureTextRect(dc.theme->uiFont, 1.0f, 1.0f, valueText.c_str(), (int)valueText.size(), availBounds, &actualWidth, &actualHeight);
+	if (actualWidth > availWidth) {
+		return std::max(0.8f, availWidth / actualWidth);
+	}
+	return 1.0f;
 }
 
 std::string ChoiceWithValueDisplay::ValueText() const {

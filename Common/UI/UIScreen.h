@@ -426,6 +426,7 @@ public:
 
 private:
 	std::string ValueText() const;
+	float CalculateValueScale(const UIContext &dc, const std::string &valueText, float availWidth) const;
 
 	int *iValue_ = nullptr;
 	std::string *sValue_ = nullptr;
