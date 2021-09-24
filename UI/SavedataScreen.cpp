@@ -424,53 +424,50 @@ bool SavedataBrowser::ByFilename(const UI::View *v1, const UI::View *v2) {
 	return strcmp(b1->GamePath().c_str(), b2->GamePath().c_str()) < 0;
 }
 
-static time_t GetTotalSize(const SavedataButton *b) {
-	auto fileLoader = std::unique_ptr<FileLoader>(ConstructFileLoader(b->GamePath()));
-	std::string errorString;
-	switch (Identify_File(fileLoader.get(), &errorString)) {
-	case IdentifiedFileType::PSP_PBP_DIRECTORY:
-	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
-		return File::ComputeRecursiveDirectorySize(ResolvePBPDirectory(b->GamePath()));
-	default:
-		return fileLoader->FileSize();
+static uint64_t GetTotalSize(const SavedataButton *b) {
+	File::FileInfo info;
+	if (File::GetFileInfo(b->GamePath(), &info)) {
+		if (info.isDirectory)
+			return File::ComputeRecursiveDirectorySize(b->GamePath());
+		return info.size;
 	}
+	return 0;
 }
 
 bool SavedataBrowser::BySize(const UI::View *v1, const UI::View *v2) {
 	const SavedataButton *b1 = static_cast<const SavedataButton *>(v1);
 	const SavedataButton *b2 = static_cast<const SavedataButton *>(v2);
+	const uint64_t size1 = GetTotalSize(b1);
+	const uint64_t size2 = GetTotalSize(b2);
 
-	if (GetTotalSize(b1) > GetTotalSize(b2))
+	if (size1 > size2)
 		return true;
-	else if (GetTotalSize(b1) < GetTotalSize(b2))
+	else if (size1 < size2)
 		return false;
 	return strcmp(b1->GamePath().c_str(), b2->GamePath().c_str()) < 0;
 }
 
-static time_t GetDateSeconds(const SavedataButton *b) {
-	auto fileLoader = std::unique_ptr<FileLoader>(ConstructFileLoader(b->GamePath()));
-	tm datetm;
-	bool success;
-	std::string errorString;
-	if (Identify_File(fileLoader.get(), &errorString) == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
-		success = File::GetModifTime(b->GamePath() / "PARAM.SFO", datetm);
-	} else {
-		success = File::GetModifTime(b->GamePath(), datetm);
+static int64_t GetDateSeconds(const SavedataButton *b) {
+	File::FileInfo info;
+	if (File::GetFileInfo(b->GamePath(), &info)) {
+		if (info.isDirectory && File::GetFileInfo(b->GamePath() / "PARAM.SFO", &info)) {
+			return info.mtime;
+		}
+		return info.mtime;
 	}
 
-	if (success) {
-		return mktime(&datetm);
-	}
-	return (time_t)0;
+	return 0;
 }
 
 bool SavedataBrowser::ByDate(const UI::View *v1, const UI::View *v2) {
 	const SavedataButton *b1 = static_cast<const SavedataButton *>(v1);
 	const SavedataButton *b2 = static_cast<const SavedataButton *>(v2);
+	const int64_t time1 = GetDateSeconds(b1);
+	const int64_t time2 = GetDateSeconds(b2);
 
-	if (GetDateSeconds(b1) > GetDateSeconds(b2))
+	if (time1 > time2)
 		return true;
-	if (GetDateSeconds(b1) < GetDateSeconds(b2))
+	if (time1 < time2)
 		return false;
 	return strcmp(b1->GamePath().c_str(), b2->GamePath().c_str()) < 0;
 }
