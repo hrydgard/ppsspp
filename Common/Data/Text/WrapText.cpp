@@ -119,7 +119,7 @@ void WordWrapper::AppendWord(int endIndex, bool addNewline) {
 	}
 
 	// This will include the newline.
-	if (x_ < maxW_) {
+	if (x_ <= maxW_) {
 		out_.append(str_ + lastWordStartIndex, str_ + endIndex);
 	} else {
 		scanForNewline_ = true;
