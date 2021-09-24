@@ -99,7 +99,7 @@ void SingleControlMapper::Refresh() {
 
 	using namespace UI;
 
-	float itemH = 45;
+	float itemH = 55.0f;
 
 	float leftColumnWidth = 200;
 	float rightColumnWidth = 250;  // TODO: Should be flexible somehow. Maybe we need to implement Measure.
@@ -478,7 +478,8 @@ void JoystickHistoryView::Draw(UIContext &dc) {
 	}
 	float minRadius = std::min(bounds_.w, bounds_.h) * 0.5f - image->w;
 	dc.Begin();
-	dc.DrawTextShadow(title_.c_str(), bounds_.centerX(), bounds_.centerY() + minRadius + 5.0, 0xFFFFFFFF, ALIGN_TOP | ALIGN_HCENTER);
+	Bounds textBounds(bounds_.x, bounds_.centerY() + minRadius + 5.0, bounds_.w, bounds_.h/2 - minRadius - 5.0);
+	dc.DrawTextShadowRect(title_.c_str(), textBounds, 0xFFFFFFFF, ALIGN_TOP | ALIGN_HCENTER | FLAG_WRAP_TEXT);
 	dc.Flush();
 	dc.BeginNoTex();
 	dc.Draw()->RectOutline(bounds_.centerX() - minRadius, bounds_.centerY() - minRadius, minRadius * 2.0f, minRadius * 2.0f, 0x80FFFFFF);

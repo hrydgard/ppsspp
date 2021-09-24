@@ -610,7 +610,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 	InitPadLayout(bounds.w, bounds.h);
 
-	const float leftColumnWidth = 140.0f;
+	const float leftColumnWidth = 170.0f;
 	layoutAreaScale = 1.0-(leftColumnWidth+10)/bounds.w;
 
 	using namespace UI;
