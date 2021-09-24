@@ -834,31 +834,31 @@ void EmuScreen::CreateViews() {
 		AnchorLayoutParams *layoutParams = nullptr;
 		switch (g_Config.iChatButtonPosition) {
 		case 0:
-			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, 80, NONE, NONE, 50, true);
+			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 80, NONE, NONE, 50, true);
 			break;
 		case 1:
-			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, bounds.centerX(), NONE, NONE, 50, true);
+			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, bounds.centerX(), NONE, NONE, 50, true);
 			break;
 		case 2:
-			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, NONE, NONE, 80, 50, true);
+			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, NONE, 80, 50, true);
 			break;
 		case 3:
-			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, 80, 50, NONE, NONE, true);
+			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 80, 50, NONE, NONE, true);
 			break;
 		case 4:
-			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, bounds.centerX(), 50, NONE, NONE, true);
+			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, bounds.centerX(), 50, NONE, NONE, true);
 			break;
 		case 5:
-			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, NONE, 50, 80, NONE, true);
+			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, 50, 80, NONE, true);
 			break;
 		case 6:
-			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, 80, bounds.centerY(), NONE, NONE, true);
+			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 80, bounds.centerY(), NONE, NONE, true);
 			break;
 		case 7:
-			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, NONE, bounds.centerY(), 80, NONE, true);
+			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, bounds.centerY(), 80, NONE, true);
 			break;
 		default:
-			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, 80, NONE, NONE, 50, true);
+			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 80, NONE, NONE, 50, true);
 			break;
 		}
 
