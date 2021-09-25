@@ -93,17 +93,21 @@ bool WordWrapper::WrapBeforeWord() {
 	if (flags_ & FLAG_ELLIPSIZE_TEXT) {
 		const bool hasEllipsis = out_.size() > 3 && out_.substr(out_.size() - 3) == "...";
 		if (x_ + wordWidth_ > maxW_ && !hasEllipsis) {
-			if (!out_.empty() && IsSpace(out_[out_.size() - 1])) {
-				out_[out_.size() - 1] = '.';
-				out_ += "..";
-			} else {
-				out_ += "...";
-			}
-			x_ += ellipsisWidth_;
+			AddEllipsis();
 			skipNextWord_ = true;
 		}
 	}
 	return false;
+}
+
+void WordWrapper::AddEllipsis() {
+	if (!out_.empty() && IsSpace(out_[out_.size() - 1])) {
+		out_[out_.size() - 1] = '.';
+		out_ += "..";
+	} else {
+		out_ += "...";
+	}
+	x_ += ellipsisWidth_;
 }
 
 void WordWrapper::AppendWord(int endIndex, bool addNewline) {
@@ -120,8 +124,14 @@ void WordWrapper::AppendWord(int endIndex, bool addNewline) {
 		}
 	}
 
+	lastEllipsisIndex_ = -1;
+	if (skipNextWord_) {
+		lastIndex_ = endIndex;
+		return;
+	}
+
 	// This will include the newline.
-	if (x_ <= maxW_ && !skipNextWord_) {
+	if (x_ <= maxW_) {
 		out_.append(str_ + lastWordStartIndex, str_ + endIndex);
 	} else {
 		scanForNewline_ = true;
@@ -130,14 +140,23 @@ void WordWrapper::AppendWord(int endIndex, bool addNewline) {
 		out_ += "\n";
 		lastLineStart_ = out_.size();
 		scanForNewline_ = false;
+		x_ = 0.0f;
 	} else {
 		// We may have appended a newline - check.
 		size_t pos = out_.substr(lastLineStart_).find_last_of("\n");
 		if (pos != out_.npos) {
 			lastLineStart_ += pos;
 		}
+
+		if (lastLineStart_ != out_.size()) {
+			// To account for kerning around spaces, we recalculate the entire line width.
+			x_ = MeasureWidth(out_.c_str() + lastLineStart_, out_.size() - lastLineStart_);
+		} else {
+			x_ = 0.0f;
+		}
 	}
 	lastIndex_ = endIndex;
+	wordWidth_ = 0.0f;
 }
 
 void WordWrapper::Wrap() {
@@ -168,11 +187,10 @@ void WordWrapper::Wrap() {
 		if (c == '\n') {
 			// This will include the newline character.
 			AppendWord(afterIndex, false);
-			x_ = 0.0f;
-			wordWidth_ = 0.0f;
 			// We wrapped once, so stop forcing.
 			forceEarlyWrap_ = false;
 			scanForNewline_ = false;
+			skipNextWord_ = false;
 			continue;
 		}
 
@@ -188,16 +206,41 @@ void WordWrapper::Wrap() {
 		// Is this the end of a word (space)?
 		if (wordWidth_ > 0.0f && IsSpace(c)) {
 			AppendWord(afterIndex, false);
-			// To account for kerning around spaces, we recalculate the entire line width.
-			x_ = MeasureWidth(out_.c_str() + lastLineStart_, out_.size() - lastLineStart_);
-			wordWidth_ = 0.0f;
+			skipNextWord_ = false;
 			continue;
+		}
+
+		// We're scanning for the next word.
+		if (skipNextWord_)
+			continue;
+
+		if ((flags_ & FLAG_ELLIPSIZE_TEXT) != 0 && wordWidth_ > 0.0f && lastEllipsisIndex_ == -1) {
+			float checkX = x_;
+			// If we allow wrapping, assume we'll wrap as needed.
+			if ((flags_ & FLAG_WRAP_TEXT) != 0 && x_ >= maxW_) {
+				checkX = 0;
+			}
+
+			// If we can only fit an ellipsis, time to output and skip ahead.
+			// Ignore x for newWordWidth, because we might wrap.
+			if (checkX + wordWidth_ + ellipsisWidth_ <= maxW_ && newWordWidth + ellipsisWidth_ > maxW_) {
+				lastEllipsisIndex_ = beforeIndex;
+				continue;
+			}
 		}
 
 		// Can the word fit on a line even all by itself so far?
 		if (wordWidth_ > 0.0f && newWordWidth > maxW_) {
-			// Nope.  Let's drop what's there so far onto its own line.
-			if (x_ > 0.0f && x_ + wordWidth_ > maxW_ && beforeIndex > lastIndex_) {
+			// If we had a good place for an ellipsis, let's do that.
+			if (lastEllipsisIndex_ != -1) {
+				AppendWord(lastEllipsisIndex_, false);
+				AddEllipsis();
+				skipNextWord_ = true;
+				continue;
+			}
+
+			// Doesn't fit.  Let's drop what's there so far onto its own line.
+			if (x_ > 0.0f && x_ + wordWidth_ > maxW_ && beforeIndex > lastIndex_ && (flags_ & FLAG_WRAP_TEXT) != 0) {
 				// Let's put as many characters as will fit on the previous line.
 				// This word can't fit on one line even, so it's going to be cut into pieces anyway.
 				// Better to avoid huge gaps, in that case.
@@ -212,12 +255,6 @@ void WordWrapper::Wrap() {
 			}
 			// Now, add the word so far (without this latest character) and break.
 			AppendWord(beforeIndex, true);
-			if (lastLineStart_ != out_.size()) {
-				x_ = MeasureWidth(out_.c_str() + lastLineStart_, out_.size() - lastLineStart_);
-			} else {
-				x_ = 0.0f;
-			}
-			wordWidth_ = 0.0f;
 			forceEarlyWrap_ = false;
 			// The current character will be handled as part of the next word.
 			continue;
@@ -226,15 +263,10 @@ void WordWrapper::Wrap() {
 		if ((flags_ & FLAG_ELLIPSIZE_TEXT) && wordWidth_ > 0.0f && x_ + newWordWidth + ellipsisWidth_ > maxW_) {
 			if ((flags_ & FLAG_WRAP_TEXT) == 0 && x_ + wordWidth_ + ellipsisWidth_ <= maxW_) {
 				// Now, add the word so far (without this latest character) and show the ellipsis.
-				AppendWord(beforeIndex, true);
-				if (lastLineStart_ != out_.size()) {
-					x_ = MeasureWidth(out_.c_str() + lastLineStart_, out_.size() - lastLineStart_);
-				} else {
-					x_ = 0.0f;
-				}
-				wordWidth_ = 0.0f;
+				AppendWord(lastEllipsisIndex_ != -1 ? lastEllipsisIndex_ : beforeIndex, false);
+				AddEllipsis();
 				forceEarlyWrap_ = false;
-				// The current character will be handled as part of the next word.
+				skipNextWord_ = true;
 				continue;
 			}
 		}
@@ -245,8 +277,6 @@ void WordWrapper::Wrap() {
 		if (wordWidth_ > 0.0f && (IsCJK(c) || IsPunctuation(c) || forceEarlyWrap_)) {
 			// CJK doesn't require spaces, so we treat each letter as its own word.
 			AppendWord(afterIndex, false);
-			x_ += wordWidth_;
-			wordWidth_ = 0.0f;
 		}
 	}
 

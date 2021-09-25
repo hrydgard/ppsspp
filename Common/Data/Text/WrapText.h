@@ -15,6 +15,7 @@ protected:
 	void Wrap();
 	bool WrapBeforeWord();
 	void AppendWord(int endIndex, bool addNewline);
+	void AddEllipsis();
 
 	static bool IsCJK(uint32_t c);
 	static bool IsPunctuation(uint32_t c);
@@ -28,6 +29,8 @@ protected:
 
 	// Index of last output / start of current word.
 	int lastIndex_ = 0;
+	// Ideal place to put an ellipsis if we run out of space.
+	int lastEllipsisIndex_ = -1;
 	// Index of last line start.
 	size_t lastLineStart_ = 0;
 	// Position the current word starts at.
