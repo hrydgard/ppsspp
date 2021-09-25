@@ -166,8 +166,8 @@ void TextDrawerWin32::MeasureStringRect(const char *str, size_t len, const Bound
 
 	std::vector<std::string> lines;
 	SplitString(toMeasure, '\n', lines);
-	float total_w = 0.0f;
-	float total_h = 0.0f;
+	int total_w = 0;
+	int total_h = 0;
 	for (size_t i = 0; i < lines.size(); i++) {
 		CacheKey key{ lines[i], fontHash_ };
 
@@ -187,15 +187,15 @@ void TextDrawerWin32::MeasureStringRect(const char *str, size_t len, const Bound
 		}
 		entry->lastUsedFrame = frameCount_;
 
-		if (total_w < entry->width * fontScaleX_) {
-			total_w = entry->width * fontScaleX_;
+		if (total_w < entry->width) {
+			total_w = entry->width;
 		}
 		int h = i == lines.size() - 1 ? entry->height : metrics.tmHeight + metrics.tmExternalLeading;
-		total_h += h * fontScaleY_;
+		total_h += h;
 	}
 
-	*w = total_w * dpiScale_;
-	*h = total_h * dpiScale_;
+	*w = total_w * fontScaleX_ * dpiScale_;
+	*h = total_h * fontScaleY_ * dpiScale_;
 }
 
 void TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, const char *str, int align) {
