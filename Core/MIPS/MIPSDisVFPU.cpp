@@ -138,12 +138,20 @@ namespace MIPSDis
 		sprintf(out, "%s%s\t%s, %s",name,vr>127?"c":"", RN(rt), VN(vr, V_Single));
 	}
 
-	void Dis_Vmftvc(MIPSOpcode op, char *out)
+	void Dis_Vmfvc(MIPSOpcode op, char *out)
 	{
-		int vr = op & 0xFF;
+		int vd = _VD;
+		int vr = (op >> 8) & 0x7F;
+		const char* name = MIPSGetName(op);
+		sprintf(out, "%s\t%s, %s", name, VN(vd, V_Single), VN(vr + 128, V_Single));
+	}
+
+	void Dis_Vmtvc(MIPSOpcode op, char *out)
+	{
+		int vr = op & 0x7F;
 		int vs = _VS;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, %s", name, VN(vs, V_Single), VN(vr, V_Single));
+		sprintf(out, "%s\t%s, %s", name, VN(vs, V_Single), VN(vr + 128, V_Single));
 	}
 
 	void Dis_VPFXST(MIPSOpcode op, char *out)
