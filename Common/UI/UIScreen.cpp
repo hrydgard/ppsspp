@@ -830,14 +830,14 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 	float availWidth = (bounds_.w - paddingX * 2) * 0.8f;
 	float scale = CalculateValueScale(dc, valueText, availWidth);
 
-	float ignore;
+	float w, h;
 	Bounds availBounds(0, 0, availWidth, bounds_.h);
-	dc.MeasureTextRect(dc.theme->uiFont, scale, scale, valueText.c_str(), (int)valueText.size(), availBounds, &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
-	textPadding_.right += paddingX;
+	dc.MeasureTextRect(dc.theme->uiFont, scale, scale, valueText.c_str(), (int)valueText.size(), availBounds, &w, &h, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+	textPadding_.right = w + paddingX;
 
 	Choice::Draw(dc);
 	dc.SetFontScale(scale, scale);
-	Bounds valueBounds(bounds_.x2() - textPadding_.right, bounds_.y, textPadding_.right - paddingX, bounds_.h);
+	Bounds valueBounds(bounds_.x2() - textPadding_.right, bounds_.y, w, bounds_.h);
 	dc.DrawTextRect(valueText.c_str(), valueBounds, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 	dc.SetFontScale(1.0f, 1.0f);
 }
