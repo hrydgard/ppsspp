@@ -712,6 +712,12 @@ static bool TestWrapText() {
 	EXPECT_WORDWRAP_EQ_STR("Hello goodbye", 14, FLAG_ELLIPSIZE_TEXT, "Hello...");
 	EXPECT_WORDWRAP_EQ_STR("Hello goodbye", 14, FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT, "Hello \ngoodbye");
 
+	// Multiple words with something short after...
+	EXPECT_WORDWRAP_EQ_STR("Hello goodbye yes", 14, 0, "Hello goodbye ");
+	EXPECT_WORDWRAP_EQ_STR("Hello goodbye yes", 14, FLAG_WRAP_TEXT, "Hello \ngoodbye \nyes");
+	EXPECT_WORDWRAP_EQ_STR("Hello goodbye yes", 14, FLAG_ELLIPSIZE_TEXT, "Hello...");
+	EXPECT_WORDWRAP_EQ_STR("Hello goodbye yes", 14, FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT, "Hello \ngoodbye \nyes");
+
 	// Now, multiple words, but only the first fits.
 	EXPECT_WORDWRAP_EQ_STR("Hello goodbye", 10, 0, "Hello ");
 	EXPECT_WORDWRAP_EQ_STR("Hello goodbye", 10, FLAG_WRAP_TEXT, "Hello \ngoodb\nye");

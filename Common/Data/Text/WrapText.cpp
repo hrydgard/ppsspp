@@ -98,6 +98,9 @@ bool WordWrapper::WrapBeforeWord() {
 		if (x_ + wordWidth_ > maxW_ && !hasEllipsis) {
 			AddEllipsis();
 			skipNextWord_ = true;
+			if ((flags_ & FLAG_WRAP_TEXT) == 0) {
+				scanForNewline_ = true;
+			}
 		}
 	}
 	return false;
@@ -250,6 +253,9 @@ void WordWrapper::Wrap() {
 				AppendWord(lastEllipsisIndex_, -1, false);
 				AddEllipsis();
 				skipNextWord_ = true;
+				if ((flags_ & FLAG_WRAP_TEXT) == 0) {
+					scanForNewline_ = true;
+				}
 				continue;
 			}
 
@@ -281,6 +287,9 @@ void WordWrapper::Wrap() {
 				AddEllipsis();
 				forceEarlyWrap_ = false;
 				skipNextWord_ = true;
+				if ((flags_ & FLAG_WRAP_TEXT) == 0) {
+					scanForNewline_ = true;
+				}
 				continue;
 			}
 		}
