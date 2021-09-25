@@ -153,9 +153,9 @@ void WordWrapper::AppendWord(int endIndex, int lastChar, bool addNewline) {
 		x_ = 0.0f;
 	} else {
 		// We may have appended a newline - check.
-		size_t pos = out_.substr(lastLineStart_).find_last_of("\n");
+		size_t pos = out_.find_last_of("\n");
 		if (pos != out_.npos) {
-			lastLineStart_ += pos;
+			lastLineStart_ = pos + 1;
 		}
 
 		if (lastChar == -1 && !out_.empty()) {
@@ -202,12 +202,15 @@ void WordWrapper::Wrap() {
 
 		// Is this a newline character, hard wrapping?
 		if (c == '\n') {
+			if (skipNextWord_) {
+				lastIndex_ = beforeIndex;
+				skipNextWord_ = false;
+			}
 			// This will include the newline character.
 			AppendWord(afterIndex, c, false);
 			// We wrapped once, so stop forcing.
 			forceEarlyWrap_ = false;
 			scanForNewline_ = false;
-			skipNextWord_ = false;
 			continue;
 		}
 

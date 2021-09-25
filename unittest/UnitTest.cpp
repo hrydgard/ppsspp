@@ -731,6 +731,12 @@ static bool TestWrapText() {
 	EXPECT_WORDWRAP_EQ_STR(shyTestString.c_str(), 10, FLAG_ELLIPSIZE_TEXT, "Very...");
 	EXPECT_WORDWRAP_EQ_STR(shyTestString.c_str(), 10, FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT, "Very-\nlong");
 
+	// Newlines should not be removed and should influence wrapping.
+	EXPECT_WORDWRAP_EQ_STR("Hello\ngoodbye yes\nno", 14, 0, "Hello\ngoodbye ");
+	EXPECT_WORDWRAP_EQ_STR("Hello\ngoodbye yes\nno", 14, FLAG_WRAP_TEXT, "Hello\ngoodbye \nyes\nno");
+	EXPECT_WORDWRAP_EQ_STR("Hello\ngoodbye yes\nno", 14, FLAG_ELLIPSIZE_TEXT, "Hello\ngoodb...\nno");
+	EXPECT_WORDWRAP_EQ_STR("Hello\ngoodbye yes\nno", 14, FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT, "Hello\ngoodbye \nyes\nno");
+
 	return true;
 }
 
