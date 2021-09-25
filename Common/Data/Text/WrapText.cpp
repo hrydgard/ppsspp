@@ -91,14 +91,16 @@ bool WordWrapper::WrapBeforeWord() {
 		}
 	}
 	if (flags_ & FLAG_ELLIPSIZE_TEXT) {
-		if (x_ + wordWidth_ > maxW_) {
+		const bool hasEllipsis = out_.size() > 3 && out_.substr(out_.size() - 3) == "...";
+		if (x_ + wordWidth_ > maxW_ && !hasEllipsis) {
 			if (!out_.empty() && IsSpace(out_[out_.size() - 1])) {
 				out_[out_.size() - 1] = '.';
 				out_ += "..";
 			} else {
 				out_ += "...";
 			}
-			x_ = maxW_;
+			x_ += ellipsisWidth_;
+			skipNextWord_ = true;
 		}
 	}
 	return false;
@@ -119,7 +121,7 @@ void WordWrapper::AppendWord(int endIndex, bool addNewline) {
 	}
 
 	// This will include the newline.
-	if (x_ <= maxW_) {
+	if (x_ <= maxW_ && !skipNextWord_) {
 		out_.append(str_ + lastWordStartIndex, str_ + endIndex);
 	} else {
 		scanForNewline_ = true;
@@ -222,7 +224,7 @@ void WordWrapper::Wrap() {
 		}
 
 		if ((flags_ & FLAG_ELLIPSIZE_TEXT) && wordWidth_ > 0.0f && x_ + newWordWidth + ellipsisWidth_ > maxW_) {
-			if ((flags_ & FLAG_WRAP_TEXT) == 0) {
+			if ((flags_ & FLAG_WRAP_TEXT) == 0 && x_ + wordWidth_ + ellipsisWidth_ <= maxW_) {
 				// Now, add the word so far (without this latest character) and show the ellipsis.
 				AppendWord(beforeIndex, true);
 				if (lastLineStart_ != out_.size()) {

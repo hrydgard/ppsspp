@@ -40,4 +40,6 @@ protected:
 	bool forceEarlyWrap_ = false;
 	// Skip all characters until the next newline.
 	bool scanForNewline_ = false;
+	// Skip the next word, replaced with ellipsis.
+	bool skipNextWord_ = false;
 };
