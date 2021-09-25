@@ -24,7 +24,8 @@ extern u32 disPC;
 namespace MIPSDis
 {
 	void Dis_Mftv(MIPSOpcode op, char *out);
-	void Dis_Vmftvc(MIPSOpcode op, char *out);
+	void Dis_Vmfvc(MIPSOpcode op, char *out);
+	void Dis_Vmtvc(MIPSOpcode op, char *out);
 
 	void Dis_SV(MIPSOpcode op, char *out);
 	void Dis_SVQ(MIPSOpcode op, char *out);
