@@ -232,6 +232,7 @@ namespace MIPSDis
 	{
 		int conNum = (op>>16) & 0x1f;
 		int vd = _VD;
+		VectorSize sz = GetVecSizeSafe(op);
 		static const char *constants[32] = 
 		{
 			"(undef)",
@@ -258,7 +259,7 @@ namespace MIPSDis
 		const char *name = MIPSGetName(op);
 		const char *c = constants[conNum];
 		if (c==0) c = constants[0];
-		sprintf(out,"%s%s\t%s, %s",name,VSuff(op),VN(vd,V_Single), c);
+		sprintf(out,"%s%s\t%s, %s",name,VSuff(op),VN(vd,sz), c);
 	}
 
 
