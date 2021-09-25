@@ -671,11 +671,15 @@ protected:
 	float MeasureWidth(const char *str, size_t bytes) override {
 		// Simple case for unit testing.
 		int w = 0;
-		for (size_t i = 0; i < bytes; ++i) {
-			switch (str[i]) {
+		for (UTF8 utf(str); !utf.end() && utf.byteIndex() < bytes; ) {
+			uint32_t c = utf.next();
+			switch (c) {
 			case ' ':
 			case '.':
 				w += 1;
+				break;
+			case 0x00AD:
+				// No width for soft hyphens.
 				break;
 			default:
 				w += 2;
@@ -713,6 +717,13 @@ static bool TestWrapText() {
 	EXPECT_WORDWRAP_EQ_STR("Hello goodbye", 10, FLAG_WRAP_TEXT, "Hello \ngoodb\nye");
 	EXPECT_WORDWRAP_EQ_STR("Hello goodbye", 10, FLAG_ELLIPSIZE_TEXT, "Hel...");
 	EXPECT_WORDWRAP_EQ_STR("Hello goodbye", 10, FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT, "Hello \ngoo...");
+
+	// How about the shy character?
+	const std::string shyTestString = StringFromFormat("Very%c%clong", 0xC2, 0xAD);
+	EXPECT_WORDWRAP_EQ_STR(shyTestString.c_str(), 10, 0, shyTestString);
+	EXPECT_WORDWRAP_EQ_STR(shyTestString.c_str(), 10, FLAG_WRAP_TEXT, "Very-\nlong");
+	EXPECT_WORDWRAP_EQ_STR(shyTestString.c_str(), 10, FLAG_ELLIPSIZE_TEXT, "Very...");
+	EXPECT_WORDWRAP_EQ_STR(shyTestString.c_str(), 10, FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT, "Very-\nlong");
 
 	return true;
 }

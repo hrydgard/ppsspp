@@ -78,12 +78,15 @@ std::string WordWrapper::Wrapped() {
 bool WordWrapper::WrapBeforeWord() {
 	if (flags_ & FLAG_WRAP_TEXT) {
 		if (x_ + wordWidth_ > maxW_ && !out_.empty()) {
-			if (IsShy(out_[out_.size() - 1])) {
+			if (IsShy(lastChar_)) {
 				// Soft hyphen, replace it with a real hyphen since we wrapped at it.
 				// TODO: There's an edge case here where the hyphen might not fit.
-				out_[out_.size() - 1] = '-';
+				out_[out_.size() - 2] = '-';
+				out_[out_.size() - 1] = '\n';
+			} else {
+				out_ += "\n";
 			}
-			out_ += "\n";
+			lastChar_ = '\n';
 			lastLineStart_ = out_.size();
 			x_ = 0.0f;
 			forceEarlyWrap_ = false;
@@ -101,16 +104,19 @@ bool WordWrapper::WrapBeforeWord() {
 }
 
 void WordWrapper::AddEllipsis() {
-	if (!out_.empty() && IsSpace(out_[out_.size() - 1])) {
-		out_[out_.size() - 1] = '.';
-		out_ += "..";
+	if (!out_.empty() && IsSpaceOrShy(lastChar_)) {
+		UTF8 utf(out_.c_str(), (int)out_.size());
+		utf.bwd();
+		out_.resize(utf.byteIndex());
+		out_ += "...";
 	} else {
 		out_ += "...";
 	}
+	lastChar_ = '.';
 	x_ += ellipsisWidth_;
 }
 
-void WordWrapper::AppendWord(int endIndex, bool addNewline) {
+void WordWrapper::AppendWord(int endIndex, int lastChar, bool addNewline) {
 	int lastWordStartIndex = lastIndex_;
 	if (WrapBeforeWord()) {
 		// Advance to the first non-whitespace UTF-8 character in the following word (if any) to prevent starting the new line with a whitespace
@@ -138,6 +144,7 @@ void WordWrapper::AppendWord(int endIndex, bool addNewline) {
 	}
 	if (addNewline && (flags_ & FLAG_WRAP_TEXT)) {
 		out_ += "\n";
+		lastChar_ = '\n';
 		lastLineStart_ = out_.size();
 		scanForNewline_ = false;
 		x_ = 0.0f;
@@ -147,6 +154,13 @@ void WordWrapper::AppendWord(int endIndex, bool addNewline) {
 		if (pos != out_.npos) {
 			lastLineStart_ += pos;
 		}
+
+		if (lastChar == -1 && !out_.empty()) {
+			UTF8 utf(out_.c_str(), (int)out_.size());
+			utf.bwd();
+			lastChar = utf.next();
+		}
+		lastChar_ = lastChar;
 
 		if (lastLineStart_ != out_.size()) {
 			// To account for kerning around spaces, we recalculate the entire line width.
@@ -186,7 +200,7 @@ void WordWrapper::Wrap() {
 		// Is this a newline character, hard wrapping?
 		if (c == '\n') {
 			// This will include the newline character.
-			AppendWord(afterIndex, false);
+			AppendWord(afterIndex, c, false);
 			// We wrapped once, so stop forcing.
 			forceEarlyWrap_ = false;
 			scanForNewline_ = false;
@@ -203,9 +217,9 @@ void WordWrapper::Wrap() {
 		// Measure the entire word for kerning purposes.  May not be 100% perfect.
 		float newWordWidth = MeasureWidth(str_ + lastIndex_, afterIndex - lastIndex_);
 
-		// Is this the end of a word (space)?
-		if (wordWidth_ > 0.0f && IsSpace(c)) {
-			AppendWord(afterIndex, false);
+		// Is this the end of a word (space)?  We'll also output up to a soft hyphen.
+		if (wordWidth_ > 0.0f && IsSpaceOrShy(c)) {
+			AppendWord(afterIndex, c, false);
 			skipNextWord_ = false;
 			continue;
 		}
@@ -233,7 +247,7 @@ void WordWrapper::Wrap() {
 		if (wordWidth_ > 0.0f && newWordWidth > maxW_) {
 			// If we had a good place for an ellipsis, let's do that.
 			if (lastEllipsisIndex_ != -1) {
-				AppendWord(lastEllipsisIndex_, false);
+				AppendWord(lastEllipsisIndex_, -1, false);
 				AddEllipsis();
 				skipNextWord_ = true;
 				continue;
@@ -254,7 +268,7 @@ void WordWrapper::Wrap() {
 				continue;
 			}
 			// Now, add the word so far (without this latest character) and break.
-			AppendWord(beforeIndex, true);
+			AppendWord(beforeIndex, -1, true);
 			forceEarlyWrap_ = false;
 			// The current character will be handled as part of the next word.
 			continue;
@@ -263,7 +277,7 @@ void WordWrapper::Wrap() {
 		if ((flags_ & FLAG_ELLIPSIZE_TEXT) && wordWidth_ > 0.0f && x_ + newWordWidth + ellipsisWidth_ > maxW_) {
 			if ((flags_ & FLAG_WRAP_TEXT) == 0 && x_ + wordWidth_ + ellipsisWidth_ <= maxW_) {
 				// Now, add the word so far (without this latest character) and show the ellipsis.
-				AppendWord(lastEllipsisIndex_ != -1 ? lastEllipsisIndex_ : beforeIndex, false);
+				AppendWord(lastEllipsisIndex_ != -1 ? lastEllipsisIndex_ : beforeIndex, -1, false);
 				AddEllipsis();
 				forceEarlyWrap_ = false;
 				skipNextWord_ = true;
@@ -276,10 +290,10 @@ void WordWrapper::Wrap() {
 		// Is this the end of a word via punctuation / CJK?
 		if (wordWidth_ > 0.0f && (IsCJK(c) || IsPunctuation(c) || forceEarlyWrap_)) {
 			// CJK doesn't require spaces, so we treat each letter as its own word.
-			AppendWord(afterIndex, false);
+			AppendWord(afterIndex, c, false);
 		}
 	}
 
 	// Now insert the rest of the string - the last word.
-	AppendWord((int)len, false);
+	AppendWord((int)len, 0, false);
 }

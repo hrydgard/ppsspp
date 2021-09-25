@@ -14,13 +14,16 @@ protected:
 	virtual float MeasureWidth(const char *str, size_t bytes) = 0;
 	void Wrap();
 	bool WrapBeforeWord();
-	void AppendWord(int endIndex, bool addNewline);
+	void AppendWord(int endIndex, int lastChar, bool addNewline);
 	void AddEllipsis();
 
 	static bool IsCJK(uint32_t c);
 	static bool IsPunctuation(uint32_t c);
 	static bool IsSpace(uint32_t c);
 	static bool IsShy(uint32_t c);
+	static bool IsSpaceOrShy(uint32_t c) {
+		return IsSpace(c) || IsShy(c);
+	}
 
 	const char *const str_;
 	const float maxW_;
@@ -33,6 +36,8 @@ protected:
 	int lastEllipsisIndex_ = -1;
 	// Index of last line start.
 	size_t lastLineStart_ = 0;
+	// Last character written to out_.
+	int lastChar_ = 0;
 	// Position the current word starts at.
 	float x_ = 0.0f;
 	// Most recent width of word since last index.
