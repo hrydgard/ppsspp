@@ -40,13 +40,15 @@
 #include <jni.h>
 #endif
 
+#include "Common/Data/Text/Parsers.h"
+#include "Common/Data/Text/WrapText.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/File/Path.h"
+#include "Common/Input/InputState.h"
+#include "Common/Math/math_util.h"
+#include "Common/Render/DrawBuffer.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
-#include "Common/Input/InputState.h"
-#include "Common/File/Path.h"
-#include "Common/Math/math_util.h"
-#include "Common/Data/Text/Parsers.h"
-#include "Common/Data/Encoding/Utf8.h"
 
 #include "Common/ArmEmitter.h"
 #include "Common/BitScan.h"
@@ -659,6 +661,62 @@ static bool TestAndroidContentURI() {
 	return true;
 }
 
+class UnitTestWordWrapper : public WordWrapper {
+public:
+	UnitTestWordWrapper(const char *str, float maxW, int flags)
+		: WordWrapper(str, maxW, flags) {
+	}
+
+protected:
+	float MeasureWidth(const char *str, size_t bytes) override {
+		// Simple case for unit testing.
+		int w = 0;
+		for (size_t i = 0; i < bytes; ++i) {
+			switch (str[i]) {
+			case ' ':
+			case '.':
+				w += 1;
+				break;
+			default:
+				w += 2;
+				break;
+			}
+		}
+
+		return w;
+	}
+};
+
+#define EXPECT_WORDWRAP_EQ_STR(a, l, f, b) if (UnitTestWordWrapper(a, l, f).Wrapped() != b) { printf("%s: Test Fail (%d, %s)\n%s\nvs\n%s\n", __FUNCTION__, l, #f, UnitTestWordWrapper(a, l, f).Wrapped().c_str(), std::string(b).c_str()); return false; }
+
+static bool TestWrapText() {
+	// If there's enough space, it shouldn't wrap.  This is exactly enough.
+	EXPECT_WORDWRAP_EQ_STR("Hello", 10, 0, "Hello");
+	EXPECT_WORDWRAP_EQ_STR("Hello", 10, FLAG_WRAP_TEXT, "Hello");
+	EXPECT_WORDWRAP_EQ_STR("Hello", 10, FLAG_ELLIPSIZE_TEXT, "Hello");
+	EXPECT_WORDWRAP_EQ_STR("Hello", 10, FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT, "Hello");
+
+	// Try a single word that doesn't fit in the space.
+	EXPECT_WORDWRAP_EQ_STR("Hello", 6, 0, "Hello");
+	EXPECT_WORDWRAP_EQ_STR("Hello", 6, FLAG_WRAP_TEXT, "Hel\nlo");
+	EXPECT_WORDWRAP_EQ_STR("Hello", 6, FLAG_ELLIPSIZE_TEXT, "H...");
+	EXPECT_WORDWRAP_EQ_STR("Hello", 6, FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT, "H...");
+
+	// Now, multiple words.
+	EXPECT_WORDWRAP_EQ_STR("Hello goodbye", 14, 0, "Hello goodbye");
+	EXPECT_WORDWRAP_EQ_STR("Hello goodbye", 14, FLAG_WRAP_TEXT, "Hello \ngoodbye");
+	EXPECT_WORDWRAP_EQ_STR("Hello goodbye", 14, FLAG_ELLIPSIZE_TEXT, "Hello...");
+	EXPECT_WORDWRAP_EQ_STR("Hello goodbye", 14, FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT, "Hello \ngoodbye");
+
+	// Now, multiple words, but only the first fits.
+	EXPECT_WORDWRAP_EQ_STR("Hello goodbye", 10, 0, "Hello ");
+	EXPECT_WORDWRAP_EQ_STR("Hello goodbye", 10, FLAG_WRAP_TEXT, "Hello \ngoodb\nye");
+	EXPECT_WORDWRAP_EQ_STR("Hello goodbye", 10, FLAG_ELLIPSIZE_TEXT, "Hel...");
+	EXPECT_WORDWRAP_EQ_STR("Hello goodbye", 10, FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT, "Hello \ngoo...");
+
+	return true;
+}
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -699,6 +757,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Path),
 	TEST_ITEM(AndroidContentURI),
 	TEST_ITEM(ThreadManager),
+	TEST_ITEM(WrapText),
 };
 
 int main(int argc, const char *argv[]) {
