@@ -518,7 +518,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	} else {
 		g_Config.memStickDirectory = Path(external_dir);
 		g_Config.defaultCurrentDirectory = Path(external_dir);
-		CreateDirectoriesAndroid();
 	}
 
 	// Might also add an option to move it to internal / non-visible storage, but there's
@@ -546,6 +545,11 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		}
 	} else {
 		INFO_LOG(SYSTEM, "No memstick directory file found (tried to open '%s')", memstickDirFile.c_str());
+	}
+
+	// Attempt to create directories after reading the path.
+	if (!System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
+		CreateDirectoriesAndroid();
 	}
 
 #elif PPSSPP_PLATFORM(IOS)
