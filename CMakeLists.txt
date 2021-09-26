@@ -2219,6 +2219,7 @@ endif()
 set(NativeAssets
 	android/assets/ui_atlas.zim
 	android/assets/ui_atlas.meta
+	assets/debugger
 	assets/lang
 	assets/shaders
 	assets/Roboto-Condensed.ttf
@@ -2324,18 +2325,20 @@ if(TargetBin)
 		file(GLOB_RECURSE FLASH0_FILES assets/flash0/*)
 		file(GLOB_RECURSE LANG_FILES assets/lang/*)
 		file(GLOB_RECURSE SHADER_FILES assets/shaders/*)
+		file(GLOB_RECURSE DEBUGGER_FILES assets/debugger/*)
 
 		if(NOT IOS)
 			set_source_files_properties(${NativeAssets} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets")
 			set_source_files_properties(${FLASH0_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/flash0/font")
 			set_source_files_properties(${LANG_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/lang")
 			set_source_files_properties(${SHADER_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/shaders")
+			set_source_files_properties(${DEBUGGER_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/debugger")
 		endif()
 
 		if(IOS)
-			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard" "ext/vulkan/iOS/Frameworks")
+			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard" "ext/vulkan/iOS/Frameworks")
 		else()
-			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
+			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
 			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPPSDL.app/Contents/Frameworks/")
 			if(TARGET SDL2::SDL2 AND NOT USING_QT_UI)
 				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/SDL/macbundle.sh" "${CMAKE_BINARY_DIR}/PPSSPPSDL.app")

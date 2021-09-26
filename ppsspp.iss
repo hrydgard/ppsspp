@@ -74,6 +74,7 @@ Source: "README.md"; DestName: "README.txt"; DestDir: "{app}"; Flags: isreadme
 Source: "notinstalled.txt"; DestName: "installed.txt"; DestDir: "{app}";
 Source: "assets\*.*"; DestDir: "{app}\assets"
 Source: "assets\shaders\*.*"; DestDir: "{app}\assets\shaders"
+Source: "assets\debugger\*"; DestDir: "{app}\assets\debugger"; Flags: recursesubdirs
 Source: "assets\lang\*.ini"; DestDir: "{app}\assets\lang"
 Source: "assets\flash0\font\*.*"; DestDir: "{app}\assets\flash0\font"
 Source: "dx9sdk\8.1\Redist\D3D\x64\d3dcompiler_47.dll"; DestDir: "{app}"
