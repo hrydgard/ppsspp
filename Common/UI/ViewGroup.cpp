@@ -1321,16 +1321,22 @@ std::string GridLayoutList::DescribeText() const {
 TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *layoutParams)
 	: LinearLayout(Opposite(orientation), layoutParams), stripSize_(stripSize) {
 	SetSpacing(0.0f);
+
+	choiceStrip_ = new LinearLayout(orientation, new LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+	choiceStrip_->SetSpacing(0.0f);
+
 	if (orientation == ORIENT_HORIZONTAL) {
 		tabStrip_ = new ChoiceStrip(orientation, new LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 		tabStrip_->SetTopTabs(true);
 		tabScroll_ = new ScrollView(orientation, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
-		tabScroll_->Add(tabStrip_);
+		choiceStrip_->Add(tabStrip_);
+		tabScroll_->Add(choiceStrip_);
 		Add(tabScroll_);
 	} else {
 		tabStrip_ = new ChoiceStrip(orientation, new LayoutParams(stripSize, WRAP_CONTENT));
 		tabStrip_->SetTopTabs(true);
-		Add(tabStrip_);
+		choiceStrip_->Add(tabStrip_);
+		Add(choiceStrip_);
 	}
 	tabStrip_->OnChoice.Handle(this, &TabHolder::OnTabClick);
 

@@ -695,7 +695,6 @@ void GameBrowser::Refresh() {
 		layoutChoice->AddChoice(ImageID("I_LINES"));
 		layoutChoice->SetSelection(*gridStyle_ ? 0 : 1, false);
 		layoutChoice->OnChoice.Handle(this, &GameBrowser::LayoutChange);
-		topBar->Add(new Choice(ImageID("I_GEAR"), new LayoutParams(64.0f, 64.0f)))->OnClick.Handle(this, &GameBrowser::GridSettingsClick);
 		Add(topBar);
 
 		if (*gridStyle_) {
@@ -715,17 +714,6 @@ void GameBrowser::Refresh() {
 			gl->SetSpacing(4.0f);
 			gameList_ = gl;
 		}
-		// Until we can come up with a better space to put it (next to the tabs?) let's get rid of the icon config
-		// button on the Recent tab, it's ugly. You can use the button from the other tabs.
-
-		// LinearLayout *gridOptionColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(64.0, 64.0f));
-		// gridOptionColumn->Add(new Spacer(12.0));
-		// gridOptionColumn->Add(new Choice(ImageID("I_GEAR"), new LayoutParams(64.0f, 64.0f)))->OnClick.Handle(this, &GameBrowser::GridSettingsClick);
-		// LinearLayout *grid = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-		// gameList_->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.75));
-		// grid->Add(gameList_);
-		// grid->Add(gridOptionColumn);
-		// Add(grid);
 		Add(gameList_);
 	}
 
@@ -929,21 +917,24 @@ UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameBrowser::GridSettingsClick(UI::EventParams &e) {
+UI::EventReturn MainScreen::OnGridSettings(UI::EventParams &e) {
 	auto sy = GetI18NCategory("System");
 	auto gridSettings = new GridSettingsScreen(sy->T("Games list settings"));
-	gridSettings->OnRecentChanged.Handle(this, &GameBrowser::OnRecentClear);
+	gridSettings->OnRecentChanged.Handle(this, &MainScreen::OnRecentClear);
 	if (e.v)
 		gridSettings->SetPopupOrigin(e.v);
 
-	screenManager_->push(gridSettings);
+	screenManager()->push(gridSettings);
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameBrowser::OnRecentClear(UI::EventParams &e) {
-	screenManager_->RecreateAllViews();
-	if (host) {
-		host->UpdateUI();
+UI::EventReturn MainScreen::OnRecentClear(UI::EventParams &e) {
+	if (tabHolder_->GetCurrentTab() == 0) {
+		// If we are in recent tab update the tab below
+		RecreateViews();
+	} else {
+		// If not schedule for dialog finish (avoid losing the current game list)
+		recreateViewOnDialogFinish_ = true;
 	}
 	return UI::EVENT_DONE;
 }
@@ -1091,6 +1082,7 @@ void MainScreen::CreateViews() {
 		leftColumn->Add(new Spacer(new LinearLayoutParams(0.1f)));
 	}
 
+	tabHolder_->AddChoice(new Choice(ImageID("I_GEAR"), new LayoutParams(64.0f, 64.0f)))->OnClick.Handle(this, &MainScreen::OnGridSettings);
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL);
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	rightColumnItems->SetSpacing(0.0f);
@@ -1424,6 +1416,10 @@ UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (dialog->tag() == "store") {
 		backFromStore_ = true;
+		RecreateViews();
+	}
+	if (recreateViewOnDialogFinish_) {
+		recreateViewOnDialogFinish_ = false;
 		RecreateViews();
 	}
 	if (dialog->tag() == "game") {
