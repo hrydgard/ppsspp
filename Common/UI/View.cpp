@@ -440,6 +440,8 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 			// Let it have as much space as it needs.
 			availWidth = MAX_ITEM_SIZE;
 		}
+		if (horiz.type != EXACTLY && layoutParams_->width > 0.0f && availWidth > layoutParams_->width)
+			availWidth = layoutParams_->width;
 		float scale = CalculateTextScale(dc, availWidth);
 		Bounds availBounds(0, 0, availWidth, vert.size);
 		dc.MeasureTextRect(dc.theme->uiFont, scale, scale, text_.c_str(), (int)text_.size(), availBounds, &w, &h, FLAG_WRAP_TEXT);
