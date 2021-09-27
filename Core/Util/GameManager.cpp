@@ -290,7 +290,7 @@ bool GameManager::InstallGame(Path url, Path fileName, bool deleteAfter) {
 
 	std::string extension = url.GetFileExtension();
 	// Examine the URL to guess out what we're installing.
-	if (extension == "cso" || extension == "iso") {
+	if (extension == ".cso" || extension == ".iso") {
 		// It's a raw ISO or CSO file. We just copy it to the destination.
 		std::string shortFilename = url.GetFilename();
 		return InstallRawISO(fileName, shortFilename, deleteAfter);
