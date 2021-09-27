@@ -736,14 +736,14 @@ bool EmuScreen::key(const KeyInput &key) {
 	Core_NotifyActivity();
 
 	if (UI::IsFocusMovementEnabled()) {
-		if ((key.flags & KEY_DOWN) != 0 && UI::IsEscapeKey(key)) {
+		if (UIScreen::key(key)) {
+			return true;
+		} else if ((key.flags & KEY_DOWN) != 0 && UI::IsEscapeKey(key)) {
 			if (chatMenu_)
 				chatMenu_->Close();
 			if (chatButton_)
 				chatButton_->SetVisibility(UI::V_VISIBLE);
 			UI::EnableFocusMovement(false);
-			return true;
-		} else if (UIScreen::key(key)) {
 			return true;
 		}
 	}
