@@ -800,15 +800,21 @@ void ScrollView::Layout() {
 	switch (orientation_) {
 	case ORIENT_HORIZONTAL:
 		if (scrolled.w != lastViewSize_) {
-			ScrollTo(0.0f);
+			if (scrollToTopOnSizeChange_)
+				ScrollTo(0.0f);
+			else if (rememberPos_)
+				scrollPos_ = *rememberPos_;
 			lastViewSize_ = scrolled.w;
 		}
 		scrolled.x = bounds_.x - layoutScrollPos_;
 		scrolled.y = bounds_.y + margins.top;
 		break;
 	case ORIENT_VERTICAL:
-		if (scrolled.h != lastViewSize_ && scrollToTopOnSizeChange_) {
-			ScrollTo(0.0f);
+		if (scrolled.h != lastViewSize_) {
+			if (scrollToTopOnSizeChange_)
+				ScrollTo(0.0f);
+			else if (rememberPos_)
+				scrollPos_ = *rememberPos_;
 			lastViewSize_ = scrolled.h;
 		}
 		scrolled.x = bounds_.x + margins.left;
@@ -1137,8 +1143,11 @@ void ScrollView::Update() {
 
 	if (oldPos != scrollPos_)
 		orientation_ == ORIENT_HORIZONTAL ? lastScrollPosX = scrollPos_ : lastScrollPosY = scrollPos_;
-	if (rememberPos_)
+
+	// We load some lists asynchronously, so don't update the position until it's loaded.
+	if (rememberPos_ && ClampedScrollPos(scrollPos_) != ClampedScrollPos(*rememberPos_)) {
 		*rememberPos_ = scrollPos_;
+	}
 }
 
 void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
