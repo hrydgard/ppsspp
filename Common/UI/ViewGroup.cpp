@@ -800,9 +800,7 @@ void ScrollView::Layout() {
 	switch (orientation_) {
 	case ORIENT_HORIZONTAL:
 		if (scrolled.w != lastViewSize_) {
-			if (scrollToTopOnSizeChange_)
-				ScrollTo(0.0f);
-			else if (rememberPos_)
+			if (rememberPos_)
 				scrollPos_ = *rememberPos_;
 			lastViewSize_ = scrolled.w;
 		}
@@ -811,9 +809,7 @@ void ScrollView::Layout() {
 		break;
 	case ORIENT_VERTICAL:
 		if (scrolled.h != lastViewSize_) {
-			if (scrollToTopOnSizeChange_)
-				ScrollTo(0.0f);
-			else if (rememberPos_)
+			if (rememberPos_)
 				scrollPos_ = *rememberPos_;
 			lastViewSize_ = scrolled.h;
 		}

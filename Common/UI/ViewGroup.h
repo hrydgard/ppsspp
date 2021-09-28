@@ -295,9 +295,6 @@ public:
 
 	NeighborResult FindScrollNeighbor(View *view, const Point &target, FocusDirection direction, NeighborResult best) override;
 
-	// Quick hack to prevent scrolling to top in some lists
-	void SetScrollToTop(bool t) { scrollToTopOnSizeChange_ = t; }
-
 private:
 	float ClampedScrollPos(float pos);
 
@@ -312,7 +309,6 @@ private:
 	float inertia_ = 0.0f;
 	float pull_ = 0.0f;
 	float lastViewSize_ = 0.0f;
-	bool scrollToTopOnSizeChange_ = false;
 	float *rememberPos_ = nullptr;
 
 	static float lastScrollPosX;
