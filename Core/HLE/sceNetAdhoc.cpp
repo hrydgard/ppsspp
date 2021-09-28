@@ -118,12 +118,11 @@ static int sceNetAdhocPdpRecv(int id, void* addr, void* port, void* buf, void* d
 
 void __NetAdhocShutdown() {
 	// Kill AdhocServer Thread
-	if (adhocServerRunning) {
-		adhocServerRunning = false;
-		if (adhocServerThread.joinable()) {
-			adhocServerThread.join();
-		}
+	adhocServerRunning = false;
+	if (adhocServerThread.joinable()) {
+		adhocServerThread.join();
 	}
+
 	// Checks to avoid confusing logspam
 	if (netAdhocMatchingInited) {
 		NetAdhocMatching_Term();
@@ -337,8 +336,8 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 			ret = SOCKET_ERROR;
 			sockerr = EAGAIN;
 			// Don't send anything yet if connection to Adhoc Server is still in progress
-			if (!isAdhocctlNeedLogin && IsSocketReady(metasocket, false, true) > 0) {
-				ret = send(metasocket, (const char*)&packet, len, MSG_NOSIGNAL);
+			if (!isAdhocctlNeedLogin && IsSocketReady((int)metasocket, false, true) > 0) {
+				ret = send((int)metasocket, (const char*)&packet, len, MSG_NOSIGNAL);
 				sockerr = errno;
 				// Successfully Sent or Connection has been closed or Connection failure occurred
 				if (ret >= 0 || (ret == SOCKET_ERROR && sockerr != EAGAIN && sockerr != EWOULDBLOCK)) {
@@ -404,7 +403,7 @@ static void __AdhocctlState(u64 userdata, int cyclesLate) {
 
 // Used to simulate blocking on metasocket when send OP code to AdhocServer
 int WaitBlockingAdhocctlSocket(AdhocctlRequest request, int usec, const char* reason) {
-	int uid = (metasocket <= 0) ? 1 : metasocket;
+	int uid = (metasocket <= 0) ? 1 : (int)metasocket;
 
 	if (adhocctlRequests.find(uid) != adhocctlRequests.end()) {
 		WARN_LOG(SCENET, "sceNetAdhocctl - WaitID[%d] already existed, Socket is busy!", uid);
@@ -1180,8 +1179,8 @@ void __NetAdhocInit() {
 	__AdhocServerInit();
 
 	// Create built-in AdhocServer Thread
+	adhocServerRunning = false;
 	if (g_Config.bEnableWlan && g_Config.bEnableAdhocServer) {
-		adhocServerRunning = true;
 		adhocServerThread = std::thread(proAdhocServerThread, SERVER_PORT);
 	}
 }
@@ -1231,7 +1230,6 @@ static u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 
 	// TODO: Merging friendFinder (real) thread to AdhocThread (fake) thread on PSP side
 	if (!friendFinderRunning) {
-		friendFinderRunning = true;
 		friendFinderThread = std::thread(friendFinder);
 	}
 	
@@ -2364,7 +2362,7 @@ u32 NetAdhocctl_Disconnect() {
 		int us = adhocDefaultDelay * 3;
 		hleEatMicro(1000);
 
-		if (isAdhocctlBusy) {
+		if (isAdhocctlBusy && CoreTiming::IsScheduled(adhocctlNotifyEvent)) {
 			return ERROR_NET_ADHOCCTL_BUSY;
 		}
 
@@ -2385,7 +2383,7 @@ u32 NetAdhocctl_Disconnect() {
 			//_acquireNetworkLock();
 
 			// Send Disconnect Request Packet
-			iResult = send(metasocket, (const char*)&opcode, 1, MSG_NOSIGNAL);
+			iResult = send((int)metasocket, (const char*)&opcode, 1, MSG_NOSIGNAL);
 			error = errno;
 
 			// Sending may get socket error 10053 if the AdhocServer is already shutted down
@@ -2502,8 +2500,8 @@ int NetAdhocctl_Term() {
 		adhocctlHandlers.clear();
 		// Free stuff here
 		networkInited = false;
-		shutdown(metasocket, SD_BOTH);
-		closesocket(metasocket);
+		shutdown((int)metasocket, SD_BOTH);
+		closesocket((int)metasocket);
 		metasocket = (int)INVALID_SOCKET;
 		// Delete fake PSP Thread. 
 		// kernelObjects may already been cleared early during a Shutdown, thus trying to access it may generates Warning/Error in the log

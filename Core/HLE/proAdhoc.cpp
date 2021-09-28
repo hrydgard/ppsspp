@@ -81,7 +81,7 @@ SceNetAdhocMatchingContext * contexts = NULL;
 char* dummyPeekBuf64k                 = NULL;
 int dummyPeekBuf64kSize               = 65536;
 int one                               = 1;
-bool friendFinderRunning              = false;
+std::atomic<bool> friendFinderRunning(false);
 SceNetAdhocctlPeerInfo * friends      = NULL;
 SceNetAdhocctlScanInfo * networks     = NULL;
 SceNetAdhocctlScanInfo * newnetworks  = NULL;
@@ -107,7 +107,7 @@ int actionAfterMatchingMipsCall;
 // Broadcast MAC
 uint8_t broadcastMAC[ETHER_ADDR_LEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
-int metasocket = (int)INVALID_SOCKET;
+std::atomic<int> metasocket((int)INVALID_SOCKET);
 SceNetAdhocctlParameter parameter;
 SceNetAdhocctlAdhocId product_code;
 std::thread friendFinderThread;
@@ -1300,8 +1300,8 @@ void sendChat(std::string chatString) {
 			std::string message = chatString.substr(0, 60); // 64 return chat variable corrupted is it out of memory?
 			strcpy(chat.message, message.c_str());
 			//Send Chat Messages
-			if (IsSocketReady(metasocket, false, true) > 0) {
-				int chatResult = send(metasocket, (const char*)&chat, sizeof(chat), MSG_NOSIGNAL);
+			if (IsSocketReady((int)metasocket, false, true) > 0) {
+				int chatResult = send((int)metasocket, (const char*)&chat, sizeof(chat), MSG_NOSIGNAL);
 				NOTICE_LOG(SCENET, "Send Chat %s to Adhoc Server", chat.message);
 				std::string name = g_Config.sNickName.c_str();
 
@@ -1334,6 +1334,7 @@ int GetChatMessageCount() {
 	return chatMessageCount;
 }
 
+// TODO: We should probably change this thread into PSPThread (or merging it into the existing AdhocThread PSPThread) as there are too many global vars being used here which also being used within some HLEs
 int friendFinder(){
 	SetCurrentThreadName("FriendFinder");
 	auto n = GetI18NCategory("Networking");
@@ -1377,6 +1378,7 @@ int friendFinder(){
 	g_adhocServerIP.in.sin_port = htons(SERVER_PORT);
 
 	// Finder Loop
+	friendFinderRunning = true;
 	while (friendFinderRunning) {
 		// Acquire Network Lock
 		//_acquireNetworkLock();
@@ -1394,8 +1396,8 @@ int friendFinder(){
 				} 
 				else {
 					networkInited = false;
-					shutdown(metasocket, SD_BOTH);
-					closesocket(metasocket);
+					shutdown((int)metasocket, SD_BOTH);
+					closesocket((int)metasocket);
 					metasocket = (int)INVALID_SOCKET;
 				}
 			}
@@ -1412,20 +1414,22 @@ int friendFinder(){
 				uint8_t opcode = OPCODE_PING;
 
 				// Send Ping to Server, may failed with socket error 10054/10053 if someone else with the same IP already connected to AdHoc Server (the server might need to be modified to differentiate MAC instead of IP)
-				if (IsSocketReady(metasocket, false, true) > 0) {
-					int iResult = send(metasocket, (const char*)&opcode, 1, MSG_NOSIGNAL);
+				if (IsSocketReady((int)metasocket, false, true) > 0) {
+					int iResult = send((int)metasocket, (const char*)&opcode, 1, MSG_NOSIGNAL);
 					int error = errno;
 					// KHBBS seems to be getting error 10053 often
 					if (iResult == SOCKET_ERROR) {
 						ERROR_LOG(SCENET, "FriendFinder: Socket Error (%i) when sending OPCODE_PING", error);
 						if (error != EAGAIN && error != EWOULDBLOCK) {
 							networkInited = false;
-							shutdown(metasocket, SD_BOTH);
-							closesocket(metasocket);
+							shutdown((int)metasocket, SD_BOTH);
+							closesocket((int)metasocket);
 							metasocket = (int)INVALID_SOCKET;
 							host->NotifyUserMessage(std::string(n->T("Disconnected from AdhocServer")) + " (" + std::string(n->T("Error")) + ": " + std::to_string(error) + ")", 2.0, 0x0000ff);
 							// Mark all friends as timedout since we won't be able to detects disconnected friends anymore without being connected to Adhoc Server
+							peerlock.lock();
 							timeoutFriendsRecursive(friends);
+							peerlock.unlock();
 						}
 					}
 					else {
@@ -1437,8 +1441,8 @@ int friendFinder(){
 			}
 
 			// Check for Incoming Data
-			if (IsSocketReady(metasocket, true, false) > 0) {
-				int received = recv(metasocket, (char*)(rx + rxpos), sizeof(rx) - rxpos, MSG_NOSIGNAL);
+			if (IsSocketReady((int)metasocket, true, false) > 0) {
+				int received = recv((int)metasocket, (char*)(rx + rxpos), sizeof(rx) - rxpos, MSG_NOSIGNAL);
 
 				// Free Network Lock
 				//_freeNetworkLock();
@@ -1748,6 +1752,7 @@ int friendFinder(){
 
 	// Prevent the games from having trouble to reInitiate Adhoc (the next NetInit -> PdpCreate after NetTerm)
 	adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+	friendFinderRunning = false;
 
 	// Log Shutdown
 	INFO_LOG(SCENET, "FriendFinder: End of Friend Finder Thread");
@@ -1790,7 +1795,7 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 		struct sockaddr_in localAddr;
 		localAddr.sin_addr.s_addr = INADDR_ANY;
 		socklen_t addrLen = sizeof(localAddr);
-		int ret = getsockname(metasocket, (struct sockaddr*)&localAddr, &addrLen);
+		int ret = getsockname((int)metasocket, (struct sockaddr*)&localAddr, &addrLen);
 		if (SOCKET_ERROR != ret) {
 			SocketAddress->sin_addr = localAddr.sin_addr;
 			return 0;
@@ -2147,23 +2152,23 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		ERROR_LOG(SCENET, "Invalid socket");
 		return SOCKET_ERROR;
 	}
-	setSockKeepAlive(metasocket, true);
+	setSockKeepAlive((int)metasocket, true);
 	// Disable Nagle Algo to prevent delaying small packets
-	setSockNoDelay(metasocket, 1);
+	setSockNoDelay((int)metasocket, 1);
 	// Switch to Nonblocking Behaviour
-	changeBlockingMode(metasocket, 1);
+	changeBlockingMode((int)metasocket, 1);
 
 	// If Server is at localhost Try to Bind socket to specific adapter before connecting to prevent 2nd instance being recognized as already existing 127.0.0.1 by AdhocServer
 	// (may not works in WinXP/2003 for IPv4 due to "Weak End System" model)
 	if (isLoopbackIP(g_adhocServerIP.in.sin_addr.s_addr)) { 
 		int on = 1;
 		// Not sure what is this SO_DONTROUTE supposed to fix, but i do remembered there were issue related to multiple-instances without SO_DONTROUTE, but forgot how to reproduce it :(
-		setsockopt(metasocket, SOL_SOCKET, SO_DONTROUTE, (const char*)&on, sizeof(on));
-		setSockReuseAddrPort(metasocket);
+		setsockopt((int)metasocket, SOL_SOCKET, SO_DONTROUTE, (const char*)&on, sizeof(on));
+		setSockReuseAddrPort((int)metasocket);
 
 		g_localhostIP.in.sin_port = 0;
 		// Bind Local Address to Socket
-		iResult = bind(metasocket, &g_localhostIP.addr, sizeof(g_localhostIP.addr));
+		iResult = bind((int)metasocket, &g_localhostIP.addr, sizeof(g_localhostIP.addr));
 		if (iResult == SOCKET_ERROR) {
 			ERROR_LOG(SCENET, "Bind to alternate localhost[%s] failed(%i).", ip2str(g_localhostIP.in.sin_addr).c_str(), iResult);
 			host->NotifyUserMessage(std::string(n->T("Failed to Bind Localhost IP")) + " " + ip2str(g_localhostIP.in.sin_addr).c_str(), 2.0, 0x0000ff);
@@ -2194,18 +2199,18 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	// Connect to Adhoc Server
 	int errorcode = 0;
 	int cnt = 0;
-	iResult = connect(metasocket, &g_adhocServerIP.addr, sizeof(g_adhocServerIP));
+	iResult = connect((int)metasocket, &g_adhocServerIP.addr, sizeof(g_adhocServerIP));
 	errorcode = errno;
 
 	if (iResult == SOCKET_ERROR && errorcode != EISCONN) {
 		u64 startTime = (u64)(time_now_d() * 1000000.0);
-		while (IsSocketReady(metasocket, false, true) <= 0) {
+		while (IsSocketReady((int)metasocket, false, true) <= 0) {
 			u64 now = (u64)(time_now_d() * 1000000.0);
 			if (coreState == CORE_POWERDOWN) return iResult;
 			if (now - startTime > adhocDefaultTimeout) break;
 			sleep_ms(10);
 		}
-		if (IsSocketReady(metasocket, false, true) <= 0) {
+		if (IsSocketReady((int)metasocket, false, true) <= 0) {
 			ERROR_LOG(SCENET, "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.proAdhocServer.c_str(), ip2str(g_adhocServerIP.in.sin_addr).c_str(), ntohs(g_adhocServerIP.in.sin_port));
 			host->NotifyUserMessage(std::string(n->T("Failed to connect to Adhoc Server")) + " (" + std::string(n->T("Error")) + ": " + std::to_string(errorcode) + ")", 1.0f, 0x0000ff);
 			return iResult;
@@ -2222,12 +2227,12 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	packet.name.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
 	memcpy(packet.game.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
 
-	IsSocketReady(metasocket, false, true, nullptr, adhocDefaultTimeout);
-	int sent = send(metasocket, (char*)&packet, sizeof(packet), MSG_NOSIGNAL);
+	IsSocketReady((int)metasocket, false, true, nullptr, adhocDefaultTimeout);
+	int sent = send((int)metasocket, (char*)&packet, sizeof(packet), MSG_NOSIGNAL);
 	if (sent > 0) {
 		socklen_t addrLen = sizeof(LocalIP);
 		memset(&LocalIP, 0, addrLen);
-		getsockname(metasocket, &LocalIP, &addrLen);
+		getsockname((int)metasocket, &LocalIP, &addrLen);
 		host->NotifyUserMessage(n->T("Network Initialized"), 1.0);
 		return 0;
 	}

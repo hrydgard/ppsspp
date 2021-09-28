@@ -40,6 +40,7 @@
 
 #include <thread>
 #include <mutex>
+#include <atomic>
 
 #include "Common/Net/Resolve.h"
 #include "Common/Serialize/Serializer.h"
@@ -914,7 +915,7 @@ extern int actionAfterMatchingMipsCall;
 #define SOCK_PDP	1
 #define SOCK_PTP	2
 // Aux vars
-extern int metasocket;
+extern std::atomic<int> metasocket;
 extern SceNetAdhocctlParameter parameter;
 extern SceNetAdhocctlAdhocId product_code;
 extern std::thread friendFinderThread;
@@ -940,7 +941,7 @@ extern SceNetAdhocMatchingContext * contexts;
 extern char* dummyPeekBuf64k;
 extern int dummyPeekBuf64kSize;
 extern int one;                 
-extern bool friendFinderRunning;
+extern std::atomic<bool> friendFinderRunning;
 extern SceNetAdhocctlPeerInfo * friends;
 extern SceNetAdhocctlScanInfo * networks;
 extern u64 adhocctlStartTime;

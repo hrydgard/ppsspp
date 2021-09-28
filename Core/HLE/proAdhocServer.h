@@ -369,5 +369,5 @@ void update_status();
 int proAdhocServerThread(int port); // (int argc, char * argv[])
 
 //extern int _status;
-extern bool adhocServerRunning;
+extern std::atomic<bool> adhocServerRunning;
 extern std::thread adhocServerThread;
