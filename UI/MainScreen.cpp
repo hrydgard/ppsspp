@@ -1007,7 +1007,7 @@ void MainScreen::CreateViews() {
 
 	Button *focusButton = nullptr;
 	if (hasStorageAccess) {
-		scrollAllGames_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT), true);
+		scrollAllGames_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollAllGames_->SetTag("MainScreenAllGames");
 		ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollHomebrew->SetTag("MainScreenHomebrew");
@@ -1026,7 +1026,7 @@ void MainScreen::CreateViews() {
 
 		tabHolder_->AddTab(mm->T("Games"), scrollAllGames_);
 		tabHolder_->AddTab(mm->T("Homebrew & Demos"), scrollHomebrew);
-		scrollAllGames_->ScrollTo(g_Config.fGameListScrollPosition);
+		scrollAllGames_->RememberPosition(&g_Config.fGameListScrollPosition);
 
 		tabAllGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 		tabHomebrew->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
@@ -1247,9 +1247,6 @@ void MainScreen::update() {
 	if (vertical != lastVertical_) {
 		RecreateViews();
 		lastVertical_ = vertical;
-	}
-	if (scrollAllGames_) {
-		g_Config.fGameListScrollPosition = scrollAllGames_->GetScrollPosition();
 	}
 }
 
