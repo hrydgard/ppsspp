@@ -118,12 +118,11 @@ static int sceNetAdhocPdpRecv(int id, void* addr, void* port, void* buf, void* d
 
 void __NetAdhocShutdown() {
 	// Kill AdhocServer Thread
-	if (adhocServerRunning) {
-		adhocServerRunning = false;
-		if (adhocServerThread.joinable()) {
-			adhocServerThread.join();
-		}
+	adhocServerRunning = false;
+	if (adhocServerThread.joinable()) {
+		adhocServerThread.join();
 	}
+
 	// Checks to avoid confusing logspam
 	if (netAdhocMatchingInited) {
 		NetAdhocMatching_Term();
@@ -1180,8 +1179,8 @@ void __NetAdhocInit() {
 	__AdhocServerInit();
 
 	// Create built-in AdhocServer Thread
+	adhocServerRunning = false;
 	if (g_Config.bEnableWlan && g_Config.bEnableAdhocServer) {
-		adhocServerRunning = true;
 		adhocServerThread = std::thread(proAdhocServerThread, SERVER_PORT);
 	}
 }

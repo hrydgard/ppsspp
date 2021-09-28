@@ -40,6 +40,7 @@
 
 #include <thread>
 #include <mutex>
+#include <atomic>
 
 #include "Common/Net/Resolve.h"
 #include "Common/Serialize/Serializer.h"
