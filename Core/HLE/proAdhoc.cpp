@@ -81,7 +81,7 @@ SceNetAdhocMatchingContext * contexts = NULL;
 char* dummyPeekBuf64k                 = NULL;
 int dummyPeekBuf64kSize               = 65536;
 int one                               = 1;
-bool friendFinderRunning              = false;
+std::atomic<bool> friendFinderRunning(false);
 SceNetAdhocctlPeerInfo * friends      = NULL;
 SceNetAdhocctlScanInfo * networks     = NULL;
 SceNetAdhocctlScanInfo * newnetworks  = NULL;
@@ -107,7 +107,7 @@ int actionAfterMatchingMipsCall;
 // Broadcast MAC
 uint8_t broadcastMAC[ETHER_ADDR_LEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
-int metasocket = (int)INVALID_SOCKET;
+std::atomic<int> metasocket((int)INVALID_SOCKET);
 SceNetAdhocctlParameter parameter;
 SceNetAdhocctlAdhocId product_code;
 std::thread friendFinderThread;
@@ -1334,6 +1334,7 @@ int GetChatMessageCount() {
 	return chatMessageCount;
 }
 
+// TODO: We should probably change this thread into PSPThread (or merging it into the existing AdhocThread PSPThread) as there are too many global vars being used here which also being used within some HLEs
 int friendFinder(){
 	SetCurrentThreadName("FriendFinder");
 	auto n = GetI18NCategory("Networking");
@@ -1377,6 +1378,7 @@ int friendFinder(){
 	g_adhocServerIP.in.sin_port = htons(SERVER_PORT);
 
 	// Finder Loop
+	friendFinderRunning = true;
 	while (friendFinderRunning) {
 		// Acquire Network Lock
 		//_acquireNetworkLock();
@@ -1425,7 +1427,9 @@ int friendFinder(){
 							metasocket = (int)INVALID_SOCKET;
 							host->NotifyUserMessage(std::string(n->T("Disconnected from AdhocServer")) + " (" + std::string(n->T("Error")) + ": " + std::to_string(error) + ")", 2.0, 0x0000ff);
 							// Mark all friends as timedout since we won't be able to detects disconnected friends anymore without being connected to Adhoc Server
+							peerlock.lock();
 							timeoutFriendsRecursive(friends);
+							peerlock.unlock();
 						}
 					}
 					else {
@@ -1748,6 +1752,7 @@ int friendFinder(){
 
 	// Prevent the games from having trouble to reInitiate Adhoc (the next NetInit -> PdpCreate after NetTerm)
 	adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+	friendFinderRunning = false;
 
 	// Log Shutdown
 	INFO_LOG(SCENET, "FriendFinder: End of Friend Finder Thread");

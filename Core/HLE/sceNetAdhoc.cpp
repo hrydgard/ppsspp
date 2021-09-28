@@ -1230,7 +1230,6 @@ static u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 
 	// TODO: Merging friendFinder (real) thread to AdhocThread (fake) thread on PSP side
 	if (!friendFinderRunning) {
-		friendFinderRunning = true;
 		friendFinderThread = std::thread(friendFinder);
 	}
 	
