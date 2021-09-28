@@ -2364,7 +2364,7 @@ u32 NetAdhocctl_Disconnect() {
 		int us = adhocDefaultDelay * 3;
 		hleEatMicro(1000);
 
-		if (isAdhocctlBusy) {
+		if (isAdhocctlBusy && CoreTiming::IsScheduled(adhocctlNotifyEvent)) {
 			return ERROR_NET_ADHOCCTL_BUSY;
 		}
 
