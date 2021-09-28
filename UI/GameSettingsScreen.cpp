@@ -2053,9 +2053,8 @@ void GestureMappingScreen::CreateViews() {
 	auto mc = GetI18NCategory("MappableControls");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(130, WRAP_CONTENT, 10, NONE, NONE, 10));
-	root_->Add(back)->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 140, new AnchorLayoutParams(10, 0, 10, 0, false));
+	AddStandardBack(root_);
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
 	root_->Add(tabHolder);
 	ScrollView *rightPanel = new ScrollView(ORIENT_VERTICAL);
 	tabHolder->AddTab(co->T("Gesture"), rightPanel);

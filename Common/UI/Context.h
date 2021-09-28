@@ -84,6 +84,7 @@ public:
 	void DrawText(const char *str, float x, float y, uint32_t color, int align = 0);
 	void DrawTextShadow(const char *str, float x, float y, uint32_t color, int align = 0);
 	void DrawTextRect(const char *str, const Bounds &bounds, uint32_t color, int align = 0);
+	void DrawTextShadowRect(const char *str, const Bounds &bounds, uint32_t color, int align = 0);
 	void FillRect(const UI::Drawable &drawable, const Bounds &bounds);
 	void DrawImageVGradient(ImageID image, uint32_t color1, uint32_t color2, const Bounds &bounds);
 

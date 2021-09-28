@@ -217,6 +217,13 @@ void UIContext::DrawTextRect(const char *str, const Bounds &bounds, uint32_t col
 	}
 }
 
+void UIContext::DrawTextShadowRect(const char *str, const Bounds &bounds, uint32_t color, int align) {
+	uint32_t alpha = (color >> 1) & 0xFF000000;
+	Bounds shadowBounds(bounds.x+2, bounds.y+2, bounds.w, bounds.h);
+	DrawTextRect(str, shadowBounds, alpha, align);
+	DrawTextRect(str, bounds, color, align);
+}
+
 void UIContext::FillRect(const UI::Drawable &drawable, const Bounds &bounds) {
 	// Only draw if alpha is non-zero.
 	if ((drawable.color & 0xFF000000) == 0)
