@@ -393,7 +393,7 @@ void TextureCacheVulkan::CompileScalingShader() {
 	if (!g_Config.bTexHardwareScaling)
 		return;
 
-	ReloadAllPostShaderInfo();
+	ReloadAllPostShaderInfo(draw_);
 	const TextureShaderInfo *shaderInfo = GetTextureShaderInfo(g_Config.sTextureShaderName);
 	if (!shaderInfo || shaderInfo->computeShaderFile.empty())
 		return;

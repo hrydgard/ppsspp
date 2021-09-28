@@ -108,6 +108,8 @@ class PostProcScreen : public ListPopupScreen {
 public:
 	PostProcScreen(const std::string &title, int id);
 
+	void CreateViews() override;
+
 private:
 	void OnCompleted(DialogResult result) override;
 	bool ShowButtons() const override { return true; }
@@ -118,6 +120,8 @@ private:
 class TextureShaderScreen : public ListPopupScreen {
 public:
 	TextureShaderScreen(const std::string &title);
+
+	void CreateViews() override;
 
 private:
 	void OnCompleted(DialogResult result) override;

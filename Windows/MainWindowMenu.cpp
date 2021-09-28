@@ -175,7 +175,9 @@ namespace MainWindow {
 
 		// We only reload this initially and when a menu is actually opened.
 		if (!menuShaderInfoLoaded) {
-			ReloadAllPostShaderInfo();
+			// This is on Windows where we don't currently blacklist any vendors, or similar.
+			// TODO: Figure out how to have the GPU data while reloading the post shader info.
+			ReloadAllPostShaderInfo(nullptr);
 			menuShaderInfoLoaded = true;
 		}
 

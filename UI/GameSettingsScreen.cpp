@@ -190,7 +190,7 @@ bool PathToVisualUsbPath(Path path, std::string &outPath) {
 }
 
 void GameSettingsScreen::CreateViews() {
-	ReloadAllPostShaderInfo();
+	ReloadAllPostShaderInfo(screenManager()->getDrawContext());
 
 	if (editThenRestore_) {
 		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, 0);

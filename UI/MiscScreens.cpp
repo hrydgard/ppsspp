@@ -520,9 +520,11 @@ void PromptScreen::TriggerFinish(DialogResult result) {
 	UIDialogScreenWithBackground::TriggerFinish(result);
 }
 
-PostProcScreen::PostProcScreen(const std::string &title, int id) : ListPopupScreen(title), id_(id) {
+PostProcScreen::PostProcScreen(const std::string &title, int id) : ListPopupScreen(title), id_(id) { }
+
+void PostProcScreen::CreateViews() {
 	auto ps = GetI18NCategory("PostShaders");
-	ReloadAllPostShaderInfo();
+	ReloadAllPostShaderInfo(screenManager()->getDrawContext());
 	shaders_ = GetAllPostShaderInfo();
 	std::vector<std::string> items;
 	int selected = -1;
@@ -535,6 +537,7 @@ PostProcScreen::PostProcScreen(const std::string &title, int id) : ListPopupScre
 		items.push_back(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str()));
 	}
 	adaptor_ = UI::StringVectorListAdaptor(items, selected);
+	ListPopupScreen::CreateViews();
 }
 
 void PostProcScreen::OnCompleted(DialogResult result) {
@@ -547,9 +550,11 @@ void PostProcScreen::OnCompleted(DialogResult result) {
 		g_Config.vPostShaderNames.push_back(value);
 }
 
-TextureShaderScreen::TextureShaderScreen(const std::string &title) : ListPopupScreen(title) {
+TextureShaderScreen::TextureShaderScreen(const std::string &title) : ListPopupScreen(title) {}
+
+void TextureShaderScreen::CreateViews() {
 	auto ps = GetI18NCategory("TextureShaders");
-	ReloadAllPostShaderInfo();
+	ReloadAllPostShaderInfo(screenManager()->getDrawContext());
 	shaders_ = GetAllTextureShaderInfo();
 	std::vector<std::string> items;
 	int selected = -1;
@@ -559,6 +564,8 @@ TextureShaderScreen::TextureShaderScreen(const std::string &title) : ListPopupSc
 		items.push_back(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str()));
 	}
 	adaptor_ = UI::StringVectorListAdaptor(items, selected);
+
+	ListPopupScreen::CreateViews();
 }
 
 void TextureShaderScreen::OnCompleted(DialogResult result) {

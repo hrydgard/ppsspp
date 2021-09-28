@@ -218,7 +218,7 @@ static std::string ReadShaderSrc(const Path &filename) {
 bool PresentationCommon::UpdatePostShader() {
 	std::vector<const ShaderInfo *> shaderInfo;
 	if (!g_Config.vPostShaderNames.empty()) {
-		ReloadAllPostShaderInfo();
+		ReloadAllPostShaderInfo(draw_);
 		shaderInfo = GetFullPostShadersChain(g_Config.vPostShaderNames);
 	}
 
@@ -810,7 +810,7 @@ void PresentationCommon::CalculateRenderResolution(int *width, int *height, int 
 	// Check if postprocessing shader is doing upscaling as it requires native resolution
 	std::vector<const ShaderInfo *> shaderInfo;
 	if (!g_Config.vPostShaderNames.empty()) {
-		ReloadAllPostShaderInfo();
+		ReloadAllPostShaderInfo(draw_);
 		shaderInfo = GetFullPostShadersChain(g_Config.vPostShaderNames);
 	}
 
