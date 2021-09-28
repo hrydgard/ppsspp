@@ -34,3 +34,7 @@
 [submodule "SDL/macOS"]
 	path = SDL/macOS
 	url = https://github.com/hrydgard/ppsspp-mac-sdl
+[submodule "ppsspp-debugger"]
+	path = assets/debugger
+	url = https://github.com/unknownbrackets/ppsspp-debugger.git
+	branch = bundled
