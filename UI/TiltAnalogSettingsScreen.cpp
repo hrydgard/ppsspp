@@ -54,7 +54,7 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	settings->Add(calibrate);
 
 	root_->Add(settings);
-	settings->Add(new ItemHeader(""));
+	settings->Add(new BorderView(BORDER_BOTTOM, BorderStyle::HEADER_FG, 2.0f, new LayoutParams(FILL_PARENT, 40.0f)));
 	settings->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
