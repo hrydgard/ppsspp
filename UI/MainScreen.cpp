@@ -341,7 +341,7 @@ void GameButton::Draw(UIContext &dc) {
 			dc.MeasureText(dc.GetFontStyle(), 0.7f, 0.7f, ginfo->id_version.c_str(), &vw, &vh, 0);
 			availableWidth -= vw + 20;
 			dc.SetFontScale(0.7f, 0.7f);
-			dc.DrawText(ginfo->id_version.c_str(), availableWidth + 160, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+			dc.DrawText(ginfo->id_version.c_str(), bounds_.x + availableWidth + 160, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 			dc.SetFontScale(1.0f, 1.0f);
 		}
 		float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
