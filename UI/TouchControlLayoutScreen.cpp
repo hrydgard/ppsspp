@@ -606,6 +606,8 @@ void TouchControlLayoutScreen::update() {
 }
 
 void TouchControlLayoutScreen::CreateViews() {
+	using namespace UI;
+
 	// setup g_Config for button layout
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 	InitPadLayout(bounds.w, bounds.h);
@@ -613,52 +615,31 @@ void TouchControlLayoutScreen::CreateViews() {
 	const float leftColumnWidth = 140.0f;
 	layoutAreaScale = 1.0-(leftColumnWidth+10)/bounds.w;
 
-	using namespace UI;
-
 	auto co = GetI18NCategory("Controls");
 	auto di = GetI18NCategory("Dialog");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	Choice *reset = new Choice(di->T("Reset"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 84));
-	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 10));
-	Choice *visibility = new Choice(co->T("Customize"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 298));
-	// controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fButtonScale, 0.80, 2.0, co->T("Button Scaling"), screenManager()))
-	// 	->OnChange.Handle(this, &GameSettingsScreen::OnChangeControlScaling);
+	ScrollView *leftColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 10)));
+	LinearLayout *leftColumn = leftColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
 
-	CheckBox *snap = new CheckBox(&g_Config.bTouchSnapToGrid, di->T("Snap"), "", new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 228));
-	PopupSliderChoice *gridSize = new PopupSliderChoice(&g_Config.iTouchSnapGridSize, 2, 256, di->T("Grid"), screenManager(), "", new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 158));
-	gridSize->SetEnabledPtr(&g_Config.bTouchSnapToGrid);
-
-	mode_ = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 140 + 158 + 64 + 10));
+	mode_ = new ChoiceStrip(ORIENT_VERTICAL);
 	mode_->AddChoice(di->T("Move"));
 	mode_->AddChoice(di->T("Resize"));
 	mode_->SetSelection(0, false);
 	mode_->OnChoice.Handle(this, &TouchControlLayoutScreen::OnMode);
 
-	reset->OnClick.Handle(this, &TouchControlLayoutScreen::OnReset);
-	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	visibility->OnClick.Handle(this, &TouchControlLayoutScreen::OnVisibility);
-	root_->Add(mode_);
-	root_->Add(visibility);
-	root_->Add(snap);
-	root_->Add(gridSize);
-	root_->Add(reset);
-	root_->Add(back);
+	CheckBox *snap = new CheckBox(&g_Config.bTouchSnapToGrid, di->T("Snap"));
+	PopupSliderChoice *gridSize = new PopupSliderChoice(&g_Config.iTouchSnapGridSize, 2, 256, di->T("Grid"), screenManager(), "", new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 158));
+	gridSize->SetEnabledPtr(&g_Config.bTouchSnapToGrid);
 
-	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, leftColumnWidth, new AnchorLayoutParams(10, 0, 10, 0, false));
-	tabHolder->SetTag("TouchControlLayout");
-	root_->Add(tabHolder);
+	leftColumn->Add(mode_);
+	leftColumn->Add(new Choice(co->T("Customize")))->OnClick.Handle(this, &TouchControlLayoutScreen::OnVisibility);
+	leftColumn->Add(snap);
+	leftColumn->Add(gridSize);
+	leftColumn->Add(new Choice(di->T("Reset")))->OnClick.Handle(this, &TouchControlLayoutScreen::OnReset);
+	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	root_->Add(new ItemHeader("", new AnchorLayoutParams(leftColumnWidth + 10, bounds.h*(1.0-layoutAreaScale)-40, NONE, NONE, false)));
 	layoutView_ = root_->Add(new ControlLayoutView(new AnchorLayoutParams(leftColumnWidth + 10, bounds.h*(1.0-layoutAreaScale), 0.0f, 0.0f, false)));
-
-	// this is more for show than anything else. It's used to provide a boundary
-	// so that buttons like back can be placed within the boundary.
-	// serves no other purpose.
-	// AnchorLayout *controlsHolder = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-
-	auto ms = GetI18NCategory("MainSettings");
-
-	//tabHolder->AddTab(ms->T("Controls"), controlsHolder);
 }
