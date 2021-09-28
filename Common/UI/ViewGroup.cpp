@@ -1017,15 +1017,11 @@ void ScrollView::PersistData(PersistStatus status, std::string anonId, PersistMa
 void ScrollView::SetVisibility(Visibility visibility) {
 	ViewGroup::SetVisibility(visibility);
 
-	if (visibility == V_GONE && !rememberPosition_) {
+	if (visibility == V_GONE && !rememberPos_) {
 		// Since this is no longer shown, forget the scroll position.
 		// For example, this happens when switching tabs.
 		ScrollTo(0.0f);
 	}
-}
-
-float ScrollView::GetScrollPosition() {
-	return scrollPos_;
 }
 
 void ScrollView::ScrollTo(float newScrollPos) {
@@ -1141,6 +1137,8 @@ void ScrollView::Update() {
 
 	if (oldPos != scrollPos_)
 		orientation_ == ORIENT_HORIZONTAL ? lastScrollPosX = scrollPos_ : lastScrollPosY = scrollPos_;
+	if (rememberPos_)
+		*rememberPos_ = scrollPos_;
 }
 
 void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {

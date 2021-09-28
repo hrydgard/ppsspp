@@ -262,8 +262,8 @@ public:
 // A scrollview usually contains just a single child - a linear layout or similar.
 class ScrollView : public ViewGroup {
 public:
-	ScrollView(Orientation orientation, LayoutParams *layoutParams = 0, bool rememberPosition = false)
-		: ViewGroup(layoutParams), orientation_(orientation), rememberPosition_(rememberPosition) {}
+	ScrollView(Orientation orientation, LayoutParams *layoutParams = 0)
+		: ViewGroup(layoutParams), orientation_(orientation) {}
 	~ScrollView();
 
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
@@ -277,9 +277,13 @@ public:
 	void ScrollTo(float newScrollPos);
 	void ScrollToBottom();
 	void ScrollRelative(float distance);
-	float GetScrollPosition();
 	bool CanScroll() const;
 	void Update() override;
+
+	void RememberPosition(float *pos) {
+		rememberPos_ = pos;
+		ScrollTo(*pos);
+	}
 
 	// Get the last moved scroll view position
 	static void GetLastScrollPosition(float &x, float &y);
@@ -309,7 +313,7 @@ private:
 	float pull_ = 0.0f;
 	float lastViewSize_ = 0.0f;
 	bool scrollToTopOnSizeChange_ = false;
-	bool rememberPosition_;
+	float *rememberPos_ = nullptr;
 
 	static float lastScrollPosX;
 	static float lastScrollPosY;
