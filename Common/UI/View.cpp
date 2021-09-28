@@ -608,6 +608,38 @@ std::string ItemHeader::DescribeText() const {
 	return ReplaceAll(u->T("%1 heading"), "%1", text_);
 }
 
+void BorderView::Draw(UIContext &dc) {
+	Color color = 0xFFFFFFFF;
+	if (style_ == BorderStyle::HEADER_FG)
+		color = dc.theme->headerStyle.fgColor;
+	else if (style_ == BorderStyle::ITEM_DOWN_BG)
+		color = dc.theme->itemDownStyle.background.color;
+
+	if (borderFlags_ & BORDER_TOP)
+		dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y + size_, color);
+	if (borderFlags_ & BORDER_LEFT)
+		dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x + size_, bounds_.y2(), color);
+	if (borderFlags_ & BORDER_BOTTOM)
+		dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2() - size_, bounds_.x2(), bounds_.y2(), color);
+	if (borderFlags_ & BORDER_RIGHT)
+		dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x2() - size_, bounds_.y, bounds_.x2(), bounds_.y2(), color);
+}
+
+void BorderView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
+	Bounds bounds(0, 0, layoutParams_->width, layoutParams_->height);
+	if (bounds.w < 0) {
+		// If there's no size, let's grow as big as we want.
+		bounds.w = horiz.size == 0 ? MAX_ITEM_SIZE : horiz.size;
+	}
+	if (bounds.h < 0) {
+		bounds.h = vert.size == 0 ? MAX_ITEM_SIZE : vert.size;
+	}
+	ApplyBoundsBySpec(bounds, horiz, vert);
+	// If we have vertical borders, grow to width so they're spaced apart.
+	w = (borderFlags_ & BORDER_VERT) != 0 ? bounds.w : 0;
+	h = (borderFlags_ & BORDER_HORIZ) != 0 ? bounds.h : 0;
+}
+
 void PopupHeader::Draw(UIContext &dc) {
 	const float paddingHorizontal = 12;
 	const float availableWidth = bounds_.w - paddingHorizontal * 2;

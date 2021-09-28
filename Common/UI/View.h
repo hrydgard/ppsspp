@@ -162,6 +162,24 @@ enum Gravity {
 	G_VERTMASK = 3 << 2,
 };
 
+enum Borders {
+	BORDER_NONE = 0,
+
+	BORDER_TOP = 0x0001,
+	BORDER_LEFT = 0x0002,
+	BORDER_BOTTOM = 0x0004,
+	BORDER_RIGHT = 0x0008,
+
+	BORDER_HORIZ = BORDER_LEFT | BORDER_RIGHT,
+	BORDER_VERT = BORDER_TOP | BORDER_BOTTOM,
+	BORDER_ALL = BORDER_TOP | BORDER_LEFT | BORDER_BOTTOM | BORDER_RIGHT,
+};
+
+enum class BorderStyle {
+	HEADER_FG,
+	ITEM_DOWN_BG,
+};
+
 typedef float Size;  // can also be WRAP_CONTENT or FILL_PARENT.
 
 enum Orientation {
@@ -867,6 +885,21 @@ public:
 	std::string DescribeText() const override { return ""; }
 
 private:
+	float size_ = 0.0f;
+};
+
+class BorderView : public InertView {
+public:
+	BorderView(Borders borderFlags, BorderStyle style, float size = 2.0f, LayoutParams *layoutParams = nullptr)
+		: InertView(layoutParams), borderFlags_(borderFlags), style_(style), size_(size) {
+	}
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
+	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override { return ""; }
+
+private:
+	Borders borderFlags_;
+	BorderStyle style_;
 	float size_;
 };
 

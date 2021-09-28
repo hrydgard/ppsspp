@@ -640,6 +640,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	leftColumn->Add(new Choice(di->T("Reset")))->OnClick.Handle(this, &TouchControlLayoutScreen::OnReset);
 	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
-	root_->Add(new ItemHeader("", new AnchorLayoutParams(leftColumnWidth + 10, bounds.h*(1.0-layoutAreaScale)-40, NONE, NONE, false)));
-	layoutView_ = root_->Add(new ControlLayoutView(new AnchorLayoutParams(leftColumnWidth + 10, bounds.h*(1.0-layoutAreaScale), 0.0f, 0.0f, false)));
+	root_->Add(new BorderView(BORDER_BOTTOM, BorderStyle::ITEM_DOWN_BG, 4.0f, new AnchorLayoutParams(leftColumnWidth + 10, bounds.h * (1.0f - layoutAreaScale), 0.0f, NONE, false)));
+	root_->Add(new BorderView(BORDER_RIGHT, BorderStyle::ITEM_DOWN_BG, 4.0f, new AnchorLayoutParams(leftColumnWidth + 10, 0.0f, NONE, 0.0f, false)));
+	layoutView_ = root_->Add(new ControlLayoutView(new AnchorLayoutParams(leftColumnWidth + 10, bounds.h * (1.0 - layoutAreaScale), 0.0f, 0.0f, false)));
 }
