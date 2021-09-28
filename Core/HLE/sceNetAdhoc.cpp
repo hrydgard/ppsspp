@@ -66,6 +66,13 @@ bool netAdhocInited;
 bool netAdhocctlInited;
 bool networkInited = false;
 
+#define DISCOVER_DURATION_US	2000000 // 2 seconds is probably the normal time it takes for PSP to connect to a group (ie. similar to NetconfigDialog time)
+u64 netAdhocDiscoverStartTime = 0;
+s32 netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_NONE;
+bool netAdhocDiscoverIsStopping = false;
+SceNetAdhocDiscoverParam* netAdhocDiscoverParam = nullptr;
+u32 netAdhocDiscoverBufAddr = 0;
+
 bool netAdhocGameModeEntered = false;
 int netAdhocEnterGameModeTimeout = 15000000; // 15 sec as default timeout, to wait for all players to join
 
@@ -5987,39 +5994,173 @@ const HLEFunction sceNetAdhocctl[] = {
 	{0XB0B80E80, &WrapI_CIIIUUI<sceNetAdhocctlCreateEnterGameModeMin>, "sceNetAdhocctlCreateEnterGameModeMin",   'i', "siiixxi"  }, // ??
 };
 
-int sceNetAdhocDiscoverInitStart() {
-	ERROR_LOG_REPORT_ONCE(sceNetAdhocDiscoverInitStart, SCENET, "UNIMPL sceNetAdhocDiscoverInitStart() at %08x", currentMIPS->pc);
-	return 0;
+// Return value: 0/0x80410005/0x80411301/error returned from sceNetAdhocctl_lib_F8BABD85[/error returned from sceUtilityGetSystemParamInt?]
+int sceNetAdhocDiscoverInitStart(u32 paramAddr) {
+	WARN_LOG_REPORT_ONCE(sceNetAdhocDiscoverInitStart, SCENET, "UNIMPL sceNetAdhocDiscoverInitStart(%08x) at %08x", paramAddr, currentMIPS->pc);
+	// FIXME: Most AdhocDiscover syscalls will return 0x80410005 if (sceKernelCheckThreadStack_user() < 0x00000FE0), AdhocDiscover seems to be storing some data in the stack, while we use global variables for these
+	if (sceKernelCheckThreadStack() < 0x00000FE0)
+		return 0x80410005;
+	// TODO: Allocate internal buffer/struct (on the stack?) to be returned on sceNetAdhocDiscoverUpdate (the struct may contains WLAN channel from sceUtilityGetSystemParamInt at offset 0xA0 ?), setup adhocctl state callback handler to detects state change (using sceNetAdhocctl_lib_F8BABD85(stateCallbackFunction=0x09F436F8, adhocctlStateCallbackArg=0x0) on JPCSP+prx)
+	u32 bufSize = 256; // dummy size, not sure how large it supposed to be, may be at least 0x3c bytes like in param->unknown2 ?
+	if (netAdhocDiscoverBufAddr == 0) {
+		netAdhocDiscoverBufAddr = userMemory.Alloc(bufSize, true, "AdhocDiscover"); // The address returned on DiscoverUpdate seems to be much higher than the param address, closer to the internal stateCallbackFunction address
+		if (!Memory::IsValidAddress(netAdhocDiscoverBufAddr))
+			return 0x80410005;
+		Memory::Memset(netAdhocDiscoverBufAddr, 0, bufSize);
+	}
+	// FIME: Not sure what is this address 0x000010B0 used for (current Step may be?), but return 0x80411301 if (*((int *) 0x000010B0) != 0)
+	//if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) != 0) //if (*((int*)Memory::GetPointer(0x000010B0)) != 0)
+	//	return 0x80411301; // Already Initialized/Started?
+	// TODO: Need to findout whether using invalid params or param address will return an error code or not
+	netAdhocDiscoverParam = (SceNetAdhocDiscoverParam*)Memory::GetPointer(paramAddr);
+	if (!netAdhocDiscoverParam)
+		return hleLogError(SCENET, -1, "invalid param?");
+	// FIXME: paramAddr seems to be stored at 0x000010D8 without validating the value first
+	//*((int*)Memory::GetPointer(0x000010D8)) = paramAddr;
+	
+	// Based on Legend Of The Dragon: 
+	// The 1st 24 x 32bit(addr) seems to be pointers to subroutine containings sceNetAdhocctlCreate/sceNetAdhocctlJoin/sceNetAdhocctlDisconnect/sceNetAdhocctlScan/sceNetRand/sceKernelGetSystemTimeWide/etc.
+	// Offset 0x60: 10 00 06 06 
+	// Offset 0x70: FF FF FF FF (before Init) -> 00 00 00 00 (after Init) -> FF FF FF FF (after Term) // Seems to be value returned from sceNetAdhocctl_lib_F8BABD85, and the address (0x000010A0) seems to be the lowest one for storing data
+	// Offset 0x80: 00 -> 0B/0C/0D/13 -> 00 // This seems to be (current step?) at address at 0x000010B0 (ie. *((int *) 0x000010B0) = 0x0000000B), something todo with param->unknown1(sleep mode?)
+	// Offset 0x84: 00 -> 03 -> 03 // somekind of State? Something todo with param->unknown1(sleep mode?) along with data at 0x000010B0 (current step?) 
+	// Offset 0x98: 0000 -> 0000/0200 -> 0000 // This seems to be somekind of flags at 0x000010C8 (ie. *((int *) 0x000010C8) = (var4 | 0x00000080)), something todo with data at 0x000010B0 (current step?) 
+	// Offset 0xA0: WLAN channel from sceUtilityGetSystemParamInt (ie. sceUtilityGetSystemParamInt(0x00000002, 0x000010D0) on decompiled prx, but on JPCSP+prx Logs it's sceUtilityGetSystemParamInt(0x00000002, 0x09F43FD0))
+	// Offset 0xA4: Seems to be at 0x000010D4 and related to RequestSuspend
+	// Offset 0xA8: paramAddr // This seems to be a fixed address at 0x000010D8 (ie. *((int *) 0x000010D8) = paramAddr)
+	// The rest are zeroed
+	Memory::Write_U32(0x06060010, netAdhocDiscoverBufAddr + 0x60);
+	Memory::Write_U32(0xffffffff, netAdhocDiscoverBufAddr + 0x70);
+	if (netAdhocDiscoverParam->unknown1 == 0) {
+		Memory::Write_U32(0x0B, netAdhocDiscoverBufAddr + 0x80);
+		Memory::Write_U32(0x03, netAdhocDiscoverBufAddr + 0x84);
+	}
+	else if (netAdhocDiscoverParam->unknown1 == 1) {
+		Memory::Write_U32(0x0F, netAdhocDiscoverBufAddr + 0x80);
+		Memory::Write_U32(0x04, netAdhocDiscoverBufAddr + 0x84);
+	}
+	Memory::Write_U32(0, netAdhocDiscoverBufAddr + 0x98);
+	Memory::Write_U32(g_Config.iWlanAdhocChannel, netAdhocDiscoverBufAddr + 0xA0);
+	Memory::Write_U32(0, netAdhocDiscoverBufAddr + 0xA4);
+	Memory::Write_U32(paramAddr, netAdhocDiscoverBufAddr + 0xA8);
+
+	char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
+	if (netAdhocDiscoverParam->groupName)
+		memcpy(grpName, netAdhocDiscoverParam->groupName, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
+	DEBUG_LOG(SCENET, "sceNetAdhocDiscoverInitStart - Param.Unknown1 : %08x", netAdhocDiscoverParam->unknown1);
+	DEBUG_LOG(SCENET, "sceNetAdhocDiscoverInitStart - Param.GroupName: [%s]", grpName);
+	DEBUG_LOG(SCENET, "sceNetAdhocDiscoverInitStart - Param.Unknown2 : %08x", netAdhocDiscoverParam->unknown2);
+	DEBUG_LOG(SCENET, "sceNetAdhocDiscoverInitStart - Param.Result   : %08x", netAdhocDiscoverParam->result);
+
+	// TODO: Check whether we're already in the correct group and change the status and result accordingly
+	netAdhocDiscoverIsStopping = false;
+	netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_IN_PROGRESS;
+	netAdhocDiscoverParam->result = NET_ADHOC_DISCOVER_RESULT_NO_PEER_FOUND;
+	netAdhocDiscoverStartTime = CoreTiming::GetGlobalTimeUsScaled();
+	return hleLogSuccessInfoX(SCENET, 0);
 }
 
+// Note1: When canceling the progress, Legend Of The Dragon will use DiscoverStop -> AdhocctlDisconnect -> DiscoverTerm (when status changed to 2)
+// Note2: When result = NO_PEER_FOUND or PEER_FOUND the progress can no longer be canceled on Legend Of The Dragon
 int sceNetAdhocDiscoverStop() {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverStop()");
+	WARN_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverStop()");
+	if (sceKernelCheckThreadStack() < 0x00000FF0)
+		return 0x80410005;
+
+	if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) > 0 && (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80)^0x13) > 0) {
+		Memory::Write_U32(Memory::Read_U32(netAdhocDiscoverBufAddr + 0x98) | 0x20, netAdhocDiscoverBufAddr + 0x98);
+		Memory::Write_U32(0, netAdhocDiscoverBufAddr + 0xA4);
+	}
+	// FIXME: Doesn't seems to be immediately changed the status, may be waiting until Disconnected from Adhocctl before changing the status to Completed?
+	netAdhocDiscoverIsStopping = true;
+	//netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_COMPLETED;
+	//if (netAdhocDiscoverParam) netAdhocDiscoverParam->result = NET_ADHOC_DISCOVER_RESULT_CANCELED;
 	return 0;
 }
 
 int sceNetAdhocDiscoverTerm() {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverTerm()");
-	return 0;
-}
+	WARN_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverTerm() at %08x", currentMIPS->pc);
+	/*
+	if (sceKernelCheckThreadStack() < 0x00000FF0)
+		return 0x80410005;
 
-int sceNetAdhocDiscoverUpdate() {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverUpdate() at %08x", currentMIPS->pc);
+	if (!(Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) > 0 && (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) ^ 0x13) > 0))
+		return 0x80411301; // Not Initialized/Started yet?
+	*/
+	// TODO: Use sceNetAdhocctl_lib_1C679240 to remove adhocctl state callback handler setup in sceNetAdhocDiscoverInitStart
+	/*if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x70) >= 0) {
+		LinkDiscoverSkip(Memory::Read_U32(netAdhocDiscoverBufAddr + 0x70)); //sceNetAdhocctl_lib_1C679240
+		Memory::Write_U32(0xffffffff, netAdhocDiscoverBufAddr + 0x70);
+	}
+	Memory::Write_U32(0, netAdhocDiscoverBufAddr + 0x80);
+	Memory::Write_U32(0, netAdhocDiscoverBufAddr + 0xA8);
+	*/
+	netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_NONE;
+	//if (netAdhocDiscoverParam) netAdhocDiscoverParam->result = NET_ADHOC_DISCOVER_RESULT_NO_PEER_FOUND; // Test: Using result = NET_ADHOC_DISCOVER_RESULT_NO_PEER_FOUND will trigger Legend Of The Dragon to call sceNetAdhocctlGetPeerList after DiscoverTerm
+	if (Memory::IsValidAddress(netAdhocDiscoverBufAddr)) {
+		userMemory.Free(netAdhocDiscoverBufAddr);
+		netAdhocDiscoverBufAddr = 0;
+	}
+	netAdhocDiscoverIsStopping = false;
 	return 0;
 }
 
 int sceNetAdhocDiscoverGetStatus() {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverGetStatus()");
-	return 0; // returning 2 will trigger Legend Of The Dragon to call sceNetAdhocctlGetPeerList
+	DEBUG_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverGetStatus() at %08x", currentMIPS->pc);
+	if (sceKernelCheckThreadStack() < 0x00000FF0)
+		return 0x80410005;
+	/*
+	if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) <= 0)
+		return 0;
+	if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) <= 0x13)
+		return 1;
+	if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) == 0x13)
+		return 2;
+	*/
+	return hleLogDebug(SCENET, netAdhocDiscoverStatus); // Returning 2 will trigger Legend Of The Dragon to call sceNetAdhocctlGetPeerList (only happened if it was the first sceNetAdhocDiscoverGetStatus after sceNetAdhocDiscoverInitStart)
 }
 
 int sceNetAdhocDiscoverRequestSuspend()
 {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverRequestSuspend()");
-	return 0;
+	ERROR_LOG_REPORT_ONCE(sceNetAdhocDiscoverRequestSuspend, SCENET, "UNIMPL sceNetAdhocDiscoverRequestSuspend() at %08x", currentMIPS->pc);
+	// FIXME: Not sure what is this syscall used for, may be related to Sleep Mode and can be triggered by using Power/Hold Switch? (based on what's written on Dissidia 012)
+	if (sceKernelCheckThreadStack() < 0x00000FF0)
+		return 0x80410005;
+	/*
+	if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0xA4) == 0)
+		return 0x80411303; // Already Suspended?
+	if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) != 0)
+		return 0x80411303; // Already Suspended?
+	int ret = sceNetAdhocctl_lib_1572422C();
+	if (ret >= 0)
+		Memory::Write_U32(0, netAdhocDiscoverBufAddr + 0xA4);
+	return ret;
+	*/
+	// Since we don't know what this supposed to do, and we currently don't have a working AdhocDiscover yet, may be we should cancel the progress for now?
+	netAdhocDiscoverIsStopping = true;
+	return hleLogError(SCENET, 0);
+}
+
+int sceNetAdhocDiscoverUpdate() {
+	DEBUG_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverUpdate() at %08x", currentMIPS->pc);
+	if (sceKernelCheckThreadStack() < 0x00000FF0)
+		return 0x80410005;
+
+	// TODO: Use switch case for each Step
+	if (netAdhocDiscoverStatus == NET_ADHOC_DISCOVER_STATUS_IN_PROGRESS) {
+		//u64 now = CoreTiming::GetGlobalTimeUsScaled();
+		if (netAdhocDiscoverIsStopping /*|| now >= netAdhocDiscoverStartTime + DISCOVER_DURATION_US*/) {
+			// Fake a successful completion after some time (or when detecting another player in the same Group?)
+			netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_COMPLETED;
+			if (netAdhocDiscoverParam)
+				netAdhocDiscoverParam->result = NET_ADHOC_DISCOVER_RESULT_CANCELED; // netAdhocDiscoverIsStopping ? NET_ADHOC_DISCOVER_RESULT_CANCELED : NET_ADHOC_DISCOVER_RESULT_PEER_FOUND;
+		}
+	}
+	return hleDelayResult(hleLogDebug(SCENET, 0/*netAdhocDiscoverBufAddr*/), "adhoc discover update", 300); // FIXME: Based on JPCSP+prx, it seems to be returning a pointer to the internal buffer/struct (only when status = 1 ?), But when i stepped the code it returns 0 (might be a bug on JPCSP LLE Logging?)
 }
 
 const HLEFunction sceNetAdhocDiscover[] = {
-	{0X941B3877, &WrapI_V<sceNetAdhocDiscoverInitStart>,               "sceNetAdhocDiscoverInitStart",           'i', ""         },
+	{0X941B3877, &WrapI_U<sceNetAdhocDiscoverInitStart>,               "sceNetAdhocDiscoverInitStart",           'i', "x"        },
 	{0X52DE1B97, &WrapI_V<sceNetAdhocDiscoverUpdate>,                  "sceNetAdhocDiscoverUpdate",              'i', ""         },
 	{0X944DDBC6, &WrapI_V<sceNetAdhocDiscoverGetStatus>,               "sceNetAdhocDiscoverGetStatus",           'i', ""         },
 	{0XA2246614, &WrapI_V<sceNetAdhocDiscoverTerm>,                    "sceNetAdhocDiscoverTerm",                'i', ""         },
