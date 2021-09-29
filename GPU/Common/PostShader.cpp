@@ -28,6 +28,7 @@
 #include "Common/File/DirListing.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/GPU/thin3d.h"
 #include "Common/StringUtils.h"
 
 #include "Core/Config.h"
@@ -40,8 +41,13 @@ static std::vector<TextureShaderInfo> textureShaderInfo;
 
 // Scans the directories for shader ini files and collects info about all the shaders found.
 
-void LoadPostShaderInfo(const std::vector<Path> &directories) {
+void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &directories) {
 	std::vector<ShaderInfo> notVisible;
+
+	Draw::GPUVendor gpuVendor = Draw::GPUVendor::VENDOR_UNKNOWN;
+	if (draw) {
+		gpuVendor = draw->GetDeviceCaps().vendor;
+	}
 
 	shaderInfo.clear();
 	ShaderInfo off{};
@@ -112,11 +118,45 @@ void LoadPostShaderInfo(const std::vector<Path> &directories) {
 				std::string shaderType;
 				section.Get("Type", &shaderType, "render");
 
+				std::vector<std::string> vendorBlacklist;
+				section.Get("VendorBlacklist", vendorBlacklist);
+				bool skipped = false;
+				for (auto &item : vendorBlacklist) {
+					Draw::GPUVendor blacklistedVendor = Draw::GPUVendor::VENDOR_UNKNOWN;
+					// TODO: This should probably be a function somewhere.
+					if (item == "ARM") {
+						blacklistedVendor = Draw::GPUVendor::VENDOR_ARM;
+					} else if (item == "Qualcomm") {
+						blacklistedVendor = Draw::GPUVendor::VENDOR_QUALCOMM;
+					} else if (item == "IMGTEC") {
+						blacklistedVendor = Draw::GPUVendor::VENDOR_IMGTEC;
+					} else if (item == "NVIDIA") {
+						blacklistedVendor = Draw::GPUVendor::VENDOR_NVIDIA;
+					} else if (item == "AMD") {
+						blacklistedVendor = Draw::GPUVendor::VENDOR_AMD;
+					} else if (item == "Broadcom") {
+						blacklistedVendor = Draw::GPUVendor::VENDOR_BROADCOM;
+					} else if (item == "Apple") {
+						blacklistedVendor = Draw::GPUVendor::VENDOR_APPLE;
+					} else if (item == "Intel") {
+						blacklistedVendor = Draw::GPUVendor::VENDOR_INTEL;
+					}
+					if (blacklistedVendor == gpuVendor && blacklistedVendor != Draw::GPUVendor::VENDOR_UNKNOWN) {
+						skipped = true;
+						break;
+					}
+				}
+
+				if (skipped) {
+					continue;
+				}
+
 				if (section.Exists("Fragment") && section.Exists("Vertex") && strncasecmp(shaderType.c_str(), "render", shaderType.size()) == 0) {
 					// Valid shader!
 					ShaderInfo info;
 					std::string temp;
 					info.section = section.name();
+
 					section.Get("Name", &info.name, section.name().c_str());
 					section.Get("Parent", &info.parent, "");
 					section.Get("Visible", &info.visible, true);
@@ -184,11 +224,11 @@ void LoadPostShaderInfo(const std::vector<Path> &directories) {
 }
 
 // Scans the directories for shader ini files and collects info about all the shaders found.
-void ReloadAllPostShaderInfo() {
+void ReloadAllPostShaderInfo(Draw::DrawContext *draw) {
 	std::vector<Path> directories;
 	directories.push_back(Path("shaders"));  // For VFS
 	directories.push_back(GetSysDirectory(DIRECTORY_CUSTOM_SHADERS));
-	LoadPostShaderInfo(directories);
+	LoadPostShaderInfo(draw, directories);
 }
 
 const ShaderInfo *GetPostShaderInfo(const std::string &name) {
