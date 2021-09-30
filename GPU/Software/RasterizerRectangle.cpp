@@ -226,7 +226,7 @@ bool g_needsClearAfterDialog = false;
 static inline bool NoClampOrWrap(const Vec2f &tc) {
 	if (tc.x < 0 || tc.y < 0)
 		return false;
-	return tc.x < gstate.getTextureWidth(0) && tc.y < gstate.getTextureHeight(0);
+	return tc.x <= gstate.getTextureWidth(0) && tc.y <= gstate.getTextureHeight(0);
 }
 
 // Returns true if the normal path should be skipped.
