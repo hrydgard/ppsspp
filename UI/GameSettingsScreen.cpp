@@ -848,11 +848,13 @@ void GameSettingsScreen::CreateViews() {
 #endif
 
 #if defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
-	qc1->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat0);
-	qc2->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat1);
-	qc3->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat2);
-	qc4->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat3);
-	qc5->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat4);
+	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
+		qc1->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat0);
+		qc2->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat1);
+		qc3->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat2);
+		qc4->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat3);
+		qc5->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat4);
+	}
 #endif
 
 	networkingSettings->Add(new ItemHeader(n->T("Misc", "Misc (default = compatibility)")));
