@@ -2119,7 +2119,6 @@ set(WindowsFiles
 	Windows/WindowsAudio.h
 	Windows/WASAPIStream.cpp
 	Windows/WASAPIStream.h
-	Windows/Debugger/CPURegsInterface.h
 	Windows/Debugger/BreakpointWindow.cpp
 	Windows/Debugger/BreakpointWindow.h
 	Windows/Debugger/DumpMemoryWindow.cpp
@@ -2179,14 +2178,10 @@ set(WindowsFiles
 	Windows/W32Util/DialogManager.h
 	Windows/W32Util/Misc.cpp
 	Windows/W32Util/Misc.h
-	Windows/W32Util/PropertySheet.cpp
-	Windows/W32Util/PropertySheet.h
 	Windows/W32Util/ShellUtil.cpp
 	Windows/W32Util/ShellUtil.h
 	Windows/W32Util/TabControl.cpp
 	Windows/W32Util/TabControl.h
-	Windows/W32Util/PropertySheet.cpp
-	Windows/W32Util/PropertySheet.h
 	Windows/WindowsHost.cpp
 	Windows/WindowsHost.h
 	Windows/MainWindow.cpp
@@ -2197,7 +2192,6 @@ set(WindowsFiles
 	Windows/RawInput.h
 	Windows/TouchInputHandler.cpp
 	Windows/TouchInputHandler.h
-	Windows/XPTheme.h
 	Windows/XinputDevice.cpp
 	Windows/XinputDevice.h
 	Windows/main.cpp

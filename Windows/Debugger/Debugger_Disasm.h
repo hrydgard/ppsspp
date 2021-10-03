@@ -6,7 +6,7 @@
 #include "Windows/W32Util/TabControl.h"
 #include "Windows/Debugger/CtrlDisAsmView.h"
 #include "Windows/Debugger/Debugger_Lists.h"
-#include "Windows/Debugger/CPURegsInterface.h"
+#include "Core/Core.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/Debugger/Breakpoints.h"
 #include <vector>
