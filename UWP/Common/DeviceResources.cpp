@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include <algorithm>
 #include "DeviceResources.h"
 #include "DirectXHelper.h"
@@ -424,21 +424,27 @@ void DX::DeviceResources::CreateWindowSizeDependentResources()
 void DX::DeviceResources::UpdateRenderTargetSize()
 {
 	m_effectiveDpi = m_dpi;
-
-	// To improve battery life on high resolution devices, render to a smaller render target
-	// and allow the GPU to scale the output when it is presented.
-	if (!DisplayMetrics::SupportHighResolutions && m_dpi > DisplayMetrics::DpiThreshold)
+	if (Windows::System::Profile::AnalyticsInfo::VersionInfo->DeviceFamily == L"Windows.Xbox")
 	{
-		float width = DX::ConvertDipsToPixels(m_logicalSize.Width, m_dpi);
-		float height = DX::ConvertDipsToPixels(m_logicalSize.Height, m_dpi);
-
-		// When the device is in portrait orientation, height > width. Compare the
-		// larger dimension against the width threshold and the smaller dimension
-		// against the height threshold.
-		if (std::max(width, height) > DisplayMetrics::WidthThreshold && std::min(width, height) > DisplayMetrics::HeightThreshold)
+		m_effectiveDpi = 96.0f / static_cast<float>(m_logicalSize.Height) * 1080.0f;
+	}
+	else
+	{
+		// To improve battery life on high resolution devices, render to a smaller render target
+		// and allow the GPU to scale the output when it is presented.
+		if (!DisplayMetrics::SupportHighResolutions && m_dpi >= DisplayMetrics::DpiThreshold)
 		{
-			// To scale the app we change the effective DPI. Logical size does not change.
-			m_effectiveDpi /= 2.0f;
+			float width = DX::ConvertDipsToPixels(m_logicalSize.Width, m_dpi);
+			float height = DX::ConvertDipsToPixels(m_logicalSize.Height, m_dpi);
+
+			// When the device is in portrait orientation, height > width. Compare the
+			// larger dimension against the width threshold and the smaller dimension
+			// against the height threshold.
+			if (std::max(width, height) > DisplayMetrics::WidthThreshold && std::min(width, height) > DisplayMetrics::HeightThreshold)
+			{
+				// To scale the app we change the effective DPI. Logical size does not change.
+				m_effectiveDpi /= 2.0f;
+			}
 		}
 	}
 	// Calculate the necessary render target size in pixels.
@@ -456,10 +462,37 @@ void DX::DeviceResources::SetWindow(CoreWindow^ window)
 	DisplayInformation^ currentDisplayInformation = DisplayInformation::GetForCurrentView();
 
 	m_window = window;
-	m_logicalSize = Windows::Foundation::Size(window->Bounds.Width, window->Bounds.Height);
+	if (Windows::System::Profile::AnalyticsInfo::VersionInfo->DeviceFamily == L"Windows.Xbox")
+	{
+		const auto hdi = Windows::Graphics::Display::Core::HdmiDisplayInformation::GetForCurrentView();
+		if (hdi)
+		{
+			try
+			{
+				const auto dm = hdi->GetCurrentDisplayMode();
+				const unsigned int hdmi_width = dm->ResolutionWidthInRawPixels;
+				const unsigned int hdmi_height = dm->ResolutionHeightInRawPixels;
+				// If we're running on Xbox, use the HDMI mode instead of the CoreWindow size.
+				// In UWP, the CoreWindow is always 1920x1080, even when running at 4K.
+
+				m_logicalSize = Windows::Foundation::Size(hdmi_width, hdmi_height);
+				m_dpi = currentDisplayInformation->LogicalDpi * 1.5;
+			}
+			catch (const Platform::Exception^)
+			{
+				m_logicalSize = Windows::Foundation::Size(window->Bounds.Width, window->Bounds.Height);
+				m_dpi = currentDisplayInformation->LogicalDpi;
+			}
+		}
+	}
+	else 
+	{
+		m_logicalSize = Windows::Foundation::Size(window->Bounds.Width, window->Bounds.Height);
+		m_dpi = currentDisplayInformation->LogicalDpi;
+	}
 	m_nativeOrientation = currentDisplayInformation->NativeOrientation;
 	m_currentOrientation = currentDisplayInformation->CurrentOrientation;
-	m_dpi = currentDisplayInformation->LogicalDpi;
+	
 	m_d2dContext->SetDpi(m_dpi, m_dpi);
 
 	CreateWindowSizeDependentResources();
