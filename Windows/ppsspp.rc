@@ -130,7 +130,7 @@ BEGIN
             VALUE "FileDescription", "PPSSPP"
             VALUE "FileVersion", PPSSPP_WIN_VERSION_STRING
             VALUE "InternalName", "PPSSPPEmu"
-            VALUE "LegalCopyright", "Copyright (C) 2006-2015 by Henrik Rydgård"
+            VALUE "LegalCopyright", "Copyright (C) 2006-2021 by Henrik Rydgård"
             VALUE "LegalTrademarks", "All product names are trademarks of their respective owners."
             VALUE "OriginalFilename", "PPSSPP.exe"
             VALUE "ProductName", "PPSSPP"
