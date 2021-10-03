@@ -76,9 +76,6 @@
     <ClCompile Include="W32Util\Misc.cpp">
       <Filter>Windows\W32Util</Filter>
     </ClCompile>
-    <ClCompile Include="W32Util\PropertySheet.cpp">
-      <Filter>Windows\W32Util</Filter>
-    </ClCompile>
     <ClCompile Include="W32Util\ShellUtil.cpp">
       <Filter>Windows\W32Util</Filter>
     </ClCompile>
@@ -292,9 +289,6 @@
       <Filter>Windows\W32Util</Filter>
     </ClInclude>
     <ClInclude Include="W32Util\Misc.h">
-      <Filter>Windows\W32Util</Filter>
-    </ClInclude>
-    <ClInclude Include="W32Util\PropertySheet.h">
       <Filter>Windows\W32Util</Filter>
     </ClInclude>
     <ClInclude Include="W32Util\ShellUtil.h">
@@ -589,9 +583,6 @@
     </None>
     <None Include="..\Qt\assets.qrc">
       <Filter>Other Platforms\Qt</Filter>
-    </None>
-    <None Include="pspmode.png">
-      <Filter>Resource Files</Filter>
     </None>
     <None Include="..\assets\langregion.ini">
       <Filter>Resource Files</Filter>

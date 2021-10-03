@@ -947,7 +947,6 @@
       <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">$(IntDir)%(Filename)2.obj</ObjectFileName>
       <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">$(IntDir)%(Filename)2.obj</ObjectFileName>
     </ClCompile>
-    <ClCompile Include="W32Util\PropertySheet.cpp" />
     <ClCompile Include="W32Util\ShellUtil.cpp" />
     <ClCompile Include="InputBox.cpp" />
     <ClCompile Include="W32Util\TabControl.cpp" />
@@ -1474,7 +1473,6 @@
     <ClInclude Include="GPU\WindowsVulkanContext.h" />
     <ClInclude Include="W32Util\DialogManager.h" />
     <ClInclude Include="W32Util\Misc.h" />
-    <ClInclude Include="W32Util\PropertySheet.h" />
     <ClInclude Include="W32Util\ShellUtil.h" />
     <ClInclude Include="W32Util\TabControl.h" />
     <ClInclude Include="InputBox.h" />
@@ -1661,7 +1659,6 @@
     <None Include="git-version-gen.cmd" />
     <None Include="ppsspp.ico" />
     <None Include="icon1.ico" />
-    <None Include="pspmode.png" />
     <None Include="stop1.ico" />
   </ItemGroup>
   <ItemGroup>

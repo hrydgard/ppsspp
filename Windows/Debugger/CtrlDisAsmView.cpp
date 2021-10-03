@@ -934,8 +934,6 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		case ID_DISASM_GOTOINMEMORYVIEW:
 			SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,curAddress,0);
 			break;
-		case ID_DISASM_ADDHLE:
-			break;
 		case ID_DISASM_TOGGLEBREAKPOINT:
 			toggleBreakpoint();
 			redraw();
