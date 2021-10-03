@@ -779,9 +779,11 @@ void __DisplayFlip(int cyclesLate) {
 
 		bool forceNoFlip = false;
 		float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
+		// Avoid skipping on devices that have 58 or 59 FPS, except when alternate speed is set.
+		bool refreshRateNeedsSkip = FrameTimingLimit() != 60 && FrameTimingLimit() > refreshRate;
 		// Alternative to frameskip fast-forward, where we draw everything.
 		// Useful if skipping a frame breaks graphics or for checking drawing speed.
-		if (fastForwardSkipFlip && (!FrameTimingThrottled() || FrameTimingLimit() > refreshRate)) {
+		if (fastForwardSkipFlip && (!FrameTimingThrottled() || refreshRateNeedsSkip)) {
 			static double lastFlip = 0;
 			double now = time_now_d();
 			if ((now - lastFlip) < 1.0f / refreshRate) {
