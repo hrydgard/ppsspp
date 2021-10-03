@@ -562,6 +562,13 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				W32Util::CopyTextToClipboard(wnd,temp);
 			}
 			break;
+
+		case ID_MEMVIEW_GOTOINDISASM:
+			if (disasmWindow) {
+				disasmWindow->Goto(curAddress);
+				disasmWindow->Show(true);
+			}
+			break;
 		}
 		return;
 	}
