@@ -431,10 +431,15 @@ void Choice::Click() {
 }
 
 void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
+	float totalW = 0.0f;
+	float totalH = 0.0f;
 	if (image_.isValid()) {
 		dc.Draw()->GetAtlas()->measureImage(image_, &w, &h);
-	} else {
-		const int paddingX = 12;
+		totalW = w;
+		totalH = h;
+	}
+	if (!text_.empty()) {
+		const int paddingX = 12 + (image_.isValid() ? 6 : 0);
 		float availWidth = horiz.size - paddingX * 2 - textPadding_.horiz();
 		if (availWidth < 0.0f) {
 			// Let it have as much space as it needs.
@@ -444,10 +449,13 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 			availWidth = layoutParams_->width;
 		float scale = CalculateTextScale(dc, availWidth);
 		Bounds availBounds(0, 0, availWidth, vert.size);
-		dc.MeasureTextRect(dc.theme->uiFont, scale, scale, text_.c_str(), (int)text_.size(), availBounds, &w, &h, FLAG_WRAP_TEXT);
+		float textW = 0.0f, textH = 0.0f;
+		dc.MeasureTextRect(dc.theme->uiFont, scale, scale, text_.c_str(), (int)text_.size(), availBounds, &textW, &textH, FLAG_WRAP_TEXT);
+		totalH = std::max(totalH, textH);
+		totalW += textW;
 	}
-	w += 24;
-	h += 16;
+	w = totalW + 24;
+	h = totalH + 16;
 	h = std::max(h, ITEM_HEIGHT);
 }
 
@@ -498,8 +506,8 @@ void Choice::Draw(UIContext &dc) {
 
 		if (image_.isValid()) {
 			const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(image_);
-			paddingX += image->w + 12;
-			availWidth -= image->w + 12;
+			paddingX += image->w + 6;
+			availWidth -= image->w + 6;
 			// TODO: Use scale rotation and flip here as well (DrawImageRotated is always ALIGN_CENTER for now)
 			dc.Draw()->DrawImage(image_, bounds_.x + 6, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
 		}
