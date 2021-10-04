@@ -253,7 +253,7 @@ public:
 	}
 
 	virtual void Draw(UIContext &dc) override;
-	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const;
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 
 protected:
 	virtual std::string ValueText() const = 0;
