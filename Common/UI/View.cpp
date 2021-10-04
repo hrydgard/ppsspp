@@ -435,12 +435,12 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 	float totalH = 0.0f;
 	if (image_.isValid()) {
 		dc.Draw()->GetAtlas()->measureImage(image_, &w, &h);
-		totalW = w;
+		totalW = w + 6;
 		totalH = h;
 	}
 	if (!text_.empty()) {
-		const int paddingX = 12 + (image_.isValid() ? 6 : 0);
-		float availWidth = horiz.size - paddingX * 2 - textPadding_.horiz();
+		const int paddingX = 12;
+		float availWidth = horiz.size - paddingX * 2 - textPadding_.horiz() - totalW;
 		if (availWidth < 0.0f) {
 			// Let it have as much space as it needs.
 			availWidth = MAX_ITEM_SIZE;
@@ -454,6 +454,7 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 		totalH = std::max(totalH, textH);
 		totalW += textW;
 	}
+
 	w = totalW + 24;
 	h = totalH + 16;
 	h = std::max(h, ITEM_HEIGHT);
