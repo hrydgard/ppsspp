@@ -1440,6 +1440,11 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		g_Config.iGlobalVolume = 0;
 	}
 
+#if PPSSPP_PLATFORM(ANDROID)
+	// The on path here is untested, since we don't expose it.
+	g_Config.bVSync = false;
+#endif
+
 	INFO_LOG(LOADER, "Config loaded: '%s'", iniFilename_.c_str());
 }
 
