@@ -688,6 +688,7 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 						INFO_LOG(SYSTEM, "dry run: Would have created dir '%s'", dir.c_str());
 					} else {
 						INFO_LOG(SYSTEM, "Creating dir '%s'", dir.c_str());
+						progressReporter_.Set(dirSuffix);
 						// Just ignore already-exists errors.
 						File::CreateDir(dir);
 					}
@@ -735,7 +736,8 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 						INFO_LOG(SYSTEM, "dry run: Would have deleted dir '%s'", dir.c_str());
 					} else {
 						INFO_LOG(SYSTEM, "Deleting dir '%s'", dir.c_str());
-						if (!File::Exists(dir)) {
+						progressReporter_.Set(dirSuffix);
+						if (File::Exists(dir)) {
 							File::DeleteDir(dir);
 						}
 					}
