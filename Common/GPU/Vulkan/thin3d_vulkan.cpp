@@ -735,6 +735,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 		ERROR_LOG(G3D,  "Failed to create VulkanTexture: %dx%dx%d fmt %d, %d levels", width_, height_, depth_, (int)vulkanFormat, mipLevels_);
 		return false;
 	}
+	VkImageLayout layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 	if (desc.initData.size()) {
 		int w = width_;
 		int h = height_;
@@ -758,11 +759,12 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 			d = (d + 1) / 2;
 		}
 		// Generate the rest of the mips automatically.
-		for (; i < mipLevels_; i++) {
-			vkTex_->GenerateMip(cmd, i, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		if (i < mipLevels_) {
+			vkTex_->GenerateMips(cmd, i, false);
+			layout = VK_IMAGE_LAYOUT_GENERAL;
 		}
 	}
-	vkTex_->EndCreate(cmd, false);
+	vkTex_->EndCreate(cmd, false, layout);
 	return true;
 }
 

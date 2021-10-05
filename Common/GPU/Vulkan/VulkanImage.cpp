@@ -207,40 +207,57 @@ void VulkanTexture::ClearMip(VkCommandBuffer cmd, int mip, uint32_t value) {
 }
 
 // Low-quality mipmap generation by bilinear blit, but works okay.
-void VulkanTexture::GenerateMip(VkCommandBuffer cmd, int mip, VkImageLayout imageLayout) {
-	_assert_msg_(mip != 0, "Cannot generate the first level");
-	_assert_msg_(mip < numMips_, "Cannot generate mipmaps past the maximum created (%d vs %d)", mip, numMips_);
-	VkImageBlit blit{};
-	blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	blit.srcSubresource.layerCount = 1;
-	blit.srcSubresource.mipLevel = mip - 1;
-	blit.srcOffsets[1].x = std::max(width_ >> (mip - 1), 1);
-	blit.srcOffsets[1].y = std::max(height_ >> (mip - 1), 1);
-	blit.srcOffsets[1].z = 1;
+void VulkanTexture::GenerateMips(VkCommandBuffer cmd, int firstMipToGenerate, bool fromCompute) {
+	_assert_msg_(firstMipToGenerate > 0, "Cannot generate the first level");
 
-	blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	blit.dstSubresource.layerCount = 1;
-	blit.dstSubresource.mipLevel = mip;
-	blit.dstOffsets[1].x = std::max(width_ >> mip, 1);
-	blit.dstOffsets[1].y = std::max(height_ >> mip, 1);
-	blit.dstOffsets[1].z = 1;
+	// Transition the pre-set levels to GENERAL.
+	TransitionImageLayout2(cmd, image_, 0, firstMipToGenerate, VK_IMAGE_ASPECT_COLOR_BIT,
+		fromCompute ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_IMAGE_LAYOUT_GENERAL,
+		fromCompute ? VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT : VK_PIPELINE_STAGE_TRANSFER_BIT, 
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		fromCompute ? VK_ACCESS_SHADER_WRITE_BIT : VK_ACCESS_TRANSFER_WRITE_BIT,
+		VK_ACCESS_TRANSFER_READ_BIT);
 
-	// TODO: We could do better with the image transitions - would be enough with one per level
-	// for the memory barrier, then one final one for the whole stack when done. This function
-	// currently doesn't have a global enough view, though.
-	// We should also coalesce barriers across multiple texture uploads in a frame and all kinds of other stuff, but...
+	// Do the same with the uninitialized levels.
+	TransitionImageLayout2(cmd, image_, firstMipToGenerate, numMips_ - firstMipToGenerate,
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_GENERAL,
+		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		0,
+		VK_ACCESS_TRANSFER_WRITE_BIT);
 
-	TransitionImageLayout2(cmd, image_, mip - 1, 1, VK_IMAGE_ASPECT_COLOR_BIT,
-		imageLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
+	// Now we can blit and barrier the whole pipeline.
+	for (int mip = firstMipToGenerate; mip < numMips_; mip++) {
+		VkImageBlit blit{};
+		blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		blit.srcSubresource.layerCount = 1;
+		blit.srcSubresource.mipLevel = mip - 1;
+		blit.srcOffsets[1].x = std::max(width_ >> (mip - 1), 1);
+		blit.srcOffsets[1].y = std::max(height_ >> (mip - 1), 1);
+		blit.srcOffsets[1].z = 1;
 
-	vkCmdBlitImage(cmd, image_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image_, imageLayout, 1, &blit, VK_FILTER_LINEAR);
+		blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		blit.dstSubresource.layerCount = 1;
+		blit.dstSubresource.mipLevel = mip;
+		blit.dstOffsets[1].x = std::max(width_ >> mip, 1);
+		blit.dstOffsets[1].y = std::max(height_ >> mip, 1);
+		blit.dstOffsets[1].z = 1;
 
-	TransitionImageLayout2(cmd, image_, mip - 1, 1, VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, imageLayout,
-		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
+		// TODO: We could do better with the image transitions - would be enough with one per level
+		// for the memory barrier, then one final one for the whole stack when done. This function
+		// currently doesn't have a global enough view, though.
+		// We should also coalesce barriers across multiple texture uploads in a frame and all kinds of other stuff, but...
+
+		vkCmdBlitImage(cmd, image_, VK_IMAGE_LAYOUT_GENERAL, image_, VK_IMAGE_LAYOUT_GENERAL, 1, &blit, VK_FILTER_LINEAR);
+
+		TransitionImageLayout2(cmd, image_, mip - 1, 1, VK_IMAGE_ASPECT_COLOR_BIT,
+			VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
+	}
 }
 
 void VulkanTexture::EndCreate(VkCommandBuffer cmd, bool vertexTexture, VkImageLayout layout) {

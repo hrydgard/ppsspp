@@ -813,6 +813,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		maxLevel = 0;
 	}
 
+	// Any texture scaling is gonna move away from the original 16-bit format, if any.
 	VkFormat actualFmt = scaleFactor > 1 ? VULKAN_8888_FORMAT : dstFmt;
 	if (replaced.Valid()) {
 		actualFmt = ToVulkanFormat(replaced.Format(0));
@@ -1010,9 +1011,13 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			}
 		}
 
+		VkImageLayout layout = computeUpload ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
 		// Generate any additional mipmap levels.
-		for (int level = maxLevel + 1; level <= maxLevelToGenerate; level++) {
-			entry->vkTex->GenerateMip(cmdInit, level, computeUpload ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		// This will transition the whole stack to GENERAL if it wasn't already.
+		if (maxLevel != maxLevelToGenerate) {
+			entry->vkTex->GenerateMips(cmdInit, maxLevel + 1, computeUpload);
+			layout = VK_IMAGE_LAYOUT_GENERAL;
 		}
 
 		if (maxLevel == 0) {
@@ -1023,7 +1028,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		if (replaced.Valid()) {
 			entry->SetAlphaStatus(TexCacheEntry::TexStatus(replaced.AlphaStatus()));
 		}
-		entry->vkTex->EndCreate(cmdInit, false, computeUpload ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		entry->vkTex->EndCreate(cmdInit, false, layout);
 	}
 }
 
