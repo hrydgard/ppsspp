@@ -9,10 +9,19 @@ from lxml.html import parse
 
 footer_delimiter = "\n\n[comment]: # (LINK_LIST_BEGIN_HERE)\n"
 footer = ""
-def replace_foo(match):
+linked_id = []
+
+def add_bracket(match):
 	first_char = match.group(1)
 	id = match.group(2)
 	replace = first_char + "[#"+id+"]"
+	return replace
+
+def add_link(match):
+	id = match.group(1)
+	replace = "#" + id
+	if id in linked_id:
+		return replace
 
 	url = "https://github.com/hrydgard/ppsspp/issues/"+id
 	title = None
@@ -28,8 +37,13 @@ def replace_foo(match):
 	global footer
 	addition = "[#"+id+"]: https://github.com/hrydgard/ppsspp/issues/"+id+" \""+title+"\""
 	footer += addition+"\n"
+	linked_id.append(id)
 	print("Done: " + addition)
 	return replace
+
+def already_added_id(match):
+	linked_id.append(match.group(1))
+	return "[#" + match.group(1) + "]:"
 
 f = open("README.md", "r+")
 cont = f.read()
@@ -39,8 +53,14 @@ d = cont.find(footer_delimiter)
 if (d != -1):
 	footer = cont[d + len(footer_delimiter):]
 	cont = cont[0 : d]
+	re.sub(r"\[#(\d+)\]:", already_added_id, footer)
 
-updated = re.sub(r"([^[])#(\d+)", replace_foo, cont)
+# Add brackets if missing
+added_bracket = re.sub(r"([^[])#(\d+)", add_bracket, cont)
+
+# Add links if missing
+updated = re.sub(r"#(\d+)", add_link, added_bracket)
+
 f.seek(0)
 f.write(updated)
 f.write(footer_delimiter)
