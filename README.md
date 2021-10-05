@@ -74,12 +74,12 @@ UI:
 
 Controls:
 * New analog stick calibration menu ([#14596])
-* Improved combo button, note that they combo setting is now under "Customize Touch Control" -> "Customize"  -> "Custom button" ([#13869])
+* Improved combo button, note that the combo settings is now under "Customize Touch Control" -> "Customize"  -> "Custom button" ([#13869])
 * Improved tilt control, allow to change axis ([#12530])
 * Add CRC calculation on game info screen and feedback screen ([#14000], [#14041])
 * Add a visual means of control mapping ([#14769])
 * Add basic motion gesture support ([#13107])
-* Fix touch control DPAD not getting input when dragged over, and make touch analog drag not activating other utton ([#14843])
+* Fix touch control DPAD not getting input when dragged over, and make touch analog drag not activating other button ([#14843])
 * Allow change touch control analog stick head size ([#14480]) 
 
 Adhoc/Network:
