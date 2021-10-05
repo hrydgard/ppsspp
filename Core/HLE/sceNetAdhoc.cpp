@@ -795,11 +795,12 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
 			if (sock->nonblocking)
 				result = ERROR_NET_ADHOC_WOULD_BLOCK;
 			else
-				result = ERROR_NET_ADHOC_TIMEOUT;
+				result = ERROR_NET_ADHOC_TIMEOUT; // FIXME: PSP never returned ERROR_NET_ADHOC_TIMEOUT on PtpConnect? or only returned ERROR_NET_ADHOC_TIMEOUT when the host is too busy? Seems to be returning ERROR_NET_ADHOC_CONNECTION_REFUSED on timedout instead (if the other side in not listening yet).
 		}
 	}
+	// Select was interrupted or contains invalid args?
 	else
-		result = ERROR_NET_ADHOC_CONNECTION_REFUSED; // ERROR_NET_ADHOC_TIMEOUT;
+		result = ERROR_NET_ADHOC_EXCEPTION_EVENT; // ERROR_NET_ADHOC_INVALID_ARG;
 
 	if (ret == SOCKET_ERROR)
 		DEBUG_LOG(SCENET, "sceNetAdhocPtpConnect[%i]: Socket Error (%i)", req.id, sockerr);
