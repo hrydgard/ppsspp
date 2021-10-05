@@ -1082,24 +1082,7 @@ bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
 }
 
 void TextureCacheCommon::NotifyConfigChanged() {
-	int scaleFactor;
-
-	// 0 means automatic texture scaling, up to 5x, based on resolution.
-	if (g_Config.iTexScalingLevel == 0) {
-		scaleFactor = g_Config.iInternalResolution;
-		// Automatic resolution too?  Okay.
-		if (scaleFactor == 0) {
-			if (!g_Config.IsPortrait()) {
-				scaleFactor = (PSP_CoreParameter().pixelWidth + 479) / 480;
-			} else {
-				scaleFactor = (PSP_CoreParameter().pixelHeight + 479) / 480;
-			}
-		}
-
-		scaleFactor = std::min(5, scaleFactor);
-	} else {
-		scaleFactor = g_Config.iTexScalingLevel;
-	}
+	int scaleFactor = g_Config.iTexScalingLevel;
 
 	if (!gstate_c.Supports(GPU_SUPPORTS_TEXTURE_NPOT)) {
 		// Reduce the scale factor to a power of two (e.g. 2 or 4) if textures must be a power of two.
