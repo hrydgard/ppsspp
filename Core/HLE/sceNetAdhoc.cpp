@@ -3615,9 +3615,13 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 								return hleLogDebug(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 							}
 						}
-						// No connection could be made because the target device actively refused it.
+						// No connection could be made because the target device actively refused it (on Windows/Linux/Android), or no one listening on the remote address (on Linux/Android).
 						else if (errorcode == ECONNREFUSED) {
-							return hleLogError(SCENET, ERROR_NET_ADHOC_CONNECTION_REFUSED, "connection refused");
+							// Workaround for ERROR_NET_ADHOC_CONNECTION_REFUSED to be more cross-platform, since there is no way to simulate ERROR_NET_ADHOC_CONNECTION_REFUSED properly on Windows
+							if (flag)
+								return hleLogError(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "connection refused workaround");
+							else
+								return hleLogError(SCENET, ERROR_NET_ADHOC_TIMEOUT, "connection refused workaround");
 						}
 					}
 				}
