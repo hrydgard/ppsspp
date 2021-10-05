@@ -25,6 +25,76 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.12
+==================
+
+General:
+* Add support for Android 12 Scoped Storage restrictions
+
+Game fixes:
+* Fix NBA Live 08 loading ([#8288])
+* Correct mini-map disable in Z.H.P. ([#14069])
+* Display Open Season title screen correctly ([#13252])
+* Fix Metal Gear Solid Peace Walker Chinese Patched blue screen ([#14127])
+* Load Ape Academy 2 correctly. ([#14271])
+
+Graphics:
+* Fix Princess Maker 5 Portable half screen in Vulkan ([#13741)]
+* Fix Pro Yakyu Spirits 2010 (NPJH50234): Rendering errors with hardware transform off  ([#14167])
+* Support texture replacement filtering overrides ([#14230])
+* Fix Yarudora Portable: Double Cast 's FMVs artifacting  ([#13759])
+* Fix Sims 2 Castaway/Pets EA Logo glitched out  ([#13146])
+* Add new texture filtering mode "Auto Max Quality" ([#14789])
+
+
+UI:
+* Add a setting for choosing background animation in PPSSPP's menus ([#14313])
+* Add button to show CRC on feedback screen. ([#14041])
+* Add a Storage tab to System Information with some path info ([#14224])
+* Track and show memory allocation / usage information in debugger ([#14056])
+* Wrap long info items and cleanup storage display ([#14238])
+* Allow searching within the savedata manager ([#14237])
+* Postshader now can access previous frame ([#14528])
+* Added missing japanese keyboard symbol ([#14548])
+* New analog stick calibration menu ([#14596])
+* Improved combo button, note that they combo setting is now under "Customize Touch Control" -> "Customize"  -> "Custom button" ([#13869])
+* Add Reset button on crash screen, allow load state and related ([#14708])
+* Savestate load and save undo ([#14676], [#14679], [#14697])
+* Improved tilt control, allow to change axis ([#12530])
+* Add CRC calculation on game info screen and feedback screen ([#14000], [#14041])
+* Add a visual means of control mapping ([#14769])
+* Add basic motion gesture support ([#13107])
+* Fix touch control DPAD not getting input when dragged over, and make touch analog drag not activating other utton ([#14843])
+* Allow change touch control analog stick head size ([#14480]) 
+* Add search to savedata manager ([#14237])
+* Add a setting for choosing background animation in PPSSPP's menus ([#14313], [#14818], [#14810], [#14347]) 
+
+Platforms:
+* iOS: Fix multitouch tracking ([#5099])
+* Android: Fix screenshot orientation on Vulkan ([#14053])
+* Linux: Improve support for system FFmpeg 3.1+ ([#14176], [#14188], [#14199])
+* libretro: Always enable function hooks ([#14145])
+* AMD: Enable Vulkan rendering on a thread ([#13864])
+* Add iOS version detection, turn off JIT on bootup if >= 14.3. ([#14201])
+* iOS: Try a different JIT detection method, thanks Halo-Michael ([#14241])
+* Windows: Restore window size correctly ([#14317])
+
+Adhoc/Network:
+* Fix multiplayer issue on MGS:PW due to detecting an incorrect source port on incoming data ([#14140])
+* Always enable TCPNoDelay to improve response time ([#14235])
+* Fix Teenage Mutant Ninja Turtles Multiplayer  ([#14284])
+* Fix FlatOut Head On multiplayer ([#14290])
+* Prevent flooding Adhoc Server with connection attempts ([#14335])
+* Fix crashing issue when leaving a multiplayer game room (ie. GTA Vice City Stories) ([#14342])
+* Fix stuck issue when scanning AP to Recruit on MGS:PW ([#14345])
+* Fix possible crash issue on blocking socket implementation (ie. Kao Challengers) ([#14466])
+* Create GameMode's socket after Master and all Replicas have been created (ie. Fading Shadows) ([#14492])
+* Reducing HLE delays due to Mutiplayer performance regressions (ie. Ys vs. Sora no Kiseki) ([#14513])
+* Fix Socket error 10014 on Windows when hosting a game of Vulcanus Seek and Destroy ([#14849])
+
+Font fix:
+* Fix "bad size & bad position" on Japanese & Numbers & Alphabets ([#14209])
+
 What's new in 1.11.3
 ====================
 * Fix for graphics glitches in the on-screen keyboard
