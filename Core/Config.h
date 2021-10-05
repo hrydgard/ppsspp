@@ -445,7 +445,6 @@ public:
 	std::string proAdhocServer;
 	bool bEnableWlan;
 	bool bEnableAdhocServer;
-	bool bTCPNoDelay;
 	bool bEnableUPnP;
 	bool bUPnPUseOriginalPort;
 	bool bForcedFirstConnect;
