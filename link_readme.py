@@ -10,6 +10,7 @@ from lxml.html import parse
 footer_delimiter = "\n\n[comment]: # (LINK_LIST_BEGIN_HERE)\n"
 footer = ""
 linked_id = []
+present_id = []
 
 def add_bracket(match):
 	first_char = match.group(1)
@@ -19,6 +20,7 @@ def add_bracket(match):
 
 def add_link(match):
 	id = match.group(1)
+	present_id.append(id)
 	replace = "#" + id
 	if id in linked_id:
 		return replace
@@ -45,25 +47,57 @@ def already_added_id(match):
 	linked_id.append(match.group(1))
 	return "[#" + match.group(1) + "]:"
 
-f = open("README.md", "r+")
-cont = f.read()
+def remove_old_link(line):
+	# Ignore extra new lines at the end
+	if line.find("#") == -1:
+		return ""
+		
+	id = line[line.find("[#")+2 : line.find("]:")]
+	if id in present_id:
+		return line + "\n"
+	else:
+		print("Removed: #" + id)
+		return ""
 
-# We don't want to match issues id in title so stop before the link list
-d = cont.find(footer_delimiter)
-if (d != -1):
-	footer = cont[d + len(footer_delimiter):]
-	cont = cont[0 : d]
-	re.sub(r"\[#(\d+)\]:", already_added_id, footer)
+def update(file_name):
+	global footer
+	footer = ""
+	global linked_id
+	linked_id = []
+	global present_id
+	present_id = []
 
-# Add brackets if missing
-added_bracket = re.sub(r"([^[])#(\d+)", add_bracket, cont)
+	f = open(file_name, "r+")
+	cont = f.read()
 
-# Add links if missing
-updated = re.sub(r"#(\d+)", add_link, added_bracket)
+	# We don't want to match issues id in title so stop before the link list
+	d = cont.find(footer_delimiter)
+	if (d != -1):
+		footer = cont[d + len(footer_delimiter):]
+		cont = cont[0 : d]
+		re.sub(r"\[#(\d+)\]:", already_added_id, footer)
 
-f.seek(0)
-f.write(updated)
-f.write(footer_delimiter)
-f.write(footer)
-f.truncate()
-f.close()
+	# Add brackets if missing
+	added_bracket = re.sub(r"([^[])#(\d+)", add_bracket, cont)
+
+	# Add links if missing
+	updated = re.sub(r"#(\d+)", add_link, added_bracket)
+
+	# Remove old unused link
+	updated_footer = ""
+	for line in footer.split("\n"):
+		updated_footer += remove_old_link(line)
+
+	# Remove extra new lines at the end
+	while updated_footer[-1] == "\n":
+		updated_footer = updated_footer[0:-1]
+
+	f.seek(0)
+	f.write(updated)
+	f.write(footer_delimiter)
+	f.write(updated_footer)
+	f.truncate()
+	f.close()
+
+update("README.md")
+update("history.md")
