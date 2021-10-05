@@ -38,7 +38,7 @@ def add_link(match):
 	addition = "[#"+id+"]: https://github.com/hrydgard/ppsspp/issues/"+id+" \""+title+"\""
 	footer += addition+"\n"
 	linked_id.append(id)
-	print("Done: " + addition)
+	print("Linked: " + addition)
 	return replace
 
 def already_added_id(match):
