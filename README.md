@@ -48,7 +48,7 @@ Game fixes:
 
 Graphics and Sound:
 * Add new texture filtering mode "Auto Max Quality" ([#14789])
-* Fix Princess Maker 5 Portable half screen in Vulkan ([#13741)]
+* Fix Princess Maker 5 Portable half screen in Vulkan ([#13741])
 * Fix Pro Yakyu Spirits 2010 (NPJH50234): Rendering errors with hardware transform off  ([#14167])
 * Support texture replacement filtering overrides ([#14230])
 * Fix Yarudora Portable: Double Cast's FMVs artifacting  ([#13759])
@@ -391,3 +391,4 @@ Credit goes to:
 [#14492]: https://github.com/hrydgard/ppsspp/issues/14492 "[AdhocGameMode] Create GameMode's socket after Master and all Replicas have been created"
 [#14513]: https://github.com/hrydgard/ppsspp/issues/14513 "[Adhoc] Reducing HLE delays due to Mutiplayer performance regressions"
 [#14849]: https://github.com/hrydgard/ppsspp/issues/14849 "[Adhoc] Fix Socket error 10014 on Windows when hosting a game of Vulcanus Seek and Destroy"
+[#14711]: https://github.com/hrydgard/ppsspp/issues/14711 "Sas: Add option to control reverb volume"
