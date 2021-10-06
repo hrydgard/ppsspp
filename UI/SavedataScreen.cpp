@@ -87,10 +87,13 @@ public:
 		const Style &textStyle = dc.theme->popupStyle;
 
 		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
-		LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
-		parent->Add(content);
 		if (!ginfo)
 			return;
+
+		ScrollView *contentScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
+		LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
+		parent->Add(contentScroll);
+		contentScroll->Add(content);
 		LinearLayout *toprow = new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 		content->Add(toprow);
 
