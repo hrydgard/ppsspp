@@ -46,7 +46,7 @@ Game fixes:
 * Load Ape Academy 2 correctly ([#14271])
 * Many more...
 
-Graphics:
+Graphics and Sound:
 * Add new texture filtering mode "Auto Max Quality" ([#14789])
 * Fix Princess Maker 5 Portable half screen in Vulkan ([#13741)]
 * Fix Pro Yakyu Spirits 2010 (NPJH50234): Rendering errors with hardware transform off  ([#14167])
@@ -58,6 +58,8 @@ Graphics:
 * Google Cardboard fixes ([#14966], [#14768])
 * Correct mini-map update in Z.H.P. ([#14069])
 * Fix crash in vertex jit on ARM32 ([#14879])
+* Add a setting for reverb volume ([#14711])
+* Option to switch to new devices or not, on Windows.
 
 UI:
 * Add a setting for choosing background animation in PPSSPP's menus ([#14313], [#14818], [#14810], [#14347])
