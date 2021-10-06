@@ -24,7 +24,6 @@ class MenuTree;
 enum {
 	FB_NON_BUFFERED_MODE = 0,
 	FB_BUFFERED_MODE = 1,
-	TEXSCALING_AUTO = 0,
 };
 
 // hacky, should probably use qt signals or something, but whatever..
@@ -127,9 +126,6 @@ private slots:
 	void renderingResolutionGroup_triggered(QAction *action) {
 		g_Config.iInternalResolution = action->data().toInt();
 		NativeMessageReceived("gpu_resized", "");
-		if (g_Config.iTexScalingLevel == TEXSCALING_AUTO) {
-			NativeMessageReceived("gpu_clearCache", "");
-		}
 	}
 	void windowGroup_triggered(QAction *action) { SetWindowScale(action->data().toInt()); }
 

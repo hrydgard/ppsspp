@@ -233,10 +233,6 @@ namespace MainWindow
 				g_Config.iInternalResolution = 0;
 		}
 
-		// Taking auto-texture scaling into account
-		if (g_Config.iTexScalingLevel == TEXSCALING_AUTO)
-			setTexScalingMultiplier(0);
-
 		NativeMessageReceived("gpu_resized", "");
 	}
 
