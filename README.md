@@ -48,7 +48,7 @@ Game fixes:
 
 Graphics and Sound:
 * Add new texture filtering mode "Auto Max Quality" ([#14789])
-* Fix Princess Maker 5 Portable half screen in Vulkan ([#13741)]
+* Fix Princess Maker 5 Portable half screen in Vulkan ([#13741])
 * Fix Pro Yakyu Spirits 2010 (NPJH50234): Rendering errors with hardware transform off  ([#14167])
 * Support texture replacement filtering overrides ([#14230])
 * Fix Yarudora Portable: Double Cast's FMVs artifacting  ([#13759])
