@@ -1439,6 +1439,11 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		g_Config.iGlobalVolume = 0;
 	}
 
+	// Automatically switch away from deprecated setting value.
+	if (iTexScalingLevel <= 0) {
+		iTexScalingLevel = 1;
+	}
+
 #if PPSSPP_PLATFORM(ANDROID)
 	// The on path here is untested, since we don't expose it.
 	g_Config.bVSync = false;
