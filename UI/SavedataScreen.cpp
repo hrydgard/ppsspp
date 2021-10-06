@@ -87,10 +87,13 @@ public:
 		const Style &textStyle = dc.theme->popupStyle;
 
 		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
-		LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
-		parent->Add(content);
 		if (!ginfo)
 			return;
+
+		ScrollView *contentScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
+		LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
+		parent->Add(contentScroll);
+		contentScroll->Add(content);
 		LinearLayout *toprow = new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 		content->Add(toprow);
 
@@ -122,10 +125,13 @@ public:
 		}
 
 		auto di = GetI18NCategory("Dialog");
-		LinearLayout *buttons = new LinearLayout(ORIENT_HORIZONTAL);
-		buttons->Add(new Button(di->T("Back"), new LinearLayoutParams(1.0)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-		buttons->Add(new Button(di->T("Delete"), new LinearLayoutParams(1.0)))->OnClick.Handle(this, &SavedataPopupScreen::OnDeleteButtonClick);
-		content->Add(buttons);
+		LinearLayout *buttons = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		buttons->SetSpacing(0);
+		Margins buttonMargins(5, 5);
+
+		buttons->Add(new Button(di->T("Back"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		buttons->Add(new Button(di->T("Delete"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle(this, &SavedataPopupScreen::OnDeleteButtonClick);
+		parent->Add(buttons);
 	}
 
 protected:
