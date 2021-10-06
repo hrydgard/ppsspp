@@ -246,7 +246,6 @@
 #define IDC_GEDBG_STEPFRAME              40134
 #define IDC_GEDBG_BREAKTEX               40135
 #define ID_OPTIONS_PAUSE_FOCUS           40136
-#define ID_TEXTURESCALING_AUTO           40137
 #define IDC_GEDBG_STEPPRIM               40138
 #define ID_DISASM_ADDFUNCTION            40139
 #define ID_DISASM_REMOVEFUNCTION         40140

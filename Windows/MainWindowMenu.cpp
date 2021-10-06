@@ -763,7 +763,6 @@ namespace MainWindow {
 			}
 			break;
 
-		case ID_TEXTURESCALING_AUTO: setTexScalingMultiplier(TEXSCALING_AUTO); break;
 		case ID_TEXTURESCALING_OFF:  setTexScalingMultiplier(TEXSCALING_OFF); break;
 		case ID_TEXTURESCALING_2X:   setTexScalingMultiplier(TEXSCALING_2X); break;
 		case ID_TEXTURESCALING_3X:   setTexScalingMultiplier(TEXSCALING_3X); break;
@@ -1181,21 +1180,22 @@ namespace MainWindow {
 		}
 
 		static const int texscalingitems[] = {
-			ID_TEXTURESCALING_AUTO,
 			ID_TEXTURESCALING_OFF,
 			ID_TEXTURESCALING_2X,
 			ID_TEXTURESCALING_3X,
 			ID_TEXTURESCALING_4X,
 			ID_TEXTURESCALING_5X,
 		};
-		if (g_Config.iTexScalingLevel < TEXSCALING_AUTO)
-			g_Config.iTexScalingLevel = TEXSCALING_AUTO;
+		if (g_Config.iTexScalingLevel < TEXSCALING_OFF)
+			g_Config.iTexScalingLevel = TEXSCALING_OFF;
 
 		else if (g_Config.iTexScalingLevel > TEXSCALING_MAX)
 			g_Config.iTexScalingLevel = TEXSCALING_MAX;
 
 		for (int i = 0; i < ARRAY_SIZE(texscalingitems); i++) {
-			CheckMenuItem(menu, texscalingitems[i], MF_BYCOMMAND | ((i == g_Config.iTexScalingLevel) ? MF_CHECKED : MF_UNCHECKED));
+			// OFF is 1, skip 0.
+			bool selected = i + 1 == g_Config.iTexScalingLevel;
+			CheckMenuItem(menu, texscalingitems[i], MF_BYCOMMAND | (selected ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL && !gl_extensions.OES_texture_npot) {
