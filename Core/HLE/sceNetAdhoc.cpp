@@ -802,11 +802,12 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
 			if (sock->nonblocking)
 				result = ERROR_NET_ADHOC_WOULD_BLOCK;
 			else
-				result = ERROR_NET_ADHOC_TIMEOUT;
+				result = ERROR_NET_ADHOC_TIMEOUT; // FIXME: PSP never returned ERROR_NET_ADHOC_TIMEOUT on PtpConnect? or only returned ERROR_NET_ADHOC_TIMEOUT when the host is too busy? Seems to be returning ERROR_NET_ADHOC_CONNECTION_REFUSED on timedout instead (if the other side in not listening yet).
 		}
 	}
+	// Select was interrupted or contains invalid args?
 	else
-		result = ERROR_NET_ADHOC_CONNECTION_REFUSED; // ERROR_NET_ADHOC_TIMEOUT;
+		result = ERROR_NET_ADHOC_EXCEPTION_EVENT; // ERROR_NET_ADHOC_INVALID_ARG;
 
 	if (ret == SOCKET_ERROR)
 		DEBUG_LOG(SCENET, "sceNetAdhocPtpConnect[%i]: Socket Error (%i)", req.id, sockerr);
@@ -3621,9 +3622,13 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 								return hleLogDebug(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 							}
 						}
-						// No connection could be made because the target device actively refused it.
+						// No connection could be made because the target device actively refused it (on Windows/Linux/Android), or no one listening on the remote address (on Linux/Android).
 						else if (errorcode == ECONNREFUSED) {
-							return hleLogError(SCENET, ERROR_NET_ADHOC_CONNECTION_REFUSED, "connection refused");
+							// Workaround for ERROR_NET_ADHOC_CONNECTION_REFUSED to be more cross-platform, since there is no way to simulate ERROR_NET_ADHOC_CONNECTION_REFUSED properly on Windows
+							if (flag)
+								return hleLogError(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "connection refused workaround");
+							else
+								return hleLogError(SCENET, ERROR_NET_ADHOC_TIMEOUT, "connection refused workaround");
 						}
 					}
 				}
