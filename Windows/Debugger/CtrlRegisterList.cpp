@@ -24,6 +24,7 @@ extern HMENU g_hPopupMenus;
 enum { REGISTER_PC = 32, REGISTER_HI, REGISTER_LO, REGISTERS_END };
 
 TCHAR CtrlRegisterList::szClassName[] = _T("CtrlRegisterList");
+constexpr int POPUP_SUBMENU_ID_REGLIST = 2;
 
 void CtrlRegisterList::init()
 {
@@ -511,7 +512,8 @@ void CtrlRegisterList::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		}
 		POINT pt;
 		GetCursorPos(&pt);
-		switch(TrackPopupMenuEx(GetSubMenu(g_hPopupMenus,3),TPM_RIGHTBUTTON|TPM_RETURNCMD,pt.x,pt.y,wnd,0))
+		HMENU menu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_REGLIST);
+		switch (TrackPopupMenuEx(menu, TPM_RIGHTBUTTON | TPM_RETURNCMD, pt.x, pt.y, wnd, 0))
 		{
 		case ID_REGLIST_GOTOINMEMORYVIEW:
 			SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,val,0);

@@ -48,7 +48,7 @@
 #include <windowsx.h>
 #include <commctrl.h>
 
-const int POPUP_SUBMENU_ID_GEDBG_PREVIEW = 10;
+const int POPUP_SUBMENU_ID_GEDBG_PREVIEW = 8;
 
 using namespace GPUBreakpoints;
 using namespace GPUDebug;

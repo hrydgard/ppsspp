@@ -29,6 +29,7 @@
 #include <set>
 
 TCHAR CtrlDisAsmView::szClassName[] = _T("CtrlDisAsmView");
+constexpr int POPUP_SUBMENU_ID_DISASM = 1;
 extern HMENU g_hPopupMenus;
 
 void CtrlDisAsmView::init()
@@ -929,7 +930,8 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		//popup menu?
 		POINT pt;
 		GetCursorPos(&pt);
-		switch(TrackPopupMenuEx(GetSubMenu(g_hPopupMenus,1),TPM_RIGHTBUTTON|TPM_RETURNCMD,pt.x,pt.y,wnd,0))
+		HMENU menu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_DISASM);
+		switch (TrackPopupMenuEx(menu, TPM_RIGHTBUTTON | TPM_RETURNCMD, pt.x, pt.y, wnd, 0))
 		{
 		case ID_DISASM_GOTOINMEMORYVIEW:
 			SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,curAddress,0);

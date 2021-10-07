@@ -11,7 +11,7 @@
 
 LPCTSTR CtrlDisplayListView::windowClass = _T("CtrlDisplayListView");
 
-const int POPUP_SUBMENU_ID_DISPLAYLISTVIEW = 8;
+const int POPUP_SUBMENU_ID_DISPLAYLISTVIEW = 6;
 extern HMENU g_hPopupMenus;
 
 void CtrlDisplayListView::registerClass()
