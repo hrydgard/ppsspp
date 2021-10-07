@@ -28,7 +28,7 @@
 
 using namespace GPUBreakpoints;
 
-const int POPUP_SUBMENU_ID_GEDBG_STATE = 9;
+const int POPUP_SUBMENU_ID_GEDBG_STATE = 7;
 
 // TODO: Show an icon or something for breakpoints, toggle.
 static const GenericListViewColumn stateValuesCols[] = {

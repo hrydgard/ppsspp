@@ -66,9 +66,9 @@ GenericListViewDef moduleListDef = {
 	moduleListColumns,	ARRAY_SIZE(moduleListColumns),	NULL,	false
 };
 
-const int POPUP_SUBMENU_ID_BREAKPOINTLIST = 5;
-const int POPUP_SUBMENU_ID_THREADLIST = 6;
-const int POPUP_SUBMENU_ID_NEWBREAKPOINT = 7;
+const int POPUP_SUBMENU_ID_BREAKPOINTLIST = 3;
+const int POPUP_SUBMENU_ID_THREADLIST = 4;
+const int POPUP_SUBMENU_ID_NEWBREAKPOINT = 5;
 
 //
 // CtrlThreadList
