@@ -545,6 +545,8 @@ private:
 		VkDescriptorPool descriptorPool;
 	};
 
+	VkResult RecreateDescriptorPool(FrameData *frame);
+
 	FrameData frame_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
 
 	VulkanPushBuffer *push_ = nullptr;
@@ -822,18 +824,6 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	queue_ = vulkan->GetGraphicsQueue();
 	queueFamilyIndex_ = vulkan->GetGraphicsQueueFamilyIndex();
 
-	VkDescriptorPoolSize dpTypes[2];
-	dpTypes[0].descriptorCount = 200;
-	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	dpTypes[1].descriptorCount = 200 * MAX_BOUND_TEXTURES;
-	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-
-	VkDescriptorPoolCreateInfo dp{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
-	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go dynamic each frame.
-	dp.maxSets = 4096;  // 200 textures per frame was not enough for the UI.
-	dp.pPoolSizes = dpTypes;
-	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
-
 	VkCommandPoolCreateInfo p{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
 	p.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 	p.queueFamilyIndex = vulkan->GetGraphicsQueueFamilyIndex();
@@ -841,7 +831,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 		frame_[i].pushBuffer = new VulkanPushBuffer(vulkan_, 1024 * 1024, usage);
-		VkResult res = vkCreateDescriptorPool(device_, &dp, nullptr, &frame_[i].descriptorPool);
+		VkResult res = RecreateDescriptorPool(&frame_[i]);
 		_assert_(res == VK_SUCCESS);
 	}
 
@@ -953,6 +943,28 @@ void VKContext::WipeQueue() {
 	renderManager_.Wipe();
 }
 
+VkResult VKContext::RecreateDescriptorPool(FrameData *frame) {
+	if (frame->descriptorPool) {
+		WARN_LOG(G3D, "Reallocating Draw desc pool");
+		vulkan_->Delete().QueueDeleteDescriptorPool(frame->descriptorPool);
+		frame->descSets_.clear();
+	}
+
+	VkDescriptorPoolSize dpTypes[2];
+	dpTypes[0].descriptorCount = 200;
+	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	dpTypes[1].descriptorCount = 200 * MAX_BOUND_TEXTURES;
+	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+
+	VkDescriptorPoolCreateInfo dp{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go dynamic each frame.
+	dp.maxSets = 4096;  // 200 textures per frame was not enough for the UI.
+	dp.pPoolSizes = dpTypes;
+	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
+
+	return vkCreateDescriptorPool(device_, &dp, nullptr, &frame->descriptorPool);
+}
+
 VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	DescriptorSetKey key;
 
@@ -975,7 +987,17 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	alloc.pSetLayouts = &descriptorSetLayout_;
 	alloc.descriptorSetCount = 1;
 	VkResult res = vkAllocateDescriptorSets(device_, &alloc, &descSet);
-	_assert_(VK_SUCCESS == res);
+	if (res != VK_SUCCESS) {
+		// First, try to reallocate the pool.
+		res = RecreateDescriptorPool(frame);
+		alloc.descriptorPool = frame->descriptorPool;
+
+		res = vkAllocateDescriptorSets(device_, &alloc, &descSet);
+		if (res != VK_SUCCESS) {
+			ERROR_LOG(G3D, "GetOrCreateDescriptorSet failed: %08x", res);
+			return VK_NULL_HANDLE;
+		}
+	}
 
 	VkDescriptorBufferInfo bufferDesc;
 	bufferDesc.buffer = buf;
@@ -1326,6 +1348,10 @@ void VKContext::Draw(int vertexCount, int offset) {
 	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), &vulkanVbuf);
 
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
+	if (descSet == VK_NULL_HANDLE) {
+		ERROR_LOG(G3D, "GetOrCreateDescriptorSet failed, skipping %s", __FUNCTION__);
+		return;
+	}
 
 	BindCompatiblePipeline();
 	ApplyDynamicState();
@@ -1342,6 +1368,10 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 	size_t ibBindOffset = push_->Push(ibuf->GetData(), ibuf->GetSize(), &vulkanIbuf);
 
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
+	if (descSet == VK_NULL_HANDLE) {
+		ERROR_LOG(G3D, "GetOrCreateDescriptorSet failed, skipping %s", __FUNCTION__);
+		return;
+	}
 
 	BindCompatiblePipeline();
 	ApplyDynamicState();
@@ -1354,6 +1384,10 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
 
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
+	if (descSet == VK_NULL_HANDLE) {
+		ERROR_LOG(G3D, "GetOrCreateDescriptorSet failed, skipping %s", __FUNCTION__);
+		return;
+	}
 
 	BindCompatiblePipeline();
 	ApplyDynamicState();
