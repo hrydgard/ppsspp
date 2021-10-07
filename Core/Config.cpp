@@ -1794,8 +1794,13 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 
 	auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
 	mPostShaderSetting.clear();
-	for (auto it : postShaderSetting) {
-		mPostShaderSetting[it.first] = std::stof(it.second);
+	for (const auto &it : postShaderSetting) {
+		float value = 0.0f;
+		if (sscanf(it.second.c_str(), "%f", &value)) {
+			mPostShaderSetting[it.first] = value;
+		} else {
+			WARN_LOG(LOADER, "Invalid float value string for param %s: '%s'", it.first.c_str(), it.second.c_str());
+		}
 	}
 
 	auto postShaderChain = iniFile.GetOrCreateSection("PostShaderList")->ToMap();
