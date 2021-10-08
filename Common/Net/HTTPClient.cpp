@@ -597,9 +597,10 @@ std::shared_ptr<Download> Downloader::StartDownloadWithCallback(
 void Downloader::Update() {
 	restart:
 	for (size_t i = 0; i < downloads_.size(); i++) {
-		if (downloads_[i]->Progress() == 1.0f || downloads_[i]->Failed()) {
-			downloads_[i]->RunCallback();
-			downloads_[i]->Join();
+		auto &dl = downloads_[i];
+		if (dl->Done()) {
+			dl->RunCallback();
+			dl->Join();
 			downloads_.erase(downloads_.begin() + i);
 			goto restart;
 		}
