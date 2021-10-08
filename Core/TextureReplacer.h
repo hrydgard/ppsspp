@@ -153,7 +153,7 @@ struct ReplacedTexture {
 		return (u8)alphaStatus_;
 	}
 
-	void Load(int level, void *out, int rowPitch);
+	bool Load(int level, void *out, int rowPitch);
 
 protected:
 	std::vector<ReplacedTextureLevel> levels_;

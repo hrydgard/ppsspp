@@ -934,7 +934,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			if (replaced.Valid()) {
 				// Directly load the replaced image.
 				data = drawEngine_->GetPushBufferForTextureData()->PushAligned(size, &bufferOffset, &texBuf, pushAlignment);
-				replaced.Load(i, data, stride);
+				replaced.Load(i, data, stride);  // if it fails, it'll just be garbage data... OK for now.
 				entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
 			} else {
 				auto dispatchCompute = [&](VkDescriptorSet descSet) {
