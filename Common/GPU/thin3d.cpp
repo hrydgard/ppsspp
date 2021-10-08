@@ -69,30 +69,20 @@ bool DataFormatIsDepthStencil(DataFormat fmt) {
 
 bool RefCountedObject::Release() {
 	if (refcount_ > 0 && refcount_ < 10000) {
-		refcount_--;
-		if (refcount_ == 0) {
+		if (--refcount_ == 0) {
 			delete this;
 			return true;
 		}
-	}
-	else {
-		_dbg_assert_msg_(false, "Refcount (%d) invalid for object %p - corrupt?", refcount_, this);
+	} else {
+		_dbg_assert_msg_(false, "Refcount (%d) invalid for object %p - corrupt?", refcount_.load(), this);
 	}
 	return false;
 }
 
 bool RefCountedObject::ReleaseAssertLast() {
-	_dbg_assert_msg_(refcount_ == 1, "RefCountedObject: Expected to be the last reference, but isn't!");
-	if (refcount_ > 0 && refcount_ < 10000) {
-		refcount_--;
-		if (refcount_ == 0) {
-			delete this;
-			return true;
-		}
-	} else {
-		ERROR_LOG(G3D, "Refcount (%d) invalid for object %p - corrupt?", refcount_, this);
-	}
-	return false;
+	bool released = Release();
+	_dbg_assert_msg_(released, "RefCountedObject: Expected to be the last reference, but isn't!");
+	return released;
 }
 
 

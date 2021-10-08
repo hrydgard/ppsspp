@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <cstddef>
 #include <functional>
@@ -324,7 +325,9 @@ protected:
 
 class RefCountedObject {
 public:
-	RefCountedObject() : refcount_(1) {}
+	RefCountedObject() {
+		refcount_ = 1;
+	}
 	virtual ~RefCountedObject() {}
 
 	void AddRef() { refcount_++; }
@@ -332,7 +335,7 @@ public:
 	bool ReleaseAssertLast();
 
 private:
-	int refcount_;
+	std::atomic<int> refcount_;
 };
 
 template <typename T>
