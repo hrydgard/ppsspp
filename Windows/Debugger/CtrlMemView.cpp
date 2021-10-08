@@ -7,6 +7,7 @@
 #include "Core/Config.h"
 #include "Windows/resource.h"
 #include "Core/MemMap.h"
+#include "Windows/W32Util/ContextMenu.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/InputBox.h"
 #include "Windows/main.h"
@@ -18,8 +19,6 @@
 #include "DumpMemoryWindow.h"
 
 wchar_t CtrlMemView::szClassName[] = L"CtrlMemView";
-constexpr int POPUP_SUBMENU_ID_MEMVIEW = 0;
-extern HMENU g_hPopupMenus;
 
 CtrlMemView::CtrlMemView(HWND _wnd)
 {
@@ -476,18 +475,14 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 {
 	if (button==2)
 	{
-		//popup menu?
-		POINT pt;
-		GetCursorPos(&pt);
-
 		bool enable16 = !asciiSelected && (curAddress % 2) == 0;
 		bool enable32 = !asciiSelected && (curAddress % 4) == 0;
 
-		HMENU menu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_MEMVIEW);
+		HMENU menu = GetContextMenu(ContextMenuID::MEMVIEW);
 		EnableMenuItem(menu,ID_MEMVIEW_COPYVALUE_16,enable16 ? MF_ENABLED : MF_GRAYED);
 		EnableMenuItem(menu,ID_MEMVIEW_COPYVALUE_32,enable32 ? MF_ENABLED : MF_GRAYED);
 
-		switch (TrackPopupMenuEx(menu,TPM_RIGHTBUTTON|TPM_RETURNCMD,pt.x,pt.y,wnd,0))
+		switch (TriggerContextMenu(ContextMenuID::MEMVIEW, wnd, ContextPoint::FromEvent(lParam)))
 		{
 		case ID_MEMVIEW_DUMP:
 			{

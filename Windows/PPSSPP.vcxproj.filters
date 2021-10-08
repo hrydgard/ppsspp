@@ -268,6 +268,9 @@
     <ClCompile Include="..\android\jni\OpenSLContext.cpp">
       <Filter>Other Platforms\Android</Filter>
     </ClCompile>
+    <ClCompile Include="W32Util\ContextMenu.cpp">
+      <Filter>Windows\W32Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -534,6 +537,9 @@
     </ClInclude>
     <ClInclude Include="..\android\jni\AndroidContentURI.h">
       <Filter>Other Platforms\Android</Filter>
+    </ClInclude>
+    <ClInclude Include="W32Util\ContextMenu.h">
+      <Filter>Windows\W32Util</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

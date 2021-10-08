@@ -23,6 +23,7 @@
 #include "Common/Common.h"
 #include "Common/Log.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
+#include "Windows/W32Util/ContextMenu.h"
 
 const wchar_t *SimpleGLWindow::windowClass = L"SimpleGLWindow";
 
@@ -563,11 +564,10 @@ bool SimpleGLWindow::RightClick(int mouseX, int mouseY) {
 	}
 
 	POINT pt{mouseX, mouseY};
-	ClientToScreen(hWnd_, &pt);
 
 	rightClickCallback_(0);
-	int result = TrackPopupMenuEx(rightClickMenu_, TPM_RIGHTBUTTON | TPM_RETURNCMD, pt.x, pt.y, hWnd_, 0);
-	if (result != 0) {
+	int result = TriggerContextMenu(rightClickMenu_, hWnd_, ContextPoint::FromClient(pt));
+	if (result > 0) {
 		rightClickCallback_(result);
 	}
 

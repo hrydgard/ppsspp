@@ -33,6 +33,7 @@
 #include "Windows/GEDebugger/TabDisplayLists.h"
 #include "Windows/GEDebugger/TabState.h"
 #include "Windows/GEDebugger/TabVertices.h"
+#include "Windows/W32Util/ContextMenu.h"
 #include "Windows/W32Util/ShellUtil.h"
 #include "Windows/InputBox.h"
 #include "Windows/MainWindow.h"
@@ -47,8 +48,6 @@
 #include "GPU/Debugger/Stepping.h"
 #include <windowsx.h>
 #include <commctrl.h>
-
-const int POPUP_SUBMENU_ID_GEDBG_PREVIEW = 8;
 
 using namespace GPUBreakpoints;
 using namespace GPUDebug;
@@ -211,15 +210,13 @@ CGEDebugger::~CGEDebugger() {
 
 void CGEDebugger::SetupPreviews() {
 	if (primaryWindow == nullptr) {
-		HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_GEDBG_PREVIEW);
-
 		primaryWindow = SimpleGLWindow::GetFrom(GetDlgItem(m_hDlg, IDC_GEDBG_FRAME));
 		primaryWindow->Initialize(SimpleGLWindow::ALPHA_IGNORE | SimpleGLWindow::RESIZE_SHRINK_CENTER);
 		primaryWindow->SetHoverCallback([&] (int x, int y) {
 			PrimaryPreviewHover(x, y);
 		});
-		primaryWindow->SetRightClickMenu(subMenu, [&] (int cmd) {
-			HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_GEDBG_PREVIEW);
+		primaryWindow->SetRightClickMenu(ContextMenuID::GEDBG_PREVIEW, [&] (int cmd) {
+			HMENU subMenu = GetContextMenu(ContextMenuID::GEDBG_PREVIEW);
 			switch (cmd) {
 			case 0:
 				// Setup.
@@ -243,15 +240,13 @@ void CGEDebugger::SetupPreviews() {
 		primaryWindow->Clear();
 	}
 	if (secondWindow == nullptr) {
-		HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_GEDBG_PREVIEW);
-
 		secondWindow = SimpleGLWindow::GetFrom(GetDlgItem(m_hDlg, IDC_GEDBG_TEX));
 		secondWindow->Initialize(SimpleGLWindow::ALPHA_BLEND | SimpleGLWindow::RESIZE_SHRINK_CENTER);
 		secondWindow->SetHoverCallback([&] (int x, int y) {
 			SecondPreviewHover(x, y);
 		});
-		secondWindow->SetRightClickMenu(subMenu, [&] (int cmd) {
-			HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_GEDBG_PREVIEW);
+		secondWindow->SetRightClickMenu(ContextMenuID::GEDBG_PREVIEW, [&] (int cmd) {
+			HMENU subMenu = GetContextMenu(ContextMenuID::GEDBG_PREVIEW);
 			switch (cmd) {
 			case 0:
 				// Setup.
