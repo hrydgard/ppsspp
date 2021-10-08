@@ -16,7 +16,13 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Windows/W32Util/ContextMenu.h"
-#include "Windows/main.h"
+#include "Windows/resource.h"
+
+static HMENU g_hPopupMenus;
+
+void ContextMenuInit(HINSTANCE inst) {
+	g_hPopupMenus = LoadMenu(inst, (LPCWSTR)IDR_POPUPMENUS);
+}
 
 ContextPoint ContextPoint::FromCursor() {
 	ContextPoint result;

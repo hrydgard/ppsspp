@@ -41,5 +41,7 @@ struct ContextPoint {
 	bool isClient_ = false;
 };
 
+void ContextMenuInit(HINSTANCE inst);
+
 HMENU GetContextMenu(ContextMenuID);
 int TriggerContextMenu(ContextMenuID which, HWND wnd, const ContextPoint &pt);

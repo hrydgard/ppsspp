@@ -65,6 +65,7 @@
 #if PPSSPP_API(ANY_GL)
 #include "Windows/GEDebugger/GEDebugger.h"
 #endif
+#include "Windows/W32Util/ContextMenu.h"
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/W32Util/ShellUtil.h"
 
@@ -101,7 +102,6 @@ static std::string gpuDriverVersion;
 
 static std::string restartArgs;
 
-HMENU g_hPopupMenus;
 int g_activeWindow = 0;
 
 static std::thread inputBoxThread;
@@ -665,10 +665,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	timeBeginPeriod(1);  // TODO: Evaluate if this makes sense to keep.
 
+	ContextMenuInit(_hInstance);
 	MainWindow::Init(_hInstance);
-
-	g_hPopupMenus = LoadMenu(_hInstance, (LPCWSTR)IDR_POPUPMENUS);
-
 	MainWindow::Show(_hInstance);
 
 	HWND hwndMain = MainWindow::GetHWND();
