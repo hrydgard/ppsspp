@@ -185,6 +185,10 @@ EmuScreen::EmuScreen(const Path &filename)
 
 	OnDevMenu.Handle(this, &EmuScreen::OnDevTools);
 	OnChatMenu.Handle(this, &EmuScreen::OnChat);
+
+	// Usually, we don't want focus movement enabled on this screen, so disable on start.
+	// Only if you open chat or dev tools do we want it to start working.
+	UI::EnableFocusMovement(false);
 }
 
 bool EmuScreen::bootAllowStorage(const Path &filename) {
