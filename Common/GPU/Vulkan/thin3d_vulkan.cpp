@@ -652,7 +652,7 @@ VulkanTexture *VKContext::GetNullTexture() {
 			}
 		}
 		nullTexture_->UploadMip(cmdInit, 0, w, h, bindBuf, bindOffset, w);
-		nullTexture_->EndCreate(cmdInit);
+		nullTexture_->EndCreate(cmdInit, false, VK_PIPELINE_STAGE_TRANSFER_BIT);
 	} else {
 		nullTexture_->Touch();
 	}
@@ -766,7 +766,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 			layout = VK_IMAGE_LAYOUT_GENERAL;
 		}
 	}
-	vkTex_->EndCreate(cmd, false, layout);
+	vkTex_->EndCreate(cmd, false, VK_PIPELINE_STAGE_TRANSFER_BIT, layout);
 	return true;
 }
 

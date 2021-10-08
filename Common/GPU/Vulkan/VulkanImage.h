@@ -23,7 +23,7 @@ public:
 	void UploadMip(VkCommandBuffer cmd, int mip, int mipWidth, int mipHeight, VkBuffer buffer, uint32_t offset, size_t rowLength);  // rowLength is in pixels
 
 	void GenerateMips(VkCommandBuffer cmd, int firstMipToGenerate, bool fromCompute);
-	void EndCreate(VkCommandBuffer cmd, bool vertexTexture = false, VkImageLayout layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	void EndCreate(VkCommandBuffer cmd, bool vertexTexture, VkPipelineStageFlags prevStage, VkImageLayout layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
 	// When loading mips from compute shaders, you need to pass VK_IMAGE_LAYOUT_GENERAL to the above function.
 	// In addition, ignore UploadMip and GenerateMip, and instead use GetViewForMip. Make sure to delete the returned views when used.

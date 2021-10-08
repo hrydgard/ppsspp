@@ -176,7 +176,7 @@ VulkanTexture *DepalShaderCacheVulkan::GetClutTexture(GEPaletteFormat clutFormat
 	uint32_t pushOffset = push_->PushAligned(rawClut, 1024, 4, &pushBuffer);
 
 	vktex->UploadMip(cmd, 0, texturePixels, 1, pushBuffer, pushOffset, texturePixels);
-	vktex->EndCreate(cmd);
+	vktex->EndCreate(cmd, false, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
 	DepalTextureVulkan *tex = new DepalTextureVulkan();
 	tex->texture = vktex;
