@@ -107,17 +107,25 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size) {
 		return false;
 	}
 
-	const u8 *key_start = paramsfo + header->key_table_start;
 	const u8 *data_start = paramsfo + header->data_table_start;
 
 	for (u32 i = 0; i < header->index_table_entries; i++)
 	{
-		const char *key = (const char *)(key_start + indexTables[i].key_table_offset);
+		size_t key_offset = header->key_table_start + indexTables[i].key_table_offset;
+		if (key_offset >= size) {
+			return false;
+		}
+		size_t data_offset = header->data_table_start + indexTables[i].data_table_offset;
+		if (data_offset >= size) {
+			return false;
+		}
+
+		const char *key = (const char *)(paramsfo + key_offset);
 		switch (indexTables[i].param_fmt) {
 		case 0x0404:
 			{
 				// Unsigned int
-				const u32_le *data = (const u32_le *)(data_start + indexTables[i].data_table_offset);
+				const u32_le *data = (const u32_le *)(paramsfo + data_offset);
 				SetValue(key, *data, indexTables[i].param_max_len);
 				VERBOSE_LOG(LOADER, "%s %08x", key, *data);
 			}
@@ -125,7 +133,7 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size) {
 		case 0x0004:
 			// Special format UTF-8
 			{
-				const u8 *utfdata = (const u8 *)(data_start + indexTables[i].data_table_offset);
+				const u8 *utfdata = (const u8 *)(paramsfo + data_offset);
 				VERBOSE_LOG(LOADER, "%s %s", key, utfdata);
 				SetValue(key, utfdata, indexTables[i].param_len, indexTables[i].param_max_len);
 			}
@@ -133,7 +141,7 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size) {
 		case 0x0204:
 			// Regular UTF-8
 			{
-				const char *utfdata = (const char *)(data_start + indexTables[i].data_table_offset);
+				const char *utfdata = (const char *)(paramsfo + data_offset);
 				VERBOSE_LOG(LOADER, "%s %s", key, utfdata);
 				SetValue(key, std::string(utfdata /*, indexTables[i].param_len*/), indexTables[i].param_max_len);
 			}
