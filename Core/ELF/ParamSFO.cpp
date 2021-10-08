@@ -103,19 +103,22 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size) {
 
 	const IndexTable *indexTables = (const IndexTable *)(paramsfo + sizeof(Header));
 
+	if (header->key_table_start > size || header->data_table_start > size) {
+		return false;
+	}
+
 	const u8 *key_start = paramsfo + header->key_table_start;
 	const u8 *data_start = paramsfo + header->data_table_start;
 
 	for (u32 i = 0; i < header->index_table_entries; i++)
 	{
 		const char *key = (const char *)(key_start + indexTables[i].key_table_offset);
-
 		switch (indexTables[i].param_fmt) {
 		case 0x0404:
 			{
 				// Unsigned int
 				const u32_le *data = (const u32_le *)(data_start + indexTables[i].data_table_offset);
-				SetValue(key,*data,indexTables[i].param_max_len);
+				SetValue(key, *data, indexTables[i].param_max_len);
 				VERBOSE_LOG(LOADER, "%s %08x", key, *data);
 			}
 			break;
@@ -132,7 +135,7 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size) {
 			{
 				const char *utfdata = (const char *)(data_start + indexTables[i].data_table_offset);
 				VERBOSE_LOG(LOADER, "%s %s", key, utfdata);
-				SetValue(key,std::string(utfdata /*, indexTables[i].param_len*/), indexTables[i].param_max_len);
+				SetValue(key, std::string(utfdata /*, indexTables[i].param_len*/), indexTables[i].param_max_len);
 			}
 			break;
 		}
