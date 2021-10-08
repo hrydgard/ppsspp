@@ -1012,12 +1012,14 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		}
 
 		VkImageLayout layout = computeUpload ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		VkPipelineStageFlags prevStage = computeUpload ? VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT : VK_PIPELINE_STAGE_TRANSFER_BIT;
 
 		// Generate any additional mipmap levels.
 		// This will transition the whole stack to GENERAL if it wasn't already.
 		if (maxLevel != maxLevelToGenerate) {
 			entry->vkTex->GenerateMips(cmdInit, maxLevel + 1, computeUpload);
 			layout = VK_IMAGE_LAYOUT_GENERAL;
+			prevStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 		}
 
 		if (maxLevel == 0) {
@@ -1028,7 +1030,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		if (replaced.Valid()) {
 			entry->SetAlphaStatus(TexCacheEntry::TexStatus(replaced.AlphaStatus()));
 		}
-		entry->vkTex->EndCreate(cmdInit, false, layout);
+		entry->vkTex->EndCreate(cmdInit, false, prevStage, layout);
 	}
 }
 

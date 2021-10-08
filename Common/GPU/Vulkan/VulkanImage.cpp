@@ -260,12 +260,12 @@ void VulkanTexture::GenerateMips(VkCommandBuffer cmd, int firstMipToGenerate, bo
 	}
 }
 
-void VulkanTexture::EndCreate(VkCommandBuffer cmd, bool vertexTexture, VkImageLayout layout) {
+void VulkanTexture::EndCreate(VkCommandBuffer cmd, bool vertexTexture, VkPipelineStageFlags prevStage, VkImageLayout layout) {
 	TransitionImageLayout2(cmd, image_, 0, numMips_,
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		layout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		VK_PIPELINE_STAGE_TRANSFER_BIT, vertexTexture ? VK_PIPELINE_STAGE_VERTEX_SHADER_BIT : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+		prevStage, vertexTexture ? VK_PIPELINE_STAGE_VERTEX_SHADER_BIT : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		prevStage == VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT ? VK_ACCESS_SHADER_WRITE_BIT : VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 }
 
 void VulkanTexture::Touch() {
