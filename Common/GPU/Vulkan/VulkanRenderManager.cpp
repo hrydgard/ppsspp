@@ -158,7 +158,7 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 
 	TransitionImageLayout2(cmd, img.image, 0, 1, aspects,
 		VK_IMAGE_LAYOUT_UNDEFINED, initialLayout,
-		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, dstStage,
+		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, dstStage,
 		0, dstAccessMask);
 	img.layout = initialLayout;
 
