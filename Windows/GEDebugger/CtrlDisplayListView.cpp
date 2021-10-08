@@ -4,15 +4,13 @@
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/InputBox.h"
+#include "Windows/W32Util/ContextMenu.h"
 #include "Windows/main.h"
 #include "Core/Config.h"
 #include "GPU/Debugger/Breakpoints.h"
 #include "GPU/GPUState.h"
 
 LPCTSTR CtrlDisplayListView::windowClass = _T("CtrlDisplayListView");
-
-const int POPUP_SUBMENU_ID_DISPLAYLISTVIEW = 6;
-extern HMENU g_hPopupMenus;
 
 void CtrlDisplayListView::registerClass()
 {
@@ -298,10 +296,7 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 {
 	if (button == 2)
 	{
-		//popup menu?
-		POINT pt;
-		GetCursorPos(&pt);
-		switch(TrackPopupMenuEx(GetSubMenu(g_hPopupMenus,POPUP_SUBMENU_ID_DISPLAYLISTVIEW),TPM_RIGHTBUTTON|TPM_RETURNCMD,pt.x,pt.y,wnd,0))
+		switch (TriggerContextMenu(ContextMenuID::DISPLAYLISTVIEW, wnd, ContextPoint::FromEvent(lParam)))
 		{
 		case ID_DISASM_GOTOINMEMORYVIEW:
 			if (memoryWindow)

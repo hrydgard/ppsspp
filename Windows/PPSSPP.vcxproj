@@ -936,6 +936,7 @@
     <ClCompile Include="RawInput.cpp" />
     <ClCompile Include="TouchInputHandler.cpp" />
     <ClCompile Include="GPU\WindowsVulkanContext.cpp" />
+    <ClCompile Include="W32Util\ContextMenu.cpp" />
     <ClCompile Include="W32Util\DialogManager.cpp" />
     <ClCompile Include="W32Util\Misc.cpp">
       <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(IntDir)%(Filename)2.obj</ObjectFileName>
@@ -1471,6 +1472,7 @@
     <ClInclude Include="RawInput.h" />
     <ClInclude Include="TouchInputHandler.h" />
     <ClInclude Include="GPU\WindowsVulkanContext.h" />
+    <ClInclude Include="W32Util\ContextMenu.h" />
     <ClInclude Include="W32Util\DialogManager.h" />
     <ClInclude Include="W32Util\Misc.h" />
     <ClInclude Include="W32Util\ShellUtil.h" />

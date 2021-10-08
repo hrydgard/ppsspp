@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2021- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,22 +15,33 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
 #pragma once
 
-#include "ppsspp_config.h"
-#include "Debugger/Debugger_Disasm.h"
-#include "Debugger/Debugger_MemoryDlg.h"
 #include "Common/CommonWindows.h"
 
-extern CDisasm *disasmWindow;
-extern CMemoryDlg *memoryWindow;
+// Must match the order in ppsspp.rc.
+enum class ContextMenuID {
+	MEMVIEW = 0,
+	DISASM = 1,
+	REGLIST = 2,
+	BREAKPOINTLIST = 3,
+	THREADLIST = 4,
+	NEWBREAKPOINT = 5,
+	DISPLAYLISTVIEW = 6,
+	GEDBG_STATE = 7,
+	GEDBG_PREVIEW = 8,
+};
 
-#if PPSSPP_API(ANY_GL)
-#include "Windows/GEDebugger/GEDebugger.h"
-extern CGEDebugger* geDebuggerWindow;
-#endif
+struct ContextPoint {
+	static ContextPoint FromCursor();
+	static ContextPoint FromClient(const POINT &clientPoint);
+	static ContextPoint FromEvent(LPARAM lParam);
 
-extern int g_activeWindow;
+	POINT pos_{};
+	bool isClient_ = false;
+};
 
-enum { WINDOW_MAINWINDOW, WINDOW_CPUDEBUGGER, WINDOW_GEDEBUGGER };
+void ContextMenuInit(HINSTANCE inst);
+
+HMENU GetContextMenu(ContextMenuID);
+int TriggerContextMenu(ContextMenuID which, HWND wnd, const ContextPoint &pt);

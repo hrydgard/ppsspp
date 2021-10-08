@@ -2174,6 +2174,8 @@ set(WindowsFiles
 	Windows/InputBox.h
 	Windows/InputDevice.cpp
 	Windows/InputDevice.h
+	Windows/W32Util/ContextMenu.h
+	Windows/W32Util/ContextMenu.h
 	Windows/W32Util/DialogManager.cpp
 	Windows/W32Util/DialogManager.h
 	Windows/W32Util/Misc.cpp
