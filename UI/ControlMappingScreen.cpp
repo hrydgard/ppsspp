@@ -36,6 +36,7 @@
 #include "Common/StringUtils.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
+#include "Common/TimeUtil.h"
 #include "Core/KeyMap.h"
 #include "Core/Host.h"
 #include "Core/HLE/sceCtrl.h"
@@ -326,7 +327,7 @@ void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 }
 
 bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
-	if (mapped_)
+	if (mapped_ || time_now_d() < delayUntil_)
 		return false;
 	if (key.flags & KEY_DOWN) {
 		if (key.keyCode == NKCODE_EXT_MOUSEBUTTON_1) {
@@ -340,6 +341,10 @@ bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 			callback_(kdf);
 	}
 	return true;
+}
+
+void KeyMappingNewKeyDialog::SetDelay(float t) {
+	delayUntil_ = time_now_d() + t;
 }
 
 void KeyMappingNewMouseKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
@@ -392,7 +397,7 @@ static bool IgnoreAxisForMapping(int axis) {
 
 
 bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
-	if (mapped_)
+	if (mapped_ || time_now_d() < delayUntil_)
 		return false;
 	if (IgnoreAxisForMapping(axis.axisId))
 		return false;
@@ -1144,14 +1149,14 @@ void VisualMappingScreen::resized() {
 
 UI::EventReturn VisualMappingScreen::OnMapButton(UI::EventParams &e) {
 	nextKey_ = e.a;
-	MapNext();
+	MapNext(false);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn VisualMappingScreen::OnBindAll(UI::EventParams &e) {
 	bindAll_ = 0;
 	nextKey_ = bindAllOrder[bindAll_];
-	MapNext();
+	MapNext(false);
 	return UI::EVENT_DONE;
 }
 
@@ -1184,7 +1189,7 @@ void VisualMappingScreen::HandleKeyMapping(KeyDef key) {
 
 void VisualMappingScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (result == DR_YES && nextKey_ != 0) {
-		MapNext();
+		MapNext(true);
 	} else {
 		// This means they canceled.
 		if (nextKey_ != 0)
@@ -1195,7 +1200,7 @@ void VisualMappingScreen::dialogFinished(const Screen *dialog, DialogResult resu
 	}
 }
 
-void VisualMappingScreen::MapNext() {
+void VisualMappingScreen::MapNext(bool successive) {
 	auto km = GetI18NCategory("KeyMapping");
 
 	if (nextKey_ == VIRTKEY_AXIS_Y_MIN || nextKey_ == VIRTKEY_AXIS_X_MIN || nextKey_ == VIRTKEY_AXIS_X_MAX) {
@@ -1207,5 +1212,6 @@ void VisualMappingScreen::MapNext() {
 
 	Bounds bounds = screenManager()->getUIContext()->GetLayoutBounds();
 	dialog->SetPopupOffset(psp_->GetPopupOffset() * bounds.h);
+	dialog->SetDelay(successive ? 0.5f : 0.1f);
 	screenManager()->push(dialog);
 }

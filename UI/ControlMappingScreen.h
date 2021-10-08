@@ -57,12 +57,14 @@ private:
 class KeyMappingNewKeyDialog : public PopupScreen {
 public:
 	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, std::shared_ptr<I18NCategory> i18n)
-		: PopupScreen(i18n->T("Map Key"), "Cancel", ""), callback_(callback), mapped_(false) {
+		: PopupScreen(i18n->T("Map Key"), "Cancel", ""), callback_(callback) {
 		pspBtn_ = btn;
 	}
 
 	virtual bool key(const KeyInput &key) override;
 	virtual bool axis(const AxisInput &axis) override;
+
+	void SetDelay(float t);
 
 protected:
 	void CreatePopupContents(UI::ViewGroup *parent) override;
@@ -74,7 +76,8 @@ protected:
 private:
 	int pspBtn_;
 	std::function<void(KeyDef)> callback_;
-	bool mapped_;  // Prevent double registrations
+	bool mapped_ = false;  // Prevent double registrations
+	double delayUntil_ = 0.0f;
 };
 
 class KeyMappingNewMouseKeyDialog : public PopupScreen {
@@ -178,7 +181,7 @@ private:
 	UI::EventReturn OnMapButton(UI::EventParams &e);
 	UI::EventReturn OnBindAll(UI::EventParams &e);
 	void HandleKeyMapping(KeyDef key);
-	void MapNext();
+	void MapNext(bool successive);
 
 	MockPSP *psp_ = nullptr;
 	int nextKey_ = 0;
