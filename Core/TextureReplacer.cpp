@@ -733,20 +733,31 @@ float TextureReplacer::LookupReduceHashRange(int& w, int& h) {
 	}
 }
 
-void ReplacedTexture::Load(int level, void *out, int rowPitch) {
+bool ReplacedTexture::Load(int level, void *out, int rowPitch) {
 	_assert_msg_((size_t)level < levels_.size(), "Invalid miplevel");
 	_assert_msg_(out != nullptr && rowPitch > 0, "Invalid out/pitch");
 
 	const ReplacedTextureLevel &info = levels_[level];
 
 	FILE *fp = File::OpenCFile(info.file, "rb");
+	if (!fp) {
+		return false;
+	}
+
 	auto imageType = Identify(fp);
 	if (imageType == ReplacedImageType::ZIM) {
 		size_t zimSize = File::GetFileSize(fp);
 		std::unique_ptr<uint8_t[]> zim(new uint8_t[zimSize]);
+		if (!zim) {
+			ERROR_LOG(G3D, "Failed to allocate memory for texture replacement");
+			fclose(fp);
+			return false;
+		}
+
 		if (fread(&zim[0], 1, zimSize, fp) != zimSize) {
 			ERROR_LOG(G3D, "Could not load texture replacement: %s - failed to read ZIM", info.file.c_str());
-			return;
+			fclose(fp);
+			return false;
 		}
 
 		int w, h, f;
@@ -772,7 +783,8 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 
 		if (!png_image_begin_read_from_stdio(&png, fp)) {
 			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s", info.file.c_str(), png.message);
-			return;
+			fclose(fp);
+			return false;
 		}
 
 		bool checkedAlpha = false;
@@ -787,7 +799,8 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 
 		if (!png_image_finish_read(&png, nullptr, out, rowPitch, nullptr)) {
 			ERROR_LOG(G3D, "Could not load texture replacement: %s - %s", info.file.c_str(), png.message);
-			return;
+			fclose(fp);
+			return false;
 		}
 		png_image_free(&png);
 
@@ -801,6 +814,7 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 	}
 
 	fclose(fp);
+	return true;
 }
 
 bool TextureReplacer::GenerateIni(const std::string &gameID, Path &generatedFilename) {
