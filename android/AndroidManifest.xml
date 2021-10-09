@@ -55,8 +55,8 @@
             android:name=".PpssppActivity"
             android:configChanges="locale|keyboard|keyboardHidden|navigation|uiMode"
             android:label="@string/app_name"
-            android:theme="@style/ppsspp_style">
-
+            android:theme="@style/ppsspp_style"
+            android:exported="true">
             <!-- android:screenOrientation="landscape" -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -106,7 +106,8 @@
         <meta-data android:name="isGame" android:value="true" />
         <activity
             android:name=".ShortcutActivity"
-            android:label="@string/shortcut_name" >
+            android:label="@string/shortcut_name"
+            android:exported="true">
             <intent-filter>
                 <category android:name="android.intent.category.DEFAULT" />
 
