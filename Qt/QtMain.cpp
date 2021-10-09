@@ -5,6 +5,7 @@
 // Qt 4.7+ / 5.0+ implementation of the framework.
 // Currently supports: Android, Linux, Windows, Mac OSX
 
+#include "ppsspp_config.h"
 #include <QApplication>
 #include <QClipboard>
 #include <QDesktopWidget>
@@ -41,6 +42,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HW/Camera.h"
@@ -280,7 +282,7 @@ void Vibrate(int length_ms) {
 }
 
 void OpenDirectory(const char *path) {
-	// Unsupported
+	QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromUtf8(path)));
 }
 
 void LaunchBrowser(const char *url)
