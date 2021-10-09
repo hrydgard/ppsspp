@@ -527,8 +527,6 @@ namespace Reporting
 			return false;
 		if (g_Config.uJitDisableFlags != 0)
 			return false;
-		if (!g_Config.bSeparateIOThread)
-			return false;
 		// Don't allow builds without version info from git.  They're useless for reporting.
 		if (strcmp(PPSSPP_GIT_VERSION, "unknown") == 0)
 			return false;

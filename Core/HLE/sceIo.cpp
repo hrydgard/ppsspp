@@ -665,12 +665,10 @@ void __IoInit() {
 
 	memset(fds, 0, sizeof(fds));
 
-	ioManagerThreadEnabled = g_Config.bSeparateIOThread;
-	ioManager.SetThreadEnabled(ioManagerThreadEnabled);
-	if (ioManagerThreadEnabled) {
-		Core_ListenLifecycle(&__IoWakeManager);
-		ioManagerThread = new std::thread(&__IoManagerThread);
-	}
+	ioManagerThreadEnabled = true;
+	ioManager.SetThreadEnabled(true);
+	Core_ListenLifecycle(&__IoWakeManager);
+	ioManagerThread = new std::thread(&__IoManagerThread);
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_ASYNCIO, __IoAsyncBeginCallback, __IoAsyncEndCallback);
 
