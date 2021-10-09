@@ -344,7 +344,10 @@ int BackgroundAudio::Play() {
 	}
 
 	double now = time_now_d();
-	int sz = lastPlaybackTime_ <= 0.0 ? 44100 / 60 : (int)((now - lastPlaybackTime_) * 44100);
+	int sz = 44100 / 60;
+	if (lastPlaybackTime_ > 0.0 && lastPlaybackTime_ >= now) {
+		sz = (int)((now - lastPlaybackTime_) * 44100);
+	}
 	sz = std::min(BUFSIZE / 2, sz);
 	if (at3Reader_) {
 		if (at3Reader_->Read(buffer, sz)) {
