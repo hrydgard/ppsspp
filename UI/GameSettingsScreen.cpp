@@ -920,6 +920,10 @@ void GameSettingsScreen::CreateViews() {
 
 	systemSettings->Add(new ItemHeader(sy->T("PSP Memory Stick")));
 
+#if (defined(USING_QT_UI) || PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MAC)) && !PPSSPP_PLATFORM(UWP)
+	systemSettings->Add(new Choice(sy->T("Show Memory Stick folder")))->OnClick.Handle(this, &GameSettingsScreen::OnOpenMemStick);
+#endif
+
 #if PPSSPP_PLATFORM(ANDROID)
 	memstickDisplay_ = g_Config.memStickDirectory.ToVisualString();
 	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Memory Stick folder", "Memory Stick folder"), (const char *)nullptr));
@@ -1152,6 +1156,11 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 	screenManager()->push(new MemStickScreen(false));
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnOpenMemStick(UI::EventParams &e) {
+	OpenDirectory(File::ResolvePath(g_Config.memStickDirectory.ToString().c_str()).c_str());
 	return UI::EVENT_DONE;
 }
 
