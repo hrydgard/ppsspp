@@ -28,13 +28,15 @@ public class InputDeviceState {
 
 	public InputDeviceState(InputDevice device) {
 		int sources = device.getSources();
-		if ((sources & InputDevice.SOURCE_KEYBOARD) == InputDevice.SOURCE_KEYBOARD && device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC) {
+		// First, anything that's a gamepad is a gamepad, even if it has a keyboard or pointer.
+		if ((sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD) {
+			this.deviceId = NativeApp.DEVICE_ID_PAD_0;
+		} else if ((sources & InputDevice.SOURCE_KEYBOARD) == InputDevice.SOURCE_KEYBOARD && device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC) {
 			this.deviceId = NativeApp.DEVICE_ID_KEYBOARD;
 		} else if ((sources & InputDevice.SOURCE_CLASS_POINTER) == InputDevice.SOURCE_CLASS_POINTER) {
 			this.deviceId = NativeApp.DEVICE_ID_MOUSE;
-		} else if (((sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
-				(sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK ||
-				(sources & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD)) {
+		} else if ((sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK ||
+				(sources & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD) {
 			this.deviceId = NativeApp.DEVICE_ID_PAD_0;
 		} else {
 			// Built-in buttons like Back etc.
