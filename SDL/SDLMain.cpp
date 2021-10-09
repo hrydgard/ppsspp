@@ -190,12 +190,15 @@ void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
 void OpenDirectory(const char *path) {
-#if defined(_WIN32)
+#if PPSSPP_PLATFORM(WINDOWS)
 	PIDLIST_ABSOLUTE pidl = ILCreateFromPath(ConvertUTF8ToWString(ReplaceAll(path, "/", "\\")).c_str());
 	if (pidl) {
 		SHOpenFolderAndSelectItems(pidl, 0, NULL, 0);
 		ILFree(pidl);
 	}
+#elif PPSSPP_PLATFORM(MAC)
+	std::string command = std::string("open ") + path;
+	system(command.c_str());
 #endif
 }
 
