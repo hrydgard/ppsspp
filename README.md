@@ -1,4 +1,4 @@
-﻿PPSSPP - a fast and portable PSP emulator
+PPSSPP - a fast and portable PSP emulator
 =========================================
 
 Created by Henrik Rydgård
@@ -24,6 +24,10 @@ For build instructions and other development tutorials, see [the wiki](https://g
 If you want to download regularly updated builds for Android, Windows x86 and x64, proceed to this [page](https://buildbot.orphis.net/ppsspp/)
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
+
+What's new in 1.12.1
+====================
+* Bug fixes (control mapping fix, popup menus in the Windows debugger, a few crashfixes)
 
 What's new in 1.12
 ==================
