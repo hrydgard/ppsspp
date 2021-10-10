@@ -930,6 +930,21 @@ public abstract class NativeActivity extends Activity {
 		return state;
 	}
 
+	protected String getInputDeviceDebugString() {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+			String buffer = "";
+			for (InputDeviceState input : inputPlayers) {
+				buffer += input.getDebugString();
+			}
+			if (buffer.length() == 0) {
+				buffer = "(no devices)";
+			}
+			return buffer;
+		} else {
+			return "(input device debug not available before Android Kitkat)";
+		}
+	}
+
 	public boolean IsXperiaPlay() {
 		return android.os.Build.MODEL.equals("R800a") || android.os.Build.MODEL.equals("R800i") || android.os.Build.MODEL.equals("R800x") || android.os.Build.MODEL.equals("R800at") || android.os.Build.MODEL.equals("SO-01D") || android.os.Build.MODEL.equals("zeus");
 	}

@@ -62,7 +62,6 @@ PFN_vkBindImageMemory vkBindImageMemory;
 PFN_vkGetBufferMemoryRequirements vkGetBufferMemoryRequirements;
 PFN_vkGetImageMemoryRequirements vkGetImageMemoryRequirements;
 PFN_vkGetImageSparseMemoryRequirements vkGetImageSparseMemoryRequirements;
-PFN_vkGetPhysicalDeviceSparseImageFormatProperties vkGetPhysicalDeviceSparseImageFormatProperties;
 PFN_vkQueueBindSparse vkQueueBindSparse;
 PFN_vkCreateFence vkCreateFence;
 PFN_vkDestroyFence vkDestroyFence;
@@ -586,7 +585,6 @@ void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledE
 	LOAD_DEVICE_FUNC(device, vkGetBufferMemoryRequirements);
 	LOAD_DEVICE_FUNC(device, vkGetImageMemoryRequirements);
 	LOAD_DEVICE_FUNC(device, vkGetImageSparseMemoryRequirements);
-	LOAD_DEVICE_FUNC(device, vkGetPhysicalDeviceSparseImageFormatProperties);
 	LOAD_DEVICE_FUNC(device, vkQueueBindSparse);
 	LOAD_DEVICE_FUNC(device, vkCreateFence);
 	LOAD_DEVICE_FUNC(device, vkDestroyFence);
