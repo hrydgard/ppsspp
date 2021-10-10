@@ -608,7 +608,6 @@ namespace MainWindow {
 
 		case ID_EMULATION_PAUSE:
 			NativeMessageReceived("pause", "");
-			Core_EnableStepping(false);
 			break;
 
 		case ID_EMULATION_STOP:
