@@ -135,6 +135,14 @@ public class PpssppActivity extends NativeActivity {
 		});
 	}
 
+	public String getDebugString(String str) {
+		if (str.equals("InputDevice")) {
+			return getInputDeviceDebugString();
+		} else {
+			return "bad debug string: " + str;
+		}
+	}
+
 	public int openContentUri(String uriString, String mode) {
 		try {
 			Uri uri = Uri.parse(uriString);

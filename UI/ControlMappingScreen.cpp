@@ -45,6 +45,10 @@
 #include "UI/ControlMappingScreen.h"
 #include "UI/GameSettingsScreen.h"
 
+#if PPSSPP_PLATFORM(ANDROID)
+#include "android/jni/app-android.h"
+#endif
+
 class SingleControlMapper : public UI::LinearLayout {
 public:
 	SingleControlMapper(int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams = nullptr);
@@ -805,7 +809,7 @@ void TouchTestScreen::render() {
 
 	ui_context->Begin();
 
-	char buffer[1024];
+	char buffer[2048];
 	for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 		if (touches_[i].id != -1) {
 			ui_context->Draw()->Circle(touches_[i].x, touches_[i].y, 100.0, 3.0, 80, 0.0f, 0xFFFFFFFF, 1.0);
@@ -814,15 +818,19 @@ void TouchTestScreen::render() {
 		}
 	}
 
+	char extra_debug[2048]{};
+
+#if PPSSPP_PLATFORM(ANDROID)
+	truncate_cpy(extra_debug, Android_GetInputDeviceDebugString().c_str());
+#endif
+
 	snprintf(buffer, sizeof(buffer),
 #if PPSSPP_PLATFORM(ANDROID)
 		"display_res: %dx%d\n"
 #endif
-		"dp_res: %dx%d\n"
-		"pixel_res: %dx%d\n"
-		"g_dpi: %f\n"
-		"g_dpi_scale: %0.3fx%0.3f\n"
-		"g_dpi_scale_real: %0.3fx%0.3f\n",
+		"dp_res: %dx%d pixel_res: %dx%d\n"
+		"g_dpi: %0.3f g_dpi_scale: %0.3fx%0.3f\n"
+		"g_dpi_scale_real: %0.3fx%0.3f\n%s",
 #if PPSSPP_PLATFORM(ANDROID)
 		display_xres, display_yres,
 #endif
@@ -830,7 +838,10 @@ void TouchTestScreen::render() {
 		pixel_xres, pixel_yres,
 		g_dpi,
 		g_dpi_scale_x, g_dpi_scale_y,
-		g_dpi_scale_real_x, g_dpi_scale_real_y);
+		g_dpi_scale_real_x, g_dpi_scale_real_y, extra_debug);
+
+	// On Android, also add joystick debug data.
+
 
 	ui_context->DrawTextShadow(buffer, bounds.centerX(), bounds.y + 20.0f, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	ui_context->Flush();
