@@ -25,6 +25,10 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.12.2
+====================
+* Fix joystick detection bug on Android.
+
 What's new in 1.12.1
 ====================
 * Bug fixes (control mapping fix, popup menus in the Windows debugger, a few crashfixes)
