@@ -283,7 +283,7 @@ void StereoResampler::PushSamples(const s32 *samples, unsigned int numSamples) {
 	}
 
 	// Check if we need to roll over to the start of the buffer during the copy.
-	int indexW_left_samples = m_maxBufsize * 2 - (indexW & INDEX_MASK);
+	unsigned int indexW_left_samples = m_maxBufsize * 2 - (indexW & INDEX_MASK);
 	if (numSamples * 2 > indexW_left_samples) {
 		ClampBufferToS16WithVolume(&m_buffer[indexW & INDEX_MASK], samples, indexW_left_samples);
 		ClampBufferToS16WithVolume(&m_buffer[0], samples + indexW_left_samples, numSamples * 2 - indexW_left_samples);
