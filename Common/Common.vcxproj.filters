@@ -45,7 +45,6 @@
     <ClInclude Include="DbgNew.h" />
     <ClInclude Include="OSVersion.h" />
     <ClInclude Include="BitScan.h" />
-    <ClInclude Include="MakeUnique.h" />
     <ClInclude Include="ExceptionHandlerSetup.h" />
     <ClInclude Include="MachineContext.h" />
     <ClInclude Include="Serialize\Serializer.h">
