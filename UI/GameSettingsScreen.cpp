@@ -1077,6 +1077,7 @@ UI::LinearLayout *GameSettingsScreen::AddTab(const char *tag, const std::string 
 		settingTabContents_.push_back(contents);
 
 		auto notice = contents->Add(new TextView(se->T("Filtering settings by '%1'"), new LinearLayoutParams(Margins(20, 5))));
+		notice->SetVisibility(V_GONE);
 		settingTabFilterNotices_.push_back(notice);
 	}
 
