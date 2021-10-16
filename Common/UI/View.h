@@ -77,15 +77,14 @@ struct Style {
 };
 
 struct FontStyle {
-	FontStyle() : atlasFont(0), sizePts(0), flags(0) {}
-	FontStyle(const char *name, int size) : atlasFont(0), fontName(name), sizePts(size), flags(0) {}
-	FontStyle(FontID atlasFnt, const char *name, int size) : atlasFont(atlasFnt), fontName(name), sizePts(size), flags(0) {}
+	FontStyle() {}
+	FontStyle(FontID atlasFnt, const char *name, int size) : atlasFont(atlasFnt), fontName(name), sizePts(size) {}
 
-	FontID atlasFont;
+	FontID atlasFont{ nullptr };
 	// For native fonts:
 	std::string fontName;
-	int sizePts;
-	int flags;
+	int sizePts = 0;
+	int flags = 0;
 };
 
 

@@ -39,6 +39,11 @@ void UIContext::BeginFrame() {
 	if (!uitexture_) {
 		uitexture_ = CreateTextureFromFile(draw_, "ui_atlas.zim", ImageFileType::ZIM, false);
 		_dbg_assert_msg_(uitexture_, "Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
+		if (!fontTexture_) {
+			fontTexture_ = CreateTextureFromFile(draw_, "font_atlas.zim", ImageFileType::ZIM, false);
+			if (!fontTexture_)
+				WARN_LOG(SYSTEM, "Failed to load font_atlas.zim");
+		}
 	}
 	uidrawbufferTop_->SetCurZ(0.0f);
 	uidrawbuffer_->SetCurZ(0.0f);
@@ -67,6 +72,14 @@ void UIContext::BeginPipeline(Draw::Pipeline *pipeline, Draw::SamplerState *samp
 
 void UIContext::RebindTexture() const {
 	if (uitexture_)
+		draw_->BindTexture(0, uitexture_->GetTexture());
+}
+
+void UIContext::BindFontTexture() const {
+	// Fall back to the UI texture, in case they have an old atlas.
+	if (fontTexture_)
+		draw_->BindTexture(0, fontTexture_->GetTexture());
+	else if (uitexture_)
 		draw_->BindTexture(0, uitexture_->GetTexture());
 }
 
@@ -190,14 +203,22 @@ void UIContext::MeasureTextRect(const UI::FontStyle &style, float scaleX, float 
 
 void UIContext::DrawText(const char *str, float x, float y, uint32_t color, int align) {
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
+		// Use the font texture if this font is in that texture instead.
+		bool useFontTexture = Draw()->GetFontAtlas()->getFont(fontStyle_->atlasFont) != nullptr;
+		if (useFontTexture) {
+			Flush();
+			BindFontTexture();
+		}
 		float sizeFactor = (float)fontStyle_->sizePts / 24.0f;
 		Draw()->SetFontScale(fontScaleX_ * sizeFactor, fontScaleY_ * sizeFactor);
 		Draw()->DrawText(fontStyle_->atlasFont, str, x, y, color, align);
+		if (useFontTexture)
+			Flush();
 	} else {
 		textDrawer_->SetFontScale(fontScaleX_, fontScaleY_);
 		textDrawer_->DrawString(*Draw(), str, x, y, color, align);
-		RebindTexture();
 	}
+	RebindTexture();
 }
 
 void UIContext::DrawTextShadow(const char *str, float x, float y, uint32_t color, int align) {
@@ -208,17 +229,25 @@ void UIContext::DrawTextShadow(const char *str, float x, float y, uint32_t color
 
 void UIContext::DrawTextRect(const char *str, const Bounds &bounds, uint32_t color, int align) {
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
+		// Use the font texture if this font is in that texture instead.
+		bool useFontTexture = Draw()->GetFontAtlas()->getFont(fontStyle_->atlasFont) != nullptr;
+		if (useFontTexture) {
+			Flush();
+			BindFontTexture();
+		}
 		float sizeFactor = (float)fontStyle_->sizePts / 24.0f;
 		Draw()->SetFontScale(fontScaleX_ * sizeFactor, fontScaleY_ * sizeFactor);
 		Draw()->DrawTextRect(fontStyle_->atlasFont, str, bounds.x, bounds.y, bounds.w, bounds.h, color, align);
+		if (useFontTexture)
+			Flush();
 	} else {
 		textDrawer_->SetFontScale(fontScaleX_, fontScaleY_);
 		Bounds rounded = bounds;
 		rounded.x = floorf(rounded.x);
 		rounded.y = floorf(rounded.y);
 		textDrawer_->DrawStringRect(*Draw(), str, rounded, color, align);
-		RebindTexture();
 	}
+	RebindTexture();
 }
 
 void UIContext::DrawTextShadowRect(const char *str, const Bounds &bounds, uint32_t color, int align) {

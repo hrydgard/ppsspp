@@ -14,11 +14,10 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 
-DrawBuffer::DrawBuffer() : count_(0), atlas(0) {
+DrawBuffer::DrawBuffer() {
 	verts_ = new Vertex[MAX_VERTS];
 	fontscalex = 1.0f;
 	fontscaley = 1.0f;
-	inited_ = false;
 }
 
 DrawBuffer::~DrawBuffer() {
@@ -482,7 +481,9 @@ float AtlasWordWrapper::MeasureWidth(const char *str, size_t bytes) {
 }
 
 void DrawBuffer::MeasureTextCount(FontID font, const char *text, int count, float *w, float *h) {
-	const AtlasFont *atlasfont = atlas->getFont(font);
+	const AtlasFont *atlasfont = fontAtlas_->getFont(font);
+	if (!atlasfont)
+		atlasfont = atlas->getFont(font);
 	if (!atlasfont) {
 		*w = 0.0f;
 		*h = 0.0f;
@@ -533,7 +534,9 @@ void DrawBuffer::MeasureTextRect(FontID font_id, const char *text, int count, co
 	std::string toMeasure = std::string(text, count);
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 	if (wrap) {
-		const AtlasFont *font = atlas->getFont(font_id);
+		const AtlasFont *font = fontAtlas_->getFont(font_id);
+		if (!font)
+			font = atlas->getFont(font_id);
 		if (!font) {
 			*w = 0.0f;
 			*h = 0.0f;
@@ -582,7 +585,9 @@ void DrawBuffer::DrawTextRect(FontID font, const char *text, float x, float y, f
 
 	std::string toDraw = text;
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
-	const AtlasFont *atlasfont = atlas->getFont(font);
+	const AtlasFont *atlasfont = fontAtlas_->getFont(font);
+	if (!atlasfont)
+		atlasfont = atlas->getFont(font);
 	if (wrap && atlasfont) {
 		AtlasWordWrapper wrapper(*atlasfont, fontscalex, toDraw.c_str(), w, wrap);
 		toDraw = wrapper.Wrapped();
@@ -624,7 +629,9 @@ void DrawBuffer::DrawText(FontID font, const char *text, float x, float y, Color
 		}
 	}
 
-	const AtlasFont *atlasfont = atlas->getFont(font);
+	const AtlasFont *atlasfont = fontAtlas_->getFont(font);
+	if (!atlasfont)
+		atlasfont = atlas->getFont(font);
 	if (!atlasfont)
 		return;
 	unsigned int cval;
