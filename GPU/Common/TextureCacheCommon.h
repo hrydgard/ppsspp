@@ -123,16 +123,17 @@ struct TexCacheEntry {
 		STATUS_CLUT_RECHECK = 0x20,    // Another texture with same addr had a hashfail.
 		STATUS_TO_SCALE = 0x80,        // Pending texture scaling in a later frame.
 		STATUS_IS_SCALED = 0x100,      // Has been scaled (can't be replaceImages'd.)
+		STATUS_TO_REPLACE = 0x0200,    // Pending texture replacement.
 		// When hashing large textures, we optimize 512x512 down to 512x272 by default, since this
 		// is commonly the only part accessed.  If access is made above 272, we hash the entire
 		// texture, and set this flag to allow scaling the texture just once for the new hash.
-		STATUS_FREE_CHANGE = 0x200,    // Allow one change before marking "frequent".
+		STATUS_FREE_CHANGE = 0x0400,   // Allow one change before marking "frequent".
 
-		STATUS_BAD_MIPS = 0x400,       // Has bad or unusable mipmap levels.
+		STATUS_BAD_MIPS = 0x0800,      // Has bad or unusable mipmap levels.
 
-		STATUS_FRAMEBUFFER_OVERLAP = 0x800,
+		STATUS_FRAMEBUFFER_OVERLAP = 0x1000,
 
-		STATUS_FORCE_REBUILD = 0x1000,
+		STATUS_FORCE_REBUILD = 0x2000,
 	};
 
 	// Status, but int so we can zero initialize.
@@ -334,6 +335,9 @@ protected:
 	int decimationCounter_;
 	int texelsScaledThisFrame_ = 0;
 	int timesInvalidatedAllThisFrame_ = 0;
+	double replacementTimeThisFrame_ = 0;
+	// TODO: Maybe vary by FPS...
+	double replacementFrameBudget_ = 0.75 / 60.0;
 
 	TexCache cache_;
 	u32 cacheSizeEstimate_ = 0;

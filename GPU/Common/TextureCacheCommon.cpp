@@ -472,6 +472,10 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 				reason = "scaling";
 			}
 		}
+		if (match && (entry->status & TexCacheEntry::STATUS_TO_REPLACE) && replacementTimeThisFrame_ <= replacementFrameBudget_) {
+			match = false;
+			reason = "replacing";
+		}
 
 		if (match) {
 			// got one!

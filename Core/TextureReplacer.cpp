@@ -733,6 +733,10 @@ float TextureReplacer::LookupReduceHashRange(int& w, int& h) {
 	}
 }
 
+bool ReplacedTexture::IsReady(double budget) {
+	return true;
+}
+
 bool ReplacedTexture::Load(int level, void *out, int rowPitch) {
 	_assert_msg_((size_t)level < levels_.size(), "Invalid miplevel");
 	_assert_msg_(out != nullptr && rowPitch > 0, "Invalid out/pitch");

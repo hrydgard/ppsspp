@@ -28,6 +28,7 @@
 
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
@@ -442,6 +443,7 @@ void TextureCacheVulkan::StartFrame() {
 
 	timesInvalidatedAllThisFrame_ = 0;
 	texelsScaledThisFrame_ = 0;
+	replacementTimeThisFrame_ = 0.0;
 
 	if (clearCacheNextFrame_) {
 		Clear(true);
@@ -776,13 +778,21 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
+	double replaceStart = time_now_d();
 	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h);
-	if (replaced.GetSize(0, w, h)) {
-		// We're replacing, so we won't scale.
-		scaleFactor = 1;
-		entry->status |= TexCacheEntry::STATUS_IS_SCALED;
-		maxLevel = replaced.MaxLevel();
-		badMipSizes = false;
+	if (replaced.IsReady(replacementFrameBudget_ - replacementTimeThisFrame_)) {
+		if (replaced.GetSize(0, w, h)) {
+			replacementTimeThisFrame_ += time_now_d() - replaceStart;
+
+			// We're replacing, so we won't scale.
+			scaleFactor = 1;
+			entry->status |= TexCacheEntry::STATUS_IS_SCALED;
+			entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
+			maxLevel = replaced.MaxLevel();
+			badMipSizes = false;
+		}
+	} else if (replaced.MaxLevel() >= 0) {
+		entry->status |= TexCacheEntry::STATUS_TO_REPLACE;
 	}
 
 	bool hardwareScaling = g_Config.bTexHardwareScaling && (uploadCS_ != VK_NULL_HANDLE || copyCS_ != VK_NULL_HANDLE);
@@ -934,7 +944,9 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			if (replaced.Valid()) {
 				// Directly load the replaced image.
 				data = drawEngine_->GetPushBufferForTextureData()->PushAligned(size, &bufferOffset, &texBuf, pushAlignment);
+				replaceStart = time_now_d();
 				replaced.Load(i, data, stride);  // if it fails, it'll just be garbage data... OK for now.
+				replacementTimeThisFrame_ += time_now_d() - replaceStart;
 				entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
 			} else {
 				auto dispatchCompute = [&](VkDescriptorSet descSet) {

@@ -153,6 +153,8 @@ struct ReplacedTexture {
 		return (u8)alphaStatus_;
 	}
 
+	bool IsReady(double budget);
+
 	bool Load(int level, void *out, int rowPitch);
 
 protected:
