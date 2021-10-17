@@ -68,6 +68,7 @@ public:
 	float GetCurrentInstallProgressPercentage() const {
 		return installProgress_;
 	}
+	void ResetInstallError();
 	std::string GetInstallError() const {
 		return installError_;
 	}

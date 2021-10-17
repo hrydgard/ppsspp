@@ -26,7 +26,7 @@
 
 class InstallZipScreen : public UIDialogScreenWithBackground {
 public:
-	InstallZipScreen(const Path &zipPath) : zipPath_(zipPath) {}
+	InstallZipScreen(const Path &zipPath);
 	virtual void update() override;
 	virtual bool key(const KeyInput &key) override;
 
