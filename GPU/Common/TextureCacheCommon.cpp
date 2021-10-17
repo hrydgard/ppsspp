@@ -1285,7 +1285,7 @@ ReplacedTexture &TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &
 	} else if (replaced.Valid()) {
 		entry->status |= TexCacheEntry::STATUS_TO_REPLACE;
 	}
-	return replacer_.None();
+	return replacer_.FindNone();
 }
 
 static void ReverseColors(void *dstBuf, const void *srcBuf, GETextureFormat fmt, int numPixels, bool useBGRA) {
