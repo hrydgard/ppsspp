@@ -195,6 +195,9 @@ public:
 
 	ReplacedTexture &FindReplacement(u64 cachekey, u32 hash, int w, int h);
 	bool FindFiltering(u64 cachekey, u32 hash, TextureFiltering *forceFiltering);
+	ReplacedTexture &None() {
+		return none_;
+	}
 
 	void NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int w, int h);
 

@@ -775,24 +775,14 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
 	}
 
-	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
-	double replaceStart = time_now_d();
-	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h);
-	if (replaced.IsReady(replacementFrameBudget_ - replacementTimeThisFrame_)) {
-		if (replaced.GetSize(0, w, h)) {
-			replacementTimeThisFrame_ += time_now_d() - replaceStart;
-
-			// We're replacing, so we won't scale.
-			scaleFactor = 1;
-			entry->status |= TexCacheEntry::STATUS_IS_SCALED;
-			entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
-			maxLevel = replaced.MaxLevel();
-			badMipSizes = false;
-		}
-	} else if (replaced.MaxLevel() >= 0) {
-		entry->status |= TexCacheEntry::STATUS_TO_REPLACE;
+	ReplacedTexture &replaced = FindReplacement(entry, w, h);
+	if (replaced.Valid()) {
+		// We're replacing, so we won't scale.
+		scaleFactor = 1;
+		maxLevel = replaced.MaxLevel();
+		badMipSizes = false;
 	}
 
 	bool hardwareScaling = g_Config.bTexHardwareScaling && (uploadCS_ != VK_NULL_HANDLE || copyCS_ != VK_NULL_HANDLE);
@@ -909,7 +899,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	ReplacedTextureDecodeInfo replacedInfo;
 	if (replacer_.Enabled() && !replaced.Valid()) {
-		replacedInfo.cachekey = cachekey;
+		replacedInfo.cachekey = entry->CacheKey();
 		replacedInfo.hash = entry->fullhash;
 		replacedInfo.addr = entry->addr;
 		replacedInfo.isVideo = IsVideo(entry->addr);
@@ -944,7 +934,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			if (replaced.Valid()) {
 				// Directly load the replaced image.
 				data = drawEngine_->GetPushBufferForTextureData()->PushAligned(size, &bufferOffset, &texBuf, pushAlignment);
-				replaceStart = time_now_d();
+				double replaceStart = time_now_d();
 				replaced.Load(i, data, stride);  // if it fails, it'll just be garbage data... OK for now.
 				replacementTimeThisFrame_ += time_now_d() - replaceStart;
 				entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);

@@ -504,24 +504,14 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
 	}
 
-	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
-	double replaceStart = time_now_d();
-	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h);
-	if (replaced.IsReady(replacementFrameBudget_ - replacementTimeThisFrame_)) {
-		if (replaced.GetSize(0, w, h)) {
-			replacementTimeThisFrame_ += time_now_d() - replaceStart;
-
-			// We're replacing, so we won't scale.
-			scaleFactor = 1;
-			entry->status |= TexCacheEntry::STATUS_IS_SCALED;
-			entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
-			maxLevel = replaced.MaxLevel();
-			badMipSizes = false;
-		}
-	} else if (replaced.MaxLevel() >= 0) {
-		entry->status |= TexCacheEntry::STATUS_TO_REPLACE;
+	ReplacedTexture &replaced = FindReplacement(entry, w, h);
+	if (replaced.Valid()) {
+		// We're replacing, so we won't scale.
+		scaleFactor = 1;
+		maxLevel = replaced.MaxLevel();
+		badMipSizes = false;
 	}
 
 	// Don't scale the PPGe texture.

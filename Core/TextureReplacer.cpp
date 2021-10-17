@@ -747,7 +747,7 @@ bool ReplacedTexture::IsReady(double budget) {
 	lastUsed_ = time_now_d();
 
 	if (levelData_.size() == levels_.size())
-		return true;
+		return Valid();
 	if (budget <= 0.0)
 		return false;
 
