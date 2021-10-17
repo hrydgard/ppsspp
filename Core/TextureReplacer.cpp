@@ -764,7 +764,95 @@ bool ReplacedTexture::IsReady(double budget) {
 }
 
 void ReplacedTexture::PrepareData(int level) {
-	// TODO
+	_assert_msg_((size_t)level < levels_.size(), "Invalid miplevel");
+
+	const ReplacedTextureLevel &info = levels_[level];
+	std::vector<uint8_t> &out = levelData_[level];
+
+	FILE *fp = File::OpenCFile(info.file, "rb");
+	if (!fp) {
+		// Leaving the data sized at zero means failure.
+		return;
+	}
+
+	auto imageType = Identify(fp);
+	if (imageType == ReplacedImageType::ZIM) {
+		size_t zimSize = File::GetFileSize(fp);
+		std::unique_ptr<uint8_t[]> zim(new uint8_t[zimSize]);
+		if (!zim) {
+			ERROR_LOG(G3D, "Failed to allocate memory for texture replacement");
+			fclose(fp);
+			return;
+		}
+
+		if (fread(&zim[0], 1, zimSize, fp) != zimSize) {
+			ERROR_LOG(G3D, "Could not load texture replacement: %s - failed to read ZIM", info.file.c_str());
+			fclose(fp);
+			return;
+		}
+
+		int w, h, f;
+		uint8_t *image;
+		if (LoadZIMPtr(&zim[0], zimSize, &w, &h, &f, &image)) {
+			if (w != info.w || h != info.h) {
+				ERROR_LOG(G3D, "Texture replacement changed since header read: %s", info.file.c_str());
+				fclose(fp);
+				return;
+			}
+
+			out.resize(w * h * 4);
+			ParallelMemcpy(&g_threadManager, &out[0], image, info.w * 4 * info.h);
+			free(image);
+		}
+
+		CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)&out[0], w, w, h);
+		if (res == CHECKALPHA_ANY || level == 0) {
+			alphaStatus_ = ReplacedTextureAlpha(res);
+		}
+	} else if (imageType == ReplacedImageType::PNG) {
+		png_image png = {};
+		png.version = PNG_IMAGE_VERSION;
+
+		if (!png_image_begin_read_from_stdio(&png, fp)) {
+			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s", info.file.c_str(), png.message);
+			fclose(fp);
+			return;
+		}
+		if (png.width != info.w || png.height != info.h) {
+			ERROR_LOG(G3D, "Texture replacement changed since header read: %s", info.file.c_str());
+			fclose(fp);
+			return;
+		}
+
+		bool checkedAlpha = false;
+		if ((png.format & PNG_FORMAT_FLAG_ALPHA) == 0) {
+			// Well, we know for sure it doesn't have alpha.
+			if (level == 0) {
+				alphaStatus_ = ReplacedTextureAlpha::FULL;
+			}
+			checkedAlpha = true;
+		}
+		png.format = PNG_FORMAT_RGBA;
+
+		out.resize(png.width * png.height * 4);
+		if (!png_image_finish_read(&png, nullptr, &out[0], png.width * 4, nullptr)) {
+			ERROR_LOG(G3D, "Could not load texture replacement: %s - %s", info.file.c_str(), png.message);
+			fclose(fp);
+			out.resize(0);
+			return;
+		}
+		png_image_free(&png);
+
+		if (!checkedAlpha) {
+			// This will only check the hashed bits.
+			CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)&out[0], png.width, png.width, png.height);
+			if (res == CHECKALPHA_ANY || level == 0) {
+				alphaStatus_ = ReplacedTextureAlpha(res);
+			}
+		}
+	}
+
+	fclose(fp);
 }
 
 void ReplacedTexture::PurgeIfOlder(double t) {
@@ -778,82 +866,23 @@ bool ReplacedTexture::Load(int level, void *out, int rowPitch) {
 	_assert_msg_(out != nullptr && rowPitch > 0, "Invalid out/pitch");
 
 	const ReplacedTextureLevel &info = levels_[level];
+	const std::vector<uint8_t> &data = levelData_[level];
 
-	FILE *fp = File::OpenCFile(info.file, "rb");
-	if (!fp) {
+	if (data.empty())
 		return false;
-	}
+	_assert_msg_(data.size() == info.w * info.h * 4, "Data has wrong size");
 
-	auto imageType = Identify(fp);
-	if (imageType == ReplacedImageType::ZIM) {
-		size_t zimSize = File::GetFileSize(fp);
-		std::unique_ptr<uint8_t[]> zim(new uint8_t[zimSize]);
-		if (!zim) {
-			ERROR_LOG(G3D, "Failed to allocate memory for texture replacement");
-			fclose(fp);
-			return false;
-		}
-
-		if (fread(&zim[0], 1, zimSize, fp) != zimSize) {
-			ERROR_LOG(G3D, "Could not load texture replacement: %s - failed to read ZIM", info.file.c_str());
-			fclose(fp);
-			return false;
-		}
-
-		int w, h, f;
-		uint8_t *image;
+	if (rowPitch == info.w * 4) {
+		ParallelMemcpy(&g_threadManager, out, &data[0], info.w * 4 * info.h);
+	} else {
 		const int MIN_LINES_PER_THREAD = 4;
-		if (LoadZIMPtr(&zim[0], zimSize, &w, &h, &f, &image)) {
-			ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
-				for (int y = l; y < h; ++y) {
-					memcpy((uint8_t *)out + rowPitch * y, image + w * 4 * y, w * 4);
-				}
-			}, 0, h, MIN_LINES_PER_THREAD);
-			free(image);
-		}
-
-		// This will only check the hashed bits.
-		CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)out, rowPitch / sizeof(u32), w, h);
-		if (res == CHECKALPHA_ANY || level == 0) {
-			alphaStatus_ = ReplacedTextureAlpha(res);
-		}
-	} else if (imageType == ReplacedImageType::PNG) {
-		png_image png = {};
-		png.version = PNG_IMAGE_VERSION;
-
-		if (!png_image_begin_read_from_stdio(&png, fp)) {
-			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s", info.file.c_str(), png.message);
-			fclose(fp);
-			return false;
-		}
-
-		bool checkedAlpha = false;
-		if ((png.format & PNG_FORMAT_FLAG_ALPHA) == 0) {
-			// Well, we know for sure it doesn't have alpha.
-			if (level == 0) {
-				alphaStatus_ = ReplacedTextureAlpha::FULL;
+		ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
+			for (int y = l; y < h; ++y) {
+				memcpy((uint8_t *)out + rowPitch * y, &data[0] + info.w * 4 * y, info.w * 4);
 			}
-			checkedAlpha = true;
-		}
-		png.format = PNG_FORMAT_RGBA;
-
-		if (!png_image_finish_read(&png, nullptr, out, rowPitch, nullptr)) {
-			ERROR_LOG(G3D, "Could not load texture replacement: %s - %s", info.file.c_str(), png.message);
-			fclose(fp);
-			return false;
-		}
-		png_image_free(&png);
-
-		if (!checkedAlpha) {
-			// This will only check the hashed bits.
-			CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)out, rowPitch / sizeof(u32), png.width, png.height);
-			if (res == CHECKALPHA_ANY || level == 0) {
-				alphaStatus_ = ReplacedTextureAlpha(res);
-			}
-		}
+		}, 0, info.h, MIN_LINES_PER_THREAD);
 	}
 
-	fclose(fp);
 	return true;
 }
 
