@@ -473,9 +473,14 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 				reason = "scaling";
 			}
 		}
-		if (match && (entry->status & TexCacheEntry::STATUS_TO_REPLACE) && replacementTimeThisFrame_ <= replacementFrameBudget_) {
-			match = false;
-			reason = "replacing";
+		if (match && (entry->status & TexCacheEntry::STATUS_TO_REPLACE) && replacementTimeThisFrame_ < replacementFrameBudget_) {
+			int w0 = gstate.getTextureWidth(0);
+			int h0 = gstate.getTextureHeight(0);
+			ReplacedTexture &replaced = FindReplacement(entry, w0, h0);
+			if (replaced.Valid()) {
+				match = false;
+				reason = "replacing";
+			}
 		}
 
 		if (match) {
@@ -1285,6 +1290,7 @@ ReplacedTexture &TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &
 	} else if (replaced.Valid()) {
 		entry->status |= TexCacheEntry::STATUS_TO_REPLACE;
 	}
+	replacementTimeThisFrame_ += time_now_d() - replaceStart;
 	return replacer_.FindNone();
 }
 
