@@ -31,6 +31,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Thread/ParallelLoop.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/System.h"
@@ -621,6 +622,15 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	savedCache_[replacementKey] = saved;
 }
 
+void TextureReplacer::Decimate(bool forcePressure) {
+	// Allow replacements to be cached for a long time, although they're large.
+	const double age = forcePressure ? 90.0 : 1800.0;
+	const double threshold = time_now_d() - age;
+	for (auto &item : cache_) {
+		item.second.PurgeIfOlder(threshold);
+	}
+}
+
 template <typename Key, typename Value>
 static typename std::unordered_map<Key, Value>::const_iterator LookupWildcard(const std::unordered_map<Key, Value> &map, Key &key, u64 cachekey, u32 hash, bool ignoreAddress) {
 	auto alias = map.find(key);
@@ -734,7 +744,33 @@ float TextureReplacer::LookupReduceHashRange(int& w, int& h) {
 }
 
 bool ReplacedTexture::IsReady(double budget) {
-	return true;
+	lastUsed_ = time_now_d();
+
+	if (levelData_.size() == levels_.size())
+		return true;
+	if (budget <= 0.0)
+		return false;
+
+	double deadline = lastUsed_ + budget;
+	for (int i = (int)levelData_.size(); i <= MaxLevel(); ++i) {
+		levelData_.resize(i + 1);
+		PrepareData(i);
+		if (time_now_d() >= deadline) {
+			break;
+		}
+	}
+	// If we finished all the levels, we're done.
+	return levelData_.size() == levels_.size();
+}
+
+void ReplacedTexture::PrepareData(int level) {
+	// TODO
+}
+
+void ReplacedTexture::PurgeIfOlder(double t) {
+	if (lastUsed_ < t) {
+		levelData_.clear();
+	}
 }
 
 bool ReplacedTexture::Load(int level, void *out, int rowPitch) {

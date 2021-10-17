@@ -724,6 +724,7 @@ void TextureCacheCommon::Decimate(bool forcePressure) {
 	}
 
 	DecimateVideos();
+	replacer_.Decimate(forcePressure);
 }
 
 void TextureCacheCommon::DecimateVideos() {
