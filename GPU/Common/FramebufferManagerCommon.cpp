@@ -469,6 +469,22 @@ void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
 }
 
 void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
+	_dbg_assert_(src && dst);
+
+	// Check that the depth address is even the same before actually blitting.
+	bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
+	bool matchingSize = src->width == dst->width && src->height == dst->height;
+	if (!matchingDepthBuffer || !matchingSize)
+		return;
+
+	// Copy depth value from the previously bound framebuffer to the current one.
+	bool hasNewerDepth = src->last_frame_depth_render != 0 && src->last_frame_depth_render >= dst->last_frame_depth_updated;
+	if (!src->fbo || !dst->fbo || !useBufferedRendering_ || !hasNewerDepth) {
+		// If depth wasn't updated, then we're at least "two degrees" away from the data.
+		// This is an optimization: it probably doesn't need to be copied in this case.
+		return;
+	}
+
 	int w = std::min(src->renderWidth, dst->renderWidth);
 	int h = std::min(src->renderHeight, dst->renderHeight);
 
@@ -687,21 +703,9 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	textureCache_->ForgetLastTexture();
 	shaderManager_->DirtyLastShader();
 
-	if (prevVfb) {
-		// Copy depth value from the previously bound framebuffer to the current one.
-		// We check that the address is the same within BlitFramebufferDepth before actually blitting.
-
-		bool hasNewerDepth = prevVfb->last_frame_depth_render != 0 && prevVfb->last_frame_depth_render >= vfb->last_frame_depth_updated;
-		if (!prevVfb->fbo || !vfb->fbo || !useBufferedRendering_ || !hasNewerDepth || isClearingDepth) {
-			// If depth wasn't updated, then we're at least "two degrees" away from the data.
-			// This is an optimization: it probably doesn't need to be copied in this case.
-		} else {
-			bool matchingDepthBuffer = prevVfb->z_address == vfb->z_address && prevVfb->z_stride != 0 && vfb->z_stride != 0;
-			bool matchingSize = prevVfb->width == vfb->width && prevVfb->height == vfb->height;
-			if (matchingDepthBuffer && matchingSize) {
-				BlitFramebufferDepth(prevVfb, vfb);
-			}
-		}
+	// Copy depth between the framebuffers, if the z_address is the same (checked inside.)
+	if (prevVfb && !isClearingDepth) {
+		BlitFramebufferDepth(prevVfb, vfb);
 	}
 
 	if (vfb->drawnFormat != vfb->format) {
