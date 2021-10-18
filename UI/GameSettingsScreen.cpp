@@ -754,6 +754,11 @@ void GameSettingsScreen::CreateViews() {
 
 		CheckBox *disableDiags = controlsSettings->Add(new CheckBox(&g_Config.bDisableDpadDiagonals, co->T("Disable D-Pad diagonals (4-way touch)")));
 		disableDiags->SetEnabledPtr(&g_Config.bShowTouchControls);
+
+		static const char *analogBehaviors[] = {"Don't press other button", "Don't press DPAD only", "Press all button" };
+		PopupMultiChoice *analogBehaviour = controlsSettings->Add(new PopupMultiChoice(&g_Config.iTouchAnalogBehaviour, co->T("Touch Analog Drag Behaviour"), analogBehaviors, 0, ARRAY_SIZE(analogBehaviors), co->GetName(), screenManager()));
+		analogBehaviour->SetEnabledPtr(&g_Config.bShowTouchControls);	
+
 		PopupSliderChoice *opacity = controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 100, co->T("Button Opacity"), screenManager(), "%"));
 		opacity->SetEnabledPtr(&g_Config.bShowTouchControls);
 		opacity->SetFormat("%i%%");
