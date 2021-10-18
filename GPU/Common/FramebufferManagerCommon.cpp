@@ -375,6 +375,11 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		ResizeFramebufFBO(vfb, drawing_width, drawing_height, true);
 		NotifyRenderFramebufferCreated(vfb);
 
+		// We might already want to copy depth, in case this is a temp buffer.  See #7810.
+		if (currentRenderVfb_ && !params.isClearingDepth) {
+			BlitFramebufferDepth(currentRenderVfb_, vfb);
+		}
+
 		SetColorUpdated(vfb, skipDrawReason);
 
 		INFO_LOG(FRAMEBUF, "Creating FBO for %08x (z: %08x) : %i x %i x %i", vfb->fb_address, vfb->z_address, vfb->width, vfb->height, vfb->format);
@@ -387,7 +392,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		if (useBufferedRendering_ && !g_Config.bDisableSlowFramebufEffects) {
 			gpu->PerformMemoryUpload(params.fb_address, byteSize);
 			NotifyStencilUpload(params.fb_address, byteSize, StencilUpload::STENCIL_IS_ZERO);
-			// TODO: Is it worth trying to upload the depth buffer?
+			// TODO: Is it worth trying to upload the depth buffer (only if it wasn't copied above..?)
 		}
 
 		// Let's check for depth buffer overlap.  Might be interesting.
