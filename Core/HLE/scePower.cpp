@@ -563,7 +563,7 @@ static const HLEFunction scePower[] = {
 	{0X7F30B3B1, nullptr,                                     "scePowerIdleTimerEnable",           '?', ""   },
 	{0X972CE941, nullptr,                                     "scePowerIdleTimerDisable",          '?', ""   },
 	{0X27F3292C, nullptr,                                     "scePowerBatteryUpdateInfo",         '?', ""   },
-	{0XE8E4E204, nullptr,                                     "scePower_E8E4E204",                 '?', ""   },
+	{0XE8E4E204, nullptr,                                     "scePowerGetForceSuspendCapacity",   '?', ""   },
 	{0XB999184C, nullptr,                                     "scePowerGetLowBatteryCapacity",     '?', ""   },
 	{0X87440F5E, &WrapI_V<scePowerIsPowerOnline>,             "scePowerIsPowerOnline",             'i', ""   },
 	{0X0AFD0D8B, &WrapI_V<scePowerIsBatteryExist>,            "scePowerIsBatteryExist",            'i', ""   },
@@ -603,7 +603,7 @@ static const HLEFunction scePower[] = {
 	{0X737486F2, &WrapU_UUU<scePowerSetClockFrequency>,       "scePowerSetClockFrequency",         'x', "xxx"},
 	{0X34F9C463, &WrapU_V<scePowerGetPllClockFrequencyInt>,   "scePowerGetPllClockFrequencyInt",   'x', ""   },
 	{0XEA382A27, &WrapF_V<scePowerGetPllClockFrequencyFloat>, "scePowerGetPllClockFrequencyFloat", 'f', ""   },
-	{0XEBD177D6, &WrapU_UUU<scePowerSetClockFrequency>,       "scePower_EBD177D6",                 'x', "xxx"}, // This is also the same as SetClockFrequency
+	{0XEBD177D6, &WrapU_UUU<scePowerSetClockFrequency>,       "scePowerSetClockFrequency350",      'x', "xxx"}, // This is also the same as SetClockFrequency
 	{0X469989AD, &WrapU_UUU<scePowerSetClockFrequency>,       "scePower_469989ad",                 'x', "xxx"}, // This is also the same as SetClockFrequency
 	{0X545A7F3C, nullptr,                                     "scePower_545A7F3C",                 '?', ""   }, // TODO: Supposedly the same as SetClockFrequency also?
 	{0XA4E93389, nullptr,                                     "scePower_A4E93389",                 '?', ""   }, // TODO: Supposedly the same as SetClockFrequency also?
