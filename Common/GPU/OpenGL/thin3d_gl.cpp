@@ -534,6 +534,13 @@ OpenGLContext::OpenGLContext() {
 	caps_.framebufferBlitSupported = gl_extensions.NV_framebuffer_blit || gl_extensions.ARB_framebuffer_object;
 	caps_.framebufferDepthBlitSupported = caps_.framebufferBlitSupported;
 	caps_.depthClampSupported = gl_extensions.ARB_depth_clamp;
+	if (gl_extensions.IsGLES) {
+		caps_.clipDistanceSupported = gl_extensions.EXT_clip_cull_distance || gl_extensions.APPLE_clip_distance;
+		caps_.cullDistanceSupported = gl_extensions.EXT_clip_cull_distance;
+	} else {
+		caps_.clipDistanceSupported = gl_extensions.VersionGEThan(3, 0);
+		caps_.cullDistanceSupported = gl_extensions.ARB_cull_distance;
+	}
 
 	// Interesting potential hack for emulating GL_DEPTH_CLAMP (use a separate varying, force depth in fragment shader):
 	// This will induce a performance penalty on many architectures though so a blanket enable of this
@@ -1162,7 +1169,7 @@ bool OpenGLPipeline::LinkShaders() {
 	std::vector<GLRProgram::Initializer> initialize;
 	for (int i = 0; i < MAX_TEXTURE_SLOTS; ++i)
 		initialize.push_back({ &samplerLocs_[i], 0, i });
-	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, false);
+	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, false, false);
 	return true;
 }
 

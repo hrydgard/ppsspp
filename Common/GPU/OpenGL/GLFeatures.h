@@ -94,6 +94,9 @@ struct GLExtensions {
 	// ARM
 	bool ARM_shader_framebuffer_fetch;
 
+	// APPLE
+	bool APPLE_clip_distance;
+
 	// EGL
 	bool EGL_NV_system_time;
 	bool EGL_NV_coverage_sample;

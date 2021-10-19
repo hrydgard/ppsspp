@@ -147,7 +147,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, StencilUplo
 		queries.push_back({ &u_stencilValue, "u_stencilValue" });
 		std::vector<GLRProgram::Initializer> inits;
 		inits.push_back({ &u_stencilUploadTex, 0, TEX_SLOT_PSP_TEXTURE });
-		stencilUploadProgram_ = render_->CreateProgram(shaders, semantics, queries, inits, false);
+		stencilUploadProgram_ = render_->CreateProgram(shaders, semantics, queries, inits, false, false);
 		for (auto iter : shaders) {
 			render_->DeleteShader(iter);
 		}

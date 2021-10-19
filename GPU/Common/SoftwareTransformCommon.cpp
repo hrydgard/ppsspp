@@ -64,14 +64,8 @@ static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
 
 // Note: 0 is BR and 2 is TL.
 
-static void RotateUV(TransformedVertex v[4], float flippedMatrix[16], bool flippedY) {
-	// Transform these two coordinates to figure out whether they're flipped or not.
-	Vec4f tl;
-	Vec3ByMatrix44(tl.AsArray(), v[2].pos, flippedMatrix);
-
-	Vec4f br;
-	Vec3ByMatrix44(br.AsArray(), v[0].pos, flippedMatrix);
-
+static void RotateUV(TransformedVertex v[4], Vec4f tl, Vec4f br, bool flippedY) {
+	// We use the transformed tl/br coordinates to figure out whether they're flipped or not.
 	float ySign = flippedY ? -1.0 : 1.0;
 
 	const float invtlw = 1.0f / tl.w;
@@ -438,7 +432,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 	// TODO: This bleeds outside the play area in non-buffered mode. Big deal? Probably not.
 	// TODO: Allow creating a depth clear and a color draw.
 	bool reallyAClear = false;
-	if (maxIndex > 1 && prim == GE_PRIM_RECTANGLES && gstate.isModeClear()) {
+	if (maxIndex > 1 && prim == GE_PRIM_RECTANGLES && gstate.isModeClear() && throughmode) {
 		int scissorX2 = gstate.getScissorX2() + 1;
 		int scissorY2 = gstate.getScissorY2() + 1;
 		reallyAClear = IsReallyAClear(transformed, maxIndex, scissorX2, scissorY2);
@@ -465,7 +459,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 	}
 
 	// Detect full screen "clears" that might not be so obvious, to set the safe size if possible.
-	if (!result->setSafeSize && prim == GE_PRIM_RECTANGLES && maxIndex == 2) {
+	if (!result->setSafeSize && prim == GE_PRIM_RECTANGLES && maxIndex == 2 && throughmode) {
 		bool clearingColor = gstate.isModeClear() && (gstate.isClearModeColorMask() || gstate.isClearModeAlphaMask());
 		bool writingColor = gstate.getColorMask() != 0xFFFFFFFF;
 		bool startsZeroX = transformed[0].x <= 0.0f && transformed[1].x > 0.0f && transformed[1].x > transformed[0].x;
@@ -629,10 +623,25 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 			trans[3].u = transVtxTL.u;
 
 			// That's the four corners. Now process UV rotation.
-			if (throughmode)
+			if (throughmode) {
 				RotateUVThrough(trans);
-			else
-				RotateUV(trans, flippedMatrix, flippedY);
+			} else {
+				Vec4f tl;
+				Vec3ByMatrix44(tl.AsArray(), transVtxTL.pos, flippedMatrix);
+				Vec4f br;
+				Vec3ByMatrix44(br.AsArray(), transVtxBR.pos, flippedMatrix);
+
+				// If both transformed verts are outside Z, cull this rectangle entirely.
+				constexpr float outsideValue = 1.000030517578125f;
+				bool tlOutside = fabsf(tl.z / tl.w) >= outsideValue;
+				bool brOutside = fabsf(br.z / br.w) >= outsideValue;
+				if (tlOutside && brOutside)
+					continue;
+				if (!gstate.isDepthClampEnabled() && (tlOutside || brOutside))
+					continue;
+
+				RotateUV(trans, tl, br, flippedY);
+			}
 
 			// Triangle: BR-TR-TL
 			indsOut[0] = i * 2 + 0;

@@ -183,7 +183,7 @@ DepalShader *DepalShaderCacheGLES::GetDepalettizeShader(uint32_t clutMode, GEBuf
 
 	std::vector<GLRShader *> shaders{ vertexShader_, fragShader };
 
-	GLRProgram *program = render_->CreateProgram(shaders, semantics, queries, initializer, false);
+	GLRProgram *program = render_->CreateProgram(shaders, semantics, queries, initializer, false, false);
 
 	depal->program = program;
 	depal->fragShader = fragShader;

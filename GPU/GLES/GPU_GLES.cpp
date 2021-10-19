@@ -228,6 +228,10 @@ void GPU_GLES::CheckGPUFeatures() {
 		if (gl_extensions.GLES3)
 			features |= GPU_SUPPORTS_DEPTH_TEXTURE;
 	}
+	if (draw_->GetDeviceCaps().clipDistanceSupported)
+		features |= GPU_SUPPORTS_CLIP_DISTANCE;
+	if (draw_->GetDeviceCaps().cullDistanceSupported)
+		features |= GPU_SUPPORTS_CULL_DISTANCE;
 
 	// If we already have a 16-bit depth buffer, we don't need to round.
 	bool prefer24 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D24_S8;

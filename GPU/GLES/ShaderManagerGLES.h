@@ -114,9 +114,16 @@ public:
 
 // Real public interface
 
+struct ShaderDescGLES {
+	uint32_t glShaderType;
+	uint32_t attrMask;
+	uint64_t uniformMask;
+	bool useHWTransform;
+};
+
 class Shader {
 public:
-	Shader(GLRenderManager *render, const char *code, const std::string &desc, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask);
+	Shader(GLRenderManager *render, const char *code, const std::string &desc, const ShaderDescGLES &params);
 	~Shader();
 	GLRShader *shader;
 
@@ -131,7 +138,7 @@ public:
 private:
 	GLRenderManager *render_;
 	std::string source_;
-	bool failed_;
+	bool failed_ = false;
 	bool useHWTransform_;
 	bool isFragment_;
 	uint32_t attrMask_; // only used in vertex shaders

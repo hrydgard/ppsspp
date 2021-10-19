@@ -780,6 +780,8 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	caps_.multiViewport = vulkan->GetDeviceFeatures().enabled.multiViewport != 0;
 	caps_.dualSourceBlend = vulkan->GetDeviceFeatures().enabled.dualSrcBlend != 0;
 	caps_.depthClampSupported = vulkan->GetDeviceFeatures().enabled.depthClamp != 0;
+	caps_.clipDistanceSupported = vulkan->GetDeviceFeatures().enabled.shaderClipDistance != 0;
+	caps_.cullDistanceSupported = vulkan->GetDeviceFeatures().enabled.shaderCullDistance != 0;
 	caps_.framebufferBlitSupported = true;
 	caps_.framebufferCopySupported = true;
 	caps_.framebufferDepthBlitSupported = false;  // Can be checked for.
@@ -816,6 +818,11 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	} else if (caps_.vendor == GPUVendor::VENDOR_INTEL) {
 		// Workaround for Intel driver bug. TODO: Re-enable after some driver version
 		bugs_.Infest(Bugs::DUAL_SOURCE_BLENDING_BROKEN);
+	} else if (caps_.vendor == GPUVendor::VENDOR_ARM) {
+		// These GPUs (up to some certain hardware version?) have a bug where draws where gl_Position.w == .z
+		// corrupt the depth buffer. This is easily worked around by simply scaling Z down a tiny bit when this case
+		// is detected. See: https://github.com/hrydgard/ppsspp/issues/11937
+		bugs_.Infest(Bugs::EQUAL_WZ_CORRUPTS_DEPTH);
 	}
 
 	caps_.deviceID = deviceProps.deviceID;

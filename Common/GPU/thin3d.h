@@ -317,6 +317,7 @@ public:
 		BROKEN_NAN_IN_CONDITIONAL = 4,
 		COLORWRITEMASK_BROKEN_WITH_DEPTHTEST = 5,
 		BROKEN_FLAT_IN_SHADER = 6,
+		EQUAL_WZ_CORRUPTS_DEPTH = 7,
 	};
 
 protected:
@@ -520,6 +521,8 @@ struct DeviceCaps {
 	bool dualSourceBlend;
 	bool logicOpSupported;
 	bool depthClampSupported;
+	bool clipDistanceSupported;
+	bool cullDistanceSupported;
 	bool framebufferCopySupported;
 	bool framebufferBlitSupported;
 	bool framebufferDepthCopySupported;

@@ -128,6 +128,10 @@ void GPU_D3D11::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 	if (draw_->GetDeviceCaps().depthClampSupported)
 		features |= GPU_SUPPORTS_DEPTH_CLAMP;
+	if (draw_->GetDeviceCaps().clipDistanceSupported)
+		features |= GPU_SUPPORTS_CLIP_DISTANCE;
+	if (draw_->GetDeviceCaps().cullDistanceSupported)
+		features |= GPU_SUPPORTS_CULL_DISTANCE;
 	features |= GPU_SUPPORTS_COPY_IMAGE;
 	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 	features |= GPU_SUPPORTS_INSTANCE_RENDERING;

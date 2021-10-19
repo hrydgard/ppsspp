@@ -206,10 +206,6 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || driverTooOld) {
 			features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 		}
-		// These GPUs (up to some certain hardware version?) has a bug where draws where gl_Position.w == .z
-		// corrupt the depth buffer. This is easily worked around by simply scaling Z down a tiny bit when this case
-		// is detected. See: https://github.com/hrydgard/ppsspp/issues/11937
-		features |= GPU_NEEDS_Z_EQUAL_W_HACK;
 		break;
 	}
 	default:
@@ -238,21 +234,29 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_FRAMEBUFFER_BLIT_TO_DEPTH;
 	}
 
-	if (vulkan_->GetDeviceFeatures().enabled.wideLines) {
+	auto &enabledFeatures = vulkan_->GetDeviceFeatures().enabled;
+	if (enabledFeatures.wideLines) {
 		features |= GPU_SUPPORTS_WIDE_LINES;
 	}
-	if (vulkan_->GetDeviceFeatures().enabled.depthClamp) {
+	if (enabledFeatures.depthClamp) {
 		features |= GPU_SUPPORTS_DEPTH_CLAMP;
 	}
-	if (vulkan_->GetDeviceFeatures().enabled.dualSrcBlend) {
+	if (enabledFeatures.shaderClipDistance) {
+		features |= GPU_SUPPORTS_CLIP_DISTANCE;
+	}
+	if (enabledFeatures.shaderCullDistance) {
+		// Must support at least 8 if feature supported, so we're fine.
+		features |= GPU_SUPPORTS_CULL_DISTANCE;
+	}
+	if (enabledFeatures.dualSrcBlend) {
 		if (!g_Config.bVendorBugChecksEnabled || !draw_->GetBugs().Has(Draw::Bugs::DUAL_SOURCE_BLENDING_BROKEN)) {
 			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 		}
 	}
-	if (vulkan_->GetDeviceFeatures().enabled.logicOp) {
+	if (enabledFeatures.logicOp) {
 		features |= GPU_SUPPORTS_LOGIC_OP;
 	}
-	if (vulkan_->GetDeviceFeatures().enabled.samplerAnisotropy) {
+	if (enabledFeatures.samplerAnisotropy) {
 		features |= GPU_SUPPORTS_ANISOTROPY;
 	}
 

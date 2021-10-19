@@ -245,6 +245,9 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	// Seems like a fair approximation...
 	caps_.dualSourceBlend = featureLevel_ >= D3D_FEATURE_LEVEL_10_0;
 	caps_.depthClampSupported = featureLevel_ >= D3D_FEATURE_LEVEL_10_0;
+	// SV_ClipDistance# seems to be 10+.
+	caps_.clipDistanceSupported = featureLevel_ >= D3D_FEATURE_LEVEL_10_0;
+	caps_.cullDistanceSupported = featureLevel_ >= D3D_FEATURE_LEVEL_10_0;
 
 	caps_.depthRangeMinusOneToOne = false;
 	caps_.framebufferBlitSupported = false;
@@ -1345,7 +1348,7 @@ void D3D11DrawContext::BindSamplerStates(int start, int count, SamplerState **st
 	_assert_(start + count <= ARRAY_SIZE(samplers));
 	for (int i = 0; i < count; i++) {
 		D3D11SamplerState *samp = (D3D11SamplerState *)states[i];
-		samplers[i] = samp->ss;
+		samplers[i] = samp ? samp->ss : nullptr;
 	}
 	context_->PSSetSamplers(start, count, samplers);
 }
