@@ -212,6 +212,7 @@ void GameSettingsScreen::CreateViews() {
 	auto co = GetI18NCategory("Controls");
 	auto a = GetI18NCategory("Audio");
 	auto sa = GetI18NCategory("Savedata");
+	auto se = GetI18NCategory("Search");
 	auto sy = GetI18NCategory("System");
 	auto n = GetI18NCategory("Networking");
 	auto ms = GetI18NCategory("MainSettings");
@@ -221,20 +222,21 @@ void GameSettingsScreen::CreateViews() {
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	TabHolder *tabHolder;
 	if (vertical) {
 		LinearLayout *verticalLayout = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
-		tabHolder = new TabHolder(ORIENT_HORIZONTAL, 200, new LinearLayoutParams(1.0f));
-		verticalLayout->Add(tabHolder);
+		tabHolder_ = new TabHolder(ORIENT_HORIZONTAL, 200, new LinearLayoutParams(1.0f));
+		verticalLayout->Add(tabHolder_);
 		verticalLayout->Add(new Choice(di->T("Back"), "", false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0))))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 		root_->Add(verticalLayout);
 	} else {
-		tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
-		root_->Add(tabHolder);
+		tabHolder_ = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
+		root_->Add(tabHolder_);
 		AddStandardBack(root_);
 	}
-	tabHolder->SetTag("GameSettings");
-	root_->SetDefaultFocusView(tabHolder);
+	tabHolder_->SetTag("GameSettings");
+	root_->SetDefaultFocusView(tabHolder_);
+	settingTabContents_.clear();
+	settingTabFilterNotices_.clear();
 
 	float leftSide = 40.0f;
 	if (!vertical) {
@@ -252,12 +254,7 @@ void GameSettingsScreen::CreateViews() {
 	// TODO: These currently point to global settings, not game specific ones.
 
 	// Graphics
-	ViewGroup *graphicsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	graphicsSettingsScroll->SetTag("GameSettingsGraphics");
-	LinearLayout *graphicsSettings = new LinearLayoutList(ORIENT_VERTICAL);
-	graphicsSettings->SetSpacing(0);
-	graphicsSettingsScroll->Add(graphicsSettings);
-	tabHolder->AddTab(ms->T("Graphics"), graphicsSettingsScroll);
+	LinearLayout *graphicsSettings = AddTab("GameSettingsGraphics", ms->T("Graphics"));
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Rendering Mode")));
 
@@ -629,15 +626,9 @@ void GameSettingsScreen::CreateViews() {
 		dump->SetEnabled(false);
 
 	// Audio
-	ViewGroup *audioSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	audioSettingsScroll->SetTag("GameSettingsAudio");
-	LinearLayout *audioSettings = new LinearLayoutList(ORIENT_VERTICAL);
-	audioSettings->SetSpacing(0);
-	audioSettingsScroll->Add(audioSettings);
-	tabHolder->AddTab(ms->T("Audio"), audioSettingsScroll);
+	LinearLayout *audioSettings = AddTab("GameSettingsAudio", ms->T("Audio"));
 
 	audioSettings->Add(new ItemHeader(ms->T("Audio")));
-
 	audioSettings->Add(new CheckBox(&g_Config.bEnableSound, a->T("Enable Sound")));
 
 	PopupSliderChoice *volume = audioSettings->Add(new PopupSliderChoice(&g_Config.iGlobalVolume, VOLUME_OFF, VOLUME_FULL, a->T("Global volume"), screenManager()));
@@ -695,12 +686,8 @@ void GameSettingsScreen::CreateViews() {
 	}
 
 	// Control
-	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	controlsSettingsScroll->SetTag("GameSettingsControls");
-	LinearLayout *controlsSettings = new LinearLayoutList(ORIENT_VERTICAL);
-	controlsSettings->SetSpacing(0);
-	controlsSettingsScroll->Add(controlsSettings);
-	tabHolder->AddTab(ms->T("Controls"), controlsSettingsScroll);
+	LinearLayout *controlsSettings = AddTab("GameSettingsControls", ms->T("Controls"));
+
 	controlsSettings->Add(new ItemHeader(ms->T("Controls")));
 	controlsSettings->Add(new Choice(co->T("Control Mapping")))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
 	controlsSettings->Add(new Choice(co->T("Calibrate Analog Stick")))->OnClick.Handle(this, &GameSettingsScreen::OnCalibrateAnalogs);
@@ -795,12 +782,7 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSmoothing, 0.0f, 0.95f, co->T("Mouse smoothing"), 0.05f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bMouseControl);
 #endif
 
-	ViewGroup *networkingSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	networkingSettingsScroll->SetTag("GameSettingsNetworking");
-	LinearLayout *networkingSettings = new LinearLayoutList(ORIENT_VERTICAL);
-	networkingSettings->SetSpacing(0);
-	networkingSettingsScroll->Add(networkingSettings);
-	tabHolder->AddTab(ms->T("Networking"), networkingSettingsScroll);
+	LinearLayout *networkingSettings = AddTab("GameSettingsNetworking", ms->T("Networking"));
 
 	networkingSettings->Add(new ItemHeader(ms->T("Networking")));
 
@@ -866,11 +848,13 @@ void GameSettingsScreen::CreateViews() {
 #endif
 
 #if defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
-	qc1->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat0);
-	qc2->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat1);
-	qc3->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat2);
-	qc4->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat3);
-	qc5->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat4);
+	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
+		qc1->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat0);
+		qc2->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat1);
+		qc3->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat2);
+		qc4->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat3);
+		qc5->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat4);
+	}
 #endif
 
 	networkingSettings->Add(new ItemHeader(n->T("Misc", "Misc (default = compatibility)")));
@@ -878,12 +862,7 @@ void GameSettingsScreen::CreateViews() {
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iMinTimeout, 0, 15000, n->T("Minimum Timeout", "Minimum Timeout (override in ms, 0 = default)"), 50, screenManager()));
 	networkingSettings->Add(new CheckBox(&g_Config.bForcedFirstConnect, n->T("Forced First Connect", "Forced First Connect (faster Connect)")));
 
-	ViewGroup *toolsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	toolsScroll->SetTag("GameSettingsTools");
-	LinearLayout *tools = new LinearLayoutList(ORIENT_VERTICAL);
-	tools->SetSpacing(0);
-	toolsScroll->Add(tools);
-	tabHolder->AddTab(ms->T("Tools"), toolsScroll);
+	LinearLayout *tools = AddTab("GameSettingsTools", ms->T("Tools"));
 
 	tools->Add(new ItemHeader(ms->T("Tools")));
 	// These were moved here so use the wrong translation objects, to avoid having to change all inis... This isn't a sustainable situation :P
@@ -893,12 +872,7 @@ void GameSettingsScreen::CreateViews() {
 	tools->Add(new Choice(ri->T("Remote disc streaming")))->OnClick.Handle(this, &GameSettingsScreen::OnRemoteISO);
 
 	// System
-	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	systemSettingsScroll->SetTag("GameSettingsSystem");
-	LinearLayout *systemSettings = new LinearLayoutList(ORIENT_VERTICAL);
-	systemSettings->SetSpacing(0);
-	systemSettingsScroll->Add(systemSettings);
-	tabHolder->AddTab(ms->T("System"), systemSettingsScroll);
+	LinearLayout *systemSettings = AddTab("GameSettingsSystem", ms->T("System"));
 
 	systemSettings->Add(new ItemHeader(sy->T("UI")));
 	systemSettings->Add(new Choice(dev->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
@@ -1027,9 +1001,8 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bEnableStateUndo, sy->T("Savestate slot backups")));
 	static const char *autoLoadSaveStateChoices[] = { "Off", "Oldest Save", "Newest Save", "Slot 1", "Slot 2", "Slot 3", "Slot 4", "Slot 5" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iAutoLoadSaveState, sy->T("Auto Load Savestate"), autoLoadSaveStateChoices, 0, ARRAY_SIZE(autoLoadSaveStateChoices), sy->GetName(), screenManager()));
-#if defined(USING_WIN_UI) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
-	systemSettings->Add(new CheckBox(&g_Config.bBypassOSKWithKeyboard, sy->T("Use system native keyboard")));
-#endif
+	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD))
+		systemSettings->Add(new CheckBox(&g_Config.bBypassOSKWithKeyboard, sy->T("Use system native keyboard")));
 
 #if PPSSPP_ARCH(AMD64)
 	systemSettings->Add(new CheckBox(&g_Config.bCacheFullIsoInRam, sy->T("Cache ISO in RAM", "Cache full ISO in RAM")))->SetEnabled(!PSP_IsInited());
@@ -1051,7 +1024,10 @@ void GameSettingsScreen::CreateViews() {
 #if !defined(MOBILE_DEVICE)  // TODO: Add all platforms where KEY_CHAR support is added
 	systemSettings->Add(new PopupTextInputChoice(&g_Config.sNickName, sy->T("Change Nickname"), "", 32, screenManager()));
 #elif PPSSPP_PLATFORM(ANDROID)
-	systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.sNickName, sy->T("Change Nickname"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
+	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD))
+		systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.sNickName, sy->T("Change Nickname"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
+	else
+		systemSettings->Add(new PopupTextInputChoice(&g_Config.sNickName, sy->T("Change Nickname"), "", 32, screenManager()));
 #endif
 
 	systemSettings->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, sy->T("Screenshots as PNG")));
@@ -1070,6 +1046,42 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, sy->T("Time Format"), timeFormat, 0, 2, sy->GetName(), screenManager()));
 	static const char *buttonPref[] = { "Use O to confirm", "Use X to confirm" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, sy->T("Confirmation Button"), buttonPref, 0, 2, sy->GetName(), screenManager()));
+
+	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
+		// Search
+		LinearLayout *searchSettings = AddTab("GameSettingsSearch", ms->T("Search"), true);
+
+		searchSettings->Add(new ItemHeader(se->T("Find settings")));
+		searchSettings->Add(new ChoiceWithValueDisplay(&searchFilter_, se->T("Filter"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeSearchFilter);
+		clearSearchChoice_ = searchSettings->Add(new Choice(se->T("Clear filter")));
+		clearSearchChoice_->OnClick.Handle(this, &GameSettingsScreen::OnClearSearchFilter);
+		noSearchResults_ = searchSettings->Add(new TextView(se->T("No settings matched '%1'"), new LinearLayoutParams(Margins(20, 5))));
+
+		ApplySearchFilter();
+	}
+}
+
+UI::LinearLayout *GameSettingsScreen::AddTab(const char *tag, const std::string &title, bool isSearch) {
+	auto se = GetI18NCategory("Search");
+
+	using namespace UI;
+	ViewGroup *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	scroll->SetTag(tag);
+
+	LinearLayout *contents = new LinearLayoutList(ORIENT_VERTICAL);
+	contents->SetSpacing(0);
+	scroll->Add(contents);
+	tabHolder_->AddTab(title, scroll);
+
+	if (!isSearch) {
+		settingTabContents_.push_back(contents);
+
+		auto notice = contents->Add(new TextView(se->T("Filtering settings by '%1'"), new LinearLayoutParams(Margins(20, 5))));
+		notice->SetVisibility(V_GONE);
+		settingTabFilterNotices_.push_back(notice);
+	}
+
+	return contents;
 }
 
 UI::EventReturn GameSettingsScreen::OnAutoFrameskip(UI::EventParams &e) {
@@ -1309,6 +1321,50 @@ void GameSettingsScreen::sendMessage(const char *message, const char *value) {
 		g_Config.bShaderChainRequires60FPS = PostShaderChainRequires60FPS(GetFullPostShadersChain(g_Config.vPostShaderNames));
 		RecreateViews();
 	}
+	if (!strcmp(message, "gameSettings_search")) {
+		std::string filter = value ? value : "";
+		searchFilter_.resize(filter.size());
+		std::transform(filter.begin(), filter.end(), searchFilter_.begin(), tolower);
+
+		ApplySearchFilter();
+	}
+}
+
+void GameSettingsScreen::ApplySearchFilter() {
+	auto se = GetI18NCategory("Search");
+
+	bool matches = searchFilter_.empty();
+	for (int t = 0; t < (int)settingTabContents_.size(); ++t) {
+		auto tabContents = settingTabContents_[t];
+		bool tabMatches = searchFilter_.empty();
+
+		// Show an indicator that a filter is applied.
+		settingTabFilterNotices_[t]->SetVisibility(tabMatches ? UI::V_GONE : UI::V_VISIBLE);
+		settingTabFilterNotices_[t]->SetText(ReplaceAll(se->T("Filtering settings by '%1'"), "%1", searchFilter_));
+
+		UI::View *lastHeading = nullptr;
+		for (int i = 1; i < tabContents->GetNumSubviews(); ++i) {
+			UI::View *v = tabContents->GetViewByIndex(i);
+			if (!v->CanBeFocused()) {
+				lastHeading = v;
+			}
+
+			std::string label = v->DescribeText();
+			std::transform(label.begin(), label.end(), label.begin(), tolower);
+			bool match = v->CanBeFocused() && label.find(searchFilter_) != label.npos;
+			tabMatches = tabMatches || match;
+
+			if (match && lastHeading)
+				lastHeading->SetVisibility(UI::V_VISIBLE);
+			v->SetVisibility(searchFilter_.empty() || match ? UI::V_VISIBLE : UI::V_GONE);
+		}
+		tabHolder_->EnableTab(t, tabMatches);
+		matches = matches || tabMatches;
+	}
+
+	noSearchResults_->SetText(ReplaceAll(se->T("No settings matched '%1'"), "%1", searchFilter_));
+	noSearchResults_->SetVisibility(matches ? UI::V_GONE : UI::V_VISIBLE);
+	clearSearchChoice_->SetVisibility(searchFilter_.empty() ? UI::V_GONE : UI::V_VISIBLE);
 }
 
 void GameSettingsScreen::dialogFinished(const Screen *dialog, DialogResult result) {
@@ -1630,6 +1686,23 @@ UI::EventReturn GameSettingsScreen::OnSysInfo(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn GameSettingsScreen::OnChangeSearchFilter(UI::EventParams &e) {
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
+	auto se = GetI18NCategory("Search");
+	System_InputBoxGetString(se->T("Search term"), searchFilter_, [this](bool result, const std::string &value) {
+		if (result) {
+			NativeMessageReceived("gameSettings_search", StripSpaces(value).c_str());
+		}
+	});
+#endif
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnClearSearchFilter(UI::EventParams &e) {
+	NativeMessageReceived("gameSettings_search", "");
+	return UI::EVENT_DONE;
+}
+
 void DeveloperToolsScreen::CreateViews() {
 	using namespace UI;
 	root_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
@@ -1865,7 +1938,8 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, G_LEFT)));
 #if PPSSPP_PLATFORM(ANDROID)
-	buttonsRow2->Add(new Button(di->T("Edit")))->OnClick.Handle(this, &HostnameSelectScreen::OnEditClick); // Since we don't have OnClick Event triggered from TextEdit's Touch().. here we go!
+	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD))
+		buttonsRow2->Add(new Button(di->T("Edit")))->OnClick.Handle(this, &HostnameSelectScreen::OnEditClick);
 #endif
 	buttonsRow2->Add(new Button(di->T("Delete")))->OnClick.Handle(this, &HostnameSelectScreen::OnDeleteClick);
 	buttonsRow2->Add(new Button(di->T("Delete all")))->OnClick.Handle(this, &HostnameSelectScreen::OnDeleteAllClick);

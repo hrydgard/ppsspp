@@ -1505,11 +1505,17 @@ void ChoiceStrip::SetSelection(int sel, bool triggerClick) {
 	}
 }
 
-void ChoiceStrip::HighlightChoice(unsigned int choice){
-	if (choice < (unsigned int)views_.size()){
+void ChoiceStrip::HighlightChoice(int choice) {
+	if (choice < (int)views_.size()) {
 		Choice(choice)->HighlightChanged(true);
 	}
-};
+}
+
+void ChoiceStrip::EnableChoice(int choice, bool enabled) {
+	if (choice < (int)views_.size()) {
+		Choice(choice)->SetEnabled(enabled);
+	}
+}
 
 bool ChoiceStrip::Key(const KeyInput &input) {
 	bool ret = false;
