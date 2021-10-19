@@ -190,12 +190,18 @@ void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
 void OpenDirectory(const char *path) {
-#if defined(_WIN32)
-	PIDLIST_ABSOLUTE pidl = ILCreateFromPath(ConvertUTF8ToWString(ReplaceAll(path, "/", "\\")).c_str());
+#if PPSSPP_PLATFORM(WINDOWS)
+	SFGAOF flags;
+	PIDLIST_ABSOLUTE pidl = nullptr;
+	HRESULT hr = SHParseDisplayName(ConvertUTF8ToWString(ReplaceAll(path, "/", "\\")).c_str(), nullptr, &pidl, 0, &flags);
 	if (pidl) {
-		SHOpenFolderAndSelectItems(pidl, 0, NULL, 0);
-		ILFree(pidl);
+		if (SUCCEEDED(hr))
+			SHOpenFolderAndSelectItems(pidl, 0, NULL, 0);
+		CoTaskMemFree(pidl);
 	}
+#elif PPSSPP_PLATFORM(MAC)
+	std::string command = std::string("open ") + path;
+	system(command.c_str());
 #endif
 }
 
