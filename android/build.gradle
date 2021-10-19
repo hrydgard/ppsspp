@@ -44,7 +44,7 @@ android {
 			}
 		}
 	}
-	compileSdkVersion 30
+	compileSdkVersion 31
 	defaultConfig {
 		applicationId 'org.ppsspp.ppsspp'
 		if (androidGitVersion.name() != "unknown" && androidGitVersion.code() >= 14000000) {
@@ -60,7 +60,7 @@ android {
 		new File("versioncode.txt").write(androidGitVersion.code().toString())
 
 		minSdkVersion 9
-		targetSdkVersion 30
+		targetSdkVersion 31
 		if (project.hasProperty("ANDROID_VERSION_CODE") && project.hasProperty("ANDROID_VERSION_NAME")) {
 			versionCode ANDROID_VERSION_CODE
 			versionName ANDROID_VERSION_NAME
