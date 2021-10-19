@@ -352,9 +352,6 @@ void DrawEngineGLES::DoFlush() {
 		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK))
 			useCache = false;
 
-		// TEMPORARY
-		useCache = false;
-
 		if (useCache) {
 			u32 id = dcid_ ^ gstate.getUVGenMode();  // This can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
 			vai = vai_.Get(id);
