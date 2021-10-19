@@ -92,14 +92,14 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 
 	if (doTexture) {
 		id.SetBit(VS_BIT_DO_TEXTURE);
+
+		// UV generation mode. doShadeMapping is implicitly stored here.
+		id.SetBits(VS_BIT_UVGEN_MODE, 2, gstate.getUVGenMode());
 	}
 
 	if (useHWTransform) {
 		id.SetBit(VS_BIT_USE_HW_TRANSFORM);
 		id.SetBit(VS_BIT_HAS_NORMAL, hasNormal);
-
-		// UV generation mode. doShadeMapping is implicitly stored here.
-		id.SetBits(VS_BIT_UVGEN_MODE, 2, gstate.getUVGenMode());
 
 		// The next bits are used differently depending on UVgen mode
 		if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX) {
