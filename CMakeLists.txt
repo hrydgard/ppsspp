@@ -354,9 +354,8 @@ if(NOT MSVC)
 
 	if(IOS)
 	elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)
-		set(MACOSX_VERSION_MIN "10.8")
-		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mmacosx-version-min=${MACOSX_VERSION_MIN}")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mmacosx-version-min=${MACOSX_VERSION_MIN} -stdlib=libc++ -U__STRICT_ANSI__")
+		set(CMAKE_OSX_DEPLOYMENT_TARGET "10.8")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -U__STRICT_ANSI__")
 		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
 	elseif(NOT ANDROID)
 		# TODO: See if we can get rid of no-psabi
@@ -688,7 +687,6 @@ add_library(Common STATIC
 	Common/LogManager.h
 	Common/LogReporting.cpp
 	Common/LogReporting.h
-	Common/MakeUnique.h
 	Common/MemArenaAndroid.cpp
 	Common/MemArenaDarwin.cpp
 	Common/MemArenaPosix.cpp
