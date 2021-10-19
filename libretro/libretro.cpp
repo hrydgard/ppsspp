@@ -221,7 +221,6 @@ static RetroOption<bool> ppsspp_texture_replacement("ppsspp_texture_replacement"
 static RetroOption<bool> ppsspp_gpu_hardware_transform("ppsspp_gpu_hardware_transform", "GPU Hardware T&L", true);
 static RetroOption<bool> ppsspp_vertex_cache("ppsspp_vertex_cache", "Vertex Cache (Speedhack)", false);
 static RetroOption<bool> ppsspp_cheats("ppsspp_cheats", "Internal Cheats Support", false);
-static RetroOption<bool> ppsspp_io_threading("ppsspp_io_threading", "I/O on thread (Experimental)", true);
 static RetroOption<IOTimingMethods> ppsspp_io_timing_method("ppsspp_io_timing_method", "IO Timing Method", { { "Fast", IOTimingMethods::IOTIMING_FAST }, { "Host", IOTimingMethods::IOTIMING_HOST }, { "Simulate UMD delays", IOTimingMethods::IOTIMING_REALISTIC } });
 static RetroOption<bool> ppsspp_frame_duplication("ppsspp_frame_duplication", "Duplicate frames in 30hz games", false);
 static RetroOption<bool> ppsspp_software_skinning("ppsspp_software_skinning", "Software Skinning", true);
@@ -264,7 +263,6 @@ void retro_set_environment(retro_environment_t cb)
    vars.push_back(ppsspp_texture_filtering.GetOptions());
    vars.push_back(ppsspp_texture_deposterize.GetOptions());
    vars.push_back(ppsspp_texture_replacement.GetOptions());
-   vars.push_back(ppsspp_io_threading.GetOptions());
    vars.push_back(ppsspp_io_timing_method.GetOptions());
    vars.push_back(ppsspp_ignore_bad_memory_access.GetOptions());
    vars.push_back(ppsspp_cheats.GetOptions());
@@ -368,7 +366,6 @@ static void check_variables(CoreParameter &coreParam)
    ppsspp_locked_cpu_speed.Update(&g_Config.iLockedCPUSpeed);
    ppsspp_rendering_mode.Update(&g_Config.iRenderingMode);
    ppsspp_cpu_core.Update((CPUCore *)&g_Config.iCpuCore);
-   ppsspp_io_threading.Update(&g_Config.bSeparateIOThread);
    ppsspp_io_timing_method.Update((IOTimingMethods *)&g_Config.iIOTimingMethod);
    ppsspp_lower_resolution_for_effects.Update(&g_Config.iBloomHack);
    ppsspp_frame_duplication.Update(&g_Config.bRenderDuplicateFrames);
