@@ -309,7 +309,7 @@ VkPipeline Vulkan2D::GetPipeline(VkRenderPass rp, VkShaderModule vs, VkShaderMod
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly = { VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
 	inputAssembly.flags = 0;
 	inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
-	inputAssembly.primitiveRestartEnable = true;
+	inputAssembly.primitiveRestartEnable = false;
 
 	VkVertexInputAttributeDescription attrs[2];
 	int attributeCount = 2;
