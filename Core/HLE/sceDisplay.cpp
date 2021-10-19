@@ -15,10 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <vector>
-#include <map>
-#include <cmath>
 #include <algorithm>
+#include <cmath>
+#include <map>
+#include <mutex>
+#include <vector>
 
 // TODO: Move this somewhere else, cleanup.
 #ifndef _WIN32
@@ -130,7 +131,10 @@ std::map<SceUID, int> vblankPausedWaits;
 // STATE END
 
 // Called when vblank happens (like an internal interrupt.)  Not part of state, should be static.
-std::vector<VblankCallback> vblankListeners;
+static std::mutex listenersLock;
+static std::vector<VblankCallback> vblankListeners;
+typedef std::pair<FlipCallback, void *> FlipListener;
+static std::vector<FlipListener> flipListeners;
 
 // The vblank period is 731.5 us (0.7315 ms)
 const double vblankMs = 0.7315;
@@ -343,18 +347,40 @@ void __DisplayDoState(PointerWrap &p) {
 }
 
 void __DisplayShutdown() {
+	std::lock_guard<std::mutex> guard(listenersLock);
 	vblankListeners.clear();
+	flipListeners.clear();
 	vblankWaitingThreads.clear();
 }
 
 void __DisplayListenVblank(VblankCallback callback) {
+	std::lock_guard<std::mutex> guard(listenersLock);
 	vblankListeners.push_back(callback);
 }
 
-static void __DisplayFireVblank() {
-	for (std::vector<VblankCallback>::iterator iter = vblankListeners.begin(), end = vblankListeners.end(); iter != end; ++iter) {
-		VblankCallback cb = *iter;
+void __DisplayListenFlip(FlipCallback callback, void *userdata) {
+	std::lock_guard<std::mutex> guard(listenersLock);
+	flipListeners.push_back(std::make_pair(callback, userdata));
+}
+
+void __DisplayForgetFlip(FlipCallback callback, void *userdata) {
+	std::lock_guard<std::mutex> guard(listenersLock);
+	flipListeners.erase(std::remove_if(flipListeners.begin(), flipListeners.end(), [&](FlipListener item) {
+		return item.first == callback && item.second == userdata;
+	}), flipListeners.end());
+}
+
+static void DisplayFireVblank() {
+	std::lock_guard<std::mutex> guard(listenersLock);
+	for (VblankCallback cb : vblankListeners) {
 		cb();
+	}
+}
+
+static void DisplayFireFlip() {
+	std::lock_guard<std::mutex> guard(listenersLock);
+	for (auto cb : flipListeners) {
+		cb.first(cb.second);
 	}
 }
 
@@ -471,7 +497,7 @@ static void CalculateFPS() {
 		}
 	}
 
-	if (g_Config.bDrawFrameGraph) {
+	if (g_Config.bDrawFrameGraph || coreCollectDebugStats) {
 		frameTimeHistory[frameTimeHistoryPos++] = now - lastFrameTimeHistory;
 		lastFrameTimeHistory = now;
 		frameTimeHistoryPos = frameTimeHistoryPos % frameTimeHistorySize;
@@ -656,7 +682,7 @@ static void DoFrameIdleTiming() {
 #endif
 		}
 
-		if (g_Config.bDrawFrameGraph) {
+		if (g_Config.bDrawFrameGraph || coreCollectDebugStats) {
 			frameSleepHistory[frameTimeHistoryPos] += time_now_d() - before;
 		}
 	}
@@ -742,6 +768,7 @@ void __DisplayFlip(int cyclesLate) {
 	if (fbDirty || noRecentFlip || postEffectRequiresFlip) {
 		int frameSleepPos = frameTimeHistoryPos;
 		CalculateFPS();
+		DisplayFireFlip();
 
 		// Let the user know if we're running slow, so they know to adjust settings.
 		// Sometimes users just think the sound emulation is broken.
@@ -821,7 +848,7 @@ void __DisplayFlip(int cyclesLate) {
 		CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
 		numVBlanksSinceFlip = 0;
 
-		if (g_Config.bDrawFrameGraph) {
+		if (g_Config.bDrawFrameGraph || coreCollectDebugStats) {
 			// Track how long we sleep (whether vsync or sleep_ms.)
 			frameSleepHistory[frameSleepPos] += time_now_d() - lastFrameTimeHistory;
 		}
@@ -848,7 +875,7 @@ void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 
 	// Fire the vblank listeners after the vblank completes.
-	__DisplayFireVblank();
+	DisplayFireVblank();
 }
 
 void hleLagSync(u64 userdata, int cyclesLate) {
@@ -886,7 +913,7 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 	const int over = (int)((now - goal) * 1000000);
 	ScheduleLagSync(over - emuOver);
 
-	if (g_Config.bDrawFrameGraph) {
+	if (g_Config.bDrawFrameGraph || coreCollectDebugStats) {
 		frameSleepHistory[frameTimeHistoryPos] += now - before;
 	}
 }

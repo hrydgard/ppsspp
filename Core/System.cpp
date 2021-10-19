@@ -98,7 +98,7 @@ static std::string loadingReason;
 bool audioInitialized;
 
 bool coreCollectDebugStats = false;
-bool coreCollectDebugStatsForced = false;
+static int coreCollectDebugStatsCounter = 0;
 
 // This can be read and written from ANYWHERE.
 volatile CoreState coreState = CORE_STEPPING;
@@ -385,13 +385,23 @@ void Core_UpdateState(CoreState newState) {
 }
 
 void Core_UpdateDebugStats(bool collectStats) {
-	if (coreCollectDebugStats != collectStats) {
-		coreCollectDebugStats = collectStats;
+	bool newState = collectStats || coreCollectDebugStatsCounter > 0;
+	if (coreCollectDebugStats != newState) {
+		coreCollectDebugStats = newState;
 		mipsr4k.ClearJitCache();
 	}
 
 	kernelStats.ResetFrame();
 	gpuStats.ResetFrame();
+}
+
+void Core_ForceDebugStats(bool enable) {
+	if (enable) {
+		coreCollectDebugStatsCounter++;
+	} else {
+		coreCollectDebugStatsCounter--;
+	}
+	_assert_(coreCollectDebugStatsCounter >= 0);
 }
 
 bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
