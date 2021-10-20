@@ -551,16 +551,98 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 	// Step 2: expand rectangles.
 	result->drawBuffer = transformed;
 	int numTrans = 0;
+	const u16 *indsIn = (const u16 *)inds;
+	u16 *newInds = inds + vertexCount;
+	u16 *indsOut = newInds;
 
 	FramebufferManagerCommon *fbman = params_.fbman;
 	bool useBufferedRendering = fbman->UseBufferedRendering();
 
 	bool flippedY = g_Config.iGPUBackend == (int)GPUBackend::OPENGL && !useBufferedRendering;
 
+	constexpr float outsideZValue = 1.000030517578125f;
 	if (prim != GE_PRIM_RECTANGLES) {
 		// We can simply draw the unexpanded buffer.
 		numTrans = vertexCount;
 		result->drawIndexed = true;
+
+		// Project coordinates to check if we need to Z cull them.
+		if (!gstate_c.Supports(GPU_SUPPORTS_CLIP_CULL_DISTANCE) && vertexCount > 0 && !throughmode) {
+			std::vector<int> outsideZ;
+			outsideZ.resize(vertexCount);
+
+			for (int i = 0; i < vertexCount; ++i) {
+				Vec4f pos;
+				Vec3ByMatrix44(pos.AsArray(), transformed[indsIn[i]].pos, gstate.projMatrix);
+				float z = pos.z / pos.w;
+				if (z >= outsideZValue)
+					outsideZ[i] = 1;
+				else if (z <= -outsideZValue)
+					outsideZ[i] = -1;
+				else
+					outsideZ[i] = 0;
+			}
+
+			if (prim == GE_PRIM_LINES && gstate.isDepthClampEnabled()) {
+				numTrans = 0;
+				vertexCount = vertexCount & ~1;
+				for (int i = 0; i < vertexCount; i += 2) {
+					if (outsideZ[i + 0] != 0 && outsideZ[i + 0] == outsideZ[i + 1]) {
+						// All outside, and all the same direction.  Nuke this line.
+						continue;
+					}
+
+					memcpy(indsOut, indsIn + i, 2 * sizeof(uint16_t));
+					indsOut += 2;
+					numTrans += 2;
+				}
+
+				inds = newInds;
+			} else if (prim == GE_PRIM_LINES) {
+				numTrans = 0;
+				vertexCount = vertexCount & ~1;
+				for (int i = 0; i < vertexCount; i += 2) {
+					if (outsideZ[i + 0] != 0 || outsideZ[i + 1] != 0) {
+						// Even one outside, and we cull.
+						continue;
+					}
+
+					memcpy(indsOut, indsIn + i, 2 * sizeof(uint16_t));
+					indsOut += 2;
+					numTrans += 2;
+				}
+
+				inds = newInds;
+			} else if (prim == GE_PRIM_TRIANGLES && gstate.isDepthClampEnabled()) {
+				numTrans = 0;
+				for (int i = 0; i < vertexCount - 2; i += 3) {
+					if (outsideZ[i + 0] != 0 && outsideZ[i + 0] == outsideZ[i + 1] && outsideZ[i + 0] == outsideZ[i + 2]) {
+						// All outside, and all the same direction.  Nuke this triangle.
+						continue;
+					}
+
+					memcpy(indsOut, indsIn + i, 3 * sizeof(uint16_t));
+					indsOut += 3;
+					numTrans += 3;
+				}
+
+				inds = newInds;
+			} else if (prim == GE_PRIM_TRIANGLES) {
+				numTrans = 0;
+				for (int i = 0; i < vertexCount - 2; i += 3) {
+					if (outsideZ[i + 0] != 0 || outsideZ[i + 1] != 0 || outsideZ[i + 2] != 0) {
+						// Even one outside, and we cull.
+						continue;
+					}
+
+					memcpy(indsOut, indsIn + i, 3 * sizeof(uint16_t));
+					indsOut += 3;
+					numTrans += 3;
+				}
+
+				inds = newInds;
+			}
+		}
 	} else {
 		// Pretty bad hackery where we re-do the transform (in RotateUV) to see if the vertices are flipped in screen space.
 		// Since we've already got API-specific assumptions (Y direction, etc) baked into the projMatrix (which we arguably shouldn't),
@@ -591,9 +673,6 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 		numTrans = 0;
 		result->drawBuffer = transformedExpanded;
 		TransformedVertex *trans = &transformedExpanded[0];
-		const u16 *indsIn = (const u16 *)inds;
-		u16 *newInds = inds + vertexCount;
-		u16 *indsOut = newInds;
 		maxIndex = 4 * (vertexCount / 2);
 		for (int i = 0; i < vertexCount; i += 2) {
 			const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
@@ -632,9 +711,8 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 				Vec3ByMatrix44(br.AsArray(), transVtxBR.pos, flippedMatrix);
 
 				// If both transformed verts are outside Z, cull this rectangle entirely.
-				constexpr float outsideValue = 1.000030517578125f;
-				bool tlOutside = fabsf(tl.z / tl.w) >= outsideValue;
-				bool brOutside = fabsf(br.z / br.w) >= outsideValue;
+				bool tlOutside = fabsf(tl.z / tl.w) >= outsideZValue;
+				bool brOutside = fabsf(br.z / br.w) >= outsideZValue;
 				if (tlOutside && brOutside)
 					continue;
 				if (!gstate.isDepthClampEnabled() && (tlOutside || brOutside))
