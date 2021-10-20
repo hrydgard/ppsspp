@@ -2,6 +2,7 @@
 // This is quite messy due to platform-specific implementations and #ifdef's.
 // If your platform is not supported, it is suggested to use Qt instead.
 
+#include <cstdlib>
 #include <unistd.h>
 #include <pwd.h>
 
@@ -199,9 +200,19 @@ void OpenDirectory(const char *path) {
 			SHOpenFolderAndSelectItems(pidl, 0, NULL, 0);
 		CoTaskMemFree(pidl);
 	}
-#elif PPSSPP_PLATFORM(MAC)
-	std::string command = std::string("open ") + path;
-	system(command.c_str());
+#elif PPSSPP_PLATFORM(MAC) || (PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID))
+	pid_t pid = fork();
+	if (pid < 0)
+		return;
+
+	if (pid == 0) {
+#if PPSSPP_PLATFORM(MAC)
+		execlp("open", "open", path, nullptr);
+#else
+		execlp("xdg-open", "xdg-open", path, nullptr);
+#endif
+		exit(1);
+	}
 #endif
 }
 
