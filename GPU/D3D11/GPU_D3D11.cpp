@@ -107,9 +107,6 @@ GPU_D3D11::~GPU_D3D11() {
 void GPU_D3D11::CheckGPUFeatures() {
 	u32 features = 0;
 
-	if (!PSP_CoreParameter().compat.flags().DisableRangeCulling) {
-		features |= GPU_SUPPORTS_VS_RANGE_CULLING;
-	}
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
 
 	// Accurate depth is required because the Direct3D API does not support inverse Z.
@@ -132,6 +129,15 @@ void GPU_D3D11::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_CLIP_DISTANCE;
 	if (draw_->GetDeviceCaps().cullDistanceSupported)
 		features |= GPU_SUPPORTS_CULL_DISTANCE;
+	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
+		// Ignore the compat setting if clip and cull are both enabled.
+		const bool supported = draw_->GetDeviceCaps().clipDistanceSupported && draw_->GetDeviceCaps().cullDistanceSupported;
+		const bool disabled = PSP_CoreParameter().compat.flags().DisableRangeCulling;
+		if (!supported && !disabled) {
+			features |= GPU_SUPPORTS_VS_RANGE_CULLING;
+		}
+	}
+
 	features |= GPU_SUPPORTS_COPY_IMAGE;
 	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 	features |= GPU_SUPPORTS_INSTANCE_RENDERING;

@@ -185,10 +185,6 @@ GPU_Vulkan::~GPU_Vulkan() {
 void GPU_Vulkan::CheckGPUFeatures() {
 	uint32_t features = 0;
 
-	if (!PSP_CoreParameter().compat.flags().DisableRangeCulling) {
-		features |= GPU_SUPPORTS_VS_RANGE_CULLING;
-	}
-
 	switch (vulkan_->GetPhysicalDeviceProperties().properties.vendorID) {
 	case VULKAN_VENDOR_AMD:
 		// Accurate depth is required on AMD (due to reverse-Z driver bug) so we ignore the compat flag to disable it on those. See #9545
@@ -247,6 +243,14 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	if (enabledFeatures.shaderCullDistance) {
 		// Must support at least 8 if feature supported, so we're fine.
 		features |= GPU_SUPPORTS_CULL_DISTANCE;
+	}
+	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
+		// Ignore the compat setting if clip and cull are both enabled.
+		const bool supported = draw_->GetDeviceCaps().clipDistanceSupported && draw_->GetDeviceCaps().cullDistanceSupported;
+		const bool disabled = PSP_CoreParameter().compat.flags().DisableRangeCulling;
+		if (!supported && !disabled) {
+			features |= GPU_SUPPORTS_VS_RANGE_CULLING;
+		}
 	}
 	if (enabledFeatures.dualSrcBlend) {
 		if (!g_Config.bVendorBugChecksEnabled || !draw_->GetBugs().Has(Draw::Bugs::DUAL_SOURCE_BLENDING_BROKEN)) {
