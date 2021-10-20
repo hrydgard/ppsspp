@@ -567,7 +567,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 		result->drawIndexed = true;
 
 		// Project coordinates to check if we need to Z cull them.
-		if (!gstate_c.Supports(GPU_SUPPORTS_CLIP_CULL_DISTANCE) && vertexCount > 0 && !throughmode) {
+		if (!gstate_c.Supports(GPU_SUPPORTS_CULL_DISTANCE) && vertexCount > 0 && !throughmode) {
 			std::vector<int> outsideZ;
 			outsideZ.resize(vertexCount);
 
