@@ -6050,8 +6050,7 @@ int sceNetAdhocDiscoverInitStart(u32 paramAddr) {
 	Memory::Write_U32(paramAddr, netAdhocDiscoverBufAddr + 0xA8);
 
 	char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
-	if (netAdhocDiscoverParam->groupName)
-		memcpy(grpName, netAdhocDiscoverParam->groupName, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
+	memcpy(grpName, netAdhocDiscoverParam->groupName, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
 	DEBUG_LOG(SCENET, "sceNetAdhocDiscoverInitStart - Param.Unknown1 : %08x", netAdhocDiscoverParam->unknown1);
 	DEBUG_LOG(SCENET, "sceNetAdhocDiscoverInitStart - Param.GroupName: [%s]", grpName);
 	DEBUG_LOG(SCENET, "sceNetAdhocDiscoverInitStart - Param.Unknown2 : %08x", netAdhocDiscoverParam->unknown2);
