@@ -87,7 +87,7 @@ Path Path::operator /(const std::string &subdir) const {
 		return Path(path_);
 	}
 	std::string fullPath = path_;
-	if (subdir.front() != '/') {
+	if (subdir.front() != '/' && (fullPath.empty() || fullPath.back() != '/')) {
 		fullPath += "/";
 	}
 	fullPath += subdir;
