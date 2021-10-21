@@ -32,6 +32,8 @@
 class IniFile;
 class TextureCacheCommon;
 class TextureReplacer;
+class ReplacedTextureTask;
+class LimitedWaitable;
 
 enum class ReplacedTextureFormat {
 	F_5650,
@@ -165,8 +167,10 @@ protected:
 	std::vector<std::vector<uint8_t>> levelData_;
 	ReplacedTextureAlpha alphaStatus_;
 	double lastUsed_ = 0.0;
+	LimitedWaitable * threadWaitable_ = nullptr;
 
 	friend TextureReplacer;
+	friend ReplacedTextureTask;
 };
 
 struct ReplacedTextureDecodeInfo {

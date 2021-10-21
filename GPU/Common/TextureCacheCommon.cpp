@@ -1275,10 +1275,13 @@ u32 TextureCacheCommon::EstimateTexMemoryUsage(const TexCacheEntry *entry) {
 }
 
 ReplacedTexture &TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &w, int &h) {
+	// Allow some delay to reduce pop-in.
+	constexpr double MAX_BUDGET_PER_TEX = 0.25 / 60.0;
+
 	double replaceStart = time_now_d();
 	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
 	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h);
-	if (replaced.IsReady(replacementFrameBudget_ - replacementTimeThisFrame_)) {
+	if (replaced.IsReady(std::min(MAX_BUDGET_PER_TEX, replacementFrameBudget_ - replacementTimeThisFrame_))) {
 		if (replaced.GetSize(0, w, h)) {
 			replacementTimeThisFrame_ += time_now_d() - replaceStart;
 

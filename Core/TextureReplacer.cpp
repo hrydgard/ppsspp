@@ -743,24 +743,86 @@ float TextureReplacer::LookupReduceHashRange(int& w, int& h) {
 	}
 }
 
+class LimitedWaitable : public Waitable {
+public:
+	LimitedWaitable() {}
+
+	void Wait() override {
+		if (!triggered_) {
+			std::unique_lock<std::mutex> lock(mutex_);
+			cond_.wait(lock, [&] { return !triggered_; });
+		}
+	}
+
+	bool WaitFor(uint32_t us) {
+		if (!triggered_) {
+			std::unique_lock<std::mutex> lock(mutex_);
+			cond_.wait_for(lock, std::chrono::microseconds(us), [&] { return !triggered_; });
+		}
+		return triggered_;
+	}
+
+	void Notify() {
+		std::unique_lock<std::mutex> lock(mutex_);
+		triggered_ = true;
+		cond_.notify_all();
+	}
+
+private:
+	std::condition_variable cond_;
+	std::mutex mutex_;
+	bool triggered_ = false;
+};
+
+class ReplacedTextureTask : public Task {
+public:
+	ReplacedTextureTask(ReplacedTexture &tex, LimitedWaitable *w) : tex_(tex), waitable_(w) {
+	}
+
+	void Run() override {
+		for (int i = (int)tex_.levelData_.size(); i <= tex_.MaxLevel(); ++i) {
+			tex_.levelData_.resize(i + 1);
+			tex_.PrepareData(i);
+		}
+		waitable_->Notify();
+	}
+
+private:
+	ReplacedTexture &tex_;
+	LimitedWaitable *waitable_;
+};
+
 bool ReplacedTexture::IsReady(double budget) {
 	lastUsed_ = time_now_d();
+	if (threadWaitable_) {
+		if (!threadWaitable_->WaitFor(budget)) {
+			return false;
+		} else {
+			threadWaitable_->WaitAndRelease();
+			threadWaitable_ = nullptr;
+		}
+	}
 
+	// Loaded already, or not yet on a thread?
 	if (levelData_.size() == levels_.size())
 		return Valid();
 	if (budget <= 0.0)
 		return false;
 
-	double deadline = lastUsed_ + budget;
-	for (int i = (int)levelData_.size(); i <= MaxLevel(); ++i) {
-		levelData_.resize(i + 1);
-		PrepareData(i);
-		if (time_now_d() >= deadline) {
-			break;
-		}
+	threadWaitable_ = new LimitedWaitable();
+	g_threadManager.EnqueueTask(new ReplacedTextureTask(*this, threadWaitable_), TaskType::IO_BLOCKING);
+
+	uint32_t budget_us = (uint32_t)(budget * 1000000.0);
+	if (threadWaitable_->WaitFor(budget_us)) {
+		threadWaitable_->WaitAndRelease();
+		threadWaitable_ = nullptr;
+
+		// If we finished all the levels, we're done.
+		return levelData_.size() == levels_.size();
 	}
-	// If we finished all the levels, we're done.
-	return levelData_.size() == levels_.size();
+
+	// Still pending on thread.
+	return false;
 }
 
 void ReplacedTexture::PrepareData(int level) {
@@ -794,18 +856,26 @@ void ReplacedTexture::PrepareData(int level) {
 		int w, h, f;
 		uint8_t *image;
 		if (LoadZIMPtr(&zim[0], zimSize, &w, &h, &f, &image)) {
-			if (w != info.w || h != info.h) {
+			if (w > info.w || h > info.h) {
 				ERROR_LOG(G3D, "Texture replacement changed since header read: %s", info.file.c_str());
 				fclose(fp);
 				return;
 			}
 
-			out.resize(w * h * 4);
-			ParallelMemcpy(&g_threadManager, &out[0], image, info.w * 4 * info.h);
+			out.resize(info.w * info.h * 4);
+			if (w == info.w) {
+				ParallelMemcpy(&g_threadManager, &out[0], image, info.w * 4 * info.h);
+			} else {
+				ParallelRangeLoop(&g_threadManager, [&](int l, int u) {
+					for (int y = l; y < u; ++y) {
+						memcpy(&out[info.w * 4 * y], image + w * 4 * y, w * 4);
+					}
+				}, 0, h, 4);
+			}
 			free(image);
 		}
 
-		CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)&out[0], w, w, h);
+		CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)&out[0], info.w, w, h);
 		if (res == CHECKALPHA_ANY || level == 0) {
 			alphaStatus_ = ReplacedTextureAlpha(res);
 		}
@@ -818,7 +888,7 @@ void ReplacedTexture::PrepareData(int level) {
 			fclose(fp);
 			return;
 		}
-		if (png.width != info.w || png.height != info.h) {
+		if (png.width > (uint32_t)info.w || png.height > (uint32_t)info.h) {
 			ERROR_LOG(G3D, "Texture replacement changed since header read: %s", info.file.c_str());
 			fclose(fp);
 			return;
@@ -834,8 +904,8 @@ void ReplacedTexture::PrepareData(int level) {
 		}
 		png.format = PNG_FORMAT_RGBA;
 
-		out.resize(png.width * png.height * 4);
-		if (!png_image_finish_read(&png, nullptr, &out[0], png.width * 4, nullptr)) {
+		out.resize(info.w * info.h * 4);
+		if (!png_image_finish_read(&png, nullptr, &out[0], info.w * 4, nullptr)) {
 			ERROR_LOG(G3D, "Could not load texture replacement: %s - %s", info.file.c_str(), png.message);
 			fclose(fp);
 			out.resize(0);
@@ -845,7 +915,7 @@ void ReplacedTexture::PrepareData(int level) {
 
 		if (!checkedAlpha) {
 			// This will only check the hashed bits.
-			CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)&out[0], png.width, png.width, png.height);
+			CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)&out[0], info.w, png.width, png.height);
 			if (res == CHECKALPHA_ANY || level == 0) {
 				alphaStatus_ = ReplacedTextureAlpha(res);
 			}
@@ -856,7 +926,7 @@ void ReplacedTexture::PrepareData(int level) {
 }
 
 void ReplacedTexture::PurgeIfOlder(double t) {
-	if (lastUsed_ < t) {
+	if (lastUsed_ < t && !threadWaitable_) {
 		levelData_.clear();
 	}
 }

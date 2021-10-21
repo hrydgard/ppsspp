@@ -338,7 +338,7 @@ protected:
 	int timesInvalidatedAllThisFrame_ = 0;
 	double replacementTimeThisFrame_ = 0;
 	// TODO: Maybe vary by FPS...
-	double replacementFrameBudget_ = 0.75 / 60.0;
+	double replacementFrameBudget_ = 0.5 / 60.0;
 
 	TexCache cache_;
 	u32 cacheSizeEstimate_ = 0;
