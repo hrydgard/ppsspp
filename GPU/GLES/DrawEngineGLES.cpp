@@ -565,6 +565,7 @@ void DrawEngineGLES::DoFlush() {
 		params.allowSeparateAlphaClear = true;
 		params.provokeFlatFirst = false;
 		params.flippedY = framebufferManager_->UseBufferedRendering();
+		params.usesHalfZ = false;
 
 		// We need correct viewport values in gstate_c already.
 		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {

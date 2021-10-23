@@ -567,23 +567,111 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 	// Step 2: expand rectangles.
 	result->drawBuffer = transformed;
 	int numTrans = 0;
+	const u16 *indsIn = (const u16 *)inds;
+	u16 *newInds = inds + vertexCount;
+	u16 *indsOut = newInds;
 
 	FramebufferManagerCommon *fbman = params_.fbman;
 	bool useBufferedRendering = fbman->UseBufferedRendering();
+
+	float maxZValue = 1.000030517578125f * gstate_c.vpDepthScale;
+	float minZValue = -maxZValue;
+	if (params_.usesHalfZ) {
+		maxZValue = maxZValue * 0.5f + 0.5f + gstate_c.vpZOffset * 0.5f;
+		minZValue = minZValue * 0.5f + 0.5f + gstate_c.vpZOffset * 0.5f;
+	} else {
+		maxZValue += gstate_c.vpZOffset;
+		minZValue += gstate_c.vpZOffset;
+	}
+	if (minZValue > maxZValue)
+		std::swap(minZValue, maxZValue);
 
 	if (prim != GE_PRIM_RECTANGLES) {
 		// We can simply draw the unexpanded buffer.
 		numTrans = vertexCount;
 		result->drawIndexed = true;
+
+		if (!gstate_c.Supports(GPU_SUPPORTS_CULL_DISTANCE) && vertexCount > 0 && !throughmode) {
+			std::vector<int> outsideZ;
+			outsideZ.resize(vertexCount);
+
+			for (int i = 0; i < vertexCount; ++i) {
+				float z = transformed[indsIn[i]].z / transformed[indsIn[i]].pos_w;
+				if (z >= maxZValue)
+					outsideZ[i] = 1;
+				else if (z <= minZValue)
+					outsideZ[i] = -1;
+				else
+					outsideZ[i] = 0;
+			}
+
+			if (prim == GE_PRIM_LINES && gstate.isDepthClampEnabled()) {
+				numTrans = 0;
+				vertexCount = vertexCount & ~1;
+				for (int i = 0; i < vertexCount; i += 2) {
+					if (outsideZ[i + 0] != 0 && outsideZ[i + 0] == outsideZ[i + 1]) {
+						// All outside, and all the same direction.  Nuke this line.
+						continue;
+					}
+
+					memcpy(indsOut, indsIn + i, 2 * sizeof(uint16_t));
+					indsOut += 2;
+					numTrans += 2;
+				}
+
+				inds = newInds;
+			} else if (prim == GE_PRIM_LINES) {
+				numTrans = 0;
+				vertexCount = vertexCount & ~1;
+				for (int i = 0; i < vertexCount; i += 2) {
+					if (outsideZ[i + 0] != 0 || outsideZ[i + 1] != 0) {
+						// Even one outside, and we cull.
+						continue;
+					}
+
+					memcpy(indsOut, indsIn + i, 2 * sizeof(uint16_t));
+					indsOut += 2;
+					numTrans += 2;
+				}
+
+				inds = newInds;
+			} else if (prim == GE_PRIM_TRIANGLES && gstate.isDepthClampEnabled()) {
+				numTrans = 0;
+				for (int i = 0; i < vertexCount - 2; i += 3) {
+					if (outsideZ[i + 0] != 0 && outsideZ[i + 0] == outsideZ[i + 1] && outsideZ[i + 0] == outsideZ[i + 2]) {
+						// All outside, and all the same direction.  Nuke this triangle.
+						continue;
+					}
+
+					memcpy(indsOut, indsIn + i, 3 * sizeof(uint16_t));
+					indsOut += 3;
+					numTrans += 3;
+				}
+
+				inds = newInds;
+			} else if (prim == GE_PRIM_TRIANGLES) {
+				numTrans = 0;
+				for (int i = 0; i < vertexCount - 2; i += 3) {
+					if (outsideZ[i + 0] != 0 || outsideZ[i + 1] != 0 || outsideZ[i + 2] != 0) {
+						// Even one outside, and we cull.
+						continue;
+					}
+
+					memcpy(indsOut, indsIn + i, 3 * sizeof(uint16_t));
+					indsOut += 3;
+					numTrans += 3;
+				}
+
+				inds = newInds;
+			}
+		}
 	} else {
 		//rectangles always need 2 vertices, disregard the last one if there's an odd number
 		vertexCount = vertexCount & ~1;
 		numTrans = 0;
 		result->drawBuffer = transformedExpanded;
 		TransformedVertex *trans = &transformedExpanded[0];
-		const u16 *indsIn = (const u16 *)inds;
-		u16 *newInds = inds + vertexCount;
-		u16 *indsOut = newInds;
+
 		maxIndex = 4 * (vertexCount / 2);
 		for (int i = 0; i < vertexCount; i += 2) {
 			const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
@@ -616,7 +704,21 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 			if (throughmode) {
 				RotateUVThrough(trans);
 			} else {
-				// TODO: Should apply culling here, based on projection depth range.
+				// If both transformed verts are outside Z, cull this rectangle entirely.
+				float tlz = transVtxTL.z / transVtxTL.pos_w;
+				float brz = transVtxBR.z / transVtxBR.pos_w;
+				if (!gstate.isDepthClampEnabled()) {
+					if (tlz >= maxZValue || brz >= maxZValue)
+						continue;
+					if (tlz <= minZValue || brz <= minZValue)
+						continue;
+				} else {
+					if (tlz >= maxZValue && brz >= maxZValue)
+						continue;
+					if (tlz <= minZValue && brz <= minZValue)
+						continue;
+				}
+
 				RotateUV(trans, params_.flippedY);
 			}
 
