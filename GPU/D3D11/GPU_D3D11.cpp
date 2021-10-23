@@ -134,7 +134,7 @@ void GPU_D3D11::CheckGPUFeatures() {
 		// When supported, we can do the depth side of range culling more correctly.
 		const bool supported = draw_->GetDeviceCaps().clipDistanceSupported && draw_->GetDeviceCaps().cullDistanceSupported;
 		const bool disabled = PSP_CoreParameter().compat.flags().DisableRangeCulling;
-		if (supported && !disabled) {
+		if (supported || !disabled) {
 			features |= GPU_SUPPORTS_VS_RANGE_CULLING;
 		}
 	}
