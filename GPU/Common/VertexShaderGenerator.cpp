@@ -278,9 +278,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "#pragma warning( disable : 3571 )\n");
 			if (isModeThrough) {
 				WRITE(p, "mat4 u_proj_through : register(c%i);\n", CONST_VS_PROJ_THROUGH);
-			} else {
+			} else if (useHWTransform) {
 				WRITE(p, "mat4 u_proj : register(c%i);\n", CONST_VS_PROJ);
-				// Add all the uniforms we'll need to transform properly.
 			}
 
 			if (enableFog) {
@@ -456,10 +455,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (isModeThrough) {
 			WRITE(p, "uniform mat4 u_proj_through;\n");
 			*uniformMask |= DIRTY_PROJTHROUGHMATRIX;
-		} else {
+		} else if (useHWTransform) {
 			WRITE(p, "uniform mat4 u_proj;\n");
 			*uniformMask |= DIRTY_PROJMATRIX;
-			// Add all the uniforms we'll need to transform properly.
 		}
 
 		if (useHWTransform) {
@@ -794,9 +792,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		} else {
 			// The viewport is used in this case, so need to compensate for that.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, vec4(position.xyz, 1.0)));\n");
+				WRITE(p, "  vec4 outPos = depthRoundZVP(vec4(position.xyz, 1.0));\n");
 			} else {
-				WRITE(p, "  vec4 outPos = mul(u_proj, vec4(position.xyz, 1.0));\n");
+				WRITE(p, "  vec4 outPos = vec4(position.xyz, 1.0);\n");
 			}
 		}
 	} else {

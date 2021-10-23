@@ -64,16 +64,14 @@ static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
 
 // Note: 0 is BR and 2 is TL.
 
-static void RotateUV(TransformedVertex v[4], Vec4f tl, Vec4f br, bool flippedY) {
+static void RotateUV(TransformedVertex v[4], bool flippedY) {
 	// We use the transformed tl/br coordinates to figure out whether they're flipped or not.
 	float ySign = flippedY ? -1.0 : 1.0;
 
-	const float invtlw = 1.0f / tl.w;
-	const float invbrw = 1.0f / br.w;
-	const float x1 = tl.x * invtlw;
-	const float x2 = br.x * invbrw;
-	const float y1 = tl.y * invtlw * ySign;
-	const float y2 = br.y * invbrw * ySign;
+	const float x1 = v[2].x;
+	const float x2 = v[0].x;
+	const float y1 = v[2].y * ySign;
+	const float y2 = v[0].y * ySign;
 
 	if ((x1 < x2 && y1 < y2) || (x1 > x2 && y1 > y2))
 		SwapUVs(v[1], v[3]);
@@ -431,14 +429,16 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			fogCoef = (v[2] + fog_end) * fog_slope;
 
 			// TODO: Write to a flexible buffer, we don't always need all four components.
-			memcpy(&transformed[index].x, v, 3 * sizeof(float));
+			Vec4f projected;
+			Vec3ByMatrix44(projected.AsArray(), v, projMatrix_.m);
+			Vec3f viewportPos = projected.xyz() / projected.w;
+			memcpy(&transformed[index].x, viewportPos.AsArray(), 3 * sizeof(float));
 			transformed[index].fog = fogCoef;
 			memcpy(&transformed[index].u, uv, 3 * sizeof(float));
 			transformed[index].color0_32 = c0.ToRGBA();
 			transformed[index].color1_32 = c1.ToRGBA();
 
-			// The multiplication by the projection matrix is still performed in the vertex shader.
-			// So is vertex depth rounding, to simulate the 16-bit depth buffer.
+			// Vertex depth rounding is done in the shader, to simulate the 16-bit depth buffer.
 		}
 	}
 
@@ -447,7 +447,6 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 	//
 	// An alternative option is to simply ditch all the verts except the first and last to create a single
 	// rectangle out of many. Quite a small optimization though.
-	// Experiment: Disable on PowerVR (see issue #6290)
 	// TODO: This bleeds outside the play area in non-buffered mode. Big deal? Probably not.
 	// TODO: Allow creating a depth clear and a color draw.
 	bool reallyAClear = false;
@@ -619,21 +618,16 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 			if (throughmode) {
 				RotateUVThrough(trans);
 			} else {
-				Vec4f tl;
-				Vec3ByMatrix44(tl.AsArray(), transVtxTL.pos, projMatrix_.m);
-				Vec4f br;
-				Vec3ByMatrix44(br.AsArray(), transVtxBR.pos, projMatrix_.m);
-
 				// If both transformed verts are outside Z, cull this rectangle entirely.
 				constexpr float outsideValue = 1.000030517578125f;
-				bool tlOutside = fabsf(tl.z / tl.w) >= outsideValue;
-				bool brOutside = fabsf(br.z / br.w) >= outsideValue;
+				bool tlOutside = fabsf(transVtxTL.z) >= outsideValue;
+				bool brOutside = fabsf(transVtxBR.z) >= outsideValue;
 				if (tlOutside && brOutside)
 					continue;
 				if (!gstate.isDepthClampEnabled() && (tlOutside || brOutside))
 					continue;
 
-				RotateUV(trans, tl, br, params_.flippedY);
+				RotateUV(trans, params_.flippedY);
 			}
 
 			// Triangle: BR-TR-TL
