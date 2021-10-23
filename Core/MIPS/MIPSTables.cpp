@@ -981,7 +981,7 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 					auto cond = CBreakPoints::GetBreakPointCondition(currentMIPS->pc);
 					if (!cond || cond->Evaluate())
 					{
-						Core_EnableStepping(true);
+						Core_EnableStepping(true, "cpu.breakpoint", curMips->pc);
 						if (CBreakPoints::IsTempBreakPoint(curMips->pc))
 							CBreakPoints::RemoveBreakPoint(curMips->pc);
 						break;

@@ -421,7 +421,7 @@ void CtrlMemView::onChar(WPARAM wParam, LPARAM lParam)
 	}
 
 	bool active = Core_IsActive();
-	if (active) Core_EnableStepping(true);
+	if (active) Core_EnableStepping(true, "memory.access", curAddress);
 
 	if (asciiSelected)
 	{

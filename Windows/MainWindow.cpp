@@ -724,7 +724,7 @@ namespace MainWindow
 						if (disasmWindow)
 							SendMessage(disasmWindow->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
 						else
-							Core_EnableStepping(pause);
+							Core_EnableStepping(pause, "ui.lost_focus", 0);
 					}
 				}
 

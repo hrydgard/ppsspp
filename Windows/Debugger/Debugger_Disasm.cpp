@@ -420,7 +420,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					if (isRunning)
 					{
 						SetDebugMode(true, false);
-						Core_EnableStepping(true);
+						Core_EnableStepping(true, "cpu.breakpoint.add", 0);
 						Core_WaitInactive(200);
 					}
 
@@ -523,7 +523,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					{
 						ptr->setDontRedraw(false);
 						SetDebugMode(true, true);
-						Core_EnableStepping(true);
+						Core_EnableStepping(true, "ui.break", 0);
 						Sleep(1); //let cpu catch up
 						ptr->gotoPC();
 						UpdateDialog();
