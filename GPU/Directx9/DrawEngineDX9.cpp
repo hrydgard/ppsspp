@@ -555,6 +555,7 @@ rotateVBO:
 		params.allowClear = true;
 		params.allowSeparateAlphaClear = false;
 		params.provokeFlatFirst = true;
+		params.flippedY = false;
 
 		int maxIndex = indexGen.MaxIndex();
 		SoftwareTransform swTransform(params);

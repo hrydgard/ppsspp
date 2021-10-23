@@ -563,6 +563,7 @@ void DrawEngineGLES::DoFlush() {
 		params.allowClear = true;
 		params.allowSeparateAlphaClear = true;
 		params.provokeFlatFirst = false;
+		params.flippedY = !framebufferManager_->UseBufferedRendering();
 
 		int maxIndex = indexGen.MaxIndex();
 		int vertexCount = indexGen.VertexCount();

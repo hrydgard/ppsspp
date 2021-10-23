@@ -909,6 +909,7 @@ void DrawEngineVulkan::DoFlush() {
 		params.allowClear = framebufferManager_->UseBufferedRendering();
 		params.allowSeparateAlphaClear = false;
 		params.provokeFlatFirst = true;
+		params.flippedY = false;
 
 		// We need to update the viewport early because it's checked for flipping in SoftwareTransform.
 		// We don't have a "DrawStateEarly" in vulkan, so...

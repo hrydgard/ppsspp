@@ -56,6 +56,7 @@ struct SoftwareTransformParams {
 	bool allowClear;
 	bool allowSeparateAlphaClear;
 	bool provokeFlatFirst;
+	bool flippedY;
 };
 
 class SoftwareTransform {

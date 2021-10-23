@@ -555,8 +555,6 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 	FramebufferManagerCommon *fbman = params_.fbman;
 	bool useBufferedRendering = fbman->UseBufferedRendering();
 
-	bool flippedY = g_Config.iGPUBackend == (int)GPUBackend::OPENGL && !useBufferedRendering;
-
 	if (prim != GE_PRIM_RECTANGLES) {
 		// We can simply draw the unexpanded buffer.
 		numTrans = vertexCount;
@@ -570,7 +568,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 		if (!throughmode) {
 			memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 
-			const bool invertedY = flippedY ? (gstate_c.vpHeight < 0) : (gstate_c.vpHeight > 0);
+			const bool invertedY = params_.flippedY ? (gstate_c.vpHeight < 0) : (gstate_c.vpHeight > 0);
 			if (invertedY) {
 				flippedMatrix[1] = -flippedMatrix[1];
 				flippedMatrix[5] = -flippedMatrix[5];
@@ -640,7 +638,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 				if (!gstate.isDepthClampEnabled() && (tlOutside || brOutside))
 					continue;
 
-				RotateUV(trans, tl, br, flippedY);
+				RotateUV(trans, tl, br, params_.flippedY);
 			}
 
 			// Triangle: BR-TR-TL
