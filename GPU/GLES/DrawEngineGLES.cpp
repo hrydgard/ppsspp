@@ -563,7 +563,7 @@ void DrawEngineGLES::DoFlush() {
 		params.allowClear = true;
 		params.allowSeparateAlphaClear = true;
 		params.provokeFlatFirst = false;
-		params.flippedY = !framebufferManager_->UseBufferedRendering();
+		params.flippedY = framebufferManager_->UseBufferedRendering();
 
 		// We need correct viewport values in gstate_c already.
 		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
@@ -583,6 +583,12 @@ void DrawEngineGLES::DoFlush() {
 #endif
 
 		SoftwareTransform swTransform(params);
+
+		const Lin::Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, gstate_c.vpZOffset);
+		const Lin::Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale * (params.flippedY ? 1.0 : -1.0f), gstate_c.vpDepthScale);
+		const bool invertedY = gstate_c.vpHeight * (params.flippedY ? 1.0 : -1.0f) < 0;
+		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, invertedY, trans, scale);
+
 		swTransform.Decode(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), maxIndex, &result);
 		if (result.action == SW_NOT_READY)
 			swTransform.DetectOffsetTexture(maxIndex);

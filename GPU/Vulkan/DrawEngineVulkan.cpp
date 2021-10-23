@@ -909,7 +909,7 @@ void DrawEngineVulkan::DoFlush() {
 		params.allowClear = framebufferManager_->UseBufferedRendering();
 		params.allowSeparateAlphaClear = false;
 		params.provokeFlatFirst = true;
-		params.flippedY = false;
+		params.flippedY = true;
 
 		// We need to update the viewport early because it's checked for flipping in SoftwareTransform.
 		// We don't have a "DrawStateEarly" in vulkan, so...
@@ -924,6 +924,11 @@ void DrawEngineVulkan::DoFlush() {
 
 		int maxIndex = indexGen.MaxIndex();
 		SoftwareTransform swTransform(params);
+
+		const Lin::Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, gstate_c.vpZOffset * 0.5f + 0.5f);
+		const Lin::Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
+		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, gstate_c.vpHeight < 0, trans, scale);
+
 		swTransform.Decode(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), maxIndex, &result);
 		if (result.action == SW_NOT_READY) {
 			swTransform.DetectOffsetTexture(maxIndex);

@@ -151,6 +151,25 @@ static int ColorIndexOffset(int prim, GEShadeMode shadeMode, bool clearMode) {
 	return 0;
 }
 
+void SoftwareTransform::SetProjMatrix(float mtx[14], bool invertedX, bool invertedY, const Lin::Vec3 &trans, const Lin::Vec3 &scale) {
+	memcpy(&projMatrix_.m, mtx, 16 * sizeof(float));
+
+	if (invertedY) {
+		projMatrix_.xy = -projMatrix_.xy;
+		projMatrix_.yy = -projMatrix_.yy;
+		projMatrix_.zy = -projMatrix_.zy;
+		projMatrix_.wy = -projMatrix_.wy;
+	}
+	if (invertedX) {
+		projMatrix_.xx = -projMatrix_.xx;
+		projMatrix_.yx = -projMatrix_.yx;
+		projMatrix_.zx = -projMatrix_.zx;
+		projMatrix_.wx = -projMatrix_.wx;
+	}
+
+	projMatrix_.translateAndScale(trans, scale);
+}
+
 void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int maxIndex, SoftwareTransformResult *result) {
 	u8 *decoded = params_.decoded;
 	TransformedVertex *transformed = params_.transformed;
@@ -560,30 +579,6 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 		numTrans = vertexCount;
 		result->drawIndexed = true;
 	} else {
-		// Pretty bad hackery where we re-do the transform (in RotateUV) to see if the vertices are flipped in screen space.
-		// Since we've already got API-specific assumptions (Y direction, etc) baked into the projMatrix (which we arguably shouldn't),
-		// this gets nasty and very hard to understand.
-
-		float flippedMatrix[16];
-		if (!throughmode) {
-			memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
-
-			const bool invertedY = params_.flippedY ? (gstate_c.vpHeight < 0) : (gstate_c.vpHeight > 0);
-			if (invertedY) {
-				flippedMatrix[1] = -flippedMatrix[1];
-				flippedMatrix[5] = -flippedMatrix[5];
-				flippedMatrix[9] = -flippedMatrix[9];
-				flippedMatrix[13] = -flippedMatrix[13];
-			}
-			const bool invertedX = gstate_c.vpWidth < 0;
-			if (invertedX) {
-				flippedMatrix[0] = -flippedMatrix[0];
-				flippedMatrix[4] = -flippedMatrix[4];
-				flippedMatrix[8] = -flippedMatrix[8];
-				flippedMatrix[12] = -flippedMatrix[12];
-			}
-		}
-
 		//rectangles always need 2 vertices, disregard the last one if there's an odd number
 		vertexCount = vertexCount & ~1;
 		numTrans = 0;
@@ -625,9 +620,9 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 				RotateUVThrough(trans);
 			} else {
 				Vec4f tl;
-				Vec3ByMatrix44(tl.AsArray(), transVtxTL.pos, flippedMatrix);
+				Vec3ByMatrix44(tl.AsArray(), transVtxTL.pos, projMatrix_.m);
 				Vec4f br;
-				Vec3ByMatrix44(br.AsArray(), transVtxBR.pos, flippedMatrix);
+				Vec3ByMatrix44(br.AsArray(), transVtxBR.pos, projMatrix_.m);
 
 				// If both transformed verts are outside Z, cull this rectangle entirely.
 				constexpr float outsideValue = 1.000030517578125f;
