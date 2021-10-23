@@ -781,6 +781,8 @@ public:
 
 	void Run() override {
 		for (int i = (int)tex_.levelData_.size(); i <= tex_.MaxLevel(); ++i) {
+			if (tex_.cancelPrepare_)
+				break;
 			tex_.levelData_.resize(i + 1);
 			tex_.PrepareData(i);
 		}
@@ -928,6 +930,14 @@ void ReplacedTexture::PrepareData(int level) {
 void ReplacedTexture::PurgeIfOlder(double t) {
 	if (lastUsed_ < t && !threadWaitable_) {
 		levelData_.clear();
+	}
+}
+
+ReplacedTexture::~ReplacedTexture() {
+	if (threadWaitable_) {
+		cancelPrepare_ = true;
+		threadWaitable_->WaitAndRelease();
+		threadWaitable_ = nullptr;
 	}
 }
 

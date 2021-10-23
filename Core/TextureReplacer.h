@@ -127,6 +127,8 @@ namespace std {
 }
 
 struct ReplacedTexture {
+	~ReplacedTexture();
+
 	inline bool Valid() {
 		return !levels_.empty();
 	}
@@ -167,7 +169,8 @@ protected:
 	std::vector<std::vector<uint8_t>> levelData_;
 	ReplacedTextureAlpha alphaStatus_;
 	double lastUsed_ = 0.0;
-	LimitedWaitable * threadWaitable_ = nullptr;
+	LimitedWaitable *threadWaitable_ = nullptr;
+	bool cancelPrepare_ = false;
 
 	friend TextureReplacer;
 	friend ReplacedTextureTask;
