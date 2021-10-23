@@ -22,13 +22,14 @@
 #include <cmath>
 #include <map>
 
+#include "Common/Data/Convert/SmallDataConvert.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Math/math_util.h"
-#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/GPU/D3D9/D3D9ShaderCompiler.h"
 #include "Common/GPU/thin3d.h"
-#include "Common/Data/Encoding/Utf8.h"
+#include "Common/System/Display.h"
 
 #include "Common/Common.h"
 #include "Common/Log.h"
@@ -344,6 +345,7 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 		ConvertProjMatrixToD3D(flippedMatrix, invertedX, invertedY);
 
 		VSSetMatrix(CONST_VS_PROJ, flippedMatrix.getReadPtr());
+		VSSetFloat(CONST_VS_ROTATION, (float)g_display_rotation);
 	}
 	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
 		Matrix4x4 proj_through;

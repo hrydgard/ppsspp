@@ -33,6 +33,7 @@
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "Common/System/Display.h"
 
 #include "Common/Log.h"
 #include "Common/File/FileUtil.h"
@@ -124,6 +125,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_depthRange, "u_depthRange" });
 	queries.push_back({ &u_cullRangeMin, "u_cullRangeMin" });
 	queries.push_back({ &u_cullRangeMax, "u_cullRangeMax" });
+	queries.push_back({ &u_rotation, "u_rotation" });
 
 #ifdef USE_BONE_ARRAY
 	queries.push_back({ &u_bone, "u_bone" });
@@ -360,6 +362,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		ScaleProjMatrix(flippedMatrix, useBufferedRendering);
 
 		render_->SetUniformM4x4(&u_proj, flippedMatrix.m);
+		render_->SetUniformF1(&u_rotation, (float)g_display_rotation);
 	}
 	if (dirty & DIRTY_PROJTHROUGHMATRIX)
 	{

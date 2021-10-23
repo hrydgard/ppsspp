@@ -280,6 +280,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "mat4 u_proj_through : register(c%i);\n", CONST_VS_PROJ_THROUGH);
 			} else if (useHWTransform) {
 				WRITE(p, "mat4 u_proj : register(c%i);\n", CONST_VS_PROJ);
+			} else {
+				WRITE(p, "float u_rotation : register(c%i);\n", CONST_VS_ROTATION);
 			}
 
 			if (enableFog) {
@@ -517,6 +519,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "uniform lowp vec3 u_matemissive;\n");
 				*uniformMask |= DIRTY_MATSPECULAR | DIRTY_MATEMISSIVE;
 			}
+		} else {
+			WRITE(p, "uniform lowp float u_rotation;\n");
 		}
 
 		if (useHWTransform || !hasColor) {
@@ -790,11 +794,19 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (isModeThrough)	{
 			WRITE(p, "  vec4 outPos = mul(u_proj_through, vec4(position.xyz, 1.0));\n");
 		} else {
+			// Apply rotation from the uniform.
+			WRITE(p, "  mat4 displayRotation = mat4(\n");
+			WRITE(p, "    u_rotation == 0.0 ? 1.0 : (u_rotation == 2.0 ? -1.0 : 0.0), u_rotation == 1.0 ? 1.0 : (u_rotation == 3.0 ? -1.0 : 0.0), 0.0, 0.0,\n");
+			WRITE(p, "    u_rotation == 3.0 ? 1.0 : (u_rotation == 1.0 ? -1.0 : 0.0), u_rotation == 0.0 ? 1.0 : (u_rotation == 2.0 ? -1.0 : 0.0), 0.0, 0.0,\n");
+			WRITE(p, "    0.0, 0.0, 1.0, 0.0,\n");
+			WRITE(p, "    0.0, 0.0, 0.0, 1.0\n");
+			WRITE(p, "  );\n");
+
 			// The viewport is used in this case, so need to compensate for that.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  vec4 outPos = depthRoundZVP(vec4(position.xyz, 1.0));\n");
+				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(displayRotation, vec4(position.xyz, 1.0)));\n");
 			} else {
-				WRITE(p, "  vec4 outPos = vec4(position.xyz, 1.0);\n");
+				WRITE(p, "  vec4 outPos = mul(displayRotation, vec4(position.xyz, 1.0));\n");
 			}
 		}
 	} else {
