@@ -759,6 +759,8 @@ public:
 
 	bool WaitFor(uint32_t us) {
 		if (!triggered_) {
+			if (us == 0)
+				return false;
 			std::unique_lock<std::mutex> lock(mutex_);
 			cond_.wait_for(lock, std::chrono::microseconds(us), [&] { return !triggered_; });
 		}
@@ -795,7 +797,8 @@ private:
 bool ReplacedTexture::IsReady(double budget) {
 	lastUsed_ = time_now_d();
 	if (threadWaitable_) {
-		if (!threadWaitable_->WaitFor(budget)) {
+		uint32_t budget_us = budget > 0 ? (uint32_t)(budget * 1000000.0) : 0;
+		if (!threadWaitable_->WaitFor(budget_us)) {
 			return false;
 		} else {
 			threadWaitable_->WaitAndRelease();
