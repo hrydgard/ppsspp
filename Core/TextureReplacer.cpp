@@ -17,6 +17,7 @@
 
 #include "ppsspp_config.h"
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 #include <memory>
 #include <png.h>
@@ -745,7 +746,9 @@ float TextureReplacer::LookupReduceHashRange(int& w, int& h) {
 
 class LimitedWaitable : public Waitable {
 public:
-	LimitedWaitable() {}
+	LimitedWaitable() {
+		triggered_ = false;
+	}
 
 	void Wait() override {
 		if (!triggered_) {
@@ -771,7 +774,7 @@ public:
 private:
 	std::condition_variable cond_;
 	std::mutex mutex_;
-	bool triggered_ = false;
+	std::atomic<bool> triggered_;
 };
 
 class ReplacedTextureTask : public Task {
@@ -780,10 +783,10 @@ public:
 	}
 
 	void Run() override {
-		for (int i = (int)tex_.levelData_.size(); i <= tex_.MaxLevel(); ++i) {
+		tex_.levelData_.resize(tex_.MaxLevel() + 1);
+		for (int i = 0; i <= tex_.MaxLevel(); ++i) {
 			if (tex_.cancelPrepare_)
 				break;
-			tex_.levelData_.resize(i + 1);
 			tex_.PrepareData(i);
 		}
 		waitable_->Notify();
@@ -806,8 +809,8 @@ bool ReplacedTexture::IsReady(double budget) {
 	}
 
 	// Loaded already, or not yet on a thread?
-	if (levelData_.size() == levels_.size())
-		return Valid();
+	if (!levelData_.empty())
+		return true;
 	if (budget <= 0.0)
 		return false;
 
@@ -820,7 +823,7 @@ bool ReplacedTexture::IsReady(double budget) {
 		threadWaitable_ = nullptr;
 
 		// If we finished all the levels, we're done.
-		return levelData_.size() == levels_.size();
+		return !levelData_.empty();
 	}
 
 	// Still pending on thread.
@@ -866,13 +869,11 @@ void ReplacedTexture::PrepareData(int level) {
 
 			out.resize(info.w * info.h * 4);
 			if (w == info.w) {
-				ParallelMemcpy(&g_threadManager, &out[0], image, info.w * 4 * info.h);
+				memcpy(&out[0], image, info.w * 4 * info.h);
 			} else {
-				ParallelRangeLoop(&g_threadManager, [&](int l, int u) {
-					for (int y = l; y < u; ++y) {
-						memcpy(&out[info.w * 4 * y], image + w * 4 * y, w * 4);
-					}
-				}, 0, h, 4);
+				for (int y = 0; y < h; ++y) {
+					memcpy(&out[info.w * 4 * y], image + w * 4 * y, w * 4);
+				}
 			}
 			free(image);
 		}
@@ -944,6 +945,9 @@ ReplacedTexture::~ReplacedTexture() {
 bool ReplacedTexture::Load(int level, void *out, int rowPitch) {
 	_assert_msg_((size_t)level < levels_.size(), "Invalid miplevel");
 	_assert_msg_(out != nullptr && rowPitch > 0, "Invalid out/pitch");
+
+	if (levelData_.empty())
+		return false;
 
 	const ReplacedTextureLevel &info = levels_[level];
 	const std::vector<uint8_t> &data = levelData_[level];
