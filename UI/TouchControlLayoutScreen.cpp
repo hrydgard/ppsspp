@@ -301,7 +301,7 @@ public:
 		dc.Draw()->DrawImage(stickImage, bounds_.centerX(), bounds_.centerY(), scale_ * spacing_, colorBg, ALIGN_CENTER);
 	}
 
-	float GetSpacing() const override { return spacing_; }
+	float GetSpacing() const override { return spacing_ * 3; }
 	void SetSpacing(float s) override {
 		// In mapping spacing is clamped between 0.5 and 3.0 and passed to this method
 		spacing_ = s/3;
