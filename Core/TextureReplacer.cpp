@@ -757,7 +757,8 @@ public:
 		}
 	}
 
-	bool WaitFor(uint32_t us) {
+	bool WaitFor(double budget) {
+		uint32_t us = budget > 0 ? (uint32_t)(budget * 1000000.0) : 0;
 		if (!triggered_) {
 			if (us == 0)
 				return false;
@@ -797,8 +798,7 @@ private:
 bool ReplacedTexture::IsReady(double budget) {
 	lastUsed_ = time_now_d();
 	if (threadWaitable_) {
-		uint32_t budget_us = budget > 0 ? (uint32_t)(budget * 1000000.0) : 0;
-		if (!threadWaitable_->WaitFor(budget_us)) {
+		if (!threadWaitable_->WaitFor(budget)) {
 			return false;
 		} else {
 			threadWaitable_->WaitAndRelease();
@@ -809,15 +809,15 @@ bool ReplacedTexture::IsReady(double budget) {
 	// Loaded already, or not yet on a thread?
 	if (!levelData_.empty())
 		return true;
-	if (budget <= 0.0)
+	// Let's not even start a new texture if we're already behind.
+	if (budget < 0.0)
 		return false;
 
 	if (g_Config.bReplaceTexturesAllowLate) {
 		threadWaitable_ = new LimitedWaitable();
 		g_threadManager.EnqueueTask(new ReplacedTextureTask(*this, threadWaitable_), TaskType::IO_BLOCKING);
 
-		uint32_t budget_us = (uint32_t)(budget * 1000000.0);
-		if (threadWaitable_->WaitFor(budget_us)) {
+		if (threadWaitable_->WaitFor(budget)) {
 			threadWaitable_->WaitAndRelease();
 			threadWaitable_ = nullptr;
 
