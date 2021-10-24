@@ -783,12 +783,7 @@ public:
 	}
 
 	void Run() override {
-		tex_.levelData_.resize(tex_.MaxLevel() + 1);
-		for (int i = 0; i <= tex_.MaxLevel(); ++i) {
-			if (tex_.cancelPrepare_)
-				break;
-			tex_.PrepareData(i);
-		}
+		tex_.Prepare();
 		waitable_->Notify();
 	}
 
@@ -814,20 +809,34 @@ bool ReplacedTexture::IsReady(double budget) {
 	if (budget <= 0.0)
 		return false;
 
-	threadWaitable_ = new LimitedWaitable();
-	g_threadManager.EnqueueTask(new ReplacedTextureTask(*this, threadWaitable_), TaskType::IO_BLOCKING);
+	if (g_Config.bReplaceTexturesAllowLate) {
+		threadWaitable_ = new LimitedWaitable();
+		g_threadManager.EnqueueTask(new ReplacedTextureTask(*this, threadWaitable_), TaskType::IO_BLOCKING);
 
-	uint32_t budget_us = (uint32_t)(budget * 1000000.0);
-	if (threadWaitable_->WaitFor(budget_us)) {
-		threadWaitable_->WaitAndRelease();
-		threadWaitable_ = nullptr;
+		uint32_t budget_us = (uint32_t)(budget * 1000000.0);
+		if (threadWaitable_->WaitFor(budget_us)) {
+			threadWaitable_->WaitAndRelease();
+			threadWaitable_ = nullptr;
 
-		// If we finished all the levels, we're done.
-		return !levelData_.empty();
+			// If we finished all the levels, we're done.
+			return !levelData_.empty();
+		}
+	} else {
+		Prepare();
+		return true;
 	}
 
 	// Still pending on thread.
 	return false;
+}
+
+void ReplacedTexture::Prepare() {
+	levelData_.resize(MaxLevel() + 1);
+	for (int i = 0; i <= MaxLevel(); ++i) {
+		if (cancelPrepare_)
+			break;
+		PrepareData(i);
+	}
 }
 
 void ReplacedTexture::PrepareData(int level) {

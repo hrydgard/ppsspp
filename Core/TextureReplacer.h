@@ -162,6 +162,7 @@ struct ReplacedTexture {
 	bool Load(int level, void *out, int rowPitch);
 
 protected:
+	void Prepare();
 	void PrepareData(int level);
 	void PurgeIfOlder(double t);
 
