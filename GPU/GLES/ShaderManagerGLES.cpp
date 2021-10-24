@@ -85,7 +85,10 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	std::vector<GLRProgram::Semantic> semantics;
 	semantics.push_back({ ATTR_POSITION, "position" });
 	semantics.push_back({ ATTR_TEXCOORD, "texcoord" });
-	semantics.push_back({ ATTR_NORMAL, "normal" });
+	if (useHWTransform_)
+		semantics.push_back({ ATTR_NORMAL, "normal" });
+	else
+		semantics.push_back({ ATTR_NORMAL, "fog" });
 	semantics.push_back({ ATTR_W1, "w1" });
 	semantics.push_back({ ATTR_W2, "w2" });
 	semantics.push_back({ ATTR_COLOR0, "color0" });

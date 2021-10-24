@@ -213,6 +213,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			// TODO: Write to a flexible buffer, we don't always need all four components.
 			TransformedVertex &vert = transformed[index];
 			reader.ReadPos(vert.pos);
+			vert.posw = 1.0f;
 
 			if (reader.hasColor0()) {
 				if (provokeIndOffset != 0 && index + provokeIndOffset < maxIndex) {
@@ -429,12 +430,9 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			fogCoef = (v[2] + fog_end) * fog_slope;
 
 			// TODO: Write to a flexible buffer, we don't always need all four components.
-			Vec4f projected;
-			Vec3ByMatrix44(projected.AsArray(), v, projMatrix_.m);
-			Vec3f viewportPos = projected.xyz() / projected.w;
-			memcpy(&transformed[index].x, viewportPos.AsArray(), 3 * sizeof(float));
-			transformed[index].posw = fogCoef;
-			memcpy(&transformed[index].u, uv, 3 * sizeof(float));
+			Vec3ByMatrix44(transformed[index].pos, v, projMatrix_.m);
+			transformed[index].fog = fogCoef;
+			memcpy(&transformed[index].uv, uv, 3 * sizeof(float));
 			transformed[index].color0_32 = c0.ToRGBA();
 			transformed[index].color1_32 = c1.ToRGBA();
 
