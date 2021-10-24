@@ -33,7 +33,7 @@ void Core_Stop();
 void Core_SetGraphicsContext(GraphicsContext *ctx);
 
 // called from gui
-void Core_EnableStepping(bool step);
+void Core_EnableStepping(bool step, const char *reason = nullptr, u32 relatedAddress = 0);
 
 bool Core_NextFrame();
 void Core_DoSingleStep();
@@ -41,6 +41,11 @@ void Core_UpdateSingleStep();
 void Core_ProcessStepping();
 // Changes every time we enter stepping.
 int Core_GetSteppingCounter();
+struct SteppingReason {
+	const char *reason = nullptr;
+	u32 relatedAddress = 0;
+};
+SteppingReason Core_GetSteppingReason();
 
 enum class CoreLifecycle {
 	STARTING,

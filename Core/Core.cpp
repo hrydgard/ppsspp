@@ -19,6 +19,7 @@
 
 #include <set>
 #include <chrono>
+#include <cstdint>
 #include <mutex>
 #include <condition_variable>
 
@@ -56,6 +57,8 @@ static std::condition_variable m_InactiveCond;
 static std::mutex m_hInactiveMutex;
 static bool singleStepPending = false;
 static int steppingCounter = 0;
+static const char *steppingReason = "";
+static uint32_t steppingAddress = 0;
 static std::set<CoreLifecycleFunc> lifecycleFuncs;
 static std::set<CoreStopRequestFunc> stopFuncs;
 static bool windowHidden = false;
@@ -358,11 +361,14 @@ void Core_Run(GraphicsContext *ctx) {
 	}
 }
 
-void Core_EnableStepping(bool step) {
+void Core_EnableStepping(bool step, const char *reason, u32 relatedAddress) {
 	if (step) {
 		host->SetDebugMode(true);
 		Core_UpdateState(CORE_STEPPING);
 		steppingCounter++;
+		_assert_msg_(reason != nullptr, "No reason specified for break");
+		steppingReason = reason;
+		steppingAddress = relatedAddress;
 	} else {
 		host->SetDebugMode(false);
 		// Clear the exception if we resume.
@@ -384,6 +390,13 @@ bool Core_NextFrame() {
 
 int Core_GetSteppingCounter() {
 	return steppingCounter;
+}
+
+SteppingReason Core_GetSteppingReason() {
+	SteppingReason r;
+	r.reason = steppingReason;
+	r.relatedAddress = steppingAddress;
+	return r;
 }
 
 const char *ExceptionTypeAsString(ExceptionType type) {
@@ -433,7 +446,7 @@ void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type) {
 		e.memory_type = type;
 		e.address = address;
 		e.pc = pc;
-		Core_EnableStepping(true);
+		Core_EnableStepping(true, "memory.exception", address);
 		host->SetDebugMode(true);
 	}
 }
@@ -455,14 +468,14 @@ void Core_MemoryExceptionInfo(u32 address, u32 pc, MemoryExceptionType type, std
 		e.memory_type = type;
 		e.address = address;
 		e.pc = pc;
-		Core_EnableStepping(true);
+		Core_EnableStepping(true, "memory.exception", address);
 		host->SetDebugMode(true);
 	}
 }
 
 void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 	const char *desc = ExecExceptionTypeAsString(type);
-	WARN_LOG(MEMMAP, "%s: Invalid destination %08x PC %08x LR %08x", desc, address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
+	WARN_LOG(MEMMAP, "%s: Invalid destination %08x PC %08x LR %08x", desc, address, pc, currentMIPS->r[MIPS_REG_RA]);
 
 	ExceptionInfo &e = g_exceptionInfo;
 	e = {};
@@ -471,7 +484,7 @@ void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 	e.exec_type = type;
 	e.address = address;
 	e.pc = pc;
-	Core_EnableStepping(true);
+	Core_EnableStepping(true, "cpu.exception", pc);
 	host->SetDebugMode(true);
 }
 
@@ -484,7 +497,7 @@ void Core_Break() {
 	e.info = "";
 
 	if (!g_Config.bIgnoreBadMemAccess) {
-		Core_EnableStepping(true);
+		Core_EnableStepping(true, "cpu.breakInstruction", currentMIPS->pc);
 		host->SetDebugMode(true);
 	}
 }

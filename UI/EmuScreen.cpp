@@ -110,7 +110,7 @@ static void __EmuScreenVblank()
 	if (frameStep_ && lastNumFlips != gpuStats.numFlips)
 	{
 		frameStep_ = false;
-		Core_EnableStepping(true);
+		Core_EnableStepping(true, "ui.frameAdvance", 0);
 		lastNumFlips = gpuStats.numFlips;
 	}
 #ifndef MOBILE_DEVICE
@@ -611,7 +611,7 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		}
 		else if (!frameStep_)
 		{
-			Core_EnableStepping(true);
+			Core_EnableStepping(true, "ui.frameAdvance", 0);
 		}
 		break;
 

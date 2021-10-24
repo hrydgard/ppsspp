@@ -381,7 +381,7 @@ namespace MainWindow {
 		if (GetUIState() == UISTATE_INGAME) {
 			browsePauseAfter = Core_IsStepping();
 			if (!browsePauseAfter)
-				Core_EnableStepping(true);
+				Core_EnableStepping(true, "ui.boot", 0);
 		}
 
 		W32Util::MakeTopMost(GetHWND(), false);
@@ -601,7 +601,7 @@ namespace MainWindow {
 				if (disasmWindow)
 					SendMessage(disasmWindow->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
 				else
-					Core_EnableStepping(true);
+					Core_EnableStepping(true, "ui.break", 0);
 			}
 			noFocusPause = !noFocusPause;	// If we pause, override pause on lost focus
 			break;
