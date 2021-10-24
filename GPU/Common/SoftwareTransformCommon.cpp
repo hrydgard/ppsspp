@@ -433,7 +433,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			Vec3ByMatrix44(projected.AsArray(), v, projMatrix_.m);
 			Vec3f viewportPos = projected.xyz() / projected.w;
 			memcpy(&transformed[index].x, viewportPos.AsArray(), 3 * sizeof(float));
-			transformed[index].fog = fogCoef;
+			transformed[index].posw = fogCoef;
 			memcpy(&transformed[index].u, uv, 3 * sizeof(float));
 			transformed[index].color0_32 = c0.ToRGBA();
 			transformed[index].color1_32 = c1.ToRGBA();
