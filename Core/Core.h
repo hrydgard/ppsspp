@@ -41,6 +41,11 @@ void Core_UpdateSingleStep();
 void Core_ProcessStepping();
 // Changes every time we enter stepping.
 int Core_GetSteppingCounter();
+struct SteppingReason {
+	const char *reason = nullptr;
+	u32 relatedAddress = 0;
+};
+SteppingReason Core_GetSteppingReason();
 
 enum class CoreLifecycle {
 	STARTING,

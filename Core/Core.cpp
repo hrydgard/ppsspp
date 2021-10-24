@@ -392,6 +392,13 @@ int Core_GetSteppingCounter() {
 	return steppingCounter;
 }
 
+SteppingReason Core_GetSteppingReason() {
+	SteppingReason r;
+	r.reason = steppingReason;
+	r.relatedAddress = steppingAddress;
+	return r;
+}
+
 const char *ExceptionTypeAsString(ExceptionType type) {
 	switch (type) {
 	case ExceptionType::MEMORY: return "Invalid Memory Access";
