@@ -32,6 +32,8 @@
 class IniFile;
 class TextureCacheCommon;
 class TextureReplacer;
+class ReplacedTextureTask;
+class LimitedWaitable;
 
 enum class ReplacedTextureFormat {
 	F_5650,
@@ -125,6 +127,8 @@ namespace std {
 }
 
 struct ReplacedTexture {
+	~ReplacedTexture();
+
 	inline bool Valid() {
 		return !levels_.empty();
 	}
@@ -153,13 +157,24 @@ struct ReplacedTexture {
 		return (u8)alphaStatus_;
 	}
 
+	bool IsReady(double budget);
+
 	bool Load(int level, void *out, int rowPitch);
 
 protected:
+	void Prepare();
+	void PrepareData(int level);
+	void PurgeIfOlder(double t);
+
 	std::vector<ReplacedTextureLevel> levels_;
+	std::vector<std::vector<uint8_t>> levelData_;
 	ReplacedTextureAlpha alphaStatus_;
+	double lastUsed_ = 0.0;
+	LimitedWaitable *threadWaitable_ = nullptr;
+	bool cancelPrepare_ = false;
 
 	friend TextureReplacer;
+	friend ReplacedTextureTask;
 };
 
 struct ReplacedTextureDecodeInfo {
@@ -188,8 +203,13 @@ public:
 
 	ReplacedTexture &FindReplacement(u64 cachekey, u32 hash, int w, int h);
 	bool FindFiltering(u64 cachekey, u32 hash, TextureFiltering *forceFiltering);
+	ReplacedTexture &FindNone() {
+		return none_;
+	}
 
 	void NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int w, int h);
+
+	void Decimate(bool forcePressure);
 
 	static bool GenerateIni(const std::string &gameID, Path &generatedFilename);
 

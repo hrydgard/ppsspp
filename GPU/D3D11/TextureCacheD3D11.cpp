@@ -21,6 +21,7 @@
 
 #include <d3d11.h>
 
+#include "Common/TimeUtil.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
@@ -169,6 +170,7 @@ void TextureCacheD3D11::InvalidateLastTexture() {
 void TextureCacheD3D11::StartFrame() {
 	InvalidateLastTexture();
 	timesInvalidatedAllThisFrame_ = 0;
+	replacementTimeThisFrame_ = 0.0;
 
 	if (texelsScaledThisFrame_) {
 		// INFO_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
@@ -483,14 +485,12 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
 	}
 
-	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
-	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h);
-	if (replaced.GetSize(0, w, h)) {
+	ReplacedTexture &replaced = FindReplacement(entry, w, h);
+	if (replaced.Valid()) {
 		// We're replacing, so we won't scale.
 		scaleFactor = 1;
-		entry->status |= TexCacheEntry::STATUS_IS_SCALED;
 		maxLevel = replaced.MaxLevel();
 		badMipSizes = false;
 	}
@@ -678,7 +678,9 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 	if (replaced.GetSize(level, w, h)) {
 		mapData = (u32 *)AllocateAlignedMemory(w * h * sizeof(u32), 16);
 		mapRowPitch = w * 4;
+		double replaceStart = time_now_d();
 		replaced.Load(level, mapData, mapRowPitch);
+		replacementTimeThisFrame_ += time_now_d() - replaceStart;
 		dstFmt = ToDXGIFormat(replaced.Format(level));
 	} else {
 		GETextureFormat tfmt = (GETextureFormat)entry.format;

@@ -24,6 +24,7 @@
 #include "Common/Math/math_util.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "Common/TimeUtil.h"
 
 #include "Core/Config.h"
 #include "Core/Host.h"
@@ -152,6 +153,7 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, Draw::DataFormat dst
 void TextureCacheGLES::StartFrame() {
 	InvalidateLastTexture();
 	timesInvalidatedAllThisFrame_ = 0;
+	replacementTimeThisFrame_ = 0.0;
 
 	GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	if (!lowMemoryMode_ && renderManager->SawOutOfMemory()) {
@@ -502,14 +504,12 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
 	}
 
-	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
-	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h);
-	if (replaced.GetSize(0, w, h)) {
+	ReplacedTexture &replaced = FindReplacement(entry, w, h);
+	if (replaced.Valid()) {
 		// We're replacing, so we won't scale.
 		scaleFactor = 1;
-		entry->status |= TexCacheEntry::STATUS_IS_SCALED;
 		maxLevel = replaced.MaxLevel();
 		badMipSizes = false;
 	}
@@ -658,7 +658,9 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		int bpp = replaced.Format(level) == ReplacedTextureFormat::F_8888 ? 4 : 2;
 		decPitch = w * bpp;
 		uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(decPitch * h, 16);
+		double replaceStart = time_now_d();
 		replaced.Load(level, rearrange, decPitch);
+		replacementTimeThisFrame_ += time_now_d() - replaceStart;
 		pixelData = rearrange;
 
 		dstFmt = ToDataFormat(replaced.Format(level));

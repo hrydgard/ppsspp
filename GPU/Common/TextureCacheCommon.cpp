@@ -22,6 +22,7 @@
 #include "Common/Profiler/Profiler.h"
 #include "Common/MemoryUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Reporting.h"
@@ -472,6 +473,15 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 				reason = "scaling";
 			}
 		}
+		if (match && (entry->status & TexCacheEntry::STATUS_TO_REPLACE) && replacementTimeThisFrame_ < replacementFrameBudget_) {
+			int w0 = gstate.getTextureWidth(0);
+			int h0 = gstate.getTextureHeight(0);
+			ReplacedTexture &replaced = FindReplacement(entry, w0, h0);
+			if (replaced.Valid()) {
+				match = false;
+				reason = "replacing";
+			}
+		}
 
 		if (match) {
 			// got one!
@@ -720,6 +730,7 @@ void TextureCacheCommon::Decimate(bool forcePressure) {
 	}
 
 	DecimateVideos();
+	replacer_.Decimate(forcePressure);
 }
 
 void TextureCacheCommon::DecimateVideos() {
@@ -1261,6 +1272,29 @@ u32 TextureCacheCommon::EstimateTexMemoryUsage(const TexCacheEntry *entry) {
 
 	// This in other words multiplies by w and h.
 	return pixelSize << (dimW + dimH);
+}
+
+ReplacedTexture &TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &w, int &h) {
+	// Allow some delay to reduce pop-in.
+	constexpr double MAX_BUDGET_PER_TEX = 0.25 / 60.0;
+
+	double replaceStart = time_now_d();
+	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
+	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h);
+	if (replaced.IsReady(std::min(MAX_BUDGET_PER_TEX, replacementFrameBudget_ - replacementTimeThisFrame_))) {
+		if (replaced.GetSize(0, w, h)) {
+			replacementTimeThisFrame_ += time_now_d() - replaceStart;
+
+			// Consider it already "scaled" and remove any delayed replace flag.
+			entry->status |= TexCacheEntry::STATUS_IS_SCALED;
+			entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
+			return replaced;
+		}
+	} else if (replaced.Valid()) {
+		entry->status |= TexCacheEntry::STATUS_TO_REPLACE;
+	}
+	replacementTimeThisFrame_ += time_now_d() - replaceStart;
+	return replacer_.FindNone();
 }
 
 static void ReverseColors(void *dstBuf, const void *srcBuf, GETextureFormat fmt, int numPixels, bool useBGRA) {
