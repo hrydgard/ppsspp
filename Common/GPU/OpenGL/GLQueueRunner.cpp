@@ -1131,7 +1131,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			// TODO: Add fast path for glBindVertexBuffer
 			GLRInputLayout *layout = c.bindVertexBuffer.inputLayout;
 			GLuint buf = c.bindVertexBuffer.buffer ? c.bindVertexBuffer.buffer->buffer_ : 0;
-			_dbg_assert_(!c.bindVertexBuffer.buffer->Mapped());
+			_dbg_assert_(!c.bindVertexBuffer.buffer || !c.bindVertexBuffer.buffer->Mapped());
 			if (buf != curArrayBuffer) {
 				glBindBuffer(GL_ARRAY_BUFFER, buf);
 				curArrayBuffer = buf;
