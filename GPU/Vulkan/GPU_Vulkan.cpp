@@ -232,6 +232,14 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		features |= GPU_SUPPORTS_DEPTH_CLAMP;
 	}
 
+	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
+		const bool disabled = PSP_CoreParameter().compat.flags().DisableRangeCulling;
+		// Fall back to geometry shader culling.
+		if (enabledFeatures.geometryShader && !disabled && (features & GPU_SUPPORTS_VS_RANGE_CULLING) == 0) {
+			features |= GPU_SUPPORTS_GS_CULLING;
+		}
+	}
+
 	// These are VULKAN_4444_FORMAT and friends.
 	uint32_t fmt4444 = draw_->GetDataFormatSupport(Draw::DataFormat::B4G4R4A4_UNORM_PACK16);
 	uint32_t fmt1555 = draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16);

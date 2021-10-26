@@ -716,7 +716,7 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 		VulkanVertexShader *vs = shaderManager->GetVertexShaderFromID(key.vShaderID);
 		VulkanFragmentShader *fs = shaderManager->GetFragmentShaderFromID(key.fShaderID);
 		VulkanGeometryShader *gs = shaderManager->GetGeometryShaderFromID(key.gShaderID);
-		if (!vs || !fs) {
+		if (!vs || !fs || (!gs && key.gShaderID.Bit(GS_BIT_ENABLED))) {
 			failed = true;
 			ERROR_LOG(G3D, "Failed to find vs or fs in of pipeline %d in cache", (int)i);
 			continue;

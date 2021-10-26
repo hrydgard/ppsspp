@@ -38,6 +38,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/Common/VertexShaderGenerator.h"
+#include "GPU/Common/GeometryShaderGenerator.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
@@ -305,6 +306,11 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 	_dbg_assert_(FSID.Bit(FS_BIT_DO_TEXTURE) == VSID.Bit(VS_BIT_DO_TEXTURE));
 	_dbg_assert_(FSID.Bit(FS_BIT_FLATSHADE) == VSID.Bit(VS_BIT_FLATSHADE));
 
+	if (GSID.Bit(GS_BIT_ENABLED)) {
+		_dbg_assert_(GSID.Bit(GS_BIT_LMODE) == VSID.Bit(VS_BIT_LMODE));
+		_dbg_assert_(GSID.Bit(GS_BIT_DO_TEXTURE) == VSID.Bit(VS_BIT_DO_TEXTURE));
+	}
+
 	// Just update uniforms if this is the same shader as last time.
 	if (lastVShader_ != nullptr && lastFShader_ != nullptr && VSID == lastVSID_ && FSID == lastFSID_ && GSID == lastGSID_) {
 		*vshader = lastVShader_;
@@ -345,7 +351,11 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 		gs = gsCache_.Get(GSID);
 		if (!gs) {
 			// Geometry shader not in cache. Let's compile it.
-			// TODO
+			std::string genErrorString;
+			bool success = GenerateGeometryShader(GSID, codeBuffer_, compat_, draw_->GetBugs(), &genErrorString);
+			_assert_msg_(success, "GS gen error: %s", genErrorString.c_str());
+			gs = new VulkanGeometryShader(vulkan, GSID, codeBuffer_);
+			gsCache_.Insert(GSID, gs);
 		}
 	} else {
 		gs = nullptr;
@@ -529,7 +539,12 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 			ERROR_LOG(G3D, "Vulkan shader cache truncated");
 			break;
 		}
-		// TODO: Actually generate geometry shaders.
+		std::string genErrorString;
+		if (!GenerateGeometryShader(id, codeBuffer_, compat_, draw_->GetBugs(), &genErrorString)) {
+			return false;
+		}
+		VulkanGeometryShader *gs = new VulkanGeometryShader(vulkan, id, codeBuffer_);
+		gsCache_.Insert(id, gs);
 	}
 
 	NOTICE_LOG(G3D, "Loaded %d vertex and %d fragment shaders", header.numVertexShaders, header.numFragmentShaders);
