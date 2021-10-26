@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #ifdef _WIN32
-//#define SHADERLOG
+#define SHADERLOG
 #endif
 
 #include "Common/Math/lin/matrix4x4.h"
@@ -215,7 +215,6 @@ std::string VulkanGeometryShader::GetShaderString(DebugShaderStringType type) co
 	}
 }
 
-
 ShaderManagerVulkan::ShaderManagerVulkan(Draw::DrawContext *draw, VulkanContext *vulkan)
 	: ShaderManagerCommon(draw), vulkan_(vulkan), compat_(GLSL_VULKAN), fsCache_(16), vsCache_(16), gsCache_(16) {
 	codeBuffer_ = new char[16384];
@@ -247,10 +246,15 @@ void ShaderManagerVulkan::Clear() {
 	vsCache_.Iterate([&](const VShaderID &key, VulkanVertexShader *shader) {
 		delete shader;
 	});
+	gsCache_.Iterate([&](const GShaderID &key, VulkanGeometryShader *shader) {
+		delete shader;
+	});
 	fsCache_.Clear();
 	vsCache_.Clear();
+	gsCache_.Clear();
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
+	lastGSID_.set_invalid();
 	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
@@ -264,12 +268,14 @@ void ShaderManagerVulkan::DirtyShader() {
 	// Forget the last shader ID
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
+	lastGSID_.set_invalid();
 	DirtyLastShader();
 }
 
 void ShaderManagerVulkan::DirtyLastShader() {
 	lastVShader_ = nullptr;
 	lastFShader_ = nullptr;
+	lastGShader_ = nullptr;
 	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
@@ -312,12 +318,6 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 	_dbg_assert_(FSID.Bit(FS_BIT_ENABLE_FOG) == VSID.Bit(VS_BIT_ENABLE_FOG));
 	_dbg_assert_(FSID.Bit(FS_BIT_FLATSHADE) == VSID.Bit(VS_BIT_FLATSHADE));
 
-	if (GSID.Bit(GS_BIT_ENABLED)) {
-		_dbg_assert_(GSID.Bit(GS_BIT_LMODE) == FSID.Bit(FS_BIT_LMODE));
-		_dbg_assert_(GSID.Bit(GS_BIT_DO_TEXTURE) == FSID.Bit(FS_BIT_DO_TEXTURE));
-		_dbg_assert_(GSID.Bit(GS_BIT_ENABLE_FOG) == FSID.Bit(FS_BIT_ENABLE_FOG));
-	}
-
 	// Just update uniforms if this is the same shader as last time.
 	if (lastVShader_ != nullptr && lastFShader_ != nullptr && VSID == lastVSID_ && FSID == lastFSID_ && GSID == lastGSID_) {
 		*vshader = lastVShader_;
@@ -354,14 +354,14 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 
 	VulkanGeometryShader *gs = nullptr;
 	if (GSID.Bit(GS_BIT_ENABLED)) {
-		VulkanGeometryShader *gs = gsCache_.Get(GSID);
+		gs = gsCache_.Get(GSID);
 		if (!gs) {
 			// uint32_t vendorID = vulkan_->GetPhysicalDeviceProperties().properties.vendorID;
 			// Fragment shader not in cache. Let's compile it.
 			std::string genErrorString;
 			uint64_t uniformMask = 0;  // Not used
 			bool success = GenerateGeometryShader(GSID, codeBuffer_, compat_, draw_->GetBugs(), &genErrorString);
-			_assert_msg_(success, "FS gen error: %s", genErrorString.c_str());
+			_assert_msg_(success, "GS gen error: %s", genErrorString.c_str());
 			gs = new VulkanGeometryShader(vulkan_, GSID, codeBuffer_);
 			gsCache_.Insert(GSID, gs);
 		}
@@ -400,6 +400,15 @@ std::vector<std::string> ShaderManagerVulkan::DebugGetShaderIDs(DebugShaderType 
 		});
 		break;
 	}
+	case SHADER_TYPE_GEOMETRY:
+	{
+		gsCache_.Iterate([&](const GShaderID &id, VulkanGeometryShader *shader) {
+			std::string idstr;
+			id.ToString(&idstr);
+			ids.push_back(idstr);
+		});
+		break;
+	}
 	default:
 		break;
 	}
@@ -415,7 +424,6 @@ std::string ShaderManagerVulkan::DebugGetShaderString(std::string id, DebugShade
 		VulkanVertexShader *vs = vsCache_.Get(VShaderID(shaderId));
 		return vs ? vs->GetShaderString(stringType) : "";
 	}
-
 	case SHADER_TYPE_FRAGMENT:
 	{
 		VulkanFragmentShader *fs = fsCache_.Get(FShaderID(shaderId));

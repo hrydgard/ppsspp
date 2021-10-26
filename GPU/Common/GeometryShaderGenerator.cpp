@@ -49,11 +49,11 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 
 	std::vector<VaryingDef> varyings, outVaryings;
 
-	varyings.push_back(VaryingDef{ "vec4", "v_color0", "COLOR0", 1, "highp" });
-	outVaryings.push_back(VaryingDef{ "vec4", "v_color0Out", "COLOR0", 1, "highp" });
+	varyings.push_back(VaryingDef{ "vec4", "v_color0", "COLOR0", 1, "lowp" });
+	outVaryings.push_back(VaryingDef{ "vec4", "v_color0Out", "COLOR0", 1, "lowp" });
 	if (id.Bit(GS_BIT_LMODE)) {
-		varyings.push_back(VaryingDef{ "vec4", "v_color1", "COLOR1", 2, "highp" });
-		outVaryings.push_back(VaryingDef{ "vec4", "v_color1Out", "COLOR1", 2, "highp" });
+		varyings.push_back(VaryingDef{ "vec3", "v_color1", "COLOR1", 2, "lowp" });
+		outVaryings.push_back(VaryingDef{ "vec3", "v_color1Out", "COLOR1", 2, "lowp" });
 	}
 	if (id.Bit(GS_BIT_ENABLE_FOG)) {
 		varyings.push_back(VaryingDef{ "float", "v_fogdepth", "TEXCOORD1", 3, "highp" });
@@ -73,6 +73,8 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 		VaryingDef &out = outVaryings[i];
 		p.F("    %s = %s[i];\n", outVaryings[i].name, varyings[i].name);
 	}
+	// Debug - null the red channel
+	// p.C("    if (i == 0) v_color0Out.x = 0.0;\n");
 	p.C("    EmitVertex();\n");
 	p.C("  }\n");
 

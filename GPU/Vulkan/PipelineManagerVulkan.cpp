@@ -239,6 +239,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	ms.pSampleMask = nullptr;
 	ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
+	size_t stageCount = 2;
 	VkPipelineShaderStageCreateInfo ss[3]{};
 	ss[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	ss[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
@@ -251,6 +252,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	ss[1].module = fs->GetModule();
 	ss[1].pName = "main";
 	if (gs) {
+		stageCount = 3;
 		ss[2].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		ss[2].stage = VK_SHADER_STAGE_GEOMETRY_BIT;
 		ss[2].pSpecializationInfo = nullptr;
@@ -306,7 +308,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 
 	VkGraphicsPipelineCreateInfo pipe{ VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
 	pipe.flags = 0;
-	pipe.stageCount = 2;
+	pipe.stageCount = stageCount;
 	pipe.pStages = ss;
 	pipe.basePipelineIndex = 0;
 
@@ -716,6 +718,8 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 }
 
 bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext, VkPipelineLayout layout) {
+	return false;
+
 	VulkanRenderManager *rm = (VulkanRenderManager *)drawContext->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	VulkanQueueRunner *queueRunner = rm->GetQueueRunner();
 
