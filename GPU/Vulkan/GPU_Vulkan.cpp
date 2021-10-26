@@ -251,6 +251,11 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		const bool disabled = PSP_CoreParameter().compat.flags().DisableRangeCulling;
 		if (supported || !disabled) {
 			features |= GPU_SUPPORTS_VS_RANGE_CULLING;
+		} else if (!disabled) {
+			// Fall back to geometry shader culling.
+			if (enabledFeatures.geometryShader) {
+				features |= GPU_SUPPORTS_GS_CULLING;
+			}
 		}
 	}
 	if (enabledFeatures.dualSrcBlend) {

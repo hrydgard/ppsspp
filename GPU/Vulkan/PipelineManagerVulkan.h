@@ -33,6 +33,7 @@ struct VulkanPipelineKey {
 	VkRenderPass renderPass;
 	VkShaderModule vShader;
 	VkShaderModule fShader;
+	VkShaderModule gShader;
 	uint32_t vtxFmtId;
 	bool useHWTransform;
 
@@ -59,6 +60,7 @@ struct VulkanPipeline {
 class VulkanContext;
 class VulkanVertexShader;
 class VulkanFragmentShader;
+class VulkanGeometryShader;
 class ShaderManagerVulkan;
 class DrawEngineCommon;
 
@@ -67,7 +69,7 @@ public:
 	PipelineManagerVulkan(VulkanContext *ctx);
 	~PipelineManagerVulkan();
 
-	VulkanPipeline *GetOrCreatePipeline(VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform);
+	VulkanPipeline *GetOrCreatePipeline(VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, VulkanGeometryShader *gs, bool useHwTransform);
 	int GetNumPipelines() const { return (int)pipelines_.size(); }
 
 	void Clear();

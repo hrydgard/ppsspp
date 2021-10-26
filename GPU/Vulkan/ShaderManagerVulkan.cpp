@@ -38,6 +38,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/Common/VertexShaderGenerator.h"
+#include "GPU/Common/GeometryShaderGenerator.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
@@ -157,8 +158,66 @@ std::string VulkanVertexShader::GetShaderString(DebugShaderStringType type) cons
 	}
 }
 
+VulkanGeometryShader::VulkanGeometryShader(VulkanContext *vulkan, GShaderID id, const char *code)
+	: vulkan_(vulkan), id_(id) {
+	PROFILE_THIS_SCOPE("shadercomp");
+	source_ = code;
+	std::string errorMessage;
+	std::vector<uint32_t> spirv;
+#ifdef SHADERLOG
+	OutputDebugStringA(LineNumberString(code).c_str());
+#endif
+	bool success = GLSLtoSPV(VK_SHADER_STAGE_VERTEX_BIT, code, GLSLVariant::VULKAN, spirv, &errorMessage);
+	if (!errorMessage.empty()) {
+		if (success) {
+			ERROR_LOG(G3D, "Warnings in shader compilation!");
+		} else {
+			ERROR_LOG(G3D, "Error in shader compilation!");
+		}
+		ERROR_LOG(G3D, "Messages: %s", errorMessage.c_str());
+		ERROR_LOG(G3D, "Shader source:\n%s", code);
+#ifdef SHADERLOG
+		OutputDebugStringA(LineNumberString(code).c_str());
+		OutputDebugStringUTF8("Messages:\n");
+		OutputDebugStringUTF8(errorMessage.c_str());
+#endif
+		Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
+	} else {
+		success = vulkan_->CreateShaderModule(spirv, &module_);
+#ifdef SHADERLOG
+		OutputDebugStringA("OK\n");
+#endif
+	}
+
+	if (!success) {
+		failed_ = true;
+		module_ = VK_NULL_HANDLE;
+		return;
+	} else {
+		VERBOSE_LOG(G3D, "Compiled geometry shader:\n%s\n", (const char *)code);
+	}
+}
+
+VulkanGeometryShader::~VulkanGeometryShader() {
+	if (module_ != VK_NULL_HANDLE) {
+		vulkan_->Delete().QueueDeleteShaderModule(module_);
+	}
+}
+
+std::string VulkanGeometryShader::GetShaderString(DebugShaderStringType type) const {
+	switch (type) {
+	case SHADER_STRING_SOURCE_CODE:
+		return source_;
+	case SHADER_STRING_SHORT_DESC:
+		return GeometryShaderDesc(id_);
+	default:
+		return "N/A";
+	}
+}
+
+
 ShaderManagerVulkan::ShaderManagerVulkan(Draw::DrawContext *draw, VulkanContext *vulkan)
-	: ShaderManagerCommon(draw), vulkan_(vulkan), compat_(GLSL_VULKAN), fsCache_(16), vsCache_(16) {
+	: ShaderManagerCommon(draw), vulkan_(vulkan), compat_(GLSL_VULKAN), fsCache_(16), vsCache_(16), gsCache_(16) {
 	codeBuffer_ = new char[16384];
 	uboAlignment_ = vulkan_->GetPhysicalDeviceProperties().properties.limits.minUniformBufferOffsetAlignment;
 	memset(&ub_base, 0, sizeof(ub_base));
@@ -228,7 +287,7 @@ uint64_t ShaderManagerVulkan::UpdateUniforms(bool useBufferedRendering) {
 	return dirty;
 }
 
-void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat) {
+void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, VulkanGeometryShader **gshader, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat) {
 	VShaderID VSID;
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
@@ -238,11 +297,14 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 	}
 
 	FShaderID FSID;
+	GShaderID GSID;
 	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
 		ComputeFragmentShaderID(&FSID, draw_->GetBugs());
+		ComputeGeometryShaderID(&GSID, draw_->GetBugs());
 	} else {
 		FSID = lastFSID_;
+		GSID = lastGSID_;
 	}
 
 	_dbg_assert_(FSID.Bit(FS_BIT_LMODE) == VSID.Bit(VS_BIT_LMODE));
@@ -250,8 +312,14 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 	_dbg_assert_(FSID.Bit(FS_BIT_ENABLE_FOG) == VSID.Bit(VS_BIT_ENABLE_FOG));
 	_dbg_assert_(FSID.Bit(FS_BIT_FLATSHADE) == VSID.Bit(VS_BIT_FLATSHADE));
 
+	if (GSID.Bit(GS_BIT_ENABLED)) {
+		_dbg_assert_(GSID.Bit(GS_BIT_LMODE) == FSID.Bit(FS_BIT_LMODE));
+		_dbg_assert_(GSID.Bit(GS_BIT_DO_TEXTURE) == FSID.Bit(FS_BIT_DO_TEXTURE));
+		_dbg_assert_(GSID.Bit(GS_BIT_ENABLE_FOG) == FSID.Bit(FS_BIT_ENABLE_FOG));
+	}
+
 	// Just update uniforms if this is the same shader as last time.
-	if (lastVShader_ != nullptr && lastFShader_ != nullptr && VSID == lastVSID_ && FSID == lastFSID_) {
+	if (lastVShader_ != nullptr && lastFShader_ != nullptr && VSID == lastVSID_ && FSID == lastFSID_ && GSID == lastGSID_) {
 		*vshader = lastVShader_;
 		*fshader = lastFShader_;
 		_dbg_assert_msg_((*vshader)->UseHWTransform() == useHWTransform, "Bad vshader was cached");
@@ -284,13 +352,30 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 		fsCache_.Insert(FSID, fs);
 	}
 
+	VulkanGeometryShader *gs = nullptr;
+	if (GSID.Bit(GS_BIT_ENABLED)) {
+		VulkanGeometryShader *gs = gsCache_.Get(GSID);
+		if (!fs) {
+			// uint32_t vendorID = vulkan_->GetPhysicalDeviceProperties().properties.vendorID;
+			// Fragment shader not in cache. Let's compile it.
+			std::string genErrorString;
+			uint64_t uniformMask = 0;  // Not used
+			bool success = GenerateGeometryShader(GSID, codeBuffer_, compat_, draw_->GetBugs(), &genErrorString);
+			_assert_msg_(success, "FS gen error: %s", genErrorString.c_str());
+			gs = new VulkanGeometryShader(vulkan_, GSID, codeBuffer_);
+			gsCache_.Insert(GSID, gs);
+		}
+	}
+
 	lastFSID_ = FSID;
 
 	lastVShader_ = vs;
 	lastFShader_ = fs;
+	lastGShader_ = gs;
 
 	*vshader = vs;
 	*fshader = fs;
+	*gshader = gs;
 	_dbg_assert_msg_((*vshader)->UseHWTransform() == useHWTransform, "Bad vshader was computed");
 }
 
@@ -336,6 +421,11 @@ std::string ShaderManagerVulkan::DebugGetShaderString(std::string id, DebugShade
 		VulkanFragmentShader *fs = fsCache_.Get(FShaderID(shaderId));
 		return fs ? fs->GetShaderString(stringType) : "";
 	}
+	case SHADER_TYPE_GEOMETRY:
+	{
+		VulkanGeometryShader *gs = gsCache_.Get(GShaderID(shaderId));
+		return gs ? gs->GetShaderString(stringType) : "";
+	}
 	default:
 		return "N/A";
 	}
@@ -359,6 +449,15 @@ VulkanFragmentShader *ShaderManagerVulkan::GetFragmentShaderFromModule(VkShaderM
 	return fs;
 }
 
+VulkanGeometryShader *ShaderManagerVulkan::GetGeometryShaderFromModule(VkShaderModule module) {
+	VulkanGeometryShader *gs = nullptr;
+	gsCache_.Iterate([&](const GShaderID &id, VulkanGeometryShader *shader) {
+		if (shader->GetModule() == module)
+			gs = shader;
+	});
+	return gs;
+}
+
 // Shader cache.
 //
 // We simply store the IDs of the shaders used during gameplay. On next startup of
@@ -368,7 +467,7 @@ VulkanFragmentShader *ShaderManagerVulkan::GetFragmentShaderFromModule(VkShaderM
 // instantaneous.
 
 #define CACHE_HEADER_MAGIC 0xff51f420 
-#define CACHE_VERSION 19
+#define CACHE_VERSION 20
 struct VulkanCacheHeader {
 	uint32_t magic;
 	uint32_t version;

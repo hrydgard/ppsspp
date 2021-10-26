@@ -79,6 +79,28 @@ protected:
 	VShaderID id_;
 };
 
+class VulkanGeometryShader {
+public:
+	VulkanGeometryShader(VulkanContext *vulkan, GShaderID id, const char *code);
+	~VulkanGeometryShader();
+
+	const std::string &source() const { return source_; }
+
+	bool Failed() const { return failed_; }
+
+	std::string GetShaderString(DebugShaderStringType type) const;
+	VkShaderModule GetModule() const { return module_; }
+	const GShaderID &GetID() { return id_; }
+
+protected:
+	VkShaderModule module_ = VK_NULL_HANDLE;
+
+	VulkanContext *vulkan_;
+	std::string source_;
+	bool failed_ = false;
+	GShaderID id_;
+};
+
 class VulkanPushBuffer;
 
 class ShaderManagerVulkan : public ShaderManagerCommon {
@@ -88,7 +110,7 @@ public:
 
 	void DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw);
 
-	void GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat);
+	void GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, VulkanGeometryShader **gshader, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat);
 	void ClearShaders();
 	void DirtyShader();
 	void DirtyLastShader() override;
@@ -99,8 +121,10 @@ public:
 	// Used for saving/loading the cache. Don't need to be particularly fast.
 	VulkanVertexShader *GetVertexShaderFromID(VShaderID id) { return vsCache_.Get(id); }
 	VulkanFragmentShader *GetFragmentShaderFromID(FShaderID id) { return fsCache_.Get(id); }
+	VulkanGeometryShader *GetGeometryShaderFromID(GShaderID id) { return gsCache_.Get(id); }
 	VulkanVertexShader *GetVertexShaderFromModule(VkShaderModule module);
 	VulkanFragmentShader *GetFragmentShaderFromModule(VkShaderModule module);
+	VulkanGeometryShader *GetGeometryShaderFromModule(VkShaderModule module);
 
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
@@ -139,6 +163,9 @@ private:
 	typedef DenseHashMap<VShaderID, VulkanVertexShader *, nullptr> VSCache;
 	VSCache vsCache_;
 
+	typedef DenseHashMap<GShaderID, VulkanGeometryShader *, nullptr> GSCache;
+	GSCache gsCache_;
+
 	char *codeBuffer_;
 
 	uint64_t uboAlignment_;
@@ -149,7 +176,9 @@ private:
 
 	VulkanFragmentShader *lastFShader_ = nullptr;
 	VulkanVertexShader *lastVShader_ = nullptr;
+	VulkanGeometryShader *lastGShader_ = nullptr;
 
 	FShaderID lastFSID_;
 	VShaderID lastVSID_;
+	GShaderID lastGSID_;
 };

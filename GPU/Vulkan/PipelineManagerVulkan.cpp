@@ -162,7 +162,7 @@ static std::string CutFromMain(std::string str) {
 
 static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pipelineCache, 
 		VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &key,
-		const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform, float lineWidth) {
+		const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, VulkanGeometryShader *gs, bool useHwTransform, float lineWidth) {
 	PROFILE_THIS_SCOPE("pipelinebuild");
 	bool useBlendConstant = false;
 
@@ -239,21 +239,26 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	ms.pSampleMask = nullptr;
 	ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-	VkPipelineShaderStageCreateInfo ss[2]{};
+	VkPipelineShaderStageCreateInfo ss[3]{};
 	ss[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	ss[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
 	ss[0].pSpecializationInfo = nullptr;
 	ss[0].module = vs->GetModule();
 	ss[0].pName = "main";
-	ss[0].flags = 0;
 	ss[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	ss[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 	ss[1].pSpecializationInfo = nullptr;
 	ss[1].module = fs->GetModule();
 	ss[1].pName = "main";
-	ss[1].flags = 0;
+	if (gs) {
+		ss[2].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		ss[2].stage = VK_SHADER_STAGE_GEOMETRY_BIT;
+		ss[2].pSpecializationInfo = nullptr;
+		ss[2].module = gs->GetModule();
+		ss[2].pName = "main";
+	}
 
-	if (!ss[0].module || !ss[1].module) {
+	if (!ss[0].module || !ss[1].module || (gs && !ss[2].module)) {
 		ERROR_LOG(G3D, "Failed creating graphics pipeline - bad shaders");
 		// Create a placeholder to avoid creating over and over if shader compiler broken.
 		VulkanPipeline *nullPipeline = new VulkanPipeline();
@@ -331,6 +336,9 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 			// Let's log some stuff and try to stumble along.
 			ERROR_LOG(G3D, "VS source code:\n%s\n", CutFromMain(vs->GetShaderString(SHADER_STRING_SOURCE_CODE)).c_str());
 			ERROR_LOG(G3D, "FS source code:\n%s\n", CutFromMain(fs->GetShaderString(SHADER_STRING_SOURCE_CODE)).c_str());
+			if (gs) {
+				ERROR_LOG(G3D, "GS source code:\n%s\n", CutFromMain(gs->GetShaderString(SHADER_STRING_SOURCE_CODE)).c_str());
+			}
 		} else {
 			_dbg_assert_msg_(false, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
 		}
@@ -351,10 +359,13 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	if (dss.depthTestEnable || dss.stencilTestEnable) {
 		vulkanPipeline->flags |= PIPELINE_FLAG_USES_DEPTH_STENCIL;
 	}
+	if (gs) {
+		vulkanPipeline->flags |= PIPELINE_FLAG_USES_GEOMETRY_SHADER;
+	}
 	return vulkanPipeline;
 }
 
-VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
+VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, VulkanGeometryShader *gs, bool useHwTransform) {
 	if (!pipelineCache_) {
 		VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 		VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
@@ -369,6 +380,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 	key.useHWTransform = useHwTransform;
 	key.vShader = vs->GetModule();
 	key.fShader = fs->GetModule();
+	key.gShader = gs->GetModule();
 	key.vtxFmtId = useHwTransform ? decFmt->id : 0;
 
 	auto iter = pipelines_.Get(key);
@@ -377,7 +389,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
 		vulkan_->GetDevice(), pipelineCache_, layout, renderPass, 
-		rasterKey, decFmt, vs, fs, useHwTransform, lineWidth_);
+		rasterKey, decFmt, vs, fs, gs, useHwTransform, lineWidth_);
 	pipelines_.Insert(key, pipeline);
 
 	// Don't return placeholder null pipelines.
@@ -598,6 +610,7 @@ struct StoredVulkanPipelineKey {
 	VulkanPipelineRasterStateKey raster;
 	VShaderID vShaderID;
 	FShaderID fShaderID;
+	GShaderID gShaderID;
 	uint32_t vtxFmtId;
 	bool useHWTransform;
 	bool backbufferPass;
@@ -649,6 +662,7 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 			return;
 		VulkanVertexShader *vshader = shaderManager->GetVertexShaderFromModule(pkey.vShader);
 		VulkanFragmentShader *fshader = shaderManager->GetFragmentShaderFromModule(pkey.fShader);
+		VulkanGeometryShader *gshader = shaderManager->GetGeometryShaderFromModule(pkey.gShader);
 		if (!vshader || !fshader) {
 			failed = true;
 			return;
@@ -658,6 +672,7 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 		key.useHWTransform = pkey.useHWTransform;
 		key.fShaderID = fshader->GetID();
 		key.vShaderID = vshader->GetID();
+		key.gShaderID = gshader->GetID();
 		if (key.useHWTransform) {
 			// NOTE: This is not a vtype, but a decoded vertex format.
 			key.vtxFmtId = pkey.vtxFmtId;
@@ -769,7 +784,8 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 		}
 		VulkanVertexShader *vs = shaderManager->GetVertexShaderFromID(key.vShaderID);
 		VulkanFragmentShader *fs = shaderManager->GetFragmentShaderFromID(key.fShaderID);
-		if (!vs || !fs) {
+		VulkanGeometryShader *gs = shaderManager->GetGeometryShaderFromID(key.gShaderID);
+		if (!vs || !fs) {  // it's ok to have no gs, though
 			failed = true;
 			ERROR_LOG(G3D, "Failed to find vs or fs in of pipeline %d in cache", (int)i);
 			continue;
@@ -786,7 +802,7 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 		fmt.InitializeFromID(key.vtxFmtId);
 		VulkanPipeline *pipeline = GetOrCreatePipeline(layout, rp, key.raster,
 			key.useHWTransform ? &fmt : 0,
-			vs, fs, key.useHWTransform);
+			vs, fs, gs, key.useHWTransform);
 		if (!pipeline) {
 			pipelineCreateFailCount += 1;
 		}

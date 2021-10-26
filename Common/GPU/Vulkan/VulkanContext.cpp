@@ -582,8 +582,8 @@ void VulkanContext::ChooseDevice(int physical_device) {
 	deviceFeatures_.enabled.samplerAnisotropy = deviceFeatures_.available.samplerAnisotropy;
 	deviceFeatures_.enabled.shaderClipDistance = deviceFeatures_.available.shaderClipDistance;
 	deviceFeatures_.enabled.shaderCullDistance = deviceFeatures_.available.shaderCullDistance;
-	// For easy wireframe mode, someday.
-	deviceFeatures_.enabled.fillModeNonSolid = deviceFeatures_.available.fillModeNonSolid;
+
+	deviceFeatures_.enabled.geometryShader = deviceFeatures_.available.geometryShader;
 
 	GetDeviceLayerExtensionList(nullptr, device_extension_properties_);
 

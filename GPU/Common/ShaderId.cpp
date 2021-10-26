@@ -330,3 +330,34 @@ void ComputeFragmentShaderID(FShaderID *id_out, const Draw::Bugs &bugs) {
 
 	*id_out = id;
 }
+
+std::string GeometryShaderDesc(const GShaderID &id) {
+	std::stringstream desc;
+	desc << StringFromFormat("%08x:%08x ", id.d[1], id.d[0]);
+	if (id.Bit(GS_BIT_ENABLED)) desc << "ENABLED ";
+	if (id.Bit(GS_BIT_DO_TEXTURE)) desc << "TEX ";
+	if (id.Bit(GS_BIT_LMODE)) desc << "LMODE ";
+	if (id.Bit(GS_BIT_ENABLE_FOG)) desc << "FOG ";
+	return desc.str();
+}
+
+void ComputeGeometryShaderID(GShaderID *id_out, const Draw::Bugs &bugs) {
+	GShaderID id;
+
+	// TODO: Only enable when actually needed.
+	id.SetBit(GS_BIT_ENABLED, true);
+
+	if (gstate.isModeClear()) {
+		// No attribute bits.
+	} else {
+		bool isModeThrough = gstate.isModeThrough();
+		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !isModeThrough;
+		bool enableFog = gstate.isFogEnabled() && !isModeThrough;
+
+		id.SetBit(GS_BIT_ENABLE_FOG, enableFog);
+		id.SetBit(GS_BIT_LMODE, lmode);
+		if (gstate.isTextureMapEnabled()) {
+			id.SetBit(GS_BIT_DO_TEXTURE);
+		}
+	}
+}

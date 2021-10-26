@@ -264,6 +264,9 @@
     <ClInclude Include="Common\ReinterpretFramebuffer.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Common\GeometryShaderGenerator.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -528,6 +531,9 @@
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="Common\ReinterpretFramebuffer.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\GeometryShaderGenerator.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>

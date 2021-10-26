@@ -236,6 +236,44 @@ void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> var
 	}
 }
 
+void ShaderWriter::BeginGSMain(Slice<VaryingDef> varyings) {
+	_assert_(this->stage_ == ShaderStage::Fragment);
+	switch (lang_.shaderLanguage) {
+	case HLSL_D3D11:
+		// Let's do the varyings as parameters to main, no struct.
+		C("vec4 main(");
+		for (auto &varying : varyings) {
+			F("  %s %s : %s, ", varying.type, varying.name, varying.semantic);
+		}
+		// Erase the last comma
+		Rewind(2);
+
+		F(") : SV_Target0 {\n");
+		break;
+	case HLSL_D3D9:
+		// Let's do the varyings as parameters to main, no struct.
+		C("vec4 main(");
+		for (auto &varying : varyings) {
+			F("  %s %s : %s, ", varying.type, varying.name, varying.semantic);
+		}
+		// Erase the last comma
+		Rewind(2);
+
+		F(") : COLOR {\n");
+		break;
+	case GLSL_VULKAN:
+		C("layout(location = 0, index = 0) out vec4 fragColor0;\n");
+		C("\nvoid main() {\n");
+		break;
+	default:
+		if (!strcmp(lang_.fragColor0, "fragColor0")) {
+			C("out vec4 fragColor0;\n");
+		}
+		C("\nvoid main() {\n");
+		break;
+	}
+}
+
 void ShaderWriter::EndVSMain(Slice<VaryingDef> varyings) {
 	_assert_(this->stage_ == ShaderStage::Vertex);
 	switch (lang_.shaderLanguage) {
@@ -265,6 +303,21 @@ void ShaderWriter::EndFSMain(const char *vec4_color_variable) {
 	case GLSL_VULKAN:
 	default:  // OpenGL
 		F("  %s = %s;\n", lang_.fragColor0, vec4_color_variable);
+		break;
+	}
+	C("}\n");
+}
+
+void ShaderWriter::EndGSMain(Slice<VaryingDef> varyings) {
+	_assert_(this->stage_ == ShaderStage::Fragment);
+	switch (lang_.shaderLanguage) {
+	case HLSL_D3D11:
+	case HLSL_D3D9:
+		// F("  return %s;\n", vec4_color_variable);
+		break;
+	case GLSL_VULKAN:
+	default:  // OpenGL
+		// F("  %s = %s;\n", lang_.fragColor0, vec4_color_variable);
 		break;
 	}
 	C("}\n");

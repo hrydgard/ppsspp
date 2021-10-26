@@ -37,6 +37,7 @@ enum PipelineFlags {
 	PIPELINE_FLAG_USES_LINES = (1 << 2),
 	PIPELINE_FLAG_USES_BLEND_CONSTANT = (1 << 3),
 	PIPELINE_FLAG_USES_DEPTH_STENCIL = (1 << 4),  // Reads or writes the depth buffer.
+	PIPELINE_FLAG_USES_GEOMETRY_SHADER = (1 << 5),
 };
 
 struct VkRenderData {
