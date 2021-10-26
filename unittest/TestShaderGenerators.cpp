@@ -12,6 +12,7 @@
 
 #include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/Common/VertexShaderGenerator.h"
+#include "GPU/Common/GeometryShaderGenerator.h"
 #include "GPU/Common/ReinterpretFramebuffer.h"
 
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -37,7 +38,7 @@ bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs
 	}
 	case ShaderLanguage::GLSL_3xx:
 	{
-		ShaderLanguageDesc compat(ShaderLanguage::GLSL_1xx);
+		ShaderLanguageDesc compat(ShaderLanguage::GLSL_3xx);
 		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D9:
@@ -71,7 +72,7 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs
 	}
 	case ShaderLanguage::GLSL_3xx:
 	{
-		ShaderLanguageDesc compat(ShaderLanguage::GLSL_1xx);
+		ShaderLanguageDesc compat(ShaderLanguage::GLSL_3xx);
 		return GenerateVertexShader(id, buffer, compat, bugs, &attrMask, &uniformMask, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D9:
@@ -84,6 +85,33 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs
 		ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D11);
 		return GenerateVertexShader(id, buffer, compat, bugs, &attrMask, &uniformMask, errorString);
 	}
+	default:
+		return false;
+	}
+}
+
+bool GenerateGShader(GShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs bugs, std::string *errorString) {
+	errorString->clear();
+
+	uint64_t uniformMask;
+	switch (lang) {
+	case ShaderLanguage::GLSL_VULKAN:
+	{
+		ShaderLanguageDesc compat(ShaderLanguage::GLSL_VULKAN);
+		return GenerateGeometryShader(id, buffer, compat, bugs, errorString);
+	}
+	/*
+	case ShaderLanguage::GLSL_3xx:
+	{
+		ShaderLanguageDesc compat(ShaderLanguage::GLSL_1xx);
+		return GenerateGeometryShader(id, buffer, compat, bugs, errorString);
+	}
+	case ShaderLanguage::HLSL_D3D11:
+	{
+		ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D11);
+		return GenerateGeometryShader(id, buffer, compat, bugs, errorString);
+	}
+	*/
 	default:
 		return false;
 	}
@@ -261,6 +289,9 @@ bool TestVertexShaders() {
 		if (!id.Bit(VS_BIT_USE_HW_TRANSFORM)) {
 			id.SetBit(VS_BIT_ENABLE_BONES, 0);
 		}
+		if (id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) {
+			continue;
+		}
 
 		bool generateSuccess[numLanguages]{};
 		std::string genErrorString[numLanguages];
@@ -356,6 +387,63 @@ bool TestFragmentShaders() {
 	return true;
 }
 
+
+bool TestGeometryShaders() {
+	char *buffer[numLanguages];
+
+	for (int i = 0; i < numLanguages; i++) {
+		buffer[i] = new char[65536];
+	}
+	GMRng rng;
+	int successes = 0;
+	int count = 30;
+
+	Draw::Bugs bugs;
+
+	// Generate a bunch of random fragment shader IDs, try to generate shader source.
+	// Then compile it and check that it's ok.
+	for (int i = 0; i < count; i++) {
+		uint32_t bottom = i << 1;
+		GShaderID id;
+		id.d[0] = bottom;
+		id.d[1] = 0;
+
+		id.SetBit(GS_BIT_ENABLED, true);
+
+		bool generateSuccess[numLanguages]{};
+		std::string genErrorString[numLanguages];
+
+		for (int j = 0; j < numLanguages; j++) {
+			generateSuccess[j] = GenerateGShader(id, buffer[j], languages[j], bugs, &genErrorString[j]);
+			if (!genErrorString[j].empty()) {
+				printf("%s\n", genErrorString[j].c_str());
+			}
+			// We ignore the contents of the error string here, not even gonna try to compile if it errors.
+		}
+
+		// Now that we have the strings ready for easy comparison (buffer,4 in the watch window),
+		// let's try to compile them.
+		for (int j = 0; j < numLanguages; j++) {
+			if (generateSuccess[j]) {
+				std::string errorMessage;
+				if (!TestCompileShader(buffer[j], languages[j], false, &errorMessage)) {
+					printf("Error compiling geometry shader:\n\n%s\n\n%s\n", LineNumberString(buffer[j]).c_str(), errorMessage.c_str());
+					return false;
+				}
+				successes++;
+			}
+		}
+	}
+
+	printf("%d/%d geometry shaders generated (it's normal that it's not all, there are invalid bit combos)\n", successes, count * numLanguages);
+
+	for (int i = 0; i < numLanguages; i++) {
+		delete[] buffer[i];
+	}
+	return true;
+}
+
+
 bool TestShaderGenerators() {
 #if PPSSPP_PLATFORM(WINDOWS)
 	LoadD3D11();
@@ -364,6 +452,10 @@ bool TestShaderGenerators() {
 #else
 	init_glslang();
 #endif
+
+	if (!TestGeometryShaders()) {
+		return false;
+	}
 
 	if (!TestFragmentShaders()) {
 		return false;
