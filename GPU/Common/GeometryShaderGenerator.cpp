@@ -43,32 +43,31 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 		}
 	}
 
-	ShaderWriter p(buffer, compat, ShaderStage::Vertex, gl_exts.data(), gl_exts.size());
-	p.C(R"(
-
-	layout(triangles) in;
-	layout(triangle_strip, max_vertices = 3) out;
-
-	)");
+	ShaderWriter p(buffer, compat, ShaderStage::Geometry, gl_exts.data(), gl_exts.size());
+	p.C("layout(triangles) in;\n");
+	p.C("layout(triangle_strip, max_vertices = 3) out;\n");
 
 	std::vector<VaryingDef> varyings;
 
-	
-
-	/*
-	void main()
-	{
-		for (int i = 0; i < gl_in.length(); i++)
-		{
-			// copy attributes
-			gl_Position = gl_in[i].gl_Position;
-			VertexOut.normal = VertexIn[i].normal;
-			VertexOut.texCoord = VertexIn[i].texCoord;
-
-			// done with the vertex
-			EmitVertex();
-		}
+	varyings.push_back(VaryingDef{ "vec4", "v_color0", "COLOR0", 1, "highp" });
+	if (id.Bit(GS_BIT_LMODE)) {
+		varyings.push_back(VaryingDef{ "vec4", "v_color1", "COLOR1", 2, "highp" });
 	}
-	*/
-	return false;
+	if (id.Bit(GS_BIT_ENABLE_FOG)) {
+		varyings.push_back(VaryingDef{ "float", "v_fogdepth", "TEXCOORD0", 3, "highp" });
+	}
+	if (id.Bit(GS_BIT_DO_TEXTURE)) {
+		varyings.push_back(VaryingDef{ "vec3", "v_texcoord", "TEXCOORD0", 0, "highp" });
+	}
+
+	p.BeginGSMain(varyings);
+
+	p.C("  for (int i = 0; i < gl_in.length(); i++) {\n");
+	p.C("    gl_Position = gl_in[i].gl_Position;\n");  // copy attributes
+	p.C("    EmitVertex();\n");
+	p.C("  }\n");
+
+	p.EndGSMain(varyings);
+
+	return true;
 }
