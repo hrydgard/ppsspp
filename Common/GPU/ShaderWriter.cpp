@@ -236,7 +236,7 @@ void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> var
 	}
 }
 
-void ShaderWriter::BeginGSMain(Slice<VaryingDef> varyings) {
+void ShaderWriter::BeginGSMain(Slice<VaryingDef> varyings, Slice<VaryingDef> outVaryings) {
 	_assert_(this->stage_ == ShaderStage::Geometry);
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
@@ -252,7 +252,10 @@ void ShaderWriter::BeginGSMain(Slice<VaryingDef> varyings) {
 		break;
 	case GLSL_VULKAN:
 		for (auto &varying : varyings) {
-			F("layout(location = %d) %s in %s %s;  // %s\n", varying.index, varying.precision ? varying.precision : "", varying.type, varying.name, varying.semantic);
+			F("layout(location = %d) %s in %s %s[];  // %s\n", varying.index, varying.precision ? varying.precision : "", varying.type, varying.name, varying.semantic);
+		}
+		for (auto &varying : outVaryings) {
+			F("layout(location = %d) %s out %s %s;  // %s\n", varying.index, varying.precision ? varying.precision : "", varying.type, varying.name, varying.semantic);
 		}
 		C("\nvoid main() {\n");
 		break;
@@ -301,35 +304,8 @@ void ShaderWriter::EndFSMain(const char *vec4_color_variable) {
 	C("}\n");
 }
 
-void ShaderWriter::EndGSMain(Slice<VaryingDef> varyings) {
+void ShaderWriter::EndGSMain() {
 	_assert_(this->stage_ == ShaderStage::Geometry);
-	switch (lang_.shaderLanguage) {
-	case HLSL_D3D11:
-		// Let's do the varyings as parameters to main, no struct.
-		C("vec4 main(");
-		for (auto &varying : varyings) {
-			F("  %s %s : %s, ", varying.type, varying.name, varying.semantic);
-		}
-		// Erase the last comma
-		Rewind(2);
-
-		F(") : SV_Target0 {\n");
-		break;
-	case GLSL_VULKAN:
-		for (auto &varying : varyings) {
-			F("layout(location = %d) %s in %s %s;  // %s\n", varying.index, varying.precision ? varying.precision : "", varying.type, varying.name, varying.semantic);
-		}
-		C("\nvoid main() {\n");
-		break;
-	case GLSL_3xx:
-		if (!strcmp(lang_.fragColor0, "fragColor0")) {
-			C("out vec4 fragColor0;\n");
-		}
-		C("\nvoid main() {\n");
-		break;
-	default:
-		break;
-	}
 }
 
 void ShaderWriter::HighPrecisionFloat() {

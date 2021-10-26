@@ -93,7 +93,6 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs
 bool GenerateGShader(GShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs bugs, std::string *errorString) {
 	errorString->clear();
 
-	uint64_t uniformMask;
 	switch (lang) {
 	case ShaderLanguage::GLSL_VULKAN:
 	{
@@ -117,18 +116,31 @@ bool GenerateGShader(GShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs
 	}
 }
 
-bool TestCompileShader(const char *buffer, ShaderLanguage lang, bool vertex, std::string *errorMessage) {
+bool TestCompileShader(const char *buffer, ShaderLanguage lang, VkShaderStageFlagBits stage, std::string *errorMessage) {
 	std::vector<uint32_t> spirv;
 	switch (lang) {
 #if PPSSPP_PLATFORM(WINDOWS)
 	case ShaderLanguage::HLSL_D3D11:
 	{
-		auto output = CompileShaderToBytecodeD3D11(buffer, strlen(buffer), vertex ? "vs_4_0" : "ps_4_0", 0);
+		const char *programType = nullptr;
+		switch (stage) {
+		case VK_SHADER_STAGE_VERTEX_BIT: programType = "vs_4_0"; break;
+		case VK_SHADER_STAGE_FRAGMENT_BIT: programType = "ps_4_0"; break;
+		case VK_SHADER_STAGE_GEOMETRY_BIT: programType = "gs_4_0"; break;
+		default: return false;
+		}
+		auto output = CompileShaderToBytecodeD3D11(buffer, strlen(buffer), programType, 0);
 		return !output.empty();
 	}
 	case ShaderLanguage::HLSL_D3D9:
 	{
-		LPD3DBLOB blob = CompileShaderToByteCodeD3D9(buffer, vertex ? "vs_2_0" : "ps_2_0", errorMessage);
+		const char *programType = nullptr;
+		switch (stage) {
+		case VK_SHADER_STAGE_VERTEX_BIT: programType = "vs_2_0"; break;
+		case VK_SHADER_STAGE_FRAGMENT_BIT: programType = "ps_2_0"; break;
+		default: return false;
+		}
+		LPD3DBLOB blob = CompileShaderToByteCodeD3D9(buffer, programType, errorMessage);
 		if (blob) {
 			blob->Release();
 			return true;
@@ -139,11 +151,11 @@ bool TestCompileShader(const char *buffer, ShaderLanguage lang, bool vertex, std
 #endif
 
 	case ShaderLanguage::GLSL_VULKAN:
-		return GLSLtoSPV(vertex ? VK_SHADER_STAGE_VERTEX_BIT : VK_SHADER_STAGE_FRAGMENT_BIT, buffer, GLSLVariant::VULKAN, spirv, errorMessage);
+		return GLSLtoSPV(stage, buffer, GLSLVariant::VULKAN, spirv, errorMessage);
 	case ShaderLanguage::GLSL_1xx:
-		return GLSLtoSPV(vertex ? VK_SHADER_STAGE_VERTEX_BIT : VK_SHADER_STAGE_FRAGMENT_BIT, buffer, GLSLVariant::GL140, spirv, errorMessage);
+		return GLSLtoSPV(stage, buffer, GLSLVariant::GL140, spirv, errorMessage);
 	case ShaderLanguage::GLSL_3xx:
-		return GLSLtoSPV(vertex ? VK_SHADER_STAGE_VERTEX_BIT : VK_SHADER_STAGE_FRAGMENT_BIT, buffer, GLSLVariant::GLES300, spirv, errorMessage);
+		return GLSLtoSPV(stage, buffer, GLSLVariant::GLES300, spirv, errorMessage);
 	default:
 		return false;
 	}
@@ -209,7 +221,7 @@ bool TestReinterpretShaders() {
 			failed = true;
 		} else {
 			std::string errorMessage;
-			if (!TestCompileShader(buffer, languages[k], true, &errorMessage)) {
+			if (!TestCompileShader(buffer, languages[k], VK_SHADER_STAGE_VERTEX_BIT, &errorMessage)) {
 				printf("Error compiling fragment shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
 				failed = true;
 				return false;
@@ -233,7 +245,7 @@ bool TestReinterpretShaders() {
 					failed = true;
 				} else {
 					std::string errorMessage;
-					if (!TestCompileShader(buffer, languages[k], false, &errorMessage)) {
+					if (!TestCompileShader(buffer, languages[k], VK_SHADER_STAGE_FRAGMENT_BIT, &errorMessage)) {
 						printf("Error compiling fragment shader %d:\n\n%s\n\n%s\n", (int)j, LineNumberString(buffer).c_str(), errorMessage.c_str());
 						failed = true;
 						return false;
@@ -308,7 +320,7 @@ bool TestVertexShaders() {
 		for (int j = 0; j < numLanguages; j++) {
 			if (generateSuccess[j]) {
 				std::string errorMessage;
-				if (!TestCompileShader(buffer[j], languages[j], true, &errorMessage)) {
+				if (!TestCompileShader(buffer[j], languages[j], VK_SHADER_STAGE_VERTEX_BIT, &errorMessage)) {
 					printf("Error compiling vertex shader %d:\n\n%s\n\n%s\n", (int)j, LineNumberString(buffer[j]).c_str(), errorMessage.c_str());
 					return false;
 				}
@@ -370,7 +382,7 @@ bool TestFragmentShaders() {
 		for (int j = 0; j < numLanguages; j++) {
 			if (generateSuccess[j]) {
 				std::string errorMessage;
-				if (!TestCompileShader(buffer[j], languages[j], false, &errorMessage)) {
+				if (!TestCompileShader(buffer[j], languages[j], VK_SHADER_STAGE_FRAGMENT_BIT, &errorMessage)) {
 					printf("Error compiling fragment shader:\n\n%s\n\n%s\n", LineNumberString(buffer[j]).c_str(), errorMessage.c_str());
 					return false;
 				}
@@ -426,7 +438,7 @@ bool TestGeometryShaders() {
 		for (int j = 0; j < numLanguages; j++) {
 			if (generateSuccess[j]) {
 				std::string errorMessage;
-				if (!TestCompileShader(buffer[j], languages[j], false, &errorMessage)) {
+				if (!TestCompileShader(buffer[j], languages[j], VK_SHADER_STAGE_GEOMETRY_BIT, &errorMessage)) {
 					printf("Error compiling geometry shader:\n\n%s\n\n%s\n", LineNumberString(buffer[j]).c_str(), errorMessage.c_str());
 					return false;
 				}

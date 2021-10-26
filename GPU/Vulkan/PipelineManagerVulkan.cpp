@@ -380,7 +380,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 	key.useHWTransform = useHwTransform;
 	key.vShader = vs->GetModule();
 	key.fShader = fs->GetModule();
-	key.gShader = gs->GetModule();
+	key.gShader = gs ? gs->GetModule() : nullptr;
 	key.vtxFmtId = useHwTransform ? decFmt->id : 0;
 
 	auto iter = pipelines_.Get(key);
@@ -672,7 +672,7 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 		key.useHWTransform = pkey.useHWTransform;
 		key.fShaderID = fshader->GetID();
 		key.vShaderID = vshader->GetID();
-		key.gShaderID = gshader->GetID();
+		key.gShaderID = gshader ? gshader->GetID() : GShaderID();
 		if (key.useHWTransform) {
 			// NOTE: This is not a vtype, but a decoded vertex format.
 			key.vtxFmtId = pkey.vtxFmtId;
