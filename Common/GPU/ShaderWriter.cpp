@@ -50,6 +50,15 @@ const char *vulkan_glsl_preamble_vs =
 "precision highp float;\n"
 "\n";
 
+const char *vulkan_glsl_preamble_gs =
+"#version 450\n"
+"#extension GL_ARB_separate_shader_objects : enable\n"
+"#extension GL_ARB_shading_language_420pack : enable\n"
+"#define mul(x, y) ((x) * (y))\n"
+"#define splat3(x) vec3(x)\n"
+"precision highp float;\n"
+"\n";
+
 const char *hlsl_preamble_vs =
 "#define vec2 float2\n"
 "#define vec3 float3\n"
@@ -82,6 +91,9 @@ void ShaderWriter::Preamble(const char **gl_extensions, size_t num_gl_extensions
 			break;
 		case ShaderStage::Fragment:
 			W(vulkan_glsl_preamble_fs);
+			break;
+		case ShaderStage::Geometry:
+			W(vulkan_glsl_preamble_gs);
 			break;
 		default:
 			break;

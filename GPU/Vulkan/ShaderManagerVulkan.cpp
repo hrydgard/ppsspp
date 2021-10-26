@@ -167,7 +167,7 @@ VulkanGeometryShader::VulkanGeometryShader(VulkanContext *vulkan, GShaderID id, 
 #ifdef SHADERLOG
 	OutputDebugStringA(LineNumberString(code).c_str());
 #endif
-	bool success = GLSLtoSPV(VK_SHADER_STAGE_VERTEX_BIT, code, GLSLVariant::VULKAN, spirv, &errorMessage);
+	bool success = GLSLtoSPV(VK_SHADER_STAGE_GEOMETRY_BIT, code, GLSLVariant::VULKAN, spirv, &errorMessage);
 	if (!errorMessage.empty()) {
 		if (success) {
 			ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -355,7 +355,7 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 	VulkanGeometryShader *gs = nullptr;
 	if (GSID.Bit(GS_BIT_ENABLED)) {
 		VulkanGeometryShader *gs = gsCache_.Get(GSID);
-		if (!fs) {
+		if (!gs) {
 			// uint32_t vendorID = vulkan_->GetPhysicalDeviceProperties().properties.vendorID;
 			// Fragment shader not in cache. Let's compile it.
 			std::string genErrorString;

@@ -360,4 +360,6 @@ void ComputeGeometryShaderID(GShaderID *id_out, const Draw::Bugs &bugs) {
 			id.SetBit(GS_BIT_DO_TEXTURE);
 		}
 	}
+
+	*id_out = id;
 }
