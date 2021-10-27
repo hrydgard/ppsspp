@@ -255,13 +255,13 @@ void ShaderManagerVulkan::Clear() {
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
 	lastGSID_.set_invalid();
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 }
 
 void ShaderManagerVulkan::ClearShaders() {
 	Clear();
 	DirtyShader();
-	gstate_c.Dirty(DIRTY_ALL_UNIFORMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
+	gstate_c.Dirty(DIRTY_ALL_UNIFORMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 }
 
 void ShaderManagerVulkan::DirtyShader() {
@@ -276,7 +276,7 @@ void ShaderManagerVulkan::DirtyLastShader() {
 	lastVShader_ = nullptr;
 	lastFShader_ = nullptr;
 	lastGShader_ = nullptr;
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 }
 
 uint64_t ShaderManagerVulkan::UpdateUniforms(bool useBufferedRendering) {
@@ -307,9 +307,14 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
 		ComputeFragmentShaderID(&FSID, draw_->GetBugs());
-		ComputeGeometryShaderID(&GSID, draw_->GetBugs());
 	} else {
 		FSID = lastFSID_;
+	}
+
+	if (gstate_c.IsDirty(DIRTY_GEOMETRYSHADER_STATE)) {
+		gstate_c.Clean(DIRTY_GEOMETRYSHADER_STATE);
+		ComputeGeometryShaderID(&GSID, draw_->GetBugs(), prim);
+	} else {
 		GSID = lastGSID_;
 	}
 
@@ -318,10 +323,17 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 	_dbg_assert_(FSID.Bit(FS_BIT_ENABLE_FOG) == VSID.Bit(VS_BIT_ENABLE_FOG));
 	_dbg_assert_(FSID.Bit(FS_BIT_FLATSHADE) == VSID.Bit(VS_BIT_FLATSHADE));
 
+	if (!GSID.is_invalid() && GSID.Bit(GS_BIT_ENABLED)) {
+		_dbg_assert_(GSID.Bit(GS_BIT_LMODE) == VSID.Bit(VS_BIT_LMODE));
+		_dbg_assert_(GSID.Bit(GS_BIT_DO_TEXTURE) == VSID.Bit(VS_BIT_DO_TEXTURE));
+		_dbg_assert_(GSID.Bit(GS_BIT_ENABLE_FOG) == VSID.Bit(VS_BIT_ENABLE_FOG));
+	}
+
 	// Just update uniforms if this is the same shader as last time.
 	if (lastVShader_ != nullptr && lastFShader_ != nullptr && VSID == lastVSID_ && FSID == lastFSID_ && GSID == lastGSID_) {
 		*vshader = lastVShader_;
 		*fshader = lastFShader_;
+		*gshader = lastGShader_;
 		_dbg_assert_msg_((*vshader)->UseHWTransform() == useHWTransform, "Bad vshader was cached");
 		// Already all set, no need to look up in shader maps.
 		return;
@@ -352,8 +364,8 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 		fsCache_.Insert(FSID, fs);
 	}
 
-	VulkanGeometryShader *gs = nullptr;
-	if (GSID.Bit(GS_BIT_ENABLED)) {
+	VulkanGeometryShader *gs;
+	if (GSID.Bit(GS_BIT_ENABLED) && !GSID.is_invalid()) {
 		gs = gsCache_.Get(GSID);
 		if (!gs) {
 			// uint32_t vendorID = vulkan_->GetPhysicalDeviceProperties().properties.vendorID;
@@ -365,6 +377,8 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 			gs = new VulkanGeometryShader(vulkan_, GSID, codeBuffer_);
 			gsCache_.Insert(GSID, gs);
 		}
+	} else {
+		gs = nullptr;
 	}
 
 	lastFSID_ = FSID;
@@ -475,7 +489,7 @@ VulkanGeometryShader *ShaderManagerVulkan::GetGeometryShaderFromModule(VkShaderM
 // instantaneous.
 
 #define CACHE_HEADER_MAGIC 0xff51f420 
-#define CACHE_VERSION 20
+#define CACHE_VERSION 21
 struct VulkanCacheHeader {
 	uint32_t magic;
 	uint32_t version;
@@ -483,6 +497,7 @@ struct VulkanCacheHeader {
 	uint32_t reserved;
 	int numVertexShaders;
 	int numFragmentShaders;
+	int numGeometryShaders;
 };
 
 bool ShaderManagerVulkan::LoadCache(FILE *f) {
@@ -528,6 +543,20 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		fsCache_.Insert(id, fs);
 	}
 
+	for (int i = 0; i < header.numGeometryShaders; i++) {
+		GShaderID id;
+		if (fread(&id, sizeof(id), 1, f) != 1) {
+			ERROR_LOG(G3D, "Vulkan shader cache truncated");
+			break;
+		}
+		std::string genErrorString;
+		if (!GenerateGeometryShader(id, codeBuffer_, compat_, draw_->GetBugs(), &genErrorString)) {
+			return false;
+		}
+		VulkanGeometryShader *gs = new VulkanGeometryShader(vulkan_, id, codeBuffer_);
+		gsCache_.Insert(id, gs);
+	}
+
 	NOTICE_LOG(G3D, "Loaded %d vertex and %d fragment shaders", header.numVertexShaders, header.numFragmentShaders);
 	return true;
 }
@@ -545,6 +574,9 @@ void ShaderManagerVulkan::SaveCache(FILE *f) {
 		writeFailed = writeFailed || fwrite(&id, sizeof(id), 1, f) != 1;
 	});
 	fsCache_.Iterate([&](const FShaderID &id, VulkanFragmentShader *fs) {
+		writeFailed = writeFailed || fwrite(&id, sizeof(id), 1, f) != 1;
+	});
+	gsCache_.Iterate([&](const GShaderID &id, VulkanGeometryShader *gs) {
 		writeFailed = writeFailed || fwrite(&id, sizeof(id), 1, f) != 1;
 	});
 	if (writeFailed) {

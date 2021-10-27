@@ -125,6 +125,13 @@ struct ShaderID {
 			d[i] = 0xFFFFFFFF;
 		}
 	}
+	bool is_invalid() const {
+		for (size_t i = 0; i < ARRAY_SIZE(d); i++) {
+			if (d[i] != 0xFFFFFFFF)
+				return false;
+		}
+		return true;
+	}
 
 	uint32_t d[2];
 	bool operator < (const ShaderID &other) const {
@@ -270,5 +277,5 @@ std::string VertexShaderDesc(const VShaderID &id);
 void ComputeFragmentShaderID(FShaderID *id, const Draw::Bugs &bugs);
 std::string FragmentShaderDesc(const FShaderID &id);
 
-void ComputeGeometryShaderID(GShaderID *id, const Draw::Bugs &bugs);
+bool ComputeGeometryShaderID(GShaderID *id, const Draw::Bugs &bugs, int prim);
 std::string GeometryShaderDesc(const GShaderID &id);

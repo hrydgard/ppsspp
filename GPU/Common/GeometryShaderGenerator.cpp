@@ -39,7 +39,6 @@
 
 
 bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLanguageDesc &compat, const Draw::Bugs bugs, std::string *errorString) {
-
 	std::vector<const char*> gl_exts;
 	if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
 		if (gl_extensions.EXT_gpu_shader4) {
@@ -60,6 +59,10 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 
 	std::vector<VaryingDef> varyings, outVaryings;
 
+	if (id.Bit(GS_BIT_DO_TEXTURE)) {
+		varyings.push_back(VaryingDef{ "vec3", "v_texcoord", "TEXCOORD0", 0, "highp" });
+		outVaryings.push_back(VaryingDef{ "vec3", "v_texcoordOut", "TEXCOORD0", 0, "highp" });
+	}
 	varyings.push_back(VaryingDef{ "vec4", "v_color0", "COLOR0", 1, "lowp" });
 	outVaryings.push_back(VaryingDef{ "vec4", "v_color0Out", "COLOR0", 1, "lowp" });
 	if (id.Bit(GS_BIT_LMODE)) {
@@ -70,13 +73,11 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 		varyings.push_back(VaryingDef{ "float", "v_fogdepth", "TEXCOORD1", 3, "highp" });
 		outVaryings.push_back(VaryingDef{ "float", "v_fogdepthOut", "TEXCOORD1", 3, "highp" });
 	}
-	if (id.Bit(GS_BIT_DO_TEXTURE)) {
-		varyings.push_back(VaryingDef{ "vec3", "v_texcoord", "TEXCOORD0", 0, "highp" });
-		outVaryings.push_back(VaryingDef{ "vec3", "v_texcoordOut", "TEXCOORD0", 0, "highp" });
-	}
+
 
 	p.BeginGSMain(varyings, outVaryings);
 
+#if 0
 	// Apply culling
 	p.C("  bool anyInside = false;\n");  // TODO: 3 or gl_in.length()? which will be faster?
 
@@ -103,15 +104,17 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 
 	// Cull any triangle fully outside in the same direction when depth clamp enabled.
 	// Basically simulate cull distances.
-	p.C("  if (!anyInside) { return; }\n");  // TODO: 3 or gl_in.length()? which will be faster?
+	p.C("  if (!anyInside) { return; }\n");
+#endif
 
 	const char *clip0 = compat.shaderLanguage == HLSL_D3D11 ? "" : "[0]";
 
-	p.C("  for (int i = 0; i < 3; i++) {\n");
+	p.C("  for (int i = 0; i < 3; i++) {\n");   // TODO: 3 or gl_in.length()? which will be faster?
 	p.C("    vec4 outPos = gl_in[i].gl_Position;\n");
 	p.C("    gl_Position = outPos;\n");
 	p.C("    vec3 projPos = outPos.xyz / outPos.w;\n");
 	p.C("    float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
+	// TODO: Not rectangles...
 	p.F("    gl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", clip0);
 
 	for (size_t i = 0; i < varyings.size(); i++) {

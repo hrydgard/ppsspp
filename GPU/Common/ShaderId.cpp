@@ -341,13 +341,14 @@ std::string GeometryShaderDesc(const GShaderID &id) {
 	return desc.str();
 }
 
-void ComputeGeometryShaderID(GShaderID *id_out, const Draw::Bugs &bugs) {
+bool ComputeGeometryShaderID(GShaderID *id_out, const Draw::Bugs &bugs, int prim) {
 	GShaderID id;
 
 	// If we're not using GS culling, return a zero ID.
-	if (!gstate_c.Supports(GPU_SUPPORTS_GS_CULLING)) {
+	// Also, only use this for triangle primitives.
+	if (!gstate_c.Supports(GPU_SUPPORTS_GS_CULLING) || (prim != GE_PRIM_TRIANGLES && prim != GE_PRIM_TRIANGLE_FAN && prim != GE_PRIM_TRIANGLE_STRIP)) {
 		*id_out = id;
-		return;
+		return false;
 	}
 
 	id.SetBit(GS_BIT_ENABLED, true);
@@ -367,4 +368,5 @@ void ComputeGeometryShaderID(GShaderID *id_out, const Draw::Bugs &bugs) {
 	}
 
 	*id_out = id;
+	return true;
 }
