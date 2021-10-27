@@ -308,9 +308,8 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 
 	VkGraphicsPipelineCreateInfo pipe{ VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
 	pipe.flags = 0;
-	pipe.stageCount = stageCount;
+	pipe.stageCount = (uint32_t)stageCount;
 	pipe.pStages = ss;
-	pipe.basePipelineIndex = 0;
 
 	pipe.pColorBlendState = &cbs;
 	pipe.pDepthStencilState = &dss;

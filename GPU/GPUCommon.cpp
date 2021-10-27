@@ -1842,7 +1842,7 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 	SetDrawType(DRAW_BEZIER, PatchPrimToPrim(surface.primType));
 
 	if (drawEngineCommon_->CanUseHardwareTessellation(surface.primType)) {
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 		gstate_c.submitType = SubmitType::HW_BEZIER;
 		if (gstate_c.spline_num_points_u != surface.num_points_u) {
 			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
@@ -1856,7 +1856,7 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 	UpdateUVScaleOffset();
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "bezier");
 
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 	gstate_c.submitType = SubmitType::DRAW;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
@@ -1912,7 +1912,7 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 	SetDrawType(DRAW_SPLINE, PatchPrimToPrim(surface.primType));
 
 	if (drawEngineCommon_->CanUseHardwareTessellation(surface.primType)) {
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 		gstate_c.submitType = SubmitType::HW_SPLINE;
 		if (gstate_c.spline_num_points_u != surface.num_points_u) {
 			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
@@ -1926,7 +1926,7 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 	UpdateUVScaleOffset();
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "spline");
 
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 	gstate_c.submitType = SubmitType::DRAW;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.

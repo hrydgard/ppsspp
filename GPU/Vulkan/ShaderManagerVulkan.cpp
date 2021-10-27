@@ -313,7 +313,7 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 
 	if (gstate_c.IsDirty(DIRTY_GEOMETRYSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_GEOMETRYSHADER_STATE);
-		ComputeGeometryShaderID(&GSID, draw_->GetBugs(), prim);
+		ComputeGeometryShaderID(&GSID, draw_->GetBugs(), prim, useHWTransform);
 	} else {
 		GSID = lastGSID_;
 	}

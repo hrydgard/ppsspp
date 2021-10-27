@@ -277,5 +277,5 @@ std::string VertexShaderDesc(const VShaderID &id);
 void ComputeFragmentShaderID(FShaderID *id, const Draw::Bugs &bugs);
 std::string FragmentShaderDesc(const FShaderID &id);
 
-bool ComputeGeometryShaderID(GShaderID *id, const Draw::Bugs &bugs, int prim);
+bool ComputeGeometryShaderID(GShaderID *id, const Draw::Bugs &bugs, int prim, bool useHWTransform);
 std::string GeometryShaderDesc(const GShaderID &id);
