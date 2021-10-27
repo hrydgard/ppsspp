@@ -1156,7 +1156,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				break;
 			default:
 				Crash();
-				break;
+				return;
 			}
 			barrier.newLayout = iter.targetLayout;
 			switch (barrier.newLayout) {
@@ -1166,7 +1166,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				break;
 			default:
 				Crash();
-				break;
+				return;
 			}
 			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
