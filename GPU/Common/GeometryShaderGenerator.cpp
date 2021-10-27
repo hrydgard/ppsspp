@@ -77,7 +77,6 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 
 	p.BeginGSMain(varyings, outVaryings);
 
-#if 0
 	// Apply culling
 	p.C("  bool anyInside = false;\n");  // TODO: 3 or gl_in.length()? which will be faster?
 
@@ -90,12 +89,12 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 	const char *outMin = "projPos.x < u_cullRangeMin.x || projPos.y < u_cullRangeMin.y";
 	const char *outMax = "projPos.x > u_cullRangeMax.x || projPos.y > u_cullRangeMax.y";
 	p.F("      if ((%s) || (%s)) {\n", outMin, outMax);
-	p.C("        return;\n");
+	p.C("        return;\n");  // Cull!
 	p.C("      }\n");
 	p.C("    }\n");
 	p.C("    if (u_cullRangeMin.w <= 0.0) {\n");
 	p.C("      if (projPos.z < u_cullRangeMin.z || projPos.z > u_cullRangeMax.z) {\n");
-	p.C("        return;\n");
+	p.C("        return;\n");  // Cull!
 	p.C("      }\n");
 	p.C("    } else {\n");
 	p.C("      if (projPos.z >= u_cullRangeMin.z && projPos.z <= u_cullRangeMax.z) { anyInside = true; }\n");
@@ -105,7 +104,6 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 	// Cull any triangle fully outside in the same direction when depth clamp enabled.
 	// Basically simulate cull distances.
 	p.C("  if (!anyInside) { return; }\n");
-#endif
 
 	const char *clip0 = compat.shaderLanguage == HLSL_D3D11 ? "" : "[0]";
 
