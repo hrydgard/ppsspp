@@ -344,9 +344,12 @@ std::string GeometryShaderDesc(const GShaderID &id) {
 bool ComputeGeometryShaderID(GShaderID *id_out, const Draw::Bugs &bugs, int prim, bool useHWTransform) {
 	GShaderID id;
 
+	bool vertexRangeCulling =
+		!gstate.isModeThrough() && gstate_c.submitType == SubmitType::DRAW;  // neither hw nor sw spline/bezier. See #11692
+
 	// If we're not using GS culling, return a zero ID.
 	// Also, only use this for triangle primitives.
-	if (!useHWTransform || !gstate_c.Supports(GPU_SUPPORTS_GS_CULLING) || (prim != GE_PRIM_TRIANGLES && prim != GE_PRIM_TRIANGLE_FAN && prim != GE_PRIM_TRIANGLE_STRIP)) {
+	if (!vertexRangeCulling || !useHWTransform || !gstate_c.Supports(GPU_SUPPORTS_GS_CULLING) || (prim != GE_PRIM_TRIANGLES && prim != GE_PRIM_TRIANGLE_FAN && prim != GE_PRIM_TRIANGLE_STRIP)) {
 		*id_out = id;
 		return false;
 	}
