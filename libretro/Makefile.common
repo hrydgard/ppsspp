@@ -334,6 +334,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Debugger/Stepping.cpp \
 	$(GPUDIR)/Common/FragmentShaderGenerator.cpp \
 	$(GPUDIR)/Common/VertexShaderGenerator.cpp \
+	$(GPUDIR)/Common/GeometryShaderGenerator.cpp \
 	$(GPUDIR)/Common/TextureCacheCommon.cpp \
 	$(GPUDIR)/Common/TextureScalerCommon.cpp \
 	$(GPUDIR)/Common/SoftwareTransformCommon.cpp \

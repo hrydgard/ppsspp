@@ -341,6 +341,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/PostShader.cpp \
   $(SRC)/GPU/Common/ShaderUniforms.cpp \
   $(SRC)/GPU/Common/VertexShaderGenerator.cpp \
+  $(SRC)/GPU/Common/GeometryShaderGenerator.cpp \
   $(SRC)/GPU/Debugger/Breakpoints.cpp \
   $(SRC)/GPU/Debugger/Debugger.cpp \
   $(SRC)/GPU/Debugger/Playback.cpp \

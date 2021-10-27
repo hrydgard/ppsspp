@@ -1514,6 +1514,8 @@ set(GPU_SOURCES
 	GPU/Common/FragmentShaderGenerator.h
 	GPU/Common/VertexShaderGenerator.cpp
 	GPU/Common/VertexShaderGenerator.h
+	GPU/Common/GeometryShaderGenerator.cpp
+	GPU/Common/GeometryShaderGenerator.h
 	GPU/Common/FramebufferManagerCommon.cpp
 	GPU/Common/FramebufferManagerCommon.h
 	GPU/Common/GPUDebugInterface.cpp
