@@ -344,7 +344,12 @@ std::string GeometryShaderDesc(const GShaderID &id) {
 void ComputeGeometryShaderID(GShaderID *id_out, const Draw::Bugs &bugs) {
 	GShaderID id;
 
-	// TODO: Only enable when actually needed.
+	// If we're not using GS culling, return a zero ID.
+	if (!gstate_c.Supports(GPU_SUPPORTS_GS_CULLING)) {
+		*id_out = id;
+		return;
+	}
+
 	id.SetBit(GS_BIT_ENABLED, true);
 
 	if (gstate.isModeClear()) {

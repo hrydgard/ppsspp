@@ -34,6 +34,10 @@
 
 #define WRITE(p, ...) p.F(__VA_ARGS__)
 
+// TODO: Could support VK_NV_geometry_shader_passthrough, though the hardware that supports
+// it is already pretty fast at geometry shaders..
+
+
 bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLanguageDesc &compat, const Draw::Bugs bugs, std::string *errorString) {
 
 	std::vector<const char*> gl_exts;
@@ -46,6 +50,13 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 	ShaderWriter p(buffer, compat, ShaderStage::Geometry, gl_exts.data(), gl_exts.size());
 	p.C("layout(triangles) in;\n");
 	p.C("layout(triangle_strip, max_vertices = 3) out;\n");
+
+	if (compat.shaderLanguage == GLSL_VULKAN) {
+		WRITE(p, "\n");
+		WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseVars {\n%s};\n", ub_baseStr);
+	} else if (compat.shaderLanguage == HLSL_D3D11) {
+		WRITE(p, "cbuffer base : register(b0) {\n%s};\n", ub_baseStr);
+	}
 
 	std::vector<VaryingDef> varyings, outVaryings;
 
@@ -66,15 +77,50 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 
 	p.BeginGSMain(varyings, outVaryings);
 
-	p.C("  for (int i = 0; i < gl_in.length(); i++) {\n");
-	p.C("    gl_Position = gl_in[i].gl_Position;\n");  // copy attributes
+	// Apply culling
+	p.C("  bool anyInside = false;\n");  // TODO: 3 or gl_in.length()? which will be faster?
+
+	p.C("  for (int i = 0; i < 3; i++) {\n");  // TODO: 3 or gl_in.length()? which will be faster?
+	p.C("    vec4 outPos = gl_in[i].gl_Position;\n");
+	p.C("    vec3 projPos = outPos.xyz / outPos.w;\n");
+	p.C("    float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
+	// Vertex range culling doesn't happen when Z clips, note sign of w is important.
+	p.C("    if (u_cullRangeMin.w <= 0.0 || projZ * outPos.w > -outPos.w) {\n");
+	const char *outMin = "projPos.x < u_cullRangeMin.x || projPos.y < u_cullRangeMin.y";
+	const char *outMax = "projPos.x > u_cullRangeMax.x || projPos.y > u_cullRangeMax.y";
+	p.F("      if ((%s) || (%s)) {\n", outMin, outMax);
+	p.C("        return;\n");
+	p.C("      }\n");
+	p.C("    }\n");
+	p.C("    if (u_cullRangeMin.w <= 0.0) {\n");
+	p.C("      if (projPos.z < u_cullRangeMin.z || projPos.z > u_cullRangeMax.z) {\n");
+	p.C("        return;\n");
+	p.C("      }\n");
+	p.C("    } else {\n");
+	p.C("      if (projPos.z >= u_cullRangeMin.z && projPos.z <= u_cullRangeMax.z) { anyInside = true; }\n");
+	p.C("    }\n");
+	p.C("  }  // for\n");
+
+	// Cull any triangle fully outside in the same direction when depth clamp enabled.
+	// Basically simulate cull distances.
+	p.C("  if (!anyInside) { return; }\n");  // TODO: 3 or gl_in.length()? which will be faster?
+
+	const char *clip0 = compat.shaderLanguage == HLSL_D3D11 ? "" : "[0]";
+
+	p.C("  for (int i = 0; i < 3; i++) {\n");
+	p.C("    vec4 outPos = gl_in[i].gl_Position;\n");
+	p.C("    gl_Position = outPos;\n");
+	p.C("    vec3 projPos = outPos.xyz / outPos.w;\n");
+	p.C("    float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
+	p.F("    gl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", clip0);
+
 	for (size_t i = 0; i < varyings.size(); i++) {
 		VaryingDef &in = varyings[i];
 		VaryingDef &out = outVaryings[i];
 		p.F("    %s = %s[i];\n", outVaryings[i].name, varyings[i].name);
 	}
 	// Debug - null the red channel
-	// p.C("    if (i == 0) v_color0Out.x = 0.0;\n");
+	p.C("    if (i == 0) v_color0Out.x = 0.0;\n");
 	p.C("    EmitVertex();\n");
 	p.C("  }\n");
 

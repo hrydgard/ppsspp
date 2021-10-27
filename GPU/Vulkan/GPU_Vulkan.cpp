@@ -58,6 +58,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		drawEngine_(vulkan_, draw),
 		vulkan2D_(vulkan_) {
 	CheckGPUFeatures();
+	drawEngine_.InitDeviceObjects();
 
 	shaderManagerVulkan_ = new ShaderManagerVulkan(draw, vulkan_);
 	pipelineManager_ = new PipelineManagerVulkan(vulkan_);
@@ -244,6 +245,11 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		// Must support at least 8 if feature supported, so we're fine.
 		features |= GPU_SUPPORTS_CULL_DISTANCE;
 	}
+
+	// Force geo shader culling for debugging.
+#if 1
+	features |= GPU_SUPPORTS_GS_CULLING;
+#else
 	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
 		// Ignore the compat setting if clip and cull are both enabled.
 		// When supported, we can do the depth side of range culling more correctly.
@@ -258,6 +264,8 @@ void GPU_Vulkan::CheckGPUFeatures() {
 			}
 		}
 	}
+#endif
+
 	if (enabledFeatures.dualSrcBlend) {
 		if (!g_Config.bVendorBugChecksEnabled || !draw_->GetBugs().Has(Draw::Bugs::DUAL_SOURCE_BLENDING_BROKEN)) {
 			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;

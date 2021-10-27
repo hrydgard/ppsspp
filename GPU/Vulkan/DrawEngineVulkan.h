@@ -126,6 +126,8 @@ public:
 	DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *draw);
 	virtual ~DrawEngineVulkan();
 
+	void InitDeviceObjects();
+
 	void SetShaderManager(ShaderManagerVulkan *shaderManager) {
 		shaderManager_ = shaderManager;
 	}
@@ -201,7 +203,6 @@ private:
 	void BindShaderBlendTex();
 	void ResetFramebufferRead();
 
-	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 
 	void DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
