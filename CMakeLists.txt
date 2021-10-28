@@ -153,6 +153,7 @@ option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_F
 option(USE_SYSTEM_LIBZIP "Dynamically link against system libzip" ${USE_SYSTEM_LIBZIP})
 option(USE_SYSTEM_LIBSDL2 "Dynamically link against system SDL2" ON)
 option(USE_SYSTEM_LIBPNG "Dynamically link against system libpng" ON)
+option(USE_SYSTEM_ZSTD "Dynamically link against system zstd" ${USE_SYSTEM_ZSTD})
 option(USE_ASAN "Use address sanitizer" OFF)
 option(USE_UBSAN "Use undefined behaviour sanitizer" OFF)
 
@@ -1976,8 +1977,7 @@ if(ANDROID)
 	endif()
 endif()
 
-set(CoreExtraLibs ${CoreExtraLibs} armips libzstd_static)
-include_directories(ext/zstd/lib)
+set(CoreExtraLibs ${CoreExtraLibs} armips)
 
 # needed for VK_USE_PLATFORM_XCB_KHR only
 #if(VULKAN AND NOT WIN32)
@@ -1995,7 +1995,18 @@ if(WIN32)
 endif()
 
 if(OPENGL_opengl_LIBRARY AND OpenGL_GL_PREFERENCE STREQUAL GLVND AND NOT APPLE)
-    set(OPENGL_LIBRARIES OpenGL::OpenGL)
+	set(OPENGL_LIBRARIES OpenGL::OpenGL)
+endif()
+
+if(USE_SYSTEM_ZSTD)
+	find_package(ZSTD REQUIRED)
+	target_include_directories(${CoreLibName} PRIVATE ${ZSTD_INCLUDE_DIR})
+	target_link_libraries(${CoreLibName} ${ZSTD_LIBRARY})
+else()
+	set(ZSTD_BUILD_PROGRAMS OFF CACHE BOOL "we don't need zstd programs" FORCE)
+	add_subdirectory(ext/zstd/build/cmake EXCLUDE_FROM_ALL)
+	set(CoreExtraLibs ${CoreExtraLibs} libzstd_static)
+	include_directories(ext/zstd/lib)
 endif()
 
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash ${GlslangLibs}
