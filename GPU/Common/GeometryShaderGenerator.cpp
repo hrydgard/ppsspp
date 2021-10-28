@@ -78,7 +78,7 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 	p.BeginGSMain(varyings, outVaryings);
 
 	// Apply culling
-	p.C("  bool anyInside = false;\n");  // TODO: 3 or gl_in.length()? which will be faster?
+	p.C("  bool insidePositiveZ = false, insideNegativeZ = false;\n");
 
 	p.C("  for (int i = 0; i < 3; i++) {\n");  // TODO: 3 or gl_in.length()? which will be faster?
 	p.C("    vec4 outPos = gl_in[i].gl_Position;\n");
@@ -94,16 +94,18 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 	p.C("    }\n");
 	p.C("    if (u_cullRangeMin.w <= 0.0) {\n");
 	p.C("      if (projPos.z < u_cullRangeMin.z || projPos.z > u_cullRangeMax.z) {\n");
-	p.C("        return;\n");  // Cull!
+	// When not clamping depth, cull the triangle of Z is outside the valid range (not based on clip Z.)
+	p.C("        return;\n");
 	p.C("      }\n");
 	p.C("    } else {\n");
-	p.C("      if (projPos.z >= u_cullRangeMin.z && projPos.z <= u_cullRangeMax.z) { anyInside = true; }\n");
+	p.C("      if (projPos.z >= u_cullRangeMin.z) { insideNegativeZ = true; }\n");
+	p.C("      if (projPos.z <= u_cullRangeMax.z) { insidePositiveZ = true; }\n");
 	p.C("    }\n");
 	p.C("  }  // for\n");
 
 	// Cull any triangle fully outside in the same direction when depth clamp enabled.
 	// Basically simulate cull distances.
-	p.C("  if (!anyInside) { return; }\n");
+	p.C("  if (!insideNegativeZ || !insidePositiveZ) { return; }\n");
 
 	const char *clip0 = compat.shaderLanguage == HLSL_D3D11 ? "" : "[0]";
 

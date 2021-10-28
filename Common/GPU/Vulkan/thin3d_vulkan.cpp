@@ -267,7 +267,6 @@ public:
 		return buf->PushAligned(ubo_, uboSize_, vulkan->GetPhysicalDeviceProperties().properties.limits.minUniformBufferOffsetAlignment, vkbuf);
 	}
 
-	int GetUniformLoc(const char *name);
 	int GetUBOSize() const {
 		return uboSize_;
 	}
@@ -1322,17 +1321,6 @@ ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, ShaderLanguage la
 		shader->Release();
 		return nullptr;
 	}
-}
-
-int VKPipeline::GetUniformLoc(const char *name) {
-	int loc = -1;
-
-	// HACK! As we only use one uniform we hardcode it.
-	if (!strcmp(name, "WorldViewProj")) {
-		return 0;
-	}
-
-	return loc;
 }
 
 void VKContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
