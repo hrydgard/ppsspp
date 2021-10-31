@@ -796,9 +796,13 @@ void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, 
 		TransformedVertex transVtxBL = transformed[indsIn[i + 1]];
 
 		// Okay, let's calculate the perpendicular biased toward the bottom right.
-		float horizontal = fabsf(transVtxTL.x - transVtxBL.x);
-		float vertical = fabsf(transVtxTL.y - transVtxBL.y);
-		Vec2f addWidth = Vec2f(vertical, horizontal).Normalized();
+		float horizontal = transVtxTL.x - transVtxBL.x;
+		float vertical = transVtxTL.y - transVtxBL.y;
+		Vec2f addWidth = Vec2f(-vertical, horizontal).Normalized();
+		// We'll bias mostly straight lines and try to keep diagonal lines at 90 degrees.
+		if (fabsf(addWidth.y) < fabsf(addWidth.x / 16.0f)) {
+			addWidth.x = -addWidth.x;
+		}
 
 		// bottom right
 		trans[0] = transVtxBL;
