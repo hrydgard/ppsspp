@@ -379,7 +379,6 @@ void GPU_Vulkan::BuildReportingInfo() {
 	CHECK_BOOL_FEATURE(fillModeNonSolid);
 	CHECK_BOOL_FEATURE(depthBounds);
 	CHECK_BOOL_FEATURE(wideLines);
-	CHECK_BOOL_FEATURE(largePoints);
 	CHECK_BOOL_FEATURE(alphaToOne);
 	CHECK_BOOL_FEATURE(multiViewport);
 	CHECK_BOOL_FEATURE(samplerAnisotropy);
