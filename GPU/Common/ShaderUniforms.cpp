@@ -134,7 +134,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 			flippedMatrix = flippedMatrix * g_display_rot_matrix;
 		}
 		CopyMatrix4x4(ub->proj, flippedMatrix.getReadPtr());
-		ub->rotation = (float)g_display_rotation;
+		ub->rotation = useBufferedRendering ? 0 : (float)g_display_rotation;
 	}
 
 	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
@@ -148,6 +148,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 			proj_through = proj_through * g_display_rot_matrix;
 		}
 		CopyMatrix4x4(ub->proj_through, proj_through.getReadPtr());
+		ub->rotation = useBufferedRendering ? 0 : (float)g_display_rotation;
 	}
 
 	// Transform

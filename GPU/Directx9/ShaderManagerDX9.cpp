@@ -345,7 +345,7 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 		ConvertProjMatrixToD3D(flippedMatrix, invertedX, invertedY);
 
 		VSSetMatrix(CONST_VS_PROJ, flippedMatrix.getReadPtr());
-		VSSetFloat(CONST_VS_ROTATION, (float)g_display_rotation);
+		VSSetFloat(CONST_VS_ROTATION, 0);  // We don't use this on any platform in D3D9.
 	}
 	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
 		Matrix4x4 proj_through;
