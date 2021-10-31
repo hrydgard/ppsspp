@@ -773,6 +773,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		} else {
 			WRITE(p, "  vec4 position = In.position;\n");
 		}
+		if (!useHWTransform && enableFog) {
+			WRITE(p, "  float fog = In.fog;\n");
+		}
 		if (enableBones) {
 			WRITE(p, "%s", boneWeightAttrInitHLSL[numBoneWeights]);
 		}
