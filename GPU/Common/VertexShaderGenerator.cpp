@@ -803,21 +803,27 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  %sv_fogdepth = fog;\n", compat.vsOutPrefix);
 		}
 		if (isModeThrough)	{
+			// The proj_through matrix already has the rotation, if needed.
 			WRITE(p, "  vec4 outPos = mul(u_proj_through, vec4(position.xyz, 1.0));\n");
 		} else {
-			// Apply rotation from the uniform.
-			WRITE(p, "  mat4 displayRotation = mat4(\n");
-			WRITE(p, "    u_rotation == 0.0 ? 1.0 : (u_rotation == 2.0 ? -1.0 : 0.0), u_rotation == 1.0 ? 1.0 : (u_rotation == 3.0 ? -1.0 : 0.0), 0.0, 0.0,\n");
-			WRITE(p, "    u_rotation == 3.0 ? 1.0 : (u_rotation == 1.0 ? -1.0 : 0.0), u_rotation == 0.0 ? 1.0 : (u_rotation == 2.0 ? -1.0 : 0.0), 0.0, 0.0,\n");
-			WRITE(p, "    0.0, 0.0, 1.0, 0.0,\n");
-			WRITE(p, "    0.0, 0.0, 0.0, 1.0\n");
-			WRITE(p, "  );\n");
+			if (compat.shaderLanguage == GLSL_VULKAN || compat.shaderLanguage == HLSL_D3D11) {
+				// Apply rotation from the uniform.
+				WRITE(p, "  mat2 displayRotation = mat2(\n");
+				WRITE(p, "    u_rotation == 0.0 ? 1.0 : (u_rotation == 2.0 ? -1.0 : 0.0), u_rotation == 1.0 ? 1.0 : (u_rotation == 3.0 ? -1.0 : 0.0),\n");
+				WRITE(p, "    u_rotation == 3.0 ? 1.0 : (u_rotation == 1.0 ? -1.0 : 0.0), u_rotation == 0.0 ? 1.0 : (u_rotation == 2.0 ? -1.0 : 0.0)\n");
+				WRITE(p, "  );\n");
+
+				WRITE(p, "  vec4 pos = position;\n");
+				WRITE(p, "  pos.xy = mul(displayRotation, pos.xy);\n");
+			} else {
+				WRITE(p, "  vec4 pos = position;\n");
+			}
 
 			// The viewport is used in this case, so need to compensate for that.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(displayRotation, position));\n");
+				WRITE(p, "  vec4 outPos = depthRoundZVP(pos);\n");
 			} else {
-				WRITE(p, "  vec4 outPos = mul(displayRotation, position);\n");
+				WRITE(p, "  vec4 outPos = pos;\n");
 			}
 		}
 	} else {
