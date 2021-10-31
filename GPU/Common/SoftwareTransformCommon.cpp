@@ -213,7 +213,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			// TODO: Write to a flexible buffer, we don't always need all four components.
 			TransformedVertex &vert = transformed[index];
 			reader.ReadPos(vert.pos);
-			vert.posw = 1.0f;
+			vert.pos_w = 1.0f;
 
 			if (reader.hasColor0()) {
 				if (provokeIndOffset != 0 && index + provokeIndOffset < maxIndex) {
@@ -564,26 +564,123 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 	TransformedVertex *transformedExpanded = params_.transformedExpanded;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 
-	// Step 2: expand rectangles.
+	// Step 2: expand and process primitives.
 	result->drawBuffer = transformed;
 	int numTrans = 0;
+	const u16 *indsIn = (const u16 *)inds;
+	u16 *newInds = inds + vertexCount;
+	u16 *indsOut = newInds;
 
 	FramebufferManagerCommon *fbman = params_.fbman;
 	bool useBufferedRendering = fbman->UseBufferedRendering();
+
+	// The projected Z can be up to 0x3F8000FF, which is where this constant is from.
+	// It seems like it may only maintain 15 mantissa bits (excluding implied.)
+	float maxZValue = 1.000030517578125f * gstate_c.vpDepthScale;
+	float minZValue = -maxZValue;
+	// Scale and offset the Z appropriately, since we baked that into a projection transform.
+	if (params_.usesHalfZ) {
+		maxZValue = maxZValue * 0.5f + 0.5f + gstate_c.vpZOffset * 0.5f;
+		minZValue = minZValue * 0.5f + 0.5f + gstate_c.vpZOffset * 0.5f;
+	} else {
+		maxZValue += gstate_c.vpZOffset;
+		minZValue += gstate_c.vpZOffset;
+	}
+	// In case scale was negative, flip.
+	if (minZValue > maxZValue)
+		std::swap(minZValue, maxZValue);
 
 	if (prim != GE_PRIM_RECTANGLES) {
 		// We can simply draw the unexpanded buffer.
 		numTrans = vertexCount;
 		result->drawIndexed = true;
+
+		// If we don't support custom cull in the shader, process it here.
+		if (!gstate_c.Supports(GPU_SUPPORTS_CULL_DISTANCE) && vertexCount > 0 && !throughmode) {
+			std::vector<int> outsideZ;
+			outsideZ.resize(vertexCount);
+
+			// First, check inside/outside directions for each index.
+			for (int i = 0; i < vertexCount; ++i) {
+				float z = transformed[indsIn[i]].z / transformed[indsIn[i]].pos_w;
+				if (z >= maxZValue)
+					outsideZ[i] = 1;
+				else if (z <= minZValue)
+					outsideZ[i] = -1;
+				else
+					outsideZ[i] = 0;
+			}
+
+			// Now, for each primitive type, throw away the indices if:
+			//  - Depth clamp on, and ALL verts are outside *in the same direction*.
+			//  - Depth clamp off, and ANY vert is outside.
+			if (prim == GE_PRIM_LINES && gstate.isDepthClampEnabled()) {
+				numTrans = 0;
+				vertexCount = vertexCount & ~1;
+				for (int i = 0; i < vertexCount; i += 2) {
+					if (outsideZ[i + 0] != 0 && outsideZ[i + 0] == outsideZ[i + 1]) {
+						// All outside, and all the same direction.  Nuke this line.
+						continue;
+					}
+
+					memcpy(indsOut, indsIn + i, 2 * sizeof(uint16_t));
+					indsOut += 2;
+					numTrans += 2;
+				}
+
+				inds = newInds;
+			} else if (prim == GE_PRIM_LINES) {
+				numTrans = 0;
+				vertexCount = vertexCount & ~1;
+				for (int i = 0; i < vertexCount; i += 2) {
+					if (outsideZ[i + 0] != 0 || outsideZ[i + 1] != 0) {
+						// Even one outside, and we cull.
+						continue;
+					}
+
+					memcpy(indsOut, indsIn + i, 2 * sizeof(uint16_t));
+					indsOut += 2;
+					numTrans += 2;
+				}
+
+				inds = newInds;
+			} else if (prim == GE_PRIM_TRIANGLES && gstate.isDepthClampEnabled()) {
+				numTrans = 0;
+				for (int i = 0; i < vertexCount - 2; i += 3) {
+					if (outsideZ[i + 0] != 0 && outsideZ[i + 0] == outsideZ[i + 1] && outsideZ[i + 0] == outsideZ[i + 2]) {
+						// All outside, and all the same direction.  Nuke this triangle.
+						continue;
+					}
+
+					memcpy(indsOut, indsIn + i, 3 * sizeof(uint16_t));
+					indsOut += 3;
+					numTrans += 3;
+				}
+
+				inds = newInds;
+			} else if (prim == GE_PRIM_TRIANGLES) {
+				numTrans = 0;
+				for (int i = 0; i < vertexCount - 2; i += 3) {
+					if (outsideZ[i + 0] != 0 || outsideZ[i + 1] != 0 || outsideZ[i + 2] != 0) {
+						// Even one outside, and we cull.
+						continue;
+					}
+
+					memcpy(indsOut, indsIn + i, 3 * sizeof(uint16_t));
+					indsOut += 3;
+					numTrans += 3;
+				}
+
+				inds = newInds;
+			}
+		}
 	} else {
-		//rectangles always need 2 vertices, disregard the last one if there's an odd number
+		// Rectangles always need 2 vertices, disregard the last one if there's an odd number.
 		vertexCount = vertexCount & ~1;
 		numTrans = 0;
 		result->drawBuffer = transformedExpanded;
 		TransformedVertex *trans = &transformedExpanded[0];
-		const u16 *indsIn = (const u16 *)inds;
-		u16 *newInds = inds + vertexCount;
-		u16 *indsOut = newInds;
+
 		maxIndex = 4 * (vertexCount / 2);
 		for (int i = 0; i < vertexCount; i += 2) {
 			const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
@@ -616,7 +713,22 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 			if (throughmode) {
 				RotateUVThrough(trans);
 			} else {
-				// TODO: Should apply culling here, based on projection depth range.
+				float tlz = transVtxTL.z / transVtxTL.pos_w;
+				float brz = transVtxBR.z / transVtxBR.pos_w;
+				if (!gstate.isDepthClampEnabled()) {
+					// If both transformed verts are outside Z the same way, cull entirely.
+					if (tlz >= maxZValue || brz >= maxZValue)
+						continue;
+					if (tlz <= minZValue || brz <= minZValue)
+						continue;
+				} else {
+					// If any Z is outside, cull right away.
+					if (tlz >= maxZValue && brz >= maxZValue)
+						continue;
+					if (tlz <= minZValue && brz <= minZValue)
+						continue;
+				}
+
 				RotateUV(trans, params_.flippedY);
 			}
 

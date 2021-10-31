@@ -43,13 +43,13 @@ enum {
 struct TransformedVertex {
 	union {
 		struct {
-			float x, y, z, posw;     // in case of morph, preblend during decode
+			float x, y, z, pos_w;     // in case of morph, preblend during decode
 		};
 		float pos[4];
 	};
 	union {
 		struct {
-			float u; float v; float w;   // scaled by uscale, vscale, if there
+			float u; float v; float uv_w;   // scaled by uscale, vscale, if there
 		};
 		float uv[3];
 	};

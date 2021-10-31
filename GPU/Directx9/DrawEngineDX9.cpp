@@ -557,6 +557,7 @@ rotateVBO:
 		params.allowSeparateAlphaClear = false;
 		params.provokeFlatFirst = true;
 		params.flippedY = false;
+		params.usesHalfZ = true;
 
 		// We need correct viewport values in gstate_c already.
 		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
