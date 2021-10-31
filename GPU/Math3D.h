@@ -863,7 +863,7 @@ inline void Vec3ByMatrix43(float vecOut[3], const float v[3], const float m[12])
 	vecOut[0] = _mm_cvtss_f32(sum);
 	vecOut[1] = vectorGetByIndex<1>(sum);
 	vecOut[2] = vectorGetByIndex<2>(sum);
-#elif PPSSPP_ARCH(ARM_NEON)
+#elif PPSSPP_ARCH(ARM_NEON) && PPSSPP_ARCH(ARM64)
 	float32x4_t col0 = vld1q_f32(m);
 	float32x4_t col1 = vld1q_f32(m + 3);
 	float32x4_t col2 = vld1q_f32(m + 6);
@@ -896,7 +896,7 @@ inline void Vec3ByMatrix44(float vecOut[4], const float v[3], const float m[16])
 		_mm_add_ps(_mm_mul_ps(col0, x), _mm_mul_ps(col1, y)),
 		_mm_add_ps(_mm_mul_ps(col2, z), col3));
 	_mm_storeu_ps(vecOut, sum);
-#elif PPSSPP_ARCH(ARM_NEON)
+#elif PPSSPP_ARCH(ARM_NEON) && PPSSPP_ARCH(ARM64)
 	float32x4_t col0 = vld1q_f32(m);
 	float32x4_t col1 = vld1q_f32(m + 4);
 	float32x4_t col2 = vld1q_f32(m + 8);
