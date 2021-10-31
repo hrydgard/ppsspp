@@ -118,10 +118,11 @@ void DrawEngineGLES::InitDeviceObjects() {
 
 	int vertexSize = sizeof(TransformedVertex);
 	std::vector<GLRInputLayout::Entry> entries;
-	entries.push_back({ ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, vertexSize, 0 });
+	entries.push_back({ ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, vertexSize, offsetof(TransformedVertex, x) });
 	entries.push_back({ ATTR_TEXCOORD, 3, GL_FLOAT, GL_FALSE, vertexSize, offsetof(TransformedVertex, u) });
 	entries.push_back({ ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, offsetof(TransformedVertex, color0) });
 	entries.push_back({ ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, offsetof(TransformedVertex, color1) });
+	entries.push_back({ ATTR_NORMAL, 1, GL_FLOAT, GL_FALSE, vertexSize, offsetof(TransformedVertex, fog) });
 	softwareInputLayout_ = render_->CreateInputLayout(entries);
 }
 
@@ -563,6 +564,15 @@ void DrawEngineGLES::DoFlush() {
 		params.allowClear = true;
 		params.allowSeparateAlphaClear = true;
 		params.provokeFlatFirst = false;
+		params.flippedY = framebufferManager_->UseBufferedRendering();
+
+		// We need correct viewport values in gstate_c already.
+		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
+			ConvertViewportAndScissor(framebufferManager_->UseBufferedRendering(),
+				framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
+				framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
+				vpAndScissor);
+		}
 
 		int maxIndex = indexGen.MaxIndex();
 		int vertexCount = indexGen.VertexCount();
@@ -574,6 +584,12 @@ void DrawEngineGLES::DoFlush() {
 #endif
 
 		SoftwareTransform swTransform(params);
+
+		const Lin::Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, gstate_c.vpZOffset);
+		const Lin::Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale * (params.flippedY ? 1.0 : -1.0f), gstate_c.vpDepthScale);
+		const bool invertedY = gstate_c.vpHeight * (params.flippedY ? 1.0 : -1.0f) < 0;
+		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, invertedY, trans, scale);
+
 		swTransform.Decode(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), maxIndex, &result);
 		if (result.action == SW_NOT_READY)
 			swTransform.DetectOffsetTexture(maxIndex);

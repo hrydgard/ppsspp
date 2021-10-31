@@ -18,8 +18,8 @@
 #pragma once
 
 #include "Common/CommonTypes.h"
-
-#include "VertexDecoderCommon.h"
+#include "Common/Math/lin/matrix4x4.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 
 class FramebufferManagerCommon;
 class TextureCacheCommon;
@@ -56,6 +56,7 @@ struct SoftwareTransformParams {
 	bool allowClear;
 	bool allowSeparateAlphaClear;
 	bool provokeFlatFirst;
+	bool flippedY;
 };
 
 class SoftwareTransform {
@@ -63,10 +64,12 @@ public:
 	SoftwareTransform(SoftwareTransformParams &params) : params_(params) {
 	}
 
+	void SetProjMatrix(float mtx[14], bool invertedX, bool invertedY, const Lin::Vec3 &trans, const Lin::Vec3 &scale);
 	void Decode(int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int maxIndex, SoftwareTransformResult *result);
 	void DetectOffsetTexture(int maxIndex);
 	void BuildDrawingParams(int prim, int vertexCount, u32 vertType, u16 *&inds, int &maxIndex, SoftwareTransformResult *result);
 
 protected:
 	const SoftwareTransformParams &params_;
+	Lin::Matrix4x4 projMatrix_;
 };

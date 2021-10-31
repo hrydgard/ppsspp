@@ -60,6 +60,7 @@ public:
 	int u_depthRange;   // x,y = viewport xscale/xcenter. z,w=clipping minz/maxz (?)
 	int u_cullRangeMin;
 	int u_cullRangeMax;
+	int u_rotation;
 
 #ifdef USE_BONE_ARRAY
 	int u_bone;  // array, size is numBones

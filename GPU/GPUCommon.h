@@ -43,7 +43,7 @@ enum {
 struct TransformedVertex {
 	union {
 		struct {
-			float x, y, z, fog;     // in case of morph, preblend during decode
+			float x, y, z, posw;     // in case of morph, preblend during decode
 		};
 		float pos[4];
 	};
@@ -53,6 +53,7 @@ struct TransformedVertex {
 		};
 		float uv[3];
 	};
+	float fog;
 	union {
 		u8 color0[4];   // prelit
 		u32 color0_32;

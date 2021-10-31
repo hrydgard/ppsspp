@@ -64,16 +64,14 @@ static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
 
 // Note: 0 is BR and 2 is TL.
 
-static void RotateUV(TransformedVertex v[4], Vec4f tl, Vec4f br, bool flippedY) {
+static void RotateUV(TransformedVertex v[4], bool flippedY) {
 	// We use the transformed tl/br coordinates to figure out whether they're flipped or not.
 	float ySign = flippedY ? -1.0 : 1.0;
 
-	const float invtlw = 1.0f / tl.w;
-	const float invbrw = 1.0f / br.w;
-	const float x1 = tl.x * invtlw;
-	const float x2 = br.x * invbrw;
-	const float y1 = tl.y * invtlw * ySign;
-	const float y2 = br.y * invbrw * ySign;
+	const float x1 = v[2].x;
+	const float x2 = v[0].x;
+	const float y1 = v[2].y * ySign;
+	const float y2 = v[0].y * ySign;
 
 	if ((x1 < x2 && y1 < y2) || (x1 > x2 && y1 > y2))
 		SwapUVs(v[1], v[3]);
@@ -151,6 +149,25 @@ static int ColorIndexOffset(int prim, GEShadeMode shadeMode, bool clearMode) {
 	return 0;
 }
 
+void SoftwareTransform::SetProjMatrix(float mtx[14], bool invertedX, bool invertedY, const Lin::Vec3 &trans, const Lin::Vec3 &scale) {
+	memcpy(&projMatrix_.m, mtx, 16 * sizeof(float));
+
+	if (invertedY) {
+		projMatrix_.xy = -projMatrix_.xy;
+		projMatrix_.yy = -projMatrix_.yy;
+		projMatrix_.zy = -projMatrix_.zy;
+		projMatrix_.wy = -projMatrix_.wy;
+	}
+	if (invertedX) {
+		projMatrix_.xx = -projMatrix_.xx;
+		projMatrix_.yx = -projMatrix_.yx;
+		projMatrix_.zx = -projMatrix_.zx;
+		projMatrix_.wx = -projMatrix_.wx;
+	}
+
+	projMatrix_.translateAndScale(trans, scale);
+}
+
 void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int maxIndex, SoftwareTransformResult *result) {
 	u8 *decoded = params_.decoded;
 	TransformedVertex *transformed = params_.transformed;
@@ -196,6 +213,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			// TODO: Write to a flexible buffer, we don't always need all four components.
 			TransformedVertex &vert = transformed[index];
 			reader.ReadPos(vert.pos);
+			vert.posw = 1.0f;
 
 			if (reader.hasColor0()) {
 				if (provokeIndOffset != 0 && index + provokeIndOffset < maxIndex) {
@@ -412,14 +430,13 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			fogCoef = (v[2] + fog_end) * fog_slope;
 
 			// TODO: Write to a flexible buffer, we don't always need all four components.
-			memcpy(&transformed[index].x, v, 3 * sizeof(float));
+			Vec3ByMatrix44(transformed[index].pos, v, projMatrix_.m);
 			transformed[index].fog = fogCoef;
-			memcpy(&transformed[index].u, uv, 3 * sizeof(float));
+			memcpy(&transformed[index].uv, uv, 3 * sizeof(float));
 			transformed[index].color0_32 = c0.ToRGBA();
 			transformed[index].color1_32 = c1.ToRGBA();
 
-			// The multiplication by the projection matrix is still performed in the vertex shader.
-			// So is vertex depth rounding, to simulate the 16-bit depth buffer.
+			// Vertex depth rounding is done in the shader, to simulate the 16-bit depth buffer.
 		}
 	}
 
@@ -428,7 +445,6 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 	//
 	// An alternative option is to simply ditch all the verts except the first and last to create a single
 	// rectangle out of many. Quite a small optimization though.
-	// Experiment: Disable on PowerVR (see issue #6290)
 	// TODO: This bleeds outside the play area in non-buffered mode. Big deal? Probably not.
 	// TODO: Allow creating a depth clear and a color draw.
 	bool reallyAClear = false;
@@ -555,37 +571,11 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 	FramebufferManagerCommon *fbman = params_.fbman;
 	bool useBufferedRendering = fbman->UseBufferedRendering();
 
-	bool flippedY = g_Config.iGPUBackend == (int)GPUBackend::OPENGL && !useBufferedRendering;
-
 	if (prim != GE_PRIM_RECTANGLES) {
 		// We can simply draw the unexpanded buffer.
 		numTrans = vertexCount;
 		result->drawIndexed = true;
 	} else {
-		// Pretty bad hackery where we re-do the transform (in RotateUV) to see if the vertices are flipped in screen space.
-		// Since we've already got API-specific assumptions (Y direction, etc) baked into the projMatrix (which we arguably shouldn't),
-		// this gets nasty and very hard to understand.
-
-		float flippedMatrix[16];
-		if (!throughmode) {
-			memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
-
-			const bool invertedY = flippedY ? (gstate_c.vpHeight < 0) : (gstate_c.vpHeight > 0);
-			if (invertedY) {
-				flippedMatrix[1] = -flippedMatrix[1];
-				flippedMatrix[5] = -flippedMatrix[5];
-				flippedMatrix[9] = -flippedMatrix[9];
-				flippedMatrix[13] = -flippedMatrix[13];
-			}
-			const bool invertedX = gstate_c.vpWidth < 0;
-			if (invertedX) {
-				flippedMatrix[0] = -flippedMatrix[0];
-				flippedMatrix[4] = -flippedMatrix[4];
-				flippedMatrix[8] = -flippedMatrix[8];
-				flippedMatrix[12] = -flippedMatrix[12];
-			}
-		}
-
 		//rectangles always need 2 vertices, disregard the last one if there's an odd number
 		vertexCount = vertexCount & ~1;
 		numTrans = 0;
@@ -626,21 +616,8 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 			if (throughmode) {
 				RotateUVThrough(trans);
 			} else {
-				Vec4f tl;
-				Vec3ByMatrix44(tl.AsArray(), transVtxTL.pos, flippedMatrix);
-				Vec4f br;
-				Vec3ByMatrix44(br.AsArray(), transVtxBR.pos, flippedMatrix);
-
-				// If both transformed verts are outside Z, cull this rectangle entirely.
-				constexpr float outsideValue = 1.000030517578125f;
-				bool tlOutside = fabsf(tl.z / tl.w) >= outsideValue;
-				bool brOutside = fabsf(br.z / br.w) >= outsideValue;
-				if (tlOutside && brOutside)
-					continue;
-				if (!gstate.isDepthClampEnabled() && (tlOutside || brOutside))
-					continue;
-
-				RotateUV(trans, tl, br, flippedY);
+				// TODO: Should apply culling here, based on projection depth range.
+				RotateUV(trans, params_.flippedY);
 			}
 
 			// Triangle: BR-TR-TL

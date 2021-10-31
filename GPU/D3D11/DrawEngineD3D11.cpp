@@ -61,10 +61,11 @@ enum {
 };
 
 static const D3D11_INPUT_ELEMENT_DESC TransformedVertexElements[] = {
-	{ "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-	{ "TEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 16, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-	{ "COLOR", 0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, 28, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-	{ "COLOR", 1, DXGI_FORMAT_R8G8B8A8_UNORM, 0, 32, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+	{ "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(TransformedVertex, pos), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+	{ "TEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(TransformedVertex, uv), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+	{ "COLOR", 0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, offsetof(TransformedVertex, color0), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+	{ "COLOR", 1, DXGI_FORMAT_R8G8B8A8_UNORM, 0, offsetof(TransformedVertex, color1), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+	{ "NORMAL", 0, DXGI_FORMAT_R32_FLOAT, 0, offsetof(TransformedVertex, fog), D3D11_INPUT_PER_VERTEX_DATA, 0 },
 };
 
 DrawEngineD3D11::DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, ID3D11DeviceContext *context)
@@ -586,9 +587,24 @@ rotateVBO:
 		params.allowClear = true;
 		params.allowSeparateAlphaClear = false;  // D3D11 doesn't support separate alpha clears
 		params.provokeFlatFirst = true;
+		params.flippedY = false;
+
+		// We need correct viewport values in gstate_c already.
+		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
+			ViewportAndScissor vpAndScissor;
+			ConvertViewportAndScissor(framebufferManager_->UseBufferedRendering(),
+				framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
+				framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
+				vpAndScissor);
+		}
 
 		int maxIndex = indexGen.MaxIndex();
 		SoftwareTransform swTransform(params);
+
+		const Lin::Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, gstate_c.vpZOffset * 0.5f + 0.5f);
+		const Lin::Vec3 scale(gstate_c.vpWidthScale, -gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
+		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, gstate_c.vpHeight < 0, trans, scale);
+
 		swTransform.Decode(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), maxIndex, &result);
 		if (result.action == SW_NOT_READY) {
 			swTransform.DetectOffsetTexture(maxIndex);

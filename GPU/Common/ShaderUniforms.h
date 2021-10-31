@@ -28,7 +28,8 @@ struct UB_VS_FS_Base {
 	float tex[12];
 	float uvScaleOffset[4];
 	float depthRange[4];
-	float fogCoef[2];	float stencil; float pad0;
+	// Rotation is used only for software transform.
+	float fogCoef[2]; float stencil; float rotation;
 	float matAmbient[4];
 	float cullRangeMin[4];
 	float cullRangeMax[4];
@@ -55,6 +56,7 @@ R"(  mat4 u_proj;
   vec4 u_depthRange;
   vec2 u_fogcoef;
   float u_stencilReplaceValue;
+  float u_rotation;
   vec4 u_matambientalpha;
   vec4 u_cullRangeMin;
   vec4 u_cullRangeMax;

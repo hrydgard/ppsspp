@@ -2259,6 +2259,7 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 	v.x = ((gstate.imm_vscx & 0xFFFFFF) - offsetX) / 16.0f;
 	v.y = ((gstate.imm_vscy & 0xFFFFFF) - offsetY) / 16.0f;
 	v.z = gstate.imm_vscz & 0xFFFF;
+	v.posw = 1.0f;
 	v.u = getFloat24(gstate.imm_vtcs);
 	v.v = getFloat24(gstate.imm_vtct);
 	v.w = getFloat24(gstate.imm_vtcq);
