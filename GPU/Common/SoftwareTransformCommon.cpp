@@ -213,7 +213,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			// TODO: Write to a flexible buffer, we don't always need all four components.
 			TransformedVertex &vert = transformed[index];
 			reader.ReadPos(vert.pos);
-			vert.posw = 1.0f;
+			vert.pos_w = 1.0f;
 
 			if (reader.hasColor0()) {
 				if (provokeIndOffset != 0 && index + provokeIndOffset < maxIndex) {
