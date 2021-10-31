@@ -771,10 +771,8 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 #ifndef USING_GLES2
 	if (g_Config.iInternalResolution == 0) {
 		glLineWidth(std::max(1, (int)(renderWidth_ / 480)));
-		glPointSize(std::max(1.0f, (float)(renderWidth_ / 480.f)));
 	} else {
 		glLineWidth(g_Config.iInternalResolution);
-		glPointSize((float)g_Config.iInternalResolution);
 	}
 #endif
 	*/

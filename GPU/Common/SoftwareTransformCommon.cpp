@@ -236,6 +236,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 				vert.u = 0.0f;
 				vert.v = 0.0f;
 			}
+			vert.uv_w = 1.0f;
 
 			// Ignore color1 and fog, never used in throughmode anyway.
 			// The w of uv is also never used (hardcoded to 1.0.)
@@ -589,6 +590,10 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 				result->stencilValue = 0;
 			}
 		}
+	} else if (prim == GE_PRIM_POINTS) {
+		ExpandPoints(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
+		result->drawBuffer = transformedExpanded;
+		result->drawIndexed = true;
 	} else {
 		// We can simply draw the unexpanded buffer.
 		numTrans = vertexCount;
@@ -780,6 +785,74 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&i
 		indsOut[3] = i * 2 + 3;
 		indsOut[4] = i * 2 + 0;
 		indsOut[5] = i * 2 + 2;
+		trans += 4;
+		indsOut += 6;
+
+		numTrans += 6;
+	}
+	inds = newInds;
+}
+
+void SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+	numTrans = 0;
+	TransformedVertex *trans = &transformedExpanded[0];
+
+	const u16 *indsIn = (const u16 *)inds;
+	u16 *newInds = inds + vertexCount;
+	u16 *indsOut = newInds;
+
+	float dx = 0.5f * gstate_c.vpWidthScale * (1.0f / gstate.getViewportXScale());
+	float dy = 0.5f * gstate_c.vpHeightScale *(1.0f / gstate.getViewportYScale());
+	float du = 1.0f / gstate_c.curTextureWidth;
+	float dv = 1.0f / gstate_c.curTextureHeight;
+
+	if (throughmode) {
+		dx = 1.0f;
+		dy = 1.0f;
+	}
+
+	maxIndex = 4 * vertexCount;
+	for (int i = 0; i < vertexCount; ++i) {
+		const TransformedVertex &transVtxTL = transformed[indsIn[i]];
+
+		// Create the bottom right version.
+		TransformedVertex transVtxBR = transVtxTL;
+		transVtxBR.x += dx * transVtxTL.pos_w;
+		transVtxBR.y += dy * transVtxTL.pos_w;
+		transVtxBR.u += du * transVtxTL.uv_w;
+		transVtxBR.v += dv * transVtxTL.uv_w;
+
+		// We have to turn the rectangle into two triangles, so 6 points.
+		// This is 4 verts + 6 indices.
+
+		// bottom right
+		trans[0] = transVtxBR;
+
+		// top right
+		trans[1] = transVtxBR;
+		trans[1].y = transVtxTL.y;
+		trans[1].v = transVtxTL.v;
+
+		// top left
+		trans[2] = transVtxBR;
+		trans[2].x = transVtxTL.x;
+		trans[2].y = transVtxTL.y;
+		trans[2].u = transVtxTL.u;
+		trans[2].v = transVtxTL.v;
+
+		// bottom left
+		trans[3] = transVtxBR;
+		trans[3].x = transVtxTL.x;
+		trans[3].u = transVtxTL.u;
+
+		// Triangle: BR-TR-TL
+		indsOut[0] = i * 4 + 0;
+		indsOut[1] = i * 4 + 1;
+		indsOut[2] = i * 4 + 2;
+		// Triangle: BL-BR-TL
+		indsOut[3] = i * 4 + 3;
+		indsOut[4] = i * 4 + 0;
+		indsOut[5] = i * 4 + 2;
 		trans += 4;
 		indsOut += 6;
 

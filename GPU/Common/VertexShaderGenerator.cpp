@@ -1178,9 +1178,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			compat.vsOutPrefix, compat.vsOutPrefix, compat.vsOutPrefix);
 	}
 
-	if (compat.shaderLanguage == GLSL_VULKAN) {
-		WRITE(p, " gl_PointSize = 1.0;\n");
-	}
 	if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
 		WRITE(p, "  return Out;\n");
 	}
