@@ -96,9 +96,6 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	UpdateVsyncInterval(true);
 
 	textureCacheVulkan_->NotifyConfigChanged();
-	if (vulkan_->GetDeviceFeatures().enabled.wideLines) {
-		drawEngine_.SetLineWidth(PSP_CoreParameter().renderWidth / 480.0f);
-	}
 
 	// Load shader cache.
 	std::string discID = g_paramSFO.GetDiscID();
@@ -231,9 +228,6 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	}
 
 	auto &enabledFeatures = vulkan_->GetDeviceFeatures().enabled;
-	if (enabledFeatures.wideLines) {
-		features |= GPU_SUPPORTS_WIDE_LINES;
-	}
 	if (enabledFeatures.depthClamp) {
 		features |= GPU_SUPPORTS_DEPTH_CLAMP;
 	}
@@ -308,9 +302,6 @@ void GPU_Vulkan::BeginHostFrame() {
 		framebufferManager_->Resized();
 		drawEngine_.Resized();
 		textureCacheVulkan_->NotifyConfigChanged();
-		if (vulkan_->GetDeviceFeatures().enabled.wideLines) {
-			drawEngine_.SetLineWidth(PSP_CoreParameter().renderWidth / 480.0f);
-		}
 		resized_ = false;
 	}
 
@@ -378,7 +369,6 @@ void GPU_Vulkan::BuildReportingInfo() {
 	CHECK_BOOL_FEATURE(depthBiasClamp);
 	CHECK_BOOL_FEATURE(fillModeNonSolid);
 	CHECK_BOOL_FEATURE(depthBounds);
-	CHECK_BOOL_FEATURE(wideLines);
 	CHECK_BOOL_FEATURE(alphaToOne);
 	CHECK_BOOL_FEATURE(multiViewport);
 	CHECK_BOOL_FEATURE(samplerAnisotropy);

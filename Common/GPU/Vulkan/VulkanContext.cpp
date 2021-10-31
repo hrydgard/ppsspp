@@ -574,7 +574,6 @@ void VulkanContext::ChooseDevice(int physical_device) {
 	deviceFeatures_.enabled = {};
 	// Enable a few safe ones if they are available.
 	deviceFeatures_.enabled.dualSrcBlend = deviceFeatures_.available.dualSrcBlend;
-	deviceFeatures_.enabled.wideLines = deviceFeatures_.available.wideLines;
 	deviceFeatures_.enabled.logicOp = deviceFeatures_.available.logicOp;
 	deviceFeatures_.enabled.depthClamp = deviceFeatures_.available.depthClamp;
 	deviceFeatures_.enabled.depthBounds = deviceFeatures_.available.depthBounds;

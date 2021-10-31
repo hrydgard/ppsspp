@@ -353,10 +353,6 @@ void DrawEngineVulkan::DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t 
 	DecodeVerts(dest);
 }
 
-void DrawEngineVulkan::SetLineWidth(float lineWidth) {
-	pipelineManager_->SetLineWidth(lineWidth);
-}
-
 VkResult DrawEngineVulkan::RecreateDescriptorPool(FrameData &frame, int newSize) {
 	// Reallocate this desc pool larger, and "wipe" the cache. We might lose a tiny bit of descriptor set reuse but
 	// only for this frame.

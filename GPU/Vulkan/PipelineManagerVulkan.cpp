@@ -165,7 +165,7 @@ static std::string CutFromMain(std::string str) {
 
 static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pipelineCache, 
 		VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &key,
-		const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform, float lineWidth) {
+		const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
 	PROFILE_THIS_SCOPE("pipelinebuild");
 	bool useBlendConstant = false;
 
@@ -233,7 +233,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	rs.depthBiasEnable = false;
 	rs.cullMode = key.cullMode;
 	rs.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-	rs.lineWidth = lineWidth;
+	rs.lineWidth = 1.0f;
 	rs.rasterizerDiscardEnable = false;
 	rs.polygonMode = VK_POLYGON_MODE_FILL;
 	rs.depthClampEnable = key.depthClampEnable;
@@ -381,7 +381,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
 		vulkan_->GetDevice(), pipelineCache_, layout, renderPass, 
-		rasterKey, decFmt, vs, fs, useHwTransform, lineWidth_);
+		rasterKey, decFmt, vs, fs, useHwTransform);
 	pipelines_.Insert(key, pipeline);
 
 	// Don't return placeholder null pipelines.
@@ -571,22 +571,6 @@ std::string VulkanPipelineKey::GetDescription(DebugShaderStringType stringType) 
 	default:
 		return "N/A";
 	}
-}
-
-void PipelineManagerVulkan::SetLineWidth(float lineWidth) {
-	if (lineWidth_ == lineWidth)
-		return;
-	lineWidth_ = lineWidth;
-
-	// Wipe all line-drawing pipelines.
-	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
-		if (value->flags & PIPELINE_FLAG_USES_LINES) {
-			if (value->pipeline)
-				vulkan_->Delete().QueueDeletePipeline(value->pipeline);
-			delete value;
-			pipelines_.Remove(key);
-		}
-	});
 }
 
 // For some reason this struct is only defined in the spec, not in the headers.
