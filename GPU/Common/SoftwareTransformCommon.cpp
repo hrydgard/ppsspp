@@ -564,7 +564,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 	TransformedVertex *transformedExpanded = params_.transformedExpanded;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 
-	// Step 2: expand rectangles.
+	// Step 2: expand and process primitives.
 	result->drawBuffer = transformed;
 	int numTrans = 0;
 	const u16 *indsIn = (const u16 *)inds;
@@ -574,8 +574,11 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 	FramebufferManagerCommon *fbman = params_.fbman;
 	bool useBufferedRendering = fbman->UseBufferedRendering();
 
+	// The projected Z can be up to 0x3F8000FF, which is where this constant is from.
+	// It seems like it may only maintain 15 mantissa bits (excluding implied.)
 	float maxZValue = 1.000030517578125f * gstate_c.vpDepthScale;
 	float minZValue = -maxZValue;
+	// Scale and offset the Z appropriately, since we baked that into a projection transform.
 	if (params_.usesHalfZ) {
 		maxZValue = maxZValue * 0.5f + 0.5f + gstate_c.vpZOffset * 0.5f;
 		minZValue = minZValue * 0.5f + 0.5f + gstate_c.vpZOffset * 0.5f;
@@ -583,6 +586,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 		maxZValue += gstate_c.vpZOffset;
 		minZValue += gstate_c.vpZOffset;
 	}
+	// In case scale was negative, flip.
 	if (minZValue > maxZValue)
 		std::swap(minZValue, maxZValue);
 
@@ -591,10 +595,12 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 		numTrans = vertexCount;
 		result->drawIndexed = true;
 
+		// If we don't support custom cull in the shader, process it here.
 		if (!gstate_c.Supports(GPU_SUPPORTS_CULL_DISTANCE) && vertexCount > 0 && !throughmode) {
 			std::vector<int> outsideZ;
 			outsideZ.resize(vertexCount);
 
+			// First, check inside/outside directions for each index.
 			for (int i = 0; i < vertexCount; ++i) {
 				float z = transformed[indsIn[i]].z / transformed[indsIn[i]].pos_w;
 				if (z >= maxZValue)
@@ -605,6 +611,9 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 					outsideZ[i] = 0;
 			}
 
+			// Now, for each primitive type, throw away the indices if:
+			//  - Depth clamp on, and ALL verts are outside *in the same direction*.
+			//  - Depth clamp off, and ANY vert is outside.
 			if (prim == GE_PRIM_LINES && gstate.isDepthClampEnabled()) {
 				numTrans = 0;
 				vertexCount = vertexCount & ~1;
@@ -666,7 +675,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 			}
 		}
 	} else {
-		//rectangles always need 2 vertices, disregard the last one if there's an odd number
+		// Rectangles always need 2 vertices, disregard the last one if there's an odd number.
 		vertexCount = vertexCount & ~1;
 		numTrans = 0;
 		result->drawBuffer = transformedExpanded;
@@ -704,15 +713,16 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 			if (throughmode) {
 				RotateUVThrough(trans);
 			} else {
-				// If both transformed verts are outside Z, cull this rectangle entirely.
 				float tlz = transVtxTL.z / transVtxTL.pos_w;
 				float brz = transVtxBR.z / transVtxBR.pos_w;
 				if (!gstate.isDepthClampEnabled()) {
+					// If both transformed verts are outside Z the same way, cull entirely.
 					if (tlz >= maxZValue || brz >= maxZValue)
 						continue;
 					if (tlz <= minZValue || brz <= minZValue)
 						continue;
 				} else {
+					// If any Z is outside, cull right away.
 					if (tlz >= maxZValue && brz >= maxZValue)
 						continue;
 					if (tlz <= minZValue && brz <= minZValue)
