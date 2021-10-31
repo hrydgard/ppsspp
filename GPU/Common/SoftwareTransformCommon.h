@@ -71,6 +71,9 @@ public:
 	void BuildDrawingParams(int prim, int vertexCount, u32 vertType, u16 *&inds, int &maxIndex, SoftwareTransformResult *result);
 
 protected:
+	void CalcCullParams(float &minZValue, float &maxZValue);
+	void ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode);
+
 	const SoftwareTransformParams &params_;
 	Lin::Matrix4x4 projMatrix_;
 };

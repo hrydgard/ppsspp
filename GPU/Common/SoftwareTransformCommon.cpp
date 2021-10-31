@@ -567,36 +567,42 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 	// Step 2: expand and process primitives.
 	result->drawBuffer = transformed;
 	int numTrans = 0;
-	const u16 *indsIn = (const u16 *)inds;
-	u16 *newInds = inds + vertexCount;
-	u16 *indsOut = newInds;
 
 	FramebufferManagerCommon *fbman = params_.fbman;
 	bool useBufferedRendering = fbman->UseBufferedRendering();
 
-	// The projected Z can be up to 0x3F8000FF, which is where this constant is from.
-	// It seems like it may only maintain 15 mantissa bits (excluding implied.)
-	float maxZValue = 1.000030517578125f * gstate_c.vpDepthScale;
-	float minZValue = -maxZValue;
-	// Scale and offset the Z appropriately, since we baked that into a projection transform.
-	if (params_.usesHalfZ) {
-		maxZValue = maxZValue * 0.5f + 0.5f + gstate_c.vpZOffset * 0.5f;
-		minZValue = minZValue * 0.5f + 0.5f + gstate_c.vpZOffset * 0.5f;
-	} else {
-		maxZValue += gstate_c.vpZOffset;
-		minZValue += gstate_c.vpZOffset;
-	}
-	// In case scale was negative, flip.
-	if (minZValue > maxZValue)
-		std::swap(minZValue, maxZValue);
+	if (prim == GE_PRIM_RECTANGLES) {
+		ExpandRectangles(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
+		result->drawBuffer = transformedExpanded;
+		result->drawIndexed = true;
 
-	if (prim != GE_PRIM_RECTANGLES) {
+		// We don't know the color until here, so we have to do it now, instead of in StateMapping.
+		// Might want to reconsider the order of things later...
+		if (gstate.isModeClear() && gstate.isClearModeAlphaMask()) {
+			result->setStencil = true;
+			if (vertexCount > 1) {
+				// Take the bottom right alpha value of the first rect as the stencil value.
+				// Technically, each rect could individually fill its stencil, but most of the
+				// time they use the same one.
+				result->stencilValue = transformed[inds[1]].color0[3];
+			} else {
+				result->stencilValue = 0;
+			}
+		}
+	} else {
 		// We can simply draw the unexpanded buffer.
 		numTrans = vertexCount;
 		result->drawIndexed = true;
 
 		// If we don't support custom cull in the shader, process it here.
 		if (!gstate_c.Supports(GPU_SUPPORTS_CULL_DISTANCE) && vertexCount > 0 && !throughmode) {
+			const u16 *indsIn = (const u16 *)inds;
+			u16 *newInds = inds + vertexCount;
+			u16 *indsOut = newInds;
+
+			float minZValue, maxZValue;
+			CalcCullParams(minZValue, maxZValue);
+
 			std::vector<int> outsideZ;
 			outsideZ.resize(vertexCount);
 
@@ -674,93 +680,6 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 				inds = newInds;
 			}
 		}
-	} else {
-		// Rectangles always need 2 vertices, disregard the last one if there's an odd number.
-		vertexCount = vertexCount & ~1;
-		numTrans = 0;
-		result->drawBuffer = transformedExpanded;
-		TransformedVertex *trans = &transformedExpanded[0];
-
-		maxIndex = 4 * (vertexCount / 2);
-		for (int i = 0; i < vertexCount; i += 2) {
-			const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
-			const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];
-
-			// We have to turn the rectangle into two triangles, so 6 points.
-			// This is 4 verts + 6 indices.
-
-			// bottom right
-			trans[0] = transVtxBR;
-
-			// top right
-			trans[1] = transVtxBR;
-			trans[1].y = transVtxTL.y;
-			trans[1].v = transVtxTL.v;
-
-			// top left
-			trans[2] = transVtxBR;
-			trans[2].x = transVtxTL.x;
-			trans[2].y = transVtxTL.y;
-			trans[2].u = transVtxTL.u;
-			trans[2].v = transVtxTL.v;
-
-			// bottom left
-			trans[3] = transVtxBR;
-			trans[3].x = transVtxTL.x;
-			trans[3].u = transVtxTL.u;
-
-			// That's the four corners. Now process UV rotation.
-			if (throughmode) {
-				RotateUVThrough(trans);
-			} else {
-				float tlz = transVtxTL.z / transVtxTL.pos_w;
-				float brz = transVtxBR.z / transVtxBR.pos_w;
-				if (!gstate.isDepthClampEnabled()) {
-					// If both transformed verts are outside Z the same way, cull entirely.
-					if (tlz >= maxZValue || brz >= maxZValue)
-						continue;
-					if (tlz <= minZValue || brz <= minZValue)
-						continue;
-				} else {
-					// If any Z is outside, cull right away.
-					if (tlz >= maxZValue && brz >= maxZValue)
-						continue;
-					if (tlz <= minZValue && brz <= minZValue)
-						continue;
-				}
-
-				RotateUV(trans, params_.flippedY);
-			}
-
-			// Triangle: BR-TR-TL
-			indsOut[0] = i * 2 + 0;
-			indsOut[1] = i * 2 + 1;
-			indsOut[2] = i * 2 + 2;
-			// Triangle: BL-BR-TL
-			indsOut[3] = i * 2 + 3;
-			indsOut[4] = i * 2 + 0;
-			indsOut[5] = i * 2 + 2;
-			trans += 4;
-			indsOut += 6;
-
-			numTrans += 6;
-		}
-		inds = newInds;
-		result->drawIndexed = true;
-
-		// We don't know the color until here, so we have to do it now, instead of in StateMapping.
-		// Might want to reconsider the order of things later...
-		if (gstate.isModeClear() && gstate.isClearModeAlphaMask()) {
-			result->setStencil = true;
-			if (vertexCount > 1) {
-				// Take the bottom right alpha value of the first rect as the stencil value.
-				// Technically, each rect could individually fill its stencil, but most of the
-				// time they use the same one.
-				result->stencilValue = transformed[indsIn[1]].color0[3];
-			} else {
-				result->stencilValue = 0;
-			}
-		}
 	}
 
 	if (gstate.isModeClear()) {
@@ -769,4 +688,102 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 
 	result->action = SW_DRAW_PRIMITIVES;
 	result->drawNumTrans = numTrans;
+}
+
+void SoftwareTransform::CalcCullParams(float &minZValue, float &maxZValue) {
+	// The projected Z can be up to 0x3F8000FF, which is where this constant is from.
+	// It seems like it may only maintain 15 mantissa bits (excluding implied.)
+	maxZValue = 1.000030517578125f * gstate_c.vpDepthScale;
+	minZValue = -maxZValue;
+	// Scale and offset the Z appropriately, since we baked that into a projection transform.
+	if (params_.usesHalfZ) {
+		maxZValue = maxZValue * 0.5f + 0.5f + gstate_c.vpZOffset * 0.5f;
+		minZValue = minZValue * 0.5f + 0.5f + gstate_c.vpZOffset * 0.5f;
+	} else {
+		maxZValue += gstate_c.vpZOffset;
+		minZValue += gstate_c.vpZOffset;
+	}
+	// In case scale was negative, flip.
+	if (minZValue > maxZValue)
+		std::swap(minZValue, maxZValue);
+}
+
+void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+	// Rectangles always need 2 vertices, disregard the last one if there's an odd number.
+	vertexCount = vertexCount & ~1;
+	numTrans = 0;
+	TransformedVertex *trans = &transformedExpanded[0];
+
+	const u16 *indsIn = (const u16 *)inds;
+	u16 *newInds = inds + vertexCount;
+	u16 *indsOut = newInds;
+
+	float minZValue, maxZValue;
+	CalcCullParams(minZValue, maxZValue);
+
+	maxIndex = 4 * (vertexCount / 2);
+	for (int i = 0; i < vertexCount; i += 2) {
+		const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
+		const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];
+
+		// We have to turn the rectangle into two triangles, so 6 points.
+		// This is 4 verts + 6 indices.
+
+		// bottom right
+		trans[0] = transVtxBR;
+
+		// top right
+		trans[1] = transVtxBR;
+		trans[1].y = transVtxTL.y;
+		trans[1].v = transVtxTL.v;
+
+		// top left
+		trans[2] = transVtxBR;
+		trans[2].x = transVtxTL.x;
+		trans[2].y = transVtxTL.y;
+		trans[2].u = transVtxTL.u;
+		trans[2].v = transVtxTL.v;
+
+		// bottom left
+		trans[3] = transVtxBR;
+		trans[3].x = transVtxTL.x;
+		trans[3].u = transVtxTL.u;
+
+		// That's the four corners. Now process UV rotation.
+		if (throughmode) {
+			RotateUVThrough(trans);
+		} else {
+			float tlz = transVtxTL.z / transVtxTL.pos_w;
+			float brz = transVtxBR.z / transVtxBR.pos_w;
+			if (!gstate.isDepthClampEnabled()) {
+				// If both transformed verts are outside Z the same way, cull entirely.
+				if (tlz >= maxZValue || brz >= maxZValue)
+					continue;
+				if (tlz <= minZValue || brz <= minZValue)
+					continue;
+			} else {
+				// If any Z is outside, cull right away.
+				if (tlz >= maxZValue && brz >= maxZValue)
+					continue;
+				if (tlz <= minZValue && brz <= minZValue)
+					continue;
+			}
+
+			RotateUV(trans, params_.flippedY);
+		}
+
+		// Triangle: BR-TR-TL
+		indsOut[0] = i * 2 + 0;
+		indsOut[1] = i * 2 + 1;
+		indsOut[2] = i * 2 + 2;
+		// Triangle: BL-BR-TL
+		indsOut[3] = i * 2 + 3;
+		indsOut[4] = i * 2 + 0;
+		indsOut[5] = i * 2 + 2;
+		trans += 4;
+		indsOut += 6;
+
+		numTrans += 6;
+	}
+	inds = newInds;
 }
