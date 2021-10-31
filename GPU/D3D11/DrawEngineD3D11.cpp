@@ -588,6 +588,15 @@ rotateVBO:
 		params.provokeFlatFirst = true;
 		params.flippedY = false;
 
+		// We need correct viewport values in gstate_c already.
+		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
+			ViewportAndScissor vpAndScissor;
+			ConvertViewportAndScissor(framebufferManager_->UseBufferedRendering(),
+				framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
+				framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
+				vpAndScissor);
+		}
+
 		int maxIndex = indexGen.MaxIndex();
 		SoftwareTransform swTransform(params);
 		swTransform.Decode(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), maxIndex, &result);

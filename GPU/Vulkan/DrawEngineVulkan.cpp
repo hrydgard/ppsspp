@@ -915,8 +915,11 @@ void DrawEngineVulkan::DoFlush() {
 		// We don't have a "DrawStateEarly" in vulkan, so...
 		// TODO: Probably should eventually refactor this and feed the vp size into SoftwareTransform directly (Unknown's idea).
 		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
-			gstate_c.vpWidth = gstate.getViewportXScale() * 2.0f;
-			gstate_c.vpHeight = gstate.getViewportYScale() * 2.0f;
+			ViewportAndScissor vpAndScissor;
+			ConvertViewportAndScissor(framebufferManager_->UseBufferedRendering(),
+				framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
+				framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
+				vpAndScissor);
 		}
 
 		int maxIndex = indexGen.MaxIndex();

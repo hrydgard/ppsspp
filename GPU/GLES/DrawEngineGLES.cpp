@@ -565,6 +565,14 @@ void DrawEngineGLES::DoFlush() {
 		params.provokeFlatFirst = false;
 		params.flippedY = !framebufferManager_->UseBufferedRendering();
 
+		// We need correct viewport values in gstate_c already.
+		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
+			ConvertViewportAndScissor(framebufferManager_->UseBufferedRendering(),
+				framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
+				framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
+				vpAndScissor);
+		}
+
 		int maxIndex = indexGen.MaxIndex();
 		int vertexCount = indexGen.VertexCount();
 
