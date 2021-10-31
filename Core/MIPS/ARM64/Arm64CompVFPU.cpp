@@ -1627,10 +1627,10 @@ namespace MIPSComp {
 					if (n == 1) {
 						MOVI2R(SCRATCH1, 0x31);
 					} else {
-						MOVI2R(SCRATCH1, 1 << i);
+						MOVI2R(SCRATCH1, 1ULL << i);
 					}
 				} else {
-					ORRI2R(SCRATCH1, SCRATCH1, 1 << i);
+					ORRI2R(SCRATCH1, SCRATCH1, 1ULL << i);
 				}
 				break;
 
@@ -1723,7 +1723,7 @@ namespace MIPSComp {
 						MOVI2R(SCRATCH1, 1);  // 1 << i, but i == 0
 					}
 				} else {
-					ORRI2R(SCRATCH1, SCRATCH1, 1 << i);
+					ORRI2R(SCRATCH1, SCRATCH1, 1ULL << i);
 				}
 				SetJumpTarget(b);
 			}
@@ -1779,7 +1779,7 @@ namespace MIPSComp {
 			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY);
 			fpr.MapRegsAndSpillLockV(sregs, sz, 0);
 			gpr.MapReg(MIPS_REG_VFPUCC);
-			TSTI2R(gpr.R(MIPS_REG_VFPUCC), 1 << imm3);
+			TSTI2R(gpr.R(MIPS_REG_VFPUCC), 1ULL << imm3);
 			// TODO: Use fsel?
 			FixupBranch b = B(tf ? CC_NEQ : CC_EQ);
 			for (int i = 0; i < n; i++) {

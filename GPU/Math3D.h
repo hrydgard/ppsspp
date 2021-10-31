@@ -30,6 +30,14 @@
 #endif
 #endif
 
+#if PPSSPP_ARCH(ARM_NEON)
+#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
+#include <arm64_neon.h>
+#else
+#include <arm_neon.h>
+#endif
+#endif
+
 namespace Math3D {
 
 // Helper for Vec classes to clamp values.
@@ -829,29 +837,82 @@ typedef Math3D::Vec3<float> Vec3f;
 typedef Math3D::Vec3Packed<float> Vec3Packedf;
 typedef Math3D::Vec4<float> Vec4f;
 
+#if defined(_M_SSE)
+template<unsigned i>
+float vectorGetByIndex(__m128 v) {
+	// shuffle V so that the element that we want is moved to the bottom
+	return _mm_cvtss_f32(_mm_shuffle_ps(v, v, _MM_SHUFFLE(i, i, i, i)));
+}
+#endif
+
 // v and vecOut must point to different memory.
 inline void Vec3ByMatrix43(float vecOut[3], const float v[3], const float m[12]) {
+#if defined(_M_SSE)
+	__m128 col0 = _mm_loadu_ps(m);
+	__m128 col1 = _mm_loadu_ps(m + 3);
+	__m128 col2 = _mm_loadu_ps(m + 6);
+	__m128 col3 = _mm_loadu_ps(m + 9);
+	__m128 x = _mm_set1_ps(v[0]);
+	__m128 y = _mm_set1_ps(v[1]);
+	__m128 z = _mm_set1_ps(v[2]);
+	__m128 sum = _mm_add_ps(
+		_mm_add_ps(_mm_mul_ps(col0, x), _mm_mul_ps(col1, y)),
+		_mm_add_ps(_mm_mul_ps(col2, z), col3));
+	// Not sure what the best way to store 3 elements is. Ideally, we should
+	// probably store all four.
+	vecOut[0] = _mm_cvtss_f32(sum);
+	vecOut[1] = vectorGetByIndex<1>(sum);
+	vecOut[2] = vectorGetByIndex<2>(sum);
+#elif PPSSPP_ARCH(ARM_NEON)
+	float32x4_t col0 = vld1q_f32(m);
+	float32x4_t col1 = vld1q_f32(m + 3);
+	float32x4_t col2 = vld1q_f32(m + 6);
+	float32x4_t col3 = vld1q_f32(m + 9);
+	float32x4_t vec = vld1q_f32(v);
+	float32x4_t sum = vaddq_f32(
+		vaddq_f32(vmulq_laneq_f32(col0, vec, 0), vmulq_laneq_f32(col1, vec, 1)),
+		vaddq_f32(vmulq_laneq_f32(col2, vec, 2), col3));
+	vecOut[0] = vgetq_lane_f32(sum, 0);
+	vecOut[1] = vgetq_lane_f32(sum, 1);
+	vecOut[2] = vgetq_lane_f32(sum, 2);
+#else
 	vecOut[0] = v[0] * m[0] + v[1] * m[3] + v[2] * m[6] + m[9];
 	vecOut[1] = v[0] * m[1] + v[1] * m[4] + v[2] * m[7] + m[10];
 	vecOut[2] = v[0] * m[2] + v[1] * m[5] + v[2] * m[8] + m[11];
+#endif
 }
 
 inline void Vec3ByMatrix44(float vecOut[4], const float v[3], const float m[16])
 {
+#if defined(_M_SSE)
+	__m128 col0 = _mm_loadu_ps(m);
+	__m128 col1 = _mm_loadu_ps(m + 4);
+	__m128 col2 = _mm_loadu_ps(m + 8);
+	__m128 col3 = _mm_loadu_ps(m + 12);
+	__m128 x = _mm_set1_ps(v[0]);
+	__m128 y = _mm_set1_ps(v[1]);
+	__m128 z = _mm_set1_ps(v[2]);
+	__m128 sum = _mm_add_ps(
+		_mm_add_ps(_mm_mul_ps(col0, x), _mm_mul_ps(col1, y)),
+		_mm_add_ps(_mm_mul_ps(col2, z), col3));
+	_mm_storeu_ps(vecOut, sum);
+#elif PPSSPP_ARCH(ARM_NEON)
+	float32x4_t col0 = vld1q_f32(m);
+	float32x4_t col1 = vld1q_f32(m + 4);
+	float32x4_t col2 = vld1q_f32(m + 8);
+	float32x4_t col3 = vld1q_f32(m + 12);
+	float32x4_t vec = vld1q_f32(v);
+	float32x4_t sum = vaddq_f32(
+		vaddq_f32(vmulq_laneq_f32(col0, vec, 0), vmulq_laneq_f32(col1, vec, 1)),
+		vaddq_f32(vmulq_laneq_f32(col2, vec, 2), col3));
+	vst1q_f32(vecOut, sum);
+#else
 	vecOut[0] = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12];
 	vecOut[1] = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13];
 	vecOut[2] = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[14];
 	vecOut[3] = v[0] * m[3] + v[1] * m[7] + v[2] * m[11] + m[15];
+#endif
 }
-
-inline void Vec4ByMatrix44(float vecOut[4], const float v[4], const float m[16])
-{
-	vecOut[0] = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + v[3] * m[12];
-	vecOut[1] = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + v[3] * m[13];
-	vecOut[2] = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + v[3] * m[14];
-	vecOut[3] = v[0] * m[3] + v[1] * m[7] + v[2] * m[11] + v[3] * m[15];
-}
-
 
 inline void Norm3ByMatrix43(float vecOut[3], const float v[3], const float m[12])
 {
