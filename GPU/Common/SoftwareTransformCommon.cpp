@@ -616,15 +616,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 			if (throughmode) {
 				RotateUVThrough(trans);
 			} else {
-				// If both transformed verts are outside Z, cull this rectangle entirely.
-				constexpr float outsideValue = 1.000030517578125f;
-				bool tlOutside = fabsf(transVtxTL.z) >= outsideValue;
-				bool brOutside = fabsf(transVtxBR.z) >= outsideValue;
-				if (tlOutside && brOutside)
-					continue;
-				if (!gstate.isDepthClampEnabled() && (tlOutside || brOutside))
-					continue;
-
+				// TODO: Should apply culling here, based on projection depth range.
 				RotateUV(trans, params_.flippedY);
 			}
 
