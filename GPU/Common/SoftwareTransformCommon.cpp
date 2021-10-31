@@ -594,6 +594,10 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 		ExpandPoints(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
+	} else if (prim == GE_PRIM_LINES) {
+		ExpandLines(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
+		result->drawBuffer = transformedExpanded;
+		result->drawIndexed = true;
 	} else {
 		// We can simply draw the unexpanded buffer.
 		numTrans = vertexCount;
@@ -625,37 +629,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 			// Now, for each primitive type, throw away the indices if:
 			//  - Depth clamp on, and ALL verts are outside *in the same direction*.
 			//  - Depth clamp off, and ANY vert is outside.
-			if (prim == GE_PRIM_LINES && gstate.isDepthClampEnabled()) {
-				numTrans = 0;
-				vertexCount = vertexCount & ~1;
-				for (int i = 0; i < vertexCount; i += 2) {
-					if (outsideZ[i + 0] != 0 && outsideZ[i + 0] == outsideZ[i + 1]) {
-						// All outside, and all the same direction.  Nuke this line.
-						continue;
-					}
-
-					memcpy(indsOut, indsIn + i, 2 * sizeof(uint16_t));
-					indsOut += 2;
-					numTrans += 2;
-				}
-
-				inds = newInds;
-			} else if (prim == GE_PRIM_LINES) {
-				numTrans = 0;
-				vertexCount = vertexCount & ~1;
-				for (int i = 0; i < vertexCount; i += 2) {
-					if (outsideZ[i + 0] != 0 || outsideZ[i + 1] != 0) {
-						// Even one outside, and we cull.
-						continue;
-					}
-
-					memcpy(indsOut, indsIn + i, 2 * sizeof(uint16_t));
-					indsOut += 2;
-					numTrans += 2;
-				}
-
-				inds = newInds;
-			} else if (prim == GE_PRIM_TRIANGLES && gstate.isDepthClampEnabled()) {
+			if (prim == GE_PRIM_TRIANGLES && gstate.isDepthClampEnabled()) {
 				numTrans = 0;
 				for (int i = 0; i < vertexCount - 2; i += 3) {
 					if (outsideZ[i + 0] != 0 && outsideZ[i + 0] == outsideZ[i + 1] && outsideZ[i + 0] == outsideZ[i + 2]) {
@@ -775,6 +749,93 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&i
 			}
 
 			RotateUV(trans, params_.flippedY);
+		}
+
+		// Triangle: BR-TR-TL
+		indsOut[0] = i * 2 + 0;
+		indsOut[1] = i * 2 + 1;
+		indsOut[2] = i * 2 + 2;
+		// Triangle: BL-BR-TL
+		indsOut[3] = i * 2 + 3;
+		indsOut[4] = i * 2 + 0;
+		indsOut[5] = i * 2 + 2;
+		trans += 4;
+		indsOut += 6;
+
+		numTrans += 6;
+	}
+	inds = newInds;
+}
+
+void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+	// Lines always need 2 vertices, disregard the last one if there's an odd number.
+	vertexCount = vertexCount & ~1;
+	numTrans = 0;
+	TransformedVertex *trans = &transformedExpanded[0];
+
+	const u16 *indsIn = (const u16 *)inds;
+	u16 *newInds = inds + vertexCount;
+	u16 *indsOut = newInds;
+
+	float dx = 1.0f * gstate_c.vpWidthScale * (1.0f / gstate.getViewportXScale());
+	float dy = 1.0f * gstate_c.vpHeightScale * (1.0f / gstate.getViewportYScale());
+	float du = 1.0f / gstate_c.curTextureWidth;
+	float dv = 1.0f / gstate_c.curTextureHeight;
+
+	if (throughmode) {
+		dx = 1.0f;
+		dy = 1.0f;
+	}
+
+	float minZValue, maxZValue;
+	CalcCullParams(minZValue, maxZValue);
+
+	maxIndex = 4 * (vertexCount / 2);
+	for (int i = 0; i < vertexCount; i += 2) {
+		const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
+		TransformedVertex transVtxBL = transformed[indsIn[i + 1]];
+
+		// Okay, let's calculate the perpendicular biased toward the bottom right.
+		float horizontal = fabsf(transVtxTL.x - transVtxBL.x);
+		float vertical = fabsf(transVtxTL.y - transVtxBL.y);
+		Vec2f addWidth = Vec2f(vertical, horizontal).Normalized();
+
+		// bottom right
+		trans[0] = transVtxBL;
+		trans[0].x += addWidth.x * dx;
+		trans[0].y += addWidth.y * dy;
+		trans[0].u += addWidth.x * du;
+		trans[0].v += addWidth.y * dv;
+
+		// top right
+		trans[1] = transVtxTL;
+		trans[1].x += addWidth.x * dx;
+		trans[1].y += addWidth.y * dy;
+		trans[1].u += addWidth.x * du;
+		trans[1].v += addWidth.y * dv;
+
+		// top left
+		trans[2] = transVtxTL;
+
+		// bottom left
+		trans[3] = transVtxBL;
+
+		if (!throughmode) {
+			float tlz = transVtxTL.z / transVtxTL.pos_w;
+			float brz = transVtxBL.z / transVtxBL.pos_w;
+			if (!gstate.isDepthClampEnabled()) {
+				// If both transformed verts are outside Z the same way, cull entirely.
+				if (tlz >= maxZValue || brz >= maxZValue)
+					continue;
+				if (tlz <= minZValue || brz <= minZValue)
+					continue;
+			} else {
+				// If any Z is outside, cull right away.
+				if (tlz >= maxZValue && brz >= maxZValue)
+					continue;
+				if (tlz <= minZValue && brz <= minZValue)
+					continue;
+			}
 		}
 
 		// Triangle: BR-TR-TL
