@@ -45,12 +45,14 @@
 namespace DX9 {
 
 static const D3DPRIMITIVETYPE d3d_prim[8] = {
-	D3DPT_POINTLIST,
+	// Points, which are expanded to triangles.
+	D3DPT_TRIANGLELIST,
 	D3DPT_LINELIST,
 	D3DPT_LINESTRIP,
 	D3DPT_TRIANGLELIST,
 	D3DPT_TRIANGLESTRIP,
 	D3DPT_TRIANGLEFAN,
+	// Rectangles, which are expanded to triangles.
 	D3DPT_TRIANGLELIST,
 };
 

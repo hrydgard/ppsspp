@@ -45,14 +45,15 @@
 #include "GPU/GLES/GPU_GLES.h"
 
 const GLuint glprim[8] = {
-	GL_POINTS,
+	// Points, which are expanded to triangles.
+	GL_TRIANGLES,
 	GL_LINES,
 	GL_LINE_STRIP,
 	GL_TRIANGLES,
 	GL_TRIANGLE_STRIP,
 	GL_TRIANGLE_FAN,
+	// Rectangles, which are expanded to triangles.
 	GL_TRIANGLES,
-	// Rectangles need to be expanded into triangles.
 };
 
 enum {
