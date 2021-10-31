@@ -801,8 +801,8 @@ void SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds,
 	u16 *newInds = inds + vertexCount;
 	u16 *indsOut = newInds;
 
-	float dx = 0.5f * gstate_c.vpWidthScale * (1.0f / gstate.getViewportXScale());
-	float dy = 0.5f * gstate_c.vpHeightScale *(1.0f / gstate.getViewportYScale());
+	float dx = 1.0f * gstate_c.vpWidthScale * (1.0f / gstate.getViewportXScale());
+	float dy = 1.0f * gstate_c.vpHeightScale * (1.0f / gstate.getViewportYScale());
 	float du = 1.0f / gstate_c.curTextureWidth;
 	float dv = 1.0f / gstate_c.curTextureHeight;
 
