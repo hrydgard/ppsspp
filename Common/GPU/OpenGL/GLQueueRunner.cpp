@@ -767,16 +767,6 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 #endif
 	}
 
-	/*
-#ifndef USING_GLES2
-	if (g_Config.iInternalResolution == 0) {
-		glLineWidth(std::max(1, (int)(renderWidth_ / 480)));
-	} else {
-		glLineWidth(g_Config.iInternalResolution);
-	}
-#endif
-	*/
-
 	if (first && gl_extensions.ARB_vertex_array_object) {
 		glBindVertexArray(globalVAO_);
 	}

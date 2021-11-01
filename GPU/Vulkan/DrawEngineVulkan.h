@@ -186,7 +186,6 @@ public:
 		return stats_;
 	}
 
-	void SetLineWidth(float lineWidth);
 	void SetDepalTexture(VkImageView depal) {
 		if (boundDepal_ != depal) {
 			boundDepal_ = depal;

@@ -1456,7 +1456,6 @@ std::vector<std::string> VKContext::GetFeatureList() const {
 	AddFeature(features, "depthBounds", available.depthBounds, enabled.depthBounds);
 	AddFeature(features, "depthClamp", available.depthClamp, enabled.depthClamp);
 	AddFeature(features, "fillModeNonSolid", available.fillModeNonSolid, enabled.fillModeNonSolid);
-	AddFeature(features, "wideLines", available.wideLines, enabled.wideLines);
 	AddFeature(features, "pipelineStatisticsQuery", available.pipelineStatisticsQuery, enabled.pipelineStatisticsQuery);
 	AddFeature(features, "samplerAnisotropy", available.samplerAnisotropy, enabled.samplerAnisotropy);
 	AddFeature(features, "textureCompressionBC", available.textureCompressionBC, enabled.textureCompressionBC);

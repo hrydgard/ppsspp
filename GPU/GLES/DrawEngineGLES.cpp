@@ -47,8 +47,9 @@
 const GLuint glprim[8] = {
 	// Points, which are expanded to triangles.
 	GL_TRIANGLES,
-	GL_LINES,
-	GL_LINE_STRIP,
+	// Lines and line strips, which are also expanded to triangles.
+	GL_TRIANGLES,
+	GL_TRIANGLES,
 	GL_TRIANGLES,
 	GL_TRIANGLE_STRIP,
 	GL_TRIANGLE_FAN,

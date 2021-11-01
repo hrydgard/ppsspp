@@ -349,8 +349,6 @@ void FramebufferManagerGLES::Resized() {
 	FramebufferManagerCommon::Resized();
 
 	render_->Resize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-
-	// render_->SetLineWidth(renderWidth_ / 480.0f);
 }
 
 bool FramebufferManagerGLES::GetOutputFramebuffer(GPUDebugBuffer &buffer) {

@@ -94,8 +94,8 @@ static const VkStencilOp stencilOps[] = {
 
 static const VkPrimitiveTopology primToVulkan[8] = {
 	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, // We convert points to triangles.
-	VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
-	VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,
+	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, // We convert lines to triangles.
+	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, // We convert line strips to triangles.
 	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
 	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
 	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN,

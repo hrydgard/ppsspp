@@ -73,6 +73,7 @@ public:
 protected:
 	void CalcCullParams(float &minZValue, float &maxZValue);
 	void ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode);
+	void ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode);
 	void ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode);
 
 	const SoftwareTransformParams &params_;
