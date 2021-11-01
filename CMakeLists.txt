@@ -2324,6 +2324,8 @@ if(TargetBin)
 			set(ICON_PATH_ABS ${CMAKE_CURRENT_SOURCE_DIR}/icons/ppsspp.icns)
 			set(MACOSX_BUNDLE_ICON_FILE ppsspp.icns)
 			set_source_files_properties(${ICON_PATH_ABS} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+			set(MACOSX_BUNDLE_BUNDLE_NAME PPSSPP)
+			set(MACOSX_BUNDLE_GUI_IDENTIFIER org.ppsspp.ppsspp)
 		endif()
 
 		# TODO: there must a native way to copy these.
