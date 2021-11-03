@@ -40,5 +40,5 @@ add_subdirectory(../../libpng17 png17)
 add_executable(build/atlastool atlastool.cpp ../../../Common/Data/Format/PNGLoad.cpp ../../../Common/Data/Encoding/Utf8.cpp ../../../Common/Data/Format/ZIMSave.cpp)
 target_link_libraries(build/atlastool freetype util png17 z zstd)
 
-#add_executable(zimtool zimtool.cpp)
-#target_link_libraries(zimtool freetype image png17 z file base)
+add_executable(build/zimtool zimtool.cpp ../../../Common/Data/Format/PNGLoad.cpp ../../../Common/Data/Format/ZIMSave.cpp)
+target_link_libraries(build/zimtool freetype util png17 z zstd)
