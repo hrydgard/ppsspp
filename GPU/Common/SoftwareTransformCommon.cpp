@@ -792,17 +792,22 @@ void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, 
 
 	maxIndex = 4 * (vertexCount / 2);
 	for (int i = 0; i < vertexCount; i += 2) {
-		const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
-		TransformedVertex transVtxBL = transformed[indsIn[i + 1]];
+		const TransformedVertex &transVtx1 = transformed[indsIn[i + 0]];
+		const TransformedVertex &transVtx2 = transformed[indsIn[i + 1]];
 
-		// Okay, let's calculate the perpendicular biased toward the bottom right.
+		const TransformedVertex &transVtxT = transVtx1.y <= transVtx2.y ? transVtx1 : transVtx2;
+		const TransformedVertex &transVtxB = transVtx1.y <= transVtx2.y ? transVtx2 : transVtx1;
+		const TransformedVertex &transVtxL = transVtx1.x <= transVtx2.x ? transVtx1 : transVtx2;
+		const TransformedVertex &transVtxR = transVtx1.x <= transVtx2.x ? transVtx2 : transVtx1;
+
+		// Sort the points so our perpendicular will bias the right direction.
+		const TransformedVertex &transVtxTL = transVtxT.y != transVtxB.y || transVtxT.x > transVtxB.x ? transVtxT : transVtxB;
+		const TransformedVertex &transVtxBL = transVtxT.y != transVtxB.y || transVtxT.x > transVtxB.x ? transVtxB : transVtxT;
+
+		// Okay, let's calculate the perpendicular.
 		float horizontal = transVtxTL.x - transVtxBL.x;
 		float vertical = transVtxTL.y - transVtxBL.y;
 		Vec2f addWidth = Vec2f(-vertical, horizontal).Normalized();
-		// We'll bias mostly straight lines and try to keep diagonal lines at 90 degrees.
-		if (fabsf(addWidth.y) < fabsf(addWidth.x / 16.0f)) {
-			addWidth.x = -addWidth.x;
-		}
 
 		// bottom right
 		trans[0] = transVtxBL;
