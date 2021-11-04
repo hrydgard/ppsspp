@@ -1960,7 +1960,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		switch (cmd) {
 		case 1:	// EMULATOR_DEVCTL__GET_HAS_DISPLAY
 			if (Memory::IsValidAddress(outPtr))
-				Memory::Write_U32(0, outPtr);	 // TODO: Make a headless mode for running tests!
+				Memory::Write_U32(PSP_CoreParameter().headLess ? 0 : 1, outPtr);
 			return 0;
 		case 2:	// EMULATOR_DEVCTL__SEND_OUTPUT
 			{
