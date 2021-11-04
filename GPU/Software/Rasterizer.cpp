@@ -1579,9 +1579,15 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 	else
 		steps = abs(dx) / 16;
 
-	float xinc = (float)dx / steps;
-	float yinc = (float)dy / steps;
-	float zinc = (float)dz / steps;
+	// Avoid going too far since we typically don't start at the pixel center.
+	if (dx < 0 && dx >= -16)
+		dx++;
+	if (dy < 0 && dy >= -16)
+		dy++;
+
+	double xinc = (double)dx / steps;
+	double yinc = (double)dy / steps;
+	double zinc = (double)dz / steps;
 
 	ScreenCoords scissorTL(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX1(), gstate.getScissorY1(), 0)));
 	ScreenCoords scissorBR(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX2(), gstate.getScissorY2(), 0)));
@@ -1608,9 +1614,9 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 
 	Sampler::Funcs sampler = Sampler::GetFuncs();
 
-	float x = a.x > b.x ? a.x - 1 : a.x;
-	float y = a.y > b.y ? a.y - 1 : a.y;
-	float z = a.z;
+	double x = a.x > b.x ? a.x - 1 : a.x;
+	double y = a.y > b.y ? a.y - 1 : a.y;
+	double z = a.z;
 	const int steps1 = steps == 0 ? 1 : steps;
 	for (int i = 0; i < steps; i++) {
 		if (x >= scissorTL.x && y >= scissorTL.y && x <= scissorBR.x && y <= scissorBR.y) {
@@ -1654,8 +1660,8 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 				}
 
 				// If inc is 0, force the delta to zero.
-				float ds = xinc == 0.0f ? 0.0f : (s1 - s) * 16.0f * (1.0f / xinc);
-				float dt = yinc == 0.0f ? 0.0f : (t1 - t) * 16.0f * (1.0f / yinc);
+				float ds = xinc == 0.0 ? 0.0f : (s1 - s) * 16.0f * (1.0f / xinc);
+				float dt = yinc == 0.0 ? 0.0f : (t1 - t) * 16.0f * (1.0f / yinc);
 
 				int texLevel;
 				int texLevelFrac;
