@@ -148,8 +148,7 @@ void DrawEngineGLES::ClearInputLayoutMap() {
 }
 
 void DrawEngineGLES::BeginFrame() {
-	drawHistory_.clear();
-	prevDcid_ = 0;
+	DecimateTrackedVertexArrays();
 
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
 	render_->BeginPushBuffer(frameData.pushIndex);
@@ -278,7 +277,6 @@ void DrawEngineGLES::DoFlush() {
 	if (vshader->UseHWTransform()) {
 		bool populateCache = false;
 		bool reuseVertexData = false;
-		bool useHistoryData = false;
 
 		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			// If software skinning, we've already predecoded into "decoded". So push that content.
@@ -291,38 +289,16 @@ void DrawEngineGLES::DoFlush() {
 				reuseVertexData = true;
 				gpuStats.numRepeatDraws++;
 			} else {
-				// Look for previous draw calls to reuse, beyond the most recent. Maximally look back 30.
-				for (int i = 0; i < 30; i++) {
-					int index = (int)drawHistory_.size() - 2 - i;
-					if (index < 0)
-						break;
-					if (drawHistory_[i].dcid == dcid_) {
-						useHistoryData = true;
-						DrawHistoryData &data = drawHistory_[i];
-						useElements = data.useElements;
-						vertexCount = data.vertexCount;
-						indexBuffer = data.indexBuffer;
-						indexBufferOffset = data.indexBufferOffset;
-						vertexBuffer = data.vertexBuffer;
-						vertexBufferOffset = data.vertexBufferOffset;
-						prevDrawPrim_ = data.prim;
-						gpuStats.numHistoryDraws++;
-						break;
-					}
-				}
-
-				if (!useHistoryData) {
-					// Decode directly into the pushbuffer.
-					// Note that this also triggers the index generator.
-					DecodeVertsToPushBuffer(frameData.pushVertex, &vertexBufferOffset, &vertexBuffer);
-				}
+				// Decode directly into the pushbuffer.
+				// Note that this also triggers the index generator.
+				DecodeVertsToPushBuffer(frameData.pushVertex, &vertexBufferOffset, &vertexBuffer);
 			}
 		}
 
-		if (!reuseVertexData && !useHistoryData) {
-			// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
-			// there is no need for the index buffer we built. We can then use glDrawArrays instead
-			// for a very minor speed boost.
+		// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
+		// there is no need for the index buffer we built. We can then use glDrawArrays instead
+		// for a very minor speed boost.
+		if (!reuseVertexData) {
 			useElements = !indexGen.SeenOnlyPurePrims();
 			vertexCount = indexGen.VertexCount();
 			if (!useElements && indexGen.PureCount()) {
@@ -359,9 +335,7 @@ void DrawEngineGLES::DoFlush() {
 			render_->BindVertexBuffer(inputLayout, vertexBuffer, vertexBufferOffset);
 		}
 		if (useElements) {
-			if (useHistoryData) {
-				render_->BindIndexBuffer(indexBuffer);
-			} else if (!reuseVertexData) {
+			if (!reuseVertexData) {
 				size_t esz = sizeof(uint16_t) * indexGen.VertexCount();
 				void *dest = frameData.pushIndex->Push(esz, &indexBufferOffset, &indexBuffer);
 				memcpy(dest, decIndex, esz);
@@ -373,17 +347,6 @@ void DrawEngineGLES::DoFlush() {
 		}
 		prevDcid_ = dcid_;
 		prevDrawPrim_ = prim;
-
-		drawHistory_.push_back(DrawEngineGLES::DrawHistoryData{
-			dcid_,
-			useElements,
-			vertexBuffer,
-			vertexBufferOffset,
-			indexBuffer,
-			indexBufferOffset,
-			vertexCount,
-			prim,
-		});
 	} else {
 		DecodeVerts(decoded);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
