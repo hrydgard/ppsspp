@@ -84,6 +84,7 @@ struct GPUStatistics {
 	int numReadbacks;
 	int numUploads;
 	int numClears;
+	int numDrawSyncs;
 	double msProcessingDisplayLists;
 	int vertexGPUCycles;
 	int otherGPUCycles;

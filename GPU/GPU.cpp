@@ -148,6 +148,7 @@ void GPUStatistics::ResetFrame() {
 	numReadbacks = 0;
 	numUploads = 0;
 	numClears = 0;
+	numDrawSyncs = 0;
 	msProcessingDisplayLists = 0;
 	vertexGPUCycles = 0;
 	otherGPUCycles = 0;
@@ -164,7 +165,7 @@ size_t GPUStatistics::Format(char *buffer, size_t size, FramebufferManagerCommon
 		"Vertices: %d cached: %d uncached: %d\n"
 		"FBOs active: %d (evaluations: %d)\n"
 		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
-		"Readbacks: %d, uploads: %d\n"
+		"Readbacks: %d, uploads: %d, drawsyncs: %d\n"
 		"GPU cycles executed: %d (%f per vertex)\n",
 		msProcessingDisplayLists * 1000.0f,
 		numDrawCalls,
@@ -186,6 +187,7 @@ size_t GPUStatistics::Format(char *buffer, size_t size, FramebufferManagerCommon
 		gpuStats.numTextureDataBytesHashed / 1024,
 		gpuStats.numReadbacks,
 		gpuStats.numUploads,
+		gpuStats.numDrawSyncs,
 		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
 		vertexAverageCycles
 	);
