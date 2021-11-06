@@ -202,7 +202,7 @@ static inline void VertexAttribSetup(int attrib, int fmt, int stride, int offset
 	}
 }
 
-// TODO: Use VBO and get rid of the vertexData pointers - with that, we will supply only offsets
+// TODO: Use VertexBuffers where available and get rid of the vertexData pointers - with that, we will supply only offsets
 GLRInputLayout *DrawEngineGLES::SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt) {
 	uint32_t key = decFmt.id;
 	GLRInputLayout *inputLayout = inputLayoutMap_.Get(key);
@@ -306,7 +306,7 @@ void DrawEngineGLES::DoFlush() {
 			}
 			prim = indexGen.Prim();
 		} else {
-			prim = prevPrim_;
+			prim = prevDrawPrim_;
 		}
 
 		gpuStats.numUncachedVertsDrawn += vertexCount;
@@ -346,6 +346,7 @@ void DrawEngineGLES::DoFlush() {
 			render_->Draw(glprim[prim], 0, vertexCount);
 		}
 		prevDcid_ = dcid_;
+		prevDrawPrim_ = prim;
 	} else {
 		DecodeVerts(decoded);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;

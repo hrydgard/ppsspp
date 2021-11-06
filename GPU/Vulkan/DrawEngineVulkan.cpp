@@ -745,7 +745,7 @@ void DrawEngineVulkan::DoFlush() {
 				}
 				prim = indexGen.Prim();
 			} else {
-				prim = prevPrim_;
+				prim = prevDrawPrim_;
 			}
 
 			gpuStats.numUncachedVertsDrawn += vertexCount;
@@ -842,6 +842,7 @@ void DrawEngineVulkan::DoFlush() {
 		}
 
 		prevDcid_ = dcid_;
+		prevDrawPrim_ = prim;
 	} else {
 		PROFILE_THIS_SCOPE("soft");
 		// Decode to "decoded"

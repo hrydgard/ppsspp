@@ -291,4 +291,5 @@ private:
 	// Need to save these for repeat draws as they're not captured in the bindings that we reuse.
 	int vertexCount = 0;
 	bool useElements = true;
+	GEPrimitiveType prevDrawPrim_;
 };

@@ -176,4 +176,5 @@ private:
 	uint32_t indexBufferOffset = 0;
 	int vertexCount;
 	bool useElements;
+	GEPrimitiveType prevDrawPrim_;
 };
