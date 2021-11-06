@@ -19,6 +19,9 @@
 
 #include "Common/TimeUtil.h"
 #include "Common/GraphicsContext.h"
+#include "Common/FramebufferManagerCommon.h"
+#include "Common/TextureCacheCommon.h"
+
 #include "Core/Core.h"
 
 #include "GPU/GPU.h"

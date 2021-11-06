@@ -190,6 +190,7 @@ public:
 	float fUISaturation;
 
 	bool bVertexCache;
+	bool bOptimizeRepeatDraws;
 	bool bTextureBackoffCache;
 	bool bTextureSecondaryCache;
 	bool bVertexDecoderJit;

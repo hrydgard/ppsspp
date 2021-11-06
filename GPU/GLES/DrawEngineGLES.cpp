@@ -284,7 +284,7 @@ void DrawEngineGLES::DoFlush() {
 			u8 *dest = (u8 *)frameData.pushVertex->Push(size, &vertexBufferOffset, &vertexBuffer);
 			memcpy(dest, decoded, size);
 		} else {
-			if (dcid_ == prevDcid_) {
+			if (dcid_ == prevDcid_ && g_Config.bOptimizeRepeatDraws) {
 				// Identical draw call to the previous one! Let's just go ahead on the same bindings.
 				reuseVertexData = true;
 				gpuStats.numRepeatDraws++;

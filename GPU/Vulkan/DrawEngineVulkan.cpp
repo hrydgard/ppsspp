@@ -727,7 +727,7 @@ void DrawEngineVulkan::DoFlush() {
 				u8 *dest = (u8 *)frame->pushVertex->Push(size, &vbOffset, &vbuf);
 				memcpy(dest, decoded, size);
 			} else {
-				if (dcid_ == prevDcid_) {
+				if (dcid_ == prevDcid_ && g_Config.bOptimizeRepeatDraws) {
 					reuseVertexData = true;
 					gpuStats.numRepeatDraws++;
 				} else {

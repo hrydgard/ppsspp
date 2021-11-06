@@ -871,6 +871,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 4, true, true),
 
 	ReportedConfigSetting("VertexDecCache", &g_Config.bVertexCache, false, true, true),
+	ReportedConfigSetting("OptimizeRepeatDraws", &g_Config.bOptimizeRepeatDraws, true, true, true),
 	ReportedConfigSetting("TextureBackoffCache", &g_Config.bTextureBackoffCache, false, true, true),
 	ReportedConfigSetting("TextureSecondaryCache", &g_Config.bTextureSecondaryCache, false, true, true),
 	ReportedConfigSetting("VertexDecJit", &g_Config.bVertexDecoderJit, &DefaultCodeGen, false),
