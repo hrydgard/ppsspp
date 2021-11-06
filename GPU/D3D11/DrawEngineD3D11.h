@@ -163,6 +163,8 @@ private:
 
 	ID3D11InputLayout *SetupDecFmtForDraw(D3D11VertexShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 
+	void DecodeVertsToPushBuffer(PushBufferD3D11 *push, uint32_t *bindOffset, ID3D11Buffer **vbuf);
+
 	void MarkUnreliable(VertexArrayInfoD3D11 *vai);
 
 	Draw::DrawContext *draw_;  // Used for framebuffer related things exclusively.
@@ -216,4 +218,8 @@ private:
 	TessellationDataTransferD3D11 *tessDataTransferD3D11;
 
 	int lastRenderStepId_ = -1;
+
+	int vertexCount = 0;
+	bool useElements = true;
+	GEPrimitiveType prevDrawPrim_;
 };

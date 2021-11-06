@@ -123,10 +123,6 @@ public:
 
 	bool SupportsHWTessellation() const;
 
-	void DrawSync() override {
-		prevDcid_ = 0;
-	}
-
 protected:
 	bool UpdateUseHWTessellation(bool enable) override;
 	void DecimateTrackedVertexArrays() {}

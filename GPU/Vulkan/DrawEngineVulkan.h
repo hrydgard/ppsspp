@@ -189,10 +189,6 @@ public:
 		}
 	}
 
-	void DrawSync() override {
-		prevDcid_ = 0;
-	}
-
 private:
 	struct FrameData;
 	void ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant);

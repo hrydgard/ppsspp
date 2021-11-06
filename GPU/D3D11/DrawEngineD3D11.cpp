@@ -318,6 +318,20 @@ VertexArrayInfoD3D11::~VertexArrayInfoD3D11() {
 		ebo->Release();
 }
 
+void DrawEngineD3D11::DecodeVertsToPushBuffer(PushBufferD3D11 *push, UINT *bindOffset, ID3D11Buffer **vbuf) {
+	// Figure out how much pushbuffer space we need to allocate.
+	int vertsToDecode = ComputeNumVertsToDecode();
+
+	u32 vSize = vertsToDecode * dec_->GetDecVtxFmt().stride;
+	DecodeVerts(decoded);
+
+	uint8_t *vptr = push->BeginPush(context_, bindOffset, vSize);
+	memcpy(vptr, decoded, vSize);
+	push->EndPush(context_);
+
+	*vbuf = push->Buf();
+}
+
 // The inline wrapper in the header checks for numDrawCalls == 0
 void DrawEngineD3D11::DoFlush() {
 	gpuStats.numFlushes++;
@@ -327,7 +341,7 @@ void DrawEngineD3D11::DoFlush() {
 	int curRenderStepId = draw_->GetCurrentStepId();
 	if (lastRenderStepId_ != curRenderStepId) {
 		// Dirty everything that has dynamic state that will need re-recording.
-		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 		lastRenderStepId_ = curRenderStepId;
 	}
 
@@ -342,18 +356,20 @@ void DrawEngineD3D11::DoFlush() {
 	bool useHWTransform = CanUseHardwareTransform(prim) && (tess || gstate.getShadeMode() != GE_SHADE_FLAT);
 
 	if (useHWTransform) {
-		ID3D11Buffer *vb_ = nullptr;
-		ID3D11Buffer *ib_ = nullptr;
+		ID3D11Buffer *vbuf = nullptr;
+		ID3D11Buffer *ibuf = nullptr;
+		UINT vOffset = 0;
+		UINT iOffset = 0;
 
-		int vertexCount = 0;
 		int maxIndex = 0;
-		bool useElements = true;
+		bool reuseVertexData = false;
 
 		// Cannot cache vertex data with morph enabled.
 		bool useCache = g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK);
 		// Also avoid caching when software skinning.
-		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK))
+		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			useCache = false;
+		}
 
 		if (useCache) {
 			u32 id = dcid_ ^ gstate.getUVGenMode();  // This can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
@@ -373,7 +389,7 @@ void DrawEngineD3D11::DoFlush() {
 					vai->minihash = ComputeMiniHash();
 					vai->status = VertexArrayInfoD3D11::VAI_HASHING;
 					vai->drawsUntilNextFullHash = 0;
-					DecodeVerts(decoded); // writes to indexGen
+					DecodeVertsToPushBuffer(pushVerts_, &vOffset, &vbuf);
 					vai->numVerts = indexGen.VertexCount();
 					vai->prim = indexGen.Prim();
 					vai->maxIndex = indexGen.MaxIndex();
@@ -398,7 +414,7 @@ void DrawEngineD3D11::DoFlush() {
 						}
 						if (newMiniHash != vai->minihash || newHash != vai->hash) {
 							MarkUnreliable(vai);
-							DecodeVerts(decoded);
+							DecodeVertsToPushBuffer(pushVerts_, &vOffset, &vbuf);
 							goto rotateVBO;
 						}
 						if (vai->numVerts > 64) {
@@ -417,7 +433,7 @@ void DrawEngineD3D11::DoFlush() {
 						u32 newMiniHash = ComputeMiniHash();
 						if (newMiniHash != vai->minihash) {
 							MarkUnreliable(vai);
-							DecodeVerts(decoded);
+							DecodeVertsToPushBuffer(pushVerts_, &vOffset, &vbuf);
 							goto rotateVBO;
 						}
 					}
@@ -454,8 +470,11 @@ void DrawEngineD3D11::DoFlush() {
 						gpuStats.numCachedVertsDrawn += vai->numVerts;
 						gstate_c.vertexFullAlpha = vai->flags & VAI11_FLAG_VERTEXFULLALPHA;
 					}
-					vb_ = vai->vbo;
-					ib_ = vai->ebo;
+
+					vbuf = vai->vbo;
+					vOffset = 0;
+					ibuf = vai->ebo;
+					iOffset = 0;
 					vertexCount = vai->numVerts;
 					maxIndex = vai->maxIndex;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
@@ -471,8 +490,10 @@ void DrawEngineD3D11::DoFlush() {
 					}
 					gpuStats.numCachedDrawCalls++;
 					gpuStats.numCachedVertsDrawn += vai->numVerts;
-					vb_ = vai->vbo;
-					ib_ = vai->ebo;
+					vbuf = vai->vbo;
+					vOffset = 0;
+					ibuf = vai->ebo;
+					iOffset = 0;
 
 					vertexCount = vai->numVerts;
 
@@ -489,23 +510,43 @@ void DrawEngineD3D11::DoFlush() {
 					if (vai->lastFrame != gpuStats.numFlips) {
 						vai->numFrames++;
 					}
-					DecodeVerts(decoded);
+					DecodeVertsToPushBuffer(pushVerts_, &vOffset, &vbuf);
 					goto rotateVBO;
 				}
 			}
 
 			vai->lastFrame = gpuStats.numFlips;
 		} else {
-			DecodeVerts(decoded);
+			if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
+				// If software skinning, we've already predecoded into "decoded". So push that content.
+				UINT size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
+				u8 *dest = pushVerts_->BeginPush(context_, &vOffset, size);
+				memcpy(dest, decoded, size);
+				pushVerts_->EndPush(context_);
+				vbuf = pushVerts_->Buf();
+			} else {
+				if (dcid_ == prevDcid_ && g_Config.bOptimizeRepeatDraws) {
+					reuseVertexData = true;
+					gpuStats.numRepeatDraws++;
+				} else {
+					// Decode directly into the pushbuffer
+					DecodeVertsToPushBuffer(pushVerts_, &vOffset, &vbuf);
+				}
+			}
+
 rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
-			useElements = !indexGen.SeenOnlyPurePrims() || prim == GE_PRIM_TRIANGLE_FAN;
-			vertexCount = indexGen.VertexCount();
-			maxIndex = indexGen.MaxIndex();
-			if (!useElements && indexGen.PureCount()) {
-				vertexCount = indexGen.PureCount();
+			if (!reuseVertexData) {
+				useElements = !indexGen.SeenOnlyPurePrims() || prim == GE_PRIM_TRIANGLE_FAN;
+				vertexCount = indexGen.VertexCount();
+				maxIndex = indexGen.MaxIndex();
+				if (!useElements && indexGen.PureCount()) {
+					vertexCount = indexGen.PureCount();
+				}
+				prim = indexGen.Prim();
+			} else {
+				prim = prevDrawPrim_;
 			}
-			prim = indexGen.Prim();
 		}
 
 		VERBOSE_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
@@ -530,36 +571,28 @@ rotateVBO:
 		context_->IASetInputLayout(inputLayout);
 		UINT stride = dec_->GetDecVtxFmt().stride;
 		context_->IASetPrimitiveTopology(d3d11prim[prim]);
-		if (!vb_) {
-			// Push!
-			UINT vOffset;
-			int vSize = (maxIndex + 1) * dec_->GetDecVtxFmt().stride;
-			uint8_t *vptr = pushVerts_->BeginPush(context_, &vOffset, vSize);
-			memcpy(vptr, decoded, vSize);
-			pushVerts_->EndPush(context_);
-			ID3D11Buffer *buf = pushVerts_->Buf();
-			context_->IASetVertexBuffers(0, 1, &buf, &stride, &vOffset);
-			if (useElements) {
-				UINT iOffset;
-				int iSize = 2 * indexGen.VertexCount();
-				uint8_t *iptr = pushInds_->BeginPush(context_, &iOffset, iSize);
-				memcpy(iptr, decIndex, iSize);
-				pushInds_->EndPush(context_);
-				context_->IASetIndexBuffer(pushInds_->Buf(), DXGI_FORMAT_R16_UINT, iOffset);
-				context_->DrawIndexed(vertexCount, 0, 0);
-			} else {
-				context_->Draw(vertexCount, 0);
-			}
-		} else {
-			UINT offset = 0;
-			context_->IASetVertexBuffers(0, 1, &vb_, &stride, &offset);
-			if (useElements) {
-				context_->IASetIndexBuffer(ib_, DXGI_FORMAT_R16_UINT, 0);
-				context_->DrawIndexed(vertexCount, 0, 0);
-			} else {
-				context_->Draw(vertexCount, 0);
-			}
+
+		// Push!
+		if (!reuseVertexData) {
+			context_->IASetVertexBuffers(0, 1, &vbuf, &stride, &vOffset);
 		}
+		if (useElements) {
+			if (!reuseVertexData) {
+				if (!ibuf) {
+					int iSize = 2 * indexGen.VertexCount();
+					uint8_t *iptr = pushInds_->BeginPush(context_, &iOffset, iSize);
+					memcpy(iptr, decIndex, iSize);
+					pushInds_->EndPush(context_);
+					ibuf = pushInds_->Buf();
+				}
+				context_->IASetIndexBuffer(ibuf, DXGI_FORMAT_R16_UINT, iOffset);
+			}
+			context_->DrawIndexed(vertexCount, 0, 0);
+		} else {
+			context_->Draw(vertexCount, 0);
+		}
+
+		prevDcid_ = dcid_;
 	} else {
 		DecodeVerts(decoded);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
@@ -684,6 +717,8 @@ rotateVBO:
 				framebufferManager_->ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, clearColor);
 			}
 		}
+
+		prevDcid_ = 0;
 	}
 
 	gpuStats.numDrawCalls += numDrawCalls;
