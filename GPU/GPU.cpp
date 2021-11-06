@@ -131,6 +131,7 @@ void GPUStatistics::ResetFrame() {
 	numCachedVertsDrawn = 0;
 	numUncachedVertsDrawn = 0;
 	numRepeatDraws = 0;
+	numHistoryDraws = 0;
 	numUnindexed = 0;
 	numTrackedVertexArrays = 0;
 	numTextureInvalidations = 0;
@@ -145,6 +146,7 @@ void GPUStatistics::ResetFrame() {
 	numReadbacks = 0;
 	numUploads = 0;
 	numClears = 0;
+	numDrawSyncs = 0;
 	msProcessingDisplayLists = 0;
 	vertexGPUCycles = 0;
 	otherGPUCycles = 0;
@@ -155,13 +157,14 @@ size_t GPUStatistics::Format(char *buffer, size_t size, FramebufferManagerCommon
 	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
 	return snprintf(buffer, size,
 		"DL processing time: %0.2f ms\n"
-		"Draws: %d, flushes %d, clears %d (cached: %d, repeat: %d, unind: %d)\n"
+		"Draws: %d, flushes %d, clears %d (cached: %d, repeat: %d, history: %d, unind: %d)\n"
 		"Num Tracked Vertex Arrays: %d\n"
 		"Commands per call level: %d %d %d %d\n"
 		"Vertices: %d cached: %d uncached: %d\n"
 		"FBOs active: %d (evaluations: %d)\n"
 		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
 		"Readbacks: %d, uploads: %d\n"
+		"DrawSyncs: %d\n"
 		"GPU cycles executed: %d (%f per vertex)\n",
 		msProcessingDisplayLists * 1000.0f,
 		numDrawCalls,
@@ -169,6 +172,7 @@ size_t GPUStatistics::Format(char *buffer, size_t size, FramebufferManagerCommon
 		numClears,
 		numCachedDrawCalls,
 		numRepeatDraws,
+		numHistoryDraws,
 		numUnindexed,
 		numTrackedVertexArrays,
 		gpuCommandsAtCallLevel[0], gpuStats.gpuCommandsAtCallLevel[1], gpuStats.gpuCommandsAtCallLevel[2], gpuStats.gpuCommandsAtCallLevel[3],
@@ -183,6 +187,7 @@ size_t GPUStatistics::Format(char *buffer, size_t size, FramebufferManagerCommon
 		gpuStats.numTextureDataBytesHashed / 1024,
 		gpuStats.numReadbacks,
 		gpuStats.numUploads,
+		gpuStats.numDrawSyncs,
 		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
 		vertexAverageCycles
 	);

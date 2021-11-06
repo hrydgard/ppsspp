@@ -574,6 +574,7 @@ void GPUCommon::DumpNextFrame() {
 }
 
 u32 GPUCommon::DrawSync(int mode) {
+	gpuStats.numDrawSyncs++;
 	drawEngineCommon_->DrawSync();
 
 	if (mode < 0 || mode > 1)

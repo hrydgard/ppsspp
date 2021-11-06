@@ -72,6 +72,7 @@ struct GPUStatistics {
 	int numUncachedVertsDrawn;
 	int numUnindexed;
 	int numRepeatDraws;
+	int numHistoryDraws;
 	int numTrackedVertexArrays;
 	int numTextureInvalidations;
 	int numTextureInvalidationsByFramebuffer;
@@ -84,6 +85,7 @@ struct GPUStatistics {
 	int numReadbacks;
 	int numUploads;
 	int numClears;
+	int numDrawSyncs;
 	double msProcessingDisplayLists;
 	int vertexGPUCycles;
 	int otherGPUCycles;

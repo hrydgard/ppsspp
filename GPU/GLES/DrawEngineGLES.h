@@ -94,7 +94,6 @@ public:
 	void BeginFrame();
 	void EndFrame();
 
-
 	// So that this can be inlined
 	void Flush() {
 		if (!numDrawCalls)
@@ -125,6 +124,7 @@ public:
 
 	void DrawSync() override {
 		prevDcid_ = 0;
+		drawHistory_.clear();
 	}
 
 protected:
@@ -177,4 +177,18 @@ private:
 	int vertexCount;
 	bool useElements;
 	GEPrimitiveType prevDrawPrim_;
+
+	// Everything we need to replicate a previous vertex bind from this frame.
+	struct DrawHistoryData {
+		u32 dcid;
+		bool useElements;
+		GLRBuffer *vertexBuffer;
+		u32 vertexBufferOffset;
+		GLRBuffer *indexBuffer;
+		u32 indexBufferOffset;
+		int vertexCount;
+		GEPrimitiveType prim;
+	};
+
+	std::vector<DrawHistoryData> drawHistory_;
 };
