@@ -844,7 +844,7 @@ Vec3<int> AlphaBlendingResult(const Vec4<int> &source, const Vec4<int> &dst)
 }
 
 template <bool clearMode>
-inline void DrawSinglePixel(const DrawingCoords &p, u16 z, u8 fog, const Vec4<int> &color_in) {
+inline void DrawSinglePixel(const DrawingCoords &p, int z, u8 fog, const Vec4<int> &color_in) {
 	Vec4<int> prim_color = color_in.Clamp(0, 255);
 	// Depth range test - applied in clear mode, if not through mode.
 	if (!gstate.isModeThrough())
@@ -1287,7 +1287,7 @@ void DrawTriangleSlice(
 					subp.x = p.x + (i & 1);
 					subp.y = p.y + (i / 2);
 
-					DrawSinglePixel<clearMode>(subp, (u16)z[i], fog[i], prim_color[i]);
+					DrawSinglePixel<clearMode>(subp, z[i], fog[i], prim_color[i]);
 				}
 			}
 		}
