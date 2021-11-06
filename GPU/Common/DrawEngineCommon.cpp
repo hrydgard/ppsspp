@@ -707,14 +707,12 @@ void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 	if ((vertexCount < 2 && prim > 0) || (vertexCount < 3 && prim > GE_PRIM_LINE_STRIP && prim != GE_PRIM_RECTANGLES))
 		return;
 
-	if (g_Config.bVertexCache) {
-		u32 dhash = dcid_;
-		dhash = __rotl(dhash ^ (u32)(uintptr_t)verts, 13);
-		dhash = __rotl(dhash ^ (u32)(uintptr_t)inds, 13);
-		dhash = __rotl(dhash ^ (u32)vertTypeID, 13);
-		dhash = __rotl(dhash ^ (u32)vertexCount, 13);
-		dcid_ = dhash ^ (u32)prim;
-	}
+	u32 dhash = dcid_;
+	dhash = __rotl(dhash ^ (u32)(uintptr_t)verts, 13);
+	dhash = __rotl(dhash ^ (u32)(uintptr_t)inds, 13);
+	dhash = __rotl(dhash ^ (u32)vertTypeID, 13);
+	dhash = __rotl(dhash ^ (u32)vertexCount, 13);
+	dcid_ = dhash ^ (u32)prim;
 
 	DeferredDrawCall &dc = drawCalls[numDrawCalls];
 	dc.verts = verts;

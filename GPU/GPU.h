@@ -24,6 +24,9 @@ class GPUInterface;
 class GPUDebugInterface;
 class GraphicsContext;
 
+class FramebufferManagerCommon;
+class TextureCacheCommon;
+
 enum SkipDrawReasonFlags {
 	SKIPDRAW_SKIPFRAME = 1,
 	SKIPDRAW_NON_DISPLAYED_FB = 2,   // Skip drawing to FBO:s that have not been displayed.
@@ -56,30 +59,9 @@ struct GPUStatistics {
 		memset(this, 0, sizeof(*this));
 	}
 
-	void ResetFrame() {
-		numDrawCalls = 0;
-		numCachedDrawCalls = 0;
-		numVertsSubmitted = 0;
-		numCachedVertsDrawn = 0;
-		numUncachedVertsDrawn = 0;
-		numTrackedVertexArrays = 0;
-		numTextureInvalidations = 0;
-		numTextureInvalidationsByFramebuffer = 0;
-		numTexturesHashed = 0;
-		numTextureSwitches = 0;
-		numTextureDataBytesHashed = 0;
-		numShaderSwitches = 0;
-		numFlushes = 0;
-		numTexturesDecoded = 0;
-		numFramebufferEvaluations = 0;
-		numReadbacks = 0;
-		numUploads = 0;
-		numClears = 0;
-		msProcessingDisplayLists = 0;
-		vertexGPUCycles = 0;
-		otherGPUCycles = 0;
-		memset(gpuCommandsAtCallLevel, 0, sizeof(gpuCommandsAtCallLevel));
-	}
+	void ResetFrame();
+
+	size_t Format(char *buffer, size_t size, FramebufferManagerCommon *framebufferManager, TextureCacheCommon *textureCache);
 
 	// Per frame statistics
 	int numDrawCalls;
@@ -88,6 +70,8 @@ struct GPUStatistics {
 	int numVertsSubmitted;
 	int numCachedVertsDrawn;
 	int numUncachedVertsDrawn;
+	int numUnindexed;
+	int numRepeatDraws;
 	int numTrackedVertexArrays;
 	int numTextureInvalidations;
 	int numTextureInvalidationsByFramebuffer;

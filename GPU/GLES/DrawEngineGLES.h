@@ -123,6 +123,10 @@ public:
 
 	bool SupportsHWTessellation() const;
 
+	void DrawSync() {
+		prevDcid_ = 0;
+	}
+
 protected:
 	bool UpdateUseHWTessellation(bool enable) override;
 	void DecimateTrackedVertexArrays() {}
@@ -167,4 +171,9 @@ private:
 
 	// Hardware tessellation
 	TessellationDataTransferGLES *tessDataTransferGLES;
+
+	// Need to save these for repeat draws as they're not captured in the bindings that we reuse.
+	uint32_t indexBufferOffset = 0;
+	int vertexCount;
+	bool useElements;
 };

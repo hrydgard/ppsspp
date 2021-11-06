@@ -574,6 +574,8 @@ void GPUCommon::DumpNextFrame() {
 }
 
 u32 GPUCommon::DrawSync(int mode) {
+	drawEngineCommon_->DrawSync();
+
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
@@ -622,6 +624,8 @@ void GPUCommon::CheckDrawSync() {
 }
 
 int GPUCommon::ListSync(int listid, int mode) {
+	drawEngineCommon_->DrawSync();
+
 	if (listid < 0 || listid >= DisplayListMaxCount)
 		return SCE_KERNEL_ERROR_INVALID_ID;
 
@@ -2961,36 +2965,5 @@ bool GPUCommon::FramebufferReallyDirty() {
 }
 
 size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
-	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
-	return snprintf(buffer, size,
-		"DL processing time: %0.2f ms\n"
-		"Draw calls: %d, flushes %d, clears %d (cached: %d)\n"
-		"Num Tracked Vertex Arrays: %d\n"
-		"Commands per call level: %i %i %i %i\n"
-		"Vertices: %d cached: %d uncached: %d\n"
-		"FBOs active: %d (evaluations: %d)\n"
-		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
-		"Readbacks: %d, uploads: %d\n"
-		"GPU cycles executed: %d (%f per vertex)\n",
-		gpuStats.msProcessingDisplayLists * 1000.0f,
-		gpuStats.numDrawCalls,
-		gpuStats.numFlushes,
-		gpuStats.numClears,
-		gpuStats.numCachedDrawCalls,
-		gpuStats.numTrackedVertexArrays,
-		gpuStats.gpuCommandsAtCallLevel[0], gpuStats.gpuCommandsAtCallLevel[1], gpuStats.gpuCommandsAtCallLevel[2], gpuStats.gpuCommandsAtCallLevel[3],
-		gpuStats.numVertsSubmitted,
-		gpuStats.numCachedVertsDrawn,
-		gpuStats.numUncachedVertsDrawn,
-		(int)framebufferManager_->NumVFBs(),
-		gpuStats.numFramebufferEvaluations,
-		(int)textureCache_->NumLoadedTextures(),
-		gpuStats.numTexturesDecoded,
-		gpuStats.numTextureInvalidations,
-		gpuStats.numTextureDataBytesHashed / 1024,
-		gpuStats.numReadbacks,
-		gpuStats.numUploads,
-		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
-		vertexAverageCycles
-	);
+	return gpuStats.Format(buffer, size, framebufferManager_, textureCache_);
 }

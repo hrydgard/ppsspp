@@ -123,3 +123,67 @@ void GPU_Shutdown() {
 	gpu = nullptr;
 	gpuDebug = nullptr;
 }
+
+void GPUStatistics::ResetFrame() {
+	numDrawCalls = 0;
+	numCachedDrawCalls = 0;
+	numVertsSubmitted = 0;
+	numCachedVertsDrawn = 0;
+	numUncachedVertsDrawn = 0;
+	numRepeatDraws = 0;
+	numUnindexed = 0;
+	numTrackedVertexArrays = 0;
+	numTextureInvalidations = 0;
+	numTextureInvalidationsByFramebuffer = 0;
+	numTexturesHashed = 0;
+	numTextureSwitches = 0;
+	numTextureDataBytesHashed = 0;
+	numShaderSwitches = 0;
+	numFlushes = 0;
+	numTexturesDecoded = 0;
+	numFramebufferEvaluations = 0;
+	numReadbacks = 0;
+	numUploads = 0;
+	numClears = 0;
+	msProcessingDisplayLists = 0;
+	vertexGPUCycles = 0;
+	otherGPUCycles = 0;
+	memset(gpuCommandsAtCallLevel, 0, sizeof(gpuCommandsAtCallLevel));
+}
+
+size_t GPUStatistics::Format(char *buffer, size_t size, FramebufferManagerCommon *framebufferManager, TextureCacheCommon *textureCache) {
+	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
+	return snprintf(buffer, size,
+		"DL processing time: %0.2f ms\n"
+		"Draws: %d, flushes %d, clears %d (cached: %d, repeat: %d, unind: %d)\n"
+		"Num Tracked Vertex Arrays: %d\n"
+		"Commands per call level: %d %d %d %d\n"
+		"Vertices: %d cached: %d uncached: %d\n"
+		"FBOs active: %d (evaluations: %d)\n"
+		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
+		"Readbacks: %d, uploads: %d\n"
+		"GPU cycles executed: %d (%f per vertex)\n",
+		msProcessingDisplayLists * 1000.0f,
+		numDrawCalls,
+		numFlushes,
+		numClears,
+		numCachedDrawCalls,
+		numRepeatDraws,
+		numUnindexed,
+		numTrackedVertexArrays,
+		gpuCommandsAtCallLevel[0], gpuStats.gpuCommandsAtCallLevel[1], gpuStats.gpuCommandsAtCallLevel[2], gpuStats.gpuCommandsAtCallLevel[3],
+		numVertsSubmitted,
+		numCachedVertsDrawn,
+		numUncachedVertsDrawn,
+		(int)framebufferManager->NumVFBs(),
+		gpuStats.numFramebufferEvaluations,
+		(int)textureCache->NumLoadedTextures(),
+		gpuStats.numTexturesDecoded,
+		gpuStats.numTextureInvalidations,
+		gpuStats.numTextureDataBytesHashed / 1024,
+		gpuStats.numReadbacks,
+		gpuStats.numUploads,
+		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
+		vertexAverageCycles
+	);
+}

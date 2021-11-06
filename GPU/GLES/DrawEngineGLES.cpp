@@ -272,12 +272,11 @@ void DrawEngineGLES::DoFlush() {
 	GLRBuffer *vertexBuffer = nullptr;
 	GLRBuffer *indexBuffer = nullptr;
 	uint32_t vertexBufferOffset = 0;
-	uint32_t indexBufferOffset = 0;
 
 	if (vshader->UseHWTransform()) {
-		int vertexCount = 0;
-		bool useElements = true;
 		bool populateCache = false;
+
+		bool reuseVertexData = false;
 
 		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			// If software skinning, we've already predecoded into "decoded". So push that content.
@@ -285,8 +284,15 @@ void DrawEngineGLES::DoFlush() {
 			u8 *dest = (u8 *)frameData.pushVertex->Push(size, &vertexBufferOffset, &vertexBuffer);
 			memcpy(dest, decoded, size);
 		} else {
-			// Decode directly into the pushbuffer
-			u8 *dest = (u8 *)DecodeVertsToPushBuffer(frameData.pushVertex, &vertexBufferOffset, &vertexBuffer);
+			if (dcid_ == prevDcid_) {
+				// Identical draw call to the previous one! Let's just go ahead on the same bindings.
+				reuseVertexData = true;
+				gpuStats.numRepeatDraws++;
+			} else {
+				// Decode directly into the pushbuffer.
+				// Note that this also triggers the index generator.
+				DecodeVertsToPushBuffer(frameData.pushVertex, &vertexBufferOffset, &vertexBuffer);
+			}
 		}
 
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
@@ -294,14 +300,21 @@ void DrawEngineGLES::DoFlush() {
 		// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
 		// there is no need for the index buffer we built. We can then use glDrawArrays instead
 		// for a very minor speed boost.
-		useElements = !indexGen.SeenOnlyPurePrims();
-		vertexCount = indexGen.VertexCount();
-		if (!useElements && indexGen.PureCount()) {
-			vertexCount = indexGen.PureCount();
+		if (!reuseVertexData) {
+			useElements = !indexGen.SeenOnlyPurePrims();
+			vertexCount = indexGen.VertexCount();
+			if (!useElements && indexGen.PureCount()) {
+				vertexCount = indexGen.PureCount();
+			}
+			prim = indexGen.Prim();
+		} else {
+			prim = prevPrim_;
 		}
-		prim = indexGen.Prim();
 
-		VERBOSE_LOG(G3D, "Flush prim %d! %d verts in one go", prim, vertexCount);
+		if (!useElements) {
+			gpuStats.numUnindexed++;
+		}
+
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
@@ -318,18 +331,21 @@ void DrawEngineGLES::DoFlush() {
 		
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, lastVType_, framebufferManager_->UseBufferedRendering());
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(program, dec_->GetDecVtxFmt());
-		render_->BindVertexBuffer(inputLayout, vertexBuffer, vertexBufferOffset);
+		if (!reuseVertexData) {
+			render_->BindVertexBuffer(inputLayout, vertexBuffer, vertexBufferOffset);
+		}
 		if (useElements) {
-			if (!indexBuffer) {
+			if (!reuseVertexData) {
 				size_t esz = sizeof(uint16_t) * indexGen.VertexCount();
 				void *dest = frameData.pushIndex->Push(esz, &indexBufferOffset, &indexBuffer);
 				memcpy(dest, decIndex, esz);
+				render_->BindIndexBuffer(indexBuffer);
 			}
-			render_->BindIndexBuffer(indexBuffer);
 			render_->DrawIndexed(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, (GLvoid*)(intptr_t)indexBufferOffset);
 		} else {
 			render_->Draw(glprim[prim], 0, vertexCount);
 		}
+		prevDcid_ = dcid_;
 	} else {
 		DecodeVerts(decoded);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
@@ -445,6 +461,8 @@ void DrawEngineGLES::DoFlush() {
 			}
 			gstate_c.Dirty(DIRTY_BLEND_STATE);  // Make sure the color mask gets re-applied.
 		}
+
+		prevDcid_ = 0;
 	}
 
 	gpuStats.numDrawCalls += numDrawCalls;

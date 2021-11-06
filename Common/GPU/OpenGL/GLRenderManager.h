@@ -603,7 +603,7 @@ public:
 
 	void BindIndexBuffer(GLRBuffer *buffer) {  // Want to support an offset but can't in ES 2.0. We supply an offset when binding the buffers instead.
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::BIND_BUFFER};
+		GLRRenderData data{ GLRRenderCommand::BIND_BUFFER };
 		data.bind_buffer.buffer = buffer;
 		data.bind_buffer.target = GL_ELEMENT_ARRAY_BUFFER;
 		curRenderStep_->commands.push_back(data);
