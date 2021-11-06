@@ -2382,7 +2382,7 @@ if(IOS)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@2x.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@3x.png)
 	file(INSTALL ${IOSAssets} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/assets)
-	file(GLOB IOSAssets ios/assets/Default-568h@*.png)
+	file(GLOB IOSAssets ios/assets/Default-568h@*.png "ios/Settings.bundle")
 	file(INSTALL ${IOSAssets} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 	if(IOS_DEBUG)
 		file(INSTALL pspautotests DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/assets)
@@ -2408,7 +2408,6 @@ if(IOS)
 		MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist"
 		RESOURCE "ios/Launch Screen.storyboard"
 		RESOURCE "ios/Settings.bundle"
-		RESOURCE "ext/vulkan/iOS/Frameworks"
 		XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
 		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
 		XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
