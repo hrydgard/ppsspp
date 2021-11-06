@@ -571,9 +571,8 @@ void DrawEngineVulkan::DoFlush() {
 	if (useHWTransform) {
 		// We don't detect clears in this path, so here we can switch framebuffers if necessary.
 
-		int vertexCount = 0;
 		int maxIndex;
-		bool useElements = true;
+		bool reuseVertexData = false;
 
 		// Cannot cache vertex data with morph enabled.
 		bool useCache = g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK);
@@ -728,18 +727,28 @@ void DrawEngineVulkan::DoFlush() {
 				u8 *dest = (u8 *)frame->pushVertex->Push(size, &vbOffset, &vbuf);
 				memcpy(dest, decoded, size);
 			} else {
-				// Decode directly into the pushbuffer
-				DecodeVertsToPushBuffer(frame->pushVertex, &vbOffset, &vbuf);
+				if (dcid_ == prevDcid_) {
+					reuseVertexData = true;
+					gpuStats.numRepeatDraws++;
+				} else {
+					// Decode directly into the pushbuffer
+					DecodeVertsToPushBuffer(frame->pushVertex, &vbOffset, &vbuf);
+				}
 			}
 
-	rotateVBO:
-			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
-			useElements = !indexGen.SeenOnlyPurePrims();
-			vertexCount = indexGen.VertexCount();
-			if (!useElements && indexGen.PureCount()) {
-				vertexCount = indexGen.PureCount();
+		rotateVBO:
+			if (!reuseVertexData) {
+				useElements = !indexGen.SeenOnlyPurePrims();
+				vertexCount = indexGen.VertexCount();
+				if (!useElements && indexGen.PureCount()) {
+					vertexCount = indexGen.PureCount();
+				}
+				prim = indexGen.Prim();
+			} else {
+				prim = prevPrim_;
 			}
-			prim = indexGen.Prim();
+
+			gpuStats.numUncachedVertsDrawn += vertexCount;
 		}
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
@@ -818,15 +827,21 @@ void DrawEngineVulkan::DoFlush() {
 		};
 
 		if (useElements) {
-			if (!ibuf) {
-				ibOffset = (uint32_t)frame->pushIndex->Push(decIndex, sizeof(uint16_t) * indexGen.VertexCount(), &ibuf);
+			if (!reuseVertexData) {
+				if (!ibuf) {
+					ibOffset = (uint32_t)frame->pushIndex->Push(decIndex, sizeof(uint16_t) * indexGen.VertexCount(), &ibuf);
+				}
+				renderManager->BindVertexData(vbuf, vbOffset, ibuf, ibOffset, VK_INDEX_TYPE_UINT16);
 			}
-			renderManager->BindVertexData(vbuf, vbOffset, ibuf, ibOffset, VK_INDEX_TYPE_UINT16);
 			renderManager->DrawIndexed(pipelineLayout_, ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vertexCount, 1);
 		} else {
-			renderManager->BindVertexData(vbuf, vbOffset);
+			if (!reuseVertexData) {
+				renderManager->BindVertexData(vbuf, vbOffset);
+			}
 			renderManager->Draw(pipelineLayout_, ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vertexCount);
 		}
+
+		prevDcid_ = dcid_;
 	} else {
 		PROFILE_THIS_SCOPE("soft");
 		// Decode to "decoded"
@@ -983,6 +998,7 @@ void DrawEngineVulkan::DoFlush() {
 				framebufferManager_->ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, result.color);
 			}
 		}
+		prevDcid_ = 0;
 	}
 
 	gpuStats.numDrawCalls += numDrawCalls;

@@ -123,7 +123,7 @@ public:
 
 	bool SupportsHWTessellation() const;
 
-	void DrawSync() {
+	void DrawSync() override {
 		prevDcid_ = 0;
 	}
 

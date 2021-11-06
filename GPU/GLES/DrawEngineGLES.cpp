@@ -295,8 +295,6 @@ void DrawEngineGLES::DoFlush() {
 			}
 		}
 
-		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
-
 		// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
 		// there is no need for the index buffer we built. We can then use glDrawArrays instead
 		// for a very minor speed boost.
@@ -310,6 +308,8 @@ void DrawEngineGLES::DoFlush() {
 		} else {
 			prim = prevPrim_;
 		}
+
+		gpuStats.numUncachedVertsDrawn += vertexCount;
 
 		if (!useElements) {
 			gpuStats.numUnindexed++;

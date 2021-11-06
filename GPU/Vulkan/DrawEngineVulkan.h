@@ -189,6 +189,10 @@ public:
 		}
 	}
 
+	void DrawSync() override {
+		prevDcid_ = 0;
+	}
+
 private:
 	struct FrameData;
 	void ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant);
@@ -283,4 +287,8 @@ private:
 	TessellationDataTransferVulkan *tessDataTransferVulkan;
 
 	int lastRenderStepId_ = -1;
+
+	// Need to save these for repeat draws as they're not captured in the bindings that we reuse.
+	int vertexCount = 0;
+	bool useElements = true;
 };
