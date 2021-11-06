@@ -484,7 +484,7 @@ void GameSettingsScreen::CreateViews() {
 		return UI::EVENT_CONTINUE;
 	});
 	vtxCache->SetEnabledFunc([] {
-		return !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
+		return !g_Config.bSoftwareRendering && g_Config.bHardwareTransform && g_Config.iGPUBackend != (int)GPUBackend::OPENGL;
 	});
 
 	CheckBox *texBackoff = graphicsSettings->Add(new CheckBox(&g_Config.bTextureBackoffCache, gr->T("Lazy texture caching", "Lazy texture caching (speedup)")));

@@ -50,65 +50,6 @@ enum {
 	TEX_SLOT_SPLINE_WEIGHTS_V = 6,
 };
 
-
-// States transitions:
-// On creation: DRAWN_NEW
-// DRAWN_NEW -> DRAWN_HASHING
-// DRAWN_HASHING -> DRAWN_RELIABLE
-// DRAWN_HASHING -> DRAWN_UNRELIABLE
-// DRAWN_ONCE -> UNRELIABLE
-// DRAWN_RELIABLE -> DRAWN_SAFE
-// UNRELIABLE -> death
-// DRAWN_ONCE -> death
-// DRAWN_RELIABLE -> death
-
-enum {
-	VAI_FLAG_VERTEXFULLALPHA = 1,
-};
-
-// Try to keep this POD.
-class VertexArrayInfo {
-public:
-	VertexArrayInfo() {
-		status = VAI_NEW;
-		vbo = nullptr;
-		ebo = nullptr;
-		prim = GE_PRIM_INVALID;
-		numDraws = 0;
-		numFrames = 0;
-		lastFrame = gpuStats.numFlips;
-		numVerts = 0;
-		drawsUntilNextFullHash = 0;
-		flags = 0;
-	}
-
-	enum Status : uint8_t {
-		VAI_NEW,
-		VAI_HASHING,
-		VAI_RELIABLE,  // cache, don't hash
-		VAI_UNRELIABLE,  // never cache
-	};
-
-	uint64_t hash;
-	u32 minihash;
-
-	GLRBuffer *vbo;
-	GLRBuffer *ebo;
-
-	// Precalculated parameter for drawRangeElements
-	u16 numVerts;
-	u16 maxIndex;
-	s8 prim;
-	Status status;
-
-	// ID information
-	int numDraws;
-	int numFrames;
-	int lastFrame;  // So that we can forget.
-	u16 drawsUntilNextFullHash;
-	u8 flags;
-};
-
 class TessellationDataTransferGLES : public TessellationDataTransfer {
 private:
 	GLRTexture *data_tex[3]{};
@@ -148,7 +89,7 @@ public:
 	void DeviceLost();
 	void DeviceRestore(Draw::DrawContext *draw);
 
-	void ClearTrackedVertexArrays() override;
+	void ClearTrackedVertexArrays() override {}
 
 	void BeginFrame();
 	void EndFrame();
@@ -184,7 +125,7 @@ public:
 
 protected:
 	bool UpdateUseHWTessellation(bool enable) override;
-	void DecimateTrackedVertexArrays();
+	void DecimateTrackedVertexArrays() {}
 
 private:
 	void InitDeviceObjects();
@@ -199,17 +140,11 @@ private:
 
 	void *DecodeVertsToPushBuffer(GLPushBuffer *push, uint32_t *bindOffset, GLRBuffer **buf);
 
-	void FreeVertexArray(VertexArrayInfo *vai);
-
-	void MarkUnreliable(VertexArrayInfo *vai);
-
 	struct FrameData {
 		GLPushBuffer *pushVertex;
 		GLPushBuffer *pushIndex;
 	};
 	FrameData frameData_[GLRenderManager::MAX_INFLIGHT_FRAMES];
-
-	PrehashMap<VertexArrayInfo *, nullptr> vai_;
 
 	DenseHashMap<uint32_t, GLRInputLayout *, nullptr> inputLayoutMap_;
 
