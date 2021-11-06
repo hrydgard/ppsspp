@@ -574,8 +574,6 @@ void GPUCommon::DumpNextFrame() {
 }
 
 u32 GPUCommon::DrawSync(int mode) {
-	drawEngineCommon_->ResetPrevDraw();
-
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
@@ -624,8 +622,6 @@ void GPUCommon::CheckDrawSync() {
 }
 
 int GPUCommon::ListSync(int listid, int mode) {
-	drawEngineCommon_->ResetPrevDraw();
-
 	if (listid < 0 || listid >= DisplayListMaxCount)
 		return SCE_KERNEL_ERROR_INVALID_ID;
 
@@ -975,6 +971,7 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 
 	if (list.state == PSP_GE_DL_STATE_PAUSED)
 		return false;
+
 	currentList = &list;
 
 	if (!list.started && list.context.IsValid()) {
@@ -1000,6 +997,10 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	// To enable breakpoints, we don't do fast matrix loads while debugger active.
 	debugRecording_ = GPUDebug::IsActive() || GPURecord::IsActive();
 	const bool useFastRunLoop = !dumpThisFrame_ && !debugRecording_;
+
+	// Reset the repeated draw detection.
+	drawEngineCommon_->ResetPrevDraw();
+
 	while (gpuState == GPUSTATE_RUNNING) {
 		{
 			if (list.pc == list.stall) {
