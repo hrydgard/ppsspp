@@ -30,6 +30,7 @@ namespace Clipper {
 
 enum {
 	SKIP_FLAG = -1,
+	CLIP_POS_Z_BIT = 0x10,
 	CLIP_NEG_Z_BIT = 0x20,
 };
 
@@ -37,6 +38,7 @@ static inline int CalcClipMask(const ClipCoords& v)
 {
 	int mask = 0;
 	// This checks `x / w` compared to 1 or -1, skipping the division.
+	if (v.z > v.w) mask |= CLIP_POS_Z_BIT;
 	if (v.z < -v.w) mask |= CLIP_NEG_Z_BIT;
 	return mask;
 }
