@@ -535,9 +535,28 @@ void NotifyUpload(u32 dest, u32 sz) {
 	NotifyMemcpy(dest, dest, sz);
 }
 
+static bool HasDrawCommands() {
+	if (commands.empty())
+		return false;
+
+	for (const Command &cmd : commands) {
+		switch (cmd.type) {
+		case CommandType::INIT:
+		case CommandType::DISPLAY:
+			continue;
+
+		default:
+			return true;
+		}
+	}
+
+	// Only init and display commands, keep going.
+	return false;
+}
+
 void NotifyDisplay(u32 framebuf, int stride, int fmt) {
 	bool writePending = false;
-	if (active && !commands.empty()) {
+	if (active && HasDrawCommands()) {
 		writePending = true;
 	}
 	if (nextFrame && (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0) {
@@ -572,7 +591,7 @@ void NotifyDisplay(u32 framebuf, int stride, int fmt) {
 void NotifyFrame() {
 	const bool noDisplayAction = flipLastAction + 4 < gpuStats.numFlips;
 	// We do this only to catch things that don't call NotifyDisplay.
-	if (active && !commands.empty() && noDisplayAction) {
+	if (active && HasDrawCommands() && noDisplayAction) {
 		NOTICE_LOG(SYSTEM, "Recording complete on frame");
 
 		struct DisplayBufData {
