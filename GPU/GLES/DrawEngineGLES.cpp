@@ -272,10 +272,10 @@ void DrawEngineGLES::DoFlush() {
 	GLRBuffer *vertexBuffer = nullptr;
 	GLRBuffer *indexBuffer = nullptr;
 	uint32_t vertexBufferOffset = 0;
+	// indexBufferOffset is preserved between draws.
 
 	if (vshader->UseHWTransform()) {
 		bool populateCache = false;
-
 		bool reuseVertexData = false;
 
 		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {

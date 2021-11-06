@@ -1326,7 +1326,8 @@ void VKContext::Draw(int vertexCount, int offset) {
 
 	BindCompatiblePipeline();
 	ApplyDynamicState();
-	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount, offset);
+	renderManager_.BindVertexData(vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0]);
+	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vertexCount, offset);
 }
 
 void VKContext::DrawIndexed(int vertexCount, int offset) {
@@ -1346,7 +1347,8 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 
 	BindCompatiblePipeline();
 	ApplyDynamicState();
-	renderManager_.DrawIndexed(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vulkanIbuf, (int)ibBindOffset + offset * sizeof(uint32_t), vertexCount, 1, VK_INDEX_TYPE_UINT16);
+	renderManager_.BindVertexData(vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vulkanIbuf, (int)ibBindOffset + offset * sizeof(uint32_t), VK_INDEX_TYPE_UINT16);
+	renderManager_.DrawIndexed(pipelineLayout_, descSet, 1, &ubo_offset, vertexCount, 1);
 }
 
 void VKContext::DrawUP(const void *vdata, int vertexCount) {
@@ -1362,7 +1364,8 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 
 	BindCompatiblePipeline();
 	ApplyDynamicState();
-	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount);
+	renderManager_.BindVertexData(vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0]);
+	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vertexCount);
 }
 
 void VKContext::BindCompatiblePipeline() {

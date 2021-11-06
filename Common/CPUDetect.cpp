@@ -360,7 +360,7 @@ void CPUInfo::Detect() {
 		if (GetLogicalProcessorInformation(&processors[0], &len)) {
 			num_cores = 0;
 			logical_cpu_count = 0;
-			for (auto processor : processors) {
+			for (auto &processor : processors) {
 				if (processor.Relationship == RelationProcessorCore) {
 					num_cores++;
 					for (int i = 0; i < sizeof(processor.ProcessorMask) * 8; ++i) {

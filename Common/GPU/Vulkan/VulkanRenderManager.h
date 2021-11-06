@@ -363,15 +363,25 @@ public:
 
 	void Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask);
 
-	void Draw(VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count, int offset = 0) {
+	void BindVertexData(VkBuffer vbuffer, int voffset, VkBuffer ibuffer = VK_NULL_HANDLE, int ioffset = 0, VkIndexType indexType = VkIndexType::VK_INDEX_TYPE_UINT16) {
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
+		VkRenderData data{ VKRRenderCommand::BIND_VERTEX_DATA };
+		data.vertexdata.vbuffer = vbuffer;
+		data.vertexdata.voffset = voffset;
+		data.vertexdata.ibuffer = ibuffer;
+		data.vertexdata.ioffset = ioffset;
+		data.vertexdata.indexType = indexType;
+		curRenderStep_->commands.push_back(data);
+		curRenderStep_->render.numDraws++;
+	}
+
+	void Draw(VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, int count, int offset = 0) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
 		VkRenderData data{ VKRRenderCommand::DRAW };
 		data.draw.count = count;
 		data.draw.offset = offset;
 		data.draw.pipelineLayout = layout;
 		data.draw.ds = descSet;
-		data.draw.vbuffer = vbuffer;
-		data.draw.voffset = voffset;
 		data.draw.numUboOffsets = numUboOffsets;
 		_dbg_assert_(numUboOffsets <= ARRAY_SIZE(data.draw.uboOffsets));
 		for (int i = 0; i < numUboOffsets; i++)
@@ -380,22 +390,17 @@ public:
 		curRenderStep_->render.numDraws++;
 	}
 
-	void DrawIndexed(VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, VkBuffer ibuffer, int ioffset, int count, int numInstances, VkIndexType indexType) {
+	void DrawIndexed(VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, int count, int numInstances) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
 		VkRenderData data{ VKRRenderCommand::DRAW_INDEXED };
 		data.drawIndexed.count = count;
 		data.drawIndexed.instances = numInstances;
 		data.drawIndexed.pipelineLayout = layout;
 		data.drawIndexed.ds = descSet;
-		data.drawIndexed.vbuffer = vbuffer;
-		data.drawIndexed.voffset = voffset;
-		data.drawIndexed.ibuffer = ibuffer;
-		data.drawIndexed.ioffset = ioffset;
 		data.drawIndexed.numUboOffsets = numUboOffsets;
 		_dbg_assert_(numUboOffsets <= ARRAY_SIZE(data.drawIndexed.uboOffsets));
 		for (int i = 0; i < numUboOffsets; i++)
 			data.drawIndexed.uboOffsets[i] = uboOffsets[i];
-		data.drawIndexed.indexType = indexType;
 		curRenderStep_->commands.push_back(data);
 		curRenderStep_->render.numDraws++;
 	}

@@ -28,6 +28,7 @@ enum class VKRRenderCommand : uint8_t {
 	BIND_PIPELINE,  // raw pipeline
 	BIND_GRAPHICS_PIPELINE,  // async
 	BIND_COMPUTE_PIPELINE,  // async
+	BIND_VERTEX_DATA,
 	STENCIL,
 	BLEND,
 	VIEWPORT,
@@ -59,12 +60,17 @@ struct VkRenderData {
 			VKRComputePipeline *pipeline;
 		} compute_pipeline;
 		struct {
+			VkBuffer vbuffer;
+			VkDeviceSize voffset;
+			VkBuffer ibuffer;
+			VkDeviceSize ioffset;
+			VkIndexType indexType;
+		} vertexdata;
+		struct {
 			VkPipelineLayout pipelineLayout;
 			VkDescriptorSet ds;
 			int numUboOffsets;
 			uint32_t uboOffsets[3];
-			VkBuffer vbuffer;
-			VkDeviceSize voffset;
 			uint32_t count;
 			uint32_t offset;
 		} draw;
@@ -73,13 +79,8 @@ struct VkRenderData {
 			VkDescriptorSet ds;
 			int numUboOffsets;
 			uint32_t uboOffsets[3];
-			VkBuffer vbuffer;  // might need to increase at some point
-			VkDeviceSize voffset;
-			VkBuffer ibuffer;
-			VkDeviceSize ioffset;
 			uint32_t count;
 			int16_t instances;
-			VkIndexType indexType;
 		} drawIndexed;
 		struct {
 			uint32_t clearColor;

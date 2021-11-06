@@ -821,9 +821,11 @@ void DrawEngineVulkan::DoFlush() {
 			if (!ibuf) {
 				ibOffset = (uint32_t)frame->pushIndex->Push(decIndex, sizeof(uint16_t) * indexGen.VertexCount(), &ibuf);
 			}
-			renderManager->DrawIndexed(pipelineLayout_, ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, vertexCount, 1, VK_INDEX_TYPE_UINT16);
+			renderManager->BindVertexData(vbuf, vbOffset, ibuf, ibOffset, VK_INDEX_TYPE_UINT16);
+			renderManager->DrawIndexed(pipelineLayout_, ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vertexCount, 1);
 		} else {
-			renderManager->Draw(pipelineLayout_, ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, vertexCount);
+			renderManager->BindVertexData(vbuf, vbOffset);
+			renderManager->Draw(pipelineLayout_, ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vertexCount);
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
@@ -958,11 +960,13 @@ void DrawEngineVulkan::DoFlush() {
 				VkBuffer vbuf, ibuf;
 				vbOffset = (uint32_t)frame->pushVertex->Push(result.drawBuffer, maxIndex * sizeof(TransformedVertex), &vbuf);
 				ibOffset = (uint32_t)frame->pushIndex->Push(inds, sizeof(short) * result.drawNumTrans, &ibuf);
-				renderManager->DrawIndexed(pipelineLayout_, ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, result.drawNumTrans, 1, VK_INDEX_TYPE_UINT16);
+				renderManager->BindVertexData(vbuf, vbOffset, ibuf, ibOffset, VK_INDEX_TYPE_UINT16);
+				renderManager->DrawIndexed(pipelineLayout_, ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, result.drawNumTrans, 1);
 			} else {
 				VkBuffer vbuf;
 				vbOffset = (uint32_t)frame->pushVertex->Push(result.drawBuffer, result.drawNumTrans * sizeof(TransformedVertex), &vbuf);
-				renderManager->Draw(pipelineLayout_, ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, result.drawNumTrans);
+				renderManager->BindVertexData(vbuf, vbOffset);
+				renderManager->Draw(pipelineLayout_, ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, result.drawNumTrans);
 			}
 		} else if (result.action == SW_CLEAR) {
 			// Note: we won't get here if the clear is alpha but not color, or color but not alpha.
