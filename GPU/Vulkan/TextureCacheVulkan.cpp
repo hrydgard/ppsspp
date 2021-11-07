@@ -57,85 +57,6 @@ using namespace PPSSPP_VK;
 #define TEXCACHE_MAX_SLAB_SIZE (32 * 1024 * 1024)
 #define TEXCACHE_SLAB_PRESSURE 4
 
-const char *copyShader = R"(
-#version 450
-#extension GL_ARB_separate_shader_objects : enable
-
-// No idea what's optimal here...
-#define WORKGROUP_SIZE 16
-layout (local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
-
-layout(std430, binding = 1) buffer Buf1 {
-	uint data[];
-} buf1;
-
-layout(std430, binding = 2) buffer Buf2 {
-	uint data[];
-} buf2;
-
-layout(push_constant) uniform Params {
-	int width;
-	int height;
-	int scale;
-	int fmt;
-} params;
-
-uint readColoru(uvec2 p) {
-	// Note that if the pixels are packed, we can do multiple stores
-	// and only launch this compute shader for every N pixels,
-	// by slicing the width in half and multiplying x by 2, for example.
-	if (params.fmt == 0) {
-		return buf1.data[p.y * params.width + p.x];
-	} else {
-		uint offset = p.y * params.width + p.x;
-		uint data = buf1.data[offset / 2];
-		if ((offset & 1) != 0) {
-			data = data >> 16;
-		}
-		if (params.fmt == 6) {
-			uint r = ((data << 3) & 0xF8) | ((data >> 2) & 0x07);
-			uint g = ((data >> 3) & 0xFC) | ((data >> 9) & 0x03);
-			uint b = ((data >> 8) & 0xF8) | ((data >> 13) & 0x07);
-			return 0xFF000000 | (b << 16) | (g << 8) | r;
-		} else if (params.fmt == 5) {
-			uint r = ((data << 3) & 0xF8) | ((data >> 2) & 0x07);
-			uint g = ((data >> 2) & 0xF8) | ((data >> 7) & 0x07);
-			uint b = ((data >> 7) & 0xF8) | ((data >> 12) & 0x07);
-			uint a = ((data >> 15) & 0x01) == 0 ? 0x00 : 0xFF;
-			return (a << 24) | (b << 16) | (g << 8) | r;
-		} else if (params.fmt == 4) {
-			uint r = (data & 0x0F) | ((data << 4) & 0xF0);
-			uint g = (data & 0xF0) | ((data >> 4) & 0x0F);
-			uint b = ((data >> 8) & 0x0F) | ((data >> 4) & 0xF0);
-			uint a = ((data >> 12) & 0x0F) | ((data >> 8) & 0xF0);
-			return (a << 24) | (b << 16) | (g << 8) | r;
-		}
-	}
-}
-
-vec4 readColorf(uvec2 p) {
-	return unpackUnorm4x8(readColoru(p));
-}
-
-%s
-
-void main() {
-	uvec2 xy = gl_GlobalInvocationID.xy;
-	// Kill off any out-of-image threads to avoid stray writes.
-	// Should only happen on the tiniest mipmaps as PSP textures are power-of-2,
-	// and we use a 16x16 workgroup size.
-	if (xy.x >= params.width || xy.y >= params.height)
-		return;
-
-	uvec2 origxy = xy / params.scale;
-	if (params.scale == 1) {
-		buf2.data[xy.y * params.width + xy.x] = readColoru(origxy);
-	} else {
-		buf2.data[xy.y * params.width + xy.x] = applyScalingu(origxy, xy);
-	}
-}
-)";
-
 const char *uploadShader = R"(
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
@@ -158,9 +79,6 @@ layout(push_constant) uniform Params {
 } params;
 
 uint readColoru(uvec2 p) {
-	// Note that if the pixels are packed, we can do multiple stores
-	// and only launch this compute shader for every N pixels,
-	// by slicing the width in half and multiplying x by 2, for example.
 	if (params.fmt == 0) {
 		return buf.data[p.y * params.width + p.x];
 	} else {
@@ -192,8 +110,7 @@ uint readColoru(uvec2 p) {
 
 vec4 readColorf(uvec2 p) {
 	// Unpack the color (we could look it up in a CLUT here if we wanted...)
-	// It's a bit silly that we need to unpack to float and then have imageStore repack,
-	// but the alternative is to store to a buffer, and then launch a vkCmdCopyBufferToImage instead.
+	// The imageStore repack is free.
 	return unpackUnorm4x8(readColoru(p));
 }
 
@@ -331,8 +248,6 @@ void TextureCacheVulkan::DeviceLost() {
 
 	if (uploadCS_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteShaderModule(uploadCS_);
-	if (copyCS_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeleteShaderModule(copyCS_);
 
 	computeShaderManager_.DeviceLost();
 
@@ -383,14 +298,13 @@ void TextureCacheVulkan::CompileScalingShader() {
 	if (!g_Config.bTexHardwareScaling || g_Config.sTextureShaderName != textureShader_) {
 		if (uploadCS_ != VK_NULL_HANDLE)
 			vulkan_->Delete().QueueDeleteShaderModule(uploadCS_);
-		if (copyCS_ != VK_NULL_HANDLE)
-			vulkan_->Delete().QueueDeleteShaderModule(copyCS_);
 		textureShader_.clear();
 		maxScaleFactor_ = 255;
-	} else if (uploadCS_ || copyCS_) {
+	} else if (uploadCS_) {
 		// No need to recreate.
 		return;
 	}
+
 	if (!g_Config.bTexHardwareScaling)
 		return;
 
@@ -401,13 +315,10 @@ void TextureCacheVulkan::CompileScalingShader() {
 
 	std::string shaderSource = ReadShaderSrc(shaderInfo->computeShaderFile);
 	std::string fullUploadShader = StringFromFormat(uploadShader, shaderSource.c_str());
-	std::string fullCopyShader = StringFromFormat(copyShader, shaderSource.c_str());
 
 	std::string error;
 	uploadCS_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_COMPUTE_BIT, fullUploadShader.c_str(), &error);
 	_dbg_assert_msg_(uploadCS_ != VK_NULL_HANDLE, "failed to compile upload shader");
-	copyCS_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_COMPUTE_BIT, fullCopyShader.c_str(), &error);
-	_dbg_assert_msg_(copyCS_ != VK_NULL_HANDLE, "failed to compile copy shader");
 
 	textureShader_ = g_Config.sTextureShaderName;
 	maxScaleFactor_ = shaderInfo->maxScale;
@@ -785,7 +696,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		badMipSizes = false;
 	}
 
-	bool hardwareScaling = g_Config.bTexHardwareScaling && (uploadCS_ != VK_NULL_HANDLE || copyCS_ != VK_NULL_HANDLE);
+	bool hardwareScaling = g_Config.bTexHardwareScaling && uploadCS_ != VK_NULL_HANDLE;
 
 	// Don't scale the PPGe texture.
 	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd())
@@ -852,11 +763,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 		// Compute experiment
 		if (actualFmt == VULKAN_8888_FORMAT && scaleFactor > 1 && hardwareScaling) {
-			// Enable the experiment you want.
 			if (uploadCS_ != VK_NULL_HANDLE)
 				computeUpload = true;
-			else if (copyCS_ != VK_NULL_HANDLE)
-				computeCopy = true;
 		}
 
 		if (computeUpload) {
@@ -927,7 +835,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			int size = stride * mipHeight;
 			uint32_t bufferOffset;
 			VkBuffer texBuf;
-			// nvidia returns 1 but that can't be healthy... let's align by 16 as a minimum.
+			// NVIDIA reports a min alignment of 1 but that can't be healthy... let's align by 16 as a minimum.
 			int pushAlignment = std::max(16, (int)vulkan_->GetPhysicalDeviceProperties().properties.limits.optimalBufferCopyOffsetAlignment);
 			void *data;
 			bool dataScaled = true;
@@ -941,12 +849,16 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			} else {
 				auto dispatchCompute = [&](VkDescriptorSet descSet) {
 					struct Params { int x; int y; int s; int fmt; } params{ mipWidth, mipHeight, scaleFactor, 0 };
-					if (dstFmt == VULKAN_4444_FORMAT) {
+					switch (dstFmt) {
+					case VULKAN_4444_FORMAT:
 						params.fmt = 4;
-					} else if (dstFmt == VULKAN_1555_FORMAT) {
+						break;
+					case VULKAN_1555_FORMAT:
 						params.fmt = 5;
-					} else if (dstFmt == VULKAN_565_FORMAT) {
+						break;
+					case VULKAN_565_FORMAT:
 						params.fmt = 6;
+						break;
 					}
 					vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 0, 1, &descSet, 0, nullptr);
 					vkCmdPushConstants(cmdInit, computeShaderManager_.GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(params), &params);
@@ -969,35 +881,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 						vkCmdBindPipeline(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipeline(uploadCS_));
 						dispatchCompute(descSet);
 						vulkan_->Delete().QueueDeleteImageView(view);
-					} else if (computeCopy) {
-						data = drawEngine_->GetPushBufferForTextureData()->PushAligned(srcSize, &bufferOffset, &texBuf, pushAlignment);
-						dataScaled = false;
-						LoadTextureLevel(*entry, (uint8_t *)data, srcStride, i, 1, dstFmt);
-						// Simple test of using a "copy shader" before the upload. This one could unswizzle or whatever
-						// and will work for any texture format including 16-bit as long as the shader is written to pack it into int32 size bits
-						// which is the smallest possible write.
-						VkBuffer localBuf;
-						uint32_t localOffset;
-						uint32_t localSize = size;
-						localOffset = (uint32_t)drawEngine_->GetPushBufferLocal()->Allocate(localSize, &localBuf);
-
-						VkDescriptorSet descSet = computeShaderManager_.GetDescriptorSet(VK_NULL_HANDLE, texBuf, bufferOffset, srcSize, localBuf, localOffset, localSize);
-						vkCmdBindPipeline(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipeline(copyCS_));
-						dispatchCompute(descSet);
-
-						// After the compute, before the copy, we need a memory barrier.
-						VkBufferMemoryBarrier barrier{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
-						barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-						barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-						barrier.buffer = localBuf;
-						barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-						barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-						barrier.offset = localOffset;
-						barrier.size = localSize;
-						vkCmdPipelineBarrier(cmdInit, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-							0, 0, nullptr, 1, &barrier, 0, nullptr);
-
-						entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, localBuf, localOffset, stride / bpp);
 					} else {
 						data = drawEngine_->GetPushBufferForTextureData()->PushAligned(size, &bufferOffset, &texBuf, pushAlignment);
 						LoadTextureLevel(*entry, (uint8_t *)data, stride, i, scaleFactor, dstFmt);

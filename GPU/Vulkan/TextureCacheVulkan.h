@@ -137,7 +137,6 @@ private:
 	std::string textureShader_;
 	int maxScaleFactor_ = 255;
 	VkShaderModule uploadCS_ = VK_NULL_HANDLE;
-	VkShaderModule copyCS_ = VK_NULL_HANDLE;
 
 	// Bound state to emulate an API similar to the others
 	VkImageView imageView_ = VK_NULL_HANDLE;
