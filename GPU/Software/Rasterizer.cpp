@@ -1315,9 +1315,9 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1(), 0);
 	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2(), 0);
 	minX = std::max(minX, (int)TransformUnit::DrawingToScreen(scissorTL).x);
-	maxX = std::min(maxX, (int)TransformUnit::DrawingToScreen(scissorBR).x);
+	maxX = std::min(maxX, (int)TransformUnit::DrawingToScreen(scissorBR).x + 15);
 	minY = std::max(minY, (int)TransformUnit::DrawingToScreen(scissorTL).y);
-	maxY = std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y);
+	maxY = std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y + 15);
 
 	// 32 because we do two pixels at once, and we don't want overlap.
 	int rangeY = (maxY - minY) / 32 + 1;
@@ -1366,6 +1366,9 @@ void DrawPoint(const VertexData &v0)
 
 	ScreenCoords scissorTL(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX1(), gstate.getScissorY1(), 0)));
 	ScreenCoords scissorBR(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX2(), gstate.getScissorY2(), 0)));
+	// Allow drawing within a pixel's center.
+	scissorBR.x += 15;
+	scissorBR.y += 15;
 
 	if (pos.x < scissorTL.x || pos.y < scissorTL.y || pos.x > scissorBR.x || pos.y > scissorBR.y)
 		return;
@@ -1591,6 +1594,9 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 
 	ScreenCoords scissorTL(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX1(), gstate.getScissorY1(), 0)));
 	ScreenCoords scissorBR(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX2(), gstate.getScissorY2(), 0)));
+	// Allow drawing within a pixel's center.
+	scissorBR.x += 15;
+	scissorBR.y += 15;
 	bool clearMode = gstate.isModeClear();
 
 	int texbufw[8] = {0};
