@@ -209,7 +209,7 @@ std::string GetTestName(const Path &bootFilename)
 }
 
 bool CompareOutput(const Path &bootFilename, const std::string &output, bool verbose) {
-	Path expect_filename = bootFilename.WithReplacedExtension(".prx", ".expected");
+	Path expect_filename = bootFilename.GetFileExtension() == ".prx" ? bootFilename.WithReplacedExtension(".prx", ".expected") : bootFilename.WithExtraExtension(".expected");
 	std::unique_ptr<FileLoader> expect_loader(ConstructFileLoader(expect_filename));
 
 	if (expect_loader->Exists()) {
