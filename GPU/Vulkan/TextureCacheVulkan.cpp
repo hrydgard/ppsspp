@@ -653,7 +653,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	int scaleFactor = standardScaleFactor_;
 	bool hardwareScaling = g_Config.bTexHardwareScaling && uploadCS_ != VK_NULL_HANDLE;
 	if (hardwareScaling) {
-		_assert_(shaderScaleFactor_ != 0);
 		scaleFactor = shaderScaleFactor_;
 		dstFmt = VK_FORMAT_R8G8B8A8_UNORM;
 	}

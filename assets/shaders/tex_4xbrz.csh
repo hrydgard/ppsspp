@@ -253,17 +253,12 @@ void applyScaling(uvec2 origxy) {
 		dst[ 6] = mix(dst[ 6], blendPix, (needBlend && doLineBlend && haveShallowLine) ? 0.25 : 0.00);
 	}
 
-	// Output Pixel Mapping: 20|21|22|23|24|25
-	//                       19|06|07|08|09|26
-	//                       18|05|00|01|10|27
-	//                       17|04|03|02|11|28
-	//                       16|15|14|13|12|29
-	//                       35|34|33|32|31|30
-
-	// int order [] = int[16](5, 6, 10, 9, 8, 4, 0, 1, 2, 3, 7, 11, 15, 14, 13, 12);
-
+	// Output Pixel Mapping:
+	//   06|07|08|09
+	//   05|00|01|10
+	//   04|03|02|11
+	//   15|14|13|12
 	const int order[16] = int[16](6, 7, 8, 9, 5, 0, 1, 10, 4, 3, 2, 11, 15, 14, 13, 12);
-
 	// Write all 16 output pixels.
 	ivec2 destXY = ivec2(origxy) * 4;
 	for (int y = 0; y < 4; y++) {

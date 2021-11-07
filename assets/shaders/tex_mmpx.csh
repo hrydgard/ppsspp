@@ -101,7 +101,7 @@ void applyScaling(uvec2 xy) {
         } // F !== D
     } // not constant
 
-    // TODO: Write four pixels at once.  For now, 1/4x speed.
+    // Write four pixels at once.
     ivec2 destXY = ivec2(xy) * 2;
     writeColorf(destXY, unpackUnorm4x8(J));
     writeColorf(destXY + ivec2(1, 0), unpackUnorm4x8(K));
