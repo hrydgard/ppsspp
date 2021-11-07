@@ -74,38 +74,10 @@ layout(std430, binding = 1) buffer Buf {
 layout(push_constant) uniform Params {
 	int width;
 	int height;
-	int scale;
-	int fmt;
 } params;
 
 uint readColoru(uvec2 p) {
-	if (params.fmt == 0) {
-		return buf.data[p.y * params.width + p.x];
-	} else {
-		uint offset = p.y * params.width + p.x;
-		uint data = buf.data[offset / 2];
-		if ((offset & 1) != 0) {
-			data = data >> 16;
-		}
-		if (params.fmt == 6) {
-			uint r = ((data << 3) & 0xF8) | ((data >> 2) & 0x07);
-			uint g = ((data >> 3) & 0xFC) | ((data >> 9) & 0x03);
-			uint b = ((data >> 8) & 0xF8) | ((data >> 13) & 0x07);
-			return 0xFF000000 | (b << 16) | (g << 8) | r;
-		} else if (params.fmt == 5) {
-			uint r = ((data << 3) & 0xF8) | ((data >> 2) & 0x07);
-			uint g = ((data >> 2) & 0xF8) | ((data >> 7) & 0x07);
-			uint b = ((data >> 7) & 0xF8) | ((data >> 12) & 0x07);
-			uint a = ((data >> 15) & 0x01) == 0 ? 0x00 : 0xFF;
-			return (a << 24) | (b << 16) | (g << 8) | r;
-		} else if (params.fmt == 4) {
-			uint r = (data & 0x0F) | ((data << 4) & 0xF0);
-			uint g = (data & 0xF0) | ((data >> 4) & 0x0F);
-			uint b = ((data >> 8) & 0x0F) | ((data >> 4) & 0xF0);
-			uint a = ((data >> 12) & 0x0F) | ((data >> 8) & 0xF0);
-			return (a << 24) | (b << 16) | (g << 8) | r;
-		}
-	}
+	return buf.data[p.y * params.width + p.x];
 }
 
 vec4 readColorf(uvec2 p) {
@@ -683,6 +655,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	if (hardwareScaling) {
 		_assert_(shaderScaleFactor_ != 0);
 		scaleFactor = shaderScaleFactor_;
+		dstFmt = VK_FORMAT_R8G8B8A8_UNORM;
 	}
 
 	// Rachet down scale factor in low-memory mode.
@@ -869,18 +842,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 						// This format can be used with storage images.
 						VkImageView view = entry->vkTex->CreateViewForMip(i);
 						VkDescriptorSet descSet = computeShaderManager_.GetDescriptorSet(view, texBuf, bufferOffset, srcSize);
-						struct Params { int x; int y; int s; int fmt; } params{ mipUnscaledWidth, mipUnscaledHeight, scaleFactor, 0 };
-						switch (dstFmt) {
-						case VULKAN_4444_FORMAT:
-							params.fmt = 4;
-							break;
-						case VULKAN_1555_FORMAT:
-							params.fmt = 5;
-							break;
-						case VULKAN_565_FORMAT:
-							params.fmt = 6;
-							break;
-						}
+						struct Params { int x; int y; } params{ mipUnscaledWidth, mipUnscaledHeight };
 						vkCmdBindPipeline(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipeline(uploadCS_));
 						vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 0, 1, &descSet, 0, nullptr);
 						vkCmdPushConstants(cmdInit, computeShaderManager_.GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(params), &params);
