@@ -299,7 +299,7 @@ void TextureCacheVulkan::CompileScalingShader() {
 		if (uploadCS_ != VK_NULL_HANDLE)
 			vulkan_->Delete().QueueDeleteShaderModule(uploadCS_);
 		textureShader_.clear();
-		maxScaleFactor_ = 255;
+		shaderScaleFactor_ = 0;  // no texture scaling shader
 	} else if (uploadCS_) {
 		// No need to recreate.
 		return;
@@ -321,7 +321,7 @@ void TextureCacheVulkan::CompileScalingShader() {
 	_dbg_assert_msg_(uploadCS_ != VK_NULL_HANDLE, "failed to compile upload shader");
 
 	textureShader_ = g_Config.sTextureShaderName;
-	maxScaleFactor_ = shaderInfo->maxScale;
+	shaderScaleFactor_ = shaderInfo->scaleFactor;
 }
 
 void TextureCacheVulkan::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
@@ -677,11 +677,15 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	int scaleFactor = standardScaleFactor_;
-	if (scaleFactor > maxScaleFactor_)
-		scaleFactor = maxScaleFactor_;
+	bool hardwareScaling = g_Config.bTexHardwareScaling && uploadCS_ != VK_NULL_HANDLE;
+	if (hardwareScaling) {
+		_assert_(shaderScaleFactor_ != 0);
+		scaleFactor = shaderScaleFactor_;
+	}
 
 	// Rachet down scale factor in low-memory mode.
-	if (lowMemoryMode_) {
+	// TODO: I think really we should just turn it off?
+	if (lowMemoryMode_ && !hardwareScaling) {
 		// Keep it even, though, just in case of npot troubles.
 		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
 	}
@@ -696,11 +700,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		badMipSizes = false;
 	}
 
-	bool hardwareScaling = g_Config.bTexHardwareScaling && uploadCS_ != VK_NULL_HANDLE;
-
 	// Don't scale the PPGe texture.
-	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd())
+	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd()) {
 		scaleFactor = 1;
+	}
 	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0 && scaleFactor != 1 && !hardwareScaling) {
 		// Remember for later that we /wanted/ to scale this texture.
 		entry->status |= TexCacheEntry::STATUS_TO_SCALE;

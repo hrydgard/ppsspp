@@ -208,10 +208,11 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					info.section = section.name();
 					section.Get("Name", &info.name, section.name().c_str());
 					section.Get("Compute", &temp, "");
-					section.Get("MaxScale", &info.maxScale, 255);
+					section.Get("Scale", &info.scaleFactor, 0);
 					info.computeShaderFile = path / temp;
-
-					appendTextureShader(info);
+					if (info.scaleFactor >= 2 && info.scaleFactor < 8) {
+						appendTextureShader(info);
+					}
 				}
 			}
 		}
