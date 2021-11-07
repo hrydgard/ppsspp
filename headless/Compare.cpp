@@ -19,9 +19,10 @@
 #include <cmath>
 #include <cstdarg>
 #include <iostream>
+#include <png.h>
 #include <vector>
-#include "headless/Compare.h"
 
+#include "headless/Compare.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/File/FileUtil.h"
@@ -365,6 +366,12 @@ std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32
 	return data;
 }
 
+
+ScreenshotComparer::~ScreenshotComparer() {
+	if (reference_)
+		free(reference_);
+}
+
 double ScreenshotComparer::Compare(const Path &screenshotFilename) {
 	if (pixels_.size() < stride_ * h_) {
 		error_ = "Buffer format conversion error";
@@ -372,9 +379,6 @@ double ScreenshotComparer::Compare(const Path &screenshotFilename) {
 	}
 
 	// We assume the bitmap is the specified size, not including whatever stride.
-	u32 *reference = nullptr;
-	bool asBitmap = false;
-
 	std::unique_ptr<FileLoader> loader(ConstructFileLoader(screenshotFilename));
 	if (loader->Exists()) {
 		uint8_t header[2];
@@ -384,11 +388,13 @@ double ScreenshotComparer::Compare(const Path &screenshotFilename) {
 		}
 
 		if (header[0] == 'B' && header[1] == 'M') {
-			reference = (u32 *)calloc(stride_ * h_, sizeof(u32));
-			asBitmap = true;
+			reference_ = (u32 *)calloc(stride_ * h_, sizeof(u32));
+			asBitmap_ = true;
 			// The bitmap header is 14 + 40 bytes.  We could validate it but the test would fail either way.
-			if (reference && loader->ReadAt(14 + 40, sizeof(u32), stride_ * h_, reference) != stride_ * h_) {
+			if (reference_ && loader->ReadAt(14 + 40, sizeof(u32), stride_ * h_, reference_) != stride_ * h_) {
 				error_ = "Unable to read screenshot data: " + screenshotFilename.ToVisualString();
+				free(reference_);
+				reference_ = nullptr;
 				return -1.0f;
 			}
 		} else {
@@ -401,8 +407,11 @@ double ScreenshotComparer::Compare(const Path &screenshotFilename) {
 			}
 
 			int width, height;
-			if (!pngLoadPtr(&compressed[0], compressed.size(), &width, &height, (unsigned char **)&reference)) {
+			if (!pngLoadPtr(&compressed[0], compressed.size(), &width, &height, (unsigned char **)&reference_)) {
 				error_ = "Unable to read screenshot data: " + screenshotFilename.ToVisualString();
+				if (reference_)
+					free(reference_);
+				reference_ = nullptr;
 				return -1.0f;
 			}
 		}
@@ -411,30 +420,133 @@ double ScreenshotComparer::Compare(const Path &screenshotFilename) {
 		return -1.0f;
 	}
 
-	if (!reference) {
+	if (!reference_) {
 		error_ = "Unable to allocate screenshot data: " + screenshotFilename.ToVisualString();
 		return -1.0f;
 	}
 
 	u32 errors = 0;
-	if (asBitmap) {
+	if (asBitmap_) {
 		// The reference is flipped and BGRA by default for the common BMP compare case.
 		for (u32 y = 0; y < h_; ++y) {
 			u32 yoff = y * stride_;
 			for (u32 x = 0; x < w_; ++x)
-				errors += ComparePixel(pixels_[y * stride_ + x], reference[yoff + x]);
+				errors += ComparePixel(pixels_[y * stride_ + x], reference_[yoff + x]);
 		}
 	} else {
 		// Just convert to BGRA for simplicity.
-		ConvertRGBA8888ToBGRA8888(reference, reference, h_ * stride_);
+		ConvertRGBA8888ToBGRA8888(reference_, reference_, h_ * stride_);
 		for (u32 y = 0; y < h_; ++y) {
 			u32 yoff = (h_ - y - 1) * stride_;
 			for (u32 x = 0; x < w_; ++x)
-				errors += ComparePixel(pixels_[y * stride_ + x], reference[yoff + x]);
+				errors += ComparePixel(pixels_[y * stride_ + x], reference_[yoff + x]);
 		}
 	}
 
-	free(reference);
-
 	return (double) errors / (double) (w_ * h_);
+}
+
+bool ScreenshotComparer::SaveActualBitmap(const Path &resultFilename) {
+	static const u8 header[14 + 40] = {
+		0x42, 0x4D, 0x38, 0x80, 0x08, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x36, 0x00, 0x00, 0x00, 0x28, 0x00,
+		0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x10, 0x01,
+		0x00, 0x00, 0x01, 0x00, 0x20, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x02, 0x80, 0x08, 0x00, 0x12, 0x0B,
+		0x00, 0x00, 0x12, 0x0B, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	};
+
+	FILE *saved = File::OpenCFile(resultFilename, "wb");
+	if (saved) {
+		fwrite(&header, sizeof(header), 1, saved);
+		fwrite(pixels_.data(), sizeof(u32), stride_ * h_, saved);
+		fclose(saved);
+
+		return true;
+	}
+
+	return false;
+}
+
+bool ScreenshotComparer::SaveVisualComparisonPNG(const Path &resultFilename) {
+	std::unique_ptr<u32[]> comparison(new u32[w_ * 2 * h_ * 2]);
+
+	if (asBitmap_) {
+		// The reference is flipped and BGRA by default for the common BMP compare case.
+		for (u32 y = 0; y < h_; ++y) {
+			u32 yoff = y * stride_;
+			u32 comparisonRow = (h_ - y - 1) * 2 * w_ * 2;
+			for (u32 x = 0; x < w_; ++x) {
+				PlotVisualComparison(comparison.get(), comparisonRow + x * 2, pixels_[y * stride_ + x], reference_[yoff + x]);
+			}
+		}
+	} else {
+		// Reference is already in BGRA either way.
+		for (u32 y = 0; y < h_; ++y) {
+			u32 yoff = (h_ - y - 1) * stride_;
+			u32 comparisonRow = (h_ - y - 1) * 2 * w_ * 2;
+			for (u32 x = 0; x < w_; ++x) {
+				PlotVisualComparison(comparison.get(), comparisonRow + x * 2, pixels_[y * stride_ + x], reference_[yoff + x]);
+			}
+		}
+	}
+
+	FILE *fp = File::OpenCFile(resultFilename, "wb");
+	if (!fp)
+		return false;
+
+	png_image png;
+	memset(&png, 0, sizeof(png));
+	png.version = PNG_IMAGE_VERSION;
+	png.format = PNG_FORMAT_BGRA;
+	png.width = w_ * 2;
+	png.height = h_ * 2;
+
+	bool success = png_image_write_to_stdio(&png, fp, 0, comparison.get(), w_ * 2 * 4, nullptr) != 0;
+	fclose(fp);
+	png_image_free(&png);
+
+	return success && png.warning_or_error < 2;
+}
+
+int ChannelDifference(u8 actual, u8 reference) {
+	int diff = actual > reference ? actual - reference : reference - actual;
+	if (diff == 0)
+		return 0;
+	if (diff < 4)
+		return 1;
+	if (diff < 8)
+		return 2;
+	if (diff < 16)
+		return 3;
+	if (diff < 32)
+		return 4;
+	return 5;
+}
+
+int PixelDifference(u32 actual, u32 reference) {
+	int b = ChannelDifference((actual >> 0) & 0xFF, (reference >> 0) & 0xFF);
+	int g = ChannelDifference((actual >> 8) & 0xFF, (reference >> 8) & 0xFF);
+	int r = ChannelDifference((actual >> 16) & 0xFF, (reference >> 16) & 0xFF);
+	return std::max(b, std::max(g, r));
+}
+
+void ScreenshotComparer::PlotVisualComparison(u32 *dst, u32 offset, u32 actual, u32 reference) {
+	int diff = PixelDifference(actual, reference);
+	dst[offset + 0] = actual | 0xFF000000;
+	dst[offset + 1] = actual | 0xFF000000;
+	dst[offset + w_ * 2 + 0] = reference | 0xFF000000;
+
+	int alpha = 0x00000000;
+	switch (diff) {
+	case 0: alpha = 0xFF000000; break;
+	case 1: alpha = 0xEF000000; break;
+	case 2: alpha = 0xCF000000; break;
+	case 3: alpha = 0xAF000000; break;
+	case 4: alpha = 0x7F000000; break;
+	default: break;
+	}
+
+	dst[offset + w_ * 2 + 1] = (reference & 0x00FFFFFF) | alpha;
 }

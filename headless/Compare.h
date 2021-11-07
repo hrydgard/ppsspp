@@ -40,6 +40,7 @@ public:
 	ScreenshotComparer(const std::vector<u32> &pixels, u32 stride, u32 w, u32 h)
 		: pixels_(pixels), stride_(stride), w_(w), h_(h) {
 	}
+	~ScreenshotComparer();
 
 	double Compare(const Path &screenshotFilename);
 
@@ -47,8 +48,15 @@ public:
 		return error_;
 	}
 
+	bool SaveActualBitmap(const Path &filename);
+	bool SaveVisualComparisonPNG(const Path &filename);
+
 protected:
+	void PlotVisualComparison(u32 *dst, u32 offset, u32 actual, u32 reference);
+
 	const std::vector<u32> &pixels_;
+	u32 *reference_ = nullptr;
+	bool asBitmap_ = false;
 	std::string error_;
 	u32 stride_;
 	u32 w_;
