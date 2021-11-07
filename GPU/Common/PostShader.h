@@ -72,7 +72,9 @@ struct TextureShaderInfo {
 	std::string name;
 
 	Path computeShaderFile;
-	int maxScale;
+
+	// Upscaling shaders have a fixed scale factor.
+	int scaleFactor;
 
 	bool operator == (const std::string &other) {
 		return name == other;

@@ -533,6 +533,11 @@ void GameSettingsScreen::CreateViews() {
 	static const char *texScaleLevels[] = {"Off", "2x", "3x"};
 #endif
 
+	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", };
+	PopupMultiChoice *texScalingType = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gr->T("Upscale Type"), texScaleAlgos, 0, ARRAY_SIZE(texScaleAlgos), gr->GetName(), screenManager()));
+	texScalingType->SetEnabledFunc([]() {
+		return !g_Config.bSoftwareRendering && !UsingHardwareTextureScaling();
+	});
 	PopupMultiChoice *texScalingChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gr->T("Upscale Level"), texScaleLevels, 1, ARRAY_SIZE(texScaleLevels), gr->GetName(), screenManager()));
 	// TODO: Better check?  When it won't work, it scales down anyway.
 	if (!gl_extensions.OES_texture_npot && GetGPUBackend() == GPUBackend::OPENGL) {
@@ -545,11 +550,7 @@ void GameSettingsScreen::CreateViews() {
 		}
 		return UI::EVENT_CONTINUE;
 	});
-	texScalingChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
-
-	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", };
-	PopupMultiChoice *texScalingType = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gr->T("Upscale Type"), texScaleAlgos, 0, ARRAY_SIZE(texScaleAlgos), gr->GetName(), screenManager()));
-	texScalingType->SetEnabledFunc([]() {
+	texScalingChoice->SetEnabledFunc([]() {
 		return !g_Config.bSoftwareRendering && !UsingHardwareTextureScaling();
 	});
 
