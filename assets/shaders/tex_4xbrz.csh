@@ -1,5 +1,5 @@
 // 4xBRZ shader - Copyright (C) 2014-2016 DeSmuME team (GPL2+)
-// Hyllian's xBR-vertex code and texel mapping
+// Hyllians xBR-vertex code and texel mapping
 // Copyright (C) 2011/2016 Hyllian - sergiogdb@gmail.com
 #define BLEND_ALPHA 1
 #define BLEND_NONE 0
@@ -17,7 +17,7 @@ float reduce(vec4 color) {
 float DistYCbCr(vec4 pixA, vec4 pixB) {
 	// https://en.wikipedia.org/wiki/YCbCr#ITU-R_BT.2020_conversion
 	const vec3 K = vec3(0.2627, 0.6780, 0.0593);
-	const mat3 MATRIX = mat3(K, 
+	const mat3 MATRIX = mat3(K,
 	                         -.5 * K.r / (1.0 - K.b),  -.5 * K.g / (1.0 - K.b),  .5,
 	                         .5,                       -.5 * K.g / (1.0 - K.r),  -.5 * K.b / (1.0 - K.r));
 	vec4 diff = pixA - pixB;
@@ -36,10 +36,7 @@ bool IsBlendingNeeded(const ivec4 blend) {
 	return diff.x != 0 || diff.y != 0 || diff.z != 0 || diff.w != 0;
 }
 
-vec4 applyScalingf(uvec2 origxy, uvec2 xy) {
-	float dx = 1.0 / params.width;
-	float dy = 1.0 / params.height;
-
+void applyScaling(uvec2 origxy) {
 	//    A1 B1 C1
 	// A0 A  B  C C4
 	// D0 D  E  F F4
@@ -53,8 +50,6 @@ vec4 applyScalingf(uvec2 origxy, uvec2 xy) {
 	uvec4 t5 = uvec4(origxy.x - 1, origxy.x, origxy.x + 1, origxy.y + 2); // G5 H5 I5
 	uvec4 t6 = uvec4(origxy.x - 2, origxy.y - 1, origxy.y, origxy.y + 1); // A0 D0 G0
 	uvec4 t7 = uvec4(origxy.x + 2, origxy.y - 1, origxy.y, origxy.y + 1); // C4 F4 I4
-
-	vec2 f = fract(vec2(float(xy.x) / float(params.scale), float(xy.y) / float(params.scale)));
 
 	//---------------------------------------
 	// Input Pixel Mapping:    |21|22|23|
@@ -254,26 +249,22 @@ vec4 applyScalingf(uvec2 origxy, uvec2 xy) {
 		dst[ 6] = mix(dst[ 6], blendPix, (needBlend && doLineBlend && haveShallowLine) ? 0.25 : 0.00);
 	}
 
-	// select output pixel
-	vec4 res = mix(mix(mix(mix(dst[ 6], dst[ 7], step(0.25, f.x)),
-	                       mix(dst[ 8], dst[ 9], step(0.75, f.x)),
-	                       step(0.50, f.x)),
-	                   mix(mix(dst[ 5], dst[ 0], step(0.25, f.x)),
-	                       mix(dst[ 1], dst[10], step(0.75, f.x)),
-	                       step(0.50, f.x)),
-	                   step(0.25, f.y)),
-	               mix(mix(mix(dst[ 4], dst[ 3], step(0.25, f.x)),
-	                       mix(dst[ 2], dst[11], step(0.75, f.x)),
-	                       step(0.50, f.x)),
-	                   mix(mix(dst[15], dst[14], step(0.25, f.x)),
-	                       mix(dst[13], dst[12], step(0.75, f.x)),
-	                       step(0.50, f.x)),
-	                   step(0.75, f.y)),
-	               step(0.50, f.y));
+	// Output Pixel Mapping: 20|21|22|23|24|25
+	//                       19|06|07|08|09|26
+	//                       18|05|00|01|10|27
+	//                       17|04|03|02|11|28
+	//                       16|15|14|13|12|29
+	//                       35|34|33|32|31|30
 
-	return res;
-}
+	// int order [] = int[16](5, 6, 10, 9, 8, 4, 0, 1, 2, 3, 7, 11, 15, 14, 13, 12);
 
-uint applyScalingu(uvec2 origxy, uvec2 xy) {
-	return packUnorm4x8(applyScalingf(origxy, xy));
+	const int order[16] = int[16](6, 7, 8, 9, 5, 0, 1, 10, 4, 3, 2, 11, 15, 14, 13, 12);
+
+	// Write all 16 output pixels.
+	ivec2 destXY = ivec2(origxy) * 4;
+	for (int y = 0; y < 4; y++) {
+		for (int x = 0; x < 4; x++) {
+			writeColorf(destXY + ivec2(x, y), dst[order[y * 4 + x]]);
+		}
+	}
 }

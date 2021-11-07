@@ -61,9 +61,9 @@ const char *uploadShader = R"(
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
-// No idea what's optimal here...
-#define WORKGROUP_SIZE 16
-layout (local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
+// 8x8 is the most common compute shader workgroup size, and works great on all major
+// hardware vendors.
+layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 uniform layout(binding = 0, rgba8) writeonly image2D img;
 
@@ -114,23 +114,25 @@ vec4 readColorf(uvec2 p) {
 	return unpackUnorm4x8(readColoru(p));
 }
 
+void writeColorf(ivec2 p, vec4 c) {
+	imageStore(img, p, c);
+}
+
 %s
 
+// Note that main runs once per INPUT pixel, unlike the old model.
 void main() {
 	uvec2 xy = gl_GlobalInvocationID.xy;
 	// Kill off any out-of-image threads to avoid stray writes.
 	// Should only happen on the tiniest mipmaps as PSP textures are power-of-2,
-	// and we use a 16x16 workgroup size.
+	// and we use a 8x8 workgroup size. Probably not really necessary.
 	if (xy.x >= params.width || xy.y >= params.height)
 		return;
-
-	uvec2 origxy = xy / params.scale;
-	if (params.scale == 1) {
-		imageStore(img, ivec2(xy.x, xy.y), readColorf(origxy));
-	} else {
-		imageStore(img, ivec2(xy.x, xy.y), applyScalingf(origxy, xy));
-	}
+	// applyScaling will write the upscaled pixels, using writeColorf above.
+	// It's expected to write a square of scale*scale pixels, at the location xy*scale.
+	applyScaling(xy);
 }
+
 )";
 
 SamplerCache::~SamplerCache() {
@@ -825,14 +827,14 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		bool fakeMipmap = IsFakeMipmapChange() && level > 0;
 		// Upload the texture data.
 		for (int i = 0; i <= maxLevel; i++) {
-			int mipWidth = gstate.getTextureWidth(i) * scaleFactor;
-			int mipHeight = gstate.getTextureHeight(i) * scaleFactor;
+			int mipUnscaledWidth = gstate.getTextureWidth(i);
+			int mipUnscaledHeight = gstate.getTextureHeight(i);
+
+			int mipWidth = mipUnscaledWidth * scaleFactor;
+			int mipHeight = mipUnscaledHeight * scaleFactor;
 			if (replaced.Valid()) {
 				replaced.GetSize(i, mipWidth, mipHeight);
 			}
-			int srcBpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;
-			int srcStride = mipWidth * srcBpp;
-			int srcSize = srcStride * mipHeight;
 			int bpp = actualFmt == VULKAN_8888_FORMAT ? 4 : 2;
 			int stride = (mipWidth * bpp + 15) & ~15;
 			int size = stride * mipHeight;
@@ -850,24 +852,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				replacementTimeThisFrame_ += time_now_d() - replaceStart;
 				entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
 			} else {
-				auto dispatchCompute = [&](VkDescriptorSet descSet) {
-					struct Params { int x; int y; int s; int fmt; } params{ mipWidth, mipHeight, scaleFactor, 0 };
-					switch (dstFmt) {
-					case VULKAN_4444_FORMAT:
-						params.fmt = 4;
-						break;
-					case VULKAN_1555_FORMAT:
-						params.fmt = 5;
-						break;
-					case VULKAN_565_FORMAT:
-						params.fmt = 6;
-						break;
-					}
-					vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 0, 1, &descSet, 0, nullptr);
-					vkCmdPushConstants(cmdInit, computeShaderManager_.GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(params), &params);
-					vkCmdDispatch(cmdInit, (mipWidth + 15) / 16, (mipHeight + 15) / 16, 1);
-				};
-
 				if (fakeMipmap) {
 					data = drawEngine_->GetPushBufferForTextureData()->PushAligned(size, &bufferOffset, &texBuf, pushAlignment);
 					LoadTextureLevel(*entry, (uint8_t *)data, stride, level, scaleFactor, dstFmt);
@@ -875,14 +859,32 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 					break;
 				} else {
 					if (computeUpload) {
+						int srcBpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;
+						int srcStride = mipUnscaledWidth * srcBpp;
+						int srcSize = srcStride * mipUnscaledHeight;
+
 						data = drawEngine_->GetPushBufferForTextureData()->PushAligned(srcSize, &bufferOffset, &texBuf, pushAlignment);
 						dataScaled = false;
 						LoadTextureLevel(*entry, (uint8_t *)data, srcStride, i, 1, dstFmt);
 						// This format can be used with storage images.
 						VkImageView view = entry->vkTex->CreateViewForMip(i);
 						VkDescriptorSet descSet = computeShaderManager_.GetDescriptorSet(view, texBuf, bufferOffset, srcSize);
+						struct Params { int x; int y; int s; int fmt; } params{ mipUnscaledWidth, mipUnscaledHeight, scaleFactor, 0 };
+						switch (dstFmt) {
+						case VULKAN_4444_FORMAT:
+							params.fmt = 4;
+							break;
+						case VULKAN_1555_FORMAT:
+							params.fmt = 5;
+							break;
+						case VULKAN_565_FORMAT:
+							params.fmt = 6;
+							break;
+						}
 						vkCmdBindPipeline(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipeline(uploadCS_));
-						dispatchCompute(descSet);
+						vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 0, 1, &descSet, 0, nullptr);
+						vkCmdPushConstants(cmdInit, computeShaderManager_.GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(params), &params);
+						vkCmdDispatch(cmdInit, (mipUnscaledWidth + 7) / 8, (mipUnscaledHeight + 7) / 8, 1);
 						vulkan_->Delete().QueueDeleteImageView(view);
 					} else {
 						data = drawEngine_->GetPushBufferForTextureData()->PushAligned(size, &bufferOffset, &texBuf, pushAlignment);
@@ -892,8 +894,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				}
 				if (replacer_.Enabled()) {
 					// When hardware texture scaling is enabled, this saves the original.
-					int w = dataScaled ? mipWidth : mipWidth / scaleFactor;
-					int h = dataScaled ? mipHeight : mipHeight / scaleFactor;
+					int w = dataScaled ? mipWidth : mipUnscaledWidth;
+					int h = dataScaled ? mipHeight : mipUnscaledHeight;
 					replacer_.NotifyTextureDecoded(replacedInfo, data, stride, i, w, h);
 				}
 			}

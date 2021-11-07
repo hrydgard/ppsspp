@@ -385,6 +385,7 @@ VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits 
 		ERROR_LOG(G3D, "Shader source:\n%s", LineNumberString(code).c_str());
 		OutputDebugStringUTF8("Messages:\n");
 		OutputDebugStringUTF8(error->c_str());
+		OutputDebugStringUTF8(LineNumberString(code).c_str());
 		return VK_NULL_HANDLE;
 	} else {
 		VkShaderModule module;
