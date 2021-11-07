@@ -371,10 +371,7 @@ void DrawEngineD3D11::DoFlush() {
 			useCache = false;
 		}
 
-		if (useCache && dcid_ == prevDcid_ && g_Config.bOptimizeRepeatDraws) {
-			reuseVertexData = true;
-			gpuStats.numRepeatDraws++;
-		} else if (useCache) {
+		if (useCache) {
 			u32 id = dcid_ ^ gstate.getUVGenMode();  // This can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
 
 			VertexArrayInfoD3D11 *vai = vai_.Get(id);
