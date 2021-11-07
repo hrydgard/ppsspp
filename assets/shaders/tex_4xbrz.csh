@@ -36,6 +36,10 @@ bool IsBlendingNeeded(const ivec4 blend) {
 	return diff.x != 0 || diff.y != 0 || diff.z != 0 || diff.w != 0;
 }
 
+vec4 readInput(uvec2 coord) {
+    return readColorf(uvec2(clamp(coord.x, 0, params.width - 1), clamp(coord.y, 0, params.height - 1)));
+}
+
 void applyScaling(uvec2 origxy) {
 	//    A1 B1 C1
 	// A0 A  B  C C4
@@ -60,27 +64,27 @@ void applyScaling(uvec2 origxy) {
 
 	vec4 src[25];
 
-	src[21] = readColorf(t1.xw);
-	src[22] = readColorf(t1.yw);
-	src[23] = readColorf(t1.zw);
-	src[ 6] = readColorf(t2.xw);
-	src[ 7] = readColorf(t2.yw);
-	src[ 8] = readColorf(t2.zw);
-	src[ 5] = readColorf(t3.xw);
-	src[ 0] = readColorf(t3.yw);
-	src[ 1] = readColorf(t3.zw);
-	src[ 4] = readColorf(t4.xw);
-	src[ 3] = readColorf(t4.yw);
-	src[ 2] = readColorf(t4.zw);
-	src[15] = readColorf(t5.xw);
-	src[14] = readColorf(t5.yw);
-	src[13] = readColorf(t5.zw);
-	src[19] = readColorf(t6.xy);
-	src[18] = readColorf(t6.xz);
-	src[17] = readColorf(t6.xw);
-	src[ 9] = readColorf(t7.xy);
-	src[10] = readColorf(t7.xz);
-	src[11] = readColorf(t7.xw);
+	src[21] = readInput(t1.xw);
+	src[22] = readInput(t1.yw);
+	src[23] = readInput(t1.zw);
+	src[ 6] = readInput(t2.xw);
+	src[ 7] = readInput(t2.yw);
+	src[ 8] = readInput(t2.zw);
+	src[ 5] = readInput(t3.xw);
+	src[ 0] = readInput(t3.yw);
+	src[ 1] = readInput(t3.zw);
+	src[ 4] = readInput(t4.xw);
+	src[ 3] = readInput(t4.yw);
+	src[ 2] = readInput(t4.zw);
+	src[15] = readInput(t5.xw);
+	src[14] = readInput(t5.yw);
+	src[13] = readInput(t5.zw);
+	src[19] = readInput(t6.xy);
+	src[18] = readInput(t6.xz);
+	src[17] = readInput(t6.xw);
+	src[ 9] = readInput(t7.xy);
+	src[10] = readInput(t7.xz);
+	src[11] = readInput(t7.xw);
 
 	float v[9];
 	v[0] = reduce(src[0]);
