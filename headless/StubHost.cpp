@@ -48,10 +48,10 @@ void HeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) {
 	gpuDebug->GetCurrentFramebuffer(buffer, GPU_DBG_FRAMEBUF_RENDER);
 	const std::vector<u32> pixels = TranslateDebugBufferToCompare(&buffer, 512, 272);
 
-	std::string error;
-	double errors = CompareScreenshot(pixels, FRAME_STRIDE, FRAME_WIDTH, FRAME_HEIGHT, comparisonScreenshot_, error);
+	ScreenshotComparer comparer(pixels, FRAME_STRIDE, FRAME_WIDTH, FRAME_HEIGHT);
+	double errors = comparer.Compare(comparisonScreenshot_);
 	if (errors < 0)
-		SendOrCollectDebugOutput(error + "\n");
+		SendOrCollectDebugOutput(comparer.GetError() + "\n");
 
 	if (errors > 0)
 	{

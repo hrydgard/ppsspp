@@ -365,11 +365,9 @@ std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32
 	return data;
 }
 
-double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 h, const Path& screenshotFilename, std::string &error)
-{
-	if (pixels.size() < stride * h)
-	{
-		error = "Buffer format conversion error";
+double ScreenshotComparer::Compare(const Path &screenshotFilename) {
+	if (pixels_.size() < stride_ * h_) {
+		error_ = "Buffer format conversion error";
 		return -1.0f;
 	}
 
@@ -381,16 +379,16 @@ double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 
 	if (loader->Exists()) {
 		uint8_t header[2];
 		if (loader->ReadAt(0, 2, header) != 2) {
-			error = "Unable to read screenshot data: " + screenshotFilename.ToVisualString();
+			error_ = "Unable to read screenshot data: " + screenshotFilename.ToVisualString();
 			return -1.0f;
 		}
 
 		if (header[0] == 'B' && header[1] == 'M') {
-			reference = (u32 *)calloc(stride * h, sizeof(u32));
+			reference = (u32 *)calloc(stride_ * h_, sizeof(u32));
 			asBitmap = true;
 			// The bitmap header is 14 + 40 bytes.  We could validate it but the test would fail either way.
-			if (reference && loader->ReadAt(14 + 40, sizeof(u32), stride * h, reference) != stride * h) {
-				error = "Unable to read screenshot data: " + screenshotFilename.ToVisualString();
+			if (reference && loader->ReadAt(14 + 40, sizeof(u32), stride_ * h_, reference) != stride_ * h_) {
+				error_ = "Unable to read screenshot data: " + screenshotFilename.ToVisualString();
 				return -1.0f;
 			}
 		} else {
@@ -398,45 +396,45 @@ double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 
 			std::vector<uint8_t> compressed;
 			compressed.resize(loader->FileSize());
 			if (loader->ReadAt(0, compressed.size(), &compressed[0]) != compressed.size()) {
-				error = "Unable to read screenshot data: " + screenshotFilename.ToVisualString();
+				error_ = "Unable to read screenshot data: " + screenshotFilename.ToVisualString();
 				return -1.0f;
 			}
 
 			int width, height;
 			if (!pngLoadPtr(&compressed[0], compressed.size(), &width, &height, (unsigned char **)&reference)) {
-				error = "Unable to read screenshot data: " + screenshotFilename.ToVisualString();
+				error_ = "Unable to read screenshot data: " + screenshotFilename.ToVisualString();
 				return -1.0f;
 			}
 		}
 	} else {
-		error = "Unable to read screenshot: " + screenshotFilename.ToVisualString();
+		error_ = "Unable to read screenshot: " + screenshotFilename.ToVisualString();
 		return -1.0f;
 	}
 
 	if (!reference) {
-		error = "Unable to allocate screenshot data: " + screenshotFilename.ToVisualString();
+		error_ = "Unable to allocate screenshot data: " + screenshotFilename.ToVisualString();
 		return -1.0f;
 	}
 
 	u32 errors = 0;
 	if (asBitmap) {
 		// The reference is flipped and BGRA by default for the common BMP compare case.
-		for (u32 y = 0; y < h; ++y) {
-			u32 yoff = y * stride;
-			for (u32 x = 0; x < w; ++x)
-				errors += ComparePixel(pixels[y * stride + x], reference[yoff + x]);
+		for (u32 y = 0; y < h_; ++y) {
+			u32 yoff = y * stride_;
+			for (u32 x = 0; x < w_; ++x)
+				errors += ComparePixel(pixels_[y * stride_ + x], reference[yoff + x]);
 		}
 	} else {
 		// Just convert to BGRA for simplicity.
-		ConvertRGBA8888ToBGRA8888(reference, reference, h * stride);
-		for (u32 y = 0; y < h; ++y) {
-			u32 yoff = (h - y - 1) * stride;
-			for (u32 x = 0; x < w; ++x)
-				errors += ComparePixel(pixels[y * stride + x], reference[yoff + x]);
+		ConvertRGBA8888ToBGRA8888(reference, reference, h_ * stride_);
+		for (u32 y = 0; y < h_; ++y) {
+			u32 yoff = (h_ - y - 1) * stride_;
+			for (u32 x = 0; x < w_; ++x)
+				errors += ComparePixel(pixels_[y * stride_ + x], reference[yoff + x]);
 		}
 	}
 
 	free(reference);
 
-	return (double) errors / (double) (w * h);
+	return (double) errors / (double) (w_ * h_);
 }

@@ -34,4 +34,23 @@ std::string GetTestName(const Path &bootFilename);
 
 bool CompareOutput(const Path &bootFilename, const std::string &output, bool verbose);
 std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32 stride, u32 h);
-double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 h, const Path &screenshotFilename, std::string &error);
+
+class ScreenshotComparer {
+public:
+	ScreenshotComparer(const std::vector<u32> &pixels, u32 stride, u32 w, u32 h)
+		: pixels_(pixels), stride_(stride), w_(w), h_(h) {
+	}
+
+	double Compare(const Path &screenshotFilename);
+
+	std::string GetError() {
+		return error_;
+	}
+
+protected:
+	const std::vector<u32> &pixels_;
+	std::string error_;
+	u32 stride_;
+	u32 w_;
+	u32 h_;
+};
