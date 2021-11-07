@@ -475,7 +475,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// on iOS it's even the path to bundled app assets. It's a mess.
 
 	// We want this to be FIRST.
-#if PPSSPP_PLATFORM(IOS)
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
 	// Packed assets are included in app
 	VFSRegister("", new DirectoryAssetReader(Path(external_dir)));
 #endif
@@ -555,6 +555,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #elif PPSSPP_PLATFORM(IOS)
 	g_Config.defaultCurrentDirectory = g_Config.internalDataDirectory;
 	g_Config.memStickDirectory = Path(user_data_path);
+	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
+#elif PPSSPP_PLATFORM(MAC)
+	g_Config.defaultCurrentDirectory = Path(getenv("HOME"));
+	g_Config.memStickDirectory = g_Config.defaultCurrentDirectory / ".config/ppsspp";
 	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
 #elif PPSSPP_PLATFORM(SWITCH)
 	g_Config.memStickDirectory = g_Config.internalDataDirectory / "config/ppsspp";

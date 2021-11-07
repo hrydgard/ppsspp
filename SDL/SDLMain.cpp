@@ -684,7 +684,17 @@ int main(int argc, char *argv[]) {
 	if (strlen(path) > 0 && path[strlen(path) - 1] != '/')
 		strcat(path, "/");
 
-	NativeInit(remain_argc, (const char **)remain_argv, path, "/tmp", nullptr);
+#if PPSSPP_PLATFORM(MAC)
+	std::string external_dir_str;
+	if (SDL_GetBasePath())
+		external_dir_str = std::string(SDL_GetBasePath()) + "/assets";
+	else
+		external_dir_str = "/tmp";
+	const char *external_dir = external_dir_str.c_str();
+#else
+	const char *external_dir = "/tmp";
+#endif
+	NativeInit(remain_argc, (const char **)remain_argv, path, external_dir, nullptr);
 
 	// Use the setting from the config when initing the window.
 	if (g_Config.bFullScreen)
