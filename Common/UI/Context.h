@@ -59,6 +59,7 @@ public:
 	void Flush();
 
 	void RebindTexture() const;
+	void BindFontTexture() const;
 
 	// TODO: Support transformed bounds using stencil
 	void PushScissor(const Bounds &bounds);
@@ -112,6 +113,7 @@ private:
 	Draw::Pipeline *ui_pipeline_ = nullptr;
 	Draw::Pipeline *ui_pipeline_notex_ = nullptr;
 	std::unique_ptr<ManagedTexture> uitexture_;
+	std::unique_ptr<ManagedTexture> fontTexture_;
 
 	DrawBuffer *uidrawbuffer_ = nullptr;
 	DrawBuffer *uidrawbufferTop_ = nullptr;

@@ -110,6 +110,10 @@ public:
 		atlas = _atlas;
 	}
 	const Atlas *GetAtlas() const { return atlas; }
+	void SetFontAtlas(const Atlas *_atlas) {
+		fontAtlas_ = _atlas;
+	}
+	const Atlas *GetFontAtlas() const { return fontAtlas_; }
 	bool MeasureImage(ImageID atlas_image, float *w, float *h);
 	void DrawImage(ImageID atlas_image, float x, float y, float scale, Color color = COLOR(0xFFFFFF), int align = ALIGN_TOPLEFT);
 
@@ -189,18 +193,18 @@ private:
 	float alpha_ = 1.0f;
 	std::vector<float> alphaStack_;
 
-	Draw::DrawContext *draw_;
-	Draw::Buffer *vbuf_;
-	Draw::Pipeline *pipeline_;
+	Draw::DrawContext *draw_ = nullptr;
+	Draw::Buffer *vbuf_ = nullptr;
+	Draw::Pipeline *pipeline_ = nullptr;
 
 	Vertex *verts_;
-	int count_;
-	const Atlas *atlas;
+	int count_ = 0;
+	const Atlas *atlas = nullptr;
+	const Atlas *fontAtlas_ = nullptr;
 
-	bool inited_;
-	float fontscalex;
-	float fontscaley;
+	bool inited_ = false;
+	float fontscalex = 1.0f;
+	float fontscaley = 1.0f;
 
 	float curZ_ = 0.0f;
 };
-

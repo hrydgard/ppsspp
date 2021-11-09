@@ -132,8 +132,8 @@
 // The new UI framework, for initialization
 
 static UI::Theme ui_theme;
-
-Atlas g_ui_atlas;
+static Atlas g_ui_atlas;
+static Atlas g_font_atlas;
 
 #if PPSSPP_ARCH(ARM) && defined(__ANDROID__)
 #include "../../android/jni/ArmEmitterTest.h"
@@ -904,6 +904,22 @@ static void UIThemeInit() {
 void RenderOverlays(UIContext *dc, void *userdata);
 bool CreateGlobalPipelines();
 
+static void LoadAtlasMetadata(Atlas &metadata, const char *filename, bool required) {
+	size_t atlas_data_size = 0;
+	if (!metadata.IsMetadataLoaded()) {
+		const uint8_t *atlas_data = VFSReadFile(filename, &atlas_data_size);
+		bool load_success = atlas_data != nullptr && metadata.Load(atlas_data, atlas_data_size);
+		if (!load_success) {
+			if (required)
+				ERROR_LOG(G3D, "Failed to load %s - graphics will be broken", filename);
+			else
+				WARN_LOG(G3D, "Failed to load %s", filename);
+			// Stumble along with broken visuals instead of dying...
+		}
+		delete[] atlas_data;
+	}
+}
+
 bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	INFO_LOG(SYSTEM, "NativeInitGraphics");
 
@@ -918,20 +934,14 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 		return false;
 	}
 
-	// Load the atlas.
-	size_t atlas_data_size = 0;
-	if (!g_ui_atlas.IsMetadataLoaded()) {
-		const uint8_t *atlas_data = VFSReadFile("ui_atlas.meta", &atlas_data_size);
-		bool load_success = atlas_data != nullptr && g_ui_atlas.Load(atlas_data, atlas_data_size);
-		if (!load_success) {
-			ERROR_LOG(G3D, "Failed to load ui_atlas.meta - graphics will be broken.");
-			// Stumble along with broken visuals instead of dying.
-		}
-		delete[] atlas_data;
-	}
+	// Load any missing atlas.
+	LoadAtlasMetadata(g_ui_atlas, "ui_atlas.meta", true);
+	LoadAtlasMetadata(g_font_atlas, "font_atlas.meta", g_ui_atlas.num_fonts == 0);
 
 	ui_draw2d.SetAtlas(&g_ui_atlas);
+	ui_draw2d.SetFontAtlas(&g_font_atlas);
 	ui_draw2d_front.SetAtlas(&g_ui_atlas);
+	ui_draw2d_front.SetFontAtlas(&g_font_atlas);
 
 	UIThemeInit();
 

@@ -1154,6 +1154,8 @@ static void DrawCrashDump(UIContext *ctx) {
 		sysName.c_str(), sysVersion, GetCompilerABI()
 	);
 
+	if (ctx->Draw()->GetFontAtlas()->getFont(ubuntu24))
+		ctx->BindFontTexture();
 	ctx->Draw()->SetFontScale(.7f, .7f);
 	ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 	y += 140;
@@ -1205,6 +1207,8 @@ BREAK
 		CheatsInEffect() ? "Y" : "N", HLEPlugins::HasEnabled() ? "Y" : "N");
 
 	ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+	ctx->Flush();
+	ctx->RebindTexture();
 }
 
 static void DrawAudioDebugStats(DrawBuffer *draw2d, const Bounds &bounds) {
