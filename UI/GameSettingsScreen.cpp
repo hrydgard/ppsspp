@@ -489,6 +489,10 @@ void GameSettingsScreen::CreateViews() {
 
 	CheckBox *texBackoff = graphicsSettings->Add(new CheckBox(&g_Config.bTextureBackoffCache, gr->T("Lazy texture caching", "Lazy texture caching (speedup)")));
 	texBackoff->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	texBackoff->OnClick.Add([=](EventParams& e) {
+		settingInfo_->Show(gr->T("Lazy texture caching Tip", "Faster, but can cause text problems in a few games"), e.v);
+		return UI::EVENT_CONTINUE;
+	});
 
 	CheckBox *texSecondary_ = graphicsSettings->Add(new CheckBox(&g_Config.bTextureSecondaryCache, gr->T("Retain changed textures", "Retain changed textures (speedup, mem hog)")));
 	texSecondary_->OnClick.Add([=](EventParams &e) {
