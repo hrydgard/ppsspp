@@ -389,6 +389,15 @@ static void CheckFailedGPUBackends() {
 	return;
 #endif
 
+#if PPSSPP_PLATFORM(ANDROID)
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 30) {
+		// In Android 11 or later, Vulkan is as stable as OpenGL, so let's not even bother.
+		// Have also seen unexplained issues with random fallbacks to OpenGL for no good reason,
+		// especially when debugging.
+		return;
+	}
+#endif
+
 	// We only want to do this once per process run and backend, to detect process crashes.
 	// If NativeShutdown is called before we finish, we might call this multiple times.
 	static int lastBackend = -1;
