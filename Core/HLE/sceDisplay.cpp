@@ -371,15 +371,23 @@ void __DisplayForgetFlip(FlipCallback callback, void *userdata) {
 }
 
 static void DisplayFireVblank() {
-	std::lock_guard<std::mutex> guard(listenersLock);
-	for (VblankCallback cb : vblankListeners) {
+	std::vector<VblankCallback> toCall = []{
+		std::lock_guard<std::mutex> guard(listenersLock);
+		return vblankListeners;
+	}();
+
+	for (VblankCallback cb : toCall) {
 		cb();
 	}
 }
 
 static void DisplayFireFlip() {
-	std::lock_guard<std::mutex> guard(listenersLock);
-	for (auto cb : flipListeners) {
+	std::vector<FlipListener> toCall = [] {
+		std::lock_guard<std::mutex> guard(listenersLock);
+		return flipListeners;
+	}();
+
+	for (FlipListener cb : toCall) {
 		cb.first(cb.second);
 	}
 }
