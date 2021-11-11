@@ -2,8 +2,6 @@
 #include "Common/CommonWindows.h"
 #include "Core/Debugger/DebugInterface.h"
 
-extern HMENU g_hPopupMenus;
-
 enum { WM_DEB_GOTOWPARAM = WM_USER+2,
 	WM_DEB_GOTOADDRESSEDIT,
 	WM_DEB_MAPLOADED,

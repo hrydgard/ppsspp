@@ -353,10 +353,6 @@ void DrawEngineVulkan::DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t 
 	DecodeVerts(dest);
 }
 
-void DrawEngineVulkan::SetLineWidth(float lineWidth) {
-	pipelineManager_->SetLineWidth(lineWidth);
-}
-
 VkResult DrawEngineVulkan::RecreateDescriptorPool(FrameData &frame, int newSize) {
 	// Reallocate this desc pool larger, and "wipe" the cache. We might lose a tiny bit of descriptor set reuse but
 	// only for this frame.
@@ -909,17 +905,27 @@ void DrawEngineVulkan::DoFlush() {
 		params.allowClear = framebufferManager_->UseBufferedRendering();
 		params.allowSeparateAlphaClear = false;
 		params.provokeFlatFirst = true;
+		params.flippedY = true;
+		params.usesHalfZ = true;
 
 		// We need to update the viewport early because it's checked for flipping in SoftwareTransform.
 		// We don't have a "DrawStateEarly" in vulkan, so...
 		// TODO: Probably should eventually refactor this and feed the vp size into SoftwareTransform directly (Unknown's idea).
 		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
-			gstate_c.vpWidth = gstate.getViewportXScale() * 2.0f;
-			gstate_c.vpHeight = gstate.getViewportYScale() * 2.0f;
+			ViewportAndScissor vpAndScissor;
+			ConvertViewportAndScissor(framebufferManager_->UseBufferedRendering(),
+				framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
+				framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
+				vpAndScissor);
 		}
 
 		int maxIndex = indexGen.MaxIndex();
 		SoftwareTransform swTransform(params);
+
+		const Lin::Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, gstate_c.vpZOffset * 0.5f + 0.5f);
+		const Lin::Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
+		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, gstate_c.vpHeight < 0, trans, scale);
+
 		swTransform.Decode(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), maxIndex, &result);
 		if (result.action == SW_NOT_READY) {
 			swTransform.DetectOffsetTexture(maxIndex);

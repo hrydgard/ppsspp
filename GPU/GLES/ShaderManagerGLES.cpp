@@ -33,6 +33,7 @@
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "Common/System/Display.h"
 
 #include "Common/Log.h"
 #include "Common/File/FileUtil.h"
@@ -51,10 +52,10 @@
 
 using namespace Lin;
 
-Shader::Shader(GLRenderManager *render, const char *code, const std::string &desc, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask)
-	  : render_(render), failed_(false), useHWTransform_(useHWTransform), attrMask_(attrMask), uniformMask_(uniformMask) {
+Shader::Shader(GLRenderManager *render, const char *code, const std::string &desc, const ShaderDescGLES &params)
+	  : render_(render), useHWTransform_(params.useHWTransform), attrMask_(params.attrMask), uniformMask_(params.uniformMask) {
 	PROFILE_THIS_SCOPE("shadercomp");
-	isFragment_ = glShaderType == GL_FRAGMENT_SHADER;
+	isFragment_ = params.glShaderType == GL_FRAGMENT_SHADER;
 	source_ = code;
 #ifdef SHADERLOG
 #ifdef _WIN32
@@ -63,7 +64,7 @@ Shader::Shader(GLRenderManager *render, const char *code, const std::string &des
 	printf("%s\n", code);
 #endif
 #endif
-	shader = render->CreateShader(glShaderType, source_, desc);
+	shader = render->CreateShader(params.glShaderType, source_, desc);
 }
 
 Shader::~Shader() {
@@ -84,7 +85,10 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	std::vector<GLRProgram::Semantic> semantics;
 	semantics.push_back({ ATTR_POSITION, "position" });
 	semantics.push_back({ ATTR_TEXCOORD, "texcoord" });
-	semantics.push_back({ ATTR_NORMAL, "normal" });
+	if (useHWTransform_)
+		semantics.push_back({ ATTR_NORMAL, "normal" });
+	else
+		semantics.push_back({ ATTR_NORMAL, "fog" });
 	semantics.push_back({ ATTR_W1, "w1" });
 	semantics.push_back({ ATTR_W2, "w2" });
 	semantics.push_back({ ATTR_COLOR0, "color0" });
@@ -124,6 +128,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_depthRange, "u_depthRange" });
 	queries.push_back({ &u_cullRangeMin, "u_cullRangeMin" });
 	queries.push_back({ &u_cullRangeMax, "u_cullRangeMax" });
+	queries.push_back({ &u_rotation, "u_rotation" });
 
 #ifdef USE_BONE_ARRAY
 	queries.push_back({ &u_bone, "u_bone" });
@@ -182,7 +187,9 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	initialize.push_back({ &u_tess_weights_u, 0, 5 });
 	initialize.push_back({ &u_tess_weights_v, 0, 6 });
 
-	program = render->CreateProgram(shaders, semantics, queries, initialize, gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND);
+	bool useDualSource = (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) != 0;
+	bool useClip0 = VSID.Bit(VS_BIT_VERTEX_RANGE_CULLING) && gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE);
+	program = render->CreateProgram(shaders, semantics, queries, initialize, useDualSource, useClip0);
 
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL_UNIFORMS;
@@ -358,6 +365,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		ScaleProjMatrix(flippedMatrix, useBufferedRendering);
 
 		render_->SetUniformM4x4(&u_proj, flippedMatrix.m);
+		render_->SetUniformF1(&u_rotation, useBufferedRendering ? 0 : (float)g_display_rotation);
 	}
 	if (dirty & DIRTY_PROJTHROUGHMATRIX)
 	{
@@ -476,14 +484,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 			viewZCenter = vpZCenter;
 		}
 
-		float viewZInvScale;
-		if (viewZScale != 0.0) {
-			viewZInvScale = 1.0f / viewZScale;
-		} else {
-			viewZInvScale = 0.0;
-		}
-
-		float data[4] = { viewZScale, viewZCenter, viewZCenter, viewZInvScale };
+		float data[4] = { viewZScale, viewZCenter, gstate_c.vpZOffset, 1.0f / gstate_c.vpDepthScale };
 		SetFloatUniform4(render_, &u_depthRange, data);
 	}
 	if (dirty & DIRTY_CULLRANGE) {
@@ -640,7 +641,8 @@ Shader *ShaderManagerGLES::CompileFragmentShader(FShaderID FSID) {
 		return nullptr;
 	}
 	std::string desc = FragmentShaderDesc(FSID);
-	return new Shader(render_, codeBuffer_, desc, GL_FRAGMENT_SHADER, false, 0, uniformMask);
+	ShaderDescGLES params{ GL_FRAGMENT_SHADER, 0, uniformMask };
+	return new Shader(render_, codeBuffer_, desc, params);
 }
 
 Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
@@ -653,7 +655,9 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 		return nullptr;
 	}
 	std::string desc = VertexShaderDesc(VSID);
-	return new Shader(render_, codeBuffer_, desc, GL_VERTEX_SHADER, useHWTransform, attrMask, uniformMask);
+	ShaderDescGLES params{ GL_VERTEX_SHADER, attrMask, uniformMask };
+	params.useHWTransform = useHWTransform;
+	return new Shader(render_, codeBuffer_, desc, params);
 }
 
 Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTessellation, u32 vertType, bool weightsAsFloat, VShaderID *VSID) {

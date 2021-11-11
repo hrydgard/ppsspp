@@ -341,7 +341,7 @@ void GameButton::Draw(UIContext &dc) {
 			dc.MeasureText(dc.GetFontStyle(), 0.7f, 0.7f, ginfo->id_version.c_str(), &vw, &vh, 0);
 			availableWidth -= vw + 20;
 			dc.SetFontScale(0.7f, 0.7f);
-			dc.DrawText(ginfo->id_version.c_str(), availableWidth + 160, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+			dc.DrawText(ginfo->id_version.c_str(), bounds_.x + availableWidth + 160, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 			dc.SetFontScale(1.0f, 1.0f);
 		}
 		float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
@@ -680,7 +680,7 @@ void GameBrowser::Refresh() {
 				topBar->Add(new Choice(ImageID("I_SDCARD"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::StorageClick);
 			}
 			if (System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
-				topBar->Add(new Choice(mm->T("Browse", "Browse..."), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::BrowseClick);
+				topBar->Add(new Choice(mm->T("Browse"), ImageID("I_FOLDER_OPEN"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::BrowseClick);
 			}
 		} else {
 			topBar->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
@@ -1007,7 +1007,7 @@ void MainScreen::CreateViews() {
 
 	Button *focusButton = nullptr;
 	if (hasStorageAccess) {
-		scrollAllGames_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT), true);
+		scrollAllGames_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollAllGames_->SetTag("MainScreenAllGames");
 		ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollHomebrew->SetTag("MainScreenHomebrew");
@@ -1026,7 +1026,7 @@ void MainScreen::CreateViews() {
 
 		tabHolder_->AddTab(mm->T("Games"), scrollAllGames_);
 		tabHolder_->AddTab(mm->T("Homebrew & Demos"), scrollHomebrew);
-		scrollAllGames_->ScrollTo(g_Config.fGameListScrollPosition);
+		scrollAllGames_->RememberPosition(&g_Config.fGameListScrollPosition);
 
 		tabAllGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 		tabHomebrew->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
@@ -1244,9 +1244,6 @@ void MainScreen::update() {
 	if (vertical != lastVertical_) {
 		RecreateViews();
 		lastVertical_ = vertical;
-	}
-	if (scrollAllGames_) {
-		g_Config.fGameListScrollPosition = scrollAllGames_->GetScrollPosition();
 	}
 }
 

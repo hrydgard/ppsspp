@@ -290,7 +290,7 @@ bool GameManager::InstallGame(Path url, Path fileName, bool deleteAfter) {
 
 	std::string extension = url.GetFileExtension();
 	// Examine the URL to guess out what we're installing.
-	if (extension == "cso" || extension == "iso") {
+	if (extension == ".cso" || extension == ".iso") {
 		// It's a raw ISO or CSO file. We just copy it to the destination.
 		std::string shortFilename = url.GetFilename();
 		return InstallRawISO(fileName, shortFilename, deleteAfter);
@@ -597,12 +597,12 @@ bool GameManager::InstallMemstickGame(struct zip *z, const Path &zipfile, const 
 	zip_close(z);
 	z = nullptr;
 	installProgress_ = 1.0f;
-	installInProgress_ = false;
 	installError_ = "";
 	if (deleteAfter) {
 		File::Delete(zipfile);
 	}
 	InstallDone();
+	installInProgress_ = false;
 	return true;
 
 bail:
@@ -647,9 +647,9 @@ bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, const Path &
 
 	z = 0;
 	installProgress_ = 1.0f;
-	installInProgress_ = false;
 	installError_ = "";
 	InstallDone();
+	installInProgress_ = false;
 	return true;
 }
 
@@ -670,9 +670,9 @@ bool GameManager::InstallRawISO(const Path &file, const std::string &originalNam
 		}
 	}
 	installProgress_ = 1.0f;
-	installInProgress_ = false;
 	installError_ = "";
 	InstallDone();
+	installInProgress_ = false;
 	return true;
 }
 

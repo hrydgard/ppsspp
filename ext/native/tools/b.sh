@@ -1,3 +1,3 @@
 mkdir -p build
-(cd build; cmake .. && make -j5; cd ..)
+(cmake CMakeLists.txt && make -j5)
 #cp build/atlastool /home/henrik/bin

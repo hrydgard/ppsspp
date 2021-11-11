@@ -26,6 +26,7 @@
 #include "Common/Log.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/FileDescriptor.h"
+#include "Common/File/VFS/VFS.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
@@ -227,6 +228,46 @@ static void HandleListing(const http::Request &request) {
 	}
 }
 
+static bool ServeDebuggerFile(const http::Request &request) {
+	// Skip the slash at the start of the resource path.
+	const char *filename = request.resource() + 1;
+	if (strstr(filename, "..") != nullptr)
+		return false;
+
+	size_t size;
+	uint8_t *data = VFSReadFile(filename, &size);
+	if (!data)
+		return false;
+
+	std::string ext = Path(filename).GetFileExtension();
+	const char *mimeType = "text/plain";
+	if (ext == ".html") {
+		mimeType = "text/html";
+	} else if (ext == ".ico") {
+		mimeType = "image/x-icon";
+	} else if (ext == ".js") {
+		mimeType = "application/javascript";
+	} else if (ext == ".svg") {
+		mimeType = "image/svg";
+	} else if (ext == ".png") {
+		mimeType = "image/png";
+	} else if (ext == ".css") {
+		mimeType = "text/css";
+	}
+
+	request.WriteHttpResponseHeader("1.0", 200, (int)size, mimeType);
+	request.Out()->Push((char *)data, size);
+
+	delete[] data;
+	return true;
+}
+
+static void RedirectToDebugger(const http::Request &request) {
+	static const std::string payload = "Redirecting to debugger UI...\r\n";
+	request.WriteHttpResponseHeader("1.0", 301, (int)payload.size(), "text/plain", "Location: /debugger/index.html\r\n");
+	request.Out()->Push(payload);
+}
+
 static void HandleFallback(const http::Request &request) {
 	if (serverFlags & (int)WebServerFlags::DISCS) {
 		Path filename = LocalFromRemotePath(request.resource());
@@ -236,6 +277,16 @@ static void HandleFallback(const http::Request &request) {
 		}
 	}
 
+	if ((serverFlags & (int)WebServerFlags::DEBUGGER) != 0) {
+		if (!strcmp(request.resource(), "/debugger/")) {
+			RedirectToDebugger(request);
+			return;
+		}
+
+		if (startsWith(request.resource(), "/debugger/") && ServeDebuggerFile(request))
+			return;
+	}
+
 	static const std::string payload = "404 not found\r\n";
 	request.WriteHttpResponseHeader("1.0", 404, (int)payload.size(), "text/plain");
 	request.Out()->Push(payload);
@@ -243,7 +294,18 @@ static void HandleFallback(const http::Request &request) {
 
 static void ForwardDebuggerRequest(const http::Request &request) {
 	if (serverFlags & (int)WebServerFlags::DEBUGGER) {
-		HandleDebuggerRequest(request);
+		// Check if this is a websocket request...
+		std::string upgrade;
+		if (!request.GetHeader("upgrade", &upgrade)) {
+			upgrade = "";
+		}
+
+		// Yes - proceed with the socket.
+		if (strcasecmp(upgrade.c_str(), "websocket") == 0) {
+			HandleDebuggerRequest(request);
+		} else {
+			RedirectToDebugger(request);
+		}
 	} else {
 		HandleFallback(request);
 	}

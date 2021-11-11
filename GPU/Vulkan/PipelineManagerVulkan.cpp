@@ -115,15 +115,18 @@ static int SetupVertexAttribs(VkVertexInputAttributeDescription attrs[], const D
 	return count;
 }
 
-static int SetupVertexAttribsPretransformed(VkVertexInputAttributeDescription attrs[], bool needsUV, bool needsColor1) {
+static int SetupVertexAttribsPretransformed(VkVertexInputAttributeDescription attrs[], bool needsUV, bool needsColor1, bool needsFog) {
 	int count = 0;
-	VertexAttribSetup(&attrs[count++], DEC_FLOAT_4, 0, PspAttributeLocation::POSITION);
+	VertexAttribSetup(&attrs[count++], DEC_FLOAT_4, offsetof(TransformedVertex, pos), PspAttributeLocation::POSITION);
 	if (needsUV) {
-		VertexAttribSetup(&attrs[count++], DEC_FLOAT_3, 16, PspAttributeLocation::TEXCOORD);
+		VertexAttribSetup(&attrs[count++], DEC_FLOAT_3, offsetof(TransformedVertex, uv), PspAttributeLocation::TEXCOORD);
 	}
-	VertexAttribSetup(&attrs[count++], DEC_U8_4, 28, PspAttributeLocation::COLOR0);
+	VertexAttribSetup(&attrs[count++], DEC_U8_4, offsetof(TransformedVertex, color0), PspAttributeLocation::COLOR0);
 	if (needsColor1) {
-		VertexAttribSetup(&attrs[count++], DEC_U8_4, 32, PspAttributeLocation::COLOR1);
+		VertexAttribSetup(&attrs[count++], DEC_U8_4, offsetof(TransformedVertex, color1), PspAttributeLocation::COLOR1);
+	}
+	if (needsFog) {
+		VertexAttribSetup(&attrs[count++], DEC_FLOAT_1, offsetof(TransformedVertex, fog), PspAttributeLocation::NORMAL);
 	}
 	return count;
 }
@@ -162,7 +165,7 @@ static std::string CutFromMain(std::string str) {
 
 static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pipelineCache, 
 		VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &key,
-		const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform, float lineWidth) {
+		const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
 	PROFILE_THIS_SCOPE("pipelinebuild");
 	bool useBlendConstant = false;
 
@@ -230,7 +233,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	rs.depthBiasEnable = false;
 	rs.cullMode = key.cullMode;
 	rs.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-	rs.lineWidth = lineWidth;
+	rs.lineWidth = 1.0f;
 	rs.rasterizerDiscardEnable = false;
 	rs.polygonMode = VK_POLYGON_MODE_FILL;
 	rs.depthClampEnable = key.depthClampEnable;
@@ -276,8 +279,9 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	} else {
 		bool needsUV = vs->GetID().Bit(VS_BIT_DO_TEXTURE);
 		bool needsColor1 = vs->GetID().Bit(VS_BIT_LMODE);
-		attributeCount = SetupVertexAttribsPretransformed(attrs, needsUV, needsColor1);
-		vertexStride = 36;
+		bool needsFog = vs->GetID().Bit(VS_BIT_ENABLE_FOG);
+		attributeCount = SetupVertexAttribsPretransformed(attrs, needsUV, needsColor1, needsFog);
+		vertexStride = (int)sizeof(TransformedVertex);
 	}
 
 	VkVertexInputBindingDescription ibd{};
@@ -377,7 +381,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
 		vulkan_->GetDevice(), pipelineCache_, layout, renderPass, 
-		rasterKey, decFmt, vs, fs, useHwTransform, lineWidth_);
+		rasterKey, decFmt, vs, fs, useHwTransform);
 	pipelines_.Insert(key, pipeline);
 
 	// Don't return placeholder null pipelines.
@@ -567,22 +571,6 @@ std::string VulkanPipelineKey::GetDescription(DebugShaderStringType stringType) 
 	default:
 		return "N/A";
 	}
-}
-
-void PipelineManagerVulkan::SetLineWidth(float lineWidth) {
-	if (lineWidth_ == lineWidth)
-		return;
-	lineWidth_ = lineWidth;
-
-	// Wipe all line-drawing pipelines.
-	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
-		if (value->flags & PIPELINE_FLAG_USES_LINES) {
-			if (value->pipeline)
-				vulkan_->Delete().QueueDeletePipeline(value->pipeline);
-			delete value;
-			pipelines_.Remove(key);
-		}
-	});
 }
 
 // For some reason this struct is only defined in the spec, not in the headers.

@@ -844,7 +844,7 @@ Vec3<int> AlphaBlendingResult(const Vec4<int> &source, const Vec4<int> &dst)
 }
 
 template <bool clearMode>
-inline void DrawSinglePixel(const DrawingCoords &p, u16 z, u8 fog, const Vec4<int> &color_in) {
+inline void DrawSinglePixel(const DrawingCoords &p, int z, u8 fog, const Vec4<int> &color_in) {
 	Vec4<int> prim_color = color_in.Clamp(0, 255);
 	// Depth range test - applied in clear mode, if not through mode.
 	if (!gstate.isModeThrough())
@@ -1287,7 +1287,7 @@ void DrawTriangleSlice(
 					subp.x = p.x + (i & 1);
 					subp.y = p.y + (i / 2);
 
-					DrawSinglePixel<clearMode>(subp, (u16)z[i], fog[i], prim_color[i]);
+					DrawSinglePixel<clearMode>(subp, z[i], fog[i], prim_color[i]);
 				}
 			}
 		}
@@ -1315,9 +1315,9 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1(), 0);
 	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2(), 0);
 	minX = std::max(minX, (int)TransformUnit::DrawingToScreen(scissorTL).x);
-	maxX = std::min(maxX, (int)TransformUnit::DrawingToScreen(scissorBR).x);
+	maxX = std::min(maxX, (int)TransformUnit::DrawingToScreen(scissorBR).x + 15);
 	minY = std::max(minY, (int)TransformUnit::DrawingToScreen(scissorTL).y);
-	maxY = std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y);
+	maxY = std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y + 15);
 
 	// 32 because we do two pixels at once, and we don't want overlap.
 	int rangeY = (maxY - minY) / 32 + 1;
@@ -1366,6 +1366,9 @@ void DrawPoint(const VertexData &v0)
 
 	ScreenCoords scissorTL(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX1(), gstate.getScissorY1(), 0)));
 	ScreenCoords scissorBR(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX2(), gstate.getScissorY2(), 0)));
+	// Allow drawing within a pixel's center.
+	scissorBR.x += 15;
+	scissorBR.y += 15;
 
 	if (pos.x < scissorTL.x || pos.y < scissorTL.y || pos.x > scissorBR.x || pos.y > scissorBR.y)
 		return;
@@ -1579,12 +1582,21 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 	else
 		steps = abs(dx) / 16;
 
-	float xinc = (float)dx / steps;
-	float yinc = (float)dy / steps;
-	float zinc = (float)dz / steps;
+	// Avoid going too far since we typically don't start at the pixel center.
+	if (dx < 0 && dx >= -16)
+		dx++;
+	if (dy < 0 && dy >= -16)
+		dy++;
+
+	double xinc = (double)dx / steps;
+	double yinc = (double)dy / steps;
+	double zinc = (double)dz / steps;
 
 	ScreenCoords scissorTL(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX1(), gstate.getScissorY1(), 0)));
 	ScreenCoords scissorBR(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX2(), gstate.getScissorY2(), 0)));
+	// Allow drawing within a pixel's center.
+	scissorBR.x += 15;
+	scissorBR.y += 15;
 	bool clearMode = gstate.isModeClear();
 
 	int texbufw[8] = {0};
@@ -1608,9 +1620,9 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 
 	Sampler::Funcs sampler = Sampler::GetFuncs();
 
-	float x = a.x > b.x ? a.x - 1 : a.x;
-	float y = a.y > b.y ? a.y - 1 : a.y;
-	float z = a.z;
+	double x = a.x > b.x ? a.x - 1 : a.x;
+	double y = a.y > b.y ? a.y - 1 : a.y;
+	double z = a.z;
 	const int steps1 = steps == 0 ? 1 : steps;
 	for (int i = 0; i < steps; i++) {
 		if (x >= scissorTL.x && y >= scissorTL.y && x <= scissorBR.x && y <= scissorBR.y) {
@@ -1654,8 +1666,8 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 				}
 
 				// If inc is 0, force the delta to zero.
-				float ds = xinc == 0.0f ? 0.0f : (s1 - s) * 16.0f * (1.0f / xinc);
-				float dt = yinc == 0.0f ? 0.0f : (t1 - t) * 16.0f * (1.0f / yinc);
+				float ds = xinc == 0.0 ? 0.0f : (s1 - s) * 16.0f * (1.0f / xinc);
+				float dt = yinc == 0.0 ? 0.0f : (t1 - t) * 16.0f * (1.0f / yinc);
 
 				int texLevel;
 				int texLevelFrac;

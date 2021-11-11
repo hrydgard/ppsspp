@@ -105,6 +105,8 @@ const char *boneWeightAttrInitHLSL[9] = {
 // to 0 and 65535 if a depth clamping/clipping flag is set (x/y clipping is performed only if depth
 // needs to be clamped.)
 //
+// Additionally, depth is clipped to negative z based on vec.z (before viewport), at -1.
+//
 // All this above is for full transform mode.
 // In through mode, the Z coordinate just goes straight through and there is no perspective division.
 // We simulate this of course with pretty much an identity matrix. Rounding Z becomes very easy.
@@ -139,6 +141,15 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (gl_extensions.EXT_gpu_shader4) {
 			gl_exts.push_back("#extension GL_EXT_gpu_shader4 : enable");
 		}
+		if (gl_extensions.EXT_clip_cull_distance && id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) {
+			gl_exts.push_back("#extension GL_EXT_clip_cull_distance : enable");
+		}
+		if (gl_extensions.APPLE_clip_distance && id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) {
+			gl_exts.push_back("#extension GL_APPLE_clip_distance : enable");
+		}
+		if (gl_extensions.ARB_cull_distance && id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) {
+			gl_exts.push_back("#extension GL_ARB_cull_distance : enable");
+		}
 	}
 	ShaderWriter p(buffer, compat, ShaderStage::Vertex, gl_exts.data(), gl_exts.size());
 
@@ -154,6 +165,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	bool doShadeMapping = uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP;
 
 	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
+	bool needsZWHack = bugs.Has(Draw::Bugs::EQUAL_WZ_CORRUPTS_DEPTH) && g_Config.bVendorBugChecksEnabled;
 	bool doFlatShading = id.Bit(VS_BIT_FLATSHADE) && !flatBug;
 
 	bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
@@ -227,11 +239,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (useHWTransform)
 			WRITE(p, "layout (location = %d) in vec3 position;\n", (int)PspAttributeLocation::POSITION);
 		else
-			// we pass the fog coord in w
 			WRITE(p, "layout (location = %d) in vec4 position;\n", (int)PspAttributeLocation::POSITION);
 
 		if (useHWTransform && hasNormal)
 			WRITE(p, "layout (location = %d) in vec3 normal;\n", (int)PspAttributeLocation::NORMAL);
+		if (!useHWTransform && enableFog)
+			WRITE(p, "layout (location = %d) in float fog;\n", (int)PspAttributeLocation::NORMAL);
 
 		if (doTexture && hasTexcoord) {
 			if (!useHWTransform && doTextureTransform && !isModeThrough) {
@@ -269,9 +282,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "#pragma warning( disable : 3571 )\n");
 			if (isModeThrough) {
 				WRITE(p, "mat4 u_proj_through : register(c%i);\n", CONST_VS_PROJ_THROUGH);
-			} else {
+			} else if (useHWTransform) {
 				WRITE(p, "mat4 u_proj : register(c%i);\n", CONST_VS_PROJ);
-				// Add all the uniforms we'll need to transform properly.
+			} else {
+				WRITE(p, "float u_rotation : register(c%i);\n", CONST_VS_ROTATION);
 			}
 
 			if (enableFog) {
@@ -332,10 +346,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				}
 			}
 
-			if (!isModeThrough && gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "vec4 u_depthRange : register(c%i);\n", CONST_VS_DEPTHRANGE);
-			}
 			if (!isModeThrough) {
+				WRITE(p, "vec4 u_depthRange : register(c%i);\n", CONST_VS_DEPTHRANGE);
 				WRITE(p, "vec4 u_cullRangeMin : register(c%i);\n", CONST_VS_CULLRANGEMIN);
 				WRITE(p, "vec4 u_cullRangeMax : register(c%i);\n", CONST_VS_CULLRANGEMAX);
 			}
@@ -378,6 +390,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			if (lmode) {
 				WRITE(p, "  vec3 color1 : COLOR1;\n");
 			}
+			if (enableFog) {
+				WRITE(p, "  float fog : NORMAL;\n");
+			}
 			WRITE(p, "};\n");
 		}
 
@@ -397,6 +412,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  vec4 gl_Position   : POSITION;\n");
 		} else {
 			WRITE(p, "  vec4 gl_Position   : SV_Position;\n");
+			if (vertexRangeCulling && gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
+				WRITE(p, "  float gl_ClipDistance : SV_ClipDistance0;\n");
+			}
+			if (vertexRangeCulling && gstate_c.Supports(GPU_SUPPORTS_CULL_DISTANCE)) {
+				WRITE(p, "  float2 gl_CullDistance : SV_CullDistance0;\n");
+			}
 		}
 		WRITE(p, "};\n");
 	} else {
@@ -421,6 +442,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "%s mediump vec3 normal;\n", compat.attribute);
 			*attrMask |= 1 << ATTR_NORMAL;
 		}
+		if (!useHWTransform && enableFog) {
+			WRITE(p, "%s highp float fog;\n", compat.attribute);
+			*attrMask |= 1 << ATTR_NORMAL;
+		}
 
 		if (doTexture && hasTexcoord) {
 			if (!useHWTransform && doTextureTransform && !isModeThrough) {
@@ -443,10 +468,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (isModeThrough) {
 			WRITE(p, "uniform mat4 u_proj_through;\n");
 			*uniformMask |= DIRTY_PROJTHROUGHMATRIX;
-		} else {
+		} else if (useHWTransform) {
 			WRITE(p, "uniform mat4 u_proj;\n");
 			*uniformMask |= DIRTY_PROJMATRIX;
-			// Add all the uniforms we'll need to transform properly.
 		}
 
 		if (useHWTransform) {
@@ -506,6 +530,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "uniform lowp vec3 u_matemissive;\n");
 				*uniformMask |= DIRTY_MATSPECULAR | DIRTY_MATEMISSIVE;
 			}
+		} else {
+			WRITE(p, "uniform lowp float u_rotation;\n");
 		}
 
 		if (useHWTransform || !hasColor) {
@@ -517,15 +543,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			*uniformMask |= DIRTY_FOGCOEF;
 		}
 
-		if (!isModeThrough && gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-			WRITE(p, "uniform highp vec4 u_depthRange;\n");
-			*uniformMask |= DIRTY_DEPTHRANGE;
-		}
-
 		if (!isModeThrough) {
+			WRITE(p, "uniform highp vec4 u_depthRange;\n");
 			WRITE(p, "uniform highp vec4 u_cullRangeMin;\n");
 			WRITE(p, "uniform highp vec4 u_cullRangeMax;\n");
-			*uniformMask |= DIRTY_CULLRANGE;
+			*uniformMask |= DIRTY_DEPTHRANGE | DIRTY_CULLRANGE;
 		}
 
 		WRITE(p, "%s%s lowp vec4 v_color0;\n", shading, compat.varying_vs);
@@ -554,7 +576,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  float z = v.z / v.w;\n");
 		WRITE(p, "  z = z * u_depthRange.x + u_depthRange.y;\n");
 		WRITE(p, "  z = floor(z);\n");
-		WRITE(p, "  z = (z - u_depthRange.z) * u_depthRange.w;\n");
+		WRITE(p, "  z = (z - u_depthRange.y) / u_depthRange.x;\n");
 		WRITE(p, "  return vec4(v.x, v.y, z * v.w, v.w);\n");
 		WRITE(p, "}\n\n");
 	}
@@ -754,6 +776,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		} else {
 			WRITE(p, "  vec4 position = In.position;\n");
 		}
+		if (!useHWTransform && enableFog) {
+			WRITE(p, "  float fog = In.fog;\n");
+		}
 		if (enableBones) {
 			WRITE(p, "%s", boneWeightAttrInitHLSL[numBoneWeights]);
 		}
@@ -778,16 +803,30 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "  %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
 		}
 		if (enableFog) {
-			WRITE(p, "  %sv_fogdepth = position.w;\n", compat.vsOutPrefix);
+			WRITE(p, "  %sv_fogdepth = fog;\n", compat.vsOutPrefix);
 		}
 		if (isModeThrough)	{
+			// The proj_through matrix already has the rotation, if needed.
 			WRITE(p, "  vec4 outPos = mul(u_proj_through, vec4(position.xyz, 1.0));\n");
 		} else {
+			if (compat.shaderLanguage == GLSL_VULKAN || compat.shaderLanguage == HLSL_D3D11) {
+				// Apply rotation from the uniform.
+				WRITE(p, "  mat2 displayRotation = mat2(\n");
+				WRITE(p, "    u_rotation == 0.0 ? 1.0 : (u_rotation == 2.0 ? -1.0 : 0.0), u_rotation == 1.0 ? 1.0 : (u_rotation == 3.0 ? -1.0 : 0.0),\n");
+				WRITE(p, "    u_rotation == 3.0 ? 1.0 : (u_rotation == 1.0 ? -1.0 : 0.0), u_rotation == 0.0 ? 1.0 : (u_rotation == 2.0 ? -1.0 : 0.0)\n");
+				WRITE(p, "  );\n");
+
+				WRITE(p, "  vec4 pos = position;\n");
+				WRITE(p, "  pos.xy = mul(displayRotation, pos.xy);\n");
+			} else {
+				WRITE(p, "  vec4 pos = position;\n");
+			}
+
 			// The viewport is used in this case, so need to compensate for that.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, vec4(position.xyz, 1.0)));\n");
+				WRITE(p, "  vec4 outPos = depthRoundZVP(pos);\n");
 			} else {
-				WRITE(p, "  vec4 outPos = mul(u_proj, vec4(position.xyz, 1.0));\n");
+				WRITE(p, "  vec4 outPos = pos;\n");
 			}
 		}
 	} else {
@@ -1099,28 +1138,49 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	if (vertexRangeCulling) {
 		WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w;\n");
-		// Vertex range culling doesn't happen when depth is clamped, so only do this if in range.
-		WRITE(p, "  if (u_cullRangeMin.w <= 0.0 || (projPos.z >= u_cullRangeMin.z && projPos.z <= u_cullRangeMax.z)) {\n");
-		const char *outMin = "projPos.x < u_cullRangeMin.x || projPos.y < u_cullRangeMin.y || projPos.z < u_cullRangeMin.z";
-		const char *outMax = "projPos.x > u_cullRangeMax.x || projPos.y > u_cullRangeMax.y || projPos.z > u_cullRangeMax.z";
+		WRITE(p, "  float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
+		// Vertex range culling doesn't happen when Z clips, note sign of w is important.
+		WRITE(p, "  if (u_cullRangeMin.w <= 0.0 || projZ * outPos.w > -outPos.w) {\n");
+		const char *outMin = "projPos.x < u_cullRangeMin.x || projPos.y < u_cullRangeMin.y";
+		const char *outMax = "projPos.x > u_cullRangeMax.x || projPos.y > u_cullRangeMax.y";
 		WRITE(p, "    if (%s || %s) {\n", outMin, outMax);
 		WRITE(p, "      outPos.xyzw = u_cullRangeMax.wwww;\n");
 		WRITE(p, "    }\n");
 		WRITE(p, "  }\n");
+		WRITE(p, "  if (u_cullRangeMin.w <= 0.0) {\n");
+		WRITE(p, "    if (projPos.z < u_cullRangeMin.z || projPos.z > u_cullRangeMax.z) {\n");
+		WRITE(p, "      outPos.xyzw = u_cullRangeMax.wwww;\n");
+		WRITE(p, "    }\n");
+		WRITE(p, "  }\n");
+
+		const char *clip0 = compat.shaderLanguage == HLSL_D3D11 ? "" : "[0]";
+		const char *cull0 = compat.shaderLanguage == HLSL_D3D11 ? ".x" : "[0]";
+		const char *cull1 = compat.shaderLanguage == HLSL_D3D11 ? ".y" : "[1]";
+		if (gstate_c.Supports(GPU_SUPPORTS_CLIP_DISTANCE)) {
+			// TODO: Not rectangles...
+			WRITE(p, "  %sgl_ClipDistance%s = projZ * outPos.w + outPos.w;\n", compat.vsOutPrefix, clip0);
+		}
+		if (gstate_c.Supports(GPU_SUPPORTS_CULL_DISTANCE)) {
+			// Cull any triangle fully outside in the same direction when depth clamp enabled.
+			WRITE(p, "  if (u_cullRangeMin.w > 0.0) {\n");
+			WRITE(p, "    %sgl_CullDistance%s = projPos.z - u_cullRangeMin.z;\n", compat.vsOutPrefix, cull0);
+			WRITE(p, "    %sgl_CullDistance%s = u_cullRangeMax.z - projPos.z;\n", compat.vsOutPrefix, cull1);
+			WRITE(p, "  } else {\n");
+			WRITE(p, "    %sgl_CullDistance%s = 0.0;\n", compat.vsOutPrefix, cull0);
+			WRITE(p, "    %sgl_CullDistance%s = 0.0;\n", compat.vsOutPrefix, cull1);
+			WRITE(p, "  }\n");
+		}
 	}
 
 	// We've named the output gl_Position in HLSL as well.
 	WRITE(p, "  %sgl_Position = outPos;\n", compat.vsOutPrefix);
 
-	if (gstate_c.Supports(GPU_NEEDS_Z_EQUAL_W_HACK)) {
-		// See comment in GPU_Vulkan.cpp.
+	if (needsZWHack) {
+		// See comment in thin3d_vulkan.cpp.
 		WRITE(p, "  if (%sgl_Position.z == %sgl_Position.w) %sgl_Position.z *= 0.999999;\n",
 			compat.vsOutPrefix, compat.vsOutPrefix, compat.vsOutPrefix);
 	}
 
-	if (compat.shaderLanguage == GLSL_VULKAN) {
-		WRITE(p, " gl_PointSize = 1.0;\n");
-	}
 	if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
 		WRITE(p, "  return Out;\n");
 	}

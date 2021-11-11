@@ -168,7 +168,7 @@ void GameScreen::CreateViews() {
 	if (isRecentGame(gamePath_)) {
 		rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Remove From Recent"))))->OnClick.Handle(this, &GameScreen::OnRemoveFromRecent);
 	}
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+#if (defined(USING_QT_UI) || PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MAC)) && !PPSSPP_PLATFORM(UWP)
 	rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Show In Folder"))))->OnClick.Handle(this, &GameScreen::OnShowInFolder);
 #endif
 	if (g_Config.bEnableCheats) {

@@ -188,7 +188,9 @@ namespace MainWindow {
 
 		// We only reload this initially and when a menu is actually opened.
 		if (!menuShaderInfoLoaded) {
-			ReloadAllPostShaderInfo();
+			// This is on Windows where we don't currently blacklist any vendors, or similar.
+			// TODO: Figure out how to have the GPU data while reloading the post shader info.
+			ReloadAllPostShaderInfo(nullptr);
 			menuShaderInfoLoaded = true;
 		}
 
@@ -394,7 +396,7 @@ namespace MainWindow {
 		if (GetUIState() == UISTATE_INGAME) {
 			browsePauseAfter = Core_IsStepping();
 			if (!browsePauseAfter)
-				Core_EnableStepping(true);
+				Core_EnableStepping(true, "ui.boot", 0);
 		}
 
 		W32Util::MakeTopMost(GetHWND(), false);
@@ -614,14 +616,13 @@ namespace MainWindow {
 				if (disasmWindow)
 					SendMessage(disasmWindow->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
 				else
-					Core_EnableStepping(true);
+					Core_EnableStepping(true, "ui.break", 0);
 			}
 			noFocusPause = !noFocusPause;	// If we pause, override pause on lost focus
 			break;
 
 		case ID_EMULATION_PAUSE:
 			NativeMessageReceived("pause", "");
-			Core_EnableStepping(false);
 			break;
 
 		case ID_EMULATION_STOP:
@@ -776,7 +777,6 @@ namespace MainWindow {
 			}
 			break;
 
-		case ID_TEXTURESCALING_AUTO: setTexScalingMultiplier(TEXSCALING_AUTO); break;
 		case ID_TEXTURESCALING_OFF:  setTexScalingMultiplier(TEXSCALING_OFF); break;
 		case ID_TEXTURESCALING_2X:   setTexScalingMultiplier(TEXSCALING_2X); break;
 		case ID_TEXTURESCALING_3X:   setTexScalingMultiplier(TEXSCALING_3X); break;
@@ -1198,7 +1198,6 @@ namespace MainWindow {
 		}
 
 		static const int texscalingitems[] = {
-			ID_TEXTURESCALING_AUTO,
 			ID_TEXTURESCALING_OFF,
 			ID_TEXTURESCALING_2X,
 			ID_TEXTURESCALING_3X,
@@ -1206,14 +1205,16 @@ namespace MainWindow {
 			ID_TEXTURESCALING_5X,
 			ID_TEXTURESCALING_6X,
 		};
-		if (g_Config.iTexScalingLevel < TEXSCALING_AUTO)
-			g_Config.iTexScalingLevel = TEXSCALING_AUTO;
+		if (g_Config.iTexScalingLevel < TEXSCALING_OFF)
+			g_Config.iTexScalingLevel = TEXSCALING_OFF;
 
 		else if (g_Config.iTexScalingLevel > TEXSCALING_MAX)
 			g_Config.iTexScalingLevel = TEXSCALING_MAX;
 
 		for (int i = 0; i < ARRAY_SIZE(texscalingitems); i++) {
-			CheckMenuItem(menu, texscalingitems[i], MF_BYCOMMAND | ((i == g_Config.iTexScalingLevel) ? MF_CHECKED : MF_UNCHECKED));
+			// OFF is 1, skip 0.
+			bool selected = i + 1 == g_Config.iTexScalingLevel;
+			CheckMenuItem(menu, texscalingitems[i], MF_BYCOMMAND | (selected ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL && !gl_extensions.OES_texture_npot) {

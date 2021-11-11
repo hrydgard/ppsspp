@@ -59,6 +59,7 @@ public:
 	void Flush();
 
 	void RebindTexture() const;
+	void BindFontTexture() const;
 
 	// TODO: Support transformed bounds using stencil
 	void PushScissor(const Bounds &bounds);
@@ -84,6 +85,7 @@ public:
 	void DrawText(const char *str, float x, float y, uint32_t color, int align = 0);
 	void DrawTextShadow(const char *str, float x, float y, uint32_t color, int align = 0);
 	void DrawTextRect(const char *str, const Bounds &bounds, uint32_t color, int align = 0);
+	void DrawTextShadowRect(const char *str, const Bounds &bounds, uint32_t color, int align = 0);
 	void FillRect(const UI::Drawable &drawable, const Bounds &bounds);
 	void DrawImageVGradient(ImageID image, uint32_t color1, uint32_t color2, const Bounds &bounds);
 
@@ -111,6 +113,7 @@ private:
 	Draw::Pipeline *ui_pipeline_ = nullptr;
 	Draw::Pipeline *ui_pipeline_notex_ = nullptr;
 	std::unique_ptr<ManagedTexture> uitexture_;
+	std::unique_ptr<ManagedTexture> fontTexture_;
 
 	DrawBuffer *uidrawbuffer_ = nullptr;
 	DrawBuffer *uidrawbufferTop_ = nullptr;

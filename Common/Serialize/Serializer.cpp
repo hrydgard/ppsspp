@@ -106,9 +106,18 @@ void PointerWrap::DoVoid(void *data, int size) {
 	(*ptr) += size;
 }
 
+// Not exactly sane but might catch some corrupt files.
+const int MAX_SANE_STRING_LENGTH = 1024 * 1024;
+
 void Do(PointerWrap &p, std::string &x) {
 	int stringLen = (int)x.length() + 1;
 	Do(p, stringLen);
+
+	if (stringLen < 0 || stringLen > MAX_SANE_STRING_LENGTH) {
+		WARN_LOG(SAVESTATE, "Savestate failure: bad stringLen %d", stringLen);
+		p.SetError(PointerWrap::ERROR_FAILURE);
+		return;
+	}
 
 	switch (p.mode) {
 	case PointerWrap::MODE_READ: x = (char*)*p.ptr; break;
@@ -122,6 +131,12 @@ void Do(PointerWrap &p, std::string &x) {
 void Do(PointerWrap &p, std::wstring &x) {
 	int stringLen = sizeof(wchar_t) * ((int)x.length() + 1);
 	Do(p, stringLen);
+
+	if (stringLen < 0 || stringLen > MAX_SANE_STRING_LENGTH) {
+		WARN_LOG(SAVESTATE, "Savestate failure: bad stringLen %d", stringLen);
+		p.SetError(PointerWrap::ERROR_FAILURE);
+		return;
+	}
 
 	auto read = [&]() {
 		std::wstring r;
@@ -143,6 +158,12 @@ void Do(PointerWrap &p, std::wstring &x) {
 void Do(PointerWrap &p, std::u16string &x) {
 	int stringLen = sizeof(char16_t) * ((int)x.length() + 1);
 	Do(p, stringLen);
+
+	if (stringLen < 0 || stringLen > MAX_SANE_STRING_LENGTH) {
+		WARN_LOG(SAVESTATE, "Savestate failure: bad stringLen %d", stringLen);
+		p.SetError(PointerWrap::ERROR_FAILURE);
+		return;
+	}
 
 	auto read = [&]() {
 		std::u16string r;

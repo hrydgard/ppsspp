@@ -31,7 +31,6 @@ extern CMemoryDlg *memoryWindow;
 extern CGEDebugger* geDebuggerWindow;
 #endif
 
-extern HMENU g_hPopupMenus;
 extern int g_activeWindow;
 
 enum { WINDOW_MAINWINDOW, WINDOW_CPUDEBUGGER, WINDOW_GEDEBUGGER };

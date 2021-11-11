@@ -431,21 +431,32 @@ void Choice::Click() {
 }
 
 void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
-	if (atlasImage_.isValid()) {
-		dc.Draw()->GetAtlas()->measureImage(atlasImage_, &w, &h);
-	} else {
+	float totalW = 0.0f;
+	float totalH = 0.0f;
+	if (image_.isValid()) {
+		dc.Draw()->GetAtlas()->measureImage(image_, &w, &h);
+		totalW = w + 6;
+		totalH = h;
+	}
+	if (!text_.empty()) {
 		const int paddingX = 12;
-		float availWidth = horiz.size - paddingX * 2 - textPadding_.horiz();
+		float availWidth = horiz.size - paddingX * 2 - textPadding_.horiz() - totalW;
 		if (availWidth < 0.0f) {
 			// Let it have as much space as it needs.
 			availWidth = MAX_ITEM_SIZE;
 		}
+		if (horiz.type != EXACTLY && layoutParams_->width > 0.0f && availWidth > layoutParams_->width)
+			availWidth = layoutParams_->width;
 		float scale = CalculateTextScale(dc, availWidth);
 		Bounds availBounds(0, 0, availWidth, vert.size);
-		dc.MeasureTextRect(dc.theme->uiFont, scale, scale, text_.c_str(), (int)text_.size(), availBounds, &w, &h, FLAG_WRAP_TEXT);
+		float textW = 0.0f, textH = 0.0f;
+		dc.MeasureTextRect(dc.theme->uiFont, scale, scale, text_.c_str(), (int)text_.size(), availBounds, &textW, &textH, FLAG_WRAP_TEXT);
+		totalH = std::max(totalH, textH);
+		totalW += textW;
 	}
-	w += 24;
-	h += 16;
+
+	w = totalW + 24;
+	h = totalH + 16;
 	h = std::max(h, ITEM_HEIGHT);
 }
 
@@ -486,23 +497,31 @@ void Choice::Draw(UIContext &dc) {
 		style = dc.theme->itemDisabledStyle;
 	}
 
-	if (atlasImage_.isValid()) {
-		dc.Draw()->DrawImage(atlasImage_, bounds_.centerX(), bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
+	if (image_.isValid() && text_.empty()) {
+		dc.Draw()->DrawImageRotated(image_, bounds_.centerX(), bounds_.centerY(), imgScale_, imgRot_, style.fgColor, imgFlipH_);
 	} else {
 		dc.SetFontStyle(dc.theme->uiFont);
 
-		const int paddingX = 12;
-		const float availWidth = bounds_.w - paddingX * 2 - textPadding_.horiz();
+		int paddingX = 12;
+		float availWidth = bounds_.w - paddingX * 2 - textPadding_.horiz();
+
+		if (image_.isValid()) {
+			const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(image_);
+			paddingX += image->w + 6;
+			availWidth -= image->w + 6;
+			// TODO: Use scale rotation and flip here as well (DrawImageRotated is always ALIGN_CENTER for now)
+			dc.Draw()->DrawImage(image_, bounds_.x + 6, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
+		}
+
 		float scale = CalculateTextScale(dc, availWidth);
 
 		dc.SetFontScale(scale, scale);
 		if (centered_) {
 			dc.DrawTextRect(text_.c_str(), bounds_, style.fgColor, ALIGN_CENTER | FLAG_WRAP_TEXT);
 		} else {
-			if (iconImage_.isValid()) {
-				dc.Draw()->DrawImage(iconImage_, bounds_.x2() - 32 - paddingX, bounds_.centerY(), 0.5f, style.fgColor, ALIGN_CENTER);
+			if (rightIconImage_.isValid()) {
+				dc.Draw()->DrawImageRotated(rightIconImage_, bounds_.x2() - 32 - paddingX, bounds_.centerY(), rightIconScale_, rightIconRot_, style.fgColor, rightIconFlipH_);
 			}
-
 			Bounds textBounds(bounds_.x + paddingX + textPadding_.left, bounds_.y, availWidth, bounds_.h);
 			dc.DrawTextRect(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		}
@@ -532,6 +551,11 @@ void InfoItem::Draw(UIContext &dc) {
 	Item::Draw(dc);
 
 	UI::Style style = HasFocus() ? dc.theme->itemFocusedStyle : dc.theme->infoStyle;
+
+	if (choiceStyle_) {
+		style = HasFocus() ? dc.theme->buttonFocusedStyle : dc.theme->buttonStyle;
+	}
+
 
 	if (style.background.type == DRAW_SOLID_COLOR) {
 		// For a smoother fade, using the same color with 0 alpha.
@@ -591,6 +615,38 @@ void ItemHeader::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec hor
 std::string ItemHeader::DescribeText() const {
 	auto u = GetI18NCategory("UI Elements");
 	return ReplaceAll(u->T("%1 heading"), "%1", text_);
+}
+
+void BorderView::Draw(UIContext &dc) {
+	Color color = 0xFFFFFFFF;
+	if (style_ == BorderStyle::HEADER_FG)
+		color = dc.theme->headerStyle.fgColor;
+	else if (style_ == BorderStyle::ITEM_DOWN_BG)
+		color = dc.theme->itemDownStyle.background.color;
+
+	if (borderFlags_ & BORDER_TOP)
+		dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y + size_, color);
+	if (borderFlags_ & BORDER_LEFT)
+		dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x + size_, bounds_.y2(), color);
+	if (borderFlags_ & BORDER_BOTTOM)
+		dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2() - size_, bounds_.x2(), bounds_.y2(), color);
+	if (borderFlags_ & BORDER_RIGHT)
+		dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x2() - size_, bounds_.y, bounds_.x2(), bounds_.y2(), color);
+}
+
+void BorderView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
+	Bounds bounds(0, 0, layoutParams_->width, layoutParams_->height);
+	if (bounds.w < 0) {
+		// If there's no size, let's grow as big as we want.
+		bounds.w = horiz.size == 0 ? MAX_ITEM_SIZE : horiz.size;
+	}
+	if (bounds.h < 0) {
+		bounds.h = vert.size == 0 ? MAX_ITEM_SIZE : vert.size;
+	}
+	ApplyBoundsBySpec(bounds, horiz, vert);
+	// If we have vertical borders, grow to width so they're spaced apart.
+	w = (borderFlags_ & BORDER_VERT) != 0 ? bounds.w : 0;
+	h = (borderFlags_ & BORDER_HORIZ) != 0 ? bounds.h : 0;
 }
 
 void PopupHeader::Draw(UIContext &dc) {
@@ -730,8 +786,22 @@ void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 	if (imageID_.isValid()) {
 		dc.Draw()->GetAtlas()->measureImage(imageID_, &w, &h);
 	} else {
-		dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), &w, &h);
+		w = 0.0f;
+		h = 0.0f;
 	}
+
+	if (!text_.empty() && !ignoreText_) {
+		float width = 0.0f;
+		float height = 0.0f;
+		dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), &width, &height);
+
+		w += width;
+		if (imageID_.isValid()) {
+			w += paddingW_;
+		}
+		h = std::max(h, height);
+	}
+
 	// Add some internal padding to not look totally ugly
 	w += paddingW_;
 	h += paddingH_;
@@ -772,17 +842,82 @@ void Button::Draw(UIContext &dc) {
 	if (imageID_.isValid() && (ignoreText_ || text_.empty())) {
 		dc.Draw()->DrawImage(imageID_, bounds_.centerX(), bounds_.centerY(), scale_, 0xFFFFFFFF, ALIGN_CENTER);
 	} else if (!text_.empty()) {
-		dc.DrawText(text_.c_str(), bounds_.centerX(), bounds_.centerY(), style.fgColor, ALIGN_CENTER);
+		float textX = bounds_.centerX();
 		if (imageID_.isValid()) {
 			const AtlasImage *img = dc.Draw()->GetAtlas()->getImage(imageID_);
 			if (img) {
-				dc.Draw()->DrawImage(imageID_, bounds_.centerX() - tw / 2 - 5 - img->w / 2, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
+				dc.Draw()->DrawImage(imageID_, bounds_.centerX() - tw / 2 - 5, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
+				textX += img->w / 2.0f;
 			}
 		}
+		dc.DrawText(text_.c_str(), textX, bounds_.centerY(), style.fgColor, ALIGN_CENTER);
 	}
 	dc.SetFontScale(1.0f, 1.0f);
 
 	if (tw > bounds_.w || imageID_.isValid()) {
+		dc.PopScissor();
+	}
+}
+
+void RadioButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	w = 0.0f;
+	h = 0.0f;
+
+	if (!text_.empty()) {
+		dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), &w, &h);
+	}
+
+	// Add some internal padding to not look totally ugly
+	w += paddingW_ * 3.0f + radioRadius_ * 2.0f;
+	h = std::max(h, radioRadius_ * 2) + paddingH_ * 2;
+}
+
+std::string RadioButton::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return ReplaceAll(u->T("%1 radio button"), "%1", text_);
+}
+
+void RadioButton::Click() {
+	Clickable::Click();
+	UI::PlayUISound(UI::UISound::CONFIRM);
+	*value_ = thisButtonValue_;
+}
+
+void RadioButton::Draw(UIContext &dc) {
+	Style style = dc.theme->buttonStyle;
+
+	bool checked = *value_ == thisButtonValue_;
+
+	if (HasFocus()) style = dc.theme->buttonFocusedStyle;
+	if (down_) style = dc.theme->buttonDownStyle;
+	if (!IsEnabled()) style = dc.theme->buttonDisabledStyle;
+
+	DrawBG(dc, style);
+
+	dc.Flush();
+	dc.BeginNoTex();
+	dc.Draw()->Circle(bounds_.x + paddingW_ + radioRadius_, bounds_.centerY(), radioRadius_, 2.5f, 36, 0, style.fgColor, 1.0f);
+	if (checked) {
+		dc.Draw()->FillCircle(bounds_.x + paddingW_ + radioRadius_, bounds_.centerY(), radioInnerRadius_, 36, style.fgColor);
+	}
+	dc.Flush();
+	dc.Begin();
+
+	float tw, th;
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), &tw, &th);
+
+	if (tw > bounds_.w) {
+		dc.PushScissor(bounds_);
+	}
+
+	dc.SetFontStyle(dc.theme->uiFont);
+
+	if (!text_.empty()) {
+		float textX = bounds_.x + paddingW_ * 2.0f + radioRadius_ * 2.0f;
+		dc.DrawText(text_.c_str(), textX, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+	}
+
+	if (tw > bounds_.w) {
 		dc.PopScissor();
 	}
 }
@@ -813,6 +948,9 @@ void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 		bounds.h = vert.size == 0 ? MAX_ITEM_SIZE : vert.size;
 	}
 	ApplyBoundsBySpec(bounds, horiz, vert);
+	if (bullet_) {
+		bounds.w -= bulletOffset;
+	}
 	dc.MeasureTextRect(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), (int)text_.length(), bounds, &w, &h, textAlign_);
 
 	if (bullet_) {

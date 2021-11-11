@@ -69,6 +69,10 @@ ConsoleListener::ConsoleListener() : bHidden(true)
 	bUseColor = false;
 #elif defined(_MSC_VER)
 	bUseColor = false;
+#elif defined(__APPLE__)
+    // Xcode builtin terminal used for debugging does not support colours.
+    // Fortunately it can be detected with a TERM env variable.
+    bUseColor = isatty(fileno(stdout)) && getenv("TERM") != NULL;
 #else
 	bUseColor = isatty(fileno(stdout));
 #endif

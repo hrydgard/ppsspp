@@ -42,7 +42,7 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	//TODO: allow values greater than 100? I'm not sure if that's needed.
 	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityX, 0, 100, co->T("Tilt Sensitivity along X axis"), screenManager(),"%"));
 	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityY, 0, 100, co->T("Tilt Sensitivity along Y axis"), screenManager(),"%"));
-	settings->Add(new PopupSliderChoiceFloat(&g_Config.fDeadzoneRadius, 0.0, 1.0, co->T("Deadzone Radius"), 0.01f, screenManager(),"/ 1.0"));
+	settings->Add(new PopupSliderChoiceFloat(&g_Config.fDeadzoneRadius, 0.0, 1.0, co->T("Deadzone radius"), 0.01f, screenManager(),"/ 1.0"));
 	settings->Add(new PopupSliderChoiceFloat(&g_Config.fTiltDeadzoneSkip, 0.0, 1.0, co->T("Tilt Base Radius"), 0.01f, screenManager(),"/ 1.0"));
 
 	settings->Add(new ItemHeader(co->T("Calibration")));
@@ -54,7 +54,7 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	settings->Add(calibrate);
 
 	root_->Add(settings);
-	settings->Add(new ItemHeader(""));
+	settings->Add(new BorderView(BORDER_BOTTOM, BorderStyle::HEADER_FG, 2.0f, new LayoutParams(FILL_PARENT, 40.0f)));
 	settings->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 

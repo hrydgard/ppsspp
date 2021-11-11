@@ -45,12 +45,15 @@
 namespace DX9 {
 
 static const D3DPRIMITIVETYPE d3d_prim[8] = {
-	D3DPT_POINTLIST,
-	D3DPT_LINELIST,
-	D3DPT_LINESTRIP,
+	// Points, which are expanded to triangles.
+	D3DPT_TRIANGLELIST,
+	// Lines and line strips, which are also expanded to triangles.
+	D3DPT_TRIANGLELIST,
+	D3DPT_TRIANGLELIST,
 	D3DPT_TRIANGLELIST,
 	D3DPT_TRIANGLESTRIP,
 	D3DPT_TRIANGLEFAN,
+	// Rectangles, which are expanded to triangles.
 	D3DPT_TRIANGLELIST,
 };
 
@@ -77,10 +80,11 @@ enum {
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
 static const D3DVERTEXELEMENT9 TransformedVertexElements[] = {
-	{ 0, 0, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
-	{ 0, 16, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
-	{ 0, 28, D3DDECLTYPE_UBYTE4N, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR, 0 },
-	{ 0, 32, D3DDECLTYPE_UBYTE4N, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR, 1 },
+	{ 0, offsetof(TransformedVertex, pos), D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
+	{ 0, offsetof(TransformedVertex, uv), D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
+	{ 0, offsetof(TransformedVertex, color0), D3DDECLTYPE_UBYTE4N, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR, 0 },
+	{ 0, offsetof(TransformedVertex, color1), D3DDECLTYPE_UBYTE4N, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR, 1 },
+	{ 0, offsetof(TransformedVertex, fog), D3DDECLTYPE_FLOAT1, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_NORMAL, 0 },
 	D3DDECL_END()
 };
 
@@ -555,9 +559,31 @@ rotateVBO:
 		params.allowClear = true;
 		params.allowSeparateAlphaClear = false;
 		params.provokeFlatFirst = true;
+		params.flippedY = false;
+		params.usesHalfZ = true;
+
+		// We need correct viewport values in gstate_c already.
+		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
+			ViewportAndScissor vpAndScissor;
+			ConvertViewportAndScissor(framebufferManager_->UseBufferedRendering(),
+				framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
+				framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
+				vpAndScissor);
+		}
 
 		int maxIndex = indexGen.MaxIndex();
 		SoftwareTransform swTransform(params);
+
+		// Half pixel offset hack.
+		float xScale = gstate_c.vpWidth < 0 ? -1.0f : 1.0f;
+		float xOffset = -1.0f / gstate_c.curRTRenderWidth;
+		float yScale = gstate_c.vpHeight > 0 ? -1.0f : 1.0f;
+		float yOffset = 1.0f / gstate_c.curRTRenderHeight;
+
+		const Lin::Vec3 trans(gstate_c.vpXOffset * xScale + xOffset, gstate_c.vpYOffset * yScale + yOffset, gstate_c.vpZOffset * 0.5f + 0.5f);
+		const Lin::Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
+		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, gstate_c.vpHeight > 0, trans, scale);
+
 		swTransform.Decode(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), maxIndex, &result);
 		if (result.action == SW_NOT_READY) {
 			swTransform.DetectOffsetTexture(maxIndex);

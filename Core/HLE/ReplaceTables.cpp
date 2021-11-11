@@ -160,6 +160,13 @@ static int Replace_memcpy() {
 	NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
 	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
 
+	// It's pretty common that games will copy video data.
+	if (tag == "ReplaceMemcpy/VideoDecode" || tag == "ReplaceMemcpy/VideoDecodeRange") {
+		if (bytes == 512 * 272 * 4) {
+			gpu->NotifyVideoUpload(destPtr, bytes, 512, GE_FORMAT_8888);
+		}
+	}
+
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -202,6 +209,13 @@ static int Replace_memcpy_jak() {
 	const std::string tag = "ReplaceMemcpy/" + GetMemWriteTagAt(srcPtr, bytes);
 	NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
 	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
+
+	// It's pretty common that games will copy video data.
+	if (tag == "ReplaceMemcpy/VideoDecode" || tag == "ReplaceMemcpy/VideoDecodeRange") {
+		if (bytes == 512 * 272 * 4) {
+			gpu->NotifyVideoUpload(destPtr, bytes, 512, GE_FORMAT_8888);
+		}
+	}
 
 	return 5 + bytes * 8 + 2;  // approximation. This is a slow memcpy - a byte copy loop..
 }

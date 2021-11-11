@@ -262,8 +262,8 @@ public:
 // A scrollview usually contains just a single child - a linear layout or similar.
 class ScrollView : public ViewGroup {
 public:
-	ScrollView(Orientation orientation, LayoutParams *layoutParams = 0, bool rememberPosition = false)
-		: ViewGroup(layoutParams), orientation_(orientation), rememberPosition_(rememberPosition) {}
+	ScrollView(Orientation orientation, LayoutParams *layoutParams = 0)
+		: ViewGroup(layoutParams), orientation_(orientation) {}
 	~ScrollView();
 
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
@@ -277,9 +277,13 @@ public:
 	void ScrollTo(float newScrollPos);
 	void ScrollToBottom();
 	void ScrollRelative(float distance);
-	float GetScrollPosition();
 	bool CanScroll() const;
 	void Update() override;
+
+	void RememberPosition(float *pos) {
+		rememberPos_ = pos;
+		ScrollTo(*pos);
+	}
 
 	// Get the last moved scroll view position
 	static void GetLastScrollPosition(float &x, float &y);
@@ -290,9 +294,6 @@ public:
 	void SetVisibility(Visibility visibility) override;
 
 	NeighborResult FindScrollNeighbor(View *view, const Point &target, FocusDirection direction, NeighborResult best) override;
-
-	// Quick hack to prevent scrolling to top in some lists
-	void SetScrollToTop(bool t) { scrollToTopOnSizeChange_ = t; }
 
 private:
 	float ClampedScrollPos(float pos);
@@ -308,8 +309,7 @@ private:
 	float inertia_ = 0.0f;
 	float pull_ = 0.0f;
 	float lastViewSize_ = 0.0f;
-	bool scrollToTopOnSizeChange_ = false;
-	bool rememberPosition_;
+	float *rememberPos_ = nullptr;
 
 	static float lastScrollPosX;
 	static float lastScrollPosY;
@@ -330,7 +330,8 @@ public:
 	int GetSelection() const { return selected_; }
 	void SetSelection(int sel, bool triggerClick);
 
-	void HighlightChoice(unsigned int choice);
+	void HighlightChoice(int choice);
+	void EnableChoice(int choice, bool enabled);
 
 	bool Key(const KeyInput &input) override;
 
@@ -359,6 +360,9 @@ public:
 	T *AddTab(const std::string &title, T *tabContents) {
 		AddTabContents(title, (View *)tabContents);
 		return tabContents;
+	}
+	void EnableTab(int tab, bool enabled) {
+		tabStrip_->EnableChoice(tab, enabled);
 	}
 
 	void SetCurrentTab(int tab, bool skipTween = false);

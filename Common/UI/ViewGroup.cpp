@@ -800,15 +800,17 @@ void ScrollView::Layout() {
 	switch (orientation_) {
 	case ORIENT_HORIZONTAL:
 		if (scrolled.w != lastViewSize_) {
-			ScrollTo(0.0f);
+			if (rememberPos_)
+				scrollPos_ = *rememberPos_;
 			lastViewSize_ = scrolled.w;
 		}
 		scrolled.x = bounds_.x - layoutScrollPos_;
 		scrolled.y = bounds_.y + margins.top;
 		break;
 	case ORIENT_VERTICAL:
-		if (scrolled.h != lastViewSize_ && scrollToTopOnSizeChange_) {
-			ScrollTo(0.0f);
+		if (scrolled.h != lastViewSize_) {
+			if (rememberPos_)
+				scrollPos_ = *rememberPos_;
 			lastViewSize_ = scrolled.h;
 		}
 		scrolled.x = bounds_.x + margins.left;
@@ -1017,15 +1019,11 @@ void ScrollView::PersistData(PersistStatus status, std::string anonId, PersistMa
 void ScrollView::SetVisibility(Visibility visibility) {
 	ViewGroup::SetVisibility(visibility);
 
-	if (visibility == V_GONE && !rememberPosition_) {
+	if (visibility == V_GONE && !rememberPos_) {
 		// Since this is no longer shown, forget the scroll position.
 		// For example, this happens when switching tabs.
 		ScrollTo(0.0f);
 	}
-}
-
-float ScrollView::GetScrollPosition() {
-	return scrollPos_;
 }
 
 void ScrollView::ScrollTo(float newScrollPos) {
@@ -1141,6 +1139,11 @@ void ScrollView::Update() {
 
 	if (oldPos != scrollPos_)
 		orientation_ == ORIENT_HORIZONTAL ? lastScrollPosX = scrollPos_ : lastScrollPosY = scrollPos_;
+
+	// We load some lists asynchronously, so don't update the position until it's loaded.
+	if (rememberPos_ && ClampedScrollPos(scrollPos_) != ClampedScrollPos(*rememberPos_)) {
+		*rememberPos_ = scrollPos_;
+	}
 }
 
 void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
@@ -1502,11 +1505,17 @@ void ChoiceStrip::SetSelection(int sel, bool triggerClick) {
 	}
 }
 
-void ChoiceStrip::HighlightChoice(unsigned int choice){
-	if (choice < (unsigned int)views_.size()){
+void ChoiceStrip::HighlightChoice(int choice) {
+	if (choice < (int)views_.size()) {
 		Choice(choice)->HighlightChanged(true);
 	}
-};
+}
+
+void ChoiceStrip::EnableChoice(int choice, bool enabled) {
+	if (choice < (int)views_.size()) {
+		Choice(choice)->SetEnabled(enabled);
+	}
+}
 
 bool ChoiceStrip::Key(const KeyInput &input) {
 	bool ret = false;

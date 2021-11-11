@@ -72,8 +72,6 @@ public:
 
 	void Clear();
 
-	void SetLineWidth(float lw);
-
 	void DeviceLost();
 	void DeviceRestore(VulkanContext *vulkan);
 
@@ -89,6 +87,5 @@ private:
 	DenseHashMap<VulkanPipelineKey, VulkanPipeline *, nullptr> pipelines_;
 	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
 	VulkanContext *vulkan_;
-	float lineWidth_ = 1.0f;
 	bool cancelCache_ = false;
 };

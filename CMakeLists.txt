@@ -25,7 +25,15 @@ endif()
 
 # Detect CPU from CMAKE configuration. Toolchains should set this up
 if(CMAKE_SYSTEM_PROCESSOR)
-	if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^aarch64")
+	if(CMAKE_OSX_ARCHITECTURES)
+		if("${CMAKE_OSX_ARCHITECTURES}" MATCHES ".*86.*")
+			set(X86_DEVICE ON)
+			set(X86_64_DEVICE ON)
+		endif()
+		if("${CMAKE_OSX_ARCHITECTURES}" MATCHES "arm64")
+			set(ARM64 ON)
+		endif()
+	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^aarch64")
 		set(ARM64 ON)
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm64")
 		# M1 Mac
@@ -94,8 +102,12 @@ if(ANDROID OR WIN32 OR (UNIX AND NOT ARM_NO_VULKAN))
 endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
-if(NOT ((ARM64 AND MACOSX) OR IOS))
+if(NOT IOS)
 	list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/sdl)
+endif()
+
+if(MACOSX AND NOT USE_SYSTEM_LIBSDL2)
+	set(SDL2_LIBRARY ${CMAKE_SOURCE_DIR}/SDL/macOS/SDL2.framework)
 endif()
 
 include(ccache)
@@ -139,6 +151,9 @@ option(USE_MINIUPNPC "Build with miniUPnPc support" ON)
 option(USE_SYSTEM_SNAPPY "Dynamically link against system snappy" ${USE_SYSTEM_SNAPPY})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
 option(USE_SYSTEM_LIBZIP "Dynamically link against system libzip" ${USE_SYSTEM_LIBZIP})
+option(USE_SYSTEM_LIBSDL2 "Dynamically link against system SDL2" ON)
+option(USE_SYSTEM_LIBPNG "Dynamically link against system libpng" ON)
+option(USE_SYSTEM_ZSTD "Dynamically link against system zstd" ${USE_SYSTEM_ZSTD})
 option(USE_ASAN "Use address sanitizer" OFF)
 option(USE_UBSAN "Use undefined behaviour sanitizer" OFF)
 
@@ -340,9 +355,8 @@ if(NOT MSVC)
 
 	if(IOS)
 	elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)
-		set(MACOSX_VERSION_MIN "10.8")
-		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mmacosx-version-min=${MACOSX_VERSION_MIN}")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mmacosx-version-min=${MACOSX_VERSION_MIN} -stdlib=libc++ -U__STRICT_ANSI__")
+		set(CMAKE_OSX_DEPLOYMENT_TARGET "10.8")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -U__STRICT_ANSI__")
 		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
 	elseif(NOT ANDROID)
 		# TODO: See if we can get rid of no-psabi
@@ -674,7 +688,6 @@ add_library(Common STATIC
 	Common/LogManager.h
 	Common/LogReporting.cpp
 	Common/LogReporting.h
-	Common/MakeUnique.h
 	Common/MemArenaAndroid.cpp
 	Common/MemArenaDarwin.cpp
 	Common/MemArenaPosix.cpp
@@ -959,7 +972,9 @@ else()
 	set(PNG_REQUIRED_VERSION 1.6)
 endif()
 
+if(USE_SYSTEM_LIBPNG)
 find_package(PNG ${PNG_REQUIRED_VERSION})
+endif()
 if(PNG_FOUND)
 	include_directories(${PNG_INCLUDE_DIRS})
 else()
@@ -1634,6 +1649,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/WebSocket/GPUBufferSubscriber.h
 	Core/Debugger/WebSocket/GPURecordSubscriber.cpp
 	Core/Debugger/WebSocket/GPURecordSubscriber.h
+	Core/Debugger/WebSocket/GPUStatsSubscriber.cpp
+	Core/Debugger/WebSocket/GPUStatsSubscriber.h
 	Core/Debugger/WebSocket/HLESubscriber.cpp
 	Core/Debugger/WebSocket/HLESubscriber.h
 	Core/Debugger/WebSocket/InputBroadcaster.cpp
@@ -1960,8 +1977,7 @@ if(ANDROID)
 	endif()
 endif()
 
-set(CoreExtraLibs ${CoreExtraLibs} armips libzstd_static)
-include_directories(ext/zstd/lib)
+set(CoreExtraLibs ${CoreExtraLibs} armips)
 
 # needed for VK_USE_PLATFORM_XCB_KHR only
 #if(VULKAN AND NOT WIN32)
@@ -1979,7 +1995,18 @@ if(WIN32)
 endif()
 
 if(OPENGL_opengl_LIBRARY AND OpenGL_GL_PREFERENCE STREQUAL GLVND AND NOT APPLE)
-    set(OPENGL_LIBRARIES OpenGL::OpenGL)
+	set(OPENGL_LIBRARIES OpenGL::OpenGL)
+endif()
+
+if(USE_SYSTEM_ZSTD)
+	find_package(ZSTD REQUIRED)
+	target_include_directories(${CoreLibName} PRIVATE ${ZSTD_INCLUDE_DIR})
+	target_link_libraries(${CoreLibName} ${ZSTD_LIBRARY})
+else()
+	set(ZSTD_BUILD_PROGRAMS OFF CACHE BOOL "we don't need zstd programs" FORCE)
+	add_subdirectory(ext/zstd/build/cmake EXCLUDE_FROM_ALL)
+	set(CoreExtraLibs ${CoreExtraLibs} libzstd_static)
+	include_directories(ext/zstd/lib)
 endif()
 
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash ${GlslangLibs}
@@ -2103,7 +2130,6 @@ set(WindowsFiles
 	Windows/WindowsAudio.h
 	Windows/WASAPIStream.cpp
 	Windows/WASAPIStream.h
-	Windows/Debugger/CPURegsInterface.h
 	Windows/Debugger/BreakpointWindow.cpp
 	Windows/Debugger/BreakpointWindow.h
 	Windows/Debugger/DumpMemoryWindow.cpp
@@ -2159,18 +2185,16 @@ set(WindowsFiles
 	Windows/InputBox.h
 	Windows/InputDevice.cpp
 	Windows/InputDevice.h
+	Windows/W32Util/ContextMenu.h
+	Windows/W32Util/ContextMenu.h
 	Windows/W32Util/DialogManager.cpp
 	Windows/W32Util/DialogManager.h
 	Windows/W32Util/Misc.cpp
 	Windows/W32Util/Misc.h
-	Windows/W32Util/PropertySheet.cpp
-	Windows/W32Util/PropertySheet.h
 	Windows/W32Util/ShellUtil.cpp
 	Windows/W32Util/ShellUtil.h
 	Windows/W32Util/TabControl.cpp
 	Windows/W32Util/TabControl.h
-	Windows/W32Util/PropertySheet.cpp
-	Windows/W32Util/PropertySheet.h
 	Windows/WindowsHost.cpp
 	Windows/WindowsHost.h
 	Windows/MainWindow.cpp
@@ -2181,7 +2205,6 @@ set(WindowsFiles
 	Windows/RawInput.h
 	Windows/TouchInputHandler.cpp
 	Windows/TouchInputHandler.h
-	Windows/XPTheme.h
 	Windows/XinputDevice.cpp
 	Windows/XinputDevice.h
 	Windows/main.cpp
@@ -2203,6 +2226,9 @@ endif()
 set(NativeAssets
 	android/assets/ui_atlas_luna.zim
 	android/assets/ui_atlas_luna.meta
+	android/assets/font_atlas_luna.zim
+	android/assets/font_atlas_luna.meta
+	assets/debugger
 	assets/lang
 	assets/shaders
 	assets/Roboto-Condensed.ttf
@@ -2300,6 +2326,8 @@ if(TargetBin)
 			set(ICON_PATH_ABS ${CMAKE_CURRENT_SOURCE_DIR}/icons/ppsspp.icns)
 			set(MACOSX_BUNDLE_ICON_FILE ppsspp.icns)
 			set_source_files_properties(${ICON_PATH_ABS} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+			set(MACOSX_BUNDLE_BUNDLE_NAME PPSSPP)
+			set(MACOSX_BUNDLE_GUI_IDENTIFIER org.ppsspp.ppsspp)
 		endif()
 
 		# TODO: there must a native way to copy these.
@@ -2308,19 +2336,22 @@ if(TargetBin)
 		file(GLOB_RECURSE FLASH0_FILES assets/flash0/*)
 		file(GLOB_RECURSE LANG_FILES assets/lang/*)
 		file(GLOB_RECURSE SHADER_FILES assets/shaders/*)
+		file(GLOB_RECURSE DEBUGGER_FILES assets/debugger/*)
 
 		if(NOT IOS)
-			set_source_files_properties(${NativeAssets} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets")
-			set_source_files_properties(${FLASH0_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/flash0/font")
-			set_source_files_properties(${LANG_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/lang")
-			set_source_files_properties(${SHADER_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/shaders")
+			set_source_files_properties(${NativeAssets} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets")
+			set_source_files_properties(${FLASH0_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/flash0/font")
+			set_source_files_properties(${LANG_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/lang")
+			set_source_files_properties(${SHADER_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/shaders")
+			set_source_files_properties(${DEBUGGER_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/debugger")
 		endif()
 
 		if(IOS)
-			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard" "MoltenVK/iOS/Frameworks")
+			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
+			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/iOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPP.app/Frameworks/")
 		else()
-			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
-			file(INSTALL "${CMAKE_SOURCE_DIR}/MoltenVK/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPPSDL.app/Contents/Frameworks/")
+			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
+			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPPSDL.app/Contents/Frameworks/")
 			if(TARGET SDL2::SDL2 AND NOT USING_QT_UI)
 				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/SDL/macbundle.sh" "${CMAKE_BINARY_DIR}/PPSSPPSDL.app")
 			elseif(USING_QT_UI)
@@ -2379,7 +2410,7 @@ if(IOS)
 		MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist"
 		RESOURCE "ios/Launch Screen.storyboard"
 		RESOURCE "ios/Settings.bundle"
-		RESOURCE "MoltenVK/iOS/Frameworks"
+		RESOURCE "ext/vulkan/iOS/Frameworks"
 		XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
 		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
 		XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES

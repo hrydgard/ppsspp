@@ -43,29 +43,12 @@ void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bo
 		float pspViewport = (y - gstate.getViewportYCenter()) * (1.0f / gstate.getViewportYScale());
 		return (pspViewport * heightScale) - yOffset;
 	};
-	auto reverseViewportZ = [hasNegZ](float z) {
-		float vpZScale = gstate.getViewportZScale();
-		float vpZCenter = gstate.getViewportZCenter();
-
-		float scale, center;
-		if (gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
-			// These are just the reverse of the formulas in GPUStateUtils.
-			float halfActualZRange = vpZScale * (1.0f / gstate_c.vpDepthScale);
-			float minz = -((gstate_c.vpZOffset * halfActualZRange) - vpZCenter) - halfActualZRange;
-
-			// In accurate depth mode, we're comparing against a value scaled to (minz, maxz).
-			// And minz might be very negative, (e.g. if we're clamping in that direction.)
-			scale = halfActualZRange;
-			center = minz + halfActualZRange;
-		} else {
-			// In old-style depth mode, we're comparing against a value scaled to viewport.
-			// (and possibly incorrectly clipped against it.)
-			scale = vpZScale;
-			center = vpZCenter;
+	auto transformZ = [hasNegZ](float z) {
+		// Z culling ignores the viewport, so we just redo the projection matrix adjustments.
+		if (hasNegZ) {
+			return (z * gstate_c.vpDepthScale) + gstate_c.vpZOffset;
 		}
-
-		float realViewport = (z - center) * (1.0f / scale);
-		return hasNegZ ? realViewport : (realViewport * 0.5f + 0.5f);
+		return (z * gstate_c.vpDepthScale * 0.5f) + gstate_c.vpZOffset * 0.5f + 0.5f;
 	};
 	auto sortPair = [](float a, float b) {
 		return a > b ? std::make_pair(b, a) : std::make_pair(a, b);
@@ -75,7 +58,7 @@ void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bo
 	// Any vertex outside this range (unless depth clamp enabled) is discarded.
 	auto x = sortPair(reverseViewportX(0.0f), reverseViewportX(4096.0f));
 	auto y = sortPair(reverseViewportY(0.0f), reverseViewportY(4096.0f));
-	auto z = sortPair(reverseViewportZ(0.0f), reverseViewportZ(65535.5f));
+	auto z = sortPair(transformZ(-1.000030517578125f), transformZ(1.000030517578125f));
 	// Since we have space in w, use it to pass the depth clamp flag.  We also pass NAN for w "discard".
 	float clampEnable = gstate.isDepthClampEnabled() ? 1.0f : 0.0f;
 
@@ -151,6 +134,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 			flippedMatrix = flippedMatrix * g_display_rot_matrix;
 		}
 		CopyMatrix4x4(ub->proj, flippedMatrix.getReadPtr());
+		ub->rotation = useBufferedRendering ? 0 : (float)g_display_rotation;
 	}
 
 	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
@@ -164,6 +148,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 			proj_through = proj_through * g_display_rot_matrix;
 		}
 		CopyMatrix4x4(ub->proj_through, proj_through.getReadPtr());
+		ub->rotation = useBufferedRendering ? 0 : (float)g_display_rotation;
 	}
 
 	// Transform
@@ -243,18 +228,11 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		float viewZScale = halfActualZRange * 2.0f;
 		// Account for the half pixel offset.
 		float viewZCenter = minz + (DepthSliceFactor() / 256.0f) * 0.5f;
-		float viewZInvScale;
-
-		if (viewZScale != 0.0) {
-			viewZInvScale = 1.0f / viewZScale;
-		} else {
-			viewZInvScale = 0.0;
-		}
 
 		ub->depthRange[0] = viewZScale;
 		ub->depthRange[1] = viewZCenter;
-		ub->depthRange[2] = viewZCenter;
-		ub->depthRange[3] = viewZInvScale;
+		ub->depthRange[2] = gstate_c.vpZOffset * 0.5f + 0.5f;
+		ub->depthRange[3] = 2.0f * (1.0f / gstate_c.vpDepthScale);
 	}
 
 	if (dirtyUniforms & DIRTY_CULLRANGE) {

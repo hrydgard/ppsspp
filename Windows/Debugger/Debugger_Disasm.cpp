@@ -405,11 +405,11 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				bottomTabs->ShowTab(stackTraceView->GetHandle());
 				break;
 
-			case ID_DEBUG_DSIPLAYREGISTERLIST:
+			case ID_DEBUG_DISPLAYREGISTERLIST:
 				leftTabs->ShowTab(0);
 				break;
 				
-			case ID_DEBUG_DSIPLAYFUNCTIONLIST:
+			case ID_DEBUG_DISPLAYFUNCTIONLIST:
 				leftTabs->ShowTab(1);
 				break;
 
@@ -420,7 +420,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					if (isRunning)
 					{
 						SetDebugMode(true, false);
-						Core_EnableStepping(true);
+						Core_EnableStepping(true, "cpu.breakpoint.add", 0);
 						Core_WaitInactive(200);
 					}
 
@@ -523,7 +523,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					{
 						ptr->setDontRedraw(false);
 						SetDebugMode(true, true);
-						Core_EnableStepping(true);
+						Core_EnableStepping(true, "ui.break", 0);
 						Sleep(1); //let cpu catch up
 						ptr->gotoPC();
 						UpdateDialog();
@@ -585,10 +585,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				}
 				break;
 
-			case IDC_ALLFUNCTIONS:
-				if (g_symbolMap)
-					g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST),ST_FUNCTION);
-				break;
 			default:
 				return FALSE;
 			}

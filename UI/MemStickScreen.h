@@ -38,6 +38,13 @@ public:
 
 	std::string tag() const override { return "game"; }
 
+	enum Choice {
+		CHOICE_BROWSE_FOLDER,
+		CHOICE_PRIVATE_DIRECTORY,
+		CHOICE_STORAGE_ROOT,
+		CHOICE_SET_MANUAL,
+	};
+
 protected:
 	void CreateViews() override;
 
@@ -56,15 +63,25 @@ protected:
 
 private:
 	// Event handlers
-	UI::EventReturn OnBrowse(UI::EventParams &e);
-	UI::EventReturn OnUseInternalStorage(UI::EventParams &params);
-	UI::EventReturn OnUseStorageRoot(UI::EventParams &params);
-	UI::EventReturn OnSetFolderManually(UI::EventParams &params);
+	UI::EventReturn OnHelp(UI::EventParams &e);
+
+	// Confirm button sub handlers
+	UI::EventReturn Browse(UI::EventParams &e);
+	UI::EventReturn UseInternalStorage(UI::EventParams &params);
+	UI::EventReturn UseStorageRoot(UI::EventParams &params);
+	UI::EventReturn SetFolderManually(UI::EventParams &params);
+
+	// Button handlers.
+	UI::EventReturn OnConfirmClick(UI::EventParams &params);
+	UI::EventReturn OnChoiceClick(UI::EventParams &params);
 
 	SettingInfoMessage *settingInfo_ = nullptr;
 
 	bool initialSetup_;
+	bool storageBrowserWorking_;
 	bool done_ = false;
+
+	int choice_ = 0;
 };
 
 class ProgressReporter {
@@ -82,6 +99,13 @@ public:
 private:
 	std::string progress_;
 	std::mutex mutex_;
+};
+
+struct MoveResult {
+	bool success;  // Got through the whole move.
+	std::string errorMessage;
+	size_t failedFiles;
+	size_t skippedFiles;
 };
 
 class ConfirmMemstickMoveScreen : public UIDialogScreenWithBackground {
@@ -106,7 +130,7 @@ private:
 	ProgressReporter progressReporter_;
 	UI::TextView *progressView_ = nullptr;
 
-	Promise<bool> *moveDataTask_ = nullptr;
+	Promise<MoveResult> *moveDataTask_ = nullptr;
 
 	std::string error_;
 };

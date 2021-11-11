@@ -1,0 +1,8 @@
+[package]
+authors = ["Henrik Rydgård <hrydgard@gmail.com>"]
+edition = "2018"
+name = "langtool"
+version = "0.1.0"
+
+[dependencies]
+structopt = "0.3"

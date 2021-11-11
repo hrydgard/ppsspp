@@ -96,7 +96,7 @@ static const int MPEG_HEADER_BUFFER_MINIMUM_SIZE = 2048;
 
 // For PMP media
 static u32 pmp_videoSource = 0; //pointer to the video source (SceMpegLLi structure) 
-static int pmp_nBlocks = 0; //number of blocks received in the last sceMpegbase_BEA18F91 call
+static int pmp_nBlocks = 0; //number of blocks received in the last sceMpegBasePESpacketCopy call
 static std::list<AVFrame*> pmp_queue; //list of pmp video frames have been decoded and will be played
 static std::list<u32> pmp_ContextList; //list of pmp media contexts
 static bool pmp_oldStateLoaded = false; // for dostate
@@ -2405,7 +2405,7 @@ void Register_sceMpeg()
 
 // This function is currently only been used for PMP videos
 // p pointing to a SceMpegLLI structure consists of video frame blocks.
-static u32 sceMpegbase_BEA18F91(u32 p)
+static u32 sceMpegBasePESpacketCopy(u32 p)
 {
 	pmp_videoSource = p;
 	pmp_nBlocks = 0;
@@ -2420,13 +2420,13 @@ static u32 sceMpegbase_BEA18F91(u32 p)
 		p = p + sizeof(SceMpegLLI);
 	}
 	
-	DEBUG_LOG(ME, "sceMpegbase_BEA18F91(%08x), received %d block(s)", pmp_videoSource, pmp_nBlocks);
+	DEBUG_LOG(ME, "sceMpegBasePESpacketCopy(%08x), received %d block(s)", pmp_videoSource, pmp_nBlocks);
 	return 0;
 }
 
 const HLEFunction sceMpegbase[] =
 {
-	{0XBEA18F91, &WrapU_U<sceMpegbase_BEA18F91>,               "sceMpegbase_BEA18F91",               'x', "x"      },
+	{0XBEA18F91, &WrapU_U<sceMpegBasePESpacketCopy>,           "sceMpegBasePESpacketCopy",           'x', "x"      },
 	{0X492B5E4B, nullptr,                                      "sceMpegBaseCscInit",                 '?', ""       },
 	{0X0530BE4E, nullptr,                                      "sceMpegbase_0530BE4E",               '?', ""       },
 	{0X91929A21, nullptr,                                      "sceMpegBaseCscAvc",                  '?', ""       },

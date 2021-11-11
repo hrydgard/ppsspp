@@ -72,7 +72,9 @@ struct TextureShaderInfo {
 	std::string name;
 
 	Path computeShaderFile;
-	int maxScale;
+
+	// Upscaling shaders have a fixed scale factor.
+	int scaleFactor;
 
 	bool operator == (const std::string &other) {
 		return name == other;
@@ -82,7 +84,7 @@ struct TextureShaderInfo {
 	}
 };
 
-void ReloadAllPostShaderInfo();
+void ReloadAllPostShaderInfo(Draw::DrawContext *draw);
 
 const ShaderInfo *GetPostShaderInfo(const std::string &name);
 std::vector<const ShaderInfo *> GetPostShaderChain(const std::string &name);

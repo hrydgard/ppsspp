@@ -17,6 +17,7 @@
 
 #include "ppsspp_config.h"
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 #include <memory>
 #include <png.h>
@@ -31,6 +32,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Thread/ParallelLoop.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/System.h"
@@ -455,7 +457,7 @@ bool TextureReplacer::PopulateLevel(ReplacedTextureLevel &level) {
 	auto imageType = Identify(fp);
 	if (imageType == ReplacedImageType::ZIM) {
 		fseek(fp, 4, SEEK_SET);
-		good = good && fread(&level.w, 4, 1, fp) == 1;
+		good = fread(&level.w, 4, 1, fp) == 1;
 		good = good && fread(&level.h, 4, 1, fp) == 1;
 		int flags;
 		if (good && fread(&flags, 4, 1, fp) == 1) {
@@ -621,6 +623,15 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	savedCache_[replacementKey] = saved;
 }
 
+void TextureReplacer::Decimate(bool forcePressure) {
+	// Allow replacements to be cached for a long time, although they're large.
+	const double age = forcePressure ? 90.0 : 1800.0;
+	const double threshold = time_now_d() - age;
+	for (auto &item : cache_) {
+		item.second.PurgeIfOlder(threshold);
+	}
+}
+
 template <typename Key, typename Value>
 static typename std::unordered_map<Key, Value>::const_iterator LookupWildcard(const std::unordered_map<Key, Value> &map, Key &key, u64 cachekey, u32 hash, bool ignoreAddress) {
 	auto alias = map.find(key);
@@ -733,36 +744,153 @@ float TextureReplacer::LookupReduceHashRange(int& w, int& h) {
 	}
 }
 
-void ReplacedTexture::Load(int level, void *out, int rowPitch) {
+class LimitedWaitable : public Waitable {
+public:
+	LimitedWaitable() {
+		triggered_ = false;
+	}
+
+	void Wait() override {
+		if (!triggered_) {
+			std::unique_lock<std::mutex> lock(mutex_);
+			cond_.wait(lock, [&] { return !triggered_; });
+		}
+	}
+
+	bool WaitFor(double budget) {
+		uint32_t us = budget > 0 ? (uint32_t)(budget * 1000000.0) : 0;
+		if (!triggered_) {
+			if (us == 0)
+				return false;
+			std::unique_lock<std::mutex> lock(mutex_);
+			cond_.wait_for(lock, std::chrono::microseconds(us), [&] { return !triggered_; });
+		}
+		return triggered_;
+	}
+
+	void Notify() {
+		std::unique_lock<std::mutex> lock(mutex_);
+		triggered_ = true;
+		cond_.notify_all();
+	}
+
+private:
+	std::condition_variable cond_;
+	std::mutex mutex_;
+	std::atomic<bool> triggered_;
+};
+
+class ReplacedTextureTask : public Task {
+public:
+	ReplacedTextureTask(ReplacedTexture &tex, LimitedWaitable *w) : tex_(tex), waitable_(w) {
+	}
+
+	void Run() override {
+		tex_.Prepare();
+		waitable_->Notify();
+	}
+
+private:
+	ReplacedTexture &tex_;
+	LimitedWaitable *waitable_;
+};
+
+bool ReplacedTexture::IsReady(double budget) {
+	lastUsed_ = time_now_d();
+	if (threadWaitable_) {
+		if (!threadWaitable_->WaitFor(budget)) {
+			return false;
+		} else {
+			threadWaitable_->WaitAndRelease();
+			threadWaitable_ = nullptr;
+		}
+	}
+
+	// Loaded already, or not yet on a thread?
+	if (!levelData_.empty())
+		return true;
+	// Let's not even start a new texture if we're already behind.
+	if (budget < 0.0)
+		return false;
+
+	if (g_Config.bReplaceTexturesAllowLate) {
+		threadWaitable_ = new LimitedWaitable();
+		g_threadManager.EnqueueTask(new ReplacedTextureTask(*this, threadWaitable_), TaskType::IO_BLOCKING);
+
+		if (threadWaitable_->WaitFor(budget)) {
+			threadWaitable_->WaitAndRelease();
+			threadWaitable_ = nullptr;
+
+			// If we finished all the levels, we're done.
+			return !levelData_.empty();
+		}
+	} else {
+		Prepare();
+		return true;
+	}
+
+	// Still pending on thread.
+	return false;
+}
+
+void ReplacedTexture::Prepare() {
+	levelData_.resize(MaxLevel() + 1);
+	for (int i = 0; i <= MaxLevel(); ++i) {
+		if (cancelPrepare_)
+			break;
+		PrepareData(i);
+	}
+}
+
+void ReplacedTexture::PrepareData(int level) {
 	_assert_msg_((size_t)level < levels_.size(), "Invalid miplevel");
-	_assert_msg_(out != nullptr && rowPitch > 0, "Invalid out/pitch");
 
 	const ReplacedTextureLevel &info = levels_[level];
+	std::vector<uint8_t> &out = levelData_[level];
 
 	FILE *fp = File::OpenCFile(info.file, "rb");
+	if (!fp) {
+		// Leaving the data sized at zero means failure.
+		return;
+	}
+
 	auto imageType = Identify(fp);
 	if (imageType == ReplacedImageType::ZIM) {
 		size_t zimSize = File::GetFileSize(fp);
 		std::unique_ptr<uint8_t[]> zim(new uint8_t[zimSize]);
+		if (!zim) {
+			ERROR_LOG(G3D, "Failed to allocate memory for texture replacement");
+			fclose(fp);
+			return;
+		}
+
 		if (fread(&zim[0], 1, zimSize, fp) != zimSize) {
 			ERROR_LOG(G3D, "Could not load texture replacement: %s - failed to read ZIM", info.file.c_str());
+			fclose(fp);
 			return;
 		}
 
 		int w, h, f;
 		uint8_t *image;
-		const int MIN_LINES_PER_THREAD = 4;
 		if (LoadZIMPtr(&zim[0], zimSize, &w, &h, &f, &image)) {
-			ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
-				for (int y = l; y < h; ++y) {
-					memcpy((uint8_t *)out + rowPitch * y, image + w * 4 * y, w * 4);
+			if (w > info.w || h > info.h) {
+				ERROR_LOG(G3D, "Texture replacement changed since header read: %s", info.file.c_str());
+				fclose(fp);
+				return;
+			}
+
+			out.resize(info.w * info.h * 4);
+			if (w == info.w) {
+				memcpy(&out[0], image, info.w * 4 * info.h);
+			} else {
+				for (int y = 0; y < h; ++y) {
+					memcpy(&out[info.w * 4 * y], image + w * 4 * y, w * 4);
 				}
-			}, 0, h, MIN_LINES_PER_THREAD);
+			}
 			free(image);
 		}
 
-		// This will only check the hashed bits.
-		CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)out, rowPitch / sizeof(u32), w, h);
+		CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)&out[0], info.w, w, h);
 		if (res == CHECKALPHA_ANY || level == 0) {
 			alphaStatus_ = ReplacedTextureAlpha(res);
 		}
@@ -772,6 +900,12 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 
 		if (!png_image_begin_read_from_stdio(&png, fp)) {
 			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s", info.file.c_str(), png.message);
+			fclose(fp);
+			return;
+		}
+		if (png.width > (uint32_t)info.w || png.height > (uint32_t)info.h) {
+			ERROR_LOG(G3D, "Texture replacement changed since header read: %s", info.file.c_str());
+			fclose(fp);
 			return;
 		}
 
@@ -785,15 +919,18 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 		}
 		png.format = PNG_FORMAT_RGBA;
 
-		if (!png_image_finish_read(&png, nullptr, out, rowPitch, nullptr)) {
+		out.resize(info.w * info.h * 4);
+		if (!png_image_finish_read(&png, nullptr, &out[0], info.w * 4, nullptr)) {
 			ERROR_LOG(G3D, "Could not load texture replacement: %s - %s", info.file.c_str(), png.message);
+			fclose(fp);
+			out.resize(0);
 			return;
 		}
 		png_image_free(&png);
 
 		if (!checkedAlpha) {
 			// This will only check the hashed bits.
-			CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)out, rowPitch / sizeof(u32), png.width, png.height);
+			CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)&out[0], info.w, png.width, png.height);
 			if (res == CHECKALPHA_ANY || level == 0) {
 				alphaStatus_ = ReplacedTextureAlpha(res);
 			}
@@ -801,6 +938,48 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 	}
 
 	fclose(fp);
+}
+
+void ReplacedTexture::PurgeIfOlder(double t) {
+	if (lastUsed_ < t && !threadWaitable_) {
+		levelData_.clear();
+	}
+}
+
+ReplacedTexture::~ReplacedTexture() {
+	if (threadWaitable_) {
+		cancelPrepare_ = true;
+		threadWaitable_->WaitAndRelease();
+		threadWaitable_ = nullptr;
+	}
+}
+
+bool ReplacedTexture::Load(int level, void *out, int rowPitch) {
+	_assert_msg_((size_t)level < levels_.size(), "Invalid miplevel");
+	_assert_msg_(out != nullptr && rowPitch > 0, "Invalid out/pitch");
+
+	if (levelData_.empty())
+		return false;
+
+	const ReplacedTextureLevel &info = levels_[level];
+	const std::vector<uint8_t> &data = levelData_[level];
+
+	if (data.empty())
+		return false;
+	_assert_msg_(data.size() == info.w * info.h * 4, "Data has wrong size");
+
+	if (rowPitch == info.w * 4) {
+		ParallelMemcpy(&g_threadManager, out, &data[0], info.w * 4 * info.h);
+	} else {
+		const int MIN_LINES_PER_THREAD = 4;
+		ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
+			for (int y = l; y < h; ++y) {
+				memcpy((uint8_t *)out + rowPitch * y, &data[0] + info.w * 4 * y, info.w * 4);
+			}
+		}, 0, info.h, MIN_LINES_PER_THREAD);
+	}
+
+	return true;
 }
 
 bool TextureReplacer::GenerateIni(const std::string &gameID, Path &generatedFilename) {

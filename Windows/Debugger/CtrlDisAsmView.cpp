@@ -3,6 +3,7 @@
 #include "Windows/resource.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Windows/W32Util/ContextMenu.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/W32Util/ShellUtil.h"
 #include "Windows/MainWindow.h"
@@ -29,7 +30,6 @@
 #include <set>
 
 TCHAR CtrlDisAsmView::szClassName[] = _T("CtrlDisAsmView");
-extern HMENU g_hPopupMenus;
 
 void CtrlDisAsmView::init()
 {
@@ -926,15 +926,10 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 	}
 	else if (button == 2)
 	{
-		//popup menu?
-		POINT pt;
-		GetCursorPos(&pt);
-		switch(TrackPopupMenuEx(GetSubMenu(g_hPopupMenus,1),TPM_RIGHTBUTTON|TPM_RETURNCMD,pt.x,pt.y,wnd,0))
+		switch (TriggerContextMenu(ContextMenuID::DISASM, wnd, ContextPoint::FromEvent(lParam)))
 		{
 		case ID_DISASM_GOTOINMEMORYVIEW:
 			SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,curAddress,0);
-			break;
-		case ID_DISASM_ADDHLE:
 			break;
 		case ID_DISASM_TOGGLEBREAKPOINT:
 			toggleBreakpoint();

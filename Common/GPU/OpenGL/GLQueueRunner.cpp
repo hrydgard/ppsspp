@@ -17,6 +17,13 @@
 #include "GLRenderManager.h"
 #include "DataFormatGL.h"
 
+// These are the same value, alias for simplicity.
+#if defined(GL_CLIP_DISTANCE0_EXT) && !defined(GL_CLIP_DISTANCE0)
+#define GL_CLIP_DISTANCE0 GL_CLIP_DISTANCE0_EXT
+#elif !defined(GL_CLIP_DISTANCE0)
+#define GL_CLIP_DISTANCE0 0x3000
+#endif
+
 static constexpr int TEXCACHE_NAME_CACHE_SIZE = 16;
 
 #if PPSSPP_PLATFORM(IOS)
@@ -760,18 +767,6 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 #endif
 	}
 
-	/*
-#ifndef USING_GLES2
-	if (g_Config.iInternalResolution == 0) {
-		glLineWidth(std::max(1, (int)(renderWidth_ / 480)));
-		glPointSize(std::max(1.0f, (float)(renderWidth_ / 480.f)));
-	} else {
-		glLineWidth(g_Config.iInternalResolution);
-		glPointSize((float)g_Config.iInternalResolution);
-	}
-#endif
-	*/
-
 	if (first && gl_extensions.ARB_vertex_array_object) {
 		glBindVertexArray(globalVAO_);
 	}
@@ -798,6 +793,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 	int logicOp = -1;
 	bool logicEnabled = false;
 #endif
+	bool clipDistance0Enabled = false;
 	GLuint blendEqColor = (GLuint)-1;
 	GLuint blendEqAlpha = (GLuint)-1;
 
@@ -1106,6 +1102,13 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 		{
 			if (curProgram != c.program.program) {
 				glUseProgram(c.program.program->program);
+				if (c.program.program->use_clip_distance0 != clipDistance0Enabled) {
+					if (c.program.program->use_clip_distance0)
+						glEnable(GL_CLIP_DISTANCE0);
+					else
+						glDisable(GL_CLIP_DISTANCE0);
+					clipDistance0Enabled = c.program.program->use_clip_distance0;
+				}
 				curProgram = c.program.program;
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
@@ -1116,7 +1119,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			// TODO: Add fast path for glBindVertexBuffer
 			GLRInputLayout *layout = c.bindVertexBuffer.inputLayout;
 			GLuint buf = c.bindVertexBuffer.buffer ? c.bindVertexBuffer.buffer->buffer_ : 0;
-			_dbg_assert_(!c.bindVertexBuffer.buffer->Mapped());
+			_dbg_assert_(!c.bindVertexBuffer.buffer || !c.bindVertexBuffer.buffer->Mapped());
 			if (buf != curArrayBuffer) {
 				glBindBuffer(GL_ARRAY_BUFFER, buf);
 				curArrayBuffer = buf;
@@ -1340,6 +1343,8 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 		glDisable(GL_COLOR_LOGIC_OP);
 	}
 #endif
+	if (clipDistance0Enabled)
+		glDisable(GL_CLIP_DISTANCE0);
 	if ((colorMask & 15) != 15)
 		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	CHECK_GL_ERROR_IF_DEBUG();

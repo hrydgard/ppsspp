@@ -438,7 +438,7 @@ void Arm64Jit::BranchVFPUFlag(MIPSOpcode op, CCFlags cc, bool likely) {
 			ptr = TBNZ(ar, imm3);
 		}
 	} else {
-		TSTI2R(gpr.R(MIPS_REG_VFPUCC), 1 << imm3, SCRATCH1);
+		TSTI2R(gpr.R(MIPS_REG_VFPUCC), 1ULL << imm3, SCRATCH1);
 		CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
 		ptr = B(cc);
 	}

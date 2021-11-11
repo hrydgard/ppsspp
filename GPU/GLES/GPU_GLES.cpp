@@ -149,12 +149,6 @@ void GPU_GLES::CheckGPUFeatures() {
 
 	features |= GPU_SUPPORTS_16BIT_FORMATS;
 
-	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
-		if (!PSP_CoreParameter().compat.flags().DisableRangeCulling) {
-			features |= GPU_SUPPORTS_VS_RANGE_CULLING;
-		}
-	}
-
 	if (gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended) {
 		if (!g_Config.bVendorBugChecksEnabled || !draw_->GetBugs().Has(Draw::Bugs::DUAL_SOURCE_BLENDING_BROKEN)) {
 			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
@@ -182,7 +176,7 @@ void GPU_GLES::CheckGPUFeatures() {
 			features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
 		}
 	}
-	
+
 	if (gl_extensions.ARB_framebuffer_object || gl_extensions.NV_framebuffer_blit || gl_extensions.GLES3) {
 		features |= GPU_SUPPORTS_FRAMEBUFFER_BLIT | GPU_SUPPORTS_FRAMEBUFFER_BLIT_TO_DEPTH;
 	}
@@ -227,6 +221,19 @@ void GPU_GLES::CheckGPUFeatures() {
 		// use the extension hacks (yet).
 		if (gl_extensions.GLES3)
 			features |= GPU_SUPPORTS_DEPTH_TEXTURE;
+	}
+	if (draw_->GetDeviceCaps().clipDistanceSupported)
+		features |= GPU_SUPPORTS_CLIP_DISTANCE;
+	if (draw_->GetDeviceCaps().cullDistanceSupported)
+		features |= GPU_SUPPORTS_CULL_DISTANCE;
+	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
+		// Ignore the compat setting if clip and cull are both enabled.
+		// When supported, we can do the depth side of range culling more correctly.
+		const bool supported = draw_->GetDeviceCaps().clipDistanceSupported && draw_->GetDeviceCaps().cullDistanceSupported;
+		const bool disabled = PSP_CoreParameter().compat.flags().DisableRangeCulling;
+		if (supported || !disabled) {
+			features |= GPU_SUPPORTS_VS_RANGE_CULLING;
+		}
 	}
 
 	// If we already have a 16-bit depth buffer, we don't need to round.

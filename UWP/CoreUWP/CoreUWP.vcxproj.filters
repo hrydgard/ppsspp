@@ -682,6 +682,9 @@
     <ClCompile Include="..\..\Core\Debugger\WebSocket\GPURecordSubscriber.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\GPUStatsSubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\Debugger\WebSocket\HLESubscriber.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
@@ -1683,6 +1686,9 @@
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\Debugger\WebSocket\GPURecordSubscriber.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\GPUStatsSubscriber.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\Debugger\WebSocket\HLESubscriber.h">

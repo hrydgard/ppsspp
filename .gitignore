@@ -115,3 +115,16 @@ debian/ppsspp/
 
 # RenderDoc
 *.rdc
+ui_atlas_luna.zim
+ui_atlas_luna.meta
+font_atlas_luna.meta
+font_atlas_luna.zim
+ui_atlas_luna.meta
+ui_atlas_luna.zim
+/font_atlas_luna.cpp
+/font_atlas_luna.h
+/font_atlas_luna.png
+/ui_preview.png
+/font_preview.png
+ppge_atlas_luna.meta
+ppge_atlas_luna.zim

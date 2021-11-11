@@ -198,7 +198,7 @@ std::string PathBrowser::GetFriendlyPath() const {
 	std::string root = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT).ToVisualString();
 
 	if (startsWith(str, root)) {
-		return std::string("ms:/") + str.substr(root.size());
+		return std::string("ms:") + str.substr(root.size());
 	}
 
 #if PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC)

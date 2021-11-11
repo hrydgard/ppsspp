@@ -15,10 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <vector>
-#include <map>
-#include <cmath>
 #include <algorithm>
+#include <cmath>
+#include <map>
+#include <mutex>
+#include <vector>
 
 // TODO: Move this somewhere else, cleanup.
 #ifndef _WIN32
@@ -130,7 +131,10 @@ std::map<SceUID, int> vblankPausedWaits;
 // STATE END
 
 // Called when vblank happens (like an internal interrupt.)  Not part of state, should be static.
-std::vector<VblankCallback> vblankListeners;
+static std::mutex listenersLock;
+static std::vector<VblankCallback> vblankListeners;
+typedef std::pair<FlipCallback, void *> FlipListener;
+static std::vector<FlipListener> flipListeners;
 
 // The vblank period is 731.5 us (0.7315 ms)
 const double vblankMs = 0.7315;
@@ -343,18 +347,48 @@ void __DisplayDoState(PointerWrap &p) {
 }
 
 void __DisplayShutdown() {
+	std::lock_guard<std::mutex> guard(listenersLock);
 	vblankListeners.clear();
+	flipListeners.clear();
 	vblankWaitingThreads.clear();
 }
 
 void __DisplayListenVblank(VblankCallback callback) {
+	std::lock_guard<std::mutex> guard(listenersLock);
 	vblankListeners.push_back(callback);
 }
 
-static void __DisplayFireVblank() {
-	for (std::vector<VblankCallback>::iterator iter = vblankListeners.begin(), end = vblankListeners.end(); iter != end; ++iter) {
-		VblankCallback cb = *iter;
+void __DisplayListenFlip(FlipCallback callback, void *userdata) {
+	std::lock_guard<std::mutex> guard(listenersLock);
+	flipListeners.push_back(std::make_pair(callback, userdata));
+}
+
+void __DisplayForgetFlip(FlipCallback callback, void *userdata) {
+	std::lock_guard<std::mutex> guard(listenersLock);
+	flipListeners.erase(std::remove_if(flipListeners.begin(), flipListeners.end(), [&](FlipListener item) {
+		return item.first == callback && item.second == userdata;
+	}), flipListeners.end());
+}
+
+static void DisplayFireVblank() {
+	std::vector<VblankCallback> toCall = []{
+		std::lock_guard<std::mutex> guard(listenersLock);
+		return vblankListeners;
+	}();
+
+	for (VblankCallback cb : toCall) {
 		cb();
+	}
+}
+
+static void DisplayFireFlip() {
+	std::vector<FlipListener> toCall = [] {
+		std::lock_guard<std::mutex> guard(listenersLock);
+		return flipListeners;
+	}();
+
+	for (FlipListener cb : toCall) {
+		cb.first(cb.second);
 	}
 }
 
@@ -471,7 +505,7 @@ static void CalculateFPS() {
 		}
 	}
 
-	if (g_Config.bDrawFrameGraph) {
+	if (g_Config.bDrawFrameGraph || coreCollectDebugStats) {
 		frameTimeHistory[frameTimeHistoryPos++] = now - lastFrameTimeHistory;
 		lastFrameTimeHistory = now;
 		frameTimeHistoryPos = frameTimeHistoryPos % frameTimeHistorySize;
@@ -557,16 +591,6 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	// Check if the frameskipping code should be enabled. If neither throttling or frameskipping is on,
 	// we have nothing to do here.
 	bool doFrameSkip = g_Config.iFrameSkip != 0;
-
-	bool fastForwardNeedsSkip = g_Config.iFastForwardMode == (int)FastForwardMode::SKIP_DRAW;
-	if (!throttle && fastForwardNeedsSkip) {
-		skipFrame = true;
-		if (numSkippedFrames >= 7) {
-			skipFrame = false;
-		}
-		return;
-	}
-
 	if (!throttle && !doFrameSkip)
 		return;
 
@@ -591,16 +615,12 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	}
 
 	// Auto-frameskip automatically if speed limit is set differently than the default.
-	bool forceFrameskip = fpsLimit > 60 && fastForwardNeedsSkip;
 	int frameSkipNum = CalculateFrameSkip();
-	if (g_Config.bAutoFrameSkip || forceFrameskip) {
+	if (g_Config.bAutoFrameSkip) {
 		// autoframeskip
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
 		if (curFrameTime > nextFrameTime && doFrameSkip) {
 			skipFrame = true;
-			if (forceFrameskip) {
-				throttle = false;
-			}
 		}
 	} else if (frameSkipNum >= 1) {
 		// fixed frameskip
@@ -670,7 +690,7 @@ static void DoFrameIdleTiming() {
 #endif
 		}
 
-		if (g_Config.bDrawFrameGraph) {
+		if (g_Config.bDrawFrameGraph || coreCollectDebugStats) {
 			frameSleepHistory[frameTimeHistoryPos] += time_now_d() - before;
 		}
 	}
@@ -741,15 +761,13 @@ void __DisplayFlip(int cyclesLate) {
 
 	bool duplicateFrames = g_Config.bRenderDuplicateFrames && g_Config.iFrameSkip == 0;
 
-	bool fastForwardNeedsSkip = g_Config.iFastForwardMode != (int)FastForwardMode::CONTINUOUS;
-	bool fastForwardSkipFlip = g_Config.iFastForwardMode == (int)FastForwardMode::SKIP_FLIP;
+	bool fastForwardSkipFlip = g_Config.iFastForwardMode != (int)FastForwardMode::CONTINUOUS;
 	if (g_Config.bVSync && GetGPUBackend() == GPUBackend::VULKAN) {
 		// Vulkan doesn't support the interval setting, so we force skipping the flip.
 		fastForwardSkipFlip = true;
 	}
 
-	// postEffectRequiresFlip is not compatible with frameskip fast-forward, see #12325.
-	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && !(fastForwardNeedsSkip && !FrameTimingThrottled())) {
+	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
 		postEffectRequiresFlip = duplicateFrames || g_Config.bShaderChainRequires60FPS;
 	}
 
@@ -758,6 +776,7 @@ void __DisplayFlip(int cyclesLate) {
 	if (fbDirty || noRecentFlip || postEffectRequiresFlip) {
 		int frameSleepPos = frameTimeHistoryPos;
 		CalculateFPS();
+		DisplayFireFlip();
 
 		// Let the user know if we're running slow, so they know to adjust settings.
 		// Sometimes users just think the sound emulation is broken.
@@ -779,9 +798,11 @@ void __DisplayFlip(int cyclesLate) {
 
 		bool forceNoFlip = false;
 		float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
+		// Avoid skipping on devices that have 58 or 59 FPS, except when alternate speed is set.
+		bool refreshRateNeedsSkip = FrameTimingLimit() != 60 && FrameTimingLimit() > refreshRate;
 		// Alternative to frameskip fast-forward, where we draw everything.
 		// Useful if skipping a frame breaks graphics or for checking drawing speed.
-		if (fastForwardSkipFlip && (!FrameTimingThrottled() || FrameTimingLimit() > refreshRate)) {
+		if (fastForwardSkipFlip && (!FrameTimingThrottled() || refreshRateNeedsSkip)) {
 			static double lastFlip = 0;
 			double now = time_now_d();
 			if ((now - lastFlip) < 1.0f / refreshRate) {
@@ -835,7 +856,7 @@ void __DisplayFlip(int cyclesLate) {
 		CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
 		numVBlanksSinceFlip = 0;
 
-		if (g_Config.bDrawFrameGraph) {
+		if (g_Config.bDrawFrameGraph || coreCollectDebugStats) {
 			// Track how long we sleep (whether vsync or sleep_ms.)
 			frameSleepHistory[frameSleepPos] += time_now_d() - lastFrameTimeHistory;
 		}
@@ -862,7 +883,7 @@ void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 
 	// Fire the vblank listeners after the vblank completes.
-	__DisplayFireVblank();
+	DisplayFireVblank();
 }
 
 void hleLagSync(u64 userdata, int cyclesLate) {
@@ -900,7 +921,7 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 	const int over = (int)((now - goal) * 1000000);
 	ScheduleLagSync(over - emuOver);
 
-	if (g_Config.bDrawFrameGraph) {
+	if (g_Config.bDrawFrameGraph || coreCollectDebugStats) {
 		frameSleepHistory[frameTimeHistoryPos] += now - before;
 	}
 }

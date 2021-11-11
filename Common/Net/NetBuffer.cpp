@@ -73,12 +73,16 @@ bool Buffer::ReadAllWithProgress(int fd, int knownSize, float *progress, float *
 			return true;
 		} else if (retval < 0) {
 #if PPSSPP_PLATFORM(WINDOWS)
-			if (WSAGetLastError() != WSAEWOULDBLOCK)
+			if (WSAGetLastError() != WSAEWOULDBLOCK) {
 #else
-			if (errno != EWOULDBLOCK)
+			if (errno != EWOULDBLOCK) {
 #endif
 				ERROR_LOG(IO, "Error reading from buffer: %i", retval);
-			return false;
+				return false;
+			}
+
+			// Just try again on a would block error, not a real error.
+			continue;
 		}
 		char *p = Append((size_t)retval);
 		memcpy(p, &buf[0], retval);

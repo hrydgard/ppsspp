@@ -64,22 +64,14 @@ static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
 
 // Note: 0 is BR and 2 is TL.
 
-static void RotateUV(TransformedVertex v[4], float flippedMatrix[16], bool flippedY) {
-	// Transform these two coordinates to figure out whether they're flipped or not.
-	Vec4f tl;
-	Vec3ByMatrix44(tl.AsArray(), v[2].pos, flippedMatrix);
-
-	Vec4f br;
-	Vec3ByMatrix44(br.AsArray(), v[0].pos, flippedMatrix);
-
+static void RotateUV(TransformedVertex v[4], bool flippedY) {
+	// We use the transformed tl/br coordinates to figure out whether they're flipped or not.
 	float ySign = flippedY ? -1.0 : 1.0;
 
-	const float invtlw = 1.0f / tl.w;
-	const float invbrw = 1.0f / br.w;
-	const float x1 = tl.x * invtlw;
-	const float x2 = br.x * invbrw;
-	const float y1 = tl.y * invtlw * ySign;
-	const float y2 = br.y * invbrw * ySign;
+	const float x1 = v[2].x;
+	const float x2 = v[0].x;
+	const float y1 = v[2].y * ySign;
+	const float y2 = v[0].y * ySign;
 
 	if ((x1 < x2 && y1 < y2) || (x1 > x2 && y1 > y2))
 		SwapUVs(v[1], v[3]);
@@ -157,6 +149,25 @@ static int ColorIndexOffset(int prim, GEShadeMode shadeMode, bool clearMode) {
 	return 0;
 }
 
+void SoftwareTransform::SetProjMatrix(float mtx[14], bool invertedX, bool invertedY, const Lin::Vec3 &trans, const Lin::Vec3 &scale) {
+	memcpy(&projMatrix_.m, mtx, 16 * sizeof(float));
+
+	if (invertedY) {
+		projMatrix_.xy = -projMatrix_.xy;
+		projMatrix_.yy = -projMatrix_.yy;
+		projMatrix_.zy = -projMatrix_.zy;
+		projMatrix_.wy = -projMatrix_.wy;
+	}
+	if (invertedX) {
+		projMatrix_.xx = -projMatrix_.xx;
+		projMatrix_.yx = -projMatrix_.yx;
+		projMatrix_.zx = -projMatrix_.zx;
+		projMatrix_.wx = -projMatrix_.wx;
+	}
+
+	projMatrix_.translateAndScale(trans, scale);
+}
+
 void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int maxIndex, SoftwareTransformResult *result) {
 	u8 *decoded = params_.decoded;
 	TransformedVertex *transformed = params_.transformed;
@@ -202,6 +213,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			// TODO: Write to a flexible buffer, we don't always need all four components.
 			TransformedVertex &vert = transformed[index];
 			reader.ReadPos(vert.pos);
+			vert.pos_w = 1.0f;
 
 			if (reader.hasColor0()) {
 				if (provokeIndOffset != 0 && index + provokeIndOffset < maxIndex) {
@@ -224,6 +236,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 				vert.u = 0.0f;
 				vert.v = 0.0f;
 			}
+			vert.uv_w = 1.0f;
 
 			// Ignore color1 and fog, never used in throughmode anyway.
 			// The w of uv is also never used (hardcoded to 1.0.)
@@ -418,14 +431,13 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			fogCoef = (v[2] + fog_end) * fog_slope;
 
 			// TODO: Write to a flexible buffer, we don't always need all four components.
-			memcpy(&transformed[index].x, v, 3 * sizeof(float));
+			Vec3ByMatrix44(transformed[index].pos, v, projMatrix_.m);
 			transformed[index].fog = fogCoef;
-			memcpy(&transformed[index].u, uv, 3 * sizeof(float));
+			memcpy(&transformed[index].uv, uv, 3 * sizeof(float));
 			transformed[index].color0_32 = c0.ToRGBA();
 			transformed[index].color1_32 = c1.ToRGBA();
 
-			// The multiplication by the projection matrix is still performed in the vertex shader.
-			// So is vertex depth rounding, to simulate the 16-bit depth buffer.
+			// Vertex depth rounding is done in the shader, to simulate the 16-bit depth buffer.
 		}
 	}
 
@@ -434,11 +446,10 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 	//
 	// An alternative option is to simply ditch all the verts except the first and last to create a single
 	// rectangle out of many. Quite a small optimization though.
-	// Experiment: Disable on PowerVR (see issue #6290)
 	// TODO: This bleeds outside the play area in non-buffered mode. Big deal? Probably not.
 	// TODO: Allow creating a depth clear and a color draw.
 	bool reallyAClear = false;
-	if (maxIndex > 1 && prim == GE_PRIM_RECTANGLES && gstate.isModeClear()) {
+	if (maxIndex > 1 && prim == GE_PRIM_RECTANGLES && gstate.isModeClear() && throughmode) {
 		int scissorX2 = gstate.getScissorX2() + 1;
 		int scissorY2 = gstate.getScissorY2() + 1;
 		reallyAClear = IsReallyAClear(transformed, maxIndex, scissorX2, scissorY2);
@@ -465,7 +476,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 	}
 
 	// Detect full screen "clears" that might not be so obvious, to set the safe size if possible.
-	if (!result->setSafeSize && prim == GE_PRIM_RECTANGLES && maxIndex == 2) {
+	if (!result->setSafeSize && prim == GE_PRIM_RECTANGLES && maxIndex == 2 && throughmode) {
 		bool clearingColor = gstate.isModeClear() && (gstate.isClearModeColorMask() || gstate.isClearModeAlphaMask());
 		bool writingColor = gstate.getColorMask() != 0xFFFFFFFF;
 		bool startsZeroX = transformed[0].x <= 0.0f && transformed[1].x > 0.0f && transformed[1].x > transformed[0].x;
@@ -554,100 +565,16 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 	TransformedVertex *transformedExpanded = params_.transformedExpanded;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 
-	// Step 2: expand rectangles.
+	// Step 2: expand and process primitives.
 	result->drawBuffer = transformed;
 	int numTrans = 0;
 
 	FramebufferManagerCommon *fbman = params_.fbman;
 	bool useBufferedRendering = fbman->UseBufferedRendering();
 
-	bool flippedY = g_Config.iGPUBackend == (int)GPUBackend::OPENGL && !useBufferedRendering;
-
-	if (prim != GE_PRIM_RECTANGLES) {
-		// We can simply draw the unexpanded buffer.
-		numTrans = vertexCount;
-		result->drawIndexed = true;
-	} else {
-		// Pretty bad hackery where we re-do the transform (in RotateUV) to see if the vertices are flipped in screen space.
-		// Since we've already got API-specific assumptions (Y direction, etc) baked into the projMatrix (which we arguably shouldn't),
-		// this gets nasty and very hard to understand.
-
-		float flippedMatrix[16];
-		if (!throughmode) {
-			memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
-
-			const bool invertedY = flippedY ? (gstate_c.vpHeight < 0) : (gstate_c.vpHeight > 0);
-			if (invertedY) {
-				flippedMatrix[1] = -flippedMatrix[1];
-				flippedMatrix[5] = -flippedMatrix[5];
-				flippedMatrix[9] = -flippedMatrix[9];
-				flippedMatrix[13] = -flippedMatrix[13];
-			}
-			const bool invertedX = gstate_c.vpWidth < 0;
-			if (invertedX) {
-				flippedMatrix[0] = -flippedMatrix[0];
-				flippedMatrix[4] = -flippedMatrix[4];
-				flippedMatrix[8] = -flippedMatrix[8];
-				flippedMatrix[12] = -flippedMatrix[12];
-			}
-		}
-
-		//rectangles always need 2 vertices, disregard the last one if there's an odd number
-		vertexCount = vertexCount & ~1;
-		numTrans = 0;
+	if (prim == GE_PRIM_RECTANGLES) {
+		ExpandRectangles(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
 		result->drawBuffer = transformedExpanded;
-		TransformedVertex *trans = &transformedExpanded[0];
-		const u16 *indsIn = (const u16 *)inds;
-		u16 *newInds = inds + vertexCount;
-		u16 *indsOut = newInds;
-		maxIndex = 4 * (vertexCount / 2);
-		for (int i = 0; i < vertexCount; i += 2) {
-			const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
-			const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];
-
-			// We have to turn the rectangle into two triangles, so 6 points.
-			// This is 4 verts + 6 indices.
-
-			// bottom right
-			trans[0] = transVtxBR;
-
-			// top right
-			trans[1] = transVtxBR;
-			trans[1].y = transVtxTL.y;
-			trans[1].v = transVtxTL.v;
-
-			// top left
-			trans[2] = transVtxBR;
-			trans[2].x = transVtxTL.x;
-			trans[2].y = transVtxTL.y;
-			trans[2].u = transVtxTL.u;
-			trans[2].v = transVtxTL.v;
-
-			// bottom left
-			trans[3] = transVtxBR;
-			trans[3].x = transVtxTL.x;
-			trans[3].u = transVtxTL.u;
-
-			// That's the four corners. Now process UV rotation.
-			if (throughmode)
-				RotateUVThrough(trans);
-			else
-				RotateUV(trans, flippedMatrix, flippedY);
-
-			// Triangle: BR-TR-TL
-			indsOut[0] = i * 2 + 0;
-			indsOut[1] = i * 2 + 1;
-			indsOut[2] = i * 2 + 2;
-			// Triangle: BL-BR-TL
-			indsOut[3] = i * 2 + 3;
-			indsOut[4] = i * 2 + 0;
-			indsOut[5] = i * 2 + 2;
-			trans += 4;
-			indsOut += 6;
-
-			numTrans += 6;
-		}
-		inds = newInds;
 		result->drawIndexed = true;
 
 		// We don't know the color until here, so we have to do it now, instead of in StateMapping.
@@ -658,9 +585,78 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 				// Take the bottom right alpha value of the first rect as the stencil value.
 				// Technically, each rect could individually fill its stencil, but most of the
 				// time they use the same one.
-				result->stencilValue = transformed[indsIn[1]].color0[3];
+				result->stencilValue = transformed[inds[1]].color0[3];
 			} else {
 				result->stencilValue = 0;
+			}
+		}
+	} else if (prim == GE_PRIM_POINTS) {
+		ExpandPoints(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
+		result->drawBuffer = transformedExpanded;
+		result->drawIndexed = true;
+	} else if (prim == GE_PRIM_LINES) {
+		ExpandLines(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
+		result->drawBuffer = transformedExpanded;
+		result->drawIndexed = true;
+	} else {
+		// We can simply draw the unexpanded buffer.
+		numTrans = vertexCount;
+		result->drawIndexed = true;
+
+		// If we don't support custom cull in the shader, process it here.
+		if (!gstate_c.Supports(GPU_SUPPORTS_CULL_DISTANCE) && vertexCount > 0 && !throughmode) {
+			const u16 *indsIn = (const u16 *)inds;
+			u16 *newInds = inds + vertexCount;
+			u16 *indsOut = newInds;
+
+			float minZValue, maxZValue;
+			CalcCullParams(minZValue, maxZValue);
+
+			std::vector<int> outsideZ;
+			outsideZ.resize(vertexCount);
+
+			// First, check inside/outside directions for each index.
+			for (int i = 0; i < vertexCount; ++i) {
+				float z = transformed[indsIn[i]].z / transformed[indsIn[i]].pos_w;
+				if (z >= maxZValue)
+					outsideZ[i] = 1;
+				else if (z <= minZValue)
+					outsideZ[i] = -1;
+				else
+					outsideZ[i] = 0;
+			}
+
+			// Now, for each primitive type, throw away the indices if:
+			//  - Depth clamp on, and ALL verts are outside *in the same direction*.
+			//  - Depth clamp off, and ANY vert is outside.
+			if (prim == GE_PRIM_TRIANGLES && gstate.isDepthClampEnabled()) {
+				numTrans = 0;
+				for (int i = 0; i < vertexCount - 2; i += 3) {
+					if (outsideZ[i + 0] != 0 && outsideZ[i + 0] == outsideZ[i + 1] && outsideZ[i + 0] == outsideZ[i + 2]) {
+						// All outside, and all the same direction.  Nuke this triangle.
+						continue;
+					}
+
+					memcpy(indsOut, indsIn + i, 3 * sizeof(uint16_t));
+					indsOut += 3;
+					numTrans += 3;
+				}
+
+				inds = newInds;
+			} else if (prim == GE_PRIM_TRIANGLES) {
+				numTrans = 0;
+				for (int i = 0; i < vertexCount - 2; i += 3) {
+					if (outsideZ[i + 0] != 0 || outsideZ[i + 1] != 0 || outsideZ[i + 2] != 0) {
+						// Even one outside, and we cull.
+						continue;
+					}
+
+					memcpy(indsOut, indsIn + i, 3 * sizeof(uint16_t));
+					indsOut += 3;
+					numTrans += 3;
+				}
+
+				inds = newInds;
 			}
 		}
 	}
@@ -671,4 +667,266 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 
 	result->action = SW_DRAW_PRIMITIVES;
 	result->drawNumTrans = numTrans;
+}
+
+void SoftwareTransform::CalcCullParams(float &minZValue, float &maxZValue) {
+	// The projected Z can be up to 0x3F8000FF, which is where this constant is from.
+	// It seems like it may only maintain 15 mantissa bits (excluding implied.)
+	maxZValue = 1.000030517578125f * gstate_c.vpDepthScale;
+	minZValue = -maxZValue;
+	// Scale and offset the Z appropriately, since we baked that into a projection transform.
+	if (params_.usesHalfZ) {
+		maxZValue = maxZValue * 0.5f + 0.5f + gstate_c.vpZOffset * 0.5f;
+		minZValue = minZValue * 0.5f + 0.5f + gstate_c.vpZOffset * 0.5f;
+	} else {
+		maxZValue += gstate_c.vpZOffset;
+		minZValue += gstate_c.vpZOffset;
+	}
+	// In case scale was negative, flip.
+	if (minZValue > maxZValue)
+		std::swap(minZValue, maxZValue);
+}
+
+void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+	// Rectangles always need 2 vertices, disregard the last one if there's an odd number.
+	vertexCount = vertexCount & ~1;
+	numTrans = 0;
+	TransformedVertex *trans = &transformedExpanded[0];
+
+	const u16 *indsIn = (const u16 *)inds;
+	u16 *newInds = inds + vertexCount;
+	u16 *indsOut = newInds;
+
+	float minZValue, maxZValue;
+	CalcCullParams(minZValue, maxZValue);
+
+	maxIndex = 4 * (vertexCount / 2);
+	for (int i = 0; i < vertexCount; i += 2) {
+		const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
+		const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];
+
+		// We have to turn the rectangle into two triangles, so 6 points.
+		// This is 4 verts + 6 indices.
+
+		// bottom right
+		trans[0] = transVtxBR;
+
+		// top right
+		trans[1] = transVtxBR;
+		trans[1].y = transVtxTL.y;
+		trans[1].v = transVtxTL.v;
+
+		// top left
+		trans[2] = transVtxBR;
+		trans[2].x = transVtxTL.x;
+		trans[2].y = transVtxTL.y;
+		trans[2].u = transVtxTL.u;
+		trans[2].v = transVtxTL.v;
+
+		// bottom left
+		trans[3] = transVtxBR;
+		trans[3].x = transVtxTL.x;
+		trans[3].u = transVtxTL.u;
+
+		// That's the four corners. Now process UV rotation.
+		if (throughmode) {
+			RotateUVThrough(trans);
+		} else {
+			float tlz = transVtxTL.z / transVtxTL.pos_w;
+			float brz = transVtxBR.z / transVtxBR.pos_w;
+			if (!gstate.isDepthClampEnabled()) {
+				// If both transformed verts are outside Z the same way, cull entirely.
+				if (tlz >= maxZValue || brz >= maxZValue)
+					continue;
+				if (tlz <= minZValue || brz <= minZValue)
+					continue;
+			} else {
+				// If any Z is outside, cull right away.
+				if (tlz >= maxZValue && brz >= maxZValue)
+					continue;
+				if (tlz <= minZValue && brz <= minZValue)
+					continue;
+			}
+
+			RotateUV(trans, params_.flippedY);
+		}
+
+		// Triangle: BR-TR-TL
+		indsOut[0] = i * 2 + 0;
+		indsOut[1] = i * 2 + 1;
+		indsOut[2] = i * 2 + 2;
+		// Triangle: BL-BR-TL
+		indsOut[3] = i * 2 + 3;
+		indsOut[4] = i * 2 + 0;
+		indsOut[5] = i * 2 + 2;
+		trans += 4;
+		indsOut += 6;
+
+		numTrans += 6;
+	}
+	inds = newInds;
+}
+
+void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+	// Lines always need 2 vertices, disregard the last one if there's an odd number.
+	vertexCount = vertexCount & ~1;
+	numTrans = 0;
+	TransformedVertex *trans = &transformedExpanded[0];
+
+	const u16 *indsIn = (const u16 *)inds;
+	u16 *newInds = inds + vertexCount;
+	u16 *indsOut = newInds;
+
+	float dx = 1.0f * gstate_c.vpWidthScale * (1.0f / gstate.getViewportXScale());
+	float dy = 1.0f * gstate_c.vpHeightScale * (1.0f / gstate.getViewportYScale());
+	float du = 1.0f / gstate_c.curTextureWidth;
+	float dv = 1.0f / gstate_c.curTextureHeight;
+
+	if (throughmode) {
+		dx = 1.0f;
+		dy = 1.0f;
+	}
+
+	float minZValue, maxZValue;
+	CalcCullParams(minZValue, maxZValue);
+
+	maxIndex = 4 * (vertexCount / 2);
+	for (int i = 0; i < vertexCount; i += 2) {
+		const TransformedVertex &transVtx1 = transformed[indsIn[i + 0]];
+		const TransformedVertex &transVtx2 = transformed[indsIn[i + 1]];
+
+		const TransformedVertex &transVtxT = transVtx1.y <= transVtx2.y ? transVtx1 : transVtx2;
+		const TransformedVertex &transVtxB = transVtx1.y <= transVtx2.y ? transVtx2 : transVtx1;
+		const TransformedVertex &transVtxL = transVtx1.x <= transVtx2.x ? transVtx1 : transVtx2;
+		const TransformedVertex &transVtxR = transVtx1.x <= transVtx2.x ? transVtx2 : transVtx1;
+
+		// Sort the points so our perpendicular will bias the right direction.
+		const TransformedVertex &transVtxTL = transVtxT.y != transVtxB.y || transVtxT.x > transVtxB.x ? transVtxT : transVtxB;
+		const TransformedVertex &transVtxBL = transVtxT.y != transVtxB.y || transVtxT.x > transVtxB.x ? transVtxB : transVtxT;
+
+		// Okay, let's calculate the perpendicular.
+		float horizontal = transVtxTL.x - transVtxBL.x;
+		float vertical = transVtxTL.y - transVtxBL.y;
+		Vec2f addWidth = Vec2f(-vertical, horizontal).Normalized();
+
+		// bottom right
+		trans[0] = transVtxBL;
+		trans[0].x += addWidth.x * dx;
+		trans[0].y += addWidth.y * dy;
+		trans[0].u += addWidth.x * du;
+		trans[0].v += addWidth.y * dv;
+
+		// top right
+		trans[1] = transVtxTL;
+		trans[1].x += addWidth.x * dx;
+		trans[1].y += addWidth.y * dy;
+		trans[1].u += addWidth.x * du;
+		trans[1].v += addWidth.y * dv;
+
+		// top left
+		trans[2] = transVtxTL;
+
+		// bottom left
+		trans[3] = transVtxBL;
+
+		if (!throughmode) {
+			float tlz = transVtxTL.z / transVtxTL.pos_w;
+			float brz = transVtxBL.z / transVtxBL.pos_w;
+			if (!gstate.isDepthClampEnabled()) {
+				// If both transformed verts are outside Z the same way, cull entirely.
+				if (tlz >= maxZValue || brz >= maxZValue)
+					continue;
+				if (tlz <= minZValue || brz <= minZValue)
+					continue;
+			} else {
+				// If any Z is outside, cull right away.
+				if (tlz >= maxZValue && brz >= maxZValue)
+					continue;
+				if (tlz <= minZValue && brz <= minZValue)
+					continue;
+			}
+		}
+
+		// Triangle: BR-TR-TL
+		indsOut[0] = i * 2 + 0;
+		indsOut[1] = i * 2 + 1;
+		indsOut[2] = i * 2 + 2;
+		// Triangle: BL-BR-TL
+		indsOut[3] = i * 2 + 3;
+		indsOut[4] = i * 2 + 0;
+		indsOut[5] = i * 2 + 2;
+		trans += 4;
+		indsOut += 6;
+
+		numTrans += 6;
+	}
+	inds = newInds;
+}
+
+void SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+	numTrans = 0;
+	TransformedVertex *trans = &transformedExpanded[0];
+
+	const u16 *indsIn = (const u16 *)inds;
+	u16 *newInds = inds + vertexCount;
+	u16 *indsOut = newInds;
+
+	float dx = 1.0f * gstate_c.vpWidthScale * (1.0f / gstate.getViewportXScale());
+	float dy = 1.0f * gstate_c.vpHeightScale * (1.0f / gstate.getViewportYScale());
+	float du = 1.0f / gstate_c.curTextureWidth;
+	float dv = 1.0f / gstate_c.curTextureHeight;
+
+	if (throughmode) {
+		dx = 1.0f;
+		dy = 1.0f;
+	}
+
+	maxIndex = 4 * vertexCount;
+	for (int i = 0; i < vertexCount; ++i) {
+		const TransformedVertex &transVtxTL = transformed[indsIn[i]];
+
+		// Create the bottom right version.
+		TransformedVertex transVtxBR = transVtxTL;
+		transVtxBR.x += dx * transVtxTL.pos_w;
+		transVtxBR.y += dy * transVtxTL.pos_w;
+		transVtxBR.u += du * transVtxTL.uv_w;
+		transVtxBR.v += dv * transVtxTL.uv_w;
+
+		// We have to turn the rectangle into two triangles, so 6 points.
+		// This is 4 verts + 6 indices.
+
+		// bottom right
+		trans[0] = transVtxBR;
+
+		// top right
+		trans[1] = transVtxBR;
+		trans[1].y = transVtxTL.y;
+		trans[1].v = transVtxTL.v;
+
+		// top left
+		trans[2] = transVtxBR;
+		trans[2].x = transVtxTL.x;
+		trans[2].y = transVtxTL.y;
+		trans[2].u = transVtxTL.u;
+		trans[2].v = transVtxTL.v;
+
+		// bottom left
+		trans[3] = transVtxBR;
+		trans[3].x = transVtxTL.x;
+		trans[3].u = transVtxTL.u;
+
+		// Triangle: BR-TR-TL
+		indsOut[0] = i * 4 + 0;
+		indsOut[1] = i * 4 + 1;
+		indsOut[2] = i * 4 + 2;
+		// Triangle: BL-BR-TL
+		indsOut[3] = i * 4 + 3;
+		indsOut[4] = i * 4 + 0;
+		indsOut[5] = i * 4 + 2;
+		trans += 4;
+		indsOut += 6;
+
+		numTrans += 6;
+	}
+	inds = newInds;
 }

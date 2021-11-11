@@ -342,9 +342,9 @@ void RingbufferLogListener::Log(const LogMessage &message) {
 #ifdef _WIN32
 
 void OutputDebugStringUTF8(const char *p) {
-	wchar_t temp[4096];
+	wchar_t temp[16384*4];
 
-	int len = std::min(4095, (int)strlen(p));
+	int len = std::min(16383*4, (int)strlen(p));
 	int size = (int)MultiByteToWideChar(CP_UTF8, 0, p, len, NULL, 0);
 	MultiByteToWideChar(CP_UTF8, 0, p, len, temp, size);
 	temp[size] = 0;

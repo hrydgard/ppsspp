@@ -1,5 +1,5 @@
 /* MMPX.glc
-   Copyright 2020 Morgan McGuire & Mara Gagiu. 
+   Copyright 2020 Morgan McGuire & Mara Gagiu.
    Provided under the Open Source MIT license https://opensource.org/licenses/MIT
 
    See js-demo.html for the commented source code.
@@ -9,6 +9,8 @@
 
 #define ABGR8 uint
 
+// If we took an image as input, we could use a sampler to do the clamping. But we decode
+// low-bpp texture data directly, so...
 ABGR8 src(int x, int y) {
     return readColoru(uvec2(clamp(x, 0, params.width - 1), clamp(y, 0, params.height - 1)));
 }
@@ -42,9 +44,9 @@ bool none_eq4(ABGR8 B, ABGR8 A0, ABGR8 A1, ABGR8 A2, ABGR8 A3) {
     return B != A0 && B != A1 && B != A2 && B != A3;
 }
 
-uint applyScalingu(uvec2 origxy, uvec2 xy) {
-    int srcX = int(origxy.x);
-    int srcY = int(origxy.y);
+void applyScaling(uvec2 xy) {
+    int srcX = int(xy.x);
+    int srcY = int(xy.y);
 
     ABGR8 A = src(srcX - 1, srcY - 1), B = src(srcX, srcY - 1), C = src(srcX + 1, srcY - 1);
     ABGR8 D = src(srcX - 1, srcY + 0), E = src(srcX, srcY + 0), F = src(srcX + 1, srcY + 0);
@@ -74,44 +76,35 @@ uint applyScalingu(uvec2 origxy, uvec2 xy) {
         if (Dl < El && all_eq4(E, C, F, I, R) && none_eq4(E, B, A, G, H)) J = L = D;
 
         // 2:1 slope rules
-        if (H != B) { 
+        if (H != B) {
             if (H != A && H != E && H != C) {
                 if (all_eq3(H, G, F, R) && none_eq2(H, D, src(srcX + 2, srcY - 1))) L = M;
                 if (all_eq3(H, I, D, Q) && none_eq2(H, F, src(srcX - 2, srcY - 1))) M = L;
             }
-            
+
             if (B != I && B != G && B != E) {
                 if (all_eq3(B, A, F, R) && none_eq2(B, D, src(srcX + 2, srcY + 1))) J = K;
                 if (all_eq3(B, C, D, Q) && none_eq2(B, F, src(srcX - 2, srcY + 1))) K = J;
             }
         } // H !== B
-        
-        if (F != D) { 
+
+        if (F != D) {
             if (D != I && D != E && D != C) {
                 if (all_eq3(D, A, H, S) && none_eq2(D, B, src(srcX + 1, srcY + 2))) J = L;
                 if (all_eq3(D, G, B, P) && none_eq2(D, H, src(srcX + 1, srcY - 2))) L = J;
             }
-            
-            if (F != E && F != A && F != G) {    
+
+            if (F != E && F != A && F != G) {
                 if (all_eq3(F, C, H, S) && none_eq2(F, B, src(srcX - 1, srcY + 2))) K = M;
                 if (all_eq3(F, I, B, P) && none_eq2(F, H, src(srcX - 1, srcY - 2))) M = K;
             }
         } // F !== D
     } // not constant
 
-    // TODO: Write four pixels at once.  For now, 1/4x speed.
-    if ((xy.y & 1u) == 0u) {
-        if ((xy.x & 1u) == 0u) {
-            return J;
-        }
-        return K;
-    }
-    if ((xy.x & 1u) == 0u) {
-        return L;
-    }
-    return M;
-}
-
-vec4 applyScalingf(uvec2 origxy, uvec2 xy) {
-	return unpackUnorm4x8(applyScalingu(origxy, xy));
+    // Write four pixels at once.
+    ivec2 destXY = ivec2(xy) * 2;
+    writeColorf(destXY, unpackUnorm4x8(J));
+    writeColorf(destXY + ivec2(1, 0), unpackUnorm4x8(K));
+    writeColorf(destXY + ivec2(0, 1), unpackUnorm4x8(L));
+    writeColorf(destXY + ivec2(1, 1), unpackUnorm4x8(M));
 }

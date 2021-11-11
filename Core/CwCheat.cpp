@@ -782,7 +782,6 @@ CheatOperation CWCheatEngine::InterpretNextCwCheat(const CheatCode &cheat, size_
 
 CheatOperation CWCheatEngine::InterpretNextTempAR(const CheatCode &cheat, size_t &i) {
 	// TODO
-	_assert_(false);
 	return { CheatOp::Invalid };
 }
 

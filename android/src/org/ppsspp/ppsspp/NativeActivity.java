@@ -930,6 +930,21 @@ public abstract class NativeActivity extends Activity {
 		return state;
 	}
 
+	protected String getInputDeviceDebugString() {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+			String buffer = "";
+			for (InputDeviceState input : inputPlayers) {
+				buffer += input.getDebugString();
+			}
+			if (buffer.length() == 0) {
+				buffer = "(no devices)";
+			}
+			return buffer;
+		} else {
+			return "(input device debug not available before Android Kitkat)";
+		}
+	}
+
 	public boolean IsXperiaPlay() {
 		return android.os.Build.MODEL.equals("R800a") || android.os.Build.MODEL.equals("R800i") || android.os.Build.MODEL.equals("R800x") || android.os.Build.MODEL.equals("R800at") || android.os.Build.MODEL.equals("SO-01D") || android.os.Build.MODEL.equals("zeus");
 	}
@@ -1118,30 +1133,39 @@ public abstract class NativeActivity extends Activity {
 			return;
 		}
 		if (requestCode == RESULT_LOAD_IMAGE) {
-			Uri selectedImage = data.getData();
-			if (selectedImage != null) {
-				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-					NativeApp.sendMessage("bgImage_updated", selectedImage.toString());
-				} else {
-					String[] filePathColumn = {MediaStore.Images.Media.DATA};
-					Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
-					if (cursor != null) {
-						cursor.moveToFirst();
-						int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
-						String picturePath = cursor.getString(columnIndex);
-						cursor.close();
-
-						NativeApp.sendMessage("bgImage_updated", picturePath);
+			try {
+				Uri selectedImage = data.getData();
+				if (selectedImage != null) {
+					if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+						NativeApp.sendMessage("bgImage_updated", selectedImage.toString());
+					} else {
+						String[] filePathColumn = {MediaStore.Images.Media.DATA};
+						Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
+						if (cursor != null) {
+							cursor.moveToFirst();
+							int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
+							String picturePath = cursor.getString(columnIndex);
+							cursor.close();
+							NativeApp.sendMessage("bgImage_updated", picturePath);
+						}
 					}
 				}
+			} catch (Exception e) {
+				Log.w(TAG, "Exception receiving image: " + e.toString());
 			}
 		} else if (requestCode == RESULT_OPEN_DOCUMENT) {
 			Uri selectedFile = data.getData();
 			if (selectedFile != null) {
-				// Grab permanent permission so we can show it in recents list etc.
-				if (Build.VERSION.SDK_INT >= 19) {
-					getContentResolver().takePersistableUriPermission(selectedFile, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+				try {
+					// Grab permanent permission so we can show it in recents list etc.
+					if (Build.VERSION.SDK_INT >= 19) {
+						getContentResolver().takePersistableUriPermission(selectedFile, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+					}
+				} catch (Exception e) {
+					Log.w(TAG, "Exception getting permissions for document: " + e.toString());
 				}
+				// Even if we got an exception getting permissions, try to pass along the file. Maybe this version of Android
+				// doesn't need it.
 				Log.i(TAG, "Browse file finished:" + selectedFile.toString());
 				NativeApp.sendMessage("browse_fileSelect", selectedFile.toString());
 			}
@@ -1150,7 +1174,13 @@ public abstract class NativeActivity extends Activity {
 			if (selectedDirectoryUri != null) {
 				String path = selectedDirectoryUri.toString();
 				Log.i(TAG, "Browse folder finished: " + path);
-				getContentResolver().takePersistableUriPermission(selectedDirectoryUri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+				try {
+					getContentResolver().takePersistableUriPermission(selectedDirectoryUri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+				} catch (Exception e) {
+					Log.w(TAG, "Exception getting permissions for document: " + e.toString());
+				}
+				// Even if we got an exception getting permissions, try to pass along the file. Maybe this version of Android
+				// doesn't need it. If we can't access it, we'll fail in some other way later.
 				DocumentFile documentFile = DocumentFile.fromTreeUri(this, selectedDirectoryUri);
 				Log.i(TAG, "Document name: " + documentFile.getUri());
 				/*

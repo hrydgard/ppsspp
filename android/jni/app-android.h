@@ -11,7 +11,11 @@
 #include "Common/File/Path.h"
 #include "Common/File/AndroidStorage.h"
 
-#if PPSSPP_PLATFORM(ANDROID) && !defined(__LIBRETRO__)
+#if PPSSPP_PLATFORM(ANDROID)
+
+std::string Android_GetInputDeviceDebugString();
+
+#if !defined(__LIBRETRO__)
 
 #include <jni.h>
 
@@ -22,5 +26,6 @@ class AndroidLogger : public LogListener {
 public:
 	void Log(const LogMessage &message) override;
 };
+#endif
 
 #endif

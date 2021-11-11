@@ -309,7 +309,7 @@ VkPipeline Vulkan2D::GetPipeline(VkRenderPass rp, VkShaderModule vs, VkShaderMod
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly = { VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
 	inputAssembly.flags = 0;
 	inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
-	inputAssembly.primitiveRestartEnable = true;
+	inputAssembly.primitiveRestartEnable = false;
 
 	VkVertexInputAttributeDescription attrs[2];
 	int attributeCount = 2;
@@ -385,6 +385,7 @@ VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits 
 		ERROR_LOG(G3D, "Shader source:\n%s", LineNumberString(code).c_str());
 		OutputDebugStringUTF8("Messages:\n");
 		OutputDebugStringUTF8(error->c_str());
+		OutputDebugStringUTF8(LineNumberString(code).c_str());
 		return VK_NULL_HANDLE;
 	} else {
 		VkShaderModule module;

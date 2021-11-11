@@ -41,15 +41,6 @@ END
 
 /////////////////////////////////////////////////////////////////////////////
 //
-// IMAGE
-//
-
-IDB_IMAGE_PSP           IMAGE                   "pspmode.png"
-
-
-
-/////////////////////////////////////////////////////////////////////////////
-//
 // RT_MANIFEST
 //
 
@@ -74,7 +65,6 @@ BEGIN
     "G",            ID_DEBUG_GEDEBUGGER,    VIRTKEY, CONTROL, NOINVERT
     "L",            ID_DEBUG_LOG,           VIRTKEY, CONTROL, NOINVERT
     "M",            ID_DEBUG_MEMORYVIEW,    VIRTKEY, CONTROL, NOINVERT
-    "R",            ID_DEBUG_REGISTERS,     VIRTKEY, CONTROL, NOINVERT
     VK_F3,          ID_FILE_SAVESTATE_NEXT_SLOT_HC, VIRTKEY, NOINVERT
     VK_F2,          ID_FILE_QUICKSAVESTATE_HC, VIRTKEY, NOINVERT
     VK_F4,          ID_FILE_QUICKLOADSTATE_HC, VIRTKEY, NOINVERT
@@ -90,8 +80,8 @@ END
 IDR_DEBUGACCELS ACCELERATORS
 BEGIN
     "B",            ID_DEBUG_ADDBREAKPOINT,            VIRTKEY, CONTROL, NOINVERT
-    "R",            ID_DEBUG_DSIPLAYREGISTERLIST,      VIRTKEY, CONTROL, NOINVERT
-    "L",            ID_DEBUG_DSIPLAYFUNCTIONLIST,      VIRTKEY, CONTROL, NOINVERT
+    "R",            ID_DEBUG_DISPLAYREGISTERLIST,      VIRTKEY, CONTROL, NOINVERT
+    "L",            ID_DEBUG_DISPLAYFUNCTIONLIST,      VIRTKEY, CONTROL, NOINVERT
     "1",            ID_DEBUG_DISPLAYMEMVIEW,           VIRTKEY, CONTROL, NOINVERT
     "2",            ID_DEBUG_DISPLAYBREAKPOINTLIST,    VIRTKEY, CONTROL, NOINVERT
     "3",            ID_DEBUG_DISPLAYTHREADLIST,        VIRTKEY, CONTROL, NOINVERT
@@ -140,7 +130,7 @@ BEGIN
             VALUE "FileDescription", "PPSSPP"
             VALUE "FileVersion", PPSSPP_WIN_VERSION_STRING
             VALUE "InternalName", "PPSSPPEmu"
-            VALUE "LegalCopyright", "Copyright (C) 2006-2015 by Henrik Rydgård"
+            VALUE "LegalCopyright", "Copyright (C) 2006-2021 by Henrik Rydgård"
             VALUE "LegalTrademarks", "All product names are trademarks of their respective owners."
             VALUE "OriginalFilename", "PPSSPP.exe"
             VALUE "ProductName", "PPSSPP"
@@ -639,7 +629,6 @@ BEGIN
         POPUP "Texture Scaling",                        ID_OPTIONS_TEXTURESCALING_MENU
         BEGIN
             MENUITEM "Off",                             ID_TEXTURESCALING_OFF
-            MENUITEM "Auto",                            ID_TEXTURESCALING_AUTO
             MENUITEM "&2x",                             ID_TEXTURESCALING_2X
             MENUITEM "&3x",                             ID_TEXTURESCALING_3X
             MENUITEM "&4x",                             ID_TEXTURESCALING_4X
@@ -703,17 +692,11 @@ BEGIN
         MENUITEM "Toggle Breakpoint",          ID_DISASM_TOGGLEBREAKPOINT
         MENUITEM "Follow Branch",              ID_DISASM_FOLLOWBRANCH
         MENUITEM SEPARATOR
-        MENUITEM "Show Dynarec Results",       ID_DISASM_DYNARECRESULTS
         MENUITEM "Go to in Memory View",       ID_DISASM_GOTOINMEMORYVIEW
         MENUITEM SEPARATOR
-        MENUITEM "Kill Function",              ID_DISASM_ADDHLE
         MENUITEM "Rename Function...",         ID_DISASM_RENAMEFUNCTION
         MENUITEM "Remove Function",            ID_DISASM_REMOVEFUNCTION
         MENUITEM "Add Function Here",          ID_DISASM_ADDFUNCTION
-    END
-    POPUP "funclist"
-    BEGIN
-        MENUITEM "Kill Function",              ID_FUNCLIST_KILLFUNCTION
     END
     POPUP "reglist"
     BEGIN
@@ -722,10 +705,6 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "Copy Value",                 ID_REGLIST_COPYVALUE
         MENUITEM "Change...",                  ID_REGLIST_CHANGE
-    END
-    POPUP "controls"
-    BEGIN
-        MENUITEM "Disable",                    ID_CONTROLS_KEY_DISABLE
     END
     POPUP "breakpointlist"
     BEGIN

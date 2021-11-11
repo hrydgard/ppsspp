@@ -187,7 +187,6 @@ void InitMemoryForGamePBP(FileLoader *fileLoader) {
 				UseLargeMem(paramSFO.GetValueInt("MEMSIZE"));
 
 				// Take this moment to bring over the title, if set.
-				bool updateTitle = false;
 				std::string title = paramSFO.GetValueString("TITLE");
 				if (g_paramSFO.GetValueString("TITLE").empty() && !title.empty()) {
 					g_paramSFO.SetValue("TITLE", title, (int)title.size());
@@ -378,7 +377,6 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 
 	Path full_path = fileLoader->GetPath();
 	std::string path = full_path.GetDirectory();
-	std::string extension = full_path.GetFileExtension();
 	std::string file = full_path.GetFilename();
 
 	size_t pos = path.find("PSP/GAME/");

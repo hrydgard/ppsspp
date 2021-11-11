@@ -574,12 +574,12 @@ void VulkanContext::ChooseDevice(int physical_device) {
 	deviceFeatures_.enabled = {};
 	// Enable a few safe ones if they are available.
 	deviceFeatures_.enabled.dualSrcBlend = deviceFeatures_.available.dualSrcBlend;
-	deviceFeatures_.enabled.largePoints = deviceFeatures_.available.largePoints;
-	deviceFeatures_.enabled.wideLines = deviceFeatures_.available.wideLines;
 	deviceFeatures_.enabled.logicOp = deviceFeatures_.available.logicOp;
 	deviceFeatures_.enabled.depthClamp = deviceFeatures_.available.depthClamp;
 	deviceFeatures_.enabled.depthBounds = deviceFeatures_.available.depthBounds;
 	deviceFeatures_.enabled.samplerAnisotropy = deviceFeatures_.available.samplerAnisotropy;
+	deviceFeatures_.enabled.shaderClipDistance = deviceFeatures_.available.shaderClipDistance;
+	deviceFeatures_.enabled.shaderCullDistance = deviceFeatures_.available.shaderCullDistance;
 	// For easy wireframe mode, someday.
 	deviceFeatures_.enabled.fillModeNonSolid = deviceFeatures_.available.fillModeNonSolid;
 

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <cstddef>
 #include <functional>
@@ -316,6 +317,7 @@ public:
 		BROKEN_NAN_IN_CONDITIONAL = 4,
 		COLORWRITEMASK_BROKEN_WITH_DEPTHTEST = 5,
 		BROKEN_FLAT_IN_SHADER = 6,
+		EQUAL_WZ_CORRUPTS_DEPTH = 7,
 	};
 
 protected:
@@ -324,7 +326,9 @@ protected:
 
 class RefCountedObject {
 public:
-	RefCountedObject() : refcount_(1) {}
+	RefCountedObject() {
+		refcount_ = 1;
+	}
 	virtual ~RefCountedObject() {}
 
 	void AddRef() { refcount_++; }
@@ -332,7 +336,7 @@ public:
 	bool ReleaseAssertLast();
 
 private:
-	int refcount_;
+	std::atomic<int> refcount_;
 };
 
 template <typename T>
@@ -517,6 +521,8 @@ struct DeviceCaps {
 	bool dualSourceBlend;
 	bool logicOpSupported;
 	bool depthClampSupported;
+	bool clipDistanceSupported;
+	bool cullDistanceSupported;
 	bool framebufferCopySupported;
 	bool framebufferBlitSupported;
 	bool framebufferDepthCopySupported;

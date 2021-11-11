@@ -94,6 +94,8 @@ struct PSP_LoadingLock {
 
 // Call before PSP_BeginHostFrame() in order to not miss any GPU stats.
 void Core_UpdateDebugStats(bool collectStats);
+// Increments or decrements an internal counter.  Intended to be used by debuggers.
+void Core_ForceDebugStats(bool enable);
 
 void Audio_Init();
 void Audio_Shutdown();

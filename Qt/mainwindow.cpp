@@ -625,7 +625,7 @@ void MainWindow::createMenus()
 		QList<int>() << 0 << 1);
 	MenuTree* textureFilteringMenu = new MenuTree(this, gameSettingsMenu, QT_TR_NOOP("Te&xture filtering"));
 	textureFilteringGroup = new MenuActionGroup(this, textureFilteringMenu, SLOT(textureFilteringGroup_triggered(QAction *)),
-		QStringList() << "&Auto" << "&Nearest" << "&Linear" << "Linear on &FMV",
+		QStringList() << "&Auto" << "&Nearest" << "&Linear" << "Auto Max &Quality",
 		QList<int>() << 1 << 2 << 3 << 4);
 	MenuTree* screenScalingFilterMenu = new MenuTree(this, gameSettingsMenu, QT_TR_NOOP("Scr&een scaling filter"));
 	screenScalingFilterGroup = new MenuActionGroup(this, screenScalingFilterMenu, SLOT(screenScalingFilterGroup_triggered(QAction *)),
@@ -634,8 +634,8 @@ void MainWindow::createMenus()
 
 	MenuTree* textureScalingMenu = new MenuTree(this, gameSettingsMenu, QT_TR_NOOP("&Texture scaling"));
 	textureScalingLevelGroup = new MenuActionGroup(this, textureScalingMenu, SLOT(textureScalingLevelGroup_triggered(QAction *)),
-		QStringList() << "&Off" << "&Auto" << "&2x" << "&3x" << "&4x" << "&5x",
-		QList<int>() << 1 << 2 << 3 << 4 << 5 << 6);
+		QStringList() << "&Off" << "&2x" << "&3x" << "&4x" << "&5x",
+		QList<int>() << 1 << 2 << 3 << 4 << 5);
 	textureScalingMenu->addSeparator();
 	textureScalingTypeGroup = new MenuActionGroup(this, textureScalingMenu, SLOT(textureScalingTypeGroup_triggered(QAction *)),
 		QStringList() << "&xBRZ" << "&Hybrid" << "&Bicubic" << "H&ybrid + bicubic",

@@ -110,7 +110,7 @@ static void __EmuScreenVblank()
 	if (frameStep_ && lastNumFlips != gpuStats.numFlips)
 	{
 		frameStep_ = false;
-		Core_EnableStepping(true);
+		Core_EnableStepping(true, "ui.frameAdvance", 0);
 		lastNumFlips = gpuStats.numFlips;
 	}
 #ifndef MOBILE_DEVICE
@@ -185,6 +185,10 @@ EmuScreen::EmuScreen(const Path &filename)
 
 	OnDevMenu.Handle(this, &EmuScreen::OnDevTools);
 	OnChatMenu.Handle(this, &EmuScreen::OnChat);
+
+	// Usually, we don't want focus movement enabled on this screen, so disable on start.
+	// Only if you open chat or dev tools do we want it to start working.
+	UI::EnableFocusMovement(false);
 }
 
 bool EmuScreen::bootAllowStorage(const Path &filename) {
@@ -607,7 +611,7 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		}
 		else if (!frameStep_)
 		{
-			Core_EnableStepping(true);
+			Core_EnableStepping(true, "ui.frameAdvance", 0);
 		}
 		break;
 
@@ -736,14 +740,14 @@ bool EmuScreen::key(const KeyInput &key) {
 	Core_NotifyActivity();
 
 	if (UI::IsFocusMovementEnabled()) {
-		if ((key.flags & KEY_DOWN) != 0 && UI::IsEscapeKey(key)) {
+		if (UIScreen::key(key)) {
+			return true;
+		} else if ((key.flags & KEY_DOWN) != 0 && UI::IsEscapeKey(key)) {
 			if (chatMenu_)
 				chatMenu_->Close();
 			if (chatButton_)
 				chatButton_->SetVisibility(UI::V_VISIBLE);
 			UI::EnableFocusMovement(false);
-			return true;
-		} else if (UIScreen::key(key)) {
 			return true;
 		}
 	}
@@ -834,31 +838,31 @@ void EmuScreen::CreateViews() {
 		AnchorLayoutParams *layoutParams = nullptr;
 		switch (g_Config.iChatButtonPosition) {
 		case 0:
-			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, 80, NONE, NONE, 50, true);
+			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 80, NONE, NONE, 50, true);
 			break;
 		case 1:
-			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, bounds.centerX(), NONE, NONE, 50, true);
+			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, bounds.centerX(), NONE, NONE, 50, true);
 			break;
 		case 2:
-			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, NONE, NONE, 80, 50, true);
+			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, NONE, 80, 50, true);
 			break;
 		case 3:
-			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, 80, 50, NONE, NONE, true);
+			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 80, 50, NONE, NONE, true);
 			break;
 		case 4:
-			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, bounds.centerX(), 50, NONE, NONE, true);
+			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, bounds.centerX(), 50, NONE, NONE, true);
 			break;
 		case 5:
-			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, NONE, 50, 80, NONE, true);
+			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, 50, 80, NONE, true);
 			break;
 		case 6:
-			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, 80, bounds.centerY(), NONE, NONE, true);
+			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 80, bounds.centerY(), NONE, NONE, true);
 			break;
 		case 7:
-			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, NONE, bounds.centerY(), 80, NONE, true);
+			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, bounds.centerY(), 80, NONE, true);
 			break;
 		default:
-			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, 80, NONE, NONE, 50, true);
+			layoutParams = new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 80, NONE, NONE, 50, true);
 			break;
 		}
 
@@ -1150,6 +1154,8 @@ static void DrawCrashDump(UIContext *ctx) {
 		sysName.c_str(), sysVersion, GetCompilerABI()
 	);
 
+	if (ctx->Draw()->GetFontAtlas()->getFont(ubuntu24))
+		ctx->BindFontTexture();
 	ctx->Draw()->SetFontScale(.7f, .7f);
 	ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 	y += 140;
@@ -1201,6 +1207,8 @@ BREAK
 		CheatsInEffect() ? "Y" : "N", HLEPlugins::HasEnabled() ? "Y" : "N");
 
 	ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+	ctx->Flush();
+	ctx->RebindTexture();
 }
 
 static void DrawAudioDebugStats(DrawBuffer *draw2d, const Bounds &bounds) {

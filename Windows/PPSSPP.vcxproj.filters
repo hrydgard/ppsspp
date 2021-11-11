@@ -76,9 +76,6 @@
     <ClCompile Include="W32Util\Misc.cpp">
       <Filter>Windows\W32Util</Filter>
     </ClCompile>
-    <ClCompile Include="W32Util\PropertySheet.cpp">
-      <Filter>Windows\W32Util</Filter>
-    </ClCompile>
     <ClCompile Include="W32Util\ShellUtil.cpp">
       <Filter>Windows\W32Util</Filter>
     </ClCompile>
@@ -271,6 +268,9 @@
     <ClCompile Include="..\android\jni\OpenSLContext.cpp">
       <Filter>Other Platforms\Android</Filter>
     </ClCompile>
+    <ClCompile Include="W32Util\ContextMenu.cpp">
+      <Filter>Windows\W32Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -292,9 +292,6 @@
       <Filter>Windows\W32Util</Filter>
     </ClInclude>
     <ClInclude Include="W32Util\Misc.h">
-      <Filter>Windows\W32Util</Filter>
-    </ClInclude>
-    <ClInclude Include="W32Util\PropertySheet.h">
       <Filter>Windows\W32Util</Filter>
     </ClInclude>
     <ClInclude Include="W32Util\ShellUtil.h">
@@ -541,6 +538,9 @@
     <ClInclude Include="..\android\jni\AndroidContentURI.h">
       <Filter>Other Platforms\Android</Filter>
     </ClInclude>
+    <ClInclude Include="W32Util\ContextMenu.h">
+      <Filter>Windows\W32Util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="icon1.ico">
@@ -589,9 +589,6 @@
     </None>
     <None Include="..\Qt\assets.qrc">
       <Filter>Other Platforms\Qt</Filter>
-    </None>
-    <None Include="pspmode.png">
-      <Filter>Resource Files</Filter>
     </None>
     <None Include="..\assets\langregion.ini">
       <Filter>Resource Files</Filter>

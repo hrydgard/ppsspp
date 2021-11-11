@@ -7,6 +7,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Windows/resource.h"
 #include "Core/MemMap.h"
+#include "Windows/W32Util/ContextMenu.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/InputBox.h"
 
@@ -18,8 +19,6 @@
 #include "DebuggerShared.h"
 
 #include "Windows/main.h"
-
-extern HMENU g_hPopupMenus;
 
 enum { REGISTER_PC = 32, REGISTER_HI, REGISTER_LO, REGISTERS_END };
 
@@ -509,9 +508,8 @@ void CtrlRegisterList::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		{
 			return;
 		}
-		POINT pt;
-		GetCursorPos(&pt);
-		switch(TrackPopupMenuEx(GetSubMenu(g_hPopupMenus,3),TPM_RIGHTBUTTON|TPM_RETURNCMD,pt.x,pt.y,wnd,0))
+
+		switch (TriggerContextMenu(ContextMenuID::REGLIST, wnd, ContextPoint::FromEvent(lParam)))
 		{
 		case ID_REGLIST_GOTOINMEMORYVIEW:
 			SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,val,0);

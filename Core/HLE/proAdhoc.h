@@ -40,6 +40,7 @@
 
 #include <thread>
 #include <mutex>
+#include <atomic>
 
 #include "Common/Net/Resolve.h"
 #include "Common/Serialize/Serializer.h"
@@ -220,6 +221,19 @@ inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode ==
 typedef struct SceNetEtherAddr {
   uint8_t data[ETHER_ADDR_LEN];
 } PACK SceNetEtherAddr;
+
+inline bool operator<(const SceNetEtherAddr& lhs, const SceNetEtherAddr& rhs) {
+	uint64_t l = 0;
+	uint64_t r = 0;
+	const uint8_t* lp = lhs.data;
+	const uint8_t* rp = rhs.data;
+	for (int8_t i = 5; i >= 0; i--) {
+		int8_t sb = (CHAR_BIT * i);
+		l |= (uint64_t)*lp++ << sb;
+		r |= (uint64_t)*rp++ << sb;
+	}
+	return (l < r);
+}
 
 // Broadcast MAC
 extern uint8_t broadcastMAC[ETHER_ADDR_LEN];
@@ -486,11 +500,14 @@ typedef struct SceNetAdhocMatchingContext {
   // Maximum Number of Peers (for HOST, P2P)
   s32_le maxpeers;
 
-  // Local MAC Address
-  SceNetEtherAddr mac;
-
   // Peer List for Connectees
   SceNetAdhocMatchingMemberInternal *peerlist; // SceNetAdhocMatchingMemberInfo[Emu]
+
+  // Peer Port list
+  std::map<SceNetEtherAddr, u16_le> *peerPort;
+
+  // Local MAC Address
+  SceNetEtherAddr mac;
 
   // Local PDP Port
   u16_le port;
@@ -898,7 +915,7 @@ extern int actionAfterMatchingMipsCall;
 #define SOCK_PDP	1
 #define SOCK_PTP	2
 // Aux vars
-extern int metasocket;
+extern std::atomic<int> metasocket;
 extern SceNetAdhocctlParameter parameter;
 extern SceNetAdhocctlAdhocId product_code;
 extern std::thread friendFinderThread;
@@ -928,7 +945,7 @@ extern SceNetAdhocMatchingContext * contexts;
 extern char* dummyPeekBuf64k;
 extern int dummyPeekBuf64kSize;
 extern int one;                 
-extern bool friendFinderRunning;
+extern std::atomic<bool> friendFinderRunning;
 extern SceNetAdhocctlPeerInfo * friends;
 extern SceNetAdhocctlScanInfo * networks;
 extern u64 adhocctlStartTime;
@@ -945,6 +962,7 @@ extern GameModeArea masterGameModeArea;
 extern std::vector<GameModeArea> replicaGameModeAreas;
 extern std::vector<SceNetEtherAddr> requiredGameModeMacs;
 extern std::vector<SceNetEtherAddr> gameModeMacs;
+extern std::map<SceNetEtherAddr, u16_le> gameModePeerPorts;
 // End of Aux vars
 
 enum AdhocConnectionType : int

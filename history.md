@@ -1,5 +1,97 @@
 This is history moved out from README.md, which was getting a bit long.
 
+What's new in 1.9.0/1.9.3
+-------------------------
+* Sizing/touch fixes on Android
+* Fixes for some crashes
+
+What's new in 1.9.0/1.9.2
+-------------------------
+* Flicker fixed in God of War that appeared with newer drivers for Mali GPUs ([#12224])
+* Improve performance of God of War on Vulkan ([#12242]), implement built-in GPU profiler ([#12262], [#12266])
+* Vertex range culling fixed on ARM Mali ([#12227])
+* Started to improve VFPU precision, resulting so far in a fix for the long standing Tekken 6 leg shaking problem ([#12217])
+* Fixed a VFPU precision snafu on ARM64, fixing disappearing officers in Warriors Orochi ([#11299]) and some problems in Tomb Raider ([#11179]).
+* Vulkan is the default again on Android versions newer than Pie
+* Fix various homebrew store issues
+* GPU pause signal handling fixed, fixing some hangs in Bleach and Armored Core games ([#12160])
+* Audio sample rate conversion handling fixes ([#12147])
+* Some Vulkan optimizations (pre-rotation ([#12216]), perf fix in Metal Gear Acid, etc)
+* Multiple fixes for the UWP build ([#12036], others)
+* MP3 playback fixes ([#12005])
+* Audio in Motorstorm: Arctic Edge fixed by returning errors correctly ([#12121])
+* Audio glitches in Final Fantasy Tactics fixed ([#9956])
+* Camera display in Invizimals fixed ([#12278], [#8521])
+* Added hotkeys for texture dump and replace ([#11938])
+* Added Visual Studio 2019 support. Windows XP is no longer supported ([#11995], others)
+* Fixes for video capture ([#12069])
+* Added a separate sound volume for alternative speed ([#12124])
+* Improved mouse control (Windows only) ([#12173], [#12176])
+* Support for installing texture packs and ISOs from zips ([#12175])
+* Right analog support for touch controls (only used by patched games and some HD remasters) ([#12182])
+* Android: Fix OpenSL initialization, possibly helps audio crackle a little. ([#12333]).
+* Fix graphics on Amazon Fire TV Stick 4K
+* Fixed strange vehicle behavior in MGS:PW (somehow) ([#12342])
+
+What's new in 1.8.0
+-------------------
+* Avoid crash when starting PPSSPP due to bad AMD Vulkan drivers ([#11802])
+* PowerVR Vulkan display corruption fixed ([#11744], [#11747])
+* Naruto Shippuden 3 hang fixed ([#11780])
+* Fixes to various lighting bugs ([#11567], [#11574], [#11577])
+* Fix control issue in Sonic Rivals and Rock Band ([#11878], [#11798], [#11879])
+* Significant performance improvement in Earth Defense Force 2 ([#11172])
+* Fix "real clock sync" setting (helps with latency for music games - [#11813])
+* More speed in FF4 effects and other generated curves ([#11425])
+* Support for resizing Vulkan on Linux ([#11451])
+* Improved support for GLES on Linux/IoT ([#11507], [#11537], [#11541], [#11632], [#11746], [#11806], [#11845])
+* Percentage based frameskipping ([#11523])
+* DXT accuracy improved, fixing thick white line in Gran Turismo sky ([#11530])
+* Fix Motorstorm freeze on non-Windows ([#11618])
+* Faster block transfer in some games like Digimon Adventures ([#11531], [#11553], [#11776])
+* Blending optimizations and improvements ([#11543], [#11620])
+* Improve D3D11 rendering issues ([#11584])
+* Change default graphics backend to D3D11 or OpenGL ([#11621], [#11658])
+* Remove some outdated settings ([#11665], [#11666], [#11667])
+* Fix remote disc streaming with ipv6 ([#11689], [#11700])
+* Vulkan: Workarounds for some driver bugs for 5xx series Qualcomm GPUs ([#11691], [#11694])
+* Fix some Qt port issues with recent performance improvements ([#11720], [#11807], [#11808])
+* UWP Xbox One: fix X/Back button confusion ([#11740])
+* Fix Formula 1 2006 timing issue ([#11767])
+* Fixes and workarounds for some vertex range culling bugs that broke a few games ([#11785], [#11859]), and disable it on older GPUs ([#11712], [#11773], [#11787])
+* Android: Allow putting PSP storage on custom paths like SD cards ([#11812])
+* Corrected vocp instruction, fixing models in Artdink games ([#11822], [#11835])
+* Bundle SDL in binary for macOS builds ([#11831])
+* Prevent keeping games open on Windows ([#11842])
+
+What's new in 1.7.3/1.7.4/1.7.5
+-------------------
+* Fixes for a couple of common crashes
+* Reverted immersive mode change temporarily to see if it helps misaligned buttons
+* Change default adhoc server address
+
+What's new in 1.7.2
+-------------------
+* Update text of "Buy PPSSPP Gold" button
+
+What's new in 1.7.1
+-------------------
+* Minor crashfixes, lang updates
+* Save bug fixed ([#11508])
+
+What's new in 1.7.0
+-------------------
+* Fix for insta-crash on Galaxy Note 9, some Xiaomi devices, and the new nVidia Shield ([#11441])
+* Vertex range culling on most platforms, fixes DTM: Race Driver and similar ([#11393])
+* Major speed boost in some Gundam and Earth Defense Force games ([#10973])
+* Fix for issues with post processing shaders in GL 3+ ([#11182])
+* Fixes to sound output switching on Windows (WASAPI) ([#11438])
+* Detects DirectInput devices when running ([#11461])
+* Simple Discord integration ([#11307])
+* New debugging APIs ([#10909])
+* Task switching made a lot more robust (fixes GPD XD problems) ([#11447])
+* Texture decoding optimizations ([#11350])
+* Tons and tons of miscellaneous bugfixes and compatibility fixes
 
 What's new in 1.6.3
 -------------------
@@ -382,3 +474,95 @@ go to see there http://forums.ppsspp.org/showthread.php?tid=3595&pid=59241#pid59
 [#8882]: https://github.com/hrydgard/ppsspp/issues/8882 "Add custom log expressions to the debugger"
 [#8762]: https://github.com/hrydgard/ppsspp/issues/8762 "Add more GE debugger features"
 [#8968]: https://github.com/hrydgard/ppsspp/issues/8968 "Android: Add both a lost and restore phase"
+[#12224]: https://github.com/hrydgard/ppsspp/issues/12224 "Vulkan: Add missing barrier between multiple passes to the same target."
+[#12242]: https://github.com/hrydgard/ppsspp/issues/12242 "Vulkan: Automatically merge render passes to the same target when possible"
+[#12262]: https://github.com/hrydgard/ppsspp/issues/12262 "Vulkan: Implement basic integrated GPU profiling."
+[#12266]: https://github.com/hrydgard/ppsspp/issues/12266 "Vulkan: Further improvements to GPU profiling"
+[#12227]: https://github.com/hrydgard/ppsspp/issues/12227 "Vulkan/GL: Set all four coordinates to NaN instead of just W."
+[#12217]: https://github.com/hrydgard/ppsspp/issues/12217 "Merge vfpu-dot changes and add compat flag for Tekken"
+[#11299]: https://github.com/hrydgard/ppsspp/issues/11299 "Warrior Orochi Enemy Missing"
+[#11179]: https://github.com/hrydgard/ppsspp/issues/11179 "Tomb Raider Anniversary jump to horizontal bar issue"
+[#12160]: https://github.com/hrydgard/ppsspp/issues/12160 "GPU: Forget pause signal on new list"
+[#12147]: https://github.com/hrydgard/ppsspp/issues/12147 "Handle audio SRC mixing more correctly"
+[#12216]: https://github.com/hrydgard/ppsspp/issues/12216 "Cant get Invizimals to work on PPSSPP (Video source not rendered)"
+[#12036]: https://github.com/hrydgard/ppsspp/issues/12036 "Several UWP fixes"
+[#12005]: https://github.com/hrydgard/ppsspp/issues/12005 "Correct mp3 looping, frame num, and sum decoded"
+[#12121]: https://github.com/hrydgard/ppsspp/issues/12121 "Return errors on Audio2 release when channel busy"
+[#9956]: https://github.com/hrydgard/ppsspp/issues/9956 "Audio crackle/distortion in Final Fantasy Tactics"
+[#12278]: https://github.com/hrydgard/ppsspp/issues/12278 "UsbCam/jpeg: Cleanups, notify framebuffer manager"
+[#8521]: https://github.com/hrydgard/ppsspp/issues/8521 "PSP Camera Support (Android)"
+[#11938]: https://github.com/hrydgard/ppsspp/issues/11938 "Add texture dump/replace hotkeys."
+[#11995]: https://github.com/hrydgard/ppsspp/issues/11995 "Fix VS2019 builds and remove _xp dependency"
+[#12069]: https://github.com/hrydgard/ppsspp/issues/12069 "Fix avi dump feature"
+[#12124]: https://github.com/hrydgard/ppsspp/issues/12124 "Audio: Add volume for alternate speed"
+[#12173]: https://github.com/hrydgard/ppsspp/issues/12173 "Ignore mapped mouse input for UI"
+[#12176]: https://github.com/hrydgard/ppsspp/issues/12176 "Mouse improvements"
+[#12175]: https://github.com/hrydgard/ppsspp/issues/12175 "UI: Allow installing texture packs from zips"
+[#12182]: https://github.com/hrydgard/ppsspp/issues/12182 "Add right analog for touch controls."
+[#12333]: https://github.com/hrydgard/ppsspp/issues/12333 "Android OpenSL initial queue fix"
+[#12342]: https://github.com/hrydgard/ppsspp/issues/12342 "Serious MGS Peace Walker bug fixed post-1.8.0"
+[#11802]: https://github.com/hrydgard/ppsspp/issues/11802 "Windows: Detect Vulkan in separate process"
+[#11744]: https://github.com/hrydgard/ppsspp/issues/11744 "VulkanDeviceAlloc: Memorytype per slab"
+[#11747]: https://github.com/hrydgard/ppsspp/issues/11747 "Vk validation fixes, plus PowerVR swapchain hack"
+[#11780]: https://github.com/hrydgard/ppsspp/issues/11780 "Naruto Shippuden Ultimate Ninja 3: Probably a better fix for the video hang issue."
+[#11567]: https://github.com/hrydgard/ppsspp/issues/11567 "Correct shade mapping when light pos is all zeros"
+[#11574]: https://github.com/hrydgard/ppsspp/issues/11574 "Correct various light param issues based on tests"
+[#11577]: https://github.com/hrydgard/ppsspp/issues/11577 "Correct provoking vertex for lighting when flat shading"
+[#11878]: https://github.com/hrydgard/ppsspp/issues/11878 "Sonic Rivals controls semi-broken"
+[#11798]: https://github.com/hrydgard/ppsspp/issues/11798 "User report: Long notes in Rock Band Unplugged are not registered correctly"
+[#11879]: https://github.com/hrydgard/ppsspp/issues/11879 "Fix apparent bug in #11094, fixes #11878 and likely #11798"
+[#11172]: https://github.com/hrydgard/ppsspp/issues/11172 "handle cullface, help to #10597"
+[#11813]: https://github.com/hrydgard/ppsspp/issues/11813 "Core: Fix lag sync on game start / after pause"
+[#11425]: https://github.com/hrydgard/ppsspp/issues/11425 "[Refactoring] Improve spline/bezier."
+[#11451]: https://github.com/hrydgard/ppsspp/issues/11451 "SDL/Vulkan window resize improvements"
+[#11507]: https://github.com/hrydgard/ppsspp/issues/11507 "Improve support of Qt + USING_GLES2"
+[#11537]: https://github.com/hrydgard/ppsspp/issues/11537 "CMake: Allow disabling Wayland support with USE_WAYLAND_WSI"
+[#11541]: https://github.com/hrydgard/ppsspp/issues/11541 "CMake: Fix linking X11 when using EGL and not fbdev"
+[#11632]: https://github.com/hrydgard/ppsspp/issues/11632 "SDL: Allow toggling fullscreen for GLES2 on desktops."
+[#11746]: https://github.com/hrydgard/ppsspp/issues/11746 "CMakeLists: fix EGL detection for ARM devices"
+[#11806]: https://github.com/hrydgard/ppsspp/issues/11806 "SDL: Force fullscreen desktop for USING_FBDEV"
+[#11845]: https://github.com/hrydgard/ppsspp/issues/11845 "EGL: Avoid HDR mode. Uses unknownbrackets' changes from #11839."
+[#11523]: https://github.com/hrydgard/ppsspp/issues/11523 "Add frameskip setting"
+[#11530]: https://github.com/hrydgard/ppsspp/issues/11530 "Make DXT alpha and color calculation more accurate"
+[#11618]: https://github.com/hrydgard/ppsspp/issues/11618 "Io: Ensure sign extension for error codes"
+[#11531]: https://github.com/hrydgard/ppsspp/issues/11531 "WIP: Virtual readbacks"
+[#11553]: https://github.com/hrydgard/ppsspp/issues/11553 "Remove constraint that virtual framebuffers have to represent VRAM."
+[#11776]: https://github.com/hrydgard/ppsspp/issues/11776 "Only gate really expensive block transfers behind the setting."
+[#11543]: https://github.com/hrydgard/ppsspp/issues/11543 "GPU: Dirty frag shader on depth write"
+[#11620]: https://github.com/hrydgard/ppsspp/issues/11620 "Optimize out some stencil emulation, try to avoid depth write"
+[#11584]: https://github.com/hrydgard/ppsspp/issues/11584 "D3D11: Allow shader blend to self"
+[#11621]: https://github.com/hrydgard/ppsspp/issues/11621 "Vulkan: Avoid using Vulkan"
+[#11658]: https://github.com/hrydgard/ppsspp/issues/11658 "Windows: Hide Vulkan/D3D11 if not available"
+[#11665]: https://github.com/hrydgard/ppsspp/issues/11665 "Remove the \"Disable stencil test\" hack setting"
+[#11666]: https://github.com/hrydgard/ppsspp/issues/11666 "Remove \"Timer Hack\" setting."
+[#11667]: https://github.com/hrydgard/ppsspp/issues/11667 "Remove outdated TrueColor setting."
+[#11689]: https://github.com/hrydgard/ppsspp/issues/11689 "Correct remote disc streaming with ipv6"
+[#11700]: https://github.com/hrydgard/ppsspp/issues/11700 "http: Report errors reading discs"
+[#11691]: https://github.com/hrydgard/ppsspp/issues/11691 "WIP: Vulkan/adreno: Apply workaround for Harvest Moon issue #10421"
+[#11694]: https://github.com/hrydgard/ppsspp/issues/11694 "Vulkan: Limit stencil workaround to Adreno 5xx"
+[#11720]: https://github.com/hrydgard/ppsspp/issues/11720 "Try to support Qt keyboard input directly. Fixes #11653"
+[#11807]: https://github.com/hrydgard/ppsspp/issues/11807 "Qt: Re-enable Load button to browse for file"
+[#11808]: https://github.com/hrydgard/ppsspp/issues/11808 "Qt: Correct text bind on first draw of string"
+[#11740]: https://github.com/hrydgard/ppsspp/issues/11740 "Fix for weird Xbox B button behavior, see #10948."
+[#11767]: https://github.com/hrydgard/ppsspp/issues/11767 "Compat: Force realistic UMD timing for F1 2006."
+[#11785]: https://github.com/hrydgard/ppsspp/issues/11785 "GPU: Correct depth clamp range in range cull"
+[#11859]: https://github.com/hrydgard/ppsspp/issues/11859 "GPU: Handle cull range properly drawing at offset"
+[#11712]: https://github.com/hrydgard/ppsspp/issues/11712 "GLES: Detect Vivante GPU, disable vertex range culling"
+[#11773]: https://github.com/hrydgard/ppsspp/issues/11773 "D3D9: Disable range culling on really old NVIDIA cards"
+[#11787]: https://github.com/hrydgard/ppsspp/issues/11787 "GLES: Disable range culling on VideoCore/Vivante"
+[#11812]: https://github.com/hrydgard/ppsspp/issues/11812 "Android: Allow using a custom Memory Stick storage path"
+[#11822]: https://github.com/hrydgard/ppsspp/issues/11822 "interp: Correct vocp prefix handling"
+[#11835]: https://github.com/hrydgard/ppsspp/issues/11835 "Correct vocp / vsocp prefix handling"
+[#11831]: https://github.com/hrydgard/ppsspp/issues/11831 "Bundle libSDL inside app on macOS, fixes #11830"
+[#11842]: https://github.com/hrydgard/ppsspp/issues/11842 "Win32 handle leak fix"
+[#11508]: https://github.com/hrydgard/ppsspp/issues/11508 "Savedata: Write only one secure entry"
+[#11441]: https://github.com/hrydgard/ppsspp/issues/11441 "Vulkan: Apply Themaister's patch, removing illegal pre-transitions of swapchain images. Fixes #11417 (crash on Note 9)"
+[#11393]: https://github.com/hrydgard/ppsspp/issues/11393 "Implement vertex range culling"
+[#10973]: https://github.com/hrydgard/ppsspp/issues/10973 "handle cull mode"
+[#11182]: https://github.com/hrydgard/ppsspp/issues/11182 "GLES: Use accurate GLSL ver in postshader convert"
+[#11438]: https://github.com/hrydgard/ppsspp/issues/11438 "Allow WASAPI device switching"
+[#11461]: https://github.com/hrydgard/ppsspp/issues/11461 "Windows: Detect DirectInput devices after launch"
+[#11307]: https://github.com/hrydgard/ppsspp/issues/11307 "Enable Discord integration for Mac and Linux."
+[#10909]: https://github.com/hrydgard/ppsspp/issues/10909 "WebSocket based debugger interface"
+[#11447]: https://github.com/hrydgard/ppsspp/issues/11447 "Avoid calling any GL calls during shutdown on Android. Should help #11063"
+[#11350]: https://github.com/hrydgard/ppsspp/issues/11350 "TexCache: Optimize DXT3/DXT5 decode to single pass"

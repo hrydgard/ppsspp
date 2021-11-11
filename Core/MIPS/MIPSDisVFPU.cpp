@@ -138,12 +138,20 @@ namespace MIPSDis
 		sprintf(out, "%s%s\t%s, %s",name,vr>127?"c":"", RN(rt), VN(vr, V_Single));
 	}
 
-	void Dis_Vmftvc(MIPSOpcode op, char *out)
+	void Dis_Vmfvc(MIPSOpcode op, char *out)
 	{
-		int vr = op & 0xFF;
+		int vd = _VD;
+		int vr = (op >> 8) & 0x7F;
+		const char* name = MIPSGetName(op);
+		sprintf(out, "%s\t%s, %s", name, VN(vd, V_Single), VN(vr + 128, V_Single));
+	}
+
+	void Dis_Vmtvc(MIPSOpcode op, char *out)
+	{
+		int vr = op & 0x7F;
 		int vs = _VS;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, %s", name, VN(vs, V_Single), VN(vr, V_Single));
+		sprintf(out, "%s\t%s, %s", name, VN(vs, V_Single), VN(vr + 128, V_Single));
 	}
 
 	void Dis_VPFXST(MIPSOpcode op, char *out)
@@ -224,6 +232,7 @@ namespace MIPSDis
 	{
 		int conNum = (op>>16) & 0x1f;
 		int vd = _VD;
+		VectorSize sz = GetVecSizeSafe(op);
 		static const char *constants[32] = 
 		{
 			"(undef)",
@@ -250,7 +259,7 @@ namespace MIPSDis
 		const char *name = MIPSGetName(op);
 		const char *c = constants[conNum];
 		if (c==0) c = constants[0];
-		sprintf(out,"%s%s\t%s, %s",name,VSuff(op),VN(vd,V_Single), c);
+		sprintf(out,"%s%s\t%s, %s",name,VSuff(op),VN(vd,sz), c);
 	}
 
 

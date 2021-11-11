@@ -210,7 +210,7 @@ static RetroOption<int> ppsspp_button_preference("ppsspp_button_preference", "Co
 static RetroOption<bool> ppsspp_fast_memory("ppsspp_fast_memory", "Fast Memory (Speedhack)", true);
 static RetroOption<bool> ppsspp_block_transfer_gpu("ppsspp_block_transfer_gpu", "Block Transfer GPU", true);
 static RetroOption<int> ppsspp_inflight_frames("ppsspp_inflight_frames", "Buffered frames (Slower, less lag, restart)", { { "Up to 2", 2 }, { "Up to 1", 1 }, { "No buffer", 0 }, });
-static RetroOption<int> ppsspp_texture_scaling_level("ppsspp_texture_scaling_level", "Texture Scaling Level", { { "Off", 1 }, { "2x", 2 }, { "3x", 3 }, { "4x", 4 }, { "5x", 5 }, { "Auto", 0 } });
+static RetroOption<int> ppsspp_texture_scaling_level("ppsspp_texture_scaling_level", "Texture Scaling Level", { { "Off", 1 }, { "2x", 2 }, { "3x", 3 }, { "4x", 4 }, { "5x", 5 } });
 static RetroOption<int> ppsspp_texture_scaling_type("ppsspp_texture_scaling_type", "Texture Scaling Type", { { "xbrz", TextureScalerCommon::XBRZ }, { "hybrid", TextureScalerCommon::HYBRID }, { "bicubic", TextureScalerCommon::BICUBIC }, { "hybrid_bicubic", TextureScalerCommon::HYBRID_BICUBIC } });
 static RetroOption<std::string> ppsspp_texture_shader("ppsspp_texture_shader", "Texture Shader (Vulkan only, overrides Texture Scaling Type)", { {"Off", "Off"},  {"4xBRZ", "Tex4xBRZ"}, {"MMPX", "TexMMPX"} });
 static RetroOption<int> ppsspp_texture_filtering("ppsspp_texture_filtering", "Texture Filtering", { { "Auto", 1 }, { "Nearest", 2 }, { "Linear", 3 }, {"Auto max quality", 4}});
@@ -221,7 +221,6 @@ static RetroOption<bool> ppsspp_texture_replacement("ppsspp_texture_replacement"
 static RetroOption<bool> ppsspp_gpu_hardware_transform("ppsspp_gpu_hardware_transform", "GPU Hardware T&L", true);
 static RetroOption<bool> ppsspp_vertex_cache("ppsspp_vertex_cache", "Vertex Cache (Speedhack)", false);
 static RetroOption<bool> ppsspp_cheats("ppsspp_cheats", "Internal Cheats Support", false);
-static RetroOption<bool> ppsspp_io_threading("ppsspp_io_threading", "I/O on thread (Experimental)", true);
 static RetroOption<IOTimingMethods> ppsspp_io_timing_method("ppsspp_io_timing_method", "IO Timing Method", { { "Fast", IOTimingMethods::IOTIMING_FAST }, { "Host", IOTimingMethods::IOTIMING_HOST }, { "Simulate UMD delays", IOTimingMethods::IOTIMING_REALISTIC } });
 static RetroOption<bool> ppsspp_frame_duplication("ppsspp_frame_duplication", "Duplicate frames in 30hz games", false);
 static RetroOption<bool> ppsspp_software_skinning("ppsspp_software_skinning", "Software Skinning", true);
@@ -264,7 +263,6 @@ void retro_set_environment(retro_environment_t cb)
    vars.push_back(ppsspp_texture_filtering.GetOptions());
    vars.push_back(ppsspp_texture_deposterize.GetOptions());
    vars.push_back(ppsspp_texture_replacement.GetOptions());
-   vars.push_back(ppsspp_io_threading.GetOptions());
    vars.push_back(ppsspp_io_timing_method.GetOptions());
    vars.push_back(ppsspp_ignore_bad_memory_access.GetOptions());
    vars.push_back(ppsspp_cheats.GetOptions());
@@ -368,7 +366,6 @@ static void check_variables(CoreParameter &coreParam)
    ppsspp_locked_cpu_speed.Update(&g_Config.iLockedCPUSpeed);
    ppsspp_rendering_mode.Update(&g_Config.iRenderingMode);
    ppsspp_cpu_core.Update((CPUCore *)&g_Config.iCpuCore);
-   ppsspp_io_threading.Update(&g_Config.bSeparateIOThread);
    ppsspp_io_timing_method.Update((IOTimingMethods *)&g_Config.iIOTimingMethod);
    ppsspp_lower_resolution_for_effects.Update(&g_Config.iBloomHack);
    ppsspp_frame_duplication.Update(&g_Config.bRenderDuplicateFrames);
@@ -928,6 +925,17 @@ float System_GetPropertyFloat(SystemProperty prop)
    }
 
    return -1;
+}
+
+bool System_GetPropertyBool(SystemProperty prop)
+{
+   switch (prop)
+   {
+   case SYSPROP_CAN_JIT:
+      return true;
+   default:
+      return false;
+   }
 }
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }

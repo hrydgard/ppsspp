@@ -400,6 +400,7 @@
     <ClInclude Include="..\..\Core\Debugger\WebSocket\GameSubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\GPUBufferSubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\GPURecordSubscriber.h" />
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\GPUStatsSubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\HLESubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\InputBroadcaster.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\InputSubscriber.h" />
@@ -634,6 +635,7 @@
     <ClCompile Include="..\..\Core\Debugger\WebSocket\GameSubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\GPUBufferSubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\GPURecordSubscriber.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\GPUStatsSubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\HLESubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\InputBroadcaster.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\InputSubscriber.cpp" />

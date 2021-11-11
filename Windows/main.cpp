@@ -65,6 +65,7 @@
 #if PPSSPP_API(ANY_GL)
 #include "Windows/GEDebugger/GEDebugger.h"
 #endif
+#include "Windows/W32Util/ContextMenu.h"
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/W32Util/ShellUtil.h"
 
@@ -101,17 +102,20 @@ static std::string gpuDriverVersion;
 
 static std::string restartArgs;
 
-HMENU g_hPopupMenus;
 int g_activeWindow = 0;
 
 static std::thread inputBoxThread;
 static bool inputBoxRunning = false;
 
 void OpenDirectory(const char *path) {
-	PIDLIST_ABSOLUTE pidl = ILCreateFromPath(ConvertUTF8ToWString(ReplaceAll(path, "/", "\\")).c_str());
+	SFGAOF flags;
+	PIDLIST_ABSOLUTE pidl = nullptr;
+	HRESULT hr = SHParseDisplayName(ConvertUTF8ToWString(ReplaceAll(path, "/", "\\")).c_str(), nullptr, &pidl, 0, &flags);
+
 	if (pidl) {
-		SHOpenFolderAndSelectItems(pidl, 0, NULL, 0);
-		ILFree(pidl);
+		if (SUCCEEDED(hr))
+			SHOpenFolderAndSelectItems(pidl, 0, nullptr, 0);
+		CoTaskMemFree(pidl);
 	}
 }
 
@@ -311,6 +315,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return false;
 #endif
 	case SYSPROP_CAN_JIT:
+		return true;
+	case SYSPROP_HAS_KEYBOARD:
 		return true;
 	default:
 		return false;
@@ -665,10 +671,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	timeBeginPeriod(1);  // TODO: Evaluate if this makes sense to keep.
 
+	ContextMenuInit(_hInstance);
 	MainWindow::Init(_hInstance);
-
-	g_hPopupMenus = LoadMenu(_hInstance, (LPCWSTR)IDR_POPUPMENUS);
-
 	MainWindow::Show(_hInstance);
 
 	HWND hwndMain = MainWindow::GetHWND();

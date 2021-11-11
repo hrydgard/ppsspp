@@ -56,7 +56,11 @@ public:
 	bool WriteSFO(u8 **paramsfo, size_t *size);
 
 	bool ReadSFO(const std::vector<u8> &paramsfo) {
-		return ReadSFO(&paramsfo[0], paramsfo.size());
+		if (!paramsfo.empty()) {
+			return ReadSFO(&paramsfo[0], paramsfo.size());
+		} else {
+			return false;
+		}
 	}
 
 	int GetDataOffset(const u8 *paramsfo, std::string dataName);

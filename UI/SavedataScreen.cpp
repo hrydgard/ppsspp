@@ -87,10 +87,13 @@ public:
 		const Style &textStyle = dc.theme->popupStyle;
 
 		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
-		LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
-		parent->Add(content);
 		if (!ginfo)
 			return;
+
+		ScrollView *contentScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
+		LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
+		parent->Add(contentScroll);
+		contentScroll->Add(content);
 		LinearLayout *toprow = new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 		content->Add(toprow);
 
@@ -122,10 +125,13 @@ public:
 		}
 
 		auto di = GetI18NCategory("Dialog");
-		LinearLayout *buttons = new LinearLayout(ORIENT_HORIZONTAL);
-		buttons->Add(new Button(di->T("Back"), new LinearLayoutParams(1.0)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-		buttons->Add(new Button(di->T("Delete"), new LinearLayoutParams(1.0)))->OnClick.Handle(this, &SavedataPopupScreen::OnDeleteButtonClick);
-		content->Add(buttons);
+		LinearLayout *buttons = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		buttons->SetSpacing(0);
+		Margins buttonMargins(5, 5);
+
+		buttons->Add(new Button(di->T("Back"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		buttons->Add(new Button(di->T("Delete"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle(this, &SavedataPopupScreen::OnDeleteButtonClick);
+		parent->Add(buttons);
 	}
 
 protected:
@@ -138,32 +144,49 @@ private:
 
 class SortedLinearLayout : public UI::LinearLayoutList {
 public:
+	typedef std::function<void(View *)> PrepFunc;
 	typedef std::function<bool(const View *, const View *)> CompareFunc;
-	typedef std::function<bool()> DoneFunc;
 
 	SortedLinearLayout(UI::Orientation orientation, UI::LayoutParams *layoutParams = nullptr)
 		: UI::LinearLayoutList(orientation, layoutParams) {
 	}
 
-	void SetCompare(CompareFunc lessFunc, DoneFunc doneFunc) {
+	void SetCompare(const PrepFunc &prepFunc, const CompareFunc &lessFunc) {
+		prepIndex_ = 0;
+		prepFunc_ = prepFunc;
 		lessFunc_ = lessFunc;
-		doneFunc_ = doneFunc;
 	}
 
 	void Update() override;
 
 private:
+	size_t prepIndex_ = 0;
+	PrepFunc prepFunc_;
 	CompareFunc lessFunc_;
-	DoneFunc doneFunc_;
 };
 
 void SortedLinearLayout::Update() {
+	if (prepFunc_) {
+		// Try to avoid dropping more than a frame, prefer items shift.
+		constexpr double ALLOWED_TIME = 0.95 / 60.0;
+		double start_time = time_now_d();
+		for (; prepIndex_ < views_.size(); ++prepIndex_) {
+			prepFunc_(views_[prepIndex_]);
+			if (time_now_d() > start_time + ALLOWED_TIME) {
+				break;
+			}
+		}
+	}
 	if (lessFunc_) {
+		// We may sort several times while calculating.
 		std::stable_sort(views_.begin(), views_.end(), lessFunc_);
 	}
-	if (doneFunc_ && doneFunc_()) {
+	// We're done if we got through all items.
+	if (prepIndex_ >= views_.size()) {
+		prepFunc_ = PrepFunc();
 		lessFunc_ = CompareFunc();
 	}
+
 	UI::LinearLayout::Update();
 }
 
@@ -184,13 +207,56 @@ public:
 
 	const Path &GamePath() const { return savePath_; }
 
+	uint64_t GetTotalSize() const {
+		return totalSize_;
+	}
+	int64_t GetDateSeconds() const {
+		return dateSeconds_;
+	}
+
+	void UpdateTotalSize();
+	void UpdateDateSeconds();
+
 private:
 	void UpdateText(const std::shared_ptr<GameInfo> &ginfo);
 
 	Path savePath_;
 	std::string title_;
 	std::string subtitle_;
+	uint64_t totalSize_ = 0;
+	int64_t dateSeconds_ = 0;
+	bool hasTotalSize_ = false;
+	bool hasDateSeconds_ = false;
 };
+
+void SavedataButton::UpdateTotalSize() {
+	if (hasTotalSize_)
+		return;
+
+	File::FileInfo info;
+	if (File::GetFileInfo(savePath_, &info)) {
+		totalSize_ = info.size;
+		if (info.isDirectory)
+			totalSize_ = File::ComputeRecursiveDirectorySize(savePath_);
+	}
+
+	hasTotalSize_ = true;
+}
+
+void SavedataButton::UpdateDateSeconds() {
+	if (hasDateSeconds_)
+		return;
+
+	File::FileInfo info;
+	if (File::GetFileInfo(savePath_, &info)) {
+		dateSeconds_ = info.mtime;
+		if (info.isDirectory && File::GetFileInfo(savePath_ / "PARAM.SFO", &info)) {
+			dateSeconds_ = info.mtime;
+		}
+	}
+
+	hasDateSeconds_ = true;
+}
 
 UI::EventReturn SavedataPopupScreen::OnDeleteButtonClick(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GAMEINFO_WANTSIZE);
@@ -408,13 +474,17 @@ void SavedataBrowser::SetSortOption(SavedataSortOption opt) {
 	if (gameList_) {
 		SortedLinearLayout *gl = static_cast<SortedLinearLayout *>(gameList_);
 		if (sortOption_ == SavedataSortOption::FILENAME) {
-			gl->SetCompare(&ByFilename, &SortDone);
+			gl->SetCompare(&PrepFilename, &ByFilename);
 		} else if (sortOption_ == SavedataSortOption::SIZE) {
-			gl->SetCompare(&BySize, &SortDone);
+			gl->SetCompare(&PrepSize, &BySize);
 		} else if (sortOption_ == SavedataSortOption::DATE) {
-			gl->SetCompare(&ByDate, &SortDone);
+			gl->SetCompare(&PrepDate, &ByDate);
 		}
 	}
+}
+
+void SavedataBrowser::PrepFilename(UI::View *v) {
+	// Nothing needed.
 }
 
 bool SavedataBrowser::ByFilename(const UI::View *v1, const UI::View *v2) {
@@ -424,59 +494,40 @@ bool SavedataBrowser::ByFilename(const UI::View *v1, const UI::View *v2) {
 	return strcmp(b1->GamePath().c_str(), b2->GamePath().c_str()) < 0;
 }
 
-static time_t GetTotalSize(const SavedataButton *b) {
-	auto fileLoader = std::unique_ptr<FileLoader>(ConstructFileLoader(b->GamePath()));
-	std::string errorString;
-	switch (Identify_File(fileLoader.get(), &errorString)) {
-	case IdentifiedFileType::PSP_PBP_DIRECTORY:
-	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
-		return File::ComputeRecursiveDirectorySize(ResolvePBPDirectory(b->GamePath()));
-	default:
-		return fileLoader->FileSize();
-	}
+void SavedataBrowser::PrepSize(UI::View *v) {
+	SavedataButton *b = static_cast<SavedataButton *>(v);
+	b->UpdateTotalSize();
 }
 
 bool SavedataBrowser::BySize(const UI::View *v1, const UI::View *v2) {
 	const SavedataButton *b1 = static_cast<const SavedataButton *>(v1);
 	const SavedataButton *b2 = static_cast<const SavedataButton *>(v2);
+	const uint64_t size1 = b1->GetTotalSize();
+	const uint64_t size2 = b2->GetTotalSize();
 
-	if (GetTotalSize(b1) > GetTotalSize(b2))
+	if (size1 > size2)
 		return true;
-	else if (GetTotalSize(b1) < GetTotalSize(b2))
+	else if (size1 < size2)
 		return false;
 	return strcmp(b1->GamePath().c_str(), b2->GamePath().c_str()) < 0;
 }
 
-static time_t GetDateSeconds(const SavedataButton *b) {
-	auto fileLoader = std::unique_ptr<FileLoader>(ConstructFileLoader(b->GamePath()));
-	tm datetm;
-	bool success;
-	std::string errorString;
-	if (Identify_File(fileLoader.get(), &errorString) == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
-		success = File::GetModifTime(b->GamePath() / "PARAM.SFO", datetm);
-	} else {
-		success = File::GetModifTime(b->GamePath(), datetm);
-	}
-
-	if (success) {
-		return mktime(&datetm);
-	}
-	return (time_t)0;
+void SavedataBrowser::PrepDate(UI::View *v) {
+	SavedataButton *b = static_cast<SavedataButton *>(v);
+	b->UpdateDateSeconds();
 }
 
 bool SavedataBrowser::ByDate(const UI::View *v1, const UI::View *v2) {
 	const SavedataButton *b1 = static_cast<const SavedataButton *>(v1);
 	const SavedataButton *b2 = static_cast<const SavedataButton *>(v2);
+	const int64_t time1 = b1->GetDateSeconds();
+	const int64_t time2 = b2->GetDateSeconds();
 
-	if (GetDateSeconds(b1) > GetDateSeconds(b2))
+	if (time1 > time2)
 		return true;
-	if (GetDateSeconds(b1) < GetDateSeconds(b2))
+	if (time1 < time2)
 		return false;
 	return strcmp(b1->GamePath().c_str(), b2->GamePath().c_str()) < 0;
-}
-
-bool SavedataBrowser::SortDone() {
-	return true;
 }
 
 void SavedataBrowser::Refresh() {
@@ -602,9 +653,8 @@ void SavedataScreen::CreateViews() {
 	sortStrip->OnChoice.Handle<SavedataScreen>(this, &SavedataScreen::OnSortClick);
 
 	AddStandardBack(root_);
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
-	root_->Add(new Choice(di->T("Search"), "", false, new AnchorLayoutParams(WRAP_CONTENT, 64, NONE, NONE, 10, 10)))->OnClick.Handle<SavedataScreen>(this, &SavedataScreen::OnSearch);
-#endif
+	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD))
+		root_->Add(new Choice(di->T("Search"), "", false, new AnchorLayoutParams(WRAP_CONTENT, 64, NONE, NONE, 10, 10)))->OnClick.Handle<SavedataScreen>(this, &SavedataScreen::OnSearch);
 
 	root_->Add(main);
 	root_->Add(sortStrip);

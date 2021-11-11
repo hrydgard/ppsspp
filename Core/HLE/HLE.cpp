@@ -68,6 +68,7 @@ static int delayedResultEvent = -1;
 static int hleAfterSyscall = HLE_AFTER_NOTHING;
 static const char *hleAfterSyscallReschedReason;
 static const HLEFunction *latestSyscall = nullptr;
+static uint32_t latestSyscallPC = 0;
 static int idleOp;
 
 struct HLEMipsCallInfo {
@@ -128,6 +129,7 @@ void HLEDoState(PointerWrap &p) {
 
 	// Can't be inside a syscall, reset this so errors aren't misleading.
 	latestSyscall = nullptr;
+	latestSyscallPC = 0;
 	Do(p, delayedResultEvent);
 	CoreTiming::RestoreRegisterEvent(delayedResultEvent, "HLEDelayedResult", hleDelayResultFinish);
 
@@ -153,6 +155,7 @@ void HLEDoState(PointerWrap &p) {
 void HLEShutdown() {
 	hleAfterSyscall = HLE_AFTER_NOTHING;
 	latestSyscall = nullptr;
+	latestSyscallPC = 0;
 	moduleDB.clear();
 	enqueuedMipsCalls.clear();
 	for (auto p : mipsCallActions) {
@@ -360,7 +363,7 @@ bool hleExecuteDebugBreak(const HLEFunction &func)
 			return false;
 	}
 
-	Core_EnableStepping(true);
+	Core_EnableStepping(true, "hle.step", latestSyscallPC);
 	host->SetDebugMode(true);
 	return true;
 }
@@ -625,6 +628,7 @@ static void updateSyscallStats(int modulenum, int funcnum, double total)
 inline void CallSyscallWithFlags(const HLEFunction *info)
 {
 	latestSyscall = info;
+	latestSyscallPC = currentMIPS->pc;
 	const u32 flags = info->flags;
 
 	if (flags & HLE_CLEAR_STACK_BYTES) {
@@ -651,6 +655,7 @@ inline void CallSyscallWithFlags(const HLEFunction *info)
 inline void CallSyscallWithoutFlags(const HLEFunction *info)
 {
 	latestSyscall = info;
+	latestSyscallPC = currentMIPS->pc;
 	info->func();
 
 	if (hleAfterSyscall != HLE_AFTER_NOTHING)

@@ -45,37 +45,28 @@
 #include "GPU/GLES/GPU_GLES.h"
 
 const GLuint glprim[8] = {
-	GL_POINTS,
-	GL_LINES,
-	GL_LINE_STRIP,
+	// Points, which are expanded to triangles.
+	GL_TRIANGLES,
+	// Lines and line strips, which are also expanded to triangles.
+	GL_TRIANGLES,
+	GL_TRIANGLES,
 	GL_TRIANGLES,
 	GL_TRIANGLE_STRIP,
 	GL_TRIANGLE_FAN,
+	// Rectangles, which are expanded to triangles.
 	GL_TRIANGLES,
-	// Rectangles need to be expanded into triangles.
 };
 
 enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
 };
 
-#define VERTEXCACHE_DECIMATION_INTERVAL 17
-#define VERTEXCACHE_NAME_DECIMATION_INTERVAL 41
-#define VERTEXCACHE_NAME_DECIMATION_MAX 100
-#define VERTEXCACHE_NAME_CACHE_SIZE 64
-#define VERTEXCACHE_NAME_CACHE_FULL_BYTES (1024 * 1024)
-#define VERTEXCACHE_NAME_CACHE_MAX_AGE 120
-
-enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
-
-DrawEngineGLES::DrawEngineGLES(Draw::DrawContext *draw) : vai_(256), inputLayoutMap_(16), draw_(draw) {
+DrawEngineGLES::DrawEngineGLES(Draw::DrawContext *draw) : inputLayoutMap_(16), draw_(draw) {
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	decOptions_.expandAllWeightsToFloat = false;
 	decOptions_.expand8BitNormalsToFloat = false;
 
-	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
-	bufferDecimationCounter_ = VERTEXCACHE_NAME_DECIMATION_INTERVAL;
 	// Allocate nicely aligned memory. Maybe graphics drivers will
 	// appreciate it.
 	// All this is a LOT of memory, need to see if we can cut down somehow.
@@ -118,10 +109,11 @@ void DrawEngineGLES::InitDeviceObjects() {
 
 	int vertexSize = sizeof(TransformedVertex);
 	std::vector<GLRInputLayout::Entry> entries;
-	entries.push_back({ ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, vertexSize, 0 });
+	entries.push_back({ ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, vertexSize, offsetof(TransformedVertex, x) });
 	entries.push_back({ ATTR_TEXCOORD, 3, GL_FLOAT, GL_FALSE, vertexSize, offsetof(TransformedVertex, u) });
 	entries.push_back({ ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, offsetof(TransformedVertex, color0) });
 	entries.push_back({ ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, offsetof(TransformedVertex, color1) });
+	entries.push_back({ ATTR_NORMAL, 1, GL_FLOAT, GL_FALSE, vertexSize, offsetof(TransformedVertex, fog) });
 	softwareInputLayout_ = render_->CreateInputLayout(entries);
 }
 
@@ -244,71 +236,13 @@ void *DrawEngineGLES::DecodeVertsToPushBuffer(GLPushBuffer *push, uint32_t *bind
 	return dest;
 }
 
-void DrawEngineGLES::MarkUnreliable(VertexArrayInfo *vai) {
-	vai->status = VertexArrayInfo::VAI_UNRELIABLE;
-	if (vai->vbo) {
-		render_->DeleteBuffer(vai->vbo);
-		vai->vbo = 0;
-	}
-	if (vai->ebo) {
-		render_->DeleteBuffer(vai->ebo);
-		vai->ebo = 0;
-	}
-}
-
-void DrawEngineGLES::ClearTrackedVertexArrays() {
-	vai_.Iterate([&](uint32_t hash, VertexArrayInfo *vai){
-		FreeVertexArray(vai);
-		delete vai;
-	});
-	vai_.Clear();
-}
-
-void DrawEngineGLES::DecimateTrackedVertexArrays() {
-	if (--decimationCounter_ <= 0) {
-		decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
-	} else {
-		return;
-	}
-
-	const int threshold = gpuStats.numFlips - VAI_KILL_AGE;
-	const int unreliableThreshold = gpuStats.numFlips - VAI_UNRELIABLE_KILL_AGE;
-	int unreliableLeft = VAI_UNRELIABLE_KILL_MAX;
-	vai_.Iterate([&](uint32_t hash, VertexArrayInfo *vai) {
-		bool kill;
-		if (vai->status == VertexArrayInfo::VAI_UNRELIABLE) {
-			// We limit killing unreliable so we don't rehash too often.
-			kill = vai->lastFrame < unreliableThreshold && --unreliableLeft >= 0;
-		} else {
-			kill = vai->lastFrame < threshold;
-		}
-		if (kill) {
-			FreeVertexArray(vai);
-			delete vai;
-			vai_.Remove(hash);
-		}
-	});
-	vai_.Maintain();
-}
-
-void DrawEngineGLES::FreeVertexArray(VertexArrayInfo *vai) {
-	if (vai->vbo) {
-		render_->DeleteBuffer(vai->vbo);
-		vai->vbo = nullptr;
-	}
-	if (vai->ebo) {
-		render_->DeleteBuffer(vai->ebo);
-		vai->ebo = nullptr;
-	}
-}
-
 void DrawEngineGLES::DoFlush() {
 	PROFILE_THIS_SCOPE("flush");
 
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
 	
 	gpuStats.numFlushes++;
-	gpuStats.numTrackedVertexArrays = (int)vai_.size();
+	gpuStats.numTrackedVertexArrays = 0;
 
 	// A new render step means we need to flush any dynamic state. Really, any state that is reset in
 	// GLQueueRunner::PerformRenderPass.
@@ -344,168 +278,30 @@ void DrawEngineGLES::DoFlush() {
 		int vertexCount = 0;
 		bool useElements = true;
 		bool populateCache = false;
-		VertexArrayInfo *vai = nullptr;
 
-		// Cannot cache vertex data with morph enabled.
-		bool useCache = g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK);
-		// Also avoid caching when software skinning.
-		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK))
-			useCache = false;
-
-		// TEMPORARY
-		useCache = false;
-
-		if (useCache) {
-			u32 id = dcid_ ^ gstate.getUVGenMode();  // This can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
-			vai = vai_.Get(id);
-			if (!vai) {
-				vai = new VertexArrayInfo();
-				vai_.Insert(id, vai);
-			}
-
-			switch (vai->status) {
-			case VertexArrayInfo::VAI_NEW:
-				{
-					// Haven't seen this one before.
-					uint64_t dataHash = ComputeHash();
-					vai->hash = dataHash;
-					vai->minihash = ComputeMiniHash();
-					vai->status = VertexArrayInfo::VAI_HASHING;
-					vai->drawsUntilNextFullHash = 0;
-					useCache = false;
-					break;
-				}
-
-				// Hashing - still gaining confidence about the buffer.
-				// But if we get this far it's likely to be worth creating a vertex buffer.
-			case VertexArrayInfo::VAI_HASHING:
-				{
-					vai->numDraws++;
-					if (vai->lastFrame != gpuStats.numFlips) {
-						vai->numFrames++;
-					}
-					if (vai->drawsUntilNextFullHash == 0) {
-						// Let's try to skip a full hash if mini would fail.
-						const u32 newMiniHash = ComputeMiniHash();
-						uint64_t newHash = vai->hash;
-						if (newMiniHash == vai->minihash) {
-							newHash = ComputeHash();
-						}
-						if (newMiniHash != vai->minihash || newHash != vai->hash) {
-							MarkUnreliable(vai);
-							useCache = false;
-							break;
-						}
-						if (vai->numVerts > 64) {
-							// exponential backoff up to 16 draws, then every 32
-							vai->drawsUntilNextFullHash = std::min(32, vai->numFrames);
-						} else {
-							// Lower numbers seem much more likely to change.
-							vai->drawsUntilNextFullHash = 0;
-						}
-						// TODO: tweak
-						//if (vai->numFrames > 1000) {
-						//	vai->status = VertexArrayInfo::VAI_RELIABLE;
-						//}
-					} else {
-						vai->drawsUntilNextFullHash--;
-						u32 newMiniHash = ComputeMiniHash();
-						if (newMiniHash != vai->minihash) {
-							MarkUnreliable(vai);
-							break;
-						}
-					}
-
-					if (vai->vbo == nullptr) {
-						_dbg_assert_msg_(gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
-
-						// We'll populate the cache this time around, use it next time.
-						populateCache = true;
-						useCache = false;
-					} else {
-						gpuStats.numCachedDrawCalls++;
-						useElements = vai->ebo ? true : false;
-						gpuStats.numCachedVertsDrawn += vai->numVerts;
-						gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
-
-						vertexBuffer = vai->vbo;
-						indexBuffer = vai->ebo;
-						vertexCount = vai->numVerts;
-						prim = static_cast<GEPrimitiveType>(vai->prim);
-					}
-					break;
-				}
-
-				// Reliable - we don't even bother hashing anymore. Right now we don't go here until after a very long time.
-			case VertexArrayInfo::VAI_RELIABLE:
-				{
-					vai->numDraws++;
-					if (vai->lastFrame != gpuStats.numFlips) {
-						vai->numFrames++;
-					}
-					gpuStats.numCachedDrawCalls++;
-					gpuStats.numCachedVertsDrawn += vai->numVerts;
-					vertexBuffer = vai->vbo;
-					indexBuffer = vai->ebo;
-					vertexCount = vai->numVerts;
-					prim = static_cast<GEPrimitiveType>(vai->prim);
-
-					gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
-					break;
-				}
-
-			case VertexArrayInfo::VAI_UNRELIABLE:
-				{
-					vai->numDraws++;
-					if (vai->lastFrame != gpuStats.numFlips) {
-						vai->numFrames++;
-					}
-					useCache = false;
-					break;
-				}
-			}
-
-			if (useCache) {
-				vai->lastFrame = gpuStats.numFlips;
-			}
+		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
+			// If software skinning, we've already predecoded into "decoded". So push that content.
+			size_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
+			u8 *dest = (u8 *)frameData.pushVertex->Push(size, &vertexBufferOffset, &vertexBuffer);
+			memcpy(dest, decoded, size);
+		} else {
+			// Decode directly into the pushbuffer
+			u8 *dest = (u8 *)DecodeVertsToPushBuffer(frameData.pushVertex, &vertexBufferOffset, &vertexBuffer);
 		}
 
-		if (!useCache) {
-			if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
-				// If software skinning, we've already predecoded into "decoded". So push that content.
-				size_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
-				u8 *dest = (u8 *)frameData.pushVertex->Push(size, &vertexBufferOffset, &vertexBuffer);
-				memcpy(dest, decoded, size);
-			} else {
-				// Decode directly into the pushbuffer
-				u8 *dest = (u8 *)DecodeVertsToPushBuffer(frameData.pushVertex, &vertexBufferOffset, &vertexBuffer);
-				if (populateCache) {
-					size_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
-					vai->vbo = render_->CreateBuffer(GL_ARRAY_BUFFER, size, GL_STATIC_DRAW);
-					render_->BufferSubdata(vai->vbo, 0, size, dest, false);
-				}
-			}
+		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 
-			if (populateCache || (vai && vai->status == VertexArrayInfo::VAI_NEW)) {
-				vai->numVerts = indexGen.VertexCount();
-				vai->prim = indexGen.Prim();
-				vai->maxIndex = indexGen.MaxIndex();
-				vai->flags = gstate_c.vertexFullAlpha ? VAI_FLAG_VERTEXFULLALPHA : 0;
-			}
-
-			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
-			// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
-			// there is no need for the index buffer we built. We can then use glDrawArrays instead
-			// for a very minor speed boost.
-			useElements = !indexGen.SeenOnlyPurePrims();
-			vertexCount = indexGen.VertexCount();
-			if (!useElements && indexGen.PureCount()) {
-				vertexCount = indexGen.PureCount();
-			}
-			prim = indexGen.Prim();
+		// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
+		// there is no need for the index buffer we built. We can then use glDrawArrays instead
+		// for a very minor speed boost.
+		useElements = !indexGen.SeenOnlyPurePrims();
+		vertexCount = indexGen.VertexCount();
+		if (!useElements && indexGen.PureCount()) {
+			vertexCount = indexGen.PureCount();
 		}
+		prim = indexGen.Prim();
 
-		VERBOSE_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
+		VERBOSE_LOG(G3D, "Flush prim %d! %d verts in one go", prim, vertexCount);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
@@ -528,11 +324,6 @@ void DrawEngineGLES::DoFlush() {
 				size_t esz = sizeof(uint16_t) * indexGen.VertexCount();
 				void *dest = frameData.pushIndex->Push(esz, &indexBufferOffset, &indexBuffer);
 				memcpy(dest, decIndex, esz);
-
-				if (populateCache) {
-					vai->ebo = render_->CreateBuffer(GL_ELEMENT_ARRAY_BUFFER, esz, GL_STATIC_DRAW);
-					render_->BufferSubdata(vai->ebo, 0, esz, (uint8_t *)dest, false);
-				}
 			}
 			render_->BindIndexBuffer(indexBuffer);
 			render_->DrawIndexed(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, (GLvoid*)(intptr_t)indexBufferOffset);
@@ -566,6 +357,16 @@ void DrawEngineGLES::DoFlush() {
 		params.allowClear = true;
 		params.allowSeparateAlphaClear = true;
 		params.provokeFlatFirst = false;
+		params.flippedY = framebufferManager_->UseBufferedRendering();
+		params.usesHalfZ = false;
+
+		// We need correct viewport values in gstate_c already.
+		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
+			ConvertViewportAndScissor(framebufferManager_->UseBufferedRendering(),
+				framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
+				framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
+				vpAndScissor);
+		}
 
 		int maxIndex = indexGen.MaxIndex();
 		int vertexCount = indexGen.VertexCount();
@@ -577,6 +378,12 @@ void DrawEngineGLES::DoFlush() {
 #endif
 
 		SoftwareTransform swTransform(params);
+
+		const Lin::Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, gstate_c.vpZOffset);
+		const Lin::Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale * (params.flippedY ? 1.0 : -1.0f), gstate_c.vpDepthScale);
+		const bool invertedY = gstate_c.vpHeight * (params.flippedY ? 1.0 : -1.0f) < 0;
+		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, invertedY, trans, scale);
+
 		swTransform.Decode(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), maxIndex, &result);
 		if (result.action == SW_NOT_READY)
 			swTransform.DetectOffsetTexture(maxIndex);

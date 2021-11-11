@@ -2,13 +2,14 @@
 #include "Common/CommonWindows.h"
 #include <windowsx.h>
 #include <commctrl.h>
+#include "Windows/Debugger/BreakpointWindow.h"
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/CtrlDisAsmView.h"
+#include "Windows/W32Util/ContextMenu.h"
 #include "Windows/resource.h"
 #include "Windows/main.h"
-#include "BreakpointWindow.h"
-#include "../../Core/HLE/sceKernelThread.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Core/HLE/sceKernelThread.h"
 
 enum { TL_NAME, TL_PROGRAMCOUNTER, TL_ENTRYPOINT, TL_PRIORITY, TL_STATE, TL_WAITTYPE, TL_COLUMNCOUNT };
 enum { BPL_ENABLED, BPL_TYPE, BPL_OFFSET, BPL_SIZELABEL, BPL_OPCODE, BPL_CONDITION, BPL_HITS, BPL_COLUMNCOUNT };
@@ -66,10 +67,6 @@ GenericListViewDef moduleListDef = {
 	moduleListColumns,	ARRAY_SIZE(moduleListColumns),	NULL,	false
 };
 
-const int POPUP_SUBMENU_ID_BREAKPOINTLIST = 5;
-const int POPUP_SUBMENU_ID_THREADLIST = 6;
-const int POPUP_SUBMENU_ID_NEWBREAKPOINT = 7;
-
 //
 // CtrlThreadList
 //
@@ -114,10 +111,7 @@ void CtrlThreadList::showMenu(int itemIndex, const POINT &pt)
 	if (Core_IsActive())
 		return;
 
-	POINT screenPt(pt);
-	ClientToScreen(GetHandle(), &screenPt);
-
-	HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_THREADLIST);
+	HMENU subMenu = GetContextMenu(ContextMenuID::THREADLIST);
 	switch (threadInfo.status) {
 	case THREADSTATUS_DEAD:
 	case THREADSTATUS_DORMANT:
@@ -138,7 +132,7 @@ void CtrlThreadList::showMenu(int itemIndex, const POINT &pt)
 		break;
 	}
 
-	switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, GetHandle(), 0))
+	switch (TriggerContextMenu(ContextMenuID::THREADLIST, GetHandle(), ContextPoint::FromClient(pt)))
 	{
 	case ID_DISASM_THREAD_FORCERUN:
 		__KernelResumeThreadFromWait(threadInfo.id, 0);
@@ -569,16 +563,11 @@ void CtrlBreakpointList::OnToggle(int item, bool newValue)
 
 void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 {
-	POINT screenPt(pt);
-	ClientToScreen(GetHandle(), &screenPt);
-
 	bool isMemory;
 	int index = getBreakpointIndex(itemIndex, isMemory);
 	if (index == -1)
 	{
-		HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_NEWBREAKPOINT);
-		
-		switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, GetHandle(), 0))
+		switch (TriggerContextMenu(ContextMenuID::NEWBREAKPOINT, GetHandle(), ContextPoint::FromClient(pt)))
 		{
 		case ID_DISASM_ADDNEWBREAKPOINT:
 			{		
@@ -596,14 +585,14 @@ void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 			bpPrev = displayedBreakPoints_[index];
 		}
 
-		HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_BREAKPOINTLIST);
+		HMENU subMenu = GetContextMenu(ContextMenuID::BREAKPOINTLIST);
 		if (isMemory) {
 			CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, MF_BYCOMMAND | (mcPrev.IsEnabled() ? MF_CHECKED : MF_UNCHECKED));
 		} else {
 			CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, MF_BYCOMMAND | (bpPrev.IsEnabled() ? MF_CHECKED : MF_UNCHECKED));
 		}
 
-		switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, GetHandle(), 0))
+		switch (TriggerContextMenu(ContextMenuID::BREAKPOINTLIST, GetHandle(), ContextPoint::FromClient(pt)))
 		{
 		case ID_DISASM_DISABLEBREAKPOINT:
 			if (isMemory) {

@@ -17,6 +17,7 @@
 
 #include "Common/File/FileUtil.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
 #include "GPU/Common/GPUDebugInterface.h"
@@ -48,36 +49,17 @@ void HeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) {
 	gpuDebug->GetCurrentFramebuffer(buffer, GPU_DBG_FRAMEBUF_RENDER);
 	const std::vector<u32> pixels = TranslateDebugBufferToCompare(&buffer, 512, 272);
 
-	std::string error;
-	double errors = CompareScreenshot(pixels, FRAME_STRIDE, FRAME_WIDTH, FRAME_HEIGHT, comparisonScreenshot_, error);
+	ScreenshotComparer comparer(pixels, FRAME_STRIDE, FRAME_WIDTH, FRAME_HEIGHT);
+	double errors = comparer.Compare(comparisonScreenshot_);
 	if (errors < 0)
-		SendOrCollectDebugOutput(error + "\n");
+		SendOrCollectDebugOutput(comparer.GetError() + "\n");
 
 	if (errors > 0)
-	{
-		char temp[256];
-		snprintf(temp, sizeof(temp), "Screenshot error: %f%%\n", errors * 100.0f);
-		SendOrCollectDebugOutput(temp);
-	}
+		SendOrCollectDebugOutput(StringFromFormat("Screenshot error: %f%%\n", errors * 100.0f));
 
 	if (errors > 0 && !teamCityMode && !getenv("GITHUB_ACTIONS")) {
-		static const u8 header[14 + 40] = {
-			0x42, 0x4D, 0x38, 0x80, 0x08, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x36, 0x00, 0x00, 0x00, 0x28, 0x00,
-			0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x10, 0x01,
-			0x00, 0x00, 0x01, 0x00, 0x20, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x02, 0x80, 0x08, 0x00, 0x12, 0x0B,
-			0x00, 0x00, 0x12, 0x0B, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		};
-
-		FILE *saved = File::OpenCFile(Path("__testfailure.bmp"), "wb");
-		if (saved) {
-			fwrite(&header, sizeof(header), 1, saved);
-			fwrite(pixels.data(), sizeof(u32), FRAME_STRIDE * FRAME_HEIGHT, saved);
-			fclose(saved);
-
+		if (comparer.SaveActualBitmap(Path("__testfailure.bmp")))
 			SendOrCollectDebugOutput("Actual output written to: __testfailure.bmp\n");
-		}
+		comparer.SaveVisualComparisonPNG(Path("__testcompare.png"));
 	}
 }

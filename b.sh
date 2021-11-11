@@ -19,15 +19,21 @@ do
 		--ios-xcode) CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -DIOS_PLATFORM=OS -GXcode ${CMAKE_ARGS}"
 			TARGET_OS=iOS-xcode
 			;;
+		--fat) CMAKE_ARGS="-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64 ${CMAKE_ARGS}"
+			;;
+		--no-png) CMAKE_ARGS="-DUSE_SYSTEM_LIBPNG=OFF ${CMAKE_ARGS}"
+			;;
+		--no-sdl2) CMAKE_ARGS="-DUSE_SYSTEM_LIBSDL2=OFF ${CMAKE_ARGS}"
+			;;
 		--rpi-armv6)
 			CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/raspberry.armv6.cmake ${CMAKE_ARGS}"
 			;;
 		--rpi)
 			CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/raspberry.armv7.cmake ${CMAKE_ARGS}"
 			;;
-                --rpi64)
-                        CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/raspberry.armv8.cmake ${CMAKE_ARGS}"
-                        ;;
+		--rpi64)
+			CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/raspberry.armv8.cmake ${CMAKE_ARGS}"
+			;;
 		--android) CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=android/android.toolchain.cmake ${CMAKE_ARGS}"
 			TARGET_OS=Android
 			PACKAGE=1

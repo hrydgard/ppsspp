@@ -66,6 +66,13 @@ bool netAdhocInited;
 bool netAdhocctlInited;
 bool networkInited = false;
 
+#define DISCOVER_DURATION_US	2000000 // 2 seconds is probably the normal time it takes for PSP to connect to a group (ie. similar to NetconfigDialog time)
+u64 netAdhocDiscoverStartTime = 0;
+s32 netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_NONE;
+bool netAdhocDiscoverIsStopping = false;
+SceNetAdhocDiscoverParam* netAdhocDiscoverParam = nullptr;
+u32 netAdhocDiscoverBufAddr = 0;
+
 bool netAdhocGameModeEntered = false;
 int netAdhocEnterGameModeTimeout = 15000000; // 15 sec as default timeout, to wait for all players to join
 
@@ -118,12 +125,11 @@ static int sceNetAdhocPdpRecv(int id, void* addr, void* port, void* buf, void* d
 
 void __NetAdhocShutdown() {
 	// Kill AdhocServer Thread
-	if (adhocServerRunning) {
-		adhocServerRunning = false;
-		if (adhocServerThread.joinable()) {
-			adhocServerThread.join();
-		}
+	adhocServerRunning = false;
+	if (adhocServerThread.joinable()) {
+		adhocServerThread.join();
 	}
+
 	// Checks to avoid confusing logspam
 	if (netAdhocMatchingInited) {
 		NetAdhocMatching_Term();
@@ -184,7 +190,12 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 				int sentcount = 0;
 				for (auto& gma : replicaGameModeAreas) {
 					if (!gma.dataSent && IsSocketReady(sock->data.pdp.id, false, true) > 0) {
-						int sent = sceNetAdhocPdpSend(gameModeSocket, (const char*)&gma.mac, ADHOC_GAMEMODE_PORT, masterGameModeArea.data, masterGameModeArea.size, 0, ADHOC_F_NONBLOCK);
+						u16_le port = ADHOC_GAMEMODE_PORT;
+						auto it = gameModePeerPorts.find(gma.mac);
+						if (it != gameModePeerPorts.end())
+							port = it->second;
+							
+						int sent = sceNetAdhocPdpSend(gameModeSocket, (const char*)&gma.mac, port, masterGameModeArea.data, masterGameModeArea.size, 0, ADHOC_F_NONBLOCK);
 						if (sent != ERROR_NET_ADHOC_WOULD_BLOCK) {
 							gma.dataSent = 1;
 							DEBUG_LOG(SCENET, "GameMode: Master data Sent %d bytes to Area #%d [%s]", masterGameModeArea.size, gma.id, mac2str(&gma.mac).c_str());
@@ -209,7 +220,12 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 							recvd++;
 							// Since we're able to receive data, now we're certain that remote player is listening and ready to receive data, so we send initial data one more time in case they're not listening yet on previous attempt (ie. Pocket Pool)
 							if (gma.dataUpdated) {
-								sceNetAdhocPdpSend(gameModeSocket, (const char*)&gma.mac, ADHOC_GAMEMODE_PORT, masterGameModeArea.data, masterGameModeArea.size, 0, ADHOC_F_NONBLOCK);
+								u16_le port = ADHOC_GAMEMODE_PORT;
+								auto it = gameModePeerPorts.find(gma.mac);
+								if (it != gameModePeerPorts.end())
+									port = it->second;
+
+								sceNetAdhocPdpSend(gameModeSocket, (const char*)&gma.mac, port, masterGameModeArea.data, masterGameModeArea.size, 0, ADHOC_F_NONBLOCK);
 							}
 						}
 					}
@@ -244,6 +260,21 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 				s32_le bufsz = gameModeBuffSize;
 				int ret = sceNetAdhocPdpRecv(gameModeSocket, &sendermac, &senderport, gameModeBuffer, &bufsz, 0, ADHOC_F_NONBLOCK);
 				if (ret >= 0 && bufsz > 0) {
+					// Shows a warning if the sender/source port is different than what it supposed to be.
+					if (senderport != ADHOC_GAMEMODE_PORT && senderport != gameModePeerPorts[sendermac]) {
+						char name[9] = {};
+						auto n = GetI18NCategory("Networking");
+						peerlock.lock();
+						SceNetAdhocctlPeerInfo* peer = findFriend(&sendermac);
+						if (peer != NULL)
+							truncate_cpy(name, sizeof(name), (const char*)peer->nickname.data);
+						WARN_LOG(SCENET, "GameMode: Unknown Source Port from [%s][%s:%u -> %u] (Result=%i, Size=%i)", name, mac2str(&sendermac).c_str(), senderport, ADHOC_GAMEMODE_PORT, ret, bufsz);
+						host->NotifyUserMessage(std::string(n->T("GM: Data from Unknown Port")) + std::string(" [") + std::string(name) + std::string("]:") + std::to_string(senderport) + std::string(" -> ") + std::to_string(ADHOC_GAMEMODE_PORT) + std::string(" (") + std::to_string(portOffset) + std::string(")"), 2.0, 0x0080ff);
+						peerlock.unlock();
+					}
+					// Keeping track of the source port for further communication, in case it was re-mapped by router or ISP for some reason.
+					gameModePeerPorts[sendermac] = senderport;
+
 					for (auto& gma : replicaGameModeAreas) {
 						if (IsMatch(gma.mac, sendermac)) {
 							DEBUG_LOG(SCENET, "GameMode: Replica data Received %d bytes for Area #%d [%s]", bufsz, gma.id, mac2str(&sendermac).c_str());
@@ -312,8 +343,8 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 			ret = SOCKET_ERROR;
 			sockerr = EAGAIN;
 			// Don't send anything yet if connection to Adhoc Server is still in progress
-			if (!isAdhocctlNeedLogin && IsSocketReady(metasocket, false, true) > 0) {
-				ret = send(metasocket, (const char*)&packet, len, MSG_NOSIGNAL);
+			if (!isAdhocctlNeedLogin && IsSocketReady((int)metasocket, false, true) > 0) {
+				ret = send((int)metasocket, (const char*)&packet, len, MSG_NOSIGNAL);
 				sockerr = errno;
 				// Successfully Sent or Connection has been closed or Connection failure occurred
 				if (ret >= 0 || (ret == SOCKET_ERROR && sockerr != EAGAIN && sockerr != EWOULDBLOCK)) {
@@ -379,7 +410,7 @@ static void __AdhocctlState(u64 userdata, int cyclesLate) {
 
 // Used to simulate blocking on metasocket when send OP code to AdhocServer
 int WaitBlockingAdhocctlSocket(AdhocctlRequest request, int usec, const char* reason) {
-	int uid = (metasocket <= 0) ? 1 : metasocket;
+	int uid = (metasocket <= 0) ? 1 : (int)metasocket;
 
 	if (adhocctlRequests.find(uid) != adhocctlRequests.end()) {
 		WARN_LOG(SCENET, "sceNetAdhocctl - WaitID[%d] already existed, Socket is busy!", uid);
@@ -771,11 +802,12 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
 			if (sock->nonblocking)
 				result = ERROR_NET_ADHOC_WOULD_BLOCK;
 			else
-				result = ERROR_NET_ADHOC_TIMEOUT;
+				result = ERROR_NET_ADHOC_TIMEOUT; // FIXME: PSP never returned ERROR_NET_ADHOC_TIMEOUT on PtpConnect? or only returned ERROR_NET_ADHOC_TIMEOUT when the host is too busy? Seems to be returning ERROR_NET_ADHOC_CONNECTION_REFUSED on timedout instead (if the other side in not listening yet).
 		}
 	}
+	// Select was interrupted or contains invalid args?
 	else
-		result = ERROR_NET_ADHOC_CONNECTION_REFUSED; // ERROR_NET_ADHOC_TIMEOUT;
+		result = ERROR_NET_ADHOC_EXCEPTION_EVENT; // ERROR_NET_ADHOC_INVALID_ARG;
 
 	if (ret == SOCKET_ERROR)
 		DEBUG_LOG(SCENET, "sceNetAdhocPtpConnect[%i]: Socket Error (%i)", req.id, sockerr);
@@ -1155,8 +1187,8 @@ void __NetAdhocInit() {
 	__AdhocServerInit();
 
 	// Create built-in AdhocServer Thread
+	adhocServerRunning = false;
 	if (g_Config.bEnableWlan && g_Config.bEnableAdhocServer) {
-		adhocServerRunning = true;
 		adhocServerThread = std::thread(proAdhocServerThread, SERVER_PORT);
 	}
 }
@@ -1206,7 +1238,6 @@ static u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 
 	// TODO: Merging friendFinder (real) thread to AdhocThread (fake) thread on PSP side
 	if (!friendFinderRunning) {
-		friendFinderRunning = true;
 		friendFinderThread = std::thread(friendFinder);
 	}
 	
@@ -1784,7 +1815,8 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 						return WaitBlockingAdhocSocket(threadSocketId, PDP_RECV, id, buf, len, timeout, saddr, sport, "pdp recv");
 					}
 
-					return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
+					VERBOSE_LOG(SCENET, "%08x=sceNetAdhocPdpRecv: would block", ERROR_NET_ADHOC_WOULD_BLOCK); // Temporary fix to avoid a crash on the Logs due to trying to Logs syscall's argument from another thread (ie. AdhocMatchingInput thread)
+					return ERROR_NET_ADHOC_WOULD_BLOCK; // hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 				}
 				
 				hleEatMicro(50);
@@ -2338,7 +2370,7 @@ u32 NetAdhocctl_Disconnect() {
 		int us = adhocDefaultDelay * 3;
 		hleEatMicro(1000);
 
-		if (isAdhocctlBusy) {
+		if (isAdhocctlBusy && CoreTiming::IsScheduled(adhocctlNotifyEvent)) {
 			return ERROR_NET_ADHOCCTL_BUSY;
 		}
 
@@ -2359,7 +2391,7 @@ u32 NetAdhocctl_Disconnect() {
 			//_acquireNetworkLock();
 
 			// Send Disconnect Request Packet
-			iResult = send(metasocket, (const char*)&opcode, 1, MSG_NOSIGNAL);
+			iResult = send((int)metasocket, (const char*)&opcode, 1, MSG_NOSIGNAL);
 			error = errno;
 
 			// Sending may get socket error 10053 if the AdhocServer is already shutted down
@@ -2476,8 +2508,8 @@ int NetAdhocctl_Term() {
 		adhocctlHandlers.clear();
 		// Free stuff here
 		networkInited = false;
-		shutdown(metasocket, SD_BOTH);
-		closesocket(metasocket);
+		shutdown((int)metasocket, SD_BOTH);
+		closesocket((int)metasocket);
 		metasocket = (int)INVALID_SOCKET;
 		// Delete fake PSP Thread. 
 		// kernelObjects may already been cleared early during a Shutdown, thus trying to access it may generates Warning/Error in the log
@@ -2783,6 +2815,7 @@ int NetAdhocctl_CreateEnterGameMode(const char* group_name, int game_type, int n
 		return ERROR_NET_ADHOCCTL_INVALID_ARG;
 
 	deleteAllGMB();
+	gameModePeerPorts.clear();
 
 	SceNetEtherAddr* addrs = PSPPointer<SceNetEtherAddr>::Create(membersAddr); // List of participating MAC addresses (started from host)
 	for (int i = 0; i < num_members; i++) {
@@ -3589,9 +3622,13 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 								return hleLogDebug(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 							}
 						}
-						// No connection could be made because the target device actively refused it.
+						// No connection could be made because the target device actively refused it (on Windows/Linux/Android), or no one listening on the remote address (on Linux/Android).
 						else if (errorcode == ECONNREFUSED) {
-							return hleLogError(SCENET, ERROR_NET_ADHOC_CONNECTION_REFUSED, "connection refused");
+							// Workaround for ERROR_NET_ADHOC_CONNECTION_REFUSED to be more cross-platform, since there is no way to simulate ERROR_NET_ADHOC_CONNECTION_REFUSED properly on Windows
+							if (flag)
+								return hleLogError(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "connection refused workaround");
+							else
+								return hleLogError(SCENET, ERROR_NET_ADHOC_TIMEOUT, "connection refused workaround");
 						}
 					}
 				}
@@ -4303,6 +4340,7 @@ int NetAdhocGameMode_DeleteMaster() {
 		free(masterGameModeArea.data);
 	}
 	//NetAdhocPdp_Delete(masterGameModeArea.socket, 0);
+	gameModePeerPorts.erase(masterGameModeArea.mac);
 	masterGameModeArea = { 0 };
 
 	if (replicaGameModeAreas.size() <= 0) {
@@ -4378,6 +4416,7 @@ static int sceNetAdhocGameModeDeleteReplica(int id) {
 		it->data = nullptr;
 	}
 	//sceNetAdhocPdpDelete(it->socket, 0);
+	gameModePeerPorts.erase(it->mac);
 	replicaGameModeAreas.erase(it);
 
 	if (replicaGameModeAreas.size() <= 0 && isZeroMAC(&masterGameModeArea.mac)) {
@@ -4488,6 +4527,8 @@ int NetAdhocMatching_Delete(int matchingId) {
 			free(item->hello);
 			free(item->rxbuf);
 			clearPeerList(item); //deleteAllMembers(item);
+			(*item->peerPort).clear();
+			delete item->peerPort;
 			// Destroy locks
 			item->eventlock->lock(); // Make sure it's not locked when being deleted
 			item->eventlock->unlock();
@@ -4638,6 +4679,7 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 							context->timeout = (((u64)(keepalive_int)+(u64)rexmt_int) * (u64)init_count);
 							context->timeout += adhocDefaultTimeout; // For internet play we need higher timeout than what the game wanted
 							context->handler = handler;
+							context->peerPort = new std::map<SceNetEtherAddr, u16_le>();
 
 							// Fill in Selfpeer
 							context->mac = localmac;
@@ -5359,6 +5401,9 @@ int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u3
 					void* data = NULL;
 					if (Memory::IsValidAddress(dataAddr)) data = Memory::GetPointer(dataAddr);
 
+					// Lock the peer
+					std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 					// Find Target Peer
 					SceNetAdhocMatchingMemberInternal* peer = findPeer(context, (SceNetEtherAddr*)mac);
 
@@ -5468,16 +5513,16 @@ int sceNetAdhocMatchingAbortSendData(int matchingId, const char *mac) {
 
 // Get the maximum memory usage by the matching library
 static int sceNetAdhocMatchingGetPoolMaxAlloc() {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingGetPoolMaxAlloc()");
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingGetPoolMaxAlloc() at %08x", currentMIPS->pc);
 	if (!g_Config.bEnableWlan)
 		return -1;
 	
 	// Lazy way out - hardcoded return value
-	return fakePoolSize/2; // (50 * 1024);
+	return hleLogDebug(SCENET, fakePoolSize/2, "faked value");
 }
 
 int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
-	DEBUG_LOG(SCENET, "UNTESTED sceNetAdhocMatchingGetPoolStat(%08x)", poolstatPtr);
+	DEBUG_LOG(SCENET, "UNTESTED sceNetAdhocMatchingGetPoolStat(%08x) at %08x", poolstatPtr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan)
 		return -1;
 	
@@ -5500,11 +5545,11 @@ int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
 		}
 
 		// Invalid Argument
-		return ERROR_NET_ADHOC_MATCHING_INVALID_ARG;
+		return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "adhocmatching invalid arg");
 	}
 
 	// Uninitialized Library
-	return ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED;
+	return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
 }
 
 void __NetTriggerCallbacks()
@@ -5682,6 +5727,7 @@ int NetAdhocctl_ExitGameMode() {
 	}
 
 	deleteAllGMB();
+	gameModePeerPorts.clear();
 
 	adhocctlCurrentMode = ADHOCCTL_MODE_NONE;
 	netAdhocGameModeEntered = false;
@@ -5953,39 +5999,172 @@ const HLEFunction sceNetAdhocctl[] = {
 	{0XB0B80E80, &WrapI_CIIIUUI<sceNetAdhocctlCreateEnterGameModeMin>, "sceNetAdhocctlCreateEnterGameModeMin",   'i', "siiixxi"  }, // ??
 };
 
-int sceNetAdhocDiscoverInitStart() {
-	ERROR_LOG_REPORT_ONCE(sceNetAdhocDiscoverInitStart, SCENET, "UNIMPL sceNetAdhocDiscoverInitStart() at %08x", currentMIPS->pc);
-	return 0;
+// Return value: 0/0x80410005/0x80411301/error returned from sceNetAdhocctl_lib_F8BABD85[/error returned from sceUtilityGetSystemParamInt?]
+int sceNetAdhocDiscoverInitStart(u32 paramAddr) {
+	WARN_LOG_REPORT_ONCE(sceNetAdhocDiscoverInitStart, SCENET, "UNIMPL sceNetAdhocDiscoverInitStart(%08x) at %08x", paramAddr, currentMIPS->pc);
+	// FIXME: Most AdhocDiscover syscalls will return 0x80410005 if (sceKernelCheckThreadStack_user() < 0x00000FE0), AdhocDiscover seems to be storing some data in the stack, while we use global variables for these
+	if (sceKernelCheckThreadStack() < 0x00000FE0)
+		return 0x80410005;
+	// TODO: Allocate internal buffer/struct (on the stack?) to be returned on sceNetAdhocDiscoverUpdate (the struct may contains WLAN channel from sceUtilityGetSystemParamInt at offset 0xA0 ?), setup adhocctl state callback handler to detects state change (using sceNetAdhocctl_lib_F8BABD85(stateCallbackFunction=0x09F436F8, adhocctlStateCallbackArg=0x0) on JPCSP+prx)
+	u32 bufSize = 256; // dummy size, not sure how large it supposed to be, may be at least 0x3c bytes like in param->unknown2 ?
+	if (netAdhocDiscoverBufAddr == 0) {
+		netAdhocDiscoverBufAddr = userMemory.Alloc(bufSize, true, "AdhocDiscover"); // The address returned on DiscoverUpdate seems to be much higher than the param address, closer to the internal stateCallbackFunction address
+		if (!Memory::IsValidAddress(netAdhocDiscoverBufAddr))
+			return 0x80410005;
+		Memory::Memset(netAdhocDiscoverBufAddr, 0, bufSize);
+	}
+	// FIME: Not sure what is this address 0x000010B0 used for (current Step may be?), but return 0x80411301 if (*((int *) 0x000010B0) != 0)
+	//if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) != 0) //if (*((int*)Memory::GetPointer(0x000010B0)) != 0)
+	//	return 0x80411301; // Already Initialized/Started?
+	// TODO: Need to findout whether using invalid params or param address will return an error code or not
+	netAdhocDiscoverParam = (SceNetAdhocDiscoverParam*)Memory::GetPointer(paramAddr);
+	if (!netAdhocDiscoverParam)
+		return hleLogError(SCENET, -1, "invalid param?");
+	// FIXME: paramAddr seems to be stored at 0x000010D8 without validating the value first
+	//*((int*)Memory::GetPointer(0x000010D8)) = paramAddr;
+	
+	// Based on Legend Of The Dragon: 
+	// The 1st 24 x 32bit(addr) seems to be pointers to subroutine containings sceNetAdhocctlCreate/sceNetAdhocctlJoin/sceNetAdhocctlDisconnect/sceNetAdhocctlScan/sceNetRand/sceKernelGetSystemTimeWide/etc.
+	// Offset 0x60: 10 00 06 06 
+	// Offset 0x70: FF FF FF FF (before Init) -> 00 00 00 00 (after Init) -> FF FF FF FF (after Term) // Seems to be value returned from sceNetAdhocctl_lib_F8BABD85, and the address (0x000010A0) seems to be the lowest one for storing data
+	// Offset 0x80: 00 -> 0B/0C/0D/13 -> 00 // This seems to be (current step?) at address at 0x000010B0 (ie. *((int *) 0x000010B0) = 0x0000000B), something todo with param->unknown1(sleep mode?)
+	// Offset 0x84: 00 -> 03 -> 03 // somekind of State? Something todo with param->unknown1(sleep mode?) along with data at 0x000010B0 (current step?) 
+	// Offset 0x98: 0000 -> 0000/0200 -> 0000 // This seems to be somekind of flags at 0x000010C8 (ie. *((int *) 0x000010C8) = (var4 | 0x00000080)), something todo with data at 0x000010B0 (current step?) 
+	// Offset 0xA0: WLAN channel from sceUtilityGetSystemParamInt (ie. sceUtilityGetSystemParamInt(0x00000002, 0x000010D0) on decompiled prx, but on JPCSP+prx Logs it's sceUtilityGetSystemParamInt(0x00000002, 0x09F43FD0))
+	// Offset 0xA4: Seems to be at 0x000010D4 and related to RequestSuspend
+	// Offset 0xA8: paramAddr // This seems to be a fixed address at 0x000010D8 (ie. *((int *) 0x000010D8) = paramAddr)
+	// The rest are zeroed
+	Memory::Write_U32(0x06060010, netAdhocDiscoverBufAddr + 0x60);
+	Memory::Write_U32(0xffffffff, netAdhocDiscoverBufAddr + 0x70);
+	if (netAdhocDiscoverParam->unknown1 == 0) {
+		Memory::Write_U32(0x0B, netAdhocDiscoverBufAddr + 0x80);
+		Memory::Write_U32(0x03, netAdhocDiscoverBufAddr + 0x84);
+	}
+	else if (netAdhocDiscoverParam->unknown1 == 1) {
+		Memory::Write_U32(0x0F, netAdhocDiscoverBufAddr + 0x80);
+		Memory::Write_U32(0x04, netAdhocDiscoverBufAddr + 0x84);
+	}
+	Memory::Write_U32(0, netAdhocDiscoverBufAddr + 0x98);
+	Memory::Write_U32(g_Config.iWlanAdhocChannel, netAdhocDiscoverBufAddr + 0xA0);
+	Memory::Write_U32(0, netAdhocDiscoverBufAddr + 0xA4);
+	Memory::Write_U32(paramAddr, netAdhocDiscoverBufAddr + 0xA8);
+
+	char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
+	memcpy(grpName, netAdhocDiscoverParam->groupName, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
+	DEBUG_LOG(SCENET, "sceNetAdhocDiscoverInitStart - Param.Unknown1 : %08x", netAdhocDiscoverParam->unknown1);
+	DEBUG_LOG(SCENET, "sceNetAdhocDiscoverInitStart - Param.GroupName: [%s]", grpName);
+	DEBUG_LOG(SCENET, "sceNetAdhocDiscoverInitStart - Param.Unknown2 : %08x", netAdhocDiscoverParam->unknown2);
+	DEBUG_LOG(SCENET, "sceNetAdhocDiscoverInitStart - Param.Result   : %08x", netAdhocDiscoverParam->result);
+
+	// TODO: Check whether we're already in the correct group and change the status and result accordingly
+	netAdhocDiscoverIsStopping = false;
+	netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_IN_PROGRESS;
+	netAdhocDiscoverParam->result = NET_ADHOC_DISCOVER_RESULT_NO_PEER_FOUND;
+	netAdhocDiscoverStartTime = CoreTiming::GetGlobalTimeUsScaled();
+	return hleLogSuccessInfoX(SCENET, 0);
 }
 
+// Note1: When canceling the progress, Legend Of The Dragon will use DiscoverStop -> AdhocctlDisconnect -> DiscoverTerm (when status changed to 2)
+// Note2: When result = NO_PEER_FOUND or PEER_FOUND the progress can no longer be canceled on Legend Of The Dragon
 int sceNetAdhocDiscoverStop() {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverStop()");
+	WARN_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverStop()");
+	if (sceKernelCheckThreadStack() < 0x00000FF0)
+		return 0x80410005;
+
+	if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) > 0 && (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80)^0x13) > 0) {
+		Memory::Write_U32(Memory::Read_U32(netAdhocDiscoverBufAddr + 0x98) | 0x20, netAdhocDiscoverBufAddr + 0x98);
+		Memory::Write_U32(0, netAdhocDiscoverBufAddr + 0xA4);
+	}
+	// FIXME: Doesn't seems to be immediately changed the status, may be waiting until Disconnected from Adhocctl before changing the status to Completed?
+	netAdhocDiscoverIsStopping = true;
+	//netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_COMPLETED;
+	//if (netAdhocDiscoverParam) netAdhocDiscoverParam->result = NET_ADHOC_DISCOVER_RESULT_CANCELED;
 	return 0;
 }
 
 int sceNetAdhocDiscoverTerm() {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverTerm()");
-	return 0;
-}
+	WARN_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverTerm() at %08x", currentMIPS->pc);
+	/*
+	if (sceKernelCheckThreadStack() < 0x00000FF0)
+		return 0x80410005;
 
-int sceNetAdhocDiscoverUpdate() {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverUpdate() at %08x", currentMIPS->pc);
+	if (!(Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) > 0 && (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) ^ 0x13) > 0))
+		return 0x80411301; // Not Initialized/Started yet?
+	*/
+	// TODO: Use sceNetAdhocctl_lib_1C679240 to remove adhocctl state callback handler setup in sceNetAdhocDiscoverInitStart
+	/*if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x70) >= 0) {
+		LinkDiscoverSkip(Memory::Read_U32(netAdhocDiscoverBufAddr + 0x70)); //sceNetAdhocctl_lib_1C679240
+		Memory::Write_U32(0xffffffff, netAdhocDiscoverBufAddr + 0x70);
+	}
+	Memory::Write_U32(0, netAdhocDiscoverBufAddr + 0x80);
+	Memory::Write_U32(0, netAdhocDiscoverBufAddr + 0xA8);
+	*/
+	netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_NONE;
+	//if (netAdhocDiscoverParam) netAdhocDiscoverParam->result = NET_ADHOC_DISCOVER_RESULT_NO_PEER_FOUND; // Test: Using result = NET_ADHOC_DISCOVER_RESULT_NO_PEER_FOUND will trigger Legend Of The Dragon to call sceNetAdhocctlGetPeerList after DiscoverTerm
+	if (Memory::IsValidAddress(netAdhocDiscoverBufAddr)) {
+		userMemory.Free(netAdhocDiscoverBufAddr);
+		netAdhocDiscoverBufAddr = 0;
+	}
+	netAdhocDiscoverIsStopping = false;
 	return 0;
 }
 
 int sceNetAdhocDiscoverGetStatus() {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverGetStatus()");
-	return 0; // returning 2 will trigger Legend Of The Dragon to call sceNetAdhocctlGetPeerList
+	DEBUG_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverGetStatus() at %08x", currentMIPS->pc);
+	if (sceKernelCheckThreadStack() < 0x00000FF0)
+		return 0x80410005;
+	/*
+	if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) <= 0)
+		return 0;
+	if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) <= 0x13)
+		return 1;
+	if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) == 0x13)
+		return 2;
+	*/
+	return hleLogDebug(SCENET, netAdhocDiscoverStatus); // Returning 2 will trigger Legend Of The Dragon to call sceNetAdhocctlGetPeerList (only happened if it was the first sceNetAdhocDiscoverGetStatus after sceNetAdhocDiscoverInitStart)
 }
 
 int sceNetAdhocDiscoverRequestSuspend()
 {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverRequestSuspend()");
-	return 0;
+	ERROR_LOG_REPORT_ONCE(sceNetAdhocDiscoverRequestSuspend, SCENET, "UNIMPL sceNetAdhocDiscoverRequestSuspend() at %08x", currentMIPS->pc);
+	// FIXME: Not sure what is this syscall used for, may be related to Sleep Mode and can be triggered by using Power/Hold Switch? (based on what's written on Dissidia 012)
+	if (sceKernelCheckThreadStack() < 0x00000FF0)
+		return 0x80410005;
+	/*
+	if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0xA4) == 0)
+		return 0x80411303; // Already Suspended?
+	if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) != 0)
+		return 0x80411303; // Already Suspended?
+	int ret = sceNetAdhocctl_lib_1572422C();
+	if (ret >= 0)
+		Memory::Write_U32(0, netAdhocDiscoverBufAddr + 0xA4);
+	return ret;
+	*/
+	// Since we don't know what this supposed to do, and we currently don't have a working AdhocDiscover yet, may be we should cancel the progress for now?
+	netAdhocDiscoverIsStopping = true;
+	return hleLogError(SCENET, 0);
+}
+
+int sceNetAdhocDiscoverUpdate() {
+	DEBUG_LOG(SCENET, "UNIMPL sceNetAdhocDiscoverUpdate() at %08x", currentMIPS->pc);
+	if (sceKernelCheckThreadStack() < 0x00000FF0)
+		return 0x80410005;
+
+	// TODO: Use switch case for each Step
+	if (netAdhocDiscoverStatus == NET_ADHOC_DISCOVER_STATUS_IN_PROGRESS) {
+		//u64 now = CoreTiming::GetGlobalTimeUsScaled();
+		if (netAdhocDiscoverIsStopping /*|| now >= netAdhocDiscoverStartTime + DISCOVER_DURATION_US*/) {
+			// Fake a successful completion after some time (or when detecting another player in the same Group?)
+			netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_COMPLETED;
+			if (netAdhocDiscoverParam)
+				netAdhocDiscoverParam->result = NET_ADHOC_DISCOVER_RESULT_CANCELED; // netAdhocDiscoverIsStopping ? NET_ADHOC_DISCOVER_RESULT_CANCELED : NET_ADHOC_DISCOVER_RESULT_PEER_FOUND;
+		}
+	}
+	return hleDelayResult(hleLogDebug(SCENET, 0/*netAdhocDiscoverBufAddr*/), "adhoc discover update", 300); // FIXME: Based on JPCSP+prx, it seems to be returning a pointer to the internal buffer/struct (only when status = 1 ?), But when i stepped the code it returns 0 (might be a bug on JPCSP LLE Logging?)
 }
 
 const HLEFunction sceNetAdhocDiscover[] = {
-	{0X941B3877, &WrapI_V<sceNetAdhocDiscoverInitStart>,               "sceNetAdhocDiscoverInitStart",           'i', ""         },
+	{0X941B3877, &WrapI_U<sceNetAdhocDiscoverInitStart>,               "sceNetAdhocDiscoverInitStart",           'i', "x"        },
 	{0X52DE1B97, &WrapI_V<sceNetAdhocDiscoverUpdate>,                  "sceNetAdhocDiscoverUpdate",              'i', ""         },
 	{0X944DDBC6, &WrapI_V<sceNetAdhocDiscoverGetStatus>,               "sceNetAdhocDiscoverGetStatus",           'i', ""         },
 	{0XA2246614, &WrapI_V<sceNetAdhocDiscoverTerm>,                    "sceNetAdhocDiscoverTerm",                'i', ""         },
@@ -6010,9 +6189,24 @@ void broadcastPingMessage(SceNetAdhocMatchingContext * context)
 	uint8_t ping = PSP_ADHOC_MATCHING_PACKET_PING;
 
 	// Send Broadcast
-	context->socketlock->lock();
-	sceNetAdhocPdpSend(context->socket, (const char*)(SceNetEtherAddr *)broadcastMAC, context->port, &ping, sizeof(ping), 0, ADHOC_F_NONBLOCK);
-	context->socketlock->unlock();
+	// FIXME: Not sure whether this PING supposed to be sent only to AdhocMatching members or to everyone in Adhocctl Group, since we already pinging the AdhocServer to avoid getting kicked out of Adhocctl Group
+	peerlock.lock();
+	auto peer = friends; // Use context->peerlist if only need to send to AdhocMatching members
+	for (; peer != NULL; peer = peer->next) {
+		// Skipping soon to be removed peer
+		if (peer->last_recv == 0)
+			continue;
+
+		u16_le port = context->port;
+		auto it = (*context->peerPort).find(peer->mac_addr);
+		if (it != (*context->peerPort).end())
+			port = it->second;
+
+		context->socketlock->lock();
+		sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac_addr, port, &ping, sizeof(ping), 0, ADHOC_F_NONBLOCK);
+		context->socketlock->unlock();
+	}
+	peerlock.unlock();
 }
 
 /**
@@ -6053,10 +6247,24 @@ void broadcastHelloMessage(SceNetAdhocMatchingContext * context)
 		DataToHexString(10, 0, context->hello, context->hellolen, &hellohex);
 		DEBUG_LOG(SCENET, "HELLO Dump (%d bytes):\n%s", context->hellolen, hellohex.c_str());
 
-		// Send Broadcast
-		context->socketlock->lock();
-		sceNetAdhocPdpSend(context->socket, (const char*)(SceNetEtherAddr *)broadcastMAC, context->port, hello, 5 + context->hellolen, 0, ADHOC_F_NONBLOCK);
-		context->socketlock->unlock();
+		// Send Broadcast, so everyone know we have a room here
+		peerlock.lock();
+		SceNetAdhocctlPeerInfo* peer = friends;
+		for (; peer != NULL; peer = peer->next) {
+			// Skipping soon to be removed peer
+			if (peer->last_recv == 0)
+				continue;
+
+			u16_le port = context->port;
+			auto it = (*context->peerPort).find(peer->mac_addr);
+			if (it != (*context->peerPort).end())
+				port = it->second;
+
+			context->socketlock->lock();
+			sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac_addr, port, hello, 5 + context->hellolen, 0, ADHOC_F_NONBLOCK);
+			context->socketlock->unlock();
+		}
+		peerlock.unlock();
 
 		// Free Memory, not needed since it may be reused again later
 		//free(hello);
@@ -6072,6 +6280,9 @@ void broadcastHelloMessage(SceNetAdhocMatchingContext * context)
 */
 void sendAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac, int optlen, void * opt)
 {
+	// Lock the peer
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 	// Find Peer
 	SceNetAdhocMatchingMemberInternal * peer = findPeer(context, mac);
 
@@ -6132,7 +6343,7 @@ void sendAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 
 			// Send Data
 			context->socketlock->lock();
-			sceNetAdhocPdpSend(context->socket, (const char*)mac, context->port, accept, 9 + optlen + siblingbuflen, 0, ADHOC_F_NONBLOCK);
+			sceNetAdhocPdpSend(context->socket, (const char*)mac, (*context->peerPort)[*mac], accept, 9 + optlen + siblingbuflen, 0, ADHOC_F_NONBLOCK);
 			context->socketlock->unlock();
 
 			// Free Memory
@@ -6153,6 +6364,9 @@ void sendAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 */
 void sendJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac, int optlen, void * opt)
 {
+	// Lock the peer
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 	// Find Peer
 	SceNetAdhocMatchingMemberInternal * peer = findPeer(context, mac);
 
@@ -6176,7 +6390,7 @@ void sendJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac,
 
 			// Send Data
 			context->socketlock->lock();
-			sceNetAdhocPdpSend(context->socket, (const char*)mac, context->port, join, 5 + optlen, 0, ADHOC_F_NONBLOCK);
+			sceNetAdhocPdpSend(context->socket, (const char*)mac, (*context->peerPort)[*mac], join, 5 + optlen, 0, ADHOC_F_NONBLOCK);
 			context->socketlock->unlock();
 
 			// Free Memory
@@ -6194,6 +6408,9 @@ void sendJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac,
 */
 void sendCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac, int optlen, void * opt)
 {
+	// Lock the peer
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 	// Allocate Cancel Message Buffer
 	uint8_t * cancel = (uint8_t *)malloc(5LL + optlen);
 
@@ -6211,14 +6428,13 @@ void sendCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 
 		// Send Data
 		context->socketlock->lock();
-		sceNetAdhocPdpSend(context->socket, (const char*)mac, context->port, cancel, 5 + optlen, 0, ADHOC_F_NONBLOCK);
+		sceNetAdhocPdpSend(context->socket, (const char*)mac, (*context->peerPort)[*mac], cancel, 5 + optlen, 0, ADHOC_F_NONBLOCK);
 		context->socketlock->unlock();
 
 		// Free Memory
 		free(cancel);
 	}
 
-	peerlock.lock();
 	// Find Peer
 	SceNetAdhocMatchingMemberInternal * peer = findPeer(context, mac);
 
@@ -6235,7 +6451,6 @@ void sendCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 		// Delete Peer
 		else deletePeer(context, peer);
 	}
-	peerlock.unlock();
 }
 
 /**
@@ -6247,6 +6462,9 @@ void sendCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 */
 void sendBulkDataPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac, int datalen, void * data)
 {
+	// Lock the peer
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 	// Find Peer
 	SceNetAdhocMatchingMemberInternal * peer = findPeer(context, mac);
 
@@ -6273,7 +6491,7 @@ void sendBulkDataPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 
 			// Send Data
 			context->socketlock->lock();
-			sceNetAdhocPdpSend(context->socket, (const char*)mac, context->port, send, 5 + datalen, 0, ADHOC_F_NONBLOCK);
+			sceNetAdhocPdpSend(context->socket, (const char*)mac, (*context->peerPort)[*mac], send, 5 + datalen, 0, ADHOC_F_NONBLOCK);
 			context->socketlock->unlock();
 
 			// Free Memory
@@ -6295,6 +6513,9 @@ void sendBulkDataPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 */
 void sendBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac)
 {
+	// Lock the peer
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 	// Find Newborn Child
 	SceNetAdhocMatchingMemberInternal * newborn = findPeer(context, mac);
 
@@ -6322,7 +6543,7 @@ void sendBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 			{
 				// Send Packet
 				context->socketlock->lock();
-				int sent = sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, context->port, packet, sizeof(packet), 0, ADHOC_F_NONBLOCK);
+				int sent = sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], packet, sizeof(packet), 0, ADHOC_F_NONBLOCK);
 				context->socketlock->unlock();
 
 				// Log Send Success
@@ -6342,6 +6563,9 @@ void sendBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 */
 void sendDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac)
 {
+	// Lock the peer
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 	// Find abandoned Child
 	SceNetAdhocMatchingMemberInternal * deadkid = findPeer(context, mac);
 
@@ -6365,7 +6589,7 @@ void sendDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 
 				// Send Bye Packet
 				context->socketlock->lock();
-				sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, context->port, packet, sizeof(packet[0]), 0, ADHOC_F_NONBLOCK);
+				sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], packet, sizeof(packet[0]), 0, ADHOC_F_NONBLOCK);
 				context->socketlock->unlock();
 			}
 			else
@@ -6377,7 +6601,7 @@ void sendDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 
 				// Send Death Packet
 				context->socketlock->lock();
-				sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, context->port, packet, sizeof(packet), 0, ADHOC_F_NONBLOCK);
+				sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], packet, sizeof(packet), 0, ADHOC_F_NONBLOCK);
 				context->socketlock->unlock();
 			}
 		}
@@ -6393,6 +6617,9 @@ void sendDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 */
 void sendByePacket(SceNetAdhocMatchingContext * context)
 {
+	// Lock the peer
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 	// Iterate Peers
 	SceNetAdhocMatchingMemberInternal * peer = context->peerlist; 
 	for (; peer != NULL; peer = peer->next)
@@ -6405,7 +6632,7 @@ void sendByePacket(SceNetAdhocMatchingContext * context)
 
 			// Send Bye Packet
 			context->socketlock->lock();
-			sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, context->port, &opcode, sizeof(opcode), 0, ADHOC_F_NONBLOCK);
+			sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], &opcode, sizeof(opcode), 0, ADHOC_F_NONBLOCK);
 			context->socketlock->unlock();
 		}
 	}
@@ -7144,7 +7371,7 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 	u64_le now;
 
 	static SceNetEtherAddr sendermac;
-	static uint16_t senderport;
+	static u32_le senderport;
 	static int rxbuflen;
 
 	// Log Startup
@@ -7245,12 +7472,16 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 				// FIXME: When using JPCSP + prx files, the "SceNetAdhocMatchingInput" thread is using blocking PdpRecv with infinite(0) timeout, which can be stopped/aborted using SetSocketAlert, while "SceNetAdhocMatchingEvent" thread is using non-blocking for sending
 				rxbuflen = context->rxbuflen;
 				senderport = 0;
+				// Lock the peer first before locking the socket to avoid race condiion
+				peerlock.lock();
 				context->socketlock->lock();
 				int recvresult = sceNetAdhocPdpRecv(context->socket, &sendermac, &senderport, context->rxbuf, &rxbuflen, 0, ADHOC_F_NONBLOCK);
 				context->socketlock->unlock();
+				peerlock.unlock();
 
 				// Received Data from a Sender that interests us
-				if (recvresult == 0 && rxbuflen > 0 && context->port == senderport)
+				// Note: There are cases where the sender port might be re-mapped by router or ISP, so we shouldn't check the source port.
+				if (recvresult == 0 && rxbuflen > 0)
 				{
 					// Log Receive Success
 					if (context->rxbuf[0] > 1) {
@@ -7269,6 +7500,19 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 					else {
 						WARN_LOG(SCENET, "InputLoop[%d]: Unknown Peer[%s:%u] (Recved=%i, Length=%i)", matchingId, mac2str(&sendermac).c_str(), senderport, recvresult, rxbuflen);
 					}
+
+					// Show a warning if other player is having their port being re-mapped, thus that other player may have issue with the communication. 
+					// Note: That other player may need to switch side between host and join, or reboot their router to solve this issue.
+					if (context->port != senderport && senderport != (*context->peerPort)[sendermac]) {
+						char name[9] = {};
+						if (peer != NULL)
+							truncate_cpy(name, sizeof(name), (const char*)peer->nickname.data);
+						WARN_LOG(SCENET, "InputLoop[%d]: Unknown Source Port from [%s][%s:%u -> %u] (Recved=%i, Length=%i)", matchingId, name, mac2str(&sendermac).c_str(), senderport, context->port, recvresult, rxbuflen);
+						host->NotifyUserMessage(std::string(n->T("AM: Data from Unknown Port")) + std::string(" [") + std::string(name) + std::string("]:") + std::to_string(senderport) + std::string(" -> ") + std::to_string(context->port) + std::string(" (") + std::to_string(portOffset) + std::string(")"), 2.0, 0x0080ff);
+					}
+					// Keep tracks of re-mapped peer's ports for further communication. 
+					// Note: This will only works if this player were able to receives data on normal port from other players (ie. this player's port wasn't remapped)
+					(*context->peerPort)[sendermac] = senderport;
 					peerlock.unlock();
 
 					// Ping Packet
@@ -7302,10 +7546,6 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 					else if (context->rxbuf[0] == PSP_ADHOC_MATCHING_PACKET_BYE) actOnByePacket(context, &sendermac);
 
 					// Ignore Incoming Trash Data
-				}
-				else if (recvresult == 0 && rxbuflen > 0) {
-					WARN_LOG(SCENET, "InputLoop[%d]: Unknown Port[%s:%u] (Recved=%i, Length=%i)", matchingId, mac2str(&sendermac).c_str(), senderport, recvresult, rxbuflen);
-					host->NotifyUserMessage(std::string(n->T("Data from incorrect Port")) + std::string(" [") + mac2str(&sendermac) + std::string("]:") + std::to_string(senderport) + std::string(" -> ") + std::to_string(context->port) + std::string(" (") + std::to_string(portOffset) + std::string(")"), 1.0, 0x0080ff);
 				}
 
 				// Handle Peer Timeouts

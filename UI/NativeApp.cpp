@@ -132,8 +132,8 @@
 // The new UI framework, for initialization
 
 static UI::Theme ui_theme;
-
-Atlas g_ui_atlas;
+static Atlas g_ui_atlas;
+static Atlas g_font_atlas;
 
 #if PPSSPP_ARCH(ARM) && defined(__ANDROID__)
 #include "../../android/jni/ArmEmitterTest.h"
@@ -389,6 +389,15 @@ static void CheckFailedGPUBackends() {
 	return;
 #endif
 
+#if PPSSPP_PLATFORM(ANDROID)
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 30) {
+		// In Android 11 or later, Vulkan is as stable as OpenGL, so let's not even bother.
+		// Have also seen unexplained issues with random fallbacks to OpenGL for no good reason,
+		// especially when debugging.
+		return;
+	}
+#endif
+
 	// We only want to do this once per process run and backend, to detect process crashes.
 	// If NativeShutdown is called before we finish, we might call this multiple times.
 	static int lastBackend = -1;
@@ -475,7 +484,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// on iOS it's even the path to bundled app assets. It's a mess.
 
 	// We want this to be FIRST.
-#if PPSSPP_PLATFORM(IOS)
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
 	// Packed assets are included in app
 	VFSRegister("", new DirectoryAssetReader(Path(external_dir)));
 #endif
@@ -518,7 +527,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	} else {
 		g_Config.memStickDirectory = Path(external_dir);
 		g_Config.defaultCurrentDirectory = Path(external_dir);
-		CreateDirectoriesAndroid();
 	}
 
 	// Might also add an option to move it to internal / non-visible storage, but there's
@@ -548,9 +556,18 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		INFO_LOG(SYSTEM, "No memstick directory file found (tried to open '%s')", memstickDirFile.c_str());
 	}
 
+	// Attempt to create directories after reading the path.
+	if (!System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
+		CreateDirectoriesAndroid();
+	}
+
 #elif PPSSPP_PLATFORM(IOS)
 	g_Config.defaultCurrentDirectory = g_Config.internalDataDirectory;
 	g_Config.memStickDirectory = Path(user_data_path);
+	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
+#elif PPSSPP_PLATFORM(MAC)
+	g_Config.defaultCurrentDirectory = Path(getenv("HOME"));
+	g_Config.memStickDirectory = g_Config.defaultCurrentDirectory / ".config/ppsspp";
 	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
 #elif PPSSPP_PLATFORM(SWITCH)
 	g_Config.memStickDirectory = g_Config.internalDataDirectory / "config/ppsspp";
@@ -612,6 +629,13 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	for (int i = 1; i < argc; i++) {
 		if (argv[i][0] == '-') {
+#if defined(__APPLE__)
+			// On Apple system debugged executable may get -NSDocumentRevisionsDebugMode YES in argv.
+			if (!strcmp(argv[i], "-NSDocumentRevisionsDebugMode") && argc - 1 > i) {
+				i++;
+				continue;
+			}
+#endif
 			switch (argv[i][1]) {
 			case 'd':
 				// Enable debug logging
@@ -800,17 +824,16 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	screenManager = new ScreenManager();
 	if (g_Config.memStickDirectory.empty()) {
 		INFO_LOG(SYSTEM, "No memstick directory! Asking for one to be configured.");
-		screenManager->switchScreen(new LogoScreen(false));
-		screenManager->push(new MemStickScreen(true));
+		screenManager->switchScreen(new LogoScreen(AfterLogoScreen::MEMSTICK_SCREEN_INITIAL_SETUP));
 	} else if (gotoGameSettings) {
-		screenManager->switchScreen(new LogoScreen(true));
+		screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
 	} else if (gotoTouchScreenTest) {
 		screenManager->switchScreen(new MainScreen());
 		screenManager->push(new TouchTestScreen());
 	} else if (skipLogo) {
 		screenManager->switchScreen(new EmuScreen(boot_filename));
 	} else {
-		screenManager->switchScreen(new LogoScreen());
+		screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));
 	}
 
 	// Easy testing
@@ -890,6 +913,22 @@ static void UIThemeInit() {
 void RenderOverlays(UIContext *dc, void *userdata);
 bool CreateGlobalPipelines();
 
+static void LoadAtlasMetadata(Atlas &metadata, const char *filename, bool required) {
+	size_t atlas_data_size = 0;
+	if (!metadata.IsMetadataLoaded()) {
+		const uint8_t *atlas_data = VFSReadFile(filename, &atlas_data_size);
+		bool load_success = atlas_data != nullptr && metadata.Load(atlas_data, atlas_data_size);
+		if (!load_success) {
+			if (required)
+				ERROR_LOG(G3D, "Failed to load %s - graphics will be broken", filename);
+			else
+				WARN_LOG(G3D, "Failed to load %s", filename);
+			// Stumble along with broken visuals instead of dying...
+		}
+		delete[] atlas_data;
+	}
+}
+
 bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	INFO_LOG(SYSTEM, "NativeInitGraphics");
 
@@ -904,20 +943,14 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 		return false;
 	}
 
-	// Load the atlas.
-	size_t atlas_data_size = 0;
-	if (!g_ui_atlas.IsMetadataLoaded()) {
-		const uint8_t *atlas_data = VFSReadFile("ui_atlas_luna.meta", &atlas_data_size);
-		bool load_success = atlas_data != nullptr && g_ui_atlas.Load(atlas_data, atlas_data_size);
-		if (!load_success) {
-			ERROR_LOG(G3D, "Failed to load ui_atlas_luna.meta - graphics will be broken.");
-			// Stumble along with broken visuals instead of dying.
-		}
-		delete[] atlas_data;
-	}
+	// Load any missing atlas.
+	LoadAtlasMetadata(g_ui_atlas, "ui_atlas_luna.meta", true);
+	LoadAtlasMetadata(g_font_atlas, "font_atlas_luna.meta", g_ui_atlas.num_fonts == 0);
 
 	ui_draw2d.SetAtlas(&g_ui_atlas);
+	ui_draw2d.SetFontAtlas(&g_font_atlas);
 	ui_draw2d_front.SetAtlas(&g_ui_atlas);
+	ui_draw2d_front.SetFontAtlas(&g_font_atlas);
 
 	UIThemeInit();
 

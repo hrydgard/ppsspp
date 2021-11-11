@@ -311,11 +311,13 @@ size_t DirectoryFileHandle::Read(u8* pointer, s64 size)
 			size = needsTrunc_ - off;
 		}
 	}
+	if (size > 0) {
 #ifdef _WIN32
-	::ReadFile(hFile, (LPVOID)pointer, (DWORD)size, (LPDWORD)&bytesRead, 0);
+		::ReadFile(hFile, (LPVOID)pointer, (DWORD)size, (LPDWORD)&bytesRead, 0);
 #else
-	bytesRead = read(hFile, pointer, size);
+		bytesRead = read(hFile, pointer, size);
 #endif
+	}
 	return replay_ ? ReplayApplyDiskRead(pointer, (uint32_t)bytesRead, (uint32_t)size, inGameDir_, CoreTiming::GetGlobalTimeUs()) : bytesRead;
 }
 

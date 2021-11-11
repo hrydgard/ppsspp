@@ -519,6 +519,7 @@
     <ClCompile Include="Debugger\WebSocket\GameSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\GPUBufferSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\GPURecordSubscriber.cpp" />
+    <ClCompile Include="Debugger\WebSocket\GPUStatsSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\HLESubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\InputBroadcaster.cpp" />
     <ClCompile Include="Debugger\WebSocket\InputSubscriber.cpp" />
@@ -1076,6 +1077,7 @@
     <ClInclude Include="Debugger\WebSocket\DisasmSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\GPUBufferSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\GPURecordSubscriber.h" />
+    <ClInclude Include="Debugger\WebSocket\GPUStatsSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\HLESubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\InputBroadcaster.h" />
     <ClInclude Include="Debugger\WebSocket\InputSubscriber.h" />

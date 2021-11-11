@@ -124,7 +124,6 @@ public:
 
 	bool bVulkanMultithreading;
 	bool bSeparateSASThread;
-	bool bSeparateIOThread;
 	int iIOTimingMethod;
 	int iIOManualDelay;
 	int iLockedCPUSpeed;
@@ -206,6 +205,7 @@ public:
 	bool bReplaceTextures;
 	bool bSaveNewTextures;
 	bool bIgnoreTextureFilenames;
+	bool bReplaceTexturesAllowLate;
 	int iTexScalingLevel; // 0 = auto, 1 = off, 2 = 2x, ..., 5 = 5x
 	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid
 	bool bTexDeposterize;
@@ -456,7 +456,6 @@ public:
 	std::string proAdhocServer;
 	bool bEnableWlan;
 	bool bEnableAdhocServer;
-	bool bTCPNoDelay;
 	bool bEnableUPnP;
 	bool bUPnPUseOriginalPort;
 	bool bForcedFirstConnect;

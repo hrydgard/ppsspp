@@ -576,14 +576,14 @@ const MIPSInstruction tableVFPU4Jump[32] = // 110100 xxxxx ..... . ....... . ...
 	INVALID,
 	INVALID,
 	//24 - 110100 11 ........ . ....... . .......
-	INSTR("vwbn.s", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vwbn.s", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vwbn.s", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vwbn.s", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vwbn.s", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vwbn.s", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vwbn.s", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vwbn.s", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vwbn", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vwbn", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vwbn", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vwbn", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vwbn", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vwbn", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vwbn", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vwbn", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 };
 
 const MIPSInstruction tableVFPU7[32] = // 110100 00001 xxxxx . ....... . .......
@@ -746,8 +746,8 @@ const MIPSInstruction tableVFPU9[32] = // 110100 00010 xxxxx . ....... . .......
 	INVALID,
 
 	//16
-	INSTR("vmfvc", JITFUNC(Comp_Vmfvc), Dis_Vmftvc, Int_Vmfvc, IN_OTHER|IN_VFPU_CC|OUT_OTHER|IS_VFPU),
-	INSTR("vmtvc", JITFUNC(Comp_Vmtvc), Dis_Vmftvc, Int_Vmtvc, IN_OTHER|OUT_VFPU_CC|OUT_OTHER|IS_VFPU),
+	INSTR("vmfvc", JITFUNC(Comp_Vmfvc), Dis_Vmfvc, Int_Vmfvc, IN_OTHER|IN_VFPU_CC|OUT_OTHER|IS_VFPU),
+	INSTR("vmtvc", JITFUNC(Comp_Vmtvc), Dis_Vmtvc, Int_Vmtvc, IN_OTHER|OUT_VFPU_CC|OUT_OTHER|IS_VFPU),
 	INVALID,
 	INVALID,
 
@@ -981,7 +981,7 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 					auto cond = CBreakPoints::GetBreakPointCondition(currentMIPS->pc);
 					if (!cond || cond->Evaluate())
 					{
-						Core_EnableStepping(true);
+						Core_EnableStepping(true, "cpu.breakpoint", curMips->pc);
 						if (CBreakPoints::IsTempBreakPoint(curMips->pc))
 							CBreakPoints::RemoveBreakPoint(curMips->pc);
 						break;

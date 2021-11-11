@@ -77,15 +77,14 @@ struct Style {
 };
 
 struct FontStyle {
-	FontStyle() : atlasFont(0), sizePts(0), flags(0) {}
-	FontStyle(const char *name, int size) : atlasFont(0), fontName(name), sizePts(size), flags(0) {}
-	FontStyle(FontID atlasFnt, const char *name, int size) : atlasFont(atlasFnt), fontName(name), sizePts(size), flags(0) {}
+	FontStyle() {}
+	FontStyle(FontID atlasFnt, const char *name, int size) : atlasFont(atlasFnt), fontName(name), sizePts(size) {}
 
-	FontID atlasFont;
+	FontID atlasFont{ nullptr };
 	// For native fonts:
 	std::string fontName;
-	int sizePts;
-	int flags;
+	int sizePts = 0;
+	int flags = 0;
 };
 
 
@@ -160,6 +159,24 @@ enum Gravity {
 	G_CENTER = G_HCENTER | G_VCENTER,
 
 	G_VERTMASK = 3 << 2,
+};
+
+enum Borders {
+	BORDER_NONE = 0,
+
+	BORDER_TOP = 0x0001,
+	BORDER_LEFT = 0x0002,
+	BORDER_BOTTOM = 0x0004,
+	BORDER_RIGHT = 0x0008,
+
+	BORDER_HORIZ = BORDER_LEFT | BORDER_RIGHT,
+	BORDER_VERT = BORDER_TOP | BORDER_BOTTOM,
+	BORDER_ALL = BORDER_TOP | BORDER_LEFT | BORDER_BOTTOM | BORDER_RIGHT,
+};
+
+enum class BorderStyle {
+	HEADER_FG,
+	ITEM_DOWN_BG,
 };
 
 typedef float Size;  // can also be WRAP_CONTENT or FILL_PARENT.
@@ -522,6 +539,8 @@ protected:
 	bool down_ = false;
 };
 
+// TODO: Very similar to Choice, should probably merge them.
+// Right now more flexible image support though.
 class Button : public Clickable {
 public:
 	Button(const std::string &text, LayoutParams *layoutParams = 0)
@@ -544,12 +563,10 @@ public:
 	void SetIgnoreText(bool ignore) {
 		ignoreText_ = ignore;
 	}
-
 	// Needed an extra small button...
 	void SetScale(float f) {
 		scale_ = f;
 	}
-
 private:
 	Style style_;
 	std::string text_;
@@ -558,6 +575,26 @@ private:
 	int paddingH_ = 8;
 	float scale_ = 1.0f;
 	bool ignoreText_ = false;
+};
+
+class RadioButton : public Clickable {
+public:
+	RadioButton(int *value, int thisButtonValue, const std::string &text, LayoutParams *layoutParams = 0)
+		: Clickable(layoutParams), value_(value), thisButtonValue_(thisButtonValue), text_(text) {}
+	void Click() override;
+	void Draw(UIContext &dc) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	std::string DescribeText() const override;
+
+private:
+	int *value_;
+	int thisButtonValue_;
+	std::string text_;
+	const float paddingW_ = 8;
+	const float paddingH_ = 4;
+
+	const float radioRadius_ = 16.0f;
+	const float radioInnerRadius_ = 8.0f;
 };
 
 class Slider : public Clickable {
@@ -669,10 +706,14 @@ class Choice : public ClickableItem {
 public:
 	Choice(const std::string &text, LayoutParams *layoutParams = nullptr)
 		: Choice(text, std::string(), false, layoutParams) {}
+	Choice(const std::string &text, ImageID image, LayoutParams *layoutParams = nullptr)
+		: ClickableItem(layoutParams), text_(text), image_(image) {}
 	Choice(const std::string &text, const std::string &smallText, bool selected = false, LayoutParams *layoutParams = nullptr)
-		: ClickableItem(layoutParams), text_(text), smallText_(smallText), atlasImage_(ImageID::invalid()), iconImage_(ImageID::invalid()), centered_(false), highlighted_(false), selected_(selected) {}
+		: ClickableItem(layoutParams), text_(text), smallText_(smallText), image_(ImageID::invalid()) {}
 	Choice(ImageID image, LayoutParams *layoutParams = nullptr)
-		: ClickableItem(layoutParams), atlasImage_(image), iconImage_(ImageID::invalid()), centered_(false), highlighted_(false), selected_(false) {}
+		: ClickableItem(layoutParams), image_(image), rightIconImage_(ImageID::invalid()) {}
+	Choice(ImageID image, float imgScale, float imgRot, bool imgFlipH = false, LayoutParams *layoutParams = nullptr)
+		: ClickableItem(layoutParams), image_(image), rightIconImage_(ImageID::invalid()), imgScale_(imgScale), imgRot_(imgRot), imgFlipH_(imgFlipH) {}
 
 	void Click() override;
 	virtual void HighlightChanged(bool highlighted);
@@ -682,8 +723,11 @@ public:
 	virtual void SetCentered(bool c) {
 		centered_ = c;
 	}
-	virtual void SetIcon(ImageID iconImage) {
-		iconImage_ = iconImage;
+	virtual void SetIcon(ImageID iconImage, float scale = 1.0f, float rot = 0.0f, bool flipH = false) {
+		rightIconScale_ = scale;
+		rightIconRot_ = rot;
+		rightIconFlipH_ = flipH;
+		rightIconImage_ = iconImage;
 	}
 
 protected:
@@ -693,14 +737,20 @@ protected:
 
 	std::string text_;
 	std::string smallText_;
-	ImageID atlasImage_;
-	ImageID iconImage_;  // Only applies for text, non-centered
+	ImageID image_;  // Centered if no text, on the left if text.
+	ImageID rightIconImage_ = ImageID::invalid();  // Shows in the right.
+	float rightIconScale_;
+	float rightIconRot_;
+	bool rightIconFlipH_;
 	Padding textPadding_;
-	bool centered_;
-	bool highlighted_;
+	bool centered_ = false;
+	bool highlighted_ = false;
+	float imgScale_ = 1.0f;
+	float imgRot_ = 0.0f;
+	bool imgFlipH_ = false;
 
 private:
-	bool selected_;
+	bool selected_ = false;
 };
 
 // Different key handling.
@@ -743,6 +793,9 @@ public:
 	void SetRightText(const std::string &text) {
 		rightText_ = text;
 	}
+	void SetChoiceStyle(bool choiceStyle) {
+		choiceStyle_ = choiceStyle;
+	}
 
 private:
 	CallbackColorTween *bgColor_ = nullptr;
@@ -750,6 +803,8 @@ private:
 
 	std::string text_;
 	std::string rightText_;
+
+	bool choiceStyle_ = false;
 };
 
 class ItemHeader : public Item {
@@ -829,6 +884,21 @@ public:
 	std::string DescribeText() const override { return ""; }
 
 private:
+	float size_ = 0.0f;
+};
+
+class BorderView : public InertView {
+public:
+	BorderView(Borders borderFlags, BorderStyle style, float size = 2.0f, LayoutParams *layoutParams = nullptr)
+		: InertView(layoutParams), borderFlags_(borderFlags), style_(style), size_(size) {
+	}
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
+	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override { return ""; }
+
+private:
+	Borders borderFlags_;
+	BorderStyle style_;
 	float size_;
 };
 

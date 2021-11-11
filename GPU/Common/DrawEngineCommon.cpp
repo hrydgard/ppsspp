@@ -704,7 +704,7 @@ void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 	*bytesRead = vertexCount * dec_->VertexSize();
 
 	// Check that we have enough vertices to form the requested primitive.
-	if ((vertexCount < 2 && prim > 0) || (vertexCount < 3 && prim > 2 && prim != GE_PRIM_RECTANGLES))
+	if ((vertexCount < 2 && prim > 0) || (vertexCount < 3 && prim > GE_PRIM_LINE_STRIP && prim != GE_PRIM_RECTANGLES))
 		return;
 
 	if (g_Config.bVertexCache) {
@@ -750,7 +750,7 @@ void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 bool DrawEngineCommon::CanUseHardwareTransform(int prim) {
 	if (!useHWTransform_)
 		return false;
-	return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES;
+	return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && prim > GE_PRIM_LINE_STRIP;
 }
 
 bool DrawEngineCommon::CanUseHardwareTessellation(GEPatchPrimType prim) {

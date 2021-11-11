@@ -17,18 +17,16 @@
 
 #include "Common/Common.h"
 #include "Windows/resource.h"
-#include "Windows/main.h"
 #include "Windows/InputBox.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/TabState.h"
+#include "Windows/W32Util/ContextMenu.h"
 #include "GPU/GPUState.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Debugger/Breakpoints.h"
 
 using namespace GPUBreakpoints;
-
-const int POPUP_SUBMENU_ID_GEDBG_STATE = 9;
 
 // TODO: Show an icon or something for breakpoints, toggle.
 static const GenericListViewColumn stateValuesCols[] = {
@@ -876,7 +874,7 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 	POINT screenPt(point);
 	ClientToScreen(GetHandle(), &screenPt);
 
-	HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_GEDBG_STATE);
+	HMENU subMenu = GetContextMenu(ContextMenuID::GEDBG_STATE);
 	SetMenuDefaultItem(subMenu, ID_REGLIST_CHANGE, FALSE);
 
 	// Ehh, kinda ugly.
@@ -886,7 +884,7 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 		ModifyMenu(subMenu, ID_GEDBG_WATCH, MF_BYCOMMAND | MF_STRING, ID_GEDBG_WATCH, L"Add Watch");
 	}
 
-	switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, GetHandle(), 0))
+	switch (TriggerContextMenu(ContextMenuID::GEDBG_STATE, GetHandle(), ContextPoint::FromClient(point)))
 	{
 	case ID_DISASM_TOGGLEBREAKPOINT:
 		if (IsCmdBreakpoint(info.cmd)) {

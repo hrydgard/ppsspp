@@ -23,6 +23,9 @@
 #include "Core/System.h"
 
 struct CPUSteppingEvent {
+	CPUSteppingEvent(const SteppingReason &reason) : reason_(reason) {
+	}
+
 	operator std::string() {
 		JsonWriter j;
 		j.begin();
@@ -30,9 +33,14 @@ struct CPUSteppingEvent {
 		j.writeUint("pc", currentMIPS->pc);
 		// A double ought to be good enough for a 156 day debug session.
 		j.writeFloat("ticks", CoreTiming::GetTicks());
+		j.writeString("reason", reason_.reason);
+		j.writeUint("relatedAddress", reason_.relatedAddress);
 		j.end();
 		return j.str();
 	}
+
+private:
+	const SteppingReason &reason_;
 };
 
 // CPU has begun stepping (cpu.stepping)
@@ -49,7 +57,7 @@ void SteppingBroadcaster::Broadcast(net::WebSocketServer *ws) {
 		int steppingCounter = Core_GetSteppingCounter();
 		// We ignore CORE_POWERDOWN as a stepping state.
 		if (coreState == CORE_STEPPING && steppingCounter != lastCounter_) {
-			ws->Send(CPUSteppingEvent());
+			ws->Send(CPUSteppingEvent(Core_GetSteppingReason()));
 		} else if (prevState_ == CORE_STEPPING && coreState != CORE_STEPPING && Core_IsActive()) {
 			ws->Send(R"({"event":"cpu.resume"})");
 		}

@@ -36,6 +36,7 @@
 #include "Common/StringUtils.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
+#include "Common/TimeUtil.h"
 #include "Core/KeyMap.h"
 #include "Core/Host.h"
 #include "Core/HLE/sceCtrl.h"
@@ -43,6 +44,10 @@
 #include "Core/Config.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/GameSettingsScreen.h"
+
+#if PPSSPP_PLATFORM(ANDROID)
+#include "android/jni/app-android.h"
+#endif
 
 class SingleControlMapper : public UI::LinearLayout {
 public:
@@ -99,7 +104,7 @@ void SingleControlMapper::Refresh() {
 
 	using namespace UI;
 
-	float itemH = 45;
+	float itemH = 55.0f;
 
 	float leftColumnWidth = 200;
 	float rightColumnWidth = 250;  // TODO: Should be flexible somehow. Maybe we need to implement Measure.
@@ -250,7 +255,6 @@ void ControlMappingScreen::CreateViews() {
 
 	rightScroll_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 	rightScroll_->SetTag("ControlMapping");
-	rightScroll_->SetScrollToTop(false);
 	LinearLayout *rightColumn = new LinearLayoutList(ORIENT_VERTICAL);
 	rightScroll_->Add(rightColumn);
 
@@ -327,7 +331,7 @@ void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 }
 
 bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
-	if (mapped_)
+	if (mapped_ || time_now_d() < delayUntil_)
 		return false;
 	if (key.flags & KEY_DOWN) {
 		if (key.keyCode == NKCODE_EXT_MOUSEBUTTON_1) {
@@ -341,6 +345,10 @@ bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 			callback_(kdf);
 	}
 	return true;
+}
+
+void KeyMappingNewKeyDialog::SetDelay(float t) {
+	delayUntil_ = time_now_d() + t;
 }
 
 void KeyMappingNewMouseKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
@@ -393,7 +401,7 @@ static bool IgnoreAxisForMapping(int axis) {
 
 
 bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
-	if (mapped_)
+	if (mapped_ || time_now_d() < delayUntil_)
 		return false;
 	if (IgnoreAxisForMapping(axis.axisId))
 		return false;
@@ -479,7 +487,8 @@ void JoystickHistoryView::Draw(UIContext &dc) {
 	}
 	float minRadius = std::min(bounds_.w, bounds_.h) * 0.5f - image->w;
 	dc.Begin();
-	dc.DrawTextShadow(title_.c_str(), bounds_.centerX(), bounds_.centerY() + minRadius + 5.0, 0xFFFFFFFF, ALIGN_TOP | ALIGN_HCENTER);
+	Bounds textBounds(bounds_.x, bounds_.centerY() + minRadius + 5.0, bounds_.w, bounds_.h/2 - minRadius - 5.0);
+	dc.DrawTextShadowRect(title_.c_str(), textBounds, 0xFFFFFFFF, ALIGN_TOP | ALIGN_HCENTER | FLAG_WRAP_TEXT);
 	dc.Flush();
 	dc.BeginNoTex();
 	dc.Draw()->RectOutline(bounds_.centerX() - minRadius, bounds_.centerY() - minRadius, minRadius * 2.0f, minRadius * 2.0f, 0x80FFFFFF);
@@ -800,7 +809,7 @@ void TouchTestScreen::render() {
 
 	ui_context->Begin();
 
-	char buffer[1024];
+	char buffer[2048];
 	for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 		if (touches_[i].id != -1) {
 			ui_context->Draw()->Circle(touches_[i].x, touches_[i].y, 100.0, 3.0, 80, 0.0f, 0xFFFFFFFF, 1.0);
@@ -809,15 +818,19 @@ void TouchTestScreen::render() {
 		}
 	}
 
+	char extra_debug[2048]{};
+
+#if PPSSPP_PLATFORM(ANDROID)
+	truncate_cpy(extra_debug, Android_GetInputDeviceDebugString().c_str());
+#endif
+
 	snprintf(buffer, sizeof(buffer),
 #if PPSSPP_PLATFORM(ANDROID)
 		"display_res: %dx%d\n"
 #endif
-		"dp_res: %dx%d\n"
-		"pixel_res: %dx%d\n"
-		"g_dpi: %f\n"
-		"g_dpi_scale: %0.3fx%0.3f\n"
-		"g_dpi_scale_real: %0.3fx%0.3f\n",
+		"dp_res: %dx%d pixel_res: %dx%d\n"
+		"g_dpi: %0.3f g_dpi_scale: %0.3fx%0.3f\n"
+		"g_dpi_scale_real: %0.3fx%0.3f\n%s",
 #if PPSSPP_PLATFORM(ANDROID)
 		display_xres, display_yres,
 #endif
@@ -825,7 +838,10 @@ void TouchTestScreen::render() {
 		pixel_xres, pixel_yres,
 		g_dpi,
 		g_dpi_scale_x, g_dpi_scale_y,
-		g_dpi_scale_real_x, g_dpi_scale_real_y);
+		g_dpi_scale_real_x, g_dpi_scale_real_y, extra_debug);
+
+	// On Android, also add joystick debug data.
+
 
 	ui_context->DrawTextShadow(buffer, bounds.centerX(), bounds.y + 20.0f, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	ui_context->Flush();
@@ -1144,14 +1160,14 @@ void VisualMappingScreen::resized() {
 
 UI::EventReturn VisualMappingScreen::OnMapButton(UI::EventParams &e) {
 	nextKey_ = e.a;
-	MapNext();
+	MapNext(false);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn VisualMappingScreen::OnBindAll(UI::EventParams &e) {
 	bindAll_ = 0;
 	nextKey_ = bindAllOrder[bindAll_];
-	MapNext();
+	MapNext(false);
 	return UI::EVENT_DONE;
 }
 
@@ -1184,7 +1200,7 @@ void VisualMappingScreen::HandleKeyMapping(KeyDef key) {
 
 void VisualMappingScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (result == DR_YES && nextKey_ != 0) {
-		MapNext();
+		MapNext(true);
 	} else {
 		// This means they canceled.
 		if (nextKey_ != 0)
@@ -1195,7 +1211,7 @@ void VisualMappingScreen::dialogFinished(const Screen *dialog, DialogResult resu
 	}
 }
 
-void VisualMappingScreen::MapNext() {
+void VisualMappingScreen::MapNext(bool successive) {
 	auto km = GetI18NCategory("KeyMapping");
 
 	if (nextKey_ == VIRTKEY_AXIS_Y_MIN || nextKey_ == VIRTKEY_AXIS_X_MIN || nextKey_ == VIRTKEY_AXIS_X_MAX) {
@@ -1207,5 +1223,6 @@ void VisualMappingScreen::MapNext() {
 
 	Bounds bounds = screenManager()->getUIContext()->GetLayoutBounds();
 	dialog->SetPopupOffset(psp_->GetPopupOffset() * bounds.h);
+	dialog->SetDelay(successive ? 0.5f : 0.1f);
 	screenManager()->push(dialog);
 }

@@ -514,7 +514,6 @@
     <ClInclude Include="GraphicsContext.h" />
     <ClInclude Include="Log.h" />
     <ClInclude Include="LogManager.h" />
-    <ClInclude Include="MakeUnique.h" />
     <ClInclude Include="MachineContext.h" />
     <ClInclude Include="MemArena.h" />
     <ClInclude Include="MemoryUtil.h" />

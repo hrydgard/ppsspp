@@ -545,6 +545,8 @@ private:
 		VkDescriptorPool descriptorPool;
 	};
 
+	VkResult RecreateDescriptorPool(FrameData *frame);
+
 	FrameData frame_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
 
 	VulkanPushBuffer *push_ = nullptr;
@@ -650,7 +652,7 @@ VulkanTexture *VKContext::GetNullTexture() {
 			}
 		}
 		nullTexture_->UploadMip(cmdInit, 0, w, h, bindBuf, bindOffset, w);
-		nullTexture_->EndCreate(cmdInit);
+		nullTexture_->EndCreate(cmdInit, false, VK_PIPELINE_STAGE_TRANSFER_BIT);
 	} else {
 		nullTexture_->Touch();
 	}
@@ -735,6 +737,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 		ERROR_LOG(G3D,  "Failed to create VulkanTexture: %dx%dx%d fmt %d, %d levels", width_, height_, depth_, (int)vulkanFormat, mipLevels_);
 		return false;
 	}
+	VkImageLayout layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 	if (desc.initData.size()) {
 		int w = width_;
 		int h = height_;
@@ -758,11 +761,12 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 			d = (d + 1) / 2;
 		}
 		// Generate the rest of the mips automatically.
-		for (; i < mipLevels_; i++) {
-			vkTex_->GenerateMip(cmd, i, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		if (i < mipLevels_) {
+			vkTex_->GenerateMips(cmd, i, false);
+			layout = VK_IMAGE_LAYOUT_GENERAL;
 		}
 	}
-	vkTex_->EndCreate(cmd, false);
+	vkTex_->EndCreate(cmd, false, VK_PIPELINE_STAGE_TRANSFER_BIT, layout);
 	return true;
 }
 
@@ -776,6 +780,8 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	caps_.multiViewport = vulkan->GetDeviceFeatures().enabled.multiViewport != 0;
 	caps_.dualSourceBlend = vulkan->GetDeviceFeatures().enabled.dualSrcBlend != 0;
 	caps_.depthClampSupported = vulkan->GetDeviceFeatures().enabled.depthClamp != 0;
+	caps_.clipDistanceSupported = vulkan->GetDeviceFeatures().enabled.shaderClipDistance != 0;
+	caps_.cullDistanceSupported = vulkan->GetDeviceFeatures().enabled.shaderCullDistance != 0;
 	caps_.framebufferBlitSupported = true;
 	caps_.framebufferCopySupported = true;
 	caps_.framebufferDepthBlitSupported = false;  // Can be checked for.
@@ -812,6 +818,11 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	} else if (caps_.vendor == GPUVendor::VENDOR_INTEL) {
 		// Workaround for Intel driver bug. TODO: Re-enable after some driver version
 		bugs_.Infest(Bugs::DUAL_SOURCE_BLENDING_BROKEN);
+	} else if (caps_.vendor == GPUVendor::VENDOR_ARM) {
+		// These GPUs (up to some certain hardware version?) have a bug where draws where gl_Position.w == .z
+		// corrupt the depth buffer. This is easily worked around by simply scaling Z down a tiny bit when this case
+		// is detected. See: https://github.com/hrydgard/ppsspp/issues/11937
+		bugs_.Infest(Bugs::EQUAL_WZ_CORRUPTS_DEPTH);
 	}
 
 	caps_.deviceID = deviceProps.deviceID;
@@ -820,18 +831,6 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	queue_ = vulkan->GetGraphicsQueue();
 	queueFamilyIndex_ = vulkan->GetGraphicsQueueFamilyIndex();
 
-	VkDescriptorPoolSize dpTypes[2];
-	dpTypes[0].descriptorCount = 200;
-	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	dpTypes[1].descriptorCount = 200 * MAX_BOUND_TEXTURES;
-	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-
-	VkDescriptorPoolCreateInfo dp{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
-	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go dynamic each frame.
-	dp.maxSets = 4096;  // 200 textures per frame was not enough for the UI.
-	dp.pPoolSizes = dpTypes;
-	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
-
 	VkCommandPoolCreateInfo p{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
 	p.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 	p.queueFamilyIndex = vulkan->GetGraphicsQueueFamilyIndex();
@@ -839,7 +838,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 		frame_[i].pushBuffer = new VulkanPushBuffer(vulkan_, 1024 * 1024, usage);
-		VkResult res = vkCreateDescriptorPool(device_, &dp, nullptr, &frame_[i].descriptorPool);
+		VkResult res = RecreateDescriptorPool(&frame_[i]);
 		_assert_(res == VK_SUCCESS);
 	}
 
@@ -951,6 +950,28 @@ void VKContext::WipeQueue() {
 	renderManager_.Wipe();
 }
 
+VkResult VKContext::RecreateDescriptorPool(FrameData *frame) {
+	if (frame->descriptorPool) {
+		WARN_LOG(G3D, "Reallocating Draw desc pool");
+		vulkan_->Delete().QueueDeleteDescriptorPool(frame->descriptorPool);
+		frame->descSets_.clear();
+	}
+
+	VkDescriptorPoolSize dpTypes[2];
+	dpTypes[0].descriptorCount = 200;
+	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	dpTypes[1].descriptorCount = 200 * MAX_BOUND_TEXTURES;
+	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+
+	VkDescriptorPoolCreateInfo dp{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go dynamic each frame.
+	dp.maxSets = 4096;  // 200 textures per frame was not enough for the UI.
+	dp.pPoolSizes = dpTypes;
+	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
+
+	return vkCreateDescriptorPool(device_, &dp, nullptr, &frame->descriptorPool);
+}
+
 VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	DescriptorSetKey key;
 
@@ -973,7 +994,17 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	alloc.pSetLayouts = &descriptorSetLayout_;
 	alloc.descriptorSetCount = 1;
 	VkResult res = vkAllocateDescriptorSets(device_, &alloc, &descSet);
-	_assert_(VK_SUCCESS == res);
+	if (res != VK_SUCCESS) {
+		// First, try to reallocate the pool.
+		res = RecreateDescriptorPool(frame);
+		alloc.descriptorPool = frame->descriptorPool;
+
+		res = vkAllocateDescriptorSets(device_, &alloc, &descSet);
+		if (res != VK_SUCCESS) {
+			ERROR_LOG(G3D, "GetOrCreateDescriptorSet failed: %08x", res);
+			return VK_NULL_HANDLE;
+		}
+	}
 
 	VkDescriptorBufferInfo bufferDesc;
 	bufferDesc.buffer = buf;
@@ -1324,6 +1355,10 @@ void VKContext::Draw(int vertexCount, int offset) {
 	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), &vulkanVbuf);
 
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
+	if (descSet == VK_NULL_HANDLE) {
+		ERROR_LOG(G3D, "GetOrCreateDescriptorSet failed, skipping %s", __FUNCTION__);
+		return;
+	}
 
 	BindCompatiblePipeline();
 	ApplyDynamicState();
@@ -1340,6 +1375,10 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 	size_t ibBindOffset = push_->Push(ibuf->GetData(), ibuf->GetSize(), &vulkanIbuf);
 
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
+	if (descSet == VK_NULL_HANDLE) {
+		ERROR_LOG(G3D, "GetOrCreateDescriptorSet failed, skipping %s", __FUNCTION__);
+		return;
+	}
 
 	BindCompatiblePipeline();
 	ApplyDynamicState();
@@ -1352,6 +1391,10 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
 
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
+	if (descSet == VK_NULL_HANDLE) {
+		ERROR_LOG(G3D, "GetOrCreateDescriptorSet failed, skipping %s", __FUNCTION__);
+		return;
+	}
 
 	BindCompatiblePipeline();
 	ApplyDynamicState();
@@ -1413,8 +1456,6 @@ std::vector<std::string> VKContext::GetFeatureList() const {
 	AddFeature(features, "depthBounds", available.depthBounds, enabled.depthBounds);
 	AddFeature(features, "depthClamp", available.depthClamp, enabled.depthClamp);
 	AddFeature(features, "fillModeNonSolid", available.fillModeNonSolid, enabled.fillModeNonSolid);
-	AddFeature(features, "largePoints", available.largePoints, enabled.largePoints);
-	AddFeature(features, "wideLines", available.wideLines, enabled.wideLines);
 	AddFeature(features, "pipelineStatisticsQuery", available.pipelineStatisticsQuery, enabled.pipelineStatisticsQuery);
 	AddFeature(features, "samplerAnisotropy", available.samplerAnisotropy, enabled.samplerAnisotropy);
 	AddFeature(features, "textureCompressionBC", available.textureCompressionBC, enabled.textureCompressionBC);

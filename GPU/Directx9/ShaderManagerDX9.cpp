@@ -22,13 +22,14 @@
 #include <cmath>
 #include <map>
 
+#include "Common/Data/Convert/SmallDataConvert.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Math/math_util.h"
-#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/GPU/D3D9/D3D9ShaderCompiler.h"
 #include "Common/GPU/thin3d.h"
-#include "Common/Data/Encoding/Utf8.h"
+#include "Common/System/Display.h"
 
 #include "Common/Common.h"
 #include "Common/Log.h"
@@ -344,6 +345,7 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 		ConvertProjMatrixToD3D(flippedMatrix, invertedX, invertedY);
 
 		VSSetMatrix(CONST_VS_PROJ, flippedMatrix.getReadPtr());
+		VSSetFloat(CONST_VS_ROTATION, 0);  // We don't use this on any platform in D3D9.
 	}
 	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
 		Matrix4x4 proj_through;
@@ -440,15 +442,10 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 		float viewZScale = halfActualZRange * 2.0f;
 		// Account for the half pixel offset.
 		float viewZCenter = minz + (DepthSliceFactor() / 256.0f) * 0.5f;
-		float viewZInvScale;
+		float reverseScale = 2.0f * (1.0f / gstate_c.vpDepthScale);
+		float reverseTranslate = gstate_c.vpZOffset * 0.5f + 0.5f;
 
-		if (viewZScale != 0.0) {
-			viewZInvScale = 1.0f / viewZScale;
-		} else {
-			viewZInvScale = 0.0;
-		}
-
-		float data[4] = { viewZScale, viewZCenter, viewZCenter, viewZInvScale };
+		float data[4] = { viewZScale, viewZCenter, reverseTranslate, reverseScale };
 		VSSetFloatUniform4(CONST_VS_DEPTHRANGE, data);
 	}
 	if (dirtyUniforms & DIRTY_CULLRANGE) {

@@ -96,9 +96,6 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	UpdateVsyncInterval(true);
 
 	textureCacheVulkan_->NotifyConfigChanged();
-	if (vulkan_->GetDeviceFeatures().enabled.wideLines) {
-		drawEngine_.SetLineWidth(PSP_CoreParameter().renderWidth / 480.0f);
-	}
 
 	// Load shader cache.
 	std::string discID = g_paramSFO.GetDiscID();
@@ -185,10 +182,6 @@ GPU_Vulkan::~GPU_Vulkan() {
 void GPU_Vulkan::CheckGPUFeatures() {
 	uint32_t features = 0;
 
-	if (!PSP_CoreParameter().compat.flags().DisableRangeCulling) {
-		features |= GPU_SUPPORTS_VS_RANGE_CULLING;
-	}
-
 	switch (vulkan_->GetPhysicalDeviceProperties().properties.vendorID) {
 	case VULKAN_VENDOR_AMD:
 		// Accurate depth is required on AMD (due to reverse-Z driver bug) so we ignore the compat flag to disable it on those. See #9545
@@ -206,10 +199,6 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || driverTooOld) {
 			features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 		}
-		// These GPUs (up to some certain hardware version?) has a bug where draws where gl_Position.w == .z
-		// corrupt the depth buffer. This is easily worked around by simply scaling Z down a tiny bit when this case
-		// is detected. See: https://github.com/hrydgard/ppsspp/issues/11937
-		features |= GPU_NEEDS_Z_EQUAL_W_HACK;
 		break;
 	}
 	default:
@@ -238,21 +227,35 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_FRAMEBUFFER_BLIT_TO_DEPTH;
 	}
 
-	if (vulkan_->GetDeviceFeatures().enabled.wideLines) {
-		features |= GPU_SUPPORTS_WIDE_LINES;
-	}
-	if (vulkan_->GetDeviceFeatures().enabled.depthClamp) {
+	auto &enabledFeatures = vulkan_->GetDeviceFeatures().enabled;
+	if (enabledFeatures.depthClamp) {
 		features |= GPU_SUPPORTS_DEPTH_CLAMP;
 	}
-	if (vulkan_->GetDeviceFeatures().enabled.dualSrcBlend) {
+	if (enabledFeatures.shaderClipDistance) {
+		features |= GPU_SUPPORTS_CLIP_DISTANCE;
+	}
+	if (enabledFeatures.shaderCullDistance) {
+		// Must support at least 8 if feature supported, so we're fine.
+		features |= GPU_SUPPORTS_CULL_DISTANCE;
+	}
+	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
+		// Ignore the compat setting if clip and cull are both enabled.
+		// When supported, we can do the depth side of range culling more correctly.
+		const bool supported = draw_->GetDeviceCaps().clipDistanceSupported && draw_->GetDeviceCaps().cullDistanceSupported;
+		const bool disabled = PSP_CoreParameter().compat.flags().DisableRangeCulling;
+		if (supported || !disabled) {
+			features |= GPU_SUPPORTS_VS_RANGE_CULLING;
+		}
+	}
+	if (enabledFeatures.dualSrcBlend) {
 		if (!g_Config.bVendorBugChecksEnabled || !draw_->GetBugs().Has(Draw::Bugs::DUAL_SOURCE_BLENDING_BROKEN)) {
 			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 		}
 	}
-	if (vulkan_->GetDeviceFeatures().enabled.logicOp) {
+	if (enabledFeatures.logicOp) {
 		features |= GPU_SUPPORTS_LOGIC_OP;
 	}
-	if (vulkan_->GetDeviceFeatures().enabled.samplerAnisotropy) {
+	if (enabledFeatures.samplerAnisotropy) {
 		features |= GPU_SUPPORTS_ANISOTROPY;
 	}
 
@@ -299,9 +302,6 @@ void GPU_Vulkan::BeginHostFrame() {
 		framebufferManager_->Resized();
 		drawEngine_.Resized();
 		textureCacheVulkan_->NotifyConfigChanged();
-		if (vulkan_->GetDeviceFeatures().enabled.wideLines) {
-			drawEngine_.SetLineWidth(PSP_CoreParameter().renderWidth / 480.0f);
-		}
 		resized_ = false;
 	}
 
@@ -369,8 +369,6 @@ void GPU_Vulkan::BuildReportingInfo() {
 	CHECK_BOOL_FEATURE(depthBiasClamp);
 	CHECK_BOOL_FEATURE(fillModeNonSolid);
 	CHECK_BOOL_FEATURE(depthBounds);
-	CHECK_BOOL_FEATURE(wideLines);
-	CHECK_BOOL_FEATURE(largePoints);
 	CHECK_BOOL_FEATURE(alphaToOne);
 	CHECK_BOOL_FEATURE(multiViewport);
 	CHECK_BOOL_FEATURE(samplerAnisotropy);
@@ -488,7 +486,7 @@ void GPU_Vulkan::InitDeviceObjects() {
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		_assert_(!frameData_[i].push_);
 		VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-		frameData_[i].push_ = new VulkanPushBuffer(vulkan_, 64 * 1024, usage);
+		frameData_[i].push_ = new VulkanPushBuffer(vulkan_, 256 * 1024, usage);
 	}
 
 	VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);

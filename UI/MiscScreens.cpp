@@ -52,6 +52,7 @@
 #include "UI/GameSettingsScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/MiscScreens.h"
+#include "UI/MemStickScreen.h"
 
 #ifdef _MSC_VER
 #pragma execution_character_set("utf-8")
@@ -519,9 +520,11 @@ void PromptScreen::TriggerFinish(DialogResult result) {
 	UIDialogScreenWithBackground::TriggerFinish(result);
 }
 
-PostProcScreen::PostProcScreen(const std::string &title, int id) : ListPopupScreen(title), id_(id) {
+PostProcScreen::PostProcScreen(const std::string &title, int id) : ListPopupScreen(title), id_(id) { }
+
+void PostProcScreen::CreateViews() {
 	auto ps = GetI18NCategory("PostShaders");
-	ReloadAllPostShaderInfo();
+	ReloadAllPostShaderInfo(screenManager()->getDrawContext());
 	shaders_ = GetAllPostShaderInfo();
 	std::vector<std::string> items;
 	int selected = -1;
@@ -534,6 +537,7 @@ PostProcScreen::PostProcScreen(const std::string &title, int id) : ListPopupScre
 		items.push_back(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str()));
 	}
 	adaptor_ = UI::StringVectorListAdaptor(items, selected);
+	ListPopupScreen::CreateViews();
 }
 
 void PostProcScreen::OnCompleted(DialogResult result) {
@@ -546,9 +550,11 @@ void PostProcScreen::OnCompleted(DialogResult result) {
 		g_Config.vPostShaderNames.push_back(value);
 }
 
-TextureShaderScreen::TextureShaderScreen(const std::string &title) : ListPopupScreen(title) {
+TextureShaderScreen::TextureShaderScreen(const std::string &title) : ListPopupScreen(title) {}
+
+void TextureShaderScreen::CreateViews() {
 	auto ps = GetI18NCategory("TextureShaders");
-	ReloadAllPostShaderInfo();
+	ReloadAllPostShaderInfo(screenManager()->getDrawContext());
 	shaders_ = GetAllTextureShaderInfo();
 	std::vector<std::string> items;
 	int selected = -1;
@@ -558,6 +564,8 @@ TextureShaderScreen::TextureShaderScreen(const std::string &title) : ListPopupSc
 		items.push_back(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str()));
 	}
 	adaptor_ = UI::StringVectorListAdaptor(items, selected);
+
+	ListPopupScreen::CreateViews();
 }
 
 void TextureShaderScreen::OnCompleted(DialogResult result) {
@@ -668,25 +676,35 @@ void LogoScreen::Next() {
 	if (!switched_) {
 		switched_ = true;
 		Path gamePath = boot_filename;
-		if (gotoGameSettings_) {
+
+		switch (afterLogoScreen_) {
+		case AfterLogoScreen::TO_GAME_SETTINGS:
 			if (!gamePath.empty()) {
 				screenManager()->switchScreen(new EmuScreen(gamePath));
 			} else {
 				screenManager()->switchScreen(new MainScreen());
 			}
 			screenManager()->push(new GameSettingsScreen(gamePath));
-		} else if (boot_filename.size()) {
-			screenManager()->switchScreen(new EmuScreen(gamePath));
-		} else {
-			screenManager()->switchScreen(new MainScreen());
+			break;
+		case AfterLogoScreen::MEMSTICK_SCREEN_INITIAL_SETUP:
+			screenManager()->switchScreen(new MemStickScreen(true));
+			break;
+		case AfterLogoScreen::DEFAULT:
+		default:
+			if (boot_filename.size()) {
+				screenManager()->switchScreen(new EmuScreen(gamePath));
+			} else {
+				screenManager()->switchScreen(new MainScreen());
+			}
+			break;
 		}
 	}
 }
 
 const float logoScreenSeconds = 2.5f;
 
-LogoScreen::LogoScreen(bool gotoGameSettings)
-	: gotoGameSettings_(gotoGameSettings) {
+LogoScreen::LogoScreen(AfterLogoScreen afterLogoScreen)
+	: afterLogoScreen_(afterLogoScreen) {
 }
 
 void LogoScreen::update() {
@@ -707,7 +725,7 @@ void LogoScreen::sendMessage(const char *message, const char *value) {
 }
 
 bool LogoScreen::key(const KeyInput &key) {
-	if (key.deviceId != DEVICE_ID_MOUSE) {
+	if (key.deviceId != DEVICE_ID_MOUSE && (key.flags & KEY_DOWN)) {
 		Next();
 		return true;
 	}

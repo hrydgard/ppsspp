@@ -87,7 +87,7 @@ void FramebufferManagerGLES::CompileDraw2DProgram() {
 		std::vector<GLRProgram::Semantic> semantics;
 		semantics.push_back({ 0, "a_position" });
 		semantics.push_back({ 1, "a_texcoord0" });
-		draw2dprogram_ = render_->CreateProgram(shaders, semantics, queries, initializers, false);
+		draw2dprogram_ = render_->CreateProgram(shaders, semantics, queries, initializers, false, false);
 		for (auto shader : shaders)
 			render_->DeleteShader(shader);
 	}
@@ -349,8 +349,6 @@ void FramebufferManagerGLES::Resized() {
 	FramebufferManagerCommon::Resized();
 
 	render_->Resize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-
-	// render_->SetLineWidth(renderWidth_ / 480.0f);
 }
 
 bool FramebufferManagerGLES::GetOutputFramebuffer(GPUDebugBuffer &buffer) {

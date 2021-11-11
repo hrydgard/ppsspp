@@ -156,7 +156,7 @@ const HLEFunction sceAudiocodec[] = {
 	{0X3A20A200, &WrapI_UI<sceAudiocodecGetEDRAM>,     "sceAudiocodecGetEDRAM",     'i', "xi"},
 	{0X29681260, &WrapI_UI<sceAudiocodecReleaseEDRAM>, "sceAudiocodecReleaseEDRAM", 'i', "xi"},
 	{0X9D3F790C, &WrapI_UI<sceAudiocodecCheckNeedMem>, "sceAudiocodecCheckNeedMem", 'i', "xi"},
-	{0X59176A0F, nullptr,                              "sceAudiocodec_59176A0F",    '?', ""  },
+	{0X59176A0F, nullptr,                              "sceAudiocodecAlcExtendParameter", '?', ""  },
 };
 
 void Register_sceAudiocodec()

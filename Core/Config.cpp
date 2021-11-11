@@ -610,7 +610,6 @@ static bool DefaultSasThread() {
 static ConfigSetting cpuSettings[] = {
 	ReportedConfigSetting("CPUCore", &g_Config.iCpuCore, &DefaultCpuCore, true, true),
 	ReportedConfigSetting("SeparateSASThread", &g_Config.bSeparateSASThread, &DefaultSasThread, true, true),
-	ReportedConfigSetting("SeparateIOThread", &g_Config.bSeparateIOThread, true, true, true),
 	ReportedConfigSetting("IOTimingMethod", &g_Config.iIOTimingMethod, IOTIMING_REALISTIC, true, true),
 	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, true, true, true),
 	ReportedConfigSetting("FunctionReplacements", &g_Config.bFuncReplacements, true, true, true),
@@ -821,8 +820,6 @@ typedef ConfigTranslator<GPUBackend, GPUBackendToString, GPUBackendFromString> G
 static int FastForwardModeFromString(const std::string &s) {
 	if (!strcasecmp(s.c_str(), "CONTINUOUS"))
 		return (int)FastForwardMode::CONTINUOUS;
-	if (!strcasecmp(s.c_str(), "SKIP_DRAW"))
-		return (int)FastForwardMode::SKIP_DRAW;
 	if (!strcasecmp(s.c_str(), "SKIP_FLIP"))
 		return (int)FastForwardMode::SKIP_FLIP;
 	return DefaultFastForwardMode();
@@ -832,8 +829,6 @@ std::string FastForwardModeToString(int v) {
 	switch (FastForwardMode(v)) {
 	case FastForwardMode::CONTINUOUS:
 		return "CONTINUOUS";
-	case FastForwardMode::SKIP_DRAW:
-		return "SKIP_DRAW";
 	case FastForwardMode::SKIP_FLIP:
 		return "SKIP_FLIP";
 	}
@@ -844,7 +839,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("EnableCardboardVR", &g_Config.bEnableCardboardVR, false, true, true),
 	ConfigSetting("CardboardScreenSize", &g_Config.iCardboardScreenSize, 50, true, true),
 	ConfigSetting("CardboardXShift", &g_Config.iCardboardXShift, 0, true, true),
-	ConfigSetting("CardboardYShift", &g_Config.iCardboardXShift, 0, true, true),
+	ConfigSetting("CardboardYShift", &g_Config.iCardboardYShift, 0, true, true),
 	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0, true, true),
 	ReportedConfigSetting("GraphicsBackend", &g_Config.iGPUBackend, &DefaultGPUBackend, &GPUBackendTranslator::To, &GPUBackendTranslator::From, true, false),
 	ConfigSetting("FailedGraphicsBackends", &g_Config.sFailedGPUBackends, ""),
@@ -900,6 +895,7 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("ReplaceTextures", &g_Config.bReplaceTextures, true, true, true),
 	ReportedConfigSetting("SaveNewTextures", &g_Config.bSaveNewTextures, false, true, true),
 	ConfigSetting("IgnoreTextureFilenames", &g_Config.bIgnoreTextureFilenames, false, true, true),
+	ConfigSetting("ReplaceTexturesAllowLate", &g_Config.bReplaceTexturesAllowLate, true, true, true),
 
 	ReportedConfigSetting("TexScalingLevel", &g_Config.iTexScalingLevel, 1, true, true),
 	ReportedConfigSetting("TexScalingType", &g_Config.iTexScalingType, 0, true, true),
@@ -1078,7 +1074,6 @@ static ConfigSetting networkSettings[] = {
 	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "localhost", true, true),
 	ConfigSetting("PortOffset", &g_Config.iPortOffset, 10000, true, true),
 	ConfigSetting("MinTimeout", &g_Config.iMinTimeout, 0, true, true),
-	ConfigSetting("TCPNoDelay", &g_Config.bTCPNoDelay, true, true, true),
 	ConfigSetting("ForcedFirstConnect", &g_Config.bForcedFirstConnect, false, true, true),
 	ConfigSetting("EnableUPnP", &g_Config.bEnableUPnP, false, true, true),
 	ConfigSetting("UPnPUseOriginalPort", &g_Config.bUPnPUseOriginalPort, false, true, true),
@@ -1455,6 +1450,16 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		g_Config.iGlobalVolume = 0;
 	}
 
+	// Automatically switch away from deprecated setting value.
+	if (iTexScalingLevel <= 0) {
+		iTexScalingLevel = 1;
+	}
+
+#if PPSSPP_PLATFORM(ANDROID)
+	// The on path here is untested, since we don't expose it.
+	g_Config.bVSync = false;
+#endif
+
 	INFO_LOG(LOADER, "Config loaded: '%s'", iniFilename_.c_str());
 }
 
@@ -1800,8 +1805,13 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 
 	auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
 	mPostShaderSetting.clear();
-	for (auto it : postShaderSetting) {
-		mPostShaderSetting[it.first] = std::stof(it.second);
+	for (const auto &it : postShaderSetting) {
+		float value = 0.0f;
+		if (sscanf(it.second.c_str(), "%f", &value)) {
+			mPostShaderSetting[it.first] = value;
+		} else {
+			WARN_LOG(LOADER, "Invalid float value string for param %s: '%s'", it.first.c_str(), it.second.c_str());
+		}
 	}
 
 	auto postShaderChain = iniFile.GetOrCreateSection("PostShaderList")->ToMap();

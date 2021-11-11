@@ -2,6 +2,7 @@
 // This is quite messy due to platform-specific implementations and #ifdef's.
 // If your platform is not supported, it is suggested to use Qt instead.
 
+#include <cstdlib>
 #include <unistd.h>
 #include <pwd.h>
 
@@ -190,11 +191,27 @@ void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
 void OpenDirectory(const char *path) {
-#if defined(_WIN32)
-	PIDLIST_ABSOLUTE pidl = ILCreateFromPath(ConvertUTF8ToWString(ReplaceAll(path, "/", "\\")).c_str());
+#if PPSSPP_PLATFORM(WINDOWS)
+	SFGAOF flags;
+	PIDLIST_ABSOLUTE pidl = nullptr;
+	HRESULT hr = SHParseDisplayName(ConvertUTF8ToWString(ReplaceAll(path, "/", "\\")).c_str(), nullptr, &pidl, 0, &flags);
 	if (pidl) {
-		SHOpenFolderAndSelectItems(pidl, 0, NULL, 0);
-		ILFree(pidl);
+		if (SUCCEEDED(hr))
+			SHOpenFolderAndSelectItems(pidl, 0, NULL, 0);
+		CoTaskMemFree(pidl);
+	}
+#elif PPSSPP_PLATFORM(MAC) || (PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID))
+	pid_t pid = fork();
+	if (pid < 0)
+		return;
+
+	if (pid == 0) {
+#if PPSSPP_PLATFORM(MAC)
+		execlp("open", "open", path, nullptr);
+#else
+		execlp("xdg-open", "xdg-open", path, nullptr);
+#endif
+		exit(1);
 	}
 #endif
 }
@@ -667,7 +684,17 @@ int main(int argc, char *argv[]) {
 	if (strlen(path) > 0 && path[strlen(path) - 1] != '/')
 		strcat(path, "/");
 
-	NativeInit(remain_argc, (const char **)remain_argv, path, "/tmp", nullptr);
+#if PPSSPP_PLATFORM(MAC)
+	std::string external_dir_str;
+	if (SDL_GetBasePath())
+		external_dir_str = std::string(SDL_GetBasePath()) + "/assets";
+	else
+		external_dir_str = "/tmp";
+	const char *external_dir = external_dir_str.c_str();
+#else
+	const char *external_dir = "/tmp";
+#endif
+	NativeInit(remain_argc, (const char **)remain_argv, path, external_dir, nullptr);
 
 	// Use the setting from the config when initing the window.
 	if (g_Config.bFullScreen)

@@ -170,6 +170,7 @@ static float g_safeInsetTop = 0.0;
 static float g_safeInsetBottom = 0.0;
 
 static jmethodID postCommand;
+static jmethodID getDebugString;
 
 static jobject nativeActivity;
 static volatile bool exitRenderLoop;
@@ -484,9 +485,29 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		} else {
 			return false;
 		}
+	case SYSPROP_HAS_KEYBOARD:
+		return true;
 	default:
 		return false;
 	}
+}
+
+std::string Android_GetInputDeviceDebugString() {
+	if (!nativeActivity) {
+		return "(N/A)";
+	}
+	auto env = getEnv();
+	jstring param = env->NewStringUTF("InputDevice");
+
+	jstring str = (jstring)env->CallObjectMethod(nativeActivity, getDebugString, param);
+	if (!str) {
+		return "(N/A)";
+	}
+
+	const char *charArray = env->GetStringUTFChars(str, 0);
+	std::string retVal = charArray;
+	env->DeleteLocalRef(str);
+	return retVal;
 }
 
 std::string GetJavaString(JNIEnv *env, jstring jstr) {
@@ -501,7 +522,9 @@ std::string GetJavaString(JNIEnv *env, jstring jstr) {
 extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_registerCallbacks(JNIEnv *env, jobject obj) {
 	nativeActivity = env->NewGlobalRef(obj);
 	postCommand = env->GetMethodID(env->GetObjectClass(obj), "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
+	getDebugString = env->GetMethodID(env->GetObjectClass(obj), "getDebugString", "(Ljava/lang/String;)Ljava/lang/String;");
 	_dbg_assert_(postCommand);
+	_dbg_assert_(getDebugString);
 
 	Android_RegisterStorageCallbacks(env, obj);
 	Android_StorageSetNativeActivity(nativeActivity);

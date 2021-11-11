@@ -27,7 +27,7 @@ UIContext::~UIContext() {
 void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
 	using namespace Draw;
 	draw_ = thin3d;
-	sampler_ = draw_->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR });
+	sampler_ = draw_->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR, 0.0, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE, });
 	ui_pipeline_ = uipipe;
 	ui_pipeline_notex_ = uipipenotex;
 	uidrawbuffer_ = uidrawbuffer;
@@ -39,6 +39,11 @@ void UIContext::BeginFrame() {
 	if (!uitexture_) {
 		uitexture_ = CreateTextureFromFile(draw_, "ui_atlas_luna.zim", ImageFileType::ZIM, false);
 		_dbg_assert_msg_(uitexture_, "Failed to load ui_atlas_luna.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
+		if (!fontTexture_) {
+			fontTexture_ = CreateTextureFromFile(draw_, "font_atlas_luna.zim", ImageFileType::ZIM, false);
+			if (!fontTexture_)
+				WARN_LOG(SYSTEM, "Failed to load font_atlas_luna.zim");
+		}
 	}
 	uidrawbufferTop_->SetCurZ(0.0f);
 	uidrawbuffer_->SetCurZ(0.0f);
@@ -56,13 +61,25 @@ void UIContext::BeginNoTex() {
 
 void UIContext::BeginPipeline(Draw::Pipeline *pipeline, Draw::SamplerState *samplerState) {
 	_assert_(pipeline != nullptr);
-	draw_->BindSamplerStates(0, 1, &samplerState);
+	// Also clear out any other textures bound.
+	Draw::SamplerState *samplers[3]{ samplerState };
+	draw_->BindSamplerStates(0, 3, samplers);
+	Draw::Texture *textures[2]{};
+	draw_->BindTextures(1, 2, textures);
 	RebindTexture();
 	UIBegin(pipeline);
 }
 
 void UIContext::RebindTexture() const {
 	if (uitexture_)
+		draw_->BindTexture(0, uitexture_->GetTexture());
+}
+
+void UIContext::BindFontTexture() const {
+	// Fall back to the UI texture, in case they have an old atlas.
+	if (fontTexture_)
+		draw_->BindTexture(0, fontTexture_->GetTexture());
+	else if (uitexture_)
 		draw_->BindTexture(0, uitexture_->GetTexture());
 }
 
@@ -186,14 +203,22 @@ void UIContext::MeasureTextRect(const UI::FontStyle &style, float scaleX, float 
 
 void UIContext::DrawText(const char *str, float x, float y, uint32_t color, int align) {
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
+		// Use the font texture if this font is in that texture instead.
+		bool useFontTexture = Draw()->GetFontAtlas()->getFont(fontStyle_->atlasFont) != nullptr;
+		if (useFontTexture) {
+			Flush();
+			BindFontTexture();
+		}
 		float sizeFactor = (float)fontStyle_->sizePts / 24.0f;
 		Draw()->SetFontScale(fontScaleX_ * sizeFactor, fontScaleY_ * sizeFactor);
 		Draw()->DrawText(fontStyle_->atlasFont, str, x, y, color, align);
+		if (useFontTexture)
+			Flush();
 	} else {
 		textDrawer_->SetFontScale(fontScaleX_, fontScaleY_);
 		textDrawer_->DrawString(*Draw(), str, x, y, color, align);
-		RebindTexture();
 	}
+	RebindTexture();
 }
 
 void UIContext::DrawTextShadow(const char *str, float x, float y, uint32_t color, int align) {
@@ -204,17 +229,32 @@ void UIContext::DrawTextShadow(const char *str, float x, float y, uint32_t color
 
 void UIContext::DrawTextRect(const char *str, const Bounds &bounds, uint32_t color, int align) {
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
+		// Use the font texture if this font is in that texture instead.
+		bool useFontTexture = Draw()->GetFontAtlas()->getFont(fontStyle_->atlasFont) != nullptr;
+		if (useFontTexture) {
+			Flush();
+			BindFontTexture();
+		}
 		float sizeFactor = (float)fontStyle_->sizePts / 24.0f;
 		Draw()->SetFontScale(fontScaleX_ * sizeFactor, fontScaleY_ * sizeFactor);
 		Draw()->DrawTextRect(fontStyle_->atlasFont, str, bounds.x, bounds.y, bounds.w, bounds.h, color, align);
+		if (useFontTexture)
+			Flush();
 	} else {
 		textDrawer_->SetFontScale(fontScaleX_, fontScaleY_);
 		Bounds rounded = bounds;
 		rounded.x = floorf(rounded.x);
 		rounded.y = floorf(rounded.y);
 		textDrawer_->DrawStringRect(*Draw(), str, rounded, color, align);
-		RebindTexture();
 	}
+	RebindTexture();
+}
+
+void UIContext::DrawTextShadowRect(const char *str, const Bounds &bounds, uint32_t color, int align) {
+	uint32_t alpha = (color >> 1) & 0xFF000000;
+	Bounds shadowBounds(bounds.x+2, bounds.y+2, bounds.w, bounds.h);
+	DrawTextRect(str, shadowBounds, alpha, align);
+	DrawTextRect(str, bounds, color, align);
 }
 
 void UIContext::FillRect(const UI::Drawable &drawable, const Bounds &bounds) {

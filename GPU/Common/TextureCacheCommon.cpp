@@ -22,6 +22,7 @@
 #include "Common/Profiler/Profiler.h"
 #include "Common/MemoryUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Reporting.h"
@@ -472,6 +473,15 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 				reason = "scaling";
 			}
 		}
+		if (match && (entry->status & TexCacheEntry::STATUS_TO_REPLACE) && replacementTimeThisFrame_ < replacementFrameBudget_) {
+			int w0 = gstate.getTextureWidth(0);
+			int h0 = gstate.getTextureHeight(0);
+			ReplacedTexture &replaced = FindReplacement(entry, w0, h0);
+			if (replaced.Valid()) {
+				match = false;
+				reason = "replacing";
+			}
+		}
 
 		if (match) {
 			// got one!
@@ -539,7 +549,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		if (PPGeIsFontTextureAddress(texaddr)) {
 			// It's the builtin font texture.
 			entry->status = TexCacheEntry::STATUS_RELIABLE;
-		} else if (g_Config.bTextureBackoffCache) {
+		} else if (g_Config.bTextureBackoffCache && !IsVideo(texaddr)) {
 			entry->status = TexCacheEntry::STATUS_HASHING;
 		} else {
 			entry->status = TexCacheEntry::STATUS_UNRELIABLE;
@@ -720,6 +730,7 @@ void TextureCacheCommon::Decimate(bool forcePressure) {
 	}
 
 	DecimateVideos();
+	replacer_.Decimate(forcePressure);
 }
 
 void TextureCacheCommon::DecimateVideos() {
@@ -1082,24 +1093,7 @@ bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
 }
 
 void TextureCacheCommon::NotifyConfigChanged() {
-	int scaleFactor;
-
-	// 0 means automatic texture scaling, up to 5x, based on resolution.
-	if (g_Config.iTexScalingLevel == 0) {
-		scaleFactor = g_Config.iInternalResolution;
-		// Automatic resolution too?  Okay.
-		if (scaleFactor == 0) {
-			if (!g_Config.IsPortrait()) {
-				scaleFactor = (PSP_CoreParameter().pixelWidth + 479) / 480;
-			} else {
-				scaleFactor = (PSP_CoreParameter().pixelHeight + 479) / 480;
-			}
-		}
-
-		scaleFactor = std::min(5, scaleFactor);
-	} else {
-		scaleFactor = g_Config.iTexScalingLevel;
-	}
+	int scaleFactor = g_Config.iTexScalingLevel;
 
 	if (!gstate_c.Supports(GPU_SUPPORTS_TEXTURE_NPOT)) {
 		// Reduce the scale factor to a power of two (e.g. 2 or 4) if textures must be a power of two.
@@ -1278,6 +1272,29 @@ u32 TextureCacheCommon::EstimateTexMemoryUsage(const TexCacheEntry *entry) {
 
 	// This in other words multiplies by w and h.
 	return pixelSize << (dimW + dimH);
+}
+
+ReplacedTexture &TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &w, int &h) {
+	// Allow some delay to reduce pop-in.
+	constexpr double MAX_BUDGET_PER_TEX = 0.25 / 60.0;
+
+	double replaceStart = time_now_d();
+	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
+	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h);
+	if (replaced.IsReady(std::min(MAX_BUDGET_PER_TEX, replacementFrameBudget_ - replacementTimeThisFrame_))) {
+		if (replaced.GetSize(0, w, h)) {
+			replacementTimeThisFrame_ += time_now_d() - replaceStart;
+
+			// Consider it already "scaled" and remove any delayed replace flag.
+			entry->status |= TexCacheEntry::STATUS_IS_SCALED;
+			entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
+			return replaced;
+		}
+	} else if (replaced.Valid()) {
+		entry->status |= TexCacheEntry::STATUS_TO_REPLACE;
+	}
+	replacementTimeThisFrame_ += time_now_d() - replaceStart;
+	return replacer_.FindNone();
 }
 
 static void ReverseColors(void *dstBuf, const void *srcBuf, GETextureFormat fmt, int numPixels, bool useBGRA) {
@@ -1724,6 +1741,15 @@ void TextureCacheCommon::DeleteTexture(TexCache::iterator it) {
 bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
+	bool isVideo = IsVideo(entry->addr);
+
+	// Don't even check the texture, just assume it has changed.
+	if (isVideo && g_Config.bTextureBackoffCache) {
+		// Attempt to ensure the hash doesn't incorrectly match in if the video stops.
+		entry->fullhash = (entry->fullhash + 0xA535A535) * 11 + (entry->fullhash & 4);
+		return false;
+	}
+
 	u32 fullhash;
 	{
 		PROFILE_THIS_SCOPE("texhash");
@@ -1731,7 +1757,7 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	}
 
 	if (fullhash == entry->fullhash) {
-		if (g_Config.bTextureBackoffCache) {
+		if (g_Config.bTextureBackoffCache && !isVideo) {
 			if (entry->GetHashStatus() != TexCacheEntry::STATUS_HASHING && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
 				// Reset to STATUS_HASHING.
 				entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);

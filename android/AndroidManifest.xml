@@ -3,8 +3,8 @@
 	xmlns:tools="http://schemas.android.com/tools"
     package="org.ppsspp.ppsspp"
     android:installLocation="auto"
-    android:versionCode="111030000"
-    android:versionName="1.11.3.0">
+    android:versionCode="112030000"
+    android:versionName="1.12.3.0">
     <!-- Note that versionCode should be in the format xyyzzrrrr. Example: 110030000 -->
     <!-- In this same case, versionName should be 1.10.3.0 -->
     <!-- Also note that we are overriding these values anyway from gradle. -->
@@ -55,8 +55,8 @@
             android:name=".PpssppActivity"
             android:configChanges="locale|keyboard|keyboardHidden|navigation|uiMode"
             android:label="@string/app_name"
-            android:theme="@style/ppsspp_style">
-
+            android:theme="@style/ppsspp_style"
+            android:exported="true">
             <!-- android:screenOrientation="landscape" -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -106,7 +106,8 @@
         <meta-data android:name="isGame" android:value="true" />
         <activity
             android:name=".ShortcutActivity"
-            android:label="@string/shortcut_name" >
+            android:label="@string/shortcut_name"
+            android:exported="true">
             <intent-filter>
                 <category android:name="android.intent.category.DEFAULT" />
 
