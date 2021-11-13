@@ -541,12 +541,12 @@ namespace MainWindow
 	}
 
 	void CreateGeDebuggerWindow() {
-		if (!geDebuggerWindow) {
 #if PPSSPP_API(ANY_GL)
+		if (!geDebuggerWindow) {
 			geDebuggerWindow = new CGEDebugger(MainWindow::GetHInstance(), MainWindow::GetHWND());
 			DialogManager::AddDlg(geDebuggerWindow);
-#endif
 		}
+#endif
 	}
 
 	void CreateMemoryWindow() {
