@@ -13,8 +13,6 @@
 
 #include "Core/MIPS/MIPS.h" //	BAD
 
-CVFPUDlg *vfpudlg;
-
 CVFPUDlg::CVFPUDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *cpu_) : Dialog((LPCSTR)IDD_VFPU, _hInstance,_hParent)
 {
 	cpu = cpu_;

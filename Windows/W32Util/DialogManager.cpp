@@ -76,6 +76,9 @@ void DialogManager::AddDlg(Dialog *dialog)
 
 void DialogManager::RemoveDlg(Dialog *dialog)
 {
+	if (!dialog) {
+		return;
+	}
 	dialogs.erase(std::remove(dialogs.begin(), dialogs.end(), dialog), dialogs.end());
 }
 

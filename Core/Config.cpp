@@ -29,6 +29,7 @@
 #include "Common/Net/URL.h"
 
 #include "Common/Log.h"
+#include "Common/TimeUtil.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/Data/Format/JSONReader.h"
 #include "Common/Data/Text/I18n.h"
@@ -1643,18 +1644,34 @@ void Config::RemoveRecent(const std::string &file) {
 }
 
 void Config::CleanRecent() {
+	double startTime = time_now_d();
+
 	std::vector<std::string> cleanedRecent;
 	for (size_t i = 0; i < recentIsos.size(); i++) {
-		FileLoader *loader = ConstructFileLoader(Path(recentIsos[i]));
-		if (loader->ExistsFast()) {
+		bool exists = false;
+		Path path = Path(recentIsos[i]);
+		switch (path.Type()) {
+		case PathType::CONTENT_URI:
+		case PathType::NATIVE:
+			exists = File::Exists(path);
+			break;
+		default:
+			FileLoader *loader = ConstructFileLoader(path);
+			exists = loader->ExistsFast();
+			delete loader;
+			break;
+		}
+
+		if (exists) {
 			// Make sure we don't have any redundant items.
 			auto duplicate = std::find(cleanedRecent.begin(), cleanedRecent.end(), recentIsos[i]);
 			if (duplicate == cleanedRecent.end()) {
 				cleanedRecent.push_back(recentIsos[i]);
 			}
 		}
-		delete loader;
 	}
+
+	INFO_LOG(SYSTEM, "CleanRecent took %0.2f", time_now_d() - startTime);
 	recentIsos = cleanedRecent;
 }
 

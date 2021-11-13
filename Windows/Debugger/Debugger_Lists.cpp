@@ -6,6 +6,7 @@
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/CtrlDisAsmView.h"
 #include "Windows/W32Util/ContextMenu.h"
+#include "Windows/MainWindow.h"
 #include "Windows/resource.h"
 #include "Windows/main.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -373,10 +374,12 @@ void CtrlBreakpointList::gotoBreakpointAddress(int itemIndex)
 
 	if (isMemory) {
 		u32 address = displayedMemChecks_[index].start;
+		MainWindow::CreateMemoryWindow();
 		if (memoryWindow)
 			memoryWindow->Goto(address);
 	} else {
 		u32 address = displayedBreakPoints_[index].addr;
+		MainWindow::CreateDisasmWindow();
 		if (disasmWindow)
 			disasmWindow->Goto(address);
 	}
