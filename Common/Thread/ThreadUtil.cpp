@@ -63,7 +63,7 @@ static EXCEPTION_DISPOSITION NTAPI ignore_handler(EXCEPTION_RECORD *rec,
 #endif
 
 
-#if PPSSPP_PLATFORM(WINDOWS)
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 typedef HRESULT (WINAPI *TSetThreadDescription)(HANDLE, PCWSTR);
 
 static TSetThreadDescription g_pSetThreadDescription = nullptr;
@@ -91,7 +91,7 @@ void SetCurrentThreadNameThroughException(const char *threadName);
 #endif
 
 void SetCurrentThreadName(const char* threadName) {
-#if PPSSPP_PLATFORM(WINDOWS)
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	InitializeSetThreadDescription();
 	if (g_pSetThreadDescription) {
 		// Use the modern API
@@ -102,7 +102,10 @@ void SetCurrentThreadName(const char* threadName) {
 		// Use the old exception hack.
 		SetCurrentThreadNameThroughException(threadName);
 	}
-
+#elif PPSSPP_PLATFORM(WINDOWS)
+	wchar_t buffer[256];
+	ConvertUTF8ToWString(buffer, ARRAY_SIZE(buffer), threadName);
+	SetThreadDescription(GetCurrentThread(), buffer);
 #elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX)
 	pthread_setname_np(pthread_self(), threadName);
 #elif defined(__APPLE__)
