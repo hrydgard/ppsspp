@@ -686,7 +686,10 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 #endif
 	DialogManager::AddDlg(vfpudlg = new CVFPUDlg(_hInstance, hwndMain, currentDebugMIPS));
 
-	MainWindow::CreateDebugWindows();
+	if (g_Config.bShowDebuggerOnLoad) {
+		MainWindow::CreateDisasmWindow();
+		disasmWindow->Show(g_Config.bShowDebuggerOnLoad, false);
+	}
 
 	const bool minimized = iCmdShow == SW_MINIMIZE || iCmdShow == SW_SHOWMINIMIZED || iCmdShow == SW_SHOWMINNOACTIVE;
 	if (minimized) {

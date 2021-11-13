@@ -61,9 +61,10 @@ namespace MainWindow
 
 	void Init(HINSTANCE hInstance);
 	BOOL Show(HINSTANCE hInstance);
-	void CreateDebugWindows();
+	void CreateDisasmWindow();
+	void CreateGeDebuggerWindow();
+	void CreateMemoryWindow();
 	void DestroyDebugWindows();
-	void Close();
 	void UpdateMenus(bool isMenuSelect = false);
 	void UpdateCommands();
 	void UpdateSwitchUMD();
