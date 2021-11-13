@@ -19,12 +19,16 @@
 #pragma once
 
 #include "ppsspp_config.h"
+
 #include "Debugger/Debugger_Disasm.h"
 #include "Debugger/Debugger_MemoryDlg.h"
+#include "Debugger/Debugger_VFPUDlg.h"
+
 #include "Common/CommonWindows.h"
 
 extern CDisasm *disasmWindow;
 extern CMemoryDlg *memoryWindow;
+extern CVFPUDlg *vfpudlg;
 
 #if PPSSPP_API(ANY_GL)
 #include "Windows/GEDebugger/GEDebugger.h"

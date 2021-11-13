@@ -95,6 +95,7 @@ CGEDebugger* geDebuggerWindow = nullptr;
 
 CDisasm *disasmWindow = nullptr;
 CMemoryDlg *memoryWindow = nullptr;
+CVFPUDlg *vfpudlg = nullptr;
 
 static std::string langRegion;
 static std::string osName;
@@ -684,7 +685,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 #if PPSSPP_API(ANY_GL)
 	CGEDebugger::Init();
 #endif
-	DialogManager::AddDlg(vfpudlg = new CVFPUDlg(_hInstance, hwndMain, currentDebugMIPS));
 
 	if (g_Config.bShowDebuggerOnLoad) {
 		MainWindow::CreateDisasmWindow();

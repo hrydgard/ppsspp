@@ -556,6 +556,13 @@ namespace MainWindow
 		}
 	}
 
+	void CreateVFPUWindow() {
+		if (!vfpudlg) {
+			vfpudlg = new CVFPUDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
+			DialogManager::AddDlg(vfpudlg);
+		}
+	}
+
 	void DestroyDebugWindows() {
 		DialogManager::RemoveDlg(disasmWindow);
 		if (disasmWindow)
@@ -573,6 +580,11 @@ namespace MainWindow
 		if (memoryWindow)
 			delete memoryWindow;
 		memoryWindow = nullptr;
+
+		DialogManager::RemoveDlg(vfpudlg);
+		if (vfpudlg)
+			delete vfpudlg;
+		vfpudlg = nullptr;
 	}
 
 	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {

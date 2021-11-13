@@ -64,6 +64,7 @@ namespace MainWindow
 	void CreateDisasmWindow();
 	void CreateGeDebuggerWindow();
 	void CreateMemoryWindow();
+	void CreateVFPUWindow();
 	void DestroyDebugWindows();
 	void UpdateMenus(bool isMenuSelect = false);
 	void UpdateCommands();

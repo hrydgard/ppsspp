@@ -466,6 +466,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case IDC_SHOWVFPU:
+				MainWindow::CreateVFPUWindow();
 				vfpudlg->Show(true);
 				break;
 
