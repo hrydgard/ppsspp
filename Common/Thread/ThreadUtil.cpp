@@ -63,6 +63,7 @@ static EXCEPTION_DISPOSITION NTAPI ignore_handler(EXCEPTION_RECORD *rec,
 #endif
 
 
+#if PPSSPP_PLATFORM(WINDOWS)
 typedef HRESULT (WINAPI *TSetThreadDescription)(HANDLE, PCWSTR);
 
 static TSetThreadDescription g_pSetThreadDescription = nullptr;
@@ -86,7 +87,6 @@ static void InitializeSetThreadDescription() {
 	}
 }
 
-#if PPSSPP_PLATFORM(WINDOWS)
 void SetCurrentThreadNameThroughException(const char *threadName);
 #endif
 
