@@ -279,44 +279,58 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1) {
 }
 
 bool DetectRectangleFromThroughModeStrip(const VertexData data[4]) {
+	// We'll only do this when the color is flat.
+	if (!(data[0].color0 == data[1].color0))
+		return false;
+	if (!(data[1].color0 == data[2].color0))
+		return false;
+	if (!(data[2].color0 == data[3].color0))
+		return false;
+
 	// OK, now let's look at data to detect rectangles. There are a few possibilities
 	// but we focus on Darkstalkers for now.
 	if (data[0].screenpos.x == data[1].screenpos.x &&
 		data[0].screenpos.y == data[2].screenpos.y &&
 		data[2].screenpos.x == data[3].screenpos.x &&
 		data[1].screenpos.y == data[3].screenpos.y &&
-		data[1].screenpos.y > data[0].screenpos.y &&  // Avoid rotation handling
-		data[2].screenpos.x > data[0].screenpos.x &&
-		data[0].texturecoords.x == data[1].texturecoords.x &&
-		data[0].texturecoords.y == data[2].texturecoords.y &&
-		data[2].texturecoords.x == data[3].texturecoords.x &&
-		data[1].texturecoords.y == data[3].texturecoords.y &&
-		data[1].texturecoords.y > data[0].texturecoords.y &&
-		data[2].texturecoords.x > data[0].texturecoords.x &&
-		data[0].color0 == data[1].color0 &&
-		data[1].color0 == data[2].color0 &&
-		data[2].color0 == data[3].color0) {
-		// It's a rectangle!
-		return true;
+		data[1].screenpos.y > data[0].screenpos.y &&
+		data[2].screenpos.x > data[0].screenpos.x) {
+		// Okay, this is in the shape of a triangle, but what about rotation/texture?
+		if (!gstate.isTextureMapEnabled())
+			return true;
+
+		if (data[0].texturecoords.x == data[1].texturecoords.x &&
+			data[0].texturecoords.y == data[2].texturecoords.y &&
+			data[2].texturecoords.x == data[3].texturecoords.x &&
+			data[1].texturecoords.y == data[3].texturecoords.y &&
+			data[1].texturecoords.y > data[0].texturecoords.y &&
+			data[2].texturecoords.x > data[0].texturecoords.x) {
+			// It's a rectangle!
+			return true;
+		}
+		return false;
 	}
 	// There's the other vertex order too...
 	if (data[0].screenpos.x == data[2].screenpos.x &&
 		data[0].screenpos.y == data[1].screenpos.y &&
 		data[1].screenpos.x == data[3].screenpos.x &&
 		data[2].screenpos.y == data[3].screenpos.y &&
-		data[2].screenpos.y > data[0].screenpos.y &&  // Avoid rotation handling
-		data[1].screenpos.x > data[0].screenpos.x &&
-		data[0].texturecoords.x == data[2].texturecoords.x &&
-		data[0].texturecoords.y == data[1].texturecoords.y &&
-		data[1].texturecoords.x == data[3].texturecoords.x &&
-		data[2].texturecoords.y == data[3].texturecoords.y &&
-		data[2].texturecoords.y > data[0].texturecoords.y &&
-		data[1].texturecoords.x > data[0].texturecoords.x &&
-		data[0].color0 == data[1].color0 &&
-		data[1].color0 == data[2].color0 &&
-		data[2].color0 == data[3].color0) {
-		// It's a rectangle!
-		return true;
+		data[2].screenpos.y > data[0].screenpos.y &&
+		data[1].screenpos.x > data[0].screenpos.x) {
+		// Okay, this is in the shape of a triangle, but what about rotation/texture?
+		if (!gstate.isTextureMapEnabled())
+			return true;
+
+		if (data[0].texturecoords.x == data[2].texturecoords.x &&
+			data[0].texturecoords.y == data[1].texturecoords.y &&
+			data[1].texturecoords.x == data[3].texturecoords.x &&
+			data[2].texturecoords.y == data[3].texturecoords.y &&
+			data[2].texturecoords.y > data[0].texturecoords.y &&
+			data[1].texturecoords.x > data[0].texturecoords.x) {
+			// It's a rectangle!
+			return true;
+		}
+		return false;
 	}
 	return false;
 }
