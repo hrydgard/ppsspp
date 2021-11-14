@@ -457,7 +457,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				// If a strip is effectively a rectangle, draw it as such!
-				if (Rasterizer::DetectRectangleFromThroughModeStrip(data)) {
+				if (!outside_range_flag && Rasterizer::DetectRectangleFromThroughModeStrip(data)) {
 					Clipper::ProcessRect(data[0], data[3]);
 					break;
 				}
@@ -516,7 +516,12 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				data[0] = ReadVertex(vreader, outside_range_flag);
 				data_index++;
 				start_vtx = 1;
+
+				// If the central vertex is outside range, all the points are toast.
+				if (outside_range_flag)
+					break;
 			}
+
 			if (data_index == 1 && vertex_count == 4 && gstate.isModeThrough()) {
 				for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
 					if (indices) {
@@ -528,7 +533,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				int tl = -1, br = -1;
-				if (Rasterizer::DetectRectangleFromThroughModeFan(data, vertex_count, &tl, &br)) {
+				if (!outside_range_flag && Rasterizer::DetectRectangleFromThroughModeFan(data, vertex_count, &tl, &br)) {
 					Clipper::ProcessRect(data[tl], data[br]);
 					break;
 				}
