@@ -287,6 +287,14 @@ bool DetectRectangleFromThroughModeStrip(const VertexData data[4]) {
 	if (!(data[2].color0 == data[3].color0))
 		return false;
 
+	// And the depth must also be flat.
+	if (!(data[0].screenpos.z == data[1].screenpos.z))
+		return false;
+	if (!(data[1].screenpos.z == data[2].screenpos.z))
+		return false;
+	if (!(data[2].screenpos.z == data[3].screenpos.z))
+		return false;
+
 	// OK, now let's look at data to detect rectangles. There are a few possibilities
 	// but we focus on Darkstalkers for now.
 	if (data[0].screenpos.x == data[1].screenpos.x &&
