@@ -352,7 +352,6 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 	case GE_PRIM_POINTS:
 	case GE_PRIM_LINES:
 	case GE_PRIM_TRIANGLES:
-	case GE_PRIM_RECTANGLES:
 		{
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
 				if (indices) {
@@ -389,10 +388,6 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					break;
 				}
 
-				case GE_PRIM_RECTANGLES:
-					Clipper::ProcessRect(data[0], data[1]);
-					break;
-
 				case GE_PRIM_LINES:
 					Clipper::ProcessLine(data[0], data[1]);
 					break;
@@ -407,6 +402,41 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 			}
 			break;
 		}
+
+	case GE_PRIM_RECTANGLES:
+		for (int vtx = 0; vtx < vertex_count; ++vtx) {
+			if (indices) {
+				vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
+			} else {
+				vreader.Goto(vtx);
+			}
+
+			data[data_index++] = ReadVertex(vreader, outside_range_flag);
+			if (outside_range_flag) {
+				outside_range_flag = false;
+				// Note: this is the post increment index.  If odd, we set the first vert.
+				if (data_index & 1) {
+					// Skip the next one and forget this one.
+					vtx++;
+					data_index--;
+				} else {
+					// Forget both of the last 2.
+					data_index -= 2;
+				}
+			}
+
+			if (data_index == 4) {
+				Clipper::ProcessRect(data[0], data[1]);
+				Clipper::ProcessRect(data[2], data[3]);
+				data_index = 0;
+			}
+		}
+
+		if (data_index >= 2) {
+			Clipper::ProcessRect(data[0], data[1]);
+			data_index -= 2;
+		}
+		break;
 
 	case GE_PRIM_LINE_STRIP:
 		{
