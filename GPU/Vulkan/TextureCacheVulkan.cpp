@@ -180,10 +180,9 @@ std::vector<std::string> SamplerCache::DebugGetSamplerIDs() const {
 
 TextureCacheVulkan::TextureCacheVulkan(Draw::DrawContext *draw, VulkanContext *vulkan)
 	: TextureCacheCommon(draw),
-		vulkan_(vulkan),
 		computeShaderManager_(vulkan),
 		samplerCache_(vulkan) {
-	DeviceRestore(vulkan, draw);
+	DeviceRestore(draw);
 	SetupTextureDecoder();
 }
 
@@ -192,7 +191,6 @@ TextureCacheVulkan::~TextureCacheVulkan() {
 }
 
 void TextureCacheVulkan::SetFramebufferManager(FramebufferManagerVulkan *fbManager) {
-	framebufferManagerVulkan_ = fbManager;
 	framebufferManager_ = fbManager;
 }
 
@@ -202,13 +200,15 @@ void TextureCacheVulkan::SetVulkan2D(Vulkan2D *vk2d) {
 }
 
 void TextureCacheVulkan::DeviceLost() {
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+
 	Clear(true);
 
 	if (allocator_) {
 		allocator_->Destroy();
 
 		// We have to delete on queue, so this can free its queued deletions.
-		vulkan_->Delete().QueueCallback([](void *ptr) {
+		vulkan->Delete().QueueCallback([](void *ptr) {
 			auto allocator = static_cast<VulkanDeviceAllocator *>(ptr);
 			delete allocator;
 		}, allocator_);
@@ -218,23 +218,23 @@ void TextureCacheVulkan::DeviceLost() {
 	samplerCache_.DeviceLost();
 
 	if (samplerNearest_)
-		vulkan_->Delete().QueueDeleteSampler(samplerNearest_);
+		vulkan->Delete().QueueDeleteSampler(samplerNearest_);
 
 	if (uploadCS_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeleteShaderModule(uploadCS_);
+		vulkan->Delete().QueueDeleteShaderModule(uploadCS_);
 
 	computeShaderManager_.DeviceLost();
 
 	nextTexture_ = nullptr;
 }
 
-void TextureCacheVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw) {
-	vulkan_ = vulkan;
+void TextureCacheVulkan::DeviceRestore(Draw::DrawContext *draw) {
+	VulkanContext *vulkan = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 	draw_ = draw;
 
 	_assert_(!allocator_);
 
-	allocator_ = new VulkanDeviceAllocator(vulkan_, TEXCACHE_MIN_SLAB_SIZE, TEXCACHE_MAX_SLAB_SIZE);
+	allocator_ = new VulkanDeviceAllocator(vulkan, TEXCACHE_MIN_SLAB_SIZE, TEXCACHE_MAX_SLAB_SIZE);
 	samplerCache_.DeviceRestore(vulkan);
 
 	VkSamplerCreateInfo samp{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
@@ -244,7 +244,7 @@ void TextureCacheVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext 
 	samp.magFilter = VK_FILTER_NEAREST;
 	samp.minFilter = VK_FILTER_NEAREST;
 	samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-	VkResult res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &samplerNearest_);
+	VkResult res = vkCreateSampler(vulkan->GetDevice(), &samp, nullptr, &samplerNearest_);
 	_assert_(res == VK_SUCCESS);
 
 	CompileScalingShader();
@@ -269,9 +269,11 @@ static std::string ReadShaderSrc(const Path &filename) {
 }
 
 void TextureCacheVulkan::CompileScalingShader() {
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+
 	if (!g_Config.bTexHardwareScaling || g_Config.sTextureShaderName != textureShader_) {
 		if (uploadCS_ != VK_NULL_HANDLE)
-			vulkan_->Delete().QueueDeleteShaderModule(uploadCS_);
+			vulkan->Delete().QueueDeleteShaderModule(uploadCS_);
 		textureShader_.clear();
 		shaderScaleFactor_ = 0;  // no texture scaling shader
 	} else if (uploadCS_) {
@@ -291,7 +293,7 @@ void TextureCacheVulkan::CompileScalingShader() {
 	std::string fullUploadShader = StringFromFormat(uploadShader, shaderSource.c_str());
 
 	std::string error;
-	uploadCS_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_COMPUTE_BIT, fullUploadShader.c_str(), &error);
+	uploadCS_ = CompileShaderModule(vulkan, VK_SHADER_STAGE_COMPUTE_BIT, fullUploadShader.c_str(), &error);
 	_dbg_assert_msg_(uploadCS_ != VK_NULL_HANDLE, "failed to compile upload shader");
 
 	textureShader_ = g_Config.sTextureShaderName;
@@ -441,7 +443,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			TexCacheEntry::TexStatus alphaStatus = CheckAlpha(clutBuf_, getClutDestFormatVulkan(clutFormat), clutTotalColors, clutTotalColors, 1);
 			gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
 			curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
-			if (framebufferManagerVulkan_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET)) {
+			if (framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET)) {
 				imageView_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
 			} else {
 				imageView_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::NULL_IMAGEVIEW);
@@ -554,7 +556,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		// Since we may have switched render targets, we need to re-set depth/stencil etc states.
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE);
 	} else {
-		if (framebufferManagerVulkan_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET)) {
+		if (framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET)) {
 			imageView_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
 		} else {
 			imageView_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::NULL_IMAGEVIEW);
@@ -709,10 +711,11 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	bool computeUpload = false;
 	VkCommandBuffer cmdInit = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 
 	{
 		delete entry->vkTex;
-		entry->vkTex = new VulkanTexture(vulkan_);
+		entry->vkTex = new VulkanTexture(vulkan);
 		VulkanTexture *image = entry->vkTex;
 
 		const VkComponentMapping *mapping;
@@ -812,7 +815,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			uint32_t bufferOffset;
 			VkBuffer texBuf;
 			// NVIDIA reports a min alignment of 1 but that can't be healthy... let's align by 16 as a minimum.
-			int pushAlignment = std::max(16, (int)vulkan_->GetPhysicalDeviceProperties().properties.limits.optimalBufferCopyOffsetAlignment);
+			int pushAlignment = std::max(16, (int)vulkan->GetPhysicalDeviceProperties().properties.limits.optimalBufferCopyOffsetAlignment);
 			void *data;
 			bool dataScaled = true;
 			if (replaced.Valid()) {
@@ -845,7 +848,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 						vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 0, 1, &descSet, 0, nullptr);
 						vkCmdPushConstants(cmdInit, computeShaderManager_.GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(params), &params);
 						vkCmdDispatch(cmdInit, (mipUnscaledWidth + 7) / 8, (mipUnscaledHeight + 7) / 8, 1);
-						vulkan_->Delete().QueueDeleteImageView(view);
+						vulkan->Delete().QueueDeleteImageView(view);
 					} else {
 						data = drawEngine_->GetPushBufferForTextureData()->PushAligned(size, &bufferOffset, &texBuf, pushAlignment);
 						LoadTextureLevel(*entry, (uint8_t *)data, stride, i, scaleFactor, dstFmt);

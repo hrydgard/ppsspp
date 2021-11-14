@@ -83,10 +83,10 @@ class VulkanPushBuffer;
 
 class ShaderManagerVulkan : public ShaderManagerCommon {
 public:
-	ShaderManagerVulkan(Draw::DrawContext *draw, VulkanContext *vulkan);
+	ShaderManagerVulkan(Draw::DrawContext *draw);
 	~ShaderManagerVulkan();
 
-	void DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw);
+	void DeviceRestore(Draw::DrawContext *draw);
 
 	void GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat);
 	void ClearShaders();
@@ -130,7 +130,6 @@ public:
 private:
 	void Clear();
 
-	VulkanContext *vulkan_;
 	ShaderLanguageDesc compat_;
 
 	typedef DenseHashMap<FShaderID, VulkanFragmentShader *, nullptr> FSCache;

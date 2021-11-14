@@ -53,17 +53,17 @@
 
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw),
-		vulkan_((VulkanContext *)gfxCtx->GetAPIContext()),
-		depalShaderCache_(draw, vulkan_),
-		drawEngine_(vulkan_, draw),
-		vulkan2D_(vulkan_) {
+		depalShaderCache_(draw),
+		drawEngine_(draw),
+		vulkan2D_((VulkanContext *)gfxCtx->GetAPIContext()) {
 	CheckGPUFeatures();
 
-	shaderManagerVulkan_ = new ShaderManagerVulkan(draw, vulkan_);
-	pipelineManager_ = new PipelineManagerVulkan(vulkan_);
-	framebufferManagerVulkan_ = new FramebufferManagerVulkan(draw, vulkan_);
+	VulkanContext *vulkan = (VulkanContext *)gfxCtx->GetAPIContext();
+	shaderManagerVulkan_ = new ShaderManagerVulkan(draw);
+	pipelineManager_ = new PipelineManagerVulkan(vulkan);
+	framebufferManagerVulkan_ = new FramebufferManagerVulkan(draw);
 	framebufferManager_ = framebufferManagerVulkan_;
-	textureCacheVulkan_ = new TextureCacheVulkan(draw, vulkan_);
+	textureCacheVulkan_ = new TextureCacheVulkan(draw, vulkan);
 	textureCache_ = textureCacheVulkan_;
 	drawEngineCommon_ = &drawEngine_;
 	shaderManager_ = shaderManagerVulkan_;
@@ -182,7 +182,8 @@ GPU_Vulkan::~GPU_Vulkan() {
 void GPU_Vulkan::CheckGPUFeatures() {
 	uint32_t features = 0;
 
-	switch (vulkan_->GetPhysicalDeviceProperties().properties.vendorID) {
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+	switch (vulkan->GetPhysicalDeviceProperties().properties.vendorID) {
 	case VULKAN_VENDOR_AMD:
 		// Accurate depth is required on AMD (due to reverse-Z driver bug) so we ignore the compat flag to disable it on those. See #9545
 		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
@@ -194,8 +195,8 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	case VULKAN_VENDOR_ARM:
 	{
 		// This check is probably not exactly accurate. But old drivers had problems with reverse-Z, just like AMD and Qualcomm.
-		bool driverTooOld = IsHashMaliDriverVersion(vulkan_->GetPhysicalDeviceProperties().properties)
-			|| VK_VERSION_MAJOR(vulkan_->GetPhysicalDeviceProperties().properties.driverVersion) < 14;
+		bool driverTooOld = IsHashMaliDriverVersion(vulkan->GetPhysicalDeviceProperties().properties)
+			|| VK_VERSION_MAJOR(vulkan->GetPhysicalDeviceProperties().properties.driverVersion) < 14;
 		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || driverTooOld) {
 			features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 		}
@@ -223,11 +224,11 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 	features |= GPU_SUPPORTS_DEPTH_TEXTURE;
 
-	if (vulkan_->GetDeviceInfo().canBlitToPreferredDepthStencilFormat) {
+	if (vulkan->GetDeviceInfo().canBlitToPreferredDepthStencilFormat) {
 		features |= GPU_SUPPORTS_FRAMEBUFFER_BLIT_TO_DEPTH;
 	}
 
-	auto &enabledFeatures = vulkan_->GetDeviceFeatures().enabled;
+	auto &enabledFeatures = vulkan->GetDeviceFeatures().enabled;
 	if (enabledFeatures.depthClamp) {
 		features |= GPU_SUPPORTS_DEPTH_CLAMP;
 	}
@@ -307,11 +308,12 @@ void GPU_Vulkan::BeginHostFrame() {
 
 	textureCacheVulkan_->StartFrame();
 
-	int curFrame = vulkan_->GetCurFrame();
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+	int curFrame = vulkan->GetCurFrame();
 	FrameData &frame = frameData_[curFrame];
 
 	frame.push_->Reset();
-	frame.push_->Begin(vulkan_);
+	frame.push_->Begin(vulkan);
 
 	framebufferManagerVulkan_->BeginFrameVulkan();
 	framebufferManagerVulkan_->SetPushBuffer(frameData_[curFrame].push_);
@@ -333,7 +335,8 @@ void GPU_Vulkan::BeginHostFrame() {
 }
 
 void GPU_Vulkan::EndHostFrame() {
-	int curFrame = vulkan_->GetCurFrame();
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+	int curFrame = vulkan->GetCurFrame();
 	FrameData &frame = frameData_[curFrame];
 	frame.push_->End();
 
@@ -348,8 +351,9 @@ void GPU_Vulkan::EndHostFrame() {
 
 // Needs to be called on GPU thread, not reporting thread.
 void GPU_Vulkan::BuildReportingInfo() {
-	const auto &props = vulkan_->GetPhysicalDeviceProperties().properties;
-	const auto &features = vulkan_->GetDeviceFeatures().available;
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+	const auto &props = vulkan->GetPhysicalDeviceProperties().properties;
+	const auto &features = vulkan->GetDeviceFeatures().available;
 
 #define CHECK_BOOL_FEATURE(n) do { if (features.n) { featureNames += ", " #n; } } while (false)
 
@@ -482,11 +486,12 @@ void GPU_Vulkan::ExecuteOp(u32 op, u32 diff) {
 
 void GPU_Vulkan::InitDeviceObjects() {
 	INFO_LOG(G3D, "GPU_Vulkan::InitDeviceObjects");
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	// Initialize framedata
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		_assert_(!frameData_[i].push_);
 		VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-		frameData_[i].push_ = new VulkanPushBuffer(vulkan_, 256 * 1024, usage);
+		frameData_[i].push_ = new VulkanPushBuffer(vulkan, 256 * 1024, usage);
 	}
 
 	VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
@@ -506,9 +511,10 @@ void GPU_Vulkan::InitDeviceObjects() {
 
 void GPU_Vulkan::DestroyDeviceObjects() {
 	INFO_LOG(G3D, "GPU_Vulkan::DestroyDeviceObjects");
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		if (frameData_[i].push_) {
-			frameData_[i].push_->Destroy(vulkan_);
+			frameData_[i].push_->Destroy(vulkan);
 			delete frameData_[i].push_;
 			frameData_[i].push_ = nullptr;
 		}
@@ -543,19 +549,19 @@ void GPU_Vulkan::DeviceLost() {
 
 void GPU_Vulkan::DeviceRestore() {
 	GPUCommon::DeviceRestore();
-	vulkan_ = (VulkanContext *)PSP_CoreParameter().graphicsContext->GetAPIContext();
 	InitDeviceObjects();
 
 	CheckGPUFeatures();
 	BuildReportingInfo();
 	UpdateCmdInfo();
 
-	vulkan2D_.DeviceRestore(vulkan_);
-	drawEngine_.DeviceRestore(vulkan_, draw_);
-	pipelineManager_->DeviceRestore(vulkan_);
-	textureCacheVulkan_->DeviceRestore(vulkan_, draw_);
-	shaderManagerVulkan_->DeviceRestore(vulkan_, draw_);
-	depalShaderCache_.DeviceRestore(draw_, vulkan_);
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+	vulkan2D_.DeviceRestore(vulkan);
+	drawEngine_.DeviceRestore(draw_);
+	pipelineManager_->DeviceRestore(vulkan);
+	textureCacheVulkan_->DeviceRestore(draw_);
+	shaderManagerVulkan_->DeviceRestore(draw_);
+	depalShaderCache_.DeviceRestore(draw_);
 }
 
 void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {

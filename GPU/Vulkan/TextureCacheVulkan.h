@@ -66,7 +66,7 @@ public:
 	void EndFrame();
 
 	void DeviceLost();
-	void DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw);
+	void DeviceRestore(Draw::DrawContext *draw);
 
 	void SetFramebufferManager(FramebufferManagerVulkan *fbManager);
 	void SetDepalShaderCache(DepalShaderCacheVulkan *dpCache) {
@@ -118,7 +118,6 @@ private:
 
 	void CompileScalingShader();
 
-	VulkanContext *vulkan_ = nullptr;
 	VulkanDeviceAllocator *allocator_ = nullptr;
 	VulkanPushBuffer *push_ = nullptr;
 
@@ -128,7 +127,6 @@ private:
 
 	TextureScalerVulkan scaler;
 
-	FramebufferManagerVulkan *framebufferManagerVulkan_;
 	DepalShaderCacheVulkan *depalShaderCache_;
 	ShaderManagerVulkan *shaderManagerVulkan_;
 	DrawEngineVulkan *drawEngine_;

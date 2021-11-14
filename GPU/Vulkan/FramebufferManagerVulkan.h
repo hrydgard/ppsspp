@@ -34,7 +34,7 @@ class VulkanPushBuffer;
 
 class FramebufferManagerVulkan : public FramebufferManagerCommon {
 public:
-	FramebufferManagerVulkan(Draw::DrawContext *draw, VulkanContext *vulkan);
+	FramebufferManagerVulkan(Draw::DrawContext *draw);
 	~FramebufferManagerVulkan();
 
 	void SetTextureCache(TextureCacheVulkan *tc);
@@ -67,8 +67,6 @@ protected:
 private:
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
-
-	VulkanContext *vulkan_;
 
 	// Used to keep track of command buffers here but have moved all that into Thin3D.
 

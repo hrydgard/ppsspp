@@ -123,7 +123,7 @@ private:
 // Handles transform, lighting and drawing.
 class DrawEngineVulkan : public DrawEngineCommon {
 public:
-	DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *draw);
+	DrawEngineVulkan(Draw::DrawContext *draw);
 	virtual ~DrawEngineVulkan();
 
 	void SetShaderManager(ShaderManagerVulkan *shaderManager) {
@@ -140,7 +140,7 @@ public:
 	}
 
 	void DeviceLost();
-	void DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw);
+	void DeviceRestore(Draw::DrawContext *draw);
 
 	// So that this can be inlined
 	void Flush() {
@@ -174,12 +174,12 @@ public:
 	}
 
 	VulkanPushBuffer *GetPushBufferForTextureData() {
-		return frame_[vulkan_->GetCurFrame()].pushUBO;
+		return GetCurFrame().pushUBO;
 	}
 
 	// Only use Allocate on this one.
 	VulkanPushBuffer *GetPushBufferLocal() {
-		return frame_[vulkan_->GetCurFrame()].pushLocal;
+		return GetCurFrame().pushLocal;
 	}
 
 	const DrawEngineVulkanStats &GetStats() const {
@@ -208,10 +208,10 @@ private:
 
 	void DoFlush();
 	void UpdateUBOs(FrameData *frame);
+	FrameData &GetCurFrame();
 
 	VkDescriptorSet GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone, bool tess);
 
-	VulkanContext *vulkan_;
 	Draw::DrawContext *draw_;
 
 	// We use a single descriptor set layout for all PSP draws.

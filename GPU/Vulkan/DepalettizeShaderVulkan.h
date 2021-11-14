@@ -48,10 +48,10 @@ class VulkanPushBuffer;
 // Could even avoid bothering with palette texture and just use uniform data...
 class DepalShaderCacheVulkan : public DepalShaderCacheCommon {
 public:
-	DepalShaderCacheVulkan(Draw::DrawContext *draw, VulkanContext *vulkan);
+	DepalShaderCacheVulkan(Draw::DrawContext *draw);
 	~DepalShaderCacheVulkan();
 	void DeviceLost();
-	void DeviceRestore(Draw::DrawContext *draw, VulkanContext *vulkan);
+	void DeviceRestore(Draw::DrawContext *draw);
 
 	// This also uploads the palette and binds the correct texture.
 	DepalShaderVulkan *GetDepalettizeShader(uint32_t clutMode, GEBufferFormat pixelFormat);
@@ -66,7 +66,6 @@ public:
 
 private:
 	Draw::DrawContext *draw_ = nullptr;
-	VulkanContext *vulkan_ = nullptr;
 	VulkanPushBuffer *push_ = nullptr;
 	VulkanDeviceAllocator *alloc_ = nullptr;
 	VkShaderModule vshader_ = VK_NULL_HANDLE;

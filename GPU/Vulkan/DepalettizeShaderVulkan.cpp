@@ -57,9 +57,9 @@ static VkFormat GetClutDestFormat(GEPaletteFormat format, VkComponentMapping *co
 	return VK_FORMAT_UNDEFINED;
 }
 
-DepalShaderCacheVulkan::DepalShaderCacheVulkan(Draw::DrawContext *draw, VulkanContext *vulkan)
-	: draw_(draw), vulkan_(vulkan) {
-	DeviceRestore(draw, vulkan);
+DepalShaderCacheVulkan::DepalShaderCacheVulkan(Draw::DrawContext *draw)
+	: draw_(draw) {
+	DeviceRestore(draw);
 }
 
 DepalShaderCacheVulkan::~DepalShaderCacheVulkan() {
@@ -69,19 +69,19 @@ DepalShaderCacheVulkan::~DepalShaderCacheVulkan() {
 void DepalShaderCacheVulkan::DeviceLost() {
 	Clear();
 	if (vshader_) {
+		VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 		vulkan2D_->PurgeVertexShader(vshader_);
-		vulkan_->Delete().QueueDeleteShaderModule(vshader_);
+		vulkan->Delete().QueueDeleteShaderModule(vshader_);
 		vshader_ = VK_NULL_HANDLE;
 	}
 	draw_ = nullptr;
-	vulkan_ = nullptr;
 }
 
-void DepalShaderCacheVulkan::DeviceRestore(Draw::DrawContext *draw, VulkanContext *vulkan) {
+void DepalShaderCacheVulkan::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
-	vulkan_ = vulkan;
 	std::string errors;
-	vshader_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_VERTEX_BIT, depal_vs, &errors);
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+	vshader_ = CompileShaderModule(vulkan, VK_SHADER_STAGE_VERTEX_BIT, depal_vs, &errors);
 	_assert_(vshader_ != VK_NULL_HANDLE);
 }
 
@@ -94,12 +94,13 @@ DepalShaderVulkan *DepalShaderCacheVulkan::GetDepalettizeShader(uint32_t clutMod
 	}
 
 	VkRenderPass rp = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::FRAMEBUFFER_RENDERPASS);
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 
 	char *buffer = new char[2048];
 	GenerateDepalShader(buffer, pixelFormat, GLSL_VULKAN);
 
 	std::string error;
-	VkShaderModule fshader = CompileShaderModule(vulkan_, VK_SHADER_STAGE_FRAGMENT_BIT, buffer, &error);
+	VkShaderModule fshader = CompileShaderModule(vulkan, VK_SHADER_STAGE_FRAGMENT_BIT, buffer, &error);
 	if (fshader == VK_NULL_HANDLE) {
 		INFO_LOG(G3D, "Source:\n%s\n\n", buffer);
 		Crash();
@@ -112,7 +113,7 @@ DepalShaderVulkan *DepalShaderCacheVulkan::GetDepalettizeShader(uint32_t clutMod
 	// Maybe don't even need to queue it..
 	// "true" keeps the pipeline itself alive, forgetting the fshader.
 	vulkan2D_->PurgeFragmentShader(fshader, true);
-	vulkan_->Delete().QueueDeleteShaderModule(fshader);
+	vulkan->Delete().QueueDeleteShaderModule(fshader);
 
 	DepalShaderVulkan *depal = new DepalShaderVulkan();
 	depal->pipeline = pipeline;
@@ -130,6 +131,7 @@ VulkanTexture *DepalShaderCacheVulkan::GetClutTexture(GEPaletteFormat clutFormat
 		return oldtex->second->texture;
 	}
 
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	VkComponentMapping componentMapping;
 	VkFormat destFormat = GetClutDestFormat(clutFormat, &componentMapping);
 
@@ -163,7 +165,7 @@ VulkanTexture *DepalShaderCacheVulkan::GetClutTexture(GEPaletteFormat clutFormat
 		dstFmt = GetClutDestFormat(clutFormat, &componentMapping);
 	}
 
-	VulkanTexture *vktex = new VulkanTexture(vulkan_);
+	VulkanTexture *vktex = new VulkanTexture(vulkan);
 	vktex->SetTag("DepalClut");
 	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 	if (!vktex->CreateDirect(cmd, alloc_, texturePixels, 1, 1, destFormat,

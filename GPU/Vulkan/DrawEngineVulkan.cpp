@@ -77,10 +77,8 @@ enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
 };
 
-DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *draw)
-	:	vulkan_(vulkan),
-		draw_(draw),
-		vai_(1024) {
+DrawEngineVulkan::DrawEngineVulkan(Draw::DrawContext *draw)
+	: draw_(draw), vai_(1024) {
 	decOptions_.expandAllWeightsToFloat = false;
 	decOptions_.expand8BitNormalsToFloat = false;
 
@@ -135,7 +133,8 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	bindings[8].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	bindings[8].binding = DRAW_BINDING_TESS_STORAGE_BUF_WV;
 
-	VkDevice device = vulkan_->GetDevice();
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+	VkDevice device = vulkan->GetDevice();
 
 	VkDescriptorSetLayoutCreateInfo dsl{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
 	dsl.bindingCount = ARRAY_SIZE(bindings);
@@ -149,11 +148,11 @@ void DrawEngineVulkan::InitDeviceObjects() {
 		// We now create descriptor pools on demand, so removed from here.
 		// Note that pushUBO is also used for tessellation data (search for SetPushBuffer), and to upload
 		// the null texture. This should be cleaned up...
-		frame_[i].pushUBO = new VulkanPushBuffer(vulkan_, 8 * 1024 * 1024, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
-		frame_[i].pushVertex = new VulkanPushBuffer(vulkan_, 2 * 1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-		frame_[i].pushIndex = new VulkanPushBuffer(vulkan_, 1 * 1024 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+		frame_[i].pushUBO = new VulkanPushBuffer(vulkan, 8 * 1024 * 1024, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+		frame_[i].pushVertex = new VulkanPushBuffer(vulkan, 2 * 1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		frame_[i].pushIndex = new VulkanPushBuffer(vulkan, 1 * 1024 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
-		frame_[i].pushLocal = new VulkanPushBuffer(vulkan_, 1 * 1024 * 1024, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		frame_[i].pushLocal = new VulkanPushBuffer(vulkan, 1 * 1024 * 1024, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	}
 
 	VkPipelineLayoutCreateInfo pl{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
@@ -178,9 +177,9 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	res = vkCreateSampler(device, &samp, nullptr, &nullSampler_);
 	_dbg_assert_(VK_SUCCESS == res);
 
-	vertexCache_ = new VulkanPushBuffer(vulkan_, VERTEX_CACHE_SIZE, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	vertexCache_ = new VulkanPushBuffer(vulkan, VERTEX_CACHE_SIZE, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
-	tessDataTransferVulkan = new TessellationDataTransferVulkan(vulkan_);
+	tessDataTransferVulkan = new TessellationDataTransferVulkan(vulkan);
 	tessDataTransfer = tessDataTransferVulkan;
 }
 
@@ -219,23 +218,25 @@ void DrawEngineVulkan::FrameData::Destroy(VulkanContext *vulkan) {
 }
 
 void DrawEngineVulkan::DestroyDeviceObjects() {
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+
 	delete tessDataTransferVulkan;
 	tessDataTransfer = nullptr;
 	tessDataTransferVulkan = nullptr;
 
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		frame_[i].Destroy(vulkan_);
+		frame_[i].Destroy(vulkan);
 	}
 	if (samplerSecondary_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeleteSampler(samplerSecondary_);
+		vulkan->Delete().QueueDeleteSampler(samplerSecondary_);
 	if (nullSampler_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeleteSampler(nullSampler_);
+		vulkan->Delete().QueueDeleteSampler(nullSampler_);
 	if (pipelineLayout_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
+		vulkan->Delete().QueueDeletePipelineLayout(pipelineLayout_);
 	if (descriptorSetLayout_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
+		vulkan->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
 	if (vertexCache_) {
-		vertexCache_->Destroy(vulkan_);
+		vertexCache_->Destroy(vulkan);
 		delete vertexCache_;
 		vertexCache_ = nullptr;
 	}
@@ -251,8 +252,7 @@ void DrawEngineVulkan::DeviceLost() {
 	DirtyAllUBOs();
 }
 
-void DrawEngineVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw) {
-	vulkan_ = vulkan;
+void DrawEngineVulkan::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
 
 	InitDeviceObjects();
@@ -263,8 +263,7 @@ void DrawEngineVulkan::BeginFrame() {
 
 	lastRenderStepId_ = -1;
 
-	int curFrame = vulkan_->GetCurFrame();
-	FrameData *frame = &frame_[curFrame];
+	FrameData *frame = &GetCurFrame();
 
 	// First reset all buffers, then begin. This is so that Reset can free memory and Begin can allocate it,
 	// if growing the buffer is needed. Doing it this way will reduce fragmentation if more than one buffer
@@ -275,10 +274,11 @@ void DrawEngineVulkan::BeginFrame() {
 	frame->pushIndex->Reset();
 	frame->pushLocal->Reset();
 
-	frame->pushUBO->Begin(vulkan_);
-	frame->pushVertex->Begin(vulkan_);
-	frame->pushIndex->Begin(vulkan_);
-	frame->pushLocal->Begin(vulkan_);
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+	frame->pushUBO->Begin(vulkan);
+	frame->pushVertex->Begin(vulkan);
+	frame->pushIndex->Begin(vulkan);
+	frame->pushLocal->Begin(vulkan);
 
 	// TODO: How can we make this nicer...
 	tessDataTransferVulkan->SetPushBuffer(frame->pushUBO);
@@ -287,9 +287,9 @@ void DrawEngineVulkan::BeginFrame() {
 
 	// Wipe the vertex cache if it's grown too large.
 	if (vertexCache_->GetTotalSize() > VERTEX_CACHE_SIZE) {
-		vertexCache_->Destroy(vulkan_);
+		vertexCache_->Destroy(vulkan);
 		delete vertexCache_;  // orphans the buffers, they'll get deleted once no longer used by an in-flight frame.
-		vertexCache_ = new VulkanPushBuffer(vulkan_, VERTEX_CACHE_SIZE, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		vertexCache_ = new VulkanPushBuffer(vulkan, VERTEX_CACHE_SIZE, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 		vai_.Iterate([&](uint32_t hash, VertexArrayInfoVulkan *vai) {
 			delete vai;
 		});
@@ -300,7 +300,7 @@ void DrawEngineVulkan::BeginFrame() {
 
 	if (--descDecimationCounter_ <= 0) {
 		if (frame->descPool != VK_NULL_HANDLE)
-			vkResetDescriptorPool(vulkan_->GetDevice(), frame->descPool, 0);
+			vkResetDescriptorPool(vulkan->GetDevice(), frame->descPool, 0);
 		frame->descSets.Clear();
 		frame->descCount = 0;
 		descDecimationCounter_ = DESCRIPTORSET_DECIMATION_INTERVAL;
@@ -331,7 +331,7 @@ void DrawEngineVulkan::BeginFrame() {
 }
 
 void DrawEngineVulkan::EndFrame() {
-	FrameData *frame = &frame_[vulkan_->GetCurFrame()];
+	FrameData *frame = &GetCurFrame();
 	stats_.pushUBOSpaceUsed = (int)frame->pushUBO->GetOffset();
 	stats_.pushVertexSpaceUsed = (int)frame->pushVertex->GetOffset();
 	stats_.pushIndexSpaceUsed = (int)frame->pushIndex->GetOffset();
@@ -354,11 +354,13 @@ void DrawEngineVulkan::DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t 
 }
 
 VkResult DrawEngineVulkan::RecreateDescriptorPool(FrameData &frame, int newSize) {
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+
 	// Reallocate this desc pool larger, and "wipe" the cache. We might lose a tiny bit of descriptor set reuse but
 	// only for this frame.
 	if (frame.descPool) {
 		DEBUG_LOG(G3D, "Reallocating desc pool from %d to %d", frame.descPoolSize, newSize);
-		vulkan_->Delete().QueueDeleteDescriptorPool(frame.descPool);
+		vulkan->Delete().QueueDeleteDescriptorPool(frame.descPool);
 		frame.descSets.Clear();
 		frame.descCount = 0;
 	}
@@ -379,7 +381,7 @@ VkResult DrawEngineVulkan::RecreateDescriptorPool(FrameData &frame, int newSize)
 	dp.pPoolSizes = dpTypes;
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
 
-	VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frame.descPool);
+	VkResult res = vkCreateDescriptorPool(vulkan->GetDevice(), &dp, nullptr, &frame.descPool);
 	return res;
 }
 
@@ -397,7 +399,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	key.light_ = light;
 	key.bone_ = bone;
 
-	FrameData &frame = frame_[vulkan_->GetCurFrame()];
+	FrameData &frame = GetCurFrame();
 	// See if we already have this descriptor set cached.
 	if (!tess) { // Don't cache descriptors for HW tessellation.
 		VkDescriptorSet d = frame.descSets.Get(key);
@@ -413,12 +415,13 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	// Didn't find one in the frame descriptor set cache, let's make a new one.
 	// We wipe the cache on every frame.
 
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	VkDescriptorSet desc;
 	VkDescriptorSetAllocateInfo descAlloc{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
 	descAlloc.pSetLayouts = &descriptorSetLayout_;
 	descAlloc.descriptorPool = frame.descPool;
 	descAlloc.descriptorSetCount = 1;
-	VkResult result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
+	VkResult result = vkAllocateDescriptorSets(vulkan->GetDevice(), &descAlloc, &desc);
 
 	if (result == VK_ERROR_FRAGMENTED_POOL || result < 0) {
 		// There seems to have been a spec revision. Here we should apparently recreate the descriptor pool,
@@ -427,7 +430,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 		VkResult res = RecreateDescriptorPool(frame, frame.descPoolSize);
 		_assert_msg_(res == VK_SUCCESS, "Ran out of descriptor space (frag?) and failed to recreate a descriptor pool. sz=%d res=%d", (int)frame.descSets.size(), (int)res);
 		descAlloc.descriptorPool = frame.descPool;  // Need to update this pointer since we have allocated a new one.
-		result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
+		result = vkAllocateDescriptorSets(vulkan->GetDevice(), &descAlloc, &desc);
 		_assert_msg_(result == VK_SUCCESS, "Ran out of descriptor space (frag?) and failed to allocate after recreating a descriptor pool. res=%d", (int)result);
 	}
 
@@ -542,7 +545,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 		n++;
 	}
 
-	vkUpdateDescriptorSets(vulkan_->GetDevice(), n, writes, 0, nullptr);
+	vkUpdateDescriptorSets(vulkan->GetDevice(), n, writes, 0, nullptr);
 
 	if (!tess) // Again, avoid caching when HW tessellation.
 		frame.descSets.Insert(key, desc);
@@ -592,7 +595,7 @@ void DrawEngineVulkan::DoFlush() {
 		lastRenderStepId_ = curRenderStepId;
 	}
 
-	FrameData *frame = &frame_[vulkan_->GetCurFrame()];
+	FrameData *frame = &GetCurFrame();
 
 	bool tess = gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE;
 
@@ -1062,6 +1065,11 @@ void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
 		boneUBOOffset = shaderManager_->PushBoneBuffer(frame->pushUBO, &boneBuf);
 		dirtyUniforms_ &= ~DIRTY_BONE_UNIFORMS;
 	}
+}
+
+DrawEngineVulkan::FrameData &DrawEngineVulkan::GetCurFrame() {
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+	return frame_[vulkan->GetCurFrame()];
 }
 
 void TessellationDataTransferVulkan::SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) {

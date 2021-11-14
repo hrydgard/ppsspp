@@ -89,7 +89,6 @@ private:
 	void LoadCache(const Path &filename);
 	void SaveCache(const Path &filename);
 
-	VulkanContext *vulkan_;
 	FramebufferManagerVulkan *framebufferManagerVulkan_;
 	TextureCacheVulkan *textureCacheVulkan_;
 	DepalShaderCacheVulkan depalShaderCache_;
