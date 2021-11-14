@@ -125,7 +125,7 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 			}
 		}
 
-		shaderManagerGL_->DirtyLastShader();
+		shaderManager_->DirtyLastShader();
 		auto *blitFBO = GetTempFBO(TempFBO::COPY, vfb->renderWidth, vfb->renderHeight);
 		draw_->BindFramebufferAsRenderTarget(blitFBO, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "PackDepthbuffer");
 		render_->SetViewport({ 0, 0, (float)vfb->renderWidth, (float)vfb->renderHeight, 0.0f, 1.0f });
@@ -156,7 +156,7 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 
 		draw_->CopyFramebufferToMemorySync(blitFBO, Draw::FB_COLOR_BIT, 0, y, packWidth, h, Draw::DataFormat::R8G8B8A8_UNORM, convBuf_, vfb->z_stride, "PackDepthbuffer");
 
-		textureCacheGL_->ForgetLastTexture();
+		textureCache_->ForgetLastTexture();
 		// TODO: Use 4444 so we can copy lines directly?
 		format16Bit = true;
 	} else {

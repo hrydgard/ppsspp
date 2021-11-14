@@ -160,8 +160,8 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, StencilUp
 
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
-	shaderManagerVulkan_->DirtyLastShader();
-	textureCacheVulkan_->ForgetLastTexture();
+	shaderManager_->DirtyLastShader();
+	textureCache_->ForgetLastTexture();
 
 	u16 w = dstBuffer->renderWidth;
 	u16 h = dstBuffer->renderHeight;

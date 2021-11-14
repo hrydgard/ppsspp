@@ -141,17 +141,14 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	}
 
 	void FramebufferManagerDX9::SetTextureCache(TextureCacheDX9 *tc) {
-		textureCacheDX9_ = tc;
 		textureCache_ = tc;
 	}
 
 	void FramebufferManagerDX9::SetShaderManager(ShaderManagerDX9 *sm) {
-		shaderManagerDX9_ = sm;
 		shaderManager_ = sm;
 	}
 
 	void FramebufferManagerDX9::SetDrawEngine(DrawEngineDX9 *td) {
-		drawEngineD3D9_ = td;
 		drawEngine_ = td;
 	}
 
@@ -240,7 +237,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 			return it->second.surface;
 		}
 
-		textureCacheDX9_->ForgetLastTexture();
+		textureCache_->ForgetLastTexture();
 		LPDIRECT3DSURFACE9 offscreen = nullptr;
 		HRESULT hr = device_->CreateOffscreenPlainSurface(w, h, fmt, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
 		if (FAILED(hr) || !offscreen) {

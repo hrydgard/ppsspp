@@ -72,9 +72,6 @@ private:
 
 	// Used to keep track of command buffers here but have moved all that into Thin3D.
 
-	TextureCacheVulkan *textureCacheVulkan_ = nullptr;
-	ShaderManagerVulkan *shaderManagerVulkan_ = nullptr;
-	DrawEngineVulkan *drawEngineVulkan_ = nullptr;
 	VulkanPushBuffer *push_;
 
 	enum {

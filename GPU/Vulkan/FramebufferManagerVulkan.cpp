@@ -90,17 +90,14 @@ FramebufferManagerVulkan::~FramebufferManagerVulkan() {
 }
 
 void FramebufferManagerVulkan::SetTextureCache(TextureCacheVulkan *tc) {
-	textureCacheVulkan_ = tc;
 	textureCache_ = tc;
 }
 
 void FramebufferManagerVulkan::SetShaderManager(ShaderManagerVulkan *sm) {
-	shaderManagerVulkan_ = sm;
 	shaderManager_ = sm;
 }
 
 void FramebufferManagerVulkan::SetDrawEngine(DrawEngineVulkan *td) {
-	drawEngineVulkan_ = td;
 	drawEngine_ = td;
 }
 
