@@ -35,11 +35,11 @@
 #define TRANSFORM_BUF_SIZE (65536 * 48)
 
 TransformUnit::TransformUnit() {
-	buf = (u8 *)AllocateMemoryPages(TRANSFORM_BUF_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	decoded_ = (u8 *)AllocateMemoryPages(TRANSFORM_BUF_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 }
 
 TransformUnit::~TransformUnit() {
-	FreeMemoryPages(buf, DECODED_VERTEX_BUFFER_SIZE);
+	FreeMemoryPages(decoded_, DECODED_VERTEX_BUFFER_SIZE);
 }
 
 SoftwareDrawEngine::SoftwareDrawEngine() {
@@ -156,8 +156,7 @@ ScreenCoords TransformUnit::DrawingToScreen(const DrawingCoords& coords)
 	return ret;
 }
 
-VertexData TransformUnit::ReadVertex(VertexReader& vreader)
-{
+VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_flag) {
 	VertexData vertex;
 
 	float pos[3];
@@ -320,9 +319,9 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 
 	if (indices)
 		GetIndexBounds(indices, vertex_count, vertex_type, &index_lower_bound, &index_upper_bound);
-	vdecoder.DecodeVerts(buf, vertices, index_lower_bound, index_upper_bound);
+	vdecoder.DecodeVerts(decoded_, vertices, index_lower_bound, index_upper_bound);
 
-	VertexReader vreader(buf, vtxfmt, vertex_type);
+	VertexReader vreader(decoded_, vtxfmt, vertex_type);
 
 	static VertexData data[4];  // Normally max verts per prim is 3, but we temporarily need 4 to detect rectangles from strips.
 	// This is the index of the next vert in data (or higher, may need modulus.)
@@ -348,6 +347,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 	// TODO: Do this in two passes - first process the vertices (before indexing/stripping),
 	// then resolve the indices. This lets us avoid transforming shared vertices twice.
 
+	bool outside_range_flag = false;
 	switch (prim_type) {
 	case GE_PRIM_POINTS:
 	case GE_PRIM_LINES:
@@ -361,7 +361,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					vreader.Goto(vtx);
 				}
 
-				data[data_index++] = ReadVertex(vreader);
+				data[data_index++] = ReadVertex(vreader, outside_range_flag);
 				if (data_index < vtcs_per_prim) {
 					// Keep reading.  Note: an incomplete prim will stay read for GE_PRIM_KEEP_PREVIOUS.
 					continue;
@@ -420,7 +420,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					vreader.Goto(vtx);
 				}
 
-				data[(data_index++) & 1] = ReadVertex(vreader);
+				data[(data_index++) & 1] = ReadVertex(vreader, outside_range_flag);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;
@@ -453,7 +453,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					else {
 						vreader.Goto(vtx);
 					}
-					data[vtx] = ReadVertex(vreader);
+					data[vtx] = ReadVertex(vreader, outside_range_flag);
 				}
 
 				// If a strip is effectively a rectangle, draw it as such!
@@ -463,6 +463,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 			}
 
+			outside_range_flag = false;
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
 				if (indices) {
 					vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
@@ -471,7 +472,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				int provoking_index = (data_index++) % 3;
-				data[provoking_index] = ReadVertex(vreader);
+				data[provoking_index] = ReadVertex(vreader, outside_range_flag);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;
@@ -512,11 +513,12 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				} else {
 					vreader.Goto(0);
 				}
-				data[0] = ReadVertex(vreader);
+				data[0] = ReadVertex(vreader, outside_range_flag);
 				data_index++;
 				start_vtx = 1;
 			}
 
+			outside_range_flag = false;
 			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
 				if (indices) {
 					vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
@@ -525,7 +527,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				int provoking_index = 2 - ((data_index++) % 2);
-				data[provoking_index] = ReadVertex(vreader);
+				data[provoking_index] = ReadVertex(vreader, outside_range_flag);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;

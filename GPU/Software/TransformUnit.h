@@ -132,10 +132,9 @@ public:
 	void SubmitPrimitive(void* vertices, void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine);
 
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
-	VertexData ReadVertex(VertexReader& vreader);
+	VertexData ReadVertex(VertexReader &vreader, bool &outside_range_flag);
 
-	bool outside_range_flag = false;
-	u8 *buf;
+	u8 *decoded_;
 };
 
 class SoftwareDrawEngine : public DrawEngineCommon {
