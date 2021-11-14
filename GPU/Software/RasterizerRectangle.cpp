@@ -5,6 +5,7 @@
 
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
+#include "Common/Thread/ParallelLoop.h"
 
 #include "Core/Config.h"
 #include "Core/MemMap.h"
@@ -97,6 +98,8 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 
 	bool isWhite = v1.color0 == Vec4<int>(255, 255, 255, 255);
 
+	constexpr int MIN_LINES_PER_THREAD = 8;
+
 	if (gstate.isTextureMapEnabled()) {
 		// 1:1 (but with mirror support) texture mapping!
 		int s_start = v0.texturecoords.x;
@@ -137,48 +140,60 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 			gstate.getTextureFunction() == GE_TEXFUNC_MODULATE &&
 			gstate.getColorMask() == 0x000000 &&
 			gstate.FrameBufFormat() == GE_FORMAT_5551) {
-			int t = t_start;
-			for (int y = pos0.y; y < pos1.y; y++) {
-				int s = s_start;
-				u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
-				if (isWhite) {
-					for (int x = pos0.x; x < pos1.x; x++) {
-						u32 tex_color = nearestFunc(s, t, texptr, texbufw, 0);
-						if (tex_color & 0xFF000000) {
-							DrawSinglePixel5551(pixel, tex_color);
+			if (isWhite) {
+				ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
+					int t = t_start + (y1 - pos0.y) * dt;
+					for (int y = y1; y < y2; y++) {
+						int s = s_start;
+						u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
+						for (int x = pos0.x; x < pos1.x; x++) {
+							u32 tex_color = nearestFunc(s, t, texptr, texbufw, 0);
+							if (tex_color & 0xFF000000) {
+								DrawSinglePixel5551(pixel, tex_color);
+							}
+							s += ds;
+							pixel++;
 						}
-						s += ds;
-						pixel++;
+						t += dt;
 					}
-				} else {
+				}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);
+			} else {
+				ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
+					int t = t_start + (y1 - pos0.y) * dt;
+					for (int y = y1; y < y2; y++) {
+						int s = s_start;
+						u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
+						for (int x = pos0.x; x < pos1.x; x++) {
+							Vec4<int> prim_color = v1.color0;
+							Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
+							prim_color = ModulateRGBA(prim_color, tex_color);
+							if (prim_color.a() > 0) {
+								DrawSinglePixel5551(pixel, prim_color.ToRGBA());
+							}
+							s += ds;
+							pixel++;
+						}
+						t += dt;
+					}
+				}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);
+			}
+		} else {
+			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
+				int t = t_start + (y1 - pos0.y) * dt;
+				for (int y = y1; y < y2; y++) {
+					int s = s_start;
+					// Not really that fast but faster than triangle.
 					for (int x = pos0.x; x < pos1.x; x++) {
 						Vec4<int> prim_color = v1.color0;
 						Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
-						prim_color = ModulateRGBA(prim_color, tex_color);
-						if (prim_color.a() > 0) {
-							DrawSinglePixel5551(pixel, prim_color.ToRGBA());
-						}
+						prim_color = GetTextureFunctionOutput(prim_color, tex_color);
+						DrawingCoords pos(x, y, z);
+						DrawSinglePixelNonClear(pos, (u16)z, 1.0f, prim_color);
 						s += ds;
-						pixel++;
 					}
+					t += dt;
 				}
-				t += dt;
-			}
-		} else {
-			int t = t_start;
-			for (int y = pos0.y; y < pos1.y; y++) {
-				int s = s_start;
-				// Not really that fast but faster than triangle.
-				for (int x = pos0.x; x < pos1.x; x++) {
-					Vec4<int> prim_color = v1.color0;
-					Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
-					prim_color = GetTextureFunctionOutput(prim_color, tex_color);
-					DrawingCoords pos(x, y, z);
-					DrawSinglePixelNonClear(pos, (u16)z, 1.0f, prim_color);
-					s += ds;
-				}
-				t += dt;
-			}
+			}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);
 		}
 	} else {
 		if (pos1.x > scissorBR.x) pos1.x = scissorBR.x + 1;
@@ -201,22 +216,26 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 			if (v1.color0.a() == 0)
 				return;
 
-			for (int y = pos0.y; y < pos1.y; y++) {
-				u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
-				for (int x = pos0.x; x < pos1.x; x++) {
-					Vec4<int> prim_color = v1.color0;
-					DrawSinglePixel5551(pixel, prim_color.ToRGBA());
-					pixel++;
+			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
+				for (int y = y1; y < y2; y++) {
+					u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
+					for (int x = pos0.x; x < pos1.x; x++) {
+						Vec4<int> prim_color = v1.color0;
+						DrawSinglePixel5551(pixel, prim_color.ToRGBA());
+						pixel++;
+					}
 				}
-			}
+			}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);
 		} else {
-			for (int y = pos0.y; y < pos1.y; y++) {
-				for (int x = pos0.x; x < pos1.x; x++) {
-					Vec4<int> prim_color = v1.color0;
-					DrawingCoords pos(x, y, z);
-					DrawSinglePixelNonClear(pos, (u16)z, fog, prim_color);
+			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
+				for (int y = y1; y < y2; y++) {
+					for (int x = pos0.x; x < pos1.x; x++) {
+						Vec4<int> prim_color = v1.color0;
+						DrawingCoords pos(x, y, z);
+						DrawSinglePixelNonClear(pos, (u16)z, fog, prim_color);
+					}
 				}
-			}
+			}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);
 		}
 	}
 }
