@@ -1451,26 +1451,35 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 	minY = std::max(minY, (int)TransformUnit::DrawingToScreen(scissorTL).y);
 	maxY = std::max(0, std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y + 16));
 
+	constexpr int MIN_LINES_PER_THREAD = 8 * 16;
+
 	const int w = (maxX - minX) / 16;
 	if (w <= 0)
 		return;
 
 	if (gstate.isClearModeDepthMask()) {
-		ScreenCoords pprime(minX, minY, 0);
 		const u16 z = v1.screenpos.z;
 		const int stride = gstate.DepthBufStride();
 
-		for (pprime.y = minY; pprime.y < maxY; pprime.y += 16) {
-			DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
-
-			if ((z & 0xFF) == (z >> 8)) {
-				u16 *row = &depthbuf.as16[p.x + p.y * stride];
-				memset(row, z, w * 2);
-			} else {
-				for (int x = 0; x < w; ++x) {
-					SetPixelDepth(p.x + x, p.y, z);
+		if ((z & 0xFF) == (z >> 8)) {
+			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
+				ScreenCoords pprime(minX, y1, 0);
+				for (pprime.y = y1; pprime.y < y2; pprime.y += 16) {
+					DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+					u16 *row = &depthbuf.as16[p.x + p.y * stride];
+					memset(row, z, w * 2);
 				}
-			}
+			}, minY, maxY, MIN_LINES_PER_THREAD);
+		} else {
+			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
+				ScreenCoords pprime(minX, y1, 0);
+				for (pprime.y = y1; pprime.y < y2; pprime.y += 16) {
+					DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+					for (int x = 0; x < w; ++x) {
+						SetPixelDepth(p.x + x, p.y, z);
+					}
+				}
+			}, minY, maxY, MIN_LINES_PER_THREAD);
 		}
 	}
 
@@ -1512,56 +1521,66 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 	}
 
 	if (keepOldMask == 0) {
-		ScreenCoords pprime(minX, minY, 0);
 		const int stride = gstate.FrameBufStride();
 
 		if (gstate.FrameBufFormat() == GE_FORMAT_8888) {
-			for (pprime.y = minY; pprime.y < maxY; pprime.y += 16) {
-				DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
-				if ((new_color & 0xFF) == (new_color >> 8) && (new_color & 0xFFFF) == (new_color >> 16)) {
-					u32 *row = &fb.as32[p.x + p.y * stride];
-					memset(row, new_color, w * 4);
-				} else {
-					for (int x = 0; x < w; ++x) {
-						fb.Set32(p.x + x, p.y, stride, new_color);
+			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
+				ScreenCoords pprime(minX, y1, 0);
+				for (pprime.y = y1; pprime.y < y2; pprime.y += 16) {
+					DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+					if ((new_color & 0xFF) == (new_color >> 8) && (new_color & 0xFFFF) == (new_color >> 16)) {
+						u32 *row = &fb.as32[p.x + p.y * stride];
+						memset(row, new_color, w * 4);
+					} else {
+						for (int x = 0; x < w; ++x) {
+							fb.Set32(p.x + x, p.y, stride, new_color);
+						}
 					}
 				}
-			}
+			}, minY, maxY, MIN_LINES_PER_THREAD);
 		} else {
-			for (pprime.y = minY; pprime.y < maxY; pprime.y += 16) {
-				DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
-				if ((new_color16 & 0xFF) == (new_color16 >> 8)) {
-					u16 *row = &fb.as16[p.x + p.y * stride];
-					memset(row, new_color16, w * 2);
-				} else {
-					for (int x = 0; x < w; ++x) {
-						fb.Set16(p.x + x, p.y, stride, new_color16);
+			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
+				ScreenCoords pprime(minX, y1, 0);
+				for (pprime.y = y1; pprime.y < y2; pprime.y += 16) {
+					DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+					if ((new_color16 & 0xFF) == (new_color16 >> 8)) {
+						u16 *row = &fb.as16[p.x + p.y * stride];
+						memset(row, new_color16, w * 2);
+					} else {
+						for (int x = 0; x < w; ++x) {
+							fb.Set16(p.x + x, p.y, stride, new_color16);
+						}
 					}
 				}
-			}
+			}, minY, maxY, MIN_LINES_PER_THREAD);
 		}
 	} else if (keepOldMask != 0xFFFFFFFF) {
-		ScreenCoords pprime(minX, minY, 0);
 		const int stride = gstate.FrameBufStride();
 
 		if (gstate.FrameBufFormat() == GE_FORMAT_8888) {
-			for (pprime.y = minY; pprime.y < maxY; pprime.y += 16) {
-				DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
-				for (int x = 0; x < w; ++x) {
-					const u32 old_color = fb.Get32(p.x + x, p.y, stride);
-					const u32 c = (old_color & keepOldMask) | (new_color & ~keepOldMask);
-					fb.Set32(p.x + x, p.y, stride, c);
+			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
+				ScreenCoords pprime(minX, y1, 0);
+				for (pprime.y = y1; pprime.y < y2; pprime.y += 16) {
+					DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+					for (int x = 0; x < w; ++x) {
+						const u32 old_color = fb.Get32(p.x + x, p.y, stride);
+						const u32 c = (old_color & keepOldMask) | (new_color & ~keepOldMask);
+						fb.Set32(p.x + x, p.y, stride, c);
+					}
 				}
-			}
+			}, minY, maxY, MIN_LINES_PER_THREAD);
 		} else {
-			for (pprime.y = minY; pprime.y < maxY; pprime.y += 16) {
-				DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
-				for (int x = 0; x < w; ++x) {
-					const u16 old_color = fb.Get16(p.x + x, p.y, stride);
-					const u16 c = (old_color & keepOldMask) | (new_color16 & ~keepOldMask);
-					fb.Set16(p.x + x, p.y, stride, c);
+			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
+				ScreenCoords pprime(minX, y1, 0);
+				for (pprime.y = y1; pprime.y < y2; pprime.y += 16) {
+					DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+					for (int x = 0; x < w; ++x) {
+						const u16 old_color = fb.Get16(p.x + x, p.y, stride);
+						const u16 c = (old_color & keepOldMask) | (new_color16 & ~keepOldMask);
+						fb.Set16(p.x + x, p.y, stride, c);
+					}
 				}
-			}
+			}, minY, maxY, MIN_LINES_PER_THREAD);
 		}
 	}
 }
