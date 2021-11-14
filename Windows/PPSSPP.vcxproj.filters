@@ -614,6 +614,9 @@
     <None Include="..\atlasscript.txt">
       <Filter>Build</Filter>
     </None>
+    <None Include="..\atlasfontscript.txt">
+      <Filter>Build</Filter>
+    </None>
     <None Include="..\b.sh">
       <Filter>Build</Filter>
     </None>
@@ -621,6 +624,9 @@
       <Filter>Build</Filter>
     </None>
     <None Include="..\buildatlas.sh">
+      <Filter>Build</Filter>
+    </None>
+    <None Include="..\buildfontatlas.sh">
       <Filter>Build</Filter>
     </None>
     <None Include="..\build.gradle">

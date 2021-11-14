@@ -97,6 +97,9 @@
     <Image Include="Content\ui_atlas_luna.zim">
       <Filter>Content</Filter>
     </Image>
+    <Image Include="Content\font_atlas_luna.zim">
+      <Filter>Content</Filter>
+    </Image>
     <Image Include="AssetsGold\StoreLogo.scale-100.png">
       <Filter>Assets</Filter>
     </Image>
@@ -115,7 +118,7 @@
     <None Include="Content\langregion.ini">
       <Filter>Content</Filter>
     </None>
-    <None Include="Content\ppge_atlas.zim">
+    <None Include="Content\ppge_atlas_luna.zim">
       <Filter>Content</Filter>
     </None>
     <None Include="PPSSPP_UWP_TemporaryKey.pfx" />
@@ -353,10 +356,13 @@
     <None Include="Content\shaders\videoAA.fsh">
       <Filter>Content\shaders</Filter>
     </None>
-    <None Include="..\assets\ppge_atlas.meta">
+    <None Include="..\assets\ppge_atlas_luna.meta">
       <Filter>Content</Filter>
     </None>
-    <None Include="..\assets\ui_atlas.meta">
+    <None Include="..\assets\ui_atlas_luna.meta">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="..\assets\font_atlas_luna.meta">
       <Filter>Content</Filter>
     </None>
   </ItemGroup>

@@ -596,10 +596,17 @@
       <DeploymentContent>true</DeploymentContent>
       <FileType>Document</FileType>
     </Image>
-    <None Include="..\assets\ppge_atlas.meta">
+    <Image Include="Content\font_atlas_luna.zim">
+      <DeploymentContent>true</DeploymentContent>
+      <FileType>Document</FileType>
+    </Image>
+    <None Include="..\assets\ppge_atlas_luna.meta">
       <DeploymentContent>true</DeploymentContent>
     </None>
-    <None Include="..\assets\ui_atlas.meta">
+    <None Include="..\assets\ui_atlas_luna.meta">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="..\assets\font_atlas_luna.meta">
       <DeploymentContent>true</DeploymentContent>
     </None>
     <None Include="Content\compat.ini">
@@ -1437,7 +1444,7 @@
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</DeploymentContent>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</DeploymentContent>
     </None>
-    <None Include="Content\ppge_atlas.zim">
+    <None Include="Content\ppge_atlas_luna.zim">
       <DeploymentContent>true</DeploymentContent>
     </None>
     <None Include="Content\shaders\4xhqglsl.fsh">
