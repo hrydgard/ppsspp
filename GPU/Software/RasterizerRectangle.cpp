@@ -362,6 +362,45 @@ bool DetectRectangleFromThroughModeStrip(const VertexData data[4]) {
 	return false;
 }
 
+bool DetectRectangleFromThroughModeFan(const VertexData *data, int c, int *tlIndex, int *brIndex) {
+	// Color and Z must be flat.
+	for (int i = 1; i < c; ++i) {
+		if (!(data[i].color0 == data[0].color0))
+			return false;
+		if (!(data[i].screenpos.z == data[0].screenpos.z))
+			return false;
+	}
+
+	// Check for the common case: a single TL-TR-BR-BL.
+	if (c == 4) {
+		const auto &tl = data[0].screenpos, &tr = data[1].screenpos;
+		const auto &bl = data[3].screenpos, &br = data[2].screenpos;
+		if (tl.x == bl.x && tr.x == br.x && tl.y == tr.y && bl.y == br.y) {
+			// Looking like yes.  Set TL/BR based on y order first...
+			*tlIndex = tl.y > bl.y ? 2 : 0;
+			*brIndex = tl.y > bl.y ? 0 : 2;
+			// And if it's horizontally flipped, trade to the actual TL/BR.
+			if (tl.x > tr.x) {
+				*tlIndex ^= 1;
+				*brIndex ^= 1;
+			}
+
+			// Do we need to think about rotation?
+			if (!gstate.isTextureMapEnabled())
+				return true;
+
+			const auto &textl = data[*tlIndex].texturecoords, &textr = data[*tlIndex ^ 1].texturecoords;
+			const auto &texbl = data[*brIndex ^ 1].texturecoords, &texbr = data[*brIndex].texturecoords;
+
+			if (textl.x == texbl.x && textr.x == texbr.x && textl.y == textr.y && texbl.y == texbr.y) {
+				// Okay, the texture is also good, but let's avoid rotation issues.
+				return textl.y < texbr.y && textl.x < texbr.x;
+			}
+		}
+	}
+
+	return false;
+}
 
 }  // namespace Rasterizer
 

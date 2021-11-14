@@ -445,7 +445,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 
 			// If index count == 4, check if we can convert to a rectangle.
 			// This is for Darkstalkers (and should speed up many 2D games).
-			if (vertex_count == 4 && gstate.isModeThrough()) {
+			if (data_index == 0 && vertex_count == 4 && gstate.isModeThrough()) {
 				for (int vtx = 0; vtx < 4; ++vtx) {
 					if (indices) {
 						vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
@@ -516,6 +516,22 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				data[0] = ReadVertex(vreader, outside_range_flag);
 				data_index++;
 				start_vtx = 1;
+			}
+			if (data_index == 1 && vertex_count == 4 && gstate.isModeThrough()) {
+				for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
+					if (indices) {
+						vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
+					} else {
+						vreader.Goto(vtx);
+					}
+					data[vtx] = ReadVertex(vreader, outside_range_flag);
+				}
+
+				int tl = -1, br = -1;
+				if (Rasterizer::DetectRectangleFromThroughModeFan(data, vertex_count, &tl, &br)) {
+					Clipper::ProcessRect(data[tl], data[br]);
+					break;
+				}
 			}
 
 			outside_range_flag = false;
