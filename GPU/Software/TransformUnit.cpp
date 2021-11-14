@@ -425,6 +425,13 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 			}
 
+			if (data_index == 4 && gstate.isModeThrough()) {
+				if (Rasterizer::DetectRectangleSlices(data)) {
+					data[1] = data[3];
+					data_index = 2;
+				}
+			}
+
 			if (data_index == 4) {
 				Clipper::ProcessRect(data[0], data[1]);
 				Clipper::ProcessRect(data[2], data[3]);

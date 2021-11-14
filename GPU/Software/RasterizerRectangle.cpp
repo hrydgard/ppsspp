@@ -402,5 +402,41 @@ bool DetectRectangleFromThroughModeFan(const VertexData *data, int c, int *tlInd
 	return false;
 }
 
+bool DetectRectangleSlices(const VertexData data[4]) {
+	// Color and Z must be flat.
+	for (int i = 1; i < 4; ++i) {
+		if (!(data[i].color0 == data[0].color0))
+			return false;
+		if (!(data[i].screenpos.z == data[0].screenpos.z))
+			return false;
+	}
+
+	// Games very commonly use vertical strips of rectangles.  Detect and combine.
+	const auto &tl1 = data[0].screenpos, &br1 = data[1].screenpos;
+	const auto &tl2 = data[2].screenpos, &br2 = data[3].screenpos;
+	if (tl1.y == tl2.y && br1.y == br2.y && br1.y > tl1.y) {
+		if (br1.x == tl2.x && tl1.x < br1.x && tl2.x < br2.x) {
+			if (!gstate.isTextureMapEnabled() || gstate.isModeClear())
+				return true;
+
+			const auto &textl1 = data[0].texturecoords, &texbr1 = data[1].texturecoords;
+			const auto &textl2 = data[2].texturecoords, &texbr2 = data[3].texturecoords;
+			if (textl1.y != textl2.y || texbr1.y != texbr2.y || textl1.y > texbr1.y)
+				return false;
+			if (texbr1.x != textl2.x || textl1.x > texbr1.x || textl2.x > texbr2.x)
+				return false;
+
+			// We might be able to compare ratios, but let's expect 1:1.
+			int texdiff1 = (texbr1.x - textl1.x) * 16.0f;
+			int texdiff2 = (texbr2.x - textl2.x) * 16.0f;
+			int posdiff1 = br1.x - tl1.x;
+			int posdiff2 = br2.x - tl2.x;
+			return texdiff1 == posdiff1 && texdiff2 == posdiff2;
+		}
+	}
+
+	return false;
+}
+
 }  // namespace Rasterizer
 
