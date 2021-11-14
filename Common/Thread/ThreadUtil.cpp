@@ -21,6 +21,7 @@
 
 #include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #if (PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX)) && !defined(_GNU_SOURCE)
 #define _GNU_SOURCE
@@ -61,15 +62,73 @@ static EXCEPTION_DISPOSITION NTAPI ignore_handler(EXCEPTION_RECORD *rec,
 }
 #endif
 
-void SetCurrentThreadName(const char* threadName) {
-#if PPSSPP_PLATFORM(WINDOWS)
-	// Set the debugger-visible threadname through an unholy magic hack
-	static const DWORD MS_VC_EXCEPTION = 0x406D1388;
+
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+typedef HRESULT (WINAPI *TSetThreadDescription)(HANDLE, PCWSTR);
+
+static TSetThreadDescription g_pSetThreadDescription = nullptr;
+static bool g_failedToFindSetThreadDescription = false;
+
+static void InitializeSetThreadDescription() {
+	if (g_pSetThreadDescription != nullptr || g_failedToFindSetThreadDescription) {
+		return;
+	}
+
+	HMODULE hKernel32 = GetModuleHandle(L"kernelbase.dll");
+	if (hKernel32 == nullptr) {
+		// Failed to find the function. Windows version too old, most likely.
+		g_failedToFindSetThreadDescription = true;
+		return;
+	}
+	g_pSetThreadDescription = reinterpret_cast<TSetThreadDescription>(GetProcAddress(hKernel32, "SetThreadDescription"));
+	if (g_pSetThreadDescription == nullptr) {
+		g_failedToFindSetThreadDescription = true;
+		return;
+	}
+}
+
+void SetCurrentThreadNameThroughException(const char *threadName);
 #endif
 
-	// TODO: Use the new function SetThreadDescription available since Windows 10, version 1607.
+void SetCurrentThreadName(const char* threadName) {
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+	InitializeSetThreadDescription();
+	if (g_pSetThreadDescription) {
+		// Use the modern API
+		wchar_t buffer[256];
+		ConvertUTF8ToWString(buffer, ARRAY_SIZE(buffer), threadName);
+		g_pSetThreadDescription(GetCurrentThread(), buffer);
+	} else {
+		// Use the old exception hack.
+		SetCurrentThreadNameThroughException(threadName);
+	}
+#elif PPSSPP_PLATFORM(WINDOWS)
+	wchar_t buffer[256];
+	ConvertUTF8ToWString(buffer, ARRAY_SIZE(buffer), threadName);
+	SetThreadDescription(GetCurrentThread(), buffer);
+#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX)
+	pthread_setname_np(pthread_self(), threadName);
+#elif defined(__APPLE__)
+	pthread_setname_np(threadName);
+#elif defined(__DragonFly__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+	pthread_set_name_np(pthread_self(), threadName);
+#elif defined(__NetBSD__)
+	pthread_setname_np(pthread_self(), "%s", (void*)threadName);
+#endif
 
-#if PPSSPP_PLATFORM(WINDOWS) && defined(__MINGW32__)
+	// Set the locally known threadname using a thread local variable.
+#ifdef TLS_SUPPORTED
+	curThreadName = threadName;
+#endif
+}
+
+#if PPSSPP_PLATFORM(WINDOWS)
+
+void SetCurrentThreadNameThroughException(const char *threadName) {
+	// Set the debugger-visible threadname through an unholy magic hack
+	static const DWORD MS_VC_EXCEPTION = 0x406D1388;
+
+#if defined(__MINGW32__)
 	// Thread information for VS compatible debugger. -1 sets current thread.
 	THREADNAME_INFO ti;
 	ti.dwType = 0x1000;
@@ -90,7 +149,7 @@ void SetCurrentThreadName(const char* threadName) {
 
 	// Pop exception handler
 	tib->ExceptionList = tib->ExceptionList->Next;
-#elif PPSSPP_PLATFORM(WINDOWS)
+#else
 #pragma pack(push,8)
 	struct THREADNAME_INFO {
 		DWORD dwType; // must be 0x1000
@@ -119,25 +178,9 @@ void SetCurrentThreadName(const char* threadName) {
 	__except(EXCEPTION_CONTINUE_EXECUTION)
 #endif
 	{}
-#else
-
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX)
-	pthread_setname_np(pthread_self(), threadName);
-#elif defined(__APPLE__)
-	pthread_setname_np(threadName);
-#elif defined(__DragonFly__) || defined(__FreeBSD__) || defined(__OpenBSD__)
-	pthread_set_name_np(pthread_self(), threadName);
-#elif defined(__NetBSD__)
-	pthread_setname_np(pthread_self(), "%s", (void*)threadName);
-#endif
-
-	// Do nothing
-#endif
-	// Set the locally known threadname using a thread local variable.
-#ifdef TLS_SUPPORTED
-	curThreadName = threadName;
 #endif
 }
+#endif
 
 void AssertCurrentThreadName(const char *threadName) {
 #ifdef TLS_SUPPORTED

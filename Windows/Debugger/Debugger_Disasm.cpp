@@ -466,6 +466,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case IDC_SHOWVFPU:
+				MainWindow::CreateVFPUWindow();
 				vfpudlg->Show(true);
 				break;
 
@@ -899,7 +900,8 @@ void CDisasm::UpdateDialog(bool _bComplete)
 		_snwprintf(tempTicks, 24, L"%lld", CoreTiming::GetTicks() - lastTicks);
 		SetDlgItemText(m_hDlg, IDC_DEBUG_COUNT, tempTicks);
 	}
-	// Update Register Dialog
+
+	// Update memory window
 	if (memoryWindow)
 		memoryWindow->Update();
 

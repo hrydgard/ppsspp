@@ -20,6 +20,3 @@ private:
 	int mode;
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 };
-
-
-extern CVFPUDlg *vfpudlg;

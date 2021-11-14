@@ -569,36 +569,58 @@ namespace MainWindow
 		return TRUE;
 	}
 
-	void CreateDebugWindows() {
-		disasmWindow = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
-		DialogManager::AddDlg(disasmWindow);
-		disasmWindow->Show(g_Config.bShowDebuggerOnLoad, false);
+	void CreateDisasmWindow() {
+		if (!disasmWindow) {
+			disasmWindow = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
+			DialogManager::AddDlg(disasmWindow);
+		}
+	}
 
+	void CreateGeDebuggerWindow() {
 #if PPSSPP_API(ANY_GL)
-		geDebuggerWindow = new CGEDebugger(MainWindow::GetHInstance(), MainWindow::GetHWND());
-		DialogManager::AddDlg(geDebuggerWindow);
+		if (!geDebuggerWindow) {
+			geDebuggerWindow = new CGEDebugger(MainWindow::GetHInstance(), MainWindow::GetHWND());
+			DialogManager::AddDlg(geDebuggerWindow);
+		}
 #endif
-		memoryWindow = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
-		DialogManager::AddDlg(memoryWindow);
+	}
+
+	void CreateMemoryWindow() {
+		if (!memoryWindow) {
+			memoryWindow = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
+			DialogManager::AddDlg(memoryWindow);
+		}
+	}
+
+	void CreateVFPUWindow() {
+		if (!vfpudlg) {
+			vfpudlg = new CVFPUDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
+			DialogManager::AddDlg(vfpudlg);
+		}
 	}
 
 	void DestroyDebugWindows() {
 		DialogManager::RemoveDlg(disasmWindow);
 		if (disasmWindow)
 			delete disasmWindow;
-		disasmWindow = 0;
+		disasmWindow = nullptr;
 
 #if PPSSPP_API(ANY_GL)
 		DialogManager::RemoveDlg(geDebuggerWindow);
 		if (geDebuggerWindow)
 			delete geDebuggerWindow;
-		geDebuggerWindow = 0;
+		geDebuggerWindow = nullptr;
 #endif
 
 		DialogManager::RemoveDlg(memoryWindow);
 		if (memoryWindow)
 			delete memoryWindow;
-		memoryWindow = 0;
+		memoryWindow = nullptr;
+
+		DialogManager::RemoveDlg(vfpudlg);
+		if (vfpudlg)
+			delete vfpudlg;
+		vfpudlg = nullptr;
 	}
 
 	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
@@ -968,7 +990,6 @@ namespace MainWindow
 				disasmWindow->NotifyMapLoaded();
 			if (memoryWindow)
 				memoryWindow->NotifyMapLoaded();
-
 			if (disasmWindow)
 				disasmWindow->UpdateDialog();
 			break;

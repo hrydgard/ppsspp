@@ -912,18 +912,21 @@ namespace MainWindow {
 			break;
 
 		case ID_DEBUG_DISASSEMBLY:
+			CreateDisasmWindow();
 			if (disasmWindow)
 				disasmWindow->Show(true);
 			break;
 
 		case ID_DEBUG_GEDEBUGGER:
 #if PPSSPP_API(ANY_GL)
+			CreateGeDebuggerWindow();
 			if (geDebuggerWindow)
 				geDebuggerWindow->Show(true);
 #endif
 			break;
 
 		case ID_DEBUG_MEMORYVIEW:
+			CreateMemoryWindow();
 			if (memoryWindow)
 				memoryWindow->Show(true);
 			break;
