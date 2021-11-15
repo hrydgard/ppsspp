@@ -1451,8 +1451,8 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 	minY = std::max(minY, (int)TransformUnit::DrawingToScreen(scissorTL).y);
 	maxY = std::max(0, std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y + 16));
 
+	// We thread based on PSP fixed point screen coordinates, 16 here is for the 4 subpixel bits.
 	constexpr int MIN_LINES_PER_THREAD = 32 * 16;
-
 	const int w = (maxX - minX) / 16;
 	if (w <= 0)
 		return;
@@ -1461,12 +1461,13 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 		const u16 z = v1.screenpos.z;
 		const int stride = gstate.DepthBufStride();
 
+		// If both bytes of Z equal, we can just use memset directly which is faster.
 		if ((z & 0xFF) == (z >> 8)) {
 			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
 				ScreenCoords pprime(minX, y1, 0);
 				for (pprime.y = y1; pprime.y < y2; pprime.y += 16) {
 					DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
-					u16 *row = &depthbuf.as16[p.x + p.y * stride];
+					u16 *row = depthbuf.Get16Ptr(p.x, p.y, stride);
 					memset(row, z, w * 2);
 				}
 			}, minY, maxY, MIN_LINES_PER_THREAD);
@@ -1524,12 +1525,13 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 		const int stride = gstate.FrameBufStride();
 
 		if (gstate.FrameBufFormat() == GE_FORMAT_8888) {
+			const bool canMemsetColor = (new_color & 0xFF) == (new_color >> 8) && (new_color & 0xFFFF) == (new_color >> 16);
 			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
 				ScreenCoords pprime(minX, y1, 0);
 				for (pprime.y = y1; pprime.y < y2; pprime.y += 16) {
 					DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
-					if ((new_color & 0xFF) == (new_color >> 8) && (new_color & 0xFFFF) == (new_color >> 16)) {
-						u32 *row = &fb.as32[p.x + p.y * stride];
+					if (canMemsetColor) {
+						u32 *row = fb.Get32Ptr(p.x, p.y, stride);
 						memset(row, new_color, w * 4);
 					} else {
 						for (int x = 0; x < w; ++x) {
@@ -1539,12 +1541,13 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 				}
 			}, minY, maxY, MIN_LINES_PER_THREAD);
 		} else {
+			const bool canMemsetColor = (new_color16 & 0xFF) == (new_color16 >> 8);
 			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
 				ScreenCoords pprime(minX, y1, 0);
 				for (pprime.y = y1; pprime.y < y2; pprime.y += 16) {
 					DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
-					if ((new_color16 & 0xFF) == (new_color16 >> 8)) {
-						u16 *row = &fb.as16[p.x + p.y * stride];
+					if (canMemsetColor) {
+						u16 *row = fb.Get16Ptr(p.x, p.y, stride);
 						memset(row, new_color16, w * 2);
 					} else {
 						for (int x = 0; x < w; ++x) {
