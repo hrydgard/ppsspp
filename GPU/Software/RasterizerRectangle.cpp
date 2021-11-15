@@ -98,7 +98,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 
 	bool isWhite = v1.color0 == Vec4<int>(255, 255, 255, 255);
 
-	constexpr int MIN_LINES_PER_THREAD = 8;
+	constexpr int MIN_LINES_PER_THREAD = 32;
 
 	if (gstate.isTextureMapEnabled()) {
 		// 1:1 (but with mirror support) texture mapping!

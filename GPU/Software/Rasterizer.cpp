@@ -1451,7 +1451,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 	minY = std::max(minY, (int)TransformUnit::DrawingToScreen(scissorTL).y);
 	maxY = std::max(0, std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y + 16));
 
-	constexpr int MIN_LINES_PER_THREAD = 8 * 16;
+	constexpr int MIN_LINES_PER_THREAD = 32 * 16;
 
 	const int w = (maxX - minX) / 16;
 	if (w <= 0)
