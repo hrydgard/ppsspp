@@ -1087,22 +1087,29 @@ void EmuScreen::checkPowerDown() {
 	}
 }
 
-static void DrawDebugStats(DrawBuffer *draw2d, const Bounds &bounds) {
+static void DrawDebugStats(UIContext *ctx, const Bounds &bounds) {
 	FontID ubuntu24("UBUNTU24");
 
 	float left = std::max(bounds.w / 2 - 20.0f, 550.0f);
 	float right = bounds.w - left - 20.0f;
 
 	char statbuf[4096];
+
+	ctx->Flush();
+	ctx->BindFontTexture();
+	ctx->Draw()->SetFontScale(.7f, .7f);
+
 	__DisplayGetDebugStats(statbuf, sizeof(statbuf));
-	draw2d->SetFontScale(.7f, .7f);
-	draw2d->DrawTextRect(ubuntu24, statbuf, bounds.x + 11, bounds.y + 31, left, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
-	draw2d->DrawTextRect(ubuntu24, statbuf, bounds.x + 10, bounds.y + 30, left, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
+	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 11, bounds.y + 31, left, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
+	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 10, bounds.y + 30, left, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
 
 	__SasGetDebugStats(statbuf, sizeof(statbuf));
-	draw2d->DrawTextRect(ubuntu24, statbuf, bounds.x + left + 21, bounds.y + 31, right, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
-	draw2d->DrawTextRect(ubuntu24, statbuf, bounds.x + left + 20, bounds.y + 30, right, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
-	draw2d->SetFontScale(1.0f, 1.0f);
+	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + left + 21, bounds.y + 31, right, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
+	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + left + 20, bounds.y + 30, right, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
+
+	ctx->Draw()->SetFontScale(1.0f, 1.0f);
+	ctx->Flush();
+	ctx->RebindTexture();
 }
 
 static const char *CPUCoreAsString(int core) {
@@ -1211,17 +1218,22 @@ BREAK
 	ctx->RebindTexture();
 }
 
-static void DrawAudioDebugStats(DrawBuffer *draw2d, const Bounds &bounds) {
+static void DrawAudioDebugStats(UIContext *ctx, const Bounds &bounds) {
 	FontID ubuntu24("UBUNTU24");
 	char statbuf[4096] = { 0 };
 	__AudioGetDebugStats(statbuf, sizeof(statbuf));
-	draw2d->SetFontScale(0.7f, 0.7f);
-	draw2d->DrawTextRect(ubuntu24, statbuf, bounds.x + 11, bounds.y + 31, bounds.w - 20, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
-	draw2d->DrawTextRect(ubuntu24, statbuf, bounds.x + 10, bounds.y + 30, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
-	draw2d->SetFontScale(1.0f, 1.0f);
+
+	ctx->Flush();
+	ctx->BindFontTexture();
+	ctx->Draw()->SetFontScale(0.7f, 0.7f);
+	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 11, bounds.y + 31, bounds.w - 20, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
+	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 10, bounds.y + 30, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
+	ctx->Draw()->SetFontScale(1.0f, 1.0f);
+	ctx->Flush();
+	ctx->RebindTexture();
 }
 
-static void DrawFPS(DrawBuffer *draw2d, const Bounds &bounds) {
+static void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 	FontID ubuntu24("UBUNTU24");
 	float vps, fps, actual_fps;
 	__DisplayGetFPS(&vps, &fps, &actual_fps);
@@ -1237,10 +1249,14 @@ static void DrawFPS(DrawBuffer *draw2d, const Bounds &bounds) {
 		return;
 	}
 
-	draw2d->SetFontScale(0.7f, 0.7f);
-	draw2d->DrawText(ubuntu24, fpsbuf, bounds.x2() - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-	draw2d->DrawText(ubuntu24, fpsbuf, bounds.x2() - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-	draw2d->SetFontScale(1.0f, 1.0f);
+	ctx->Flush();
+	ctx->BindFontTexture();
+	ctx->Draw()->SetFontScale(0.7f, 0.7f);
+	ctx->Draw()->DrawText(ubuntu24, fpsbuf, bounds.x2() - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawText(ubuntu24, fpsbuf, bounds.x2() - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->SetFontScale(1.0f, 1.0f);
+	ctx->Flush();
+	ctx->RebindTexture();
 }
 
 static void DrawFrameTimes(UIContext *ctx, const Bounds &bounds) {
@@ -1266,10 +1282,13 @@ static void DrawFrameTimes(UIContext *ctx, const Bounds &bounds) {
 
 	ctx->Flush();
 	ctx->Begin();
+	ctx->BindFontTexture();
 	ctx->Draw()->SetFontScale(0.5f, 0.5f);
 	ctx->Draw()->DrawText(ubuntu24, "33.3ms", bounds.x + width, bottom - 0.0333 * scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
 	ctx->Draw()->DrawText(ubuntu24, "16.7ms", bounds.x + width, bottom - 0.0167 * scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
 	ctx->Draw()->SetFontScale(1.0f, 1.0f);
+	ctx->Flush();
+	ctx->RebindTexture();
 }
 
 void EmuScreen::preRender() {
@@ -1446,18 +1465,16 @@ void EmuScreen::renderUI() {
 		root_->Draw(*ctx);
 	}
 
-	DrawBuffer *draw2d = ctx->Draw();
-
 	if (g_Config.bShowDebugStats && !invalid_) {
-		DrawDebugStats(draw2d, ctx->GetLayoutBounds());
+		DrawDebugStats(ctx, ctx->GetLayoutBounds());
 	}
 
 	if (g_Config.bShowAudioDebug && !invalid_) {
-		DrawAudioDebugStats(draw2d, ctx->GetLayoutBounds());
+		DrawAudioDebugStats(ctx, ctx->GetLayoutBounds());
 	}
 
 	if (g_Config.iShowFPSCounter && !invalid_) {
-		DrawFPS(draw2d, ctx->GetLayoutBounds());
+		DrawFPS(ctx, ctx->GetLayoutBounds());
 	}
 
 	if (g_Config.bDrawFrameGraph && !invalid_) {
