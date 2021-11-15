@@ -1451,8 +1451,11 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 	minY = std::max(minY, (int)TransformUnit::DrawingToScreen(scissorTL).y);
 	maxY = std::max(0, std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y + 16));
 
-	// We thread based on PSP fixed point screen coordinates, 16 here is for the 4 subpixel bits.
-	constexpr int MIN_LINES_PER_THREAD = 32 * 16;
+	DrawingCoords pprime = TransformUnit::ScreenToDrawing(ScreenCoords(minX, minY, 0));
+	DrawingCoords pend = TransformUnit::ScreenToDrawing(ScreenCoords(maxX, maxY, 0));
+
+	constexpr int MIN_LINES_PER_THREAD = 32;
+	// Min and max are in PSP fixed point screen coordinates, 16 here is for the 4 subpixel bits.
 	const int w = (maxX - minX) / 16;
 	if (w <= 0)
 		return;
@@ -1464,23 +1467,21 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 		// If both bytes of Z equal, we can just use memset directly which is faster.
 		if ((z & 0xFF) == (z >> 8)) {
 			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-				ScreenCoords pprime(minX, y1, 0);
-				for (pprime.y = y1; pprime.y < y2; pprime.y += 16) {
-					DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+				DrawingCoords p = pprime;
+				for (p.y = y1; p.y < y2; ++p.y) {
 					u16 *row = depthbuf.Get16Ptr(p.x, p.y, stride);
 					memset(row, z, w * 2);
 				}
-			}, minY, maxY, MIN_LINES_PER_THREAD);
+			}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
 		} else {
 			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-				ScreenCoords pprime(minX, y1, 0);
-				for (pprime.y = y1; pprime.y < y2; pprime.y += 16) {
-					DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+				DrawingCoords p = pprime;
+				for (p.y = y1; p.y < y2; ++p.y) {
 					for (int x = 0; x < w; ++x) {
 						SetPixelDepth(p.x + x, p.y, z);
 					}
 				}
-			}, minY, maxY, MIN_LINES_PER_THREAD);
+			}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
 		}
 	}
 
@@ -1526,64 +1527,70 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 
 		if (gstate.FrameBufFormat() == GE_FORMAT_8888) {
 			const bool canMemsetColor = (new_color & 0xFF) == (new_color >> 8) && (new_color & 0xFFFF) == (new_color >> 16);
-			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-				ScreenCoords pprime(minX, y1, 0);
-				for (pprime.y = y1; pprime.y < y2; pprime.y += 16) {
-					DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
-					if (canMemsetColor) {
+			if (canMemsetColor) {
+				ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
+					DrawingCoords p = pprime;
+					for (p.y = y1; p.y < y2; ++p.y) {
 						u32 *row = fb.Get32Ptr(p.x, p.y, stride);
 						memset(row, new_color, w * 4);
-					} else {
+					}
+				}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
+			} else {
+				ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
+					DrawingCoords p = pprime;
+					for (p.y = y1; p.y < y2; ++p.y) {
 						for (int x = 0; x < w; ++x) {
 							fb.Set32(p.x + x, p.y, stride, new_color);
 						}
 					}
-				}
-			}, minY, maxY, MIN_LINES_PER_THREAD);
+				}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
+			}
 		} else {
 			const bool canMemsetColor = (new_color16 & 0xFF) == (new_color16 >> 8);
-			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-				ScreenCoords pprime(minX, y1, 0);
-				for (pprime.y = y1; pprime.y < y2; pprime.y += 16) {
-					DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
-					if (canMemsetColor) {
+			if (canMemsetColor) {
+				ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
+					DrawingCoords p = pprime;
+					for (p.y = y1; p.y < y2; ++p.y) {
 						u16 *row = fb.Get16Ptr(p.x, p.y, stride);
 						memset(row, new_color16, w * 2);
-					} else {
+					}
+				}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
+			} else {
+				ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
+					DrawingCoords p = pprime;
+					for (p.y = y1; p.y < y2; ++p.y) {
 						for (int x = 0; x < w; ++x) {
 							fb.Set16(p.x + x, p.y, stride, new_color16);
 						}
 					}
-				}
-			}, minY, maxY, MIN_LINES_PER_THREAD);
+				}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
+			}
 		}
 	} else if (keepOldMask != 0xFFFFFFFF) {
 		const int stride = gstate.FrameBufStride();
 
 		if (gstate.FrameBufFormat() == GE_FORMAT_8888) {
 			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-				ScreenCoords pprime(minX, y1, 0);
-				for (pprime.y = y1; pprime.y < y2; pprime.y += 16) {
-					DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+				DrawingCoords p = pprime;
+				for (p.y = y1; p.y < y2; ++p.y) {
 					for (int x = 0; x < w; ++x) {
 						const u32 old_color = fb.Get32(p.x + x, p.y, stride);
 						const u32 c = (old_color & keepOldMask) | (new_color & ~keepOldMask);
 						fb.Set32(p.x + x, p.y, stride, c);
 					}
 				}
-			}, minY, maxY, MIN_LINES_PER_THREAD);
+			}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
 		} else {
 			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-				ScreenCoords pprime(minX, y1, 0);
-				for (pprime.y = y1; pprime.y < y2; pprime.y += 16) {
-					DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+				DrawingCoords p = pprime;
+				for (p.y = y1; p.y < y2; ++p.y) {
 					for (int x = 0; x < w; ++x) {
 						const u16 old_color = fb.Get16(p.x + x, p.y, stride);
 						const u16 c = (old_color & keepOldMask) | (new_color16 & ~keepOldMask);
 						fb.Set16(p.x + x, p.y, stride, c);
 					}
 				}
-			}, minY, maxY, MIN_LINES_PER_THREAD);
+			}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
 		}
 	}
 }
