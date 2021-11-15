@@ -570,6 +570,9 @@ struct TriangleEdge {
 	inline Vec4<int> StepX(const Vec4<int> &w);
 	inline Vec4<int> StepY(const Vec4<int> &w);
 
+	inline void NarrowMinMaxX(const Vec4<int> &w, int64_t minX, int64_t &rowMinX, int64_t &rowMaxX);
+	inline Vec4<int> StepXTimes(const Vec4<int> &w, int c);
+
 	Vec4<int> stepX;
 	Vec4<int> stepY;
 };
@@ -604,6 +607,27 @@ inline Vec4<int> TriangleEdge::StepY(const Vec4<int> &w) {
 #else
 	return w + stepY;
 #endif
+}
+
+void TriangleEdge::NarrowMinMaxX(const Vec4<int> &w, int64_t minX, int64_t &rowMinX, int64_t &rowMaxX) {
+	int wmax = std::max(std::max(w.x, w.y), std::max(w.z, w.w));
+	if (wmax < 0) {
+		if (stepX.x > 0) {
+			int steps = -wmax / stepX.x;
+			rowMinX = std::max(rowMinX, minX + steps * 16 * 2);
+		} else if (stepX.x <= 0) {
+			rowMinX = rowMaxX + 1;
+		}
+	}
+
+	if (wmax >= 0 && stepX.x < 0) {
+		int steps = (-wmax / stepX.x) + 1;
+		rowMaxX = std::min(rowMaxX, minX + steps * 16 * 2);
+	}
+}
+
+inline Vec4<int> TriangleEdge::StepXTimes(const Vec4<int> &w, int c) {
+	return w + stepX * c;
 }
 
 static inline Vec4<int> MakeMask(const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<int> &bias0, const Vec4<int> &bias1, const Vec4<int> &bias2, const Vec4<int> &scissor) {
@@ -716,7 +740,19 @@ void DrawTriangleSlice(
 
 		DrawingCoords p = TransformUnit::ScreenToDrawing(ScreenCoords(minX, curY, 0));
 
-		for (int64_t curX = minX; curX <= maxX; curX += 32,
+		int64_t rowMinX = minX, rowMaxX = maxX;
+		e0.NarrowMinMaxX(w0, minX, rowMinX, rowMaxX);
+		e1.NarrowMinMaxX(w1, minX, rowMinX, rowMaxX);
+		e2.NarrowMinMaxX(w2, minX, rowMinX, rowMaxX);
+
+		int skipX = (rowMinX - minX) / 32;
+		w0 = e0.StepXTimes(w0, skipX);
+		w1 = e1.StepXTimes(w1, skipX);
+		w2 = e2.StepXTimes(w2, skipX);
+		scissor_mask = scissor_mask + scissor_step * skipX;
+		p.x = (p.x + 2 * skipX) & 0x3FF;
+
+		for (int64_t curX = rowMinX; curX <= rowMaxX; curX += 32,
 			w0 = e0.StepX(w0),
 			w1 = e1.StepX(w1),
 			w2 = e2.StepX(w2),
