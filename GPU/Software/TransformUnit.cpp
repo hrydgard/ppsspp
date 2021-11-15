@@ -35,11 +35,11 @@
 #define TRANSFORM_BUF_SIZE (65536 * 48)
 
 TransformUnit::TransformUnit() {
-	buf = (u8 *)AllocateMemoryPages(TRANSFORM_BUF_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	decoded_ = (u8 *)AllocateMemoryPages(TRANSFORM_BUF_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 }
 
 TransformUnit::~TransformUnit() {
-	FreeMemoryPages(buf, DECODED_VERTEX_BUFFER_SIZE);
+	FreeMemoryPages(decoded_, DECODED_VERTEX_BUFFER_SIZE);
 }
 
 SoftwareDrawEngine::SoftwareDrawEngine() {
@@ -156,8 +156,7 @@ ScreenCoords TransformUnit::DrawingToScreen(const DrawingCoords& coords)
 	return ret;
 }
 
-VertexData TransformUnit::ReadVertex(VertexReader& vreader)
-{
+VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_flag) {
 	VertexData vertex;
 
 	float pos[3];
@@ -320,9 +319,9 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 
 	if (indices)
 		GetIndexBounds(indices, vertex_count, vertex_type, &index_lower_bound, &index_upper_bound);
-	vdecoder.DecodeVerts(buf, vertices, index_lower_bound, index_upper_bound);
+	vdecoder.DecodeVerts(decoded_, vertices, index_lower_bound, index_upper_bound);
 
-	VertexReader vreader(buf, vtxfmt, vertex_type);
+	VertexReader vreader(decoded_, vtxfmt, vertex_type);
 
 	static VertexData data[4];  // Normally max verts per prim is 3, but we temporarily need 4 to detect rectangles from strips.
 	// This is the index of the next vert in data (or higher, may need modulus.)
@@ -348,11 +347,11 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 	// TODO: Do this in two passes - first process the vertices (before indexing/stripping),
 	// then resolve the indices. This lets us avoid transforming shared vertices twice.
 
+	bool outside_range_flag = false;
 	switch (prim_type) {
 	case GE_PRIM_POINTS:
 	case GE_PRIM_LINES:
 	case GE_PRIM_TRIANGLES:
-	case GE_PRIM_RECTANGLES:
 		{
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
 				if (indices) {
@@ -361,7 +360,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					vreader.Goto(vtx);
 				}
 
-				data[data_index++] = ReadVertex(vreader);
+				data[data_index++] = ReadVertex(vreader, outside_range_flag);
 				if (data_index < vtcs_per_prim) {
 					// Keep reading.  Note: an incomplete prim will stay read for GE_PRIM_KEEP_PREVIOUS.
 					continue;
@@ -389,10 +388,6 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					break;
 				}
 
-				case GE_PRIM_RECTANGLES:
-					Clipper::ProcessRect(data[0], data[1]);
-					break;
-
 				case GE_PRIM_LINES:
 					Clipper::ProcessLine(data[0], data[1]);
 					break;
@@ -408,6 +403,48 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 			break;
 		}
 
+	case GE_PRIM_RECTANGLES:
+		for (int vtx = 0; vtx < vertex_count; ++vtx) {
+			if (indices) {
+				vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
+			} else {
+				vreader.Goto(vtx);
+			}
+
+			data[data_index++] = ReadVertex(vreader, outside_range_flag);
+			if (outside_range_flag) {
+				outside_range_flag = false;
+				// Note: this is the post increment index.  If odd, we set the first vert.
+				if (data_index & 1) {
+					// Skip the next one and forget this one.
+					vtx++;
+					data_index--;
+				} else {
+					// Forget both of the last 2.
+					data_index -= 2;
+				}
+			}
+
+			if (data_index == 4 && gstate.isModeThrough()) {
+				if (Rasterizer::DetectRectangleSlices(data)) {
+					data[1] = data[3];
+					data_index = 2;
+				}
+			}
+
+			if (data_index == 4) {
+				Clipper::ProcessRect(data[0], data[1]);
+				Clipper::ProcessRect(data[2], data[3]);
+				data_index = 0;
+			}
+		}
+
+		if (data_index >= 2) {
+			Clipper::ProcessRect(data[0], data[1]);
+			data_index -= 2;
+		}
+		break;
+
 	case GE_PRIM_LINE_STRIP:
 		{
 			// Don't draw a line when loading the first vertex.
@@ -420,7 +457,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					vreader.Goto(vtx);
 				}
 
-				data[(data_index++) & 1] = ReadVertex(vreader);
+				data[(data_index++) & 1] = ReadVertex(vreader, outside_range_flag);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;
@@ -445,7 +482,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 
 			// If index count == 4, check if we can convert to a rectangle.
 			// This is for Darkstalkers (and should speed up many 2D games).
-			if (vertex_count == 4 && gstate.isModeThrough()) {
+			if (data_index == 0 && vertex_count == 4 && gstate.isModeThrough()) {
 				for (int vtx = 0; vtx < 4; ++vtx) {
 					if (indices) {
 						vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
@@ -453,16 +490,17 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					else {
 						vreader.Goto(vtx);
 					}
-					data[vtx] = ReadVertex(vreader);
+					data[vtx] = ReadVertex(vreader, outside_range_flag);
 				}
 
 				// If a strip is effectively a rectangle, draw it as such!
-				if (Rasterizer::DetectRectangleFromThroughModeStrip(data)) {
+				if (!outside_range_flag && Rasterizer::DetectRectangleFromThroughModeStrip(data)) {
 					Clipper::ProcessRect(data[0], data[3]);
 					break;
 				}
 			}
 
+			outside_range_flag = false;
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
 				if (indices) {
 					vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
@@ -471,7 +509,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				int provoking_index = (data_index++) % 3;
-				data[provoking_index] = ReadVertex(vreader);
+				data[provoking_index] = ReadVertex(vreader, outside_range_flag);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;
@@ -512,11 +550,33 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				} else {
 					vreader.Goto(0);
 				}
-				data[0] = ReadVertex(vreader);
+				data[0] = ReadVertex(vreader, outside_range_flag);
 				data_index++;
 				start_vtx = 1;
+
+				// If the central vertex is outside range, all the points are toast.
+				if (outside_range_flag)
+					break;
 			}
 
+			if (data_index == 1 && vertex_count == 4 && gstate.isModeThrough()) {
+				for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
+					if (indices) {
+						vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
+					} else {
+						vreader.Goto(vtx);
+					}
+					data[vtx] = ReadVertex(vreader, outside_range_flag);
+				}
+
+				int tl = -1, br = -1;
+				if (!outside_range_flag && Rasterizer::DetectRectangleFromThroughModeFan(data, vertex_count, &tl, &br)) {
+					Clipper::ProcessRect(data[tl], data[br]);
+					break;
+				}
+			}
+
+			outside_range_flag = false;
 			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
 				if (indices) {
 					vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
@@ -525,7 +585,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				int provoking_index = 2 - ((data_index++) % 2);
-				data[provoking_index] = ReadVertex(vreader);
+				data[provoking_index] = ReadVertex(vreader, outside_range_flag);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;

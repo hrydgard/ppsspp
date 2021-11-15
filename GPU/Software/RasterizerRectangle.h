@@ -17,4 +17,6 @@ namespace Rasterizer {
 	bool RectangleFastPath(const VertexData &v0, const VertexData &v1);
 
 	bool DetectRectangleFromThroughModeStrip(const VertexData data[4]);
+	bool DetectRectangleFromThroughModeFan(const VertexData *data, int c, int *tlIndex, int *brIndex);
+	bool DetectRectangleSlices(const VertexData data[4]);
 }

@@ -48,6 +48,10 @@ struct FormatBuffer {
 	inline u16 *Get16Ptr(int x, int y, int stride) {
 		return &as16[x + y * stride];
 	}
+
+	inline u32 *Get32Ptr(int x, int y, int stride) {
+		return &as32[x + y * stride];
+	}
 };
 
 class PresentationCommon;

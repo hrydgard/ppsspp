@@ -5,6 +5,7 @@
 
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
+#include "Common/Thread/ParallelLoop.h"
 
 #include "Core/Config.h"
 #include "Core/MemMap.h"
@@ -97,6 +98,8 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 
 	bool isWhite = v1.color0 == Vec4<int>(255, 255, 255, 255);
 
+	constexpr int MIN_LINES_PER_THREAD = 32;
+
 	if (gstate.isTextureMapEnabled()) {
 		// 1:1 (but with mirror support) texture mapping!
 		int s_start = v0.texturecoords.x;
@@ -137,48 +140,60 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 			gstate.getTextureFunction() == GE_TEXFUNC_MODULATE &&
 			gstate.getColorMask() == 0x000000 &&
 			gstate.FrameBufFormat() == GE_FORMAT_5551) {
-			int t = t_start;
-			for (int y = pos0.y; y < pos1.y; y++) {
-				int s = s_start;
-				u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
-				if (isWhite) {
-					for (int x = pos0.x; x < pos1.x; x++) {
-						u32 tex_color = nearestFunc(s, t, texptr, texbufw, 0);
-						if (tex_color & 0xFF000000) {
-							DrawSinglePixel5551(pixel, tex_color);
+			if (isWhite) {
+				ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
+					int t = t_start + (y1 - pos0.y) * dt;
+					for (int y = y1; y < y2; y++) {
+						int s = s_start;
+						u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
+						for (int x = pos0.x; x < pos1.x; x++) {
+							u32 tex_color = nearestFunc(s, t, texptr, texbufw, 0);
+							if (tex_color & 0xFF000000) {
+								DrawSinglePixel5551(pixel, tex_color);
+							}
+							s += ds;
+							pixel++;
 						}
-						s += ds;
-						pixel++;
+						t += dt;
 					}
-				} else {
+				}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);
+			} else {
+				ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
+					int t = t_start + (y1 - pos0.y) * dt;
+					for (int y = y1; y < y2; y++) {
+						int s = s_start;
+						u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
+						for (int x = pos0.x; x < pos1.x; x++) {
+							Vec4<int> prim_color = v1.color0;
+							Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
+							prim_color = ModulateRGBA(prim_color, tex_color);
+							if (prim_color.a() > 0) {
+								DrawSinglePixel5551(pixel, prim_color.ToRGBA());
+							}
+							s += ds;
+							pixel++;
+						}
+						t += dt;
+					}
+				}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);
+			}
+		} else {
+			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
+				int t = t_start + (y1 - pos0.y) * dt;
+				for (int y = y1; y < y2; y++) {
+					int s = s_start;
+					// Not really that fast but faster than triangle.
 					for (int x = pos0.x; x < pos1.x; x++) {
 						Vec4<int> prim_color = v1.color0;
 						Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
-						prim_color = ModulateRGBA(prim_color, tex_color);
-						if (prim_color.a() > 0) {
-							DrawSinglePixel5551(pixel, prim_color.ToRGBA());
-						}
+						prim_color = GetTextureFunctionOutput(prim_color, tex_color);
+						DrawingCoords pos(x, y, z);
+						DrawSinglePixelNonClear(pos, (u16)z, 1.0f, prim_color);
 						s += ds;
-						pixel++;
 					}
+					t += dt;
 				}
-				t += dt;
-			}
-		} else {
-			int t = t_start;
-			for (int y = pos0.y; y < pos1.y; y++) {
-				int s = s_start;
-				// Not really that fast but faster than triangle.
-				for (int x = pos0.x; x < pos1.x; x++) {
-					Vec4<int> prim_color = v1.color0;
-					Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
-					prim_color = GetTextureFunctionOutput(prim_color, tex_color);
-					DrawingCoords pos(x, y, z);
-					DrawSinglePixelNonClear(pos, (u16)z, 1.0f, prim_color);
-					s += ds;
-				}
-				t += dt;
-			}
+			}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);
 		}
 	} else {
 		if (pos1.x > scissorBR.x) pos1.x = scissorBR.x + 1;
@@ -201,22 +216,26 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 			if (v1.color0.a() == 0)
 				return;
 
-			for (int y = pos0.y; y < pos1.y; y++) {
-				u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
-				for (int x = pos0.x; x < pos1.x; x++) {
-					Vec4<int> prim_color = v1.color0;
-					DrawSinglePixel5551(pixel, prim_color.ToRGBA());
-					pixel++;
+			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
+				for (int y = y1; y < y2; y++) {
+					u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
+					for (int x = pos0.x; x < pos1.x; x++) {
+						Vec4<int> prim_color = v1.color0;
+						DrawSinglePixel5551(pixel, prim_color.ToRGBA());
+						pixel++;
+					}
 				}
-			}
+			}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);
 		} else {
-			for (int y = pos0.y; y < pos1.y; y++) {
-				for (int x = pos0.x; x < pos1.x; x++) {
-					Vec4<int> prim_color = v1.color0;
-					DrawingCoords pos(x, y, z);
-					DrawSinglePixelNonClear(pos, (u16)z, fog, prim_color);
+			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
+				for (int y = y1; y < y2; y++) {
+					for (int x = pos0.x; x < pos1.x; x++) {
+						Vec4<int> prim_color = v1.color0;
+						DrawingCoords pos(x, y, z);
+						DrawSinglePixelNonClear(pos, (u16)z, fog, prim_color);
+					}
 				}
-			}
+			}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);
 		}
 	}
 }
@@ -279,48 +298,145 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1) {
 }
 
 bool DetectRectangleFromThroughModeStrip(const VertexData data[4]) {
+	// We'll only do this when the color is flat.
+	if (!(data[0].color0 == data[1].color0))
+		return false;
+	if (!(data[1].color0 == data[2].color0))
+		return false;
+	if (!(data[2].color0 == data[3].color0))
+		return false;
+
+	// And the depth must also be flat.
+	if (!(data[0].screenpos.z == data[1].screenpos.z))
+		return false;
+	if (!(data[1].screenpos.z == data[2].screenpos.z))
+		return false;
+	if (!(data[2].screenpos.z == data[3].screenpos.z))
+		return false;
+
 	// OK, now let's look at data to detect rectangles. There are a few possibilities
 	// but we focus on Darkstalkers for now.
 	if (data[0].screenpos.x == data[1].screenpos.x &&
 		data[0].screenpos.y == data[2].screenpos.y &&
 		data[2].screenpos.x == data[3].screenpos.x &&
 		data[1].screenpos.y == data[3].screenpos.y &&
-		data[1].screenpos.y > data[0].screenpos.y &&  // Avoid rotation handling
-		data[2].screenpos.x > data[0].screenpos.x &&
-		data[0].texturecoords.x == data[1].texturecoords.x &&
-		data[0].texturecoords.y == data[2].texturecoords.y &&
-		data[2].texturecoords.x == data[3].texturecoords.x &&
-		data[1].texturecoords.y == data[3].texturecoords.y &&
-		data[1].texturecoords.y > data[0].texturecoords.y &&
-		data[2].texturecoords.x > data[0].texturecoords.x &&
-		data[0].color0 == data[1].color0 &&
-		data[1].color0 == data[2].color0 &&
-		data[2].color0 == data[3].color0) {
-		// It's a rectangle!
-		return true;
+		data[1].screenpos.y > data[0].screenpos.y &&
+		data[2].screenpos.x > data[0].screenpos.x) {
+		// Okay, this is in the shape of a triangle, but what about rotation/texture?
+		if (!gstate.isTextureMapEnabled())
+			return true;
+
+		if (data[0].texturecoords.x == data[1].texturecoords.x &&
+			data[0].texturecoords.y == data[2].texturecoords.y &&
+			data[2].texturecoords.x == data[3].texturecoords.x &&
+			data[1].texturecoords.y == data[3].texturecoords.y &&
+			data[1].texturecoords.y > data[0].texturecoords.y &&
+			data[2].texturecoords.x > data[0].texturecoords.x) {
+			// It's a rectangle!
+			return true;
+		}
+		return false;
 	}
 	// There's the other vertex order too...
 	if (data[0].screenpos.x == data[2].screenpos.x &&
 		data[0].screenpos.y == data[1].screenpos.y &&
 		data[1].screenpos.x == data[3].screenpos.x &&
 		data[2].screenpos.y == data[3].screenpos.y &&
-		data[2].screenpos.y > data[0].screenpos.y &&  // Avoid rotation handling
-		data[1].screenpos.x > data[0].screenpos.x &&
-		data[0].texturecoords.x == data[2].texturecoords.x &&
-		data[0].texturecoords.y == data[1].texturecoords.y &&
-		data[1].texturecoords.x == data[3].texturecoords.x &&
-		data[2].texturecoords.y == data[3].texturecoords.y &&
-		data[2].texturecoords.y > data[0].texturecoords.y &&
-		data[1].texturecoords.x > data[0].texturecoords.x &&
-		data[0].color0 == data[1].color0 &&
-		data[1].color0 == data[2].color0 &&
-		data[2].color0 == data[3].color0) {
-		// It's a rectangle!
-		return true;
+		data[2].screenpos.y > data[0].screenpos.y &&
+		data[1].screenpos.x > data[0].screenpos.x) {
+		// Okay, this is in the shape of a triangle, but what about rotation/texture?
+		if (!gstate.isTextureMapEnabled())
+			return true;
+
+		if (data[0].texturecoords.x == data[2].texturecoords.x &&
+			data[0].texturecoords.y == data[1].texturecoords.y &&
+			data[1].texturecoords.x == data[3].texturecoords.x &&
+			data[2].texturecoords.y == data[3].texturecoords.y &&
+			data[2].texturecoords.y > data[0].texturecoords.y &&
+			data[1].texturecoords.x > data[0].texturecoords.x) {
+			// It's a rectangle!
+			return true;
+		}
+		return false;
 	}
 	return false;
 }
 
+bool DetectRectangleFromThroughModeFan(const VertexData *data, int c, int *tlIndex, int *brIndex) {
+	// Color and Z must be flat.
+	for (int i = 1; i < c; ++i) {
+		if (!(data[i].color0 == data[0].color0))
+			return false;
+		if (!(data[i].screenpos.z == data[0].screenpos.z))
+			return false;
+	}
+
+	// Check for the common case: a single TL-TR-BR-BL.
+	if (c == 4) {
+		const auto &tl = data[0].screenpos, &tr = data[1].screenpos;
+		const auto &bl = data[3].screenpos, &br = data[2].screenpos;
+		if (tl.x == bl.x && tr.x == br.x && tl.y == tr.y && bl.y == br.y) {
+			// Looking like yes.  Set TL/BR based on y order first...
+			*tlIndex = tl.y > bl.y ? 2 : 0;
+			*brIndex = tl.y > bl.y ? 0 : 2;
+			// And if it's horizontally flipped, trade to the actual TL/BR.
+			if (tl.x > tr.x) {
+				*tlIndex ^= 1;
+				*brIndex ^= 1;
+			}
+
+			// Do we need to think about rotation?
+			if (!gstate.isTextureMapEnabled())
+				return true;
+
+			const auto &textl = data[*tlIndex].texturecoords, &textr = data[*tlIndex ^ 1].texturecoords;
+			const auto &texbl = data[*brIndex ^ 1].texturecoords, &texbr = data[*brIndex].texturecoords;
+
+			if (textl.x == texbl.x && textr.x == texbr.x && textl.y == textr.y && texbl.y == texbr.y) {
+				// Okay, the texture is also good, but let's avoid rotation issues.
+				return textl.y < texbr.y && textl.x < texbr.x;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool DetectRectangleSlices(const VertexData data[4]) {
+	// Color and Z must be flat.
+	for (int i = 1; i < 4; ++i) {
+		if (!(data[i].color0 == data[0].color0))
+			return false;
+		if (!(data[i].screenpos.z == data[0].screenpos.z))
+			return false;
+	}
+
+	// Games very commonly use vertical strips of rectangles.  Detect and combine.
+	const auto &tl1 = data[0].screenpos, &br1 = data[1].screenpos;
+	const auto &tl2 = data[2].screenpos, &br2 = data[3].screenpos;
+	if (tl1.y == tl2.y && br1.y == br2.y && br1.y > tl1.y) {
+		if (br1.x == tl2.x && tl1.x < br1.x && tl2.x < br2.x) {
+			if (!gstate.isTextureMapEnabled() || gstate.isModeClear())
+				return true;
+
+			const auto &textl1 = data[0].texturecoords, &texbr1 = data[1].texturecoords;
+			const auto &textl2 = data[2].texturecoords, &texbr2 = data[3].texturecoords;
+			if (textl1.y != textl2.y || texbr1.y != texbr2.y || textl1.y > texbr1.y)
+				return false;
+			if (texbr1.x != textl2.x || textl1.x > texbr1.x || textl2.x > texbr2.x)
+				return false;
+
+			// We might be able to compare ratios, but let's expect 1:1.
+			int texdiff1 = (texbr1.x - textl1.x) * 16.0f;
+			int texdiff2 = (texbr2.x - textl2.x) * 16.0f;
+			int posdiff1 = br1.x - tl1.x;
+			int posdiff2 = br2.x - tl2.x;
+			return texdiff1 == posdiff1 && texdiff2 == posdiff2;
+		}
+	}
+
+	return false;
+}
 
 }  // namespace Rasterizer
 
