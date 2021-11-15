@@ -82,10 +82,6 @@ private:
 	bool stencilUploadFailed_ = false;
 
 	LPDIRECT3DTEXTURE9 nullTex_ = nullptr;
-
-	TextureCacheDX9 *textureCacheDX9_;
-	ShaderManagerDX9 *shaderManagerDX9_;
-	DrawEngineDX9 *drawEngineD3D9_;
 	
 	struct OffscreenSurface {
 		LPDIRECT3DSURFACE9 surface;

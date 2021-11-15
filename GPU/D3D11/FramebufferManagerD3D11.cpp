@@ -159,17 +159,14 @@ FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 }
 
 void FramebufferManagerD3D11::SetTextureCache(TextureCacheD3D11 *tc) {
-	textureCacheD3D11_ = tc;
 	textureCache_ = tc;
 }
 
 void FramebufferManagerD3D11::SetShaderManager(ShaderManagerD3D11 *sm) {
-	shaderManagerD3D11_ = sm;
 	shaderManager_ = sm;
 }
 
 void FramebufferManagerD3D11::SetDrawEngine(DrawEngineD3D11 *td) {
-	drawEngineD3D11_ = td;
 	drawEngine_ = td;
 }
 

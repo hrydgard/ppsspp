@@ -179,7 +179,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 		return false;
 	}
 
-	shaderManagerDX9_->DirtyLastShader();
+	shaderManager_->DirtyLastShader();
 
 	dxstate.colorMask.set(false, false, false, true);
 	dxstate.stencilTest.enable();
@@ -221,8 +221,8 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 
 	draw_->BindTextures(0, 1, &tex);
 
-	shaderManagerDX9_->DirtyLastShader();
-	textureCacheDX9_->ForgetLastTexture();
+	shaderManager_->DirtyLastShader();
+	textureCache_->ForgetLastTexture();
 
 	for (int i = 1; i < values; i += i) {
 		if (!(usedBits & i)) {

@@ -89,8 +89,6 @@ private:
 	// Cached uniform locs
 	int u_draw2d_tex = -1;
 
-	TextureCacheGLES *textureCacheGL_ = nullptr;
-	ShaderManagerGLES *shaderManagerGL_ = nullptr;
 	DrawEngineGLES *drawEngineGL_ = nullptr;
 
 	struct Simple2DVertex {

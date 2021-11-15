@@ -153,7 +153,7 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, StencilUpl
 		ASSERT_SUCCESS(device_->CreateBuffer(&desc, nullptr, &stencilValueBuffer_));
 	}
 
-	shaderManagerD3D11_->DirtyLastShader();
+	shaderManager_->DirtyLastShader();
 
 	u16 w = dstBuffer->renderWidth;
 	u16 h = dstBuffer->renderHeight;
@@ -185,8 +185,8 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, StencilUpl
 	memcpy(map.pData, coord, sizeof(float) * 4 * 5);
 	context_->Unmap(quadBuffer_, 0);
 
-	shaderManagerD3D11_->DirtyLastShader();
-	textureCacheD3D11_->ForgetLastTexture();
+	shaderManager_->DirtyLastShader();
+	textureCache_->ForgetLastTexture();
 
 	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0], nullptr, 0xFFFFFFFF);
 	context_->IASetInputLayout(stencilUploadInputLayout_);

@@ -147,21 +147,23 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, StencilUp
 
 	std::string error;
 	if (!stencilVs_) {
+		VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+
 		const char *stencil_fs_source = stencil_fs;
 		// See comment above the stencil_fs_adreno definition.
-		u32 vendorID = vulkan_->GetPhysicalDeviceProperties().properties.vendorID;
+		u32 vendorID = vulkan->GetPhysicalDeviceProperties().properties.vendorID;
 		if (g_Config.bVendorBugChecksEnabled && (draw_->GetBugs().Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL) || vendorID == VULKAN_VENDOR_ARM))
 			stencil_fs_source = stencil_fs_adreno;
 
-		stencilVs_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_VERTEX_BIT, stencil_vs, &error);
-		stencilFs_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_FRAGMENT_BIT, stencil_fs_source, &error);
+		stencilVs_ = CompileShaderModule(vulkan, VK_SHADER_STAGE_VERTEX_BIT, stencil_vs, &error);
+		stencilFs_ = CompileShaderModule(vulkan, VK_SHADER_STAGE_FRAGMENT_BIT, stencil_fs_source, &error);
 	}
 	VkRenderPass rp = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::FRAMEBUFFER_RENDERPASS);
 
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
-	shaderManagerVulkan_->DirtyLastShader();
-	textureCacheVulkan_->ForgetLastTexture();
+	shaderManager_->DirtyLastShader();
+	textureCache_->ForgetLastTexture();
 
 	u16 w = dstBuffer->renderWidth;
 	u16 h = dstBuffer->renderHeight;

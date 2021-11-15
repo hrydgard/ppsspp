@@ -113,12 +113,10 @@ void FramebufferManagerGLES::Init() {
 }
 
 void FramebufferManagerGLES::SetTextureCache(TextureCacheGLES *tc) {
-	textureCacheGL_ = tc;
 	textureCache_ = tc;
 }
 
 void FramebufferManagerGLES::SetShaderManager(ShaderManagerGLES *sm) {
-	shaderManagerGL_ = sm;
 	shaderManager_ = sm;
 }
 
@@ -325,7 +323,7 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 		float srcH = src->bufferHeight;
 		render_->BindProgram(draw2dprogram_);
 		DrawActiveTexture(dstX1, dstY1, w * dstXFactor, h * dstYFactor, dst->bufferWidth, dst->bufferHeight, srcX1 / srcW, srcY1 / srcH, srcX2 / srcW, srcY2 / srcH, ROTATION_LOCKED_HORIZONTAL, DRAWTEX_NEAREST);
-		textureCacheGL_->ForgetLastTexture();
+		textureCache_->ForgetLastTexture();
 	}
 
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE);
