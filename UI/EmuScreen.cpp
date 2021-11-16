@@ -568,6 +568,10 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		if (coreState == CORE_STEPPING) {
 			Core_EnableStepping(false);
 		}
+		//Turn Sound back off before FASTFORWARDING
+		if(g_Config.bEnableSound & g_Config.bFastForwardSound ){
+			g_Config.bFastForwardSoundOff = false;
+		}
 		PSP_CoreParameter().fastForward = true;
 		break;
 
@@ -711,6 +715,9 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 
 	switch (virtualKeyCode) {
 	case VIRTKEY_FASTFORWARD:
+		if(g_Config.bEnableSound & g_Config.bFastForwardSound ) {
+			g_Config.bFastForwardSoundOff =true;
+		}
 		PSP_CoreParameter().fastForward = false;
 		break;
 

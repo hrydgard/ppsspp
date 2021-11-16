@@ -635,7 +635,8 @@ void GameSettingsScreen::CreateViews() {
 
 	audioSettings->Add(new ItemHeader(ms->T("Audio")));
 	audioSettings->Add(new CheckBox(&g_Config.bEnableSound, a->T("Enable Sound")));
-
+	CheckBox *FastForwardSound = audioSettings->Add(new CheckBox(&g_Config.bFastForwardSound, a->T("Turn Off Sound When Fast Forwarding")));
+	FastForwardSound->SetEnabledPtr(&g_Config.bEnableSound);
 	PopupSliderChoice *volume = audioSettings->Add(new PopupSliderChoice(&g_Config.iGlobalVolume, VOLUME_OFF, VOLUME_FULL, a->T("Global volume"), screenManager()));
 	volume->SetEnabledPtr(&g_Config.bEnableSound);
 	volume->SetZeroLabel(a->T("Mute"));

@@ -424,7 +424,8 @@ void __AudioUpdate(bool resetRecording) {
 		memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 	}
 
-	if (g_Config.bEnableSound) {
+	//turns sound on and off in setting
+	if (g_Config.bEnableSound & g_Config.bFastForwardSoundOff ) {
 		resampler.PushSamples(mixBuffer, hwBlockSize);
 #ifndef MOBILE_DEVICE
 		if (g_Config.bSaveLoadResetsAVdumping && resetRecording) {

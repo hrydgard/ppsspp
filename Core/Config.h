@@ -236,6 +236,8 @@ public:
 
 	// Sound
 	bool bEnableSound;
+	bool bFastForwardSound;
+	bool bFastForwardSoundOff;
 	int iAudioBackend;
 	int iGlobalVolume;
 	int iReverbVolume;
