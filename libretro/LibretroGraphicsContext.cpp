@@ -73,10 +73,6 @@ void LibretroHWRenderContext::ContextDestroy() {
 #endif
 	}
 
-	LostBackbuffer();
-
-	gpu->DeviceLost();
-
 	if (!hw_render_.cache_context && !Libretro::useEmuThread) {
 		Shutdown();
 	}
