@@ -17,7 +17,7 @@ ResultObject *ResultProducer() {
 }
 
 bool TestMailbox() {
-	Mailbox<ResultObject> *mailbox = new Mailbox<ResultObject>();
+	Mailbox<ResultObject *> *mailbox = new Mailbox<ResultObject *>();
 	mailbox->Send(new ResultObject{ true });
 	ResultObject *data;
 	data = mailbox->Wait();
@@ -60,7 +60,7 @@ bool TestThreadManager() {
 	ThreadManager manager;
 	manager.Init(8, 1);
 
-	Promise<ResultObject> *object(Promise<ResultObject>::Spawn(&manager, &ResultProducer, TaskType::IO_BLOCKING));
+	Promise<ResultObject *> *object(Promise<ResultObject *>::Spawn(&manager, &ResultProducer, TaskType::IO_BLOCKING));
 
 	if (!TestParallelLoop(&manager)) {
 		return false;
