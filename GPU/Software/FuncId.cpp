@@ -65,6 +65,13 @@ void ComputePixelFuncID(PixelFuncID *id) {
 		}
 
 		id->alphaBlend = gstate.isAlphaBlendEnabled();
+		// Force it off if the factors are constant and don't blend.  Some games use this...
+		if (id->alphaBlend && gstate.getBlendEq() == GE_BLENDMODE_MUL_AND_ADD) {
+			bool srcFixedOne = gstate.getBlendFuncA() == GE_SRCBLEND_FIXA && gstate.getFixA() == 0x00FFFFFF;
+			bool dstFixedZero = gstate.getBlendFuncB() == GE_DSTBLEND_FIXB && gstate.getFixB() == 0x00000000;
+			if (srcFixedOne && dstFixedZero)
+				id->alphaBlend = false;
+		}
 		if (id->alphaBlend) {
 			id->alphaBlendEq = gstate.getBlendEq();
 			id->alphaBlendSrc = gstate.getBlendFuncA();
