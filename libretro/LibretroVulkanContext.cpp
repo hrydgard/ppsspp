@@ -128,9 +128,6 @@ void LibretroVulkanContext::ContextReset() {
 
 void LibretroVulkanContext::ContextDestroy() {
    INFO_LOG(G3D, "LibretroVulkanContext::ContextDestroy()");
-
-   LostBackbuffer();
-   gpu->DeviceLost();
 }
 
 void LibretroVulkanContext::CreateDrawContext() {
