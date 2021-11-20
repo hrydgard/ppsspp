@@ -592,6 +592,12 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 #endif
 
+#if (PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)) || PPSSPP_PLATFORM(MAC)
+	if (g_Config.currentDirectory.empty()) {
+		g_Config.currentDirectory = Path("/");
+	}
+#endif
+
 	if (cache_dir && strlen(cache_dir)) {
 		g_Config.appCacheDirectory = Path(cache_dir);
 		DiskCachingFileLoaderCache::SetCacheDir(g_Config.appCacheDirectory);
