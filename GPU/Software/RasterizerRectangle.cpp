@@ -130,19 +130,20 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 			pos0.y = scissorTL.y;
 		}
 
-		if (!gstate.isStencilTestEnabled() &&
-			!gstate.isDepthTestEnabled() &&
-			!gstate.isLogicOpEnabled() &&
-			!gstate.isColorTestEnabled() &&
-			!gstate.isDitherEnabled() &&
-			gstate.isAlphaTestEnabled() &&
-			gstate.getAlphaTestRef() == 0 &&
-			gstate.getAlphaTestMask() == 0xFF &&
-			gstate.isAlphaBlendEnabled() &&
+		if (!pixelID.stencilTest &&
+			pixelID.depthTestFunc == GE_COMP_ALWAYS &&
+			!pixelID.applyLogicOp &&
+			!pixelID.colorTest &&
+			!pixelID.dithering &&
+			// TODO: Safe?
+			pixelID.alphaTestFunc != GE_COMP_ALWAYS &&
+			pixelID.alphaTestRef == 0 &&
+			!pixelID.hasAlphaTestMask &&
+			pixelID.alphaBlend &&
 			gstate.isTextureAlphaUsed() &&
 			gstate.getTextureFunction() == GE_TEXFUNC_MODULATE &&
-			gstate.getColorMask() == 0x000000 &&
-			gstate.FrameBufFormat() == GE_FORMAT_5551) {
+			!pixelID.applyColorWriteMask &&
+			pixelID.fbFormat == GE_FORMAT_5551) {
 			if (isWhite) {
 				ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
 					int t = t_start + (y1 - pos0.y) * dt;
@@ -203,19 +204,20 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 		if (pos1.y > scissorBR.y) pos1.y = scissorBR.y + 1;
 		if (pos0.x < scissorTL.x) pos0.x = scissorTL.x;
 		if (pos0.y < scissorTL.y) pos0.y = scissorTL.y;
-		if (!gstate.isStencilTestEnabled() &&
-			!gstate.isDepthTestEnabled() &&
-			!gstate.isLogicOpEnabled() &&
-			!gstate.isColorTestEnabled() &&
-			!gstate.isDitherEnabled() &&
-			gstate.isAlphaTestEnabled() &&
-			gstate.getAlphaTestRef() == 0 &&
-			gstate.getAlphaTestMask() == 0xFF &&
-			gstate.isAlphaBlendEnabled() &&
+		if (!pixelID.stencilTest &&
+			pixelID.depthTestFunc == GE_COMP_ALWAYS &&
+			!pixelID.applyLogicOp &&
+			!pixelID.colorTest &&
+			!pixelID.dithering &&
+			// TODO: Safe?
+			pixelID.alphaTestFunc != GE_COMP_ALWAYS &&
+			pixelID.alphaTestRef == 0 &&
+			!pixelID.hasAlphaTestMask &&
+			pixelID.alphaBlend &&
 			gstate.isTextureAlphaUsed() &&
 			gstate.getTextureFunction() == GE_TEXFUNC_MODULATE &&
-			gstate.getColorMask() == 0x000000 &&
-			gstate.FrameBufFormat() == GE_FORMAT_5551) {
+			!pixelID.applyColorWriteMask &&
+			pixelID.fbFormat == GE_FORMAT_5551) {
 			if (v1.color0.a() == 0)
 				return;
 
