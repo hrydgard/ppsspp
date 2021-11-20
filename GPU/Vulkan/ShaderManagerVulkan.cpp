@@ -42,7 +42,7 @@
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
 
-VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code) {
+Promise<VkShaderModule> *CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code) {
 	PROFILE_THIS_SCOPE("shadercomp");
 
 	std::string errorMessage;
@@ -67,11 +67,10 @@ VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits 
 #endif
 		Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
 	} else {
+		VkShaderModule shaderModule;
+		success = vulkan->CreateShaderModule(spirv, &shaderModule);
 #ifdef SHADERLOG
-		OutputDebugStringA(LineNumberString(code).c_str());
-#endif
-#ifdef SHADERLOG
-		OutputDebugStringA("OK\n");
+		OutputDebugStringA("OK");
 #endif
 	}
 
@@ -79,7 +78,7 @@ VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits 
 		vulkan->CreateShaderModule(spirv, &shaderModule);
 	}
 
-	return shaderModule;
+	return Promise<VkShaderModule>::AlreadyDone(shaderModule);
 }
 
 
@@ -96,8 +95,9 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, 
 }
 
 VulkanFragmentShader::~VulkanFragmentShader() {
-	if (module_ != VK_NULL_HANDLE) {
-		vulkan_->Delete().QueueDeleteShaderModule(module_);
+	if (module_) {
+		VkShaderModule shaderModule = module_->BlockUntilReady();
+		vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
 	}
 }
 
@@ -120,13 +120,14 @@ VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, cons
 		failed_ = true;
 		return;
 	} else {
-		VERBOSE_LOG(G3D, "Compiled vertex shader:\n%s\n", (const char *)code);
+		VERBOSE_LOG(G3D, "Compiled fragment shader:\n%s\n", (const char *)code);
 	}
 }
 
 VulkanVertexShader::~VulkanVertexShader() {
-	if (module_ != VK_NULL_HANDLE) {
-		vulkan_->Delete().QueueDeleteShaderModule(module_);
+	if (module_) {
+		VkShaderModule shaderModule = module_->BlockUntilReady();
+		vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
 	}
 }
 
@@ -334,7 +335,9 @@ std::string ShaderManagerVulkan::DebugGetShaderString(std::string id, DebugShade
 VulkanVertexShader *ShaderManagerVulkan::GetVertexShaderFromModule(VkShaderModule module) {
 	VulkanVertexShader *vs = nullptr;
 	vsCache_.Iterate([&](const VShaderID &id, VulkanVertexShader *shader) {
-		if (shader->GetModule() == module)
+		Promise<VkShaderModule> *p = shader->GetModule();
+		VkShaderModule m = p->BlockUntilReady();
+		if (m == module)
 			vs = shader;
 	});
 	return vs;
@@ -343,7 +346,9 @@ VulkanVertexShader *ShaderManagerVulkan::GetVertexShaderFromModule(VkShaderModul
 VulkanFragmentShader *ShaderManagerVulkan::GetFragmentShaderFromModule(VkShaderModule module) {
 	VulkanFragmentShader *fs = nullptr;
 	fsCache_.Iterate([&](const FShaderID &id, VulkanFragmentShader *shader) {
-		if (shader->GetModule() == module)
+		Promise<VkShaderModule> *p = shader->GetModule();
+		VkShaderModule m = p->BlockUntilReady();
+		if (m == module)
 			fs = shader;
 	});
 	return fs;

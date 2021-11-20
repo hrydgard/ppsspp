@@ -260,13 +260,13 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	ss[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	ss[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
 	ss[0].pSpecializationInfo = nullptr;
-	ss[0].module = vs->GetModule();
+	ss[0].module = vs->GetModule()->BlockUntilReady();
 	ss[0].pName = "main";
 	ss[0].flags = 0;
 	ss[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	ss[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 	ss[1].pSpecializationInfo = nullptr;
-	ss[1].module = fs->GetModule();
+	ss[1].module = fs->GetModule()->BlockUntilReady();
 	ss[1].pName = "main";
 	ss[1].flags = 0;
 
@@ -369,8 +369,8 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *
 	key.raster = rasterKey;
 	key.renderPass = renderPass;
 	key.useHWTransform = useHwTransform;
-	key.vShader = vs->GetModule();
-	key.fShader = fs->GetModule();
+	key.vShader = vs->GetModule()->BlockUntilReady();
+	key.fShader = fs->GetModule()->BlockUntilReady();
 	key.vtxFmtId = useHwTransform ? decFmt->id : 0;
 
 	auto iter = pipelines_.Get(key);

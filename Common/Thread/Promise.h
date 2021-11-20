@@ -33,6 +33,7 @@ public:
 // Has ownership over the data. Single use.
 // TODO: Split Mailbox (rx_ and tx_) up into separate proxy objects.
 // NOTE: Poll/BlockUntilReady should only be used from one thread.
+// TODO: Make movable?
 template<class T>
 class Promise {
 public:
@@ -44,6 +45,13 @@ public:
 
 		PromiseTask<T> *task = new PromiseTask<T>(fun, mailbox, taskType);
 		threadman->EnqueueTask(task);
+		return promise;
+	}
+
+	static Promise<T> *AlreadyDone(T data) {
+		Promise<T> *promise = new Promise<T>();
+		promise->data_ = data;
+		promise->ready_ = true;
 		return promise;
 	}
 
@@ -85,7 +93,8 @@ public:
 private:
 	Promise() {}
 
+	// Promise can only be constructed in Spawn.
 	T data_ = nullptr;
 	bool ready_ = false;
-	Mailbox<T> *rx_;
+	Mailbox<T> *rx_ = nullptr;
 };

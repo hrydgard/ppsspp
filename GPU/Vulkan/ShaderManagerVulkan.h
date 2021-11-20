@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <cstdint>
 
+#include "Common/Thread/Promise.h"
 #include "Common/Data/Collections/Hashmaps.h"
 #include "Common/GPU/Vulkan/VulkanMemory.h"
 #include "GPU/Common/ShaderCommon.h"
@@ -43,11 +44,11 @@ public:
 	bool Failed() const { return failed_; }
 
 	std::string GetShaderString(DebugShaderStringType type) const;
-	VkShaderModule GetModule() const { return module_; }
+	Promise<VkShaderModule> *GetModule() { return module_; }
 	const FShaderID &GetID() { return id_; }
 
 protected:	
-	VkShaderModule module_ = VK_NULL_HANDLE;
+	Promise<VkShaderModule> *module_;
 
 	VulkanContext *vulkan_;
 	std::string source_;
@@ -66,11 +67,11 @@ public:
 	bool UseHWTransform() const { return useHWTransform_; }
 
 	std::string GetShaderString(DebugShaderStringType type) const;
-	VkShaderModule GetModule() const { return module_; }
+	Promise<VkShaderModule> *GetModule() { return module_; }
 	const VShaderID &GetID() { return id_; }
 
 protected:
-	VkShaderModule module_ = VK_NULL_HANDLE;
+	Promise<VkShaderModule> *module_ = nullptr;
 
 	VulkanContext *vulkan_;
 	std::string source_;

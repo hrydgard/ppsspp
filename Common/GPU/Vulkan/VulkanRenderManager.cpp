@@ -449,6 +449,10 @@ void VulkanRenderManager::CompileThreadFunc() {
 		if (!run_) {
 			break;
 		}
+
+		// TODO: Here we can sort the pending pipelines by vertex and fragment shaders,
+		// and split up further.
+		// Those with the same pairs of shaders should be on the same thread.
 		for (auto &entry : toCompile) {
 			switch (entry.type) {
 			case CompileQueueEntry::Type::GRAPHICS:
