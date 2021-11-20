@@ -545,11 +545,17 @@ inline float clamp1(float x) {
 bool EmuScreen::touch(const TouchInput &touch) {
 	Core_NotifyActivity();
 
-	if (chatMenu_ && (touch.flags & TOUCH_DOWN) != 0 && !chatMenu_->Contains(touch.x, touch.y)) {
-		chatMenu_->Close();
-		if (chatButton_)
-			chatButton_->SetVisibility(UI::V_VISIBLE);
-		UI::EnableFocusMovement(false);
+	if (chatMenu_ && chatMenu_->GetVisibility() == UI::V_VISIBLE) {
+		// Avoid pressing touch button behind the chat
+		if (chatMenu_->Contains(touch.x, touch.y)) {
+			chatMenu_->Touch(touch);
+			return true;
+		} else if ((touch.flags & TOUCH_DOWN) != 0) {
+			chatMenu_->Close();
+			if (chatButton_)
+				chatButton_->SetVisibility(UI::V_VISIBLE);
+			UI::EnableFocusMovement(false);
+		}
 	}
 
 	if (root_) {
