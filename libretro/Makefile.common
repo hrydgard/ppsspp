@@ -348,6 +348,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/GPUState.cpp \
 	$(GPUDIR)/Math3D.cpp \
 	$(GPUDIR)/Software/Clipper.cpp \
+	$(GPUDIR)/Software/FuncId.cpp \
 	$(GPUDIR)/Software/Lighting.cpp \
 	$(GPUDIR)/Software/Rasterizer.cpp \
 	$(GPUDIR)/Software/RasterizerRectangle.cpp \

@@ -32,42 +32,7 @@
 #include "Common/FakeEmitter.h"
 #endif
 #include "GPU/Math3D.h"
-
-struct SamplerID {
-	SamplerID() : fullKey(0) {
-	}
-
-	union {
-		u32 fullKey;
-		struct {
-			uint8_t texfmt : 4;
-			uint8_t clutfmt : 2;
-			uint8_t : 2;
-			bool swizzle : 1;
-			bool useSharedClut : 1;
-			bool hasClutMask : 1;
-			bool hasClutShift : 1;
-			bool hasClutOffset : 1;
-			bool hasInvalidPtr : 1;
-			bool linear : 1;
-		};
-	};
-
-	bool operator == (const SamplerID &other) const {
-		return fullKey == other.fullKey;
-	}
-};
-
-namespace std {
-
-template <>
-struct hash<SamplerID> {
-	std::size_t operator()(const SamplerID &k) const {
-		return hash<u32>()(k.fullKey);
-	}
-};
-
-};
+#include "GPU/Software/FuncId.h"
 
 namespace Sampler {
 

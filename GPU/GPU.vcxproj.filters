@@ -264,6 +264,9 @@
     <ClInclude Include="Common\ReinterpretFramebuffer.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Software\FuncId.h">
+      <Filter>Software</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -529,6 +532,9 @@
     </ClCompile>
     <ClCompile Include="Common\ReinterpretFramebuffer.cpp">
       <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Software\FuncId.cpp">
+      <Filter>Software</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
