@@ -29,14 +29,14 @@ extern bool currentDialogActive;
 namespace Rasterizer {
 
 // Through mode, with the specific Darkstalker settings.
-inline void DrawSinglePixel5551(u16 *pixel, const u32 color_in) {
+inline void DrawSinglePixel5551(u16 *pixel, const u32 color_in, const PixelFuncID &pixelID) {
 	u32 new_color;
 	if ((color_in >> 24) == 255) {
 		new_color = color_in & 0xFFFFFF;
 	} else {
 		const u32 old_color = RGBA5551ToRGBA8888(*pixel);
 		const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
-		Vec3<int> blended = AlphaBlendingResult(Vec4<int>::FromRGBA(color_in), dst);
+		Vec3<int> blended = AlphaBlendingResult(pixelID, Vec4<int>::FromRGBA(color_in), dst);
 		// ToRGB() always automatically clamps.
 		new_color = blended.ToRGB();
 	}
@@ -98,6 +98,9 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 
 	bool isWhite = v1.color0 == Vec4<int>(255, 255, 255, 255);
 
+	PixelFuncID pixelID;
+	ComputePixelFuncID(&pixelID);
+
 	constexpr int MIN_LINES_PER_THREAD = 32;
 
 	if (gstate.isTextureMapEnabled()) {
@@ -149,7 +152,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 						for (int x = pos0.x; x < pos1.x; x++) {
 							u32 tex_color = nearestFunc(s, t, texptr, texbufw, 0);
 							if (tex_color & 0xFF000000) {
-								DrawSinglePixel5551(pixel, tex_color);
+								DrawSinglePixel5551(pixel, tex_color, pixelID);
 							}
 							s += ds;
 							pixel++;
@@ -168,7 +171,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 							Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
 							prim_color = ModulateRGBA(prim_color, tex_color);
 							if (prim_color.a() > 0) {
-								DrawSinglePixel5551(pixel, prim_color.ToRGBA());
+								DrawSinglePixel5551(pixel, prim_color.ToRGBA(), pixelID);
 							}
 							s += ds;
 							pixel++;
@@ -188,7 +191,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 						Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
 						prim_color = GetTextureFunctionOutput(prim_color, tex_color);
 						DrawingCoords pos(x, y, z);
-						DrawSinglePixelNonClear(pos, (u16)z, 1.0f, prim_color);
+						DrawSinglePixelNonClear(pos, (u16)z, 1.0f, prim_color, pixelID);
 						s += ds;
 					}
 					t += dt;
@@ -221,7 +224,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 					u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
 					for (int x = pos0.x; x < pos1.x; x++) {
 						Vec4<int> prim_color = v1.color0;
-						DrawSinglePixel5551(pixel, prim_color.ToRGBA());
+						DrawSinglePixel5551(pixel, prim_color.ToRGBA(), pixelID);
 						pixel++;
 					}
 				}
@@ -232,7 +235,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 					for (int x = pos0.x; x < pos1.x; x++) {
 						Vec4<int> prim_color = v1.color0;
 						DrawingCoords pos(x, y, z);
-						DrawSinglePixelNonClear(pos, (u16)z, fog, prim_color);
+						DrawSinglePixelNonClear(pos, (u16)z, fog, prim_color, pixelID);
 					}
 				}
 			}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);

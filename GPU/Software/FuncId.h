@@ -45,19 +45,19 @@ struct PixelFuncID {
 			};
 			bool applyDepthRange : 1;
 			// If alpha testing is disabled, set to GE_COMP_ALWAYS.
-			GEComparison alphaTestFunc : 3;
+			uint8_t alphaTestFunc : 3;
 			// If depth testing is disabled, set to GE_COMP_ALWAYS.
-			GEComparison depthTestFunc : 3;
-			GEComparison stencilTestFunc : 3;
-			GEBufferFormat fbFormat : 2;
+			uint8_t depthTestFunc : 3;
+			uint8_t stencilTestFunc : 3;
+			uint8_t fbFormat : 2;
 			// 16 bits before alphaTestRef.
 			uint8_t alphaTestRef : 8;
 			uint8_t stencilTestRef : 8;
 			// 32 bits before alphaBlend.
 			bool alphaBlend : 1;
-			GEBlendMode alphaBlendEq : 3;
-			GEBlendSrcFactor alphaBlendSrc : 4;
-			GEBlendDstFactor alphaBlendDst : 4;
+			uint8_t alphaBlendEq : 3;
+			uint8_t alphaBlendSrc : 4;
+			uint8_t alphaBlendDst : 4;
 			// Meaning: alphaTestMask != 0xFF
 			bool hasAlphaTestMask : 1;
 			// Meaning: stencilTestMask != 0xFF
@@ -70,9 +70,9 @@ struct PixelFuncID {
 			bool useStandardStride : 1;
 			// Meaning: maskRGB != 0 || maskA != 0
 			bool applyColorWriteMask : 1;
-			GEStencilOp sFail : 3;
-			GEStencilOp zFail : 3;
-			GEStencilOp zPass : 3;
+			uint8_t sFail : 3;
+			uint8_t zFail : 3;
+			uint8_t zPass : 3;
 			// 60 bits, 4 free.
 		};
 	};
