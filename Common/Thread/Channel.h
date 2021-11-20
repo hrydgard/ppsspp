@@ -9,6 +9,7 @@
 // well as a simple blocking mailbox. Let's see if we get there.
 
 // Single item mailbox.
+// T is copyable. Often T will itself just be a pointer or smart pointer of some sort.
 template<class T>
 struct Mailbox {
 	Mailbox() : refcount_(1) {}
@@ -18,9 +19,9 @@ struct Mailbox {
 
 	std::mutex mutex_;
 	std::condition_variable condvar_;
-	T *data_ = nullptr;
+	T data_ = nullptr;
 
-	T *Wait() {
+	T Wait() {
 		std::unique_lock<std::mutex> lock(mutex_);
 		while (!data_) {
 			condvar_.wait(lock);
@@ -28,7 +29,7 @@ struct Mailbox {
 		return data_;
 	}
 
-	bool Poll(T **data) {
+	bool Poll(T *data) {
 		std::unique_lock<std::mutex> lock(mutex_);
 		if (data_) {
 			*data = data_;
@@ -38,7 +39,7 @@ struct Mailbox {
 		}
 	}
 
-	bool Send(T *data) {
+	bool Send(T data) {
 		std::unique_lock<std::mutex> lock(mutex_);
 		if (!data_) {
 			data_ = data;

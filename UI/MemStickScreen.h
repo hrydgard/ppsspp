@@ -130,7 +130,7 @@ private:
 	ProgressReporter progressReporter_;
 	UI::TextView *progressView_ = nullptr;
 
-	Promise<MoveResult> *moveDataTask_ = nullptr;
+	Promise<MoveResult *> *moveDataTask_ = nullptr;
 
 	std::string error_;
 };

@@ -9,7 +9,7 @@
 template<class T>
 class PromiseTask : public Task {
 public:
-	PromiseTask(std::function<T *()> fun, Mailbox<T> *tx) : fun_(fun), tx_(tx) {
+	PromiseTask(std::function<T ()> fun, Mailbox<T> *tx) : fun_(fun), tx_(tx) {
 		tx_->AddRef();
 	}
 	~PromiseTask() {
@@ -17,11 +17,11 @@ public:
 	}
 
 	void Run() override {
-		T *value = fun_();
+		T value = fun_();
 		tx_->Send(value);
 	}
 
-	std::function<T *()> fun_;
+	std::function<T ()> fun_;
 	Mailbox<T> *tx_;
 };
 
@@ -32,7 +32,7 @@ public:
 template<class T>
 class Promise {
 public:
-	static Promise<T> *Spawn(ThreadManager *threadman, std::function<T *()> fun, TaskType taskType) {
+	static Promise<T> *Spawn(ThreadManager *threadman, std::function<T()> fun, TaskType taskType) {
 		Mailbox<T> *mailbox = new Mailbox<T>();
 
 		Promise<T> *promise = new Promise<T>();
@@ -50,8 +50,8 @@ public:
 		delete data_;
 	}
 
-	// Returns *T if the data is ready, nullptr if it's not.
-	T *Poll() {
+	// Returns T if the data is ready, nullptr if it's not.
+	T Poll() {
 		if (ready_) {
 			return data_;
 		} else {
@@ -66,7 +66,7 @@ public:
 		}
 	}
 
-	T *BlockUntilReady() {
+	T BlockUntilReady() {
 		if (ready_) {
 			return data_;
 		} else {
@@ -81,7 +81,7 @@ public:
 private:
 	Promise() {}
 
-	T *data_ = nullptr;
+	T data_ = nullptr;
 	bool ready_ = false;
 	Mailbox<T> *rx_;
 };

@@ -645,7 +645,7 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 	if (moveData_) {
 		progressReporter_.Set(iz->T("Starting move..."));
 
-		moveDataTask_ = Promise<MoveResult>::Spawn(&g_threadManager, [&]() -> MoveResult * {
+		moveDataTask_ = Promise<MoveResult *>::Spawn(&g_threadManager, [&]() -> MoveResult * {
 			Path moveSrc = g_Config.memStickDirectory;
 			Path moveDest = newMemstickFolder_;
 			if (moveSrc.GetFilename() != "PSP") {
