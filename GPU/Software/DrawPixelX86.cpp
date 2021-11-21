@@ -29,7 +29,43 @@ using namespace Gen;
 
 namespace Rasterizer {
 
+#if PPSSPP_PLATFORM(WINDOWS)
+static const X64Reg argXReg = RCX;
+static const X64Reg argYReg = RDX;
+static const X64Reg argZReg = R8;
+static const X64Reg argFogReg = R9;
+static const X64Reg argColorReg = XMM4;
+
+// Must save: RBX, RSP, RBP, RDI, RSI, R12-R15, XMM6-15
+#else
+static const X64Reg argXReg = RDI;
+static const X64Reg argYReg = RSI;
+static const X64Reg argZReg = RDX;
+static const X64Reg argFogReg = RCX;
+static const X64Reg argColorReg = XMM0;
+
+// Must save: RBX, RSP, RBP, R12-R15
+#endif
+
 SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
+	// Setup the reg cache.
+	regCache_.Reset();
+	regCache_.Release(RAX, PixelRegCache::T_GEN);
+	regCache_.Release(R10, PixelRegCache::T_GEN);
+	regCache_.Release(R11, PixelRegCache::T_GEN);
+	regCache_.Release(XMM1, PixelRegCache::T_VEC);
+	regCache_.Release(XMM2, PixelRegCache::T_VEC);
+	regCache_.Release(XMM3, PixelRegCache::T_VEC);
+	regCache_.Release(XMM5, PixelRegCache::T_VEC);
+
+#if !PPSSPP_PLATFORM(WINDOWS)
+	regCache_.Release(R8, PixelRegCache::T_GEN);
+	regCache_.Release(R9, PixelRegCache::T_GEN);
+	regCache_.Release(XMM4, PixelRegCache::T_VEC);
+#else
+	regCache_.Release(XMM0, PixelRegCache::T_VEC);
+#endif
+
 	return nullptr;
 }
 

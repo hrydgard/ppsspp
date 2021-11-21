@@ -479,6 +479,10 @@ SingleFunc GetSingleFunc(const PixelFuncID &id) {
 		return jitted;
 	}
 
+	return jitCache->GenericSingle(id);
+}
+
+SingleFunc PixelJitCache::GenericSingle(const PixelFuncID &id) {
 	if (id.clearMode) {
 		switch (id.fbFormat) {
 		case GE_FORMAT_565:
@@ -567,5 +571,83 @@ SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id) {
 	return nullptr;
 #endif
 }
+
+void PixelRegCache::Reset() {
+	regs.clear();
+}
+
+void PixelRegCache::Release(PixelRegCache::Reg r, PixelRegCache::Type t) {
+	for (auto &reg : regs) {
+		if (reg.reg == r && reg.type == t) {
+			reg.purpose = INVALID;
+			reg.locked = false;
+			return;
+		}
+	}
+
+	RegStatus newStatus;
+	newStatus.reg = r;
+	newStatus.purpose = INVALID;
+	newStatus.type = t;
+	regs.push_back(newStatus);
+}
+
+void PixelRegCache::Unlock(PixelRegCache::Reg r, PixelRegCache::Type t) {
+	for (auto &reg : regs) {
+		if (reg.reg == r && reg.type == t) {
+			reg.locked = false;
+			return;
+		}
+	}
+
+	_assert_msg_(false, "softjit Unlock() reg that isn't there");
+}
+
+bool PixelRegCache::Has(PixelRegCache::Purpose p, PixelRegCache::Type t) {
+	for (auto &reg : regs) {
+		if (reg.purpose == p && reg.type == t) {
+			return true;
+		}
+	}
+	return false;
+}
+
+PixelRegCache::Reg PixelRegCache::Find(PixelRegCache::Purpose p, PixelRegCache::Type t) {
+	for (auto &reg : regs) {
+		if (reg.purpose == p && reg.type == t) {
+			reg.locked = true;
+			return reg.reg;
+		}
+	}
+	_assert_msg_(false, "softjit Find() reg that isn't there (%d)", p);
+	return Reg(-1);
+}
+
+PixelRegCache::Reg PixelRegCache::Alloc(PixelRegCache::Purpose p, PixelRegCache::Type t) {
+	_assert_msg_(!Has(p, t), "softjit Alloc() reg duplicate");
+	RegStatus *best = nullptr;
+	for (auto &reg : regs) {
+		if (reg.locked || reg.type != t)
+			continue;
+
+		if (best == nullptr)
+			best = &reg;
+		// Prefer a free/purposeless reg.
+		if (reg.purpose == INVALID || reg.purpose >= TEMP0) {
+			best = &reg;
+			break;
+		}
+	}
+
+	if (best) {
+		best->locked = true;
+		best->purpose = p;
+		return best->reg;
+	}
+
+	_assert_msg_(false, "softjit Alloc() reg with none free (%d)", p);
+	return Reg();
+}
+
 
 };

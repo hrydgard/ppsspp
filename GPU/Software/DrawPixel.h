@@ -20,6 +20,7 @@
 #include "ppsspp_config.h"
 
 #include <string>
+#include <vector>
 #include <unordered_map>
 #if PPSSPP_ARCH(ARM)
 #include "Common/ArmEmitter.h"
@@ -59,6 +60,50 @@ void Shutdown();
 
 bool DescribeCodePtr(const u8 *ptr, std::string &name);
 
+struct PixelRegCache {
+	enum Purpose {
+		INVALID,
+		GSTATE,
+		CONST_BASE,
+		ALPHA,
+
+		// Above this can only be temps.
+		TEMP0,
+		TEMP1,
+		TEMP2,
+		TEMP3,
+		TEMP4,
+		TEMP5,
+	};
+	enum Type {
+		T_GEN,
+		T_VEC,
+	};
+
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+	typedef Gen::X64Reg Reg;
+#else
+	typedef int Reg;
+#endif
+
+	struct RegStatus {
+		Reg reg;
+		Purpose purpose;
+		Type type;
+		bool locked = false;
+	};
+
+	void Reset();
+	void Release(Reg r, Type t);
+	void Unlock(Reg r, Type t);
+	bool Has(Purpose p, Type t);
+	Reg Find(Purpose p, Type t);
+	Reg Alloc(Purpose p, Type t);
+
+private:
+	std::vector<RegStatus> regs;
+};
+
 #if PPSSPP_ARCH(ARM)
 class PixelJitCache : public ArmGen::ARMXCodeBlock {
 #elif PPSSPP_ARCH(ARM64)
@@ -75,6 +120,7 @@ public:
 
 	// Returns a pointer to the code to run.
 	SingleFunc GetSingle(const PixelFuncID &id);
+	SingleFunc GenericSingle(const PixelFuncID &id);
 	void Clear();
 
 	std::string DescribeCodePtr(const u8 *ptr);
@@ -86,8 +132,12 @@ private:
 	Arm64Gen::ARM64FloatEmitter fp;
 #endif
 
+	PixelRegCache::Reg GetGState();
+	PixelRegCache::Reg GetConstBase();
+
 	std::unordered_map<PixelFuncID, SingleFunc> cache_;
 	std::unordered_map<PixelFuncID, const u8 *> addresses_;
+	PixelRegCache regCache_;
 };
 
 };
