@@ -4,6 +4,8 @@
 
 class VulkanDeviceAllocator;
 
+VK_DEFINE_HANDLE(VmaAllocation);
+
 // Wrapper around what you need to use a texture.
 // ALWAYS use an allocator when calling CreateDirect.
 class VulkanTexture {
@@ -18,7 +20,7 @@ public:
 	// Fast uploads from buffer. Mipmaps supported.
 	// Usage must at least include VK_IMAGE_USAGE_TRANSFER_DST_BIT in order to use UploadMip.
 	// When using UploadMip, initialLayout should be VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.
-	bool CreateDirect(VkCommandBuffer cmd, VulkanDeviceAllocator *allocator, int w, int h, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, const VkComponentMapping *mapping = nullptr);
+	bool CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, const VkComponentMapping *mapping = nullptr);
 	void ClearMip(VkCommandBuffer cmd, int mip, uint32_t value);
 	void UploadMip(VkCommandBuffer cmd, int mip, int mipWidth, int mipHeight, VkBuffer buffer, uint32_t offset, size_t rowLength);  // rowLength is in pixels
 
@@ -37,7 +39,7 @@ public:
 	const std::string &Tag() const {
 		return tag_;
 	}
-	void Touch();
+	void Touch() {}
 
 	// Used in image copies, etc.
 	VkImage GetImage() const { return image_; }
@@ -56,12 +58,12 @@ private:
 	VulkanContext *vulkan_;
 	VkImage image_ = VK_NULL_HANDLE;
 	VkImageView view_ = VK_NULL_HANDLE;
-	VkDeviceMemory mem_ = VK_NULL_HANDLE;
+	VmaAllocation allocation_;
+
 	int32_t width_ = 0;
 	int32_t height_ = 0;
 	int32_t numMips_ = 1;
 	VkFormat format_ = VK_FORMAT_UNDEFINED;
-	VulkanDeviceAllocator *allocator_ = nullptr;  // If set, memory is from this allocator.
 	size_t offset_ = 0;
 	std::string tag_;
 };

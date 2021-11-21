@@ -409,6 +409,9 @@
     <ClInclude Include="..\ext\vma\vk_mem_alloc.h">
       <Filter>ext\vma</Filter>
     </ClInclude>
+    <ClInclude Include="GPU\Vulkan\VulkanAlloc.h">
+      <Filter>GPU\Vulkan</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />

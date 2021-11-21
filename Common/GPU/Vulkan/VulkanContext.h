@@ -8,6 +8,7 @@
 #include "Common/Log.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/GPU/Vulkan/VulkanDebug.h"
+#include "Common/GPU/Vulkan/VulkanAlloc.h"
 
 enum {
 	VULKAN_FLAG_VALIDATE = 1,
@@ -27,6 +28,7 @@ enum {
 };
 
 VK_DEFINE_HANDLE(VmaAllocator);
+VK_DEFINE_HANDLE(VmaAllocation);
 
 std::string VulkanVendorString(uint32_t vendorId);
 
@@ -62,6 +64,11 @@ struct VulkanPhysicalDeviceInfo {
 
 // This is a bit repetitive...
 class VulkanDeleteList {
+	struct ImageWithAlloc {
+		VkImage image;
+		VmaAllocation alloc;
+	};
+
 	struct Callback {
 		explicit Callback(void(*f)(void *userdata), void *u)
 			: func(f), userdata(u) {
@@ -79,6 +86,7 @@ public:
 	void QueueDeleteBuffer(VkBuffer &buffer) { _dbg_assert_(buffer != VK_NULL_HANDLE); buffers_.push_back(buffer); buffer = VK_NULL_HANDLE; }
 	void QueueDeleteBufferView(VkBufferView &bufferView) { _dbg_assert_(bufferView != VK_NULL_HANDLE); bufferViews_.push_back(bufferView); bufferView = VK_NULL_HANDLE; }
 	void QueueDeleteImage(VkImage &image) { _dbg_assert_(image != VK_NULL_HANDLE); images_.push_back(image); image = VK_NULL_HANDLE; }
+	void QueueDeleteImageAllocation(VkImage &image, VmaAllocation &alloc) { _dbg_assert_(image != VK_NULL_HANDLE && alloc != VK_NULL_HANDLE); imagesWithAllocs_.push_back(ImageWithAlloc{ image, alloc }); image = VK_NULL_HANDLE; alloc = VK_NULL_HANDLE;  }
 	void QueueDeleteImageView(VkImageView &imageView) { _dbg_assert_(imageView != VK_NULL_HANDLE); imageViews_.push_back(imageView); imageView = VK_NULL_HANDLE; }
 	void QueueDeleteDeviceMemory(VkDeviceMemory &deviceMemory) { _dbg_assert_(deviceMemory != VK_NULL_HANDLE); deviceMemory_.push_back(deviceMemory); deviceMemory = VK_NULL_HANDLE; }
 	void QueueDeleteSampler(VkSampler &sampler) { _dbg_assert_(sampler != VK_NULL_HANDLE); samplers_.push_back(sampler); sampler = VK_NULL_HANDLE; }
@@ -91,7 +99,7 @@ public:
 	void QueueCallback(void(*func)(void *userdata), void *userdata) { callbacks_.push_back(Callback(func, userdata)); }
 
 	void Take(VulkanDeleteList &del);
-	void PerformDeletes(VkDevice device);
+	void PerformDeletes(VkDevice device, VmaAllocator allocator);
 
 private:
 	std::vector<VkCommandPool> cmdPools_;
@@ -100,6 +108,7 @@ private:
 	std::vector<VkBuffer> buffers_;
 	std::vector<VkBufferView> bufferViews_;
 	std::vector<VkImage> images_;
+	std::vector<ImageWithAlloc> imagesWithAllocs_;
 	std::vector<VkImageView> imageViews_;
 	std::vector<VkDeviceMemory> deviceMemory_;
 	std::vector<VkSampler> samplers_;
@@ -278,6 +287,10 @@ public:
 	const VulkanExtensions &Extensions() { return extensionsLookup_; }
 
 	void GetImageMemoryRequirements(VkImage image, VkMemoryRequirements *mem_reqs, bool *dedicatedAllocation);
+
+	VmaAllocator Allocator() const {
+		return allocator_;
+	}
 
 private:
 	bool ChooseQueue();

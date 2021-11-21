@@ -1,24 +1,19 @@
 #include <algorithm>
 
 #include "Common/Log.h"
-
+#include "Common/GPU/Vulkan/VulkanAlloc.h"
 #include "Common/GPU/Vulkan/VulkanImage.h"
 #include "Common/GPU/Vulkan/VulkanMemory.h"
 
 using namespace PPSSPP_VK;
 
 void VulkanTexture::Wipe() {
-	if (image_) {
-		vulkan_->Delete().QueueDeleteImage(image_);
-	}
-	if (view_) {
+	if (view_ != VK_NULL_HANDLE) {
 		vulkan_->Delete().QueueDeleteImageView(view_);
 	}
-	if (mem_ && !allocator_) {
-		vulkan_->Delete().QueueDeleteDeviceMemory(mem_);
-	} else if (mem_) {
-		allocator_->Free(mem_, offset_);
-		mem_ = VK_NULL_HANDLE;
+	if (image_ != VK_NULL_HANDLE) {
+		_dbg_assert_(allocation_ != VK_NULL_HANDLE);
+		vulkan_->Delete().QueueDeleteImageAllocation(image_, allocation_);
 	}
 }
 
@@ -35,7 +30,7 @@ static bool IsDepthStencilFormat(VkFormat format) {
 	}
 }
 
-bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, VulkanDeviceAllocator *allocator, int w, int h, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage, const VkComponentMapping *mapping) {
+bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage, const VkComponentMapping *mapping) {
 	if (w == 0 || h == 0 || numMips == 0) {
 		ERROR_LOG(G3D, "Can't create a zero-size VulkanTexture");
 		return false;
@@ -73,63 +68,13 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, VulkanDeviceAllocator *all
 	if (vulkan_->GetFlags() & VULKAN_FLAG_VALIDATE) {
 		image_create_info.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	}
-
-	VkResult res = vkCreateImage(vulkan_->GetDevice(), &image_create_info, NULL, &image_);
-	if (res != VK_SUCCESS) {
-		_assert_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
-		ERROR_LOG(G3D, "vkCreateImage failed: %s", VulkanResultToString(res));
-		return false;
-	}
+	VmaAllocationCreateInfo allocCreateInfo{};
+	allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+	VmaAllocationInfo allocInfo{};
+	VkResult res = vmaCreateImage(vulkan_->Allocator(), &image_create_info, &allocCreateInfo, &image_, &allocation_, &allocInfo);
 
 	// Apply the tag
-	vulkan_	->SetDebugName(image_, VK_OBJECT_TYPE_IMAGE, tag_.c_str());
-
-	VkMemoryRequirements mem_reqs{};
-	bool dedicatedAllocation = false;
-	vulkan_->GetImageMemoryRequirements(image_, &mem_reqs, &dedicatedAllocation);
-
-	if (allocator && !dedicatedAllocation) {
-		allocator_ = allocator;
-		// ok to use the tag like this, because the lifetime of the VulkanImage exceeds that of the allocation.
-		offset_ = allocator_->Allocate(mem_reqs, &mem_, Tag().c_str());
-		if (offset_ == VulkanDeviceAllocator::ALLOCATE_FAILED) {
-			ERROR_LOG(G3D, "Image memory allocation failed (mem_reqs.size=%d, typebits=%08x", (int)mem_reqs.size, (int)mem_reqs.memoryTypeBits);
-			// Destructor will take care of the image.
-			return false;
-		}
-	} else {
-		VkMemoryAllocateInfo mem_alloc{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
-		mem_alloc.memoryTypeIndex = 0;
-		mem_alloc.allocationSize = mem_reqs.size;
-
-		VkMemoryDedicatedAllocateInfoKHR dedicatedAllocateInfo{VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO_KHR};
-		if (dedicatedAllocation) {
-			dedicatedAllocateInfo.image = image_;
-			mem_alloc.pNext = &dedicatedAllocateInfo;
-		}
-
-		// Find memory type - don't specify any mapping requirements
-		bool pass = vulkan_->MemoryTypeFromProperties(mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &mem_alloc.memoryTypeIndex);
-		_assert_(pass);
-
-		res = vkAllocateMemory(vulkan_->GetDevice(), &mem_alloc, NULL, &mem_);
-		if (res != VK_SUCCESS) {
-			ERROR_LOG(G3D, "vkAllocateMemory failed: %s", VulkanResultToString(res));
-			_assert_msg_(res != VK_ERROR_TOO_MANY_OBJECTS, "Too many Vulkan memory objects!");
-			_assert_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
-			return false;
-		}
-
-		offset_ = 0;
-	}
-
-	res = vkBindImageMemory(vulkan_->GetDevice(), image_, mem_, offset_);
-	if (res != VK_SUCCESS) {
-		ERROR_LOG(G3D, "vkBindImageMemory failed: %s", VulkanResultToString(res));
-		// This leaks the image and memory. Should not really happen though...
-		_assert_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
-		return false;
-	}
+	vulkan_->SetDebugName(image_, VK_OBJECT_TYPE_IMAGE, tag_.c_str());
 
 	// Write a command to transition the image to the requested layout, if it's not already that layout.
 	if (initialLayout != VK_IMAGE_LAYOUT_UNDEFINED && initialLayout != VK_IMAGE_LAYOUT_PREINITIALIZED) {
@@ -268,12 +213,6 @@ void VulkanTexture::EndCreate(VkCommandBuffer cmd, bool vertexTexture, VkPipelin
 		prevStage == VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT ? VK_ACCESS_SHADER_WRITE_BIT : VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 }
 
-void VulkanTexture::Touch() {
-	if (allocator_ && mem_ != VK_NULL_HANDLE) {
-		allocator_->Touch(mem_, offset_);
-	}
-}
-
 VkImageView VulkanTexture::CreateViewForMip(int mip) {
 	VkImageViewCreateInfo view_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
 	view_info.image = image_;
@@ -299,15 +238,7 @@ void VulkanTexture::Destroy() {
 		vulkan_->Delete().QueueDeleteImageView(view_);
 	}
 	if (image_ != VK_NULL_HANDLE) {
-		vulkan_->Delete().QueueDeleteImage(image_);
-	}
-	if (mem_ != VK_NULL_HANDLE) {
-		if (allocator_) {
-			allocator_->Free(mem_, offset_);
-			mem_ = VK_NULL_HANDLE;
-			allocator_ = nullptr;
-		} else {
-			vulkan_->Delete().QueueDeleteDeviceMemory(mem_);
-		}
+		_dbg_assert_(allocation_ != VK_NULL_HANDLE);
+		vulkan_->Delete().QueueDeleteImageAllocation(image_, allocation_);
 	}
 }

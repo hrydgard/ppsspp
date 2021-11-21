@@ -283,7 +283,7 @@ void VulkanContext::DestroyInstance() {
 void VulkanContext::BeginFrame() {
 	FrameData *frame = &frame_[curFrame_];
 	// Process pending deletes.
-	frame->deleteList.PerformDeletes(device_);
+	frame->deleteList.PerformDeletes(device_, allocator_);
 }
 
 void VulkanContext::EndFrame() {
@@ -665,9 +665,7 @@ VkResult VulkanContext::CreateDevice() {
 	allocatorInfo.physicalDevice = physical_devices_[physical_device_];
 	allocatorInfo.device = device_;
 	allocatorInfo.instance = instance_;
-
-	VmaAllocator allocator;
-	vmaCreateAllocator(&allocatorInfo, &allocator);
+	vmaCreateAllocator(&allocatorInfo, &allocator_);
 	return res;
 }
 
@@ -1099,9 +1097,9 @@ VkFence VulkanContext::CreateFence(bool presignalled) {
 
 void VulkanContext::PerformPendingDeletes() {
 	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
-		frame_[i].deleteList.PerformDeletes(device_);
+		frame_[i].deleteList.PerformDeletes(device_, allocator_);
 	}
-	Delete().PerformDeletes(device_);
+	Delete().PerformDeletes(device_, allocator_);
 }
 
 void VulkanContext::DestroyDevice() {
@@ -1343,7 +1341,7 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 	del.callbacks_.clear();
 }
 
-void VulkanDeleteList::PerformDeletes(VkDevice device) {
+void VulkanDeleteList::PerformDeletes(VkDevice device, VmaAllocator allocator) {
 	for (auto &callback : callbacks_) {
 		callback.func(callback.userdata);
 	}
@@ -1372,6 +1370,10 @@ void VulkanDeleteList::PerformDeletes(VkDevice device) {
 		vkDestroyImage(device, image, nullptr);
 	}
 	images_.clear();
+	for (auto &imageWithAlloc : imagesWithAllocs_) {
+		vmaDestroyImage(allocator, imageWithAlloc.image, imageWithAlloc.alloc);
+	}
+	imagesWithAllocs_.clear();
 	for (auto &imageView : imageViews_) {
 		vkDestroyImageView(device, imageView, nullptr);
 	}

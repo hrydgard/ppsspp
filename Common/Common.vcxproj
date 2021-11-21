@@ -437,6 +437,7 @@
     <ClInclude Include="GPU\ShaderWriter.h" />
     <ClInclude Include="GPU\thin3d.h" />
     <ClInclude Include="GPU\thin3d_create.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanAlloc.h" />
     <ClInclude Include="GPU\Vulkan\VulkanContext.h" />
     <ClInclude Include="GPU\Vulkan\VulkanDebug.h" />
     <ClInclude Include="GPU\Vulkan\VulkanImage.h" />
