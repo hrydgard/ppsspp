@@ -428,7 +428,6 @@ static inline u8 ApplyStencilOp(GEBufferFormat fmt, GEStencilOp op, u8 old_stenc
 			return 0;
 
 		case GE_STENCILOP_REPLACE:
-			// TODO: Apply mask to reference?
 			return gstate.getStencilTestRef();
 
 		case GE_STENCILOP_INVERT:
