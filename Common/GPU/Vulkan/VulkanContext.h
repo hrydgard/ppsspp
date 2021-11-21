@@ -26,6 +26,8 @@ enum {
 	VULKAN_VENDOR_IMGTEC = 0x00001010,  // PowerVR
 };
 
+VK_DEFINE_HANDLE(VmaAllocator);
+
 std::string VulkanVendorString(uint32_t vendorId);
 
 // Not all will be usable on all platforms, of course...
@@ -359,6 +361,8 @@ private:
 	VkSurfaceCapabilitiesKHR surfCapabilities_{};
 
 	std::vector<VkCommandBuffer> cmdQueue_;
+
+	VmaAllocator allocator_ = VK_NULL_HANDLE;
 };
 
 // Detailed control.

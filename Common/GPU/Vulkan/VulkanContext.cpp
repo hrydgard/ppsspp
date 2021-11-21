@@ -13,13 +13,16 @@
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 
-// Change this to 1, 2, and 3 to fake failures in a few places, so that
-// we can test our fallback-to-GL code.
-#define SIMULATE_VULKAN_FAILURE 0
-
 #ifdef USE_CRT_DBG
 #undef new
 #endif
+
+#include "ext/vma/vk_mem_alloc.h"
+
+
+// Change this to 1, 2, and 3 to fake failures in a few places, so that
+// we can test our fallback-to-GL code.
+#define SIMULATE_VULKAN_FAILURE 0
 
 #include "ext/glslang/SPIRV/GlslangToSpv.h"
 
@@ -656,6 +659,15 @@ VkResult VulkanContext::CreateDevice() {
 	}
 	INFO_LOG(G3D, "Device created.\n");
 	VulkanSetAvailable(true);
+
+	VmaAllocatorCreateInfo allocatorInfo = {};
+	allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_0;
+	allocatorInfo.physicalDevice = physical_devices_[physical_device_];
+	allocatorInfo.device = device_;
+	allocatorInfo.instance = instance_;
+
+	VmaAllocator allocator;
+	vmaCreateAllocator(&allocatorInfo, &allocator);
 	return res;
 }
 
@@ -1102,6 +1114,9 @@ void VulkanContext::DestroyDevice() {
 
 	INFO_LOG(G3D, "VulkanContext::DestroyDevice (performing deletes)");
 	PerformPendingDeletes();
+
+	vmaDestroyAllocator(allocator_);
+	allocator_ = VK_NULL_HANDLE;
 
 	vkDestroyDevice(device_, nullptr);
 	device_ = nullptr;
