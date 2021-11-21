@@ -123,6 +123,11 @@ void GPU_Vulkan::CancelReady() {
 }
 
 void GPU_Vulkan::LoadCache(const Path &filename) {
+	if (!g_Config.bShaderCache) {
+		INFO_LOG(G3D, "Shader cache disabled. Not loading.");
+		return;
+	}
+
 	PSP_SetLoading("Loading shader cache...");
 	// Actually precompiled by IsReady() since we're single-threaded.
 	FILE *f = File::OpenCFile(filename, "rb");
@@ -148,6 +153,11 @@ void GPU_Vulkan::LoadCache(const Path &filename) {
 }
 
 void GPU_Vulkan::SaveCache(const Path &filename) {
+	if (!g_Config.bShaderCache) {
+		INFO_LOG(G3D, "Shader cache disabled. Not saving.");
+		return;
+	}
+
 	if (!draw_) {
 		// Already got the lost message, we're in shutdown.
 		WARN_LOG(G3D, "Not saving shaders - shutting down from in-game.");
