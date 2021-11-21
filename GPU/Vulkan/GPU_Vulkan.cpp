@@ -511,9 +511,9 @@ void GPU_Vulkan::InitDeviceObjects() {
 
 void GPU_Vulkan::DestroyDeviceObjects() {
 	INFO_LOG(G3D, "GPU_Vulkan::DestroyDeviceObjects");
-	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		if (frameData_[i].push_) {
+			VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 			frameData_[i].push_->Destroy(vulkan);
 			delete frameData_[i].push_;
 			frameData_[i].push_ = nullptr;
