@@ -25,8 +25,10 @@
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "GPU/Vulkan/StateMappingVulkan.h"
-
 #include "GPU/Vulkan/VulkanQueueRunner.h"
+
+struct VKRGraphicsPipeline;
+class VulkanRenderManager;
 
 struct VulkanPipelineKey {
 	VulkanPipelineRasterStateKey raster;  // prim is included here
@@ -48,7 +50,7 @@ struct VulkanPipelineKey {
 
 // Simply wraps a Vulkan pipeline, providing some metadata.
 struct VulkanPipeline {
-	VkPipeline pipeline;
+	VKRGraphicsPipeline *pipeline;
 	int flags;  // PipelineFlags enum above.
 
 	bool UsesBlendConstant() const { return (flags & PIPELINE_FLAG_USES_BLEND_CONSTANT) != 0; }
@@ -67,7 +69,7 @@ public:
 	PipelineManagerVulkan(VulkanContext *ctx);
 	~PipelineManagerVulkan();
 
-	VulkanPipeline *GetOrCreatePipeline(VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform);
+	VulkanPipeline *GetOrCreatePipeline(VulkanRenderManager *renderManager, VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform);
 	int GetNumPipelines() const { return (int)pipelines_.size(); }
 
 	void Clear();

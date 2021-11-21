@@ -1,6 +1,9 @@
 #pragma once
 
 #include <cstdint>
+#include <mutex>
+#include <condition_variable>
+
 
 #include "Common/Data/Collections/Hashmaps.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
@@ -9,6 +12,8 @@
 #include "Common/GPU/DataFormat.h"
 
 class VKRFramebuffer;
+struct VKRGraphicsPipeline;
+struct VKRComputePipeline;
 struct VKRImage;
 
 enum {
@@ -20,7 +25,9 @@ enum {
 
 enum class VKRRenderCommand : uint8_t {
 	REMOVED,
-	BIND_PIPELINE,
+	BIND_PIPELINE,  // raw pipeline
+	BIND_GRAPHICS_PIPELINE,  // async
+	BIND_COMPUTE_PIPELINE,  // async
 	STENCIL,
 	BLEND,
 	VIEWPORT,
@@ -45,6 +52,12 @@ struct VkRenderData {
 		struct {
 			VkPipeline pipeline;
 		} pipeline;
+		struct {
+			VKRGraphicsPipeline *pipeline;
+		} graphics_pipeline;
+		struct {
+			VKRComputePipeline *pipeline;
+		} compute_pipeline;
 		struct {
 			VkPipelineLayout pipelineLayout;
 			VkDescriptorSet ds;
@@ -244,6 +257,15 @@ public:
 		hacksEnabled_ = hacks;
 	}
 
+	void NotifyCompileDone() {
+		compileDone_.notify_all();
+	}
+
+	void WaitForCompileNotification() {
+		std::unique_lock<std::mutex> lock(compileDoneMutex_);
+		compileDone_.wait(lock);
+	}
+
 private:
 	void InitBackbufferRenderPass();
 
@@ -292,4 +314,8 @@ private:
 
 	// TODO: Enable based on compat.ini.
 	uint32_t hacksEnabled_ = 0;
+
+	// Compile done notifications.
+	std::mutex compileDoneMutex_;
+	std::condition_variable compileDone_;
 };

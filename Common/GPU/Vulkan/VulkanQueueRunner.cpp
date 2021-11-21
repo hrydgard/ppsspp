@@ -841,9 +841,14 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass, bool verbose) {
 			case VKRRenderCommand::REMOVED:
 				INFO_LOG(G3D, "  (Removed)");
 				break;
-
 			case VKRRenderCommand::BIND_PIPELINE:
 				INFO_LOG(G3D, "  BindPipeline(%x)", (int)(intptr_t)cmd.pipeline.pipeline);
+				break;
+			case VKRRenderCommand::BIND_GRAPHICS_PIPELINE:
+				INFO_LOG(G3D, "  BindGraphicsPipeline(%x)", (int)(intptr_t)cmd.graphics_pipeline.pipeline);
+				break;
+			case VKRRenderCommand::BIND_COMPUTE_PIPELINE:
+				INFO_LOG(G3D, "  BindComputePipeline(%x)", (int)(intptr_t)cmd.compute_pipeline.pipeline);
 				break;
 			case VKRRenderCommand::BLEND:
 				INFO_LOG(G3D, "  BlendColor(%08x)", cmd.blendColor.color);
@@ -1236,6 +1241,9 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 	VKRFramebuffer *fb = step.render.framebuffer;
 
+	VkPipeline lastGraphicsPipeline = VK_NULL_HANDLE;
+	VkPipeline lastComputePipeline = VK_NULL_HANDLE;
+
 	auto &commands = step.commands;
 
 	// We can do a little bit of state tracking here to eliminate some calls into the driver.
@@ -1251,16 +1259,58 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		case VKRRenderCommand::REMOVED:
 			break;
 
+		// Still here to support binding of non-async pipelines.
 		case VKRRenderCommand::BIND_PIPELINE:
-			if (c.pipeline.pipeline != lastPipeline) {
-				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, c.pipeline.pipeline);
-				lastPipeline = c.pipeline.pipeline;
+		{
+			VkPipeline pipeline = c.pipeline.pipeline;
+			if (pipeline != lastGraphicsPipeline) {
+				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+				lastGraphicsPipeline = pipeline;
 				// Reset dynamic state so it gets refreshed with the new pipeline.
 				lastStencilWriteMask = -1;
 				lastStencilCompareMask = -1;
 				lastStencilReference = -1;
 			}
 			break;
+		}
+
+		case VKRRenderCommand::BIND_GRAPHICS_PIPELINE:
+		{
+			VKRGraphicsPipeline *pipeline = c.graphics_pipeline.pipeline;
+			if (!pipeline->pipeline) {
+				// Stall processing, waiting for the compile queue to catch up.
+				std::unique_lock<std::mutex> lock(compileDoneMutex_);
+				while (!pipeline->pipeline) {
+					compileDone_.wait(lock);
+				}
+			}
+			if (pipeline->pipeline != lastGraphicsPipeline) {
+				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
+				lastGraphicsPipeline = pipeline->pipeline;
+				// Reset dynamic state so it gets refreshed with the new pipeline.
+				lastStencilWriteMask = -1;
+				lastStencilCompareMask = -1;
+				lastStencilReference = -1;
+			}
+			break;
+		}
+
+		case VKRRenderCommand::BIND_COMPUTE_PIPELINE:
+		{
+			VKRComputePipeline *pipeline = c.compute_pipeline.pipeline;
+			if (!pipeline->pipeline) {
+				// Stall processing, waiting for the compile queue to catch up.
+				std::unique_lock<std::mutex> lock(compileDoneMutex_);
+				while (!pipeline->pipeline) {
+					compileDone_.wait(lock);
+				}
+			}
+			if (pipeline->pipeline != lastComputePipeline) {
+				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipeline);
+				lastComputePipeline = pipeline->pipeline;
+			}
+			break;
+		}
 
 		case VKRRenderCommand::VIEWPORT:
 			if (fb != nullptr) {

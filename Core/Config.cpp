@@ -914,6 +914,8 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("InflightFrames", &g_Config.iInflightFrames, 3, true, false),
 	ConfigSetting("RenderDuplicateFrames", &g_Config.bRenderDuplicateFrames, false, true, true),
 
+	ConfigSetting("ShaderCache", &g_Config.bShaderCache, true, false, false),  // Doesn't save. Ini-only.
+
 	ConfigSetting(false),
 };
 

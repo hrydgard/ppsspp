@@ -103,10 +103,14 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// Load shader cache.
 	std::string discID = g_paramSFO.GetDiscID();
 	if (discID.size()) {
-		File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
-		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) / (discID + ".glshadercache");
-		// Actually precompiled by IsReady() since we're single-threaded.
-		shaderManagerGL_->Load(shaderCachePath_);
+		if (g_Config.bShaderCache) {
+			File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
+			shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) / (discID + ".glshadercache");
+			// Actually precompiled by IsReady() since we're single-threaded.
+			shaderManagerGL_->Load(shaderCachePath_);
+		} else {
+			INFO_LOG(G3D, "Shader cache disabled. Not loading.");
+		}
 	}
 
 	if (g_Config.bHardwareTessellation) {
@@ -129,7 +133,11 @@ GPU_GLES::~GPU_GLES() {
 	// everything should already be cleared since DeviceLost has been run.
 
 	if (shaderCachePath_.Valid() && draw_) {
-		shaderManagerGL_->Save(shaderCachePath_);
+		if (g_Config.bShaderCache) {
+			shaderManagerGL_->Save(shaderCachePath_);
+		} else {
+			INFO_LOG(G3D, "Shader cache disabled. Not saving.");
+		}
 	}
 
 	framebufferManagerGL_->DestroyAllFBOs();
