@@ -133,19 +133,19 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 		}
 
 		if (!pixelID.stencilTest &&
-			pixelID.depthTestFunc == GE_COMP_ALWAYS &&
+			pixelID.DepthTestFunc() == GE_COMP_ALWAYS &&
 			!pixelID.applyLogicOp &&
 			!pixelID.colorTest &&
 			!pixelID.dithering &&
 			// TODO: Safe?
-			pixelID.alphaTestFunc != GE_COMP_ALWAYS &&
+			pixelID.AlphaTestFunc() != GE_COMP_ALWAYS &&
 			pixelID.alphaTestRef == 0 &&
 			!pixelID.hasAlphaTestMask &&
 			pixelID.alphaBlend &&
 			gstate.isTextureAlphaUsed() &&
 			gstate.getTextureFunction() == GE_TEXFUNC_MODULATE &&
 			!pixelID.applyColorWriteMask &&
-			pixelID.fbFormat == GE_FORMAT_5551) {
+			pixelID.FBFormat() == GE_FORMAT_5551) {
 			if (isWhite) {
 				ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
 					int t = t_start + (y1 - pos0.y) * dt;
@@ -206,19 +206,19 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 		if (pos0.x < scissorTL.x) pos0.x = scissorTL.x;
 		if (pos0.y < scissorTL.y) pos0.y = scissorTL.y;
 		if (!pixelID.stencilTest &&
-			pixelID.depthTestFunc == GE_COMP_ALWAYS &&
+			pixelID.DepthTestFunc() == GE_COMP_ALWAYS &&
 			!pixelID.applyLogicOp &&
 			!pixelID.colorTest &&
 			!pixelID.dithering &&
 			// TODO: Safe?
-			pixelID.alphaTestFunc != GE_COMP_ALWAYS &&
+			pixelID.AlphaTestFunc() != GE_COMP_ALWAYS &&
 			pixelID.alphaTestRef == 0 &&
 			!pixelID.hasAlphaTestMask &&
 			pixelID.alphaBlend &&
 			gstate.isTextureAlphaUsed() &&
 			gstate.getTextureFunction() == GE_TEXFUNC_MODULATE &&
 			!pixelID.applyColorWriteMask &&
-			pixelID.fbFormat == GE_FORMAT_5551) {
+			pixelID.FBFormat() == GE_FORMAT_5551) {
 			if (v1.color0.a() == 0)
 				return;
 

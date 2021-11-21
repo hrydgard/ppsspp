@@ -31,18 +31,12 @@ struct PixelFuncID {
 		uint64_t fullKey{};
 		struct {
 			bool clearMode : 1;
-			union {
-				bool colorTest : 1;
-				bool colorClear : 1;
-			};
-			union {
-				bool stencilTest : 1;
-				bool stencilClear : 1;
-			};
-			union {
-				bool depthWrite : 1;
-				bool depthClear : 1;
-			};
+			// Reused as ColorClear.
+			bool colorTest : 1;
+			// Reused as StencilClear.
+			bool stencilTest : 1;
+			// Reused as DepthClear.
+			bool depthWrite : 1;
 			bool applyDepthRange : 1;
 			// If alpha testing is disabled, set to GE_COMP_ALWAYS.
 			uint8_t alphaTestFunc : 3;
@@ -77,6 +71,50 @@ struct PixelFuncID {
 		};
 	};
 
+	bool ColorClear() const {
+		return colorTest;
+	}
+	bool StencilClear() const {
+		return stencilTest;
+	}
+	bool DepthClear() const {
+		return depthWrite;
+	}
+
+	GEComparison AlphaTestFunc() const {
+		return GEComparison(alphaTestFunc);
+	}
+	GEComparison DepthTestFunc() const {
+		return GEComparison(depthTestFunc);
+	}
+	GEComparison StencilTestFunc() const {
+		return GEComparison(stencilTestFunc);
+	}
+
+	GEBufferFormat FBFormat() const {
+		return GEBufferFormat(fbFormat);
+	}
+
+	GEBlendMode AlphaBlendEq() const {
+		return GEBlendMode(alphaBlendEq);
+	}
+	GEBlendSrcFactor AlphaBlendSrc() const {
+		return GEBlendSrcFactor(alphaBlendSrc);
+	}
+	GEBlendDstFactor AlphaBlendDst() const {
+		return GEBlendDstFactor(alphaBlendDst);
+	}
+
+	GEStencilOp SFail() const {
+		return GEStencilOp(sFail);
+	}
+	GEStencilOp ZFail() const {
+		return GEStencilOp(zFail);
+	}
+	GEStencilOp ZPass() const {
+		return GEStencilOp(zPass);
+	}
+
 	bool operator == (const PixelFuncID &other) const {
 		return fullKey == other.fullKey;
 	}
@@ -101,6 +139,14 @@ struct SamplerID {
 			bool linear : 1;
 		};
 	};
+
+	GETextureFormat TexFmt() const {
+		return GETextureFormat(texfmt);
+	}
+
+	GEPaletteFormat ClutFmt() const {
+		return GEPaletteFormat(clutfmt);
+	}
 
 	bool operator == (const SamplerID &other) const {
 		return fullKey == other.fullKey;

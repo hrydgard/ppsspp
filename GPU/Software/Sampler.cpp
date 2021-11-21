@@ -133,7 +133,7 @@ void SamplerJitCache::ComputeSamplerID(SamplerID *id_out, bool linear) {
 
 std::string SamplerJitCache::DescribeSamplerID(const SamplerID &id) {
 	std::string name;
-	switch ((GETextureFormat)id.texfmt) {
+	switch (id.TexFmt()) {
 	case GE_TFMT_5650: name = "5650"; break;
 	case GE_TFMT_5551: name = "5551"; break;
 	case GE_TFMT_4444: name = "4444"; break;
@@ -146,9 +146,9 @@ std::string SamplerJitCache::DescribeSamplerID(const SamplerID &id) {
 	case GE_TFMT_DXT3: name = "DXT3"; break;
 	case GE_TFMT_DXT5: name = "DXT5"; break;
 	}
-	switch ((GEPaletteFormat)id.clutfmt) {
+	switch (id.ClutFmt()) {
 	case GE_CMODE_16BIT_BGR5650:
-		switch ((GETextureFormat)id.texfmt) {
+		switch (id.TexFmt()) {
 		case GE_TFMT_CLUT4:
 		case GE_TFMT_CLUT8:
 		case GE_TFMT_CLUT16:

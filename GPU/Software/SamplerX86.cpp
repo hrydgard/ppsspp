@@ -285,7 +285,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 }
 
 bool SamplerJitCache::Jit_ReadTextureFormat(const SamplerID &id) {
-	GETextureFormat fmt = (GETextureFormat)id.texfmt;
+	GETextureFormat fmt = id.TexFmt();
 	bool success = true;
 	switch (fmt) {
 	case GE_TFMT_5650:
@@ -547,7 +547,7 @@ bool SamplerJitCache::Jit_GetDXT1Color(const SamplerID &id, int blockSize, int a
 }
 
 bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
-	GETextureFormat fmt = (GETextureFormat)id.texfmt;
+	GETextureFormat fmt = id.TexFmt();
 	if (fmt == GE_TFMT_DXT3) {
 		MOVZX(32, 16, tempReg1, MComplex(srcReg, vReg, SCALE_2, 8));
 		LEA(32, RCX, MScaled(uReg, SCALE_4, 0));
@@ -891,7 +891,7 @@ bool SamplerJitCache::Jit_Decode4444() {
 }
 
 bool SamplerJitCache::Jit_TransformClutIndex(const SamplerID &id, int bitsPerIndex) {
-	GEPaletteFormat fmt = (GEPaletteFormat)id.clutfmt;
+	GEPaletteFormat fmt = id.ClutFmt();
 	if (!id.hasClutShift && !id.hasClutMask && !id.hasClutOffset) {
 		// This is simple - just mask if necessary.
 		if (bitsPerIndex > 8) {
@@ -967,7 +967,7 @@ bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
 
 	MOV(PTRBITS, R(tempReg1), ImmPtr(clut));
 
-	switch ((GEPaletteFormat)id.clutfmt) {
+	switch (id.ClutFmt()) {
 	case GE_CMODE_16BIT_BGR5650:
 		MOVZX(32, 16, resultReg, MComplex(tempReg1, resultReg, SCALE_2, 0));
 		return Jit_Decode5650();
