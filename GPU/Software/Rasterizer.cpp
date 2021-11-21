@@ -30,9 +30,10 @@
 #include "GPU/GPUState.h"
 
 #include "GPU/Common/TextureDecoder.h"
-#include "GPU/Software/SoftGpu.h"
+#include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/Sampler.h"
+#include "GPU/Software/SoftGpu.h"
 
 #if defined(_M_SSE)
 #include <emmintrin.h>
@@ -260,57 +261,6 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 	}
 }
 
-// NOTE: These likely aren't endian safe
-static inline u32 GetPixelColor(GEBufferFormat fmt, int x, int y) {
-	switch (fmt) {
-	case GE_FORMAT_565:
-		return RGB565ToRGBA8888(fb.Get16(x, y, gstate.FrameBufStride()));
-
-	case GE_FORMAT_5551:
-		return RGBA5551ToRGBA8888(fb.Get16(x, y, gstate.FrameBufStride()));
-
-	case GE_FORMAT_4444:
-		return RGBA4444ToRGBA8888(fb.Get16(x, y, gstate.FrameBufStride()));
-
-	case GE_FORMAT_8888:
-		return fb.Get32(x, y, gstate.FrameBufStride());
-
-	case GE_FORMAT_INVALID:
-	case GE_FORMAT_DEPTH16:
-		_dbg_assert_msg_(false, "Software: invalid framebuf format.");
-	}
-	return 0;
-}
-
-static inline void SetPixelColor(GEBufferFormat fmt, int x, int y, u32 value) {
-	switch (fmt) {
-	case GE_FORMAT_565:
-		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888ToRGB565(value));
-		break;
-
-	case GE_FORMAT_5551:
-		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888ToRGBA5551(value));
-		break;
-
-	case GE_FORMAT_4444:
-		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888ToRGBA4444(value));
-		break;
-
-	case GE_FORMAT_8888:
-		fb.Set32(x, y, gstate.FrameBufStride(), value);
-		break;
-
-	case GE_FORMAT_INVALID:
-	case GE_FORMAT_DEPTH16:
-		_dbg_assert_msg_(false, "Software: invalid framebuf format.");
-	}
-}
-
-static inline u16 GetPixelDepth(int x, int y)
-{
-	return depthbuf.Get16(x, y, gstate.DepthBufStride());
-}
-
 static inline void SetPixelDepth(int x, int y, u16 value)
 {
 	depthbuf.Set16(x, y, gstate.DepthBufStride(), value);
@@ -329,62 +279,6 @@ static inline u8 GetPixelStencil(GEBufferFormat fmt, int x, int y) {
 	}
 }
 
-static inline void SetPixelStencil(GEBufferFormat fmt, int x, int y, u8 value) {
-	if (fmt == GE_FORMAT_565) {
-		// Do nothing
-	} else if (fmt == GE_FORMAT_5551) {
-		if ((gstate.getStencilWriteMask() & 0x80) == 0) {
-			u16 pixel = fb.Get16(x, y, gstate.FrameBufStride()) & ~0x8000;
-			pixel |= (value & 0x80) << 8;
-			fb.Set16(x, y, gstate.FrameBufStride(), pixel);
-		}
-	} else if (fmt == GE_FORMAT_4444) {
-		const u16 write_mask = (gstate.getStencilWriteMask() << 8) | 0x0FFF;
-		u16 pixel = fb.Get16(x, y, gstate.FrameBufStride()) & write_mask;
-		pixel |= ((u16)value << 8) & ~write_mask;
-		fb.Set16(x, y, gstate.FrameBufStride(), pixel);
-	} else {
-		const u32 write_mask = (gstate.getStencilWriteMask() << 24) | 0x00FFFFFF;
-		u32 pixel = fb.Get32(x, y, gstate.FrameBufStride()) & write_mask;
-		pixel |= ((u32)value << 24) & ~write_mask;
-		fb.Set32(x, y, gstate.FrameBufStride(), pixel);
-	}
-}
-
-static inline bool DepthTestPassed(GEComparison func, int x, int y, u16 z)
-{
-	u16 reference_z = GetPixelDepth(x, y);
-
-	switch (func) {
-	case GE_COMP_NEVER:
-		return false;
-
-	case GE_COMP_ALWAYS:
-		return true;
-
-	case GE_COMP_EQUAL:
-		return (z == reference_z);
-
-	case GE_COMP_NOTEQUAL:
-		return (z != reference_z);
-
-	case GE_COMP_LESS:
-		return (z < reference_z);
-
-	case GE_COMP_LEQUAL:
-		return (z <= reference_z);
-
-	case GE_COMP_GREATER:
-		return (z > reference_z);
-
-	case GE_COMP_GEQUAL:
-		return (z >= reference_z);
-
-	default:
-		return 0;
-	}
-}
-
 static inline bool IsRightSideOrFlatBottomLine(const Vec2<int>& vertex, const Vec2<int>& line1, const Vec2<int>& line2)
 {
 	if (line1.y == line2.y) {
@@ -394,159 +288,6 @@ static inline bool IsRightSideOrFlatBottomLine(const Vec2<int>& vertex, const Ve
 		// check if vertex is on our left => right side
 		return vertex.x < line1.x + (line2.x - line1.x) * (vertex.y - line1.y) / (line2.y - line1.y);
 	}
-}
-
-static inline bool StencilTestPassed(const PixelFuncID &pixelID, u8 stencil) {
-	if (pixelID.hasStencilTestMask)
-		stencil &= gstate.getStencilTestMask();
-	u8 ref = pixelID.stencilTestRef;
-	switch (GEComparison(pixelID.stencilTestFunc)) {
-		case GE_COMP_NEVER:
-			return false;
-
-		case GE_COMP_ALWAYS:
-			return true;
-
-		case GE_COMP_EQUAL:
-			return ref == stencil;
-
-		case GE_COMP_NOTEQUAL:
-			return ref != stencil;
-
-		case GE_COMP_LESS:
-			return ref < stencil;
-
-		case GE_COMP_LEQUAL:
-			return ref <= stencil;
-
-		case GE_COMP_GREATER:
-			return ref > stencil;
-
-		case GE_COMP_GEQUAL:
-			return ref >= stencil;
-	}
-	return true;
-}
-
-static inline u8 ApplyStencilOp(GEBufferFormat fmt, GEStencilOp op, u8 old_stencil) {
-	switch (op) {
-		case GE_STENCILOP_KEEP:
-			return old_stencil;
-
-		case GE_STENCILOP_ZERO:
-			return 0;
-
-		case GE_STENCILOP_REPLACE:
-			return gstate.getStencilTestRef();
-
-		case GE_STENCILOP_INVERT:
-			return ~old_stencil;
-
-		case GE_STENCILOP_INCR:
-			switch (fmt) {
-			case GE_FORMAT_8888:
-				if (old_stencil != 0xFF) {
-					return old_stencil + 1;
-				}
-				return old_stencil;
-			case GE_FORMAT_5551:
-				return 0xFF;
-			case GE_FORMAT_4444:
-				if (old_stencil < 0xF0) {
-					return old_stencil + 0x10;
-				}
-				return old_stencil;
-			default:
-				return old_stencil;
-			}
-			break;
-
-		case GE_STENCILOP_DECR:
-			switch (fmt) {
-			case GE_FORMAT_4444:
-				if (old_stencil >= 0x10)
-					return old_stencil - 0x10;
-				break;
-			default:
-				if (old_stencil != 0)
-					return old_stencil - 1;
-				return old_stencil;
-			}
-			break;
-	}
-
-	return old_stencil;
-}
-
-static inline u32 ApplyLogicOp(GELogicOp op, u32 old_color, u32 new_color) {
-	// All of the operations here intentionally preserve alpha/stencil.
-	switch (op) {
-	case GE_LOGIC_CLEAR:
-		new_color &= 0xFF000000;
-		break;
-
-	case GE_LOGIC_AND:
-		new_color = new_color & (old_color | 0xFF000000);
-		break;
-
-	case GE_LOGIC_AND_REVERSE:
-		new_color = new_color & (~old_color | 0xFF000000);
-		break;
-
-	case GE_LOGIC_COPY:
-		// No change to new_color.
-		break;
-
-	case GE_LOGIC_AND_INVERTED:
-		new_color = (~new_color & (old_color & 0x00FFFFFF)) | (new_color & 0xFF000000);
-		break;
-
-	case GE_LOGIC_NOOP:
-		new_color = (old_color & 0x00FFFFFF) | (new_color & 0xFF000000);
-		break;
-
-	case GE_LOGIC_XOR:
-		new_color = new_color ^ (old_color & 0x00FFFFFF);
-		break;
-
-	case GE_LOGIC_OR:
-		new_color = new_color | (old_color & 0x00FFFFFF);
-		break;
-
-	case GE_LOGIC_NOR:
-		new_color = (~(new_color | old_color) & 0x00FFFFFF) | (new_color & 0xFF000000);
-		break;
-
-	case GE_LOGIC_EQUIV:
-		new_color = (~(new_color ^ old_color) & 0x00FFFFFF) | (new_color & 0xFF000000);
-		break;
-
-	case GE_LOGIC_INVERTED:
-		new_color = (~old_color & 0x00FFFFFF) | (new_color & 0xFF000000);
-		break;
-
-	case GE_LOGIC_OR_REVERSE:
-		new_color = new_color | (~old_color & 0x00FFFFFF);
-		break;
-
-	case GE_LOGIC_COPY_INVERTED:
-		new_color = (~new_color & 0x00FFFFFF) | (new_color & 0xFF000000);
-		break;
-
-	case GE_LOGIC_OR_INVERTED:
-		new_color = ((~new_color | old_color) & 0x00FFFFFF) | (new_color & 0xFF000000);
-		break;
-
-	case GE_LOGIC_NAND:
-		new_color = (~(new_color & old_color) & 0x00FFFFFF) | (new_color & 0xFF000000);
-		break;
-
-	case GE_LOGIC_SET:
-		new_color |= 0x00FFFFFF;
-		break;
-	}
-
-	return new_color;
 }
 
 Vec4<int> GetTextureFunctionOutput(const Vec4<int>& prim_color, const Vec4<int>& texcolor)
@@ -626,65 +367,6 @@ Vec4<int> GetTextureFunctionOutput(const Vec4<int>& prim_color, const Vec4<int>&
 	}
 
 	return Vec4<int>(out_rgb.r(), out_rgb.g(), out_rgb.b(), out_a);
-}
-
-static inline bool ColorTestPassed(const Vec3<int> &color)
-{
-	const u32 mask = gstate.getColorTestMask();
-	const u32 c = color.ToRGB() & mask;
-	const u32 ref = gstate.getColorTestRef() & mask;
-	switch (gstate.getColorTestFunction()) {
-		case GE_COMP_NEVER:
-			return false;
-
-		case GE_COMP_ALWAYS:
-			return true;
-
-		case GE_COMP_EQUAL:
-			return c == ref;
-
-		case GE_COMP_NOTEQUAL:
-			return c != ref;
-
-		default:
-			ERROR_LOG_REPORT(G3D, "Software: Invalid colortest function: %d", gstate.getColorTestFunction());
-			break;
-	}
-	return true;
-}
-
-static inline bool AlphaTestPassed(const PixelFuncID &pixelID, int alpha)
-{
-	const u8 ref = pixelID.alphaTestRef;
-	if (pixelID.hasAlphaTestMask)
-		alpha &= gstate.getAlphaTestMask();
-
-	switch (GEComparison(pixelID.alphaTestFunc)) {
-		case GE_COMP_NEVER:
-			return false;
-
-		case GE_COMP_ALWAYS:
-			return true;
-
-		case GE_COMP_EQUAL:
-			return (alpha == ref);
-
-		case GE_COMP_NOTEQUAL:
-			return (alpha != ref);
-
-		case GE_COMP_LESS:
-			return (alpha < ref);
-
-		case GE_COMP_LEQUAL:
-			return (alpha <= ref);
-
-		case GE_COMP_GREATER:
-			return (alpha > ref);
-
-		case GE_COMP_GEQUAL:
-			return (alpha >= ref);
-	}
-	return true;
 }
 
 static inline Vec3<int> GetSourceFactor(GEBlendSrcFactor factor, const Vec4<int> &source, const Vec4<int> &dst) {
@@ -841,107 +523,6 @@ Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &sourc
 		ERROR_LOG_REPORT(G3D, "Software: Unknown blend function %x", pixelID.alphaBlendEq);
 		return Vec3<int>();
 	}
-}
-
-template <bool clearMode>
-inline void DrawSinglePixel(const DrawingCoords &p, int z, u8 fog, const Vec4<int> &color_in, const PixelFuncID &pixelID) {
-	Vec4<int> prim_color = color_in.Clamp(0, 255);
-	// Depth range test - applied in clear mode, if not through mode.
-	if (pixelID.applyDepthRange)
-		if (z < gstate.getDepthRangeMin() || z > gstate.getDepthRangeMax())
-			return;
-
-	if (GEComparison(pixelID.alphaTestFunc) != GE_COMP_ALWAYS && !clearMode)
-		if (!AlphaTestPassed(pixelID, prim_color.a()))
-			return;
-
-	// Fog is applied prior to color test.
-	if (pixelID.applyFog && !clearMode) {
-		Vec3<int> fogColor = Vec3<int>::FromRGB(gstate.fogcolor);
-		fogColor = (prim_color.rgb() * (int)fog + fogColor * (255 - (int)fog)) / 255;
-		prim_color.r() = fogColor.r();
-		prim_color.g() = fogColor.g();
-		prim_color.b() = fogColor.b();
-	}
-
-	if (pixelID.colorTest && !clearMode)
-		if (!ColorTestPassed(prim_color.rgb()))
-			return;
-
-	// In clear mode, it uses the alpha color as stencil.
-	u8 stencil = clearMode ? prim_color.a() : GetPixelStencil(GEBufferFormat(pixelID.fbFormat), p.x, p.y);
-	if (clearMode) {
-		if (pixelID.depthClear)
-			SetPixelDepth(p.x, p.y, z);
-	} else if (pixelID.stencilTest) {
-		if (!StencilTestPassed(pixelID, stencil)) {
-			stencil = ApplyStencilOp(GEBufferFormat(pixelID.fbFormat), GEStencilOp(pixelID.sFail), stencil);
-			SetPixelStencil(GEBufferFormat(pixelID.fbFormat), p.x, p.y, stencil);
-			return;
-		}
-
-		// Also apply depth at the same time.  If disabled, same as passing.
-		if (pixelID.depthTestFunc != GE_COMP_ALWAYS && !DepthTestPassed(GEComparison(pixelID.depthTestFunc), p.x, p.y, z)) {
-			stencil = ApplyStencilOp(GEBufferFormat(pixelID.fbFormat), GEStencilOp(pixelID.zFail), stencil);
-			SetPixelStencil(GEBufferFormat(pixelID.fbFormat), p.x, p.y, stencil);
-			return;
-		}
-
-		stencil = ApplyStencilOp(GEBufferFormat(pixelID.fbFormat), GEStencilOp(pixelID.zPass), stencil);
-	} else {
-		if (pixelID.depthTestFunc != GE_COMP_ALWAYS && !DepthTestPassed(GEComparison(pixelID.depthTestFunc), p.x, p.y, z)) {
-			return;
-		}
-	}
-
-	if (pixelID.depthWrite && !clearMode)
-		SetPixelDepth(p.x, p.y, z);
-
-	const u32 old_color = GetPixelColor(GEBufferFormat(pixelID.fbFormat), p.x, p.y);
-	u32 new_color;
-
-	// Dithering happens before the logic op and regardless of framebuffer format or clear mode.
-	// We do it while alpha blending because it happens before clamping.
-	if (pixelID.alphaBlend && !clearMode) {
-		const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
-		Vec3<int> blended = AlphaBlendingResult(pixelID, prim_color, dst);
-		if (pixelID.dithering) {
-			blended += Vec3<int>::AssignToAll(gstate.getDitherValue(p.x, p.y));
-		}
-
-		// ToRGB() always automatically clamps.
-		new_color = blended.ToRGB();
-		new_color |= stencil << 24;
-	} else {
-		if (pixelID.dithering) {
-			// We'll discard alpha anyway.
-			prim_color += Vec4<int>::AssignToAll(gstate.getDitherValue(p.x, p.y));
-		}
-
-#if defined(_M_SSE)
-		new_color = Vec3<int>(prim_color.ivec).ToRGB();
-		new_color |= stencil << 24;
-#else
-		new_color = Vec4<int>(prim_color.r(), prim_color.g(), prim_color.b(), stencil).ToRGBA();
-#endif
-	}
-
-	// Logic ops are applied after blending (if blending is enabled.)
-	if (pixelID.applyLogicOp && !clearMode) {
-		// Logic ops don't affect stencil, which happens inside ApplyLogicOp.
-		new_color = ApplyLogicOp(gstate.getLogicOp(), old_color, new_color);
-	}
-
-	if (clearMode) {
-		new_color = (new_color & ~gstate.getClearModeColorMask()) | (old_color & gstate.getClearModeColorMask());
-	}
-	new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
-
-	SetPixelColor(GEBufferFormat(pixelID.fbFormat), p.x, p.y, new_color);
-}
-
-void DrawSinglePixelNonClear(const DrawingCoords &p, u16 z, u8 fog, const Vec4<int> &color_in, const PixelFuncID &pixelID) {
-	DrawSinglePixel<false>(p, z, fog, color_in, pixelID);
 }
 
 static inline void ApplyTexturing(Sampler::Funcs sampler, Vec4<int> &prim_color, float s, float t, int texlevel, int frac_texlevel, bool bilinear, u8 *texptr[], int texbufw[]) {
@@ -1141,7 +722,8 @@ void DrawTriangleSlice(
 	const VertexData& v0, const VertexData& v1, const VertexData& v2,
 	int x1, int y1, int x2, int y2,
 	bool byY, int h1, int h2,
-	const PixelFuncID &pixelID)
+	const PixelFuncID &pixelID,
+	const Rasterizer::SingleFunc &drawPixel)
 {
 	Vec4<int> bias0 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v0.screenpos.xy(), v1.screenpos.xy(), v2.screenpos.xy()) ? -1 : 0);
 	Vec4<int> bias1 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v1.screenpos.xy(), v2.screenpos.xy(), v0.screenpos.xy()) ? -1 : 0);
@@ -1290,7 +872,7 @@ void DrawTriangleSlice(
 					subp.x = p.x + (i & 1);
 					subp.y = p.y + (i / 2);
 
-					DrawSinglePixel<clearMode>(subp, z[i], fog[i], prim_color[i], pixelID);
+					drawPixel(subp.x, subp.y, z[i], fog[i], prim_color[i], pixelID);
 				}
 			}
 		}
@@ -1328,38 +910,39 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 	PixelFuncID pixelID;
 	ComputePixelFuncID(&pixelID);
+	Rasterizer::SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID);
 
 	const int MIN_LINES_PER_THREAD = 4;
 
 	if (rangeY >= 12 && rangeX >= rangeY * 4) {
 		if (gstate.isModeClear()) {
 			auto bound = [&](int a, int b) -> void {
-				DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, false, a, b, pixelID);
+				DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, false, a, b, pixelID, drawPixel);
 			};
 			ParallelRangeLoop(&g_threadManager, bound, 0, rangeX, MIN_LINES_PER_THREAD);
 		} else {
 			auto bound = [&](int a, int b) -> void {
-				DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, false, a, b, pixelID);
+				DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, false, a, b, pixelID, drawPixel);
 			};
 			ParallelRangeLoop(&g_threadManager, bound, 0, rangeX, MIN_LINES_PER_THREAD);
 		}
 	} else if (rangeY >= 12 && rangeX >= 12) {
 		if (gstate.isModeClear()) {
 			auto bound = [&](int a, int b) -> void {
-				DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, true, a, b, pixelID);
+				DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, true, a, b, pixelID, drawPixel);
 			};
 			ParallelRangeLoop(&g_threadManager, bound, 0, rangeY, MIN_LINES_PER_THREAD);
 		} else {
 			auto bound = [&](int a, int b) -> void {
-				DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, true, a, b, pixelID);
+				DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, true, a, b, pixelID, drawPixel);
 			};
 			ParallelRangeLoop(&g_threadManager, bound, 0, rangeY, MIN_LINES_PER_THREAD);
 		}
 	} else {
 		if (gstate.isModeClear()) {
-			DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, true, 0, rangeY, pixelID);
+			DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, true, 0, rangeY, pixelID, drawPixel);
 		} else {
-			DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, true, 0, rangeY, pixelID);
+			DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, true, 0, rangeY, pixelID, drawPixel);
 		}
 	}
 }
@@ -1382,6 +965,7 @@ void DrawPoint(const VertexData &v0)
 	Sampler::Funcs sampler = Sampler::GetFuncs();
 	PixelFuncID pixelID;
 	ComputePixelFuncID(&pixelID);
+	Rasterizer::SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID);
 
 	if (gstate.isTextureMapEnabled() && !pixelID.clearMode) {
 		int texbufw[8] = {0};
@@ -1436,11 +1020,7 @@ void DrawPoint(const VertexData &v0)
 		fog = ClampFogDepth(v0.fogdepth);
 	}
 
-	if (pixelID.clearMode) {
-		DrawSinglePixel<true>(p, z, fog, prim_color, pixelID);
-	} else {
-		DrawSinglePixel<false>(p, z, fog, prim_color, pixelID);
-	}
+	drawPixel(p.x, p.y, z, fog, prim_color, pixelID);
 }
 
 void ClearRectangle(const VertexData &v0, const VertexData &v1)
@@ -1656,6 +1236,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 	}
 
 	Sampler::Funcs sampler = Sampler::GetFuncs();
+	Rasterizer::SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID);
 
 	double x = a.x > b.x ? a.x - 1 : a.x;
 	double y = a.y > b.y ? a.y - 1 : a.y;
@@ -1729,11 +1310,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 			ScreenCoords pprime = ScreenCoords((int)x, (int)y, (int)z);
 
 			DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
-			if (pixelID.clearMode) {
-				DrawSinglePixel<true>(p, z, fog, prim_color, pixelID);
-			} else {
-				DrawSinglePixel<false>(p, z, fog, prim_color, pixelID);
-			}
+			drawPixel(p.x, p.y, z, fog, prim_color, pixelID);
 		}
 
 		x += xinc;

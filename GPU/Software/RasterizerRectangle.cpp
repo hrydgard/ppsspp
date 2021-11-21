@@ -14,9 +14,10 @@
 #include "GPU/GPUState.h"
 
 #include "GPU/Common/TextureCacheCommon.h"
-#include "GPU/Software/SoftGpu.h"
+#include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/Sampler.h"
+#include "GPU/Software/SoftGpu.h"
 
 #if defined(_M_SSE)
 #include <emmintrin.h>
@@ -94,12 +95,13 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2(), 0);
 
 	int z = pos0.z;
-	float fog = 1.0f;
+	int fog = 255;
 
 	bool isWhite = v1.color0 == Vec4<int>(255, 255, 255, 255);
 
 	PixelFuncID pixelID;
 	ComputePixelFuncID(&pixelID);
+	Rasterizer::SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID);
 
 	constexpr int MIN_LINES_PER_THREAD = 32;
 
@@ -191,8 +193,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 						Vec4<int> prim_color = v1.color0;
 						Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
 						prim_color = GetTextureFunctionOutput(prim_color, tex_color);
-						DrawingCoords pos(x, y, z);
-						DrawSinglePixelNonClear(pos, (u16)z, 1.0f, prim_color, pixelID);
+						drawPixel(x, y, z, 255, prim_color, pixelID);
 						s += ds;
 					}
 					t += dt;
@@ -236,8 +237,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 				for (int y = y1; y < y2; y++) {
 					for (int x = pos0.x; x < pos1.x; x++) {
 						Vec4<int> prim_color = v1.color0;
-						DrawingCoords pos(x, y, z);
-						DrawSinglePixelNonClear(pos, (u16)z, fog, prim_color, pixelID);
+						drawPixel(x, y, z, fog, prim_color, pixelID);
 					}
 				}
 			}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);
