@@ -36,6 +36,7 @@
 #include "Common/Profiler/Profiler.h"
 #include "Common/GPU/thin3d.h"
 
+#include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/Sampler.h"
 #include "GPU/Software/SoftGpu.h"
@@ -66,6 +67,7 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	displayStride_ = 512;
 	displayFormat_ = GE_FORMAT_8888;
 
+	Rasterizer::Init();
 	Sampler::Init();
 	drawEngine_ = new SoftwareDrawEngine();
 	drawEngine_->Init();
@@ -107,6 +109,7 @@ SoftGPU::~SoftGPU() {
 	}
 
 	Sampler::Shutdown();
+	Rasterizer::Shutdown();
 }
 
 void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
@@ -1006,6 +1009,10 @@ bool SoftGPU::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	std::string subname;
 	if (Sampler::DescribeCodePtr(ptr, subname)) {
 		name = "SamplerJit:" + subname;
+		return true;
+	}
+	if (Rasterizer::DescribeCodePtr(ptr, subname)) {
+		name = "RasterizerJit:" + subname;
 		return true;
 	}
 	return false;

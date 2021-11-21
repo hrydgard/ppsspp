@@ -1580,6 +1580,8 @@ set(GPU_SOURCES
 	GPU/Math3D.h
 	GPU/Software/Clipper.cpp
 	GPU/Software/Clipper.h
+	GPU/Software/DrawPixel.cpp
+	GPU/Software/DrawPixel.h
 	GPU/Software/FuncId.cpp
 	GPU/Software/FuncId.h
 	GPU/Software/Lighting.cpp
