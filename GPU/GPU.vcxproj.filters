@@ -542,5 +542,8 @@
     <ClCompile Include="Software\DrawPixel.cpp">
       <Filter>Software</Filter>
     </ClCompile>
+    <ClCompile Include="Software\DrawPixelX86.cpp">
+      <Filter>Software</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

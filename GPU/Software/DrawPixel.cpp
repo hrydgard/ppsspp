@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <mutex>
 #include "Common/Data/Convert/ColorConv.h"
 #include "GPU/GPUState.h"
 #include "GPU/Software/DrawPixel.h"
@@ -26,14 +27,25 @@ using namespace Math3D;
 
 namespace Rasterizer {
 
+std::mutex jitCacheLock;
+PixelJitCache *jitCache = nullptr;
+
 void Init() {
+	jitCache = new PixelJitCache();
 }
 
 void Shutdown() {
+	delete jitCache;
+	jitCache = nullptr;
 }
 
 bool DescribeCodePtr(const u8 *ptr, std::string &name) {
-	return false;
+	if (!jitCache->IsInSpace(ptr)) {
+		return false;
+	}
+
+	name = jitCache->DescribeCodePtr(ptr);
+	return true;
 }
 
 static inline u8 GetPixelStencil(GEBufferFormat fmt, int x, int y) {
@@ -462,6 +474,11 @@ inline void DrawSinglePixel(int x, int y, int z, int fog, const Vec4<int> &color
 }
 
 SingleFunc GetSingleFunc(const PixelFuncID &id) {
+	SingleFunc jitted = jitCache->GetSingle(id);
+	if (jitted) {
+		return jitted;
+	}
+
 	if (id.clearMode) {
 		switch (id.fbFormat) {
 		case GE_FORMAT_565:
@@ -486,6 +503,69 @@ SingleFunc GetSingleFunc(const PixelFuncID &id) {
 	}
 	_assert_(false);
 	return nullptr;
+}
+
+PixelJitCache::PixelJitCache()
+#if PPSSPP_ARCH(ARM64)
+	: fp(this)
+#endif
+{
+	AllocCodeSpace(1024 * 256 * 4);
+
+	// Add some random code to "help" MSVC's buggy disassembler :(
+#if defined(_WIN32) && (PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)) && !PPSSPP_PLATFORM(UWP)
+	using namespace Gen;
+	for (int i = 0; i < 100; i++) {
+		MOV(32, R(EAX), R(EBX));
+		RET();
+	}
+#elif PPSSPP_ARCH(ARM)
+	BKPT(0);
+	BKPT(0);
+#endif
+}
+
+void PixelJitCache::Clear() {
+	ClearCodeSpace(0);
+	cache_.clear();
+	addresses_.clear();
+}
+
+std::string PixelJitCache::DescribeCodePtr(const u8 *ptr) {
+	ptrdiff_t dist = 0x7FFFFFFF;
+	PixelFuncID found{};
+	for (const auto &it : addresses_) {
+		ptrdiff_t it_dist = ptr - it.second;
+		if (it_dist >= 0 && it_dist < dist) {
+			found = it.first;
+			dist = it_dist;
+		}
+	}
+
+	return DescribePixelFuncID(found);
+}
+
+SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id) {
+	std::lock_guard<std::mutex> guard(jitCacheLock);
+
+	auto it = cache_.find(id);
+	if (it != cache_.end()) {
+		return it->second;
+	}
+
+	// TODO: What should be the min size?  Can we even hit this?
+	if (GetSpaceLeft() < 65536) {
+		Clear();
+	}
+
+#if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
+	addresses_[id] = GetCodePointer();
+	SingleFunc func = CompileSingle(id);
+	cache_[id] = func;
+	return func;
+#else
+	return nullptr;
+#endif
 }
 
 };

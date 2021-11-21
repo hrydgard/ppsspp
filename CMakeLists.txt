@@ -1393,6 +1393,7 @@ list(APPEND CoreExtra
 	Core/MIPS/x86/RegCacheFPU.cpp
 	Core/MIPS/x86/RegCacheFPU.h
 	GPU/Common/VertexDecoderX86.cpp
+	GPU/Software/DrawPixelX86.cpp
 	GPU/Software/SamplerX86.cpp
 )
 

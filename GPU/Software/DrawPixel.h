@@ -45,4 +45,35 @@ void Shutdown();
 
 bool DescribeCodePtr(const u8 *ptr, std::string &name);
 
+#if PPSSPP_ARCH(ARM)
+class PixelJitCache : public ArmGen::ARMXCodeBlock {
+#elif PPSSPP_ARCH(ARM64)
+class PixelJitCache : public Arm64Gen::ARM64CodeBlock {
+#elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+class PixelJitCache : public Gen::XCodeBlock {
+#elif PPSSPP_ARCH(MIPS)
+class PixelJitCache : public MIPSGen::MIPSCodeBlock {
+#else
+class PixelJitCache : public FakeGen::FakeXCodeBlock {
+#endif
+public:
+	PixelJitCache();
+
+	// Returns a pointer to the code to run.
+	SingleFunc GetSingle(const PixelFuncID &id);
+	void Clear();
+
+	std::string DescribeCodePtr(const u8 *ptr);
+
+private:
+	SingleFunc CompileSingle(const PixelFuncID &id);
+
+#if PPSSPP_ARCH(ARM64)
+	Arm64Gen::ARM64FloatEmitter fp;
+#endif
+
+	std::unordered_map<PixelFuncID, SingleFunc> cache_;
+	std::unordered_map<PixelFuncID, const u8 *> addresses_;
+};
+
 };

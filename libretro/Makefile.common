@@ -679,7 +679,7 @@ ifeq ($(WITH_DYNAREC),1)
             CPUFLAGS += -m32
          endif
       endif
-	   SOURCES_CXX += $(GPUDIR)/Software/SamplerX86.cpp
+	   SOURCES_CXX += $(GPUDIR)/Software/DrawPixelX86.cpp $(GPUDIR)/Software/SamplerX86.cpp
 	   SOURCES_CXX += $(COMMONDIR)/x64Emitter.cpp \
 						$(COMMONDIR)/x64Analyzer.cpp \
 						$(COMMONDIR)/ABI.cpp \
