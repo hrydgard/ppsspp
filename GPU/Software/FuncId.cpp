@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/StringUtils.h"
 #include "GPU/Software/FuncId.h"
 #include "GPU/GPUState.h"
 
@@ -81,4 +82,155 @@ void ComputePixelFuncID(PixelFuncID *id) {
 		id->applyLogicOp = gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY;
 		id->applyFog = gstate.isFogEnabled() && !gstate.isModeThrough();
 	}
+}
+
+std::string DescribePixelFuncID(const PixelFuncID &id) {
+	std::string desc;
+	if (id.clearMode) {
+		desc = "Clear";
+		if (id.colorClear)
+			desc += "C";
+		if (id.stencilClear)
+			desc += "S";
+		if (id.depthClear)
+			desc += "D";
+		desc += ":";
+	}
+	if (id.applyDepthRange)
+		desc += "DepthR:";
+	if (id.useStandardStride)
+		desc += "Str512:";
+	if (id.dithering)
+		desc += "Dith:";
+	if (id.applyColorWriteMask)
+		desc += "Msk:";
+
+	switch (id.fbFormat) {
+	case GE_FORMAT_565: desc += "5650:"; break;
+	case GE_FORMAT_5551: desc += "5551:"; break;
+	case GE_FORMAT_4444: desc += "4444:"; break;
+	case GE_FORMAT_8888: desc += "8888:"; break;
+	}
+
+	if (id.alphaTestFunc != GE_COMP_ALWAYS) {
+		switch (GEComparison(id.alphaTestFunc)) {
+		case GE_COMP_NEVER: desc += "ANever"; break;
+		case GE_COMP_ALWAYS: break;
+		case GE_COMP_EQUAL: desc += "AEQ"; break;
+		case GE_COMP_NOTEQUAL: desc += "ANE"; break;
+		case GE_COMP_LESS: desc += "ALT"; break;
+		case GE_COMP_LEQUAL: desc += "ALE"; break;
+		case GE_COMP_GREATER: desc += "AGT"; break;
+		case GE_COMP_GEQUAL: desc += "AGE"; break;
+		}
+		if (id.hasAlphaTestMask)
+			desc += "Msk";
+		desc += StringFromFormat("%02X:", id.alphaTestRef);
+	}
+
+	if (id.depthTestFunc != GE_COMP_ALWAYS) {
+		switch (GEComparison(id.depthTestFunc)) {
+		case GE_COMP_NEVER: desc += "ZNever:"; break;
+		case GE_COMP_ALWAYS: break;
+		case GE_COMP_EQUAL: desc += "ZEQ:"; break;
+		case GE_COMP_NOTEQUAL: desc += "ZNE:"; break;
+		case GE_COMP_LESS: desc += "ZLT:"; break;
+		case GE_COMP_LEQUAL: desc += "ZLE:"; break;
+		case GE_COMP_GREATER: desc += "ZGT:"; break;
+		case GE_COMP_GEQUAL: desc += "ZGE:"; break;
+		}
+	}
+	if (id.depthWrite && !id.clearMode)
+		desc += "ZWr:";
+
+	if (id.colorTest && !id.clearMode)
+		desc += "CTest:";
+
+	if (id.stencilTest && !id.clearMode) {
+		switch (GEComparison(id.stencilTestFunc)) {
+		case GE_COMP_NEVER: desc += "SNever"; break;
+		case GE_COMP_ALWAYS: desc += "SAlways";  break;
+		case GE_COMP_EQUAL: desc += "SEQ"; break;
+		case GE_COMP_NOTEQUAL: desc += "SNE"; break;
+		case GE_COMP_LESS: desc += "SLT"; break;
+		case GE_COMP_LEQUAL: desc += "SLE"; break;
+		case GE_COMP_GREATER: desc += "SGT"; break;
+		case GE_COMP_GEQUAL: desc += "SGE"; break;
+		}
+		if (id.hasStencilTestMask)
+			desc += "Msk";
+		desc += StringFromFormat("%02X:", id.stencilTestRef);
+	}
+
+	switch (GEStencilOp(id.sFail)) {
+	case GE_STENCILOP_KEEP: break;
+	case GE_STENCILOP_ZERO: desc += "STstF0:"; break;
+	case GE_STENCILOP_REPLACE: desc += "STstFRpl:"; break;
+	case GE_STENCILOP_INVERT: desc += "STstFXor:"; break;
+	case GE_STENCILOP_INCR: desc += "STstFInc:"; break;
+	case GE_STENCILOP_DECR: desc += "STstFDec:"; break;
+	}
+	switch (GEStencilOp(id.zFail)) {
+	case GE_STENCILOP_KEEP: break;
+	case GE_STENCILOP_ZERO: desc += "ZTstF0:"; break;
+	case GE_STENCILOP_REPLACE: desc += "ZTstFRpl:"; break;
+	case GE_STENCILOP_INVERT: desc += "ZTstFXor:"; break;
+	case GE_STENCILOP_INCR: desc += "ZTstFInc:"; break;
+	case GE_STENCILOP_DECR: desc += "ZTstFDec:"; break;
+	}
+	switch (GEStencilOp(id.zPass)) {
+	case GE_STENCILOP_KEEP: break;
+	case GE_STENCILOP_ZERO: desc += "ZTstT0:"; break;
+	case GE_STENCILOP_REPLACE: desc += "ZTstTRpl:"; break;
+	case GE_STENCILOP_INVERT: desc += "ZTstTXor:"; break;
+	case GE_STENCILOP_INCR: desc += "ZTstTInc:"; break;
+	case GE_STENCILOP_DECR: desc += "ZTstTDec:"; break;
+	}
+
+	if (id.alphaBlend) {
+		switch (GEBlendMode(id.alphaBlendEq)) {
+		case GE_BLENDMODE_MUL_AND_ADD: desc += "BlendAdd<"; break;
+		case GE_BLENDMODE_MUL_AND_SUBTRACT: desc += "BlendSub<"; break;
+		case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE: desc += "BlendRSub<"; break;
+		case GE_BLENDMODE_MIN: desc += "BlendMin<"; break;
+		case GE_BLENDMODE_MAX: desc += "BlendMax<"; break;
+		case GE_BLENDMODE_ABSDIFF: desc += "BlendDiff<"; break;
+		}
+		switch (GEBlendSrcFactor(id.alphaBlendSrc)) {
+		case GE_SRCBLEND_DSTCOLOR: desc += "DstRGB,"; break;
+		case GE_SRCBLEND_INVDSTCOLOR: desc += "1-DstRGB,"; break;
+		case GE_SRCBLEND_SRCALPHA: desc += "SrcA,"; break;
+		case GE_SRCBLEND_INVSRCALPHA: desc += "1-SrcA,"; break;
+		case GE_SRCBLEND_DSTALPHA: desc += "DstA,"; break;
+		case GE_SRCBLEND_INVDSTALPHA: desc += "1-DstA,"; break;
+		case GE_SRCBLEND_DOUBLESRCALPHA: desc += "2*SrcA,"; break;
+		case GE_SRCBLEND_DOUBLEINVSRCALPHA: desc += "1-2*SrcA,"; break;
+		case GE_SRCBLEND_DOUBLEDSTALPHA: desc += "2*DstA,"; break;
+		case GE_SRCBLEND_DOUBLEINVDSTALPHA: desc += "1-2*DstA,"; break;
+		case GE_SRCBLEND_FIXA: desc += "Fix,"; break;
+		}
+		switch (GEBlendDstFactor(id.alphaBlendSrc)) {
+		case GE_DSTBLEND_SRCCOLOR: desc += "SrcRGB>:"; break;
+		case GE_DSTBLEND_INVSRCCOLOR: desc += "1-SrcRGB>:"; break;
+		case GE_DSTBLEND_SRCALPHA: desc += "SrcA>:"; break;
+		case GE_DSTBLEND_INVSRCALPHA: desc += "1-SrcA>:"; break;
+		case GE_DSTBLEND_DSTALPHA: desc += "DstA>:"; break;
+		case GE_DSTBLEND_INVDSTALPHA: desc += "1-DstA>:"; break;
+		case GE_DSTBLEND_DOUBLESRCALPHA: desc += "2*SrcA>:"; break;
+		case GE_DSTBLEND_DOUBLEINVSRCALPHA: desc += "1-2*SrcA>:"; break;
+		case GE_DSTBLEND_DOUBLEDSTALPHA: desc += "2*DstA>:"; break;
+		case GE_DSTBLEND_DOUBLEINVDSTALPHA: desc += "1-2*DstA>:"; break;
+		case GE_DSTBLEND_FIXB: desc += "Fix>:"; break;
+		}
+	}
+
+	if (id.applyLogicOp)
+		desc += "Logic:";
+	if (id.applyFog)
+		desc += "Fog:";
+
+	if (desc.empty())
+		return desc;
+	desc.resize(desc.size() - 1);
+	return desc;
 }
