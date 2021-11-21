@@ -127,7 +127,7 @@ static inline bool AlphaTestPassed(const PixelFuncID &pixelID, int alpha) {
 	if (pixelID.hasAlphaTestMask)
 		alpha &= gstate.getAlphaTestMask();
 
-	switch (GEComparison(pixelID.alphaTestFunc)) {
+	switch (pixelID.AlphaTestFunc()) {
 	case GE_COMP_NEVER:
 		return false;
 
@@ -369,7 +369,7 @@ inline void DrawSinglePixel(int x, int y, int z, int fog, const Vec4<int> &color
 		if (z < gstate.getDepthRangeMin() || z > gstate.getDepthRangeMax())
 			return;
 
-	if (GEComparison(pixelID.alphaTestFunc) != GE_COMP_ALWAYS && !clearMode)
+	if (pixelID.AlphaTestFunc() != GE_COMP_ALWAYS && !clearMode)
 		if (!AlphaTestPassed(pixelID, prim_color.a()))
 			return;
 
@@ -389,7 +389,7 @@ inline void DrawSinglePixel(int x, int y, int z, int fog, const Vec4<int> &color
 	// In clear mode, it uses the alpha color as stencil.
 	u8 stencil = clearMode ? prim_color.a() : GetPixelStencil(fbFormat, x, y);
 	if (clearMode) {
-		if (pixelID.depthClear)
+		if (pixelID.DepthClear())
 			SetPixelDepth(x, y, z);
 	} else if (pixelID.stencilTest) {
 		if (!StencilTestPassed(pixelID, stencil)) {
@@ -399,7 +399,7 @@ inline void DrawSinglePixel(int x, int y, int z, int fog, const Vec4<int> &color
 		}
 
 		// Also apply depth at the same time.  If disabled, same as passing.
-		if (pixelID.depthTestFunc != GE_COMP_ALWAYS && !DepthTestPassed(GEComparison(pixelID.depthTestFunc), x, y, z)) {
+		if (pixelID.DepthTestFunc() != GE_COMP_ALWAYS && !DepthTestPassed(pixelID.DepthTestFunc(), x, y, z)) {
 			stencil = ApplyStencilOp(fbFormat, GEStencilOp(pixelID.zFail), stencil);
 			SetPixelStencil(fbFormat, x, y, stencil);
 			return;
@@ -407,7 +407,7 @@ inline void DrawSinglePixel(int x, int y, int z, int fog, const Vec4<int> &color
 
 		stencil = ApplyStencilOp(fbFormat, GEStencilOp(pixelID.zPass), stencil);
 	} else {
-		if (pixelID.depthTestFunc != GE_COMP_ALWAYS && !DepthTestPassed(GEComparison(pixelID.depthTestFunc), x, y, z)) {
+		if (pixelID.DepthTestFunc() != GE_COMP_ALWAYS && !DepthTestPassed(pixelID.DepthTestFunc(), x, y, z)) {
 			return;
 		}
 	}
@@ -460,7 +460,7 @@ inline void DrawSinglePixel(int x, int y, int z, int fog, const Vec4<int> &color
 
 SingleFunc GetSingleFunc(const PixelFuncID &id) {
 	if (id.clearMode) {
-		switch (id.fbFormat) {
+		switch (id.FBFormat()) {
 		case GE_FORMAT_565:
 			return &DrawSinglePixel<true, GE_FORMAT_565>;
 		case GE_FORMAT_5551:
@@ -471,7 +471,7 @@ SingleFunc GetSingleFunc(const PixelFuncID &id) {
 			return &DrawSinglePixel<true, GE_FORMAT_8888>;
 		}
 	}
-	switch (id.fbFormat) {
+	switch (id.FBFormat()) {
 	case GE_FORMAT_565:
 		return &DrawSinglePixel<false, GE_FORMAT_565>;
 	case GE_FORMAT_5551:

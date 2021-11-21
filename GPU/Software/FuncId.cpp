@@ -19,6 +19,9 @@
 #include "GPU/Software/FuncId.h"
 #include "GPU/GPUState.h"
 
+static_assert(sizeof(SamplerID) == sizeof(SamplerID::fullKey), "Bad sampler ID size");
+static_assert(sizeof(PixelFuncID) == sizeof(PixelFuncID::fullKey), "Bad pixel func ID size");
+
 void ComputePixelFuncID(PixelFuncID *id) {
 	id->fullKey = 0;
 
@@ -32,9 +35,9 @@ void ComputePixelFuncID(PixelFuncID *id) {
 
 	id->clearMode = gstate.isModeClear();
 	if (id->clearMode) {
-		id->colorClear = gstate.isClearModeColorMask();
-		id->stencilClear = gstate.isClearModeAlphaMask();
-		id->depthClear = gstate.isClearModeDepthMask();
+		id->colorTest = gstate.isClearModeColorMask();
+		id->stencilTest = gstate.isClearModeAlphaMask();
+		id->depthWrite = gstate.isClearModeDepthMask();
 	} else {
 		id->colorTest = gstate.isColorTestEnabled() && gstate.getColorTestFunction() != GE_COMP_ALWAYS;
 		if (gstate.isStencilTestEnabled() && gstate.getStencilTestFunction() == GE_COMP_ALWAYS) {
@@ -60,7 +63,7 @@ void ComputePixelFuncID(PixelFuncID *id) {
 
 		id->depthTestFunc = gstate.isDepthTestEnabled() ? gstate.getDepthTestFunction() : GE_COMP_ALWAYS;
 		id->alphaTestFunc = gstate.isAlphaTestEnabled() ? gstate.getAlphaTestFunction() : GE_COMP_ALWAYS;
-		if (id->alphaTestFunc != GE_COMP_ALWAYS) {
+		if (id->AlphaTestFunc() != GE_COMP_ALWAYS) {
 			id->alphaTestRef = gstate.getAlphaTestRef() & gstate.getAlphaTestMask();
 			id->hasAlphaTestMask = gstate.getAlphaTestMask() != 0xFF;
 		}
@@ -88,11 +91,11 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 	std::string desc;
 	if (id.clearMode) {
 		desc = "Clear";
-		if (id.colorClear)
+		if (id.ColorClear())
 			desc += "C";
-		if (id.stencilClear)
+		if (id.StencilClear())
 			desc += "S";
-		if (id.depthClear)
+		if (id.DepthClear())
 			desc += "D";
 		desc += ":";
 	}
@@ -105,15 +108,15 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 	if (id.applyColorWriteMask)
 		desc += "Msk:";
 
-	switch (id.fbFormat) {
+	switch (id.FBFormat()) {
 	case GE_FORMAT_565: desc += "5650:"; break;
 	case GE_FORMAT_5551: desc += "5551:"; break;
 	case GE_FORMAT_4444: desc += "4444:"; break;
 	case GE_FORMAT_8888: desc += "8888:"; break;
 	}
 
-	if (id.alphaTestFunc != GE_COMP_ALWAYS) {
-		switch (GEComparison(id.alphaTestFunc)) {
+	if (id.AlphaTestFunc() != GE_COMP_ALWAYS) {
+		switch (id.AlphaTestFunc()) {
 		case GE_COMP_NEVER: desc += "ANever"; break;
 		case GE_COMP_ALWAYS: break;
 		case GE_COMP_EQUAL: desc += "AEQ"; break;
@@ -128,8 +131,8 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 		desc += StringFromFormat("%02X:", id.alphaTestRef);
 	}
 
-	if (id.depthTestFunc != GE_COMP_ALWAYS) {
-		switch (GEComparison(id.depthTestFunc)) {
+	if (id.DepthTestFunc() != GE_COMP_ALWAYS) {
+		switch (id.DepthTestFunc()) {
 		case GE_COMP_NEVER: desc += "ZNever:"; break;
 		case GE_COMP_ALWAYS: break;
 		case GE_COMP_EQUAL: desc += "ZEQ:"; break;
@@ -147,7 +150,7 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 		desc += "CTest:";
 
 	if (id.stencilTest && !id.clearMode) {
-		switch (GEComparison(id.stencilTestFunc)) {
+		switch (id.StencilTestFunc()) {
 		case GE_COMP_NEVER: desc += "SNever"; break;
 		case GE_COMP_ALWAYS: desc += "SAlways";  break;
 		case GE_COMP_EQUAL: desc += "SEQ"; break;
@@ -162,7 +165,7 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 		desc += StringFromFormat("%02X:", id.stencilTestRef);
 	}
 
-	switch (GEStencilOp(id.sFail)) {
+	switch (id.SFail()) {
 	case GE_STENCILOP_KEEP: break;
 	case GE_STENCILOP_ZERO: desc += "STstF0:"; break;
 	case GE_STENCILOP_REPLACE: desc += "STstFRpl:"; break;
@@ -170,7 +173,7 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 	case GE_STENCILOP_INCR: desc += "STstFInc:"; break;
 	case GE_STENCILOP_DECR: desc += "STstFDec:"; break;
 	}
-	switch (GEStencilOp(id.zFail)) {
+	switch (id.ZFail()) {
 	case GE_STENCILOP_KEEP: break;
 	case GE_STENCILOP_ZERO: desc += "ZTstF0:"; break;
 	case GE_STENCILOP_REPLACE: desc += "ZTstFRpl:"; break;
@@ -178,7 +181,7 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 	case GE_STENCILOP_INCR: desc += "ZTstFInc:"; break;
 	case GE_STENCILOP_DECR: desc += "ZTstFDec:"; break;
 	}
-	switch (GEStencilOp(id.zPass)) {
+	switch (id.ZPass()) {
 	case GE_STENCILOP_KEEP: break;
 	case GE_STENCILOP_ZERO: desc += "ZTstT0:"; break;
 	case GE_STENCILOP_REPLACE: desc += "ZTstTRpl:"; break;
@@ -188,7 +191,7 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 	}
 
 	if (id.alphaBlend) {
-		switch (GEBlendMode(id.alphaBlendEq)) {
+		switch (id.AlphaBlendEq()) {
 		case GE_BLENDMODE_MUL_AND_ADD: desc += "BlendAdd<"; break;
 		case GE_BLENDMODE_MUL_AND_SUBTRACT: desc += "BlendSub<"; break;
 		case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE: desc += "BlendRSub<"; break;
@@ -196,7 +199,7 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 		case GE_BLENDMODE_MAX: desc += "BlendMax<"; break;
 		case GE_BLENDMODE_ABSDIFF: desc += "BlendDiff<"; break;
 		}
-		switch (GEBlendSrcFactor(id.alphaBlendSrc)) {
+		switch (id.AlphaBlendSrc()) {
 		case GE_SRCBLEND_DSTCOLOR: desc += "DstRGB,"; break;
 		case GE_SRCBLEND_INVDSTCOLOR: desc += "1-DstRGB,"; break;
 		case GE_SRCBLEND_SRCALPHA: desc += "SrcA,"; break;
@@ -209,7 +212,7 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 		case GE_SRCBLEND_DOUBLEINVDSTALPHA: desc += "1-2*DstA,"; break;
 		case GE_SRCBLEND_FIXA: desc += "Fix,"; break;
 		}
-		switch (GEBlendDstFactor(id.alphaBlendSrc)) {
+		switch (id.AlphaBlendDst()) {
 		case GE_DSTBLEND_SRCCOLOR: desc += "SrcRGB>:"; break;
 		case GE_DSTBLEND_INVSRCCOLOR: desc += "1-SrcRGB>:"; break;
 		case GE_DSTBLEND_SRCALPHA: desc += "SrcA>:"; break;
