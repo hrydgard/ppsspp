@@ -1215,6 +1215,8 @@ bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *sourceCode, 
 		return false; // something didn't work
 	}
 
+	// TODO: Propagate warnings into errorMessages even if we succeeded here.
+
 	// Note that program does not take ownership of &shader, so this is fine.
 	program.addShader(&shader);
 

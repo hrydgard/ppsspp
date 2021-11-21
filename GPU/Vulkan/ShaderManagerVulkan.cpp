@@ -42,18 +42,16 @@
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
 
-VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, const char *code)
-	: vulkan_(vulkan), id_(id) {
+VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code) {
 	PROFILE_THIS_SCOPE("shadercomp");
-	source_ = code;
 
 	std::string errorMessage;
 	std::vector<uint32_t> spirv;
-#ifdef SHADERLOG
-	OutputDebugStringA(LineNumberString(code).c_str());
-#endif
 
-	bool success = GLSLtoSPV(VK_SHADER_STAGE_FRAGMENT_BIT, code, GLSLVariant::VULKAN, spirv, &errorMessage);
+	bool success = GLSLtoSPV(stage, code, GLSLVariant::VULKAN, spirv, &errorMessage);
+
+	VkShaderModule shaderModule = VK_NULL_HANDLE;
+
 	if (!errorMessage.empty()) {
 		if (success) {
 			ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -64,18 +62,32 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, 
 		ERROR_LOG(G3D, "Shader source:\n%s", code);
 #ifdef SHADERLOG
 		OutputDebugStringA(LineNumberString(code).c_str());
-		OutputDebugStringA("Messages:\n");
+		OutputDebugStringA("Error messages:\n");
 		OutputDebugStringA(errorMessage.c_str());
 #endif
 		Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
 	} else {
-		success = vulkan_->CreateShaderModule(spirv, &module_);
+#ifdef SHADERLOG
+		OutputDebugStringA(LineNumberString(code).c_str());
+#endif
 #ifdef SHADERLOG
 		OutputDebugStringA("OK\n");
 #endif
 	}
 
-	if (!success) {
+	if (success) {
+		vulkan->CreateShaderModule(spirv, &shaderModule);
+	}
+
+	return shaderModule;
+}
+
+
+VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, const char *code)
+	: vulkan_(vulkan), id_(id) {
+	source_ = code;
+	module_ = CompileShaderModule(vulkan, VK_SHADER_STAGE_FRAGMENT_BIT, source_.c_str());
+	if (!module_) {
 		failed_ = true;
 		return;
 	} else {
@@ -102,38 +114,10 @@ std::string VulkanFragmentShader::GetShaderString(DebugShaderStringType type) co
 
 VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, const char *code, bool useHWTransform)
 	: vulkan_(vulkan), useHWTransform_(useHWTransform), id_(id) {
-	PROFILE_THIS_SCOPE("shadercomp");
 	source_ = code;
-	std::string errorMessage;
-	std::vector<uint32_t> spirv;
-#ifdef SHADERLOG
-	OutputDebugStringA(LineNumberString(code).c_str());
-#endif
-	bool success = GLSLtoSPV(VK_SHADER_STAGE_VERTEX_BIT, code, GLSLVariant::VULKAN, spirv, &errorMessage);
-	if (!errorMessage.empty()) {
-		if (success) {
-			ERROR_LOG(G3D, "Warnings in shader compilation!");
-		} else {
-			ERROR_LOG(G3D, "Error in shader compilation!");
-		}
-		ERROR_LOG(G3D, "Messages: %s", errorMessage.c_str());
-		ERROR_LOG(G3D, "Shader source:\n%s", code);
-#ifdef SHADERLOG
-		OutputDebugStringA(LineNumberString(code).c_str());
-		OutputDebugStringUTF8("Messages:\n");
-		OutputDebugStringUTF8(errorMessage.c_str());
-#endif
-		Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
-	} else {
-		success = vulkan_->CreateShaderModule(spirv, &module_);
-#ifdef SHADERLOG
-		OutputDebugStringA("OK\n");
-#endif
-	}
-
-	if (!success) {
+	module_ = CompileShaderModule(vulkan, VK_SHADER_STAGE_VERTEX_BIT, source_.c_str());
+	if (!module_) {
 		failed_ = true;
-		module_ = VK_NULL_HANDLE;
 		return;
 	} else {
 		VERBOSE_LOG(G3D, "Compiled vertex shader:\n%s\n", (const char *)code);
