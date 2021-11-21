@@ -170,12 +170,88 @@ bool PixelJitCache::Jit_ApplyDepthRange(const PixelFuncID &id) {
 }
 
 bool PixelJitCache::Jit_AlphaTest(const PixelFuncID &id) {
-	if (id.AlphaTestFunc() == GE_COMP_ALWAYS) {
+	// Take care of ALWAYS/NEVER first.  ALWAYS is common, means disabled.
+	switch (id.AlphaTestFunc()) {
+	case GE_COMP_NEVER:
+		CMP(32, R(RAX), R(RAX));
+		Discard(CC_E);
 		return true;
+
+	case GE_COMP_ALWAYS:
+		return true;
+
+	default:
+		break;
 	}
 
-	// TODO: Discard(!AlphaTestPassed(pixelID, prim_color.a()));
-	return false;
+	// Load alpha into its own general reg.
+	X64Reg alphaReg;
+	if (regCache_.Has(PixelRegCache::ALPHA, PixelRegCache::T_GEN)) {
+		alphaReg = regCache_.Find(PixelRegCache::ALPHA, PixelRegCache::T_GEN);
+	} else {
+		alphaReg = regCache_.Alloc(PixelRegCache::ALPHA, PixelRegCache::T_GEN);
+
+		// TODO: Could do this a bit more cheaply on SSE4.1?
+		X64Reg zeroReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_VEC);
+		X64Reg colorCopyReg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_VEC);
+		MOVDQA(colorCopyReg, R(argColorReg));
+		PXOR(zeroReg, R(zeroReg));
+		PUNPCKLBW(colorCopyReg, R(zeroReg));
+		PEXTRW(alphaReg, R(colorCopyReg), 3);
+		regCache_.Release(zeroReg, PixelRegCache::T_VEC);
+		regCache_.Release(colorCopyReg, PixelRegCache::T_VEC);
+	}
+
+	if (id.hasAlphaTestMask) {
+		// Unfortunate, we'll need gstate to load the mask.
+		// Note: we leave the ALPHA purpose untouched and free it, because later code may reuse.
+		X64Reg gstateReg = GetGState();
+		X64Reg maskedReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_GEN);
+
+		// The mask is >> 16, so we load + 2.
+		MOVZX(32, 8, maskedReg, MDisp(gstateReg, offsetof(GPUgstate, alphatest) + 2));
+		regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+		AND(32, R(maskedReg), R(alphaReg));
+		regCache_.Unlock(alphaReg, PixelRegCache::T_GEN);
+
+		// Okay now do the rest using the masked reg, which we modified.
+		alphaReg = maskedReg;
+		// Pre-emptively release, we don't need any other regs.
+		regCache_.Release(maskedReg, PixelRegCache::T_GEN);
+	} else {
+		regCache_.Unlock(alphaReg, PixelRegCache::T_GEN);
+	}
+
+	// We hardcode the ref into this jit func.
+	CMP(8, R(alphaReg), Imm8(id.alphaTestRef));
+
+	switch (id.AlphaTestFunc()) {
+	case GE_COMP_EQUAL:
+		Discard(CC_NE);
+		break;
+
+	case GE_COMP_NOTEQUAL:
+		Discard(CC_E);
+		break;
+
+	case GE_COMP_LESS:
+		Discard(CC_AE);
+		break;
+
+	case GE_COMP_LEQUAL:
+		Discard(CC_A);
+		break;
+
+	case GE_COMP_GREATER:
+		Discard(CC_BE);
+		break;
+
+	case GE_COMP_GEQUAL:
+		Discard(CC_B);
+		break;
+	}
+
+	return true;
 }
 
 bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
