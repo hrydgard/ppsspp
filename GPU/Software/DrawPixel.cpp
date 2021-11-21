@@ -361,7 +361,7 @@ static inline u32 ApplyLogicOp(GELogicOp op, u32 old_color, u32 new_color) {
 	return new_color;
 }
 
-template <bool clearMode>
+template <bool clearMode, GEBufferFormat fbFormat>
 inline void DrawSinglePixel(int x, int y, int z, int fog, const Vec4<int> &color_in, const PixelFuncID &pixelID) {
 	Vec4<int> prim_color = color_in.Clamp(0, 255);
 	// Depth range test - applied in clear mode, if not through mode.
@@ -387,25 +387,25 @@ inline void DrawSinglePixel(int x, int y, int z, int fog, const Vec4<int> &color
 			return;
 
 	// In clear mode, it uses the alpha color as stencil.
-	u8 stencil = clearMode ? prim_color.a() : GetPixelStencil(GEBufferFormat(pixelID.fbFormat), x, y);
+	u8 stencil = clearMode ? prim_color.a() : GetPixelStencil(fbFormat, x, y);
 	if (clearMode) {
 		if (pixelID.depthClear)
 			SetPixelDepth(x, y, z);
 	} else if (pixelID.stencilTest) {
 		if (!StencilTestPassed(pixelID, stencil)) {
-			stencil = ApplyStencilOp(GEBufferFormat(pixelID.fbFormat), GEStencilOp(pixelID.sFail), stencil);
-			SetPixelStencil(GEBufferFormat(pixelID.fbFormat), x, y, stencil);
+			stencil = ApplyStencilOp(fbFormat, GEStencilOp(pixelID.sFail), stencil);
+			SetPixelStencil(fbFormat, x, y, stencil);
 			return;
 		}
 
 		// Also apply depth at the same time.  If disabled, same as passing.
 		if (pixelID.depthTestFunc != GE_COMP_ALWAYS && !DepthTestPassed(GEComparison(pixelID.depthTestFunc), x, y, z)) {
-			stencil = ApplyStencilOp(GEBufferFormat(pixelID.fbFormat), GEStencilOp(pixelID.zFail), stencil);
-			SetPixelStencil(GEBufferFormat(pixelID.fbFormat), x, y, stencil);
+			stencil = ApplyStencilOp(fbFormat, GEStencilOp(pixelID.zFail), stencil);
+			SetPixelStencil(fbFormat, x, y, stencil);
 			return;
 		}
 
-		stencil = ApplyStencilOp(GEBufferFormat(pixelID.fbFormat), GEStencilOp(pixelID.zPass), stencil);
+		stencil = ApplyStencilOp(fbFormat, GEStencilOp(pixelID.zPass), stencil);
 	} else {
 		if (pixelID.depthTestFunc != GE_COMP_ALWAYS && !DepthTestPassed(GEComparison(pixelID.depthTestFunc), x, y, z)) {
 			return;
@@ -415,7 +415,7 @@ inline void DrawSinglePixel(int x, int y, int z, int fog, const Vec4<int> &color
 	if (pixelID.depthWrite && !clearMode)
 		SetPixelDepth(x, y, z);
 
-	const u32 old_color = GetPixelColor(GEBufferFormat(pixelID.fbFormat), x, y);
+	const u32 old_color = GetPixelColor(fbFormat, x, y);
 	u32 new_color;
 
 	// Dithering happens before the logic op and regardless of framebuffer format or clear mode.
@@ -455,13 +455,34 @@ inline void DrawSinglePixel(int x, int y, int z, int fog, const Vec4<int> &color
 	}
 	new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
 
-	SetPixelColor(GEBufferFormat(pixelID.fbFormat), x, y, new_color);
+	SetPixelColor(fbFormat, x, y, new_color);
 }
 
 SingleFunc GetSingleFunc(const PixelFuncID &id) {
-	if (id.clearMode)
-		return &DrawSinglePixel<true>;
-	return &DrawSinglePixel<false>;
+	if (id.clearMode) {
+		switch (id.fbFormat) {
+		case GE_FORMAT_565:
+			return &DrawSinglePixel<true, GE_FORMAT_565>;
+		case GE_FORMAT_5551:
+			return &DrawSinglePixel<true, GE_FORMAT_5551>;
+		case GE_FORMAT_4444:
+			return &DrawSinglePixel<true, GE_FORMAT_4444>;
+		case GE_FORMAT_8888:
+			return &DrawSinglePixel<true, GE_FORMAT_8888>;
+		}
+	}
+	switch (id.fbFormat) {
+	case GE_FORMAT_565:
+		return &DrawSinglePixel<false, GE_FORMAT_565>;
+	case GE_FORMAT_5551:
+		return &DrawSinglePixel<false, GE_FORMAT_5551>;
+	case GE_FORMAT_4444:
+		return &DrawSinglePixel<false, GE_FORMAT_4444>;
+	case GE_FORMAT_8888:
+		return &DrawSinglePixel<false, GE_FORMAT_8888>;
+	}
+	_assert_(false);
+	return nullptr;
 }
 
 };
