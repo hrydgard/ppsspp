@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "TransformUnit.h" // for DrawingCoords
+#include "GPU/Software/FuncId.h"
+#include "GPU/Software/TransformUnit.h" // for DrawingCoords
 
 struct GPUDebugBuffer;
 
@@ -33,8 +34,8 @@ bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
 bool GetCurrentTexture(GPUDebugBuffer &buffer, int level);
 
 // Shared functions with RasterizerRectangle.cpp
-Vec3<int> AlphaBlendingResult(const Vec4<int> &source, const Vec4<int> &dst);
-void DrawSinglePixelNonClear(const DrawingCoords &p, u16 z, u8 fog, const Vec4<int> &color_in);
+Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &source, const Vec4<int> &dst);
+void DrawSinglePixelNonClear(const DrawingCoords &p, u16 z, u8 fog, const Vec4<int> &color_in, const PixelFuncID &pixelID);
 Vec4<int> GetTextureFunctionOutput(const Vec4<int>& prim_color, const Vec4<int>& texcolor);
 
 }  // namespace Rasterizer

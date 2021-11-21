@@ -358,6 +358,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GLES/FragmentTestCacheGLES.cpp.arm \
   $(SRC)/GPU/GLES/TextureScalerGLES.cpp \
   $(SRC)/GPU/Software/Clipper.cpp \
+  $(SRC)/GPU/Software/FuncId.cpp \
   $(SRC)/GPU/Software/Lighting.cpp \
   $(SRC)/GPU/Software/Rasterizer.cpp.arm \
   $(SRC)/GPU/Software/RasterizerRectangle.cpp.arm \

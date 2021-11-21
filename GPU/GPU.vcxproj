@@ -454,6 +454,7 @@
     <ClInclude Include="Math3D.h" />
     <ClInclude Include="Software\Clipper.h" />
     <ClInclude Include="Software\Lighting.h" />
+    <ClInclude Include="Software\FuncId.h" />
     <ClInclude Include="Software\Rasterizer.h" />
     <ClInclude Include="Software\RasterizerRectangle.h" />
     <ClInclude Include="Software\Sampler.h" />
@@ -629,6 +630,7 @@
     <ClCompile Include="Math3D.cpp" />
     <ClCompile Include="Software\Clipper.cpp" />
     <ClCompile Include="Software\Lighting.cpp" />
+    <ClCompile Include="Software\FuncId.cpp" />
     <ClCompile Include="Software\Rasterizer.cpp" />
     <ClCompile Include="Software\RasterizerRectangle.cpp" />
     <ClCompile Include="Software\Sampler.cpp" />

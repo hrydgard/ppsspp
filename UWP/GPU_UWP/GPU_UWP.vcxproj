@@ -426,6 +426,7 @@
     <ClInclude Include="..\..\GPU\GPUState.h" />
     <ClInclude Include="..\..\GPU\Math3D.h" />
     <ClInclude Include="..\..\GPU\Software\Clipper.h" />
+    <ClInclude Include="..\..\GPU\Software\FuncId.h" />
     <ClInclude Include="..\..\GPU\Software\Lighting.h" />
     <ClInclude Include="..\..\GPU\Software\Rasterizer.h" />
     <ClInclude Include="..\..\GPU\Software\RasterizerRectangle.h" />
@@ -484,6 +485,7 @@
     <ClCompile Include="..\..\GPU\GPUState.cpp" />
     <ClCompile Include="..\..\GPU\Math3D.cpp" />
     <ClCompile Include="..\..\GPU\Software\Clipper.cpp" />
+    <ClCompile Include="..\..\GPU\Software\FuncId.cpp" />
     <ClCompile Include="..\..\GPU\Software\Lighting.cpp" />
     <ClCompile Include="..\..\GPU\Software\Rasterizer.cpp" />
     <ClCompile Include="..\..\GPU\Software\RasterizerRectangle.cpp" />
