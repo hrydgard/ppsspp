@@ -37,7 +37,21 @@
 
 namespace Rasterizer {
 
-typedef void (*SingleFunc)(int x, int y, int z, int fog, const Math3D::Vec4<int> &color_in, const PixelFuncID &pixelID);
+#if PPSSPP_ARCH(AMD64) && PPSSPP_PLATFORM(WINDOWS) && (defined(_MSC_VER) || defined(__clang__))
+#define SOFTPIXEL_CALL __vectorcall
+#define SOFTPIXEL_VEC4I __m128i
+#define SOFTPIXEL_TO_VEC4I(x) (x).ivec
+#elif PPSSPP_ARCH(AMD64)
+#define SOFTPIXEL_CALL
+#define SOFTPIXEL_VEC4I __m128i
+#define SOFTPIXEL_TO_VEC4I(x) (x).ivec
+#else
+#define SOFTPIXEL_CALL
+#define SOFTPIXEL_VEC4I const Math3D::Vec4<int> &
+#define SOFTPIXEL_TO_VEC4I(x) (x)
+#endif
+
+typedef void (SOFTPIXEL_CALL *SingleFunc)(int x, int y, int z, int fog, SOFTPIXEL_VEC4I color_in, const PixelFuncID &pixelID);
 SingleFunc GetSingleFunc(const PixelFuncID &id);
 
 void Init();

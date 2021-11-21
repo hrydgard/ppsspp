@@ -377,8 +377,8 @@ static inline u32 ApplyLogicOp(GELogicOp op, u32 old_color, u32 new_color) {
 }
 
 template <bool clearMode, GEBufferFormat fbFormat>
-inline void DrawSinglePixel(int x, int y, int z, int fog, const Vec4<int> &color_in, const PixelFuncID &pixelID) {
-	Vec4<int> prim_color = color_in.Clamp(0, 255);
+void SOFTPIXEL_CALL DrawSinglePixel(int x, int y, int z, int fog, SOFTPIXEL_VEC4I color_in, const PixelFuncID &pixelID) {
+	Vec4<int> prim_color = Vec4<int>(color_in).Clamp(0, 255);
 	// Depth range test - applied in clear mode, if not through mode.
 	if (pixelID.applyDepthRange)
 		if (z < gstate.getDepthRangeMin() || z > gstate.getDepthRangeMax())
