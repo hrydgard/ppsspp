@@ -97,12 +97,21 @@ static inline Vec4<float> Interpolate(const float &c0, const float &c1, const fl
 }
 
 static inline u8 ClampFogDepth(float fogdepth) {
-	if (fogdepth <= 0.0f)
+	union FloatBits {
+		float f;
+		u32 u;
+	};
+	FloatBits f;
+	f.f = fogdepth;
+
+	u32 exp = f.u >> 23;
+	if ((f.u & 0x80000000) != 0 || exp <= 126 - 8)
 		return 0;
-	else if (fogdepth >= 1.0f)
+	if (exp > 126)
 		return 255;
-	else
-		return (u8)(u32)(fogdepth * 255.0f);
+
+	u32 mantissa = (f.u & 0x007FFFFF) | 0x00800000;
+	return mantissa >> (16 + 126 - exp);
 }
 
 static inline int ClampUV(int v, int height) {
