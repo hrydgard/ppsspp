@@ -135,9 +135,19 @@ private:
 	PixelRegCache::Reg GetGState();
 	PixelRegCache::Reg GetConstBase();
 
+	bool Jit_ApplyDepthRange(const PixelFuncID &id);
+	bool Jit_AlphaTest(const PixelFuncID &id);
+	bool Jit_ApplyFog(const PixelFuncID &id);
+
 	std::unordered_map<PixelFuncID, SingleFunc> cache_;
 	std::unordered_map<PixelFuncID, const u8 *> addresses_;
 	PixelRegCache regCache_;
+
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+	void Discard(Gen::CCFlags cc);
+
+	std::vector<Gen::FixupBranch> discards_;
+#endif
 };
 
 };
