@@ -33,8 +33,10 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan) {
 	delete desc;
 	desc = nullptr;
 	if (result == VK_INCOMPLETE) {
-		// Bad return value seen on Adreno in Burnout :(  Try to ignore?
-		// Create a placeholder to avoid creating over and over if something is broken.
+		// Bad (disallowed by spec) return value seen on Adreno in Burnout :(  Try to ignore?
+		// Would really like to log more here, we could probably attach more info to desc.
+		//
+		// At least create a null placeholder to avoid creating over and over if something is broken.
 		pipeline = VK_NULL_HANDLE;
 		return true;
 	} else if (result != VK_SUCCESS) {
@@ -58,6 +60,7 @@ bool VKRComputePipeline::Create(VulkanContext *vulkan) {
 	desc = nullptr;
 	if (result != VK_SUCCESS) {
 		pipeline = VK_NULL_HANDLE;
+		ERROR_LOG(G3D, "Failed creating compute pipeline! result='%s'", VulkanResultToString(result));
 		return false;
 	}
 	return true;
