@@ -1,10 +1,13 @@
 #define VMA_IMPLEMENTATION
 
-// BEGIN PPSSPP HACKS !!!!!
+#include "ppsspp_config.h"
+
+#if PPSSPP_PLATFORM(WINDOWS)
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#endif
+
 #include "Common/GPU/Vulkan/VulkanLoader.h"
-// END PPSSPP HACKS
 
 using namespace PPSSPP_VK;
 
