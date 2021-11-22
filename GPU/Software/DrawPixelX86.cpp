@@ -152,7 +152,7 @@ PixelRegCache::Reg PixelJitCache::GetConstBase() {
 
 PixelRegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 	if (!regCache_.Has(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN)) {
-		if (id.useStandardStride) {
+		if (id.useStandardStride && !id.dithering) {
 			// In this mode, we force argXReg to the off, and throw away argYReg.
 			SHL(32, R(argYReg), Imm8(9));
 			ADD(32, R(argXReg), R(argYReg));
@@ -184,13 +184,21 @@ PixelRegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 			return regCache_.Find(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
 		}
 
-		X64Reg gstateReg = GetGState();
-		X64Reg r = regCache_.Alloc(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
-		MOVZX(32, 16, r, MDisp(gstateReg, offsetof(GPUgstate, fbwidth)));
-		regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+		X64Reg r;
+		if (id.useStandardStride) {
+			r = regCache_.Alloc(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
+			MOV(32, R(r), R(argYReg));
+			SHL(32, R(r), Imm8(9));
+		} else {
+			X64Reg gstateReg = GetGState();
+			r = regCache_.Alloc(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
+			MOVZX(32, 16, r, MDisp(gstateReg, offsetof(GPUgstate, fbwidth)));
+			regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
 
-		AND(16, R(r), Imm16(0x07FC));
-		IMUL(32, r, R(argYReg));
+			AND(16, R(r), Imm16(0x07FC));
+			IMUL(32, r, R(argYReg));
+		}
+
 		ADD(32, R(r), R(argXReg));
 
 		X64Reg temp = regCache_.Alloc(PixelRegCache::TEMP_HELPER, PixelRegCache::T_GEN);
@@ -207,19 +215,27 @@ PixelRegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 PixelRegCache::Reg PixelJitCache::GetDepthOff(const PixelFuncID &id) {
 	if (!regCache_.Has(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN)) {
 		// If both color and depth use 512, the offsets are the same.
-		if (id.useStandardStride) {
+		if (id.useStandardStride && !id.dithering) {
 			// Calculate once inside GetColorOff().
 			regCache_.Unlock(GetColorOff(id), PixelRegCache::T_GEN);
 			return regCache_.Find(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN);
 		}
 
-		X64Reg gstateReg = GetGState();
-		X64Reg r = regCache_.Alloc(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN);
-		MOVZX(32, 16, r, MDisp(gstateReg, offsetof(GPUgstate, zbwidth)));
-		regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+		X64Reg r;
+		if (id.useStandardStride) {
+			r = regCache_.Alloc(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN);
+			MOV(32, R(r), R(argYReg));
+			SHL(32, R(r), Imm8(9));
+		} else {
+			X64Reg gstateReg = GetGState();
+			r = regCache_.Alloc(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN);
+			MOVZX(32, 16, r, MDisp(gstateReg, offsetof(GPUgstate, zbwidth)));
+			regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
 
-		AND(16, R(r), Imm16(0x07FC));
-		IMUL(32, r, R(argYReg));
+			AND(16, R(r), Imm16(0x07FC));
+			IMUL(32, r, R(argYReg));
+		}
+
 		ADD(32, R(r), R(argXReg));
 
 		X64Reg temp = regCache_.Alloc(PixelRegCache::TEMP_HELPER, PixelRegCache::T_GEN);
@@ -500,7 +516,11 @@ bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 	// Okay, put A back in and shrink to 8888 again.
 	PINSRW(argColorReg, R(alphaReg), 3);
 	PACKUSWB(argColorReg, R(argColorReg));
-	regCache_.Unlock(alphaReg, PixelRegCache::T_GEN);
+	// Minor optimization: toss ALPHA entirely if there's no alphaBlend, we won't need it.
+	if (id.alphaBlend)
+		regCache_.Unlock(alphaReg, PixelRegCache::T_GEN);
+	else
+		regCache_.Release(alphaReg, PixelRegCache::T_GEN);
 
 	return true;
 }
