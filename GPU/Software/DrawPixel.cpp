@@ -179,7 +179,7 @@ static inline bool StencilTestPassed(const PixelFuncID &pixelID, u8 stencil) {
 	if (pixelID.hasStencilTestMask)
 		stencil &= gstate.getStencilTestMask();
 	u8 ref = pixelID.stencilTestRef;
-	switch (GEComparison(pixelID.stencilTestFunc)) {
+	switch (pixelID.StencilTestFunc()) {
 	case GE_COMP_NEVER:
 		return false;
 
@@ -246,6 +246,8 @@ static inline u8 ApplyStencilOp(GEBufferFormat fmt, GEStencilOp op, u8 old_stenc
 			if (old_stencil >= 0x10)
 				return old_stencil - 0x10;
 			break;
+		case GE_FORMAT_5551:
+			return 0;
 		default:
 			if (old_stencil != 0)
 				return old_stencil - 1;
@@ -460,7 +462,7 @@ inline void DrawSinglePixel(int x, int y, int z, int fog, const Vec4<int> &color
 
 SingleFunc GetSingleFunc(const PixelFuncID &id) {
 	if (id.clearMode) {
-		switch (id.FBFormat()) {
+		switch (id.fbFormat) {
 		case GE_FORMAT_565:
 			return &DrawSinglePixel<true, GE_FORMAT_565>;
 		case GE_FORMAT_5551:
@@ -471,7 +473,7 @@ SingleFunc GetSingleFunc(const PixelFuncID &id) {
 			return &DrawSinglePixel<true, GE_FORMAT_8888>;
 		}
 	}
-	switch (id.FBFormat()) {
+	switch (id.fbFormat) {
 	case GE_FORMAT_565:
 		return &DrawSinglePixel<false, GE_FORMAT_565>;
 	case GE_FORMAT_5551:

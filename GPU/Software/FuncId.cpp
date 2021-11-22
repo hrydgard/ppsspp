@@ -110,7 +110,7 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 	if (id.applyColorWriteMask)
 		desc += "Msk:";
 
-	switch (id.FBFormat()) {
+	switch (id.fbFormat) {
 	case GE_FORMAT_565: desc += "5650:"; break;
 	case GE_FORMAT_5551: desc += "5551:"; break;
 	case GE_FORMAT_4444: desc += "4444:"; break;
