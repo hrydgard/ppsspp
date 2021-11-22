@@ -408,19 +408,19 @@ void SOFTPIXEL_CALL DrawSinglePixel(int x, int y, int z, int fog, SOFTPIXEL_VEC4
 			SetPixelDepth(x, y, z);
 	} else if (pixelID.stencilTest) {
 		if (!StencilTestPassed(pixelID, stencil)) {
-			stencil = ApplyStencilOp(fbFormat, GEStencilOp(pixelID.sFail), stencil);
+			stencil = ApplyStencilOp(fbFormat, pixelID.SFail(), stencil);
 			SetPixelStencil(fbFormat, x, y, stencil);
 			return;
 		}
 
 		// Also apply depth at the same time.  If disabled, same as passing.
 		if (pixelID.DepthTestFunc() != GE_COMP_ALWAYS && !DepthTestPassed(pixelID.DepthTestFunc(), x, y, z)) {
-			stencil = ApplyStencilOp(fbFormat, GEStencilOp(pixelID.zFail), stencil);
+			stencil = ApplyStencilOp(fbFormat, pixelID.ZFail(), stencil);
 			SetPixelStencil(fbFormat, x, y, stencil);
 			return;
 		}
 
-		stencil = ApplyStencilOp(fbFormat, GEStencilOp(pixelID.zPass), stencil);
+		stencil = ApplyStencilOp(fbFormat, pixelID.ZPass(), stencil);
 	} else {
 		if (pixelID.DepthTestFunc() != GE_COMP_ALWAYS && !DepthTestPassed(pixelID.DepthTestFunc(), x, y, z)) {
 			return;
@@ -576,18 +576,19 @@ void PixelRegCache::Reset() {
 	regs.clear();
 }
 
-void PixelRegCache::Release(PixelRegCache::Reg r, PixelRegCache::Type t) {
+void PixelRegCache::Release(PixelRegCache::Reg r, PixelRegCache::Type t, PixelRegCache::Purpose p) {
 	for (auto &reg : regs) {
 		if (reg.reg == r && reg.type == t) {
-			reg.purpose = INVALID;
-			reg.locked = false;
+			_assert_msg_(reg.locked > 0, "softjit Release() reg that isn't locked");
+			reg.purpose = p;
+			reg.locked--;
 			return;
 		}
 	}
 
 	RegStatus newStatus;
 	newStatus.reg = r;
-	newStatus.purpose = INVALID;
+	newStatus.purpose = p;
 	newStatus.type = t;
 	regs.push_back(newStatus);
 }
@@ -595,7 +596,8 @@ void PixelRegCache::Release(PixelRegCache::Reg r, PixelRegCache::Type t) {
 void PixelRegCache::Unlock(PixelRegCache::Reg r, PixelRegCache::Type t) {
 	for (auto &reg : regs) {
 		if (reg.reg == r && reg.type == t) {
-			reg.locked = false;
+			_assert_msg_(reg.locked > 0, "softjit Unlock() reg that isn't locked");
+			reg.locked--;
 			return;
 		}
 	}
@@ -615,7 +617,8 @@ bool PixelRegCache::Has(PixelRegCache::Purpose p, PixelRegCache::Type t) {
 PixelRegCache::Reg PixelRegCache::Find(PixelRegCache::Purpose p, PixelRegCache::Type t) {
 	for (auto &reg : regs) {
 		if (reg.purpose == p && reg.type == t) {
-			reg.locked = true;
+			_assert_msg_(reg.locked <= 255, "softjit Find() reg has lots of locks");
+			reg.locked++;
 			return reg.reg;
 		}
 	}
@@ -627,7 +630,7 @@ PixelRegCache::Reg PixelRegCache::Alloc(PixelRegCache::Purpose p, PixelRegCache:
 	_assert_msg_(!Has(p, t), "softjit Alloc() reg duplicate");
 	RegStatus *best = nullptr;
 	for (auto &reg : regs) {
-		if (reg.locked || reg.type != t)
+		if (reg.locked != 0 || reg.forceLocked || reg.type != t)
 			continue;
 
 		if (best == nullptr)
@@ -640,7 +643,7 @@ PixelRegCache::Reg PixelRegCache::Alloc(PixelRegCache::Purpose p, PixelRegCache:
 	}
 
 	if (best) {
-		best->locked = true;
+		best->locked = 1;
 		best->purpose = p;
 		return best->reg;
 	}
@@ -649,5 +652,15 @@ PixelRegCache::Reg PixelRegCache::Alloc(PixelRegCache::Purpose p, PixelRegCache:
 	return Reg();
 }
 
+void PixelRegCache::ForceLock(PixelRegCache::Purpose p, PixelRegCache::Type t, bool state) {
+	for (auto &reg : regs) {
+		if (reg.purpose == p && reg.type == t) {
+			reg.forceLocked = state;
+			return;
+		}
+	}
+
+	_assert_msg_(false, "softjit ForceLock() reg that isn't there");
+}
 
 };

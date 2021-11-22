@@ -66,6 +66,8 @@ struct PixelRegCache {
 		GSTATE,
 		CONST_BASE,
 		ALPHA,
+		COLOR_OFF,
+		DEPTH_OFF,
 
 		// Above this can only be temps.
 		TEMP0,
@@ -90,15 +92,17 @@ struct PixelRegCache {
 		Reg reg;
 		Purpose purpose;
 		Type type;
-		bool locked = false;
+		uint8_t locked = 0;
+		bool forceLocked = false;
 	};
 
 	void Reset();
-	void Release(Reg r, Type t);
+	void Release(Reg r, Type t, Purpose p = INVALID);
 	void Unlock(Reg r, Type t);
 	bool Has(Purpose p, Type t);
 	Reg Find(Purpose p, Type t);
 	Reg Alloc(Purpose p, Type t);
+	void ForceLock(Purpose p, Type t, bool state = true);
 
 private:
 	std::vector<RegStatus> regs;
