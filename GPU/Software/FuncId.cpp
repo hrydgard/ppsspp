@@ -38,6 +38,8 @@ void ComputePixelFuncID(PixelFuncID *id) {
 		id->colorTest = gstate.isClearModeColorMask();
 		id->stencilTest = gstate.isClearModeAlphaMask();
 		id->depthWrite = gstate.isClearModeDepthMask();
+		id->depthTestFunc = GE_COMP_ALWAYS;
+		id->alphaTestFunc = GE_COMP_ALWAYS;
 	} else {
 		id->colorTest = gstate.isColorTestEnabled() && gstate.getColorTestFunction() != GE_COMP_ALWAYS;
 		if (gstate.isStencilTestEnabled() && gstate.getStencilTestFunction() == GE_COMP_ALWAYS) {
