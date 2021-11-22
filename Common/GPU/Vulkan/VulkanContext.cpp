@@ -1297,8 +1297,9 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 	_dbg_assert_(modules_.empty());
 	_dbg_assert_(buffers_.empty());
 	_dbg_assert_(bufferViews_.empty());
-	_dbg_assert_(images_.empty());
+	_dbg_assert_(buffersWithAllocs_.empty());
 	_dbg_assert_(imageViews_.empty());
+	_dbg_assert_(imagesWithAllocs_.empty());
 	_dbg_assert_(deviceMemory_.empty());
 	_dbg_assert_(samplers_.empty());
 	_dbg_assert_(pipelines_.empty());
@@ -1312,9 +1313,10 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 	descPools_ = std::move(del.descPools_);
 	modules_ = std::move(del.modules_);
 	buffers_ = std::move(del.buffers_);
+	buffersWithAllocs_ = std::move(del.buffersWithAllocs_);
 	bufferViews_ = std::move(del.bufferViews_);
-	images_ = std::move(del.images_);
 	imageViews_ = std::move(del.imageViews_);
+	imagesWithAllocs_ = std::move(del.imagesWithAllocs_);
 	deviceMemory_ = std::move(del.deviceMemory_);
 	samplers_ = std::move(del.samplers_);
 	pipelines_ = std::move(del.pipelines_);
@@ -1328,8 +1330,9 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 	del.descPools_.clear();
 	del.modules_.clear();
 	del.buffers_.clear();
-	del.images_.clear();
+	del.buffersWithAllocs_.clear();
 	del.imageViews_.clear();
+	del.imagesWithAllocs_.clear();
 	del.deviceMemory_.clear();
 	del.samplers_.clear();
 	del.pipelines_.clear();
@@ -1365,15 +1368,11 @@ void VulkanDeleteList::PerformDeletes(VkDevice device, VmaAllocator allocator) {
 	for (auto &buf : buffersWithAllocs_) {
 		vmaDestroyBuffer(allocator, buf.buffer, buf.alloc);
 	}
-	buffers_.clear();
+	buffersWithAllocs_.clear();
 	for (auto &bufView : bufferViews_) {
 		vkDestroyBufferView(device, bufView, nullptr);
 	}
 	bufferViews_.clear();
-	for (auto &image : images_) {
-		vkDestroyImage(device, image, nullptr);
-	}
-	images_.clear();
 	for (auto &imageWithAlloc : imagesWithAllocs_) {
 		vmaDestroyImage(allocator, imageWithAlloc.image, imageWithAlloc.alloc);
 	}

@@ -89,7 +89,6 @@ public:
 	void QueueDeleteShaderModule(VkShaderModule &module) { _dbg_assert_(module != VK_NULL_HANDLE); modules_.push_back(module); module = VK_NULL_HANDLE; }
 	void QueueDeleteBuffer(VkBuffer &buffer) { _dbg_assert_(buffer != VK_NULL_HANDLE); buffers_.push_back(buffer); buffer = VK_NULL_HANDLE; }
 	void QueueDeleteBufferView(VkBufferView &bufferView) { _dbg_assert_(bufferView != VK_NULL_HANDLE); bufferViews_.push_back(bufferView); bufferView = VK_NULL_HANDLE; }
-	void QueueDeleteImage(VkImage &image) { _dbg_assert_(image != VK_NULL_HANDLE); images_.push_back(image); image = VK_NULL_HANDLE; }
 	void QueueDeleteImageView(VkImageView &imageView) { _dbg_assert_(imageView != VK_NULL_HANDLE); imageViews_.push_back(imageView); imageView = VK_NULL_HANDLE; }
 	void QueueDeleteDeviceMemory(VkDeviceMemory &deviceMemory) { _dbg_assert_(deviceMemory != VK_NULL_HANDLE); deviceMemory_.push_back(deviceMemory); deviceMemory = VK_NULL_HANDLE; }
 	void QueueDeleteSampler(VkSampler &sampler) { _dbg_assert_(sampler != VK_NULL_HANDLE); samplers_.push_back(sampler); sampler = VK_NULL_HANDLE; }
@@ -124,7 +123,6 @@ private:
 	std::vector<VkBuffer> buffers_;
 	std::vector<BufferWithAlloc> buffersWithAllocs_;
 	std::vector<VkBufferView> bufferViews_;
-	std::vector<VkImage> images_;
 	std::vector<ImageWithAlloc> imagesWithAllocs_;
 	std::vector<VkImageView> imageViews_;
 	std::vector<VkDeviceMemory> deviceMemory_;

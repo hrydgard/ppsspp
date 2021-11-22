@@ -879,8 +879,6 @@ bool VulkanRenderManager::InitBackbufferFramebuffers(int width, int height) {
 }
 
 bool VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
-	bool pass;
-
 	const VkFormat depth_format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
 	int aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 	VkImageCreateInfo image_info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
