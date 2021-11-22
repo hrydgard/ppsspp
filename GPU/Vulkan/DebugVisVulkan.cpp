@@ -32,6 +32,8 @@
 #undef DrawText
 
 void DrawAllocatorVis(UIContext *ui, GPUInterface *gpu) {
+	/*
+
 	if (!gpu) {
 		return;
 	}
@@ -47,7 +49,6 @@ void DrawAllocatorVis(UIContext *ui, GPUInterface *gpu) {
 
 	GPU_Vulkan *gpuVulkan = static_cast<GPU_Vulkan *>(gpu);
 	VulkanDeviceAllocator *alloc = gpuVulkan->GetTextureCache()->GetAllocator();
-
 	std::vector<Draw::Texture *> texturesToDelete;
 	for (int i = 0; i < alloc->GetSlabCount(); i++) {
 		std::vector<uint8_t> usage = alloc->GetSlabUsage(i);
@@ -98,6 +99,7 @@ void DrawAllocatorVis(UIContext *ui, GPUInterface *gpu) {
 
 	for (auto iter : texturesToDelete)
 		iter->Release();
+	*/
 }
 
 void DrawGPUProfilerVis(UIContext *ui, GPUInterface *gpu) {

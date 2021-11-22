@@ -36,7 +36,6 @@ class DrawEngineVulkan;
 class VulkanContext;
 class VulkanTexture;
 class VulkanPushBuffer;
-class VulkanDeviceAllocator;
 
 class SamplerCache {
 public:
