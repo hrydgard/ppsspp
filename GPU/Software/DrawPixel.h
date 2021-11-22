@@ -138,6 +138,7 @@ private:
 	bool Jit_ApplyDepthRange(const PixelFuncID &id);
 	bool Jit_AlphaTest(const PixelFuncID &id);
 	bool Jit_ApplyFog(const PixelFuncID &id);
+	bool Jit_ColorTest(const PixelFuncID &id);
 
 	std::unordered_map<PixelFuncID, SingleFunc> cache_;
 	std::unordered_map<PixelFuncID, const u8 *> addresses_;

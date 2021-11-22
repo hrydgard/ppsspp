@@ -99,6 +99,7 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 	success = success && Jit_AlphaTest(id);
 	// Fog is applied prior to color test.  Maybe before alpha test too, but it doesn't affect it...
 	success = success && Jit_ApplyFog(id);
+	success = success && Jit_ColorTest(id);
 
 	// TODO: There's more...
 	success = false;
@@ -250,6 +251,58 @@ bool PixelJitCache::Jit_AlphaTest(const PixelFuncID &id) {
 		Discard(CC_B);
 		break;
 	}
+
+	return true;
+}
+
+bool PixelJitCache::Jit_ColorTest(const PixelFuncID &id) {
+	if (!id.colorTest || id.clearMode)
+		return true;
+
+	// We'll have 4 with fog released, so we're using them all...
+	X64Reg gstateReg = GetGState();
+	X64Reg funcReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_GEN);
+	X64Reg maskReg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_GEN);
+	X64Reg refReg = regCache_.Alloc(PixelRegCache::TEMP2, PixelRegCache::T_GEN);
+
+	// First, load the registers: mask and ref.
+	MOV(32, R(maskReg), MDisp(gstateReg, offsetof(GPUgstate, colortestmask)));
+	AND(32, R(maskReg), Imm32(0x00FFFFFF));
+	MOV(32, R(refReg), MDisp(gstateReg, offsetof(GPUgstate, colorref)));
+	AND(32, R(refReg), R(maskReg));
+
+	// Temporarily abuse funcReg to grab the color into maskReg.
+	MOVD_xmm(R(funcReg), argColorReg);
+	AND(32, R(maskReg), R(funcReg));
+
+	// Now that we're setup, get the func and follow it.
+	MOVZX(32, 8, funcReg, MDisp(gstateReg, offsetof(GPUgstate, colortest)));
+	AND(32, R(funcReg), Imm32(3));
+	regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+
+	CMP(32, R(funcReg), Imm32(GE_COMP_ALWAYS));
+	// Discard for GE_COMP_NEVER...
+	Discard(CC_B);
+	FixupBranch skip = J_CC(CC_E);
+
+	CMP(32, R(funcReg), Imm32(GE_COMP_EQUAL));
+	FixupBranch doEqual = J_CC(CC_E);
+	regCache_.Release(funcReg, PixelRegCache::T_GEN);
+
+	// The not equal path here... if they are equal, we discard.
+	CMP(32, R(refReg), R(maskReg));
+	Discard(CC_E);
+	FixupBranch skip2 = J();
+
+	SetJumpTarget(doEqual);
+	CMP(32, R(refReg), R(maskReg));
+	Discard(CC_NE);
+
+	regCache_.Release(maskReg, PixelRegCache::T_GEN);
+	regCache_.Release(refReg, PixelRegCache::T_GEN);
+
+	SetJumpTarget(skip);
+	SetJumpTarget(skip2);
 
 	return true;
 }
