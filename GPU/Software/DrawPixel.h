@@ -76,6 +76,7 @@ struct PixelRegCache {
 		TEMP3,
 		TEMP4,
 		TEMP5,
+		TEMP_HELPER,
 	};
 	enum Type {
 		T_GEN,
@@ -138,6 +139,9 @@ private:
 
 	PixelRegCache::Reg GetGState();
 	PixelRegCache::Reg GetConstBase();
+	// Note: these may require a temporary reg.
+	PixelRegCache::Reg GetColorOff(const PixelFuncID &id);
+	PixelRegCache::Reg GetDepthOff(const PixelFuncID &id);
 
 	bool Jit_ApplyDepthRange(const PixelFuncID &id);
 	bool Jit_AlphaTest(const PixelFuncID &id);

@@ -580,6 +580,7 @@ void PixelRegCache::Release(PixelRegCache::Reg r, PixelRegCache::Type t, PixelRe
 	for (auto &reg : regs) {
 		if (reg.reg == r && reg.type == t) {
 			_assert_msg_(reg.locked > 0, "softjit Release() reg that isn't locked");
+			_assert_msg_(!reg.forceLocked, "softjit Release() reg that is force locked");
 			reg.purpose = p;
 			reg.locked--;
 			return;

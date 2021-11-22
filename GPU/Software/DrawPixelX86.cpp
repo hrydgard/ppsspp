@@ -23,6 +23,7 @@
 #include "Common/CPUDetect.h"
 #include "GPU/GPUState.h"
 #include "GPU/Software/DrawPixel.h"
+#include "GPU/Software/SoftGpu.h"
 #include "GPU/ge_constants.h"
 
 using namespace Gen;
@@ -53,15 +54,20 @@ alignas(16) static const uint16_t const255_16s[8] = { 255, 255, 255, 255, 255, 2
 alignas(16) static const uint16_t by255i[8] = { 0x8081, 0x8081, 0x8081, 0x8081, 0x8081, 0x8081, 0x8081, 0x8081 };
 
 template <typename T>
-static bool ConstAccessible(const T *t) {
-	ptrdiff_t diff = (const uint8_t *)&const255_16s[0] - (const uint8_t *)t;
+static bool Accessible(const T *t1, const T *t2) {
+	ptrdiff_t diff = (const uint8_t *)t1 - (const uint8_t *)t2;
 	return diff > -0x7FFFFFE0 && diff < 0x7FFFFFE0;
+}
+
+template <typename T>
+static bool ConstAccessible(const T *t) {
+	return Accessible((const uint8_t *)&const255_16s[0], (const uint8_t *)t);
 }
 
 template <typename T>
 static OpArg MConstDisp(X64Reg r, const T *t) {
 	_assert_(ConstAccessible(t));
-	ptrdiff_t diff = (const uint8_t *)&const255_16s[0] - (const uint8_t *)t;
+	ptrdiff_t diff = (const uint8_t *)t - (const uint8_t *)&const255_16s[0];
 	return MDisp(r, (int)diff);
 }
 
@@ -135,6 +141,89 @@ PixelRegCache::Reg PixelJitCache::GetConstBase() {
 		return r;
 	}
 	return regCache_.Find(PixelRegCache::CONST_BASE, PixelRegCache::T_GEN);
+}
+
+PixelRegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
+	if (!regCache_.Has(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN)) {
+		if (id.useStandardStride) {
+			// In this mode, we force argXReg to the off, and throw away argYReg.
+			SHL(32, R(argYReg), Imm8(9));
+			ADD(32, R(argXReg), R(argYReg));
+
+			// Now add the pointer for the color buffer.
+			MOV(PTRBITS, R(argYReg), ImmPtr(&fb.data));
+			MOV(PTRBITS, R(argYReg), MatR(argYReg));
+			LEA(PTRBITS, argYReg, MComplex(argYReg, argXReg, id.FBFormat() == GE_FORMAT_8888 ? 4 : 2, 0));
+			// With that, argYOff is now COLOR_OFF.
+			regCache_.Release(argYReg, PixelRegCache::T_GEN, PixelRegCache::COLOR_OFF);
+			// Lock it, because we can't recalculate this.
+			regCache_.ForceLock(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
+
+			// Next, also calculate the depth offset, unless we won't need it at all.
+			if (id.depthWrite || id.DepthTestFunc() != GE_COMP_ALWAYS) {
+				X64Reg temp = regCache_.Alloc(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN);
+				MOV(PTRBITS, R(temp), ImmPtr(&depthbuf.data));
+				MOV(PTRBITS, R(temp), MatR(temp));
+				LEA(PTRBITS, argXReg, MComplex(temp, argXReg, 2, 0));
+				regCache_.Release(temp, PixelRegCache::T_GEN);
+
+				// Okay, same deal - release as DEPTH_OFF and force lock.
+				regCache_.Release(argXReg, PixelRegCache::T_GEN, PixelRegCache::DEPTH_OFF);
+				regCache_.ForceLock(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN);
+			} else {
+				regCache_.Release(argXReg, PixelRegCache::T_GEN);
+			}
+
+			return regCache_.Find(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
+		}
+
+		X64Reg gstateReg = GetGState();
+		X64Reg r = regCache_.Alloc(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
+		MOVZX(32, 16, r, MDisp(gstateReg, offsetof(GPUgstate, fbwidth)));
+		regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+
+		AND(32, R(r), Imm32(0x000007FC));
+		IMUL(32, r, R(argYReg));
+		ADD(32, R(r), R(argXReg));
+
+		X64Reg temp = regCache_.Alloc(PixelRegCache::TEMP_HELPER, PixelRegCache::T_GEN);
+		MOV(PTRBITS, R(temp), ImmPtr(&fb.data));
+		MOV(PTRBITS, R(temp), MatR(temp));
+		LEA(PTRBITS, r, MComplex(temp, r, id.FBFormat() == GE_FORMAT_8888 ? 4 : 2, 0));
+		regCache_.Release(temp, PixelRegCache::T_GEN);
+
+		return r;
+	}
+	return regCache_.Find(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
+}
+
+PixelRegCache::Reg PixelJitCache::GetDepthOff(const PixelFuncID &id) {
+	if (!regCache_.Has(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN)) {
+		// If both color and depth use 512, the offsets are the same.
+		if (id.useStandardStride) {
+			// Calculate once inside GetColorOff().
+			regCache_.Unlock(GetColorOff(id), PixelRegCache::T_GEN);
+			return regCache_.Find(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN);
+		}
+
+		X64Reg gstateReg = GetGState();
+		X64Reg r = regCache_.Alloc(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN);
+		MOVZX(32, 16, r, MDisp(gstateReg, offsetof(GPUgstate, zbwidth)));
+		regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+
+		AND(32, R(r), Imm32(0x000007FC));
+		IMUL(32, r, R(argYReg));
+		ADD(32, R(r), R(argXReg));
+
+		X64Reg temp = regCache_.Alloc(PixelRegCache::TEMP_HELPER, PixelRegCache::T_GEN);
+		MOV(PTRBITS, R(temp), ImmPtr(&depthbuf.data));
+		MOV(PTRBITS, R(temp), MatR(temp));
+		LEA(PTRBITS, r, MComplex(temp, r, 2, 0));
+		regCache_.Release(temp, PixelRegCache::T_GEN);
+
+		return r;
+	}
+	return regCache_.Find(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN);
 }
 
 void PixelJitCache::Discard(Gen::CCFlags cc) {
