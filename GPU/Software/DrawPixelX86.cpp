@@ -182,7 +182,7 @@ PixelRegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 		MOVZX(32, 16, r, MDisp(gstateReg, offsetof(GPUgstate, fbwidth)));
 		regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
 
-		AND(32, R(r), Imm32(0x000007FC));
+		AND(16, R(r), Imm16(0x07FC));
 		IMUL(32, r, R(argYReg));
 		ADD(32, R(r), R(argXReg));
 
@@ -211,7 +211,7 @@ PixelRegCache::Reg PixelJitCache::GetDepthOff(const PixelFuncID &id) {
 		MOVZX(32, 16, r, MDisp(gstateReg, offsetof(GPUgstate, zbwidth)));
 		regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
 
-		AND(32, R(r), Imm32(0x000007FC));
+		AND(16, R(r), Imm16(0x07FC));
 		IMUL(32, r, R(argYReg));
 		ADD(32, R(r), R(argXReg));
 
@@ -366,15 +366,15 @@ bool PixelJitCache::Jit_ColorTest(const PixelFuncID &id) {
 
 	// Now that we're setup, get the func and follow it.
 	MOVZX(32, 8, funcReg, MDisp(gstateReg, offsetof(GPUgstate, colortest)));
-	AND(32, R(funcReg), Imm32(3));
+	AND(8, R(funcReg), Imm8(3));
 	regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
 
-	CMP(32, R(funcReg), Imm32(GE_COMP_ALWAYS));
+	CMP(8, R(funcReg), Imm8(GE_COMP_ALWAYS));
 	// Discard for GE_COMP_NEVER...
 	Discard(CC_B);
 	FixupBranch skip = J_CC(CC_E);
 
-	CMP(32, R(funcReg), Imm32(GE_COMP_EQUAL));
+	CMP(8, R(funcReg), Imm8(GE_COMP_EQUAL));
 	FixupBranch doEqual = J_CC(CC_E);
 	regCache_.Release(funcReg, PixelRegCache::T_GEN);
 
