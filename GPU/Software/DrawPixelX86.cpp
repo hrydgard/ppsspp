@@ -107,6 +107,13 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 	success = success && Jit_ApplyFog(id);
 	success = success && Jit_ColorTest(id);
 
+	if (id.stencilTest && !id.clearMode)
+		success = success && Jit_StencilAndDepthTest(id);
+	else if (!id.clearMode)
+		success = success && Jit_DepthTest(id);
+
+	success = success && Jit_WriteDepth(id);
+
 	// TODO: There's more...
 	success = false;
 
@@ -226,6 +233,37 @@ PixelRegCache::Reg PixelJitCache::GetDepthOff(const PixelFuncID &id) {
 	return regCache_.Find(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN);
 }
 
+
+PixelRegCache::Reg PixelJitCache::GetDestStencil(const PixelFuncID &id) {
+	// Skip if 565, since stencil is fixed zero.
+	if (id.FBFormat() == GE_FORMAT_565)
+		return INVALID_REG;
+
+	X64Reg colorOffReg = GetColorOff(id);
+	X64Reg stencilReg = regCache_.Alloc(PixelRegCache::STENCIL, PixelRegCache::T_GEN);
+	if (id.FBFormat() == GE_FORMAT_8888) {
+		MOVZX(32, 8, stencilReg, MDisp(colorOffReg, 3));
+	} else if (id.FBFormat() == GE_FORMAT_5551) {
+		MOVZX(32, 8, stencilReg, MDisp(colorOffReg, 1));
+		SAR(8, R(stencilReg), Imm8(7));
+	} else if (id.FBFormat() == GE_FORMAT_4444) {
+		MOVZX(32, 8, stencilReg, MDisp(colorOffReg, 1));
+		SHR(32, R(stencilReg), Imm8(4));
+		X64Reg temp = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_GEN);
+		MOV(32, R(temp), R(stencilReg));
+		SHL(32, R(temp), Imm8(4));
+		OR(32, R(stencilReg), R(temp));
+		regCache_.Release(temp, PixelRegCache::T_GEN);
+	}
+	regCache_.Unlock(colorOffReg, PixelRegCache::T_GEN);
+
+	return stencilReg;
+}
+
+void PixelJitCache::Discard() {
+	discards_.push_back(J(true));
+}
+
 void PixelJitCache::Discard(Gen::CCFlags cc) {
 	discards_.push_back(J_CC(cc, true));
 }
@@ -236,7 +274,7 @@ bool PixelJitCache::Jit_ApplyDepthRange(const PixelFuncID &id) {
 		X64Reg minReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_GEN);
 		X64Reg maxReg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_GEN);
 
-		// Only load the lowest 16 bits of each.
+		// Only load the lowest 16 bits of each, but compare all 32 of z.
 		MOVZX(32, 16, minReg, MDisp(gstateReg, offsetof(GPUgstate, minz)));
 		MOVZX(32, 16, maxReg, MDisp(gstateReg, offsetof(GPUgstate, maxz)));
 
@@ -263,8 +301,7 @@ bool PixelJitCache::Jit_AlphaTest(const PixelFuncID &id) {
 	// Take care of ALWAYS/NEVER first.  ALWAYS is common, means disabled.
 	switch (id.AlphaTestFunc()) {
 	case GE_COMP_NEVER:
-		CMP(32, R(RAX), R(RAX));
-		Discard(CC_E);
+		Discard();
 		return true;
 
 	case GE_COMP_ALWAYS:
@@ -316,6 +353,10 @@ bool PixelJitCache::Jit_AlphaTest(const PixelFuncID &id) {
 	CMP(8, R(alphaReg), Imm8(id.alphaTestRef));
 
 	switch (id.AlphaTestFunc()) {
+	case GE_COMP_NEVER:
+	case GE_COMP_ALWAYS:
+		break;
+
 	case GE_COMP_EQUAL:
 		Discard(CC_NE);
 		break;
@@ -460,6 +501,410 @@ bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 	PINSRW(argColorReg, R(alphaReg), 3);
 	PACKUSWB(argColorReg, R(argColorReg));
 	regCache_.Unlock(alphaReg, PixelRegCache::T_GEN);
+
+	return true;
+}
+
+bool PixelJitCache::Jit_StencilAndDepthTest(const PixelFuncID &id) {
+	_assert_(!id.clearMode && id.stencilTest);
+
+	X64Reg stencilReg = GetDestStencil(id);
+	X64Reg maskedReg = stencilReg;
+	if (id.hasStencilTestMask) {
+		X64Reg gstateReg = GetGState();
+		maskedReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_GEN);
+		MOV(32, R(maskedReg), R(stencilReg));
+		AND(8, R(maskedReg), MDisp(gstateReg, offsetof(GPUgstate, stenciltest) + 2));
+		regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+	}
+
+	bool success = true;
+	success = success && Jit_StencilTest(id, stencilReg, maskedReg);
+	if (maskedReg != stencilReg)
+		regCache_.Unlock(maskedReg, PixelRegCache::T_GEN);
+
+	// Next up, the depth test.
+	if (stencilReg == INVALID_REG) {
+		// Just use the standard one, since we don't need to write stencil.
+		// We also don't need to worry about cleanup either.
+		return success && Jit_DepthTest(id);
+	}
+
+	success = success && Jit_DepthTestForStencil(id, stencilReg);
+	success = success && Jit_ApplyStencilOp(id, id.ZPass(), stencilReg);
+
+	// At this point, stencilReg can't be spilled.  It contains the updated value.
+	regCache_.ForceLock(PixelRegCache::STENCIL, PixelRegCache::T_GEN);
+
+	return success;
+}
+
+bool PixelJitCache::Jit_StencilTest(const PixelFuncID &id, PixelRegCache::Reg stencilReg, PixelRegCache::Reg maskedReg) {
+	bool hasFixedResult = false;
+	bool fixedResult = false;
+	FixupBranch toPass;
+	if (stencilReg == INVALID_REG) {
+		// This means stencil is a fixed value 0.
+		hasFixedResult = true;
+		switch (id.StencilTestFunc()) {
+		case GE_COMP_NEVER: fixedResult = false; break;
+		case GE_COMP_ALWAYS: fixedResult = true; break;
+		case GE_COMP_EQUAL: fixedResult = id.stencilTestRef == 0; break;
+		case GE_COMP_NOTEQUAL: fixedResult = id.stencilTestRef != 0; break;
+		case GE_COMP_LESS: fixedResult = false; break;
+		case GE_COMP_LEQUAL: fixedResult = id.stencilTestRef == 0; break;
+		case GE_COMP_GREATER: fixedResult = id.stencilTestRef != 0; break;
+		case GE_COMP_GEQUAL: fixedResult = true; break;
+		}
+	} else {
+		// Reversed here because of the imm, so tests below are reversed.
+		CMP(8, R(maskedReg), Imm8(id.stencilTestRef));
+		switch (id.StencilTestFunc()) {
+		case GE_COMP_NEVER:
+			hasFixedResult = true;
+			fixedResult = false;
+			break;
+
+		case GE_COMP_ALWAYS:
+			hasFixedResult = true;
+			fixedResult = true;
+			break;
+
+		case GE_COMP_EQUAL:
+			toPass = J_CC(CC_E);
+			break;
+
+		case GE_COMP_NOTEQUAL:
+			toPass = J_CC(CC_NE);
+			break;
+
+		case GE_COMP_LESS:
+			toPass = J_CC(CC_A);
+			break;
+
+		case GE_COMP_LEQUAL:
+			toPass = J_CC(CC_AE);
+			break;
+
+		case GE_COMP_GREATER:
+			toPass = J_CC(CC_B);
+			break;
+
+		case GE_COMP_GEQUAL:
+			toPass = J_CC(CC_BE);
+			break;
+		}
+	}
+
+	if (hasFixedResult && !fixedResult && stencilReg == INVALID_REG) {
+		Discard();
+		return true;
+	}
+
+	bool success = true;
+	if (stencilReg != INVALID_REG && (!hasFixedResult || !fixedResult)) {
+		// This is the fail path.
+		success = success && Jit_ApplyStencilOp(id, id.SFail(), stencilReg);
+		success = success && Jit_WriteStencilOnly(id, stencilReg);
+
+		Discard();
+	}
+
+	if (!hasFixedResult)
+		SetJumpTarget(toPass);
+	return success;
+}
+
+bool PixelJitCache::Jit_DepthTestForStencil(const PixelFuncID &id, PixelRegCache::Reg stencilReg) {
+	if (id.DepthTestFunc() == GE_COMP_ALWAYS)
+		return true;
+
+	X64Reg depthOffReg = GetDepthOff(id);
+	CMP(16, R(argZReg), MatR(depthOffReg));
+	regCache_.Unlock(depthOffReg, PixelRegCache::T_GEN);
+
+	// We discard the opposite of the passing test.
+	FixupBranch skip;
+	switch (id.DepthTestFunc()) {
+	case GE_COMP_NEVER:
+		// Shouldn't happen, just do an extra CMP.
+		CMP(32, R(RAX), R(RAX));
+		// This is just to have a skip that is valid.
+		skip = J_CC(CC_NE);
+		break;
+
+	case GE_COMP_ALWAYS:
+		// Shouldn't happen, just do an extra CMP.
+		CMP(32, R(RAX), R(RAX));
+		skip = J_CC(CC_E);
+		break;
+
+	case GE_COMP_EQUAL:
+		skip = J_CC(CC_E);
+		break;
+
+	case GE_COMP_NOTEQUAL:
+		skip = J_CC(CC_NE);
+		break;
+
+	case GE_COMP_LESS:
+		skip = J_CC(CC_B);
+		break;
+
+	case GE_COMP_LEQUAL:
+		skip = J_CC(CC_BE);
+		break;
+
+	case GE_COMP_GREATER:
+		skip = J_CC(CC_A);
+		break;
+
+	case GE_COMP_GEQUAL:
+		skip = J_CC(CC_AE);
+		break;
+	}
+
+	bool success = true;
+	success = success && Jit_ApplyStencilOp(id, id.ZFail(), stencilReg);
+	success = success && Jit_WriteStencilOnly(id, stencilReg);
+	Discard();
+
+	SetJumpTarget(skip);
+
+	// Like in Jit_DepthTest(), at this point we may not need this reg anymore.
+	if (!id.depthWrite)
+		regCache_.Release(argZReg, PixelRegCache::T_GEN);
+
+	return success;
+}
+
+bool PixelJitCache::Jit_ApplyStencilOp(const PixelFuncID &id, GEStencilOp op, PixelRegCache::Reg stencilReg) {
+	_assert_(stencilReg != INVALID_REG);
+
+	FixupBranch skip;
+	switch (op) {
+	case GE_STENCILOP_KEEP:
+		// Nothing to do.
+		break;
+
+	case GE_STENCILOP_ZERO:
+		XOR(32, R(stencilReg), R(stencilReg));
+		break;
+
+	case GE_STENCILOP_REPLACE:
+		if (id.hasStencilTestMask) {
+			// Load the unmasked value.
+			X64Reg gstateReg = GetGState();
+			MOVZX(32, 8, stencilReg, MDisp(gstateReg, offsetof(GPUgstate, stenciltest) + 1));
+			regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+		} else {
+			MOV(8, R(stencilReg), Imm8(id.stencilTestRef));
+		}
+		break;
+
+	case GE_STENCILOP_INVERT:
+		NOT(8, R(stencilReg));
+		break;
+
+	case GE_STENCILOP_INCR:
+		switch (id.fbFormat) {
+		case GE_FORMAT_565:
+			break;
+
+		case GE_FORMAT_5551:
+			MOV(8, R(stencilReg), Imm8(0xFF));
+			break;
+
+		case GE_FORMAT_4444:
+			CMP(8, R(stencilReg), Imm8(0xF0));
+			skip = J_CC(CC_AE);
+			ADD(8, R(stencilReg), Imm8(0x11));
+			SetJumpTarget(skip);
+			break;
+
+		case GE_FORMAT_8888:
+			CMP(8, R(stencilReg), Imm8(0xFF));
+			skip = J_CC(CC_E);
+			ADD(8, R(stencilReg), Imm8(0x01));
+			SetJumpTarget(skip);
+			break;
+		}
+		break;
+
+	case GE_STENCILOP_DECR:
+		switch (id.fbFormat) {
+		case GE_FORMAT_565:
+			break;
+
+		case GE_FORMAT_5551:
+			XOR(32, R(stencilReg), R(stencilReg));
+			break;
+
+		case GE_FORMAT_4444:
+			CMP(8, R(stencilReg), Imm8(0x11));
+			skip = J_CC(CC_B);
+			SUB(8, R(stencilReg), Imm8(0x11));
+			SetJumpTarget(skip);
+			break;
+
+		case GE_FORMAT_8888:
+			CMP(8, R(stencilReg), Imm8(0x00));
+			skip = J_CC(CC_E);
+			SUB(8, R(stencilReg), Imm8(0x01));
+			SetJumpTarget(skip);
+			break;
+		}
+		break;
+	}
+
+	return false;
+}
+
+bool PixelJitCache::Jit_WriteStencilOnly(const PixelFuncID &id, PixelRegCache::Reg stencilReg) {
+	_assert_(stencilReg != INVALID_REG);
+
+	// It's okay to destory stencilReg here, we know we're the last writing it.
+	X64Reg colorOffReg = GetColorOff(id);
+	if (id.applyColorWriteMask) {
+		X64Reg gstateReg = GetGState();
+		X64Reg maskReg = regCache_.Alloc(PixelRegCache::TEMP5, PixelRegCache::T_GEN);
+
+		switch (id.fbFormat) {
+		case GE_FORMAT_565:
+			break;
+
+		case GE_FORMAT_5551:
+			MOVZX(32, 8, maskReg, MDisp(gstateReg, offsetof(GPUgstate, pmska)));
+			OR(8, R(maskReg), Imm8(0x7F));
+
+			// Poor man's BIC...
+			NOT(32, R(stencilReg));
+			OR(32, R(stencilReg), R(maskReg));
+			NOT(32, R(stencilReg));
+
+			AND(8, MDisp(colorOffReg, 1), R(maskReg));
+			OR(8, MDisp(colorOffReg, 1), R(stencilReg));
+			break;
+
+		case GE_FORMAT_4444:
+			MOVZX(32, 8, maskReg, MDisp(gstateReg, offsetof(GPUgstate, pmska)));
+			OR(8, R(maskReg), Imm8(0x0F));
+
+			// Poor man's BIC...
+			NOT(32, R(stencilReg));
+			OR(32, R(stencilReg), R(maskReg));
+			NOT(32, R(stencilReg));
+
+			AND(8, MDisp(colorOffReg, 1), R(maskReg));
+			OR(8, MDisp(colorOffReg, 1), R(stencilReg));
+			break;
+
+		case GE_FORMAT_8888:
+			MOVZX(32, 8, maskReg, MDisp(gstateReg, offsetof(GPUgstate, pmska)));
+
+			// Poor man's BIC...
+			NOT(32, R(stencilReg));
+			OR(32, R(stencilReg), R(maskReg));
+			NOT(32, R(stencilReg));
+
+			AND(8, MDisp(colorOffReg, 3), R(maskReg));
+			OR(8, MDisp(colorOffReg, 3), R(stencilReg));
+			break;
+		}
+
+		regCache_.Release(maskReg, PixelRegCache::T_GEN);
+		regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+	} else {
+		switch (id.fbFormat) {
+		case GE_FORMAT_565:
+			break;
+
+		case GE_FORMAT_5551:
+			AND(8, R(stencilReg), Imm8(0x80));
+			AND(8, MDisp(colorOffReg, 1), Imm8(0x7F));
+			OR(8, MDisp(colorOffReg, 1), R(stencilReg));
+			break;
+
+		case GE_FORMAT_4444:
+			AND(8, MDisp(colorOffReg, 1), Imm8(0x0F));
+			AND(8, R(stencilReg), Imm8(0xF0));
+			OR(8, MDisp(colorOffReg, 1), R(stencilReg));
+			break;
+
+		case GE_FORMAT_8888:
+			MOV(8, MDisp(colorOffReg, 3), R(stencilReg));
+			break;
+		}
+	}
+
+	regCache_.Unlock(colorOffReg, PixelRegCache::T_GEN);
+	return true;
+}
+
+bool PixelJitCache::Jit_DepthTest(const PixelFuncID &id) {
+	if (id.DepthTestFunc() == GE_COMP_ALWAYS)
+		return true;
+
+	if (id.DepthTestFunc() == GE_COMP_NEVER) {
+		Discard();
+		// This should be uncommon, just keep going to have shared cleanup...
+	}
+
+	X64Reg depthOffReg = GetDepthOff(id);
+	CMP(16, R(argZReg), MatR(depthOffReg));
+	regCache_.Unlock(depthOffReg, PixelRegCache::T_GEN);
+
+	// We discard the opposite of the passing test.
+	switch (id.DepthTestFunc()) {
+	case GE_COMP_NEVER:
+	case GE_COMP_ALWAYS:
+		break;
+
+	case GE_COMP_EQUAL:
+		Discard(CC_NE);
+		break;
+
+	case GE_COMP_NOTEQUAL:
+		Discard(CC_E);
+		break;
+
+	case GE_COMP_LESS:
+		Discard(CC_AE);
+		break;
+
+	case GE_COMP_LEQUAL:
+		Discard(CC_A);
+		break;
+
+	case GE_COMP_GREATER:
+		Discard(CC_BE);
+		break;
+
+	case GE_COMP_GEQUAL:
+		Discard(CC_B);
+		break;
+	}
+
+	// If we're not writing, we don't need Z anymore.  We'll free DEPTH_OFF in Jit_WriteDepth().
+	if (!id.depthWrite)
+		regCache_.Release(argZReg, PixelRegCache::T_GEN);
+
+	return true;
+}
+
+bool PixelJitCache::Jit_WriteDepth(const PixelFuncID &id) {
+	// Clear mode shares depthWrite for DepthClear().
+	if (id.depthWrite) {
+		X64Reg depthOffReg = GetDepthOff(id);
+		MOV(16, MatR(depthOffReg), R(argZReg));
+		regCache_.Unlock(depthOffReg, PixelRegCache::T_GEN);
+		regCache_.Release(argZReg, PixelRegCache::T_GEN);
+	}
+
+	// We can free up this reg if we force locked it.
+	if (regCache_.Has(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN)) {
+		regCache_.ForceLock(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN, false);
+	}
 
 	return true;
 }

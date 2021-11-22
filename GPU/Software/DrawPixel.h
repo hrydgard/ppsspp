@@ -66,6 +66,7 @@ struct PixelRegCache {
 		GSTATE,
 		CONST_BASE,
 		ALPHA,
+		STENCIL,
 		COLOR_OFF,
 		DEPTH_OFF,
 
@@ -142,17 +143,26 @@ private:
 	// Note: these may require a temporary reg.
 	PixelRegCache::Reg GetColorOff(const PixelFuncID &id);
 	PixelRegCache::Reg GetDepthOff(const PixelFuncID &id);
+	PixelRegCache::Reg GetDestStencil(const PixelFuncID &id);
 
 	bool Jit_ApplyDepthRange(const PixelFuncID &id);
 	bool Jit_AlphaTest(const PixelFuncID &id);
 	bool Jit_ApplyFog(const PixelFuncID &id);
 	bool Jit_ColorTest(const PixelFuncID &id);
+	bool Jit_StencilAndDepthTest(const PixelFuncID &id);
+	bool Jit_StencilTest(const PixelFuncID &id, PixelRegCache::Reg stencilReg, PixelRegCache::Reg maskedReg);
+	bool Jit_DepthTestForStencil(const PixelFuncID &id, PixelRegCache::Reg stencilReg);
+	bool Jit_ApplyStencilOp(const PixelFuncID &id, GEStencilOp op, PixelRegCache::Reg stencilReg);
+	bool Jit_WriteStencilOnly(const PixelFuncID &id, PixelRegCache::Reg stencilReg);
+	bool Jit_DepthTest(const PixelFuncID &id);
+	bool Jit_WriteDepth(const PixelFuncID &id);
 
 	std::unordered_map<PixelFuncID, SingleFunc> cache_;
 	std::unordered_map<PixelFuncID, const u8 *> addresses_;
 	PixelRegCache regCache_;
 
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+	void Discard();
 	void Discard(Gen::CCFlags cc);
 
 	std::vector<Gen::FixupBranch> discards_;
