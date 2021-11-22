@@ -148,11 +148,9 @@ void DrawEngineVulkan::InitDeviceObjects() {
 		// We now create descriptor pools on demand, so removed from here.
 		// Note that pushUBO is also used for tessellation data (search for SetPushBuffer), and to upload
 		// the null texture. This should be cleaned up...
-		frame_[i].pushUBO = new VulkanPushBuffer(vulkan, 8 * 1024 * 1024, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
-		frame_[i].pushVertex = new VulkanPushBuffer(vulkan, 2 * 1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-		frame_[i].pushIndex = new VulkanPushBuffer(vulkan, 1 * 1024 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-
-		frame_[i].pushLocal = new VulkanPushBuffer(vulkan, 1 * 1024 * 1024, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		frame_[i].pushUBO = new VulkanPushBuffer(vulkan, 8 * 1024 * 1024, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, PushBufferType::CPU_TO_GPU);
+		frame_[i].pushVertex = new VulkanPushBuffer(vulkan, 2 * 1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, PushBufferType::CPU_TO_GPU);
+		frame_[i].pushIndex = new VulkanPushBuffer(vulkan, 1 * 1024 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, PushBufferType::CPU_TO_GPU);
 	}
 
 	VkPipelineLayoutCreateInfo pl{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
@@ -177,7 +175,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	res = vkCreateSampler(device, &samp, nullptr, &nullSampler_);
 	_dbg_assert_(VK_SUCCESS == res);
 
-	vertexCache_ = new VulkanPushBuffer(vulkan, VERTEX_CACHE_SIZE, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	vertexCache_ = new VulkanPushBuffer(vulkan, VERTEX_CACHE_SIZE, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, PushBufferType::CPU_TO_GPU);
 
 	tessDataTransferVulkan = new TessellationDataTransferVulkan(vulkan);
 	tessDataTransfer = tessDataTransferVulkan;
@@ -209,11 +207,6 @@ void DrawEngineVulkan::FrameData::Destroy(VulkanContext *vulkan) {
 		pushIndex->Destroy(vulkan);
 		delete pushIndex;
 		pushIndex = nullptr;
-	}
-	if (pushLocal) {
-		pushLocal->Destroy(vulkan);
-		delete pushLocal;
-		pushLocal = nullptr;
 	}
 }
 
@@ -272,13 +265,11 @@ void DrawEngineVulkan::BeginFrame() {
 	frame->pushUBO->Reset();
 	frame->pushVertex->Reset();
 	frame->pushIndex->Reset();
-	frame->pushLocal->Reset();
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	frame->pushUBO->Begin(vulkan);
 	frame->pushVertex->Begin(vulkan);
 	frame->pushIndex->Begin(vulkan);
-	frame->pushLocal->Begin(vulkan);
 
 	// TODO: How can we make this nicer...
 	tessDataTransferVulkan->SetPushBuffer(frame->pushUBO);
@@ -289,7 +280,7 @@ void DrawEngineVulkan::BeginFrame() {
 	if (vertexCache_->GetTotalSize() > VERTEX_CACHE_SIZE) {
 		vertexCache_->Destroy(vulkan);
 		delete vertexCache_;  // orphans the buffers, they'll get deleted once no longer used by an in-flight frame.
-		vertexCache_ = new VulkanPushBuffer(vulkan, VERTEX_CACHE_SIZE, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		vertexCache_ = new VulkanPushBuffer(vulkan, VERTEX_CACHE_SIZE, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, PushBufferType::CPU_TO_GPU);
 		vai_.Iterate([&](uint32_t hash, VertexArrayInfoVulkan *vai) {
 			delete vai;
 		});
@@ -338,7 +329,6 @@ void DrawEngineVulkan::EndFrame() {
 	frame->pushUBO->End();
 	frame->pushVertex->End();
 	frame->pushIndex->End();
-	frame->pushLocal->End();
 	vertexCache_->End();
 }
 

@@ -26,8 +26,8 @@
 
 using namespace PPSSPP_VK;
 
-VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, size_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryPropertyMask)
-		: vulkan_(vulkan), memoryPropertyMask_(memoryPropertyMask), size_(size), usage_(usage) {
+VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, size_t size, VkBufferUsageFlags usage, PushBufferType type)
+		: vulkan_(vulkan), size_(size), usage_(usage), type_(type) {
 	bool res = AddBuffer();
 	_assert_(res);
 }
@@ -52,6 +52,13 @@ bool VulkanPushBuffer::AddBuffer() {
 	if (VK_SUCCESS != res) {
 		_assert_msg_(false, "vkCreateBuffer failed! result=%d", (int)res);
 		return false;
+	}
+
+	VkMemoryPropertyFlags memoryPropertyMask_;
+	if (type_ == PushBufferType::CPU_TO_GPU) {
+		memoryPropertyMask_ = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+	} else {
+		memoryPropertyMask_ = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 	}
 
 	// Get the buffer memory requirements. None of this can be cached!
@@ -92,7 +99,7 @@ void VulkanPushBuffer::Destroy(VulkanContext *vulkan) {
 
 void VulkanPushBuffer::NextBuffer(size_t minSize) {
 	// First, unmap the current memory.
-	if (memoryPropertyMask_ & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+	if (type_ == PushBufferType::CPU_TO_GPU)
 		Unmap();
 
 	buf_++;
@@ -112,7 +119,7 @@ void VulkanPushBuffer::NextBuffer(size_t minSize) {
 
 	// Now, move to the next buffer and map it.
 	offset_ = 0;
-	if (memoryPropertyMask_ & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+	if (type_ == PushBufferType::CPU_TO_GPU)
 		Map();
 }
 
@@ -150,6 +157,8 @@ void VulkanPushBuffer::Unmap() {
 	if (!writePtr_)
 		return;
 
+	/*
+	// We could never hit this path before because we specified the mask explicitly.
 	if ((memoryPropertyMask_ & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
 		VkMappedMemoryRange range{ VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
 		range.offset = 0;
@@ -157,6 +166,7 @@ void VulkanPushBuffer::Unmap() {
 		range.memory = buffers_[buf_].deviceMemory;
 		vkFlushMappedMemoryRanges(vulkan_->GetDevice(), 1, &range);
 	}
+	*/
 
 	vkUnmapMemory(vulkan_->GetDevice(), buffers_[buf_].deviceMemory);
 	writePtr_ = nullptr;
