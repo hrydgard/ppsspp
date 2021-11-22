@@ -106,7 +106,12 @@ struct PixelRegCache {
 	Reg Alloc(Purpose p, Type t);
 	void ForceLock(Purpose p, Type t, bool state = true);
 
+	// For getting a specific reg.  WARNING: May return a locked reg, so you have to check.
+	void GrabReg(Reg r, Purpose p, Type t, bool &needsSwap, Reg swapReg);
+
 private:
+	RegStatus *FindReg(Reg r, Type t);
+
 	std::vector<RegStatus> regs;
 };
 
@@ -156,6 +161,8 @@ private:
 	bool Jit_WriteStencilOnly(const PixelFuncID &id, PixelRegCache::Reg stencilReg);
 	bool Jit_DepthTest(const PixelFuncID &id);
 	bool Jit_WriteDepth(const PixelFuncID &id);
+	bool Jit_AlphaBlend(const PixelFuncID &id);
+	bool Jit_Dither(const PixelFuncID &id);
 
 	std::unordered_map<PixelFuncID, SingleFunc> cache_;
 	std::unordered_map<PixelFuncID, const u8 *> addresses_;

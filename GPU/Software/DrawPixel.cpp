@@ -577,14 +577,13 @@ void PixelRegCache::Reset() {
 }
 
 void PixelRegCache::Release(PixelRegCache::Reg r, PixelRegCache::Type t, PixelRegCache::Purpose p) {
-	for (auto &reg : regs) {
-		if (reg.reg == r && reg.type == t) {
-			_assert_msg_(reg.locked > 0, "softjit Release() reg that isn't locked");
-			_assert_msg_(!reg.forceLocked, "softjit Release() reg that is force locked");
-			reg.purpose = p;
-			reg.locked--;
-			return;
-		}
+	RegStatus *status = FindReg(r, t);
+	if (status) {
+		_assert_msg_(status->locked > 0, "softjit Release() reg that isn't locked");
+		_assert_msg_(!status->forceLocked, "softjit Release() reg that is force locked");
+		status->purpose = p;
+		status->locked--;
+		return;
 	}
 
 	RegStatus newStatus;
@@ -595,12 +594,11 @@ void PixelRegCache::Release(PixelRegCache::Reg r, PixelRegCache::Type t, PixelRe
 }
 
 void PixelRegCache::Unlock(PixelRegCache::Reg r, PixelRegCache::Type t) {
-	for (auto &reg : regs) {
-		if (reg.reg == r && reg.type == t) {
-			_assert_msg_(reg.locked > 0, "softjit Unlock() reg that isn't locked");
-			reg.locked--;
-			return;
-		}
+	RegStatus *status = FindReg(r, t);
+	if (status) {
+		_assert_msg_(status->locked > 0, "softjit Unlock() reg that isn't locked");
+		status->locked--;
+		return;
 	}
 
 	_assert_msg_(false, "softjit Unlock() reg that isn't there");
@@ -662,6 +660,51 @@ void PixelRegCache::ForceLock(PixelRegCache::Purpose p, PixelRegCache::Type t, b
 	}
 
 	_assert_msg_(false, "softjit ForceLock() reg that isn't there");
+}
+
+void PixelRegCache::GrabReg(PixelRegCache::Reg r, PixelRegCache::Purpose p, PixelRegCache::Type t, bool &needsSwap, PixelRegCache::Reg swapReg) {
+	for (auto &reg : regs) {
+		if (reg.reg != r || reg.type != t)
+			continue;
+
+		// Easy version, it's free.
+		if (reg.locked == 0 && !reg.forceLocked) {
+			needsSwap = false;
+			reg.purpose = p;
+			reg.locked = 1;
+			return;
+		}
+
+		// Okay, we need to swap.  Find that reg.
+		needsSwap = true;
+		RegStatus *swap = FindReg(swapReg, t);
+		if (swap) {
+			swap->purpose = reg.purpose;
+			swap->forceLocked = reg.forceLocked;
+			swap->locked = reg.locked;
+		} else {
+			RegStatus newStatus = reg;
+			newStatus.reg = swapReg;
+			regs.push_back(newStatus);
+		}
+
+		reg.purpose = p;
+		reg.locked = 1;
+		reg.forceLocked = false;
+		return;
+	}
+
+	_assert_msg_(false, "softjit GrabReg() reg that isn't there");
+}
+
+PixelRegCache::RegStatus *PixelRegCache::FindReg(PixelRegCache::Reg r, PixelRegCache::Type t) {
+	for (auto &reg : regs) {
+		if (reg.reg == r && reg.type == t) {
+			return &reg;
+		}
+	}
+
+	return nullptr;
 }
 
 };

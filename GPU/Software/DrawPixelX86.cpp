@@ -111,8 +111,10 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 		success = success && Jit_StencilAndDepthTest(id);
 	else if (!id.clearMode)
 		success = success && Jit_DepthTest(id);
-
 	success = success && Jit_WriteDepth(id);
+
+	success = success && Jit_AlphaBlend(id);
+	success = success && Jit_Dither(id);
 
 	// TODO: There's more...
 	success = false;
@@ -925,6 +927,86 @@ bool PixelJitCache::Jit_WriteDepth(const PixelFuncID &id) {
 	if (regCache_.Has(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN)) {
 		regCache_.ForceLock(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN, false);
 	}
+
+	return true;
+}
+
+bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
+	if (!id.alphaBlend)
+		return true;
+
+	// TODO: Will need old color in some cases, too.
+	return false;
+}
+
+bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
+	if (!id.dithering)
+		return true;
+
+	X64Reg gstateReg = GetGState();
+	X64Reg valueReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_GEN);
+
+	// Load the row dither matrix entry (will still need to get the X.)
+	MOV(32, R(valueReg), R(argYReg));
+	AND(8, R(valueReg), Imm8(3));
+	MOVZX(32, 16, valueReg, MComplex(gstateReg, valueReg, 4, offsetof(GPUgstate, dithmtx)));
+	regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+
+	// At this point, we're done with depth and y, so let's grab COLOR_OFF and lock it.
+	// Then we can modify x and throw it away too, which is our actual goal.
+	regCache_.Unlock(GetColorOff(id), PixelRegCache::T_GEN);
+	regCache_.ForceLock(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
+	regCache_.Release(argYReg, PixelRegCache::T_GEN);
+
+	AND(32, R(argXReg), Imm32(3));
+	SHL(32, R(argXReg), Imm8(2));
+
+	// Conveniently, this is ECX on Windows, but otherwise we need to swap it.
+	if (argXReg != RCX) {
+		bool needsSwap = false;
+		regCache_.GrabReg(RCX, PixelRegCache::TEMP1, PixelRegCache::T_GEN, needsSwap, argXReg);
+
+		if (needsSwap) {
+			XCHG(PTRBITS, R(RCX), R(argXReg));
+			if (valueReg == RCX)
+				valueReg = argXReg;
+		} else {
+			MOV(32, R(RCX), R(argXReg));
+			regCache_.Release(argXReg, PixelRegCache::T_GEN);
+		}
+	}
+
+	// Okay shift to the specific value to add.
+	SHR(32, R(valueReg), R(CL));
+	AND(16, R(valueReg), Imm16(0x000F));
+
+	// This will either be argXReg on Windows, or RCX we explicitly grabbed.
+	regCache_.Release(RCX, PixelRegCache::T_GEN);
+
+	// Now we need to make 0-7 positive, 8-F negative.. so sign extend.
+	SHL(32, R(valueReg), Imm8(4));
+	SAR(8, R(valueReg), Imm8(4));
+
+	// Copy that value into a vec to add to the color.
+	X64Reg vecValueReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_VEC);
+	MOVD_xmm(vecValueReg, R(valueReg));
+	regCache_.Release(valueReg, PixelRegCache::T_GEN);
+
+	// Now we want to broadcast RGB in 16-bit, but keep A as 0.
+	// Luckily, we know that second lane (in 16-bit) is zero from valueReg's high 16 bits.
+	// We use 16-bit because we need a signed add, but we also want to saturate.
+	PSHUFLW(vecValueReg, R(vecValueReg), _MM_SHUFFLE(1, 0, 0, 0));
+	// With that, now let's convert the color to 16 bit...
+	X64Reg zeroReg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_VEC);
+	PXOR(zeroReg, R(zeroReg));
+	PUNPCKLBW(argColorReg, R(zeroReg));
+	regCache_.Release(zeroReg, PixelRegCache::T_VEC);
+	// And simply add the dither values.
+	PADDSW(argColorReg, R(vecValueReg));
+	regCache_.Release(vecValueReg, PixelRegCache::T_VEC);
+
+	// Now that we're done, put color back in 4x8-bit.
+	PACKUSWB(argColorReg, R(argColorReg));
 
 	return true;
 }
