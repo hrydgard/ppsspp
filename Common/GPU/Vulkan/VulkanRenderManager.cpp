@@ -6,8 +6,10 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 
+#include "Common/GPU/Vulkan/VulkanAlloc.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
+
 #include "Common/Thread/ThreadUtil.h"
 
 #if 0 // def _DEBUG
@@ -97,20 +99,20 @@ VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VkRen
 }
 
 VKRFramebuffer::~VKRFramebuffer() {
-	if (color.image)
-		vulkan_->Delete().QueueDeleteImage(color.image);
-	if (depth.image)
-		vulkan_->Delete().QueueDeleteImage(depth.image);
 	if (color.imageView)
 		vulkan_->Delete().QueueDeleteImageView(color.imageView);
 	if (depth.imageView)
 		vulkan_->Delete().QueueDeleteImageView(depth.imageView);
+	if (color.image) {
+		_dbg_assert_(color.alloc);
+		vulkan_->Delete().QueueDeleteImageAllocation(color.image, color.alloc);
+	}
+	if (depth.image) {
+		_dbg_assert_(depth.alloc);
+		vulkan_->Delete().QueueDeleteImageAllocation(depth.image, depth.alloc);
+	}
 	if (depth.depthSampleView)
 		vulkan_->Delete().QueueDeleteImageView(depth.depthSampleView);
-	if (color.memory)
-		vulkan_->Delete().QueueDeleteDeviceMemory(color.memory);
-	if (depth.memory)
-		vulkan_->Delete().QueueDeleteDeviceMemory(depth.memory);
 	if (framebuf)
 		vulkan_->Delete().QueueDeleteFramebuffer(framebuf);
 }
@@ -135,27 +137,11 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 		ici.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 	}
 
-	VkResult res = vkCreateImage(vulkan->GetDevice(), &ici, nullptr, &img.image);
-	_dbg_assert_(res == VK_SUCCESS);
+	VmaAllocationCreateInfo allocCreateInfo{};
+	allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+	VmaAllocationInfo allocInfo{};
 
-	VkMemoryRequirements memreq;
-	bool dedicatedAllocation = false;
-	vulkan->GetImageMemoryRequirements(img.image, &memreq, &dedicatedAllocation);
-
-	VkMemoryAllocateInfo alloc{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
-	alloc.allocationSize = memreq.size;
-	VkMemoryDedicatedAllocateInfoKHR dedicatedAllocateInfo{VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO_KHR};
-	if (dedicatedAllocation) {
-		dedicatedAllocateInfo.image = img.image;
-		alloc.pNext = &dedicatedAllocateInfo;
-	}
-
-	vulkan->MemoryTypeFromProperties(memreq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &alloc.memoryTypeIndex);
-
-	res = vkAllocateMemory(vulkan->GetDevice(), &alloc, nullptr, &img.memory);
-	_dbg_assert_(res == VK_SUCCESS);
-
-	res = vkBindImageMemory(vulkan->GetDevice(), img.image, img.memory, 0);
+	VkResult res = vmaCreateImage(vulkan->Allocator(), &ici, &allocCreateInfo, &img.image, &img.alloc, &allocInfo);
 	_dbg_assert_(res == VK_SUCCESS);
 
 	VkImageAspectFlags aspects = color ? VK_IMAGE_ASPECT_COLOR_BIT : (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
@@ -407,10 +393,8 @@ void VulkanRenderManager::DestroyBackbuffers() {
 		vulkan_->Delete().QueueDeleteImageView(depth_.view);
 	}
 	if (depth_.image) {
-		vulkan_->Delete().QueueDeleteImage(depth_.image);
-	}
-	if (depth_.mem) {
-		vulkan_->Delete().QueueDeleteDeviceMemory(depth_.mem);
+		_dbg_assert_(depth_.alloc);
+		vulkan_->Delete().QueueDeleteImageAllocation(depth_.image, depth_.alloc);
 	}
 	depth_ = {};
 	for (uint32_t i = 0; i < framebuffers_.size(); i++) {
@@ -895,7 +879,6 @@ bool VulkanRenderManager::InitBackbufferFramebuffers(int width, int height) {
 }
 
 bool VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
-	VkResult res;
 	bool pass;
 
 	const VkFormat depth_format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
@@ -917,45 +900,17 @@ bool VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 
 	depth_.format = depth_format;
 
-	VkDevice device = vulkan_->GetDevice();
-	res = vkCreateImage(device, &image_info, nullptr, &depth_.image);
+	VmaAllocationCreateInfo allocCreateInfo{};
+	VmaAllocationInfo allocInfo{};
+
+	allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+	VkResult res = vmaCreateImage(vulkan_->Allocator(), &image_info, &allocCreateInfo, &depth_.image, &depth_.alloc, &allocInfo);
 	_dbg_assert_(res == VK_SUCCESS);
 	if (res != VK_SUCCESS)
 		return false;
 
 	vulkan_->SetDebugName(depth_.image, VK_OBJECT_TYPE_IMAGE, "BackbufferDepth");
-
-	bool dedicatedAllocation = false;
-	VkMemoryRequirements mem_reqs;
-	vulkan_->GetImageMemoryRequirements(depth_.image, &mem_reqs, &dedicatedAllocation);
-
-	VkMemoryAllocateInfo mem_alloc = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
-	mem_alloc.allocationSize = mem_reqs.size;
-	mem_alloc.memoryTypeIndex = 0;
-
-	VkMemoryDedicatedAllocateInfoKHR dedicatedAllocateInfo{VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO_KHR};
-	if (dedicatedAllocation) {
-		dedicatedAllocateInfo.image = depth_.image;
-		mem_alloc.pNext = &dedicatedAllocateInfo;
-	}
-
-	// Use the memory properties to determine the type of memory required
-	pass = vulkan_->MemoryTypeFromProperties(mem_reqs.memoryTypeBits,
-		0, /* No requirements */
-		&mem_alloc.memoryTypeIndex);
-	_dbg_assert_(pass);
-	if (!pass)
-		return false;
-
-	res = vkAllocateMemory(device, &mem_alloc, NULL, &depth_.mem);
-	_dbg_assert_(res == VK_SUCCESS);
-	if (res != VK_SUCCESS)
-		return false;
-
-	res = vkBindImageMemory(device, depth_.image, depth_.mem, 0);
-	_dbg_assert_(res == VK_SUCCESS);
-	if (res != VK_SUCCESS)
-		return false;
 
 	TransitionImageLayout2(cmd, depth_.image, 0, 1,
 		aspectMask,
@@ -978,6 +933,8 @@ bool VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 	depth_view_info.subresourceRange.layerCount = 1;
 	depth_view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
 	depth_view_info.flags = 0;
+
+	VkDevice device = vulkan_->GetDevice();
 
 	res = vkCreateImageView(device, &depth_view_info, NULL, &depth_.view);
 	_dbg_assert_(res == VK_SUCCESS);

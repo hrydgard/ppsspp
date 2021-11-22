@@ -19,6 +19,9 @@
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 
+// Forward declaration
+VK_DEFINE_HANDLE(VmaAllocation);
+
 // Simple independent framebuffer image. Gets its own allocation, we don't have that many framebuffers so it's fine
 // to let them have individual non-pooled allocations. Until it's not fine. We'll see.
 struct VKRImage {
@@ -26,7 +29,7 @@ struct VKRImage {
 	VkImage image;
 	VkImageView imageView;
 	VkImageView depthSampleView;
-	VkDeviceMemory memory;
+	VmaAllocation alloc;
 	VkFormat format;
 
 	// This one is used by QueueRunner's Perform functions to keep track. CANNOT be used anywhere else due to sync issues.
@@ -541,7 +544,7 @@ private:
 	struct DepthBufferInfo {
 		VkFormat format = VK_FORMAT_UNDEFINED;
 		VkImage image = VK_NULL_HANDLE;
-		VkDeviceMemory mem = VK_NULL_HANDLE;
+		VmaAllocation alloc = VK_NULL_HANDLE;
 		VkImageView view = VK_NULL_HANDLE;
 	};
 	DepthBufferInfo depth_;
