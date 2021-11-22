@@ -28,7 +28,7 @@ enum class PushBufferType {
 class VulkanPushBuffer {
 	struct BufInfo {
 		VkBuffer buffer;
-		VkDeviceMemory deviceMemory;
+		VmaAllocation allocation;
 	};
 
 public:

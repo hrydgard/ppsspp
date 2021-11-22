@@ -48,39 +48,13 @@ bool VulkanPushBuffer::AddBuffer() {
 	b.queueFamilyIndexCount = 0;
 	b.pQueueFamilyIndices = nullptr;
 
-	VkResult res = vkCreateBuffer(device, &b, nullptr, &info.buffer);
+	VmaAllocationCreateInfo allocCreateInfo{};
+	allocCreateInfo.usage = type_ == PushBufferType::CPU_TO_GPU ? VMA_MEMORY_USAGE_CPU_TO_GPU : VMA_MEMORY_USAGE_GPU_ONLY;
+	VmaAllocationInfo allocInfo{};
+
+	VkResult res = vmaCreateBuffer(vulkan_->Allocator(), &b, &allocCreateInfo, &info.buffer, &info.allocation, &allocInfo);
 	if (VK_SUCCESS != res) {
 		_assert_msg_(false, "vkCreateBuffer failed! result=%d", (int)res);
-		return false;
-	}
-
-	VkMemoryPropertyFlags memoryPropertyMask_;
-	if (type_ == PushBufferType::CPU_TO_GPU) {
-		memoryPropertyMask_ = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-	} else {
-		memoryPropertyMask_ = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-	}
-
-	// Get the buffer memory requirements. None of this can be cached!
-	VkMemoryRequirements reqs;
-	vkGetBufferMemoryRequirements(device, info.buffer, &reqs);
-
-	// Okay, that's the buffer. Now let's allocate some memory for it.
-	VkMemoryAllocateInfo alloc{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
-	alloc.allocationSize = reqs.size;
-	vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, memoryPropertyMask_, &alloc.memoryTypeIndex);
-
-	res = vkAllocateMemory(device, &alloc, nullptr, &info.deviceMemory);
-	if (VK_SUCCESS != res) {
-		_assert_msg_(false, "vkAllocateMemory failed! size=%d result=%d", (int)reqs.size, (int)res);
-		vkDestroyBuffer(device, info.buffer, nullptr);
-		return false;
-	}
-	res = vkBindBufferMemory(device, info.buffer, info.deviceMemory, 0);
-	if (VK_SUCCESS != res) {
-		ERROR_LOG(G3D, "vkBindBufferMemory failed! result=%d", (int)res);
-		vkFreeMemory(device, info.deviceMemory, nullptr);
-		vkDestroyBuffer(device, info.buffer, nullptr);
 		return false;
 	}
 
@@ -91,8 +65,7 @@ bool VulkanPushBuffer::AddBuffer() {
 
 void VulkanPushBuffer::Destroy(VulkanContext *vulkan) {
 	for (BufInfo &info : buffers_) {
-		vulkan->Delete().QueueDeleteBuffer(info.buffer);
-		vulkan->Delete().QueueDeleteDeviceMemory(info.deviceMemory);
+		vulkan->Delete().QueueDeleteBufferAllocation(info.buffer, info.allocation);
 	}
 	buffers_.clear();
 }
@@ -147,7 +120,7 @@ size_t VulkanPushBuffer::GetTotalSize() const {
 
 void VulkanPushBuffer::Map() {
 	_dbg_assert_(!writePtr_);
-	VkResult res = vkMapMemory(vulkan_->GetDevice(), buffers_[buf_].deviceMemory, 0, size_, 0, (void **)(&writePtr_));
+	VkResult res = vmaMapMemory(vulkan_->Allocator(), buffers_[buf_].allocation, (void **)(&writePtr_));
 	_dbg_assert_(writePtr_);
 	_assert_(VK_SUCCESS == res);
 }
@@ -168,6 +141,6 @@ void VulkanPushBuffer::Unmap() {
 	}
 	*/
 
-	vkUnmapMemory(vulkan_->GetDevice(), buffers_[buf_].deviceMemory);
+	vmaUnmapMemory(vulkan_->Allocator(), buffers_[buf_].allocation);
 	writePtr_ = nullptr;
 }

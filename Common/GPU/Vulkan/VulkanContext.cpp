@@ -1362,6 +1362,10 @@ void VulkanDeleteList::PerformDeletes(VkDevice device, VmaAllocator allocator) {
 		vkDestroyBuffer(device, buf, nullptr);
 	}
 	buffers_.clear();
+	for (auto &buf : buffersWithAllocs_) {
+		vmaDestroyBuffer(allocator, buf.buffer, buf.alloc);
+	}
+	buffers_.clear();
 	for (auto &bufView : bufferViews_) {
 		vkDestroyBufferView(device, bufView, nullptr);
 	}
