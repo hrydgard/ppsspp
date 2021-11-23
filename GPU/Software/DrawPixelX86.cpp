@@ -1054,62 +1054,21 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 	if (regCache_.Has(PixelRegCache::STENCIL, PixelRegCache::T_GEN))
 		stencilReg = regCache_.Find(PixelRegCache::STENCIL, PixelRegCache::T_GEN);
 
-	X64Reg temp1Reg = INVALID_REG, temp2Reg = INVALID_REG;
+	X64Reg temp1Reg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_GEN);
+	X64Reg temp2Reg = regCache_.Alloc(PixelRegCache::TEMP2, PixelRegCache::T_GEN);
+	bool writeAlpha = id.clearMode && id.StencilClear();
+	bool success = true;
 	switch (id.fbFormat) {
 	case GE_FORMAT_565:
 		// In this case, stencil doesn't matter.
-		temp1Reg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_GEN);
-		temp2Reg = regCache_.Alloc(PixelRegCache::TEMP2, PixelRegCache::T_GEN);
-
-		// Assemble the 565 color, starting with R...
-		MOV(32, R(temp1Reg), R(colorReg));
-		SHR(32, R(temp1Reg), Imm8(3));
-		AND(16, R(temp1Reg), Imm16(0x1F << 0));
-
-		// For G, move right 5 (because the top 6 are offset by 10.)
-		MOV(32, R(temp2Reg), R(colorReg));
-		SHR(32, R(temp2Reg), Imm8(5));
-		AND(16, R(temp2Reg), Imm16(0x3F << 5));
-		OR(32, R(temp1Reg), R(temp2Reg));
-
-		// And finally B, move right 8 (top 5 are offset by 19.)
-		SHR(32, R(colorReg), Imm8(8));
-		AND(16, R(colorReg), Imm16(0x1F << 11));
-		OR(32, R(colorReg), R(temp1Reg));
-
+		success = success && Jit_ConvertTo565(id, colorReg, temp1Reg, temp2Reg);
 		MOV(16, MatR(colorOff), R(colorReg));
 		break;
 
 	case GE_FORMAT_5551:
-		temp1Reg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_GEN);
-		temp2Reg = regCache_.Alloc(PixelRegCache::TEMP2, PixelRegCache::T_GEN);
+		success = success && Jit_ConvertTo5551(id, colorReg, temp1Reg, temp2Reg, writeAlpha);
 
-		// This is R, pretty simple.
-		MOV(32, R(temp1Reg), R(colorReg));
-		SHR(32, R(temp1Reg), Imm8(3));
-		AND(16, R(temp1Reg), Imm16(0x1F << 0));
-
-		// G moves right 6, to match the top 5 at 11.
-		MOV(32, R(temp2Reg), R(colorReg));
-		SHR(32, R(temp2Reg), Imm8(6));
-		AND(16, R(temp2Reg), Imm16(0x1F << 5));
-		OR(32, R(temp1Reg), R(temp2Reg));
-
-		if (id.clearMode && id.StencilClear()) {
-			// Grab A into tempReg2 before handling B.
-			MOV(32, R(temp2Reg), R(colorReg));
-			SHR(32, R(temp2Reg), Imm8(31));
-			SHL(32, R(temp2Reg), Imm8(15));
-		}
-
-		// B moves right 9, to match the top 5 at 19.
-		SHR(32, R(colorReg), Imm8(9));
-		AND(16, R(colorReg), Imm16(0x1F << 10));
-		OR(32, R(colorReg), R(temp1Reg));
-
-		if (id.clearMode && id.StencilClear()) {
-			// Now combine in A and write.
-			OR(32, R(colorReg), R(temp2Reg));
+		if (writeAlpha) {
 			MOV(16, MatR(colorOff), R(colorReg));
 		} else if (stencilReg != INVALID_REG) {
 			// Truncate off the top bit of the stencil.
@@ -1126,35 +1085,9 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 		break;
 
 	case GE_FORMAT_4444:
-		temp1Reg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_GEN);
-		temp2Reg = regCache_.Alloc(PixelRegCache::TEMP2, PixelRegCache::T_GEN);
+		success = success && Jit_ConvertTo4444(id, colorReg, temp1Reg, temp2Reg, writeAlpha);
 
-		// Shift and mask out R.
-		MOV(32, R(temp1Reg), R(colorReg));
-		SHR(32, R(temp1Reg), Imm8(4));
-		AND(16, R(temp1Reg), Imm16(0xF << 0));
-
-		// Shift G into position and mask.
-		MOV(32, R(temp2Reg), R(colorReg));
-		SHR(32, R(temp2Reg), Imm8(8));
-		AND(16, R(temp2Reg), Imm16(0xF << 4));
-		OR(32, R(temp1Reg), R(temp2Reg));
-
-		if (id.clearMode && id.StencilClear()) {
-			// Grab A into tempReg2 before handling B.
-			MOV(32, R(temp2Reg), R(colorReg));
-			SHR(32, R(temp2Reg), Imm8(28));
-			SHL(32, R(temp2Reg), Imm8(12));
-		}
-
-		// B moves right 12, to match the top 4 at 20.
-		SHR(32, R(colorReg), Imm8(12));
-		AND(16, R(colorReg), Imm16(0xF << 8));
-		OR(32, R(colorReg), R(temp1Reg));
-
-		if (id.clearMode && id.StencilClear()) {
-			// Now combine in A and write.
-			OR(32, R(colorReg), R(temp2Reg));
+		if (writeAlpha) {
 			MOV(16, MatR(colorOff), R(colorReg));
 		} else if (stencilReg != INVALID_REG) {
 			// Truncate off the top bit of the stencil.
@@ -1171,7 +1104,7 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 		break;
 
 	case GE_FORMAT_8888:
-		if (id.clearMode && id.StencilClear()) {
+		if (writeAlpha) {
 			MOV(32, MatR(colorOff), R(colorReg));
 		} else if (stencilReg != INVALID_REG) {
 			SHL(32, R(stencilReg), Imm8(24));
@@ -1199,6 +1132,86 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 		regCache_.Release(temp1Reg, PixelRegCache::T_GEN);
 	if (temp2Reg != INVALID_REG)
 		regCache_.Release(temp2Reg, PixelRegCache::T_GEN);
+
+	return success;
+}
+
+bool PixelJitCache::Jit_ConvertTo565(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg temp1Reg, PixelRegCache::Reg temp2Reg) {
+	// Assemble the 565 color, starting with R...
+	MOV(32, R(temp1Reg), R(colorReg));
+	SHR(32, R(temp1Reg), Imm8(3));
+	AND(16, R(temp1Reg), Imm16(0x1F << 0));
+
+	// For G, move right 5 (because the top 6 are offset by 10.)
+	MOV(32, R(temp2Reg), R(colorReg));
+	SHR(32, R(temp2Reg), Imm8(5));
+	AND(16, R(temp2Reg), Imm16(0x3F << 5));
+	OR(32, R(temp1Reg), R(temp2Reg));
+
+	// And finally B, move right 8 (top 5 are offset by 19.)
+	SHR(32, R(colorReg), Imm8(8));
+	AND(16, R(colorReg), Imm16(0x1F << 11));
+	OR(32, R(colorReg), R(temp1Reg));
+
+	return true;
+}
+
+bool PixelJitCache::Jit_ConvertTo5551(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg temp1Reg, PixelRegCache::Reg temp2Reg, bool keepAlpha) {
+	// This is R, pretty simple.
+	MOV(32, R(temp1Reg), R(colorReg));
+	SHR(32, R(temp1Reg), Imm8(3));
+	AND(16, R(temp1Reg), Imm16(0x1F << 0));
+
+	// G moves right 6, to match the top 5 at 11.
+	MOV(32, R(temp2Reg), R(colorReg));
+	SHR(32, R(temp2Reg), Imm8(6));
+	AND(16, R(temp2Reg), Imm16(0x1F << 5));
+	OR(32, R(temp1Reg), R(temp2Reg));
+
+	if (keepAlpha) {
+		// Grab A into tempReg2 before handling B.
+		MOV(32, R(temp2Reg), R(colorReg));
+		SHR(32, R(temp2Reg), Imm8(31));
+		SHL(32, R(temp2Reg), Imm8(15));
+	}
+
+	// B moves right 9, to match the top 5 at 19.
+	SHR(32, R(colorReg), Imm8(9));
+	AND(16, R(colorReg), Imm16(0x1F << 10));
+	OR(32, R(colorReg), R(temp1Reg));
+
+	if (keepAlpha)
+		OR(32, R(colorReg), R(temp2Reg));
+
+	return true;
+}
+
+bool PixelJitCache::Jit_ConvertTo4444(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg temp1Reg, PixelRegCache::Reg temp2Reg, bool keepAlpha) {
+	// Shift and mask out R.
+	MOV(32, R(temp1Reg), R(colorReg));
+	SHR(32, R(temp1Reg), Imm8(4));
+	AND(16, R(temp1Reg), Imm16(0xF << 0));
+
+	// Shift G into position and mask.
+	MOV(32, R(temp2Reg), R(colorReg));
+	SHR(32, R(temp2Reg), Imm8(8));
+	AND(16, R(temp2Reg), Imm16(0xF << 4));
+	OR(32, R(temp1Reg), R(temp2Reg));
+
+	if (keepAlpha) {
+		// Grab A into tempReg2 before handling B.
+		MOV(32, R(temp2Reg), R(colorReg));
+		SHR(32, R(temp2Reg), Imm8(28));
+		SHL(32, R(temp2Reg), Imm8(12));
+	}
+
+	// B moves right 12, to match the top 4 at 20.
+	SHR(32, R(colorReg), Imm8(12));
+	AND(16, R(colorReg), Imm16(0xF << 8));
+	OR(32, R(colorReg), R(temp1Reg));
+
+	if (keepAlpha)
+		OR(32, R(colorReg), R(temp2Reg));
 
 	return true;
 }
