@@ -130,17 +130,6 @@ void VulkanPushBuffer::Unmap() {
 	if (!writePtr_)
 		return;
 
-	/*
-	// We could never hit this path before because we specified the mask explicitly.
-	if ((memoryPropertyMask_ & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
-		VkMappedMemoryRange range{ VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
-		range.offset = 0;
-		range.size = offset_;
-		range.memory = buffers_[buf_].deviceMemory;
-		vkFlushMappedMemoryRanges(vulkan_->GetDevice(), 1, &range);
-	}
-	*/
-
 	vmaUnmapMemory(vulkan_->Allocator(), buffers_[buf_].allocation);
 	writePtr_ = nullptr;
 }

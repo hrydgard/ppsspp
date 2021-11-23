@@ -329,7 +329,9 @@ void TextureCacheVulkan::StartFrame() {
 			// Since textures are 2D maybe we should square this, but might get too non-aggressive.
 			slabPressureLimit *= g_Config.iTexScalingLevel;
 		}
-		Decimate(false);  // TODO: Use some indication from VMA.
+		// TODO: Use some indication from VMA.
+		// Maybe see https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/staying_within_budget.html#staying_within_budget_querying_for_budget .
+		Decimate(false);
 	}
 
 	computeShaderManager_.BeginFrame();
