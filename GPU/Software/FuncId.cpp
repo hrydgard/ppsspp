@@ -36,7 +36,7 @@ void ComputePixelFuncID(PixelFuncID *id) {
 	id->clearMode = gstate.isModeClear();
 	if (id->clearMode) {
 		id->colorTest = gstate.isClearModeColorMask();
-		id->stencilTest = gstate.isClearModeAlphaMask();
+		id->stencilTest = gstate.isClearModeAlphaMask() && gstate.FrameBufFormat() != GE_FORMAT_565;
 		id->depthWrite = gstate.isClearModeDepthMask();
 		id->depthTestFunc = GE_COMP_ALWAYS;
 		id->alphaTestFunc = GE_COMP_ALWAYS;

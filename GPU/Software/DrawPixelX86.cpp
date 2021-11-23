@@ -1017,13 +1017,7 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 		// We won't need X or Y anymore, so toss them for reg space.
 		regCache_.Release(argXReg, PixelRegCache::T_GEN);
 		regCache_.Release(argYReg, PixelRegCache::T_GEN);
-	}
-
-	if (id.applyLogicOp || id.applyColorWriteMask) {
-		// TODO: Should really be part of entire process.
-		// If !Has(STENCIL), we should force-mask away the stencil bits (logicop doesn't affect.)
-		// Note that clearMode is possible here (applyColorWriteMask) and won't force mask stencil.
-		return false;
+		regCache_.ForceLock(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
 	}
 
 	if (id.clearMode) {
@@ -1040,7 +1034,6 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 
 			bool success = Jit_WriteStencilOnly(id, alphaReg);
 			regCache_.Release(alphaReg, PixelRegCache::T_GEN);
-			regCache_.Unlock(colorOff, PixelRegCache::T_GEN);
 			return success;
 		}
 
@@ -1056,82 +1049,161 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 
 	X64Reg temp1Reg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_GEN);
 	X64Reg temp2Reg = regCache_.Alloc(PixelRegCache::TEMP2, PixelRegCache::T_GEN);
-	bool writeAlpha = id.clearMode && id.StencilClear();
+	bool convertAlpha = id.clearMode && id.StencilClear();
+	bool writeAlpha = convertAlpha || stencilReg != INVALID_REG;
+	uint32_t fixedKeepMask = 0x00000000;
+
 	bool success = true;
+
+	// Step 1: Load the color into colorReg.
 	switch (id.fbFormat) {
 	case GE_FORMAT_565:
 		// In this case, stencil doesn't matter.
 		success = success && Jit_ConvertTo565(id, colorReg, temp1Reg, temp2Reg);
-		MOV(16, MatR(colorOff), R(colorReg));
 		break;
 
 	case GE_FORMAT_5551:
-		success = success && Jit_ConvertTo5551(id, colorReg, temp1Reg, temp2Reg, writeAlpha);
+		success = success && Jit_ConvertTo5551(id, colorReg, temp1Reg, temp2Reg, convertAlpha);
 
-		if (writeAlpha) {
-			MOV(16, MatR(colorOff), R(colorReg));
-		} else if (stencilReg != INVALID_REG) {
+		if (stencilReg != INVALID_REG) {
 			// Truncate off the top bit of the stencil.
 			SHR(32, R(stencilReg), Imm8(7));
 			SHL(32, R(stencilReg), Imm8(15));
-			OR(32, R(colorReg), R(stencilReg));
-
-			MOV(16, MatR(colorOff), R(colorReg));
-		} else {
-			// Clear the non-stencil bits and or in the color.
-			AND(16, MatR(colorOff), Imm16(0x8000));
-			OR(16, MatR(colorOff), R(colorReg));
+		} else if (!writeAlpha) {
+			fixedKeepMask = 0x8000;
 		}
 		break;
 
 	case GE_FORMAT_4444:
-		success = success && Jit_ConvertTo4444(id, colorReg, temp1Reg, temp2Reg, writeAlpha);
+		success = success && Jit_ConvertTo4444(id, colorReg, temp1Reg, temp2Reg, convertAlpha);
 
-		if (writeAlpha) {
-			MOV(16, MatR(colorOff), R(colorReg));
-		} else if (stencilReg != INVALID_REG) {
+		if (stencilReg != INVALID_REG) {
 			// Truncate off the top bit of the stencil.
 			SHR(32, R(stencilReg), Imm8(4));
 			SHL(32, R(stencilReg), Imm8(12));
-			OR(32, R(colorReg), R(stencilReg));
+		} else if (!writeAlpha) {
+			fixedKeepMask = 0xF000;
+		}
+		break;
 
+	case GE_FORMAT_8888:
+		if (stencilReg != INVALID_REG) {
+			SHL(32, R(stencilReg), Imm8(24));
+			// Clear out the alpha bits so we can fit the stencil.
+			AND(32, R(colorReg), Imm32(0x00FFFFFF));
+		} else if (!writeAlpha) {
+			fixedKeepMask = 0xFF000000;
+		}
+		break;
+	}
+
+	// Step 2: Load any logic op / write mask needed.
+	// Note that we apply the write mask at the destination bit depth.
+	X64Reg maskReg = INVALID_REG;
+	if (id.applyColorWriteMask) {
+		X64Reg gstateReg = GetGState();
+		maskReg = regCache_.Alloc(PixelRegCache::TEMP3, PixelRegCache::T_GEN);
+
+		// Load the write mask, combine in the stencil/alpha mask bits.
+		MOV(32, R(maskReg), MDisp(gstateReg, offsetof(GPUgstate, pmskc)));
+		if (writeAlpha) {
+			MOVZX(32, 8, temp2Reg, MDisp(gstateReg, offsetof(GPUgstate, pmska)));
+			SHL(32, R(temp2Reg), Imm8(24));
+			OR(32, R(maskReg), R(temp2Reg));
+		}
+		regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+
+		// Switch the mask into the specified bit depth.  This is easier.
+		switch (id.fbFormat) {
+		case GE_FORMAT_565:
+			success = success && Jit_ConvertTo565(id, maskReg, temp1Reg, temp2Reg);
+			break;
+
+		case GE_FORMAT_5551:
+			success = success && Jit_ConvertTo5551(id, maskReg, temp1Reg, temp2Reg, writeAlpha);
+			if (fixedKeepMask != 0)
+				OR(16, R(maskReg), Imm16((uint16_t)fixedKeepMask));
+			break;
+
+		case GE_FORMAT_4444:
+			success = success && Jit_ConvertTo4444(id, maskReg, temp1Reg, temp2Reg, writeAlpha);
+			if (fixedKeepMask != 0)
+				OR(16, R(maskReg), Imm16((uint16_t)fixedKeepMask));
+			break;
+
+		case GE_FORMAT_8888:
+			if (fixedKeepMask != 0)
+				OR(32, R(maskReg), Imm32(fixedKeepMask));
+			break;
+		}
+	}
+
+	// We've run out of regs, let's live without temp2 from here on.
+	regCache_.Release(temp2Reg, PixelRegCache::T_GEN);
+	temp2Reg = INVALID_REG;
+
+	if (id.applyLogicOp) {
+		// TODO: Load logic op.  Clear not possible here.
+		return false;
+	}
+
+	// Step 3: Apply logic op, combine stencil.
+	// TODO: Apply logic op.
+	if (stencilReg != INVALID_REG) {
+		OR(32, R(colorReg), R(stencilReg));
+	}
+
+	// Step 4: Write and apply write mask.
+	switch (id.fbFormat) {
+	case GE_FORMAT_565:
+	case GE_FORMAT_5551:
+	case GE_FORMAT_4444:
+		if (maskReg != INVALID_REG) {
+			// Zero all other bits, then flip maskReg to clear the bits we're keeping in colorReg.
+			AND(16, MatR(colorOff), R(maskReg));
+			NOT(32, R(maskReg));
+			AND(32, R(colorReg), R(maskReg));
+			OR(16, MatR(colorOff), R(colorReg));
+		} else if (fixedKeepMask == 0) {
 			MOV(16, MatR(colorOff), R(colorReg));
 		} else {
 			// Clear the non-stencil bits and or in the color.
-			AND(16, MatR(colorOff), Imm16(0xF000));
+			AND(16, MatR(colorOff), Imm16((uint16_t)fixedKeepMask));
 			OR(16, MatR(colorOff), R(colorReg));
 		}
 		break;
 
 	case GE_FORMAT_8888:
-		if (writeAlpha) {
+		if (maskReg != INVALID_REG) {
+			// Zero all other bits, then flip maskReg to clear the bits we're keeping in colorReg.
+			AND(32, MatR(colorOff), R(maskReg));
+			NOT(32, R(maskReg));
+			AND(32, R(colorReg), R(maskReg));
+			OR(32, MatR(colorOff), R(colorReg));
+		} else if (fixedKeepMask == 0) {
 			MOV(32, MatR(colorOff), R(colorReg));
-		} else if (stencilReg != INVALID_REG) {
-			SHL(32, R(stencilReg), Imm8(24));
-			AND(32, R(colorReg), Imm32(0x00FFFFFF));
-			OR(32, R(colorReg), R(stencilReg));
-
-			MOV(32, MatR(colorOff), R(colorReg));
-		} else {
+		} else if (fixedKeepMask == 0xFF000000) {
 			// We want to set 24 bits only, since we're not changing stencil.
 			// For now, let's do two writes rather than reading in the old stencil.
 			MOV(16, MatR(colorOff), R(colorReg));
 			SHR(32, R(colorReg), Imm8(16));
 			MOV(8, MDisp(colorOff, 2), R(colorReg));
+		} else {
+			AND(32, MatR(colorOff), Imm32(fixedKeepMask));
+			OR(32, MatR(colorOff), R(colorReg));
 		}
 		break;
 	}
 
 	regCache_.Unlock(colorOff, PixelRegCache::T_GEN);
 	regCache_.Release(colorReg, PixelRegCache::T_GEN);
+	regCache_.Release(temp1Reg, PixelRegCache::T_GEN);
+	if (maskReg != INVALID_REG)
+		regCache_.Release(maskReg, PixelRegCache::T_GEN);
 	if (stencilReg != INVALID_REG) {
 		regCache_.ForceLock(PixelRegCache::STENCIL, PixelRegCache::T_GEN, false);
 		regCache_.Release(stencilReg, PixelRegCache::T_GEN);
 	}
-	if (temp1Reg != INVALID_REG)
-		regCache_.Release(temp1Reg, PixelRegCache::T_GEN);
-	if (temp2Reg != INVALID_REG)
-		regCache_.Release(temp2Reg, PixelRegCache::T_GEN);
 
 	return success;
 }
