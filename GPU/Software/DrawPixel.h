@@ -163,6 +163,7 @@ private:
 	bool Jit_WriteDepth(const PixelFuncID &id);
 	bool Jit_AlphaBlend(const PixelFuncID &id);
 	bool Jit_Dither(const PixelFuncID &id);
+	bool Jit_WriteColor(const PixelFuncID &id);
 
 	std::unordered_map<PixelFuncID, SingleFunc> cache_;
 	std::unordered_map<PixelFuncID, const u8 *> addresses_;
