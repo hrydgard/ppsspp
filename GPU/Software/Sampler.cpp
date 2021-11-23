@@ -19,6 +19,7 @@
 #include <unordered_map>
 #include <mutex>
 #include "Common/Data/Convert/ColorConv.h"
+#include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/GPUState.h"
@@ -216,13 +217,14 @@ NearestFunc SamplerJitCache::GetNearest(const SamplerID &id) {
 	}
 
 #if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
-	addresses_[id] = GetCodePointer();
-	NearestFunc func = Compile(id);
-	cache_[id] = func;
-	return func;
-#else
-	return nullptr;
+	if (g_Config.bSoftwareRenderingJit) {
+		addresses_[id] = GetCodePointer();
+		NearestFunc func = Compile(id);
+		cache_[id] = func;
+		return func;
+	}
 #endif
+	return nullptr;
 }
 
 LinearFunc SamplerJitCache::GetLinear(const SamplerID &id) {

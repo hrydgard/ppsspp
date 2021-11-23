@@ -17,6 +17,7 @@
 
 #include <mutex>
 #include "Common/Data/Convert/ColorConv.h"
+#include "Core/Config.h"
 #include "GPU/GPUState.h"
 #include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/FuncId.h"
@@ -563,13 +564,14 @@ SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id) {
 	}
 
 #if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
-	addresses_[id] = GetCodePointer();
-	SingleFunc func = CompileSingle(id);
-	cache_[id] = func;
-	return func;
-#else
-	return nullptr;
+	if (g_Config.bSoftwareRenderingJit) {
+		addresses_[id] = GetCodePointer();
+		SingleFunc func = CompileSingle(id);
+		cache_[id] = func;
+		return func;
+	}
 #endif
+	return nullptr;
 }
 
 void PixelRegCache::Reset() {
