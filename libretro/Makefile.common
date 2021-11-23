@@ -193,6 +193,9 @@ SOURCES_C += \
 	$(EXTDIR)/libpng17/pngwtran.c \
 	$(EXTDIR)/libpng17/pngwutil.c
 
+SOURCES_CXX += \
+    $(EXTDIR)/vma/vk_mem_alloc.cpp
+
 SOURCES_C += $(EXTDIR)/sfmt19937/SFMT.c
 SOURCES_C   += $(EXTDIR)/xxhash.c
 

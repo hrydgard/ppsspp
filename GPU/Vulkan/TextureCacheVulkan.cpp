@@ -204,17 +204,6 @@ void TextureCacheVulkan::DeviceLost() {
 
 	Clear(true);
 
-	if (allocator_) {
-		allocator_->Destroy();
-
-		// We have to delete on queue, so this can free its queued deletions.
-		vulkan->Delete().QueueCallback([](void *ptr) {
-			auto allocator = static_cast<VulkanDeviceAllocator *>(ptr);
-			delete allocator;
-		}, allocator_);
-		allocator_ = nullptr;
-	}
-
 	samplerCache_.DeviceLost();
 
 	if (samplerNearest_)
@@ -234,7 +223,6 @@ void TextureCacheVulkan::DeviceRestore(Draw::DrawContext *draw) {
 
 	_assert_(!allocator_);
 
-	allocator_ = new VulkanDeviceAllocator(vulkan, TEXCACHE_MIN_SLAB_SIZE, TEXCACHE_MAX_SLAB_SIZE);
 	samplerCache_.DeviceRestore(vulkan);
 
 	VkSamplerCreateInfo samp{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
@@ -341,15 +329,15 @@ void TextureCacheVulkan::StartFrame() {
 			// Since textures are 2D maybe we should square this, but might get too non-aggressive.
 			slabPressureLimit *= g_Config.iTexScalingLevel;
 		}
-		Decimate(allocator_->GetSlabCount() > slabPressureLimit);
+		// TODO: Use some indication from VMA.
+		// Maybe see https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/staying_within_budget.html#staying_within_budget_querying_for_budget .
+		Decimate(false);
 	}
 
-	allocator_->Begin();
 	computeShaderManager_.BeginFrame();
 }
 
 void TextureCacheVulkan::EndFrame() {
-	allocator_->End();
 	computeShaderManager_.EndFrame();
 
 	if (texelsScaledThisFrame_) {
@@ -755,7 +743,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		snprintf(texName, sizeof(texName), "tex_%08x_%s", entry->addr, GeTextureFormatToString((GETextureFormat)entry->format, gstate.getClutPaletteFormat()));
 		image->SetTag(texName);
 
-		bool allocSuccess = image->CreateDirect(cmdInit, allocator_, w * scaleFactor, h * scaleFactor, maxLevelToGenerate + 1, actualFmt, imageLayout, usage, mapping);
+		bool allocSuccess = image->CreateDirect(cmdInit, w * scaleFactor, h * scaleFactor, maxLevelToGenerate + 1, actualFmt, imageLayout, usage, mapping);
 		if (!allocSuccess && !lowMemoryMode_) {
 			WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
 			lowMemoryMode_ = true;
@@ -774,7 +762,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			scaleFactor = 1;
 			actualFmt = dstFmt;
 
-			allocSuccess = image->CreateDirect(cmdInit, allocator_, w * scaleFactor, h * scaleFactor, maxLevelToGenerate + 1, actualFmt, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
+			allocSuccess = image->CreateDirect(cmdInit, w * scaleFactor, h * scaleFactor, maxLevelToGenerate + 1, actualFmt, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
 		}
 
 		if (!allocSuccess) {
@@ -1058,8 +1046,7 @@ bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int leve
 }
 
 void TextureCacheVulkan::GetStats(char *ptr, size_t size) {
-	snprintf(ptr, size, "Alloc: %d slabs\nSlab min/max: %d/%d\nAlloc usage: %d%%",
-		allocator_->GetSlabCount(), allocator_->GetMinSlabSize(), allocator_->GetMaxSlabSize(), allocator_->ComputeUsagePercent());
+	snprintf(ptr, size, "N/A");
 }
 
 std::vector<std::string> TextureCacheVulkan::DebugGetSamplerIDs() const {

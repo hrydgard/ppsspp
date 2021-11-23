@@ -501,7 +501,7 @@ void GPU_Vulkan::InitDeviceObjects() {
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		_assert_(!frameData_[i].push_);
 		VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-		frameData_[i].push_ = new VulkanPushBuffer(vulkan, 256 * 1024, usage);
+		frameData_[i].push_ = new VulkanPushBuffer(vulkan, 256 * 1024, usage, PushBufferType::CPU_TO_GPU);
 	}
 
 	VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);

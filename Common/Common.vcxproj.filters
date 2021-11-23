@@ -406,6 +406,12 @@
     <ClInclude Include="Thread\Event.h">
       <Filter>Thread</Filter>
     </ClInclude>
+    <ClInclude Include="..\ext\vma\vk_mem_alloc.h">
+      <Filter>ext\vma</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\Vulkan\VulkanAlloc.h">
+      <Filter>GPU\Vulkan</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -777,6 +783,9 @@
       <Filter>Thread</Filter>
     </ClCompile>
     <ClCompile Include="RiscVCPUDetect.cpp" />
+    <ClCompile Include="..\ext\vma\vk_mem_alloc.cpp">
+      <Filter>ext\vma</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
@@ -877,6 +886,9 @@
     </Filter>
     <Filter Include="Render\Text">
       <UniqueIdentifier>{9da96cce-c74a-4669-b755-c95defbe1e93}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext\vma">
+      <UniqueIdentifier>{7b17065c-729c-47c3-a02d-66dc383529dd}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

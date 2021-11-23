@@ -6,9 +6,17 @@
 #include "Common/Log.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 
+// Forward declaration
+VK_DEFINE_HANDLE(VmaAllocation);
+
 // VulkanMemory
 //
 // Vulkan memory management utils.
+
+enum class PushBufferType {
+	CPU_TO_GPU,
+	GPU_ONLY,
+};
 
 // VulkanPushBuffer
 // Simple incrementing allocator.
@@ -20,14 +28,14 @@
 class VulkanPushBuffer {
 	struct BufInfo {
 		VkBuffer buffer;
-		VkDeviceMemory deviceMemory;
+		VmaAllocation allocation;
 	};
 
 public:
-	// NOTE: If you create a push buffer with only VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+	// NOTE: If you create a push buffer with PushBufferType::GPU_ONLY,
 	// then you can't use any of the push functions as pointers will not be reachable from the CPU.
 	// You must in this case use Allocate() only, and pass the returned offset and the VkBuffer to Vulkan APIs.
-	VulkanPushBuffer(VulkanContext *vulkan, size_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryPropertyMask = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	VulkanPushBuffer(VulkanContext *vulkan, size_t size, VkBufferUsageFlags usage, PushBufferType type);
 	~VulkanPushBuffer();
 
 	void Destroy(VulkanContext *vulkan);
@@ -40,17 +48,17 @@ public:
 		offset_ = 0;
 		// Note: we must defrag because some buffers may be smaller than size_.
 		Defragment(vulkan);
-		if (memoryPropertyMask_ & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+		if (type_ == PushBufferType::CPU_TO_GPU)
 			Map();
 	}
 
 	void BeginNoReset() {
-		if (memoryPropertyMask_ & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+		if (type_ == PushBufferType::CPU_TO_GPU)
 			Map();
 	}
 
 	void End() {
-		if (memoryPropertyMask_ & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+		if (type_ == PushBufferType::CPU_TO_GPU)
 			Unmap();
 	}
 
@@ -117,7 +125,7 @@ private:
 	void Defragment(VulkanContext *vulkan);
 
 	VulkanContext *vulkan_;
-	VkMemoryPropertyFlags memoryPropertyMask_;
+	PushBufferType type_;
 
 	std::vector<BufInfo> buffers_;
 	size_t buf_ = 0;
@@ -125,104 +133,4 @@ private:
 	size_t size_ = 0;
 	uint8_t *writePtr_ = nullptr;
 	VkBufferUsageFlags usage_;
-};
-
-// VulkanDeviceAllocator
-//
-// Implements a slab based allocator that manages suballocations inside the slabs.
-// Bitmaps are used to handle allocation state, with a 1KB grain.
-class VulkanDeviceAllocator {
-public:
-	// Slab sizes start at minSlabSize and double until maxSlabSize.
-	// Total slab count is unlimited, as long as there's free memory.
-	VulkanDeviceAllocator(VulkanContext *vulkan, size_t minSlabSize, size_t maxSlabSize);
-	~VulkanDeviceAllocator();
-
-	// Requires all memory be free beforehand (including all pending deletes.)
-	void Destroy();
-
-	void Begin() {
-		Decimate();
-	}
-
-	void End() {
-	}
-
-	// May return ALLOCATE_FAILED if the allocation fails.
-	// NOTE: Lifetime of the string tag points to must exceed that of the allocation.
-	size_t Allocate(const VkMemoryRequirements &reqs, VkDeviceMemory *deviceMemory, const char *tag);
-
-	// Crashes on a double or misfree.
-	void Free(VkDeviceMemory deviceMemory, size_t offset);
-
-	inline void Touch(VkDeviceMemory deviceMemory, size_t offset) {
-		if (TRACK_TOUCH) {
-			DoTouch(deviceMemory, offset);
-		}
-	}
-
-	static const size_t ALLOCATE_FAILED = -1;
-	// Set to true to report potential leaks / long held textures.
-	static const bool TRACK_TOUCH = false;
-
-	int GetSlabCount() const { return (int)slabs_.size(); }
-	int GetMinSlabSize() const { return (int)minSlabSize_; }
-	int GetMaxSlabSize() const { return (int)maxSlabSize_; }
-
-	int ComputeUsagePercent() const;
-	std::vector<uint8_t> GetSlabUsage(int slab) const;
-
-private:
-	static const size_t SLAB_GRAIN_SIZE = 1024;
-	static const uint8_t SLAB_GRAIN_SHIFT = 10;
-	static const uint32_t UNDEFINED_MEMORY_TYPE = -1;
-
-	struct UsageInfo {
-		double created;
-		double touched;
-		const char *tag;
-	};
-
-	struct Slab {
-		VkDeviceMemory deviceMemory;
-		uint32_t memoryTypeIndex = UNDEFINED_MEMORY_TYPE;
-		std::vector<uint8_t> usage;
-		std::unordered_map<size_t, size_t> allocSizes;
-		std::unordered_map<size_t, UsageInfo> tags;
-		size_t nextFree;
-		size_t totalUsage;
-
-		size_t Size() {
-			return usage.size() * SLAB_GRAIN_SIZE;
-		}
-	};
-
-	struct FreeInfo {
-		explicit FreeInfo(VulkanDeviceAllocator *a, VkDeviceMemory d, size_t o)
-			: allocator(a), deviceMemory(d), offset(o) {
-		}
-
-		VulkanDeviceAllocator *allocator;
-		VkDeviceMemory deviceMemory;
-		size_t offset;
-	};
-
-	static void DispatchFree(void *userdata) {
-		auto freeInfo = static_cast<FreeInfo *>(userdata);
-		freeInfo->allocator->ExecuteFree(freeInfo);  // this deletes freeInfo
-	}
-
-	bool AllocateSlab(VkDeviceSize minBytes, int memoryTypeIndex);
-	bool AllocateFromSlab(Slab &slab, size_t &start, size_t blocks, const char *tag);
-	void Decimate();
-	void DoTouch(VkDeviceMemory deviceMemory, size_t offset);
-	void ExecuteFree(FreeInfo *userdata);
-	void ReportOldUsage();
-
-	VulkanContext *const vulkan_;
-	std::vector<Slab> slabs_;
-	size_t lastSlab_ = 0;
-	size_t minSlabSize_;
-	const size_t maxSlabSize_;
-	bool destroyed_ = false;
 };

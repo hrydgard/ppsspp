@@ -13,13 +13,16 @@
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 
-// Change this to 1, 2, and 3 to fake failures in a few places, so that
-// we can test our fallback-to-GL code.
-#define SIMULATE_VULKAN_FAILURE 0
-
 #ifdef USE_CRT_DBG
 #undef new
 #endif
+
+#include "ext/vma/vk_mem_alloc.h"
+
+
+// Change this to 1, 2, and 3 to fake failures in a few places, so that
+// we can test our fallback-to-GL code.
+#define SIMULATE_VULKAN_FAILURE 0
 
 #include "ext/glslang/SPIRV/GlslangToSpv.h"
 
@@ -280,7 +283,7 @@ void VulkanContext::DestroyInstance() {
 void VulkanContext::BeginFrame() {
 	FrameData *frame = &frame_[curFrame_];
 	// Process pending deletes.
-	frame->deleteList.PerformDeletes(device_);
+	frame->deleteList.PerformDeletes(device_, allocator_);
 }
 
 void VulkanContext::EndFrame() {
@@ -656,6 +659,13 @@ VkResult VulkanContext::CreateDevice() {
 	}
 	INFO_LOG(G3D, "Device created.\n");
 	VulkanSetAvailable(true);
+
+	VmaAllocatorCreateInfo allocatorInfo = {};
+	allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_0;
+	allocatorInfo.physicalDevice = physical_devices_[physical_device_];
+	allocatorInfo.device = device_;
+	allocatorInfo.instance = instance_;
+	vmaCreateAllocator(&allocatorInfo, &allocator_);
 	return res;
 }
 
@@ -1087,9 +1097,9 @@ VkFence VulkanContext::CreateFence(bool presignalled) {
 
 void VulkanContext::PerformPendingDeletes() {
 	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
-		frame_[i].deleteList.PerformDeletes(device_);
+		frame_[i].deleteList.PerformDeletes(device_, allocator_);
 	}
-	Delete().PerformDeletes(device_);
+	Delete().PerformDeletes(device_, allocator_);
 }
 
 void VulkanContext::DestroyDevice() {
@@ -1102,6 +1112,9 @@ void VulkanContext::DestroyDevice() {
 
 	INFO_LOG(G3D, "VulkanContext::DestroyDevice (performing deletes)");
 	PerformPendingDeletes();
+
+	vmaDestroyAllocator(allocator_);
+	allocator_ = VK_NULL_HANDLE;
 
 	vkDestroyDevice(device_, nullptr);
 	device_ = nullptr;
@@ -1284,8 +1297,9 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 	_dbg_assert_(modules_.empty());
 	_dbg_assert_(buffers_.empty());
 	_dbg_assert_(bufferViews_.empty());
-	_dbg_assert_(images_.empty());
+	_dbg_assert_(buffersWithAllocs_.empty());
 	_dbg_assert_(imageViews_.empty());
+	_dbg_assert_(imagesWithAllocs_.empty());
 	_dbg_assert_(deviceMemory_.empty());
 	_dbg_assert_(samplers_.empty());
 	_dbg_assert_(pipelines_.empty());
@@ -1299,9 +1313,10 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 	descPools_ = std::move(del.descPools_);
 	modules_ = std::move(del.modules_);
 	buffers_ = std::move(del.buffers_);
+	buffersWithAllocs_ = std::move(del.buffersWithAllocs_);
 	bufferViews_ = std::move(del.bufferViews_);
-	images_ = std::move(del.images_);
 	imageViews_ = std::move(del.imageViews_);
+	imagesWithAllocs_ = std::move(del.imagesWithAllocs_);
 	deviceMemory_ = std::move(del.deviceMemory_);
 	samplers_ = std::move(del.samplers_);
 	pipelines_ = std::move(del.pipelines_);
@@ -1315,8 +1330,9 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 	del.descPools_.clear();
 	del.modules_.clear();
 	del.buffers_.clear();
-	del.images_.clear();
+	del.buffersWithAllocs_.clear();
 	del.imageViews_.clear();
+	del.imagesWithAllocs_.clear();
 	del.deviceMemory_.clear();
 	del.samplers_.clear();
 	del.pipelines_.clear();
@@ -1328,7 +1344,7 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 	del.callbacks_.clear();
 }
 
-void VulkanDeleteList::PerformDeletes(VkDevice device) {
+void VulkanDeleteList::PerformDeletes(VkDevice device, VmaAllocator allocator) {
 	for (auto &callback : callbacks_) {
 		callback.func(callback.userdata);
 	}
@@ -1349,14 +1365,18 @@ void VulkanDeleteList::PerformDeletes(VkDevice device) {
 		vkDestroyBuffer(device, buf, nullptr);
 	}
 	buffers_.clear();
+	for (auto &buf : buffersWithAllocs_) {
+		vmaDestroyBuffer(allocator, buf.buffer, buf.alloc);
+	}
+	buffersWithAllocs_.clear();
 	for (auto &bufView : bufferViews_) {
 		vkDestroyBufferView(device, bufView, nullptr);
 	}
 	bufferViews_.clear();
-	for (auto &image : images_) {
-		vkDestroyImage(device, image, nullptr);
+	for (auto &imageWithAlloc : imagesWithAllocs_) {
+		vmaDestroyImage(allocator, imageWithAlloc.image, imageWithAlloc.alloc);
 	}
-	images_.clear();
+	imagesWithAllocs_.clear();
 	for (auto &imageView : imageViews_) {
 		vkDestroyImageView(device, imageView, nullptr);
 	}

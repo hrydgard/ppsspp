@@ -319,7 +319,7 @@ class VKTexture : public Texture {
 public:
 	VKTexture(VulkanContext *vulkan, VkCommandBuffer cmd, VulkanPushBuffer *pushBuffer, const TextureDesc &desc)
 		: vulkan_(vulkan), mipLevels_(desc.mipLevels), format_(desc.format) {}
-	bool Create(VkCommandBuffer cmd, VulkanPushBuffer *pushBuffer, const TextureDesc &desc, VulkanDeviceAllocator *alloc);
+	bool Create(VkCommandBuffer cmd, VulkanPushBuffer *pushBuffer, const TextureDesc &desc);
 
 	~VKTexture() {
 		Destroy();
@@ -510,8 +510,6 @@ private:
 
 	VulkanRenderManager renderManager_;
 
-	VulkanDeviceAllocator *allocator_ = nullptr;
-
 	VulkanTexture *nullTexture_ = nullptr;
 
 	AutoRef<VKPipeline> curPipeline_;
@@ -640,7 +638,7 @@ VulkanTexture *VKContext::GetNullTexture() {
 		nullTexture_->SetTag("Null");
 		int w = 8;
 		int h = 8;
-		nullTexture_->CreateDirect(cmdInit, allocator_, w, h, 1, VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		nullTexture_->CreateDirect(cmdInit, w, h, 1, VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 		uint32_t bindOffset;
 		VkBuffer bindBuf;
@@ -707,7 +705,7 @@ enum class TextureState {
 	PENDING_DESTRUCTION,
 };
 
-bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const TextureDesc &desc, VulkanDeviceAllocator *alloc) {
+bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const TextureDesc &desc) {
 	// Zero-sized textures not allowed.
 	_assert_(desc.width * desc.height * desc.depth > 0);  // remember to set depth to 1!
 	if (desc.width * desc.height * desc.depth <= 0) {
@@ -733,7 +731,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 		usageBits |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	}
 
-	if (!vkTex_->CreateDirect(cmd, alloc, width_, height_, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits)) {
+	if (!vkTex_->CreateDirect(cmd, width_, height_, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits)) {
 		ERROR_LOG(G3D,  "Failed to create VulkanTexture: %dx%dx%d fmt %d, %d levels", width_, height_, depth_, (int)vulkanFormat, mipLevels_);
 		return false;
 	}
@@ -837,7 +835,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-		frame_[i].pushBuffer = new VulkanPushBuffer(vulkan_, 1024 * 1024, usage);
+		frame_[i].pushBuffer = new VulkanPushBuffer(vulkan_, 1024 * 1024, usage, PushBufferType::CPU_TO_GPU);
 		VkResult res = RecreateDescriptorPool(&frame_[i]);
 		_assert_(res == VK_SUCCESS);
 	}
@@ -878,19 +876,10 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	_assert_(VK_SUCCESS == res);
 
 	renderManager_.SetSplitSubmit(splitSubmit);
-
-	allocator_ = new VulkanDeviceAllocator(vulkan_, 256 * 1024, 2048 * 1024);
 }
 
 VKContext::~VKContext() {
 	delete nullTexture_;
-	allocator_->Destroy();
-	// We have to delete on queue, so this can free its queued deletions.
-	vulkan_->Delete().QueueCallback([](void *ptr) {
-		auto allocator = static_cast<VulkanDeviceAllocator *>(ptr);
-		delete allocator;
-	}, allocator_);
-	allocator_ = nullptr;
 	// This also destroys all descriptor sets.
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		frame_[i].descSets_.clear();
@@ -912,7 +901,6 @@ void VKContext::BeginFrame() {
 	// OK, we now know that nothing is reading from this frame's data pushbuffer,
 	push_->Reset();
 	push_->Begin(vulkan_);
-	allocator_->Begin();
 
 	frame.descSets_.clear();
 	VkResult result = vkResetDescriptorPool(device_, frame.descriptorPool, 0);
@@ -922,7 +910,6 @@ void VKContext::BeginFrame() {
 void VKContext::EndFrame() {
 	// Stop collecting data in the frame's data pushbuffer.
 	push_->End();
-	allocator_->End();
 
 	renderManager_.Finish();
 
@@ -1227,7 +1214,7 @@ Texture *VKContext::CreateTexture(const TextureDesc &desc) {
 		return nullptr;
 	}
 	VKTexture *tex = new VKTexture(vulkan_, initCmd, push_, desc);
-	if (tex->Create(initCmd, push_, desc, allocator_)) {
+	if (tex->Create(initCmd, push_, desc)) {
 		return tex;
 	} else {
 		ERROR_LOG(G3D,  "Failed to create texture");

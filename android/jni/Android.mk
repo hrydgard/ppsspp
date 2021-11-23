@@ -143,6 +143,9 @@ VULKAN_FILES := \
   $(SRC)/GPU/Vulkan/DebugVisVulkan.cpp
 #endif
 
+VMA_FILES := \
+  $(SRC)/ext/vma/vk_mem_alloc.cpp
+
 SPIRV_CROSS_FILES := \
   $(SRC)/ext/SPIRV-Cross/spirv_cfg.cpp \
   $(SRC)/ext/SPIRV-Cross/spirv_cross.cpp \
@@ -198,6 +201,7 @@ EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
   $(EGL_FILES) \
   $(VULKAN_FILES) \
+  $(VMA_FILES) \
   $(SPIRV_CROSS_FILES) \
   $(EXT_FILES) \
   $(NATIVE_FILES) \

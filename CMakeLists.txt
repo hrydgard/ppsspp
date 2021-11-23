@@ -719,6 +719,10 @@ add_library(gason STATIC
     ext/gason/gason.h
 )
 
+add_library(vma STATIC
+    ext/vma/vk_mem_alloc.cpp
+    ext/vma/vk_mem_alloc.h
+)
 
 if(USE_FFMPEG)
 	if(NOT FFMPEG_DIR)
@@ -1264,7 +1268,7 @@ if(ANDROID)
 	set(ATOMIC_LIB atomic)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARIES} ${ZLIB_LIBRARY} gason udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB} Common)
+target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARIES} ${ZLIB_LIBRARY} vma gason udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB} Common)
 if(TARGET Ext::GLEW)
 	target_link_libraries(native Ext::GLEW)
 endif()
