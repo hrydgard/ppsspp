@@ -573,7 +573,7 @@ ifeq ($(DEBUG), 1)
 	endif
 	CPUOPTS += -D_DEBUG
 else
-	CPUOPTS += -O2 -D_NDEBUG
+	CPUOPTS += -O2 -DNDEBUG
 endif
 
 ifeq (,$(findstring msvc,$(platform)))
