@@ -164,6 +164,7 @@ private:
 	bool Jit_AlphaBlend(const PixelFuncID &id);
 	bool Jit_Dither(const PixelFuncID &id);
 	bool Jit_WriteColor(const PixelFuncID &id);
+	bool Jit_ApplyLogicOp(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg maskReg);
 	bool Jit_ConvertTo565(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg temp1Reg, PixelRegCache::Reg temp2Reg);
 	bool Jit_ConvertTo5551(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg temp1Reg, PixelRegCache::Reg temp2Reg, bool keepAlpha);
 	bool Jit_ConvertTo4444(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg temp1Reg, PixelRegCache::Reg temp2Reg, bool keepAlpha);
@@ -176,7 +177,10 @@ private:
 	void Discard();
 	void Discard(Gen::CCFlags cc);
 
+	// Used for any test failure.
 	std::vector<Gen::FixupBranch> discards_;
+	// Used in Jit_ApplyLogicOp() to skip the standard MOV/OR write.
+	std::vector<Gen::FixupBranch> skipStandardWrites_;
 #endif
 };
 

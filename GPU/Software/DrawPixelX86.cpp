@@ -1097,7 +1097,7 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 		break;
 	}
 
-	// Step 2: Load any logic op / write mask needed.
+	// Step 2: Load write mask if needed.
 	// Note that we apply the write mask at the destination bit depth.
 	X64Reg maskReg = INVALID_REG;
 	if (id.applyColorWriteMask) {
@@ -1142,14 +1142,12 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 	regCache_.Release(temp2Reg, PixelRegCache::T_GEN);
 	temp2Reg = INVALID_REG;
 
-	if (id.applyLogicOp) {
-		// TODO: Load logic op.  Clear not possible here.
-		return false;
-	}
-
 	// Step 3: Apply logic op, combine stencil.
-	// TODO: Apply logic op.
-	if (stencilReg != INVALID_REG) {
+	skipStandardWrites_.clear();
+	if (id.applyLogicOp) {
+		// Note: we combine stencil during logic op, because it's a bit complex to retain.
+		success = success && Jit_ApplyLogicOp(id, colorReg, maskReg);
+	} else if (stencilReg != INVALID_REG) {
 		OR(32, R(colorReg), R(stencilReg));
 	}
 
@@ -1195,6 +1193,10 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 		break;
 	}
 
+	for (FixupBranch &fixup : skipStandardWrites_)
+		SetJumpTarget(fixup);
+	skipStandardWrites_.clear();
+
 	regCache_.Unlock(colorOff, PixelRegCache::T_GEN);
 	regCache_.Release(colorReg, PixelRegCache::T_GEN);
 	regCache_.Release(temp1Reg, PixelRegCache::T_GEN);
@@ -1206,6 +1208,350 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 	}
 
 	return success;
+}
+
+bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg maskReg) {
+	X64Reg logicOpReg = INVALID_REG;
+	if (id.applyLogicOp) {
+		X64Reg gstateReg = GetGState();
+		logicOpReg = regCache_.Alloc(PixelRegCache::TEMP3, PixelRegCache::T_GEN);
+		MOVZX(32, 8, logicOpReg, MDisp(gstateReg, offsetof(GPUgstate, lop)));
+		AND(8, R(logicOpReg), Imm8(0x0F));
+		regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+	}
+
+	X64Reg stencilReg = INVALID_REG;
+	if (regCache_.Has(PixelRegCache::STENCIL, PixelRegCache::T_GEN))
+		stencilReg = regCache_.Find(PixelRegCache::STENCIL, PixelRegCache::T_GEN);
+
+	// Should already be allocated.
+	X64Reg colorOff = regCache_.Find(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
+	X64Reg temp1Reg = regCache_.Find(PixelRegCache::TEMP1, PixelRegCache::T_GEN);
+
+	// We'll use these in several cases, so prepare.
+	int bits = id.fbFormat == GE_FORMAT_8888 ? 32 : 16;
+	OpArg stencilMask, notStencilMask;
+	switch (id.fbFormat) {
+	case GE_FORMAT_565:
+		stencilMask = Imm16(0);
+		notStencilMask = Imm16(0xFFFF);
+		break;
+	case GE_FORMAT_5551:
+		stencilMask = Imm16(0x8000);
+		notStencilMask = Imm16(0x7FFF);
+		break;
+	case GE_FORMAT_4444:
+		stencilMask = Imm16(0xF000);
+		notStencilMask = Imm16(0x0FFF);
+		break;
+	case GE_FORMAT_8888:
+		stencilMask = Imm32(0xFF000000);
+		notStencilMask = Imm32(0x00FFFFFF);
+		break;
+	}
+
+	std::vector<FixupBranch> finishes;
+	FixupBranch skipTable = J(true);
+	const u8 *tableValues[16]{};
+
+	tableValues[GE_LOGIC_CLEAR] = GetCodePointer();
+	if (stencilReg != INVALID_REG) {
+		// If clearing and setting the stencil, that's easy - stencilReg has it.
+		MOV(32, R(colorReg), R(stencilReg));
+		finishes.push_back(J(true));
+	} else if (maskReg != INVALID_REG) {
+		// Just and out the unmasked bits (stencil already included in maskReg.)
+		AND(bits, MatR(colorOff), R(maskReg));
+		skipStandardWrites_.push_back(J(true));
+	} else {
+		// Otherwise, no mask, just AND the stencil bits to zero the rest.
+		AND(bits, MatR(colorOff), stencilMask);
+		skipStandardWrites_.push_back(J(true));
+	}
+
+	tableValues[GE_LOGIC_AND] = GetCodePointer();
+	if (stencilReg != INVALID_REG && maskReg != INVALID_REG) {
+		// Since we're ANDing, set the mask bits (AND will keep them as-is.)
+		OR(32, R(colorReg), R(maskReg));
+		OR(32, R(colorReg), R(stencilReg));
+
+		// To apply stencil, we'll OR the stencil unmasked bits in memory, so our AND keeps them.
+		NOT(32, R(maskReg));
+		AND(bits, R(maskReg), stencilMask);
+		OR(bits, MatR(colorOff), R(maskReg));
+	} else if (stencilReg != INVALID_REG) {
+		OR(32, R(colorReg), R(stencilReg));
+		// No mask, so just or in the stencil bits so our AND can set any we want.
+		OR(bits, MatR(colorOff), stencilMask);
+	} else if (maskReg != INVALID_REG) {
+		// Force in the mask (which includes all stencil bits) so both are kept as-is.
+		OR(32, R(colorReg), R(maskReg));
+	} else {
+		// Force on the stencil bits so they AND and keep the existing value.
+		if (stencilMask.GetImmValue() != 0)
+			OR(bits, R(colorReg), stencilMask);
+	}
+	// Now the AND, which applies stencil and the logic op.
+	AND(bits, MatR(colorOff), R(colorReg));
+	skipStandardWrites_.push_back(J(true));
+
+	tableValues[GE_LOGIC_AND_REVERSE] = GetCodePointer();
+	// Reverse memory in a temp reg so we can apply the write mask easily.
+	MOV(bits, R(temp1Reg), MatR(colorOff));
+	NOT(32, R(temp1Reg));
+	AND(32, R(colorReg), R(temp1Reg));
+	// Now add in the stencil bits (must be zero before, since we used AND.)
+	if (stencilReg != INVALID_REG) {
+		OR(32, R(colorReg), R(stencilReg));
+	}
+	finishes.push_back(J(true));
+
+	tableValues[GE_LOGIC_COPY] = GetCodePointer();
+	// This is just a standard write, nothing complex.
+	if (stencilReg != INVALID_REG) {
+		OR(32, R(colorReg), R(stencilReg));
+	}
+	finishes.push_back(J(true));
+
+	tableValues[GE_LOGIC_AND_INVERTED] = GetCodePointer();
+	if (stencilReg != INVALID_REG) {
+		// Set the stencil bits, so they're zero when we invert.
+		OR(bits, R(colorReg), stencilMask);
+		NOT(32, R(colorReg));
+		OR(32, R(colorReg), R(stencilReg));
+
+		if (maskReg != INVALID_REG) {
+			// This way our AND will keep all those bits.
+			OR(32, R(colorReg), R(maskReg));
+
+			// To apply stencil, we'll OR the stencil unmasked bits in memory, so our AND keeps them.
+			NOT(32, R(maskReg));
+			AND(bits, R(maskReg), stencilMask);
+			OR(bits, MatR(colorOff), R(maskReg));
+		} else {
+			// Force memory to take our stencil bits by ORing for the AND.
+			OR(bits, MatR(colorOff), stencilMask);
+		}
+	} else if (maskReg != INVALID_REG) {
+		NOT(32, R(colorReg));
+		// This way our AND will keep all those bits.
+		OR(32, R(colorReg), R(maskReg));
+	} else {
+		// Invert our color, but then add in stencil bits so the AND keeps them.
+		NOT(32, R(colorReg));
+		// We only do this for 8888 since the rest will have had 0 stencil bits (which turned to 1s.)
+		if (id.FBFormat() == GE_FORMAT_8888)
+			OR(bits, R(colorReg), stencilMask);
+	}
+	AND(bits, MatR(colorOff), R(colorReg));
+	skipStandardWrites_.push_back(J(true));
+
+	tableValues[GE_LOGIC_NOOP] = GetCodePointer();
+	if (stencilReg != INVALID_REG && maskReg != INVALID_REG) {
+		// Start by clearing masked bits from stencilReg.
+		NOT(32, R(maskReg));
+		AND(32, R(stencilReg), R(maskReg));
+		NOT(32, R(maskReg));
+
+		// Now mask out the stencil bits we're writing from memory.
+		OR(bits, R(maskReg), notStencilMask);
+		AND(bits, MatR(colorOff), R(maskReg));
+
+		// Now set those remaining stencil bits.
+		OR(bits, MatR(colorOff), R(stencilReg));
+		skipStandardWrites_.push_back(J(true));
+	} else if (stencilReg != INVALID_REG) {
+		// Clear and set just the stencil bits.
+		AND(bits, MatR(colorOff), notStencilMask);
+		OR(bits, MatR(colorOff), R(stencilReg));
+		skipStandardWrites_.push_back(J(true));
+	} else {
+		Discard();
+	}
+
+	tableValues[GE_LOGIC_XOR] = GetCodePointer();
+	XOR(bits, R(colorReg), MatR(colorOff));
+	if (stencilReg != INVALID_REG) {
+		// Purge out the stencil bits from the XOR and copy ours in.
+		AND(bits, R(colorReg), notStencilMask);
+		OR(32, R(colorReg), R(stencilReg));
+	} else if (maskReg == INVALID_REG && stencilMask.GetImmValue() != 0) {
+		// XOR might've set some bits, and without a maskReg we won't clear them.
+		AND(bits, R(colorReg), notStencilMask);
+	}
+	finishes.push_back(J(true));
+
+	tableValues[GE_LOGIC_OR] = GetCodePointer();
+	if (stencilReg != INVALID_REG && maskReg != INVALID_REG) {
+		OR(32, R(colorReg), R(stencilReg));
+
+		// Clear the bits we should be masking out.
+		NOT(32, R(maskReg));
+		AND(32, R(colorReg), R(maskReg));
+		NOT(32, R(maskReg));
+
+		// Clear all the unmasked stencil bits, so we can set our own.
+		OR(bits, R(maskReg), notStencilMask);
+		AND(bits, MatR(colorOff), R(maskReg));
+	} else if (stencilReg != INVALID_REG) {
+		OR(32, R(colorReg), R(stencilReg));
+		// AND out the stencil bits so we set our own.
+		AND(bits, MatR(colorOff), notStencilMask);
+	} else if (maskReg != INVALID_REG) {
+		// Clear the bits we should be masking out.
+		NOT(32, R(maskReg));
+		AND(32, R(colorReg), R(maskReg));
+	} else if (id.FBFormat() == GE_FORMAT_8888) {
+		// We only need to do this for 8888, the others already have 0 stencil.
+		AND(bits, R(colorReg), notStencilMask);
+	}
+	// Now the OR, which applies stencil and the logic op itself.
+	OR(bits, MatR(colorOff), R(colorReg));
+	skipStandardWrites_.push_back(J(true));
+
+	tableValues[GE_LOGIC_NOR] = GetCodePointer();
+	OR(bits, R(colorReg), MatR(colorOff));
+	NOT(32, R(colorReg));
+	if (stencilReg != INVALID_REG) {
+		AND(bits, R(colorReg), notStencilMask);
+		OR(32, R(colorReg), R(stencilReg));
+	} else if (maskReg == INVALID_REG && stencilMask.GetImmValue() != 0) {
+		// We need to clear the stencil bits since the standard write logic assumes they're zero.
+		AND(bits, R(colorReg), notStencilMask);
+	}
+	finishes.push_back(J(true));
+
+	tableValues[GE_LOGIC_EQUIV] = GetCodePointer();
+	XOR(bits, R(colorReg), MatR(colorOff));
+	NOT(32, R(colorReg));
+	if (stencilReg != INVALID_REG) {
+		AND(bits, R(colorReg), notStencilMask);
+		OR(32, R(colorReg), R(stencilReg));
+	} else if (maskReg == INVALID_REG && stencilMask.GetImmValue() != 0) {
+		// We need to clear the stencil bits since the standard write logic assumes they're zero.
+		AND(bits, R(colorReg), notStencilMask);
+	}
+	finishes.push_back(J(true));
+
+	tableValues[GE_LOGIC_INVERTED] = GetCodePointer();
+	// We just toss our color entirely.
+	MOV(bits, R(colorReg), MatR(colorOff));
+	NOT(32, R(colorReg));
+	if (stencilReg != INVALID_REG) {
+		AND(bits, R(colorReg), notStencilMask);
+		OR(32, R(colorReg), R(stencilReg));
+	} else if (maskReg == INVALID_REG && stencilMask.GetImmValue() != 0) {
+		// We need to clear the stencil bits since the standard write logic assumes they're zero.
+		AND(bits, R(colorReg), notStencilMask);
+	}
+	finishes.push_back(J(true));
+
+	tableValues[GE_LOGIC_OR_REVERSE] = GetCodePointer();
+	// Reverse in a temp reg so we can mask properly.
+	MOV(bits, R(temp1Reg), MatR(colorOff));
+	NOT(32, R(temp1Reg));
+	OR(32, R(colorReg), R(temp1Reg));
+	if (stencilReg != INVALID_REG) {
+		AND(bits, R(colorReg), notStencilMask);
+		OR(32, R(colorReg), R(stencilReg));
+	} else if (maskReg == INVALID_REG && stencilMask.GetImmValue() != 0) {
+		// We need to clear the stencil bits since the standard write logic assumes they're zero.
+		AND(bits, R(colorReg), notStencilMask);
+	}
+	finishes.push_back(J(true));
+
+	tableValues[GE_LOGIC_COPY_INVERTED] = GetCodePointer();
+	NOT(32, R(colorReg));
+	if (stencilReg != INVALID_REG) {
+		AND(bits, R(colorReg), notStencilMask);
+		OR(32, R(colorReg), R(stencilReg));
+	} else if (maskReg == INVALID_REG && stencilMask.GetImmValue() != 0) {
+		// We need to clear the stencil bits since the standard write logic assumes they're zero.
+		AND(bits, R(colorReg), notStencilMask);
+	}
+	finishes.push_back(J(true));
+
+	tableValues[GE_LOGIC_OR_INVERTED] = GetCodePointer();
+	NOT(32, R(colorReg));
+	if (stencilReg != INVALID_REG && maskReg != INVALID_REG) {
+		AND(bits, R(colorReg), notStencilMask);
+		OR(32, R(colorReg), R(stencilReg));
+
+		// Clear the bits we should be masking out.
+		NOT(32, R(maskReg));
+		AND(32, R(colorReg), R(maskReg));
+		NOT(32, R(maskReg));
+
+		// Clear all the unmasked stencil bits, so we can set our own.
+		OR(bits, R(maskReg), notStencilMask);
+		AND(bits, MatR(colorOff), R(maskReg));
+	} else if (stencilReg != INVALID_REG) {
+		AND(bits, R(colorReg), notStencilMask);
+		OR(32, R(colorReg), R(stencilReg));
+		// AND out the stencil bits so we set our own.
+		AND(bits, MatR(colorOff), notStencilMask);
+	} else if (maskReg != INVALID_REG) {
+		// Clear the bits we should be masking out.
+		NOT(32, R(maskReg));
+		AND(32, R(colorReg), R(maskReg));
+	} else if (id.FBFormat() == GE_FORMAT_8888) {
+		// We only need to do this for 8888, the others already have 0 stencil.
+		AND(bits, R(colorReg), notStencilMask);
+	}
+	OR(bits, MatR(colorOff), R(colorReg));
+	skipStandardWrites_.push_back(J(true));
+
+	tableValues[GE_LOGIC_NAND] = GetCodePointer();
+	AND(bits, R(temp1Reg), MatR(colorOff));
+	NOT(32, R(colorReg));
+	if (stencilReg != INVALID_REG) {
+		AND(bits, R(colorReg), notStencilMask);
+		OR(32, R(colorReg), R(stencilReg));
+	} else if (maskReg == INVALID_REG && stencilMask.GetImmValue() != 0) {
+		// We need to clear the stencil bits since the standard write logic assumes they're zero.
+		AND(bits, R(colorReg), notStencilMask);
+	}
+	finishes.push_back(J(true));
+
+	tableValues[GE_LOGIC_SET] = GetCodePointer();
+	// TODO: Apply logic op and add stencil meanwhile.
+	if (stencilReg != INVALID_REG && maskReg != INVALID_REG) {
+		OR(32, R(colorReg), R(stencilReg));
+		OR(bits, R(colorReg), notStencilMask);
+		finishes.push_back(J(true));
+	} else if (stencilReg != INVALID_REG) {
+		// Set bits directly in stencilReg, and then put in memory.
+		OR(bits, R(stencilReg), notStencilMask);
+		MOV(bits, MatR(colorOff), R(stencilReg));
+		skipStandardWrites_.push_back(J(true));
+	} else if (maskReg != INVALID_REG) {
+		// OR in the bits we're allowed to write (won't be any stencil.)
+		NOT(32, R(maskReg));
+		OR(bits, MatR(colorOff), R(maskReg));
+		skipStandardWrites_.push_back(J(true));
+	} else {
+		OR(bits, MatR(colorOff), notStencilMask);
+		skipStandardWrites_.push_back(J(true));
+	}
+
+	const u8 *tablePtr = GetCodePointer();
+	for (int i = 0; i < 16; ++i) {
+		Write64((uintptr_t)tableValues[i]);
+	}
+
+	SetJumpTarget(skipTable);
+	LEA(64, temp1Reg, M(tablePtr));
+	JMPptr(MComplex(temp1Reg, logicOpReg, 8, 0));
+
+	for (FixupBranch &fixup : finishes)
+		SetJumpTarget(fixup);
+
+	regCache_.Unlock(colorOff, PixelRegCache::T_GEN);
+	regCache_.Unlock(temp1Reg, PixelRegCache::T_GEN);
+	if (stencilReg != INVALID_REG)
+		regCache_.Unlock(stencilReg, PixelRegCache::T_GEN);
+
+	return true;
 }
 
 bool PixelJitCache::Jit_ConvertTo565(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg temp1Reg, PixelRegCache::Reg temp2Reg) {
