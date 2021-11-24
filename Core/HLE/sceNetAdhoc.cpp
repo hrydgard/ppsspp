@@ -3058,6 +3058,18 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 					// It seems real PSP respecting the socket buffer size arg, so we may need to cap the value up to the buffer size arg since we use larger buffer, for PDP/UDP the total size must not contains partial/truncated message to avoid data loss.
 					// TODO: We may need to manage PDP messages ourself by reading each msg 1-by-1 and moving it to our internal buffer(msg array) in order to calculate the correct messages size that can fit into buffer size when there are more than 1 messages in the recv buffer (simulate FIONREAD)
 					sock->data.pdp.rcv_sb_cc = getAvailToRecv(sock->data.pdp.id, sock->buffer_size);
+					// There might be a possibility for the data to be taken by the OS, thus FIONREAD returns 0, but can be Received
+					if (sock->data.pdp.rcv_sb_cc == 0) {
+						// Let's try to peek the data size
+						// TODO: May need to filter out packets from an IP that can't be translated to MAC address
+						struct sockaddr_in sin;
+						socklen_t sinlen;
+						sinlen = sizeof(sin);
+						memset(&sin, 0, sinlen);
+						int received = recvfrom(sock->data.pdp.id, dummyPeekBuf64k, std::min((u32)dummyPeekBuf64kSize, sock->buffer_size), MSG_PEEK | MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
+						if (received > 0)
+							sock->data.pdp.rcv_sb_cc = received;
+					}
 
 					// Copy Socket Data from Internal Memory
 					memcpy(&buf[i], &sock->data.pdp, sizeof(SceNetAdhocPdpStat));
@@ -3082,16 +3094,17 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 			// Update Buffer Length
 			*buflen = i * sizeof(SceNetAdhocPdpStat);
 
+			hleEatMicro(50); // Not sure how long it supposed to take
 			// Success
 			return 0;
 		}
 
 		// Invalid Arguments
-		return ERROR_NET_ADHOC_INVALID_ARG;
+		return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg, at %08x", currentMIPS->pc);
 	}
 
 	// Library is uninitialized
-	return ERROR_NET_ADHOC_NOT_INITIALIZED;
+	return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized, at %08x", currentMIPS->pc);
 }
 
 
