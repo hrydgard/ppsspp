@@ -953,7 +953,7 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 
 	// Load the row dither matrix entry (will still need to get the X.)
 	MOV(32, R(valueReg), R(argYReg));
-	AND(8, R(valueReg), Imm8(3));
+	AND(32, R(valueReg), Imm8(3));
 	MOVZX(32, 16, valueReg, MComplex(gstateReg, valueReg, 4, offsetof(GPUgstate, dithmtx)));
 	regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
 
@@ -990,6 +990,7 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 
 	// Now we need to make 0-7 positive, 8-F negative.. so sign extend.
 	SHL(32, R(valueReg), Imm8(4));
+	MOVSX(32, 8, valueReg, R(valueReg));
 	SAR(8, R(valueReg), Imm8(4));
 
 	// Copy that value into a vec to add to the color.
