@@ -2,7 +2,7 @@
 
 ***Created by [Henrik Rydgård](https://github.com/hrydgard)***
 
-*PPSSPP is an *HLE*([High Level Emulation](https://en-academic.com/dic.nsf/enwiki/1318672)) emulator. Default settings balance good compatibility and speed.*
+PPSSPP is an *HLE*([High Level Emulation](https://en-academic.com/dic.nsf/enwiki/1318672)) emulator. Default settings balance good compatibility and speed.
 **No BIOS file required to play.**
 
 ## 📲 Socials
@@ -33,16 +33,16 @@ Originally released under the GPL 2.0 (and later) in November 2012.
 
 For more details, please read our [LICENSE](https://github.com/hrydgard/ppsspp/blob/master/LICENSE.TXT).
 
-## ♥️ Credits
+## Adhoc support
+
+Not fully functional, but some games work.  Check the [Ad-Hoc section of the forum](http://forums.ppsspp.org/forumdisplay.php?fid=34) for help.
+
+### ♥️ Credit goes to:
  - ANR2ME
  - Igor Calabria
  - [coldbird's code](https://code.google.com/archive/p/aemu/)
  - Kyhel
  - And more, of course.
-
-Adhoc support
--------------
-Not fully functional, but some games work.  Check the [Ad-Hoc section of the forum](http://forums.ppsspp.org/forumdisplay.php?fid=34) for help.
 
 What's new in 1.12.3
 ====================
