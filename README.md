@@ -1,29 +1,39 @@
-PPSSPP - a fast and portable PSP emulator
-=========================================
+# PPSSPP
 
-Created by Henrik Rydgård
+### *A fast and portable PSP emulator*
 
-Additional code by many contributors, see the Credits screen
+**Created by [Henrik Rydgård](https://github.com/hrydgard)**
 
-Originally released under the GPL 2.0 (and later) in November 2012
+> Note: No BIOS file required to play, PPSSPP is an **HLE**([High Level Emulation](https://en-academic.com/dic.nsf/enwiki/1318672)) 
+emulator. Default settings balance good compatibility and speed.
 
-Official website:
-https://www.ppsspp.org/
+## Socials
 
-Discord:
-https://discord.gg/5NJB6dD
+Official website: https://www.ppsspp.org/
 
-No BIOS file required to play, PPSSPP is an "HLE" emulator.  Default settings balance good compatibility and speed.
+Discord: https://discord.gg/5NJB6dD
+
+## Contribution
 
 To contribute, see [the development page](https://www.ppsspp.org/development.html).  Help testing, investigating, or fixing is always welcome.  See [the list of issues](https://github.com/hrydgard/ppsspp/issues).
 
 For the latest source code, see [our GitHub page](https://github.com/hrydgard/ppsspp).
 
+## Building
+
 For build instructions and other development tutorials, see [the wiki](https://github.com/hrydgard/ppsspp/wiki).
 
 If you want to download regularly updated builds for Android, Windows x86 and x64, proceed to this [page](https://buildbot.orphis.net/ppsspp/)
 
+## Compatibility
+
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
+
+## License
+
+Originally released under the GPL 2.0 (and later) in November 2012.
+
+For more details, please read our [LICENSE](https://github.com/hrydgard/ppsspp/blob/master/LICENSE.TXT).
 
 What's new in 1.12.3
 ====================
