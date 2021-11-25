@@ -143,23 +143,28 @@ void LibretroVulkanContext::CreateDrawContext() {
 }
 
 void LibretroVulkanContext::Shutdown() {
-	LibretroHWRenderContext::Shutdown();
+   if (!vk) {
+      return;
+   }
 
-	if (!vk) {
-		return;
-	}
+   if (draw_)
+      draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vk->GetBackbufferWidth(), vk->GetBackbufferHeight());
 
-	vk->WaitUntilQueueIdle();
+   delete draw_;
+   draw_ = nullptr;
 
-	vk->DestroySwapchain();
-	vk->DestroySurface();
-	vk->DestroyDevice();
-	vk->DestroyInstance();
-	delete vk;
-	vk = nullptr;
+   vk->WaitUntilQueueIdle();
 
-	finalize_glslang();
-	vk_libretro_shutdown();
+   vk->DestroySwapchain();
+   vk->DestroySurface();
+   vk->DestroyDevice();
+   vk->DestroyInstance();
+
+   delete vk;
+   vk = nullptr;
+
+   finalize_glslang();
+   vk_libretro_shutdown();
 }
 
 void *LibretroVulkanContext::GetAPIContext() { return vk; }
