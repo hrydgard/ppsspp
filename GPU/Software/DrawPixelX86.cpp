@@ -60,15 +60,20 @@ static bool Accessible(const T *t1, const T *t2) {
 }
 
 template <typename T>
+static OpArg MAccessibleDisp(X64Reg r, const T *tbase, const T *t) {
+	_assert_(Accessible(tbase, t));
+	ptrdiff_t diff = (const uint8_t *)t - (const uint8_t *)tbase;
+	return MDisp(r, (int)diff);
+}
+
+template <typename T>
 static bool ConstAccessible(const T *t) {
 	return Accessible((const uint8_t *)&const255_16s[0], (const uint8_t *)t);
 }
 
 template <typename T>
 static OpArg MConstDisp(X64Reg r, const T *t) {
-	_assert_(ConstAccessible(t));
-	ptrdiff_t diff = (const uint8_t *)t - (const uint8_t *)&const255_16s[0];
-	return MDisp(r, (int)diff);
+	return MAccessibleDisp(r, (const uint8_t *)&const255_16s[0], (const uint8_t *)t);
 }
 
 SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
@@ -155,13 +160,23 @@ PixelRegCache::Reg PixelJitCache::GetConstBase() {
 PixelRegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 	if (!regCache_.Has(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN)) {
 		if (id.useStandardStride && !id.dithering) {
+			bool loadDepthOff = id.depthWrite || id.DepthTestFunc() != GE_COMP_ALWAYS;
+			X64Reg depthTemp = INVALID_REG;
+
 			// In this mode, we force argXReg to the off, and throw away argYReg.
 			SHL(32, R(argYReg), Imm8(9));
 			ADD(32, R(argXReg), R(argYReg));
 
 			// Now add the pointer for the color buffer.
-			MOV(PTRBITS, R(argYReg), ImmPtr(&fb.data));
-			MOV(PTRBITS, R(argYReg), MatR(argYReg));
+			if (loadDepthOff) {
+				_assert_(Accessible(&fb.data, &depthbuf.data));
+				depthTemp = regCache_.Alloc(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN);
+				MOV(PTRBITS, R(depthTemp), ImmPtr(&fb.data));
+				MOV(PTRBITS, R(argYReg), MatR(depthTemp));
+			} else {
+				MOV(PTRBITS, R(argYReg), ImmPtr(&fb.data));
+				MOV(PTRBITS, R(argYReg), MatR(argYReg));
+			}
 			LEA(PTRBITS, argYReg, MComplex(argYReg, argXReg, id.FBFormat() == GE_FORMAT_8888 ? 4 : 2, 0));
 			// With that, argYOff is now COLOR_OFF.
 			regCache_.Release(argYReg, PixelRegCache::T_GEN, PixelRegCache::COLOR_OFF);
@@ -169,12 +184,10 @@ PixelRegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 			regCache_.ForceLock(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
 
 			// Next, also calculate the depth offset, unless we won't need it at all.
-			if (id.depthWrite || id.DepthTestFunc() != GE_COMP_ALWAYS) {
-				X64Reg temp = regCache_.Alloc(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN);
-				MOV(PTRBITS, R(temp), ImmPtr(&depthbuf.data));
-				MOV(PTRBITS, R(temp), MatR(temp));
-				LEA(PTRBITS, argXReg, MComplex(temp, argXReg, 2, 0));
-				regCache_.Release(temp, PixelRegCache::T_GEN);
+			if (loadDepthOff) {
+				MOV(PTRBITS, R(depthTemp), MAccessibleDisp(depthTemp, &fb.data, &depthbuf.data));
+				LEA(PTRBITS, argXReg, MComplex(depthTemp, argXReg, 2, 0));
+				regCache_.Release(depthTemp, PixelRegCache::T_GEN);
 
 				// Okay, same deal - release as DEPTH_OFF and force lock.
 				regCache_.Release(argXReg, PixelRegCache::T_GEN, PixelRegCache::DEPTH_OFF);
@@ -335,16 +348,8 @@ bool PixelJitCache::Jit_AlphaTest(const PixelFuncID &id) {
 		alphaReg = regCache_.Find(PixelRegCache::ALPHA, PixelRegCache::T_GEN);
 	} else {
 		alphaReg = regCache_.Alloc(PixelRegCache::ALPHA, PixelRegCache::T_GEN);
-
-		// TODO: Could do this a bit more cheaply on SSE4.1?
-		X64Reg zeroReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_VEC);
-		X64Reg colorCopyReg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_VEC);
-		MOVDQA(colorCopyReg, R(argColorReg));
-		PXOR(zeroReg, R(zeroReg));
-		PUNPCKLBW(colorCopyReg, R(zeroReg));
-		PEXTRW(alphaReg, R(colorCopyReg), 3);
-		regCache_.Release(zeroReg, PixelRegCache::T_VEC);
-		regCache_.Release(colorCopyReg, PixelRegCache::T_VEC);
+		MOVD_xmm(R(alphaReg), argColorReg);
+		SHR(32, R(alphaReg), Imm8(24));
 	}
 
 	if (id.hasAlphaTestMask) {
@@ -487,7 +492,7 @@ bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 		alphaReg = regCache_.Find(PixelRegCache::ALPHA, PixelRegCache::T_GEN);
 	} else {
 		alphaReg = regCache_.Alloc(PixelRegCache::ALPHA, PixelRegCache::T_GEN);
-		PEXTRW(alphaReg, R(argColorReg), 3);
+		PEXTRW(alphaReg, argColorReg, 3);
 	}
 
 	// Okay, let's broadcast fog to an XMM.
