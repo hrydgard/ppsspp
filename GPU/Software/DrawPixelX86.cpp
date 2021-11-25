@@ -468,13 +468,20 @@ bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 	}
 
 	// Load fog and expand to 16 bit.  Ignore the high 8 bits, which'll match up with A.
-	X64Reg zeroReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_VEC);
+	X64Reg zeroReg = INVALID_REG;
 	X64Reg fogColorReg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_VEC);
-	PXOR(zeroReg, R(zeroReg));
 	X64Reg gstateReg = GetGState();
-	MOVD_xmm(fogColorReg, MDisp(gstateReg, offsetof(GPUgstate, fogcolor)));
+	if (cpu_info.bSSE4_1) {
+		X64Reg gstateReg = GetGState();
+		// This actually loads the texlodslope too, but that's okay.
+		PMOVZXBW(fogColorReg, MDisp(gstateReg, offsetof(GPUgstate, fogcolor)));
+	} else {
+		zeroReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_VEC);
+		PXOR(zeroReg, R(zeroReg));
+		MOVD_xmm(fogColorReg, MDisp(gstateReg, offsetof(GPUgstate, fogcolor)));
+		PUNPCKLBW(fogColorReg, R(zeroReg));
+	}
 	regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
-	PUNPCKLBW(fogColorReg, R(zeroReg));
 
 	// Load a set of 255s at 16 bit into a reg for later...
 	X64Reg invertReg = regCache_.Alloc(PixelRegCache::TEMP2, PixelRegCache::T_VEC);
@@ -483,8 +490,12 @@ bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 	regCache_.Unlock(constReg, PixelRegCache::T_GEN);
 
 	// Expand (we clamped) color to 16 bit as well, so we can multiply with fog.
-	PUNPCKLBW(argColorReg, R(zeroReg));
-	regCache_.Release(zeroReg, PixelRegCache::T_VEC);
+	if (cpu_info.bSSE4_1) {
+		PMOVZXBW(argColorReg, R(argColorReg));
+	} else {
+		PUNPCKLBW(argColorReg, R(zeroReg));
+		regCache_.Release(zeroReg, PixelRegCache::T_VEC);
+	}
 
 	// Save A so we can put it back, we don't "fog" A.
 	X64Reg alphaReg;
@@ -1003,10 +1014,14 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 	// We use 16-bit because we need a signed add, but we also want to saturate.
 	PSHUFLW(vecValueReg, R(vecValueReg), _MM_SHUFFLE(1, 0, 0, 0));
 	// With that, now let's convert the color to 16 bit...
-	X64Reg zeroReg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_VEC);
-	PXOR(zeroReg, R(zeroReg));
-	PUNPCKLBW(argColorReg, R(zeroReg));
-	regCache_.Release(zeroReg, PixelRegCache::T_VEC);
+	if (cpu_info.bSSE4_1) {
+		PMOVZXBW(argColorReg, R(argColorReg));
+	} else {
+		X64Reg zeroReg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_VEC);
+		PXOR(zeroReg, R(zeroReg));
+		PUNPCKLBW(argColorReg, R(zeroReg));
+		regCache_.Release(zeroReg, PixelRegCache::T_VEC);
+	}
 	// And simply add the dither values.
 	PADDSW(argColorReg, R(vecValueReg));
 	regCache_.Release(vecValueReg, PixelRegCache::T_VEC);
@@ -1520,7 +1535,6 @@ bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, PixelRegCache::Reg c
 	finishes.push_back(J(true));
 
 	tableValues[GE_LOGIC_SET] = GetCodePointer();
-	// TODO: Apply logic op and add stencil meanwhile.
 	if (stencilReg != INVALID_REG && maskReg != INVALID_REG) {
 		OR(32, R(colorReg), R(stencilReg));
 		OR(bits, R(colorReg), notStencilMask);
