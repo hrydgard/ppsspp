@@ -150,8 +150,7 @@ void LibretroVulkanContext::Shutdown() {
    if (draw_)
       draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vk->GetBackbufferWidth(), vk->GetBackbufferHeight());
 
-   delete draw_;
-   draw_ = nullptr;
+   LibretroHWRenderContext::Shutdown();
 
    vk->WaitUntilQueueIdle();
 
