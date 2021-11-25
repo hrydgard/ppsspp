@@ -1,39 +1,48 @@
-# PPSSPP
+# PPSSPP - *A fast and portable PSP emulator*
 
-### *A fast and portable PSP emulator*
+***Created by [Henrik Rydgård](https://github.com/hrydgard)***
 
-**Created by [Henrik Rydgård](https://github.com/hrydgard)**
+*PPSSPP is an *HLE*([High Level Emulation](https://en-academic.com/dic.nsf/enwiki/1318672)) emulator. Default settings balance good compatibility and speed.*
+**No BIOS file required to play.**
 
-> Note: No BIOS file required to play, PPSSPP is an **HLE**([High Level Emulation](https://en-academic.com/dic.nsf/enwiki/1318672)) 
-emulator. Default settings balance good compatibility and speed.
+## 📲 Socials
 
-## Socials
+[Official Website](https://www.ppsspp.org)
 
-Official website: https://www.ppsspp.org/
+[Discord](https://discord.gg/5NJB6dD)
 
-Discord: https://discord.gg/5NJB6dD
-
-## Contribution
+## 🤝 Contribution
 
 To contribute, see [the development page](https://www.ppsspp.org/development.html).  Help testing, investigating, or fixing is always welcome.  See [the list of issues](https://github.com/hrydgard/ppsspp/issues).
 
 For the latest source code, see [our GitHub page](https://github.com/hrydgard/ppsspp).
 
-## Building
+## 🔧 Building
 
 For build instructions and other development tutorials, see [the wiki](https://github.com/hrydgard/ppsspp/wiki).
 
-If you want to download regularly updated builds for Android, Windows x86 and x64, proceed to this [page](https://buildbot.orphis.net/ppsspp/)
+If you want to download regularly updated builds for Android, Windows x86 and x64, proceed to this [page](https://buildbot.orphis.net/ppsspp/).
 
-## Compatibility
+## 🕹️ Compatibility
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
-## License
+## 📜 License
 
 Originally released under the GPL 2.0 (and later) in November 2012.
 
 For more details, please read our [LICENSE](https://github.com/hrydgard/ppsspp/blob/master/LICENSE.TXT).
+
+## ♥️ Credits
+ - ANR2ME
+ - Igor Calabria
+ - [coldbird's code](https://code.google.com/archive/p/aemu/)
+ - Kyhel
+ - And more, of course.
+
+Adhoc support
+-------------
+Not fully functional, but some games work.  Check the [Ad-Hoc section of the forum](http://forums.ppsspp.org/forumdisplay.php?fid=34) for help.
 
 What's new in 1.12.3
 ====================
@@ -223,19 +232,6 @@ What's new in 1.10.0
 
 
 Looking for [older news](history.md)?
-
-
-Adhoc support
--------------
-Not fully functional, but some games work.  Check the [Ad-Hoc section of the forum](http://forums.ppsspp.org/forumdisplay.php?fid=34) for help.
-
-Credit goes to:
- - ANR2ME
- - Igor Calabria
- - [coldbird's code](https://code.google.com/archive/p/aemu/)
- - Kyhel
- - And more, of course.
-
 
 [comment]: # (LINK_LIST_BEGIN_HERE)
 [#13125]: https://github.com/hrydgard/ppsspp/issues/13125 "Refactor and fix touch control layout screen for notch"
