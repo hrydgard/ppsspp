@@ -63,10 +63,10 @@ bool DescribeCodePtr(const u8 *ptr, std::string &name);
 struct PixelRegCache {
 	enum Purpose {
 		INVALID,
+		ZERO,
+		SRC_ALPHA,
 		GSTATE,
 		CONST_BASE,
-		SRC_ALPHA,
-		DST_ALPHA,
 		STENCIL,
 		COLOR_OFF,
 		DEPTH_OFF,
@@ -155,6 +155,7 @@ private:
 
 	PixelRegCache::Reg GetGState();
 	PixelRegCache::Reg GetConstBase();
+	PixelRegCache::Reg GetZeroVec();
 	// Note: these may require a temporary reg.
 	PixelRegCache::Reg GetColorOff(const PixelFuncID &id);
 	PixelRegCache::Reg GetDepthOff(const PixelFuncID &id);

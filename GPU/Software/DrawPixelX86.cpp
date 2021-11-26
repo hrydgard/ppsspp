@@ -157,6 +157,15 @@ PixelRegCache::Reg PixelJitCache::GetConstBase() {
 	return regCache_.Find(PixelRegCache::CONST_BASE, PixelRegCache::T_GEN);
 }
 
+PixelRegCache::Reg PixelJitCache::GetZeroVec() {
+	if (!regCache_.Has(PixelRegCache::ZERO, PixelRegCache::T_VEC)) {
+		X64Reg r = regCache_.Alloc(PixelRegCache::ZERO, PixelRegCache::T_VEC);
+		PXOR(r, R(r));
+		return r;
+	}
+	return regCache_.Find(PixelRegCache::ZERO, PixelRegCache::T_VEC);
+}
+
 PixelRegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 	if (!regCache_.Has(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN)) {
 		if (id.useStandardStride && !id.dithering) {
@@ -468,7 +477,6 @@ bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 	}
 
 	// Load fog and expand to 16 bit.  Ignore the high 8 bits, which'll match up with A.
-	X64Reg zeroReg = INVALID_REG;
 	X64Reg fogColorReg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_VEC);
 	X64Reg gstateReg = GetGState();
 	if (cpu_info.bSSE4_1) {
@@ -476,10 +484,10 @@ bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 		// This actually loads the texlodslope too, but that's okay.
 		PMOVZXBW(fogColorReg, MDisp(gstateReg, offsetof(GPUgstate, fogcolor)));
 	} else {
-		zeroReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_VEC);
-		PXOR(zeroReg, R(zeroReg));
+		X64Reg zeroReg = GetZeroVec();
 		MOVD_xmm(fogColorReg, MDisp(gstateReg, offsetof(GPUgstate, fogcolor)));
 		PUNPCKLBW(fogColorReg, R(zeroReg));
+		regCache_.Unlock(zeroReg, PixelRegCache::T_VEC);
 	}
 	regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
 
@@ -493,8 +501,9 @@ bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 	if (cpu_info.bSSE4_1) {
 		PMOVZXBW(argColorReg, R(argColorReg));
 	} else {
+		X64Reg zeroReg = GetZeroVec();
 		PUNPCKLBW(argColorReg, R(zeroReg));
-		regCache_.Release(zeroReg, PixelRegCache::T_VEC);
+		regCache_.Unlock(zeroReg, PixelRegCache::T_VEC);
 	}
 
 	// Save A so we can put it back, we don't "fog" A.
@@ -1106,10 +1115,9 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 	if (cpu_info.bSSE4_1) {
 		PMOVZXBW(argColorReg, R(argColorReg));
 	} else {
-		X64Reg zeroReg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_VEC);
-		PXOR(zeroReg, R(zeroReg));
+		X64Reg zeroReg = GetZeroVec();
 		PUNPCKLBW(argColorReg, R(zeroReg));
-		regCache_.Release(zeroReg, PixelRegCache::T_VEC);
+		regCache_.Unlock(zeroReg, PixelRegCache::T_VEC);
 	}
 	// And simply add the dither values.
 	PADDSW(argColorReg, R(vecValueReg));
