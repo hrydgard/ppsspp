@@ -173,6 +173,7 @@ private:
 	bool Jit_DepthTest(const PixelFuncID &id);
 	bool Jit_WriteDepth(const PixelFuncID &id);
 	bool Jit_AlphaBlend(const PixelFuncID &id);
+	bool Jit_BlendFactor(const PixelFuncID &id, PixelRegCache::Reg factorReg, PixelRegCache::Reg dstReg, GEBlendSrcFactor factor, bool useDstFactor);
 	bool Jit_Dither(const PixelFuncID &id);
 	bool Jit_WriteColor(const PixelFuncID &id);
 	bool Jit_ApplyLogicOp(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg maskReg);
