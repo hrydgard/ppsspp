@@ -38,6 +38,9 @@ static const X64Reg argZReg = R8;
 static const X64Reg argFogReg = R9;
 static const X64Reg argColorReg = XMM4;
 
+// Windows reserves space to save args, 1 xmm + 4 ints before the id.
+static const OpArg mArgID = MDisp(RSP, 1 * 16 + 4 * PTRBITS / 8);
+
 // Must save: RBX, RSP, RBP, RDI, RSI, R12-R15, XMM6-15
 #else
 static const X64Reg argXReg = RDI;
@@ -45,6 +48,9 @@ static const X64Reg argYReg = RSI;
 static const X64Reg argZReg = RDX;
 static const X64Reg argFogReg = RCX;
 static const X64Reg argColorReg = XMM0;
+
+// Here we just have the return and padding to align RPB.
+static const OpArg mArgID = MDisp(RSP, 16);
 
 // Must save: RBX, RSP, RBP, R12-R15
 #endif
@@ -1293,14 +1299,18 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 	if (!id.dithering)
 		return true;
 
+#ifndef SOFTPIXEL_USE_CACHE
 	X64Reg gstateReg = GetGState();
+#endif
 	X64Reg valueReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_GEN);
 
 	// Load the row dither matrix entry (will still need to get the X.)
 	MOV(32, R(valueReg), R(argYReg));
 	AND(32, R(valueReg), Imm8(3));
+#ifndef SOFTPIXEL_USE_CACHE
 	MOVZX(32, 16, valueReg, MComplex(gstateReg, valueReg, 4, offsetof(GPUgstate, dithmtx)));
 	regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+#endif
 
 	// At this point, we're done with depth and y, so let's grab COLOR_OFF and lock it.
 	// Then we can modify x and throw it away too, which is our actual goal.
@@ -1309,6 +1319,8 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 	regCache_.Release(argYReg, PixelRegCache::T_GEN);
 
 	AND(32, R(argXReg), Imm32(3));
+
+#ifndef SOFTPIXEL_USE_CACHE
 	SHL(32, R(argXReg), Imm8(2));
 
 	// Conveniently, this is ECX on Windows, but otherwise we need to swap it.
@@ -1337,6 +1349,16 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 	SHL(32, R(valueReg), Imm8(4));
 	MOVSX(32, 8, valueReg, R(valueReg));
 	SAR(8, R(valueReg), Imm8(4));
+#else
+	// Sum up (x + y * 4) * 2 + ditherMatrix offset to valueReg.
+	SHL(32, R(argXReg), Imm8(1));
+	LEA(32, valueReg, MComplex(argXReg, valueReg, 8, offsetof(PixelFuncID, cached.ditherMatrix)));
+
+	// Okay, now abuse argXReg to read the PixelFuncID pointer on the stack.
+	MOV(PTRBITS, R(argXReg), mArgID);
+	MOVSX(32, 16, valueReg, MRegSum(argXReg, valueReg));
+	regCache_.Release(argXReg, PixelRegCache::T_GEN);
+#endif
 
 	// Copy that value into a vec to add to the color.
 	X64Reg vecValueReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_VEC);
@@ -1461,6 +1483,7 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 	// Note that we apply the write mask at the destination bit depth.
 	X64Reg maskReg = INVALID_REG;
 	if (id.applyColorWriteMask) {
+#ifndef SOFTPIXEL_USE_CACHE
 		X64Reg gstateReg = GetGState();
 		maskReg = regCache_.Alloc(PixelRegCache::TEMP3, PixelRegCache::T_GEN);
 
@@ -1496,6 +1519,12 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 				OR(32, R(maskReg), Imm32(fixedKeepMask));
 			break;
 		}
+#else
+		maskReg = regCache_.Alloc(PixelRegCache::TEMP3, PixelRegCache::T_GEN);
+		// Load the pre-converted and combined write mask.
+		MOV(PTRBITS, R(maskReg), mArgID);
+		MOV(32, R(maskReg), MDisp(maskReg, offsetof(PixelFuncID, cached.colorWriteMask)));
+#endif
 	}
 
 	// We've run out of regs, let's live without temp2 from here on.

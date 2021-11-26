@@ -15,12 +15,17 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/StringUtils.h"
 #include "GPU/Software/FuncId.h"
 #include "GPU/GPUState.h"
 
 static_assert(sizeof(SamplerID) == sizeof(SamplerID::fullKey), "Bad sampler ID size");
+#ifdef SOFTPIXEL_USE_CACHE
+static_assert(sizeof(PixelFuncID) == sizeof(PixelFuncID::fullKey) + sizeof(PixelFuncID::cached), "Bad pixel func ID size");
+#else
 static_assert(sizeof(PixelFuncID) == sizeof(PixelFuncID::fullKey), "Bad pixel func ID size");
+#endif
 
 void ComputePixelFuncID(PixelFuncID *id) {
 	id->fullKey = 0;
@@ -92,6 +97,38 @@ void ComputePixelFuncID(PixelFuncID *id) {
 
 		id->applyLogicOp = gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY;
 		id->applyFog = gstate.isFogEnabled() && !gstate.isModeThrough();
+	}
+
+	// Cache some values for later convenience.
+	if (id->dithering) {
+		for (int y = 0; y < 4; ++y) {
+			for (int x = 0; x < 4; ++x)
+				id->cached.ditherMatrix[y * 4 + x] = gstate.getDitherValue(x, y);
+		}
+	}
+	if (id->applyColorWriteMask) {
+		uint32_t mask = gstate.getColorMask();
+		// This flag means stencil clear or stencil test, basically whether writing to stencil.
+		if (!id->stencilTest)
+			mask |= 0xFF000000;
+
+		switch (id->fbFormat) {
+		case GE_FORMAT_565:
+			id->cached.colorWriteMask = RGBA8888ToRGB565(mask);
+			break;
+
+		case GE_FORMAT_5551:
+			id->cached.colorWriteMask = RGBA8888ToRGBA5551(mask);
+			break;
+
+		case GE_FORMAT_4444:
+			id->cached.colorWriteMask = RGBA8888ToRGBA4444(mask);
+			break;
+
+		case GE_FORMAT_8888:
+			id->cached.colorWriteMask = mask;
+			break;
+		}
 	}
 }
 
