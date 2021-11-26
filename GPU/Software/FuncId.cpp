@@ -70,7 +70,8 @@ void ComputePixelFuncID(PixelFuncID *id) {
 			id->hasAlphaTestMask = gstate.getAlphaTestMask() != 0xFF;
 		}
 
-		id->alphaBlend = gstate.isAlphaBlendEnabled();
+		// If invalid (6 or 7), doesn't do any blending, so force off.
+		id->alphaBlend = gstate.isAlphaBlendEnabled() && gstate.getBlendEq() <= 5;
 		// Force it off if the factors are constant and don't blend.  Some games use this...
 		if (id->alphaBlend && gstate.getBlendEq() == GE_BLENDMODE_MUL_AND_ADD) {
 			bool srcFixedOne = gstate.getBlendFuncA() == GE_SRCBLEND_FIXA && gstate.getFixA() == 0x00FFFFFF;
