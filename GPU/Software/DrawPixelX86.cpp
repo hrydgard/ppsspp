@@ -1072,7 +1072,7 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 		regCache_.GrabReg(RCX, PixelRegCache::TEMP1, PixelRegCache::T_GEN, needsSwap, argXReg);
 
 		if (needsSwap) {
-			XCHG(PTRBITS, R(RCX), R(argXReg));
+			XCHG(PTRBITS, R(argXReg), R(RCX));
 			if (valueReg == RCX)
 				valueReg = argXReg;
 		} else {
