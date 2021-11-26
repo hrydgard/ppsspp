@@ -110,6 +110,7 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 	// We simply convert to 4x8-bit to clamp.  Everything else expects color in this format.
 	PACKSSDW(argColorReg, R(argColorReg));
 	PACKUSWB(argColorReg, R(argColorReg));
+	colorIs16Bit_ = false;
 
 	success = success && Jit_AlphaTest(id);
 	// Fog is applied prior to color test.  Maybe before alpha test too, but it doesn't affect it...
@@ -361,6 +362,7 @@ bool PixelJitCache::Jit_AlphaTest(const PixelFuncID &id) {
 		alphaReg = regCache_.Find(PixelRegCache::SRC_ALPHA, PixelRegCache::T_GEN);
 	} else {
 		alphaReg = regCache_.Alloc(PixelRegCache::SRC_ALPHA, PixelRegCache::T_GEN);
+		_assert_(!colorIs16Bit_);
 		MOVD_xmm(R(alphaReg), argColorReg);
 		SHR(32, R(alphaReg), Imm8(24));
 	}
@@ -437,6 +439,12 @@ bool PixelJitCache::Jit_ColorTest(const PixelFuncID &id) {
 	MOV(32, R(refReg), MDisp(gstateReg, offsetof(GPUgstate, colorref)));
 	AND(32, R(refReg), R(maskReg));
 
+	if (colorIs16Bit_) {
+		// If it's expanded, we need to clamp anyway if it was fogged.
+		PACKUSWB(argColorReg, R(argColorReg));
+		colorIs16Bit_ = false;
+	}
+
 	// Temporarily abuse funcReg to grab the color into maskReg.
 	MOVD_xmm(R(funcReg), argColorReg);
 	AND(32, R(maskReg), R(funcReg));
@@ -502,12 +510,15 @@ bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 	regCache_.Unlock(constReg, PixelRegCache::T_GEN);
 
 	// Expand (we clamped) color to 16 bit as well, so we can multiply with fog.
-	if (cpu_info.bSSE4_1) {
-		PMOVZXBW(argColorReg, R(argColorReg));
-	} else {
-		X64Reg zeroReg = GetZeroVec();
-		PUNPCKLBW(argColorReg, R(zeroReg));
-		regCache_.Unlock(zeroReg, PixelRegCache::T_VEC);
+	if (!colorIs16Bit_) {
+		if (cpu_info.bSSE4_1) {
+			PMOVZXBW(argColorReg, R(argColorReg));
+		} else {
+			X64Reg zeroReg = GetZeroVec();
+			PUNPCKLBW(argColorReg, R(zeroReg));
+			regCache_.Unlock(zeroReg, PixelRegCache::T_VEC);
+		}
+		colorIs16Bit_ = true;
 	}
 
 	// Save A so we can put it back, we don't "fog" A.
@@ -544,9 +555,8 @@ bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 	// Now shift right by 7 (PMULHUW already did 16 of the shift.)
 	PSRLW(argColorReg, 7);
 
-	// Okay, put A back in and shrink to 8888 again.
+	// Okay, put A back in, we'll shrink it to 8888 when needed.
 	PINSRW(argColorReg, R(alphaReg), 3);
-	PACKUSWB(argColorReg, R(argColorReg));
 
 	// We won't use alphaReg again, so toss it.
 	regCache_.Release(alphaReg, PixelRegCache::T_GEN);
@@ -1014,14 +1024,17 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 
 		// We apply these at 16-bit, because they can be doubled and have a half offset.
 		if (cpu_info.bSSE4_1) {
-			PMOVZXBW(argColorReg, R(argColorReg));
+			if (!colorIs16Bit_)
+				PMOVZXBW(argColorReg, R(argColorReg));
 			PMOVZXBW(dstReg, R(dstReg));
 		} else {
 			X64Reg zeroReg = GetZeroVec();
-			PUNPCKLBW(argColorReg, R(zeroReg));
+			if (!colorIs16Bit_)
+				PUNPCKLBW(argColorReg, R(zeroReg));
 			PUNPCKLBW(dstReg, R(zeroReg));
 			regCache_.Unlock(zeroReg, PixelRegCache::T_VEC);
 		}
+		colorIs16Bit_ = true;
 
 		// We also shift left by 4, so mulhi gives us a free shift
 		// We also need to add a half bit later, so this gives us space.
@@ -1051,6 +1064,10 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 		regCache_.Release(halfReg, PixelRegCache::T_VEC);
 		regCache_.Release(srcFactorReg, PixelRegCache::T_VEC);
 		regCache_.Release(dstFactorReg, PixelRegCache::T_VEC);
+	} else if (colorIs16Bit_) {
+		// If it's expanded, shrink and clamp for our min/max/absdiff handling.
+		PACKUSWB(argColorReg, R(argColorReg));
+		colorIs16Bit_ = false;
 	}
 
 	// Step 3: Apply equation.
@@ -1091,12 +1108,6 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 		break;
 	}
 
-	if (blendState.usesFactors) {
-		// We applied this in 16-bit, go back to 8 bit.
-		// TODO: Maybe keep a flag for what state we're in for fog+dither.
-		PACKUSWB(argColorReg, R(argColorReg));
-	}
-
 	regCache_.Release(tempReg, PixelRegCache::T_VEC);
 	regCache_.Release(dstReg, PixelRegCache::T_VEC);
 
@@ -1108,6 +1119,9 @@ bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, PixelRegCache::Reg fa
 	X64Reg constReg = INVALID_REG;
 	X64Reg gstateReg = INVALID_REG;
 	X64Reg tempReg = INVALID_REG;
+
+	// Everything below expects an expanded 16-bit color
+	_assert_(colorIs16Bit_);
 
 	// Between source and dest factors, only DSTCOLOR, INVDSTCOLOR, and FIXA differ.
 	// In those cases, it uses SRCCOLOR, INVSRCCOLOR, and FIXB respectively.
@@ -1209,6 +1223,9 @@ bool PixelJitCache::Jit_DstBlendFactor(const PixelFuncID &id, PixelRegCache::Reg
 	bool success = true;
 	X64Reg constReg = INVALID_REG;
 	X64Reg gstateReg = INVALID_REG;
+
+	// Everything below expects an expanded 16-bit color
+	_assert_(colorIs16Bit_);
 
 	PixelBlendState blendState;
 	ComputePixelBlendState(blendState, id);
@@ -1328,19 +1345,19 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 	// We use 16-bit because we need a signed add, but we also want to saturate.
 	PSHUFLW(vecValueReg, R(vecValueReg), _MM_SHUFFLE(1, 0, 0, 0));
 	// With that, now let's convert the color to 16 bit...
-	if (cpu_info.bSSE4_1) {
-		PMOVZXBW(argColorReg, R(argColorReg));
-	} else {
-		X64Reg zeroReg = GetZeroVec();
-		PUNPCKLBW(argColorReg, R(zeroReg));
-		regCache_.Unlock(zeroReg, PixelRegCache::T_VEC);
+	if (!colorIs16Bit_) {
+		if (cpu_info.bSSE4_1) {
+			PMOVZXBW(argColorReg, R(argColorReg));
+		} else {
+			X64Reg zeroReg = GetZeroVec();
+			PUNPCKLBW(argColorReg, R(zeroReg));
+			regCache_.Unlock(zeroReg, PixelRegCache::T_VEC);
+		}
+		colorIs16Bit_ = true;
 	}
 	// And simply add the dither values.
 	PADDSW(argColorReg, R(vecValueReg));
 	regCache_.Release(vecValueReg, PixelRegCache::T_VEC);
-
-	// Now that we're done, put color back in 4x8-bit.
-	PACKUSWB(argColorReg, R(argColorReg));
 
 	return true;
 }
@@ -1352,6 +1369,12 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 		regCache_.Release(argXReg, PixelRegCache::T_GEN);
 		regCache_.Release(argYReg, PixelRegCache::T_GEN);
 		regCache_.ForceLock(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
+	}
+
+	// Convert back to 8888 and clamp.
+	if (colorIs16Bit_) {
+		PACKUSWB(argColorReg, R(argColorReg));
+		colorIs16Bit_ = false;
 	}
 
 	if (id.clearMode) {

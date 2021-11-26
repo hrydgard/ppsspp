@@ -195,6 +195,7 @@ private:
 	std::vector<Gen::FixupBranch> discards_;
 	// Used in Jit_ApplyLogicOp() to skip the standard MOV/OR write.
 	std::vector<Gen::FixupBranch> skipStandardWrites_;
+	bool colorIs16Bit_ = false;
 #endif
 };
 
