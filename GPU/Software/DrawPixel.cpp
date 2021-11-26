@@ -696,6 +696,9 @@ PixelRegCache::Reg PixelRegCache::Alloc(PixelRegCache::Purpose p, PixelRegCache:
 			best = &reg;
 			break;
 		}
+		// But also prefer a lower priority reg.
+		if (reg.purpose < best->purpose)
+			best = &reg;
 	}
 
 	if (best) {
