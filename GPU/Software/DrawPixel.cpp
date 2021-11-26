@@ -515,7 +515,8 @@ PixelJitCache::PixelJitCache()
 	: fp(this)
 #endif
 {
-	AllocCodeSpace(1024 * 256 * 4);
+	// 256k should be plenty of space for plenty of variations.
+	AllocCodeSpace(1024 * 64 * 4);
 
 	// Add some random code to "help" MSVC's buggy disassembler :(
 #if defined(_WIN32) && (PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)) && !PPSSPP_PLATFORM(UWP)
@@ -558,7 +559,7 @@ SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id) {
 		return it->second;
 	}
 
-	// TODO: What should be the min size?  Can we even hit this?
+	// x64 is typically 200-500 bytes, but let's be safe.
 	if (GetSpaceLeft() < 65536) {
 		Clear();
 	}
