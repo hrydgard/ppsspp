@@ -1022,39 +1022,35 @@ void VertexDecoderJitCache::Jit_Color5551() {
 	SHL(32, R(tempReg3), Imm8(3));
 	OR(32, R(tempReg2), R(tempReg3));
 
-	MOV(32, R(tempReg3), R(tempReg1));
-	AND(32, R(tempReg3), Imm32(0x00007C00));
-	SHL(32, R(tempReg3), Imm8(6));
-	OR(32, R(tempReg2), R(tempReg3));
+	// This mask intentionally keeps alpha, but it's all the same bit so we can keep it.
+	AND(32, R(tempReg1), Imm32(0x0000FC00));
+	SHL(32, R(tempReg1), Imm8(6));
+	// At this point, 0x003F1F1F are potentially set in tempReg2.
+	OR(32, R(tempReg2), R(tempReg1));
 
-	// Expand 5 -> 8.  After this is just A.
+	// Expand 5 -> 8.  After this is just expanding A.
 	MOV(32, R(tempReg3), R(tempReg2));
 	SHL(32, R(tempReg2), Imm8(3));
 	SHR(32, R(tempReg3), Imm8(2));
-	// Chop off the bits that were shifted out.
+	// Chop off the bits that were shifted out (and also alpha.)
 	AND(32, R(tempReg3), Imm32(0x00070707));
 	OR(32, R(tempReg2), R(tempReg3));
 
-	// For A, we shift it to a single bit, and then subtract and XOR.
-	// That's probably the simplest way to expand it...
-	SHR(32, R(tempReg1), Imm8(15));
-	// If it was 0, it's now -1, otherwise it's 0.  Easy.
-	SUB(32, R(tempReg1), Imm8(1));
-	XOR(32, R(tempReg1), Imm32(0xFF000000));
-	AND(32, R(tempReg1), Imm32(0xFF000000));
+	// For A, use sign extend to repeat the bit.  B is still here, but it's the same bits.
+	SHL(32, R(tempReg1), Imm8(10));
+	SAR(32, R(tempReg1), Imm8(7));
 	OR(32, R(tempReg2), R(tempReg1));
 
 	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg2));
 
-	CMP(32, R(tempReg2), Imm32(0xFF000000));
-	FixupBranch skip = J_CC(CC_AE, false);
+	// Let's AND to avoid a branch, tempReg1 has alpha only in the top 8 bits.
+	SHR(32, R(tempReg1), Imm8(24));
 	if (RipAccessible(&gstate_c.vertexFullAlpha)) {
-		MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));  // rip accessible
+		AND(8, M(&gstate_c.vertexFullAlpha), R(tempReg1));  // rip accessible
 	} else {
-		MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.vertexFullAlpha));
-		MOV(8, MatR(tempReg1), Imm8(0));
+		MOV(PTRBITS, R(tempReg3), ImmPtr(&gstate_c.vertexFullAlpha));
+		AND(8, MatR(tempReg3), R(tempReg1));
 	}
-	SetJumpTarget(skip);
 }
 
 void VertexDecoderJitCache::Jit_Color8888Morph() {
