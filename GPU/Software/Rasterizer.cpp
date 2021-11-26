@@ -507,7 +507,7 @@ Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &sourc
 		const __m128i df = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(dstfactor.ivec, dstfactor.ivec), 4), half);
 		const __m128i d = _mm_mulhi_epi16(drgb, df);
 
-		return Vec3<int>(_mm_unpacklo_epi16(_mm_subs_epi16(s, d), _mm_setzero_si128()));
+		return Vec3<int>(_mm_unpacklo_epi16(_mm_max_epi16(_mm_subs_epi16(s, d), _mm_setzero_si128()), _mm_setzero_si128()));
 #else
 		Vec3<int> half = Vec3<int>::AssignToAll(1);
 		Vec3<int> lhs = ((source.rgb() * 2 + half) * (srcfactor * 2 + half)) / 1024;
@@ -529,7 +529,7 @@ Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &sourc
 		const __m128i df = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(dstfactor.ivec, dstfactor.ivec), 4), half);
 		const __m128i d = _mm_mulhi_epi16(drgb, df);
 
-		return Vec3<int>(_mm_unpacklo_epi16(_mm_subs_epi16(d, s), _mm_setzero_si128()));
+		return Vec3<int>(_mm_unpacklo_epi16(_mm_max_epi16(_mm_subs_epi16(d, s), _mm_setzero_si128()), _mm_setzero_si128()));
 #else
 		Vec3<int> half = Vec3<int>::AssignToAll(1);
 		Vec3<int> lhs = ((source.rgb() * 2 + half) * (srcfactor * 2 + half)) / 1024;
