@@ -57,10 +57,15 @@ void ComputePixelFuncID(PixelFuncID *id) {
 		if (id->stencilTest) {
 			id->stencilTestFunc = gstate.getStencilTestFunction();
 			id->stencilTestRef = gstate.getStencilTestRef() & gstate.getStencilTestMask();
-			id->hasStencilTestMask = gstate.getStencilTestMask() != 0xFF;
-			id->sFail = gstate.getStencilOpSFail();
-			id->zFail = gstate.isDepthTestEnabled() ? gstate.getStencilOpZFail() : GE_STENCILOP_KEEP;
-			id->zPass = gstate.getStencilOpZPass();
+			id->hasStencilTestMask = gstate.getStencilTestMask() != 0xFF && gstate.FrameBufFormat() != GE_FORMAT_565;
+
+			// Stencil can't be written on 565, and any invalid op acts like KEEP, which is 0.
+			if (gstate.FrameBufFormat() != GE_FORMAT_565 && gstate.getStencilOpSFail() <= GE_STENCILOP_DECR)
+				id->sFail = gstate.getStencilOpSFail();
+			if (gstate.FrameBufFormat() != GE_FORMAT_565 && gstate.getStencilOpZFail() <= GE_STENCILOP_DECR)
+				id->zFail = gstate.isDepthTestEnabled() ? gstate.getStencilOpZFail() : GE_STENCILOP_KEEP;
+			if (gstate.FrameBufFormat() != GE_FORMAT_565 && gstate.getStencilOpZPass() <= GE_STENCILOP_DECR)
+				id->zPass = gstate.getStencilOpZPass();
 		}
 
 		id->depthTestFunc = gstate.isDepthTestEnabled() ? gstate.getDepthTestFunction() : GE_COMP_ALWAYS;
