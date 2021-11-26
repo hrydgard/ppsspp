@@ -83,7 +83,8 @@ static inline void SetPixelDepth(int x, int y, u16 value) {
 static inline u32 GetPixelColor(GEBufferFormat fmt, int x, int y) {
 	switch (fmt) {
 	case GE_FORMAT_565:
-		return RGB565ToRGBA8888(fb.Get16(x, y, gstate.FrameBufStride()));
+		// A should be zero for the purposes of alpha blending.
+		return RGB565ToRGBA8888(fb.Get16(x, y, gstate.FrameBufStride())) & 0x00FFFFFF;
 
 	case GE_FORMAT_5551:
 		return RGBA5551ToRGBA8888(fb.Get16(x, y, gstate.FrameBufStride()));
