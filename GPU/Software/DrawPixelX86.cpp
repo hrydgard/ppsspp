@@ -21,6 +21,7 @@
 #include <emmintrin.h>
 #include "Common/x64Emitter.h"
 #include "Common/CPUDetect.h"
+#include "Core/Reporting.h"
 #include "GPU/GPUState.h"
 #include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/SoftGpu.h"
@@ -133,6 +134,8 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 	discards_.clear();
 
 	if (!success) {
+		ERROR_LOG_REPORT(G3D, "Could not compile pixel func: %s", DescribePixelFuncID(id).c_str());
+
 		EndWrite();
 		ResetCodePtr(GetOffset(start));
 		return nullptr;
@@ -816,7 +819,7 @@ bool PixelJitCache::Jit_ApplyStencilOp(const PixelFuncID &id, GEStencilOp op, Pi
 		break;
 	}
 
-	return false;
+	return true;
 }
 
 bool PixelJitCache::Jit_WriteStencilOnly(const PixelFuncID &id, PixelRegCache::Reg stencilReg) {
@@ -1111,7 +1114,7 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 	regCache_.Release(tempReg, PixelRegCache::T_VEC);
 	regCache_.Release(dstReg, PixelRegCache::T_VEC);
 
-	return true;
+	return success;
 }
 
 
