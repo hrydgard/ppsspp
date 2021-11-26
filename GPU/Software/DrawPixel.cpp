@@ -590,18 +590,11 @@ void ComputePixelBlendState(PixelBlendState &state, const PixelFuncID &id) {
 
 	if (state.usesFactors) {
 		switch (id.AlphaBlendSrc()) {
-		case GE_SRCBLEND_SRCALPHA:
-		case GE_SRCBLEND_INVSRCALPHA:
-		case GE_SRCBLEND_DOUBLESRCALPHA:
-		case GE_SRCBLEND_DOUBLEINVSRCALPHA:
-			state.srcFactorUsesSrcAlpha = true;
-			break;
-
 		case GE_SRCBLEND_DSTALPHA:
 		case GE_SRCBLEND_INVDSTALPHA:
 		case GE_SRCBLEND_DOUBLEDSTALPHA:
 		case GE_SRCBLEND_DOUBLEINVDSTALPHA:
-			state.srcFactorUsesDstAlpha = true;
+			state.usesDstAlpha = true;
 			break;
 
 		default:
@@ -609,18 +602,30 @@ void ComputePixelBlendState(PixelBlendState &state, const PixelFuncID &id) {
 		}
 
 		switch (id.AlphaBlendDst()) {
-		case GE_DSTBLEND_SRCALPHA:
 		case GE_DSTBLEND_INVSRCALPHA:
-		case GE_DSTBLEND_DOUBLESRCALPHA:
+			state.dstFactorIsInverse = id.AlphaBlendSrc() == GE_SRCBLEND_SRCALPHA;
+			break;
+
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
-			state.dstFactorUsesSrcAlpha = true;
+			state.dstFactorIsInverse = id.AlphaBlendSrc() == GE_SRCBLEND_DOUBLESRCALPHA;
 			break;
 
 		case GE_DSTBLEND_DSTALPHA:
+			state.usesDstAlpha = true;
+			break;
+
 		case GE_DSTBLEND_INVDSTALPHA:
+			state.dstFactorIsInverse = id.AlphaBlendSrc() == GE_SRCBLEND_DSTALPHA;
+			state.usesDstAlpha = true;
+			break;
+
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
+			state.usesDstAlpha = true;
+			break;
+
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-			state.dstFactorUsesDstAlpha = true;
+			state.dstFactorIsInverse = id.AlphaBlendSrc() == GE_SRCBLEND_DOUBLEDSTALPHA;
+			state.usesDstAlpha = true;
 			break;
 
 		default:

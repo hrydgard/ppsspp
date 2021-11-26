@@ -979,7 +979,6 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 		MOVZX(32, 16, dstGenReg, MatR(colorOff));
 		regCache_.Unlock(colorOff, PixelRegCache::T_GEN);
 
-		bool keepAlpha = blendState.srcFactorUsesDstAlpha || blendState.dstFactorUsesDstAlpha;
 		X64Reg temp1Reg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_GEN);
 		X64Reg temp2Reg = regCache_.Alloc(PixelRegCache::TEMP2, PixelRegCache::T_GEN);
 
@@ -989,11 +988,11 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 			break;
 
 		case GE_FORMAT_5551:
-			success = success && Jit_ConvertFrom5551(id, dstGenReg, temp1Reg, temp2Reg, keepAlpha);
+			success = success && Jit_ConvertFrom5551(id, dstGenReg, temp1Reg, temp2Reg, blendState.usesDstAlpha);
 			break;
 
 		case GE_FORMAT_4444:
-			success = success && Jit_ConvertFrom4444(id, dstGenReg, temp1Reg, temp2Reg, keepAlpha);
+			success = success && Jit_ConvertFrom4444(id, dstGenReg, temp1Reg, temp2Reg, blendState.usesDstAlpha);
 
 			break;
 
@@ -1030,9 +1029,8 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 		PSLLW(dstReg, 4);
 
 		// Okay, now grab our factors.
-		// TODO: We might be able to reuse srcFactorReg for dst, in some cases.
-		success = success && Jit_BlendFactor(id, srcFactorReg, dstReg, id.AlphaBlendSrc(), false);
-		success = success && Jit_BlendFactor(id, dstFactorReg, dstReg, GEBlendSrcFactor(id.AlphaBlendDst()), true);
+		success = success && Jit_BlendFactor(id, srcFactorReg, dstReg, id.AlphaBlendSrc());
+		success = success && Jit_DstBlendFactor(id, srcFactorReg, dstFactorReg, dstReg);
 
 		X64Reg constReg = GetConstBase();
 		X64Reg halfReg = regCache_.Alloc(PixelRegCache::TEMP3, PixelRegCache::T_VEC);
@@ -1106,7 +1104,7 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 }
 
 
-bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, PixelRegCache::Reg factorReg, PixelRegCache::Reg dstReg, GEBlendSrcFactor factor, bool useDstFactor) {
+bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, PixelRegCache::Reg factorReg, PixelRegCache::Reg dstReg, GEBlendSrcFactor factor) {
 	X64Reg constReg = INVALID_REG;
 	X64Reg gstateReg = INVALID_REG;
 	X64Reg tempReg = INVALID_REG;
@@ -1116,19 +1114,13 @@ bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, PixelRegCache::Reg fa
 
 	switch (factor) {
 	case GE_SRCBLEND_DSTCOLOR:
-		if (useDstFactor)
-			MOVDQA(factorReg, R(argColorReg));
-		else
-			MOVDQA(factorReg, R(dstReg));
+		MOVDQA(factorReg, R(dstReg));
 		break;
 
 	case GE_SRCBLEND_INVDSTCOLOR:
 		constReg = GetConstBase();
 		MOVDQA(factorReg, MConstDisp(constReg, &blendInvert_11_4s[0]));
-		if (useDstFactor)
-			PSUBUSW(factorReg, R(argColorReg));
-		else
-			PSUBUSW(factorReg, R(dstReg));
+		PSUBUSW(factorReg, R(dstReg));
 		break;
 
 	case GE_SRCBLEND_SRCALPHA:
@@ -1190,10 +1182,7 @@ bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, PixelRegCache::Reg fa
 	case GE_SRCBLEND_FIXA:
 	default:
 		gstateReg = GetGState();
-		if (useDstFactor)
-			MOVD_xmm(factorReg, MDisp(gstateReg, offsetof(GPUgstate, blendfixb)));
-		else
-			MOVD_xmm(factorReg, MDisp(gstateReg, offsetof(GPUgstate, blendfixa)));
+		MOVD_xmm(factorReg, MDisp(gstateReg, offsetof(GPUgstate, blendfixa)));
 		if (cpu_info.bSSE4_1) {
 			PMOVZXBW(factorReg, R(factorReg));
 		} else {
@@ -1214,6 +1203,70 @@ bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, PixelRegCache::Reg fa
 		regCache_.Release(tempReg, PixelRegCache::T_VEC);
 
 	return true;
+}
+
+bool PixelJitCache::Jit_DstBlendFactor(const PixelFuncID &id, PixelRegCache::Reg srcFactorReg, PixelRegCache::Reg dstFactorReg, PixelRegCache::Reg dstReg) {
+	bool success = true;
+	X64Reg constReg = INVALID_REG;
+	X64Reg gstateReg = INVALID_REG;
+
+	PixelBlendState blendState;
+	ComputePixelBlendState(blendState, id);
+
+	// We might be able to reuse srcFactorReg for dst, in some cases.
+	switch (id.AlphaBlendDst()) {
+	case GE_DSTBLEND_SRCCOLOR:
+		MOVDQA(dstFactorReg, R(argColorReg));
+		break;
+
+	case GE_DSTBLEND_INVSRCCOLOR:
+		constReg = GetConstBase();
+		MOVDQA(dstFactorReg, MConstDisp(constReg, &blendInvert_11_4s[0]));
+		PSUBUSW(dstFactorReg, R(argColorReg));
+		break;
+
+	case GE_SRCBLEND_SRCALPHA:
+	case GE_SRCBLEND_INVSRCALPHA:
+	case GE_SRCBLEND_DSTALPHA:
+	case GE_SRCBLEND_INVDSTALPHA:
+	case GE_SRCBLEND_DOUBLESRCALPHA:
+	case GE_SRCBLEND_DOUBLEINVSRCALPHA:
+	case GE_SRCBLEND_DOUBLEDSTALPHA:
+	case GE_SRCBLEND_DOUBLEINVDSTALPHA:
+		// These are all equivalent for src factor, so reuse that logic.
+		if (id.AlphaBlendSrc() == GEBlendSrcFactor(id.AlphaBlendDst())) {
+			MOVDQA(dstFactorReg, R(srcFactorReg));
+		} else if (blendState.dstFactorIsInverse) {
+			constReg = GetConstBase();
+			MOVDQA(dstFactorReg, MConstDisp(constReg, &blendInvert_11_4s[0]));
+			PSUBUSW(dstFactorReg, R(srcFactorReg));
+		} else {
+			success = success && Jit_BlendFactor(id, dstFactorReg, dstReg, GEBlendSrcFactor(id.AlphaBlendDst()));
+		}
+		break;
+
+	case GE_DSTBLEND_FIXB:
+	default:
+		gstateReg = GetGState();
+		MOVD_xmm(dstFactorReg, MDisp(gstateReg, offsetof(GPUgstate, blendfixb)));
+		if (cpu_info.bSSE4_1) {
+			PMOVZXBW(dstFactorReg, R(dstFactorReg));
+		} else {
+			X64Reg zeroReg = GetZeroVec();
+			PUNPCKLBW(dstFactorReg, R(zeroReg));
+			regCache_.Unlock(zeroReg, PixelRegCache::T_VEC);
+		}
+		// Round it out by shifting into place.
+		PSLLW(dstFactorReg, 4);
+		break;
+	}
+
+	if (constReg != INVALID_REG)
+		regCache_.Unlock(constReg, PixelRegCache::T_GEN);
+	if (gstateReg != INVALID_REG)
+		regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+
+	return success;
 }
 
 bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
