@@ -65,7 +65,8 @@ struct PixelRegCache {
 		INVALID,
 		GSTATE,
 		CONST_BASE,
-		ALPHA,
+		SRC_ALPHA,
+		DST_ALPHA,
 		STENCIL,
 		COLOR_OFF,
 		DEPTH_OFF,
@@ -114,6 +115,15 @@ private:
 
 	std::vector<RegStatus> regs;
 };
+
+struct PixelBlendState {
+	bool usesFactors = false;
+	bool srcFactorUsesSrcAlpha = false;
+	bool srcFactorUsesDstAlpha = false;
+	bool dstFactorUsesSrcAlpha = false;
+	bool dstFactorUsesDstAlpha = false;
+};
+void ComputePixelBlendState(PixelBlendState &state, const PixelFuncID &id);
 
 #if PPSSPP_ARCH(ARM)
 class PixelJitCache : public ArmGen::ARMXCodeBlock {
@@ -168,6 +178,9 @@ private:
 	bool Jit_ConvertTo565(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg temp1Reg, PixelRegCache::Reg temp2Reg);
 	bool Jit_ConvertTo5551(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg temp1Reg, PixelRegCache::Reg temp2Reg, bool keepAlpha);
 	bool Jit_ConvertTo4444(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg temp1Reg, PixelRegCache::Reg temp2Reg, bool keepAlpha);
+	bool Jit_ConvertFrom565(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg temp1Reg, PixelRegCache::Reg temp2Reg);
+	bool Jit_ConvertFrom5551(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg temp1Reg, PixelRegCache::Reg temp2Reg, bool keepAlpha);
+	bool Jit_ConvertFrom4444(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg temp1Reg, PixelRegCache::Reg temp2Reg, bool keepAlpha);
 
 	std::unordered_map<PixelFuncID, SingleFunc> cache_;
 	std::unordered_map<PixelFuncID, const u8 *> addresses_;

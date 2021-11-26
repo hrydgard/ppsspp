@@ -574,6 +574,61 @@ SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id) {
 	return nullptr;
 }
 
+void ComputePixelBlendState(PixelBlendState &state, const PixelFuncID &id) {
+	switch (id.AlphaBlendEq()) {
+	case GE_BLENDMODE_MUL_AND_ADD:
+	case GE_BLENDMODE_MUL_AND_SUBTRACT:
+	case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE:
+		state.usesFactors = true;
+		break;
+
+	case GE_BLENDMODE_MIN:
+	case GE_BLENDMODE_MAX:
+	case GE_BLENDMODE_ABSDIFF:
+		break;
+	}
+
+	if (state.usesFactors) {
+		switch (id.AlphaBlendSrc()) {
+		case GE_SRCBLEND_SRCALPHA:
+		case GE_SRCBLEND_INVSRCALPHA:
+		case GE_SRCBLEND_DOUBLESRCALPHA:
+		case GE_SRCBLEND_DOUBLEINVSRCALPHA:
+			state.srcFactorUsesSrcAlpha = true;
+			break;
+
+		case GE_SRCBLEND_DSTALPHA:
+		case GE_SRCBLEND_INVDSTALPHA:
+		case GE_SRCBLEND_DOUBLEDSTALPHA:
+		case GE_SRCBLEND_DOUBLEINVDSTALPHA:
+			state.srcFactorUsesDstAlpha = true;
+			break;
+
+		default:
+			break;
+		}
+
+		switch (id.AlphaBlendDst()) {
+		case GE_DSTBLEND_SRCALPHA:
+		case GE_DSTBLEND_INVSRCALPHA:
+		case GE_DSTBLEND_DOUBLESRCALPHA:
+		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
+			state.dstFactorUsesSrcAlpha = true;
+			break;
+
+		case GE_DSTBLEND_DSTALPHA:
+		case GE_DSTBLEND_INVDSTALPHA:
+		case GE_DSTBLEND_DOUBLEDSTALPHA:
+		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
+			state.dstFactorUsesDstAlpha = true;
+			break;
+
+		default:
+			break;
+		}
+	}
+}
+
 void PixelRegCache::Reset() {
 	regs.clear();
 }
