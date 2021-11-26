@@ -38,6 +38,8 @@ void ComputePixelFuncID(PixelFuncID *id) {
 		id->colorTest = gstate.isClearModeColorMask();
 		id->stencilTest = gstate.isClearModeAlphaMask();
 		id->depthWrite = gstate.isClearModeDepthMask();
+		id->depthTestFunc = GE_COMP_ALWAYS;
+		id->alphaTestFunc = GE_COMP_ALWAYS;
 	} else {
 		id->colorTest = gstate.isColorTestEnabled() && gstate.getColorTestFunction() != GE_COMP_ALWAYS;
 		if (gstate.isStencilTestEnabled() && gstate.getStencilTestFunction() == GE_COMP_ALWAYS) {
@@ -55,10 +57,15 @@ void ComputePixelFuncID(PixelFuncID *id) {
 		if (id->stencilTest) {
 			id->stencilTestFunc = gstate.getStencilTestFunction();
 			id->stencilTestRef = gstate.getStencilTestRef() & gstate.getStencilTestMask();
-			id->hasStencilTestMask = gstate.getStencilTestMask() != 0xFF;
-			id->sFail = gstate.getStencilOpSFail();
-			id->zFail = gstate.isDepthTestEnabled() ? gstate.getStencilOpZFail() : GE_STENCILOP_KEEP;
-			id->zPass = gstate.getStencilOpZPass();
+			id->hasStencilTestMask = gstate.getStencilTestMask() != 0xFF && gstate.FrameBufFormat() != GE_FORMAT_565;
+
+			// Stencil can't be written on 565, and any invalid op acts like KEEP, which is 0.
+			if (gstate.FrameBufFormat() != GE_FORMAT_565 && gstate.getStencilOpSFail() <= GE_STENCILOP_DECR)
+				id->sFail = gstate.getStencilOpSFail();
+			if (gstate.FrameBufFormat() != GE_FORMAT_565 && gstate.getStencilOpZFail() <= GE_STENCILOP_DECR)
+				id->zFail = gstate.isDepthTestEnabled() ? gstate.getStencilOpZFail() : GE_STENCILOP_KEEP;
+			if (gstate.FrameBufFormat() != GE_FORMAT_565 && gstate.getStencilOpZPass() <= GE_STENCILOP_DECR)
+				id->zPass = gstate.getStencilOpZPass();
 		}
 
 		id->depthTestFunc = gstate.isDepthTestEnabled() ? gstate.getDepthTestFunction() : GE_COMP_ALWAYS;
@@ -68,7 +75,8 @@ void ComputePixelFuncID(PixelFuncID *id) {
 			id->hasAlphaTestMask = gstate.getAlphaTestMask() != 0xFF;
 		}
 
-		id->alphaBlend = gstate.isAlphaBlendEnabled();
+		// If invalid (6 or 7), doesn't do any blending, so force off.
+		id->alphaBlend = gstate.isAlphaBlendEnabled() && gstate.getBlendEq() <= 5;
 		// Force it off if the factors are constant and don't blend.  Some games use this...
 		if (id->alphaBlend && gstate.getBlendEq() == GE_BLENDMODE_MUL_AND_ADD) {
 			bool srcFixedOne = gstate.getBlendFuncA() == GE_SRCBLEND_FIXA && gstate.getFixA() == 0x00FFFFFF;
@@ -108,7 +116,7 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 	if (id.applyColorWriteMask)
 		desc += "Msk:";
 
-	switch (id.FBFormat()) {
+	switch (id.fbFormat) {
 	case GE_FORMAT_565: desc += "5650:"; break;
 	case GE_FORMAT_5551: desc += "5551:"; break;
 	case GE_FORMAT_4444: desc += "4444:"; break;

@@ -1015,5 +1015,5 @@ bool SoftGPU::DescribeCodePtr(const u8 *ptr, std::string &name) {
 		name = "RasterizerJit:" + subname;
 		return true;
 	}
-	return false;
+	return GPUCommon::DescribeCodePtr(ptr, name);
 }
