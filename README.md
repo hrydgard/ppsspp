@@ -1,33 +1,30 @@
-# PPSSPP - *A fast and portable PSP emulator*
+# PPSSPP - A fast and portable PSP emulator
+**Created by [Henrik Rydgård](https://github.com/hrydgard)**
 
-***Created by [Henrik Rydgård](https://github.com/hrydgard)***
-
-PPSSPP is an *HLE*([High Level Emulation](https://en-academic.com/dic.nsf/enwiki/1318672)) emulator. Default settings balance good compatibility and speed.
+PPSSPP is an *HLE*([High-Level Emulation](https://en-academic.com/dic.nsf/enwiki/1318672)) emulator. Default settings balance good compatibility and speed.
 **No BIOS file required to play.**
 
-## 📲 Socials
+Our official website: [PPSSPP](https://www.ppsspp.org).
 
-[Official Website](https://www.ppsspp.org)
+## Contribution
 
-[Discord](https://discord.gg/5NJB6dD)
+Want to contribute? Join us on [Discord](https://discord.gg/5NJB6dD) or just send pull requests / issues. For discussion use the [forums](https://forums.ppsspp.org/) on ppsspp.org.
 
-## 🤝 Contribution
+See [Development](https://www.ppsspp.org/development.html) page and help testing, investigating, or fixing is always welcome. See the list of [issues](https://github.com/hrydgard/ppsspp/issues).
 
-To contribute, see [the development page](https://www.ppsspp.org/development.html).  Help testing, investigating, or fixing is always welcome.  See [the list of issues](https://github.com/hrydgard/ppsspp/issues).
+## Building
 
-For the latest source code, see [our GitHub page](https://github.com/hrydgard/ppsspp).
-
-## 🔧 Building
+For the latest source code, see [our GitHub](https://github.com/hrydgard/ppsspp).
 
 For build instructions and other development tutorials, see [the wiki](https://github.com/hrydgard/ppsspp/wiki).
 
 If you want to download regularly updated builds for Android, Windows x86 and x64, proceed to this [page](https://buildbot.orphis.net/ppsspp/).
 
-## 🕹️ Compatibility
+## Compatibility
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
-## 📜 License
+## License
 
 Originally released under the GPL 2.0 (and later) in November 2012.
 
@@ -37,12 +34,14 @@ For more details, please read our [LICENSE](https://github.com/hrydgard/ppsspp/b
 
 Not fully functional, but some games work.  Check the [Ad-Hoc section of the forum](http://forums.ppsspp.org/forumdisplay.php?fid=34) for help.
 
-### ♥️ Credit goes to:
+### Credit goes to:
  - ANR2ME
  - Igor Calabria
  - [coldbird's code](https://code.google.com/archive/p/aemu/)
  - Kyhel
  - And more, of course.
+
+# Changelog
 
 What's new in 1.12.3
 ====================
