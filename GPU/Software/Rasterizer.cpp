@@ -474,33 +474,67 @@ Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &sourc
 	case GE_BLENDMODE_MUL_AND_ADD:
 	{
 #if defined(_M_SSE)
-		const __m128 s = _mm_mul_ps(_mm_cvtepi32_ps(source.ivec), _mm_cvtepi32_ps(srcfactor.ivec));
-		const __m128 d = _mm_mul_ps(_mm_cvtepi32_ps(dst.ivec), _mm_cvtepi32_ps(dstfactor.ivec));
-		return Vec3<int>(_mm_cvtps_epi32(_mm_mul_ps(_mm_add_ps(s, d), _mm_set_ps1(1.0f / 255.0f))));
+		// We switch to 16 bit to use mulhi, and we use 4 bits of decimal to make the 16 bit shift free.
+		const __m128i half = _mm_set1_epi16(1 << 3);
+
+		const __m128i srgb = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(source.ivec, source.ivec), 4), half);
+		const __m128i sf = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(srcfactor.ivec, srcfactor.ivec), 4), half);
+		const __m128i s = _mm_mulhi_epi16(srgb, sf);
+
+		const __m128i drgb = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(dst.ivec, dst.ivec), 4), half);
+		const __m128i df = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(dstfactor.ivec, dstfactor.ivec), 4), half);
+		const __m128i d = _mm_mulhi_epi16(drgb, df);
+
+		return Vec3<int>(_mm_unpacklo_epi16(_mm_adds_epi16(s, d), _mm_setzero_si128()));
 #else
-		return (source.rgb() * srcfactor + dst.rgb() * dstfactor) / 255;
+		Vec3<int> half = Vec3<int>::AssignToAll(1);
+		Vec3<int> lhs = ((source.rgb() * 2 + half) * (srcfactor * 2 + half)) / 1024;
+		Vec3<int> rhs = ((dst.rgb() * 2 + half) * (dstfactor * 2 + half)) / 1024;
+		return lhs + rhs;
 #endif
 	}
 
 	case GE_BLENDMODE_MUL_AND_SUBTRACT:
 	{
 #if defined(_M_SSE)
-		const __m128 s = _mm_mul_ps(_mm_cvtepi32_ps(source.ivec), _mm_cvtepi32_ps(srcfactor.ivec));
-		const __m128 d = _mm_mul_ps(_mm_cvtepi32_ps(dst.ivec), _mm_cvtepi32_ps(dstfactor.ivec));
-		return Vec3<int>(_mm_cvtps_epi32(_mm_mul_ps(_mm_sub_ps(s, d), _mm_set_ps1(1.0f / 255.0f))));
+		const __m128i half = _mm_set1_epi16(1 << 3);
+
+		const __m128i srgb = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(source.ivec, source.ivec), 4), half);
+		const __m128i sf = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(srcfactor.ivec, srcfactor.ivec), 4), half);
+		const __m128i s = _mm_mulhi_epi16(srgb, sf);
+
+		const __m128i drgb = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(dst.ivec, dst.ivec), 4), half);
+		const __m128i df = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(dstfactor.ivec, dstfactor.ivec), 4), half);
+		const __m128i d = _mm_mulhi_epi16(drgb, df);
+
+		return Vec3<int>(_mm_unpacklo_epi16(_mm_max_epi16(_mm_subs_epi16(s, d), _mm_setzero_si128()), _mm_setzero_si128()));
 #else
-		return (source.rgb() * srcfactor - dst.rgb() * dstfactor) / 255;
+		Vec3<int> half = Vec3<int>::AssignToAll(1);
+		Vec3<int> lhs = ((source.rgb() * 2 + half) * (srcfactor * 2 + half)) / 1024;
+		Vec3<int> rhs = ((dst.rgb() * 2 + half) * (dstfactor * 2 + half)) / 1024;
+		return lhs - rhs;
 #endif
 	}
 
 	case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE:
 	{
 #if defined(_M_SSE)
-		const __m128 s = _mm_mul_ps(_mm_cvtepi32_ps(source.ivec), _mm_cvtepi32_ps(srcfactor.ivec));
-		const __m128 d = _mm_mul_ps(_mm_cvtepi32_ps(dst.ivec), _mm_cvtepi32_ps(dstfactor.ivec));
-		return Vec3<int>(_mm_cvtps_epi32(_mm_mul_ps(_mm_sub_ps(d, s), _mm_set_ps1(1.0f / 255.0f))));
+		const __m128i half = _mm_set1_epi16(1 << 3);
+
+		const __m128i srgb = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(source.ivec, source.ivec), 4), half);
+		const __m128i sf = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(srcfactor.ivec, srcfactor.ivec), 4), half);
+		const __m128i s = _mm_mulhi_epi16(srgb, sf);
+
+		const __m128i drgb = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(dst.ivec, dst.ivec), 4), half);
+		const __m128i df = _mm_add_epi16(_mm_slli_epi16(_mm_packs_epi32(dstfactor.ivec, dstfactor.ivec), 4), half);
+		const __m128i d = _mm_mulhi_epi16(drgb, df);
+
+		return Vec3<int>(_mm_unpacklo_epi16(_mm_max_epi16(_mm_subs_epi16(d, s), _mm_setzero_si128()), _mm_setzero_si128()));
 #else
-		return (dst.rgb() * dstfactor - source.rgb() * srcfactor) / 255;
+		Vec3<int> half = Vec3<int>::AssignToAll(1);
+		Vec3<int> lhs = ((source.rgb() * 2 + half) * (srcfactor * 2 + half)) / 1024;
+		Vec3<int> rhs = ((dst.rgb() * 2 + half) * (dstfactor * 2 + half)) / 1024;
+		return rhs - lhs;
 #endif
 	}
 
