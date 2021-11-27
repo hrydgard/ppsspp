@@ -31,19 +31,6 @@ using namespace Gen;
 
 namespace Rasterizer {
 
-#if PPSSPP_PLATFORM(WINDOWS)
-// Windows reserves space to save args, 1 xmm + 4 ints before the id.
-static const OpArg mArgID = MDisp(RSP, 1 * 16 + 4 * PTRBITS / 8);
-
-// Must save: RBX, RSP, RBP, RDI, RSI, R12-R15, XMM6-15
-#else
-
-// Here we just have the return and padding to align RPB.
-static const OpArg mArgID = MDisp(RSP, 16);
-
-// Must save: RBX, RSP, RBP, R12-R15
-#endif
-
 // This one is the const base.  Also a set of 255s.
 alignas(16) static const uint16_t const255_16s[8] = { 255, 255, 255, 255, 255, 255, 255, 255 };
 // This is used for a multiply that divides by 255 with shifting.
@@ -87,6 +74,8 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 	regCache_.Add(XMM5, PixelRegCache::T_VEC, PixelRegCache::INVALID);
 
 #if PPSSPP_PLATFORM(WINDOWS)
+	// Must save: RBX, RSP, RBP, RDI, RSI, R12-R15, XMM6-15
+
 	regCache_.Add(XMM0, PixelRegCache::T_VEC, PixelRegCache::INVALID);
 
 	regCache_.Add(RCX, PixelRegCache::T_GEN, PixelRegCache::ARG_X);
@@ -94,7 +83,12 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 	regCache_.Add(R8, PixelRegCache::T_GEN, PixelRegCache::ARG_Z);
 	regCache_.Add(R9, PixelRegCache::T_GEN, PixelRegCache::ARG_FOG);
 	regCache_.Add(XMM4, PixelRegCache::T_VEC, PixelRegCache::ARG_COLOR);
+
+	// Windows reserves space to save args, 1 xmm + 4 ints before the id.
+	stackIDOffset_ = 1 * 16 + 4 * PTRBITS / 8;
 #else
+	// Must save: RBX, RSP, RBP, R12-R15
+
 	regCache_.Add(R8, PixelRegCache::T_GEN, PixelRegCache::INVALID);
 	regCache_.Add(R9, PixelRegCache::T_GEN, PixelRegCache::INVALID);
 	regCache_.Add(XMM4, PixelRegCache::T_VEC, PixelRegCache::INVALID);
@@ -104,6 +98,9 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 	regCache_.Add(RDX, PixelRegCache::T_GEN, PixelRegCache::ARG_Z);
 	regCache_.Add(RCX, PixelRegCache::T_GEN, PixelRegCache::ARG_FOG);
 	regCache_.Add(XMM0, PixelRegCache::T_VEC, PixelRegCache::ARG_COLOR);
+
+	// Here we just have the return and padding to align RPB.
+	stackIDOffset_ = 16;
 #endif
 
 	// Initially, disallow spill for args (they get unlocked when unused.)
@@ -1406,7 +1403,7 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 	LEA(32, valueReg, MComplex(argXReg, valueReg, 8, offsetof(PixelFuncID, cached.ditherMatrix)));
 
 	// Okay, now abuse argXReg to read the PixelFuncID pointer on the stack.
-	MOV(PTRBITS, R(argXReg), mArgID);
+	MOV(PTRBITS, R(argXReg), MDisp(RSP, stackIDOffset_));
 	MOVSX(32, 16, valueReg, MRegSum(argXReg, valueReg));
 #endif
 	regCache_.Unlock(argXReg, PixelRegCache::T_GEN);
@@ -1584,7 +1581,7 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 #else
 		maskReg = regCache_.Alloc(PixelRegCache::TEMP3, PixelRegCache::T_GEN);
 		// Load the pre-converted and combined write mask.
-		MOV(PTRBITS, R(maskReg), mArgID);
+		MOV(PTRBITS, R(maskReg), MDisp(RSP, stackIDOffset_));
 		MOV(32, R(maskReg), MDisp(maskReg, offsetof(PixelFuncID, cached.colorWriteMask)));
 #endif
 	}
