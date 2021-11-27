@@ -99,6 +99,7 @@ void ComputePixelFuncID(PixelFuncID *id) {
 		id->applyFog = gstate.isFogEnabled() && !gstate.isModeThrough();
 	}
 
+#ifdef SOFTPIXEL_USE_CACHE
 	// Cache some values for later convenience.
 	if (id->dithering) {
 		for (int y = 0; y < 4; ++y) {
@@ -130,6 +131,7 @@ void ComputePixelFuncID(PixelFuncID *id) {
 			break;
 		}
 	}
+#endif
 }
 
 std::string DescribePixelFuncID(const PixelFuncID &id) {
