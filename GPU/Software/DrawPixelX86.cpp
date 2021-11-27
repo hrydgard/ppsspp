@@ -78,7 +78,6 @@ static OpArg MConstDisp(X64Reg r, const T *t) {
 
 SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 	// Setup the reg cache.
-	regCache_.Reset();
 	regCache_.Add(RAX, PixelRegCache::T_GEN, PixelRegCache::INVALID);
 	regCache_.Add(R10, PixelRegCache::T_GEN, PixelRegCache::INVALID);
 	regCache_.Add(R11, PixelRegCache::T_GEN, PixelRegCache::INVALID);
@@ -148,6 +147,8 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 		SetJumpTarget(fixup);
 	}
 	discards_.clear();
+
+	regCache_.Reset(success);
 
 	if (!success) {
 		ERROR_LOG_REPORT(G3D, "Could not compile pixel func: %s", DescribePixelFuncID(id).c_str());
@@ -1484,6 +1485,7 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 	X64Reg colorReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_GEN);
 	MOVD_xmm(R(colorReg), argColorReg);
 	regCache_.Unlock(argColorReg, PixelRegCache::T_VEC);
+	regCache_.ForceRelease(PixelRegCache::ARG_COLOR, PixelRegCache::T_VEC);
 
 	X64Reg stencilReg = INVALID_REG;
 	if (regCache_.Has(PixelRegCache::STENCIL, PixelRegCache::T_GEN))
@@ -1647,6 +1649,7 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 	skipStandardWrites_.clear();
 
 	regCache_.Unlock(colorOff, PixelRegCache::T_GEN);
+	regCache_.ForceRelease(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
 	regCache_.Release(colorReg, PixelRegCache::T_GEN);
 	regCache_.Release(temp1Reg, PixelRegCache::T_GEN);
 	if (maskReg != INVALID_REG)

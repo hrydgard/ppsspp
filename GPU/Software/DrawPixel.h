@@ -105,7 +105,7 @@ struct PixelRegCache {
 		bool forceLocked = false;
 	};
 
-	void Reset();
+	void Reset(bool validate);
 	void Add(Reg r, Type t, Purpose p);
 	void Change(Reg r, Type t, Purpose p);
 	void Release(Reg r, Type t);

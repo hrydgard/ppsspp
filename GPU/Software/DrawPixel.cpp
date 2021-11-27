@@ -635,7 +635,13 @@ void ComputePixelBlendState(PixelBlendState &state, const PixelFuncID &id) {
 	}
 }
 
-void PixelRegCache::Reset() {
+void PixelRegCache::Reset(bool validate) {
+	if (validate) {
+		for (auto &reg : regs) {
+			_assert_msg_(reg.locked == 0, "softjit: Reset() with reg still locked (%d)", reg.purpose);
+			_assert_msg_(!reg.forceLocked, "softjit: Reset() with reg force locked (%d)", reg.purpose);
+		}
+	}
 	regs.clear();
 }
 
