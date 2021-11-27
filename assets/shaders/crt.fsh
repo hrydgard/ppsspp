@@ -8,11 +8,12 @@ precision mediump int;
 uniform sampler2D sampler0;
 varying vec2 v_texcoord0;
 uniform vec4 u_time;
+uniform vec4 u_setting;
 
 void main()
 {
     // scanlines
-    int vPos = int( ( v_texcoord0.y + u_time.x * 0.5 ) * 272.0 );
+    int vPos = int( ( v_texcoord0.y + u_time.x * u_setting.x * 0.5 ) * 272.0 );
     float line_intensity = mod( float(vPos), 2.0 );
     
     // color shift
@@ -26,8 +27,11 @@ void main()
     float b = texture2D( sampler0, v_texcoord0 ).z;
     
     vec4 c = vec4( r, g * 0.99, b, 1.0 ) * clamp( line_intensity, 0.85, 1.0 );
-    
-    float rollbar = sin( ( v_texcoord0.y + u_time.x ) * 4.0 );
-    
-    gl_FragColor.rgba = c + (rollbar * 0.02);
+
+    if (u_setting.x > 0.0) {
+        float rollbar = sin( ( v_texcoord0.y + u_time.x * u_setting.x ) * 4.0 );
+        c += rollbar * 0.02;
+    }
+
+    gl_FragColor.rgba = c;
 }
