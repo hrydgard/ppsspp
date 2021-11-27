@@ -90,7 +90,7 @@ const float cst_constants[32] = {
 
 
 MIPSState::MIPSState() {
-	MIPSComp::jit = 0;
+	MIPSComp::jit = nullptr;
 
 	// Initialize vorder
 
@@ -163,9 +163,10 @@ MIPSState::~MIPSState() {
 }
 
 void MIPSState::Shutdown() {
-	if (MIPSComp::jit) {
-		delete MIPSComp::jit;
-		MIPSComp::jit = 0;
+	MIPSComp::JitInterface *oldjit = MIPSComp::jit;
+	if (oldjit) {
+		MIPSComp::jit = nullptr;
+		delete oldjit;
 	}
 }
 
@@ -228,27 +229,30 @@ void MIPSState::UpdateCore(CPUCore desired) {
 	}
 
 	PSP_CoreParameter().cpuCore = desired;
+	MIPSComp::JitInterface *oldjit = MIPSComp::jit;
 	switch (PSP_CoreParameter().cpuCore) {
 	case CPUCore::JIT:
 		INFO_LOG(CPU, "Switching to JIT");
-		if (MIPSComp::jit) {
-			delete MIPSComp::jit;
+		if (oldjit) {
+			MIPSComp::jit = nullptr;
+			delete oldjit;
 		}
 		MIPSComp::jit = MIPSComp::CreateNativeJit(this);
 		break;
 
 	case CPUCore::IR_JIT:
 		INFO_LOG(CPU, "Switching to IRJIT");
-		if (MIPSComp::jit) {
-			delete MIPSComp::jit;
+		if (oldjit) {
+			MIPSComp::jit = nullptr;
+			delete oldjit;
 		}
 		MIPSComp::jit = new MIPSComp::IRJit(this);
 		break;
 
 	case CPUCore::INTERPRETER:
 		INFO_LOG(CPU, "Switching to interpreter");
-		delete MIPSComp::jit;
-		MIPSComp::jit = 0;
+		MIPSComp::jit = nullptr;
+		delete oldjit;
 		break;
 	}
 }
