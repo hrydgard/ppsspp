@@ -26,9 +26,10 @@ const int EXTRA_THREADS = 4;  // For I/O limited tasks
 struct GlobalThreadContext {
 	std::mutex mutex; // associated with each respective condition variable
 	std::deque<Task *> queue;
+	std::atomic<int> queue_size;
 	std::vector<ThreadContext *> threads_;
 
-	int roundRobin = 0;
+	std::atomic<int> roundRobin;
 };
 
 struct ThreadContext {
@@ -43,7 +44,8 @@ struct ThreadContext {
 };
 
 ThreadManager::ThreadManager() : global_(new GlobalThreadContext()) {
-
+	global_->queue_size = 0;
+	global_->roundRobin = 0;
 }
 
 ThreadManager::~ThreadManager() {
@@ -76,6 +78,7 @@ static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread)
 			if (!global->queue.empty()) {
 				task = global->queue.front();
 				global->queue.pop_front();
+				global->queue_size--;
 
 				// We are processing one now, so mark that.
 				thread->queue_size++;
@@ -88,7 +91,7 @@ static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread)
 			if (!thread->private_queue.empty()) {
 				task = thread->private_queue.front();
 				thread->private_queue.pop_front();
-			} else if (thread->private_single.load() == nullptr) {
+			} else if (thread->private_single.load() == nullptr && global->queue_size.load() == 0) {
 				thread->cond.wait(lock);
 			}
 		}
@@ -162,9 +165,14 @@ void ThreadManager::EnqueueTask(Task *task, TaskType taskType) {
 	{
 		std::unique_lock<std::mutex> lock(global_->mutex);
 		global_->queue.push_back(task);
-		global_->threads_[global_->roundRobin % maxThread]->cond.notify_one();
-		global_->roundRobin++;
+		global_->queue_size++;
 	}
+
+	// Lock the thread to ensure it gets the message.
+	int chosenIndex = global_->roundRobin++;
+	ThreadContext *&chosenThread = global_->threads_[chosenIndex % maxThread];
+	std::unique_lock<std::mutex> lock(chosenThread->mutex);
+	chosenThread->cond.notify_one();
 }
 
 void ThreadManager::EnqueueTaskOnThread(int threadNum, Task *task, TaskType taskType) {
