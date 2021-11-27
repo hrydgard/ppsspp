@@ -60,6 +60,8 @@ public:
 	int GetNumLooperThreads() const;
 
 private:
+	bool TeardownTask(Task *task, bool enqueue);
+
 	// This is always pointing to a context, initialized in the constructor.
 	GlobalThreadContext *global_;
 
