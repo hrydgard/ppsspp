@@ -35,9 +35,10 @@ struct ThreadContext {
 	std::thread thread; // the worker thread
 	std::condition_variable cond; // used to signal new work
 	std::mutex mutex; // protects the local queue.
-	std::atomic<int> queueSize;
+	std::atomic<int> queue_size;
 	int index;
 	std::atomic<bool> cancelled;
+	std::atomic<Task *> private_single;
 	std::deque<Task *> private_queue;
 };
 
@@ -66,25 +67,28 @@ static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread)
 	snprintf(threadName, sizeof(threadName), "PoolWorker %d", thread->index);
 	SetCurrentThreadName(threadName);
 	while (!thread->cancelled) {
-		Task *task = nullptr;
+		Task *task = thread->private_single.exchange(nullptr);
 
 		// Check the global queue first, then check the private queue and wait if there's nothing to do.
-		{
+		if (!task) {
 			// Grab one from the global queue if there is any.
 			std::unique_lock<std::mutex> lock(global->mutex);
 			if (!global->queue.empty()) {
 				task = global->queue.front();
 				global->queue.pop_front();
+
+				// We are processing one now, so mark that.
+				thread->queue_size++;
 			}
 		}
 
 		if (!task) {
 			std::unique_lock<std::mutex> lock(thread->mutex);
+			// We must check both queue and single again, while locked.
 			if (!thread->private_queue.empty()) {
 				task = thread->private_queue.front();
 				thread->private_queue.pop_front();
-				thread->queueSize.store((int)thread->private_queue.size());
-			} else {
+			} else if (thread->private_single.load() == nullptr) {
 				thread->cond.wait(lock);
 			}
 		}
@@ -93,6 +97,9 @@ static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread)
 		if (task) {
 			task->Run();
 			delete task;
+
+			// Reduce the queue size once complete.
+			thread->queue_size--;
 		}
 	}
 }
@@ -111,6 +118,7 @@ void ThreadManager::Init(int numRealCores, int numLogicalCoresPerCpu) {
 	for (int i = 0; i < numThreads; i++) {
 		ThreadContext *thread = new ThreadContext();
 		thread->cancelled.store(false);
+		thread->private_single.store(nullptr);
 		thread->thread = std::thread(&WorkerThreadFunc, global_, thread);
 		thread->index = i;
 		global_->threads_.push_back(thread);
@@ -139,10 +147,10 @@ void ThreadManager::EnqueueTask(Task *task, TaskType taskType) {
 			threadNum = 0;
 		}
 		ThreadContext *thread = global_->threads_[threadNum];
-		if (thread->queueSize.load() == 0) {
+		if (thread->queue_size.load() == 0) {
 			std::unique_lock<std::mutex> lock(thread->mutex);
 			thread->private_queue.push_back(task);
-			thread->queueSize.store((int)thread->private_queue.size());
+			thread->queue_size++;
 			thread->cond.notify_one();
 			// Found it - done.
 			return;
@@ -162,7 +170,17 @@ void ThreadManager::EnqueueTask(Task *task, TaskType taskType) {
 void ThreadManager::EnqueueTaskOnThread(int threadNum, Task *task, TaskType taskType) {
 	_assert_msg_(threadNum >= 0 && threadNum < (int)global_->threads_.size(), "Bad threadnum or not initialized");
 	ThreadContext *thread = global_->threads_[threadNum];
-	{
+
+	// Try first atomically, as highest priority.
+	Task *expected = nullptr;
+	thread->private_single.compare_exchange_weak(expected, task);
+	// Whether we got that or will have to wait, increase the queue counter.
+	thread->queue_size++;
+
+	if (expected == nullptr) {
+		std::unique_lock<std::mutex> lock(thread->mutex);
+		thread->cond.notify_one();
+	} else {
 		std::unique_lock<std::mutex> lock(thread->mutex);
 		thread->private_queue.push_back(task);
 		thread->cond.notify_one();
