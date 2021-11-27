@@ -62,65 +62,76 @@ bool DescribeCodePtr(const u8 *ptr, std::string &name);
 
 struct PixelRegCache {
 	enum Purpose {
-		INVALID,
-		ZERO,
-		SRC_ALPHA,
-		GSTATE,
-		CONST_BASE,
-		STENCIL,
-		COLOR_OFF,
-		DEPTH_OFF,
-		ARG_X,
-		ARG_Y,
-		ARG_Z,
-		ARG_FOG,
-		ARG_COLOR,
-		ARG_MASK,
+		FLAG_GEN = 0x0100,
+		FLAG_TEMP = 0x1000,
 
-		// Above this can only be temps.
-		TEMP0,
-		TEMP1,
-		TEMP2,
-		TEMP3,
-		TEMP4,
-		TEMP5,
-		TEMP_HELPER,
-	};
-	enum Type {
-		T_GEN,
-		T_VEC,
+		VEC_ZERO = 0x0000,
+
+		GEN_SRC_ALPHA = 0x0100,
+		GEN_GSTATE = 0x0101,
+		GEN_CONST_BASE = 0x0102,
+		GEN_STENCIL = 0x0103,
+		GEN_COLOR_OFF = 0x0104,
+		GEN_DEPTH_OFF = 0x0105,
+
+		GEN_ARG_X = 0x0180,
+		GEN_ARG_Y = 0x0181,
+		GEN_ARG_Z = 0x0182,
+		GEN_ARG_FOG = 0x0183,
+		VEC_ARG_COLOR = 0x0080,
+		VEC_ARG_MASK = 0x0081,
+
+		VEC_TEMP0 = 0x1000,
+		VEC_TEMP1 = 0x1001,
+		VEC_TEMP2 = 0x1002,
+		VEC_TEMP3 = 0x1003,
+		VEC_TEMP4 = 0x1004,
+		VEC_TEMP5 = 0x1005,
+
+		GEN_TEMP0 = 0x1100,
+		GEN_TEMP1 = 0x1101,
+		GEN_TEMP2 = 0x1102,
+		GEN_TEMP3 = 0x1103,
+		GEN_TEMP4 = 0x1104,
+		GEN_TEMP5 = 0x1105,
+		GEN_TEMP_HELPER = 0x1106,
+
+		VEC_INVALID = 0xFEFF,
+		GEN_INVALID = 0xFFFF,
 	};
 
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	typedef Gen::X64Reg Reg;
+	static constexpr Reg REG_INVALID_VALUE = Gen::INVALID_REG;
 #else
 	typedef int Reg;
+	static constexpr Reg REG_INVALID_VALUE = -1;
 #endif
 
 	struct RegStatus {
 		Reg reg;
 		Purpose purpose;
-		Type type;
 		uint8_t locked = 0;
-		bool forceLocked = false;
+		bool forceRetained = false;
 	};
 
 	void Reset(bool validate);
-	void Add(Reg r, Type t, Purpose p);
-	void Change(Reg r, Type t, Purpose p);
-	void Release(Reg r, Type t);
-	void Unlock(Reg r, Type t);
-	bool Has(Purpose p, Type t);
-	Reg Find(Purpose p, Type t);
-	Reg Alloc(Purpose p, Type t);
-	void ForceLock(Purpose p, Type t);
-	void ForceRelease(Purpose p, Type t);
+	void Add(Reg r, Purpose p);
+	void Change(Purpose history, Purpose destiny);
+	void Release(Reg r, Purpose p);
+	void Unlock(Reg r, Purpose p);
+	bool Has(Purpose p);
+	Reg Find(Purpose p);
+	Reg Alloc(Purpose p);
+	void ForceRetain(Purpose p);
+	void ForceRelease(Purpose p);
 
 	// For getting a specific reg.  WARNING: May return a locked reg, so you have to check.
-	void GrabReg(Reg r, Purpose p, Type t, bool &needsSwap, Reg swapReg);
+	void GrabReg(Reg r, Purpose p, bool &needsSwap, Reg swapReg, Purpose swapPurpose);
 
 private:
-	RegStatus *FindReg(Reg r, Type t);
+	RegStatus *FindReg(Reg r, Purpose p);
+	RegStatus *FindReg(Reg r, bool isGen);
 
 	std::vector<RegStatus> regs;
 };

@@ -638,85 +638,96 @@ void ComputePixelBlendState(PixelBlendState &state, const PixelFuncID &id) {
 void PixelRegCache::Reset(bool validate) {
 	if (validate) {
 		for (auto &reg : regs) {
-			_assert_msg_(reg.locked == 0, "softjit: Reset() with reg still locked (%d)", reg.purpose);
-			_assert_msg_(!reg.forceLocked, "softjit: Reset() with reg force locked (%d)", reg.purpose);
+			_assert_msg_(reg.locked == 0, "softjit: Reset() with reg still locked (%04X)", reg.purpose);
+			_assert_msg_(!reg.forceRetained, "softjit: Reset() with reg force retained (%04X)", reg.purpose);
 		}
 	}
 	regs.clear();
 }
 
-void PixelRegCache::Add(PixelRegCache::Reg r, PixelRegCache::Type t, PixelRegCache::Purpose p) {
-	RegStatus *status = FindReg(r, t);
-	_assert_msg_(status == nullptr, "softjit Add() reg duplicate");
+void PixelRegCache::Add(PixelRegCache::Reg r, PixelRegCache::Purpose p) {
+	RegStatus *status = FindReg(r, (p & FLAG_GEN) != 0);
+	_assert_msg_(status == nullptr, "softjit Add() reg duplicate (%04X)", p);
+	_assert_msg_(r != REG_INVALID_VALUE, "softjit Add() invalid reg (%04X)", p);
 
 	RegStatus newStatus;
 	newStatus.reg = r;
 	newStatus.purpose = p;
-	newStatus.type = t;
 	regs.push_back(newStatus);
 }
 
-void PixelRegCache::Change(PixelRegCache::Reg r, PixelRegCache::Type t, PixelRegCache::Purpose p) {
-	RegStatus *status = FindReg(r, t);
-	_assert_msg_(status != nullptr, "softjit Add() reg duplicate");
+void PixelRegCache::Change(Purpose history, Purpose destiny) {
+	for (auto &reg : regs) {
+		if (reg.purpose == history) {
+			reg.purpose = destiny;
+			return;
+		}
+	}
 
-	status->purpose = p;
+	_assert_msg_(false, "softjit Change() reg that isn't there (%04X)", history);
 }
 
-void PixelRegCache::Release(PixelRegCache::Reg r, PixelRegCache::Type t) {
-	RegStatus *status = FindReg(r, t);
-	_assert_msg_(status != nullptr, "softjit Release() reg that isn't there");
-	_assert_msg_(status->locked > 0, "softjit Release() reg that isn't locked");
-	_assert_msg_(!status->forceLocked, "softjit Release() reg that is force locked");
+void PixelRegCache::Release(Reg r, Purpose p) {
+	RegStatus *status = FindReg(r, p);
+	_assert_msg_(status != nullptr, "softjit Release() reg that isn't there (%04X)", p);
+	_assert_msg_(status->locked > 0, "softjit Release() reg that isn't locked (%04X)", p);
+	_assert_msg_(!status->forceRetained, "softjit Release() reg that is force retained (%04X)", p);
 
 	status->locked--;
-	if (status->locked == 0)
-		status->purpose = INVALID;
+	if (status->locked == 0) {
+		if ((status->purpose & FLAG_GEN) != 0)
+			status->purpose = GEN_INVALID;
+		else
+			status->purpose = VEC_INVALID;
+	}
 }
 
-void PixelRegCache::Unlock(PixelRegCache::Reg r, PixelRegCache::Type t) {
-	RegStatus *status = FindReg(r, t);
+void PixelRegCache::Unlock(Reg r, Purpose p) {
+	RegStatus *status = FindReg(r, p);
 	if (status) {
-		_assert_msg_(status->locked > 0, "softjit Unlock() reg that isn't locked");
+		_assert_msg_(status->locked > 0, "softjit Unlock() reg that isn't locked (%04X)", p);
 		status->locked--;
 		return;
 	}
 
-	_assert_msg_(false, "softjit Unlock() reg that isn't there");
+	_assert_msg_(false, "softjit Unlock() reg that isn't there (%04X)", p);
 }
 
-bool PixelRegCache::Has(PixelRegCache::Purpose p, PixelRegCache::Type t) {
+bool PixelRegCache::Has(PixelRegCache::Purpose p) {
 	for (auto &reg : regs) {
-		if (reg.purpose == p && reg.type == t) {
+		if (reg.purpose == p) {
 			return true;
 		}
 	}
 	return false;
 }
 
-PixelRegCache::Reg PixelRegCache::Find(PixelRegCache::Purpose p, PixelRegCache::Type t) {
+PixelRegCache::Reg PixelRegCache::Find(Purpose p) {
 	for (auto &reg : regs) {
-		if (reg.purpose == p && reg.type == t) {
-			_assert_msg_(reg.locked <= 255, "softjit Find() reg has lots of locks");
+		if (reg.purpose == p) {
+			_assert_msg_(reg.locked <= 255, "softjit Find() reg has lots of locks (%04X)", p);
 			reg.locked++;
 			return reg.reg;
 		}
 	}
-	_assert_msg_(false, "softjit Find() reg that isn't there (%d)", p);
-	return Reg(-1);
+	_assert_msg_(false, "softjit Find() reg that isn't there (%04X)", p);
+	return REG_INVALID_VALUE;
 }
 
-PixelRegCache::Reg PixelRegCache::Alloc(PixelRegCache::Purpose p, PixelRegCache::Type t) {
-	_assert_msg_(!Has(p, t), "softjit Alloc() reg duplicate");
+PixelRegCache::Reg PixelRegCache::Alloc(Purpose p) {
+	_assert_msg_(!Has(p), "softjit Alloc() reg duplicate (%04X)", p);
 	RegStatus *best = nullptr;
 	for (auto &reg : regs) {
-		if (reg.locked != 0 || reg.forceLocked || reg.type != t)
+		if (reg.locked != 0 || reg.forceRetained)
+			continue;
+		// Needs to be the same type.
+		if ((reg.purpose & FLAG_GEN) != (p & FLAG_GEN))
 			continue;
 
 		if (best == nullptr)
 			best = &reg;
-		// Prefer a free/purposeless reg.
-		if (reg.purpose == INVALID || reg.purpose >= TEMP0) {
+		// Prefer a free/purposeless reg (includes INVALID.)
+		if ((reg.purpose & FLAG_TEMP) != 0) {
 			best = &reg;
 			break;
 		}
@@ -731,41 +742,46 @@ PixelRegCache::Reg PixelRegCache::Alloc(PixelRegCache::Purpose p, PixelRegCache:
 		return best->reg;
 	}
 
-	_assert_msg_(false, "softjit Alloc() reg with none free (%d)", p);
-	return Reg();
+	_assert_msg_(false, "softjit Alloc() reg with none free (%04X)", p);
+	return REG_INVALID_VALUE;
 }
 
-void PixelRegCache::ForceLock(PixelRegCache::Purpose p, PixelRegCache::Type t) {
+void PixelRegCache::ForceRetain(Purpose p) {
 	for (auto &reg : regs) {
-		if (reg.purpose == p && reg.type == t) {
-			reg.forceLocked = true;
+		if (reg.purpose == p) {
+			reg.forceRetained = true;
 			return;
 		}
 	}
 
-	_assert_msg_(false, "softjit ForceLock() reg that isn't there");
+	_assert_msg_(false, "softjit ForceRetain() reg that isn't there (%04X)", p);
 }
 
-void PixelRegCache::ForceRelease(PixelRegCache::Purpose p, PixelRegCache::Type t) {
+void PixelRegCache::ForceRelease(Purpose p) {
 	for (auto &reg : regs) {
-		if (reg.purpose == p && reg.type == t) {
-			_assert_msg_(reg.locked == 0, "softjit ForceRelease() while locked");
-			reg.forceLocked = false;
-			reg.purpose = INVALID;
+		if (reg.purpose == p) {
+			_assert_msg_(reg.locked == 0, "softjit ForceRelease() while locked (%04X)", p);
+			reg.forceRetained = false;
+			if ((reg.purpose & FLAG_GEN) != 0)
+				reg.purpose = GEN_INVALID;
+			else
+				reg.purpose = VEC_INVALID;
 			return;
 		}
 	}
 
-	_assert_msg_(false, "softjit ForceRelease() reg that isn't there");
+	_assert_msg_(false, "softjit ForceRelease() reg that isn't there (%04X)", p);
 }
 
-void PixelRegCache::GrabReg(PixelRegCache::Reg r, PixelRegCache::Purpose p, PixelRegCache::Type t, bool &needsSwap, PixelRegCache::Reg swapReg) {
+void PixelRegCache::GrabReg(Reg r, Purpose p, bool &needsSwap, Reg swapReg, Purpose swapPurpose) {
 	for (auto &reg : regs) {
-		if (reg.reg != r || reg.type != t)
+		if (reg.reg != r)
+			continue;
+		if ((reg.purpose & FLAG_GEN) != (p & FLAG_GEN))
 			continue;
 
 		// Easy version, it's free.
-		if (reg.locked == 0 && !reg.forceLocked) {
+		if (reg.locked == 0 && !reg.forceRetained) {
 			needsSwap = false;
 			reg.purpose = p;
 			reg.locked = 1;
@@ -774,12 +790,13 @@ void PixelRegCache::GrabReg(PixelRegCache::Reg r, PixelRegCache::Purpose p, Pixe
 
 		// Okay, we need to swap.  Find that reg.
 		needsSwap = true;
-		RegStatus *swap = FindReg(swapReg, t);
+		RegStatus *swap = FindReg(swapReg, swapPurpose);
 		if (swap) {
 			swap->purpose = reg.purpose;
-			swap->forceLocked = reg.forceLocked;
+			swap->forceRetained = reg.forceRetained;
 			swap->locked = reg.locked;
 		} else {
+			_assert_msg_(!Has(swapPurpose), "softjit GrabReg() wrong purpose (%04X)", swapPurpose);
 			RegStatus newStatus = reg;
 			newStatus.reg = swapReg;
 			regs.push_back(newStatus);
@@ -787,16 +804,26 @@ void PixelRegCache::GrabReg(PixelRegCache::Reg r, PixelRegCache::Purpose p, Pixe
 
 		reg.purpose = p;
 		reg.locked = 1;
-		reg.forceLocked = false;
+		reg.forceRetained = false;
 		return;
 	}
 
 	_assert_msg_(false, "softjit GrabReg() reg that isn't there");
 }
 
-PixelRegCache::RegStatus *PixelRegCache::FindReg(PixelRegCache::Reg r, PixelRegCache::Type t) {
+PixelRegCache::RegStatus *PixelRegCache::FindReg(Reg r, Purpose p) {
 	for (auto &reg : regs) {
-		if (reg.reg == r && reg.type == t) {
+		if (reg.reg == r && reg.purpose == p) {
+			return &reg;
+		}
+	}
+
+	return nullptr;
+}
+
+PixelRegCache::RegStatus *PixelRegCache::FindReg(Reg r, bool isGen) {
+	for (auto &reg : regs) {
+		if (reg.reg == r && (reg.purpose & FLAG_GEN) == (isGen ? FLAG_GEN : 0)) {
 			return &reg;
 		}
 	}

@@ -65,50 +65,50 @@ static OpArg MConstDisp(X64Reg r, const T *t) {
 
 SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 	// Setup the reg cache.
-	regCache_.Add(RAX, PixelRegCache::T_GEN, PixelRegCache::INVALID);
-	regCache_.Add(R10, PixelRegCache::T_GEN, PixelRegCache::INVALID);
-	regCache_.Add(R11, PixelRegCache::T_GEN, PixelRegCache::INVALID);
-	regCache_.Add(XMM1, PixelRegCache::T_VEC, PixelRegCache::INVALID);
-	regCache_.Add(XMM2, PixelRegCache::T_VEC, PixelRegCache::INVALID);
-	regCache_.Add(XMM3, PixelRegCache::T_VEC, PixelRegCache::INVALID);
-	regCache_.Add(XMM5, PixelRegCache::T_VEC, PixelRegCache::INVALID);
+	regCache_.Add(RAX, PixelRegCache::GEN_INVALID);
+	regCache_.Add(R10, PixelRegCache::GEN_INVALID);
+	regCache_.Add(R11, PixelRegCache::GEN_INVALID);
+	regCache_.Add(XMM1, PixelRegCache::VEC_INVALID);
+	regCache_.Add(XMM2, PixelRegCache::VEC_INVALID);
+	regCache_.Add(XMM3, PixelRegCache::VEC_INVALID);
+	regCache_.Add(XMM5, PixelRegCache::VEC_INVALID);
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	// Must save: RBX, RSP, RBP, RDI, RSI, R12-R15, XMM6-15
 
-	regCache_.Add(XMM0, PixelRegCache::T_VEC, PixelRegCache::INVALID);
+	regCache_.Add(XMM0, PixelRegCache::VEC_INVALID);
 
-	regCache_.Add(RCX, PixelRegCache::T_GEN, PixelRegCache::ARG_X);
-	regCache_.Add(RDX, PixelRegCache::T_GEN, PixelRegCache::ARG_Y);
-	regCache_.Add(R8, PixelRegCache::T_GEN, PixelRegCache::ARG_Z);
-	regCache_.Add(R9, PixelRegCache::T_GEN, PixelRegCache::ARG_FOG);
-	regCache_.Add(XMM4, PixelRegCache::T_VEC, PixelRegCache::ARG_COLOR);
+	regCache_.Add(RCX, PixelRegCache::GEN_ARG_X);
+	regCache_.Add(RDX, PixelRegCache::GEN_ARG_Y);
+	regCache_.Add(R8, PixelRegCache::GEN_ARG_Z);
+	regCache_.Add(R9, PixelRegCache::GEN_ARG_FOG);
+	regCache_.Add(XMM4, PixelRegCache::VEC_ARG_COLOR);
 
 	// Windows reserves space to save args, 1 xmm + 4 ints before the id.
 	stackIDOffset_ = 1 * 16 + 4 * PTRBITS / 8;
 #else
 	// Must save: RBX, RSP, RBP, R12-R15
 
-	regCache_.Add(R8, PixelRegCache::T_GEN, PixelRegCache::INVALID);
-	regCache_.Add(R9, PixelRegCache::T_GEN, PixelRegCache::INVALID);
-	regCache_.Add(XMM4, PixelRegCache::T_VEC, PixelRegCache::INVALID);
+	regCache_.Add(R8, PixelRegCache::GEN_INVALID);
+	regCache_.Add(R9, PixelRegCache::GEN_INVALID);
+	regCache_.Add(XMM4, PixelRegCache::VEC_INVALID);
 
-	regCache_.Add(RDI, PixelRegCache::T_GEN, PixelRegCache::ARG_X);
-	regCache_.Add(RSI, PixelRegCache::T_GEN, PixelRegCache::ARG_Y);
-	regCache_.Add(RDX, PixelRegCache::T_GEN, PixelRegCache::ARG_Z);
-	regCache_.Add(RCX, PixelRegCache::T_GEN, PixelRegCache::ARG_FOG);
-	regCache_.Add(XMM0, PixelRegCache::T_VEC, PixelRegCache::ARG_COLOR);
+	regCache_.Add(RDI, PixelRegCache::GEN_ARG_X);
+	regCache_.Add(RSI, PixelRegCache::GEN_ARG_Y);
+	regCache_.Add(RDX, PixelRegCache::GEN_ARG_Z);
+	regCache_.Add(RCX, PixelRegCache::GEN_ARG_FOG);
+	regCache_.Add(XMM0, PixelRegCache::VEC_ARG_COLOR);
 
 	// Here we just have the return and padding to align RPB.
 	stackIDOffset_ = 16;
 #endif
 
-	// Initially, disallow spill for args (they get unlocked when unused.)
-	regCache_.ForceLock(PixelRegCache::ARG_X, PixelRegCache::T_GEN);
-	regCache_.ForceLock(PixelRegCache::ARG_Y, PixelRegCache::T_GEN);
-	regCache_.ForceLock(PixelRegCache::ARG_Z, PixelRegCache::T_GEN);
-	regCache_.ForceLock(PixelRegCache::ARG_FOG, PixelRegCache::T_GEN);
-	regCache_.ForceLock(PixelRegCache::ARG_COLOR, PixelRegCache::T_VEC);
+	// Initially, disallow spill for args (they get unlocked when no longer needed.)
+	regCache_.ForceRetain(PixelRegCache::GEN_ARG_X);
+	regCache_.ForceRetain(PixelRegCache::GEN_ARG_Y);
+	regCache_.ForceRetain(PixelRegCache::GEN_ARG_Z);
+	regCache_.ForceRetain(PixelRegCache::GEN_ARG_FOG);
+	regCache_.ForceRetain(PixelRegCache::VEC_ARG_COLOR);
 
 	BeginWrite();
 	const u8 *start = AlignCode16();
@@ -119,10 +119,10 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 
 	// Next, let's clamp the color (might affect alpha test, and everything expects it clamped.)
 	// We simply convert to 4x8-bit to clamp.  Everything else expects color in this format.
-	X64Reg argColorReg = regCache_.Find(PixelRegCache::ARG_COLOR, PixelRegCache::T_VEC);
+	X64Reg argColorReg = regCache_.Find(PixelRegCache::VEC_ARG_COLOR);
 	PACKSSDW(argColorReg, R(argColorReg));
 	PACKUSWB(argColorReg, R(argColorReg));
-	regCache_.Unlock(argColorReg, PixelRegCache::T_VEC);
+	regCache_.Unlock(argColorReg, PixelRegCache::VEC_ARG_COLOR);
 	colorIs16Bit_ = false;
 
 	success = success && Jit_AlphaTest(id);
@@ -162,39 +162,39 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 }
 
 PixelRegCache::Reg PixelJitCache::GetGState() {
-	if (!regCache_.Has(PixelRegCache::GSTATE, PixelRegCache::T_GEN)) {
-		X64Reg r = regCache_.Alloc(PixelRegCache::GSTATE, PixelRegCache::T_GEN);
+	if (!regCache_.Has(PixelRegCache::GEN_GSTATE)) {
+		X64Reg r = regCache_.Alloc(PixelRegCache::GEN_GSTATE);
 		MOV(PTRBITS, R(r), ImmPtr(&gstate.nop));
 		return r;
 	}
-	return regCache_.Find(PixelRegCache::GSTATE, PixelRegCache::T_GEN);
+	return regCache_.Find(PixelRegCache::GEN_GSTATE);
 }
 
 PixelRegCache::Reg PixelJitCache::GetConstBase() {
-	if (!regCache_.Has(PixelRegCache::CONST_BASE, PixelRegCache::T_GEN)) {
-		X64Reg r = regCache_.Alloc(PixelRegCache::CONST_BASE, PixelRegCache::T_GEN);
+	if (!regCache_.Has(PixelRegCache::GEN_CONST_BASE)) {
+		X64Reg r = regCache_.Alloc(PixelRegCache::GEN_CONST_BASE);
 		MOV(PTRBITS, R(r), ImmPtr(&const255_16s[0]));
 		return r;
 	}
-	return regCache_.Find(PixelRegCache::CONST_BASE, PixelRegCache::T_GEN);
+	return regCache_.Find(PixelRegCache::GEN_CONST_BASE);
 }
 
 PixelRegCache::Reg PixelJitCache::GetZeroVec() {
-	if (!regCache_.Has(PixelRegCache::ZERO, PixelRegCache::T_VEC)) {
-		X64Reg r = regCache_.Alloc(PixelRegCache::ZERO, PixelRegCache::T_VEC);
+	if (!regCache_.Has(PixelRegCache::VEC_ZERO)) {
+		X64Reg r = regCache_.Alloc(PixelRegCache::VEC_ZERO);
 		PXOR(r, R(r));
 		return r;
 	}
-	return regCache_.Find(PixelRegCache::ZERO, PixelRegCache::T_VEC);
+	return regCache_.Find(PixelRegCache::VEC_ZERO);
 }
 
 PixelRegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
-	if (!regCache_.Has(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN)) {
+	if (!regCache_.Has(PixelRegCache::GEN_COLOR_OFF)) {
 		if (id.useStandardStride && !id.dithering) {
 			bool loadDepthOff = id.depthWrite || id.DepthTestFunc() != GE_COMP_ALWAYS;
 			X64Reg depthTemp = INVALID_REG;
-			X64Reg argYReg = regCache_.Find(PixelRegCache::ARG_Y, PixelRegCache::T_GEN);
-			X64Reg argXReg = regCache_.Find(PixelRegCache::ARG_X, PixelRegCache::T_GEN);
+			X64Reg argYReg = regCache_.Find(PixelRegCache::GEN_ARG_Y);
+			X64Reg argXReg = regCache_.Find(PixelRegCache::GEN_ARG_X);
 
 			// In this mode, we force argXReg to the off, and throw away argYReg.
 			SHL(32, R(argYReg), Imm8(9));
@@ -203,7 +203,7 @@ PixelRegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 			// Now add the pointer for the color buffer.
 			if (loadDepthOff) {
 				_assert_(Accessible(&fb.data, &depthbuf.data));
-				depthTemp = regCache_.Alloc(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN);
+				depthTemp = regCache_.Alloc(PixelRegCache::GEN_DEPTH_OFF);
 				MOV(PTRBITS, R(depthTemp), ImmPtr(&fb.data));
 				MOV(PTRBITS, R(argYReg), MatR(depthTemp));
 			} else {
@@ -211,101 +211,102 @@ PixelRegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 				MOV(PTRBITS, R(argYReg), MatR(argYReg));
 			}
 			LEA(PTRBITS, argYReg, MComplex(argYReg, argXReg, id.FBFormat() == GE_FORMAT_8888 ? 4 : 2, 0));
-			// With that, argYOff is now COLOR_OFF.
-			regCache_.Change(argYReg, PixelRegCache::T_GEN, PixelRegCache::COLOR_OFF);
-			// Lock it, because we can't recalculate this.
-			regCache_.ForceLock(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
-			regCache_.Unlock(argYReg, PixelRegCache::T_GEN);
+			// With that, argYOff is now GEN_COLOR_OFF.
+			regCache_.Unlock(argYReg, PixelRegCache::GEN_ARG_Y);
+			regCache_.Change(PixelRegCache::GEN_ARG_Y, PixelRegCache::GEN_COLOR_OFF);
+			// Retain it, because we can't recalculate this.
+			regCache_.ForceRetain(PixelRegCache::GEN_COLOR_OFF);
 
 			// Next, also calculate the depth offset, unless we won't need it at all.
 			if (loadDepthOff) {
 				MOV(PTRBITS, R(depthTemp), MAccessibleDisp(depthTemp, &fb.data, &depthbuf.data));
 				LEA(PTRBITS, argXReg, MComplex(depthTemp, argXReg, 2, 0));
-				regCache_.Release(depthTemp, PixelRegCache::T_GEN);
+				regCache_.Release(depthTemp, PixelRegCache::GEN_DEPTH_OFF);
 
-				// Okay, same deal - release as DEPTH_OFF and force lock.
-				regCache_.Change(argXReg, PixelRegCache::T_GEN, PixelRegCache::DEPTH_OFF);
-				regCache_.ForceLock(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN);
-				regCache_.Unlock(argXReg, PixelRegCache::T_GEN);
+				// Okay, same deal - release as GEN_DEPTH_OFF and force retain it.
+				regCache_.Unlock(argXReg, PixelRegCache::GEN_ARG_X);
+				regCache_.Change(PixelRegCache::GEN_ARG_X, PixelRegCache::GEN_DEPTH_OFF);
+				regCache_.ForceRetain(PixelRegCache::GEN_DEPTH_OFF);
 			} else {
-				regCache_.Unlock(argXReg, PixelRegCache::T_GEN);
-				regCache_.ForceRelease(PixelRegCache::ARG_X, PixelRegCache::T_GEN);
+				regCache_.Unlock(argXReg, PixelRegCache::GEN_ARG_X);
+				regCache_.ForceRelease(PixelRegCache::GEN_ARG_X);
 			}
 
-			return regCache_.Find(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
+			return regCache_.Find(PixelRegCache::GEN_COLOR_OFF);
 		}
 
-		X64Reg argYReg = regCache_.Find(PixelRegCache::ARG_Y, PixelRegCache::T_GEN);
+		X64Reg argYReg = regCache_.Find(PixelRegCache::GEN_ARG_Y);
 		X64Reg r;
 		if (id.useStandardStride) {
-			r = regCache_.Alloc(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
+			r = regCache_.Alloc(PixelRegCache::GEN_COLOR_OFF);
 			MOV(32, R(r), R(argYReg));
 			SHL(32, R(r), Imm8(9));
 		} else {
 			X64Reg gstateReg = GetGState();
-			r = regCache_.Alloc(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
+			r = regCache_.Alloc(PixelRegCache::GEN_COLOR_OFF);
 			MOVZX(32, 16, r, MDisp(gstateReg, offsetof(GPUgstate, fbwidth)));
-			regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+			regCache_.Unlock(gstateReg, PixelRegCache::GEN_GSTATE);
 
 			AND(16, R(r), Imm16(0x07FC));
 			IMUL(32, r, R(argYReg));
 		}
-		regCache_.Unlock(argYReg, PixelRegCache::T_GEN);
+		regCache_.Unlock(argYReg, PixelRegCache::GEN_ARG_Y);
 
-		X64Reg argXReg = regCache_.Find(PixelRegCache::ARG_X, PixelRegCache::T_GEN);
+		X64Reg argXReg = regCache_.Find(PixelRegCache::GEN_ARG_X);
 		ADD(32, R(r), R(argXReg));
-		regCache_.Unlock(argXReg, PixelRegCache::T_GEN);
+		regCache_.Unlock(argXReg, PixelRegCache::GEN_ARG_X);
 
-		X64Reg temp = regCache_.Alloc(PixelRegCache::TEMP_HELPER, PixelRegCache::T_GEN);
+		X64Reg temp = regCache_.Alloc(PixelRegCache::GEN_TEMP_HELPER);
 		MOV(PTRBITS, R(temp), ImmPtr(&fb.data));
 		MOV(PTRBITS, R(temp), MatR(temp));
 		LEA(PTRBITS, r, MComplex(temp, r, id.FBFormat() == GE_FORMAT_8888 ? 4 : 2, 0));
-		regCache_.Release(temp, PixelRegCache::T_GEN);
+		regCache_.Release(temp, PixelRegCache::GEN_TEMP_HELPER);
 
 		return r;
 	}
-	return regCache_.Find(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
+	return regCache_.Find(PixelRegCache::GEN_COLOR_OFF);
 }
 
 PixelRegCache::Reg PixelJitCache::GetDepthOff(const PixelFuncID &id) {
-	if (!regCache_.Has(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN)) {
+	if (!regCache_.Has(PixelRegCache::GEN_DEPTH_OFF)) {
 		// If both color and depth use 512, the offsets are the same.
 		if (id.useStandardStride && !id.dithering) {
 			// Calculate once inside GetColorOff().
-			regCache_.Unlock(GetColorOff(id), PixelRegCache::T_GEN);
-			return regCache_.Find(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN);
+			X64Reg colorOffReg = GetColorOff(id);
+			regCache_.Unlock(colorOffReg, PixelRegCache::GEN_COLOR_OFF);
+			return regCache_.Find(PixelRegCache::GEN_DEPTH_OFF);
 		}
 
-		X64Reg argYReg = regCache_.Find(PixelRegCache::ARG_Y, PixelRegCache::T_GEN);
+		X64Reg argYReg = regCache_.Find(PixelRegCache::GEN_ARG_Y);
 		X64Reg r;
 		if (id.useStandardStride) {
-			r = regCache_.Alloc(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN);
+			r = regCache_.Alloc(PixelRegCache::GEN_DEPTH_OFF);
 			MOV(32, R(r), R(argYReg));
 			SHL(32, R(r), Imm8(9));
 		} else {
 			X64Reg gstateReg = GetGState();
-			r = regCache_.Alloc(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN);
+			r = regCache_.Alloc(PixelRegCache::GEN_DEPTH_OFF);
 			MOVZX(32, 16, r, MDisp(gstateReg, offsetof(GPUgstate, zbwidth)));
-			regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+			regCache_.Unlock(gstateReg, PixelRegCache::GEN_GSTATE);
 
 			AND(16, R(r), Imm16(0x07FC));
 			IMUL(32, r, R(argYReg));
 		}
-		regCache_.Unlock(argYReg, PixelRegCache::T_GEN);
+		regCache_.Unlock(argYReg, PixelRegCache::GEN_ARG_Y);
 
-		X64Reg argXReg = regCache_.Find(PixelRegCache::ARG_X, PixelRegCache::T_GEN);
+		X64Reg argXReg = regCache_.Find(PixelRegCache::GEN_ARG_X);
 		ADD(32, R(r), R(argXReg));
-		regCache_.Unlock(argXReg, PixelRegCache::T_GEN);
+		regCache_.Unlock(argXReg, PixelRegCache::GEN_ARG_X);
 
-		X64Reg temp = regCache_.Alloc(PixelRegCache::TEMP_HELPER, PixelRegCache::T_GEN);
+		X64Reg temp = regCache_.Alloc(PixelRegCache::GEN_TEMP_HELPER);
 		MOV(PTRBITS, R(temp), ImmPtr(&depthbuf.data));
 		MOV(PTRBITS, R(temp), MatR(temp));
 		LEA(PTRBITS, r, MComplex(temp, r, 2, 0));
-		regCache_.Release(temp, PixelRegCache::T_GEN);
+		regCache_.Release(temp, PixelRegCache::GEN_TEMP_HELPER);
 
 		return r;
 	}
-	return regCache_.Find(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN);
+	return regCache_.Find(PixelRegCache::GEN_DEPTH_OFF);
 }
 
 
@@ -315,7 +316,7 @@ PixelRegCache::Reg PixelJitCache::GetDestStencil(const PixelFuncID &id) {
 		return INVALID_REG;
 
 	X64Reg colorOffReg = GetColorOff(id);
-	X64Reg stencilReg = regCache_.Alloc(PixelRegCache::STENCIL, PixelRegCache::T_GEN);
+	X64Reg stencilReg = regCache_.Alloc(PixelRegCache::GEN_STENCIL);
 	if (id.FBFormat() == GE_FORMAT_8888) {
 		MOVZX(32, 8, stencilReg, MDisp(colorOffReg, 3));
 	} else if (id.FBFormat() == GE_FORMAT_5551) {
@@ -324,13 +325,13 @@ PixelRegCache::Reg PixelJitCache::GetDestStencil(const PixelFuncID &id) {
 	} else if (id.FBFormat() == GE_FORMAT_4444) {
 		MOVZX(32, 8, stencilReg, MDisp(colorOffReg, 1));
 		SHR(32, R(stencilReg), Imm8(4));
-		X64Reg temp = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_GEN);
+		X64Reg temp = regCache_.Alloc(PixelRegCache::GEN_TEMP_HELPER);
 		MOV(32, R(temp), R(stencilReg));
 		SHL(32, R(temp), Imm8(4));
 		OR(32, R(stencilReg), R(temp));
-		regCache_.Release(temp, PixelRegCache::T_GEN);
+		regCache_.Release(temp, PixelRegCache::GEN_TEMP_HELPER);
 	}
-	regCache_.Unlock(colorOffReg, PixelRegCache::T_GEN);
+	regCache_.Unlock(colorOffReg, PixelRegCache::GEN_COLOR_OFF);
 
 	return stencilReg;
 }
@@ -346,30 +347,30 @@ void PixelJitCache::Discard(Gen::CCFlags cc) {
 bool PixelJitCache::Jit_ApplyDepthRange(const PixelFuncID &id) {
 	if (id.applyDepthRange) {
 		X64Reg gstateReg = GetGState();
-		X64Reg minReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_GEN);
-		X64Reg maxReg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_GEN);
+		X64Reg minReg = regCache_.Alloc(PixelRegCache::GEN_TEMP0);
+		X64Reg maxReg = regCache_.Alloc(PixelRegCache::GEN_TEMP1);
 
 		// Only load the lowest 16 bits of each, but compare all 32 of z.
 		MOVZX(32, 16, minReg, MDisp(gstateReg, offsetof(GPUgstate, minz)));
 		MOVZX(32, 16, maxReg, MDisp(gstateReg, offsetof(GPUgstate, maxz)));
 
-		X64Reg argZReg = regCache_.Find(PixelRegCache::ARG_Z, PixelRegCache::T_GEN);
+		X64Reg argZReg = regCache_.Find(PixelRegCache::GEN_ARG_Z);
 		CMP(32, R(argZReg), R(minReg));
 		Discard(CC_L);
 		CMP(32, R(argZReg), R(maxReg));
 		Discard(CC_G);
-		regCache_.Unlock(argZReg, PixelRegCache::T_GEN);
+		regCache_.Unlock(argZReg, PixelRegCache::GEN_ARG_Z);
 
-		regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
-		regCache_.Release(minReg, PixelRegCache::T_GEN);
-		regCache_.Release(maxReg, PixelRegCache::T_GEN);
+		regCache_.Unlock(gstateReg, PixelRegCache::GEN_GSTATE);
+		regCache_.Release(minReg, PixelRegCache::GEN_TEMP0);
+		regCache_.Release(maxReg, PixelRegCache::GEN_TEMP1);
 	}
 
 	// Since this is early on, try to free up the z reg if we don't need it anymore.
 	if (id.clearMode && !id.DepthClear())
-		regCache_.ForceRelease(PixelRegCache::ARG_Z, PixelRegCache::T_GEN);
+		regCache_.ForceRelease(PixelRegCache::GEN_ARG_Z);
 	else if (!id.clearMode && !id.depthWrite && id.DepthTestFunc() == GE_COMP_ALWAYS)
-		regCache_.ForceRelease(PixelRegCache::ARG_Z, PixelRegCache::T_GEN);
+		regCache_.ForceRelease(PixelRegCache::GEN_ARG_Z);
 
 	return true;
 }
@@ -390,14 +391,14 @@ bool PixelJitCache::Jit_AlphaTest(const PixelFuncID &id) {
 
 	// Load alpha into its own general reg.
 	X64Reg alphaReg;
-	if (regCache_.Has(PixelRegCache::SRC_ALPHA, PixelRegCache::T_GEN)) {
-		alphaReg = regCache_.Find(PixelRegCache::SRC_ALPHA, PixelRegCache::T_GEN);
+	if (regCache_.Has(PixelRegCache::GEN_SRC_ALPHA)) {
+		alphaReg = regCache_.Find(PixelRegCache::GEN_SRC_ALPHA);
 	} else {
-		alphaReg = regCache_.Alloc(PixelRegCache::SRC_ALPHA, PixelRegCache::T_GEN);
+		alphaReg = regCache_.Alloc(PixelRegCache::GEN_SRC_ALPHA);
 		_assert_(!colorIs16Bit_);
-		X64Reg argColorReg = regCache_.Find(PixelRegCache::ARG_COLOR, PixelRegCache::T_VEC);
+		X64Reg argColorReg = regCache_.Find(PixelRegCache::VEC_ARG_COLOR);
 		MOVD_xmm(R(alphaReg), argColorReg);
-		regCache_.Unlock(argColorReg, PixelRegCache::T_VEC);
+		regCache_.Unlock(argColorReg, PixelRegCache::VEC_ARG_COLOR);
 		SHR(32, R(alphaReg), Imm8(24));
 	}
 
@@ -405,24 +406,24 @@ bool PixelJitCache::Jit_AlphaTest(const PixelFuncID &id) {
 		// Unfortunate, we'll need gstate to load the mask.
 		// Note: we leave the ALPHA purpose untouched and free it, because later code may reuse.
 		X64Reg gstateReg = GetGState();
-		X64Reg maskedReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_GEN);
+		X64Reg maskedReg = regCache_.Alloc(PixelRegCache::GEN_TEMP0);
 
 		// The mask is >> 16, so we load + 2.
 		MOVZX(32, 8, maskedReg, MDisp(gstateReg, offsetof(GPUgstate, alphatest) + 2));
-		regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+		regCache_.Unlock(gstateReg, PixelRegCache::GEN_GSTATE);
 		AND(32, R(maskedReg), R(alphaReg));
-		regCache_.Unlock(alphaReg, PixelRegCache::T_GEN);
+		regCache_.Unlock(alphaReg, PixelRegCache::GEN_SRC_ALPHA);
 
 		// Okay now do the rest using the masked reg, which we modified.
 		alphaReg = maskedReg;
-		// Pre-emptively release, we don't need any other regs.
-		regCache_.Release(maskedReg, PixelRegCache::T_GEN);
-	} else {
-		regCache_.Unlock(alphaReg, PixelRegCache::T_GEN);
 	}
 
 	// We hardcode the ref into this jit func.
 	CMP(8, R(alphaReg), Imm8(id.alphaTestRef));
+	if (id.hasAlphaTestMask)
+		regCache_.Release(alphaReg, PixelRegCache::GEN_TEMP0);
+	else
+		regCache_.Unlock(alphaReg, PixelRegCache::GEN_SRC_ALPHA);
 
 	switch (id.AlphaTestFunc()) {
 	case GE_COMP_NEVER:
@@ -463,9 +464,9 @@ bool PixelJitCache::Jit_ColorTest(const PixelFuncID &id) {
 
 	// We'll have 4 with fog released, so we're using them all...
 	X64Reg gstateReg = GetGState();
-	X64Reg funcReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_GEN);
-	X64Reg maskReg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_GEN);
-	X64Reg refReg = regCache_.Alloc(PixelRegCache::TEMP2, PixelRegCache::T_GEN);
+	X64Reg funcReg = regCache_.Alloc(PixelRegCache::GEN_TEMP0);
+	X64Reg maskReg = regCache_.Alloc(PixelRegCache::GEN_TEMP1);
+	X64Reg refReg = regCache_.Alloc(PixelRegCache::GEN_TEMP2);
 
 	// First, load the registers: mask and ref.
 	MOV(32, R(maskReg), MDisp(gstateReg, offsetof(GPUgstate, colortestmask)));
@@ -473,7 +474,7 @@ bool PixelJitCache::Jit_ColorTest(const PixelFuncID &id) {
 	MOV(32, R(refReg), MDisp(gstateReg, offsetof(GPUgstate, colorref)));
 	AND(32, R(refReg), R(maskReg));
 
-	X64Reg argColorReg = regCache_.Find(PixelRegCache::ARG_COLOR, PixelRegCache::T_VEC);
+	X64Reg argColorReg = regCache_.Find(PixelRegCache::VEC_ARG_COLOR);
 	if (colorIs16Bit_) {
 		// If it's expanded, we need to clamp anyway if it was fogged.
 		PACKUSWB(argColorReg, R(argColorReg));
@@ -483,12 +484,12 @@ bool PixelJitCache::Jit_ColorTest(const PixelFuncID &id) {
 	// Temporarily abuse funcReg to grab the color into maskReg.
 	MOVD_xmm(R(funcReg), argColorReg);
 	AND(32, R(maskReg), R(funcReg));
-	regCache_.Unlock(argColorReg, PixelRegCache::T_VEC);
+	regCache_.Unlock(argColorReg, PixelRegCache::VEC_ARG_COLOR);
 
 	// Now that we're setup, get the func and follow it.
 	MOVZX(32, 8, funcReg, MDisp(gstateReg, offsetof(GPUgstate, colortest)));
 	AND(8, R(funcReg), Imm8(3));
-	regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+	regCache_.Unlock(gstateReg, PixelRegCache::GEN_GSTATE);
 
 	CMP(8, R(funcReg), Imm8(GE_COMP_ALWAYS));
 	// Discard for GE_COMP_NEVER...
@@ -497,7 +498,7 @@ bool PixelJitCache::Jit_ColorTest(const PixelFuncID &id) {
 
 	CMP(8, R(funcReg), Imm8(GE_COMP_EQUAL));
 	FixupBranch doEqual = J_CC(CC_E);
-	regCache_.Release(funcReg, PixelRegCache::T_GEN);
+	regCache_.Release(funcReg, PixelRegCache::GEN_TEMP0);
 
 	// The not equal path here... if they are equal, we discard.
 	CMP(32, R(refReg), R(maskReg));
@@ -508,8 +509,8 @@ bool PixelJitCache::Jit_ColorTest(const PixelFuncID &id) {
 	CMP(32, R(refReg), R(maskReg));
 	Discard(CC_NE);
 
-	regCache_.Release(maskReg, PixelRegCache::T_GEN);
-	regCache_.Release(refReg, PixelRegCache::T_GEN);
+	regCache_.Release(maskReg, PixelRegCache::GEN_TEMP1);
+	regCache_.Release(refReg, PixelRegCache::GEN_TEMP2);
 
 	SetJumpTarget(skip);
 	SetJumpTarget(skip2);
@@ -520,12 +521,12 @@ bool PixelJitCache::Jit_ColorTest(const PixelFuncID &id) {
 bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 	if (!id.applyFog) {
 		// Okay, anyone can use the fog register then.
-		regCache_.ForceRelease(PixelRegCache::ARG_FOG, PixelRegCache::T_GEN);
+		regCache_.ForceRelease(PixelRegCache::GEN_ARG_FOG);
 		return true;
 	}
 
 	// Load fog and expand to 16 bit.  Ignore the high 8 bits, which'll match up with A.
-	X64Reg fogColorReg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_VEC);
+	X64Reg fogColorReg = regCache_.Alloc(PixelRegCache::VEC_TEMP1);
 	X64Reg gstateReg = GetGState();
 	if (cpu_info.bSSE4_1) {
 		X64Reg gstateReg = GetGState();
@@ -535,46 +536,46 @@ bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 		X64Reg zeroReg = GetZeroVec();
 		MOVD_xmm(fogColorReg, MDisp(gstateReg, offsetof(GPUgstate, fogcolor)));
 		PUNPCKLBW(fogColorReg, R(zeroReg));
-		regCache_.Unlock(zeroReg, PixelRegCache::T_VEC);
+		regCache_.Unlock(zeroReg, PixelRegCache::VEC_ZERO);
 	}
-	regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+	regCache_.Unlock(gstateReg, PixelRegCache::GEN_GSTATE);
 
 	// Load a set of 255s at 16 bit into a reg for later...
-	X64Reg invertReg = regCache_.Alloc(PixelRegCache::TEMP2, PixelRegCache::T_VEC);
+	X64Reg invertReg = regCache_.Alloc(PixelRegCache::VEC_TEMP2);
 	X64Reg constReg = GetConstBase();
 	MOVDQA(invertReg, MConstDisp(constReg, &const255_16s[0]));
-	regCache_.Unlock(constReg, PixelRegCache::T_GEN);
+	regCache_.Unlock(constReg, PixelRegCache::GEN_CONST_BASE);
 
 	// Expand (we clamped) color to 16 bit as well, so we can multiply with fog.
-	X64Reg argColorReg = regCache_.Find(PixelRegCache::ARG_COLOR, PixelRegCache::T_VEC);
+	X64Reg argColorReg = regCache_.Find(PixelRegCache::VEC_ARG_COLOR);
 	if (!colorIs16Bit_) {
 		if (cpu_info.bSSE4_1) {
 			PMOVZXBW(argColorReg, R(argColorReg));
 		} else {
 			X64Reg zeroReg = GetZeroVec();
 			PUNPCKLBW(argColorReg, R(zeroReg));
-			regCache_.Unlock(zeroReg, PixelRegCache::T_VEC);
+			regCache_.Unlock(zeroReg, PixelRegCache::VEC_ZERO);
 		}
 		colorIs16Bit_ = true;
 	}
 
 	// Save A so we can put it back, we don't "fog" A.
 	X64Reg alphaReg;
-	if (regCache_.Has(PixelRegCache::SRC_ALPHA, PixelRegCache::T_GEN)) {
-		alphaReg = regCache_.Find(PixelRegCache::SRC_ALPHA, PixelRegCache::T_GEN);
+	if (regCache_.Has(PixelRegCache::GEN_SRC_ALPHA)) {
+		alphaReg = regCache_.Find(PixelRegCache::GEN_SRC_ALPHA);
 	} else {
-		alphaReg = regCache_.Alloc(PixelRegCache::SRC_ALPHA, PixelRegCache::T_GEN);
+		alphaReg = regCache_.Alloc(PixelRegCache::GEN_SRC_ALPHA);
 		PEXTRW(alphaReg, argColorReg, 3);
 	}
 
 	// Okay, let's broadcast fog to an XMM.
-	X64Reg fogMultReg = regCache_.Alloc(PixelRegCache::TEMP3, PixelRegCache::T_VEC);
-	X64Reg argFogReg = regCache_.Find(PixelRegCache::ARG_FOG, PixelRegCache::T_GEN);
+	X64Reg fogMultReg = regCache_.Alloc(PixelRegCache::VEC_TEMP3);
+	X64Reg argFogReg = regCache_.Find(PixelRegCache::GEN_ARG_FOG);
 	MOVD_xmm(fogMultReg, R(argFogReg));
 	PSHUFLW(fogMultReg, R(fogMultReg), _MM_SHUFFLE(0, 0, 0, 0));
-	regCache_.Unlock(argFogReg, PixelRegCache::T_GEN);
+	regCache_.Unlock(argFogReg, PixelRegCache::GEN_ARG_FOG);
 	// We can free up the actual fog reg now.
-	regCache_.ForceRelease(PixelRegCache::ARG_FOG, PixelRegCache::T_GEN);
+	regCache_.ForceRelease(PixelRegCache::GEN_ARG_FOG);
 
 	// Now we multiply the existing color by fog...
 	PMULLW(argColorReg, R(fogMultReg));
@@ -583,23 +584,23 @@ bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 	PMULLW(fogColorReg, R(invertReg));
 	// At this point, argColorReg and fogColorReg are multiplied at 16-bit, so we need to sum.
 	PADDUSW(argColorReg, R(fogColorReg));
-	regCache_.Release(fogColorReg, PixelRegCache::T_VEC);
-	regCache_.Release(fogMultReg, PixelRegCache::T_VEC);
-	regCache_.Release(invertReg, PixelRegCache::T_VEC);
+	regCache_.Release(fogColorReg, PixelRegCache::VEC_TEMP1);
+	regCache_.Release(invertReg, PixelRegCache::VEC_TEMP2);
+	regCache_.Release(fogMultReg, PixelRegCache::VEC_TEMP3);
 
 	// Now to divide by 255, we use bit tricks: multiply by 0x8081, and shift right by 16+7.
 	constReg = GetConstBase();
 	PMULHUW(argColorReg, MConstDisp(constReg, &by255i));
-	regCache_.Unlock(constReg, PixelRegCache::T_GEN);
+	regCache_.Unlock(constReg, PixelRegCache::GEN_CONST_BASE);
 	// Now shift right by 7 (PMULHUW already did 16 of the shift.)
 	PSRLW(argColorReg, 7);
 
 	// Okay, put A back in, we'll shrink it to 8888 when needed.
 	PINSRW(argColorReg, R(alphaReg), 3);
-	regCache_.Unlock(argColorReg, PixelRegCache::T_VEC);
+	regCache_.Unlock(argColorReg, PixelRegCache::VEC_ARG_COLOR);
 
-	// We won't use alphaReg again, so toss it.
-	regCache_.Release(alphaReg, PixelRegCache::T_GEN);
+	// We most likely won't use alphaReg again.
+	regCache_.Unlock(alphaReg, PixelRegCache::GEN_SRC_ALPHA);
 
 	return true;
 }
@@ -611,16 +612,16 @@ bool PixelJitCache::Jit_StencilAndDepthTest(const PixelFuncID &id) {
 	X64Reg maskedReg = stencilReg;
 	if (id.hasStencilTestMask) {
 		X64Reg gstateReg = GetGState();
-		maskedReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_GEN);
+		maskedReg = regCache_.Alloc(PixelRegCache::GEN_TEMP0);
 		MOV(32, R(maskedReg), R(stencilReg));
 		AND(8, R(maskedReg), MDisp(gstateReg, offsetof(GPUgstate, stenciltest) + 2));
-		regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+		regCache_.Unlock(gstateReg, PixelRegCache::GEN_GSTATE);
 	}
 
 	bool success = true;
 	success = success && Jit_StencilTest(id, stencilReg, maskedReg);
 	if (maskedReg != stencilReg)
-		regCache_.Unlock(maskedReg, PixelRegCache::T_GEN);
+		regCache_.Unlock(maskedReg, PixelRegCache::GEN_TEMP0);
 
 	// Next up, the depth test.
 	if (stencilReg == INVALID_REG) {
@@ -633,7 +634,7 @@ bool PixelJitCache::Jit_StencilAndDepthTest(const PixelFuncID &id) {
 	success = success && Jit_ApplyStencilOp(id, id.ZPass(), stencilReg);
 
 	// At this point, stencilReg can't be spilled.  It contains the updated value.
-	regCache_.ForceLock(PixelRegCache::STENCIL, PixelRegCache::T_GEN);
+	regCache_.ForceRetain(PixelRegCache::GEN_STENCIL);
 
 	return success;
 }
@@ -719,10 +720,10 @@ bool PixelJitCache::Jit_DepthTestForStencil(const PixelFuncID &id, PixelRegCache
 		return true;
 
 	X64Reg depthOffReg = GetDepthOff(id);
-	X64Reg argZReg = regCache_.Find(PixelRegCache::ARG_Z, PixelRegCache::T_GEN);
+	X64Reg argZReg = regCache_.Find(PixelRegCache::GEN_ARG_Z);
 	CMP(16, R(argZReg), MatR(depthOffReg));
-	regCache_.Unlock(depthOffReg, PixelRegCache::T_GEN);
-	regCache_.Unlock(argZReg, PixelRegCache::T_GEN);
+	regCache_.Unlock(depthOffReg, PixelRegCache::GEN_DEPTH_OFF);
+	regCache_.Unlock(argZReg, PixelRegCache::GEN_ARG_Z);
 
 	// We discard the opposite of the passing test.
 	FixupBranch skip;
@@ -774,7 +775,7 @@ bool PixelJitCache::Jit_DepthTestForStencil(const PixelFuncID &id, PixelRegCache
 
 	// Like in Jit_DepthTest(), at this point we may not need this reg anymore.
 	if (!id.depthWrite)
-		regCache_.ForceRelease(PixelRegCache::ARG_Z, PixelRegCache::T_GEN);
+		regCache_.ForceRelease(PixelRegCache::GEN_ARG_Z);
 
 	return success;
 }
@@ -797,7 +798,7 @@ bool PixelJitCache::Jit_ApplyStencilOp(const PixelFuncID &id, GEStencilOp op, Pi
 			// Load the unmasked value.
 			X64Reg gstateReg = GetGState();
 			MOVZX(32, 8, stencilReg, MDisp(gstateReg, offsetof(GPUgstate, stenciltest) + 1));
-			regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+			regCache_.Unlock(gstateReg, PixelRegCache::GEN_GSTATE);
 		} else {
 			MOV(8, R(stencilReg), Imm8(id.stencilTestRef));
 		}
@@ -868,7 +869,7 @@ bool PixelJitCache::Jit_WriteStencilOnly(const PixelFuncID &id, PixelRegCache::R
 	X64Reg colorOffReg = GetColorOff(id);
 	if (id.applyColorWriteMask) {
 		X64Reg gstateReg = GetGState();
-		X64Reg maskReg = regCache_.Alloc(PixelRegCache::TEMP5, PixelRegCache::T_GEN);
+		X64Reg maskReg = regCache_.Alloc(PixelRegCache::GEN_TEMP5);
 
 		switch (id.fbFormat) {
 		case GE_FORMAT_565:
@@ -913,8 +914,8 @@ bool PixelJitCache::Jit_WriteStencilOnly(const PixelFuncID &id, PixelRegCache::R
 			break;
 		}
 
-		regCache_.Release(maskReg, PixelRegCache::T_GEN);
-		regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+		regCache_.Release(maskReg, PixelRegCache::GEN_TEMP5);
+		regCache_.Unlock(gstateReg, PixelRegCache::GEN_GSTATE);
 	} else {
 		switch (id.fbFormat) {
 		case GE_FORMAT_565:
@@ -938,7 +939,7 @@ bool PixelJitCache::Jit_WriteStencilOnly(const PixelFuncID &id, PixelRegCache::R
 		}
 	}
 
-	regCache_.Unlock(colorOffReg, PixelRegCache::T_GEN);
+	regCache_.Unlock(colorOffReg, PixelRegCache::GEN_COLOR_OFF);
 	return true;
 }
 
@@ -952,10 +953,10 @@ bool PixelJitCache::Jit_DepthTest(const PixelFuncID &id) {
 	}
 
 	X64Reg depthOffReg = GetDepthOff(id);
-	X64Reg argZReg = regCache_.Find(PixelRegCache::ARG_Z, PixelRegCache::T_GEN);
+	X64Reg argZReg = regCache_.Find(PixelRegCache::GEN_ARG_Z);
 	CMP(16, R(argZReg), MatR(depthOffReg));
-	regCache_.Unlock(depthOffReg, PixelRegCache::T_GEN);
-	regCache_.Unlock(argZReg, PixelRegCache::T_GEN);
+	regCache_.Unlock(depthOffReg, PixelRegCache::GEN_DEPTH_OFF);
+	regCache_.Unlock(argZReg, PixelRegCache::GEN_ARG_Z);
 
 	// We discard the opposite of the passing test.
 	switch (id.DepthTestFunc()) {
@@ -988,9 +989,9 @@ bool PixelJitCache::Jit_DepthTest(const PixelFuncID &id) {
 		break;
 	}
 
-	// If we're not writing, we don't need Z anymore.  We'll free DEPTH_OFF in Jit_WriteDepth().
+	// If we're not writing, we don't need Z anymore.  We'll free GEN_DEPTH_OFF in Jit_WriteDepth().
 	if (!id.depthWrite)
-		regCache_.ForceRelease(PixelRegCache::ARG_Z, PixelRegCache::T_GEN);
+		regCache_.ForceRelease(PixelRegCache::GEN_ARG_Z);
 
 	return true;
 }
@@ -999,16 +1000,16 @@ bool PixelJitCache::Jit_WriteDepth(const PixelFuncID &id) {
 	// Clear mode shares depthWrite for DepthClear().
 	if (id.depthWrite) {
 		X64Reg depthOffReg = GetDepthOff(id);
-		X64Reg argZReg = regCache_.Find(PixelRegCache::ARG_Z, PixelRegCache::T_GEN);
+		X64Reg argZReg = regCache_.Find(PixelRegCache::GEN_ARG_Z);
 		MOV(16, MatR(depthOffReg), R(argZReg));
-		regCache_.Unlock(depthOffReg, PixelRegCache::T_GEN);
-		regCache_.Unlock(argZReg, PixelRegCache::T_GEN);
-		regCache_.ForceRelease(PixelRegCache::ARG_Z, PixelRegCache::T_GEN);
+		regCache_.Unlock(depthOffReg, PixelRegCache::GEN_DEPTH_OFF);
+		regCache_.Unlock(argZReg, PixelRegCache::GEN_ARG_Z);
+		regCache_.ForceRelease(PixelRegCache::GEN_ARG_Z);
 	}
 
 	// We can free up this reg if we force locked it.
-	if (regCache_.Has(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN)) {
-		regCache_.ForceRelease(PixelRegCache::DEPTH_OFF, PixelRegCache::T_GEN);
+	if (regCache_.Has(PixelRegCache::GEN_DEPTH_OFF)) {
+		regCache_.ForceRelease(PixelRegCache::GEN_DEPTH_OFF);
 	}
 
 	return true;
@@ -1025,18 +1026,19 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 	bool success = true;
 
 	// Step 1: Load and expand dest color.
-	X64Reg dstReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_VEC);
-	X64Reg colorOff = GetColorOff(id);
+	X64Reg dstReg = regCache_.Alloc(PixelRegCache::VEC_TEMP0);
 	if (id.FBFormat() == GE_FORMAT_8888) {
+		X64Reg colorOff = GetColorOff(id);
 		MOVD_xmm(dstReg, MatR(colorOff));
-		regCache_.Unlock(colorOff, PixelRegCache::T_GEN);
+		regCache_.Unlock(colorOff, PixelRegCache::GEN_COLOR_OFF);
 	} else {
-		X64Reg dstGenReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_GEN);
+		X64Reg colorOff = GetColorOff(id);
+		X64Reg dstGenReg = regCache_.Alloc(PixelRegCache::GEN_TEMP0);
 		MOVZX(32, 16, dstGenReg, MatR(colorOff));
-		regCache_.Unlock(colorOff, PixelRegCache::T_GEN);
+		regCache_.Unlock(colorOff, PixelRegCache::GEN_COLOR_OFF);
 
-		X64Reg temp1Reg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_GEN);
-		X64Reg temp2Reg = regCache_.Alloc(PixelRegCache::TEMP2, PixelRegCache::T_GEN);
+		X64Reg temp1Reg = regCache_.Alloc(PixelRegCache::GEN_TEMP1);
+		X64Reg temp2Reg = regCache_.Alloc(PixelRegCache::GEN_TEMP2);
 
 		switch (id.fbFormat) {
 		case GE_FORMAT_565:
@@ -1058,16 +1060,16 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 
 		MOVD_xmm(dstReg, R(dstGenReg));
 
-		regCache_.Release(temp1Reg, PixelRegCache::T_GEN);
-		regCache_.Release(temp2Reg, PixelRegCache::T_GEN);
-		regCache_.Release(dstGenReg, PixelRegCache::T_GEN);
+		regCache_.Release(dstGenReg, PixelRegCache::GEN_TEMP0);
+		regCache_.Release(temp1Reg, PixelRegCache::GEN_TEMP1);
+		regCache_.Release(temp2Reg, PixelRegCache::GEN_TEMP2);
 	}
 
 	// Step 2: Load and apply factors.
-	X64Reg argColorReg = regCache_.Find(PixelRegCache::ARG_COLOR, PixelRegCache::T_VEC);
+	X64Reg argColorReg = regCache_.Find(PixelRegCache::VEC_ARG_COLOR);
 	if (blendState.usesFactors) {
-		X64Reg srcFactorReg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_VEC);
-		X64Reg dstFactorReg = regCache_.Alloc(PixelRegCache::TEMP2, PixelRegCache::T_VEC);
+		X64Reg srcFactorReg = regCache_.Alloc(PixelRegCache::VEC_TEMP1);
+		X64Reg dstFactorReg = regCache_.Alloc(PixelRegCache::VEC_TEMP2);
 
 		// We apply these at 16-bit, because they can be doubled and have a half offset.
 		if (cpu_info.bSSE4_1) {
@@ -1079,7 +1081,7 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 			if (!colorIs16Bit_)
 				PUNPCKLBW(argColorReg, R(zeroReg));
 			PUNPCKLBW(dstReg, R(zeroReg));
-			regCache_.Unlock(zeroReg, PixelRegCache::T_VEC);
+			regCache_.Unlock(zeroReg, PixelRegCache::VEC_ZERO);
 		}
 		colorIs16Bit_ = true;
 
@@ -1093,10 +1095,10 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 		success = success && Jit_DstBlendFactor(id, srcFactorReg, dstFactorReg, dstReg);
 
 		X64Reg constReg = GetConstBase();
-		X64Reg halfReg = regCache_.Alloc(PixelRegCache::TEMP3, PixelRegCache::T_VEC);
+		X64Reg halfReg = regCache_.Alloc(PixelRegCache::VEC_TEMP3);
 		// We'll use this several times, so load into a reg.
 		MOVDQA(halfReg, MConstDisp(constReg, &blendHalf_11_4s[0]));
-		regCache_.Unlock(constReg, PixelRegCache::T_GEN);
+		regCache_.Unlock(constReg, PixelRegCache::GEN_CONST_BASE);
 
 		// Add in the half bit to the factors and color values, then multiply.
 		// We take the high 16 bits to get a free right shift by 16.
@@ -1108,9 +1110,9 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 		POR(dstReg, R(halfReg));
 		PMULHUW(dstReg, R(dstFactorReg));
 
-		regCache_.Release(halfReg, PixelRegCache::T_VEC);
-		regCache_.Release(srcFactorReg, PixelRegCache::T_VEC);
-		regCache_.Release(dstFactorReg, PixelRegCache::T_VEC);
+		regCache_.Release(srcFactorReg, PixelRegCache::VEC_TEMP1);
+		regCache_.Release(dstFactorReg, PixelRegCache::VEC_TEMP2);
+		regCache_.Release(halfReg, PixelRegCache::VEC_TEMP3);
 	} else if (colorIs16Bit_) {
 		// If it's expanded, shrink and clamp for our min/max/absdiff handling.
 		PACKUSWB(argColorReg, R(argColorReg));
@@ -1120,7 +1122,7 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 	// Step 3: Apply equation.
 	// Note: below, we completely ignore what happens to the alpha bits.
 	// It won't matter, since we'll replace those with stencil anyway.
-	X64Reg tempReg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_VEC);
+	X64Reg tempReg = regCache_.Alloc(PixelRegCache::VEC_TEMP1);
 	switch (id.AlphaBlendEq()) {
 	case GE_BLENDMODE_MUL_AND_ADD:
 		PADDUSW(argColorReg, R(dstReg));
@@ -1155,9 +1157,9 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 		break;
 	}
 
-	regCache_.Release(tempReg, PixelRegCache::T_VEC);
-	regCache_.Release(dstReg, PixelRegCache::T_VEC);
-	regCache_.Unlock(argColorReg, PixelRegCache::T_VEC);
+	regCache_.Release(dstReg, PixelRegCache::VEC_TEMP0);
+	regCache_.Release(tempReg, PixelRegCache::VEC_TEMP1);
+	regCache_.Unlock(argColorReg, PixelRegCache::VEC_ARG_COLOR);
 
 	return success;
 }
@@ -1167,7 +1169,7 @@ bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, PixelRegCache::Reg fa
 	X64Reg constReg = INVALID_REG;
 	X64Reg gstateReg = INVALID_REG;
 	X64Reg tempReg = INVALID_REG;
-	X64Reg argColorReg = regCache_.Find(PixelRegCache::ARG_COLOR, PixelRegCache::T_VEC);
+	X64Reg argColorReg = regCache_.Find(PixelRegCache::VEC_ARG_COLOR);
 
 	// Everything below expects an expanded 16-bit color
 	_assert_(colorIs16Bit_);
@@ -1192,7 +1194,7 @@ bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, PixelRegCache::Reg fa
 
 	case GE_SRCBLEND_INVSRCALPHA:
 		constReg = GetConstBase();
-		tempReg = regCache_.Alloc(PixelRegCache::TEMP3, PixelRegCache::T_VEC);
+		tempReg = regCache_.Alloc(PixelRegCache::VEC_TEMP3);
 
 		MOVDQA(factorReg, MConstDisp(constReg, &blendInvert_11_4s[0]));
 		PSHUFLW(tempReg, R(argColorReg), _MM_SHUFFLE(3, 3, 3, 3));
@@ -1205,7 +1207,7 @@ bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, PixelRegCache::Reg fa
 
 	case GE_SRCBLEND_INVDSTALPHA:
 		constReg = GetConstBase();
-		tempReg = regCache_.Alloc(PixelRegCache::TEMP3, PixelRegCache::T_VEC);
+		tempReg = regCache_.Alloc(PixelRegCache::VEC_TEMP3);
 
 		MOVDQA(factorReg, MConstDisp(constReg, &blendInvert_11_4s[0]));
 		PSHUFLW(tempReg, R(dstReg), _MM_SHUFFLE(3, 3, 3, 3));
@@ -1219,7 +1221,7 @@ bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, PixelRegCache::Reg fa
 
 	case GE_SRCBLEND_DOUBLEINVSRCALPHA:
 		constReg = GetConstBase();
-		tempReg = regCache_.Alloc(PixelRegCache::TEMP3, PixelRegCache::T_VEC);
+		tempReg = regCache_.Alloc(PixelRegCache::VEC_TEMP3);
 
 		MOVDQA(factorReg, MConstDisp(constReg, &blendInvert_11_4s[0]));
 		PSHUFLW(tempReg, R(argColorReg), _MM_SHUFFLE(3, 3, 3, 3));
@@ -1234,7 +1236,7 @@ bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, PixelRegCache::Reg fa
 
 	case GE_SRCBLEND_DOUBLEINVDSTALPHA:
 		constReg = GetConstBase();
-		tempReg = regCache_.Alloc(PixelRegCache::TEMP3, PixelRegCache::T_VEC);
+		tempReg = regCache_.Alloc(PixelRegCache::VEC_TEMP3);
 
 		MOVDQA(factorReg, MConstDisp(constReg, &blendInvert_11_4s[0]));
 		PSHUFLW(tempReg, R(dstReg), _MM_SHUFFLE(3, 3, 3, 3));
@@ -1251,7 +1253,7 @@ bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, PixelRegCache::Reg fa
 		} else {
 			X64Reg zeroReg = GetZeroVec();
 			PUNPCKLBW(factorReg, R(zeroReg));
-			regCache_.Unlock(zeroReg, PixelRegCache::T_VEC);
+			regCache_.Unlock(zeroReg, PixelRegCache::VEC_ZERO);
 		}
 		// Round it out by shifting into place.
 		PSLLW(factorReg, 4);
@@ -1259,12 +1261,12 @@ bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, PixelRegCache::Reg fa
 	}
 
 	if (constReg != INVALID_REG)
-		regCache_.Unlock(constReg, PixelRegCache::T_GEN);
+		regCache_.Unlock(constReg, PixelRegCache::GEN_CONST_BASE);
 	if (gstateReg != INVALID_REG)
-		regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+		regCache_.Unlock(gstateReg, PixelRegCache::GEN_GSTATE);
 	if (tempReg != INVALID_REG)
-		regCache_.Release(tempReg, PixelRegCache::T_VEC);
-	regCache_.Unlock(argColorReg, PixelRegCache::T_VEC);
+		regCache_.Release(tempReg, PixelRegCache::VEC_TEMP3);
+	regCache_.Unlock(argColorReg, PixelRegCache::VEC_ARG_COLOR);
 
 	return true;
 }
@@ -1273,7 +1275,7 @@ bool PixelJitCache::Jit_DstBlendFactor(const PixelFuncID &id, PixelRegCache::Reg
 	bool success = true;
 	X64Reg constReg = INVALID_REG;
 	X64Reg gstateReg = INVALID_REG;
-	X64Reg argColorReg = regCache_.Find(PixelRegCache::ARG_COLOR, PixelRegCache::T_VEC);
+	X64Reg argColorReg = regCache_.Find(PixelRegCache::VEC_ARG_COLOR);
 
 	// Everything below expects an expanded 16-bit color
 	_assert_(colorIs16Bit_);
@@ -1322,7 +1324,7 @@ bool PixelJitCache::Jit_DstBlendFactor(const PixelFuncID &id, PixelRegCache::Reg
 		} else {
 			X64Reg zeroReg = GetZeroVec();
 			PUNPCKLBW(dstFactorReg, R(zeroReg));
-			regCache_.Unlock(zeroReg, PixelRegCache::T_VEC);
+			regCache_.Unlock(zeroReg, PixelRegCache::VEC_ZERO);
 		}
 		// Round it out by shifting into place.
 		PSLLW(dstFactorReg, 4);
@@ -1330,10 +1332,10 @@ bool PixelJitCache::Jit_DstBlendFactor(const PixelFuncID &id, PixelRegCache::Reg
 	}
 
 	if (constReg != INVALID_REG)
-		regCache_.Unlock(constReg, PixelRegCache::T_GEN);
+		regCache_.Unlock(constReg, PixelRegCache::GEN_CONST_BASE);
 	if (gstateReg != INVALID_REG)
-		regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
-	regCache_.Unlock(argColorReg, PixelRegCache::T_VEC);
+		regCache_.Unlock(gstateReg, PixelRegCache::GEN_GSTATE);
+	regCache_.Unlock(argColorReg, PixelRegCache::VEC_ARG_COLOR);
 
 	return success;
 }
@@ -1345,40 +1347,47 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 #ifndef SOFTPIXEL_USE_CACHE
 	X64Reg gstateReg = GetGState();
 #endif
-	X64Reg valueReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_GEN);
+	X64Reg valueReg = regCache_.Alloc(PixelRegCache::GEN_TEMP0);
 
 	// Load the row dither matrix entry (will still need to get the X.)
-	X64Reg argYReg = regCache_.Find(PixelRegCache::ARG_Y, PixelRegCache::T_GEN);
+	X64Reg argYReg = regCache_.Find(PixelRegCache::GEN_ARG_Y);
 	MOV(32, R(valueReg), R(argYReg));
 	AND(32, R(valueReg), Imm8(3));
 #ifndef SOFTPIXEL_USE_CACHE
 	MOVZX(32, 16, valueReg, MComplex(gstateReg, valueReg, 4, offsetof(GPUgstate, dithmtx)));
-	regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+	regCache_.Unlock(gstateReg, PixelRegCache::GEN_GSTATE);
 #endif
 
-	// At this point, we're done with depth and y, so let's grab COLOR_OFF and lock it.
+	// At this point, we're done with depth and y, so let's grab GEN_COLOR_OFF and retain it.
 	// Then we can modify x and throw it away too, which is our actual goal.
-	regCache_.Unlock(GetColorOff(id), PixelRegCache::T_GEN);
-	regCache_.ForceLock(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
+	X64Reg colorOffReg = GetColorOff(id);
+	regCache_.Unlock(colorOffReg, PixelRegCache::GEN_COLOR_OFF);
+	regCache_.ForceRetain(PixelRegCache::GEN_COLOR_OFF);
 	// And get rid of y, we can use for other regs.
-	regCache_.Unlock(argYReg, PixelRegCache::T_GEN);
-	regCache_.ForceRelease(PixelRegCache::ARG_Y, PixelRegCache::T_GEN);
+	regCache_.Unlock(argYReg, PixelRegCache::GEN_ARG_Y);
+	regCache_.ForceRelease(PixelRegCache::GEN_ARG_Y);
 
-	X64Reg argXReg = regCache_.Find(PixelRegCache::ARG_X, PixelRegCache::T_GEN);
+	X64Reg argXReg = regCache_.Find(PixelRegCache::GEN_ARG_X);
 	AND(32, R(argXReg), Imm32(3));
 
 #ifndef SOFTPIXEL_USE_CACHE
 	SHL(32, R(argXReg), Imm8(2));
 
 	// Conveniently, this is ECX on Windows, but otherwise we need to swap it.
+	X64Reg shiftReg = INVALID_REG;
 	if (argXReg != RCX) {
 		bool needsSwap = false;
-		regCache_.GrabReg(RCX, PixelRegCache::TEMP1, PixelRegCache::T_GEN, needsSwap, argXReg);
+		// This will force release argXReg if swapped.
+		regCache_.GrabReg(RCX, PixelRegCache::GEN_TEMP1, needsSwap, argXReg, PixelRegCache::GEN_ARG_X);
+		shiftReg = RCX;
 
 		if (needsSwap) {
 			XCHG(PTRBITS, R(argXReg), R(RCX));
 			if (valueReg == RCX)
 				valueReg = argXReg;
+
+			// At this point, argXReg is some other unknown reg... basically, it's released.
+			argXReg = INVALID_REG;
 		} else {
 			// We'll unlock and force release argXReg later, but copy for now.
 			MOV(32, R(RCX), R(argXReg));
@@ -1390,8 +1399,8 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 	AND(16, R(valueReg), Imm16(0x000F));
 
 	// Release RCX if we explicitly grabbed.
-	if (argXReg != RCX)
-		regCache_.Release(RCX, PixelRegCache::T_GEN);
+	if (shiftReg != INVALID_REG)
+		regCache_.Release(shiftReg, PixelRegCache::GEN_TEMP1);
 
 	// Now we need to make 0-7 positive, 8-F negative.. so sign extend.
 	SHL(32, R(valueReg), Imm8(4));
@@ -1406,13 +1415,15 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 	MOV(PTRBITS, R(argXReg), MDisp(RSP, stackIDOffset_));
 	MOVSX(32, 16, valueReg, MRegSum(argXReg, valueReg));
 #endif
-	regCache_.Unlock(argXReg, PixelRegCache::T_GEN);
-	regCache_.ForceRelease(PixelRegCache::ARG_X, PixelRegCache::T_GEN);
+	if (argXReg != INVALID_REG) {
+		regCache_.Unlock(argXReg, PixelRegCache::GEN_ARG_X);
+		regCache_.ForceRelease(PixelRegCache::GEN_ARG_X);
+	}
 
 	// Copy that value into a vec to add to the color.
-	X64Reg vecValueReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_VEC);
+	X64Reg vecValueReg = regCache_.Alloc(PixelRegCache::VEC_TEMP0);
 	MOVD_xmm(vecValueReg, R(valueReg));
-	regCache_.Release(valueReg, PixelRegCache::T_GEN);
+	regCache_.Release(valueReg, PixelRegCache::GEN_TEMP0);
 
 	// Now we want to broadcast RGB in 16-bit, but keep A as 0.
 	// Luckily, we know that second lane (in 16-bit) is zero from valueReg's high 16 bits.
@@ -1420,39 +1431,39 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 	PSHUFLW(vecValueReg, R(vecValueReg), _MM_SHUFFLE(1, 0, 0, 0));
 
 	// With that, now let's convert the color to 16 bit...
-	X64Reg argColorReg = regCache_.Find(PixelRegCache::ARG_COLOR, PixelRegCache::T_VEC);
+	X64Reg argColorReg = regCache_.Find(PixelRegCache::VEC_ARG_COLOR);
 	if (!colorIs16Bit_) {
 		if (cpu_info.bSSE4_1) {
 			PMOVZXBW(argColorReg, R(argColorReg));
 		} else {
 			X64Reg zeroReg = GetZeroVec();
 			PUNPCKLBW(argColorReg, R(zeroReg));
-			regCache_.Unlock(zeroReg, PixelRegCache::T_VEC);
+			regCache_.Unlock(zeroReg, PixelRegCache::VEC_ZERO);
 		}
 		colorIs16Bit_ = true;
 	}
 	// And simply add the dither values.
 	PADDSW(argColorReg, R(vecValueReg));
-	regCache_.Release(vecValueReg, PixelRegCache::T_VEC);
-	regCache_.Unlock(argColorReg, PixelRegCache::T_VEC);
+	regCache_.Release(vecValueReg, PixelRegCache::VEC_TEMP0);
+	regCache_.Unlock(argColorReg, PixelRegCache::VEC_ARG_COLOR);
 
 	return true;
 }
 
 bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 	X64Reg colorOff = GetColorOff(id);
-	if (regCache_.Has(PixelRegCache::ARG_X, PixelRegCache::T_GEN)) {
+	if (regCache_.Has(PixelRegCache::GEN_ARG_X)) {
 		// We normally toss x and y during dithering or useStandardStride with no dithering.
 		// Free up the regs now to get more reg space.
-		regCache_.ForceRelease(PixelRegCache::ARG_X, PixelRegCache::T_GEN);
-		regCache_.ForceRelease(PixelRegCache::ARG_Y, PixelRegCache::T_GEN);
+		regCache_.ForceRelease(PixelRegCache::GEN_ARG_X);
+		regCache_.ForceRelease(PixelRegCache::GEN_ARG_Y);
 
-		// But make sure we don't lose COLOR_OFF, we'll be lost without that now.
-		regCache_.ForceLock(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
+		// But make sure we don't lose GEN_COLOR_OFF, we'll be lost without that now.
+		regCache_.ForceRetain(PixelRegCache::GEN_COLOR_OFF);
 	}
 
 	// Convert back to 8888 and clamp.
-	X64Reg argColorReg = regCache_.Find(PixelRegCache::ARG_COLOR, PixelRegCache::T_VEC);
+	X64Reg argColorReg = regCache_.Find(PixelRegCache::VEC_ARG_COLOR);
 	if (colorIs16Bit_) {
 		PACKUSWB(argColorReg, R(argColorReg));
 		colorIs16Bit_ = false;
@@ -1466,30 +1477,35 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 
 		if (!id.ColorClear()) {
 			// Let's reuse Jit_WriteStencilOnly for this path.
-			X64Reg alphaReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_GEN);
-			MOVD_xmm(R(alphaReg), argColorReg);
-			SHR(32, R(alphaReg), Imm8(24));
+			X64Reg alphaReg;
+			if (regCache_.Has(PixelRegCache::GEN_SRC_ALPHA)) {
+				alphaReg = regCache_.Find(PixelRegCache::GEN_SRC_ALPHA);
+			} else {
+				alphaReg = regCache_.Alloc(PixelRegCache::GEN_SRC_ALPHA);
+				MOVD_xmm(R(alphaReg), argColorReg);
+				SHR(32, R(alphaReg), Imm8(24));
+			}
 
 			bool success = Jit_WriteStencilOnly(id, alphaReg);
-			regCache_.Release(alphaReg, PixelRegCache::T_GEN);
-			regCache_.Unlock(argColorReg, PixelRegCache::T_VEC);
+			regCache_.Release(alphaReg, PixelRegCache::GEN_SRC_ALPHA);
+			regCache_.Unlock(argColorReg, PixelRegCache::VEC_ARG_COLOR);
 			return success;
 		}
 
 		// In this case, we're clearing only color or only color and stencil.  Proceed.
 	}
 
-	X64Reg colorReg = regCache_.Alloc(PixelRegCache::TEMP0, PixelRegCache::T_GEN);
+	X64Reg colorReg = regCache_.Alloc(PixelRegCache::GEN_TEMP0);
 	MOVD_xmm(R(colorReg), argColorReg);
-	regCache_.Unlock(argColorReg, PixelRegCache::T_VEC);
-	regCache_.ForceRelease(PixelRegCache::ARG_COLOR, PixelRegCache::T_VEC);
+	regCache_.Unlock(argColorReg, PixelRegCache::VEC_ARG_COLOR);
+	regCache_.ForceRelease(PixelRegCache::VEC_ARG_COLOR);
 
 	X64Reg stencilReg = INVALID_REG;
-	if (regCache_.Has(PixelRegCache::STENCIL, PixelRegCache::T_GEN))
-		stencilReg = regCache_.Find(PixelRegCache::STENCIL, PixelRegCache::T_GEN);
+	if (regCache_.Has(PixelRegCache::GEN_STENCIL))
+		stencilReg = regCache_.Find(PixelRegCache::GEN_STENCIL);
 
-	X64Reg temp1Reg = regCache_.Alloc(PixelRegCache::TEMP1, PixelRegCache::T_GEN);
-	X64Reg temp2Reg = regCache_.Alloc(PixelRegCache::TEMP2, PixelRegCache::T_GEN);
+	X64Reg temp1Reg = regCache_.Alloc(PixelRegCache::GEN_TEMP1);
+	X64Reg temp2Reg = regCache_.Alloc(PixelRegCache::GEN_TEMP2);
 	bool convertAlpha = id.clearMode && id.StencilClear();
 	bool writeAlpha = convertAlpha || stencilReg != INVALID_REG;
 	uint32_t fixedKeepMask = 0x00000000;
@@ -1544,7 +1560,7 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 	if (id.applyColorWriteMask) {
 #ifndef SOFTPIXEL_USE_CACHE
 		X64Reg gstateReg = GetGState();
-		maskReg = regCache_.Alloc(PixelRegCache::TEMP3, PixelRegCache::T_GEN);
+		maskReg = regCache_.Alloc(PixelRegCache::GEN_TEMP3);
 
 		// Load the write mask, combine in the stencil/alpha mask bits.
 		MOV(32, R(maskReg), MDisp(gstateReg, offsetof(GPUgstate, pmskc)));
@@ -1553,7 +1569,7 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 			SHL(32, R(temp2Reg), Imm8(24));
 			OR(32, R(maskReg), R(temp2Reg));
 		}
-		regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
+		regCache_.Unlock(gstateReg, PixelRegCache::GEN_GSTATE);
 
 		// Switch the mask into the specified bit depth.  This is easier.
 		switch (id.fbFormat) {
@@ -1579,7 +1595,7 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 			break;
 		}
 #else
-		maskReg = regCache_.Alloc(PixelRegCache::TEMP3, PixelRegCache::T_GEN);
+		maskReg = regCache_.Alloc(PixelRegCache::GEN_TEMP3);
 		// Load the pre-converted and combined write mask.
 		MOV(PTRBITS, R(maskReg), MDisp(RSP, stackIDOffset_));
 		MOV(32, R(maskReg), MDisp(maskReg, offsetof(PixelFuncID, cached.colorWriteMask)));
@@ -1587,8 +1603,7 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 	}
 
 	// We've run out of regs, let's live without temp2 from here on.
-	regCache_.Release(temp2Reg, PixelRegCache::T_GEN);
-	temp2Reg = INVALID_REG;
+	regCache_.Release(temp2Reg, PixelRegCache::GEN_TEMP2);
 
 	// Step 3: Apply logic op, combine stencil.
 	skipStandardWrites_.clear();
@@ -1645,37 +1660,34 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 		SetJumpTarget(fixup);
 	skipStandardWrites_.clear();
 
-	regCache_.Unlock(colorOff, PixelRegCache::T_GEN);
-	regCache_.ForceRelease(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
-	regCache_.Release(colorReg, PixelRegCache::T_GEN);
-	regCache_.Release(temp1Reg, PixelRegCache::T_GEN);
+	regCache_.Unlock(colorOff, PixelRegCache::GEN_COLOR_OFF);
+	regCache_.ForceRelease(PixelRegCache::GEN_COLOR_OFF);
+	regCache_.Release(colorReg, PixelRegCache::GEN_TEMP0);
+	regCache_.Release(temp1Reg, PixelRegCache::GEN_TEMP1);
 	if (maskReg != INVALID_REG)
-		regCache_.Release(maskReg, PixelRegCache::T_GEN);
+		regCache_.Release(maskReg, PixelRegCache::GEN_TEMP3);
 	if (stencilReg != INVALID_REG) {
-		regCache_.Unlock(stencilReg, PixelRegCache::T_GEN);
-		regCache_.ForceRelease(PixelRegCache::STENCIL, PixelRegCache::T_GEN);
+		regCache_.Unlock(stencilReg, PixelRegCache::GEN_STENCIL);
+		regCache_.ForceRelease(PixelRegCache::GEN_STENCIL);
 	}
 
 	return success;
 }
 
 bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg maskReg) {
-	X64Reg logicOpReg = INVALID_REG;
-	if (id.applyLogicOp) {
-		X64Reg gstateReg = GetGState();
-		logicOpReg = regCache_.Alloc(PixelRegCache::TEMP3, PixelRegCache::T_GEN);
-		MOVZX(32, 8, logicOpReg, MDisp(gstateReg, offsetof(GPUgstate, lop)));
-		AND(8, R(logicOpReg), Imm8(0x0F));
-		regCache_.Unlock(gstateReg, PixelRegCache::T_GEN);
-	}
+	X64Reg gstateReg = GetGState();
+	X64Reg logicOpReg = regCache_.Alloc(PixelRegCache::GEN_TEMP3);
+	MOVZX(32, 8, logicOpReg, MDisp(gstateReg, offsetof(GPUgstate, lop)));
+	AND(8, R(logicOpReg), Imm8(0x0F));
+	regCache_.Unlock(gstateReg, PixelRegCache::GEN_GSTATE);
 
 	X64Reg stencilReg = INVALID_REG;
-	if (regCache_.Has(PixelRegCache::STENCIL, PixelRegCache::T_GEN))
-		stencilReg = regCache_.Find(PixelRegCache::STENCIL, PixelRegCache::T_GEN);
+	if (regCache_.Has(PixelRegCache::GEN_STENCIL))
+		stencilReg = regCache_.Find(PixelRegCache::GEN_STENCIL);
 
 	// Should already be allocated.
-	X64Reg colorOff = regCache_.Find(PixelRegCache::COLOR_OFF, PixelRegCache::T_GEN);
-	X64Reg temp1Reg = regCache_.Find(PixelRegCache::TEMP1, PixelRegCache::T_GEN);
+	X64Reg colorOff = regCache_.Find(PixelRegCache::GEN_COLOR_OFF);
+	X64Reg temp1Reg = regCache_.Find(PixelRegCache::GEN_TEMP1);
 
 	// We'll use these in several cases, so prepare.
 	int bits = id.fbFormat == GE_FORMAT_8888 ? 32 : 16;
@@ -1994,10 +2006,11 @@ bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, PixelRegCache::Reg c
 	for (FixupBranch &fixup : finishes)
 		SetJumpTarget(fixup);
 
-	regCache_.Unlock(colorOff, PixelRegCache::T_GEN);
-	regCache_.Unlock(temp1Reg, PixelRegCache::T_GEN);
+	regCache_.Unlock(colorOff, PixelRegCache::GEN_COLOR_OFF);
+	regCache_.Unlock(temp1Reg, PixelRegCache::GEN_TEMP1);
+	regCache_.Unlock(logicOpReg, PixelRegCache::GEN_TEMP3);
 	if (stencilReg != INVALID_REG)
-		regCache_.Unlock(stencilReg, PixelRegCache::T_GEN);
+		regCache_.Unlock(stencilReg, PixelRegCache::GEN_STENCIL);
 
 	return true;
 }
