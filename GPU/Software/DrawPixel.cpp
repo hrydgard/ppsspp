@@ -639,21 +639,33 @@ void PixelRegCache::Reset() {
 	regs.clear();
 }
 
-void PixelRegCache::Release(PixelRegCache::Reg r, PixelRegCache::Type t, PixelRegCache::Purpose p) {
+void PixelRegCache::Add(PixelRegCache::Reg r, PixelRegCache::Type t, PixelRegCache::Purpose p) {
 	RegStatus *status = FindReg(r, t);
-	if (status) {
-		_assert_msg_(status->locked > 0, "softjit Release() reg that isn't locked");
-		_assert_msg_(!status->forceLocked, "softjit Release() reg that is force locked");
-		status->purpose = p;
-		status->locked--;
-		return;
-	}
+	_assert_msg_(status == nullptr, "softjit Add() reg duplicate");
 
 	RegStatus newStatus;
 	newStatus.reg = r;
 	newStatus.purpose = p;
 	newStatus.type = t;
 	regs.push_back(newStatus);
+}
+
+void PixelRegCache::Change(PixelRegCache::Reg r, PixelRegCache::Type t, PixelRegCache::Purpose p) {
+	RegStatus *status = FindReg(r, t);
+	_assert_msg_(status != nullptr, "softjit Add() reg duplicate");
+
+	status->purpose = p;
+}
+
+void PixelRegCache::Release(PixelRegCache::Reg r, PixelRegCache::Type t) {
+	RegStatus *status = FindReg(r, t);
+	_assert_msg_(status != nullptr, "softjit Release() reg that isn't there");
+	_assert_msg_(status->locked > 0, "softjit Release() reg that isn't locked");
+	_assert_msg_(!status->forceLocked, "softjit Release() reg that is force locked");
+
+	status->locked--;
+	if (status->locked == 0)
+		status->purpose = INVALID;
 }
 
 void PixelRegCache::Unlock(PixelRegCache::Reg r, PixelRegCache::Type t) {
@@ -717,15 +729,28 @@ PixelRegCache::Reg PixelRegCache::Alloc(PixelRegCache::Purpose p, PixelRegCache:
 	return Reg();
 }
 
-void PixelRegCache::ForceLock(PixelRegCache::Purpose p, PixelRegCache::Type t, bool state) {
+void PixelRegCache::ForceLock(PixelRegCache::Purpose p, PixelRegCache::Type t) {
 	for (auto &reg : regs) {
 		if (reg.purpose == p && reg.type == t) {
-			reg.forceLocked = state;
+			reg.forceLocked = true;
 			return;
 		}
 	}
 
 	_assert_msg_(false, "softjit ForceLock() reg that isn't there");
+}
+
+void PixelRegCache::ForceRelease(PixelRegCache::Purpose p, PixelRegCache::Type t) {
+	for (auto &reg : regs) {
+		if (reg.purpose == p && reg.type == t) {
+			_assert_msg_(reg.locked == 0, "softjit ForceRelease() while locked");
+			reg.forceLocked = false;
+			reg.purpose = INVALID;
+			return;
+		}
+	}
+
+	_assert_msg_(false, "softjit ForceRelease() reg that isn't there");
 }
 
 void PixelRegCache::GrabReg(PixelRegCache::Reg r, PixelRegCache::Purpose p, PixelRegCache::Type t, bool &needsSwap, PixelRegCache::Reg swapReg) {

@@ -70,6 +70,12 @@ struct PixelRegCache {
 		STENCIL,
 		COLOR_OFF,
 		DEPTH_OFF,
+		ARG_X,
+		ARG_Y,
+		ARG_Z,
+		ARG_FOG,
+		ARG_COLOR,
+		ARG_MASK,
 
 		// Above this can only be temps.
 		TEMP0,
@@ -100,12 +106,15 @@ struct PixelRegCache {
 	};
 
 	void Reset();
-	void Release(Reg r, Type t, Purpose p = INVALID);
+	void Add(Reg r, Type t, Purpose p);
+	void Change(Reg r, Type t, Purpose p);
+	void Release(Reg r, Type t);
 	void Unlock(Reg r, Type t);
 	bool Has(Purpose p, Type t);
 	Reg Find(Purpose p, Type t);
 	Reg Alloc(Purpose p, Type t);
-	void ForceLock(Purpose p, Type t, bool state = true);
+	void ForceLock(Purpose p, Type t);
+	void ForceRelease(Purpose p, Type t);
 
 	// For getting a specific reg.  WARNING: May return a locked reg, so you have to check.
 	void GrabReg(Reg r, Purpose p, Type t, bool &needsSwap, Reg swapReg);
