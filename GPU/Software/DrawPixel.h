@@ -118,8 +118,8 @@ struct PixelRegCache {
 	void Reset(bool validate);
 	void Add(Reg r, Purpose p);
 	void Change(Purpose history, Purpose destiny);
-	void Release(Reg r, Purpose p);
-	void Unlock(Reg r, Purpose p);
+	void Release(Reg &r, Purpose p);
+	void Unlock(Reg &r, Purpose p);
 	bool Has(Purpose p);
 	Reg Find(Purpose p);
 	Reg Alloc(Purpose p);

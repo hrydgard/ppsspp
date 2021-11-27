@@ -667,7 +667,7 @@ void PixelRegCache::Change(Purpose history, Purpose destiny) {
 	_assert_msg_(false, "softjit Change() reg that isn't there (%04X)", history);
 }
 
-void PixelRegCache::Release(Reg r, Purpose p) {
+void PixelRegCache::Release(Reg &r, Purpose p) {
 	RegStatus *status = FindReg(r, p);
 	_assert_msg_(status != nullptr, "softjit Release() reg that isn't there (%04X)", p);
 	_assert_msg_(status->locked > 0, "softjit Release() reg that isn't locked (%04X)", p);
@@ -680,13 +680,16 @@ void PixelRegCache::Release(Reg r, Purpose p) {
 		else
 			status->purpose = VEC_INVALID;
 	}
+
+	r = REG_INVALID_VALUE;
 }
 
-void PixelRegCache::Unlock(Reg r, Purpose p) {
+void PixelRegCache::Unlock(Reg &r, Purpose p) {
 	RegStatus *status = FindReg(r, p);
 	if (status) {
 		_assert_msg_(status->locked > 0, "softjit Unlock() reg that isn't locked (%04X)", p);
 		status->locked--;
+		r = REG_INVALID_VALUE;
 		return;
 	}
 
