@@ -21,6 +21,18 @@
 
 #include <cstdint>
 #include <vector>
+
+#if defined(_M_SSE)
+#include <emmintrin.h>
+#endif
+#if PPSSPP_ARCH(ARM_NEON) && PPSSPP_ARCH(ARM64)
+#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
+#include <arm64_neon.h>
+#else
+#include <arm_neon.h>
+#endif
+#endif
+
 #if PPSSPP_ARCH(ARM)
 #include "Common/ArmEmitter.h"
 #elif PPSSPP_ARCH(ARM64)
@@ -32,8 +44,40 @@
 #else
 #include "Common/FakeEmitter.h"
 #endif
+#include "GPU/Math3D.h"
 
 namespace Rasterizer {
+
+// While not part of the reg cache proper, this is the type it is built for.
+#if PPSSPP_ARCH(ARM)
+typedef ArmGen::ARMXCodeBlock CodeBlock;
+#elif PPSSPP_ARCH(ARM64)
+typedef Arm64Gen::ARM64CodeBlock CodeBlock;
+#elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+typedef Gen::XCodeBlock CodeBlock;
+#elif PPSSPP_ARCH(MIPS)
+typedef MIPSGen::MIPSCodeBlock CodeBlock;
+#else
+typedef FakeGen::FakeXCodeBlock CodeBlock;
+#endif
+
+// We also have the types of things that end up in regs.
+#if PPSSPP_ARCH(ARM64)
+typedef int32x4_t Vec4IntArg;
+static inline Vec4IntArg ToVec4IntArg(const Math3D::Vec4<int> &a) { return vld1q_s32(a.AsArray()); }
+#elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+typedef __m128i Vec4IntArg;
+static inline Vec4IntArg ToVec4IntArg(const Math3D::Vec4<int> &a) { return a.ivec; }
+#else
+typedef const Math3D::Vec4<int> &Vec4IntArg;
+static inline Vec4IntArg ToVec4IntArg(const Math3D::Vec4<int> &a) { return a; }
+#endif
+
+#if PPSSPP_ARCH(AMD64) && PPSSPP_PLATFORM(WINDOWS) && (defined(_MSC_VER) || defined(__clang__) || defined(__INTEL_COMPILER))
+#define SOFTRAST_CALL __vectorcall
+#else
+#define SOFTRAST_CALL
+#endif
 
 struct RegCache {
 	enum Purpose {

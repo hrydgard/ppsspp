@@ -20,19 +20,9 @@
 #include "ppsspp_config.h"
 
 #include <unordered_map>
-#if PPSSPP_ARCH(ARM)
-#include "Common/ArmEmitter.h"
-#elif PPSSPP_ARCH(ARM64)
-#include "Common/Arm64Emitter.h"
-#elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
-#include "Common/x64Emitter.h"
-#elif PPSSPP_ARCH(MIPS)
-#include "Common/MipsEmitter.h"
-#else
-#include "Common/FakeEmitter.h"
-#endif
 #include "GPU/Math3D.h"
 #include "GPU/Software/FuncId.h"
+#include "GPU/Software/RasterizerRegCache.h"
 
 namespace Sampler {
 
@@ -58,17 +48,7 @@ void Shutdown();
 
 bool DescribeCodePtr(const u8 *ptr, std::string &name);
 
-#if PPSSPP_ARCH(ARM)
-class SamplerJitCache : public ArmGen::ARMXCodeBlock {
-#elif PPSSPP_ARCH(ARM64)
-class SamplerJitCache : public Arm64Gen::ARM64CodeBlock {
-#elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
-class SamplerJitCache : public Gen::XCodeBlock {
-#elif PPSSPP_ARCH(MIPS)
-class SamplerJitCache : public MIPSGen::MIPSCodeBlock {
-#else
-class SamplerJitCache : public FakeGen::FakeXCodeBlock {
-#endif
+class SamplerJitCache : public Rasterizer::CodeBlock {
 public:
 	SamplerJitCache();
 
