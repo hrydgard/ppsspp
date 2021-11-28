@@ -645,9 +645,12 @@ void PixelRegCache::Reset(bool validate) {
 	regs.clear();
 }
 
-void PixelRegCache::Add(PixelRegCache::Reg r, PixelRegCache::Purpose p) {
-	RegStatus *status = FindReg(r, (p & FLAG_GEN) != 0);
-	_assert_msg_(status == nullptr, "softjit Add() reg duplicate (%04X)", p);
+void PixelRegCache::Add(Reg r, Purpose p) {
+	for (auto &reg : regs) {
+		if (reg.reg == r && (reg.purpose & FLAG_GEN) == (p & FLAG_GEN)) {
+			_assert_msg_(false, "softjit Add() reg duplicate (%04X)", p);
+		}
+	}
 	_assert_msg_(r != REG_INVALID_VALUE, "softjit Add() invalid reg (%04X)", p);
 
 	RegStatus newStatus;
@@ -696,7 +699,7 @@ void PixelRegCache::Unlock(Reg &r, Purpose p) {
 	_assert_msg_(false, "softjit Unlock() reg that isn't there (%04X)", p);
 }
 
-bool PixelRegCache::Has(PixelRegCache::Purpose p) {
+bool PixelRegCache::Has(Purpose p) {
 	for (auto &reg : regs) {
 		if (reg.purpose == p) {
 			return true;
@@ -817,16 +820,6 @@ void PixelRegCache::GrabReg(Reg r, Purpose p, bool &needsSwap, Reg swapReg, Purp
 PixelRegCache::RegStatus *PixelRegCache::FindReg(Reg r, Purpose p) {
 	for (auto &reg : regs) {
 		if (reg.reg == r && reg.purpose == p) {
-			return &reg;
-		}
-	}
-
-	return nullptr;
-}
-
-PixelRegCache::RegStatus *PixelRegCache::FindReg(Reg r, bool isGen) {
-	for (auto &reg : regs) {
-		if (reg.reg == r && (reg.purpose & FLAG_GEN) == (isGen ? FLAG_GEN : 0)) {
 			return &reg;
 		}
 	}

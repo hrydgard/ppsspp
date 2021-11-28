@@ -100,9 +100,18 @@ struct PixelRegCache {
 		GEN_INVALID = 0xFFFF,
 	};
 
-#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+#if PPSSPP_ARCH(ARM)
+	typedef ArmGen::ARMReg Reg;
+	static constexpr Reg REG_INVALID_VALUE = ArmGen::INVALID_REG;
+#elif PPSSPP_ARCH(ARM64)
+	typedef Arm64Gen::ARM64Reg Reg;
+	static constexpr Reg REG_INVALID_VALUE = Arm64Gen::INVALID_REG;
+#elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	typedef Gen::X64Reg Reg;
 	static constexpr Reg REG_INVALID_VALUE = Gen::INVALID_REG;
+#elif PPSSPP_ARCH(MIPS)
+	typedef MIPSGen::MIPSReg Reg;
+	static constexpr Reg REG_INVALID_VALUE = MIPSGen::INVALID_REG;
 #else
 	typedef int Reg;
 	static constexpr Reg REG_INVALID_VALUE = -1;
@@ -131,7 +140,6 @@ struct PixelRegCache {
 
 private:
 	RegStatus *FindReg(Reg r, Purpose p);
-	RegStatus *FindReg(Reg r, bool isGen);
 
 	std::vector<RegStatus> regs;
 };
