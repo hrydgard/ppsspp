@@ -631,6 +631,7 @@
     <ClCompile Include="Math3D.cpp" />
     <ClCompile Include="Software\Clipper.cpp" />
     <ClCompile Include="Software\DrawPixel.cpp" />
+    <ClCompile Include="Software\DrawPixelX86.cpp" />
     <ClCompile Include="Software\Lighting.cpp" />
     <ClCompile Include="Software\FuncId.cpp" />
     <ClCompile Include="Software\Rasterizer.cpp" />

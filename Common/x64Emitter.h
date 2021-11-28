@@ -798,8 +798,14 @@ public:
 	void PCMPGTW(X64Reg dest, OpArg arg);
 	void PCMPGTD(X64Reg dest, OpArg arg);
 
-	void PEXTRW(X64Reg dest, OpArg arg, u8 subreg);
+	void PEXTRW(X64Reg dest, X64Reg arg, u8 subreg);
 	void PINSRW(X64Reg dest, OpArg arg, u8 subreg);
+	// SSE4 inserts and extracts.
+	void PEXTRB(OpArg dest, X64Reg arg, u8 subreg);
+	void PEXTRW(OpArg dest, X64Reg arg, u8 subreg);
+	void PEXTRD(OpArg dest, X64Reg arg, u8 subreg);
+	void PINSRB(X64Reg dest, OpArg arg, u8 subreg);
+	void PINSRD(X64Reg dest, OpArg arg, u8 subreg);
 
 	void PMADDWD(X64Reg dest, OpArg arg);
 	void PSADBW(X64Reg dest, OpArg arg);

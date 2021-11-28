@@ -193,7 +193,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 						Vec4<int> prim_color = v1.color0;
 						Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
 						prim_color = GetTextureFunctionOutput(prim_color, tex_color);
-						drawPixel(x, y, z, 255, prim_color, pixelID);
+						drawPixel(x, y, z, 255, SOFTPIXEL_TO_VEC4I(prim_color), pixelID);
 						s += ds;
 					}
 					t += dt;
@@ -237,7 +237,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 				for (int y = y1; y < y2; y++) {
 					for (int x = pos0.x; x < pos1.x; x++) {
 						Vec4<int> prim_color = v1.color0;
-						drawPixel(x, y, z, fog, prim_color, pixelID);
+						drawPixel(x, y, z, fog, SOFTPIXEL_TO_VEC4I(prim_color), pixelID);
 					}
 				}
 			}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);

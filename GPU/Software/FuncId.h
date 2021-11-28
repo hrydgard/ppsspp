@@ -23,9 +23,21 @@
 
 #include "GPU/ge_constants.h"
 
+#define SOFTPIXEL_USE_CACHE 1
+
+#pragma pack(push, 1)
+
 struct PixelFuncID {
 	PixelFuncID() {
 	}
+
+#ifdef SOFTPIXEL_USE_CACHE
+	struct {
+		// Warning: these are not hashed or compared for equal.  Just cached values.
+		uint32_t colorWriteMask{};
+		int16_t ditherMatrix[16]{};
+	} cached;
+#endif
 
 	union {
 		uint64_t fullKey{};
@@ -119,6 +131,8 @@ struct PixelFuncID {
 		return fullKey == other.fullKey;
 	}
 };
+
+#pragma pack(pop)
 
 struct SamplerID {
 	SamplerID() : fullKey(0) {

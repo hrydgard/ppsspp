@@ -15,7 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <mutex>
 #include "Common/Data/Convert/ColorConv.h"
+#include "Core/Config.h"
 #include "GPU/GPUState.h"
 #include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/FuncId.h"
@@ -26,14 +28,25 @@ using namespace Math3D;
 
 namespace Rasterizer {
 
+std::mutex jitCacheLock;
+PixelJitCache *jitCache = nullptr;
+
 void Init() {
+	jitCache = new PixelJitCache();
 }
 
 void Shutdown() {
+	delete jitCache;
+	jitCache = nullptr;
 }
 
 bool DescribeCodePtr(const u8 *ptr, std::string &name) {
-	return false;
+	if (!jitCache->IsInSpace(ptr)) {
+		return false;
+	}
+
+	name = jitCache->DescribeCodePtr(ptr);
+	return true;
 }
 
 static inline u8 GetPixelStencil(GEBufferFormat fmt, int x, int y) {
@@ -365,8 +378,8 @@ static inline u32 ApplyLogicOp(GELogicOp op, u32 old_color, u32 new_color) {
 }
 
 template <bool clearMode, GEBufferFormat fbFormat>
-inline void DrawSinglePixel(int x, int y, int z, int fog, const Vec4<int> &color_in, const PixelFuncID &pixelID) {
-	Vec4<int> prim_color = color_in.Clamp(0, 255);
+void SOFTPIXEL_CALL DrawSinglePixel(int x, int y, int z, int fog, SOFTPIXEL_VEC4I color_in, const PixelFuncID &pixelID) {
+	Vec4<int> prim_color = Vec4<int>(color_in).Clamp(0, 255);
 	// Depth range test - applied in clear mode, if not through mode.
 	if (pixelID.applyDepthRange)
 		if (z < gstate.getDepthRangeMin() || z > gstate.getDepthRangeMax())
@@ -396,19 +409,19 @@ inline void DrawSinglePixel(int x, int y, int z, int fog, const Vec4<int> &color
 			SetPixelDepth(x, y, z);
 	} else if (pixelID.stencilTest) {
 		if (!StencilTestPassed(pixelID, stencil)) {
-			stencil = ApplyStencilOp(fbFormat, GEStencilOp(pixelID.sFail), stencil);
+			stencil = ApplyStencilOp(fbFormat, pixelID.SFail(), stencil);
 			SetPixelStencil(fbFormat, x, y, stencil);
 			return;
 		}
 
 		// Also apply depth at the same time.  If disabled, same as passing.
 		if (pixelID.DepthTestFunc() != GE_COMP_ALWAYS && !DepthTestPassed(pixelID.DepthTestFunc(), x, y, z)) {
-			stencil = ApplyStencilOp(fbFormat, GEStencilOp(pixelID.zFail), stencil);
+			stencil = ApplyStencilOp(fbFormat, pixelID.ZFail(), stencil);
 			SetPixelStencil(fbFormat, x, y, stencil);
 			return;
 		}
 
-		stencil = ApplyStencilOp(fbFormat, GEStencilOp(pixelID.zPass), stencil);
+		stencil = ApplyStencilOp(fbFormat, pixelID.ZPass(), stencil);
 	} else {
 		if (pixelID.DepthTestFunc() != GE_COMP_ALWAYS && !DepthTestPassed(pixelID.DepthTestFunc(), x, y, z)) {
 			return;
@@ -462,6 +475,15 @@ inline void DrawSinglePixel(int x, int y, int z, int fog, const Vec4<int> &color
 }
 
 SingleFunc GetSingleFunc(const PixelFuncID &id) {
+	SingleFunc jitted = jitCache->GetSingle(id);
+	if (jitted) {
+		return jitted;
+	}
+
+	return jitCache->GenericSingle(id);
+}
+
+SingleFunc PixelJitCache::GenericSingle(const PixelFuncID &id) {
 	if (id.clearMode) {
 		switch (id.fbFormat) {
 		case GE_FORMAT_565:
@@ -485,6 +507,269 @@ SingleFunc GetSingleFunc(const PixelFuncID &id) {
 		return &DrawSinglePixel<false, GE_FORMAT_8888>;
 	}
 	_assert_(false);
+	return nullptr;
+}
+
+PixelJitCache::PixelJitCache()
+#if PPSSPP_ARCH(ARM64)
+	: fp(this)
+#endif
+{
+	// 256k should be plenty of space for plenty of variations.
+	AllocCodeSpace(1024 * 64 * 4);
+
+	// Add some random code to "help" MSVC's buggy disassembler :(
+#if defined(_WIN32) && (PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)) && !PPSSPP_PLATFORM(UWP)
+	using namespace Gen;
+	for (int i = 0; i < 100; i++) {
+		MOV(32, R(EAX), R(EBX));
+		RET();
+	}
+#elif PPSSPP_ARCH(ARM)
+	BKPT(0);
+	BKPT(0);
+#endif
+}
+
+void PixelJitCache::Clear() {
+	ClearCodeSpace(0);
+	cache_.clear();
+	addresses_.clear();
+}
+
+std::string PixelJitCache::DescribeCodePtr(const u8 *ptr) {
+	ptrdiff_t dist = 0x7FFFFFFF;
+	PixelFuncID found{};
+	for (const auto &it : addresses_) {
+		ptrdiff_t it_dist = ptr - it.second;
+		if (it_dist >= 0 && it_dist < dist) {
+			found = it.first;
+			dist = it_dist;
+		}
+	}
+
+	return DescribePixelFuncID(found);
+}
+
+SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id) {
+	std::lock_guard<std::mutex> guard(jitCacheLock);
+
+	auto it = cache_.find(id);
+	if (it != cache_.end()) {
+		return it->second;
+	}
+
+	// x64 is typically 200-500 bytes, but let's be safe.
+	if (GetSpaceLeft() < 65536) {
+		Clear();
+	}
+
+#if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
+	if (g_Config.bSoftwareRenderingJit) {
+		addresses_[id] = GetCodePointer();
+		SingleFunc func = CompileSingle(id);
+		cache_[id] = func;
+		return func;
+	}
+#endif
+	return nullptr;
+}
+
+void ComputePixelBlendState(PixelBlendState &state, const PixelFuncID &id) {
+	switch (id.AlphaBlendEq()) {
+	case GE_BLENDMODE_MUL_AND_ADD:
+	case GE_BLENDMODE_MUL_AND_SUBTRACT:
+	case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE:
+		state.usesFactors = true;
+		break;
+
+	case GE_BLENDMODE_MIN:
+	case GE_BLENDMODE_MAX:
+	case GE_BLENDMODE_ABSDIFF:
+		break;
+	}
+
+	if (state.usesFactors) {
+		switch (id.AlphaBlendSrc()) {
+		case GE_SRCBLEND_DSTALPHA:
+		case GE_SRCBLEND_INVDSTALPHA:
+		case GE_SRCBLEND_DOUBLEDSTALPHA:
+		case GE_SRCBLEND_DOUBLEINVDSTALPHA:
+			state.usesDstAlpha = true;
+			break;
+
+		default:
+			break;
+		}
+
+		switch (id.AlphaBlendDst()) {
+		case GE_DSTBLEND_INVSRCALPHA:
+			state.dstFactorIsInverse = id.AlphaBlendSrc() == GE_SRCBLEND_SRCALPHA;
+			break;
+
+		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
+			state.dstFactorIsInverse = id.AlphaBlendSrc() == GE_SRCBLEND_DOUBLESRCALPHA;
+			break;
+
+		case GE_DSTBLEND_DSTALPHA:
+			state.usesDstAlpha = true;
+			break;
+
+		case GE_DSTBLEND_INVDSTALPHA:
+			state.dstFactorIsInverse = id.AlphaBlendSrc() == GE_SRCBLEND_DSTALPHA;
+			state.usesDstAlpha = true;
+			break;
+
+		case GE_DSTBLEND_DOUBLEDSTALPHA:
+			state.usesDstAlpha = true;
+			break;
+
+		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
+			state.dstFactorIsInverse = id.AlphaBlendSrc() == GE_SRCBLEND_DOUBLEDSTALPHA;
+			state.usesDstAlpha = true;
+			break;
+
+		default:
+			break;
+		}
+	}
+}
+
+void PixelRegCache::Reset() {
+	regs.clear();
+}
+
+void PixelRegCache::Release(PixelRegCache::Reg r, PixelRegCache::Type t, PixelRegCache::Purpose p) {
+	RegStatus *status = FindReg(r, t);
+	if (status) {
+		_assert_msg_(status->locked > 0, "softjit Release() reg that isn't locked");
+		_assert_msg_(!status->forceLocked, "softjit Release() reg that is force locked");
+		status->purpose = p;
+		status->locked--;
+		return;
+	}
+
+	RegStatus newStatus;
+	newStatus.reg = r;
+	newStatus.purpose = p;
+	newStatus.type = t;
+	regs.push_back(newStatus);
+}
+
+void PixelRegCache::Unlock(PixelRegCache::Reg r, PixelRegCache::Type t) {
+	RegStatus *status = FindReg(r, t);
+	if (status) {
+		_assert_msg_(status->locked > 0, "softjit Unlock() reg that isn't locked");
+		status->locked--;
+		return;
+	}
+
+	_assert_msg_(false, "softjit Unlock() reg that isn't there");
+}
+
+bool PixelRegCache::Has(PixelRegCache::Purpose p, PixelRegCache::Type t) {
+	for (auto &reg : regs) {
+		if (reg.purpose == p && reg.type == t) {
+			return true;
+		}
+	}
+	return false;
+}
+
+PixelRegCache::Reg PixelRegCache::Find(PixelRegCache::Purpose p, PixelRegCache::Type t) {
+	for (auto &reg : regs) {
+		if (reg.purpose == p && reg.type == t) {
+			_assert_msg_(reg.locked <= 255, "softjit Find() reg has lots of locks");
+			reg.locked++;
+			return reg.reg;
+		}
+	}
+	_assert_msg_(false, "softjit Find() reg that isn't there (%d)", p);
+	return Reg(-1);
+}
+
+PixelRegCache::Reg PixelRegCache::Alloc(PixelRegCache::Purpose p, PixelRegCache::Type t) {
+	_assert_msg_(!Has(p, t), "softjit Alloc() reg duplicate");
+	RegStatus *best = nullptr;
+	for (auto &reg : regs) {
+		if (reg.locked != 0 || reg.forceLocked || reg.type != t)
+			continue;
+
+		if (best == nullptr)
+			best = &reg;
+		// Prefer a free/purposeless reg.
+		if (reg.purpose == INVALID || reg.purpose >= TEMP0) {
+			best = &reg;
+			break;
+		}
+		// But also prefer a lower priority reg.
+		if (reg.purpose < best->purpose)
+			best = &reg;
+	}
+
+	if (best) {
+		best->locked = 1;
+		best->purpose = p;
+		return best->reg;
+	}
+
+	_assert_msg_(false, "softjit Alloc() reg with none free (%d)", p);
+	return Reg();
+}
+
+void PixelRegCache::ForceLock(PixelRegCache::Purpose p, PixelRegCache::Type t, bool state) {
+	for (auto &reg : regs) {
+		if (reg.purpose == p && reg.type == t) {
+			reg.forceLocked = state;
+			return;
+		}
+	}
+
+	_assert_msg_(false, "softjit ForceLock() reg that isn't there");
+}
+
+void PixelRegCache::GrabReg(PixelRegCache::Reg r, PixelRegCache::Purpose p, PixelRegCache::Type t, bool &needsSwap, PixelRegCache::Reg swapReg) {
+	for (auto &reg : regs) {
+		if (reg.reg != r || reg.type != t)
+			continue;
+
+		// Easy version, it's free.
+		if (reg.locked == 0 && !reg.forceLocked) {
+			needsSwap = false;
+			reg.purpose = p;
+			reg.locked = 1;
+			return;
+		}
+
+		// Okay, we need to swap.  Find that reg.
+		needsSwap = true;
+		RegStatus *swap = FindReg(swapReg, t);
+		if (swap) {
+			swap->purpose = reg.purpose;
+			swap->forceLocked = reg.forceLocked;
+			swap->locked = reg.locked;
+		} else {
+			RegStatus newStatus = reg;
+			newStatus.reg = swapReg;
+			regs.push_back(newStatus);
+		}
+
+		reg.purpose = p;
+		reg.locked = 1;
+		reg.forceLocked = false;
+		return;
+	}
+
+	_assert_msg_(false, "softjit GrabReg() reg that isn't there");
+}
+
+PixelRegCache::RegStatus *PixelRegCache::FindReg(PixelRegCache::Reg r, PixelRegCache::Type t) {
+	for (auto &reg : regs) {
+		if (reg.reg == r && reg.type == t) {
+			return &reg;
+		}
+	}
+
 	return nullptr;
 }
 

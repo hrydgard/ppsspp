@@ -493,7 +493,7 @@ bool SamplerJitCache::Jit_GetDXT1Color(const SamplerID &id, int blockSize, int a
 	// Let's swap the regs in that case.
 	CMP(32, R(tempReg1), Imm32(2));
 	FixupBranch skipSwap23 = J_CC(CC_E);
-	XCHG(32, R(bufwReg), R(tempReg2));
+	XCHG(32, R(tempReg2), R(bufwReg));
 	SetJumpTarget(skipSwap23);
 
 	// Start off with R, adding together first...
