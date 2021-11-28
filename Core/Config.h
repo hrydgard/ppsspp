@@ -155,6 +155,7 @@ public:
 	std::string sMicDevice;
 
 	bool bSoftwareRendering;
+	bool bSoftwareRenderingJit;
 	bool bHardwareTransform; // only used in the GLES backend
 	bool bSoftwareSkinning;  // may speed up some games
 	bool bVendorBugChecksEnabled;

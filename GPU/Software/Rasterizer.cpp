@@ -906,7 +906,7 @@ void DrawTriangleSlice(
 					subp.x = p.x + (i & 1);
 					subp.y = p.y + (i / 2);
 
-					drawPixel(subp.x, subp.y, z[i], fog[i], prim_color[i], pixelID);
+					drawPixel(subp.x, subp.y, z[i], fog[i], SOFTPIXEL_TO_VEC4I(prim_color[i]), pixelID);
 				}
 			}
 		}
@@ -1054,7 +1054,7 @@ void DrawPoint(const VertexData &v0)
 		fog = ClampFogDepth(v0.fogdepth);
 	}
 
-	drawPixel(p.x, p.y, z, fog, prim_color, pixelID);
+	drawPixel(p.x, p.y, z, fog, SOFTPIXEL_TO_VEC4I(prim_color), pixelID);
 }
 
 void ClearRectangle(const VertexData &v0, const VertexData &v1)
@@ -1344,7 +1344,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 			ScreenCoords pprime = ScreenCoords((int)x, (int)y, (int)z);
 
 			DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
-			drawPixel(p.x, p.y, z, fog, prim_color, pixelID);
+			drawPixel(p.x, p.y, z, fog, SOFTPIXEL_TO_VEC4I(prim_color), pixelID);
 		}
 
 		x += xinc;

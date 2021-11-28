@@ -1819,8 +1819,13 @@ void XEmitter::PCMPGTB(X64Reg dest, OpArg arg)  {WriteSSEOp(0x66, 0x64, dest, ar
 void XEmitter::PCMPGTW(X64Reg dest, OpArg arg)  {WriteSSEOp(0x66, 0x65, dest, arg);}
 void XEmitter::PCMPGTD(X64Reg dest, OpArg arg)  {WriteSSEOp(0x66, 0x66, dest, arg);}
 
-void XEmitter::PEXTRW(X64Reg dest, OpArg arg, u8 subreg)    {WriteSSEOp(0x66, 0xC5, dest, arg, 1); Write8(subreg);}
+void XEmitter::PEXTRW(X64Reg dest, X64Reg arg, u8 subreg)   {WriteSSEOp(0x66, 0xC5, dest, R(arg), 1); Write8(subreg);}
 void XEmitter::PINSRW(X64Reg dest, OpArg arg, u8 subreg)    {WriteSSEOp(0x66, 0xC4, dest, arg, 1); Write8(subreg);}
+void XEmitter::PEXTRB(OpArg dest, X64Reg arg, u8 subreg)    {WriteSSE41Op(0x66, 0x3A14, arg, dest, 1); Write8(subreg);}
+void XEmitter::PEXTRW(OpArg dest, X64Reg arg, u8 subreg)    {WriteSSE41Op(0x66, 0x3A15, arg, dest, 1); Write8(subreg);}
+void XEmitter::PEXTRD(OpArg dest, X64Reg arg, u8 subreg)    {WriteSSE41Op(0x66, 0x3A16, arg, dest, 1); Write8(subreg);}
+void XEmitter::PINSRB(X64Reg dest, OpArg arg, u8 subreg)    {WriteSSE41Op(0x66, 0x3A20, dest, arg, 1); Write8(subreg);}
+void XEmitter::PINSRD(X64Reg dest, OpArg arg, u8 subreg)    {WriteSSE41Op(0x66, 0x3A22, dest, arg, 1); Write8(subreg);}
 
 void XEmitter::PMADDWD(X64Reg dest, OpArg arg)  {WriteSSEOp(0x66, 0xF5, dest, arg); }
 void XEmitter::PSADBW(X64Reg dest, OpArg arg)   {WriteSSEOp(0x66, 0xF6, dest, arg);}

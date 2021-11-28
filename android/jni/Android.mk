@@ -30,6 +30,7 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/x86/RegCache.cpp \
   $(SRC)/Core/MIPS/x86/RegCacheFPU.cpp \
   $(SRC)/GPU/Common/VertexDecoderX86.cpp \
+  $(SRC)/GPU/Software/DrawPixelX86.cpp \
   $(SRC)/GPU/Software/SamplerX86.cpp
 endif
 
@@ -52,6 +53,7 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/x86/RegCache.cpp \
   $(SRC)/Core/MIPS/x86/RegCacheFPU.cpp \
   $(SRC)/GPU/Common/VertexDecoderX86.cpp \
+  $(SRC)/GPU/Software/DrawPixelX86.cpp \
   $(SRC)/GPU/Software/SamplerX86.cpp
 endif
 
