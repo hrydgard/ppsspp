@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <mutex>
 #include "Common/Data/Encoding/Base64.h"
 #include "Common/StringUtils.h"
 #include "Core/Core.h"
@@ -67,6 +68,7 @@ static AutoDisabledReplacements LockMemoryAndCPU(uint32_t addr, bool keepReplace
 		result.saved = true;
 		// Okay, save so we can restore later.
 		result.replacements = SaveAndClearReplacements();
+		std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 		if (MIPSComp::jit)
 			result.emuhacks = MIPSComp::jit->SaveAndClearEmuHackOps();
 	}
@@ -75,6 +77,7 @@ static AutoDisabledReplacements LockMemoryAndCPU(uint32_t addr, bool keepReplace
 
 AutoDisabledReplacements::~AutoDisabledReplacements() {
 	if (saved) {
+		std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 		if (MIPSComp::jit)
 			MIPSComp::jit->RestoreSavedEmuHackOps(emuhacks);
 		RestoreSavedReplacements(replacements);

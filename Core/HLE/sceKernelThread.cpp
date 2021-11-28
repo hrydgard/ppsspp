@@ -1476,6 +1476,7 @@ void __KernelLoadContext(PSPThreadContext *ctx, bool vfpuEnabled) {
 	}
 
 	memcpy(currentMIPS->other, ctx->other, sizeof(ctx->other));
+	// Not locking here, we assume the jit isn't switched during execution.
 	if (MIPSComp::jit) {
 		// When thread switching, we must update the rounding mode if cached in the jit.
 		MIPSComp::jit->UpdateFCR31();

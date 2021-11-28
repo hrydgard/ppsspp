@@ -105,7 +105,8 @@ namespace MIPSInt
 		switch (func) {
 		// Icache
 		case 8:
-			// Invalidate the instruction cache at this address
+			// Invalidate the instruction cache at this address.
+			// We assume the CPU won't be reset during this, so no locking.
 			if (MIPSComp::jit) {
 				MIPSComp::jit->InvalidateCacheAt(addr, 0x40);
 			}
@@ -515,6 +516,7 @@ namespace MIPSInt
 				if (fs == 31) {
 					currentMIPS->fcr31 = value & 0x0181FFFF;
 					currentMIPS->fpcond = (value >> 23) & 1;
+					// Don't bother locking, assuming the CPU can't be reset now anyway.
 					if (MIPSComp::jit) {
 						// In case of DISABLE, we need to tell jit we updated FCR31.
 						MIPSComp::jit->UpdateFCR31();

@@ -17,6 +17,7 @@
 
 #include "ppsspp_config.h"
 #include <cstdlib>
+#include <mutex>
 
 #include "ext/disarm.h"
 #include "ext/udis86/udis86.h"
@@ -46,6 +47,8 @@
 
 namespace MIPSComp {
 	JitInterface *jit;
+	std::recursive_mutex jitLock;
+
 	void JitAt() {
 		jit->Compile(currentMIPS->pc);
 	}
@@ -135,6 +138,7 @@ std::string AddAddress(const std::string &buf, uint64_t addr) {
 #if PPSSPP_ARCH(ARM64) || defined(DISASM_ALL)
 
 static bool Arm64SymbolCallback(char *buffer, int bufsize, uint8_t *address) {
+	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (MIPSComp::jit) {
 		std::string name;
 		if (MIPSComp::jit->DescribeCodePtr(address, name)) {
@@ -196,7 +200,7 @@ std::vector<std::string> DisassembleArm64(const u8 *data, int size) {
 const char *ppsspp_resolver(struct ud*,
 	uint64_t addr,
 	int64_t *offset) {
-	// For some reason these two don't seem to trigger..
+	// For some reason these don't seem to trigger..
 	if (addr >= (uint64_t)(&currentMIPS->r[0]) && addr < (uint64_t)&currentMIPS->r[32]) {
 		*offset = addr - (uint64_t)(&currentMIPS->r[0]);
 		return "mips.r";
@@ -226,7 +230,9 @@ const char *ppsspp_resolver(struct ud*,
 	// UGLY HACK because the API is terrible
 	static char buf[128];
 	std::string str;
-	if (MIPSComp::jit->DescribeCodePtr((u8 *)(uintptr_t)addr, str)) {
+
+	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+	if (MIPSComp::jit && MIPSComp::jit->DescribeCodePtr((u8 *)(uintptr_t)addr, str)) {
 		*offset = 0;
 		truncate_cpy(buf, sizeof(buf), str.c_str());
 		return buf;

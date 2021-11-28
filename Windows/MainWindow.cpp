@@ -895,6 +895,7 @@ namespace MainWindow
 					const u8 *ptr = (const u8 *)info->addr;
 					std::string name;
 
+					std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 					if (MIPSComp::jit && MIPSComp::jit->DescribeCodePtr(ptr, name)) {
 						swprintf_s(info->name, L"Jit::%S", name.c_str());
 						return TRUE;

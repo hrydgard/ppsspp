@@ -917,6 +917,7 @@ skip:
 
 	void PrecompileFunction(u32 startAddr, u32 length) {
 		// Direct calls to this ignore the bPreloadFunctions flag, since it's just for stubs.
+		std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 		if (MIPSComp::jit) {
 			MIPSComp::jit->CompileFunction(startAddr, length);
 		}

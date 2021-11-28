@@ -910,6 +910,7 @@ void JitCompareScreen::UpdateDisasm() {
 }
 
 UI::EventReturn JitCompareScreen::OnAddressChange(UI::EventParams &e) {
+	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (!MIPSComp::jit) {
 		return UI::EVENT_DONE;
 	}
@@ -929,6 +930,7 @@ UI::EventReturn JitCompareScreen::OnAddressChange(UI::EventParams &e) {
 }
 
 UI::EventReturn JitCompareScreen::OnShowStats(UI::EventParams &e) {
+	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (!MIPSComp::jit) {
 		return UI::EVENT_DONE;
 	}
@@ -976,6 +978,7 @@ UI::EventReturn JitCompareScreen::OnNextBlock(UI::EventParams &e) {
 }
 
 UI::EventReturn JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
+	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (!MIPSComp::jit) {
 		return UI::EVENT_DONE;
 	}
@@ -994,6 +997,7 @@ UI::EventReturn JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
 }
 
 UI::EventReturn JitCompareScreen::OnRandomBlock(UI::EventParams &e) {
+	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (!MIPSComp::jit) {
 		return UI::EVENT_DONE;
 	}
@@ -1021,6 +1025,7 @@ UI::EventReturn JitCompareScreen::OnRandomFPUBlock(UI::EventParams &e) {
 }
 
 void JitCompareScreen::OnRandomBlock(int flag) {
+	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (!MIPSComp::jit) {
 		return;
 	}
@@ -1056,6 +1061,7 @@ void JitCompareScreen::OnRandomBlock(int flag) {
 }
 
 UI::EventReturn JitCompareScreen::OnCurrentBlock(UI::EventParams &e) {
+	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (!MIPSComp::jit) {
 		return UI::EVENT_DONE;
 	}

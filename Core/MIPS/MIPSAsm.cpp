@@ -38,6 +38,7 @@ public:
 		Memory::Memcpy((u32)address, data, (u32)length, "Debugger");
 		
 		// In case this is a delay slot or combined instruction, clear cache above it too.
+		std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 		if (MIPSComp::jit)
 			MIPSComp::jit->InvalidateCacheAt((u32)(address - 4),(int)length+4);
 

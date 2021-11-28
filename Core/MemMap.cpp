@@ -413,6 +413,7 @@ __forceinline static Opcode Read_Instruction(u32 address, bool resolveReplacemen
 		return inst;
 	}
 
+	// No mutex on jit access here, but we assume the caller has locked, if necessary.
 	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit) {
 		inst = MIPSComp::jit->GetOriginalOp(inst);
 		if (resolveReplacements && MIPS_IS_REPLACEMENT(inst)) {
@@ -461,6 +462,7 @@ Opcode ReadUnchecked_Instruction(u32 address, bool resolveReplacements)
 Opcode Read_Opcode_JIT(u32 address)
 {
 	Opcode inst = Opcode(Read_U32(address));
+	// No mutex around jit access here, but we assume caller has if necessary.
 	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit) {
 		return MIPSComp::jit->GetOriginalOp(inst);
 	} else {
