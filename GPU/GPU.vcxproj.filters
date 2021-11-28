@@ -270,6 +270,9 @@
     <ClInclude Include="Software\DrawPixel.h">
       <Filter>Software</Filter>
     </ClInclude>
+    <ClInclude Include="Software\RasterizerRegCache.h">
+      <Filter>Software</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -543,6 +546,9 @@
       <Filter>Software</Filter>
     </ClCompile>
     <ClCompile Include="Software\DrawPixelX86.cpp">
+      <Filter>Software</Filter>
+    </ClCompile>
+    <ClCompile Include="Software\RasterizerRegCache.cpp">
       <Filter>Software</Filter>
     </ClCompile>
   </ItemGroup>

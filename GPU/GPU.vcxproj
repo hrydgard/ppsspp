@@ -458,6 +458,7 @@
     <ClInclude Include="Software\FuncId.h" />
     <ClInclude Include="Software\Rasterizer.h" />
     <ClInclude Include="Software\RasterizerRectangle.h" />
+    <ClInclude Include="Software\RasterizerRegCache.h" />
     <ClInclude Include="Software\Sampler.h" />
     <ClInclude Include="Software\SoftGpu.h" />
     <ClInclude Include="Software\TransformUnit.h" />
@@ -636,6 +637,7 @@
     <ClCompile Include="Software\FuncId.cpp" />
     <ClCompile Include="Software\Rasterizer.cpp" />
     <ClCompile Include="Software\RasterizerRectangle.cpp" />
+    <ClCompile Include="Software\RasterizerRegCache.cpp" />
     <ClCompile Include="Software\Sampler.cpp" />
     <ClCompile Include="Software\SamplerX86.cpp" />
     <ClCompile Include="Software\SoftGpu.cpp" />

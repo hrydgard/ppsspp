@@ -1595,6 +1595,8 @@ set(GPU_SOURCES
 	GPU/Software/Rasterizer.h
 	GPU/Software/RasterizerRectangle.cpp
 	GPU/Software/RasterizerRectangle.h
+	GPU/Software/RasterizerRegCache.cpp
+	GPU/Software/RasterizerRegCache.h
 	GPU/Software/Sampler.cpp
 	GPU/Software/Sampler.h
 	GPU/Software/SoftGpu.cpp

@@ -356,6 +356,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Software/Lighting.cpp \
 	$(GPUDIR)/Software/Rasterizer.cpp \
 	$(GPUDIR)/Software/RasterizerRectangle.cpp \
+	$(GPUDIR)/Software/RasterizerRegCache.cpp \
 	$(GPUDIR)/GLES/DepalettizeShaderGLES.cpp \
 	$(GPUDIR)/GLES/DepthBufferGLES.cpp \
 	$(GPUDIR)/GLES/DrawEngineGLES.cpp \

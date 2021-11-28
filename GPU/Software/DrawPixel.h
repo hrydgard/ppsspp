@@ -35,6 +35,7 @@
 #endif
 #include "GPU/Math3D.h"
 #include "GPU/Software/FuncId.h"
+#include "GPU/Software/RasterizerRegCache.h"
 
 namespace Rasterizer {
 
@@ -59,90 +60,6 @@ void Init();
 void Shutdown();
 
 bool DescribeCodePtr(const u8 *ptr, std::string &name);
-
-struct PixelRegCache {
-	enum Purpose {
-		FLAG_GEN = 0x0100,
-		FLAG_TEMP = 0x1000,
-
-		VEC_ZERO = 0x0000,
-
-		GEN_SRC_ALPHA = 0x0100,
-		GEN_GSTATE = 0x0101,
-		GEN_CONST_BASE = 0x0102,
-		GEN_STENCIL = 0x0103,
-		GEN_COLOR_OFF = 0x0104,
-		GEN_DEPTH_OFF = 0x0105,
-
-		GEN_ARG_X = 0x0180,
-		GEN_ARG_Y = 0x0181,
-		GEN_ARG_Z = 0x0182,
-		GEN_ARG_FOG = 0x0183,
-		VEC_ARG_COLOR = 0x0080,
-		VEC_ARG_MASK = 0x0081,
-
-		VEC_TEMP0 = 0x1000,
-		VEC_TEMP1 = 0x1001,
-		VEC_TEMP2 = 0x1002,
-		VEC_TEMP3 = 0x1003,
-		VEC_TEMP4 = 0x1004,
-		VEC_TEMP5 = 0x1005,
-
-		GEN_TEMP0 = 0x1100,
-		GEN_TEMP1 = 0x1101,
-		GEN_TEMP2 = 0x1102,
-		GEN_TEMP3 = 0x1103,
-		GEN_TEMP4 = 0x1104,
-		GEN_TEMP5 = 0x1105,
-		GEN_TEMP_HELPER = 0x1106,
-
-		VEC_INVALID = 0xFEFF,
-		GEN_INVALID = 0xFFFF,
-	};
-
-#if PPSSPP_ARCH(ARM)
-	typedef ArmGen::ARMReg Reg;
-	static constexpr Reg REG_INVALID_VALUE = ArmGen::INVALID_REG;
-#elif PPSSPP_ARCH(ARM64)
-	typedef Arm64Gen::ARM64Reg Reg;
-	static constexpr Reg REG_INVALID_VALUE = Arm64Gen::INVALID_REG;
-#elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
-	typedef Gen::X64Reg Reg;
-	static constexpr Reg REG_INVALID_VALUE = Gen::INVALID_REG;
-#elif PPSSPP_ARCH(MIPS)
-	typedef MIPSGen::MIPSReg Reg;
-	static constexpr Reg REG_INVALID_VALUE = MIPSGen::INVALID_REG;
-#else
-	typedef int Reg;
-	static constexpr Reg REG_INVALID_VALUE = -1;
-#endif
-
-	struct RegStatus {
-		Reg reg;
-		Purpose purpose;
-		uint8_t locked = 0;
-		bool forceRetained = false;
-	};
-
-	void Reset(bool validate);
-	void Add(Reg r, Purpose p);
-	void Change(Purpose history, Purpose destiny);
-	void Release(Reg &r, Purpose p);
-	void Unlock(Reg &r, Purpose p);
-	bool Has(Purpose p);
-	Reg Find(Purpose p);
-	Reg Alloc(Purpose p);
-	void ForceRetain(Purpose p);
-	void ForceRelease(Purpose p);
-
-	// For getting a specific reg.  WARNING: May return a locked reg, so you have to check.
-	void GrabReg(Reg r, Purpose p, bool &needsSwap, Reg swapReg, Purpose swapPurpose);
-
-private:
-	RegStatus *FindReg(Reg r, Purpose p);
-
-	std::vector<RegStatus> regs;
-};
 
 struct PixelBlendState {
 	bool usesFactors = false;
@@ -179,41 +96,41 @@ private:
 	Arm64Gen::ARM64FloatEmitter fp;
 #endif
 
-	PixelRegCache::Reg GetGState();
-	PixelRegCache::Reg GetConstBase();
-	PixelRegCache::Reg GetZeroVec();
+	RegCache::Reg GetGState();
+	RegCache::Reg GetConstBase();
+	RegCache::Reg GetZeroVec();
 	// Note: these may require a temporary reg.
-	PixelRegCache::Reg GetColorOff(const PixelFuncID &id);
-	PixelRegCache::Reg GetDepthOff(const PixelFuncID &id);
-	PixelRegCache::Reg GetDestStencil(const PixelFuncID &id);
+	RegCache::Reg GetColorOff(const PixelFuncID &id);
+	RegCache::Reg GetDepthOff(const PixelFuncID &id);
+	RegCache::Reg GetDestStencil(const PixelFuncID &id);
 
 	bool Jit_ApplyDepthRange(const PixelFuncID &id);
 	bool Jit_AlphaTest(const PixelFuncID &id);
 	bool Jit_ApplyFog(const PixelFuncID &id);
 	bool Jit_ColorTest(const PixelFuncID &id);
 	bool Jit_StencilAndDepthTest(const PixelFuncID &id);
-	bool Jit_StencilTest(const PixelFuncID &id, PixelRegCache::Reg stencilReg, PixelRegCache::Reg maskedReg);
-	bool Jit_DepthTestForStencil(const PixelFuncID &id, PixelRegCache::Reg stencilReg);
-	bool Jit_ApplyStencilOp(const PixelFuncID &id, GEStencilOp op, PixelRegCache::Reg stencilReg);
-	bool Jit_WriteStencilOnly(const PixelFuncID &id, PixelRegCache::Reg stencilReg);
+	bool Jit_StencilTest(const PixelFuncID &id, RegCache::Reg stencilReg, RegCache::Reg maskedReg);
+	bool Jit_DepthTestForStencil(const PixelFuncID &id, RegCache::Reg stencilReg);
+	bool Jit_ApplyStencilOp(const PixelFuncID &id, GEStencilOp op, RegCache::Reg stencilReg);
+	bool Jit_WriteStencilOnly(const PixelFuncID &id, RegCache::Reg stencilReg);
 	bool Jit_DepthTest(const PixelFuncID &id);
 	bool Jit_WriteDepth(const PixelFuncID &id);
 	bool Jit_AlphaBlend(const PixelFuncID &id);
-	bool Jit_BlendFactor(const PixelFuncID &id, PixelRegCache::Reg factorReg, PixelRegCache::Reg dstReg, GEBlendSrcFactor factor);
-	bool Jit_DstBlendFactor(const PixelFuncID &id, PixelRegCache::Reg srcFactorReg, PixelRegCache::Reg dstFactorReg, PixelRegCache::Reg dstReg);
+	bool Jit_BlendFactor(const PixelFuncID &id, RegCache::Reg factorReg, RegCache::Reg dstReg, GEBlendSrcFactor factor);
+	bool Jit_DstBlendFactor(const PixelFuncID &id, RegCache::Reg srcFactorReg, RegCache::Reg dstFactorReg, RegCache::Reg dstReg);
 	bool Jit_Dither(const PixelFuncID &id);
 	bool Jit_WriteColor(const PixelFuncID &id);
-	bool Jit_ApplyLogicOp(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg maskReg);
-	bool Jit_ConvertTo565(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg temp1Reg, PixelRegCache::Reg temp2Reg);
-	bool Jit_ConvertTo5551(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg temp1Reg, PixelRegCache::Reg temp2Reg, bool keepAlpha);
-	bool Jit_ConvertTo4444(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg temp1Reg, PixelRegCache::Reg temp2Reg, bool keepAlpha);
-	bool Jit_ConvertFrom565(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg temp1Reg, PixelRegCache::Reg temp2Reg);
-	bool Jit_ConvertFrom5551(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg temp1Reg, PixelRegCache::Reg temp2Reg, bool keepAlpha);
-	bool Jit_ConvertFrom4444(const PixelFuncID &id, PixelRegCache::Reg colorReg, PixelRegCache::Reg temp1Reg, PixelRegCache::Reg temp2Reg, bool keepAlpha);
+	bool Jit_ApplyLogicOp(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg maskReg);
+	bool Jit_ConvertTo565(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg);
+	bool Jit_ConvertTo5551(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha);
+	bool Jit_ConvertTo4444(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha);
+	bool Jit_ConvertFrom565(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg);
+	bool Jit_ConvertFrom5551(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha);
+	bool Jit_ConvertFrom4444(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha);
 
 	std::unordered_map<PixelFuncID, SingleFunc> cache_;
 	std::unordered_map<PixelFuncID, const u8 *> addresses_;
-	PixelRegCache regCache_;
+	RegCache regCache_;
 
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	void Discard();
