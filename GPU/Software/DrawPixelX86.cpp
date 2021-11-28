@@ -532,7 +532,6 @@ bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 	X64Reg fogColorReg = regCache_.Alloc(RegCache::VEC_TEMP1);
 	X64Reg gstateReg = GetGState();
 	if (cpu_info.bSSE4_1) {
-		X64Reg gstateReg = GetGState();
 		// This actually loads the texlodslope too, but that's okay.
 		PMOVZXBW(fogColorReg, MDisp(gstateReg, offsetof(GPUgstate, fogcolor)));
 	} else {
