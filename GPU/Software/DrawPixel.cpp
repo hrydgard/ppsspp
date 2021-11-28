@@ -379,13 +379,7 @@ static inline u32 ApplyLogicOp(GELogicOp op, u32 old_color, u32 new_color) {
 
 template <bool clearMode, GEBufferFormat fbFormat>
 void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg color_in, const PixelFuncID &pixelID) {
-#if PPSSPP_ARCH(ARM64)
-	Vec4<int> prim_color;
-	vst1q_s32(prim_color.AsArray(), color_in);
-	prim_color = prim_color.Clamp(0, 255);
-#else
 	Vec4<int> prim_color = Vec4<int>(color_in).Clamp(0, 255);
-#endif
 	// Depth range test - applied in clear mode, if not through mode.
 	if (pixelID.applyDepthRange)
 		if (z < gstate.getDepthRangeMin() || z > gstate.getDepthRangeMax())
