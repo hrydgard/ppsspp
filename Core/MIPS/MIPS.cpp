@@ -17,6 +17,7 @@
 
 #include <cmath>
 #include <limits>
+#include <mutex>
 
 #include "Common/Math/math_util.h"
 
@@ -90,7 +91,7 @@ const float cst_constants[32] = {
 
 
 MIPSState::MIPSState() {
-	MIPSComp::jit = 0;
+	MIPSComp::jit = nullptr;
 
 	// Initialize vorder
 
@@ -163,9 +164,11 @@ MIPSState::~MIPSState() {
 }
 
 void MIPSState::Shutdown() {
-	if (MIPSComp::jit) {
-		delete MIPSComp::jit;
-		MIPSComp::jit = 0;
+	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+	MIPSComp::JitInterface *oldjit = MIPSComp::jit;
+	if (oldjit) {
+		MIPSComp::jit = nullptr;
+		delete oldjit;
 	}
 }
 
@@ -209,6 +212,7 @@ void MIPSState::Init() {
 	// Initialize the VFPU random number generator with .. something?
 	rng.Init(0x1337);
 
+	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (PSP_CoreParameter().cpuCore == CPUCore::JIT) {
 		MIPSComp::jit = MIPSComp::CreateNativeJit(this);
 	} else if (PSP_CoreParameter().cpuCore == CPUCore::IR_JIT) {
@@ -228,29 +232,42 @@ void MIPSState::UpdateCore(CPUCore desired) {
 	}
 
 	PSP_CoreParameter().cpuCore = desired;
+	MIPSComp::JitInterface *oldjit = MIPSComp::jit;
+	MIPSComp::JitInterface *newjit = nullptr;
+
 	switch (PSP_CoreParameter().cpuCore) {
 	case CPUCore::JIT:
 		INFO_LOG(CPU, "Switching to JIT");
-		if (MIPSComp::jit) {
-			delete MIPSComp::jit;
+		if (oldjit) {
+			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+			MIPSComp::jit = nullptr;
+			delete oldjit;
 		}
-		MIPSComp::jit = MIPSComp::CreateNativeJit(this);
+		newjit = MIPSComp::CreateNativeJit(this);
 		break;
 
 	case CPUCore::IR_JIT:
 		INFO_LOG(CPU, "Switching to IRJIT");
-		if (MIPSComp::jit) {
-			delete MIPSComp::jit;
+		if (oldjit) {
+			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+			MIPSComp::jit = nullptr;
+			delete oldjit;
 		}
-		MIPSComp::jit = new MIPSComp::IRJit(this);
+		newjit = new MIPSComp::IRJit(this);
 		break;
 
 	case CPUCore::INTERPRETER:
 		INFO_LOG(CPU, "Switching to interpreter");
-		delete MIPSComp::jit;
-		MIPSComp::jit = 0;
+		if (oldjit) {
+			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+			MIPSComp::jit = nullptr;
+			delete oldjit;
+		}
 		break;
 	}
+
+	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+	MIPSComp::jit = newjit;
 }
 
 void MIPSState::DoState(PointerWrap &p) {
@@ -261,6 +278,7 @@ void MIPSState::DoState(PointerWrap &p) {
 	// Reset the jit if we're loading.
 	if (p.mode == p.MODE_READ)
 		Reset();
+	// Assume we're not saving state during a CPU core reset, so no lock.
 	if (MIPSComp::jit)
 		MIPSComp::jit->DoState(p);
 	else
@@ -328,11 +346,13 @@ int MIPSState::RunLoopUntil(u64 globalTicks) {
 
 void MIPSState::InvalidateICache(u32 address, int length) {
 	// Only really applies to jit.
+	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (MIPSComp::jit)
 		MIPSComp::jit->InvalidateCacheAt(address, length);
 }
 
 void MIPSState::ClearJitCache() {
+	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (MIPSComp::jit)
 		MIPSComp::jit->ClearCache();
 }

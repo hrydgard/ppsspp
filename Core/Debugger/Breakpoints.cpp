@@ -633,23 +633,25 @@ bool CBreakPoints::HasMemChecks()
 	return !memChecks_.empty();
 }
 
-void CBreakPoints::Update(u32 addr)
-{
-	if (MIPSComp::jit)
-	{
+void CBreakPoints::Update(u32 addr) {
+	if (MIPSComp::jit) {
 		bool resume = false;
-		if (Core_IsStepping() == false)
-		{
+		if (Core_IsStepping() == false) {
 			Core_EnableStepping(true, "cpu.breakpoint.update", addr);
 			Core_WaitInactive(200);
 			resume = true;
 		}
-		
-		// In case this is a delay slot, clear the previous instruction too.
-		if (addr != 0)
-			MIPSComp::jit->InvalidateCacheAt(addr - 4, 8);
-		else
-			MIPSComp::jit->ClearCache();
+
+		{
+			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+			if (MIPSComp::jit) {
+				// In case this is a delay slot, clear the previous instruction too.
+				if (addr != 0)
+					MIPSComp::jit->InvalidateCacheAt(addr - 4, 8);
+				else
+					MIPSComp::jit->ClearCache();
+			}
+		}
 
 		if (resume)
 			Core_EnableStepping(false);

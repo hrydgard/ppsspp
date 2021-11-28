@@ -303,15 +303,19 @@ namespace SaveState
 
 		// Memory is a bit tricky when jit is enabled, since there's emuhacks in it.
 		auto savedReplacements = SaveAndClearReplacements();
-		if (MIPSComp::jit && p.mode == p.MODE_WRITE)
-		{
-			std::vector<u32> savedBlocks;
-			savedBlocks = MIPSComp::jit->SaveAndClearEmuHackOps();
+		if (MIPSComp::jit && p.mode == p.MODE_WRITE) {
+			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+			if (MIPSComp::jit) {
+				std::vector<u32> savedBlocks;
+				savedBlocks = MIPSComp::jit->SaveAndClearEmuHackOps();
+				Memory::DoState(p);
+				MIPSComp::jit->RestoreSavedEmuHackOps(savedBlocks);
+			} else {
+				Memory::DoState(p);
+			}
+		} else {
 			Memory::DoState(p);
-			MIPSComp::jit->RestoreSavedEmuHackOps(savedBlocks);
 		}
-		else
-			Memory::DoState(p);
 		RestoreSavedReplacements(savedReplacements);
 
 		MemoryStick_DoState(p);

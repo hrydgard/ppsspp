@@ -376,13 +376,13 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, f
 void HandleCommonMessages(const char *message, const char *value, ScreenManager *manager, Screen *activeScreen) {
 	bool isActiveScreen = manager->topScreen() == activeScreen;
 
-	if (!strcmp(message, "clear jit")) {
-		if (MIPSComp::jit && PSP_IsInited()) {
-			MIPSComp::jit->ClearCache();
+	if (!strcmp(message, "clear jit") && PSP_IsInited()) {
+		if (MIPSComp::jit) {
+			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+			if (MIPSComp::jit)
+				MIPSComp::jit->ClearCache();
 		}
-		if (PSP_IsInited()) {
-			currentMIPS->UpdateCore((CPUCore)g_Config.iCpuCore);
-		}
+		currentMIPS->UpdateCore((CPUCore)g_Config.iCpuCore);
 	} else if (!strcmp(message, "control mapping") && isActiveScreen && activeScreen->tag() != "control mapping") {
 		UpdateUIState(UISTATE_MENU);
 		manager->push(new ControlMappingScreen());
