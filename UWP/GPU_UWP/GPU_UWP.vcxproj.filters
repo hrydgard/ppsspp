@@ -55,6 +55,7 @@
     <ClCompile Include="..\..\GPU\Software\TransformUnit.cpp" />
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="..\..\GPU\Software\RasterizerRectangle.cpp" />
+    <ClCompile Include="..\..\GPU\Software\RasterizerRegCache.cpp" />
     <ClCompile Include="..\..\GPU\Common\FragmentShaderGenerator.cpp" />
     <ClCompile Include="..\..\GPU\Common\VertexShaderGenerator.cpp" />
     <ClCompile Include="..\..\GPU\Common\ReinterpretFramebuffer.cpp" />
@@ -114,6 +115,7 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="..\..\GPU\Software\RasterizerRectangle.h" />
+    <ClInclude Include="..\..\GPU\Software\RasterizerRegCache.h" />
     <ClInclude Include="..\..\GPU\Common\FragmentShaderGenerator.h" />
     <ClInclude Include="..\..\GPU\Common\VertexShaderGenerator.h" />
     <ClInclude Include="..\..\GPU\Common\ReinterpretFramebuffer.h" />

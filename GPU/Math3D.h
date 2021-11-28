@@ -64,6 +64,9 @@ public:
 #if defined(_M_SSE)
 		__m128i ivec;
 		__m128 vec;
+#elif PPSSPP_ARCH(ARM64)
+		int32x4_t ivec;
+		float32x4_t vec;
 #endif
 	};
 
@@ -76,6 +79,11 @@ public:
 #if defined(_M_SSE)
 	Vec2(const __m128 &_vec) : vec(_vec) {}
 	Vec2(const __m128i &_ivec) : ivec(_ivec) {}
+#elif PPSSPP_ARCH(ARM64)
+	Vec2(const float32x4_t &_vec) : vec(_vec) {}
+#if !defined(_MSC_VER)
+	Vec2(const int32x4_t &_ivec) : ivec(_ivec) {}
+#endif
 #endif
 
 	template<typename T2>
@@ -204,6 +212,9 @@ public:
 #if defined(_M_SSE)
 		__m128i ivec;
 		__m128 vec;
+#elif PPSSPP_ARCH(ARM64)
+		int32x4_t ivec;
+		float32x4_t vec;
 #endif
 	};
 
@@ -219,6 +230,14 @@ public:
 	Vec3(const __m128i &_ivec) : ivec(_ivec) {}
 	Vec3(const Vec3Packed<T> &_xyz) {
 		vec = _mm_loadu_ps(_xyz.AsArray());
+	}
+#elif PPSSPP_ARCH(ARM64)
+	Vec3(const float32x4_t &_vec) : vec(_vec) {}
+#if !defined(_MSC_VER)
+	Vec3(const int32x4_t &_ivec) : ivec(_ivec) {}
+#endif
+	Vec3(const Vec3Packed<T> &_xyz) {
+		vec = vld1q_f32(_xyz.AsArray());
 	}
 #else
 	Vec3(const Vec3Packed<T> &_xyz) : x(_xyz.x), y(_xyz.y), z(_xyz.z) {}
@@ -552,6 +571,9 @@ public:
 #if defined(_M_SSE)
 		__m128i ivec;
 		__m128 vec;
+#elif PPSSPP_ARCH(ARM64)
+		int32x4_t ivec;
+		float32x4_t vec;
 #endif
 	};
 
@@ -566,6 +588,11 @@ public:
 #if defined(_M_SSE)
 	Vec4(const __m128 &_vec) : vec(_vec) {}
 	Vec4(const __m128i &_ivec) : ivec(_ivec) {}
+#elif PPSSPP_ARCH(ARM64)
+	Vec4(const float32x4_t &_vec) : vec(_vec) {}
+#if !defined(_MSC_VER)
+	Vec4(const int32x4_t &_ivec) : ivec(_ivec) {}
+#endif
 #endif
 
 	template<typename T2>

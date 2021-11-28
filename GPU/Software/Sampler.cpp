@@ -241,13 +241,14 @@ LinearFunc SamplerJitCache::GetLinear(const SamplerID &id) {
 	}
 
 #if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
-	addresses_[id] = GetCodePointer();
-	LinearFunc func = CompileLinear(id);
-	cache_[id] = (NearestFunc)func;
-	return func;
-#else
-	return nullptr;
+	if (g_Config.bSoftwareRenderingJit) {
+		addresses_[id] = GetCodePointer();
+		LinearFunc func = CompileLinear(id);
+		cache_[id] = (NearestFunc)func;
+		return func;
+	}
 #endif
+	return nullptr;
 }
 
 template <unsigned int texel_size_bits>
