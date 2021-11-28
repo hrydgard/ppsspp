@@ -89,7 +89,6 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 #else
 	// Must save: RBX, RSP, RBP, R12-R15
 
-	regCache_.Add(R8, RegCache::GEN_INVALID);
 	regCache_.Add(R9, RegCache::GEN_INVALID);
 	regCache_.Add(XMM4, RegCache::VEC_INVALID);
 
@@ -98,9 +97,9 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 	regCache_.Add(RDX, RegCache::GEN_ARG_Z);
 	regCache_.Add(RCX, RegCache::GEN_ARG_FOG);
 	regCache_.Add(XMM0, RegCache::VEC_ARG_COLOR);
+	regCache_.Add(R8, RegCache::GEN_ARG_ID);
 
-	// Here we just have the return and padding to align RPB.
-	stackIDOffset_ = 16;
+	stackIDOffset_ = -1;
 #endif
 
 	// Initially, disallow spill for args (they get unlocked when no longer needed.)
@@ -109,6 +108,8 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 	regCache_.ForceRetain(RegCache::GEN_ARG_Z);
 	regCache_.ForceRetain(RegCache::GEN_ARG_FOG);
 	regCache_.ForceRetain(RegCache::VEC_ARG_COLOR);
+	if (regCache_.Has(RegCache::GEN_ARG_ID))
+		regCache_.ForceRetain(RegCache::GEN_ARG_ID);
 
 	BeginWrite();
 	const u8 *start = AlignCode16();
@@ -145,6 +146,8 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 	}
 	discards_.clear();
 
+	if (regCache_.Has(RegCache::GEN_ARG_ID))
+		regCache_.ForceRelease(RegCache::GEN_ARG_ID);
 	regCache_.Reset(success);
 
 	if (!success) {
@@ -1412,8 +1415,15 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 	LEA(32, valueReg, MComplex(argXReg, valueReg, 8, offsetof(PixelFuncID, cached.ditherMatrix)));
 
 	// Okay, now abuse argXReg to read the PixelFuncID pointer on the stack.
-	MOV(PTRBITS, R(argXReg), MDisp(RSP, stackIDOffset_));
-	MOVSX(32, 16, valueReg, MRegSum(argXReg, valueReg));
+	if (regCache_.Has(RegCache::GEN_ARG_ID)) {
+		X64Reg idReg = regCache_.Find(RegCache::GEN_ARG_ID);
+		MOVSX(32, 16, valueReg, MRegSum(idReg, valueReg));
+		regCache_.Unlock(idReg, RegCache::GEN_ARG_ID);
+	} else {
+		_assert_(stackIDOffset_ != -1);
+		MOV(PTRBITS, R(argXReg), MDisp(RSP, stackIDOffset_));
+		MOVSX(32, 16, valueReg, MRegSum(argXReg, valueReg));
+	}
 #endif
 	if (argXReg != INVALID_REG) {
 		regCache_.Unlock(argXReg, RegCache::GEN_ARG_X);
@@ -1597,8 +1607,15 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 #else
 		maskReg = regCache_.Alloc(RegCache::GEN_TEMP3);
 		// Load the pre-converted and combined write mask.
-		MOV(PTRBITS, R(maskReg), MDisp(RSP, stackIDOffset_));
-		MOV(32, R(maskReg), MDisp(maskReg, offsetof(PixelFuncID, cached.colorWriteMask)));
+		if (regCache_.Has(RegCache::GEN_ARG_ID)) {
+			X64Reg idReg = regCache_.Find(RegCache::GEN_ARG_ID);
+			MOV(32, R(maskReg), MDisp(idReg, offsetof(PixelFuncID, cached.colorWriteMask)));
+			regCache_.Unlock(idReg, RegCache::GEN_ARG_ID);
+		} else {
+			_assert_(stackIDOffset_ != -1);
+			MOV(PTRBITS, R(maskReg), MDisp(RSP, stackIDOffset_));
+			MOV(32, R(maskReg), MDisp(maskReg, offsetof(PixelFuncID, cached.colorWriteMask)));
+		}
 #endif
 	}
 

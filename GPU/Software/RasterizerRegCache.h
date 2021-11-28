@@ -97,6 +97,7 @@ struct RegCache {
 		GEN_ARG_Y = 0x0181,
 		GEN_ARG_Z = 0x0182,
 		GEN_ARG_FOG = 0x0183,
+		GEN_ARG_ID = 0x0184,
 		VEC_ARG_COLOR = 0x0080,
 		VEC_ARG_MASK = 0x0081,
 
