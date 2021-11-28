@@ -17,7 +17,140 @@
 
 #include "GPU/Software/RasterizerRegCache.h"
 
+#include "Common/Arm64Emitter.h"
+
 namespace Rasterizer {
+
+void RegCache::SetupABI(const std::vector<Purpose> &args, bool forceRetain) {
+#if PPSSPP_ARCH(ARM)
+	_assert_msg_(false, "Not yet implemented");
+#elif PPSSPP_ARCH(ARM64)
+	using namespace Arm64Gen;
+
+	// ARM64 has a generous allotment of registers.
+	static const Reg genArgs[] = { X0, X1, X2, X3, X4, X5, X6, X7 };
+	static const Reg vecArgs[] = { Q0, Q1, Q2, Q3, Q4, Q5, Q6, Q7 };
+	size_t genIndex = 0;
+	size_t vecIndex = 0;
+
+	for (const Purpose &p : args) {
+		if ((p & FLAG_GEN) != 0) {
+			if (genIndex < ARRAY_SIZE(genArgs)) {
+				Add(genArgs[genIndex++], p);
+				if (forceRetain)
+					ForceRetain(p);
+			}
+		} else {
+			if (vecIndex < ARRAY_SIZE(vecArgs)) {
+				Add(vecArgs[vecIndex++], p);
+				if (forceRetain)
+					ForceRetain(p);
+			}
+		}
+	}
+
+	// Any others are free and purposeless.
+	for (size_t i = genIndex; i < ARRAY_SIZE(genArgs); ++i)
+		Add(genArgs[i], GEN_INVALID);
+	for (size_t i = vecIndex; i < ARRAY_SIZE(vecArgs); ++i)
+		Add(vecArgs[i], VEC_INVALID);
+
+	// Add all other caller saved regs without purposes yet.
+	static const Reg genTemps[] = { X8, X9, X10, X11, X12, X13, X14, X15, X16, X17 };
+	for (Reg r : genTemps)
+		Add(r, GEN_INVALID);
+	static const Reg vecTemps[] = { Q16, Q17, Q18, Q19, Q20, Q21, Q22, Q23 };
+	for (Reg r : vecTemps)
+		Add(r, VEC_INVALID);
+	// We also have X16-17 and Q24-Q31, but leave those for ordered paired instructions.
+#elif PPSSPP_ARCH(X86)
+	_assert_msg_(false, "Not yet implemented");
+#elif PPSSPP_ARCH(AMD64)
+	using namespace Gen;
+
+#if PPSSPP_PLATFORM(WINDOWS)
+	// The Windows convention is annoying, as it wastes registers and keeps to "positions."
+	Reg genArgs[] = { RCX, RDX, R8, R9 };
+	Reg vecArgs[] = { XMM0, XMM1, XMM2, XMM3, XMM4, XMM5 };
+
+	for (size_t i = 0; i < args.size(); ++i) {
+		const Purpose &p = args[i];
+		if ((p & FLAG_GEN) != 0) {
+			if (i < ARRAY_SIZE(genArgs)) {
+				Add(genArgs[i], p);
+				genArgs[i] = INVALID_REG;
+				if (forceRetain)
+					ForceRetain(p);
+			}
+		} else {
+			if (i < ARRAY_SIZE(vecArgs)) {
+				Add(vecArgs[i], p);
+				vecArgs[i] = INVALID_REG;
+				if (forceRetain)
+					ForceRetain(p);
+			}
+		}
+	}
+
+	// Any unused regs can be used freely as temps.
+	for (Reg r : genArgs) {
+		if (r != INVALID_REG)
+			Add(r, GEN_INVALID);
+	}
+	for (Reg r : vecArgs) {
+		if (r != INVALID_REG)
+			Add(r, VEC_INVALID);
+	}
+
+	// Additionally, these three are volatile.
+	// Must save: RBX, RSP, RBP, RDI, RSI, R12-R15, XMM6-15
+	static const Reg genTemps[] = { RAX, R10, R11 };
+	for (Reg r : genTemps)
+		Add(r, GEN_INVALID);
+#else
+	// Okay, first, allocate args.  SystemV gives to the first of each usable pool.
+	static const Reg genArgs[] = { RDI, RSI, RDX, RCX, R8, R9 };
+	static const Reg vecArgs[] = { XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7 };
+	size_t genIndex = 0;
+	size_t vecIndex = 0;
+
+	for (const Purpose &p : args) {
+		if ((p & FLAG_GEN) != 0) {
+			if (genIndex < ARRAY_SIZE(genArgs)) {
+				Add(genArgs[genIndex++], p);
+				if (forceRetain)
+					ForceRetain(p);
+			}
+		} else {
+			if (vecIndex < ARRAY_SIZE(vecArgs)) {
+				Add(vecArgs[vecIndex++], p);
+				if (forceRetain)
+					ForceRetain(p);
+			}
+		}
+	}
+
+	// Any others are free and purposeless.
+	for (size_t i = genIndex; i < ARRAY_SIZE(genArgs); ++i)
+		Add(genArgs[i], GEN_INVALID);
+	for (size_t i = vecIndex; i < ARRAY_SIZE(vecArgs); ++i)
+		Add(vecArgs[i], VEC_INVALID);
+
+	// Add all other caller saved regs without purposes yet.
+	// Must save: RBX, RSP, RBP, R12-R15
+	static const Reg genTemps[] = { RAX, R10, R11 };
+	for (Reg r : genTemps)
+		Add(r, GEN_INVALID);
+	static const Reg vecTemps[] = { XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15 };
+	for (Reg r : vecTemps)
+		Add(r, VEC_INVALID);
+#endif
+#elif PPSSPP_ARCH(MIPS)
+	_assert_msg_(false, "Not yet implemented");
+#else
+	_assert_msg_(false, "Not yet implemented");
+#endif
+}
 
 void RegCache::Reset(bool validate) {
 	if (validate) {

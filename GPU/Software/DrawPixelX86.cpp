@@ -64,52 +64,24 @@ static OpArg MConstDisp(X64Reg r, const T *t) {
 }
 
 SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
-	// Setup the reg cache.
-	regCache_.Add(RAX, RegCache::GEN_INVALID);
-	regCache_.Add(R10, RegCache::GEN_INVALID);
-	regCache_.Add(R11, RegCache::GEN_INVALID);
-	regCache_.Add(XMM1, RegCache::VEC_INVALID);
-	regCache_.Add(XMM2, RegCache::VEC_INVALID);
-	regCache_.Add(XMM3, RegCache::VEC_INVALID);
-	regCache_.Add(XMM5, RegCache::VEC_INVALID);
+	// Setup the reg cache and disallow spill for arguments.
+	regCache_.SetupABI({
+		RegCache::GEN_ARG_X,
+		RegCache::GEN_ARG_Y,
+		RegCache::GEN_ARG_Z,
+		RegCache::GEN_ARG_FOG,
+		RegCache::VEC_ARG_COLOR,
+		RegCache::GEN_ARG_ID,
+	});
 
 #if PPSSPP_PLATFORM(WINDOWS)
-	// Must save: RBX, RSP, RBP, RDI, RSI, R12-R15, XMM6-15
-
-	regCache_.Add(XMM0, RegCache::VEC_INVALID);
-
-	regCache_.Add(RCX, RegCache::GEN_ARG_X);
-	regCache_.Add(RDX, RegCache::GEN_ARG_Y);
-	regCache_.Add(R8, RegCache::GEN_ARG_Z);
-	regCache_.Add(R9, RegCache::GEN_ARG_FOG);
-	regCache_.Add(XMM4, RegCache::VEC_ARG_COLOR);
-
 	// Windows reserves space to save args, 1 xmm + 4 ints before the id.
+	_assert_(!regCache_.Has(RegCache::GEN_ARG_ID));
 	stackIDOffset_ = 1 * 16 + 4 * PTRBITS / 8;
 #else
-	// Must save: RBX, RSP, RBP, R12-R15
-
-	regCache_.Add(R9, RegCache::GEN_INVALID);
-	regCache_.Add(XMM4, RegCache::VEC_INVALID);
-
-	regCache_.Add(RDI, RegCache::GEN_ARG_X);
-	regCache_.Add(RSI, RegCache::GEN_ARG_Y);
-	regCache_.Add(RDX, RegCache::GEN_ARG_Z);
-	regCache_.Add(RCX, RegCache::GEN_ARG_FOG);
-	regCache_.Add(XMM0, RegCache::VEC_ARG_COLOR);
-	regCache_.Add(R8, RegCache::GEN_ARG_ID);
-
+	_assert_(regCache_.Has(RegCache::GEN_ARG_ID));
 	stackIDOffset_ = -1;
 #endif
-
-	// Initially, disallow spill for args (they get unlocked when no longer needed.)
-	regCache_.ForceRetain(RegCache::GEN_ARG_X);
-	regCache_.ForceRetain(RegCache::GEN_ARG_Y);
-	regCache_.ForceRetain(RegCache::GEN_ARG_Z);
-	regCache_.ForceRetain(RegCache::GEN_ARG_FOG);
-	regCache_.ForceRetain(RegCache::VEC_ARG_COLOR);
-	if (regCache_.Has(RegCache::GEN_ARG_ID))
-		regCache_.ForceRetain(RegCache::GEN_ARG_ID);
 
 	BeginWrite();
 	const u8 *start = AlignCode16();
