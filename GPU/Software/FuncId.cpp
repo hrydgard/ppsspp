@@ -71,6 +71,10 @@ void ComputePixelFuncID(PixelFuncID *id) {
 				id->zFail = gstate.isDepthTestEnabled() ? gstate.getStencilOpZFail() : GE_STENCILOP_KEEP;
 			if (gstate.FrameBufFormat() != GE_FORMAT_565 && gstate.getStencilOpZPass() <= GE_STENCILOP_DECR)
 				id->zPass = gstate.getStencilOpZPass();
+
+			// Not equal tests are easier.
+			if (id->stencilTestRef == 0 && id->StencilTestFunc() == GE_COMP_GREATER)
+				id->stencilTestFunc = GE_COMP_NOTEQUAL;
 		}
 
 		id->depthTestFunc = gstate.isDepthTestEnabled() ? gstate.getDepthTestFunction() : GE_COMP_ALWAYS;
@@ -78,6 +82,9 @@ void ComputePixelFuncID(PixelFuncID *id) {
 		if (id->AlphaTestFunc() != GE_COMP_ALWAYS) {
 			id->alphaTestRef = gstate.getAlphaTestRef() & gstate.getAlphaTestMask();
 			id->hasAlphaTestMask = gstate.getAlphaTestMask() != 0xFF;
+			// Try to pick a more optimal variant.
+			if (id->alphaTestRef == 0 && id->AlphaTestFunc() == GE_COMP_GREATER)
+				id->alphaTestFunc = GE_COMP_NOTEQUAL;
 		}
 
 		// If invalid (6 or 7), doesn't do any blending, so force off.
