@@ -608,6 +608,7 @@ bool PixelJitCache::Jit_StencilAndDepthTest(const PixelFuncID &id) {
 	success = success && Jit_ApplyStencilOp(id, id.ZPass(), stencilReg);
 
 	// At this point, stencilReg can't be spilled.  It contains the updated value.
+	regCache_.Unlock(stencilReg, RegCache::GEN_STENCIL);
 	regCache_.ForceRetain(RegCache::GEN_STENCIL);
 
 	return success;
