@@ -205,6 +205,7 @@ void RegCache::Release(Reg &r, Purpose p) {
 }
 
 void RegCache::Unlock(Reg &r, Purpose p) {
+	_assert_msg_((p & FLAG_TEMP) == 0, "softjit Unlock() temp reg (%04X)", p);
 	RegStatus *status = FindReg(r, p);
 	if (status) {
 		_assert_msg_(status->locked > 0, "softjit Unlock() reg that isn't locked (%04X)", p);
