@@ -1978,7 +1978,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	${CORE_NEON}
 	${GPU_SOURCES}
 	ext/disarm.cpp
-	git-version.cpp
+	${CMAKE_CURRENT_BINARY_DIR}/git-version.cpp
 )
 
 if(ANDROID)
@@ -2126,10 +2126,11 @@ endif()
 
 add_custom_command(OUTPUT something_that_never_exists
 	COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+		-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}
 		-P ${CMAKE_CURRENT_SOURCE_DIR}/git-version.cmake
 	${WIN_VERSION_CMD})
 
-set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/git-version.cpp
+set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/git-version.cpp
 	PROPERTIES GENERATED TRUE
 	SKIP_AUTOMOC ON)
 add_dependencies(${CoreLibName} GitVersion)
