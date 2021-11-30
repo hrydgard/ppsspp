@@ -757,15 +757,23 @@ static bool HasTextDrawer() {
 	return textDrawer != nullptr;
 }
 
+static std::string PPGeSanitizeText(const std::string &text) {
+	return SanitizeUTF8(text);
+}
+
 void PPGeMeasureText(float *w, float *h, const char *text, float scale, int WrapType, int wrapWidth) {
+	std::string s = PPGeSanitizeText(text);
+
 	if (HasTextDrawer()) {
+		std::string s2 = ReplaceAll(s, "&", "&&");
+
 		float mw, mh;
 		textDrawer->SetFontScale(scale, scale);
 		int dtalign = (WrapType & PPGE_LINE_WRAP_WORD) ? FLAG_WRAP_TEXT : 0;
 		if (WrapType & PPGE_LINE_USE_ELLIPSIS)
 			dtalign |= FLAG_ELLIPSIZE_TEXT;
 		Bounds b(0, 0, wrapWidth <= 0 ? 480.0f : wrapWidth, 272.0f);
-		textDrawer->MeasureStringRect(text, strlen(text), b, &mw, &mh, dtalign);
+		textDrawer->MeasureStringRect(s2.c_str(), s2.size(), b, &mw, &mh, dtalign);
 
 		if (w)
 			*w = mw;
@@ -783,7 +791,7 @@ void PPGeMeasureText(float *w, float *h, const char *text, float scale, int Wrap
 	}
 
 	const AtlasFont &atlasfont = g_ppge_atlas.fonts[0];
-	AtlasTextMetrics metrics = BreakLines(text, atlasfont, 0, 0, PPGeAlign::BOX_TOP, scale, scale, WrapType, wrapWidth, true);
+	AtlasTextMetrics metrics = BreakLines(s.c_str(), atlasfont, 0, 0, PPGeAlign::BOX_TOP, scale, scale, WrapType, wrapWidth, true);
 	if (w) *w = metrics.maxWidth;
 	if (h) *h = metrics.lineHeight * metrics.numLines;
 }
@@ -954,10 +962,6 @@ static void PPGeDecimateTextImages(int age) {
 	}
 }
 
-static std::string PPGeSanitizeText(const std::string &text) {
-	return SanitizeUTF8(text);
-}
-
 void PPGeDrawText(const char *text, float x, float y, const PPGeStyle &style) {
 	if (!text) {
 		return;
@@ -968,7 +972,7 @@ void PPGeDrawText(const char *text, float x, float y, const PPGeStyle &style) {
 	}
 
 	if (HasTextDrawer()) {
-		PPGeTextDrawerImage im = PPGeGetTextImage(str.c_str(), style, 480.0f - x, false);
+		PPGeTextDrawerImage im = PPGeGetTextImage(ReplaceAll(str, "&", "&&").c_str(), style, 480.0f - x, false);
 		if (im.ptr) {
 			PPGeDrawTextImage(im, x, y, style);
 			return;
@@ -1019,11 +1023,13 @@ void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, fl
 	float maxScaleDown = zoom == 1 ? 1.3f : 2.0f;
 
 	if (HasTextDrawer()) {
+		std::string s2 = ReplaceAll(s, "&", "&&");
+
 		float actualWidth, actualHeight;
 		Bounds b(0, 0, wrapWidth <= 0 ? 480.0f - x : wrapWidth, wrapHeight);
 		int tdalign = 0;
 		textDrawer->SetFontScale(style.scale, style.scale);
-		textDrawer->MeasureStringRect(s.c_str(), s.size(), b, &actualWidth, &actualHeight, tdalign | FLAG_WRAP_TEXT);
+		textDrawer->MeasureStringRect(s2.c_str(), s2.size(), b, &actualWidth, &actualHeight, tdalign | FLAG_WRAP_TEXT);
 
 		// Check if we need to scale the text down to fit better.
 		PPGeStyle adjustedStyle = style;
@@ -1039,13 +1045,13 @@ void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, fl
 				actualHeight = (maxLines + 1) * lineHeight;
 				// Add an ellipsis if it's just too long to be readable.
 				// On a PSP, it does this without scaling it down.
-				s = StripTrailingWhite(CropLinesToCount(s, (int)maxLines)) + "\n...";
+				s2 = StripTrailingWhite(CropLinesToCount(s2, (int)maxLines)) + "\n...";
 			}
 
 			adjustedStyle.scale *= wrapHeight / actualHeight;
 		}
 
-		PPGeTextDrawerImage im = PPGeGetTextImage(s.c_str(), adjustedStyle, wrapWidth <= 0 ? 480.0f - x : wrapWidth, true);
+		PPGeTextDrawerImage im = PPGeGetTextImage(s2.c_str(), adjustedStyle, wrapWidth <= 0 ? 480.0f - x : wrapWidth, true);
 		if (im.ptr) {
 			PPGeDrawTextImage(im, x, y, adjustedStyle);
 			return;
