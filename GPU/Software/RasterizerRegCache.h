@@ -144,15 +144,28 @@ struct RegCache {
 		bool forceRetained = false;
 	};
 
+	// Note: Assumes __vectorcall on Windows.
+	// Keep in mind, some args won't fit in regs, this ignores stack and tracks what's in regs.
+	void SetupABI(const std::vector<Purpose> &args, bool forceRetain = true);
+	// Reset after compile complete, pass false for validate if compile failed.
 	void Reset(bool validate);
+	// Add register to cache for tracking with initial purpose (won't be locked or force retained.)
 	void Add(Reg r, Purpose p);
+	// Find registers with one purpose and change to the other.
 	void Change(Purpose history, Purpose destiny);
+	// Release a previously found or allocated register, setting purpose to invalid.
 	void Release(Reg &r, Purpose p);
+	// Unlock a previously found or allocated register, but try to retain it.
 	void Unlock(Reg &r, Purpose p);
+	// Check if the purpose is currently in a register.
 	bool Has(Purpose p);
+	// Return the register for a given purpose (check with Has() first if not certainly there.)
 	Reg Find(Purpose p);
+	// Allocate a new register for the given purpose.
 	Reg Alloc(Purpose p);
+	// Force a register to be retained, even if we run short on regs.
 	void ForceRetain(Purpose p);
+	// Reverse ForceRetain, and release the register back to invalid.
 	void ForceRelease(Purpose p);
 
 	// For getting a specific reg.  WARNING: May return a locked reg, so you have to check.
