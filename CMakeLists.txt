@@ -154,6 +154,7 @@ option(USE_SYSTEM_LIBZIP "Dynamically link against system libzip" ${USE_SYSTEM_L
 option(USE_SYSTEM_LIBSDL2 "Dynamically link against system SDL2" ON)
 option(USE_SYSTEM_LIBPNG "Dynamically link against system libpng" ON)
 option(USE_SYSTEM_ZSTD "Dynamically link against system zstd" ${USE_SYSTEM_ZSTD})
+option(USE_SYSTEM_MINIUPNPC "Dynamically link against system miniUPnPc" ${USE_SYSTEM_MINIUPNPC})
 option(USE_ASAN "Use address sanitizer" OFF)
 option(USE_UBSAN "Use undefined behaviour sanitizer" OFF)
 
@@ -2045,71 +2046,77 @@ endif()
 
 # miniUPnPc integration (MiniUPnPc supposed to works on any POSIX system, not sure if some of these are redundant/not needed tho)
 if(USE_MINIUPNPC)
-	set (MINIUPNPC_VERSION 2.1) # used by miniupnpcstrings.h.cmake
-	set (MINIUPNPC_API_VERSION 17)
-	option(UPNPC_BUILD_STATIC "Build static library" TRUE)
-	option(NO_GETADDRINFO "Define NO_GETADDRINFO" FALSE)
-	mark_as_advanced(NO_GETADDRINFO)
-	if (NO_GETADDRINFO)
-	  add_definitions(-DNO_GETADDRINFO)
-	endif()
-
-	if (NOT WIN32)
-	  add_definitions (-DMINIUPNPC_SET_SOCKET_TIMEOUT)
-	  add_definitions (-D_BSD_SOURCE -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200112L)
-	endif()
-	if (MACOSX)
-	  add_definitions (-D_DARWIN_C_SOURCE)
-	endif()
-	if(WIN32)
-		add_definitions(-DWIN32 -DMINIUPNP_EXPORTS )
+	if(USE_SYSTEM_MINIUPNPC)
+		find_package(MINIUPNPC REQUIRED)
+		target_include_directories(${CoreLibName} PRIVATE ${MINIUPNP_INCLUDE_DIR})
+		target_link_libraries(${CoreLibName} ${MINIUPNP_LIBRARY})
 	else()
-		add_definitions(-fPIC)
-	endif()
+		set (MINIUPNPC_VERSION 2.1) # used by miniupnpcstrings.h.cmake
+		set (MINIUPNPC_API_VERSION 17)
+		option(UPNPC_BUILD_STATIC "Build static library" TRUE)
+		option(NO_GETADDRINFO "Define NO_GETADDRINFO" FALSE)
+		mark_as_advanced(NO_GETADDRINFO)
+		if (NO_GETADDRINFO)
+			add_definitions(-DNO_GETADDRINFO)
+		endif()
 
-	add_definitions(-DWITH_UPNP -DMINIUPNP_STATICLIB)
-	set(MINIUPNP_DIR "ext/miniupnp/miniupnpc")
-	include_directories(${CMAKE_CURRENT_BINARY_DIR})
-	configure_file(${MINIUPNP_DIR}/miniupnpcstrings.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/miniupnpcstrings.h) # by default miniupnp repo doesn't contains miniupnpcstrings.h and need to be generated
-	set(MINIUPNPC_SOURCES
-        # the needed bits of miniupnpc (no python module, no tests, no cli)
-		${MINIUPNP_DIR}/addr_is_reserved.c
-		${MINIUPNP_DIR}/connecthostport.c
-        ${MINIUPNP_DIR}/igd_desc_parse.c
-        ${MINIUPNP_DIR}/minisoap.c
-        ${MINIUPNP_DIR}/minissdpc.c
-        ${MINIUPNP_DIR}/miniupnpc.c
-        ${MINIUPNP_DIR}/miniwget.c
-        ${MINIUPNP_DIR}/minixml.c
-        ${MINIUPNP_DIR}/minixmlvalid.c
-		${MINIUPNP_DIR}/portlistingparse.c
-		${MINIUPNP_DIR}/receivedata.c
-		#${MINIUPNP_DIR}/upnpc.c # causing an error due to already existing _main()
-        ${MINIUPNP_DIR}/upnpcommands.c
-		${MINIUPNP_DIR}/upnpdev.c
-        ${MINIUPNP_DIR}/upnperrors.c
-        ${MINIUPNP_DIR}/upnpreplyparse.c
-		${CMAKE_CURRENT_BINARY_DIR}/miniupnpcstrings.h
-	)
-	if (NOT WIN32 AND NOT CMAKE_SYSTEM_NAME STREQUAL "AmigaOS")
-	  #set(MINIUPNPC_SOURCES ${MINIUPNPC_SOURCES} minissdpc.c) # causing an error due to duplication in MINIUPNPC_SOURCES?
-	endif()
-	if (WIN32)
-	  set_source_files_properties(${MINIUPNPC_SOURCES} PROPERTIES  COMPILE_DEFINITIONS "MINIUPNP_STATICLIB;MINIUPNP_EXPORTS")
-	  set(LDLIBS ws2_32 iphlpapi ${LDLIBS})
-	#elseif (CMAKE_SYSTEM_NAME STREQUAL "Solaris")
-	#  find_library (SOCKET_LIBRARY NAMES socket)
-	#  find_library (NSL_LIBRARY NAMES nsl)
-	#  find_library (RESOLV_LIBRARY NAMES resolv)
-	#  set (LDLIBS ${SOCKET_LIBRARY} ${NSL_LIBRARY} ${RESOLV_LIBRARY} ${LDLIBS})
-	endif()
-	if (UPNPC_BUILD_STATIC)
-		add_library(miniupnpc STATIC ${MINIUPNPC_SOURCES})
-		target_link_libraries(${CoreLibName} miniupnpc ${LDLIBS})
-		set(UPNPC_LIBRARY miniupnpc)
-		if (MSVC)
-			# Suppress noise warnings
-			target_compile_definitions(miniupnpc PRIVATE _CRT_SECURE_NO_WARNINGS _WINSOCK_DEPRECATED_NO_WARNINGS)
+		if (NOT WIN32)
+			add_definitions (-DMINIUPNPC_SET_SOCKET_TIMEOUT)
+			add_definitions (-D_BSD_SOURCE -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200112L)
+		endif()
+		if (MACOSX)
+			add_definitions (-D_DARWIN_C_SOURCE)
+		endif()
+		if(WIN32)
+			add_definitions(-DWIN32 -DMINIUPNP_EXPORTS )
+		else()
+			add_definitions(-fPIC)
+		endif()
+
+		add_definitions(-DWITH_UPNP -DMINIUPNP_STATICLIB)
+		set(MINIUPNP_DIR "ext/miniupnp/miniupnpc")
+		include_directories(${CMAKE_CURRENT_BINARY_DIR})
+		configure_file(${MINIUPNP_DIR}/miniupnpcstrings.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/miniupnpcstrings.h) # by default miniupnp repo doesn't contains miniupnpcstrings.h and need to be generated
+		set(MINIUPNPC_SOURCES
+			# the needed bits of miniupnpc (no python module, no tests, no cli)
+			${MINIUPNP_DIR}/addr_is_reserved.c
+			${MINIUPNP_DIR}/connecthostport.c
+			${MINIUPNP_DIR}/igd_desc_parse.c
+			${MINIUPNP_DIR}/minisoap.c
+			${MINIUPNP_DIR}/minissdpc.c
+			${MINIUPNP_DIR}/miniupnpc.c
+			${MINIUPNP_DIR}/miniwget.c
+			${MINIUPNP_DIR}/minixml.c
+			${MINIUPNP_DIR}/minixmlvalid.c
+			${MINIUPNP_DIR}/portlistingparse.c
+			${MINIUPNP_DIR}/receivedata.c
+			#${MINIUPNP_DIR}/upnpc.c # causing an error due to already existing _main()
+			${MINIUPNP_DIR}/upnpcommands.c
+			${MINIUPNP_DIR}/upnpdev.c
+			${MINIUPNP_DIR}/upnperrors.c
+			${MINIUPNP_DIR}/upnpreplyparse.c
+			${CMAKE_CURRENT_BINARY_DIR}/miniupnpcstrings.h
+		)
+		if (NOT WIN32 AND NOT CMAKE_SYSTEM_NAME STREQUAL "AmigaOS")
+			#set(MINIUPNPC_SOURCES ${MINIUPNPC_SOURCES} minissdpc.c) # causing an error due to duplication in MINIUPNPC_SOURCES?
+		endif()
+		if (WIN32)
+			set_source_files_properties(${MINIUPNPC_SOURCES} PROPERTIES  COMPILE_DEFINITIONS "MINIUPNP_STATICLIB;MINIUPNP_EXPORTS")
+			set(LDLIBS ws2_32 iphlpapi ${LDLIBS})
+		#elseif (CMAKE_SYSTEM_NAME STREQUAL "Solaris")
+		#  find_library (SOCKET_LIBRARY NAMES socket)
+		#  find_library (NSL_LIBRARY NAMES nsl)
+		#  find_library (RESOLV_LIBRARY NAMES resolv)
+		#  set (LDLIBS ${SOCKET_LIBRARY} ${NSL_LIBRARY} ${RESOLV_LIBRARY} ${LDLIBS})
+		endif()
+		if (UPNPC_BUILD_STATIC)
+			add_library(miniupnpc STATIC ${MINIUPNPC_SOURCES})
+			target_link_libraries(${CoreLibName} miniupnpc ${LDLIBS})
+			set(UPNPC_LIBRARY miniupnpc)
+			if (MSVC)
+				# Suppress noise warnings
+				target_compile_definitions(miniupnpc PRIVATE _CRT_SECURE_NO_WARNINGS _WINSOCK_DEPRECATED_NO_WARNINGS)
+			endif()
 		endif()
 	endif()
 endif()
