@@ -1,5 +1,5 @@
 set(GIT_VERSION_FILE "${OUTPUT_DIR}/git-version.cpp")
-set(GIT_VERSION "unknown")
+set(GIT_VERSION "1.12.3")
 set(GIT_VERSION_UPDATE "1")
 
 find_package(Git)
@@ -9,11 +9,11 @@ if(GIT_FOUND AND EXISTS "${SOURCE_DIR}/.git/")
 		RESULT_VARIABLE exit_code
 		OUTPUT_VARIABLE GIT_VERSION)
 	if(NOT ${exit_code} EQUAL 0)
-		message(WARNING "git describe failed, unable to include version.")
+		message(WARNING "git describe failed, using version '${GIT_VERSION}'.")
 	endif()
 	string(STRIP ${GIT_VERSION} GIT_VERSION)
 else()
-	message(WARNING "git not found, unable to include version.")
+	message(WARNING "git not found, using version '${GIT_VERSION}'.")
 endif()
 
 if(EXISTS ${GIT_VERSION_FILE})
