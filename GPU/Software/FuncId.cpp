@@ -27,6 +27,21 @@ static_assert(sizeof(PixelFuncID) == sizeof(PixelFuncID::fullKey) + sizeof(Pixel
 static_assert(sizeof(PixelFuncID) == sizeof(PixelFuncID::fullKey), "Bad pixel func ID size");
 #endif
 
+static inline GEComparison OptimizeRefByteCompare(GEComparison func, u8 ref) {
+	// Not equal tests are easier.
+	if (ref == 0 && func == GE_COMP_GREATER)
+		return GE_COMP_NOTEQUAL;
+	if (ref == 0xFF && func == GE_COMP_LESS)
+		return GE_COMP_NOTEQUAL;
+
+	// Sometimes games pointlessly use tests like these.
+	if (ref == 0 && func == GE_COMP_GEQUAL)
+		return GE_COMP_ALWAYS;
+	if (ref == 0xFF && func == GE_COMP_LEQUAL)
+		return GE_COMP_ALWAYS;
+	return func;
+}
+
 void ComputePixelFuncID(PixelFuncID *id) {
 	id->fullKey = 0;
 
@@ -60,8 +75,8 @@ void ComputePixelFuncID(PixelFuncID *id) {
 		id->depthWrite = gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled();
 
 		if (id->stencilTest) {
-			id->stencilTestFunc = gstate.getStencilTestFunction();
 			id->stencilTestRef = gstate.getStencilTestRef() & gstate.getStencilTestMask();
+			id->stencilTestFunc = OptimizeRefByteCompare(gstate.getStencilTestFunction(), id->stencilTestRef);
 			id->hasStencilTestMask = gstate.getStencilTestMask() != 0xFF && gstate.FrameBufFormat() != GE_FORMAT_565;
 
 			// Stencil can't be written on 565, and any invalid op acts like KEEP, which is 0.
@@ -78,10 +93,6 @@ void ComputePixelFuncID(PixelFuncID *id) {
 			// And same for sFail if there's no stencil test.
 			if (id->StencilTestFunc() == GE_COMP_ALWAYS)
 				id->sFail = id->zPass;
-
-			// Not equal tests are easier.
-			if (id->stencilTestRef == 0 && id->StencilTestFunc() == GE_COMP_GREATER)
-				id->stencilTestFunc = GE_COMP_NOTEQUAL;
 
 			// Normalize REPLACE 00 to ZERO, especially if using a mask.
 			if (gstate.getStencilTestRef() == 0) {
@@ -116,8 +127,11 @@ void ComputePixelFuncID(PixelFuncID *id) {
 			id->alphaTestRef = gstate.getAlphaTestRef() & gstate.getAlphaTestMask();
 			id->hasAlphaTestMask = gstate.getAlphaTestMask() != 0xFF;
 			// Try to pick a more optimal variant.
-			if (id->alphaTestRef == 0 && id->AlphaTestFunc() == GE_COMP_GREATER)
-				id->alphaTestFunc = GE_COMP_NOTEQUAL;
+			id->alphaTestFunc = OptimizeRefByteCompare(id->AlphaTestFunc(), id->alphaTestRef);
+			if (id->alphaTestFunc == GE_COMP_ALWAYS) {
+				id->alphaTestRef = 0;
+				id->hasAlphaTestMask = false;
+			}
 		}
 
 		// If invalid (6 or 7), doesn't do any blending, so force off.
