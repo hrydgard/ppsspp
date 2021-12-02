@@ -72,9 +72,42 @@ void ComputePixelFuncID(PixelFuncID *id) {
 			if (gstate.FrameBufFormat() != GE_FORMAT_565 && gstate.getStencilOpZPass() <= GE_STENCILOP_DECR)
 				id->zPass = gstate.getStencilOpZPass();
 
+			// Always treat zPass/zFail the same if there's no depth test.
+			if (!gstate.isDepthTestEnabled() || gstate.getDepthTestFunction() == GE_COMP_ALWAYS)
+				id->zFail = id->zPass;
+			// And same for sFail if there's no stencil test.
+			if (id->StencilTestFunc() == GE_COMP_ALWAYS)
+				id->sFail = id->zPass;
+
 			// Not equal tests are easier.
 			if (id->stencilTestRef == 0 && id->StencilTestFunc() == GE_COMP_GREATER)
 				id->stencilTestFunc = GE_COMP_NOTEQUAL;
+
+			// Normalize REPLACE 00 to ZERO, especially if using a mask.
+			if (gstate.getStencilTestRef() == 0) {
+				if (id->SFail() == GE_STENCILOP_REPLACE)
+					id->sFail = GE_STENCILOP_ZERO;
+				if (id->ZFail() == GE_STENCILOP_REPLACE)
+					id->zFail = GE_STENCILOP_ZERO;
+				if (id->ZPass() == GE_STENCILOP_REPLACE)
+					id->zPass = GE_STENCILOP_ZERO;
+			}
+
+			// For 5551, DECR is also the same as ZERO.
+			if (id->FBFormat() == GE_FORMAT_5551) {
+				if (id->SFail() == GE_STENCILOP_DECR)
+					id->sFail = GE_STENCILOP_ZERO;
+				if (id->ZFail() == GE_STENCILOP_DECR)
+					id->zFail = GE_STENCILOP_ZERO;
+				if (id->ZPass() == GE_STENCILOP_DECR)
+					id->zPass = GE_STENCILOP_ZERO;
+			}
+
+			// Turn off stencil testing if it's doing nothing.
+			if (id->SFail() == GE_STENCILOP_KEEP && id->ZFail() == GE_STENCILOP_KEEP && id->ZPass() == GE_STENCILOP_KEEP) {
+				if (id->StencilTestFunc() == GE_COMP_ALWAYS)
+					id->stencilTest = false;
+			}
 		}
 
 		id->depthTestFunc = gstate.isDepthTestEnabled() ? gstate.getDepthTestFunction() : GE_COMP_ALWAYS;
