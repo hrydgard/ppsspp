@@ -35,7 +35,7 @@ struct PixelFuncID {
 	struct {
 		// Warning: these are not hashed or compared for equal.  Just cached values.
 		uint32_t colorWriteMask{};
-		int16_t ditherMatrix[16]{};
+		int8_t ditherMatrix[16]{};
 	} cached;
 #endif
 
