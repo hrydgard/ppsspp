@@ -595,7 +595,7 @@ bool PixelJitCache::Jit_StencilAndDepthTest(const PixelFuncID &id) {
 	bool success = true;
 	success = success && Jit_StencilTest(id, stencilReg, maskedReg);
 	if (maskedReg != stencilReg)
-		regCache_.Unlock(maskedReg, RegCache::GEN_TEMP0);
+		regCache_.Release(maskedReg, RegCache::GEN_TEMP0);
 
 	// Next up, the depth test.
 	if (stencilReg == INVALID_REG) {
@@ -1382,19 +1382,18 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 	MOVSX(32, 8, valueReg, R(valueReg));
 	SAR(8, R(valueReg), Imm8(4));
 #else
-	// Sum up (x + y * 4) * 2 + ditherMatrix offset to valueReg.
-	SHL(32, R(argXReg), Imm8(1));
-	LEA(32, valueReg, MComplex(argXReg, valueReg, 8, offsetof(PixelFuncID, cached.ditherMatrix)));
+	// Sum up (x + y * 4) + ditherMatrix offset to valueReg.
+	LEA(32, valueReg, MComplex(argXReg, valueReg, 4, offsetof(PixelFuncID, cached.ditherMatrix)));
 
 	// Okay, now abuse argXReg to read the PixelFuncID pointer on the stack.
 	if (regCache_.Has(RegCache::GEN_ARG_ID)) {
 		X64Reg idReg = regCache_.Find(RegCache::GEN_ARG_ID);
-		MOVSX(32, 16, valueReg, MRegSum(idReg, valueReg));
+		MOVSX(32, 8, valueReg, MRegSum(idReg, valueReg));
 		regCache_.Unlock(idReg, RegCache::GEN_ARG_ID);
 	} else {
 		_assert_(stackIDOffset_ != -1);
 		MOV(PTRBITS, R(argXReg), MDisp(RSP, stackIDOffset_));
-		MOVSX(32, 16, valueReg, MRegSum(argXReg, valueReg));
+		MOVSX(32, 8, valueReg, MRegSum(argXReg, valueReg));
 	}
 #endif
 	if (argXReg != INVALID_REG) {
@@ -1665,7 +1664,7 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 
 bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg maskReg) {
 	X64Reg gstateReg = GetGState();
-	X64Reg logicOpReg = regCache_.Alloc(RegCache::GEN_TEMP3);
+	X64Reg logicOpReg = regCache_.Alloc(RegCache::GEN_TEMP4);
 	MOVZX(32, 8, logicOpReg, MDisp(gstateReg, offsetof(GPUgstate, lop)));
 	AND(8, R(logicOpReg), Imm8(0x0F));
 	regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
@@ -1676,7 +1675,7 @@ bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, RegCache::Reg colorR
 
 	// Should already be allocated.
 	X64Reg colorOff = regCache_.Find(RegCache::GEN_COLOR_OFF);
-	X64Reg temp1Reg = regCache_.Find(RegCache::GEN_TEMP1);
+	X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP5);
 
 	// We'll use these in several cases, so prepare.
 	int bits = id.fbFormat == GE_FORMAT_8888 ? 32 : 16;
@@ -1996,8 +1995,8 @@ bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, RegCache::Reg colorR
 		SetJumpTarget(fixup);
 
 	regCache_.Unlock(colorOff, RegCache::GEN_COLOR_OFF);
-	regCache_.Unlock(temp1Reg, RegCache::GEN_TEMP1);
-	regCache_.Unlock(logicOpReg, RegCache::GEN_TEMP3);
+	regCache_.Release(logicOpReg, RegCache::GEN_TEMP4);
+	regCache_.Release(temp1Reg, RegCache::GEN_TEMP5);
 	if (stencilReg != INVALID_REG)
 		regCache_.Unlock(stencilReg, RegCache::GEN_STENCIL);
 

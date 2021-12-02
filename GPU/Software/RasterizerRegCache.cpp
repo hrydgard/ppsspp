@@ -56,7 +56,7 @@ void RegCache::SetupABI(const std::vector<Purpose> &args, bool forceRetain) {
 		Add(vecArgs[i], VEC_INVALID);
 
 	// Add all other caller saved regs without purposes yet.
-	static const Reg genTemps[] = { X8, X9, X10, X11, X12, X13, X14, X15, X16, X17 };
+	static const Reg genTemps[] = { X8, X9, X10, X11, X12, X13, X14, X15 };
 	for (Reg r : genTemps)
 		Add(r, GEN_INVALID);
 	static const Reg vecTemps[] = { Q16, Q17, Q18, Q19, Q20, Q21, Q22, Q23 };
@@ -205,6 +205,7 @@ void RegCache::Release(Reg &r, Purpose p) {
 }
 
 void RegCache::Unlock(Reg &r, Purpose p) {
+	_assert_msg_((p & FLAG_TEMP) == 0, "softjit Unlock() temp reg (%04X)", p);
 	RegStatus *status = FindReg(r, p);
 	if (status) {
 		_assert_msg_(status->locked > 0, "softjit Unlock() reg that isn't locked (%04X)", p);

@@ -27,6 +27,21 @@ static_assert(sizeof(PixelFuncID) == sizeof(PixelFuncID::fullKey) + sizeof(Pixel
 static_assert(sizeof(PixelFuncID) == sizeof(PixelFuncID::fullKey), "Bad pixel func ID size");
 #endif
 
+static inline GEComparison OptimizeRefByteCompare(GEComparison func, u8 ref) {
+	// Not equal tests are easier.
+	if (ref == 0 && func == GE_COMP_GREATER)
+		return GE_COMP_NOTEQUAL;
+	if (ref == 0xFF && func == GE_COMP_LESS)
+		return GE_COMP_NOTEQUAL;
+
+	// Sometimes games pointlessly use tests like these.
+	if (ref == 0 && func == GE_COMP_GEQUAL)
+		return GE_COMP_ALWAYS;
+	if (ref == 0xFF && func == GE_COMP_LEQUAL)
+		return GE_COMP_ALWAYS;
+	return func;
+}
+
 void ComputePixelFuncID(PixelFuncID *id) {
 	id->fullKey = 0;
 
@@ -60,8 +75,8 @@ void ComputePixelFuncID(PixelFuncID *id) {
 		id->depthWrite = gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled();
 
 		if (id->stencilTest) {
-			id->stencilTestFunc = gstate.getStencilTestFunction();
 			id->stencilTestRef = gstate.getStencilTestRef() & gstate.getStencilTestMask();
+			id->stencilTestFunc = OptimizeRefByteCompare(gstate.getStencilTestFunction(), id->stencilTestRef);
 			id->hasStencilTestMask = gstate.getStencilTestMask() != 0xFF && gstate.FrameBufFormat() != GE_FORMAT_565;
 
 			// Stencil can't be written on 565, and any invalid op acts like KEEP, which is 0.
@@ -71,6 +86,39 @@ void ComputePixelFuncID(PixelFuncID *id) {
 				id->zFail = gstate.isDepthTestEnabled() ? gstate.getStencilOpZFail() : GE_STENCILOP_KEEP;
 			if (gstate.FrameBufFormat() != GE_FORMAT_565 && gstate.getStencilOpZPass() <= GE_STENCILOP_DECR)
 				id->zPass = gstate.getStencilOpZPass();
+
+			// Always treat zPass/zFail the same if there's no depth test.
+			if (!gstate.isDepthTestEnabled() || gstate.getDepthTestFunction() == GE_COMP_ALWAYS)
+				id->zFail = id->zPass;
+			// And same for sFail if there's no stencil test.
+			if (id->StencilTestFunc() == GE_COMP_ALWAYS)
+				id->sFail = id->zPass;
+
+			// Normalize REPLACE 00 to ZERO, especially if using a mask.
+			if (gstate.getStencilTestRef() == 0) {
+				if (id->SFail() == GE_STENCILOP_REPLACE)
+					id->sFail = GE_STENCILOP_ZERO;
+				if (id->ZFail() == GE_STENCILOP_REPLACE)
+					id->zFail = GE_STENCILOP_ZERO;
+				if (id->ZPass() == GE_STENCILOP_REPLACE)
+					id->zPass = GE_STENCILOP_ZERO;
+			}
+
+			// For 5551, DECR is also the same as ZERO.
+			if (id->FBFormat() == GE_FORMAT_5551) {
+				if (id->SFail() == GE_STENCILOP_DECR)
+					id->sFail = GE_STENCILOP_ZERO;
+				if (id->ZFail() == GE_STENCILOP_DECR)
+					id->zFail = GE_STENCILOP_ZERO;
+				if (id->ZPass() == GE_STENCILOP_DECR)
+					id->zPass = GE_STENCILOP_ZERO;
+			}
+
+			// Turn off stencil testing if it's doing nothing.
+			if (id->SFail() == GE_STENCILOP_KEEP && id->ZFail() == GE_STENCILOP_KEEP && id->ZPass() == GE_STENCILOP_KEEP) {
+				if (id->StencilTestFunc() == GE_COMP_ALWAYS)
+					id->stencilTest = false;
+			}
 		}
 
 		id->depthTestFunc = gstate.isDepthTestEnabled() ? gstate.getDepthTestFunction() : GE_COMP_ALWAYS;
@@ -78,6 +126,12 @@ void ComputePixelFuncID(PixelFuncID *id) {
 		if (id->AlphaTestFunc() != GE_COMP_ALWAYS) {
 			id->alphaTestRef = gstate.getAlphaTestRef() & gstate.getAlphaTestMask();
 			id->hasAlphaTestMask = gstate.getAlphaTestMask() != 0xFF;
+			// Try to pick a more optimal variant.
+			id->alphaTestFunc = OptimizeRefByteCompare(id->AlphaTestFunc(), id->alphaTestRef);
+			if (id->alphaTestFunc == GE_COMP_ALWAYS) {
+				id->alphaTestRef = 0;
+				id->hasAlphaTestMask = false;
+			}
 		}
 
 		// If invalid (6 or 7), doesn't do any blending, so force off.
