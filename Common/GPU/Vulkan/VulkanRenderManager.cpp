@@ -29,25 +29,28 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan) {
 		// Already failed to create this one.
 		return false;
 	}
-	VkPipeline pipeline;
-	VkResult result = vkCreateGraphicsPipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &desc->pipe, nullptr, &pipeline);
-	this->pipeline = pipeline;
-	delete desc;
-	desc = nullptr;
+	VkPipeline vkpipeline;
+	VkResult result = vkCreateGraphicsPipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &desc->pipe, nullptr, &vkpipeline);
+
+	bool success = true;
 	if (result == VK_INCOMPLETE) {
 		// Bad (disallowed by spec) return value seen on Adreno in Burnout :(  Try to ignore?
 		// Would really like to log more here, we could probably attach more info to desc.
 		//
 		// At least create a null placeholder to avoid creating over and over if something is broken.
 		pipeline = VK_NULL_HANDLE;
-		return true;
+		success = false;
 	} else if (result != VK_SUCCESS) {
 		pipeline = VK_NULL_HANDLE;
 		ERROR_LOG(G3D, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
-		return false;
+		success = false;
 	} else {
-		return true;
+		pipeline = vkpipeline;
 	}
+
+	delete desc;
+	desc = nullptr;
+	return success;
 }
 
 bool VKRComputePipeline::Create(VulkanContext *vulkan) {
@@ -55,17 +58,21 @@ bool VKRComputePipeline::Create(VulkanContext *vulkan) {
 		// Already failed to create this one.
 		return false;
 	}
-	VkPipeline pipeline;
-	VkResult result = vkCreateComputePipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &desc->pipe, nullptr, &pipeline);
-	this->pipeline = pipeline;
-	delete desc;
-	desc = nullptr;
+	VkPipeline vkpipeline;
+	VkResult result = vkCreateComputePipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &desc->pipe, nullptr, &vkpipeline);
+
+	bool success = true;
 	if (result != VK_SUCCESS) {
 		pipeline = VK_NULL_HANDLE;
 		ERROR_LOG(G3D, "Failed creating compute pipeline! result='%s'", VulkanResultToString(result));
-		return false;
+		success = false;
+	} else {
+		pipeline = vkpipeline;
 	}
-	return true;
+
+	delete desc;
+	desc = nullptr;
+	return success;
 }
 
 VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VkRenderPass renderPass, int _width, int _height, const char *tag) : vulkan_(vk) {
