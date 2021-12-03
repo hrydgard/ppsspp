@@ -147,6 +147,9 @@ struct VKRGraphicsPipeline {
 	std::atomic<VkPipeline> pipeline;
 
 	bool Create(VulkanContext *vulkan);
+	bool Pending() const {
+		return pipeline == VK_NULL_HANDLE && desc != nullptr;
+	}
 };
 
 struct VKRComputePipeline {
@@ -157,6 +160,9 @@ struct VKRComputePipeline {
 	std::atomic<VkPipeline> pipeline;
 
 	bool Create(VulkanContext *vulkan);
+	bool Pending() const {
+		return pipeline == VK_NULL_HANDLE && desc != nullptr;
+	}
 };
 
 struct CompileQueueEntry {

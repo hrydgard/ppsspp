@@ -1277,14 +1277,14 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		case VKRRenderCommand::BIND_GRAPHICS_PIPELINE:
 		{
 			VKRGraphicsPipeline *pipeline = c.graphics_pipeline.pipeline;
-			if (!pipeline->pipeline) {
+			if (pipeline->Pending()) {
 				// Stall processing, waiting for the compile queue to catch up.
 				std::unique_lock<std::mutex> lock(compileDoneMutex_);
 				while (!pipeline->pipeline) {
 					compileDone_.wait(lock);
 				}
 			}
-			if (pipeline->pipeline != lastGraphicsPipeline) {
+			if (pipeline->pipeline != lastGraphicsPipeline && pipeline->pipeline != VK_NULL_HANDLE) {
 				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
 				lastGraphicsPipeline = pipeline->pipeline;
 				// Reset dynamic state so it gets refreshed with the new pipeline.
@@ -1298,14 +1298,14 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		case VKRRenderCommand::BIND_COMPUTE_PIPELINE:
 		{
 			VKRComputePipeline *pipeline = c.compute_pipeline.pipeline;
-			if (!pipeline->pipeline) {
+			if (pipeline->Pending()) {
 				// Stall processing, waiting for the compile queue to catch up.
 				std::unique_lock<std::mutex> lock(compileDoneMutex_);
 				while (!pipeline->pipeline) {
 					compileDone_.wait(lock);
 				}
 			}
-			if (pipeline->pipeline != lastComputePipeline) {
+			if (pipeline->pipeline != lastComputePipeline && pipeline->pipeline != VK_NULL_HANDLE) {
 				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipeline);
 				lastComputePipeline = pipeline->pipeline;
 			}
