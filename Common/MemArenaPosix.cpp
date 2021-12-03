@@ -60,7 +60,7 @@ bool MemArena::GrabMemSpace(size_t size) {
 	for (int i = 0; i < 256; ++i) {
 		snprintf(ram_temp_filename, sizeof(ram_temp_filename), "/ppsspp_%d.ram", i);
 		// This opens atomically, so will fail if another process is starting.
-		fd = open(ram_temp_filename, O_RDWR | O_CREAT | O_EXCL, mode);
+		fd = shm_open(ram_temp_filename, O_RDWR | O_CREAT | O_EXCL, mode);
 		if (fd >= 0) {
 			INFO_LOG(MEMMAP, "Got shm file: %s", ram_temp_filename);
 			is_shm = true;
