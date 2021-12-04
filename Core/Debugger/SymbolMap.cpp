@@ -31,6 +31,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <unordered_map>
 
 #include "zlib.h"
 
@@ -619,8 +620,31 @@ u32 SymbolMap::FindPossibleFunctionAtAfter(u32 address) {
 }
 
 u32 SymbolMap::GetFunctionSize(u32 startAddress) {
-	if (activeNeedUpdate_)
-		UpdateActiveSymbols();
+	if (activeNeedUpdate_) {
+		std::lock_guard<std::recursive_mutex> guard(lock_);
+
+		// This is common, from the jit.  Direct lookup is faster than updating active symbols.
+		auto mod = activeModuleEnds.lower_bound(startAddress);
+		std::pair<int, u32> funcKey;
+		if (mod == activeModuleEnds.end()) {
+			// Could still be mod 0, backwards compatibility.
+			if (!sawUnknownModule)
+				return INVALID_ADDRESS;
+			funcKey.first = 0;
+			funcKey.second = startAddress;
+		} else {
+			if (mod->second.start > startAddress)
+				return INVALID_ADDRESS;
+			funcKey.first = mod->second.index;
+			funcKey.second = startAddress - mod->second.start;
+		}
+
+		auto func = functions.find(funcKey);
+		if (func == functions.end())
+			return INVALID_ADDRESS;
+
+		return func->second.size;
+	}
 
 	std::lock_guard<std::recursive_mutex> guard(lock_);
 	auto it = activeFunctions.find(startAddress);
@@ -684,7 +708,7 @@ void SymbolMap::UpdateActiveSymbols() {
 		return;
 	}
 
-	std::map<int, u32> activeModuleIndexes;
+	std::unordered_map<int, u32> activeModuleIndexes;
 	for (auto it = activeModuleEnds.begin(), end = activeModuleEnds.end(); it != end; ++it) {
 		activeModuleIndexes[it->second.index] = it->second.start;
 	}
