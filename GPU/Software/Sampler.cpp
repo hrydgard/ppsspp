@@ -113,10 +113,17 @@ void SamplerJitCache::Clear() {
 void SamplerJitCache::ComputeSamplerID(SamplerID *id_out, bool linear) {
 	SamplerID id{};
 
+	int maxLevel = gstate.isMipmapEnabled() ? gstate.getTextureMaxLevel() : 0;
+	for (int i = 0; i <= maxLevel; ++i) {
+		if (gstate.getTextureAddress(i) == 0) {
+			id.hasInvalidPtr = true;
+		}
+	}
+
 	id.texfmt = gstate.getTextureFormat();
 	id.swizzle = gstate.isTextureSwizzled();
 	// Only CLUT4 can use separate CLUTs per mimap.
-	id.useSharedClut = gstate.getTextureFormat() != GE_TFMT_CLUT4 || !gstate.isMipmapEnabled() || gstate.isClutSharedForMipmaps();
+	id.useSharedClut = gstate.getTextureFormat() != GE_TFMT_CLUT4 || maxLevel == 0 || !gstate.isMipmapEnabled() || gstate.isClutSharedForMipmaps();
 	if (gstate.isTextureFormatIndexed()) {
 		id.clutfmt = gstate.getClutPaletteFormat();
 		id.hasClutMask = gstate.getClutIndexMask() != 0xFF;
@@ -124,12 +131,6 @@ void SamplerJitCache::ComputeSamplerID(SamplerID *id_out, bool linear) {
 		id.hasClutOffset = gstate.getClutIndexStartPos() != 0;
 	}
 	id.linear = linear;
-	int maxLevel = gstate.isMipmapEnabled() ? gstate.getTextureMaxLevel() : 0;
-	for (int i = 0; i <= maxLevel; ++i) {
-		if (gstate.getTextureAddress(i) == 0) {
-			id.hasInvalidPtr = true;
-		}
-	}
 
 	*id_out = id;
 }
