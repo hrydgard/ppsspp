@@ -205,60 +205,35 @@ static inline void GetTexelCoordinatesQuad(int level, float in_s, float in_t, in
 }
 
 static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const float p, float &s, float &t) {
-	switch (gstate.getUVGenMode()) {
-	case GE_TEXMAP_TEXTURE_COORDS:
-	case GE_TEXMAP_UNKNOWN:
-	case GE_TEXMAP_ENVIRONMENT_MAP:
-	case GE_TEXMAP_TEXTURE_MATRIX:
-		{
-			// TODO: What happens if vertex has no texture coordinates?
-			// Note that for environment mapping, texture coordinates have been calculated during lighting
-			float q0 = 1.f / v0.clippos.w;
-			float q1 = 1.f / v1.clippos.w;
-			float wq0 = p * q0;
-			float wq1 = (1.0f - p) * q1;
+	// All UV gen modes, by the time they get here, behave the same.
 
-			float q_recip = 1.0f / (wq0 + wq1);
-			s = (v0.texturecoords.s() * wq0 + v1.texturecoords.s() * wq1) * q_recip;
-			t = (v0.texturecoords.t() * wq0 + v1.texturecoords.t() * wq1) * q_recip;
-		}
-		break;
-	default:
-		ERROR_LOG_REPORT(G3D, "Software: Unsupported texture mapping mode %x!", gstate.getUVGenMode());
-		s = 0.0f;
-		t = 0.0f;
-		break;
-	}
+	// TODO: What happens if vertex has no texture coordinates?
+	// Note that for environment mapping, texture coordinates have been calculated during lighting
+	float q0 = 1.f / v0.clippos.w;
+	float q1 = 1.f / v1.clippos.w;
+	float wq0 = p * q0;
+	float wq1 = (1.0f - p) * q1;
+
+	float q_recip = 1.0f / (wq0 + wq1);
+	s = (v0.texturecoords.s() * wq0 + v1.texturecoords.s() * wq1) * q_recip;
+	t = (v0.texturecoords.t() * wq0 + v1.texturecoords.t() * wq1) * q_recip;
 }
 
-static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const VertexData& v2, const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<float> &wsum_recip, Vec4<float> &s, Vec4<float> &t)
-{
-	switch (gstate.getUVGenMode()) {
-	case GE_TEXMAP_TEXTURE_COORDS:
-	case GE_TEXMAP_UNKNOWN:
-	case GE_TEXMAP_ENVIRONMENT_MAP:
-	case GE_TEXMAP_TEXTURE_MATRIX:
-		{
-			// TODO: What happens if vertex has no texture coordinates?
-			// Note that for environment mapping, texture coordinates have been calculated during lighting
-			float q0 = 1.f / v0.clippos.w;
-			float q1 = 1.f / v1.clippos.w;
-			float q2 = 1.f / v2.clippos.w;
-			Vec4<float> wq0 = w0.Cast<float>() * q0;
-			Vec4<float> wq1 = w1.Cast<float>() * q1;
-			Vec4<float> wq2 = w2.Cast<float>() * q2;
+static inline void GetTextureCoordinates(const VertexData &v0, const VertexData &v1, const VertexData &v2, const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<float> &wsum_recip, Vec4<float> &s, Vec4<float> &t) {
+	// All UV gen modes, by the time they get here, behave the same.
 
-			Vec4<float> q_recip = (wq0 + wq1 + wq2).Reciprocal();
-			s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), wq0, wq1, wq2, q_recip);
-			t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), wq0, wq1, wq2, q_recip);
-		}
-		break;
-	default:
-		ERROR_LOG_REPORT(G3D, "Software: Unsupported texture mapping mode %x!", gstate.getUVGenMode());
-		s = Vec4<float>::AssignToAll(0.0f);
-		t = Vec4<float>::AssignToAll(0.0f);
-		break;
-	}
+	// TODO: What happens if vertex has no texture coordinates?
+	// Note that for environment mapping, texture coordinates have been calculated during lighting.
+	float q0 = 1.f / v0.clippos.w;
+	float q1 = 1.f / v1.clippos.w;
+	float q2 = 1.f / v2.clippos.w;
+	Vec4<float> wq0 = w0.Cast<float>() * q0;
+	Vec4<float> wq1 = w1.Cast<float>() * q1;
+	Vec4<float> wq2 = w2.Cast<float>() * q2;
+
+	Vec4<float> q_recip = (wq0 + wq1 + wq2).Reciprocal();
+	s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), wq0, wq1, wq2, q_recip);
+	t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), wq0, wq1, wq2, q_recip);
 }
 
 static inline void SetPixelDepth(int x, int y, u16 value)
