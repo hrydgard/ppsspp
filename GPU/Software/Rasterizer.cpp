@@ -536,44 +536,45 @@ Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &sourc
 	}
 }
 
-static inline void ApplyTexturing(Sampler::Funcs sampler, Vec4<int> &prim_color, float s, float t, int texlevel, int frac_texlevel, bool bilinear, u8 *texptr[], int texbufw[]) {
+template <bool mayHaveMipLevels>
+static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(Sampler::Funcs sampler, Vec4IntArg prim_color, float s, float t, int texlevel, int frac_texlevel, bool bilinear, u8 *texptr[], int texbufw[]) {
 	int u[8] = {0}, v[8] = {0};   // 1.23.8 fixed point
 	int frac_u[2], frac_v[2];
 
 	Vec4<int> texcolor0;
 	Vec4<int> texcolor1;
-	const u8 *tptr0 = texptr[texlevel];
-	int bufw0 = texbufw[texlevel];
-	const u8 *tptr1 = texptr[texlevel + 1];
-	int bufw1 = texbufw[texlevel + 1];
+	const u8 *tptr0 = texptr[mayHaveMipLevels ? texlevel : 0];
+	int bufw0 = texbufw[mayHaveMipLevels ? texlevel : 0];
+	const u8 *tptr1 = texptr[mayHaveMipLevels ? texlevel + 1 : 0];
+	int bufw1 = texbufw[mayHaveMipLevels ? texlevel + 1 : 0];
 
 	if (!bilinear) {
 		// Nearest filtering only.  Round texcoords.
-		GetTexelCoordinates(texlevel, s, t, u[0], v[0]);
-		if (frac_texlevel) {
+		GetTexelCoordinates(mayHaveMipLevels ? texlevel : 0, s, t, u[0], v[0]);
+		if (mayHaveMipLevels && frac_texlevel) {
 			GetTexelCoordinates(texlevel + 1, s, t, u[1], v[1]);
 		}
 
-		texcolor0 = Vec4<int>(sampler.nearest(u[0], v[0], tptr0, bufw0, texlevel));
-		if (frac_texlevel) {
+		texcolor0 = Vec4<int>(sampler.nearest(u[0], v[0], tptr0, bufw0, mayHaveMipLevels ? texlevel : 0));
+		if (mayHaveMipLevels && frac_texlevel) {
 			texcolor1 = Vec4<int>(sampler.nearest(u[1], v[1], tptr1, bufw1, texlevel + 1));
 		}
 	} else {
-		GetTexelCoordinatesQuad(texlevel, s, t, u, v, frac_u[0], frac_v[0]);
-		if (frac_texlevel) {
+		GetTexelCoordinatesQuad(mayHaveMipLevels ? texlevel : 0, s, t, u, v, frac_u[0], frac_v[0]);
+		if (mayHaveMipLevels && frac_texlevel) {
 			GetTexelCoordinatesQuad(texlevel + 1, s, t, u + 4, v + 4, frac_u[1], frac_v[1]);
 		}
 
-		texcolor0 = Vec4<int>(sampler.linear(u, v, frac_u[0], frac_v[0], tptr0, bufw0, texlevel));
-		if (frac_texlevel) {
+		texcolor0 = Vec4<int>(sampler.linear(u, v, frac_u[0], frac_v[0], tptr0, bufw0, mayHaveMipLevels ? texlevel : 0));
+		if (mayHaveMipLevels && frac_texlevel) {
 			texcolor1 = Vec4<int>(sampler.linear(u + 4, v + 4, frac_u[1], frac_v[1], tptr1, bufw1, texlevel + 1));
 		}
 	}
 
-	if (frac_texlevel) {
+	if (mayHaveMipLevels && frac_texlevel) {
 		texcolor0 = (texcolor1 * frac_texlevel + texcolor0 * (256 - frac_texlevel)) / 256;
 	}
-	prim_color = GetTextureFunctionOutput(ToVec4IntArg(prim_color), ToVec4IntArg(texcolor0));
+	return GetTextureFunctionOutput(prim_color, ToVec4IntArg(texcolor0));
 }
 
 // Produces a signed 1.23.8 value.
@@ -591,6 +592,7 @@ static int TexLog2(float delta) {
 	return useful - 127 * 256;
 }
 
+template <bool mayHaveMipLevels>
 static inline void CalculateSamplingParams(const float ds, const float dt, const int maxTexLevel, int &level, int &levelFrac, bool &filt) {
 	const int width = gstate.getTextureWidth(0);
 	const int height = gstate.getTextureHeight(0);
@@ -615,19 +617,21 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 	// Add in the bias (used in all modes), expanding to 8 bits of fraction.
 	detail += gstate.getTexLevelOffset16() << 4;
 
-	if (detail > 0 && maxTexLevel > 0) {
-		bool mipFilt = gstate.isMipmapFilteringEnabled();
+	if (mayHaveMipLevels) {
+		if (detail > 0 && maxTexLevel > 0) {
+			bool mipFilt = gstate.isMipmapFilteringEnabled();
 
-		int level8 = std::min(detail, maxTexLevel * 256);
-		if (!mipFilt) {
-			// Round up at 1.5.
-			level8 += 128;
+			int level8 = std::min(detail, maxTexLevel * 256);
+			if (!mipFilt) {
+				// Round up at 1.5.
+				level8 += 128;
+			}
+			level = level8 >> 8;
+			levelFrac = mipFilt ? level8 & 0xFF : 0;
+		} else {
+			level = 0;
+			levelFrac = 0;
 		}
-		level = level8 >> 8;
-		levelFrac = mipFilt ? level8 & 0xFF : 0;
-	} else {
-		level = 0;
-		levelFrac = 0;
 	}
 
 	if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR) {
@@ -639,6 +643,7 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 	}
 }
 
+template <bool hasMipLevels>
 static inline void ApplyTexturing(Sampler::Funcs sampler, Vec4<int> *prim_color, const Vec4<float> &s, const Vec4<float> &t, int maxTexLevel, u8 *texptr[], int texbufw[]) {
 	float ds = s[1] - s[0];
 	float dt = t[2] - t[0];
@@ -646,10 +651,10 @@ static inline void ApplyTexturing(Sampler::Funcs sampler, Vec4<int> *prim_color,
 	int level;
 	int levelFrac;
 	bool bilinear;
-	CalculateSamplingParams(ds, dt, maxTexLevel, level, levelFrac, bilinear);
+	CalculateSamplingParams<hasMipLevels>(ds, dt, maxTexLevel, level, levelFrac, bilinear);
 
 	for (int i = 0; i < 4; ++i) {
-		ApplyTexturing(sampler, prim_color[i], s[i], t[i], level, levelFrac, bilinear, texptr, texbufw);
+		prim_color[i] = ApplyTexturing<hasMipLevels>(sampler, ToVec4IntArg(prim_color[i]), s[i], t[i], level, levelFrac, bilinear, texptr, texbufw);
 	}
 }
 
@@ -728,7 +733,7 @@ static inline Vec4<float> EdgeRecip(const Vec4<int> &w0, const Vec4<int> &w1, co
 #endif
 }
 
-template <bool clearMode>
+template <bool clearMode, bool hasMipLevels>
 void DrawTriangleSlice(
 	const VertexData& v0, const VertexData& v1, const VertexData& v2,
 	int x1, int y1, int x2, int y2,
@@ -740,15 +745,10 @@ void DrawTriangleSlice(
 	Vec4<int> bias1 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v1.screenpos.xy(), v2.screenpos.xy(), v0.screenpos.xy()) ? -1 : 0);
 	Vec4<int> bias2 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v2.screenpos.xy(), v0.screenpos.xy(), v1.screenpos.xy()) ? -1 : 0);
 
-	int texbufw[8] = {0};
+	int texbufw[hasMipLevels ? 8 : 1] = {0};
 
-	int maxTexLevel = gstate.getTextureMaxLevel();
-	u8 *texptr[8] = {NULL};
-
-	if (!gstate.isMipmapEnabled()) {
-		// No mipmapping enabled
-		maxTexLevel = 0;
-	}
+	int maxTexLevel = hasMipLevels ? gstate.getTextureMaxLevel() : 0;
+	u8 *texptr[hasMipLevels ? 8 : 1] = {NULL};
 
 	if (gstate.isTextureMapEnabled() && !clearMode) {
 		GETextureFormat texfmt = gstate.getTextureFormat();
@@ -842,7 +842,7 @@ void DrawTriangleSlice(
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
 					}
 
-					ApplyTexturing(sampler, prim_color, s, t, maxTexLevel, texptr, texbufw);
+					ApplyTexturing<hasMipLevels>(sampler, prim_color, s, t, maxTexLevel, texptr, texbufw);
 				}
 
 				if (!clearMode) {
@@ -922,39 +922,27 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	PixelFuncID pixelID;
 	ComputePixelFuncID(&pixelID);
 	Rasterizer::SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID);
+	const bool hasMipLevels = gstate.isMipmapEnabled() ? gstate.getTextureMaxLevel() > 0 : false;
+
+	auto drawSlice = (hasMipLevels ?
+		(gstate.isModeClear() ? &DrawTriangleSlice<true, true> : &DrawTriangleSlice<false, true>) :
+		(gstate.isModeClear() ? &DrawTriangleSlice<true, false> : &DrawTriangleSlice<false, false>)
+	);
 
 	const int MIN_LINES_PER_THREAD = 4;
 
 	if (rangeY >= 12 && rangeX >= rangeY * 4) {
-		if (gstate.isModeClear()) {
-			auto bound = [&](int a, int b) -> void {
-				DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, false, a, b, pixelID, drawPixel);
-			};
-			ParallelRangeLoop(&g_threadManager, bound, 0, rangeX, MIN_LINES_PER_THREAD);
-		} else {
-			auto bound = [&](int a, int b) -> void {
-				DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, false, a, b, pixelID, drawPixel);
-			};
-			ParallelRangeLoop(&g_threadManager, bound, 0, rangeX, MIN_LINES_PER_THREAD);
-		}
+		auto bound = [&](int a, int b) -> void {
+			drawSlice(v0, v1, v2, minX, minY, maxX, maxY, false, a, b, pixelID, drawPixel);
+		};
+		ParallelRangeLoop(&g_threadManager, bound, 0, rangeX, MIN_LINES_PER_THREAD);
 	} else if (rangeY >= 12 && rangeX >= 12) {
-		if (gstate.isModeClear()) {
-			auto bound = [&](int a, int b) -> void {
-				DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, true, a, b, pixelID, drawPixel);
-			};
-			ParallelRangeLoop(&g_threadManager, bound, 0, rangeY, MIN_LINES_PER_THREAD);
-		} else {
-			auto bound = [&](int a, int b) -> void {
-				DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, true, a, b, pixelID, drawPixel);
-			};
-			ParallelRangeLoop(&g_threadManager, bound, 0, rangeY, MIN_LINES_PER_THREAD);
-		}
+		auto bound = [&](int a, int b) -> void {
+			drawSlice(v0, v1, v2, minX, minY, maxX, maxY, true, a, b, pixelID, drawPixel);
+		};
+		ParallelRangeLoop(&g_threadManager, bound, 0, rangeY, MIN_LINES_PER_THREAD);
 	} else {
-		if (gstate.isModeClear()) {
-			DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, true, 0, rangeY, pixelID, drawPixel);
-		} else {
-			DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, true, 0, rangeY, pixelID, drawPixel);
-		}
+		drawSlice(v0, v1, v2, minX, minY, maxX, maxY, true, 0, rangeY, pixelID, drawPixel);
 	}
 }
 
@@ -1014,8 +1002,8 @@ void DrawPoint(const VertexData &v0)
 		int texLevel;
 		int texLevelFrac;
 		bool bilinear;
-		CalculateSamplingParams(0.0f, 0.0f, maxTexLevel, texLevel, texLevelFrac, bilinear);
-		ApplyTexturing(sampler, prim_color, s, t, texLevel, texLevelFrac, bilinear, texptr, texbufw);
+		CalculateSamplingParams<true>(0.0f, 0.0f, maxTexLevel, texLevel, texLevelFrac, bilinear);
+		prim_color = ApplyTexturing<true>(sampler, ToVec4IntArg(prim_color), s, t, texLevel, texLevelFrac, bilinear, texptr, texbufw);
 	}
 
 	if (!pixelID.clearMode)
@@ -1301,7 +1289,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 				int texLevel;
 				int texLevelFrac;
 				bool texBilinear;
-				CalculateSamplingParams(ds, dt, maxTexLevel, texLevel, texLevelFrac, texBilinear);
+				CalculateSamplingParams<true>(ds, dt, maxTexLevel, texLevel, texLevelFrac, texBilinear);
 
 				if (gstate.isAntiAliasEnabled()) {
 					// TODO: This is a niave and wrong implementation.
@@ -1312,7 +1300,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 					texBilinear = true;
 				}
 
-				ApplyTexturing(sampler, prim_color, s, t, texLevel, texLevelFrac, texBilinear, texptr, texbufw);
+				prim_color = ApplyTexturing<true>(sampler, ToVec4IntArg(prim_color), s, t, texLevel, texLevelFrac, texBilinear, texptr, texbufw);
 			}
 
 			if (!pixelID.clearMode)
