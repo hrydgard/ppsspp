@@ -84,6 +84,7 @@ private:
 
 	std::unordered_map<SamplerID, NearestFunc> cache_;
 	std::unordered_map<SamplerID, const u8 *> addresses_;
+	Rasterizer::RegCache regCache_;
 };
 
 };
