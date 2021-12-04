@@ -26,10 +26,10 @@
 
 namespace Sampler {
 
-typedef u32 (*NearestFunc)(int u, int v, const u8 *tptr, int bufw, int level);
+typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *NearestFunc)(int u, int v, const u8 *tptr, int bufw, int level);
 NearestFunc GetNearestFunc();
 
-typedef u32 (*LinearFunc)(int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufw, int level);
+typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *LinearFunc)(int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufw, int level);
 LinearFunc GetLinearFunc();
 
 struct Funcs {

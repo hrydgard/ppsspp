@@ -18,6 +18,7 @@
 #pragma once
 
 #include "GPU/Software/FuncId.h"
+#include "GPU/Software/RasterizerRegCache.h"
 #include "GPU/Software/TransformUnit.h" // for DrawingCoords
 
 struct GPUDebugBuffer;
@@ -35,6 +36,6 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level);
 
 // Shared functions with RasterizerRectangle.cpp
 Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &source, const Vec4<int> &dst);
-Vec4<int> GetTextureFunctionOutput(const Vec4<int>& prim_color, const Vec4<int>& texcolor);
+Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color, Vec4IntArg texcolor);
 
 }  // namespace Rasterizer

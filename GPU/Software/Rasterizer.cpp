@@ -290,8 +290,10 @@ static inline bool IsRightSideOrFlatBottomLine(const Vec2<int>& vertex, const Ve
 	}
 }
 
-Vec4<int> GetTextureFunctionOutput(const Vec4<int>& prim_color, const Vec4<int>& texcolor)
-{
+Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, Vec4IntArg texcolor_in) {
+	const Vec4<int> prim_color = prim_color_in;
+	const Vec4<int> texcolor = texcolor_in;
+
 	Vec3<int> out_rgb;
 	int out_a;
 
@@ -314,7 +316,7 @@ Vec4<int> GetTextureFunctionOutput(const Vec4<int>& prim_color, const Vec4<int>&
 		}
 
 		if (rgba) {
-			return Vec4<int>(out_rgb.ivec);
+			return ToVec4IntResult(Vec4<int>(out_rgb.ivec));
 		} else {
 			out_a = prim_color.a();
 		}
@@ -366,7 +368,7 @@ Vec4<int> GetTextureFunctionOutput(const Vec4<int>& prim_color, const Vec4<int>&
 		out_a = 0;
 	}
 
-	return Vec4<int>(out_rgb.r(), out_rgb.g(), out_rgb.b(), out_a);
+	return ToVec4IntResult(Vec4<int>(out_rgb, out_a));
 }
 
 static inline Vec3<int> GetSourceFactor(GEBlendSrcFactor factor, const Vec4<int> &source, const Vec4<int> &dst) {
@@ -577,9 +579,9 @@ static inline void ApplyTexturing(Sampler::Funcs sampler, Vec4<int> &prim_color,
 			GetTexelCoordinates(texlevel + 1, s, t, u[1], v[1]);
 		}
 
-		texcolor0 = Vec4<int>::FromRGBA(sampler.nearest(u[0], v[0], tptr0, bufw0, texlevel));
+		texcolor0 = Vec4<int>(sampler.nearest(u[0], v[0], tptr0, bufw0, texlevel));
 		if (frac_texlevel) {
-			texcolor1 = Vec4<int>::FromRGBA(sampler.nearest(u[1], v[1], tptr1, bufw1, texlevel + 1));
+			texcolor1 = Vec4<int>(sampler.nearest(u[1], v[1], tptr1, bufw1, texlevel + 1));
 		}
 	} else {
 		GetTexelCoordinatesQuad(texlevel, s, t, u, v, frac_u[0], frac_v[0]);
@@ -587,16 +589,16 @@ static inline void ApplyTexturing(Sampler::Funcs sampler, Vec4<int> &prim_color,
 			GetTexelCoordinatesQuad(texlevel + 1, s, t, u + 4, v + 4, frac_u[1], frac_v[1]);
 		}
 
-		texcolor0 = Vec4<int>::FromRGBA(sampler.linear(u, v, frac_u[0], frac_v[0], tptr0, bufw0, texlevel));
+		texcolor0 = Vec4<int>(sampler.linear(u, v, frac_u[0], frac_v[0], tptr0, bufw0, texlevel));
 		if (frac_texlevel) {
-			texcolor1 = Vec4<int>::FromRGBA(sampler.linear(u + 4, v + 4, frac_u[1], frac_v[1], tptr1, bufw1, texlevel + 1));
+			texcolor1 = Vec4<int>(sampler.linear(u + 4, v + 4, frac_u[1], frac_v[1], tptr1, bufw1, texlevel + 1));
 		}
 	}
 
 	if (frac_texlevel) {
 		texcolor0 = (texcolor1 * frac_texlevel + texcolor0 * (256 - frac_texlevel)) / 256;
 	}
-	prim_color = GetTextureFunctionOutput(prim_color, texcolor0);
+	prim_color = GetTextureFunctionOutput(ToVec4IntArg(prim_color), ToVec4IntArg(texcolor0));
 }
 
 // Produces a signed 1.23.8 value.
@@ -1392,7 +1394,7 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 	u32 *row = (u32 *)buffer.GetData();
 	for (int y = 0; y < h; ++y) {
 		for (int x = 0; x < w; ++x) {
-			row[x] = sampler.nearest(x, y, texptr, texbufw, level);
+			row[x] = Vec4<int>(sampler.nearest(x, y, texptr, texbufw, level)).ToRGBA();
 		}
 		row += w;
 	}

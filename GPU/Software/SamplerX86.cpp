@@ -62,6 +62,7 @@ NearestFunc SamplerJitCache::Compile(const SamplerID &id) {
 		RegCache::GEN_ARG_LEVEL,
 	});
 	regCache_.ChangeReg(RAX, RegCache::GEN_RESULT);
+	regCache_.ChangeReg(XMM0, RegCache::VEC_RESULT);
 
 	BeginWrite();
 	const u8 *start = AlignCode16();
@@ -74,9 +75,9 @@ NearestFunc SamplerJitCache::Compile(const SamplerID &id) {
 		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
 
 		FixupBranch nonZeroSrc = J_CC(CC_NZ);
-		X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
-		XOR(32, R(resultReg), R(resultReg));
-		regCache_.Unlock(resultReg, RegCache::GEN_RESULT);
+		X64Reg vecResultReg = regCache_.Find(RegCache::VEC_RESULT);
+		PXOR(vecResultReg, R(vecResultReg));
+		regCache_.Unlock(vecResultReg, RegCache::VEC_RESULT);
 		zeroSrc = J(true);
 		SetJumpTarget(nonZeroSrc);
 	}
@@ -88,6 +89,23 @@ NearestFunc SamplerJitCache::Compile(const SamplerID &id) {
 		ResetCodePtr(GetOffset(start));
 		return nullptr;
 	}
+
+	X64Reg vecResultReg = regCache_.Find(RegCache::VEC_RESULT);
+
+	X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
+	MOVD_xmm(vecResultReg, R(resultReg));
+	regCache_.Release(resultReg, RegCache::GEN_RESULT);
+
+	if (cpu_info.bSSE4_1) {
+		PMOVZXBD(vecResultReg, R(vecResultReg));
+	} else {
+		X64Reg vecTempReg = regCache_.Find(RegCache::VEC_TEMP0);
+		PXOR(vecTempReg, R(vecTempReg));
+		PUNPCKLBW(vecResultReg, R(vecTempReg));
+		PUNPCKLWD(vecResultReg, R(vecTempReg));
+		regCache_.Unlock(vecTempReg, RegCache::VEC_TEMP0);
+	}
+	regCache_.Unlock(vecResultReg, RegCache::VEC_RESULT);
 
 	if (id.hasInvalidPtr) {
 		SetJumpTarget(zeroSrc);
@@ -171,7 +189,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	if (id.hasInvalidPtr) {
 		CMP(PTRBITS, R(R14), Imm8(0));
 		FixupBranch nonZeroSrc = J_CC(CC_NZ);
-		XOR(32, R(RAX), R(RAX));
+		PXOR(XMM0, R(XMM0));
 		zeroSrc = J(true);
 		SetJumpTarget(nonZeroSrc);
 	}
@@ -289,12 +307,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	ADDPS(fpScratchReg1, R(fpScratchReg3));
 
 	// Time to convert back to a single 32 bit value.
-	CVTPS2DQ(fpScratchReg1, R(fpScratchReg1));
-	PACKSSDW(fpScratchReg1, R(fpScratchReg1));
-	PACKUSWB(fpScratchReg1, R(fpScratchReg1));
-
-	const X64Reg resultReg = RAX;
-	MOVD_xmm(R(resultReg), fpScratchReg1);
+	CVTPS2DQ(XMM0, R(fpScratchReg1));
 
 	if (id.hasInvalidPtr) {
 		SetJumpTarget(zeroSrc);
