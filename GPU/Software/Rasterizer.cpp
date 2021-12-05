@@ -278,17 +278,19 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 	case GE_TEXFUNC_MODULATE:
 	{
 #if defined(_M_SSE)
-		// We can be accurate up to 24 bit integers, should be enough.
-		const __m128 p = _mm_cvtepi32_ps(prim_color.ivec);
-		const __m128 t = _mm_cvtepi32_ps(texcolor.ivec);
-		const __m128 b = _mm_mul_ps(p, t);
+		// Modulate weights slightly on the tex color, by adding one to prim and dividing by 256.
+		const __m128i p = _mm_slli_epi16(_mm_packs_epi32(prim_color.ivec, prim_color.ivec), 4);
+		const __m128i pboost = _mm_add_epi16(p, _mm_set1_epi16(1 << 4));
+		__m128i t = _mm_slli_epi16(_mm_packs_epi32(texcolor.ivec, texcolor.ivec), 4);
 		if (gstate.isColorDoublingEnabled()) {
 			// We double right here, only for modulate.  Other tex funcs do not color double.
-			const __m128 doubleColor = _mm_setr_ps(2.0f / 255.0f, 2.0f / 255.0f, 2.0f / 255.0f, 1.0f / 255.0f);
-			out_rgb.ivec = _mm_cvtps_epi32(_mm_mul_ps(b, doubleColor));
-		} else {
-			out_rgb.ivec = _mm_cvtps_epi32(_mm_mul_ps(b, _mm_set_ps1(1.0f / 255.0f)));
+			const __m128i amask = _mm_set_epi16(-1, 0, 0, 0, -1, 0, 0, 0);
+			const __m128i a = _mm_and_si128(t, amask);
+			const __m128i rgb = _mm_andnot_si128(amask, t);
+			t = _mm_or_si128(_mm_slli_epi16(rgb, 1), a);
 		}
+		const __m128i b = _mm_mulhi_epi16(pboost, t);
+		out_rgb.ivec = _mm_unpacklo_epi16(b, _mm_setzero_si128());
 
 		if (rgba) {
 			return ToVec4IntResult(Vec4<int>(out_rgb.ivec));
@@ -297,11 +299,11 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 		}
 #else
 		if (gstate.isColorDoublingEnabled()) {
-			out_rgb = (prim_color.rgb() * texcolor.rgb() * 2) / 255;
+			out_rgb = ((prim_color.rgb() + Vec3<int>::AssignToAll(1)) * texcolor.rgb() * 2) / 256;
 		} else {
-			out_rgb = prim_color.rgb() * texcolor.rgb() / 255;
+			out_rgb = (prim_color.rgb() + Vec3<int>::AssignToAll(1)) * texcolor.rgb() / 256;
 		}
-		out_a = (rgba) ? (prim_color.a() * texcolor.a() / 255) : prim_color.a();
+		out_a = (rgba) ? ((prim_color.a() + 1) * texcolor.a() / 256) : prim_color.a();
 #endif
 		break;
 	}
