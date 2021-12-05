@@ -21,14 +21,18 @@
 
 #pragma once
 
-
+#ifdef USE_SYSTEM_MINIUPNPC
+#include <miniupnpc/miniwget.h>
+#include <miniupnpc/miniupnpc.h>
+#include <miniupnpc/upnpcommands.h>
+#else
 #ifndef MINIUPNP_STATICLIB
 #define MINIUPNP_STATICLIB
 #endif
-
 #include "ext/miniupnp/miniupnpc/miniwget.h"
 #include "ext/miniupnp/miniupnpc/miniupnpc.h"
 #include "ext/miniupnp/miniupnpc/upnpcommands.h"
+#endif
 
 #include <string>
 #include <deque>
