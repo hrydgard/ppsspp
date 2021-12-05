@@ -5,6 +5,7 @@
 #include <atomic>
 #include <vector>
 #include <cstdlib>
+#include <mutex>
 
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
@@ -56,6 +57,17 @@
 
 #define SAMPLERATE 44100
 
+#define AUDIO_RING_BUFFER_SIZE      (1 << 16)
+#define AUDIO_RING_BUFFER_SIZE_MASK (AUDIO_RING_BUFFER_SIZE - 1)
+// An alpha factor of 1/180 is *somewhat* equivalent
+// to calculating the average for the last 180
+// frames, or 3 seconds of runtime...
+#define AUDIO_FRAMES_MOVING_AVG_ALPHA (1.0f / 180.0f)
+// Workaround for a RetroArch audio driver
+// limitation: a maximum of 1024 frames
+// can be written per call of audio_batch_cb()
+#define AUDIO_BATCH_FRAMES_MAX 1024
+
 static bool libretro_supports_bitmasks = false;
 
 namespace Libretro
@@ -65,6 +77,158 @@ namespace Libretro
    static retro_audio_sample_batch_t audio_batch_cb;
    static retro_input_poll_t input_poll_cb;
    static retro_input_state_t input_state_cb;
+} // namespace Libretro
+
+namespace Libretro
+{
+   static std::mutex audioSampleLock_;
+   static int16_t audioRingBuffer[AUDIO_RING_BUFFER_SIZE] = {0};
+   static uint32_t audioRingBufferBase = 0;
+   static uint32_t audioRingBufferIndex = 0;
+
+   static int16_t *audioOutBuffer = NULL;
+   static uint32_t audioOutBufferSize = 0;
+   static float audioOutFramesAvg = 0.0f;
+
+   static void AudioBufferFlush()
+   {
+      const std::lock_guard<std::mutex> lock(audioSampleLock_);
+      audioRingBufferBase = 0;
+      audioRingBufferIndex = 0;
+      audioOutFramesAvg = (float)SAMPLERATE / (60.0f / 1.001f);
+   }
+
+   static void AudioBufferInit()
+   {
+      audioOutFramesAvg = (float)SAMPLERATE / (60.0f / 1.001f);
+      audioOutBufferSize = ((uint32_t)audioOutFramesAvg + 1) * 2;
+      audioOutBuffer = (int16_t *)malloc(audioOutBufferSize * sizeof(int16_t));
+
+      AudioBufferFlush();
+   }
+
+   static void AudioBufferDeinit()
+   {
+      if (audioOutBuffer)
+         free(audioOutBuffer);
+      audioOutBuffer = NULL;
+      audioOutBufferSize = 0;
+      audioOutFramesAvg = 0.0f;
+
+      AudioBufferFlush();
+   }
+
+   static uint32_t AudioBufferOccupancy()
+   {
+      const std::lock_guard<std::mutex> lock(audioSampleLock_);
+      uint32_t occupancy = (audioRingBufferIndex - audioRingBufferBase) &
+            AUDIO_RING_BUFFER_SIZE_MASK;
+      return occupancy >> 1;
+   }
+
+   static void AudioBufferWrite(int16_t *audio, uint32_t frames)
+   {
+      const std::lock_guard<std::mutex> lock(audioSampleLock_);
+      uint32_t frameIndex;
+      uint32_t bufferIndex = audioRingBufferIndex;
+
+      for (frameIndex = 0; frameIndex < frames; frameIndex++)
+      {
+         audioRingBuffer[audioRingBufferIndex]     = *(audio++);
+         audioRingBuffer[audioRingBufferIndex + 1] = *(audio++);
+         audioRingBufferIndex = (audioRingBufferIndex + 2) % AUDIO_RING_BUFFER_SIZE;
+      }
+   }
+
+   static uint32_t AudioBufferRead(int16_t *audio, uint32_t frames)
+   {
+      const std::lock_guard<std::mutex> lock(audioSampleLock_);
+      uint32_t framesAvailable = ((audioRingBufferIndex - audioRingBufferBase) &
+            AUDIO_RING_BUFFER_SIZE_MASK) >> 1;
+      uint32_t frameIndex;
+
+      if (frames > framesAvailable)
+         frames = framesAvailable;
+
+      for(frameIndex = 0; frameIndex < frames; frameIndex++)
+      {
+         uint32_t bufferIndex = (audioRingBufferBase + (frameIndex << 1)) &
+               AUDIO_RING_BUFFER_SIZE_MASK;
+         *(audio++) = audioRingBuffer[bufferIndex];
+         *(audio++) = audioRingBuffer[bufferIndex + 1];
+      }
+
+      audioRingBufferBase += frames << 1;
+      audioRingBufferBase &= AUDIO_RING_BUFFER_SIZE_MASK;
+
+      return frames;
+   }
+
+   static void AudioUploadSamples()
+   {
+      // This is a gruesome hack...
+      // - The core specifies a fixed frame rate of (60.0f / 1.001f)
+      //   and a fixed sample rate of 44100
+      // - This means the frontend expects exactly 735.735
+      //   sample frames per call of retro_run()
+      // - But the core doesn't work like that...
+      // - Each call of UpdateSound() generates 512 sample
+      //   frames at 44100 Hz
+      // - When a game runs internally at ~60 fps,
+      //   this does indeed translate to 735.735 sample frames
+      //   per call of retro_run()
+      // - When a game runs internally at ~30 fps, UpdateSound()
+      //   gets called at *twice* the expected rate - so we
+      //   get double the expected number of sample frames
+      // - By pushing twice the number of frames, we effectively
+      //   force the frontend to run in slow motion
+      //   (2x sample buffer size == 1/2 running speed)
+      // - The PSP can run at a variety of framerates; in each
+      //   case, the core is abusing the frontend by sending
+      //   too many/too few audio samples in order to force the
+      //   correct run speed
+      // - The core should instead be notifying the frontend of
+      //   framerate changes, and at each framerate it should be
+      //   sending (44100 / framerate) audio sample frames
+      // - But doing this is a non-trivial task...
+      // - So the best we can do is keep a running average of the
+      //   current ring buffer occupancy, and drain this amount
+      //   on each call of retro_run()...
+      uint32_t framesAvailable = AudioBufferOccupancy();
+
+      if (framesAvailable > 0)
+      {
+         // Update 'running average' of buffer occupancy.
+         // Note that this is not a true running
+         // average, but just a leaky-integrator/
+         // exponential moving average, used because
+         // it is simple and fast (i.e. requires no
+         // window of samples).
+         audioOutFramesAvg = (AUDIO_FRAMES_MOVING_AVG_ALPHA * (float)framesAvailable) +
+               ((1.0f - AUDIO_FRAMES_MOVING_AVG_ALPHA) * audioOutFramesAvg);
+         uint32_t frames = (uint32_t)audioOutFramesAvg;
+
+         if (audioOutBufferSize < (frames << 1))
+         {
+            audioOutBufferSize = (frames << 1);
+            audioOutBuffer     = (int16_t *)realloc(audioOutBuffer,
+                  audioOutBufferSize * sizeof(int16_t));
+         }
+
+         frames = AudioBufferRead(audioOutBuffer, frames);
+
+         int16_t *audioOutBufferPtr = audioOutBuffer;
+         while (frames > 0)
+         {
+            uint32_t framesToWrite = (frames > AUDIO_BATCH_FRAMES_MAX) ?
+                  AUDIO_BATCH_FRAMES_MAX : frames;
+
+            audio_batch_cb(audioOutBufferPtr, framesToWrite);
+            frames -= framesToWrite;
+            audioOutBufferPtr += framesToWrite << 1;
+         }
+      }
+   }
 } // namespace Libretro
 
 using namespace Libretro;
@@ -84,7 +248,7 @@ class LibretroHost : public Host
          assert(hostAttemptBlockSize <= blockSizeMax);
 
          int samples = __AudioMix(audio, hostAttemptBlockSize, SAMPLERATE);
-         audio_batch_cb(audio, samples);
+         AudioBufferWrite(audio, samples);
       }
       void ShutdownSound() override {}
       bool IsDebuggingEnabled() override { return false; }
@@ -421,6 +585,8 @@ void retro_set_input_state(retro_input_state_t cb) { input_state_cb = cb; }
 
 void retro_init(void)
 {
+   AudioBufferInit();
+
    g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
 
    struct retro_input_descriptor desc[] = {
@@ -502,6 +668,8 @@ void retro_deinit(void)
    host = nullptr;
 
    libretro_supports_bitmasks = false;
+
+   AudioBufferDeinit();
 }
 
 void retro_set_controller_port_device(unsigned port, unsigned device)
@@ -607,7 +775,7 @@ namespace Libretro
 
       // Need to keep eating frames to allow the EmuThread to exit correctly.
       while (ctx->ThreadFrame())
-         continue;
+         AudioBufferFlush();
 
       emuThread.join();
       emuThread = std::thread();
@@ -622,6 +790,7 @@ namespace Libretro
       emuThreadState = EmuThreadState::PAUSE_REQUESTED;
 
       ctx->ThreadFrame(); // Eat 1 frame
+      AudioBufferFlush();
 
       while (emuThreadState != EmuThreadState::PAUSED)
          sleep_ms(1);
@@ -768,6 +937,14 @@ void retro_run(void)
          environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
          return;
       }
+
+      // Due to the fact that this core abuses the
+      // frontend audio buffer, we set a high(ish)
+      // frontend audio latency to help smooth
+      // things out...
+      unsigned audioLatency = 128;
+      environ_cb(RETRO_ENVIRONMENT_SET_MINIMUM_AUDIO_LATENCY,
+            &audioLatency);
    }
 
    check_variables(PSP_CoreParameter());
@@ -779,6 +956,7 @@ void retro_run(void)
       if(   emuThreadState == EmuThreadState::PAUSED ||
             emuThreadState == EmuThreadState::PAUSE_REQUESTED)
       {
+         AudioUploadSamples();
          ctx->SwapBuffers();
          return;
       }
@@ -787,11 +965,15 @@ void retro_run(void)
          EmuThreadStart();
 
       if (!ctx->ThreadFrame())
+      {
+         AudioUploadSamples();
          return;
+      }
    }
    else
       EmuFrame();
 
+   AudioUploadSamples();
    ctx->SwapBuffers();
 }
 
@@ -845,6 +1027,8 @@ bool retro_serialize(void *data, size_t size)
       sleep_ms(4);
    }
 
+   AudioBufferFlush();
+
    return retVal;
 }
 
@@ -865,6 +1049,8 @@ bool retro_unserialize(const void *data, size_t size)
       EmuThreadStart();
       sleep_ms(4);
    }
+
+   AudioBufferFlush();
 
    return retVal;
 }
