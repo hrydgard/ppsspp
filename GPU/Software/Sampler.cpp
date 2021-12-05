@@ -23,6 +23,7 @@
 #include "Core/Reporting.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/GPUState.h"
+#include "GPU/Software/RasterizerRegCache.h"
 #include "GPU/Software/Sampler.h"
 
 #if defined(_M_SSE)
@@ -30,13 +31,14 @@
 #endif
 
 using namespace Math3D;
+using namespace Rasterizer;
 
 extern u32 clut[4096];
 
 namespace Sampler {
 
-static u32 SampleNearest(int u, int v, const u8 *tptr, int bufw, int level);
-static u32 SampleLinear(int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufw, int level);
+static Vec4IntResult SOFTRAST_CALL SampleNearest(int u, int v, const u8 *tptr, int bufw, int level);
+static Vec4IntResult SOFTRAST_CALL SampleLinear(int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufw, int level);
 
 std::mutex jitCacheLock;
 SamplerJitCache *jitCache = nullptr;
@@ -111,10 +113,17 @@ void SamplerJitCache::Clear() {
 void SamplerJitCache::ComputeSamplerID(SamplerID *id_out, bool linear) {
 	SamplerID id{};
 
+	int maxLevel = gstate.isMipmapEnabled() ? gstate.getTextureMaxLevel() : 0;
+	for (int i = 0; i <= maxLevel; ++i) {
+		if (gstate.getTextureAddress(i) == 0) {
+			id.hasInvalidPtr = true;
+		}
+	}
+
 	id.texfmt = gstate.getTextureFormat();
 	id.swizzle = gstate.isTextureSwizzled();
 	// Only CLUT4 can use separate CLUTs per mimap.
-	id.useSharedClut = gstate.getTextureFormat() != GE_TFMT_CLUT4 || !gstate.isMipmapEnabled() || gstate.isClutSharedForMipmaps();
+	id.useSharedClut = gstate.getTextureFormat() != GE_TFMT_CLUT4 || maxLevel == 0 || !gstate.isMipmapEnabled() || gstate.isClutSharedForMipmaps();
 	if (gstate.isTextureFormatIndexed()) {
 		id.clutfmt = gstate.getClutPaletteFormat();
 		id.hasClutMask = gstate.getClutIndexMask() != 0xFF;
@@ -122,12 +131,6 @@ void SamplerJitCache::ComputeSamplerID(SamplerID *id_out, bool linear) {
 		id.hasClutOffset = gstate.getClutIndexStartPos() != 0;
 	}
 	id.linear = linear;
-	int maxLevel = gstate.isMipmapEnabled() ? gstate.getTextureMaxLevel() : 0;
-	for (int i = 0; i <= maxLevel; ++i) {
-		if (gstate.getTextureAddress(i) == 0) {
-			id.hasInvalidPtr = true;
-		}
-	}
 
 	*id_out = id;
 }
@@ -305,8 +308,7 @@ struct Nearest4 {
 };
 
 template <int N>
-inline static Nearest4 SampleNearest(int u[N], int v[N], const u8 *srcptr, int texbufw, int level)
-{
+inline static Nearest4 SOFTRAST_CALL SampleNearest(int u[N], int v[N], const u8 *srcptr, int texbufw, int level) {
 	Nearest4 res;
 	if (!srcptr) {
 		memset(res.v, 0, sizeof(res.v));
@@ -407,11 +409,12 @@ inline static Nearest4 SampleNearest(int u[N], int v[N], const u8 *srcptr, int t
 	}
 }
 
-static u32 SampleNearest(int u, int v, const u8 *tptr, int bufw, int level) {
-	return SampleNearest<1>(&u, &v, tptr, bufw, level);
+static Vec4IntResult SOFTRAST_CALL SampleNearest(int u, int v, const u8 *tptr, int bufw, int level) {
+	Nearest4 c = SampleNearest<1>(&u, &v, tptr, bufw, level);
+	return ToVec4IntResult(Vec4<int>::FromRGBA(c.v[0]));
 }
 
-static u32 SampleLinear(int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufw, int texlevel) {
+static Vec4IntResult SOFTRAST_CALL SampleLinear(int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufw, int texlevel) {
 	Nearest4 c = SampleNearest<4>(u, v, tptr, bufw, texlevel);
 
 	Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(c.v[0]);
@@ -420,7 +423,7 @@ static u32 SampleLinear(int u[4], int v[4], int frac_u, int frac_v, const u8 *tp
 	Vec4<int> texcolor_br = Vec4<int>::FromRGBA(c.v[3]);
 	Vec4<int> t = texcolor_tl * (0x100 - frac_u) + texcolor_tr * frac_u;
 	Vec4<int> b = texcolor_bl * (0x100 - frac_u) + texcolor_br * frac_u;
-	return ((t * (0x100 - frac_v) + b * frac_v) / (256 * 256)).ToRGBA();
+	return ToVec4IntResult((t * (0x100 - frac_v) + b * frac_v) / (256 * 256));
 }
 
 };

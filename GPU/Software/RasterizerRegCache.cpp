@@ -335,6 +335,28 @@ void RegCache::GrabReg(Reg r, Purpose p, bool &needsSwap, Reg swapReg, Purpose s
 	_assert_msg_(false, "softjit GrabReg() reg that isn't there");
 }
 
+bool RegCache::ChangeReg(Reg r, Purpose p) {
+	for (auto &reg : regs) {
+		if (reg.reg != r)
+			continue;
+		if ((reg.purpose & FLAG_GEN) != (p & FLAG_GEN))
+			continue;
+
+		if (reg.purpose == p)
+			return true;
+		_assert_msg_(!Has(p), "softjit ChangeReg() duplicate purpose (%04X)", p);
+
+		if (reg.locked != 0 || reg.forceRetained)
+			return false;
+
+		reg.purpose = p;
+		return true;
+	}
+
+	_assert_msg_(false, "softjit ChangeReg() reg that isn't there");
+	return false;
+}
+
 RegCache::RegStatus *RegCache::FindReg(Reg r, Purpose p) {
 	for (auto &reg : regs) {
 		if (reg.reg == r && reg.purpose == p) {

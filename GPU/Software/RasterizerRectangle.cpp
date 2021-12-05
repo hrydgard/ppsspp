@@ -153,7 +153,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 						int s = s_start;
 						u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
 						for (int x = pos0.x; x < pos1.x; x++) {
-							u32 tex_color = nearestFunc(s, t, texptr, texbufw, 0);
+							u32 tex_color = Vec4<int>(nearestFunc(s, t, texptr, texbufw, 0)).ToRGBA();
 							if (tex_color & 0xFF000000) {
 								DrawSinglePixel5551(pixel, tex_color, pixelID);
 							}
@@ -171,7 +171,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 						u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
 						for (int x = pos0.x; x < pos1.x; x++) {
 							Vec4<int> prim_color = v1.color0;
-							Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
+							Vec4<int> tex_color = nearestFunc(s, t, texptr, texbufw, 0);
 							prim_color = ModulateRGBA(prim_color, tex_color);
 							if (prim_color.a() > 0) {
 								DrawSinglePixel5551(pixel, prim_color.ToRGBA(), pixelID);
@@ -191,8 +191,8 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 					// Not really that fast but faster than triangle.
 					for (int x = pos0.x; x < pos1.x; x++) {
 						Vec4<int> prim_color = v1.color0;
-						Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
-						prim_color = GetTextureFunctionOutput(prim_color, tex_color);
+						Vec4<int> tex_color = nearestFunc(s, t, texptr, texbufw, 0);
+						prim_color = GetTextureFunctionOutput(ToVec4IntArg(prim_color), ToVec4IntArg(tex_color));
 						drawPixel(x, y, z, 255, ToVec4IntArg(prim_color), pixelID);
 						s += ds;
 					}

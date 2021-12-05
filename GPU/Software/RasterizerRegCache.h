@@ -64,13 +64,25 @@ typedef FakeGen::FakeXCodeBlock CodeBlock;
 // We also have the types of things that end up in regs.
 #if PPSSPP_ARCH(ARM64)
 typedef int32x4_t Vec4IntArg;
+typedef int32x4_t Vec4IntResult;
+typedef float32x4_t Vec4FloatArg;
 static inline Vec4IntArg ToVec4IntArg(const Math3D::Vec4<int> &a) { return vld1q_s32(a.AsArray()); }
+static inline Vec4IntResult ToVec4IntResult(const Math3D::Vec4<int> &a) { return vld1q_s32(a.AsArray()); }
+static inline Vec4FloatArg ToVec4FloatArg(const Math3D::Vec4<float> &a) { return vld1q_f32(a.AsArray()); }
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 typedef __m128i Vec4IntArg;
+typedef __m128i Vec4IntResult;
+typedef __m128 Vec4FloatArg;
 static inline Vec4IntArg ToVec4IntArg(const Math3D::Vec4<int> &a) { return a.ivec; }
+static inline Vec4IntResult ToVec4IntResult(const Math3D::Vec4<int> &a) { return a.ivec; }
+static inline Vec4FloatArg ToVec4FloatArg(const Math3D::Vec4<float> &a) { return a.vec; }
 #else
 typedef const Math3D::Vec4<int> &Vec4IntArg;
+typedef Math3D::Vec4<int> Vec4IntResult;
+typedef const Math3D::Vec4<float> &Vec4FloatArg;
 static inline Vec4IntArg ToVec4IntArg(const Math3D::Vec4<int> &a) { return a; }
+static inline Vec4IntResult ToVec4IntResult(const Math3D::Vec4<int> &a) { return a; }
+static inline Vec4FloatArg ToVec4FloatArg(const Math3D::Vec4<float> &a) { return a; }
 #endif
 
 #if PPSSPP_ARCH(AMD64) && PPSSPP_PLATFORM(WINDOWS) && (defined(_MSC_VER) || defined(__clang__) || defined(__INTEL_COMPILER))
@@ -85,6 +97,7 @@ struct RegCache {
 		FLAG_TEMP = 0x1000,
 
 		VEC_ZERO = 0x0000,
+		VEC_RESULT = 0x0001,
 
 		GEN_SRC_ALPHA = 0x0100,
 		GEN_GSTATE = 0x0101,
@@ -92,12 +105,23 @@ struct RegCache {
 		GEN_STENCIL = 0x0103,
 		GEN_COLOR_OFF = 0x0104,
 		GEN_DEPTH_OFF = 0x0105,
+		GEN_RESULT = 0x0106,
+		GEN_SHIFTVAL = 0x0107,
 
 		GEN_ARG_X = 0x0180,
 		GEN_ARG_Y = 0x0181,
 		GEN_ARG_Z = 0x0182,
 		GEN_ARG_FOG = 0x0183,
 		GEN_ARG_ID = 0x0184,
+		GEN_ARG_U = 0x0185,
+		GEN_ARG_V = 0x0186,
+		GEN_ARG_TEXPTR = 0x0187,
+		GEN_ARG_BUFW = 0x0188,
+		GEN_ARG_LEVEL = 0x0189,
+		GEN_ARG_U_PTR = 0x018A,
+		GEN_ARG_V_PTR = 0x018B,
+		GEN_ARG_FRAC_U = 0x018C,
+		GEN_ARG_FRAC_V = 0x018D,
 		VEC_ARG_COLOR = 0x0080,
 		VEC_ARG_MASK = 0x0081,
 
@@ -170,6 +194,8 @@ struct RegCache {
 
 	// For getting a specific reg.  WARNING: May return a locked reg, so you have to check.
 	void GrabReg(Reg r, Purpose p, bool &needsSwap, Reg swapReg, Purpose swapPurpose);
+	// For setting the purpose of a specific reg.  Returns false if it is locked.
+	bool ChangeReg(Reg r, Purpose p);
 
 private:
 	RegStatus *FindReg(Reg r, Purpose p);
