@@ -283,7 +283,6 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 		const __m128i pboost = _mm_add_epi16(p, _mm_set1_epi16(1 << 4));
 		__m128i t = _mm_slli_epi16(_mm_packs_epi32(texcolor.ivec, texcolor.ivec), 4);
 		if (gstate.isColorDoublingEnabled()) {
-			// We double right here, only for modulate.  Other tex funcs do not color double.
 			const __m128i amask = _mm_set_epi16(-1, 0, 0, 0, -1, 0, 0, 0);
 			const __m128i a = _mm_and_si128(t, amask);
 			const __m128i rgb = _mm_andnot_si128(amask, t);
@@ -310,9 +309,18 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 
 	case GE_TEXFUNC_DECAL:
 	{
-		int t = (rgba) ? texcolor.a() : 255;
-		int invt = (rgba) ? 255 - t : 0;
-		out_rgb = (prim_color.rgb() * invt + texcolor.rgb() * t) / 255;
+		if (rgba) {
+			int t = (rgba) ? texcolor.a() : 255;
+			int invt = (rgba) ? 255 - t : 0;
+			Vec3<int> one = Vec3<int>::AssignToAll(1);
+			out_rgb = ((prim_color.rgb() + one) * invt + (texcolor.rgb() + one) * t);
+			if (gstate.isColorDoublingEnabled())
+				out_rgb /= 128;
+			else
+				out_rgb /= 256;
+		} else {
+			out_rgb = texcolor.rgb();
+		}
 		out_a = prim_color.a();
 		break;
 	}
