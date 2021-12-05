@@ -162,7 +162,9 @@ void MemSlabMap::DoState(PointerWrap &p) {
 
 	int count = 0;
 	if (p.mode == p.MODE_READ) {
-		Clear();
+		// Since heads_ is a static size, let's avoid clearing it.
+		// This helps in case a debugger call happens concurrently.
+		Slab *old = first_;
 		Do(p, count);
 
 		first_ = new Slab();
@@ -170,7 +172,6 @@ void MemSlabMap::DoState(PointerWrap &p) {
 		lastFind_ = first_;
 		--count;
 
-		heads_.resize(SLICES, nullptr);
 		FillHeads(first_);
 
 		Slab *slab = first_;
@@ -182,6 +183,13 @@ void MemSlabMap::DoState(PointerWrap &p) {
 			slab = slab->next;
 
 			FillHeads(slab);
+		}
+
+		// Now that it's entirely disconnected, delete the old slabs.
+		while (old != nullptr) {
+			Slab *next = old->next;
+			delete old;
+			old = next;
 		}
 	} else {
 		for (Slab *slab = first_; slab != nullptr; slab = slab->next)
