@@ -172,12 +172,12 @@ void ThreadManager::Init(int numRealCores, int numLogicalCoresPerCpu) {
 	}
 }
 
-void ThreadManager::EnqueueTask(Task *task, TaskType taskType) {
+void ThreadManager::EnqueueTask(Task *task) {
 	_assert_msg_(IsInitialized(), "ThreadManager not initialized");
 
 	int maxThread;
 	int threadOffset = 0;
-	if (taskType == TaskType::CPU_COMPUTE) {
+	if (task->Type() == TaskType::CPU_COMPUTE) {
 		// only the threads reserved for heavy compute.
 		maxThread = numComputeThreads_;
 		threadOffset = 0;
@@ -219,7 +219,7 @@ void ThreadManager::EnqueueTask(Task *task, TaskType taskType) {
 	chosenThread->cond.notify_one();
 }
 
-void ThreadManager::EnqueueTaskOnThread(int threadNum, Task *task, TaskType taskType) {
+void ThreadManager::EnqueueTaskOnThread(int threadNum, Task *task) {
 	_assert_msg_(threadNum >= 0 && threadNum < (int)global_->threads_.size(), "Bad threadnum or not initialized");
 	ThreadContext *thread = global_->threads_[threadNum];
 

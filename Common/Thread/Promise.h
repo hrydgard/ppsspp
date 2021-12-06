@@ -9,11 +9,15 @@
 template<class T>
 class PromiseTask : public Task {
 public:
-	PromiseTask(std::function<T ()> fun, Mailbox<T> *tx) : fun_(fun), tx_(tx) {
+	PromiseTask(std::function<T ()> fun, Mailbox<T> *tx, TaskType t) : fun_(fun), tx_(tx), type_(t) {
 		tx_->AddRef();
 	}
 	~PromiseTask() {
 		tx_->Release();
+	}
+
+	TaskType Type() const override {
+		return type_;
 	}
 
 	void Run() override {
@@ -23,6 +27,7 @@ public:
 
 	std::function<T ()> fun_;
 	Mailbox<T> *tx_;
+	TaskType type_;
 };
 
 // Represents pending or actual data.
@@ -38,8 +43,8 @@ public:
 		Promise<T> *promise = new Promise<T>();
 		promise->rx_ = mailbox;
 
-		PromiseTask<T> *task = new PromiseTask<T>(fun, mailbox);
-		threadman->EnqueueTask(task, taskType);
+		PromiseTask<T> *task = new PromiseTask<T>(fun, mailbox, taskType);
+		threadman->EnqueueTask(task);
 		return promise;
 	}
 
