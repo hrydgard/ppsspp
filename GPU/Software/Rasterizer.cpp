@@ -278,17 +278,18 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 	case GE_TEXFUNC_MODULATE:
 	{
 #if defined(_M_SSE)
-		// We can be accurate up to 24 bit integers, should be enough.
-		const __m128 p = _mm_cvtepi32_ps(prim_color.ivec);
-		const __m128 t = _mm_cvtepi32_ps(texcolor.ivec);
-		const __m128 b = _mm_mul_ps(p, t);
+		// Modulate weights slightly on the tex color, by adding one to prim and dividing by 256.
+		const __m128i p = _mm_slli_epi16(_mm_packs_epi32(prim_color.ivec, prim_color.ivec), 4);
+		const __m128i pboost = _mm_add_epi16(p, _mm_set1_epi16(1 << 4));
+		__m128i t = _mm_slli_epi16(_mm_packs_epi32(texcolor.ivec, texcolor.ivec), 4);
 		if (gstate.isColorDoublingEnabled()) {
-			// We double right here, only for modulate.  Other tex funcs do not color double.
-			const __m128 doubleColor = _mm_setr_ps(2.0f / 255.0f, 2.0f / 255.0f, 2.0f / 255.0f, 1.0f / 255.0f);
-			out_rgb.ivec = _mm_cvtps_epi32(_mm_mul_ps(b, doubleColor));
-		} else {
-			out_rgb.ivec = _mm_cvtps_epi32(_mm_mul_ps(b, _mm_set_ps1(1.0f / 255.0f)));
+			const __m128i amask = _mm_set_epi16(-1, 0, 0, 0, -1, 0, 0, 0);
+			const __m128i a = _mm_and_si128(t, amask);
+			const __m128i rgb = _mm_andnot_si128(amask, t);
+			t = _mm_or_si128(_mm_slli_epi16(rgb, 1), a);
 		}
+		const __m128i b = _mm_mulhi_epi16(pboost, t);
+		out_rgb.ivec = _mm_unpacklo_epi16(b, _mm_setzero_si128());
 
 		if (rgba) {
 			return ToVec4IntResult(Vec4<int>(out_rgb.ivec));
@@ -297,20 +298,31 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 		}
 #else
 		if (gstate.isColorDoublingEnabled()) {
-			out_rgb = (prim_color.rgb() * texcolor.rgb() * 2) / 255;
+			out_rgb = ((prim_color.rgb() + Vec3<int>::AssignToAll(1)) * texcolor.rgb() * 2) / 256;
 		} else {
-			out_rgb = prim_color.rgb() * texcolor.rgb() / 255;
+			out_rgb = (prim_color.rgb() + Vec3<int>::AssignToAll(1)) * texcolor.rgb() / 256;
 		}
-		out_a = (rgba) ? (prim_color.a() * texcolor.a() / 255) : prim_color.a();
+		out_a = (rgba) ? ((prim_color.a() + 1) * texcolor.a() / 256) : prim_color.a();
 #endif
 		break;
 	}
 
 	case GE_TEXFUNC_DECAL:
 	{
-		int t = (rgba) ? texcolor.a() : 255;
-		int invt = (rgba) ? 255 - t : 0;
-		out_rgb = (prim_color.rgb() * invt + texcolor.rgb() * t) / 255;
+		if (rgba) {
+			int t = (rgba) ? texcolor.a() : 255;
+			int invt = (rgba) ? 255 - t : 0;
+			// Both colors are boosted here, making the alpha have more weight.
+			Vec3<int> one = Vec3<int>::AssignToAll(1);
+			out_rgb = ((prim_color.rgb() + one) * invt + (texcolor.rgb() + one) * t);
+			// Keep the bits of accuracy when doubling.
+			if (gstate.isColorDoublingEnabled())
+				out_rgb /= 128;
+			else
+				out_rgb /= 256;
+		} else {
+			out_rgb = texcolor.rgb();
+		}
 		out_a = prim_color.a();
 		break;
 	}
@@ -319,28 +331,40 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 	{
 		const Vec3<int> const255(255, 255, 255);
 		const Vec3<int> texenv(gstate.getTextureEnvColR(), gstate.getTextureEnvColG(), gstate.getTextureEnvColB());
-		out_rgb = ((const255 - texcolor.rgb()) * prim_color.rgb() + texcolor.rgb() * texenv) / 255;
-		out_a = prim_color.a() * ((rgba) ? texcolor.a() : 255) / 255;
+
+		// Unlike the others (and even alpha), this one simply always rounds up.
+		const Vec3<int> roundup = Vec3<int>::AssignToAll(255);
+		out_rgb = ((const255 - texcolor.rgb()) * prim_color.rgb() + texcolor.rgb() * texenv + roundup);
+		// Must divide by less to keep the precision for doubling to be accurate.
+		if (gstate.isColorDoublingEnabled())
+			out_rgb /= 128;
+		else
+			out_rgb /= 256;
+
+		out_a = (rgba) ? ((prim_color.a() + 1) * texcolor.a() / 256) : prim_color.a();
 		break;
 	}
 
 	case GE_TEXFUNC_REPLACE:
 		out_rgb = texcolor.rgb();
+		// Doubling even happens for replace.
+		if (gstate.isColorDoublingEnabled())
+			out_rgb *= 2;
 		out_a = (rgba) ? texcolor.a() : prim_color.a();
 		break;
 
 	case GE_TEXFUNC_ADD:
+	case GE_TEXFUNC_UNKNOWN1:
+	case GE_TEXFUNC_UNKNOWN2:
+	case GE_TEXFUNC_UNKNOWN3:
+		// Don't need to clamp afterward, we always clamp before tests.
 		out_rgb = prim_color.rgb() + texcolor.rgb();
-		if (out_rgb.r() > 255) out_rgb.r() = 255;
-		if (out_rgb.g() > 255) out_rgb.g() = 255;
-		if (out_rgb.b() > 255) out_rgb.b() = 255;
-		out_a = prim_color.a() * ((rgba) ? texcolor.a() : 255) / 255;
-		break;
+		if (gstate.isColorDoublingEnabled())
+			out_rgb *= 2;
 
-	default:
-		ERROR_LOG_REPORT(G3D, "Software: Unknown texture function %x", gstate.getTextureFunction());
-		out_rgb = Vec3<int>::AssignToAll(0);
-		out_a = 0;
+		// Alpha is still blended the common way.
+		out_a = (rgba) ? ((prim_color.a() + 1) * texcolor.a() / 256) : prim_color.a();
+		break;
 	}
 
 	return ToVec4IntResult(Vec4<int>(out_rgb, out_a));

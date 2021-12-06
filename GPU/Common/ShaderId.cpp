@@ -243,7 +243,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const Draw::Bugs &bugs) {
 		bool enableFog = gstate.isFogEnabled() && !isModeThrough;
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue();
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
-		bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled() && gstate.getTextureFunction() == GE_TEXFUNC_MODULATE;
+		bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
 		bool doTextureProjection = (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX && MatrixNeedsProjection(gstate.tgenMatrix));
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
 		bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;

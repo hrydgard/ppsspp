@@ -45,34 +45,34 @@ inline void DrawSinglePixel5551(u16 *pixel, const u32 color_in, const PixelFuncI
 	*pixel = RGBA8888ToRGBA5551(new_color);
 }
 
-static inline Vec4<int> ModulateRGBA(const Vec4<int>& prim_color, const Vec4<int>& texcolor) {
-	Vec3<int> out_rgb;
-	int out_a;
+static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4IntArg texcolor_in) {
+	Vec4<int> out;
+	Vec4<int> prim_color = prim_in;
+	Vec4<int> texcolor = texcolor_in;
 
 #if defined(_M_SSE)
-	// We can be accurate up to 24 bit integers, should be enough.
-	const __m128 p = _mm_cvtepi32_ps(prim_color.ivec);
-	const __m128 t = _mm_cvtepi32_ps(texcolor.ivec);
-	const __m128 b = _mm_mul_ps(p, t);
+	// Modulate weights slightly on the tex color, by adding one to prim and dividing by 256.
+	const __m128i p = _mm_slli_epi16(_mm_packs_epi32(prim_color.ivec, prim_color.ivec), 4);
+	const __m128i pboost = _mm_add_epi16(p, _mm_set1_epi16(1 << 4));
+	__m128i t = _mm_slli_epi16(_mm_packs_epi32(texcolor.ivec, texcolor.ivec), 4);
 	if (gstate.isColorDoublingEnabled()) {
-		// We double right here, only for modulate.  Other tex funcs do not color double.
-		const __m128 doubleColor = _mm_setr_ps(2.0f / 255.0f, 2.0f / 255.0f, 2.0f / 255.0f, 1.0f / 255.0f);
-		out_rgb.ivec = _mm_cvtps_epi32(_mm_mul_ps(b, doubleColor));
-	} else {
-		out_rgb.ivec = _mm_cvtps_epi32(_mm_mul_ps(b, _mm_set_ps1(1.0f / 255.0f)));
+		const __m128i amask = _mm_set_epi16(-1, 0, 0, 0, -1, 0, 0, 0);
+		const __m128i a = _mm_and_si128(t, amask);
+		const __m128i rgb = _mm_andnot_si128(amask, t);
+		t = _mm_or_si128(_mm_slli_epi16(rgb, 1), a);
 	}
-	return Vec4<int>(out_rgb.ivec);
+	const __m128i b = _mm_mulhi_epi16(pboost, t);
+	out.ivec = _mm_unpacklo_epi16(b, _mm_setzero_si128());
 #else
 	if (gstate.isColorDoublingEnabled()) {
-		out_rgb = (prim_color.rgb() * texcolor.rgb() * 2) / 255;
+		Vec4<int> tex = texcolor * Vec4<int>(2, 2, 2, 1);
+		out = ((prim_color + Vec4<int>::AssignToAll(1)) * tex) / 256;
 	} else {
-		out_rgb = prim_color.rgb() * texcolor.rgb() / 255;
+		out = (prim_color + Vec4<int>::AssignToAll(1)) * texcolor / 256;
 	}
-	out_a = (prim_color.a() * texcolor.a() / 255);
 #endif
 
-	return Vec4<int>(out_rgb.r(), out_rgb.g(), out_rgb.b(), out_a);
-
+	return ToVec4IntResult(out);
 }
 
 void DrawSprite(const VertexData& v0, const VertexData& v1) {
@@ -172,7 +172,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 						for (int x = pos0.x; x < pos1.x; x++) {
 							Vec4<int> prim_color = v1.color0;
 							Vec4<int> tex_color = nearestFunc(s, t, texptr, texbufw, 0);
-							prim_color = ModulateRGBA(prim_color, tex_color);
+							prim_color = Vec4<int>(ModulateRGBA(ToVec4IntArg(prim_color), ToVec4IntArg(tex_color)));
 							if (prim_color.a() > 0) {
 								DrawSinglePixel5551(pixel, prim_color.ToRGBA(), pixelID);
 							}
