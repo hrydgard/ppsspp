@@ -312,8 +312,10 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 		if (rgba) {
 			int t = (rgba) ? texcolor.a() : 255;
 			int invt = (rgba) ? 255 - t : 0;
+			// Both colors are boosted here, making the alpha have more weight.
 			Vec3<int> one = Vec3<int>::AssignToAll(1);
 			out_rgb = ((prim_color.rgb() + one) * invt + (texcolor.rgb() + one) * t);
+			// Keep the bits of accuracy when doubling.
 			if (gstate.isColorDoublingEnabled())
 				out_rgb /= 128;
 			else
@@ -329,13 +331,28 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 	{
 		const Vec3<int> const255(255, 255, 255);
 		const Vec3<int> texenv(gstate.getTextureEnvColR(), gstate.getTextureEnvColG(), gstate.getTextureEnvColB());
-		out_rgb = ((const255 - texcolor.rgb()) * prim_color.rgb() + texcolor.rgb() * texenv) / 255;
-		out_a = prim_color.a() * ((rgba) ? texcolor.a() : 255) / 255;
+
+		// Unlike the others (and even alpha), this one simply always rounds up.
+		const Vec3<int> roundup = Vec3<int>::AssignToAll(255);
+		out_rgb = ((const255 - texcolor.rgb()) * prim_color.rgb() + texcolor.rgb() * texenv + roundup);
+		// Must divide by less to keep the precision for doubling to be accurate.
+		if (gstate.isColorDoublingEnabled())
+			out_rgb /= 128;
+		else
+			out_rgb /= 256;
+
+		if (rgba)
+			out_a = ((prim_color.a() + 1) * texcolor.a()) / 256;
+		else
+			out_a = prim_color.a();
 		break;
 	}
 
 	case GE_TEXFUNC_REPLACE:
 		out_rgb = texcolor.rgb();
+		// Doubling even happens for replace.
+		if (gstate.isColorDoublingEnabled())
+			out_rgb *= 2;
 		out_a = (rgba) ? texcolor.a() : prim_color.a();
 		break;
 
