@@ -341,10 +341,7 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 		else
 			out_rgb /= 256;
 
-		if (rgba)
-			out_a = ((prim_color.a() + 1) * texcolor.a()) / 256;
-		else
-			out_a = prim_color.a();
+		out_a = (rgba) ? ((prim_color.a() + 1) * texcolor.a() / 256) : prim_color.a();
 		break;
 	}
 
@@ -357,17 +354,17 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 		break;
 
 	case GE_TEXFUNC_ADD:
+	case GE_TEXFUNC_UNKNOWN1:
+	case GE_TEXFUNC_UNKNOWN2:
+	case GE_TEXFUNC_UNKNOWN3:
+		// Don't need to clamp afterward, we always clamp before tests.
 		out_rgb = prim_color.rgb() + texcolor.rgb();
-		if (out_rgb.r() > 255) out_rgb.r() = 255;
-		if (out_rgb.g() > 255) out_rgb.g() = 255;
-		if (out_rgb.b() > 255) out_rgb.b() = 255;
-		out_a = prim_color.a() * ((rgba) ? texcolor.a() : 255) / 255;
-		break;
+		if (gstate.isColorDoublingEnabled())
+			out_rgb *= 2;
 
-	default:
-		ERROR_LOG_REPORT(G3D, "Software: Unknown texture function %x", gstate.getTextureFunction());
-		out_rgb = Vec3<int>::AssignToAll(0);
-		out_a = 0;
+		// Alpha is still blended the common way.
+		out_a = (rgba) ? ((prim_color.a() + 1) * texcolor.a() / 256) : prim_color.a();
+		break;
 	}
 
 	return ToVec4IntResult(Vec4<int>(out_rgb, out_a));
