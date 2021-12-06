@@ -9,6 +9,10 @@ public:
 	LoopRangeTask(WaitableCounter *counter, const std::function<void(int, int)> &loop, int lower, int upper)
 		: counter_(counter), loop_(loop), lower_(lower), upper_(upper) {}
 
+	TaskType Type() const override {
+		return TaskType::CPU_COMPUTE;
+	}
+
 	void Run() override {
 		loop_(lower_, upper_);
 		counter_->Count();
@@ -34,7 +38,7 @@ WaitableCounter *ParallelRangeLoopWaitable(ThreadManager *threadMan, const std::
 	} else if (range <= minSize) {
 		// Single background task.
 		WaitableCounter *waitableCounter = new WaitableCounter(1);
-		threadMan->EnqueueTaskOnThread(0, new LoopRangeTask(waitableCounter, loop, lower, upper), TaskType::CPU_COMPUTE);
+		threadMan->EnqueueTaskOnThread(0, new LoopRangeTask(waitableCounter, loop, lower, upper));
 		return waitableCounter;
 	} else {
 		// Split the range between threads. Allow for some fractional bits.
@@ -61,7 +65,7 @@ WaitableCounter *ParallelRangeLoopWaitable(ThreadManager *threadMan, const std::
 				// Let's do the stragglers on the current thread.
 				break;
 			}
-			threadMan->EnqueueTaskOnThread(i, new LoopRangeTask(waitableCounter, loop, start, end), TaskType::CPU_COMPUTE);
+			threadMan->EnqueueTaskOnThread(i, new LoopRangeTask(waitableCounter, loop, start, end));
 			counter += delta;
 			if ((counter >> fractionalBits) >= upper) {
 				break;

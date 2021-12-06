@@ -785,6 +785,10 @@ public:
 	ReplacedTextureTask(ReplacedTexture &tex, LimitedWaitable *w) : tex_(tex), waitable_(w) {
 	}
 
+	TaskType Type() const override {
+		return TaskType::IO_BLOCKING;
+	}
+
 	void Run() override {
 		tex_.Prepare();
 		waitable_->Notify();
@@ -815,7 +819,7 @@ bool ReplacedTexture::IsReady(double budget) {
 
 	if (g_Config.bReplaceTexturesAllowLate) {
 		threadWaitable_ = new LimitedWaitable();
-		g_threadManager.EnqueueTask(new ReplacedTextureTask(*this, threadWaitable_), TaskType::IO_BLOCKING);
+		g_threadManager.EnqueueTask(new ReplacedTextureTask(*this, threadWaitable_));
 
 		if (threadWaitable_->WaitFor(budget)) {
 			threadWaitable_->WaitAndRelease();

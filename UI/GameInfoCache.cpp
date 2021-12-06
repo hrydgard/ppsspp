@@ -340,6 +340,10 @@ public:
 		info_->readyEvent.Notify();
 	}
 
+	TaskType Type() const override {
+		return TaskType::IO_BLOCKING;
+	}
+
 	void Run() override {
 		// An early-return will result in the destructor running, where we can set
 		// flags like working and pending.
@@ -738,7 +742,7 @@ std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const 
 	}
 
 	GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info);
-	g_threadManager.EnqueueTask(item, TaskType::IO_BLOCKING);
+	g_threadManager.EnqueueTask(item);
 
 	// Don't re-insert if we already have it.
 	if (info_.find(pathStr) == info_.end())

@@ -14,6 +14,7 @@ enum class TaskType {
 class Task {
 public:
 	virtual ~Task() {}
+	virtual TaskType Type() const = 0;
 	virtual void Run() = 0;
 	virtual bool Cancellable() { return false; }
 	virtual void Cancel() {}
@@ -44,8 +45,8 @@ public:
 	// It gets even trickier when you think about mobile chips with BIG/LITTLE, but we'll
 	// just ignore it and let the OS handle it.
 	void Init(int numCores, int numLogicalCoresPerCpu);
-	void EnqueueTask(Task *task, TaskType taskType);
-	void EnqueueTaskOnThread(int threadNum, Task *task, TaskType taskType);
+	void EnqueueTask(Task *task);
+	void EnqueueTaskOnThread(int threadNum, Task *task);
 	void Teardown();
 
 	bool IsInitialized() const;

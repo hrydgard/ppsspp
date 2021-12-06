@@ -60,9 +60,9 @@ LocalFileLoader::LocalFileLoader(const Path &filename)
 #if PPSSPP_PLATFORM(ANDROID)
 	if (filename.Type() == PathType::CONTENT_URI) {
 		int fd = Android_OpenContentUriFd(filename.ToString(), Android_OpenContentUriMode::READ);
-		VERBOSE_LOG(SYSTEM, "Fd %d for content URI: '%s'", fd, filename.c_str());
+		VERBOSE_LOG(SYSTEM, "LocalFileLoader Fd %d for content URI: '%s'", fd, filename.c_str());
 		if (fd < 0) {
-			ERROR_LOG(FILESYS, "LoadFileLoader failed to open content URI: '%s'", filename.c_str());
+			ERROR_LOG(FILESYS, "LocalFileLoader failed to open content URI: '%s'", filename.c_str());
 			return;
 		}
 		fd_ = fd;
@@ -118,23 +118,26 @@ LocalFileLoader::~LocalFileLoader() {
 }
 
 bool LocalFileLoader::Exists() {
-	// If we couldn't open it for reading, we say it does not exist.
+	// If we opened it for reading, it must exist.  Done.
 #ifndef _WIN32
 	if (isOpenedByFd_) {
+		// As an optimization, if we already tried and failed, quickly return.
+		// This is used because Android Content URIs are so slow.
 		return fd_ != -1;
 	}
-	if (fd_ != -1 || IsDirectory()) {
+	if (fd_ != -1)
+		return true;
 #else
-	if (handle_ != INVALID_HANDLE_VALUE || IsDirectory()) {
+	if (handle_ != INVALID_HANDLE_VALUE)
+		return true;
 #endif
-		File::FileInfo info;
-		if (File::GetFileInfo(filename_, &info)) {
-			return info.exists;
-		} else {
-			return false;
-		}
+
+	File::FileInfo info;
+	if (File::GetFileInfo(filename_, &info)) {
+		return info.exists;
+	} else {
+		return false;
 	}
-	return false;
 }
 
 bool LocalFileLoader::IsDirectory() {
