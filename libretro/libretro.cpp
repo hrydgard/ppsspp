@@ -63,10 +63,6 @@
 // to calculating the average for the last 180
 // frames, or 3 seconds of runtime...
 #define AUDIO_FRAMES_MOVING_AVG_ALPHA (1.0f / 180.0f)
-// Workaround for a RetroArch audio driver
-// limitation: a maximum of 1024 frames
-// can be written per call of audio_batch_cb()
-#define AUDIO_BATCH_FRAMES_MAX 1024
 
 static bool libretro_supports_bitmasks = false;
 
@@ -89,6 +85,9 @@ namespace Libretro
    static int16_t *audioOutBuffer = NULL;
    static uint32_t audioOutBufferSize = 0;
    static float audioOutFramesAvg = 0.0f;
+   // Set this to an arbitrarily large value,
+   // it will be fine tuned in AudioUploadSamples()
+   static uint32_t audioBatchFramesMax = AUDIO_RING_BUFFER_SIZE >> 1;
 
    static void AudioBufferFlush()
    {
@@ -103,6 +102,7 @@ namespace Libretro
       audioOutFramesAvg = (float)SAMPLERATE / (60.0f / 1.001f);
       audioOutBufferSize = ((uint32_t)audioOutFramesAvg + 1) * 2;
       audioOutBuffer = (int16_t *)malloc(audioOutBufferSize * sizeof(int16_t));
+      audioBatchFramesMax = AUDIO_RING_BUFFER_SIZE >> 1;
 
       AudioBufferFlush();
    }
@@ -114,6 +114,7 @@ namespace Libretro
       audioOutBuffer = NULL;
       audioOutBufferSize = 0;
       audioOutFramesAvg = 0.0f;
+      audioBatchFramesMax = AUDIO_RING_BUFFER_SIZE >> 1;
 
       AudioBufferFlush();
    }
@@ -166,34 +167,14 @@ namespace Libretro
 
    static void AudioUploadSamples()
    {
-      // This is a gruesome hack...
       // - The core specifies a fixed frame rate of (60.0f / 1.001f)
       //   and a fixed sample rate of 44100
       // - This means the frontend expects exactly 735.735
       //   sample frames per call of retro_run()
-      // - But the core doesn't work like that...
-      // - Each call of UpdateSound() generates 512 sample
-      //   frames at 44100 Hz
-      // - When a game runs internally at ~60 fps,
-      //   this does indeed translate to 735.735 sample frames
-      //   per call of retro_run()
-      // - When a game runs internally at ~30 fps, UpdateSound()
-      //   gets called at *twice* the expected rate - so we
-      //   get double the expected number of sample frames
-      // - By pushing twice the number of frames, we effectively
-      //   force the frontend to run in slow motion
-      //   (2x sample buffer size == 1/2 running speed)
-      // - The PSP can run at a variety of framerates; in each
-      //   case, the core is abusing the frontend by sending
-      //   too many/too few audio samples in order to force the
-      //   correct run speed
-      // - The core should instead be notifying the frontend of
-      //   framerate changes, and at each framerate it should be
-      //   sending (44100 / framerate) audio sample frames
-      // - But doing this is a non-trivial task...
-      // - So the best we can do is keep a running average of the
-      //   current ring buffer occupancy, and drain this amount
-      //   on each call of retro_run()...
+      // - Provided that g_Config.bRenderDuplicateFrames is
+      //   force enabled and frameskip is disabled, the mean
+      //   of the buffer occupancy will approximate to this
+      //   value in most cases
       uint32_t framesAvailable = AudioBufferOccupancy();
 
       if (framesAvailable > 0)
@@ -220,10 +201,15 @@ namespace Libretro
          int16_t *audioOutBufferPtr = audioOutBuffer;
          while (frames > 0)
          {
-            uint32_t framesToWrite = (frames > AUDIO_BATCH_FRAMES_MAX) ?
-                  AUDIO_BATCH_FRAMES_MAX : frames;
+            uint32_t framesToWrite = (frames > audioBatchFramesMax) ?
+                  audioBatchFramesMax : frames;
+            uint32_t framesWritten = audio_batch_cb(audioOutBufferPtr,
+                  framesToWrite);
 
-            audio_batch_cb(audioOutBufferPtr, framesToWrite);
+            if ((framesWritten < framesToWrite) &&
+                (framesWritten > 0))
+               audioBatchFramesMax = framesWritten;
+
             frames -= framesToWrite;
             audioOutBufferPtr += framesToWrite << 1;
          }
@@ -386,7 +372,6 @@ static RetroOption<bool> ppsspp_gpu_hardware_transform("ppsspp_gpu_hardware_tran
 static RetroOption<bool> ppsspp_vertex_cache("ppsspp_vertex_cache", "Vertex Cache (Speedhack)", false);
 static RetroOption<bool> ppsspp_cheats("ppsspp_cheats", "Internal Cheats Support", false);
 static RetroOption<IOTimingMethods> ppsspp_io_timing_method("ppsspp_io_timing_method", "IO Timing Method", { { "Fast", IOTimingMethods::IOTIMING_FAST }, { "Host", IOTimingMethods::IOTIMING_HOST }, { "Simulate UMD delays", IOTimingMethods::IOTIMING_REALISTIC } });
-static RetroOption<bool> ppsspp_frame_duplication("ppsspp_frame_duplication", "Duplicate frames in 30hz games", false);
 static RetroOption<bool> ppsspp_software_skinning("ppsspp_software_skinning", "Software Skinning", true);
 static RetroOption<bool> ppsspp_ignore_bad_memory_access("ppsspp_ignore_bad_memory_access", "Ignore bad memory accesses", true);
 static RetroOption<bool> ppsspp_lazy_texture_caching("ppsspp_lazy_texture_caching", "Lazy texture caching (Speedup)", false);
@@ -410,7 +395,6 @@ void retro_set_environment(retro_environment_t cb)
    vars.push_back(ppsspp_auto_frameskip.GetOptions());
    vars.push_back(ppsspp_frameskip.GetOptions());
    vars.push_back(ppsspp_frameskiptype.GetOptions());
-   vars.push_back(ppsspp_frame_duplication.GetOptions());
    vars.push_back(ppsspp_vertex_cache.GetOptions());
    vars.push_back(ppsspp_fast_memory.GetOptions());
    vars.push_back(ppsspp_block_transfer_gpu.GetOptions());
@@ -532,7 +516,6 @@ static void check_variables(CoreParameter &coreParam)
    ppsspp_cpu_core.Update((CPUCore *)&g_Config.iCpuCore);
    ppsspp_io_timing_method.Update((IOTimingMethods *)&g_Config.iIOTimingMethod);
    ppsspp_lower_resolution_for_effects.Update(&g_Config.iBloomHack);
-   ppsspp_frame_duplication.Update(&g_Config.bRenderDuplicateFrames);
    ppsspp_software_skinning.Update(&g_Config.bSoftwareSkinning);
    ppsspp_ignore_bad_memory_access.Update(&g_Config.bIgnoreBadMemAccess);
    ppsspp_lazy_texture_caching.Update(&g_Config.bTextureBackoffCache);
@@ -629,6 +612,7 @@ void retro_init(void)
    g_Config.Load("", "");
    g_Config.iInternalResolution = 0;
    g_Config.sMACAddress = "12:34:56:78:9A:BC";
+   g_Config.bRenderDuplicateFrames = true;
 
    const char* nickname = NULL;
    if (environ_cb(RETRO_ENVIRONMENT_GET_USERNAME, &nickname) && nickname)
@@ -937,14 +921,6 @@ void retro_run(void)
          environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
          return;
       }
-
-      // Due to the fact that this core abuses the
-      // frontend audio buffer, we set a high(ish)
-      // frontend audio latency to help smooth
-      // things out...
-      unsigned audioLatency = 128;
-      environ_cb(RETRO_ENVIRONMENT_SET_MINIMUM_AUDIO_LATENCY,
-            &audioLatency);
    }
 
    check_variables(PSP_CoreParameter());
