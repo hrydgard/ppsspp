@@ -50,7 +50,12 @@ std::string GetStringErrorMsg(int errCode) {
 
 	char err_str[buff_size] = {};
 	snprintf(err_str, buff_size, "%s", ConvertWStringToUTF8(err_strw).c_str());
-	return std::string(err_str);
+
+	std::string err_string = err_str;
+	if (!err_string.empty() && err_string.back() == '\n') {
+		err_string.pop_back();
+	}
+	return err_string;
 #else
 	char err_str[buff_size] = {};
 
