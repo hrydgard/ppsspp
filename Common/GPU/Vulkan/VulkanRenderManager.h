@@ -291,6 +291,8 @@ public:
 
 	void SetScissor(VkRect2D rc) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
+		_dbg_assert_((int)rc.offset.x >= 0);
+		_dbg_assert_((int)rc.offset.y >= 0);
 		_dbg_assert_((int)rc.extent.width >= 0);
 		_dbg_assert_((int)rc.extent.height >= 0);
 
@@ -300,7 +302,7 @@ public:
 			rc.extent.width = std::max(1, newWidth);
 			if (rc.offset.x >= curWidth_) {
 				// Fallback.
-				rc.offset.x = curWidth_ - rc.extent.width;
+				rc.offset.x = std::max(0, curWidth_ - (int)rc.extent.width);
 			}
 		}
 
@@ -309,9 +311,12 @@ public:
 			rc.extent.height = std::max(1, newHeight);
 			if (rc.offset.y >= curHeight_) {
 				// Fallback.
-				rc.offset.y = curHeight_ - rc.extent.height;
+				rc.offset.y = std::max(0, curHeight_ - (int)rc.extent.height);
 			}
 		}
+
+		// TODO: If any of the dimensions are now zero, we should flip a flag and not do draws, probably.
+
 		curRenderArea_.Apply(rc);
 
 		VkRenderData data{ VKRRenderCommand::SCISSOR };
