@@ -32,6 +32,7 @@ namespace PPSSPP_VK {
 PFN_vkCreateInstance vkCreateInstance;
 PFN_vkDestroyInstance vkDestroyInstance;
 PFN_vkEnumeratePhysicalDevices vkEnumeratePhysicalDevices;
+PFN_vkEnumerateInstanceVersion vkEnumerateInstanceVersion;
 PFN_vkGetPhysicalDeviceFeatures vkGetPhysicalDeviceFeatures;
 PFN_vkGetPhysicalDeviceFormatProperties vkGetPhysicalDeviceFormatProperties;
 PFN_vkGetPhysicalDeviceImageFormatProperties vkGetPhysicalDeviceImageFormatProperties;
@@ -485,6 +486,7 @@ bool VulkanLoad() {
 	LOAD_GLOBAL_FUNC(vkGetInstanceProcAddr);
 	LOAD_GLOBAL_FUNC(vkGetDeviceProcAddr);
 
+	LOAD_GLOBAL_FUNC(vkEnumerateInstanceVersion);
 	LOAD_GLOBAL_FUNC(vkEnumerateInstanceExtensionProperties);
 	LOAD_GLOBAL_FUNC(vkEnumerateInstanceLayerProperties);
 

@@ -162,13 +162,22 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 			WARN_LOG(G3D, "WARNING: Does not seem that instance extension '%s' is available. Trying to proceed anyway.", ext);
 	}
 
+	// Check which Vulkan version we should request.
+	// Our code is fine with any version from 1.0 to 1.2, we don't know about higher versions.
+	u32 vulkanApiVersion = VK_API_VERSION_1_0;
+	if (vkEnumerateInstanceVersion) {
+		vkEnumerateInstanceVersion(&vulkanApiVersion);
+		vulkanApiVersion &= 0xFFFFF000;  // Remove patch version.
+		vulkanApiVersion = std::min(VK_API_VERSION_1_2, vulkanApiVersion);
+	}
+
 	VkApplicationInfo app_info{ VK_STRUCTURE_TYPE_APPLICATION_INFO };
 	app_info.pApplicationName = info.app_name;
 	app_info.applicationVersion = info.app_ver;
 	app_info.pEngineName = info.app_name;
 	// Let's increment this when we make major engine/context changes.
 	app_info.engineVersion = 2;
-	app_info.apiVersion = VK_API_VERSION_1_0;
+	app_info.apiVersion = vulkanApiVersion;
 
 	VkInstanceCreateInfo inst_info{ VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
 	inst_info.flags = 0;
