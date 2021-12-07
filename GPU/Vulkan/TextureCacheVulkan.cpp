@@ -630,15 +630,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	VkFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
-	// TODO: Really should inspect the format capabilities.
-	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY) {
-		// Boost the number of mipmaps.
-		int maxPossibleMipmaps = log2i(std::min(gstate.getTextureWidth(0), gstate.getTextureHeight(0)));
-		if (maxPossibleMipmaps > maxLevelToGenerate) {
-			maxLevelToGenerate = maxPossibleMipmaps;
-			dstFmt = VK_FORMAT_R8G8B8A8_UNORM;
-		}
-	}
 
 	int scaleFactor = standardScaleFactor_;
 	bool hardwareScaling = g_Config.bTexHardwareScaling && uploadCS_ != VK_NULL_HANDLE;
@@ -664,6 +655,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		badMipSizes = false;
 	}
 
+
 	// Don't scale the PPGe texture.
 	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd()) {
 		scaleFactor = 1;
@@ -685,10 +677,21 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		}
 	}
 
-	// TODO: Support mip levels for upscaled images.
+	// TODO: Support reading actual mip levels for upscaled images, instead of just generating them.
 	// Probably can just remove this check?
 	if (scaleFactor > 1) {
 		maxLevel = 0;
+	}
+
+	int maxPossibleMipmaps = log2i(std::min(w * scaleFactor, h * scaleFactor));
+
+	// TODO: Really should inspect the format capabilities.
+	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY) {
+		// Boost the number of mipmaps.
+		if (maxPossibleMipmaps > maxLevelToGenerate) {
+			dstFmt = VK_FORMAT_R8G8B8A8_UNORM;
+		}
+		maxLevelToGenerate = maxPossibleMipmaps;
 	}
 
 	// Any texture scaling is gonna move away from the original 16-bit format, if any.
