@@ -1508,7 +1508,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 					// Valid Data Buffer
 					if (data != NULL) {
 						// Valid Destination Address
-						if (daddr != NULL) {
+						if (daddr != NULL && !isZeroMAC(daddr)) {
 							// Log Destination
 							// Schedule Timeout Removal
 							//if (flag) timeout = 0;
@@ -1580,7 +1580,8 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 									// Does PDP can Timeout? There is no concept of Timeout when sending UDP due to no ACK, but might happen if the socket buffer is full, not sure about PDP since some games did use the timeout arg
 									return hleLogDebug(SCENET, ERROR_NET_ADHOC_TIMEOUT, "timeout?"); // ERROR_NET_ADHOC_INVALID_ADDR;
 								}
-								//VERBOSE_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u]: Unknown Target Peer %s:%u\n", id, getLocalPort(pdpsocket.id), mac2str(daddr, tmpmac), ntohs(target.sin_port));
+								VERBOSE_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u]: Unknown Target Peer %s:%u (faking success)\n", id, getLocalPort(pdpsocket.id), mac2str(daddr).c_str(), ntohs(target.sin_port));
+								return 0; // faking success
 							}
 
 							// Broadcast Target
