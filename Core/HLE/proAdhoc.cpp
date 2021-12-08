@@ -1941,7 +1941,8 @@ uint16_t getLocalPort(int sock) {
 u_long getAvailToRecv(int sock, int udpBufferSize) {
 	u_long n = 0; // Typical MTU size is 1500
 	int err = -1;
-#if defined(_WIN32) // May not be available on all platform
+	// Note: FIONREAD may have different behavior depends on the platform, according to https://stackoverflow.com/questions/9278189/how-do-i-get-amount-of-queued-data-for-udp-socket/9296481#9296481
+#if defined(_WIN32)
 	err = ioctlsocket(sock, FIONREAD, &n);
 #else
 	err = ioctl(sock, FIONREAD, &n);
@@ -1950,6 +1951,7 @@ u_long getAvailToRecv(int sock, int udpBufferSize) {
 		return 0;
 
 	if (udpBufferSize > 0 && n > 0) {
+		// TODO: May need to filter out packets from an IP that can't be translated to MAC address
 		// TODO: Cap number of bytes of full DGRAM message(s) up to buffer size, but may cause Warriors Orochi 2 to get FPS drops
 	}
 	return n;
