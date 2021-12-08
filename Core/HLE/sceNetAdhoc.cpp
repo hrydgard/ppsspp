@@ -2367,7 +2367,6 @@ u32 NetAdhocctl_Disconnect() {
 	// Library initialized
 	if (netAdhocctlInited) {
 		int iResult, error;
-		int us = adhocDefaultDelay * 3;
 		hleEatMicro(1000);
 
 		if (isAdhocctlBusy && CoreTiming::IsScheduled(adhocctlNotifyEvent)) {
@@ -2403,7 +2402,7 @@ u32 NetAdhocctl_Disconnect() {
 				} 
 				else if (friendFinderRunning) {
 					AdhocctlRequest req = { OPCODE_DISCONNECT, {0} };
-					WaitBlockingAdhocctlSocket(req, us, "adhocctl disconnect");
+					WaitBlockingAdhocctlSocket(req, 0, "adhocctl disconnect");
 				}
 				else {
 					// Set Disconnected State
@@ -5592,6 +5591,7 @@ void __NetTriggerCallbacks()
 				break;
 			case ADHOCCTL_EVENT_DISCONNECT:
 				newState = ADHOCCTL_STATE_DISCONNECTED;
+				delayus = adhocDefaultDelay; // Tekken 5 expects AdhocctlDisconnect to be done within ~17ms (a frame?)
 				break;
 			case ADHOCCTL_EVENT_GAME: 
 			{
