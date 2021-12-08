@@ -53,7 +53,7 @@
 #define INADDR_NONE 0xFFFFFFFF
 #endif
 
-static bool netInited;
+bool netInited;
 bool netInetInited;
 
 u32 netDropRate = 0;

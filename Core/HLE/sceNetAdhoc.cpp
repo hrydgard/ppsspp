@@ -457,13 +457,41 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 		return 0;
 	}
 
+	int ret;
+	int sockerr;
+	SceNetEtherAddr mac;
 	struct sockaddr_in sin;
-	socklen_t sinlen = sizeof(sin);
+	socklen_t sinlen;
+
+	sinlen = sizeof(sin);
 	memset(&sin, 0, sinlen);
 
 	// On Windows: MSG_TRUNC are not supported on recvfrom (socket error WSAEOPNOTSUPP), so we use dummy buffer as an alternative
-	int ret = recvfrom(uid, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_PEEK | MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
-	int sockerr = errno;
+	ret = recvfrom(uid, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_PEEK | MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
+	sockerr = errno;
+
+	// Discard packets from IP that can't be translated into MAC address to prevent confusing the game, since the sender MAC won't be updated and may contains invalid/undefined value.
+	// TODO: In order to discard packets from unresolvable IP (can't be translated into player's MAC) properly, we'll need to manage the socket buffer ourself, 
+	//       by reading the whole available data, separates each datagram and discard unresolvable one, so we can calculate the correct number of available data to recv on GetPdpStat too.
+	//       We may also need to implement encryption (or a simple checksum will do) in order to validate the packet to findout whether it came from PPSSPP or a different App that may be sending/broadcasting data to the same port being used by a game 
+	//       (in case the IP was resolvable but came from a different App, which will need to be discarded too)
+	if (ret != SOCKET_ERROR && !resolveIP(sin.sin_addr.s_addr, &mac)) {
+		// Remove the packet from socket buffer
+		sinlen = sizeof(sin);
+		memset(&sin, 0, sinlen);
+		recvfrom(uid, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
+		// Try again later, until timeout reached
+		u64 now = (u64)(time_now_d() * 1000000.0);
+		if (req.timeout != 0 && now - req.startTime > req.timeout) {
+			result = ERROR_NET_ADHOC_TIMEOUT;
+			DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i]: Discard Timeout", req.id);
+			return 0;
+		}
+		else
+			return -1;
+	}
+
+	// At this point we assumed that the packet is a valid PPSSPP packet
 	if (ret > 0 && *req.length > 0)
 		memcpy(req.buffer, dummyPeekBuf64k, std::min(ret, *req.length));
 
@@ -476,9 +504,6 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 		*req.length = 0;
 		if (ret >= 0) {
 			DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %s:%u\n", req.id, getLocalPort(uid), ret, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
-
-			// Peer MAC
-			SceNetEtherAddr mac;
 
 			// Find Peer MAC
 			if (resolveIP(sin.sin_addr.s_addr, &mac)) {
@@ -519,9 +544,6 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	else if (ret > *req.length) {
 		WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Peeked %u/%u bytes from %s:%u\n", req.id, getLocalPort(uid), ret, *req.length, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
 		*req.length = ret;
-
-		// Peer MAC
-		SceNetEtherAddr mac;
 
 		// Find Peer MAC
 		if (resolveIP(sin.sin_addr.s_addr, &mac)) {
@@ -1289,6 +1311,9 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 f
 		return -1;
 	}
 
+	if (!netInited)
+		return 0x800201CA; //PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX;
+
 	// Library is initialized
 	SceNetEtherAddr * saddr = (SceNetEtherAddr *)mac;
 	if (netAdhocInited) {
@@ -1508,7 +1533,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 					// Valid Data Buffer
 					if (data != NULL) {
 						// Valid Destination Address
-						if (daddr != NULL) {
+						if (daddr != NULL && !isZeroMAC(daddr)) {
 							// Log Destination
 							// Schedule Timeout Removal
 							//if (flag) timeout = 0;
@@ -1580,7 +1605,8 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 									// Does PDP can Timeout? There is no concept of Timeout when sending UDP due to no ACK, but might happen if the socket buffer is full, not sure about PDP since some games did use the timeout arg
 									return hleLogDebug(SCENET, ERROR_NET_ADHOC_TIMEOUT, "timeout?"); // ERROR_NET_ADHOC_INVALID_ADDR;
 								}
-								//VERBOSE_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u]: Unknown Target Peer %s:%u\n", id, getLocalPort(pdpsocket.id), mac2str(daddr, tmpmac), ntohs(target.sin_port));
+								VERBOSE_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u]: Unknown Target Peer %s:%u (faking success)\n", id, getLocalPort(pdpsocket.id), mac2str(daddr).c_str(), ntohs(target.sin_port));
+								return 0; // faking success
 							}
 
 							// Broadcast Target
@@ -1756,51 +1782,73 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 
 				// Sender Address
 				struct sockaddr_in sin;
-
-				// Set Address Length (so we get the sender ip)
-				socklen_t sinlen = sizeof(sin);
-                memset(&sin, 0, sinlen);
-				//sin.sin_len = (uint8_t)sinlen;
+				socklen_t sinlen;
 
 				// Acquire Network Lock
 				//_acquireNetworkLock();
 
-				// TODO: Use a different thread (similar to sceIo) for recvfrom, recv & accept to prevent blocking-socket from blocking emulation (ie. Hot Shots Tennis:GaG)			
+				SceNetEtherAddr mac;
 				int received = 0;
-				int error = 0;
+				int error;
 				
-				// Receive Data. PDP always sent in full size or nothing(failed), recvfrom will always receive in full size as requested (blocking) or failed (non-blocking). If available UDP data is larger than buffer, excess data is lost.
-				// Should peek first for the available data size if it's more than len return ERROR_NET_ADHOC_NOT_ENOUGH_SPACE along with required size in len to prevent losing excess data
-				// On Windows: MSG_TRUNC are not supported on recvfrom (socket error WSAEOPNOTSUPP), so we use dummy buffer as an alternative
-				received = recvfrom(pdpsocket.id, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_PEEK | MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
-				if (received > 0 && *len > 0)
-					memcpy(buf, dummyPeekBuf64k, std::min(received, *len));
+				int disCnt = 16;
+				while (--disCnt > 0)
+				{
+					// Receive Data. PDP always sent in full size or nothing(failed), recvfrom will always receive in full size as requested (blocking) or failed (non-blocking). If available UDP data is larger than buffer, excess data is lost.
+					// Should peek first for the available data size if it's more than len return ERROR_NET_ADHOC_NOT_ENOUGH_SPACE along with required size in len to prevent losing excess data
+					// On Windows: MSG_TRUNC are not supported on recvfrom (socket error WSAEOPNOTSUPP), so we use dummy buffer as an alternative
+					sinlen = sizeof(sin);
+					memset(&sin, 0, sinlen);
+					received = recvfrom(pdpsocket.id, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_PEEK | MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
+					error = errno;
+					// Discard packets from IP that can't be translated into MAC address to prevent confusing the game, since the sender MAC won't be updated and may contains invalid/undefined value.
+					// TODO: In order to discard packets from unresolvable IP (can't be translated into player's MAC) properly, we'll need to manage the socket buffer ourself, 
+					//       by reading the whole available data, separates each datagram and discard unresolvable one, so we can calculate the correct number of available data to recv on GetPdpStat too.
+					//       We may also need to implement encryption (or a simple checksum will do) in order to validate the packet to findout whether it came from PPSSPP or a different App that may be sending/broadcasting data to the same port being used by a game 
+					//       (in case the IP was resolvable but came from a different App, which will need to be discarded too)
+					// Note: Looping to check too many packets (ie. contiguous) to discard per one non-blocking PdpRecv syscall may cause a slow down
+					if (received != SOCKET_ERROR && !resolveIP(sin.sin_addr.s_addr, &mac)) {
+						// Remove the packet from socket buffer
+						sinlen = sizeof(sin);
+						memset(&sin, 0, sinlen);
+						recvfrom(pdpsocket.id, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
+						if (flag) {
+							VERBOSE_LOG(SCENET, "%08x=sceNetAdhocPdpRecv: would block (disc)", ERROR_NET_ADHOC_WOULD_BLOCK); // Temporary fix to avoid a crash on the Logs due to trying to Logs syscall's argument from another thread (ie. AdhocMatchingInput thread)
+							return ERROR_NET_ADHOC_WOULD_BLOCK; // hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block (disc)");
+						}
+						else {
+							// Simulate blocking behaviour with non-blocking socket, and discard more unresolvable packets until timeout reached
+							u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | pdpsocket.id;
+							return WaitBlockingAdhocSocket(threadSocketId, PDP_RECV, id, buf, len, timeout, saddr, sport, "pdp recv (disc)");
+						}
+					}
+					else
+						break;
+				}
 
+				// At this point we assumed that the packet is a valid PPSSPP packet
 				if (received != SOCKET_ERROR && *len < received) {
 					INFO_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Peeked %u/%u bytes from %s:%u\n", id, getLocalPort(pdpsocket.id), received, *len, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
+
+					if (received > 0 && *len > 0)
+						memcpy(buf, dummyPeekBuf64k, std::min(received, *len));
+
+					// Return the actual available data size
 					*len = received;
 
-					// Peer MAC
-					SceNetEtherAddr mac;
+					// Provide Sender Information
+					*saddr = mac;
+					*sport = ntohs(sin.sin_port) - portOffset;
 
-					// Find Peer MAC
-					if (resolveIP(sin.sin_addr.s_addr, &mac)) {
-						// Provide Sender Information
-						*saddr = mac;
-						*sport = ntohs(sin.sin_port) - portOffset;
+					// Update last recv timestamp, may cause disconnection not detected properly tho
+					peerlock.lock();
+					auto peer = findFriend(&mac);
+					if (peer != NULL) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
+					peerlock.unlock();
 
-						// Update last recv timestamp, may cause disconnection not detected properly tho
-						peerlock.lock();
-						auto peer = findFriend(&mac);
-						if (peer != NULL) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
-						peerlock.unlock();
-					}
-
-					// Free Network Lock
-					//_freeNetworkLock();
-
-					return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_NOT_ENOUGH_SPACE, "not enough space"); //received;
+					return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_NOT_ENOUGH_SPACE, "not enough space");
 				}
+
 				sinlen = sizeof(sin);
 				memset(&sin, 0, sinlen);
 				// On Windows: Socket Error 10014 may happen when buffer size is less than the minimum allowed/required (ie. negative number on Vulcanus Seek and Destroy), the address is not a valid part of the user address space (ie. on the stack or when buffer overflow occurred), or the address is not properly aligned (ie. multiple of 4 on 32bit and multiple of 8 on 64bit) https://stackoverflow.com/questions/861154/winsock-error-code-10014
@@ -1824,9 +1872,6 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 				if (received >= 0) {
 					DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %s:%u\n", id, getLocalPort(pdpsocket.id), received, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
 
-					// Peer MAC
-					SceNetEtherAddr mac;
-
 					// Find Peer MAC
 					if (resolveIP(sin.sin_addr.s_addr, &mac)) {
 						// Provide Sender Information
@@ -1848,18 +1893,18 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 						// Return Success. According to pspsdk-1.0+beta2 returned value is Number of bytes received, but JPCSP returning 0?
 						return 0; //received; // Returning number of bytes received will cause KH BBS unable to see the game event/room
 					}
-					// Unknown Peer, let's not give any data
-					else {
-						//*len = 0; // received; // Is this going to be okay since saddr may not be valid?
-						WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %i bytes from Unknown Peer %s:%u", id, getLocalPort(pdpsocket.id), received, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
-					}
+
 					// Free Network Lock
 					//_freeNetworkLock();
 
 					//free(tmpbuf);
 
-					//Receiving data from unknown peer, ignore it ?
-					//return ERROR_NET_ADHOC_WOULD_BLOCK; //ERROR_NET_ADHOC_NO_DATA_AVAILABLE
+					// Receiving data from unknown peer? Should never reached here! Unless the Peeked's packet was different than the Recved one (which mean there is a problem)
+					WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %i bytes from Unknown Peer %s:%u", id, getLocalPort(pdpsocket.id), received, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
+					if (flag) {
+						VERBOSE_LOG(SCENET, "%08x=sceNetAdhocPdpRecv: would block (problem)", ERROR_NET_ADHOC_WOULD_BLOCK); // Temporary fix to avoid a crash on the Logs due to trying to Logs syscall's argument from another thread (ie. AdhocMatchingInput thread)
+						return ERROR_NET_ADHOC_WOULD_BLOCK; // hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block (problem)");
+					}
 				}
 
 				// Free Network Lock
@@ -1872,8 +1917,8 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 
 				DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Result:%i (Error:%i)", id, pdpsocket.lport, received, error);
 
-				// Timeout?
-				return hleLogError(SCENET, ERROR_NET_ADHOC_TIMEOUT, "timeout");
+				// Unexpected error (other than EAGAIN/EWOULDBLOCK/ECONNRESET) or in case the Peeked's packet was different than Recved one, treated as Timeout?
+				return hleLogError(SCENET, ERROR_NET_ADHOC_TIMEOUT, "timeout?");
 			}
 
 			// Invalid Argument
@@ -3012,6 +3057,18 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 					// It seems real PSP respecting the socket buffer size arg, so we may need to cap the value up to the buffer size arg since we use larger buffer, for PDP/UDP the total size must not contains partial/truncated message to avoid data loss.
 					// TODO: We may need to manage PDP messages ourself by reading each msg 1-by-1 and moving it to our internal buffer(msg array) in order to calculate the correct messages size that can fit into buffer size when there are more than 1 messages in the recv buffer (simulate FIONREAD)
 					sock->data.pdp.rcv_sb_cc = getAvailToRecv(sock->data.pdp.id, sock->buffer_size);
+					// There might be a possibility for the data to be taken by the OS, thus FIONREAD returns 0, but can be Received
+					if (sock->data.pdp.rcv_sb_cc == 0) {
+						// Let's try to peek the data size
+						// TODO: May need to filter out packets from an IP that can't be translated to MAC address
+						struct sockaddr_in sin;
+						socklen_t sinlen;
+						sinlen = sizeof(sin);
+						memset(&sin, 0, sinlen);
+						int received = recvfrom(sock->data.pdp.id, dummyPeekBuf64k, std::min((u32)dummyPeekBuf64kSize, sock->buffer_size), MSG_PEEK | MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
+						if (received > 0)
+							sock->data.pdp.rcv_sb_cc = received;
+					}
 
 					// Copy Socket Data from Internal Memory
 					memcpy(&buf[i], &sock->data.pdp, sizeof(SceNetAdhocPdpStat));
@@ -3036,16 +3093,17 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 			// Update Buffer Length
 			*buflen = i * sizeof(SceNetAdhocPdpStat);
 
+			hleEatMicro(50); // Not sure how long it supposed to take
 			// Success
 			return 0;
 		}
 
 		// Invalid Arguments
-		return ERROR_NET_ADHOC_INVALID_ARG;
+		return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg, at %08x", currentMIPS->pc);
 	}
 
 	// Library is uninitialized
-	return ERROR_NET_ADHOC_NOT_INITIALIZED;
+	return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized, at %08x", currentMIPS->pc);
 }
 
 
@@ -3106,6 +3164,13 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 					sock->data.ptp.rcv_sb_cc = getAvailToRecv(sock->data.ptp.id);
 					// It seems real PSP respecting the socket buffer size arg, so we may need to cap the value to the buffer size arg since we use larger buffer
 					sock->data.ptp.rcv_sb_cc = std::min(sock->data.ptp.rcv_sb_cc, (u32_le)sock->buffer_size);
+					// There might be a possibility for the data to be taken by the OS, thus FIONREAD returns 0, but can be Received
+					if (sock->data.ptp.rcv_sb_cc == 0) {
+						// Let's try to peek the data size
+						int received = recv(sock->data.ptp.id, dummyPeekBuf64k, std::min((u32)dummyPeekBuf64kSize, sock->buffer_size), MSG_PEEK | MSG_NOSIGNAL);
+						if (received > 0)
+							sock->data.ptp.rcv_sb_cc = received;
+					}
 
 					// Copy Socket Data from internal Memory
 					memcpy(&buf[i], &sock->data.ptp, sizeof(SceNetAdhocPtpStat));
@@ -3136,11 +3201,11 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 		}
 		
 		// Invalid Arguments
-		return ERROR_NET_ADHOC_INVALID_ARG;
+		return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg, at %08x", currentMIPS->pc);
 	}
 	
 	// Library is uninitialized
-	return ERROR_NET_ADHOC_NOT_INITIALIZED;
+	return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized, at %08x", currentMIPS->pc);
 }
 
 

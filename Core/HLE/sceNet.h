@@ -309,6 +309,7 @@ private:
 	u32_le argsAddr = 0;
 };
 
+extern bool netInited;
 extern bool netInetInited;
 extern bool netApctlInited;
 extern u32 netApctlState;
