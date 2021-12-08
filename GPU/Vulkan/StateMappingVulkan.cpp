@@ -351,17 +351,17 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			gstate_c.Dirty(DIRTY_PROJMATRIX);
 		}
 
-		VkRect2D &scissor = dynState.scissor;
+		ScissorRect &scissor = dynState.scissor;
 		if (vpAndScissor.scissorEnable) {
-			scissor.offset.x = vpAndScissor.scissorX;
-			scissor.offset.y = vpAndScissor.scissorY;
-			scissor.extent.width = std::max(0, vpAndScissor.scissorW);
-			scissor.extent.height = std::max(0, vpAndScissor.scissorH);
+			scissor.x = vpAndScissor.scissorX;
+			scissor.y = vpAndScissor.scissorY;
+			scissor.width = std::max(0, vpAndScissor.scissorW);
+			scissor.height = std::max(0, vpAndScissor.scissorH);
 		} else {
-			scissor.offset.x = 0;
-			scissor.offset.y = 0;
-			scissor.extent.width = framebufferManager_->GetRenderWidth();
-			scissor.extent.height = framebufferManager_->GetRenderHeight();
+			scissor.x = 0;
+			scissor.y = 0;
+			scissor.width = framebufferManager_->GetRenderWidth();
+			scissor.height = framebufferManager_->GetRenderHeight();
 		}
 	}
 }
@@ -381,7 +381,7 @@ void DrawEngineVulkan::BindShaderBlendTex() {
 
 void DrawEngineVulkan::ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant) {
 	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
-		renderManager->SetScissor(dynState_.scissor);
+		renderManager->SetScissor(dynState_.scissor.x, dynState_.scissor.y, dynState_.scissor.width, dynState_.scissor.height);
 		renderManager->SetViewport(dynState_.viewport);
 	}
 	if ((gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE) && dynState_.useStencil) || applyStencilRef) {

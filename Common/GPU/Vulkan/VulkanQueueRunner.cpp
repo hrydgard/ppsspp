@@ -1337,8 +1337,6 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			} else {
 				// Rendering to backbuffer. Might need to rotate.
 				const VkRect2D &rc = c.scissor.scissor;
-				_dbg_assert_(rc.offset.x >= 0);
-				_dbg_assert_(rc.offset.y >= 0);
 				DisplayRect<int> rotated_rc{ rc.offset.x, rc.offset.y, (int)rc.extent.width, (int)rc.extent.height };
 				RotateRectToDisplay(rotated_rc, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 				_dbg_assert_(rotated_rc.x >= 0);
