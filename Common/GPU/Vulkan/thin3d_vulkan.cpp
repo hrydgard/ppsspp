@@ -1153,8 +1153,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 }
 
 void VKContext::SetScissorRect(int left, int top, int width, int height) {
-	VkRect2D scissor{ {(int32_t)left, (int32_t)top}, {(uint32_t)width, (uint32_t)height} };
-	renderManager_.SetScissor(scissor);
+	renderManager_.SetScissor(left, top, width, height);
 }
 
 void VKContext::SetViewports(int count, Viewport *viewports) {

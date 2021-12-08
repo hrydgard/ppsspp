@@ -63,7 +63,6 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 
 LogicOpReplaceType ReplaceLogicOpType();
 
-
 // Common representation, should be able to set this directly with any modern API.
 struct ViewportAndScissor {
 	bool scissorEnable;

@@ -289,33 +289,41 @@ public:
 		curStepHasViewport_ = true;
 	}
 
-	void SetScissor(VkRect2D rc) {
+	// It's OK to set scissor outside the valid range - the function will automatically clip.
+	void SetScissor(int x, int y, int width, int height) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
-		_dbg_assert_((int)rc.offset.x >= 0);
-		_dbg_assert_((int)rc.offset.y >= 0);
-		_dbg_assert_((int)rc.extent.width >= 0);
-		_dbg_assert_((int)rc.extent.height >= 0);
 
-		// Clamp to curWidth_/curHeight_. Apparently an issue.
-		if ((int)(rc.offset.x + rc.extent.width) > curWidth_) {
-			int newWidth = curWidth_ - rc.offset.x;
-			rc.extent.width = std::max(1, newWidth);
-			if (rc.offset.x >= curWidth_) {
-				// Fallback.
-				rc.offset.x = std::max(0, curWidth_ - (int)rc.extent.width);
-			}
+		if (x < 0) {
+			width += x;  // since x is negative, this shrinks width.
+			x = 0;
+		}
+		if (y < 0) {
+			height += y;
+			y = 0;
 		}
 
-		if ((int)(rc.offset.y + rc.extent.height) > curHeight_) {
-			int newHeight = curHeight_ - rc.offset.y;
-			rc.extent.height = std::max(1, newHeight);
-			if (rc.offset.y >= curHeight_) {
-				// Fallback.
-				rc.offset.y = std::max(0, curHeight_ - (int)rc.extent.height);
-			}
+		if (x + width > curWidth_) {
+			width = curWidth_ - x;
+		}
+		if (y + height > curHeight_) {
+			height = curHeight_ - y;
 		}
 
-		// TODO: If any of the dimensions are now zero, we should flip a flag and not do draws, probably.
+		// Check validity.
+		if (width < 0 || height < 0 || x >= curWidth_ || y >= curHeight_) {
+			// TODO: If any of the dimensions are now zero or negative, we should flip a flag and not do draws, probably.
+			// Instead, if we detect an invalid scissor rectangle, we just put a 1x1 rectangle in the upper left corner.
+			x = 0;
+			y = 0;
+			width = 1;
+			height = 1;
+		}
+
+		VkRect2D rc;
+		rc.offset.x = x;
+		rc.offset.y = y;
+		rc.extent.width = width;
+		rc.extent.height = height;
 
 		curRenderArea_.Apply(rc);
 
