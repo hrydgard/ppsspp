@@ -989,9 +989,8 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 		{ (uint8_t *)srcPixels },
 		generateTexture,
 	};
-	// TODO: On Vulkan, use a custom allocator?  Important to use an allocator:
-	// Hot Shot Golf (#12355) does tons of these in a frame in some situations! So actually,
-	// we do use an allocator. In fact, I've now banned allocator-less textures.
+	// Hot Shots Golf (#12355) does tons of these in a frame in some situations! So creating textures
+	// better be fast.
 	Draw::Texture *tex = draw_->CreateTexture(desc);
 	if (!tex)
 		ERROR_LOG(G3D, "Failed to create drawpixels texture");
@@ -1052,8 +1051,6 @@ void FramebufferManagerCommon::SetViewport2D(int x, int y, int w, int h) {
 void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 	DownloadFramebufferOnSwitch(currentRenderVfb_);
 	shaderManager_->DirtyLastShader();
-
-	currentRenderVfb_ = nullptr;
 
 	if (displayFramebufPtr_ == 0) {
 		if (Core_IsStepping())
@@ -1187,6 +1184,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 	// This may get called mid-draw if the game uses an immediate flip.
 	// PresentationCommon sets all kinds of state, we can't rely on anything.
 	gstate_c.Dirty(DIRTY_ALL);
+	currentRenderVfb_ = nullptr;
 }
 
 void FramebufferManagerCommon::DecimateFBOs() {
@@ -1326,16 +1324,17 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 			// TODO: Swap the order of the below? That way we can avoid the needGLESRebinds_ check below I think.
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "ResizeFramebufFBO");
 			if (!skipCopy) {
+				// TODO: In this case, it'll nearly always be better to draw the old framebuffer to the new one than to do an actual blit.
+				// Usually hardly a performance issue though.
 				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min((u16)oldWidth, std::min(vfb->bufferWidth, vfb->width)), std::min((u16)oldHeight, std::min(vfb->height, vfb->bufferHeight)), 0, "Blit_ResizeFramebufFBO");
 			}
 		}
 		fbosToDelete_.push_back(old.fbo);
-		if (needGLESRebinds_) {
-			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "ResizeFramebufFBO");
-		}
+		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "ResizeFramebufFBO");
 	} else {
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "ResizeFramebufFBO");
 	}
+	currentRenderVfb_ = vfb;
 
 	if (!vfb->fbo) {
 		ERROR_LOG(FRAMEBUF, "Error creating FBO during resize! %dx%d", vfb->renderWidth, vfb->renderHeight);
