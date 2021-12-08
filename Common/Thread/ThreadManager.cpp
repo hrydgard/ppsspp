@@ -264,11 +264,11 @@ void ThreadManager::EnqueueTaskOnThread(int threadNum, Task *task) {
 
 	// Try first atomically, as highest priority.
 	Task *expected = nullptr;
-	thread->private_single.compare_exchange_weak(expected, task);
+	bool queued = thread->private_single.compare_exchange_weak(expected, task);
 	// Whether we got that or will have to wait, increase the queue counter.
 	thread->queue_size++;
 
-	if (expected == nullptr) {
+	if (queued) {
 		std::unique_lock<std::mutex> lock(thread->mutex);
 		thread->cond.notify_one();
 	} else {
