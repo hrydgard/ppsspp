@@ -3165,6 +3165,13 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 					sock->data.ptp.rcv_sb_cc = getAvailToRecv(sock->data.ptp.id);
 					// It seems real PSP respecting the socket buffer size arg, so we may need to cap the value to the buffer size arg since we use larger buffer
 					sock->data.ptp.rcv_sb_cc = std::min(sock->data.ptp.rcv_sb_cc, (u32_le)sock->buffer_size);
+					// There might be a possibility for the data to be taken by the OS, thus FIONREAD returns 0, but can be Received
+					if (sock->data.ptp.rcv_sb_cc == 0) {
+						// Let's try to peek the data size
+						int received = recv(sock->data.ptp.id, dummyPeekBuf64k, std::min((u32)dummyPeekBuf64kSize, sock->buffer_size), MSG_PEEK | MSG_NOSIGNAL);
+						if (received > 0)
+							sock->data.ptp.rcv_sb_cc = received;
+					}
 
 					// Copy Socket Data from internal Memory
 					memcpy(&buf[i], &sock->data.ptp, sizeof(SceNetAdhocPtpStat));
@@ -3195,11 +3202,11 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 		}
 		
 		// Invalid Arguments
-		return ERROR_NET_ADHOC_INVALID_ARG;
+		return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg, at %08x", currentMIPS->pc);
 	}
 	
 	// Library is uninitialized
-	return ERROR_NET_ADHOC_NOT_INITIALIZED;
+	return hleLogSuccessVerboseX(SCENET, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized, at %08x", currentMIPS->pc);
 }
 
 
