@@ -454,6 +454,9 @@ bool SamplerJitCache::Jit_GetDXT1Color(const SamplerID &id, int blockSize, int a
 	MOVZX(32, 8, colorIndexReg, MRegSum(srcReg, vReg));
 	regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
 	regCache_.Unlock(vReg, RegCache::GEN_ARG_V);
+	// Only DXT1 needs this reg later.
+	if (id.TexFmt() == GE_TFMT_DXT1)
+		regCache_.ForceRelease(RegCache::GEN_ARG_V);
 
 	if (uReg == ECX) {
 		SHR(32, R(colorIndexReg), R(CL));
@@ -465,6 +468,9 @@ bool SamplerJitCache::Jit_GetDXT1Color(const SamplerID &id, int blockSize, int a
 		SHR(32, R(colorIndexReg), R(CL));
 	}
 	regCache_.Unlock(uReg, RegCache::GEN_ARG_U);
+	// If DXT1, there's no alpha and we can toss this reg.
+	if (id.TexFmt() == GE_TFMT_DXT1)
+		regCache_.ForceRelease(RegCache::GEN_ARG_U);
 	AND(32, R(colorIndexReg), Imm32(3));
 
 	X64Reg color1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
@@ -533,6 +539,9 @@ bool SamplerJitCache::Jit_GetDXT1Color(const SamplerID &id, int blockSize, int a
 	srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
 	MOVZX(32, 16, colorIndexReg, MComplex(srcReg, colorIndexReg, SCALE_2, 4));
 	regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
+	// DXT1 is done with this reg.
+	if (id.TexFmt() == GE_TFMT_DXT1)
+		regCache_.ForceRelease(RegCache::GEN_ARG_TEXPTR);
 
 	// Start with R, shifting it into place.
 	MOV(32, R(resultReg), R(colorIndexReg));
@@ -694,6 +703,8 @@ bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
 		regCache_.Unlock(uReg, RegCache::GEN_ARG_U);
 		regCache_.ForceRelease(RegCache::GEN_ARG_U);
 
+		X64Reg temp3Reg = regCache_.Alloc(RegCache::GEN_TEMP3);
+
 		// Okay, now check for 0 or 1 alphaIndex in alphaIndexReg, those are simple.
 		CMP(32, R(alphaIndexReg), Imm32(1));
 		FixupBranch handleSimple = J_CC(CC_BE, true);
@@ -715,10 +726,10 @@ bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
 
 		// At this point, we're handling a 6-step lerp between alpha1 and alpha2.
 		SHL(32, R(alphaIndexReg), Imm8(8));
-		// Prepare a multiplier in uReg and multiply alpha1 by it.
-		MOV(32, R(uReg), Imm32(6 << 8));
-		SUB(32, R(uReg), R(alphaIndexReg));
-		IMUL(32, alpha1Reg, R(uReg));
+		// Prepare a multiplier in temp3Reg and multiply alpha1 by it.
+		MOV(32, R(temp3Reg), Imm32(6 << 8));
+		SUB(32, R(temp3Reg), R(alphaIndexReg));
+		IMUL(32, alpha1Reg, R(temp3Reg));
 		// And now the same for alpha2, using alphaIndexReg.
 		SUB(32, R(alphaIndexReg), Imm32(1 << 8));
 		IMUL(32, alpha2Reg, R(alphaIndexReg));
@@ -733,10 +744,10 @@ bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
 		// This will be a 8-step lerp between alpha1 and alpha2.
 		SetJumpTarget(handleLerp8);
 		SHL(32, R(alphaIndexReg), Imm8(8));
-		// Prepare a multiplier in uReg and multiply alpha1 by it.
-		MOV(32, R(uReg), Imm32(8 << 8));
-		SUB(32, R(uReg), R(alphaIndexReg));
-		IMUL(32, alpha1Reg, R(uReg));
+		// Prepare a multiplier in temp3Reg and multiply alpha1 by it.
+		MOV(32, R(temp3Reg), Imm32(8 << 8));
+		SUB(32, R(temp3Reg), R(alphaIndexReg));
+		IMUL(32, alpha1Reg, R(temp3Reg));
 		// And now the same for alpha2, using alphaIndexReg.
 		SUB(32, R(alphaIndexReg), Imm32(1 << 8));
 		IMUL(32, alpha2Reg, R(alphaIndexReg));
@@ -760,6 +771,7 @@ bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
 		regCache_.Release(alphaIndexReg, RegCache::GEN_TEMP0);
 		regCache_.Release(alpha1Reg, RegCache::GEN_TEMP1);
 		regCache_.Release(alpha2Reg, RegCache::GEN_TEMP2);
+		regCache_.Release(temp3Reg, RegCache::GEN_TEMP3);
 
 		SetJumpTarget(finishFull);
 		SetJumpTarget(finishZero);
