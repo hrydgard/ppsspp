@@ -449,7 +449,7 @@ void VulkanRenderManager::CompileThreadFunc() {
 		if (!run_) {
 			break;
 		}
-		for (auto entry : toCompile) {
+		for (auto &entry : toCompile) {
 			switch (entry.type) {
 			case CompileQueueEntry::Type::GRAPHICS:
 				entry.graphics->Create(vulkan_);
