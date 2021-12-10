@@ -37,7 +37,10 @@ void PipelineManagerVulkan::Clear() {
 		if (value->pipeline) {
 			VkPipeline pipeline = value->pipeline->pipeline;
 			vulkan_->Delete().QueueDeletePipeline(pipeline);
-			delete value->pipeline;
+			vulkan_->Delete().QueueCallback([](void *p) {
+				VKRGraphicsPipeline *pipeline = (VKRGraphicsPipeline *)p;
+				delete pipeline;
+			}, value->pipeline);
 		} else {
 			// Something went wrong.
 			ERROR_LOG(G3D, "Null pipeline found in PipelineManagerVulkan::Clear - didn't wait for asyncs?");
