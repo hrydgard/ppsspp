@@ -32,6 +32,7 @@
 // won't get any bone data, etc.
 
 #include "Common/Data/Collections/Hashmaps.h"
+#include "Common/GPU/Vulkan/VulkanMemory.h"
 
 #include "GPU/Vulkan/VulkanUtil.h"
 
@@ -199,7 +200,6 @@ private:
 	void DestroyDeviceObjects();
 
 	void DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
-	VkResult RecreateDescriptorPool(FrameData &frame, int newSize);
 
 	void DoFlush();
 	void UpdateUBOs(FrameData *frame);
@@ -235,11 +235,11 @@ private:
 
 	// We alternate between these.
 	struct FrameData {
-		FrameData() : descSets(512) {}
+		FrameData() : descSets(512), descPool("DrawEngine", true) {
+			descPool.Setup([this] { descSets.Clear(); });
+		}
 
-		VkDescriptorPool descPool = VK_NULL_HANDLE;
-		int descCount = 0;
-		int descPoolSize = 256;  // We double this before we allocate so we initialize this to half the size we want.
+		VulkanDescSetPool descPool;
 
 		VulkanPushBuffer *pushUBO = nullptr;
 		VulkanPushBuffer *pushVertex = nullptr;

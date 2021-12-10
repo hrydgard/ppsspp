@@ -535,17 +535,19 @@ private:
 	VkImageView boundImageView_[MAX_BOUND_TEXTURES]{};
 
 	struct FrameData {
-		VulkanPushBuffer *pushBuffer;
+		FrameData() : descriptorPool("VKContext", false) {
+			descriptorPool.Setup([this] { descSets_.clear(); });
+		}
+
+		VulkanPushBuffer *pushBuffer = nullptr;
 		// Per-frame descriptor set cache. As it's per frame and reset every frame, we don't need to
 		// worry about invalidating descriptors pointing to deleted textures.
 		// However! ARM is not a fan of doing it this way.
 		std::map<DescriptorSetKey, VkDescriptorSet> descSets_;
-		VkDescriptorPool descriptorPool;
+		VulkanDescSetPool descriptorPool;
 	};
 
-	VkResult RecreateDescriptorPool(FrameData *frame);
-
-	FrameData frame_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
+	FrameData frame_[VulkanContext::MAX_INFLIGHT_FRAMES];
 
 	VulkanPushBuffer *push_ = nullptr;
 
@@ -833,11 +835,23 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	p.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 	p.queueFamilyIndex = vulkan->GetGraphicsQueueFamilyIndex();
 
+	std::vector<VkDescriptorPoolSize> dpTypes;
+	dpTypes.resize(2);
+	dpTypes[0].descriptorCount = 200;
+	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	dpTypes[1].descriptorCount = 200 * MAX_BOUND_TEXTURES;
+	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+
+	VkDescriptorPoolCreateInfo dp{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+	// Don't want to mess around with individually freeing these, let's go dynamic each frame.
+	dp.flags = 0;
+	// 200 textures per frame was not enough for the UI.
+	dp.maxSets = 4096;
+
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 		frame_[i].pushBuffer = new VulkanPushBuffer(vulkan_, 1024 * 1024, usage, PushBufferType::CPU_TO_GPU);
-		VkResult res = RecreateDescriptorPool(&frame_[i]);
-		_assert_(res == VK_SUCCESS);
+		frame_[i].descriptorPool.Create(vulkan_, dp, dpTypes);
 	}
 
 	// binding 0 - uniform data
@@ -882,8 +896,7 @@ VKContext::~VKContext() {
 	delete nullTexture_;
 	// This also destroys all descriptor sets.
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		frame_[i].descSets_.clear();
-		vulkan_->Delete().QueueDeleteDescriptorPool(frame_[i].descriptorPool);
+		frame_[i].descriptorPool.Destroy();
 		frame_[i].pushBuffer->Destroy(vulkan_);
 		delete frame_[i].pushBuffer;
 	}
@@ -902,9 +915,7 @@ void VKContext::BeginFrame() {
 	push_->Reset();
 	push_->Begin(vulkan_);
 
-	frame.descSets_.clear();
-	VkResult result = vkResetDescriptorPool(device_, frame.descriptorPool, 0);
-	_assert_(result == VK_SUCCESS);
+	frame.descriptorPool.Reset();
 }
 
 void VKContext::EndFrame() {
@@ -937,28 +948,6 @@ void VKContext::WipeQueue() {
 	renderManager_.Wipe();
 }
 
-VkResult VKContext::RecreateDescriptorPool(FrameData *frame) {
-	if (frame->descriptorPool) {
-		WARN_LOG(G3D, "Reallocating Draw desc pool");
-		vulkan_->Delete().QueueDeleteDescriptorPool(frame->descriptorPool);
-		frame->descSets_.clear();
-	}
-
-	VkDescriptorPoolSize dpTypes[2];
-	dpTypes[0].descriptorCount = 200;
-	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	dpTypes[1].descriptorCount = 200 * MAX_BOUND_TEXTURES;
-	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-
-	VkDescriptorPoolCreateInfo dp{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
-	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go dynamic each frame.
-	dp.maxSets = 4096;  // 200 textures per frame was not enough for the UI.
-	dp.pPoolSizes = dpTypes;
-	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
-
-	return vkCreateDescriptorPool(device_, &dp, nullptr, &frame->descriptorPool);
-}
-
 VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	DescriptorSetKey key;
 
@@ -975,22 +964,10 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 		return iter->second;
 	}
 
-	VkDescriptorSet descSet;
-	VkDescriptorSetAllocateInfo alloc = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
-	alloc.descriptorPool = frame->descriptorPool;
-	alloc.pSetLayouts = &descriptorSetLayout_;
-	alloc.descriptorSetCount = 1;
-	VkResult res = vkAllocateDescriptorSets(device_, &alloc, &descSet);
-	if (res != VK_SUCCESS) {
-		// First, try to reallocate the pool.
-		res = RecreateDescriptorPool(frame);
-		alloc.descriptorPool = frame->descriptorPool;
-
-		res = vkAllocateDescriptorSets(device_, &alloc, &descSet);
-		if (res != VK_SUCCESS) {
-			ERROR_LOG(G3D, "GetOrCreateDescriptorSet failed: %08x", res);
-			return VK_NULL_HANDLE;
-		}
+	VkDescriptorSet descSet = frame->descriptorPool.Allocate(1, &descriptorSetLayout_);
+	if (descSet == VK_NULL_HANDLE) {
+		ERROR_LOG(G3D, "GetOrCreateDescriptorSet failed");
+		return VK_NULL_HANDLE;
 	}
 
 	VkDescriptorBufferInfo bufferDesc;
