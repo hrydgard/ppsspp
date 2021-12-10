@@ -127,10 +127,13 @@ private:
 
 	struct FrameData {
 		VkDescriptorPool descPool;
+		int descPoolSize = 0;
 		std::map<DescriptorSetKey, VkDescriptorSet> descSets;
 	};
 
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
+
+	bool RecreateDescriptorPool(FrameData &frame, int newSize);
 
 	std::map<PipelineKey, VkPipeline> pipelines_;
 	std::vector<VkPipeline> keptPipelines_;

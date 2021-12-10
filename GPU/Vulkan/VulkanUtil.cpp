@@ -92,18 +92,9 @@ void Vulkan2D::InitDeviceObjects() {
 	res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
 	_assert_(VK_SUCCESS == res);
 
-	VkDescriptorPoolSize dpTypes[1];
-	dpTypes[0].descriptorCount = 3000;
-	dpTypes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-
-	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
-	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go fixed each frame and zap the whole array. Might try the dynamic approach later.
-	dp.maxSets = 3000;
-	dp.pPoolSizes = dpTypes;
-	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
 	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
-		VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frameData_[i].descPool);
-		_assert_(VK_SUCCESS == res);
+		bool success = RecreateDescriptorPool(frameData_[i], 3000);
+		_assert_(success);
 	}
 
 	VkPushConstantRange push = {};
@@ -119,6 +110,28 @@ void Vulkan2D::InitDeviceObjects() {
 	pl.flags = 0;
 	res = vkCreatePipelineLayout(device, &pl, nullptr, &pipelineLayout_);
 	_assert_(VK_SUCCESS == res);
+}
+
+bool Vulkan2D::RecreateDescriptorPool(FrameData &frame, int newSize) {
+	if (frame.descPoolSize != 0) {
+		DEBUG_LOG(G3D, "Reallocating desc pool from %d to %d", frame.descPoolSize, newSize);
+		vulkan_->Delete().QueueDeleteDescriptorPool(frame.descPool);
+		frame.descSets.clear();
+	}
+	frame.descPoolSize = newSize;
+
+	VkDescriptorPoolSize dpTypes[1];
+	dpTypes[0].descriptorCount = frame.descPoolSize;
+	dpTypes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+
+	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go fixed each frame and zap the whole array. Might try the dynamic approach later.
+	dp.maxSets = frame.descPoolSize;
+	dp.pPoolSizes = dpTypes;
+	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
+
+	VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frame.descPool);
+	return res == VK_SUCCESS;
 }
 
 void Vulkan2D::DeviceLost() {
@@ -193,6 +206,13 @@ VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1,
 	descAlloc.descriptorPool = frame->descPool;
 	descAlloc.descriptorSetCount = 1;
 	VkResult result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
+	if (result == VK_ERROR_FRAGMENTED_POOL || result < 0) {
+		bool res = RecreateDescriptorPool(*frame, frame->descPoolSize * 2);
+		_assert_msg_(res, "Ran out of descriptor space (frag?) and failed to recreate a descriptor pool. sz=%d res=%d", (int)frame->descSets.size());
+		descAlloc.descriptorPool = frame->descPool;
+		result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
+		_assert_msg_(result == VK_SUCCESS, "Ran out of descriptor space (frag?) and failed to allocate after recreating a descriptor pool. res=%d", (int)result);
+	}
 	_assert_(result == VK_SUCCESS);
 
 	// We just don't write to the slots we don't care about.
