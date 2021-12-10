@@ -772,9 +772,8 @@ void LearnFile(const char *filename, const char *desc, std::set<u16> &chars, uin
 			}
 		}
 		delete[] data;
-		printf("%i %s characters learned.\n", learnCount, desc);
+		printf("%d %s characters learned.\n", learnCount, desc);
 	}
-
 }
 
 void GetLocales(const char *locales, std::vector<CharRange> &ranges)
@@ -789,12 +788,15 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 		}
 	}
 
-	// Also, load chinese.txt if available.
-	LearnFile("chinese.txt", "Chinese", kanji, 0x3400, 0xFFFF);
-	LearnFile("korean.txt", "Korean", hangul1, 0x1100, 0x11FF);
-	LearnFile("korean.txt", "Korean", hangul2, 0x3130, 0x318F);
-	LearnFile("korean.txt", "Korean", hangul3, 0xAC00, 0xD7A3);
-
+	LearnFile("assets/lang/zh_CN.ini", "Chinese", kanji, 0x3400, 0xFFFF);
+	LearnFile("assets/lang/zh_TW.ini", "Chinese", kanji, 0x3400, 0xFFFF);
+	LearnFile("assets/langregion.ini", "Chinese", kanji, 0x3400, 0xFFFF);
+	LearnFile("assets/lang/ko_KR.ini", "Korean", hangul1, 0x1100, 0x11FF);
+	LearnFile("assets/lang/ko_KR.ini", "Korean", hangul2, 0x3130, 0x318F);
+	LearnFile("assets/lang/ko_KR.ini", "Korean", hangul3, 0xAC00, 0xD7A3);
+	LearnFile("assets/langregion.ini", "Korean", hangul1, 0x1100, 0x11FF);
+	LearnFile("assets/langregion.ini", "Korean", hangul2, 0x3130, 0x318F);
+	LearnFile("assets/langregion.ini", "Korean", hangul3, 0xAC00, 0xD7A3);
 	// The end point of a range is now inclusive!
 
 	for (size_t i = 0; i < strlen(locales); i++) {

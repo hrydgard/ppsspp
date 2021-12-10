@@ -949,9 +949,13 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 		return false;
 	}
 
-	// Load any missing atlas.
+	// Load any missing atlas metadata (the images are loaded from UIContext).
 	LoadAtlasMetadata(g_ui_atlas, "ui_atlas.meta", true);
+#if !(PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID))
 	LoadAtlasMetadata(g_font_atlas, "font_atlas.meta", g_ui_atlas.num_fonts == 0);
+#else
+	LoadAtlasMetadata(g_font_atlas, "asciifont_atlas.meta", g_ui_atlas.num_fonts == 0);
+#endif
 
 	ui_draw2d.SetAtlas(&g_ui_atlas);
 	ui_draw2d.SetFontAtlas(&g_font_atlas);
@@ -1213,13 +1217,11 @@ void NativeRender(GraphicsContext *graphicsContext) {
 			// Modifying the bounds here can be used to "inset" the whole image to gain borders for TV overscan etc.
 			// The UI now supports any offset but not the EmuScreen yet.
 			uiContext->SetBounds(Bounds(0, 0, dp_xres, dp_yres));
-			// uiContext->SetBounds(Bounds(dp_xres/2, 0, dp_xres / 2, dp_yres / 2));
 
 			// OSX 10.6 and SDL 1.2 bug.
 #if defined(__APPLE__) && !defined(USING_QT_UI)
 			static int dp_xres_old = dp_xres;
 			if (dp_xres != dp_xres_old) {
-				// uiTexture->Load("ui_atlas.zim");
 				dp_xres_old = dp_xres;
 			}
 #endif
