@@ -22,8 +22,9 @@
 
 #include "Common/Data/Collections/Hashmaps.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
-#include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/GPU/Vulkan/VulkanImage.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
+#include "Common/GPU/Vulkan/VulkanMemory.h"
 
 extern const VkComponentMapping VULKAN_4444_SWIZZLE;
 extern const VkComponentMapping VULKAN_1555_SWIZZLE;
@@ -126,15 +127,15 @@ private:
 	};
 
 	struct FrameData {
-		VkDescriptorPool descPool;
-		int descPoolSize = 0;
+		FrameData() : descPool("Vulkan2D", true) {
+			descPool.Setup([this] { descSets.clear(); });
+		}
+
+		VulkanDescSetPool descPool;
 		std::map<DescriptorSetKey, VkDescriptorSet> descSets;
 	};
 
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
-
-	bool RecreateDescriptorPool(FrameData &frame, int newSize);
-
 	std::map<PipelineKey, VkPipeline> pipelines_;
 	std::vector<VkPipeline> keptPipelines_;
 };
@@ -173,10 +174,13 @@ private:
 	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
 
 	struct FrameData {
-		VkDescriptorPool descPool;
-		int numDescriptors;
+		FrameData() : descPool("VulkanComputeShaderManager", true) {
+			descPool.Setup([this] { });
+		}
+
+		VulkanDescSetPool descPool;
 	};
-	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
+	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
 
 	struct PipelineKey {
 		VkShaderModule module;

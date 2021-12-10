@@ -194,6 +194,8 @@ void VulkanDescSetPool::Destroy() {
 
 	if (descPool_ != VK_NULL_HANDLE) {
 		vulkan_->Delete().QueueDeleteDescriptorPool(descPool_);
+		clear_();
+		usage_ = 0;
 	}
 }
 
