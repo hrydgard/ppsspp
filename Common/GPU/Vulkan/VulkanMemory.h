@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+#include <functional>
 #include <vector>
 #include <unordered_map>
 
@@ -133,4 +135,31 @@ private:
 	size_t size_ = 0;
 	uint8_t *writePtr_ = nullptr;
 	VkBufferUsageFlags usage_;
+};
+
+class VulkanDescSetPool {
+public:
+	VulkanDescSetPool(const char *tag, bool grow) : tag_(tag), grow_(grow) {
+	}
+	~VulkanDescSetPool();
+
+	void Setup(const std::function<void()> &clear) {
+		clear_ = clear;
+	}
+	void Create(VulkanContext *vulkan, const VkDescriptorPoolCreateInfo &info, const std::vector<VkDescriptorPoolSize> &sizes);
+	VkDescriptorSet Allocate(int n, const VkDescriptorSetLayout *layouts);
+	void Reset();
+	void Destroy();
+
+private:
+	VkResult Recreate(bool grow);
+
+	const char *tag_;
+	VulkanContext *vulkan_ = nullptr;
+	VkDescriptorPool descPool_ = VK_NULL_HANDLE;
+	VkDescriptorPoolCreateInfo info_;
+	std::vector<VkDescriptorPoolSize> sizes_;
+	std::function<void()> clear_;
+	uint32_t usage_ = 0;
+	bool grow_;
 };
