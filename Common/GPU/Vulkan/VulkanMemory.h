@@ -137,16 +137,20 @@ private:
 	VkBufferUsageFlags usage_;
 };
 
+// Only appropriate for use in a per-frame pool.
 class VulkanDescSetPool {
 public:
 	VulkanDescSetPool(const char *tag, bool grow) : tag_(tag), grow_(grow) {
 	}
 	~VulkanDescSetPool();
 
+	// Must call this before use: defines how to clear cache of ANY returned values from Allocate().
 	void Setup(const std::function<void()> &clear) {
 		clear_ = clear;
 	}
 	void Create(VulkanContext *vulkan, const VkDescriptorPoolCreateInfo &info, const std::vector<VkDescriptorPoolSize> &sizes);
+	// Allocate a new set, which may resize and empty the current sets.
+	// Use only for the current frame, unless in a cache cleared by clear_.
 	VkDescriptorSet Allocate(int n, const VkDescriptorSetLayout *layouts);
 	void Reset();
 	void Destroy();
