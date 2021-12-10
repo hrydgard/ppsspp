@@ -37,7 +37,7 @@ public:
 	// NOTE: If you create a push buffer with PushBufferType::GPU_ONLY,
 	// then you can't use any of the push functions as pointers will not be reachable from the CPU.
 	// You must in this case use Allocate() only, and pass the returned offset and the VkBuffer to Vulkan APIs.
-	VulkanPushBuffer(VulkanContext *vulkan, size_t size, VkBufferUsageFlags usage, PushBufferType type);
+	VulkanPushBuffer(VulkanContext *vulkan, const char *name, size_t size, VkBufferUsageFlags usage, PushBufferType type);
 	~VulkanPushBuffer();
 
 	void Destroy(VulkanContext *vulkan);
@@ -135,6 +135,7 @@ private:
 	size_t size_ = 0;
 	uint8_t *writePtr_ = nullptr;
 	VkBufferUsageFlags usage_;
+	const char *name_;
 };
 
 // Only appropriate for use in a per-frame pool.

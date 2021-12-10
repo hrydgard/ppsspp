@@ -165,9 +165,9 @@ void DrawEngineVulkan::InitDeviceObjects() {
 
 		// Note that pushUBO is also used for tessellation data (search for SetPushBuffer), and to upload
 		// the null texture. This should be cleaned up...
-		frame_[i].pushUBO = new VulkanPushBuffer(vulkan, 8 * 1024 * 1024, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, PushBufferType::CPU_TO_GPU);
-		frame_[i].pushVertex = new VulkanPushBuffer(vulkan, 2 * 1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, PushBufferType::CPU_TO_GPU);
-		frame_[i].pushIndex = new VulkanPushBuffer(vulkan, 1 * 1024 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, PushBufferType::CPU_TO_GPU);
+		frame_[i].pushUBO = new VulkanPushBuffer(vulkan, "pushUBO", 8 * 1024 * 1024, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, PushBufferType::CPU_TO_GPU);
+		frame_[i].pushVertex = new VulkanPushBuffer(vulkan, "pushVertex", 2 * 1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, PushBufferType::CPU_TO_GPU);
+		frame_[i].pushIndex = new VulkanPushBuffer(vulkan, "pushIndex", 1 * 1024 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, PushBufferType::CPU_TO_GPU);
 	}
 
 	VkPipelineLayoutCreateInfo pl{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
@@ -192,7 +192,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	res = vkCreateSampler(device, &samp, nullptr, &nullSampler_);
 	_dbg_assert_(VK_SUCCESS == res);
 
-	vertexCache_ = new VulkanPushBuffer(vulkan, VERTEX_CACHE_SIZE, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, PushBufferType::CPU_TO_GPU);
+	vertexCache_ = new VulkanPushBuffer(vulkan, "pushVertexCache", VERTEX_CACHE_SIZE, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, PushBufferType::CPU_TO_GPU);
 
 	tessDataTransferVulkan = new TessellationDataTransferVulkan(vulkan);
 	tessDataTransfer = tessDataTransferVulkan;
@@ -295,7 +295,7 @@ void DrawEngineVulkan::BeginFrame() {
 	if (vertexCache_->GetTotalSize() > VERTEX_CACHE_SIZE) {
 		vertexCache_->Destroy(vulkan);
 		delete vertexCache_;  // orphans the buffers, they'll get deleted once no longer used by an in-flight frame.
-		vertexCache_ = new VulkanPushBuffer(vulkan, VERTEX_CACHE_SIZE, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, PushBufferType::CPU_TO_GPU);
+		vertexCache_ = new VulkanPushBuffer(vulkan, "vertexCacheR", VERTEX_CACHE_SIZE, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, PushBufferType::CPU_TO_GPU);
 		vai_.Iterate([&](uint32_t hash, VertexArrayInfoVulkan *vai) {
 			delete vai;
 		});

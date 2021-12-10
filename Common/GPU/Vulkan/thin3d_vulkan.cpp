@@ -850,7 +850,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-		frame_[i].pushBuffer = new VulkanPushBuffer(vulkan_, 1024 * 1024, usage, PushBufferType::CPU_TO_GPU);
+		frame_[i].pushBuffer = new VulkanPushBuffer(vulkan_, "pushBuffer", 1024 * 1024, usage, PushBufferType::CPU_TO_GPU);
 		frame_[i].descriptorPool.Create(vulkan_, dp, dpTypes);
 	}
 

@@ -26,13 +26,14 @@
 
 using namespace PPSSPP_VK;
 
-VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, size_t size, VkBufferUsageFlags usage, PushBufferType type)
-		: vulkan_(vulkan), size_(size), usage_(usage), type_(type) {
+VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, const char *name, size_t size, VkBufferUsageFlags usage, PushBufferType type)
+		: vulkan_(vulkan), name_(name), size_(size), usage_(usage), type_(type) {
 	bool res = AddBuffer();
 	_assert_(res);
 }
 
 VulkanPushBuffer::~VulkanPushBuffer() {
+	_dbg_assert_(!writePtr_);
 	_assert_(buffers_.empty());
 }
 
@@ -64,6 +65,7 @@ bool VulkanPushBuffer::AddBuffer() {
 }
 
 void VulkanPushBuffer::Destroy(VulkanContext *vulkan) {
+	_dbg_assert_(!writePtr_);
 	for (BufInfo &info : buffers_) {
 		vulkan->Delete().QueueDeleteBufferAllocation(info.buffer, info.allocation);
 	}
