@@ -747,7 +747,6 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&i
 				if (tlz <= minZValue && brz <= minZValue)
 					continue;
 			}
-
 			RotateUV(trans, params_.flippedY);
 		}
 
