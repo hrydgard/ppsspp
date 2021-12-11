@@ -676,6 +676,9 @@ bool PixelJitCache::Jit_StencilTest(const PixelFuncID &id, RegCache::Reg stencil
 		return true;
 	}
 
+	bool hadGStateReg = regCache_.Has(RegCache::GEN_GSTATE);
+	bool hadColorOffReg = regCache_.Has(RegCache::GEN_COLOR_OFF);
+
 	bool success = true;
 	if (stencilReg != INVALID_REG && (!hasFixedResult || !fixedResult)) {
 		// This is the fail path.
@@ -684,6 +687,12 @@ bool PixelJitCache::Jit_StencilTest(const PixelFuncID &id, RegCache::Reg stencil
 
 		Discard();
 	}
+
+	// If we allocated either gstate or colorOff in the conditional, forget.
+	if (!hadGStateReg && regCache_.Has(RegCache::GEN_GSTATE))
+		regCache_.Change(RegCache::GEN_GSTATE, RegCache::GEN_INVALID);
+	if (!hadColorOffReg && regCache_.Has(RegCache::GEN_COLOR_OFF))
+		regCache_.Change(RegCache::GEN_COLOR_OFF, RegCache::GEN_INVALID);
 
 	if (!hasFixedResult)
 		SetJumpTarget(toPass);
@@ -741,10 +750,19 @@ bool PixelJitCache::Jit_DepthTestForStencil(const PixelFuncID &id, RegCache::Reg
 		break;
 	}
 
+	bool hadGStateReg = regCache_.Has(RegCache::GEN_GSTATE);
+	bool hadColorOffReg = regCache_.Has(RegCache::GEN_COLOR_OFF);
+
 	bool success = true;
 	success = success && Jit_ApplyStencilOp(id, id.ZFail(), stencilReg);
 	success = success && Jit_WriteStencilOnly(id, stencilReg);
 	Discard();
+
+	// If we allocated either gstate or colorOff in the conditional, forget.
+	if (!hadGStateReg && regCache_.Has(RegCache::GEN_GSTATE))
+		regCache_.Change(RegCache::GEN_GSTATE, RegCache::GEN_INVALID);
+	if (!hadColorOffReg && regCache_.Has(RegCache::GEN_COLOR_OFF))
+		regCache_.Change(RegCache::GEN_COLOR_OFF, RegCache::GEN_INVALID);
 
 	SetJumpTarget(skip);
 
