@@ -422,7 +422,7 @@ static bool DisasmNeonImmVal(uint32_t op, char *text) {
 	int quad = (op >> 6) & 1;
 	const char *operation = "MOV";
 	const char *size = "(unk)";
-	char temp[256] = "(unk)";
+	char temp[64] = "(unk)";
 	switch (cmode) {
 	case VIMM___x___x:
 	case VIMM___x___x + 1:

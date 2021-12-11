@@ -809,7 +809,7 @@ void TouchTestScreen::render() {
 
 	ui_context->Begin();
 
-	char buffer[2048];
+	char buffer[4096];
 	for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 		if (touches_[i].id != -1) {
 			ui_context->Draw()->Circle(touches_[i].x, touches_[i].y, 100.0, 3.0, 80, 0.0f, 0xFFFFFFFF, 1.0);

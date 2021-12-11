@@ -365,22 +365,27 @@ namespace MIPSDis
 	void Dis_Emuhack(MIPSOpcode op, char *out)
 	{
 		auto resolved = Memory::Read_Instruction(disPC, true);
-		char disasm[256];
+		union {
+			char disasm[256];
+			char truncated[241];
+		};
 		if (MIPS_IS_EMUHACK(resolved)) {
 			strcpy(disasm, "(invalid emuhack)");
 		} else {
 			MIPSDisAsm(resolved, disPC, disasm, true);
 		}
 
+		// Truncate in case it was too long, just to avoid warnings.
+		truncated[240] = '\0';
 		switch (op.encoding >> 24) {
 		case 0x68:
-			snprintf(out, 256, "* jitblock: %s", disasm);
+			snprintf(out, 256, "* jitblock: %s", truncated);
 			break;
 		case 0x6a:
-			snprintf(out, 256, "* replacement: %s", disasm);
+			snprintf(out, 256, "* replacement: %s", truncated);
 			break;
 		default:
-			snprintf(out, 256, "* (invalid): %s", disasm);
+			snprintf(out, 256, "* (invalid): %s", truncated);
 			break;
 		}
 	}

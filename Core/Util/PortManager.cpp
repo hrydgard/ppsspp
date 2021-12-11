@@ -340,7 +340,7 @@ bool PortManager::Clear() {
 #ifdef WITH_UPNP
 	int r;
 	int i = 0;
-	char index[6];
+	char index[16];
 	char intAddr[40];
 	char intPort[6];
 	char extPort[6];
@@ -359,7 +359,7 @@ bool PortManager::Clear() {
 	//unsigned int num = 0;
 	//UPNP_GetPortMappingNumberOfEntries(urls->controlURL, datas->first.servicetype, &num); // Not supported by many routers
 	do {
-		snprintf(index, 6, "%d", i);
+		snprintf(index, sizeof(index), "%d", i);
 		rHost[0] = '\0'; enabled[0] = '\0';
 		duration[0] = '\0'; desc[0] = '\0'; protocol[0] = '\0';
 		extPort[0] = '\0'; intPort[0] = '\0'; intAddr[0] = '\0';
@@ -387,7 +387,7 @@ bool PortManager::Clear() {
 			}
 		}
 		i++;
-	} while (r == 0);
+	} while (r == 0 && i < 65536);
 	return true;
 #else
 	return false;
@@ -398,7 +398,7 @@ bool PortManager::RefreshPortList() {
 #ifdef WITH_UPNP
 	int r;
 	int i = 0;
-	char index[6];
+	char index[16];
 	char intAddr[40];
 	char intPort[6];
 	char extPort[6];
@@ -419,7 +419,7 @@ bool PortManager::RefreshPortList() {
 	//unsigned int num = 0;
 	//UPNP_GetPortMappingNumberOfEntries(urls->controlURL, datas->first.servicetype, &num); // Not supported by many routers
 	do {
-		snprintf(index, 6, "%d", i);
+		snprintf(index, sizeof(index), "%d", i);
 		rHost[0] = '\0'; enabled[0] = '\0';
 		duration[0] = '\0'; desc[0] = '\0'; protocol[0] = '\0';
 		extPort[0] = '\0'; intPort[0] = '\0'; intAddr[0] = '\0';
@@ -444,7 +444,7 @@ bool PortManager::RefreshPortList() {
 			}
 		}
 		i++;
-	} while (r == 0);
+	} while (r == 0 && i < 65536);
 	return true;
 #else
 	return false;
