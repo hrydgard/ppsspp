@@ -307,6 +307,7 @@ if(NOT MSVC)
 	endif()
 	if(CLANG)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-switch -Wno-uninitialized")
+		add_definitions(-Wno-nullability-completeness)
 	endif()
 
 	if(USE_ASAN)
