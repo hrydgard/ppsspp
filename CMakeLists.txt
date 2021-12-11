@@ -308,6 +308,8 @@ if(NOT MSVC)
 	if(CLANG)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-switch -Wno-uninitialized")
 		add_definitions(-Wno-nullability-completeness)
+		add_definitions(-Wno-tautological-pointer-compare)
+		add_definitions(-Wno-deprecated-register)
 	endif()
 
 	if(USE_ASAN)
@@ -341,8 +343,6 @@ if(NOT MSVC)
 
 	# Disable some warnings
 	add_definitions(-Wno-multichar)
-	add_definitions(-Wno-deprecated-register)
-	add_definitions(-Wno-tautological-pointer-compare)
 
 	# Don't compile with strict aliasing, we're not 100% aliasing-safe
 	add_compile_options(-fno-strict-aliasing)
