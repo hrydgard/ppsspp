@@ -631,6 +631,10 @@ bool PixelJitCache::Jit_StencilTest(const PixelFuncID &id, RegCache::Reg stencil
 		case GE_COMP_GREATER: fixedResult = id.stencilTestRef != 0; break;
 		case GE_COMP_GEQUAL: fixedResult = true; break;
 		}
+	} else if (id.StencilTestFunc() == GE_COMP_ALWAYS) {
+		// Fairly common, skip the CMP.
+		hasFixedResult = true;
+		fixedResult = true;
 	} else {
 		// Reversed here because of the imm, so tests below are reversed.
 		CMP(8, R(maskedReg), Imm8(id.stencilTestRef));
@@ -641,8 +645,7 @@ bool PixelJitCache::Jit_StencilTest(const PixelFuncID &id, RegCache::Reg stencil
 			break;
 
 		case GE_COMP_ALWAYS:
-			hasFixedResult = true;
-			fixedResult = true;
+			_assert_(false);
 			break;
 
 		case GE_COMP_EQUAL:
