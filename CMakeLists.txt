@@ -2249,10 +2249,10 @@ set(BigFontAssets
 )
 
 set(NativeAssets
-	android/assets/ui_atlas.zim  # Why are we getting these from the Android folder?
-	android/assets/ui_atlas.meta
-	android/assets/asciifont_atlas.zim
-	android/assets/asciifont_atlas.meta
+	assets/ui_atlas.zim
+	assets/ui_atlas.meta
+	assets/asciifont_atlas.zim
+	assets/asciifont_atlas.meta
 	assets/debugger
 	assets/lang
 	assets/shaders
@@ -2373,7 +2373,7 @@ if(TargetBin)
 		endif()
 
 		if(IOS)
-			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} {SHADER_FILES} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
+			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${SHADER_FILES} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
 			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/iOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPP.app/Frameworks/")
 		else()
 			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${SHADER_FILES} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})

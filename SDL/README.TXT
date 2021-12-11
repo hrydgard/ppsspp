@@ -1,7 +1,8 @@
 1. Install GCC, CMake, and development libraries for zlib and sdl.
-2. cd SDL
-3. ./buildassets.sh
-4. ./b.sh
+2. mkdir build
+3. cd build
+4. cmake ..
+5. make
 
 That should do it.
 
