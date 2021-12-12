@@ -286,7 +286,6 @@ void CDisasm::stepOver()
 		ptr->scrollStepping(breakpointAddress);
 	}
 
-	SetDebugMode(false, true);
 	CBreakPoints::AddBreakPoint(breakpointAddress,true);
 	Core_EnableStepping(false);
 	Sleep(1);
@@ -324,7 +323,6 @@ void CDisasm::stepOut()
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	ptr->setDontRedraw(true);
 
-	SetDebugMode(false, true);
 	CBreakPoints::AddBreakPoint(breakpointAddress,true);
 	Core_EnableStepping(false);
 	Sleep(1);
@@ -343,7 +341,6 @@ void CDisasm::runToLine()
 
 	lastTicks = CoreTiming::GetTicks();
 	ptr->setDontRedraw(true);
-	SetDebugMode(false, true);
 	CBreakPoints::AddBreakPoint(pos,true);
 	Core_EnableStepping(false);
 }
@@ -420,7 +417,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					bool isRunning = Core_IsActive();
 					if (isRunning)
 					{
-						SetDebugMode(true, false);
 						Core_EnableStepping(true, "cpu.breakpoint.add", 0);
 						Core_WaitInactive(200);
 					}
@@ -429,10 +425,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					if (bpw.exec()) bpw.addBreakpoint();
 
 					if (isRunning)
-					{
-						SetDebugMode(false, false);
 						Core_EnableStepping(false);
-					}
 					keepStatusBarText = false;
 				}
 				break;
@@ -524,7 +517,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					if (!Core_IsStepping())		// stop
 					{
 						ptr->setDontRedraw(false);
-						SetDebugMode(true, true);
 						Core_EnableStepping(true, "ui.break", 0);
 						Sleep(1); //let cpu catch up
 						ptr->gotoPC();
@@ -537,7 +529,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 						CBreakPoints::SetSkipFirst(currentMIPS->pc);
 
-						SetDebugMode(false, true);
 						Core_EnableStepping(false);
 					}
 				}
@@ -565,7 +556,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					CBreakPoints::SetSkipFirst(currentMIPS->pc);
 
 					hleDebugBreak();
-					SetDebugMode(false, true);
 					Core_EnableStepping(false);
 				}
 				break;

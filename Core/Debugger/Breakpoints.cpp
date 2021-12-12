@@ -69,7 +69,6 @@ BreakAction MemCheck::Action(u32 addr, bool write, int size, u32 pc, const char 
 		Log(addr, write, size, pc, reason);
 		if ((result & BREAK_ACTION_PAUSE) && coreState != CORE_POWERUP) {
 			Core_EnableStepping(true, "memory.breakpoint", start);
-			host->SetDebugMode(true);
 		}
 
 		return result;
@@ -125,8 +124,6 @@ void MemCheck::JitCleanup(bool changed)
 		CBreakPoints::SetSkipFirst(lastPC);
 		Core_EnableStepping(false);
 	}
-	else
-		host->SetDebugMode(true);
 }
 
 // Note: must lock while calling this.
@@ -368,7 +365,6 @@ BreakAction CBreakPoints::ExecBreakPoint(u32 addr) {
 		}
 		if ((info.result & BREAK_ACTION_PAUSE) && coreState != CORE_POWERUP) {
 			Core_EnableStepping(true, "cpu.breakpoint", info.addr);
-			host->SetDebugMode(true);
 		}
 
 		return info.result;

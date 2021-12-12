@@ -110,7 +110,7 @@ static void JitBranchLogMismatch(MIPSOpcode op, u32 pc)
 	char temp[256];
 	MIPSDisAsm(op, pc, temp, true);
 	ERROR_LOG(JIT, "Bad jump: %s - int:%08x jit:%08x", temp, currentMIPS->intBranchExit, currentMIPS->jitBranchExit);
-	host->SetDebugMode(true);
+	Core_EnableStepping(true, "jit.branchdebug", pc);
 }
 
 void Jit::BranchLog(MIPSOpcode op)

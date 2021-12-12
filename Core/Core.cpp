@@ -447,7 +447,6 @@ void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type) {
 		e.address = address;
 		e.pc = pc;
 		Core_EnableStepping(true, "memory.exception", address);
-		host->SetDebugMode(true);
 	}
 }
 
@@ -469,7 +468,6 @@ void Core_MemoryExceptionInfo(u32 address, u32 pc, MemoryExceptionType type, std
 		e.address = address;
 		e.pc = pc;
 		Core_EnableStepping(true, "memory.exception", address);
-		host->SetDebugMode(true);
 	}
 }
 
@@ -485,7 +483,6 @@ void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 	e.address = address;
 	e.pc = pc;
 	Core_EnableStepping(true, "cpu.exception", pc);
-	host->SetDebugMode(true);
 }
 
 void Core_Break() {
@@ -498,7 +495,6 @@ void Core_Break() {
 
 	if (!g_Config.bIgnoreBadMemAccess) {
 		Core_EnableStepping(true, "cpu.breakInstruction", currentMIPS->pc);
-		host->SetDebugMode(true);
 	}
 }
 
