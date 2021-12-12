@@ -49,6 +49,7 @@ void VulkanProfiler::BeginFrame(VulkanContext *vulkan, VkCommandBuffer firstComm
 
 			NOTICE_LOG(G3D, "%s%s (%0.3f ms)", indent[scope.level & 3], scope.name.c_str(), milliseconds);
 		}
+		scopes_.clear();
 	}
 
 	// Only need to reset all on the first frame.
@@ -64,7 +65,7 @@ void VulkanProfiler::EndFrame() {
 	// Not much to do here really except check that all scopes are closed.
 }
 
-void VulkanProfiler::Begin(VkCommandBuffer cmdBuf, std::string scopeName, VkPipelineStageFlagBits stageFlags) {
+void VulkanProfiler::Begin(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stageFlags, std::string scopeName) {
 	if (numQueries_ >= MAX_QUERY_COUNT - 1) {
 		return;
 	}

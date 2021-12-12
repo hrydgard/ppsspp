@@ -731,8 +731,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		VkImageLayout imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 		VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
-		// Compute experiment
-		if (actualFmt == VULKAN_8888_FORMAT && scaleFactor > 1 && hardwareScaling) {
+		if (actualFmt == VULKAN_8888_FORMAT && scaleFactor > 1 && hardwareScaling && !IsVideo(entry->addr)) {
 			if (uploadCS_ != VK_NULL_HANDLE)
 				computeUpload = true;
 		}
@@ -787,6 +786,9 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	if (entry->vkTex) {
+		vulkan->GetProfiler()->Begin(cmdInit, VkPipelineStageFlagBits(VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT),
+			StringFromFormat("Texture Upload"));
+
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
 		u8 level = std::max(0, gstate.getTexLevelOffset16() / 16);
 		bool fakeMipmap = IsFakeMipmapChange() && level > 0;
@@ -815,7 +817,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				double replaceStart = time_now_d();
 				replaced.Load(i, data, stride);  // if it fails, it'll just be garbage data... OK for now.
 				replacementTimeThisFrame_ += time_now_d() - replaceStart;
+				VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT,
+					StringFromFormat("Copy Upload (replaced): %dx%d", mipWidth, mipHeight));
 				entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
+				VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
 			} else {
 				if (fakeMipmap) {
 					data = drawEngine_->GetPushBufferForTextureData()->PushAligned(size, &bufferOffset, &texBuf, pushAlignment);
@@ -835,17 +840,21 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 						VkImageView view = entry->vkTex->CreateViewForMip(i);
 						VkDescriptorSet descSet = computeShaderManager_.GetDescriptorSet(view, texBuf, bufferOffset, srcSize);
 						struct Params { int x; int y; } params{ mipUnscaledWidth, mipUnscaledHeight };
-						vulkan->GetProfiler()->Begin(cmdInit, StringFromFormat("Compute Upload: %dx%d", mipUnscaledWidth, mipUnscaledHeight), VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+						VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+							StringFromFormat("Compute Upload: %dx%d->%dx%d", mipUnscaledWidth, mipUnscaledHeight, mipWidth, mipHeight));
 						vkCmdBindPipeline(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipeline(uploadCS_));
 						vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 0, 1, &descSet, 0, nullptr);
 						vkCmdPushConstants(cmdInit, computeShaderManager_.GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(params), &params);
 						vkCmdDispatch(cmdInit, (mipUnscaledWidth + 7) / 8, (mipUnscaledHeight + 7) / 8, 1);
-						vulkan->GetProfiler()->End(cmdInit, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+						VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 						vulkan->Delete().QueueDeleteImageView(view);
 					} else {
 						data = drawEngine_->GetPushBufferForTextureData()->PushAligned(size, &bufferOffset, &texBuf, pushAlignment);
 						LoadTextureLevel(*entry, (uint8_t *)data, stride, i, scaleFactor, dstFmt);
+						VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT,
+							StringFromFormat("Copy Upload (replaced): %dx%d", mipWidth, mipHeight));
 						entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
+						VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
 					}
 				}
 				if (replacer_.Enabled()) {
@@ -863,9 +872,11 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		// Generate any additional mipmap levels.
 		// This will transition the whole stack to GENERAL if it wasn't already.
 		if (maxLevel != maxLevelToGenerate) {
+			VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT, StringFromFormat("Mipgen %d", maxLevel + 1));
 			entry->vkTex->GenerateMips(cmdInit, maxLevel + 1, computeUpload);
 			layout = VK_IMAGE_LAYOUT_GENERAL;
 			prevStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+			VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
 		}
 
 		if (maxLevel == 0) {
@@ -877,6 +888,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			entry->SetAlphaStatus(TexCacheEntry::TexStatus(replaced.AlphaStatus()));
 		}
 		entry->vkTex->EndCreate(cmdInit, false, prevStage, layout);
+		VK_PROFILE_END(vulkan, cmdInit, VkPipelineStageFlagBits(VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT));
 	}
 }
 

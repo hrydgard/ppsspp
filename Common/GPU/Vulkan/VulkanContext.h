@@ -11,6 +11,16 @@
 #include "Common/GPU/Vulkan/VulkanAlloc.h"
 #include "Common/GPU/Vulkan/VulkanProfiler.h"
 
+#define VULKAN_PROFILE_ENABLED
+
+#if defined(VULKAN_PROFILE_ENABLED)
+#define VK_PROFILE_BEGIN(vulkan, cmd, stage, message) vulkan->GetProfiler()->Begin(cmd, stage, message);
+#define VK_PROFILE_END(vulkan, cmd, stage) vulkan->GetProfiler()->End(cmd, stage);
+#else
+#define VK_PROFILE_BEGIN(..)
+#define VK_PROFILE_END(..)
+#endif
+
 enum {
 	VULKAN_FLAG_VALIDATE = 1,
 	VULKAN_FLAG_PRESENT_MAILBOX = 2,
