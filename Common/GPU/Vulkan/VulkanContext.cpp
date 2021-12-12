@@ -289,10 +289,14 @@ void VulkanContext::DestroyInstance() {
 	instance_ = VK_NULL_HANDLE;
 }
 
-void VulkanContext::BeginFrame() {
+void VulkanContext::BeginFrame(VkCommandBuffer firstCommandBuffer) {
 	FrameData *frame = &frame_[curFrame_];
 	// Process pending deletes.
 	frame->deleteList.PerformDeletes(device_, allocator_);
+	// VK_NULL_HANDLE when profiler is disabled.
+	if (firstCommandBuffer) {
+		frame->profiler.BeginFrame(this, firstCommandBuffer);
+	}
 }
 
 void VulkanContext::EndFrame() {
@@ -675,6 +679,11 @@ VkResult VulkanContext::CreateDevice() {
 	allocatorInfo.device = device_;
 	allocatorInfo.instance = instance_;
 	vmaCreateAllocator(&allocatorInfo, &allocator_);
+
+	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
+		frame_[i].profiler.Init(this);
+	}
+
 	return res;
 }
 
@@ -1121,6 +1130,10 @@ void VulkanContext::DestroyDevice() {
 
 	INFO_LOG(G3D, "VulkanContext::DestroyDevice (performing deletes)");
 	PerformPendingDeletes();
+
+	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
+		frame_[i].profiler.Shutdown();
+	}
 
 	vmaDestroyAllocator(allocator_);
 	allocator_ = VK_NULL_HANDLE;

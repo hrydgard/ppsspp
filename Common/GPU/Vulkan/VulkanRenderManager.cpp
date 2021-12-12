@@ -583,7 +583,12 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling) {
 	if (!run_) {
 		WARN_LOG(G3D, "BeginFrame while !run_!");
 	}
-	vulkan_->BeginFrame();
+
+#if defined(VULKAN_PROFILER_ENABLED)
+	vulkan_->BeginFrame(GetInitCmd());
+#else
+	vulkan_->BeginFrame(VK_NULL_HANDLE);
+#endif
 
 	insideFrame_ = true;
 	renderStepOffset_ = 0;

@@ -412,6 +412,9 @@
     <ClInclude Include="GPU\Vulkan\VulkanAlloc.h">
       <Filter>GPU\Vulkan</Filter>
     </ClInclude>
+    <ClInclude Include="GPU\Vulkan\VulkanProfiler.h">
+      <Filter>GPU\Vulkan</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -785,6 +788,9 @@
     <ClCompile Include="RiscVCPUDetect.cpp" />
     <ClCompile Include="..\ext\vma\vk_mem_alloc.cpp">
       <Filter>ext\vma</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\Vulkan\VulkanProfiler.cpp">
+      <Filter>GPU\Vulkan</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

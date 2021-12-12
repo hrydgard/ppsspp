@@ -9,6 +9,21 @@
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/GPU/Vulkan/VulkanDebug.h"
 #include "Common/GPU/Vulkan/VulkanAlloc.h"
+#include "Common/GPU/Vulkan/VulkanProfiler.h"
+
+// Enable or disable a simple logging profiler for Vulkan.
+// Mostly useful for profiling texture uploads currently, but could be useful for
+// other things as well. We also have a nice integrated render pass profiler in the queue
+// runner, but this one is more convenient for transient events.
+// #define VULKAN_PROFILER_ENABLED
+
+#if defined(VULKAN_PROFILER_ENABLED)
+#define VK_PROFILE_BEGIN(vulkan, cmd, stage, message) vulkan->GetProfiler()->Begin(cmd, stage, message);
+#define VK_PROFILE_END(vulkan, cmd, stage) vulkan->GetProfiler()->End(cmd, stage);
+#else
+#define VK_PROFILE_BEGIN(vulkan, cmd, stage, message)
+#define VK_PROFILE_END(vulkan, cmd, stage)
+#endif
 
 enum {
 	VULKAN_FLAG_VALIDATE = 1,
@@ -61,6 +76,8 @@ struct VulkanPhysicalDeviceInfo {
 	VkFormat preferredDepthStencilFormat;
 	bool canBlitToPreferredDepthStencilFormat;
 };
+
+class VulkanProfiler;
 
 // This is a bit repetitive...
 class VulkanDeleteList {
@@ -188,8 +205,12 @@ public:
 	int GetBackbufferWidth() { return (int)swapChainExtent_.width; }
 	int GetBackbufferHeight() { return (int)swapChainExtent_.height; }
 
-	void BeginFrame();
+	void BeginFrame(VkCommandBuffer firstCommandBuffer);
 	void EndFrame();
+
+	VulkanProfiler *GetProfiler() {
+		return &frame_[curFrame_].profiler;
+	}
 
 	// Simple workaround for the casting warning.
 	template <class T>
@@ -369,6 +390,7 @@ private:
 	struct FrameData {
 		FrameData() {}
 		VulkanDeleteList deleteList;
+		VulkanProfiler profiler;
 	};
 	FrameData frame_[MAX_INFLIGHT_FRAMES];
 	int curFrame_ = 0;
