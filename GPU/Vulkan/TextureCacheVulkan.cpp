@@ -630,7 +630,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	VkFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
-
 	int scaleFactor = standardScaleFactor_;
 	bool hardwareScaling = g_Config.bTexHardwareScaling && uploadCS_ != VK_NULL_HANDLE;
 	if (hardwareScaling) {
@@ -683,15 +682,21 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		maxLevel = 0;
 	}
 
-	int maxPossibleMipmaps = log2i(std::min(w * scaleFactor, h * scaleFactor));
+	int maxPossibleMipLevel = log2i(std::min(w * scaleFactor, h * scaleFactor));
+
+	bool isVideo = IsVideo(entry->addr);
+
+	if (maxPossibleMipLevel > 0 && isVideo) {
+		maxPossibleMipLevel = 0;
+	}
 
 	// TODO: Really should inspect the format capabilities.
 	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY) {
 		// Boost the number of mipmaps.
-		if (maxPossibleMipmaps > maxLevelToGenerate) {
+		if (maxPossibleMipLevel > maxLevelToGenerate) {
 			dstFmt = VK_FORMAT_R8G8B8A8_UNORM;
 		}
-		maxLevelToGenerate = maxPossibleMipmaps;
+		maxLevelToGenerate = maxPossibleMipLevel;
 	}
 
 	// Any texture scaling is gonna move away from the original 16-bit format, if any.
@@ -731,7 +736,9 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		VkImageLayout imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 		VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
-		if (actualFmt == VULKAN_8888_FORMAT && scaleFactor > 1 && hardwareScaling && !IsVideo(entry->addr)) {
+		bool enableVideoUpscaling = false;
+
+		if (actualFmt == VULKAN_8888_FORMAT && scaleFactor > 1 && hardwareScaling && (enableVideoUpscaling || !isVideo)) {
 			if (uploadCS_ != VK_NULL_HANDLE)
 				computeUpload = true;
 		}
@@ -779,7 +786,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		replacedInfo.cachekey = entry->CacheKey();
 		replacedInfo.hash = entry->fullhash;
 		replacedInfo.addr = entry->addr;
-		replacedInfo.isVideo = IsVideo(entry->addr);
+		replacedInfo.isVideo = isVideo;
 		replacedInfo.isFinal = (entry->status & TexCacheEntry::STATUS_TO_SCALE) == 0;
 		replacedInfo.scaleFactor = scaleFactor;
 		replacedInfo.fmt = FromVulkanFormat(actualFmt);
@@ -787,7 +794,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	if (entry->vkTex) {
 		VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-			StringFromFormat("Texture Upload"));
+			StringFromFormat("Texture Upload (%08x) video=%d", entry->addr, isVideo));
 
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
 		u8 level = std::max(0, gstate.getTexLevelOffset16() / 16);
@@ -852,7 +859,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 						data = drawEngine_->GetPushBufferForTextureData()->PushAligned(size, &bufferOffset, &texBuf, pushAlignment);
 						LoadTextureLevel(*entry, (uint8_t *)data, stride, i, scaleFactor, dstFmt);
 						VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT,
-							StringFromFormat("Copy Upload (replaced): %dx%d", mipWidth, mipHeight));
+							StringFromFormat("Copy Upload: %dx%d", mipWidth, mipHeight));
 						entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
 						VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
 					}
@@ -1024,6 +1031,7 @@ bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int leve
 
 	if (!entry->vkTex)
 		return false;
+
 	VulkanTexture *texture = entry->vkTex;
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 

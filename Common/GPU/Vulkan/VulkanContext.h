@@ -15,7 +15,8 @@
 // Mostly useful for profiling texture uploads currently, but could be useful for
 // other things as well. We also have a nice integrated render pass profiler in the queue
 // runner, but this one is more convenient for transient events.
-// #define VULKAN_PROFILER_ENABLED
+
+#define VULKAN_PROFILER_ENABLED
 
 #if defined(VULKAN_PROFILER_ENABLED)
 #define VK_PROFILE_BEGIN(vulkan, cmd, stage, message) vulkan->GetProfiler()->Begin(cmd, stage, message);

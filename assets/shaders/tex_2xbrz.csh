@@ -15,8 +15,8 @@ float DistYCbCr(vec4 pixA, vec4 pixB) {
 	// https://en.wikipedia.org/wiki/YCbCr#ITU-R_BT.2020_conversion
 	const vec3 K = vec3(0.2627, 0.6780, 0.0593);
 	const mat3 MATRIX = mat3(K,
-	                         -.5 * K.r / (1.0 - K.b),  -.5 * K.g / (1.0 - K.b),  .5,
-	                         .5,                       -.5 * K.g / (1.0 - K.r),  -.5 * K.b / (1.0 - K.r));
+		-.5 * K.r / (1.0 - K.b), -.5 * K.g / (1.0 - K.b), .5,
+		.5, -.5 * K.g / (1.0 - K.r), -.5 * K.b / (1.0 - K.r));
 	vec4 diff = pixA - pixB;
 	vec3 YCbCr = diff.rgb * MATRIX;
 	YCbCr.x *= LUMINANCE_WEIGHT;
@@ -38,7 +38,7 @@ uint readInputu(uvec2 coord) {
 }
 
 vec4 readInput(uvec2 coord) {
-    return readColorf(uvec2(clamp(coord.x, 0, params.width - 1), clamp(coord.y, 0, params.height - 1)));
+	return readColorf(uvec2(clamp(coord.x, 0, params.width - 1), clamp(coord.y, 0, params.height - 1)));
 }
 
 void applyScaling(uvec2 origxy) {
@@ -259,27 +259,22 @@ void applyScaling(uvec2 origxy) {
 		dst[ 6] = mix(dst[ 6], blendPix, (needBlend && doLineBlend && haveShallowLine) ? 0.25 : 0.00);
 	}
 
+	// This is the only difference from tex_4xbrz.csh:
+
 	// Output Pixel Mapping:
 	//   06|07|08|09
 	//   05|00|01|10
 	//   04|03|02|11
 	//   15|14|13|12
 	// Write all 16 output pixels.
-	ivec2 destXY = ivec2(origxy) * 4;
-	writeColorf(destXY, dst[6]);
-	writeColorf(destXY + ivec2(1, 0), dst[7]);
-	writeColorf(destXY + ivec2(2, 0), dst[8]);
-	writeColorf(destXY + ivec2(3, 0), dst[9]);
-	writeColorf(destXY + ivec2(0, 1), dst[5]);
-	writeColorf(destXY + ivec2(1, 1), dst[0]);
-	writeColorf(destXY + ivec2(2, 1), dst[1]);
-	writeColorf(destXY + ivec2(3, 1), dst[10]);
-	writeColorf(destXY + ivec2(0, 2), dst[4]);
-	writeColorf(destXY + ivec2(1, 2), dst[3]);
-	writeColorf(destXY + ivec2(2, 2), dst[2]);
-	writeColorf(destXY + ivec2(3, 2), dst[11]);
-	writeColorf(destXY + ivec2(0, 3), dst[15]);
-	writeColorf(destXY + ivec2(1, 3), dst[14]);
-	writeColorf(destXY + ivec2(2, 3), dst[13]);
-	writeColorf(destXY + ivec2(3, 3), dst[12]);
+	ivec2 destXY = ivec2(origxy) * 2;
+
+	vec4 topLeft = dst[6] + dst[7] + dst[5] + dst[0];
+	vec4 topRight = dst[8] + dst[9] + dst[1] + dst[10];
+	vec4 bottomLeft = dst[4] + dst[3] + dst[15] + dst[14];
+	vec4 bottomRight = dst[2] + dst[11] + dst[13] + dst[12];
+	writeColorf(destXY, topLeft * 0.25);
+	writeColorf(destXY + ivec2(1, 0), topRight * 0.25);
+	writeColorf(destXY + ivec2(0, 1), bottomLeft * 0.25);
+	writeColorf(destXY + ivec2(1, 1), bottomRight * 0.25);
 }

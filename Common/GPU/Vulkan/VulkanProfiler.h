@@ -15,8 +15,8 @@
 
 struct ProfilerScope {
 	std::string name;
-	size_t startQueryId;
-	size_t endQueryId;
+	int startQueryId;
+	int endQueryId;
 	int level;
 };
 

@@ -22,6 +22,9 @@
     <Filter Include="D3D11">
       <UniqueIdentifier>{88eb5cea-ec25-4881-89da-02f9f2fa8f3f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{3a7618ae-e254-406a-8ae5-590bb077d8a1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Math3D.h">
@@ -551,5 +554,21 @@
     <ClCompile Include="Software\RasterizerRegCache.cpp">
       <Filter>Software</Filter>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="..\assets\shaders\tex_4xbrz.csh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\tex_mmpx.csh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\tex_2xbrz.csh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\assets\shaders\defaultshaders.ini">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

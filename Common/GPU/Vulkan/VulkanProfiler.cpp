@@ -30,6 +30,11 @@ void VulkanProfiler::BeginFrame(VulkanContext *vulkan, VkCommandBuffer firstComm
 		uint64_t timestampDiffMask = validBits == 64 ? 0xFFFFFFFFFFFFFFFFULL : ((1ULL << validBits) - 1);
 
 		static const char * const indent[4] = { "", "  ", "    ", "      " };
+
+		if (!scopes_.empty()) {
+			NOTICE_LOG(G3D, "Profiling events this frame:");
+		}
+
 		// Log it all out.
 		for (auto &scope : scopes_) {
 			if (scope.endQueryId == -1) {
@@ -45,7 +50,9 @@ void VulkanProfiler::BeginFrame(VulkanContext *vulkan, VkCommandBuffer firstComm
 
 			NOTICE_LOG(G3D, "%s%s (%0.3f ms)", indent[scope.level & 3], scope.name.c_str(), milliseconds);
 		}
+
 		scopes_.clear();
+		scopeStack_.clear();
 	}
 
 	// Only need to reset all on the first frame.
