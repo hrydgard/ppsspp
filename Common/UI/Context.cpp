@@ -40,9 +40,18 @@ void UIContext::BeginFrame() {
 		uitexture_ = CreateTextureFromFile(draw_, "ui_atlas.zim", ImageFileType::ZIM, false);
 		_dbg_assert_msg_(uitexture_, "Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
 		if (!fontTexture_) {
+#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID)
+			// Don't bother with loading font_atlas.zim
+#else
 			fontTexture_ = CreateTextureFromFile(draw_, "font_atlas.zim", ImageFileType::ZIM, false);
-			if (!fontTexture_)
-				WARN_LOG(SYSTEM, "Failed to load font_atlas.zim");
+#endif
+			if (!fontTexture_) {
+				// Load the smaller ascii font only, like on Android. For debug ui etc.
+				fontTexture_ = CreateTextureFromFile(draw_, "asciifont_atlas.zim", ImageFileType::ZIM, false);
+				if (!fontTexture_) {
+					WARN_LOG(SYSTEM, "Failed to load font_atlas.zim or asciifont_atlas.zim");
+				}
+			}
 		}
 	}
 	uidrawbufferTop_->SetCurZ(0.0f);

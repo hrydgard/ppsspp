@@ -1,0 +1,3 @@
+2048
+font UBUNTU24 assets/Roboto-Condensed.ttf UWER 34 -2
+font UBUNTU24 C:/Windows/Fonts/ARIALUNI.ttf UWEhkcRGHKVTe 30 0
