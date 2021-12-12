@@ -173,4 +173,7 @@ public:
 		selectRangeEnd = extend ? std::max(selectRangeEnd, after) : after;
 		updateStatusBarText();
 	}
+
+private:
+	bool redrawScheduled_ = false;
 };

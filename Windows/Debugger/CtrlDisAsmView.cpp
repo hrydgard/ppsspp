@@ -31,6 +31,9 @@
 
 TCHAR CtrlDisAsmView::szClassName[] = _T("CtrlDisAsmView");
 
+static constexpr UINT_PTR IDT_REDRAW = 0xC0DE0001;
+static constexpr UINT REDRAW_DELAY = 1000 / 60;
+
 void CtrlDisAsmView::init()
 {
 	WNDCLASSEX wc;
@@ -138,6 +141,16 @@ LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 			}
 		}
 		return DLGC_WANTCHARS|DLGC_WANTARROWS;
+
+	case WM_TIMER:
+		if (wParam == IDT_REDRAW) {
+			InvalidateRect(hwnd, nullptr, FALSE);
+			UpdateWindow(hwnd);
+			ccp->redrawScheduled_ = false;
+			KillTimer(hwnd, wParam);
+		}
+		break;
+
 	default:
 		break;
 	}
@@ -835,8 +848,10 @@ void CtrlDisAsmView::redraw()
 	GetClientRect(wnd, &rect);
 	visibleRows = rect.bottom/rowHeight;
 
-	InvalidateRect(wnd, NULL, FALSE);
-	UpdateWindow(wnd); 
+	if (!redrawScheduled_) {
+		SetTimer(wnd, IDT_REDRAW, REDRAW_DELAY, nullptr);
+		redrawScheduled_ = true;
+	}
 }
 
 void CtrlDisAsmView::toggleBreakpoint(bool toggleEnabled)
@@ -1071,7 +1086,6 @@ void CtrlDisAsmView::onMouseMove(WPARAM wParam, LPARAM lParam, int button)
 	{
 		int y = HIWORD(lParam);
 		setCurAddress(yToAddress(y), KeyDownAsync(VK_SHIFT));
-		// TODO: Perhaps don't do this every time, but on a timer?
 		redraw();
 	}
 }	

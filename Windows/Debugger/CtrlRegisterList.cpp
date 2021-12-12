@@ -24,6 +24,9 @@ enum { REGISTER_PC = 32, REGISTER_HI, REGISTER_LO, REGISTERS_END };
 
 TCHAR CtrlRegisterList::szClassName[] = _T("CtrlRegisterList");
 
+static constexpr UINT_PTR IDT_REDRAW = 0xC0DE0001;
+static constexpr UINT REDRAW_DELAY = 1000 / 60;
+
 void CtrlRegisterList::init()
 {
 	WNDCLASSEX wc;
@@ -103,6 +106,16 @@ LRESULT CALLBACK CtrlRegisterList::wndProc(HWND hwnd, UINT msg, WPARAM wParam, L
 		break;
 	case WM_GETDLGCODE:	// want chars so that we can return 0 on key press and supress the beeping sound
 		return DLGC_WANTARROWS|DLGC_WANTCHARS;
+
+	case WM_TIMER:
+		if (wParam == IDT_REDRAW) {
+			InvalidateRect(hwnd, nullptr, FALSE);
+			UpdateWindow(hwnd);
+			ccp->redrawScheduled_ = false;
+			KillTimer(hwnd, wParam);
+		}
+		break;
+
 	default:
 		break;
 	}
@@ -342,10 +355,11 @@ void CtrlRegisterList::onKeyDown(WPARAM wParam, LPARAM lParam)
 }
 
 
-void CtrlRegisterList::redraw()
-{
-	InvalidateRect(wnd, NULL, FALSE);
-	UpdateWindow(wnd); 
+void CtrlRegisterList::redraw() {
+	if (!redrawScheduled_) {
+		SetTimer(wnd, IDT_REDRAW, REDRAW_DELAY, nullptr);
+		redrawScheduled_ = true;
+	}
 }
 
 u32 CtrlRegisterList::getSelectedRegValue(char *out, size_t size)

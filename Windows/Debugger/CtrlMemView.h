@@ -106,4 +106,7 @@ public:
 	void toggleOffsetScale(CommonToggles toggle);
 	void toggleStringSearch(CommonToggles toggle);
 	void setHighlightType(MemBlockFlags flags);
+
+private:
+	bool redrawScheduled_ = false;
 };

@@ -158,6 +158,9 @@ namespace W32Util
 	}
 }
 
+static constexpr UINT_PTR IDT_UPDATE = 0xC0DE0042;
+static constexpr UINT UPDATE_DELAY = 1000 / 60;
+
 GenericListControl::GenericListControl(HWND hwnd, const GenericListViewDef& def)
 	: handle(hwnd), columns(def.columns),columnCount(def.columnCount),valid(false),
 	inResizeColumns(false),updating(false)
@@ -251,8 +254,14 @@ void GenericListControl::HandleNotify(LPARAM lParam)
 	}
 }
 
-void GenericListControl::Update()
-{
+void GenericListControl::Update() {
+	if (!updateScheduled_) {
+		SetTimer(handle, IDT_UPDATE, UPDATE_DELAY, nullptr);
+		updateScheduled_ = true;
+	}
+}
+
+void GenericListControl::ProcessUpdate() {
 	updating = true;
 	int newRows = GetRowCount();
 
@@ -279,7 +288,7 @@ void GenericListControl::Update()
 
 	ResizeColumns();
 
-	InvalidateRect(handle,NULL,true);
+	InvalidateRect(handle, nullptr, TRUE);
 	UpdateWindow(handle);
 	updating = false;
 }
@@ -336,6 +345,14 @@ LRESULT CALLBACK GenericListControl::wndProc(HWND hwnd, UINT msg, WPARAM wParam,
 			if (KeyDownAsync(VK_CONTROL))
 				list->SelectAll();
 			break;
+		}
+		break;
+
+	case WM_TIMER:
+		if (wParam == IDT_UPDATE) {
+			list->ProcessUpdate();
+			list->updateScheduled_ = false;
+			KillTimer(hwnd, wParam);
 		}
 		break;
 	}
