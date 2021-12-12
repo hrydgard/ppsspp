@@ -11,14 +11,18 @@
 #include "Common/GPU/Vulkan/VulkanAlloc.h"
 #include "Common/GPU/Vulkan/VulkanProfiler.h"
 
-#define VULKAN_PROFILE_ENABLED
+// Enable or disable a simple logging profiler for Vulkan.
+// Mostly useful for profiling texture uploads currently, but could be useful for
+// other things as well. We also have a nice integrated render pass profiler in the queue
+// runner, but this one is more convenient for transient events.
+// #define VULKAN_PROFILER_ENABLED
 
-#if defined(VULKAN_PROFILE_ENABLED)
+#if defined(VULKAN_PROFILER_ENABLED)
 #define VK_PROFILE_BEGIN(vulkan, cmd, stage, message) vulkan->GetProfiler()->Begin(cmd, stage, message);
 #define VK_PROFILE_END(vulkan, cmd, stage) vulkan->GetProfiler()->End(cmd, stage);
 #else
-#define VK_PROFILE_BEGIN(..)
-#define VK_PROFILE_END(..)
+#define VK_PROFILE_BEGIN(vulkan, cmd, stage, message)
+#define VK_PROFILE_END(vulkan, cmd, stage)
 #endif
 
 enum {

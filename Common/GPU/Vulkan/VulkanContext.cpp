@@ -293,12 +293,14 @@ void VulkanContext::BeginFrame(VkCommandBuffer firstCommandBuffer) {
 	FrameData *frame = &frame_[curFrame_];
 	// Process pending deletes.
 	frame->deleteList.PerformDeletes(device_, allocator_);
-	frame->profiler.BeginFrame(this, firstCommandBuffer);
+	// VK_NULL_HANDLE when profiler is disabled.
+	if (firstCommandBuffer) {
+		frame->profiler.BeginFrame(this, firstCommandBuffer);
+	}
 }
 
 void VulkanContext::EndFrame() {
 	frame_[curFrame_].deleteList.Take(globalDeleteList_);
-	frame_[curFrame_].profiler.EndFrame();
 	curFrame_++;
 	if (curFrame_ >= inflightFrames_) {
 		curFrame_ = 0;
@@ -678,7 +680,7 @@ VkResult VulkanContext::CreateDevice() {
 	allocatorInfo.instance = instance_;
 	vmaCreateAllocator(&allocatorInfo, &allocator_);
 
-	for (int i = 0; i < GetInflightFrames(); i++) {
+	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
 		frame_[i].profiler.Init(this);
 	}
 
@@ -1129,7 +1131,7 @@ void VulkanContext::DestroyDevice() {
 	INFO_LOG(G3D, "VulkanContext::DestroyDevice (performing deletes)");
 	PerformPendingDeletes();
 
-	for (int i = 0; i < GetInflightFrames(); i++) {
+	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
 		frame_[i].profiler.Shutdown();
 	}
 

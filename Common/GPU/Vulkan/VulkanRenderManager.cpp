@@ -584,7 +584,7 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling) {
 		WARN_LOG(G3D, "BeginFrame while !run_!");
 	}
 
-#if defined(VULKAN_PROFILE_ENABLED)
+#if defined(VULKAN_PROFILER_ENABLED)
 	vulkan_->BeginFrame(GetInitCmd());
 #else
 	vulkan_->BeginFrame(VK_NULL_HANDLE);

@@ -786,7 +786,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	if (entry->vkTex) {
-		vulkan->GetProfiler()->Begin(cmdInit, VkPipelineStageFlagBits(VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT),
+		VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 			StringFromFormat("Texture Upload"));
 
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
@@ -872,7 +872,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		// Generate any additional mipmap levels.
 		// This will transition the whole stack to GENERAL if it wasn't already.
 		if (maxLevel != maxLevelToGenerate) {
-			VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT, StringFromFormat("Mipgen %d", maxLevel + 1));
+			VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT, StringFromFormat("Mipgen up to level %d", maxLevelToGenerate));
 			entry->vkTex->GenerateMips(cmdInit, maxLevel + 1, computeUpload);
 			layout = VK_IMAGE_LAYOUT_GENERAL;
 			prevStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
@@ -888,7 +888,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			entry->SetAlphaStatus(TexCacheEntry::TexStatus(replaced.AlphaStatus()));
 		}
 		entry->vkTex->EndCreate(cmdInit, false, prevStage, layout);
-		VK_PROFILE_END(vulkan, cmdInit, VkPipelineStageFlagBits(VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT));
+		VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 	}
 }
 

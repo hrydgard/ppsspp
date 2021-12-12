@@ -6,18 +6,14 @@ using namespace PPSSPP_VK;
 void VulkanProfiler::Init(VulkanContext *vulkan) {
 	vulkan_ = vulkan;
 
-	for (int i = 0; i < vulkan->GetInflightFrames(); i++) {
-		VkQueryPoolCreateInfo ci{ VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO };
-		ci.queryCount = MAX_QUERY_COUNT;
-		ci.queryType = VK_QUERY_TYPE_TIMESTAMP;
-		vkCreateQueryPool(vulkan->GetDevice(), &ci, nullptr, &queryPool_);
-	}
+	VkQueryPoolCreateInfo ci{ VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO };
+	ci.queryCount = MAX_QUERY_COUNT;
+	ci.queryType = VK_QUERY_TYPE_TIMESTAMP;
+	vkCreateQueryPool(vulkan->GetDevice(), &ci, nullptr, &queryPool_);
 }
 
 void VulkanProfiler::Shutdown() {
-	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
-		vkDestroyQueryPool(vulkan_->GetDevice(), queryPool_, nullptr);
-	}
+	vkDestroyQueryPool(vulkan_->GetDevice(), queryPool_, nullptr);
 }
 
 void VulkanProfiler::BeginFrame(VulkanContext *vulkan, VkCommandBuffer firstCommandBuf) {
@@ -59,10 +55,6 @@ void VulkanProfiler::BeginFrame(VulkanContext *vulkan, VkCommandBuffer firstComm
 	}
 	vkCmdResetQueryPool(firstCommandBuf, queryPool_, 0, numQueries_);
 	numQueries_ = 0;
-}
-
-void VulkanProfiler::EndFrame() {
-	// Not much to do here really except check that all scopes are closed.
 }
 
 void VulkanProfiler::Begin(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stageFlags, std::string scopeName) {

@@ -30,8 +30,6 @@ public:
 
 	void BeginFrame(VulkanContext *vulkan, VkCommandBuffer firstCommandBuffer);
 
-	void EndFrame();
-
 	void Begin(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stage, std::string scopeName);
 	void End(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stage);
 
