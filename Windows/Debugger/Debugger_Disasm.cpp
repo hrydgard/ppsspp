@@ -32,9 +32,6 @@
 #include <windowsx.h>
 #include <commctrl.h>
 
-// How long (max) to wait for Core to pause before clearing temp breakpoints.
-static const int TEMP_BREAKPOINT_WAIT_MS = 100;
-
 static FAR WNDPROC DefGotoEditProc;
 
 LRESULT CALLBACK GotoEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
@@ -782,10 +779,9 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 	HWND hDlg = m_hDlg;
 	bool ingame = (GetUIState() == UISTATE_INGAME || GetUIState() == UISTATE_EXCEPTION) && PSP_IsInited();
 
-	// Update Dialog Windows
-	if (_bDebug && ingame)
-	{
-		Core_WaitInactive(TEMP_BREAKPOINT_WAIT_MS);
+	// If we're stepping, update debugging windows.
+	// This is called potentially asynchronously, so state might've changed.
+	if (Core_IsStepping() && ingame) {
 		breakpointList->reloadBreakpoints();
 		threadList->reloadThreads();
 		stackTraceView->loadStackTrace();
