@@ -138,6 +138,8 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	regCache_.ForceRetain(RegCache::VEC_ARG_U);
 	regCache_.ChangeReg(XMM1, RegCache::VEC_ARG_V);
 	regCache_.ForceRetain(RegCache::VEC_ARG_V);
+	regCache_.ChangeReg(XMM5, RegCache::VEC_RESULT);
+	regCache_.ForceRetain(RegCache::VEC_RESULT);
 
 	// We'll first write the nearest sampler, which we will CALL.
 	// This may differ slightly based on the "linear" flag.
@@ -154,6 +156,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 
 	regCache_.ForceRelease(RegCache::VEC_ARG_U);
 	regCache_.ForceRelease(RegCache::VEC_ARG_V);
+	regCache_.ForceRelease(RegCache::VEC_RESULT);
 	if (regCache_.Has(RegCache::GEN_ARG_LEVEL))
 		regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
 	regCache_.Reset(true);
@@ -178,13 +181,10 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	PUSH(arg2Reg);
 	PUSH(arg1Reg);
 #endif
-	// Extra space to restore alignment and save resultReg for lerp.
-	// TODO: Maybe use XMMs instead?
-	SUB(64, R(RSP), Imm8(24));
 
 #ifdef _WIN32
-	// First arg now starts at 24 (extra space) + 32 (pushed stack) + 8 (ret address) + 32 (shadow space)
-	const int argOffset = 24 + 32 + 8 + 32;
+	// First arg now starts at 32 (pushed stack) + 8 (ret address) + 32 (shadow space)
+	const int argOffset = 32 + 8 + 32;
 	MOV(64, R(R14), MDisp(RSP, argOffset));
 	MOV(32, R(R15), MDisp(RSP, argOffset + 8));
 	// level is at argOffset + 16.
@@ -205,7 +205,10 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	}
 
 	// At this point:
-	// XMM0=uvec, XMM1=vvec, stack+24=frac_u, stack+32=frac_v, R14=src, R15=bufw, stack+X=level
+	// XMM0=uvec, XMM1=vvec, stack+0=frac_u, stack+8=frac_v, R14=src, R15=bufw, stack+X=level
+
+	// We'll accumulate values into XMM5.
+	PXOR(XMM5, R(XMM5));
 
 	// This stores the result on the stack for later processing.
 	auto doNearestCall = [&](int off) {
@@ -226,7 +229,14 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		PSRLDQ(XMM1, 4);
 
 		CALL(nearest);
-		MOV(32, MDisp(RSP, off), R(resultReg));
+
+		if (off == 0) {
+			MOVD_xmm(XMM5, R(resultReg));
+		} else {
+			MOVD_xmm(XMM2, R(resultReg));
+			PSLLDQ(XMM2, off);
+			POR(XMM5, R(XMM2));
+		}
 	};
 
 	doNearestCall(0);
@@ -239,10 +249,10 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		PXOR(XMM0, R(XMM0));
 	}
 
-	MOVD_xmm(fpScratchReg1, MDisp(RSP, 0));
-	MOVD_xmm(fpScratchReg2, MDisp(RSP, 4));
-	MOVD_xmm(fpScratchReg3, MDisp(RSP, 8));
-	MOVD_xmm(fpScratchReg4, MDisp(RSP, 12));
+	PSHUFD(fpScratchReg1, R(XMM5), _MM_SHUFFLE(0, 0, 0, 0));
+	PSHUFD(fpScratchReg2, R(XMM5), _MM_SHUFFLE(1, 1, 1, 1));
+	PSHUFD(fpScratchReg3, R(XMM5), _MM_SHUFFLE(2, 2, 2, 2));
+	PSHUFD(fpScratchReg4, R(XMM5), _MM_SHUFFLE(3, 3, 3, 3));
 
 	if (cpu_info.bSSE4_1) {
 		PMOVZXBD(fpScratchReg1, R(fpScratchReg1));
@@ -265,7 +275,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	CVTDQ2PS(fpScratchReg4, R(fpScratchReg4));
 
 	// Okay, now multiply the R sides by frac_u, and L by (256 - frac_u)...
-	MOVD_xmm(fpScratchReg5, MDisp(RSP, 24));
+	MOVD_xmm(fpScratchReg5, MDisp(RSP, 0));
 	CVTDQ2PS(fpScratchReg5, R(fpScratchReg5));
 	SHUFPS(fpScratchReg5, R(fpScratchReg5), _MM_SHUFFLE(0, 0, 0, 0));
 	if (RipAccessible(by256)) {
@@ -295,7 +305,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	ADDPS(fpScratchReg3, R(fpScratchReg4));
 
 	// Next, time for frac_v.
-	MOVD_xmm(fpScratchReg5, MDisp(RSP, 32));
+	MOVD_xmm(fpScratchReg5, MDisp(RSP, 8));
 	CVTDQ2PS(fpScratchReg5, R(fpScratchReg5));
 	SHUFPS(fpScratchReg5, R(fpScratchReg5), _MM_SHUFFLE(0, 0, 0, 0));
 	if (RipAccessible(ones)) {
@@ -327,7 +337,6 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		SetJumpTarget(zeroSrc);
 	}
 
-	ADD(64, R(RSP), Imm8(24));
 	POP(arg3Reg);
 	POP(arg4Reg);
 	POP(R14);
@@ -1221,12 +1230,12 @@ bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
 		} else {
 			if (id.linear) {
 #ifdef _WIN32
-				const int argOffset = 24 + 32 + 8 + 32;
+				const int argOffset = 32 + 8 + 32;
 				// Extra 8 to account for CALL.
 				MOV(32, R(temp2Reg), MDisp(RSP, argOffset + 16 + 8));
 #else
 				// Extra 8 to account for CALL.
-				MOV(32, R(temp2Reg), MDisp(RSP, 24 + 48 + 8 + 8));
+				MOV(32, R(temp2Reg), MDisp(RSP, 48 + 8 + 8));
 #endif
 			} else {
 #ifdef _WIN32
