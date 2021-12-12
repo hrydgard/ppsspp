@@ -255,8 +255,10 @@ void GenericListControl::HandleNotify(LPARAM lParam)
 }
 
 void GenericListControl::Update() {
-	SetTimer(handle, IDT_UPDATE, UPDATE_DELAY, nullptr);
-	updateScheduled_ = true;
+	if (!updateScheduled_) {
+		SetTimer(handle, IDT_UPDATE, UPDATE_DELAY, nullptr);
+		updateScheduled_ = true;
+	}
 }
 
 void GenericListControl::ProcessUpdate() {

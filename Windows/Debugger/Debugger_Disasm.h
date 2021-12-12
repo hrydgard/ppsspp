@@ -52,14 +52,18 @@ public:
 	void Show(bool bShow, bool includeToTop = true) override;
 
 	void Update() override {
-		UpdateDialog(true);
+		UpdateDialog();
 		SetDebugMode(Core_IsStepping(), false);
 		breakpointList->reloadBreakpoints();
 	};
-	void UpdateDialog(bool _bComplete = false);
-	// SetDebugMode 
+	void UpdateDialog();
 	void SetDebugMode(bool _bDebug, bool switchPC);
 
 	void Goto(u32 addr);
 	void NotifyMapLoaded();
+
+private:
+	void ProcessUpdateDialog();
+
+	bool updateDialogScheduled_ = false;
 };
