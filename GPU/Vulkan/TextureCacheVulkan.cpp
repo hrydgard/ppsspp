@@ -794,7 +794,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	if (entry->vkTex) {
 		VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-			StringFromFormat("Texture Upload"));
+			StringFromFormat("Texture Upload (%08x) video=%d", entry->addr, isVideo));
 
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
 		u8 level = std::max(0, gstate.getTexLevelOffset16() / 16);
