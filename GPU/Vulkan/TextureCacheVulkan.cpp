@@ -736,7 +736,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		VkImageLayout imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 		VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
-		bool enableVideoUpscaling = true;
+		bool enableVideoUpscaling = false;
 
 		if (actualFmt == VULKAN_8888_FORMAT && scaleFactor > 1 && hardwareScaling && (enableVideoUpscaling || !isVideo)) {
 			if (uploadCS_ != VK_NULL_HANDLE)
