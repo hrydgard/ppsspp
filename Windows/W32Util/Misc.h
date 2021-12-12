@@ -56,8 +56,10 @@ protected:
 	virtual void OnRightClick(int itemIndex, int column, const POINT& point) { };
 	virtual void CopyRows(int start, int size);
 	virtual void OnToggle(int item, bool newValue) { };
+
 private:
 	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+	void ProcessUpdate();
 	void ResizeColumns();
 	void ProcessCopy();
 	void SelectAll();
@@ -72,4 +74,5 @@ private:
 	// Used for hacky workaround to fix a rare hang (see issue #5184)
 	volatile bool inResizeColumns;
 	volatile bool updating;
+	bool updateScheduled_ = false;
 };
