@@ -10,10 +10,7 @@
 #define STEEP_DIRECTION_THRESHOLD 2.2
 #define DOMINANT_DIRECTION_THRESHOLD 3.6
 
-float reduce(vec4 color) {
-	return dot(color.rgb, vec3(65536.0, 256.0, 1.0));
-}
-
+// TODO: Replace this with something cheaper.
 float DistYCbCr(vec4 pixA, vec4 pixB) {
 	// https://en.wikipedia.org/wiki/YCbCr#ITU-R_BT.2020_conversion
 	const vec3 K = vec3(0.2627, 0.6780, 0.0593);
@@ -23,8 +20,8 @@ float DistYCbCr(vec4 pixA, vec4 pixB) {
 	vec4 diff = pixA - pixB;
 	vec3 YCbCr = diff.rgb * MATRIX;
 	YCbCr.x *= LUMINANCE_WEIGHT;
-	float d = length(YCbCr);
-	return sqrt(pixA.a * pixB.a * d * d + diff.a * diff.a);
+	float d = dot(YCbCr, YCbCr);
+	return sqrt(pixA.a * pixB.a * d + diff.a * diff.a);
 }
 
 bool IsPixEqual(const vec4 pixA, const vec4 pixB) {
@@ -34,6 +31,10 @@ bool IsPixEqual(const vec4 pixA, const vec4 pixB) {
 bool IsBlendingNeeded(const ivec4 blend) {
 	ivec4 diff = blend - ivec4(BLEND_NONE);
 	return diff.x != 0 || diff.y != 0 || diff.z != 0 || diff.w != 0;
+}
+
+uint readInputu(uvec2 coord) {
+	return readColoru(uvec2(clamp(coord.x, 0, params.width - 1), clamp(coord.y, 0, params.height - 1)));
 }
 
 vec4 readInput(uvec2 coord) {
@@ -62,20 +63,31 @@ void applyScaling(uvec2 origxy) {
 	//                       17|04|03|02|11
 	//                         |15|14|13|
 
+	uint v[9];
+	v[0] = readInputu(t3.yw);
+	v[1] = readInputu(t3.zw);
+	v[2] = readInputu(t4.zw);
+	v[3] = readInputu(t4.yw);
+	v[4] = readInputu(t4.xw);
+	v[5] = readInputu(t3.xw);
+	v[6] = readInputu(t2.xw);
+	v[7] = readInputu(t2.yw);
+	v[8] = readInputu(t2.zw);
+
 	vec4 src[25];
 
 	src[21] = readInput(t1.xw);
 	src[22] = readInput(t1.yw);
 	src[23] = readInput(t1.zw);
-	src[ 6] = readInput(t2.xw);
-	src[ 7] = readInput(t2.yw);
-	src[ 8] = readInput(t2.zw);
-	src[ 5] = readInput(t3.xw);
-	src[ 0] = readInput(t3.yw);
-	src[ 1] = readInput(t3.zw);
-	src[ 4] = readInput(t4.xw);
-	src[ 3] = readInput(t4.yw);
-	src[ 2] = readInput(t4.zw);
+	src[ 6] = unpackUnorm4x8(v[6]);
+	src[ 7] = unpackUnorm4x8(v[7]);
+	src[ 8] = unpackUnorm4x8(v[8]);
+	src[ 5] = unpackUnorm4x8(v[5]);
+	src[ 0] = unpackUnorm4x8(v[0]);
+	src[ 1] = unpackUnorm4x8(v[1]);
+	src[ 4] = unpackUnorm4x8(v[4]);
+	src[ 3] = unpackUnorm4x8(v[3]);
+	src[ 2] = unpackUnorm4x8(v[2]);
 	src[15] = readInput(t5.xw);
 	src[14] = readInput(t5.yw);
 	src[13] = readInput(t5.zw);
@@ -85,17 +97,6 @@ void applyScaling(uvec2 origxy) {
 	src[ 9] = readInput(t7.xy);
 	src[10] = readInput(t7.xz);
 	src[11] = readInput(t7.xw);
-
-	float v[9];
-	v[0] = reduce(src[0]);
-	v[1] = reduce(src[1]);
-	v[2] = reduce(src[2]);
-	v[3] = reduce(src[3]);
-	v[4] = reduce(src[4]);
-	v[5] = reduce(src[5]);
-	v[6] = reduce(src[6]);
-	v[7] = reduce(src[7]);
-	v[8] = reduce(src[8]);
 
 	ivec4 blendResult = ivec4(BLEND_NONE);
 
@@ -258,12 +259,22 @@ void applyScaling(uvec2 origxy) {
 	//   05|00|01|10
 	//   04|03|02|11
 	//   15|14|13|12
-	const int order[16] = int[16](6, 7, 8, 9, 5, 0, 1, 10, 4, 3, 2, 11, 15, 14, 13, 12);
 	// Write all 16 output pixels.
 	ivec2 destXY = ivec2(origxy) * 4;
-	for (int y = 0; y < 4; y++) {
-		for (int x = 0; x < 4; x++) {
-			writeColorf(destXY + ivec2(x, y), dst[order[y * 4 + x]]);
-		}
-	}
+	writeColorf(destXY, dst[6]);
+	writeColorf(destXY + ivec2(1, 0), dst[7]);
+	writeColorf(destXY + ivec2(2, 0), dst[8]);
+	writeColorf(destXY + ivec2(3, 0), dst[9]);
+	writeColorf(destXY + ivec2(0, 1), dst[5]);
+	writeColorf(destXY + ivec2(1, 1), dst[0]);
+	writeColorf(destXY + ivec2(2, 1), dst[1]);
+	writeColorf(destXY + ivec2(3, 1), dst[10]);
+	writeColorf(destXY + ivec2(0, 2), dst[4]);
+	writeColorf(destXY + ivec2(1, 2), dst[3]);
+	writeColorf(destXY + ivec2(2, 2), dst[2]);
+	writeColorf(destXY + ivec2(3, 2), dst[11]);
+	writeColorf(destXY + ivec2(0, 3), dst[15]);
+	writeColorf(destXY + ivec2(1, 3), dst[14]);
+	writeColorf(destXY + ivec2(2, 3), dst[13]);
+	writeColorf(destXY + ivec2(3, 3), dst[12]);
 }

@@ -10,10 +10,7 @@
 #define STEEP_DIRECTION_THRESHOLD 2.2
 #define DOMINANT_DIRECTION_THRESHOLD 3.6
 
-float reduce(vec4 color) {
-	return dot(color.rgb, vec3(65536.0, 256.0, 1.0));
-}
-
+// TODO: Replace this with something cheaper.
 float DistYCbCr(vec4 pixA, vec4 pixB) {
 	// https://en.wikipedia.org/wiki/YCbCr#ITU-R_BT.2020_conversion
 	const vec3 K = vec3(0.2627, 0.6780, 0.0593);
@@ -23,8 +20,8 @@ float DistYCbCr(vec4 pixA, vec4 pixB) {
 	vec4 diff = pixA - pixB;
 	vec3 YCbCr = diff.rgb * MATRIX;
 	YCbCr.x *= LUMINANCE_WEIGHT;
-	float d = length(YCbCr);
-	return sqrt(pixA.a * pixB.a * d * d + diff.a * diff.a);
+	float d = dot(YCbCr, YCbCr);
+	return sqrt(pixA.a * pixB.a * d + diff.a * diff.a);
 }
 
 bool IsPixEqual(const vec4 pixA, const vec4 pixB) {
@@ -34,6 +31,10 @@ bool IsPixEqual(const vec4 pixA, const vec4 pixB) {
 bool IsBlendingNeeded(const ivec4 blend) {
 	ivec4 diff = blend - ivec4(BLEND_NONE);
 	return diff.x != 0 || diff.y != 0 || diff.z != 0 || diff.w != 0;
+}
+
+uint readInputu(uvec2 coord) {
+	return readColoru(uvec2(clamp(coord.x, 0, params.width - 1), clamp(coord.y, 0, params.height - 1)));
 }
 
 vec4 readInput(uvec2 coord) {
@@ -62,6 +63,17 @@ void applyScaling(uvec2 origxy) {
 	//                       17|04|03|02|11
 	//                         |15|14|13|
 
+	uint v[9];
+	v[0] = readInputu(t3.yw);
+	v[1] = readInputu(t3.zw);
+	v[2] = readInputu(t4.zw);
+	v[3] = readInputu(t4.yw);
+	v[4] = readInputu(t4.xw);
+	v[5] = readInputu(t3.xw);
+	v[6] = readInputu(t2.xw);
+	v[7] = readInputu(t2.yw);
+	v[8] = readInputu(t2.zw);
+
 	vec4 src[25];
 
 	src[21] = readInput(t1.xw);
@@ -85,17 +97,6 @@ void applyScaling(uvec2 origxy) {
 	src[ 9] = readInput(t7.xy);
 	src[10] = readInput(t7.xz);
 	src[11] = readInput(t7.xw);
-
-	float v[9];
-	v[0] = reduce(src[0]);
-	v[1] = reduce(src[1]);
-	v[2] = reduce(src[2]);
-	v[3] = reduce(src[3]);
-	v[4] = reduce(src[4]);
-	v[5] = reduce(src[5]);
-	v[6] = reduce(src[6]);
-	v[7] = reduce(src[7]);
-	v[8] = reduce(src[8]);
 
 	ivec4 blendResult = ivec4(BLEND_NONE);
 
@@ -253,25 +254,22 @@ void applyScaling(uvec2 origxy) {
 		dst[ 6] = mix(dst[ 6], blendPix, (needBlend && doLineBlend && haveShallowLine) ? 0.25 : 0.00);
 	}
 
+	// This is the only difference from tex_4xbrz.csh:
+
 	// Output Pixel Mapping:
 	//   06|07|08|09
 	//   05|00|01|10
 	//   04|03|02|11
 	//   15|14|13|12
-	const int order[16] = int[16](6, 7, 8, 9, 5, 0, 1, 10, 4, 3, 2, 11, 15, 14, 13, 12);
 	// Write all 16 output pixels.
 	ivec2 destXY = ivec2(origxy) * 2;
-	for (int y = 0; y < 2; y++) {
-		for (int x = 0; x < 2; x++) {
-			vec4 sum = vec4(0.0);
-			int index = y * 4 + x * 2;
-			for (int iy = 0; iy < 2; iy++) {
-				for (int ix = 0; ix < 2; ix++) {
-					sum += dst[order[index + iy * 4 + ix]];
-				}
-			}
-			sum *= 0.25;
-			writeColorf(destXY + ivec2(x, y), sum);
-		}
-	}
+
+	vec4 topLeft = dst[6] + dst[7] + dst[5] + dst[0];
+	vec4 topRight = dst[8] + dst[9] + dst[1] + dst[10];
+	vec4 bottomLeft = dst[4] + dst[3] + dst[15] + dst[14];
+	vec4 bottomRight = dst[2] + dst[11] + dst[13] + dst[12];
+	writeColorf(destXY, topLeft * 0.25);
+	writeColorf(destXY + ivec2(1, 0), topRight * 0.25);
+	writeColorf(destXY + ivec2(0, 1), bottomLeft * 0.25);
+	writeColorf(destXY + ivec2(1, 1), bottomRight * 0.25);
 }
