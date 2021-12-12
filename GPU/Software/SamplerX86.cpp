@@ -131,8 +131,13 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		RegCache::GEN_ARG_V,
 		RegCache::GEN_ARG_TEXPTR,
 		RegCache::GEN_ARG_BUFW,
+		RegCache::GEN_ARG_LEVEL,
 	});
 	regCache_.ChangeReg(RAX, RegCache::GEN_RESULT);
+	regCache_.ChangeReg(XMM0, RegCache::VEC_ARG_U);
+	regCache_.ForceRetain(RegCache::VEC_ARG_U);
+	regCache_.ChangeReg(XMM1, RegCache::VEC_ARG_V);
+	regCache_.ForceRetain(RegCache::VEC_ARG_V);
 
 	// We'll first write the nearest sampler, which we will CALL.
 	// This may differ slightly based on the "linear" flag.
@@ -147,41 +152,46 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 
 	RET();
 
+	regCache_.ForceRelease(RegCache::VEC_ARG_U);
+	regCache_.ForceRelease(RegCache::VEC_ARG_V);
+	if (regCache_.Has(RegCache::GEN_ARG_LEVEL))
+		regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
 	regCache_.Reset(true);
 
 	// Now the actual linear func, which is exposed externally.
 	const u8 *start = AlignCode16();
 
 	// NOTE: This doesn't use the general register mapping.
-	// POSIX: arg1=uptr, arg2=vptr, arg3=frac_u, arg4=frac_v, arg5=src, arg6=bufw, stack+8=level
-	// Win64: arg1=uptr, arg2=vptr, arg3=frac_u, arg4=frac_v, stack+40=src, stack+48=bufw, stack+56=level
+	// POSIX: XMM0=uvec, XMM1=vvec, arg1=frac_u, arg2=frac_v, arg3=src, arg4=bufw, arg5=level
+	// Win64: XMM0=uvec, XMM1=vvec, arg3=frac_u, arg4=frac_v, stack+40=src, stack+48=bufw, stack+56=level
 	//
 	// We map these to nearest CALLs, with order: u, v, src, bufw, level
 
 	// Let's start by saving a bunch of registers.
 	PUSH(R15);
 	PUSH(R14);
-	PUSH(R13);
-	PUSH(R12);
 	// Won't need frac_u/frac_v for a while.
+#ifdef _WIN32
 	PUSH(arg4Reg);
 	PUSH(arg3Reg);
+#else
+	PUSH(arg2Reg);
+	PUSH(arg1Reg);
+#endif
 	// Extra space to restore alignment and save resultReg for lerp.
 	// TODO: Maybe use XMMs instead?
 	SUB(64, R(RSP), Imm8(24));
 
-	MOV(64, R(R12), R(arg1Reg));
-	MOV(64, R(R13), R(arg2Reg));
 #ifdef _WIN32
-	// First arg now starts at 24 (extra space) + 48 (pushed stack) + 8 (ret address) + 32 (shadow space)
-	const int argOffset = 24 + 48 + 8 + 32;
+	// First arg now starts at 24 (extra space) + 32 (pushed stack) + 8 (ret address) + 32 (shadow space)
+	const int argOffset = 24 + 32 + 8 + 32;
 	MOV(64, R(R14), MDisp(RSP, argOffset));
 	MOV(32, R(R15), MDisp(RSP, argOffset + 8));
 	// level is at argOffset + 16.
 #else
-	MOV(64, R(R14), R(arg5Reg));
-	MOV(32, R(R15), R(arg6Reg));
-	// level is at 24 + 48 + 8.
+	MOV(64, R(R14), R(arg3Reg));
+	MOV(32, R(R15), R(arg4Reg));
+	// level is in arg5Reg, which is convenient.
 #endif
 
 	// Early exit on !srcPtr.
@@ -195,7 +205,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	}
 
 	// At this point:
-	// R12=uptr, R13=vptr, stack+24=frac_u, stack+32=frac_v, R14=src, R15=bufw, stack+X=level
+	// XMM0=uvec, XMM1=vvec, stack+24=frac_u, stack+32=frac_v, R14=src, R15=bufw, stack+X=level
 
 	// This stores the result on the stack for later processing.
 	auto doNearestCall = [&](int off) {
@@ -205,11 +215,15 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		static const X64Reg bufwReg = arg4Reg;
 		static const X64Reg resultReg = RAX;
 
-		MOV(32, R(uReg), MDisp(R12, off));
-		MOV(32, R(vReg), MDisp(R13, off));
+		MOVD_xmm(R(uReg), XMM0);
+		MOVD_xmm(R(vReg), XMM1);
+
 		MOV(64, R(srcReg), R(R14));
 		MOV(32, R(bufwReg), R(R15));
 		// Leave level, we just always load from RAM.  Separate CLUTs is uncommon.
+
+		PSRLDQ(XMM0, 4);
+		PSRLDQ(XMM1, 4);
 
 		CALL(nearest);
 		MOV(32, MDisp(RSP, off), R(resultReg));
@@ -316,8 +330,6 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	ADD(64, R(RSP), Imm8(24));
 	POP(arg3Reg);
 	POP(arg4Reg);
-	POP(R12);
-	POP(R13);
 	POP(R14);
 	POP(R15);
 
@@ -1203,11 +1215,13 @@ bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
 			// We need to multiply by 16 and add, LEA allows us to copy too.
 			LEA(32, temp2Reg, MScaled(levelReg, SCALE_4, 0));
 			regCache_.Unlock(levelReg, RegCache::GEN_ARG_LEVEL);
-			regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
+			// Don't release if we're reusing it.
+			if (!regCache_.Has(RegCache::VEC_ARG_U))
+				regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
 		} else {
 			if (id.linear) {
 #ifdef _WIN32
-				const int argOffset = 24 + 48 + 8 + 32;
+				const int argOffset = 24 + 32 + 8 + 32;
 				// Extra 8 to account for CALL.
 				MOV(32, R(temp2Reg), MDisp(RSP, argOffset + 16 + 8));
 #else
