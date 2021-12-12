@@ -206,7 +206,7 @@ static const char *GetSystemRegName(int o0, int op1, int CRn, int CRm, int op2) 
 }
 
 static void BranchExceptionAndSystem(uint32_t w, uint64_t addr, Instruction *instr, SymbolCallback symbolCallback) {
-	char buffer[128];
+	char buffer[125];
 	int Rt = w & 0x1f;
 	int Rn = (w >> 5) & 0x1f;
 	if (((w >> 26) & 0x1F) == 5) {

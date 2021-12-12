@@ -1291,14 +1291,14 @@ bool PixelJitCache::Jit_DstBlendFactor(const PixelFuncID &id, RegCache::Reg srcF
 		PSUBUSW(dstFactorReg, R(argColorReg));
 		break;
 
-	case GE_SRCBLEND_SRCALPHA:
-	case GE_SRCBLEND_INVSRCALPHA:
-	case GE_SRCBLEND_DSTALPHA:
-	case GE_SRCBLEND_INVDSTALPHA:
-	case GE_SRCBLEND_DOUBLESRCALPHA:
-	case GE_SRCBLEND_DOUBLEINVSRCALPHA:
-	case GE_SRCBLEND_DOUBLEDSTALPHA:
-	case GE_SRCBLEND_DOUBLEINVDSTALPHA:
+	case GE_DSTBLEND_SRCALPHA:
+	case GE_DSTBLEND_INVSRCALPHA:
+	case GE_DSTBLEND_DSTALPHA:
+	case GE_DSTBLEND_INVDSTALPHA:
+	case GE_DSTBLEND_DOUBLESRCALPHA:
+	case GE_DSTBLEND_DOUBLEINVSRCALPHA:
+	case GE_DSTBLEND_DOUBLEDSTALPHA:
+	case GE_DSTBLEND_DOUBLEINVDSTALPHA:
 		// These are all equivalent for src factor, so reuse that logic.
 		if (id.AlphaBlendSrc() == GEBlendSrcFactor(id.AlphaBlendDst())) {
 			MOVDQA(dstFactorReg, R(srcFactorReg));

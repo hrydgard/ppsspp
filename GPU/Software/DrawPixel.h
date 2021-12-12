@@ -28,6 +28,13 @@
 
 namespace Rasterizer {
 
+// Our std::unordered_map argument will ignore the alignment attribute, but that doesn't matter.
+// We'll still have and want it for the actual function call, to keep the args in vector registers.
+#if defined(__clang__) || defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-attributes"
+#endif
+
 typedef void (SOFTRAST_CALL *SingleFunc)(int x, int y, int z, int fog, Vec4IntArg color_in, const PixelFuncID &pixelID);
 SingleFunc GetSingleFunc(const PixelFuncID &id);
 
@@ -109,5 +116,9 @@ private:
 	bool colorIs16Bit_ = false;
 #endif
 };
+
+#if defined(__clang__) || defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 };

@@ -14,7 +14,7 @@ typedef enum {
 
 typedef enum { EXCOMM_CONST, EXCOMM_CONST_FLOAT, EXCOMM_REF, EXCOMM_OP } ExpressionCommand;
 
-static char expressionError[256];
+static char expressionError[512];
 
 typedef struct {
 	char Name[4];

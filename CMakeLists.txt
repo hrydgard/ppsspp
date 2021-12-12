@@ -13,7 +13,8 @@ enable_language(ASM)
 
 add_definitions(-D__STDC_CONSTANT_MACROS)
 
-if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
+# Include AppleClang and Clang.
+if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
 	set(CLANG ON)
 	message("Clang enabled")
 endif()
@@ -306,7 +307,9 @@ if(NOT MSVC)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
 	endif()
 	if(CLANG)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-switch -Wno-uninitialized")
+		add_definitions(-Wno-nullability-completeness)
+		add_definitions(-Wno-tautological-pointer-compare)
+		add_definitions(-Wno-deprecated-register)
 	endif()
 
 	if(USE_ASAN)
@@ -340,8 +343,6 @@ if(NOT MSVC)
 
 	# Disable some warnings
 	add_definitions(-Wno-multichar)
-	add_definitions(-Wno-deprecated-register)
-	add_definitions(-Wno-tautological-pointer-compare)
 
 	# Don't compile with strict aliasing, we're not 100% aliasing-safe
 	add_compile_options(-fno-strict-aliasing)
@@ -361,7 +362,7 @@ if(NOT MSVC)
 		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
 	elseif(NOT ANDROID)
 		# TODO: See if we can get rid of no-psabi
-		if(NOT ${CMAKE_C_COMPILER_ID} STREQUAL "Intel" AND NOT ${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
+		if(NOT ${CMAKE_C_COMPILER_ID} STREQUAL "Intel" AND NOT ${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
 			add_definitions(-Wno-psabi)
 		endif()
 		add_definitions(-D_XOPEN_SOURCE=700)

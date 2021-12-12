@@ -146,7 +146,7 @@ static void CleanupDialogThreads(bool force = false) {
 			accessThread = nullptr;
 			accessThreadState = "cleaned up";
 		} else if (force) {
-			ERROR_LOG_REPORT(SCEUTILITY, "Utility access thread still running, state: %s, dialog=%d/%d", accessThreadState, currentDialogType, currentDialogActive);
+			ERROR_LOG_REPORT(SCEUTILITY, "Utility access thread still running, state: %s, dialog=%d/%d", accessThreadState, (int)currentDialogType, currentDialogActive);
 
 			// Try to force shutdown anyway.
 			accessThread->Terminate();

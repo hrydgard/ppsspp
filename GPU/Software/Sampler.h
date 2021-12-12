@@ -26,6 +26,13 @@
 
 namespace Sampler {
 
+// Our std::unordered_map argument will ignore the alignment attribute, but that doesn't matter.
+// We'll still have and want it for the actual function call, to keep the args in vector registers.
+#if defined(__clang__) || defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-attributes"
+#endif
+
 typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *NearestFunc)(int u, int v, const u8 *tptr, int bufw, int level);
 NearestFunc GetNearestFunc();
 
@@ -86,5 +93,9 @@ private:
 	std::unordered_map<SamplerID, const u8 *> addresses_;
 	Rasterizer::RegCache regCache_;
 };
+
+#if defined(__clang__) || defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 };
