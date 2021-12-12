@@ -20,6 +20,12 @@
 
 wchar_t CtrlMemView::szClassName[] = L"CtrlMemView";
 
+static constexpr UINT_PTR IDT_REDRAW_DELAYED = 0xC0DE0001;
+static constexpr UINT REDRAW_DELAY = 1000 / 60;
+// We also redraw regularly, since data changes during runtime.
+static constexpr UINT_PTR IDT_REDRAW_AUTO = 0xC0DE0002;
+static constexpr UINT REDRAW_INTERVAL = 1000;
+
 CtrlMemView::CtrlMemView(HWND _wnd)
 {
 	wnd=_wnd;
@@ -56,7 +62,7 @@ CtrlMemView::CtrlMemView(HWND _wnd)
 	asciiStart = hexStart + (rowSize*3+1)*charWidth;
 
 	// set redraw timer
-	SetTimer(wnd,1,1000,0);
+	SetTimer(wnd, IDT_REDRAW_AUTO, REDRAW_INTERVAL, nullptr);
 }
 
 CtrlMemView::~CtrlMemView()
@@ -157,8 +163,16 @@ LRESULT CALLBACK CtrlMemView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 		return DLGC_WANTARROWS|DLGC_WANTCHARS|DLGC_WANTTAB;
 		break;
 	case WM_TIMER:
-		if (wParam == 1 && IsWindowVisible(ccp->wnd))
+		// This is actually delayed too, using another timer.  That way we won't update twice.
+		if (wParam == IDT_REDRAW_AUTO && IsWindowVisible(ccp->wnd))
 			ccp->redraw();
+
+		if (wParam == IDT_REDRAW_DELAYED) {
+			InvalidateRect(hwnd, nullptr, FALSE);
+			UpdateWindow(hwnd);
+			ccp->redrawScheduled_ = false;
+			KillTimer(hwnd, wParam);
+		}
 		break;
     default:
         break;
@@ -459,8 +473,10 @@ void CtrlMemView::redraw()
 		visibleRows -= offsetSpace; // visibleRows is calculated based on the size of the control, but X rows have already been used for the offsets and are no longer usable
 	}
 
-	InvalidateRect(wnd, NULL, FALSE);
-	UpdateWindow(wnd); 
+	if (!redrawScheduled_) {
+		SetTimer(wnd, IDT_REDRAW_DELAYED, REDRAW_DELAY, nullptr);
+		redrawScheduled_ = true;
+	}
 }
 
 void CtrlMemView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)

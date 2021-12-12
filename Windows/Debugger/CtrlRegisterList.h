@@ -76,4 +76,7 @@ public:
 	{
 		return cpu;
 	}
+
+private:
+	bool redrawScheduled_ = false;
 };

@@ -909,6 +909,6 @@ void CDisasm::UpdateDialog(bool _bComplete)
 
 	// repaint windows at the bottom. only the memory view needs to be forced to
 	// redraw. all others are updated manually
-	InvalidateRect (GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW), NULL, TRUE);
-	UpdateWindow (GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW));
+	CtrlMemView *memview = CtrlMemView::getFrom(GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW));
+	memview->redraw();
 }
