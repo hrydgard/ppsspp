@@ -835,10 +835,12 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 						VkImageView view = entry->vkTex->CreateViewForMip(i);
 						VkDescriptorSet descSet = computeShaderManager_.GetDescriptorSet(view, texBuf, bufferOffset, srcSize);
 						struct Params { int x; int y; } params{ mipUnscaledWidth, mipUnscaledHeight };
+						vulkan->GetProfiler()->Begin(cmdInit, StringFromFormat("Compute Upload: %dx%d", mipUnscaledWidth, mipUnscaledHeight), VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 						vkCmdBindPipeline(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipeline(uploadCS_));
 						vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 0, 1, &descSet, 0, nullptr);
 						vkCmdPushConstants(cmdInit, computeShaderManager_.GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(params), &params);
 						vkCmdDispatch(cmdInit, (mipUnscaledWidth + 7) / 8, (mipUnscaledHeight + 7) / 8, 1);
+						vulkan->GetProfiler()->End(cmdInit, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 						vulkan->Delete().QueueDeleteImageView(view);
 					} else {
 						data = drawEngine_->GetPushBufferForTextureData()->PushAligned(size, &bufferOffset, &texBuf, pushAlignment);

@@ -1,7 +1,9 @@
 #pragma once
 
-#include "Common/GPU/Vulkan/VulkanContext.h"
+#include <string>
+#include "VulkanLoader.h"
 
+class VulkanContext;
 class VulkanDeviceAllocator;
 
 VK_DEFINE_HANDLE(VmaAllocation);

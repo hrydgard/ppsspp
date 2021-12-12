@@ -9,6 +9,7 @@
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/GPU/Vulkan/VulkanDebug.h"
 #include "Common/GPU/Vulkan/VulkanAlloc.h"
+#include "Common/GPU/Vulkan/VulkanProfiler.h"
 
 enum {
 	VULKAN_FLAG_VALIDATE = 1,
@@ -61,6 +62,8 @@ struct VulkanPhysicalDeviceInfo {
 	VkFormat preferredDepthStencilFormat;
 	bool canBlitToPreferredDepthStencilFormat;
 };
+
+class VulkanProfiler;
 
 // This is a bit repetitive...
 class VulkanDeleteList {
@@ -188,8 +191,12 @@ public:
 	int GetBackbufferWidth() { return (int)swapChainExtent_.width; }
 	int GetBackbufferHeight() { return (int)swapChainExtent_.height; }
 
-	void BeginFrame();
+	void BeginFrame(VkCommandBuffer firstCommandBuffer);
 	void EndFrame();
+
+	VulkanProfiler *GetProfiler() {
+		return &frame_[curFrame_].profiler;
+	}
 
 	// Simple workaround for the casting warning.
 	template <class T>
@@ -369,6 +376,7 @@ private:
 	struct FrameData {
 		FrameData() {}
 		VulkanDeleteList deleteList;
+		VulkanProfiler profiler;
 	};
 	FrameData frame_[MAX_INFLIGHT_FRAMES];
 	int curFrame_ = 0;

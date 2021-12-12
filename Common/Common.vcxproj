@@ -443,6 +443,7 @@
     <ClInclude Include="GPU\Vulkan\VulkanImage.h" />
     <ClInclude Include="GPU\Vulkan\VulkanLoader.h" />
     <ClInclude Include="GPU\Vulkan\VulkanMemory.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanProfiler.h" />
     <ClInclude Include="GPU\Vulkan\VulkanQueueRunner.h" />
     <ClInclude Include="GPU\Vulkan\VulkanRenderManager.h" />
     <ClInclude Include="Input\GestureDetector.h" />
@@ -870,6 +871,7 @@
     <ClCompile Include="GPU\Vulkan\VulkanImage.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanLoader.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanMemory.cpp" />
+    <ClCompile Include="GPU\Vulkan\VulkanProfiler.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanQueueRunner.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanRenderManager.cpp" />
     <ClCompile Include="Input\GestureDetector.cpp" />
