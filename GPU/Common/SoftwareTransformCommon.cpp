@@ -732,6 +732,7 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&i
 		if (throughmode) {
 			RotateUVThrough(trans);
 		} else {
+			// transVtxTL.z == transVtxBR.z actually, but the pos_w might be different.
 			float tlz = transVtxTL.z / transVtxTL.pos_w;
 			float brz = transVtxBR.z / transVtxBR.pos_w;
 			if (!gstate.isDepthClampEnabled()) {
