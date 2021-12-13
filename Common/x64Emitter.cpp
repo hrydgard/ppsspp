@@ -1735,6 +1735,9 @@ void XEmitter::PMULHW(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0xE5, des
 void XEmitter::PMULHUW(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0xE4, dest, arg);}
 void XEmitter::PMULUDQ(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0xF4, dest, arg);}
 
+void XEmitter::PMULLD(X64Reg dest, const OpArg &arg) {WriteSSE41Op(0x66, 0x3840, dest, arg);}
+void XEmitter::PMULDQ(X64Reg dest, const OpArg &arg) {WriteSSE41Op(0x66, 0x3828, dest, arg);}
+
 void XEmitter::WriteSSSE3Op(u8 opPrefix, u16 op, X64Reg regOp, OpArg arg, int extrabytes)
 {
 	_assert_msg_(cpu_info.bSSSE3, "Trying to use SSSE3 on a system that doesn't support it.");

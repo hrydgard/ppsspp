@@ -20,6 +20,7 @@
 
 #include <emmintrin.h>
 #include "Common/x64Emitter.h"
+#include "Common/BitScan.h"
 #include "Common/CPUDetect.h"
 #include "GPU/GPUState.h"
 #include "GPU/Software/Sampler.h"
@@ -216,8 +217,12 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	// At this point:
 	// XMM0=uvec, XMM1=vvec, stack+0=frac_u, stack+8=frac_v, R14=src, R15=bufw, stack+X=level
 
-	// We'll accumulate values into XMM5.
-	PXOR(XMM5, R(XMM5));
+	if (!Jit_PrepareDataOffsets(id)) {
+		regCache_.Reset(false);
+		EndWrite();
+		ResetCodePtr(GetOffset(nearest));
+		return nullptr;
+	}
 
 	// This stores the result on the stack for later processing.
 	auto doNearestCall = [&](int off) {
@@ -866,7 +871,38 @@ bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {
 	return success;
 }
 
-bool SamplerJitCache::Jit_GetTexDataSwizzled4() {
+bool SamplerJitCache::Jit_GetTexDataSwizzled4(const SamplerID &id) {
+	if (id.linear) {
+		// We can throw away bufw immediately.  Maybe even earlier?
+		regCache_.ForceRelease(RegCache::GEN_ARG_BUFW);
+
+		X64Reg uReg = regCache_.Find(RegCache::GEN_ARG_U);
+		X64Reg byteIndexReg = regCache_.Find(RegCache::GEN_ARG_V);
+		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
+
+		X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
+		MOV(8, R(resultReg), MRegSum(srcReg, byteIndexReg));
+
+		SHR(32, R(uReg), Imm8(1));
+		FixupBranch skipNonZero = J_CC(CC_NC);
+		// If the horizontal offset was odd, take the upper 4.
+		SHR(8, R(resultReg), Imm8(4));
+		SetJumpTarget(skipNonZero);
+		// Zero out the rest of the bits.
+		AND(32, R(resultReg), Imm8(0x0F));
+		regCache_.Unlock(resultReg, RegCache::GEN_RESULT);
+
+		// We're all done with each of these regs, now.
+		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
+		regCache_.ForceRelease(RegCache::GEN_ARG_TEXPTR);
+		regCache_.Unlock(uReg, RegCache::GEN_ARG_U);
+		regCache_.ForceRelease(RegCache::GEN_ARG_U);
+		regCache_.Unlock(byteIndexReg, RegCache::GEN_ARG_V);
+		regCache_.ForceRelease(RegCache::GEN_ARG_V);
+
+		return true;
+	}
+
 	X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
 	X64Reg temp2Reg = regCache_.Alloc(RegCache::GEN_TEMP2);
 	X64Reg uReg = regCache_.Find(RegCache::GEN_ARG_U);
@@ -926,10 +962,45 @@ bool SamplerJitCache::Jit_GetTexDataSwizzled4() {
 bool SamplerJitCache::Jit_GetTexDataSwizzled(const SamplerID &id, int bitsPerTexel) {
 	if (bitsPerTexel == 4) {
 		// Specialized implementation.
-		return Jit_GetTexDataSwizzled4();
+		return Jit_GetTexDataSwizzled4(id);
 	}
 
 	bool success = true;
+	if (id.linear) {
+		// We can throw away bufw immediately.  Maybe even earlier?
+		regCache_.ForceRelease(RegCache::GEN_ARG_BUFW);
+		// We've also baked uReg into vReg.
+		regCache_.ForceRelease(RegCache::GEN_ARG_U);
+
+		X64Reg byteIndexReg = regCache_.Find(RegCache::GEN_ARG_V);
+		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
+
+		X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
+		switch (bitsPerTexel) {
+		case 32:
+			MOV(bitsPerTexel, R(resultReg), MRegSum(srcReg, byteIndexReg));
+			break;
+		case 16:
+			MOVZX(32, bitsPerTexel, resultReg, MRegSum(srcReg, byteIndexReg));
+			break;
+		case 8:
+			MOVZX(32, bitsPerTexel, resultReg, MRegSum(srcReg, byteIndexReg));
+			break;
+		default:
+			success = false;
+			break;
+		}
+		regCache_.Unlock(resultReg, RegCache::GEN_RESULT);
+
+		// The pointer and offset have done their duty.
+		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
+		regCache_.ForceRelease(RegCache::GEN_ARG_TEXPTR);
+		regCache_.Unlock(byteIndexReg, RegCache::GEN_ARG_V);
+		regCache_.ForceRelease(RegCache::GEN_ARG_V);
+
+		return success;
+	}
+
 	X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
 	X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
 	X64Reg temp2Reg = regCache_.Alloc(RegCache::GEN_TEMP2);
@@ -1008,6 +1079,111 @@ bool SamplerJitCache::Jit_GetTexDataSwizzled(const SamplerID &id, int bitsPerTex
 	regCache_.Release(temp2Reg, RegCache::GEN_TEMP2);
 	regCache_.Unlock(resultReg, RegCache::GEN_RESULT);
 	return success;
+}
+
+bool SamplerJitCache::Jit_PrepareDataOffsets(const SamplerID &id) {
+	_assert_(id.linear);
+
+	bool success = true;
+	int bits = -1;
+	switch (id.TexFmt()) {
+	case GE_TFMT_5650:
+	case GE_TFMT_5551:
+	case GE_TFMT_4444:
+	case GE_TFMT_CLUT16:
+		bits = 16;
+		break;
+
+	case GE_TFMT_8888:
+	case GE_TFMT_CLUT32:
+		bits = 32;
+		break;
+
+	case GE_TFMT_CLUT8:
+		bits = 8;
+		break;
+
+	case GE_TFMT_CLUT4:
+		bits = 4;
+		break;
+
+	case GE_TFMT_DXT1:
+	case GE_TFMT_DXT3:
+	case GE_TFMT_DXT5:
+		break;
+
+	default:
+		success = false;
+	}
+
+	if (success && bits != -1) {
+		if (id.swizzle) {
+			success = Jit_PrepareDataSwizzledOffsets(id, bits);
+		}
+	}
+
+	return success;
+}
+
+bool SamplerJitCache::Jit_PrepareDataSwizzledOffsets(const SamplerID &id, int bitsPerTexel) {
+	// See Jit_GetTexDataSwizzled() for usage of this offset.
+
+	// Spread bufw into each lane.
+	MOVD_xmm(XMM2, R(R15));
+	PSHUFD(XMM2, R(XMM2), _MM_SHUFFLE(0, 0, 0, 0));
+
+	// Divide vvec by 8 in a temp.
+	MOVDQA(XMM3, R(XMM1));
+	PSRLD(XMM3, 3);
+	if (cpu_info.bSSE4_1) {
+		// And now multiply.  This is slow, but not worse than the SSE2 version...
+		PMULLD(XMM3, R(XMM2));
+	} else {
+		// Copy that into another temp for multiply.
+		MOVDQA(XMM4, R(XMM3));
+
+		// Okay, first, multiply to get XXXX CCCC XXXX AAAA.
+		PMULUDQ(XMM3, R(XMM2));
+		PSRLDQ(XMM4, 4);
+		PSRLDQ(XMM2, 4);
+		// And now get XXXX DDDD XXXX BBBB.
+		PMULUDQ(XMM4, R(XMM2));
+
+		// We know everything is positive, so XXXX must be zero.  Let's combine.
+		PSLLDQ(XMM4, 4);
+		POR(XMM3, R(XMM4));
+	}
+	// Multiply the result by bitsPerTexel using a shift.
+	PSLLD(XMM3, 32 - clz32_nonzero(bitsPerTexel - 1));
+
+	// Now we're adding (v & 7) * 16.  Use a 16-bit wall.
+	PSLLW(XMM1, 13);
+	PSRLD(XMM1, 9);
+	PADDD(XMM1, R(XMM3));
+
+	// Now get ((uvec / texels_per_tile) / 4) * 32 * 4 aka (uvec / (128 / bitsPerTexel)) << 7.
+	MOVDQA(XMM2, R(XMM0));
+	PSRLD(XMM2, 7 + clz32_nonzero(bitsPerTexel - 1) - 32);
+	PSLLD(XMM2, 7);
+	// Add it in to our running total.
+	PADDD(XMM1, R(XMM2));
+
+	if (bitsPerTexel == 4) {
+		// Finally, we want (uvec & 31) / 2.  Use a 16-bit wall.
+		MOVDQA(XMM2, R(XMM0));
+		PSLLW(XMM2, 11);
+		PSRLD(XMM2, 12);
+		// With that, this is our byte offset.  uvec & 1 has which half.
+		PADDD(XMM1, R(XMM2));
+	} else {
+		// We can destroy uvec in this path.  Clear all but 2 bits for 32, 3 for 16, or 4 for 8.
+		PSLLW(XMM0, 32 - clz32_nonzero(bitsPerTexel - 1) + 9);
+		// Now that it's at the top of the 16 bits, we always shift that to the top of 4 bits.
+		PSRLD(XMM0, 12);
+		PADDD(XMM1, R(XMM0));
+	}
+
+	return true;
 }
 
 bool SamplerJitCache::Jit_Decode5650() {
