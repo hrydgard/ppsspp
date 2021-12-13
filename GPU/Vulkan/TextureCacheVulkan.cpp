@@ -676,24 +676,32 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		}
 	}
 
+	bool isVideo = IsVideo(entry->addr);
+
 	// TODO: Support reading actual mip levels for upscaled images, instead of just generating them.
 	// Probably can just remove this check?
 	if (scaleFactor > 1) {
 		maxLevel = 0;
+
+		bool enableVideoUpscaling = false;
+
+		if (!enableVideoUpscaling && isVideo) {
+			scaleFactor = 1;
+		}
 	}
 
 	int maxPossibleMipLevel = log2i(std::min(w * scaleFactor, h * scaleFactor));
-
-	bool isVideo = IsVideo(entry->addr);
 
 	if (maxPossibleMipLevel > 0 && isVideo) {
 		maxPossibleMipLevel = 0;
 	}
 
-	// TODO: Really should inspect the format capabilities.
-	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY) {
+	// We don't generate mipmaps for 512x512 textures because they're almost exclusively used for menu backgrounds
+	// and similar, which don't really need it.
+	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY && w <= 256 && h <= 256) {
 		// Boost the number of mipmaps.
 		if (maxPossibleMipLevel > maxLevelToGenerate) {
+			// We have to generate mips with a shader. This requires decoding to R8G8B8A8_UNORM format to avoid extra complications.
 			dstFmt = VK_FORMAT_R8G8B8A8_UNORM;
 		}
 		maxLevelToGenerate = maxPossibleMipLevel;
@@ -736,9 +744,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		VkImageLayout imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 		VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
-		bool enableVideoUpscaling = false;
-
-		if (actualFmt == VULKAN_8888_FORMAT && scaleFactor > 1 && hardwareScaling && (enableVideoUpscaling || !isVideo)) {
+		if (actualFmt == VULKAN_8888_FORMAT && scaleFactor > 1 && hardwareScaling) {
 			if (uploadCS_ != VK_NULL_HANDLE)
 				computeUpload = true;
 		}
