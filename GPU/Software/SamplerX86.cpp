@@ -794,6 +794,53 @@ bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {
 	if (id.swizzle) {
 		return Jit_GetTexDataSwizzled(id, bitsPerTexel);
 	}
+	if (id.linear) {
+		// We can throw away bufw immediately.  Maybe even earlier?
+		regCache_.ForceRelease(RegCache::GEN_ARG_BUFW);
+
+		X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
+
+		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
+		X64Reg byteIndexReg = regCache_.Find(RegCache::GEN_ARG_V);
+		bool success = true;
+		switch (bitsPerTexel) {
+		case 32:
+		case 16:
+		case 8:
+			MOVZX(32, bitsPerTexel, resultReg, MRegSum(srcReg, byteIndexReg));
+			break;
+
+		case 4:
+			MOV(8, R(resultReg), MRegSum(srcReg, byteIndexReg));
+			break;
+
+		default:
+			success = false;
+			break;
+		}
+		// Okay, srcReg and byteIndexReg have done their jobs.
+		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
+		regCache_.ForceRelease(RegCache::GEN_ARG_TEXPTR);
+		regCache_.Unlock(byteIndexReg, RegCache::GEN_ARG_V);
+		regCache_.ForceRelease(RegCache::GEN_ARG_V);
+
+		if (bitsPerTexel == 4) {
+			X64Reg uReg = regCache_.Find(RegCache::GEN_ARG_U);
+
+			SHR(32, R(uReg), Imm8(1));
+			FixupBranch skip = J_CC(CC_NC);
+			SHR(32, R(resultReg), Imm8(4));
+			SetJumpTarget(skip);
+			// Zero out any bits not shifted off.
+			AND(32, R(resultReg), Imm8(0x0F));
+
+			regCache_.Unlock(uReg, RegCache::GEN_ARG_U);
+		}
+		regCache_.ForceRelease(RegCache::GEN_ARG_U);
+
+		regCache_.Unlock(resultReg, RegCache::GEN_RESULT);
+		return success;
+	}
 
 	X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
 	X64Reg temp2Reg = regCache_.Alloc(RegCache::GEN_TEMP2);
@@ -841,6 +888,11 @@ bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {
 	regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW);
 	// We can throw bufw away, now.
 	regCache_.ForceRelease(RegCache::GEN_ARG_BUFW);
+
+	if (bitsPerTexel == 4) {
+		bool hasRCX = regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
+		_assert_(hasRCX);
+	}
 
 	switch (bitsPerTexel) {
 	case 32:
@@ -1119,6 +1171,50 @@ bool SamplerJitCache::Jit_PrepareDataOffsets(const SamplerID &id) {
 	if (success && bits != -1) {
 		if (id.swizzle) {
 			success = Jit_PrepareDataSwizzledOffsets(id, bits);
+		} else {
+			// Spread bufw into each lane.
+			MOVD_xmm(XMM2, R(R15));
+			PSHUFD(XMM2, R(XMM2), _MM_SHUFFLE(0, 0, 0, 0));
+
+			if (bits == 4)
+				PSRLD(XMM2, 1);
+			else if (bits == 16)
+				PSLLD(XMM2, 1);
+			else if (bits == 32)
+				PSLLD(XMM2, 2);
+
+			if (cpu_info.bSSE4_1) {
+				// And now multiply.  This is slow, but not worse than the SSE2 version...
+				PMULLD(XMM1, R(XMM2));
+			} else {
+				// Copy that into another temp for multiply.
+				MOVDQA(XMM3, R(XMM1));
+
+				// Okay, first, multiply to get XXXX CCCC XXXX AAAA.
+				PMULUDQ(XMM1, R(XMM2));
+				PSRLDQ(XMM3, 4);
+				PSRLDQ(XMM2, 4);
+				// And now get XXXX DDDD XXXX BBBB.
+				PMULUDQ(XMM3, R(XMM2));
+
+				// We know everything is positive, so XXXX must be zero.  Let's combine.
+				PSLLDQ(XMM3, 4);
+				POR(XMM1, R(XMM3));
+			}
+
+			if (bits == 4) {
+				// Need to keep uvec for the odd bit.
+				MOVDQA(XMM2, R(XMM0));
+				PSRLD(XMM2, 1);
+				PADDD(XMM1, R(XMM2));
+			} else {
+				// Destroy uvec, we won't use it again.
+				if (bits == 16)
+					PSLLD(XMM0, 1);
+				else if (bits == 32)
+					PSLLD(XMM0, 2);
+				PADDD(XMM1, R(XMM0));
+			}
 		}
 	}
 
