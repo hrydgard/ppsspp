@@ -697,9 +697,6 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&i
 	u16 *newInds = inds + vertexCount;
 	u16 *indsOut = newInds;
 
-	float minZValue, maxZValue;
-	CalcCullParams(minZValue, maxZValue);
-
 	maxIndex = 4 * (vertexCount / 2);
 	for (int i = 0; i < vertexCount; i += 2) {
 		const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
@@ -732,22 +729,6 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&i
 		if (throughmode) {
 			RotateUVThrough(trans);
 		} else {
-			// transVtxTL.z == transVtxBR.z actually, but the pos_w might be different.
-			float tlz = transVtxTL.z / transVtxTL.pos_w;
-			float brz = transVtxBR.z / transVtxBR.pos_w;
-			if (!gstate.isDepthClampEnabled()) {
-				// If both transformed verts are outside Z the same way, cull entirely.
-				if (tlz >= maxZValue || brz >= maxZValue)
-					continue;
-				if (tlz <= minZValue || brz <= minZValue)
-					continue;
-			} else {
-				// If any Z is outside, cull right away.
-				if (tlz >= maxZValue && brz >= maxZValue)
-					continue;
-				if (tlz <= minZValue && brz <= minZValue)
-					continue;
-			}
 			RotateUV(trans, params_.flippedY);
 		}
 
@@ -787,9 +768,6 @@ void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, 
 		dy = 1.0f;
 	}
 
-	float minZValue, maxZValue;
-	CalcCullParams(minZValue, maxZValue);
-
 	maxIndex = 4 * (vertexCount / 2);
 	for (int i = 0; i < vertexCount; i += 2) {
 		const TransformedVertex &transVtx1 = transformed[indsIn[i + 0]];
@@ -828,24 +806,6 @@ void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, 
 
 		// bottom left
 		trans[3] = transVtxBL;
-
-		if (!throughmode) {
-			float tlz = transVtxTL.z / transVtxTL.pos_w;
-			float brz = transVtxBL.z / transVtxBL.pos_w;
-			if (!gstate.isDepthClampEnabled()) {
-				// If both transformed verts are outside Z the same way, cull entirely.
-				if (tlz >= maxZValue || brz >= maxZValue)
-					continue;
-				if (tlz <= minZValue || brz <= minZValue)
-					continue;
-			} else {
-				// If any Z is outside, cull right away.
-				if (tlz >= maxZValue && brz >= maxZValue)
-					continue;
-				if (tlz <= minZValue && brz <= minZValue)
-					continue;
-			}
-		}
 
 		// Triangle: BR-TR-TL
 		indsOut[0] = i * 2 + 0;
