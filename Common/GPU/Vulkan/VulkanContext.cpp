@@ -5,6 +5,7 @@
 #include <cstring>
 #include <iostream>
 
+#include "Common/System/System.h"
 #include "Common/System/Display.h"
 #include "Common/Log.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
@@ -679,6 +680,36 @@ VkResult VulkanContext::CreateDevice() {
 	allocatorInfo.device = device_;
 	allocatorInfo.instance = instance_;
 	vmaCreateAllocator(&allocatorInfo, &allocator_);
+
+	// Examine the physical device to figure out super rough performance grade.
+	// Basically all we want to do is to identify low performance mobile devices
+	// so we can make decisions on things like texture scaling strategy.
+	auto &props = physicalDeviceProperties_[physical_device_].properties;
+	switch (props.vendorID) {
+	case VULKAN_VENDOR_AMD:
+	case VULKAN_VENDOR_NVIDIA:
+	case VULKAN_VENDOR_INTEL:
+		devicePerfClass_ = PerfClass::FAST;
+		break;
+
+	case VULKAN_VENDOR_ARM:
+	case VULKAN_VENDOR_QUALCOMM:
+		devicePerfClass_ = PerfClass::SLOW;
+		// I haven't seen the bad compute shader slowdowns on any Android 11 device, so let's do
+		// a really silly heuristic here, and improve as needed.
+#if PPSSPP_PLATFORM(ANDROID)
+		if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 30) {
+			devicePerfClass_ = PerfClass::FAST;
+		}
+#endif
+		break;
+
+	case VULKAN_VENDOR_IMGTEC:
+	default:
+		devicePerfClass_ = PerfClass::SLOW;
+		break;
+	}
+
 
 	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
 		frame_[i].profiler.Init(this);
