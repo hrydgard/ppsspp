@@ -390,7 +390,7 @@ public:
 
 					// Assuming PSP_PBP_DIRECTORY without ID or with disc_total < 1 in GAME dir must be homebrew
 					if ((info_->id.empty() || !info_->disc_total)
-						&& gamePath_.FilePathContains("PSP/GAME/")
+						&& gamePath_.FilePathContainsNoCase("PSP/GAME/")
 						&& info_->fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
 						info_->id = g_paramSFO.GenerateFakeID(gamePath_.ToString());
 						info_->id_version = info_->id + "_1.00";

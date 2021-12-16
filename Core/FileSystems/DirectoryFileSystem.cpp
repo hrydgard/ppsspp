@@ -85,7 +85,7 @@ Path DirectoryFileHandle::GetLocalPath(const Path &basePath, std::string localpa
 		localpath.erase(0, 1);
 
 	if (fileSystemFlags_ & FileSystemFlags::STRIP_PSP) {
-		if (startsWith(localpath, "PSP/")) {
+		if (startsWithNoCase(localpath, "PSP/")) {
 			localpath = localpath.substr(4);
 		}
 	}
@@ -101,7 +101,7 @@ Path DirectoryFileSystem::GetLocalPath(std::string internalPath) const {
 		internalPath.erase(0, 1);
 
 	if (flags & FileSystemFlags::STRIP_PSP) {
-		if (startsWith(internalPath, "PSP/")) {
+		if (startsWithNoCase(internalPath, "PSP/")) {
 			internalPath = internalPath.substr(4);
 		}
 	}
@@ -206,7 +206,7 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 
 		int fd = File::OpenFD(fullName, (File::OpenFlag)flags);
 		// Try to detect reads/writes to PSP/GAME to avoid them in replays.
-		if (fullName.FilePathContains("PSP/GAME/")) {
+		if (fullName.FilePathContainsNoCase("PSP/GAME/")) {
 			inGameDir_ = true;
 		}
 		hFile = fd;
@@ -287,7 +287,7 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 #endif
 
 	// Try to detect reads/writes to PSP/GAME to avoid them in replays.
-	if (fullName.FilePathContains("PSP/GAME/")) {
+	if (fullName.FilePathContainsNoCase("PSP/GAME/")) {
 		inGameDir_ = true;
 	}
 	if (access & (FILEACCESS_APPEND | FILEACCESS_CREATE | FILEACCESS_WRITE)) {

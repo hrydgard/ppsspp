@@ -1,4 +1,6 @@
 #include "ppsspp_config.h"
+#include <algorithm>
+#include <cctype>
 #include <cstring>
 
 #include "Common/File/Path.h"
@@ -216,14 +218,17 @@ std::string Path::GetDirectory() const {
 	return path_;
 }
 
-bool Path::FilePathContains(const std::string &needle) const {
+bool Path::FilePathContainsNoCase(const std::string &needle) const {
 	std::string haystack;
 	if (type_ == PathType::CONTENT_URI) {
 		haystack = AndroidContentURI(path_).FilePath();
 	} else {
 		haystack = path_;
 	}
-	return haystack.find(needle) != std::string::npos;
+
+	auto pred = [](char ch1, char ch2) { return std::toupper(ch1) == std::toupper(ch2); };
+	auto found = std::search(haystack.begin(), haystack.end(), needle.begin(), needle.end(), pred);
+	return found != haystack.end();
 }
 
 bool Path::StartsWith(const Path &other) const {
