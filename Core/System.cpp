@@ -596,9 +596,9 @@ CoreParameter &PSP_CoreParameter() {
 }
 
 Path GetSysDirectory(PSPDirectories directoryType) {
-	Path memStickDirectory = g_Config.memStickDirectory;
+	const Path &memStickDirectory = g_Config.memStickDirectory;
 	Path pspDirectory;
-	if (memStickDirectory.GetFilename() == "PSP") {
+	if (!strcasecmp(memStickDirectory.GetFilename().c_str(), "PSP")) {
 		// Let's strip this off, to easily allow choosing a root directory named "PSP" on Android.
 		pspDirectory = memStickDirectory;
 	} else {
