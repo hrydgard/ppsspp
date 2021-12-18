@@ -589,6 +589,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		return;
 	}
 
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+
 	// Adjust maxLevel to actually present levels..
 	bool badMipSizes = false;
 
@@ -659,14 +661,17 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd()) {
 		scaleFactor = 1;
 	}
-	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0 && scaleFactor != 1 && !hardwareScaling) {
+
+	bool slowScaler = !hardwareScaling || vulkan->DevicePerfClass() == PerfClass::SLOW;  // Or the GPU is slow - TODO add check!
+
+	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0 && scaleFactor != 1 && slowScaler) {
 		// Remember for later that we /wanted/ to scale this texture.
 		entry->status |= TexCacheEntry::STATUS_TO_SCALE;
 		scaleFactor = 1;
 	}
 
 	if (scaleFactor != 1) {
-		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED && !hardwareScaling) {
+		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED && slowScaler) {
 			entry->status |= TexCacheEntry::STATUS_TO_SCALE;
 			scaleFactor = 1;
 		} else {
@@ -715,7 +720,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	bool computeUpload = false;
 	VkCommandBuffer cmdInit = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
-	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 
 	{
 		delete entry->vkTex;
@@ -745,8 +749,11 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
 		if (actualFmt == VULKAN_8888_FORMAT && scaleFactor > 1 && hardwareScaling) {
-			if (uploadCS_ != VK_NULL_HANDLE)
+			if (uploadCS_ != VK_NULL_HANDLE) {
 				computeUpload = true;
+			} else {
+				WARN_LOG(G3D, "Falling back to software scaling, hardware shader didn't compile");
+			}
 		}
 
 		if (computeUpload) {

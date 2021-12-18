@@ -16,7 +16,7 @@
 // other things as well. We also have a nice integrated render pass profiler in the queue
 // runner, but this one is more convenient for transient events.
 
-// #define VULKAN_PROFILER_ENABLED
+#define VULKAN_PROFILER_ENABLED
 
 #if defined(VULKAN_PROFILER_ENABLED)
 #define VK_PROFILE_BEGIN(vulkan, cmd, stage, message) vulkan->GetProfiler()->Begin(cmd, stage, message);
@@ -79,6 +79,12 @@ struct VulkanPhysicalDeviceInfo {
 };
 
 class VulkanProfiler;
+
+// Extremely rough split of capabilities.
+enum class PerfClass {
+	SLOW,
+	FAST,
+};
 
 // This is a bit repetitive...
 class VulkanDeleteList {
@@ -323,6 +329,10 @@ public:
 
 	const VulkanExtensions &Extensions() { return extensionsLookup_; }
 
+	PerfClass DevicePerfClass() const {
+		return devicePerfClass_;
+	}
+
 	void GetImageMemoryRequirements(VkImage image, VkMemoryRequirements *mem_reqs, bool *dedicatedAllocation);
 
 	VmaAllocator Allocator() const {
@@ -385,6 +395,7 @@ private:
 	VkExtent2D swapChainExtent_{};
 
 	int flags_ = 0;
+	PerfClass devicePerfClass_ = PerfClass::SLOW;
 
 	int inflightFrames_ = MAX_INFLIGHT_FRAMES;
 

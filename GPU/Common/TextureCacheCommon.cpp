@@ -473,6 +473,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 				reason = "scaling";
 			}
 		}
+
 		if (match && (entry->status & TexCacheEntry::STATUS_TO_REPLACE) && replacementTimeThisFrame_ < replacementFrameBudget_) {
 			int w0 = gstate.getTextureWidth(0);
 			int h0 = gstate.getTextureHeight(0);
