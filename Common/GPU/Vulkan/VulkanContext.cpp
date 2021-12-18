@@ -693,10 +693,20 @@ VkResult VulkanContext::CreateDevice() {
 		break;
 
 	case VULKAN_VENDOR_ARM:
+		devicePerfClass_ = PerfClass::SLOW;
+		{
+			// Parse the device name as an ultra rough heuristic.
+			int maliG = 0;
+			if (sscanf(props.deviceName, "Mali-G%d", &maliG) == 1) {
+				if (maliG >= 72) {
+					devicePerfClass_ = PerfClass::FAST;
+				}
+			}
+		}
+		break;
+
 	case VULKAN_VENDOR_QUALCOMM:
 		devicePerfClass_ = PerfClass::SLOW;
-		// I haven't seen the bad compute shader slowdowns on any Android 11 device, so let's do
-		// a really silly heuristic here, and improve as needed.
 #if PPSSPP_PLATFORM(ANDROID)
 		if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 30) {
 			devicePerfClass_ = PerfClass::FAST;
