@@ -16,15 +16,8 @@
 // other things as well. We also have a nice integrated render pass profiler in the queue
 // runner, but this one is more convenient for transient events.
 
-// #define VULKAN_PROFILER_ENABLED
-
-#if defined(VULKAN_PROFILER_ENABLED)
 #define VK_PROFILE_BEGIN(vulkan, cmd, stage, ...) vulkan->GetProfiler()->Begin(cmd, stage, __VA_ARGS__);
 #define VK_PROFILE_END(vulkan, cmd, stage) vulkan->GetProfiler()->End(cmd, stage);
-#else
-#define VK_PROFILE_BEGIN(vulkan, cmd, stage, ...)
-#define VK_PROFILE_END(vulkan, cmd, stage)
-#endif
 
 enum {
 	VULKAN_FLAG_VALIDATE = 1,
@@ -319,6 +312,12 @@ public:
 	}
 	VkFormat GetSwapchainFormat() const {
 		return swapchainFormat_;
+	}
+
+	void SetProfilerEnabledPtr(bool *enabled) {
+		for (auto &frame : frame_) {
+			frame.profiler.SetEnabledPtr(enabled);
+		}
 	}
 
 	// 1 for no frame overlap and thus minimal latency but worst performance.

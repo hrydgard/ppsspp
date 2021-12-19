@@ -37,6 +37,9 @@ public:
 		;
 	void End(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stage);
 
+	void SetEnabledPtr(bool *enabledPtr) {
+		enabledPtr_ = enabledPtr;
+	}
 private:
 	VulkanContext *vulkan_;
 
@@ -44,6 +47,7 @@ private:
 	std::vector<ProfilerScope> scopes_;
 	int numQueries_ = 0;
 	bool firstFrame_ = true;
+	bool *enabledPtr_ = nullptr;
 
 	std::vector<size_t> scopeStack_;
 

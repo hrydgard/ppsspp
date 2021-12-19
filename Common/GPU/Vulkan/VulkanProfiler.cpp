@@ -60,12 +60,14 @@ void VulkanProfiler::BeginFrame(VulkanContext *vulkan, VkCommandBuffer firstComm
 		numQueries_ = MAX_QUERY_COUNT;
 		firstFrame_ = false;
 	}
-	vkCmdResetQueryPool(firstCommandBuf, queryPool_, 0, numQueries_);
+	if (numQueries_ > 0) {
+		vkCmdResetQueryPool(firstCommandBuf, queryPool_, 0, numQueries_);
+	}
 	numQueries_ = 0;
 }
 
 void VulkanProfiler::Begin(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stageFlags, const char *fmt, ...) {
-	if (numQueries_ >= MAX_QUERY_COUNT - 1) {
+	if ((enabledPtr_ && !*enabledPtr_) || numQueries_ >= MAX_QUERY_COUNT - 1) {
 		return;
 	}
 
@@ -89,7 +91,7 @@ void VulkanProfiler::Begin(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stage
 }
 
 void VulkanProfiler::End(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stageFlags) {
-	if (numQueries_ >= MAX_QUERY_COUNT - 1) {
+	if ((enabledPtr_ && !*enabledPtr_) || numQueries_ >= MAX_QUERY_COUNT - 1) {
 		return;
 	}
 
