@@ -1,3 +1,5 @@
+#include <stdarg.h>
+
 #include "VulkanProfiler.h"
 #include "VulkanContext.h"
 
