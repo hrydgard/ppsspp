@@ -187,7 +187,7 @@ public:
 	void DrainCompileQueue();
 
 	// Makes sure that the GPU has caught up enough that we can start writing buffers of this frame again.
-	void BeginFrame(bool enableProfiling);
+	void BeginFrame(bool enableProfiling, bool enableLogProfiler);
 	// Can run on a different thread!
 	void Finish();
 	void Run(int frame);

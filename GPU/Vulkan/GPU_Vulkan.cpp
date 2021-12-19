@@ -59,6 +59,9 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	CheckGPUFeatures();
 
 	VulkanContext *vulkan = (VulkanContext *)gfxCtx->GetAPIContext();
+
+	vulkan->SetProfilerEnabledPtr(&g_Config.bGpuLogProfiler);
+
 	shaderManagerVulkan_ = new ShaderManagerVulkan(draw);
 	pipelineManager_ = new PipelineManagerVulkan(vulkan);
 	framebufferManagerVulkan_ = new FramebufferManagerVulkan(draw);

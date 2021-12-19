@@ -516,7 +516,7 @@ void VulkanRenderManager::ThreadFunc() {
 	VLOG("PULL: Quitting");
 }
 
-void VulkanRenderManager::BeginFrame(bool enableProfiling) {
+void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfiler) {
 	VLOG("BeginFrame");
 	VkDevice device = vulkan_->GetDevice();
 
@@ -584,11 +584,7 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling) {
 		WARN_LOG(G3D, "BeginFrame while !run_!");
 	}
 
-#if defined(VULKAN_PROFILER_ENABLED)
-	vulkan_->BeginFrame(GetInitCmd());
-#else
-	vulkan_->BeginFrame(VK_NULL_HANDLE);
-#endif
+	vulkan_->BeginFrame(enableLogProfiler ? GetInitCmd() : VK_NULL_HANDLE);
 
 	insideFrame_ = true;
 	renderStepOffset_ = 0;

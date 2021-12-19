@@ -1,3 +1,5 @@
+#include <stdarg.h>
+
 #include "VulkanProfiler.h"
 #include "VulkanContext.h"
 
@@ -60,17 +62,25 @@ void VulkanProfiler::BeginFrame(VulkanContext *vulkan, VkCommandBuffer firstComm
 		numQueries_ = MAX_QUERY_COUNT;
 		firstFrame_ = false;
 	}
-	vkCmdResetQueryPool(firstCommandBuf, queryPool_, 0, numQueries_);
+	if (numQueries_ > 0) {
+		vkCmdResetQueryPool(firstCommandBuf, queryPool_, 0, numQueries_);
+	}
 	numQueries_ = 0;
 }
 
-void VulkanProfiler::Begin(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stageFlags, std::string scopeName) {
-	if (numQueries_ >= MAX_QUERY_COUNT - 1) {
+void VulkanProfiler::Begin(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stageFlags, const char *fmt, ...) {
+	if ((enabledPtr_ && !*enabledPtr_) || numQueries_ >= MAX_QUERY_COUNT - 1) {
 		return;
 	}
 
+	va_list args;
+	va_start(args, fmt);
+	char temp[512];
+	vsnprintf(temp, sizeof(temp), fmt, args);
+	va_end(args);
+
 	ProfilerScope scope;
-	scope.name = scopeName;
+	scope.name = temp;
 	scope.startQueryId = numQueries_;
 	scope.endQueryId = -1;
 	scope.level = (int)scopeStack_.size();
@@ -83,7 +93,7 @@ void VulkanProfiler::Begin(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stage
 }
 
 void VulkanProfiler::End(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stageFlags) {
-	if (numQueries_ >= MAX_QUERY_COUNT - 1) {
+	if ((enabledPtr_ && !*enabledPtr_) || numQueries_ >= MAX_QUERY_COUNT - 1) {
 		return;
 	}
 

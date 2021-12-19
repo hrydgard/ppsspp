@@ -30,9 +30,16 @@ public:
 
 	void BeginFrame(VulkanContext *vulkan, VkCommandBuffer firstCommandBuffer);
 
-	void Begin(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stage, std::string scopeName);
+	void Begin(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stage, const char *fmt, ...)
+#ifdef __GNUC__
+		__attribute__((format(printf, 4, 5)))
+#endif
+		;
 	void End(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stage);
 
+	void SetEnabledPtr(bool *enabledPtr) {
+		enabledPtr_ = enabledPtr;
+	}
 private:
 	VulkanContext *vulkan_;
 
@@ -40,6 +47,7 @@ private:
 	std::vector<ProfilerScope> scopes_;
 	int numQueries_ = 0;
 	bool firstFrame_ = true;
+	bool *enabledPtr_ = nullptr;
 
 	std::vector<size_t> scopeStack_;
 
