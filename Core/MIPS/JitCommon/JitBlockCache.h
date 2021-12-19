@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <map>
 #include <unordered_map>
 #include <vector>
@@ -33,6 +34,7 @@ const int MAX_JIT_BLOCK_EXITS = 2;
 #else
 const int MAX_JIT_BLOCK_EXITS = 8;
 #endif
+constexpr bool JIT_USE_COMPILEDHASH = true;
 
 struct BlockCacheStats {
 	int numBlocks;
@@ -68,6 +70,7 @@ struct JitBlock {
 
 	u32 originalAddress;
 	MIPSOpcode originalFirstOpcode; //to be able to restore
+	uint64_t compiledHash;
 	u16 codeSize;
 	u16 originalSize;
 	u16 blockNum;

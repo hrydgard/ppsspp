@@ -19,7 +19,9 @@
 #include <cstddef>
 #include <algorithm>
 
+#include "ext/xxhash.h"
 #include "Common.h"
+#include "Common/Profiler/Profiler.h"
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
@@ -58,6 +60,15 @@ op_agent_t agent;
 #endif
 
 const u32 INVALID_EXIT = 0xFFFFFFFF;
+
+static uint64_t HashJitBlock(const JitBlock &b) {
+	PROFILE_THIS_SCOPE("jithash");
+	if (JIT_USE_COMPILEDHASH) {
+		// Includes the emuhack (or emuhacks) in memory.
+		return XXH3_64bits(Memory::GetPointer(b.originalAddress), b.originalSize * 4);
+	}
+	return 0;
+}
 
 JitBlockCache::JitBlockCache(MIPSState *mipsState, CodeBlockCommon *codeBlock) :
 	codeBlock_(codeBlock), blocks_(nullptr), num_blocks_(0) {
@@ -233,6 +244,9 @@ void JitBlockCache::FinalizeBlock(int block_num, bool block_link) {
 	b.originalFirstOpcode = Memory::Read_Opcode_JIT(b.originalAddress);
 	MIPSOpcode opcode = GetEmuHackOpForBlock(block_num);
 	Memory::Write_Opcode_JIT(b.originalAddress, opcode);
+
+	// Note that this hashes the emuhack too, which is intentional.
+	b.compiledHash = HashJitBlock(b);
 
 	AddBlockMap(block_num);
 
@@ -592,8 +606,15 @@ void JitBlockCache::InvalidateChangedBlocks() {
 		if (b.invalid || b.IsPureProxy())
 			continue;
 
-		const u32 emuhack = GetEmuHackOpForBlock(block_num).encoding;
-		if (Memory::ReadUnchecked_U32(b.originalAddress) != emuhack) {
+		bool changed = false;
+		if (JIT_USE_COMPILEDHASH) {
+			changed = b.compiledHash != HashJitBlock(b);
+		} else {
+			const u32 emuhack = GetEmuHackOpForBlock(block_num).encoding;
+			changed = Memory::ReadUnchecked_U32(b.originalAddress) != emuhack;
+		}
+
+		if (changed) {
 			DEBUG_LOG(JIT, "Invalidating changed block at %08x", b.originalAddress);
 			DestroyBlock(block_num, DestroyType::INVALIDATE);
 		}
