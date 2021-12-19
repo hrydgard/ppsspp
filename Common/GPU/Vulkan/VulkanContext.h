@@ -19,10 +19,10 @@
 // #define VULKAN_PROFILER_ENABLED
 
 #if defined(VULKAN_PROFILER_ENABLED)
-#define VK_PROFILE_BEGIN(vulkan, cmd, stage, message) vulkan->GetProfiler()->Begin(cmd, stage, message);
+#define VK_PROFILE_BEGIN(vulkan, cmd, stage, ...) vulkan->GetProfiler()->Begin(cmd, stage, __VA_ARGS__);
 #define VK_PROFILE_END(vulkan, cmd, stage) vulkan->GetProfiler()->End(cmd, stage);
 #else
-#define VK_PROFILE_BEGIN(vulkan, cmd, stage, message)
+#define VK_PROFILE_BEGIN(vulkan, cmd, stage, ...)
 #define VK_PROFILE_END(vulkan, cmd, stage)
 #endif
 

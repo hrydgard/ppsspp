@@ -64,13 +64,19 @@ void VulkanProfiler::BeginFrame(VulkanContext *vulkan, VkCommandBuffer firstComm
 	numQueries_ = 0;
 }
 
-void VulkanProfiler::Begin(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stageFlags, std::string scopeName) {
+void VulkanProfiler::Begin(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stageFlags, const char *fmt, ...) {
 	if (numQueries_ >= MAX_QUERY_COUNT - 1) {
 		return;
 	}
 
+	va_list args;
+	va_start(args, fmt);
+	char temp[512];
+	vsnprintf(temp, sizeof(temp), fmt, args);
+	va_end(args);
+
 	ProfilerScope scope;
-	scope.name = scopeName;
+	scope.name = temp;
 	scope.startQueryId = numQueries_;
 	scope.endQueryId = -1;
 	scope.level = (int)scopeStack_.size();

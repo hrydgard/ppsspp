@@ -30,7 +30,11 @@ public:
 
 	void BeginFrame(VulkanContext *vulkan, VkCommandBuffer firstCommandBuffer);
 
-	void Begin(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stage, std::string scopeName);
+	void Begin(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stage, const char *fmt, ...)
+#ifdef __GNUC__
+		__attribute__((format(printf, 3, 4)))
+#endif
+		;
 	void End(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stage);
 
 private:
