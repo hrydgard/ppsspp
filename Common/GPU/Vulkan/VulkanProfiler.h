@@ -32,7 +32,7 @@ public:
 
 	void Begin(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stage, const char *fmt, ...)
 #ifdef __GNUC__
-		__attribute__((format(printf, 3, 4)))
+		__attribute__((format(printf, 4, 5)))
 #endif
 		;
 	void End(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stage);
