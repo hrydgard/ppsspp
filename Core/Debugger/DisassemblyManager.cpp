@@ -88,10 +88,14 @@ bool IsLikelyStringAt(uint32_t addr) {
 
 static HashType computeHash(u32 address, u32 size)
 {
+	if (!Memory::IsValidAddress(address))
+		return 0;
+
+	size = Memory::ValidSize(address, size);
 #if PPSSPP_ARCH(AMD64)
-	return XXH3_64bits(Memory::GetPointer(address), size);
+	return XXH3_64bits(Memory::GetPointerUnchecked(address), size);
 #else
-	return XXH3_64bits(Memory::GetPointer(address), size) & 0xFFFFFFFF;
+	return XXH3_64bits(Memory::GetPointerUnchecked(address), size) & 0xFFFFFFFF;
 #endif
 }
 
