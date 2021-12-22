@@ -37,7 +37,7 @@ public:
 
 		std::vector<std::string> parts;
 		SplitString(components, '/', parts);
-		if (parts.size() == 3) {
+		if (parts.size() == 3 && (parts[1] == "tree" || parts[1] == "document")) {
 			// Single file URI.
 			provider = parts[0];
 			if (parts[1] == "tree") {
@@ -54,7 +54,7 @@ public:
 				// What's this?
 				return false;
 			}
-		} else if (parts.size() == 5) {
+		} else if (parts.size() == 5 && parts[1] == "tree" && parts[3] == "document") {
 			// Tree URI
 			provider = parts[0];
 			if (parts[1] != "tree") {
@@ -67,6 +67,9 @@ public:
 			file = UriDecode(parts[4]);
 			// Sanity check file path.
 			return startsWith(file, root);
+		} else if (parts.size() > 1) {
+			file = UriDecode(parts[parts.size() - 1]);
+			return true;
 		} else {
 			// Invalid Content URI
 			return false;
