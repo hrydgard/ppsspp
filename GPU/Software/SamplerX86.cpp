@@ -163,12 +163,12 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	regCache_.Reset(true);
 
 	// Let's drop some helpful constants here.
-	const u8 *const100_11_4s = AlignCode16();
-	Write16(0x100 << 4); Write16(0x100 << 4); Write16(0x100 << 4); Write16(0x100 << 4);
-	Write16(0x100 << 4); Write16(0x100 << 4); Write16(0x100 << 4); Write16(0x100 << 4);
+	const u8 *const10All = AlignCode16();
+	Write16(0x10); Write16(0x10); Write16(0x10); Write16(0x10);
+	Write16(0x10); Write16(0x10); Write16(0x10); Write16(0x10);
 
-	const u8 *const100Low_11_4s = AlignCode16();
-	Write16(0x100 << 4); Write16(0x100 << 4); Write16(0x100 << 4); Write16(0x100 << 4);
+	const u8 *const10Low = AlignCode16();
+	Write16(0x10); Write16(0x10); Write16(0x10); Write16(0x10);
 	Write16(0); Write16(0); Write16(0); Write16(0);
 
 	// Now the actual linear func, which is exposed externally.
@@ -258,51 +258,55 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	doNearestCall(8);
 	doNearestCall(12);
 
-	// fpScratchReg1 will have top RRRRRRRR LLLLLLLL, fpScratchReg2 for bottom.
-	// Start with XXXX XXXX RRRR LLLL, and swizzle the 8 bits to both slots in the 16.
-	PSHUFD(fpScratchReg1, R(XMM5), _MM_SHUFFLE(0, 0, 1, 0));
-	PSHUFD(fpScratchReg2, R(XMM5), _MM_SHUFFLE(0, 0, 3, 2));
-	PUNPCKLBW(fpScratchReg1, R(fpScratchReg1));
-	PUNPCKLBW(fpScratchReg2, R(fpScratchReg2));
+	// First put the top RRRRRRRR LLLLLLLL into fpScratchReg1, bottom into fpScratchReg2.
+	// Start with XXXX XXXX RRRR LLLL, and then expand 8 bits to 16 bits.
+	if (!cpu_info.bSSE4_1) {
+		PXOR(fpScratchReg3, R(fpScratchReg3));
+		PSHUFD(fpScratchReg1, R(XMM5), _MM_SHUFFLE(0, 0, 1, 0));
+		PSHUFD(fpScratchReg2, R(XMM5), _MM_SHUFFLE(0, 0, 3, 2));
+		PUNPCKLBW(fpScratchReg1, R(fpScratchReg3));
+		PUNPCKLBW(fpScratchReg2, R(fpScratchReg3));
+	} else {
+		PSHUFD(fpScratchReg2, R(XMM5), _MM_SHUFFLE(0, 0, 3, 2));
+		PMOVZXBW(fpScratchReg1, R(XMM5));
+		PMOVZXBW(fpScratchReg2, R(fpScratchReg2));
+	}
 
 	// Grab frac_u and spread to lower (L) lanes.
 	MOVD_xmm(fpScratchReg5, MDisp(RSP, 0));
 	PSHUFLW(fpScratchReg5, R(fpScratchReg5), _MM_SHUFFLE(0, 0, 0, 0));
-	// Convert to s.11.4.
-	PSLLW(fpScratchReg5, 4);
-	// Now subtract 0x100 - frac_u in the L lanes only: 00000000 LLLLLLLL.
-	MOVDQA(fpScratchReg3, M(const100Low_11_4s));
+	// Now subtract 0x10 - frac_u in the L lanes only: 00000000 LLLLLLLL.
+	MOVDQA(fpScratchReg3, M(const10Low));
 	PSUBW(fpScratchReg3, R(fpScratchReg5));
-	// Now we just shift and OR in the original frac_u.
+	// Then we just shift and OR in the original frac_u.
 	PSLLDQ(fpScratchReg5, 8);
 	POR(fpScratchReg3, R(fpScratchReg5));
 
-	// Okay, we have 8-bits repeated in the top and bottom rows for the color.
-	// Shift frac by 4, and multiply to get the top 16 bits - that will give us 12 bits of result.
-	PMULHUW(fpScratchReg1, R(fpScratchReg3));
-	PMULHUW(fpScratchReg2, R(fpScratchReg3));
+	// Okay, we have 8-bits in the top and bottom rows for the color.
+	// Multiply by frac to get 12, which we keep for the next stage.
+	PMULLW(fpScratchReg1, R(fpScratchReg3));
+	PMULLW(fpScratchReg2, R(fpScratchReg3));
 
 	// Time for frac_v.  This time, we want it in all 8 lanes.
 	MOVD_xmm(fpScratchReg5, MDisp(RSP, 8));
 	PSHUFLW(fpScratchReg5, R(fpScratchReg5), _MM_SHUFFLE(0, 0, 0, 0));
 	PSHUFD(fpScratchReg5, R(fpScratchReg5), _MM_SHUFFLE(0, 0, 0, 0));
-	// We need to shift before multiplying to get the 8 bits we want.
-	PSLLW(fpScratchReg5, 4);
 
 	// Now, inverse fpScratchReg5 into fpScratchReg3 for the top row.
-	MOVDQA(fpScratchReg3, M(const100_11_4s));
+	MOVDQA(fpScratchReg3, M(const10All));
 	PSUBW(fpScratchReg3, R(fpScratchReg5));
 
-	// We had 12, plus 8 frac and 4 shift, that gives us 24.  Take the top 8 bits.
-	PMULHUW(fpScratchReg2, R(fpScratchReg5));
-	PMULHUW(fpScratchReg1, R(fpScratchReg3));
+	// We had 12, plus 4 frac, that gives us 16.
+	PMULLW(fpScratchReg2, R(fpScratchReg5));
+	PMULLW(fpScratchReg1, R(fpScratchReg3));
 
-	// Finally, time to sum them all up.
-	PADDW(fpScratchReg2, R(fpScratchReg1));
+	// Finally, time to sum them all up and divide by 256 to get back to 8 bits.
+	PADDUSW(fpScratchReg2, R(fpScratchReg1));
 	PSHUFD(XMM0, R(fpScratchReg2), _MM_SHUFFLE(3, 2, 3, 2));
-	PADDW(XMM0, R(fpScratchReg2));
+	PADDUSW(XMM0, R(fpScratchReg2));
+	PSRLW(XMM0, 8);
 
-	// Finally, convert to 32-bit channels.
+	// Last of all, convert to 32-bit channels.
 	if (cpu_info.bSSE4_1) {
 		PMOVZXWD(XMM0, R(XMM0));
 	} else {

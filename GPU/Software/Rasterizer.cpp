@@ -215,22 +215,22 @@ static inline void GetTexelCoordinates(int level, float s, float t, int& out_u, 
 	ApplyTexelClamp<1>(&out_u, &out_v, &base_u, &base_v, width, height);
 }
 
-static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadS(int level, float in_s, int &frac_u) {
+static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadS(int level, float in_s, int &frac_u, int x) {
 	int width = gstate.getTextureWidth(level);
 
-	int base_u = (int)(in_s * width * 256.0f + 0.375f) - 128;
-	frac_u = (int)(base_u) & 0xff;
+	int base_u = (int)(in_s * width * 256) + 12 - x - 128;
+	frac_u = (int)(base_u >> 4) & 0x0F;
 	base_u >>= 8;
 
 	// Need to generate and individually wrap/clamp the four sample coordinates. Ugh.
 	return ApplyTexelClampQuadS(gstate.isTexCoordClampedS(), base_u, width);
 }
 
-static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadT(int level, float in_t, int &frac_v) {
+static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadT(int level, float in_t, int &frac_v, int y) {
 	int height = gstate.getTextureHeight(level);
 
-	int base_v = (int)(in_t * height * 256.0f + 0.375f) - 128;
-	frac_v = (int)(base_v) & 0xff;
+	int base_v = (int)(in_t * height * 256) + 12 - y - 128;
+	frac_v = (int)(base_v >> 4) & 0x0F;
 	base_v >>= 8;
 
 	// Need to generate and individually wrap/clamp the four sample coordinates. Ugh.
@@ -594,7 +594,7 @@ Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &sourc
 }
 
 template <bool mayHaveMipLevels>
-static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(Sampler::Funcs sampler, Vec4IntArg prim_color, float s, float t, int texlevel, int frac_texlevel, bool bilinear, u8 *texptr[], int texbufw[]) {
+static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(Sampler::Funcs sampler, Vec4IntArg prim_color, float s, float t, int texlevel, int frac_texlevel, bool bilinear, u8 *texptr[], int texbufw[], int x, int y) {
 	int frac_u[2], frac_v[2];
 
 	Vec4<int> texcolor0;
@@ -605,7 +605,7 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(Sampler::Funcs sampler,
 	int bufw1 = texbufw[mayHaveMipLevels ? texlevel + 1 : 0];
 
 	if (!bilinear) {
-		int u[8] = { 0 }, v[8] = { 0 };   // 1.23.8 fixed point
+		int u[8] = { 0 }, v[8] = { 0 };   // 1.27.4 fixed point
 
 		// Nearest filtering only.  Round texcoords.
 		GetTexelCoordinates(mayHaveMipLevels ? texlevel : 0, s, t, u[0], v[0]);
@@ -618,12 +618,12 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(Sampler::Funcs sampler,
 			texcolor1 = Vec4<int>(sampler.nearest(u[1], v[1], tptr1, bufw1, texlevel + 1));
 		}
 	} else {
-		Vec4IntResult u = GetTexelCoordinatesQuadS(mayHaveMipLevels ? texlevel : 0, s, frac_u[0]);
-		Vec4IntResult v = GetTexelCoordinatesQuadT(mayHaveMipLevels ? texlevel : 0, t, frac_v[0]);
+		Vec4IntResult u = GetTexelCoordinatesQuadS(mayHaveMipLevels ? texlevel : 0, s, frac_u[0], x);
+		Vec4IntResult v = GetTexelCoordinatesQuadT(mayHaveMipLevels ? texlevel : 0, t, frac_v[0], y);
 		Vec4IntResult u1, v1;
 		if (mayHaveMipLevels && frac_texlevel) {
-			u1 = GetTexelCoordinatesQuadS(texlevel + 1, s, frac_u[1]);
-			v1 = GetTexelCoordinatesQuadT(texlevel + 1, t, frac_v[1]);
+			u1 = GetTexelCoordinatesQuadS(texlevel + 1, s, frac_u[1], x);
+			v1 = GetTexelCoordinatesQuadT(texlevel + 1, t, frac_v[1], y);
 		}
 
 		texcolor0 = Vec4<int>(sampler.linear(ToVec4IntArg(u), ToVec4IntArg(v), frac_u[0], frac_v[0], tptr0, bufw0, mayHaveMipLevels ? texlevel : 0));
@@ -636,6 +636,11 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(Sampler::Funcs sampler,
 		texcolor0 = (texcolor1 * frac_texlevel + texcolor0 * (256 - frac_texlevel)) / 256;
 	}
 	return GetTextureFunctionOutput(prim_color, ToVec4IntArg(texcolor0));
+}
+
+template <bool mayHaveMipLevels>
+static inline Vec4IntResult SOFTRAST_CALL ApplyTexturingSingle(Sampler::Funcs sampler, Vec4IntArg prim_color, float s, float t, int texlevel, int frac_texlevel, bool bilinear, u8 *texptr[], int texbufw[], int x, int y) {
+	return ApplyTexturing<mayHaveMipLevels>(sampler, prim_color, s, t, texlevel, frac_texlevel, bilinear, texptr, texbufw, ((x & 15) + 1) / 2, ((y & 15) + 1) / 2);
 }
 
 // Produces a signed 1.23.8 value.
@@ -705,7 +710,7 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 }
 
 template <bool hasMipLevels>
-static inline void ApplyTexturing(Sampler::Funcs sampler, Vec4<int> *prim_color, const Vec4<float> &s, const Vec4<float> &t, int maxTexLevel, u8 *texptr[], int texbufw[]) {
+static inline void ApplyTexturing(Sampler::Funcs sampler, Vec4<int> *prim_color, const Vec4<float> &s, const Vec4<float> &t, int maxTexLevel, u8 *texptr[], int texbufw[], int x, int y) {
 	float ds = s[1] - s[0];
 	float dt = t[2] - t[0];
 
@@ -715,7 +720,7 @@ static inline void ApplyTexturing(Sampler::Funcs sampler, Vec4<int> *prim_color,
 	CalculateSamplingParams<hasMipLevels>(ds, dt, maxTexLevel, level, levelFrac, bilinear);
 
 	for (int i = 0; i < 4; ++i) {
-		prim_color[i] = ApplyTexturing<hasMipLevels>(sampler, ToVec4IntArg(prim_color[i]), s[i], t[i], level, levelFrac, bilinear, texptr, texbufw);
+		prim_color[i] = ApplyTexturing<hasMipLevels>(sampler, ToVec4IntArg(prim_color[i]), s[i], t[i], level, levelFrac, bilinear, texptr, texbufw, ((x & 15) + 1) / 2, ((y & 15) + 1) / 2);
 	}
 }
 
@@ -903,7 +908,7 @@ void DrawTriangleSlice(
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
 					}
 
-					ApplyTexturing<hasMipLevels>(sampler, prim_color, s, t, maxTexLevel, texptr, texbufw);
+					ApplyTexturing<hasMipLevels>(sampler, prim_color, s, t, maxTexLevel, texptr, texbufw, curX, curY);
 				}
 
 				if (!clearMode) {
@@ -1064,7 +1069,7 @@ void DrawPoint(const VertexData &v0)
 		int texLevelFrac;
 		bool bilinear;
 		CalculateSamplingParams<true>(0.0f, 0.0f, maxTexLevel, texLevel, texLevelFrac, bilinear);
-		prim_color = ApplyTexturing<true>(sampler, ToVec4IntArg(prim_color), s, t, texLevel, texLevelFrac, bilinear, texptr, texbufw);
+		prim_color = ApplyTexturingSingle<true>(sampler, ToVec4IntArg(prim_color), s, t, texLevel, texLevelFrac, bilinear, texptr, texbufw, pos.x, pos.y);
 	}
 
 	if (!pixelID.clearMode)
@@ -1361,7 +1366,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 					texBilinear = true;
 				}
 
-				prim_color = ApplyTexturing<true>(sampler, ToVec4IntArg(prim_color), s, t, texLevel, texLevelFrac, texBilinear, texptr, texbufw);
+				prim_color = ApplyTexturingSingle<true>(sampler, ToVec4IntArg(prim_color), s, t, texLevel, texLevelFrac, texBilinear, texptr, texbufw, x, y);
 			}
 
 			if (!pixelID.clearMode)

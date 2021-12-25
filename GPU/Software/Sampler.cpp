@@ -423,9 +423,9 @@ static Vec4IntResult SOFTRAST_CALL SampleLinear(Vec4IntArg u_in, Vec4IntArg v_in
 	Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(c.v[1]);
 	Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(c.v[2]);
 	Vec4<int> texcolor_br = Vec4<int>::FromRGBA(c.v[3]);
-	Vec4<int> t = texcolor_tl * (0x100 - frac_u) + texcolor_tr * frac_u;
-	Vec4<int> b = texcolor_bl * (0x100 - frac_u) + texcolor_br * frac_u;
-	return ToVec4IntResult((t * (0x100 - frac_v) + b * frac_v) / (256 * 256));
+	Vec4<int> t = texcolor_tl * (0x10 - frac_u) + texcolor_tr * frac_u;
+	Vec4<int> b = texcolor_bl * (0x10 - frac_u) + texcolor_br * frac_u;
+	return ToVec4IntResult((t * (0x10 - frac_v) + b * frac_v) / (16 * 16));
 }
 
 };
