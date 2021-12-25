@@ -588,8 +588,7 @@ Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &sourc
 						::abs(source.b() - dst.b()));
 
 	default:
-		ERROR_LOG_REPORT(G3D, "Software: Unknown blend function %x", pixelID.alphaBlendEq);
-		return Vec3<int>();
+		return source.rgb();
 	}
 }
 
