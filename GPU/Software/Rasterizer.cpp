@@ -201,13 +201,12 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuadT(bool clamp, int v
 #endif
 }
 
-static inline void GetTexelCoordinates(int level, float s, float t, int& out_u, int& out_v)
-{
+static inline void GetTexelCoordinates(int level, float s, float t, int &out_u, int &out_v, int x, int y) {
 	int width = gstate.getTextureWidth(level);
 	int height = gstate.getTextureHeight(level);
 
-	int base_u = (int)(s * width * 256.0f + 0.375f);
-	int base_v = (int)(t * height * 256.0f + 0.375f);
+	int base_u = (int)(s * width * 256.0f) + 12 - x;
+	int base_v = (int)(t * height * 256.0f) + 12 - y;
 
 	base_u >>= 8;
 	base_v >>= 8;
@@ -607,9 +606,9 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(Sampler::Funcs sampler,
 		int u[8] = { 0 }, v[8] = { 0 };   // 1.27.4 fixed point
 
 		// Nearest filtering only.  Round texcoords.
-		GetTexelCoordinates(mayHaveMipLevels ? texlevel : 0, s, t, u[0], v[0]);
+		GetTexelCoordinates(mayHaveMipLevels ? texlevel : 0, s, t, u[0], v[0], x, y);
 		if (mayHaveMipLevels && frac_texlevel) {
-			GetTexelCoordinates(texlevel + 1, s, t, u[1], v[1]);
+			GetTexelCoordinates(texlevel + 1, s, t, u[1], v[1], x, y);
 		}
 
 		texcolor0 = Vec4<int>(sampler.nearest(u[0], v[0], tptr0, bufw0, mayHaveMipLevels ? texlevel : 0));
