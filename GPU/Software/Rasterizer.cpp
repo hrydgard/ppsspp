@@ -149,35 +149,64 @@ static inline void ApplyTexelClamp(int out_u[N], int out_v[N], const int u[N], c
 	}
 }
 
-template <int N>
-static inline void ApplyTexelClampQuad(int out_u[N * 4], int out_v[N * 4], const int u[N], const int v[N], int width, int height) {
+static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuad(bool clamp, Vec4IntArg vec, int width) {
+	Vec4<int> result = vec;
+#ifdef _M_SSE
+	if (clamp) {
+		// First, clamp to zero.
+		__m128i negmask = _mm_cmpgt_epi32(_mm_setzero_si128(), result.ivec);
+		result.ivec = _mm_andnot_si128(negmask, result.ivec);
+
+		// Now the high bound.
+		__m128i bound = _mm_set1_epi32(width - 1);
+		__m128i goodmask = _mm_cmpgt_epi32(bound, result.ivec);
+		// Clear the ones that were too high, then or in the high bound to those.
+		result.ivec = _mm_and_si128(goodmask, result.ivec);
+		result.ivec = _mm_or_si128(result.ivec, _mm_andnot_si128(goodmask, bound));
+	} else {
+		result.ivec = _mm_and_si128(result.ivec, _mm_set1_epi32(width - 1));
+	}
+#else
 	if (gstate.isTexCoordClampedS()) {
-		for (int i = 0; i < N * 4; ++i) {
-			out_u[i] = ClampUV(u[i >> 2] + (i & 1), width);
+		for (int i = 0; i < 4; ++i) {
+			result[i] = ClampUV(result[i], width);
 		}
 	} else {
-		for (int i = 0; i < N * 4; ++i) {
-			out_u[i] = WrapUV(u[i >> 2] + (i & 1), width);
+		for (int i = 0; i < 4; ++i) {
+			result[i] = WrapUV(result[i], width);
 		}
 	}
-	if (gstate.isTexCoordClampedT()) {
-		for (int i = 0; i < N * 4; ++i) {
-			out_v[i] = ClampUV(v[i >> 2] + ((i >> 1) & 1), height);
-		}
-	} else {
-		for (int i = 0; i < N * 4; ++i) {
-			out_v[i] = WrapUV(v[i >> 2] + ((i >> 1) & 1), height);
-		}
-	}
+#endif
+
+	return ToVec4IntResult(result);
 }
 
-static inline void GetTexelCoordinates(int level, float s, float t, int& out_u, int& out_v)
-{
+static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuadS(bool clamp, int u, int width) {
+#ifdef _M_SSE
+	__m128i uvec = _mm_add_epi32(_mm_set1_epi32(u), _mm_set_epi32(1, 0, 1, 0));
+	return ApplyTexelClampQuad(clamp, uvec, width);
+#else
+	Vec4<int> result = Vec4<int>::AssignToAll(u) + Vec4<int>(0, 1, 0, 1);
+	return ApplyTexelClampQuad(clamp, ToVec4IntArg(result), width);
+#endif
+}
+
+static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuadT(bool clamp, int v, int height) {
+#ifdef _M_SSE
+	__m128i vvec = _mm_add_epi32(_mm_set1_epi32(v), _mm_set_epi32(1, 1, 0, 0));
+	return ApplyTexelClampQuad(clamp, vvec, height);
+#else
+	Vec4<int> result = Vec4<int>::AssignToAll(v) + Vec4<int>(0, 0, 1, 1);
+	return ApplyTexelClampQuad(clamp, ToVec4IntArg(result), height);
+#endif
+}
+
+static inline void GetTexelCoordinates(int level, float s, float t, int &out_u, int &out_v, int x, int y) {
 	int width = gstate.getTextureWidth(level);
 	int height = gstate.getTextureHeight(level);
 
-	int base_u = (int)(s * width * 256.0f + 0.375f);
-	int base_v = (int)(t * height * 256.0f + 0.375f);
+	int base_u = (int)(s * width * 256.0f) + 12 - x;
+	int base_v = (int)(t * height * 256.0f) + 12 - y;
 
 	base_u >>= 8;
 	base_v >>= 8;
@@ -185,23 +214,26 @@ static inline void GetTexelCoordinates(int level, float s, float t, int& out_u, 
 	ApplyTexelClamp<1>(&out_u, &out_v, &base_u, &base_v, width, height);
 }
 
-static inline void GetTexelCoordinatesQuad(int level, float in_s, float in_t, int u[4], int v[4], int &frac_u, int &frac_v)
-{
-	// 8 bits of fractional UV
+static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadS(int level, float in_s, int &frac_u, int x) {
 	int width = gstate.getTextureWidth(level);
+
+	int base_u = (int)(in_s * width * 256) + 12 - x - 128;
+	frac_u = (int)(base_u >> 4) & 0x0F;
+	base_u >>= 8;
+
+	// Need to generate and individually wrap/clamp the four sample coordinates. Ugh.
+	return ApplyTexelClampQuadS(gstate.isTexCoordClampedS(), base_u, width);
+}
+
+static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadT(int level, float in_t, int &frac_v, int y) {
 	int height = gstate.getTextureHeight(level);
 
-	int base_u = (int)(in_s * width * 256.0f + 0.375f) - 128;
-	int base_v = (int)(in_t * height * 256.0f + 0.375f) - 128;
-
-	frac_u = (int)(base_u) & 0xff;
-	frac_v = (int)(base_v) & 0xff;
-
-	base_u >>= 8;
+	int base_v = (int)(in_t * height * 256) + 12 - y - 128;
+	frac_v = (int)(base_v >> 4) & 0x0F;
 	base_v >>= 8;
 
 	// Need to generate and individually wrap/clamp the four sample coordinates. Ugh.
-	ApplyTexelClampQuad<1>(u, v, &base_u, &base_v, width, height);
+	return ApplyTexelClampQuadT(gstate.isTexCoordClampedT(), base_v, height);
 }
 
 static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const float p, float &s, float &t) {
@@ -555,14 +587,12 @@ Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &sourc
 						::abs(source.b() - dst.b()));
 
 	default:
-		ERROR_LOG_REPORT(G3D, "Software: Unknown blend function %x", pixelID.alphaBlendEq);
-		return Vec3<int>();
+		return source.rgb();
 	}
 }
 
 template <bool mayHaveMipLevels>
-static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(Sampler::Funcs sampler, Vec4IntArg prim_color, float s, float t, int texlevel, int frac_texlevel, bool bilinear, u8 *texptr[], int texbufw[]) {
-	int u[8] = {0}, v[8] = {0};   // 1.23.8 fixed point
+static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(Sampler::Funcs sampler, Vec4IntArg prim_color, float s, float t, int texlevel, int frac_texlevel, bool bilinear, u8 *texptr[], int texbufw[], int x, int y) {
 	int frac_u[2], frac_v[2];
 
 	Vec4<int> texcolor0;
@@ -573,10 +603,12 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(Sampler::Funcs sampler,
 	int bufw1 = texbufw[mayHaveMipLevels ? texlevel + 1 : 0];
 
 	if (!bilinear) {
+		int u[8] = { 0 }, v[8] = { 0 };   // 1.27.4 fixed point
+
 		// Nearest filtering only.  Round texcoords.
-		GetTexelCoordinates(mayHaveMipLevels ? texlevel : 0, s, t, u[0], v[0]);
+		GetTexelCoordinates(mayHaveMipLevels ? texlevel : 0, s, t, u[0], v[0], x, y);
 		if (mayHaveMipLevels && frac_texlevel) {
-			GetTexelCoordinates(texlevel + 1, s, t, u[1], v[1]);
+			GetTexelCoordinates(texlevel + 1, s, t, u[1], v[1], x, y);
 		}
 
 		texcolor0 = Vec4<int>(sampler.nearest(u[0], v[0], tptr0, bufw0, mayHaveMipLevels ? texlevel : 0));
@@ -584,24 +616,32 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(Sampler::Funcs sampler,
 			texcolor1 = Vec4<int>(sampler.nearest(u[1], v[1], tptr1, bufw1, texlevel + 1));
 		}
 	} else {
-		GetTexelCoordinatesQuad(mayHaveMipLevels ? texlevel : 0, s, t, u, v, frac_u[0], frac_v[0]);
+		Vec4IntResult u = GetTexelCoordinatesQuadS(mayHaveMipLevels ? texlevel : 0, s, frac_u[0], x);
+		Vec4IntResult v = GetTexelCoordinatesQuadT(mayHaveMipLevels ? texlevel : 0, t, frac_v[0], y);
+		Vec4IntResult u1, v1;
 		if (mayHaveMipLevels && frac_texlevel) {
-			GetTexelCoordinatesQuad(texlevel + 1, s, t, u + 4, v + 4, frac_u[1], frac_v[1]);
+			u1 = GetTexelCoordinatesQuadS(texlevel + 1, s, frac_u[1], x);
+			v1 = GetTexelCoordinatesQuadT(texlevel + 1, t, frac_v[1], y);
 		}
 
-		texcolor0 = Vec4<int>(sampler.linear(u, v, frac_u[0], frac_v[0], tptr0, bufw0, mayHaveMipLevels ? texlevel : 0));
+		texcolor0 = Vec4<int>(sampler.linear(ToVec4IntArg(u), ToVec4IntArg(v), frac_u[0], frac_v[0], tptr0, bufw0, mayHaveMipLevels ? texlevel : 0));
 		if (mayHaveMipLevels && frac_texlevel) {
-			texcolor1 = Vec4<int>(sampler.linear(u + 4, v + 4, frac_u[1], frac_v[1], tptr1, bufw1, texlevel + 1));
+			texcolor1 = Vec4<int>(sampler.linear(ToVec4IntArg(u1), ToVec4IntArg(v1), frac_u[1], frac_v[1], tptr1, bufw1, texlevel + 1));
 		}
 	}
 
 	if (mayHaveMipLevels && frac_texlevel) {
-		texcolor0 = (texcolor1 * frac_texlevel + texcolor0 * (256 - frac_texlevel)) / 256;
+		texcolor0 = (texcolor1 * frac_texlevel + texcolor0 * (16 - frac_texlevel)) / 16;
 	}
 	return GetTextureFunctionOutput(prim_color, ToVec4IntArg(texcolor0));
 }
 
-// Produces a signed 1.23.8 value.
+template <bool mayHaveMipLevels>
+static inline Vec4IntResult SOFTRAST_CALL ApplyTexturingSingle(Sampler::Funcs sampler, Vec4IntArg prim_color, float s, float t, int texlevel, int frac_texlevel, bool bilinear, u8 *texptr[], int texbufw[], int x, int y) {
+	return ApplyTexturing<mayHaveMipLevels>(sampler, prim_color, s, t, texlevel, frac_texlevel, bilinear, texptr, texbufw, ((x & 15) + 1) / 2, ((y & 15) + 1) / 2);
+}
+
+// Produces a signed 1.27.4 value.
 static int TexLog2(float delta) {
 	union FloatBits {
 		float f;
@@ -610,10 +650,10 @@ static int TexLog2(float delta) {
 	FloatBits f;
 	f.f = delta;
 	// Use the exponent as the tex level, and the top mantissa bits for a frac.
-	// We can't support more than 8 bits of frac, so truncate.
-	int useful = (f.u >> 15) & 0xFFFF;
+	// We can't support more than 4 bits of frac, so truncate.
+	int useful = (f.u >> 19) & 0x0FFF;
 	// Now offset so the exponent aligns with log2f (exp=127 is 0.)
-	return useful - 127 * 256;
+	return useful - 127 * 16;
 }
 
 template <bool mayHaveMipLevels>
@@ -629,7 +669,7 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 		break;
 	case GE_TEXLEVEL_MODE_SLOPE:
 		// This is always offset by an extra texlevel.
-		detail = 1 * 256 + TexLog2(gstate.getTextureLodSlope());
+		detail = 1 * 16 + TexLog2(gstate.getTextureLodSlope());
 		break;
 	case GE_TEXLEVEL_MODE_CONST:
 	default:
@@ -639,19 +679,19 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 	}
 
 	// Add in the bias (used in all modes), expanding to 8 bits of fraction.
-	detail += gstate.getTexLevelOffset16() << 4;
+	detail += gstate.getTexLevelOffset16();
 
 	if (mayHaveMipLevels) {
 		if (detail > 0 && maxTexLevel > 0) {
 			bool mipFilt = gstate.isMipmapFilteringEnabled();
 
-			int level8 = std::min(detail, maxTexLevel * 256);
+			int level8 = std::min(detail, maxTexLevel * 16);
 			if (!mipFilt) {
 				// Round up at 1.5.
-				level8 += 128;
+				level8 += 8;
 			}
-			level = level8 >> 8;
-			levelFrac = mipFilt ? level8 & 0xFF : 0;
+			level = level8 >> 4;
+			levelFrac = mipFilt ? level8 & 0xF : 0;
 		} else {
 			level = 0;
 			levelFrac = 0;
@@ -668,7 +708,7 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 }
 
 template <bool hasMipLevels>
-static inline void ApplyTexturing(Sampler::Funcs sampler, Vec4<int> *prim_color, const Vec4<float> &s, const Vec4<float> &t, int maxTexLevel, u8 *texptr[], int texbufw[]) {
+static inline void ApplyTexturing(Sampler::Funcs sampler, Vec4<int> *prim_color, const Vec4<float> &s, const Vec4<float> &t, int maxTexLevel, u8 *texptr[], int texbufw[], int x, int y) {
 	float ds = s[1] - s[0];
 	float dt = t[2] - t[0];
 
@@ -678,7 +718,7 @@ static inline void ApplyTexturing(Sampler::Funcs sampler, Vec4<int> *prim_color,
 	CalculateSamplingParams<hasMipLevels>(ds, dt, maxTexLevel, level, levelFrac, bilinear);
 
 	for (int i = 0; i < 4; ++i) {
-		prim_color[i] = ApplyTexturing<hasMipLevels>(sampler, ToVec4IntArg(prim_color[i]), s[i], t[i], level, levelFrac, bilinear, texptr, texbufw);
+		prim_color[i] = ApplyTexturing<hasMipLevels>(sampler, ToVec4IntArg(prim_color[i]), s[i], t[i], level, levelFrac, bilinear, texptr, texbufw, ((x & 15) + 1) / 2, ((y & 15) + 1) / 2);
 	}
 }
 
@@ -866,7 +906,7 @@ void DrawTriangleSlice(
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
 					}
 
-					ApplyTexturing<hasMipLevels>(sampler, prim_color, s, t, maxTexLevel, texptr, texbufw);
+					ApplyTexturing<hasMipLevels>(sampler, prim_color, s, t, maxTexLevel, texptr, texbufw, curX, curY);
 				}
 
 				if (!clearMode) {
@@ -1027,7 +1067,7 @@ void DrawPoint(const VertexData &v0)
 		int texLevelFrac;
 		bool bilinear;
 		CalculateSamplingParams<true>(0.0f, 0.0f, maxTexLevel, texLevel, texLevelFrac, bilinear);
-		prim_color = ApplyTexturing<true>(sampler, ToVec4IntArg(prim_color), s, t, texLevel, texLevelFrac, bilinear, texptr, texbufw);
+		prim_color = ApplyTexturingSingle<true>(sampler, ToVec4IntArg(prim_color), s, t, texLevel, texLevelFrac, bilinear, texptr, texbufw, pos.x, pos.y);
 	}
 
 	if (!pixelID.clearMode)
@@ -1324,7 +1364,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 					texBilinear = true;
 				}
 
-				prim_color = ApplyTexturing<true>(sampler, ToVec4IntArg(prim_color), s, t, texLevel, texLevelFrac, texBilinear, texptr, texbufw);
+				prim_color = ApplyTexturingSingle<true>(sampler, ToVec4IntArg(prim_color), s, t, texLevel, texLevelFrac, texBilinear, texptr, texbufw, x, y);
 			}
 
 			if (!pixelID.clearMode)

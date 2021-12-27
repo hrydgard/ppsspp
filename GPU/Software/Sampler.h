@@ -36,7 +36,7 @@ namespace Sampler {
 typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *NearestFunc)(int u, int v, const u8 *tptr, int bufw, int level);
 NearestFunc GetNearestFunc();
 
-typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *LinearFunc)(int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufw, int level);
+typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *LinearFunc)(Rasterizer::Vec4IntArg u, Rasterizer::Vec4IntArg v, int frac_u, int frac_v, const u8 *tptr, int bufw, int level);
 LinearFunc GetLinearFunc();
 
 struct Funcs {
@@ -76,7 +76,7 @@ private:
 	bool Jit_ReadTextureFormat(const SamplerID &id);
 	bool Jit_GetTexData(const SamplerID &id, int bitsPerTexel);
 	bool Jit_GetTexDataSwizzled(const SamplerID &id, int bitsPerTexel);
-	bool Jit_GetTexDataSwizzled4();
+	bool Jit_GetTexDataSwizzled4(const SamplerID &id);
 	bool Jit_Decode5650();
 	bool Jit_Decode5551();
 	bool Jit_Decode4444();
@@ -84,6 +84,9 @@ private:
 	bool Jit_ReadClutColor(const SamplerID &id);
 	bool Jit_GetDXT1Color(const SamplerID &id, int blockSize, int alpha);
 	bool Jit_ApplyDXTAlpha(const SamplerID &id);
+
+	bool Jit_PrepareDataOffsets(const SamplerID &id);
+	bool Jit_PrepareDataSwizzledOffsets(const SamplerID &id, int bitsPerTexel);
 
 #if PPSSPP_ARCH(ARM64)
 	Arm64Gen::ARM64FloatEmitter fp;

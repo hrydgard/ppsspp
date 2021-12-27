@@ -67,6 +67,7 @@ typedef int32x4_t Vec4IntArg;
 typedef int32x4_t Vec4IntResult;
 typedef float32x4_t Vec4FloatArg;
 static inline Vec4IntArg ToVec4IntArg(const Math3D::Vec4<int> &a) { return vld1q_s32(a.AsArray()); }
+static inline Vec4IntArg ToVec4IntArg(const Vec4IntResult &a) { return a; }
 static inline Vec4IntResult ToVec4IntResult(const Math3D::Vec4<int> &a) { return vld1q_s32(a.AsArray()); }
 static inline Vec4FloatArg ToVec4FloatArg(const Math3D::Vec4<float> &a) { return vld1q_f32(a.AsArray()); }
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
@@ -74,6 +75,7 @@ typedef __m128i Vec4IntArg;
 typedef __m128i Vec4IntResult;
 typedef __m128 Vec4FloatArg;
 static inline Vec4IntArg ToVec4IntArg(const Math3D::Vec4<int> &a) { return a.ivec; }
+static inline Vec4IntArg ToVec4IntArg(const Vec4IntResult &a) { return a; }
 static inline Vec4IntResult ToVec4IntResult(const Math3D::Vec4<int> &a) { return a.ivec; }
 static inline Vec4FloatArg ToVec4FloatArg(const Math3D::Vec4<float> &a) { return a.vec; }
 #else
@@ -124,6 +126,8 @@ struct RegCache {
 		GEN_ARG_FRAC_V = 0x018D,
 		VEC_ARG_COLOR = 0x0080,
 		VEC_ARG_MASK = 0x0081,
+		VEC_ARG_U = 0x0082,
+		VEC_ARG_V = 0x0083,
 
 		VEC_TEMP0 = 0x1000,
 		VEC_TEMP1 = 0x1001,

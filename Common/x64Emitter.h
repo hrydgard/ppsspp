@@ -850,6 +850,10 @@ public:
 	void PMULHUW(X64Reg dest, const OpArg &arg);
 	void PMULUDQ(X64Reg dest, const OpArg &arg);
 
+	// SSE4: integer multiply
+	void PMULLD(X64Reg dest, const OpArg &arg);
+	void PMULDQ(X64Reg dest, const OpArg &arg);
+
 	// SSE4: data type conversions
 	void PMOVSXBW(X64Reg dest, OpArg arg);
 	void PMOVSXBD(X64Reg dest, OpArg arg);

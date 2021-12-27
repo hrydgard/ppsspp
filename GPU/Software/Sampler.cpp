@@ -38,7 +38,7 @@ extern u32 clut[4096];
 namespace Sampler {
 
 static Vec4IntResult SOFTRAST_CALL SampleNearest(int u, int v, const u8 *tptr, int bufw, int level);
-static Vec4IntResult SOFTRAST_CALL SampleLinear(int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufw, int level);
+static Vec4IntResult SOFTRAST_CALL SampleLinear(Vec4IntArg u, Vec4IntArg v, int frac_u, int frac_v, const u8 *tptr, int bufw, int level);
 
 std::mutex jitCacheLock;
 SamplerJitCache *jitCache = nullptr;
@@ -308,7 +308,7 @@ struct Nearest4 {
 };
 
 template <int N>
-inline static Nearest4 SOFTRAST_CALL SampleNearest(int u[N], int v[N], const u8 *srcptr, int texbufw, int level) {
+inline static Nearest4 SOFTRAST_CALL SampleNearest(const int u[N], const int v[N], const u8 *srcptr, int texbufw, int level) {
 	Nearest4 res;
 	if (!srcptr) {
 		memset(res.v, 0, sizeof(res.v));
@@ -414,16 +414,18 @@ static Vec4IntResult SOFTRAST_CALL SampleNearest(int u, int v, const u8 *tptr, i
 	return ToVec4IntResult(Vec4<int>::FromRGBA(c.v[0]));
 }
 
-static Vec4IntResult SOFTRAST_CALL SampleLinear(int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufw, int texlevel) {
-	Nearest4 c = SampleNearest<4>(u, v, tptr, bufw, texlevel);
+static Vec4IntResult SOFTRAST_CALL SampleLinear(Vec4IntArg u_in, Vec4IntArg v_in, int frac_u, int frac_v, const u8 *tptr, int bufw, int texlevel) {
+	const Vec4<int> u = u_in;
+	const Vec4<int> v = v_in;
+	Nearest4 c = SampleNearest<4>(u.AsArray(), v.AsArray(), tptr, bufw, texlevel);
 
 	Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(c.v[0]);
 	Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(c.v[1]);
 	Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(c.v[2]);
 	Vec4<int> texcolor_br = Vec4<int>::FromRGBA(c.v[3]);
-	Vec4<int> t = texcolor_tl * (0x100 - frac_u) + texcolor_tr * frac_u;
-	Vec4<int> b = texcolor_bl * (0x100 - frac_u) + texcolor_br * frac_u;
-	return ToVec4IntResult((t * (0x100 - frac_v) + b * frac_v) / (256 * 256));
+	Vec4<int> t = texcolor_tl * (0x10 - frac_u) + texcolor_tr * frac_u;
+	Vec4<int> b = texcolor_bl * (0x10 - frac_u) + texcolor_br * frac_u;
+	return ToVec4IntResult((t * (0x10 - frac_v) + b * frac_v) / (16 * 16));
 }
 
 };
