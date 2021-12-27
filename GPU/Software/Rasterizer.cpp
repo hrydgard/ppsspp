@@ -631,7 +631,7 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(Sampler::Funcs sampler,
 	}
 
 	if (mayHaveMipLevels && frac_texlevel) {
-		texcolor0 = (texcolor1 * frac_texlevel + texcolor0 * (256 - frac_texlevel)) / 256;
+		texcolor0 = (texcolor1 * frac_texlevel + texcolor0 * (16 - frac_texlevel)) / 16;
 	}
 	return GetTextureFunctionOutput(prim_color, ToVec4IntArg(texcolor0));
 }
@@ -641,7 +641,7 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexturingSingle(Sampler::Funcs sa
 	return ApplyTexturing<mayHaveMipLevels>(sampler, prim_color, s, t, texlevel, frac_texlevel, bilinear, texptr, texbufw, ((x & 15) + 1) / 2, ((y & 15) + 1) / 2);
 }
 
-// Produces a signed 1.23.8 value.
+// Produces a signed 1.27.4 value.
 static int TexLog2(float delta) {
 	union FloatBits {
 		float f;
@@ -650,10 +650,10 @@ static int TexLog2(float delta) {
 	FloatBits f;
 	f.f = delta;
 	// Use the exponent as the tex level, and the top mantissa bits for a frac.
-	// We can't support more than 8 bits of frac, so truncate.
-	int useful = (f.u >> 15) & 0xFFFF;
+	// We can't support more than 4 bits of frac, so truncate.
+	int useful = (f.u >> 19) & 0x0FFF;
 	// Now offset so the exponent aligns with log2f (exp=127 is 0.)
-	return useful - 127 * 256;
+	return useful - 127 * 16;
 }
 
 template <bool mayHaveMipLevels>
@@ -669,7 +669,7 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 		break;
 	case GE_TEXLEVEL_MODE_SLOPE:
 		// This is always offset by an extra texlevel.
-		detail = 1 * 256 + TexLog2(gstate.getTextureLodSlope());
+		detail = 1 * 16 + TexLog2(gstate.getTextureLodSlope());
 		break;
 	case GE_TEXLEVEL_MODE_CONST:
 	default:
@@ -679,19 +679,19 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 	}
 
 	// Add in the bias (used in all modes), expanding to 8 bits of fraction.
-	detail += gstate.getTexLevelOffset16() << 4;
+	detail += gstate.getTexLevelOffset16();
 
 	if (mayHaveMipLevels) {
 		if (detail > 0 && maxTexLevel > 0) {
 			bool mipFilt = gstate.isMipmapFilteringEnabled();
 
-			int level8 = std::min(detail, maxTexLevel * 256);
+			int level8 = std::min(detail, maxTexLevel * 16);
 			if (!mipFilt) {
 				// Round up at 1.5.
-				level8 += 128;
+				level8 += 8;
 			}
-			level = level8 >> 8;
-			levelFrac = mipFilt ? level8 & 0xFF : 0;
+			level = level8 >> 4;
+			levelFrac = mipFilt ? level8 & 0xF : 0;
 		} else {
 			level = 0;
 			levelFrac = 0;
