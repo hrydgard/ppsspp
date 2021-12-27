@@ -167,7 +167,7 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuad(bool clamp, Vec4In
 		result.ivec = _mm_and_si128(result.ivec, _mm_set1_epi32(width - 1));
 	}
 #else
-	if (gstate.isTexCoordClampedS()) {
+	if (clamp) {
 		for (int i = 0; i < 4; ++i) {
 			result[i] = ClampUV(result[i], width);
 		}
