@@ -172,11 +172,16 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		constHeightMinus1i_ = AlignCode16();
 		Write32((1 << id.height0Shift) - 1); Write32((1 << id.height0Shift) - 1);
 		Write32((1 << id.height0Shift) - 1); Write32((1 << id.height0Shift) - 1);
+
+		constOnes_ = nullptr;
 	} else {
 		constWidth256f_ = nullptr;
 		constHeight256f_ = nullptr;
 		constWidthMinus1i_ = nullptr;
 		constHeightMinus1i_ = nullptr;
+
+		constOnes_ = AlignCode16();
+		Write32(1); Write32(1); Write32(1); Write32(1);
 	}
 
 	constUNext_ = AlignCode16();
@@ -221,14 +226,6 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	regCache_.Add(R12, RegCache::GEN_ARG_FRAC_U);
 	stackArgPos_ += 32;
 
-	// Our first goal is to convert S/T and X/Y into U/V and frac_u/frac_v.
-	if (!Jit_GetTexelCoordsQuad(id)) {
-		regCache_.Reset(false);
-		EndWrite();
-		ResetCodePtr(GetOffset(nearest));
-		return nullptr;
-	}
-
 	// We also want to save src and bufw for later.  Might be in a reg already.
 	if (regCache_.Has(RegCache::GEN_ARG_TEXPTR)) {
 		_assert_(regCache_.Has(RegCache::GEN_ARG_BUFW));
@@ -250,6 +247,14 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	regCache_.ChangeReg(R15, RegCache::GEN_ARG_BUFW);
 	regCache_.ForceRetain(RegCache::GEN_ARG_TEXPTR);
 	regCache_.ForceRetain(RegCache::GEN_ARG_BUFW);
+
+	// Our first goal is to convert S/T and X/Y into U/V and frac_u/frac_v.
+	if (!Jit_GetTexelCoordsQuad(id)) {
+		regCache_.Reset(false);
+		EndWrite();
+		ResetCodePtr(GetOffset(nearest));
+		return nullptr;
+	}
 
 	// Early exit on !srcPtr.
 	FixupBranch zeroSrc;
@@ -1242,16 +1247,88 @@ bool SamplerJitCache::Jit_GetTexDataSwizzled(const SamplerID &id, int bitsPerTex
 }
 
 bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
-	// TODO: Handle grabbing w/h and generating constants.
-	if (constWidth256f_ == nullptr)
-		return false;
+	// RCX ought to be free, it was either bufw or never used.
+	bool success = regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
+	_assert_msg_(success, "Should have RCX free");
 
 	X64Reg sReg = regCache_.Find(RegCache::VEC_ARG_S);
 	X64Reg tReg = regCache_.Find(RegCache::VEC_ARG_T);
 
-	// Start by multiplying with the width and converting to integers.
-	MULSS(sReg, M(constWidth256f_));
-	MULSS(tReg, M(constHeight256f_));
+	// Start by multiplying with the width/height.
+	X64Reg widthVecReg = INVALID_REG;
+	X64Reg heightVecReg = INVALID_REG;
+	if (constWidth256f_ == nullptr) {
+		// We have to figure out levels and the proper width, ugh.
+		X64Reg shiftReg = regCache_.Find(RegCache::GEN_SHIFTVAL);
+		X64Reg gstateReg = regCache_.Alloc(RegCache::GEN_GSTATE);
+		X64Reg tempReg = regCache_.Alloc(RegCache::GEN_TEMP0);
+
+		X64Reg levelReg = INVALID_REG;
+		// To avoid ABI problems, we don't hold onto level.
+		bool releaseLevelReg = !regCache_.Has(RegCache::GEN_ARG_LEVEL);
+		if (!releaseLevelReg) {
+			levelReg = regCache_.Find(RegCache::GEN_ARG_LEVEL);
+		} else {
+			releaseLevelReg = true;
+			levelReg = regCache_.Alloc(RegCache::GEN_ARG_LEVEL);
+			MOV(32, R(levelReg), MDisp(RSP, stackArgPos_ + 16));
+		}
+
+		MOV(PTRBITS, R(gstateReg), ImmPtr(&gstate.nop));
+		// Load width for the given level.
+		MOVZX(32, 8, shiftReg, MComplex(gstateReg, levelReg, SCALE_4, offsetof(GPUgstate, texsize)));
+		AND(32, R(shiftReg), Imm8(0x0F));
+		MOV(32, R(tempReg), Imm32(1));
+		SHL(32, R(tempReg), R(shiftReg));
+
+		// Okay, now into a vector reg with it.
+		widthVecReg = regCache_.Alloc(RegCache::VEC_TEMP4);
+		MOVD_xmm(widthVecReg, R(tempReg));
+
+		// Now for height, same deal.
+		MOVZX(32, 8, shiftReg, MComplex(gstateReg, levelReg, SCALE_4, 1 + offsetof(GPUgstate, texsize)));
+		AND(32, R(shiftReg), Imm8(0x0F));
+		MOV(32, R(tempReg), Imm32(1));
+		SHL(32, R(tempReg), R(shiftReg));
+		heightVecReg = regCache_.Alloc(RegCache::VEC_TEMP5);
+		MOVD_xmm(heightVecReg, R(tempReg));
+
+		regCache_.Unlock(shiftReg, RegCache::GEN_SHIFTVAL);
+		regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+		regCache_.Release(tempReg, RegCache::GEN_TEMP0);
+		if (releaseLevelReg)
+			regCache_.Release(levelReg, RegCache::GEN_ARG_LEVEL);
+		else
+			regCache_.Unlock(levelReg, RegCache::GEN_ARG_LEVEL);
+
+		// Okay, now we need to convert to float and multiply.  Do the * 256 first.
+		PSLLD(widthVecReg, 8);
+		PSLLD(heightVecReg, 8);
+
+		// Use a temp for the multiply, since we need the ints for later.
+		X64Reg tempVecReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+		CVTDQ2PS(tempVecReg, R(widthVecReg));
+		MULSS(sReg, R(tempVecReg));
+		CVTDQ2PS(tempVecReg, R(heightVecReg));
+		MULSS(tReg, R(tempVecReg));
+		regCache_.Release(tempVecReg, RegCache::VEC_TEMP0);
+
+		// Okay, undo the 256 multiply and broadcast.
+		PSRLD(widthVecReg, 8);
+		PSHUFD(widthVecReg, R(widthVecReg), _MM_SHUFFLE(0, 0, 0, 0));
+		PSRLD(heightVecReg, 8);
+		PSHUFD(heightVecReg, R(heightVecReg), _MM_SHUFFLE(0, 0, 0, 0));
+
+		// Now just subtract one.  We use this later for clamp/wrap.
+		PSUBD(widthVecReg, M(constOnes_));
+		PSUBD(heightVecReg, M(constOnes_));
+	} else {
+		// Easy mode.
+		MULSS(sReg, M(constWidth256f_));
+		MULSS(tReg, M(constHeight256f_));
+	}
+
+	// And now, convert to integers for all later processing.
 	CVTPS2DQ(sReg, R(sReg));
 	CVTPS2DQ(tReg, R(tReg));
 
@@ -1301,13 +1378,19 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	X64Reg temp0ClampReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 	bool temp0ClampZero = false;
 
-	auto doClamp = [&](X64Reg stReg, const u8 *bound) {
+	auto doClamp = [&](bool clamp, X64Reg stReg, const OpArg &bound) {
+		if (!clamp) {
+			// Wrapping is easy.
+			PAND(stReg, bound);
+			return;
+		}
+
 		if (!temp0ClampZero)
 			PXOR(temp0ClampReg, R(temp0ClampReg));
 		temp0ClampZero = true;
 
 		if (cpu_info.bSSE4_1) {
-			PMINSD(stReg, M(bound));
+			PMINSD(stReg, bound);
 			PMAXSD(stReg, R(temp0ClampReg));
 		} else {
 			temp0ClampZero = false;
@@ -1316,27 +1399,25 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 			PANDN(temp0ClampReg, R(stReg));
 
 			// Now make a mask where bound is greater than the ST value in temp0ClampReg.
-			MOVDQA(stReg, M(bound));
+			MOVDQA(stReg, bound);
 			PCMPGTD(stReg, R(temp0ClampReg));
 			// Throw away the values that are greater in our temp0ClampReg in progress result.
 			PAND(temp0ClampReg, R(stReg));
 
 			// Now, set bound only where ST was too high.
-			PANDN(stReg, M(bound));
+			PANDN(stReg, bound);
 			// And put in the values that were fine.
 			POR(stReg, R(temp0ClampReg));
 		}
 	};
 
-	if (id.clampS)
-		doClamp(sReg, constWidthMinus1i_);
-	else
-		PAND(sReg, M(constWidthMinus1i_));
+	doClamp(id.clampS, sReg, widthVecReg == INVALID_REG ? M(constWidthMinus1i_) : R(widthVecReg));
+	doClamp(id.clampT, tReg, heightVecReg == INVALID_REG ? M(constHeightMinus1i_) : R(heightVecReg));
 
-	if (id.clampT)
-		doClamp(tReg, constHeightMinus1i_);
-	else
-		PAND(tReg, M(constHeightMinus1i_));
+	if (widthVecReg != INVALID_REG)
+		regCache_.Release(widthVecReg, RegCache::VEC_TEMP4);
+	if (heightVecReg != INVALID_REG)
+		regCache_.Release(heightVecReg, RegCache::VEC_TEMP5);
 
 	regCache_.Release(temp0ClampReg, RegCache::VEC_TEMP0);
 
