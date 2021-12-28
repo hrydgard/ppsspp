@@ -86,13 +86,15 @@ private:
 	bool Jit_ApplyDXTAlpha(const SamplerID &id);
 
 	bool Jit_GetTexelCoordsQuad(const SamplerID &id);
-	bool Jit_PrepareDataOffsets(const SamplerID &id);
-	bool Jit_PrepareDataSwizzledOffsets(const SamplerID &id, int bitsPerTexel);
+	bool Jit_PrepareDataOffsets(const SamplerID &id, Rasterizer::RegCache::Reg uReg, Rasterizer::RegCache::Reg vReg);
+	bool Jit_PrepareDataDirectOffsets(const SamplerID &id, Rasterizer::RegCache::Reg uReg, Rasterizer::RegCache::Reg vReg, int bitsPerTexel);
+	bool Jit_PrepareDataSwizzledOffsets(const SamplerID &id, Rasterizer::RegCache::Reg uReg, Rasterizer::RegCache::Reg vReg, int bitsPerTexel);
 
 #if PPSSPP_ARCH(ARM64)
 	Arm64Gen::ARM64FloatEmitter fp;
 #elif PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	int stackArgPos_ = 0;
+	int stackFracUV1Offset_ = 0;
 #endif
 
 	const u8 *constWidth256f_ = nullptr;

@@ -116,12 +116,21 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		RegCache::GEN_ARG_LEVELFRAC,
 	});
 	regCache_.ChangeReg(RAX, RegCache::GEN_RESULT);
-	regCache_.ChangeReg(XMM0, RegCache::VEC_ARG_U);
-	regCache_.ForceRetain(RegCache::VEC_ARG_U);
-	regCache_.ChangeReg(XMM1, RegCache::VEC_ARG_V);
-	regCache_.ForceRetain(RegCache::VEC_ARG_V);
-	regCache_.ChangeReg(XMM5, RegCache::VEC_RESULT);
-	regCache_.ForceRetain(RegCache::VEC_RESULT);
+	auto lockReg = [&](X64Reg r, RegCache::Purpose p) {
+		regCache_.ChangeReg(r, p);
+		regCache_.ForceRetain(p);
+	};
+	lockReg(XMM0, RegCache::VEC_ARG_U);
+	lockReg(XMM1, RegCache::VEC_ARG_V);
+	lockReg(XMM5, RegCache::VEC_RESULT);
+#if !PPSSPP_PLATFORM(WINDOWS)
+	if (id.hasAnyMips) {
+		lockReg(XMM6, RegCache::VEC_U1);
+		lockReg(XMM7, RegCache::VEC_V1);
+		lockReg(XMM8, RegCache::VEC_RESULT1);
+	}
+	lockReg(XMM9, RegCache::VEC_ARG_COLOR);
+#endif
 
 	// We'll first write the nearest sampler, which we will CALL.
 	// This may differ slightly based on the "linear" flag.
@@ -139,10 +148,17 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	regCache_.ForceRelease(RegCache::VEC_ARG_U);
 	regCache_.ForceRelease(RegCache::VEC_ARG_V);
 	regCache_.ForceRelease(RegCache::VEC_RESULT);
-	if (regCache_.Has(RegCache::GEN_ARG_LEVEL))
-		regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
-	if (regCache_.Has(RegCache::GEN_ARG_LEVELFRAC))
-		regCache_.ForceRelease(RegCache::GEN_ARG_LEVELFRAC);
+
+	auto unlockOptReg = [&](RegCache::Purpose p) {
+		if (regCache_.Has(p))
+			regCache_.ForceRelease(p);
+	};
+	unlockOptReg(RegCache::GEN_ARG_LEVEL);
+	unlockOptReg(RegCache::GEN_ARG_LEVELFRAC);
+	unlockOptReg(RegCache::VEC_U1);
+	unlockOptReg(RegCache::VEC_V1);
+	unlockOptReg(RegCache::VEC_RESULT1);
+	unlockOptReg(RegCache::VEC_ARG_COLOR);
 	regCache_.Reset(true);
 
 	// Let's drop some helpful constants here.
@@ -226,6 +242,39 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	regCache_.Add(R12, RegCache::GEN_ARG_FRAC_U);
 	stackArgPos_ += 32;
 
+#if PPSSPP_PLATFORM(WINDOWS)
+	// Free up some more vector regs on Windows, where we're a bit tight.
+	SUB(64, R(RSP), Imm8(16 * 4 + 8));
+	stackArgPos_ += 16 * 4 + 8;
+	MOVDQA(MDisp(RSP, 0), XMM6);
+	MOVDQA(MDisp(RSP, 16), XMM7);
+	MOVDQA(MDisp(RSP, 32), XMM8);
+	MOVDQA(MDisp(RSP, 48), XMM9);
+	regCache_.Add(XMM6, RegCache::VEC_INVALID);
+	regCache_.Add(XMM7, RegCache::VEC_INVALID);
+	regCache_.Add(XMM8, RegCache::VEC_INVALID);
+	regCache_.Add(XMM9, RegCache::VEC_INVALID);
+
+	// Store frac UV in the gap.
+	stackFracUV1Offset_ = -stackArgPos_ + 16 * 4;
+#endif
+
+	// Reserve a couple regs that the nearest CALL won't use.
+	if (id.hasAnyMips) {
+		regCache_.ChangeReg(XMM6, RegCache::VEC_U1);
+		regCache_.ChangeReg(XMM7, RegCache::VEC_V1);
+		regCache_.ForceRetain(RegCache::VEC_U1);
+		regCache_.ForceRetain(RegCache::VEC_V1);
+	}
+
+	// Save prim color for later in a different XMM too.
+	X64Reg primColorReg = regCache_.Find(RegCache::VEC_ARG_COLOR);
+	MOVDQA(XMM9, R(primColorReg));
+	regCache_.Unlock(primColorReg, RegCache::VEC_ARG_COLOR);
+	regCache_.ForceRelease(RegCache::VEC_ARG_COLOR);
+	regCache_.ChangeReg(XMM9, RegCache::VEC_ARG_COLOR);
+	regCache_.ForceRetain(RegCache::VEC_ARG_COLOR);
+
 	// We also want to save src and bufw for later.  Might be in a reg already.
 	if (regCache_.Has(RegCache::GEN_ARG_TEXPTR)) {
 		_assert_(regCache_.Has(RegCache::GEN_ARG_BUFW));
@@ -248,13 +297,10 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	regCache_.ForceRetain(RegCache::GEN_ARG_TEXPTR);
 	regCache_.ForceRetain(RegCache::GEN_ARG_BUFW);
 
+	bool success = true;
+
 	// Our first goal is to convert S/T and X/Y into U/V and frac_u/frac_v.
-	if (!Jit_GetTexelCoordsQuad(id)) {
-		regCache_.Reset(false);
-		EndWrite();
-		ResetCodePtr(GetOffset(nearest));
-		return nullptr;
-	}
+	success = success && Jit_GetTexelCoordsQuad(id);
 
 	// Early exit on !srcPtr (either one.)
 	FixupBranch zeroSrc;
@@ -279,19 +325,24 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
 	}
 
-	// TODO: Save color or put it somewhere... or reserve the reg?
-	// For now, throwing away to avoid confusion.
-	regCache_.ForceRelease(RegCache::VEC_ARG_COLOR);
+	auto prepareDataOffsets = [&](RegCache::Purpose uPurpose, RegCache::Purpose vPurpose) {
+		X64Reg uReg = regCache_.Find(uPurpose);
+		X64Reg vReg = regCache_.Find(vPurpose);
+		success = success && Jit_PrepareDataOffsets(id, uReg, vReg);
+		regCache_.Unlock(uReg, uPurpose);
+		regCache_.Unlock(vReg, vPurpose);
+	};
 
-	if (!Jit_PrepareDataOffsets(id)) {
-		regCache_.Reset(false);
-		EndWrite();
-		ResetCodePtr(GetOffset(nearest));
-		return nullptr;
-	}
+	prepareDataOffsets(RegCache::VEC_ARG_U, RegCache::VEC_ARG_V);
+	if (id.hasAnyMips)
+		prepareDataOffsets(RegCache::VEC_U1, RegCache::VEC_V1);
 
 	regCache_.ChangeReg(XMM5, RegCache::VEC_RESULT);
 	regCache_.ForceRetain(RegCache::VEC_RESULT);
+	if (id.hasAnyMips) {
+		regCache_.ChangeReg(XMM8, RegCache::VEC_RESULT1);
+		regCache_.ForceRetain(RegCache::VEC_RESULT1);
+	}
 
 	// This stores the result in an XMM for later processing.
 	// We map lookups to nearest CALLs, with arg order: u, v, src, bufw, level
@@ -353,13 +404,27 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	// We're done with these now.
 	regCache_.ForceRelease(RegCache::VEC_ARG_U);
 	regCache_.ForceRelease(RegCache::VEC_ARG_V);
+	if (regCache_.Has(RegCache::VEC_U1))
+		regCache_.ForceRelease(RegCache::VEC_U1);
+	if (regCache_.Has(RegCache::VEC_V1))
+		regCache_.ForceRelease(RegCache::VEC_V1);
+	regCache_.ForceRelease(RegCache::VEC_ARG_COLOR);
 	regCache_.ForceRelease(RegCache::GEN_ARG_TEXPTR);
 	regCache_.ForceRelease(RegCache::GEN_ARG_BUFW);
 	if (regCache_.Has(RegCache::GEN_ARG_LEVEL))
 		regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
 
+	if (!success) {
+		regCache_.Reset(false);
+		EndWrite();
+		ResetCodePtr(GetOffset(nearest));
+		return nullptr;
+	}
+
 	// TODO: Convert to reg cache.
 	regCache_.ForceRelease(RegCache::VEC_RESULT);
+	if (regCache_.Has(RegCache::VEC_RESULT1))
+		regCache_.ForceRelease(RegCache::VEC_RESULT1);
 	static const X64Reg fpScratchReg1 = XMM1;
 	static const X64Reg fpScratchReg2 = XMM2;
 	static const X64Reg fpScratchReg3 = XMM3;
@@ -436,6 +501,13 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		SetJumpTarget(zeroSrc);
 	}
 
+#if PPSSPP_PLATFORM(WINDOWS)
+	MOVDQA(XMM6, MDisp(RSP, 0));
+	MOVDQA(XMM7, MDisp(RSP, 16));
+	MOVDQA(XMM8, MDisp(RSP, 32));
+	MOVDQA(XMM9, MDisp(RSP, 48));
+	ADD(64, R(RSP), Imm8(16 * 4 + 8));
+#endif
 	POP(R12);
 	POP(R13);
 	POP(R14);
@@ -1265,9 +1337,12 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	X64Reg sReg = regCache_.Find(RegCache::VEC_ARG_S);
 	X64Reg tReg = regCache_.Find(RegCache::VEC_ARG_T);
 
-	// Start by multiplying with the width/height.
-	X64Reg widthVecReg = INVALID_REG;
-	X64Reg heightVecReg = INVALID_REG;
+	// Start by multiplying with the width/height... which might be complex with mips.
+	X64Reg width0VecReg = INVALID_REG;
+	X64Reg height0VecReg = INVALID_REG;
+	X64Reg width1VecReg = INVALID_REG;
+	X64Reg height1VecReg = INVALID_REG;
+
 	if (constWidth256f_ == nullptr) {
 		// We have to figure out levels and the proper width, ugh.
 		X64Reg shiftReg = regCache_.Find(RegCache::GEN_SHIFTVAL);
@@ -1286,23 +1361,44 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 		}
 
 		MOV(PTRBITS, R(gstateReg), ImmPtr(&gstate.nop));
-		// Load width for the given level.
-		MOVZX(32, 8, shiftReg, MComplex(gstateReg, levelReg, SCALE_4, offsetof(GPUgstate, texsize)));
-		AND(32, R(shiftReg), Imm8(0x0F));
-		MOV(32, R(tempReg), Imm32(1));
-		SHL(32, R(tempReg), R(shiftReg));
 
-		// Okay, now into a vector reg with it.
-		widthVecReg = regCache_.Alloc(RegCache::VEC_TEMP4);
-		MOVD_xmm(widthVecReg, R(tempReg));
+		X64Reg tempVecReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+		auto loadSizeAndMul = [&](X64Reg dest, X64Reg size, bool isY, bool isLevel1) {
+			int offset = offsetof(GPUgstate, texsize) + (isY ? 1 : 0) + (isLevel1 ? 4 : 0);
+			// Grab the size, and shift.
+			MOVZX(32, 8, shiftReg, MComplex(gstateReg, levelReg, SCALE_4, offset));
+			AND(32, R(shiftReg), Imm8(0x0F));
+			MOV(32, R(tempReg), Imm32(1));
+			SHL(32, R(tempReg), R(shiftReg));
 
-		// Now for height, same deal.
-		MOVZX(32, 8, shiftReg, MComplex(gstateReg, levelReg, SCALE_4, 1 + offsetof(GPUgstate, texsize)));
-		AND(32, R(shiftReg), Imm8(0x0F));
-		MOV(32, R(tempReg), Imm32(1));
-		SHL(32, R(tempReg), R(shiftReg));
-		heightVecReg = regCache_.Alloc(RegCache::VEC_TEMP5);
-		MOVD_xmm(heightVecReg, R(tempReg));
+			// Okay, now move into a vec (two, in fact, one for the multiply.)
+			MOVD_xmm(tempVecReg, R(tempReg));
+			PSHUFD(size, R(tempVecReg), _MM_SHUFFLE(0, 0, 0, 0));
+
+			// Multiply by 256 and convert to a float.
+			PSLLD(tempVecReg, 8);
+			CVTDQ2PS(tempVecReg, R(tempVecReg));
+			// And then multiply.
+			MULPS(dest, R(tempVecReg));
+		};
+
+		// Copy out S and T so we can multiply.
+		X64Reg u1Reg = regCache_.Find(RegCache::VEC_U1);
+		X64Reg v1Reg = regCache_.Find(RegCache::VEC_V1);
+		MOVDQA(u1Reg, R(sReg));
+		MOVDQA(v1Reg, R(tReg));
+
+		// Load width and height for the given level, and multiply sReg/tReg meanwhile.
+		width0VecReg = regCache_.Alloc(RegCache::VEC_TEMP2);
+		loadSizeAndMul(sReg, width0VecReg, false, false);
+		height0VecReg = regCache_.Alloc(RegCache::VEC_TEMP3);
+		loadSizeAndMul(tReg, height0VecReg, true, false);
+
+		// And same for the next level, but with u1Reg/v1Reg.
+		width1VecReg = regCache_.Alloc(RegCache::VEC_TEMP4);
+		loadSizeAndMul(u1Reg, width1VecReg, false, true);
+		height1VecReg = regCache_.Alloc(RegCache::VEC_TEMP5);
+		loadSizeAndMul(v1Reg, height1VecReg, true, true);
 
 		regCache_.Unlock(shiftReg, RegCache::GEN_SHIFTVAL);
 		regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
@@ -1312,27 +1408,16 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 		else
 			regCache_.Unlock(levelReg, RegCache::GEN_ARG_LEVEL);
 
-		// Okay, now we need to convert to float and multiply.  Do the * 256 first.
-		PSLLD(widthVecReg, 8);
-		PSLLD(heightVecReg, 8);
-
-		// Use a temp for the multiply, since we need the ints for later.
-		X64Reg tempVecReg = regCache_.Alloc(RegCache::VEC_TEMP0);
-		CVTDQ2PS(tempVecReg, R(widthVecReg));
-		MULSS(sReg, R(tempVecReg));
-		CVTDQ2PS(tempVecReg, R(heightVecReg));
-		MULSS(tReg, R(tempVecReg));
-		regCache_.Release(tempVecReg, RegCache::VEC_TEMP0);
-
-		// Okay, undo the 256 multiply and broadcast.
-		PSRLD(widthVecReg, 8);
-		PSHUFD(widthVecReg, R(widthVecReg), _MM_SHUFFLE(0, 0, 0, 0));
-		PSRLD(heightVecReg, 8);
-		PSHUFD(heightVecReg, R(heightVecReg), _MM_SHUFFLE(0, 0, 0, 0));
+		regCache_.Unlock(u1Reg, RegCache::VEC_U1);
+		regCache_.Unlock(v1Reg, RegCache::VEC_V1);
 
 		// Now just subtract one.  We use this later for clamp/wrap.
-		PSUBD(widthVecReg, M(constOnes_));
-		PSUBD(heightVecReg, M(constOnes_));
+		MOVDQA(tempVecReg, M(constOnes_));
+		PSUBD(width0VecReg, R(tempVecReg));
+		PSUBD(height0VecReg, R(tempVecReg));
+		PSUBD(width1VecReg, R(tempVecReg));
+		PSUBD(height1VecReg, R(tempVecReg));
+		regCache_.Release(tempVecReg, RegCache::VEC_TEMP0);
 	} else {
 		// Easy mode.
 		MULSS(sReg, M(constWidth256f_));
@@ -1342,6 +1427,14 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	// And now, convert to integers for all later processing.
 	CVTPS2DQ(sReg, R(sReg));
 	CVTPS2DQ(tReg, R(tReg));
+	if (regCache_.Has(RegCache::VEC_U1)) {
+		X64Reg u1Reg = regCache_.Find(RegCache::VEC_U1);
+		X64Reg v1Reg = regCache_.Find(RegCache::VEC_V1);
+		CVTPS2DQ(u1Reg, R(u1Reg));
+		CVTPS2DQ(v1Reg, R(v1Reg));
+		regCache_.Unlock(u1Reg, RegCache::VEC_U1);
+		regCache_.Unlock(v1Reg, RegCache::VEC_V1);
+	}
 
 	// Now adjust X and Y...
 	X64Reg xReg = regCache_.Find(RegCache::GEN_ARG_X);
@@ -1355,8 +1448,18 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	X64Reg tempXYReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 	MOVD_xmm(tempXYReg, R(xReg));
 	PADDD(sReg, R(tempXYReg));
+	if (regCache_.Has(RegCache::VEC_U1)) {
+		X64Reg u1Reg = regCache_.Find(RegCache::VEC_U1);
+		PADDD(u1Reg, R(tempXYReg));
+		regCache_.Unlock(u1Reg, RegCache::VEC_U1);
+	}
 	MOVD_xmm(tempXYReg, R(yReg));
 	PADDD(tReg, R(tempXYReg));
+	if (regCache_.Has(RegCache::VEC_V1)) {
+		X64Reg v1Reg = regCache_.Find(RegCache::VEC_V1);
+		PADDD(v1Reg, R(tempXYReg));
+		regCache_.Unlock(v1Reg, RegCache::VEC_V1);
+	}
 	regCache_.Release(tempXYReg, RegCache::VEC_TEMP0);
 
 	regCache_.Unlock(xReg, RegCache::GEN_ARG_X);
@@ -1367,6 +1470,23 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	// We do want the fraction, though, so extract that.
 	X64Reg fracUReg = regCache_.Find(RegCache::GEN_ARG_FRAC_U);
 	X64Reg fracVReg = regCache_.Find(RegCache::GEN_ARG_FRAC_V);
+	if (regCache_.Has(RegCache::VEC_U1)) {
+		// Start with the next level so we end with current in the regs.
+		X64Reg u1Reg = regCache_.Find(RegCache::VEC_U1);
+		X64Reg v1Reg = regCache_.Find(RegCache::VEC_V1);
+		MOVD_xmm(R(fracUReg), u1Reg);
+		MOVD_xmm(R(fracVReg), v1Reg);
+		SHR(32, R(fracUReg), Imm8(4));
+		AND(32, R(fracUReg), Imm8(0x0F));
+		SHR(32, R(fracVReg), Imm8(4));
+		AND(32, R(fracVReg), Imm8(0x0F));
+		regCache_.Unlock(u1Reg, RegCache::VEC_U1);
+		regCache_.Unlock(v1Reg, RegCache::VEC_V1);
+
+		// Store them on the stack for now.
+		MOV(32, MDisp(RSP, stackArgPos_ + stackFracUV1Offset_), R(fracUReg));
+		MOV(32, MDisp(RSP, stackArgPos_ + stackFracUV1Offset_ + 4), R(fracVReg));
+	}
 	MOVD_xmm(R(fracUReg), sReg);
 	MOVD_xmm(R(fracVReg), tReg);
 	SHR(32, R(fracUReg), Imm8(4));
@@ -1381,10 +1501,22 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	PSRAD(tReg, 8);
 	PSHUFD(sReg, R(sReg), _MM_SHUFFLE(0, 0, 0, 0));
 	PSHUFD(tReg, R(tReg), _MM_SHUFFLE(0, 0, 0, 0));
-
 	// Add U/V values for the next coords.
 	PADDD(sReg, M(constUNext_));
 	PADDD(tReg, M(constVNext_));
+
+	if (regCache_.Has(RegCache::VEC_U1)) {
+		X64Reg u1Reg = regCache_.Find(RegCache::VEC_U1);
+		X64Reg v1Reg = regCache_.Find(RegCache::VEC_V1);
+		PSRAD(u1Reg, 8);
+		PSRAD(v1Reg, 8);
+		PSHUFD(u1Reg, R(u1Reg), _MM_SHUFFLE(0, 0, 0, 0));
+		PSHUFD(v1Reg, R(v1Reg), _MM_SHUFFLE(0, 0, 0, 0));
+		PADDD(u1Reg, M(constUNext_));
+		PADDD(v1Reg, M(constVNext_));
+		regCache_.Unlock(u1Reg, RegCache::VEC_U1);
+		regCache_.Unlock(v1Reg, RegCache::VEC_V1);
+	}
 
 	X64Reg temp0ClampReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 	bool temp0ClampZero = false;
@@ -1422,13 +1554,25 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 		}
 	};
 
-	doClamp(id.clampS, sReg, widthVecReg == INVALID_REG ? M(constWidthMinus1i_) : R(widthVecReg));
-	doClamp(id.clampT, tReg, heightVecReg == INVALID_REG ? M(constHeightMinus1i_) : R(heightVecReg));
+	doClamp(id.clampS, sReg, width0VecReg == INVALID_REG ? M(constWidthMinus1i_) : R(width0VecReg));
+	doClamp(id.clampT, tReg, height0VecReg == INVALID_REG ? M(constHeightMinus1i_) : R(height0VecReg));
+	if (width1VecReg != INVALID_REG) {
+		X64Reg u1Reg = regCache_.Find(RegCache::VEC_U1);
+		X64Reg v1Reg = regCache_.Find(RegCache::VEC_V1);
+		doClamp(id.clampS, u1Reg, R(width1VecReg));
+		doClamp(id.clampT, v1Reg, R(height1VecReg));
+		regCache_.Unlock(u1Reg, RegCache::VEC_U1);
+		regCache_.Unlock(v1Reg, RegCache::VEC_V1);
+	}
 
-	if (widthVecReg != INVALID_REG)
-		regCache_.Release(widthVecReg, RegCache::VEC_TEMP4);
-	if (heightVecReg != INVALID_REG)
-		regCache_.Release(heightVecReg, RegCache::VEC_TEMP5);
+	if (width0VecReg != INVALID_REG)
+		regCache_.Release(width0VecReg, RegCache::VEC_TEMP2);
+	if (height0VecReg != INVALID_REG)
+		regCache_.Release(height0VecReg, RegCache::VEC_TEMP3);
+	if (width1VecReg != INVALID_REG)
+		regCache_.Release(width1VecReg, RegCache::VEC_TEMP4);
+	if (height1VecReg != INVALID_REG)
+		regCache_.Release(height1VecReg, RegCache::VEC_TEMP5);
 
 	regCache_.Release(temp0ClampReg, RegCache::VEC_TEMP0);
 
@@ -1439,10 +1583,8 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	return true;
 }
 
-bool SamplerJitCache::Jit_PrepareDataOffsets(const SamplerID &id) {
+bool SamplerJitCache::Jit_PrepareDataOffsets(const SamplerID &id, RegCache::Reg uReg, RegCache::Reg vReg) {
 	_assert_(id.linear);
-
-	// TODO: Use reg cache to avoid overwriting color...
 
 	bool success = true;
 	int bits = -1;
@@ -1478,87 +1620,99 @@ bool SamplerJitCache::Jit_PrepareDataOffsets(const SamplerID &id) {
 
 	if (success && bits != -1) {
 		if (id.swizzle) {
-			success = Jit_PrepareDataSwizzledOffsets(id, bits);
+			success = Jit_PrepareDataSwizzledOffsets(id, uReg, vReg, bits);
 		} else {
-			if (!id.useStandardBufw || id.hasAnyMips) {
-				// Spread bufw into each lane.
-				X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW);
-				MOVD_xmm(XMM2, MatR(bufwReg));
-				regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW);
-				PSHUFD(XMM2, R(XMM2), _MM_SHUFFLE(0, 0, 0, 0));
-
-				if (bits == 4)
-					PSRLD(XMM2, 1);
-				else if (bits == 16)
-					PSLLD(XMM2, 1);
-				else if (bits == 32)
-					PSLLD(XMM2, 2);
-			}
-
-			if (id.useStandardBufw && !id.hasAnyMips) {
-				int amt = id.width0Shift;
-				if (bits == 4)
-					amt -= 1;
-				else if (bits == 16)
-					amt += 1;
-				else if (bits == 32)
-					amt += 2;
-				// It's aligned to 16 bytes, so must at least be 16.
-				PSLLD(XMM1, std::max(4, amt));
-			} else if (cpu_info.bSSE4_1) {
-				// And now multiply.  This is slow, but not worse than the SSE2 version...
-				PMULLD(XMM1, R(XMM2));
-			} else {
-				// Copy that into another temp for multiply.
-				MOVDQA(XMM3, R(XMM1));
-
-				// Okay, first, multiply to get XXXX CCCC XXXX AAAA.
-				PMULUDQ(XMM1, R(XMM2));
-				PSRLDQ(XMM3, 4);
-				PSRLDQ(XMM2, 4);
-				// And now get XXXX DDDD XXXX BBBB.
-				PMULUDQ(XMM3, R(XMM2));
-
-				// We know everything is positive, so XXXX must be zero.  Let's combine.
-				PSLLDQ(XMM3, 4);
-				POR(XMM1, R(XMM3));
-			}
-
-			if (bits == 4) {
-				// Need to keep uvec for the odd bit.
-				MOVDQA(XMM2, R(XMM0));
-				PSRLD(XMM2, 1);
-				PADDD(XMM1, R(XMM2));
-			} else {
-				// Destroy uvec, we won't use it again.
-				if (bits == 16)
-					PSLLD(XMM0, 1);
-				else if (bits == 32)
-					PSLLD(XMM0, 2);
-				PADDD(XMM1, R(XMM0));
-			}
+			success = Jit_PrepareDataDirectOffsets(id, uReg, vReg, bits);
 		}
 	}
 
 	return success;
 }
 
-bool SamplerJitCache::Jit_PrepareDataSwizzledOffsets(const SamplerID &id, int bitsPerTexel) {
-	// See Jit_GetTexDataSwizzled() for usage of this offset.
-
-	// TODO: Use reg cache to avoid overwriting color...
-
+bool SamplerJitCache::Jit_PrepareDataDirectOffsets(const SamplerID &id, RegCache::Reg uReg, RegCache::Reg vReg, int bitsPerTexel) {
+	X64Reg bufwVecReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 	if (!id.useStandardBufw || id.hasAnyMips) {
 		// Spread bufw into each lane.
 		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW);
-		MOVD_xmm(XMM2, MatR(bufwReg));
+		MOVD_xmm(bufwVecReg, MatR(bufwReg));
 		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW);
-		PSHUFD(XMM2, R(XMM2), _MM_SHUFFLE(0, 0, 0, 0));
+		PSHUFD(bufwVecReg, R(bufwVecReg), _MM_SHUFFLE(0, 0, 0, 0));
+
+		if (bitsPerTexel == 4)
+			PSRLD(bufwVecReg, 1);
+		else if (bitsPerTexel == 16)
+			PSLLD(bufwVecReg, 1);
+		else if (bitsPerTexel == 32)
+			PSLLD(bufwVecReg, 2);
+	}
+
+	if (id.useStandardBufw && !id.hasAnyMips) {
+		int amt = id.width0Shift;
+		if (bitsPerTexel == 4)
+			amt -= 1;
+		else if (bitsPerTexel == 16)
+			amt += 1;
+		else if (bitsPerTexel == 32)
+			amt += 2;
+		// It's aligned to 16 bytes, so must at least be 16.
+		PSLLD(vReg, std::max(4, amt));
+	} else if (cpu_info.bSSE4_1) {
+		// And now multiply.  This is slow, but not worse than the SSE2 version...
+		PMULLD(vReg, R(bufwVecReg));
+	} else {
+		// Copy that into another temp for multiply.
+		X64Reg vOddLaneReg = regCache_.Alloc(RegCache::VEC_TEMP1);
+		MOVDQA(vOddLaneReg, R(vReg));
+
+		// Okay, first, multiply to get XXXX CCCC XXXX AAAA.
+		PMULUDQ(vReg, R(bufwVecReg));
+		PSRLDQ(vOddLaneReg, 4);
+		PSRLDQ(bufwVecReg, 4);
+		// And now get XXXX DDDD XXXX BBBB.
+		PMULUDQ(vOddLaneReg, R(bufwVecReg));
+
+		// We know everything is positive, so XXXX must be zero.  Let's combine.
+		PSLLDQ(vOddLaneReg, 4);
+		POR(vReg, R(vOddLaneReg));
+		regCache_.Release(vOddLaneReg, RegCache::VEC_TEMP1);
+	}
+	regCache_.Release(bufwVecReg, RegCache::VEC_TEMP0);
+
+	if (bitsPerTexel == 4) {
+		// Need to keep uvec for the odd bit.
+		X64Reg uCopyReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+		MOVDQA(uCopyReg, R(uReg));
+		PSRLD(uCopyReg, 1);
+		PADDD(vReg, R(uCopyReg));
+		regCache_.Release(uCopyReg, RegCache::VEC_TEMP0);
+	} else {
+		// Destroy uvec, we won't use it again.
+		if (bitsPerTexel == 16)
+			PSLLD(uReg, 1);
+		else if (bitsPerTexel == 32)
+			PSLLD(uReg, 2);
+		PADDD(vReg, R(uReg));
+	}
+
+	return true;
+}
+
+bool SamplerJitCache::Jit_PrepareDataSwizzledOffsets(const SamplerID &id, RegCache::Reg uReg, RegCache::Reg vReg, int bitsPerTexel) {
+	// See Jit_GetTexDataSwizzled() for usage of this offset.
+
+	X64Reg bufwVecReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+	if (!id.useStandardBufw || id.hasAnyMips) {
+		// Spread bufw into each lane.
+		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW);
+		MOVD_xmm(bufwVecReg, MatR(bufwReg));
+		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW);
+		PSHUFD(bufwVecReg, R(bufwVecReg), _MM_SHUFFLE(0, 0, 0, 0));
 	}
 
 	// Divide vvec by 8 in a temp.
-	MOVDQA(XMM3, R(XMM1));
-	PSRLD(XMM3, 3);
+	X64Reg vMultReg = regCache_.Alloc(RegCache::VEC_TEMP1);
+	MOVDQA(vMultReg, R(vReg));
+	PSRLD(vMultReg, 3);
 
 	// And now multiply by bufw.  May be able to use a shift in a common case.
 	int shiftAmount = 32 - clz32_nonzero(bitsPerTexel - 1);
@@ -1569,51 +1723,58 @@ bool SamplerJitCache::Jit_PrepareDataSwizzledOffsets(const SamplerID &id, int bi
 		shiftAmount += amt;
 	} else if (cpu_info.bSSE4_1) {
 		// And now multiply.  This is slow, but not worse than the SSE2 version...
-		PMULLD(XMM3, R(XMM2));
+		PMULLD(vMultReg, R(bufwVecReg));
 	} else {
 		// Copy that into another temp for multiply.
-		MOVDQA(XMM4, R(XMM3));
+		X64Reg vOddLaneReg = regCache_.Alloc(RegCache::VEC_TEMP2);
+		MOVDQA(vOddLaneReg, R(vMultReg));
 
 		// Okay, first, multiply to get XXXX CCCC XXXX AAAA.
-		PMULUDQ(XMM3, R(XMM2));
-		PSRLDQ(XMM4, 4);
-		PSRLDQ(XMM2, 4);
+		PMULUDQ(vMultReg, R(bufwVecReg));
+		PSRLDQ(vOddLaneReg, 4);
+		PSRLDQ(bufwVecReg, 4);
 		// And now get XXXX DDDD XXXX BBBB.
-		PMULUDQ(XMM4, R(XMM2));
+		PMULUDQ(vOddLaneReg, R(bufwVecReg));
 
 		// We know everything is positive, so XXXX must be zero.  Let's combine.
-		PSLLDQ(XMM4, 4);
-		POR(XMM3, R(XMM4));
+		PSLLDQ(vOddLaneReg, 4);
+		POR(vMultReg, R(vOddLaneReg));
+		regCache_.Release(vOddLaneReg, RegCache::VEC_TEMP2);
 	}
+	regCache_.Release(bufwVecReg, RegCache::VEC_TEMP0);
+
 	// Multiply the result by bitsPerTexel using a shift.
-	PSLLD(XMM3, shiftAmount);
+	PSLLD(vMultReg, shiftAmount);
 
 	// Now we're adding (v & 7) * 16.  Use a 16-bit wall.
-	PSLLW(XMM1, 13);
-	PSRLD(XMM1, 9);
-	PADDD(XMM1, R(XMM3));
+	PSLLW(vReg, 13);
+	PSRLD(vReg, 9);
+	PADDD(vReg, R(vMultReg));
+	regCache_.Release(vMultReg, RegCache::VEC_TEMP1);
 
 	// Now get ((uvec / texels_per_tile) / 4) * 32 * 4 aka (uvec / (128 / bitsPerTexel)) << 7.
-	MOVDQA(XMM2, R(XMM0));
-	PSRLD(XMM2, 7 + clz32_nonzero(bitsPerTexel - 1) - 32);
-	PSLLD(XMM2, 7);
+	X64Reg uCopyReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+	MOVDQA(uCopyReg, R(uReg));
+	PSRLD(uCopyReg, 7 + clz32_nonzero(bitsPerTexel - 1) - 32);
+	PSLLD(uCopyReg, 7);
 	// Add it in to our running total.
-	PADDD(XMM1, R(XMM2));
+	PADDD(vReg, R(uCopyReg));
 
 	if (bitsPerTexel == 4) {
 		// Finally, we want (uvec & 31) / 2.  Use a 16-bit wall.
-		MOVDQA(XMM2, R(XMM0));
-		PSLLW(XMM2, 11);
-		PSRLD(XMM2, 12);
+		MOVDQA(uCopyReg, R(uReg));
+		PSLLW(uCopyReg, 11);
+		PSRLD(uCopyReg, 12);
 		// With that, this is our byte offset.  uvec & 1 has which half.
-		PADDD(XMM1, R(XMM2));
+		PADDD(vReg, R(uCopyReg));
 	} else {
 		// We can destroy uvec in this path.  Clear all but 2 bits for 32, 3 for 16, or 4 for 8.
-		PSLLW(XMM0, 32 - clz32_nonzero(bitsPerTexel - 1) + 9);
+		PSLLW(uReg, 32 - clz32_nonzero(bitsPerTexel - 1) + 9);
 		// Now that it's at the top of the 16 bits, we always shift that to the top of 4 bits.
-		PSRLD(XMM0, 12);
-		PADDD(XMM1, R(XMM0));
+		PSRLD(uReg, 12);
+		PADDD(vReg, R(uReg));
 	}
+	regCache_.Release(uCopyReg, RegCache::VEC_TEMP0);
 
 	return true;
 }

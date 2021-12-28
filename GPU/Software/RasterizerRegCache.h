@@ -100,6 +100,9 @@ struct RegCache {
 
 		VEC_ZERO = 0x0000,
 		VEC_RESULT = 0x0001,
+		VEC_RESULT1 = 0x0002,
+		VEC_U1 = 0x0003,
+		VEC_V1 = 0x0004,
 
 		GEN_SRC_ALPHA = 0x0100,
 		GEN_GSTATE = 0x0101,
