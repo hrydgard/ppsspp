@@ -19,6 +19,7 @@
 #include <unordered_map>
 #include <mutex>
 #include "Common/Data/Convert/ColorConv.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -113,12 +114,21 @@ void SamplerJitCache::Clear() {
 void SamplerJitCache::ComputeSamplerID(SamplerID *id_out, bool linear) {
 	SamplerID id{};
 
+	id.useStandardBufw = true;
+	id.hasStandardMips = true;
 	int maxLevel = gstate.isMipmapEnabled() ? gstate.getTextureMaxLevel() : 0;
+	int lastWidth = -1;
 	for (int i = 0; i <= maxLevel; ++i) {
-		if (gstate.getTextureAddress(i) == 0) {
+		if (gstate.getTextureAddress(i) == 0)
 			id.hasInvalidPtr = true;
-		}
+		int w = gstate.getTextureWidth(i);
+		if (w != (gstate.texbufwidth[i] & 0x00001FFF))
+			id.useStandardBufw = false;
+		if (lastWidth != -1 && lastWidth != w * 2)
+			id.hasStandardMips = false;
+		lastWidth = w;
 	}
+	id.hasAnyMips = maxLevel != 0;
 
 	id.texfmt = gstate.getTextureFormat();
 	id.swizzle = gstate.isTextureSwizzled();
@@ -131,6 +141,17 @@ void SamplerJitCache::ComputeSamplerID(SamplerID *id_out, bool linear) {
 		id.hasClutOffset = gstate.getClutIndexStartPos() != 0;
 	}
 	id.linear = linear;
+
+	id.clampS = gstate.isTexCoordClampedS();
+	id.clampT = gstate.isTexCoordClampedT();
+	id.width0Shift = gstate.texsize[0] & 0xF;
+	id.height0Shift = (gstate.texsize[0] >> 8) & 0xF;
+
+	id.useTextureAlpha = gstate.isTextureAlphaUsed();
+	id.useColorDoubling = gstate.isColorDoublingEnabled();
+	id.texFunc = gstate.getTextureFunction();
+	if (id.texFunc > GE_TEXFUNC_ADD)
+		id.texFunc = GE_TEXFUNC_ADD;
 
 	*id_out = id;
 }
@@ -172,7 +193,7 @@ std::string SamplerJitCache::DescribeSamplerID(const SamplerID &id) {
 		name += ":SWZ";
 	}
 	if (!id.useSharedClut) {
-		name += ":MIP";
+		name += ":CMIP";
 	}
 	if (id.hasInvalidPtr) {
 		name += ":INV";
@@ -186,9 +207,45 @@ std::string SamplerJitCache::DescribeSamplerID(const SamplerID &id) {
 	if (id.hasClutOffset) {
 		name += ":COFF";
 	}
+	if (id.clampS || id.clampT) {
+		name += std::string(":CL") + (id.clampS ? "S" : "") + (id.clampT ? "T" : "");
+	}
+	if (!id.useStandardBufw) {
+		name += ":BUFW";
+	}
+	if (!id.hasStandardMips) {
+		name += ":XMIP";
+	} else if (id.hasAnyMips) {
+		name += ":MIP";
+	}
 	if (id.linear) {
 		name += ":LERP";
 	}
+	if (id.useTextureAlpha) {
+		name += ":A";
+	}
+	if (id.useColorDoubling) {
+		name += ":DBL";
+	}
+	switch (id.texFunc) {
+	case GE_TEXFUNC_MODULATE:
+		name += ":MOD";
+		break;
+	case GE_TEXFUNC_DECAL:
+		name += ":DECAL";
+		break;
+	case GE_TEXFUNC_BLEND:
+		name += ":BLEND";
+		break;
+	case GE_TEXFUNC_REPLACE:
+		break;
+	case GE_TEXFUNC_ADD:
+		name += ":ADD";
+	default:
+		break;
+	}
+	name += StringFromFormat(":W%dH%d", 1 << id.width0Shift, 1 << id.height0Shift);
+
 	return name;
 }
 

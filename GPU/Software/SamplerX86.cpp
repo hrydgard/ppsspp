@@ -1176,18 +1176,30 @@ bool SamplerJitCache::Jit_PrepareDataOffsets(const SamplerID &id) {
 		if (id.swizzle) {
 			success = Jit_PrepareDataSwizzledOffsets(id, bits);
 		} else {
-			// Spread bufw into each lane.
-			MOVD_xmm(XMM2, R(R15));
-			PSHUFD(XMM2, R(XMM2), _MM_SHUFFLE(0, 0, 0, 0));
+			if (!id.useStandardBufw || id.hasAnyMips) {
+				// Spread bufw into each lane.
+				MOVD_xmm(XMM2, R(R15));
+				PSHUFD(XMM2, R(XMM2), _MM_SHUFFLE(0, 0, 0, 0));
 
-			if (bits == 4)
-				PSRLD(XMM2, 1);
-			else if (bits == 16)
-				PSLLD(XMM2, 1);
-			else if (bits == 32)
-				PSLLD(XMM2, 2);
+				if (bits == 4)
+					PSRLD(XMM2, 1);
+				else if (bits == 16)
+					PSLLD(XMM2, 1);
+				else if (bits == 32)
+					PSLLD(XMM2, 2);
+			}
 
-			if (cpu_info.bSSE4_1) {
+			if (id.useStandardBufw && !id.hasAnyMips) {
+				int amt = id.width0Shift;
+				if (bits == 4)
+					amt -= 1;
+				else if (bits == 16)
+					amt += 1;
+				else if (bits == 32)
+					amt += 2;
+				// It's aligned to 16 bytes, so must at least be 16.
+				PSLLD(XMM1, std::max(4, amt));
+			} else if (cpu_info.bSSE4_1) {
 				// And now multiply.  This is slow, but not worse than the SSE2 version...
 				PMULLD(XMM1, R(XMM2));
 			} else {
@@ -1228,14 +1240,24 @@ bool SamplerJitCache::Jit_PrepareDataOffsets(const SamplerID &id) {
 bool SamplerJitCache::Jit_PrepareDataSwizzledOffsets(const SamplerID &id, int bitsPerTexel) {
 	// See Jit_GetTexDataSwizzled() for usage of this offset.
 
-	// Spread bufw into each lane.
-	MOVD_xmm(XMM2, R(R15));
-	PSHUFD(XMM2, R(XMM2), _MM_SHUFFLE(0, 0, 0, 0));
+	if (!id.useStandardBufw || id.hasAnyMips) {
+		// Spread bufw into each lane.
+		MOVD_xmm(XMM2, R(R15));
+		PSHUFD(XMM2, R(XMM2), _MM_SHUFFLE(0, 0, 0, 0));
+	}
 
 	// Divide vvec by 8 in a temp.
 	MOVDQA(XMM3, R(XMM1));
 	PSRLD(XMM3, 3);
-	if (cpu_info.bSSE4_1) {
+
+	// And now multiply by bufw.  May be able to use a shift in a common case.
+	int shiftAmount = 32 - clz32_nonzero(bitsPerTexel - 1);
+	if (id.useStandardBufw && !id.hasAnyMips) {
+		int amt = id.width0Shift;
+		// Account for 16 byte minimum.
+		amt = std::max(7 - shiftAmount, amt);
+		shiftAmount += amt;
+	} else if (cpu_info.bSSE4_1) {
 		// And now multiply.  This is slow, but not worse than the SSE2 version...
 		PMULLD(XMM3, R(XMM2));
 	} else {
@@ -1254,7 +1276,7 @@ bool SamplerJitCache::Jit_PrepareDataSwizzledOffsets(const SamplerID &id, int bi
 		POR(XMM3, R(XMM4));
 	}
 	// Multiply the result by bitsPerTexel using a shift.
-	PSLLD(XMM3, 32 - clz32_nonzero(bitsPerTexel - 1));
+	PSLLD(XMM3, shiftAmount);
 
 	// Now we're adding (v & 7) * 16.  Use a 16-bit wall.
 	PSLLW(XMM1, 13);
