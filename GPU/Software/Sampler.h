@@ -73,6 +73,8 @@ private:
 	NearestFunc Compile(const SamplerID &id);
 	LinearFunc CompileLinear(const SamplerID &id);
 
+	Rasterizer::RegCache::Reg GetZeroVec();
+
 	bool Jit_ReadTextureFormat(const SamplerID &id);
 	bool Jit_GetTexData(const SamplerID &id, int bitsPerTexel);
 	bool Jit_GetTexDataSwizzled(const SamplerID &id, int bitsPerTexel);
@@ -89,6 +91,7 @@ private:
 	bool Jit_PrepareDataOffsets(const SamplerID &id, Rasterizer::RegCache::Reg uReg, Rasterizer::RegCache::Reg vReg);
 	bool Jit_PrepareDataDirectOffsets(const SamplerID &id, Rasterizer::RegCache::Reg uReg, Rasterizer::RegCache::Reg vReg, int bitsPerTexel);
 	bool Jit_PrepareDataSwizzledOffsets(const SamplerID &id, Rasterizer::RegCache::Reg uReg, Rasterizer::RegCache::Reg vReg, int bitsPerTexel);
+	bool Jit_BlendQuad(const SamplerID &id, Rasterizer::RegCache::Reg destReg, bool level1);
 
 #if PPSSPP_ARCH(ARM64)
 	Arm64Gen::ARM64FloatEmitter fp;
@@ -104,6 +107,8 @@ private:
 	const u8 *constUNext_ = nullptr;
 	const u8 *constVNext_ = nullptr;
 	const u8 *constOnes_ = nullptr;
+	const u8 *const10Low_ = nullptr;
+	const u8 *const10All_ = nullptr;
 
 	std::unordered_map<SamplerID, NearestFunc> cache_;
 	std::unordered_map<SamplerID, const u8 *> addresses_;

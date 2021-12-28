@@ -540,7 +540,7 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(Sampler::Funcs sampler,
 	} else {
 		texcolor0 = Vec4<int>(sampler.linear(s, t, x, y, prim_color, tptr0, bufw0, mayHaveMipLevels ? texlevel : 0, mayHaveMipLevels ? frac_texlevel : 0));
 		if (mayHaveMipLevels && frac_texlevel) {
-			texcolor1 = Vec4<int>(sampler.linear(s, t, x, y, prim_color, tptr0 + 1, bufw0 + 1, texlevel + 1, frac_texlevel));
+			texcolor1 = Vec4<int>(sampler.linear(s, t, x, y, prim_color, tptr0 + 1, bufw0 + 1, texlevel + 1, 0));
 		}
 	}
 
