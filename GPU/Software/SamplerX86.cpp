@@ -256,15 +256,27 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		return nullptr;
 	}
 
-	// Early exit on !srcPtr.
+	// Early exit on !srcPtr (either one.)
 	FixupBranch zeroSrc;
 	if (id.hasInvalidPtr) {
-		// TODO: Change when texptr is an array.
-		CMP(PTRBITS, R(R14), Imm8(0));
+		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
+
+		if (id.hasAnyMips) {
+			X64Reg tempReg = regCache_.Alloc(RegCache::GEN_TEMP0);
+			MOV(64, R(tempReg), MDisp(srcReg, 0));
+			AND(64, R(tempReg), MDisp(srcReg, 8));
+
+			CMP(PTRBITS, R(tempReg), Imm8(0));
+			regCache_.Release(tempReg, RegCache::GEN_TEMP0);
+		} else {
+			CMP(PTRBITS, MatR(srcReg), Imm8(0));
+		}
 		FixupBranch nonZeroSrc = J_CC(CC_NZ);
 		PXOR(XMM0, R(XMM0));
 		zeroSrc = J(true);
 		SetJumpTarget(nonZeroSrc);
+
+		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
 	}
 
 	// TODO: Save color or put it somewhere... or reserve the reg?
@@ -307,9 +319,8 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 
 		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
 		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW);
-		// TODO: Change when texptr is an array.
-		MOV(64, R(srcArgReg), R(srcReg));
-		MOV(32, R(bufwArgReg), R(bufwReg));
+		MOV(64, R(srcArgReg), MDisp(srcReg, 0));
+		MOV(32, R(bufwArgReg), MDisp(bufwReg, 0));
 		// Leave level/levelFrac, we just always load from RAM on Windows and lock on POSIX.
 		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
 		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW);
@@ -1471,7 +1482,9 @@ bool SamplerJitCache::Jit_PrepareDataOffsets(const SamplerID &id) {
 		} else {
 			if (!id.useStandardBufw || id.hasAnyMips) {
 				// Spread bufw into each lane.
-				MOVD_xmm(XMM2, R(R15));
+				X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW);
+				MOVD_xmm(XMM2, MatR(bufwReg));
+				regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW);
 				PSHUFD(XMM2, R(XMM2), _MM_SHUFFLE(0, 0, 0, 0));
 
 				if (bits == 4)
@@ -1537,7 +1550,9 @@ bool SamplerJitCache::Jit_PrepareDataSwizzledOffsets(const SamplerID &id, int bi
 
 	if (!id.useStandardBufw || id.hasAnyMips) {
 		// Spread bufw into each lane.
-		MOVD_xmm(XMM2, R(R15));
+		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW);
+		MOVD_xmm(XMM2, MatR(bufwReg));
+		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW);
 		PSHUFD(XMM2, R(XMM2), _MM_SHUFFLE(0, 0, 0, 0));
 	}
 

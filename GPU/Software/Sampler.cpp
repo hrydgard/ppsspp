@@ -39,7 +39,7 @@ extern u32 clut[4096];
 namespace Sampler {
 
 static Vec4IntResult SOFTRAST_CALL SampleNearest(int u, int v, const u8 *tptr, int bufw, int level);
-static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color,  const u8 *tptr, int bufw, int level, int levelFrac);
+static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 **tptr, const int *bufw, int level, int levelFrac);
 
 std::mutex jitCacheLock;
 SamplerJitCache *jitCache = nullptr;
@@ -557,11 +557,11 @@ static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadT(int level, fl
 	return ApplyTexelClampQuadT(gstate.isTexCoordClampedT(), base_v, height);
 }
 
-static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *tptr, int bufw, int texlevel, int levelFrac) {
+static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 **tptr, const int *bufw, int texlevel, int levelFrac) {
 	int frac_u, frac_v;
 	const Vec4<int> u = GetTexelCoordinatesQuadS(texlevel, s, frac_u, x);
 	const Vec4<int> v = GetTexelCoordinatesQuadT(texlevel, t, frac_v, y);
-	Nearest4 c = SampleNearest<4>(u.AsArray(), v.AsArray(), tptr, bufw, texlevel);
+	Nearest4 c = SampleNearest<4>(u.AsArray(), v.AsArray(), tptr[0], bufw[0], texlevel);
 
 	Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(c.v[0]);
 	Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(c.v[1]);
