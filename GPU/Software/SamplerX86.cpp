@@ -2313,7 +2313,8 @@ bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
 		} else {
 #if PPSSPP_PLATFORM(WINDOWS)
 			if (id.linear) {
-				MOV(32, R(temp2Reg), MDisp(RSP, stackArgPos_ + 16));
+				// Extra 8 to account for call.
+				MOV(32, R(temp2Reg), MDisp(RSP, stackArgPos_ + 8 + 16));
 			} else {
 				// The argument was saved on the stack.
 				MOV(32, R(temp2Reg), MDisp(RSP, 40));
