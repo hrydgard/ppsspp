@@ -711,7 +711,8 @@ void DrawTriangleSlice(
 	int x1, int y1, int x2, int y2,
 	bool byY, int h1, int h2,
 	const PixelFuncID &pixelID,
-	const Rasterizer::SingleFunc &drawPixel)
+	const Rasterizer::SingleFunc &drawPixel,
+	const Sampler::Funcs &sampler)
 {
 	Vec4<int> bias0 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v0.screenpos.xy(), v1.screenpos.xy(), v2.screenpos.xy()) ? -1 : 0);
 	Vec4<int> bias1 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v1.screenpos.xy(), v2.screenpos.xy(), v0.screenpos.xy()) ? -1 : 0);
@@ -755,8 +756,6 @@ void DrawTriangleSlice(
 	// All the z values are the same, no interpolation required.
 	// This is common, and when we interpolate, we lose accuracy.
 	const bool flatZ = v0.screenpos.z == v1.screenpos.z && v0.screenpos.z == v2.screenpos.z;
-
-	Sampler::Funcs sampler = Sampler::GetFuncs();
 
 	for (int64_t curY = minY; curY <= maxY; curY += 32,
 										w0_base = e0.StepY(w0_base),
@@ -894,6 +893,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	PixelFuncID pixelID;
 	ComputePixelFuncID(&pixelID);
 	Rasterizer::SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID);
+	Sampler::Funcs sampler = Sampler::GetFuncs();
 	const bool hasMipLevels = gstate.isMipmapEnabled() ? gstate.getTextureMaxLevel() > 0 : false;
 
 	auto drawSlice = (hasMipLevels ?
@@ -905,16 +905,16 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 	if (rangeY >= 12 && rangeX >= rangeY * 4) {
 		auto bound = [&](int a, int b) -> void {
-			drawSlice(v0, v1, v2, minX, minY, maxX, maxY, false, a, b, pixelID, drawPixel);
+			drawSlice(v0, v1, v2, minX, minY, maxX, maxY, false, a, b, pixelID, drawPixel, sampler);
 		};
 		ParallelRangeLoop(&g_threadManager, bound, 0, rangeX, MIN_LINES_PER_THREAD);
 	} else if (rangeY >= 12 && rangeX >= 12) {
 		auto bound = [&](int a, int b) -> void {
-			drawSlice(v0, v1, v2, minX, minY, maxX, maxY, true, a, b, pixelID, drawPixel);
+			drawSlice(v0, v1, v2, minX, minY, maxX, maxY, true, a, b, pixelID, drawPixel, sampler);
 		};
 		ParallelRangeLoop(&g_threadManager, bound, 0, rangeY, MIN_LINES_PER_THREAD);
 	} else {
-		drawSlice(v0, v1, v2, minX, minY, maxX, maxY, true, 0, rangeY, pixelID, drawPixel);
+		drawSlice(v0, v1, v2, minX, minY, maxX, maxY, true, 0, rangeY, pixelID, drawPixel, sampler);
 	}
 }
 
