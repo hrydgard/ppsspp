@@ -1781,6 +1781,10 @@ void XEmitter::PBLENDVB(X64Reg dest, OpArg arg) {WriteSSE41Op(0x66, 0x3810, dest
 void XEmitter::BLENDVPS(X64Reg dest, OpArg arg) {WriteSSE41Op(0x66, 0x3814, dest, arg);}
 void XEmitter::BLENDVPD(X64Reg dest, OpArg arg) {WriteSSE41Op(0x66, 0x3815, dest, arg);}
 
+void XEmitter::PBLENDW(X64Reg dest, OpArg arg, u8 mask) {WriteSSE41Op(0x66, 0x3A0E, dest, arg, 1); Write8(mask);}
+void XEmitter::BLENDPS(X64Reg dest, OpArg arg, u8 mask) {WriteSSE41Op(0x66, 0x3A0C, dest, arg, 1); Write8(mask);}
+void XEmitter::BLENDPD(X64Reg dest, OpArg arg, u8 mask) {WriteSSE41Op(0x66, 0x3A0D, dest, arg, 1); Write8(mask);}
+
 void XEmitter::ROUNDSS(X64Reg dest, OpArg arg, u8 mode) {WriteSSE41Op(0x66, 0x3A0A, dest, arg, 1); Write8(mode);}
 void XEmitter::ROUNDSD(X64Reg dest, OpArg arg, u8 mode) {WriteSSE41Op(0x66, 0x3A0B, dest, arg, 1); Write8(mode);}
 void XEmitter::ROUNDPS(X64Reg dest, OpArg arg, u8 mode) {WriteSSE41Op(0x66, 0x3A08, dest, arg, 1); Write8(mode);}

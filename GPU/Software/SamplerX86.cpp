@@ -381,8 +381,17 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		// Otherwise, we'll overwrite them...
 		_assert_(level1 || (uReg == XMM0 && vReg == XMM1));
 
-		MOVD_xmm(R(uArgReg), uReg);
-		MOVD_xmm(R(vArgReg), vReg);
+		if (cpu_info.bSSE4_1) {
+			PEXTRD(R(uArgReg), uReg, off / 4);
+			PEXTRD(R(vArgReg), vReg, off / 4);
+		} else {
+			MOVD_xmm(R(uArgReg), uReg);
+			MOVD_xmm(R(vArgReg), vReg);
+			PSRLDQ(uReg, 4);
+			PSRLDQ(vReg, 4);
+		}
+		regCache_.Unlock(uReg, level1 ? RegCache::VEC_U1 : RegCache::VEC_ARG_U);
+		regCache_.Unlock(vReg, level1 ? RegCache::VEC_V1 : RegCache::VEC_ARG_V);
 
 		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
 		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW);
@@ -392,15 +401,12 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
 		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW);
 
-		PSRLDQ(uReg, 4);
-		PSRLDQ(vReg, 4);
-		regCache_.Unlock(uReg, level1 ? RegCache::VEC_U1 : RegCache::VEC_ARG_U);
-		regCache_.Unlock(vReg, level1 ? RegCache::VEC_V1 : RegCache::VEC_ARG_V);
-
 		CALL(nearest);
 
 		X64Reg vecResultReg = regCache_.Find(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
-		if (off == 0) {
+		if (cpu_info.bSSE4_1) {
+			PINSRD(vecResultReg, R(resultReg), off / 4);
+		} else if (off == 0) {
 			MOVD_xmm(vecResultReg, R(resultReg));
 		} else {
 			X64Reg tempReg = regCache_.Alloc(RegCache::VEC_TEMP0);
@@ -682,12 +688,17 @@ bool SamplerJitCache::Jit_ApplyTextureFunc(const SamplerID &id) {
 	X64Reg tempReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 
 	auto useAlphaFrom = [&](X64Reg alphaColorReg) {
-		PSRLDQ(alphaColorReg, 6);
-		PSLLDQ(alphaColorReg, 6);
-		// Zero out the result alpha and OR them together.
-		PSLLDQ(resultReg, 10);
-		PSRLDQ(resultReg, 10);
-		POR(resultReg, R(alphaColorReg));
+		if (cpu_info.bSSE4_1) {
+			// Copy only alpha.
+			PBLENDW(resultReg, R(alphaColorReg), 0x08);
+		} else {
+			PSRLDQ(alphaColorReg, 6);
+			PSLLDQ(alphaColorReg, 6);
+			// Zero out the result alpha and OR them together.
+			PSLLDQ(resultReg, 10);
+			PSRLDQ(resultReg, 10);
+			POR(resultReg, R(alphaColorReg));
+		}
 	};
 
 	// Note: color is in DWORDs, but result is in WORDs.

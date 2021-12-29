@@ -873,6 +873,11 @@ public:
 	void BLENDVPS(X64Reg dest, OpArg arg);
 	void BLENDVPD(X64Reg dest, OpArg arg);
 
+	// SSE4: constant blend instructions
+	void PBLENDW(X64Reg dest, OpArg arg, u8 mask);
+	void BLENDPS(X64Reg dest, OpArg arg, u8 mask);
+	void BLENDPD(X64Reg dest, OpArg arg, u8 mask);
+
 	// SSE4: rounding (see FloatRound for mode or use ROUNDNEARSS, etc. helpers.)
 	void ROUNDSS(X64Reg dest, OpArg arg, u8 mode);
 	void ROUNDSD(X64Reg dest, OpArg arg, u8 mode);
