@@ -557,7 +557,7 @@ static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadT(int level, fl
 	return ApplyTexelClampQuadT(gstate.isTexCoordClampedT(), base_v, height);
 }
 
-static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 **tptr, const int *bufw, int texlevel, int levelFrac) {
+static Vec4IntResult SOFTRAST_CALL SampleLinearLevel(float s, float t, int x, int y, const u8 **tptr, const int *bufw, int texlevel) {
 	int frac_u, frac_v;
 	const Vec4<int> u = GetTexelCoordinatesQuadS(texlevel, s, frac_u, x);
 	const Vec4<int> v = GetTexelCoordinatesQuadT(texlevel, t, frac_v, y);
@@ -570,6 +570,15 @@ static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, 
 	Vec4<int> top = texcolor_tl * (0x10 - frac_u) + texcolor_tr * frac_u;
 	Vec4<int> bot = texcolor_bl * (0x10 - frac_u) + texcolor_br * frac_u;
 	return ToVec4IntResult((top * (0x10 - frac_v) + bot * frac_v) / (16 * 16));
+}
+
+static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 **tptr, const int *bufw, int texlevel, int levelFrac) {
+	Vec4<int> c0 = SampleLinearLevel(s, t, x, y, tptr, bufw, texlevel);
+	if (levelFrac) {
+		const Vec4<int> c1 = SampleLinearLevel(s, t, x, y, tptr + 1, bufw + 1, texlevel + 1);
+		c0 = (c1 * levelFrac + c0 * (16 - levelFrac)) / 16;
+	}
+	return ToVec4IntResult(c0);
 }
 
 };

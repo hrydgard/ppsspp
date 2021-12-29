@@ -91,7 +91,7 @@ private:
 	bool Jit_PrepareDataOffsets(const SamplerID &id, Rasterizer::RegCache::Reg uReg, Rasterizer::RegCache::Reg vReg);
 	bool Jit_PrepareDataDirectOffsets(const SamplerID &id, Rasterizer::RegCache::Reg uReg, Rasterizer::RegCache::Reg vReg, int bitsPerTexel);
 	bool Jit_PrepareDataSwizzledOffsets(const SamplerID &id, Rasterizer::RegCache::Reg uReg, Rasterizer::RegCache::Reg vReg, int bitsPerTexel);
-	bool Jit_BlendQuad(const SamplerID &id, Rasterizer::RegCache::Reg destReg, bool level1);
+	bool Jit_BlendQuad(const SamplerID &id, bool level1);
 
 #if PPSSPP_ARCH(ARM64)
 	Arm64Gen::ARM64FloatEmitter fp;

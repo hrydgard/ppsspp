@@ -265,6 +265,8 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		regCache_.ChangeReg(XMM7, RegCache::VEC_V1);
 		regCache_.ForceRetain(RegCache::VEC_U1);
 		regCache_.ForceRetain(RegCache::VEC_V1);
+	} else if (regCache_.Has(RegCache::GEN_ARG_LEVELFRAC)) {
+		regCache_.ForceRelease(RegCache::GEN_ARG_LEVELFRAC);
 	}
 
 	// Save prim color for later in a different XMM too.
@@ -441,8 +443,52 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	if (regCache_.Has(RegCache::GEN_ARG_LEVEL))
 		regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
 
-	// TODO: Convert to reg cache.
-	success = success && Jit_BlendQuad(id, XMM0, false);
+	success = success && Jit_BlendQuad(id, false);
+	if (id.hasAnyMips) {
+		if (!regCache_.Has(RegCache::GEN_ARG_LEVELFRAC)) {
+			X64Reg levelFracReg = regCache_.Alloc(RegCache::GEN_ARG_LEVELFRAC);
+			MOVZX(32, 8, levelFracReg, MDisp(RSP, stackArgPos_ + 24));
+			regCache_.Unlock(levelFracReg, RegCache::GEN_ARG_LEVELFRAC);
+			regCache_.ForceRetain(RegCache::GEN_ARG_LEVELFRAC);
+		}
+
+		X64Reg levelFracReg = regCache_.Find(RegCache::GEN_ARG_LEVELFRAC);
+		CMP(8, R(levelFracReg), Imm8(0));
+		FixupBranch skip = J_CC(CC_Z, true);
+
+		success = success && Jit_BlendQuad(id, true);
+
+		// First, broadcast the levelFrac value into an XMM.
+		X64Reg fracReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+		MOVD_xmm(fracReg, R(levelFracReg));
+		PSHUFLW(fracReg, R(fracReg), _MM_SHUFFLE(0, 0, 0, 0));
+		regCache_.Unlock(levelFracReg, RegCache::GEN_ARG_LEVELFRAC);
+		regCache_.ForceRelease(RegCache::GEN_ARG_LEVELFRAC);
+
+		// Multiply level1 color by the fraction.
+		X64Reg color1Reg = regCache_.Find(RegCache::VEC_RESULT1);
+		PMULLW(color1Reg, R(fracReg));
+
+		// Okay, next we need an inverse for color 0.
+		X64Reg invFracReg = regCache_.Alloc(RegCache::VEC_TEMP1);
+		MOVDQA(invFracReg, M(const10All_));
+		PSUBW(invFracReg, R(fracReg));
+
+		// And multiply.
+		PMULLW(XMM0, R(invFracReg));
+		regCache_.Release(fracReg, RegCache::VEC_TEMP0);
+		regCache_.Release(invFracReg, RegCache::VEC_TEMP1);
+
+		// Okay, now sum and divide by 16 (which is what the fraction maxed at.)
+		PADDW(XMM0, R(color1Reg));
+		PSRLW(XMM0, 4);
+
+		// And now we're done with color1Reg/VEC_RESULT1.
+		regCache_.Unlock(color1Reg, RegCache::VEC_RESULT1);
+		regCache_.ForceRelease(RegCache::VEC_RESULT1);
+
+		SetJumpTarget(skip);
+	}
 
 	// Last of all, convert to 32-bit channels.
 	if (cpu_info.bSSE4_1) {
@@ -453,9 +499,10 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
 	}
 
+	// TODO: Actually use these at some point.
+	regCache_.ForceRelease(RegCache::VEC_ARG_COLOR);
+
 	regCache_.ForceRelease(RegCache::VEC_RESULT);
-	if (regCache_.Has(RegCache::VEC_RESULT1))
-		regCache_.ForceRelease(RegCache::VEC_RESULT1);
 
 	if (!success) {
 		regCache_.Reset(false);
@@ -463,11 +510,6 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		ResetCodePtr(GetOffset(nearest));
 		return nullptr;
 	}
-
-	// TODO: Actually use these at some point.
-	regCache_.ForceRelease(RegCache::VEC_ARG_COLOR);
-	if (regCache_.Has(RegCache::GEN_ARG_LEVELFRAC))
-		regCache_.ForceRelease(RegCache::GEN_ARG_LEVELFRAC);
 
 	if (id.hasInvalidPtr) {
 		SetJumpTarget(zeroSrc);
@@ -502,7 +544,7 @@ RegCache::Reg SamplerJitCache::GetZeroVec() {
 	return regCache_.Find(RegCache::VEC_ZERO);
 }
 
-bool SamplerJitCache::Jit_BlendQuad(const SamplerID &id, Rasterizer::RegCache::Reg destReg, bool level1) {
+bool SamplerJitCache::Jit_BlendQuad(const SamplerID &id, bool level1) {
 	// First put the top RRRRRRRR LLLLLLLL into topReg, bottom into bottomReg.
 	// Start with XXXX XXXX RRRR LLLL, and then expand 8 bits to 16 bits.
 	X64Reg topReg = regCache_.Alloc(RegCache::VEC_TEMP0);
@@ -521,8 +563,10 @@ bool SamplerJitCache::Jit_BlendQuad(const SamplerID &id, Rasterizer::RegCache::R
 		PMOVZXBW(topReg, R(quadReg));
 		PMOVZXBW(bottomReg, R(bottomReg));
 	}
-	regCache_.Unlock(quadReg, level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
-	regCache_.ForceRelease(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
+	if (!level1) {
+		regCache_.Unlock(quadReg, RegCache::VEC_RESULT);
+		regCache_.ForceRelease(RegCache::VEC_RESULT);
+	}
 
 	// Grab frac_u and spread to lower (L) lanes.
 	X64Reg fracReg = regCache_.Alloc(RegCache::VEC_TEMP2);
@@ -577,24 +621,34 @@ bool SamplerJitCache::Jit_BlendQuad(const SamplerID &id, Rasterizer::RegCache::R
 	// Finally, time to sum them all up and divide by 256 to get back to 8 bits.
 	PADDUSW(bottomReg, R(topReg));
 	regCache_.Release(topReg, RegCache::VEC_TEMP0);
-	bool success = regCache_.ChangeReg(destReg, level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
-	if (!success) {
-		_assert_msg_(destReg == bottomReg, "Unexpected other reg locked as destReg");
-		X64Reg otherReg = regCache_.Alloc(RegCache::VEC_TEMP0);
-		PSHUFD(otherReg, R(bottomReg), _MM_SHUFFLE(3, 2, 3, 2));
-		PADDUSW(bottomReg, R(otherReg));
-		regCache_.Release(otherReg, RegCache::VEC_TEMP0);
-		regCache_.Release(bottomReg, RegCache::VEC_TEMP1);
 
-		// Okay, now it can be changed.
-		regCache_.ChangeReg(destReg, level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
+	bool changeSuccess = true;
+	if (level1) {
+		PSHUFD(quadReg, R(bottomReg), _MM_SHUFFLE(3, 2, 3, 2));
+		PADDUSW(quadReg, R(bottomReg));
+		PSRLW(quadReg, 8);
+		regCache_.Release(bottomReg, RegCache::VEC_TEMP1);
+		regCache_.Unlock(quadReg, RegCache::VEC_RESULT1);
 	} else {
-		PSHUFD(destReg, R(bottomReg), _MM_SHUFFLE(3, 2, 3, 2));
-		PADDUSW(destReg, R(bottomReg));
-		regCache_.Release(bottomReg, RegCache::VEC_TEMP1);
-	}
+		changeSuccess = regCache_.ChangeReg(XMM0, RegCache::VEC_RESULT);
+		if (!changeSuccess) {
+			_assert_msg_(XMM0 == bottomReg, "Unexpected other reg locked as destReg");
+			X64Reg otherReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+			PSHUFD(otherReg, R(bottomReg), _MM_SHUFFLE(3, 2, 3, 2));
+			PADDUSW(bottomReg, R(otherReg));
+			regCache_.Release(otherReg, RegCache::VEC_TEMP0);
+			regCache_.Release(bottomReg, RegCache::VEC_TEMP1);
 
-	PSRLW(destReg, 8);
+			// Okay, now it can be changed.
+			regCache_.ChangeReg(XMM0, RegCache::VEC_RESULT);
+		} else {
+			PSHUFD(XMM0, R(bottomReg), _MM_SHUFFLE(3, 2, 3, 2));
+			PADDUSW(XMM0, R(bottomReg));
+			regCache_.Release(bottomReg, RegCache::VEC_TEMP1);
+		}
+
+		PSRLW(XMM0, 8);
+	}
 
 	return true;
 }

@@ -520,7 +520,6 @@ Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &sourc
 template <bool mayHaveMipLevels>
 static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(Sampler::Funcs sampler, Vec4IntArg prim_color, float s, float t, int texlevel, int frac_texlevel, bool bilinear, u8 *texptr[], int texbufw[], int x, int y) {
 	Vec4<int> texcolor0;
-	Vec4<int> texcolor1;
 	const u8 **tptr0 = const_cast<const u8 **>(&texptr[mayHaveMipLevels ? texlevel : 0]);
 	const int *bufw0 = &texbufw[mayHaveMipLevels ? texlevel : 0];
 
@@ -535,18 +534,13 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(Sampler::Funcs sampler,
 
 		texcolor0 = Vec4<int>(sampler.nearest(u[0], v[0], tptr0[0], bufw0[0], mayHaveMipLevels ? texlevel : 0));
 		if (mayHaveMipLevels && frac_texlevel) {
-			texcolor1 = Vec4<int>(sampler.nearest(u[1], v[1], tptr0[1], bufw0[1], texlevel + 1));
+			Vec4<int> texcolor1 = Vec4<int>(sampler.nearest(u[1], v[1], tptr0[1], bufw0[1], texlevel + 1));
+			texcolor0 = (texcolor1 * frac_texlevel + texcolor0 * (16 - frac_texlevel)) / 16;
 		}
 	} else {
 		texcolor0 = Vec4<int>(sampler.linear(s, t, x, y, prim_color, tptr0, bufw0, mayHaveMipLevels ? texlevel : 0, mayHaveMipLevels ? frac_texlevel : 0));
-		if (mayHaveMipLevels && frac_texlevel) {
-			texcolor1 = Vec4<int>(sampler.linear(s, t, x, y, prim_color, tptr0 + 1, bufw0 + 1, texlevel + 1, 0));
-		}
 	}
 
-	if (mayHaveMipLevels && frac_texlevel) {
-		texcolor0 = (texcolor1 * frac_texlevel + texcolor0 * (16 - frac_texlevel)) / 16;
-	}
 	return GetTextureFunctionOutput(prim_color, ToVec4IntArg(texcolor0));
 }
 
