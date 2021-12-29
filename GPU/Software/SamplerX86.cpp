@@ -106,6 +106,18 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	_assert_msg_(id.linear, "Linear should be set on sampler id");
 	BeginWrite();
 
+	// Set the stackArgPos_ so we can use it in the nearest part too.
+#if PPSSPP_PLATFORM(WINDOWS)
+	// RET + shadow space + 8 byte space for color arg (the Win32 ABI is kinda ugly.)
+	stackArgPos_ = 8 + 32 + 8;
+	// Plus 32 for R12-R15.
+	stackArgPos_ += 32;
+	// Plus XMM6-XMM9 and 8 to align.
+	stackArgPos_ += 16 * 4 + 8;
+#else
+	stackArgPos_ = 32;
+#endif
+
 	regCache_.SetupABI({
 		RegCache::GEN_ARG_U,
 		RegCache::GEN_ARG_V,
