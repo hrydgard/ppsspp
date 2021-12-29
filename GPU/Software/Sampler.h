@@ -74,6 +74,7 @@ private:
 	LinearFunc CompileLinear(const SamplerID &id);
 
 	Rasterizer::RegCache::Reg GetZeroVec();
+	Rasterizer::RegCache::Reg GetGState();
 
 	bool Jit_ReadTextureFormat(const SamplerID &id);
 	bool Jit_GetTexData(const SamplerID &id, int bitsPerTexel);
@@ -93,6 +94,8 @@ private:
 	bool Jit_PrepareDataSwizzledOffsets(const SamplerID &id, Rasterizer::RegCache::Reg uReg, Rasterizer::RegCache::Reg vReg, int bitsPerTexel);
 	bool Jit_BlendQuad(const SamplerID &id, bool level1);
 
+	bool Jit_ApplyTextureFunc(const SamplerID &id);
+
 #if PPSSPP_ARCH(ARM64)
 	Arm64Gen::ARM64FloatEmitter fp;
 #elif PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
@@ -106,7 +109,8 @@ private:
 	const u8 *constHeightMinus1i_ = nullptr;
 	const u8 *constUNext_ = nullptr;
 	const u8 *constVNext_ = nullptr;
-	const u8 *constOnes_ = nullptr;
+	const u8 *constOnes32_ = nullptr;
+	const u8 *constOnes16_ = nullptr;
 	const u8 *const10Low_ = nullptr;
 	const u8 *const10All_ = nullptr;
 

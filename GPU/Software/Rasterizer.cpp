@@ -268,8 +268,8 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 	case GE_TEXFUNC_DECAL:
 	{
 		if (rgba) {
-			int t = (rgba) ? texcolor.a() : 255;
-			int invt = (rgba) ? 255 - t : 0;
+			int t = texcolor.a();
+			int invt = 255 - t;
 			// Both colors are boosted here, making the alpha have more weight.
 			Vec3<int> one = Vec3<int>::AssignToAll(1);
 			out_rgb = ((prim_color.rgb() + one) * invt + (texcolor.rgb() + one) * t);
@@ -537,11 +537,11 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(Sampler::Funcs sampler,
 			Vec4<int> texcolor1 = Vec4<int>(sampler.nearest(u[1], v[1], tptr0[1], bufw0[1], texlevel + 1));
 			texcolor0 = (texcolor1 * frac_texlevel + texcolor0 * (16 - frac_texlevel)) / 16;
 		}
-	} else {
-		texcolor0 = Vec4<int>(sampler.linear(s, t, x, y, prim_color, tptr0, bufw0, mayHaveMipLevels ? texlevel : 0, mayHaveMipLevels ? frac_texlevel : 0));
+
+		return GetTextureFunctionOutput(prim_color, ToVec4IntArg(texcolor0));
 	}
 
-	return GetTextureFunctionOutput(prim_color, ToVec4IntArg(texcolor0));
+	return sampler.linear(s, t, x, y, prim_color, tptr0, bufw0, mayHaveMipLevels ? texlevel : 0, mayHaveMipLevels ? frac_texlevel : 0);
 }
 
 template <bool mayHaveMipLevels>

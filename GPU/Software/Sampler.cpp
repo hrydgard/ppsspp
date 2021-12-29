@@ -24,6 +24,7 @@
 #include "Core/Reporting.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/GPUState.h"
+#include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/RasterizerRegCache.h"
 #include "GPU/Software/Sampler.h"
 
@@ -578,7 +579,7 @@ static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, 
 		const Vec4<int> c1 = SampleLinearLevel(s, t, x, y, tptr + 1, bufw + 1, texlevel + 1);
 		c0 = (c1 * levelFrac + c0 * (16 - levelFrac)) / 16;
 	}
-	return ToVec4IntResult(c0);
+	return GetTextureFunctionOutput(prim_color, ToVec4IntArg(c0));
 }
 
 };

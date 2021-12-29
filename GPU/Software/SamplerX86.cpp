@@ -188,17 +188,19 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		constHeightMinus1i_ = AlignCode16();
 		Write32((1 << id.height0Shift) - 1); Write32((1 << id.height0Shift) - 1);
 		Write32((1 << id.height0Shift) - 1); Write32((1 << id.height0Shift) - 1);
-
-		constOnes_ = nullptr;
 	} else {
 		constWidth256f_ = nullptr;
 		constHeight256f_ = nullptr;
 		constWidthMinus1i_ = nullptr;
 		constHeightMinus1i_ = nullptr;
-
-		constOnes_ = AlignCode16();
-		Write32(1); Write32(1); Write32(1); Write32(1);
 	}
+
+	constOnes32_ = AlignCode16();
+	Write32(1); Write32(1); Write32(1); Write32(1);
+
+	constOnes16_ = AlignCode16();
+	Write16(1); Write16(1); Write16(1); Write16(1);
+	Write16(1); Write16(1); Write16(1); Write16(1);
 
 	constUNext_ = AlignCode16();
 	Write32(0); Write32(1); Write32(0); Write32(1);
@@ -490,6 +492,9 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		SetJumpTarget(skip);
 	}
 
+	// Finally, it's time to apply the texture function.
+	success = success && Jit_ApplyTextureFunc(id);
+
 	// Last of all, convert to 32-bit channels.
 	if (cpu_info.bSSE4_1) {
 		PMOVZXWD(XMM0, R(XMM0));
@@ -498,9 +503,6 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		PUNPCKLWD(XMM0, R(zeroReg));
 		regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
 	}
-
-	// TODO: Actually use these at some point.
-	regCache_.ForceRelease(RegCache::VEC_ARG_COLOR);
 
 	regCache_.ForceRelease(RegCache::VEC_RESULT);
 
@@ -542,6 +544,15 @@ RegCache::Reg SamplerJitCache::GetZeroVec() {
 		return r;
 	}
 	return regCache_.Find(RegCache::VEC_ZERO);
+}
+
+RegCache::Reg SamplerJitCache::GetGState() {
+	if (!regCache_.Has(RegCache::GEN_GSTATE)) {
+		X64Reg r = regCache_.Alloc(RegCache::GEN_GSTATE);
+		MOV(PTRBITS, R(r), ImmPtr(&gstate.nop));
+		return r;
+	}
+	return regCache_.Find(RegCache::GEN_GSTATE);
 }
 
 bool SamplerJitCache::Jit_BlendQuad(const SamplerID &id, bool level1) {
@@ -650,6 +661,182 @@ bool SamplerJitCache::Jit_BlendQuad(const SamplerID &id, bool level1) {
 		PSRLW(XMM0, 8);
 	}
 
+	return true;
+}
+
+bool SamplerJitCache::Jit_ApplyTextureFunc(const SamplerID &id) {
+	X64Reg resultReg = regCache_.Find(RegCache::VEC_RESULT);
+	X64Reg primColorReg = regCache_.Find(RegCache::VEC_ARG_COLOR);
+	X64Reg tempReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+
+	auto useAlphaFrom = [&](X64Reg alphaColorReg) {
+		PSRLDQ(alphaColorReg, 6);
+		PSLLDQ(alphaColorReg, 6);
+		// Zero out the result alpha and OR them together.
+		PSLLDQ(resultReg, 10);
+		PSRLDQ(resultReg, 10);
+		POR(resultReg, R(alphaColorReg));
+	};
+
+	// Note: color is in DWORDs, but result is in WORDs.
+	switch (id.TexFunc()) {
+	case GE_TEXFUNC_MODULATE:
+		PACKSSDW(primColorReg, R(primColorReg));
+		MOVDQA(tempReg, M(constOnes16_));
+		PADDW(tempReg, R(primColorReg));
+
+		// Okay, time to multiply.  This produces 16 bits, neatly.
+		PMULLW(resultReg, R(tempReg));
+		if (id.useColorDoubling)
+			PSRLW(resultReg, 7);
+		else
+			PSRLW(resultReg, 8);
+
+		if (!id.useTextureAlpha) {
+			useAlphaFrom(primColorReg);
+		} else if (id.useColorDoubling) {
+			// We still need to finish dividing alpha, it's currently doubled (frmo the 7 above.)
+			MOVDQA(primColorReg, R(resultReg));
+			PSRLW(primColorReg, 1);
+			useAlphaFrom(primColorReg);
+		}
+		break;
+
+	case GE_TEXFUNC_DECAL:
+		PACKSSDW(primColorReg, R(primColorReg));
+		if (id.useTextureAlpha) {
+			// Get alpha into the tempReg.
+			PSHUFLW(tempReg, R(resultReg), _MM_SHUFFLE(3, 3, 3, 3));
+			PADDW(resultReg, M(constOnes16_));
+			PMULLW(resultReg, R(tempReg));
+
+			X64Reg invAlphaReg = regCache_.Alloc(RegCache::VEC_TEMP1);
+			// Materialize some 255s, and subtract out alpha.
+			PCMPEQD(invAlphaReg, R(invAlphaReg));
+			PSRLW(invAlphaReg, 8);
+			PSUBW(invAlphaReg, R(tempReg));
+
+			MOVDQA(tempReg, R(primColorReg));
+			PADDW(tempReg, M(constOnes16_));
+			PMULLW(tempReg, R(invAlphaReg));
+			regCache_.Release(invAlphaReg, RegCache::VEC_TEMP1);
+
+			// Now sum, and divide.
+			PADDW(resultReg, R(tempReg));
+			if (id.useColorDoubling)
+				PSRLW(resultReg, 7);
+			else
+				PSRLW(resultReg, 8);
+		}
+		useAlphaFrom(primColorReg);
+		break;
+
+	case GE_TEXFUNC_BLEND:
+	{
+		PACKSSDW(primColorReg, R(primColorReg));
+
+		// Start out with the prim color side.  Materialize a 255 to inverse resultReg and round.
+		PCMPEQD(tempReg, R(tempReg));
+		PSRLW(tempReg, 8);
+
+		// We're going to lose tempReg, so save the 255s.
+		X64Reg roundValueReg = regCache_.Alloc(RegCache::VEC_TEMP1);
+		MOVDQA(roundValueReg, R(tempReg));
+
+		PSUBW(tempReg, R(resultReg));
+		PMULLW(tempReg, R(primColorReg));
+		// Okay, now add the rounding value.
+		PADDW(tempReg, R(roundValueReg));
+		regCache_.Release(roundValueReg, RegCache::VEC_TEMP1);
+
+		if (id.useTextureAlpha) {
+			// Before we modify the texture color, let's calculate alpha.
+			PADDW(primColorReg, M(constOnes16_));
+			PMULLW(primColorReg, R(resultReg));
+			// We divide later.
+		}
+
+		X64Reg gstateReg = GetGState();
+		X64Reg texEnvReg = regCache_.Alloc(RegCache::VEC_TEMP1);
+		if (cpu_info.bSSE4_1) {
+			PMOVZXBW(texEnvReg, MDisp(gstateReg, offsetof(GPUgstate, texenvcolor)));
+		} else {
+			MOVD_xmm(texEnvReg, MDisp(gstateReg, offsetof(GPUgstate, texenvcolor)));
+			X64Reg zeroReg = GetZeroVec();
+			PUNPCKLBW(texEnvReg, R(zeroReg));
+			regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
+		}
+		PMULLW(resultReg, R(texEnvReg));
+		regCache_.Release(texEnvReg, RegCache::VEC_TEMP1);
+		regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+
+		// Add in the prim color side and divide.
+		PADDW(resultReg, R(tempReg));
+		if (id.useColorDoubling)
+			PSRLW(resultReg, 7);
+		else
+			PSRLW(resultReg, 8);
+
+		if (id.useTextureAlpha) {
+			// We put the alpha in here, just need to divide it after that multiply.
+			PSRLW(primColorReg, 8);
+		}
+		useAlphaFrom(primColorReg);
+		break;
+	}
+
+	case GE_TEXFUNC_REPLACE:
+		if (id.useColorDoubling && id.useTextureAlpha) {
+			// We can abuse primColorReg as a temp.
+			MOVDQA(primColorReg, R(resultReg));
+			// Shift to zero out alpha in resultReg.
+			PSLLDQ(resultReg, 10);
+			PSRLDQ(resultReg, 10);
+			// Now simply add them together, restoring alpha and doubling the colors.
+			PADDW(resultReg, R(primColorReg));
+		} else if (!id.useTextureAlpha) {
+			if (id.useColorDoubling) {
+				// Let's just double using shifting.  Ignore alpha.
+				PSLLW(resultReg, 1);
+			}
+			// Now we want prim_color in W, so convert, then shift-mask away the color.
+			PACKSSDW(primColorReg, R(primColorReg));
+			useAlphaFrom(primColorReg);
+		}
+		break;
+
+	case GE_TEXFUNC_ADD:
+	case GE_TEXFUNC_UNKNOWN1:
+	case GE_TEXFUNC_UNKNOWN2:
+	case GE_TEXFUNC_UNKNOWN3:
+		PACKSSDW(primColorReg, R(primColorReg));
+		if (id.useTextureAlpha) {
+			MOVDQA(tempReg, M(constOnes16_));
+			// Add and multiply the alpha (and others, but we'll mask them.)
+			PADDW(tempReg, R(primColorReg));
+			PMULLW(tempReg, R(resultReg));
+
+			// Now that we've extracted alpha, sum and double as needed.
+			PADDW(resultReg, R(primColorReg));
+			if (id.useColorDoubling)
+				PSLLW(resultReg, 1);
+
+			// Divide by 256 to normalize alpha.
+			PSRLW(tempReg, 8);
+			useAlphaFrom(tempReg);
+		} else {
+			PADDW(resultReg, R(primColorReg));
+			if (id.useColorDoubling)
+				PSLLW(resultReg, 1);
+			useAlphaFrom(primColorReg);
+		}
+		break;
+	}
+
+	regCache_.Release(tempReg, RegCache::VEC_TEMP0);
+	regCache_.Unlock(resultReg, RegCache::VEC_RESULT);
+	regCache_.Unlock(primColorReg, RegCache::VEC_ARG_COLOR);
+	regCache_.ForceRelease(RegCache::VEC_ARG_COLOR);
 	return true;
 }
 
@@ -1478,7 +1665,7 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	if (constWidth256f_ == nullptr) {
 		// We have to figure out levels and the proper width, ugh.
 		X64Reg shiftReg = regCache_.Find(RegCache::GEN_SHIFTVAL);
-		X64Reg gstateReg = regCache_.Alloc(RegCache::GEN_GSTATE);
+		X64Reg gstateReg = GetGState();
 		X64Reg tempReg = regCache_.Alloc(RegCache::GEN_TEMP0);
 
 		X64Reg levelReg = INVALID_REG;
@@ -1544,7 +1731,7 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 		regCache_.Unlock(v1Reg, RegCache::VEC_V1);
 
 		// Now just subtract one.  We use this later for clamp/wrap.
-		MOVDQA(tempVecReg, M(constOnes_));
+		MOVDQA(tempVecReg, M(constOnes32_));
 		PSUBD(width0VecReg, R(tempVecReg));
 		PSUBD(height0VecReg, R(tempVecReg));
 		PSUBD(width1VecReg, R(tempVecReg));
