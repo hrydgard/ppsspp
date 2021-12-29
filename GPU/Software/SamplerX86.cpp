@@ -33,27 +33,6 @@ extern u32 clut[4096];
 
 namespace Sampler {
 
-#ifdef _WIN32
-static const X64Reg arg1Reg = RCX;
-static const X64Reg arg2Reg = RDX;
-static const X64Reg arg3Reg = R8;
-static const X64Reg arg4Reg = R9;
-// 5 and 6 are on the stack.
-#else
-static const X64Reg arg1Reg = RDI;
-static const X64Reg arg2Reg = RSI;
-static const X64Reg arg3Reg = RDX;
-static const X64Reg arg4Reg = RCX;
-static const X64Reg arg5Reg = R8;
-static const X64Reg arg6Reg = R9;
-#endif
-
-static const X64Reg fpScratchReg1 = XMM1;
-static const X64Reg fpScratchReg2 = XMM2;
-static const X64Reg fpScratchReg3 = XMM3;
-static const X64Reg fpScratchReg4 = XMM4;
-static const X64Reg fpScratchReg5 = XMM5;
-
 NearestFunc SamplerJitCache::Compile(const SamplerID &id) {
 	regCache_.SetupABI({
 		RegCache::GEN_ARG_U,
@@ -127,20 +106,43 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	_assert_msg_(id.linear, "Linear should be set on sampler id");
 	BeginWrite();
 
+	// Set the stackArgPos_ so we can use it in the nearest part too.
+#if PPSSPP_PLATFORM(WINDOWS)
+	// RET + shadow space + 8 byte space for color arg (the Win32 ABI is kinda ugly.)
+	stackArgPos_ = 8 + 32 + 8;
+	// Plus 32 for R12-R15.
+	stackArgPos_ += 32;
+	// Plus XMM6-XMM9 and 8 to align.
+	stackArgPos_ += 16 * 4 + 8;
+#else
+	stackArgPos_ = 32;
+#endif
+
 	regCache_.SetupABI({
 		RegCache::GEN_ARG_U,
 		RegCache::GEN_ARG_V,
 		RegCache::GEN_ARG_TEXPTR,
 		RegCache::GEN_ARG_BUFW,
 		RegCache::GEN_ARG_LEVEL,
+		// Avoid clobber.
+		RegCache::GEN_ARG_LEVELFRAC,
 	});
 	regCache_.ChangeReg(RAX, RegCache::GEN_RESULT);
-	regCache_.ChangeReg(XMM0, RegCache::VEC_ARG_U);
-	regCache_.ForceRetain(RegCache::VEC_ARG_U);
-	regCache_.ChangeReg(XMM1, RegCache::VEC_ARG_V);
-	regCache_.ForceRetain(RegCache::VEC_ARG_V);
-	regCache_.ChangeReg(XMM5, RegCache::VEC_RESULT);
-	regCache_.ForceRetain(RegCache::VEC_RESULT);
+	auto lockReg = [&](X64Reg r, RegCache::Purpose p) {
+		regCache_.ChangeReg(r, p);
+		regCache_.ForceRetain(p);
+	};
+	lockReg(XMM0, RegCache::VEC_ARG_U);
+	lockReg(XMM1, RegCache::VEC_ARG_V);
+	lockReg(XMM5, RegCache::VEC_RESULT);
+#if !PPSSPP_PLATFORM(WINDOWS)
+	if (id.hasAnyMips) {
+		lockReg(XMM6, RegCache::VEC_U1);
+		lockReg(XMM7, RegCache::VEC_V1);
+		lockReg(XMM8, RegCache::VEC_RESULT1);
+	}
+	lockReg(XMM9, RegCache::VEC_ARG_COLOR);
+#endif
 
 	// We'll first write the nearest sampler, which we will CALL.
 	// This may differ slightly based on the "linear" flag.
@@ -158,175 +160,696 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	regCache_.ForceRelease(RegCache::VEC_ARG_U);
 	regCache_.ForceRelease(RegCache::VEC_ARG_V);
 	regCache_.ForceRelease(RegCache::VEC_RESULT);
-	if (regCache_.Has(RegCache::GEN_ARG_LEVEL))
-		regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
+
+	auto unlockOptReg = [&](RegCache::Purpose p) {
+		if (regCache_.Has(p))
+			regCache_.ForceRelease(p);
+	};
+	unlockOptReg(RegCache::GEN_ARG_LEVEL);
+	unlockOptReg(RegCache::GEN_ARG_LEVELFRAC);
+	unlockOptReg(RegCache::VEC_U1);
+	unlockOptReg(RegCache::VEC_V1);
+	unlockOptReg(RegCache::VEC_RESULT1);
+	unlockOptReg(RegCache::VEC_ARG_COLOR);
 	regCache_.Reset(true);
 
 	// Let's drop some helpful constants here.
-	const u8 *const10All = AlignCode16();
+	const10All_ = AlignCode16();
 	Write16(0x10); Write16(0x10); Write16(0x10); Write16(0x10);
 	Write16(0x10); Write16(0x10); Write16(0x10); Write16(0x10);
 
-	const u8 *const10Low = AlignCode16();
+	const10Low_ = AlignCode16();
 	Write16(0x10); Write16(0x10); Write16(0x10); Write16(0x10);
 	Write16(0); Write16(0); Write16(0); Write16(0);
+
+	if (!id.hasAnyMips) {
+		constWidth256f_ = AlignCode16();
+		float w256f = (1 << id.width0Shift) * 256;
+		Write32(*(uint32_t *)&w256f); Write32(*(uint32_t *)&w256f);
+		Write32(*(uint32_t *)&w256f); Write32(*(uint32_t *)&w256f);
+
+		constHeight256f_ = AlignCode16();
+		float h256f = (1 << id.height0Shift) * 256;
+		Write32(*(uint32_t *)&h256f); Write32(*(uint32_t *)&h256f);
+		Write32(*(uint32_t *)&h256f); Write32(*(uint32_t *)&h256f);
+
+		constWidthMinus1i_ = AlignCode16();
+		Write32((1 << id.width0Shift) - 1); Write32((1 << id.width0Shift) - 1);
+		Write32((1 << id.width0Shift) - 1); Write32((1 << id.width0Shift) - 1);
+
+		constHeightMinus1i_ = AlignCode16();
+		Write32((1 << id.height0Shift) - 1); Write32((1 << id.height0Shift) - 1);
+		Write32((1 << id.height0Shift) - 1); Write32((1 << id.height0Shift) - 1);
+	} else {
+		constWidth256f_ = nullptr;
+		constHeight256f_ = nullptr;
+		constWidthMinus1i_ = nullptr;
+		constHeightMinus1i_ = nullptr;
+	}
+
+	constOnes32_ = AlignCode16();
+	Write32(1); Write32(1); Write32(1); Write32(1);
+
+	constOnes16_ = AlignCode16();
+	Write16(1); Write16(1); Write16(1); Write16(1);
+	Write16(1); Write16(1); Write16(1); Write16(1);
+
+	constUNext_ = AlignCode16();
+	Write32(0); Write32(1); Write32(0); Write32(1);
+
+	constVNext_ = AlignCode16();
+	Write32(0); Write32(0); Write32(1); Write32(1);
 
 	// Now the actual linear func, which is exposed externally.
 	const u8 *start = AlignCode16();
 
-	// NOTE: This doesn't use the general register mapping.
-	// POSIX: XMM0=uvec, XMM1=vvec, arg1=frac_u, arg2=frac_v, arg3=src, arg4=bufw, arg5=level
-	// Win64: XMM0=uvec, XMM1=vvec, arg3=frac_u, arg4=frac_v, stack+40=src, stack+48=bufw, stack+56=level
-	//
-	// We map these to nearest CALLs, with order: u, v, src, bufw, level
+	regCache_.SetupABI({
+		RegCache::VEC_ARG_S,
+		RegCache::VEC_ARG_T,
+		RegCache::GEN_ARG_X,
+		RegCache::GEN_ARG_Y,
+		RegCache::VEC_ARG_COLOR,
+		RegCache::GEN_ARG_TEXPTR,
+		RegCache::GEN_ARG_BUFW,
+		RegCache::GEN_ARG_LEVEL,
+		RegCache::GEN_ARG_LEVELFRAC,
+	});
 
-	// Let's start by saving a bunch of registers.
+#if PPSSPP_PLATFORM(WINDOWS)
+	// RET + shadow space + 8 byte space for color arg (the Win32 ABI is kinda ugly.)
+	stackArgPos_ = 8 + 32 + 8;
+
+	// Positions: stackArgPos_+0=src, stackArgPos_+8=bufw, stackArgPos_+16=level, stackArgPos_+24=levelFrac
+#else
+	stackArgPos_ = 0;
+#endif
+
+	// Start out by saving some registers, since we'll need more.
 	PUSH(R15);
 	PUSH(R14);
-	// Won't need frac_u/frac_v for a while.
-#ifdef _WIN32
-	PUSH(arg4Reg);
-	PUSH(arg3Reg);
-#else
-	PUSH(arg2Reg);
-	PUSH(arg1Reg);
+	PUSH(R13);
+	PUSH(R12);
+	regCache_.Add(R15, RegCache::GEN_INVALID);
+	regCache_.Add(R14, RegCache::GEN_INVALID);
+	// This is what we'll put in them, anyway...
+	regCache_.Add(R13, RegCache::GEN_ARG_FRAC_V);
+	regCache_.Add(R12, RegCache::GEN_ARG_FRAC_U);
+	stackArgPos_ += 32;
+
+#if PPSSPP_PLATFORM(WINDOWS)
+	// Free up some more vector regs on Windows, where we're a bit tight.
+	SUB(64, R(RSP), Imm8(16 * 4 + 8));
+	stackArgPos_ += 16 * 4 + 8;
+	MOVDQA(MDisp(RSP, 0), XMM6);
+	MOVDQA(MDisp(RSP, 16), XMM7);
+	MOVDQA(MDisp(RSP, 32), XMM8);
+	MOVDQA(MDisp(RSP, 48), XMM9);
+	regCache_.Add(XMM6, RegCache::VEC_INVALID);
+	regCache_.Add(XMM7, RegCache::VEC_INVALID);
+	regCache_.Add(XMM8, RegCache::VEC_INVALID);
+	regCache_.Add(XMM9, RegCache::VEC_INVALID);
+
+	// Store frac UV in the gap.
+	stackFracUV1Offset_ = -stackArgPos_ + 16 * 4;
 #endif
 
-#ifdef _WIN32
-	// First arg now starts at 32 (pushed stack) + 8 (ret address) + 32 (shadow space)
-	const int argOffset = 32 + 8 + 32;
-	MOV(64, R(R14), MDisp(RSP, argOffset));
-	MOV(32, R(R15), MDisp(RSP, argOffset + 8));
-	// level is at argOffset + 16.
-#else
-	MOV(64, R(R14), R(arg3Reg));
-	MOV(32, R(R15), R(arg4Reg));
-	// level is in arg5Reg, which is convenient.
-#endif
+	// Reserve a couple regs that the nearest CALL won't use.
+	if (id.hasAnyMips) {
+		regCache_.ChangeReg(XMM6, RegCache::VEC_U1);
+		regCache_.ChangeReg(XMM7, RegCache::VEC_V1);
+		regCache_.ForceRetain(RegCache::VEC_U1);
+		regCache_.ForceRetain(RegCache::VEC_V1);
+	} else if (regCache_.Has(RegCache::GEN_ARG_LEVELFRAC)) {
+		regCache_.ForceRelease(RegCache::GEN_ARG_LEVELFRAC);
+	}
 
-	// Early exit on !srcPtr.
+	// Save prim color for later in a different XMM too.
+	X64Reg primColorReg = regCache_.Find(RegCache::VEC_ARG_COLOR);
+	MOVDQA(XMM9, R(primColorReg));
+	regCache_.Unlock(primColorReg, RegCache::VEC_ARG_COLOR);
+	regCache_.ForceRelease(RegCache::VEC_ARG_COLOR);
+	regCache_.ChangeReg(XMM9, RegCache::VEC_ARG_COLOR);
+	regCache_.ForceRetain(RegCache::VEC_ARG_COLOR);
+
+	// We also want to save src and bufw for later.  Might be in a reg already.
+	if (regCache_.Has(RegCache::GEN_ARG_TEXPTR)) {
+		_assert_(regCache_.Has(RegCache::GEN_ARG_BUFW));
+		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
+		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW);
+		MOV(64, R(R14), R(srcReg));
+		MOV(64, R(R15), R(bufwReg));
+		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
+		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW);
+		regCache_.ForceRelease(RegCache::GEN_ARG_TEXPTR);
+		regCache_.ForceRelease(RegCache::GEN_ARG_BUFW);
+	} else {
+		MOV(64, R(R14), MDisp(RSP, stackArgPos_ + 0));
+		MOV(64, R(R15), MDisp(RSP, stackArgPos_ + 8));
+	}
+
+	// Okay, and now remember we moved to R14/R15.
+	regCache_.ChangeReg(R14, RegCache::GEN_ARG_TEXPTR);
+	regCache_.ChangeReg(R15, RegCache::GEN_ARG_BUFW);
+	regCache_.ForceRetain(RegCache::GEN_ARG_TEXPTR);
+	regCache_.ForceRetain(RegCache::GEN_ARG_BUFW);
+
+	bool success = true;
+
+	// Our first goal is to convert S/T and X/Y into U/V and frac_u/frac_v.
+	success = success && Jit_GetTexelCoordsQuad(id);
+
+	// Early exit on !srcPtr (either one.)
 	FixupBranch zeroSrc;
 	if (id.hasInvalidPtr) {
-		CMP(PTRBITS, R(R14), Imm8(0));
+		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
+
+		if (id.hasAnyMips) {
+			X64Reg tempReg = regCache_.Alloc(RegCache::GEN_TEMP0);
+			MOV(64, R(tempReg), MDisp(srcReg, 0));
+			AND(64, R(tempReg), MDisp(srcReg, 8));
+
+			CMP(PTRBITS, R(tempReg), Imm8(0));
+			regCache_.Release(tempReg, RegCache::GEN_TEMP0);
+		} else {
+			CMP(PTRBITS, MatR(srcReg), Imm8(0));
+		}
 		FixupBranch nonZeroSrc = J_CC(CC_NZ);
 		PXOR(XMM0, R(XMM0));
 		zeroSrc = J(true);
 		SetJumpTarget(nonZeroSrc);
+
+		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
 	}
 
-	// At this point:
-	// XMM0=uvec, XMM1=vvec, stack+0=frac_u, stack+8=frac_v, R14=src, R15=bufw, stack+X=level
+	auto prepareDataOffsets = [&](RegCache::Purpose uPurpose, RegCache::Purpose vPurpose) {
+		X64Reg uReg = regCache_.Find(uPurpose);
+		X64Reg vReg = regCache_.Find(vPurpose);
+		success = success && Jit_PrepareDataOffsets(id, uReg, vReg);
+		regCache_.Unlock(uReg, uPurpose);
+		regCache_.Unlock(vReg, vPurpose);
+	};
 
-	if (!Jit_PrepareDataOffsets(id)) {
+	prepareDataOffsets(RegCache::VEC_ARG_U, RegCache::VEC_ARG_V);
+	if (id.hasAnyMips)
+		prepareDataOffsets(RegCache::VEC_U1, RegCache::VEC_V1);
+
+	regCache_.ChangeReg(XMM5, RegCache::VEC_RESULT);
+	regCache_.ForceRetain(RegCache::VEC_RESULT);
+	if (id.hasAnyMips) {
+		regCache_.ChangeReg(XMM8, RegCache::VEC_RESULT1);
+		regCache_.ForceRetain(RegCache::VEC_RESULT1);
+	}
+
+	// This stores the result in an XMM for later processing.
+	// We map lookups to nearest CALLs, with arg order: u, v, src, bufw, level
+	auto doNearestCall = [&](int off, bool level1) {
+#if PPSSPP_PLATFORM(WINDOWS)
+		static const X64Reg uArgReg = RCX;
+		static const X64Reg vArgReg = RDX;
+		static const X64Reg srcArgReg = R8;
+		static const X64Reg bufwArgReg = R9;
+#else
+		static const X64Reg uArgReg = RDI;
+		static const X64Reg vArgReg = RSI;
+		static const X64Reg srcArgReg = RDX;
+		static const X64Reg bufwArgReg = RCX;
+#endif
+		static const X64Reg resultReg = RAX;
+
+		X64Reg uReg = regCache_.Find(level1 ? RegCache::VEC_U1 : RegCache::VEC_ARG_U);
+		X64Reg vReg = regCache_.Find(level1 ? RegCache::VEC_V1 : RegCache::VEC_ARG_V);
+		// Otherwise, we'll overwrite them...
+		_assert_(level1 || (uReg == XMM0 && vReg == XMM1));
+
+		MOVD_xmm(R(uArgReg), uReg);
+		MOVD_xmm(R(vArgReg), vReg);
+
+		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
+		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW);
+		MOV(64, R(srcArgReg), MDisp(srcReg, level1 ? 8 : 0));
+		MOV(32, R(bufwArgReg), MDisp(bufwReg, level1 ? 4 : 0));
+		// Leave level/levelFrac, we just always load from RAM on Windows and lock on POSIX.
+		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
+		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW);
+
+		PSRLDQ(uReg, 4);
+		PSRLDQ(vReg, 4);
+		regCache_.Unlock(uReg, level1 ? RegCache::VEC_U1 : RegCache::VEC_ARG_U);
+		regCache_.Unlock(vReg, level1 ? RegCache::VEC_V1 : RegCache::VEC_ARG_V);
+
+		CALL(nearest);
+
+		X64Reg vecResultReg = regCache_.Find(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
+		if (off == 0) {
+			MOVD_xmm(vecResultReg, R(resultReg));
+		} else {
+			X64Reg tempReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+			MOVD_xmm(tempReg, R(resultReg));
+			PSLLDQ(tempReg, off);
+			POR(vecResultReg, R(tempReg));
+			regCache_.Release(tempReg, RegCache::VEC_TEMP0);
+		}
+		regCache_.Unlock(vecResultReg, level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
+	};
+
+	doNearestCall(0, false);
+	doNearestCall(4, false);
+	doNearestCall(8, false);
+	doNearestCall(12, false);
+
+	if (id.hasAnyMips) {
+		if (regCache_.Has(RegCache::GEN_ARG_LEVELFRAC)) {
+			X64Reg levelFracReg = regCache_.Find(RegCache::GEN_ARG_LEVELFRAC);
+			CMP(8, R(levelFracReg), Imm8(0));
+			regCache_.Unlock(levelFracReg, RegCache::GEN_ARG_LEVELFRAC);
+		} else {
+			CMP(8, MDisp(RSP, stackArgPos_ + 24), Imm8(0));
+		}
+		FixupBranch skip = J_CC(CC_Z, true);
+
+		// Modify the level, so the new level value is used.  We don't need the old.
+		if (regCache_.Has(RegCache::GEN_ARG_LEVEL)) {
+			X64Reg levelReg = regCache_.Find(RegCache::GEN_ARG_LEVEL);
+			ADD(32, R(levelReg), Imm8(1));
+			regCache_.Unlock(levelReg, RegCache::GEN_ARG_LEVEL);
+		} else {
+			// It's fine to just modify this in place.
+			ADD(32, MDisp(RSP, stackArgPos_ + 16), Imm8(1));
+		}
+
+		doNearestCall(0, true);
+		doNearestCall(4, true);
+		doNearestCall(8, true);
+		doNearestCall(12, true);
+
+		SetJumpTarget(skip);
+	}
+
+	// We're done with these now.
+	regCache_.ForceRelease(RegCache::VEC_ARG_U);
+	regCache_.ForceRelease(RegCache::VEC_ARG_V);
+	if (regCache_.Has(RegCache::VEC_U1))
+		regCache_.ForceRelease(RegCache::VEC_U1);
+	if (regCache_.Has(RegCache::VEC_V1))
+		regCache_.ForceRelease(RegCache::VEC_V1);
+	regCache_.ForceRelease(RegCache::GEN_ARG_TEXPTR);
+	regCache_.ForceRelease(RegCache::GEN_ARG_BUFW);
+	if (regCache_.Has(RegCache::GEN_ARG_LEVEL))
+		regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
+
+	success = success && Jit_BlendQuad(id, false);
+	if (id.hasAnyMips) {
+		if (!regCache_.Has(RegCache::GEN_ARG_LEVELFRAC)) {
+			X64Reg levelFracReg = regCache_.Alloc(RegCache::GEN_ARG_LEVELFRAC);
+			MOVZX(32, 8, levelFracReg, MDisp(RSP, stackArgPos_ + 24));
+			regCache_.Unlock(levelFracReg, RegCache::GEN_ARG_LEVELFRAC);
+			regCache_.ForceRetain(RegCache::GEN_ARG_LEVELFRAC);
+		}
+
+		X64Reg levelFracReg = regCache_.Find(RegCache::GEN_ARG_LEVELFRAC);
+		CMP(8, R(levelFracReg), Imm8(0));
+		FixupBranch skip = J_CC(CC_Z, true);
+
+		success = success && Jit_BlendQuad(id, true);
+
+		// First, broadcast the levelFrac value into an XMM.
+		X64Reg fracReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+		MOVD_xmm(fracReg, R(levelFracReg));
+		PSHUFLW(fracReg, R(fracReg), _MM_SHUFFLE(0, 0, 0, 0));
+		regCache_.Unlock(levelFracReg, RegCache::GEN_ARG_LEVELFRAC);
+		regCache_.ForceRelease(RegCache::GEN_ARG_LEVELFRAC);
+
+		// Multiply level1 color by the fraction.
+		X64Reg color1Reg = regCache_.Find(RegCache::VEC_RESULT1);
+		PMULLW(color1Reg, R(fracReg));
+
+		// Okay, next we need an inverse for color 0.
+		X64Reg invFracReg = regCache_.Alloc(RegCache::VEC_TEMP1);
+		MOVDQA(invFracReg, M(const10All_));
+		PSUBW(invFracReg, R(fracReg));
+
+		// And multiply.
+		PMULLW(XMM0, R(invFracReg));
+		regCache_.Release(fracReg, RegCache::VEC_TEMP0);
+		regCache_.Release(invFracReg, RegCache::VEC_TEMP1);
+
+		// Okay, now sum and divide by 16 (which is what the fraction maxed at.)
+		PADDW(XMM0, R(color1Reg));
+		PSRLW(XMM0, 4);
+
+		// And now we're done with color1Reg/VEC_RESULT1.
+		regCache_.Unlock(color1Reg, RegCache::VEC_RESULT1);
+		regCache_.ForceRelease(RegCache::VEC_RESULT1);
+
+		SetJumpTarget(skip);
+	}
+
+	// Finally, it's time to apply the texture function.
+	success = success && Jit_ApplyTextureFunc(id);
+
+	// Last of all, convert to 32-bit channels.
+	if (cpu_info.bSSE4_1) {
+		PMOVZXWD(XMM0, R(XMM0));
+	} else {
+		X64Reg zeroReg = GetZeroVec();
+		PUNPCKLWD(XMM0, R(zeroReg));
+		regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
+	}
+
+	regCache_.ForceRelease(RegCache::VEC_RESULT);
+
+	if (!success) {
 		regCache_.Reset(false);
 		EndWrite();
 		ResetCodePtr(GetOffset(nearest));
 		return nullptr;
 	}
 
-	// This stores the result on the stack for later processing.
-	auto doNearestCall = [&](int off) {
-		static const X64Reg uReg = arg1Reg;
-		static const X64Reg vReg = arg2Reg;
-		static const X64Reg srcReg = arg3Reg;
-		static const X64Reg bufwReg = arg4Reg;
-		static const X64Reg resultReg = RAX;
-
-		MOVD_xmm(R(uReg), XMM0);
-		MOVD_xmm(R(vReg), XMM1);
-
-		MOV(64, R(srcReg), R(R14));
-		MOV(32, R(bufwReg), R(R15));
-		// Leave level, we just always load from RAM.  Separate CLUTs is uncommon.
-
-		PSRLDQ(XMM0, 4);
-		PSRLDQ(XMM1, 4);
-
-		CALL(nearest);
-
-		if (off == 0) {
-			MOVD_xmm(XMM5, R(resultReg));
-		} else {
-			MOVD_xmm(XMM2, R(resultReg));
-			PSLLDQ(XMM2, off);
-			POR(XMM5, R(XMM2));
-		}
-	};
-
-	doNearestCall(0);
-	doNearestCall(4);
-	doNearestCall(8);
-	doNearestCall(12);
-
-	// First put the top RRRRRRRR LLLLLLLL into fpScratchReg1, bottom into fpScratchReg2.
-	// Start with XXXX XXXX RRRR LLLL, and then expand 8 bits to 16 bits.
-	if (!cpu_info.bSSE4_1) {
-		PXOR(fpScratchReg3, R(fpScratchReg3));
-		PSHUFD(fpScratchReg1, R(XMM5), _MM_SHUFFLE(0, 0, 1, 0));
-		PSHUFD(fpScratchReg2, R(XMM5), _MM_SHUFFLE(0, 0, 3, 2));
-		PUNPCKLBW(fpScratchReg1, R(fpScratchReg3));
-		PUNPCKLBW(fpScratchReg2, R(fpScratchReg3));
-	} else {
-		PSHUFD(fpScratchReg2, R(XMM5), _MM_SHUFFLE(0, 0, 3, 2));
-		PMOVZXBW(fpScratchReg1, R(XMM5));
-		PMOVZXBW(fpScratchReg2, R(fpScratchReg2));
-	}
-
-	// Grab frac_u and spread to lower (L) lanes.
-	MOVD_xmm(fpScratchReg5, MDisp(RSP, 0));
-	PSHUFLW(fpScratchReg5, R(fpScratchReg5), _MM_SHUFFLE(0, 0, 0, 0));
-	// Now subtract 0x10 - frac_u in the L lanes only: 00000000 LLLLLLLL.
-	MOVDQA(fpScratchReg3, M(const10Low));
-	PSUBW(fpScratchReg3, R(fpScratchReg5));
-	// Then we just shift and OR in the original frac_u.
-	PSLLDQ(fpScratchReg5, 8);
-	POR(fpScratchReg3, R(fpScratchReg5));
-
-	// Okay, we have 8-bits in the top and bottom rows for the color.
-	// Multiply by frac to get 12, which we keep for the next stage.
-	PMULLW(fpScratchReg1, R(fpScratchReg3));
-	PMULLW(fpScratchReg2, R(fpScratchReg3));
-
-	// Time for frac_v.  This time, we want it in all 8 lanes.
-	MOVD_xmm(fpScratchReg5, MDisp(RSP, 8));
-	PSHUFLW(fpScratchReg5, R(fpScratchReg5), _MM_SHUFFLE(0, 0, 0, 0));
-	PSHUFD(fpScratchReg5, R(fpScratchReg5), _MM_SHUFFLE(0, 0, 0, 0));
-
-	// Now, inverse fpScratchReg5 into fpScratchReg3 for the top row.
-	MOVDQA(fpScratchReg3, M(const10All));
-	PSUBW(fpScratchReg3, R(fpScratchReg5));
-
-	// We had 12, plus 4 frac, that gives us 16.
-	PMULLW(fpScratchReg2, R(fpScratchReg5));
-	PMULLW(fpScratchReg1, R(fpScratchReg3));
-
-	// Finally, time to sum them all up and divide by 256 to get back to 8 bits.
-	PADDUSW(fpScratchReg2, R(fpScratchReg1));
-	PSHUFD(XMM0, R(fpScratchReg2), _MM_SHUFFLE(3, 2, 3, 2));
-	PADDUSW(XMM0, R(fpScratchReg2));
-	PSRLW(XMM0, 8);
-
-	// Last of all, convert to 32-bit channels.
-	if (cpu_info.bSSE4_1) {
-		PMOVZXWD(XMM0, R(XMM0));
-	} else {
-		PXOR(fpScratchReg1, R(fpScratchReg1));
-		PUNPCKLWD(XMM0, R(fpScratchReg1));
-	}
-
 	if (id.hasInvalidPtr) {
 		SetJumpTarget(zeroSrc);
 	}
 
-	POP(arg3Reg);
-	POP(arg4Reg);
+#if PPSSPP_PLATFORM(WINDOWS)
+	MOVDQA(XMM6, MDisp(RSP, 0));
+	MOVDQA(XMM7, MDisp(RSP, 16));
+	MOVDQA(XMM8, MDisp(RSP, 32));
+	MOVDQA(XMM9, MDisp(RSP, 48));
+	ADD(64, R(RSP), Imm8(16 * 4 + 8));
+#endif
+	POP(R12);
+	POP(R13);
 	POP(R14);
 	POP(R15);
 
 	RET();
 
+	regCache_.Reset(true);
+
 	EndWrite();
 	return (LinearFunc)start;
+}
+
+RegCache::Reg SamplerJitCache::GetZeroVec() {
+	if (!regCache_.Has(RegCache::VEC_ZERO)) {
+		X64Reg r = regCache_.Alloc(RegCache::VEC_ZERO);
+		PXOR(r, R(r));
+		return r;
+	}
+	return regCache_.Find(RegCache::VEC_ZERO);
+}
+
+RegCache::Reg SamplerJitCache::GetGState() {
+	if (!regCache_.Has(RegCache::GEN_GSTATE)) {
+		X64Reg r = regCache_.Alloc(RegCache::GEN_GSTATE);
+		MOV(PTRBITS, R(r), ImmPtr(&gstate.nop));
+		return r;
+	}
+	return regCache_.Find(RegCache::GEN_GSTATE);
+}
+
+bool SamplerJitCache::Jit_BlendQuad(const SamplerID &id, bool level1) {
+	// First put the top RRRRRRRR LLLLLLLL into topReg, bottom into bottomReg.
+	// Start with XXXX XXXX RRRR LLLL, and then expand 8 bits to 16 bits.
+	X64Reg topReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+	X64Reg bottomReg = regCache_.Alloc(RegCache::VEC_TEMP1);
+
+	X64Reg quadReg = regCache_.Find(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
+	if (!cpu_info.bSSE4_1) {
+		X64Reg zeroReg = GetZeroVec();
+		PSHUFD(topReg, R(quadReg), _MM_SHUFFLE(0, 0, 1, 0));
+		PSHUFD(bottomReg, R(quadReg), _MM_SHUFFLE(0, 0, 3, 2));
+		PUNPCKLBW(topReg, R(zeroReg));
+		PUNPCKLBW(bottomReg, R(zeroReg));
+		regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
+	} else {
+		PSHUFD(bottomReg, R(quadReg), _MM_SHUFFLE(0, 0, 3, 2));
+		PMOVZXBW(topReg, R(quadReg));
+		PMOVZXBW(bottomReg, R(bottomReg));
+	}
+	if (!level1) {
+		regCache_.Unlock(quadReg, RegCache::VEC_RESULT);
+		regCache_.ForceRelease(RegCache::VEC_RESULT);
+	}
+
+	// Grab frac_u and spread to lower (L) lanes.
+	X64Reg fracReg = regCache_.Alloc(RegCache::VEC_TEMP2);
+	X64Reg fracMulReg = regCache_.Alloc(RegCache::VEC_TEMP3);
+	if (level1) {
+		MOVD_xmm(fracReg, MDisp(RSP, stackArgPos_ + stackFracUV1Offset_));
+	} else {
+		X64Reg fracUReg = regCache_.Find(RegCache::GEN_ARG_FRAC_U);
+		MOVD_xmm(fracReg, R(fracUReg));
+		regCache_.Unlock(fracUReg, RegCache::GEN_ARG_FRAC_U);
+		regCache_.ForceRelease(RegCache::GEN_ARG_FRAC_U);
+	}
+	PSHUFLW(fracReg, R(fracReg), _MM_SHUFFLE(0, 0, 0, 0));
+	// Now subtract 0x10 - frac_u in the L lanes only: 00000000 LLLLLLLL.
+	MOVDQA(fracMulReg, M(const10Low_));
+	PSUBW(fracMulReg, R(fracReg));
+	// Then we just shift and OR in the original frac_u.
+	PSLLDQ(fracReg, 8);
+	POR(fracMulReg, R(fracReg));
+	regCache_.Release(fracReg, RegCache::VEC_TEMP2);
+
+	// Okay, we have 8-bits in the top and bottom rows for the color.
+	// Multiply by frac to get 12, which we keep for the next stage.
+	PMULLW(topReg, R(fracMulReg));
+	PMULLW(bottomReg, R(fracMulReg));
+	regCache_.Release(fracMulReg, RegCache::VEC_TEMP3);
+
+	// Time for frac_v.  This time, we want it in all 8 lanes.
+	fracReg = regCache_.Alloc(RegCache::VEC_TEMP2);
+	X64Reg fracTopReg = regCache_.Alloc(RegCache::VEC_TEMP3);
+	if (level1) {
+		MOVD_xmm(fracReg, MDisp(RSP, stackArgPos_ + stackFracUV1Offset_ + 4));
+	} else {
+		X64Reg fracVReg = regCache_.Find(RegCache::GEN_ARG_FRAC_V);
+		MOVD_xmm(fracReg, R(fracVReg));
+		regCache_.Unlock(fracVReg, RegCache::GEN_ARG_FRAC_V);
+		regCache_.ForceRelease(RegCache::GEN_ARG_FRAC_V);
+	}
+	PSHUFLW(fracReg, R(fracReg), _MM_SHUFFLE(0, 0, 0, 0));
+	PSHUFD(fracReg, R(fracReg), _MM_SHUFFLE(0, 0, 0, 0));
+
+	// Now, inverse fracReg into fracTopReg for the top row.
+	MOVDQA(fracTopReg, M(const10All_));
+	PSUBW(fracTopReg, R(fracReg));
+
+	// We had 12, plus 4 frac, that gives us 16.
+	PMULLW(bottomReg, R(fracReg));
+	PMULLW(topReg, R(fracTopReg));
+	regCache_.Release(fracReg, RegCache::VEC_TEMP2);
+	regCache_.Release(fracTopReg, RegCache::VEC_TEMP3);
+
+	// Finally, time to sum them all up and divide by 256 to get back to 8 bits.
+	PADDUSW(bottomReg, R(topReg));
+	regCache_.Release(topReg, RegCache::VEC_TEMP0);
+
+	bool changeSuccess = true;
+	if (level1) {
+		PSHUFD(quadReg, R(bottomReg), _MM_SHUFFLE(3, 2, 3, 2));
+		PADDUSW(quadReg, R(bottomReg));
+		PSRLW(quadReg, 8);
+		regCache_.Release(bottomReg, RegCache::VEC_TEMP1);
+		regCache_.Unlock(quadReg, RegCache::VEC_RESULT1);
+	} else {
+		changeSuccess = regCache_.ChangeReg(XMM0, RegCache::VEC_RESULT);
+		if (!changeSuccess) {
+			_assert_msg_(XMM0 == bottomReg, "Unexpected other reg locked as destReg");
+			X64Reg otherReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+			PSHUFD(otherReg, R(bottomReg), _MM_SHUFFLE(3, 2, 3, 2));
+			PADDUSW(bottomReg, R(otherReg));
+			regCache_.Release(otherReg, RegCache::VEC_TEMP0);
+			regCache_.Release(bottomReg, RegCache::VEC_TEMP1);
+
+			// Okay, now it can be changed.
+			regCache_.ChangeReg(XMM0, RegCache::VEC_RESULT);
+		} else {
+			PSHUFD(XMM0, R(bottomReg), _MM_SHUFFLE(3, 2, 3, 2));
+			PADDUSW(XMM0, R(bottomReg));
+			regCache_.Release(bottomReg, RegCache::VEC_TEMP1);
+		}
+
+		PSRLW(XMM0, 8);
+	}
+
+	return true;
+}
+
+bool SamplerJitCache::Jit_ApplyTextureFunc(const SamplerID &id) {
+	X64Reg resultReg = regCache_.Find(RegCache::VEC_RESULT);
+	X64Reg primColorReg = regCache_.Find(RegCache::VEC_ARG_COLOR);
+	X64Reg tempReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+
+	auto useAlphaFrom = [&](X64Reg alphaColorReg) {
+		PSRLDQ(alphaColorReg, 6);
+		PSLLDQ(alphaColorReg, 6);
+		// Zero out the result alpha and OR them together.
+		PSLLDQ(resultReg, 10);
+		PSRLDQ(resultReg, 10);
+		POR(resultReg, R(alphaColorReg));
+	};
+
+	// Note: color is in DWORDs, but result is in WORDs.
+	switch (id.TexFunc()) {
+	case GE_TEXFUNC_MODULATE:
+		PACKSSDW(primColorReg, R(primColorReg));
+		MOVDQA(tempReg, M(constOnes16_));
+		PADDW(tempReg, R(primColorReg));
+
+		// Okay, time to multiply.  This produces 16 bits, neatly.
+		PMULLW(resultReg, R(tempReg));
+		if (id.useColorDoubling)
+			PSRLW(resultReg, 7);
+		else
+			PSRLW(resultReg, 8);
+
+		if (!id.useTextureAlpha) {
+			useAlphaFrom(primColorReg);
+		} else if (id.useColorDoubling) {
+			// We still need to finish dividing alpha, it's currently doubled (frmo the 7 above.)
+			MOVDQA(primColorReg, R(resultReg));
+			PSRLW(primColorReg, 1);
+			useAlphaFrom(primColorReg);
+		}
+		break;
+
+	case GE_TEXFUNC_DECAL:
+		PACKSSDW(primColorReg, R(primColorReg));
+		if (id.useTextureAlpha) {
+			// Get alpha into the tempReg.
+			PSHUFLW(tempReg, R(resultReg), _MM_SHUFFLE(3, 3, 3, 3));
+			PADDW(resultReg, M(constOnes16_));
+			PMULLW(resultReg, R(tempReg));
+
+			X64Reg invAlphaReg = regCache_.Alloc(RegCache::VEC_TEMP1);
+			// Materialize some 255s, and subtract out alpha.
+			PCMPEQD(invAlphaReg, R(invAlphaReg));
+			PSRLW(invAlphaReg, 8);
+			PSUBW(invAlphaReg, R(tempReg));
+
+			MOVDQA(tempReg, R(primColorReg));
+			PADDW(tempReg, M(constOnes16_));
+			PMULLW(tempReg, R(invAlphaReg));
+			regCache_.Release(invAlphaReg, RegCache::VEC_TEMP1);
+
+			// Now sum, and divide.
+			PADDW(resultReg, R(tempReg));
+			if (id.useColorDoubling)
+				PSRLW(resultReg, 7);
+			else
+				PSRLW(resultReg, 8);
+		}
+		useAlphaFrom(primColorReg);
+		break;
+
+	case GE_TEXFUNC_BLEND:
+	{
+		PACKSSDW(primColorReg, R(primColorReg));
+
+		// Start out with the prim color side.  Materialize a 255 to inverse resultReg and round.
+		PCMPEQD(tempReg, R(tempReg));
+		PSRLW(tempReg, 8);
+
+		// We're going to lose tempReg, so save the 255s.
+		X64Reg roundValueReg = regCache_.Alloc(RegCache::VEC_TEMP1);
+		MOVDQA(roundValueReg, R(tempReg));
+
+		PSUBW(tempReg, R(resultReg));
+		PMULLW(tempReg, R(primColorReg));
+		// Okay, now add the rounding value.
+		PADDW(tempReg, R(roundValueReg));
+		regCache_.Release(roundValueReg, RegCache::VEC_TEMP1);
+
+		if (id.useTextureAlpha) {
+			// Before we modify the texture color, let's calculate alpha.
+			PADDW(primColorReg, M(constOnes16_));
+			PMULLW(primColorReg, R(resultReg));
+			// We divide later.
+		}
+
+		X64Reg gstateReg = GetGState();
+		X64Reg texEnvReg = regCache_.Alloc(RegCache::VEC_TEMP1);
+		if (cpu_info.bSSE4_1) {
+			PMOVZXBW(texEnvReg, MDisp(gstateReg, offsetof(GPUgstate, texenvcolor)));
+		} else {
+			MOVD_xmm(texEnvReg, MDisp(gstateReg, offsetof(GPUgstate, texenvcolor)));
+			X64Reg zeroReg = GetZeroVec();
+			PUNPCKLBW(texEnvReg, R(zeroReg));
+			regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
+		}
+		PMULLW(resultReg, R(texEnvReg));
+		regCache_.Release(texEnvReg, RegCache::VEC_TEMP1);
+		regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+
+		// Add in the prim color side and divide.
+		PADDW(resultReg, R(tempReg));
+		if (id.useColorDoubling)
+			PSRLW(resultReg, 7);
+		else
+			PSRLW(resultReg, 8);
+
+		if (id.useTextureAlpha) {
+			// We put the alpha in here, just need to divide it after that multiply.
+			PSRLW(primColorReg, 8);
+		}
+		useAlphaFrom(primColorReg);
+		break;
+	}
+
+	case GE_TEXFUNC_REPLACE:
+		if (id.useColorDoubling && id.useTextureAlpha) {
+			// We can abuse primColorReg as a temp.
+			MOVDQA(primColorReg, R(resultReg));
+			// Shift to zero out alpha in resultReg.
+			PSLLDQ(resultReg, 10);
+			PSRLDQ(resultReg, 10);
+			// Now simply add them together, restoring alpha and doubling the colors.
+			PADDW(resultReg, R(primColorReg));
+		} else if (!id.useTextureAlpha) {
+			if (id.useColorDoubling) {
+				// Let's just double using shifting.  Ignore alpha.
+				PSLLW(resultReg, 1);
+			}
+			// Now we want prim_color in W, so convert, then shift-mask away the color.
+			PACKSSDW(primColorReg, R(primColorReg));
+			useAlphaFrom(primColorReg);
+		}
+		break;
+
+	case GE_TEXFUNC_ADD:
+	case GE_TEXFUNC_UNKNOWN1:
+	case GE_TEXFUNC_UNKNOWN2:
+	case GE_TEXFUNC_UNKNOWN3:
+		PACKSSDW(primColorReg, R(primColorReg));
+		if (id.useTextureAlpha) {
+			MOVDQA(tempReg, M(constOnes16_));
+			// Add and multiply the alpha (and others, but we'll mask them.)
+			PADDW(tempReg, R(primColorReg));
+			PMULLW(tempReg, R(resultReg));
+
+			// Now that we've extracted alpha, sum and double as needed.
+			PADDW(resultReg, R(primColorReg));
+			if (id.useColorDoubling)
+				PSLLW(resultReg, 1);
+
+			// Divide by 256 to normalize alpha.
+			PSRLW(tempReg, 8);
+			useAlphaFrom(tempReg);
+		} else {
+			PADDW(resultReg, R(primColorReg));
+			if (id.useColorDoubling)
+				PSLLW(resultReg, 1);
+			useAlphaFrom(primColorReg);
+		}
+		break;
+	}
+
+	regCache_.Release(tempReg, RegCache::VEC_TEMP0);
+	regCache_.Unlock(resultReg, RegCache::VEC_RESULT);
+	regCache_.Unlock(primColorReg, RegCache::VEC_ARG_COLOR);
+	regCache_.ForceRelease(RegCache::VEC_ARG_COLOR);
+	return true;
 }
 
 bool SamplerJitCache::Jit_ReadTextureFormat(const SamplerID &id) {
@@ -1137,7 +1660,261 @@ bool SamplerJitCache::Jit_GetTexDataSwizzled(const SamplerID &id, int bitsPerTex
 	return success;
 }
 
-bool SamplerJitCache::Jit_PrepareDataOffsets(const SamplerID &id) {
+bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
+	// RCX ought to be free, it was either bufw or never used.
+	bool success = regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
+	_assert_msg_(success, "Should have RCX free");
+
+	X64Reg sReg = regCache_.Find(RegCache::VEC_ARG_S);
+	X64Reg tReg = regCache_.Find(RegCache::VEC_ARG_T);
+
+	// Start by multiplying with the width/height... which might be complex with mips.
+	X64Reg width0VecReg = INVALID_REG;
+	X64Reg height0VecReg = INVALID_REG;
+	X64Reg width1VecReg = INVALID_REG;
+	X64Reg height1VecReg = INVALID_REG;
+
+	if (constWidth256f_ == nullptr) {
+		// We have to figure out levels and the proper width, ugh.
+		X64Reg shiftReg = regCache_.Find(RegCache::GEN_SHIFTVAL);
+		X64Reg gstateReg = GetGState();
+		X64Reg tempReg = regCache_.Alloc(RegCache::GEN_TEMP0);
+
+		X64Reg levelReg = INVALID_REG;
+		// To avoid ABI problems, we don't hold onto level.
+		bool releaseLevelReg = !regCache_.Has(RegCache::GEN_ARG_LEVEL);
+		if (!releaseLevelReg) {
+			levelReg = regCache_.Find(RegCache::GEN_ARG_LEVEL);
+		} else {
+			releaseLevelReg = true;
+			levelReg = regCache_.Alloc(RegCache::GEN_ARG_LEVEL);
+			MOV(32, R(levelReg), MDisp(RSP, stackArgPos_ + 16));
+		}
+
+		MOV(PTRBITS, R(gstateReg), ImmPtr(&gstate.nop));
+
+		X64Reg tempVecReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+		auto loadSizeAndMul = [&](X64Reg dest, X64Reg size, bool isY, bool isLevel1) {
+			int offset = offsetof(GPUgstate, texsize) + (isY ? 1 : 0) + (isLevel1 ? 4 : 0);
+			// Grab the size, and shift.
+			MOVZX(32, 8, shiftReg, MComplex(gstateReg, levelReg, SCALE_4, offset));
+			AND(32, R(shiftReg), Imm8(0x0F));
+			MOV(32, R(tempReg), Imm32(1));
+			SHL(32, R(tempReg), R(shiftReg));
+
+			// Okay, now move into a vec (two, in fact, one for the multiply.)
+			MOVD_xmm(tempVecReg, R(tempReg));
+			PSHUFD(size, R(tempVecReg), _MM_SHUFFLE(0, 0, 0, 0));
+
+			// Multiply by 256 and convert to a float.
+			PSLLD(tempVecReg, 8);
+			CVTDQ2PS(tempVecReg, R(tempVecReg));
+			// And then multiply.
+			MULPS(dest, R(tempVecReg));
+		};
+
+		// Copy out S and T so we can multiply.
+		X64Reg u1Reg = regCache_.Find(RegCache::VEC_U1);
+		X64Reg v1Reg = regCache_.Find(RegCache::VEC_V1);
+		MOVDQA(u1Reg, R(sReg));
+		MOVDQA(v1Reg, R(tReg));
+
+		// Load width and height for the given level, and multiply sReg/tReg meanwhile.
+		width0VecReg = regCache_.Alloc(RegCache::VEC_TEMP2);
+		loadSizeAndMul(sReg, width0VecReg, false, false);
+		height0VecReg = regCache_.Alloc(RegCache::VEC_TEMP3);
+		loadSizeAndMul(tReg, height0VecReg, true, false);
+
+		// And same for the next level, but with u1Reg/v1Reg.
+		width1VecReg = regCache_.Alloc(RegCache::VEC_TEMP4);
+		loadSizeAndMul(u1Reg, width1VecReg, false, true);
+		height1VecReg = regCache_.Alloc(RegCache::VEC_TEMP5);
+		loadSizeAndMul(v1Reg, height1VecReg, true, true);
+
+		regCache_.Unlock(shiftReg, RegCache::GEN_SHIFTVAL);
+		regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+		regCache_.Release(tempReg, RegCache::GEN_TEMP0);
+		if (releaseLevelReg)
+			regCache_.Release(levelReg, RegCache::GEN_ARG_LEVEL);
+		else
+			regCache_.Unlock(levelReg, RegCache::GEN_ARG_LEVEL);
+
+		regCache_.Unlock(u1Reg, RegCache::VEC_U1);
+		regCache_.Unlock(v1Reg, RegCache::VEC_V1);
+
+		// Now just subtract one.  We use this later for clamp/wrap.
+		MOVDQA(tempVecReg, M(constOnes32_));
+		PSUBD(width0VecReg, R(tempVecReg));
+		PSUBD(height0VecReg, R(tempVecReg));
+		PSUBD(width1VecReg, R(tempVecReg));
+		PSUBD(height1VecReg, R(tempVecReg));
+		regCache_.Release(tempVecReg, RegCache::VEC_TEMP0);
+	} else {
+		// Easy mode.
+		MULSS(sReg, M(constWidth256f_));
+		MULSS(tReg, M(constHeight256f_));
+	}
+
+	// And now, convert to integers for all later processing.
+	CVTPS2DQ(sReg, R(sReg));
+	CVTPS2DQ(tReg, R(tReg));
+	if (regCache_.Has(RegCache::VEC_U1)) {
+		X64Reg u1Reg = regCache_.Find(RegCache::VEC_U1);
+		X64Reg v1Reg = regCache_.Find(RegCache::VEC_V1);
+		CVTPS2DQ(u1Reg, R(u1Reg));
+		CVTPS2DQ(v1Reg, R(v1Reg));
+		regCache_.Unlock(u1Reg, RegCache::VEC_U1);
+		regCache_.Unlock(v1Reg, RegCache::VEC_V1);
+	}
+
+	// Now adjust X and Y...
+	X64Reg xReg = regCache_.Find(RegCache::GEN_ARG_X);
+	X64Reg yReg = regCache_.Find(RegCache::GEN_ARG_Y);
+	NEG(32, R(xReg));
+	SUB(32, R(xReg), Imm8(128 - 12));
+	NEG(32, R(yReg));
+	SUB(32, R(yReg), Imm8(128 - 12));
+
+	// Add them in.  We do this in the SSE because we have more to do there...
+	X64Reg tempXYReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+	MOVD_xmm(tempXYReg, R(xReg));
+	PADDD(sReg, R(tempXYReg));
+	if (regCache_.Has(RegCache::VEC_U1)) {
+		X64Reg u1Reg = regCache_.Find(RegCache::VEC_U1);
+		PADDD(u1Reg, R(tempXYReg));
+		regCache_.Unlock(u1Reg, RegCache::VEC_U1);
+	}
+	MOVD_xmm(tempXYReg, R(yReg));
+	PADDD(tReg, R(tempXYReg));
+	if (regCache_.Has(RegCache::VEC_V1)) {
+		X64Reg v1Reg = regCache_.Find(RegCache::VEC_V1);
+		PADDD(v1Reg, R(tempXYReg));
+		regCache_.Unlock(v1Reg, RegCache::VEC_V1);
+	}
+	regCache_.Release(tempXYReg, RegCache::VEC_TEMP0);
+
+	regCache_.Unlock(xReg, RegCache::GEN_ARG_X);
+	regCache_.Unlock(yReg, RegCache::GEN_ARG_Y);
+	regCache_.ForceRelease(RegCache::GEN_ARG_X);
+	regCache_.ForceRelease(RegCache::GEN_ARG_Y);
+
+	// We do want the fraction, though, so extract that.
+	X64Reg fracUReg = regCache_.Find(RegCache::GEN_ARG_FRAC_U);
+	X64Reg fracVReg = regCache_.Find(RegCache::GEN_ARG_FRAC_V);
+	if (regCache_.Has(RegCache::VEC_U1)) {
+		// Start with the next level so we end with current in the regs.
+		X64Reg u1Reg = regCache_.Find(RegCache::VEC_U1);
+		X64Reg v1Reg = regCache_.Find(RegCache::VEC_V1);
+		MOVD_xmm(R(fracUReg), u1Reg);
+		MOVD_xmm(R(fracVReg), v1Reg);
+		SHR(32, R(fracUReg), Imm8(4));
+		AND(32, R(fracUReg), Imm8(0x0F));
+		SHR(32, R(fracVReg), Imm8(4));
+		AND(32, R(fracVReg), Imm8(0x0F));
+		regCache_.Unlock(u1Reg, RegCache::VEC_U1);
+		regCache_.Unlock(v1Reg, RegCache::VEC_V1);
+
+		// Store them on the stack for now.
+		MOV(32, MDisp(RSP, stackArgPos_ + stackFracUV1Offset_), R(fracUReg));
+		MOV(32, MDisp(RSP, stackArgPos_ + stackFracUV1Offset_ + 4), R(fracVReg));
+	}
+	MOVD_xmm(R(fracUReg), sReg);
+	MOVD_xmm(R(fracVReg), tReg);
+	SHR(32, R(fracUReg), Imm8(4));
+	AND(32, R(fracUReg), Imm8(0x0F));
+	SHR(32, R(fracVReg), Imm8(4));
+	AND(32, R(fracVReg), Imm8(0x0F));
+	regCache_.Unlock(fracUReg, RegCache::GEN_ARG_FRAC_U);
+	regCache_.Unlock(fracVReg, RegCache::GEN_ARG_FRAC_V);
+
+	// Get rid of the fractional bits, and spread out.
+	PSRAD(sReg, 8);
+	PSRAD(tReg, 8);
+	PSHUFD(sReg, R(sReg), _MM_SHUFFLE(0, 0, 0, 0));
+	PSHUFD(tReg, R(tReg), _MM_SHUFFLE(0, 0, 0, 0));
+	// Add U/V values for the next coords.
+	PADDD(sReg, M(constUNext_));
+	PADDD(tReg, M(constVNext_));
+
+	if (regCache_.Has(RegCache::VEC_U1)) {
+		X64Reg u1Reg = regCache_.Find(RegCache::VEC_U1);
+		X64Reg v1Reg = regCache_.Find(RegCache::VEC_V1);
+		PSRAD(u1Reg, 8);
+		PSRAD(v1Reg, 8);
+		PSHUFD(u1Reg, R(u1Reg), _MM_SHUFFLE(0, 0, 0, 0));
+		PSHUFD(v1Reg, R(v1Reg), _MM_SHUFFLE(0, 0, 0, 0));
+		PADDD(u1Reg, M(constUNext_));
+		PADDD(v1Reg, M(constVNext_));
+		regCache_.Unlock(u1Reg, RegCache::VEC_U1);
+		regCache_.Unlock(v1Reg, RegCache::VEC_V1);
+	}
+
+	X64Reg temp0ClampReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+	bool temp0ClampZero = false;
+
+	auto doClamp = [&](bool clamp, X64Reg stReg, const OpArg &bound) {
+		if (!clamp) {
+			// Wrapping is easy.
+			PAND(stReg, bound);
+			return;
+		}
+
+		if (!temp0ClampZero)
+			PXOR(temp0ClampReg, R(temp0ClampReg));
+		temp0ClampZero = true;
+
+		if (cpu_info.bSSE4_1) {
+			PMINSD(stReg, bound);
+			PMAXSD(stReg, R(temp0ClampReg));
+		} else {
+			temp0ClampZero = false;
+			// Set temp to max(0, stReg) = AND(NOT(0 > stReg), stReg).
+			PCMPGTD(temp0ClampReg, R(stReg));
+			PANDN(temp0ClampReg, R(stReg));
+
+			// Now make a mask where bound is greater than the ST value in temp0ClampReg.
+			MOVDQA(stReg, bound);
+			PCMPGTD(stReg, R(temp0ClampReg));
+			// Throw away the values that are greater in our temp0ClampReg in progress result.
+			PAND(temp0ClampReg, R(stReg));
+
+			// Now, set bound only where ST was too high.
+			PANDN(stReg, bound);
+			// And put in the values that were fine.
+			POR(stReg, R(temp0ClampReg));
+		}
+	};
+
+	doClamp(id.clampS, sReg, width0VecReg == INVALID_REG ? M(constWidthMinus1i_) : R(width0VecReg));
+	doClamp(id.clampT, tReg, height0VecReg == INVALID_REG ? M(constHeightMinus1i_) : R(height0VecReg));
+	if (width1VecReg != INVALID_REG) {
+		X64Reg u1Reg = regCache_.Find(RegCache::VEC_U1);
+		X64Reg v1Reg = regCache_.Find(RegCache::VEC_V1);
+		doClamp(id.clampS, u1Reg, R(width1VecReg));
+		doClamp(id.clampT, v1Reg, R(height1VecReg));
+		regCache_.Unlock(u1Reg, RegCache::VEC_U1);
+		regCache_.Unlock(v1Reg, RegCache::VEC_V1);
+	}
+
+	if (width0VecReg != INVALID_REG)
+		regCache_.Release(width0VecReg, RegCache::VEC_TEMP2);
+	if (height0VecReg != INVALID_REG)
+		regCache_.Release(height0VecReg, RegCache::VEC_TEMP3);
+	if (width1VecReg != INVALID_REG)
+		regCache_.Release(width1VecReg, RegCache::VEC_TEMP4);
+	if (height1VecReg != INVALID_REG)
+		regCache_.Release(height1VecReg, RegCache::VEC_TEMP5);
+
+	regCache_.Release(temp0ClampReg, RegCache::VEC_TEMP0);
+
+	regCache_.Unlock(sReg, RegCache::VEC_ARG_S);
+	regCache_.Unlock(tReg, RegCache::VEC_ARG_T);
+	regCache_.Change(RegCache::VEC_ARG_S, RegCache::VEC_ARG_U);
+	regCache_.Change(RegCache::VEC_ARG_T, RegCache::VEC_ARG_V);
+	return true;
+}
+
+bool SamplerJitCache::Jit_PrepareDataOffsets(const SamplerID &id, RegCache::Reg uReg, RegCache::Reg vReg) {
 	_assert_(id.linear);
 
 	bool success = true;
@@ -1174,114 +1951,161 @@ bool SamplerJitCache::Jit_PrepareDataOffsets(const SamplerID &id) {
 
 	if (success && bits != -1) {
 		if (id.swizzle) {
-			success = Jit_PrepareDataSwizzledOffsets(id, bits);
+			success = Jit_PrepareDataSwizzledOffsets(id, uReg, vReg, bits);
 		} else {
-			// Spread bufw into each lane.
-			MOVD_xmm(XMM2, R(R15));
-			PSHUFD(XMM2, R(XMM2), _MM_SHUFFLE(0, 0, 0, 0));
-
-			if (bits == 4)
-				PSRLD(XMM2, 1);
-			else if (bits == 16)
-				PSLLD(XMM2, 1);
-			else if (bits == 32)
-				PSLLD(XMM2, 2);
-
-			if (cpu_info.bSSE4_1) {
-				// And now multiply.  This is slow, but not worse than the SSE2 version...
-				PMULLD(XMM1, R(XMM2));
-			} else {
-				// Copy that into another temp for multiply.
-				MOVDQA(XMM3, R(XMM1));
-
-				// Okay, first, multiply to get XXXX CCCC XXXX AAAA.
-				PMULUDQ(XMM1, R(XMM2));
-				PSRLDQ(XMM3, 4);
-				PSRLDQ(XMM2, 4);
-				// And now get XXXX DDDD XXXX BBBB.
-				PMULUDQ(XMM3, R(XMM2));
-
-				// We know everything is positive, so XXXX must be zero.  Let's combine.
-				PSLLDQ(XMM3, 4);
-				POR(XMM1, R(XMM3));
-			}
-
-			if (bits == 4) {
-				// Need to keep uvec for the odd bit.
-				MOVDQA(XMM2, R(XMM0));
-				PSRLD(XMM2, 1);
-				PADDD(XMM1, R(XMM2));
-			} else {
-				// Destroy uvec, we won't use it again.
-				if (bits == 16)
-					PSLLD(XMM0, 1);
-				else if (bits == 32)
-					PSLLD(XMM0, 2);
-				PADDD(XMM1, R(XMM0));
-			}
+			success = Jit_PrepareDataDirectOffsets(id, uReg, vReg, bits);
 		}
 	}
 
 	return success;
 }
 
-bool SamplerJitCache::Jit_PrepareDataSwizzledOffsets(const SamplerID &id, int bitsPerTexel) {
-	// See Jit_GetTexDataSwizzled() for usage of this offset.
+bool SamplerJitCache::Jit_PrepareDataDirectOffsets(const SamplerID &id, RegCache::Reg uReg, RegCache::Reg vReg, int bitsPerTexel) {
+	X64Reg bufwVecReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+	if (!id.useStandardBufw || id.hasAnyMips) {
+		// Spread bufw into each lane.
+		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW);
+		MOVD_xmm(bufwVecReg, MatR(bufwReg));
+		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW);
+		PSHUFD(bufwVecReg, R(bufwVecReg), _MM_SHUFFLE(0, 0, 0, 0));
 
-	// Spread bufw into each lane.
-	MOVD_xmm(XMM2, R(R15));
-	PSHUFD(XMM2, R(XMM2), _MM_SHUFFLE(0, 0, 0, 0));
+		if (bitsPerTexel == 4)
+			PSRLD(bufwVecReg, 1);
+		else if (bitsPerTexel == 16)
+			PSLLD(bufwVecReg, 1);
+		else if (bitsPerTexel == 32)
+			PSLLD(bufwVecReg, 2);
+	}
 
-	// Divide vvec by 8 in a temp.
-	MOVDQA(XMM3, R(XMM1));
-	PSRLD(XMM3, 3);
-	if (cpu_info.bSSE4_1) {
+	if (id.useStandardBufw && !id.hasAnyMips) {
+		int amt = id.width0Shift;
+		if (bitsPerTexel == 4)
+			amt -= 1;
+		else if (bitsPerTexel == 16)
+			amt += 1;
+		else if (bitsPerTexel == 32)
+			amt += 2;
+		// It's aligned to 16 bytes, so must at least be 16.
+		PSLLD(vReg, std::max(4, amt));
+	} else if (cpu_info.bSSE4_1) {
 		// And now multiply.  This is slow, but not worse than the SSE2 version...
-		PMULLD(XMM3, R(XMM2));
+		PMULLD(vReg, R(bufwVecReg));
 	} else {
 		// Copy that into another temp for multiply.
-		MOVDQA(XMM4, R(XMM3));
+		X64Reg vOddLaneReg = regCache_.Alloc(RegCache::VEC_TEMP1);
+		MOVDQA(vOddLaneReg, R(vReg));
 
 		// Okay, first, multiply to get XXXX CCCC XXXX AAAA.
-		PMULUDQ(XMM3, R(XMM2));
-		PSRLDQ(XMM4, 4);
-		PSRLDQ(XMM2, 4);
+		PMULUDQ(vReg, R(bufwVecReg));
+		PSRLDQ(vOddLaneReg, 4);
+		PSRLDQ(bufwVecReg, 4);
 		// And now get XXXX DDDD XXXX BBBB.
-		PMULUDQ(XMM4, R(XMM2));
+		PMULUDQ(vOddLaneReg, R(bufwVecReg));
 
 		// We know everything is positive, so XXXX must be zero.  Let's combine.
-		PSLLDQ(XMM4, 4);
-		POR(XMM3, R(XMM4));
+		PSLLDQ(vOddLaneReg, 4);
+		POR(vReg, R(vOddLaneReg));
+		regCache_.Release(vOddLaneReg, RegCache::VEC_TEMP1);
 	}
+	regCache_.Release(bufwVecReg, RegCache::VEC_TEMP0);
+
+	if (bitsPerTexel == 4) {
+		// Need to keep uvec for the odd bit.
+		X64Reg uCopyReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+		MOVDQA(uCopyReg, R(uReg));
+		PSRLD(uCopyReg, 1);
+		PADDD(vReg, R(uCopyReg));
+		regCache_.Release(uCopyReg, RegCache::VEC_TEMP0);
+	} else {
+		// Destroy uvec, we won't use it again.
+		if (bitsPerTexel == 16)
+			PSLLD(uReg, 1);
+		else if (bitsPerTexel == 32)
+			PSLLD(uReg, 2);
+		PADDD(vReg, R(uReg));
+	}
+
+	return true;
+}
+
+bool SamplerJitCache::Jit_PrepareDataSwizzledOffsets(const SamplerID &id, RegCache::Reg uReg, RegCache::Reg vReg, int bitsPerTexel) {
+	// See Jit_GetTexDataSwizzled() for usage of this offset.
+
+	X64Reg bufwVecReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+	if (!id.useStandardBufw || id.hasAnyMips) {
+		// Spread bufw into each lane.
+		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW);
+		MOVD_xmm(bufwVecReg, MatR(bufwReg));
+		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW);
+		PSHUFD(bufwVecReg, R(bufwVecReg), _MM_SHUFFLE(0, 0, 0, 0));
+	}
+
+	// Divide vvec by 8 in a temp.
+	X64Reg vMultReg = regCache_.Alloc(RegCache::VEC_TEMP1);
+	MOVDQA(vMultReg, R(vReg));
+	PSRLD(vMultReg, 3);
+
+	// And now multiply by bufw.  May be able to use a shift in a common case.
+	int shiftAmount = 32 - clz32_nonzero(bitsPerTexel - 1);
+	if (id.useStandardBufw && !id.hasAnyMips) {
+		int amt = id.width0Shift;
+		// Account for 16 byte minimum.
+		amt = std::max(7 - shiftAmount, amt);
+		shiftAmount += amt;
+	} else if (cpu_info.bSSE4_1) {
+		// And now multiply.  This is slow, but not worse than the SSE2 version...
+		PMULLD(vMultReg, R(bufwVecReg));
+	} else {
+		// Copy that into another temp for multiply.
+		X64Reg vOddLaneReg = regCache_.Alloc(RegCache::VEC_TEMP2);
+		MOVDQA(vOddLaneReg, R(vMultReg));
+
+		// Okay, first, multiply to get XXXX CCCC XXXX AAAA.
+		PMULUDQ(vMultReg, R(bufwVecReg));
+		PSRLDQ(vOddLaneReg, 4);
+		PSRLDQ(bufwVecReg, 4);
+		// And now get XXXX DDDD XXXX BBBB.
+		PMULUDQ(vOddLaneReg, R(bufwVecReg));
+
+		// We know everything is positive, so XXXX must be zero.  Let's combine.
+		PSLLDQ(vOddLaneReg, 4);
+		POR(vMultReg, R(vOddLaneReg));
+		regCache_.Release(vOddLaneReg, RegCache::VEC_TEMP2);
+	}
+	regCache_.Release(bufwVecReg, RegCache::VEC_TEMP0);
+
 	// Multiply the result by bitsPerTexel using a shift.
-	PSLLD(XMM3, 32 - clz32_nonzero(bitsPerTexel - 1));
+	PSLLD(vMultReg, shiftAmount);
 
 	// Now we're adding (v & 7) * 16.  Use a 16-bit wall.
-	PSLLW(XMM1, 13);
-	PSRLD(XMM1, 9);
-	PADDD(XMM1, R(XMM3));
+	PSLLW(vReg, 13);
+	PSRLD(vReg, 9);
+	PADDD(vReg, R(vMultReg));
+	regCache_.Release(vMultReg, RegCache::VEC_TEMP1);
 
 	// Now get ((uvec / texels_per_tile) / 4) * 32 * 4 aka (uvec / (128 / bitsPerTexel)) << 7.
-	MOVDQA(XMM2, R(XMM0));
-	PSRLD(XMM2, 7 + clz32_nonzero(bitsPerTexel - 1) - 32);
-	PSLLD(XMM2, 7);
+	X64Reg uCopyReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+	MOVDQA(uCopyReg, R(uReg));
+	PSRLD(uCopyReg, 7 + clz32_nonzero(bitsPerTexel - 1) - 32);
+	PSLLD(uCopyReg, 7);
 	// Add it in to our running total.
-	PADDD(XMM1, R(XMM2));
+	PADDD(vReg, R(uCopyReg));
 
 	if (bitsPerTexel == 4) {
 		// Finally, we want (uvec & 31) / 2.  Use a 16-bit wall.
-		MOVDQA(XMM2, R(XMM0));
-		PSLLW(XMM2, 11);
-		PSRLD(XMM2, 12);
+		MOVDQA(uCopyReg, R(uReg));
+		PSLLW(uCopyReg, 11);
+		PSRLD(uCopyReg, 12);
 		// With that, this is our byte offset.  uvec & 1 has which half.
-		PADDD(XMM1, R(XMM2));
+		PADDD(vReg, R(uCopyReg));
 	} else {
 		// We can destroy uvec in this path.  Clear all but 2 bits for 32, 3 for 16, or 4 for 8.
-		PSLLW(XMM0, 32 - clz32_nonzero(bitsPerTexel - 1) + 9);
+		PSLLW(uReg, 32 - clz32_nonzero(bitsPerTexel - 1) + 9);
 		// Now that it's at the top of the 16 bits, we always shift that to the top of 4 bits.
-		PSRLD(XMM0, 12);
-		PADDD(XMM1, R(XMM0));
+		PSRLD(uReg, 12);
+		PADDD(vReg, R(uReg));
 	}
+	regCache_.Release(uCopyReg, RegCache::VEC_TEMP0);
 
 	return true;
 }
@@ -1476,23 +2300,16 @@ bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
 			if (!regCache_.Has(RegCache::VEC_ARG_U))
 				regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
 		} else {
+#if PPSSPP_PLATFORM(WINDOWS)
 			if (id.linear) {
-#ifdef _WIN32
-				const int argOffset = 32 + 8 + 32;
-				// Extra 8 to account for CALL.
-				MOV(32, R(temp2Reg), MDisp(RSP, argOffset + 16 + 8));
-#else
-				// Extra 8 to account for CALL.
-				MOV(32, R(temp2Reg), MDisp(RSP, 48 + 8 + 8));
-#endif
+				MOV(32, R(temp2Reg), MDisp(RSP, stackArgPos_ + 16));
 			} else {
-#ifdef _WIN32
 				// The argument was saved on the stack.
 				MOV(32, R(temp2Reg), MDisp(RSP, 40));
-#else
-				_assert_(false);
-#endif
 			}
+#else
+			_assert_(false);
+#endif
 			LEA(32, temp2Reg, MScaled(temp2Reg, SCALE_4, 0));
 		}
 

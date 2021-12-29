@@ -143,7 +143,8 @@ struct SamplerID {
 		struct {
 			uint8_t texfmt : 4;
 			uint8_t clutfmt : 2;
-			uint8_t : 2;
+			bool clampS : 1;
+			bool clampT : 1;
 			bool swizzle : 1;
 			bool useSharedClut : 1;
 			bool hasClutMask : 1;
@@ -151,6 +152,15 @@ struct SamplerID {
 			bool hasClutOffset : 1;
 			bool hasInvalidPtr : 1;
 			bool linear : 1;
+			bool useStandardBufw : 1;
+			uint8_t width0Shift : 4;
+			uint8_t height0Shift : 4;
+			uint8_t texFunc : 3;
+			bool useTextureAlpha : 1;
+			bool useColorDoubling : 1;
+			bool hasStandardMips : 1;
+			bool hasAnyMips : 1;
+			bool : 1;
 		};
 	};
 
@@ -160,6 +170,10 @@ struct SamplerID {
 
 	GEPaletteFormat ClutFmt() const {
 		return GEPaletteFormat(clutfmt);
+	}
+
+	GETexFunc TexFunc() const {
+		return GETexFunc(texFunc);
 	}
 
 	bool operator == (const SamplerID &other) const {

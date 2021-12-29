@@ -36,7 +36,7 @@ namespace Sampler {
 typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *NearestFunc)(int u, int v, const u8 *tptr, int bufw, int level);
 NearestFunc GetNearestFunc();
 
-typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *LinearFunc)(Rasterizer::Vec4IntArg u, Rasterizer::Vec4IntArg v, int frac_u, int frac_v, const u8 *tptr, int bufw, int level);
+typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *LinearFunc)(float s, float t, int x, int y, Rasterizer::Vec4IntArg prim_color, const u8 **tptr, const int *bufw, int level, int levelFrac);
 LinearFunc GetLinearFunc();
 
 struct Funcs {
@@ -73,6 +73,9 @@ private:
 	NearestFunc Compile(const SamplerID &id);
 	LinearFunc CompileLinear(const SamplerID &id);
 
+	Rasterizer::RegCache::Reg GetZeroVec();
+	Rasterizer::RegCache::Reg GetGState();
+
 	bool Jit_ReadTextureFormat(const SamplerID &id);
 	bool Jit_GetTexData(const SamplerID &id, int bitsPerTexel);
 	bool Jit_GetTexDataSwizzled(const SamplerID &id, int bitsPerTexel);
@@ -85,12 +88,31 @@ private:
 	bool Jit_GetDXT1Color(const SamplerID &id, int blockSize, int alpha);
 	bool Jit_ApplyDXTAlpha(const SamplerID &id);
 
-	bool Jit_PrepareDataOffsets(const SamplerID &id);
-	bool Jit_PrepareDataSwizzledOffsets(const SamplerID &id, int bitsPerTexel);
+	bool Jit_GetTexelCoordsQuad(const SamplerID &id);
+	bool Jit_PrepareDataOffsets(const SamplerID &id, Rasterizer::RegCache::Reg uReg, Rasterizer::RegCache::Reg vReg);
+	bool Jit_PrepareDataDirectOffsets(const SamplerID &id, Rasterizer::RegCache::Reg uReg, Rasterizer::RegCache::Reg vReg, int bitsPerTexel);
+	bool Jit_PrepareDataSwizzledOffsets(const SamplerID &id, Rasterizer::RegCache::Reg uReg, Rasterizer::RegCache::Reg vReg, int bitsPerTexel);
+	bool Jit_BlendQuad(const SamplerID &id, bool level1);
+
+	bool Jit_ApplyTextureFunc(const SamplerID &id);
 
 #if PPSSPP_ARCH(ARM64)
 	Arm64Gen::ARM64FloatEmitter fp;
+#elif PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
+	int stackArgPos_ = 0;
+	int stackFracUV1Offset_ = 0;
 #endif
+
+	const u8 *constWidth256f_ = nullptr;
+	const u8 *constHeight256f_ = nullptr;
+	const u8 *constWidthMinus1i_ = nullptr;
+	const u8 *constHeightMinus1i_ = nullptr;
+	const u8 *constUNext_ = nullptr;
+	const u8 *constVNext_ = nullptr;
+	const u8 *constOnes32_ = nullptr;
+	const u8 *constOnes16_ = nullptr;
+	const u8 *const10Low_ = nullptr;
+	const u8 *const10All_ = nullptr;
 
 	std::unordered_map<SamplerID, NearestFunc> cache_;
 	std::unordered_map<SamplerID, const u8 *> addresses_;

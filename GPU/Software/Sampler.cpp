@@ -19,10 +19,12 @@
 #include <unordered_map>
 #include <mutex>
 #include "Common/Data/Convert/ColorConv.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/GPUState.h"
+#include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/RasterizerRegCache.h"
 #include "GPU/Software/Sampler.h"
 
@@ -38,7 +40,7 @@ extern u32 clut[4096];
 namespace Sampler {
 
 static Vec4IntResult SOFTRAST_CALL SampleNearest(int u, int v, const u8 *tptr, int bufw, int level);
-static Vec4IntResult SOFTRAST_CALL SampleLinear(Vec4IntArg u, Vec4IntArg v, int frac_u, int frac_v, const u8 *tptr, int bufw, int level);
+static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 **tptr, const int *bufw, int level, int levelFrac);
 
 std::mutex jitCacheLock;
 SamplerJitCache *jitCache = nullptr;
@@ -113,12 +115,21 @@ void SamplerJitCache::Clear() {
 void SamplerJitCache::ComputeSamplerID(SamplerID *id_out, bool linear) {
 	SamplerID id{};
 
+	id.useStandardBufw = true;
+	id.hasStandardMips = true;
 	int maxLevel = gstate.isMipmapEnabled() ? gstate.getTextureMaxLevel() : 0;
+	int lastWidth = -1;
 	for (int i = 0; i <= maxLevel; ++i) {
-		if (gstate.getTextureAddress(i) == 0) {
+		if (gstate.getTextureAddress(i) == 0)
 			id.hasInvalidPtr = true;
-		}
+		int w = gstate.getTextureWidth(i);
+		if (w != (gstate.texbufwidth[i] & 0x00001FFF))
+			id.useStandardBufw = false;
+		if (lastWidth != -1 && lastWidth != w * 2)
+			id.hasStandardMips = false;
+		lastWidth = w;
 	}
+	id.hasAnyMips = maxLevel != 0;
 
 	id.texfmt = gstate.getTextureFormat();
 	id.swizzle = gstate.isTextureSwizzled();
@@ -131,6 +142,17 @@ void SamplerJitCache::ComputeSamplerID(SamplerID *id_out, bool linear) {
 		id.hasClutOffset = gstate.getClutIndexStartPos() != 0;
 	}
 	id.linear = linear;
+
+	id.clampS = gstate.isTexCoordClampedS();
+	id.clampT = gstate.isTexCoordClampedT();
+	id.width0Shift = gstate.texsize[0] & 0xF;
+	id.height0Shift = (gstate.texsize[0] >> 8) & 0xF;
+
+	id.useTextureAlpha = gstate.isTextureAlphaUsed();
+	id.useColorDoubling = gstate.isColorDoublingEnabled();
+	id.texFunc = gstate.getTextureFunction();
+	if (id.texFunc > GE_TEXFUNC_ADD)
+		id.texFunc = GE_TEXFUNC_ADD;
 
 	*id_out = id;
 }
@@ -172,7 +194,7 @@ std::string SamplerJitCache::DescribeSamplerID(const SamplerID &id) {
 		name += ":SWZ";
 	}
 	if (!id.useSharedClut) {
-		name += ":MIP";
+		name += ":CMIP";
 	}
 	if (id.hasInvalidPtr) {
 		name += ":INV";
@@ -186,9 +208,45 @@ std::string SamplerJitCache::DescribeSamplerID(const SamplerID &id) {
 	if (id.hasClutOffset) {
 		name += ":COFF";
 	}
+	if (id.clampS || id.clampT) {
+		name += std::string(":CL") + (id.clampS ? "S" : "") + (id.clampT ? "T" : "");
+	}
+	if (!id.useStandardBufw) {
+		name += ":BUFW";
+	}
+	if (!id.hasStandardMips) {
+		name += ":XMIP";
+	} else if (id.hasAnyMips) {
+		name += ":MIP";
+	}
 	if (id.linear) {
 		name += ":LERP";
 	}
+	if (id.useTextureAlpha) {
+		name += ":A";
+	}
+	if (id.useColorDoubling) {
+		name += ":DBL";
+	}
+	switch (id.texFunc) {
+	case GE_TEXFUNC_MODULATE:
+		name += ":MOD";
+		break;
+	case GE_TEXFUNC_DECAL:
+		name += ":DECAL";
+		break;
+	case GE_TEXFUNC_BLEND:
+		name += ":BLEND";
+		break;
+	case GE_TEXFUNC_REPLACE:
+		break;
+	case GE_TEXFUNC_ADD:
+		name += ":ADD";
+	default:
+		break;
+	}
+	name += StringFromFormat(":W%dH%d", 1 << id.width0Shift, 1 << id.height0Shift);
+
 	return name;
 }
 
@@ -414,18 +472,114 @@ static Vec4IntResult SOFTRAST_CALL SampleNearest(int u, int v, const u8 *tptr, i
 	return ToVec4IntResult(Vec4<int>::FromRGBA(c.v[0]));
 }
 
-static Vec4IntResult SOFTRAST_CALL SampleLinear(Vec4IntArg u_in, Vec4IntArg v_in, int frac_u, int frac_v, const u8 *tptr, int bufw, int texlevel) {
-	const Vec4<int> u = u_in;
-	const Vec4<int> v = v_in;
-	Nearest4 c = SampleNearest<4>(u.AsArray(), v.AsArray(), tptr, bufw, texlevel);
+static inline int ClampUV(int v, int height) {
+	if (v >= height - 1)
+		return height - 1;
+	else if (v < 0)
+		return 0;
+	return v;
+}
+
+static inline int WrapUV(int v, int height) {
+	return v & (height - 1);
+}
+
+static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuad(bool clamp, Vec4IntArg vec, int width) {
+	Vec4<int> result = vec;
+#ifdef _M_SSE
+	if (clamp) {
+		// First, clamp to zero.
+		__m128i negmask = _mm_cmpgt_epi32(_mm_setzero_si128(), result.ivec);
+		result.ivec = _mm_andnot_si128(negmask, result.ivec);
+
+		// Now the high bound.
+		__m128i bound = _mm_set1_epi32(width - 1);
+		__m128i goodmask = _mm_cmpgt_epi32(bound, result.ivec);
+		// Clear the ones that were too high, then or in the high bound to those.
+		result.ivec = _mm_and_si128(goodmask, result.ivec);
+		result.ivec = _mm_or_si128(result.ivec, _mm_andnot_si128(goodmask, bound));
+	} else {
+		result.ivec = _mm_and_si128(result.ivec, _mm_set1_epi32(width - 1));
+	}
+#else
+	if (clamp) {
+		for (int i = 0; i < 4; ++i) {
+			result[i] = ClampUV(result[i], width);
+		}
+	} else {
+		for (int i = 0; i < 4; ++i) {
+			result[i] = WrapUV(result[i], width);
+		}
+	}
+#endif
+
+	return ToVec4IntResult(result);
+}
+
+static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuadS(bool clamp, int u, int width) {
+#ifdef _M_SSE
+	__m128i uvec = _mm_add_epi32(_mm_set1_epi32(u), _mm_set_epi32(1, 0, 1, 0));
+	return ApplyTexelClampQuad(clamp, uvec, width);
+#else
+	Vec4<int> result = Vec4<int>::AssignToAll(u) + Vec4<int>(0, 1, 0, 1);
+	return ApplyTexelClampQuad(clamp, ToVec4IntArg(result), width);
+#endif
+}
+
+static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuadT(bool clamp, int v, int height) {
+#ifdef _M_SSE
+	__m128i vvec = _mm_add_epi32(_mm_set1_epi32(v), _mm_set_epi32(1, 1, 0, 0));
+	return ApplyTexelClampQuad(clamp, vvec, height);
+#else
+	Vec4<int> result = Vec4<int>::AssignToAll(v) + Vec4<int>(0, 0, 1, 1);
+	return ApplyTexelClampQuad(clamp, ToVec4IntArg(result), height);
+#endif
+}
+
+static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadS(int level, float in_s, int &frac_u, int x) {
+	int width = gstate.getTextureWidth(level);
+
+	int base_u = (int)(in_s * width * 256) + 12 - x - 128;
+	frac_u = (int)(base_u >> 4) & 0x0F;
+	base_u >>= 8;
+
+	// Need to generate and individually wrap/clamp the four sample coordinates. Ugh.
+	return ApplyTexelClampQuadS(gstate.isTexCoordClampedS(), base_u, width);
+}
+
+static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadT(int level, float in_t, int &frac_v, int y) {
+	int height = gstate.getTextureHeight(level);
+
+	int base_v = (int)(in_t * height * 256) + 12 - y - 128;
+	frac_v = (int)(base_v >> 4) & 0x0F;
+	base_v >>= 8;
+
+	// Need to generate and individually wrap/clamp the four sample coordinates. Ugh.
+	return ApplyTexelClampQuadT(gstate.isTexCoordClampedT(), base_v, height);
+}
+
+static Vec4IntResult SOFTRAST_CALL SampleLinearLevel(float s, float t, int x, int y, const u8 **tptr, const int *bufw, int texlevel) {
+	int frac_u, frac_v;
+	const Vec4<int> u = GetTexelCoordinatesQuadS(texlevel, s, frac_u, x);
+	const Vec4<int> v = GetTexelCoordinatesQuadT(texlevel, t, frac_v, y);
+	Nearest4 c = SampleNearest<4>(u.AsArray(), v.AsArray(), tptr[0], bufw[0], texlevel);
 
 	Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(c.v[0]);
 	Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(c.v[1]);
 	Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(c.v[2]);
 	Vec4<int> texcolor_br = Vec4<int>::FromRGBA(c.v[3]);
-	Vec4<int> t = texcolor_tl * (0x10 - frac_u) + texcolor_tr * frac_u;
-	Vec4<int> b = texcolor_bl * (0x10 - frac_u) + texcolor_br * frac_u;
-	return ToVec4IntResult((t * (0x10 - frac_v) + b * frac_v) / (16 * 16));
+	Vec4<int> top = texcolor_tl * (0x10 - frac_u) + texcolor_tr * frac_u;
+	Vec4<int> bot = texcolor_bl * (0x10 - frac_u) + texcolor_br * frac_u;
+	return ToVec4IntResult((top * (0x10 - frac_v) + bot * frac_v) / (16 * 16));
+}
+
+static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 **tptr, const int *bufw, int texlevel, int levelFrac) {
+	Vec4<int> c0 = SampleLinearLevel(s, t, x, y, tptr, bufw, texlevel);
+	if (levelFrac) {
+		const Vec4<int> c1 = SampleLinearLevel(s, t, x, y, tptr + 1, bufw + 1, texlevel + 1);
+		c0 = (c1 * levelFrac + c0 * (16 - levelFrac)) / 16;
+	}
+	return GetTextureFunctionOutput(prim_color, ToVec4IntArg(c0));
 }
 
 };
