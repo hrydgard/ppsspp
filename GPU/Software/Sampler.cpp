@@ -250,18 +250,35 @@ std::string SamplerJitCache::DescribeSamplerID(const SamplerID &id) {
 	return name;
 }
 
-std::string SamplerJitCache::DescribeCodePtr(const u8 *ptr) {
-	ptrdiff_t dist = 0x7FFFFFFF;
-	SamplerID found{};
-	for (const auto &it : addresses_) {
-		ptrdiff_t it_dist = ptr - it.second;
-		if (it_dist >= 0 && it_dist < dist) {
-			found = it.first;
-			dist = it_dist;
-		}
-	}
+void SamplerJitCache::Describe(const std::string &message) {
+	descriptions_[GetCodePointer()] = message;
+}
 
-	return DescribeSamplerID(found);
+std::string SamplerJitCache::DescribeCodePtr(const u8 *ptr) {
+	constexpr bool USE_IDS = false;
+	ptrdiff_t dist = 0x7FFFFFFF;
+	if (USE_IDS) {
+		SamplerID found{};
+		for (const auto &it : addresses_) {
+			ptrdiff_t it_dist = ptr - it.second;
+			if (it_dist >= 0 && it_dist < dist) {
+				found = it.first;
+				dist = it_dist;
+			}
+		}
+
+		return DescribeSamplerID(found);
+	} else {
+		std::string found;
+		for (const auto &it : descriptions_) {
+			ptrdiff_t it_dist = ptr - it.first;
+			if (it_dist >= 0 && it_dist < dist) {
+				found = it.second;
+				dist = it_dist;
+			}
+		}
+		return found;
+	}
 }
 
 NearestFunc SamplerJitCache::GetNearest(const SamplerID &id) {

@@ -45,6 +45,7 @@ NearestFunc SamplerJitCache::Compile(const SamplerID &id) {
 	regCache_.ChangeReg(XMM0, RegCache::VEC_RESULT);
 
 	BeginWrite();
+	Describe("Init");
 	const u8 *start = AlignCode16();
 
 	// Early exit on !srcPtr.
@@ -87,6 +88,7 @@ NearestFunc SamplerJitCache::Compile(const SamplerID &id) {
 	}
 	regCache_.Unlock(vecResultReg, RegCache::VEC_RESULT);
 
+	Describe("Init");
 	if (id.hasInvalidPtr) {
 		SetJumpTarget(zeroSrc);
 	}
@@ -105,6 +107,7 @@ alignas(16) static const float ones[4] = { 1.0f, 1.0f, 1.0f, 1.0f, };
 LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	_assert_msg_(id.linear, "Linear should be set on sampler id");
 	BeginWrite();
+	Describe("Init");
 
 	// Set the stackArgPos_ so we can use it in the nearest part too.
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -155,6 +158,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		return nullptr;
 	}
 
+	Describe("Init");
 	RET();
 
 	regCache_.ForceRelease(RegCache::VEC_ARG_U);
@@ -222,6 +226,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 
 	// Now the actual linear func, which is exposed externally.
 	const u8 *start = AlignCode16();
+	Describe("Init");
 
 	regCache_.SetupABI({
 		RegCache::VEC_ARG_S,
@@ -321,6 +326,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	// Early exit on !srcPtr (either one.)
 	FixupBranch zeroSrc;
 	if (id.hasInvalidPtr) {
+		Describe("NullCheck");
 		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
 
 		if (id.hasAnyMips) {
@@ -349,6 +355,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		regCache_.Unlock(vReg, vPurpose);
 	};
 
+	Describe("DataOffsets");
 	prepareDataOffsets(RegCache::VEC_ARG_U, RegCache::VEC_ARG_V);
 	if (id.hasAnyMips)
 		prepareDataOffsets(RegCache::VEC_U1, RegCache::VEC_V1);
@@ -381,8 +388,17 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		// Otherwise, we'll overwrite them...
 		_assert_(level1 || (uReg == XMM0 && vReg == XMM1));
 
-		MOVD_xmm(R(uArgReg), uReg);
-		MOVD_xmm(R(vArgReg), vReg);
+		if (cpu_info.bSSE4_1) {
+			PEXTRD(R(uArgReg), uReg, off / 4);
+			PEXTRD(R(vArgReg), vReg, off / 4);
+		} else {
+			MOVD_xmm(R(uArgReg), uReg);
+			MOVD_xmm(R(vArgReg), vReg);
+			PSRLDQ(uReg, 4);
+			PSRLDQ(vReg, 4);
+		}
+		regCache_.Unlock(uReg, level1 ? RegCache::VEC_U1 : RegCache::VEC_ARG_U);
+		regCache_.Unlock(vReg, level1 ? RegCache::VEC_V1 : RegCache::VEC_ARG_V);
 
 		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
 		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW);
@@ -392,15 +408,12 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
 		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW);
 
-		PSRLDQ(uReg, 4);
-		PSRLDQ(vReg, 4);
-		regCache_.Unlock(uReg, level1 ? RegCache::VEC_U1 : RegCache::VEC_ARG_U);
-		regCache_.Unlock(vReg, level1 ? RegCache::VEC_V1 : RegCache::VEC_ARG_V);
-
 		CALL(nearest);
 
 		X64Reg vecResultReg = regCache_.Find(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
-		if (off == 0) {
+		if (cpu_info.bSSE4_1) {
+			PINSRD(vecResultReg, R(resultReg), off / 4);
+		} else if (off == 0) {
 			MOVD_xmm(vecResultReg, R(resultReg));
 		} else {
 			X64Reg tempReg = regCache_.Alloc(RegCache::VEC_TEMP0);
@@ -412,12 +425,14 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		regCache_.Unlock(vecResultReg, level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
 	};
 
+	Describe("Calls");
 	doNearestCall(0, false);
 	doNearestCall(4, false);
 	doNearestCall(8, false);
 	doNearestCall(12, false);
 
 	if (id.hasAnyMips) {
+		Describe("MipsCalls");
 		if (regCache_.Has(RegCache::GEN_ARG_LEVELFRAC)) {
 			X64Reg levelFracReg = regCache_.Find(RegCache::GEN_ARG_LEVELFRAC);
 			CMP(8, R(levelFracReg), Imm8(0));
@@ -459,6 +474,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 
 	success = success && Jit_BlendQuad(id, false);
 	if (id.hasAnyMips) {
+		Describe("BlendMips");
 		if (!regCache_.Has(RegCache::GEN_ARG_LEVELFRAC)) {
 			X64Reg levelFracReg = regCache_.Alloc(RegCache::GEN_ARG_LEVELFRAC);
 			MOVZX(32, 8, levelFracReg, MDisp(RSP, stackArgPos_ + 24));
@@ -472,6 +488,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 
 		success = success && Jit_BlendQuad(id, true);
 
+		Describe("BlendMips");
 		// First, broadcast the levelFrac value into an XMM.
 		X64Reg fracReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 		MOVD_xmm(fracReg, R(levelFracReg));
@@ -508,6 +525,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	success = success && Jit_ApplyTextureFunc(id);
 
 	// Last of all, convert to 32-bit channels.
+	Describe("Init");
 	if (cpu_info.bSSE4_1) {
 		PMOVZXWD(XMM0, R(XMM0));
 	} else {
@@ -568,6 +586,7 @@ RegCache::Reg SamplerJitCache::GetGState() {
 }
 
 bool SamplerJitCache::Jit_BlendQuad(const SamplerID &id, bool level1) {
+	Describe(level1 ? "BlendQuadMips" : "BlendQuad");
 	// First put the top RRRRRRRR LLLLLLLL into topReg, bottom into bottomReg.
 	// Start with XXXX XXXX RRRR LLLL, and then expand 8 bits to 16 bits.
 	X64Reg topReg = regCache_.Alloc(RegCache::VEC_TEMP0);
@@ -682,17 +701,23 @@ bool SamplerJitCache::Jit_ApplyTextureFunc(const SamplerID &id) {
 	X64Reg tempReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 
 	auto useAlphaFrom = [&](X64Reg alphaColorReg) {
-		PSRLDQ(alphaColorReg, 6);
-		PSLLDQ(alphaColorReg, 6);
-		// Zero out the result alpha and OR them together.
-		PSLLDQ(resultReg, 10);
-		PSRLDQ(resultReg, 10);
-		POR(resultReg, R(alphaColorReg));
+		if (cpu_info.bSSE4_1) {
+			// Copy only alpha.
+			PBLENDW(resultReg, R(alphaColorReg), 0x08);
+		} else {
+			PSRLDQ(alphaColorReg, 6);
+			PSLLDQ(alphaColorReg, 6);
+			// Zero out the result alpha and OR them together.
+			PSLLDQ(resultReg, 10);
+			PSRLDQ(resultReg, 10);
+			POR(resultReg, R(alphaColorReg));
+		}
 	};
 
 	// Note: color is in DWORDs, but result is in WORDs.
 	switch (id.TexFunc()) {
 	case GE_TEXFUNC_MODULATE:
+		Describe("Modulate");
 		PACKSSDW(primColorReg, R(primColorReg));
 		MOVDQA(tempReg, M(constOnes16_));
 		PADDW(tempReg, R(primColorReg));
@@ -715,6 +740,7 @@ bool SamplerJitCache::Jit_ApplyTextureFunc(const SamplerID &id) {
 		break;
 
 	case GE_TEXFUNC_DECAL:
+		Describe("Decal");
 		PACKSSDW(primColorReg, R(primColorReg));
 		if (id.useTextureAlpha) {
 			// Get alpha into the tempReg.
@@ -745,6 +771,7 @@ bool SamplerJitCache::Jit_ApplyTextureFunc(const SamplerID &id) {
 
 	case GE_TEXFUNC_BLEND:
 	{
+		Describe("EnvBlend");
 		PACKSSDW(primColorReg, R(primColorReg));
 
 		// Start out with the prim color side.  Materialize a 255 to inverse resultReg and round.
@@ -798,6 +825,7 @@ bool SamplerJitCache::Jit_ApplyTextureFunc(const SamplerID &id) {
 	}
 
 	case GE_TEXFUNC_REPLACE:
+		Describe("Replace");
 		if (id.useColorDoubling && id.useTextureAlpha) {
 			// We can abuse primColorReg as a temp.
 			MOVDQA(primColorReg, R(resultReg));
@@ -821,6 +849,7 @@ bool SamplerJitCache::Jit_ApplyTextureFunc(const SamplerID &id) {
 	case GE_TEXFUNC_UNKNOWN1:
 	case GE_TEXFUNC_UNKNOWN2:
 	case GE_TEXFUNC_UNKNOWN3:
+		Describe("Add");
 		PACKSSDW(primColorReg, R(primColorReg));
 		if (id.useTextureAlpha) {
 			MOVDQA(tempReg, M(constOnes16_));
@@ -935,6 +964,7 @@ bool SamplerJitCache::Jit_ReadTextureFormat(const SamplerID &id) {
 
 // Note: afterward, srcReg points at the block, and uReg/vReg have offset into block.
 bool SamplerJitCache::Jit_GetDXT1Color(const SamplerID &id, int blockSize, int alpha) {
+	Describe("DXT1");
 	// Like Jit_GetTexData, this gets the color into resultReg.
 	// Note: color low bits are red, high bits are blue.
 	_assert_msg_(blockSize == 8 || blockSize == 16, "Invalid DXT block size");
@@ -1163,6 +1193,7 @@ bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
 
 	bool success = false;
 	if (fmt == GE_TFMT_DXT3) {
+		Describe("DXT3A");
 		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
 		X64Reg uReg = regCache_.Find(RegCache::GEN_ARG_U);
 		X64Reg vReg = regCache_.Find(RegCache::GEN_ARG_V);
@@ -1192,6 +1223,7 @@ bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
 		regCache_.Unlock(vReg, RegCache::GEN_ARG_V);
 		regCache_.ForceRelease(RegCache::GEN_ARG_V);
 	} else if (fmt == GE_TFMT_DXT5) {
+		Describe("DXT5A");
 		X64Reg uReg = regCache_.Find(RegCache::GEN_ARG_U);
 		X64Reg vReg = regCache_.Find(RegCache::GEN_ARG_V);
 
@@ -1322,6 +1354,7 @@ bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {
 		return Jit_GetTexDataSwizzled(id, bitsPerTexel);
 	}
 	if (id.linear) {
+		Describe("TexDataL");
 		// We can throw away bufw immediately.  Maybe even earlier?
 		regCache_.ForceRelease(RegCache::GEN_ARG_BUFW);
 
@@ -1369,6 +1402,7 @@ bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {
 		return success;
 	}
 
+	Describe("TexData");
 	X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
 	X64Reg temp2Reg = regCache_.Alloc(RegCache::GEN_TEMP2);
 
@@ -1452,6 +1486,7 @@ bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {
 
 bool SamplerJitCache::Jit_GetTexDataSwizzled4(const SamplerID &id) {
 	if (id.linear) {
+		Describe("TexDataS4L");
 		// We can throw away bufw immediately.  Maybe even earlier?
 		regCache_.ForceRelease(RegCache::GEN_ARG_BUFW);
 
@@ -1482,6 +1517,7 @@ bool SamplerJitCache::Jit_GetTexDataSwizzled4(const SamplerID &id) {
 		return true;
 	}
 
+	Describe("TexDataS4");
 	X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
 	X64Reg temp2Reg = regCache_.Alloc(RegCache::GEN_TEMP2);
 	X64Reg uReg = regCache_.Find(RegCache::GEN_ARG_U);
@@ -1546,6 +1582,7 @@ bool SamplerJitCache::Jit_GetTexDataSwizzled(const SamplerID &id, int bitsPerTex
 
 	bool success = true;
 	if (id.linear) {
+		Describe("TexDataSL");
 		// We can throw away bufw immediately.  Maybe even earlier?
 		regCache_.ForceRelease(RegCache::GEN_ARG_BUFW);
 		// We've also baked uReg into vReg.
@@ -1580,6 +1617,7 @@ bool SamplerJitCache::Jit_GetTexDataSwizzled(const SamplerID &id, int bitsPerTex
 		return success;
 	}
 
+	Describe("TexDataS");
 	X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
 	X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
 	X64Reg temp2Reg = regCache_.Alloc(RegCache::GEN_TEMP2);
@@ -1661,6 +1699,7 @@ bool SamplerJitCache::Jit_GetTexDataSwizzled(const SamplerID &id, int bitsPerTex
 }
 
 bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
+	Describe("TexelQuad");
 	// RCX ought to be free, it was either bufw or never used.
 	bool success = regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
 	_assert_msg_(success, "Should have RCX free");
@@ -1961,6 +2000,7 @@ bool SamplerJitCache::Jit_PrepareDataOffsets(const SamplerID &id, RegCache::Reg 
 }
 
 bool SamplerJitCache::Jit_PrepareDataDirectOffsets(const SamplerID &id, RegCache::Reg uReg, RegCache::Reg vReg, int bitsPerTexel) {
+	Describe("DataOff");
 	X64Reg bufwVecReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 	if (!id.useStandardBufw || id.hasAnyMips) {
 		// Spread bufw into each lane.
@@ -2029,6 +2069,7 @@ bool SamplerJitCache::Jit_PrepareDataDirectOffsets(const SamplerID &id, RegCache
 }
 
 bool SamplerJitCache::Jit_PrepareDataSwizzledOffsets(const SamplerID &id, RegCache::Reg uReg, RegCache::Reg vReg, int bitsPerTexel) {
+	Describe("DataOffS");
 	// See Jit_GetTexDataSwizzled() for usage of this offset.
 
 	X64Reg bufwVecReg = regCache_.Alloc(RegCache::VEC_TEMP0);
@@ -2111,6 +2152,7 @@ bool SamplerJitCache::Jit_PrepareDataSwizzledOffsets(const SamplerID &id, RegCac
 }
 
 bool SamplerJitCache::Jit_Decode5650() {
+	Describe("5650");
 	X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
 	X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
 	X64Reg temp2Reg = regCache_.Alloc(RegCache::GEN_TEMP2);
@@ -2152,6 +2194,7 @@ bool SamplerJitCache::Jit_Decode5650() {
 }
 
 bool SamplerJitCache::Jit_Decode5551() {
+	Describe("5551");
 	X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
 	X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
 	X64Reg temp2Reg = regCache_.Alloc(RegCache::GEN_TEMP2);
@@ -2194,6 +2237,7 @@ bool SamplerJitCache::Jit_Decode5551() {
 alignas(16) static const u32 color4444mask[4] = { 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, };
 
 bool SamplerJitCache::Jit_Decode4444() {
+	Describe("4444");
 	X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
 	X64Reg vecTemp1Reg = regCache_.Alloc(RegCache::VEC_TEMP1);
 	X64Reg vecTemp2Reg = regCache_.Alloc(RegCache::VEC_TEMP2);
@@ -2225,6 +2269,7 @@ bool SamplerJitCache::Jit_Decode4444() {
 }
 
 bool SamplerJitCache::Jit_TransformClutIndex(const SamplerID &id, int bitsPerIndex) {
+	Describe("TrCLUT");
 	GEPaletteFormat fmt = id.ClutFmt();
 	if (!id.hasClutShift && !id.hasClutMask && !id.hasClutOffset) {
 		// This is simple - just mask if necessary.
@@ -2286,6 +2331,7 @@ bool SamplerJitCache::Jit_TransformClutIndex(const SamplerID &id, int bitsPerInd
 }
 
 bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
+	Describe("ReadCLUT");
 	X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
 
 	if (!id.useSharedClut) {
@@ -2302,7 +2348,8 @@ bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
 		} else {
 #if PPSSPP_PLATFORM(WINDOWS)
 			if (id.linear) {
-				MOV(32, R(temp2Reg), MDisp(RSP, stackArgPos_ + 16));
+				// Extra 8 to account for call.
+				MOV(32, R(temp2Reg), MDisp(RSP, stackArgPos_ + 8 + 16));
 			} else {
 				// The argument was saved on the stack.
 				MOV(32, R(temp2Reg), MDisp(RSP, 40));
