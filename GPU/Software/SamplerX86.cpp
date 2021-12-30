@@ -589,6 +589,7 @@ bool SamplerJitCache::Jit_BlendQuad(const SamplerID &id, bool level1) {
 	Describe(level1 ? "BlendQuadMips" : "BlendQuad");
 	// First put the top RRRRRRRR LLLLLLLL into topReg, bottom into bottomReg.
 	// Start with XXXX XXXX RRRR LLLL, and then expand 8 bits to 16 bits.
+	// TODO: Maybe we can use PMADDUBSW?
 	X64Reg topReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 	X64Reg bottomReg = regCache_.Alloc(RegCache::VEC_TEMP1);
 
