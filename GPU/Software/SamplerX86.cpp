@@ -178,13 +178,17 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	regCache_.Reset(true);
 
 	// Let's drop some helpful constants here.
-	const10All_ = AlignCode16();
+	const10All16_ = AlignCode16();
 	Write16(0x10); Write16(0x10); Write16(0x10); Write16(0x10);
 	Write16(0x10); Write16(0x10); Write16(0x10); Write16(0x10);
 
 	const10Low_ = AlignCode16();
 	Write16(0x10); Write16(0x10); Write16(0x10); Write16(0x10);
 	Write16(0); Write16(0); Write16(0); Write16(0);
+
+	const10All8_ = AlignCode16();
+	for (int i = 0; i < 16; ++i)
+		Write8(0x10);
 
 	if (!id.hasAnyMips) {
 		constWidth256f_ = AlignCode16();
@@ -502,7 +506,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 
 		// Okay, next we need an inverse for color 0.
 		X64Reg invFracReg = regCache_.Alloc(RegCache::VEC_TEMP1);
-		MOVDQA(invFracReg, M(const10All_));
+		MOVDQA(invFracReg, M(const10All16_));
 		PSUBW(invFracReg, R(fracReg));
 
 		// And multiply.
@@ -587,110 +591,189 @@ RegCache::Reg SamplerJitCache::GetGState() {
 
 bool SamplerJitCache::Jit_BlendQuad(const SamplerID &id, bool level1) {
 	Describe(level1 ? "BlendQuadMips" : "BlendQuad");
-	// First put the top RRRRRRRR LLLLLLLL into topReg, bottom into bottomReg.
-	// Start with XXXX XXXX RRRR LLLL, and then expand 8 bits to 16 bits.
-	// TODO: Maybe we can use PMADDUBSW?
-	X64Reg topReg = regCache_.Alloc(RegCache::VEC_TEMP0);
-	X64Reg bottomReg = regCache_.Alloc(RegCache::VEC_TEMP1);
 
-	X64Reg quadReg = regCache_.Find(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
-	if (!cpu_info.bSSE4_1) {
+	if (cpu_info.bSSE4_1 && cpu_info.bSSSE3) {
+		// Let's start by rearranging from TL TR BL BR like this:
+		// ABCD EFGH IJKL MNOP -> AI BJ CK DL EM FN GO HP -> AIEM BJFN CKGO DLHP
+		// This way, all the RGBAs are next to each other, and in order TL BL TR BR.
+		X64Reg quadReg = regCache_.Find(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
+		X64Reg tempArrangeReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+		PSHUFD(tempArrangeReg, R(quadReg), _MM_SHUFFLE(3, 2, 3, 2));
+		PUNPCKLBW(quadReg, R(tempArrangeReg));
+		// Okay, that's top and bottom interleaved, now for left and right.
+		PSHUFD(tempArrangeReg, R(quadReg), _MM_SHUFFLE(3, 2, 3, 2));
+		PUNPCKLWD(quadReg, R(tempArrangeReg));
+		regCache_.Release(tempArrangeReg, RegCache::VEC_TEMP0);
+
+		// Next up, we want to multiply and add using a repeated TB frac pair.
+		// That's (0x10 - frac_v) in byte 1, frac_v in byte 2, repeating.
+		X64Reg fracReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 		X64Reg zeroReg = GetZeroVec();
-		PSHUFD(topReg, R(quadReg), _MM_SHUFFLE(0, 0, 1, 0));
-		PSHUFD(bottomReg, R(quadReg), _MM_SHUFFLE(0, 0, 3, 2));
-		PUNPCKLBW(topReg, R(zeroReg));
-		PUNPCKLBW(bottomReg, R(zeroReg));
-		regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
-	} else {
-		PSHUFD(bottomReg, R(quadReg), _MM_SHUFFLE(0, 0, 3, 2));
-		PMOVZXBW(topReg, R(quadReg));
-		PMOVZXBW(bottomReg, R(bottomReg));
-	}
-	if (!level1) {
-		regCache_.Unlock(quadReg, RegCache::VEC_RESULT);
-		regCache_.ForceRelease(RegCache::VEC_RESULT);
-	}
-
-	// Grab frac_u and spread to lower (L) lanes.
-	X64Reg fracReg = regCache_.Alloc(RegCache::VEC_TEMP2);
-	X64Reg fracMulReg = regCache_.Alloc(RegCache::VEC_TEMP3);
-	if (level1) {
-		MOVD_xmm(fracReg, MDisp(RSP, stackArgPos_ + stackFracUV1Offset_));
-	} else {
-		X64Reg fracUReg = regCache_.Find(RegCache::GEN_ARG_FRAC_U);
-		MOVD_xmm(fracReg, R(fracUReg));
-		regCache_.Unlock(fracUReg, RegCache::GEN_ARG_FRAC_U);
-		regCache_.ForceRelease(RegCache::GEN_ARG_FRAC_U);
-	}
-	PSHUFLW(fracReg, R(fracReg), _MM_SHUFFLE(0, 0, 0, 0));
-	// Now subtract 0x10 - frac_u in the L lanes only: 00000000 LLLLLLLL.
-	MOVDQA(fracMulReg, M(const10Low_));
-	PSUBW(fracMulReg, R(fracReg));
-	// Then we just shift and OR in the original frac_u.
-	PSLLDQ(fracReg, 8);
-	POR(fracMulReg, R(fracReg));
-	regCache_.Release(fracReg, RegCache::VEC_TEMP2);
-
-	// Okay, we have 8-bits in the top and bottom rows for the color.
-	// Multiply by frac to get 12, which we keep for the next stage.
-	PMULLW(topReg, R(fracMulReg));
-	PMULLW(bottomReg, R(fracMulReg));
-	regCache_.Release(fracMulReg, RegCache::VEC_TEMP3);
-
-	// Time for frac_v.  This time, we want it in all 8 lanes.
-	fracReg = regCache_.Alloc(RegCache::VEC_TEMP2);
-	X64Reg fracTopReg = regCache_.Alloc(RegCache::VEC_TEMP3);
-	if (level1) {
-		MOVD_xmm(fracReg, MDisp(RSP, stackArgPos_ + stackFracUV1Offset_ + 4));
-	} else {
-		X64Reg fracVReg = regCache_.Find(RegCache::GEN_ARG_FRAC_V);
-		MOVD_xmm(fracReg, R(fracVReg));
-		regCache_.Unlock(fracVReg, RegCache::GEN_ARG_FRAC_V);
-		regCache_.ForceRelease(RegCache::GEN_ARG_FRAC_V);
-	}
-	PSHUFLW(fracReg, R(fracReg), _MM_SHUFFLE(0, 0, 0, 0));
-	PSHUFD(fracReg, R(fracReg), _MM_SHUFFLE(0, 0, 0, 0));
-
-	// Now, inverse fracReg into fracTopReg for the top row.
-	MOVDQA(fracTopReg, M(const10All_));
-	PSUBW(fracTopReg, R(fracReg));
-
-	// We had 12, plus 4 frac, that gives us 16.
-	PMULLW(bottomReg, R(fracReg));
-	PMULLW(topReg, R(fracTopReg));
-	regCache_.Release(fracReg, RegCache::VEC_TEMP2);
-	regCache_.Release(fracTopReg, RegCache::VEC_TEMP3);
-
-	// Finally, time to sum them all up and divide by 256 to get back to 8 bits.
-	PADDUSW(bottomReg, R(topReg));
-	regCache_.Release(topReg, RegCache::VEC_TEMP0);
-
-	bool changeSuccess = true;
-	if (level1) {
-		PSHUFD(quadReg, R(bottomReg), _MM_SHUFFLE(3, 2, 3, 2));
-		PADDUSW(quadReg, R(bottomReg));
-		PSRLW(quadReg, 8);
-		regCache_.Release(bottomReg, RegCache::VEC_TEMP1);
-		regCache_.Unlock(quadReg, RegCache::VEC_RESULT1);
-	} else {
-		changeSuccess = regCache_.ChangeReg(XMM0, RegCache::VEC_RESULT);
-		if (!changeSuccess) {
-			_assert_msg_(XMM0 == bottomReg, "Unexpected other reg locked as destReg");
-			X64Reg otherReg = regCache_.Alloc(RegCache::VEC_TEMP0);
-			PSHUFD(otherReg, R(bottomReg), _MM_SHUFFLE(3, 2, 3, 2));
-			PADDUSW(bottomReg, R(otherReg));
-			regCache_.Release(otherReg, RegCache::VEC_TEMP0);
-			regCache_.Release(bottomReg, RegCache::VEC_TEMP1);
-
-			// Okay, now it can be changed.
-			regCache_.ChangeReg(XMM0, RegCache::VEC_RESULT);
+		if (level1) {
+			MOVD_xmm(fracReg, MDisp(RSP, stackArgPos_ + stackFracUV1Offset_ + 4));
 		} else {
-			PSHUFD(XMM0, R(bottomReg), _MM_SHUFFLE(3, 2, 3, 2));
-			PADDUSW(XMM0, R(bottomReg));
-			regCache_.Release(bottomReg, RegCache::VEC_TEMP1);
+			X64Reg fracVReg = regCache_.Find(RegCache::GEN_ARG_FRAC_V);
+			MOVD_xmm(fracReg, R(fracVReg));
+			regCache_.Unlock(fracVReg, RegCache::GEN_ARG_FRAC_V);
+			regCache_.ForceRelease(RegCache::GEN_ARG_FRAC_V);
+		}
+		PSHUFB(fracReg, R(zeroReg));
+		regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
+
+		// Now, inverse fracReg, then interleave into the actual multiplier.
+		// This gives us the repeated TB pairs we wanted.
+		X64Reg multTBReg = regCache_.Alloc(RegCache::VEC_TEMP1);
+		MOVDQA(multTBReg, M(const10All8_));
+		PSUBB(multTBReg, R(fracReg));
+		PUNPCKLBW(multTBReg, R(fracReg));
+		regCache_.Release(fracReg, RegCache::VEC_TEMP0);
+
+		// Now we can multiply and add paired lanes in one go.
+		// Note that since T+B=0x10, this gives us exactly 12 bits.
+		PMADDUBSW(quadReg, R(multTBReg));
+		regCache_.Release(multTBReg, RegCache::VEC_TEMP1);
+
+		// With that done, we need to multiply by LR, or rather 0L0R, and sum again.
+		// Since RRRR was all next to each other, this gives us a clean total R.
+		fracReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+		if (level1) {
+			MOVD_xmm(fracReg, MDisp(RSP, stackArgPos_ + stackFracUV1Offset_));
+		} else {
+			X64Reg fracUReg = regCache_.Find(RegCache::GEN_ARG_FRAC_U);
+			MOVD_xmm(fracReg, R(fracUReg));
+			regCache_.Unlock(fracUReg, RegCache::GEN_ARG_FRAC_U);
+			regCache_.ForceRelease(RegCache::GEN_ARG_FRAC_U);
+		}
+		// We can ignore the high bits, since we'll interleave those away anyway.
+		PSHUFLW(fracReg, R(fracReg), _MM_SHUFFLE(0, 0, 0, 0));
+
+		// Again, we're inversing into an interleaved multiplier.  L is the inversed one.
+		// 0L0R is (0x10 - frac_u), frac_u - 2x16 repeated four times.
+		X64Reg multLRReg = regCache_.Alloc(RegCache::VEC_TEMP1);
+		MOVDQA(multLRReg, M(const10All16_));
+		PSUBW(multLRReg, R(fracReg));
+		PUNPCKLWD(multLRReg, R(fracReg));
+		regCache_.Release(fracReg, RegCache::VEC_TEMP0);
+
+		// This gives us RGBA as dwords, but they're all shifted left by 8 from the multiplies.
+		PMADDWD(quadReg, R(multLRReg));
+		PSRLD(quadReg, 8);
+		regCache_.Release(multLRReg, RegCache::VEC_TEMP1);
+
+		// Shrink to 16-bit, it's more convenient for later.
+		PACKSSDW(quadReg, R(quadReg));
+		if (level1) {
+			regCache_.Unlock(quadReg, RegCache::VEC_RESULT1);
+		} else {
+			MOVDQA(XMM0, R(quadReg));
+			regCache_.Unlock(quadReg, RegCache::VEC_RESULT);
+
+			regCache_.ForceRelease(RegCache::VEC_RESULT);
+			bool changeSuccess = regCache_.ChangeReg(XMM0, RegCache::VEC_RESULT);
+			_assert_msg_(changeSuccess, "Unexpected reg locked as destReg");
+		}
+	} else {
+		X64Reg topReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+		X64Reg bottomReg = regCache_.Alloc(RegCache::VEC_TEMP1);
+
+		X64Reg quadReg = regCache_.Find(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
+		if (!cpu_info.bSSE4_1) {
+			X64Reg zeroReg = GetZeroVec();
+			PSHUFD(topReg, R(quadReg), _MM_SHUFFLE(0, 0, 1, 0));
+			PSHUFD(bottomReg, R(quadReg), _MM_SHUFFLE(0, 0, 3, 2));
+			PUNPCKLBW(topReg, R(zeroReg));
+			PUNPCKLBW(bottomReg, R(zeroReg));
+			regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
+		} else {
+			PSHUFD(bottomReg, R(quadReg), _MM_SHUFFLE(0, 0, 3, 2));
+			PMOVZXBW(topReg, R(quadReg));
+			PMOVZXBW(bottomReg, R(bottomReg));
+		}
+		if (!level1) {
+			regCache_.Unlock(quadReg, RegCache::VEC_RESULT);
+			regCache_.ForceRelease(RegCache::VEC_RESULT);
 		}
 
-		PSRLW(XMM0, 8);
+		// Grab frac_u and spread to lower (L) lanes.
+		X64Reg fracReg = regCache_.Alloc(RegCache::VEC_TEMP2);
+		X64Reg fracMulReg = regCache_.Alloc(RegCache::VEC_TEMP3);
+		if (level1) {
+			MOVD_xmm(fracReg, MDisp(RSP, stackArgPos_ + stackFracUV1Offset_));
+		} else {
+			X64Reg fracUReg = regCache_.Find(RegCache::GEN_ARG_FRAC_U);
+			MOVD_xmm(fracReg, R(fracUReg));
+			regCache_.Unlock(fracUReg, RegCache::GEN_ARG_FRAC_U);
+			regCache_.ForceRelease(RegCache::GEN_ARG_FRAC_U);
+		}
+		PSHUFLW(fracReg, R(fracReg), _MM_SHUFFLE(0, 0, 0, 0));
+		// Now subtract 0x10 - frac_u in the L lanes only: 00000000 LLLLLLLL.
+		MOVDQA(fracMulReg, M(const10Low_));
+		PSUBW(fracMulReg, R(fracReg));
+		// Then we just shift and OR in the original frac_u.
+		PSLLDQ(fracReg, 8);
+		POR(fracMulReg, R(fracReg));
+		regCache_.Release(fracReg, RegCache::VEC_TEMP2);
+
+		// Okay, we have 8-bits in the top and bottom rows for the color.
+		// Multiply by frac to get 12, which we keep for the next stage.
+		PMULLW(topReg, R(fracMulReg));
+		PMULLW(bottomReg, R(fracMulReg));
+		regCache_.Release(fracMulReg, RegCache::VEC_TEMP3);
+
+		// Time for frac_v.  This time, we want it in all 8 lanes.
+		fracReg = regCache_.Alloc(RegCache::VEC_TEMP2);
+		X64Reg fracTopReg = regCache_.Alloc(RegCache::VEC_TEMP3);
+		if (level1) {
+			MOVD_xmm(fracReg, MDisp(RSP, stackArgPos_ + stackFracUV1Offset_ + 4));
+		} else {
+			X64Reg fracVReg = regCache_.Find(RegCache::GEN_ARG_FRAC_V);
+			MOVD_xmm(fracReg, R(fracVReg));
+			regCache_.Unlock(fracVReg, RegCache::GEN_ARG_FRAC_V);
+			regCache_.ForceRelease(RegCache::GEN_ARG_FRAC_V);
+		}
+		PSHUFLW(fracReg, R(fracReg), _MM_SHUFFLE(0, 0, 0, 0));
+		PSHUFD(fracReg, R(fracReg), _MM_SHUFFLE(0, 0, 0, 0));
+
+		// Now, inverse fracReg into fracTopReg for the top row.
+		MOVDQA(fracTopReg, M(const10All16_));
+		PSUBW(fracTopReg, R(fracReg));
+
+		// We had 12, plus 4 frac, that gives us 16.
+		PMULLW(bottomReg, R(fracReg));
+		PMULLW(topReg, R(fracTopReg));
+		regCache_.Release(fracReg, RegCache::VEC_TEMP2);
+		regCache_.Release(fracTopReg, RegCache::VEC_TEMP3);
+
+		// Finally, time to sum them all up and divide by 256 to get back to 8 bits.
+		PADDUSW(bottomReg, R(topReg));
+		regCache_.Release(topReg, RegCache::VEC_TEMP0);
+
+		if (level1) {
+			PSHUFD(quadReg, R(bottomReg), _MM_SHUFFLE(3, 2, 3, 2));
+			PADDUSW(quadReg, R(bottomReg));
+			PSRLW(quadReg, 8);
+			regCache_.Release(bottomReg, RegCache::VEC_TEMP1);
+			regCache_.Unlock(quadReg, RegCache::VEC_RESULT1);
+		} else {
+			bool changeSuccess = regCache_.ChangeReg(XMM0, RegCache::VEC_RESULT);
+			if (!changeSuccess) {
+				_assert_msg_(XMM0 == bottomReg, "Unexpected other reg locked as destReg");
+				X64Reg otherReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+				PSHUFD(otherReg, R(bottomReg), _MM_SHUFFLE(3, 2, 3, 2));
+				PADDUSW(bottomReg, R(otherReg));
+				regCache_.Release(otherReg, RegCache::VEC_TEMP0);
+				regCache_.Release(bottomReg, RegCache::VEC_TEMP1);
+
+				// Okay, now it can be changed.
+				regCache_.ChangeReg(XMM0, RegCache::VEC_RESULT);
+			} else {
+				PSHUFD(XMM0, R(bottomReg), _MM_SHUFFLE(3, 2, 3, 2));
+				PADDUSW(XMM0, R(bottomReg));
+				regCache_.Release(bottomReg, RegCache::VEC_TEMP1);
+			}
+
+			PSRLW(XMM0, 8);
+		}
 	}
 
 	return true;
