@@ -189,6 +189,13 @@ struct OpArg
 			return false;
 		return GetSimpleReg() == reg;
 	}
+	bool IsIndexedReg(X64Reg reg) const {
+		if (scale >= 1 && scale <= 4)
+			return indexReg == reg;
+		if (scale >= 32 && scale <= 40)
+			return indexReg == reg;
+		return false;
+	}
 
 	bool CanDoOpWith(const OpArg &other) const
 	{
@@ -1204,6 +1211,43 @@ public:
 
 	void VZEROALL();
 	void VZEROUPPER();
+
+	// AVX2
+	void VEXTRACTI128(OpArg arg, X64Reg regOp1, u8 subreg);
+	void VINSERTI128(X64Reg regOp1, X64Reg regOp2, OpArg arg, u8 subreg);
+	void VPBLENDD(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg, u8 mask);
+	void VPBROADCASTB(int bits, X64Reg regOp1, OpArg arg);
+	void VPBROADCASTW(int bits, X64Reg regOp1, OpArg arg);
+	void VPBROADCASTD(int bits, X64Reg regOp1, OpArg arg);
+	void VPBROADCASTQ(int bits, X64Reg regOp1, OpArg arg);
+	// Must be memory for this one.
+	void VBROADCASTI128(X64Reg regOp1, OpArg arg);
+	void VPERM2I128(X64Reg regOp1, X64Reg regOp2, OpArg arg, u8 mask);
+	void VPERMD(X64Reg dest, X64Reg shuffle, OpArg src);
+	void VPERMPS(X64Reg dest, X64Reg shuffle, OpArg src);
+	void VPERMPD(X64Reg dest, OpArg src, u8 shuffle);
+	void VPERMQ(X64Reg dest, OpArg src, u8 shuffle);
+
+	void VPMASKMOVD(int bits, X64Reg regOp1, X64Reg mask, OpArg arg);
+	void VPMASKMOVD(int bits, OpArg arg, X64Reg mask, X64Reg regOp2);
+	void VPMASKMOVQ(int bits, X64Reg regOp1, X64Reg mask, OpArg arg);
+	void VPMASKMOVQ(int bits, OpArg arg, X64Reg mask, X64Reg regOp2);
+
+	// Use an XMM for the scaled reg in MComplex.
+	void VGATHERDPS(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
+	void VGATHERDPD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
+	void VGATHERQPS(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
+	void VGATHERQPD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
+	void VGATHERDD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
+	void VGATHERQD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
+	void VGATHERDQ(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
+	void VGATHERQQ(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
+
+	void VPSLLVD(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VPSLLVQ(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VPSRAVD(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VPSRLVD(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VPSRLVQ(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg);
 
 	// FMA3
 	void VFMADD132PS(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg);

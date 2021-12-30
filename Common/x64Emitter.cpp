@@ -2201,6 +2201,67 @@ void XEmitter::VZEROUPPER() {
 	Write8(0x77);
 }
 
+void XEmitter::VEXTRACTI128(OpArg arg, X64Reg regOp1, u8 subreg) { WriteAVX2Op(256, 0x66, 0x3A39, regOp1, arg, 1); Write8(subreg); }
+void XEmitter::VINSERTI128(X64Reg regOp1, X64Reg regOp2, OpArg arg, u8 subreg) { WriteAVX2Op(256, 0x66, 0x3A38, regOp1, regOp2, arg, 1); Write8(subreg); }
+void XEmitter::VPBLENDD(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg, u8 mask) { WriteAVX2Op(bits, 0x66, 0x3A02, regOp1, regOp2, arg, 1); Write8(mask); }
+void XEmitter::VPBROADCASTB(int bits, X64Reg regOp1, OpArg arg) { WriteAVX2Op(bits, 0x66, 0x3878, regOp1, arg); }
+void XEmitter::VPBROADCASTW(int bits, X64Reg regOp1, OpArg arg) { WriteAVX2Op(bits, 0x66, 0x3879, regOp1, arg); }
+void XEmitter::VPBROADCASTD(int bits, X64Reg regOp1, OpArg arg) { WriteAVX2Op(bits, 0x66, 0x3858, regOp1, arg); }
+void XEmitter::VPBROADCASTQ(int bits, X64Reg regOp1, OpArg arg) { WriteAVX2Op(bits, 0x66, 0x3859, regOp1, arg); }
+void XEmitter::VBROADCASTI128(X64Reg regOp1, OpArg arg) {
+	_assert_msg_(!arg.IsSimpleReg(), "VBROADCASTI128 must come from memory");
+	WriteAVX2Op(256, 0x66, 0x385A, regOp1, arg);
+}
+void XEmitter::VPERM2I128(X64Reg regOp1, X64Reg regOp2, OpArg arg, u8 mask) { WriteAVX2Op(256, 0x66, 0x3A46, regOp1, regOp2, arg, 1); Write8(mask); }
+void XEmitter::VPERMD(X64Reg regOp1, X64Reg regOp2, OpArg arg) { WriteAVX2Op(256, 0x66, 0x3836, regOp1, regOp2, arg); }
+void XEmitter::VPERMPS(X64Reg regOp1, X64Reg regOp2, OpArg arg) { WriteAVX2Op(256, 0x66, 0x3816, regOp1, regOp2, arg); }
+void XEmitter::VPERMPD(X64Reg regOp1, OpArg arg, u8 shuffle) { WriteAVX2Op(256, 0x66, 0x3A01, regOp1, arg, 1, 1); Write8(shuffle); }
+void XEmitter::VPERMQ(X64Reg regOp1, OpArg arg, u8 shuffle) { WriteAVX2Op(256, 0x66, 0x3A00, regOp1, arg, 1, 1); Write8(shuffle); }
+
+void XEmitter::VPMASKMOVD(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg) { WriteAVX2Op(bits, 0x66, 0x388C, regOp1, regOp2, arg); }
+void XEmitter::VPMASKMOVD(int bits, OpArg arg, X64Reg regOp1, X64Reg regOp2) { WriteAVX2Op(bits, 0x66, 0x388E, regOp1, regOp2, arg); }
+void XEmitter::VPMASKMOVQ(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg) { WriteAVX2Op(bits, 0x66, 0x388C, regOp1, regOp2, arg, 0, 1); }
+void XEmitter::VPMASKMOVQ(int bits, OpArg arg, X64Reg regOp1, X64Reg regOp2) { WriteAVX2Op(bits, 0x66, 0x388E, regOp1, regOp2, arg, 0, 1); }
+
+void XEmitter::VGATHERDPS(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
+	_assert_msg_(regOp1 != regOp2 && !arg.IsIndexedReg(regOp1) && !arg.IsIndexedReg(regOp2), "VGATHER cannot have overlapped registers");
+	WriteAVX2Op(bits, 0x66, 0x3892, regOp1, regOp2, arg);
+}
+void XEmitter::VGATHERDPD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
+	_assert_msg_(regOp1 != regOp2 && !arg.IsIndexedReg(regOp1) && !arg.IsIndexedReg(regOp2), "VGATHER cannot have overlapped registers");
+	WriteAVX2Op(bits, 0x66, 0x3893, regOp1, regOp2, arg);
+}
+void XEmitter::VGATHERQPS(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
+	_assert_msg_(regOp1 != regOp2 && !arg.IsIndexedReg(regOp1) && !arg.IsIndexedReg(regOp2), "VGATHER cannot have overlapped registers");
+	WriteAVX2Op(bits, 0x66, 0x3892, regOp1, regOp2, arg);
+}
+void XEmitter::VGATHERQPD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
+	_assert_msg_(regOp1 != regOp2 && !arg.IsIndexedReg(regOp1) && !arg.IsIndexedReg(regOp2), "VGATHER cannot have overlapped registers");
+	WriteAVX2Op(bits, 0x66, 0x3893, regOp1, regOp2, arg);
+}
+void XEmitter::VGATHERDD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
+	_assert_msg_(regOp1 != regOp2 && !arg.IsIndexedReg(regOp1) && !arg.IsIndexedReg(regOp2), "VGATHER cannot have overlapped registers");
+	WriteAVX2Op(bits, 0x66, 0x3890, regOp1, regOp2, arg);
+}
+void XEmitter::VGATHERQD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
+	_assert_msg_(regOp1 != regOp2 && !arg.IsIndexedReg(regOp1) && !arg.IsIndexedReg(regOp2), "VGATHER cannot have overlapped registers");
+	WriteAVX2Op(bits, 0x66, 0x3891, regOp1, regOp2, arg);
+}
+void XEmitter::VGATHERDQ(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
+	_assert_msg_(regOp1 != regOp2 && !arg.IsIndexedReg(regOp1) && !arg.IsIndexedReg(regOp2), "VGATHER cannot have overlapped registers");
+	WriteAVX2Op(bits, 0x66, 0x3890, regOp1, regOp2, arg, 0, 1);
+}
+void XEmitter::VGATHERQQ(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
+	_assert_msg_(regOp1 != regOp2 && !arg.IsIndexedReg(regOp1) && !arg.IsIndexedReg(regOp2), "VGATHER cannot have overlapped registers");
+	WriteAVX2Op(bits, 0x66, 0x3891, regOp1, regOp2, arg, 0, 1);
+}
+
+void XEmitter::VPSLLVD(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg) { WriteAVX2Op(bits, 0x66, 0x3847, regOp1, regOp2, arg); }
+void XEmitter::VPSLLVQ(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg) { WriteAVX2Op(bits, 0x66, 0x3847, regOp1, regOp2, arg, 0, 1); }
+void XEmitter::VPSRAVD(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg) { WriteAVX2Op(bits, 0x66, 0x3846, regOp1, regOp2, arg); }
+void XEmitter::VPSRLVD(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg) { WriteAVX2Op(bits, 0x66, 0x3845, regOp1, regOp2, arg); }
+void XEmitter::VPSRLVQ(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg) { WriteAVX2Op(bits, 0x66, 0x3845, regOp1, regOp2, arg, 0, 1); }
+
 void XEmitter::VFMADD132PS(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(bits, 0x66, 0x3898, regOp1, regOp2, arg); }
 void XEmitter::VFMADD213PS(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(bits, 0x66, 0x38A8, regOp1, regOp2, arg); }
 void XEmitter::VFMADD231PS(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(bits, 0x66, 0x38B8, regOp1, regOp2, arg); }
