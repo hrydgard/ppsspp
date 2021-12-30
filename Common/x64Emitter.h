@@ -1183,6 +1183,28 @@ public:
 	void VPSRLQ(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg);
 	void VPXOR(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg);
 
+	void VBROADCASTSS(int bits, X64Reg regOp1, OpArg arg);
+	void VBROADCASTSD(X64Reg regOp1, OpArg arg);
+	void VBROADCASTF128(X64Reg regOp1, OpArg arg);
+	void VEXTRACTF128(OpArg arg, X64Reg regOp1, u8 subreg);
+	void VINSERTF128(X64Reg regOp1, X64Reg regOp2, OpArg arg, u8 subreg);
+	void VPERM2F128(X64Reg regOp1, X64Reg regOp2, OpArg arg, u8 mask);
+	void VPERMILPS(int bits, X64Reg dest, X64Reg src, OpArg mask);
+	void VPERMILPS(int bits, X64Reg dest, OpArg src, u8 mask);
+	void VPERMILPD(int bits, X64Reg dest, X64Reg src, OpArg mask);
+	void VPERMILPD(int bits, X64Reg dest, OpArg src, u8 mask);
+
+	void VMASKMOVPS(int bits, X64Reg dest, X64Reg maskReg, OpArg src);
+	void VMASKMOVPS(int bits, OpArg dest, X64Reg maskReg, X64Reg src);
+	void VMASKMOVPD(int bits, X64Reg dest, X64Reg maskReg, OpArg src);
+	void VMASKMOVPD(int bits, OpArg dest, X64Reg maskReg, X64Reg src);
+
+	void VTESTPS(int bits, X64Reg regOp1, OpArg arg);
+	void VTESTPD(int bits, X64Reg regOp1, OpArg arg);
+
+	void VZEROALL();
+	void VZEROUPPER();
+
 	// FMA3
 	void VFMADD132PS(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg);
 	void VFMADD213PS(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg);
