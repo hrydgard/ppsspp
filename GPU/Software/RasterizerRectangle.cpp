@@ -84,8 +84,15 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 	if (Memory::IsValidAddress(texaddr))
 		texptr = Memory::GetPointerUnchecked(texaddr);
 
+	// These look at gstate.
+	SamplerID samplerID;
+	ComputeSamplerID(&samplerID);
+	PixelFuncID pixelID;
+	ComputePixelFuncID(&pixelID);
+
 	ScreenCoords pprime(v0.screenpos.x, v0.screenpos.y, 0);
-	Sampler::NearestFunc nearestFunc = Sampler::GetNearestFunc();  // Looks at gstate.
+	Sampler::NearestFunc nearestFunc = Sampler::GetNearestFunc(samplerID);
+	Rasterizer::SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID);
 
 	DrawingCoords pos0 = TransformUnit::ScreenToDrawing(v0.screenpos);
 	// Include the ending pixel based on its center, not start.
@@ -98,10 +105,6 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 	int fog = 255;
 
 	bool isWhite = v1.color0 == Vec4<int>(255, 255, 255, 255);
-
-	PixelFuncID pixelID;
-	ComputePixelFuncID(&pixelID);
-	Rasterizer::SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID);
 
 	constexpr int MIN_LINES_PER_THREAD = 32;
 

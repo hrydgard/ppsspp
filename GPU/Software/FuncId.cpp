@@ -338,3 +338,140 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 	desc.resize(desc.size() - 1);
 	return desc;
 }
+
+void ComputeSamplerID(SamplerID *id_out) {
+	SamplerID id{};
+
+	id.useStandardBufw = true;
+	id.hasStandardMips = true;
+	int maxLevel = gstate.isMipmapEnabled() ? gstate.getTextureMaxLevel() : 0;
+	int lastWidth = -1;
+	for (int i = 0; i <= maxLevel; ++i) {
+		if (gstate.getTextureAddress(i) == 0)
+			id.hasInvalidPtr = true;
+		int w = gstate.getTextureWidth(i);
+		if (w != (gstate.texbufwidth[i] & 0x00001FFF))
+			id.useStandardBufw = false;
+		if (lastWidth != -1 && lastWidth != w * 2)
+			id.hasStandardMips = false;
+		lastWidth = w;
+	}
+	id.hasAnyMips = maxLevel != 0;
+
+	id.texfmt = gstate.getTextureFormat();
+	id.swizzle = gstate.isTextureSwizzled();
+	// Only CLUT4 can use separate CLUTs per mimap.
+	id.useSharedClut = gstate.getTextureFormat() != GE_TFMT_CLUT4 || maxLevel == 0 || !gstate.isMipmapEnabled() || gstate.isClutSharedForMipmaps();
+	if (gstate.isTextureFormatIndexed()) {
+		id.clutfmt = gstate.getClutPaletteFormat();
+		id.hasClutMask = gstate.getClutIndexMask() != 0xFF;
+		id.hasClutShift = gstate.getClutIndexShift() != 0;
+		id.hasClutOffset = gstate.getClutIndexStartPos() != 0;
+	}
+
+	id.clampS = gstate.isTexCoordClampedS();
+	id.clampT = gstate.isTexCoordClampedT();
+	id.width0Shift = gstate.texsize[0] & 0xF;
+	id.height0Shift = (gstate.texsize[0] >> 8) & 0xF;
+
+	id.useTextureAlpha = gstate.isTextureAlphaUsed();
+	id.useColorDoubling = gstate.isColorDoublingEnabled();
+	id.texFunc = gstate.getTextureFunction();
+	if (id.texFunc > GE_TEXFUNC_ADD)
+		id.texFunc = GE_TEXFUNC_ADD;
+
+	*id_out = id;
+}
+
+std::string DescribeSamplerID(const SamplerID &id) {
+	std::string name;
+	switch (id.TexFmt()) {
+	case GE_TFMT_5650: name = "5650"; break;
+	case GE_TFMT_5551: name = "5551"; break;
+	case GE_TFMT_4444: name = "4444"; break;
+	case GE_TFMT_8888: name = "8888"; break;
+	case GE_TFMT_CLUT4: name = "CLUT4"; break;
+	case GE_TFMT_CLUT8: name = "CLUT8"; break;
+	case GE_TFMT_CLUT16: name = "CLUT16"; break;
+	case GE_TFMT_CLUT32: name = "CLUT32"; break;
+	case GE_TFMT_DXT1: name = "DXT1"; break;
+	case GE_TFMT_DXT3: name = "DXT3"; break;
+	case GE_TFMT_DXT5: name = "DXT5"; break;
+	}
+	switch (id.ClutFmt()) {
+	case GE_CMODE_16BIT_BGR5650:
+		switch (id.TexFmt()) {
+		case GE_TFMT_CLUT4:
+		case GE_TFMT_CLUT8:
+		case GE_TFMT_CLUT16:
+		case GE_TFMT_CLUT32:
+			name += ":C5650";
+			break;
+		default:
+			// Ignore 0 clutfmt when no clut.
+			break;
+		}
+		break;
+	case GE_CMODE_16BIT_ABGR5551: name += ":C5551"; break;
+	case GE_CMODE_16BIT_ABGR4444: name += ":C4444"; break;
+	case GE_CMODE_32BIT_ABGR8888: name += ":C8888"; break;
+	}
+	if (id.swizzle) {
+		name += ":SWZ";
+	}
+	if (!id.useSharedClut) {
+		name += ":CMIP";
+	}
+	if (id.hasInvalidPtr) {
+		name += ":INV";
+	}
+	if (id.hasClutMask) {
+		name += ":CMASK";
+	}
+	if (id.hasClutShift) {
+		name += ":CSHF";
+	}
+	if (id.hasClutOffset) {
+		name += ":COFF";
+	}
+	if (id.clampS || id.clampT) {
+		name += std::string(":CL") + (id.clampS ? "S" : "") + (id.clampT ? "T" : "");
+	}
+	if (!id.useStandardBufw) {
+		name += ":BUFW";
+	}
+	if (!id.hasStandardMips) {
+		name += ":XMIP";
+	} else if (id.hasAnyMips) {
+		name += ":MIP";
+	}
+	if (id.linear) {
+		name += ":LERP";
+	}
+	if (id.useTextureAlpha) {
+		name += ":A";
+	}
+	if (id.useColorDoubling) {
+		name += ":DBL";
+	}
+	switch (id.texFunc) {
+	case GE_TEXFUNC_MODULATE:
+		name += ":MOD";
+		break;
+	case GE_TEXFUNC_DECAL:
+		name += ":DECAL";
+		break;
+	case GE_TEXFUNC_BLEND:
+		name += ":BLEND";
+		break;
+	case GE_TEXFUNC_REPLACE:
+		break;
+	case GE_TEXFUNC_ADD:
+		name += ":ADD";
+	default:
+		break;
+	}
+	name += StringFromFormat(":W%dH%d", 1 << id.width0Shift, 1 << id.height0Shift);
+
+	return name;
+}

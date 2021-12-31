@@ -34,10 +34,10 @@ namespace Sampler {
 #endif
 
 typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *NearestFunc)(int u, int v, const u8 *tptr, int bufw, int level);
-NearestFunc GetNearestFunc();
+NearestFunc GetNearestFunc(SamplerID id);
 
 typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *LinearFunc)(float s, float t, int x, int y, Rasterizer::Vec4IntArg prim_color, const u8 **tptr, const int *bufw, int level, int levelFrac);
-LinearFunc GetLinearFunc();
+LinearFunc GetLinearFunc(SamplerID id);
 
 struct Funcs {
 	NearestFunc nearest;
@@ -45,8 +45,10 @@ struct Funcs {
 };
 static inline Funcs GetFuncs() {
 	Funcs f;
-	f.nearest = GetNearestFunc();
-	f.linear = GetLinearFunc();
+	SamplerID id;
+	ComputeSamplerID(&id);
+	f.nearest = GetNearestFunc(id);
+	f.linear = GetLinearFunc(id);
 	return f;
 }
 
@@ -59,15 +61,12 @@ class SamplerJitCache : public Rasterizer::CodeBlock {
 public:
 	SamplerJitCache();
 
-	void ComputeSamplerID(SamplerID *id_out, bool linear);
-
 	// Returns a pointer to the code to run.
 	NearestFunc GetNearest(const SamplerID &id);
 	LinearFunc GetLinear(const SamplerID &id);
 	void Clear();
 
 	std::string DescribeCodePtr(const u8 *ptr);
-	std::string DescribeSamplerID(const SamplerID &id);
 
 private:
 	NearestFunc Compile(const SamplerID &id);
