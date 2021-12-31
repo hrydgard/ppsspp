@@ -861,7 +861,7 @@ bool PixelJitCache::Jit_ApplyStencilOp(const PixelFuncID &id, GEStencilOp op, Re
 bool PixelJitCache::Jit_WriteStencilOnly(const PixelFuncID &id, RegCache::Reg stencilReg) {
 	_assert_(stencilReg != INVALID_REG);
 
-	// It's okay to destory stencilReg here, we know we're the last writing it.
+	// It's okay to destroy stencilReg here, we know we're the last writing it.
 	X64Reg colorOffReg = GetColorOff(id);
 	if (id.applyColorWriteMask) {
 		X64Reg gstateReg = GetGState();
