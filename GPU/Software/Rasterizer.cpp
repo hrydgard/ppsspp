@@ -1326,13 +1326,15 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 
 	buffer.Allocate(w, h, GE_FORMAT_8888, false);
 
-	Sampler::Funcs sampler = Sampler::GetFuncs();
+	SamplerID id;
+	ComputeSamplerID(&id);
+	Sampler::FetchFunc sampler = Sampler::GetFetchFunc(id);
 
 	u8 *texptr = Memory::GetPointer(texaddr);
 	u32 *row = (u32 *)buffer.GetData();
 	for (int y = 0; y < h; ++y) {
 		for (int x = 0; x < w; ++x) {
-			row[x] = Vec4<int>(sampler.nearest(x, y, texptr, texbufw, level)).ToRGBA();
+			row[x] = Vec4<int>(sampler(x, y, texptr, texbufw, level)).ToRGBA();
 		}
 		row += w;
 	}

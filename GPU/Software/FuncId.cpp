@@ -448,6 +448,9 @@ std::string DescribeSamplerID(const SamplerID &id) {
 	if (id.linear) {
 		name += ":LERP";
 	}
+	if (id.fetch) {
+		name += ":FETCH";
+	}
 	if (id.useTextureAlpha) {
 		name += ":A";
 	}

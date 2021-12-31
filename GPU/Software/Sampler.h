@@ -33,6 +33,9 @@ namespace Sampler {
 #pragma GCC diagnostic ignored "-Wignored-attributes"
 #endif
 
+typedef Rasterizer::Vec4IntResult(SOFTRAST_CALL *FetchFunc)(int u, int v, const u8 *tptr, int bufw, int level);
+FetchFunc GetFetchFunc(SamplerID id);
+
 typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *NearestFunc)(int u, int v, const u8 *tptr, int bufw, int level);
 NearestFunc GetNearestFunc(SamplerID id);
 
@@ -64,12 +67,14 @@ public:
 	// Returns a pointer to the code to run.
 	NearestFunc GetNearest(const SamplerID &id);
 	LinearFunc GetLinear(const SamplerID &id);
+	FetchFunc GetFetch(const SamplerID &id);
 	void Clear();
 
 	std::string DescribeCodePtr(const u8 *ptr);
 
 private:
-	NearestFunc Compile(const SamplerID &id);
+	FetchFunc CompileFetch(const SamplerID &id);
+	NearestFunc CompileNearest(const SamplerID &id);
 	LinearFunc CompileLinear(const SamplerID &id);
 
 	void Describe(const std::string &message);

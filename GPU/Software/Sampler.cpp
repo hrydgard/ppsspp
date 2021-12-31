@@ -41,6 +41,7 @@ namespace Sampler {
 
 static Vec4IntResult SOFTRAST_CALL SampleNearest(int u, int v, const u8 *tptr, int bufw, int level);
 static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 **tptr, const int *bufw, int level, int levelFrac);
+static Vec4IntResult SOFTRAST_CALL SampleFetch(int u, int v, const u8 *tptr, int bufw, int level);
 
 std::mutex jitCacheLock;
 SamplerJitCache *jitCache = nullptr;
@@ -81,6 +82,16 @@ LinearFunc GetLinearFunc(SamplerID id) {
 	}
 
 	return &SampleLinear;
+}
+
+FetchFunc GetFetchFunc(SamplerID id) {
+	id.fetch = true;
+	FetchFunc jitted = jitCache->GetFetch(id);
+	if (jitted) {
+		return jitted;
+	}
+
+	return &SampleFetch;
 }
 
 SamplerJitCache::SamplerJitCache()
@@ -146,7 +157,7 @@ NearestFunc SamplerJitCache::GetNearest(const SamplerID &id) {
 
 	auto it = cache_.find(id);
 	if (it != cache_.end()) {
-		return it->second;
+		return (NearestFunc)it->second;
 	}
 
 	// TODO: What should be the min size?  Can we even hit this?
@@ -157,8 +168,8 @@ NearestFunc SamplerJitCache::GetNearest(const SamplerID &id) {
 #if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
 	if (g_Config.bSoftwareRenderingJit) {
 		addresses_[id] = GetCodePointer();
-		NearestFunc func = Compile(id);
-		cache_[id] = func;
+		NearestFunc func = CompileNearest(id);
+		cache_[id] = (NearestFunc)func;
 		return func;
 	}
 #endif
@@ -182,6 +193,30 @@ LinearFunc SamplerJitCache::GetLinear(const SamplerID &id) {
 	if (g_Config.bSoftwareRenderingJit) {
 		addresses_[id] = GetCodePointer();
 		LinearFunc func = CompileLinear(id);
+		cache_[id] = (NearestFunc)func;
+		return func;
+	}
+#endif
+	return nullptr;
+}
+
+FetchFunc SamplerJitCache::GetFetch(const SamplerID &id) {
+	std::lock_guard<std::mutex> guard(jitCacheLock);
+
+	auto it = cache_.find(id);
+	if (it != cache_.end()) {
+		return (FetchFunc)it->second;
+	}
+
+	// TODO: What should be the min size?  Can we even hit this?
+	if (GetSpaceLeft() < 16384) {
+		Clear();
+	}
+
+#if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
+	if (g_Config.bSoftwareRenderingJit) {
+		addresses_[id] = GetCodePointer();
+		FetchFunc func = CompileFetch(id);
 		cache_[id] = (NearestFunc)func;
 		return func;
 	}
@@ -345,6 +380,11 @@ inline static Nearest4 SOFTRAST_CALL SampleNearest(const int u[N], const int v[N
 }
 
 static Vec4IntResult SOFTRAST_CALL SampleNearest(int u, int v, const u8 *tptr, int bufw, int level) {
+	Nearest4 c = SampleNearest<1>(&u, &v, tptr, bufw, level);
+	return ToVec4IntResult(Vec4<int>::FromRGBA(c.v[0]));
+}
+
+static Vec4IntResult SOFTRAST_CALL SampleFetch(int u, int v, const u8 *tptr, int bufw, int level) {
 	Nearest4 c = SampleNearest<1>(&u, &v, tptr, bufw, level);
 	return ToVec4IntResult(Vec4<int>::FromRGBA(c.v[0]));
 }

@@ -160,7 +160,7 @@ struct SamplerID {
 			bool useColorDoubling : 1;
 			bool hasStandardMips : 1;
 			bool hasAnyMips : 1;
-			bool : 1;
+			bool fetch : 1;
 		};
 	};
 

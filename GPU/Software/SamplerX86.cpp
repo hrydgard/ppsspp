@@ -33,7 +33,12 @@ extern u32 clut[4096];
 
 namespace Sampler {
 
-NearestFunc SamplerJitCache::Compile(const SamplerID &id) {
+FetchFunc SamplerJitCache::CompileFetch(const SamplerID &id) {
+	// TODO: Make these different.
+	return CompileNearest(id);
+}
+
+NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 	regCache_.SetupABI({
 		RegCache::GEN_ARG_U,
 		RegCache::GEN_ARG_V,
