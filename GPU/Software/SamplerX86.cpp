@@ -733,7 +733,7 @@ bool SamplerJitCache::Jit_ApplyTextureFunc(const SamplerID &id) {
 		if (!id.useTextureAlpha) {
 			useAlphaFrom(primColorReg);
 		} else if (id.useColorDoubling) {
-			// We still need to finish dividing alpha, it's currently doubled (frmo the 7 above.)
+			// We still need to finish dividing alpha, it's currently doubled (from the 7 above.)
 			MOVDQA(primColorReg, R(resultReg));
 			PSRLW(primColorReg, 1);
 			useAlphaFrom(primColorReg);
