@@ -803,11 +803,18 @@ bool SamplerJitCache::Jit_ApplyTextureFunc(const SamplerID &id) {
 	case GE_TEXFUNC_MODULATE:
 		Describe("Modulate");
 		PACKSSDW(primColorReg, R(primColorReg));
-		MOVDQA(tempReg, M(constOnes16_));
-		PADDW(tempReg, R(primColorReg));
+		if (cpu_info.bAVX) {
+			VPADDW(128, tempReg, primColorReg, M(constOnes16_));
 
-		// Okay, time to multiply.  This produces 16 bits, neatly.
-		PMULLW(resultReg, R(tempReg));
+			// Okay, time to multiply.  This produces 16 bits, neatly.
+			VPMULLW(128, resultReg, tempReg, R(resultReg));
+		} else {
+			MOVDQA(tempReg, M(constOnes16_));
+			PADDW(tempReg, R(primColorReg));
+
+			PMULLW(resultReg, R(tempReg));
+		}
+
 		if (id.useColorDoubling)
 			PSRLW(resultReg, 7);
 		else
@@ -817,8 +824,12 @@ bool SamplerJitCache::Jit_ApplyTextureFunc(const SamplerID &id) {
 			useAlphaFrom(primColorReg);
 		} else if (id.useColorDoubling) {
 			// We still need to finish dividing alpha, it's currently doubled (from the 7 above.)
-			MOVDQA(primColorReg, R(resultReg));
-			PSRLW(primColorReg, 1);
+			if (cpu_info.bAVX) {
+				VPSRLW(128, primColorReg, resultReg, 1);
+			} else {
+				MOVDQA(primColorReg, R(resultReg));
+				PSRLW(primColorReg, 1);
+			}
 			useAlphaFrom(primColorReg);
 		}
 		break;
