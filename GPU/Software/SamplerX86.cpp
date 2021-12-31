@@ -280,6 +280,9 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 
 	// Store frac UV in the gap.
 	stackFracUV1Offset_ = -stackArgPos_ + 16 * 4;
+#else
+	// Use the red zone.
+	stackFracUV1Offset_ = -stackArgPos_ - 8;
 #endif
 
 	// Reserve a couple regs that the nearest CALL won't use.
