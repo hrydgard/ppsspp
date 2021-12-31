@@ -1129,9 +1129,13 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 		break;
 
 	case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE:
-		MOVDQA(tempReg, R(argColorReg));
-		MOVDQA(argColorReg, R(dstReg));
-		PSUBUSW(argColorReg, R(tempReg));
+		if (cpu_info.bAVX) {
+			VPSUBUSW(128, argColorReg, dstReg, R(argColorReg));
+		} else {
+			MOVDQA(tempReg, R(argColorReg));
+			MOVDQA(argColorReg, R(dstReg));
+			PSUBUSW(argColorReg, R(tempReg));
+		}
 		break;
 
 	case GE_BLENDMODE_MIN:
@@ -1243,11 +1247,11 @@ bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, RegCache::Reg factorR
 	case GE_SRCBLEND_FIXA:
 	default:
 		gstateReg = GetGState();
-		MOVD_xmm(factorReg, MDisp(gstateReg, offsetof(GPUgstate, blendfixa)));
 		if (cpu_info.bSSE4_1) {
-			PMOVZXBW(factorReg, R(factorReg));
+			PMOVZXBW(factorReg, MDisp(gstateReg, offsetof(GPUgstate, blendfixa)));
 		} else {
 			X64Reg zeroReg = GetZeroVec();
+			MOVD_xmm(factorReg, MDisp(gstateReg, offsetof(GPUgstate, blendfixa)));
 			PUNPCKLBW(factorReg, R(zeroReg));
 			regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
 		}
@@ -1314,11 +1318,11 @@ bool PixelJitCache::Jit_DstBlendFactor(const PixelFuncID &id, RegCache::Reg srcF
 	case GE_DSTBLEND_FIXB:
 	default:
 		gstateReg = GetGState();
-		MOVD_xmm(dstFactorReg, MDisp(gstateReg, offsetof(GPUgstate, blendfixb)));
 		if (cpu_info.bSSE4_1) {
-			PMOVZXBW(dstFactorReg, R(dstFactorReg));
+			PMOVZXBW(dstFactorReg, MDisp(gstateReg, offsetof(GPUgstate, blendfixb)));
 		} else {
 			X64Reg zeroReg = GetZeroVec();
+			MOVD_xmm(dstFactorReg, MDisp(gstateReg, offsetof(GPUgstate, blendfixb)));
 			PUNPCKLBW(dstFactorReg, R(zeroReg));
 			regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
 		}
