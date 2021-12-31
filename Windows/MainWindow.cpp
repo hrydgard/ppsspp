@@ -134,6 +134,9 @@ namespace MainWindow
 	static bool hasFocus = true;
 	static bool g_isFullscreen = false;
 
+	static bool disasmMapLoadPending = false;
+	static bool memoryMapLoadPending = false;
+
 	// gross hack
 	bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
 	bool trapMouse = true; // Handles some special cases(alt+tab, win menu) when game is running and mouse is confined
@@ -538,6 +541,9 @@ namespace MainWindow
 			disasmWindow = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 			DialogManager::AddDlg(disasmWindow);
 		}
+		if (disasmMapLoadPending)
+			disasmWindow->NotifyMapLoaded();
+		disasmMapLoadPending = false;
 	}
 
 	void CreateGeDebuggerWindow() {
@@ -554,6 +560,9 @@ namespace MainWindow
 			memoryWindow = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 			DialogManager::AddDlg(memoryWindow);
 		}
+		if (memoryMapLoadPending)
+			memoryWindow->NotifyMapLoaded();
+		memoryMapLoadPending = false;
 	}
 
 	void CreateVFPUWindow() {
@@ -561,6 +570,15 @@ namespace MainWindow
 			vfpudlg = new CVFPUDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 			DialogManager::AddDlg(vfpudlg);
 		}
+	}
+
+	void NotifyDebuggerMapLoaded() {
+		disasmMapLoadPending = disasmWindow == nullptr;
+		memoryMapLoadPending = memoryWindow == nullptr;
+		if (!disasmMapLoadPending)
+			disasmWindow->NotifyMapLoaded();
+		if (!memoryMapLoadPending)
+			memoryWindow->NotifyMapLoaded();
 	}
 
 	void DestroyDebugWindows() {
@@ -947,10 +965,7 @@ namespace MainWindow
 			break;
 
 		case WM_USER + 1:
-			if (disasmWindow)
-				disasmWindow->NotifyMapLoaded();
-			if (memoryWindow)
-				memoryWindow->NotifyMapLoaded();
+			NotifyDebuggerMapLoaded();
 			if (disasmWindow)
 				disasmWindow->UpdateDialog();
 			break;
