@@ -238,8 +238,8 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		RegCache::GEN_ARG_X,
 		RegCache::GEN_ARG_Y,
 		RegCache::VEC_ARG_COLOR,
-		RegCache::GEN_ARG_TEXPTR,
-		RegCache::GEN_ARG_BUFW,
+		RegCache::GEN_ARG_TEXPTR_PTR,
+		RegCache::GEN_ARG_BUFW_PTR,
 		RegCache::GEN_ARG_LEVEL,
 		RegCache::GEN_ARG_LEVELFRAC,
 	});
@@ -304,26 +304,26 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	regCache_.ForceRetain(RegCache::VEC_ARG_COLOR);
 
 	// We also want to save src and bufw for later.  Might be in a reg already.
-	if (regCache_.Has(RegCache::GEN_ARG_TEXPTR)) {
-		_assert_(regCache_.Has(RegCache::GEN_ARG_BUFW));
-		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
-		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW);
+	if (regCache_.Has(RegCache::GEN_ARG_TEXPTR_PTR)) {
+		_assert_(regCache_.Has(RegCache::GEN_ARG_BUFW_PTR));
+		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR_PTR);
+		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR);
 		MOV(64, R(R14), R(srcReg));
 		MOV(64, R(R15), R(bufwReg));
-		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
-		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW);
-		regCache_.ForceRelease(RegCache::GEN_ARG_TEXPTR);
-		regCache_.ForceRelease(RegCache::GEN_ARG_BUFW);
+		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR_PTR);
+		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW_PTR);
+		regCache_.ForceRelease(RegCache::GEN_ARG_TEXPTR_PTR);
+		regCache_.ForceRelease(RegCache::GEN_ARG_BUFW_PTR);
 	} else {
 		MOV(64, R(R14), MDisp(RSP, stackArgPos_ + 0));
 		MOV(64, R(R15), MDisp(RSP, stackArgPos_ + 8));
 	}
 
 	// Okay, and now remember we moved to R14/R15.
-	regCache_.ChangeReg(R14, RegCache::GEN_ARG_TEXPTR);
-	regCache_.ChangeReg(R15, RegCache::GEN_ARG_BUFW);
-	regCache_.ForceRetain(RegCache::GEN_ARG_TEXPTR);
-	regCache_.ForceRetain(RegCache::GEN_ARG_BUFW);
+	regCache_.ChangeReg(R14, RegCache::GEN_ARG_TEXPTR_PTR);
+	regCache_.ChangeReg(R15, RegCache::GEN_ARG_BUFW_PTR);
+	regCache_.ForceRetain(RegCache::GEN_ARG_TEXPTR_PTR);
+	regCache_.ForceRetain(RegCache::GEN_ARG_BUFW_PTR);
 
 	bool success = true;
 
@@ -334,7 +334,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	FixupBranch zeroSrc;
 	if (id.hasInvalidPtr) {
 		Describe("NullCheck");
-		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
+		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR_PTR);
 
 		if (id.hasAnyMips) {
 			X64Reg tempReg = regCache_.Alloc(RegCache::GEN_TEMP0);
@@ -351,21 +351,21 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		zeroSrc = J(true);
 		SetJumpTarget(nonZeroSrc);
 
-		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
+		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR_PTR);
 	}
 
-	auto prepareDataOffsets = [&](RegCache::Purpose uPurpose, RegCache::Purpose vPurpose) {
+	auto prepareDataOffsets = [&](RegCache::Purpose uPurpose, RegCache::Purpose vPurpose, bool level1) {
 		X64Reg uReg = regCache_.Find(uPurpose);
 		X64Reg vReg = regCache_.Find(vPurpose);
-		success = success && Jit_PrepareDataOffsets(id, uReg, vReg);
+		success = success && Jit_PrepareDataOffsets(id, uReg, vReg, level1);
 		regCache_.Unlock(uReg, uPurpose);
 		regCache_.Unlock(vReg, vPurpose);
 	};
 
 	Describe("DataOffsets");
-	prepareDataOffsets(RegCache::VEC_ARG_U, RegCache::VEC_ARG_V);
+	prepareDataOffsets(RegCache::VEC_ARG_U, RegCache::VEC_ARG_V, false);
 	if (id.hasAnyMips)
-		prepareDataOffsets(RegCache::VEC_U1, RegCache::VEC_V1);
+		prepareDataOffsets(RegCache::VEC_U1, RegCache::VEC_V1, true);
 
 	regCache_.ChangeReg(XMM5, RegCache::VEC_RESULT);
 	regCache_.ForceRetain(RegCache::VEC_RESULT);
@@ -407,13 +407,13 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		regCache_.Unlock(uReg, level1 ? RegCache::VEC_U1 : RegCache::VEC_ARG_U);
 		regCache_.Unlock(vReg, level1 ? RegCache::VEC_V1 : RegCache::VEC_ARG_V);
 
-		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
-		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW);
+		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR_PTR);
+		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR);
 		MOV(64, R(srcArgReg), MDisp(srcReg, level1 ? 8 : 0));
 		MOV(32, R(bufwArgReg), MDisp(bufwReg, level1 ? 4 : 0));
 		// Leave level/levelFrac, we just always load from RAM on Windows and lock on POSIX.
-		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
-		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW);
+		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR_PTR);
+		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW_PTR);
 
 		CALL(nearest);
 
@@ -474,8 +474,8 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		regCache_.ForceRelease(RegCache::VEC_U1);
 	if (regCache_.Has(RegCache::VEC_V1))
 		regCache_.ForceRelease(RegCache::VEC_V1);
-	regCache_.ForceRelease(RegCache::GEN_ARG_TEXPTR);
-	regCache_.ForceRelease(RegCache::GEN_ARG_BUFW);
+	regCache_.ForceRelease(RegCache::GEN_ARG_TEXPTR_PTR);
+	regCache_.ForceRelease(RegCache::GEN_ARG_BUFW_PTR);
 	if (regCache_.Has(RegCache::GEN_ARG_LEVEL))
 		regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
 
@@ -2040,7 +2040,7 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	return true;
 }
 
-bool SamplerJitCache::Jit_PrepareDataOffsets(const SamplerID &id, RegCache::Reg uReg, RegCache::Reg vReg) {
+bool SamplerJitCache::Jit_PrepareDataOffsets(const SamplerID &id, RegCache::Reg uReg, RegCache::Reg vReg, bool level1) {
 	_assert_(id.linear);
 
 	bool success = true;
@@ -2077,23 +2077,23 @@ bool SamplerJitCache::Jit_PrepareDataOffsets(const SamplerID &id, RegCache::Reg 
 
 	if (success && bits != -1) {
 		if (id.swizzle) {
-			success = Jit_PrepareDataSwizzledOffsets(id, uReg, vReg, bits);
+			success = Jit_PrepareDataSwizzledOffsets(id, uReg, vReg, level1, bits);
 		} else {
-			success = Jit_PrepareDataDirectOffsets(id, uReg, vReg, bits);
+			success = Jit_PrepareDataDirectOffsets(id, uReg, vReg, level1, bits);
 		}
 	}
 
 	return success;
 }
 
-bool SamplerJitCache::Jit_PrepareDataDirectOffsets(const SamplerID &id, RegCache::Reg uReg, RegCache::Reg vReg, int bitsPerTexel) {
+bool SamplerJitCache::Jit_PrepareDataDirectOffsets(const SamplerID &id, RegCache::Reg uReg, RegCache::Reg vReg, bool level1, int bitsPerTexel) {
 	Describe("DataOff");
 	X64Reg bufwVecReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 	if (!id.useStandardBufw || id.hasAnyMips) {
 		// Spread bufw into each lane.
-		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW);
-		MOVD_xmm(bufwVecReg, MatR(bufwReg));
-		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW);
+		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR);
+		MOVD_xmm(bufwVecReg, MDisp(bufwReg, level1 ? 4 : 0));
+		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW_PTR);
 		PSHUFD(bufwVecReg, R(bufwVecReg), _MM_SHUFFLE(0, 0, 0, 0));
 
 		if (bitsPerTexel == 4)
@@ -2155,16 +2155,16 @@ bool SamplerJitCache::Jit_PrepareDataDirectOffsets(const SamplerID &id, RegCache
 	return true;
 }
 
-bool SamplerJitCache::Jit_PrepareDataSwizzledOffsets(const SamplerID &id, RegCache::Reg uReg, RegCache::Reg vReg, int bitsPerTexel) {
+bool SamplerJitCache::Jit_PrepareDataSwizzledOffsets(const SamplerID &id, RegCache::Reg uReg, RegCache::Reg vReg, bool level1, int bitsPerTexel) {
 	Describe("DataOffS");
 	// See Jit_GetTexDataSwizzled() for usage of this offset.
 
 	X64Reg bufwVecReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 	if (!id.useStandardBufw || id.hasAnyMips) {
 		// Spread bufw into each lane.
-		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW);
-		MOVD_xmm(bufwVecReg, MatR(bufwReg));
-		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW);
+		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR);
+		MOVD_xmm(bufwVecReg, MDisp(bufwReg, level1 ? 4 : 0));
+		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW_PTR);
 		PSHUFD(bufwVecReg, R(bufwVecReg), _MM_SHUFFLE(0, 0, 0, 0));
 	}
 
