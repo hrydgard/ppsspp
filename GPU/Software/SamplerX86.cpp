@@ -152,6 +152,9 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	lockReg(XMM9, RegCache::VEC_ARG_COLOR);
 #endif
 
+	// Let's drop some helpful constants here.
+	WriteConstantPool(id);
+
 	// We'll first write the nearest sampler, which we will CALL.
 	// This may differ slightly based on the "linear" flag.
 	const u8 *nearest = AlignCode16();
@@ -181,57 +184,6 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	unlockOptReg(RegCache::VEC_RESULT1);
 	unlockOptReg(RegCache::VEC_ARG_COLOR);
 	regCache_.Reset(true);
-
-	// Let's drop some helpful constants here.
-	const10All16_ = AlignCode16();
-	Write16(0x10); Write16(0x10); Write16(0x10); Write16(0x10);
-	Write16(0x10); Write16(0x10); Write16(0x10); Write16(0x10);
-
-	const10Low_ = AlignCode16();
-	Write16(0x10); Write16(0x10); Write16(0x10); Write16(0x10);
-	Write16(0); Write16(0); Write16(0); Write16(0);
-
-	const10All8_ = AlignCode16();
-	for (int i = 0; i < 16; ++i)
-		Write8(0x10);
-
-	if (!id.hasAnyMips) {
-		constWidth256f_ = AlignCode16();
-		float w256f = (1 << id.width0Shift) * 256;
-		Write32(*(uint32_t *)&w256f); Write32(*(uint32_t *)&w256f);
-		Write32(*(uint32_t *)&w256f); Write32(*(uint32_t *)&w256f);
-
-		constHeight256f_ = AlignCode16();
-		float h256f = (1 << id.height0Shift) * 256;
-		Write32(*(uint32_t *)&h256f); Write32(*(uint32_t *)&h256f);
-		Write32(*(uint32_t *)&h256f); Write32(*(uint32_t *)&h256f);
-
-		constWidthMinus1i_ = AlignCode16();
-		Write32((1 << id.width0Shift) - 1); Write32((1 << id.width0Shift) - 1);
-		Write32((1 << id.width0Shift) - 1); Write32((1 << id.width0Shift) - 1);
-
-		constHeightMinus1i_ = AlignCode16();
-		Write32((1 << id.height0Shift) - 1); Write32((1 << id.height0Shift) - 1);
-		Write32((1 << id.height0Shift) - 1); Write32((1 << id.height0Shift) - 1);
-	} else {
-		constWidth256f_ = nullptr;
-		constHeight256f_ = nullptr;
-		constWidthMinus1i_ = nullptr;
-		constHeightMinus1i_ = nullptr;
-	}
-
-	constOnes32_ = AlignCode16();
-	Write32(1); Write32(1); Write32(1); Write32(1);
-
-	constOnes16_ = AlignCode16();
-	Write16(1); Write16(1); Write16(1); Write16(1);
-	Write16(1); Write16(1); Write16(1); Write16(1);
-
-	constUNext_ = AlignCode16();
-	Write32(0); Write32(1); Write32(0); Write32(1);
-
-	constVNext_ = AlignCode16();
-	Write32(0); Write32(0); Write32(1); Write32(1);
 
 	// Now the actual linear func, which is exposed externally.
 	const u8 *start = AlignCode16();
@@ -577,6 +529,77 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 
 	EndWrite();
 	return (LinearFunc)start;
+}
+
+void SamplerJitCache::WriteConstantPool(const SamplerID &id) {
+	// We reuse constants in any pool, because our code space is small.
+	if (const10All16_ == nullptr) {
+		const10All16_ = AlignCode16();
+		for (int i = 0; i < 8; ++i)
+			Write16(0x10);
+	}
+
+	if (const10Low_ == nullptr) {
+		const10Low_ = AlignCode16();
+		for (int i = 0; i < 4; ++i)
+			Write16(0x10);
+		for (int i = 0; i < 4; ++i)
+			Write16(0);
+	}
+
+	if (const10All8_ == nullptr) {
+		const10All8_ = AlignCode16();
+		for (int i = 0; i < 16; ++i)
+			Write8(0x10);
+	}
+
+	if (constOnes32_ == nullptr) {
+		constOnes32_ = AlignCode16();
+		for (int i = 0; i < 4; ++i)
+			Write32(1);
+	}
+
+	if (constOnes16_ == nullptr) {
+		constOnes16_ = AlignCode16();
+		for (int i = 0; i < 8; ++i)
+			Write16(1);
+	}
+
+	if (constUNext_ == nullptr) {
+		constUNext_ = AlignCode16();
+		Write32(0); Write32(1); Write32(0); Write32(1);
+	}
+
+	if (constVNext_ == nullptr) {
+		constVNext_ = AlignCode16();
+		Write32(0); Write32(0); Write32(1); Write32(1);
+	}
+
+	// These are unique to the sampler ID.
+	if (!id.hasAnyMips) {
+		constWidth256f_ = AlignCode16();
+		float w256f = (1 << id.width0Shift) * 256;
+		Write32(*(uint32_t *)&w256f); Write32(*(uint32_t *)&w256f);
+		Write32(*(uint32_t *)&w256f); Write32(*(uint32_t *)&w256f);
+
+		constHeight256f_ = AlignCode16();
+		float h256f = (1 << id.height0Shift) * 256;
+		Write32(*(uint32_t *)&h256f); Write32(*(uint32_t *)&h256f);
+		Write32(*(uint32_t *)&h256f); Write32(*(uint32_t *)&h256f);
+
+		constWidthMinus1i_ = AlignCode16();
+		Write32((1 << id.width0Shift) - 1); Write32((1 << id.width0Shift) - 1);
+		Write32((1 << id.width0Shift) - 1); Write32((1 << id.width0Shift) - 1);
+
+		constHeightMinus1i_ = AlignCode16();
+		Write32((1 << id.height0Shift) - 1); Write32((1 << id.height0Shift) - 1);
+		Write32((1 << id.height0Shift) - 1); Write32((1 << id.height0Shift) - 1);
+	} else {
+		constWidth256f_ = nullptr;
+		constHeight256f_ = nullptr;
+		constWidthMinus1i_ = nullptr;
+		constHeightMinus1i_ = nullptr;
+	}
 }
 
 RegCache::Reg SamplerJitCache::GetZeroVec() {

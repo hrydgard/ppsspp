@@ -119,6 +119,20 @@ void SamplerJitCache::Clear() {
 	ClearCodeSpace(0);
 	cache_.clear();
 	addresses_.clear();
+
+	const10All16_ = nullptr;
+	const10Low_ = nullptr;
+	const10All8_ = nullptr;
+
+	constWidth256f_ = nullptr;
+	constHeight256f_ = nullptr;
+	constWidthMinus1i_ = nullptr;
+	constHeightMinus1i_ = nullptr;
+
+	constOnes32_ = nullptr;
+	constOnes16_ = nullptr;
+	constUNext_ = nullptr;
+	constVNext_ = nullptr;
 }
 
 void SamplerJitCache::Describe(const std::string &message) {

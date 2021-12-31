@@ -82,6 +82,8 @@ private:
 	Rasterizer::RegCache::Reg GetZeroVec();
 	Rasterizer::RegCache::Reg GetGState();
 
+	void WriteConstantPool(const SamplerID &id);
+
 	bool Jit_ReadTextureFormat(const SamplerID &id);
 	bool Jit_GetTexData(const SamplerID &id, int bitsPerTexel);
 	bool Jit_GetTexDataSwizzled(const SamplerID &id, int bitsPerTexel);
