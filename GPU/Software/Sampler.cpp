@@ -39,7 +39,7 @@ extern u32 clut[4096];
 
 namespace Sampler {
 
-static Vec4IntResult SOFTRAST_CALL SampleNearest(int u, int v, const u8 *tptr, int bufw, int level);
+static Vec4IntResult SOFTRAST_CALL SampleNearest(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 **tptr, const int *bufw, int level, int levelFrac);
 static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 **tptr, const int *bufw, int level, int levelFrac);
 static Vec4IntResult SOFTRAST_CALL SampleFetch(int u, int v, const u8 *tptr, int bufw, int level);
 
@@ -379,16 +379,6 @@ inline static Nearest4 SOFTRAST_CALL SampleNearest(const int u[N], const int v[N
 	}
 }
 
-static Vec4IntResult SOFTRAST_CALL SampleNearest(int u, int v, const u8 *tptr, int bufw, int level) {
-	Nearest4 c = SampleNearest<1>(&u, &v, tptr, bufw, level);
-	return ToVec4IntResult(Vec4<int>::FromRGBA(c.v[0]));
-}
-
-static Vec4IntResult SOFTRAST_CALL SampleFetch(int u, int v, const u8 *tptr, int bufw, int level) {
-	Nearest4 c = SampleNearest<1>(&u, &v, tptr, bufw, level);
-	return ToVec4IntResult(Vec4<int>::FromRGBA(c.v[0]));
-}
-
 static inline int ClampUV(int v, int height) {
 	if (v >= height - 1)
 		return height - 1;
@@ -399,6 +389,63 @@ static inline int ClampUV(int v, int height) {
 
 static inline int WrapUV(int v, int height) {
 	return v & (height - 1);
+}
+
+template <int N>
+static inline void ApplyTexelClamp(int out_u[N], int out_v[N], const int u[N], const int v[N], int width, int height) {
+	if (gstate.isTexCoordClampedS()) {
+		for (int i = 0; i < N; ++i) {
+			out_u[i] = ClampUV(u[i], width);
+		}
+	} else {
+		for (int i = 0; i < N; ++i) {
+			out_u[i] = WrapUV(u[i], width);
+		}
+	}
+	if (gstate.isTexCoordClampedT()) {
+		for (int i = 0; i < N; ++i) {
+			out_v[i] = ClampUV(v[i], height);
+		}
+	} else {
+		for (int i = 0; i < N; ++i) {
+			out_v[i] = WrapUV(v[i], height);
+		}
+	}
+}
+
+static inline void GetTexelCoordinates(int level, float s, float t, int &out_u, int &out_v, int x, int y) {
+	int width = gstate.getTextureWidth(level);
+	int height = gstate.getTextureHeight(level);
+
+	int base_u = (int)(s * width * 256.0f) + 12 - x;
+	int base_v = (int)(t * height * 256.0f) + 12 - y;
+
+	base_u >>= 8;
+	base_v >>= 8;
+
+	ApplyTexelClamp<1>(&out_u, &out_v, &base_u, &base_v, width, height);
+}
+
+static Vec4IntResult SOFTRAST_CALL SampleNearest(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 **tptr, const int *bufw, int level, int levelFrac) {
+	int u, v;
+
+	// Nearest filtering only.  Round texcoords.
+	GetTexelCoordinates(level, s, t, u, v, x, y);
+	Vec4<int> c0 = Vec4<int>::FromRGBA(SampleNearest<1>(&u, &v, tptr[0], bufw[0], level).v[0]);
+
+	if (levelFrac) {
+		GetTexelCoordinates(level + 1, s, t, u, v, x, y);
+		Vec4<int> c1 = Vec4<int>::FromRGBA(SampleNearest<1>(&u, &v, tptr[1], bufw[1], level + 1).v[0]);
+
+		c0 = (c1 * levelFrac + c0 * (16 - levelFrac)) / 16;
+	}
+
+	return GetTextureFunctionOutput(prim_color, ToVec4IntArg(c0));
+}
+
+static Vec4IntResult SOFTRAST_CALL SampleFetch(int u, int v, const u8 *tptr, int bufw, int level) {
+	Nearest4 c = SampleNearest<1>(&u, &v, tptr, bufw, level);
+	return ToVec4IntResult(Vec4<int>::FromRGBA(c.v[0]));
 }
 
 static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuad(bool clamp, Vec4IntArg vec, int width) {

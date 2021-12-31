@@ -34,11 +34,7 @@ extern u32 clut[4096];
 namespace Sampler {
 
 FetchFunc SamplerJitCache::CompileFetch(const SamplerID &id) {
-	// TODO: Make these different.
-	return CompileNearest(id);
-}
-
-NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
+	_assert_msg_(id.fetch && !id.linear, "Only fetch should be set on sampler id");
 	regCache_.SetupABI({
 		RegCache::GEN_ARG_U,
 		RegCache::GEN_ARG_V,
@@ -103,14 +99,18 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 	regCache_.Reset(true);
 
 	EndWrite();
-	return (NearestFunc)start;
+	return (FetchFunc)start;
 }
 
-alignas(16) static const float by256[4] = { 1.0f / 256.0f, 1.0f / 256.0f, 1.0f / 256.0f, 1.0f / 256.0f, };
-alignas(16) static const float ones[4] = { 1.0f, 1.0f, 1.0f, 1.0f, };
+NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
+	_assert_msg_(!id.fetch && !id.linear, "Fetch and linear should be cleared on sampler id");
+
+	// TODO: Actual implementation with new args.
+	return nullptr;
+}
 
 LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
-	_assert_msg_(id.linear, "Linear should be set on sampler id");
+	_assert_msg_(id.linear && !id.fetch, "Only linear should be set on sampler id");
 	BeginWrite();
 	Describe("Init");
 

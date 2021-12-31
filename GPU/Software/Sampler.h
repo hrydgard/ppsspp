@@ -36,7 +36,7 @@ namespace Sampler {
 typedef Rasterizer::Vec4IntResult(SOFTRAST_CALL *FetchFunc)(int u, int v, const u8 *tptr, int bufw, int level);
 FetchFunc GetFetchFunc(SamplerID id);
 
-typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *NearestFunc)(int u, int v, const u8 *tptr, int bufw, int level);
+typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *NearestFunc)(float s, float t, int x, int y, Rasterizer::Vec4IntArg prim_color, const u8 **tptr, const int *bufw, int level, int levelFrac);
 NearestFunc GetNearestFunc(SamplerID id);
 
 typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *LinearFunc)(float s, float t, int x, int y, Rasterizer::Vec4IntArg prim_color, const u8 **tptr, const int *bufw, int level, int levelFrac);
