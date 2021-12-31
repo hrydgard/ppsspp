@@ -113,8 +113,9 @@ private:
 	const u8 *constVNext_ = nullptr;
 	const u8 *constOnes32_ = nullptr;
 	const u8 *constOnes16_ = nullptr;
+	const u8 *const10All16_ = nullptr;
 	const u8 *const10Low_ = nullptr;
-	const u8 *const10All_ = nullptr;
+	const u8 *const10All8_ = nullptr;
 
 	std::unordered_map<SamplerID, NearestFunc> cache_;
 	std::unordered_map<SamplerID, const u8 *> addresses_;

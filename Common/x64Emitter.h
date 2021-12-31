@@ -820,6 +820,7 @@ public:
 	void PINSRD(X64Reg dest, OpArg arg, u8 subreg);
 
 	void PMADDWD(X64Reg dest, OpArg arg);
+	void PMADDUBSW(X64Reg dest, OpArg arg);
 	void PSADBW(X64Reg dest, OpArg arg);
 
 	void PMAXSW(X64Reg dest, OpArg arg);
