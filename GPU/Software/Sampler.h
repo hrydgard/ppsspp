@@ -95,6 +95,7 @@ private:
 	bool Jit_ReadClutColor(const SamplerID &id);
 	bool Jit_GetDXT1Color(const SamplerID &id, int blockSize, int alpha);
 	bool Jit_ApplyDXTAlpha(const SamplerID &id);
+	bool Jit_GetTexelCoords(const SamplerID &id);
 
 	bool Jit_GetTexelCoordsQuad(const SamplerID &id);
 	bool Jit_PrepareDataOffsets(const SamplerID &id, Rasterizer::RegCache::Reg uReg, Rasterizer::RegCache::Reg vReg, bool level1);
