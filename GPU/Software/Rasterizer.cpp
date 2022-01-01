@@ -709,7 +709,6 @@ template <bool clearMode, bool hasMipLevels>
 void DrawTriangleSlice(
 	const VertexData& v0, const VertexData& v1, const VertexData& v2,
 	int x1, int y1, int x2, int y2,
-	bool byY, int h1, int h2,
 	const PixelFuncID &pixelID,
 	const Rasterizer::SingleFunc &drawPixel,
 	const Sampler::Funcs &sampler)
@@ -740,13 +739,6 @@ void DrawTriangleSlice(
 	TriangleEdge e2;
 
 	int64_t minX = x1, maxX = x2, minY = y1, maxY = y2;
-	if (byY) {
-		maxY = std::min(maxY, minY + h2 * 16 * 2) - 1;
-		minY += h1 * 16 * 2;
-	} else {
-		maxX = std::min(maxX, minX + h2 * 16 * 2) - 1;
-		minX += h1 * 16 * 2;
-	}
 
 	ScreenCoords pprime(minX, minY, 0);
 	Vec4<int> w0_base = e0.Start(v1.screenpos, v2.screenpos, pprime);
@@ -879,8 +871,8 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 	int minX = std::min(std::min(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) & ~0xF;
 	int minY = std::min(std::min(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) & ~0xF;
-	int maxX = (std::max(std::max(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) + 0xF) & ~0xF;
-	int maxY = (std::max(std::max(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) + 0xF) & ~0xF;
+	int maxX = std::max(std::max(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) | 0xF;
+	int maxY = std::max(std::max(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) | 0xF;
 
 	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1(), 0);
 	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2(), 0);
@@ -894,8 +886,8 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 		return;
 
 	// 32 because we do two pixels at once, and we don't want overlap.
-	int rangeY = (maxY - minY) / 32 + 1;
-	int rangeX = (maxX - minX) / 32 + 1;
+	int rangeY = (maxY - minY + 31) / 32;
+	int rangeX = (maxX - minX + 31) / 32;
 
 	PixelFuncID pixelID;
 	ComputePixelFuncID(&pixelID);
@@ -912,16 +904,20 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 	if (rangeY >= 12 && rangeX >= rangeY * 4) {
 		auto bound = [&](int a, int b) -> void {
-			drawSlice(v0, v1, v2, minX, minY, maxX, maxY, false, a, b, pixelID, drawPixel, sampler);
+			int x1 = minX + a * 16 * 2;
+			int x2 = std::min(maxX, minX + b * 16 * 2 - 1);
+			drawSlice(v0, v1, v2, x1, minY, x2, maxY, pixelID, drawPixel, sampler);
 		};
 		ParallelRangeLoop(&g_threadManager, bound, 0, rangeX, MIN_LINES_PER_THREAD);
 	} else if (rangeY >= 12 && rangeX >= 12) {
 		auto bound = [&](int a, int b) -> void {
-			drawSlice(v0, v1, v2, minX, minY, maxX, maxY, true, a, b, pixelID, drawPixel, sampler);
+			int y1 = minY + a * 16 * 2;
+			int y2 = std::min(maxY, minY + b * 16 * 2 - 1);
+			drawSlice(v0, v1, v2, minX, y1, maxX, y2, pixelID, drawPixel, sampler);
 		};
 		ParallelRangeLoop(&g_threadManager, bound, 0, rangeY, MIN_LINES_PER_THREAD);
 	} else {
-		drawSlice(v0, v1, v2, minX, minY, maxX, maxY, true, 0, rangeY, pixelID, drawPixel, sampler);
+		drawSlice(v0, v1, v2, minX, minY, maxX, maxY, pixelID, drawPixel, sampler);
 	}
 }
 
