@@ -1301,7 +1301,8 @@ void GPUCommon::DoExecuteCall(u32 target) {
 	if (!debugRecording_ && (Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA) {
 		// Check for the end
 		if ((Memory::ReadUnchecked_U32(target + 11 * 4) >> 24) == GE_CMD_BONEMATRIXDATA &&
-				(Memory::ReadUnchecked_U32(target + 12 * 4) >> 24) == GE_CMD_RET) {
+				(Memory::ReadUnchecked_U32(target + 12 * 4) >> 24) == GE_CMD_RET &&
+				(gstate.boneMatrixNumber & 0x7F) <= 96 - 12) {
 			// Yep, pretty sure this is a bone matrix call.  Double check stall first.
 			if (target > currentList->stall || target + 12 * 4 < currentList->stall) {
 				FastLoadBoneMatrix(target);
@@ -1753,7 +1754,8 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 			if ((Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA &&
 				(Memory::ReadUnchecked_U32(target + 11 * 4) >> 24) == GE_CMD_BONEMATRIXDATA &&
 				(Memory::ReadUnchecked_U32(target + 12 * 4) >> 24) == GE_CMD_RET &&
-				(target > currentList->stall || target + 12 * 4 < currentList->stall)) {
+				(target > currentList->stall || target + 12 * 4 < currentList->stall) &&
+				(gstate.boneMatrixNumber & 0x7F) <= 96 - 12) {
 				FastLoadBoneMatrix(target);
 			} else {
 				goto bail;
@@ -2368,6 +2370,7 @@ void GPUCommon::Execute_Unknown(u32 op, u32 diff) {
 
 void GPUCommon::FastLoadBoneMatrix(u32 target) {
 	const u32 num = gstate.boneMatrixNumber & 0x7F;
+	_dbg_assert_msg_(num + 12 <= 96, "FastLoadBoneMatrix would corrupt memory");
 	const u32 mtxNum = num / 12;
 	u32 uniformsToDirty = DIRTY_BONEMATRIX0 << mtxNum;
 	if (num != 12 * mtxNum) {
