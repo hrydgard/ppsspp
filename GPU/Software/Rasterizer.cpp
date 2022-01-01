@@ -759,7 +759,7 @@ void DrawTriangleSlice(
 
 		// TODO: Maybe we can clip the edges instead?
 		int scissorYPlus1 = curY + 16 > maxY ? -1 : 0;
-		Vec4<int> scissor_mask = Vec4<int>(0, maxX - minX, scissorYPlus1, (maxX - minX) | scissorYPlus1);
+		Vec4<int> scissor_mask = Vec4<int>(0, maxX - minX - 16, scissorYPlus1, (maxX - minX - 16) | scissorYPlus1);
 		Vec4<int> scissor_step = Vec4<int>(0, -32, 0, -32);
 
 		DrawingCoords p = TransformUnit::ScreenToDrawing(ScreenCoords(minX, curY, 0));
