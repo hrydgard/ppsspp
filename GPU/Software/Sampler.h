@@ -102,6 +102,10 @@ private:
 	bool Jit_PrepareDataDirectOffsets(const SamplerID &id, Rasterizer::RegCache::Reg uReg, Rasterizer::RegCache::Reg vReg, bool level1, int bitsPerTexel);
 	bool Jit_PrepareDataSwizzledOffsets(const SamplerID &id, Rasterizer::RegCache::Reg uReg, Rasterizer::RegCache::Reg vReg, bool level1, int bitsPerTexel);
 	bool Jit_BlendQuad(const SamplerID &id, bool level1);
+	bool Jit_DecodeQuad(const SamplerID &id, bool level1);
+	bool Jit_Decode5650Quad(const SamplerID &id, Rasterizer::RegCache::Reg quadReg);
+	bool Jit_Decode5551Quad(const SamplerID &id, Rasterizer::RegCache::Reg quadReg);
+	bool Jit_Decode4444Quad(const SamplerID &id, Rasterizer::RegCache::Reg quadReg);
 
 	bool Jit_ApplyTextureFunc(const SamplerID &id);
 
@@ -123,6 +127,8 @@ private:
 	const u8 *const10All16_ = nullptr;
 	const u8 *const10Low_ = nullptr;
 	const u8 *const10All8_ = nullptr;
+	const u8 *const5551Swizzle_ = nullptr;
+	const u8 *const5650Swizzle_ = nullptr;
 
 	std::unordered_map<SamplerID, NearestFunc> cache_;
 	std::unordered_map<SamplerID, const u8 *> addresses_;

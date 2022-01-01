@@ -133,6 +133,9 @@ void SamplerJitCache::Clear() {
 	constOnes16_ = nullptr;
 	constUNext_ = nullptr;
 	constVNext_ = nullptr;
+
+	const5551Swizzle_ = nullptr;
+	const5650Swizzle_ = nullptr;
 }
 
 void SamplerJitCache::Describe(const std::string &message) {

@@ -733,6 +733,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	if (regCache_.Has(RegCache::GEN_ARG_LEVEL))
 		regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
 
+	success = success && Jit_DecodeQuad(id, false);
 	success = success && Jit_BlendQuad(id, false);
 	if (id.hasAnyMips) {
 		Describe("BlendMips");
@@ -747,6 +748,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		CMP(8, R(levelFracReg), Imm8(0));
 		FixupBranch skip = J_CC(CC_Z, true);
 
+		success = success && Jit_DecodeQuad(id, true);
 		success = success && Jit_BlendQuad(id, true);
 
 		Describe("BlendMips");
@@ -870,6 +872,18 @@ void SamplerJitCache::WriteConstantPool(const SamplerID &id) {
 	if (constVNext_ == nullptr) {
 		constVNext_ = AlignCode16();
 		Write32(0); Write32(0); Write32(1); Write32(1);
+	}
+
+	if (const5551Swizzle_ == nullptr) {
+		const5551Swizzle_ = AlignCode16();
+		for (int i = 0; i < 4; ++i)
+			Write32(0x00070707);
+	}
+
+	if (const5650Swizzle_ == nullptr) {
+		const5650Swizzle_ = AlignCode16();
+		for (int i = 0; i < 4; ++i)
+			Write32(0x00070307);
 	}
 
 	// These are unique to the sampler ID.
@@ -1299,19 +1313,19 @@ bool SamplerJitCache::Jit_ReadTextureFormat(const SamplerID &id) {
 	switch (fmt) {
 	case GE_TFMT_5650:
 		success = Jit_GetTexData(id, 16);
-		if (success)
+		if (success && !id.linear)
 			success = Jit_Decode5650();
 		break;
 
 	case GE_TFMT_5551:
 		success = Jit_GetTexData(id, 16);
-		if (success)
+		if (success && !id.linear)
 			success = Jit_Decode5551();
 		break;
 
 	case GE_TFMT_4444:
 		success = Jit_GetTexData(id, 16);
-		if (success)
+		if (success && !id.linear)
 			success = Jit_Decode4444();
 		break;
 
@@ -2698,6 +2712,101 @@ bool SamplerJitCache::Jit_PrepareDataSwizzledOffsets(const SamplerID &id, RegCac
 	return true;
 }
 
+bool SamplerJitCache::Jit_DecodeQuad(const SamplerID &id, bool level1) {
+	GETextureFormat decodeFmt = id.TexFmt();
+	switch (id.TexFmt()) {
+	case GE_TFMT_CLUT32:
+	case GE_TFMT_CLUT16:
+	case GE_TFMT_CLUT8:
+	case GE_TFMT_CLUT4:
+		// The values match, so just use the clut fmt.
+		decodeFmt = (GETextureFormat)id.ClutFmt();
+		break;
+
+	default:
+		// We'll decode below.
+		break;
+	}
+
+	bool success = true;
+	X64Reg quadReg = regCache_.Find(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
+
+	switch (decodeFmt) {
+	case GE_TFMT_5650:
+		success = Jit_Decode5650Quad(id, quadReg);
+		break;
+
+	case GE_TFMT_5551:
+		success = Jit_Decode5551Quad(id, quadReg);
+		break;
+
+	case GE_TFMT_4444:
+		success = Jit_Decode4444Quad(id, quadReg);
+		break;
+
+	default:
+		// Doesn't need decoding.
+		break;
+	}
+
+	regCache_.Unlock(quadReg, level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
+	return success;
+}
+
+bool SamplerJitCache::Jit_Decode5650Quad(const SamplerID &id, Rasterizer::RegCache::Reg quadReg) {
+	Describe("5650Quad");
+	X64Reg temp1Reg = regCache_.Alloc(RegCache::VEC_TEMP1);
+	X64Reg temp2Reg = regCache_.Alloc(RegCache::VEC_TEMP2);
+
+	// Filter out red only into temp1.  We do this by shifting into a wall.
+	if (cpu_info.bAVX) {
+		VPSLLD(128, temp1Reg, quadReg, 32 - 5);
+	} else {
+		MOVDQA(temp1Reg, R(quadReg));
+		PSLLD(temp1Reg, 32 - 5);
+	}
+	// Move it right to the top of the 8 bits.
+	PSRLD(temp1Reg, 24);
+
+	// Now we bring in blue, since it's also 5 like red.
+	if (cpu_info.bAVX) {
+		VPSRLD(128, temp2Reg, quadReg, 11);
+	} else {
+		MOVDQA(temp2Reg, R(quadReg));
+		// Luckily, we know the top 16 bits are zero.  Shift right into a wall.
+		PSRLD(temp2Reg, 11);
+	}
+	// Shift blue into place at 19, and merge back to temp1.
+	PSLLD(temp2Reg, 19);
+	POR(temp1Reg, R(temp2Reg));
+
+	// Make a copy back in temp2, and shift left 1 so we can swizzle together with G.
+	if (cpu_info.bAVX) {
+		VPSLLD(128, temp2Reg, temp1Reg, 1);
+	} else {
+		MOVDQA(temp2Reg, R(temp1Reg));
+		PSLLD(temp2Reg, 1);
+	}
+
+	// We go to green last because it's the different one.  Shift off red and blue.
+	PSRLD(quadReg, 5);
+	// Use a word shift to put a wall just at the right place, top 6 bits of second byte.
+	PSLLW(quadReg, 10);
+	// Combine with temp2 (for swizzling), then merge in temp1 (R+B pre-swizzle.)
+	POR(temp2Reg, R(quadReg));
+	POR(quadReg, R(temp1Reg));
+
+	// Now shift and mask temp2 for swizzle.
+	PSRLD(temp2Reg, 6);
+	PAND(temp2Reg, M(const5650Swizzle_));
+	// And then OR that in too.  We're done.
+	POR(quadReg, R(temp2Reg));
+
+	regCache_.Release(temp1Reg, RegCache::VEC_TEMP1);
+	regCache_.Release(temp2Reg, RegCache::VEC_TEMP2);
+	return true;
+}
+
 bool SamplerJitCache::Jit_Decode5650() {
 	Describe("5650");
 	X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
@@ -2740,6 +2849,56 @@ bool SamplerJitCache::Jit_Decode5650() {
 	return true;
 }
 
+bool SamplerJitCache::Jit_Decode5551Quad(const SamplerID &id, Rasterizer::RegCache::Reg quadReg) {
+	Describe("5551Quad");
+	X64Reg temp1Reg = regCache_.Alloc(RegCache::VEC_TEMP1);
+	X64Reg temp2Reg = regCache_.Alloc(RegCache::VEC_TEMP2);
+
+	// Filter out red only into temp1.  We do this by shifting into a wall.
+	if (cpu_info.bAVX) {
+		VPSLLD(128, temp1Reg, quadReg, 32 - 5);
+	} else {
+		MOVDQA(temp1Reg, R(quadReg));
+		PSLLD(temp1Reg, 32 - 5);
+	}
+	// Move it right to the top of the 8 bits.
+	PSRLD(temp1Reg, 24);
+
+	// Add in green and shift into place (top 5 bits of byte 2.)
+	if (cpu_info.bAVX) {
+		VPSRLD(128, temp2Reg, quadReg, 5);
+	} else {
+		MOVDQA(temp2Reg, R(quadReg));
+		PSRLD(temp2Reg, 5);
+	}
+	PSLLW(temp2Reg, 11);
+	POR(temp1Reg, R(temp2Reg));
+
+	// First, extend alpha using an arithmetic shift.
+	// We use 10 to meanwhile get rid of green too.  The extra alpha bits are fine.
+	PSRAW(quadReg, 10);
+	// This gets rid of those extra alpha bits.
+	PSLLD(quadReg, 19);
+
+	// Combine both together, we still need to swizzle.
+	POR(quadReg, R(temp1Reg));
+	if (cpu_info.bAVX) {
+		VPSRLD(128, temp1Reg, quadReg, 5);
+	} else {
+		MOVDQA(temp1Reg, R(quadReg));
+		PSRLD(temp1Reg, 5);
+	}
+
+	// Now for swizzle, we'll mask carefully to avoid overflow.
+	PAND(temp1Reg, M(const5551Swizzle_));
+	// Then finally merge in the swizzle bits.
+	POR(quadReg, R(temp1Reg));
+
+	regCache_.Release(temp1Reg, RegCache::VEC_TEMP1);
+	regCache_.Release(temp2Reg, RegCache::VEC_TEMP2);
+	return true;
+}
+
 bool SamplerJitCache::Jit_Decode5551() {
 	Describe("5551");
 	X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
@@ -2778,6 +2937,70 @@ bool SamplerJitCache::Jit_Decode5551() {
 	regCache_.Release(temp1Reg, RegCache::GEN_TEMP1);
 	regCache_.Release(temp2Reg, RegCache::GEN_TEMP2);
 	regCache_.Unlock(resultReg, RegCache::GEN_RESULT);
+	return true;
+}
+
+bool SamplerJitCache::Jit_Decode4444Quad(const SamplerID &id, Rasterizer::RegCache::Reg quadReg) {
+	Describe("4444Quad");
+	X64Reg temp1Reg = regCache_.Alloc(RegCache::VEC_TEMP1);
+	X64Reg temp2Reg = regCache_.Alloc(RegCache::VEC_TEMP2);
+
+	// Mask and move red into position within temp1.
+	if (cpu_info.bAVX) {
+		VPSLLD(128, temp1Reg, quadReg, 28);
+	} else {
+		MOVDQA(temp1Reg, R(quadReg));
+		PSLLD(temp1Reg, 28);
+	}
+	PSRLD(temp1Reg, 24);
+
+	// Green is easy too, we use a word shift to get a free wall.
+	if (cpu_info.bAVX) {
+		VPSRLD(128, temp2Reg, quadReg, 4);
+	} else {
+		MOVDQA(temp2Reg, R(quadReg));
+		PSRLD(temp2Reg, 4);
+	}
+	PSLLW(temp2Reg, 12);
+	POR(temp1Reg, R(temp2Reg));
+
+	// Blue isn't last this time, but it's next.
+	if (cpu_info.bAVX) {
+		VPSRLD(128, temp2Reg, quadReg, 8);
+	} else {
+		MOVDQA(temp2Reg, R(quadReg));
+		PSRLD(temp2Reg, 8);
+	}
+	PSLLD(temp2Reg, 28);
+	PSRLD(temp2Reg, 8);
+	POR(temp1Reg, R(temp2Reg));
+
+	if (id.useTextureAlpha) {
+		// Last but not least, alpha.
+		PSRLW(quadReg, 12);
+		PSLLD(quadReg, 28);
+		POR(quadReg, R(temp1Reg));
+
+		// Masking isn't necessary here since everything is 4 wide.
+		if (cpu_info.bAVX) {
+			VPSRLD(128, temp1Reg, quadReg, 4);
+		} else {
+			MOVDQA(temp1Reg, R(quadReg));
+			PSRLD(temp1Reg, 4);
+		}
+		POR(quadReg, R(temp1Reg));
+	} else if (cpu_info.bAVX) {
+		VPSRLD(128, quadReg, temp1Reg, 4);
+		POR(quadReg, R(temp1Reg));
+	} else {
+		// Overwrite colorReg (we need temp1 as a copy anyway.)
+		MOVDQA(quadReg, R(temp1Reg));
+		PSRLD(temp1Reg, 4);
+		POR(quadReg, R(temp1Reg));
+	}
+
+	regCache_.Release(temp1Reg, RegCache::VEC_TEMP1);
+	regCache_.Release(temp2Reg, RegCache::VEC_TEMP2);
 	return true;
 }
 
@@ -2932,13 +3155,13 @@ bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
 
 	switch (id.ClutFmt()) {
 	case GE_CMODE_16BIT_BGR5650:
-		return Jit_Decode5650();
+		return id.linear || Jit_Decode5650();
 
 	case GE_CMODE_16BIT_ABGR5551:
-		return Jit_Decode5551();
+		return id.linear || Jit_Decode5551();
 
 	case GE_CMODE_16BIT_ABGR4444:
-		return Jit_Decode4444();
+		return id.linear || Jit_Decode4444();
 
 	case GE_CMODE_32BIT_ABGR8888:
 		return true;
