@@ -889,6 +889,10 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	minY = std::max(minY, (int)TransformUnit::DrawingToScreen(scissorTL).y);
 	maxY = std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y + 15);
 
+	// Was it fully outside the scissor?
+	if (maxX < minX || maxY < minY)
+		return;
+
 	// 32 because we do two pixels at once, and we don't want overlap.
 	int rangeY = (maxY - minY) / 32 + 1;
 	int rangeX = (maxX - minX) / 32 + 1;
