@@ -186,14 +186,17 @@ struct Weight2D {
 };
 
 struct ControlPoints {
-	Vec3f *pos;
-	Vec2f *tex;
-	Vec4f *col;
+	Vec3f *pos = nullptr;
+	Vec2f *tex = nullptr;
+	Vec4f *col = nullptr;
 	u32_le defcolor;
 
 	ControlPoints() {}
 	ControlPoints(const SimpleVertex *const *points, int size, SimpleBufferManager &managedBuf);
 	void Convert(const SimpleVertex *const *points, int size);
+	bool IsValid() const {
+		return pos && tex && col;
+	}
 };
 
 struct OutputBuffers {
