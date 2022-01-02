@@ -685,6 +685,10 @@ void DrawTriangleSlice(
 	// All the z values are the same, no interpolation required.
 	// This is common, and when we interpolate, we lose accuracy.
 	const bool flatZ = v0.screenpos.z == v1.screenpos.z && v0.screenpos.z == v2.screenpos.z;
+	const bool flatColorAll = clearMode || gstate.getShadeMode() != GE_SHADE_GOURAUD;
+	const bool flatColor0 = flatColorAll || (v0.color0 == v1.color0 && v0.color0 == v2.color0);
+	const bool flatColor1 = flatColorAll || (v0.color1 == v1.color1 && v0.color1 == v2.color1);
+	const bool noFog = clearMode || !gstate.isFogEnabled() || (v0.fogdepth >= 1.0f && v1.fogdepth >= 1.0f && v2.fogdepth >= 1.0f);
 
 	for (int64_t curY = minY; curY <= maxY; curY += 32,
 										w0_base = e0.StepY(w0_base),
@@ -714,16 +718,23 @@ void DrawTriangleSlice(
 				Vec4<float> wsum_recip = EdgeRecip(w0, w1, w2);
 
 				Vec4<int> prim_color[4];
-				Vec3<int> sec_color[4];
-				if (gstate.getShadeMode() == GE_SHADE_GOURAUD && !clearMode) {
+				if (!flatColor0) {
 					// Does the PSP do perspective-correct color interpolation? The GC doesn't.
 					for (int i = 0; i < 4; ++i) {
 						prim_color[i] = Interpolate(v0.color0, v1.color0, v2.color0, w0[i], w1[i], w2[i], wsum_recip[i]);
-						sec_color[i] = Interpolate(v0.color1, v1.color1, v2.color1, w0[i], w1[i], w2[i], wsum_recip[i]);
 					}
 				} else {
 					for (int i = 0; i < 4; ++i) {
 						prim_color[i] = v2.color0;
+					}
+				}
+				Vec3<int> sec_color[4];
+				if (!flatColor1) {
+					for (int i = 0; i < 4; ++i) {
+						sec_color[i] = Interpolate(v0.color1, v1.color1, v2.color1, w0[i], w1[i], w2[i], wsum_recip[i]);
+					}
+				} else {
+					for (int i = 0; i < 4; ++i) {
 						sec_color[i] = v2.color1;
 					}
 				}
@@ -758,7 +769,7 @@ void DrawTriangleSlice(
 				}
 
 				Vec4<int> fog = Vec4<int>::AssignToAll(255);
-				if (gstate.isFogEnabled() && !clearMode) {
+				if (!noFog) {
 					Vec4<float> fogdepths = w0.Cast<float>() * v0.fogdepth + w1.Cast<float>() * v1.fogdepth + w2.Cast<float>() * v2.fogdepth;
 					fogdepths = fogdepths * wsum_recip;
 					for (int i = 0; i < 4; ++i) {
