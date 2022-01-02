@@ -425,6 +425,7 @@ void PPGeBegin()
 	WriteCmd(GE_CMD_CLEARMODE, 0);  // Normal mode
 	WriteCmd(GE_CMD_MASKRGB, 0);
 	WriteCmd(GE_CMD_MASKALPHA, 0);
+	WriteCmd(GE_CMD_DITHERENABLE, 0);
 
 	PPGeSetDefaultTexture();
 

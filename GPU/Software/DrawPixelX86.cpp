@@ -1472,12 +1472,14 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 	}
 
 	if (id.clearMode) {
+		bool drawingDone = false;
 		if (!id.ColorClear() && !id.StencilClear())
-			return true;
+			drawingDone = true;
 		if (!id.ColorClear() && id.FBFormat() == GE_FORMAT_565)
-			return true;
+			drawingDone = true;
 
-		if (!id.ColorClear()) {
+		bool success = true;
+		if (!id.ColorClear() && !drawingDone) {
 			// Let's reuse Jit_WriteStencilOnly for this path.
 			X64Reg alphaReg;
 			if (regCache_.Has(RegCache::GEN_SRC_ALPHA)) {
@@ -1487,10 +1489,17 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 				MOVD_xmm(R(alphaReg), argColorReg);
 				SHR(32, R(alphaReg), Imm8(24));
 			}
-
-			bool success = Jit_WriteStencilOnly(id, alphaReg);
+			success = Jit_WriteStencilOnly(id, alphaReg);
 			regCache_.Release(alphaReg, RegCache::GEN_SRC_ALPHA);
+
+			drawingDone = true;
+		}
+
+		if (drawingDone) {
 			regCache_.Unlock(argColorReg, RegCache::VEC_ARG_COLOR);
+			regCache_.ForceRelease(RegCache::VEC_ARG_COLOR);
+			regCache_.Unlock(colorOff, RegCache::GEN_COLOR_OFF);
+			regCache_.ForceRelease(RegCache::GEN_COLOR_OFF);
 			return success;
 		}
 
