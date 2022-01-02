@@ -21,9 +21,11 @@
 
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
+#include "Common/StringUtils.h"
 #include "Common/Thread/ParallelLoop.h"
 #include "Core/ThreadPools.h"
 #include "Core/Config.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/ThreadPools.h"
@@ -562,6 +564,7 @@ static inline void ApplyTexturing(Sampler::Funcs sampler, Vec4<int> *prim_color,
 	bool bilinear;
 	CalculateSamplingParams<hasMipLevels>(ds, dt, maxTexLevel, level, levelFrac, bilinear);
 
+	PROFILE_THIS_SCOPE("sampler");
 	for (int i = 0; i < 4; ++i) {
 		prim_color[i] = ApplyTexturing<hasMipLevels>(s[i], t[i], ((x & 15) + 1) / 2, ((y & 15) + 1) / 2, ToVec4IntArg(prim_color[i]), texptr, texbufw, level, levelFrac, bilinear, sampler);
 	}
@@ -690,6 +693,15 @@ void DrawTriangleSlice(
 	const bool flatColor1 = flatColorAll || (v0.color1 == v1.color1 && v0.color1 == v2.color1);
 	const bool noFog = clearMode || !gstate.isFogEnabled() || (v0.fogdepth >= 1.0f && v1.fogdepth >= 1.0f && v2.fogdepth >= 1.0f);
 
+#if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
+	uint32_t bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
+	DisplayList currentList{};
+	if (gpuDebug)
+		gpuDebug->GetCurrentDisplayList(currentList);
+	std::string tag = StringFromFormat("DisplayListT_%08x", currentList.pc);
+	std::string ztag = StringFromFormat("DisplayListTZ_%08x", currentList.pc);
+#endif
+
 	for (int64_t curY = minY; curY <= maxY; curY += 32,
 										w0_base = e0.StepY(w0_base),
 										w1_base = e1.StepY(w1_base),
@@ -786,6 +798,7 @@ void DrawTriangleSlice(
 					z = (zfloats * wsum_recip).Cast<int>();
 				}
 
+				PROFILE_THIS_SCOPE("draw_tri_px");
 				DrawingCoords subp = p;
 				for (int i = 0; i < 4; ++i) {
 					if (mask[i] < 0) {
@@ -795,10 +808,33 @@ void DrawTriangleSlice(
 					subp.y = p.y + (i / 2);
 
 					drawPixel(subp.x, subp.y, z[i], fog[i], ToVec4IntArg(prim_color[i]), pixelID);
+
+#if defined(SOFTGPU_MEMORY_TAGGING_DETAILED)
+					uint32_t row = gstate.getFrameBufAddress() + subp.y * gstate.FrameBufStride() * bpp;
+					NotifyMemInfo(MemBlockFlags::WRITE, row + subp.x * bpp, bpp, tag.c_str(), tag.size());
+					if (pixelID.depthWrite) {
+						row = gstate.getDepthBufAddress() + subp.y * gstate.DepthBufStride() * 2;
+						NotifyMemInfo(MemBlockFlags::WRITE, row + subp.x * 2, 2, ztag.c_str(), ztag.size());
+					}
+#endif
 				}
 			}
 		}
 	}
+
+#if !defined(SOFTGPU_MEMORY_TAGGING_DETAILED) && defined(SOFTGPU_MEMORY_TAGGING_BASIC)
+	for (int y = minY; y <= maxY; y += 16) {
+		DrawingCoords p = TransformUnit::ScreenToDrawing(ScreenCoords(minX, y, 0));
+		DrawingCoords pend = TransformUnit::ScreenToDrawing(ScreenCoords(maxX, y, 0));
+		uint32_t row = gstate.getFrameBufAddress() + p.y * gstate.FrameBufStride() * bpp;
+		NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * bpp, (pend.x - p.x) * bpp, tag.c_str(), tag.size());
+
+		if (pixelID.depthWrite) {
+			row = gstate.getDepthBufAddress() + p.y * gstate.DepthBufStride() * 2;
+			NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * 2, (pend.x - p.x) * 2, ztag.c_str(), ztag.size());
+		}
+	}
+#endif
 }
 
 // Draws triangle, vertices specified in counter-clockwise direction
@@ -926,6 +962,7 @@ void DrawPoint(const VertexData &v0)
 		int texLevelFrac;
 		bool bilinear;
 		CalculateSamplingParams<true>(0.0f, 0.0f, maxTexLevel, texLevel, texLevelFrac, bilinear);
+		PROFILE_THIS_SCOPE("sampler");
 		prim_color = ApplyTexturingSingle<true>(s, t, pos.x, pos.y, ToVec4IntArg(prim_color), texptr, texbufw, texLevel, texLevelFrac, bilinear, sampler);
 	}
 
@@ -942,7 +979,25 @@ void DrawPoint(const VertexData &v0)
 		fog = ClampFogDepth(v0.fogdepth);
 	}
 
+	PROFILE_THIS_SCOPE("draw_px");
 	drawPixel(p.x, p.y, z, fog, ToVec4IntArg(prim_color), pixelID);
+
+#if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
+	uint32_t bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
+	DisplayList currentList{};
+	if (gpuDebug)
+		gpuDebug->GetCurrentDisplayList(currentList);
+	std::string tag = StringFromFormat("DisplayListP_%08x", currentList.pc);
+
+	uint32_t row = gstate.getFrameBufAddress() + p.y * gstate.FrameBufStride() * bpp;
+	NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * bpp, bpp, tag.c_str(), tag.size());
+
+	if (pixelID.depthWrite) {
+		std::string ztag = StringFromFormat("DisplayListPZ_%08x", currentList.pc);
+		row = gstate.getDepthBufAddress() + p.y * gstate.DepthBufStride() * 2;
+		NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * 2, 2, ztag.c_str(), ztag.size());
+	}
+#endif
 }
 
 void ClearRectangle(const VertexData &v0, const VertexData &v1)
@@ -968,6 +1023,12 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 	if (w <= 0)
 		return;
 
+#if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
+	DisplayList currentList{};
+	if (gpuDebug)
+		gpuDebug->GetCurrentDisplayList(currentList);
+#endif
+
 	if (gstate.isClearModeDepthMask()) {
 		const u16 z = v1.screenpos.z;
 		const int stride = gstate.DepthBufStride();
@@ -991,6 +1052,14 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 				}
 			}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
 		}
+
+#if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
+		std::string tag = StringFromFormat("DisplayListXZ_%08x", currentList.pc);
+		for (int y = pprime.y; y < pend.y; ++y) {
+			uint32_t row = gstate.getDepthBufAddress() + y * gstate.DepthBufStride() * 2;
+			NotifyMemInfo(MemBlockFlags::WRITE, row + pprime.x * 2, w * 2, tag.c_str(), tag.size());
+		}
+#endif
 	}
 
 	// Note: this stays 0xFFFFFFFF if keeping color and alpha, even for 16-bit.
@@ -1101,6 +1170,17 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 			}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
 		}
 	}
+
+#if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
+	if (keepOldMask != 0xFFFFFFFF) {
+		uint32_t bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
+		std::string tag = StringFromFormat("DisplayListX_%08x", currentList.pc);
+		for (int y = pprime.y; y < pend.y; ++y) {
+			uint32_t row = gstate.getFrameBufAddress() + y * gstate.FrameBufStride() * bpp;
+			NotifyMemInfo(MemBlockFlags::WRITE, row + pprime.x * bpp, w * bpp, tag.c_str(), tag.size());
+		}
+	}
+#endif
 }
 
 void DrawLine(const VertexData &v0, const VertexData &v1)
@@ -1159,6 +1239,14 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 
 	Sampler::Funcs sampler = Sampler::GetFuncs();
 	Rasterizer::SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID);
+
+#if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
+	DisplayList currentList{};
+	if (gpuDebug)
+		gpuDebug->GetCurrentDisplayList(currentList);
+	std::string tag = StringFromFormat("DisplayListL_%08x", currentList.pc);
+	std::string ztag = StringFromFormat("DisplayListLZ_%08x", currentList.pc);
+#endif
 
 	double x = a.x > b.x ? a.x - 1 : a.x;
 	double y = a.y > b.y ? a.y - 1 : a.y;
@@ -1223,6 +1311,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 					texBilinear = true;
 				}
 
+				PROFILE_THIS_SCOPE("sampler");
 				prim_color = ApplyTexturingSingle<true>(s, t, x, y, ToVec4IntArg(prim_color), texptr, texbufw, texLevel, texLevelFrac, texBilinear, sampler);
 			}
 
@@ -1231,8 +1320,20 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 
 			ScreenCoords pprime = ScreenCoords((int)x, (int)y, (int)z);
 
+			PROFILE_THIS_SCOPE("draw_px");
 			DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
 			drawPixel(p.x, p.y, z, fog, ToVec4IntArg(prim_color), pixelID);
+
+#if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
+			uint32_t bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
+			uint32_t row = gstate.getFrameBufAddress() + p.y * gstate.FrameBufStride() * bpp;
+			NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * bpp, bpp, tag.c_str(), tag.size());
+
+			if (pixelID.depthWrite) {
+				uint32_t row = gstate.getDepthBufAddress() + y * gstate.DepthBufStride() * 2;
+				NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * 2, 2, ztag.c_str(), ztag.size());
+			}
+#endif
 		}
 
 		x += xinc;
