@@ -39,6 +39,9 @@ public:
 	void NotifySearchCompleted();
 
 	void Size(void);
+
+private:
+	bool mapLoadPending_ = false;
 };
 
 

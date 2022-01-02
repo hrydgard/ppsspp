@@ -854,12 +854,7 @@ namespace MainWindow {
 		case ID_DEBUG_LOADMAPFILE:
 			if (W32Util::BrowseForFileName(true, hWnd, L"Load .ppmap", 0, L"Maps\0*.ppmap\0All files\0*.*\0\0", L"ppmap", fn)) {
 				g_symbolMap->LoadSymbolMap(Path(fn));
-
-				if (disasmWindow)
-					disasmWindow->NotifyMapLoaded();
-
-				if (memoryWindow)
-					memoryWindow->NotifyMapLoaded();
+				NotifyDebuggerMapLoaded();
 			}
 			break;
 
@@ -871,12 +866,7 @@ namespace MainWindow {
 		case ID_DEBUG_LOADSYMFILE:
 			if (W32Util::BrowseForFileName(true, hWnd, L"Load .sym", 0, L"Symbols\0*.sym\0All files\0*.*\0\0", L"sym", fn)) {
 				g_symbolMap->LoadNocashSym(Path(fn));
-
-				if (disasmWindow)
-					disasmWindow->NotifyMapLoaded();
-
-				if (memoryWindow)
-					memoryWindow->NotifyMapLoaded();
+				NotifyDebuggerMapLoaded();
 			}
 			break;
 
@@ -887,12 +877,7 @@ namespace MainWindow {
 
 		case ID_DEBUG_RESETSYMBOLTABLE:
 			g_symbolMap->Clear();
-
-			if (disasmWindow)
-				disasmWindow->NotifyMapLoaded();
-
-			if (memoryWindow)
-				memoryWindow->NotifyMapLoaded();
+			NotifyDebuggerMapLoaded();
 			break;
 
 		case ID_DEBUG_DISASSEMBLY:

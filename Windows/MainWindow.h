@@ -65,6 +65,7 @@ namespace MainWindow
 	void CreateGeDebuggerWindow();
 	void CreateMemoryWindow();
 	void CreateVFPUWindow();
+	void NotifyDebuggerMapLoaded();
 	void DestroyDebugWindows();
 	void UpdateMenus(bool isMenuSelect = false);
 	void UpdateCommands();

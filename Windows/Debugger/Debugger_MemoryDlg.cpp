@@ -134,7 +134,9 @@ void CMemoryDlg::searchBoxRedraw(std::vector<u32> results) {
 void CMemoryDlg::NotifyMapLoaded() {
 	if (m_hDlg && g_symbolMap)
 		g_symbolMap->FillSymbolListBox(symListHdl, ST_DATA);
-	Update(); 
+	else
+		mapLoadPending_ = true;
+	Update();
 }
 
 BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
@@ -219,6 +221,10 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	}
 
 	case WM_DEB_UPDATE:
+		if (mapLoadPending_ && m_hDlg && g_symbolMap) {
+			g_symbolMap->FillSymbolListBox(symListHdl, ST_DATA);
+			mapLoadPending_ = false;
+		}
 		Update();
 		return TRUE;
 
