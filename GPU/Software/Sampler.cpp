@@ -101,6 +101,7 @@ SamplerJitCache::SamplerJitCache()
 {
 	// 256k should be enough.
 	AllocCodeSpace(1024 * 64 * 4);
+	ClearCodeSpace(0);
 
 	// Add some random code to "help" MSVC's buggy disassembler :(
 #if defined(_WIN32) && (PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)) && !PPSSPP_PLATFORM(UWP)
