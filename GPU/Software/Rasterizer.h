@@ -21,6 +21,11 @@
 #include "GPU/Software/RasterizerRegCache.h"
 #include "GPU/Software/TransformUnit.h" // for DrawingCoords
 
+#ifdef _DEBUG
+#define SOFTGPU_MEMORY_TAGGING_BASIC
+#endif
+// #define SOFTGPU_MEMORY_TAGGING_DETAILED
+
 struct GPUDebugBuffer;
 
 namespace Rasterizer {

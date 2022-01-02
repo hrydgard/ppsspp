@@ -5,9 +5,11 @@
 
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
+#include "Common/StringUtils.h"
 #include "Common/Thread/ParallelLoop.h"
 
 #include "Core/Config.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
@@ -246,6 +248,25 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 			}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);
 		}
 	}
+
+#if defined(SOFTGPU_MEMORY_TAGGING_BASIC) || defined(SOFTGPU_MEMORY_TAGGING_DETAILED)
+	uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
+	DisplayList currentList{};
+	if (gpuDebug)
+		gpuDebug->GetCurrentDisplayList(currentList);
+	std::string tag = StringFromFormat("DisplayListR_%08x", currentList.pc);
+	std::string ztag = StringFromFormat("DisplayListRZ_%08x", currentList.pc);
+
+	for (int y = pos0.y; y < pos1.y; y++) {
+		uint32_t row = gstate.getFrameBufAddress() + y * gstate.FrameBufStride() * bpp;
+		NotifyMemInfo(MemBlockFlags::WRITE, row + pos0.x * bpp, (pos1.x - pos0.x) * bpp, tag.c_str(), tag.size());
+
+		if (pixelID.depthWrite) {
+			uint32_t row = gstate.getDepthBufAddress() + y * gstate.DepthBufStride() * 2;
+			NotifyMemInfo(MemBlockFlags::WRITE, row + pos0.x * 2, (pos1.x - pos0.x) * 2, ztag.c_str(), ztag.size());
+		}
+	}
+#endif
 }
 
 bool g_needsClearAfterDialog = false;
