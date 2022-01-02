@@ -21,6 +21,7 @@
 #include "Common/CPUDetect.h"
 #include "Common/Math/math_util.h"
 #include "Common/MemoryUtil.h"
+#include "Common/Profiler/Profiler.h"
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/DrawEngineCommon.h"
@@ -157,6 +158,7 @@ ScreenCoords TransformUnit::DrawingToScreen(const DrawingCoords& coords)
 }
 
 VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_flag) {
+	PROFILE_THIS_SCOPE("read_vert");
 	VertexData vertex;
 
 	float pos[3];
@@ -277,6 +279,7 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_
 			vertex.texturecoords = Vec2f(stq.x * z_recip, stq.y * z_recip);
 		}
 
+		PROFILE_THIS_SCOPE("light");
 		Lighting::Process(vertex, vreader.hasColor0());
 	} else {
 		vertex.screenpos.x = (int)(pos[0] * 16) + gstate.getOffsetX16();
