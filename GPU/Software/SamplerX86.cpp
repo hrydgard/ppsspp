@@ -1003,11 +1003,16 @@ bool SamplerJitCache::Jit_BlendQuad(const SamplerID &id, bool level1) {
 		regCache_.Release(multLRReg, RegCache::VEC_TEMP1);
 
 		// Shrink to 16-bit, it's more convenient for later.
-		PACKSSDW(quadReg, R(quadReg));
 		if (level1) {
+			PACKSSDW(quadReg, R(quadReg));
 			regCache_.Unlock(quadReg, RegCache::VEC_RESULT1);
 		} else {
-			MOVDQA(XMM0, R(quadReg));
+			if (cpu_info.bAVX) {
+				VPACKSSDW(128, XMM0, quadReg, R(quadReg));
+			} else {
+				PACKSSDW(quadReg, R(quadReg));
+				MOVDQA(XMM0, R(quadReg));
+			}
 			regCache_.Unlock(quadReg, RegCache::VEC_RESULT);
 
 			regCache_.ForceRelease(RegCache::VEC_RESULT);
@@ -2657,8 +2662,12 @@ bool SamplerJitCache::Jit_PrepareDataSwizzledOffsets(const SamplerID &id, RegCac
 
 	// Divide vvec by 8 in a temp.
 	X64Reg vMultReg = regCache_.Alloc(RegCache::VEC_TEMP1);
-	MOVDQA(vMultReg, R(vReg));
-	PSRLD(vMultReg, 3);
+	if (cpu_info.bAVX) {
+		VPSRLD(128, vMultReg, vReg, 3);
+	} else {
+		MOVDQA(vMultReg, R(vReg));
+		PSRLD(vMultReg, 3);
+	}
 
 	// And now multiply by bufw.  May be able to use a shift in a common case.
 	int shiftAmount = 32 - clz32_nonzero(bitsPerTexel - 1);
@@ -2700,16 +2709,24 @@ bool SamplerJitCache::Jit_PrepareDataSwizzledOffsets(const SamplerID &id, RegCac
 
 	// Now get ((uvec / texels_per_tile) / 4) * 32 * 4 aka (uvec / (128 / bitsPerTexel)) << 7.
 	X64Reg uCopyReg = regCache_.Alloc(RegCache::VEC_TEMP0);
-	MOVDQA(uCopyReg, R(uReg));
-	PSRLD(uCopyReg, 7 + clz32_nonzero(bitsPerTexel - 1) - 32);
+	if (cpu_info.bAVX) {
+		VPSRLD(128, uCopyReg, uReg, 7 + clz32_nonzero(bitsPerTexel - 1) - 32);
+	} else {
+		MOVDQA(uCopyReg, R(uReg));
+		PSRLD(uCopyReg, 7 + clz32_nonzero(bitsPerTexel - 1) - 32);
+	}
 	PSLLD(uCopyReg, 7);
 	// Add it in to our running total.
 	PADDD(vReg, R(uCopyReg));
 
 	if (bitsPerTexel == 4) {
 		// Finally, we want (uvec & 31) / 2.  Use a 16-bit wall.
-		MOVDQA(uCopyReg, R(uReg));
-		PSLLW(uCopyReg, 11);
+		if (cpu_info.bAVX) {
+			VPSLLW(128, uCopyReg, uReg, 11);
+		} else {
+			MOVDQA(uCopyReg, R(uReg));
+			PSLLW(uCopyReg, 11);
+		}
 		PSRLD(uCopyReg, 12);
 		// With that, this is our byte offset.  uvec & 1 has which half.
 		PADDD(vReg, R(uCopyReg));
