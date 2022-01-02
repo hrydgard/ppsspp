@@ -591,11 +591,23 @@ void ComputePixelBlendState(PixelBlendState &state, const PixelFuncID &id) {
 
 	if (state.usesFactors) {
 		switch (id.AlphaBlendSrc()) {
-		case GE_SRCBLEND_DSTALPHA:
-		case GE_SRCBLEND_INVDSTALPHA:
-		case GE_SRCBLEND_DOUBLEDSTALPHA:
-		case GE_SRCBLEND_DOUBLEINVDSTALPHA:
+		case PixelBlendFactor::DSTALPHA:
+		case PixelBlendFactor::INVDSTALPHA:
+		case PixelBlendFactor::DOUBLEDSTALPHA:
+		case PixelBlendFactor::DOUBLEINVDSTALPHA:
 			state.usesDstAlpha = true;
+			break;
+
+		case PixelBlendFactor::OTHERCOLOR:
+		case PixelBlendFactor::INVOTHERCOLOR:
+			state.dstColorAsFactor = true;
+			break;
+
+		case PixelBlendFactor::SRCALPHA:
+		case PixelBlendFactor::INVSRCALPHA:
+		case PixelBlendFactor::DOUBLESRCALPHA:
+		case PixelBlendFactor::DOUBLEINVSRCALPHA:
+			state.srcColorAsFactor = true;
 			break;
 
 		default:
@@ -603,35 +615,49 @@ void ComputePixelBlendState(PixelBlendState &state, const PixelFuncID &id) {
 		}
 
 		switch (id.AlphaBlendDst()) {
-		case GE_DSTBLEND_INVSRCALPHA:
-			state.dstFactorIsInverse = id.AlphaBlendSrc() == GE_SRCBLEND_SRCALPHA;
+		case PixelBlendFactor::INVSRCALPHA:
+			state.dstFactorIsInverse = id.AlphaBlendSrc() == PixelBlendFactor::SRCALPHA;
+			state.srcColorAsFactor = true;
 			break;
 
-		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
-			state.dstFactorIsInverse = id.AlphaBlendSrc() == GE_SRCBLEND_DOUBLESRCALPHA;
+		case PixelBlendFactor::DOUBLEINVSRCALPHA:
+			state.dstFactorIsInverse = id.AlphaBlendSrc() == PixelBlendFactor::DOUBLESRCALPHA;
+			state.srcColorAsFactor = true;
 			break;
 
-		case GE_DSTBLEND_DSTALPHA:
+		case PixelBlendFactor::DSTALPHA:
 			state.usesDstAlpha = true;
 			break;
 
-		case GE_DSTBLEND_INVDSTALPHA:
-			state.dstFactorIsInverse = id.AlphaBlendSrc() == GE_SRCBLEND_DSTALPHA;
+		case PixelBlendFactor::INVDSTALPHA:
+			state.dstFactorIsInverse = id.AlphaBlendSrc() == PixelBlendFactor::DSTALPHA;
 			state.usesDstAlpha = true;
 			break;
 
-		case GE_DSTBLEND_DOUBLEDSTALPHA:
+		case PixelBlendFactor::DOUBLEDSTALPHA:
 			state.usesDstAlpha = true;
 			break;
 
-		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-			state.dstFactorIsInverse = id.AlphaBlendSrc() == GE_SRCBLEND_DOUBLEDSTALPHA;
+		case PixelBlendFactor::DOUBLEINVDSTALPHA:
+			state.dstFactorIsInverse = id.AlphaBlendSrc() == PixelBlendFactor::DOUBLEDSTALPHA;
 			state.usesDstAlpha = true;
+			break;
+
+		case PixelBlendFactor::OTHERCOLOR:
+		case PixelBlendFactor::INVOTHERCOLOR:
+			state.dstColorAsFactor = true;
+			break;
+
+		case PixelBlendFactor::SRCALPHA:
+		case PixelBlendFactor::DOUBLESRCALPHA:
+			state.srcColorAsFactor = true;
 			break;
 
 		default:
 			break;
 		}
+
+		state.dstColorAsFactor = state.dstColorAsFactor || state.usesDstAlpha;
 	}
 }
 

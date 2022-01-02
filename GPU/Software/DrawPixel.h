@@ -47,6 +47,8 @@ struct PixelBlendState {
 	bool usesFactors = false;
 	bool usesDstAlpha = false;
 	bool dstFactorIsInverse = false;
+	bool srcColorAsFactor = false;
+	bool dstColorAsFactor = false;
 };
 void ComputePixelBlendState(PixelBlendState &state, const PixelFuncID &id);
 
@@ -88,7 +90,7 @@ private:
 	bool Jit_DepthTest(const PixelFuncID &id);
 	bool Jit_WriteDepth(const PixelFuncID &id);
 	bool Jit_AlphaBlend(const PixelFuncID &id);
-	bool Jit_BlendFactor(const PixelFuncID &id, RegCache::Reg factorReg, RegCache::Reg dstReg, GEBlendSrcFactor factor);
+	bool Jit_BlendFactor(const PixelFuncID &id, RegCache::Reg factorReg, RegCache::Reg dstReg, PixelBlendFactor factor);
 	bool Jit_DstBlendFactor(const PixelFuncID &id, RegCache::Reg srcFactorReg, RegCache::Reg dstFactorReg, RegCache::Reg dstReg);
 	bool Jit_Dither(const PixelFuncID &id);
 	bool Jit_WriteColor(const PixelFuncID &id);

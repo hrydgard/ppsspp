@@ -25,6 +25,24 @@
 
 #define SOFTPIXEL_USE_CACHE 1
 
+// 0-10 match GEBlendSrcFactor/GEBlendDstFactor.
+enum class PixelBlendFactor {
+	OTHERCOLOR,
+	INVOTHERCOLOR,
+	SRCALPHA,
+	INVSRCALPHA,
+	DSTALPHA,
+	INVDSTALPHA,
+	DOUBLESRCALPHA,
+	DOUBLEINVSRCALPHA,
+	DOUBLEDSTALPHA,
+	DOUBLEINVDSTALPHA,
+	FIX,
+	// These are invented, but common FIX values.
+	ZERO,
+	ONE,
+};
+
 #pragma pack(push, 1)
 
 struct PixelFuncID {
@@ -110,11 +128,11 @@ struct PixelFuncID {
 	GEBlendMode AlphaBlendEq() const {
 		return GEBlendMode(alphaBlendEq);
 	}
-	GEBlendSrcFactor AlphaBlendSrc() const {
-		return GEBlendSrcFactor(alphaBlendSrc);
+	PixelBlendFactor AlphaBlendSrc() const {
+		return PixelBlendFactor(alphaBlendSrc);
 	}
-	GEBlendDstFactor AlphaBlendDst() const {
-		return GEBlendDstFactor(alphaBlendDst);
+	PixelBlendFactor AlphaBlendDst() const {
+		return PixelBlendFactor(alphaBlendDst);
 	}
 
 	GEStencilOp SFail() const {
