@@ -944,7 +944,7 @@ bool SamplerJitCache::Jit_ReadQuad(const SamplerID &id, bool level1, bool *doFal
 
 	bool success = true;
 	// TODO: Limit less.
-	if (cpu_info.bAVX2 && id.TexFmt() == GE_TFMT_CLUT4 && id.ClutFmt() == GE_CMODE_32BIT_ABGR8888 && !id.hasClutMask && !id.hasClutOffset && !id.hasClutShift) {
+	if (cpu_info.bAVX2 && id.TexFmt() == GE_TFMT_CLUT4) {
 		Describe("ReadQuad");
 
 		X64Reg baseReg = regCache_.Alloc(RegCache::GEN_ARG_TEXPTR);
@@ -970,12 +970,11 @@ bool SamplerJitCache::Jit_ReadQuad(const SamplerID &id, bool level1, bool *doFal
 		VPSRLVD(128, vecIndexReg, vecIndexReg, R(uReg));
 		regCache_.Unlock(uReg, level1 ? RegCache::VEC_U1 : RegCache::VEC_ARG_U);
 
-		// Okay, now we need to mask out just the low four bits.
-		PCMPEQD(maskReg, R(maskReg));
-		PSRLD(maskReg, 28);
-		PAND(vecIndexReg, R(maskReg));
 		regCache_.Release(maskReg, RegCache::VEC_TEMP0);
 		regCache_.Unlock(vecIndexReg, RegCache::VEC_INDEX);
+
+		// Apply mask and any other CLUT transformations.
+		success = success && Jit_TransformClutIndexQuad(id, 4);
 
 		// Great, now we can use our CLUT indices to gather again.
 		success = success && Jit_ReadClutQuad(id, level1);
@@ -984,6 +983,96 @@ bool SamplerJitCache::Jit_ReadQuad(const SamplerID &id, bool level1, bool *doFal
 		*doFallback = true;
 	}
 	return success;
+}
+
+bool SamplerJitCache::Jit_TransformClutIndexQuad(const SamplerID &id, int bitsPerIndex) {
+	Describe("TrCLUTQuad");
+	GEPaletteFormat fmt = id.ClutFmt();
+	if (!id.hasClutShift && !id.hasClutMask && !id.hasClutOffset) {
+		// This is simple - just mask.
+		X64Reg indexReg = regCache_.Find(RegCache::VEC_INDEX);
+		// Mask to 8 bits for CLUT8/16/32, 4 bits for CLUT4.
+		PSLLD(indexReg, bitsPerIndex >= 8 ? 24 : 28);
+		PSRLD(indexReg, bitsPerIndex >= 8 ? 24 : 28);
+		regCache_.Unlock(indexReg, RegCache::VEC_INDEX);
+
+		return true;
+	}
+
+	X64Reg indexReg = regCache_.Find(RegCache::VEC_INDEX);
+	bool maskedIndex = false;
+
+	// Okay, first load the actual gstate clutformat bits we'll use.
+	X64Reg formatReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+	X64Reg gstateReg = GetGState();
+	if (cpu_info.bAVX2 && !id.hasClutShift)
+		VPBROADCASTD(128, formatReg, MDisp(gstateReg, offsetof(GPUgstate, clutformat)));
+	else
+		MOVD_xmm(formatReg, MDisp(gstateReg, offsetof(GPUgstate, clutformat)));
+	regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+
+	// Shift = (clutformat >> 2) & 0x1F
+	if (id.hasClutShift) {
+		// Before shifting, let's mask if needed (we always read 32 bits.)
+		// We have to do this here, because the bits should be zero even if F is used as a mask.
+		if (bitsPerIndex < 32) {
+			PSLLD(indexReg, 32 - bitsPerIndex);
+			PSRLD(indexReg, 32 - bitsPerIndex);
+			maskedIndex = true;
+		}
+
+		X64Reg shiftReg = regCache_.Alloc(RegCache::VEC_TEMP1);
+		// Shift against walls to get 5 bits after the rightmost 2.
+		if (cpu_info.bAVX) {
+			VPSLLD(128, shiftReg, formatReg, 32 - 7);
+		} else {
+			MOVDQA(shiftReg, R(formatReg));
+			PSLLD(shiftReg, 32 - 7);
+		}
+		PSRLD(shiftReg, 32 - 5);
+		// The other lanes are zero, so we can use PSRLD.
+		PSRLD(indexReg, R(shiftReg));
+		regCache_.Release(shiftReg, RegCache::VEC_TEMP1);
+	}
+
+	// With shifting done, we need the format in each lane.
+	if (!cpu_info.bAVX2 || id.hasClutShift)
+		PSHUFD(formatReg, R(formatReg), _MM_SHUFFLE(0, 0, 0, 0));
+
+	// Mask = (clutformat >> 8) & 0xFF
+	if (id.hasClutMask) {
+		X64Reg maskReg = regCache_.Alloc(RegCache::VEC_TEMP1);
+		// If it was CLUT4, grab only 4 bits of the mask.
+		if (cpu_info.bAVX) {
+			VPSLLD(128, maskReg, formatReg, bitsPerIndex == 4 ? 20 : 16);
+		} else {
+			MOVDQA(maskReg, R(formatReg));
+			PSLLD(maskReg, bitsPerIndex == 4 ? 20 : 16);
+		}
+		PSRLD(maskReg, bitsPerIndex == 4 ? 28 : 24);
+
+		PAND(indexReg, R(maskReg));
+		regCache_.Release(maskReg, RegCache::VEC_TEMP1);
+	} else if (!maskedIndex || bitsPerIndex > 8) {
+		// Apply the fixed 8 bit mask (or the CLUT4 mask if we didn't shift.)
+		PSLLD(indexReg, maskedIndex || bitsPerIndex >= 8 ? 24 : 28);
+		PSRLD(indexReg, maskedIndex || bitsPerIndex >= 8 ? 24 : 28);
+	}
+
+	// Offset = (clutformat >> 12) & 0x01F0
+	if (id.hasClutOffset) {
+		// Use walls to extract the 5 bits at 16, and then put them shifted left by 4.
+		int offsetBits = fmt == GE_CMODE_32BIT_ABGR8888 ? 4 : 5;
+		PSRLD(formatReg, 16);
+		PSLLD(formatReg, 32 - offsetBits);
+		PSRLD(formatReg, 32 - offsetBits - 4);
+
+		POR(indexReg, R(formatReg));
+	}
+
+	regCache_.Release(formatReg, RegCache::VEC_TEMP0);
+	regCache_.Unlock(indexReg, RegCache::VEC_INDEX);
+	return true;
 }
 
 bool SamplerJitCache::Jit_ReadClutQuad(const SamplerID &id, bool level1) {
