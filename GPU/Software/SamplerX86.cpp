@@ -1131,11 +1131,18 @@ bool SamplerJitCache::Jit_ApplyTextureFunc(const SamplerID &id) {
 	case GE_TEXFUNC_MODULATE:
 		Describe("Modulate");
 		PACKSSDW(primColorReg, R(primColorReg));
-		MOVDQA(tempReg, M(constOnes16_));
-		PADDW(tempReg, R(primColorReg));
+		if (cpu_info.bAVX) {
+			VPADDW(128, tempReg, primColorReg, M(constOnes16_));
 
-		// Okay, time to multiply.  This produces 16 bits, neatly.
-		PMULLW(resultReg, R(tempReg));
+			// Okay, time to multiply.  This produces 16 bits, neatly.
+			VPMULLW(128, resultReg, tempReg, R(resultReg));
+		} else {
+			MOVDQA(tempReg, M(constOnes16_));
+			PADDW(tempReg, R(primColorReg));
+
+			PMULLW(resultReg, R(tempReg));
+		}
+
 		if (id.useColorDoubling)
 			PSRLW(resultReg, 7);
 		else
@@ -1145,8 +1152,12 @@ bool SamplerJitCache::Jit_ApplyTextureFunc(const SamplerID &id) {
 			useAlphaFrom(primColorReg);
 		} else if (id.useColorDoubling) {
 			// We still need to finish dividing alpha, it's currently doubled (from the 7 above.)
-			MOVDQA(primColorReg, R(resultReg));
-			PSRLW(primColorReg, 1);
+			if (cpu_info.bAVX) {
+				VPSRLW(128, primColorReg, resultReg, 1);
+			} else {
+				MOVDQA(primColorReg, R(resultReg));
+				PSRLW(primColorReg, 1);
+			}
 			useAlphaFrom(primColorReg);
 		}
 		break;
@@ -2360,17 +2371,19 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	SUB(32, R(xReg), Imm8(128 - 12));
 	NEG(32, R(yReg));
 	SUB(32, R(yReg), Imm8(128 - 12));
+	SHL(64, R(yReg), Imm8(32));
+	OR(64, R(xReg), R(yReg));
 
 	// Add them in.  We do this in the SSE because we have more to do there...
 	X64Reg tempXYReg = regCache_.Alloc(RegCache::VEC_TEMP0);
-	MOVD_xmm(tempXYReg, R(xReg));
+	MOVQ_xmm(tempXYReg, R(xReg));
 	PADDD(sReg, R(tempXYReg));
 	if (regCache_.Has(RegCache::VEC_U1)) {
 		X64Reg u1Reg = regCache_.Find(RegCache::VEC_U1);
 		PADDD(u1Reg, R(tempXYReg));
 		regCache_.Unlock(u1Reg, RegCache::VEC_U1);
 	}
-	MOVD_xmm(tempXYReg, R(yReg));
+	PSHUFD(tempXYReg, R(tempXYReg), _MM_SHUFFLE(1, 1, 1, 1));
 	PADDD(tReg, R(tempXYReg));
 	if (regCache_.Has(RegCache::VEC_V1)) {
 		X64Reg v1Reg = regCache_.Find(RegCache::VEC_V1);
@@ -2414,10 +2427,10 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	regCache_.Unlock(fracVReg, RegCache::GEN_ARG_FRAC_V);
 
 	// Get rid of the fractional bits, and spread out.
-	PSRAD(sReg, 8);
-	PSRAD(tReg, 8);
 	PSHUFD(sReg, R(sReg), _MM_SHUFFLE(0, 0, 0, 0));
 	PSHUFD(tReg, R(tReg), _MM_SHUFFLE(0, 0, 0, 0));
+	PSRAD(sReg, 8);
+	PSRAD(tReg, 8);
 	// Add U/V values for the next coords.
 	PADDD(sReg, M(constUNext_));
 	PADDD(tReg, M(constVNext_));
@@ -2425,10 +2438,10 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	if (regCache_.Has(RegCache::VEC_U1)) {
 		X64Reg u1Reg = regCache_.Find(RegCache::VEC_U1);
 		X64Reg v1Reg = regCache_.Find(RegCache::VEC_V1);
-		PSRAD(u1Reg, 8);
-		PSRAD(v1Reg, 8);
 		PSHUFD(u1Reg, R(u1Reg), _MM_SHUFFLE(0, 0, 0, 0));
 		PSHUFD(v1Reg, R(v1Reg), _MM_SHUFFLE(0, 0, 0, 0));
+		PSRAD(u1Reg, 8);
+		PSRAD(v1Reg, 8);
 		PADDD(u1Reg, M(constUNext_));
 		PADDD(v1Reg, M(constVNext_));
 		regCache_.Unlock(u1Reg, RegCache::VEC_U1);
