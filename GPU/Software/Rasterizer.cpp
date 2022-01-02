@@ -472,20 +472,18 @@ Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &sourc
 	}
 }
 
-template <bool mayHaveMipLevels>
 static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(float s, float t, int x, int y, Vec4IntArg prim_color, u8 *texptr[], int texbufw[], int texlevel, int frac_texlevel, bool bilinear, Sampler::Funcs sampler) {
-	const u8 **tptr0 = const_cast<const u8 **>(&texptr[mayHaveMipLevels ? texlevel : 0]);
-	const int *bufw0 = &texbufw[mayHaveMipLevels ? texlevel : 0];
+	const u8 **tptr0 = const_cast<const u8 **>(&texptr[texlevel]);
+	const int *bufw0 = &texbufw[texlevel];
 
 	if (!bilinear) {
-		return sampler.nearest(s, t, x, y, prim_color, tptr0, bufw0, mayHaveMipLevels ? texlevel : 0, mayHaveMipLevels ? frac_texlevel : 0);
+		return sampler.nearest(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel);
 	}
-	return sampler.linear(s, t, x, y, prim_color, tptr0, bufw0, mayHaveMipLevels ? texlevel : 0, mayHaveMipLevels ? frac_texlevel : 0);
+	return sampler.linear(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel);
 }
 
-template <bool mayHaveMipLevels>
 static inline Vec4IntResult SOFTRAST_CALL ApplyTexturingSingle(float s, float t, int x, int y, Vec4IntArg prim_color, u8 *texptr[], int texbufw[], int texlevel, int frac_texlevel, bool bilinear, Sampler::Funcs sampler) {
-	return ApplyTexturing<mayHaveMipLevels>(s, t, ((x & 15) + 1) / 2, ((y & 15) + 1) / 2, prim_color, texptr, texbufw, texlevel, frac_texlevel, bilinear, sampler);
+	return ApplyTexturing(s, t, ((x & 15) + 1) / 2, ((y & 15) + 1) / 2, prim_color, texptr, texbufw, texlevel, frac_texlevel, bilinear, sampler);
 }
 
 // Produces a signed 1.27.4 value.
@@ -503,7 +501,6 @@ static int TexLog2(float delta) {
 	return useful - 127 * 16;
 }
 
-template <bool mayHaveMipLevels>
 static inline void CalculateSamplingParams(const float ds, const float dt, const int maxTexLevel, int &level, int &levelFrac, bool &filt) {
 	const int width = gstate.getTextureWidth(0);
 	const int height = gstate.getTextureHeight(0);
@@ -528,21 +525,19 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 	// Add in the bias (used in all modes), expanding to 8 bits of fraction.
 	detail += gstate.getTexLevelOffset16();
 
-	if (mayHaveMipLevels) {
-		if (detail > 0 && maxTexLevel > 0) {
-			bool mipFilt = gstate.isMipmapFilteringEnabled();
+	if (detail > 0 && maxTexLevel > 0) {
+		bool mipFilt = gstate.isMipmapFilteringEnabled();
 
-			int level8 = std::min(detail, maxTexLevel * 16);
-			if (!mipFilt) {
-				// Round up at 1.5.
-				level8 += 8;
-			}
-			level = level8 >> 4;
-			levelFrac = mipFilt ? level8 & 0xF : 0;
-		} else {
-			level = 0;
-			levelFrac = 0;
+		int level8 = std::min(detail, maxTexLevel * 16);
+		if (!mipFilt) {
+			// Round up at 1.5.
+			level8 += 8;
 		}
+		level = level8 >> 4;
+		levelFrac = mipFilt ? level8 & 0xF : 0;
+	} else {
+		level = 0;
+		levelFrac = 0;
 	}
 
 	if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR) {
@@ -554,7 +549,6 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 	}
 }
 
-template <bool hasMipLevels>
 static inline void ApplyTexturing(Sampler::Funcs sampler, Vec4<int> *prim_color, const Vec4<float> &s, const Vec4<float> &t, int maxTexLevel, u8 *texptr[], int texbufw[], int x, int y) {
 	float ds = s[1] - s[0];
 	float dt = t[2] - t[0];
@@ -562,11 +556,11 @@ static inline void ApplyTexturing(Sampler::Funcs sampler, Vec4<int> *prim_color,
 	int level;
 	int levelFrac;
 	bool bilinear;
-	CalculateSamplingParams<hasMipLevels>(ds, dt, maxTexLevel, level, levelFrac, bilinear);
+	CalculateSamplingParams(ds, dt, maxTexLevel, level, levelFrac, bilinear);
 
 	PROFILE_THIS_SCOPE("sampler");
 	for (int i = 0; i < 4; ++i) {
-		prim_color[i] = ApplyTexturing<hasMipLevels>(s[i], t[i], ((x & 15) + 1) / 2, ((y & 15) + 1) / 2, ToVec4IntArg(prim_color[i]), texptr, texbufw, level, levelFrac, bilinear, sampler);
+		prim_color[i] = ApplyTexturing(s[i], t[i], ((x & 15) + 1) / 2, ((y & 15) + 1) / 2, ToVec4IntArg(prim_color[i]), texptr, texbufw, level, levelFrac, bilinear, sampler);
 	}
 }
 
@@ -645,7 +639,7 @@ static inline Vec4<float> EdgeRecip(const Vec4<int> &w0, const Vec4<int> &w1, co
 #endif
 }
 
-template <bool clearMode, bool hasMipLevels>
+template <bool clearMode>
 void DrawTriangleSlice(
 	const VertexData& v0, const VertexData& v1, const VertexData& v2,
 	int x1, int y1, int x2, int y2,
@@ -657,10 +651,14 @@ void DrawTriangleSlice(
 	Vec4<int> bias1 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v1.screenpos.xy(), v2.screenpos.xy(), v0.screenpos.xy()) ? -1 : 0);
 	Vec4<int> bias2 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v2.screenpos.xy(), v0.screenpos.xy(), v1.screenpos.xy()) ? -1 : 0);
 
-	int texbufw[hasMipLevels ? 8 : 1] = {0};
+	int texbufw[8]{};
 
-	int maxTexLevel = hasMipLevels ? gstate.getTextureMaxLevel() : 0;
-	u8 *texptr[hasMipLevels ? 8 : 1] = {NULL};
+	int maxTexLevel = gstate.getTextureMaxLevel();
+	u8 *texptr[8]{};
+
+	if (!gstate.isMipmapEnabled()) {
+		maxTexLevel = 0;
+	}
 
 	if (gstate.isTextureMapEnabled() && !clearMode) {
 		GETextureFormat texfmt = gstate.getTextureFormat();
@@ -765,7 +763,7 @@ void DrawTriangleSlice(
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
 					}
 
-					ApplyTexturing<hasMipLevels>(sampler, prim_color, s, t, maxTexLevel, texptr, texbufw, curX, curY);
+					ApplyTexturing(sampler, prim_color, mask, s, t, maxTexLevel, texptr, texbufw, curX, curY);
 				}
 
 				if (!clearMode) {
@@ -877,12 +875,8 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	ComputePixelFuncID(&pixelID);
 	Rasterizer::SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID);
 	Sampler::Funcs sampler = Sampler::GetFuncs();
-	const bool hasMipLevels = gstate.isMipmapEnabled() ? gstate.getTextureMaxLevel() > 0 : false;
 
-	auto drawSlice = (hasMipLevels ?
-		(gstate.isModeClear() ? &DrawTriangleSlice<true, true> : &DrawTriangleSlice<false, true>) :
-		(gstate.isModeClear() ? &DrawTriangleSlice<true, false> : &DrawTriangleSlice<false, false>)
-	);
+	auto drawSlice = gstate.isModeClear() ? &DrawTriangleSlice<true> : &DrawTriangleSlice<false>;
 
 	const int MIN_LINES_PER_THREAD = 4;
 
@@ -961,9 +955,9 @@ void DrawPoint(const VertexData &v0)
 		int texLevel;
 		int texLevelFrac;
 		bool bilinear;
-		CalculateSamplingParams<true>(0.0f, 0.0f, maxTexLevel, texLevel, texLevelFrac, bilinear);
+		CalculateSamplingParams(0.0f, 0.0f, maxTexLevel, texLevel, texLevelFrac, bilinear);
 		PROFILE_THIS_SCOPE("sampler");
-		prim_color = ApplyTexturingSingle<true>(s, t, pos.x, pos.y, ToVec4IntArg(prim_color), texptr, texbufw, texLevel, texLevelFrac, bilinear, sampler);
+		prim_color = ApplyTexturingSingle(s, t, pos.x, pos.y, ToVec4IntArg(prim_color), texptr, texbufw, texLevel, texLevelFrac, bilinear, sampler);
 	}
 
 	if (!pixelID.clearMode)
@@ -1300,7 +1294,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 				int texLevel;
 				int texLevelFrac;
 				bool texBilinear;
-				CalculateSamplingParams<true>(ds, dt, maxTexLevel, texLevel, texLevelFrac, texBilinear);
+				CalculateSamplingParams(ds, dt, maxTexLevel, texLevel, texLevelFrac, texBilinear);
 
 				if (gstate.isAntiAliasEnabled()) {
 					// TODO: This is a niave and wrong implementation.
@@ -1312,7 +1306,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 				}
 
 				PROFILE_THIS_SCOPE("sampler");
-				prim_color = ApplyTexturingSingle<true>(s, t, x, y, ToVec4IntArg(prim_color), texptr, texbufw, texLevel, texLevelFrac, texBilinear, sampler);
+				prim_color = ApplyTexturingSingle(s, t, x, y, ToVec4IntArg(prim_color), texptr, texbufw, texLevel, texLevelFrac, texBilinear, sampler);
 			}
 
 			if (!pixelID.clearMode)
