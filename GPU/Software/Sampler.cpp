@@ -39,8 +39,9 @@ extern u32 clut[4096];
 
 namespace Sampler {
 
-static Vec4IntResult SOFTRAST_CALL SampleNearest(int u, int v, const u8 *tptr, int bufw, int level);
+static Vec4IntResult SOFTRAST_CALL SampleNearest(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 **tptr, const int *bufw, int level, int levelFrac);
 static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 **tptr, const int *bufw, int level, int levelFrac);
+static Vec4IntResult SOFTRAST_CALL SampleFetch(int u, int v, const u8 *tptr, int bufw, int level);
 
 std::mutex jitCacheLock;
 SamplerJitCache *jitCache = nullptr;
@@ -63,9 +64,8 @@ bool DescribeCodePtr(const u8 *ptr, std::string &name) {
 	return true;
 }
 
-NearestFunc GetNearestFunc() {
-	SamplerID id;
-	jitCache->ComputeSamplerID(&id, false);
+NearestFunc GetNearestFunc(SamplerID id) {
+	id.linear = false;
 	NearestFunc jitted = jitCache->GetNearest(id);
 	if (jitted) {
 		return jitted;
@@ -74,15 +74,24 @@ NearestFunc GetNearestFunc() {
 	return &SampleNearest;
 }
 
-LinearFunc GetLinearFunc() {
-	SamplerID id;
-	jitCache->ComputeSamplerID(&id, true);
+LinearFunc GetLinearFunc(SamplerID id) {
+	id.linear = true;
 	LinearFunc jitted = jitCache->GetLinear(id);
 	if (jitted) {
 		return jitted;
 	}
 
 	return &SampleLinear;
+}
+
+FetchFunc GetFetchFunc(SamplerID id) {
+	id.fetch = true;
+	FetchFunc jitted = jitCache->GetFetch(id);
+	if (jitted) {
+		return jitted;
+	}
+
+	return &SampleFetch;
 }
 
 SamplerJitCache::SamplerJitCache()
@@ -110,144 +119,20 @@ void SamplerJitCache::Clear() {
 	ClearCodeSpace(0);
 	cache_.clear();
 	addresses_.clear();
-}
 
-void SamplerJitCache::ComputeSamplerID(SamplerID *id_out, bool linear) {
-	SamplerID id{};
+	const10All16_ = nullptr;
+	const10Low_ = nullptr;
+	const10All8_ = nullptr;
 
-	id.useStandardBufw = true;
-	id.hasStandardMips = true;
-	int maxLevel = gstate.isMipmapEnabled() ? gstate.getTextureMaxLevel() : 0;
-	int lastWidth = -1;
-	for (int i = 0; i <= maxLevel; ++i) {
-		if (gstate.getTextureAddress(i) == 0)
-			id.hasInvalidPtr = true;
-		int w = gstate.getTextureWidth(i);
-		if (w != (gstate.texbufwidth[i] & 0x00001FFF))
-			id.useStandardBufw = false;
-		if (lastWidth != -1 && lastWidth != w * 2)
-			id.hasStandardMips = false;
-		lastWidth = w;
-	}
-	id.hasAnyMips = maxLevel != 0;
+	constWidth256f_ = nullptr;
+	constHeight256f_ = nullptr;
+	constWidthMinus1i_ = nullptr;
+	constHeightMinus1i_ = nullptr;
 
-	id.texfmt = gstate.getTextureFormat();
-	id.swizzle = gstate.isTextureSwizzled();
-	// Only CLUT4 can use separate CLUTs per mimap.
-	id.useSharedClut = gstate.getTextureFormat() != GE_TFMT_CLUT4 || maxLevel == 0 || !gstate.isMipmapEnabled() || gstate.isClutSharedForMipmaps();
-	if (gstate.isTextureFormatIndexed()) {
-		id.clutfmt = gstate.getClutPaletteFormat();
-		id.hasClutMask = gstate.getClutIndexMask() != 0xFF;
-		id.hasClutShift = gstate.getClutIndexShift() != 0;
-		id.hasClutOffset = gstate.getClutIndexStartPos() != 0;
-	}
-	id.linear = linear;
-
-	id.clampS = gstate.isTexCoordClampedS();
-	id.clampT = gstate.isTexCoordClampedT();
-	id.width0Shift = gstate.texsize[0] & 0xF;
-	id.height0Shift = (gstate.texsize[0] >> 8) & 0xF;
-
-	id.useTextureAlpha = gstate.isTextureAlphaUsed();
-	id.useColorDoubling = gstate.isColorDoublingEnabled();
-	id.texFunc = gstate.getTextureFunction();
-	if (id.texFunc > GE_TEXFUNC_ADD)
-		id.texFunc = GE_TEXFUNC_ADD;
-
-	*id_out = id;
-}
-
-std::string SamplerJitCache::DescribeSamplerID(const SamplerID &id) {
-	std::string name;
-	switch (id.TexFmt()) {
-	case GE_TFMT_5650: name = "5650"; break;
-	case GE_TFMT_5551: name = "5551"; break;
-	case GE_TFMT_4444: name = "4444"; break;
-	case GE_TFMT_8888: name = "8888"; break;
-	case GE_TFMT_CLUT4: name = "CLUT4"; break;
-	case GE_TFMT_CLUT8: name = "CLUT8"; break;
-	case GE_TFMT_CLUT16: name = "CLUT16"; break;
-	case GE_TFMT_CLUT32: name = "CLUT32"; break;
-	case GE_TFMT_DXT1: name = "DXT1"; break;
-	case GE_TFMT_DXT3: name = "DXT3"; break;
-	case GE_TFMT_DXT5: name = "DXT5"; break;
-	}
-	switch (id.ClutFmt()) {
-	case GE_CMODE_16BIT_BGR5650:
-		switch (id.TexFmt()) {
-		case GE_TFMT_CLUT4:
-		case GE_TFMT_CLUT8:
-		case GE_TFMT_CLUT16:
-		case GE_TFMT_CLUT32:
-			name += ":C5650";
-			break;
-		default:
-			// Ignore 0 clutfmt when no clut.
-			break;
-		}
-		break;
-	case GE_CMODE_16BIT_ABGR5551: name += ":C5551"; break;
-	case GE_CMODE_16BIT_ABGR4444: name += ":C4444"; break;
-	case GE_CMODE_32BIT_ABGR8888: name += ":C8888"; break;
-	}
-	if (id.swizzle) {
-		name += ":SWZ";
-	}
-	if (!id.useSharedClut) {
-		name += ":CMIP";
-	}
-	if (id.hasInvalidPtr) {
-		name += ":INV";
-	}
-	if (id.hasClutMask) {
-		name += ":CMASK";
-	}
-	if (id.hasClutShift) {
-		name += ":CSHF";
-	}
-	if (id.hasClutOffset) {
-		name += ":COFF";
-	}
-	if (id.clampS || id.clampT) {
-		name += std::string(":CL") + (id.clampS ? "S" : "") + (id.clampT ? "T" : "");
-	}
-	if (!id.useStandardBufw) {
-		name += ":BUFW";
-	}
-	if (!id.hasStandardMips) {
-		name += ":XMIP";
-	} else if (id.hasAnyMips) {
-		name += ":MIP";
-	}
-	if (id.linear) {
-		name += ":LERP";
-	}
-	if (id.useTextureAlpha) {
-		name += ":A";
-	}
-	if (id.useColorDoubling) {
-		name += ":DBL";
-	}
-	switch (id.texFunc) {
-	case GE_TEXFUNC_MODULATE:
-		name += ":MOD";
-		break;
-	case GE_TEXFUNC_DECAL:
-		name += ":DECAL";
-		break;
-	case GE_TEXFUNC_BLEND:
-		name += ":BLEND";
-		break;
-	case GE_TEXFUNC_REPLACE:
-		break;
-	case GE_TEXFUNC_ADD:
-		name += ":ADD";
-	default:
-		break;
-	}
-	name += StringFromFormat(":W%dH%d", 1 << id.width0Shift, 1 << id.height0Shift);
-
-	return name;
+	constOnes32_ = nullptr;
+	constOnes16_ = nullptr;
+	constUNext_ = nullptr;
+	constVNext_ = nullptr;
 }
 
 void SamplerJitCache::Describe(const std::string &message) {
@@ -286,7 +171,7 @@ NearestFunc SamplerJitCache::GetNearest(const SamplerID &id) {
 
 	auto it = cache_.find(id);
 	if (it != cache_.end()) {
-		return it->second;
+		return (NearestFunc)it->second;
 	}
 
 	// TODO: What should be the min size?  Can we even hit this?
@@ -297,8 +182,8 @@ NearestFunc SamplerJitCache::GetNearest(const SamplerID &id) {
 #if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
 	if (g_Config.bSoftwareRenderingJit) {
 		addresses_[id] = GetCodePointer();
-		NearestFunc func = Compile(id);
-		cache_[id] = func;
+		NearestFunc func = CompileNearest(id);
+		cache_[id] = (NearestFunc)func;
 		return func;
 	}
 #endif
@@ -322,6 +207,30 @@ LinearFunc SamplerJitCache::GetLinear(const SamplerID &id) {
 	if (g_Config.bSoftwareRenderingJit) {
 		addresses_[id] = GetCodePointer();
 		LinearFunc func = CompileLinear(id);
+		cache_[id] = (NearestFunc)func;
+		return func;
+	}
+#endif
+	return nullptr;
+}
+
+FetchFunc SamplerJitCache::GetFetch(const SamplerID &id) {
+	std::lock_guard<std::mutex> guard(jitCacheLock);
+
+	auto it = cache_.find(id);
+	if (it != cache_.end()) {
+		return (FetchFunc)it->second;
+	}
+
+	// TODO: What should be the min size?  Can we even hit this?
+	if (GetSpaceLeft() < 16384) {
+		Clear();
+	}
+
+#if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
+	if (g_Config.bSoftwareRenderingJit) {
+		addresses_[id] = GetCodePointer();
+		FetchFunc func = CompileFetch(id);
 		cache_[id] = (NearestFunc)func;
 		return func;
 	}
@@ -484,11 +393,6 @@ inline static Nearest4 SOFTRAST_CALL SampleNearest(const int u[N], const int v[N
 	}
 }
 
-static Vec4IntResult SOFTRAST_CALL SampleNearest(int u, int v, const u8 *tptr, int bufw, int level) {
-	Nearest4 c = SampleNearest<1>(&u, &v, tptr, bufw, level);
-	return ToVec4IntResult(Vec4<int>::FromRGBA(c.v[0]));
-}
-
 static inline int ClampUV(int v, int height) {
 	if (v >= height - 1)
 		return height - 1;
@@ -499,6 +403,63 @@ static inline int ClampUV(int v, int height) {
 
 static inline int WrapUV(int v, int height) {
 	return v & (height - 1);
+}
+
+template <int N>
+static inline void ApplyTexelClamp(int out_u[N], int out_v[N], const int u[N], const int v[N], int width, int height) {
+	if (gstate.isTexCoordClampedS()) {
+		for (int i = 0; i < N; ++i) {
+			out_u[i] = ClampUV(u[i], width);
+		}
+	} else {
+		for (int i = 0; i < N; ++i) {
+			out_u[i] = WrapUV(u[i], width);
+		}
+	}
+	if (gstate.isTexCoordClampedT()) {
+		for (int i = 0; i < N; ++i) {
+			out_v[i] = ClampUV(v[i], height);
+		}
+	} else {
+		for (int i = 0; i < N; ++i) {
+			out_v[i] = WrapUV(v[i], height);
+		}
+	}
+}
+
+static inline void GetTexelCoordinates(int level, float s, float t, int &out_u, int &out_v, int x, int y) {
+	int width = gstate.getTextureWidth(level);
+	int height = gstate.getTextureHeight(level);
+
+	int base_u = (int)(s * width * 256.0f) + 12 - x;
+	int base_v = (int)(t * height * 256.0f) + 12 - y;
+
+	base_u >>= 8;
+	base_v >>= 8;
+
+	ApplyTexelClamp<1>(&out_u, &out_v, &base_u, &base_v, width, height);
+}
+
+static Vec4IntResult SOFTRAST_CALL SampleNearest(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 **tptr, const int *bufw, int level, int levelFrac) {
+	int u, v;
+
+	// Nearest filtering only.  Round texcoords.
+	GetTexelCoordinates(level, s, t, u, v, x, y);
+	Vec4<int> c0 = Vec4<int>::FromRGBA(SampleNearest<1>(&u, &v, tptr[0], bufw[0], level).v[0]);
+
+	if (levelFrac) {
+		GetTexelCoordinates(level + 1, s, t, u, v, x, y);
+		Vec4<int> c1 = Vec4<int>::FromRGBA(SampleNearest<1>(&u, &v, tptr[1], bufw[1], level + 1).v[0]);
+
+		c0 = (c1 * levelFrac + c0 * (16 - levelFrac)) / 16;
+	}
+
+	return GetTextureFunctionOutput(prim_color, ToVec4IntArg(c0));
+}
+
+static Vec4IntResult SOFTRAST_CALL SampleFetch(int u, int v, const u8 *tptr, int bufw, int level) {
+	Nearest4 c = SampleNearest<1>(&u, &v, tptr, bufw, level);
+	return ToVec4IntResult(Vec4<int>::FromRGBA(c.v[0]));
 }
 
 static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuad(bool clamp, Vec4IntArg vec, int width) {

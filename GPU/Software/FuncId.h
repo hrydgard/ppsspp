@@ -160,7 +160,7 @@ struct SamplerID {
 			bool useColorDoubling : 1;
 			bool hasStandardMips : 1;
 			bool hasAnyMips : 1;
-			bool : 1;
+			bool fetch : 1;
 		};
 	};
 
@@ -201,3 +201,6 @@ struct hash<SamplerID> {
 
 void ComputePixelFuncID(PixelFuncID *id);
 std::string DescribePixelFuncID(const PixelFuncID &id);
+
+void ComputeSamplerID(SamplerID *id);
+std::string DescribeSamplerID(const SamplerID &id);
