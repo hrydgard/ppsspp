@@ -1124,7 +1124,10 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 			POR(dstReg, R(halfReg));
 			PMULHUW(dstReg, R(dstFactorReg));
 		} else if (id.AlphaBlendDst() == PixelBlendFactor::ZERO) {
-			PXOR(dstReg, R(dstReg));
+			// No need to add or subtract zero, unless we're negating.
+			// This is common for bloom preparation.
+			if (id.AlphaBlendEq() == GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE)
+				PXOR(dstReg, R(dstReg));
 		} else if (id.AlphaBlendDst() == PixelBlendFactor::ONE) {
 			if (blendState.dstColorAsFactor)
 				PSRLW(dstReg, 4);
@@ -1146,11 +1149,13 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 	X64Reg tempReg = regCache_.Alloc(RegCache::VEC_TEMP1);
 	switch (id.AlphaBlendEq()) {
 	case GE_BLENDMODE_MUL_AND_ADD:
-		PADDUSW(argColorReg, R(dstReg));
+		if (id.AlphaBlendDst() != PixelBlendFactor::ZERO)
+			PADDUSW(argColorReg, R(dstReg));
 		break;
 
 	case GE_BLENDMODE_MUL_AND_SUBTRACT:
-		PSUBUSW(argColorReg, R(dstReg));
+		if (id.AlphaBlendDst() != PixelBlendFactor::ZERO)
+			PSUBUSW(argColorReg, R(dstReg));
 		break;
 
 	case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE:
