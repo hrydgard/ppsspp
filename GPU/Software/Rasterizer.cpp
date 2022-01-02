@@ -381,8 +381,8 @@ static inline Vec3<int> GetDestFactor(GEBlendDstFactor factor, const Vec4<int> &
 Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &source, const Vec4<int> &dst)
 {
 	// Note: These factors cannot go below 0, but they can go above 255 when doubling.
-	Vec3<int> srcfactor = GetSourceFactor(pixelID.AlphaBlendSrc(), source, dst);
-	Vec3<int> dstfactor = GetDestFactor(pixelID.AlphaBlendDst(), source, dst);
+	Vec3<int> srcfactor = GetSourceFactor(GEBlendSrcFactor(pixelID.AlphaBlendSrc()), source, dst);
+	Vec3<int> dstfactor = GetDestFactor(GEBlendDstFactor(pixelID.AlphaBlendDst()), source, dst);
 
 	switch (pixelID.AlphaBlendEq()) {
 	case GE_BLENDMODE_MUL_AND_ADD:

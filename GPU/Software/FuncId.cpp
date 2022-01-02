@@ -42,6 +42,14 @@ static inline GEComparison OptimizeRefByteCompare(GEComparison func, u8 ref) {
 	return func;
 }
 
+static inline PixelBlendFactor OptimizeAlphaFactor(uint32_t color) {
+	if (color == 0x00000000)
+		return PixelBlendFactor::ZERO;
+	if (color == 0x00FFFFFF)
+		return PixelBlendFactor::ONE;
+	return PixelBlendFactor::FIX;
+}
+
 void ComputePixelFuncID(PixelFuncID *id) {
 	id->fullKey = 0;
 
@@ -143,10 +151,16 @@ void ComputePixelFuncID(PixelFuncID *id) {
 			if (srcFixedOne && dstFixedZero)
 				id->alphaBlend = false;
 		}
-		if (id->alphaBlend) {
+		if (id->alphaBlend)
 			id->alphaBlendEq = gstate.getBlendEq();
+		if (id->alphaBlend && id->alphaBlendEq <= GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE) {
 			id->alphaBlendSrc = gstate.getBlendFuncA();
 			id->alphaBlendDst = gstate.getBlendFuncB();
+			// Special values.
+			if (id->alphaBlendSrc == GE_SRCBLEND_FIXA)
+				id->alphaBlendSrc = (uint8_t)OptimizeAlphaFactor(gstate.getFixA());
+			if (id->alphaBlendDst == GE_DSTBLEND_FIXB)
+				id->alphaBlendDst = (uint8_t)OptimizeAlphaFactor(gstate.getFixB());
 		}
 
 		id->applyLogicOp = gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY;
@@ -301,30 +315,34 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 		case GE_BLENDMODE_ABSDIFF: desc += "BlendDiff<"; break;
 		}
 		switch (id.AlphaBlendSrc()) {
-		case GE_SRCBLEND_DSTCOLOR: desc += "DstRGB,"; break;
-		case GE_SRCBLEND_INVDSTCOLOR: desc += "1-DstRGB,"; break;
-		case GE_SRCBLEND_SRCALPHA: desc += "SrcA,"; break;
-		case GE_SRCBLEND_INVSRCALPHA: desc += "1-SrcA,"; break;
-		case GE_SRCBLEND_DSTALPHA: desc += "DstA,"; break;
-		case GE_SRCBLEND_INVDSTALPHA: desc += "1-DstA,"; break;
-		case GE_SRCBLEND_DOUBLESRCALPHA: desc += "2*SrcA,"; break;
-		case GE_SRCBLEND_DOUBLEINVSRCALPHA: desc += "1-2*SrcA,"; break;
-		case GE_SRCBLEND_DOUBLEDSTALPHA: desc += "2*DstA,"; break;
-		case GE_SRCBLEND_DOUBLEINVDSTALPHA: desc += "1-2*DstA,"; break;
-		case GE_SRCBLEND_FIXA: desc += "Fix,"; break;
+		case PixelBlendFactor::OTHERCOLOR: desc += "DstRGB,"; break;
+		case PixelBlendFactor::INVOTHERCOLOR: desc += "1-DstRGB,"; break;
+		case PixelBlendFactor::SRCALPHA: desc += "SrcA,"; break;
+		case PixelBlendFactor::INVSRCALPHA: desc += "1-SrcA,"; break;
+		case PixelBlendFactor::DSTALPHA: desc += "DstA,"; break;
+		case PixelBlendFactor::INVDSTALPHA: desc += "1-DstA,"; break;
+		case PixelBlendFactor::DOUBLESRCALPHA: desc += "2*SrcA,"; break;
+		case PixelBlendFactor::DOUBLEINVSRCALPHA: desc += "1-2*SrcA,"; break;
+		case PixelBlendFactor::DOUBLEDSTALPHA: desc += "2*DstA,"; break;
+		case PixelBlendFactor::DOUBLEINVDSTALPHA: desc += "1-2*DstA,"; break;
+		case PixelBlendFactor::FIX: desc += "Fix,"; break;
+		case PixelBlendFactor::ZERO: desc += "0,"; break;
+		case PixelBlendFactor::ONE: desc += "1,"; break;
 		}
 		switch (id.AlphaBlendDst()) {
-		case GE_DSTBLEND_SRCCOLOR: desc += "SrcRGB>:"; break;
-		case GE_DSTBLEND_INVSRCCOLOR: desc += "1-SrcRGB>:"; break;
-		case GE_DSTBLEND_SRCALPHA: desc += "SrcA>:"; break;
-		case GE_DSTBLEND_INVSRCALPHA: desc += "1-SrcA>:"; break;
-		case GE_DSTBLEND_DSTALPHA: desc += "DstA>:"; break;
-		case GE_DSTBLEND_INVDSTALPHA: desc += "1-DstA>:"; break;
-		case GE_DSTBLEND_DOUBLESRCALPHA: desc += "2*SrcA>:"; break;
-		case GE_DSTBLEND_DOUBLEINVSRCALPHA: desc += "1-2*SrcA>:"; break;
-		case GE_DSTBLEND_DOUBLEDSTALPHA: desc += "2*DstA>:"; break;
-		case GE_DSTBLEND_DOUBLEINVDSTALPHA: desc += "1-2*DstA>:"; break;
-		case GE_DSTBLEND_FIXB: desc += "Fix>:"; break;
+		case PixelBlendFactor::OTHERCOLOR: desc += "SrcRGB>:"; break;
+		case PixelBlendFactor::INVOTHERCOLOR: desc += "1-SrcRGB>:"; break;
+		case PixelBlendFactor::SRCALPHA: desc += "SrcA>:"; break;
+		case PixelBlendFactor::INVSRCALPHA: desc += "1-SrcA>:"; break;
+		case PixelBlendFactor::DSTALPHA: desc += "DstA>:"; break;
+		case PixelBlendFactor::INVDSTALPHA: desc += "1-DstA>:"; break;
+		case PixelBlendFactor::DOUBLESRCALPHA: desc += "2*SrcA>:"; break;
+		case PixelBlendFactor::DOUBLEINVSRCALPHA: desc += "1-2*SrcA>:"; break;
+		case PixelBlendFactor::DOUBLEDSTALPHA: desc += "2*DstA>:"; break;
+		case PixelBlendFactor::DOUBLEINVDSTALPHA: desc += "1-2*DstA>:"; break;
+		case PixelBlendFactor::FIX: desc += "Fix>:"; break;
+		case PixelBlendFactor::ZERO: desc += "0>:"; break;
+		case PixelBlendFactor::ONE: desc += "1>:"; break;
 		}
 	}
 

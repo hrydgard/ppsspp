@@ -94,6 +94,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 
 	ScreenCoords pprime(v0.screenpos.x, v0.screenpos.y, 0);
 	Sampler::FetchFunc fetchFunc = Sampler::GetFetchFunc(samplerID);
+	Sampler::NearestFunc nearestFunc = Sampler::GetNearestFunc(samplerID);
 	Rasterizer::SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID);
 
 	DrawingCoords pos0 = TransformUnit::ScreenToDrawing(v0.screenpos);
@@ -189,19 +190,25 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 				}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);
 			}
 		} else {
+			int xoff = ((v0.screenpos.x & 15) + 1) / 2;
+			int yoff = ((v0.screenpos.y & 15) + 1) / 2;
+
+			float dsf = 1.0f / (float)gstate.getTextureWidth(0);
+			float dtf = 1.0f / (float)gstate.getTextureHeight(0);
+			float sf_start = s_start * dsf;
+			float tf_start = t_start * dtf;
+
 			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-				int t = t_start + (y1 - pos0.y) * dt;
+				float t = tf_start + (y1 - pos0.y) * dtf;
 				for (int y = y1; y < y2; y++) {
-					int s = s_start;
+					float s = sf_start;
 					// Not really that fast but faster than triangle.
 					for (int x = pos0.x; x < pos1.x; x++) {
-						Vec4<int> prim_color = v1.color0;
-						Vec4<int> tex_color = fetchFunc(s, t, texptr, texbufw, 0);
-						prim_color = GetTextureFunctionOutput(ToVec4IntArg(prim_color), ToVec4IntArg(tex_color));
+						Vec4<int> prim_color = nearestFunc(s, t, xoff, yoff, ToVec4IntArg(v1.color0), &texptr, &texbufw, 0, 0);
 						drawPixel(x, y, z, 255, ToVec4IntArg(prim_color), pixelID);
-						s += ds;
+						s += dsf;
 					}
-					t += dt;
+					t += dtf;
 				}
 			}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);
 		}
@@ -292,6 +299,7 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1) {
 	bool orient_check = xdiff >= 0 && ydiff >= 0;
 	// We already have a fast path for clear in ClearRectangle.
 	bool state_check = !gstate.isModeClear() && NoClampOrWrap(v0.texturecoords) && NoClampOrWrap(v1.texturecoords);
+	// TODO: No mipmap levels?  Might be a font at level 1...
 	if ((coord_check || !gstate.isTextureMapEnabled()) && orient_check && state_check) {
 		Rasterizer::DrawSprite(v0, v1);
 		return true;

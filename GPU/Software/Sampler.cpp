@@ -39,8 +39,8 @@ extern u32 clut[4096];
 
 namespace Sampler {
 
-static Vec4IntResult SOFTRAST_CALL SampleNearest(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 **tptr, const int *bufw, int level, int levelFrac);
-static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 **tptr, const int *bufw, int level, int levelFrac);
+static Vec4IntResult SOFTRAST_CALL SampleNearest(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int level, int levelFrac);
+static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int level, int levelFrac);
 static Vec4IntResult SOFTRAST_CALL SampleFetch(int u, int v, const u8 *tptr, int bufw, int level);
 
 std::mutex jitCacheLock;
@@ -101,6 +101,7 @@ SamplerJitCache::SamplerJitCache()
 {
 	// 256k should be enough.
 	AllocCodeSpace(1024 * 64 * 4);
+	ClearCodeSpace(0);
 
 	// Add some random code to "help" MSVC's buggy disassembler :(
 #if defined(_WIN32) && (PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)) && !PPSSPP_PLATFORM(UWP)
@@ -443,7 +444,7 @@ static inline void GetTexelCoordinates(int level, float s, float t, int &out_u, 
 	ApplyTexelClamp<1>(&out_u, &out_v, &base_u, &base_v, width, height);
 }
 
-static Vec4IntResult SOFTRAST_CALL SampleNearest(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 **tptr, const int *bufw, int level, int levelFrac) {
+static Vec4IntResult SOFTRAST_CALL SampleNearest(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int level, int levelFrac) {
 	int u, v;
 
 	// Nearest filtering only.  Round texcoords.
@@ -539,7 +540,7 @@ static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadT(int level, fl
 	return ApplyTexelClampQuadT(gstate.isTexCoordClampedT(), base_v, height);
 }
 
-static Vec4IntResult SOFTRAST_CALL SampleLinearLevel(float s, float t, int x, int y, const u8 **tptr, const int *bufw, int texlevel) {
+static Vec4IntResult SOFTRAST_CALL SampleLinearLevel(float s, float t, int x, int y, const u8 *const *tptr, const int *bufw, int texlevel) {
 	int frac_u, frac_v;
 	const Vec4<int> u = GetTexelCoordinatesQuadS(texlevel, s, frac_u, x);
 	const Vec4<int> v = GetTexelCoordinatesQuadT(texlevel, t, frac_v, y);
@@ -554,7 +555,7 @@ static Vec4IntResult SOFTRAST_CALL SampleLinearLevel(float s, float t, int x, in
 	return ToVec4IntResult((top * (0x10 - frac_v) + bot * frac_v) / (16 * 16));
 }
 
-static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 **tptr, const int *bufw, int texlevel, int levelFrac) {
+static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int texlevel, int levelFrac) {
 	Vec4<int> c0 = SampleLinearLevel(s, t, x, y, tptr, bufw, texlevel);
 	if (levelFrac) {
 		const Vec4<int> c1 = SampleLinearLevel(s, t, x, y, tptr + 1, bufw + 1, texlevel + 1);
