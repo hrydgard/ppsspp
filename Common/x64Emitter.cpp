@@ -2240,20 +2240,20 @@ void XEmitter::VGATHERQPD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
 	_assert_msg_(regOp1 != regOp2 && !arg.IsIndexedReg(regOp1) && !arg.IsIndexedReg(regOp2), "VGATHER cannot have overlapped registers");
 	WriteAVX2Op(bits, 0x66, 0x3893, regOp1, regOp2, arg);
 }
-void XEmitter::VGATHERDD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
-	_assert_msg_(regOp1 != regOp2 && !arg.IsIndexedReg(regOp1) && !arg.IsIndexedReg(regOp2), "VGATHER cannot have overlapped registers");
+void XEmitter::VPGATHERDD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
+	_assert_msg_(regOp1 != regOp2 && !arg.IsIndexedReg(regOp1) && !arg.IsIndexedReg(regOp2), "VPGATHER cannot have overlapped registers");
 	WriteAVX2Op(bits, 0x66, 0x3890, regOp1, regOp2, arg);
 }
-void XEmitter::VGATHERQD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
-	_assert_msg_(regOp1 != regOp2 && !arg.IsIndexedReg(regOp1) && !arg.IsIndexedReg(regOp2), "VGATHER cannot have overlapped registers");
+void XEmitter::VPGATHERQD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
+	_assert_msg_(regOp1 != regOp2 && !arg.IsIndexedReg(regOp1) && !arg.IsIndexedReg(regOp2), "VPGATHER cannot have overlapped registers");
 	WriteAVX2Op(bits, 0x66, 0x3891, regOp1, regOp2, arg);
 }
-void XEmitter::VGATHERDQ(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
-	_assert_msg_(regOp1 != regOp2 && !arg.IsIndexedReg(regOp1) && !arg.IsIndexedReg(regOp2), "VGATHER cannot have overlapped registers");
+void XEmitter::VPGATHERDQ(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
+	_assert_msg_(regOp1 != regOp2 && !arg.IsIndexedReg(regOp1) && !arg.IsIndexedReg(regOp2), "VPGATHER cannot have overlapped registers");
 	WriteAVX2Op(bits, 0x66, 0x3890, regOp1, regOp2, arg, 0, 1);
 }
-void XEmitter::VGATHERQQ(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
-	_assert_msg_(regOp1 != regOp2 && !arg.IsIndexedReg(regOp1) && !arg.IsIndexedReg(regOp2), "VGATHER cannot have overlapped registers");
+void XEmitter::VPGATHERQQ(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
+	_assert_msg_(regOp1 != regOp2 && !arg.IsIndexedReg(regOp1) && !arg.IsIndexedReg(regOp2), "VPGATHER cannot have overlapped registers");
 	WriteAVX2Op(bits, 0x66, 0x3891, regOp1, regOp2, arg, 0, 1);
 }
 

@@ -1239,10 +1239,10 @@ public:
 	void VGATHERDPD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
 	void VGATHERQPS(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
 	void VGATHERQPD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
-	void VGATHERDD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
-	void VGATHERQD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
-	void VGATHERDQ(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
-	void VGATHERQQ(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
+	void VPGATHERDD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
+	void VPGATHERQD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
+	void VPGATHERDQ(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
+	void VPGATHERQQ(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
 
 	void VPSLLVD(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg);
 	void VPSLLVQ(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg);

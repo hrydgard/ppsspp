@@ -686,11 +686,15 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		regCache_.Unlock(vecResultReg, level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
 	};
 
-	Describe("Calls");
-	doNearestCall(0, false);
-	doNearestCall(4, false);
-	doNearestCall(8, false);
-	doNearestCall(12, false);
+	bool readFallback;
+	success = success && Jit_ReadQuad(id, false, &readFallback);
+	if (readFallback) {
+		Describe("Calls");
+		doNearestCall(0, false);
+		doNearestCall(4, false);
+		doNearestCall(8, false);
+		doNearestCall(12, false);
+	}
 
 	if (id.hasAnyMips) {
 		Describe("MipsCalls");
@@ -713,10 +717,14 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 			ADD(32, MDisp(RSP, stackArgPos_ + 16), Imm8(1));
 		}
 
-		doNearestCall(0, true);
-		doNearestCall(4, true);
-		doNearestCall(8, true);
-		doNearestCall(12, true);
+		success = success && Jit_ReadQuad(id, true, &readFallback);
+		if (readFallback) {
+			Describe("Calls");
+			doNearestCall(0, true);
+			doNearestCall(4, true);
+			doNearestCall(8, true);
+			doNearestCall(12, true);
+		}
 
 		SetJumpTarget(skip);
 	}
@@ -929,6 +937,159 @@ RegCache::Reg SamplerJitCache::GetGState() {
 		return r;
 	}
 	return regCache_.Find(RegCache::GEN_GSTATE);
+}
+
+bool SamplerJitCache::Jit_ReadQuad(const SamplerID &id, bool level1, bool *doFallback) {
+	*doFallback = false;
+
+	bool success = true;
+	// TODO: Limit less.
+	if (cpu_info.bAVX2 && id.TexFmt() == GE_TFMT_CLUT4 && id.ClutFmt() == GE_CMODE_32BIT_ABGR8888 && !id.hasClutMask && !id.hasClutOffset && !id.hasClutShift) {
+		Describe("ReadQuad");
+
+		X64Reg baseReg = regCache_.Alloc(RegCache::GEN_ARG_TEXPTR);
+		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR_PTR);
+		MOV(64, R(baseReg), MDisp(srcReg, level1 ? 8 : 0));
+		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR_PTR);
+
+		X64Reg vecIndexReg = regCache_.Alloc(RegCache::VEC_INDEX);
+		X64Reg maskReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+		// We have to set a mask for which values to load.  Load all 4.
+		// Note this is overwritten with zeroes by the instruction.
+		PCMPEQD(maskReg, R(maskReg));
+		X64Reg indexReg = regCache_.Find(level1 ? RegCache::VEC_V1 : RegCache::VEC_ARG_V);
+		VPGATHERDD(128, vecIndexReg, MComplex(baseReg, indexReg, SCALE_1, 0), maskReg);
+		regCache_.Unlock(indexReg, level1 ? RegCache::VEC_V1 : RegCache::VEC_ARG_V);
+		regCache_.Release(baseReg, RegCache::GEN_ARG_TEXPTR);
+
+		// Take only lowest bit, multiply by 4 with shifting.
+		X64Reg uReg = regCache_.Find(level1 ? RegCache::VEC_U1 : RegCache::VEC_ARG_U);
+		PSLLD(uReg, 31);
+		PSRLD(uReg, 29);
+		// Next, shift away based on the odd U bits.
+		VPSRLVD(128, vecIndexReg, vecIndexReg, R(uReg));
+		regCache_.Unlock(uReg, level1 ? RegCache::VEC_U1 : RegCache::VEC_ARG_U);
+
+		// Okay, now we need to mask out just the low four bits.
+		PCMPEQD(maskReg, R(maskReg));
+		PSRLD(maskReg, 28);
+		PAND(vecIndexReg, R(maskReg));
+		regCache_.Release(maskReg, RegCache::VEC_TEMP0);
+		regCache_.Unlock(vecIndexReg, RegCache::VEC_INDEX);
+
+		// Great, now we can use our CLUT indices to gather again.
+		success = success && Jit_ReadClutQuad(id, level1);
+	} else {
+		// TODO
+		*doFallback = true;
+	}
+	return success;
+}
+
+bool SamplerJitCache::Jit_ReadClutQuad(const SamplerID &id, bool level1) {
+	Describe("ReadCLUTQuad");
+	X64Reg indexReg = regCache_.Find(RegCache::VEC_INDEX);
+
+	if (!id.useSharedClut) {
+		X64Reg vecLevelReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+
+		if (regCache_.Has(RegCache::GEN_ARG_LEVEL)) {
+			X64Reg levelReg = regCache_.Find(RegCache::GEN_ARG_LEVEL);
+			MOVD_xmm(vecLevelReg, R(levelReg));
+			regCache_.Unlock(levelReg, RegCache::GEN_ARG_LEVEL);
+		} else {
+#if PPSSPP_PLATFORM(WINDOWS)
+			if (cpu_info.bAVX2) {
+				VPBROADCASTD(128, vecLevelReg, MDisp(RSP, stackArgPos_ + 16));
+			} else {
+				MOVD_xmm(vecLevelReg, MDisp(RSP, stackArgPos_ + 16));
+				PSHUFD(vecLevelReg, R(vecLevelReg), _MM_SHUFFLE(0, 0, 0, 0));
+			}
+#else
+			_assert_(false);
+#endif
+		}
+
+		// Now we multiply by 16, and add.
+		PSLLD(vecLevelReg, 4);
+		PADDD(indexReg, R(vecLevelReg));
+		regCache_.Release(vecLevelReg, RegCache::VEC_TEMP0);
+	}
+
+	X64Reg clutBaseReg = regCache_.Alloc(RegCache::GEN_TEMP1);
+	MOV(PTRBITS, R(clutBaseReg), ImmPtr(clut));
+
+	X64Reg resultReg = regCache_.Find(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
+	X64Reg maskReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+	if (cpu_info.bAVX2)
+		PCMPEQD(maskReg, R(maskReg));
+
+	switch (id.ClutFmt()) {
+	case GE_CMODE_16BIT_BGR5650:
+	case GE_CMODE_16BIT_ABGR5551:
+	case GE_CMODE_16BIT_ABGR4444:
+		if (cpu_info.bAVX2) {
+			VPGATHERDD(128, resultReg, MComplex(clutBaseReg, indexReg, SCALE_2, 0), maskReg);
+			// Clear out the top 16 bits.
+			PCMPEQD(maskReg, R(maskReg));
+			PSRLD(maskReg, 16);
+			PAND(resultReg, R(maskReg));
+		} else {
+			PXOR(resultReg, R(resultReg));
+
+			X64Reg temp2Reg = regCache_.Alloc(RegCache::GEN_TEMP2);
+			if (cpu_info.bSSE4_1) {
+				for (int i = 0; i < 4; ++i) {
+					PEXTRD(R(temp2Reg), indexReg, i);
+					PINSRW(resultReg, MComplex(clutBaseReg, temp2Reg, SCALE_2, 0), i * 2);
+				}
+			} else {
+				for (int i = 0; i < 4; ++i) {
+					MOVD_xmm(R(temp2Reg), indexReg);
+					if (i != 3)
+						PSRLDQ(indexReg, 4);
+					PINSRW(resultReg, MComplex(clutBaseReg, temp2Reg, SCALE_2, 0), i * 2);
+				}
+			}
+			regCache_.Release(temp2Reg, RegCache::GEN_TEMP2);
+		}
+		break;
+
+	case GE_CMODE_32BIT_ABGR8888:
+		if (cpu_info.bAVX2) {
+			VPGATHERDD(128, resultReg, MComplex(clutBaseReg, indexReg, SCALE_4, 0), maskReg);
+		} else {
+			X64Reg temp2Reg = regCache_.Alloc(RegCache::GEN_TEMP2);
+			if (cpu_info.bSSE4_1) {
+				for (int i = 0; i < 4; ++i) {
+					PEXTRD(R(temp2Reg), indexReg, i);
+					PINSRD(resultReg, MComplex(clutBaseReg, temp2Reg, SCALE_4, 0), i);
+				}
+			} else {
+				for (int i = 0; i < 4; ++i) {
+					MOVD_xmm(R(temp2Reg), indexReg);
+					if (i != 3)
+						PSRLDQ(indexReg, 4);
+
+					if (i == 0) {
+						MOVD_xmm(resultReg , MComplex(clutBaseReg, temp2Reg, SCALE_4, 0));
+					} else {
+						MOVD_xmm(maskReg, MComplex(clutBaseReg, temp2Reg, SCALE_4, 0));
+						PSLLDQ(maskReg, 4 * i);
+						POR(resultReg, R(maskReg));
+					}
+				}
+			}
+			regCache_.Release(temp2Reg, RegCache::GEN_TEMP2);
+		}
+		break;
+	}
+	regCache_.Release(maskReg, RegCache::VEC_TEMP0);
+	regCache_.Unlock(resultReg, level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
+
+	regCache_.Release(clutBaseReg, RegCache::GEN_TEMP1);
+	regCache_.Release(indexReg, RegCache::VEC_INDEX);
+	return true;
 }
 
 bool SamplerJitCache::Jit_BlendQuad(const SamplerID &id, bool level1) {
