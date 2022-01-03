@@ -1022,7 +1022,7 @@ bool SamplerJitCache::Jit_GetDataQuad(const SamplerID &id, bool level1, int bits
 		destReg = regCache_.Find(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
 
 	X64Reg byteOffsetReg = regCache_.Find(level1 ? RegCache::VEC_V1 : RegCache::VEC_ARG_V);
-	if (cpu_info.bAVX2) {
+	if (cpu_info.bAVX2 && id.overReadSafe) {
 		// We have to set a mask for which values to load.  Load all 4.
 		// Note this is overwritten with zeroes by the gather instruction.
 		X64Reg maskReg = regCache_.Alloc(RegCache::VEC_TEMP0);
@@ -1033,6 +1033,7 @@ bool SamplerJitCache::Jit_GetDataQuad(const SamplerID &id, bool level1, int bits
 		if (bitsPerTexel != 32)
 			PXOR(destReg, R(destReg));
 
+		// Grab each value separately... try to use the right memory access size.
 		X64Reg temp2Reg = regCache_.Alloc(RegCache::GEN_TEMP2);
 		if (cpu_info.bSSE4_1) {
 			for (int i = 0; i < 4; ++i) {
@@ -1058,6 +1059,7 @@ bool SamplerJitCache::Jit_GetDataQuad(const SamplerID &id, bool level1, int bits
 					if (i == 0) {
 						MOVD_xmm(destReg, MComplex(baseReg, temp2Reg, SCALE_2, 0));
 					} else {
+						// Maybe a temporary would be better, but this path should be rare.
 						PINSRW(destReg, MComplex(baseReg, temp2Reg, SCALE_2, 0), i * 2);
 						PINSRW(destReg, MComplex(baseReg, temp2Reg, SCALE_2, 2), i * 2 + 1);
 					}
@@ -1229,14 +1231,14 @@ bool SamplerJitCache::Jit_ReadClutQuad(const SamplerID &id, bool level1) {
 
 	X64Reg resultReg = regCache_.Find(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
 	X64Reg maskReg = regCache_.Alloc(RegCache::VEC_TEMP0);
-	if (cpu_info.bAVX2)
+	if (cpu_info.bAVX2 && id.overReadSafe)
 		PCMPEQD(maskReg, R(maskReg));
 
 	switch (id.ClutFmt()) {
 	case GE_CMODE_16BIT_BGR5650:
 	case GE_CMODE_16BIT_ABGR5551:
 	case GE_CMODE_16BIT_ABGR4444:
-		if (cpu_info.bAVX2) {
+		if (cpu_info.bAVX2 && id.overReadSafe) {
 			VPGATHERDD(128, resultReg, MComplex(clutBaseReg, indexReg, SCALE_2, 0), maskReg);
 			// Clear out the top 16 bits.
 			PCMPEQD(maskReg, R(maskReg));
@@ -1264,7 +1266,7 @@ bool SamplerJitCache::Jit_ReadClutQuad(const SamplerID &id, bool level1) {
 		break;
 
 	case GE_CMODE_32BIT_ABGR8888:
-		if (cpu_info.bAVX2) {
+		if (cpu_info.bAVX2 && id.overReadSafe) {
 			VPGATHERDD(128, resultReg, MComplex(clutBaseReg, indexReg, SCALE_4, 0), maskReg);
 		} else {
 			X64Reg temp2Reg = regCache_.Alloc(RegCache::GEN_TEMP2);

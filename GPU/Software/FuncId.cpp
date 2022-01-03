@@ -17,8 +17,10 @@
 
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/StringUtils.h"
-#include "GPU/Software/FuncId.h"
+#include "Core/MemMap.h"
+#include "GPU/Common/TextureDecoder.h"
 #include "GPU/GPUState.h"
+#include "GPU/Software/FuncId.h"
 
 static_assert(sizeof(SamplerID) == sizeof(SamplerID::fullKey), "Bad sampler ID size");
 #ifdef SOFTPIXEL_USE_CACHE
@@ -361,18 +363,24 @@ void ComputeSamplerID(SamplerID *id_out) {
 	SamplerID id{};
 
 	id.useStandardBufw = true;
-	id.hasStandardMips = true;
+	id.overReadSafe = true;
 	int maxLevel = gstate.isMipmapEnabled() ? gstate.getTextureMaxLevel() : 0;
-	int lastWidth = -1;
 	for (int i = 0; i <= maxLevel; ++i) {
-		if (gstate.getTextureAddress(i) == 0)
+		uint32_t addr = gstate.getTextureAddress(i);
+		if (!Memory::IsValidAddress(addr))
 			id.hasInvalidPtr = true;
+
+		int bufw = GetTextureBufw(i, addr, gstate.getTextureFormat());
+		int bitspp = textureBitsPerPixel[gstate.getTextureFormat()];
+		// We use a 16 byte minimum for all small bufws, so allow those as standard.
 		int w = gstate.getTextureWidth(i);
-		if (w != (gstate.texbufwidth[i] & 0x00001FFF))
+		if (w != bufw && w * bitspp > 128)
 			id.useStandardBufw = false;
-		if (lastWidth != -1 && lastWidth != w * 2)
-			id.hasStandardMips = false;
-		lastWidth = w;
+
+		int h = gstate.getTextureHeight(i);
+		int bytes = h * (bufw * bitspp) / 8;
+		if (bitspp < 32 && !Memory::IsValidAddress(addr + bytes + (32 - bitspp) / 8))
+			id.overReadSafe = false;
 	}
 	id.hasAnyMips = maxLevel != 0;
 
@@ -458,9 +466,10 @@ std::string DescribeSamplerID(const SamplerID &id) {
 	if (!id.useStandardBufw) {
 		name += ":BUFW";
 	}
-	if (!id.hasStandardMips) {
-		name += ":XMIP";
-	} else if (id.hasAnyMips) {
+	if (!id.overReadSafe) {
+		name += ":XRD";
+	}
+	if (id.hasAnyMips) {
 		name += ":MIP";
 	}
 	if (id.linear) {

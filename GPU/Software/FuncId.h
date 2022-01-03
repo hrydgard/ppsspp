@@ -176,8 +176,8 @@ struct SamplerID {
 			uint8_t texFunc : 3;
 			bool useTextureAlpha : 1;
 			bool useColorDoubling : 1;
-			bool hasStandardMips : 1;
 			bool hasAnyMips : 1;
+			bool overReadSafe : 1;
 			bool fetch : 1;
 		};
 	};
