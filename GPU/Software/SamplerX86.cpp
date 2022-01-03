@@ -2534,9 +2534,6 @@ bool SamplerJitCache::Jit_GetTexelCoords(const SamplerID &id) {
 
 bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	Describe("TexelQuad");
-	// RCX ought to be free, it was either bufw or never used.
-	bool success = regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
-	_assert_msg_(success, "Should have RCX free");
 
 	X64Reg sReg = regCache_.Find(RegCache::VEC_ARG_S);
 	X64Reg tReg = regCache_.Find(RegCache::VEC_ARG_T);
@@ -2549,7 +2546,6 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 
 	if (constWidth256f_ == nullptr) {
 		// We have to figure out levels and the proper width, ugh.
-		X64Reg shiftReg = regCache_.Find(RegCache::GEN_SHIFTVAL);
 		X64Reg gstateReg = GetGState();
 		X64Reg tempReg = regCache_.Alloc(RegCache::GEN_TEMP0);
 
@@ -2564,21 +2560,26 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 			MOV(32, R(levelReg), MDisp(RSP, stackArgPos_ + 16));
 		}
 
+		// This will load the current and next level's sizes.
+		MOV(64, R(tempReg), MComplex(gstateReg, levelReg, SCALE_4, offsetof(GPUgstate, texsize)));
+		regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+
 		X64Reg tempVecReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 		auto loadSizeAndMul = [&](X64Reg dest, X64Reg size, bool isY, bool isLevel1) {
-			int offset = offsetof(GPUgstate, texsize) + (isY ? 1 : 0) + (isLevel1 ? 4 : 0);
-			// Grab the size, and shift.
-			MOVZX(32, 8, shiftReg, MComplex(gstateReg, levelReg, SCALE_4, offset));
-			AND(32, R(shiftReg), Imm8(0x0F));
-			MOV(32, R(tempReg), Imm32(1));
-			SHL(32, R(tempReg), R(shiftReg));
+			// Grab the size and mask out 4 bits using walls.
+			MOVQ_xmm(tempVecReg, R(tempReg));
+			PSLLQ(tempVecReg, 60 - (isY ? 8 : 0) - (isLevel1 ? 32 : 0));
+			PSRLQ(tempVecReg, 60);
 
-			// Okay, now move into a vec (two, in fact, one for the multiply.)
-			MOVD_xmm(tempVecReg, R(tempReg));
-			PSHUFD(size, R(tempVecReg), _MM_SHUFFLE(0, 0, 0, 0));
+			MOVDQA(size, M(constOnes32_));
+			PSLLD(size, R(tempVecReg));
 
-			// Multiply by 256 and convert to a float.
-			PSLLD(tempVecReg, 8);
+			if (cpu_info.bAVX) {
+				VPSLLD(128, tempVecReg, size, 8);
+			} else {
+				MOVDQA(tempVecReg, R(size));
+				PSLLD(tempVecReg, 8);
+			}
 			CVTDQ2PS(tempVecReg, R(tempVecReg));
 			// And then multiply.
 			MULPS(dest, R(tempVecReg));
@@ -2587,8 +2588,8 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 		// Copy out S and T so we can multiply.
 		X64Reg u1Reg = regCache_.Find(RegCache::VEC_U1);
 		X64Reg v1Reg = regCache_.Find(RegCache::VEC_V1);
-		MOVDQA(u1Reg, R(sReg));
-		MOVDQA(v1Reg, R(tReg));
+		MOVAPS(u1Reg, R(sReg));
+		MOVAPS(v1Reg, R(tReg));
 
 		// Load width and height for the given level, and multiply sReg/tReg meanwhile.
 		width0VecReg = regCache_.Alloc(RegCache::VEC_TEMP2);
@@ -2602,8 +2603,6 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 		height1VecReg = regCache_.Alloc(RegCache::VEC_TEMP5);
 		loadSizeAndMul(v1Reg, height1VecReg, true, true);
 
-		regCache_.Unlock(shiftReg, RegCache::GEN_SHIFTVAL);
-		regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
 		regCache_.Release(tempReg, RegCache::GEN_TEMP0);
 		if (releaseLevelReg)
 			regCache_.Release(levelReg, RegCache::GEN_ARG_LEVEL);

@@ -169,7 +169,7 @@ struct SamplerID {
 			bool hasClutShift : 1;
 			bool hasClutOffset : 1;
 			bool hasInvalidPtr : 1;
-			bool linear : 1;
+			bool overReadSafe : 1;
 			bool useStandardBufw : 1;
 			uint8_t width0Shift : 4;
 			uint8_t height0Shift : 4;
@@ -177,7 +177,7 @@ struct SamplerID {
 			bool useTextureAlpha : 1;
 			bool useColorDoubling : 1;
 			bool hasAnyMips : 1;
-			bool overReadSafe : 1;
+			bool linear : 1;
 			bool fetch : 1;
 		};
 	};
