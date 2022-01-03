@@ -687,7 +687,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	};
 
 	bool readFallback;
-	success = success && Jit_ReadQuad(id, false, &readFallback);
+	success = success && Jit_FetchQuad(id, false, &readFallback);
 	if (readFallback) {
 		Describe("Calls");
 		doNearestCall(0, false);
@@ -717,7 +717,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 			ADD(32, MDisp(RSP, stackArgPos_ + 16), Imm8(1));
 		}
 
-		success = success && Jit_ReadQuad(id, true, &readFallback);
+		success = success && Jit_FetchQuad(id, true, &readFallback);
 		if (readFallback) {
 			Describe("Calls");
 			doNearestCall(0, true);
@@ -939,49 +939,168 @@ RegCache::Reg SamplerJitCache::GetGState() {
 	return regCache_.Find(RegCache::GEN_GSTATE);
 }
 
-bool SamplerJitCache::Jit_ReadQuad(const SamplerID &id, bool level1, bool *doFallback) {
+bool SamplerJitCache::Jit_FetchQuad(const SamplerID &id, bool level1, bool *doFallback) {
 	*doFallback = false;
 
 	bool success = true;
-	// TODO: Limit less.
-	if (cpu_info.bAVX2 && id.TexFmt() == GE_TFMT_CLUT4) {
-		Describe("ReadQuad");
+	switch (id.TexFmt()) {
+	case GE_TFMT_5650:
+	case GE_TFMT_5551:
+	case GE_TFMT_4444:
+		success = Jit_GetDataQuad(id, level1, 16);
+		// Mask away the high bits, if loaded via AVX2.
+		if (cpu_info.bAVX2) {
+			X64Reg destReg = regCache_.Find(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
+			PSLLD(destReg, 16);
+			PSRLD(destReg, 16);
+			regCache_.Unlock(destReg, level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
+		}
+		break;
 
-		X64Reg baseReg = regCache_.Alloc(RegCache::GEN_ARG_TEXPTR);
-		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR_PTR);
-		MOV(64, R(baseReg), MDisp(srcReg, level1 ? 8 : 0));
-		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR_PTR);
+	case GE_TFMT_8888:
+		success = Jit_GetDataQuad(id, level1, 32);
+		break;
 
-		X64Reg vecIndexReg = regCache_.Alloc(RegCache::VEC_INDEX);
-		X64Reg maskReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+	case GE_TFMT_CLUT32:
+		success = Jit_GetDataQuad(id, level1, 32);
+		if (success)
+			success = Jit_TransformClutIndexQuad(id, 32);
+		if (success)
+			success = Jit_ReadClutQuad(id, level1);
+		break;
+
+	case GE_TFMT_CLUT16:
+		success = Jit_GetDataQuad(id, level1, 16);
+		if (success)
+			success = Jit_TransformClutIndexQuad(id, 16);
+		if (success)
+			success = Jit_ReadClutQuad(id, level1);
+		break;
+
+	case GE_TFMT_CLUT8:
+		success = Jit_GetDataQuad(id, level1, 8);
+		if (success)
+			success = Jit_TransformClutIndexQuad(id, 8);
+		if (success)
+			success = Jit_ReadClutQuad(id, level1);
+		break;
+
+	case GE_TFMT_CLUT4:
+		success = Jit_GetDataQuad(id, level1, 4);
+		if (success)
+			success = Jit_TransformClutIndexQuad(id, 4);
+		if (success)
+			success = Jit_ReadClutQuad(id, level1);
+		break;
+
+	case GE_TFMT_DXT1:
+	case GE_TFMT_DXT3:
+	case GE_TFMT_DXT5:
+		*doFallback = true;
+		break;
+
+	default:
+		success = false;
+	}
+
+	return success;
+}
+
+bool SamplerJitCache::Jit_GetDataQuad(const SamplerID &id, bool level1, int bitsPerTexel) {
+	Describe("DataQuad");
+	bool success = true;
+
+	X64Reg baseReg = regCache_.Alloc(RegCache::GEN_ARG_TEXPTR);
+	X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR_PTR);
+	MOV(64, R(baseReg), MDisp(srcReg, level1 ? 8 : 0));
+	regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR_PTR);
+
+	X64Reg destReg = INVALID_REG;
+	if (id.TexFmt() >= GE_TFMT_CLUT4 && id.TexFmt() <= GE_TFMT_CLUT32)
+		destReg = regCache_.Alloc(RegCache::VEC_INDEX);
+	else
+		destReg = regCache_.Find(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
+
+	X64Reg byteOffsetReg = regCache_.Find(level1 ? RegCache::VEC_V1 : RegCache::VEC_ARG_V);
+	if (cpu_info.bAVX2) {
 		// We have to set a mask for which values to load.  Load all 4.
-		// Note this is overwritten with zeroes by the instruction.
+		// Note this is overwritten with zeroes by the gather instruction.
+		X64Reg maskReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 		PCMPEQD(maskReg, R(maskReg));
-		X64Reg indexReg = regCache_.Find(level1 ? RegCache::VEC_V1 : RegCache::VEC_ARG_V);
-		VPGATHERDD(128, vecIndexReg, MComplex(baseReg, indexReg, SCALE_1, 0), maskReg);
-		regCache_.Unlock(indexReg, level1 ? RegCache::VEC_V1 : RegCache::VEC_ARG_V);
-		regCache_.Release(baseReg, RegCache::GEN_ARG_TEXPTR);
+		VPGATHERDD(128, destReg, MComplex(baseReg, byteOffsetReg, SCALE_1, 0), maskReg);
+		regCache_.Release(maskReg, RegCache::VEC_TEMP0);
+	} else {
+		if (bitsPerTexel != 32)
+			PXOR(destReg, R(destReg));
 
+		X64Reg temp2Reg = regCache_.Alloc(RegCache::GEN_TEMP2);
+		if (cpu_info.bSSE4_1) {
+			for (int i = 0; i < 4; ++i) {
+				PEXTRD(R(temp2Reg), byteOffsetReg, i);
+				if (bitsPerTexel <= 8)
+					PINSRB(destReg, MComplex(baseReg, temp2Reg, SCALE_1, 0), i * 4);
+				else if (bitsPerTexel == 16)
+					PINSRW(destReg, MComplex(baseReg, temp2Reg, SCALE_1, 0), i * 2);
+				else if (bitsPerTexel == 32)
+					PINSRD(destReg, MComplex(baseReg, temp2Reg, SCALE_1, 0), i);
+			}
+		} else {
+			for (int i = 0; i < 4; ++i) {
+				MOVD_xmm(R(temp2Reg), byteOffsetReg);
+				if (i != 3)
+					PSRLDQ(byteOffsetReg, 4);
+				if (bitsPerTexel <= 8) {
+					MOVZX(32, 8, temp2Reg, MComplex(baseReg, temp2Reg, SCALE_2, 0));
+					PINSRW(destReg, R(temp2Reg), i * 2);
+				} else if (bitsPerTexel == 16) {
+					PINSRW(destReg, MComplex(baseReg, temp2Reg, SCALE_2, 0), i * 2);
+				} else if (bitsPerTexel == 32) {
+					if (i == 0) {
+						MOVD_xmm(destReg, MComplex(baseReg, temp2Reg, SCALE_2, 0));
+					} else {
+						PINSRW(destReg, MComplex(baseReg, temp2Reg, SCALE_2, 0), i * 2);
+						PINSRW(destReg, MComplex(baseReg, temp2Reg, SCALE_2, 2), i * 2 + 1);
+					}
+				}
+			}
+		}
+		regCache_.Release(temp2Reg, RegCache::GEN_TEMP2);
+	}
+	regCache_.Unlock(byteOffsetReg, level1 ? RegCache::VEC_V1 : RegCache::VEC_ARG_V);
+	regCache_.Release(baseReg, RegCache::GEN_ARG_TEXPTR);
+
+	if (bitsPerTexel == 4) {
 		// Take only lowest bit, multiply by 4 with shifting.
 		X64Reg uReg = regCache_.Find(level1 ? RegCache::VEC_U1 : RegCache::VEC_ARG_U);
-		PSLLD(uReg, 31);
-		PSRLD(uReg, 29);
 		// Next, shift away based on the odd U bits.
-		VPSRLVD(128, vecIndexReg, vecIndexReg, R(uReg));
+		if (cpu_info.bAVX2) {
+			// This is really convenient with AVX.  Just make the bit into a shift amount.
+			PSLLD(uReg, 31);
+			PSRLD(uReg, 29);
+			VPSRLVD(128, destReg, destReg, R(uReg));
+		} else {
+			// This creates a mask - FFFFFFFF to shift, zero otherwise.
+			PSLLD(uReg, 31);
+			PSRAD(uReg, 31);
+
+			X64Reg unshiftedReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+			MOVDQA(unshiftedReg, R(destReg));
+			PSRLD(destReg, 4);
+			// Mask destReg (shifted) and reverse uReg to unshifted masked.
+			PAND(destReg, R(uReg));
+			PANDN(uReg, R(unshiftedReg));
+			// Now combine.
+			POR(destReg, R(uReg));
+			regCache_.Release(unshiftedReg, RegCache::VEC_TEMP0);
+		}
 		regCache_.Unlock(uReg, level1 ? RegCache::VEC_U1 : RegCache::VEC_ARG_U);
-
-		regCache_.Release(maskReg, RegCache::VEC_TEMP0);
-		regCache_.Unlock(vecIndexReg, RegCache::VEC_INDEX);
-
-		// Apply mask and any other CLUT transformations.
-		success = success && Jit_TransformClutIndexQuad(id, 4);
-
-		// Great, now we can use our CLUT indices to gather again.
-		success = success && Jit_ReadClutQuad(id, level1);
-	} else {
-		// TODO
-		*doFallback = true;
 	}
+
+	if (id.TexFmt() >= GE_TFMT_CLUT4 && id.TexFmt() <= GE_TFMT_CLUT32)
+		regCache_.Unlock(destReg, RegCache::VEC_INDEX);
+	else
+		regCache_.Unlock(destReg, level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
+
 	return success;
 }
 
