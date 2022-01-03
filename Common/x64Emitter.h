@@ -847,16 +847,31 @@ public:
 	void PSRLW(X64Reg reg, int shift);
 	void PSRLD(X64Reg reg, int shift);
 	void PSRLQ(X64Reg reg, int shift);
-	void PSRLQ(X64Reg reg, OpArg arg);
 	void PSRLDQ(X64Reg reg, int shift);
+	// Note: all values shifted by lowest 64-bit in XMM arg.
+	void PSRLW(X64Reg reg, OpArg arg);
+	// Note: all values shifted by lowest 64-bit in XMM arg.
+	void PSRLD(X64Reg reg, OpArg arg);
+	// Note: both values shifted by lowest 64-bit in XMM arg.
+	void PSRLQ(X64Reg reg, OpArg arg);
 
 	void PSLLW(X64Reg reg, int shift);
 	void PSLLD(X64Reg reg, int shift);
 	void PSLLQ(X64Reg reg, int shift);
 	void PSLLDQ(X64Reg reg, int shift);
+	// Note: all values shifted by lowest 64-bit in XMM arg.
+	void PSLLW(X64Reg reg, OpArg arg);
+	// Note: all values shifted by lowest 64-bit in XMM arg.
+	void PSLLD(X64Reg reg, OpArg arg);
+	// Note: both values shifted by lowest 64-bit in XMM arg.
+	void PSLLQ(X64Reg reg, OpArg arg);
 
 	void PSRAW(X64Reg reg, int shift);
 	void PSRAD(X64Reg reg, int shift);
+	// Note: all values shifted by lowest 64-bit in XMM arg.
+	void PSRAW(X64Reg reg, OpArg arg);
+	// Note: all values shifted by lowest 64-bit in XMM arg.
+	void PSRAD(X64Reg reg, OpArg arg);
 
 	void PMULLW(X64Reg dest, const OpArg &arg);
 	void PMULHW(X64Reg dest, const OpArg &arg);
@@ -1239,10 +1254,10 @@ public:
 	void VGATHERDPD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
 	void VGATHERQPS(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
 	void VGATHERQPD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
-	void VGATHERDD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
-	void VGATHERQD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
-	void VGATHERDQ(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
-	void VGATHERQQ(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
+	void VPGATHERDD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
+	void VPGATHERQD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
+	void VPGATHERDQ(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
+	void VPGATHERQQ(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
 
 	void VPSLLVD(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg);
 	void VPSLLVQ(int bits, X64Reg regOp1, X64Reg regOp2, OpArg arg);

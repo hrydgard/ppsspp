@@ -101,6 +101,10 @@ private:
 	bool Jit_PrepareDataOffsets(const SamplerID &id, Rasterizer::RegCache::Reg uReg, Rasterizer::RegCache::Reg vReg, bool level1);
 	bool Jit_PrepareDataDirectOffsets(const SamplerID &id, Rasterizer::RegCache::Reg uReg, Rasterizer::RegCache::Reg vReg, bool level1, int bitsPerTexel);
 	bool Jit_PrepareDataSwizzledOffsets(const SamplerID &id, Rasterizer::RegCache::Reg uReg, Rasterizer::RegCache::Reg vReg, bool level1, int bitsPerTexel);
+	bool Jit_FetchQuad(const SamplerID &id, bool level1);
+	bool Jit_GetDataQuad(const SamplerID &id, bool level1, int bitsPerTexel);
+	bool Jit_TransformClutIndexQuad(const SamplerID &id, int bitsPerIndex);
+	bool Jit_ReadClutQuad(const SamplerID &id, bool level1);
 	bool Jit_BlendQuad(const SamplerID &id, bool level1);
 	bool Jit_DecodeQuad(const SamplerID &id, bool level1);
 	bool Jit_Decode5650Quad(const SamplerID &id, Rasterizer::RegCache::Reg quadReg);
