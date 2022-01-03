@@ -66,6 +66,8 @@ public:
 private:
 	SingleFunc CompileSingle(const PixelFuncID &id);
 
+	void Describe(const std::string &message);
+
 #if PPSSPP_ARCH(ARM64)
 	Arm64Gen::ARM64FloatEmitter fp;
 #endif
@@ -104,6 +106,7 @@ private:
 
 	std::unordered_map<PixelFuncID, SingleFunc> cache_;
 	std::unordered_map<PixelFuncID, const u8 *> addresses_;
+	std::unordered_map<const u8 *, std::string> descriptions_;
 	RegCache regCache_;
 
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)

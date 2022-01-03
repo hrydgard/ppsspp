@@ -84,6 +84,7 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 #endif
 
 	BeginWrite();
+	Describe("Init");
 	const u8 *start = AlignCode16();
 	bool success = true;
 
@@ -92,6 +93,7 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 
 	// Next, let's clamp the color (might affect alpha test, and everything expects it clamped.)
 	// We simply convert to 4x8-bit to clamp.  Everything else expects color in this format.
+	Describe("ClampColor");
 	X64Reg argColorReg = regCache_.Find(RegCache::VEC_ARG_COLOR);
 	PACKSSDW(argColorReg, R(argColorReg));
 	PACKUSWB(argColorReg, R(argColorReg));
@@ -165,6 +167,7 @@ RegCache::Reg PixelJitCache::GetZeroVec() {
 
 RegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 	if (!regCache_.Has(RegCache::GEN_COLOR_OFF)) {
+		Describe("GetColorOff");
 		if (id.useStandardStride && !id.dithering) {
 			bool loadDepthOff = id.depthWrite || id.DepthTestFunc() != GE_COMP_ALWAYS;
 			X64Reg depthTemp = INVALID_REG;
@@ -257,6 +260,7 @@ RegCache::Reg PixelJitCache::GetDepthOff(const PixelFuncID &id) {
 			return regCache_.Find(RegCache::GEN_DEPTH_OFF);
 		}
 
+		Describe("GetDepthOff");
 		X64Reg argYReg = regCache_.Find(RegCache::GEN_ARG_Y);
 		X64Reg r;
 		if (id.useStandardStride) {
@@ -301,6 +305,7 @@ RegCache::Reg PixelJitCache::GetDestStencil(const PixelFuncID &id) {
 		return INVALID_REG;
 
 	X64Reg colorOffReg = GetColorOff(id);
+	Describe("GetDestStencil");
 	X64Reg stencilReg = regCache_.Alloc(RegCache::GEN_STENCIL);
 	if (id.FBFormat() == GE_FORMAT_8888) {
 		MOVZX(32, 8, stencilReg, MDisp(colorOffReg, 3));
@@ -331,6 +336,7 @@ void PixelJitCache::Discard(Gen::CCFlags cc) {
 
 bool PixelJitCache::Jit_ApplyDepthRange(const PixelFuncID &id) {
 	if (id.applyDepthRange) {
+		Describe("ApplyDepthR");
 		X64Reg gstateReg = GetGState();
 		X64Reg minReg = regCache_.Alloc(RegCache::GEN_TEMP0);
 		X64Reg maxReg = regCache_.Alloc(RegCache::GEN_TEMP1);
@@ -362,6 +368,7 @@ bool PixelJitCache::Jit_ApplyDepthRange(const PixelFuncID &id) {
 
 bool PixelJitCache::Jit_AlphaTest(const PixelFuncID &id) {
 	// Take care of ALWAYS/NEVER first.  ALWAYS is common, means disabled.
+	Describe("AlphaTest");
 	switch (id.AlphaTestFunc()) {
 	case GE_COMP_NEVER:
 		Discard();
@@ -448,6 +455,7 @@ bool PixelJitCache::Jit_ColorTest(const PixelFuncID &id) {
 		return true;
 
 	// We'll have 4 with fog released, so we're using them all...
+	Describe("ColorTest");
 	X64Reg gstateReg = GetGState();
 	X64Reg funcReg = regCache_.Alloc(RegCache::GEN_TEMP0);
 	X64Reg maskReg = regCache_.Alloc(RegCache::GEN_TEMP1);
@@ -511,6 +519,7 @@ bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 	}
 
 	// Load fog and expand to 16 bit.  Ignore the high 8 bits, which'll match up with A.
+	Describe("ApplyFog");
 	X64Reg fogColorReg = regCache_.Alloc(RegCache::VEC_TEMP1);
 	X64Reg gstateReg = GetGState();
 	if (cpu_info.bSSE4_1) {
@@ -601,6 +610,7 @@ bool PixelJitCache::Jit_StencilAndDepthTest(const PixelFuncID &id) {
 	_assert_(!id.clearMode && id.stencilTest);
 
 	X64Reg stencilReg = GetDestStencil(id);
+	Describe("StencilAndDepth");
 	X64Reg maskedReg = stencilReg;
 	if (id.hasStencilTestMask) {
 		X64Reg gstateReg = GetGState();
@@ -633,6 +643,8 @@ bool PixelJitCache::Jit_StencilAndDepthTest(const PixelFuncID &id) {
 }
 
 bool PixelJitCache::Jit_StencilTest(const PixelFuncID &id, RegCache::Reg stencilReg, RegCache::Reg maskedReg) {
+	Describe("StencilTest");
+
 	bool hasFixedResult = false;
 	bool fixedResult = false;
 	FixupBranch toPass;
@@ -725,6 +737,7 @@ bool PixelJitCache::Jit_DepthTestForStencil(const PixelFuncID &id, RegCache::Reg
 		return true;
 
 	X64Reg depthOffReg = GetDepthOff(id);
+	Describe("DepthTestStencil");
 	X64Reg argZReg = regCache_.Find(RegCache::GEN_ARG_Z);
 	CMP(16, R(argZReg), MatR(depthOffReg));
 	regCache_.Unlock(depthOffReg, RegCache::GEN_DEPTH_OFF);
@@ -797,6 +810,7 @@ bool PixelJitCache::Jit_DepthTestForStencil(const PixelFuncID &id, RegCache::Reg
 bool PixelJitCache::Jit_ApplyStencilOp(const PixelFuncID &id, GEStencilOp op, RegCache::Reg stencilReg) {
 	_assert_(stencilReg != INVALID_REG);
 
+	Describe("ApplyStencil");
 	FixupBranch skip;
 	switch (op) {
 	case GE_STENCILOP_KEEP:
@@ -881,6 +895,7 @@ bool PixelJitCache::Jit_WriteStencilOnly(const PixelFuncID &id, RegCache::Reg st
 
 	// It's okay to destroy stencilReg here, we know we're the last writing it.
 	X64Reg colorOffReg = GetColorOff(id);
+	Describe("WriteStencil");
 	if (id.applyColorWriteMask) {
 		X64Reg gstateReg = GetGState();
 		X64Reg maskReg = regCache_.Alloc(RegCache::GEN_TEMP5);
@@ -967,6 +982,7 @@ bool PixelJitCache::Jit_DepthTest(const PixelFuncID &id) {
 	}
 
 	X64Reg depthOffReg = GetDepthOff(id);
+	Describe("DepthTest");
 	X64Reg argZReg = regCache_.Find(RegCache::GEN_ARG_Z);
 	CMP(16, R(argZReg), MatR(depthOffReg));
 	regCache_.Unlock(depthOffReg, RegCache::GEN_DEPTH_OFF);
@@ -1014,6 +1030,7 @@ bool PixelJitCache::Jit_WriteDepth(const PixelFuncID &id) {
 	// Clear mode shares depthWrite for DepthClear().
 	if (id.depthWrite) {
 		X64Reg depthOffReg = GetDepthOff(id);
+		Describe("WriteDepth");
 		X64Reg argZReg = regCache_.Find(RegCache::GEN_ARG_Z);
 		MOV(16, MatR(depthOffReg), R(argZReg));
 		regCache_.Unlock(depthOffReg, RegCache::GEN_DEPTH_OFF);
@@ -1043,10 +1060,12 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 	X64Reg dstReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 	if (id.FBFormat() == GE_FORMAT_8888) {
 		X64Reg colorOff = GetColorOff(id);
+		Describe("AlphaBlend");
 		MOVD_xmm(dstReg, MatR(colorOff));
 		regCache_.Unlock(colorOff, RegCache::GEN_COLOR_OFF);
 	} else {
 		X64Reg colorOff = GetColorOff(id);
+		Describe("AlphaBlend");
 		X64Reg dstGenReg = regCache_.Alloc(RegCache::GEN_TEMP0);
 		MOVZX(32, 16, dstGenReg, MatR(colorOff));
 		regCache_.Unlock(colorOff, RegCache::GEN_COLOR_OFF);
@@ -1072,6 +1091,7 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 			break;
 		}
 
+		Describe("AlphaBlend");
 		MOVD_xmm(dstReg, R(dstGenReg));
 
 		regCache_.Release(dstGenReg, RegCache::GEN_TEMP0);
@@ -1426,6 +1446,7 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 	if (!id.dithering)
 		return true;
 
+	Describe("Dither");
 #ifndef SOFTPIXEL_USE_CACHE
 	X64Reg gstateReg = GetGState();
 #endif
@@ -1443,6 +1464,7 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 	// At this point, we're done with depth and y, so let's grab GEN_COLOR_OFF and retain it.
 	// Then we can modify x and throw it away too, which is our actual goal.
 	X64Reg colorOffReg = GetColorOff(id);
+	Describe("Dither");
 	regCache_.Unlock(colorOffReg, RegCache::GEN_COLOR_OFF);
 	regCache_.ForceRetain(RegCache::GEN_COLOR_OFF);
 	// And get rid of y, we can use for other regs.
@@ -1540,6 +1562,7 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 
 bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 	X64Reg colorOff = GetColorOff(id);
+	Describe("WriteColor");
 	if (regCache_.Has(RegCache::GEN_ARG_X)) {
 		// We normally toss x and y during dithering or useStandardStride with no dithering.
 		// Free up the regs now to get more reg space.
@@ -1653,6 +1676,7 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 
 	// Step 2: Load write mask if needed.
 	// Note that we apply the write mask at the destination bit depth.
+	Describe("WriteColor");
 	X64Reg maskReg = INVALID_REG;
 	if (id.applyColorWriteMask) {
 #ifndef SOFTPIXEL_USE_CACHE
@@ -1719,6 +1743,7 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 	}
 
 	// Step 4: Write and apply write mask.
+	Describe("WriteColor");
 	switch (id.fbFormat) {
 	case GE_FORMAT_565:
 	case GE_FORMAT_5551:
@@ -1779,6 +1804,7 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 }
 
 bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg maskReg) {
+	Describe("LogicOp");
 	X64Reg logicOpReg = INVALID_REG;
 	if (RipAccessible(&gstate.lop)) {
 		logicOpReg = regCache_.Alloc(RegCache::GEN_TEMP4);
@@ -2126,6 +2152,7 @@ bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, RegCache::Reg colorR
 }
 
 bool PixelJitCache::Jit_ConvertTo565(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg) {
+	Describe("ConvertTo565");
 	// Assemble the 565 color, starting with R...
 	MOV(32, R(temp1Reg), R(colorReg));
 	SHR(32, R(temp1Reg), Imm8(3));
@@ -2146,6 +2173,7 @@ bool PixelJitCache::Jit_ConvertTo565(const PixelFuncID &id, RegCache::Reg colorR
 }
 
 bool PixelJitCache::Jit_ConvertTo5551(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha) {
+	Describe("ConvertTo5551");
 	// This is R, pretty simple.
 	MOV(32, R(temp1Reg), R(colorReg));
 	SHR(32, R(temp1Reg), Imm8(3));
@@ -2176,6 +2204,7 @@ bool PixelJitCache::Jit_ConvertTo5551(const PixelFuncID &id, RegCache::Reg color
 }
 
 bool PixelJitCache::Jit_ConvertTo4444(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha) {
+	Describe("ConvertTo4444");
 	// Shift and mask out R.
 	MOV(32, R(temp1Reg), R(colorReg));
 	SHR(32, R(temp1Reg), Imm8(4));
@@ -2206,6 +2235,7 @@ bool PixelJitCache::Jit_ConvertTo4444(const PixelFuncID &id, RegCache::Reg color
 }
 
 bool PixelJitCache::Jit_ConvertFrom565(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg) {
+	Describe("ConvertFrom565");
 	// Filter out red only into temp1.
 	MOV(32, R(temp1Reg), R(colorReg));
 	AND(16, R(temp1Reg), Imm16(0x1F << 0));
@@ -2240,6 +2270,7 @@ bool PixelJitCache::Jit_ConvertFrom565(const PixelFuncID &id, RegCache::Reg colo
 }
 
 bool PixelJitCache::Jit_ConvertFrom5551(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha) {
+	Describe("ConvertFrom5551");
 	// Filter out red only into temp1.
 	MOV(32, R(temp1Reg), R(colorReg));
 	AND(16, R(temp1Reg), Imm16(0x1F << 0));
@@ -2276,6 +2307,7 @@ bool PixelJitCache::Jit_ConvertFrom5551(const PixelFuncID &id, RegCache::Reg col
 }
 
 bool PixelJitCache::Jit_ConvertFrom4444(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha) {
+	Describe("ConvertFrom4444");
 	// Move red into position within temp1.
 	MOV(32, R(temp1Reg), R(colorReg));
 	AND(16, R(temp1Reg), Imm16(0xF << 0));
