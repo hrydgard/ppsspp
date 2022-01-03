@@ -337,24 +337,31 @@ void PixelJitCache::Discard(Gen::CCFlags cc) {
 bool PixelJitCache::Jit_ApplyDepthRange(const PixelFuncID &id) {
 	if (id.applyDepthRange) {
 		Describe("ApplyDepthR");
-		X64Reg gstateReg = GetGState();
-		X64Reg minReg = regCache_.Alloc(RegCache::GEN_TEMP0);
-		X64Reg maxReg = regCache_.Alloc(RegCache::GEN_TEMP1);
-
-		// Only load the lowest 16 bits of each, but compare all 32 of z.
-		MOVZX(32, 16, minReg, MDisp(gstateReg, offsetof(GPUgstate, minz)));
-		MOVZX(32, 16, maxReg, MDisp(gstateReg, offsetof(GPUgstate, maxz)));
-
+		X64Reg gstateReg = INVALID_REG;
+		if (!RipAccessible(&gstate.minz) || !RipAccessible(&gstate.maxz))
+			gstateReg = GetGState();
+		X64Reg maxReg = regCache_.Alloc(RegCache::GEN_TEMP0);
 		X64Reg argZReg = regCache_.Find(RegCache::GEN_ARG_Z);
-		CMP(32, R(argZReg), R(minReg));
-		Discard(CC_L);
-		CMP(32, R(argZReg), R(maxReg));
-		Discard(CC_G);
-		regCache_.Unlock(argZReg, RegCache::GEN_ARG_Z);
 
-		regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
-		regCache_.Release(minReg, RegCache::GEN_TEMP0);
-		regCache_.Release(maxReg, RegCache::GEN_TEMP1);
+		// For lower, we compare directly (we take care of the 32-bit case below.)
+		if (RipAccessible(&gstate.minz))
+			CMP(16, R(argZReg), M(&gstate.minz));
+		else
+			CMP(16, R(argZReg), MDisp(gstateReg, offsetof(GPUgstate, minz)));
+		Discard(CC_B);
+
+		// We load the low 16 bits, but compare all 32 of z.  Above handles < 0.
+		if (RipAccessible(&gstate.maxz))
+			MOVZX(32, 16, maxReg, M(&gstate.maxz));
+		else
+			MOVZX(32, 16, maxReg, MDisp(gstateReg, offsetof(GPUgstate, maxz)));
+		CMP(32, R(argZReg), R(maxReg));
+		Discard(CC_A);
+
+		regCache_.Unlock(argZReg, RegCache::GEN_ARG_Z);
+		if (gstateReg != INVALID_REG)
+			regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+		regCache_.Release(maxReg, RegCache::GEN_TEMP0);
 	}
 
 	// Since this is early on, try to free up the z reg if we don't need it anymore.
