@@ -538,18 +538,35 @@ void PixelJitCache::Clear() {
 	addresses_.clear();
 }
 
-std::string PixelJitCache::DescribeCodePtr(const u8 *ptr) {
-	ptrdiff_t dist = 0x7FFFFFFF;
-	PixelFuncID found{};
-	for (const auto &it : addresses_) {
-		ptrdiff_t it_dist = ptr - it.second;
-		if (it_dist >= 0 && it_dist < dist) {
-			found = it.first;
-			dist = it_dist;
-		}
-	}
+void PixelJitCache::Describe(const std::string &message) {
+	descriptions_[GetCodePointer()] = message;
+}
 
-	return DescribePixelFuncID(found);
+std::string PixelJitCache::DescribeCodePtr(const u8 *ptr) {
+	constexpr bool USE_IDS = false;
+	ptrdiff_t dist = 0x7FFFFFFF;
+	if (USE_IDS) {
+		PixelFuncID found{};
+		for (const auto &it : addresses_) {
+			ptrdiff_t it_dist = ptr - it.second;
+			if (it_dist >= 0 && it_dist < dist) {
+				found = it.first;
+				dist = it_dist;
+			}
+		}
+
+		return DescribePixelFuncID(found);
+	} else {
+		std::string found;
+		for (const auto &it : descriptions_) {
+			ptrdiff_t it_dist = ptr - it.first;
+			if (it_dist >= 0 && it_dist < dist) {
+				found = it.second;
+				dist = it_dist;
+			}
+		}
+		return found;
+	}
 }
 
 SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id) {

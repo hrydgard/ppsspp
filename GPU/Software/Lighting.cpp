@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include "Common/CPUDetect.h"
 #include "GPU/GPUState.h"
 #include "GPU/Software/Lighting.h"
@@ -22,7 +23,13 @@
 namespace Lighting {
 
 static inline Vec3f GetLightVec(u32 lparams[12], int light) {
+#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
+	__m128i values = _mm_loadu_si128((__m128i *)&lparams[3 * light]);
+	__m128i from24 = _mm_slli_epi32(values, 8);
+	return _mm_castsi128_ps(from24);
+#else
 	return Vec3<float>(getFloat24(lparams[3 * light]), getFloat24(lparams[3 * light + 1]), getFloat24(lparams[3 * light + 2]));
+#endif
 }
 
 static inline float pspLightPow(float v, float e) {
