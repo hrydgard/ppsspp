@@ -182,11 +182,19 @@ RegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 			if (loadDepthOff) {
 				_assert_(Accessible(&fb.data, &depthbuf.data));
 				depthTemp = regCache_.Alloc(RegCache::GEN_DEPTH_OFF);
-				MOV(PTRBITS, R(depthTemp), ImmPtr(&fb.data));
-				MOV(PTRBITS, R(argYReg), MatR(depthTemp));
+				if (RipAccessible(&fb.data) && RipAccessible(&depthbuf.data)) {
+					MOV(PTRBITS, R(argYReg), M(&fb.data));
+				} else {
+					MOV(PTRBITS, R(depthTemp), ImmPtr(&fb.data));
+					MOV(PTRBITS, R(argYReg), MatR(depthTemp));
+				}
 			} else {
-				MOV(PTRBITS, R(argYReg), ImmPtr(&fb.data));
-				MOV(PTRBITS, R(argYReg), MatR(argYReg));
+				if (RipAccessible(&fb.data)) {
+					MOV(PTRBITS, R(argYReg), M(&fb.data));
+				} else {
+					MOV(PTRBITS, R(argYReg), ImmPtr(&fb.data));
+					MOV(PTRBITS, R(argYReg), MatR(argYReg));
+				}
 			}
 			LEA(PTRBITS, argYReg, MComplex(argYReg, argXReg, id.FBFormat() == GE_FORMAT_8888 ? 4 : 2, 0));
 			// With that, argYOff is now GEN_COLOR_OFF.
@@ -197,7 +205,11 @@ RegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 
 			// Next, also calculate the depth offset, unless we won't need it at all.
 			if (loadDepthOff) {
-				MOV(PTRBITS, R(depthTemp), MAccessibleDisp(depthTemp, &fb.data, &depthbuf.data));
+				if (RipAccessible(&fb.data) && RipAccessible(&depthbuf.data)) {
+					MOV(PTRBITS, R(depthTemp), M(&depthbuf.data));
+				} else {
+					MOV(PTRBITS, R(depthTemp), MAccessibleDisp(depthTemp, &fb.data, &depthbuf.data));
+				}
 				LEA(PTRBITS, argXReg, MComplex(depthTemp, argXReg, 2, 0));
 				regCache_.Release(depthTemp, RegCache::GEN_DEPTH_OFF);
 
@@ -240,8 +252,12 @@ RegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 		regCache_.Unlock(argXReg, RegCache::GEN_ARG_X);
 
 		X64Reg temp = regCache_.Alloc(RegCache::GEN_TEMP_HELPER);
-		MOV(PTRBITS, R(temp), ImmPtr(&fb.data));
-		MOV(PTRBITS, R(temp), MatR(temp));
+		if (RipAccessible(&fb.data)) {
+			MOV(PTRBITS, R(temp), M(&fb.data));
+		} else {
+			MOV(PTRBITS, R(temp), ImmPtr(&fb.data));
+			MOV(PTRBITS, R(temp), MatR(temp));
+		}
 		LEA(PTRBITS, r, MComplex(temp, r, id.FBFormat() == GE_FORMAT_8888 ? 4 : 2, 0));
 		regCache_.Release(temp, RegCache::GEN_TEMP_HELPER);
 
@@ -288,8 +304,12 @@ RegCache::Reg PixelJitCache::GetDepthOff(const PixelFuncID &id) {
 		regCache_.Unlock(argXReg, RegCache::GEN_ARG_X);
 
 		X64Reg temp = regCache_.Alloc(RegCache::GEN_TEMP_HELPER);
-		MOV(PTRBITS, R(temp), ImmPtr(&depthbuf.data));
-		MOV(PTRBITS, R(temp), MatR(temp));
+		if (RipAccessible(&depthbuf.data)) {
+			MOV(PTRBITS, R(temp), M(&depthbuf.data));
+		} else {
+			MOV(PTRBITS, R(temp), ImmPtr(&depthbuf.data));
+			MOV(PTRBITS, R(temp), MatR(temp));
+		}
 		LEA(PTRBITS, r, MComplex(temp, r, 2, 0));
 		regCache_.Release(temp, RegCache::GEN_TEMP_HELPER);
 
