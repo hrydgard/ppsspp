@@ -882,33 +882,44 @@ float vectorGetByIndex(__m128 v) {
 }
 #endif
 
-// v and vecOut must point to different memory.
-inline void Vec3ByMatrix43(float vecOut[3], const float v[3], const float m[12]) {
 #if defined(_M_SSE)
+inline __m128 MATH3D_CALL Vec3ByMatrix43(__m128 x, __m128 y, __m128 z, const float m[12]) {
 	__m128 col0 = _mm_loadu_ps(m);
 	__m128 col1 = _mm_loadu_ps(m + 3);
 	__m128 col2 = _mm_loadu_ps(m + 6);
 	__m128 col3 = _mm_loadu_ps(m + 9);
-	__m128 x = _mm_set1_ps(v[0]);
-	__m128 y = _mm_set1_ps(v[1]);
-	__m128 z = _mm_set1_ps(v[2]);
 	__m128 sum = _mm_add_ps(
 		_mm_add_ps(_mm_mul_ps(col0, x), _mm_mul_ps(col1, y)),
 		_mm_add_ps(_mm_mul_ps(col2, z), col3));
+	return sum;
+}
+#elif PPSSPP_ARCH(ARM_NEON) && PPSSPP_ARCH(ARM64)
+inline float32x4_t Vec3ByMatrix43(float32x4_t vec, const float m[16]) {
+	float32x4_t col0 = vld1q_f32(m);
+	float32x4_t col1 = vld1q_f32(m + 3);
+	float32x4_t col2 = vld1q_f32(m + 6);
+	float32x4_t col3 = vld1q_f32(m + 9);
+	float32x4_t sum = vaddq_f32(
+		vaddq_f32(vmulq_laneq_f32(col0, vec, 0), vmulq_laneq_f32(col1, vec, 1)),
+		vaddq_f32(vmulq_laneq_f32(col2, vec, 2), col3));
+	return sum;
+}
+#endif
+
+// v and vecOut must point to different memory.
+inline void Vec3ByMatrix43(float vecOut[3], const float v[3], const float m[12]) {
+#if defined(_M_SSE)
+	__m128 x = _mm_set1_ps(v[0]);
+	__m128 y = _mm_set1_ps(v[1]);
+	__m128 z = _mm_set1_ps(v[2]);
+	__m128 sum = Vec3ByMatrix43(x, y, z, m);
 	// Not sure what the best way to store 3 elements is. Ideally, we should
 	// probably store all four.
 	vecOut[0] = _mm_cvtss_f32(sum);
 	vecOut[1] = vectorGetByIndex<1>(sum);
 	vecOut[2] = vectorGetByIndex<2>(sum);
 #elif PPSSPP_ARCH(ARM_NEON) && PPSSPP_ARCH(ARM64)
-	float32x4_t col0 = vld1q_f32(m);
-	float32x4_t col1 = vld1q_f32(m + 3);
-	float32x4_t col2 = vld1q_f32(m + 6);
-	float32x4_t col3 = vld1q_f32(m + 9);
-	float32x4_t vec = vld1q_f32(v);
-	float32x4_t sum = vaddq_f32(
-		vaddq_f32(vmulq_laneq_f32(col0, vec, 0), vmulq_laneq_f32(col1, vec, 1)),
-		vaddq_f32(vmulq_laneq_f32(col2, vec, 2), col3));
+	float32x4_t sum = Vec3ByMatrix43(vld1q_f32(v), m);
 	vecOut[0] = vgetq_lane_f32(sum, 0);
 	vecOut[1] = vgetq_lane_f32(sum, 1);
 	vecOut[2] = vgetq_lane_f32(sum, 2);
@@ -921,59 +932,52 @@ inline void Vec3ByMatrix43(float vecOut[3], const float v[3], const float m[12])
 
 inline Vec3f MATH3D_CALL Vec3ByMatrix43(const Vec3f v, const float m[12]) {
 #if defined(_M_SSE)
-	__m128 col0 = _mm_loadu_ps(m);
-	__m128 col1 = _mm_loadu_ps(m + 3);
-	__m128 col2 = _mm_loadu_ps(m + 6);
-	__m128 col3 = _mm_loadu_ps(m + 9);
 	__m128 x = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(0, 0, 0, 0));
 	__m128 y = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(1, 1, 1, 1));
 	__m128 z = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(2, 2, 2, 2));
-	__m128 sum = _mm_add_ps(
-		_mm_add_ps(_mm_mul_ps(col0, x), _mm_mul_ps(col1, y)),
-		_mm_add_ps(_mm_mul_ps(col2, z), col3));
-	return sum;
+	return Vec3ByMatrix43(x, y, z, m);
 #elif PPSSPP_ARCH(ARM_NEON) && PPSSPP_ARCH(ARM64)
-	float32x4_t col0 = vld1q_f32(m);
-	float32x4_t col1 = vld1q_f32(m + 3);
-	float32x4_t col2 = vld1q_f32(m + 6);
-	float32x4_t col3 = vld1q_f32(m + 9);
-	float32x4_t vec = v.vec;
-	float32x4_t sum = vaddq_f32(
-		vaddq_f32(vmulq_laneq_f32(col0, vec, 0), vmulq_laneq_f32(col1, vec, 1)),
-		vaddq_f32(vmulq_laneq_f32(col2, vec, 2), col3));
-	return sum;
+	return Vec3ByMatrix43(v.vec, m);
 #else
 	Vec3f vecOut;
-	vecOut[0] = v[0] * m[0] + v[1] * m[3] + v[2] * m[6] + m[9];
-	vecOut[1] = v[0] * m[1] + v[1] * m[4] + v[2] * m[7] + m[10];
-	vecOut[2] = v[0] * m[2] + v[1] * m[5] + v[2] * m[8] + m[11];
+	Vec3ByMatrix43(vecOut.AsArray(), v.AsArray(), m);
 	return vecOut;
 #endif
 }
 
-inline void Vec3ByMatrix44(float vecOut[4], const float v[3], const float m[16])
-{
 #if defined(_M_SSE)
+inline __m128 MATH3D_CALL Vec3ByMatrix44(__m128 x, __m128 y, __m128 z, const float m[16]) {
 	__m128 col0 = _mm_loadu_ps(m);
 	__m128 col1 = _mm_loadu_ps(m + 4);
 	__m128 col2 = _mm_loadu_ps(m + 8);
 	__m128 col3 = _mm_loadu_ps(m + 12);
-	__m128 x = _mm_set1_ps(v[0]);
-	__m128 y = _mm_set1_ps(v[1]);
-	__m128 z = _mm_set1_ps(v[2]);
 	__m128 sum = _mm_add_ps(
 		_mm_add_ps(_mm_mul_ps(col0, x), _mm_mul_ps(col1, y)),
 		_mm_add_ps(_mm_mul_ps(col2, z), col3));
-	_mm_storeu_ps(vecOut, sum);
+	return sum;
+}
 #elif PPSSPP_ARCH(ARM_NEON) && PPSSPP_ARCH(ARM64)
+inline float32x4_t Vec3ByMatrix44(float32x4_t vec, const float m[16]) {
 	float32x4_t col0 = vld1q_f32(m);
 	float32x4_t col1 = vld1q_f32(m + 4);
 	float32x4_t col2 = vld1q_f32(m + 8);
 	float32x4_t col3 = vld1q_f32(m + 12);
-	float32x4_t vec = vld1q_f32(v);
 	float32x4_t sum = vaddq_f32(
 		vaddq_f32(vmulq_laneq_f32(col0, vec, 0), vmulq_laneq_f32(col1, vec, 1)),
 		vaddq_f32(vmulq_laneq_f32(col2, vec, 2), col3));
+	return sum;
+}
+#endif
+
+inline void Vec3ByMatrix44(float vecOut[4], const float v[3], const float m[16]) {
+#if defined(_M_SSE)
+	__m128 x = _mm_set1_ps(v[0]);
+	__m128 y = _mm_set1_ps(v[1]);
+	__m128 z = _mm_set1_ps(v[2]);
+	__m128 sum = Vec3ByMatrix44(x, y, z, m);
+	_mm_storeu_ps(vecOut, sum);
+#elif PPSSPP_ARCH(ARM_NEON) && PPSSPP_ARCH(ARM64)
+	float32x4_t sum = Vec3ByMatrix44(vld1q_f32(v), m);
 	vst1q_f32(vecOut, sum);
 #else
 	vecOut[0] = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12];
@@ -985,70 +989,73 @@ inline void Vec3ByMatrix44(float vecOut[4], const float v[3], const float m[16])
 
 inline Vec4f MATH3D_CALL Vec3ByMatrix44(const Vec3f v, const float m[16]) {
 #if defined(_M_SSE)
-	__m128 col0 = _mm_loadu_ps(m);
-	__m128 col1 = _mm_loadu_ps(m + 4);
-	__m128 col2 = _mm_loadu_ps(m + 8);
-	__m128 col3 = _mm_loadu_ps(m + 12);
-	__m128 x = _mm_set1_ps(v[0]);
-	__m128 y = _mm_set1_ps(v[1]);
-	__m128 z = _mm_set1_ps(v[2]);
-	__m128 sum = _mm_add_ps(
-		_mm_add_ps(_mm_mul_ps(col0, x), _mm_mul_ps(col1, y)),
-		_mm_add_ps(_mm_mul_ps(col2, z), col3));
-	return sum;
+	__m128 x = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(0, 0, 0, 0));
+	__m128 y = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(1, 1, 1, 1));
+	__m128 z = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(2, 2, 2, 2));
+	return Vec3ByMatrix44(x, y, z, m);
 #elif PPSSPP_ARCH(ARM_NEON) && PPSSPP_ARCH(ARM64)
-	float32x4_t col0 = vld1q_f32(m);
-	float32x4_t col1 = vld1q_f32(m + 4);
-	float32x4_t col2 = vld1q_f32(m + 8);
-	float32x4_t col3 = vld1q_f32(m + 12);
-	float32x4_t vec = v.vec;
-	float32x4_t sum = vaddq_f32(
-		vaddq_f32(vmulq_laneq_f32(col0, vec, 0), vmulq_laneq_f32(col1, vec, 1)),
-		vaddq_f32(vmulq_laneq_f32(col2, vec, 2), col3));
-	return sum;
+	return Vec3ByMatrix44(v.vec, m);
 #else
 	Vec4f vecOut;
-	vecOut[0] = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12];
-	vecOut[1] = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13];
-	vecOut[2] = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[14];
-	vecOut[3] = v[0] * m[3] + v[1] * m[7] + v[2] * m[11] + m[15];
+	Vec3ByMatrix44(vecOut.AsArray(), v.AsArray(), m);
 	return vecOut;
 #endif
 }
 
-inline void Norm3ByMatrix43(float vecOut[3], const float v[3], const float m[12])
-{
-	vecOut[0] = v[0] * m[0] + v[1] * m[3] + v[2] * m[6];
-	vecOut[1] = v[0] * m[1] + v[1] * m[4] + v[2] * m[7];
-	vecOut[2] = v[0] * m[2] + v[1] * m[5] + v[2] * m[8];
-}
-
-inline Vec3f MATH3D_CALL Norm3ByMatrix43(const Vec3f v, const float m[12]) {
 #if defined(_M_SSE)
+inline __m128 MATH3D_CALL Norm3ByMatrix43(__m128 x, __m128 y, __m128 z, const float m[12]) {
 	__m128 col0 = _mm_loadu_ps(m);
 	__m128 col1 = _mm_loadu_ps(m + 3);
 	__m128 col2 = _mm_loadu_ps(m + 6);
-	__m128 x = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(0, 0, 0, 0));
-	__m128 y = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(1, 1, 1, 1));
-	__m128 z = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(2, 2, 2, 2));
 	__m128 sum = _mm_add_ps(
 		_mm_add_ps(_mm_mul_ps(col0, x), _mm_mul_ps(col1, y)),
 		_mm_mul_ps(col2, z));
 	return sum;
+}
 #elif PPSSPP_ARCH(ARM_NEON) && PPSSPP_ARCH(ARM64)
+inline float32x4_t Norm3ByMatrix43(float32x4_t vec, const float m[16]) {
 	float32x4_t col0 = vld1q_f32(m);
 	float32x4_t col1 = vld1q_f32(m + 3);
 	float32x4_t col2 = vld1q_f32(m + 6);
-	float32x4_t vec = v.vec;
 	float32x4_t sum = vaddq_f32(
 		vaddq_f32(vmulq_laneq_f32(col0, vec, 0), vmulq_laneq_f32(col1, vec, 1)),
 		vmulq_laneq_f32(col2, vec, 2));
 	return sum;
+}
+#endif
+
+inline void Norm3ByMatrix43(float vecOut[3], const float v[3], const float m[12]) {
+#if defined(_M_SSE)
+	__m128 x = _mm_set1_ps(v[0]);
+	__m128 y = _mm_set1_ps(v[1]);
+	__m128 z = _mm_set1_ps(v[2]);
+	__m128 sum = Norm3ByMatrix43(x, y, z, m);
+	vecOut[0] = _mm_cvtss_f32(sum);
+	vecOut[1] = vectorGetByIndex<1>(sum);
+	vecOut[2] = vectorGetByIndex<2>(sum);
+#elif PPSSPP_ARCH(ARM_NEON) && PPSSPP_ARCH(ARM64)
+	float32x4_t sum = Norm3ByMatrix43(vld1q_f32(v), m);
+	vecOut[0] = vgetq_lane_f32(sum, 0);
+	vecOut[1] = vgetq_lane_f32(sum, 1);
+	vecOut[2] = vgetq_lane_f32(sum, 2);
 #else
-	Vec3f vecOut;
 	vecOut[0] = v[0] * m[0] + v[1] * m[3] + v[2] * m[6];
 	vecOut[1] = v[0] * m[1] + v[1] * m[4] + v[2] * m[7];
 	vecOut[2] = v[0] * m[2] + v[1] * m[5] + v[2] * m[8];
+#endif
+}
+
+inline Vec3f MATH3D_CALL Norm3ByMatrix43(const Vec3f v, const float m[12]) {
+#if defined(_M_SSE)
+	__m128 x = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(0, 0, 0, 0));
+	__m128 y = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(1, 1, 1, 1));
+	__m128 z = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(2, 2, 2, 2));
+	return Norm3ByMatrix43(x, y, z, m);
+#elif PPSSPP_ARCH(ARM_NEON) && PPSSPP_ARCH(ARM64)
+	return Norm3ByMatrix43(v.vec, m);
+#else
+	Vec3f vecOut;
+	Norm3ByMatrix43(vecOut.AsArray(), v.AsArray(), m);
 	return vecOut;
 #endif
 }
