@@ -277,10 +277,13 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_
 			Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
 			float z_recip = 1.0f / stq.z;
 			vertex.texturecoords = Vec2f(stq.x * z_recip, stq.y * z_recip);
+		} else if (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
+			Lighting::GenerateLightST(vertex);
 		}
 
 		PROFILE_THIS_SCOPE("light");
-		Lighting::Process(vertex, vreader.hasColor0());
+		if (gstate.isLightingEnabled())
+			Lighting::Process(vertex, vreader.hasColor0());
 	} else {
 		vertex.screenpos.x = (int)(pos[0] * 16) + gstate.getOffsetX16();
 		vertex.screenpos.y = (int)(pos[1] * 16) + gstate.getOffsetY16();

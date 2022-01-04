@@ -43,6 +43,22 @@ static inline float pspLightPow(float v, float e) {
 	return v;
 }
 
+static inline float GenerateLightCoord(VertexData &vertex, int light) {
+	// TODO: Should specular lighting should affect this, too?  Doesn't in GLES.
+	Vec3<float> L = GetLightVec(gstate.lpos, light);
+	// In other words, L.Length2() == 0.0f means Dot({0, 0, 1}, worldnormal).
+	float diffuse_factor = Dot(L.NormalizedOr001(cpu_info.bSSE4_1), vertex.worldnormal);
+
+	return (diffuse_factor + 1.0f) / 2.0f;
+}
+
+void GenerateLightST(VertexData &vertex) {
+	// Always calculate texture coords from lighting results if environment mapping is active
+	// This should be done even if lighting is disabled altogether.
+	vertex.texturecoords.s() = GenerateLightCoord(vertex, gstate.getUVLS0());
+	vertex.texturecoords.t() = GenerateLightCoord(vertex, gstate.getUVLS1());
+}
+
 void Process(VertexData& vertex, bool hasColor) {
 	const int materialupdate = gstate.materialupdate & (hasColor ? 7 : 0);
 
@@ -52,26 +68,6 @@ void Process(VertexData& vertex, bool hasColor) {
 	Vec3<float> mac = (materialupdate & 1) ? vcol0 : Vec3<float>::FromRGB(gstate.getMaterialAmbientRGBA());
 	Vec3<float> final_color = mec + mac * Vec3<float>::FromRGB(gstate.getAmbientRGBA());
 	Vec3<float> specular_color(0.0f, 0.0f, 0.0f);
-
-	for (unsigned int light = 0; light < 4; ++light) {
-		// Always calculate texture coords from lighting results if environment mapping is active
-		// TODO: Should specular lighting should affect this, too?  Doesn't in GLES.
-		// This should be done even if lighting is disabled altogether.
-		if (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
-			Vec3<float> L = GetLightVec(gstate.lpos, light);
-			// In other words, L.Length2() == 0.0f means Dot({0, 0, 1}, worldnormal).
-			float diffuse_factor = Dot(L.NormalizedOr001(cpu_info.bSSE4_1), vertex.worldnormal);
-
-			if (gstate.getUVLS0() == (int)light)
-				vertex.texturecoords.s() = (diffuse_factor + 1.f) / 2.f;
-
-			if (gstate.getUVLS1() == (int)light)
-				vertex.texturecoords.t() = (diffuse_factor + 1.f) / 2.f;
-		}
-	}
-
-	if (!gstate.isLightingEnabled())
-		return;
 
 	for (unsigned int light = 0; light < 4; ++light) {
 		if (!gstate.isLightChanEnabled(light))
