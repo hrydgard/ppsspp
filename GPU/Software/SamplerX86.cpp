@@ -69,6 +69,7 @@ FetchFunc SamplerJitCache::CompileFetch(const SamplerID &id) {
 		regCache_.Reset(false);
 		EndWrite();
 		ResetCodePtr(GetOffset(start));
+		ERROR_LOG(G3D, "Failed to compile fetch %s", DescribeSamplerID(id).c_str());
 		return nullptr;
 	}
 
@@ -386,6 +387,7 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 		regCache_.Reset(false);
 		EndWrite();
 		ResetCodePtr(GetOffset(start));
+		ERROR_LOG(G3D, "Failed to compile nearest %s", DescribeSamplerID(id).c_str());
 		return nullptr;
 	}
 
@@ -447,12 +449,13 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 
 		// We'll first write the nearest sampler, which we will CALL.
 		// This may differ slightly based on the "linear" flag.
-		const u8 *nearest = AlignCode16();
+		nearest = AlignCode16();
 
 		if (!Jit_ReadTextureFormat(id)) {
 			regCache_.Reset(false);
 			EndWrite();
 			ResetCodePtr(GetOffset(nearest));
+			ERROR_LOG(G3D, "Failed to compile linear nearest %s", DescribeSamplerID(id).c_str());
 			return nullptr;
 		}
 
@@ -807,7 +810,8 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	if (!success) {
 		regCache_.Reset(false);
 		EndWrite();
-		ResetCodePtr(GetOffset(nearest));
+		ResetCodePtr(GetOffset(nearest ? nearest : start));
+		ERROR_LOG(G3D, "Failed to compile linear %s", DescribeSamplerID(id).c_str());
 		return nullptr;
 	}
 

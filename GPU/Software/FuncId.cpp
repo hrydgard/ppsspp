@@ -374,7 +374,7 @@ void ComputeSamplerID(SamplerID *id_out) {
 		int bitspp = textureBitsPerPixel[gstate.getTextureFormat()];
 		// We use a 16 byte minimum for all small bufws, so allow those as standard.
 		int w = gstate.getTextureWidth(i);
-		if (w != bufw && w * bitspp > 128)
+		if (bitspp == 0 || std::max(w, 128 / bitspp) != bufw)
 			id.useStandardBufw = false;
 
 		int h = gstate.getTextureHeight(i);
