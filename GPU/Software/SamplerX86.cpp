@@ -449,7 +449,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 
 		// We'll first write the nearest sampler, which we will CALL.
 		// This may differ slightly based on the "linear" flag.
-		const u8 *nearest = AlignCode16();
+		nearest = AlignCode16();
 
 		if (!Jit_ReadTextureFormat(id)) {
 			regCache_.Reset(false);
