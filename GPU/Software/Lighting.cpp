@@ -62,12 +62,16 @@ void GenerateLightST(VertexData &vertex) {
 void Process(VertexData& vertex, bool hasColor) {
 	const int materialupdate = gstate.materialupdate & (hasColor ? 7 : 0);
 
-	Vec3<float> vcol0 = vertex.color0.rgb().Cast<float>() * Vec3<float>::AssignToAll(1.0f / 255.0f);
-	Vec3<float> mec = Vec3<float>::FromRGB(gstate.getMaterialEmissive());
+	Vec4<int> mec = Vec4<int>::FromRGBA(gstate.getMaterialEmissive());
 
-	Vec3<float> mac = (materialupdate & 1) ? vcol0 : Vec3<float>::FromRGB(gstate.getMaterialAmbientRGBA());
-	Vec3<float> final_color = mec + mac * Vec3<float>::FromRGB(gstate.getAmbientRGBA());
-	Vec3<float> specular_color(0.0f, 0.0f, 0.0f);
+	Vec4<int> mac = (materialupdate & 1) ? vertex.color0 : Vec4<int>::FromRGBA(gstate.getMaterialAmbientRGBA());
+	Vec4<int> ac = Vec4<int>::FromRGBA(gstate.getAmbientRGBA());
+	// Ambient (whether vertex or material) rounds using the half offset method (like alpha blend.)
+	const Vec4<int> ones = Vec4<int>::AssignToAll(1);
+	Vec4<int> ambient = ((mac * 2 + ones) * (ac * 2 + ones)) / 1024;
+
+	Vec4<int> final_color = mec + ambient;
+	Vec4<int> specular_color = Vec4<int>::AssignToAll(0);
 
 	for (unsigned int light = 0; light < 4; ++light) {
 		if (!gstate.isLightChanEnabled(light))
@@ -103,13 +107,14 @@ void Process(VertexData& vertex, bool hasColor) {
 		}
 
 		// ambient lighting
-		Vec3<float> lac = Vec3<float>::FromRGB(gstate.getLightAmbientColor(light));
-		final_color += lac * mac * att * spot;
+		int attspot = (int)ceilf(256 * 2 * att * spot + 1);
+		if (attspot > 512)
+			attspot = 512;
+		Vec4<int> lac = Vec4<int>::FromRGBA(gstate.getLightAmbientColor(light));
+		Vec4<int> lambient = ((mac * 2 + ones) * (lac * 2 + ones) * attspot) / (1024 * 512);
+		final_color += lambient;
 
 		// diffuse lighting
-		Vec3<float> ldc = Vec3<float>::FromRGB(gstate.getDiffuseColor(light));
-		Vec3<float> mdc = (materialupdate & 2) ? vcol0 : Vec3<float>::FromRGB(gstate.getMaterialDiffuse());
-
 		float diffuse_factor = Dot(L, vertex.worldnormal);
 		if (gstate.isUsingPoweredDiffuseLight(light)) {
 			float k = gstate.getMaterialSpecularCoef();
@@ -117,35 +122,39 @@ void Process(VertexData& vertex, bool hasColor) {
 		}
 
 		if (diffuse_factor > 0.f) {
-			final_color += ldc * mdc * diffuse_factor * att * spot;
+			int diffuse_attspot = (int)ceilf(attspot * diffuse_factor + 1);
+			if (diffuse_attspot > 512)
+				diffuse_attspot = 512;
+			Vec4<int> ldc = Vec4<int>::FromRGBA(gstate.getDiffuseColor(light));
+			Vec4<int> mdc = (materialupdate & 2) ? vertex.color0 : Vec4<int>::FromRGBA(gstate.getMaterialDiffuse());
+			Vec4<int> ldiffuse = ((ldc * 2 + ones) * (mdc * 2 + ones) * diffuse_attspot) / (1024 * 512);
+			final_color += ldiffuse;
 		}
 
 		if (gstate.isUsingSpecularLight(light) && diffuse_factor >= 0.0f) {
 			Vec3<float> H = L + Vec3<float>(0.f, 0.f, 1.f);
-
-			Vec3<float> lsc = Vec3<float>::FromRGB(gstate.getSpecularColor(light));
-			Vec3<float> msc = (materialupdate & 4) ? vcol0 : Vec3<float>::FromRGB(gstate.getMaterialSpecular());
 
 			float specular_factor = Dot(H.NormalizedOr001(cpu_info.bSSE4_1), vertex.worldnormal);
 			float k = gstate.getMaterialSpecularCoef();
 			specular_factor = pspLightPow(specular_factor, k);
 
 			if (specular_factor > 0.f) {
-				specular_color += lsc * msc * specular_factor * att * spot;
+				int specular_attspot = (int)ceilf(attspot * specular_factor + 1);
+				if (specular_attspot > 512)
+					specular_attspot = 512;
+				Vec4<int> lsc = Vec4<int>::FromRGBA(gstate.getSpecularColor(light));
+				Vec4<int> msc = (materialupdate & 4) ? vertex.color0 : Vec4<int>::FromRGBA(gstate.getMaterialSpecular());
+				Vec4<int> lspecular = ((lsc * 2 + ones) * (msc * 2 + ones) * specular_attspot) / (1024 * 512);
+				specular_color += lspecular;
 			}
 		}
 	}
 
-	int maa = (materialupdate & 1) ? vertex.color0.a() : gstate.getMaterialAmbientA();
-	int final_alpha = (gstate.getAmbientA() * maa) / 255;
-
 	if (gstate.isUsingSecondaryColor()) {
-		Vec3<int> final_color_int = (final_color.Clamp(0.0f, 1.0f) * 255.0f).Cast<int>();
-		vertex.color0 = Vec4<int>(final_color_int, final_alpha);
-		vertex.color1 = (specular_color.Clamp(0.0f, 1.0f) * 255.0f).Cast<int>();
+		vertex.color0 = final_color.Clamp(0, 255);
+		vertex.color1 = specular_color.Clamp(0, 255).rgb();
 	} else {
-		Vec3<int> final_color_int = ((final_color + specular_color).Clamp(0.0f, 1.0f) * 255.0f).Cast<int>();
-		vertex.color0 = Vec4<int>(final_color_int, final_alpha);
+		vertex.color0 = (final_color + specular_color).Clamp(0, 255);
 	}
 }
 
