@@ -86,11 +86,13 @@ void Process(VertexData& vertex, bool hasColor) {
 		// TODO: Should this normalize (0, 0, 0) to (0, 0, 1)?
 		float d = L.NormalizeOr001();
 
-		float att = 1.f;
+		float att = 1.0f;
 		if (!gstate.isDirectionalLight(light)) {
-			att = 1.f / Dot(GetLightVec(gstate.latt, light), Vec3f(1.0f, d, d * d));
-			if (att > 1.f) att = 1.f;
-			if (att < 0.f) att = 0.f;
+			att = 1.0f / Dot(GetLightVec(gstate.latt, light), Vec3f(1.0f, d, d * d));
+			if (!(att > 0.0f))
+				att = 0.0f;
+			else if (att > 1.0f)
+				att = 1.0f;
 		}
 
 		float spot = 1.f;
