@@ -193,10 +193,10 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 			int xoff = ((v0.screenpos.x & 15) + 1) / 2;
 			int yoff = ((v0.screenpos.y & 15) + 1) / 2;
 
-			float dsf = 1.0f / (float)gstate.getTextureWidth(0);
-			float dtf = 1.0f / (float)gstate.getTextureHeight(0);
-			float sf_start = s_start * dsf;
-			float tf_start = t_start * dtf;
+			float dsf = ds * (1.0f / (float)gstate.getTextureWidth(0));
+			float dtf = dt * (1.0f / (float)gstate.getTextureHeight(0));
+			float sf_start = s_start * (1.0f / (float)gstate.getTextureWidth(0));
+			float tf_start = t_start * (1.0f / (float)gstate.getTextureHeight(0));
 
 			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
 				float t = tf_start + (y1 - pos0.y) * dtf;
