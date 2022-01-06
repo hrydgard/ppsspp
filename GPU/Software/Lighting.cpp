@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+#include <cmath>
 #include "Common/CPUDetect.h"
 #include "GPU/GPUState.h"
 #include "GPU/Software/Lighting.h"
@@ -95,16 +96,20 @@ void Process(VertexData& vertex, bool hasColor) {
 				att = 1.0f;
 		}
 
-		float spot = 1.f;
+		float spot = 1.0f;
 		if (gstate.isSpotLight(light)) {
 			Vec3<float> dir = GetLightVec(gstate.ldir, light);
-			float rawSpot = Dot(dir.NormalizedOr001(cpu_info.bSSE4_1), L);
+			float rawSpot = Dot(dir.Normalized(cpu_info.bSSE4_1), L);
+			if (isnan(rawSpot))
+				rawSpot = 1.0f;
 			float cutoff = getFloat24(gstate.lcutoff[light]);
 			if (rawSpot >= cutoff) {
 				float conv = getFloat24(gstate.lconv[light]);
 				spot = pspLightPow(rawSpot, conv);
+				if (isnan(spot))
+					spot = 0.0f;
 			} else {
-				spot = 0.f;
+				spot = 0.0f;
 			}
 		}
 
