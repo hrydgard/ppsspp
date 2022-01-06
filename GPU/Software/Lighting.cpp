@@ -34,7 +34,7 @@ static inline Vec3f GetLightVec(u32 lparams[12], int light) {
 }
 
 static inline float pspLightPow(float v, float e) {
-	if (e <= 0.0f) {
+	if (e <= 0.0f || (std::isnan(e) && std::signbit(e))) {
 		return 1.0f;
 	}
 	if (v > 0.0f) {
@@ -100,13 +100,15 @@ void Process(VertexData& vertex, bool hasColor) {
 		if (gstate.isSpotLight(light)) {
 			Vec3<float> dir = GetLightVec(gstate.ldir, light);
 			float rawSpot = Dot(dir.Normalized(cpu_info.bSSE4_1), L);
-			if (isnan(rawSpot))
-				rawSpot = 1.0f;
+			if (std::isnan(rawSpot))
+				rawSpot = std::signbit(rawSpot) ? 0.0f : 1.0f;
 			float cutoff = getFloat24(gstate.lcutoff[light]);
+			if (std::isnan(cutoff) && std::signbit(cutoff))
+				cutoff = 0.0f;
 			if (rawSpot >= cutoff) {
 				float conv = getFloat24(gstate.lconv[light]);
 				spot = pspLightPow(rawSpot, conv);
-				if (isnan(spot))
+				if (std::isnan(spot))
 					spot = 0.0f;
 			} else {
 				spot = 0.0f;
@@ -128,10 +130,8 @@ void Process(VertexData& vertex, bool hasColor) {
 			diffuse_factor = pspLightPow(diffuse_factor, k);
 		}
 
-		if (diffuse_factor > 0.f) {
+		if (diffuse_factor > 0.0f) {
 			int diffuse_attspot = (int)ceilf(attspot * diffuse_factor + 1);
-			if (diffuse_attspot > 512)
-				diffuse_attspot = 512;
 			Vec4<int> ldc = Vec4<int>::FromRGBA(gstate.getDiffuseColor(light));
 			Vec4<int> mdc = (materialupdate & 2) ? vertex.color0 : Vec4<int>::FromRGBA(gstate.getMaterialDiffuse());
 			Vec4<int> ldiffuse = ((ldc * 2 + ones) * (mdc * 2 + ones) * diffuse_attspot) / (1024 * 512);
