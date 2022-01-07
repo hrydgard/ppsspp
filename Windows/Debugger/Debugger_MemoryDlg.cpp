@@ -121,7 +121,7 @@ void CMemoryDlg::searchBoxRedraw(std::vector<u32> results) {
 	wchar_t temp[256]{};
 	SendMessage(srcListHdl, WM_SETREDRAW, FALSE, 0);
 	ListBox_ResetContent(srcListHdl);
-	for (int i = 0; i < results.size(); i++) {
+	for (size_t i = 0; i < results.size(); i++) {
 		wsprintf(temp, L"0x%08X", results[i]);
 		int index = (int)ListBox_AddString(srcListHdl, temp);
 		ListBox_SetItemData(srcListHdl, index, results[i]);

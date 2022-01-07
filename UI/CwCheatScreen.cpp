@@ -358,7 +358,7 @@ bool CwCheatScreen::RebuildCheatFile(int index) {
 		return false;
 	}
 
-	for (int i = 0; i < lines.size(); ++i) {
+	for (size_t i = 0; i < lines.size(); ++i) {
 		fprintf(out, "%s", lines[i].c_str());
 		if (i != lines.size() - 1)
 			fputc('\n', out);

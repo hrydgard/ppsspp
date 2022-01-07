@@ -175,7 +175,7 @@ void SingleControlMapper::MappedCallback(KeyDef kdf) {
 		bool success = KeyMap::ReplaceSingleKeyMapping(pspKey_, actionIndex_, kdf);
 		if (!success) {
 			replaceAllButton_->SetFocus(); // Last got removed as a duplicate
-		} else if (actionIndex_ < rows_.size()) {
+		} else if (actionIndex_ < (int)rows_.size()) {
 			rows_[actionIndex_]->SetFocus();
 		} else {
 			SetFocus();
@@ -223,7 +223,7 @@ UI::EventReturn SingleControlMapper::OnDelete(UI::EventParams &params) {
 	KeyMap::g_controllerMap[pspKey_].erase(KeyMap::g_controllerMap[pspKey_].begin() + index);
 	KeyMap::g_controllerMapGeneration++;
 
-	if (index + 1 < rows_.size())
+	if (index + 1 < (int)rows_.size())
 		rows_[index]->SetFocus();
 	else
 		SetFocus();
