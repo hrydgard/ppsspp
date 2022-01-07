@@ -131,7 +131,9 @@ void Process(VertexData& vertex, bool hasColor) {
 		}
 
 		if (diffuse_factor > 0.0f) {
-			int diffuse_attspot = (int)ceilf(attspot * diffuse_factor + 1);
+			int diffuse_attspot = (int)ceilf(256 * 2 * att * spot * diffuse_factor + 1);
+			if (diffuse_attspot > 512)
+				diffuse_attspot = 512;
 			Vec4<int> ldc = Vec4<int>::FromRGBA(gstate.getDiffuseColor(light));
 			Vec4<int> mdc = (materialupdate & 2) ? vertex.color0 : Vec4<int>::FromRGBA(gstate.getMaterialDiffuse());
 			Vec4<int> ldiffuse = ((ldc * 2 + ones) * (mdc * 2 + ones) * diffuse_attspot) / (1024 * 512);
@@ -145,8 +147,8 @@ void Process(VertexData& vertex, bool hasColor) {
 			float k = gstate.getMaterialSpecularCoef();
 			specular_factor = pspLightPow(specular_factor, k);
 
-			if (specular_factor > 0.f) {
-				int specular_attspot = (int)ceilf(attspot * specular_factor + 1);
+			if (specular_factor > 0.0f) {
+				int specular_attspot = (int)ceilf(256 * 2 * att * spot * specular_factor + 1);
 				if (specular_attspot > 512)
 					specular_attspot = 512;
 				Vec4<int> lsc = Vec4<int>::FromRGBA(gstate.getSpecularColor(light));
