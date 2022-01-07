@@ -671,7 +671,7 @@ protected:
 	float MeasureWidth(const char *str, size_t bytes) override {
 		// Simple case for unit testing.
 		int w = 0;
-		for (UTF8 utf(str); !utf.end() && utf.byteIndex() < bytes; ) {
+		for (UTF8 utf(str); !utf.end() && (size_t)utf.byteIndex() < bytes; ) {
 			uint32_t c = utf.next();
 			switch (c) {
 			case ' ':

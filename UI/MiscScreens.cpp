@@ -525,7 +525,7 @@ void PostProcScreen::CreateViews() {
 	shaders_ = GetAllPostShaderInfo();
 	std::vector<std::string> items;
 	int selected = -1;
-	const std::string selectedName = id_ >= g_Config.vPostShaderNames.size() ? "Off" : g_Config.vPostShaderNames[id_];
+	const std::string selectedName = id_ >= (int)g_Config.vPostShaderNames.size() ? "Off" : g_Config.vPostShaderNames[id_];
 	for (int i = 0; i < (int)shaders_.size(); i++) {
 		if (!shaders_[i].visible)
 			continue;
@@ -541,7 +541,7 @@ void PostProcScreen::OnCompleted(DialogResult result) {
 	if (result != DR_OK)
 		return;
 	const std::string &value = shaders_[listView_->GetSelected()].section;
-	if (id_ < g_Config.vPostShaderNames.size())
+	if (id_ < (int)g_Config.vPostShaderNames.size())
 		g_Config.vPostShaderNames[id_] = value;
 	else
 		g_Config.vPostShaderNames.push_back(value);
