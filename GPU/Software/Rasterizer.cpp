@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "Common/CPUDetect.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/StringUtils.h"
@@ -39,6 +40,10 @@
 
 #if defined(_M_SSE)
 #include <emmintrin.h>
+#endif
+
+#if _M_SSE >= 0x401
+#include <smmintrin.h>
 #endif
 
 namespace Rasterizer {
@@ -565,16 +570,21 @@ static inline void ApplyTexturing(Sampler::Funcs sampler, Vec4<int> *prim_color,
 	}
 }
 
+template <bool useSSE4>
 struct TriangleEdge {
 	Vec4<int> Start(const ScreenCoords &v0, const ScreenCoords &v1, const ScreenCoords &origin);
 	inline Vec4<int> StepX(const Vec4<int> &w);
 	inline Vec4<int> StepY(const Vec4<int> &w);
 
+	inline void NarrowMinMaxX(const Vec4<int> &w, int64_t minX, int64_t &rowMinX, int64_t &rowMaxX);
+	inline Vec4<int> StepXTimes(const Vec4<int> &w, int c);
+
 	Vec4<int> stepX;
 	Vec4<int> stepY;
 };
 
-Vec4<int> TriangleEdge::Start(const ScreenCoords &v0, const ScreenCoords &v1, const ScreenCoords &origin) {
+template <bool useSSE4>
+Vec4<int> TriangleEdge<useSSE4>::Start(const ScreenCoords &v0, const ScreenCoords &v1, const ScreenCoords &origin) {
 	// Start at pixel centers.
 	Vec4<int> initX = Vec4<int>::AssignToAll(origin.x) + Vec4<int>(7, 23, 7, 23);
 	Vec4<int> initY = Vec4<int>::AssignToAll(origin.y) + Vec4<int>(7, 7, 23, 23);
@@ -587,10 +597,18 @@ Vec4<int> TriangleEdge::Start(const ScreenCoords &v0, const ScreenCoords &v1, co
 	stepX = Vec4<int>::AssignToAll(xf * 16 * 2);
 	stepY = Vec4<int>::AssignToAll(yf * 16 * 2);
 
+#if defined(_M_SSE) && !PPSSPP_ARCH(X86) && _M_SSE >= 0x401
+	if (useSSE4) {
+		initX.ivec = _mm_mullo_epi32(initX.ivec, _mm_set1_epi32(xf));
+		initY.ivec = _mm_mullo_epi32(initY.ivec, _mm_set1_epi32(yf));
+		return _mm_add_epi32(_mm_add_epi32(initX.ivec, initY.ivec), _mm_set1_epi32(c));
+	}
+#endif
 	return Vec4<int>::AssignToAll(xf) * initX + Vec4<int>::AssignToAll(yf) * initY + Vec4<int>::AssignToAll(c);
 }
 
-inline Vec4<int> TriangleEdge::StepX(const Vec4<int> &w) {
+template <bool useSSE4>
+inline Vec4<int> TriangleEdge<useSSE4>::StepX(const Vec4<int> &w) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
 	return _mm_add_epi32(w.ivec, stepX.ivec);
 #else
@@ -598,12 +616,51 @@ inline Vec4<int> TriangleEdge::StepX(const Vec4<int> &w) {
 #endif
 }
 
-inline Vec4<int> TriangleEdge::StepY(const Vec4<int> &w) {
+template <bool useSSE4>
+inline Vec4<int> TriangleEdge<useSSE4>::StepY(const Vec4<int> &w) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
 	return _mm_add_epi32(w.ivec, stepY.ivec);
 #else
 	return w + stepY;
 #endif
+}
+
+template <bool useSSE4>
+void TriangleEdge<useSSE4>::NarrowMinMaxX(const Vec4<int> &w, int64_t minX, int64_t &rowMinX, int64_t &rowMaxX) {
+	int wmax;
+#if defined(_M_SSE) && !PPSSPP_ARCH(X86) && _M_SSE >= 0x401
+	if (useSSE4) {
+		__m128i max01 = _mm_max_epi32(w.ivec, _mm_shuffle_epi32(w.ivec, _MM_SHUFFLE(3, 2, 3, 2)));
+		__m128i max0 = _mm_max_epi32(max01, _mm_shuffle_epi32(max01, _MM_SHUFFLE(1, 1, 1, 1)));
+		wmax = _mm_cvtsi128_si32(max0);
+	} else {
+		wmax = std::max(std::max(w.x, w.y), std::max(w.z, w.w));
+	}
+#else
+	wmax = std::max(std::max(w.x, w.y), std::max(w.z, w.w));
+#endif
+	if (wmax < 0) {
+		if (stepX.x > 0) {
+			int steps = -wmax / stepX.x;
+			rowMinX = std::max(rowMinX, minX + steps * 16 * 2);
+		} else if (stepX.x <= 0) {
+			rowMinX = rowMaxX + 1;
+		}
+	}
+
+	if (wmax >= 0 && stepX.x < 0) {
+		int steps = (-wmax / stepX.x) + 1;
+		rowMaxX = std::min(rowMaxX, minX + steps * 16 * 2);
+	}
+}
+
+template <bool useSSE4>
+inline Vec4<int> TriangleEdge<useSSE4>::StepXTimes(const Vec4<int> &w, int c) {
+#if defined(_M_SSE) && !PPSSPP_ARCH(X86) && _M_SSE >= 0x401
+	if (useSSE4)
+		return _mm_add_epi32(w.ivec, _mm_mullo_epi32(_mm_set1_epi32(c), stepX.ivec));
+#endif
+	return w + stepX * c;
 }
 
 static inline Vec4<int> MakeMask(const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<int> &bias0, const Vec4<int> &bias1, const Vec4<int> &bias2, const Vec4<int> &scissor) {
@@ -618,8 +675,16 @@ static inline Vec4<int> MakeMask(const Vec4<int> &w0, const Vec4<int> &w1, const
 #endif
 }
 
+template <bool useSSE4>
 static inline bool AnyMask(const Vec4<int> &mask) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
+#if _M_SSE >= 0x401
+	if (useSSE4) {
+		__m128i sig = _mm_srai_epi32(mask.ivec, 31);
+		return _mm_test_all_ones(sig) == 0;
+	}
+#endif
+
 	// In other words: !(mask.x < 0 && mask.y < 0 && mask.z < 0 && mask.w < 0)
 	__m128i low2 = _mm_and_si128(mask.ivec, _mm_shuffle_epi32(mask.ivec, _MM_SHUFFLE(3, 2, 3, 2)));
 	__m128i low1 = _mm_and_si128(low2, _mm_shuffle_epi32(low2, _MM_SHUFFLE(1, 1, 1, 1)));
@@ -640,7 +705,7 @@ static inline Vec4<float> EdgeRecip(const Vec4<int> &w0, const Vec4<int> &w1, co
 #endif
 }
 
-template <bool clearMode>
+template <bool clearMode, bool useSSE4>
 void DrawTriangleSlice(
 	const VertexData& v0, const VertexData& v1, const VertexData& v2,
 	int x1, int y1, int x2, int y2,
@@ -673,9 +738,9 @@ void DrawTriangleSlice(
 		}
 	}
 
-	TriangleEdge e0;
-	TriangleEdge e1;
-	TriangleEdge e2;
+	TriangleEdge<useSSE4> e0;
+	TriangleEdge<useSSE4> e1;
+	TriangleEdge<useSSE4> e2;
 
 	int64_t minX = x1, maxX = x2, minY = y1, maxY = y2;
 
@@ -709,14 +774,25 @@ void DrawTriangleSlice(
 		Vec4<int> w1 = w1_base;
 		Vec4<int> w2 = w2_base;
 
-		// TODO: Maybe we can clip the edges instead?
-		int scissorYPlus1 = curY + 16 > maxY ? -1 : 0;
-		Vec4<int> scissor_mask = Vec4<int>(0, maxX - minX - 16, scissorYPlus1, (maxX - minX - 16) | scissorYPlus1);
-		Vec4<int> scissor_step = Vec4<int>(0, -32, 0, -32);
-
 		DrawingCoords p = TransformUnit::ScreenToDrawing(ScreenCoords(minX, curY, 0));
 
-		for (int64_t curX = minX; curX <= maxX; curX += 32,
+		int64_t rowMinX = minX, rowMaxX = maxX;
+		e0.NarrowMinMaxX(w0, minX, rowMinX, rowMaxX);
+		e1.NarrowMinMaxX(w1, minX, rowMinX, rowMaxX);
+		e2.NarrowMinMaxX(w2, minX, rowMinX, rowMaxX);
+
+		int skipX = (rowMinX - minX) / 32;
+		w0 = e0.StepXTimes(w0, skipX);
+		w1 = e1.StepXTimes(w1, skipX);
+		w2 = e2.StepXTimes(w2, skipX);
+		p.x = (p.x + 2 * skipX) & 0x3FF;
+
+		// TODO: Maybe we can clip the edges instead?
+		int scissorYPlus1 = curY + 16 > maxY ? -1 : 0;
+		Vec4<int> scissor_mask = Vec4<int>(0, rowMaxX - rowMinX - 16, scissorYPlus1, (rowMaxX - rowMinX - 16) | scissorYPlus1);
+		Vec4<int> scissor_step = Vec4<int>(0, -32, 0, -32);
+
+		for (int64_t curX = rowMinX; curX <= rowMaxX; curX += 32,
 			w0 = e0.StepX(w0),
 			w1 = e1.StepX(w1),
 			w2 = e2.StepX(w2),
@@ -725,7 +801,7 @@ void DrawTriangleSlice(
 
 			// If p is on or inside all edges, render pixel
 			Vec4<int> mask = MakeMask(w0, w1, w2, bias0, bias1, bias2, scissor_mask);
-			if (AnyMask(mask)) {
+			if (AnyMask<useSSE4>(mask)) {
 				Vec4<float> wsum_recip = EdgeRecip(w0, w1, w2);
 
 				Vec4<int> prim_color[4];
@@ -879,7 +955,9 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	Rasterizer::SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID);
 	Sampler::Funcs sampler = Sampler::GetFuncs();
 
-	auto drawSlice = gstate.isModeClear() ? &DrawTriangleSlice<true> : &DrawTriangleSlice<false>;
+	auto drawSlice = cpu_info.bSSE4_1 ?
+		(gstate.isModeClear() ? &DrawTriangleSlice<true, true> : &DrawTriangleSlice<false, true>) :
+		(gstate.isModeClear() ? &DrawTriangleSlice<true, false> : &DrawTriangleSlice<false, false>);
 
 	const int MIN_LINES_PER_THREAD = 4;
 
