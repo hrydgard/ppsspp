@@ -227,7 +227,8 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_
 		vertex.screenpos = ClipToScreenInternal(vertex.clippos, &outside_range_flag);
 
 		if (vreader.hasNormal()) {
-			vertex.worldnormal = TransformUnit::ModelToWorldNormal(vertex.normal).NormalizedOr001(cpu_info.bSSE4_1);
+			vertex.worldnormal = TransformUnit::ModelToWorldNormal(vertex.normal);
+			vertex.worldnormal.NormalizeOr001();
 		} else {
 			vertex.worldnormal = Vec3<float>(0.0f, 0.0f, 1.0f);
 		}
