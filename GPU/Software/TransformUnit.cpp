@@ -67,29 +67,20 @@ VertexDecoder *SoftwareDrawEngine::FindVertexDecoder(u32 vtype) {
 	return DrawEngineCommon::GetVertexDecoder(vertTypeID);
 }
 
-WorldCoords TransformUnit::ModelToWorld(const ModelCoords& coords)
-{
-	Mat3x3<float> world_matrix(gstate.worldMatrix);
-	return WorldCoords(world_matrix * coords) + Vec3<float>(gstate.worldMatrix[9], gstate.worldMatrix[10], gstate.worldMatrix[11]);
+WorldCoords TransformUnit::ModelToWorld(const ModelCoords &coords) {
+	return Vec3ByMatrix43(coords, gstate.worldMatrix);
 }
 
-WorldCoords TransformUnit::ModelToWorldNormal(const ModelCoords& coords)
-{
-	Mat3x3<float> world_matrix(gstate.worldMatrix);
-	return WorldCoords(world_matrix * coords);
+WorldCoords TransformUnit::ModelToWorldNormal(const ModelCoords &coords) {
+	return Norm3ByMatrix43(coords, gstate.worldMatrix);
 }
 
-ViewCoords TransformUnit::WorldToView(const WorldCoords& coords)
-{
-	Mat3x3<float> view_matrix(gstate.viewMatrix);
-	return ViewCoords(view_matrix * coords) + Vec3<float>(gstate.viewMatrix[9], gstate.viewMatrix[10], gstate.viewMatrix[11]);
+ViewCoords TransformUnit::WorldToView(const WorldCoords &coords) {
+	return Vec3ByMatrix43(coords, gstate.viewMatrix);
 }
 
-ClipCoords TransformUnit::ViewToClip(const ViewCoords& coords)
-{
-	Vec4<float> coords4(coords.x, coords.y, coords.z, 1.0f);
-	Mat4x4<float> projection_matrix(gstate.projMatrix);
-	return ClipCoords(projection_matrix * coords4);
+ClipCoords TransformUnit::ViewToClip(const ViewCoords &coords) {
+	return Vec3ByMatrix44(coords, gstate.projMatrix);
 }
 
 static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool *outside_range_flag) {
@@ -161,20 +152,16 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_
 	PROFILE_THIS_SCOPE("read_vert");
 	VertexData vertex;
 
-	float pos[3];
+	ModelCoords pos;
 	// VertexDecoder normally scales z, but we want it unscaled.
-	vreader.ReadPosThroughZ16(pos);
+	vreader.ReadPosThroughZ16(pos.AsArray());
 
 	if (!gstate.isModeClear() && gstate.isTextureMapEnabled() && vreader.hasUV()) {
-		float uv[2];
-		vreader.ReadUV(uv);
-		vertex.texturecoords = Vec2<float>(uv[0], uv[1]);
+		vreader.ReadUV(vertex.texturecoords.AsArray());
 	}
 
 	if (vreader.hasNormal()) {
-		float normal[3];
-		vreader.ReadNrm(normal);
-		vertex.normal = Vec3<float>(normal[0], normal[1], normal[2]);
+		vreader.ReadNrm(vertex.normal.AsArray());
 
 		if (gstate.areNormalsReversed())
 			vertex.normal = -vertex.normal;
@@ -188,15 +175,15 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_
 		Vec3<float> tmpnrm(0.f, 0.f, 0.f);
 
 		for (int i = 0; i < vertTypeGetNumBoneWeights(gstate.vertType); ++i) {
-			Mat3x3<float> bone(&gstate.boneMatrix[12*i]);
-			tmppos += (bone * ModelCoords(pos[0], pos[1], pos[2]) + Vec3<float>(gstate.boneMatrix[12*i+9], gstate.boneMatrix[12*i+10], gstate.boneMatrix[12*i+11])) * W[i];
-			if (vreader.hasNormal())
-				tmpnrm += (bone * vertex.normal) * W[i];
+			Vec3<float> step = Vec3ByMatrix43(pos, gstate.boneMatrix + i * 12);
+			tmppos += step * W[i];
+			if (vreader.hasNormal()) {
+				step = Norm3ByMatrix43(vertex.normal, gstate.boneMatrix + i * 12);
+				tmpnrm += step * W[i];
+			}
 		}
 
-		pos[0] = tmppos.x;
-		pos[1] = tmppos.y;
-		pos[2] = tmppos.z;
+		pos = tmppos;
 		if (vreader.hasNormal())
 			vertex.normal = tmpnrm;
 	}
@@ -206,7 +193,7 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_
 		vreader.ReadColor0(col);
 		vertex.color0 = Vec4<int>(col[0]*255, col[1]*255, col[2]*255, col[3]*255);
 	} else {
-		vertex.color0 = Vec4<int>(gstate.getMaterialAmbientR(), gstate.getMaterialAmbientG(), gstate.getMaterialAmbientB(), gstate.getMaterialAmbientA());
+		vertex.color0 = Vec4<int>::FromRGBA(gstate.getMaterialAmbientRGBA());
 	}
 
 	if (vreader.hasColor1()) {
@@ -218,7 +205,7 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_
 	}
 
 	if (!gstate.isModeThrough()) {
-		vertex.modelpos = ModelCoords(pos[0], pos[1], pos[2]);
+		vertex.modelpos = pos;
 		vertex.worldpos = WorldCoords(TransformUnit::ModelToWorld(vertex.modelpos));
 		ModelCoords viewpos = TransformUnit::WorldToView(vertex.worldpos);
 		vertex.clippos = ClipCoords(TransformUnit::ViewToClip(viewpos));
@@ -241,7 +228,7 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_
 
 		if (vreader.hasNormal()) {
 			vertex.worldnormal = TransformUnit::ModelToWorldNormal(vertex.normal);
-			vertex.worldnormal /= vertex.worldnormal.Length();
+			vertex.worldnormal.NormalizeOr001();
 		} else {
 			vertex.worldnormal = Vec3<float>(0.0f, 0.0f, 1.0f);
 		}
@@ -273,14 +260,16 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_
 			}
 
 			// TODO: What about uv scale and offset?
-			Mat3x3<float> tgen(gstate.tgenMatrix);
-			Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
+			Vec3<float> stq = Vec3ByMatrix43(source, gstate.tgenMatrix);
 			float z_recip = 1.0f / stq.z;
 			vertex.texturecoords = Vec2f(stq.x * z_recip, stq.y * z_recip);
+		} else if (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
+			Lighting::GenerateLightST(vertex);
 		}
 
 		PROFILE_THIS_SCOPE("light");
-		Lighting::Process(vertex, vreader.hasColor0());
+		if (gstate.isLightingEnabled())
+			Lighting::Process(vertex, vreader.hasColor0());
 	} else {
 		vertex.screenpos.x = (int)(pos[0] * 16) + gstate.getOffsetX16();
 		vertex.screenpos.y = (int)(pos[1] * 16) + gstate.getOffsetY16();
