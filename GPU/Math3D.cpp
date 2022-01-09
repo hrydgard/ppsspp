@@ -114,7 +114,9 @@ __m128 SSENormalizeMultiplierSSE2(__m128 v)
 	return _mm_shuffle_ps(rt, rt, _MM_SHUFFLE(0, 0, 0, 0));
 }
 
-#if _M_SSE >= 0x401
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+[[gnu::target("sse4.1")]]
+#endif
 __m128 SSENormalizeMultiplierSSE4(__m128 v)
 {
 	return _mm_rsqrt_ps(_mm_dp_ps(v, v, 0xFF));
@@ -126,12 +128,7 @@ __m128 SSENormalizeMultiplier(bool useSSE4, __m128 v)
 		return SSENormalizeMultiplierSSE4(v);
 	return SSENormalizeMultiplierSSE2(v);
 }
-#else
-__m128 SSENormalizeMultiplier(bool useSSE4, __m128 v)
-{
-	return SSENormalizeMultiplierSSE2(v);
-}
-#endif
+
 template<>
 Vec3<float> Vec3<float>::Normalized(bool useSSE4) const
 {

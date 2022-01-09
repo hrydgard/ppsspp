@@ -31,7 +31,8 @@
 #include "Common/CPUDetect.h"
 #include "ext/xbrz/xbrz.h"
 
-#if _M_SSE >= 0x401
+#if defined(_M_SSE)
+#include <emmintrin.h>
 #include <smmintrin.h>
 #endif
 
@@ -281,9 +282,12 @@ void scaleBicubicT(u32* data, u32* out, int w, int h, int l, int u) {
 		}
 	}
 }
-#if _M_SSE >= 0x401
+#if defined(_M_SSE)
 template<int f, int T>
-void scaleBicubicTSSE41(u32* data, u32* out, int w, int h, int l, int u) {
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+[[gnu::target("sse4.1")]]
+#endif
+static void scaleBicubicTSSE41(u32* data, u32* out, int w, int h, int l, int u) {
 	int outw = w*f;
 	for (int yb = 0; yb < (u - l)*f / BLOCK_SIZE + 1; ++yb) {
 		for (int xb = 0; xb < w*f / BLOCK_SIZE + 1; ++xb) {
@@ -321,7 +325,7 @@ void scaleBicubicTSSE41(u32* data, u32* out, int w, int h, int l, int u) {
 #endif
 
 void scaleBicubicBSpline(int factor, u32* data, u32* out, int w, int h, int l, int u) {
-#if _M_SSE >= 0x401
+#if defined(_M_SSE)
 	if (cpu_info.bSSE4_1) {
 		switch (factor) {
 		case 2: scaleBicubicTSSE41<2, 0>(data, out, w, h, l, u); break; // when I first tested this, 
@@ -339,13 +343,13 @@ void scaleBicubicBSpline(int factor, u32* data, u32* out, int w, int h, int l, i
 		case 5: scaleBicubicT<5, 0>(data, out, w, h, l, u); break; // any of these break statements
 		default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 5");
 		}
-#if _M_SSE >= 0x401
+#if defined(_M_SSE)
 	}
 #endif
 }
 
 void scaleBicubicMitchell(int factor, u32* data, u32* out, int w, int h, int l, int u) {
-#if _M_SSE >= 0x401
+#if defined(_M_SSE)
 	if (cpu_info.bSSE4_1) {
 		switch (factor) {
 		case 2: scaleBicubicTSSE41<2, 1>(data, out, w, h, l, u); break;
@@ -363,7 +367,7 @@ void scaleBicubicMitchell(int factor, u32* data, u32* out, int w, int h, int l, 
 		case 5: scaleBicubicT<5, 1>(data, out, w, h, l, u); break;
 		default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 5");
 		}
-#if _M_SSE >= 0x401
+#if defined(_M_SSE)
 	}
 #endif
 }
