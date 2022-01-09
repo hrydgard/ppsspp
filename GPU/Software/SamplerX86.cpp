@@ -1578,6 +1578,8 @@ bool SamplerJitCache::Jit_ApplyTextureFunc(const SamplerID &id) {
 				PSRLW(resultReg, 7);
 			else
 				PSRLW(resultReg, 8);
+		} else if (id.useColorDoubling) {
+			PSLLW(resultReg, 1);
 		}
 		useAlphaFrom(primColorReg);
 		break;
