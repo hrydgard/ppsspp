@@ -1701,19 +1701,19 @@ bool SamplerJitCache::Jit_ReadTextureFormat(const SamplerID &id) {
 	case GE_TFMT_5650:
 		success = Jit_GetTexData(id, 16);
 		if (success)
-			success = Jit_Decode5650();
+			success = Jit_Decode5650(id);
 		break;
 
 	case GE_TFMT_5551:
 		success = Jit_GetTexData(id, 16);
 		if (success)
-			success = Jit_Decode5551();
+			success = Jit_Decode5551(id);
 		break;
 
 	case GE_TFMT_4444:
 		success = Jit_GetTexData(id, 16);
 		if (success)
-			success = Jit_Decode4444();
+			success = Jit_Decode4444(id);
 		break;
 
 	case GE_TFMT_8888:
@@ -3102,7 +3102,7 @@ bool SamplerJitCache::Jit_Decode5650Quad(const SamplerID &id, Rasterizer::RegCac
 	return true;
 }
 
-bool SamplerJitCache::Jit_Decode5650() {
+bool SamplerJitCache::Jit_Decode5650(const SamplerID &id) {
 	Describe("5650");
 	X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
 	X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
@@ -3125,7 +3125,8 @@ bool SamplerJitCache::Jit_Decode5650() {
 	AND(32, R(temp2Reg), Imm32(0x00FF00FF));
 
 	// Now's as good a time to put in A as any.
-	OR(32, R(temp2Reg), Imm32(0xFF000000));
+	if (id.useTextureAlpha || id.fetch)
+		OR(32, R(temp2Reg), Imm32(0xFF000000));
 
 	// Last, we need to align, extract, and expand G.
 	// 3 to align to G, and then 2 to expand to 8.
@@ -3172,7 +3173,7 @@ bool SamplerJitCache::Jit_Decode5551Quad(const SamplerID &id, Rasterizer::RegCac
 	// First, extend alpha using an arithmetic shift.
 	// We use 10 to meanwhile get rid of green too.  The extra alpha bits are fine.
 	PSRAW(quadReg, 10);
-	// This gets rid of those extra alpha bits.
+	// This gets rid of those extra alpha bits and puts blue in place too.
 	PSLLD(quadReg, 19);
 
 	// Combine both together, we still need to swizzle.
@@ -3194,7 +3195,7 @@ bool SamplerJitCache::Jit_Decode5551Quad(const SamplerID &id, Rasterizer::RegCac
 	return true;
 }
 
-bool SamplerJitCache::Jit_Decode5551() {
+bool SamplerJitCache::Jit_Decode5551(const SamplerID &id) {
 	Describe("5551");
 	X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
 	X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
@@ -3220,14 +3221,15 @@ bool SamplerJitCache::Jit_Decode5551() {
 	AND(32, R(temp1Reg), Imm32(0x00070707));
 	OR(32, R(temp2Reg), R(temp1Reg));
 
-	// For A, we shift it to a single bit, and then subtract and XOR.
-	// That's probably the simplest way to expand it...
-	SHR(32, R(resultReg), Imm8(15));
-	// If it was 0, it's now -1, otherwise it's 0.  Easy.
-	SUB(32, R(resultReg), Imm8(1));
-	XOR(32, R(resultReg), Imm32(0xFF000000));
-	AND(32, R(resultReg), Imm32(0xFF000000));
-	OR(32, R(resultReg), R(temp2Reg));
+	if (id.useTextureAlpha || id.fetch) {
+		// For A, we sign extend to get either 16 1s or 0s of alpha.
+		SAR(16, R(resultReg), Imm8(15));
+		// Now, shift left by 24 to get the lowest 8 of those at the top.
+		SHL(32, R(resultReg), Imm8(24));
+		OR(32, R(resultReg), R(temp2Reg));
+	} else {
+		MOV(32, R(resultReg), R(temp2Reg));
+	}
 
 	regCache_.Release(temp1Reg, RegCache::GEN_TEMP1);
 	regCache_.Release(temp2Reg, RegCache::GEN_TEMP2);
@@ -3301,7 +3303,7 @@ bool SamplerJitCache::Jit_Decode4444Quad(const SamplerID &id, Rasterizer::RegCac
 
 alignas(16) static const u32 color4444mask[4] = { 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, };
 
-bool SamplerJitCache::Jit_Decode4444() {
+bool SamplerJitCache::Jit_Decode4444(const SamplerID &id) {
 	Describe("4444");
 	X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
 	X64Reg vecTemp1Reg = regCache_.Alloc(RegCache::VEC_TEMP1);
@@ -3446,13 +3448,13 @@ bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
 
 	switch (id.ClutFmt()) {
 	case GE_CMODE_16BIT_BGR5650:
-		return Jit_Decode5650();
+		return Jit_Decode5650(id);
 
 	case GE_CMODE_16BIT_ABGR5551:
-		return Jit_Decode5551();
+		return Jit_Decode5551(id);
 
 	case GE_CMODE_16BIT_ABGR4444:
-		return Jit_Decode4444();
+		return Jit_Decode4444(id);
 
 	case GE_CMODE_32BIT_ABGR8888:
 		return true;

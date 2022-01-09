@@ -88,9 +88,9 @@ private:
 	bool Jit_GetTexData(const SamplerID &id, int bitsPerTexel);
 	bool Jit_GetTexDataSwizzled(const SamplerID &id, int bitsPerTexel);
 	bool Jit_GetTexDataSwizzled4(const SamplerID &id);
-	bool Jit_Decode5650();
-	bool Jit_Decode5551();
-	bool Jit_Decode4444();
+	bool Jit_Decode5650(const SamplerID &id);
+	bool Jit_Decode5551(const SamplerID &id);
+	bool Jit_Decode4444(const SamplerID &id);
 	bool Jit_TransformClutIndex(const SamplerID &id, int bitsPerIndex);
 	bool Jit_ReadClutColor(const SamplerID &id);
 	bool Jit_GetDXT1Color(const SamplerID &id, int blockSize, int alpha);
