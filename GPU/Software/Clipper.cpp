@@ -244,10 +244,10 @@ void ProcessRect(const VertexData& v0, const VertexData& v1)
 			Rasterizer::ClearRectangle(v0, v1);
 		} else {
 			// Four triangles to do backfaces as well. Two of them will get backface culled.
-			Rasterizer::DrawTriangle(*topleft, *topright, *bottomright);
-			Rasterizer::DrawTriangle(*bottomright, *topright, *topleft);
-			Rasterizer::DrawTriangle(*bottomright, *bottomleft, *topleft);
-			Rasterizer::DrawTriangle(*topleft, *bottomleft, *bottomright);
+			Rasterizer::DrawTriangle(*topleft, *topright, *bottomleft);
+			Rasterizer::DrawTriangle(*bottomleft, *topright, *topleft);
+			Rasterizer::DrawTriangle(*topright, *bottomright, *bottomleft);
+			Rasterizer::DrawTriangle(*bottomleft, *bottomright, *topright);
 		}
 	}
 }
