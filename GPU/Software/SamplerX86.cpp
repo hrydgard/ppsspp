@@ -3087,8 +3087,15 @@ bool SamplerJitCache::Jit_Decode5650Quad(const SamplerID &id, Rasterizer::RegCac
 	// Now shift and mask temp2 for swizzle.
 	PSRLD(temp2Reg, 6);
 	PAND(temp2Reg, M(const5650Swizzle_));
-	// And then OR that in too.  We're done.
+	// And then OR that in too.  Only alpha left now.
 	POR(quadReg, R(temp2Reg));
+
+	if (id.useTextureAlpha) {
+		// Just put a fixed FF in.  Maybe we could even avoid this and act like it's FF later...
+		PCMPEQD(temp2Reg, R(temp2Reg));
+		PSLLD(temp2Reg, 24);
+		POR(quadReg, R(temp2Reg));
+	}
 
 	regCache_.Release(temp1Reg, RegCache::VEC_TEMP1);
 	regCache_.Release(temp2Reg, RegCache::VEC_TEMP2);
