@@ -506,6 +506,22 @@ handleELF:
 			break;
 		}
 
+		case IdentifiedFileType::PPSSPP_GE_DUMP:
+		{
+			std::lock_guard<std::mutex> guard(info_->lock);
+
+			// Let's use the comparison screenshot as an icon, if it exists.
+			Path screenshotPath = gamePath_.WithReplacedExtension(".ppdmp", ".png");
+			if (File::Exists(screenshotPath)) {
+				if (File::ReadFileToString(false, screenshotPath, info_->icon.data)) {
+					info_->icon.dataLoaded = true;
+				} else {
+					ERROR_LOG(G3D, "Error loading screenshot data: '%s'", screenshotPath.c_str());
+				}
+			}
+			break;
+		}
+
 		case IdentifiedFileType::PSP_DISC_DIRECTORY:
 			{
 				info_->fileType = IdentifiedFileType::PSP_ISO;
