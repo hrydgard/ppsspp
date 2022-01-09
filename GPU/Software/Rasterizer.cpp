@@ -991,14 +991,21 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 	const int MIN_LINES_PER_THREAD = 4;
 
-	if (rangeY >= 12 && rangeX >= rangeY * 4) {
+	const uint32_t renderTarget = gstate.getFrameBufAddress() & 0x0FFFFFFF;
+	bool selfRender = (gstate.getTextureAddress(0) & 0x0FFFFFFF) == renderTarget;
+	if (gstate.isMipmapEnabled()) {
+		for (int i = 0; i <= gstate.getTextureMaxLevel(); ++i)
+			selfRender = selfRender || (gstate.getTextureAddress(i) & 0x0FFFFFFF) == renderTarget;
+	}
+
+	if (rangeY >= 12 && rangeX >= rangeY * 4 && !selfRender) {
 		auto bound = [&](int a, int b) -> void {
 			int x1 = minX + a * 16 * 2;
 			int x2 = std::min(maxX, minX + b * 16 * 2 - 1);
 			drawSlice(v0, v1, v2, x1, minY, x2, maxY, pixelID, drawPixel, sampler);
 		};
 		ParallelRangeLoop(&g_threadManager, bound, 0, rangeX, MIN_LINES_PER_THREAD);
-	} else if (rangeY >= 12 && rangeX >= 12) {
+	} else if (rangeY >= 12 && rangeX >= 12 && !selfRender) {
 		auto bound = [&](int a, int b) -> void {
 			int y1 = minY + a * 16 * 2;
 			int y2 = std::min(maxY, minY + b * 16 * 2 - 1);
