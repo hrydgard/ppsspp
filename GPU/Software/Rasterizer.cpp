@@ -40,9 +40,6 @@
 
 #if defined(_M_SSE)
 #include <emmintrin.h>
-#endif
-
-#if _M_SSE >= 0x401
 #include <smmintrin.h>
 #endif
 
@@ -583,6 +580,17 @@ struct TriangleEdge {
 	Vec4<int> stepY;
 };
 
+#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+[[gnu::target("sse4.1")]]
+#endif
+static inline __m128i SOFTRAST_CALL TriangleEdgeStartSSE4(__m128i initX, __m128i initY, int xf, int yf, int c) {
+	initX = _mm_mullo_epi32(initX, _mm_set1_epi32(xf));
+	initY = _mm_mullo_epi32(initY, _mm_set1_epi32(yf));
+	return _mm_add_epi32(_mm_add_epi32(initX, initY), _mm_set1_epi32(c));
+}
+#endif
+
 template <bool useSSE4>
 Vec4<int> TriangleEdge<useSSE4>::Start(const ScreenCoords &v0, const ScreenCoords &v1, const ScreenCoords &origin) {
 	// Start at pixel centers.
@@ -597,12 +605,9 @@ Vec4<int> TriangleEdge<useSSE4>::Start(const ScreenCoords &v0, const ScreenCoord
 	stepX = Vec4<int>::AssignToAll(xf * 16 * 2);
 	stepY = Vec4<int>::AssignToAll(yf * 16 * 2);
 
-#if defined(_M_SSE) && !PPSSPP_ARCH(X86) && _M_SSE >= 0x401
-	if (useSSE4) {
-		initX.ivec = _mm_mullo_epi32(initX.ivec, _mm_set1_epi32(xf));
-		initY.ivec = _mm_mullo_epi32(initY.ivec, _mm_set1_epi32(yf));
-		return _mm_add_epi32(_mm_add_epi32(initX.ivec, initY.ivec), _mm_set1_epi32(c));
-	}
+#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
+	if (useSSE4)
+		return TriangleEdgeStartSSE4(initX.ivec, initY.ivec, xf, yf, c);
 #endif
 	return Vec4<int>::AssignToAll(xf) * initX + Vec4<int>::AssignToAll(yf) * initY + Vec4<int>::AssignToAll(c);
 }
@@ -625,14 +630,23 @@ inline Vec4<int> TriangleEdge<useSSE4>::StepY(const Vec4<int> &w) {
 #endif
 }
 
+#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+[[gnu::target("sse4.1")]]
+#endif
+static inline int SOFTRAST_CALL MaxWeightSSE4(__m128i w) {
+	__m128i max2 = _mm_max_epi32(w, _mm_shuffle_epi32(w, _MM_SHUFFLE(3, 2, 3, 2)));
+	__m128i max1 = _mm_max_epi32(max2, _mm_shuffle_epi32(max2, _MM_SHUFFLE(1, 1, 1, 1)));
+	return _mm_cvtsi128_si32(max1);
+}
+#endif
+
 template <bool useSSE4>
 void TriangleEdge<useSSE4>::NarrowMinMaxX(const Vec4<int> &w, int64_t minX, int64_t &rowMinX, int64_t &rowMaxX) {
 	int wmax;
-#if defined(_M_SSE) && !PPSSPP_ARCH(X86) && _M_SSE >= 0x401
+#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
 	if (useSSE4) {
-		__m128i max01 = _mm_max_epi32(w.ivec, _mm_shuffle_epi32(w.ivec, _MM_SHUFFLE(3, 2, 3, 2)));
-		__m128i max0 = _mm_max_epi32(max01, _mm_shuffle_epi32(max01, _MM_SHUFFLE(1, 1, 1, 1)));
-		wmax = _mm_cvtsi128_si32(max0);
+		wmax = MaxWeightSSE4(w.ivec);
 	} else {
 		wmax = std::max(std::max(w.x, w.y), std::max(w.z, w.w));
 	}
@@ -654,11 +668,20 @@ void TriangleEdge<useSSE4>::NarrowMinMaxX(const Vec4<int> &w, int64_t minX, int6
 	}
 }
 
+#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+[[gnu::target("sse4.1")]]
+#endif
+static inline __m128i SOFTRAST_CALL StepTimesSSE4(__m128i w, __m128i step, int c) {
+	return _mm_add_epi32(w, _mm_mullo_epi32(_mm_set1_epi32(c), step));
+}
+#endif
+
 template <bool useSSE4>
 inline Vec4<int> TriangleEdge<useSSE4>::StepXTimes(const Vec4<int> &w, int c) {
-#if defined(_M_SSE) && !PPSSPP_ARCH(X86) && _M_SSE >= 0x401
+#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
 	if (useSSE4)
-		return _mm_add_epi32(w.ivec, _mm_mullo_epi32(_mm_set1_epi32(c), stepX.ivec));
+		return StepTimesSSE4(w.ivec, stepX.ivec, c);
 #endif
 	return w + stepX * c;
 }
@@ -675,15 +698,22 @@ static inline Vec4<int> MakeMask(const Vec4<int> &w0, const Vec4<int> &w1, const
 #endif
 }
 
+#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+[[gnu::target("sse4.1")]]
+#endif
+static inline bool SOFTRAST_CALL AnyMaskSSE4(__m128i mask) {
+	__m128i sig = _mm_srai_epi32(mask, 31);
+	return _mm_test_all_ones(sig) == 0;
+}
+#endif
+
 template <bool useSSE4>
 static inline bool AnyMask(const Vec4<int> &mask) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-#if _M_SSE >= 0x401
 	if (useSSE4) {
-		__m128i sig = _mm_srai_epi32(mask.ivec, 31);
-		return _mm_test_all_ones(sig) == 0;
+		return AnyMaskSSE4(mask.ivec);
 	}
-#endif
 
 	// In other words: !(mask.x < 0 && mask.y < 0 && mask.z < 0 && mask.w < 0)
 	__m128i low2 = _mm_and_si128(mask.ivec, _mm_shuffle_epi32(mask.ivec, _MM_SHUFFLE(3, 2, 3, 2)));

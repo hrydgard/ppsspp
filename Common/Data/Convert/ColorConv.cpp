@@ -25,9 +25,6 @@
 
 #ifdef _M_SSE
 #include <emmintrin.h>
-#endif
-
-#if _M_SSE >= 0x401
 #include <smmintrin.h>
 #endif
 
@@ -181,19 +178,15 @@ void ConvertBGRA8888ToRGB888(u8 *dst, const u32 *src, u32 numPixels) {
 	}
 }
 
-void ConvertRGBA8888ToRGBA5551(u16 *dst, const u32 *src, u32 numPixels) {
-#if _M_SSE >= 0x401
+#if defined(_M_SSE)
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+[[gnu::target("sse4.1")]]
+#endif
+static inline void ConvertRGBA8888ToRGBA5551_SSE4(__m128i *dstp, const __m128i *srcp, u32 sseChunks) {
 	const __m128i maskAG = _mm_set1_epi32(0x8000F800);
 	const __m128i maskRB = _mm_set1_epi32(0x00F800F8);
 	const __m128i mask = _mm_set1_epi32(0x0000FFFF);
 
-	const __m128i *srcp = (const __m128i *)src;
-	__m128i *dstp = (__m128i *)dst;
-	u32 sseChunks = (numPixels / 4) & ~1;
-	// SSE 4.1 required for _mm_packus_epi32.
-	if (((intptr_t)src & 0xF) || ((intptr_t)dst & 0xF) || !cpu_info.bSSE4_1) {
-		sseChunks = 0;
-	}
 	for (u32 i = 0; i < sseChunks; i += 2) {
 		__m128i c1 = _mm_load_si128(&srcp[i + 0]);
 		__m128i c2 = _mm_load_si128(&srcp[i + 1]);
@@ -213,6 +206,21 @@ void ConvertRGBA8888ToRGBA5551(u16 *dst, const u32 *src, u32 numPixels) {
 
 		_mm_store_si128(&dstp[i / 2], _mm_packus_epi32(c1, c2));
 	}
+}
+#endif
+
+void ConvertRGBA8888ToRGBA5551(u16 *dst, const u32 *src, u32 numPixels) {
+#if defined(_M_SSE)
+	const __m128i *srcp = (const __m128i *)src;
+	__m128i *dstp = (__m128i *)dst;
+	u32 sseChunks = (numPixels / 4) & ~1;
+	// SSE 4.1 required for _mm_packus_epi32.
+	if (((intptr_t)src & 0xF) || ((intptr_t)dst & 0xF) || !cpu_info.bSSE4_1) {
+		sseChunks = 0;
+	} else {
+		ConvertRGBA8888ToRGBA5551_SSE4(dstp, srcp, sseChunks);
+	}
+
 	// The remainder starts right after those done via SSE.
 	u32 i = sseChunks * 4;
 #else
@@ -223,19 +231,15 @@ void ConvertRGBA8888ToRGBA5551(u16 *dst, const u32 *src, u32 numPixels) {
 	}
 }
 
-void ConvertBGRA8888ToRGBA5551(u16 *dst, const u32 *src, u32 numPixels) {
-#if _M_SSE >= 0x401
+#if defined(_M_SSE)
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+[[gnu::target("sse4.1")]]
+#endif
+static inline void ConvertBGRA8888ToRGBA5551_SSE4(__m128i *dstp, const __m128i *srcp, u32 sseChunks) {
 	const __m128i maskAG = _mm_set1_epi32(0x8000F800);
 	const __m128i maskRB = _mm_set1_epi32(0x00F800F8);
 	const __m128i mask = _mm_set1_epi32(0x0000FFFF);
 
-	const __m128i *srcp = (const __m128i *)src;
-	__m128i *dstp = (__m128i *)dst;
-	u32 sseChunks = (numPixels / 4) & ~1;
-	// SSE 4.1 required for _mm_packus_epi32.
-	if (((intptr_t)src & 0xF) || ((intptr_t)dst & 0xF) || !cpu_info.bSSE4_1) {
-		sseChunks = 0;
-	}
 	for (u32 i = 0; i < sseChunks; i += 2) {
 		__m128i c1 = _mm_load_si128(&srcp[i + 0]);
 		__m128i c2 = _mm_load_si128(&srcp[i + 1]);
@@ -255,6 +259,21 @@ void ConvertBGRA8888ToRGBA5551(u16 *dst, const u32 *src, u32 numPixels) {
 
 		_mm_store_si128(&dstp[i / 2], _mm_packus_epi32(c1, c2));
 	}
+}
+#endif
+
+void ConvertBGRA8888ToRGBA5551(u16 *dst, const u32 *src, u32 numPixels) {
+#if defined(_M_SSE)
+	const __m128i *srcp = (const __m128i *)src;
+	__m128i *dstp = (__m128i *)dst;
+	u32 sseChunks = (numPixels / 4) & ~1;
+	// SSE 4.1 required for _mm_packus_epi32.
+	if (((intptr_t)src & 0xF) || ((intptr_t)dst & 0xF) || !cpu_info.bSSE4_1) {
+		sseChunks = 0;
+	} else {
+		ConvertBGRA8888ToRGBA5551_SSE4(dstp, srcp, sseChunks);
+	}
+
 	// The remainder starts right after those done via SSE.
 	u32 i = sseChunks * 4;
 #else

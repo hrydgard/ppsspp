@@ -25,9 +25,7 @@
 
 #if defined(_M_SSE)
 #include <emmintrin.h>
-#if _M_SSE >= 0x401
 #include <smmintrin.h>
-#endif
 #endif
 
 #if PPSSPP_ARCH(ARM_NEON)

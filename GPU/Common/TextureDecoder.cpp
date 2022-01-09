@@ -29,9 +29,7 @@
 
 #ifdef _M_SSE
 #include <emmintrin.h>
-#if _M_SSE >= 0x401
 #include <smmintrin.h>
-#endif
 
 u32 QuickTexHashSSE2(const void *checkp, u32 size) {
 	u32 check = 0;
