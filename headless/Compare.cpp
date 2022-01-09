@@ -305,16 +305,14 @@ bool CompareOutput(const Path &bootFilename, const std::string &output, bool ver
 	}
 }
 
-inline int ComparePixel(u32 pix1, u32 pix2)
-{
+inline int ComparePixel(u32 pix1, u32 pix2) {
 	// For now, if they're different at all except alpha, it's an error.
 	if ((pix1 & 0xFFFFFF) != (pix2 & 0xFFFFFF))
 		return 1;
 	return 0;
 }
 
-std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32 stride, u32 h)
-{
+std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32 stride, u32 h) {
 	// If the output was small, act like everything outside was 0.
 	// This can happen depending on viewport parameters.
 	u32 safeW = std::min(stride, buffer->GetStride());
@@ -334,24 +332,30 @@ std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32
 		outStride = -outStride;
 	}
 
+	// Skip the bottom of the image in the buffer was smaller.  Remember, we're flipped.
+	u32 *dst = &data[0];
+	if (safeH < h) {
+		dst += (h - safeH) * stride;
+	}
+
 	u32 errors = 0;
 	for (u32 y = 0; y < safeH; ++y) {
 		switch (buffer->GetFormat()) {
 		case GPU_DBG_FORMAT_8888:
-			ConvertBGRA8888ToRGBA8888(&data[y * stride], pixels32, safeW);
+			ConvertBGRA8888ToRGBA8888(&dst[y * stride], pixels32, safeW);
 			break;
 		case GPU_DBG_FORMAT_8888_BGRA:
-			memcpy(&data[y * stride], pixels32, safeW * sizeof(u32));
+			memcpy(&dst[y * stride], pixels32, safeW * sizeof(u32));
 			break;
 
 		case GPU_DBG_FORMAT_565:
-			ConvertRGB565ToBGRA8888(&data[y * stride], pixels16, safeW);
+			ConvertRGB565ToBGRA8888(&dst[y * stride], pixels16, safeW);
 			break;
 		case GPU_DBG_FORMAT_5551:
-			ConvertRGBA5551ToBGRA8888(&data[y * stride], pixels16, safeW);
+			ConvertRGBA5551ToBGRA8888(&dst[y * stride], pixels16, safeW);
 			break;
 		case GPU_DBG_FORMAT_4444:
-			ConvertRGBA4444ToBGRA8888(&data[y * stride], pixels16, safeW);
+			ConvertRGBA4444ToBGRA8888(&dst[y * stride], pixels16, safeW);
 			break;
 
 		default:
