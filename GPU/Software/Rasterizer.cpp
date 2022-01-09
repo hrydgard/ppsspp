@@ -236,7 +236,10 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 			else
 				out_rgb /= 256;
 		} else {
-			out_rgb = texcolor.rgb();
+			if (gstate.isColorDoublingEnabled())
+				out_rgb = texcolor.rgb() * 2;
+			else
+				out_rgb = texcolor.rgb();
 		}
 		out_a = prim_color.a();
 		break;
