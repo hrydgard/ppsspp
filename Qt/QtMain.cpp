@@ -30,6 +30,7 @@
 #ifdef SDL
 #include "SDL/SDLJoystick.h"
 #include "SDL_audio.h"
+#include "SDL_keyboard.h"
 #endif
 
 #include "Common/System/NativeApp.h"
@@ -176,6 +177,19 @@ int System_GetPropertyInt(SystemProperty prop) {
 		return g_retFmt.freq;
 	case SYSPROP_AUDIO_FRAMES_PER_BUFFER:
 		return g_retFmt.samples;
+	case SYSPROP_KEYBOARD_LAYOUT:
+	{
+		// TODO: Use Qt APIs for detecting this
+		char q, w, y;
+		q = SDL_GetKeyFromScancode(SDL_SCANCODE_Q);
+		w = SDL_GetKeyFromScancode(SDL_SCANCODE_W);
+		y = SDL_GetKeyFromScancode(SDL_SCANCODE_Y);
+		if (q == 'a' && w == 'z' && y == 'y')
+			return KEYBOARD_LAYOUT_AZERTY;
+		else if (q == 'q' && w == 'w' && y == 'z')
+			return KEYBOARD_LAYOUT_QWERTZ;
+		return KEYBOARD_LAYOUT_QWERTY;
+	}
 #endif
 	case SYSPROP_DEVICE_TYPE:
 #if defined(__ANDROID__)

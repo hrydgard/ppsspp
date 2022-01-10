@@ -1,14 +1,9 @@
-#if defined(SDL)
-#include <SDL_keyboard.h>
-#elif defined(USING_WIN_UI)
-#include "CommonWindows.h"
-#endif
-
 #include "ppsspp_config.h"
 
 #include "Common/CommonFuncs.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Input/InputState.h"
+#include "Common/System/System.h"
 #include "Core/KeyMapDefaults.h"
 #include "Core/KeyMap.h"
 
@@ -303,39 +298,18 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 	switch (dmap) {
 	case DEFAULT_MAPPING_KEYBOARD:
 	{
-		bool azerty = false;
-		bool qwertz = false;
-#if defined(SDL)
-		char q, w, y;
-		q = SDL_GetKeyFromScancode(SDL_SCANCODE_Q);
-		w = SDL_GetKeyFromScancode(SDL_SCANCODE_W);
-		y = SDL_GetKeyFromScancode(SDL_SCANCODE_Y);
-		if (q == 'a' && w == 'z' && y == 'y')
-			azerty = true;
-		else if (q == 'q' && w == 'w' && y == 'z')
-			qwertz = true;
-#elif defined(USING_WIN_UI)
-		HKL localeId = GetKeyboardLayout(0);
-		// TODO: Is this list complete enough?
-		switch ((int)(intptr_t)localeId & 0xFFFF) {
-		case 0x407:
-			qwertz = true;
-			break;
-		case 0x040c:
-		case 0x080c:
-		case 0x1009:
-			azerty = true;
-			break;
-		default:
-			break;
-		}
-#endif
-		if (azerty) {
-			SetDefaultKeyMap(DEVICE_ID_KEYBOARD, defaultAzertyKeyboardKeyMap, ARRAY_SIZE(defaultAzertyKeyboardKeyMap), replace);
-		} else if (qwertz) {
+		int keyboardLayout = System_GetPropertyInt(SYSPROP_KEYBOARD_LAYOUT);
+		switch (keyboardLayout) {
+		case KEYBOARD_LAYOUT_QWERTZ:
 			SetDefaultKeyMap(DEVICE_ID_KEYBOARD, defaultQwertzKeyboardKeyMap, ARRAY_SIZE(defaultQwertzKeyboardKeyMap), replace);
-		} else {
+			break;
+		case KEYBOARD_LAYOUT_AZERTY:
+			SetDefaultKeyMap(DEVICE_ID_KEYBOARD, defaultAzertyKeyboardKeyMap, ARRAY_SIZE(defaultAzertyKeyboardKeyMap), replace);
+			break;
+		case KEYBOARD_LAYOUT_QWERTY:
+		default:
 			SetDefaultKeyMap(DEVICE_ID_KEYBOARD, defaultQwertyKeyboardKeyMap, ARRAY_SIZE(defaultQwertyKeyboardKeyMap), replace);
+			break;
 		}
 	}
 	break;

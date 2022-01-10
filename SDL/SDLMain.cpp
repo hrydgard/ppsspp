@@ -375,6 +375,18 @@ int System_GetPropertyInt(SystemProperty prop) {
 #endif
 	case SYSPROP_DISPLAY_COUNT:
 		return SDL_GetNumVideoDisplays();
+	case SYSPROP_KEYBOARD_LAYOUT:
+	{
+		char q, w, y;
+		q = SDL_GetKeyFromScancode(SDL_SCANCODE_Q);
+		w = SDL_GetKeyFromScancode(SDL_SCANCODE_W);
+		y = SDL_GetKeyFromScancode(SDL_SCANCODE_Y);
+		if (q == 'a' && w == 'z' && y == 'y')
+			return KEYBOARD_LAYOUT_AZERTY;
+		else if (q == 'q' && w == 'w' && y == 'z')
+			return KEYBOARD_LAYOUT_QWERTZ;
+		return KEYBOARD_LAYOUT_QWERTY;
+	}
 	default:
 		return -1;
 	}

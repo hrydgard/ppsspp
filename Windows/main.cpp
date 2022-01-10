@@ -279,6 +279,21 @@ int System_GetPropertyInt(SystemProperty prop) {
 		return DEVICE_TYPE_DESKTOP;
 	case SYSPROP_DISPLAY_COUNT:
 		return GetSystemMetrics(SM_CMONITORS);
+	case SYSPROP_KEYBOARD_LAYOUT:
+	{
+		HKL localeId = GetKeyboardLayout(0);
+		// TODO: Is this list complete enough?
+		switch ((int)(intptr_t)localeId & 0xFFFF) {
+		case 0x407:
+			return KEYBOARD_LAYOUT_QWERTZ;
+		case 0x040c:
+		case 0x080c:
+		case 0x1009:
+			return KEYBOARD_LAYOUT_AZERTY;
+		default:
+			return KEYBOARD_LAYOUT_QWERTY;
+		}
+	}
 	default:
 		return -1;
 	}

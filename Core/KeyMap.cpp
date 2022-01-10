@@ -19,12 +19,6 @@
 #include <set>
 #include <unordered_map>
 
-#if defined(SDL)
-#include <SDL_keyboard.h>
-#elif defined(USING_WIN_UI)
-#include "CommonWindows.h"
-#endif
-
 #include "ppsspp_config.h"
 
 #include "Common/System/NativeApp.h"
