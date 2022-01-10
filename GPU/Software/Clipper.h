@@ -19,11 +19,14 @@
 
 #include "TransformUnit.h"
 
+struct PixelFuncID;
+struct SamplerID;
+
 namespace Clipper {
 
-void ProcessPoint(VertexData& v0);
-void ProcessLine(VertexData& v0, VertexData& v1);
-void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2, const VertexData &provoking);
-void ProcessRect(const VertexData& v0, const VertexData& v1);
+void ProcessPoint(VertexData &v0, const PixelFuncID &pixelID, const SamplerID &samplerID);
+void ProcessLine(VertexData &v0, VertexData &v1, const PixelFuncID &pixelID, const SamplerID &samplerID);
+void ProcessTriangle(VertexData &v0, VertexData &v1, VertexData &v2, const VertexData &provoking, const PixelFuncID &pixelID, const SamplerID &samplerID);
+void ProcessRect(const VertexData &v0, const VertexData &v1, const PixelFuncID &pixelID, const SamplerID &samplerID);
 
 }

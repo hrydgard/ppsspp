@@ -14,7 +14,7 @@
 
 namespace Rasterizer {
 	// Returns true if the normal path should be skipped.
-	bool RectangleFastPath(const VertexData &v0, const VertexData &v1);
+	bool RectangleFastPath(const VertexData &v0, const VertexData &v1, const PixelFuncID &pixelID, const SamplerID &samplerID);
 
 	bool DetectRectangleFromThroughModeStrip(const VertexData data[4]);
 	bool DetectRectangleFromThroughModeFan(const VertexData *data, int c, int *tlIndex, int *brIndex);

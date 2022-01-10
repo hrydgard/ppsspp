@@ -948,8 +948,7 @@ void DrawTriangleSlice(
 }
 
 // Draws triangle, vertices specified in counter-clockwise direction
-void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& v2)
-{
+void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const PixelFuncID &pixelID, const SamplerID &samplerID) {
 	PROFILE_THIS_SCOPE("draw_tri");
 
 	Vec2<int> d01((int)v0.screenpos.x - (int)v1.screenpos.x, (int)v0.screenpos.y - (int)v1.screenpos.y);
@@ -983,10 +982,10 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	int rangeY = (maxY - minY + 31) / 32;
 	int rangeX = (maxX - minX + 31) / 32;
 
-	PixelFuncID pixelID;
-	ComputePixelFuncID(&pixelID);
 	Rasterizer::SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID);
-	Sampler::Funcs sampler = Sampler::GetFuncs();
+	Sampler::Funcs sampler;
+	sampler.nearest = Sampler::GetNearestFunc(samplerID);
+	sampler.linear = Sampler::GetLinearFunc(samplerID);
 
 	auto drawSlice = cpu_info.bSSE4_1 ?
 		(gstate.isModeClear() ? &DrawTriangleSlice<true, true> : &DrawTriangleSlice<false, true>) :
@@ -1020,8 +1019,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	}
 }
 
-void DrawPoint(const VertexData &v0)
-{
+void DrawPoint(const VertexData &v0, const PixelFuncID &pixelID, const SamplerID &samplerID) {
 	ScreenCoords pos = v0.screenpos;
 	Vec4<int> prim_color = v0.color0;
 	Vec3<int> sec_color = v0.color1;
@@ -1036,8 +1034,6 @@ void DrawPoint(const VertexData &v0)
 		return;
 
 	Sampler::Funcs sampler = Sampler::GetFuncs();
-	PixelFuncID pixelID;
-	ComputePixelFuncID(&pixelID);
 	Rasterizer::SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID);
 
 	if (gstate.isTextureMapEnabled() && !pixelID.clearMode) {
@@ -1115,8 +1111,7 @@ void DrawPoint(const VertexData &v0)
 #endif
 }
 
-void ClearRectangle(const VertexData &v0, const VertexData &v1)
-{
+void ClearRectangle(const VertexData &v0, const VertexData &v1, const PixelFuncID &pixelID, const SamplerID &samplerID) {
 	int minX = std::min(v0.screenpos.x, v1.screenpos.x) & ~0xF;
 	int minY = std::min(v0.screenpos.y, v1.screenpos.y) & ~0xF;
 	int maxX = (std::max(v0.screenpos.x, v1.screenpos.x) + 0xF) & ~0xF;
@@ -1144,7 +1139,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 		gpuDebug->GetCurrentDisplayList(currentList);
 #endif
 
-	if (gstate.isClearModeDepthMask()) {
+	if (pixelID.DepthClear()) {
 		const u16 z = v1.screenpos.z;
 		const int stride = gstate.DepthBufStride();
 
@@ -1179,17 +1174,18 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 
 	// Note: this stays 0xFFFFFFFF if keeping color and alpha, even for 16-bit.
 	u32 keepOldMask = 0xFFFFFFFF;
-	if (gstate.isClearModeColorMask())
+	if (pixelID.ColorClear())
 		keepOldMask &= 0xFF000000;
-	if (gstate.isClearModeAlphaMask())
+	if (pixelID.StencilClear())
 		keepOldMask &= 0x00FFFFFF;
 
 	// The pixel write masks are respected in clear mode.
-	keepOldMask |= gstate.getColorMask();
+	if (pixelID.applyColorWriteMask)
+		keepOldMask |= gstate.getColorMask();
 
 	const u32 new_color = v1.color0.ToRGBA();
 	u16 new_color16;
-	switch (gstate.FrameBufFormat()) {
+	switch (pixelID.FBFormat()) {
 	case GE_FORMAT_565:
 		new_color16 = RGBA8888ToRGB565(new_color);
 		keepOldMask = keepOldMask == 0 ? 0 : (0xFFFF0000 | RGBA8888ToRGB565(keepOldMask));
@@ -1217,7 +1213,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 	if (keepOldMask == 0) {
 		const int stride = gstate.FrameBufStride();
 
-		if (gstate.FrameBufFormat() == GE_FORMAT_8888) {
+		if (pixelID.FBFormat() == GE_FORMAT_8888) {
 			const bool canMemsetColor = (new_color & 0xFF) == (new_color >> 8) && (new_color & 0xFFFF) == (new_color >> 16);
 			if (canMemsetColor) {
 				ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
@@ -1261,7 +1257,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 	} else if (keepOldMask != 0xFFFFFFFF) {
 		const int stride = gstate.FrameBufStride();
 
-		if (gstate.FrameBufFormat() == GE_FORMAT_8888) {
+		if (pixelID.FBFormat() == GE_FORMAT_8888) {
 			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
 				DrawingCoords p = pprime;
 				for (p.y = y1; p.y < y2; ++p.y) {
@@ -1288,7 +1284,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	if (keepOldMask != 0xFFFFFFFF) {
-		uint32_t bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
+		uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
 		std::string tag = StringFromFormat("DisplayListX_%08x", currentList.pc);
 		for (int y = pprime.y; y < pend.y; ++y) {
 			uint32_t row = gstate.getFrameBufAddress() + y * gstate.FrameBufStride() * bpp;
@@ -1298,8 +1294,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 #endif
 }
 
-void DrawLine(const VertexData &v0, const VertexData &v1)
-{
+void DrawLine(const VertexData &v0, const VertexData &v1, const PixelFuncID &pixelID, const SamplerID &samplerID) {
 	// TODO: Use a proper line drawing algorithm that handles fractional endpoints correctly.
 	Vec3<int> a(v0.screenpos.x, v0.screenpos.y, v0.screenpos.z);
 	Vec3<int> b(v1.screenpos.x, v1.screenpos.y, v0.screenpos.z);
@@ -1329,9 +1324,6 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 	// Allow drawing within a pixel's center.
 	scissorBR.x += 15;
 	scissorBR.y += 15;
-
-	PixelFuncID pixelID;
-	ComputePixelFuncID(&pixelID);
 
 	int texbufw[8] = {0};
 

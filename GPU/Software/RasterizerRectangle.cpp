@@ -77,7 +77,7 @@ static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4I
 	return ToVec4IntResult(out);
 }
 
-void DrawSprite(const VertexData& v0, const VertexData& v1) {
+void DrawSprite(const VertexData &v0, const VertexData &v1, const PixelFuncID &pixelID, const SamplerID &samplerID) {
 	const u8 *texptr = nullptr;
 
 	GETextureFormat texfmt = gstate.getTextureFormat();
@@ -85,12 +85,6 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 	int texbufw = GetTextureBufw(0, texaddr, texfmt);
 	if (Memory::IsValidAddress(texaddr))
 		texptr = Memory::GetPointerUnchecked(texaddr);
-
-	// These look at gstate.
-	SamplerID samplerID;
-	ComputeSamplerID(&samplerID);
-	PixelFuncID pixelID;
-	ComputePixelFuncID(&pixelID);
 
 	ScreenCoords pprime(v0.screenpos.x, v0.screenpos.y, 0);
 	Sampler::FetchFunc fetchFunc = Sampler::GetFetchFunc(samplerID);
@@ -285,7 +279,7 @@ static inline bool NoClampOrWrap(const Vec2f &tc) {
 }
 
 // Returns true if the normal path should be skipped.
-bool RectangleFastPath(const VertexData &v0, const VertexData &v1) {
+bool RectangleFastPath(const VertexData &v0, const VertexData &v1, const PixelFuncID &pixelID, const SamplerID &samplerID) {
 	g_DarkStalkerStretch = DSStretch::Off;
 	// Check for 1:1 texture mapping. In that case we can call DrawSprite.
 	int xdiff = v1.screenpos.x - v0.screenpos.x;
@@ -301,7 +295,7 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1) {
 	bool state_check = !gstate.isModeClear() && NoClampOrWrap(v0.texturecoords) && NoClampOrWrap(v1.texturecoords);
 	// TODO: No mipmap levels?  Might be a font at level 1...
 	if ((coord_check || !gstate.isTextureMapEnabled()) && orient_check && state_check) {
-		Rasterizer::DrawSprite(v0, v1);
+		Rasterizer::DrawSprite(v0, v1, pixelID, samplerID);
 		return true;
 	}
 
@@ -323,7 +317,7 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1) {
 				gstate.textureMapEnable &= ~1;
 				VertexData newV1 = v1;
 				newV1.color0 = Vec4<int>(0, 0, 0, 255);
-				Rasterizer::DrawSprite(v0, newV1);
+				Rasterizer::DrawSprite(v0, newV1, pixelID, samplerID);
 				gstate.textureMapEnable |= 1;
 			}
 			return true;

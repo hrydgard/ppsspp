@@ -31,10 +31,10 @@ struct GPUDebugBuffer;
 namespace Rasterizer {
 
 // Draws a triangle if its vertices are specified in counter-clockwise order
-void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& v2);
-void DrawPoint(const VertexData &v0);
-void DrawLine(const VertexData &v0, const VertexData &v1);
-void ClearRectangle(const VertexData &v0, const VertexData &v1);
+void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const PixelFuncID &pixelID, const SamplerID &samplerID);
+void DrawPoint(const VertexData &v0, const PixelFuncID &pixelID, const SamplerID &samplerID);
+void DrawLine(const VertexData &v0, const VertexData &v1, const PixelFuncID &pixelID, const SamplerID &samplerID);
+void ClearRectangle(const VertexData &v0, const VertexData &v1, const PixelFuncID &pixelID, const SamplerID &samplerID);
 
 bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
 bool GetCurrentTexture(GPUDebugBuffer &buffer, int level);
