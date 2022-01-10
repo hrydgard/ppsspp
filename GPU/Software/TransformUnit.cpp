@@ -694,11 +694,6 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 			vertices[i].x = vert.pos.x;
 			vertices[i].y = vert.pos.y;
 			vertices[i].z = vert.pos.z;
-			if (gstate.vertType & GE_VTYPE_COL_MASK) {
-				memcpy(vertices[i].c, vert.color, sizeof(vertices[i].c));
-			} else {
-				memset(vertices[i].c, 0, sizeof(vertices[i].c));
-			}
 		} else {
 			float clipPos[4];
 			Vec3ByMatrix44(clipPos, vert.pos.AsArray(), worldviewproj);
@@ -715,12 +710,16 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 			vertices[i].x = drawPos.x;
 			vertices[i].y = drawPos.y;
 			vertices[i].z = drawPos.z;
-			if (gstate.vertType & GE_VTYPE_COL_MASK) {
-				memcpy(vertices[i].c, vert.color, sizeof(vertices[i].c));
-			} else {
-				memset(vertices[i].c, 0, sizeof(vertices[i].c));
-			}
 		}
+
+		if (gstate.vertType & GE_VTYPE_COL_MASK) {
+			memcpy(vertices[i].c, vert.color, sizeof(vertices[i].c));
+		} else {
+			memset(vertices[i].c, 0, sizeof(vertices[i].c));
+		}
+		vertices[i].nx = vert.nrm.x;
+		vertices[i].ny = vert.nrm.y;
+		vertices[i].nz = vert.nrm.z;
 	}
 
 	// The GE debugger expects these to be set.
