@@ -907,6 +907,9 @@ void DrawEngineVulkan::DoFlush() {
 				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, renderPass, pipelineKey_, &dec_->decFmt, vshader, fshader, false);
 				if (!pipeline || !pipeline->pipeline) {
 					// Already logged, let's bail out.
+					decodedVerts_ = 0;
+					numDrawCalls = 0;
+					decodeCounter_ = 0;
 					return;
 				}
 				BindShaderBlendTex();  // This might cause copies so super important to do before BindPipeline.
