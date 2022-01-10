@@ -291,7 +291,7 @@ void GameScreen::render() {
 	if (tvCRC_ && Reporting::HasCRC(gamePath_)) {
 		auto rp = GetI18NCategory("Reporting");
 		std::string crc = StringFromFormat("%08X", Reporting::RetrieveCRC(gamePath_));
-		tvCRC_->SetText(ReplaceAll(rp->T("FeedbackCRCValue", "Disc CRC: [VALUE]"), "[VALUE]", crc));
+		tvCRC_->SetText(ReplaceAll(rp->T("FeedbackCRCValue", "Disc CRC: %1"), "%1", crc));
 		tvCRC_->SetVisibility(UI::V_VISIBLE);
 	}
 
