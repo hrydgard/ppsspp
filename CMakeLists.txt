@@ -1171,10 +1171,6 @@ if(WIN32)
 	target_link_libraries(Common winmm d3d9 dsound)
 endif()
 
-if(TARGET SDL2::SDL2 AND NOT IOS)
-	target_link_libraries(Common SDL2::SDL2)
-endif()
-
 list(APPEND NativeAppSource
 	android/jni/TestRunner.cpp
 	UI/DiscordIntegration.cpp
