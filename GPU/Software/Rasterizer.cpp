@@ -788,10 +788,10 @@ void DrawTriangleSlice(
 	const bool flatColorAll = clearMode || gstate.getShadeMode() != GE_SHADE_GOURAUD;
 	const bool flatColor0 = flatColorAll || (v0.color0 == v1.color0 && v0.color0 == v2.color0);
 	const bool flatColor1 = flatColorAll || (v0.color1 == v1.color1 && v0.color1 == v2.color1);
-	const bool noFog = clearMode || !gstate.isFogEnabled() || (v0.fogdepth >= 1.0f && v1.fogdepth >= 1.0f && v2.fogdepth >= 1.0f);
+	const bool noFog = clearMode || !pixelID.applyFog || (v0.fogdepth >= 1.0f && v1.fogdepth >= 1.0f && v2.fogdepth >= 1.0f);
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
-	uint32_t bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
+	uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
 	DisplayList currentList{};
 	if (gpuDebug)
 		gpuDebug->GetCurrentDisplayList(currentList);
@@ -988,14 +988,14 @@ void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &
 	sampler.linear = Sampler::GetLinearFunc(samplerID);
 
 	auto drawSlice = cpu_info.bSSE4_1 ?
-		(gstate.isModeClear() ? &DrawTriangleSlice<true, true> : &DrawTriangleSlice<false, true>) :
-		(gstate.isModeClear() ? &DrawTriangleSlice<true, false> : &DrawTriangleSlice<false, false>);
+		(pixelID.clearMode ? &DrawTriangleSlice<true, true> : &DrawTriangleSlice<false, true>) :
+		(pixelID.clearMode ? &DrawTriangleSlice<true, false> : &DrawTriangleSlice<false, false>);
 
 	const int MIN_LINES_PER_THREAD = 4;
 
 	const uint32_t renderTarget = gstate.getFrameBufAddress() & 0x0FFFFFFF;
 	bool selfRender = (gstate.getTextureAddress(0) & 0x0FFFFFFF) == renderTarget;
-	if (gstate.isMipmapEnabled()) {
+	if (samplerID.hasAnyMips) {
 		for (int i = 0; i <= gstate.getTextureMaxLevel(); ++i)
 			selfRender = selfRender || (gstate.getTextureAddress(i) & 0x0FFFFFFF) == renderTarget;
 	}
@@ -1039,24 +1039,17 @@ void DrawPoint(const VertexData &v0, const PixelFuncID &pixelID, const SamplerID
 	if (gstate.isTextureMapEnabled() && !pixelID.clearMode) {
 		int texbufw[8] = {0};
 
-		int maxTexLevel = gstate.getTextureMaxLevel();
+		int maxTexLevel = samplerID.hasAnyMips ? gstate.getTextureMaxLevel() : 0;
 		u8 *texptr[8] = {NULL};
 
-		if (!gstate.isMipmapEnabled()) {
-			// No mipmapping enabled
-			maxTexLevel = 0;
-		}
-
-		if (gstate.isTextureMapEnabled() && !pixelID.clearMode) {
-			GETextureFormat texfmt = gstate.getTextureFormat();
-			for (int i = 0; i <= maxTexLevel; i++) {
-				u32 texaddr = gstate.getTextureAddress(i);
-				texbufw[i] = GetTextureBufw(i, texaddr, texfmt);
-				if (Memory::IsValidAddress(texaddr))
-					texptr[i] = Memory::GetPointerUnchecked(texaddr);
-				else
-					texptr[i] = 0;
-			}
+		GETextureFormat texfmt = samplerID.TexFmt();
+		for (int i = 0; i <= maxTexLevel; i++) {
+			u32 texaddr = gstate.getTextureAddress(i);
+			texbufw[i] = GetTextureBufw(i, texaddr, texfmt);
+			if (Memory::IsValidAddress(texaddr))
+				texptr[i] = Memory::GetPointerUnchecked(texaddr);
+			else
+				texptr[i] = 0;
 		}
 
 		float s = v0.texturecoords.s();
@@ -1086,7 +1079,7 @@ void DrawPoint(const VertexData &v0, const PixelFuncID &pixelID, const SamplerID
 	u16 z = pos.z;
 
 	u8 fog = 255;
-	if (gstate.isFogEnabled() && !pixelID.clearMode) {
+	if (pixelID.applyFog && !pixelID.clearMode) {
 		fog = ClampFogDepth(v0.fogdepth);
 	}
 
@@ -1094,7 +1087,7 @@ void DrawPoint(const VertexData &v0, const PixelFuncID &pixelID, const SamplerID
 	drawPixel(p.x, p.y, z, fog, ToVec4IntArg(prim_color), pixelID);
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
-	uint32_t bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
+	uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
 	DisplayList currentList{};
 	if (gpuDebug)
 		gpuDebug->GetCurrentDisplayList(currentList);
@@ -1327,16 +1320,11 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const PixelFuncID &pix
 
 	int texbufw[8] = {0};
 
-	int maxTexLevel = gstate.getTextureMaxLevel();
+	int maxTexLevel = samplerID.hasAnyMips ? gstate.getTextureMaxLevel() : 0;
 	u8 *texptr[8] = {NULL};
 
-	if (!gstate.isMipmapEnabled()) {
-		// No mipmapping enabled
-		maxTexLevel = 0;
-	}
-
 	if (gstate.isTextureMapEnabled() && !pixelID.clearMode) {
-		GETextureFormat texfmt = gstate.getTextureFormat();
+		GETextureFormat texfmt = samplerID.TexFmt();
 		for (int i = 0; i <= maxTexLevel; i++) {
 			u32 texaddr = gstate.getTextureAddress(i);
 			texbufw[i] = GetTextureBufw(i, texaddr, texfmt);
@@ -1373,7 +1361,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const PixelFuncID &pix
 			}
 
 			u8 fog = 255;
-			if (gstate.isFogEnabled() && !pixelID.clearMode) {
+			if (pixelID.applyFog && !pixelID.clearMode) {
 				fog = ClampFogDepth((v0.fogdepth * (float)(steps - i) + v1.fogdepth * (float)i) / steps1);
 			}
 
@@ -1432,7 +1420,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const PixelFuncID &pix
 			drawPixel(p.x, p.y, z, fog, ToVec4IntArg(prim_color), pixelID);
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
-			uint32_t bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
+			uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
 			uint32_t row = gstate.getFrameBufAddress() + p.y * gstate.FrameBufStride() * bpp;
 			NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * bpp, bpp, tag.c_str(), tag.size());
 

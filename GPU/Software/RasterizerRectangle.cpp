@@ -80,7 +80,7 @@ static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4I
 void DrawSprite(const VertexData &v0, const VertexData &v1, const PixelFuncID &pixelID, const SamplerID &samplerID) {
 	const u8 *texptr = nullptr;
 
-	GETextureFormat texfmt = gstate.getTextureFormat();
+	GETextureFormat texfmt = samplerID.TexFmt();
 	u32 texaddr = gstate.getTextureAddress(0);
 	int texbufw = GetTextureBufw(0, texaddr, texfmt);
 	if (Memory::IsValidAddress(texaddr))
@@ -142,8 +142,8 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const PixelFuncID &p
 			pixelID.alphaTestRef == 0 &&
 			!pixelID.hasAlphaTestMask &&
 			pixelID.alphaBlend &&
-			gstate.isTextureAlphaUsed() &&
-			gstate.getTextureFunction() == GE_TEXFUNC_MODULATE &&
+			samplerID.useTextureAlpha &&
+			samplerID.TexFunc() == GE_TEXFUNC_MODULATE &&
 			!pixelID.applyColorWriteMask &&
 			pixelID.FBFormat() == GE_FORMAT_5551) {
 			if (isWhite) {
@@ -221,8 +221,8 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const PixelFuncID &p
 			pixelID.alphaTestRef == 0 &&
 			!pixelID.hasAlphaTestMask &&
 			pixelID.alphaBlend &&
-			gstate.isTextureAlphaUsed() &&
-			gstate.getTextureFunction() == GE_TEXFUNC_MODULATE &&
+			samplerID.useTextureAlpha &&
+			samplerID.TexFunc() == GE_TEXFUNC_MODULATE &&
 			!pixelID.applyColorWriteMask &&
 			pixelID.FBFormat() == GE_FORMAT_5551) {
 			if (v1.color0.a() == 0)
@@ -292,7 +292,7 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, const PixelFu
 	// Currently only works for TL/BR, which is the most common but not required.
 	bool orient_check = xdiff >= 0 && ydiff >= 0;
 	// We already have a fast path for clear in ClearRectangle.
-	bool state_check = !gstate.isModeClear() && NoClampOrWrap(v0.texturecoords) && NoClampOrWrap(v1.texturecoords);
+	bool state_check = !pixelID.clearMode && NoClampOrWrap(v0.texturecoords) && NoClampOrWrap(v1.texturecoords);
 	// TODO: No mipmap levels?  Might be a font at level 1...
 	if ((coord_check || !gstate.isTextureMapEnabled()) && orient_check && state_check) {
 		Rasterizer::DrawSprite(v0, v1, pixelID, samplerID);

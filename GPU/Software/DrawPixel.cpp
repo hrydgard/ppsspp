@@ -185,8 +185,10 @@ static inline bool ColorTestPassed(const Vec3<int> &color) {
 
 	case GE_COMP_NOTEQUAL:
 		return c != ref;
+
+	default:
+		return true;
 	}
-	return true;
 }
 
 static inline bool StencilTestPassed(const PixelFuncID &pixelID, u8 stencil) {
