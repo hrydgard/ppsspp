@@ -102,6 +102,27 @@ static inline Vec4<float> Interpolate(const float &c0, const float &c1, const fl
 	return Interpolate(c0, c1, c2, w0.Cast<float>(), w1.Cast<float>(), w2.Cast<float>(), wsum_recip);
 }
 
+void ComputeRasterizerState(RasterizerState *state) {
+	ComputePixelFuncID(&state->pixelID);
+	ComputeSamplerID(&state->samplerID);
+	state->drawPixel = Rasterizer::GetSingleFunc(state->pixelID);
+	state->linear = Sampler::GetLinearFunc(state->samplerID);
+	state->nearest = Sampler::GetNearestFunc(state->samplerID);
+
+	int maxTexLevel = state->samplerID.hasAnyMips ? gstate.getTextureMaxLevel() : 0;
+	if (gstate.isTextureMapEnabled() && !state->pixelID.clearMode) {
+		GETextureFormat texfmt = state->samplerID.TexFmt();
+		for (int i = 0; i <= maxTexLevel; i++) {
+			u32 texaddr = gstate.getTextureAddress(i);
+			state->texbufw[i] = GetTextureBufw(i, texaddr, texfmt);
+			if (Memory::IsValidAddress(texaddr))
+				state->texptr[i] = Memory::GetPointerUnchecked(texaddr);
+			else
+				state->texptr[i] = nullptr;
+		}
+	}
+}
+
 static inline u8 ClampFogDepth(float fogdepth) {
 	union FloatBits {
 		float f;
@@ -478,7 +499,7 @@ Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &sourc
 	}
 }
 
-static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(float s, float t, int x, int y, Vec4IntArg prim_color, u8 *texptr[], int texbufw[], int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
+static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(float s, float t, int x, int y, Vec4IntArg prim_color, u8 *const texptr[], const int texbufw[], int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
 	const u8 **tptr0 = const_cast<const u8 **>(&texptr[texlevel]);
 	const int *bufw0 = &texbufw[texlevel];
 
@@ -488,7 +509,7 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(float s, float t, int x
 	return state.linear(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel);
 }
 
-static inline Vec4IntResult SOFTRAST_CALL ApplyTexturingSingle(float s, float t, int x, int y, Vec4IntArg prim_color, u8 *texptr[], int texbufw[], int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
+static inline Vec4IntResult SOFTRAST_CALL ApplyTexturingSingle(float s, float t, int x, int y, Vec4IntArg prim_color, u8 *const texptr[], const int texbufw[], int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
 	return ApplyTexturing(s, t, ((x & 15) + 1) / 2, ((y & 15) + 1) / 2, prim_color, texptr, texbufw, texlevel, frac_texlevel, bilinear, state);
 }
 
@@ -555,7 +576,7 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 	}
 }
 
-static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_color, const Vec4<int> &mask, const Vec4<float> &s, const Vec4<float> &t, int maxTexLevel, u8 *texptr[], int texbufw[], int x, int y) {
+static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_color, const Vec4<int> &mask, const Vec4<float> &s, const Vec4<float> &t, int maxTexLevel, u8 *const texptr[], const int texbufw[], int x, int y) {
 	float ds = s[1] - s[0];
 	float dt = t[2] - t[0];
 
@@ -750,23 +771,7 @@ void DrawTriangleSlice(
 	Vec4<int> bias2 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v2.screenpos.xy(), v0.screenpos.xy(), v1.screenpos.xy()) ? -1 : 0);
 
 	const PixelFuncID &pixelID = state.pixelID;
-
-	int texbufw[8]{};
-
 	int maxTexLevel = state.samplerID.hasAnyMips ? gstate.getTextureMaxLevel() : 0;
-	u8 *texptr[8]{};
-
-	if (gstate.isTextureMapEnabled() && !clearMode) {
-		GETextureFormat texfmt = state.samplerID.TexFmt();
-		for (int i = 0; i <= maxTexLevel; i++) {
-			u32 texaddr = gstate.getTextureAddress(i);
-			texbufw[i] = GetTextureBufw(i, texaddr, texfmt);
-			if (Memory::IsValidAddress(texaddr))
-				texptr[i] = Memory::GetPointerUnchecked(texaddr);
-			else
-				texptr[i] = 0;
-		}
-	}
 
 	TriangleEdge<useSSE4> e0;
 	TriangleEdge<useSSE4> e1;
@@ -872,7 +877,7 @@ void DrawTriangleSlice(
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
 					}
 
-					ApplyTexturing(state, prim_color, mask, s, t, maxTexLevel, texptr, texbufw, curX, curY);
+					ApplyTexturing(state, prim_color, mask, s, t, maxTexLevel, state.texptr, state.texbufw, curX, curY);
 				}
 
 				if (!clearMode) {
@@ -1029,20 +1034,7 @@ void DrawPoint(const VertexData &v0, const RasterizerState &state) {
 	auto &samplerID = state.samplerID;
 
 	if (gstate.isTextureMapEnabled() && !pixelID.clearMode) {
-		int texbufw[8] = {0};
-
 		int maxTexLevel = samplerID.hasAnyMips ? gstate.getTextureMaxLevel() : 0;
-		u8 *texptr[8] = {NULL};
-
-		GETextureFormat texfmt = samplerID.TexFmt();
-		for (int i = 0; i <= maxTexLevel; i++) {
-			u32 texaddr = gstate.getTextureAddress(i);
-			texbufw[i] = GetTextureBufw(i, texaddr, texfmt);
-			if (Memory::IsValidAddress(texaddr))
-				texptr[i] = Memory::GetPointerUnchecked(texaddr);
-			else
-				texptr[i] = 0;
-		}
 
 		float s = v0.texturecoords.s();
 		float t = v0.texturecoords.t();
@@ -1059,7 +1051,7 @@ void DrawPoint(const VertexData &v0, const RasterizerState &state) {
 		bool bilinear;
 		CalculateSamplingParams(0.0f, 0.0f, maxTexLevel, texLevel, texLevelFrac, bilinear);
 		PROFILE_THIS_SCOPE("sampler");
-		prim_color = ApplyTexturingSingle(s, t, pos.x, pos.y, ToVec4IntArg(prim_color), texptr, texbufw, texLevel, texLevelFrac, bilinear, state);
+		prim_color = ApplyTexturingSingle(s, t, pos.x, pos.y, ToVec4IntArg(prim_color), state.texptr, state.texbufw, texLevel, texLevelFrac, bilinear, state);
 	}
 
 	if (!pixelID.clearMode)
@@ -1312,19 +1304,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const RasterizerState 
 	scissorBR.x += 15;
 	scissorBR.y += 15;
 
-	int texbufw[8] = {0};
-
 	int maxTexLevel = state.samplerID.hasAnyMips ? gstate.getTextureMaxLevel() : 0;
-	u8 *texptr[8] = {NULL};
-
-	if (gstate.isTextureMapEnabled() && !state.pixelID.clearMode) {
-		GETextureFormat texfmt = state.samplerID.TexFmt();
-		for (int i = 0; i <= maxTexLevel; i++) {
-			u32 texaddr = gstate.getTextureAddress(i);
-			texbufw[i] = GetTextureBufw(i, texaddr, texfmt);
-			texptr[i] = Memory::GetPointer(texaddr);
-		}
-	}
 
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
@@ -1401,7 +1381,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const RasterizerState 
 				}
 
 				PROFILE_THIS_SCOPE("sampler");
-				prim_color = ApplyTexturingSingle(s, t, x, y, ToVec4IntArg(prim_color), texptr, texbufw, texLevel, texLevelFrac, texBilinear, state);
+				prim_color = ApplyTexturingSingle(s, t, x, y, ToVec4IntArg(prim_color), state.texptr, state.texbufw, texLevel, texLevelFrac, texBilinear, state);
 			}
 
 			if (!pixelID.clearMode)

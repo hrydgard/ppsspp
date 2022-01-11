@@ -78,13 +78,10 @@ static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4I
 }
 
 void DrawSprite(const VertexData &v0, const VertexData &v1, const RasterizerState &state) {
-	const u8 *texptr = nullptr;
+	const u8 *texptr = state.texptr[0];
 
 	GETextureFormat texfmt = state.samplerID.TexFmt();
-	u32 texaddr = gstate.getTextureAddress(0);
-	int texbufw = GetTextureBufw(0, texaddr, texfmt);
-	if (Memory::IsValidAddress(texaddr))
-		texptr = Memory::GetPointerUnchecked(texaddr);
+	int texbufw = state.texbufw[0];
 
 	ScreenCoords pprime(v0.screenpos.x, v0.screenpos.y, 0);
 	Sampler::FetchFunc fetchFunc = Sampler::GetFetchFunc(state.samplerID);

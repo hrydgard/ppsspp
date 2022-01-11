@@ -38,7 +38,11 @@ struct RasterizerState {
 	SingleFunc drawPixel;
 	Sampler::LinearFunc linear;
 	Sampler::NearestFunc nearest;
+	int texbufw[8]{};
+	u8 *texptr[8]{};
 };
+
+void ComputeRasterizerState(RasterizerState *state);
 
 // Draws a triangle if its vertices are specified in counter-clockwise order
 void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const RasterizerState &state);

@@ -27,6 +27,7 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SplineCommon.h"
+#include "GPU/Common/TextureDecoder.h"
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Software/Clipper.h"
 #include "GPU/Software/FuncId.h"
@@ -342,11 +343,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 	// then resolve the indices. This lets us avoid transforming shared vertices twice.
 
 	Rasterizer::RasterizerState state;
-	ComputePixelFuncID(&state.pixelID);
-	ComputeSamplerID(&state.samplerID);
-	state.drawPixel = Rasterizer::GetSingleFunc(state.pixelID);
-	state.linear = Sampler::GetLinearFunc(state.samplerID);
-	state.nearest = Sampler::GetNearestFunc(state.samplerID);
+	ComputeRasterizerState(&state);
 
 	bool outside_range_flag = false;
 	switch (prim_type) {
