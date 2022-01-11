@@ -109,6 +109,13 @@ void ComputeRasterizerState(RasterizerState *state) {
 	state->linear = Sampler::GetLinearFunc(state->samplerID);
 	state->nearest = Sampler::GetNearestFunc(state->samplerID);
 
+	// Since the definitions are the same, just force this setting using the func pointer.
+	if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR) {
+		state->nearest = state->linear;
+	} else if (g_Config.iTexFiltering == TEX_FILTER_FORCE_NEAREST) {
+		state->linear = state->nearest;
+	}
+
 	int maxTexLevel = state->samplerID.hasAnyMips ? gstate.getTextureMaxLevel() : 0;
 	if (gstate.isTextureMapEnabled() && !state->pixelID.clearMode) {
 		GETextureFormat texfmt = state->samplerID.TexFmt();
@@ -567,13 +574,10 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 		levelFrac = 0;
 	}
 
-	if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR) {
-		filt = true;
-	} else if (g_Config.iTexFiltering == TEX_FILTER_FORCE_NEAREST) {
-		filt = false;
-	} else {
-		filt = detail > 0 ? gstate.isMinifyFilteringEnabled() : gstate.isMagnifyFilteringEnabled();
-	}
+	if (detail > 0)
+		filt = gstate.isMinifyFilteringEnabled();
+	else
+		filt = gstate.isMagnifyFilteringEnabled();
 }
 
 static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_color, const Vec4<int> &mask, const Vec4<float> &s, const Vec4<float> &t, int maxTexLevel, u8 *const texptr[], const int texbufw[], int x, int y) {
