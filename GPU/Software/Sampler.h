@@ -42,19 +42,6 @@ NearestFunc GetNearestFunc(SamplerID id);
 typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *LinearFunc)(float s, float t, int x, int y, Rasterizer::Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int level, int levelFrac);
 LinearFunc GetLinearFunc(SamplerID id);
 
-struct Funcs {
-	NearestFunc nearest;
-	LinearFunc linear;
-};
-static inline Funcs GetFuncs() {
-	Funcs f;
-	SamplerID id;
-	ComputeSamplerID(&id);
-	f.nearest = GetNearestFunc(id);
-	f.linear = GetLinearFunc(id);
-	return f;
-}
-
 void Init();
 void Shutdown();
 

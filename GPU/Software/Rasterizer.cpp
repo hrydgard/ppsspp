@@ -37,6 +37,7 @@
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/Sampler.h"
 #include "GPU/Software/SoftGpu.h"
+#include "GPU/Software/TransformUnit.h"
 
 #if defined(_M_SSE)
 #include <emmintrin.h>
@@ -477,18 +478,18 @@ Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &sourc
 	}
 }
 
-static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(float s, float t, int x, int y, Vec4IntArg prim_color, u8 *texptr[], int texbufw[], int texlevel, int frac_texlevel, bool bilinear, Sampler::Funcs sampler) {
+static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(float s, float t, int x, int y, Vec4IntArg prim_color, u8 *texptr[], int texbufw[], int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
 	const u8 **tptr0 = const_cast<const u8 **>(&texptr[texlevel]);
 	const int *bufw0 = &texbufw[texlevel];
 
 	if (!bilinear) {
-		return sampler.nearest(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel);
+		return state.nearest(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel);
 	}
-	return sampler.linear(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel);
+	return state.linear(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel);
 }
 
-static inline Vec4IntResult SOFTRAST_CALL ApplyTexturingSingle(float s, float t, int x, int y, Vec4IntArg prim_color, u8 *texptr[], int texbufw[], int texlevel, int frac_texlevel, bool bilinear, Sampler::Funcs sampler) {
-	return ApplyTexturing(s, t, ((x & 15) + 1) / 2, ((y & 15) + 1) / 2, prim_color, texptr, texbufw, texlevel, frac_texlevel, bilinear, sampler);
+static inline Vec4IntResult SOFTRAST_CALL ApplyTexturingSingle(float s, float t, int x, int y, Vec4IntArg prim_color, u8 *texptr[], int texbufw[], int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
+	return ApplyTexturing(s, t, ((x & 15) + 1) / 2, ((y & 15) + 1) / 2, prim_color, texptr, texbufw, texlevel, frac_texlevel, bilinear, state);
 }
 
 // Produces a signed 1.27.4 value.
@@ -554,7 +555,7 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 	}
 }
 
-static inline void ApplyTexturing(Sampler::Funcs sampler, Vec4<int> *prim_color, const Vec4<int> &mask, const Vec4<float> &s, const Vec4<float> &t, int maxTexLevel, u8 *texptr[], int texbufw[], int x, int y) {
+static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_color, const Vec4<int> &mask, const Vec4<float> &s, const Vec4<float> &t, int maxTexLevel, u8 *texptr[], int texbufw[], int x, int y) {
 	float ds = s[1] - s[0];
 	float dt = t[2] - t[0];
 
@@ -566,7 +567,7 @@ static inline void ApplyTexturing(Sampler::Funcs sampler, Vec4<int> *prim_color,
 	PROFILE_THIS_SCOPE("sampler");
 	for (int i = 0; i < 4; ++i) {
 		if (mask[i] >= 0)
-			prim_color[i] = ApplyTexturing(s[i], t[i], ((x & 15) + 1) / 2, ((y & 15) + 1) / 2, ToVec4IntArg(prim_color[i]), texptr, texbufw, level, levelFrac, bilinear, sampler);
+			prim_color[i] = ApplyTexturing(s[i], t[i], ((x & 15) + 1) / 2, ((y & 15) + 1) / 2, ToVec4IntArg(prim_color[i]), texptr, texbufw, level, levelFrac, bilinear, state);
 	}
 }
 
@@ -742,25 +743,21 @@ template <bool clearMode, bool useSSE4>
 void DrawTriangleSlice(
 	const VertexData& v0, const VertexData& v1, const VertexData& v2,
 	int x1, int y1, int x2, int y2,
-	const PixelFuncID &pixelID,
-	const Rasterizer::SingleFunc &drawPixel,
-	const Sampler::Funcs &sampler)
+	const RasterizerState &state)
 {
 	Vec4<int> bias0 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v0.screenpos.xy(), v1.screenpos.xy(), v2.screenpos.xy()) ? -1 : 0);
 	Vec4<int> bias1 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v1.screenpos.xy(), v2.screenpos.xy(), v0.screenpos.xy()) ? -1 : 0);
 	Vec4<int> bias2 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v2.screenpos.xy(), v0.screenpos.xy(), v1.screenpos.xy()) ? -1 : 0);
 
+	const PixelFuncID &pixelID = state.pixelID;
+
 	int texbufw[8]{};
 
-	int maxTexLevel = gstate.getTextureMaxLevel();
+	int maxTexLevel = state.samplerID.hasAnyMips ? gstate.getTextureMaxLevel() : 0;
 	u8 *texptr[8]{};
 
-	if (!gstate.isMipmapEnabled()) {
-		maxTexLevel = 0;
-	}
-
 	if (gstate.isTextureMapEnabled() && !clearMode) {
-		GETextureFormat texfmt = gstate.getTextureFormat();
+		GETextureFormat texfmt = state.samplerID.TexFmt();
 		for (int i = 0; i <= maxTexLevel; i++) {
 			u32 texaddr = gstate.getTextureAddress(i);
 			texbufw[i] = GetTextureBufw(i, texaddr, texfmt);
@@ -875,7 +872,7 @@ void DrawTriangleSlice(
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
 					}
 
-					ApplyTexturing(sampler, prim_color, mask, s, t, maxTexLevel, texptr, texbufw, curX, curY);
+					ApplyTexturing(state, prim_color, mask, s, t, maxTexLevel, texptr, texbufw, curX, curY);
 				}
 
 				if (!clearMode) {
@@ -917,7 +914,7 @@ void DrawTriangleSlice(
 					subp.x = p.x + (i & 1);
 					subp.y = p.y + (i / 2);
 
-					drawPixel(subp.x, subp.y, z[i], fog[i], ToVec4IntArg(prim_color[i]), pixelID);
+					state.drawPixel(subp.x, subp.y, z[i], fog[i], ToVec4IntArg(prim_color[i]), pixelID);
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED)
 					uint32_t row = gstate.getFrameBufAddress() + subp.y * gstate.FrameBufStride() * bpp;
@@ -948,7 +945,7 @@ void DrawTriangleSlice(
 }
 
 // Draws triangle, vertices specified in counter-clockwise direction
-void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const PixelFuncID &pixelID, const SamplerID &samplerID) {
+void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const RasterizerState &state) {
 	PROFILE_THIS_SCOPE("draw_tri");
 
 	Vec2<int> d01((int)v0.screenpos.x - (int)v1.screenpos.x, (int)v0.screenpos.y - (int)v1.screenpos.y);
@@ -982,20 +979,15 @@ void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &
 	int rangeY = (maxY - minY + 31) / 32;
 	int rangeX = (maxX - minX + 31) / 32;
 
-	Rasterizer::SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID);
-	Sampler::Funcs sampler;
-	sampler.nearest = Sampler::GetNearestFunc(samplerID);
-	sampler.linear = Sampler::GetLinearFunc(samplerID);
-
 	auto drawSlice = cpu_info.bSSE4_1 ?
-		(pixelID.clearMode ? &DrawTriangleSlice<true, true> : &DrawTriangleSlice<false, true>) :
-		(pixelID.clearMode ? &DrawTriangleSlice<true, false> : &DrawTriangleSlice<false, false>);
+		(state.pixelID.clearMode ? &DrawTriangleSlice<true, true> : &DrawTriangleSlice<false, true>) :
+		(state.pixelID.clearMode ? &DrawTriangleSlice<true, false> : &DrawTriangleSlice<false, false>);
 
 	const int MIN_LINES_PER_THREAD = 4;
 
 	const uint32_t renderTarget = gstate.getFrameBufAddress() & 0x0FFFFFFF;
 	bool selfRender = (gstate.getTextureAddress(0) & 0x0FFFFFFF) == renderTarget;
-	if (samplerID.hasAnyMips) {
+	if (state.samplerID.hasAnyMips) {
 		for (int i = 0; i <= gstate.getTextureMaxLevel(); ++i)
 			selfRender = selfRender || (gstate.getTextureAddress(i) & 0x0FFFFFFF) == renderTarget;
 	}
@@ -1004,22 +996,22 @@ void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &
 		auto bound = [&](int a, int b) -> void {
 			int x1 = minX + a * 16 * 2;
 			int x2 = std::min(maxX, minX + b * 16 * 2 - 1);
-			drawSlice(v0, v1, v2, x1, minY, x2, maxY, pixelID, drawPixel, sampler);
+			drawSlice(v0, v1, v2, x1, minY, x2, maxY, state);
 		};
 		ParallelRangeLoop(&g_threadManager, bound, 0, rangeX, MIN_LINES_PER_THREAD);
 	} else if (rangeY >= 12 && rangeX >= 12 && !selfRender) {
 		auto bound = [&](int a, int b) -> void {
 			int y1 = minY + a * 16 * 2;
 			int y2 = std::min(maxY, minY + b * 16 * 2 - 1);
-			drawSlice(v0, v1, v2, minX, y1, maxX, y2, pixelID, drawPixel, sampler);
+			drawSlice(v0, v1, v2, minX, y1, maxX, y2, state);
 		};
 		ParallelRangeLoop(&g_threadManager, bound, 0, rangeY, MIN_LINES_PER_THREAD);
 	} else {
-		drawSlice(v0, v1, v2, minX, minY, maxX, maxY, pixelID, drawPixel, sampler);
+		drawSlice(v0, v1, v2, minX, minY, maxX, maxY, state);
 	}
 }
 
-void DrawPoint(const VertexData &v0, const PixelFuncID &pixelID, const SamplerID &samplerID) {
+void DrawPoint(const VertexData &v0, const RasterizerState &state) {
 	ScreenCoords pos = v0.screenpos;
 	Vec4<int> prim_color = v0.color0;
 	Vec3<int> sec_color = v0.color1;
@@ -1033,8 +1025,8 @@ void DrawPoint(const VertexData &v0, const PixelFuncID &pixelID, const SamplerID
 	if (pos.x < scissorTL.x || pos.y < scissorTL.y || pos.x > scissorBR.x || pos.y > scissorBR.y)
 		return;
 
-	Sampler::Funcs sampler = Sampler::GetFuncs();
-	Rasterizer::SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID);
+	auto &pixelID = state.pixelID;
+	auto &samplerID = state.samplerID;
 
 	if (gstate.isTextureMapEnabled() && !pixelID.clearMode) {
 		int texbufw[8] = {0};
@@ -1067,7 +1059,7 @@ void DrawPoint(const VertexData &v0, const PixelFuncID &pixelID, const SamplerID
 		bool bilinear;
 		CalculateSamplingParams(0.0f, 0.0f, maxTexLevel, texLevel, texLevelFrac, bilinear);
 		PROFILE_THIS_SCOPE("sampler");
-		prim_color = ApplyTexturingSingle(s, t, pos.x, pos.y, ToVec4IntArg(prim_color), texptr, texbufw, texLevel, texLevelFrac, bilinear, sampler);
+		prim_color = ApplyTexturingSingle(s, t, pos.x, pos.y, ToVec4IntArg(prim_color), texptr, texbufw, texLevel, texLevelFrac, bilinear, state);
 	}
 
 	if (!pixelID.clearMode)
@@ -1084,7 +1076,7 @@ void DrawPoint(const VertexData &v0, const PixelFuncID &pixelID, const SamplerID
 	}
 
 	PROFILE_THIS_SCOPE("draw_px");
-	drawPixel(p.x, p.y, z, fog, ToVec4IntArg(prim_color), pixelID);
+	state.drawPixel(p.x, p.y, z, fog, ToVec4IntArg(prim_color), pixelID);
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
@@ -1104,7 +1096,7 @@ void DrawPoint(const VertexData &v0, const PixelFuncID &pixelID, const SamplerID
 #endif
 }
 
-void ClearRectangle(const VertexData &v0, const VertexData &v1, const PixelFuncID &pixelID, const SamplerID &samplerID) {
+void ClearRectangle(const VertexData &v0, const VertexData &v1, const RasterizerState &state) {
 	int minX = std::min(v0.screenpos.x, v1.screenpos.x) & ~0xF;
 	int minY = std::min(v0.screenpos.y, v1.screenpos.y) & ~0xF;
 	int maxX = (std::max(v0.screenpos.x, v1.screenpos.x) + 0xF) & ~0xF;
@@ -1119,6 +1111,8 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const PixelFuncI
 
 	DrawingCoords pprime = TransformUnit::ScreenToDrawing(ScreenCoords(minX, minY, 0));
 	DrawingCoords pend = TransformUnit::ScreenToDrawing(ScreenCoords(maxX, maxY, 0));
+	auto &pixelID = state.pixelID;
+	auto &samplerID = state.samplerID;
 
 	constexpr int MIN_LINES_PER_THREAD = 32;
 	// Min and max are in PSP fixed point screen coordinates, 16 here is for the 4 subpixel bits.
@@ -1287,7 +1281,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const PixelFuncI
 #endif
 }
 
-void DrawLine(const VertexData &v0, const VertexData &v1, const PixelFuncID &pixelID, const SamplerID &samplerID) {
+void DrawLine(const VertexData &v0, const VertexData &v1, const RasterizerState &state) {
 	// TODO: Use a proper line drawing algorithm that handles fractional endpoints correctly.
 	Vec3<int> a(v0.screenpos.x, v0.screenpos.y, v0.screenpos.z);
 	Vec3<int> b(v1.screenpos.x, v1.screenpos.y, v0.screenpos.z);
@@ -1320,11 +1314,11 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const PixelFuncID &pix
 
 	int texbufw[8] = {0};
 
-	int maxTexLevel = samplerID.hasAnyMips ? gstate.getTextureMaxLevel() : 0;
+	int maxTexLevel = state.samplerID.hasAnyMips ? gstate.getTextureMaxLevel() : 0;
 	u8 *texptr[8] = {NULL};
 
-	if (gstate.isTextureMapEnabled() && !pixelID.clearMode) {
-		GETextureFormat texfmt = samplerID.TexFmt();
+	if (gstate.isTextureMapEnabled() && !state.pixelID.clearMode) {
+		GETextureFormat texfmt = state.samplerID.TexFmt();
 		for (int i = 0; i <= maxTexLevel; i++) {
 			u32 texaddr = gstate.getTextureAddress(i);
 			texbufw[i] = GetTextureBufw(i, texaddr, texfmt);
@@ -1332,8 +1326,8 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const PixelFuncID &pix
 		}
 	}
 
-	Sampler::Funcs sampler = Sampler::GetFuncs();
-	Rasterizer::SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID);
+	auto &pixelID = state.pixelID;
+	auto &samplerID = state.samplerID;
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	DisplayList currentList{};
@@ -1407,7 +1401,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const PixelFuncID &pix
 				}
 
 				PROFILE_THIS_SCOPE("sampler");
-				prim_color = ApplyTexturingSingle(s, t, x, y, ToVec4IntArg(prim_color), texptr, texbufw, texLevel, texLevelFrac, texBilinear, sampler);
+				prim_color = ApplyTexturingSingle(s, t, x, y, ToVec4IntArg(prim_color), texptr, texbufw, texLevel, texLevelFrac, texBilinear, state);
 			}
 
 			if (!pixelID.clearMode)
@@ -1417,7 +1411,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const PixelFuncID &pix
 
 			PROFILE_THIS_SCOPE("draw_px");
 			DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
-			drawPixel(p.x, p.y, z, fog, ToVec4IntArg(prim_color), pixelID);
+			state.drawPixel(p.x, p.y, z, fog, ToVec4IntArg(prim_color), pixelID);
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 			uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
