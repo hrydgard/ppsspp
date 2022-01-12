@@ -40,6 +40,22 @@ struct RasterizerState {
 	Sampler::NearestFunc nearest;
 	int texbufw[8]{};
 	u8 *texptr[8]{};
+
+	struct {
+		uint8_t maxTexLevel : 3;
+		bool enableTextures : 1;
+		uint8_t texLevelMode : 2;
+		bool shadeGouraud : 1;
+		bool throughMode : 1;
+		int8_t texLevelOffset : 8;
+		bool mipFilt : 1;
+		bool minFilt : 1;
+		bool magFilt : 1;
+	};
+
+	GETexLevelMode TexLevelMode() const {
+		return GETexLevelMode(texLevelMode);
+	}
 };
 
 void ComputeRasterizerState(RasterizerState *state);
