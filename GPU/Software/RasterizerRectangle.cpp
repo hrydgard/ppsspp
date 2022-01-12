@@ -249,11 +249,8 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const RasterizerStat
 
 #if defined(SOFTGPU_MEMORY_TAGGING_BASIC) || defined(SOFTGPU_MEMORY_TAGGING_DETAILED)
 	uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
-	DisplayList currentList{};
-	if (gpuDebug)
-		gpuDebug->GetCurrentDisplayList(currentList);
-	std::string tag = StringFromFormat("DisplayListR_%08x", currentList.pc);
-	std::string ztag = StringFromFormat("DisplayListRZ_%08x", currentList.pc);
+	std::string tag = StringFromFormat("DisplayListR_%08x", state.listPC);
+	std::string ztag = StringFromFormat("DisplayListRZ_%08x", state.listPC);
 
 	for (int y = pos0.y; y < pos1.y; y++) {
 		uint32_t row = gstate.getFrameBufAddress() + y * gstate.FrameBufStride() * bpp;

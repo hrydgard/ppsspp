@@ -53,6 +53,10 @@ struct RasterizerState {
 		bool magFilt : 1;
 	};
 
+#if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
+	uint32_t listPC;
+#endif
+
 	GETexLevelMode TexLevelMode() const {
 		return GETexLevelMode(texLevelMode);
 	}

@@ -138,6 +138,13 @@ void ComputeRasterizerState(RasterizerState *state) {
 	state->mipFilt = gstate.isMipmapFilteringEnabled();
 	state->minFilt = gstate.isMinifyFilteringEnabled();
 	state->magFilt = gstate.isMagnifyFilteringEnabled();
+
+#if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
+	DisplayList currentList{};
+	if (gpuDebug)
+		gpuDebug->GetCurrentDisplayList(currentList);
+	state->listPC = currentList.pc;
+#endif
 }
 
 static inline u8 ClampFogDepth(float fogdepth) {
@@ -807,11 +814,8 @@ void DrawTriangleSlice(
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
-	DisplayList currentList{};
-	if (gpuDebug)
-		gpuDebug->GetCurrentDisplayList(currentList);
-	std::string tag = StringFromFormat("DisplayListT_%08x", currentList.pc);
-	std::string ztag = StringFromFormat("DisplayListTZ_%08x", currentList.pc);
+	std::string tag = StringFromFormat("DisplayListT_%08x", state.listPC);
+	std::string ztag = StringFromFormat("DisplayListTZ_%08x", state.listPC);
 #endif
 
 	for (int64_t curY = minY; curY <= maxY; curY += 32,
@@ -1083,16 +1087,13 @@ void DrawPoint(const VertexData &v0, const RasterizerState &state) {
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
-	DisplayList currentList{};
-	if (gpuDebug)
-		gpuDebug->GetCurrentDisplayList(currentList);
-	std::string tag = StringFromFormat("DisplayListP_%08x", currentList.pc);
+	std::string tag = StringFromFormat("DisplayListP_%08x", state.listPC);
 
 	uint32_t row = gstate.getFrameBufAddress() + p.y * gstate.FrameBufStride() * bpp;
 	NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * bpp, bpp, tag.c_str(), tag.size());
 
 	if (pixelID.depthWrite) {
-		std::string ztag = StringFromFormat("DisplayListPZ_%08x", currentList.pc);
+		std::string ztag = StringFromFormat("DisplayListPZ_%08x", state.listPC);
 		row = gstate.getDepthBufAddress() + p.y * gstate.DepthBufStride() * 2;
 		NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * 2, 2, ztag.c_str(), ztag.size());
 	}
@@ -1123,12 +1124,6 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const Rasterizer
 	if (w <= 0)
 		return;
 
-#if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
-	DisplayList currentList{};
-	if (gpuDebug)
-		gpuDebug->GetCurrentDisplayList(currentList);
-#endif
-
 	if (pixelID.DepthClear()) {
 		const u16 z = v1.screenpos.z;
 		const int stride = gstate.DepthBufStride();
@@ -1154,7 +1149,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const Rasterizer
 		}
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
-		std::string tag = StringFromFormat("DisplayListXZ_%08x", currentList.pc);
+		std::string tag = StringFromFormat("DisplayListXZ_%08x", state.listPC);
 		for (int y = pprime.y; y < pend.y; ++y) {
 			uint32_t row = gstate.getDepthBufAddress() + y * gstate.DepthBufStride() * 2;
 			NotifyMemInfo(MemBlockFlags::WRITE, row + pprime.x * 2, w * 2, tag.c_str(), tag.size());
@@ -1275,7 +1270,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const Rasterizer
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	if (keepOldMask != 0xFFFFFFFF) {
 		uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
-		std::string tag = StringFromFormat("DisplayListX_%08x", currentList.pc);
+		std::string tag = StringFromFormat("DisplayListX_%08x", state.listPC);
 		for (int y = pprime.y; y < pend.y; ++y) {
 			uint32_t row = gstate.getFrameBufAddress() + y * gstate.FrameBufStride() * bpp;
 			NotifyMemInfo(MemBlockFlags::WRITE, row + pprime.x * bpp, w * bpp, tag.c_str(), tag.size());
@@ -1319,11 +1314,8 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const RasterizerState 
 	auto &samplerID = state.samplerID;
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
-	DisplayList currentList{};
-	if (gpuDebug)
-		gpuDebug->GetCurrentDisplayList(currentList);
-	std::string tag = StringFromFormat("DisplayListL_%08x", currentList.pc);
-	std::string ztag = StringFromFormat("DisplayListLZ_%08x", currentList.pc);
+	std::string tag = StringFromFormat("DisplayListL_%08x", state.listPC);
+	std::string ztag = StringFromFormat("DisplayListLZ_%08x", state.listPC);
 #endif
 
 	double x = a.x > b.x ? a.x - 1 : a.x;
