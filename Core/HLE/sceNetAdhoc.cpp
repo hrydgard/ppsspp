@@ -151,11 +151,12 @@ void __NetAdhocShutdown() {
 }
 
 bool IsGameModeActive() {
-	return netAdhocGameModeEntered;
+	return netAdhocGameModeEntered && masterGameModeArea.data;
 }
 
 static void __GameModeNotify(u64 userdata, int cyclesLate) {
 	SceUID threadID = userdata >> 32;
+	u32 error;
 
 	if (IsGameModeActive()) {
 		// Need to make sure all replicas have been created before we start syncing data
@@ -182,6 +183,10 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 			auto sock = adhocSockets[gameModeSocket - 1];
 			if (!sock) {
 				WARN_LOG(SCENET, "GameMode: Socket (%d) got deleted", gameModeSocket);
+				u32 waitVal = __KernelGetWaitValue(threadID, error);
+				if (error == 0) {
+					__KernelResumeThreadFromWait(threadID, waitVal);
+				}
 				return;
 			}
 
@@ -209,7 +214,6 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 			}
 			// Need to sync (send + recv) all players initial data (data from CreateMaster) after Master + All Replicas are created, and before the first UpdateMaster / UpdateReplica is called for Star Wars The Force Unleashed to show the correct players color on minimap (also prevent Starting issue on other GameMode games)
 			else {
-				u32 error;
 				SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
 				if (error == 0 && waitID == GAMEMODE_WAITID) {
 					// Resume thread after all replicas data have been received
@@ -293,6 +297,11 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 		return;
 	}
 	INFO_LOG(SCENET, "GameMode Scheduler (%d, %d) has ended", gameModeSocket, gameModeBuffSize);
+	u32 waitVal = __KernelGetWaitValue(threadID, error);
+	if (error == 0) {
+		DEBUG_LOG(SCENET, "GameMode: Resuming Thread %d after Master Deleted (Result = %08x)", threadID, waitVal);
+		__KernelResumeThreadFromWait(threadID, waitVal);
+	}
 }
 
 static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
@@ -440,6 +449,10 @@ int ScheduleAdhocctlState(int event, int newState, int usec, const char* reason)
 
 int StartGameModeScheduler() {
 	INFO_LOG(SCENET, "Initiating GameMode Scheduler");
+	if (CoreTiming::IsScheduled(gameModeNotifyEvent)) {
+		WARN_LOG(SCENET, "GameMode Scheduler is already running!");
+		return -1;
+	}
 	u64 param = ((u64)__KernelGetCurThread()) << 32;
 	CoreTiming::ScheduleEvent(usToCycles(GAMEMODE_INIT_DELAY), gameModeNotifyEvent, param);
 	return 0;
@@ -3465,9 +3478,11 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 					// Set Connection State
 					internal->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
 
-					// Return Peer Address Information
-					*addr = internal->data.ptp.paddr;
-					if (port != NULL) *port = internal->data.ptp.pport;
+					// Return Peer Address & Port Information
+					if (addr != NULL) 
+						*addr = internal->data.ptp.paddr;
+					if (port != NULL) 
+						*port = internal->data.ptp.pport;
 
 					// Link PTP Socket
 					adhocSockets[i] = internal;
@@ -3528,8 +3543,8 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 
 	// Library is initialized
 	if (netAdhocInited) {
-		// Valid Arguments
-		if (addr != NULL) { //GTA:VCS seems to use 0 for the portPtr
+		// TODO: Validate Arguments. GTA:VCS seems to use 0/null for the peerPortPtr, and Bomberman Panic Bomber is using null/0 on both peerMacAddrPtr & peerPortPtr, so i guess it's optional.
+		if (true) { // FIXME: Not sure what kind of arguments considered as invalid (need to be tested on a homebrew), might be the flag?
 			// Valid Socket
 			if (id > 0 && id <= MAX_SOCKET && adhocSockets[id - 1] != NULL) {
 				// Cast Socket
@@ -4291,10 +4306,16 @@ static int sceNetAdhocGameModeCreateMaster(u32 dataAddr, int size) {
 	if (size < 0 || !Memory::IsValidAddress(dataAddr))
 		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_INVALID_ARG, "invalid arg");
 
+	if (masterGameModeArea.data)
+		return hleLogError(SCENET, ERROR_NET_ADHOC_ALREADY_CREATED, "already created"); // FIXME: Should we return a success instead? (need to test this on a homebrew)
+
 	hleEatMicro(1000);
 	SceNetEtherAddr localMac;
 	getLocalMac(&localMac);
 	gameModeBuffSize = std::max(gameModeBuffSize, size);
+	u8* buf = (u8*)realloc(gameModeBuffer, gameModeBuffSize);
+	if (buf)
+		gameModeBuffer = buf;
 
 	u8* data = (u8*)malloc(size);
 	if (data) {
@@ -4353,6 +4374,9 @@ static int sceNetAdhocGameModeCreateReplica(const char *mac, u32 dataAddr, int s
 
 	int ret = 0;
 	gameModeBuffSize = std::max(gameModeBuffSize, size);
+	u8* buf = (u8*)realloc(gameModeBuffer, gameModeBuffSize);
+	if (buf)
+		gameModeBuffer = buf;
 
 	u8* data = (u8*)malloc(size);
 	if (data) {
@@ -4363,7 +4387,7 @@ static int sceNetAdhocGameModeCreateReplica(const char *mac, u32 dataAddr, int s
 		ret = gma.id; // Valid id for replica is higher than 0?
 
 		// Block current thread to sync initial master data after Master and all Replicas have been created
-		if (replicaGameModeAreas.size() == (gameModeMacs.size() - 1)) {
+		if (masterGameModeArea.data != NULL && replicaGameModeAreas.size() == (gameModeMacs.size() - 1)) {
 			if (CoreTiming::IsScheduled(gameModeNotifyEvent)) {
 				__KernelWaitCurThread(WAITTYPE_NET, GAMEMODE_WAITID, ret, 0, false, "syncing master data");
 				DEBUG_LOG(SCENET, "GameMode: Blocking Thread %d to Sync initial Master data", __KernelGetCurThread());
@@ -4400,8 +4424,14 @@ static int sceNetAdhocGameModeUpdateMaster() {
 }
 
 int NetAdhocGameMode_DeleteMaster() {
+	if (CoreTiming::IsScheduled(gameModeNotifyEvent)) {
+		__KernelWaitCurThread(WAITTYPE_NET, GAMEMODE_WAITID, 0, 0, false, "deleting master data");
+		DEBUG_LOG(SCENET, "GameMode: Blocking Thread %d to End GameMode Scheduler", __KernelGetCurThread());
+	}
+
 	if (masterGameModeArea.data) {
 		free(masterGameModeArea.data);
+		masterGameModeArea.data = nullptr;
 	}
 	//NetAdhocPdp_Delete(masterGameModeArea.socket, 0);
 	gameModePeerPorts.erase(masterGameModeArea.mac);
@@ -4442,18 +4472,25 @@ static int sceNetAdhocGameModeUpdateReplica(int id, u32 infoAddr) {
 	if (it == replicaGameModeAreas.end())
 		return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_CREATED, "not created");
 
+	// Bomberman Panic Bomber is using 0/null on infoAddr, so i guess it's optional.
+	GameModeUpdateInfo* gmuinfo = NULL;
+	if (Memory::IsValidAddress(infoAddr)) {
+		gmuinfo = (GameModeUpdateInfo*)Memory::GetPointer(infoAddr);
+	}
+
 	for (auto gma : replicaGameModeAreas) {
 		if (gma.id == id) {
-			if (Memory::IsValidAddress(infoAddr)) {
-				GameModeUpdateInfo* gmuinfo = (GameModeUpdateInfo*)Memory::GetPointer(infoAddr);
-				gmuinfo->length = sizeof(GameModeUpdateInfo);
-				if (gma.data && gma.dataUpdated) {
-					Memory::Memcpy(gma.addr, gma.data, gma.size);
-					gma.dataUpdated = 0;
+			if (gma.data && gma.dataUpdated) {
+				Memory::Memcpy(gma.addr, gma.data, gma.size);
+				gma.dataUpdated = 0;
+				if (gmuinfo != NULL) {
+					gmuinfo->length = sizeof(GameModeUpdateInfo);
 					gmuinfo->updated = 1;
-					gmuinfo->timeStamp = std::max(gma.updateTimestamp, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta);
+					gmuinfo->timeStamp = std::max(gma.updateTimestamp, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta);				
 				}
-				else {
+			}
+			else {
+				if (gmuinfo != NULL) {
 					gmuinfo->updated = 0;
 				}
 			}
