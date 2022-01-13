@@ -1,4 +1,4 @@
-// Copyright (c) 2013- PPSSPP Project.
+// Copyright (c) 2022- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,18 +17,26 @@
 
 #pragma once
 
-#include "TransformUnit.h"
+#include "GPU/Software/Rasterizer.h"
 
-struct PixelFuncID;
-struct SamplerID;
+class BinManager {
+public:
+	void SetEnqueueState(const Rasterizer::RasterizerState &state) {
+		enqueueState_ = state;
+	}
 
-class BinManager;
+	const Rasterizer::RasterizerState &State() {
+		return enqueueState_;
+	}
 
-namespace Clipper {
+	void AddTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2);
+	void AddClearRect(const VertexData &v0, const VertexData &v1);
+	void AddSprite(const VertexData &v0, const VertexData &v1);
+	void AddLine(const VertexData &v0, const VertexData &v1);
+	void AddPoint(const VertexData &v0);
 
-void ProcessPoint(VertexData &v0, BinManager &binner);
-void ProcessLine(VertexData &v0, VertexData &v1, BinManager &binner);
-void ProcessTriangle(VertexData &v0, VertexData &v1, VertexData &v2, const VertexData &provoking, BinManager &binner);
-void ProcessRect(const VertexData &v0, const VertexData &v1, BinManager &binner);
+	void Flush();
 
-}
+private:
+	Rasterizer::RasterizerState enqueueState_;
+};

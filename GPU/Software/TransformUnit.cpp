@@ -29,6 +29,7 @@
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Debugger/Debugger.h"
+#include "GPU/Software/BinManager.h"
 #include "GPU/Software/Clipper.h"
 #include "GPU/Software/FuncId.h"
 #include "GPU/Software/Lighting.h"
@@ -345,6 +346,9 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 	Rasterizer::RasterizerState state;
 	ComputeRasterizerState(&state);
 
+	BinManager binner;
+	binner.SetEnqueueState(state);
+
 	bool outside_range_flag = false;
 	switch (prim_type) {
 	case GE_PRIM_POINTS:
@@ -376,22 +380,22 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				case GE_PRIM_TRIANGLES:
 				{
 					if (!gstate.isCullEnabled() || gstate.isModeClear()) {
-						Clipper::ProcessTriangle(data[0], data[1], data[2], data[2], state);
-						Clipper::ProcessTriangle(data[2], data[1], data[0], data[2], state);
+						Clipper::ProcessTriangle(data[0], data[1], data[2], data[2], binner);
+						Clipper::ProcessTriangle(data[2], data[1], data[0], data[2], binner);
 					} else if (!gstate.getCullMode()) {
-						Clipper::ProcessTriangle(data[2], data[1], data[0], data[2], state);
+						Clipper::ProcessTriangle(data[2], data[1], data[0], data[2], binner);
 					} else {
-						Clipper::ProcessTriangle(data[0], data[1], data[2], data[2], state);
+						Clipper::ProcessTriangle(data[0], data[1], data[2], data[2], binner);
 					}
 					break;
 				}
 
 				case GE_PRIM_LINES:
-					Clipper::ProcessLine(data[0], data[1], state);
+					Clipper::ProcessLine(data[0], data[1], binner);
 					break;
 
 				case GE_PRIM_POINTS:
-					Clipper::ProcessPoint(data[0], state);
+					Clipper::ProcessPoint(data[0], binner);
 					break;
 
 				default:
@@ -431,14 +435,14 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 			}
 
 			if (data_index == 4) {
-				Clipper::ProcessRect(data[0], data[1], state);
-				Clipper::ProcessRect(data[2], data[3], state);
+				Clipper::ProcessRect(data[0], data[1], binner);
+				Clipper::ProcessRect(data[2], data[3], binner);
 				data_index = 0;
 			}
 		}
 
 		if (data_index >= 2) {
-			Clipper::ProcessRect(data[0], data[1], state);
+			Clipper::ProcessRect(data[0], data[1], binner);
 			data_index -= 2;
 		}
 		break;
@@ -467,7 +471,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					--skip_count;
 				} else {
 					// We already incremented data_index, so data_index & 1 is previous one.
-					Clipper::ProcessLine(data[data_index & 1], data[(data_index & 1) ^ 1], state);
+					Clipper::ProcessLine(data[data_index & 1], data[(data_index & 1) ^ 1], binner);
 				}
 			}
 			break;
@@ -493,7 +497,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 
 				// If a strip is effectively a rectangle, draw it as such!
 				if (!outside_range_flag && Rasterizer::DetectRectangleFromThroughModeStrip(data)) {
-					Clipper::ProcessRect(data[0], data[3], state);
+					Clipper::ProcessRect(data[0], data[3], binner);
 					break;
 				}
 			}
@@ -521,14 +525,14 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				if (!gstate.isCullEnabled() || gstate.isModeClear()) {
-					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index], state);
-					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index], state);
+					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index], binner);
+					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index], binner);
 				} else if ((!gstate.getCullMode()) ^ ((data_index - 1) % 2)) {
 					// We need to reverse the vertex order for each second primitive,
 					// but we additionally need to do that for every primitive if CCW cullmode is used.
-					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index], state);
+					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index], binner);
 				} else {
-					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index], state);
+					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index], binner);
 				}
 			}
 			break;
@@ -569,7 +573,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 
 				int tl = -1, br = -1;
 				if (!outside_range_flag && Rasterizer::DetectRectangleFromThroughModeFan(data, vertex_count, &tl, &br)) {
-					Clipper::ProcessRect(data[tl], data[br], state);
+					Clipper::ProcessRect(data[tl], data[br], binner);
 					break;
 				}
 			}
@@ -597,14 +601,14 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				if (!gstate.isCullEnabled() || gstate.isModeClear()) {
-					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index], state);
-					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index], state);
+					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index], binner);
+					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index], binner);
 				} else if ((!gstate.getCullMode()) ^ ((data_index - 1) % 2)) {
 					// We need to reverse the vertex order for each second primitive,
 					// but we additionally need to do that for every primitive if CCW cullmode is used.
-					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index], state);
+					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index], binner);
 				} else {
-					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index], state);
+					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index], binner);
 				}
 			}
 			break;
@@ -614,6 +618,8 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 		ERROR_LOG(G3D, "Unexpected prim type: %d", prim_type);
 		break;
 	}
+
+	binner.Flush();
 
 	GPUDebug::NotifyDraw();
 }

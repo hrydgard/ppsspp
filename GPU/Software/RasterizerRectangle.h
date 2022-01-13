@@ -12,9 +12,12 @@
 // sense to specifically detect rectangles that do 1:1 texture mapping (like a sprite), because
 // the JIT will then be able to eliminate UV interpolation.
 
+class BinManager;
+
 namespace Rasterizer {
 	// Returns true if the normal path should be skipped.
-	bool RectangleFastPath(const VertexData &v0, const VertexData &v1, const RasterizerState &state);
+	bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &binner);
+	void DrawSprite(const VertexData &v0, const VertexData &v1, const RasterizerState &state);
 
 	bool DetectRectangleFromThroughModeStrip(const VertexData data[4]);
 	bool DetectRectangleFromThroughModeFan(const VertexData *data, int c, int *tlIndex, int *brIndex);

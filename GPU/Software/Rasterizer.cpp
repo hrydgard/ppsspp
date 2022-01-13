@@ -970,17 +970,6 @@ void DrawTriangleSlice(
 void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const RasterizerState &state) {
 	PROFILE_THIS_SCOPE("draw_tri");
 
-	Vec2<int> d01((int)v0.screenpos.x - (int)v1.screenpos.x, (int)v0.screenpos.y - (int)v1.screenpos.y);
-	Vec2<int> d02((int)v0.screenpos.x - (int)v2.screenpos.x, (int)v0.screenpos.y - (int)v2.screenpos.y);
-	Vec2<int> d12((int)v1.screenpos.x - (int)v2.screenpos.x, (int)v1.screenpos.y - (int)v2.screenpos.y);
-
-	// Drop primitives which are not in CCW order by checking the cross product
-	if (d01.x * d02.y - d01.y * d02.x < 0)
-		return;
-	// If all points have identical coords, we'll have 0 weights and not skip properly, so skip here.
-	if (d01.x == 0 && d01.y == 0 && d02.x == 0 && d02.y == 0)
-		return;
-
 	int minX = std::min(std::min(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) & ~0xF;
 	int minY = std::min(std::min(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) & ~0xF;
 	int maxX = std::max(std::max(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) | 0xF;

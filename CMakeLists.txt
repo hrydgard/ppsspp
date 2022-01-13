@@ -1583,6 +1583,8 @@ set(GPU_SOURCES
 	GPU/GPUState.h
 	GPU/Math3D.cpp
 	GPU/Math3D.h
+	GPU/Software/BinManager.cpp
+	GPU/Software/BinManager.h
 	GPU/Software/Clipper.cpp
 	GPU/Software/Clipper.h
 	GPU/Software/DrawPixel.cpp

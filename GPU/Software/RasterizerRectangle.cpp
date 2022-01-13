@@ -16,6 +16,7 @@
 #include "GPU/GPUState.h"
 
 #include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Software/BinManager.h"
 #include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/Sampler.h"
@@ -273,7 +274,9 @@ static inline bool NoClampOrWrap(const Vec2f &tc) {
 }
 
 // Returns true if the normal path should be skipped.
-bool RectangleFastPath(const VertexData &v0, const VertexData &v1, const RasterizerState &state) {
+bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &binner) {
+	const RasterizerState &state = binner.State();
+
 	g_DarkStalkerStretch = DSStretch::Off;
 	// Check for 1:1 texture mapping. In that case we can call DrawSprite.
 	int xdiff = v1.screenpos.x - v0.screenpos.x;
@@ -289,7 +292,7 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, const Rasteri
 	bool state_check = !state.pixelID.clearMode && NoClampOrWrap(v0.texturecoords) && NoClampOrWrap(v1.texturecoords);
 	// TODO: No mipmap levels?  Might be a font at level 1...
 	if ((coord_check || !state.enableTextures) && orient_check && state_check) {
-		Rasterizer::DrawSprite(v0, v1, state);
+		binner.AddSprite(v0, v1);
 		return true;
 	}
 
@@ -311,7 +314,7 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, const Rasteri
 				gstate.textureMapEnable &= ~1;
 				VertexData newV1 = v1;
 				newV1.color0 = Vec4<int>(0, 0, 0, 255);
-				Rasterizer::DrawSprite(v0, newV1, state);
+				binner.AddSprite(v0, newV1);
 				gstate.textureMapEnable |= 1;
 			}
 			return true;
