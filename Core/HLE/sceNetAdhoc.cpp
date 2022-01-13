@@ -3465,9 +3465,11 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 					// Set Connection State
 					internal->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
 
-					// Return Peer Address Information
-					*addr = internal->data.ptp.paddr;
-					if (port != NULL) *port = internal->data.ptp.pport;
+					// Return Peer Address & Port Information
+					if (addr != NULL) 
+						*addr = internal->data.ptp.paddr;
+					if (port != NULL) 
+						*port = internal->data.ptp.pport;
 
 					// Link PTP Socket
 					adhocSockets[i] = internal;
@@ -3528,8 +3530,8 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 
 	// Library is initialized
 	if (netAdhocInited) {
-		// Valid Arguments
-		if (addr != NULL) { //GTA:VCS seems to use 0 for the portPtr
+		// TODO: Validate Arguments. GTA:VCS seems to use 0/null for the peerPortPtr, and Bomberman Panic Bomber is using null/0 on both peerMacAddrPtr & peerPortPtr, so i guess it's optional.
+		if (true) { // FIXME: Not sure what kind of arguments considered as invalid (need to be tested on a homebrew), might be the flag?
 			// Valid Socket
 			if (id > 0 && id <= MAX_SOCKET && adhocSockets[id - 1] != NULL) {
 				// Cast Socket
