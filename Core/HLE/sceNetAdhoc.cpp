@@ -4313,6 +4313,9 @@ static int sceNetAdhocGameModeCreateMaster(u32 dataAddr, int size) {
 	SceNetEtherAddr localMac;
 	getLocalMac(&localMac);
 	gameModeBuffSize = std::max(gameModeBuffSize, size);
+	u8* buf = (u8*)realloc(gameModeBuffer, gameModeBuffSize);
+	if (buf)
+		gameModeBuffer = buf;
 
 	u8* data = (u8*)malloc(size);
 	if (data) {
@@ -4371,6 +4374,9 @@ static int sceNetAdhocGameModeCreateReplica(const char *mac, u32 dataAddr, int s
 
 	int ret = 0;
 	gameModeBuffSize = std::max(gameModeBuffSize, size);
+	u8* buf = (u8*)realloc(gameModeBuffer, gameModeBuffSize);
+	if (buf)
+		gameModeBuffer = buf;
 
 	u8* data = (u8*)malloc(size);
 	if (data) {
