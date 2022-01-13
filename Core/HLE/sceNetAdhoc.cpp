@@ -4297,6 +4297,9 @@ static int sceNetAdhocGameModeCreateMaster(u32 dataAddr, int size) {
 	if (size < 0 || !Memory::IsValidAddress(dataAddr))
 		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_INVALID_ARG, "invalid arg");
 
+	if (masterGameModeArea.data)
+		return hleLogError(SCENET, ERROR_NET_ADHOC_ALREADY_CREATED, "already created"); // FIXME: Should we return a success instead? (need to test this on a homebrew)
+
 	hleEatMicro(1000);
 	SceNetEtherAddr localMac;
 	getLocalMac(&localMac);
