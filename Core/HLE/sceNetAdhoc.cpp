@@ -4444,18 +4444,25 @@ static int sceNetAdhocGameModeUpdateReplica(int id, u32 infoAddr) {
 	if (it == replicaGameModeAreas.end())
 		return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_CREATED, "not created");
 
+	// Bomberman Panic Bomber is using 0/null on infoAddr, so i guess it's optional.
+	GameModeUpdateInfo* gmuinfo = NULL;
+	if (Memory::IsValidAddress(infoAddr)) {
+		gmuinfo = (GameModeUpdateInfo*)Memory::GetPointer(infoAddr);
+	}
+
 	for (auto gma : replicaGameModeAreas) {
 		if (gma.id == id) {
-			if (Memory::IsValidAddress(infoAddr)) {
-				GameModeUpdateInfo* gmuinfo = (GameModeUpdateInfo*)Memory::GetPointer(infoAddr);
-				gmuinfo->length = sizeof(GameModeUpdateInfo);
-				if (gma.data && gma.dataUpdated) {
-					Memory::Memcpy(gma.addr, gma.data, gma.size);
-					gma.dataUpdated = 0;
+			if (gma.data && gma.dataUpdated) {
+				Memory::Memcpy(gma.addr, gma.data, gma.size);
+				gma.dataUpdated = 0;
+				if (gmuinfo != NULL) {
+					gmuinfo->length = sizeof(GameModeUpdateInfo);
 					gmuinfo->updated = 1;
-					gmuinfo->timeStamp = std::max(gma.updateTimestamp, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta);
+					gmuinfo->timeStamp = std::max(gma.updateTimestamp, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta);				
 				}
-				else {
+			}
+			else {
+				if (gmuinfo != NULL) {
 					gmuinfo->updated = 0;
 				}
 			}
