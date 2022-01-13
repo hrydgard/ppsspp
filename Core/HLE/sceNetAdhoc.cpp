@@ -151,11 +151,12 @@ void __NetAdhocShutdown() {
 }
 
 bool IsGameModeActive() {
-	return netAdhocGameModeEntered;
+	return netAdhocGameModeEntered && masterGameModeArea.data;
 }
 
 static void __GameModeNotify(u64 userdata, int cyclesLate) {
 	SceUID threadID = userdata >> 32;
+	u32 error;
 
 	if (IsGameModeActive()) {
 		// Need to make sure all replicas have been created before we start syncing data
@@ -182,6 +183,10 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 			auto sock = adhocSockets[gameModeSocket - 1];
 			if (!sock) {
 				WARN_LOG(SCENET, "GameMode: Socket (%d) got deleted", gameModeSocket);
+				u32 waitVal = __KernelGetWaitValue(threadID, error);
+				if (error == 0) {
+					__KernelResumeThreadFromWait(threadID, waitVal);
+				}
 				return;
 			}
 
@@ -209,7 +214,6 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 			}
 			// Need to sync (send + recv) all players initial data (data from CreateMaster) after Master + All Replicas are created, and before the first UpdateMaster / UpdateReplica is called for Star Wars The Force Unleashed to show the correct players color on minimap (also prevent Starting issue on other GameMode games)
 			else {
-				u32 error;
 				SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
 				if (error == 0 && waitID == GAMEMODE_WAITID) {
 					// Resume thread after all replicas data have been received
@@ -293,6 +297,11 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 		return;
 	}
 	INFO_LOG(SCENET, "GameMode Scheduler (%d, %d) has ended", gameModeSocket, gameModeBuffSize);
+	u32 waitVal = __KernelGetWaitValue(threadID, error);
+	if (error == 0) {
+		DEBUG_LOG(SCENET, "GameMode: Resuming Thread %d after Master Deleted (Result = %08x)", threadID, waitVal);
+		__KernelResumeThreadFromWait(threadID, waitVal);
+	}
 }
 
 static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
@@ -4409,8 +4418,14 @@ static int sceNetAdhocGameModeUpdateMaster() {
 }
 
 int NetAdhocGameMode_DeleteMaster() {
+	if (CoreTiming::IsScheduled(gameModeNotifyEvent)) {
+		__KernelWaitCurThread(WAITTYPE_NET, GAMEMODE_WAITID, 0, 0, false, "deleting master data");
+		DEBUG_LOG(SCENET, "GameMode: Blocking Thread %d to End GameMode Scheduler", __KernelGetCurThread());
+	}
+
 	if (masterGameModeArea.data) {
 		free(masterGameModeArea.data);
+		masterGameModeArea.data = nullptr;
 	}
 	//NetAdhocPdp_Delete(masterGameModeArea.socket, 0);
 	gameModePeerPorts.erase(masterGameModeArea.mac);
