@@ -440,6 +440,10 @@ int ScheduleAdhocctlState(int event, int newState, int usec, const char* reason)
 
 int StartGameModeScheduler() {
 	INFO_LOG(SCENET, "Initiating GameMode Scheduler");
+	if (CoreTiming::IsScheduled(gameModeNotifyEvent)) {
+		WARN_LOG(SCENET, "GameMode Scheduler is already running!");
+		return -1;
+	}
 	u64 param = ((u64)__KernelGetCurThread()) << 32;
 	CoreTiming::ScheduleEvent(usToCycles(GAMEMODE_INIT_DELAY), gameModeNotifyEvent, param);
 	return 0;
