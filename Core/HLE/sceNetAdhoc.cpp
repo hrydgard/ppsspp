@@ -4365,7 +4365,7 @@ static int sceNetAdhocGameModeCreateReplica(const char *mac, u32 dataAddr, int s
 		ret = gma.id; // Valid id for replica is higher than 0?
 
 		// Block current thread to sync initial master data after Master and all Replicas have been created
-		if (replicaGameModeAreas.size() == (gameModeMacs.size() - 1)) {
+		if (masterGameModeArea.data != NULL && replicaGameModeAreas.size() == (gameModeMacs.size() - 1)) {
 			if (CoreTiming::IsScheduled(gameModeNotifyEvent)) {
 				__KernelWaitCurThread(WAITTYPE_NET, GAMEMODE_WAITID, ret, 0, false, "syncing master data");
 				DEBUG_LOG(SCENET, "GameMode: Blocking Thread %d to Sync initial Master data", __KernelGetCurThread());
