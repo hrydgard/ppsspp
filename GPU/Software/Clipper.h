@@ -19,11 +19,18 @@
 
 #include "TransformUnit.h"
 
+struct PixelFuncID;
+struct SamplerID;
+
+namespace Rasterizer {
+struct RasterizerState;
+};
+
 namespace Clipper {
 
-void ProcessPoint(VertexData& v0);
-void ProcessLine(VertexData& v0, VertexData& v1);
-void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2, const VertexData &provoking);
-void ProcessRect(const VertexData& v0, const VertexData& v1);
+void ProcessPoint(VertexData &v0, const Rasterizer::RasterizerState &state);
+void ProcessLine(VertexData &v0, VertexData &v1, const Rasterizer::RasterizerState &state);
+void ProcessTriangle(VertexData &v0, VertexData &v1, VertexData &v2, const VertexData &provoking, const Rasterizer::RasterizerState &state);
+void ProcessRect(const VertexData &v0, const VertexData &v1, const Rasterizer::RasterizerState &state);
 
 }

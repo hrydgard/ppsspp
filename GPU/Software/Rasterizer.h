@@ -17,8 +17,10 @@
 
 #pragma once
 
+#include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/FuncId.h"
 #include "GPU/Software/RasterizerRegCache.h"
+#include "GPU/Software/Sampler.h"
 #include "GPU/Software/TransformUnit.h" // for DrawingCoords
 
 #ifdef _DEBUG
@@ -30,11 +32,19 @@ struct GPUDebugBuffer;
 
 namespace Rasterizer {
 
+struct RasterizerState {
+	PixelFuncID pixelID;
+	SamplerID samplerID;
+	SingleFunc drawPixel;
+	Sampler::LinearFunc linear;
+	Sampler::NearestFunc nearest;
+};
+
 // Draws a triangle if its vertices are specified in counter-clockwise order
-void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& v2);
-void DrawPoint(const VertexData &v0);
-void DrawLine(const VertexData &v0, const VertexData &v1);
-void ClearRectangle(const VertexData &v0, const VertexData &v1);
+void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const RasterizerState &state);
+void DrawPoint(const VertexData &v0, const RasterizerState &state);
+void DrawLine(const VertexData &v0, const VertexData &v1, const RasterizerState &state);
+void ClearRectangle(const VertexData &v0, const VertexData &v1, const RasterizerState &state);
 
 bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
 bool GetCurrentTexture(GPUDebugBuffer &buffer, int level);

@@ -47,7 +47,7 @@ inline void DrawSinglePixel5551(u16 *pixel, const u32 color_in, const PixelFuncI
 	*pixel = RGBA8888ToRGBA5551(new_color);
 }
 
-static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4IntArg texcolor_in) {
+static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4IntArg texcolor_in, const SamplerID &samplerID) {
 	Vec4<int> out;
 	Vec4<int> prim_color = prim_in;
 	Vec4<int> texcolor = texcolor_in;
@@ -57,7 +57,7 @@ static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4I
 	const __m128i p = _mm_slli_epi16(_mm_packs_epi32(prim_color.ivec, prim_color.ivec), 4);
 	const __m128i pboost = _mm_add_epi16(p, _mm_set1_epi16(1 << 4));
 	__m128i t = _mm_slli_epi16(_mm_packs_epi32(texcolor.ivec, texcolor.ivec), 4);
-	if (gstate.isColorDoublingEnabled()) {
+	if (samplerID.useColorDoubling) {
 		const __m128i amask = _mm_set_epi16(-1, 0, 0, 0, -1, 0, 0, 0);
 		const __m128i a = _mm_and_si128(t, amask);
 		const __m128i rgb = _mm_andnot_si128(amask, t);
@@ -66,7 +66,7 @@ static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4I
 	const __m128i b = _mm_mulhi_epi16(pboost, t);
 	out.ivec = _mm_unpacklo_epi16(b, _mm_setzero_si128());
 #else
-	if (gstate.isColorDoublingEnabled()) {
+	if (samplerID.useColorDoubling) {
 		Vec4<int> tex = texcolor * Vec4<int>(2, 2, 2, 1);
 		out = ((prim_color + Vec4<int>::AssignToAll(1)) * tex) / 256;
 	} else {
@@ -77,25 +77,19 @@ static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4I
 	return ToVec4IntResult(out);
 }
 
-void DrawSprite(const VertexData& v0, const VertexData& v1) {
+void DrawSprite(const VertexData &v0, const VertexData &v1, const RasterizerState &state) {
 	const u8 *texptr = nullptr;
 
-	GETextureFormat texfmt = gstate.getTextureFormat();
+	GETextureFormat texfmt = state.samplerID.TexFmt();
 	u32 texaddr = gstate.getTextureAddress(0);
 	int texbufw = GetTextureBufw(0, texaddr, texfmt);
 	if (Memory::IsValidAddress(texaddr))
 		texptr = Memory::GetPointerUnchecked(texaddr);
 
-	// These look at gstate.
-	SamplerID samplerID;
-	ComputeSamplerID(&samplerID);
-	PixelFuncID pixelID;
-	ComputePixelFuncID(&pixelID);
-
 	ScreenCoords pprime(v0.screenpos.x, v0.screenpos.y, 0);
-	Sampler::FetchFunc fetchFunc = Sampler::GetFetchFunc(samplerID);
-	Sampler::NearestFunc nearestFunc = Sampler::GetNearestFunc(samplerID);
-	Rasterizer::SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID);
+	Sampler::FetchFunc fetchFunc = Sampler::GetFetchFunc(state.samplerID);
+	auto &pixelID = state.pixelID;
+	auto &samplerID = state.samplerID;
 
 	DrawingCoords pos0 = TransformUnit::ScreenToDrawing(v0.screenpos);
 	// Include the ending pixel based on its center, not start.
@@ -148,8 +142,8 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 			pixelID.alphaTestRef == 0 &&
 			!pixelID.hasAlphaTestMask &&
 			pixelID.alphaBlend &&
-			gstate.isTextureAlphaUsed() &&
-			gstate.getTextureFunction() == GE_TEXFUNC_MODULATE &&
+			samplerID.useTextureAlpha &&
+			samplerID.TexFunc() == GE_TEXFUNC_MODULATE &&
 			!pixelID.applyColorWriteMask &&
 			pixelID.FBFormat() == GE_FORMAT_5551) {
 			if (isWhite) {
@@ -178,7 +172,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 						for (int x = pos0.x; x < pos1.x; x++) {
 							Vec4<int> prim_color = v1.color0;
 							Vec4<int> tex_color = fetchFunc(s, t, texptr, texbufw, 0);
-							prim_color = Vec4<int>(ModulateRGBA(ToVec4IntArg(prim_color), ToVec4IntArg(tex_color)));
+							prim_color = Vec4<int>(ModulateRGBA(ToVec4IntArg(prim_color), ToVec4IntArg(tex_color), state.samplerID));
 							if (prim_color.a() > 0) {
 								DrawSinglePixel5551(pixel, prim_color.ToRGBA(), pixelID);
 							}
@@ -204,8 +198,8 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 					float s = sf_start;
 					// Not really that fast but faster than triangle.
 					for (int x = pos0.x; x < pos1.x; x++) {
-						Vec4<int> prim_color = nearestFunc(s, t, xoff, yoff, ToVec4IntArg(v1.color0), &texptr, &texbufw, 0, 0);
-						drawPixel(x, y, z, 255, ToVec4IntArg(prim_color), pixelID);
+						Vec4<int> prim_color = state.nearest(s, t, xoff, yoff, ToVec4IntArg(v1.color0), &texptr, &texbufw, 0, 0);
+						state.drawPixel(x, y, z, 255, ToVec4IntArg(prim_color), pixelID);
 						s += dsf;
 					}
 					t += dtf;
@@ -227,8 +221,8 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 			pixelID.alphaTestRef == 0 &&
 			!pixelID.hasAlphaTestMask &&
 			pixelID.alphaBlend &&
-			gstate.isTextureAlphaUsed() &&
-			gstate.getTextureFunction() == GE_TEXFUNC_MODULATE &&
+			samplerID.useTextureAlpha &&
+			samplerID.TexFunc() == GE_TEXFUNC_MODULATE &&
 			!pixelID.applyColorWriteMask &&
 			pixelID.FBFormat() == GE_FORMAT_5551) {
 			if (v1.color0.a() == 0)
@@ -249,7 +243,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 				for (int y = y1; y < y2; y++) {
 					for (int x = pos0.x; x < pos1.x; x++) {
 						Vec4<int> prim_color = v1.color0;
-						drawPixel(x, y, z, fog, ToVec4IntArg(prim_color), pixelID);
+						state.drawPixel(x, y, z, fog, ToVec4IntArg(prim_color), pixelID);
 					}
 				}
 			}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);
@@ -285,7 +279,7 @@ static inline bool NoClampOrWrap(const Vec2f &tc) {
 }
 
 // Returns true if the normal path should be skipped.
-bool RectangleFastPath(const VertexData &v0, const VertexData &v1) {
+bool RectangleFastPath(const VertexData &v0, const VertexData &v1, const RasterizerState &state) {
 	g_DarkStalkerStretch = DSStretch::Off;
 	// Check for 1:1 texture mapping. In that case we can call DrawSprite.
 	int xdiff = v1.screenpos.x - v0.screenpos.x;
@@ -298,10 +292,10 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1) {
 	// Currently only works for TL/BR, which is the most common but not required.
 	bool orient_check = xdiff >= 0 && ydiff >= 0;
 	// We already have a fast path for clear in ClearRectangle.
-	bool state_check = !gstate.isModeClear() && NoClampOrWrap(v0.texturecoords) && NoClampOrWrap(v1.texturecoords);
+	bool state_check = !state.pixelID.clearMode && NoClampOrWrap(v0.texturecoords) && NoClampOrWrap(v1.texturecoords);
 	// TODO: No mipmap levels?  Might be a font at level 1...
 	if ((coord_check || !gstate.isTextureMapEnabled()) && orient_check && state_check) {
-		Rasterizer::DrawSprite(v0, v1);
+		Rasterizer::DrawSprite(v0, v1, state);
 		return true;
 	}
 
@@ -323,7 +317,7 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1) {
 				gstate.textureMapEnable &= ~1;
 				VertexData newV1 = v1;
 				newV1.color0 = Vec4<int>(0, 0, 0, 255);
-				Rasterizer::DrawSprite(v0, newV1);
+				Rasterizer::DrawSprite(v0, newV1, state);
 				gstate.textureMapEnable |= 1;
 			}
 			return true;
