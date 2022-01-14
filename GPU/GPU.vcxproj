@@ -452,6 +452,7 @@
     <ClInclude Include="GPUInterface.h" />
     <ClInclude Include="GPUState.h" />
     <ClInclude Include="Math3D.h" />
+    <ClInclude Include="Software\BinManager.h" />
     <ClInclude Include="Software\Clipper.h" />
     <ClInclude Include="Software\DrawPixel.h" />
     <ClInclude Include="Software\Lighting.h" />
@@ -630,6 +631,7 @@
     <ClCompile Include="GPUCommon.cpp" />
     <ClCompile Include="GPUState.cpp" />
     <ClCompile Include="Math3D.cpp" />
+    <ClCompile Include="Software\BinManager.cpp" />
     <ClCompile Include="Software\Clipper.cpp" />
     <ClCompile Include="Software\DrawPixel.cpp" />
     <ClCompile Include="Software\DrawPixelX86.cpp" />

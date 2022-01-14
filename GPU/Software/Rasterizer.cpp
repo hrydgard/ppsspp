@@ -23,16 +23,14 @@
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/StringUtils.h"
-#include "Common/Thread/ParallelLoop.h"
-#include "Core/ThreadPools.h"
 #include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
-#include "Core/ThreadPools.h"
 #include "GPU/GPUState.h"
 
 #include "GPU/Common/TextureDecoder.h"
+#include "GPU/Software/BinManager.h"
 #include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/Sampler.h"
@@ -967,85 +965,20 @@ void DrawTriangleSlice(
 }
 
 // Draws triangle, vertices specified in counter-clockwise direction
-void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const RasterizerState &state) {
+void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const BinCoords &range, const RasterizerState &state) {
 	PROFILE_THIS_SCOPE("draw_tri");
-
-	Vec2<int> d01((int)v0.screenpos.x - (int)v1.screenpos.x, (int)v0.screenpos.y - (int)v1.screenpos.y);
-	Vec2<int> d02((int)v0.screenpos.x - (int)v2.screenpos.x, (int)v0.screenpos.y - (int)v2.screenpos.y);
-	Vec2<int> d12((int)v1.screenpos.x - (int)v2.screenpos.x, (int)v1.screenpos.y - (int)v2.screenpos.y);
-
-	// Drop primitives which are not in CCW order by checking the cross product
-	if (d01.x * d02.y - d01.y * d02.x < 0)
-		return;
-	// If all points have identical coords, we'll have 0 weights and not skip properly, so skip here.
-	if (d01.x == 0 && d01.y == 0 && d02.x == 0 && d02.y == 0)
-		return;
-
-	int minX = std::min(std::min(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) & ~0xF;
-	int minY = std::min(std::min(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) & ~0xF;
-	int maxX = std::max(std::max(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) | 0xF;
-	int maxY = std::max(std::max(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) | 0xF;
-
-	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1(), 0);
-	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2(), 0);
-	minX = std::max(minX, (int)TransformUnit::DrawingToScreen(scissorTL).x);
-	maxX = std::min(maxX, (int)TransformUnit::DrawingToScreen(scissorBR).x + 15);
-	minY = std::max(minY, (int)TransformUnit::DrawingToScreen(scissorTL).y);
-	maxY = std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y + 15);
-
-	// Was it fully outside the scissor?
-	if (maxX < minX || maxY < minY)
-		return;
-
-	// 32 because we do two pixels at once, and we don't want overlap.
-	int rangeY = (maxY - minY + 31) / 32;
-	int rangeX = (maxX - minX + 31) / 32;
 
 	auto drawSlice = cpu_info.bSSE4_1 ?
 		(state.pixelID.clearMode ? &DrawTriangleSlice<true, true> : &DrawTriangleSlice<false, true>) :
 		(state.pixelID.clearMode ? &DrawTriangleSlice<true, false> : &DrawTriangleSlice<false, false>);
 
-	const int MIN_LINES_PER_THREAD = 4;
-
-	const uint32_t renderTarget = gstate.getFrameBufAddress() & 0x0FFFFFFF;
-	bool selfRender = (gstate.getTextureAddress(0) & 0x0FFFFFFF) == renderTarget;
-	if (state.samplerID.hasAnyMips) {
-		for (int i = 0; i <= gstate.getTextureMaxLevel(); ++i)
-			selfRender = selfRender || (gstate.getTextureAddress(i) & 0x0FFFFFFF) == renderTarget;
-	}
-
-	if (rangeY >= 12 && rangeX >= rangeY * 4 && !selfRender) {
-		auto bound = [&](int a, int b) -> void {
-			int x1 = minX + a * 16 * 2;
-			int x2 = std::min(maxX, minX + b * 16 * 2 - 1);
-			drawSlice(v0, v1, v2, x1, minY, x2, maxY, state);
-		};
-		ParallelRangeLoop(&g_threadManager, bound, 0, rangeX, MIN_LINES_PER_THREAD);
-	} else if (rangeY >= 12 && rangeX >= 12 && !selfRender) {
-		auto bound = [&](int a, int b) -> void {
-			int y1 = minY + a * 16 * 2;
-			int y2 = std::min(maxY, minY + b * 16 * 2 - 1);
-			drawSlice(v0, v1, v2, minX, y1, maxX, y2, state);
-		};
-		ParallelRangeLoop(&g_threadManager, bound, 0, rangeY, MIN_LINES_PER_THREAD);
-	} else {
-		drawSlice(v0, v1, v2, minX, minY, maxX, maxY, state);
-	}
+	drawSlice(v0, v1, v2, range.x1, range.y1, range.x2, range.y2, state);
 }
 
-void DrawPoint(const VertexData &v0, const RasterizerState &state) {
+void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerState &state) {
 	ScreenCoords pos = v0.screenpos;
 	Vec4<int> prim_color = v0.color0;
 	Vec3<int> sec_color = v0.color1;
-
-	ScreenCoords scissorTL(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX1(), gstate.getScissorY1(), 0)));
-	ScreenCoords scissorBR(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX2(), gstate.getScissorY2(), 0)));
-	// Allow drawing within a pixel's center.
-	scissorBR.x += 15;
-	scissorBR.y += 15;
-
-	if (pos.x < scissorTL.x || pos.y < scissorTL.y || pos.x > scissorBR.x || pos.y > scissorBR.y)
-		return;
 
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
@@ -1072,9 +1005,7 @@ void DrawPoint(const VertexData &v0, const RasterizerState &state) {
 	if (!pixelID.clearMode)
 		prim_color += Vec4<int>(sec_color, 0);
 
-	ScreenCoords pprime = pos;
-
-	DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+	DrawingCoords p = TransformUnit::ScreenToDrawing(pos);
 	u16 z = pos.z;
 
 	u8 fog = 255;
@@ -1100,27 +1031,14 @@ void DrawPoint(const VertexData &v0, const RasterizerState &state) {
 #endif
 }
 
-void ClearRectangle(const VertexData &v0, const VertexData &v1, const RasterizerState &state) {
-	int minX = std::min(v0.screenpos.x, v1.screenpos.x) & ~0xF;
-	int minY = std::min(v0.screenpos.y, v1.screenpos.y) & ~0xF;
-	int maxX = (std::max(v0.screenpos.x, v1.screenpos.x) + 0xF) & ~0xF;
-	int maxY = (std::max(v0.screenpos.y, v1.screenpos.y) + 0xF) & ~0xF;
-
-	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1(), 0);
-	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2(), 0);
-	minX = std::max(minX, (int)TransformUnit::DrawingToScreen(scissorTL).x);
-	maxX = std::max(0, std::min(maxX, (int)TransformUnit::DrawingToScreen(scissorBR).x + 16));
-	minY = std::max(minY, (int)TransformUnit::DrawingToScreen(scissorTL).y);
-	maxY = std::max(0, std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y + 16));
-
-	DrawingCoords pprime = TransformUnit::ScreenToDrawing(ScreenCoords(minX, minY, 0));
-	DrawingCoords pend = TransformUnit::ScreenToDrawing(ScreenCoords(maxX, maxY, 0));
+void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
+	DrawingCoords pprime = TransformUnit::ScreenToDrawing(ScreenCoords(range.x1, range.y1, 0));
+	DrawingCoords pend = TransformUnit::ScreenToDrawing(ScreenCoords(range.x2, range.y2, 0));
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
 
-	constexpr int MIN_LINES_PER_THREAD = 32;
 	// Min and max are in PSP fixed point screen coordinates, 16 here is for the 4 subpixel bits.
-	const int w = (maxX - minX) / 16;
+	const int w = (range.x2 - range.x1 + 1) / 16;
 	if (w <= 0)
 		return;
 
@@ -1130,27 +1048,23 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const Rasterizer
 
 		// If both bytes of Z equal, we can just use memset directly which is faster.
 		if ((z & 0xFF) == (z >> 8)) {
-			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-				DrawingCoords p = pprime;
-				for (p.y = y1; p.y < y2; ++p.y) {
-					u16 *row = depthbuf.Get16Ptr(p.x, p.y, stride);
-					memset(row, z, w * 2);
-				}
-			}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
+			DrawingCoords p = pprime;
+			for (p.y = pprime.y; p.y <= pend.y; ++p.y) {
+				u16 *row = depthbuf.Get16Ptr(p.x, p.y, stride);
+				memset(row, z, w * 2);
+			}
 		} else {
-			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-				DrawingCoords p = pprime;
-				for (p.y = y1; p.y < y2; ++p.y) {
-					for (int x = 0; x < w; ++x) {
-						SetPixelDepth(p.x + x, p.y, z);
-					}
+			DrawingCoords p = pprime;
+			for (p.y = pprime.y; p.y <= pend.y; ++p.y) {
+				for (int x = 0; x < w; ++x) {
+					SetPixelDepth(p.x + x, p.y, z);
 				}
-			}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
+			}
 		}
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 		std::string tag = StringFromFormat("DisplayListXZ_%08x", state.listPC);
-		for (int y = pprime.y; y < pend.y; ++y) {
+		for (int y = pprime.y; y <= pend.y; ++y) {
 			uint32_t row = gstate.getDepthBufAddress() + y * gstate.DepthBufStride() * 2;
 			NotifyMemInfo(MemBlockFlags::WRITE, row + pprime.x * 2, w * 2, tag.c_str(), tag.size());
 		}
@@ -1201,69 +1115,57 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const Rasterizer
 		if (pixelID.FBFormat() == GE_FORMAT_8888) {
 			const bool canMemsetColor = (new_color & 0xFF) == (new_color >> 8) && (new_color & 0xFFFF) == (new_color >> 16);
 			if (canMemsetColor) {
-				ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-					DrawingCoords p = pprime;
-					for (p.y = y1; p.y < y2; ++p.y) {
-						u32 *row = fb.Get32Ptr(p.x, p.y, stride);
-						memset(row, new_color, w * 4);
-					}
-				}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
+				DrawingCoords p = pprime;
+				for (p.y = pprime.y; p.y <= pend.y; ++p.y) {
+					u32 *row = fb.Get32Ptr(p.x, p.y, stride);
+					memset(row, new_color, w * 4);
+				}
 			} else {
-				ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-					DrawingCoords p = pprime;
-					for (p.y = y1; p.y < y2; ++p.y) {
-						for (int x = 0; x < w; ++x) {
-							fb.Set32(p.x + x, p.y, stride, new_color);
-						}
+				DrawingCoords p = pprime;
+				for (p.y = pprime.y; p.y <= pend.y; ++p.y) {
+					for (int x = 0; x < w; ++x) {
+						fb.Set32(p.x + x, p.y, stride, new_color);
 					}
-				}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
+				}
 			}
 		} else {
 			const bool canMemsetColor = (new_color16 & 0xFF) == (new_color16 >> 8);
 			if (canMemsetColor) {
-				ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-					DrawingCoords p = pprime;
-					for (p.y = y1; p.y < y2; ++p.y) {
-						u16 *row = fb.Get16Ptr(p.x, p.y, stride);
-						memset(row, new_color16, w * 2);
-					}
-				}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
+				DrawingCoords p = pprime;
+				for (p.y = pprime.y; p.y <= pend.y; ++p.y) {
+					u16 *row = fb.Get16Ptr(p.x, p.y, stride);
+					memset(row, new_color16, w * 2);
+				}
 			} else {
-				ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-					DrawingCoords p = pprime;
-					for (p.y = y1; p.y < y2; ++p.y) {
-						for (int x = 0; x < w; ++x) {
-							fb.Set16(p.x + x, p.y, stride, new_color16);
-						}
+				DrawingCoords p = pprime;
+				for (p.y = pprime.y; p.y <= pend.y; ++p.y) {
+					for (int x = 0; x < w; ++x) {
+						fb.Set16(p.x + x, p.y, stride, new_color16);
 					}
-				}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
+				}
 			}
 		}
 	} else if (keepOldMask != 0xFFFFFFFF) {
 		const int stride = gstate.FrameBufStride();
 
 		if (pixelID.FBFormat() == GE_FORMAT_8888) {
-			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-				DrawingCoords p = pprime;
-				for (p.y = y1; p.y < y2; ++p.y) {
-					for (int x = 0; x < w; ++x) {
-						const u32 old_color = fb.Get32(p.x + x, p.y, stride);
-						const u32 c = (old_color & keepOldMask) | (new_color & ~keepOldMask);
-						fb.Set32(p.x + x, p.y, stride, c);
-					}
+			DrawingCoords p = pprime;
+			for (p.y = pprime.y; p.y <= pend.y; ++p.y) {
+				for (int x = 0; x < w; ++x) {
+					const u32 old_color = fb.Get32(p.x + x, p.y, stride);
+					const u32 c = (old_color & keepOldMask) | (new_color & ~keepOldMask);
+					fb.Set32(p.x + x, p.y, stride, c);
 				}
-			}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
+			}
 		} else {
-			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-				DrawingCoords p = pprime;
-				for (p.y = y1; p.y < y2; ++p.y) {
-					for (int x = 0; x < w; ++x) {
-						const u16 old_color = fb.Get16(p.x + x, p.y, stride);
-						const u16 c = (old_color & keepOldMask) | (new_color16 & ~keepOldMask);
-						fb.Set16(p.x + x, p.y, stride, c);
-					}
+			DrawingCoords p = pprime;
+			for (p.y = pprime.y; p.y <= pend.y; ++p.y) {
+				for (int x = 0; x < w; ++x) {
+					const u16 old_color = fb.Get16(p.x + x, p.y, stride);
+					const u16 c = (old_color & keepOldMask) | (new_color16 & ~keepOldMask);
+					fb.Set16(p.x + x, p.y, stride, c);
 				}
-			}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
+			}
 		}
 	}
 
@@ -1279,7 +1181,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const Rasterizer
 #endif
 }
 
-void DrawLine(const VertexData &v0, const VertexData &v1, const RasterizerState &state) {
+void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
 	// TODO: Use a proper line drawing algorithm that handles fractional endpoints correctly.
 	Vec3<int> a(v0.screenpos.x, v0.screenpos.y, v0.screenpos.z);
 	Vec3<int> b(v1.screenpos.x, v1.screenpos.y, v0.screenpos.z);
@@ -1304,12 +1206,6 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const RasterizerState 
 	double yinc = (double)dy / steps;
 	double zinc = (double)dz / steps;
 
-	ScreenCoords scissorTL(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX1(), gstate.getScissorY1(), 0)));
-	ScreenCoords scissorBR(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX2(), gstate.getScissorY2(), 0)));
-	// Allow drawing within a pixel's center.
-	scissorBR.x += 15;
-	scissorBR.y += 15;
-
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
 
@@ -1323,7 +1219,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const RasterizerState 
 	double z = a.z;
 	const int steps1 = steps == 0 ? 1 : steps;
 	for (int i = 0; i < steps; i++) {
-		if (x >= scissorTL.x && y >= scissorTL.y && x <= scissorBR.x && y <= scissorBR.y) {
+		if (x >= range.x1 && y >= range.y1 && x <= range.x2 && y <= range.y2) {
 			// Interpolate between the two points.
 			Vec4<int> prim_color;
 			Vec3<int> sec_color;

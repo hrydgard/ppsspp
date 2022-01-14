@@ -46,7 +46,8 @@ public:
 	// just ignore it and let the OS handle it.
 	void Init(int numCores, int numLogicalCoresPerCpu);
 	void EnqueueTask(Task *task);
-	void EnqueueTaskOnThread(int threadNum, Task *task);
+	// Use enforceSequence if this must run after all previously queued tasks.
+	void EnqueueTaskOnThread(int threadNum, Task *task, bool enforceSequence = false);
 	void Teardown();
 
 	bool IsInitialized() const;

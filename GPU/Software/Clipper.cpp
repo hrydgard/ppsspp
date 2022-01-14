@@ -19,6 +19,7 @@
 
 #include "GPU/GPUState.h"
 
+#include "GPU/Software/BinManager.h"
 #include "GPU/Software/Clipper.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/RasterizerRectangle.h"
@@ -127,7 +128,7 @@ static void RotateUVThrough(const VertexData &tl, const VertexData &br, VertexDa
 	}
 }
 
-void ProcessTriangleInternal(VertexData &v0, VertexData &v1, VertexData &v2, const VertexData &provoking, const Rasterizer::RasterizerState &state, bool fromRectangle);
+void ProcessTriangleInternal(VertexData &v0, VertexData &v1, VertexData &v2, const VertexData &provoking, BinManager &binner, bool fromRectangle);
 
 static inline bool CheckOutsideZ(ClipCoords p, int &pos, int &neg) {
 	constexpr float outsideValue = 1.000030517578125f;
@@ -143,7 +144,7 @@ static inline bool CheckOutsideZ(ClipCoords p, int &pos, int &neg) {
 	return false;
 }
 
-void ProcessRect(const VertexData &v0, const VertexData &v1, const Rasterizer::RasterizerState &state) {
+void ProcessRect(const VertexData &v0, const VertexData &v1, BinManager &binner) {
 	if (!gstate.isModeThrough()) {
 		// We may discard the entire rect based on depth values.
 		int outsidePos = 0, outsideNeg = 0;
@@ -191,14 +192,14 @@ void ProcessRect(const VertexData &v0, const VertexData &v1, const Rasterizer::R
 		}
 
 		// Four triangles to do backfaces as well. Two of them will get backface culled.
-		ProcessTriangleInternal(*topleft, *topright, *bottomright, buf[3], state, true);
-		ProcessTriangleInternal(*bottomright, *topright, *topleft, buf[3], state, true);
-		ProcessTriangleInternal(*bottomright, *bottomleft, *topleft, buf[3], state, true);
-		ProcessTriangleInternal(*topleft, *bottomleft, *bottomright, buf[3], state, true);
+		ProcessTriangleInternal(*topleft, *topright, *bottomright, buf[3], binner, true);
+		ProcessTriangleInternal(*bottomright, *topright, *topleft, buf[3], binner, true);
+		ProcessTriangleInternal(*bottomright, *bottomleft, *topleft, buf[3], binner, true);
+		ProcessTriangleInternal(*topleft, *bottomleft, *bottomright, buf[3], binner, true);
 	} else {
 		// through mode handling
 
-		if (Rasterizer::RectangleFastPath(v0, v1, state)) {
+		if (Rasterizer::RectangleFastPath(v0, v1, binner)) {
 			return;
 		}
 
@@ -240,26 +241,26 @@ void ProcessRect(const VertexData &v0, const VertexData &v1, const Rasterizer::R
 		RotateUVThrough(v0, v1, *topright, *bottomleft);
 
 		if (gstate.isModeClear()) {
-			Rasterizer::ClearRectangle(v0, v1, state);
+			binner.AddClearRect(v0, v1);
 		} else {
 			// Four triangles to do backfaces as well. Two of them will get backface culled.
-			Rasterizer::DrawTriangle(*topleft, *topright, *bottomleft, state);
-			Rasterizer::DrawTriangle(*bottomleft, *topright, *topleft, state);
-			Rasterizer::DrawTriangle(*topright, *bottomright, *bottomleft, state);
-			Rasterizer::DrawTriangle(*bottomleft, *bottomright, *topright, state);
+			binner.AddTriangle(*topleft, *topright, *bottomleft);
+			binner.AddTriangle(*bottomleft, *topright, *topleft);
+			binner.AddTriangle(*topright, *bottomright, *bottomleft);
+			binner.AddTriangle(*bottomleft, *bottomright, *topright);
 		}
 	}
 }
 
-void ProcessPoint(VertexData &v0, const Rasterizer::RasterizerState &state) {
+void ProcessPoint(VertexData &v0, BinManager &binner) {
 	// Points need no clipping. Will be bounds checked in the rasterizer (which seems backwards?)
-	Rasterizer::DrawPoint(v0, state);
+	binner.AddPoint(v0);
 }
 
-void ProcessLine(VertexData &v0, VertexData &v1, const Rasterizer::RasterizerState &state) {
+void ProcessLine(VertexData &v0, VertexData &v1, BinManager &binner) {
 	if (gstate.isModeThrough()) {
 		// Actually, should clip this one too so we don't need to do bounds checks in the rasterizer.
-		Rasterizer::DrawLine(v0, v1, state);
+		binner.AddLine(v0, v1);
 		return;
 	}
 
@@ -286,19 +287,19 @@ void ProcessLine(VertexData &v0, VertexData &v1, const Rasterizer::RasterizerSta
 	VertexData data[2] = { *Vertices[0], *Vertices[1] };
 	data[0].screenpos = TransformUnit::ClipToScreen(data[0].clippos);
 	data[1].screenpos = TransformUnit::ClipToScreen(data[1].clippos);
-	Rasterizer::DrawLine(data[0], data[1], state);
+	binner.AddLine(data[0], data[1]);
 }
 
-void ProcessTriangleInternal(VertexData &v0, VertexData &v1, VertexData &v2, const VertexData &provoking, const Rasterizer::RasterizerState &state, bool fromRectangle) {
+void ProcessTriangleInternal(VertexData &v0, VertexData &v1, VertexData &v2, const VertexData &provoking, BinManager &binner, bool fromRectangle) {
 	if (gstate.isModeThrough()) {
 		// In case of cull reordering, make sure the right color is on the final vertex.
 		if (gstate.getShadeMode() == GE_SHADE_FLAT) {
 			VertexData corrected2 = v2;
 			corrected2.color0 = provoking.color0;
 			corrected2.color1 = provoking.color1;
-			Rasterizer::DrawTriangle(v0, v1, corrected2, state);
+			binner.AddTriangle(v0, v1, corrected2);
 		} else {
-			Rasterizer::DrawTriangle(v0, v1, v2, state);
+			binner.AddTriangle(v0, v1, v2);
 		}
 		return;
 	}
@@ -382,13 +383,13 @@ void ProcessTriangleInternal(VertexData &v0, VertexData &v1, VertexData &v2, con
 				data[2].color1 = provoking.color1;
 			}
 
-			Rasterizer::DrawTriangle(data[0], data[1], data[2], state);
+			binner.AddTriangle(data[0], data[1], data[2]);
 		}
 	}
 }
 
-void ProcessTriangle(VertexData &v0, VertexData &v1, VertexData &v2, const VertexData &provoking, const Rasterizer::RasterizerState &state) {
-	ProcessTriangleInternal(v0, v1, v2, provoking, state, false);
+void ProcessTriangle(VertexData &v0, VertexData &v1, VertexData &v2, const VertexData &provoking, BinManager &binner) {
+	ProcessTriangleInternal(v0, v1, v2, provoking, binner, false);
 }
 
 } // namespace

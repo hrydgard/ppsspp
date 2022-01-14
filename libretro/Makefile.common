@@ -351,6 +351,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/GPU.cpp \
 	$(GPUDIR)/GPUState.cpp \
 	$(GPUDIR)/Math3D.cpp \
+	$(GPUDIR)/Software/BinManager.cpp \
 	$(GPUDIR)/Software/Clipper.cpp \
 	$(GPUDIR)/Software/DrawPixel.cpp \
 	$(GPUDIR)/Software/FuncId.cpp \

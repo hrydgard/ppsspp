@@ -276,6 +276,9 @@
     <ClInclude Include="Software\RasterizerRegCache.h">
       <Filter>Software</Filter>
     </ClInclude>
+    <ClInclude Include="Software\BinManager.h">
+      <Filter>Software</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -552,6 +555,9 @@
       <Filter>Software</Filter>
     </ClCompile>
     <ClCompile Include="Software\RasterizerRegCache.cpp">
+      <Filter>Software</Filter>
+    </ClCompile>
+    <ClCompile Include="Software\BinManager.cpp">
       <Filter>Software</Filter>
     </ClCompile>
   </ItemGroup>

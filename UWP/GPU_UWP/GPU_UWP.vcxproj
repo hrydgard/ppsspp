@@ -425,6 +425,7 @@
     <ClInclude Include="..\..\GPU\GPUInterface.h" />
     <ClInclude Include="..\..\GPU\GPUState.h" />
     <ClInclude Include="..\..\GPU\Math3D.h" />
+    <ClInclude Include="..\..\GPU\Software\BinManager.h" />
     <ClInclude Include="..\..\GPU\Software\Clipper.h" />
     <ClInclude Include="..\..\GPU\Software\DrawPixel.h" />
     <ClInclude Include="..\..\GPU\Software\FuncId.h" />
@@ -486,6 +487,7 @@
     <ClCompile Include="..\..\GPU\GPUCommon.cpp" />
     <ClCompile Include="..\..\GPU\GPUState.cpp" />
     <ClCompile Include="..\..\GPU\Math3D.cpp" />
+    <ClCompile Include="..\..\GPU\Software\BinManager.cpp" />
     <ClCompile Include="..\..\GPU\Software\Clipper.cpp" />
     <ClCompile Include="..\..\GPU\Software\DrawPixel.cpp" />
     <ClCompile Include="..\..\GPU\Software\FuncId.cpp" />

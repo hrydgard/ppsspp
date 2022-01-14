@@ -258,13 +258,13 @@ void ThreadManager::EnqueueTask(Task *task) {
 	chosenThread->cond.notify_one();
 }
 
-void ThreadManager::EnqueueTaskOnThread(int threadNum, Task *task) {
+void ThreadManager::EnqueueTaskOnThread(int threadNum, Task *task, bool enforceSequence) {
 	_assert_msg_(threadNum >= 0 && threadNum < (int)global_->threads_.size(), "Bad threadnum or not initialized");
 	ThreadContext *thread = global_->threads_[threadNum];
 
 	// Try first atomically, as highest priority.
 	Task *expected = nullptr;
-	bool queued = thread->private_single.compare_exchange_weak(expected, task);
+	bool queued = !enforceSequence && thread->private_single.compare_exchange_weak(expected, task);
 	// Whether we got that or will have to wait, increase the queue counter.
 	thread->queue_size++;
 
