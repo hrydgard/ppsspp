@@ -257,7 +257,7 @@ void BinManager::Drain() {
 
 			waitable_->Fill();
 			DrawBinItemTask *task = new DrawBinItemTask(waitable_, item, range, states_[item.stateIndex]);
-			g_threadManager.EnqueueTaskOnThread(i, task);
+			g_threadManager.EnqueueTaskOnThread(i, task, true);
 		}
 	}
 }
