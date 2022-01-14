@@ -78,13 +78,10 @@ static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4I
 }
 
 void DrawSprite(const VertexData &v0, const VertexData &v1, const RasterizerState &state) {
-	const u8 *texptr = nullptr;
+	const u8 *texptr = state.texptr[0];
 
 	GETextureFormat texfmt = state.samplerID.TexFmt();
-	u32 texaddr = gstate.getTextureAddress(0);
-	int texbufw = GetTextureBufw(0, texaddr, texfmt);
-	if (Memory::IsValidAddress(texaddr))
-		texptr = Memory::GetPointerUnchecked(texaddr);
+	int texbufw = state.texbufw[0];
 
 	ScreenCoords pprime(v0.screenpos.x, v0.screenpos.y, 0);
 	Sampler::FetchFunc fetchFunc = Sampler::GetFetchFunc(state.samplerID);
@@ -105,7 +102,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const RasterizerStat
 
 	constexpr int MIN_LINES_PER_THREAD = 32;
 
-	if (gstate.isTextureMapEnabled()) {
+	if (state.enableTextures) {
 		// 1:1 (but with mirror support) texture mapping!
 		int s_start = v0.texturecoords.x;
 		int t_start = v0.texturecoords.y;
@@ -187,10 +184,10 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const RasterizerStat
 			int xoff = ((v0.screenpos.x & 15) + 1) / 2;
 			int yoff = ((v0.screenpos.y & 15) + 1) / 2;
 
-			float dsf = ds * (1.0f / (float)gstate.getTextureWidth(0));
-			float dtf = dt * (1.0f / (float)gstate.getTextureHeight(0));
-			float sf_start = s_start * (1.0f / (float)gstate.getTextureWidth(0));
-			float tf_start = t_start * (1.0f / (float)gstate.getTextureHeight(0));
+			float dsf = ds * (1.0f / (float)(1 << state.samplerID.width0Shift));
+			float dtf = dt * (1.0f / (float)(1 << state.samplerID.height0Shift));
+			float sf_start = s_start * (1.0f / (float)(1 << state.samplerID.width0Shift));
+			float tf_start = t_start * (1.0f / (float)(1 << state.samplerID.height0Shift));
 
 			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
 				float t = tf_start + (y1 - pos0.y) * dtf;
@@ -252,11 +249,8 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const RasterizerStat
 
 #if defined(SOFTGPU_MEMORY_TAGGING_BASIC) || defined(SOFTGPU_MEMORY_TAGGING_DETAILED)
 	uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
-	DisplayList currentList{};
-	if (gpuDebug)
-		gpuDebug->GetCurrentDisplayList(currentList);
-	std::string tag = StringFromFormat("DisplayListR_%08x", currentList.pc);
-	std::string ztag = StringFromFormat("DisplayListRZ_%08x", currentList.pc);
+	std::string tag = StringFromFormat("DisplayListR_%08x", state.listPC);
+	std::string ztag = StringFromFormat("DisplayListRZ_%08x", state.listPC);
 
 	for (int y = pos0.y; y < pos1.y; y++) {
 		uint32_t row = gstate.getFrameBufAddress() + y * gstate.FrameBufStride() * bpp;
@@ -294,7 +288,7 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, const Rasteri
 	// We already have a fast path for clear in ClearRectangle.
 	bool state_check = !state.pixelID.clearMode && NoClampOrWrap(v0.texturecoords) && NoClampOrWrap(v1.texturecoords);
 	// TODO: No mipmap levels?  Might be a font at level 1...
-	if ((coord_check || !gstate.isTextureMapEnabled()) && orient_check && state_check) {
+	if ((coord_check || !state.enableTextures) && orient_check && state_check) {
 		Rasterizer::DrawSprite(v0, v1, state);
 		return true;
 	}

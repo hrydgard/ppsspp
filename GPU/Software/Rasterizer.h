@@ -38,7 +38,31 @@ struct RasterizerState {
 	SingleFunc drawPixel;
 	Sampler::LinearFunc linear;
 	Sampler::NearestFunc nearest;
+	int texbufw[8]{};
+	u8 *texptr[8]{};
+
+	struct {
+		uint8_t maxTexLevel : 3;
+		bool enableTextures : 1;
+		uint8_t texLevelMode : 2;
+		bool shadeGouraud : 1;
+		bool throughMode : 1;
+		int8_t texLevelOffset : 8;
+		bool mipFilt : 1;
+		bool minFilt : 1;
+		bool magFilt : 1;
+	};
+
+#if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
+	uint32_t listPC;
+#endif
+
+	GETexLevelMode TexLevelMode() const {
+		return GETexLevelMode(texLevelMode);
+	}
 };
+
+void ComputeRasterizerState(RasterizerState *state);
 
 // Draws a triangle if its vertices are specified in counter-clockwise order
 void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const RasterizerState &state);
