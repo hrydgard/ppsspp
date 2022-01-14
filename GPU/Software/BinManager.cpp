@@ -35,6 +35,10 @@ public:
 		count_++;
 	}
 
+	bool Empty() {
+		return count_ == 0;
+	}
+
 	void Drain() {
 		int result = --count_;
 		if (result == 0) {
@@ -213,8 +217,8 @@ void BinManager::AddPoint(const VertexData &v0) {
 }
 
 void BinManager::Drain() {
-	// TODO: Could redecide here if waitable is all drained.
-	if (!tasksSplit_) {
+	// If the waitable has fully drained, we can update our binning decisions.
+	if (!tasksSplit_ || waitable_->Empty()) {
 		int w2 = (queueRange_.x2 - queueRange_.x1 + 31) / 32;
 		int h2 = (queueRange_.y2 - queueRange_.y1 + 31) / 32;
 
@@ -222,14 +226,15 @@ void BinManager::Drain() {
 		ScreenCoords tl = TransformUnit::DrawingToScreen(DrawingCoords(0, 0, 0));
 		ScreenCoords br = TransformUnit::DrawingToScreen(DrawingCoords(1024, 1024, 0));
 
-		if (h2 >= 12 && w2 >= h2 * 4) {
+		taskRanges_.clear();
+		if (h2 >= 18 && w2 >= h2 * 4) {
 			int bin_w = std::max(4, (w2 + maxTasks_ - 1) / maxTasks_) * 32;
 			taskRanges_.push_back(BinCoords{ tl.x, tl.y, queueRange_.x1 + bin_w - 1, br.y - 1 });
 			for (int x = queueRange_.x1 + bin_w; x <= queueRange_.x2; x += bin_w) {
 				int x2 = x + bin_w > queueRange_.x2 ? br.x : x + bin_w;
 				taskRanges_.push_back(BinCoords{ x, tl.y, x2 - 1, br.y - 1 });
 			}
-		} else if (h2 >= 12 && w2 >= 12) {
+		} else if (h2 >= 18 && w2 >= 18) {
 			int bin_h = std::max(4, (h2 + maxTasks_ - 1) / maxTasks_) * 32;
 			taskRanges_.push_back(BinCoords{ tl.x, tl.y, br.x - 1, queueRange_.y1 + bin_h - 1 });
 			for (int y = queueRange_.y1 + bin_h; y <= queueRange_.y2; y += bin_h) {
