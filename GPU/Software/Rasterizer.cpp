@@ -33,6 +33,7 @@
 #include "GPU/GPUState.h"
 
 #include "GPU/Common/TextureDecoder.h"
+#include "GPU/Software/BinManager.h"
 #include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/Sampler.h"
@@ -967,28 +968,12 @@ void DrawTriangleSlice(
 }
 
 // Draws triangle, vertices specified in counter-clockwise direction
-void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const RasterizerState &state) {
+void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const BinCoords &range, const RasterizerState &state) {
 	PROFILE_THIS_SCOPE("draw_tri");
 
-	int minX = std::min(std::min(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) & ~0xF;
-	int minY = std::min(std::min(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) & ~0xF;
-	int maxX = std::max(std::max(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) | 0xF;
-	int maxY = std::max(std::max(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) | 0xF;
-
-	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1(), 0);
-	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2(), 0);
-	minX = std::max(minX, (int)TransformUnit::DrawingToScreen(scissorTL).x);
-	maxX = std::min(maxX, (int)TransformUnit::DrawingToScreen(scissorBR).x + 15);
-	minY = std::max(minY, (int)TransformUnit::DrawingToScreen(scissorTL).y);
-	maxY = std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y + 15);
-
-	// Was it fully outside the scissor?
-	if (maxX < minX || maxY < minY)
-		return;
-
 	// 32 because we do two pixels at once, and we don't want overlap.
-	int rangeY = (maxY - minY + 31) / 32;
-	int rangeX = (maxX - minX + 31) / 32;
+	int rangeY = (range.y2 - range.y1 + 31) / 32;
+	int rangeX = (range.x2 - range.x1 + 31) / 32;
 
 	auto drawSlice = cpu_info.bSSE4_1 ?
 		(state.pixelID.clearMode ? &DrawTriangleSlice<true, true> : &DrawTriangleSlice<false, true>) :
@@ -1005,36 +990,27 @@ void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &
 
 	if (rangeY >= 12 && rangeX >= rangeY * 4 && !selfRender) {
 		auto bound = [&](int a, int b) -> void {
-			int x1 = minX + a * 16 * 2;
-			int x2 = std::min(maxX, minX + b * 16 * 2 - 1);
-			drawSlice(v0, v1, v2, x1, minY, x2, maxY, state);
+			int x1 = range.x1 + a * 16 * 2;
+			int x2 = std::min(range.x2, range.x1 + b * 16 * 2 - 1);
+			drawSlice(v0, v1, v2, x1, range.y1, x2, range.y2, state);
 		};
 		ParallelRangeLoop(&g_threadManager, bound, 0, rangeX, MIN_LINES_PER_THREAD);
 	} else if (rangeY >= 12 && rangeX >= 12 && !selfRender) {
 		auto bound = [&](int a, int b) -> void {
-			int y1 = minY + a * 16 * 2;
-			int y2 = std::min(maxY, minY + b * 16 * 2 - 1);
-			drawSlice(v0, v1, v2, minX, y1, maxX, y2, state);
+			int y1 = range.y1 + a * 16 * 2;
+			int y2 = std::min(range.y2, range.y1 + b * 16 * 2 - 1);
+			drawSlice(v0, v1, v2, range.x1, y1, range.x2, y2, state);
 		};
 		ParallelRangeLoop(&g_threadManager, bound, 0, rangeY, MIN_LINES_PER_THREAD);
 	} else {
-		drawSlice(v0, v1, v2, minX, minY, maxX, maxY, state);
+		drawSlice(v0, v1, v2, range.x1, range.y1, range.x2, range.y2, state);
 	}
 }
 
-void DrawPoint(const VertexData &v0, const RasterizerState &state) {
+void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerState &state) {
 	ScreenCoords pos = v0.screenpos;
 	Vec4<int> prim_color = v0.color0;
 	Vec3<int> sec_color = v0.color1;
-
-	ScreenCoords scissorTL(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX1(), gstate.getScissorY1(), 0)));
-	ScreenCoords scissorBR(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX2(), gstate.getScissorY2(), 0)));
-	// Allow drawing within a pixel's center.
-	scissorBR.x += 15;
-	scissorBR.y += 15;
-
-	if (pos.x < scissorTL.x || pos.y < scissorTL.y || pos.x > scissorBR.x || pos.y > scissorBR.y)
-		return;
 
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
@@ -1061,9 +1037,7 @@ void DrawPoint(const VertexData &v0, const RasterizerState &state) {
 	if (!pixelID.clearMode)
 		prim_color += Vec4<int>(sec_color, 0);
 
-	ScreenCoords pprime = pos;
-
-	DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+	DrawingCoords p = TransformUnit::ScreenToDrawing(pos);
 	u16 z = pos.z;
 
 	u8 fog = 255;
@@ -1089,27 +1063,15 @@ void DrawPoint(const VertexData &v0, const RasterizerState &state) {
 #endif
 }
 
-void ClearRectangle(const VertexData &v0, const VertexData &v1, const RasterizerState &state) {
-	int minX = std::min(v0.screenpos.x, v1.screenpos.x) & ~0xF;
-	int minY = std::min(v0.screenpos.y, v1.screenpos.y) & ~0xF;
-	int maxX = (std::max(v0.screenpos.x, v1.screenpos.x) + 0xF) & ~0xF;
-	int maxY = (std::max(v0.screenpos.y, v1.screenpos.y) + 0xF) & ~0xF;
-
-	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1(), 0);
-	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2(), 0);
-	minX = std::max(minX, (int)TransformUnit::DrawingToScreen(scissorTL).x);
-	maxX = std::max(0, std::min(maxX, (int)TransformUnit::DrawingToScreen(scissorBR).x + 16));
-	minY = std::max(minY, (int)TransformUnit::DrawingToScreen(scissorTL).y);
-	maxY = std::max(0, std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y + 16));
-
-	DrawingCoords pprime = TransformUnit::ScreenToDrawing(ScreenCoords(minX, minY, 0));
-	DrawingCoords pend = TransformUnit::ScreenToDrawing(ScreenCoords(maxX, maxY, 0));
+void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
+	DrawingCoords pprime = TransformUnit::ScreenToDrawing(ScreenCoords(range.x1, range.y1, 0));
+	DrawingCoords pend = TransformUnit::ScreenToDrawing(ScreenCoords(range.x2, range.y2, 0));
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
 
 	constexpr int MIN_LINES_PER_THREAD = 32;
 	// Min and max are in PSP fixed point screen coordinates, 16 here is for the 4 subpixel bits.
-	const int w = (maxX - minX) / 16;
+	const int w = (range.x2 - range.x1) / 16;
 	if (w <= 0)
 		return;
 
@@ -1268,7 +1230,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const Rasterizer
 #endif
 }
 
-void DrawLine(const VertexData &v0, const VertexData &v1, const RasterizerState &state) {
+void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
 	// TODO: Use a proper line drawing algorithm that handles fractional endpoints correctly.
 	Vec3<int> a(v0.screenpos.x, v0.screenpos.y, v0.screenpos.z);
 	Vec3<int> b(v1.screenpos.x, v1.screenpos.y, v0.screenpos.z);
@@ -1293,12 +1255,6 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const RasterizerState 
 	double yinc = (double)dy / steps;
 	double zinc = (double)dz / steps;
 
-	ScreenCoords scissorTL(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX1(), gstate.getScissorY1(), 0)));
-	ScreenCoords scissorBR(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX2(), gstate.getScissorY2(), 0)));
-	// Allow drawing within a pixel's center.
-	scissorBR.x += 15;
-	scissorBR.y += 15;
-
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
 
@@ -1312,7 +1268,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const RasterizerState 
 	double z = a.z;
 	const int steps1 = steps == 0 ? 1 : steps;
 	for (int i = 0; i < steps; i++) {
-		if (x >= scissorTL.x && y >= scissorTL.y && x <= scissorBR.x && y <= scissorBR.y) {
+		if (x >= range.x1 && y >= range.y1 && x <= range.x2 && y <= range.y2) {
 			// Interpolate between the two points.
 			Vec4<int> prim_color;
 			Vec3<int> sec_color;

@@ -78,7 +78,7 @@ static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4I
 	return ToVec4IntResult(out);
 }
 
-void DrawSprite(const VertexData &v0, const VertexData &v1, const RasterizerState &state) {
+void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
 	const u8 *texptr = state.texptr[0];
 
 	GETextureFormat texfmt = state.samplerID.TexFmt();
@@ -93,8 +93,8 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const RasterizerStat
 	// Include the ending pixel based on its center, not start.
 	DrawingCoords pos1 = TransformUnit::ScreenToDrawing(v1.screenpos + ScreenCoords(7, 7, 0));
 
-	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1(), 0);
-	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2(), 0);
+	DrawingCoords scissorTL = TransformUnit::ScreenToDrawing(ScreenCoords(range.x1, range.y1, 0));
+	DrawingCoords scissorBR = TransformUnit::ScreenToDrawing(ScreenCoords(range.x2, range.y2, 0));
 
 	int z = pos0.z;
 	int fog = 255;

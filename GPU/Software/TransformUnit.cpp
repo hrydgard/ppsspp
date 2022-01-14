@@ -343,11 +343,8 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 	// TODO: Do this in two passes - first process the vertices (before indexing/stripping),
 	// then resolve the indices. This lets us avoid transforming shared vertices twice.
 
-	Rasterizer::RasterizerState state;
-	ComputeRasterizerState(&state);
-
 	BinManager binner;
-	binner.SetEnqueueState(state);
+	binner.UpdateState();
 
 	bool outside_range_flag = false;
 	switch (prim_type) {

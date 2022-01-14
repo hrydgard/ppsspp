@@ -19,6 +19,29 @@
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/RasterizerRectangle.h"
 
+BinManager::BinManager() {
+	queueRange_.x1 = 0x7FFFFFFF;
+	queueRange_.y1 = 0x7FFFFFFF;
+	queueRange_.x2 = 0;
+	queueRange_.y2 = 0;
+}
+
+void BinManager::UpdateState() {
+	stateIndex_ = (int)states_.size();
+	states_.resize(states_.size() + 1);
+	ComputeRasterizerState(&states_.back());
+
+	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1(), 0);
+	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2(), 0);
+	ScreenCoords screenScissorTL = TransformUnit::DrawingToScreen(scissorTL);
+	ScreenCoords screenScissorBR = TransformUnit::DrawingToScreen(scissorBR);
+
+	scissor_.x1 = screenScissorTL.x;
+	scissor_.y1 = screenScissorTL.y;
+	scissor_.x2 = screenScissorBR.x + 15;
+	scissor_.y2 = screenScissorBR.y + 15;
+}
+
 void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2) {
 	Vec2<int> d01((int)v0.screenpos.x - (int)v1.screenpos.x, (int)v0.screenpos.y - (int)v1.screenpos.y);
 	Vec2<int> d02((int)v0.screenpos.x - (int)v2.screenpos.x, (int)v0.screenpos.y - (int)v2.screenpos.y);
@@ -31,30 +54,123 @@ void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const V
 	if (d01.x == 0 && d01.y == 0 && d02.x == 0 && d02.y == 0)
 		return;
 
-	// TODO
-	Rasterizer::DrawTriangle(v0, v1, v2, enqueueState_);
+	// Was it fully outside the scissor?
+	const BinCoords range = Range(v0, v1, v2);
+	if (range.x2 < range.x1 || range.y2 < range.y1)
+		return;
+
+	queue_.push_back(BinItem{ BinItemType::TRIANGLE, stateIndex_, range, v0, v1, v2 });
+	Expand(range);
 }
 
 void BinManager::AddClearRect(const VertexData &v0, const VertexData &v1) {
-	// TODO
-	Rasterizer::ClearRectangle(v0, v1, enqueueState_);
+	const BinCoords range = Range(v0, v1);
+	if (range.x2 < range.x1 || range.y2 < range.y1)
+		return;
+
+	queue_.push_back(BinItem{ BinItemType::CLEAR_RECT, stateIndex_, range, v0, v1 });
+	Expand(range);
 }
 
 void BinManager::AddSprite(const VertexData &v0, const VertexData &v1) {
-	// TODO
-	Rasterizer::DrawSprite(v0, v1, enqueueState_);
+	const BinCoords range = Range(v0, v1);
+	if (range.x2 < range.x1 || range.y2 < range.y1)
+		return;
+
+	queue_.push_back(BinItem{ BinItemType::SPRITE, stateIndex_, range, v0, v1 });
+	Expand(range);
 }
 
 void BinManager::AddLine(const VertexData &v0, const VertexData &v1) {
-	// TODO
-	Rasterizer::DrawLine(v0, v1, enqueueState_);
+	const BinCoords range = Range(v0, v1);
+	if (range.x2 < range.x1 || range.y2 < range.y1)
+		return;
+
+	queue_.push_back(BinItem{ BinItemType::LINE, stateIndex_, range, v0, v1 });
+	Expand(range);
 }
 
 void BinManager::AddPoint(const VertexData &v0) {
-	// TODO
-	Rasterizer::DrawPoint(v0, enqueueState_);
+	const BinCoords range = Range(v0);
+	if (range.x2 < range.x1 || range.y2 < range.y1)
+		return;
+
+	queue_.push_back(BinItem{ BinItemType::POINT, stateIndex_, range, v0 });
+	Expand(range);
 }
 
 void BinManager::Flush() {
-	// TODO
+	for (const BinItem &item : queue_) {
+		switch (item.type) {
+		case BinItemType::TRIANGLE:
+			Rasterizer::DrawTriangle(item.v0, item.v1, item.v2, item.range, states_[item.stateIndex]);
+			break;
+
+		case BinItemType::CLEAR_RECT:
+			Rasterizer::ClearRectangle(item.v0, item.v1, item.range, states_[item.stateIndex]);
+			break;
+
+		case BinItemType::SPRITE:
+			Rasterizer::DrawSprite(item.v0, item.v1, item.range, states_[item.stateIndex]);
+			break;
+
+		case BinItemType::LINE:
+			Rasterizer::DrawLine(item.v0, item.v1, item.range, states_[item.stateIndex]);
+			break;
+
+		case BinItemType::POINT:
+			Rasterizer::DrawPoint(item.v0, item.range, states_[item.stateIndex]);
+			break;
+		}
+	}
+	queue_.clear();
+	states_.clear();
+	stateIndex_ = -1;
+
+	queueRange_.x1 = 0x7FFFFFFF;
+	queueRange_.y1 = 0x7FFFFFFF;
+	queueRange_.x2 = 0;
+	queueRange_.y2 = 0;
+}
+
+BinCoords BinManager::Scissor(BinCoords range) {
+	range.x1 = std::max(range.x1, scissor_.x1);
+	range.y1 = std::max(range.y1, scissor_.y1);
+	range.x2 = std::min(range.x2, scissor_.x2);
+	range.y2 = std::min(range.y2, scissor_.y2);
+	return range;
+}
+
+BinCoords BinManager::Range(const VertexData &v0, const VertexData &v1, const VertexData &v2) {
+	BinCoords range;
+	range.x1 = std::min(std::min(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) & ~0xF;
+	range.y1 = std::min(std::min(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) & ~0xF;
+	range.x2 = std::max(std::max(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) | 0xF;
+	range.y2 = std::max(std::max(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) | 0xF;
+	return Scissor(range);
+}
+
+BinCoords BinManager::Range(const VertexData &v0, const VertexData &v1) {
+	BinCoords range;
+	range.x1 = std::min(v0.screenpos.x, v1.screenpos.x) & ~0xF;
+	range.y1 = std::min(v0.screenpos.y, v1.screenpos.y) & ~0xF;
+	range.x2 = std::max(v0.screenpos.x, v1.screenpos.x) | 0xF;
+	range.y2 = std::max(v0.screenpos.y, v1.screenpos.y) | 0xF;
+	return Scissor(range);
+}
+
+BinCoords BinManager::Range(const VertexData &v0) {
+	BinCoords range;
+	range.x1 = v0.screenpos.x & ~0xF;
+	range.y1 = v0.screenpos.y & ~0xF;
+	range.x2 = v0.screenpos.x | 0xF;
+	range.y2 = v0.screenpos.y | 0xF;
+	return Scissor(range);
+}
+
+void BinManager::Expand(const BinCoords &range) {
+	queueRange_.x1 = std::min(queueRange_.x1, range.x1);
+	queueRange_.y1 = std::min(queueRange_.y1, range.y1);
+	queueRange_.x2 = std::max(queueRange_.x2, range.x2);
+	queueRange_.y2 = std::max(queueRange_.y2, range.y2);
 }

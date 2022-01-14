@@ -19,14 +19,38 @@
 
 #include "GPU/Software/Rasterizer.h"
 
+enum class BinItemType {
+	TRIANGLE,
+	CLEAR_RECT,
+	SPRITE,
+	LINE,
+	POINT,
+};
+
+struct BinCoords {
+	int x1;
+	int y1;
+	int x2;
+	int y2;
+};
+
+struct BinItem {
+	BinItemType type;
+	int stateIndex;
+	BinCoords range;
+	VertexData v0;
+	VertexData v1;
+	VertexData v2;
+};
+
 class BinManager {
 public:
-	void SetEnqueueState(const Rasterizer::RasterizerState &state) {
-		enqueueState_ = state;
-	}
+	BinManager();
+
+	void UpdateState();
 
 	const Rasterizer::RasterizerState &State() {
-		return enqueueState_;
+		return states_.back();
 	}
 
 	void AddTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2);
@@ -38,5 +62,15 @@ public:
 	void Flush();
 
 private:
-	Rasterizer::RasterizerState enqueueState_;
+	std::vector<Rasterizer::RasterizerState> states_;
+	int stateIndex_;
+	BinCoords scissor_;
+	std::vector<BinItem> queue_;
+	BinCoords queueRange_;
+
+	BinCoords Scissor(BinCoords range);
+	BinCoords Range(const VertexData &v0, const VertexData &v1, const VertexData &v2);
+	BinCoords Range(const VertexData &v0, const VertexData &v1);
+	BinCoords Range(const VertexData &v0);
+	void Expand(const BinCoords &range);
 };
