@@ -17,7 +17,10 @@
 
 #pragma once
 
+#include "Common/Log.h"
 #include "GPU/Software/Rasterizer.h"
+
+struct BinWaitable;
 
 enum class BinItemType {
 	TRIANGLE,
@@ -32,6 +35,12 @@ struct BinCoords {
 	int y1;
 	int x2;
 	int y2;
+
+	bool Invalid() const {
+		return x2 < x1 || y2 < y1;
+	}
+
+	BinCoords Intersect(const BinCoords &range) const;
 };
 
 struct BinItem {
@@ -43,14 +52,77 @@ struct BinItem {
 	VertexData v2;
 };
 
+template <typename T, size_t N>
+struct BinQueue {
+	BinQueue() {
+		items_ = new T[N];
+		Reset();
+	}
+	~BinQueue() {
+		delete [] items_;
+	}
+
+	void Reset() {
+		head_ = 0;
+		tail_ = 0;
+		size_ = 0;
+	}
+
+	size_t Push(const T &item) {
+		_dbg_assert_(size_ < N);
+		size_++;
+
+		size_t i = tail_++;
+		if (tail_ == N)
+			tail_ = 0;
+		items_[i] = item;
+		return i;
+	}
+
+	T Pop() {
+		_dbg_assert_(!Empty());
+		size_t i = head_++;
+		if (head_ == N)
+			head_ = 0;
+		size_--;
+		return items_[i];
+	}
+
+	size_t Size() const {
+		return size_;
+	}
+
+	bool Full() const {
+		return size_ == N;
+	}
+
+	bool Empty() const {
+		return size_ == 0;
+	}
+
+	T &operator[](size_t index) {
+		return items_[index];
+	}
+
+	const T &operator[](size_t index) const {
+		return items_[index];
+	}
+
+	T *items_ = nullptr;
+	size_t head_;
+	size_t tail_ ;
+	size_t size_;
+};
+
 class BinManager {
 public:
 	BinManager();
+	~BinManager();
 
 	void UpdateState();
 
 	const Rasterizer::RasterizerState &State() {
-		return states_.back();
+		return states_[stateIndex_];
 	}
 
 	void AddTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2);
@@ -59,14 +131,20 @@ public:
 	void AddLine(const VertexData &v0, const VertexData &v1);
 	void AddPoint(const VertexData &v0);
 
+	void Drain();
 	void Flush();
 
 private:
-	std::vector<Rasterizer::RasterizerState> states_;
+	BinQueue<Rasterizer::RasterizerState, 32> states_;
 	int stateIndex_;
 	BinCoords scissor_;
-	std::vector<BinItem> queue_;
+	BinQueue<BinItem, 1024> queue_;
 	BinCoords queueRange_;
+
+	int maxTasks_ = 1;
+	bool tasksSplit_ = false;
+	std::vector<BinCoords> taskRanges_;
+	BinWaitable *waitable_ = nullptr;
 
 	BinCoords Scissor(BinCoords range);
 	BinCoords Range(const VertexData &v0, const VertexData &v1, const VertexData &v2);

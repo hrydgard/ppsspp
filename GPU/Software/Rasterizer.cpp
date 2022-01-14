@@ -23,13 +23,10 @@
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/StringUtils.h"
-#include "Common/Thread/ParallelLoop.h"
-#include "Core/ThreadPools.h"
 #include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
-#include "Core/ThreadPools.h"
 #include "GPU/GPUState.h"
 
 #include "GPU/Common/TextureDecoder.h"
@@ -971,40 +968,11 @@ void DrawTriangleSlice(
 void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const BinCoords &range, const RasterizerState &state) {
 	PROFILE_THIS_SCOPE("draw_tri");
 
-	// 32 because we do two pixels at once, and we don't want overlap.
-	int rangeY = (range.y2 - range.y1 + 31) / 32;
-	int rangeX = (range.x2 - range.x1 + 31) / 32;
-
 	auto drawSlice = cpu_info.bSSE4_1 ?
 		(state.pixelID.clearMode ? &DrawTriangleSlice<true, true> : &DrawTriangleSlice<false, true>) :
 		(state.pixelID.clearMode ? &DrawTriangleSlice<true, false> : &DrawTriangleSlice<false, false>);
 
-	const int MIN_LINES_PER_THREAD = 4;
-
-	const uint32_t renderTarget = gstate.getFrameBufAddress() & 0x0FFFFFFF;
-	bool selfRender = (gstate.getTextureAddress(0) & 0x0FFFFFFF) == renderTarget;
-	if (state.samplerID.hasAnyMips) {
-		for (int i = 0; i <= gstate.getTextureMaxLevel(); ++i)
-			selfRender = selfRender || (gstate.getTextureAddress(i) & 0x0FFFFFFF) == renderTarget;
-	}
-
-	if (rangeY >= 12 && rangeX >= rangeY * 4 && !selfRender) {
-		auto bound = [&](int a, int b) -> void {
-			int x1 = range.x1 + a * 16 * 2;
-			int x2 = std::min(range.x2, range.x1 + b * 16 * 2 - 1);
-			drawSlice(v0, v1, v2, x1, range.y1, x2, range.y2, state);
-		};
-		ParallelRangeLoop(&g_threadManager, bound, 0, rangeX, MIN_LINES_PER_THREAD);
-	} else if (rangeY >= 12 && rangeX >= 12 && !selfRender) {
-		auto bound = [&](int a, int b) -> void {
-			int y1 = range.y1 + a * 16 * 2;
-			int y2 = std::min(range.y2, range.y1 + b * 16 * 2 - 1);
-			drawSlice(v0, v1, v2, range.x1, y1, range.x2, y2, state);
-		};
-		ParallelRangeLoop(&g_threadManager, bound, 0, rangeY, MIN_LINES_PER_THREAD);
-	} else {
-		drawSlice(v0, v1, v2, range.x1, range.y1, range.x2, range.y2, state);
-	}
+	drawSlice(v0, v1, v2, range.x1, range.y1, range.x2, range.y2, state);
 }
 
 void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerState &state) {
@@ -1069,9 +1037,8 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
 
-	constexpr int MIN_LINES_PER_THREAD = 32;
 	// Min and max are in PSP fixed point screen coordinates, 16 here is for the 4 subpixel bits.
-	const int w = (range.x2 - range.x1) / 16;
+	const int w = (range.x2 - range.x1 + 1) / 16;
 	if (w <= 0)
 		return;
 
@@ -1081,27 +1048,23 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 
 		// If both bytes of Z equal, we can just use memset directly which is faster.
 		if ((z & 0xFF) == (z >> 8)) {
-			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-				DrawingCoords p = pprime;
-				for (p.y = y1; p.y < y2; ++p.y) {
-					u16 *row = depthbuf.Get16Ptr(p.x, p.y, stride);
-					memset(row, z, w * 2);
-				}
-			}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
+			DrawingCoords p = pprime;
+			for (p.y = pprime.y; p.y <= pend.y; ++p.y) {
+				u16 *row = depthbuf.Get16Ptr(p.x, p.y, stride);
+				memset(row, z, w * 2);
+			}
 		} else {
-			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-				DrawingCoords p = pprime;
-				for (p.y = y1; p.y < y2; ++p.y) {
-					for (int x = 0; x < w; ++x) {
-						SetPixelDepth(p.x + x, p.y, z);
-					}
+			DrawingCoords p = pprime;
+			for (p.y = pprime.y; p.y <= pend.y; ++p.y) {
+				for (int x = 0; x < w; ++x) {
+					SetPixelDepth(p.x + x, p.y, z);
 				}
-			}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
+			}
 		}
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 		std::string tag = StringFromFormat("DisplayListXZ_%08x", state.listPC);
-		for (int y = pprime.y; y < pend.y; ++y) {
+		for (int y = pprime.y; y <= pend.y; ++y) {
 			uint32_t row = gstate.getDepthBufAddress() + y * gstate.DepthBufStride() * 2;
 			NotifyMemInfo(MemBlockFlags::WRITE, row + pprime.x * 2, w * 2, tag.c_str(), tag.size());
 		}
@@ -1152,69 +1115,57 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 		if (pixelID.FBFormat() == GE_FORMAT_8888) {
 			const bool canMemsetColor = (new_color & 0xFF) == (new_color >> 8) && (new_color & 0xFFFF) == (new_color >> 16);
 			if (canMemsetColor) {
-				ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-					DrawingCoords p = pprime;
-					for (p.y = y1; p.y < y2; ++p.y) {
-						u32 *row = fb.Get32Ptr(p.x, p.y, stride);
-						memset(row, new_color, w * 4);
-					}
-				}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
+				DrawingCoords p = pprime;
+				for (p.y = pprime.y; p.y <= pend.y; ++p.y) {
+					u32 *row = fb.Get32Ptr(p.x, p.y, stride);
+					memset(row, new_color, w * 4);
+				}
 			} else {
-				ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-					DrawingCoords p = pprime;
-					for (p.y = y1; p.y < y2; ++p.y) {
-						for (int x = 0; x < w; ++x) {
-							fb.Set32(p.x + x, p.y, stride, new_color);
-						}
+				DrawingCoords p = pprime;
+				for (p.y = pprime.y; p.y <= pend.y; ++p.y) {
+					for (int x = 0; x < w; ++x) {
+						fb.Set32(p.x + x, p.y, stride, new_color);
 					}
-				}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
+				}
 			}
 		} else {
 			const bool canMemsetColor = (new_color16 & 0xFF) == (new_color16 >> 8);
 			if (canMemsetColor) {
-				ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-					DrawingCoords p = pprime;
-					for (p.y = y1; p.y < y2; ++p.y) {
-						u16 *row = fb.Get16Ptr(p.x, p.y, stride);
-						memset(row, new_color16, w * 2);
-					}
-				}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
+				DrawingCoords p = pprime;
+				for (p.y = pprime.y; p.y <= pend.y; ++p.y) {
+					u16 *row = fb.Get16Ptr(p.x, p.y, stride);
+					memset(row, new_color16, w * 2);
+				}
 			} else {
-				ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-					DrawingCoords p = pprime;
-					for (p.y = y1; p.y < y2; ++p.y) {
-						for (int x = 0; x < w; ++x) {
-							fb.Set16(p.x + x, p.y, stride, new_color16);
-						}
+				DrawingCoords p = pprime;
+				for (p.y = pprime.y; p.y <= pend.y; ++p.y) {
+					for (int x = 0; x < w; ++x) {
+						fb.Set16(p.x + x, p.y, stride, new_color16);
 					}
-				}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
+				}
 			}
 		}
 	} else if (keepOldMask != 0xFFFFFFFF) {
 		const int stride = gstate.FrameBufStride();
 
 		if (pixelID.FBFormat() == GE_FORMAT_8888) {
-			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-				DrawingCoords p = pprime;
-				for (p.y = y1; p.y < y2; ++p.y) {
-					for (int x = 0; x < w; ++x) {
-						const u32 old_color = fb.Get32(p.x + x, p.y, stride);
-						const u32 c = (old_color & keepOldMask) | (new_color & ~keepOldMask);
-						fb.Set32(p.x + x, p.y, stride, c);
-					}
+			DrawingCoords p = pprime;
+			for (p.y = pprime.y; p.y <= pend.y; ++p.y) {
+				for (int x = 0; x < w; ++x) {
+					const u32 old_color = fb.Get32(p.x + x, p.y, stride);
+					const u32 c = (old_color & keepOldMask) | (new_color & ~keepOldMask);
+					fb.Set32(p.x + x, p.y, stride, c);
 				}
-			}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
+			}
 		} else {
-			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-				DrawingCoords p = pprime;
-				for (p.y = y1; p.y < y2; ++p.y) {
-					for (int x = 0; x < w; ++x) {
-						const u16 old_color = fb.Get16(p.x + x, p.y, stride);
-						const u16 c = (old_color & keepOldMask) | (new_color16 & ~keepOldMask);
-						fb.Set16(p.x + x, p.y, stride, c);
-					}
+			DrawingCoords p = pprime;
+			for (p.y = pprime.y; p.y <= pend.y; ++p.y) {
+				for (int x = 0; x < w; ++x) {
+					const u16 old_color = fb.Get16(p.x + x, p.y, stride);
+					const u16 c = (old_color & keepOldMask) | (new_color16 & ~keepOldMask);
+					fb.Set16(p.x + x, p.y, stride, c);
 				}
-			}, pprime.y, pend.y, MIN_LINES_PER_THREAD);
+			}
 		}
 	}
 

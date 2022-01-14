@@ -6,7 +6,6 @@
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/StringUtils.h"
-#include "Common/Thread/ParallelLoop.h"
 
 #include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
@@ -84,7 +83,6 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 	GETextureFormat texfmt = state.samplerID.TexFmt();
 	int texbufw = state.texbufw[0];
 
-	ScreenCoords pprime(v0.screenpos.x, v0.screenpos.y, 0);
 	Sampler::FetchFunc fetchFunc = Sampler::GetFetchFunc(state.samplerID);
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
@@ -100,8 +98,6 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 	int fog = 255;
 
 	bool isWhite = v1.color0 == Vec4<int>(255, 255, 255, 255);
-
-	constexpr int MIN_LINES_PER_THREAD = 32;
 
 	if (state.enableTextures) {
 		// 1:1 (but with mirror support) texture mapping!
@@ -145,41 +141,37 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 			!pixelID.applyColorWriteMask &&
 			pixelID.FBFormat() == GE_FORMAT_5551) {
 			if (isWhite) {
-				ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-					int t = t_start + (y1 - pos0.y) * dt;
-					for (int y = y1; y < y2; y++) {
-						int s = s_start;
-						u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
-						for (int x = pos0.x; x < pos1.x; x++) {
-							u32 tex_color = Vec4<int>(fetchFunc(s, t, texptr, texbufw, 0)).ToRGBA();
-							if (tex_color & 0xFF000000) {
-								DrawSinglePixel5551(pixel, tex_color, pixelID);
-							}
-							s += ds;
-							pixel++;
+				int t = t_start;
+				for (int y = pos0.y; y < pos1.y; y++) {
+					int s = s_start;
+					u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
+					for (int x = pos0.x; x < pos1.x; x++) {
+						u32 tex_color = Vec4<int>(fetchFunc(s, t, texptr, texbufw, 0)).ToRGBA();
+						if (tex_color & 0xFF000000) {
+							DrawSinglePixel5551(pixel, tex_color, pixelID);
 						}
-						t += dt;
+						s += ds;
+						pixel++;
 					}
-				}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);
+					t += dt;
+				}
 			} else {
-				ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-					int t = t_start + (y1 - pos0.y) * dt;
-					for (int y = y1; y < y2; y++) {
-						int s = s_start;
-						u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
-						for (int x = pos0.x; x < pos1.x; x++) {
-							Vec4<int> prim_color = v1.color0;
-							Vec4<int> tex_color = fetchFunc(s, t, texptr, texbufw, 0);
-							prim_color = Vec4<int>(ModulateRGBA(ToVec4IntArg(prim_color), ToVec4IntArg(tex_color), state.samplerID));
-							if (prim_color.a() > 0) {
-								DrawSinglePixel5551(pixel, prim_color.ToRGBA(), pixelID);
-							}
-							s += ds;
-							pixel++;
+				int t = t_start;
+				for (int y = pos0.y; y < pos1.y; y++) {
+					int s = s_start;
+					u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
+					for (int x = pos0.x; x < pos1.x; x++) {
+						Vec4<int> prim_color = v1.color0;
+						Vec4<int> tex_color = fetchFunc(s, t, texptr, texbufw, 0);
+						prim_color = Vec4<int>(ModulateRGBA(ToVec4IntArg(prim_color), ToVec4IntArg(tex_color), state.samplerID));
+						if (prim_color.a() > 0) {
+							DrawSinglePixel5551(pixel, prim_color.ToRGBA(), pixelID);
 						}
-						t += dt;
+						s += ds;
+						pixel++;
 					}
-				}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);
+					t += dt;
+				}
 			}
 		} else {
 			int xoff = ((v0.screenpos.x & 15) + 1) / 2;
@@ -190,19 +182,17 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 			float sf_start = s_start * (1.0f / (float)(1 << state.samplerID.width0Shift));
 			float tf_start = t_start * (1.0f / (float)(1 << state.samplerID.height0Shift));
 
-			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-				float t = tf_start + (y1 - pos0.y) * dtf;
-				for (int y = y1; y < y2; y++) {
-					float s = sf_start;
-					// Not really that fast but faster than triangle.
-					for (int x = pos0.x; x < pos1.x; x++) {
-						Vec4<int> prim_color = state.nearest(s, t, xoff, yoff, ToVec4IntArg(v1.color0), &texptr, &texbufw, 0, 0);
-						state.drawPixel(x, y, z, 255, ToVec4IntArg(prim_color), pixelID);
-						s += dsf;
-					}
-					t += dtf;
+			float t = tf_start;
+			for (int y = pos0.y; y < pos1.y; y++) {
+				float s = sf_start;
+				// Not really that fast but faster than triangle.
+				for (int x = pos0.x; x < pos1.x; x++) {
+					Vec4<int> prim_color = state.nearest(s, t, xoff, yoff, ToVec4IntArg(v1.color0), &texptr, &texbufw, 0, 0);
+					state.drawPixel(x, y, z, 255, ToVec4IntArg(prim_color), pixelID);
+					s += dsf;
 				}
-			}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);
+				t += dtf;
+			}
 		}
 	} else {
 		if (pos1.x > scissorBR.x) pos1.x = scissorBR.x + 1;
@@ -226,25 +216,21 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 			if (v1.color0.a() == 0)
 				return;
 
-			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-				for (int y = y1; y < y2; y++) {
-					u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
-					for (int x = pos0.x; x < pos1.x; x++) {
-						Vec4<int> prim_color = v1.color0;
-						DrawSinglePixel5551(pixel, prim_color.ToRGBA(), pixelID);
-						pixel++;
-					}
+			for (int y = pos0.y; y < pos1.y; y++) {
+				u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
+				for (int x = pos0.x; x < pos1.x; x++) {
+					Vec4<int> prim_color = v1.color0;
+					DrawSinglePixel5551(pixel, prim_color.ToRGBA(), pixelID);
+					pixel++;
 				}
-			}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);
+			}
 		} else {
-			ParallelRangeLoop(&g_threadManager, [=](int y1, int y2) {
-				for (int y = y1; y < y2; y++) {
-					for (int x = pos0.x; x < pos1.x; x++) {
-						Vec4<int> prim_color = v1.color0;
-						state.drawPixel(x, y, z, fog, ToVec4IntArg(prim_color), pixelID);
-					}
+			for (int y = pos0.y; y < pos1.y; y++) {
+				for (int x = pos0.x; x < pos1.x; x++) {
+					Vec4<int> prim_color = v1.color0;
+					state.drawPixel(x, y, z, fog, ToVec4IntArg(prim_color), pixelID);
 				}
-			}, pos0.y, pos1.y, MIN_LINES_PER_THREAD);
+			}
 		}
 	}
 

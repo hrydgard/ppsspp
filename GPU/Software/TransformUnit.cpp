@@ -343,7 +343,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 	// TODO: Do this in two passes - first process the vertices (before indexing/stripping),
 	// then resolve the indices. This lets us avoid transforming shared vertices twice.
 
-	BinManager binner;
+	static BinManager binner;
 	binner.UpdateState();
 
 	bool outside_range_flag = false;
