@@ -70,20 +70,20 @@ struct BinQueue {
 	}
 
 	size_t Push(const T &item) {
-		_assert_(size_ < N);
+		_dbg_assert_(size_ < N);
 		size_t i = tail_++;
-		if (tail_ == N)
-			tail_ = 0;
+		if (i + 1 == N)
+			tail_ -= N;
 		items_[i] = item;
 		size_++;
 		return i;
 	}
 
 	T Pop() {
-		_assert_(!Empty());
+		_dbg_assert_(!Empty());
 		size_t i = head_++;
-		if (head_ == N)
-			head_ = 0;
+		if (i + 1 == N)
+			head_ -= N;
 		T item = items_[i];
 		size_--;
 		return item;
