@@ -49,86 +49,86 @@ bool DescribeCodePtr(const u8 *ptr, std::string &name) {
 	return true;
 }
 
-static inline u8 GetPixelStencil(GEBufferFormat fmt, int x, int y) {
+static inline u8 GetPixelStencil(GEBufferFormat fmt, int fbStride, int x, int y) {
 	if (fmt == GE_FORMAT_565) {
 		// Always treated as 0 for comparison purposes.
 		return 0;
 	} else if (fmt == GE_FORMAT_5551) {
-		return ((fb.Get16(x, y, gstate.FrameBufStride()) & 0x8000) != 0) ? 0xFF : 0;
+		return ((fb.Get16(x, y, fbStride) & 0x8000) != 0) ? 0xFF : 0;
 	} else if (fmt == GE_FORMAT_4444) {
-		return Convert4To8(fb.Get16(x, y, gstate.FrameBufStride()) >> 12);
+		return Convert4To8(fb.Get16(x, y, fbStride) >> 12);
 	} else {
-		return fb.Get32(x, y, gstate.FrameBufStride()) >> 24;
+		return fb.Get32(x, y, fbStride) >> 24;
 	}
 }
 
-static inline void SetPixelStencil(GEBufferFormat fmt, int x, int y, u8 value) {
+static inline void SetPixelStencil(GEBufferFormat fmt, int fbStride, int x, int y, u8 value) {
 	if (fmt == GE_FORMAT_565) {
 		// Do nothing
 	} else if (fmt == GE_FORMAT_5551) {
 		if ((gstate.getStencilWriteMask() & 0x80) == 0) {
-			u16 pixel = fb.Get16(x, y, gstate.FrameBufStride()) & ~0x8000;
+			u16 pixel = fb.Get16(x, y, fbStride) & ~0x8000;
 			pixel |= (value & 0x80) << 8;
-			fb.Set16(x, y, gstate.FrameBufStride(), pixel);
+			fb.Set16(x, y, fbStride, pixel);
 		}
 	} else if (fmt == GE_FORMAT_4444) {
 		const u16 write_mask = (gstate.getStencilWriteMask() << 8) | 0x0FFF;
-		u16 pixel = fb.Get16(x, y, gstate.FrameBufStride()) & write_mask;
+		u16 pixel = fb.Get16(x, y, fbStride) & write_mask;
 		pixel |= ((u16)value << 8) & ~write_mask;
-		fb.Set16(x, y, gstate.FrameBufStride(), pixel);
+		fb.Set16(x, y, fbStride, pixel);
 	} else {
 		const u32 write_mask = (gstate.getStencilWriteMask() << 24) | 0x00FFFFFF;
-		u32 pixel = fb.Get32(x, y, gstate.FrameBufStride()) & write_mask;
+		u32 pixel = fb.Get32(x, y, fbStride) & write_mask;
 		pixel |= ((u32)value << 24) & ~write_mask;
-		fb.Set32(x, y, gstate.FrameBufStride(), pixel);
+		fb.Set32(x, y, fbStride, pixel);
 	}
 }
 
-static inline u16 GetPixelDepth(int x, int y) {
-	return depthbuf.Get16(x, y, gstate.DepthBufStride());
+static inline u16 GetPixelDepth(int x, int y, int stride) {
+	return depthbuf.Get16(x, y, stride);
 }
 
-static inline void SetPixelDepth(int x, int y, u16 value) {
-	depthbuf.Set16(x, y, gstate.DepthBufStride(), value);
+static inline void SetPixelDepth(int x, int y, int stride, u16 value) {
+	depthbuf.Set16(x, y, stride, value);
 }
 
 // NOTE: These likely aren't endian safe
-static inline u32 GetPixelColor(GEBufferFormat fmt, int x, int y) {
+static inline u32 GetPixelColor(GEBufferFormat fmt, int fbStride, int x, int y) {
 	switch (fmt) {
 	case GE_FORMAT_565:
 		// A should be zero for the purposes of alpha blending.
-		return RGB565ToRGBA8888(fb.Get16(x, y, gstate.FrameBufStride())) & 0x00FFFFFF;
+		return RGB565ToRGBA8888(fb.Get16(x, y, fbStride)) & 0x00FFFFFF;
 
 	case GE_FORMAT_5551:
-		return RGBA5551ToRGBA8888(fb.Get16(x, y, gstate.FrameBufStride()));
+		return RGBA5551ToRGBA8888(fb.Get16(x, y, fbStride));
 
 	case GE_FORMAT_4444:
-		return RGBA4444ToRGBA8888(fb.Get16(x, y, gstate.FrameBufStride()));
+		return RGBA4444ToRGBA8888(fb.Get16(x, y, fbStride));
 
 	case GE_FORMAT_8888:
-		return fb.Get32(x, y, gstate.FrameBufStride());
+		return fb.Get32(x, y, fbStride);
 
 	default:
 		return 0;
 	}
 }
 
-static inline void SetPixelColor(GEBufferFormat fmt, int x, int y, u32 value) {
+static inline void SetPixelColor(GEBufferFormat fmt, int fbStride, int x, int y, u32 value) {
 	switch (fmt) {
 	case GE_FORMAT_565:
-		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888ToRGB565(value));
+		fb.Set16(x, y, fbStride, RGBA8888ToRGB565(value));
 		break;
 
 	case GE_FORMAT_5551:
-		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888ToRGBA5551(value));
+		fb.Set16(x, y, fbStride, RGBA8888ToRGBA5551(value));
 		break;
 
 	case GE_FORMAT_4444:
-		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888ToRGBA4444(value));
+		fb.Set16(x, y, fbStride, RGBA8888ToRGBA4444(value));
 		break;
 
 	case GE_FORMAT_8888:
-		fb.Set32(x, y, gstate.FrameBufStride(), value);
+		fb.Set32(x, y, fbStride, value);
 		break;
 
 	default:
@@ -275,8 +275,8 @@ static inline u8 ApplyStencilOp(GEBufferFormat fmt, GEStencilOp op, u8 old_stenc
 	return old_stencil;
 }
 
-static inline bool DepthTestPassed(GEComparison func, int x, int y, u16 z) {
-	u16 reference_z = GetPixelDepth(x, y);
+static inline bool DepthTestPassed(GEComparison func, int x, int y, int stride, u16 z) {
+	u16 reference_z = GetPixelDepth(x, y, stride);
 
 	switch (func) {
 	case GE_COMP_NEVER:
@@ -405,35 +405,35 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 			return;
 
 	// In clear mode, it uses the alpha color as stencil.
-	u8 stencil = clearMode ? prim_color.a() : GetPixelStencil(fbFormat, x, y);
+	u8 stencil = clearMode ? prim_color.a() : GetPixelStencil(fbFormat, pixelID.cached.framebufStride, x, y);
 	if (clearMode) {
 		if (pixelID.DepthClear())
-			SetPixelDepth(x, y, z);
+			SetPixelDepth(x, y, pixelID.cached.depthbufStride, z);
 	} else if (pixelID.stencilTest) {
 		if (!StencilTestPassed(pixelID, stencil)) {
 			stencil = ApplyStencilOp(fbFormat, pixelID.SFail(), stencil);
-			SetPixelStencil(fbFormat, x, y, stencil);
+			SetPixelStencil(fbFormat, pixelID.cached.framebufStride, x, y, stencil);
 			return;
 		}
 
 		// Also apply depth at the same time.  If disabled, same as passing.
-		if (pixelID.DepthTestFunc() != GE_COMP_ALWAYS && !DepthTestPassed(pixelID.DepthTestFunc(), x, y, z)) {
+		if (pixelID.DepthTestFunc() != GE_COMP_ALWAYS && !DepthTestPassed(pixelID.DepthTestFunc(), x, y, pixelID.cached.depthbufStride, z)) {
 			stencil = ApplyStencilOp(fbFormat, pixelID.ZFail(), stencil);
-			SetPixelStencil(fbFormat, x, y, stencil);
+			SetPixelStencil(fbFormat, pixelID.cached.framebufStride, x, y, stencil);
 			return;
 		}
 
 		stencil = ApplyStencilOp(fbFormat, pixelID.ZPass(), stencil);
 	} else {
-		if (pixelID.DepthTestFunc() != GE_COMP_ALWAYS && !DepthTestPassed(pixelID.DepthTestFunc(), x, y, z)) {
+		if (pixelID.DepthTestFunc() != GE_COMP_ALWAYS && !DepthTestPassed(pixelID.DepthTestFunc(), x, y, pixelID.cached.depthbufStride, z)) {
 			return;
 		}
 	}
 
 	if (pixelID.depthWrite && !clearMode)
-		SetPixelDepth(x, y, z);
+		SetPixelDepth(x, y, pixelID.cached.depthbufStride, z);
 
-	const u32 old_color = GetPixelColor(fbFormat, x, y);
+	const u32 old_color = GetPixelColor(fbFormat, pixelID.cached.framebufStride, x, y);
 	u32 new_color;
 
 	// Dithering happens before the logic op and regardless of framebuffer format or clear mode.
@@ -476,7 +476,7 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 	}
 	new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
 
-	SetPixelColor(fbFormat, x, y, new_color);
+	SetPixelColor(fbFormat, pixelID.cached.framebufStride, x, y, new_color);
 }
 
 SingleFunc GetSingleFunc(const PixelFuncID &id) {

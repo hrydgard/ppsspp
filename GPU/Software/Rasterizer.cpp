@@ -195,21 +195,20 @@ static inline void GetTextureCoordinates(const VertexData &v0, const VertexData 
 	t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), wq0, wq1, wq2, q_recip);
 }
 
-static inline void SetPixelDepth(int x, int y, u16 value)
-{
-	depthbuf.Set16(x, y, gstate.DepthBufStride(), value);
+static inline void SetPixelDepth(int x, int y, int stride, u16 value) {
+	depthbuf.Set16(x, y, stride, value);
 }
 
-static inline u8 GetPixelStencil(GEBufferFormat fmt, int x, int y) {
+static inline u8 GetPixelStencil(GEBufferFormat fmt, int fbStride, int x, int y) {
 	if (fmt == GE_FORMAT_565) {
 		// Always treated as 0 for comparison purposes.
 		return 0;
 	} else if (fmt == GE_FORMAT_5551) {
-		return ((fb.Get16(x, y, gstate.FrameBufStride()) & 0x8000) != 0) ? 0xFF : 0;
+		return ((fb.Get16(x, y, fbStride) & 0x8000) != 0) ? 0xFF : 0;
 	} else if (fmt == GE_FORMAT_4444) {
-		return Convert4To8(fb.Get16(x, y, gstate.FrameBufStride()) >> 12);
+		return Convert4To8(fb.Get16(x, y, fbStride) >> 12);
 	} else {
-		return fb.Get32(x, y, gstate.FrameBufStride()) >> 24;
+		return fb.Get32(x, y, fbStride) >> 24;
 	}
 }
 
@@ -937,10 +936,10 @@ void DrawTriangleSlice(
 					state.drawPixel(subp.x, subp.y, z[i], fog[i], ToVec4IntArg(prim_color[i]), pixelID);
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED)
-					uint32_t row = gstate.getFrameBufAddress() + subp.y * gstate.FrameBufStride() * bpp;
+					uint32_t row = gstate.getFrameBufAddress() + subp.y * pixelID.cached.framebufStride * bpp;
 					NotifyMemInfo(MemBlockFlags::WRITE, row + subp.x * bpp, bpp, tag.c_str(), tag.size());
 					if (pixelID.depthWrite) {
-						row = gstate.getDepthBufAddress() + subp.y * gstate.DepthBufStride() * 2;
+						row = gstate.getDepthBufAddress() + subp.y * pixelID.cached.depthbufStride * 2;
 						NotifyMemInfo(MemBlockFlags::WRITE, row + subp.x * 2, 2, ztag.c_str(), ztag.size());
 					}
 #endif
@@ -953,11 +952,11 @@ void DrawTriangleSlice(
 	for (int y = minY; y <= maxY; y += 16) {
 		DrawingCoords p = TransformUnit::ScreenToDrawing(ScreenCoords(minX, y, 0));
 		DrawingCoords pend = TransformUnit::ScreenToDrawing(ScreenCoords(maxX, y, 0));
-		uint32_t row = gstate.getFrameBufAddress() + p.y * gstate.FrameBufStride() * bpp;
+		uint32_t row = gstate.getFrameBufAddress() + p.y * pixelID.cached.framebufStride * bpp;
 		NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * bpp, (pend.x - p.x) * bpp, tag.c_str(), tag.size());
 
 		if (pixelID.depthWrite) {
-			row = gstate.getDepthBufAddress() + p.y * gstate.DepthBufStride() * 2;
+			row = gstate.getDepthBufAddress() + p.y * pixelID.cached.depthbufStride * 2;
 			NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * 2, (pend.x - p.x) * 2, ztag.c_str(), ztag.size());
 		}
 	}
@@ -1020,12 +1019,12 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 	uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
 	std::string tag = StringFromFormat("DisplayListP_%08x", state.listPC);
 
-	uint32_t row = gstate.getFrameBufAddress() + p.y * gstate.FrameBufStride() * bpp;
+	uint32_t row = gstate.getFrameBufAddress() + p.y * pixelID.cached.framebufStride * bpp;
 	NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * bpp, bpp, tag.c_str(), tag.size());
 
 	if (pixelID.depthWrite) {
 		std::string ztag = StringFromFormat("DisplayListPZ_%08x", state.listPC);
-		row = gstate.getDepthBufAddress() + p.y * gstate.DepthBufStride() * 2;
+		row = gstate.getDepthBufAddress() + p.y * pixelID.cached.depthbufStride * 2;
 		NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * 2, 2, ztag.c_str(), ztag.size());
 	}
 #endif
@@ -1044,7 +1043,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 
 	if (pixelID.DepthClear()) {
 		const u16 z = v1.screenpos.z;
-		const int stride = gstate.DepthBufStride();
+		const int stride = pixelID.cached.depthbufStride;
 
 		// If both bytes of Z equal, we can just use memset directly which is faster.
 		if ((z & 0xFF) == (z >> 8)) {
@@ -1057,7 +1056,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 			DrawingCoords p = pprime;
 			for (p.y = pprime.y; p.y <= pend.y; ++p.y) {
 				for (int x = 0; x < w; ++x) {
-					SetPixelDepth(p.x + x, p.y, z);
+					SetPixelDepth(p.x + x, p.y, pixelID.cached.depthbufStride, z);
 				}
 			}
 		}
@@ -1065,7 +1064,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 		std::string tag = StringFromFormat("DisplayListXZ_%08x", state.listPC);
 		for (int y = pprime.y; y <= pend.y; ++y) {
-			uint32_t row = gstate.getDepthBufAddress() + y * gstate.DepthBufStride() * 2;
+			uint32_t row = gstate.getDepthBufAddress() + y * pixelID.cached.depthbufStride * 2;
 			NotifyMemInfo(MemBlockFlags::WRITE, row + pprime.x * 2, w * 2, tag.c_str(), tag.size());
 		}
 #endif
@@ -1110,7 +1109,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 	}
 
 	if (keepOldMask == 0) {
-		const int stride = gstate.FrameBufStride();
+		const int stride = pixelID.cached.framebufStride;
 
 		if (pixelID.FBFormat() == GE_FORMAT_8888) {
 			const bool canMemsetColor = (new_color & 0xFF) == (new_color >> 8) && (new_color & 0xFFFF) == (new_color >> 16);
@@ -1146,7 +1145,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 			}
 		}
 	} else if (keepOldMask != 0xFFFFFFFF) {
-		const int stride = gstate.FrameBufStride();
+		const int stride = pixelID.cached.framebufStride;
 
 		if (pixelID.FBFormat() == GE_FORMAT_8888) {
 			DrawingCoords p = pprime;
@@ -1174,7 +1173,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 		uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
 		std::string tag = StringFromFormat("DisplayListX_%08x", state.listPC);
 		for (int y = pprime.y; y < pend.y; ++y) {
-			uint32_t row = gstate.getFrameBufAddress() + y * gstate.FrameBufStride() * bpp;
+			uint32_t row = gstate.getFrameBufAddress() + y * pixelID.cached.framebufStride * bpp;
 			NotifyMemInfo(MemBlockFlags::WRITE, row + pprime.x * bpp, w * bpp, tag.c_str(), tag.size());
 		}
 	}
@@ -1292,11 +1291,11 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 			uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
-			uint32_t row = gstate.getFrameBufAddress() + p.y * gstate.FrameBufStride() * bpp;
+			uint32_t row = gstate.getFrameBufAddress() + p.y * pixelID.cached.framebufStride * bpp;
 			NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * bpp, bpp, tag.c_str(), tag.size());
 
 			if (pixelID.depthWrite) {
-				uint32_t row = gstate.getDepthBufAddress() + y * gstate.DepthBufStride() * 2;
+				uint32_t row = gstate.getDepthBufAddress() + y * pixelID.cached.depthbufStride * 2;
 				NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * 2, 2, ztag.c_str(), ztag.size());
 			}
 #endif
@@ -1317,7 +1316,7 @@ bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
 	u8 *row = buffer.GetData();
 	for (int y = gstate.getRegionY1(); y <= gstate.getRegionY2(); ++y) {
 		for (int x = gstate.getRegionX1(); x <= gstate.getRegionX2(); ++x) {
-			row[x - gstate.getRegionX1()] = GetPixelStencil(gstate.FrameBufFormat(), x, y);
+			row[x - gstate.getRegionX1()] = GetPixelStencil(gstate.FrameBufFormat(), gstate.FrameBufStride(), x, y);
 		}
 		row += w;
 	}

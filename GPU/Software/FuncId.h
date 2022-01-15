@@ -52,6 +52,8 @@ struct PixelFuncID {
 		uint32_t colorWriteMask{};
 		int8_t ditherMatrix[16]{};
 		uint32_t fogColor;
+		uint16_t framebufStride;
+		uint16_t depthbufStride;
 	} cached;
 
 	union {

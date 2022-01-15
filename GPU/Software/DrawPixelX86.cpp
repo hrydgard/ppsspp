@@ -226,23 +226,21 @@ RegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 		}
 
 		X64Reg argYReg = regCache_.Find(RegCache::GEN_ARG_Y);
-		X64Reg r;
+		X64Reg r = regCache_.Alloc(RegCache::GEN_COLOR_OFF);
 		if (id.useStandardStride) {
-			r = regCache_.Alloc(RegCache::GEN_COLOR_OFF);
 			MOV(32, R(r), R(argYReg));
 			SHL(32, R(r), Imm8(9));
 		} else {
-			if (RipAccessible(&gstate.fbwidth)) {
-				r = regCache_.Alloc(RegCache::GEN_COLOR_OFF);
-				MOVZX(32, 16, r, M(&gstate.fbwidth));
+			if (regCache_.Has(RegCache::GEN_ARG_ID)) {
+				X64Reg idReg = regCache_.Find(RegCache::GEN_ARG_ID);
+				MOVZX(32, 16, r, MDisp(idReg, offsetof(PixelFuncID, cached.framebufStride)));
+				regCache_.Unlock(idReg, RegCache::GEN_ARG_ID);
 			} else {
-				X64Reg gstateReg = GetGState();
-				r = regCache_.Alloc(RegCache::GEN_COLOR_OFF);
-				MOVZX(32, 16, r, MDisp(gstateReg, offsetof(GPUgstate, fbwidth)));
-				regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+				_assert_(stackIDOffset_ != -1);
+				MOV(PTRBITS, R(r), MDisp(RSP, stackIDOffset_));
+				MOVZX(32, 16, r, MDisp(r, offsetof(PixelFuncID, cached.framebufStride)));
 			}
 
-			AND(16, R(r), Imm16(0x07FC));
 			IMUL(32, r, R(argYReg));
 		}
 		regCache_.Unlock(argYReg, RegCache::GEN_ARG_Y);
@@ -278,23 +276,21 @@ RegCache::Reg PixelJitCache::GetDepthOff(const PixelFuncID &id) {
 
 		Describe("GetDepthOff");
 		X64Reg argYReg = regCache_.Find(RegCache::GEN_ARG_Y);
-		X64Reg r;
+		X64Reg r = regCache_.Alloc(RegCache::GEN_DEPTH_OFF);
 		if (id.useStandardStride) {
-			r = regCache_.Alloc(RegCache::GEN_DEPTH_OFF);
 			MOV(32, R(r), R(argYReg));
 			SHL(32, R(r), Imm8(9));
 		} else {
-			if (RipAccessible(&gstate.zbwidth)) {
-				r = regCache_.Alloc(RegCache::GEN_DEPTH_OFF);
-				MOVZX(32, 16, r, M(&gstate.zbwidth));
+			if (regCache_.Has(RegCache::GEN_ARG_ID)) {
+				X64Reg idReg = regCache_.Find(RegCache::GEN_ARG_ID);
+				MOVZX(32, 16, r, MDisp(idReg, offsetof(PixelFuncID, cached.depthbufStride)));
+				regCache_.Unlock(idReg, RegCache::GEN_ARG_ID);
 			} else {
-				X64Reg gstateReg = GetGState();
-				r = regCache_.Alloc(RegCache::GEN_DEPTH_OFF);
-				MOVZX(32, 16, r, MDisp(gstateReg, offsetof(GPUgstate, zbwidth)));
-				regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+				_assert_(stackIDOffset_ != -1);
+				MOV(PTRBITS, R(r), MDisp(RSP, stackIDOffset_));
+				MOVZX(32, 16, r, MDisp(r, offsetof(PixelFuncID, cached.depthbufStride)));
 			}
 
-			AND(16, R(r), Imm16(0x07FC));
 			IMUL(32, r, R(argYReg));
 		}
 		regCache_.Unlock(argYReg, RegCache::GEN_ARG_Y);
