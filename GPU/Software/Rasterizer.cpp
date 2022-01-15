@@ -1071,31 +1071,57 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 
 	// Note: this stays 0xFFFFFFFF if keeping color and alpha, even for 16-bit.
 	u32 keepOldMask = 0xFFFFFFFF;
-	if (pixelID.ColorClear())
-		keepOldMask &= 0xFF000000;
-	if (pixelID.StencilClear())
-		keepOldMask &= 0x00FFFFFF;
+	if (pixelID.ColorClear() && pixelID.StencilClear()) {
+		keepOldMask = 0;
+	} else {
+		switch (pixelID.FBFormat()) {
+		case GE_FORMAT_565:
+			if (pixelID.ColorClear())
+				keepOldMask = 0;
+			break;
+
+		case GE_FORMAT_5551:
+			if (pixelID.ColorClear())
+				keepOldMask = 0xFFFF8000;
+			else if (pixelID.StencilClear())
+				keepOldMask = 0xFFFF7FFF;
+			break;
+
+		case GE_FORMAT_4444:
+			if (pixelID.ColorClear())
+				keepOldMask = 0xFFFFF000;
+			else if (pixelID.StencilClear())
+				keepOldMask = 0xFFFF0FFF;
+			break;
+
+		case GE_FORMAT_8888:
+		default:
+			if (pixelID.ColorClear())
+				keepOldMask = 0xFF000000;
+			else if (pixelID.StencilClear())
+				keepOldMask = 0x00FFFFFF;
+			break;
+		}
+	}
 
 	// The pixel write masks are respected in clear mode.
-	if (pixelID.applyColorWriteMask)
-		keepOldMask |= gstate.getColorMask();
+	if (pixelID.applyColorWriteMask) {
+		keepOldMask |= pixelID.cached.colorWriteMask;
+	}
 
 	const u32 new_color = v1.color0.ToRGBA();
 	u16 new_color16;
 	switch (pixelID.FBFormat()) {
 	case GE_FORMAT_565:
 		new_color16 = RGBA8888ToRGB565(new_color);
-		keepOldMask = keepOldMask == 0 ? 0 : (0xFFFF0000 | RGBA8888ToRGB565(keepOldMask));
 		break;
 
 	case GE_FORMAT_5551:
 		new_color16 = RGBA8888ToRGBA5551(new_color);
-		keepOldMask = keepOldMask == 0 ? 0 : (0xFFFF0000 | RGBA8888ToRGBA5551(keepOldMask));
 		break;
 
 	case GE_FORMAT_4444:
 		new_color16 = RGBA8888ToRGBA4444(new_color);
-		keepOldMask = keepOldMask == 0 ? 0 : (0xFFFF0000 | RGBA8888ToRGBA4444(keepOldMask));
 		break;
 
 	case GE_FORMAT_8888:
