@@ -82,17 +82,12 @@ struct DrawingCoords
 	}
 };
 
-struct VertexData
-{
-	void Lerp(float t, const VertexData& a, const VertexData& b)
-	{
-		// World coords only needed for lighting, so we don't Lerp those
-
+struct VertexData {
+	void Lerp(float t, const VertexData &a, const VertexData &b) {
 		modelpos = ::Lerp(a.modelpos, b.modelpos, t);
 		clippos = ::Lerp(a.clippos, b.clippos, t);
 		screenpos = ::Lerp(a.screenpos, b.screenpos, t);  // TODO: Should use a LerpInt (?)
 		texturecoords = ::Lerp(a.texturecoords, b.texturecoords, t);
-		normal = ::Lerp(a.normal, b.normal, t);
 		fogdepth = ::Lerp(a.fogdepth, b.fogdepth, t);
 
 		u16 t_int = (u16)(t*256);
@@ -101,12 +96,9 @@ struct VertexData
 	}
 
 	ModelCoords modelpos;
-	WorldCoords worldpos; // TODO: Storing this is dumb, should transform the light to clip space instead
 	ClipCoords clippos;
 	ScreenCoords screenpos; // TODO: Shouldn't store this ?
 	Vec2<float> texturecoords;
-	Vec3<float> normal;
-	WorldCoords worldnormal;
 	Vec4<int> color0;
 	Vec3<int> color1;
 	float fogdepth;
