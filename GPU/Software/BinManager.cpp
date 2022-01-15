@@ -84,28 +84,6 @@ static inline void DrawBinItem(const BinItem &item, const RasterizerState &state
 	}
 }
 
-class DrawBinItemTask : public Task {
-public:
-	DrawBinItemTask(BinWaitable *notify, const BinItem &item, const BinCoords &range, const RasterizerState &state)
-		: notify_(notify), item_(item), state_(state) {
-		item_.range = range;
-	}
-
-	TaskType Type() const override {
-		return TaskType::CPU_COMPUTE;
-	}
-
-	void Run() override {
-		DrawBinItem(item_, state_);
-		notify_->Drain();
-	}
-
-private:
-	BinWaitable *notify_;
-	BinItem item_;
-	const RasterizerState &state_;
-};
-
 class DrawBinItemsTask : public Task {
 public:
 	DrawBinItemsTask(BinWaitable *notify, BinQueue<BinItem, 1024> &items, std::atomic<bool> &status, const BinQueue<RasterizerState, 32> &states)
