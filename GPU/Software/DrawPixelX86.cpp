@@ -485,16 +485,14 @@ bool PixelJitCache::Jit_ColorTest(const PixelFuncID &id) {
 
 	// We'll have 4 with fog released, so we're using them all...
 	Describe("ColorTest");
-	X64Reg gstateReg = GetGState();
+	X64Reg idReg = GetPixelID();
 	X64Reg funcReg = regCache_.Alloc(RegCache::GEN_TEMP0);
 	X64Reg maskReg = regCache_.Alloc(RegCache::GEN_TEMP1);
 	X64Reg refReg = regCache_.Alloc(RegCache::GEN_TEMP2);
 
 	// First, load the registers: mask and ref.
-	MOV(32, R(maskReg), MDisp(gstateReg, offsetof(GPUgstate, colortestmask)));
-	AND(32, R(maskReg), Imm32(0x00FFFFFF));
-	MOV(32, R(refReg), MDisp(gstateReg, offsetof(GPUgstate, colorref)));
-	AND(32, R(refReg), R(maskReg));
+	MOV(32, R(maskReg), MDisp(idReg, offsetof(PixelFuncID, cached.colorTestMask)));
+	MOV(32, R(refReg), MDisp(idReg, offsetof(PixelFuncID, cached.colorTestRef)));
 
 	X64Reg argColorReg = regCache_.Find(RegCache::VEC_ARG_COLOR);
 	if (colorIs16Bit_) {
@@ -509,9 +507,8 @@ bool PixelJitCache::Jit_ColorTest(const PixelFuncID &id) {
 	regCache_.Unlock(argColorReg, RegCache::VEC_ARG_COLOR);
 
 	// Now that we're setup, get the func and follow it.
-	MOVZX(32, 8, funcReg, MDisp(gstateReg, offsetof(GPUgstate, colortest)));
-	AND(8, R(funcReg), Imm8(3));
-	regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+	MOVZX(32, 8, funcReg, MDisp(idReg, offsetof(PixelFuncID, cached.colorTestFunc)));
+	UnlockPixelID(idReg);
 
 	CMP(8, R(funcReg), Imm8(GE_COMP_ALWAYS));
 	// Discard for GE_COMP_NEVER...

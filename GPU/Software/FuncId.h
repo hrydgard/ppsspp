@@ -60,6 +60,9 @@ struct PixelFuncID {
 		uint8_t stencilRef;
 		uint8_t stencilTestMask;
 		uint8_t alphaTestMask;
+		GEComparison colorTestFunc;
+		uint32_t colorTestMask;
+		uint32_t colorTestRef;
 	} cached;
 
 	union {

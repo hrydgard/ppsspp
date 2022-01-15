@@ -185,11 +185,11 @@ static inline bool AlphaTestPassed(const PixelFuncID &pixelID, int alpha) {
 	return true;
 }
 
-static inline bool ColorTestPassed(const Vec3<int> &color) {
-	const u32 mask = gstate.getColorTestMask();
+static inline bool ColorTestPassed(const PixelFuncID &pixelID, const Vec3<int> &color) {
+	const u32 mask = pixelID.cached.colorTestMask;
 	const u32 c = color.ToRGB() & mask;
-	const u32 ref = gstate.getColorTestRef() & mask;
-	switch (gstate.getColorTestFunction()) {
+	const u32 ref = pixelID.cached.colorTestRef;
+	switch (pixelID.cached.colorTestFunc) {
 	case GE_COMP_NEVER:
 		return false;
 
@@ -417,7 +417,7 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 	}
 
 	if (pixelID.colorTest && !clearMode)
-		if (!ColorTestPassed(prim_color.rgb()))
+		if (!ColorTestPassed(pixelID, prim_color.rgb()))
 			return;
 
 	// In clear mode, it uses the alpha color as stencil.

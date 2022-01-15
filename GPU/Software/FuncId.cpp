@@ -211,6 +211,11 @@ void ComputePixelFuncID(PixelFuncID *id) {
 	}
 	if (id->hasAlphaTestMask)
 		id->cached.alphaTestMask = gstate.getAlphaTestMask();
+	if (!id->clearMode && id->colorTest) {
+		id->cached.colorTestFunc = gstate.getColorTestFunction();
+		id->cached.colorTestMask = gstate.getColorTestMask();
+		id->cached.colorTestRef = gstate.getColorTestRef() & id->cached.colorTestMask;
+	}
 }
 
 std::string DescribePixelFuncID(const PixelFuncID &id) {
