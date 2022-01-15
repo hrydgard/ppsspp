@@ -21,7 +21,7 @@
 
 namespace Lighting {
 
-void GenerateLightST(VertexData &vertex);
-void Process(VertexData& vertex, bool hasColor);
+void GenerateLightST(VertexData &vertex, const WorldCoords &worldnormal);
+void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, bool hasColor);
 
 }

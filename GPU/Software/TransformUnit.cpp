@@ -164,11 +164,12 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_
 		vreader.ReadUV(vertex.texturecoords.AsArray());
 	}
 
+	Vec3<float> normal;
 	if (vreader.hasNormal()) {
-		vreader.ReadNrm(vertex.normal.AsArray());
+		vreader.ReadNrm(normal.AsArray());
 
 		if (gstate.areNormalsReversed())
-			vertex.normal = -vertex.normal;
+			normal = -normal;
 	}
 
 	if (vertTypeIsSkinningEnabled(gstate.vertType) && !gstate.isModeThrough()) {
@@ -182,14 +183,14 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_
 			Vec3<float> step = Vec3ByMatrix43(pos, gstate.boneMatrix + i * 12);
 			tmppos += step * W[i];
 			if (vreader.hasNormal()) {
-				step = Norm3ByMatrix43(vertex.normal, gstate.boneMatrix + i * 12);
+				step = Norm3ByMatrix43(normal, gstate.boneMatrix + i * 12);
 				tmpnrm += step * W[i];
 			}
 		}
 
 		pos = tmppos;
 		if (vreader.hasNormal())
-			vertex.normal = tmpnrm;
+			normal = tmpnrm;
 	}
 
 	if (vreader.hasColor0()) {
@@ -209,9 +210,8 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_
 	}
 
 	if (!gstate.isModeThrough()) {
-		vertex.modelpos = pos;
-		vertex.worldpos = WorldCoords(TransformUnit::ModelToWorld(vertex.modelpos));
-		ModelCoords viewpos = TransformUnit::WorldToView(vertex.worldpos);
+		WorldCoords worldpos = WorldCoords(TransformUnit::ModelToWorld(pos));
+		ModelCoords viewpos = TransformUnit::WorldToView(worldpos);
 		vertex.clippos = ClipCoords(TransformUnit::ViewToClip(viewpos));
 		if (gstate.isFogEnabled()) {
 			float fog_end = getFloat24(gstate.fog1);
@@ -230,11 +230,12 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_
 		}
 		vertex.screenpos = ClipToScreenInternal(vertex.clippos, &outside_range_flag);
 
+		Vec3<float> worldnormal;
 		if (vreader.hasNormal()) {
-			vertex.worldnormal = TransformUnit::ModelToWorldNormal(vertex.normal);
-			vertex.worldnormal.NormalizeOr001();
+			worldnormal = TransformUnit::ModelToWorldNormal(normal);
+			worldnormal.NormalizeOr001();
 		} else {
-			vertex.worldnormal = Vec3<float>(0.0f, 0.0f, 1.0f);
+			worldnormal = Vec3<float>(0.0f, 0.0f, 1.0f);
 		}
 
 		// Time to generate some texture coords.  Lighting will handle shade mapping.
@@ -242,7 +243,7 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_
 			Vec3f source;
 			switch (gstate.getUVProjMode()) {
 			case GE_PROJMAP_POSITION:
-				source = vertex.modelpos;
+				source = pos;
 				break;
 
 			case GE_PROJMAP_UV:
@@ -250,11 +251,11 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_
 				break;
 
 			case GE_PROJMAP_NORMALIZED_NORMAL:
-				source = vertex.normal.NormalizedOr001(cpu_info.bSSE4_1);
+				source = normal.NormalizedOr001(cpu_info.bSSE4_1);
 				break;
 
 			case GE_PROJMAP_NORMAL:
-				source = vertex.normal;
+				source = normal;
 				break;
 
 			default:
@@ -268,12 +269,12 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_
 			float z_recip = 1.0f / stq.z;
 			vertex.texturecoords = Vec2f(stq.x * z_recip, stq.y * z_recip);
 		} else if (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
-			Lighting::GenerateLightST(vertex);
+			Lighting::GenerateLightST(vertex, worldnormal);
 		}
 
 		PROFILE_THIS_SCOPE("light");
 		if (gstate.isLightingEnabled())
-			Lighting::Process(vertex, vreader.hasColor0());
+			Lighting::Process(vertex, worldpos, worldnormal, vreader.hasColor0());
 	} else {
 		vertex.screenpos.x = (int)(pos[0] * 16) + gstate.getOffsetX16();
 		vertex.screenpos.y = (int)(pos[1] * 16) + gstate.getOffsetY16();
