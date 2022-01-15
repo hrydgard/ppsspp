@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <atomic>
 #include "Common/Log.h"
 #include "GPU/Software/Rasterizer.h"
 
@@ -69,23 +70,23 @@ struct BinQueue {
 	}
 
 	size_t Push(const T &item) {
-		_dbg_assert_(size_ < N);
-		size_++;
-
+		_assert_(size_ < N);
 		size_t i = tail_++;
 		if (tail_ == N)
 			tail_ = 0;
 		items_[i] = item;
+		size_++;
 		return i;
 	}
 
 	T Pop() {
-		_dbg_assert_(!Empty());
+		_assert_(!Empty());
 		size_t i = head_++;
 		if (head_ == N)
 			head_ = 0;
+		T item = items_[i];
 		size_--;
-		return items_[i];
+		return item;
 	}
 
 	size_t Size() const {
@@ -109,9 +110,9 @@ struct BinQueue {
 	}
 
 	T *items_ = nullptr;
-	size_t head_;
-	size_t tail_ ;
-	size_t size_;
+	std::atomic<size_t> head_;
+	std::atomic<size_t> tail_ ;
+	std::atomic<size_t> size_;
 };
 
 class BinManager {
@@ -135,6 +136,8 @@ public:
 	void Flush();
 
 private:
+	static constexpr int MAX_POSSIBLE_TASKS = 64;
+
 	BinQueue<Rasterizer::RasterizerState, 32> states_;
 	int stateIndex_;
 	BinCoords scissor_;
@@ -144,6 +147,8 @@ private:
 	int maxTasks_ = 1;
 	bool tasksSplit_ = false;
 	std::vector<BinCoords> taskRanges_;
+	BinQueue<BinItem, 1024> taskQueues_[MAX_POSSIBLE_TASKS];
+	std::atomic<bool> taskStatus_[MAX_POSSIBLE_TASKS];
 	BinWaitable *waitable_ = nullptr;
 
 	BinCoords Scissor(BinCoords range);

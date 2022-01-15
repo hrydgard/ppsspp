@@ -100,9 +100,42 @@ public:
 		notify_->Drain();
 	}
 
+private:
 	BinWaitable *notify_;
 	BinItem item_;
 	const RasterizerState &state_;
+};
+
+class DrawBinItemsTask : public Task {
+public:
+	DrawBinItemsTask(BinWaitable *notify, BinQueue<BinItem, 1024> &items, std::atomic<bool> &status, const BinQueue<RasterizerState, 32> &states)
+		: notify_(notify), items_(items), status_(status), states_(states) {
+	}
+
+	TaskType Type() const override {
+		return TaskType::CPU_COMPUTE;
+	}
+
+	void Run() override {
+		ProcessItems();
+		status_ = false;
+		// In case of any atomic issues, do another pass.
+		ProcessItems();
+		notify_->Drain();
+	}
+
+private:
+	void ProcessItems() {
+		while (!items_.Empty()) {
+			const BinItem item = items_.Pop();
+			DrawBinItem(item, states_[item.stateIndex]);
+		}
+	}
+
+	BinWaitable *notify_;
+	BinQueue<BinItem, 1024> &items_;
+	std::atomic<bool> &status_;
+	const BinQueue<RasterizerState, 32> &states_;
 };
 
 BinManager::BinManager() {
@@ -143,6 +176,8 @@ void BinManager::UpdateState() {
 	}
 
 	int newMaxTasks = selfRender ? 1 : g_threadManager.GetNumLooperThreads();
+	if (newMaxTasks > MAX_POSSIBLE_TASKS)
+		newMaxTasks = MAX_POSSIBLE_TASKS;
 	if (maxTasks_ != newMaxTasks) {
 		maxTasks_ = newMaxTasks;
 		tasksSplit_ = false;
@@ -246,22 +281,36 @@ void BinManager::Drain() {
 		tasksSplit_ = true;
 	}
 
-	while (!queue_.Empty()) {
-		const BinItem item = queue_.Pop();
-
-		if (taskRanges_.size() <= 1) {
+	if (taskRanges_.size() <= 1) {
+		while (!queue_.Empty()) {
+			const BinItem item = queue_.Pop();
 			DrawBinItem(item, states_[item.stateIndex]);
-			continue;
+		}
+	} else {
+		while (!queue_.Empty()) {
+			const BinItem item = queue_.Pop();
+			for (int i = 0; i < (int)taskRanges_.size(); ++i) {
+				const BinCoords range = taskRanges_[i].Intersect(item.range);
+				if (range.Invalid())
+					continue;
+
+				// This shouldn't often happen, but if it does, wait for space.
+				if (taskQueues_[i].Full())
+					waitable_->Wait();
+
+				BinItem subitem = item;
+				subitem.range = range;
+				taskQueues_[i].Push(subitem);
+			}
 		}
 
 		for (int i = 0; i < (int)taskRanges_.size(); ++i) {
-			const BinCoords &taskRange = taskRanges_[i];
-			const BinCoords range = taskRange.Intersect(item.range);
-			if (range.Invalid())
+			if (taskQueues_[i].Empty() || taskStatus_[i])
 				continue;
 
 			waitable_->Fill();
-			DrawBinItemTask *task = new DrawBinItemTask(waitable_, item, range, states_[item.stateIndex]);
+			taskStatus_[i] = true;
+			DrawBinItemsTask *task = new DrawBinItemsTask(waitable_, taskQueues_[i], taskStatus_[i], states_);
 			g_threadManager.EnqueueTaskOnThread(i, task, true);
 		}
 	}
