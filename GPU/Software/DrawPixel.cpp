@@ -393,7 +393,7 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 
 	// Fog is applied prior to color test.
 	if (pixelID.applyFog && !clearMode) {
-		Vec3<int> fogColor = Vec3<int>::FromRGB(gstate.fogcolor);
+		Vec3<int> fogColor = Vec3<int>::FromRGB(pixelID.cached.fogColor);
 		fogColor = (prim_color.rgb() * fog + fogColor * (255 - fog)) / 255;
 		prim_color.r() = fogColor.r();
 		prim_color.g() = fogColor.g();
@@ -442,7 +442,7 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 		const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
 		Vec3<int> blended = AlphaBlendingResult(pixelID, prim_color, dst);
 		if (pixelID.dithering) {
-			blended += Vec3<int>::AssignToAll(gstate.getDitherValue(x, y));
+			blended += Vec3<int>::AssignToAll(pixelID.cached.ditherMatrix[y * 4 + x]);
 		}
 
 		// ToRGB() always automatically clamps.
@@ -451,7 +451,7 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 	} else {
 		if (pixelID.dithering) {
 			// We'll discard alpha anyway.
-			prim_color += Vec4<int>::AssignToAll(gstate.getDitherValue(x, y));
+			prim_color += Vec4<int>::AssignToAll(pixelID.cached.ditherMatrix[y * 4 + x]);
 		}
 
 #if defined(_M_SSE)
@@ -469,7 +469,10 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 	}
 
 	if (clearMode) {
-		new_color = (new_color & ~gstate.getClearModeColorMask()) | (old_color & gstate.getClearModeColorMask());
+		if (!pixelID.ColorClear())
+			new_color = (new_color & 0xFF000000) | (old_color & 0x00FFFFFF);
+		if (!pixelID.StencilClear())
+			new_color = (new_color & 0x00FFFFFF) | (old_color & 0xFF000000);
 	}
 	new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
 

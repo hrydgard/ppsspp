@@ -196,6 +196,9 @@ void ComputePixelFuncID(PixelFuncID *id) {
 			break;
 		}
 	}
+	if (id->applyFog) {
+		id->cached.fogColor = gstate.fogcolor & 0x00FFFFFF;
+	}
 }
 
 std::string DescribePixelFuncID(const PixelFuncID &id) {

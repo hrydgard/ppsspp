@@ -548,17 +548,27 @@ bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 	// Load fog and expand to 16 bit.  Ignore the high 8 bits, which'll match up with A.
 	Describe("ApplyFog");
 	X64Reg fogColorReg = regCache_.Alloc(RegCache::VEC_TEMP1);
-	X64Reg gstateReg = GetGState();
+	X64Reg idReg = INVALID_REG;
+	if (regCache_.Has(RegCache::GEN_ARG_ID)) {
+		idReg = regCache_.Find(RegCache::GEN_ARG_ID);
+	} else {
+		_assert_(stackIDOffset_ != -1);
+		idReg = regCache_.Alloc(RegCache::GEN_TEMP1);
+		MOV(PTRBITS, R(idReg), MDisp(RSP, stackIDOffset_));
+	}
 	if (cpu_info.bSSE4_1) {
-		// This actually loads the texlodslope too, but that's okay.
-		PMOVZXBW(fogColorReg, MDisp(gstateReg, offsetof(GPUgstate, fogcolor)));
+		PMOVZXBW(fogColorReg, MDisp(idReg, offsetof(PixelFuncID, cached.fogColor)));
 	} else {
 		X64Reg zeroReg = GetZeroVec();
-		MOVD_xmm(fogColorReg, MDisp(gstateReg, offsetof(GPUgstate, fogcolor)));
+		MOVD_xmm(fogColorReg, MDisp(idReg, offsetof(PixelFuncID, cached.fogColor)));
 		PUNPCKLBW(fogColorReg, R(zeroReg));
 		regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
 	}
-	regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+	if (regCache_.Has(RegCache::GEN_ARG_ID)) {
+		regCache_.Unlock(idReg, RegCache::GEN_ARG_ID);
+	} else {
+		regCache_.Release(idReg, RegCache::GEN_TEMP1);
+	}
 
 	// Load a set of 255s at 16 bit into a reg for later...
 	X64Reg invertReg = regCache_.Alloc(RegCache::VEC_TEMP2);
