@@ -136,6 +136,7 @@ void ComputeRasterizerState(RasterizerState *state) {
 	state->mipFilt = gstate.isMipmapFilteringEnabled();
 	state->minFilt = gstate.isMinifyFilteringEnabled();
 	state->magFilt = gstate.isMagnifyFilteringEnabled();
+	state->antialiasLines = gstate.isAntiAliasEnabled();
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	DisplayList currentList{};
@@ -1233,6 +1234,8 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
 
+	const bool interpolateColor = !state.shadeGouraud || (v0.color0 == v1.color0 && v0.color1 == v1.color1);
+
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	std::string tag = StringFromFormat("DisplayListL_%08x", state.listPC);
 	std::string ztag = StringFromFormat("DisplayListLZ_%08x", state.listPC);
@@ -1247,7 +1250,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 			// Interpolate between the two points.
 			Vec4<int> prim_color;
 			Vec3<int> sec_color;
-			if (gstate.getShadeMode() == GE_SHADE_GOURAUD) {
+			if (interpolateColor) {
 				prim_color = (v0.color0 * (steps - i) + v1.color0 * i) / steps1;
 				sec_color = (v0.color1 * (steps - i) + v1.color1 * i) / steps1;
 			} else {
@@ -1260,7 +1263,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 				fog = ClampFogDepth((v0.fogdepth * (float)(steps - i) + v1.fogdepth * (float)i) / steps1);
 			}
 
-			if (gstate.isAntiAliasEnabled()) {
+			if (state.antialiasLines) {
 				// TODO: Clearmode?
 				// TODO: Calculate.
 				prim_color.a() = 0x7F;
@@ -1292,7 +1295,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 				bool texBilinear;
 				CalculateSamplingParams(ds, dt, state, texLevel, texLevelFrac, texBilinear);
 
-				if (gstate.isAntiAliasEnabled()) {
+				if (state.antialiasLines) {
 					// TODO: This is a niave and wrong implementation.
 					DrawingCoords p0 = TransformUnit::ScreenToDrawing(ScreenCoords((int)x, (int)y, (int)z));
 					s = ((float)p0.x + xinc / 32.0f) / 512.0f;
