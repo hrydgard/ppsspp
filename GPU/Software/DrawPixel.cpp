@@ -62,22 +62,22 @@ static inline u8 GetPixelStencil(GEBufferFormat fmt, int fbStride, int x, int y)
 	}
 }
 
-static inline void SetPixelStencil(GEBufferFormat fmt, int fbStride, int x, int y, u8 value) {
+static inline void SetPixelStencil(GEBufferFormat fmt, int fbStride, uint32_t targetWriteMask, int x, int y, u8 value) {
 	if (fmt == GE_FORMAT_565) {
 		// Do nothing
 	} else if (fmt == GE_FORMAT_5551) {
-		if ((gstate.getStencilWriteMask() & 0x80) == 0) {
+		if ((targetWriteMask & 0x8000) == 0) {
 			u16 pixel = fb.Get16(x, y, fbStride) & ~0x8000;
 			pixel |= (value & 0x80) << 8;
 			fb.Set16(x, y, fbStride, pixel);
 		}
 	} else if (fmt == GE_FORMAT_4444) {
-		const u16 write_mask = (gstate.getStencilWriteMask() << 8) | 0x0FFF;
+		const u16 write_mask = targetWriteMask | 0x0FFF;
 		u16 pixel = fb.Get16(x, y, fbStride) & write_mask;
 		pixel |= ((u16)value << 8) & ~write_mask;
 		fb.Set16(x, y, fbStride, pixel);
 	} else {
-		const u32 write_mask = (gstate.getStencilWriteMask() << 24) | 0x00FFFFFF;
+		const u32 write_mask = targetWriteMask | 0x00FFFFFF;
 		u32 pixel = fb.Get32(x, y, fbStride) & write_mask;
 		pixel |= ((u32)value << 24) & ~write_mask;
 		fb.Set32(x, y, fbStride, pixel);
@@ -113,21 +113,37 @@ static inline u32 GetPixelColor(GEBufferFormat fmt, int fbStride, int x, int y) 
 	}
 }
 
-static inline void SetPixelColor(GEBufferFormat fmt, int fbStride, int x, int y, u32 value) {
+static inline void SetPixelColor(GEBufferFormat fmt, int fbStride, int x, int y, u32 value, u32 old_value, u32 targetWriteMask) {
 	switch (fmt) {
 	case GE_FORMAT_565:
-		fb.Set16(x, y, fbStride, RGBA8888ToRGB565(value));
+		value = RGBA8888ToRGB565(value);
+		if (targetWriteMask != 0) {
+			old_value = RGBA8888ToRGB565(old_value);
+			value = (value & ~targetWriteMask) | (old_value & targetWriteMask);
+		}
+		fb.Set16(x, y, fbStride, value);
 		break;
 
 	case GE_FORMAT_5551:
-		fb.Set16(x, y, fbStride, RGBA8888ToRGBA5551(value));
+		value = RGBA8888ToRGBA5551(value);
+		if (targetWriteMask != 0) {
+			old_value = RGBA8888ToRGBA5551(old_value);
+			value = (value & ~targetWriteMask) | (old_value & targetWriteMask);
+		}
+		fb.Set16(x, y, fbStride, value);
 		break;
 
 	case GE_FORMAT_4444:
-		fb.Set16(x, y, fbStride, RGBA8888ToRGBA4444(value));
+		value = RGBA8888ToRGBA4444(value);
+		if (targetWriteMask != 0) {
+			old_value = RGBA8888ToRGBA4444(old_value);
+			value = (value & ~targetWriteMask) | (old_value & targetWriteMask);
+		}
+		fb.Set16(x, y, fbStride, value);
 		break;
 
 	case GE_FORMAT_8888:
+		value = (value & ~targetWriteMask) | (old_value & targetWriteMask);
 		fb.Set32(x, y, fbStride, value);
 		break;
 
@@ -405,6 +421,7 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 			return;
 
 	// In clear mode, it uses the alpha color as stencil.
+	uint32_t targetWriteMask = pixelID.applyColorWriteMask ? pixelID.cached.colorWriteMask : 0;
 	u8 stencil = clearMode ? prim_color.a() : GetPixelStencil(fbFormat, pixelID.cached.framebufStride, x, y);
 	if (clearMode) {
 		if (pixelID.DepthClear())
@@ -412,14 +429,14 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 	} else if (pixelID.stencilTest) {
 		if (!StencilTestPassed(pixelID, stencil)) {
 			stencil = ApplyStencilOp(fbFormat, pixelID.SFail(), stencil);
-			SetPixelStencil(fbFormat, pixelID.cached.framebufStride, x, y, stencil);
+			SetPixelStencil(fbFormat, pixelID.cached.framebufStride, targetWriteMask, x, y, stencil);
 			return;
 		}
 
 		// Also apply depth at the same time.  If disabled, same as passing.
 		if (pixelID.DepthTestFunc() != GE_COMP_ALWAYS && !DepthTestPassed(pixelID.DepthTestFunc(), x, y, pixelID.cached.depthbufStride, z)) {
 			stencil = ApplyStencilOp(fbFormat, pixelID.ZFail(), stencil);
-			SetPixelStencil(fbFormat, pixelID.cached.framebufStride, x, y, stencil);
+			SetPixelStencil(fbFormat, pixelID.cached.framebufStride, targetWriteMask, x, y, stencil);
 			return;
 		}
 
@@ -474,9 +491,8 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 		if (!pixelID.StencilClear())
 			new_color = (new_color & 0x00FFFFFF) | (old_color & 0xFF000000);
 	}
-	new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
 
-	SetPixelColor(fbFormat, pixelID.cached.framebufStride, x, y, new_color);
+	SetPixelColor(fbFormat, pixelID.cached.framebufStride, x, y, new_color, old_color, targetWriteMask);
 }
 
 SingleFunc GetSingleFunc(const PixelFuncID &id) {

@@ -932,7 +932,7 @@ bool PixelJitCache::Jit_WriteStencilOnly(const PixelFuncID &id, RegCache::Reg st
 	X64Reg colorOffReg = GetColorOff(id);
 	Describe("WriteStencil");
 	if (id.applyColorWriteMask) {
-		X64Reg gstateReg = GetGState();
+		X64Reg idReg = GetPixelID();
 		X64Reg maskReg = regCache_.Alloc(RegCache::GEN_TEMP5);
 
 		switch (id.fbFormat) {
@@ -940,7 +940,8 @@ bool PixelJitCache::Jit_WriteStencilOnly(const PixelFuncID &id, RegCache::Reg st
 			break;
 
 		case GE_FORMAT_5551:
-			MOVZX(32, 8, maskReg, MDisp(gstateReg, offsetof(GPUgstate, pmska)));
+			// Read the high 8 bits of the 16-bit color mask.
+			MOVZX(32, 8, maskReg, MDisp(idReg, offsetof(PixelFuncID, cached.colorWriteMask) + 1));
 			OR(8, R(maskReg), Imm8(0x7F));
 
 			// Poor man's BIC...
@@ -953,7 +954,8 @@ bool PixelJitCache::Jit_WriteStencilOnly(const PixelFuncID &id, RegCache::Reg st
 			break;
 
 		case GE_FORMAT_4444:
-			MOVZX(32, 8, maskReg, MDisp(gstateReg, offsetof(GPUgstate, pmska)));
+			// Read the high 8 bits of the 16-bit color mask.
+			MOVZX(32, 8, maskReg, MDisp(idReg, offsetof(PixelFuncID, cached.colorWriteMask) + 1));
 			OR(8, R(maskReg), Imm8(0x0F));
 
 			// Poor man's BIC...
@@ -966,7 +968,8 @@ bool PixelJitCache::Jit_WriteStencilOnly(const PixelFuncID &id, RegCache::Reg st
 			break;
 
 		case GE_FORMAT_8888:
-			MOVZX(32, 8, maskReg, MDisp(gstateReg, offsetof(GPUgstate, pmska)));
+			// Read the high 8 bits of the 32-bit color mask.
+			MOVZX(32, 8, maskReg, MDisp(idReg, offsetof(PixelFuncID, cached.colorWriteMask) + 3));
 
 			// Poor man's BIC...
 			NOT(32, R(stencilReg));
@@ -979,7 +982,7 @@ bool PixelJitCache::Jit_WriteStencilOnly(const PixelFuncID &id, RegCache::Reg st
 		}
 
 		regCache_.Release(maskReg, RegCache::GEN_TEMP5);
-		regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+		UnlockPixelID(idReg);
 	} else {
 		switch (id.fbFormat) {
 		case GE_FORMAT_565:
