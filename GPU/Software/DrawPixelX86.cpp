@@ -138,15 +138,6 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 	return (SingleFunc)start;
 }
 
-RegCache::Reg PixelJitCache::GetGState() {
-	if (!regCache_.Has(RegCache::GEN_GSTATE)) {
-		X64Reg r = regCache_.Alloc(RegCache::GEN_GSTATE);
-		MOV(PTRBITS, R(r), ImmPtr(&gstate.nop));
-		return r;
-	}
-	return regCache_.Find(RegCache::GEN_GSTATE);
-}
-
 RegCache::Reg PixelJitCache::GetPixelID() {
 	if (regCache_.Has(RegCache::GEN_ARG_ID))
 		return regCache_.Find(RegCache::GEN_ARG_ID);
@@ -1267,7 +1258,7 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 
 bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, RegCache::Reg factorReg, RegCache::Reg dstReg, PixelBlendFactor factor) {
 	X64Reg constReg = INVALID_REG;
-	X64Reg gstateReg = INVALID_REG;
+	X64Reg idReg = INVALID_REG;
 	X64Reg tempReg = INVALID_REG;
 	X64Reg argColorReg = regCache_.Find(RegCache::VEC_ARG_COLOR);
 
@@ -1368,12 +1359,12 @@ bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, RegCache::Reg factorR
 
 	case PixelBlendFactor::FIX:
 	default:
-		gstateReg = GetGState();
+		idReg = GetPixelID();
 		if (cpu_info.bSSE4_1) {
-			PMOVZXBW(factorReg, MDisp(gstateReg, offsetof(GPUgstate, blendfixa)));
+			PMOVZXBW(factorReg, MDisp(idReg, offsetof(PixelFuncID, cached.alphaBlendSrc)));
 		} else {
 			X64Reg zeroReg = GetZeroVec();
-			MOVD_xmm(factorReg, MDisp(gstateReg, offsetof(GPUgstate, blendfixa)));
+			MOVD_xmm(factorReg, MDisp(idReg, offsetof(PixelFuncID, cached.alphaBlendSrc)));
 			PUNPCKLBW(factorReg, R(zeroReg));
 			regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
 		}
@@ -1382,8 +1373,8 @@ bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, RegCache::Reg factorR
 		break;
 	}
 
-	if (gstateReg != INVALID_REG)
-		regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+	if (idReg != INVALID_REG)
+		UnlockPixelID(idReg);
 	if (tempReg != INVALID_REG)
 		regCache_.Release(tempReg, RegCache::VEC_TEMP3);
 	regCache_.Unlock(argColorReg, RegCache::VEC_ARG_COLOR);
@@ -1394,7 +1385,7 @@ bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, RegCache::Reg factorR
 bool PixelJitCache::Jit_DstBlendFactor(const PixelFuncID &id, RegCache::Reg srcFactorReg, RegCache::Reg dstFactorReg, RegCache::Reg dstReg) {
 	bool success = true;
 	X64Reg constReg = INVALID_REG;
-	X64Reg gstateReg = INVALID_REG;
+	X64Reg idReg = INVALID_REG;
 	X64Reg argColorReg = regCache_.Find(RegCache::VEC_ARG_COLOR);
 
 	// Everything below expects an expanded 16-bit color
@@ -1447,12 +1438,12 @@ bool PixelJitCache::Jit_DstBlendFactor(const PixelFuncID &id, RegCache::Reg srcF
 
 	case PixelBlendFactor::FIX:
 	default:
-		gstateReg = GetGState();
+		idReg = GetPixelID();
 		if (cpu_info.bSSE4_1) {
-			PMOVZXBW(dstFactorReg, MDisp(gstateReg, offsetof(GPUgstate, blendfixb)));
+			PMOVZXBW(dstFactorReg, MDisp(idReg, offsetof(PixelFuncID, cached.alphaBlendDst)));
 		} else {
 			X64Reg zeroReg = GetZeroVec();
-			MOVD_xmm(dstFactorReg, MDisp(gstateReg, offsetof(GPUgstate, blendfixb)));
+			MOVD_xmm(dstFactorReg, MDisp(idReg, offsetof(PixelFuncID, cached.alphaBlendDst)));
 			PUNPCKLBW(dstFactorReg, R(zeroReg));
 			regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
 		}
@@ -1463,8 +1454,8 @@ bool PixelJitCache::Jit_DstBlendFactor(const PixelFuncID &id, RegCache::Reg srcF
 
 	if (constReg != INVALID_REG)
 		regCache_.Unlock(constReg, RegCache::GEN_CONST_BASE);
-	if (gstateReg != INVALID_REG)
-		regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+	if (idReg != INVALID_REG)
+		UnlockPixelID(idReg);
 	regCache_.Unlock(argColorReg, RegCache::VEC_ARG_COLOR);
 
 	return success;

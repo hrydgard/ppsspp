@@ -216,6 +216,10 @@ void ComputePixelFuncID(PixelFuncID *id) {
 		id->cached.colorTestMask = gstate.getColorTestMask();
 		id->cached.colorTestRef = gstate.getColorTestRef() & id->cached.colorTestMask;
 	}
+	if (id->alphaBlendSrc == GE_SRCBLEND_FIXA)
+		id->cached.alphaBlendSrc = gstate.getFixA();
+	if (id->alphaBlendDst == GE_DSTBLEND_FIXB)
+		id->cached.alphaBlendDst = gstate.getFixB();
 }
 
 std::string DescribePixelFuncID(const PixelFuncID &id) {

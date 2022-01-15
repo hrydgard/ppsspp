@@ -63,6 +63,8 @@ struct PixelFuncID {
 		GEComparison colorTestFunc;
 		uint32_t colorTestMask;
 		uint32_t colorTestRef;
+		uint32_t alphaBlendSrc;
+		uint32_t alphaBlendDst;
 	} cached;
 
 	union {

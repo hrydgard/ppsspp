@@ -331,7 +331,7 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 	return ToVec4IntResult(Vec4<int>(out_rgb, out_a));
 }
 
-static inline Vec3<int> GetSourceFactor(GEBlendSrcFactor factor, const Vec4<int> &source, const Vec4<int> &dst) {
+static inline Vec3<int> GetSourceFactor(GEBlendSrcFactor factor, const Vec4<int> &source, const Vec4<int> &dst, uint32_t fix) {
 	switch (factor) {
 	case GE_SRCBLEND_DSTCOLOR:
 		return dst.rgb();
@@ -374,11 +374,11 @@ static inline Vec3<int> GetSourceFactor(GEBlendSrcFactor factor, const Vec4<int>
 	case GE_SRCBLEND_FIXA:
 	default:
 		// All other dest factors (> 10) are treated as FIXA.
-		return Vec3<int>::FromRGB(gstate.getFixA());
+		return Vec3<int>::FromRGB(fix);
 	}
 }
 
-static inline Vec3<int> GetDestFactor(GEBlendDstFactor factor, const Vec4<int> &source, const Vec4<int> &dst) {
+static inline Vec3<int> GetDestFactor(GEBlendDstFactor factor, const Vec4<int> &source, const Vec4<int> &dst, uint32_t fix) {
 	switch (factor) {
 	case GE_DSTBLEND_SRCCOLOR:
 		return source.rgb();
@@ -421,16 +421,15 @@ static inline Vec3<int> GetDestFactor(GEBlendDstFactor factor, const Vec4<int> &
 	case GE_DSTBLEND_FIXB:
 	default:
 		// All other dest factors (> 10) are treated as FIXB.
-		return Vec3<int>::FromRGB(gstate.getFixB());
+		return Vec3<int>::FromRGB(fix);
 	}
 }
 
 // Removed inline here - it was never chosen to be inlined by the compiler anyway, too complex.
-Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &source, const Vec4<int> &dst)
-{
+Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &source, const Vec4<int> &dst) {
 	// Note: These factors cannot go below 0, but they can go above 255 when doubling.
-	Vec3<int> srcfactor = GetSourceFactor(GEBlendSrcFactor(pixelID.AlphaBlendSrc()), source, dst);
-	Vec3<int> dstfactor = GetDestFactor(GEBlendDstFactor(pixelID.AlphaBlendDst()), source, dst);
+	Vec3<int> srcfactor = GetSourceFactor(GEBlendSrcFactor(pixelID.AlphaBlendSrc()), source, dst, pixelID.cached.alphaBlendSrc);
+	Vec3<int> dstfactor = GetDestFactor(GEBlendDstFactor(pixelID.AlphaBlendDst()), source, dst, pixelID.cached.alphaBlendDst);
 
 	switch (pixelID.AlphaBlendEq()) {
 	case GE_BLENDMODE_MUL_AND_ADD:
