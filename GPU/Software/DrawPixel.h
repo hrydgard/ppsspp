@@ -73,6 +73,8 @@ private:
 #endif
 
 	RegCache::Reg GetGState();
+	RegCache::Reg GetPixelID();
+	void UnlockPixelID(RegCache::Reg &r);
 	RegCache::Reg GetConstBase();
 	RegCache::Reg GetZeroVec();
 	// Note: these may require a temporary reg.

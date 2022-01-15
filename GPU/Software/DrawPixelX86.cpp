@@ -147,6 +147,25 @@ RegCache::Reg PixelJitCache::GetGState() {
 	return regCache_.Find(RegCache::GEN_GSTATE);
 }
 
+RegCache::Reg PixelJitCache::GetPixelID() {
+	if (regCache_.Has(RegCache::GEN_ARG_ID))
+		return regCache_.Find(RegCache::GEN_ARG_ID);
+	if (!regCache_.Has(RegCache::GEN_ID)) {
+		X64Reg r = regCache_.Alloc(RegCache::GEN_ID);
+		_assert_(stackIDOffset_ != -1);
+		MOV(PTRBITS, R(r), MDisp(RSP, stackIDOffset_));
+		return r;
+	}
+	return regCache_.Find(RegCache::GEN_ID);
+}
+
+void PixelJitCache::UnlockPixelID(RegCache::Reg &r) {
+	if (regCache_.Has(RegCache::GEN_ARG_ID))
+		regCache_.Unlock(r, RegCache::GEN_ARG_ID);
+	else
+		regCache_.Unlock(r, RegCache::GEN_ID);
+}
+
 RegCache::Reg PixelJitCache::GetConstBase() {
 	if (!regCache_.Has(RegCache::GEN_CONST_BASE)) {
 		X64Reg r = regCache_.Alloc(RegCache::GEN_CONST_BASE);
@@ -353,31 +372,19 @@ void PixelJitCache::Discard(Gen::CCFlags cc) {
 bool PixelJitCache::Jit_ApplyDepthRange(const PixelFuncID &id) {
 	if (id.applyDepthRange) {
 		Describe("ApplyDepthR");
-		X64Reg gstateReg = INVALID_REG;
-		if (!RipAccessible(&gstate.minz) || !RipAccessible(&gstate.maxz))
-			gstateReg = GetGState();
-		X64Reg maxReg = regCache_.Alloc(RegCache::GEN_TEMP0);
 		X64Reg argZReg = regCache_.Find(RegCache::GEN_ARG_Z);
+		X64Reg idReg = GetPixelID();
 
-		// For lower, we compare directly (we take care of the 32-bit case below.)
-		if (RipAccessible(&gstate.minz))
-			CMP(16, R(argZReg), M(&gstate.minz));
-		else
-			CMP(16, R(argZReg), MDisp(gstateReg, offsetof(GPUgstate, minz)));
-		Discard(CC_B);
+		// We expanded this to 32 bits, so it's convenient to compare.
+		CMP(32, R(argZReg), MDisp(idReg, offsetof(PixelFuncID, cached.minz)));
+		Discard(CC_L);
 
 		// We load the low 16 bits, but compare all 32 of z.  Above handles < 0.
-		if (RipAccessible(&gstate.maxz))
-			MOVZX(32, 16, maxReg, M(&gstate.maxz));
-		else
-			MOVZX(32, 16, maxReg, MDisp(gstateReg, offsetof(GPUgstate, maxz)));
-		CMP(32, R(argZReg), R(maxReg));
-		Discard(CC_A);
+		CMP(32, R(argZReg), MDisp(idReg, offsetof(PixelFuncID, cached.maxz)));
+		Discard(CC_G);
 
+		UnlockPixelID(idReg);
 		regCache_.Unlock(argZReg, RegCache::GEN_ARG_Z);
-		if (gstateReg != INVALID_REG)
-			regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
-		regCache_.Release(maxReg, RegCache::GEN_TEMP0);
 	}
 
 	// Since this is early on, try to free up the z reg if we don't need it anymore.
@@ -544,14 +551,7 @@ bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 	// Load fog and expand to 16 bit.  Ignore the high 8 bits, which'll match up with A.
 	Describe("ApplyFog");
 	X64Reg fogColorReg = regCache_.Alloc(RegCache::VEC_TEMP1);
-	X64Reg idReg = INVALID_REG;
-	if (regCache_.Has(RegCache::GEN_ARG_ID)) {
-		idReg = regCache_.Find(RegCache::GEN_ARG_ID);
-	} else {
-		_assert_(stackIDOffset_ != -1);
-		idReg = regCache_.Alloc(RegCache::GEN_TEMP1);
-		MOV(PTRBITS, R(idReg), MDisp(RSP, stackIDOffset_));
-	}
+	X64Reg idReg = GetPixelID();
 	if (cpu_info.bSSE4_1) {
 		PMOVZXBW(fogColorReg, MDisp(idReg, offsetof(PixelFuncID, cached.fogColor)));
 	} else {
@@ -560,11 +560,7 @@ bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 		PUNPCKLBW(fogColorReg, R(zeroReg));
 		regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
 	}
-	if (regCache_.Has(RegCache::GEN_ARG_ID)) {
-		regCache_.Unlock(idReg, RegCache::GEN_ARG_ID);
-	} else {
-		regCache_.Release(idReg, RegCache::GEN_TEMP1);
-	}
+	UnlockPixelID(idReg);
 
 	// Load a set of 255s at 16 bit into a reg for later...
 	X64Reg invertReg = regCache_.Alloc(RegCache::VEC_TEMP2);
@@ -744,6 +740,7 @@ bool PixelJitCache::Jit_StencilTest(const PixelFuncID &id, RegCache::Reg stencil
 
 	bool hadGStateReg = regCache_.Has(RegCache::GEN_GSTATE);
 	bool hadColorOffReg = regCache_.Has(RegCache::GEN_COLOR_OFF);
+	bool hadIdReg = regCache_.Has(RegCache::GEN_ID);
 
 	bool success = true;
 	if (stencilReg != INVALID_REG && (!hasFixedResult || !fixedResult)) {
@@ -759,6 +756,8 @@ bool PixelJitCache::Jit_StencilTest(const PixelFuncID &id, RegCache::Reg stencil
 		regCache_.Change(RegCache::GEN_GSTATE, RegCache::GEN_INVALID);
 	if (!hadColorOffReg && regCache_.Has(RegCache::GEN_COLOR_OFF))
 		regCache_.Change(RegCache::GEN_COLOR_OFF, RegCache::GEN_INVALID);
+	if (!hadIdReg && regCache_.Has(RegCache::GEN_ID))
+		regCache_.Change(RegCache::GEN_ID, RegCache::GEN_INVALID);
 
 	if (!hasFixedResult)
 		SetJumpTarget(toPass);
@@ -819,6 +818,7 @@ bool PixelJitCache::Jit_DepthTestForStencil(const PixelFuncID &id, RegCache::Reg
 
 	bool hadGStateReg = regCache_.Has(RegCache::GEN_GSTATE);
 	bool hadColorOffReg = regCache_.Has(RegCache::GEN_COLOR_OFF);
+	bool hadIdReg = regCache_.Has(RegCache::GEN_ID);
 
 	bool success = true;
 	success = success && Jit_ApplyStencilOp(id, id.ZFail(), stencilReg);
@@ -830,6 +830,8 @@ bool PixelJitCache::Jit_DepthTestForStencil(const PixelFuncID &id, RegCache::Reg
 		regCache_.Change(RegCache::GEN_GSTATE, RegCache::GEN_INVALID);
 	if (!hadColorOffReg && regCache_.Has(RegCache::GEN_COLOR_OFF))
 		regCache_.Change(RegCache::GEN_COLOR_OFF, RegCache::GEN_INVALID);
+	if (!hadIdReg && regCache_.Has(RegCache::GEN_ID))
+		regCache_.Change(RegCache::GEN_ID, RegCache::GEN_INVALID);
 
 	SetJumpTarget(skip);
 

@@ -384,7 +384,7 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 	Vec4<int> prim_color = Vec4<int>(color_in).Clamp(0, 255);
 	// Depth range test - applied in clear mode, if not through mode.
 	if (pixelID.applyDepthRange)
-		if (z < gstate.getDepthRangeMin() || z > gstate.getDepthRangeMax())
+		if (z < pixelID.cached.minz || z > pixelID.cached.maxz)
 			return;
 
 	if (pixelID.AlphaTestFunc() != GE_COMP_ALWAYS && !clearMode)
