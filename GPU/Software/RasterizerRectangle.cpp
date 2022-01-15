@@ -94,7 +94,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 	DrawingCoords scissorTL = TransformUnit::ScreenToDrawing(ScreenCoords(range.x1, range.y1, 0));
 	DrawingCoords scissorBR = TransformUnit::ScreenToDrawing(ScreenCoords(range.x2, range.y2, 0));
 
-	int z = pos0.z;
+	int z = v1.screenpos.z;
 	int fog = 255;
 
 	bool isWhite = v1.color0 == Vec4<int>(255, 255, 255, 255);

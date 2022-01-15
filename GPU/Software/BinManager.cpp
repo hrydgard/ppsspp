@@ -135,10 +135,10 @@ void BinManager::UpdateState() {
 	stateIndex_ = (int)states_.Push(RasterizerState());
 	ComputeRasterizerState(&states_[stateIndex_]);
 
-	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1(), 0);
-	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2(), 0);
-	ScreenCoords screenScissorTL = TransformUnit::DrawingToScreen(scissorTL);
-	ScreenCoords screenScissorBR = TransformUnit::DrawingToScreen(scissorBR);
+	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1());
+	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2());
+	ScreenCoords screenScissorTL = TransformUnit::DrawingToScreen(scissorTL, 0);
+	ScreenCoords screenScissorBR = TransformUnit::DrawingToScreen(scissorBR, 0);
 
 	scissor_.x1 = screenScissorTL.x;
 	scissor_.y1 = screenScissorTL.y;
@@ -236,8 +236,8 @@ void BinManager::Drain() {
 		int h2 = (queueRange_.y2 - queueRange_.y1 + 31) / 32;
 
 		// Always bin the entire possible range, but focus on the drawn area.
-		ScreenCoords tl = TransformUnit::DrawingToScreen(DrawingCoords(0, 0, 0));
-		ScreenCoords br = TransformUnit::DrawingToScreen(DrawingCoords(1024, 1024, 0));
+		ScreenCoords tl = TransformUnit::DrawingToScreen(DrawingCoords(0, 0), 0);
+		ScreenCoords br = TransformUnit::DrawingToScreen(DrawingCoords(1024, 1024), 0);
 
 		taskRanges_.clear();
 		if (h2 >= 18 && w2 >= h2 * 4) {
