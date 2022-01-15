@@ -75,6 +75,7 @@ inline float clip_dotprod(const VertexData &vert, float A, float B, float C, flo
 					float t = dpPrev / (dpPrev - dp);				\
 					Vertices[numVertices++]->Lerp(t, *Vertices[idxPrev], *Vertices[idx]);		\
 				}													\
+				clipped = true;										\
 				outlist[outcount++] = numVertices - 1;				\
 			}														\
 																	\
@@ -104,6 +105,7 @@ inline float clip_dotprod(const VertexData &vert, float A, float B, float C, flo
 			if (dp0 < 0) {										\
 				float t = dp1 / (dp1 - dp0);					\
 				Vertices[0]->Lerp(t, *Vertices[1], *Vertices[0]); \
+				clipped = true;									\
 			}													\
 		}														\
 		dp0 = clip_dotprod(*Vertices[0], A, B, C, D );			\
@@ -112,6 +114,7 @@ inline float clip_dotprod(const VertexData &vert, float A, float B, float C, flo
 			if (dp1 < 0) {										\
 				float t = dp1 / (dp1- dp0);						\
 				Vertices[1]->Lerp(t, *Vertices[1], *Vertices[0]);	\
+				clipped = true;									\
 			}													\
 		}														\
 	}															\
@@ -160,12 +163,15 @@ void ProcessRect(const VertexData &v0, const VertexData &v1, BinManager &binner)
 
 		VertexData buf[4];
 		buf[0].clippos = ClipCoords(v0.clippos.x, v0.clippos.y, v1.clippos.z, v1.clippos.w);
+		buf[0].screenpos = TransformUnit::ClipToScreen(buf[0].clippos);
 		buf[0].texturecoords = v0.texturecoords;
 
 		buf[1].clippos = ClipCoords(v0.clippos.x, v1.clippos.y, v1.clippos.z, v1.clippos.w);
+		buf[1].screenpos = TransformUnit::ClipToScreen(buf[1].clippos);
 		buf[1].texturecoords = Vec2<float>(v0.texturecoords.x, v1.texturecoords.y);
 
 		buf[2].clippos = ClipCoords(v1.clippos.x, v0.clippos.y, v1.clippos.z, v1.clippos.w);
+		buf[2].screenpos = TransformUnit::ClipToScreen(buf[2].clippos);
 		buf[2].texturecoords = Vec2<float>(v1.texturecoords.x, v0.texturecoords.y);
 
 		buf[3] = v1;
@@ -280,13 +286,16 @@ void ProcessLine(VertexData &v0, VertexData &v1, BinManager &binner) {
 	int mask0 = CalcClipMask(v0.clippos);
 	int mask1 = CalcClipMask(v1.clippos);
 	int mask = mask0 | mask1;
+	bool clipped = false;
 	if (mask) {
 		CLIP_LINE(CLIP_NEG_Z_BIT,  0,  0,  1, 1);
 	}
 
 	VertexData data[2] = { *Vertices[0], *Vertices[1] };
-	data[0].screenpos = TransformUnit::ClipToScreen(data[0].clippos);
-	data[1].screenpos = TransformUnit::ClipToScreen(data[1].clippos);
+	if (clipped) {
+		data[0].screenpos = TransformUnit::ClipToScreen(data[0].clippos);
+		data[1].screenpos = TransformUnit::ClipToScreen(data[1].clippos);
+	}
 	binner.AddLine(data[0], data[1]);
 }
 
@@ -325,6 +334,7 @@ void ProcessTriangleInternal(VertexData &v0, VertexData &v1, VertexData &v2, con
 	mask |= CalcClipMask(v0.clippos);
 	mask |= CalcClipMask(v1.clippos);
 	mask |= CalcClipMask(v2.clippos);
+	bool clipped = false;
 
 	if (mask && !fromRectangle) {
 		// We may discard the entire triangle based on depth values.  First check what's outside.
@@ -373,9 +383,11 @@ void ProcessTriangleInternal(VertexData &v0, VertexData &v1, VertexData &v2, con
 	for (int i = 0; i + 3 <= numIndices; i += 3) {
 		if (indices[i] != SKIP_FLAG) {
 			VertexData data[3] = { *Vertices[indices[i]], *Vertices[indices[i+1]], *Vertices[indices[i+2]] };
-			data[0].screenpos = TransformUnit::ClipToScreen(data[0].clippos);
-			data[1].screenpos = TransformUnit::ClipToScreen(data[1].clippos);
-			data[2].screenpos = TransformUnit::ClipToScreen(data[2].clippos);
+			if (clipped) {
+				data[0].screenpos = TransformUnit::ClipToScreen(data[0].clippos);
+				data[1].screenpos = TransformUnit::ClipToScreen(data[1].clippos);
+				data[2].screenpos = TransformUnit::ClipToScreen(data[2].clippos);
+			}
 
 			if (gstate.getShadeMode() == GE_SHADE_FLAT) {
 				// So that the order of clipping doesn't matter...

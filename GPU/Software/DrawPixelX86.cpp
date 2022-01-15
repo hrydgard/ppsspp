@@ -1474,19 +1474,12 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 		return true;
 
 	Describe("Dither");
-#ifndef SOFTPIXEL_USE_CACHE
-	X64Reg gstateReg = GetGState();
-#endif
 	X64Reg valueReg = regCache_.Alloc(RegCache::GEN_TEMP0);
 
 	// Load the row dither matrix entry (will still need to get the X.)
 	X64Reg argYReg = regCache_.Find(RegCache::GEN_ARG_Y);
 	MOV(32, R(valueReg), R(argYReg));
 	AND(32, R(valueReg), Imm8(3));
-#ifndef SOFTPIXEL_USE_CACHE
-	MOVZX(32, 16, valueReg, MComplex(gstateReg, valueReg, 4, offsetof(GPUgstate, dithmtx)));
-	regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
-#endif
 
 	// At this point, we're done with depth and y, so let's grab GEN_COLOR_OFF and retain it.
 	// Then we can modify x and throw it away too, which is our actual goal.
@@ -1501,43 +1494,6 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 	X64Reg argXReg = regCache_.Find(RegCache::GEN_ARG_X);
 	AND(32, R(argXReg), Imm32(3));
 
-#ifndef SOFTPIXEL_USE_CACHE
-	SHL(32, R(argXReg), Imm8(2));
-
-	// Conveniently, this is ECX on Windows, but otherwise we need to swap it.
-	X64Reg shiftReg = INVALID_REG;
-	if (argXReg != RCX) {
-		bool needsSwap = false;
-		// This will force release argXReg if swapped.
-		regCache_.GrabReg(RCX, RegCache::GEN_TEMP1, needsSwap, argXReg, RegCache::GEN_ARG_X);
-		shiftReg = RCX;
-
-		if (needsSwap) {
-			XCHG(PTRBITS, R(argXReg), R(RCX));
-			if (valueReg == RCX)
-				valueReg = argXReg;
-
-			// At this point, argXReg is some other unknown reg... basically, it's released.
-			argXReg = INVALID_REG;
-		} else {
-			// We'll unlock and force release argXReg later, but copy for now.
-			MOV(32, R(RCX), R(argXReg));
-		}
-	}
-
-	// Okay shift to the specific value to add.
-	SHR(32, R(valueReg), R(CL));
-	AND(16, R(valueReg), Imm16(0x000F));
-
-	// Release RCX if we explicitly grabbed.
-	if (shiftReg != INVALID_REG)
-		regCache_.Release(shiftReg, RegCache::GEN_TEMP1);
-
-	// Now we need to make 0-7 positive, 8-F negative.. so sign extend.
-	SHL(32, R(valueReg), Imm8(4));
-	MOVSX(32, 8, valueReg, R(valueReg));
-	SAR(8, R(valueReg), Imm8(4));
-#else
 	// Sum up (x + y * 4) + ditherMatrix offset to valueReg.
 	LEA(32, valueReg, MComplex(argXReg, valueReg, 4, offsetof(PixelFuncID, cached.ditherMatrix)));
 
@@ -1551,11 +1507,8 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 		MOV(PTRBITS, R(argXReg), MDisp(RSP, stackIDOffset_));
 		MOVSX(32, 8, valueReg, MRegSum(argXReg, valueReg));
 	}
-#endif
-	if (argXReg != INVALID_REG) {
-		regCache_.Unlock(argXReg, RegCache::GEN_ARG_X);
-		regCache_.ForceRelease(RegCache::GEN_ARG_X);
-	}
+	regCache_.Unlock(argXReg, RegCache::GEN_ARG_X);
+	regCache_.ForceRelease(RegCache::GEN_ARG_X);
 
 	// Copy that value into a vec to add to the color.
 	X64Reg vecValueReg = regCache_.Alloc(RegCache::VEC_TEMP0);
@@ -1706,43 +1659,6 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 	Describe("WriteColor");
 	X64Reg maskReg = INVALID_REG;
 	if (id.applyColorWriteMask) {
-#ifndef SOFTPIXEL_USE_CACHE
-		X64Reg gstateReg = GetGState();
-		maskReg = regCache_.Alloc(RegCache::GEN_TEMP3);
-
-		// Load the write mask, combine in the stencil/alpha mask bits.
-		MOV(32, R(maskReg), MDisp(gstateReg, offsetof(GPUgstate, pmskc)));
-		if (writeAlpha) {
-			MOVZX(32, 8, temp2Reg, MDisp(gstateReg, offsetof(GPUgstate, pmska)));
-			SHL(32, R(temp2Reg), Imm8(24));
-			OR(32, R(maskReg), R(temp2Reg));
-		}
-		regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
-
-		// Switch the mask into the specified bit depth.  This is easier.
-		switch (id.fbFormat) {
-		case GE_FORMAT_565:
-			success = success && Jit_ConvertTo565(id, maskReg, temp1Reg, temp2Reg);
-			break;
-
-		case GE_FORMAT_5551:
-			success = success && Jit_ConvertTo5551(id, maskReg, temp1Reg, temp2Reg, writeAlpha);
-			if (fixedKeepMask != 0)
-				OR(16, R(maskReg), Imm16((uint16_t)fixedKeepMask));
-			break;
-
-		case GE_FORMAT_4444:
-			success = success && Jit_ConvertTo4444(id, maskReg, temp1Reg, temp2Reg, writeAlpha);
-			if (fixedKeepMask != 0)
-				OR(16, R(maskReg), Imm16((uint16_t)fixedKeepMask));
-			break;
-
-		case GE_FORMAT_8888:
-			if (fixedKeepMask != 0)
-				OR(32, R(maskReg), Imm32(fixedKeepMask));
-			break;
-		}
-#else
 		maskReg = regCache_.Alloc(RegCache::GEN_TEMP3);
 		// Load the pre-converted and combined write mask.
 		if (regCache_.Has(RegCache::GEN_ARG_ID)) {
@@ -1754,7 +1670,6 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 			MOV(PTRBITS, R(maskReg), MDisp(RSP, stackIDOffset_));
 			MOV(32, R(maskReg), MDisp(maskReg, offsetof(PixelFuncID, cached.colorWriteMask)));
 		}
-#endif
 	}
 
 	// We've run out of regs, let's live without temp2 from here on.

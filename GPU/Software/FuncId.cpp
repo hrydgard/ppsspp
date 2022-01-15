@@ -23,11 +23,7 @@
 #include "GPU/Software/FuncId.h"
 
 static_assert(sizeof(SamplerID) == sizeof(SamplerID::fullKey), "Bad sampler ID size");
-#ifdef SOFTPIXEL_USE_CACHE
 static_assert(sizeof(PixelFuncID) == sizeof(PixelFuncID::fullKey) + sizeof(PixelFuncID::cached), "Bad pixel func ID size");
-#else
-static_assert(sizeof(PixelFuncID) == sizeof(PixelFuncID::fullKey), "Bad pixel func ID size");
-#endif
 
 static inline GEComparison OptimizeRefByteCompare(GEComparison func, u8 ref) {
 	// Not equal tests are easier.
@@ -169,7 +165,6 @@ void ComputePixelFuncID(PixelFuncID *id) {
 		id->applyFog = gstate.isFogEnabled() && !gstate.isModeThrough();
 	}
 
-#ifdef SOFTPIXEL_USE_CACHE
 	// Cache some values for later convenience.
 	if (id->dithering) {
 		for (int y = 0; y < 4; ++y) {
@@ -201,7 +196,6 @@ void ComputePixelFuncID(PixelFuncID *id) {
 			break;
 		}
 	}
-#endif
 }
 
 std::string DescribePixelFuncID(const PixelFuncID &id) {
