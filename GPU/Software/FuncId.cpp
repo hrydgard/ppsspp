@@ -203,6 +203,14 @@ void ComputePixelFuncID(PixelFuncID *id) {
 	id->cached.maxz = gstate.getDepthRangeMax();
 	id->cached.framebufStride = gstate.FrameBufStride();
 	id->cached.depthbufStride = gstate.DepthBufStride();
+
+	if (id->hasStencilTestMask) {
+		// Without the mask applied, unlike the one in the key.
+		id->cached.stencilRef = gstate.getStencilTestRef();
+		id->cached.stencilTestMask = gstate.getStencilTestMask();
+	}
+	if (id->hasAlphaTestMask)
+		id->cached.alphaTestMask = gstate.getAlphaTestMask();
 }
 
 std::string DescribePixelFuncID(const PixelFuncID &id) {

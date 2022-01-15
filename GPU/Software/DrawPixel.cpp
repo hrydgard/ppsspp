@@ -155,7 +155,7 @@ static inline void SetPixelColor(GEBufferFormat fmt, int fbStride, int x, int y,
 static inline bool AlphaTestPassed(const PixelFuncID &pixelID, int alpha) {
 	const u8 ref = pixelID.alphaTestRef;
 	if (pixelID.hasAlphaTestMask)
-		alpha &= gstate.getAlphaTestMask();
+		alpha &= pixelID.cached.alphaTestMask;
 
 	switch (pixelID.AlphaTestFunc()) {
 	case GE_COMP_NEVER:
@@ -209,7 +209,7 @@ static inline bool ColorTestPassed(const Vec3<int> &color) {
 
 static inline bool StencilTestPassed(const PixelFuncID &pixelID, u8 stencil) {
 	if (pixelID.hasStencilTestMask)
-		stencil &= gstate.getStencilTestMask();
+		stencil &= pixelID.cached.stencilTestMask;
 	u8 ref = pixelID.stencilTestRef;
 	switch (pixelID.StencilTestFunc()) {
 	case GE_COMP_NEVER:
@@ -239,7 +239,7 @@ static inline bool StencilTestPassed(const PixelFuncID &pixelID, u8 stencil) {
 	return true;
 }
 
-static inline u8 ApplyStencilOp(GEBufferFormat fmt, GEStencilOp op, u8 old_stencil) {
+static inline u8 ApplyStencilOp(GEBufferFormat fmt, uint8_t stencilReplace, GEStencilOp op, u8 old_stencil) {
 	switch (op) {
 	case GE_STENCILOP_KEEP:
 		return old_stencil;
@@ -248,7 +248,7 @@ static inline u8 ApplyStencilOp(GEBufferFormat fmt, GEStencilOp op, u8 old_stenc
 		return 0;
 
 	case GE_STENCILOP_REPLACE:
-		return gstate.getStencilTestRef();
+		return stencilReplace;
 
 	case GE_STENCILOP_INVERT:
 		return ~old_stencil;
@@ -427,20 +427,21 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 		if (pixelID.DepthClear())
 			SetPixelDepth(x, y, pixelID.cached.depthbufStride, z);
 	} else if (pixelID.stencilTest) {
+		const uint8_t stencilReplace = pixelID.hasStencilTestMask ? pixelID.cached.stencilRef : pixelID.stencilTestRef;
 		if (!StencilTestPassed(pixelID, stencil)) {
-			stencil = ApplyStencilOp(fbFormat, pixelID.SFail(), stencil);
+			stencil = ApplyStencilOp(fbFormat, stencilReplace, pixelID.SFail(), stencil);
 			SetPixelStencil(fbFormat, pixelID.cached.framebufStride, targetWriteMask, x, y, stencil);
 			return;
 		}
 
 		// Also apply depth at the same time.  If disabled, same as passing.
 		if (pixelID.DepthTestFunc() != GE_COMP_ALWAYS && !DepthTestPassed(pixelID.DepthTestFunc(), x, y, pixelID.cached.depthbufStride, z)) {
-			stencil = ApplyStencilOp(fbFormat, pixelID.ZFail(), stencil);
+			stencil = ApplyStencilOp(fbFormat, stencilReplace, pixelID.ZFail(), stencil);
 			SetPixelStencil(fbFormat, pixelID.cached.framebufStride, targetWriteMask, x, y, stencil);
 			return;
 		}
 
-		stencil = ApplyStencilOp(fbFormat, pixelID.ZPass(), stencil);
+		stencil = ApplyStencilOp(fbFormat, stencilReplace, pixelID.ZPass(), stencil);
 	} else {
 		if (pixelID.DepthTestFunc() != GE_COMP_ALWAYS && !DepthTestPassed(pixelID.DepthTestFunc(), x, y, pixelID.cached.depthbufStride, z)) {
 			return;

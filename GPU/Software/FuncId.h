@@ -57,6 +57,9 @@ struct PixelFuncID {
 		uint16_t framebufStride;
 		uint16_t depthbufStride;
 		GELogicOp logicOp;
+		uint8_t stencilRef;
+		uint8_t stencilTestMask;
+		uint8_t alphaTestMask;
 	} cached;
 
 	union {

@@ -425,14 +425,13 @@ bool PixelJitCache::Jit_AlphaTest(const PixelFuncID &id) {
 	}
 
 	if (id.hasAlphaTestMask) {
-		// Unfortunate, we'll need gstate to load the mask.
+		// Unfortunate, we'll need pixelID to load the mask.
 		// Note: we leave the ALPHA purpose untouched and free it, because later code may reuse.
-		X64Reg gstateReg = GetGState();
+		X64Reg idReg = GetPixelID();
 		X64Reg maskedReg = regCache_.Alloc(RegCache::GEN_TEMP0);
 
-		// The mask is >> 16, so we load + 2.
-		MOVZX(32, 8, maskedReg, MDisp(gstateReg, offsetof(GPUgstate, alphatest) + 2));
-		regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+		MOVZX(32, 8, maskedReg, MDisp(idReg, offsetof(PixelFuncID, cached.alphaTestMask)));
+		UnlockPixelID(idReg);
 		AND(32, R(maskedReg), R(alphaReg));
 		regCache_.Unlock(alphaReg, RegCache::GEN_SRC_ALPHA);
 
@@ -642,11 +641,11 @@ bool PixelJitCache::Jit_StencilAndDepthTest(const PixelFuncID &id) {
 	Describe("StencilAndDepth");
 	X64Reg maskedReg = stencilReg;
 	if (id.hasStencilTestMask) {
-		X64Reg gstateReg = GetGState();
+		X64Reg idReg = GetPixelID();
 		maskedReg = regCache_.Alloc(RegCache::GEN_TEMP0);
 		MOV(32, R(maskedReg), R(stencilReg));
-		AND(8, R(maskedReg), MDisp(gstateReg, offsetof(GPUgstate, stenciltest) + 2));
-		regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+		AND(8, R(maskedReg), MDisp(idReg, offsetof(PixelFuncID, cached.stencilTestMask)));
+		UnlockPixelID(idReg);
 	}
 
 	bool success = true;
@@ -738,7 +737,6 @@ bool PixelJitCache::Jit_StencilTest(const PixelFuncID &id, RegCache::Reg stencil
 		return true;
 	}
 
-	bool hadGStateReg = regCache_.Has(RegCache::GEN_GSTATE);
 	bool hadColorOffReg = regCache_.Has(RegCache::GEN_COLOR_OFF);
 	bool hadIdReg = regCache_.Has(RegCache::GEN_ID);
 
@@ -751,9 +749,7 @@ bool PixelJitCache::Jit_StencilTest(const PixelFuncID &id, RegCache::Reg stencil
 		Discard();
 	}
 
-	// If we allocated either gstate or colorOff in the conditional, forget.
-	if (!hadGStateReg && regCache_.Has(RegCache::GEN_GSTATE))
-		regCache_.Change(RegCache::GEN_GSTATE, RegCache::GEN_INVALID);
+	// If we allocated either id or colorOff in the conditional, forget.
 	if (!hadColorOffReg && regCache_.Has(RegCache::GEN_COLOR_OFF))
 		regCache_.Change(RegCache::GEN_COLOR_OFF, RegCache::GEN_INVALID);
 	if (!hadIdReg && regCache_.Has(RegCache::GEN_ID))
@@ -816,7 +812,6 @@ bool PixelJitCache::Jit_DepthTestForStencil(const PixelFuncID &id, RegCache::Reg
 		break;
 	}
 
-	bool hadGStateReg = regCache_.Has(RegCache::GEN_GSTATE);
 	bool hadColorOffReg = regCache_.Has(RegCache::GEN_COLOR_OFF);
 	bool hadIdReg = regCache_.Has(RegCache::GEN_ID);
 
@@ -825,9 +820,7 @@ bool PixelJitCache::Jit_DepthTestForStencil(const PixelFuncID &id, RegCache::Reg
 	success = success && Jit_WriteStencilOnly(id, stencilReg);
 	Discard();
 
-	// If we allocated either gstate or colorOff in the conditional, forget.
-	if (!hadGStateReg && regCache_.Has(RegCache::GEN_GSTATE))
-		regCache_.Change(RegCache::GEN_GSTATE, RegCache::GEN_INVALID);
+	// If we allocated either id or colorOff in the conditional, forget.
 	if (!hadColorOffReg && regCache_.Has(RegCache::GEN_COLOR_OFF))
 		regCache_.Change(RegCache::GEN_COLOR_OFF, RegCache::GEN_INVALID);
 	if (!hadIdReg && regCache_.Has(RegCache::GEN_ID))
@@ -859,9 +852,9 @@ bool PixelJitCache::Jit_ApplyStencilOp(const PixelFuncID &id, GEStencilOp op, Re
 	case GE_STENCILOP_REPLACE:
 		if (id.hasStencilTestMask) {
 			// Load the unmasked value.
-			X64Reg gstateReg = GetGState();
-			MOVZX(32, 8, stencilReg, MDisp(gstateReg, offsetof(GPUgstate, stenciltest) + 1));
-			regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+			X64Reg idReg = GetPixelID();
+			MOVZX(32, 8, stencilReg, MDisp(idReg, offsetof(PixelFuncID, cached.stencilRef)));
+			UnlockPixelID(idReg);
 		} else {
 			MOV(8, R(stencilReg), Imm8(id.stencilTestRef));
 		}
