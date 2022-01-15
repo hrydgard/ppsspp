@@ -33,13 +33,13 @@ namespace Sampler {
 #pragma GCC diagnostic ignored "-Wignored-attributes"
 #endif
 
-typedef Rasterizer::Vec4IntResult(SOFTRAST_CALL *FetchFunc)(int u, int v, const u8 *tptr, int bufw, int level);
+typedef Rasterizer::Vec4IntResult(SOFTRAST_CALL *FetchFunc)(int u, int v, const u8 *tptr, int bufw, int level, const SamplerID &samplerID);
 FetchFunc GetFetchFunc(SamplerID id);
 
-typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *NearestFunc)(float s, float t, int x, int y, Rasterizer::Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int level, int levelFrac);
+typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *NearestFunc)(float s, float t, int x, int y, Rasterizer::Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int level, int levelFrac, const SamplerID &samplerID);
 NearestFunc GetNearestFunc(SamplerID id);
 
-typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *LinearFunc)(float s, float t, int x, int y, Rasterizer::Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int level, int levelFrac);
+typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *LinearFunc)(float s, float t, int x, int y, Rasterizer::Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int level, int levelFrac, const SamplerID &samplerID);
 LinearFunc GetLinearFunc(SamplerID id);
 
 void Init();

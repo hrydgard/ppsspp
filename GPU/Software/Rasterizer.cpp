@@ -127,6 +127,8 @@ void ComputeRasterizerState(RasterizerState *state) {
 			else
 				state->texptr[i] = nullptr;
 		}
+
+		state->textureLodSlope = gstate.getTextureLodSlope();
 	}
 
 	state->texLevelMode = gstate.getTexLevelMode();
@@ -224,16 +226,16 @@ static inline bool IsRightSideOrFlatBottomLine(const Vec2<int>& vertex, const Ve
 	}
 }
 
-Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, Vec4IntArg texcolor_in) {
+Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, Vec4IntArg texcolor_in, const SamplerID &samplerID) {
 	const Vec4<int> prim_color = prim_color_in;
 	const Vec4<int> texcolor = texcolor_in;
 
 	Vec3<int> out_rgb;
 	int out_a;
 
-	bool rgba = gstate.isTextureAlphaUsed();
+	bool rgba = samplerID.useTextureAlpha;
 
-	switch (gstate.getTextureFunction()) {
+	switch (samplerID.TexFunc()) {
 	case GE_TEXFUNC_MODULATE:
 	{
 #if defined(_M_SSE)
@@ -241,7 +243,7 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 		const __m128i p = _mm_slli_epi16(_mm_packs_epi32(prim_color.ivec, prim_color.ivec), 4);
 		const __m128i pboost = _mm_add_epi16(p, _mm_set1_epi16(1 << 4));
 		__m128i t = _mm_slli_epi16(_mm_packs_epi32(texcolor.ivec, texcolor.ivec), 4);
-		if (gstate.isColorDoublingEnabled()) {
+		if (samplerID.useColorDoubling) {
 			const __m128i amask = _mm_set_epi16(-1, 0, 0, 0, -1, 0, 0, 0);
 			const __m128i a = _mm_and_si128(t, amask);
 			const __m128i rgb = _mm_andnot_si128(amask, t);
@@ -256,7 +258,7 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 			out_a = prim_color.a();
 		}
 #else
-		if (gstate.isColorDoublingEnabled()) {
+		if (samplerID.useColorDoubling) {
 			out_rgb = ((prim_color.rgb() + Vec3<int>::AssignToAll(1)) * texcolor.rgb() * 2) / 256;
 		} else {
 			out_rgb = (prim_color.rgb() + Vec3<int>::AssignToAll(1)) * texcolor.rgb() / 256;
@@ -275,12 +277,12 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 			Vec3<int> one = Vec3<int>::AssignToAll(1);
 			out_rgb = ((prim_color.rgb() + one) * invt + (texcolor.rgb() + one) * t);
 			// Keep the bits of accuracy when doubling.
-			if (gstate.isColorDoublingEnabled())
+			if (samplerID.useColorDoubling)
 				out_rgb /= 128;
 			else
 				out_rgb /= 256;
 		} else {
-			if (gstate.isColorDoublingEnabled())
+			if (samplerID.useColorDoubling)
 				out_rgb = texcolor.rgb() * 2;
 			else
 				out_rgb = texcolor.rgb();
@@ -298,7 +300,7 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 		const Vec3<int> roundup = Vec3<int>::AssignToAll(255);
 		out_rgb = ((const255 - texcolor.rgb()) * prim_color.rgb() + texcolor.rgb() * texenv + roundup);
 		// Must divide by less to keep the precision for doubling to be accurate.
-		if (gstate.isColorDoublingEnabled())
+		if (samplerID.useColorDoubling)
 			out_rgb /= 128;
 		else
 			out_rgb /= 256;
@@ -310,7 +312,7 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 	case GE_TEXFUNC_REPLACE:
 		out_rgb = texcolor.rgb();
 		// Doubling even happens for replace.
-		if (gstate.isColorDoublingEnabled())
+		if (samplerID.useColorDoubling)
 			out_rgb *= 2;
 		out_a = (rgba) ? texcolor.a() : prim_color.a();
 		break;
@@ -321,7 +323,7 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 	case GE_TEXFUNC_UNKNOWN3:
 		// Don't need to clamp afterward, we always clamp before tests.
 		out_rgb = prim_color.rgb() + texcolor.rgb();
-		if (gstate.isColorDoublingEnabled())
+		if (samplerID.useColorDoubling)
 			out_rgb *= 2;
 
 		// Alpha is still blended the common way.
@@ -525,9 +527,9 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(float s, float t, int x
 	const int *bufw0 = &state.texbufw[texlevel];
 
 	if (!bilinear) {
-		return state.nearest(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel);
+		return state.nearest(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel, state.samplerID);
 	}
-	return state.linear(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel);
+	return state.linear(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel, state.samplerID);
 }
 
 static inline Vec4IntResult SOFTRAST_CALL ApplyTexturingSingle(float s, float t, int x, int y, Vec4IntArg prim_color, int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
@@ -561,7 +563,7 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 		break;
 	case GE_TEXLEVEL_MODE_SLOPE:
 		// This is always offset by an extra texlevel.
-		detail = 1 * 16 + TexLog2(gstate.getTextureLodSlope());
+		detail = 1 * 16 + TexLog2(state.textureLodSlope);
 		break;
 	case GE_TEXLEVEL_MODE_CONST:
 	default:
@@ -1376,7 +1378,7 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 	u32 *row = (u32 *)buffer.GetData();
 	for (int y = 0; y < h; ++y) {
 		for (int x = 0; x < w; ++x) {
-			row[x] = Vec4<int>(sampler(x, y, texptr, texbufw, level)).ToRGBA();
+			row[x] = Vec4<int>(sampler(x, y, texptr, texbufw, level, id)).ToRGBA();
 		}
 		row += w;
 	}
