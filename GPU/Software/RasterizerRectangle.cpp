@@ -144,7 +144,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 				int t = t_start;
 				for (int y = pos0.y; y < pos1.y; y++) {
 					int s = s_start;
-					u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
+					u16 *pixel = fb.Get16Ptr(pos0.x, y, pixelID.cached.framebufStride);
 					for (int x = pos0.x; x < pos1.x; x++) {
 						u32 tex_color = Vec4<int>(fetchFunc(s, t, texptr, texbufw, 0)).ToRGBA();
 						if (tex_color & 0xFF000000) {
@@ -159,7 +159,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 				int t = t_start;
 				for (int y = pos0.y; y < pos1.y; y++) {
 					int s = s_start;
-					u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
+					u16 *pixel = fb.Get16Ptr(pos0.x, y, pixelID.cached.framebufStride);
 					for (int x = pos0.x; x < pos1.x; x++) {
 						Vec4<int> prim_color = v1.color0;
 						Vec4<int> tex_color = fetchFunc(s, t, texptr, texbufw, 0);
@@ -217,7 +217,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 				return;
 
 			for (int y = pos0.y; y < pos1.y; y++) {
-				u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
+				u16 *pixel = fb.Get16Ptr(pos0.x, y, pixelID.cached.framebufStride);
 				for (int x = pos0.x; x < pos1.x; x++) {
 					Vec4<int> prim_color = v1.color0;
 					DrawSinglePixel5551(pixel, prim_color.ToRGBA(), pixelID);
@@ -240,13 +240,8 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 	std::string ztag = StringFromFormat("DisplayListRZ_%08x", state.listPC);
 
 	for (int y = pos0.y; y < pos1.y; y++) {
-		uint32_t row = gstate.getFrameBufAddress() + y * gstate.FrameBufStride() * bpp;
+		uint32_t row = gstate.getFrameBufAddress() + y * pixelID.cached.framebufStride * bpp;
 		NotifyMemInfo(MemBlockFlags::WRITE, row + pos0.x * bpp, (pos1.x - pos0.x) * bpp, tag.c_str(), tag.size());
-
-		if (pixelID.depthWrite) {
-			uint32_t row = gstate.getDepthBufAddress() + y * gstate.DepthBufStride() * 2;
-			NotifyMemInfo(MemBlockFlags::WRITE, row + pos0.x * 2, (pos1.x - pos0.x) * 2, ztag.c_str(), ztag.size());
-		}
 	}
 #endif
 }

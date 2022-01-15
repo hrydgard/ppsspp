@@ -49,86 +49,102 @@ bool DescribeCodePtr(const u8 *ptr, std::string &name) {
 	return true;
 }
 
-static inline u8 GetPixelStencil(GEBufferFormat fmt, int x, int y) {
+static inline u8 GetPixelStencil(GEBufferFormat fmt, int fbStride, int x, int y) {
 	if (fmt == GE_FORMAT_565) {
 		// Always treated as 0 for comparison purposes.
 		return 0;
 	} else if (fmt == GE_FORMAT_5551) {
-		return ((fb.Get16(x, y, gstate.FrameBufStride()) & 0x8000) != 0) ? 0xFF : 0;
+		return ((fb.Get16(x, y, fbStride) & 0x8000) != 0) ? 0xFF : 0;
 	} else if (fmt == GE_FORMAT_4444) {
-		return Convert4To8(fb.Get16(x, y, gstate.FrameBufStride()) >> 12);
+		return Convert4To8(fb.Get16(x, y, fbStride) >> 12);
 	} else {
-		return fb.Get32(x, y, gstate.FrameBufStride()) >> 24;
+		return fb.Get32(x, y, fbStride) >> 24;
 	}
 }
 
-static inline void SetPixelStencil(GEBufferFormat fmt, int x, int y, u8 value) {
+static inline void SetPixelStencil(GEBufferFormat fmt, int fbStride, uint32_t targetWriteMask, int x, int y, u8 value) {
 	if (fmt == GE_FORMAT_565) {
 		// Do nothing
 	} else if (fmt == GE_FORMAT_5551) {
-		if ((gstate.getStencilWriteMask() & 0x80) == 0) {
-			u16 pixel = fb.Get16(x, y, gstate.FrameBufStride()) & ~0x8000;
+		if ((targetWriteMask & 0x8000) == 0) {
+			u16 pixel = fb.Get16(x, y, fbStride) & ~0x8000;
 			pixel |= (value & 0x80) << 8;
-			fb.Set16(x, y, gstate.FrameBufStride(), pixel);
+			fb.Set16(x, y, fbStride, pixel);
 		}
 	} else if (fmt == GE_FORMAT_4444) {
-		const u16 write_mask = (gstate.getStencilWriteMask() << 8) | 0x0FFF;
-		u16 pixel = fb.Get16(x, y, gstate.FrameBufStride()) & write_mask;
+		const u16 write_mask = targetWriteMask | 0x0FFF;
+		u16 pixel = fb.Get16(x, y, fbStride) & write_mask;
 		pixel |= ((u16)value << 8) & ~write_mask;
-		fb.Set16(x, y, gstate.FrameBufStride(), pixel);
+		fb.Set16(x, y, fbStride, pixel);
 	} else {
-		const u32 write_mask = (gstate.getStencilWriteMask() << 24) | 0x00FFFFFF;
-		u32 pixel = fb.Get32(x, y, gstate.FrameBufStride()) & write_mask;
+		const u32 write_mask = targetWriteMask | 0x00FFFFFF;
+		u32 pixel = fb.Get32(x, y, fbStride) & write_mask;
 		pixel |= ((u32)value << 24) & ~write_mask;
-		fb.Set32(x, y, gstate.FrameBufStride(), pixel);
+		fb.Set32(x, y, fbStride, pixel);
 	}
 }
 
-static inline u16 GetPixelDepth(int x, int y) {
-	return depthbuf.Get16(x, y, gstate.DepthBufStride());
+static inline u16 GetPixelDepth(int x, int y, int stride) {
+	return depthbuf.Get16(x, y, stride);
 }
 
-static inline void SetPixelDepth(int x, int y, u16 value) {
-	depthbuf.Set16(x, y, gstate.DepthBufStride(), value);
+static inline void SetPixelDepth(int x, int y, int stride, u16 value) {
+	depthbuf.Set16(x, y, stride, value);
 }
 
 // NOTE: These likely aren't endian safe
-static inline u32 GetPixelColor(GEBufferFormat fmt, int x, int y) {
+static inline u32 GetPixelColor(GEBufferFormat fmt, int fbStride, int x, int y) {
 	switch (fmt) {
 	case GE_FORMAT_565:
 		// A should be zero for the purposes of alpha blending.
-		return RGB565ToRGBA8888(fb.Get16(x, y, gstate.FrameBufStride())) & 0x00FFFFFF;
+		return RGB565ToRGBA8888(fb.Get16(x, y, fbStride)) & 0x00FFFFFF;
 
 	case GE_FORMAT_5551:
-		return RGBA5551ToRGBA8888(fb.Get16(x, y, gstate.FrameBufStride()));
+		return RGBA5551ToRGBA8888(fb.Get16(x, y, fbStride));
 
 	case GE_FORMAT_4444:
-		return RGBA4444ToRGBA8888(fb.Get16(x, y, gstate.FrameBufStride()));
+		return RGBA4444ToRGBA8888(fb.Get16(x, y, fbStride));
 
 	case GE_FORMAT_8888:
-		return fb.Get32(x, y, gstate.FrameBufStride());
+		return fb.Get32(x, y, fbStride);
 
 	default:
 		return 0;
 	}
 }
 
-static inline void SetPixelColor(GEBufferFormat fmt, int x, int y, u32 value) {
+static inline void SetPixelColor(GEBufferFormat fmt, int fbStride, int x, int y, u32 value, u32 old_value, u32 targetWriteMask) {
 	switch (fmt) {
 	case GE_FORMAT_565:
-		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888ToRGB565(value));
+		value = RGBA8888ToRGB565(value);
+		if (targetWriteMask != 0) {
+			old_value = RGBA8888ToRGB565(old_value);
+			value = (value & ~targetWriteMask) | (old_value & targetWriteMask);
+		}
+		fb.Set16(x, y, fbStride, value);
 		break;
 
 	case GE_FORMAT_5551:
-		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888ToRGBA5551(value));
+		value = RGBA8888ToRGBA5551(value);
+		if (targetWriteMask != 0) {
+			old_value = RGBA8888ToRGBA5551(old_value);
+			value = (value & ~targetWriteMask) | (old_value & targetWriteMask);
+		}
+		fb.Set16(x, y, fbStride, value);
 		break;
 
 	case GE_FORMAT_4444:
-		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888ToRGBA4444(value));
+		value = RGBA8888ToRGBA4444(value);
+		if (targetWriteMask != 0) {
+			old_value = RGBA8888ToRGBA4444(old_value);
+			value = (value & ~targetWriteMask) | (old_value & targetWriteMask);
+		}
+		fb.Set16(x, y, fbStride, value);
 		break;
 
 	case GE_FORMAT_8888:
-		fb.Set32(x, y, gstate.FrameBufStride(), value);
+		value = (value & ~targetWriteMask) | (old_value & targetWriteMask);
+		fb.Set32(x, y, fbStride, value);
 		break;
 
 	default:
@@ -139,7 +155,7 @@ static inline void SetPixelColor(GEBufferFormat fmt, int x, int y, u32 value) {
 static inline bool AlphaTestPassed(const PixelFuncID &pixelID, int alpha) {
 	const u8 ref = pixelID.alphaTestRef;
 	if (pixelID.hasAlphaTestMask)
-		alpha &= gstate.getAlphaTestMask();
+		alpha &= pixelID.cached.alphaTestMask;
 
 	switch (pixelID.AlphaTestFunc()) {
 	case GE_COMP_NEVER:
@@ -169,11 +185,11 @@ static inline bool AlphaTestPassed(const PixelFuncID &pixelID, int alpha) {
 	return true;
 }
 
-static inline bool ColorTestPassed(const Vec3<int> &color) {
-	const u32 mask = gstate.getColorTestMask();
+static inline bool ColorTestPassed(const PixelFuncID &pixelID, const Vec3<int> &color) {
+	const u32 mask = pixelID.cached.colorTestMask;
 	const u32 c = color.ToRGB() & mask;
-	const u32 ref = gstate.getColorTestRef() & mask;
-	switch (gstate.getColorTestFunction()) {
+	const u32 ref = pixelID.cached.colorTestRef;
+	switch (pixelID.cached.colorTestFunc) {
 	case GE_COMP_NEVER:
 		return false;
 
@@ -193,7 +209,7 @@ static inline bool ColorTestPassed(const Vec3<int> &color) {
 
 static inline bool StencilTestPassed(const PixelFuncID &pixelID, u8 stencil) {
 	if (pixelID.hasStencilTestMask)
-		stencil &= gstate.getStencilTestMask();
+		stencil &= pixelID.cached.stencilTestMask;
 	u8 ref = pixelID.stencilTestRef;
 	switch (pixelID.StencilTestFunc()) {
 	case GE_COMP_NEVER:
@@ -223,7 +239,7 @@ static inline bool StencilTestPassed(const PixelFuncID &pixelID, u8 stencil) {
 	return true;
 }
 
-static inline u8 ApplyStencilOp(GEBufferFormat fmt, GEStencilOp op, u8 old_stencil) {
+static inline u8 ApplyStencilOp(GEBufferFormat fmt, uint8_t stencilReplace, GEStencilOp op, u8 old_stencil) {
 	switch (op) {
 	case GE_STENCILOP_KEEP:
 		return old_stencil;
@@ -232,7 +248,7 @@ static inline u8 ApplyStencilOp(GEBufferFormat fmt, GEStencilOp op, u8 old_stenc
 		return 0;
 
 	case GE_STENCILOP_REPLACE:
-		return gstate.getStencilTestRef();
+		return stencilReplace;
 
 	case GE_STENCILOP_INVERT:
 		return ~old_stencil;
@@ -275,8 +291,8 @@ static inline u8 ApplyStencilOp(GEBufferFormat fmt, GEStencilOp op, u8 old_stenc
 	return old_stencil;
 }
 
-static inline bool DepthTestPassed(GEComparison func, int x, int y, u16 z) {
-	u16 reference_z = GetPixelDepth(x, y);
+static inline bool DepthTestPassed(GEComparison func, int x, int y, int stride, u16 z) {
+	u16 reference_z = GetPixelDepth(x, y, stride);
 
 	switch (func) {
 	case GE_COMP_NEVER:
@@ -384,7 +400,7 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 	Vec4<int> prim_color = Vec4<int>(color_in).Clamp(0, 255);
 	// Depth range test - applied in clear mode, if not through mode.
 	if (pixelID.applyDepthRange)
-		if (z < gstate.getDepthRangeMin() || z > gstate.getDepthRangeMax())
+		if (z < pixelID.cached.minz || z > pixelID.cached.maxz)
 			return;
 
 	if (pixelID.AlphaTestFunc() != GE_COMP_ALWAYS && !clearMode)
@@ -393,7 +409,7 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 
 	// Fog is applied prior to color test.
 	if (pixelID.applyFog && !clearMode) {
-		Vec3<int> fogColor = Vec3<int>::FromRGB(gstate.fogcolor);
+		Vec3<int> fogColor = Vec3<int>::FromRGB(pixelID.cached.fogColor);
 		fogColor = (prim_color.rgb() * fog + fogColor * (255 - fog)) / 255;
 		prim_color.r() = fogColor.r();
 		prim_color.g() = fogColor.g();
@@ -401,39 +417,41 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 	}
 
 	if (pixelID.colorTest && !clearMode)
-		if (!ColorTestPassed(prim_color.rgb()))
+		if (!ColorTestPassed(pixelID, prim_color.rgb()))
 			return;
 
 	// In clear mode, it uses the alpha color as stencil.
-	u8 stencil = clearMode ? prim_color.a() : GetPixelStencil(fbFormat, x, y);
+	uint32_t targetWriteMask = pixelID.applyColorWriteMask ? pixelID.cached.colorWriteMask : 0;
+	u8 stencil = clearMode ? prim_color.a() : GetPixelStencil(fbFormat, pixelID.cached.framebufStride, x, y);
 	if (clearMode) {
 		if (pixelID.DepthClear())
-			SetPixelDepth(x, y, z);
+			SetPixelDepth(x, y, pixelID.cached.depthbufStride, z);
 	} else if (pixelID.stencilTest) {
+		const uint8_t stencilReplace = pixelID.hasStencilTestMask ? pixelID.cached.stencilRef : pixelID.stencilTestRef;
 		if (!StencilTestPassed(pixelID, stencil)) {
-			stencil = ApplyStencilOp(fbFormat, pixelID.SFail(), stencil);
-			SetPixelStencil(fbFormat, x, y, stencil);
+			stencil = ApplyStencilOp(fbFormat, stencilReplace, pixelID.SFail(), stencil);
+			SetPixelStencil(fbFormat, pixelID.cached.framebufStride, targetWriteMask, x, y, stencil);
 			return;
 		}
 
 		// Also apply depth at the same time.  If disabled, same as passing.
-		if (pixelID.DepthTestFunc() != GE_COMP_ALWAYS && !DepthTestPassed(pixelID.DepthTestFunc(), x, y, z)) {
-			stencil = ApplyStencilOp(fbFormat, pixelID.ZFail(), stencil);
-			SetPixelStencil(fbFormat, x, y, stencil);
+		if (pixelID.DepthTestFunc() != GE_COMP_ALWAYS && !DepthTestPassed(pixelID.DepthTestFunc(), x, y, pixelID.cached.depthbufStride, z)) {
+			stencil = ApplyStencilOp(fbFormat, stencilReplace, pixelID.ZFail(), stencil);
+			SetPixelStencil(fbFormat, pixelID.cached.framebufStride, targetWriteMask, x, y, stencil);
 			return;
 		}
 
-		stencil = ApplyStencilOp(fbFormat, pixelID.ZPass(), stencil);
+		stencil = ApplyStencilOp(fbFormat, stencilReplace, pixelID.ZPass(), stencil);
 	} else {
-		if (pixelID.DepthTestFunc() != GE_COMP_ALWAYS && !DepthTestPassed(pixelID.DepthTestFunc(), x, y, z)) {
+		if (pixelID.DepthTestFunc() != GE_COMP_ALWAYS && !DepthTestPassed(pixelID.DepthTestFunc(), x, y, pixelID.cached.depthbufStride, z)) {
 			return;
 		}
 	}
 
 	if (pixelID.depthWrite && !clearMode)
-		SetPixelDepth(x, y, z);
+		SetPixelDepth(x, y, pixelID.cached.depthbufStride, z);
 
-	const u32 old_color = GetPixelColor(fbFormat, x, y);
+	const u32 old_color = GetPixelColor(fbFormat, pixelID.cached.framebufStride, x, y);
 	u32 new_color;
 
 	// Dithering happens before the logic op and regardless of framebuffer format or clear mode.
@@ -442,7 +460,7 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 		const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
 		Vec3<int> blended = AlphaBlendingResult(pixelID, prim_color, dst);
 		if (pixelID.dithering) {
-			blended += Vec3<int>::AssignToAll(gstate.getDitherValue(x, y));
+			blended += Vec3<int>::AssignToAll(pixelID.cached.ditherMatrix[y * 4 + x]);
 		}
 
 		// ToRGB() always automatically clamps.
@@ -451,7 +469,7 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 	} else {
 		if (pixelID.dithering) {
 			// We'll discard alpha anyway.
-			prim_color += Vec4<int>::AssignToAll(gstate.getDitherValue(x, y));
+			prim_color += Vec4<int>::AssignToAll(pixelID.cached.ditherMatrix[y * 4 + x]);
 		}
 
 #if defined(_M_SSE)
@@ -465,15 +483,17 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 	// Logic ops are applied after blending (if blending is enabled.)
 	if (pixelID.applyLogicOp && !clearMode) {
 		// Logic ops don't affect stencil, which happens inside ApplyLogicOp.
-		new_color = ApplyLogicOp(gstate.getLogicOp(), old_color, new_color);
+		new_color = ApplyLogicOp(pixelID.cached.logicOp, old_color, new_color);
 	}
 
 	if (clearMode) {
-		new_color = (new_color & ~gstate.getClearModeColorMask()) | (old_color & gstate.getClearModeColorMask());
+		if (!pixelID.ColorClear())
+			new_color = (new_color & 0xFF000000) | (old_color & 0x00FFFFFF);
+		if (!pixelID.StencilClear())
+			new_color = (new_color & 0x00FFFFFF) | (old_color & 0xFF000000);
 	}
-	new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
 
-	SetPixelColor(fbFormat, x, y, new_color);
+	SetPixelColor(fbFormat, pixelID.cached.framebufStride, x, y, new_color, old_color, targetWriteMask);
 }
 
 SingleFunc GetSingleFunc(const PixelFuncID &id) {

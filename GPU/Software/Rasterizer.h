@@ -52,6 +52,7 @@ struct RasterizerState {
 		bool mipFilt : 1;
 		bool minFilt : 1;
 		bool magFilt : 1;
+		bool antialiasLines : 1;
 	};
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)

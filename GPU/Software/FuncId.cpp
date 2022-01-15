@@ -196,6 +196,30 @@ void ComputePixelFuncID(PixelFuncID *id) {
 			break;
 		}
 	}
+	if (id->applyFog) {
+		id->cached.fogColor = gstate.fogcolor & 0x00FFFFFF;
+	}
+	id->cached.minz = gstate.getDepthRangeMin();
+	id->cached.maxz = gstate.getDepthRangeMax();
+	id->cached.framebufStride = gstate.FrameBufStride();
+	id->cached.depthbufStride = gstate.DepthBufStride();
+
+	if (id->hasStencilTestMask) {
+		// Without the mask applied, unlike the one in the key.
+		id->cached.stencilRef = gstate.getStencilTestRef();
+		id->cached.stencilTestMask = gstate.getStencilTestMask();
+	}
+	if (id->hasAlphaTestMask)
+		id->cached.alphaTestMask = gstate.getAlphaTestMask();
+	if (!id->clearMode && id->colorTest) {
+		id->cached.colorTestFunc = gstate.getColorTestFunction();
+		id->cached.colorTestMask = gstate.getColorTestMask();
+		id->cached.colorTestRef = gstate.getColorTestRef() & id->cached.colorTestMask;
+	}
+	if (id->alphaBlendSrc == GE_SRCBLEND_FIXA)
+		id->cached.alphaBlendSrc = gstate.getFixA();
+	if (id->alphaBlendDst == GE_DSTBLEND_FIXB)
+		id->cached.alphaBlendDst = gstate.getFixB();
 }
 
 std::string DescribePixelFuncID(const PixelFuncID &id) {

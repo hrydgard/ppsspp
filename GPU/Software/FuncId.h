@@ -51,6 +51,20 @@ struct PixelFuncID {
 		// Warning: these are not hashed or compared for equal.  Just cached values.
 		uint32_t colorWriteMask{};
 		int8_t ditherMatrix[16]{};
+		uint32_t fogColor;
+		int minz;
+		int maxz;
+		uint16_t framebufStride;
+		uint16_t depthbufStride;
+		GELogicOp logicOp;
+		uint8_t stencilRef;
+		uint8_t stencilTestMask;
+		uint8_t alphaTestMask;
+		GEComparison colorTestFunc;
+		uint32_t colorTestMask;
+		uint32_t colorTestRef;
+		uint32_t alphaBlendSrc;
+		uint32_t alphaBlendDst;
 	} cached;
 
 	union {

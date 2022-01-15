@@ -136,6 +136,7 @@ void ComputeRasterizerState(RasterizerState *state) {
 	state->mipFilt = gstate.isMipmapFilteringEnabled();
 	state->minFilt = gstate.isMinifyFilteringEnabled();
 	state->magFilt = gstate.isMagnifyFilteringEnabled();
+	state->antialiasLines = gstate.isAntiAliasEnabled();
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	DisplayList currentList{};
@@ -195,21 +196,20 @@ static inline void GetTextureCoordinates(const VertexData &v0, const VertexData 
 	t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), wq0, wq1, wq2, q_recip);
 }
 
-static inline void SetPixelDepth(int x, int y, u16 value)
-{
-	depthbuf.Set16(x, y, gstate.DepthBufStride(), value);
+static inline void SetPixelDepth(int x, int y, int stride, u16 value) {
+	depthbuf.Set16(x, y, stride, value);
 }
 
-static inline u8 GetPixelStencil(GEBufferFormat fmt, int x, int y) {
+static inline u8 GetPixelStencil(GEBufferFormat fmt, int fbStride, int x, int y) {
 	if (fmt == GE_FORMAT_565) {
 		// Always treated as 0 for comparison purposes.
 		return 0;
 	} else if (fmt == GE_FORMAT_5551) {
-		return ((fb.Get16(x, y, gstate.FrameBufStride()) & 0x8000) != 0) ? 0xFF : 0;
+		return ((fb.Get16(x, y, fbStride) & 0x8000) != 0) ? 0xFF : 0;
 	} else if (fmt == GE_FORMAT_4444) {
-		return Convert4To8(fb.Get16(x, y, gstate.FrameBufStride()) >> 12);
+		return Convert4To8(fb.Get16(x, y, fbStride) >> 12);
 	} else {
-		return fb.Get32(x, y, gstate.FrameBufStride()) >> 24;
+		return fb.Get32(x, y, fbStride) >> 24;
 	}
 }
 
@@ -332,7 +332,7 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 	return ToVec4IntResult(Vec4<int>(out_rgb, out_a));
 }
 
-static inline Vec3<int> GetSourceFactor(GEBlendSrcFactor factor, const Vec4<int> &source, const Vec4<int> &dst) {
+static inline Vec3<int> GetSourceFactor(GEBlendSrcFactor factor, const Vec4<int> &source, const Vec4<int> &dst, uint32_t fix) {
 	switch (factor) {
 	case GE_SRCBLEND_DSTCOLOR:
 		return dst.rgb();
@@ -375,11 +375,11 @@ static inline Vec3<int> GetSourceFactor(GEBlendSrcFactor factor, const Vec4<int>
 	case GE_SRCBLEND_FIXA:
 	default:
 		// All other dest factors (> 10) are treated as FIXA.
-		return Vec3<int>::FromRGB(gstate.getFixA());
+		return Vec3<int>::FromRGB(fix);
 	}
 }
 
-static inline Vec3<int> GetDestFactor(GEBlendDstFactor factor, const Vec4<int> &source, const Vec4<int> &dst) {
+static inline Vec3<int> GetDestFactor(GEBlendDstFactor factor, const Vec4<int> &source, const Vec4<int> &dst, uint32_t fix) {
 	switch (factor) {
 	case GE_DSTBLEND_SRCCOLOR:
 		return source.rgb();
@@ -422,16 +422,15 @@ static inline Vec3<int> GetDestFactor(GEBlendDstFactor factor, const Vec4<int> &
 	case GE_DSTBLEND_FIXB:
 	default:
 		// All other dest factors (> 10) are treated as FIXB.
-		return Vec3<int>::FromRGB(gstate.getFixB());
+		return Vec3<int>::FromRGB(fix);
 	}
 }
 
 // Removed inline here - it was never chosen to be inlined by the compiler anyway, too complex.
-Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &source, const Vec4<int> &dst)
-{
+Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &source, const Vec4<int> &dst) {
 	// Note: These factors cannot go below 0, but they can go above 255 when doubling.
-	Vec3<int> srcfactor = GetSourceFactor(GEBlendSrcFactor(pixelID.AlphaBlendSrc()), source, dst);
-	Vec3<int> dstfactor = GetDestFactor(GEBlendDstFactor(pixelID.AlphaBlendDst()), source, dst);
+	Vec3<int> srcfactor = GetSourceFactor(GEBlendSrcFactor(pixelID.AlphaBlendSrc()), source, dst, pixelID.cached.alphaBlendSrc);
+	Vec3<int> dstfactor = GetDestFactor(GEBlendDstFactor(pixelID.AlphaBlendDst()), source, dst, pixelID.cached.alphaBlendDst);
 
 	switch (pixelID.AlphaBlendEq()) {
 	case GE_BLENDMODE_MUL_AND_ADD:
@@ -937,10 +936,10 @@ void DrawTriangleSlice(
 					state.drawPixel(subp.x, subp.y, z[i], fog[i], ToVec4IntArg(prim_color[i]), pixelID);
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED)
-					uint32_t row = gstate.getFrameBufAddress() + subp.y * gstate.FrameBufStride() * bpp;
+					uint32_t row = gstate.getFrameBufAddress() + subp.y * pixelID.cached.framebufStride * bpp;
 					NotifyMemInfo(MemBlockFlags::WRITE, row + subp.x * bpp, bpp, tag.c_str(), tag.size());
 					if (pixelID.depthWrite) {
-						row = gstate.getDepthBufAddress() + subp.y * gstate.DepthBufStride() * 2;
+						row = gstate.getDepthBufAddress() + subp.y * pixelID.cached.depthbufStride * 2;
 						NotifyMemInfo(MemBlockFlags::WRITE, row + subp.x * 2, 2, ztag.c_str(), ztag.size());
 					}
 #endif
@@ -953,11 +952,11 @@ void DrawTriangleSlice(
 	for (int y = minY; y <= maxY; y += 16) {
 		DrawingCoords p = TransformUnit::ScreenToDrawing(ScreenCoords(minX, y, 0));
 		DrawingCoords pend = TransformUnit::ScreenToDrawing(ScreenCoords(maxX, y, 0));
-		uint32_t row = gstate.getFrameBufAddress() + p.y * gstate.FrameBufStride() * bpp;
+		uint32_t row = gstate.getFrameBufAddress() + p.y * pixelID.cached.framebufStride * bpp;
 		NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * bpp, (pend.x - p.x) * bpp, tag.c_str(), tag.size());
 
 		if (pixelID.depthWrite) {
-			row = gstate.getDepthBufAddress() + p.y * gstate.DepthBufStride() * 2;
+			row = gstate.getDepthBufAddress() + p.y * pixelID.cached.depthbufStride * 2;
 			NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * 2, (pend.x - p.x) * 2, ztag.c_str(), ztag.size());
 		}
 	}
@@ -1020,12 +1019,12 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 	uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
 	std::string tag = StringFromFormat("DisplayListP_%08x", state.listPC);
 
-	uint32_t row = gstate.getFrameBufAddress() + p.y * gstate.FrameBufStride() * bpp;
+	uint32_t row = gstate.getFrameBufAddress() + p.y * pixelID.cached.framebufStride * bpp;
 	NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * bpp, bpp, tag.c_str(), tag.size());
 
 	if (pixelID.depthWrite) {
 		std::string ztag = StringFromFormat("DisplayListPZ_%08x", state.listPC);
-		row = gstate.getDepthBufAddress() + p.y * gstate.DepthBufStride() * 2;
+		row = gstate.getDepthBufAddress() + p.y * pixelID.cached.depthbufStride * 2;
 		NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * 2, 2, ztag.c_str(), ztag.size());
 	}
 #endif
@@ -1044,7 +1043,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 
 	if (pixelID.DepthClear()) {
 		const u16 z = v1.screenpos.z;
-		const int stride = gstate.DepthBufStride();
+		const int stride = pixelID.cached.depthbufStride;
 
 		// If both bytes of Z equal, we can just use memset directly which is faster.
 		if ((z & 0xFF) == (z >> 8)) {
@@ -1057,7 +1056,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 			DrawingCoords p = pprime;
 			for (p.y = pprime.y; p.y <= pend.y; ++p.y) {
 				for (int x = 0; x < w; ++x) {
-					SetPixelDepth(p.x + x, p.y, z);
+					SetPixelDepth(p.x + x, p.y, pixelID.cached.depthbufStride, z);
 				}
 			}
 		}
@@ -1065,7 +1064,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 		std::string tag = StringFromFormat("DisplayListXZ_%08x", state.listPC);
 		for (int y = pprime.y; y <= pend.y; ++y) {
-			uint32_t row = gstate.getDepthBufAddress() + y * gstate.DepthBufStride() * 2;
+			uint32_t row = gstate.getDepthBufAddress() + y * pixelID.cached.depthbufStride * 2;
 			NotifyMemInfo(MemBlockFlags::WRITE, row + pprime.x * 2, w * 2, tag.c_str(), tag.size());
 		}
 #endif
@@ -1073,31 +1072,57 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 
 	// Note: this stays 0xFFFFFFFF if keeping color and alpha, even for 16-bit.
 	u32 keepOldMask = 0xFFFFFFFF;
-	if (pixelID.ColorClear())
-		keepOldMask &= 0xFF000000;
-	if (pixelID.StencilClear())
-		keepOldMask &= 0x00FFFFFF;
+	if (pixelID.ColorClear() && pixelID.StencilClear()) {
+		keepOldMask = 0;
+	} else {
+		switch (pixelID.FBFormat()) {
+		case GE_FORMAT_565:
+			if (pixelID.ColorClear())
+				keepOldMask = 0;
+			break;
+
+		case GE_FORMAT_5551:
+			if (pixelID.ColorClear())
+				keepOldMask = 0xFFFF8000;
+			else if (pixelID.StencilClear())
+				keepOldMask = 0xFFFF7FFF;
+			break;
+
+		case GE_FORMAT_4444:
+			if (pixelID.ColorClear())
+				keepOldMask = 0xFFFFF000;
+			else if (pixelID.StencilClear())
+				keepOldMask = 0xFFFF0FFF;
+			break;
+
+		case GE_FORMAT_8888:
+		default:
+			if (pixelID.ColorClear())
+				keepOldMask = 0xFF000000;
+			else if (pixelID.StencilClear())
+				keepOldMask = 0x00FFFFFF;
+			break;
+		}
+	}
 
 	// The pixel write masks are respected in clear mode.
-	if (pixelID.applyColorWriteMask)
-		keepOldMask |= gstate.getColorMask();
+	if (pixelID.applyColorWriteMask) {
+		keepOldMask |= pixelID.cached.colorWriteMask;
+	}
 
 	const u32 new_color = v1.color0.ToRGBA();
 	u16 new_color16;
 	switch (pixelID.FBFormat()) {
 	case GE_FORMAT_565:
 		new_color16 = RGBA8888ToRGB565(new_color);
-		keepOldMask = keepOldMask == 0 ? 0 : (0xFFFF0000 | RGBA8888ToRGB565(keepOldMask));
 		break;
 
 	case GE_FORMAT_5551:
 		new_color16 = RGBA8888ToRGBA5551(new_color);
-		keepOldMask = keepOldMask == 0 ? 0 : (0xFFFF0000 | RGBA8888ToRGBA5551(keepOldMask));
 		break;
 
 	case GE_FORMAT_4444:
 		new_color16 = RGBA8888ToRGBA4444(new_color);
-		keepOldMask = keepOldMask == 0 ? 0 : (0xFFFF0000 | RGBA8888ToRGBA4444(keepOldMask));
 		break;
 
 	case GE_FORMAT_8888:
@@ -1110,7 +1135,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 	}
 
 	if (keepOldMask == 0) {
-		const int stride = gstate.FrameBufStride();
+		const int stride = pixelID.cached.framebufStride;
 
 		if (pixelID.FBFormat() == GE_FORMAT_8888) {
 			const bool canMemsetColor = (new_color & 0xFF) == (new_color >> 8) && (new_color & 0xFFFF) == (new_color >> 16);
@@ -1146,7 +1171,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 			}
 		}
 	} else if (keepOldMask != 0xFFFFFFFF) {
-		const int stride = gstate.FrameBufStride();
+		const int stride = pixelID.cached.framebufStride;
 
 		if (pixelID.FBFormat() == GE_FORMAT_8888) {
 			DrawingCoords p = pprime;
@@ -1174,7 +1199,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 		uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
 		std::string tag = StringFromFormat("DisplayListX_%08x", state.listPC);
 		for (int y = pprime.y; y < pend.y; ++y) {
-			uint32_t row = gstate.getFrameBufAddress() + y * gstate.FrameBufStride() * bpp;
+			uint32_t row = gstate.getFrameBufAddress() + y * pixelID.cached.framebufStride * bpp;
 			NotifyMemInfo(MemBlockFlags::WRITE, row + pprime.x * bpp, w * bpp, tag.c_str(), tag.size());
 		}
 	}
@@ -1209,6 +1234,8 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
 
+	const bool interpolateColor = !state.shadeGouraud || (v0.color0 == v1.color0 && v0.color1 == v1.color1);
+
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	std::string tag = StringFromFormat("DisplayListL_%08x", state.listPC);
 	std::string ztag = StringFromFormat("DisplayListLZ_%08x", state.listPC);
@@ -1223,7 +1250,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 			// Interpolate between the two points.
 			Vec4<int> prim_color;
 			Vec3<int> sec_color;
-			if (gstate.getShadeMode() == GE_SHADE_GOURAUD) {
+			if (interpolateColor) {
 				prim_color = (v0.color0 * (steps - i) + v1.color0 * i) / steps1;
 				sec_color = (v0.color1 * (steps - i) + v1.color1 * i) / steps1;
 			} else {
@@ -1236,7 +1263,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 				fog = ClampFogDepth((v0.fogdepth * (float)(steps - i) + v1.fogdepth * (float)i) / steps1);
 			}
 
-			if (gstate.isAntiAliasEnabled()) {
+			if (state.antialiasLines) {
 				// TODO: Clearmode?
 				// TODO: Calculate.
 				prim_color.a() = 0x7F;
@@ -1268,7 +1295,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 				bool texBilinear;
 				CalculateSamplingParams(ds, dt, state, texLevel, texLevelFrac, texBilinear);
 
-				if (gstate.isAntiAliasEnabled()) {
+				if (state.antialiasLines) {
 					// TODO: This is a niave and wrong implementation.
 					DrawingCoords p0 = TransformUnit::ScreenToDrawing(ScreenCoords((int)x, (int)y, (int)z));
 					s = ((float)p0.x + xinc / 32.0f) / 512.0f;
@@ -1292,11 +1319,11 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 			uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
-			uint32_t row = gstate.getFrameBufAddress() + p.y * gstate.FrameBufStride() * bpp;
+			uint32_t row = gstate.getFrameBufAddress() + p.y * pixelID.cached.framebufStride * bpp;
 			NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * bpp, bpp, tag.c_str(), tag.size());
 
 			if (pixelID.depthWrite) {
-				uint32_t row = gstate.getDepthBufAddress() + y * gstate.DepthBufStride() * 2;
+				uint32_t row = gstate.getDepthBufAddress() + y * pixelID.cached.depthbufStride * 2;
 				NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * 2, 2, ztag.c_str(), ztag.size());
 			}
 #endif
@@ -1317,7 +1344,7 @@ bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
 	u8 *row = buffer.GetData();
 	for (int y = gstate.getRegionY1(); y <= gstate.getRegionY2(); ++y) {
 		for (int x = gstate.getRegionX1(); x <= gstate.getRegionX2(); ++x) {
-			row[x - gstate.getRegionX1()] = GetPixelStencil(gstate.FrameBufFormat(), x, y);
+			row[x - gstate.getRegionX1()] = GetPixelStencil(gstate.FrameBufFormat(), gstate.FrameBufStride(), x, y);
 		}
 		row += w;
 	}
