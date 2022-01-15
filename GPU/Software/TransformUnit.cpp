@@ -210,8 +210,7 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_
 	}
 
 	if (!gstate.isModeThrough()) {
-		vertex.modelpos = pos;
-		WorldCoords worldpos = WorldCoords(TransformUnit::ModelToWorld(vertex.modelpos));
+		WorldCoords worldpos = WorldCoords(TransformUnit::ModelToWorld(pos));
 		ModelCoords viewpos = TransformUnit::WorldToView(worldpos);
 		vertex.clippos = ClipCoords(TransformUnit::ViewToClip(viewpos));
 		if (gstate.isFogEnabled()) {
@@ -244,7 +243,7 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_
 			Vec3f source;
 			switch (gstate.getUVProjMode()) {
 			case GE_PROJMAP_POSITION:
-				source = vertex.modelpos;
+				source = pos;
 				break;
 
 			case GE_PROJMAP_UV:

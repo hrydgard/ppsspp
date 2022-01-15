@@ -84,9 +84,8 @@ struct DrawingCoords
 
 struct VertexData {
 	void Lerp(float t, const VertexData &a, const VertexData &b) {
-		modelpos = ::Lerp(a.modelpos, b.modelpos, t);
 		clippos = ::Lerp(a.clippos, b.clippos, t);
-		screenpos = ::Lerp(a.screenpos, b.screenpos, t);  // TODO: Should use a LerpInt (?)
+		// Ignore screenpos because Lerp() is only used pre-calculation of screenpos.
 		texturecoords = ::Lerp(a.texturecoords, b.texturecoords, t);
 		fogdepth = ::Lerp(a.fogdepth, b.fogdepth, t);
 
@@ -95,7 +94,6 @@ struct VertexData {
 		color1 = LerpInt<Vec3<int>,256>(a.color1, b.color1, t_int);
 	}
 
-	ModelCoords modelpos;
 	ClipCoords clippos;
 	ScreenCoords screenpos; // TODO: Shouldn't store this ?
 	Vec2<float> texturecoords;
