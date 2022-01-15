@@ -56,6 +56,7 @@ struct PixelFuncID {
 		int maxz;
 		uint16_t framebufStride;
 		uint16_t depthbufStride;
+		GELogicOp logicOp;
 	} cached;
 
 	union {

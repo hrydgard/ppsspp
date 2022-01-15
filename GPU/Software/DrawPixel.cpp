@@ -482,7 +482,7 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 	// Logic ops are applied after blending (if blending is enabled.)
 	if (pixelID.applyLogicOp && !clearMode) {
 		// Logic ops don't affect stencil, which happens inside ApplyLogicOp.
-		new_color = ApplyLogicOp(gstate.getLogicOp(), old_color, new_color);
+		new_color = ApplyLogicOp(pixelID.cached.logicOp, old_color, new_color);
 	}
 
 	if (clearMode) {

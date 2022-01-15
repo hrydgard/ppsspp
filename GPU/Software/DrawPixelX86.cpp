@@ -250,10 +250,10 @@ RegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 			MOV(32, R(r), R(argYReg));
 			SHL(32, R(r), Imm8(9));
 		} else {
-			if (regCache_.Has(RegCache::GEN_ARG_ID)) {
-				X64Reg idReg = regCache_.Find(RegCache::GEN_ARG_ID);
+			if (regCache_.Has(RegCache::GEN_ARG_ID) || regCache_.Has(RegCache::GEN_ID)) {
+				X64Reg idReg = GetPixelID();
 				MOVZX(32, 16, r, MDisp(idReg, offsetof(PixelFuncID, cached.framebufStride)));
-				regCache_.Unlock(idReg, RegCache::GEN_ARG_ID);
+				UnlockPixelID(idReg);
 			} else {
 				_assert_(stackIDOffset_ != -1);
 				MOV(PTRBITS, R(r), MDisp(RSP, stackIDOffset_));
@@ -300,10 +300,10 @@ RegCache::Reg PixelJitCache::GetDepthOff(const PixelFuncID &id) {
 			MOV(32, R(r), R(argYReg));
 			SHL(32, R(r), Imm8(9));
 		} else {
-			if (regCache_.Has(RegCache::GEN_ARG_ID)) {
-				X64Reg idReg = regCache_.Find(RegCache::GEN_ARG_ID);
+			if (regCache_.Has(RegCache::GEN_ARG_ID) || regCache_.Has(RegCache::GEN_ID)) {
+				X64Reg idReg = GetPixelID();
 				MOVZX(32, 16, r, MDisp(idReg, offsetof(PixelFuncID, cached.depthbufStride)));
-				regCache_.Unlock(idReg, RegCache::GEN_ARG_ID);
+				UnlockPixelID(idReg);
 			} else {
 				_assert_(stackIDOffset_ != -1);
 				MOV(PTRBITS, R(r), MDisp(RSP, stackIDOffset_));
@@ -1509,10 +1509,10 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 	LEA(32, valueReg, MComplex(argXReg, valueReg, 4, offsetof(PixelFuncID, cached.ditherMatrix)));
 
 	// Okay, now abuse argXReg to read the PixelFuncID pointer on the stack.
-	if (regCache_.Has(RegCache::GEN_ARG_ID)) {
-		X64Reg idReg = regCache_.Find(RegCache::GEN_ARG_ID);
+	if (regCache_.Has(RegCache::GEN_ARG_ID) || regCache_.Has(RegCache::GEN_ID)) {
+		X64Reg idReg = GetPixelID();
 		MOVSX(32, 8, valueReg, MRegSum(idReg, valueReg));
-		regCache_.Unlock(idReg, RegCache::GEN_ARG_ID);
+		UnlockPixelID(idReg);
 	} else {
 		_assert_(stackIDOffset_ != -1);
 		MOV(PTRBITS, R(argXReg), MDisp(RSP, stackIDOffset_));
@@ -1672,10 +1672,10 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 	if (id.applyColorWriteMask) {
 		maskReg = regCache_.Alloc(RegCache::GEN_TEMP3);
 		// Load the pre-converted and combined write mask.
-		if (regCache_.Has(RegCache::GEN_ARG_ID)) {
-			X64Reg idReg = regCache_.Find(RegCache::GEN_ARG_ID);
+		if (regCache_.Has(RegCache::GEN_ARG_ID) || regCache_.Has(RegCache::GEN_ID)) {
+			X64Reg idReg = GetPixelID();
 			MOV(32, R(maskReg), MDisp(idReg, offsetof(PixelFuncID, cached.colorWriteMask)));
-			regCache_.Unlock(idReg, RegCache::GEN_ARG_ID);
+			UnlockPixelID(idReg);
 		} else {
 			_assert_(stackIDOffset_ != -1);
 			MOV(PTRBITS, R(maskReg), MDisp(RSP, stackIDOffset_));
@@ -1758,17 +1758,16 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 
 bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg maskReg) {
 	Describe("LogicOp");
-	X64Reg logicOpReg = INVALID_REG;
-	if (RipAccessible(&gstate.lop)) {
-		logicOpReg = regCache_.Alloc(RegCache::GEN_TEMP4);
-		MOVZX(32, 8, logicOpReg, M(&gstate.lop));
+	X64Reg logicOpReg = regCache_.Alloc(RegCache::GEN_TEMP4);
+	if (regCache_.Has(RegCache::GEN_ARG_ID) || regCache_.Has(RegCache::GEN_ID)) {
+		X64Reg idReg = GetPixelID();
+		MOVZX(32, 8, logicOpReg, MDisp(idReg, offsetof(PixelFuncID, cached.logicOp)));
+		UnlockPixelID(idReg);
 	} else {
-		X64Reg gstateReg = GetGState();
-		logicOpReg = regCache_.Alloc(RegCache::GEN_TEMP4);
-		MOVZX(32, 8, logicOpReg, MDisp(gstateReg, offsetof(GPUgstate, lop)));
-		regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+		_assert_(stackIDOffset_ != -1);
+		MOV(PTRBITS, R(logicOpReg), MDisp(RSP, stackIDOffset_));
+		MOVZX(32, 8, logicOpReg, MDisp(logicOpReg, offsetof(PixelFuncID, cached.logicOp)));
 	}
-	AND(8, R(logicOpReg), Imm8(0x0F));
 
 	X64Reg stencilReg = INVALID_REG;
 	if (regCache_.Has(RegCache::GEN_STENCIL))
