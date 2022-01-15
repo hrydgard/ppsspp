@@ -78,6 +78,5 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level);
 
 // Shared functions with RasterizerRectangle.cpp
 Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &source, const Vec4<int> &dst);
-Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color, Vec4IntArg texcolor, const SamplerID &samplerID);
 
 }  // namespace Rasterizer
