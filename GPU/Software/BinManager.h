@@ -70,7 +70,7 @@ struct BinQueue {
 	}
 
 	size_t Push(const T &item) {
-		_dbg_assert_(size_ < N);
+		_dbg_assert_(size_ < N - 1);
 		size_t i = tail_++;
 		if (i + 1 == N)
 			tail_ -= N;
@@ -105,12 +105,12 @@ struct BinQueue {
 
 	// Only safe if you're the only one writing.
 	T &PeekPush() {
-		_dbg_assert_(size_ < N);
+		_dbg_assert_(size_ < N - 1);
 		return items_[tail_];
 	}
 
 	void PushPeeked() {
-		_dbg_assert_(size_ < N);
+		_dbg_assert_(size_ < N - 1);
 		size_t i = tail_++;
 		if (i + 1 == N)
 			tail_ -= N;
@@ -122,7 +122,7 @@ struct BinQueue {
 	}
 
 	bool Full() const {
-		return size_ == N;
+		return size_ == N - 1;
 	}
 
 	bool Empty() const {
