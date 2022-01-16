@@ -143,7 +143,55 @@ ScreenCoords TransformUnit::DrawingToScreen(const DrawingCoords &coords, u16 z) 
 	return ret;
 }
 
-VertexData TransformUnit::ReadVertex(VertexReader &vreader, const Lighting::State &lstate, bool &outside_range_flag) {
+struct TransformState {
+	Lighting::State lightingState;
+
+	float fogEnd;
+	float fogSlope;
+	uint16_t screenOffsetX;
+	uint16_t screenOffsetY;
+
+	struct {
+		bool enableTransform : 1;
+		bool enableLighting : 1;
+		bool enableFog : 1;
+		bool readUV : 1;
+		bool readWeights : 1;
+		bool negateNormals : 1;
+		uint8_t uvGenMode : 2;
+	};
+};
+
+void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
+	state->enableTransform = !gstate.isModeThrough();
+	state->enableLighting = gstate.isLightingEnabled();
+	state->enableFog = gstate.isFogEnabled();
+	state->readUV = !gstate.isModeClear() && gstate.isTextureMapEnabled() && vreader.hasUV();
+	state->readWeights = vertTypeIsSkinningEnabled(gstate.vertType) && !gstate.isModeThrough();
+	state->negateNormals = gstate.areNormalsReversed();
+
+	state->uvGenMode = gstate.getUVGenMode();
+	state->screenOffsetX = gstate.getOffsetX16();
+	state->screenOffsetY = gstate.getOffsetY16();
+
+	if (state->enableLighting)
+		Lighting::ComputeState(&state->lightingState, vreader.hasColor0());
+
+	if (state->enableFog) {
+		state->fogEnd = getFloat24(gstate.fog1);
+		state->fogSlope = getFloat24(gstate.fog2);
+		// Same fixup as in ShaderManagerGLES.cpp
+		if (my_isnanorinf(state->fogEnd)) {
+			// Not really sure what a sensible value might be, but let's try 64k.
+			state->fogEnd = std::signbit(state->fogEnd) ? -65535.0f : 65535.0f;
+		}
+		if (my_isnanorinf(state->fogSlope)) {
+			state->fogSlope = std::signbit(state->fogSlope) ? -65535.0f : 65535.0f;
+		}
+	}
+}
+
+VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState &state, bool &outside_range_flag) {
 	PROFILE_THIS_SCOPE("read_vert");
 	VertexData vertex;
 
@@ -151,7 +199,7 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const Lighting::Stat
 	// VertexDecoder normally scales z, but we want it unscaled.
 	vreader.ReadPosThroughZ16(pos.AsArray());
 
-	if (!gstate.isModeClear() && gstate.isTextureMapEnabled() && vreader.hasUV()) {
+	if (state.readUV) {
 		vreader.ReadUV(vertex.texturecoords.AsArray());
 	}
 
@@ -159,11 +207,11 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const Lighting::Stat
 	if (vreader.hasNormal()) {
 		vreader.ReadNrm(normal.AsArray());
 
-		if (gstate.areNormalsReversed())
+		if (state.negateNormals)
 			normal = -normal;
 	}
 
-	if (vertTypeIsSkinningEnabled(gstate.vertType) && !gstate.isModeThrough()) {
+	if (state.readWeights) {
 		float W[8] = { 1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f };
 		vreader.ReadWeights(W);
 
@@ -192,34 +240,20 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const Lighting::Stat
 		vertex.color0 = Vec4<int>::FromRGBA(gstate.getMaterialAmbientRGBA());
 	}
 
-	if (vreader.hasColor1()) {
-		float col[3];
-		vreader.ReadColor1(col);
-		vertex.color1 = Vec3<int>(col[0]*255, col[1]*255, col[2]*255);
-	} else {
-		vertex.color1 = Vec3<int>(0, 0, 0);
-	}
+	vertex.color1 = Vec3<int>(0, 0, 0);
 
-	if (!gstate.isModeThrough()) {
+	if (state.enableTransform) {
 		WorldCoords worldpos = WorldCoords(TransformUnit::ModelToWorld(pos));
 		ModelCoords viewpos = TransformUnit::WorldToView(worldpos);
 		vertex.clippos = ClipCoords(TransformUnit::ViewToClip(viewpos));
-		if (gstate.isFogEnabled()) {
-			float fog_end = getFloat24(gstate.fog1);
-			float fog_slope = getFloat24(gstate.fog2);
-			// Same fixup as in ShaderManagerGLES.cpp
-			if (my_isnanorinf(fog_end)) {
-				// Not really sure what a sensible value might be, but let's try 64k.
-				fog_end = std::signbit(fog_end) ? -65535.0f : 65535.0f;
-			}
-			if (my_isnanorinf(fog_slope)) {
-				fog_slope = std::signbit(fog_slope) ? -65535.0f : 65535.0f;
-			}
-			vertex.fogdepth = (viewpos.z + fog_end) * fog_slope;
+		if (state.enableFog) {
+			vertex.fogdepth = (viewpos.z + state.fogEnd) * state.fogSlope;
 		} else {
 			vertex.fogdepth = 1.0f;
 		}
 		vertex.screenpos = ClipToScreenInternal(vertex.clippos, &outside_range_flag);
+		if (outside_range_flag)
+			return vertex;
 
 		Vec3<float> worldnormal;
 		if (vreader.hasNormal()) {
@@ -230,7 +264,7 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const Lighting::Stat
 		}
 
 		// Time to generate some texture coords.  Lighting will handle shade mapping.
-		if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX) {
+		if (state.uvGenMode == GE_TEXMAP_TEXTURE_MATRIX) {
 			Vec3f source;
 			switch (gstate.getUVProjMode()) {
 			case GE_PROJMAP_POSITION:
@@ -259,16 +293,16 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const Lighting::Stat
 			Vec3<float> stq = Vec3ByMatrix43(source, gstate.tgenMatrix);
 			float z_recip = 1.0f / stq.z;
 			vertex.texturecoords = Vec2f(stq.x * z_recip, stq.y * z_recip);
-		} else if (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
+		} else if (state.uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP) {
 			Lighting::GenerateLightST(vertex, worldnormal);
 		}
 
 		PROFILE_THIS_SCOPE("light");
-		if (gstate.isLightingEnabled())
-			Lighting::Process(vertex, worldpos, worldnormal, lstate);
+		if (state.enableLighting)
+			Lighting::Process(vertex, worldpos, worldnormal, state.lightingState);
 	} else {
-		vertex.screenpos.x = (int)(pos[0] * 16) + gstate.getOffsetX16();
-		vertex.screenpos.y = (int)(pos[1] * 16) + gstate.getOffsetY16();
+		vertex.screenpos.x = (int)(pos[0] * 16) + state.screenOffsetX;
+		vertex.screenpos.y = (int)(pos[1] * 16) + state.screenOffsetY;
 		vertex.screenpos.z = pos[2];
 		vertex.clippos.w = 1.f;
 		vertex.fogdepth = 1.f;
@@ -337,9 +371,8 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 
 	binner_->UpdateState();
 
-	Lighting::State lstate;
-	if (gstate.isLightingEnabled())
-		ComputeState(&lstate, vreader.hasColor0());
+	TransformState transformState;
+	ComputeTransformState(&transformState, vreader);
 
 	bool outside_range_flag = false;
 	switch (prim_type) {
@@ -354,7 +387,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					vreader.Goto(vtx);
 				}
 
-				data[data_index++] = ReadVertex(vreader, lstate, outside_range_flag);
+				data[data_index++] = ReadVertex(vreader, transformState, outside_range_flag);
 				if (data_index < vtcs_per_prim) {
 					// Keep reading.  Note: an incomplete prim will stay read for GE_PRIM_KEEP_PREVIOUS.
 					continue;
@@ -405,7 +438,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				vreader.Goto(vtx);
 			}
 
-			data[data_index++] = ReadVertex(vreader, lstate, outside_range_flag);
+			data[data_index++] = ReadVertex(vreader, transformState, outside_range_flag);
 			if (outside_range_flag) {
 				outside_range_flag = false;
 				// Note: this is the post increment index.  If odd, we set the first vert.
@@ -451,7 +484,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					vreader.Goto(vtx);
 				}
 
-				data[(data_index++) & 1] = ReadVertex(vreader, lstate, outside_range_flag);
+				data[(data_index++) & 1] = ReadVertex(vreader, transformState, outside_range_flag);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;
@@ -484,7 +517,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					else {
 						vreader.Goto(vtx);
 					}
-					data[vtx] = ReadVertex(vreader, lstate, outside_range_flag);
+					data[vtx] = ReadVertex(vreader, transformState, outside_range_flag);
 				}
 
 				// If a strip is effectively a rectangle, draw it as such!
@@ -503,7 +536,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				int provoking_index = (data_index++) % 3;
-				data[provoking_index] = ReadVertex(vreader, lstate, outside_range_flag);
+				data[provoking_index] = ReadVertex(vreader, transformState, outside_range_flag);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;
@@ -544,7 +577,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				} else {
 					vreader.Goto(0);
 				}
-				data[0] = ReadVertex(vreader, lstate, outside_range_flag);
+				data[0] = ReadVertex(vreader, transformState, outside_range_flag);
 				data_index++;
 				start_vtx = 1;
 
@@ -560,7 +593,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					} else {
 						vreader.Goto(vtx);
 					}
-					data[vtx] = ReadVertex(vreader, lstate, outside_range_flag);
+					data[vtx] = ReadVertex(vreader, transformState, outside_range_flag);
 				}
 
 				int tl = -1, br = -1;
@@ -579,7 +612,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				int provoking_index = 2 - ((data_index++) % 2);
-				data[provoking_index] = ReadVertex(vreader, lstate, outside_range_flag);
+				data[provoking_index] = ReadVertex(vreader, transformState, outside_range_flag);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;
