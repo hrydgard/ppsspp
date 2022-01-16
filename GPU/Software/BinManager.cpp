@@ -160,9 +160,17 @@ void BinManager::UpdateState() {
 	int newMaxTasks = selfRender ? 1 : g_threadManager.GetNumLooperThreads();
 	if (newMaxTasks > MAX_POSSIBLE_TASKS)
 		newMaxTasks = MAX_POSSIBLE_TASKS;
+	// We don't want to overlap wrong, so flush any pending.
 	if (maxTasks_ != newMaxTasks) {
 		maxTasks_ = newMaxTasks;
-		tasksSplit_ = false;
+		Flush();
+	}
+
+	// Our bin sizes are based on offset, so if that changes we have to flush.
+	if (queueOffsetX_ != gstate.getOffsetX16() || queueOffsetY_ != gstate.getOffsetY16()) {
+		Flush();
+		queueOffsetX_ = gstate.getOffsetX16();
+		queueOffsetY_ = gstate.getOffsetY16();
 	}
 }
 
@@ -325,6 +333,8 @@ void BinManager::Flush() {
 	queueRange_.y1 = 0x7FFFFFFF;
 	queueRange_.x2 = 0;
 	queueRange_.y2 = 0;
+	queueOffsetX_ = -1;
+	queueOffsetY_ = -1;
 }
 
 inline BinCoords BinCoords::Intersect(const BinCoords &range) const {

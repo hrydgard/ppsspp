@@ -178,6 +178,8 @@ private:
 	BinCoords scissor_;
 	BinQueue<BinItem, 1024> queue_;
 	BinCoords queueRange_;
+	int queueOffsetX_ = -1;
+	int queueOffsetY_ = -1;
 
 	int maxTasks_ = 1;
 	bool tasksSplit_ = false;
