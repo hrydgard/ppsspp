@@ -166,6 +166,13 @@ struct SamplerID {
 	SamplerID() : fullKey(0) {
 	}
 
+	struct {
+		struct {
+			uint16_t w;
+			uint16_t h;
+		} sizes[8];
+	} cached;
+
 	union {
 		uint32_t fullKey;
 		struct {

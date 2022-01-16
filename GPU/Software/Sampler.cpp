@@ -431,8 +431,8 @@ static inline void ApplyTexelClamp(int out_u[N], int out_v[N], const int u[N], c
 }
 
 static inline void GetTexelCoordinates(int level, float s, float t, int &out_u, int &out_v, int x, int y, const SamplerID &samplerID) {
-	int width = gstate.getTextureWidth(level);
-	int height = gstate.getTextureHeight(level);
+	int width = samplerID.cached.sizes[level].w;
+	int height = samplerID.cached.sizes[level].h;
 
 	int base_u = (int)(s * width * 256.0f) + 12 - x;
 	int base_v = (int)(t * height * 256.0f) + 12 - y;
@@ -624,7 +624,7 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuadT(bool clamp, int v
 }
 
 static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadS(int level, float in_s, int &frac_u, int x, const SamplerID &samplerID) {
-	int width = gstate.getTextureWidth(level);
+	int width = samplerID.cached.sizes[level].w;
 
 	int base_u = (int)(in_s * width * 256) + 12 - x - 128;
 	frac_u = (int)(base_u >> 4) & 0x0F;
@@ -635,7 +635,7 @@ static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadS(int level, fl
 }
 
 static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadT(int level, float in_t, int &frac_v, int y, const SamplerID &samplerID) {
-	int height = gstate.getTextureHeight(level);
+	int height = samplerID.cached.sizes[level].h;
 
 	int base_v = (int)(in_t * height * 256) + 12 - y - 128;
 	frac_v = (int)(base_v >> 4) & 0x0F;

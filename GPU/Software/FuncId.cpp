@@ -22,7 +22,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/Software/FuncId.h"
 
-static_assert(sizeof(SamplerID) == sizeof(SamplerID::fullKey), "Bad sampler ID size");
+static_assert(sizeof(SamplerID) == sizeof(SamplerID::fullKey) + sizeof(SamplerID::cached), "Bad sampler ID size");
 static_assert(sizeof(PixelFuncID) == sizeof(PixelFuncID::fullKey) + sizeof(PixelFuncID::cached), "Bad pixel func ID size");
 
 static inline GEComparison OptimizeRefByteCompare(GEComparison func, u8 ref) {
@@ -399,6 +399,9 @@ void ComputeSamplerID(SamplerID *id_out) {
 		int bytes = h * (bufw * bitspp) / 8;
 		if (bitspp < 32 && !Memory::IsValidAddress(addr + bytes + (32 - bitspp) / 8))
 			id.overReadSafe = false;
+
+		id.cached.sizes[i].w = w;
+		id.cached.sizes[i].h = h;
 	}
 	id.hasAnyMips = maxLevel != 0;
 

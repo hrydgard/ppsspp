@@ -68,6 +68,8 @@ private:
 
 	Rasterizer::RegCache::Reg GetZeroVec();
 	Rasterizer::RegCache::Reg GetGState();
+	Rasterizer::RegCache::Reg GetSamplerID();
+	void UnlockSamplerID(Rasterizer::RegCache::Reg &r);
 
 	void WriteConstantPool(const SamplerID &id);
 
@@ -104,6 +106,7 @@ private:
 	Arm64Gen::ARM64FloatEmitter fp;
 #elif PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	int stackArgPos_ = 0;
+	int stackIDOffset_ = -1;
 	int stackFracUV1Offset_ = 0;
 #endif
 

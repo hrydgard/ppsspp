@@ -41,6 +41,7 @@ FetchFunc SamplerJitCache::CompileFetch(const SamplerID &id) {
 		RegCache::GEN_ARG_TEXPTR,
 		RegCache::GEN_ARG_BUFW,
 		RegCache::GEN_ARG_LEVEL,
+		RegCache::GEN_ARG_ID,
 	});
 	regCache_.ChangeReg(RAX, RegCache::GEN_RESULT);
 	regCache_.ChangeReg(XMM0, RegCache::VEC_RESULT);
@@ -48,6 +49,15 @@ FetchFunc SamplerJitCache::CompileFetch(const SamplerID &id) {
 	BeginWrite();
 	Describe("Init");
 	const u8 *start = AlignCode16();
+
+#if PPSSPP_PLATFORM(WINDOWS)
+	// RET and shadow space.
+	stackArgPos_ = 8 + 32;
+	stackIDOffset_ = 8;
+#else
+	stackArgPos_ = 0;
+	stackIDOffset_ = -1;
+#endif
 
 	// Early exit on !srcPtr.
 	FixupBranch zeroSrc;
@@ -123,6 +133,7 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 		RegCache::GEN_ARG_BUFW_PTR,
 		RegCache::GEN_ARG_LEVEL,
 		RegCache::GEN_ARG_LEVELFRAC,
+		RegCache::GEN_ARG_ID,
 	});
 
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -130,11 +141,14 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 	stackArgPos_ = 8 + 32 + 8;
 
 	// Positions: stackArgPos_+0=src, stackArgPos_+8=bufw, stackArgPos_+16=level, stackArgPos_+24=levelFrac
+	stackIDOffset_ = 32;
 
 	// Use the shadow space to save U1/V1.  We also use this var for frac U1/V1 in linear.
 	stackFracUV1Offset_ = -8;
 #else
 	stackArgPos_ = 0;
+	// This is the only arg that went to the stack.
+	stackIDOffset_ = 8;
 	// Use the red zone.
 	stackFracUV1Offset_ = -8;
 #endif
@@ -284,6 +298,7 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 		regCache_.ForceRetain(RegCache::GEN_ARG_V);
 
 		bool hadGState = regCache_.Has(RegCache::GEN_GSTATE);
+		bool hadId = regCache_.Has(RegCache::GEN_ID);
 		bool hadZero = regCache_.Has(RegCache::VEC_ZERO);
 		success = success && Jit_ReadTextureFormat(id);
 
@@ -301,6 +316,8 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 		// Since we're inside a conditional, make sure these go away if we allocated them.
 		if (!hadGState && regCache_.Has(RegCache::GEN_GSTATE))
 			regCache_.ForceRelease(RegCache::GEN_GSTATE);
+		if (!hadId && regCache_.Has(RegCache::GEN_ID))
+			regCache_.ForceRelease(RegCache::GEN_ID);
 		if (!hadZero && regCache_.Has(RegCache::VEC_ZERO))
 			regCache_.ForceRelease(RegCache::VEC_ZERO);
 
@@ -493,6 +510,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		RegCache::GEN_ARG_BUFW_PTR,
 		RegCache::GEN_ARG_LEVEL,
 		RegCache::GEN_ARG_LEVELFRAC,
+		RegCache::GEN_ARG_ID,
 	});
 
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -500,8 +518,10 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	stackArgPos_ = 8 + 32 + 8;
 
 	// Positions: stackArgPos_+0=src, stackArgPos_+8=bufw, stackArgPos_+16=level, stackArgPos_+24=levelFrac
+	stackIDOffset_ = 32;
 #else
 	stackArgPos_ = 0;
+	stackIDOffset_ = 8;
 #endif
 
 	// Start out by saving some registers, since we'll need more.
@@ -938,6 +958,25 @@ RegCache::Reg SamplerJitCache::GetGState() {
 		return r;
 	}
 	return regCache_.Find(RegCache::GEN_GSTATE);
+}
+
+RegCache::Reg SamplerJitCache::GetSamplerID() {
+	if (regCache_.Has(RegCache::GEN_ARG_ID))
+		return regCache_.Find(RegCache::GEN_ARG_ID);
+	if (!regCache_.Has(RegCache::GEN_ID)) {
+		X64Reg r = regCache_.Alloc(RegCache::GEN_ID);
+		_assert_(stackIDOffset_ != -1);
+		MOV(PTRBITS, R(r), MDisp(RSP, stackArgPos_ + stackIDOffset_));
+		return r;
+	}
+	return regCache_.Find(RegCache::GEN_ID);
+}
+
+void SamplerJitCache::UnlockSamplerID(RegCache::Reg &r) {
+	if (regCache_.Has(RegCache::GEN_ARG_ID))
+		regCache_.Unlock(r, RegCache::GEN_ARG_ID);
+	else
+		regCache_.Unlock(r, RegCache::GEN_ID);
 }
 
 bool SamplerJitCache::Jit_FetchQuad(const SamplerID &id, bool level1) {
@@ -2418,8 +2457,7 @@ bool SamplerJitCache::Jit_GetTexelCoords(const SamplerID &id) {
 	X64Reg tReg = regCache_.Find(RegCache::VEC_ARG_T);
 	if (constWidth256f_ == nullptr) {
 		// We have to figure out levels and the proper width, ugh.
-		X64Reg shiftReg = regCache_.Find(RegCache::GEN_SHIFTVAL);
-		X64Reg gstateReg = GetGState();
+		X64Reg idReg = GetSamplerID();
 		X64Reg tempReg = regCache_.Alloc(RegCache::GEN_TEMP0);
 
 		X64Reg levelReg = INVALID_REG;
@@ -2432,12 +2470,9 @@ bool SamplerJitCache::Jit_GetTexelCoords(const SamplerID &id) {
 
 		X64Reg tempVecReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 		auto loadSizeAndMul = [&](X64Reg dest, bool clamp, bool isY, bool isLevel1) {
-			int offset = offsetof(GPUgstate, texsize) + (isY ? 1 : 0) + (isLevel1 ? 4 : 0);
-			// Grab the size, and shift.
-			MOVZX(32, 8, shiftReg, MComplex(gstateReg, levelReg, SCALE_4, offset));
-			AND(32, R(shiftReg), Imm8(0x0F));
-			MOV(32, R(tempReg), Imm32(1));
-			SHL(32, R(tempReg), R(shiftReg));
+			int offset = offsetof(SamplerID, cached.sizes[0].w) + (isY ? 2 : 0) + (isLevel1 ? 4 : 0);
+			// Grab the size, already pre-shifted for us.
+			MOVZX(32, 16, tempReg, MComplex(idReg, levelReg, SCALE_4, offset));
 
 			// Now move to a float, multiplying by 256 meanwhile with a shift.
 			MOVD_xmm(tempVecReg, R(tempReg));
@@ -2477,8 +2512,7 @@ bool SamplerJitCache::Jit_GetTexelCoords(const SamplerID &id) {
 		loadSizeAndMul(uReg, id.clampS, false, false);
 		loadSizeAndMul(vReg, id.clampT, true, false);
 
-		regCache_.Unlock(shiftReg, RegCache::GEN_SHIFTVAL);
-		regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+		UnlockSamplerID(idReg);
 		regCache_.Release(tempReg, RegCache::GEN_TEMP0);
 		regCache_.Unlock(levelReg, RegCache::GEN_ARG_LEVEL);
 
@@ -2552,7 +2586,7 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 
 	if (constWidth256f_ == nullptr) {
 		// We have to figure out levels and the proper width, ugh.
-		X64Reg gstateReg = GetGState();
+		X64Reg idReg = GetSamplerID();
 		X64Reg tempReg = regCache_.Alloc(RegCache::GEN_TEMP0);
 
 		X64Reg levelReg = INVALID_REG;
@@ -2567,18 +2601,22 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 		}
 
 		// This will load the current and next level's sizes.
-		MOV(64, R(tempReg), MComplex(gstateReg, levelReg, SCALE_4, offsetof(GPUgstate, texsize)));
-		regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+		MOV(64, R(tempReg), MComplex(idReg, levelReg, SCALE_4, offsetof(SamplerID, cached.sizes[0].w)));
+		UnlockSamplerID(idReg);
 
 		X64Reg tempVecReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 		auto loadSizeAndMul = [&](X64Reg dest, X64Reg size, bool isY, bool isLevel1) {
-			// Grab the size and mask out 4 bits using walls.
-			MOVQ_xmm(tempVecReg, R(tempReg));
-			PSLLQ(tempVecReg, 60 - (isY ? 8 : 0) - (isLevel1 ? 32 : 0));
-			PSRLQ(tempVecReg, 60);
-
-			MOVDQA(size, M(constOnes32_));
-			PSLLD(size, R(tempVecReg));
+			// Grab the size and mask out 16 bits using walls.
+			MOVQ_xmm(size, R(tempReg));
+			if (cpu_info.bSSE4_1) {
+				int lane = (isY ? 1 : 0) + (isLevel1 ? 2 : 0);
+				PMOVZXWD(size, R(size));
+				PSHUFD(size, R(size), _MM_SHUFFLE(lane, lane, lane, lane));
+			} else {
+				PSLLQ(size, 48 - (isY ? 16 : 0) - (isLevel1 ? 32 : 0));
+				PSRLQ(size, 48);
+				PSHUFD(size, R(size), _MM_SHUFFLE(0, 0, 0, 0));
+			}
 
 			if (cpu_info.bAVX) {
 				VPSLLD(128, tempVecReg, size, 8);
@@ -3418,7 +3456,7 @@ bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
 		} else {
 #if PPSSPP_PLATFORM(WINDOWS)
 			// The argument was saved on the stack.
-			MOV(32, R(temp2Reg), MDisp(RSP, 40));
+			MOV(32, R(temp2Reg), MDisp(RSP, stackArgPos_));
 #else
 			_assert_(false);
 #endif
