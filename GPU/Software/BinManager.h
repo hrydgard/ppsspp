@@ -23,6 +23,7 @@
 #include "GPU/Software/Rasterizer.h"
 
 struct BinWaitable;
+class DrawBinItemsTask;
 
 enum class BinItemType {
 	TRIANGLE,
@@ -172,15 +173,26 @@ public:
 	void GetStats(char *buffer, size_t bufsize);
 	void ResetStats();
 
-private:
+protected:
 	static constexpr int MAX_POSSIBLE_TASKS = 64;
+	// This is about 1MB of state data.
+	static constexpr int QUEUED_STATES = 4096;
+	// These are 1KB each, so half an MB.
+	static constexpr int QUEUED_CLUTS = 512;
+	// About 320 KB, but we have 64 of them, so 20 MB (most not likely active.)
+	static constexpr int QUEUED_PRIMS = 1024;
 
-	BinQueue<Rasterizer::RasterizerState, 64> states_;
+	typedef BinQueue<Rasterizer::RasterizerState, QUEUED_STATES> BinStateQueue;
+	typedef BinQueue<BinClut, QUEUED_CLUTS> BinClutQueue;
+	typedef BinQueue<BinItem, QUEUED_PRIMS> BinItemQueue;
+
+private:
+	BinStateQueue states_;
 	int stateIndex_;
-	BinQueue<BinClut, 64> cluts_;
+	BinClutQueue cluts_;
 	int clutIndex_;
 	BinCoords scissor_;
-	BinQueue<BinItem, 1024> queue_;
+	BinItemQueue queue_;
 	BinCoords queueRange_;
 	int queueOffsetX_ = -1;
 	int queueOffsetY_ = -1;
@@ -188,11 +200,12 @@ private:
 	int maxTasks_ = 1;
 	bool tasksSplit_ = false;
 	std::vector<BinCoords> taskRanges_;
-	BinQueue<BinItem, 1024> taskQueues_[MAX_POSSIBLE_TASKS];
+	BinItemQueue taskQueues_[MAX_POSSIBLE_TASKS];
 	std::atomic<bool> taskStatus_[MAX_POSSIBLE_TASKS];
 	BinWaitable *waitable_ = nullptr;
 
 	std::unordered_map<const char *, double> flushReasonTimes_;
+	std::unordered_map<const char *, double> lastFlushReasonTimes_;
 	const char *slowestFlushReason_ = nullptr;
 	double slowestFlushTime_ = 0.0;
 
@@ -201,4 +214,6 @@ private:
 	BinCoords Range(const VertexData &v0, const VertexData &v1);
 	BinCoords Range(const VertexData &v0);
 	void Expand(const BinCoords &range);
+
+	friend class DrawBinItemsTask;
 };

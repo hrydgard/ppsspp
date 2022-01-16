@@ -89,7 +89,7 @@ static inline void DrawBinItem(const BinItem &item, const RasterizerState &state
 
 class DrawBinItemsTask : public Task {
 public:
-	DrawBinItemsTask(BinWaitable *notify, BinQueue<BinItem, 1024> &items, std::atomic<bool> &status, const BinQueue<RasterizerState, 64> &states)
+	DrawBinItemsTask(BinWaitable *notify, BinManager::BinItemQueue &items, std::atomic<bool> &status, const BinManager::BinStateQueue &states)
 		: notify_(notify), items_(items), status_(status), states_(states) {
 	}
 
@@ -115,9 +115,9 @@ private:
 	}
 
 	BinWaitable *notify_;
-	BinQueue<BinItem, 1024> &items_;
+	BinManager::BinItemQueue &items_;
 	std::atomic<bool> &status_;
-	const BinQueue<RasterizerState, 64> &states_;
+	const BinManager::BinStateQueue &states_;
 };
 
 BinManager::BinManager() {
@@ -369,16 +369,33 @@ void BinManager::GetStats(char *buffer, size_t bufsize) {
 		allTotal += it.second;
 	}
 
+	// Many games are 30 FPS, so check last frame too for better stats.
+	double recentTotal = allTotal;
+	double slowestRecentTime = slowestTotalTime;
+	const char *slowestRecentReason = slowestTotalReason;
+	for (auto &it : lastFlushReasonTimes_) {
+		if (it.second > slowestRecentTime) {
+			slowestRecentTime = it.second;
+			slowestRecentReason = it.first;
+		}
+		recentTotal += it.second;
+	}
+
 	snprintf(buffer, bufsize,
 		"Slowest individual flush: %s (%0.4f)\n"
-		"Slowest total flush: %s (%0.4f)\n"
-		"Total flush time: %0.4f\n",
+		"Slowest frame flush: %s (%0.4f)\n"
+		"Slowest recent flush: %s (%0.4f)\n"
+		"Total flush time: %0.4f (%05.2f%%, last 2: %05.2f%%)\n",
 		slowestFlushReason_, slowestFlushTime_,
 		slowestTotalReason, slowestTotalTime,
-		allTotal);
+		slowestRecentReason, slowestRecentTime,
+		allTotal, allTotal * (6000.0 / 1.001), recentTotal * (3000.0 / 1.001));
+
+	constexpr int foo = sizeof(BinItem);
 }
 
 void BinManager::ResetStats() {
+	lastFlushReasonTimes_ = std::move(flushReasonTimes_);
 	flushReasonTimes_.clear();
 	slowestFlushReason_ = nullptr;
 	slowestFlushTime_ = 0.0;
