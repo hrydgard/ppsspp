@@ -18,6 +18,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
+#include "Common/Profiler/Profiler.h"
 #include "Common/Thread/ThreadManager.h"
 #include "GPU/Software/BinManager.h"
 #include "GPU/Software/Rasterizer.h"
@@ -133,6 +134,7 @@ BinManager::~BinManager() {
 }
 
 void BinManager::UpdateState() {
+	PROFILE_THIS_SCOPE("bin_state");
 	if (states_.Full())
 		Flush();
 	stateIndex_ = (int)states_.Push(RasterizerState());
@@ -175,6 +177,7 @@ void BinManager::UpdateState() {
 }
 
 void BinManager::UpdateClut(const void *src) {
+	PROFILE_THIS_SCOPE("bin_clut");
 	if (cluts_.Full())
 		Flush();
 	clutIndex_ = (int)cluts_.Push(BinClut());
@@ -249,6 +252,8 @@ void BinManager::AddPoint(const VertexData &v0) {
 }
 
 void BinManager::Drain() {
+	PROFILE_THIS_SCOPE("bin_drain");
+
 	// If the waitable has fully drained, we can update our binning decisions.
 	if (!tasksSplit_ || waitable_->Empty()) {
 		int w2 = (queueRange_.x2 - queueRange_.x1 + 31) / 32;
@@ -279,6 +284,7 @@ void BinManager::Drain() {
 	}
 
 	if (taskRanges_.size() <= 1) {
+		PROFILE_THIS_SCOPE("bin_drain_single");
 		while (!queue_.Empty()) {
 			const BinItem &item = queue_.PeekNext();
 			DrawBinItem(item, states_[item.stateIndex]);

@@ -550,7 +550,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_SCISSOR2:
 		for (int i = 0; i < 8; ++i) {
 			// TODO: Narrow down the risk range, for now assuming 512x512 max texture.
-			drawEngine_->transformUnit.FlushIfOverlap(gstate.getTextureAddress(i), 4 * 512 * 512);
+			drawEngine_->transformUnit.FlushIfOverlap("scissor", gstate.getTextureAddress(i), 4 * 512 * 512);
 		}
 		break;
 
@@ -559,13 +559,13 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_FRAMEBUFPTR:
 		// We assume fb.data won't change while we're drawing.
-		drawEngine_->transformUnit.Flush();
+		drawEngine_->transformUnit.Flush("framebuf");
 		fb.data = Memory::GetPointer(gstate.getFrameBufAddress());
 		break;
 
 	case GE_CMD_FRAMEBUFWIDTH:
 		// We assume fb.data won't change while we're drawing.
-		drawEngine_->transformUnit.Flush();
+		drawEngine_->transformUnit.Flush("framebuf");
 		fb.data = Memory::GetPointer(gstate.getFrameBufAddress());
 		break;
 
@@ -581,7 +581,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXADDR6:
 	case GE_CMD_TEXADDR7:
 		// TODO: Narrow down the risk range, for now assuming 512x512 max texture.
-		drawEngine_->transformUnit.FlushIfOverlap(gstate.getTextureAddress(cmd - GE_CMD_TEXADDR0), 4 * 512 * 512);
+		drawEngine_->transformUnit.FlushIfOverlap("texaddr", gstate.getTextureAddress(cmd - GE_CMD_TEXADDR0), 4 * 512 * 512);
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
@@ -593,7 +593,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXBUFWIDTH6:
 	case GE_CMD_TEXBUFWIDTH7:
 		// TODO: Narrow down the risk range, for now assuming 512x512 max texture.
-		drawEngine_->transformUnit.FlushIfOverlap(gstate.getTextureAddress(cmd - GE_CMD_TEXBUFWIDTH0), 4 * 512 * 512);
+		drawEngine_->transformUnit.FlushIfOverlap("texbufw", gstate.getTextureAddress(cmd - GE_CMD_TEXBUFWIDTH0), 4 * 512 * 512);
 		break;
 
 	case GE_CMD_CLUTADDR:
@@ -606,7 +606,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 			u32 clutTotalBytes = gstate.getClutLoadBytes();
 
 			// Might be copying drawing into the CLUT, so flush.
-			drawEngine_->transformUnit.FlushIfOverlap(clutAddr, clutTotalBytes);
+			drawEngine_->transformUnit.FlushIfOverlap("loadclut", clutAddr, clutTotalBytes);
 
 			if (Memory::IsValidAddress(clutAddr)) {
 				u32 validSize = Memory::ValidSize(clutAddr, clutTotalBytes);
@@ -638,7 +638,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TRANSFERSTART:
 		{
 			// Let's finish any drawing before we transfer.
-			drawEngine_->transformUnit.Flush();
+			drawEngine_->transformUnit.Flush("blockxfer");
 
 			u32 srcBasePtr = gstate.getTransferSrcAddress();
 			u32 srcStride = gstate.getTransferSrcStride();
@@ -691,13 +691,13 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_ZBUFPTR:
 		// We assume depthbuf.data won't change while we're drawing.
-		drawEngine_->transformUnit.Flush();
+		drawEngine_->transformUnit.Flush("depthbuf");
 		depthbuf.data = Memory::GetPointer(gstate.getDepthBufAddress());
 		break;
 
 	case GE_CMD_ZBUFWIDTH:
 		// We assume depthbuf.data won't change while we're drawing.
-		drawEngine_->transformUnit.Flush();
+		drawEngine_->transformUnit.Flush("depthbuf");
 		depthbuf.data = Memory::GetPointer(gstate.getDepthBufAddress());
 		break;
 
@@ -893,7 +893,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 
 void SoftGPU::FinishDeferred() {
 	// Need to flush before going back to CPU, so drawing is appropriately visible.
-	drawEngine_->transformUnit.Flush();
+	drawEngine_->transformUnit.Flush("finish");
 }
 
 void SoftGPU::GetStats(char *buffer, size_t bufsize) {

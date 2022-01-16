@@ -119,8 +119,8 @@ public:
 
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
-	void Flush();
-	void FlushIfOverlap(uint32_t addr, uint32_t sz);
+	void Flush(const char *reason);
+	void FlushIfOverlap(const char *reason, uint32_t addr, uint32_t sz);
 	void NotifyClutUpdate(const void *src);
 
 private:

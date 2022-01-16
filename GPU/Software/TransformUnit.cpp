@@ -608,12 +608,12 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 	}
 }
 
-void TransformUnit::Flush() {
+void TransformUnit::Flush(const char *reason) {
 	binner_->Flush();
 	GPUDebug::NotifyDraw();
 }
 
-void TransformUnit::FlushIfOverlap(uint32_t addr, uint32_t sz) {
+void TransformUnit::FlushIfOverlap(const char *reason, uint32_t addr, uint32_t sz) {
 	if (!Memory::IsVRAMAddress(addr))
 		return;
 	addr &= 0x0FFFFFFF;
@@ -626,9 +626,9 @@ void TransformUnit::FlushIfOverlap(uint32_t addr, uint32_t sz) {
 
 	// TODO: Skip if the texture is between width and stride?
 	if (addr < target + targetHeight * targetStride && addr + sz >= target)
-		Flush();
+		Flush(reason);
 	else if (addr < ztarget + targetHeight * ztargetStride && addr + sz >= ztarget)
-		Flush();
+		Flush(reason);
 }
 
 void TransformUnit::NotifyClutUpdate(const void *src) {
