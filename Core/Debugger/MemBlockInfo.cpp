@@ -15,9 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <mutex>
-
+#include <algorithm>
+#include <atomic>
 #include <cstring>
+#include <mutex>
 
 #include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
@@ -86,6 +87,8 @@ static MemSlabMap suballocMap;
 static MemSlabMap writeMap;
 static MemSlabMap textureMap;
 static std::vector<PendingNotifyMem> pendingNotifies;
+static std::atomic<uint32_t> pendingNotifyMinAddr;
+static std::atomic<uint32_t> pendingNotifyMaxAddr;
 static std::mutex pendingMutex;
 static int detailedOverride;
 
@@ -371,6 +374,8 @@ void FlushPendingMemInfo() {
 		}
 	}
 	pendingNotifies.clear();
+	pendingNotifyMinAddr = 0xFFFFFFFF;
+	pendingNotifyMaxAddr = 0;
 }
 
 void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_t pc, const char *tagStr, size_t strLength) {
@@ -395,6 +400,8 @@ void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_
 		info.tag[copyLength] = 0;
 
 		std::lock_guard<std::mutex> guard(pendingMutex);
+		pendingNotifyMinAddr = std::min(pendingNotifyMinAddr.load(), start);
+		pendingNotifyMaxAddr = std::max(pendingNotifyMaxAddr.load(), start + size);
 		pendingNotifies.push_back(info);
 		needFlush = pendingNotifies.size() > MAX_PENDING_NOTIFIES;
 	}
@@ -417,8 +424,10 @@ void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const cha
 }
 
 std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size) {
-	FlushPendingMemInfo();
 	start &= ~0xC0000000;
+
+	if (pendingNotifyMinAddr < start + size && pendingNotifyMaxAddr >= start)
+		FlushPendingMemInfo();
 
 	std::vector<MemBlockInfo> results;
 	allocMap.Find(MemBlockFlags::ALLOC, start, size, results);
@@ -429,8 +438,10 @@ std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size) {
 }
 
 std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start, uint32_t size) {
-	FlushPendingMemInfo();
 	start &= ~0xC0000000;
+
+	if (pendingNotifyMinAddr < start + size && pendingNotifyMaxAddr >= start)
+		FlushPendingMemInfo();
 
 	std::vector<MemBlockInfo> results;
 	if (flags & MemBlockFlags::ALLOC)
@@ -461,6 +472,8 @@ std::string GetMemWriteTagAt(uint32_t start, uint32_t size) {
 void MemBlockInfoInit() {
 	std::lock_guard<std::mutex> guard(pendingMutex);
 	pendingNotifies.reserve(MAX_PENDING_NOTIFIES);
+	pendingNotifyMinAddr = 0xFFFFFFFF;
+	pendingNotifyMaxAddr = 0;
 }
 
 void MemBlockInfoShutdown() {
