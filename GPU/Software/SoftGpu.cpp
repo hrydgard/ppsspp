@@ -554,10 +554,14 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_FRAMEBUFPTR:
+		// We assume fb.data won't change while we're drawing.
+		drawEngine_->transformUnit.Flush();
 		fb.data = Memory::GetPointer(gstate.getFrameBufAddress());
 		break;
 
 	case GE_CMD_FRAMEBUFWIDTH:
+		// We assume fb.data won't change while we're drawing.
+		drawEngine_->transformUnit.Flush();
 		fb.data = Memory::GetPointer(gstate.getFrameBufAddress());
 		break;
 
@@ -572,6 +576,8 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXADDR5:
 	case GE_CMD_TEXADDR6:
 	case GE_CMD_TEXADDR7:
+		// TODO: Try not flushing here, unless overlap with framebuf/depthbuf?
+		drawEngine_->transformUnit.Flush();
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
@@ -582,6 +588,8 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXBUFWIDTH5:
 	case GE_CMD_TEXBUFWIDTH6:
 	case GE_CMD_TEXBUFWIDTH7:
+		// TODO: Try not flushing here, unless overlap with framebuf/depthbuf?
+		drawEngine_->transformUnit.Flush();
 		break;
 
 	case GE_CMD_CLUTADDR:
@@ -590,6 +598,10 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_LOADCLUT:
 		{
+			// Might be copying drawing into the CLUT, so flush.
+			// TODO: It seems worth copying the CLUT to state...
+			drawEngine_->transformUnit.Flush();
+
 			u32 clutAddr = gstate.getClutAddress();
 			u32 clutTotalBytes = gstate.getClutLoadBytes();
 
@@ -620,6 +632,9 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_TRANSFERSTART:
 		{
+			// Let's finish any drawing before we transfer.
+			drawEngine_->transformUnit.Flush();
+
 			u32 srcBasePtr = gstate.getTransferSrcAddress();
 			u32 srcStride = gstate.getTransferSrcStride();
 
@@ -670,10 +685,14 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_ZBUFPTR:
+		// We assume depthbuf.data won't change while we're drawing.
+		drawEngine_->transformUnit.Flush();
 		depthbuf.data = Memory::GetPointer(gstate.getDepthBufAddress());
 		break;
 
 	case GE_CMD_ZBUFWIDTH:
+		// We assume depthbuf.data won't change while we're drawing.
+		drawEngine_->transformUnit.Flush();
 		depthbuf.data = Memory::GetPointer(gstate.getDepthBufAddress());
 		break;
 
@@ -865,6 +884,11 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 		GPUCommon::ExecuteOp(op, diff);
 		break;
 	}
+}
+
+void SoftGPU::FinishDeferred() {
+	// Need to flush before going back to CPU, so drawing is appropriately visible.
+	drawEngine_->transformUnit.Flush();
 }
 
 void SoftGPU::GetStats(char *buffer, size_t bufsize) {
