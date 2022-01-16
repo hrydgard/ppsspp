@@ -102,7 +102,16 @@ public:
 	static ViewCoords WorldToView(const WorldCoords& coords);
 	static ClipCoords ViewToClip(const ViewCoords& coords);
 	static ScreenCoords ClipToScreen(const ClipCoords& coords);
-	static DrawingCoords ScreenToDrawing(const ScreenCoords &coords);
+	static inline DrawingCoords ScreenToDrawing(int x, int y, int offsetX, int offsetY) {
+		DrawingCoords ret;
+		// When offset > coord, it correctly goes negative and force-scissors.
+		ret.x = (x - offsetX) / 16;
+		ret.y = (y - offsetY) / 16;
+		return ret;
+	}
+	static inline DrawingCoords ScreenToDrawing(const ScreenCoords &coords, int offsetX, int offsetY) {
+		return ScreenToDrawing(coords.x, coords.y, offsetX, offsetY);
+	}
 	static ScreenCoords DrawingToScreen(const DrawingCoords &coords, u16 z);
 
 	void SubmitPrimitive(void* vertices, void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine);

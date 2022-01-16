@@ -42,6 +42,8 @@ struct RasterizerState {
 	int texbufw[8]{};
 	u8 *texptr[8]{};
 	float textureLodSlope;
+	int screenOffsetX;
+	int screenOffsetY;
 
 	struct {
 		uint8_t maxTexLevel : 3;

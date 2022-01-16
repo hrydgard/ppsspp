@@ -140,6 +140,9 @@ void ComputeRasterizerState(RasterizerState *state) {
 	state->magFilt = gstate.isMagnifyFilteringEnabled();
 	state->antialiasLines = gstate.isAntiAliasEnabled();
 
+	state->screenOffsetX = gstate.getOffsetX16();
+	state->screenOffsetY = gstate.getOffsetY16();
+
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	DisplayList currentList{};
 	if (gpuDebug)
@@ -717,7 +720,7 @@ void DrawTriangleSlice(
 		Vec4<int> w1 = w1_base;
 		Vec4<int> w2 = w2_base;
 
-		DrawingCoords p = TransformUnit::ScreenToDrawing(ScreenCoords(minX, curY, 0));
+		DrawingCoords p = TransformUnit::ScreenToDrawing(minX, curY, state.screenOffsetX, state.screenOffsetY);
 
 		int64_t rowMinX = minX, rowMaxX = maxX;
 		e0.NarrowMinMaxX(w0, minX, rowMinX, rowMaxX);
@@ -844,8 +847,8 @@ void DrawTriangleSlice(
 
 #if !defined(SOFTGPU_MEMORY_TAGGING_DETAILED) && defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	for (int y = minY; y <= maxY; y += 16) {
-		DrawingCoords p = TransformUnit::ScreenToDrawing(ScreenCoords(minX, y, 0));
-		DrawingCoords pend = TransformUnit::ScreenToDrawing(ScreenCoords(maxX, y, 0));
+		DrawingCoords p = TransformUnit::ScreenToDrawing(minX, y, state.screenOffsetX, state.screenOffsetY);
+		DrawingCoords pend = TransformUnit::ScreenToDrawing(maxX, y, state.screenOffsetX, state.screenOffsetY);
 		uint32_t row = gstate.getFrameBufAddress() + p.y * pixelID.cached.framebufStride * bpp;
 		NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * bpp, (pend.x - p.x) * bpp, tag.c_str(), tag.size());
 
@@ -898,7 +901,7 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 	if (!pixelID.clearMode)
 		prim_color += Vec4<int>(sec_color, 0);
 
-	DrawingCoords p = TransformUnit::ScreenToDrawing(pos);
+	DrawingCoords p = TransformUnit::ScreenToDrawing(pos, state.screenOffsetX, state.screenOffsetY);
 	u16 z = pos.z;
 
 	u8 fog = 255;
@@ -925,8 +928,8 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 }
 
 void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
-	DrawingCoords pprime = TransformUnit::ScreenToDrawing(ScreenCoords(range.x1, range.y1, 0));
-	DrawingCoords pend = TransformUnit::ScreenToDrawing(ScreenCoords(range.x2, range.y2, 0));
+	DrawingCoords pprime = TransformUnit::ScreenToDrawing(range.x1, range.y1, state.screenOffsetX, state.screenOffsetY);
+	DrawingCoords pend = TransformUnit::ScreenToDrawing(range.x2, range.y2, state.screenOffsetX, state.screenOffsetY);
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
 
@@ -1190,8 +1193,8 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 				CalculateSamplingParams(ds, dt, state, texLevel, texLevelFrac, texBilinear);
 
 				if (state.antialiasLines) {
-					// TODO: This is a niave and wrong implementation.
-					DrawingCoords p0 = TransformUnit::ScreenToDrawing(ScreenCoords((int)x, (int)y, (int)z));
+					// TODO: This is a naive and wrong implementation.
+					DrawingCoords p0 = TransformUnit::ScreenToDrawing(x, y, state.screenOffsetX, state.screenOffsetY);
 					s = ((float)p0.x + xinc / 32.0f) / 512.0f;
 					t = ((float)p0.y + yinc / 32.0f) / 512.0f;
 
@@ -1205,10 +1208,8 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 			if (!pixelID.clearMode)
 				prim_color += Vec4<int>(sec_color, 0);
 
-			ScreenCoords pprime = ScreenCoords((int)x, (int)y, (int)z);
-
 			PROFILE_THIS_SCOPE("draw_px");
-			DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+			DrawingCoords p = TransformUnit::ScreenToDrawing(x, y, state.screenOffsetX, state.screenOffsetY);
 			state.drawPixel(p.x, p.y, z, fog, ToVec4IntArg(prim_color), pixelID);
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
