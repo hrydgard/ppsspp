@@ -105,8 +105,9 @@ public:
 private:
 	void ProcessItems() {
 		while (!items_.Empty()) {
-			const BinItem item = items_.Pop();
+			const BinItem &item = items_.PeekNext();
 			DrawBinItem(item, states_[item.stateIndex]);
+			items_.SkipNext();
 		}
 	}
 
@@ -261,12 +262,13 @@ void BinManager::Drain() {
 
 	if (taskRanges_.size() <= 1) {
 		while (!queue_.Empty()) {
-			const BinItem item = queue_.Pop();
+			const BinItem &item = queue_.PeekNext();
 			DrawBinItem(item, states_[item.stateIndex]);
+			queue_.SkipNext();
 		}
 	} else {
 		while (!queue_.Empty()) {
-			const BinItem item = queue_.Pop();
+			const BinItem &item = queue_.PeekNext();
 			for (int i = 0; i < (int)taskRanges_.size(); ++i) {
 				const BinCoords range = taskRanges_[i].Intersect(item.range);
 				if (range.Invalid())
@@ -276,10 +278,13 @@ void BinManager::Drain() {
 				if (taskQueues_[i].Full())
 					waitable_->Wait();
 
-				BinItem subitem = item;
-				subitem.range = range;
-				taskQueues_[i].Push(subitem);
+				BinItem &taskItem = taskQueues_[i].PeekPush();
+				taskItem = item;
+				taskItem.range = range;
+				taskQueues_[i].PushPeeked();
+
 			}
+			queue_.SkipNext();
 		}
 
 		for (int i = 0; i < (int)taskRanges_.size(); ++i) {
@@ -302,7 +307,7 @@ void BinManager::Flush() {
 
 	queue_.Reset();
 	while (states_.Size() > 1)
-		states_.Pop();
+		states_.SkipNext();
 
 	queueRange_.x1 = 0x7FFFFFFF;
 	queueRange_.y1 = 0x7FFFFFFF;
