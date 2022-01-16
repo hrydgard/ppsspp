@@ -32,6 +32,7 @@ typedef Vec3<float> ViewCoords;
 typedef Vec4<float> ClipCoords; // Range: -w <= x/y/z <= w
 
 struct SplinePatch;
+class BinManager;
 
 struct ScreenCoords
 {
@@ -117,9 +118,14 @@ public:
 	void SubmitPrimitive(void* vertices, void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine);
 
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
+
+	void Flush();
+
+private:
 	VertexData ReadVertex(VertexReader &vreader, bool &outside_range_flag);
 
-	u8 *decoded_;
+	u8 *decoded_ = nullptr;
+	BinManager *binner_ = nullptr;
 };
 
 class SoftwareDrawEngine : public DrawEngineCommon {

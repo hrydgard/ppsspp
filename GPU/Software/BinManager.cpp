@@ -124,6 +124,8 @@ BinManager::BinManager() {
 	queueRange_.y2 = 0;
 
 	waitable_ = new BinWaitable();
+	for (auto &s : taskStatus_)
+		s = false;
 }
 
 BinManager::~BinManager() {
