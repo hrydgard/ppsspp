@@ -229,105 +229,117 @@ static inline bool IsRightSideOrFlatBottomLine(const Vec2<int>& vertex, const Ve
 	}
 }
 
-static inline Vec3<int> GetSourceFactor(GEBlendSrcFactor factor, const Vec4<int> &source, const Vec4<int> &dst, uint32_t fix) {
+static inline Vec3<int> GetSourceFactor(PixelBlendFactor factor, const Vec4<int> &source, const Vec4<int> &dst, uint32_t fix) {
 	switch (factor) {
-	case GE_SRCBLEND_DSTCOLOR:
+	case PixelBlendFactor::OTHERCOLOR:
 		return dst.rgb();
 
-	case GE_SRCBLEND_INVDSTCOLOR:
+	case PixelBlendFactor::INVOTHERCOLOR:
 		return Vec3<int>::AssignToAll(255) - dst.rgb();
 
-	case GE_SRCBLEND_SRCALPHA:
+	case PixelBlendFactor::SRCALPHA:
 #if defined(_M_SSE)
 		return Vec3<int>(_mm_shuffle_epi32(source.ivec, _MM_SHUFFLE(3, 3, 3, 3)));
 #else
 		return Vec3<int>::AssignToAll(source.a());
 #endif
 
-	case GE_SRCBLEND_INVSRCALPHA:
+	case PixelBlendFactor::INVSRCALPHA:
 #if defined(_M_SSE)
 		return Vec3<int>(_mm_sub_epi32(_mm_set1_epi32(255), _mm_shuffle_epi32(source.ivec, _MM_SHUFFLE(3, 3, 3, 3))));
 #else
 		return Vec3<int>::AssignToAll(255 - source.a());
 #endif
 
-	case GE_SRCBLEND_DSTALPHA:
+	case PixelBlendFactor::DSTALPHA:
 		return Vec3<int>::AssignToAll(dst.a());
 
-	case GE_SRCBLEND_INVDSTALPHA:
+	case PixelBlendFactor::INVDSTALPHA:
 		return Vec3<int>::AssignToAll(255 - dst.a());
 
-	case GE_SRCBLEND_DOUBLESRCALPHA:
+	case PixelBlendFactor::DOUBLESRCALPHA:
 		return Vec3<int>::AssignToAll(2 * source.a());
 
-	case GE_SRCBLEND_DOUBLEINVSRCALPHA:
+	case PixelBlendFactor::DOUBLEINVSRCALPHA:
 		return Vec3<int>::AssignToAll(255 - std::min(2 * source.a(), 255));
 
-	case GE_SRCBLEND_DOUBLEDSTALPHA:
+	case PixelBlendFactor::DOUBLEDSTALPHA:
 		return Vec3<int>::AssignToAll(2 * dst.a());
 
-	case GE_SRCBLEND_DOUBLEINVDSTALPHA:
+	case PixelBlendFactor::DOUBLEINVDSTALPHA:
 		return Vec3<int>::AssignToAll(255 - std::min(2 * dst.a(), 255));
 
-	case GE_SRCBLEND_FIXA:
+	case PixelBlendFactor::FIX:
 	default:
 		// All other dest factors (> 10) are treated as FIXA.
 		return Vec3<int>::FromRGB(fix);
+
+	case PixelBlendFactor::ZERO:
+		return Vec3<int>::AssignToAll(0);
+
+	case PixelBlendFactor::ONE:
+		return Vec3<int>::AssignToAll(255);
 	}
 }
 
-static inline Vec3<int> GetDestFactor(GEBlendDstFactor factor, const Vec4<int> &source, const Vec4<int> &dst, uint32_t fix) {
+static inline Vec3<int> GetDestFactor(PixelBlendFactor factor, const Vec4<int> &source, const Vec4<int> &dst, uint32_t fix) {
 	switch (factor) {
-	case GE_DSTBLEND_SRCCOLOR:
+	case PixelBlendFactor::OTHERCOLOR:
 		return source.rgb();
 
-	case GE_DSTBLEND_INVSRCCOLOR:
+	case PixelBlendFactor::INVOTHERCOLOR:
 		return Vec3<int>::AssignToAll(255) - source.rgb();
 
-	case GE_DSTBLEND_SRCALPHA:
+	case PixelBlendFactor::SRCALPHA:
 #if defined(_M_SSE)
 		return Vec3<int>(_mm_shuffle_epi32(source.ivec, _MM_SHUFFLE(3, 3, 3, 3)));
 #else
 		return Vec3<int>::AssignToAll(source.a());
 #endif
 
-	case GE_DSTBLEND_INVSRCALPHA:
+	case PixelBlendFactor::INVSRCALPHA:
 #if defined(_M_SSE)
 		return Vec3<int>(_mm_sub_epi32(_mm_set1_epi32(255), _mm_shuffle_epi32(source.ivec, _MM_SHUFFLE(3, 3, 3, 3))));
 #else
 		return Vec3<int>::AssignToAll(255 - source.a());
 #endif
 
-	case GE_DSTBLEND_DSTALPHA:
+	case PixelBlendFactor::DSTALPHA:
 		return Vec3<int>::AssignToAll(dst.a());
 
-	case GE_DSTBLEND_INVDSTALPHA:
+	case PixelBlendFactor::INVDSTALPHA:
 		return Vec3<int>::AssignToAll(255 - dst.a());
 
-	case GE_DSTBLEND_DOUBLESRCALPHA:
+	case PixelBlendFactor::DOUBLESRCALPHA:
 		return Vec3<int>::AssignToAll(2 * source.a());
 
-	case GE_DSTBLEND_DOUBLEINVSRCALPHA:
+	case PixelBlendFactor::DOUBLEINVSRCALPHA:
 		return Vec3<int>::AssignToAll(255 - std::min(2 * source.a(), 255));
 
-	case GE_DSTBLEND_DOUBLEDSTALPHA:
+	case PixelBlendFactor::DOUBLEDSTALPHA:
 		return Vec3<int>::AssignToAll(2 * dst.a());
 
-	case GE_DSTBLEND_DOUBLEINVDSTALPHA:
+	case PixelBlendFactor::DOUBLEINVDSTALPHA:
 		return Vec3<int>::AssignToAll(255 - std::min(2 * dst.a(), 255));
 
-	case GE_DSTBLEND_FIXB:
+	case PixelBlendFactor::FIX:
 	default:
 		// All other dest factors (> 10) are treated as FIXB.
 		return Vec3<int>::FromRGB(fix);
+
+	case PixelBlendFactor::ZERO:
+		return Vec3<int>::AssignToAll(0);
+
+	case PixelBlendFactor::ONE:
+		return Vec3<int>::AssignToAll(255);
 	}
 }
 
 // Removed inline here - it was never chosen to be inlined by the compiler anyway, too complex.
 Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &source, const Vec4<int> &dst) {
 	// Note: These factors cannot go below 0, but they can go above 255 when doubling.
-	Vec3<int> srcfactor = GetSourceFactor(GEBlendSrcFactor(pixelID.AlphaBlendSrc()), source, dst, pixelID.cached.alphaBlendSrc);
-	Vec3<int> dstfactor = GetDestFactor(GEBlendDstFactor(pixelID.AlphaBlendDst()), source, dst, pixelID.cached.alphaBlendDst);
+	Vec3<int> srcfactor = GetSourceFactor(pixelID.AlphaBlendSrc(), source, dst, pixelID.cached.alphaBlendSrc);
+	Vec3<int> dstfactor = GetDestFactor(pixelID.AlphaBlendDst(), source, dst, pixelID.cached.alphaBlendDst);
 
 	switch (pixelID.AlphaBlendEq()) {
 	case GE_BLENDMODE_MUL_AND_ADD:
