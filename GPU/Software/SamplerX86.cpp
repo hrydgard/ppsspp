@@ -1649,19 +1649,19 @@ bool SamplerJitCache::Jit_ApplyTextureFunc(const SamplerID &id) {
 			// We divide later.
 		}
 
-		X64Reg gstateReg = GetGState();
+		X64Reg idReg = GetSamplerID();
 		X64Reg texEnvReg = regCache_.Alloc(RegCache::VEC_TEMP1);
 		if (cpu_info.bSSE4_1) {
-			PMOVZXBW(texEnvReg, MDisp(gstateReg, offsetof(GPUgstate, texenvcolor)));
+			PMOVZXBW(texEnvReg, MDisp(idReg, offsetof(SamplerID, cached.texBlendColor)));
 		} else {
-			MOVD_xmm(texEnvReg, MDisp(gstateReg, offsetof(GPUgstate, texenvcolor)));
+			MOVD_xmm(texEnvReg, MDisp(idReg, offsetof(SamplerID, cached.texBlendColor)));
 			X64Reg zeroReg = GetZeroVec();
 			PUNPCKLBW(texEnvReg, R(zeroReg));
 			regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
 		}
 		PMULLW(resultReg, R(texEnvReg));
 		regCache_.Release(texEnvReg, RegCache::VEC_TEMP1);
-		regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+		UnlockSamplerID(idReg);
 
 		// Add in the prim color side and divide.
 		PADDW(resultReg, R(tempReg));

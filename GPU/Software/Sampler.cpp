@@ -509,7 +509,7 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 	case GE_TEXFUNC_BLEND:
 	{
 		const Vec3<int> const255(255, 255, 255);
-		const Vec3<int> texenv(gstate.getTextureEnvColR(), gstate.getTextureEnvColG(), gstate.getTextureEnvColB());
+		const Vec3<int> texenv = Vec3<int>::FromRGB(samplerID.cached.texBlendColor);
 
 		// Unlike the others (and even alpha), this one simply always rounds up.
 		const Vec3<int> roundup = Vec3<int>::AssignToAll(255);

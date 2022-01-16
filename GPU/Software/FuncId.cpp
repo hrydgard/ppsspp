@@ -427,6 +427,9 @@ void ComputeSamplerID(SamplerID *id_out) {
 	if (id.texFunc > GE_TEXFUNC_ADD)
 		id.texFunc = GE_TEXFUNC_ADD;
 
+	if (id.texFunc == GE_TEXFUNC_BLEND)
+		id.cached.texBlendColor = gstate.getTextureEnvColRGB();
+
 	*id_out = id;
 }
 
