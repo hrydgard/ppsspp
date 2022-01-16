@@ -199,6 +199,8 @@ void ComputePixelFuncID(PixelFuncID *id) {
 	if (id->applyFog) {
 		id->cached.fogColor = gstate.fogcolor & 0x00FFFFFF;
 	}
+	if (id->applyLogicOp)
+		id->cached.logicOp = gstate.getLogicOp();
 	id->cached.minz = gstate.getDepthRangeMin();
 	id->cached.maxz = gstate.getDepthRangeMax();
 	id->cached.framebufStride = gstate.FrameBufStride();
