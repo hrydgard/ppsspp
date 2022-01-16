@@ -548,6 +548,10 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_SCISSOR1:
 	case GE_CMD_SCISSOR2:
+		for (int i = 0; i < 8; ++i) {
+			// TODO: Narrow down the risk range, for now assuming 512x512 max texture.
+			drawEngine_->transformUnit.FlushIfOverlap(gstate.getTextureAddress(i), 4 * 512 * 512);
+		}
 		break;
 
 	case GE_CMD_MINZ:
@@ -576,8 +580,8 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXADDR5:
 	case GE_CMD_TEXADDR6:
 	case GE_CMD_TEXADDR7:
-		// TODO: Try not flushing here, unless overlap with framebuf/depthbuf?
-		drawEngine_->transformUnit.Flush();
+		// TODO: Narrow down the risk range, for now assuming 512x512 max texture.
+		drawEngine_->transformUnit.FlushIfOverlap(gstate.getTextureAddress(cmd - GE_CMD_TEXADDR0), 4 * 512 * 512);
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
@@ -588,8 +592,8 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXBUFWIDTH5:
 	case GE_CMD_TEXBUFWIDTH6:
 	case GE_CMD_TEXBUFWIDTH7:
-		// TODO: Try not flushing here, unless overlap with framebuf/depthbuf?
-		drawEngine_->transformUnit.Flush();
+		// TODO: Narrow down the risk range, for now assuming 512x512 max texture.
+		drawEngine_->transformUnit.FlushIfOverlap(gstate.getTextureAddress(cmd - GE_CMD_TEXBUFWIDTH0), 4 * 512 * 512);
 		break;
 
 	case GE_CMD_CLUTADDR:
@@ -598,12 +602,11 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_LOADCLUT:
 		{
-			// Might be copying drawing into the CLUT, so flush.
-			// TODO: It seems worth copying the CLUT to state...
-			drawEngine_->transformUnit.Flush();
-
 			u32 clutAddr = gstate.getClutAddress();
 			u32 clutTotalBytes = gstate.getClutLoadBytes();
+
+			// Might be copying drawing into the CLUT, so flush.
+			drawEngine_->transformUnit.FlushIfOverlap(clutAddr, clutTotalBytes);
 
 			if (Memory::IsValidAddress(clutAddr)) {
 				u32 validSize = Memory::ValidSize(clutAddr, clutTotalBytes);

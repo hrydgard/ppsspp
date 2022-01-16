@@ -120,7 +120,8 @@ public:
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
 	void Flush();
-	void NotifyClutUpdate(void *src);
+	void FlushIfOverlap(uint32_t addr, uint32_t sz);
+	void NotifyClutUpdate(const void *src);
 
 private:
 	VertexData ReadVertex(VertexReader &vreader, bool &outside_range_flag);

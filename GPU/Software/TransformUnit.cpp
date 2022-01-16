@@ -613,7 +613,25 @@ void TransformUnit::Flush() {
 	GPUDebug::NotifyDraw();
 }
 
-void TransformUnit::NotifyClutUpdate(void *src) {
+void TransformUnit::FlushIfOverlap(uint32_t addr, uint32_t sz) {
+	if (!Memory::IsVRAMAddress(addr))
+		return;
+	addr &= 0x0FFFFFFF;
+
+	uint32_t targetHeight = gstate.getScissorY2() + 1;
+	uint32_t target = gstate.getFrameBufAddress() & 0x0FFFFFFF;
+	uint32_t targetStride = gstate.FrameBufStride() * (gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2);
+	uint32_t ztarget = gstate.getDepthBufAddress() & 0x0FFFFFFF;
+	uint32_t ztargetStride = gstate.DepthBufStride() * 2;
+
+	// TODO: Skip if the texture is between width and stride?
+	if (addr < target + targetHeight * targetStride && addr + sz >= target)
+		Flush();
+	else if (addr < ztarget + targetHeight * ztargetStride && addr + sz >= ztarget)
+		Flush();
+}
+
+void TransformUnit::NotifyClutUpdate(const void *src) {
 	binner_->UpdateClut(src);
 }
 

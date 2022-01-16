@@ -174,7 +174,7 @@ void BinManager::UpdateState() {
 	}
 }
 
-void BinManager::UpdateClut(void *src) {
+void BinManager::UpdateClut(const void *src) {
 	if (cluts_.Full())
 		Flush();
 	clutIndex_ = (int)cluts_.Push(BinClut());

@@ -153,7 +153,7 @@ public:
 	~BinManager();
 
 	void UpdateState();
-	void UpdateClut(void *src);
+	void UpdateClut(const void *src);
 
 	const Rasterizer::RasterizerState &State() {
 		return states_[stateIndex_];
