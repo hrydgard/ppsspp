@@ -35,8 +35,6 @@
 using namespace Math3D;
 using namespace Rasterizer;
 
-extern u32 clut[4096];
-
 namespace Sampler {
 
 static Vec4IntResult SOFTRAST_CALL SampleNearest(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int level, int levelFrac, const SamplerID &samplerID);
@@ -267,16 +265,16 @@ static inline u32 LookupColor(unsigned int index, unsigned int level, const Samp
 
 	switch (samplerID.ClutFmt()) {
 	case GE_CMODE_16BIT_BGR5650:
-		return RGB565ToRGBA8888(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
+		return RGB565ToRGBA8888(samplerID.cached.clut16[index + clutSharingOffset]);
 
 	case GE_CMODE_16BIT_ABGR5551:
-		return RGBA5551ToRGBA8888(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
+		return RGBA5551ToRGBA8888(samplerID.cached.clut16[index + clutSharingOffset]);
 
 	case GE_CMODE_16BIT_ABGR4444:
-		return RGBA4444ToRGBA8888(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
+		return RGBA4444ToRGBA8888(samplerID.cached.clut16[index + clutSharingOffset]);
 
 	case GE_CMODE_32BIT_ABGR8888:
-		return clut[index + clutSharingOffset];
+		return samplerID.cached.clut32[index + clutSharingOffset];
 
 	default:
 		ERROR_LOG_REPORT(G3D, "Software: Unsupported palette format: %x", samplerID.ClutFmt());

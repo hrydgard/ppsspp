@@ -86,7 +86,7 @@ static inline void DrawBinItem(const BinItem &item, const RasterizerState &state
 
 class DrawBinItemsTask : public Task {
 public:
-	DrawBinItemsTask(BinWaitable *notify, BinQueue<BinItem, 1024> &items, std::atomic<bool> &status, const BinQueue<RasterizerState, 32> &states)
+	DrawBinItemsTask(BinWaitable *notify, BinQueue<BinItem, 1024> &items, std::atomic<bool> &status, const BinQueue<RasterizerState, 64> &states)
 		: notify_(notify), items_(items), status_(status), states_(states) {
 	}
 
@@ -114,7 +114,7 @@ private:
 	BinWaitable *notify_;
 	BinQueue<BinItem, 1024> &items_;
 	std::atomic<bool> &status_;
-	const BinQueue<RasterizerState, 32> &states_;
+	const BinQueue<RasterizerState, 64> &states_;
 };
 
 BinManager::BinManager() {
@@ -137,6 +137,7 @@ void BinManager::UpdateState() {
 		Flush();
 	stateIndex_ = (int)states_.Push(RasterizerState());
 	ComputeRasterizerState(&states_[stateIndex_]);
+	states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
 
 	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1());
 	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2());
@@ -163,6 +164,13 @@ void BinManager::UpdateState() {
 		maxTasks_ = newMaxTasks;
 		tasksSplit_ = false;
 	}
+}
+
+void BinManager::UpdateClut(void *src) {
+	if (cluts_.Full())
+		Flush();
+	clutIndex_ = (int)cluts_.Push(BinClut());
+	memcpy(cluts_[clutIndex_].readable, src, sizeof(BinClut));
 }
 
 void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2) {
@@ -310,6 +318,8 @@ void BinManager::Flush() {
 	queue_.Reset();
 	while (states_.Size() > 1)
 		states_.SkipNext();
+	while (cluts_.Size() > 1)
+		cluts_.SkipNext();
 
 	queueRange_.x1 = 0x7FFFFFFF;
 	queueRange_.y1 = 0x7FFFFFFF;

@@ -617,6 +617,8 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 				DEBUG_LOG(G3D, "Software: Invalid CLUT address, filling with garbage instead of crashing");
 				memset(clut, 0x00, clutTotalBytes);
 			}
+
+			drawEngine_->transformUnit.NotifyClutUpdate(clut);
 		}
 		break;
 

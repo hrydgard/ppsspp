@@ -613,6 +613,10 @@ void TransformUnit::Flush() {
 	GPUDebug::NotifyDraw();
 }
 
+void TransformUnit::NotifyClutUpdate(void *src) {
+	binner_->UpdateClut(src);
+}
+
 // TODO: This probably is not the best interface.
 // Also, we should try to merge this into the similar function in DrawEngineCommon.
 bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {

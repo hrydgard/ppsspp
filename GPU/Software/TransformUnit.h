@@ -120,6 +120,7 @@ public:
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
 	void Flush();
+	void NotifyClutUpdate(void *src);
 
 private:
 	VertexData ReadVertex(VertexReader &vreader, bool &outside_range_flag);

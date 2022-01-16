@@ -143,12 +143,17 @@ struct BinQueue {
 	std::atomic<size_t> size_;
 };
 
+union BinClut {
+	uint8_t readable[1024];
+};
+
 class BinManager {
 public:
 	BinManager();
 	~BinManager();
 
 	void UpdateState();
+	void UpdateClut(void *src);
 
 	const Rasterizer::RasterizerState &State() {
 		return states_[stateIndex_];
@@ -166,8 +171,10 @@ public:
 private:
 	static constexpr int MAX_POSSIBLE_TASKS = 64;
 
-	BinQueue<Rasterizer::RasterizerState, 32> states_;
+	BinQueue<Rasterizer::RasterizerState, 64> states_;
 	int stateIndex_;
+	BinQueue<BinClut, 64> cluts_;
+	int clutIndex_;
 	BinCoords scissor_;
 	BinQueue<BinItem, 1024> queue_;
 	BinCoords queueRange_;
