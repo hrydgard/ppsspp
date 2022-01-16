@@ -689,7 +689,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXSIZE5:
 	case GE_CMD_TEXSIZE6:
 	case GE_CMD_TEXSIZE7:
-		drawEngine_->transformUnit.FlushIfOverlap("texbufw", gstate.getTextureAddress(cmd - GE_CMD_TEXSIZE0), 4 * gstate.getTextureWidth(cmd - GE_CMD_TEXSIZE0) * gstate.getTextureHeight(cmd - GE_CMD_TEXSIZE0));
+		drawEngine_->transformUnit.FlushIfOverlap("texsize", gstate.getTextureAddress(cmd - GE_CMD_TEXSIZE0), 4 * gstate.getTextureWidth(cmd - GE_CMD_TEXSIZE0) * gstate.getTextureHeight(cmd - GE_CMD_TEXSIZE0));
 		break;
 
 	case GE_CMD_ZBUFPTR:
