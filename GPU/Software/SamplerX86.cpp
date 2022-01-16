@@ -29,8 +29,6 @@
 using namespace Gen;
 using namespace Rasterizer;
 
-extern u32 clut[4096];
-
 namespace Sampler {
 
 FetchFunc SamplerJitCache::CompileFetch(const SamplerID &id) {
@@ -1253,8 +1251,10 @@ bool SamplerJitCache::Jit_ReadClutQuad(const SamplerID &id, bool level1) {
 		regCache_.Release(vecLevelReg, RegCache::VEC_TEMP0);
 	}
 
+	X64Reg idReg = GetSamplerID();
 	X64Reg clutBaseReg = regCache_.Alloc(RegCache::GEN_TEMP1);
-	MOV(PTRBITS, R(clutBaseReg), ImmPtr(clut));
+	MOV(PTRBITS, R(clutBaseReg), MDisp(idReg, offsetof(SamplerID, cached.clut)));
+	UnlockSamplerID(idReg);
 
 	X64Reg resultReg = regCache_.Find(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
 	X64Reg maskReg = regCache_.Alloc(RegCache::VEC_TEMP0);
@@ -3457,8 +3457,10 @@ bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
 		regCache_.Release(temp2Reg, RegCache::GEN_TEMP2);
 	}
 
+	X64Reg idReg = GetSamplerID();
 	X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
-	MOV(PTRBITS, R(temp1Reg), ImmPtr(clut));
+	MOV(PTRBITS, R(temp1Reg), MDisp(idReg, offsetof(SamplerID, cached.clut)));
+	UnlockSamplerID(idReg);
 
 	switch (id.ClutFmt()) {
 	case GE_CMODE_16BIT_BGR5650:

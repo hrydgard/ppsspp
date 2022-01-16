@@ -22,7 +22,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/Software/FuncId.h"
 
-static_assert(sizeof(SamplerID) == sizeof(SamplerID::fullKey) + sizeof(SamplerID::cached), "Bad sampler ID size");
+static_assert(sizeof(SamplerID) == sizeof(SamplerID::fullKey) + sizeof(SamplerID::cached) + sizeof(SamplerID::pad), "Bad sampler ID size");
 static_assert(sizeof(PixelFuncID) == sizeof(PixelFuncID::fullKey) + sizeof(PixelFuncID::cached), "Bad pixel func ID size");
 
 static inline GEComparison OptimizeRefByteCompare(GEComparison func, u8 ref) {

@@ -18,6 +18,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
+#include "Common/Profiler/Profiler.h"
 #include "Common/Thread/ThreadManager.h"
 #include "GPU/Software/BinManager.h"
 #include "GPU/Software/Rasterizer.h"
@@ -86,7 +87,7 @@ static inline void DrawBinItem(const BinItem &item, const RasterizerState &state
 
 class DrawBinItemsTask : public Task {
 public:
-	DrawBinItemsTask(BinWaitable *notify, BinQueue<BinItem, 1024> &items, std::atomic<bool> &status, const BinQueue<RasterizerState, 32> &states)
+	DrawBinItemsTask(BinWaitable *notify, BinQueue<BinItem, 1024> &items, std::atomic<bool> &status, const BinQueue<RasterizerState, 64> &states)
 		: notify_(notify), items_(items), status_(status), states_(states) {
 	}
 
@@ -114,7 +115,7 @@ private:
 	BinWaitable *notify_;
 	BinQueue<BinItem, 1024> &items_;
 	std::atomic<bool> &status_;
-	const BinQueue<RasterizerState, 32> &states_;
+	const BinQueue<RasterizerState, 64> &states_;
 };
 
 BinManager::BinManager() {
@@ -133,10 +134,12 @@ BinManager::~BinManager() {
 }
 
 void BinManager::UpdateState() {
+	PROFILE_THIS_SCOPE("bin_state");
 	if (states_.Full())
 		Flush();
 	stateIndex_ = (int)states_.Push(RasterizerState());
 	ComputeRasterizerState(&states_[stateIndex_]);
+	states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
 
 	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1());
 	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2());
@@ -159,10 +162,26 @@ void BinManager::UpdateState() {
 	int newMaxTasks = selfRender ? 1 : g_threadManager.GetNumLooperThreads();
 	if (newMaxTasks > MAX_POSSIBLE_TASKS)
 		newMaxTasks = MAX_POSSIBLE_TASKS;
+	// We don't want to overlap wrong, so flush any pending.
 	if (maxTasks_ != newMaxTasks) {
 		maxTasks_ = newMaxTasks;
-		tasksSplit_ = false;
+		Flush();
 	}
+
+	// Our bin sizes are based on offset, so if that changes we have to flush.
+	if (queueOffsetX_ != gstate.getOffsetX16() || queueOffsetY_ != gstate.getOffsetY16()) {
+		Flush();
+		queueOffsetX_ = gstate.getOffsetX16();
+		queueOffsetY_ = gstate.getOffsetY16();
+	}
+}
+
+void BinManager::UpdateClut(const void *src) {
+	PROFILE_THIS_SCOPE("bin_clut");
+	if (cluts_.Full())
+		Flush();
+	clutIndex_ = (int)cluts_.Push(BinClut());
+	memcpy(cluts_[clutIndex_].readable, src, sizeof(BinClut));
 }
 
 void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2) {
@@ -233,6 +252,8 @@ void BinManager::AddPoint(const VertexData &v0) {
 }
 
 void BinManager::Drain() {
+	PROFILE_THIS_SCOPE("bin_drain");
+
 	// If the waitable has fully drained, we can update our binning decisions.
 	if (!tasksSplit_ || waitable_->Empty()) {
 		int w2 = (queueRange_.x2 - queueRange_.x1 + 31) / 32;
@@ -263,6 +284,7 @@ void BinManager::Drain() {
 	}
 
 	if (taskRanges_.size() <= 1) {
+		PROFILE_THIS_SCOPE("bin_drain_single");
 		while (!queue_.Empty()) {
 			const BinItem &item = queue_.PeekNext();
 			DrawBinItem(item, states_[item.stateIndex]);
@@ -310,11 +332,15 @@ void BinManager::Flush() {
 	queue_.Reset();
 	while (states_.Size() > 1)
 		states_.SkipNext();
+	while (cluts_.Size() > 1)
+		cluts_.SkipNext();
 
 	queueRange_.x1 = 0x7FFFFFFF;
 	queueRange_.y1 = 0x7FFFFFFF;
 	queueRange_.x2 = 0;
 	queueRange_.y2 = 0;
+	queueOffsetX_ = -1;
+	queueOffsetY_ = -1;
 }
 
 inline BinCoords BinCoords::Intersect(const BinCoords &range) const {
