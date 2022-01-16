@@ -143,6 +143,13 @@ ScreenCoords TransformUnit::DrawingToScreen(const DrawingCoords &coords, u16 z) 
 	return ret;
 }
 
+enum class MatrixMode {
+	NONE = 0,
+	POS_TO_CLIP = 1,
+	POS_TO_VIEW = 2,
+	WORLD_TO_CLIP = 3,
+};
+
 struct TransformState {
 	Lighting::State lightingState;
 
@@ -150,6 +157,8 @@ struct TransformState {
 	float fogSlope;
 	uint16_t screenOffsetX;
 	uint16_t screenOffsetY;
+
+	float matrix[16];
 
 	struct {
 		bool enableTransform : 1;
@@ -159,6 +168,7 @@ struct TransformState {
 		bool readWeights : 1;
 		bool negateNormals : 1;
 		uint8_t uvGenMode : 2;
+		uint8_t matrixMode : 2;
 	};
 };
 
@@ -174,20 +184,55 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 	state->screenOffsetX = gstate.getOffsetX16();
 	state->screenOffsetY = gstate.getOffsetY16();
 
-	if (state->enableLighting)
-		Lighting::ComputeState(&state->lightingState, vreader.hasColor0());
-
 	if (state->enableFog) {
 		state->fogEnd = getFloat24(gstate.fog1);
 		state->fogSlope = getFloat24(gstate.fog2);
 		// Same fixup as in ShaderManagerGLES.cpp
 		if (my_isnanorinf(state->fogEnd)) {
-			// Not really sure what a sensible value might be, but let's try 64k.
-			state->fogEnd = std::signbit(state->fogEnd) ? -65535.0f : 65535.0f;
+			state->fogEnd = std::signbit(state->fogEnd) ? -INFINITY : INFINITY;
 		}
 		if (my_isnanorinf(state->fogSlope)) {
-			state->fogSlope = std::signbit(state->fogSlope) ? -65535.0f : 65535.0f;
+			state->fogSlope = std::signbit(state->fogSlope) ? -INFINITY : INFINITY;
 		}
+	}
+
+	bool canSkipWorldPos = true;
+	bool canSkipViewPos = !state->enableFog;
+	if (state->enableLighting) {
+		Lighting::ComputeState(&state->lightingState, vreader.hasColor0());
+		for (int i = 0; i < 4; ++i) {
+			if (!state->lightingState.lights[i].enabled)
+				continue;
+			if (!state->lightingState.lights[i].directional)
+				canSkipWorldPos = false;
+		}
+	}
+
+	float world[16];
+	float view[16];
+	if (canSkipWorldPos && canSkipViewPos) {
+		state->matrixMode = (uint8_t)MatrixMode::POS_TO_CLIP;
+
+		ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+		ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+
+		float worldview[16];
+		Matrix4ByMatrix4(worldview, world, view);
+		Matrix4ByMatrix4(state->matrix, worldview, gstate.projMatrix);
+	} else if (canSkipWorldPos) {
+		state->matrixMode = (uint8_t)MatrixMode::POS_TO_VIEW;
+
+		ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+		ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+
+		Matrix4ByMatrix4(state->matrix, world, view);
+	} else if (canSkipViewPos) {
+		state->matrixMode = (uint8_t)MatrixMode::WORLD_TO_CLIP;
+
+		ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+		Matrix4ByMatrix4(state->matrix, view, gstate.projMatrix);
+	} else {
+		state->matrixMode = (uint8_t)MatrixMode::NONE;
 	}
 }
 
@@ -233,19 +278,55 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState
 	}
 
 	if (vreader.hasColor0()) {
+#ifdef _M_SSE
+		vreader.ReadColor0_8888((u8 *)vertex.color0.AsArray());
+		vertex.color0.ivec = _mm_unpacklo_epi8(vertex.color0.ivec, _mm_setzero_si128());
+		vertex.color0.ivec = _mm_unpacklo_epi16(vertex.color0.ivec, _mm_setzero_si128());
+#else
 		float col[4];
 		vreader.ReadColor0(col);
 		vertex.color0 = Vec4<int>(col[0]*255, col[1]*255, col[2]*255, col[3]*255);
+#endif
 	} else {
 		vertex.color0 = Vec4<int>::FromRGBA(gstate.getMaterialAmbientRGBA());
 	}
 
+#ifdef _M_SSE
+	vertex.color1 = _mm_setzero_si128();
+#else
 	vertex.color1 = Vec3<int>(0, 0, 0);
+#endif
 
 	if (state.enableTransform) {
-		WorldCoords worldpos = WorldCoords(TransformUnit::ModelToWorld(pos));
-		ModelCoords viewpos = TransformUnit::WorldToView(worldpos);
-		vertex.clippos = ClipCoords(TransformUnit::ViewToClip(viewpos));
+		WorldCoords worldpos;
+		ModelCoords viewpos;
+
+		switch (MatrixMode(state.matrixMode)) {
+		case MatrixMode::NONE:
+			worldpos = TransformUnit::ModelToWorld(pos);
+			viewpos = TransformUnit::WorldToView(worldpos);
+			vertex.clippos = TransformUnit::ViewToClip(viewpos);
+			break;
+
+		case MatrixMode::POS_TO_CLIP:
+			vertex.clippos = Vec3ByMatrix44(pos, state.matrix);
+			break;
+
+		case MatrixMode::POS_TO_VIEW:
+#ifdef _M_SSE
+			viewpos = Vec3ByMatrix44(pos, state.matrix).vec;
+#else
+			viewpos = Vec3ByMatrix44(pos, state.matrix).rgb();
+#endif
+			vertex.clippos = TransformUnit::ViewToClip(viewpos);
+			break;
+
+		case MatrixMode::WORLD_TO_CLIP:
+			worldpos = TransformUnit::ModelToWorld(pos);
+			vertex.clippos = Vec3ByMatrix44(worldpos, state.matrix);
+			break;
+		}
+
 		if (state.enableFog) {
 			vertex.fogdepth = (viewpos.z + state.fogEnd) * state.fogSlope;
 		} else {
