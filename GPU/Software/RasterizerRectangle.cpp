@@ -87,14 +87,14 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
 
-	DrawingCoords pos0 = TransformUnit::ScreenToDrawing(v0.screenpos);
+	DrawingCoords pos0 = TransformUnit::ScreenToDrawing(v0.screenpos, state.screenOffsetX, state.screenOffsetY);
 	// Include the ending pixel based on its center, not start.
-	DrawingCoords pos1 = TransformUnit::ScreenToDrawing(v1.screenpos + ScreenCoords(7, 7, 0));
+	DrawingCoords pos1 = TransformUnit::ScreenToDrawing(v1.screenpos + ScreenCoords(7, 7, 0), state.screenOffsetX, state.screenOffsetY);
 
-	DrawingCoords scissorTL = TransformUnit::ScreenToDrawing(ScreenCoords(range.x1, range.y1, 0));
-	DrawingCoords scissorBR = TransformUnit::ScreenToDrawing(ScreenCoords(range.x2, range.y2, 0));
+	DrawingCoords scissorTL = TransformUnit::ScreenToDrawing(range.x1, range.y1, state.screenOffsetX, state.screenOffsetY);
+	DrawingCoords scissorBR = TransformUnit::ScreenToDrawing(range.x2, range.y2, state.screenOffsetX, state.screenOffsetY);
 
-	int z = pos0.z;
+	int z = v1.screenpos.z;
 	int fog = 255;
 
 	bool isWhite = v1.color0 == Vec4<int>(255, 255, 255, 255);
@@ -146,7 +146,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 					int s = s_start;
 					u16 *pixel = fb.Get16Ptr(pos0.x, y, pixelID.cached.framebufStride);
 					for (int x = pos0.x; x < pos1.x; x++) {
-						u32 tex_color = Vec4<int>(fetchFunc(s, t, texptr, texbufw, 0)).ToRGBA();
+						u32 tex_color = Vec4<int>(fetchFunc(s, t, texptr, texbufw, 0, state.samplerID)).ToRGBA();
 						if (tex_color & 0xFF000000) {
 							DrawSinglePixel5551(pixel, tex_color, pixelID);
 						}
@@ -162,7 +162,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 					u16 *pixel = fb.Get16Ptr(pos0.x, y, pixelID.cached.framebufStride);
 					for (int x = pos0.x; x < pos1.x; x++) {
 						Vec4<int> prim_color = v1.color0;
-						Vec4<int> tex_color = fetchFunc(s, t, texptr, texbufw, 0);
+						Vec4<int> tex_color = fetchFunc(s, t, texptr, texbufw, 0, state.samplerID);
 						prim_color = Vec4<int>(ModulateRGBA(ToVec4IntArg(prim_color), ToVec4IntArg(tex_color), state.samplerID));
 						if (prim_color.a() > 0) {
 							DrawSinglePixel5551(pixel, prim_color.ToRGBA(), pixelID);
@@ -187,7 +187,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 				float s = sf_start;
 				// Not really that fast but faster than triangle.
 				for (int x = pos0.x; x < pos1.x; x++) {
-					Vec4<int> prim_color = state.nearest(s, t, xoff, yoff, ToVec4IntArg(v1.color0), &texptr, &texbufw, 0, 0);
+					Vec4<int> prim_color = state.nearest(s, t, xoff, yoff, ToVec4IntArg(v1.color0), &texptr, &texbufw, 0, 0, state.samplerID);
 					state.drawPixel(x, y, z, 255, ToVec4IntArg(prim_color), pixelID);
 					s += dsf;
 				}

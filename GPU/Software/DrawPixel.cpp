@@ -460,7 +460,7 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 		const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
 		Vec3<int> blended = AlphaBlendingResult(pixelID, prim_color, dst);
 		if (pixelID.dithering) {
-			blended += Vec3<int>::AssignToAll(pixelID.cached.ditherMatrix[y * 4 + x]);
+			blended += Vec3<int>::AssignToAll(pixelID.cached.ditherMatrix[(y & 3) * 4 + (x & 3)]);
 		}
 
 		// ToRGB() always automatically clamps.
@@ -469,7 +469,7 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 	} else {
 		if (pixelID.dithering) {
 			// We'll discard alpha anyway.
-			prim_color += Vec4<int>::AssignToAll(pixelID.cached.ditherMatrix[y * 4 + x]);
+			prim_color += Vec4<int>::AssignToAll(pixelID.cached.ditherMatrix[(y & 3) * 4 + (x & 3)]);
 		}
 
 #if defined(_M_SSE)

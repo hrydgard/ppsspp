@@ -133,22 +133,11 @@ ScreenCoords TransformUnit::ClipToScreen(const ClipCoords& coords)
 	return ClipToScreenInternal(coords, nullptr);
 }
 
-DrawingCoords TransformUnit::ScreenToDrawing(const ScreenCoords& coords)
-{
-	DrawingCoords ret;
-	// TODO: What to do when offset > coord?
-	ret.x = ((s32)coords.x - gstate.getOffsetX16()) / 16;
-	ret.y = ((s32)coords.y - gstate.getOffsetY16()) / 16;
-	ret.z = coords.z;
-	return ret;
-}
-
-ScreenCoords TransformUnit::DrawingToScreen(const DrawingCoords& coords)
-{
+ScreenCoords TransformUnit::DrawingToScreen(const DrawingCoords &coords, u16 z) {
 	ScreenCoords ret;
 	ret.x = (u32)coords.x * 16 + gstate.getOffsetX16();
 	ret.y = (u32)coords.y * 16 + gstate.getOffsetY16();
-	ret.z = coords.z;
+	ret.z = z;
 	return ret;
 }
 
@@ -708,7 +697,7 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 			float clipPos[4];
 			Vec3ByMatrix44(clipPos, vert.pos.AsArray(), worldviewproj);
 			ScreenCoords screenPos = ClipToScreen(clipPos);
-			DrawingCoords drawPos = ScreenToDrawing(screenPos);
+			DrawingCoords drawPos = ScreenToDrawing(screenPos, gstate.getOffsetX16(), gstate.getOffsetY16());
 
 			if (gstate.vertType & GE_VTYPE_TC_MASK) {
 				vertices[i].u = vert.uv[0] * (float)gstate.getTextureWidth(0);
@@ -719,7 +708,7 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 			}
 			vertices[i].x = drawPos.x;
 			vertices[i].y = drawPos.y;
-			vertices[i].z = drawPos.z;
+			vertices[i].z = screenPos.z;
 		}
 
 		if (gstate.vertType & GE_VTYPE_COL_MASK) {

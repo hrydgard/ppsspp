@@ -127,6 +127,8 @@ void ComputeRasterizerState(RasterizerState *state) {
 			else
 				state->texptr[i] = nullptr;
 		}
+
+		state->textureLodSlope = gstate.getTextureLodSlope();
 	}
 
 	state->texLevelMode = gstate.getTexLevelMode();
@@ -137,6 +139,9 @@ void ComputeRasterizerState(RasterizerState *state) {
 	state->minFilt = gstate.isMinifyFilteringEnabled();
 	state->magFilt = gstate.isMagnifyFilteringEnabled();
 	state->antialiasLines = gstate.isAntiAliasEnabled();
+
+	state->screenOffsetX = gstate.getOffsetX16();
+	state->screenOffsetY = gstate.getOffsetY16();
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	DisplayList currentList{};
@@ -222,114 +227,6 @@ static inline bool IsRightSideOrFlatBottomLine(const Vec2<int>& vertex, const Ve
 		// check if vertex is on our left => right side
 		return vertex.x < line1.x + (line2.x - line1.x) * (vertex.y - line1.y) / (line2.y - line1.y);
 	}
-}
-
-Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, Vec4IntArg texcolor_in) {
-	const Vec4<int> prim_color = prim_color_in;
-	const Vec4<int> texcolor = texcolor_in;
-
-	Vec3<int> out_rgb;
-	int out_a;
-
-	bool rgba = gstate.isTextureAlphaUsed();
-
-	switch (gstate.getTextureFunction()) {
-	case GE_TEXFUNC_MODULATE:
-	{
-#if defined(_M_SSE)
-		// Modulate weights slightly on the tex color, by adding one to prim and dividing by 256.
-		const __m128i p = _mm_slli_epi16(_mm_packs_epi32(prim_color.ivec, prim_color.ivec), 4);
-		const __m128i pboost = _mm_add_epi16(p, _mm_set1_epi16(1 << 4));
-		__m128i t = _mm_slli_epi16(_mm_packs_epi32(texcolor.ivec, texcolor.ivec), 4);
-		if (gstate.isColorDoublingEnabled()) {
-			const __m128i amask = _mm_set_epi16(-1, 0, 0, 0, -1, 0, 0, 0);
-			const __m128i a = _mm_and_si128(t, amask);
-			const __m128i rgb = _mm_andnot_si128(amask, t);
-			t = _mm_or_si128(_mm_slli_epi16(rgb, 1), a);
-		}
-		const __m128i b = _mm_mulhi_epi16(pboost, t);
-		out_rgb.ivec = _mm_unpacklo_epi16(b, _mm_setzero_si128());
-
-		if (rgba) {
-			return ToVec4IntResult(Vec4<int>(out_rgb.ivec));
-		} else {
-			out_a = prim_color.a();
-		}
-#else
-		if (gstate.isColorDoublingEnabled()) {
-			out_rgb = ((prim_color.rgb() + Vec3<int>::AssignToAll(1)) * texcolor.rgb() * 2) / 256;
-		} else {
-			out_rgb = (prim_color.rgb() + Vec3<int>::AssignToAll(1)) * texcolor.rgb() / 256;
-		}
-		out_a = (rgba) ? ((prim_color.a() + 1) * texcolor.a() / 256) : prim_color.a();
-#endif
-		break;
-	}
-
-	case GE_TEXFUNC_DECAL:
-	{
-		if (rgba) {
-			int t = texcolor.a();
-			int invt = 255 - t;
-			// Both colors are boosted here, making the alpha have more weight.
-			Vec3<int> one = Vec3<int>::AssignToAll(1);
-			out_rgb = ((prim_color.rgb() + one) * invt + (texcolor.rgb() + one) * t);
-			// Keep the bits of accuracy when doubling.
-			if (gstate.isColorDoublingEnabled())
-				out_rgb /= 128;
-			else
-				out_rgb /= 256;
-		} else {
-			if (gstate.isColorDoublingEnabled())
-				out_rgb = texcolor.rgb() * 2;
-			else
-				out_rgb = texcolor.rgb();
-		}
-		out_a = prim_color.a();
-		break;
-	}
-
-	case GE_TEXFUNC_BLEND:
-	{
-		const Vec3<int> const255(255, 255, 255);
-		const Vec3<int> texenv(gstate.getTextureEnvColR(), gstate.getTextureEnvColG(), gstate.getTextureEnvColB());
-
-		// Unlike the others (and even alpha), this one simply always rounds up.
-		const Vec3<int> roundup = Vec3<int>::AssignToAll(255);
-		out_rgb = ((const255 - texcolor.rgb()) * prim_color.rgb() + texcolor.rgb() * texenv + roundup);
-		// Must divide by less to keep the precision for doubling to be accurate.
-		if (gstate.isColorDoublingEnabled())
-			out_rgb /= 128;
-		else
-			out_rgb /= 256;
-
-		out_a = (rgba) ? ((prim_color.a() + 1) * texcolor.a() / 256) : prim_color.a();
-		break;
-	}
-
-	case GE_TEXFUNC_REPLACE:
-		out_rgb = texcolor.rgb();
-		// Doubling even happens for replace.
-		if (gstate.isColorDoublingEnabled())
-			out_rgb *= 2;
-		out_a = (rgba) ? texcolor.a() : prim_color.a();
-		break;
-
-	case GE_TEXFUNC_ADD:
-	case GE_TEXFUNC_UNKNOWN1:
-	case GE_TEXFUNC_UNKNOWN2:
-	case GE_TEXFUNC_UNKNOWN3:
-		// Don't need to clamp afterward, we always clamp before tests.
-		out_rgb = prim_color.rgb() + texcolor.rgb();
-		if (gstate.isColorDoublingEnabled())
-			out_rgb *= 2;
-
-		// Alpha is still blended the common way.
-		out_a = (rgba) ? ((prim_color.a() + 1) * texcolor.a() / 256) : prim_color.a();
-		break;
-	}
-
-	return ToVec4IntResult(Vec4<int>(out_rgb, out_a));
 }
 
 static inline Vec3<int> GetSourceFactor(GEBlendSrcFactor factor, const Vec4<int> &source, const Vec4<int> &dst, uint32_t fix) {
@@ -525,9 +422,9 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(float s, float t, int x
 	const int *bufw0 = &state.texbufw[texlevel];
 
 	if (!bilinear) {
-		return state.nearest(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel);
+		return state.nearest(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel, state.samplerID);
 	}
-	return state.linear(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel);
+	return state.linear(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel, state.samplerID);
 }
 
 static inline Vec4IntResult SOFTRAST_CALL ApplyTexturingSingle(float s, float t, int x, int y, Vec4IntArg prim_color, int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
@@ -561,7 +458,7 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 		break;
 	case GE_TEXLEVEL_MODE_SLOPE:
 		// This is always offset by an extra texlevel.
-		detail = 1 * 16 + TexLog2(gstate.getTextureLodSlope());
+		detail = 1 * 16 + TexLog2(state.textureLodSlope);
 		break;
 	case GE_TEXLEVEL_MODE_CONST:
 	default:
@@ -823,7 +720,7 @@ void DrawTriangleSlice(
 		Vec4<int> w1 = w1_base;
 		Vec4<int> w2 = w2_base;
 
-		DrawingCoords p = TransformUnit::ScreenToDrawing(ScreenCoords(minX, curY, 0));
+		DrawingCoords p = TransformUnit::ScreenToDrawing(minX, curY, state.screenOffsetX, state.screenOffsetY);
 
 		int64_t rowMinX = minX, rowMaxX = maxX;
 		e0.NarrowMinMaxX(w0, minX, rowMinX, rowMaxX);
@@ -950,8 +847,8 @@ void DrawTriangleSlice(
 
 #if !defined(SOFTGPU_MEMORY_TAGGING_DETAILED) && defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	for (int y = minY; y <= maxY; y += 16) {
-		DrawingCoords p = TransformUnit::ScreenToDrawing(ScreenCoords(minX, y, 0));
-		DrawingCoords pend = TransformUnit::ScreenToDrawing(ScreenCoords(maxX, y, 0));
+		DrawingCoords p = TransformUnit::ScreenToDrawing(minX, y, state.screenOffsetX, state.screenOffsetY);
+		DrawingCoords pend = TransformUnit::ScreenToDrawing(maxX, y, state.screenOffsetX, state.screenOffsetY);
 		uint32_t row = gstate.getFrameBufAddress() + p.y * pixelID.cached.framebufStride * bpp;
 		NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * bpp, (pend.x - p.x) * bpp, tag.c_str(), tag.size());
 
@@ -1004,7 +901,7 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 	if (!pixelID.clearMode)
 		prim_color += Vec4<int>(sec_color, 0);
 
-	DrawingCoords p = TransformUnit::ScreenToDrawing(pos);
+	DrawingCoords p = TransformUnit::ScreenToDrawing(pos, state.screenOffsetX, state.screenOffsetY);
 	u16 z = pos.z;
 
 	u8 fog = 255;
@@ -1031,8 +928,8 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 }
 
 void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
-	DrawingCoords pprime = TransformUnit::ScreenToDrawing(ScreenCoords(range.x1, range.y1, 0));
-	DrawingCoords pend = TransformUnit::ScreenToDrawing(ScreenCoords(range.x2, range.y2, 0));
+	DrawingCoords pprime = TransformUnit::ScreenToDrawing(range.x1, range.y1, state.screenOffsetX, state.screenOffsetY);
+	DrawingCoords pend = TransformUnit::ScreenToDrawing(range.x2, range.y2, state.screenOffsetX, state.screenOffsetY);
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
 
@@ -1296,8 +1193,8 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 				CalculateSamplingParams(ds, dt, state, texLevel, texLevelFrac, texBilinear);
 
 				if (state.antialiasLines) {
-					// TODO: This is a niave and wrong implementation.
-					DrawingCoords p0 = TransformUnit::ScreenToDrawing(ScreenCoords((int)x, (int)y, (int)z));
+					// TODO: This is a naive and wrong implementation.
+					DrawingCoords p0 = TransformUnit::ScreenToDrawing(x, y, state.screenOffsetX, state.screenOffsetY);
 					s = ((float)p0.x + xinc / 32.0f) / 512.0f;
 					t = ((float)p0.y + yinc / 32.0f) / 512.0f;
 
@@ -1311,10 +1208,8 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 			if (!pixelID.clearMode)
 				prim_color += Vec4<int>(sec_color, 0);
 
-			ScreenCoords pprime = ScreenCoords((int)x, (int)y, (int)z);
-
 			PROFILE_THIS_SCOPE("draw_px");
-			DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+			DrawingCoords p = TransformUnit::ScreenToDrawing(x, y, state.screenOffsetX, state.screenOffsetY);
 			state.drawPixel(p.x, p.y, z, fog, ToVec4IntArg(prim_color), pixelID);
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
@@ -1376,7 +1271,7 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 	u32 *row = (u32 *)buffer.GetData();
 	for (int y = 0; y < h; ++y) {
 		for (int x = 0; x < w; ++x) {
-			row[x] = Vec4<int>(sampler(x, y, texptr, texbufw, level)).ToRGBA();
+			row[x] = Vec4<int>(sampler(x, y, texptr, texbufw, level, id)).ToRGBA();
 		}
 		row += w;
 	}

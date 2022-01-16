@@ -166,6 +166,15 @@ struct SamplerID {
 	SamplerID() : fullKey(0) {
 	}
 
+	struct {
+		struct {
+			uint16_t w;
+			uint16_t h;
+		} sizes[8];
+		uint32_t texBlendColor;
+		uint32_t clutFormat;
+	} cached;
+
 	union {
 		uint32_t fullKey;
 		struct {

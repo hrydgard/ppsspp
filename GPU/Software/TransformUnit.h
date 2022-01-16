@@ -60,26 +60,12 @@ struct ScreenCoords
 	}
 };
 
-struct DrawingCoords
-{
+struct DrawingCoords {
 	DrawingCoords() {}
-	DrawingCoords(s16 x, s16 y, u16 z) : x(x), y(y), z(z) {}
+	DrawingCoords(s16 x, s16 y) : x(x), y(y) {}
 
 	s16 x;
 	s16 y;
-	u16 z;
-
-	Vec2<s16> xy() const { return Vec2<s16>(x, y); }
-
-	DrawingCoords operator * (const float t) const
-	{
-		return DrawingCoords((s16)(x * t), (s16)(y * t), (u16)(z * t));
-	}
-
-	DrawingCoords operator + (const DrawingCoords& oth) const
-	{
-		return DrawingCoords(x + oth.x, y + oth.y, z + oth.z);
-	}
 };
 
 struct VertexData {
@@ -116,8 +102,17 @@ public:
 	static ViewCoords WorldToView(const WorldCoords& coords);
 	static ClipCoords ViewToClip(const ViewCoords& coords);
 	static ScreenCoords ClipToScreen(const ClipCoords& coords);
-	static DrawingCoords ScreenToDrawing(const ScreenCoords& coords);
-	static ScreenCoords DrawingToScreen(const DrawingCoords& coords);
+	static inline DrawingCoords ScreenToDrawing(int x, int y, int offsetX, int offsetY) {
+		DrawingCoords ret;
+		// When offset > coord, it correctly goes negative and force-scissors.
+		ret.x = (x - offsetX) / 16;
+		ret.y = (y - offsetY) / 16;
+		return ret;
+	}
+	static inline DrawingCoords ScreenToDrawing(const ScreenCoords &coords, int offsetX, int offsetY) {
+		return ScreenToDrawing(coords.x, coords.y, offsetX, offsetY);
+	}
+	static ScreenCoords DrawingToScreen(const DrawingCoords &coords, u16 z);
 
 	void SubmitPrimitive(void* vertices, void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine);
 

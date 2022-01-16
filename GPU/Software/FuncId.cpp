@@ -22,7 +22,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/Software/FuncId.h"
 
-static_assert(sizeof(SamplerID) == sizeof(SamplerID::fullKey), "Bad sampler ID size");
+static_assert(sizeof(SamplerID) == sizeof(SamplerID::fullKey) + sizeof(SamplerID::cached), "Bad sampler ID size");
 static_assert(sizeof(PixelFuncID) == sizeof(PixelFuncID::fullKey) + sizeof(PixelFuncID::cached), "Bad pixel func ID size");
 
 static inline GEComparison OptimizeRefByteCompare(GEComparison func, u8 ref) {
@@ -199,6 +199,8 @@ void ComputePixelFuncID(PixelFuncID *id) {
 	if (id->applyFog) {
 		id->cached.fogColor = gstate.fogcolor & 0x00FFFFFF;
 	}
+	if (id->applyLogicOp)
+		id->cached.logicOp = gstate.getLogicOp();
 	id->cached.minz = gstate.getDepthRangeMin();
 	id->cached.maxz = gstate.getDepthRangeMax();
 	id->cached.framebufStride = gstate.FrameBufStride();
@@ -399,6 +401,9 @@ void ComputeSamplerID(SamplerID *id_out) {
 		int bytes = h * (bufw * bitspp) / 8;
 		if (bitspp < 32 && !Memory::IsValidAddress(addr + bytes + (32 - bitspp) / 8))
 			id.overReadSafe = false;
+
+		id.cached.sizes[i].w = w;
+		id.cached.sizes[i].h = h;
 	}
 	id.hasAnyMips = maxLevel != 0;
 
@@ -411,6 +416,7 @@ void ComputeSamplerID(SamplerID *id_out) {
 		id.hasClutMask = gstate.getClutIndexMask() != 0xFF;
 		id.hasClutShift = gstate.getClutIndexShift() != 0;
 		id.hasClutOffset = gstate.getClutIndexStartPos() != 0;
+		id.cached.clutFormat = gstate.clutformat;
 	}
 
 	id.clampS = gstate.isTexCoordClampedS();
@@ -423,6 +429,9 @@ void ComputeSamplerID(SamplerID *id_out) {
 	id.texFunc = gstate.getTextureFunction();
 	if (id.texFunc > GE_TEXFUNC_ADD)
 		id.texFunc = GE_TEXFUNC_ADD;
+
+	if (id.texFunc == GE_TEXFUNC_BLEND)
+		id.cached.texBlendColor = gstate.getTextureEnvColRGB();
 
 	*id_out = id;
 }

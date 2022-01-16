@@ -39,9 +39,9 @@ extern u32 clut[4096];
 
 namespace Sampler {
 
-static Vec4IntResult SOFTRAST_CALL SampleNearest(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int level, int levelFrac);
-static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int level, int levelFrac);
-static Vec4IntResult SOFTRAST_CALL SampleFetch(int u, int v, const u8 *tptr, int bufw, int level);
+static Vec4IntResult SOFTRAST_CALL SampleNearest(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int level, int levelFrac, const SamplerID &samplerID);
+static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int level, int levelFrac, const SamplerID &samplerID);
+static Vec4IntResult SOFTRAST_CALL SampleFetch(int u, int v, const u8 *tptr, int bufw, int level, const SamplerID &samplerID);
 
 std::mutex jitCacheLock;
 SamplerJitCache *jitCache = nullptr;
@@ -242,10 +242,9 @@ FetchFunc SamplerJitCache::GetFetch(const SamplerID &id) {
 	return nullptr;
 }
 
-template <unsigned int texel_size_bits>
-static inline int GetPixelDataOffset(unsigned int row_pitch_pixels, unsigned int u, unsigned int v)
-{
-	if (!gstate.isTextureSwizzled())
+template <uint32_t texel_size_bits>
+static inline int GetPixelDataOffset(uint32_t row_pitch_pixels, uint32_t u, uint32_t v, bool swizzled) {
+	if (!swizzled)
 		return (v * (row_pitch_pixels * texel_size_bits >> 3)) + (u * texel_size_bits >> 3);
 
 	const int tile_size_bits = 32;
@@ -263,12 +262,10 @@ static inline int GetPixelDataOffset(unsigned int row_pitch_pixels, unsigned int
 	return tile_idx * (tile_size_bits / 8) + ((u % texels_per_tile) * texel_size_bits) / 8;
 }
 
-static inline u32 LookupColor(unsigned int index, unsigned int level)
-{
-	const bool mipmapShareClut = gstate.isClutSharedForMipmaps();
-	const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
+static inline u32 LookupColor(unsigned int index, unsigned int level, const SamplerID &samplerID) {
+	const int clutSharingOffset = samplerID.useSharedClut ? 0 : level * 16;
 
-	switch (gstate.getClutPaletteFormat()) {
+	switch (samplerID.ClutFmt()) {
 	case GE_CMODE_16BIT_BGR5650:
 		return RGB565ToRGBA8888(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
@@ -282,9 +279,22 @@ static inline u32 LookupColor(unsigned int index, unsigned int level)
 		return clut[index + clutSharingOffset];
 
 	default:
-		ERROR_LOG_REPORT(G3D, "Software: Unsupported palette format: %x", gstate.getClutPaletteFormat());
+		ERROR_LOG_REPORT(G3D, "Software: Unsupported palette format: %x", samplerID.ClutFmt());
 		return 0;
 	}
+}
+
+uint32_t TransformClutIndex(uint32_t index, const SamplerID &samplerID) {
+	if (samplerID.hasClutShift || samplerID.hasClutMask || samplerID.hasClutOffset) {
+		const uint8_t shift = (samplerID.cached.clutFormat >> 2) & 0x1F;
+		const uint8_t mask = (samplerID.cached.clutFormat >> 8) & 0xFF;
+		const uint16_t offset = ((samplerID.cached.clutFormat >> 16) & 0x1F) << 4;
+		// We need to wrap any entries beyond the first 1024 bytes.
+		const uint16_t offsetMask = samplerID.ClutFmt() == GE_CMODE_32BIT_ABGR8888 ? 0xFF : 0x1FF;
+
+		return ((index >> shift) & mask) | (offset & offsetMask);
+	}
+	return index & 0xFF;
 }
 
 struct Nearest4 {
@@ -296,76 +306,74 @@ struct Nearest4 {
 };
 
 template <int N>
-inline static Nearest4 SOFTRAST_CALL SampleNearest(const int u[N], const int v[N], const u8 *srcptr, int texbufw, int level) {
+inline static Nearest4 SOFTRAST_CALL SampleNearest(const int u[N], const int v[N], const u8 *srcptr, int texbufw, int level, const SamplerID &samplerID) {
 	Nearest4 res;
 	if (!srcptr) {
 		memset(res.v, 0, sizeof(res.v));
 		return res;
 	}
 
-	GETextureFormat texfmt = gstate.getTextureFormat();
-
 	// TODO: Should probably check if textures are aligned properly...
 
-	switch (texfmt) {
+	switch (samplerID.TexFmt()) {
 	case GE_TFMT_4444:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufw, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufw, u[i], v[i], samplerID.swizzle);
 			res.v[i] = RGBA4444ToRGBA8888(*(const u16 *)src);
 		}
 		return res;
 	
 	case GE_TFMT_5551:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufw, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufw, u[i], v[i], samplerID.swizzle);
 			res.v[i] = RGBA5551ToRGBA8888(*(const u16 *)src);
 		}
 		return res;
 
 	case GE_TFMT_5650:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufw, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufw, u[i], v[i], samplerID.swizzle);
 			res.v[i] = RGB565ToRGBA8888(*(const u16 *)src);
 		}
 		return res;
 
 	case GE_TFMT_8888:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufw, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufw, u[i], v[i], samplerID.swizzle);
 			res.v[i] = *(const u32 *)src;
 		}
 		return res;
 
 	case GE_TFMT_CLUT32:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufw, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufw, u[i], v[i], samplerID.swizzle);
 			u32 val = src[0] + (src[1] << 8) + (src[2] << 16) + (src[3] << 24);
-			res.v[i] = LookupColor(gstate.transformClutIndex(val), 0);
+			res.v[i] = LookupColor(TransformClutIndex(val, samplerID), 0, samplerID);
 		}
 		return res;
 
 	case GE_TFMT_CLUT16:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufw, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufw, u[i], v[i], samplerID.swizzle);
 			u16 val = src[0] + (src[1] << 8);
-			res.v[i] = LookupColor(gstate.transformClutIndex(val), 0);
+			res.v[i] = LookupColor(TransformClutIndex(val, samplerID), 0, samplerID);
 		}
 		return res;
 
 	case GE_TFMT_CLUT8:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<8>(texbufw, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<8>(texbufw, u[i], v[i], samplerID.swizzle);
 			u8 val = *src;
-			res.v[i] = LookupColor(gstate.transformClutIndex(val), 0);
+			res.v[i] = LookupColor(TransformClutIndex(val, samplerID), 0, samplerID);
 		}
 		return res;
 
 	case GE_TFMT_CLUT4:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<4>(texbufw, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<4>(texbufw, u[i], v[i], samplerID.swizzle);
 			u8 val = (u[i] & 1) ? (src[0] >> 4) : (src[0] & 0xF);
 			// Only CLUT4 uses separate mipmap palettes.
-			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
+			res.v[i] = LookupColor(TransformClutIndex(val, samplerID), level, samplerID);
 		}
 		return res;
 
@@ -391,7 +399,7 @@ inline static Nearest4 SOFTRAST_CALL SampleNearest(const int u[N], const int v[N
 		return res;
 
 	default:
-		ERROR_LOG_REPORT(G3D, "Software: Unsupported texture format: %x", texfmt);
+		ERROR_LOG_REPORT(G3D, "Software: Unsupported texture format: %x", samplerID.TexFmt());
 		memset(res.v, 0, sizeof(res.v));
 		return res;
 	}
@@ -410,8 +418,8 @@ static inline int WrapUV(int v, int height) {
 }
 
 template <int N>
-static inline void ApplyTexelClamp(int out_u[N], int out_v[N], const int u[N], const int v[N], int width, int height) {
-	if (gstate.isTexCoordClampedS()) {
+static inline void ApplyTexelClamp(int out_u[N], int out_v[N], const int u[N], const int v[N], int width, int height, const SamplerID &samplerID) {
+	if (samplerID.clampS) {
 		for (int i = 0; i < N; ++i) {
 			out_u[i] = ClampUV(u[i], width);
 		}
@@ -420,7 +428,7 @@ static inline void ApplyTexelClamp(int out_u[N], int out_v[N], const int u[N], c
 			out_u[i] = WrapUV(u[i], width);
 		}
 	}
-	if (gstate.isTexCoordClampedT()) {
+	if (samplerID.clampT) {
 		for (int i = 0; i < N; ++i) {
 			out_v[i] = ClampUV(v[i], height);
 		}
@@ -431,9 +439,9 @@ static inline void ApplyTexelClamp(int out_u[N], int out_v[N], const int u[N], c
 	}
 }
 
-static inline void GetTexelCoordinates(int level, float s, float t, int &out_u, int &out_v, int x, int y) {
-	int width = gstate.getTextureWidth(level);
-	int height = gstate.getTextureHeight(level);
+static inline void GetTexelCoordinates(int level, float s, float t, int &out_u, int &out_v, int x, int y, const SamplerID &samplerID) {
+	int width = samplerID.cached.sizes[level].w;
+	int height = samplerID.cached.sizes[level].h;
 
 	int base_u = (int)(s * width * 256.0f) + 12 - x;
 	int base_v = (int)(t * height * 256.0f) + 12 - y;
@@ -441,28 +449,134 @@ static inline void GetTexelCoordinates(int level, float s, float t, int &out_u, 
 	base_u >>= 8;
 	base_v >>= 8;
 
-	ApplyTexelClamp<1>(&out_u, &out_v, &base_u, &base_v, width, height);
+	ApplyTexelClamp<1>(&out_u, &out_v, &base_u, &base_v, width, height, samplerID);
 }
 
-static Vec4IntResult SOFTRAST_CALL SampleNearest(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int level, int levelFrac) {
+Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, Vec4IntArg texcolor_in, const SamplerID &samplerID) {
+	const Vec4<int> prim_color = prim_color_in;
+	const Vec4<int> texcolor = texcolor_in;
+
+	Vec3<int> out_rgb;
+	int out_a;
+
+	bool rgba = samplerID.useTextureAlpha;
+
+	switch (samplerID.TexFunc()) {
+	case GE_TEXFUNC_MODULATE:
+	{
+#if defined(_M_SSE)
+		// Modulate weights slightly on the tex color, by adding one to prim and dividing by 256.
+		const __m128i p = _mm_slli_epi16(_mm_packs_epi32(prim_color.ivec, prim_color.ivec), 4);
+		const __m128i pboost = _mm_add_epi16(p, _mm_set1_epi16(1 << 4));
+		__m128i t = _mm_slli_epi16(_mm_packs_epi32(texcolor.ivec, texcolor.ivec), 4);
+		if (samplerID.useColorDoubling) {
+			const __m128i amask = _mm_set_epi16(-1, 0, 0, 0, -1, 0, 0, 0);
+			const __m128i a = _mm_and_si128(t, amask);
+			const __m128i rgb = _mm_andnot_si128(amask, t);
+			t = _mm_or_si128(_mm_slli_epi16(rgb, 1), a);
+		}
+		const __m128i b = _mm_mulhi_epi16(pboost, t);
+		out_rgb.ivec = _mm_unpacklo_epi16(b, _mm_setzero_si128());
+
+		if (rgba) {
+			return ToVec4IntResult(Vec4<int>(out_rgb.ivec));
+		} else {
+			out_a = prim_color.a();
+		}
+#else
+		if (samplerID.useColorDoubling) {
+			out_rgb = ((prim_color.rgb() + Vec3<int>::AssignToAll(1)) * texcolor.rgb() * 2) / 256;
+		} else {
+			out_rgb = (prim_color.rgb() + Vec3<int>::AssignToAll(1)) * texcolor.rgb() / 256;
+		}
+		out_a = (rgba) ? ((prim_color.a() + 1) * texcolor.a() / 256) : prim_color.a();
+#endif
+		break;
+	}
+
+	case GE_TEXFUNC_DECAL:
+		if (rgba) {
+			int t = texcolor.a();
+			int invt = 255 - t;
+			// Both colors are boosted here, making the alpha have more weight.
+			Vec3<int> one = Vec3<int>::AssignToAll(1);
+			out_rgb = ((prim_color.rgb() + one) * invt + (texcolor.rgb() + one) * t);
+			// Keep the bits of accuracy when doubling.
+			if (samplerID.useColorDoubling)
+				out_rgb /= 128;
+			else
+				out_rgb /= 256;
+		} else {
+			if (samplerID.useColorDoubling)
+				out_rgb = texcolor.rgb() * 2;
+			else
+				out_rgb = texcolor.rgb();
+		}
+		out_a = prim_color.a();
+		break;
+
+	case GE_TEXFUNC_BLEND:
+	{
+		const Vec3<int> const255(255, 255, 255);
+		const Vec3<int> texenv = Vec3<int>::FromRGB(samplerID.cached.texBlendColor);
+
+		// Unlike the others (and even alpha), this one simply always rounds up.
+		const Vec3<int> roundup = Vec3<int>::AssignToAll(255);
+		out_rgb = ((const255 - texcolor.rgb()) * prim_color.rgb() + texcolor.rgb() * texenv + roundup);
+		// Must divide by less to keep the precision for doubling to be accurate.
+		if (samplerID.useColorDoubling)
+			out_rgb /= 128;
+		else
+			out_rgb /= 256;
+
+		out_a = (rgba) ? ((prim_color.a() + 1) * texcolor.a() / 256) : prim_color.a();
+		break;
+	}
+
+	case GE_TEXFUNC_REPLACE:
+		out_rgb = texcolor.rgb();
+		// Doubling even happens for replace.
+		if (samplerID.useColorDoubling)
+			out_rgb *= 2;
+		out_a = (rgba) ? texcolor.a() : prim_color.a();
+		break;
+
+	case GE_TEXFUNC_ADD:
+	case GE_TEXFUNC_UNKNOWN1:
+	case GE_TEXFUNC_UNKNOWN2:
+	case GE_TEXFUNC_UNKNOWN3:
+		// Don't need to clamp afterward, we always clamp before tests.
+		out_rgb = prim_color.rgb() + texcolor.rgb();
+		if (samplerID.useColorDoubling)
+			out_rgb *= 2;
+
+		// Alpha is still blended the common way.
+		out_a = (rgba) ? ((prim_color.a() + 1) * texcolor.a() / 256) : prim_color.a();
+		break;
+	}
+
+	return ToVec4IntResult(Vec4<int>(out_rgb, out_a));
+}
+
+static Vec4IntResult SOFTRAST_CALL SampleNearest(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int level, int levelFrac, const SamplerID &samplerID) {
 	int u, v;
 
 	// Nearest filtering only.  Round texcoords.
-	GetTexelCoordinates(level, s, t, u, v, x, y);
-	Vec4<int> c0 = Vec4<int>::FromRGBA(SampleNearest<1>(&u, &v, tptr[0], bufw[0], level).v[0]);
+	GetTexelCoordinates(level, s, t, u, v, x, y, samplerID);
+	Vec4<int> c0 = Vec4<int>::FromRGBA(SampleNearest<1>(&u, &v, tptr[0], bufw[0], level, samplerID).v[0]);
 
 	if (levelFrac) {
-		GetTexelCoordinates(level + 1, s, t, u, v, x, y);
-		Vec4<int> c1 = Vec4<int>::FromRGBA(SampleNearest<1>(&u, &v, tptr[1], bufw[1], level + 1).v[0]);
+		GetTexelCoordinates(level + 1, s, t, u, v, x, y, samplerID);
+		Vec4<int> c1 = Vec4<int>::FromRGBA(SampleNearest<1>(&u, &v, tptr[1], bufw[1], level + 1, samplerID).v[0]);
 
 		c0 = (c1 * levelFrac + c0 * (16 - levelFrac)) / 16;
 	}
 
-	return GetTextureFunctionOutput(prim_color, ToVec4IntArg(c0));
+	return GetTextureFunctionOutput(prim_color, ToVec4IntArg(c0), samplerID);
 }
 
-static Vec4IntResult SOFTRAST_CALL SampleFetch(int u, int v, const u8 *tptr, int bufw, int level) {
-	Nearest4 c = SampleNearest<1>(&u, &v, tptr, bufw, level);
+static Vec4IntResult SOFTRAST_CALL SampleFetch(int u, int v, const u8 *tptr, int bufw, int level, const SamplerID &samplerID) {
+	Nearest4 c = SampleNearest<1>(&u, &v, tptr, bufw, level, samplerID);
 	return ToVec4IntResult(Vec4<int>::FromRGBA(c.v[0]));
 }
 
@@ -518,33 +632,33 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuadT(bool clamp, int v
 #endif
 }
 
-static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadS(int level, float in_s, int &frac_u, int x) {
-	int width = gstate.getTextureWidth(level);
+static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadS(int level, float in_s, int &frac_u, int x, const SamplerID &samplerID) {
+	int width = samplerID.cached.sizes[level].w;
 
 	int base_u = (int)(in_s * width * 256) + 12 - x - 128;
 	frac_u = (int)(base_u >> 4) & 0x0F;
 	base_u >>= 8;
 
 	// Need to generate and individually wrap/clamp the four sample coordinates. Ugh.
-	return ApplyTexelClampQuadS(gstate.isTexCoordClampedS(), base_u, width);
+	return ApplyTexelClampQuadS(samplerID.clampS, base_u, width);
 }
 
-static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadT(int level, float in_t, int &frac_v, int y) {
-	int height = gstate.getTextureHeight(level);
+static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadT(int level, float in_t, int &frac_v, int y, const SamplerID &samplerID) {
+	int height = samplerID.cached.sizes[level].h;
 
 	int base_v = (int)(in_t * height * 256) + 12 - y - 128;
 	frac_v = (int)(base_v >> 4) & 0x0F;
 	base_v >>= 8;
 
 	// Need to generate and individually wrap/clamp the four sample coordinates. Ugh.
-	return ApplyTexelClampQuadT(gstate.isTexCoordClampedT(), base_v, height);
+	return ApplyTexelClampQuadT(samplerID.clampT, base_v, height);
 }
 
-static Vec4IntResult SOFTRAST_CALL SampleLinearLevel(float s, float t, int x, int y, const u8 *const *tptr, const int *bufw, int texlevel) {
+static Vec4IntResult SOFTRAST_CALL SampleLinearLevel(float s, float t, int x, int y, const u8 *const *tptr, const int *bufw, int texlevel, const SamplerID &samplerID) {
 	int frac_u, frac_v;
-	const Vec4<int> u = GetTexelCoordinatesQuadS(texlevel, s, frac_u, x);
-	const Vec4<int> v = GetTexelCoordinatesQuadT(texlevel, t, frac_v, y);
-	Nearest4 c = SampleNearest<4>(u.AsArray(), v.AsArray(), tptr[0], bufw[0], texlevel);
+	const Vec4<int> u = GetTexelCoordinatesQuadS(texlevel, s, frac_u, x, samplerID);
+	const Vec4<int> v = GetTexelCoordinatesQuadT(texlevel, t, frac_v, y, samplerID);
+	Nearest4 c = SampleNearest<4>(u.AsArray(), v.AsArray(), tptr[0], bufw[0], texlevel, samplerID);
 
 	Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(c.v[0]);
 	Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(c.v[1]);
@@ -555,13 +669,13 @@ static Vec4IntResult SOFTRAST_CALL SampleLinearLevel(float s, float t, int x, in
 	return ToVec4IntResult((top * (0x10 - frac_v) + bot * frac_v) / (16 * 16));
 }
 
-static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int texlevel, int levelFrac) {
-	Vec4<int> c0 = SampleLinearLevel(s, t, x, y, tptr, bufw, texlevel);
+static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, int x, int y, Vec4IntArg prim_color, const u8 *const *tptr, const int *bufw, int texlevel, int levelFrac, const SamplerID &samplerID) {
+	Vec4<int> c0 = SampleLinearLevel(s, t, x, y, tptr, bufw, texlevel, samplerID);
 	if (levelFrac) {
-		const Vec4<int> c1 = SampleLinearLevel(s, t, x, y, tptr + 1, bufw + 1, texlevel + 1);
+		const Vec4<int> c1 = SampleLinearLevel(s, t, x, y, tptr + 1, bufw + 1, texlevel + 1, samplerID);
 		c0 = (c1 * levelFrac + c0 * (16 - levelFrac)) / 16;
 	}
-	return GetTextureFunctionOutput(prim_color, ToVec4IntArg(c0));
+	return GetTextureFunctionOutput(prim_color, ToVec4IntArg(c0), samplerID);
 }
 
 };
