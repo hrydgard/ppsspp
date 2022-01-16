@@ -338,7 +338,7 @@ struct GPUgstate {
 	unsigned int getAmbientB() const { return (ambientcolor>>16)&0xFF; }
 	unsigned int getAmbientA() const { return ambientalpha&0xFF; }
 	unsigned int getAmbientRGBA() const { return (ambientcolor&0xFFFFFF) | ((ambientalpha&0xFF)<<24); }
-	unsigned int getMaterialUpdate() const { return materialupdate&0xFFFFFF; }
+	unsigned int getMaterialUpdate() const { return materialupdate & 7; }
 	unsigned int getMaterialAmbientR() const { return materialambient&0xFF; }
 	unsigned int getMaterialAmbientG() const { return (materialambient>>8)&0xFF; }
 	unsigned int getMaterialAmbientB() const { return (materialambient>>16)&0xFF; }
