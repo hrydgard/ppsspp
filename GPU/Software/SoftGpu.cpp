@@ -638,7 +638,6 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TRANSFERSTART:
 		{
 			// Let's finish any drawing before we transfer.
-			drawEngine_->transformUnit.Flush("blockxfer");
 
 			u32 srcBasePtr = gstate.getTransferSrcAddress();
 			u32 srcStride = gstate.getTransferSrcStride();
@@ -657,19 +656,25 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 
 			int bpp = gstate.getTransferBpp();
 
+			const uint32_t src = srcBasePtr + (srcY * srcStride + srcX) * bpp;
+			const uint32_t srcSize = height * srcStride * bpp;
+			const uint32_t dst = srcBasePtr + (srcY * srcStride + srcX) * bpp;
+			const uint32_t dstSize = height * dstStride * bpp;
+
+			drawEngine_->transformUnit.FlushIfOverlap("blockxfer", src, srcSize);
+			drawEngine_->transformUnit.FlushIfOverlap("blockxfer", dst, dstSize);
+
 			DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
 
 			for (int y = 0; y < height; y++) {
-				const u8 *src = Memory::GetPointer(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
-				u8 *dst = Memory::GetPointer(dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp);
-				memcpy(dst, src, width * bpp);
+				const u8 *srcp = Memory::GetPointer(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
+				u8 *dstp = Memory::GetPointer(dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp);
+				memcpy(dstp, srcp, width * bpp);
 			}
 
-			const uint32_t src = srcBasePtr + (srcY * srcStride + srcX) * bpp;
-			const uint32_t srcSize = height * srcStride * bpp;
 			const std::string tag = "GPUBlockTransfer/" + GetMemWriteTagAt(src, srcSize);
 			NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag.c_str(), tag.size());
-			NotifyMemInfo(MemBlockFlags::WRITE, dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, tag.c_str(), tag.size());
+			NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag.c_str(), tag.size());
 
 			// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
 			cyclesExecuted += ((height * width * bpp) * 16) / 10;
