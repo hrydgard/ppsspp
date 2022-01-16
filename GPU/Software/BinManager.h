@@ -89,6 +89,34 @@ struct BinQueue {
 		return item;
 	}
 
+	// Only safe if you're the only one reading.
+	T &PeekNext() {
+		_dbg_assert_(!Empty());
+		return items_[head_];
+	}
+
+	void SkipNext() {
+		_dbg_assert_(!Empty());
+		size_t i = head_++;
+		if (i + 1 == N)
+			head_ -= N;
+		size_--;
+	}
+
+	// Only safe if you're the only one writing.
+	T &PeekPush() {
+		_dbg_assert_(size_ < N);
+		return items_[tail_];
+	}
+
+	void PushPeeked() {
+		_dbg_assert_(size_ < N);
+		size_t i = tail_++;
+		if (i + 1 == N)
+			tail_ -= N;
+		size_++;
+	}
+
 	size_t Size() const {
 		return size_;
 	}
