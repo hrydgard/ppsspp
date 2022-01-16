@@ -414,6 +414,7 @@ void ComputeSamplerID(SamplerID *id_out) {
 		id.hasClutMask = gstate.getClutIndexMask() != 0xFF;
 		id.hasClutShift = gstate.getClutIndexShift() != 0;
 		id.hasClutOffset = gstate.getClutIndexStartPos() != 0;
+		id.cached.clutFormat = gstate.clutformat;
 	}
 
 	id.clampS = gstate.isTexCoordClampedS();

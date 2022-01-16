@@ -172,6 +172,7 @@ struct SamplerID {
 			uint16_t h;
 		} sizes[8];
 		uint32_t texBlendColor;
+		uint32_t clutFormat;
 	} cached;
 
 	union {

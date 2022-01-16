@@ -297,7 +297,6 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 		regCache_.Unlock(vReg, RegCache::GEN_ARG_V);
 		regCache_.ForceRetain(RegCache::GEN_ARG_V);
 
-		bool hadGState = regCache_.Has(RegCache::GEN_GSTATE);
 		bool hadId = regCache_.Has(RegCache::GEN_ID);
 		bool hadZero = regCache_.Has(RegCache::VEC_ZERO);
 		success = success && Jit_ReadTextureFormat(id);
@@ -314,8 +313,6 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 		regCache_.Unlock(resultReg, RegCache::GEN_RESULT);
 
 		// Since we're inside a conditional, make sure these go away if we allocated them.
-		if (!hadGState && regCache_.Has(RegCache::GEN_GSTATE))
-			regCache_.ForceRelease(RegCache::GEN_GSTATE);
 		if (!hadId && regCache_.Has(RegCache::GEN_ID))
 			regCache_.ForceRelease(RegCache::GEN_ID);
 		if (!hadZero && regCache_.Has(RegCache::VEC_ZERO))
@@ -951,15 +948,6 @@ RegCache::Reg SamplerJitCache::GetZeroVec() {
 	return regCache_.Find(RegCache::VEC_ZERO);
 }
 
-RegCache::Reg SamplerJitCache::GetGState() {
-	if (!regCache_.Has(RegCache::GEN_GSTATE)) {
-		X64Reg r = regCache_.Alloc(RegCache::GEN_GSTATE);
-		MOV(PTRBITS, R(r), ImmPtr(&gstate.nop));
-		return r;
-	}
-	return regCache_.Find(RegCache::GEN_GSTATE);
-}
-
 RegCache::Reg SamplerJitCache::GetSamplerID() {
 	if (regCache_.Has(RegCache::GEN_ARG_ID))
 		return regCache_.Find(RegCache::GEN_ARG_ID);
@@ -1162,14 +1150,14 @@ bool SamplerJitCache::Jit_TransformClutIndexQuad(const SamplerID &id, int bitsPe
 	X64Reg indexReg = regCache_.Find(RegCache::VEC_INDEX);
 	bool maskedIndex = false;
 
-	// Okay, first load the actual gstate clutformat bits we'll use.
+	// Okay, first load the actual samplerID clutformat bits we'll use.
 	X64Reg formatReg = regCache_.Alloc(RegCache::VEC_TEMP0);
-	X64Reg gstateReg = GetGState();
+	X64Reg idReg = GetSamplerID();
 	if (cpu_info.bAVX2 && !id.hasClutShift)
-		VPBROADCASTD(128, formatReg, MDisp(gstateReg, offsetof(GPUgstate, clutformat)));
+		VPBROADCASTD(128, formatReg, MDisp(idReg, offsetof(SamplerID, cached.clutFormat)));
 	else
-		MOVD_xmm(formatReg, MDisp(gstateReg, offsetof(GPUgstate, clutformat)));
-	regCache_.Unlock(gstateReg, RegCache::GEN_GSTATE);
+		MOVD_xmm(formatReg, MDisp(idReg, offsetof(SamplerID, cached.clutFormat)));
+	UnlockSamplerID(idReg);
 
 	// Shift = (clutformat >> 2) & 0x1F
 	if (id.hasClutShift) {
@@ -3392,8 +3380,9 @@ bool SamplerJitCache::Jit_TransformClutIndex(const SamplerID &id, int bitsPerInd
 	_assert_msg_(hasRCX, "Could not obtain RCX, locked?");
 
 	X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
-	MOV(PTRBITS, R(temp1Reg), ImmPtr(&gstate.clutformat));
-	MOV(32, R(temp1Reg), MatR(temp1Reg));
+	X64Reg idReg = GetSamplerID();
+	MOV(32, R(temp1Reg), MDisp(idReg, offsetof(SamplerID, cached.clutFormat)));
+	UnlockSamplerID(idReg);
 
 	X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
 

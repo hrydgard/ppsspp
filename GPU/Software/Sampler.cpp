@@ -285,7 +285,16 @@ static inline u32 LookupColor(unsigned int index, unsigned int level, const Samp
 }
 
 uint32_t TransformClutIndex(uint32_t index, const SamplerID &samplerID) {
-	return gstate.transformClutIndex(index);
+	if (samplerID.hasClutShift || samplerID.hasClutMask || samplerID.hasClutOffset) {
+		const uint8_t shift = (samplerID.cached.clutFormat >> 2) & 0x1F;
+		const uint8_t mask = (samplerID.cached.clutFormat >> 8) & 0xFF;
+		const uint16_t offset = ((samplerID.cached.clutFormat >> 16) & 0x1F) << 4;
+		// We need to wrap any entries beyond the first 1024 bytes.
+		const uint16_t offsetMask = samplerID.ClutFmt() == GE_CMODE_32BIT_ABGR8888 ? 0xFF : 0x1FF;
+
+		return ((index >> shift) & mask) | (offset & offsetMask);
+	}
+	return index & 0xFF;
 }
 
 struct Nearest4 {

@@ -67,7 +67,6 @@ private:
 	void Describe(const std::string &message);
 
 	Rasterizer::RegCache::Reg GetZeroVec();
-	Rasterizer::RegCache::Reg GetGState();
 	Rasterizer::RegCache::Reg GetSamplerID();
 	void UnlockSamplerID(Rasterizer::RegCache::Reg &r);
 
