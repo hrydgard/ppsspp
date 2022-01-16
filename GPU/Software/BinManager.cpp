@@ -129,6 +129,13 @@ BinManager::BinManager() {
 	waitable_ = new BinWaitable();
 	for (auto &s : taskStatus_)
 		s = false;
+
+	int maxInitTasks = std::min(g_threadManager.GetNumLooperThreads(), MAX_POSSIBLE_TASKS);
+	for (int i = 0; i < maxInitTasks; ++i)
+		taskQueues_[i].Setup();
+	states_.Setup();
+	cluts_.Setup();
+	queue_.Setup();
 }
 
 BinManager::~BinManager() {

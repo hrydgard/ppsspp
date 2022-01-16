@@ -58,11 +58,14 @@ struct BinItem {
 template <typename T, size_t N>
 struct BinQueue {
 	BinQueue() {
-		items_ = new T[N];
 		Reset();
 	}
 	~BinQueue() {
 		delete [] items_;
+	}
+
+	void Setup() {
+		items_ = new T[N];
 	}
 
 	void Reset() {
@@ -179,7 +182,7 @@ protected:
 	static constexpr int QUEUED_STATES = 4096;
 	// These are 1KB each, so half an MB.
 	static constexpr int QUEUED_CLUTS = 512;
-	// About 320 KB, but we have 64 of them, so 20 MB (most not likely active.)
+	// About 320 KB, but we have usually 16 or less of them, so 5 MB - 20 MB.
 	static constexpr int QUEUED_PRIMS = 1024;
 
 	typedef BinQueue<Rasterizer::RasterizerState, QUEUED_STATES> BinStateQueue;
