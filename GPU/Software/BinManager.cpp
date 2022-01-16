@@ -20,6 +20,8 @@
 #include <mutex>
 #include "Common/Profiler/Profiler.h"
 #include "Common/Thread/ThreadManager.h"
+#include "Common/TimeUtil.h"
+#include "Core/System.h"
 #include "GPU/Software/BinManager.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/RasterizerRectangle.h"
@@ -136,7 +138,7 @@ BinManager::~BinManager() {
 void BinManager::UpdateState() {
 	PROFILE_THIS_SCOPE("bin_state");
 	if (states_.Full())
-		Flush();
+		Flush("states");
 	stateIndex_ = (int)states_.Push(RasterizerState());
 	ComputeRasterizerState(&states_[stateIndex_]);
 	states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
@@ -165,12 +167,12 @@ void BinManager::UpdateState() {
 	// We don't want to overlap wrong, so flush any pending.
 	if (maxTasks_ != newMaxTasks) {
 		maxTasks_ = newMaxTasks;
-		Flush();
+		Flush("selfrender");
 	}
 
 	// Our bin sizes are based on offset, so if that changes we have to flush.
 	if (queueOffsetX_ != gstate.getOffsetX16() || queueOffsetY_ != gstate.getOffsetY16()) {
-		Flush();
+		Flush("offset");
 		queueOffsetX_ = gstate.getOffsetX16();
 		queueOffsetY_ = gstate.getOffsetY16();
 	}
@@ -179,7 +181,7 @@ void BinManager::UpdateState() {
 void BinManager::UpdateClut(const void *src) {
 	PROFILE_THIS_SCOPE("bin_clut");
 	if (cluts_.Full())
-		Flush();
+		Flush("cluts");
 	clutIndex_ = (int)cluts_.Push(BinClut());
 	memcpy(cluts_[clutIndex_].readable, src, sizeof(BinClut));
 }
@@ -323,7 +325,10 @@ void BinManager::Drain() {
 	}
 }
 
-void BinManager::Flush() {
+void BinManager::Flush(const char *reason) {
+	double st;
+	if (coreCollectDebugStats)
+		st = time_now_d();
 	Drain();
 	waitable_->Wait();
 	taskRanges_.clear();
@@ -341,6 +346,42 @@ void BinManager::Flush() {
 	queueRange_.y2 = 0;
 	queueOffsetX_ = -1;
 	queueOffsetY_ = -1;
+
+	if (coreCollectDebugStats) {
+		double et = time_now_d();
+		flushReasonTimes_[reason] += et - st;
+		if (et - st > slowestFlushTime_) {
+			slowestFlushTime_ = et - st;
+			slowestFlushReason_ = reason;
+		}
+	}
+}
+
+void BinManager::GetStats(char *buffer, size_t bufsize) {
+	double allTotal = 0.0;
+	double slowestTotalTime = 0.0;
+	const char *slowestTotalReason = nullptr;
+	for (auto &it : flushReasonTimes_) {
+		if (it.second > slowestTotalTime) {
+			slowestTotalTime = it.second;
+			slowestTotalReason = it.first;
+		}
+		allTotal += it.second;
+	}
+
+	snprintf(buffer, bufsize,
+		"Slowest individual flush: %s (%0.4f)\n"
+		"Slowest total flush: %s (%0.4f)\n"
+		"Total flush time: %0.4f\n",
+		slowestFlushReason_, slowestFlushTime_,
+		slowestTotalReason, slowestTotalTime,
+		allTotal);
+}
+
+void BinManager::ResetStats() {
+	flushReasonTimes_.clear();
+	slowestFlushReason_ = nullptr;
+	slowestFlushTime_ = 0.0;
 }
 
 inline BinCoords BinCoords::Intersect(const BinCoords &range) const {

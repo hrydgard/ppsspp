@@ -609,8 +609,14 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 }
 
 void TransformUnit::Flush(const char *reason) {
-	binner_->Flush();
+	binner_->Flush(reason);
 	GPUDebug::NotifyDraw();
+}
+
+void TransformUnit::GetStats(char *buffer, size_t bufsize) {
+	// TODO: More stats?
+	binner_->GetStats(buffer, bufsize);
+	binner_->ResetStats();
 }
 
 void TransformUnit::FlushIfOverlap(const char *reason, uint32_t addr, uint32_t sz) {

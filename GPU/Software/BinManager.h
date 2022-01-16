@@ -18,6 +18,7 @@
 #pragma once
 
 #include <atomic>
+#include <unordered_map>
 #include "Common/Log.h"
 #include "GPU/Software/Rasterizer.h"
 
@@ -166,7 +167,10 @@ public:
 	void AddPoint(const VertexData &v0);
 
 	void Drain();
-	void Flush();
+	void Flush(const char *reason);
+
+	void GetStats(char *buffer, size_t bufsize);
+	void ResetStats();
 
 private:
 	static constexpr int MAX_POSSIBLE_TASKS = 64;
@@ -187,6 +191,10 @@ private:
 	BinQueue<BinItem, 1024> taskQueues_[MAX_POSSIBLE_TASKS];
 	std::atomic<bool> taskStatus_[MAX_POSSIBLE_TASKS];
 	BinWaitable *waitable_ = nullptr;
+
+	std::unordered_map<const char *, double> flushReasonTimes_;
+	const char *slowestFlushReason_ = nullptr;
+	double slowestFlushTime_ = 0.0;
 
 	BinCoords Scissor(BinCoords range);
 	BinCoords Range(const VertexData &v0, const VertexData &v1, const VertexData &v2);

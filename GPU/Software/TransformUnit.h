@@ -123,6 +123,8 @@ public:
 	void FlushIfOverlap(const char *reason, uint32_t addr, uint32_t sz);
 	void NotifyClutUpdate(const void *src);
 
+	void GetStats(char *buffer, size_t bufsize);
+
 private:
 	VertexData ReadVertex(VertexReader &vreader, bool &outside_range_flag);
 
