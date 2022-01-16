@@ -549,8 +549,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_SCISSOR1:
 	case GE_CMD_SCISSOR2:
 		for (int i = 0; i < 8; ++i) {
-			// TODO: Narrow down the risk range, for now assuming 512x512 max texture.
-			drawEngine_->transformUnit.FlushIfOverlap("scissor", gstate.getTextureAddress(i), 4 * 512 * 512);
+			drawEngine_->transformUnit.FlushIfOverlap("scissor", gstate.getTextureAddress(i), 4 * gstate.getTextureWidth(i) * gstate.getTextureHeight(i));
 		}
 		break;
 
@@ -580,8 +579,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXADDR5:
 	case GE_CMD_TEXADDR6:
 	case GE_CMD_TEXADDR7:
-		// TODO: Narrow down the risk range, for now assuming 512x512 max texture.
-		drawEngine_->transformUnit.FlushIfOverlap("texaddr", gstate.getTextureAddress(cmd - GE_CMD_TEXADDR0), 4 * 512 * 512);
+		drawEngine_->transformUnit.FlushIfOverlap("texaddr", gstate.getTextureAddress(cmd - GE_CMD_TEXADDR0), 4 * gstate.getTextureWidth(cmd - GE_CMD_TEXADDR0) * gstate.getTextureHeight(cmd - GE_CMD_TEXADDR0));
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
@@ -592,8 +590,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXBUFWIDTH5:
 	case GE_CMD_TEXBUFWIDTH6:
 	case GE_CMD_TEXBUFWIDTH7:
-		// TODO: Narrow down the risk range, for now assuming 512x512 max texture.
-		drawEngine_->transformUnit.FlushIfOverlap("texbufw", gstate.getTextureAddress(cmd - GE_CMD_TEXBUFWIDTH0), 4 * 512 * 512);
+		drawEngine_->transformUnit.FlushIfOverlap("texbufw", gstate.getTextureAddress(cmd - GE_CMD_TEXBUFWIDTH0), 4 * gstate.getTextureWidth(cmd - GE_CMD_TEXBUFWIDTH0) * gstate.getTextureHeight(cmd - GE_CMD_TEXBUFWIDTH0));
 		break;
 
 	case GE_CMD_CLUTADDR:
@@ -692,6 +689,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXSIZE5:
 	case GE_CMD_TEXSIZE6:
 	case GE_CMD_TEXSIZE7:
+		drawEngine_->transformUnit.FlushIfOverlap("texbufw", gstate.getTextureAddress(cmd - GE_CMD_TEXSIZE0), 4 * gstate.getTextureWidth(cmd - GE_CMD_TEXSIZE0) * gstate.getTextureHeight(cmd - GE_CMD_TEXSIZE0));
 		break;
 
 	case GE_CMD_ZBUFPTR:
