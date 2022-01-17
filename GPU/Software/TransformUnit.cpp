@@ -89,9 +89,35 @@ ClipCoords TransformUnit::ViewToClip(const ViewCoords &coords) {
 	return Vec3ByMatrix44(coords, gstate.projMatrix);
 }
 
-static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool *outside_range_flag) {
+template <bool depthClamp, bool writeOutsideFlag>
+static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords, bool *outside_range_flag) {
 	ScreenCoords ret;
 
+	// Account for rounding for X and Y.
+	// TODO: Validate actual rounding range.
+	const float SCREEN_BOUND = 4095.0f + (15.5f / 16.0f);
+
+	// This matches hardware tests - depth is clamped when this flag is on.
+	if (depthClamp) {
+		// Note: if the depth is clipped (z/w <= -1.0), the outside_range_flag should NOT be set, even for x and y.
+		if (writeOutsideFlag && coords.z > -coords.w && (scaled.x >= SCREEN_BOUND || scaled.y >= SCREEN_BOUND || scaled.x < 0 || scaled.y < 0)) {
+			*outside_range_flag = true;
+		}
+
+		if (scaled.z < 0.f)
+			scaled.z = 0.f;
+		else if (scaled.z > 65535.0f)
+			scaled.z = 65535.0f;
+	} else if (writeOutsideFlag && (scaled.x > SCREEN_BOUND || scaled.y >= SCREEN_BOUND || scaled.x < 0 || scaled.y < 0)) {
+		*outside_range_flag = true;
+	}
+
+	// 16 = 0xFFFF / 4095.9375
+	// Round up at 0.625 to the nearest subpixel.
+	return ScreenCoords(scaled.x * 16.0f + 0.375f, scaled.y * 16.0f + 0.375f, scaled.z);
+}
+
+static inline ScreenCoords ClipToScreenInternal(const ClipCoords &coords, bool *outside_range_flag) {
 	// Parameters here can seem invalid, but the PSP is fine with negative viewport widths etc.
 	// The checking that OpenGL and D3D do is actually quite superflous as the calculations still "work"
 	// with some pretty crazy inputs, which PSP games are happy to do at times.
@@ -106,32 +132,17 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool *
 	float y = coords.y * yScale / coords.w + yCenter;
 	float z = coords.z * zScale / coords.w + zCenter;
 
-	// Account for rounding for X and Y.
-	// TODO: Validate actual rounding range.
-	const float SCREEN_BOUND = 4095.0f + (15.5f / 16.0f);
-
-	// This matches hardware tests - depth is clamped when this flag is on.
 	if (gstate.isDepthClampEnabled()) {
-		// Note: if the depth is clipped (z/w <= -1.0), the outside_range_flag should NOT be set, even for x and y.
-		if (outside_range_flag && coords.z > -coords.w && (x >= SCREEN_BOUND || y >= SCREEN_BOUND || x < 0 || y < 0)) {
-			*outside_range_flag = true;
-		}
-
-		if (z < 0.f)
-			z = 0.f;
-		else if (z > 65535.0f)
-			z = 65535.0f;
-	} else if (outside_range_flag && (x > SCREEN_BOUND || y >= SCREEN_BOUND || x < 0 || y < 0)) {
-		*outside_range_flag = true;
+		if (outside_range_flag)
+			return ClipToScreenInternal<true, true>(Vec3f(x, y, z), coords, outside_range_flag);
+		return ClipToScreenInternal<true, false>(Vec3f(x, y, z), coords, outside_range_flag);
 	}
-
-	// 16 = 0xFFFF / 4095.9375
-	// Round up at 0.625 to the nearest subpixel.
-	return ScreenCoords(x * 16.0f + 0.375f, y * 16.0f + 0.375f, z);
+	if (outside_range_flag)
+		return ClipToScreenInternal<false, true>(Vec3f(x, y, z), coords, outside_range_flag);
+	return ClipToScreenInternal<false, false>(Vec3f(x, y, z), coords, outside_range_flag);
 }
 
-ScreenCoords TransformUnit::ClipToScreen(const ClipCoords& coords)
-{
+ScreenCoords TransformUnit::ClipToScreen(const ClipCoords &coords) {
 	return ClipToScreenInternal(coords, nullptr);
 }
 
@@ -159,6 +170,10 @@ struct TransformState {
 	uint16_t screenOffsetY;
 
 	float matrix[16];
+	Vec3f screenScale;
+	Vec3f screenAdd;
+
+	ScreenCoords(*roundToScreen)(Vec3f scaled, const ClipCoords &coords, bool *outside_range_flag);
 
 	struct {
 		bool enableTransform : 1;
@@ -234,6 +249,13 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 	} else {
 		state->matrixMode = (uint8_t)MatrixMode::NONE;
 	}
+
+	state->screenScale = Vec3f(gstate.getViewportXScale(), gstate.getViewportYScale(), gstate.getViewportZScale());
+	state->screenAdd = Vec3f(gstate.getViewportXCenter(), gstate.getViewportYCenter(), gstate.getViewportZCenter());
+	if (gstate.isDepthClampEnabled())
+		state->roundToScreen = &ClipToScreenInternal<true, true>;
+	else
+		state->roundToScreen = &ClipToScreenInternal<false, true>;
 }
 
 VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState &state, bool &outside_range_flag) {
@@ -327,14 +349,23 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState
 			break;
 		}
 
+		Vec3f screenScaled;
+#ifdef _M_SSE
+		screenScaled.vec = _mm_mul_ps(vertex.clippos.vec, state.screenScale.vec);
+		screenScaled.vec = _mm_div_ps(screenScaled.vec, _mm_shuffle_ps(vertex.clippos.vec, vertex.clippos.vec, _MM_SHUFFLE(3, 3, 3, 3)));
+		screenScaled.vec = _mm_add_ps(screenScaled.vec, state.screenAdd.vec);
+#else
+		screenScaled = vertex.clippos.xyz() * state.screenScale / vertex.clippos.w + state.screenAdd;
+#endif
+		vertex.screenpos = state.roundToScreen(screenScaled, vertex.clippos, &outside_range_flag);
+		if (outside_range_flag)
+			return vertex;
+
 		if (state.enableFog) {
 			vertex.fogdepth = (viewpos.z + state.fogEnd) * state.fogSlope;
 		} else {
 			vertex.fogdepth = 1.0f;
 		}
-		vertex.screenpos = ClipToScreenInternal(vertex.clippos, &outside_range_flag);
-		if (outside_range_flag)
-			return vertex;
 
 		Vec3<float> worldnormal;
 		if (vreader.hasNormal()) {
