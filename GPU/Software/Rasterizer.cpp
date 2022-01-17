@@ -1277,6 +1277,8 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 
 	SamplerID id;
 	ComputeSamplerID(&id);
+	id.cached.clut = (const u8 *)clut;
+
 	Sampler::FetchFunc sampler = Sampler::GetFetchFunc(id);
 
 	u8 *texptr = Memory::GetPointer(texaddr);
