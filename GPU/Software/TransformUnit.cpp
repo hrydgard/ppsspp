@@ -143,7 +143,7 @@ ScreenCoords TransformUnit::DrawingToScreen(const DrawingCoords &coords, u16 z) 
 	return ret;
 }
 
-VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_flag) {
+VertexData TransformUnit::ReadVertex(VertexReader &vreader, const Lighting::State &lstate, bool &outside_range_flag) {
 	PROFILE_THIS_SCOPE("read_vert");
 	VertexData vertex;
 
@@ -265,7 +265,7 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, bool &outside_range_
 
 		PROFILE_THIS_SCOPE("light");
 		if (gstate.isLightingEnabled())
-			Lighting::Process(vertex, worldpos, worldnormal, vreader.hasColor0());
+			Lighting::Process(vertex, worldpos, worldnormal, lstate);
 	} else {
 		vertex.screenpos.x = (int)(pos[0] * 16) + gstate.getOffsetX16();
 		vertex.screenpos.y = (int)(pos[1] * 16) + gstate.getOffsetY16();
@@ -337,6 +337,10 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 
 	binner_->UpdateState();
 
+	Lighting::State lstate;
+	if (gstate.isLightingEnabled())
+		ComputeState(&lstate, vreader.hasColor0());
+
 	bool outside_range_flag = false;
 	switch (prim_type) {
 	case GE_PRIM_POINTS:
@@ -350,7 +354,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					vreader.Goto(vtx);
 				}
 
-				data[data_index++] = ReadVertex(vreader, outside_range_flag);
+				data[data_index++] = ReadVertex(vreader, lstate, outside_range_flag);
 				if (data_index < vtcs_per_prim) {
 					// Keep reading.  Note: an incomplete prim will stay read for GE_PRIM_KEEP_PREVIOUS.
 					continue;
@@ -401,7 +405,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				vreader.Goto(vtx);
 			}
 
-			data[data_index++] = ReadVertex(vreader, outside_range_flag);
+			data[data_index++] = ReadVertex(vreader, lstate, outside_range_flag);
 			if (outside_range_flag) {
 				outside_range_flag = false;
 				// Note: this is the post increment index.  If odd, we set the first vert.
@@ -447,7 +451,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					vreader.Goto(vtx);
 				}
 
-				data[(data_index++) & 1] = ReadVertex(vreader, outside_range_flag);
+				data[(data_index++) & 1] = ReadVertex(vreader, lstate, outside_range_flag);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;
@@ -480,7 +484,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					else {
 						vreader.Goto(vtx);
 					}
-					data[vtx] = ReadVertex(vreader, outside_range_flag);
+					data[vtx] = ReadVertex(vreader, lstate, outside_range_flag);
 				}
 
 				// If a strip is effectively a rectangle, draw it as such!
@@ -499,7 +503,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				int provoking_index = (data_index++) % 3;
-				data[provoking_index] = ReadVertex(vreader, outside_range_flag);
+				data[provoking_index] = ReadVertex(vreader, lstate, outside_range_flag);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;
@@ -540,7 +544,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				} else {
 					vreader.Goto(0);
 				}
-				data[0] = ReadVertex(vreader, outside_range_flag);
+				data[0] = ReadVertex(vreader, lstate, outside_range_flag);
 				data_index++;
 				start_vtx = 1;
 
@@ -556,7 +560,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					} else {
 						vreader.Goto(vtx);
 					}
-					data[vtx] = ReadVertex(vreader, outside_range_flag);
+					data[vtx] = ReadVertex(vreader, lstate, outside_range_flag);
 				}
 
 				int tl = -1, br = -1;
@@ -575,7 +579,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				int provoking_index = 2 - ((data_index++) % 2);
-				data[provoking_index] = ReadVertex(vreader, outside_range_flag);
+				data[provoking_index] = ReadVertex(vreader, lstate, outside_range_flag);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;

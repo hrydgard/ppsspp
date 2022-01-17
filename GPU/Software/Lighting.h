@@ -21,7 +21,51 @@
 
 namespace Lighting {
 
+struct State {
+	struct {
+		// Pre-normalized if directional.
+		Vec3f pos;
+		Vec3f att;
+		Vec3f spotDir;
+		float spotCutoff;
+		float spotExp;
+
+		Vec4<int> ambientColorFactor;
+		Vec4<int> diffuseColorFactor;
+		Vec4<int> specularColorFactor;
+
+		struct {
+			bool enabled : 1;
+			bool spot : 1;
+			bool directional : 1;
+			bool poweredDiffuse : 1;
+			bool ambient : 1;
+			bool diffuse : 1;
+			bool specular : 1;
+		};
+	} lights[4];
+
+	struct {
+		Vec4<int> ambientColorFactor;
+		Vec4<int> diffuseColorFactor;
+		Vec4<int> specularColorFactor;
+	} material;
+
+	Vec4<int> baseAmbientColorFactor;
+	float specularExp;
+
+	struct {
+		bool colorForAmbient : 1;
+		bool colorForDiffuse : 1;
+		bool colorForSpecular : 1;
+		bool setColor1 : 1;
+		bool addColor1 : 1;
+	};
+};
+
+void ComputeState(State *state, bool hasColor0);
+
 void GenerateLightST(VertexData &vertex, const WorldCoords &worldnormal);
-void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, bool hasColor);
+void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, const State &state);
 
 }
