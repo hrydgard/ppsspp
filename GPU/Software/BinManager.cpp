@@ -183,6 +183,11 @@ void BinManager::UpdateState() {
 		queueOffsetX_ = gstate.getOffsetX16();
 		queueOffsetY_ = gstate.getOffsetY16();
 	}
+
+	if (lastFlipstats_ != gpuStats.numFlips) {
+		lastFlipstats_ = gpuStats.numFlips;
+		ResetStats();
+	}
 }
 
 void BinManager::UpdateClut(const void *src) {
@@ -320,15 +325,22 @@ void BinManager::Drain() {
 			queue_.SkipNext();
 		}
 
+		int threads = 0;
 		for (int i = 0; i < (int)taskRanges_.size(); ++i) {
-			if (taskQueues_[i].Empty() || taskStatus_[i])
+			if (taskQueues_[i].Empty())
+				continue;
+			threads++;
+			if (taskStatus_[i])
 				continue;
 
 			waitable_->Fill();
 			taskStatus_[i] = true;
 			DrawBinItemsTask *task = new DrawBinItemsTask(waitable_, taskQueues_[i], taskStatus_[i], states_);
 			g_threadManager.EnqueueTaskOnThread(i, task, true);
+			enqueues_++;
 		}
+
+		mostThreads_ = std::max(mostThreads_, threads);
 	}
 }
 
@@ -392,13 +404,13 @@ void BinManager::GetStats(char *buffer, size_t bufsize) {
 		"Slowest individual flush: %s (%0.4f)\n"
 		"Slowest frame flush: %s (%0.4f)\n"
 		"Slowest recent flush: %s (%0.4f)\n"
-		"Total flush time: %0.4f (%05.2f%%, last 2: %05.2f%%)\n",
+		"Total flush time: %0.4f (%05.2f%%, last 2: %05.2f%%)\n"
+		"Thread enqueues: %d, count %d",
 		slowestFlushReason_, slowestFlushTime_,
 		slowestTotalReason, slowestTotalTime,
 		slowestRecentReason, slowestRecentTime,
-		allTotal, allTotal * (6000.0 / 1.001), recentTotal * (3000.0 / 1.001));
-
-	constexpr int foo = sizeof(BinItem);
+		allTotal, allTotal * (6000.0 / 1.001), recentTotal * (3000.0 / 1.001),
+		enqueues_, mostThreads_);
 }
 
 void BinManager::ResetStats() {
@@ -406,6 +418,8 @@ void BinManager::ResetStats() {
 	flushReasonTimes_.clear();
 	slowestFlushReason_ = nullptr;
 	slowestFlushTime_ = 0.0;
+	enqueues_ = 0;
+	mostThreads_ = 0;
 }
 
 inline BinCoords BinCoords::Intersect(const BinCoords &range) const {
@@ -454,7 +468,7 @@ void BinManager::Expand(const BinCoords &range) {
 	queueRange_.x2 = std::max(queueRange_.x2, range.x2);
 	queueRange_.y2 = std::max(queueRange_.y2, range.y2);
 
-	if (maxTasks_ == 1 || queueRange_.y2 - queueRange_.y1 >= 224 * 16) {
+	if (maxTasks_ == 1 || (queueRange_.y2 - queueRange_.y1 >= 224 * 16 && enqueues_ < 36 * maxTasks_)) {
 		Drain();
 	}
 }

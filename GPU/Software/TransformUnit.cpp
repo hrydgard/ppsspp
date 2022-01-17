@@ -620,7 +620,6 @@ void TransformUnit::Flush(const char *reason) {
 void TransformUnit::GetStats(char *buffer, size_t bufsize) {
 	// TODO: More stats?
 	binner_->GetStats(buffer, bufsize);
-	binner_->ResetStats();
 }
 
 void TransformUnit::FlushIfOverlap(const char *reason, uint32_t addr, uint32_t sz) {
