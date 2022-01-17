@@ -41,13 +41,16 @@ static inline float pspLightPow(float v, float e) {
 	return v;
 }
 
-static inline Vec4<int> LightColorFactor(uint32_t c, const Vec4<int> &ones) {
+static inline Vec4<int> LightColorFactor(const Vec4<int> &expanded, const Vec4<int> &ones) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	Vec4<int> expanded = Vec4<int>::FromRGBA(c);
 	return _mm_add_epi32(_mm_slli_epi32(expanded.ivec, 1), ones.ivec);
 #else
-	return Vec4<int>::FromRGBA(c) * 2 + ones;
+	return expanded * 2 + ones;
 #endif
+}
+
+static inline Vec4<int> LightColorFactor(uint32_t c, const Vec4<int> &ones) {
+	return LightColorFactor(Vec4<int>::FromRGBA(c), ones);
 }
 
 static inline bool IsLargerThanHalf(const Vec4<int> &v) {
@@ -121,7 +124,7 @@ void ComputeState(State *state, bool hasColor0) {
 	state->colorForSpecular = (materialupdate & 4) != 0;
 
 	if (!state->colorForAmbient) {
-		state->material.ambientColorFactor = Vec4<int>::FromRGBA(gstate.getMaterialAmbientRGBA()) * 2 + ones;
+		state->material.ambientColorFactor = LightColorFactor(gstate.getMaterialAmbientRGBA(), ones);
 		if (state->material.ambientColorFactor == ones && anyAmbient) {
 			for (int i = 0; i < 4; ++i)
 				state->lights[i].ambient = false;
@@ -129,7 +132,7 @@ void ComputeState(State *state, bool hasColor0) {
 	}
 
 	if (anyDiffuse && !state->colorForDiffuse) {
-		state->material.diffuseColorFactor = Vec4<int>::FromRGBA(gstate.getMaterialDiffuse()) * 2 + ones;
+		state->material.diffuseColorFactor = LightColorFactor(gstate.getMaterialDiffuse(), ones);
 		if (state->material.diffuseColorFactor == ones) {
 			anyDiffuse = false;
 			for (int i = 0; i < 4; ++i)
@@ -138,7 +141,7 @@ void ComputeState(State *state, bool hasColor0) {
 	}
 
 	if (anySpecular && !state->colorForSpecular) {
-		state->material.specularColorFactor = Vec4<int>::FromRGBA(gstate.getMaterialSpecular()) * 2 + ones;
+		state->material.specularColorFactor = LightColorFactor(gstate.getMaterialSpecular(), ones);
 		if (state->material.specularColorFactor == ones) {
 			anySpecular = false;
 			for (int i = 0; i < 4; ++i)
@@ -180,7 +183,7 @@ void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords 
 	const Vec4<int> ones = Vec4<int>::AssignToAll(1);
 	Vec4<int> colorFactor;
 	if (state.colorForAmbient || state.colorForDiffuse || state.colorForSpecular)
-		colorFactor = vertex.color0 * 2 + ones;
+		colorFactor = LightColorFactor(vertex.color0, ones);
 
 	Vec4<int> mec = Vec4<int>::FromRGBA(gstate.getMaterialEmissive());
 
