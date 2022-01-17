@@ -313,7 +313,24 @@ void ProcessTriangleInternal(VertexData &v0, VertexData &v1, VertexData &v2, con
 		return;
 	}
 
-	enum { NUM_CLIPPED_VERTICES = 33, NUM_INDICES = NUM_CLIPPED_VERTICES + 3 };
+	int mask = 0;
+	mask |= CalcClipMask(v0.clippos);
+	mask |= CalcClipMask(v1.clippos);
+	mask |= CalcClipMask(v2.clippos);
+
+	// No clipping is common, let's skip processing if we can.
+	if ((mask & CLIP_NEG_Z_BIT) == 0 || fromRectangle) {
+		if (gstate.getShadeMode() == GE_SHADE_FLAT) {
+			// So that the order of clipping doesn't matter...
+			v2.color0 = provoking.color0;
+			v2.color1 = provoking.color1;
+		}
+
+		binner.AddTriangle(v0, v1, v2);
+		return;
+	}
+
+	enum { NUM_CLIPPED_VERTICES = 3, NUM_INDICES = NUM_CLIPPED_VERTICES + 3 };
 
 	VertexData* Vertices[NUM_INDICES];
 	VertexData ClippedVertices[NUM_CLIPPED_VERTICES];
@@ -325,77 +342,70 @@ void ProcessTriangleInternal(VertexData &v0, VertexData &v1, VertexData &v2, con
 	Vertices[1] = &v1;
 	Vertices[2] = &v2;
 
-	int indices[NUM_INDICES] = { 0, 1, 2, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG,
-									SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG,
-									SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG };
+	int indices[NUM_INDICES] = { 0, 1, 2, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG };
 	int numIndices = 3;
-
-	int mask = 0;
-	mask |= CalcClipMask(v0.clippos);
-	mask |= CalcClipMask(v1.clippos);
-	mask |= CalcClipMask(v2.clippos);
 	bool clipped = false;
 
-	if (mask && !fromRectangle) {
-		// We may discard the entire triangle based on depth values.  First check what's outside.
-		int outsidePos = 0, outsideNeg = 0;
-		for (int i = 0; i < 3; ++i) {
-			CheckOutsideZ(Vertices[i]->clippos, outsidePos, outsideNeg);
-		}
+	// We may discard the entire triangle based on depth values.  First check what's outside.
+	int outsidePos = 0, outsideNeg = 0;
+	for (int i = 0; i < 3; ++i) {
+		CheckOutsideZ(Vertices[i]->clippos, outsidePos, outsideNeg);
+	}
 
-		// With depth clamp off, we discard the triangle if even one vert is outside.
-		if (outsidePos + outsideNeg > 0 && !gstate.isDepthClampEnabled())
-			return;
-		// With it on, all three must be outside in the same direction.
-		else if (outsidePos >= 3 || outsideNeg >= 3)
-			return;
+	// With depth clamp off, we discard the triangle if even one vert is outside.
+	if (outsidePos + outsideNeg > 0 && !gstate.isDepthClampEnabled())
+		return;
+	// With it on, all three must be outside in the same direction.
+	else if (outsidePos >= 3 || outsideNeg >= 3)
+		return;
 
-		for (int i = 0; i < 3; i += 3) {
-			int vlist[2][2*6+1];
-			int *inlist = vlist[0], *outlist = vlist[1];
-			int n = 3;
-			int numVertices = 3;
+	for (int i = 0; i < 3; i += 3) {
+		int vlist[2][2*6+1];
+		int *inlist = vlist[0], *outlist = vlist[1];
+		int n = 3;
+		int numVertices = 3;
 
-			inlist[0] = 0;
-			inlist[1] = 1;
-			inlist[2] = 2;
+		inlist[0] = 0;
+		inlist[1] = 1;
+		inlist[2] = 2;
 
-			// mark this triangle as unused in case it should be completely clipped
-			indices[0] = SKIP_FLAG;
-			indices[1] = SKIP_FLAG;
-			indices[2] = SKIP_FLAG;
+		// mark this triangle as unused in case it should be completely clipped
+		indices[0] = SKIP_FLAG;
+		indices[1] = SKIP_FLAG;
+		indices[2] = SKIP_FLAG;
 
-			// The PSP only clips on negative Z (importantly, regardless of viewport.)
-			POLY_CLIP(CLIP_NEG_Z_BIT, 0, 0, 1, 1);
+		// The PSP only clips on negative Z (importantly, regardless of viewport.)
+		POLY_CLIP(CLIP_NEG_Z_BIT, 0, 0, 1, 1);
 
-			// transform the poly in inlist into triangles
-			indices[0] = inlist[0];
-			indices[1] = inlist[1];
-			indices[2] = inlist[2];
-			for (int j = 3; j < n; ++j) {
-				indices[numIndices++] = inlist[0];
-				indices[numIndices++] = inlist[j - 1];
-				indices[numIndices++] = inlist[j];
-			}
+		// transform the poly in inlist into triangles
+		indices[0] = inlist[0];
+		indices[1] = inlist[1];
+		indices[2] = inlist[2];
+		for (int j = 3; j < n; ++j) {
+			indices[numIndices++] = inlist[0];
+			indices[numIndices++] = inlist[j - 1];
+			indices[numIndices++] = inlist[j];
 		}
 	}
 
 	for (int i = 0; i + 3 <= numIndices; i += 3) {
 		if (indices[i] != SKIP_FLAG) {
-			VertexData data[3] = { *Vertices[indices[i]], *Vertices[indices[i+1]], *Vertices[indices[i+2]] };
+			VertexData &subv0 = *Vertices[indices[i + 0]];
+			VertexData &subv1 = *Vertices[indices[i + 1]];
+			VertexData &subv2 = *Vertices[indices[i + 2]];
 			if (clipped) {
-				data[0].screenpos = TransformUnit::ClipToScreen(data[0].clippos);
-				data[1].screenpos = TransformUnit::ClipToScreen(data[1].clippos);
-				data[2].screenpos = TransformUnit::ClipToScreen(data[2].clippos);
+				subv0.screenpos = TransformUnit::ClipToScreen(subv0.clippos);
+				subv1.screenpos = TransformUnit::ClipToScreen(subv1.clippos);
+				subv2.screenpos = TransformUnit::ClipToScreen(subv2.clippos);
 			}
 
 			if (gstate.getShadeMode() == GE_SHADE_FLAT) {
 				// So that the order of clipping doesn't matter...
-				data[2].color0 = provoking.color0;
-				data[2].color1 = provoking.color1;
+				subv2.color0 = provoking.color0;
+				subv2.color1 = provoking.color1;
 			}
 
-			binner.AddTriangle(data[0], data[1], data[2]);
+			binner.AddTriangle(subv0, subv1, subv2);
 		}
 	}
 }
