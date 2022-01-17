@@ -89,9 +89,35 @@ ClipCoords TransformUnit::ViewToClip(const ViewCoords &coords) {
 	return Vec3ByMatrix44(coords, gstate.projMatrix);
 }
 
-static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool *outside_range_flag) {
+template <bool depthClamp, bool writeOutsideFlag>
+static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords, bool *outside_range_flag) {
 	ScreenCoords ret;
 
+	// Account for rounding for X and Y.
+	// TODO: Validate actual rounding range.
+	const float SCREEN_BOUND = 4095.0f + (15.5f / 16.0f);
+
+	// This matches hardware tests - depth is clamped when this flag is on.
+	if (depthClamp) {
+		// Note: if the depth is clipped (z/w <= -1.0), the outside_range_flag should NOT be set, even for x and y.
+		if (writeOutsideFlag && coords.z > -coords.w && (scaled.x >= SCREEN_BOUND || scaled.y >= SCREEN_BOUND || scaled.x < 0 || scaled.y < 0)) {
+			*outside_range_flag = true;
+		}
+
+		if (scaled.z < 0.f)
+			scaled.z = 0.f;
+		else if (scaled.z > 65535.0f)
+			scaled.z = 65535.0f;
+	} else if (writeOutsideFlag && (scaled.x > SCREEN_BOUND || scaled.y >= SCREEN_BOUND || scaled.x < 0 || scaled.y < 0)) {
+		*outside_range_flag = true;
+	}
+
+	// 16 = 0xFFFF / 4095.9375
+	// Round up at 0.625 to the nearest subpixel.
+	return ScreenCoords(scaled.x * 16.0f + 0.375f, scaled.y * 16.0f + 0.375f, scaled.z);
+}
+
+static inline ScreenCoords ClipToScreenInternal(const ClipCoords &coords, bool *outside_range_flag) {
 	// Parameters here can seem invalid, but the PSP is fine with negative viewport widths etc.
 	// The checking that OpenGL and D3D do is actually quite superflous as the calculations still "work"
 	// with some pretty crazy inputs, which PSP games are happy to do at times.
@@ -106,32 +132,17 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool *
 	float y = coords.y * yScale / coords.w + yCenter;
 	float z = coords.z * zScale / coords.w + zCenter;
 
-	// Account for rounding for X and Y.
-	// TODO: Validate actual rounding range.
-	const float SCREEN_BOUND = 4095.0f + (15.5f / 16.0f);
-
-	// This matches hardware tests - depth is clamped when this flag is on.
 	if (gstate.isDepthClampEnabled()) {
-		// Note: if the depth is clipped (z/w <= -1.0), the outside_range_flag should NOT be set, even for x and y.
-		if (outside_range_flag && coords.z > -coords.w && (x >= SCREEN_BOUND || y >= SCREEN_BOUND || x < 0 || y < 0)) {
-			*outside_range_flag = true;
-		}
-
-		if (z < 0.f)
-			z = 0.f;
-		else if (z > 65535.0f)
-			z = 65535.0f;
-	} else if (outside_range_flag && (x > SCREEN_BOUND || y >= SCREEN_BOUND || x < 0 || y < 0)) {
-		*outside_range_flag = true;
+		if (outside_range_flag)
+			return ClipToScreenInternal<true, true>(Vec3f(x, y, z), coords, outside_range_flag);
+		return ClipToScreenInternal<true, false>(Vec3f(x, y, z), coords, outside_range_flag);
 	}
-
-	// 16 = 0xFFFF / 4095.9375
-	// Round up at 0.625 to the nearest subpixel.
-	return ScreenCoords(x * 16.0f + 0.375f, y * 16.0f + 0.375f, z);
+	if (outside_range_flag)
+		return ClipToScreenInternal<false, true>(Vec3f(x, y, z), coords, outside_range_flag);
+	return ClipToScreenInternal<false, false>(Vec3f(x, y, z), coords, outside_range_flag);
 }
 
-ScreenCoords TransformUnit::ClipToScreen(const ClipCoords& coords)
-{
+ScreenCoords TransformUnit::ClipToScreen(const ClipCoords &coords) {
 	return ClipToScreenInternal(coords, nullptr);
 }
 
@@ -143,7 +154,111 @@ ScreenCoords TransformUnit::DrawingToScreen(const DrawingCoords &coords, u16 z) 
 	return ret;
 }
 
-VertexData TransformUnit::ReadVertex(VertexReader &vreader, const Lighting::State &lstate, bool &outside_range_flag) {
+enum class MatrixMode {
+	NONE = 0,
+	POS_TO_CLIP = 1,
+	POS_TO_VIEW = 2,
+	WORLD_TO_CLIP = 3,
+};
+
+struct TransformState {
+	Lighting::State lightingState;
+
+	float fogEnd;
+	float fogSlope;
+	uint16_t screenOffsetX;
+	uint16_t screenOffsetY;
+
+	float matrix[16];
+	Vec3f screenScale;
+	Vec3f screenAdd;
+
+	ScreenCoords(*roundToScreen)(Vec3f scaled, const ClipCoords &coords, bool *outside_range_flag);
+
+	struct {
+		bool enableTransform : 1;
+		bool enableLighting : 1;
+		bool enableFog : 1;
+		bool readUV : 1;
+		bool readWeights : 1;
+		bool negateNormals : 1;
+		uint8_t uvGenMode : 2;
+		uint8_t matrixMode : 2;
+	};
+};
+
+void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
+	state->enableTransform = !gstate.isModeThrough();
+	state->enableLighting = gstate.isLightingEnabled();
+	state->enableFog = gstate.isFogEnabled();
+	state->readUV = !gstate.isModeClear() && gstate.isTextureMapEnabled() && vreader.hasUV();
+	state->readWeights = vertTypeIsSkinningEnabled(gstate.vertType) && !gstate.isModeThrough();
+	state->negateNormals = gstate.areNormalsReversed();
+
+	state->uvGenMode = gstate.getUVGenMode();
+	state->screenOffsetX = gstate.getOffsetX16();
+	state->screenOffsetY = gstate.getOffsetY16();
+
+	if (state->enableFog) {
+		state->fogEnd = getFloat24(gstate.fog1);
+		state->fogSlope = getFloat24(gstate.fog2);
+		// Same fixup as in ShaderManagerGLES.cpp
+		if (my_isnanorinf(state->fogEnd)) {
+			state->fogEnd = std::signbit(state->fogEnd) ? -INFINITY : INFINITY;
+		}
+		if (my_isnanorinf(state->fogSlope)) {
+			state->fogSlope = std::signbit(state->fogSlope) ? -INFINITY : INFINITY;
+		}
+	}
+
+	bool canSkipWorldPos = true;
+	bool canSkipViewPos = !state->enableFog;
+	if (state->enableLighting) {
+		Lighting::ComputeState(&state->lightingState, vreader.hasColor0());
+		for (int i = 0; i < 4; ++i) {
+			if (!state->lightingState.lights[i].enabled)
+				continue;
+			if (!state->lightingState.lights[i].directional)
+				canSkipWorldPos = false;
+		}
+	}
+
+	float world[16];
+	float view[16];
+	if (canSkipWorldPos && canSkipViewPos) {
+		state->matrixMode = (uint8_t)MatrixMode::POS_TO_CLIP;
+
+		ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+		ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+
+		float worldview[16];
+		Matrix4ByMatrix4(worldview, world, view);
+		Matrix4ByMatrix4(state->matrix, worldview, gstate.projMatrix);
+	} else if (canSkipWorldPos) {
+		state->matrixMode = (uint8_t)MatrixMode::POS_TO_VIEW;
+
+		ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+		ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+
+		Matrix4ByMatrix4(state->matrix, world, view);
+	} else if (canSkipViewPos) {
+		state->matrixMode = (uint8_t)MatrixMode::WORLD_TO_CLIP;
+
+		ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+		Matrix4ByMatrix4(state->matrix, view, gstate.projMatrix);
+	} else {
+		state->matrixMode = (uint8_t)MatrixMode::NONE;
+	}
+
+	state->screenScale = Vec3f(gstate.getViewportXScale(), gstate.getViewportYScale(), gstate.getViewportZScale());
+	state->screenAdd = Vec3f(gstate.getViewportXCenter(), gstate.getViewportYCenter(), gstate.getViewportZCenter());
+	if (gstate.isDepthClampEnabled())
+		state->roundToScreen = &ClipToScreenInternal<true, true>;
+	else
+		state->roundToScreen = &ClipToScreenInternal<false, true>;
+}
+
+VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState &state, bool &outside_range_flag) {
 	PROFILE_THIS_SCOPE("read_vert");
 	VertexData vertex;
 
@@ -151,7 +266,7 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const Lighting::Stat
 	// VertexDecoder normally scales z, but we want it unscaled.
 	vreader.ReadPosThroughZ16(pos.AsArray());
 
-	if (!gstate.isModeClear() && gstate.isTextureMapEnabled() && vreader.hasUV()) {
+	if (state.readUV) {
 		vreader.ReadUV(vertex.texturecoords.AsArray());
 	}
 
@@ -159,11 +274,11 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const Lighting::Stat
 	if (vreader.hasNormal()) {
 		vreader.ReadNrm(normal.AsArray());
 
-		if (gstate.areNormalsReversed())
+		if (state.negateNormals)
 			normal = -normal;
 	}
 
-	if (vertTypeIsSkinningEnabled(gstate.vertType) && !gstate.isModeThrough()) {
+	if (state.readWeights) {
 		float W[8] = { 1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f };
 		vreader.ReadWeights(W);
 
@@ -185,41 +300,72 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const Lighting::Stat
 	}
 
 	if (vreader.hasColor0()) {
+#ifdef _M_SSE
+		vreader.ReadColor0_8888((u8 *)vertex.color0.AsArray());
+		vertex.color0.ivec = _mm_unpacklo_epi8(vertex.color0.ivec, _mm_setzero_si128());
+		vertex.color0.ivec = _mm_unpacklo_epi16(vertex.color0.ivec, _mm_setzero_si128());
+#else
 		float col[4];
 		vreader.ReadColor0(col);
 		vertex.color0 = Vec4<int>(col[0]*255, col[1]*255, col[2]*255, col[3]*255);
+#endif
 	} else {
 		vertex.color0 = Vec4<int>::FromRGBA(gstate.getMaterialAmbientRGBA());
 	}
 
-	if (vreader.hasColor1()) {
-		float col[3];
-		vreader.ReadColor1(col);
-		vertex.color1 = Vec3<int>(col[0]*255, col[1]*255, col[2]*255);
-	} else {
-		vertex.color1 = Vec3<int>(0, 0, 0);
-	}
+#ifdef _M_SSE
+	vertex.color1 = _mm_setzero_si128();
+#else
+	vertex.color1 = Vec3<int>(0, 0, 0);
+#endif
 
-	if (!gstate.isModeThrough()) {
-		WorldCoords worldpos = WorldCoords(TransformUnit::ModelToWorld(pos));
-		ModelCoords viewpos = TransformUnit::WorldToView(worldpos);
-		vertex.clippos = ClipCoords(TransformUnit::ViewToClip(viewpos));
-		if (gstate.isFogEnabled()) {
-			float fog_end = getFloat24(gstate.fog1);
-			float fog_slope = getFloat24(gstate.fog2);
-			// Same fixup as in ShaderManagerGLES.cpp
-			if (my_isnanorinf(fog_end)) {
-				// Not really sure what a sensible value might be, but let's try 64k.
-				fog_end = std::signbit(fog_end) ? -65535.0f : 65535.0f;
-			}
-			if (my_isnanorinf(fog_slope)) {
-				fog_slope = std::signbit(fog_slope) ? -65535.0f : 65535.0f;
-			}
-			vertex.fogdepth = (viewpos.z + fog_end) * fog_slope;
+	if (state.enableTransform) {
+		WorldCoords worldpos;
+		ModelCoords viewpos;
+
+		switch (MatrixMode(state.matrixMode)) {
+		case MatrixMode::NONE:
+			worldpos = TransformUnit::ModelToWorld(pos);
+			viewpos = TransformUnit::WorldToView(worldpos);
+			vertex.clippos = TransformUnit::ViewToClip(viewpos);
+			break;
+
+		case MatrixMode::POS_TO_CLIP:
+			vertex.clippos = Vec3ByMatrix44(pos, state.matrix);
+			break;
+
+		case MatrixMode::POS_TO_VIEW:
+#ifdef _M_SSE
+			viewpos = Vec3ByMatrix44(pos, state.matrix).vec;
+#else
+			viewpos = Vec3ByMatrix44(pos, state.matrix).rgb();
+#endif
+			vertex.clippos = TransformUnit::ViewToClip(viewpos);
+			break;
+
+		case MatrixMode::WORLD_TO_CLIP:
+			worldpos = TransformUnit::ModelToWorld(pos);
+			vertex.clippos = Vec3ByMatrix44(worldpos, state.matrix);
+			break;
+		}
+
+		Vec3f screenScaled;
+#ifdef _M_SSE
+		screenScaled.vec = _mm_mul_ps(vertex.clippos.vec, state.screenScale.vec);
+		screenScaled.vec = _mm_div_ps(screenScaled.vec, _mm_shuffle_ps(vertex.clippos.vec, vertex.clippos.vec, _MM_SHUFFLE(3, 3, 3, 3)));
+		screenScaled.vec = _mm_add_ps(screenScaled.vec, state.screenAdd.vec);
+#else
+		screenScaled = vertex.clippos.xyz() * state.screenScale / vertex.clippos.w + state.screenAdd;
+#endif
+		vertex.screenpos = state.roundToScreen(screenScaled, vertex.clippos, &outside_range_flag);
+		if (outside_range_flag)
+			return vertex;
+
+		if (state.enableFog) {
+			vertex.fogdepth = (viewpos.z + state.fogEnd) * state.fogSlope;
 		} else {
 			vertex.fogdepth = 1.0f;
 		}
-		vertex.screenpos = ClipToScreenInternal(vertex.clippos, &outside_range_flag);
 
 		Vec3<float> worldnormal;
 		if (vreader.hasNormal()) {
@@ -230,7 +376,7 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const Lighting::Stat
 		}
 
 		// Time to generate some texture coords.  Lighting will handle shade mapping.
-		if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX) {
+		if (state.uvGenMode == GE_TEXMAP_TEXTURE_MATRIX) {
 			Vec3f source;
 			switch (gstate.getUVProjMode()) {
 			case GE_PROJMAP_POSITION:
@@ -259,16 +405,16 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const Lighting::Stat
 			Vec3<float> stq = Vec3ByMatrix43(source, gstate.tgenMatrix);
 			float z_recip = 1.0f / stq.z;
 			vertex.texturecoords = Vec2f(stq.x * z_recip, stq.y * z_recip);
-		} else if (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
+		} else if (state.uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP) {
 			Lighting::GenerateLightST(vertex, worldnormal);
 		}
 
 		PROFILE_THIS_SCOPE("light");
-		if (gstate.isLightingEnabled())
-			Lighting::Process(vertex, worldpos, worldnormal, lstate);
+		if (state.enableLighting)
+			Lighting::Process(vertex, worldpos, worldnormal, state.lightingState);
 	} else {
-		vertex.screenpos.x = (int)(pos[0] * 16) + gstate.getOffsetX16();
-		vertex.screenpos.y = (int)(pos[1] * 16) + gstate.getOffsetY16();
+		vertex.screenpos.x = (int)(pos[0] * 16) + state.screenOffsetX;
+		vertex.screenpos.y = (int)(pos[1] * 16) + state.screenOffsetY;
 		vertex.screenpos.z = pos[2];
 		vertex.clippos.w = 1.f;
 		vertex.fogdepth = 1.f;
@@ -337,9 +483,8 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 
 	binner_->UpdateState();
 
-	Lighting::State lstate;
-	if (gstate.isLightingEnabled())
-		ComputeState(&lstate, vreader.hasColor0());
+	TransformState transformState;
+	ComputeTransformState(&transformState, vreader);
 
 	bool outside_range_flag = false;
 	switch (prim_type) {
@@ -354,7 +499,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					vreader.Goto(vtx);
 				}
 
-				data[data_index++] = ReadVertex(vreader, lstate, outside_range_flag);
+				data[data_index++] = ReadVertex(vreader, transformState, outside_range_flag);
 				if (data_index < vtcs_per_prim) {
 					// Keep reading.  Note: an incomplete prim will stay read for GE_PRIM_KEEP_PREVIOUS.
 					continue;
@@ -405,7 +550,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				vreader.Goto(vtx);
 			}
 
-			data[data_index++] = ReadVertex(vreader, lstate, outside_range_flag);
+			data[data_index++] = ReadVertex(vreader, transformState, outside_range_flag);
 			if (outside_range_flag) {
 				outside_range_flag = false;
 				// Note: this is the post increment index.  If odd, we set the first vert.
@@ -451,7 +596,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					vreader.Goto(vtx);
 				}
 
-				data[(data_index++) & 1] = ReadVertex(vreader, lstate, outside_range_flag);
+				data[(data_index++) & 1] = ReadVertex(vreader, transformState, outside_range_flag);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;
@@ -484,7 +629,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					else {
 						vreader.Goto(vtx);
 					}
-					data[vtx] = ReadVertex(vreader, lstate, outside_range_flag);
+					data[vtx] = ReadVertex(vreader, transformState, outside_range_flag);
 				}
 
 				// If a strip is effectively a rectangle, draw it as such!
@@ -503,7 +648,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				int provoking_index = (data_index++) % 3;
-				data[provoking_index] = ReadVertex(vreader, lstate, outside_range_flag);
+				data[provoking_index] = ReadVertex(vreader, transformState, outside_range_flag);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;
@@ -544,7 +689,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				} else {
 					vreader.Goto(0);
 				}
-				data[0] = ReadVertex(vreader, lstate, outside_range_flag);
+				data[0] = ReadVertex(vreader, transformState, outside_range_flag);
 				data_index++;
 				start_vtx = 1;
 
@@ -560,7 +705,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					} else {
 						vreader.Goto(vtx);
 					}
-					data[vtx] = ReadVertex(vreader, lstate, outside_range_flag);
+					data[vtx] = ReadVertex(vreader, transformState, outside_range_flag);
 				}
 
 				int tl = -1, br = -1;
@@ -579,7 +724,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				int provoking_index = 2 - ((data_index++) % 2);
-				data[provoking_index] = ReadVertex(vreader, lstate, outside_range_flag);
+				data[provoking_index] = ReadVertex(vreader, transformState, outside_range_flag);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;

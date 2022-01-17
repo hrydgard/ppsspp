@@ -33,10 +33,7 @@ typedef Vec4<float> ClipCoords; // Range: -w <= x/y/z <= w
 
 struct SplinePatch;
 class BinManager;
-
-namespace Lighting {
-struct State;
-};
+struct TransformState;
 
 struct ScreenCoords
 {
@@ -130,7 +127,7 @@ public:
 	void GetStats(char *buffer, size_t bufsize);
 
 private:
-	VertexData ReadVertex(VertexReader &vreader, const Lighting::State &lstate, bool &outside_range_flag);
+	VertexData ReadVertex(VertexReader &vreader, const TransformState &lstate, bool &outside_range_flag);
 
 	u8 *decoded_ = nullptr;
 	BinManager *binner_ = nullptr;
