@@ -391,7 +391,6 @@ bool GameManager::DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest)
 
 void GameManager::SetInstallError(const std::string &err) {
 	installProgress_ = 0.0f;
-	installInProgress_ = false;
 	installError_ = err;
 	InstallDone();
 }
@@ -597,12 +596,11 @@ bool GameManager::InstallMemstickGame(struct zip *z, const Path &zipfile, const 
 	zip_close(z);
 	z = nullptr;
 	installProgress_ = 1.0f;
-	installError_ = "";
 	if (deleteAfter) {
 		File::Delete(zipfile);
 	}
 	InstallDone();
-	installInProgress_ = false;
+	ResetInstallError();
 	return true;
 
 bail:
@@ -647,9 +645,8 @@ bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, const Path &
 
 	z = 0;
 	installProgress_ = 1.0f;
-	installError_ = "";
 	InstallDone();
-	installInProgress_ = false;
+	ResetInstallError();
 	return true;
 }
 
@@ -670,12 +667,18 @@ bool GameManager::InstallRawISO(const Path &file, const std::string &originalNam
 		}
 	}
 	installProgress_ = 1.0f;
-	installError_ = "";
 	InstallDone();
-	installInProgress_ = false;
+	ResetInstallError();
 	return true;
 }
 
+void GameManager::ResetInstallError() {
+	if (!installInProgress_) {
+		installError_ = "";
+	}
+}
+
 void GameManager::InstallDone() {
+	installInProgress_ = false;
 	installDonePending_ = true;
 }

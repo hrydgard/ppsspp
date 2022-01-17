@@ -25,6 +25,10 @@
 #include "UI/InstallZipScreen.h"
 #include "UI/MainScreen.h"
 
+InstallZipScreen::InstallZipScreen(const Path &zipPath) : zipPath_(zipPath) {
+	g_GameManager.ResetInstallError();
+}
+
 void InstallZipScreen::CreateViews() {
 	using namespace UI;
 
