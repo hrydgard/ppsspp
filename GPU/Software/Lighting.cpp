@@ -41,6 +41,28 @@ static inline float pspLightPow(float v, float e) {
 	return v;
 }
 
+static inline Vec4<int> LightColorFactor(uint32_t c, const Vec4<int> &ones) {
+#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
+	Vec4<int> expanded = Vec4<int>::FromRGBA(c);
+	return _mm_add_epi32(_mm_slli_epi32(expanded.ivec, 1), ones.ivec);
+#else
+	return Vec4<int>::FromRGBA(c) * 2 + ones;
+#endif
+}
+
+static inline bool IsLargerThanHalf(const Vec4<int> &v) {
+#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
+	__m128i add23 = _mm_add_epi32(v.ivec, _mm_shuffle_epi32(v.ivec, _MM_SHUFFLE(3, 2, 3, 2)));
+	__m128i add1 = _mm_add_epi32(add23, _mm_shuffle_epi32(add23, _MM_SHUFFLE(1, 1, 1, 1)));
+	return _mm_cvtsi128_si32(add1) > 4;
+#else
+	bool larger = false;
+	for (int i = 0; i < 3; ++i)
+		larger = v[i] > 1;
+	return larger;
+#endif
+}
+
 void ComputeState(State *state, bool hasColor0) {
 	const Vec4<int> ones = Vec4<int>::AssignToAll(1);
 
@@ -58,17 +80,17 @@ void ComputeState(State *state, bool hasColor0) {
 		lstate.poweredDiffuse = gstate.isUsingPoweredDiffuseLight(light);
 		lstate.specular = gstate.isUsingSpecularLight(light);
 
-		lstate.ambientColorFactor = Vec4<int>::FromRGBA(gstate.getLightAmbientColor(light)) * 2 + ones;
-		lstate.ambient = !(lstate.ambientColorFactor == ones);
+		lstate.ambientColorFactor = LightColorFactor(gstate.getLightAmbientColor(light), ones);
+		lstate.ambient = IsLargerThanHalf(lstate.ambientColorFactor);
 		anyAmbient = anyAmbient || lstate.ambient;
 
-		lstate.diffuseColorFactor = Vec4<int>::FromRGBA(gstate.getDiffuseColor(light)) * 2 + ones;
-		lstate.diffuse = !(lstate.diffuseColorFactor == ones);
+		lstate.diffuseColorFactor = LightColorFactor(gstate.getDiffuseColor(light), ones);
+		lstate.diffuse = IsLargerThanHalf(lstate.diffuseColorFactor);
 		anyDiffuse = anyDiffuse || lstate.diffuse;
 
 		if (lstate.specular) {
-			lstate.specularColorFactor = Vec4<int>::FromRGBA(gstate.getSpecularColor(light)) * 2 + ones;
-			lstate.specular = !(lstate.specularColorFactor == ones);
+			lstate.specularColorFactor = LightColorFactor(gstate.getSpecularColor(light), ones);
+			lstate.specular = IsLargerThanHalf(lstate.specularColorFactor);
 			anySpecular = anySpecular || lstate.specular;
 		}
 
@@ -132,7 +154,7 @@ void ComputeState(State *state, bool hasColor0) {
 			state->specularExp = std::signbit(state->specularExp) ? 0.0f : INFINITY;
 	}
 
-	state->baseAmbientColorFactor = Vec4<int>::FromRGBA(gstate.getAmbientRGBA()) * 2 + ones;
+	state->baseAmbientColorFactor = LightColorFactor(gstate.getAmbientRGBA(), ones);
 	state->setColor1 = gstate.isUsingSecondaryColor() && anySpecular;
 	state->addColor1 = !gstate.isUsingSecondaryColor() && anySpecular;
 }
