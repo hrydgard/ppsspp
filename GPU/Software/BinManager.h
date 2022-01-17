@@ -211,6 +211,9 @@ private:
 	std::unordered_map<const char *, double> lastFlushReasonTimes_;
 	const char *slowestFlushReason_ = nullptr;
 	double slowestFlushTime_ = 0.0;
+	int lastFlipstats_ = 0;
+	int enqueues_ = 0;
+	int mostThreads_ = 0;
 
 	BinCoords Scissor(BinCoords range);
 	BinCoords Range(const VertexData &v0, const VertexData &v1, const VertexData &v2);
