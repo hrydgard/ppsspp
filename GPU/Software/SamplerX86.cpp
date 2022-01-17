@@ -1169,12 +1169,7 @@ bool SamplerJitCache::Jit_TransformClutIndexQuad(const SamplerID &id, int bitsPe
 
 		X64Reg shiftReg = regCache_.Alloc(RegCache::VEC_TEMP1);
 		// Shift against walls to get 5 bits after the rightmost 2.
-		if (cpu_info.bAVX) {
-			VPSLLD(128, shiftReg, formatReg, 32 - 7);
-		} else {
-			MOVDQA(shiftReg, R(formatReg));
-			PSLLD(shiftReg, 32 - 7);
-		}
+		PSLLD(shiftReg, formatReg, 32 - 7);
 		PSRLD(shiftReg, 32 - 5);
 		// The other lanes are zero, so we can use PSRLD.
 		PSRLD(indexReg, R(shiftReg));
@@ -1189,12 +1184,7 @@ bool SamplerJitCache::Jit_TransformClutIndexQuad(const SamplerID &id, int bitsPe
 	if (id.hasClutMask) {
 		X64Reg maskReg = regCache_.Alloc(RegCache::VEC_TEMP1);
 		// If it was CLUT4, grab only 4 bits of the mask.
-		if (cpu_info.bAVX) {
-			VPSLLD(128, maskReg, formatReg, bitsPerIndex == 4 ? 20 : 16);
-		} else {
-			MOVDQA(maskReg, R(formatReg));
-			PSLLD(maskReg, bitsPerIndex == 4 ? 20 : 16);
-		}
+		PSLLD(maskReg, formatReg, bitsPerIndex == 4 ? 20 : 16);
 		PSRLD(maskReg, bitsPerIndex == 4 ? 28 : 24);
 
 		PAND(indexReg, R(maskReg));
@@ -1569,12 +1559,7 @@ bool SamplerJitCache::Jit_ApplyTextureFunc(const SamplerID &id) {
 			useAlphaFrom(primColorReg);
 		} else if (id.useColorDoubling) {
 			// We still need to finish dividing alpha, it's currently doubled (from the 7 above.)
-			if (cpu_info.bAVX) {
-				VPSRLW(128, primColorReg, resultReg, 1);
-			} else {
-				MOVDQA(primColorReg, R(resultReg));
-				PSRLW(primColorReg, 1);
-			}
+			PSRLW(primColorReg, resultReg, 1);
 			useAlphaFrom(primColorReg);
 		}
 		break;
@@ -2606,12 +2591,7 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 				PSHUFD(size, R(size), _MM_SHUFFLE(0, 0, 0, 0));
 			}
 
-			if (cpu_info.bAVX) {
-				VPSLLD(128, tempVecReg, size, 8);
-			} else {
-				MOVDQA(tempVecReg, R(size));
-				PSLLD(tempVecReg, 8);
-			}
+			PSLLD(tempVecReg, size, 8);
 			CVTDQ2PS(tempVecReg, R(tempVecReg));
 			// And then multiply.
 			MULPS(dest, R(tempVecReg));
@@ -2948,12 +2928,7 @@ bool SamplerJitCache::Jit_PrepareDataSwizzledOffsets(const SamplerID &id, RegCac
 
 	// Divide vvec by 8 in a temp.
 	X64Reg vMultReg = regCache_.Alloc(RegCache::VEC_TEMP1);
-	if (cpu_info.bAVX) {
-		VPSRLD(128, vMultReg, vReg, 3);
-	} else {
-		MOVDQA(vMultReg, R(vReg));
-		PSRLD(vMultReg, 3);
-	}
+	PSRLD(vMultReg, vReg, 3);
 
 	// And now multiply by bufw.  May be able to use a shift in a common case.
 	int shiftAmount = 32 - clz32_nonzero(bitsPerTexel - 1);
@@ -2995,24 +2970,14 @@ bool SamplerJitCache::Jit_PrepareDataSwizzledOffsets(const SamplerID &id, RegCac
 
 	// Now get ((uvec / texels_per_tile) / 4) * 32 * 4 aka (uvec / (128 / bitsPerTexel)) << 7.
 	X64Reg uCopyReg = regCache_.Alloc(RegCache::VEC_TEMP0);
-	if (cpu_info.bAVX) {
-		VPSRLD(128, uCopyReg, uReg, 7 + clz32_nonzero(bitsPerTexel - 1) - 32);
-	} else {
-		MOVDQA(uCopyReg, R(uReg));
-		PSRLD(uCopyReg, 7 + clz32_nonzero(bitsPerTexel - 1) - 32);
-	}
+	PSRLD(uCopyReg, uReg, 7 + clz32_nonzero(bitsPerTexel - 1) - 32);
 	PSLLD(uCopyReg, 7);
 	// Add it in to our running total.
 	PADDD(vReg, R(uCopyReg));
 
 	if (bitsPerTexel == 4) {
 		// Finally, we want (uvec & 31) / 2.  Use a 16-bit wall.
-		if (cpu_info.bAVX) {
-			VPSLLW(128, uCopyReg, uReg, 11);
-		} else {
-			MOVDQA(uCopyReg, R(uReg));
-			PSLLW(uCopyReg, 11);
-		}
+		PSLLW(uCopyReg, uReg, 11);
 		PSRLD(uCopyReg, 12);
 		// With that, this is our byte offset.  uvec & 1 has which half.
 		PADDD(vReg, R(uCopyReg));
@@ -3075,34 +3040,19 @@ bool SamplerJitCache::Jit_Decode5650Quad(const SamplerID &id, Rasterizer::RegCac
 	X64Reg temp2Reg = regCache_.Alloc(RegCache::VEC_TEMP2);
 
 	// Filter out red only into temp1.  We do this by shifting into a wall.
-	if (cpu_info.bAVX) {
-		VPSLLD(128, temp1Reg, quadReg, 32 - 5);
-	} else {
-		MOVDQA(temp1Reg, R(quadReg));
-		PSLLD(temp1Reg, 32 - 5);
-	}
+	PSLLD(temp1Reg, quadReg, 32 - 5);
 	// Move it right to the top of the 8 bits.
 	PSRLD(temp1Reg, 24);
 
 	// Now we bring in blue, since it's also 5 like red.
-	if (cpu_info.bAVX) {
-		VPSRLD(128, temp2Reg, quadReg, 11);
-	} else {
-		MOVDQA(temp2Reg, R(quadReg));
-		// Luckily, we know the top 16 bits are zero.  Shift right into a wall.
-		PSRLD(temp2Reg, 11);
-	}
+	// Luckily, we know the top 16 bits are zero.  Shift right into a wall.
+	PSRLD(temp2Reg, quadReg, 11);
 	// Shift blue into place at 19, and merge back to temp1.
 	PSLLD(temp2Reg, 19);
 	POR(temp1Reg, R(temp2Reg));
 
 	// Make a copy back in temp2, and shift left 1 so we can swizzle together with G.
-	if (cpu_info.bAVX) {
-		VPSLLD(128, temp2Reg, temp1Reg, 1);
-	} else {
-		MOVDQA(temp2Reg, R(temp1Reg));
-		PSLLD(temp2Reg, 1);
-	}
+	PSLLD(temp2Reg, temp1Reg, 1);
 
 	// We go to green last because it's the different one.  Shift off red and blue.
 	PSRLD(quadReg, 5);
@@ -3179,22 +3129,12 @@ bool SamplerJitCache::Jit_Decode5551Quad(const SamplerID &id, Rasterizer::RegCac
 	X64Reg temp2Reg = regCache_.Alloc(RegCache::VEC_TEMP2);
 
 	// Filter out red only into temp1.  We do this by shifting into a wall.
-	if (cpu_info.bAVX) {
-		VPSLLD(128, temp1Reg, quadReg, 32 - 5);
-	} else {
-		MOVDQA(temp1Reg, R(quadReg));
-		PSLLD(temp1Reg, 32 - 5);
-	}
+	PSLLD(temp1Reg, quadReg, 32 - 5);
 	// Move it right to the top of the 8 bits.
 	PSRLD(temp1Reg, 24);
 
 	// Add in green and shift into place (top 5 bits of byte 2.)
-	if (cpu_info.bAVX) {
-		VPSRLD(128, temp2Reg, quadReg, 5);
-	} else {
-		MOVDQA(temp2Reg, R(quadReg));
-		PSRLD(temp2Reg, 5);
-	}
+	PSRLD(temp2Reg, quadReg, 5);
 	PSLLW(temp2Reg, 11);
 	POR(temp1Reg, R(temp2Reg));
 
@@ -3206,12 +3146,7 @@ bool SamplerJitCache::Jit_Decode5551Quad(const SamplerID &id, Rasterizer::RegCac
 
 	// Combine both together, we still need to swizzle.
 	POR(quadReg, R(temp1Reg));
-	if (cpu_info.bAVX) {
-		VPSRLD(128, temp1Reg, quadReg, 5);
-	} else {
-		MOVDQA(temp1Reg, R(quadReg));
-		PSRLD(temp1Reg, 5);
-	}
+	PSRLD(temp1Reg, quadReg, 5);
 
 	// Now for swizzle, we'll mask carefully to avoid overflow.
 	PAND(temp1Reg, M(const5551Swizzle_));
@@ -3271,31 +3206,16 @@ bool SamplerJitCache::Jit_Decode4444Quad(const SamplerID &id, Rasterizer::RegCac
 	X64Reg temp2Reg = regCache_.Alloc(RegCache::VEC_TEMP2);
 
 	// Mask and move red into position within temp1.
-	if (cpu_info.bAVX) {
-		VPSLLD(128, temp1Reg, quadReg, 28);
-	} else {
-		MOVDQA(temp1Reg, R(quadReg));
-		PSLLD(temp1Reg, 28);
-	}
+	PSLLD(temp1Reg, quadReg, 28);
 	PSRLD(temp1Reg, 24);
 
 	// Green is easy too, we use a word shift to get a free wall.
-	if (cpu_info.bAVX) {
-		VPSRLD(128, temp2Reg, quadReg, 4);
-	} else {
-		MOVDQA(temp2Reg, R(quadReg));
-		PSRLD(temp2Reg, 4);
-	}
+	PSRLD(temp2Reg, quadReg, 4);
 	PSLLW(temp2Reg, 12);
 	POR(temp1Reg, R(temp2Reg));
 
 	// Blue isn't last this time, but it's next.
-	if (cpu_info.bAVX) {
-		VPSRLD(128, temp2Reg, quadReg, 8);
-	} else {
-		MOVDQA(temp2Reg, R(quadReg));
-		PSRLD(temp2Reg, 8);
-	}
+	PSRLD(temp2Reg, quadReg, 8);
 	PSLLD(temp2Reg, 28);
 	PSRLD(temp2Reg, 8);
 	POR(temp1Reg, R(temp2Reg));
@@ -3307,20 +3227,11 @@ bool SamplerJitCache::Jit_Decode4444Quad(const SamplerID &id, Rasterizer::RegCac
 		POR(quadReg, R(temp1Reg));
 
 		// Masking isn't necessary here since everything is 4 wide.
-		if (cpu_info.bAVX) {
-			VPSRLD(128, temp1Reg, quadReg, 4);
-		} else {
-			MOVDQA(temp1Reg, R(quadReg));
-			PSRLD(temp1Reg, 4);
-		}
-		POR(quadReg, R(temp1Reg));
-	} else if (cpu_info.bAVX) {
-		VPSRLD(128, quadReg, temp1Reg, 4);
+		PSRLD(temp1Reg, quadReg, 4);
 		POR(quadReg, R(temp1Reg));
 	} else {
-		// Overwrite colorReg (we need temp1 as a copy anyway.)
-		MOVDQA(quadReg, R(temp1Reg));
-		PSRLD(temp1Reg, 4);
+		// Overwrite quadReg (we need temp1 as a copy anyway.)
+		PSRLD(quadReg, temp1Reg, 4);
 		POR(quadReg, R(temp1Reg));
 	}
 
