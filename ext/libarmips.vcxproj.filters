@@ -177,6 +177,12 @@
     <ClCompile Include="armips\Util\FileSystem.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="armips\Core\Types.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="armips\Core\ExpressionFunctionHandler.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="armips\Archs\Architecture.h">
@@ -328,6 +334,12 @@
     </ClInclude>
     <ClInclude Include="armips\Util\FileSystem.h">
       <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Core\Types.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Core\ExpressionFunctionHandler.h">
+      <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

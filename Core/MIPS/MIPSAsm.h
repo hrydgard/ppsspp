@@ -4,5 +4,5 @@
 
 namespace MIPSAsm {
 	bool MipsAssembleOpcode(const char* line, DebugInterface* cpu, u32 address);
-	std::wstring GetAssembleError();
+	std::string GetAssembleError();
 }

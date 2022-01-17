@@ -31,6 +31,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <string_view>
 #include <unordered_map>
 
 #include "zlib.h"
@@ -1037,8 +1038,9 @@ void SymbolMap::GetLabels(std::vector<LabelDefinition> &dest) {
 	for (auto it = activeLabels.begin(); it != activeLabels.end(); it++) {
 		LabelDefinition entry;
 		entry.value = it->first;
-		entry.name = ConvertUTF8ToWString(it->second.name);
-		std::transform(entry.name.begin(), entry.name.end(), entry.name.begin(), ::towlower);
+		std::string name = it->second.name;
+		std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+		entry.name = Identifier(name);
 		dest.push_back(entry);
 	}
 }
