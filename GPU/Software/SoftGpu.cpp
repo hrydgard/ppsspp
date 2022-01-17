@@ -655,7 +655,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 
 			const uint32_t src = srcBasePtr + (srcY * srcStride + srcX) * bpp;
 			const uint32_t srcSize = height * srcStride * bpp;
-			const uint32_t dst = srcBasePtr + (srcY * srcStride + srcX) * bpp;
+			const uint32_t dst = dstBasePtr + (dstY * dstStride + dstX) * bpp;
 			const uint32_t dstSize = height * dstStride * bpp;
 
 			drawEngine_->transformUnit.FlushIfOverlap("blockxfer", src, srcSize);
