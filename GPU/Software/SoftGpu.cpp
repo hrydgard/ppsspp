@@ -900,7 +900,7 @@ void SoftGPU::FinishDeferred() {
 }
 
 void SoftGPU::GetStats(char *buffer, size_t bufsize) {
-	snprintf(buffer, bufsize, "SoftGPU: (N/A)");
+	drawEngine_->transformUnit.GetStats(buffer, bufsize);
 }
 
 void SoftGPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type)
