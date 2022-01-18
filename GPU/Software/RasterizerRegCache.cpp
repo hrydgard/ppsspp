@@ -424,4 +424,49 @@ void CodeBlock::Clear() {
 	descriptions_.clear();
 }
 
+void CodeBlock::WriteSimpleConst16x8(const u8 *&ptr, uint8_t value) {
+	if (ptr == nullptr)
+		WriteDynamicConst16x8(ptr, value);
+}
+
+void CodeBlock::WriteSimpleConst8x16(const u8 *&ptr, uint16_t value) {
+	if (ptr == nullptr)
+		WriteDynamicConst8x16(ptr, value);
+}
+
+void CodeBlock::WriteSimpleConst4x32(const u8 *&ptr, uint32_t value) {
+	if (ptr == nullptr)
+		WriteDynamicConst4x32(ptr, value);
+}
+
+void CodeBlock::WriteDynamicConst16x8(const u8 *&ptr, uint8_t value) {
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+	ptr = AlignCode16();
+	for (int i = 0; i < 16; ++i)
+		Write8(value);
+#else
+	_assert_msg_(false, "Not yet implemented");
+#endif
+}
+
+void CodeBlock::WriteDynamicConst8x16(const u8 *&ptr, uint16_t value) {
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+	ptr = AlignCode16();
+	for (int i = 0; i < 8; ++i)
+		Write16(value);
+#else
+	_assert_msg_(false, "Not yet implemented");
+#endif
+}
+
+void CodeBlock::WriteDynamicConst4x32(const u8 *&ptr, uint32_t value) {
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+	ptr = AlignCode16();
+	for (int i = 0; i < 4; ++i)
+		Write32(value);
+#else
+	_assert_msg_(false, "Not yet implemented");
+#endif
+}
+
 };

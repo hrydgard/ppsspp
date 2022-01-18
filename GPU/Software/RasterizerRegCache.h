@@ -227,6 +227,13 @@ protected:
 
 	void Describe(const std::string &message);
 
+	void WriteSimpleConst16x8(const u8 *&ptr, uint8_t value);
+	void WriteSimpleConst8x16(const u8 *&ptr, uint16_t value);
+	void WriteSimpleConst4x32(const u8 *&ptr, uint32_t value);
+	void WriteDynamicConst16x8(const u8 *&ptr, uint8_t value);
+	void WriteDynamicConst8x16(const u8 *&ptr, uint16_t value);
+	void WriteDynamicConst4x32(const u8 *&ptr, uint32_t value);
+
 #if PPSSPP_ARCH(ARM64)
 	Arm64Gen::ARM64FloatEmitter fp;
 #endif

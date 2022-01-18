@@ -327,32 +327,16 @@ void PixelJitCache::Discard(Gen::CCFlags cc) {
 
 void PixelJitCache::WriteConstantPool(const PixelFuncID &id) {
 	// This is used to add a fixed point 0.5 (as s.11.4) for blend factors to multiply accurately.
-	if (constBlendHalf_11_4s_ == nullptr) {
-		constBlendHalf_11_4s_ = AlignCode16();
-		for (int i = 0; i < 8; ++i)
-			Write16(1 << 3);
-	}
+	WriteSimpleConst8x16(constBlendHalf_11_4s_, 1 << 3);
 
 	// This is used for shifted blend factors, to inverse them.
-	if (constBlendInvert_11_4s_ == nullptr) {
-		constBlendInvert_11_4s_ = AlignCode16();
-		for (int i = 0; i < 8; ++i)
-			Write16(0xFF << 4);
-	}
+	WriteSimpleConst8x16(constBlendInvert_11_4s_, 0xFF << 4);
 
 	// A set of 255s, used to inverse fog.
-	if (const255_16s_ == nullptr) {
-		const255_16s_ = AlignCode16();
-		for (int i = 0; i < 8; ++i)
-			Write16(0xFF);
-	}
+	WriteSimpleConst8x16(const255_16s_, 0xFF);
 
 	// This is used for a multiply that divides by 255 with shifting.
-	if (constBy255i_ == nullptr) {
-		constBy255i_ = AlignCode16();
-		for (int i = 0; i < 8; ++i)
-			Write16(0x8081);
-	}
+	WriteSimpleConst8x16(constBy255i_, 0x8081);
 }
 
 bool PixelJitCache::Jit_ApplyDepthRange(const PixelFuncID &id) {

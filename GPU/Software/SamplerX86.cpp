@@ -856,11 +856,8 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 
 void SamplerJitCache::WriteConstantPool(const SamplerID &id) {
 	// We reuse constants in any pool, because our code space is small.
-	if (const10All16_ == nullptr) {
-		const10All16_ = AlignCode16();
-		for (int i = 0; i < 8; ++i)
-			Write16(0x10);
-	}
+	WriteSimpleConst8x16(const10All16_, 0x10);
+	WriteSimpleConst16x8(const10All8_, 0x10);
 
 	if (const10Low_ == nullptr) {
 		const10Low_ = AlignCode16();
@@ -870,23 +867,8 @@ void SamplerJitCache::WriteConstantPool(const SamplerID &id) {
 			Write16(0);
 	}
 
-	if (const10All8_ == nullptr) {
-		const10All8_ = AlignCode16();
-		for (int i = 0; i < 16; ++i)
-			Write8(0x10);
-	}
-
-	if (constOnes32_ == nullptr) {
-		constOnes32_ = AlignCode16();
-		for (int i = 0; i < 4; ++i)
-			Write32(1);
-	}
-
-	if (constOnes16_ == nullptr) {
-		constOnes16_ = AlignCode16();
-		for (int i = 0; i < 8; ++i)
-			Write16(1);
-	}
+	WriteSimpleConst4x32(constOnes32_, 1);
+	WriteSimpleConst8x16(constOnes16_, 1);
 
 	if (constUNext_ == nullptr) {
 		constUNext_ = AlignCode16();
@@ -898,37 +880,18 @@ void SamplerJitCache::WriteConstantPool(const SamplerID &id) {
 		Write32(0); Write32(0); Write32(1); Write32(1);
 	}
 
-	if (const5551Swizzle_ == nullptr) {
-		const5551Swizzle_ = AlignCode16();
-		for (int i = 0; i < 4; ++i)
-			Write32(0x00070707);
-	}
-
-	if (const5650Swizzle_ == nullptr) {
-		const5650Swizzle_ = AlignCode16();
-		for (int i = 0; i < 4; ++i)
-			Write32(0x00070307);
-	}
+	WriteSimpleConst4x32(const5551Swizzle_, 0x00070707);
+	WriteSimpleConst4x32(const5650Swizzle_, 0x00070307);
 
 	// These are unique to the sampler ID.
 	if (!id.hasAnyMips) {
-		constWidth256f_ = AlignCode16();
 		float w256f = (1 << id.width0Shift) * 256;
-		Write32(*(uint32_t *)&w256f); Write32(*(uint32_t *)&w256f);
-		Write32(*(uint32_t *)&w256f); Write32(*(uint32_t *)&w256f);
-
-		constHeight256f_ = AlignCode16();
+		WriteDynamicConst4x32(constWidth256f_, *(uint32_t *)&w256f);
 		float h256f = (1 << id.height0Shift) * 256;
-		Write32(*(uint32_t *)&h256f); Write32(*(uint32_t *)&h256f);
-		Write32(*(uint32_t *)&h256f); Write32(*(uint32_t *)&h256f);
+		WriteDynamicConst4x32(constHeight256f_, *(uint32_t *)&h256f);
 
-		constWidthMinus1i_ = AlignCode16();
-		Write32((1 << id.width0Shift) - 1); Write32((1 << id.width0Shift) - 1);
-		Write32((1 << id.width0Shift) - 1); Write32((1 << id.width0Shift) - 1);
-
-		constHeightMinus1i_ = AlignCode16();
-		Write32((1 << id.height0Shift) - 1); Write32((1 << id.height0Shift) - 1);
-		Write32((1 << id.height0Shift) - 1); Write32((1 << id.height0Shift) - 1);
+		WriteDynamicConst4x32(constWidthMinus1i_, (1 << id.width0Shift) - 1);
+		WriteDynamicConst4x32(constHeightMinus1i_, (1 << id.height0Shift) - 1);
 	} else {
 		constWidth256f_ = nullptr;
 		constHeight256f_ = nullptr;
