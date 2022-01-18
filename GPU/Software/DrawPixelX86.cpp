@@ -31,15 +31,6 @@ using namespace Gen;
 
 namespace Rasterizer {
 
-// This one is the const base.  Also a set of 255s.
-alignas(16) static const uint16_t const255_16s[8] = { 255, 255, 255, 255, 255, 255, 255, 255 };
-// This is used for a multiply that divides by 255 with shifting.
-alignas(16) static const uint16_t by255i[8] = { 0x8081, 0x8081, 0x8081, 0x8081, 0x8081, 0x8081, 0x8081, 0x8081 };
-// This is used to add a fixed point 0.5 (as s.11.4) for blend factors to multiply accurately.
-alignas(16) static const uint16_t blendHalf_11_4s[8] = { 8, 8, 8, 8, 8, 8, 8, 8 };
-// This is used for shifted blend factors, to inverse them.
-alignas(16) static const uint16_t blendInvert_11_4s[8] = { 255 << 4, 255 << 4, 255 << 4, 255 << 4, 255 << 4, 255 << 4, 255 << 4, 255 << 4 };
-
 template <typename T>
 static bool Accessible(const T *t1, const T *t2) {
 	ptrdiff_t diff = (const uint8_t *)t1 - (const uint8_t *)t2;
@@ -53,16 +44,6 @@ static OpArg MAccessibleDisp(X64Reg r, const T *tbase, const T *t) {
 	return MDisp(r, (int)diff);
 }
 
-template <typename T>
-static bool ConstAccessible(const T *t) {
-	return Accessible((const uint8_t *)&const255_16s[0], (const uint8_t *)t);
-}
-
-template <typename T>
-static OpArg MConstDisp(X64Reg r, const T *t) {
-	return MAccessibleDisp(r, (const uint8_t *)&const255_16s[0], (const uint8_t *)t);
-}
-
 SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 	// Setup the reg cache and disallow spill for arguments.
 	regCache_.SetupABI({
@@ -74,6 +55,13 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 		RegCache::GEN_ARG_ID,
 	});
 
+	BeginWrite();
+	Describe("Init");
+	WriteConstantPool(id);
+
+	const u8 *start = AlignCode16();
+	bool success = true;
+
 #if PPSSPP_PLATFORM(WINDOWS)
 	// Windows reserves space to save args, 1 xmm + 4 ints before the id.
 	_assert_(!regCache_.Has(RegCache::GEN_ARG_ID));
@@ -82,11 +70,6 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 	_assert_(regCache_.Has(RegCache::GEN_ARG_ID));
 	stackIDOffset_ = -1;
 #endif
-
-	BeginWrite();
-	Describe("Init");
-	const u8 *start = AlignCode16();
-	bool success = true;
 
 	// Start with the depth range.
 	success = success && Jit_ApplyDepthRange(id);
@@ -155,15 +138,6 @@ void PixelJitCache::UnlockPixelID(RegCache::Reg &r) {
 		regCache_.Unlock(r, RegCache::GEN_ARG_ID);
 	else
 		regCache_.Unlock(r, RegCache::GEN_ID);
-}
-
-RegCache::Reg PixelJitCache::GetConstBase() {
-	if (!regCache_.Has(RegCache::GEN_CONST_BASE)) {
-		X64Reg r = regCache_.Alloc(RegCache::GEN_CONST_BASE);
-		MOV(PTRBITS, R(r), ImmPtr(&const255_16s[0]));
-		return r;
-	}
-	return regCache_.Find(RegCache::GEN_CONST_BASE);
 }
 
 RegCache::Reg PixelJitCache::GetZeroVec() {
@@ -360,6 +334,36 @@ void PixelJitCache::Discard(Gen::CCFlags cc) {
 	discards_.push_back(J_CC(cc, true));
 }
 
+void PixelJitCache::WriteConstantPool(const PixelFuncID &id) {
+	// This is used to add a fixed point 0.5 (as s.11.4) for blend factors to multiply accurately.
+	if (constBlendHalf_11_4s_ == nullptr) {
+		constBlendHalf_11_4s_ = AlignCode16();
+		for (int i = 0; i < 8; ++i)
+			Write16(1 << 3);
+	}
+
+	// This is used for shifted blend factors, to inverse them.
+	if (constBlendInvert_11_4s_ == nullptr) {
+		constBlendInvert_11_4s_ = AlignCode16();
+		for (int i = 0; i < 8; ++i)
+			Write16(0xFF << 4);
+	}
+
+	// A set of 255s, used to inverse fog.
+	if (const255_16s_ == nullptr) {
+		const255_16s_ = AlignCode16();
+		for (int i = 0; i < 8; ++i)
+			Write16(0xFF);
+	}
+
+	// This is used for a multiply that divides by 255 with shifting.
+	if (constBy255i_ == nullptr) {
+		constBy255i_ = AlignCode16();
+		for (int i = 0; i < 8; ++i)
+			Write16(0x8081);
+	}
+}
+
 bool PixelJitCache::Jit_ApplyDepthRange(const PixelFuncID &id) {
 	if (id.applyDepthRange) {
 		Describe("ApplyDepthR");
@@ -551,13 +555,7 @@ bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 
 	// Load a set of 255s at 16 bit into a reg for later...
 	X64Reg invertReg = regCache_.Alloc(RegCache::VEC_TEMP2);
-	if (RipAccessible(&const255_16s[0])) {
-		MOVDQA(invertReg, M(&const255_16s[0]));
-	} else {
-		X64Reg constReg = GetConstBase();
-		MOVDQA(invertReg, MConstDisp(constReg, &const255_16s[0]));
-		regCache_.Unlock(constReg, RegCache::GEN_CONST_BASE);
-	}
+	MOVDQA(invertReg, M(const255_16s_));
 
 	// Expand (we clamped) color to 16 bit as well, so we can multiply with fog.
 	X64Reg argColorReg = regCache_.Find(RegCache::VEC_ARG_COLOR);
@@ -602,13 +600,7 @@ bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 	regCache_.Release(fogMultReg, RegCache::VEC_TEMP3);
 
 	// Now to divide by 255, we use bit tricks: multiply by 0x8081, and shift right by 16+7.
-	if (RipAccessible(&by255i[0])) {
-		PMULHUW(argColorReg, M(&by255i[0]));
-	} else {
-		X64Reg constReg = GetConstBase();
-		PMULHUW(argColorReg, MConstDisp(constReg, &by255i[0]));
-		regCache_.Unlock(constReg, RegCache::GEN_CONST_BASE);
-	}
+	PMULHUW(argColorReg, M(constBy255i_));
 	// Now shift right by 7 (PMULHUW already did 16 of the shift.)
 	PSRLW(argColorReg, 7);
 
@@ -1158,13 +1150,7 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 		if (multiplySrc || multiplyDst) {
 			halfReg = regCache_.Alloc(RegCache::VEC_TEMP3);
 			// We'll use this several times, so load into a reg.
-			if (RipAccessible(&blendHalf_11_4s[0])) {
-				MOVDQA(halfReg, M(&blendHalf_11_4s[0]));
-			} else {
-				X64Reg constReg = GetConstBase();
-				MOVDQA(halfReg, MConstDisp(constReg, &blendHalf_11_4s[0]));
-				regCache_.Unlock(constReg, RegCache::GEN_CONST_BASE);
-			}
+			MOVDQA(halfReg, M(constBlendHalf_11_4s_));
 		}
 
 		// Add in the half bit to the factors and color values, then multiply.
@@ -1257,7 +1243,6 @@ bool PixelJitCache::Jit_AlphaBlend(const PixelFuncID &id) {
 
 
 bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, RegCache::Reg factorReg, RegCache::Reg dstReg, PixelBlendFactor factor) {
-	X64Reg constReg = INVALID_REG;
 	X64Reg idReg = INVALID_REG;
 	X64Reg tempReg = INVALID_REG;
 	X64Reg argColorReg = regCache_.Find(RegCache::VEC_ARG_COLOR);
@@ -1275,13 +1260,7 @@ bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, RegCache::Reg factorR
 	case PixelBlendFactor::INVDSTALPHA:
 	case PixelBlendFactor::DOUBLEINVSRCALPHA:
 	case PixelBlendFactor::DOUBLEINVDSTALPHA:
-		if (RipAccessible(&blendInvert_11_4s[0])) {
-			MOVDQA(factorReg, M(&blendInvert_11_4s[0]));
-		} else {
-			constReg = GetConstBase();
-			MOVDQA(factorReg, MConstDisp(constReg, &blendInvert_11_4s[0]));
-			regCache_.Unlock(constReg, RegCache::GEN_CONST_BASE);
-		}
+		MOVDQA(factorReg, M(constBlendInvert_11_4s_));
 		break;
 
 	default:
@@ -1384,7 +1363,6 @@ bool PixelJitCache::Jit_BlendFactor(const PixelFuncID &id, RegCache::Reg factorR
 
 bool PixelJitCache::Jit_DstBlendFactor(const PixelFuncID &id, RegCache::Reg srcFactorReg, RegCache::Reg dstFactorReg, RegCache::Reg dstReg) {
 	bool success = true;
-	X64Reg constReg = INVALID_REG;
 	X64Reg idReg = INVALID_REG;
 	X64Reg argColorReg = regCache_.Find(RegCache::VEC_ARG_COLOR);
 
@@ -1401,12 +1379,7 @@ bool PixelJitCache::Jit_DstBlendFactor(const PixelFuncID &id, RegCache::Reg srcF
 		break;
 
 	case PixelBlendFactor::INVOTHERCOLOR:
-		if (RipAccessible(&blendInvert_11_4s[0])) {
-			MOVDQA(dstFactorReg, M(&blendInvert_11_4s[0]));
-		} else {
-			constReg = GetConstBase();
-			MOVDQA(dstFactorReg, MConstDisp(constReg, &blendInvert_11_4s[0]));
-		}
+		MOVDQA(dstFactorReg, M(constBlendInvert_11_4s_));
 		PSUBUSW(dstFactorReg, R(argColorReg));
 		break;
 
@@ -1424,12 +1397,7 @@ bool PixelJitCache::Jit_DstBlendFactor(const PixelFuncID &id, RegCache::Reg srcF
 		if (id.AlphaBlendSrc() == id.AlphaBlendDst()) {
 			MOVDQA(dstFactorReg, R(srcFactorReg));
 		} else if (blendState.dstFactorIsInverse) {
-			if (RipAccessible(&blendInvert_11_4s[0])) {
-				MOVDQA(dstFactorReg, M(&blendInvert_11_4s[0]));
-			} else {
-				constReg = GetConstBase();
-				MOVDQA(dstFactorReg, MConstDisp(constReg, &blendInvert_11_4s[0]));
-			}
+			MOVDQA(dstFactorReg, M(constBlendInvert_11_4s_));
 			PSUBUSW(dstFactorReg, R(srcFactorReg));
 		} else {
 			success = success && Jit_BlendFactor(id, dstFactorReg, dstReg, id.AlphaBlendDst());
@@ -1452,8 +1420,6 @@ bool PixelJitCache::Jit_DstBlendFactor(const PixelFuncID &id, RegCache::Reg srcF
 		break;
 	}
 
-	if (constReg != INVALID_REG)
-		regCache_.Unlock(constReg, RegCache::GEN_CONST_BASE);
 	if (idReg != INVALID_REG)
 		UnlockPixelID(idReg);
 	regCache_.Unlock(argColorReg, RegCache::VEC_ARG_COLOR);

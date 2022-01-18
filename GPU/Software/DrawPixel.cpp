@@ -558,6 +558,11 @@ void PixelJitCache::Clear() {
 	ClearCodeSpace(0);
 	cache_.clear();
 	addresses_.clear();
+
+	constBlendHalf_11_4s_ = nullptr;
+	constBlendInvert_11_4s_ = nullptr;
+	const255_16s_ = nullptr;
+	constBy255i_ = nullptr;
 }
 
 void PixelJitCache::Describe(const std::string &message) {
