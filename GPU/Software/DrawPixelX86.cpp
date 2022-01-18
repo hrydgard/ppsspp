@@ -140,15 +140,6 @@ void PixelJitCache::UnlockPixelID(RegCache::Reg &r) {
 		regCache_.Unlock(r, RegCache::GEN_ID);
 }
 
-RegCache::Reg PixelJitCache::GetZeroVec() {
-	if (!regCache_.Has(RegCache::VEC_ZERO)) {
-		X64Reg r = regCache_.Alloc(RegCache::VEC_ZERO);
-		PXOR(r, R(r));
-		return r;
-	}
-	return regCache_.Find(RegCache::VEC_ZERO);
-}
-
 RegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 	if (!regCache_.Has(RegCache::GEN_COLOR_OFF)) {
 		Describe("GetColorOff");

@@ -532,30 +532,12 @@ SingleFunc PixelJitCache::GenericSingle(const PixelFuncID &id) {
 	return nullptr;
 }
 
-PixelJitCache::PixelJitCache()
-#if PPSSPP_ARCH(ARM64)
-	: fp(this)
-#endif
-{
-	// 256k should be plenty of space for plenty of variations.
-	AllocCodeSpace(1024 * 64 * 4);
-	ClearCodeSpace(0);
-
-	// Add some random code to "help" MSVC's buggy disassembler :(
-#if defined(_WIN32) && (PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)) && !PPSSPP_PLATFORM(UWP)
-	using namespace Gen;
-	for (int i = 0; i < 100; i++) {
-		MOV(32, R(EAX), R(EBX));
-		RET();
-	}
-#elif PPSSPP_ARCH(ARM)
-	BKPT(0);
-	BKPT(0);
-#endif
+// 256k should be plenty of space for plenty of variations.
+PixelJitCache::PixelJitCache() : CodeBlock(1024 * 64 * 4) {
 }
 
 void PixelJitCache::Clear() {
-	ClearCodeSpace(0);
+	CodeBlock::Clear();
 	cache_.clear();
 	addresses_.clear();
 
@@ -563,10 +545,6 @@ void PixelJitCache::Clear() {
 	constBlendInvert_11_4s_ = nullptr;
 	const255_16s_ = nullptr;
 	constBy255i_ = nullptr;
-}
-
-void PixelJitCache::Describe(const std::string &message) {
-	descriptions_[GetCodePointer()] = message;
 }
 
 std::string PixelJitCache::DescribeCodePtr(const u8 *ptr) {
@@ -583,17 +561,9 @@ std::string PixelJitCache::DescribeCodePtr(const u8 *ptr) {
 		}
 
 		return DescribePixelFuncID(found);
-	} else {
-		std::string found;
-		for (const auto &it : descriptions_) {
-			ptrdiff_t it_dist = ptr - it.first;
-			if (it_dist >= 0 && it_dist < dist) {
-				found = it.second;
-				dist = it_dist;
-			}
-		}
-		return found;
 	}
+
+	return CodeBlock::DescribeCodePtr(ptr);
 }
 
 SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id) {

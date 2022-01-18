@@ -937,15 +937,6 @@ void SamplerJitCache::WriteConstantPool(const SamplerID &id) {
 	}
 }
 
-RegCache::Reg SamplerJitCache::GetZeroVec() {
-	if (!regCache_.Has(RegCache::VEC_ZERO)) {
-		X64Reg r = regCache_.Alloc(RegCache::VEC_ZERO);
-		PXOR(r, R(r));
-		return r;
-	}
-	return regCache_.Find(RegCache::VEC_ZERO);
-}
-
 RegCache::Reg SamplerJitCache::GetSamplerID() {
 	if (regCache_.Has(RegCache::GEN_ARG_ID))
 		return regCache_.Find(RegCache::GEN_ARG_ID);

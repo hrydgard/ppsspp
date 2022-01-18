@@ -92,30 +92,12 @@ FetchFunc GetFetchFunc(SamplerID id) {
 	return &SampleFetch;
 }
 
-SamplerJitCache::SamplerJitCache()
-#if PPSSPP_ARCH(ARM64)
- : fp(this)
-#endif
-{
-	// 256k should be enough.
-	AllocCodeSpace(1024 * 64 * 4);
-	ClearCodeSpace(0);
-
-	// Add some random code to "help" MSVC's buggy disassembler :(
-#if defined(_WIN32) && (PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)) && !PPSSPP_PLATFORM(UWP)
-	using namespace Gen;
-	for (int i = 0; i < 100; i++) {
-		MOV(32, R(EAX), R(EBX));
-		RET();
-	}
-#elif PPSSPP_ARCH(ARM)
-	BKPT(0);
-	BKPT(0);
-#endif
+// 256k should be enough.
+SamplerJitCache::SamplerJitCache() : Rasterizer::CodeBlock(1024 * 64 * 4) {
 }
 
 void SamplerJitCache::Clear() {
-	ClearCodeSpace(0);
+	CodeBlock::Clear();
 	cache_.clear();
 	addresses_.clear();
 
@@ -137,10 +119,6 @@ void SamplerJitCache::Clear() {
 	const5650Swizzle_ = nullptr;
 }
 
-void SamplerJitCache::Describe(const std::string &message) {
-	descriptions_[GetCodePointer()] = message;
-}
-
 std::string SamplerJitCache::DescribeCodePtr(const u8 *ptr) {
 	constexpr bool USE_IDS = false;
 	ptrdiff_t dist = 0x7FFFFFFF;
@@ -155,17 +133,9 @@ std::string SamplerJitCache::DescribeCodePtr(const u8 *ptr) {
 		}
 
 		return DescribeSamplerID(found);
-	} else {
-		std::string found;
-		for (const auto &it : descriptions_) {
-			ptrdiff_t it_dist = ptr - it.first;
-			if (it_dist >= 0 && it_dist < dist) {
-				found = it.second;
-				dist = it_dist;
-			}
-		}
-		return found;
 	}
+
+	return CodeBlock::DescribeCodePtr(ptr);
 }
 
 NearestFunc SamplerJitCache::GetNearest(const SamplerID &id) {

@@ -367,4 +367,61 @@ RegCache::RegStatus *RegCache::FindReg(Reg r, Purpose p) {
 	return nullptr;
 }
 
+CodeBlock::CodeBlock(int size)
+#if PPSSPP_ARCH(ARM64)
+	: fp(this)
+#endif
+{
+	AllocCodeSpace(size);
+	ClearCodeSpace(0);
+
+	// Add some random code to "help" MSVC's buggy disassembler :(
+#if defined(_WIN32) && (PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)) && !PPSSPP_PLATFORM(UWP)
+	using namespace Gen;
+	for (int i = 0; i < 100; i++) {
+		MOV(32, R(EAX), R(EBX));
+		RET();
+	}
+#elif PPSSPP_ARCH(ARM)
+	BKPT(0);
+	BKPT(0);
+#endif
+}
+
+RegCache::Reg CodeBlock::GetZeroVec() {
+	if (!regCache_.Has(RegCache::VEC_ZERO)) {
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+		using namespace Gen;
+		X64Reg r = regCache_.Alloc(RegCache::VEC_ZERO);
+		PXOR(r, R(r));
+		return r;
+#else
+		return RegCache::REG_INVALID_VALUE;
+#endif
+	}
+	return regCache_.Find(RegCache::VEC_ZERO);
+}
+
+void CodeBlock::Describe(const std::string &message) {
+	descriptions_[GetCodePointer()] = message;
+}
+
+std::string CodeBlock::DescribeCodePtr(const u8 *ptr) {
+	ptrdiff_t dist = 0x7FFFFFFF;
+	std::string found;
+	for (const auto &it : descriptions_) {
+		ptrdiff_t it_dist = ptr - it.first;
+		if (it_dist >= 0 && it_dist < dist) {
+			found = it.second;
+			dist = it_dist;
+		}
+	}
+	return found;
+}
+
+void CodeBlock::Clear() {
+	ClearCodeSpace(0);
+	descriptions_.clear();
+}
+
 };
