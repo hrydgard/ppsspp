@@ -1683,25 +1683,50 @@ void XEmitter::PUNPCKHWD(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x69, 
 void XEmitter::PUNPCKHDQ(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x6A, dest, arg);}
 void XEmitter::PUNPCKHQDQ(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x6D, dest, arg);}
 
-void XEmitter::PSRLW(X64Reg reg, int shift)
-{
+void XEmitter::PSRLW(X64Reg dest, X64Reg reg, int shift) {
+	if (dest != reg) {
+		if (cpu_info.bAVX) {
+			VPSRLW(128, dest, reg, shift);
+			return;
+		}
+		MOVDQA(dest, R(reg));
+	}
 	WriteSSEOp(0x66, 0x71, (X64Reg)2, R(reg));
 	Write8(shift);
 }
 
-void XEmitter::PSRLD(X64Reg reg, int shift)
-{
+void XEmitter::PSRLD(X64Reg dest, X64Reg reg, int shift) {
+	if (dest != reg) {
+		if (cpu_info.bAVX) {
+			VPSRLD(128, dest, reg, shift);
+			return;
+		}
+		MOVDQA(dest, R(reg));
+	}
 	WriteSSEOp(0x66, 0x72, (X64Reg)2, R(reg));
 	Write8(shift);
 }
 
-void XEmitter::PSRLQ(X64Reg reg, int shift)
-{
+void XEmitter::PSRLQ(X64Reg dest, X64Reg reg, int shift) {
+	if (dest != reg) {
+		if (cpu_info.bAVX) {
+			VPSRLQ(128, dest, reg, shift);
+			return;
+		}
+		MOVDQA(dest, R(reg));
+	}
 	WriteSSEOp(0x66, 0x73, (X64Reg)2, R(reg));
 	Write8(shift);
 }
 
-void XEmitter::PSRLDQ(X64Reg reg, int shift) {
+void XEmitter::PSRLDQ(X64Reg dest, X64Reg reg, int shift) {
+	if (dest != reg) {
+		if (cpu_info.bAVX) {
+			VPSRLDQ(128, dest, reg, shift);
+			return;
+		}
+		MOVDQA(dest, R(reg));
+	}
 	WriteSSEOp(0x66, 0x73, (X64Reg)3, R(reg));
 	Write8(shift);
 }
@@ -1710,25 +1735,50 @@ void XEmitter::PSRLW(X64Reg reg, OpArg arg) { WriteSSEOp(0x66, 0xD1, reg, arg); 
 void XEmitter::PSRLD(X64Reg reg, OpArg arg) { WriteSSEOp(0x66, 0xD2, reg, arg); }
 void XEmitter::PSRLQ(X64Reg reg, OpArg arg) { WriteSSEOp(0x66, 0xD3, reg, arg); }
 
-void XEmitter::PSLLW(X64Reg reg, int shift)
-{
+void XEmitter::PSLLW(X64Reg dest, X64Reg reg, int shift) {
+	if (dest != reg) {
+		if (cpu_info.bAVX) {
+			VPSLLW(128, dest, reg, shift);
+			return;
+		}
+		MOVDQA(dest, R(reg));
+	}
 	WriteSSEOp(0x66, 0x71, (X64Reg)6, R(reg));
 	Write8(shift);
 }
 
-void XEmitter::PSLLD(X64Reg reg, int shift)
-{
+void XEmitter::PSLLD(X64Reg dest, X64Reg reg, int shift) {
+	if (dest != reg) {
+		if (cpu_info.bAVX) {
+			VPSLLD(128, dest, reg, shift);
+			return;
+		}
+		MOVDQA(dest, R(reg));
+	}
 	WriteSSEOp(0x66, 0x72, (X64Reg)6, R(reg));
 	Write8(shift);
 }
 
-void XEmitter::PSLLQ(X64Reg reg, int shift)
-{
+void XEmitter::PSLLQ(X64Reg dest, X64Reg reg, int shift) {
+	if (dest != reg) {
+		if (cpu_info.bAVX) {
+			VPSLLQ(128, dest, reg, shift);
+			return;
+		}
+		MOVDQA(dest, R(reg));
+	}
 	WriteSSEOp(0x66, 0x73, (X64Reg)6, R(reg));
 	Write8(shift);
 }
 
-void XEmitter::PSLLDQ(X64Reg reg, int shift) {
+void XEmitter::PSLLDQ(X64Reg dest, X64Reg reg, int shift) {
+	if (dest != reg) {
+		if (cpu_info.bAVX) {
+			VPSLLDQ(128, dest, reg, shift);
+			return;
+		}
+		MOVDQA(dest, R(reg));
+	}
 	WriteSSEOp(0x66, 0x73, (X64Reg)7, R(reg));
 	Write8(shift);
 }
@@ -1737,14 +1787,26 @@ void XEmitter::PSLLW(X64Reg reg, OpArg arg) { WriteSSEOp(0x66, 0xF1, reg, arg); 
 void XEmitter::PSLLD(X64Reg reg, OpArg arg) { WriteSSEOp(0x66, 0xF2, reg, arg); }
 void XEmitter::PSLLQ(X64Reg reg, OpArg arg) { WriteSSEOp(0x66, 0xF3, reg, arg); }
 
-void XEmitter::PSRAW(X64Reg reg, int shift)
-{
+void XEmitter::PSRAW(X64Reg dest, X64Reg reg, int shift) {
+	if (dest != reg) {
+		if (cpu_info.bAVX) {
+			VPSRAW(128, dest, reg, shift);
+			return;
+		}
+		MOVDQA(dest, R(reg));
+	}
 	WriteSSEOp(0x66, 0x71, (X64Reg)4, R(reg));
 	Write8(shift);
 }
 
-void XEmitter::PSRAD(X64Reg reg, int shift)
-{
+void XEmitter::PSRAD(X64Reg dest, X64Reg reg, int shift) {
+	if (dest != reg) {
+		if (cpu_info.bAVX) {
+			VPSRAD(128, dest, reg, shift);
+			return;
+		}
+		MOVDQA(dest, R(reg));
+	}
 	WriteSSEOp(0x66, 0x72, (X64Reg)4, R(reg));
 	Write8(shift);
 }

@@ -844,10 +844,14 @@ public:
 	void PSHUFLW(X64Reg dest, OpArg arg, u8 shuffle);
 	void PSHUFHW(X64Reg dest, OpArg arg, u8 shuffle);
 
-	void PSRLW(X64Reg reg, int shift);
-	void PSRLD(X64Reg reg, int shift);
-	void PSRLQ(X64Reg reg, int shift);
-	void PSRLDQ(X64Reg reg, int shift);
+	void PSRLW(X64Reg dest, X64Reg reg, int shift);
+	void PSRLW(X64Reg reg, int shift) { PSRLW(reg, reg, shift); }
+	void PSRLD(X64Reg dest, X64Reg reg, int shift);
+	void PSRLD(X64Reg reg, int shift) { PSRLD(reg, reg, shift); }
+	void PSRLQ(X64Reg dest, X64Reg reg, int shift);
+	void PSRLQ(X64Reg reg, int shift) { PSRLQ(reg, reg, shift); }
+	void PSRLDQ(X64Reg dest, X64Reg reg, int shift);
+	void PSRLDQ(X64Reg reg, int shift) { PSRLDQ(reg, reg, shift); }
 	// Note: all values shifted by lowest 64-bit in XMM arg.
 	void PSRLW(X64Reg reg, OpArg arg);
 	// Note: all values shifted by lowest 64-bit in XMM arg.
@@ -855,10 +859,14 @@ public:
 	// Note: both values shifted by lowest 64-bit in XMM arg.
 	void PSRLQ(X64Reg reg, OpArg arg);
 
-	void PSLLW(X64Reg reg, int shift);
-	void PSLLD(X64Reg reg, int shift);
-	void PSLLQ(X64Reg reg, int shift);
-	void PSLLDQ(X64Reg reg, int shift);
+	void PSLLW(X64Reg dest, X64Reg reg, int shift);
+	void PSLLW(X64Reg reg, int shift) { PSLLW(reg, reg, shift); }
+	void PSLLD(X64Reg dest, X64Reg reg, int shift);
+	void PSLLD(X64Reg reg, int shift) { PSLLD(reg, reg, shift); }
+	void PSLLQ(X64Reg dest, X64Reg reg, int shift);
+	void PSLLQ(X64Reg reg, int shift) { PSLLQ(reg, reg, shift); }
+	void PSLLDQ(X64Reg dest, X64Reg reg, int shift);
+	void PSLLDQ(X64Reg reg, int shift) { PSLLDQ(reg, reg, shift); }
 	// Note: all values shifted by lowest 64-bit in XMM arg.
 	void PSLLW(X64Reg reg, OpArg arg);
 	// Note: all values shifted by lowest 64-bit in XMM arg.
@@ -866,8 +874,10 @@ public:
 	// Note: both values shifted by lowest 64-bit in XMM arg.
 	void PSLLQ(X64Reg reg, OpArg arg);
 
-	void PSRAW(X64Reg reg, int shift);
-	void PSRAD(X64Reg reg, int shift);
+	void PSRAW(X64Reg dest, X64Reg reg, int shift);
+	void PSRAW(X64Reg reg, int shift) { PSRAW(reg, reg, shift); }
+	void PSRAD(X64Reg dest, X64Reg reg, int shift);
+	void PSRAD(X64Reg reg, int shift) { PSRAD(reg, reg, shift); }
 	// Note: all values shifted by lowest 64-bit in XMM arg.
 	void PSRAW(X64Reg reg, OpArg arg);
 	// Note: all values shifted by lowest 64-bit in XMM arg.
