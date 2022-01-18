@@ -74,12 +74,13 @@ private:
 
 	RegCache::Reg GetPixelID();
 	void UnlockPixelID(RegCache::Reg &r);
-	RegCache::Reg GetConstBase();
 	RegCache::Reg GetZeroVec();
 	// Note: these may require a temporary reg.
 	RegCache::Reg GetColorOff(const PixelFuncID &id);
 	RegCache::Reg GetDepthOff(const PixelFuncID &id);
 	RegCache::Reg GetDestStencil(const PixelFuncID &id);
+
+	void WriteConstantPool(const PixelFuncID &id);
 
 	bool Jit_ApplyDepthRange(const PixelFuncID &id);
 	bool Jit_AlphaTest(const PixelFuncID &id);
@@ -109,6 +110,11 @@ private:
 	std::unordered_map<PixelFuncID, const u8 *> addresses_;
 	std::unordered_map<const u8 *, std::string> descriptions_;
 	RegCache regCache_;
+
+	const u8 *constBlendHalf_11_4s_ = nullptr;
+	const u8 *constBlendInvert_11_4s_ = nullptr;
+	const u8 *const255_16s_ = nullptr;
+	const u8 *constBy255i_ = nullptr;
 
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	void Discard();
