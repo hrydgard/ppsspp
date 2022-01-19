@@ -5746,7 +5746,10 @@ void __NetMatchingCallbacks() //(int matchingId)
 {
 	std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);
 	hleSkipDeadbeef();
-	int delayus = adhocDefaultDelay;
+	// Note: Super Pocket Tennis / Thrillville Off the Rails seems to have a very short timeout (ie. ~5ms) while waiting for the event to arrived on the callback handler, but Lord of Arcana may not work well with 5ms (~3m or ~10ms seems to be good)
+	// Games with 4-players or more (ie. Gundam: Senjou No Kizuna Portable) will also need lower delay/latency (ie. ~3ms seems to be good, 2ms or lower doesn't work well) so MatchingEvents can be processed faster, thus won't be piling up in the queue.
+	// Using 3ms seems to fix Player list issue on StarWars The Force Unleashed.
+	int delayus = 3000;
 
 	auto params = matchingEvents.begin();
 	if (params != matchingEvents.end()) {
@@ -5766,7 +5769,6 @@ void __NetMatchingCallbacks() //(int matchingId)
 			after->SetData(args[0], args[1], args[2]);
 			hleEnqueueCall(args[5], 5, args, after);
 			matchingEvents.pop_front();
-			delayus = adhocMatchingEventDelay; // Add extra delay to prevent I/O Timing method from causing disconnection, but delaying too long may cause matchingEvents to pile up, and Super Pocket Tennis didn't like to wait for more than 5ms
 		}
 		else {
 			DEBUG_LOG(SCENET, "AdhocMatching - Discarding Callback: [ID=%i][EVENT=%i][%s]", args[0], args[1], mac2str((SceNetEtherAddr*)Memory::GetPointer(args[2])).c_str());
