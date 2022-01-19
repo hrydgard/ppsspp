@@ -63,9 +63,9 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 	bool success = true;
 
 #if PPSSPP_PLATFORM(WINDOWS)
-	// Windows reserves space to save args, 1 xmm + 4 ints before the id.
+	// RET + Windows reserves space to save args, half of 1 xmm + 4 ints before the id.
 	_assert_(!regCache_.Has(RegCache::GEN_ARG_ID));
-	stackIDOffset_ = 1 * 16 + 4 * PTRBITS / 8;
+	stackIDOffset_ = 8 + 8 + 4 * PTRBITS / 8;
 #else
 	_assert_(regCache_.Has(RegCache::GEN_ARG_ID));
 	stackIDOffset_ = -1;

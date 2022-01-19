@@ -490,9 +490,10 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		unlockOptReg(RegCache::VEC_ARG_COLOR);
 		regCache_.Reset(true);
 	}
+	EndWrite();
 
 	// Now the actual linear func, which is exposed externally.
-	const u8 *start = AlignCode16();
+	const u8 *linearResetPos = GetCodePointer();
 	Describe("Init");
 
 	regCache_.SetupABI({
@@ -511,45 +512,32 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 #if PPSSPP_PLATFORM(WINDOWS)
 	// RET + shadow space + 8 byte space for color arg (the Win32 ABI is kinda ugly.)
 	stackArgPos_ = 8 + 32 + 8;
+	// Free up some more vector regs on Windows too, where we're a bit tight.
+	stackArgPos_ += WriteProlog(0, { XMM6, XMM7, XMM8, XMM9 }, { R15, R14, R13, R12 });
 
 	// Positions: stackArgPos_+0=src, stackArgPos_+8=bufw, stackArgPos_+16=level, stackArgPos_+24=levelFrac
 	stackIDOffset_ = 32;
+
+	// Store frac UV in the shadow space right before the args.
+	stackFracUV1Offset_ = -8;
 #else
 	stackArgPos_ = 0;
+	stackArgPos_ += WriteProlog(0, {}, { R15, R14, R13, R12 });
 	stackIDOffset_ = 8;
-#endif
 
-	// Start out by saving some registers, since we'll need more.
-	PUSH(R15);
-	PUSH(R14);
-	PUSH(R13);
-	PUSH(R12);
-	regCache_.Add(R15, RegCache::GEN_INVALID);
-	regCache_.Add(R14, RegCache::GEN_INVALID);
-	// This is what we'll put in them, anyway...
-	regCache_.Add(R13, RegCache::GEN_ARG_FRAC_V);
-	regCache_.Add(R12, RegCache::GEN_ARG_FRAC_U);
-	stackArgPos_ += 32;
-
-#if PPSSPP_PLATFORM(WINDOWS)
-	// Free up some more vector regs on Windows, where we're a bit tight.
-	SUB(64, R(RSP), Imm8(16 * 4 + 8));
-	stackArgPos_ += 16 * 4 + 8;
-	MOVDQA(MDisp(RSP, 0), XMM6);
-	MOVDQA(MDisp(RSP, 16), XMM7);
-	MOVDQA(MDisp(RSP, 32), XMM8);
-	MOVDQA(MDisp(RSP, 48), XMM9);
-	regCache_.Add(XMM6, RegCache::VEC_INVALID);
-	regCache_.Add(XMM7, RegCache::VEC_INVALID);
-	regCache_.Add(XMM8, RegCache::VEC_INVALID);
-	regCache_.Add(XMM9, RegCache::VEC_INVALID);
-
-	// Store frac UV in the gap.
-	stackFracUV1Offset_ = -stackArgPos_ + 16 * 4;
-#else
 	// Use the red zone.
 	stackFracUV1Offset_ = -stackArgPos_ - 8;
 #endif
+
+	// This is what we'll put in them, anyway...
+	if (nearest != nullptr) {
+		regCache_.ChangeReg(R13, RegCache::GEN_ARG_FRAC_V);
+		regCache_.ChangeReg(R12, RegCache::GEN_ARG_FRAC_U);
+	} else {
+		// If we don't need to preserve across the CALL, try to avoid saving regs.
+		regCache_.ChangeReg(R11, RegCache::GEN_ARG_FRAC_V);
+		regCache_.ChangeReg(R10, RegCache::GEN_ARG_FRAC_U);
+	}
 
 	// Reserve a couple regs that the nearest CALL won't use.
 	if (id.hasAnyMips) {
@@ -825,7 +813,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	if (!success) {
 		regCache_.Reset(false);
 		EndWrite();
-		ResetCodePtr(GetOffset(nearest ? nearest : start));
+		ResetCodePtr(GetOffset(nearest ? nearest : linearResetPos));
 		ERROR_LOG(G3D, "Failed to compile linear %s", DescribeSamplerID(id).c_str());
 		return nullptr;
 	}
@@ -834,23 +822,8 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		SetJumpTarget(zeroSrc);
 	}
 
-#if PPSSPP_PLATFORM(WINDOWS)
-	MOVDQA(XMM6, MDisp(RSP, 0));
-	MOVDQA(XMM7, MDisp(RSP, 16));
-	MOVDQA(XMM8, MDisp(RSP, 32));
-	MOVDQA(XMM9, MDisp(RSP, 48));
-	ADD(64, R(RSP), Imm8(16 * 4 + 8));
-#endif
-	POP(R12);
-	POP(R13);
-	POP(R14);
-	POP(R15);
-
-	RET();
-
+	const u8 *start = WriteFinalizedEpilog();
 	regCache_.Reset(true);
-
-	EndWrite();
 	return (LinearFunc)start;
 }
 

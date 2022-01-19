@@ -178,6 +178,7 @@ struct RegCache {
 		Purpose purpose;
 		uint8_t locked = 0;
 		bool forceRetained = false;
+		bool everLocked = false;
 	};
 
 	// Note: Assumes __vectorcall on Windows.
@@ -208,6 +209,8 @@ struct RegCache {
 	void GrabReg(Reg r, Purpose p, bool &needsSwap, Reg swapReg, Purpose swapPurpose);
 	// For setting the purpose of a specific reg.  Returns false if it is locked.
 	bool ChangeReg(Reg r, Purpose p);
+	// Retrieves whether reg was ever used.
+	bool UsedReg(Reg r, Purpose flag);
 
 private:
 	RegStatus *FindReg(Reg r, Purpose p);
@@ -226,6 +229,10 @@ protected:
 	RegCache::Reg GetZeroVec();
 
 	void Describe(const std::string &message);
+	// Returns amount of stack space used.
+	int WriteProlog(int extraStack, const std::vector<RegCache::Reg> &vec, const std::vector<RegCache::Reg> &gen);
+	// Returns updated function start position, modifies prolog and finishes writing.
+	const u8 *WriteFinalizedEpilog();
 
 	void WriteSimpleConst16x8(const u8 *&ptr, uint8_t value);
 	void WriteSimpleConst8x16(const u8 *&ptr, uint16_t value);
@@ -240,6 +247,14 @@ protected:
 
 	std::unordered_map<const u8 *, std::string> descriptions_;
 	Rasterizer::RegCache regCache_;
+
+private:
+	u8 *lastPrologStart_ = nullptr;
+	u8 *lastPrologEnd_ = nullptr;
+	int savedStack_;
+	int firstVecStack_;
+	std::vector<RegCache::Reg> prologVec_;
+	std::vector<RegCache::Reg> prologGen_;
 };
 
 };
