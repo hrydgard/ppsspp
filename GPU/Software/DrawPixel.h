@@ -59,22 +59,15 @@ public:
 	// Returns a pointer to the code to run.
 	SingleFunc GetSingle(const PixelFuncID &id);
 	SingleFunc GenericSingle(const PixelFuncID &id);
-	void Clear();
+	void Clear() override;
 
-	std::string DescribeCodePtr(const u8 *ptr);
+	std::string DescribeCodePtr(const u8 *ptr) override;
 
 private:
 	SingleFunc CompileSingle(const PixelFuncID &id);
 
-	void Describe(const std::string &message);
-
-#if PPSSPP_ARCH(ARM64)
-	Arm64Gen::ARM64FloatEmitter fp;
-#endif
-
 	RegCache::Reg GetPixelID();
 	void UnlockPixelID(RegCache::Reg &r);
-	RegCache::Reg GetZeroVec();
 	// Note: these may require a temporary reg.
 	RegCache::Reg GetColorOff(const PixelFuncID &id);
 	RegCache::Reg GetDepthOff(const PixelFuncID &id);
@@ -108,8 +101,6 @@ private:
 
 	std::unordered_map<PixelFuncID, SingleFunc> cache_;
 	std::unordered_map<PixelFuncID, const u8 *> addresses_;
-	std::unordered_map<const u8 *, std::string> descriptions_;
-	RegCache regCache_;
 
 	const u8 *constBlendHalf_11_4s_ = nullptr;
 	const u8 *constBlendInvert_11_4s_ = nullptr;

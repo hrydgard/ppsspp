@@ -20,6 +20,8 @@
 #include "ppsspp_config.h"
 
 #include <cstdint>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 #if defined(_M_SSE)
@@ -50,15 +52,15 @@ namespace Rasterizer {
 
 // While not part of the reg cache proper, this is the type it is built for.
 #if PPSSPP_ARCH(ARM)
-typedef ArmGen::ARMXCodeBlock CodeBlock;
+typedef ArmGen::ARMXCodeBlock BaseCodeBlock;
 #elif PPSSPP_ARCH(ARM64)
-typedef Arm64Gen::ARM64CodeBlock CodeBlock;
+typedef Arm64Gen::ARM64CodeBlock BaseCodeBlock;
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
-typedef Gen::XCodeBlock CodeBlock;
+typedef Gen::XCodeBlock BaseCodeBlock;
 #elif PPSSPP_ARCH(MIPS)
-typedef MIPSGen::MIPSCodeBlock CodeBlock;
+typedef MIPSGen::MIPSCodeBlock BaseCodeBlock;
 #else
-typedef FakeGen::FakeXCodeBlock CodeBlock;
+typedef FakeGen::FakeXCodeBlock BaseCodeBlock;
 #endif
 
 // We also have the types of things that end up in regs.
@@ -176,6 +178,7 @@ struct RegCache {
 		Purpose purpose;
 		uint8_t locked = 0;
 		bool forceRetained = false;
+		bool everLocked = false;
 	};
 
 	// Note: Assumes __vectorcall on Windows.
@@ -206,11 +209,52 @@ struct RegCache {
 	void GrabReg(Reg r, Purpose p, bool &needsSwap, Reg swapReg, Purpose swapPurpose);
 	// For setting the purpose of a specific reg.  Returns false if it is locked.
 	bool ChangeReg(Reg r, Purpose p);
+	// Retrieves whether reg was ever used.
+	bool UsedReg(Reg r, Purpose flag);
 
 private:
 	RegStatus *FindReg(Reg r, Purpose p);
 
 	std::vector<RegStatus> regs;
+};
+
+class CodeBlock : public BaseCodeBlock {
+public:
+	virtual std::string DescribeCodePtr(const u8 *ptr);
+	virtual void Clear();
+
+protected:
+	CodeBlock(int size);
+
+	RegCache::Reg GetZeroVec();
+
+	void Describe(const std::string &message);
+	// Returns amount of stack space used.
+	int WriteProlog(int extraStack, const std::vector<RegCache::Reg> &vec, const std::vector<RegCache::Reg> &gen);
+	// Returns updated function start position, modifies prolog and finishes writing.
+	const u8 *WriteFinalizedEpilog();
+
+	void WriteSimpleConst16x8(const u8 *&ptr, uint8_t value);
+	void WriteSimpleConst8x16(const u8 *&ptr, uint16_t value);
+	void WriteSimpleConst4x32(const u8 *&ptr, uint32_t value);
+	void WriteDynamicConst16x8(const u8 *&ptr, uint8_t value);
+	void WriteDynamicConst8x16(const u8 *&ptr, uint16_t value);
+	void WriteDynamicConst4x32(const u8 *&ptr, uint32_t value);
+
+#if PPSSPP_ARCH(ARM64)
+	Arm64Gen::ARM64FloatEmitter fp;
+#endif
+
+	std::unordered_map<const u8 *, std::string> descriptions_;
+	Rasterizer::RegCache regCache_;
+
+private:
+	u8 *lastPrologStart_ = nullptr;
+	u8 *lastPrologEnd_ = nullptr;
+	int savedStack_;
+	int firstVecStack_;
+	std::vector<RegCache::Reg> prologVec_;
+	std::vector<RegCache::Reg> prologGen_;
 };
 
 };

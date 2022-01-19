@@ -231,6 +231,7 @@ RegCache::Reg RegCache::Find(Purpose p) {
 		if (reg.purpose == p) {
 			_assert_msg_(reg.locked <= 255, "softjit Find() reg has lots of locks (%04X)", p);
 			reg.locked++;
+			reg.everLocked = true;
 			return reg.reg;
 		}
 	}
@@ -262,6 +263,7 @@ RegCache::Reg RegCache::Alloc(Purpose p) {
 
 	if (best) {
 		best->locked = 1;
+		best->everLocked = true;
 		best->purpose = p;
 		return best->reg;
 	}
@@ -309,6 +311,7 @@ void RegCache::GrabReg(Reg r, Purpose p, bool &needsSwap, Reg swapReg, Purpose s
 			needsSwap = false;
 			reg.purpose = p;
 			reg.locked = 1;
+			reg.everLocked = true;
 			return;
 		}
 
@@ -319,15 +322,18 @@ void RegCache::GrabReg(Reg r, Purpose p, bool &needsSwap, Reg swapReg, Purpose s
 			swap->purpose = reg.purpose;
 			swap->forceRetained = reg.forceRetained;
 			swap->locked = reg.locked;
+			swap->everLocked = true;
 		} else {
 			_assert_msg_(!Has(swapPurpose), "softjit GrabReg() wrong purpose (%04X)", swapPurpose);
 			RegStatus newStatus = reg;
 			newStatus.reg = swapReg;
+			newStatus.everLocked = true;
 			regs.push_back(newStatus);
 		}
 
 		reg.purpose = p;
 		reg.locked = 1;
+		reg.everLocked = true;
 		reg.forceRetained = false;
 		return;
 	}
@@ -350,10 +356,25 @@ bool RegCache::ChangeReg(Reg r, Purpose p) {
 			return false;
 
 		reg.purpose = p;
+		// Since we're setting it's purpose, we must've used it.
+		reg.everLocked = true;
 		return true;
 	}
 
 	_assert_msg_(false, "softjit ChangeReg() reg that isn't there");
+	return false;
+}
+
+bool RegCache::UsedReg(Reg r, Purpose flag) {
+	for (auto &reg : regs) {
+		if (reg.reg != r)
+			continue;
+		if ((reg.purpose & FLAG_GEN) != (flag & FLAG_GEN))
+			continue;
+		return reg.everLocked;
+	}
+
+	_assert_msg_(false, "softjit UsedReg() reg that isn't there");
 	return false;
 }
 
@@ -365,6 +386,238 @@ RegCache::RegStatus *RegCache::FindReg(Reg r, Purpose p) {
 	}
 
 	return nullptr;
+}
+
+CodeBlock::CodeBlock(int size)
+#if PPSSPP_ARCH(ARM64)
+	: fp(this)
+#endif
+{
+	AllocCodeSpace(size);
+	ClearCodeSpace(0);
+
+	// Add some random code to "help" MSVC's buggy disassembler :(
+#if defined(_WIN32) && (PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)) && !PPSSPP_PLATFORM(UWP)
+	using namespace Gen;
+	for (int i = 0; i < 100; i++) {
+		MOV(32, R(EAX), R(EBX));
+		RET();
+	}
+#elif PPSSPP_ARCH(ARM)
+	BKPT(0);
+	BKPT(0);
+#endif
+}
+
+int CodeBlock::WriteProlog(int extraStack, const std::vector<RegCache::Reg> &vec, const std::vector<RegCache::Reg> &gen) {
+	savedStack_ = 0;
+	firstVecStack_ = extraStack;
+	prologVec_ = vec;
+	prologGen_ = gen;
+
+	int totalStack = 0;
+
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+	using namespace Gen;
+
+	BeginWrite();
+	AlignCode16();
+	lastPrologStart_ = GetWritableCodePtr();
+
+	for (X64Reg r : gen) {
+		PUSH(r);
+		regCache_.Add(r, RegCache::GEN_INVALID);
+		totalStack += 8;
+	}
+
+	savedStack_ = 16 * (int)vec.size() + extraStack;
+	// We want to align if possible.  It starts out unaligned.
+	if ((totalStack & 8) == 0)
+		savedStack_ += 8;
+	totalStack += savedStack_;
+	if (savedStack_ != 0)
+		SUB(64, R(RSP), Imm32(savedStack_));
+
+	int nextOffset = extraStack;
+	for (X64Reg r : vec) {
+		MOVUPS(MDisp(RSP, nextOffset), r);
+		regCache_.Add(r, RegCache::VEC_INVALID);
+		nextOffset += 16;
+	}
+
+	lastPrologEnd_ = GetWritableCodePtr();
+#else
+	_assert_msg_(false, "Not yet implemented");
+#endif
+
+	return totalStack;
+}
+
+const u8 *CodeBlock::WriteFinalizedEpilog() {
+	u8 *prologPtr = lastPrologStart_;
+	ptrdiff_t prologMaxSize = lastPrologEnd_ - lastPrologStart_;
+	lastPrologStart_ = nullptr;
+	lastPrologEnd_ = nullptr;
+
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+	using namespace Gen;
+
+	bool prologChange = false;
+	int nextOffset = firstVecStack_;
+	for (X64Reg r : prologVec_) {
+		if (regCache_.UsedReg(r, RegCache::VEC_INVALID)) {
+			MOVUPS(r, MDisp(RSP, nextOffset));
+			nextOffset += 16;
+		} else {
+			prologChange = true;
+		}
+	}
+
+	// We use the stack offset in generated code, so maintain any difference.
+	int unusedGenSpace = 0;
+	for (X64Reg r : prologGen_) {
+		if (!regCache_.UsedReg(r, RegCache::GEN_INVALID))
+			unusedGenSpace += 8;
+	}
+	if (unusedGenSpace != 0)
+		prologChange = true;
+
+	if (savedStack_ + unusedGenSpace != 0)
+		ADD(64, R(RSP), Imm32(savedStack_ + unusedGenSpace));
+	for (int i = (int)prologGen_.size(); i > 0; --i) {
+		X64Reg r = prologGen_[i - 1];
+		if (regCache_.UsedReg(r, RegCache::GEN_INVALID))
+			POP(r);
+	}
+
+	RET();
+	EndWrite();
+
+	if (prologChange) {
+		// Okay, now let's rewrite the prolog since we didn't need all those regs.
+		XEmitter prolog(prologPtr);
+		if (PlatformIsWXExclusive()) {
+			ProtectMemoryPages(prologPtr, 128, MEM_PROT_READ | MEM_PROT_WRITE);
+		}
+
+		// First, write the new prolog at the original position.
+		for (X64Reg r : prologGen_) {
+			if (regCache_.UsedReg(r, RegCache::GEN_INVALID))
+				prolog.PUSH(r);
+		}
+
+		// Even if less of the stack is actually used, we want the number to match to references.
+		if (savedStack_ + unusedGenSpace != 0)
+			prolog.SUB(64, R(RSP), Imm32(savedStack_ + unusedGenSpace));
+
+		nextOffset = firstVecStack_;
+		for (X64Reg r : prologVec_) {
+			if (regCache_.UsedReg(r, RegCache::VEC_INVALID)) {
+				prolog.MOVUPS(MDisp(RSP, nextOffset), r);
+				nextOffset += 16;
+			}
+		}
+
+		ptrdiff_t prologLen = prolog.GetWritableCodePtr() - prologPtr;
+		if (prologLen < prologMaxSize) {
+			// We wrote it at the start, but we actually want it at the end.
+			u8 *oldPrologPtr = prologPtr;
+			prologPtr += prologMaxSize - prologLen;
+			memmove(prologPtr, oldPrologPtr, prologLen);
+			// Set INT3s before the new start to be safe.
+			memset(oldPrologPtr, 0xCC, prologMaxSize - prologLen);
+		}
+
+		if (PlatformIsWXExclusive()) {
+			ProtectMemoryPages(prologPtr, 128, MEM_PROT_READ | MEM_PROT_EXEC);
+		}
+	}
+#else
+	_assert_msg_(false, "Not yet implemented");
+#endif
+
+	return prologPtr;
+}
+
+RegCache::Reg CodeBlock::GetZeroVec() {
+	if (!regCache_.Has(RegCache::VEC_ZERO)) {
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+		using namespace Gen;
+		X64Reg r = regCache_.Alloc(RegCache::VEC_ZERO);
+		PXOR(r, R(r));
+		return r;
+#else
+		return RegCache::REG_INVALID_VALUE;
+#endif
+	}
+	return regCache_.Find(RegCache::VEC_ZERO);
+}
+
+void CodeBlock::Describe(const std::string &message) {
+	descriptions_[GetCodePointer()] = message;
+}
+
+std::string CodeBlock::DescribeCodePtr(const u8 *ptr) {
+	ptrdiff_t dist = 0x7FFFFFFF;
+	std::string found;
+	for (const auto &it : descriptions_) {
+		ptrdiff_t it_dist = ptr - it.first;
+		if (it_dist >= 0 && it_dist < dist) {
+			found = it.second;
+			dist = it_dist;
+		}
+	}
+	return found;
+}
+
+void CodeBlock::Clear() {
+	ClearCodeSpace(0);
+	descriptions_.clear();
+}
+
+void CodeBlock::WriteSimpleConst16x8(const u8 *&ptr, uint8_t value) {
+	if (ptr == nullptr)
+		WriteDynamicConst16x8(ptr, value);
+}
+
+void CodeBlock::WriteSimpleConst8x16(const u8 *&ptr, uint16_t value) {
+	if (ptr == nullptr)
+		WriteDynamicConst8x16(ptr, value);
+}
+
+void CodeBlock::WriteSimpleConst4x32(const u8 *&ptr, uint32_t value) {
+	if (ptr == nullptr)
+		WriteDynamicConst4x32(ptr, value);
+}
+
+void CodeBlock::WriteDynamicConst16x8(const u8 *&ptr, uint8_t value) {
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+	ptr = AlignCode16();
+	for (int i = 0; i < 16; ++i)
+		Write8(value);
+#else
+	_assert_msg_(false, "Not yet implemented");
+#endif
+}
+
+void CodeBlock::WriteDynamicConst8x16(const u8 *&ptr, uint16_t value) {
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+	ptr = AlignCode16();
+	for (int i = 0; i < 8; ++i)
+		Write16(value);
+#else
+	_assert_msg_(false, "Not yet implemented");
+#endif
+}
+
+void CodeBlock::WriteDynamicConst4x32(const u8 *&ptr, uint32_t value) {
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+	ptr = AlignCode16();
+	for (int i = 0; i < 4; ++i)
+		Write32(value);
+#else
+	_assert_msg_(false, "Not yet implemented");
+#endif
 }
 
 };

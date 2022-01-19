@@ -55,18 +55,15 @@ public:
 	NearestFunc GetNearest(const SamplerID &id);
 	LinearFunc GetLinear(const SamplerID &id);
 	FetchFunc GetFetch(const SamplerID &id);
-	void Clear();
+	void Clear() override;
 
-	std::string DescribeCodePtr(const u8 *ptr);
+	std::string DescribeCodePtr(const u8 *ptr) override;
 
 private:
 	FetchFunc CompileFetch(const SamplerID &id);
 	NearestFunc CompileNearest(const SamplerID &id);
 	LinearFunc CompileLinear(const SamplerID &id);
 
-	void Describe(const std::string &message);
-
-	Rasterizer::RegCache::Reg GetZeroVec();
 	Rasterizer::RegCache::Reg GetSamplerID();
 	void UnlockSamplerID(Rasterizer::RegCache::Reg &r);
 
@@ -101,9 +98,7 @@ private:
 
 	bool Jit_ApplyTextureFunc(const SamplerID &id);
 
-#if PPSSPP_ARCH(ARM64)
-	Arm64Gen::ARM64FloatEmitter fp;
-#elif PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
+#if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	int stackArgPos_ = 0;
 	int stackIDOffset_ = -1;
 	int stackFracUV1Offset_ = 0;
@@ -125,8 +120,6 @@ private:
 
 	std::unordered_map<SamplerID, NearestFunc> cache_;
 	std::unordered_map<SamplerID, const u8 *> addresses_;
-	std::unordered_map<const u8 *, std::string> descriptions_;
-	Rasterizer::RegCache regCache_;
 };
 
 #if defined(__clang__) || defined(__GNUC__)

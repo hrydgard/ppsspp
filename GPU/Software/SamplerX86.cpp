@@ -490,9 +490,10 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		unlockOptReg(RegCache::VEC_ARG_COLOR);
 		regCache_.Reset(true);
 	}
+	EndWrite();
 
 	// Now the actual linear func, which is exposed externally.
-	const u8 *start = AlignCode16();
+	const u8 *linearResetPos = GetCodePointer();
 	Describe("Init");
 
 	regCache_.SetupABI({
@@ -511,45 +512,32 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 #if PPSSPP_PLATFORM(WINDOWS)
 	// RET + shadow space + 8 byte space for color arg (the Win32 ABI is kinda ugly.)
 	stackArgPos_ = 8 + 32 + 8;
+	// Free up some more vector regs on Windows too, where we're a bit tight.
+	stackArgPos_ += WriteProlog(0, { XMM6, XMM7, XMM8, XMM9 }, { R15, R14, R13, R12 });
 
 	// Positions: stackArgPos_+0=src, stackArgPos_+8=bufw, stackArgPos_+16=level, stackArgPos_+24=levelFrac
 	stackIDOffset_ = 32;
+
+	// Store frac UV in the shadow space right before the args.
+	stackFracUV1Offset_ = -8;
 #else
 	stackArgPos_ = 0;
+	stackArgPos_ += WriteProlog(0, {}, { R15, R14, R13, R12 });
 	stackIDOffset_ = 8;
-#endif
 
-	// Start out by saving some registers, since we'll need more.
-	PUSH(R15);
-	PUSH(R14);
-	PUSH(R13);
-	PUSH(R12);
-	regCache_.Add(R15, RegCache::GEN_INVALID);
-	regCache_.Add(R14, RegCache::GEN_INVALID);
-	// This is what we'll put in them, anyway...
-	regCache_.Add(R13, RegCache::GEN_ARG_FRAC_V);
-	regCache_.Add(R12, RegCache::GEN_ARG_FRAC_U);
-	stackArgPos_ += 32;
-
-#if PPSSPP_PLATFORM(WINDOWS)
-	// Free up some more vector regs on Windows, where we're a bit tight.
-	SUB(64, R(RSP), Imm8(16 * 4 + 8));
-	stackArgPos_ += 16 * 4 + 8;
-	MOVDQA(MDisp(RSP, 0), XMM6);
-	MOVDQA(MDisp(RSP, 16), XMM7);
-	MOVDQA(MDisp(RSP, 32), XMM8);
-	MOVDQA(MDisp(RSP, 48), XMM9);
-	regCache_.Add(XMM6, RegCache::VEC_INVALID);
-	regCache_.Add(XMM7, RegCache::VEC_INVALID);
-	regCache_.Add(XMM8, RegCache::VEC_INVALID);
-	regCache_.Add(XMM9, RegCache::VEC_INVALID);
-
-	// Store frac UV in the gap.
-	stackFracUV1Offset_ = -stackArgPos_ + 16 * 4;
-#else
 	// Use the red zone.
 	stackFracUV1Offset_ = -stackArgPos_ - 8;
 #endif
+
+	// This is what we'll put in them, anyway...
+	if (nearest != nullptr) {
+		regCache_.ChangeReg(R13, RegCache::GEN_ARG_FRAC_V);
+		regCache_.ChangeReg(R12, RegCache::GEN_ARG_FRAC_U);
+	} else {
+		// If we don't need to preserve across the CALL, try to avoid saving regs.
+		regCache_.ChangeReg(R11, RegCache::GEN_ARG_FRAC_V);
+		regCache_.ChangeReg(R10, RegCache::GEN_ARG_FRAC_U);
+	}
 
 	// Reserve a couple regs that the nearest CALL won't use.
 	if (id.hasAnyMips) {
@@ -825,7 +813,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	if (!success) {
 		regCache_.Reset(false);
 		EndWrite();
-		ResetCodePtr(GetOffset(nearest ? nearest : start));
+		ResetCodePtr(GetOffset(nearest ? nearest : linearResetPos));
 		ERROR_LOG(G3D, "Failed to compile linear %s", DescribeSamplerID(id).c_str());
 		return nullptr;
 	}
@@ -834,33 +822,15 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		SetJumpTarget(zeroSrc);
 	}
 
-#if PPSSPP_PLATFORM(WINDOWS)
-	MOVDQA(XMM6, MDisp(RSP, 0));
-	MOVDQA(XMM7, MDisp(RSP, 16));
-	MOVDQA(XMM8, MDisp(RSP, 32));
-	MOVDQA(XMM9, MDisp(RSP, 48));
-	ADD(64, R(RSP), Imm8(16 * 4 + 8));
-#endif
-	POP(R12);
-	POP(R13);
-	POP(R14);
-	POP(R15);
-
-	RET();
-
+	const u8 *start = WriteFinalizedEpilog();
 	regCache_.Reset(true);
-
-	EndWrite();
 	return (LinearFunc)start;
 }
 
 void SamplerJitCache::WriteConstantPool(const SamplerID &id) {
 	// We reuse constants in any pool, because our code space is small.
-	if (const10All16_ == nullptr) {
-		const10All16_ = AlignCode16();
-		for (int i = 0; i < 8; ++i)
-			Write16(0x10);
-	}
+	WriteSimpleConst8x16(const10All16_, 0x10);
+	WriteSimpleConst16x8(const10All8_, 0x10);
 
 	if (const10Low_ == nullptr) {
 		const10Low_ = AlignCode16();
@@ -870,23 +840,8 @@ void SamplerJitCache::WriteConstantPool(const SamplerID &id) {
 			Write16(0);
 	}
 
-	if (const10All8_ == nullptr) {
-		const10All8_ = AlignCode16();
-		for (int i = 0; i < 16; ++i)
-			Write8(0x10);
-	}
-
-	if (constOnes32_ == nullptr) {
-		constOnes32_ = AlignCode16();
-		for (int i = 0; i < 4; ++i)
-			Write32(1);
-	}
-
-	if (constOnes16_ == nullptr) {
-		constOnes16_ = AlignCode16();
-		for (int i = 0; i < 8; ++i)
-			Write16(1);
-	}
+	WriteSimpleConst4x32(constOnes32_, 1);
+	WriteSimpleConst8x16(constOnes16_, 1);
 
 	if (constUNext_ == nullptr) {
 		constUNext_ = AlignCode16();
@@ -898,52 +853,24 @@ void SamplerJitCache::WriteConstantPool(const SamplerID &id) {
 		Write32(0); Write32(0); Write32(1); Write32(1);
 	}
 
-	if (const5551Swizzle_ == nullptr) {
-		const5551Swizzle_ = AlignCode16();
-		for (int i = 0; i < 4; ++i)
-			Write32(0x00070707);
-	}
-
-	if (const5650Swizzle_ == nullptr) {
-		const5650Swizzle_ = AlignCode16();
-		for (int i = 0; i < 4; ++i)
-			Write32(0x00070307);
-	}
+	WriteSimpleConst4x32(const5551Swizzle_, 0x00070707);
+	WriteSimpleConst4x32(const5650Swizzle_, 0x00070307);
 
 	// These are unique to the sampler ID.
 	if (!id.hasAnyMips) {
-		constWidth256f_ = AlignCode16();
 		float w256f = (1 << id.width0Shift) * 256;
-		Write32(*(uint32_t *)&w256f); Write32(*(uint32_t *)&w256f);
-		Write32(*(uint32_t *)&w256f); Write32(*(uint32_t *)&w256f);
-
-		constHeight256f_ = AlignCode16();
+		WriteDynamicConst4x32(constWidth256f_, *(uint32_t *)&w256f);
 		float h256f = (1 << id.height0Shift) * 256;
-		Write32(*(uint32_t *)&h256f); Write32(*(uint32_t *)&h256f);
-		Write32(*(uint32_t *)&h256f); Write32(*(uint32_t *)&h256f);
+		WriteDynamicConst4x32(constHeight256f_, *(uint32_t *)&h256f);
 
-		constWidthMinus1i_ = AlignCode16();
-		Write32((1 << id.width0Shift) - 1); Write32((1 << id.width0Shift) - 1);
-		Write32((1 << id.width0Shift) - 1); Write32((1 << id.width0Shift) - 1);
-
-		constHeightMinus1i_ = AlignCode16();
-		Write32((1 << id.height0Shift) - 1); Write32((1 << id.height0Shift) - 1);
-		Write32((1 << id.height0Shift) - 1); Write32((1 << id.height0Shift) - 1);
+		WriteDynamicConst4x32(constWidthMinus1i_, (1 << id.width0Shift) - 1);
+		WriteDynamicConst4x32(constHeightMinus1i_, (1 << id.height0Shift) - 1);
 	} else {
 		constWidth256f_ = nullptr;
 		constHeight256f_ = nullptr;
 		constWidthMinus1i_ = nullptr;
 		constHeightMinus1i_ = nullptr;
 	}
-}
-
-RegCache::Reg SamplerJitCache::GetZeroVec() {
-	if (!regCache_.Has(RegCache::VEC_ZERO)) {
-		X64Reg r = regCache_.Alloc(RegCache::VEC_ZERO);
-		PXOR(r, R(r));
-		return r;
-	}
-	return regCache_.Find(RegCache::VEC_ZERO);
 }
 
 RegCache::Reg SamplerJitCache::GetSamplerID() {
