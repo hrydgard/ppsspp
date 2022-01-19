@@ -1241,7 +1241,7 @@ void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage *
 	// Don't share buffer address space with other mipscall in the queue since mipscalls aren't immediately executed
 	MatchingArgs argsNew = { 0 };
 	u32_le dataBufLen = msg->optlen + 8; //max(bufLen, msg->optlen + 8);
-	u32_le dataBufAddr = userMemory.Alloc(dataBufLen); // We will free this memory after returning from mipscall
+	u32_le dataBufAddr = userMemory.Alloc(dataBufLen); // We will free this memory after returning from mipscall. FIXME: Are these buffers supposed to be taken/pre-allocated from the memory pool during sceNetAdhocMatchingInit?
 	uint8_t * dataPtr = Memory::GetPointer(dataBufAddr);
 	if (dataPtr) {
 		memcpy(dataPtr, &msg->mac, sizeof(msg->mac));
@@ -1255,6 +1255,7 @@ void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage *
 	}
 	else {
 		argsNew.data[1] = PSP_ADHOC_MATCHING_EVENT_ERROR; // not sure where to put the error code for EVENT_ERROR tho
+		//argsNew.data[2] = dataBufAddr; // FIXME: Is the MAC address mandatory (ie. can't be null pointer) even for EVENT_ERROR? Where should we put this MAC data in the case we failed to allocate the memory? may be on the memory pool?
 	}
 	argsNew.data[0] = context->id;	
 	argsNew.data[5] = context->handler.entryPoint; //not part of callback argument, just borrowing a space to store callback address so i don't need to search the context first later

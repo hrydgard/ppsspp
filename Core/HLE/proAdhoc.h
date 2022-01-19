@@ -732,7 +732,7 @@ enum {
 #define PSP_ADHOC_MATCHING_MODE_P2P				3
 
 // Matching Events
-#define PSP_ADHOC_MATCHING_EVENT_HELLO			1
+#define PSP_ADHOC_MATCHING_EVENT_HELLO			1	// Should be ignored when Join Request is in progress ?
 #define PSP_ADHOC_MATCHING_EVENT_REQUEST		2
 #define PSP_ADHOC_MATCHING_EVENT_LEAVE			3
 #define PSP_ADHOC_MATCHING_EVENT_DENY			4

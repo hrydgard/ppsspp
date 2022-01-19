@@ -24,7 +24,7 @@
 #pragma pack(push,1)
 #endif
 typedef struct MatchingArgs {
-	u32_le data[6]; //ContextID, Opcode, bufAddr[ to MAC], OptLen, OptAddr[, EntryPoint]
+	u32_le data[6]; // ContextID, EventID, bufAddr[ to MAC], OptLen, OptAddr[, EntryPoint]
 } PACK MatchingArgs;
 
 typedef struct SceNetAdhocDiscoverParam {
