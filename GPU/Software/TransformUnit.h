@@ -83,10 +83,10 @@ struct VertexData {
 	}
 
 	ClipCoords clippos;
-	ScreenCoords screenpos; // TODO: Shouldn't store this ?
 	Vec2<float> texturecoords;
 	Vec4<int> color0;
 	Vec3<int> color1;
+	ScreenCoords screenpos; // TODO: Shouldn't store this ?
 	float fogdepth;
 };
 
