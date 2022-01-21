@@ -60,6 +60,8 @@ class Command(object):
         self.process.terminate()
       thread.join()
 
+    return self.process.returncode
+
 # Test names are the C files without the .c extension.
 # These have worked and should keep working always - regression tests.
 tests_good = [
@@ -499,8 +501,7 @@ def init():
 
 def run_tests(test_list, args):
   global PPSSPP_EXE, TIMEOUT
-  tests_passed = []
-  tests_failed = []
+  returncode = 0
 
   test_filenames = []
   for test in test_list:
@@ -518,18 +519,21 @@ def run_tests(test_list, args):
     cmdline.extend([i for i in args if i not in ['-g', '-m']])
 
     c = Command(cmdline, '\n'.join(test_filenames))
-    c.run(TIMEOUT * len(test_filenames))
+    returncode = c.run(TIMEOUT * len(test_filenames))
 
     print("Ran " + ' '.join(cmdline))
 
+  return returncode
 
 def main():
   init()
   tests = []
   args = []
+  teamcity = False
   for arg in sys.argv[1:]:
     if arg == '--teamcity':
       args.append(arg)
+      teamcity = True
     elif arg[0] == '-':
       args.append(arg)
     else:
@@ -545,6 +549,9 @@ def main():
   elif '-m' in args:
     tests = [i for i in tests_next + tests_good if i.startswith(tests[0])]
 
-  run_tests(tests, args)
+  returncode = run_tests(tests, args)
+  if teamcity:
+    return 0
+  return returncode
 
-main()
+exit(main())

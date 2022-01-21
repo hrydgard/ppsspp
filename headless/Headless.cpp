@@ -502,5 +502,7 @@ int main(int argc, const char* argv[])
 	LogManager::Shutdown();
 	delete printfLogger;
 
+	if (!failedTests.empty() && !teamCityMode)
+		return 1;
 	return 0;
 }
