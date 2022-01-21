@@ -558,14 +558,18 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_FRAMEBUFPTR:
 		// We assume fb.data won't change while we're drawing.
-		drawEngine_->transformUnit.Flush("framebuf");
-		fb.data = Memory::GetPointer(gstate.getFrameBufAddress());
+		if (diff) {
+			drawEngine_->transformUnit.Flush("framebuf");
+			fb.data = Memory::GetPointer(gstate.getFrameBufAddress());
+		}
 		break;
 
 	case GE_CMD_FRAMEBUFWIDTH:
 		// We assume fb.data won't change while we're drawing.
-		drawEngine_->transformUnit.Flush("framebuf");
-		fb.data = Memory::GetPointer(gstate.getFrameBufAddress());
+		if (diff) {
+			drawEngine_->transformUnit.Flush("framebuf");
+			fb.data = Memory::GetPointer(gstate.getFrameBufAddress());
+		}
 		break;
 
 	case GE_CMD_FRAMEBUFPIXFORMAT:
@@ -694,14 +698,18 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_ZBUFPTR:
 		// We assume depthbuf.data won't change while we're drawing.
-		drawEngine_->transformUnit.Flush("depthbuf");
-		depthbuf.data = Memory::GetPointer(gstate.getDepthBufAddress());
+		if (diff) {
+			drawEngine_->transformUnit.Flush("depthbuf");
+			depthbuf.data = Memory::GetPointer(gstate.getDepthBufAddress());
+		}
 		break;
 
 	case GE_CMD_ZBUFWIDTH:
 		// We assume depthbuf.data won't change while we're drawing.
-		drawEngine_->transformUnit.Flush("depthbuf");
-		depthbuf.data = Memory::GetPointer(gstate.getDepthBufAddress());
+		if (diff) {
+			drawEngine_->transformUnit.Flush("depthbuf");
+			depthbuf.data = Memory::GetPointer(gstate.getDepthBufAddress());
+		}
 		break;
 
 	case GE_CMD_AMBIENTCOLOR:
