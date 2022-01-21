@@ -75,7 +75,6 @@ struct BinQueue {
 	}
 
 	size_t Push(const T &item) {
-		_dbg_assert_(size_ < N - 1);
 		size_t i = tail_++;
 		if (i + 1 == N)
 			tail_ -= N;
@@ -85,7 +84,6 @@ struct BinQueue {
 	}
 
 	T Pop() {
-		_dbg_assert_(!Empty());
 		size_t i = head_++;
 		if (i + 1 == N)
 			head_ -= N;
@@ -96,26 +94,30 @@ struct BinQueue {
 
 	// Only safe if you're the only one reading.
 	T &PeekNext() {
-		_dbg_assert_(!Empty());
 		return items_[head_];
 	}
 
 	void SkipNext() {
-		_dbg_assert_(!Empty());
 		size_t i = head_++;
 		if (i + 1 == N)
 			head_ -= N;
 		size_--;
 	}
 
+	// Only safe if you're the only one reading.
+	const T &Peek(size_t offset) const {
+		size_t i = head_ + offset;
+		if (i >= N)
+			i -= N;
+		return items_[i];
+	}
+
 	// Only safe if you're the only one writing.
 	T &PeekPush() {
-		_dbg_assert_(size_ < N - 1);
 		return items_[tail_];
 	}
 
 	void PushPeeked() {
-		_dbg_assert_(size_ < N - 1);
 		size_t i = tail_++;
 		if (i + 1 == N)
 			tail_ -= N;
@@ -152,6 +154,28 @@ union BinClut {
 	uint8_t readable[1024];
 };
 
+struct BinTaskList {
+	// We shouldn't ever need more than two at once, since we use an atomic to run one at a time.
+	// A second could run due to overlap during teardown.
+	static constexpr int N = 2;
+
+	DrawBinItemsTask *tasks[N]{};
+	int count = 0;
+
+	DrawBinItemsTask *Next() {
+		return tasks[count % N];
+	}
+};
+
+struct BinDirtyRange {
+	uint32_t base;
+	uint32_t strideBytes;
+	uint32_t widthBytes;
+	uint32_t height;
+
+	void Expand(uint32_t newBase, uint32_t bpp, uint32_t stride, DrawingCoords &tl, DrawingCoords &br);
+};
+
 class BinManager {
 public:
 	BinManager();
@@ -172,6 +196,7 @@ public:
 
 	void Drain();
 	void Flush(const char *reason);
+	bool HasPendingWrite(uint32_t start, uint32_t stride, uint32_t w, uint32_t h);
 
 	void GetStats(char *buffer, size_t bufsize);
 	void ResetStats();
@@ -204,8 +229,11 @@ private:
 	bool tasksSplit_ = false;
 	std::vector<BinCoords> taskRanges_;
 	BinItemQueue taskQueues_[MAX_POSSIBLE_TASKS];
+	BinTaskList taskLists_[MAX_POSSIBLE_TASKS];
 	std::atomic<bool> taskStatus_[MAX_POSSIBLE_TASKS];
 	BinWaitable *waitable_ = nullptr;
+
+	BinDirtyRange pendingWrites_[2]{};
 
 	std::unordered_map<const char *, double> flushReasonTimes_;
 	std::unordered_map<const char *, double> lastFlushReasonTimes_;
@@ -215,6 +243,7 @@ private:
 	int enqueues_ = 0;
 	int mostThreads_ = 0;
 
+	bool HasTextureWrite(const Rasterizer::RasterizerState &state);
 	BinCoords Scissor(BinCoords range);
 	BinCoords Range(const VertexData &v0, const VertexData &v1, const VertexData &v2);
 	BinCoords Range(const VertexData &v0, const VertexData &v1);

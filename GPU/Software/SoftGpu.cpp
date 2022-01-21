@@ -548,9 +548,6 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_SCISSOR1:
 	case GE_CMD_SCISSOR2:
-		for (int i = 0; i < 8; ++i) {
-			drawEngine_->transformUnit.FlushIfOverlap("scissor", gstate.getTextureAddress(i), 4 * gstate.getTextureWidth(i) * gstate.getTextureHeight(i));
-		}
 		break;
 
 	case GE_CMD_MINZ:
@@ -558,14 +555,18 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_FRAMEBUFPTR:
 		// We assume fb.data won't change while we're drawing.
-		drawEngine_->transformUnit.Flush("framebuf");
-		fb.data = Memory::GetPointer(gstate.getFrameBufAddress());
+		if (diff) {
+			drawEngine_->transformUnit.Flush("framebuf");
+			fb.data = Memory::GetPointer(gstate.getFrameBufAddress());
+		}
 		break;
 
 	case GE_CMD_FRAMEBUFWIDTH:
 		// We assume fb.data won't change while we're drawing.
-		drawEngine_->transformUnit.Flush("framebuf");
-		fb.data = Memory::GetPointer(gstate.getFrameBufAddress());
+		if (diff) {
+			drawEngine_->transformUnit.Flush("framebuf");
+			fb.data = Memory::GetPointer(gstate.getFrameBufAddress());
+		}
 		break;
 
 	case GE_CMD_FRAMEBUFPIXFORMAT:
@@ -579,7 +580,6 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXADDR5:
 	case GE_CMD_TEXADDR6:
 	case GE_CMD_TEXADDR7:
-		drawEngine_->transformUnit.FlushIfOverlap("texaddr", gstate.getTextureAddress(cmd - GE_CMD_TEXADDR0), 4 * gstate.getTextureWidth(cmd - GE_CMD_TEXADDR0) * gstate.getTextureHeight(cmd - GE_CMD_TEXADDR0));
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
@@ -590,7 +590,6 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXBUFWIDTH5:
 	case GE_CMD_TEXBUFWIDTH6:
 	case GE_CMD_TEXBUFWIDTH7:
-		drawEngine_->transformUnit.FlushIfOverlap("texbufw", gstate.getTextureAddress(cmd - GE_CMD_TEXBUFWIDTH0), 4 * gstate.getTextureWidth(cmd - GE_CMD_TEXBUFWIDTH0) * gstate.getTextureHeight(cmd - GE_CMD_TEXBUFWIDTH0));
 		break;
 
 	case GE_CMD_CLUTADDR:
@@ -603,7 +602,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 			u32 clutTotalBytes = gstate.getClutLoadBytes();
 
 			// Might be copying drawing into the CLUT, so flush.
-			drawEngine_->transformUnit.FlushIfOverlap("loadclut", clutAddr, clutTotalBytes);
+			drawEngine_->transformUnit.FlushIfOverlap("loadclut", clutAddr, clutTotalBytes, clutTotalBytes, 1);
 
 			if (Memory::IsValidAddress(clutAddr)) {
 				u32 validSize = Memory::ValidSize(clutAddr, clutTotalBytes);
@@ -658,8 +657,9 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 			const uint32_t dst = dstBasePtr + (dstY * dstStride + dstX) * bpp;
 			const uint32_t dstSize = height * dstStride * bpp;
 
-			drawEngine_->transformUnit.FlushIfOverlap("blockxfer", src, srcSize);
-			drawEngine_->transformUnit.FlushIfOverlap("blockxfer", dst, dstSize);
+			// Need to flush both source and target, so we overwrite properly.
+			drawEngine_->transformUnit.FlushIfOverlap("blockxfer", src, srcStride, width * bpp, height);
+			drawEngine_->transformUnit.FlushIfOverlap("blockxfer", dst, dstStride, width * bpp, height);
 
 			DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
 
@@ -689,19 +689,22 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXSIZE5:
 	case GE_CMD_TEXSIZE6:
 	case GE_CMD_TEXSIZE7:
-		drawEngine_->transformUnit.FlushIfOverlap("texsize", gstate.getTextureAddress(cmd - GE_CMD_TEXSIZE0), 4 * gstate.getTextureWidth(cmd - GE_CMD_TEXSIZE0) * gstate.getTextureHeight(cmd - GE_CMD_TEXSIZE0));
 		break;
 
 	case GE_CMD_ZBUFPTR:
 		// We assume depthbuf.data won't change while we're drawing.
-		drawEngine_->transformUnit.Flush("depthbuf");
-		depthbuf.data = Memory::GetPointer(gstate.getDepthBufAddress());
+		if (diff) {
+			drawEngine_->transformUnit.Flush("depthbuf");
+			depthbuf.data = Memory::GetPointer(gstate.getDepthBufAddress());
+		}
 		break;
 
 	case GE_CMD_ZBUFWIDTH:
 		// We assume depthbuf.data won't change while we're drawing.
-		drawEngine_->transformUnit.Flush("depthbuf");
-		depthbuf.data = Memory::GetPointer(gstate.getDepthBufAddress());
+		if (diff) {
+			drawEngine_->transformUnit.Flush("depthbuf");
+			depthbuf.data = Memory::GetPointer(gstate.getDepthBufAddress());
+		}
 		break;
 
 	case GE_CMD_AMBIENTCOLOR:

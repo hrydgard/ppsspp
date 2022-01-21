@@ -115,12 +115,13 @@ void ComputeRasterizerState(RasterizerState *state) {
 	}
 
 	state->maxTexLevel = state->samplerID.hasAnyMips ? gstate.getTextureMaxLevel() : 0;
-	state->enableTextures = gstate.isTextureMapEnabled();
+	state->enableTextures = gstate.isTextureMapEnabled() && !state->pixelID.clearMode;
 
-	if (state->enableTextures && !state->pixelID.clearMode) {
+	if (state->enableTextures) {
 		GETextureFormat texfmt = state->samplerID.TexFmt();
 		for (uint8_t i = 0; i <= state->maxTexLevel; i++) {
 			u32 texaddr = gstate.getTextureAddress(i);
+			state->texaddr[i] = texaddr;
 			state->texbufw[i] = GetTextureBufw(i, texaddr, texfmt);
 			if (Memory::IsValidAddress(texaddr))
 				state->texptr[i] = Memory::GetPointerUnchecked(texaddr);

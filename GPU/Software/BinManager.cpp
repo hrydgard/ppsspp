@@ -22,6 +22,7 @@
 #include "Common/Thread/ThreadManager.h"
 #include "Common/TimeUtil.h"
 #include "Core/System.h"
+#include "GPU/Common/TextureDecoder.h"
 #include "GPU/Software/BinManager.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/RasterizerRectangle.h"
@@ -105,6 +106,10 @@ public:
 		notify_->Drain();
 	}
 
+	void Release() override {
+		// Don't delete, this is statically allocated.
+	}
+
 private:
 	void ProcessItems() {
 		while (!items_.Empty()) {
@@ -131,8 +136,11 @@ BinManager::BinManager() {
 		s = false;
 
 	int maxInitTasks = std::min(g_threadManager.GetNumLooperThreads(), MAX_POSSIBLE_TASKS);
-	for (int i = 0; i < maxInitTasks; ++i)
+	for (int i = 0; i < maxInitTasks; ++i) {
 		taskQueues_[i].Setup();
+		for (DrawBinItemsTask *&task : taskLists_[i].tasks)
+			task = new DrawBinItemsTask(waitable_, taskQueues_[i], taskStatus_[i], states_);
+	}
 	states_.Setup();
 	cluts_.Setup();
 	queue_.Setup();
@@ -140,6 +148,11 @@ BinManager::BinManager() {
 
 BinManager::~BinManager() {
 	delete waitable_;
+
+	for (int i = 0; i < MAX_POSSIBLE_TASKS; ++i) {
+		for (DrawBinItemsTask *task : taskLists_[i].tasks)
+			delete task;
+	}
 }
 
 void BinManager::UpdateState() {
@@ -160,23 +173,6 @@ void BinManager::UpdateState() {
 	scissor_.x2 = screenScissorBR.x + 15;
 	scissor_.y2 = screenScissorBR.y + 15;
 
-	// Disallow threads when rendering to target.
-	const uint32_t renderTarget = gstate.getFrameBufAddress() & 0x0FFFFFFF;
-	bool selfRender = (gstate.getTextureAddress(0) & 0x0FFFFFFF) == renderTarget;
-	if (gstate.isMipmapEnabled()) {
-		for (int i = 0; i <= gstate.getTextureMaxLevel(); ++i)
-			selfRender = selfRender || (gstate.getTextureAddress(i) & 0x0FFFFFFF) == renderTarget;
-	}
-
-	int newMaxTasks = selfRender ? 1 : g_threadManager.GetNumLooperThreads();
-	if (newMaxTasks > MAX_POSSIBLE_TASKS)
-		newMaxTasks = MAX_POSSIBLE_TASKS;
-	// We don't want to overlap wrong, so flush any pending.
-	if (maxTasks_ != newMaxTasks) {
-		maxTasks_ = newMaxTasks;
-		Flush("selfrender");
-	}
-
 	// Our bin sizes are based on offset, so if that changes we have to flush.
 	if (queueOffsetX_ != gstate.getOffsetX16() || queueOffsetY_ != gstate.getOffsetY16()) {
 		Flush("offset");
@@ -188,6 +184,81 @@ void BinManager::UpdateState() {
 		lastFlipstats_ = gpuStats.numFlips;
 		ResetStats();
 	}
+
+	// If we're about to texture from something still pending (i.e. depth), flush.
+	const auto &state = State();
+	const bool hadDepth = pendingWrites_[1].base != 0;
+	if (HasTextureWrite(state))
+		Flush("tex");
+
+	// Okay, now update what's pending.
+	constexpr uint32_t mirrorMask = 0x0FFFFFFF & ~0x00600000;
+	const uint32_t bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
+	pendingWrites_[0].Expand(gstate.getFrameBufAddress() & mirrorMask, bpp, gstate.FrameBufStride(), scissorTL, scissorBR);
+	if (state.pixelID.depthWrite)
+		pendingWrites_[1].Expand(gstate.getDepthBufAddress() & mirrorMask, 2, gstate.DepthBufStride(), scissorTL, scissorBR);
+
+	// Disallow threads when rendering to the target, even offset.
+	bool selfRender = HasTextureWrite(state);
+	int newMaxTasks = selfRender ? 1 : g_threadManager.GetNumLooperThreads();
+	if (newMaxTasks > MAX_POSSIBLE_TASKS)
+		newMaxTasks = MAX_POSSIBLE_TASKS;
+	// We don't want to overlap wrong, so flush any pending.
+	if (maxTasks_ != newMaxTasks) {
+		maxTasks_ = newMaxTasks;
+		Flush("selfrender");
+	}
+
+	// Lastly, we have to check if we're newly writing depth we were texturing before.
+	// This happens in Call of Duty (depth clear after depth texture), for example.
+	if (!hadDepth && state.pixelID.depthWrite) {
+		for (size_t i = 0; i < states_.Size(); ++i) {
+			if (HasTextureWrite(states_.Peek(i)))
+				Flush("selfdepth");
+		}
+	}
+}
+
+bool BinManager::HasTextureWrite(const RasterizerState &state) {
+	if (!state.enableTextures)
+		return false;
+
+	const int textureBits = textureBitsPerPixel[state.samplerID.texfmt];
+	for (int i = 0; i <= state.maxTexLevel; ++i) {
+		int byteStride = (state.texbufw[i] * textureBits) / 8;
+		int byteWidth = (state.samplerID.cached.sizes[i].w * textureBits) / 8;
+		int h = state.samplerID.cached.sizes[i].h;
+		if (HasPendingWrite(state.texaddr[i], byteStride, byteWidth, h))
+			return true;
+	}
+
+	return false;
+}
+
+inline void BinDirtyRange::Expand(uint32_t newBase, uint32_t bpp, uint32_t stride, DrawingCoords &tl, DrawingCoords &br) {
+	const uint32_t w = br.x - tl.x + 1;
+	const uint32_t h = br.y - tl.y + 1;
+
+	newBase += tl.y * stride * bpp + tl.x * bpp;
+	if (base == 0) {
+		base = newBase;
+		strideBytes = stride * bpp;
+		widthBytes = w * bpp;
+		height = h;
+		return;
+	}
+
+	height = std::max(height, h);
+	if (base == newBase && strideBytes == stride * bpp) {
+		widthBytes = std::max(widthBytes, w * bpp);
+		return;
+	}
+
+	if (stride != 0)
+		height += ((int)base - (int)newBase) / (stride * bpp);
+	base = std::min(base, newBase);
+	strideBytes = std::max(strideBytes, stride * bpp);
+	widthBytes = strideBytes;
 }
 
 void BinManager::UpdateClut(const void *src) {
@@ -335,8 +406,7 @@ void BinManager::Drain() {
 
 			waitable_->Fill();
 			taskStatus_[i] = true;
-			DrawBinItemsTask *task = new DrawBinItemsTask(waitable_, taskQueues_[i], taskStatus_[i], states_);
-			g_threadManager.EnqueueTaskOnThread(i, task, true);
+			g_threadManager.EnqueueTaskOnThread(i, taskLists_[i].Next(), true);
 			enqueues_++;
 		}
 
@@ -366,6 +436,9 @@ void BinManager::Flush(const char *reason) {
 	queueOffsetX_ = -1;
 	queueOffsetY_ = -1;
 
+	for (auto &pending : pendingWrites_)
+		pending.base = 0;
+
 	if (coreCollectDebugStats) {
 		double et = time_now_d();
 		flushReasonTimes_[reason] += et - st;
@@ -374,6 +447,39 @@ void BinManager::Flush(const char *reason) {
 			slowestFlushReason_ = reason;
 		}
 	}
+}
+
+bool BinManager::HasPendingWrite(uint32_t start, uint32_t stride, uint32_t w, uint32_t h) {
+	// We can only write to VRAM.
+	if (!Memory::IsVRAMAddress(start))
+		return false;
+	// Ignore mirrors for overlap detection.
+	start &= 0x0FFFFFFF & ~0x00600000;
+
+	uint32_t size = stride * h;
+	for (const auto &range : pendingWrites_) {
+		if (range.base == 0 || range.strideBytes == 0)
+			continue;
+		if (start >= range.base + range.height * range.strideBytes || start + size <= range.base)
+			continue;
+
+		// Let's simply go through each line.  Might be in the stride gap.
+		uint32_t row = start;
+		for (uint32_t y = 0; y < h; ++y) {
+			int32_t offset = row - range.base;
+			int32_t rangeY = offset / (int32_t)range.strideBytes;
+			uint32_t rangeX = offset % (int32_t)range.strideBytes;
+			if (rangeY >= 0 && (uint32_t)rangeY < range.height) {
+				// If this row is either within width, or extends beyond stride, overlap.
+				if (rangeX < range.widthBytes || rangeX + w >= range.strideBytes)
+					return true;
+			}
+
+			row += stride;
+		}
+	}
+
+	return false;
 }
 
 void BinManager::GetStats(char *buffer, size_t bufsize) {

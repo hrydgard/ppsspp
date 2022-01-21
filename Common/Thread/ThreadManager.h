@@ -19,6 +19,7 @@ public:
 	virtual bool Cancellable() { return false; }
 	virtual void Cancel() {}
 	virtual uint64_t id() { return 0; }
+	virtual void Release() { delete this; }
 };
 
 class Waitable {

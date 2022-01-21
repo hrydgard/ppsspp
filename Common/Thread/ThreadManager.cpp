@@ -105,7 +105,7 @@ bool ThreadManager::TeardownTask(Task *task, bool enqueue) {
 
 	if (task->Cancellable()) {
 		task->Cancel();
-		delete task;
+		task->Release();
 		return true;
 	}
 
@@ -174,7 +174,7 @@ static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread)
 		// responsibility of the ThreadManager (although it could be!).
 		if (task) {
 			task->Run();
-			delete task;
+			task->Release();
 
 			// Reduce the queue size once complete.
 			thread->queue_size--;
