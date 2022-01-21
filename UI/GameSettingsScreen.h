@@ -122,9 +122,6 @@ private:
 	UI::EventReturn OnSavePathMydoc(UI::EventParams &e);
 	UI::EventReturn OnSavePathOther(UI::EventParams &e);
 #endif
-	UI::EventReturn OnSoftwareRendering(UI::EventParams &e);
-	UI::EventReturn OnHardwareTransform(UI::EventParams &e);
-
 	UI::EventReturn OnScreenRotation(UI::EventParams &e);
 	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
 	UI::EventReturn OnSustainedPerformanceModeChange(UI::EventParams &e);
@@ -142,7 +139,6 @@ private:
 	int prevInflightFrames_;
 	bool enableReports_ = false;
 	bool enableReportsSet_ = false;
-	bool tessHWEnable_;
 	std::string shaderNames_[256];
 	std::string searchFilter_;
 
