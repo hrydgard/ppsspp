@@ -152,6 +152,19 @@ union BinClut {
 	uint8_t readable[1024];
 };
 
+struct BinTaskList {
+	// We shouldn't ever need more than two at once, since we use an atomic to run one at a time.
+	// A second could run due to overlap during teardown.
+	static constexpr int N = 2;
+
+	DrawBinItemsTask *tasks[N]{};
+	int count = 0;
+
+	DrawBinItemsTask *Next() {
+		return tasks[count % N];
+	}
+};
+
 class BinManager {
 public:
 	BinManager();
@@ -204,6 +217,7 @@ private:
 	bool tasksSplit_ = false;
 	std::vector<BinCoords> taskRanges_;
 	BinItemQueue taskQueues_[MAX_POSSIBLE_TASKS];
+	BinTaskList taskLists_[MAX_POSSIBLE_TASKS];
 	std::atomic<bool> taskStatus_[MAX_POSSIBLE_TASKS];
 	BinWaitable *waitable_ = nullptr;
 

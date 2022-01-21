@@ -105,6 +105,10 @@ public:
 		notify_->Drain();
 	}
 
+	void Release() override {
+		// Don't delete, this is statically allocated.
+	}
+
 private:
 	void ProcessItems() {
 		while (!items_.Empty()) {
@@ -131,8 +135,11 @@ BinManager::BinManager() {
 		s = false;
 
 	int maxInitTasks = std::min(g_threadManager.GetNumLooperThreads(), MAX_POSSIBLE_TASKS);
-	for (int i = 0; i < maxInitTasks; ++i)
+	for (int i = 0; i < maxInitTasks; ++i) {
 		taskQueues_[i].Setup();
+		for (DrawBinItemsTask *&task : taskLists_[i].tasks)
+			task = new DrawBinItemsTask(waitable_, taskQueues_[i], taskStatus_[i], states_);
+	}
 	states_.Setup();
 	cluts_.Setup();
 	queue_.Setup();
@@ -140,6 +147,11 @@ BinManager::BinManager() {
 
 BinManager::~BinManager() {
 	delete waitable_;
+
+	for (int i = 0; i < MAX_POSSIBLE_TASKS; ++i) {
+		for (DrawBinItemsTask *task : taskLists_[i].tasks)
+			delete task;
+	}
 }
 
 void BinManager::UpdateState() {
@@ -335,8 +347,7 @@ void BinManager::Drain() {
 
 			waitable_->Fill();
 			taskStatus_[i] = true;
-			DrawBinItemsTask *task = new DrawBinItemsTask(waitable_, taskQueues_[i], taskStatus_[i], states_);
-			g_threadManager.EnqueueTaskOnThread(i, task, true);
+			g_threadManager.EnqueueTaskOnThread(i, taskLists_[i].Next(), true);
 			enqueues_++;
 		}
 
