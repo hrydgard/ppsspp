@@ -312,10 +312,6 @@ void GameSettingsScreen::CreateViews() {
 	blockTransfer->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (slow)")));
-	softwareGPU->OnClick.Add([=](EventParams &e) {
-		return UI::EVENT_CONTINUE;
-	});
-	softwareGPU->OnClick.Handle(this, &GameSettingsScreen::OnSoftwareRendering);
 	softwareGPU->SetEnabled(!PSP_IsInited());
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
@@ -458,7 +454,6 @@ void GameSettingsScreen::CreateViews() {
 	}
 
 	CheckBox *hwTransform = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
-	hwTransform->OnClick.Handle(this, &GameSettingsScreen::OnHardwareTransform);
 	hwTransform->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *swSkin = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareSkinning, gr->T("Software Skinning")));
@@ -515,8 +510,10 @@ void GameSettingsScreen::CreateViews() {
 		settingInfo_->Show(gr->T("HardwareTessellation Tip", "Uses hardware to make curves"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
-	tessHWEnable_ = DoesBackendSupportHWTess() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
-	tessellationHW->SetEnabledPtr(&tessHWEnable_);
+
+	tessellationHW->SetEnabledFunc([]() {
+		return DoesBackendSupportHWTess() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
+	});
 
 	// In case we're going to add few other antialiasing option like MSAA in the future.
 	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gr->T("FXAA")));
@@ -1090,16 +1087,6 @@ UI::EventReturn GameSettingsScreen::OnAutoFrameskip(UI::EventParams &e) {
 	if (g_Config.bAutoFrameSkip && g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
 		g_Config.iRenderingMode = FB_BUFFERED_MODE;
 	}
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GameSettingsScreen::OnSoftwareRendering(UI::EventParams &e) {
-	tessHWEnable_ = DoesBackendSupportHWTess() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GameSettingsScreen::OnHardwareTransform(UI::EventParams &e) {
-	tessHWEnable_ = DoesBackendSupportHWTess() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	return UI::EVENT_DONE;
 }
 
