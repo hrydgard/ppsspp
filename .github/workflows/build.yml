@@ -104,7 +104,7 @@ jobs:
 
     - name: Execute tests
       working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: python test.py --graphics=software
+      run: python test.py -g --graphics=software
 
   build:
     strategy:
@@ -320,4 +320,4 @@ jobs:
 
     - name: Execute tests
       working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: python test.py --graphics=software
+      run: python test.py -g --graphics=software
