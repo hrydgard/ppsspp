@@ -311,22 +311,12 @@ void GameSettingsScreen::CreateViews() {
 	});
 	blockTransfer->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	bool showSoftGPU = true;
-#ifdef MOBILE_DEVICE
-	// On Android, only show the software rendering setting if it's already enabled.
-	// Can still be turned on through INI file editing.
-	showSoftGPU = g_Config.bSoftwareRendering;
-#endif
-	if (showSoftGPU) {
-		CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (slow)")));
-		softwareGPU->OnClick.Add([=](EventParams &e) {
-			if (g_Config.bSoftwareRendering)
-				settingInfo_->Show(gr->T("SoftGPU Tip", "Currently VERY slow"), e.v);
-			return UI::EVENT_CONTINUE;
-		});
-		softwareGPU->OnClick.Handle(this, &GameSettingsScreen::OnSoftwareRendering);
-		softwareGPU->SetEnabled(!PSP_IsInited());
-	}
+	CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (slow)")));
+	softwareGPU->OnClick.Add([=](EventParams &e) {
+		return UI::EVENT_CONTINUE;
+	});
+	softwareGPU->OnClick.Handle(this, &GameSettingsScreen::OnSoftwareRendering);
+	softwareGPU->SetEnabled(!PSP_IsInited());
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
