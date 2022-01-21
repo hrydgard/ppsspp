@@ -104,6 +104,14 @@ struct BinQueue {
 		size_--;
 	}
 
+	// Only safe if you're the only one reading.
+	const T &Peek(size_t offset) const {
+		size_t i = head_ + offset;
+		if (i >= N)
+			i -= N;
+		return items_[i];
+	}
+
 	// Only safe if you're the only one writing.
 	T &PeekPush() {
 		return items_[tail_];
@@ -159,6 +167,15 @@ struct BinTaskList {
 	}
 };
 
+struct BinDirtyRange {
+	uint32_t base;
+	uint32_t strideBytes;
+	uint32_t widthBytes;
+	uint32_t height;
+
+	void Expand(uint32_t newBase, uint32_t bpp, uint32_t stride, DrawingCoords &tl, DrawingCoords &br);
+};
+
 class BinManager {
 public:
 	BinManager();
@@ -179,6 +196,7 @@ public:
 
 	void Drain();
 	void Flush(const char *reason);
+	bool HasPendingWrite(uint32_t start, uint32_t stride, uint32_t w, uint32_t h);
 
 	void GetStats(char *buffer, size_t bufsize);
 	void ResetStats();
@@ -215,6 +233,8 @@ private:
 	std::atomic<bool> taskStatus_[MAX_POSSIBLE_TASKS];
 	BinWaitable *waitable_ = nullptr;
 
+	BinDirtyRange pendingWrites_[2]{};
+
 	std::unordered_map<const char *, double> flushReasonTimes_;
 	std::unordered_map<const char *, double> lastFlushReasonTimes_;
 	const char *slowestFlushReason_ = nullptr;
@@ -223,6 +243,7 @@ private:
 	int enqueues_ = 0;
 	int mostThreads_ = 0;
 
+	bool HasTextureWrite(const Rasterizer::RasterizerState &state);
 	BinCoords Scissor(BinCoords range);
 	BinCoords Range(const VertexData &v0, const VertexData &v1, const VertexData &v2);
 	BinCoords Range(const VertexData &v0, const VertexData &v1);

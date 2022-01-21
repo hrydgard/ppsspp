@@ -39,6 +39,7 @@ struct RasterizerState {
 	SingleFunc drawPixel;
 	Sampler::LinearFunc linear;
 	Sampler::NearestFunc nearest;
+	uint32_t texaddr[8]{};
 	int texbufw[8]{};
 	u8 *texptr[8]{};
 	float textureLodSlope;
