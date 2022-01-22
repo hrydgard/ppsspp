@@ -662,6 +662,33 @@ BEGIN
     END
 END
 
+IDR_GEDBG_MENU MENUEX
+BEGIN
+    POPUP "&Actions",                                      ID_GEDBG_ACTIONS_MENU
+    BEGIN
+        MENUITEM "Rec&ord Next Frame",                     IDC_GEDBG_RECORD
+    END
+
+    POPUP "&Step",                                         ID_GEDBG_STEP_MENU
+    BEGIN
+        MENUITEM "Next &Instruction",                      IDC_GEDBG_STEP
+        MENUITEM "To Cou&nter...",                         IDC_GEDBG_STEPCOUNT
+        MENUITEM "Next &Primitive",                        IDC_GEDBG_STEPPRIM
+        MENUITEM "Next &Curve",                            IDC_GEDBG_STEPCURVE
+        MENUITEM "Next &Texture",                          IDC_GEDBG_STEPTEX
+        MENUITEM "Next &Draw Flush",                       IDC_GEDBG_STEPDRAW
+        MENUITEM "Next &Frame",                            IDC_GEDBG_STEPFRAME
+    END
+
+    POPUP "&Breakpoints",                                  ID_GEDBG_BREAK_MENU
+    BEGIN
+        MENUITEM "&Resume",                                IDC_GEDBG_RESUME
+        MENUITEM "", 0, MFT_SEPARATOR
+        MENUITEM "Te&xture Pointer...",                    IDC_GEDBG_BREAKTEX
+        MENUITEM "Render Target Pointer...",               IDC_GEDBG_BREAKTARGET
+    END
+END
+
 IDR_POPUPMENUS MENU
 BEGIN
     POPUP "memview"

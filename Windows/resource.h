@@ -11,6 +11,7 @@
 #define IDC_RAM                         107
 #define IDC_STEPOVER                    108
 #define IDC_TABDATATYPE                 109
+#define IDR_GEDBG_MENU                  110
 #define ID_MEMVIEW_GOTOINDISASM         112
 #define IDI_PPSSPP                      115
 #define IDI_STOPDISABLE                 118
@@ -318,6 +319,9 @@
 #define IDC_MEMVIEW_STATUS               40206
 #define ID_MEMVIEW_EXTENTBEGIN           40207
 #define ID_MEMVIEW_EXTENTEND             40208
+#define ID_GEDBG_ACTIONS_MENU            40209
+#define ID_GEDBG_STEP_MENU               40210
+#define ID_GEDBG_BREAK_MENU              40211
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
@@ -330,7 +334,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        256
-#define _APS_NEXT_COMMAND_VALUE         40209
+#define _APS_NEXT_COMMAND_VALUE         40212
 #define _APS_NEXT_CONTROL_VALUE         1202
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
