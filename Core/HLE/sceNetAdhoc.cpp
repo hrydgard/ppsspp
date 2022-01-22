@@ -5753,7 +5753,8 @@ void __NetMatchingCallbacks() //(int matchingId)
 
 	auto params = matchingEvents.begin();
 	if (params != matchingEvents.end()) {
-		u32_le *args = params->data;
+		u32_le args[6];
+		memcpy(args, params->data, sizeof(args));
 		auto context = findMatchingContext(args[0]);
 
 		if (actionAfterMatchingMipsCall < 0) {

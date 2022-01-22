@@ -147,15 +147,10 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 
 	// Positions: stackArgPos_+0=src, stackArgPos_+8=bufw, stackArgPos_+16=level, stackArgPos_+24=levelFrac
 	stackIDOffset_ = 32;
-
-	// Use the shadow space to save U1/V1.  We also use this var for frac U1/V1 in linear.
-	stackFracUV1Offset_ = -8;
 #else
 	stackArgPos_ = 0;
-	// This is the only arg that went to the stack.
+	// This is the only arg that went to the stack, it's after the RET.
 	stackIDOffset_ = 8;
-	// Use the red zone.
-	stackFracUV1Offset_ = -8;
 #endif
 
 	// Start out by saving some registers, since we'll need more.
@@ -168,6 +163,14 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 	regCache_.Add(R13, RegCache::GEN_INVALID);
 	regCache_.Add(R12, RegCache::GEN_INVALID);
 	stackArgPos_ += 32;
+
+#if PPSSPP_PLATFORM(WINDOWS)
+	// Use the shadow space to save U1/V1.  We also use this var for frac U1/V1 in linear.
+	stackFracUV1Offset_ = -8;
+#else
+	// Use the red zone, but account for the R15-R12 we push just below.
+	stackFracUV1Offset_ = -stackArgPos_ - 8;
+#endif
 
 	// We can throw these away right off if there are no mips.
 	if (!id.hasAnyMips && regCache_.Has(RegCache::GEN_ARG_LEVEL))
@@ -531,6 +534,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 #else
 	stackArgPos_ = 0;
 	stackArgPos_ += WriteProlog(0, {}, { R15, R14, R13, R12 });
+	// Just after the RET.
 	stackIDOffset_ = 8;
 
 	// Use the red zone.
@@ -1380,8 +1384,7 @@ bool SamplerJitCache::Jit_BlendQuad(const SamplerID &id, bool level1) {
 		MOVDQA(fracMulReg, M(const10Low_));
 		PSUBW(fracMulReg, R(fracReg));
 		// Then we just shift and OR in the original frac_u.
-		PSLLDQ(fracReg, 8);
-		POR(fracMulReg, R(fracReg));
+		PUNPCKLQDQ(fracMulReg, R(fracReg));
 		regCache_.Release(fracReg, RegCache::VEC_TEMP2);
 
 		// Okay, we have 8-bits in the top and bottom rows for the color.
