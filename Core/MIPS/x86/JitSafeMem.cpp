@@ -242,8 +242,9 @@ bool JitSafeMem::PrepareSlowWrite()
 		return false;
 }
 
-void JitSafeMem::DoSlowWrite(const void *safeFunc, const OpArg& src, int suboffset)
-{
+void JitSafeMem::DoSlowWrite(const void *safeFunc, const OpArg &src, int suboffset) {
+	_dbg_assert_msg_(safeFunc != nullptr, "Safe func cannot be null");
+
 	if (iaddr_ != (u32) -1)
 		jit_->MOV(32, R(EAX), Imm32((iaddr_ + suboffset) & alignMask_));
 	else
@@ -263,26 +264,27 @@ void JitSafeMem::DoSlowWrite(const void *safeFunc, const OpArg& src, int suboffs
 		jit_->MOV(32, MIPSSTATE_VAR(pc), Imm32(jit_->GetCompilerPC()));
 	}
 	// This is a special jit-ABI'd function.
-	jit_->CALL(safeFunc);
+	if (jit_->CanCALLDirect(safeFunc)) {
+		jit_->CALL(safeFunc);
+	} else {
+		// We can't safely flush a reg, but this shouldn't be normal.
+		IndirectCALL(safeFunc);
+	}
 #if PPSSPP_ARCH(32BIT)
 	jit_->POP(EDX);
 #endif
 	needsCheck_ = true;
 }
 
-bool JitSafeMem::PrepareSlowRead(const void *safeFunc)
-{
-	if (!fast_)
-	{
-		if (iaddr_ != (u32) -1)
-		{
+bool JitSafeMem::PrepareSlowRead(const void *safeFunc) {
+	_dbg_assert_msg_(safeFunc != nullptr, "Safe func cannot be null");
+	if (!fast_) {
+		if (iaddr_ != (u32) -1) {
 			// No slow read necessary.
 			if (ImmValid())
 				return false;
 			jit_->MOV(32, R(EAX), Imm32(iaddr_ & alignMask_));
-		}
-		else
-		{
+		} else {
 			PrepareSlowAccess();
 			jit_->LEA(32, EAX, MDisp(xaddr_, offset_));
 			if (alignMask_ != 0xFFFFFFFF)
@@ -293,7 +295,12 @@ bool JitSafeMem::PrepareSlowRead(const void *safeFunc)
 			jit_->MOV(32, MIPSSTATE_VAR(pc), Imm32(jit_->GetCompilerPC()));
 		}
 		// This is a special jit-ABI'd function.
-		jit_->CALL(safeFunc);
+		if (jit_->CanCALLDirect(safeFunc)) {
+			jit_->CALL(safeFunc);
+		} else {
+			// We can't safely flush a reg, but this shouldn't be normal.
+			IndirectCALL(safeFunc);
+		}
 		needsCheck_ = true;
 		return true;
 	}
@@ -301,8 +308,8 @@ bool JitSafeMem::PrepareSlowRead(const void *safeFunc)
 		return false;
 }
 
-void JitSafeMem::NextSlowRead(const void *safeFunc, int suboffset)
-{
+void JitSafeMem::NextSlowRead(const void *safeFunc, int suboffset) {
+	_dbg_assert_msg_(safeFunc != nullptr, "Safe func cannot be null");
 	_dbg_assert_msg_(!fast_, "NextSlowRead() called in fast memory mode?");
 
 	// For simplicity, do nothing for 0.  We already read in PrepareSlowRead().
@@ -327,12 +334,35 @@ void JitSafeMem::NextSlowRead(const void *safeFunc, int suboffset)
 		jit_->MOV(32, MIPSSTATE_VAR(pc), Imm32(jit_->GetCompilerPC()));
 	}
 	// This is a special jit-ABI'd function.
-	jit_->CALL(safeFunc);
+	if (jit_->CanCALLDirect(safeFunc)) {
+		jit_->CALL(safeFunc);
+	} else {
+		// We can't safely flush a reg, but this shouldn't be normal.
+		IndirectCALL(safeFunc);
+	}
 }
 
 bool JitSafeMem::ImmValid()
 {
 	return iaddr_ != (u32) -1 && Memory::IsValidAddress(iaddr_) && Memory::IsValidAddress(iaddr_ + size_ - 1);
+}
+
+void JitSafeMem::IndirectCALL(const void *safeFunc) {
+#if PPSSPP_ARCH(32BIT)
+	jit_->PUSH(ECX);
+	jit_->SUB(PTRBITS, R(ESP), Imm8(16 - 4));
+	jit_->MOV(PTRBITS, R(ECX), ImmPtr(safeFunc));
+	jit_->CALLptr(R(RCX));
+	jit_->ADD(PTRBITS, R(ESP), Imm8(16 - 4));
+	jit_->POP(ECX);
+#else
+	jit_->PUSH(RCX);
+	jit_->SUB(PTRBITS, R(RSP), Imm8(8));
+	jit_->MOV(PTRBITS, R(RCX), ImmPtr(safeFunc));
+	jit_->CALLptr(R(RCX));
+	jit_->ADD(64, R(RSP), Imm8(8));
+	jit_->POP(RCX);
+#endif
 }
 
 void JitSafeMem::Finish()
@@ -451,6 +481,13 @@ void JitSafeMemFuncs::Init(ThunkManager *thunks) {
 void JitSafeMemFuncs::Shutdown() {
 	ResetCodePtr(0);
 	FreeCodeSpace();
+
+	readU32 = nullptr;
+	readU16 = nullptr;
+	readU8 = nullptr;
+	writeU32 = nullptr;
+	writeU16 = nullptr;
+	writeU8 = nullptr;
 }
 
 // Mini ABI:

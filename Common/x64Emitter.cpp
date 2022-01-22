@@ -431,6 +431,11 @@ void XEmitter::CALL(const void *fnptr)
 	Write32(u32(distance));
 }
 
+bool XEmitter::CanCALLDirect(const void *fnptr) {
+	u64 distance = u64(fnptr) - (u64(code) + 5);
+	return distance < 0x0000000080000000ULL || distance >= 0xFFFFFFFF80000000ULL;
+}
+
 FixupBranch XEmitter::J(bool force5bytes)
 {
 	FixupBranch branch;
