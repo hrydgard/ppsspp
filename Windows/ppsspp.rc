@@ -663,6 +663,7 @@ BEGIN
     POPUP "&Actions",                                      ID_GEDBG_ACTIONS_MENU
     BEGIN
         MENUITEM "Rec&ord Next Frame",                     IDC_GEDBG_RECORD
+        MENUITEM "F&lush Pending Draws",                   IDC_GEDBG_FLUSH
     END
 
     POPUP "&Step",                                         ID_GEDBG_STEP_MENU
@@ -674,6 +675,8 @@ BEGIN
         MENUITEM "Next &Texture",                          IDC_GEDBG_STEPTEX
         MENUITEM "Next &Draw Flush",                       IDC_GEDBG_STEPDRAW
         MENUITEM "Next &Frame",                            IDC_GEDBG_STEPFRAME
+        MENUITEM "", 0, MFT_SEPARATOR
+        MENUITEM "&Auto Flush Pending",                    IDC_GEDBG_FLUSHAUTO
     END
 
     POPUP "&Breakpoints",                                  ID_GEDBG_BREAK_MENU

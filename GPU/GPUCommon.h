@@ -171,6 +171,7 @@ public:
 
 	// Note: Not virtual!
 	void Flush();
+	void DispatchFlush() override;
 
 #ifdef USE_CRT_DBG
 #undef new

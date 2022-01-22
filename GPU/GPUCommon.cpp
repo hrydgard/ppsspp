@@ -367,6 +367,10 @@ void GPUCommon::Flush() {
 	drawEngineCommon_->DispatchFlush();
 }
 
+void GPUCommon::DispatchFlush() {
+	drawEngineCommon_->DispatchFlush();
+}
+
 GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 	gfxCtx_(gfxCtx),
 	draw_(draw)

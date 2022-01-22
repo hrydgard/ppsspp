@@ -38,6 +38,7 @@ namespace GPUStepping {
 	bool GPU_GetCurrentTexture(const GPUDebugBuffer *&buffer, int level);
 	bool GPU_GetCurrentClut(const GPUDebugBuffer *&buffer);
 	bool GPU_SetCmdValue(u32 op);
+	bool GPU_FlushDrawing();
 
 	void ResumeFromStepping();
 	void ForceUnpause();

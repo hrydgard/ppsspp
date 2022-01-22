@@ -36,6 +36,7 @@ enum PauseAction {
 	PAUSE_GETTEX,
 	PAUSE_GETCLUT,
 	PAUSE_SETCMDVALUE,
+	PAUSE_FLUSHDRAW,
 };
 
 static bool isStepping;
@@ -117,6 +118,10 @@ static void RunPauseAction() {
 
 	case PAUSE_SETCMDVALUE:
 		gpuDebug->SetCmdValue(pauseSetCmdValue);
+		break;
+
+	case PAUSE_FLUSHDRAW:
+		gpuDebug->DispatchFlush();
 		break;
 
 	default:
@@ -236,6 +241,15 @@ bool GPU_SetCmdValue(u32 op) {
 
 	pauseSetCmdValue = op;
 	SetPauseAction(PAUSE_SETCMDVALUE);
+	return true;
+}
+
+bool GPU_FlushDrawing() {
+	if (!isStepping && coreState != CORE_STEPPING) {
+		return false;
+	}
+
+	SetPauseAction(PAUSE_FLUSHDRAW);
 	return true;
 }
 

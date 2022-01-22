@@ -322,6 +322,8 @@
 #define ID_GEDBG_ACTIONS_MENU            40209
 #define ID_GEDBG_STEP_MENU               40210
 #define ID_GEDBG_BREAK_MENU              40211
+#define IDC_GEDBG_FLUSH                  40212
+#define IDC_GEDBG_FLUSHAUTO              40213
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
@@ -334,7 +336,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        256
-#define _APS_NEXT_COMMAND_VALUE         40212
+#define _APS_NEXT_COMMAND_VALUE         40214
 #define _APS_NEXT_CONTROL_VALUE         1202
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

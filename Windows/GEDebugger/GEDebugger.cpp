@@ -342,6 +342,8 @@ void CGEDebugger::UpdatePreviews() {
 	}
 
 	updating_ = true;
+	if (autoFlush_)
+		GPU_FlushDrawing();
 	UpdateTextureLevel(textureLevel_);
 	UpdatePrimaryPreview(state);
 	UpdateSecondPreview(state);
@@ -784,6 +786,10 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		}
 		break;
 
+	case WM_MENUSELECT:
+		UpdateMenus();
+		break;
+
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
 		case IDC_GEDBG_STEPDRAW:
@@ -881,6 +887,18 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			GPURecord::Activate();
 			break;
 
+		case IDC_GEDBG_FLUSH:
+			if (GPUDebug::IsActive() && gpuDebug != nullptr) {
+				if (!autoFlush_)
+					GPU_FlushDrawing();
+				UpdatePreviews();
+			}
+			break;
+
+		case IDC_GEDBG_FLUSHAUTO:
+			autoFlush_ = !autoFlush_;
+			break;
+
 		case IDC_GEDBG_FORCEOPAQUE:
 			if (GPUDebug::IsActive() && gpuDebug != nullptr) {
 				forceOpaque_ = SendMessage(GetDlgItem(m_hDlg, IDC_GEDBG_FORCEOPAQUE), BM_GETCHECK, 0, 0) != 0;
@@ -936,4 +954,8 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	}
 
 	return FALSE;
+}
+
+void CGEDebugger::UpdateMenus() {
+	CheckMenuItem(GetMenu(m_hDlg), IDC_GEDBG_FLUSHAUTO, MF_BYCOMMAND | (autoFlush_ ? MF_CHECKED : MF_UNCHECKED));
 }
