@@ -61,6 +61,7 @@ SoftwareDrawEngine::~SoftwareDrawEngine() {
 }
 
 void SoftwareDrawEngine::DispatchFlush() {
+	transformUnit.Flush("debug");
 }
 
 void SoftwareDrawEngine::DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {

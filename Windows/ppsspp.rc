@@ -203,15 +203,13 @@ CAPTION "GE"
 FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
     PUSHBUTTON      "Step &Frame",IDC_GEDBG_STEPFRAME,10,2,44,14
-    PUSHBUTTON      "Step &Tex",IDC_GEDBG_STEPTEX,55,2,44,14
-    PUSHBUTTON      "Step &Draw",IDC_GEDBG_STEPDRAW,100,2,44,14
-    PUSHBUTTON      "Step &Prim",IDC_GEDBG_STEPPRIM,145,2,44,14
-    PUSHBUTTON      "Step &Curve",IDC_GEDBG_STEPCURVE,190,2,44,14
-    PUSHBUTTON      "Step &Into",IDC_GEDBG_STEP,235,2,44,14
-    PUSHBUTTON      "Step Cou&nt",IDC_GEDBG_STEPCOUNT,280,2,44,14
-    EDITTEXT        IDC_GEDBG_PRIMCOUNTER,325,4,50,12,ES_READONLY | NOT WS_BORDER
-    PUSHBUTTON      "&Resume",IDC_GEDBG_RESUME,396,2,44,14
-    PUSHBUTTON      "Rec&ord",IDC_GEDBG_RECORD,444,2,44,14
+    PUSHBUTTON      "Step &Tex",IDC_GEDBG_STEPTEX,60,2,44,14
+    PUSHBUTTON      "Step &Draw",IDC_GEDBG_STEPDRAW,105,2,44,14
+    PUSHBUTTON      "Step &Prim",IDC_GEDBG_STEPPRIM,150,2,44,14
+    PUSHBUTTON      "Step &Into",IDC_GEDBG_STEP,200,2,44,14
+    PUSHBUTTON      "Step Cou&nt",IDC_GEDBG_STEPCOUNT,245,2,44,14
+    EDITTEXT        IDC_GEDBG_PRIMCOUNTER,290,4,50,12,ES_READONLY | NOT WS_BORDER
+    PUSHBUTTON      "&Resume",IDC_GEDBG_RESUME,444,2,44,14
     CONTROL         "",IDC_GEDBG_TEX,"SimpleGLWindow",WS_CHILD | WS_VISIBLE,10,20,128,128
     CONTROL         "",IDC_GEDBG_FRAME,"SimpleGLWindow",WS_CHILD | WS_VISIBLE,148,20,256,136
     CONTROL         "",IDC_GEDBG_MAINTAB,"SysTabControl32",TCS_TABS | TCS_FOCUSNEVER,10,216,480,180
@@ -219,11 +217,9 @@ BEGIN
     EDITTEXT        IDC_GEDBG_TEXADDR,10,152,128,12,ES_READONLY | NOT WS_BORDER
     CONTROL         "Force opaque",IDC_GEDBG_FORCEOPAQUE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,10,164,60,12
     CONTROL         "Show CLUT",IDC_GEDBG_SHOWCLUT,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,90,164,50,12
-    PUSHBUTTON      "Break on Te&xture...",IDC_GEDBG_BREAKTEX,24,176,100,14
-    PUSHBUTTON      "Level -",IDC_GEDBG_TEXLEVELDOWN,24,192,40,14
-    PUSHBUTTON      "Level +",IDC_GEDBG_TEXLEVELUP,84,192,40,14
+    PUSHBUTTON      "Level -",IDC_GEDBG_TEXLEVELDOWN,24,184,40,14
+    PUSHBUTTON      "Level +",IDC_GEDBG_TEXLEVELUP,84,184,40,14
     CONTROL         "",IDC_GEDBG_FBTABS,"SysTabControl32",TCS_BUTTONS | TCS_FOCUSNEVER,384,192,110,12
-    PUSHBUTTON      "Break on Target...",IDC_GEDBG_BREAKTARGET,394,211,100,14
 END
 
 IDD_GEDBG_STEPCOUNT DIALOGEX 0, 0, 124, 18
@@ -659,6 +655,36 @@ BEGIN
     POPUP "Help",                                       ID_HELP_MENU
     BEGIN
         MENUITEM "", 0, MFT_SEPARATOR
+    END
+END
+
+IDR_GEDBG_MENU MENUEX
+BEGIN
+    POPUP "&Actions",                                      ID_GEDBG_ACTIONS_MENU
+    BEGIN
+        MENUITEM "Rec&ord Next Frame",                     IDC_GEDBG_RECORD
+        MENUITEM "F&lush Pending Draws",                   IDC_GEDBG_FLUSH
+    END
+
+    POPUP "&Step",                                         ID_GEDBG_STEP_MENU
+    BEGIN
+        MENUITEM "Next &Instruction",                      IDC_GEDBG_STEP
+        MENUITEM "To Cou&nter...",                         IDC_GEDBG_STEPCOUNT
+        MENUITEM "Next &Primitive",                        IDC_GEDBG_STEPPRIM
+        MENUITEM "Next &Curve",                            IDC_GEDBG_STEPCURVE
+        MENUITEM "Next &Texture",                          IDC_GEDBG_STEPTEX
+        MENUITEM "Next &Draw Flush",                       IDC_GEDBG_STEPDRAW
+        MENUITEM "Next &Frame",                            IDC_GEDBG_STEPFRAME
+        MENUITEM "", 0, MFT_SEPARATOR
+        MENUITEM "&Auto Flush Pending",                    IDC_GEDBG_FLUSHAUTO
+    END
+
+    POPUP "&Breakpoints",                                  ID_GEDBG_BREAK_MENU
+    BEGIN
+        MENUITEM "&Resume",                                IDC_GEDBG_RESUME
+        MENUITEM "", 0, MFT_SEPARATOR
+        MENUITEM "Te&xture Pointer...",                    IDC_GEDBG_BREAKTEX
+        MENUITEM "Render Tar&get Pointer...",              IDC_GEDBG_BREAKTARGET
     END
 END
 
