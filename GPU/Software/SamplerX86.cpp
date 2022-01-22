@@ -1384,8 +1384,7 @@ bool SamplerJitCache::Jit_BlendQuad(const SamplerID &id, bool level1) {
 		MOVDQA(fracMulReg, M(const10Low_));
 		PSUBW(fracMulReg, R(fracReg));
 		// Then we just shift and OR in the original frac_u.
-		PSLLDQ(fracReg, 8);
-		POR(fracMulReg, R(fracReg));
+		PUNPCKLQDQ(fracMulReg, R(fracReg));
 		regCache_.Release(fracReg, RegCache::VEC_TEMP2);
 
 		// Okay, we have 8-bits in the top and bottom rows for the color.
