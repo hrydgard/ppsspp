@@ -104,7 +104,7 @@ jobs:
 
     - name: Execute tests
       working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: python test.py --graphics=software
+      run: python test.py -g --graphics=software
 
   build:
     strategy:
@@ -184,7 +184,7 @@ jobs:
       if: runner.os == 'macOS'
       # This is required for git describe --always to work for git-version.cpp.
       run: |
-        git fetch --deepen=15000 --tags || exit 0
+        git fetch --deepen=15000 --no-recurse-submodules --tags || exit 0
 
     - name: Cache Qt
       uses: actions/cache@v1
@@ -320,4 +320,4 @@ jobs:
 
     - name: Execute tests
       working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: python test.py --graphics=software
+      run: python test.py -g --graphics=software

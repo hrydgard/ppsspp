@@ -48,7 +48,7 @@ bool HandleAssert(const char *function, const char *file, int line, const char *
 	// Normal logging (will also log to Android log)
 	ERROR_LOG(SYSTEM, "%s", formatted);
 	// Also do a simple printf for good measure, in case logging of SYSTEM is disabled (should we disallow that?)
-	printf("%s\n", formatted);
+	fprintf(stderr, "%s\n", formatted);
 
 #if defined(USING_WIN_UI)
 	int msgBoxStyle = MB_ICONINFORMATION | MB_YESNO;

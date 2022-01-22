@@ -42,6 +42,7 @@ FetchFunc SamplerJitCache::CompileFetch(const SamplerID &id) {
 		RegCache::GEN_ARG_ID,
 	});
 	regCache_.ChangeReg(RAX, RegCache::GEN_RESULT);
+	regCache_.ForceRetain(RegCache::GEN_RESULT);
 	regCache_.ChangeReg(XMM0, RegCache::VEC_RESULT);
 
 	BeginWrite();
@@ -81,11 +82,17 @@ FetchFunc SamplerJitCache::CompileFetch(const SamplerID &id) {
 		return nullptr;
 	}
 
+	if (regCache_.Has(RegCache::GEN_ARG_LEVEL))
+		regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
+	if (regCache_.Has(RegCache::GEN_ARG_ID))
+		regCache_.ForceRelease(RegCache::GEN_ARG_ID);
+
 	X64Reg vecResultReg = regCache_.Find(RegCache::VEC_RESULT);
 
 	X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
 	MOVD_xmm(vecResultReg, R(resultReg));
-	regCache_.Release(resultReg, RegCache::GEN_RESULT);
+	regCache_.Unlock(resultReg, RegCache::GEN_RESULT);
+	regCache_.ForceRelease(RegCache::GEN_RESULT);
 
 	if (cpu_info.bSSE4_1) {
 		PMOVZXBD(vecResultReg, R(vecResultReg));
@@ -441,12 +448,12 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 			RegCache::GEN_ARG_LEVEL,
 			// Avoid clobber.
 			RegCache::GEN_ARG_LEVELFRAC,
-			});
-		regCache_.ChangeReg(RAX, RegCache::GEN_RESULT);
+		});
 		auto lockReg = [&](X64Reg r, RegCache::Purpose p) {
 			regCache_.ChangeReg(r, p);
 			regCache_.ForceRetain(p);
 		};
+		lockReg(RAX, RegCache::GEN_RESULT);
 		lockReg(XMM0, RegCache::VEC_ARG_U);
 		lockReg(XMM1, RegCache::VEC_ARG_V);
 		lockReg(XMM5, RegCache::VEC_RESULT);
@@ -474,6 +481,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		Describe("Init");
 		RET();
 
+		regCache_.ForceRelease(RegCache::GEN_RESULT);
 		regCache_.ForceRelease(RegCache::VEC_ARG_U);
 		regCache_.ForceRelease(RegCache::VEC_ARG_V);
 		regCache_.ForceRelease(RegCache::VEC_RESULT);
@@ -1757,6 +1765,10 @@ bool SamplerJitCache::Jit_GetDXT1Color(const SamplerID &id, int blockSize, int a
 	LEA(64, srcReg, MRegSum(srcBaseReg, srcOffsetReg));
 	regCache_.Release(srcBaseReg, RegCache::GEN_TEMP0);
 	regCache_.Release(srcOffsetReg, RegCache::GEN_TEMP1);
+
+	// Make sure we don't grab this as colorIndexReg.
+	if (uReg != ECX)
+		regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
 
 	// The colorIndex is simply the 2 bits at blockPos + (v & 3), shifted right by (u & 3) twice.
 	X64Reg colorIndexReg = regCache_.Alloc(RegCache::GEN_TEMP0);

@@ -409,13 +409,14 @@ int main(int argc, const char* argv[])
 	g_Config.iGlobalVolume = VOLUME_FULL;
 	g_Config.iReverbVolume = VOLUME_FULL;
 
-#ifdef _WIN32
+#if PPSSPP_PLATFORM(WINDOWS)
 	g_Config.internalDataDirectory.clear();
 	InitSysDirectories();
 #endif
 
-#if !defined(__ANDROID__) && !defined(_WIN32)
+#if !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(WINDOWS)
 	g_Config.memStickDirectory = Path(std::string(getenv("HOME"))) / ".ppsspp";
+	g_Config.flash0Directory = File::GetExeDirectory() / "assets/flash0";
 #endif
 
 	// Try to find the flash0 directory.  Often this is from a subdirectory.
@@ -432,7 +433,7 @@ int main(int argc, const char* argv[])
 	if (screenshotFilename != 0)
 		headlessHost->SetComparisonScreenshot(Path(std::string(screenshotFilename)));
 
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
 	// For some reason the debugger installs it with this name?
 	if (File::Exists(Path("/data/app/org.ppsspp.ppsspp-2.apk"))) {
 		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp-2.apk", "assets/"));
@@ -440,6 +441,8 @@ int main(int argc, const char* argv[])
 	if (File::Exists(Path("/data/app/org.ppsspp.ppsspp.apk"))) {
 		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp.apk", "assets/"));
 	}
+#elif !PPSSPP_PLATFORM(WINDOWS)
+	VFSRegister("", new DirectoryAssetReader(g_Config.flash0Directory / ".."));
 #endif
 
 	UpdateUIState(UISTATE_INGAME);
@@ -499,5 +502,7 @@ int main(int argc, const char* argv[])
 	LogManager::Shutdown();
 	delete printfLogger;
 
+	if (!failedTests.empty() && !teamCityMode)
+		return 1;
 	return 0;
 }

@@ -444,6 +444,7 @@ public:
 #ifdef CALL
 #undef CALL
 #endif
+	bool CanCALLDirect(const void *fnptr);
 	void CALL(const void *fnptr);
 	void CALLptr(OpArg arg);
 

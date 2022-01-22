@@ -125,6 +125,8 @@ private:
 	const BinManager::BinStateQueue &states_;
 };
 
+constexpr int BinManager::MAX_POSSIBLE_TASKS;
+
 BinManager::BinManager() {
 	queueRange_.x1 = 0x7FFFFFFF;
 	queueRange_.y1 = 0x7FFFFFFF;
