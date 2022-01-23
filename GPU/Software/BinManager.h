@@ -204,8 +204,14 @@ public:
 	void SetDirty(SoftDirty flags) {
 		dirty_ |= flags;
 	}
+	void ClearDirty(SoftDirty flags) {
+		dirty_ &= ~flags;
+	}
 	SoftDirty GetDirty() {
 		return dirty_;
+	}
+	bool HasDirty(SoftDirty flags) {
+		return dirty_ & flags;
 	}
 
 protected:
@@ -231,7 +237,7 @@ private:
 	BinCoords queueRange_;
 	int queueOffsetX_ = -1;
 	int queueOffsetY_ = -1;
-	SoftDirty dirty_ = SoftDirty(-1);
+	SoftDirty dirty_ = SoftDirty::NONE;
 
 	int maxTasks_ = 1;
 	bool tasksSplit_ = false;
@@ -242,6 +248,7 @@ private:
 	BinWaitable *waitable_ = nullptr;
 
 	BinDirtyRange pendingWrites_[2]{};
+	bool pendingOverlap_ = false;
 
 	std::unordered_map<const char *, double> flushReasonTimes_;
 	std::unordered_map<const char *, double> lastFlushReasonTimes_;

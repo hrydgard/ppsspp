@@ -87,7 +87,7 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 	{ GE_CMD_SPLINE, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_Spline },
 
 	// Vertex type affects a number of things, mainly because of through.
-	{ GE_CMD_VERTEXTYPE, 0, SoftDirty::TRANSFORM_BASIC, &SoftGPU::Execute_VertexType },
+	{ GE_CMD_VERTEXTYPE, FLAG_EXECUTEONCHANGE, SoftDirty::TRANSFORM_BASIC, &SoftGPU::Execute_VertexType },
 
 	{ GE_CMD_LOADCLUT, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_LoadClut },
 
@@ -909,6 +909,7 @@ void SoftGPU::Execute_LoadClut(u32 op, u32 diff) {
 	}
 
 	drawEngine_->transformUnit.NotifyClutUpdate(clut);
+	dirtyFlags_ |= SoftDirty::SAMPLER_CLUT;
 }
 
 void SoftGPU::Execute_FramebufPtr(u32 op, u32 diff) {
@@ -929,11 +930,14 @@ void SoftGPU::Execute_ZbufPtr(u32 op, u32 diff) {
 }
 
 void SoftGPU::Execute_VertexType(u32 op, u32 diff) {
-	if ((diff & GE_VTYPE_THROUGH_MASK) && (op & GE_VTYPE_THROUGH_MASK) == 0) {
-		// This affects a lot of things.
-		dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX | SoftDirty::TRANSFORM_VIEWPORT | SoftDirty::TRANSFORM_FOG;
-		dirtyFlags_ |= SoftDirty::RAST_BASIC | SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_CACHED;
-		dirtyFlags_ |= SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_0 | SoftDirty::LIGHT_1 | SoftDirty::LIGHT_2 | SoftDirty::LIGHT_3;
+	if ((diff & GE_VTYPE_THROUGH_MASK) != 0) {
+		// This affects a lot of things, but some don't matter if it's off - so defer to when it's back on.
+		dirtyFlags_ |= SoftDirty::RAST_BASIC | SoftDirty::PIXEL_BASIC;
+		if ((op & GE_VTYPE_THROUGH_MASK) == 0) {
+			dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX | SoftDirty::TRANSFORM_VIEWPORT | SoftDirty::TRANSFORM_FOG;
+			dirtyFlags_ |= SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_0 | SoftDirty::LIGHT_1 | SoftDirty::LIGHT_2 | SoftDirty::LIGHT_3;
+			dirtyFlags_ |= SoftDirty::PIXEL_CACHED;
+		}
 	}
 }
 

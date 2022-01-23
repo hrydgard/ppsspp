@@ -159,24 +159,25 @@ BinManager::~BinManager() {
 
 void BinManager::UpdateState() {
 	PROFILE_THIS_SCOPE("bin_state");
-	if (states_.Full())
-		Flush("states");
-	stateIndex_ = (int)states_.Push(RasterizerState());
-	ComputeRasterizerState(&states_[stateIndex_]);
-	states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
+	if (HasDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL)) {
+		if (states_.Full())
+			Flush("states");
+		stateIndex_ = (int)states_.Push(RasterizerState());
+		ComputeRasterizerState(&states_[stateIndex_]);
+		states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
+
+		ClearDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL);
+	}
 
 	if (lastFlipstats_ != gpuStats.numFlips) {
 		lastFlipstats_ = gpuStats.numFlips;
 		ResetStats();
 	}
 
-	// If we're about to texture from something still pending (i.e. depth), flush.
 	const auto &state = State();
 	const bool hadDepth = pendingWrites_[1].base != 0;
-	if (HasTextureWrite(state))
-		Flush("tex");
 
-	if (dirty_ & SoftDirty::BINNER_RANGE) {
+	if (HasDirty(SoftDirty::BINNER_RANGE)) {
 		DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1());
 		DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2());
 		ScreenCoords screenScissorTL = TransformUnit::DrawingToScreen(scissorTL, 0);
@@ -194,6 +195,10 @@ void BinManager::UpdateState() {
 			queueOffsetY_ = gstate.getOffsetY16();
 		}
 
+		// If we're about to texture from something still pending (i.e. depth), flush.
+		if (HasTextureWrite(state))
+			Flush("tex");
+
 		// Okay, now update what's pending.
 		constexpr uint32_t mirrorMask = 0x0FFFFFFF & ~0x00600000;
 		const uint32_t bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
@@ -201,10 +206,13 @@ void BinManager::UpdateState() {
 		if (state.pixelID.depthWrite)
 			pendingWrites_[1].Expand(gstate.getDepthBufAddress() & mirrorMask, 2, gstate.DepthBufStride(), scissorTL, scissorBR);
 
-		dirty_ &= ~SoftDirty::BINNER_RANGE;
+		ClearDirty(SoftDirty::BINNER_RANGE);
+	} else if (pendingOverlap_) {
+		if (HasTextureWrite(state))
+			Flush("tex");
 	}
 
-	if (dirty_ & SoftDirty::BINNER_OVERLAP) {
+	if (HasDirty(SoftDirty::BINNER_OVERLAP)) {
 		// Disallow threads when rendering to the target, even offset.
 		bool selfRender = HasTextureWrite(state);
 		int newMaxTasks = selfRender ? 1 : g_threadManager.GetNumLooperThreads();
@@ -215,6 +223,7 @@ void BinManager::UpdateState() {
 			maxTasks_ = newMaxTasks;
 			Flush("selfrender");
 		}
+		pendingOverlap_ = pendingOverlap_ || selfRender;
 
 		// Lastly, we have to check if we're newly writing depth we were texturing before.
 		// This happens in Call of Duty (depth clear after depth texture), for example.
@@ -225,7 +234,7 @@ void BinManager::UpdateState() {
 				}
 			}
 		}
-		dirty_ &= ~SoftDirty::BINNER_OVERLAP;
+		ClearDirty(SoftDirty::BINNER_OVERLAP);
 	}
 }
 
@@ -446,6 +455,7 @@ void BinManager::Flush(const char *reason) {
 
 	for (auto &pending : pendingWrites_)
 		pending.base = 0;
+	pendingOverlap_ = false;
 
 	// We'll need to set the pending writes again, since we just flushed it.
 	dirty_ |= SoftDirty::BINNER_RANGE;
