@@ -1449,9 +1449,9 @@ bool PixelJitCache::Jit_Dither(const PixelFuncID &id) {
 	regCache_.Release(valueReg, RegCache::GEN_TEMP0);
 
 	// Now we want to broadcast RGB in 16-bit, but keep A as 0.
-	// Luckily, we know that second lane (in 16-bit) is zero from valueReg's high 16 bits.
+	// Luckily, we know that third lane (in 16-bit) is zero from MOVD clearing it.
 	// We use 16-bit because we need a signed add, but we also want to saturate.
-	PSHUFLW(vecValueReg, R(vecValueReg), _MM_SHUFFLE(1, 0, 0, 0));
+	PSHUFLW(vecValueReg, R(vecValueReg), _MM_SHUFFLE(2, 0, 0, 0));
 
 	// With that, now let's convert the color to 16 bit...
 	X64Reg argColorReg = regCache_.Find(RegCache::VEC_ARG_COLOR);

@@ -243,7 +243,7 @@ void ProcessRect(const VertexData &v0, const VertexData &v1, BinManager &binner)
 
 		RotateUVThrough(v0, v1, *topright, *bottomleft);
 
-		if (gstate.isModeClear()) {
+		if (gstate.isModeClear() && !gstate.isDitherEnabled()) {
 			binner.AddClearRect(v0, v1);
 		} else {
 			// Four triangles to do backfaces as well. Two of them will get backface culled.
