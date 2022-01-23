@@ -384,6 +384,3 @@ struct CommonCommandTableEntry {
 	uint64_t dirty;
 	GPUCommon::CmdFunc func;
 };
-
-extern const CommonCommandTableEntry commonCommandTable[];
-extern size_t commonCommandTableSize;

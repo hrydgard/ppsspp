@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <set>
 #include "Common/System/Display.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
@@ -55,11 +56,372 @@ u32 clut[4096];
 FormatBuffer fb;
 FormatBuffer depthbuf;
 
+struct CommandInfo {
+	uint64_t flags;
+	SoftGPU::CmdFunc func;
+};
+static CommandInfo softgpuCmdInfo[256];
+
+struct SoftwareCommandTableEntry {
+	uint8_t cmd;
+	uint8_t flags;
+	SoftDirty dirty;
+	SoftGPU::CmdFunc func;
+};
+
+// Software uses a different one, because dirty flags and execute funcs are a bit different.
+const SoftwareCommandTableEntry softgpuCommandTable[] = {
+	{ GE_CMD_OFFSETADDR, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_OffsetAddr },
+	{ GE_CMD_ORIGIN, FLAG_EXECUTE | FLAG_READS_PC, SoftDirty::NONE, &GPUCommon::Execute_Origin },
+	{ GE_CMD_JUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, SoftDirty::NONE, &GPUCommon::Execute_Jump },
+	{ GE_CMD_CALL, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, SoftDirty::NONE, &SoftGPU::Execute_Call },
+	{ GE_CMD_RET, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, SoftDirty::NONE, &GPUCommon::Execute_Ret },
+	{ GE_CMD_END, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, SoftDirty::NONE, &GPUCommon::Execute_End },
+	{ GE_CMD_VADDR, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Vaddr },
+	{ GE_CMD_IADDR, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Iaddr },
+	{ GE_CMD_BJUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, SoftDirty::NONE, &GPUCommon::Execute_BJump },
+	{ GE_CMD_BOUNDINGBOX, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_BoundingBox },
+
+	{ GE_CMD_PRIM, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_Prim },
+	{ GE_CMD_BEZIER, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_Bezier },
+	{ GE_CMD_SPLINE, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_Spline },
+
+	// Vertex type affects a number of things, mainly because of through.
+	{ GE_CMD_VERTEXTYPE, 0, SoftDirty::TRANSFORM_BASIC, &SoftGPU::Execute_VertexType },
+
+	{ GE_CMD_LOADCLUT, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_LoadClut },
+
+	// These two are actually processed in CMD_END, no flush needed.
+	{ GE_CMD_SIGNAL },
+	{ GE_CMD_FINISH },
+
+	// Changes that dirty the framebuffer or depthbuffer pointer/size.
+	{ GE_CMD_FRAMEBUFPTR, FLAG_EXECUTEONCHANGE, SoftDirty::BINNER_RANGE, &SoftGPU::Execute_FramebufPtr },
+	{ GE_CMD_FRAMEBUFWIDTH, FLAG_EXECUTEONCHANGE, SoftDirty::BINNER_RANGE | SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_CACHED, &SoftGPU::Execute_FramebufPtr },
+	{ GE_CMD_FRAMEBUFPIXFORMAT, FLAG_EXECUTEONCHANGE, SoftDirty::BINNER_RANGE | SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_STENCIL | SoftDirty::PIXEL_WRITEMASK, &SoftGPU::Execute_FramebufFormat },
+	{ GE_CMD_ZBUFPTR, FLAG_EXECUTEONCHANGE, SoftDirty::BINNER_RANGE, &SoftGPU::Execute_ZbufPtr },
+	{ GE_CMD_ZBUFWIDTH, FLAG_EXECUTEONCHANGE, SoftDirty::BINNER_RANGE | SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_CACHED, &SoftGPU::Execute_ZbufPtr },
+
+	{ GE_CMD_FOGCOLOR, 0, SoftDirty::PIXEL_CACHED },
+	{ GE_CMD_FOG1, 0, SoftDirty::TRANSFORM_FOG },
+	{ GE_CMD_FOG2, 0, SoftDirty::TRANSFORM_FOG },
+
+	{ GE_CMD_CLEARMODE, 0, SoftDirty::TRANSFORM_BASIC | SoftDirty::RAST_TEX | SoftDirty::SAMPLER_BASIC | SoftDirty::SAMPLER_TEXLIST | SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_ALPHA | SoftDirty::PIXEL_STENCIL | SoftDirty::PIXEL_CACHED },
+	{ GE_CMD_TEXTUREMAPENABLE, 0, SoftDirty::SAMPLER_BASIC | SoftDirty::SAMPLER_TEXLIST | SoftDirty::RAST_TEX | SoftDirty::TRANSFORM_BASIC },
+	{ GE_CMD_FOGENABLE, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_CACHED | SoftDirty::TRANSFORM_BASIC | SoftDirty::TRANSFORM_FOG | SoftDirty::TRANSFORM_MATRIX },
+	{ GE_CMD_TEXMODE, 0, SoftDirty::SAMPLER_BASIC | SoftDirty::SAMPLER_TEXLIST | SoftDirty::RAST_TEX },
+	// Currently this doesn't affect any state, but maybe it should.
+	{ GE_CMD_TEXSHADELS },
+	{ GE_CMD_SHADEMODE, 0, SoftDirty::RAST_BASIC },
+	{ GE_CMD_TEXFUNC, 0, SoftDirty::SAMPLER_BASIC },
+	{ GE_CMD_COLORTEST, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_CACHED },
+	{ GE_CMD_ALPHATESTENABLE, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_ALPHA },
+	{ GE_CMD_COLORTESTENABLE, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_CACHED },
+	{ GE_CMD_COLORTESTMASK, 0, SoftDirty::PIXEL_CACHED },
+
+	{ GE_CMD_REVERSENORMAL, 0, SoftDirty::TRANSFORM_BASIC },
+	{ GE_CMD_LIGHTINGENABLE, 0, SoftDirty::TRANSFORM_BASIC | SoftDirty::TRANSFORM_MATRIX | SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_0 | SoftDirty::LIGHT_1 | SoftDirty::LIGHT_2 | SoftDirty::LIGHT_3 },
+	{ GE_CMD_LIGHTENABLE0, 0, SoftDirty::TRANSFORM_MATRIX | SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_0 },
+	{ GE_CMD_LIGHTENABLE1, 0, SoftDirty::TRANSFORM_MATRIX | SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_1 },
+	{ GE_CMD_LIGHTENABLE2, 0, SoftDirty::TRANSFORM_MATRIX | SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_2 },
+	{ GE_CMD_LIGHTENABLE3, 0, SoftDirty::TRANSFORM_MATRIX | SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_3 },
+	{ GE_CMD_LIGHTTYPE0, 0, SoftDirty::TRANSFORM_MATRIX | SoftDirty::LIGHT_0 },
+	{ GE_CMD_LIGHTTYPE1, 0, SoftDirty::TRANSFORM_MATRIX | SoftDirty::LIGHT_1 },
+	{ GE_CMD_LIGHTTYPE2, 0, SoftDirty::TRANSFORM_MATRIX | SoftDirty::LIGHT_2 },
+	{ GE_CMD_LIGHTTYPE3, 0, SoftDirty::TRANSFORM_MATRIX | SoftDirty::LIGHT_3 },
+	{ GE_CMD_MATERIALUPDATE, 0, SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL },
+
+	{ GE_CMD_LIGHTMODE, 0, SoftDirty::LIGHT_BASIC },
+
+	{ GE_CMD_TEXFILTER, 0, SoftDirty::SAMPLER_BASIC | SoftDirty::SAMPLER_TEXLIST | SoftDirty::RAST_TEX },
+	{ GE_CMD_TEXWRAP, 0, SoftDirty::SAMPLER_BASIC },
+
+	{ GE_CMD_ALPHATEST, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_ALPHA },
+	{ GE_CMD_COLORREF, 0, SoftDirty::PIXEL_CACHED },
+	{ GE_CMD_TEXENVCOLOR, 0, SoftDirty::PIXEL_CACHED },
+
+	// Currently, this is not part of state, just read on vertex processing.
+	{ GE_CMD_CULL },
+	{ GE_CMD_CULLFACEENABLE },
+
+	{ GE_CMD_DITHERENABLE, 0, SoftDirty::PIXEL_BASIC },
+	{ GE_CMD_STENCILOP, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_STENCIL },
+	{ GE_CMD_STENCILTEST, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_STENCIL },
+	{ GE_CMD_STENCILTESTENABLE, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_STENCIL },
+	{ GE_CMD_ALPHABLENDENABLE, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_ALPHA },
+	{ GE_CMD_BLENDMODE, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_ALPHA },
+	{ GE_CMD_BLENDFIXEDA, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_ALPHA | SoftDirty::PIXEL_CACHED },
+	{ GE_CMD_BLENDFIXEDB, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_ALPHA | SoftDirty::PIXEL_CACHED },
+	{ GE_CMD_MASKRGB, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_WRITEMASK },
+	{ GE_CMD_MASKALPHA, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_WRITEMASK },
+	{ GE_CMD_ZTEST, 0, SoftDirty::PIXEL_BASIC },
+	{ GE_CMD_ZTESTENABLE, 0, SoftDirty::PIXEL_BASIC },
+	{ GE_CMD_ZWRITEDISABLE, 0, SoftDirty::PIXEL_BASIC },
+	{ GE_CMD_LOGICOP, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_CACHED },
+	{ GE_CMD_LOGICOPENABLE, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_CACHED },
+
+	{ GE_CMD_TEXMAPMODE, 0, SoftDirty::TRANSFORM_BASIC },
+
+	// These are read on every SubmitPrim, no need for dirtying or flushing.
+	{ GE_CMD_TEXSCALEU },
+	{ GE_CMD_TEXSCALEV },
+	{ GE_CMD_TEXOFFSETU },
+	{ GE_CMD_TEXOFFSETV },
+
+	{ GE_CMD_TEXSIZE0, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXSIZE1, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXSIZE2, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXSIZE3, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXSIZE4, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXSIZE5, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXSIZE6, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXSIZE7, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXFORMAT, 0, SoftDirty::SAMPLER_BASIC | SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXLEVEL, 0, SoftDirty::RAST_TEX },
+	{ GE_CMD_TEXLODSLOPE, 0, SoftDirty::RAST_TEX },
+	{ GE_CMD_TEXADDR0, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXADDR1, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXADDR2, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXADDR3, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXADDR4, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXADDR5, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXADDR6, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXADDR7, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXBUFWIDTH0, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXBUFWIDTH1, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXBUFWIDTH2, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXBUFWIDTH3, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXBUFWIDTH4, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXBUFWIDTH5, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXBUFWIDTH6, 0, SoftDirty::SAMPLER_TEXLIST },
+	{ GE_CMD_TEXBUFWIDTH7, 0, SoftDirty::SAMPLER_TEXLIST },
+
+	{ GE_CMD_CLUTADDR },
+	{ GE_CMD_CLUTADDRUPPER },
+	{ GE_CMD_CLUTFORMAT, 0, SoftDirty::SAMPLER_BASIC },
+
+	// Morph weights. TODO: Remove precomputation?
+	{ GE_CMD_MORPHWEIGHT0, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT1, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT2, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT3, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT4, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT5, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT6, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT7, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+
+	// No state of flushing required for patch parameters, currently.
+	{ GE_CMD_PATCHDIVISION },
+	{ GE_CMD_PATCHPRIMITIVE },
+	{ GE_CMD_PATCHFACING },
+	{ GE_CMD_PATCHCULLENABLE },
+
+	// Can probably ignore this one as we don't support AA lines.
+	{ GE_CMD_ANTIALIASENABLE, 0, SoftDirty::RAST_BASIC },
+
+	// Viewport and offset for positions.
+	{ GE_CMD_OFFSETX, 0, SoftDirty::BINNER_RANGE | SoftDirty::TRANSFORM_BASIC | SoftDirty::RAST_OFFSET },
+	{ GE_CMD_OFFSETY, 0, SoftDirty::BINNER_RANGE | SoftDirty::TRANSFORM_BASIC | SoftDirty::RAST_OFFSET },
+	{ GE_CMD_VIEWPORTXSCALE, 0, SoftDirty::TRANSFORM_VIEWPORT },
+	{ GE_CMD_VIEWPORTYSCALE, 0, SoftDirty::TRANSFORM_VIEWPORT },
+	{ GE_CMD_VIEWPORTXCENTER, 0, SoftDirty::TRANSFORM_VIEWPORT },
+	{ GE_CMD_VIEWPORTYCENTER, 0, SoftDirty::TRANSFORM_VIEWPORT },
+	{ GE_CMD_VIEWPORTZSCALE, 0, SoftDirty::TRANSFORM_VIEWPORT },
+	{ GE_CMD_VIEWPORTZCENTER, 0, SoftDirty::TRANSFORM_VIEWPORT },
+	{ GE_CMD_DEPTHCLAMPENABLE, 0, SoftDirty::TRANSFORM_BASIC },
+
+	// Z clipping.
+	{ GE_CMD_MINZ, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_CACHED },
+	{ GE_CMD_MAXZ, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_CACHED },
+
+	// Region doesn't seem to affect scissor or anything.
+	// TODO: Double check, the registers are always set so they ought to... do something?
+	{ GE_CMD_REGION1 },
+	{ GE_CMD_REGION2 },
+
+	// Scissor, only used by the binner.
+	{ GE_CMD_SCISSOR1, 0, SoftDirty::BINNER_RANGE },
+	{ GE_CMD_SCISSOR2, 0, SoftDirty::BINNER_RANGE },
+
+	// Lighting base colors.
+	{ GE_CMD_AMBIENTCOLOR, 0, SoftDirty::LIGHT_MATERIAL },
+	{ GE_CMD_AMBIENTALPHA, 0, SoftDirty::LIGHT_MATERIAL },
+	{ GE_CMD_MATERIALDIFFUSE, 0, SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_0 | SoftDirty::LIGHT_1 | SoftDirty::LIGHT_2 | SoftDirty::LIGHT_3 },
+	// Not currently state, but maybe should be.
+	{ GE_CMD_MATERIALEMISSIVE, 0, SoftDirty::NONE },
+	{ GE_CMD_MATERIALAMBIENT, 0, SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_0 | SoftDirty::LIGHT_1 | SoftDirty::LIGHT_2 | SoftDirty::LIGHT_3 },
+	{ GE_CMD_MATERIALALPHA, 0, SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_0 | SoftDirty::LIGHT_1 | SoftDirty::LIGHT_2 | SoftDirty::LIGHT_3 },
+	{ GE_CMD_MATERIALSPECULAR, 0, SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_0 | SoftDirty::LIGHT_1 | SoftDirty::LIGHT_2 | SoftDirty::LIGHT_3 },
+	{ GE_CMD_MATERIALSPECULARCOEF, 0, SoftDirty::LIGHT_BASIC },
+
+	{ GE_CMD_LX0, 0, SoftDirty::LIGHT_0 },
+	{ GE_CMD_LY0, 0, SoftDirty::LIGHT_0 },
+	{ GE_CMD_LZ0, 0, SoftDirty::LIGHT_0 },
+	{ GE_CMD_LX1, 0, SoftDirty::LIGHT_1 },
+	{ GE_CMD_LY1, 0, SoftDirty::LIGHT_1 },
+	{ GE_CMD_LZ1, 0, SoftDirty::LIGHT_1 },
+	{ GE_CMD_LX2, 0, SoftDirty::LIGHT_2 },
+	{ GE_CMD_LY2, 0, SoftDirty::LIGHT_2 },
+	{ GE_CMD_LZ2, 0, SoftDirty::LIGHT_2 },
+	{ GE_CMD_LX3, 0, SoftDirty::LIGHT_3 },
+	{ GE_CMD_LY3, 0, SoftDirty::LIGHT_3 },
+	{ GE_CMD_LZ3, 0, SoftDirty::LIGHT_3 },
+
+	{ GE_CMD_LDX0, 0, SoftDirty::LIGHT_0 },
+	{ GE_CMD_LDY0, 0, SoftDirty::LIGHT_0 },
+	{ GE_CMD_LDZ0, 0, SoftDirty::LIGHT_0 },
+	{ GE_CMD_LDX1, 0, SoftDirty::LIGHT_1 },
+	{ GE_CMD_LDY1, 0, SoftDirty::LIGHT_1 },
+	{ GE_CMD_LDZ1, 0, SoftDirty::LIGHT_1 },
+	{ GE_CMD_LDX2, 0, SoftDirty::LIGHT_2 },
+	{ GE_CMD_LDY2, 0, SoftDirty::LIGHT_2 },
+	{ GE_CMD_LDZ2, 0, SoftDirty::LIGHT_2 },
+	{ GE_CMD_LDX3, 0, SoftDirty::LIGHT_3 },
+	{ GE_CMD_LDY3, 0, SoftDirty::LIGHT_3 },
+	{ GE_CMD_LDZ3, 0, SoftDirty::LIGHT_3 },
+
+	{ GE_CMD_LKA0, 0, SoftDirty::LIGHT_0 },
+	{ GE_CMD_LKB0, 0, SoftDirty::LIGHT_0 },
+	{ GE_CMD_LKC0, 0, SoftDirty::LIGHT_0 },
+	{ GE_CMD_LKA1, 0, SoftDirty::LIGHT_1 },
+	{ GE_CMD_LKB1, 0, SoftDirty::LIGHT_1 },
+	{ GE_CMD_LKC1, 0, SoftDirty::LIGHT_1 },
+	{ GE_CMD_LKA2, 0, SoftDirty::LIGHT_2 },
+	{ GE_CMD_LKB2, 0, SoftDirty::LIGHT_2 },
+	{ GE_CMD_LKC2, 0, SoftDirty::LIGHT_2 },
+	{ GE_CMD_LKA3, 0, SoftDirty::LIGHT_3 },
+	{ GE_CMD_LKB3, 0, SoftDirty::LIGHT_3 },
+	{ GE_CMD_LKC3, 0, SoftDirty::LIGHT_3 },
+
+	{ GE_CMD_LKS0, 0, SoftDirty::LIGHT_0 },
+	{ GE_CMD_LKS1, 0, SoftDirty::LIGHT_1 },
+	{ GE_CMD_LKS2, 0, SoftDirty::LIGHT_2 },
+	{ GE_CMD_LKS3, 0, SoftDirty::LIGHT_3 },
+
+	{ GE_CMD_LKO0, 0, SoftDirty::LIGHT_0 },
+	{ GE_CMD_LKO1, 0, SoftDirty::LIGHT_1 },
+	{ GE_CMD_LKO2, 0, SoftDirty::LIGHT_2 },
+	{ GE_CMD_LKO3, 0, SoftDirty::LIGHT_3 },
+
+	// Specific light colors.
+	{ GE_CMD_LAC0, 0, SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_0 },
+	{ GE_CMD_LDC0, 0, SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_0 },
+	{ GE_CMD_LSC0, 0, SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_0 },
+	{ GE_CMD_LAC1, 0, SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_1 },
+	{ GE_CMD_LDC1, 0, SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_1 },
+	{ GE_CMD_LSC1, 0, SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_1 },
+	{ GE_CMD_LAC2, 0, SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_2 },
+	{ GE_CMD_LDC2, 0, SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_2 },
+	{ GE_CMD_LSC2, 0, SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_2 },
+	{ GE_CMD_LAC3, 0, SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_3 },
+	{ GE_CMD_LDC3, 0, SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_3 },
+	{ GE_CMD_LSC3, 0, SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_3 },
+
+	// These are currently ignored, but might do flushing later.
+	{ GE_CMD_TEXFLUSH },
+	{ GE_CMD_TEXSYNC },
+
+	// These are just nop or part of other later commands.
+	{ GE_CMD_NOP },
+	{ GE_CMD_BASE },
+	{ GE_CMD_TRANSFERSRC },
+	{ GE_CMD_TRANSFERSRCW },
+	{ GE_CMD_TRANSFERDST },
+	{ GE_CMD_TRANSFERDSTW },
+	{ GE_CMD_TRANSFERSRCPOS },
+	{ GE_CMD_TRANSFERDSTPOS },
+	{ GE_CMD_TRANSFERSIZE },
+
+	// This will flush if necessary.
+	{ GE_CMD_TRANSFERSTART, FLAG_EXECUTE | FLAG_READS_PC, SoftDirty::NONE, &SoftGPU::Execute_BlockTransferStart },
+
+	// We cache the dither matrix, but the values affect little.
+	{ GE_CMD_DITH0, 0, SoftDirty::PIXEL_DITHER },
+	{ GE_CMD_DITH1, 0, SoftDirty::PIXEL_DITHER },
+	{ GE_CMD_DITH2, 0, SoftDirty::PIXEL_DITHER },
+	{ GE_CMD_DITH3, 0, SoftDirty::PIXEL_DITHER },
+
+	{ GE_CMD_WORLDMATRIXNUMBER },
+	{ GE_CMD_WORLDMATRIXDATA, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_WorldMtxData },
+	{ GE_CMD_VIEWMATRIXNUMBER },
+	{ GE_CMD_VIEWMATRIXDATA, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_ViewMtxData },
+	{ GE_CMD_PROJMATRIXNUMBER },
+	{ GE_CMD_PROJMATRIXDATA, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_ProjMtxData },
+	// Currently not state.
+	{ GE_CMD_TGENMATRIXNUMBER },
+	{ GE_CMD_TGENMATRIXDATA, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_TgenMtxData },
+	{ GE_CMD_BONEMATRIXNUMBER },
+	{ GE_CMD_BONEMATRIXDATA, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_BoneMtxData },
+
+	// Vertex Screen/Texture/Color
+	{ GE_CMD_VSCX },
+	{ GE_CMD_VSCY },
+	{ GE_CMD_VSCZ },
+	{ GE_CMD_VTCS },
+	{ GE_CMD_VTCT },
+	{ GE_CMD_VTCQ },
+	{ GE_CMD_VCV },
+	{ GE_CMD_VAP, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_ImmVertexAlphaPrim },
+	{ GE_CMD_VFC },
+	{ GE_CMD_VSCV },
+
+	// "Missing" commands (gaps in the sequence)
+	{ GE_CMD_UNKNOWN_03, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_0D, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_11, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_29, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_34, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_35, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_39, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_4E, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_4F, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_52, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_59, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_5A, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_B6, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_B7, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_D1, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_ED, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_EF, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_FA, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_FB, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_FC, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_FD, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_FE, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Unknown },
+	// Appears to be debugging related or something?  Hit a lot in GoW.
+	{ GE_CMD_NOP_FF },
+};
+
 SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw)
 {
 	fb.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 	depthbuf.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
+
+	memset(softgpuCmdInfo, 0, sizeof(softgpuCmdInfo));
+
+	// Convert the command table to a faster format, and check for dupes.
+	std::set<u8> dupeCheck;
+	for (size_t i = 0; i < ARRAY_SIZE(softgpuCommandTable); i++) {
+		const u8 cmd = softgpuCommandTable[i].cmd;
+		if (dupeCheck.find(cmd) != dupeCheck.end()) {
+			ERROR_LOG(G3D, "Command table Dupe: %02x (%i)", (int)cmd, (int)cmd);
+		} else {
+			dupeCheck.insert(cmd);
+		}
+		softgpuCmdInfo[cmd].flags |= (uint64_t)softgpuCommandTable[i].flags | ((uint64_t)softgpuCommandTable[i].dirty << 8);
+		softgpuCmdInfo[cmd].func = softgpuCommandTable[i].func;
+		if ((softgpuCmdInfo[cmd].flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) && !softgpuCmdInfo[cmd].func) {
+			// Can't have FLAG_EXECUTE commands without a function pointer to execute.
+			Crash();
+		}
+	}
+	// Find commands missing from the table.
+	for (int i = 0; i < 0xEF; i++) {
+		if (dupeCheck.find((u8)i) == dupeCheck.end()) {
+			ERROR_LOG(G3D, "Command missing from table: %02x (%i)", i, i);
+		}
+	}
 
 	framebufferDirty_ = true;
 	// TODO: Is there a default?
@@ -295,605 +657,362 @@ void SoftGPU::Resized() {
 
 void SoftGPU::FastRunLoop(DisplayList &list) {
 	PROFILE_THIS_SCOPE("soft_runloop");
-	for (; downcount > 0; --downcount) {
+	const auto *cmdInfo = softgpuCmdInfo;
+	int dc = downcount;
+	SoftDirty dirty = dirtyFlags_;
+	for (; dc > 0; --dc) {
 		u32 op = Memory::ReadUnchecked_U32(list.pc);
-		u32 cmd = op >> 24;
-
-		u32 diff = op ^ gstate.cmdmem[cmd];
-		gstate.cmdmem[cmd] = op;
-		ExecuteOp(op, diff);
-
+		const u32 cmd = op >> 24;
+		const auto &info = cmdInfo[cmd];
+		const u32 diff = op ^ gstate.cmdmem[cmd];
+		if (diff == 0) {
+			if (info.flags & FLAG_EXECUTE) {
+				downcount = dc;
+				dirtyFlags_ = dirty;
+				(this->*info.func)(op, diff);
+				dirty = dirtyFlags_;
+				dc = downcount;
+			}
+		} else {
+			uint64_t flags = info.flags;
+			gstate.cmdmem[cmd] = op;
+			dirty |= SoftDirty(flags >> 8);
+			if (flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) {
+				downcount = dc;
+				dirtyFlags_ = dirty;
+				(this->*info.func)(op, diff);
+				dirty = dirtyFlags_;
+				dc = downcount;
+			}
+		}
 		list.pc += 4;
 	}
+	downcount = 0;
+	dirtyFlags_ = dirty;
 }
 
 void SoftGPU::ExecuteOp(u32 op, u32 diff) {
-	u32 cmd = op >> 24;
-	u32 data = op & 0xFFFFFF;
+	const u8 cmd = op >> 24;
+	const auto info = softgpuCmdInfo[cmd];
+	if (diff == 0) {
+		if (info.flags & FLAG_EXECUTE)
+			(this->*info.func)(op, diff);
+	} else {
+		dirtyFlags_ |= SoftDirty(info.flags >> 8);
+		if (info.flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE))
+			(this->*info.func)(op, diff);
+	}
+}
 
-	// Handle control and drawing commands here directly. The others we delegate.
-	switch (cmd) {
-	case GE_CMD_BASE:
-		break;
+void SoftGPU::Execute_BlockTransferStart(u32 op, u32 diff) {
+	u32 srcBasePtr = gstate.getTransferSrcAddress();
+	u32 srcStride = gstate.getTransferSrcStride();
 
-	case GE_CMD_VADDR:
-		gstate_c.vertexAddr = gstate_c.getRelativeAddress(data);
-		break;
+	u32 dstBasePtr = gstate.getTransferDstAddress();
+	u32 dstStride = gstate.getTransferDstStride();
 
-	case GE_CMD_IADDR:
-		gstate_c.indexAddr	= gstate_c.getRelativeAddress(data);
-		break;
+	int srcX = gstate.getTransferSrcX();
+	int srcY = gstate.getTransferSrcY();
 
-	case GE_CMD_PRIM:
-		{
-			u32 count = data & 0xFFFF;
-			// Upper bits are ignored.
-			GEPrimitiveType prim = static_cast<GEPrimitiveType>((data >> 16) & 7);
-			if (count == 0)
-				break;
+	int dstX = gstate.getTransferDstX();
+	int dstY = gstate.getTransferDstY();
 
-			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-				ERROR_LOG_REPORT(G3D, "Software: Bad vertex address %08x!", gstate_c.vertexAddr);
-				break;
-			}
+	int width = gstate.getTransferWidth();
+	int height = gstate.getTransferHeight();
 
-			void *verts = Memory::GetPointer(gstate_c.vertexAddr);
-			void *indices = NULL;
-			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-					ERROR_LOG_REPORT(G3D, "Software: Bad index address %08x!", gstate_c.indexAddr);
-					break;
-				}
-				indices = Memory::GetPointer(gstate_c.indexAddr);
-			}
+	int bpp = gstate.getTransferBpp();
 
-			cyclesExecuted += EstimatePerVertexCost() * count;
-			int bytesRead;
-			drawEngine_->transformUnit.SubmitPrimitive(verts, indices, prim, count, gstate.vertType, &bytesRead, drawEngine_);
-			framebufferDirty_ = true;
+	const uint32_t src = srcBasePtr + (srcY * srcStride + srcX) * bpp;
+	const uint32_t srcSize = height * srcStride * bpp;
+	const uint32_t dst = dstBasePtr + (dstY * dstStride + dstX) * bpp;
+	const uint32_t dstSize = height * dstStride * bpp;
 
-			// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
-			// Some games rely on this, they don't bother reloading VADDR and IADDR.
-			// The VADDR/IADDR registers are NOT updated.
-			AdvanceVerts(gstate.vertType, count, bytesRead);
+	// Need to flush both source and target, so we overwrite properly.
+	drawEngine_->transformUnit.FlushIfOverlap("blockxfer", src, srcStride, width * bpp, height);
+	drawEngine_->transformUnit.FlushIfOverlap("blockxfer", dst, dstStride, width * bpp, height);
+
+	DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
+
+	for (int y = 0; y < height; y++) {
+		const u8 *srcp = Memory::GetPointer(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
+		u8 *dstp = Memory::GetPointer(dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp);
+		memcpy(dstp, srcp, width * bpp);
+	}
+
+	const std::string tag = "GPUBlockTransfer/" + GetMemWriteTagAt(src, srcSize);
+	NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag.c_str(), tag.size());
+	NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag.c_str(), tag.size());
+
+	// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
+	cyclesExecuted += ((height * width * bpp) * 16) / 10;
+
+	// Could theoretically dirty the framebuffer.
+	framebufferDirty_ = true;
+}
+
+void SoftGPU::Execute_Prim(u32 op, u32 diff) {
+	u32 count = op & 0xFFFF;
+	// Upper bits are ignored.
+	GEPrimitiveType prim = static_cast<GEPrimitiveType>((op >> 16) & 7);
+	if (count == 0)
+		return;
+
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+		ERROR_LOG_REPORT(G3D, "Software: Bad vertex address %08x!", gstate_c.vertexAddr);
+		return;
+	}
+
+	void *verts = Memory::GetPointer(gstate_c.vertexAddr);
+	void *indices = NULL;
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+			ERROR_LOG_REPORT(G3D, "Software: Bad index address %08x!", gstate_c.indexAddr);
+			return;
 		}
-		break;
+		indices = Memory::GetPointer(gstate_c.indexAddr);
+	}
 
-	case GE_CMD_BEZIER:
-		{
-			// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
-			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+	cyclesExecuted += EstimatePerVertexCost() * count;
+	int bytesRead;
+	UpdateUVScaleOffset();
+	drawEngine_->transformUnit.SetDirty(dirtyFlags_);
+	drawEngine_->transformUnit.SubmitPrimitive(verts, indices, prim, count, gstate.vertType, &bytesRead, drawEngine_);
+	dirtyFlags_ = drawEngine_->transformUnit.GetDirty();
+	framebufferDirty_ = true;
 
-			// This also make skipping drawing very effective.
-			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
-				// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
-				return;
-			}
+	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
+	// Some games rely on this, they don't bother reloading VADDR and IADDR.
+	// The VADDR/IADDR registers are NOT updated.
+	AdvanceVerts(gstate.vertType, count, bytesRead);
+}
 
-			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
-				return;
-			}
+void SoftGPU::Execute_Bezier(u32 op, u32 diff) {
+	// This also make skipping drawing very effective.
+	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
+		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+		return;
+	}
 
-			void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
-			void *indices = NULL;
-			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
-					return;
-				}
-				indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-			}
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		return;
+	}
 
-			if ((gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) || vertTypeIsSkinningEnabled(gstate.vertType)) {
-				DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
-			}
-
-			Spline::BezierSurface surface;
-			surface.tess_u = gstate.getPatchDivisionU();
-			surface.tess_v = gstate.getPatchDivisionV();
-			surface.num_points_u = op & 0xFF;
-			surface.num_points_v = (op >> 8) & 0xFF;
-			surface.num_patches_u = (surface.num_points_u - 1) / 3;
-			surface.num_patches_v = (surface.num_points_v - 1) / 3;
-			surface.primType = gstate.getPatchPrimitiveType();
-			surface.patchFacing = gstate.patchfacing & 1;
-
-			SetDrawType(DRAW_BEZIER, PatchPrimToPrim(surface.primType));
-
-			int bytesRead = 0;
-			drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "bezier");
-			framebufferDirty_ = true;
-
-			// After drawing, we advance pointers - see SubmitPrim which does the same.
-			int count = surface.num_points_u * surface.num_points_v;
-			AdvanceVerts(gstate.vertType, count, bytesRead);
+	void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+	void *indices = NULL;
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+			return;
 		}
-		break;
+		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	}
 
-	case GE_CMD_SPLINE:
-		{
-			// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
-			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+	if ((gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) || vertTypeIsSkinningEnabled(gstate.vertType)) {
+		DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
+	}
 
-			// This also make skipping drawing very effective.
-			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
-				// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
-				return;
-			}
+	Spline::BezierSurface surface;
+	surface.tess_u = gstate.getPatchDivisionU();
+	surface.tess_v = gstate.getPatchDivisionV();
+	surface.num_points_u = op & 0xFF;
+	surface.num_points_v = (op >> 8) & 0xFF;
+	surface.num_patches_u = (surface.num_points_u - 1) / 3;
+	surface.num_patches_v = (surface.num_points_v - 1) / 3;
+	surface.primType = gstate.getPatchPrimitiveType();
+	surface.patchFacing = gstate.patchfacing & 1;
 
-			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
-				return;
-			}
+	SetDrawType(DRAW_BEZIER, PatchPrimToPrim(surface.primType));
 
-			void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
-			void *indices = NULL;
-			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
-					return;
-				}
-				indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-			}
+	int bytesRead = 0;
+	UpdateUVScaleOffset();
+	drawEngine_->transformUnit.SetDirty(dirtyFlags_);
+	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "bezier");
+	dirtyFlags_ = drawEngine_->transformUnit.GetDirty();
+	framebufferDirty_ = true;
 
-			if ((gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) || vertTypeIsSkinningEnabled(gstate.vertType)) {
-				DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
-			}
+	// After drawing, we advance pointers - see SubmitPrim which does the same.
+	int count = surface.num_points_u * surface.num_points_v;
+	AdvanceVerts(gstate.vertType, count, bytesRead);
+}
 
-			Spline::SplineSurface surface;
-			surface.tess_u = gstate.getPatchDivisionU();
-			surface.tess_v = gstate.getPatchDivisionV();
-			surface.type_u = (op >> 16) & 0x3;
-			surface.type_v = (op >> 18) & 0x3;
-			surface.num_points_u = op & 0xFF;
-			surface.num_points_v = (op >> 8) & 0xFF;
-			surface.num_patches_u = surface.num_points_u - 3;
-			surface.num_patches_v = surface.num_points_v - 3;
-			surface.primType = gstate.getPatchPrimitiveType();
-			surface.patchFacing = gstate.patchfacing & 1;
+void SoftGPU::Execute_Spline(u32 op, u32 diff) {
+	// This also make skipping drawing very effective.
+	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
+		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+		return;
+	}
 
-			SetDrawType(DRAW_SPLINE, PatchPrimToPrim(surface.primType));
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		return;
+	}
 
-			int bytesRead = 0;
-			drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "spline");
-			framebufferDirty_ = true;
-
-			// After drawing, we advance pointers - see SubmitPrim which does the same.
-			int count = surface.num_points_u * surface.num_points_v;
-			AdvanceVerts(gstate.vertType, count, bytesRead);
+	void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+	void *indices = NULL;
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+			return;
 		}
-		break;
+		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	}
 
-	case GE_CMD_BOUNDINGBOX:
-		if (data == 0) {
-			currentList->bboxResult = false;
-		} else if (((data & 7) == 0) && data <= 64) {  // Sanity check
-			DEBUG_LOG(G3D, "Unsupported bounding box: %06x", data);
-			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
-			if (!control_points) {
-				ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Invalid verts in bounding box check");
-				currentList->bboxResult = true;
-				return;
-			}
+	if ((gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) || vertTypeIsSkinningEnabled(gstate.vertType)) {
+		DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
+	}
 
-			if (gstate.vertType & GE_VTYPE_IDX_MASK) {
-				ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Indexed bounding box data not supported.");
-				// Data seems invalid. Let's assume the box test passed.
-				currentList->bboxResult = true;
-				return;
-			}
+	Spline::SplineSurface surface;
+	surface.tess_u = gstate.getPatchDivisionU();
+	surface.tess_v = gstate.getPatchDivisionV();
+	surface.type_u = (op >> 16) & 0x3;
+	surface.type_v = (op >> 18) & 0x3;
+	surface.num_points_u = op & 0xFF;
+	surface.num_points_v = (op >> 8) & 0xFF;
+	surface.num_patches_u = surface.num_points_u - 3;
+	surface.num_patches_v = surface.num_points_v - 3;
+	surface.primType = gstate.getPatchPrimitiveType();
+	surface.patchFacing = gstate.patchfacing & 1;
 
-			// Test if the bounding box is within the drawing region.
-			int bytesRead;
-			currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, data, gstate.vertType, &bytesRead);
-			AdvanceVerts(gstate.vertType, data, bytesRead);
-		} else {
-			ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Bad bounding box data: %06x", data);
-			// Data seems invalid. Let's assume the box test passed.
-			currentList->bboxResult = true;
+	SetDrawType(DRAW_SPLINE, PatchPrimToPrim(surface.primType));
+
+	int bytesRead = 0;
+	UpdateUVScaleOffset();
+	drawEngine_->transformUnit.SetDirty(dirtyFlags_);
+	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "spline");
+	dirtyFlags_ = drawEngine_->transformUnit.GetDirty();
+	framebufferDirty_ = true;
+
+	// After drawing, we advance pointers - see SubmitPrim which does the same.
+	int count = surface.num_points_u * surface.num_points_v;
+	AdvanceVerts(gstate.vertType, count, bytesRead);
+}
+
+void SoftGPU::Execute_LoadClut(u32 op, u32 diff) {
+	u32 clutAddr = gstate.getClutAddress();
+	u32 clutTotalBytes = gstate.getClutLoadBytes();
+
+	// Might be copying drawing into the CLUT, so flush.
+	drawEngine_->transformUnit.FlushIfOverlap("loadclut", clutAddr, clutTotalBytes, clutTotalBytes, 1);
+
+	if (Memory::IsValidAddress(clutAddr)) {
+		u32 validSize = Memory::ValidSize(clutAddr, clutTotalBytes);
+		Memory::MemcpyUnchecked(clut, clutAddr, validSize);
+		if (validSize < clutTotalBytes) {
+			// Zero out the parts that were outside valid memory.
+			memset((u8 *)clut + validSize, 0x00, clutTotalBytes - validSize);
 		}
-		break;
-
-	case GE_CMD_VERTEXTYPE:
-		break;
-
-	case GE_CMD_REGION1:
-	case GE_CMD_REGION2:
-		break;
-
-	case GE_CMD_DEPTHCLAMPENABLE:
-		break;
-
-	case GE_CMD_CULLFACEENABLE:
-	case GE_CMD_CULL:
-		break;
-
-	case GE_CMD_TEXTUREMAPENABLE: 
-		break;
-
-	case GE_CMD_LIGHTINGENABLE:
-		break;
-
-	case GE_CMD_FOGCOLOR:
-	case GE_CMD_FOG1:
-	case GE_CMD_FOG2:
-	case GE_CMD_FOGENABLE:
-		break;
-
-	case GE_CMD_DITHERENABLE:
-		break;
-
-	case GE_CMD_OFFSETX:
-		break;
-
-	case GE_CMD_OFFSETY:
-		break;
-
-	case GE_CMD_TEXSCALEU:
-		gstate_c.uv.uScale = getFloat24(data);
-		break;
-
-	case GE_CMD_TEXSCALEV:
-		gstate_c.uv.vScale = getFloat24(data);
-		break;
-
-	case GE_CMD_TEXOFFSETU:
-		gstate_c.uv.uOff = getFloat24(data);
-		break;
-
-	case GE_CMD_TEXOFFSETV:
-		gstate_c.uv.vOff = getFloat24(data);
-		break;
-
-	case GE_CMD_SCISSOR1:
-	case GE_CMD_SCISSOR2:
-		break;
-
-	case GE_CMD_MINZ:
-		break;
-
-	case GE_CMD_FRAMEBUFPTR:
-		// We assume fb.data won't change while we're drawing.
-		if (diff) {
-			drawEngine_->transformUnit.Flush("framebuf");
-			fb.data = Memory::GetPointer(gstate.getFrameBufAddress());
-		}
-		break;
-
-	case GE_CMD_FRAMEBUFWIDTH:
-		// We assume fb.data won't change while we're drawing.
-		if (diff) {
-			drawEngine_->transformUnit.Flush("framebuf");
-			fb.data = Memory::GetPointer(gstate.getFrameBufAddress());
-		}
-		break;
-
-	case GE_CMD_FRAMEBUFPIXFORMAT:
-		break;
-
-	case GE_CMD_TEXADDR0:
-	case GE_CMD_TEXADDR1:
-	case GE_CMD_TEXADDR2:
-	case GE_CMD_TEXADDR3:
-	case GE_CMD_TEXADDR4:
-	case GE_CMD_TEXADDR5:
-	case GE_CMD_TEXADDR6:
-	case GE_CMD_TEXADDR7:
-		break;
-
-	case GE_CMD_TEXBUFWIDTH0:
-	case GE_CMD_TEXBUFWIDTH1:
-	case GE_CMD_TEXBUFWIDTH2:
-	case GE_CMD_TEXBUFWIDTH3:
-	case GE_CMD_TEXBUFWIDTH4:
-	case GE_CMD_TEXBUFWIDTH5:
-	case GE_CMD_TEXBUFWIDTH6:
-	case GE_CMD_TEXBUFWIDTH7:
-		break;
-
-	case GE_CMD_CLUTADDR:
-	case GE_CMD_CLUTADDRUPPER:
-		break;
-
-	case GE_CMD_LOADCLUT:
-		{
-			u32 clutAddr = gstate.getClutAddress();
-			u32 clutTotalBytes = gstate.getClutLoadBytes();
-
-			// Might be copying drawing into the CLUT, so flush.
-			drawEngine_->transformUnit.FlushIfOverlap("loadclut", clutAddr, clutTotalBytes, clutTotalBytes, 1);
-
-			if (Memory::IsValidAddress(clutAddr)) {
-				u32 validSize = Memory::ValidSize(clutAddr, clutTotalBytes);
-				Memory::MemcpyUnchecked(clut, clutAddr, validSize);
-				if (validSize < clutTotalBytes) {
-					// Zero out the parts that were outside valid memory.
-					memset((u8 *)clut + validSize, 0x00, clutTotalBytes - validSize);
-				}
-			} else if (clutAddr != 0) {
-				// Some invalid addresses trigger a crash, others fill with zero.  We always fill zero.
-				DEBUG_LOG(G3D, "Software: Invalid CLUT address, filling with garbage instead of crashing");
-				memset(clut, 0x00, clutTotalBytes);
-			}
-
-			drawEngine_->transformUnit.NotifyClutUpdate(clut);
-		}
-		break;
-
-	// Don't need to do anything, just state for transferstart.
-	case GE_CMD_TRANSFERSRC:
-	case GE_CMD_TRANSFERSRCW:
-	case GE_CMD_TRANSFERDST:
-	case GE_CMD_TRANSFERDSTW:
-	case GE_CMD_TRANSFERSRCPOS:
-	case GE_CMD_TRANSFERDSTPOS:
-	case GE_CMD_TRANSFERSIZE:
-		break;
-
-	case GE_CMD_TRANSFERSTART:
-		{
-			// Let's finish any drawing before we transfer.
-
-			u32 srcBasePtr = gstate.getTransferSrcAddress();
-			u32 srcStride = gstate.getTransferSrcStride();
-
-			u32 dstBasePtr = gstate.getTransferDstAddress();
-			u32 dstStride = gstate.getTransferDstStride();
-
-			int srcX = gstate.getTransferSrcX();
-			int srcY = gstate.getTransferSrcY();
-
-			int dstX = gstate.getTransferDstX();
-			int dstY = gstate.getTransferDstY();
-
-			int width = gstate.getTransferWidth();
-			int height = gstate.getTransferHeight();
-
-			int bpp = gstate.getTransferBpp();
-
-			const uint32_t src = srcBasePtr + (srcY * srcStride + srcX) * bpp;
-			const uint32_t srcSize = height * srcStride * bpp;
-			const uint32_t dst = dstBasePtr + (dstY * dstStride + dstX) * bpp;
-			const uint32_t dstSize = height * dstStride * bpp;
-
-			// Need to flush both source and target, so we overwrite properly.
-			drawEngine_->transformUnit.FlushIfOverlap("blockxfer", src, srcStride, width * bpp, height);
-			drawEngine_->transformUnit.FlushIfOverlap("blockxfer", dst, dstStride, width * bpp, height);
-
-			DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
-
-			for (int y = 0; y < height; y++) {
-				const u8 *srcp = Memory::GetPointer(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
-				u8 *dstp = Memory::GetPointer(dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp);
-				memcpy(dstp, srcp, width * bpp);
-			}
-
-			const std::string tag = "GPUBlockTransfer/" + GetMemWriteTagAt(src, srcSize);
-			NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag.c_str(), tag.size());
-			NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag.c_str(), tag.size());
-
-			// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
-			cyclesExecuted += ((height * width * bpp) * 16) / 10;
-
-			// Could theoretically dirty the framebuffer.
-			framebufferDirty_ = true;
-			break;
-		}
-
-	case GE_CMD_TEXSIZE0:
-	case GE_CMD_TEXSIZE1:
-	case GE_CMD_TEXSIZE2:
-	case GE_CMD_TEXSIZE3:
-	case GE_CMD_TEXSIZE4:
-	case GE_CMD_TEXSIZE5:
-	case GE_CMD_TEXSIZE6:
-	case GE_CMD_TEXSIZE7:
-		break;
-
-	case GE_CMD_ZBUFPTR:
-		// We assume depthbuf.data won't change while we're drawing.
-		if (diff) {
-			drawEngine_->transformUnit.Flush("depthbuf");
-			depthbuf.data = Memory::GetPointer(gstate.getDepthBufAddress());
-		}
-		break;
-
-	case GE_CMD_ZBUFWIDTH:
-		// We assume depthbuf.data won't change while we're drawing.
-		if (diff) {
-			drawEngine_->transformUnit.Flush("depthbuf");
-			depthbuf.data = Memory::GetPointer(gstate.getDepthBufAddress());
-		}
-		break;
-
-	case GE_CMD_AMBIENTCOLOR:
-	case GE_CMD_AMBIENTALPHA:
-	case GE_CMD_MATERIALAMBIENT:
-	case GE_CMD_MATERIALDIFFUSE:
-	case GE_CMD_MATERIALEMISSIVE:
-	case GE_CMD_MATERIALSPECULAR:
-	case GE_CMD_MATERIALALPHA:
-	case GE_CMD_MATERIALSPECULARCOEF:
-		break;
-
-	case GE_CMD_LIGHTTYPE0:
-	case GE_CMD_LIGHTTYPE1:
-	case GE_CMD_LIGHTTYPE2:
-	case GE_CMD_LIGHTTYPE3:
-		break;
-
-	case GE_CMD_LX0:case GE_CMD_LY0:case GE_CMD_LZ0:
-	case GE_CMD_LX1:case GE_CMD_LY1:case GE_CMD_LZ1:
-	case GE_CMD_LX2:case GE_CMD_LY2:case GE_CMD_LZ2:
-	case GE_CMD_LX3:case GE_CMD_LY3:case GE_CMD_LZ3:
-		break;
-
-	case GE_CMD_LDX0:case GE_CMD_LDY0:case GE_CMD_LDZ0:
-	case GE_CMD_LDX1:case GE_CMD_LDY1:case GE_CMD_LDZ1:
-	case GE_CMD_LDX2:case GE_CMD_LDY2:case GE_CMD_LDZ2:
-	case GE_CMD_LDX3:case GE_CMD_LDY3:case GE_CMD_LDZ3:
-		break;
-
-	case GE_CMD_LKA0:case GE_CMD_LKB0:case GE_CMD_LKC0:
-	case GE_CMD_LKA1:case GE_CMD_LKB1:case GE_CMD_LKC1:
-	case GE_CMD_LKA2:case GE_CMD_LKB2:case GE_CMD_LKC2:
-	case GE_CMD_LKA3:case GE_CMD_LKB3:case GE_CMD_LKC3:
-		break;
-
-	case GE_CMD_LAC0:case GE_CMD_LAC1:case GE_CMD_LAC2:case GE_CMD_LAC3:
-	case GE_CMD_LDC0:case GE_CMD_LDC1:case GE_CMD_LDC2:case GE_CMD_LDC3:
-	case GE_CMD_LSC0:case GE_CMD_LSC1:case GE_CMD_LSC2:case GE_CMD_LSC3:
-		break;
-
-	case GE_CMD_VIEWPORTXSCALE:
-	case GE_CMD_VIEWPORTYSCALE:
-	case GE_CMD_VIEWPORTZSCALE:
-	case GE_CMD_VIEWPORTXCENTER:
-	case GE_CMD_VIEWPORTYCENTER:
-	case GE_CMD_VIEWPORTZCENTER:
-		break;
-
-	case GE_CMD_LIGHTENABLE0:
-	case GE_CMD_LIGHTENABLE1:
-	case GE_CMD_LIGHTENABLE2:
-	case GE_CMD_LIGHTENABLE3:
-		break;
-
-	case GE_CMD_LIGHTMODE:
-		break;
-
-	case GE_CMD_PATCHDIVISION:
-		break;
-
-	case GE_CMD_MATERIALUPDATE:
-		break;
-
-	//////////////////////////////////////////////////////////////////
-	//	CLEARING
-	//////////////////////////////////////////////////////////////////
-	case GE_CMD_CLEARMODE:
-		break;
-
-	//////////////////////////////////////////////////////////////////
-	//	ALPHA BLENDING
-	//////////////////////////////////////////////////////////////////
-	case GE_CMD_ALPHABLENDENABLE:
-		break;
-
-	case GE_CMD_BLENDMODE:
-		break;
-
-	case GE_CMD_BLENDFIXEDA:
-	case GE_CMD_BLENDFIXEDB:
-		break;
-
-	case GE_CMD_ALPHATESTENABLE:
-	case GE_CMD_ALPHATEST:
-		break;
-
-	case GE_CMD_TEXFUNC:
-	case GE_CMD_TEXFILTER:
-		break;
-
-	//////////////////////////////////////////////////////////////////
-	//	Z/STENCIL TESTING
-	//////////////////////////////////////////////////////////////////
-
-	case GE_CMD_ZTESTENABLE:
-	case GE_CMD_STENCILTESTENABLE:
-	case GE_CMD_ZTEST:
-		break;
-
-	case GE_CMD_MORPHWEIGHT0:
-	case GE_CMD_MORPHWEIGHT1:
-	case GE_CMD_MORPHWEIGHT2:
-	case GE_CMD_MORPHWEIGHT3:
-	case GE_CMD_MORPHWEIGHT4:
-	case GE_CMD_MORPHWEIGHT5:
-	case GE_CMD_MORPHWEIGHT6:
-	case GE_CMD_MORPHWEIGHT7:
-		gstate_c.morphWeights[cmd - GE_CMD_MORPHWEIGHT0] = getFloat24(data);
-		break;
- 
-	case GE_CMD_DITH0:
-	case GE_CMD_DITH1:
-	case GE_CMD_DITH2:
-	case GE_CMD_DITH3:
-		break;
-
-	case GE_CMD_WORLDMATRIXNUMBER:
-		gstate.worldmtxnum = data & 0xF;
-		break;
-
-	case GE_CMD_WORLDMATRIXDATA:
-		{
-			int num = gstate.worldmtxnum & 0xF;
-			if (num < 12) {
-				gstate.worldMatrix[num] = getFloat24(data);
-			}
-			gstate.worldmtxnum = (++num) & 0xF;
-		}
-		break;
-
-	case GE_CMD_VIEWMATRIXNUMBER:
-		gstate.viewmtxnum = data & 0xF;
-		break;
-
-	case GE_CMD_VIEWMATRIXDATA:
-		{
-			int num = gstate.viewmtxnum & 0xF;
-			if (num < 12) {
-				gstate.viewMatrix[num] = getFloat24(data);
-			}
-			gstate.viewmtxnum = (++num) & 0xF;
-		}
-		break;
-
-	case GE_CMD_PROJMATRIXNUMBER:
-		gstate.projmtxnum = data & 0x1F;
-		break;
-
-	case GE_CMD_PROJMATRIXDATA:
-		{
-			int num = gstate.projmtxnum & 0x1F; // NOTE: Changed from 0xF to catch overflows
-			gstate.projMatrix[num] = getFloat24(data);
-			if (num <= 16)
-				gstate.projmtxnum = (++num) & 0x1F;
-		}
-		break;
-
-	case GE_CMD_TGENMATRIXNUMBER:
-		gstate.texmtxnum = data&0xF;
-		break;
-
-	case GE_CMD_TGENMATRIXDATA:
-		{
-			int num = gstate.texmtxnum & 0xF;
-			if (num < 12) {
-				gstate.tgenMatrix[num] = getFloat24(data);
-			}
-			gstate.texmtxnum = (++num) & 0xF;
-		}
-		break;
-
-	case GE_CMD_BONEMATRIXNUMBER:
-		gstate.boneMatrixNumber = data & 0x7F;
-		break;
-
-	case GE_CMD_BONEMATRIXDATA:
-		{
-			int num = gstate.boneMatrixNumber & 0x7F;
-			if (num < 96) {
-				gstate.boneMatrix[num] = getFloat24(data);
-			}
-			gstate.boneMatrixNumber = (++num) & 0x7F;
-		}
-		break;
-
-	default:
-		GPUCommon::ExecuteOp(op, diff);
-		break;
+	} else if (clutAddr != 0) {
+		// Some invalid addresses trigger a crash, others fill with zero.  We always fill zero.
+		DEBUG_LOG(G3D, "Software: Invalid CLUT address, filling with garbage instead of crashing");
+		memset(clut, 0x00, clutTotalBytes);
+	}
+
+	drawEngine_->transformUnit.NotifyClutUpdate(clut);
+}
+
+void SoftGPU::Execute_FramebufPtr(u32 op, u32 diff) {
+	// We assume fb.data won't change while we're drawing.
+	drawEngine_->transformUnit.Flush("framebuf");
+	fb.data = Memory::GetPointer(gstate.getFrameBufAddress());
+}
+
+void SoftGPU::Execute_FramebufFormat(u32 op, u32 diff) {
+	// We should flush, because ranges within bins may change.
+	drawEngine_->transformUnit.Flush("framebuf");
+}
+
+void SoftGPU::Execute_ZbufPtr(u32 op, u32 diff) {
+	// We assume depthbuf.data won't change while we're drawing.
+	drawEngine_->transformUnit.Flush("depthbuf");
+	depthbuf.data = Memory::GetPointer(gstate.getDepthBufAddress());
+}
+
+void SoftGPU::Execute_VertexType(u32 op, u32 diff) {
+	if ((diff & GE_VTYPE_THROUGH_MASK) && (op & GE_VTYPE_THROUGH_MASK) == 0) {
+		// This affects a lot of things.
+		dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX | SoftDirty::TRANSFORM_VIEWPORT | SoftDirty::TRANSFORM_FOG;
+		dirtyFlags_ |= SoftDirty::RAST_BASIC | SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_CACHED;
+		dirtyFlags_ |= SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_0 | SoftDirty::LIGHT_1 | SoftDirty::LIGHT_2 | SoftDirty::LIGHT_3;
+	}
+}
+
+void SoftGPU::Execute_WorldMtxData(u32 op, u32 diff) {
+	int num = gstate.worldmtxnum & 0xF;
+	u32 newVal = op << 8;
+	if (num < 12 && newVal != ((const u32 *)gstate.worldMatrix)[num]) {
+		((u32 *)gstate.worldMatrix)[num] = newVal;
+		dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
+	}
+	num++;
+	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0xF);
+}
+
+void SoftGPU::Execute_ViewMtxData(u32 op, u32 diff) {
+	int num = gstate.viewmtxnum & 0xF;
+	u32 newVal = op << 8;
+	if (num < 12 && newVal != ((const u32 *)gstate.viewMatrix)[num]) {
+		((u32 *)gstate.viewMatrix)[num] = newVal;
+		dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
+	}
+	num++;
+	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0xF);
+}
+
+void SoftGPU::Execute_ProjMtxData(u32 op, u32 diff) {
+	// NOTE: Changed from 0xF to catch overflows.
+	int num = gstate.projmtxnum & 0x1F;
+	u32 newVal = op << 8;
+	if (num < 0x10 && newVal != ((const u32 *)gstate.projMatrix)[num]) {
+		((u32 *)gstate.projMatrix)[num] = newVal;
+		dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
+	}
+	num++;
+	if (num <= 16)
+		gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
+}
+
+void SoftGPU::Execute_TgenMtxData(u32 op, u32 diff) {
+	int num = gstate.texmtxnum & 0xF;
+	u32 newVal = op << 8;
+	if (num < 12 && newVal != ((const u32 *)gstate.tgenMatrix)[num]) {
+		((u32 *)gstate.tgenMatrix)[num] = newVal;
+	}
+	num++;
+	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0xF);
+}
+
+void SoftGPU::Execute_BoneMtxData(u32 op, u32 diff) {
+	int num = gstate.boneMatrixNumber & 0x7F;
+	u32 newVal = op << 8;
+	if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
+		((u32 *)gstate.boneMatrix)[num] = newVal;
+	}
+	num++;
+	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
+}
+
+void SoftGPU::Execute_Call(u32 op, u32 diff) {
+	PROFILE_THIS_SCOPE("gpu_call");
+
+	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
+	if (!Memory::IsValidAddress(target)) {
+		ERROR_LOG(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
+		gpuState = GPUSTATE_ERROR;
+		downcount = 0;
+		return;
+	}
+
+	const u32 retval = currentList->pc + 4;
+	if (currentList->stackptr == ARRAY_SIZE(currentList->stack)) {
+		ERROR_LOG(G3D, "CALL: Stack full!");
+	} else {
+		auto &stackEntry = currentList->stack[currentList->stackptr++];
+		stackEntry.pc = retval;
+		stackEntry.offsetAddr = gstate_c.offsetAddr;
+		// The base address is NOT saved/restored for a regular call.
+		UpdatePC(currentList->pc, target - 4);
+		currentList->pc = target - 4;	// pc will be increased after we return, counteract that
 	}
 }
 

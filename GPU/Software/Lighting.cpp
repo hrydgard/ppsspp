@@ -125,7 +125,7 @@ void ComputeState(State *state, bool hasColor0) {
 
 	if (!state->colorForAmbient) {
 		state->material.ambientColorFactor = LightColorFactor(gstate.getMaterialAmbientRGBA(), ones);
-		if (state->material.ambientColorFactor == ones && anyAmbient) {
+		if (!IsLargerThanHalf(state->material.ambientColorFactor) && anyAmbient) {
 			for (int i = 0; i < 4; ++i)
 				state->lights[i].ambient = false;
 		}
@@ -133,7 +133,7 @@ void ComputeState(State *state, bool hasColor0) {
 
 	if (anyDiffuse && !state->colorForDiffuse) {
 		state->material.diffuseColorFactor = LightColorFactor(gstate.getMaterialDiffuse(), ones);
-		if (state->material.diffuseColorFactor == ones) {
+		if (!IsLargerThanHalf(state->material.diffuseColorFactor)) {
 			anyDiffuse = false;
 			for (int i = 0; i < 4; ++i)
 				state->lights[i].diffuse = false;
@@ -142,7 +142,7 @@ void ComputeState(State *state, bool hasColor0) {
 
 	if (anySpecular && !state->colorForSpecular) {
 		state->material.specularColorFactor = LightColorFactor(gstate.getMaterialSpecular(), ones);
-		if (state->material.specularColorFactor == ones) {
+		if (!IsLargerThanHalf(state->material.specularColorFactor)) {
 			anySpecular = false;
 			for (int i = 0; i < 4; ++i)
 				state->lights[i].specular = false;

@@ -405,6 +405,8 @@ void ComputeSamplerID(SamplerID *id_out) {
 		id.cached.sizes[i].w = w;
 		id.cached.sizes[i].h = h;
 	}
+	id.width0Shift = gstate.texsize[0] & 0xF;
+	id.height0Shift = (gstate.texsize[0] >> 8) & 0xF;
 	id.hasAnyMips = maxLevel != 0;
 
 	id.texfmt = gstate.getTextureFormat();
@@ -421,8 +423,6 @@ void ComputeSamplerID(SamplerID *id_out) {
 
 	id.clampS = gstate.isTexCoordClampedS();
 	id.clampT = gstate.isTexCoordClampedT();
-	id.width0Shift = gstate.texsize[0] & 0xF;
-	id.height0Shift = (gstate.texsize[0] >> 8) & 0xF;
 
 	id.useTextureAlpha = gstate.isTextureAlphaUsed();
 	id.useColorDoubling = gstate.isColorDoublingEnabled();

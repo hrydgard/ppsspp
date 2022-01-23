@@ -20,6 +20,7 @@
 #include "CommonTypes.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/Software/SoftGpu.h"
 #include "GPU/Math3D.h"
 
 using namespace Math3D;
@@ -126,6 +127,9 @@ public:
 
 	void GetStats(char *buffer, size_t bufsize);
 
+	void SetDirty(SoftDirty flags);
+	SoftDirty GetDirty();
+
 private:
 	VertexData ReadVertex(VertexReader &vreader, const TransformState &lstate, bool &outside_range_flag);
 
@@ -140,6 +144,7 @@ public:
 
 	void DispatchFlush() override;
 	void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int cullMode, int *bytesRead) override;
+	void DispatchSubmitImm(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) override;
 
 	VertexDecoder *FindVertexDecoder(u32 vtype);
 

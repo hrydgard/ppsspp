@@ -73,6 +73,11 @@ public:
 		SubmitPrim(verts, inds, prim, vertexCount, vertTypeID, cullMode, bytesRead);
 	}
 
+	virtual void DispatchSubmitImm(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
+		SubmitPrim(verts, inds, prim, vertexCount, vertTypeID, cullMode, bytesRead);
+		DispatchFlush();
+	}
+
 	bool TestBoundingBox(void* control_points, int vertexCount, u32 vertType, int *bytesRead);
 
 	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead);

@@ -201,6 +201,13 @@ public:
 	void GetStats(char *buffer, size_t bufsize);
 	void ResetStats();
 
+	void SetDirty(SoftDirty flags) {
+		dirty_ |= flags;
+	}
+	SoftDirty GetDirty() {
+		return dirty_;
+	}
+
 protected:
 	static constexpr int MAX_POSSIBLE_TASKS = 64;
 	// This is about 1MB of state data.
@@ -224,6 +231,7 @@ private:
 	BinCoords queueRange_;
 	int queueOffsetX_ = -1;
 	int queueOffsetY_ = -1;
+	SoftDirty dirty_ = SoftDirty(-1);
 
 	int maxTasks_ = 1;
 	bool tasksSplit_ = false;

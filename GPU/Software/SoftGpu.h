@@ -54,6 +54,55 @@ struct FormatBuffer {
 	}
 };
 
+enum class SoftDirty : uint64_t {
+	NONE = 0,
+
+	PIXEL_BASIC = 1ULL << 0,
+	PIXEL_STENCIL = 1ULL << 1,
+	PIXEL_ALPHA = 1ULL << 2,
+	PIXEL_DITHER = 1ULL << 3,
+	PIXEL_WRITEMASK = 1ULL << 4,
+	PIXEL_CACHED = 1ULL << 5,
+
+	SAMPLER_BASIC = 1ULL << 6,
+	SAMPLER_TEXLIST = 1ULL << 7,
+
+	RAST_BASIC = 1ULL << 8,
+	RAST_TEX = 1ULL << 9,
+	RAST_OFFSET = 1ULL << 10,
+
+	LIGHT_BASIC = 1ULL << 11,
+	LIGHT_MATERIAL = 1ULL << 12,
+	LIGHT_0 = 1ULL << 13,
+	LIGHT_1 = 1ULL << 14,
+	LIGHT_2 = 1ULL << 15,
+	LIGHT_3 = 1ULL << 16,
+
+	TRANSFORM_BASIC = 1ULL << 17,
+	TRANSFORM_MATRIX = 1ULL << 18,
+	TRANSFORM_VIEWPORT = 1ULL << 19,
+	TRANSFORM_FOG = 1ULL << 20,
+
+	BINNER_RANGE = 1ULL << 21,
+};
+static inline SoftDirty operator |(const SoftDirty &lhs, const SoftDirty &rhs) {
+	return SoftDirty((uint64_t)lhs | (uint64_t)rhs);
+}
+static inline SoftDirty &operator |=(SoftDirty &lhs, const SoftDirty &rhs) {
+	lhs = lhs | rhs;
+	return lhs;
+}
+static inline bool operator &(const SoftDirty &lhs, const SoftDirty &rhs) {
+	return ((uint64_t)lhs & (uint64_t)rhs) != 0;
+}
+static inline SoftDirty &operator &=(SoftDirty &lhs, const SoftDirty &rhs) {
+	lhs = SoftDirty((uint64_t)lhs & (uint64_t)rhs);
+	return lhs;
+}
+static inline SoftDirty operator ~(const SoftDirty &v) {
+	return SoftDirty(~(uint64_t)v);
+}
+
 class PresentationCommon;
 class SoftwareDrawEngine;
 
@@ -104,6 +153,27 @@ public:
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 
+	void Execute_BlockTransferStart(u32 op, u32 diff);
+	void Execute_Prim(u32 op, u32 diff);
+	void Execute_Bezier(u32 op, u32 diff);
+	void Execute_Spline(u32 op, u32 diff);
+	void Execute_LoadClut(u32 op, u32 diff);
+	void Execute_FramebufPtr(u32 op, u32 diff);
+	void Execute_FramebufFormat(u32 op, u32 diff);
+	void Execute_ZbufPtr(u32 op, u32 diff);
+	void Execute_VertexType(u32 op, u32 diff);
+
+	// Overridden to change flushing behavior.
+	void Execute_Call(u32 op, u32 diff);
+
+	void Execute_WorldMtxData(u32 op, u32 diff);
+	void Execute_ViewMtxData(u32 op, u32 diff);
+	void Execute_ProjMtxData(u32 op, u32 diff);
+	void Execute_TgenMtxData(u32 op, u32 diff);
+	void Execute_BoneMtxData(u32 op, u32 diff);
+
+	typedef void (SoftGPU::*CmdFunc)(u32 op, u32 diff);
+
 protected:
 	void FastRunLoop(DisplayList &list) override;
 	void CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight);
@@ -114,6 +184,7 @@ private:
 	u32 displayFramebuf_;
 	u32 displayStride_;
 	GEBufferFormat displayFormat_;
+	SoftDirty dirtyFlags_ = SoftDirty(-1);
 
 	PresentationCommon *presentation_ = nullptr;
 	SoftwareDrawEngine *drawEngine_ = nullptr;
