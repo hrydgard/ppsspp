@@ -1539,27 +1539,7 @@ bool SamplerJitCache::Jit_ApplyTextureFunc(const SamplerID &id) {
 		Describe("EnvBlend");
 		PACKSSDW(primColorReg, R(primColorReg));
 
-		// Start out with the prim color side.  Materialize a 255 to inverse resultReg and round.
-		PCMPEQD(tempReg, R(tempReg));
-		PSRLW(tempReg, 8);
-
-		// We're going to lose tempReg, so save the 255s.
-		X64Reg roundValueReg = regCache_.Alloc(RegCache::VEC_TEMP1);
-		MOVDQA(roundValueReg, R(tempReg));
-
-		PSUBW(tempReg, R(resultReg));
-		PMULLW(tempReg, R(primColorReg));
-		// Okay, now add the rounding value.
-		PADDW(tempReg, R(roundValueReg));
-		regCache_.Release(roundValueReg, RegCache::VEC_TEMP1);
-
-		if (id.useTextureAlpha) {
-			// Before we modify the texture color, let's calculate alpha.
-			PADDW(primColorReg, M(constOnes16_));
-			PMULLW(primColorReg, R(resultReg));
-			// We divide later.
-		}
-
+		// First off, let's grab the color value.
 		X64Reg idReg = GetSamplerID();
 		X64Reg texEnvReg = regCache_.Alloc(RegCache::VEC_TEMP1);
 		if (cpu_info.bSSE4_1) {
@@ -1570,22 +1550,66 @@ bool SamplerJitCache::Jit_ApplyTextureFunc(const SamplerID &id) {
 			PUNPCKLBW(texEnvReg, R(zeroReg));
 			regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
 		}
-		PMULLW(resultReg, R(texEnvReg));
-		regCache_.Release(texEnvReg, RegCache::VEC_TEMP1);
 		UnlockSamplerID(idReg);
 
-		// Add in the prim color side and divide.
-		PADDW(resultReg, R(tempReg));
-		if (id.useColorDoubling)
-			PSRLW(resultReg, 7);
-		else
-			PSRLW(resultReg, 8);
+		// Now merge in the prim color so we have them interleaved, texenv low.
+		PUNPCKLWD(texEnvReg, R(primColorReg));
+
+		// Okay, now materialize 255 for inversing resultReg and rounding.
+		PCMPEQD(tempReg, R(tempReg));
+		PSRLW(tempReg, 8);
+
+		// If alpha is used, we want the roundup and factor to be zero.
+		if (id.useTextureAlpha)
+			PSRLDQ(tempReg, 10);
+
+		// We're going to lose tempReg, so save the 255s.
+		X64Reg roundValueReg = regCache_.Alloc(RegCache::VEC_TEMP2);
+		MOVDQA(roundValueReg, R(tempReg));
+
+		// Okay, now inverse, then merge with resultReg low to match texenv low.
+		PSUBUSW(tempReg, R(resultReg));
+		PUNPCKLWD(resultReg, R(tempReg));
 
 		if (id.useTextureAlpha) {
-			// We put the alpha in here, just need to divide it after that multiply.
-			PSRLW(primColorReg, 8);
+			// Before we multiply, let's include alpha in that multiply.
+			PADDW(primColorReg, M(constOnes16_));
+			// Mask off everything but alpha, and move to the second highest short.
+			PSRLDQ(primColorReg, 6);
+			PSLLDQ(primColorReg, 12);
+			// Now simply merge in with texenv.
+			POR(texEnvReg, R(primColorReg));
 		}
-		useAlphaFrom(primColorReg);
+
+		// Alright, now to multiply and add all in one go.  Note this gives us DWORDs.
+		PMADDWD(resultReg, R(texEnvReg));
+		regCache_.Release(texEnvReg, RegCache::VEC_TEMP1);
+
+		// Now convert back to 16 bit and add the 255s for rounding.
+		if (cpu_info.bSSE4_1) {
+			PACKUSDW(resultReg, R(resultReg));
+		} else {
+			PSLLD(resultReg, 16);
+			PSRAD(resultReg, 16);
+			PACKSSDW(resultReg, R(resultReg));
+		}
+		PADDW(resultReg, R(roundValueReg));
+		regCache_.Release(roundValueReg, RegCache::VEC_TEMP2);
+
+		// Okay, divide by 256 or 128 depending on doubling (we want to preserve the precision.)
+		if (id.useColorDoubling && id.useTextureAlpha) {
+			// If doubling, we want to still divide alpha by 256.
+			PSRLW(resultReg, 7);
+			PSRLW(primColorReg, resultReg, 1);
+			useAlphaFrom(primColorReg);
+		} else if (id.useColorDoubling) {
+			PSRLW(resultReg, 7);
+		} else {
+			PSRLW(resultReg, 8);
+		}
+
+		if (!id.useTextureAlpha)
+			useAlphaFrom(primColorReg);
 		break;
 	}
 
