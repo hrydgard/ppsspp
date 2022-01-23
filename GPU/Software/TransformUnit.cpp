@@ -503,8 +503,11 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 
 	binner_->UpdateState();
 
-	TransformState transformState;
-	ComputeTransformState(&transformState, vreader);
+	static TransformState transformState;
+	if (binner_->HasDirty(SoftDirty::LIGHT_ALL | SoftDirty::TRANSFORM_ALL)) {
+		ComputeTransformState(&transformState, vreader);
+		binner_->ClearDirty(SoftDirty::LIGHT_ALL | SoftDirty::TRANSFORM_ALL);
+	}
 
 	bool outside_range_flag = false;
 	switch (prim_type) {
