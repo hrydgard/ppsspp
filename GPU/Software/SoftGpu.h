@@ -84,6 +84,7 @@ enum class SoftDirty : uint64_t {
 	TRANSFORM_FOG = 1ULL << 20,
 
 	BINNER_RANGE = 1ULL << 21,
+	BINNER_OVERLAP = 1ULL << 22,
 };
 static inline SoftDirty operator |(const SoftDirty &lhs, const SoftDirty &rhs) {
 	return SoftDirty((uint64_t)lhs | (uint64_t)rhs);
