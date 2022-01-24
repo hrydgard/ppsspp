@@ -1989,9 +1989,9 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		case 0x20: // EMULATOR_DEVCTL__EMIT_SCREENSHOT
 		{
 			PSPPointer<u8> topaddr;
-			u32 linesize, pixelFormat;
+			u32 linesize;
 
-			__DisplayGetFramebuf(&topaddr, &linesize, &pixelFormat, 0);
+			__DisplayGetFramebuf(&topaddr, &linesize, nullptr, 0);
 			// TODO: Convert based on pixel format / mode / something?
 			host->SendDebugScreenshot(topaddr, linesize, 272);
 			return 0;
