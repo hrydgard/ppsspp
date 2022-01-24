@@ -1244,16 +1244,15 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 	}
 }
 
-bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
-{
-	int w = gstate.getRegionX2() - gstate.getRegionX1() + 1;
-	int h = gstate.getRegionY2() - gstate.getRegionY1() + 1;
+bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
+	int w = gstate.getRegionX2() + 1;
+	int h = gstate.getRegionY2() + 1;
 	buffer.Allocate(w, h, GPU_DBG_FORMAT_8BIT);
 
 	u8 *row = buffer.GetData();
-	for (int y = gstate.getRegionY1(); y <= gstate.getRegionY2(); ++y) {
-		for (int x = gstate.getRegionX1(); x <= gstate.getRegionX2(); ++x) {
-			row[x - gstate.getRegionX1()] = GetPixelStencil(gstate.FrameBufFormat(), gstate.FrameBufStride(), x, y);
+	for (int y = 0; y < w; ++y) {
+		for (int x = 0; x < h; ++x) {
+			row[x] = GetPixelStencil(gstate.FrameBufFormat(), gstate.FrameBufStride(), x, y);
 		}
 		row += w;
 	}
