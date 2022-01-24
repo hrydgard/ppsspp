@@ -159,7 +159,7 @@ bool SingleStep() {
 
 bool EnterStepping() {
 	std::unique_lock<std::mutex> guard(pauseLock);
-	if (coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME) {
+	if (coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME && coreState != CORE_STEPPING) {
 		// Shutting down, don't try to step.
 		actionComplete = true;
 		actionWait.notify_all();
