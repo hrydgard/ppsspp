@@ -660,7 +660,7 @@ void ComputePixelBlendState(PixelBlendState &state, const PixelFuncID &id) {
 
 		case PixelBlendFactor::OTHERCOLOR:
 		case PixelBlendFactor::INVOTHERCOLOR:
-			state.dstColorAsFactor = true;
+			state.srcColorAsFactor = true;
 			break;
 
 		case PixelBlendFactor::SRCALPHA:

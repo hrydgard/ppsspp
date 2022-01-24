@@ -155,9 +155,9 @@ void ComputePixelFuncID(PixelFuncID *id) {
 			id->alphaBlendSrc = gstate.getBlendFuncA();
 			id->alphaBlendDst = gstate.getBlendFuncB();
 			// Special values.
-			if (id->alphaBlendSrc == GE_SRCBLEND_FIXA)
+			if (id->alphaBlendSrc >= GE_SRCBLEND_FIXA)
 				id->alphaBlendSrc = (uint8_t)OptimizeAlphaFactor(gstate.getFixA());
-			if (id->alphaBlendDst == GE_DSTBLEND_FIXB)
+			if (id->alphaBlendDst >= GE_DSTBLEND_FIXB)
 				id->alphaBlendDst = (uint8_t)OptimizeAlphaFactor(gstate.getFixB());
 		}
 
