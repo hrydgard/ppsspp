@@ -117,7 +117,7 @@ inline float clip_dotprod(const VertexData &vert, float A, float B, float C, flo
 	}															\
 }
 
-static void RotateUVThrough(const VertexData &tl, const VertexData &br, VertexData &tr, VertexData &bl) {
+static void RotateUV(const VertexData &tl, const VertexData &br, VertexData &tr, VertexData &bl) {
 	const int x1 = tl.screenpos.x;
 	const int x2 = br.screenpos.x;
 	const int y1 = tl.screenpos.y;
@@ -194,6 +194,8 @@ void ProcessRect(const VertexData &v0, const VertexData &v1, BinManager &binner)
 				bottomright = &buf[i];
 		}
 
+		RotateUV(*topleft, *bottomright, *topright, *bottomleft);
+
 		// Four triangles to do backfaces as well. Two of them will get backface culled.
 		ProcessTriangleInternal(*topleft, *topright, *bottomright, buf[3], binner, true);
 		ProcessTriangleInternal(*bottomright, *topright, *topleft, buf[3], binner, true);
@@ -241,7 +243,7 @@ void ProcessRect(const VertexData &v0, const VertexData &v1, BinManager &binner)
 				bottomright = &buf[i];
 		}
 
-		RotateUVThrough(v0, v1, *topright, *bottomleft);
+		RotateUV(v0, v1, *topright, *bottomleft);
 
 		if (gstate.isModeClear() && !gstate.isDitherEnabled()) {
 			binner.AddClearRect(v0, v1);

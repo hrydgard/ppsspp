@@ -270,8 +270,7 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	// Currently only works for TL/BR, which is the most common but not required.
 	bool orient_check = xdiff >= 0 && ydiff >= 0;
 	// We already have a fast path for clear in ClearRectangle.
-	bool state_check = !state.pixelID.clearMode && NoClampOrWrap(v0.texturecoords) && NoClampOrWrap(v1.texturecoords);
-	// TODO: No mipmap levels?  Might be a font at level 1...
+	bool state_check = !state.pixelID.clearMode && !state.samplerID.hasAnyMips && NoClampOrWrap(v0.texturecoords) && NoClampOrWrap(v1.texturecoords);
 	if ((coord_check || !state.enableTextures) && orient_check && state_check) {
 		binner.AddSprite(v0, v1);
 		return true;
