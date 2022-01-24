@@ -504,8 +504,7 @@ void ConvertABGR4444ToRGBA8888(u32 *dst32, const u16 *src, u32 numPixels) {
 	}
 }
 
-void ConvertRGBA4444ToBGRA8888(u32 *dst32, const u16 *src, u32 numPixels) {
-	u8 *dst = (u8 *)dst32;
+void ConvertRGBA4444ToBGRA8888(u32 *dst, const u16 *src, u32 numPixels) {
 	for (u32 x = 0; x < numPixels; x++) {
 		u16 c = src[x];
 		u32 r = Convert4To8(c & 0x000f);
