@@ -201,6 +201,19 @@ public:
 	void GetStats(char *buffer, size_t bufsize);
 	void ResetStats();
 
+	void SetDirty(SoftDirty flags) {
+		dirty_ |= flags;
+	}
+	void ClearDirty(SoftDirty flags) {
+		dirty_ &= ~flags;
+	}
+	SoftDirty GetDirty() {
+		return dirty_;
+	}
+	bool HasDirty(SoftDirty flags) {
+		return dirty_ & flags;
+	}
+
 protected:
 	static constexpr int MAX_POSSIBLE_TASKS = 64;
 	// This is about 1MB of state data.
@@ -224,6 +237,7 @@ private:
 	BinCoords queueRange_;
 	int queueOffsetX_ = -1;
 	int queueOffsetY_ = -1;
+	SoftDirty dirty_ = SoftDirty::NONE;
 
 	int maxTasks_ = 1;
 	bool tasksSplit_ = false;
@@ -234,6 +248,7 @@ private:
 	BinWaitable *waitable_ = nullptr;
 
 	BinDirtyRange pendingWrites_[2]{};
+	bool pendingOverlap_ = false;
 
 	std::unordered_map<const char *, double> flushReasonTimes_;
 	std::unordered_map<const char *, double> lastFlushReasonTimes_;

@@ -47,7 +47,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_VADDR, FLAG_EXECUTE, 0, &GPUCommon::Execute_Vaddr },
 	{ GE_CMD_IADDR, FLAG_EXECUTE, 0, &GPUCommon::Execute_Iaddr },
 	{ GE_CMD_BJUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_BJump },  // EXECUTE
-	{ GE_CMD_BOUNDINGBOX, FLAG_EXECUTE, 0, &GPUCommon::Execute_BoundingBox }, // + FLUSHBEFORE when we implement... or not, do we need to?
+	{ GE_CMD_BOUNDINGBOX, FLAG_EXECUTE, 0, &GPUCommon::Execute_BoundingBox }, // Shouldn't need to FLUSHBEFORE.
 
 	{ GE_CMD_PRIM, FLAG_EXECUTE, 0, &GPUCommon::Execute_Prim },
 	{ GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPUCommon::Execute_Bezier },
@@ -358,7 +358,6 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	// Appears to be debugging related or something?  Hit a lot in GoW.
 	{ GE_CMD_NOP_FF, 0 },
 };
-size_t commonCommandTableSize = ARRAY_SIZE(commonCommandTable);
 
 // TODO: Make class member?
 GPUCommon::CommandInfo GPUCommon::cmdInfo_[256];
@@ -391,7 +390,7 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 
 	// Convert the command table to a faster format, and check for dupes.
 	std::set<u8> dupeCheck;
-	for (size_t i = 0; i < commonCommandTableSize; i++) {
+	for (size_t i = 0; i < ARRAY_SIZE(commonCommandTable); i++) {
 		const u8 cmd = commonCommandTable[i].cmd;
 		if (dupeCheck.find(cmd) != dupeCheck.end()) {
 			ERROR_LOG(G3D, "Command table Dupe: %02x (%i)", (int)cmd, (int)cmd);
@@ -1347,8 +1346,6 @@ void GPUCommon::Execute_Ret(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_End(u32 op, u32 diff) {
-	Flush();
-
 	const u32 prev = Memory::ReadUnchecked_U32(currentList->pc - 4);
 	UpdatePC(currentList->pc, currentList->pc);
 	// Count in a few extra cycles on END.
@@ -1972,6 +1969,8 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 	if (((count & 7) == 0) && count <= 64) {  // Sanity check
 		void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
 		if (!control_points) {
+			ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Invalid verts in bounding box check");
+			currentList->bboxResult = true;
 			return;
 		}
 
@@ -2336,8 +2335,7 @@ void GPUCommon::FlushImm() {
 
 	int bytesRead;
 	uint32_t vertTypeID = GetVertTypeID(vtype, 0);
-	drawEngineCommon_->DispatchSubmitPrim(temp, nullptr, immPrim_, immCount_, vertTypeID, gstate.getCullMode(), &bytesRead);
-	drawEngineCommon_->DispatchFlush();
+	drawEngineCommon_->DispatchSubmitImm(temp, nullptr, immPrim_, immCount_, vertTypeID, gstate.getCullMode(), &bytesRead);
 	// TOOD: In the future, make a special path for these.
 	// drawEngineCommon_->DispatchSubmitImm(immBuffer_, immCount_);
 }
@@ -2380,6 +2378,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_END:
+		Flush();
 		Execute_End(op, diff);
 		break;
 

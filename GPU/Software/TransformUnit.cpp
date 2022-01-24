@@ -69,6 +69,15 @@ void SoftwareDrawEngine::DispatchSubmitPrim(void *verts, void *inds, GEPrimitive
 	transformUnit.SubmitPrimitive(verts, inds, prim, vertexCount, vertTypeID, bytesRead, this);
 }
 
+void SoftwareDrawEngine::DispatchSubmitImm(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
+	_assert_msg_(cullMode == gstate.getCullMode(), "Mixed cull mode not supported.");
+	// TODO: For now, just setting all dirty.
+	transformUnit.SetDirty(SoftDirty(-1));
+	transformUnit.SubmitPrimitive(verts, inds, prim, vertexCount, vertTypeID, bytesRead, this);
+	// TODO: Should really clear, but the vertex type is faked so things might need resetting...
+	transformUnit.SetDirty(SoftDirty(-1));
+}
+
 VertexDecoder *SoftwareDrawEngine::FindVertexDecoder(u32 vtype) {
 	const u32 vertTypeID = (vtype & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
 	return DrawEngineCommon::GetVertexDecoder(vertTypeID);
@@ -193,66 +202,69 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 	state->enableLighting = gstate.isLightingEnabled();
 	state->enableFog = gstate.isFogEnabled();
 	state->readUV = !gstate.isModeClear() && gstate.isTextureMapEnabled() && vreader.hasUV();
-	state->readWeights = vertTypeIsSkinningEnabled(gstate.vertType) && !gstate.isModeThrough();
+	state->readWeights = vertTypeIsSkinningEnabled(gstate.vertType) && state->enableTransform;
 	state->negateNormals = gstate.areNormalsReversed();
 
 	state->uvGenMode = gstate.getUVGenMode();
 	state->screenOffsetX = gstate.getOffsetX16();
 	state->screenOffsetY = gstate.getOffsetY16();
 
-	if (state->enableFog) {
-		state->fogEnd = getFloat24(gstate.fog1);
-		state->fogSlope = getFloat24(gstate.fog2);
-		// Same fixup as in ShaderManagerGLES.cpp
-		if (my_isnanorinf(state->fogEnd)) {
-			state->fogEnd = std::signbit(state->fogEnd) ? -INFINITY : INFINITY;
+	if (state->enableTransform) {
+		if (state->enableFog) {
+			state->fogEnd = getFloat24(gstate.fog1);
+			state->fogSlope = getFloat24(gstate.fog2);
+			// Same fixup as in ShaderManagerGLES.cpp
+			if (my_isnanorinf(state->fogEnd)) {
+				state->fogEnd = std::signbit(state->fogEnd) ? -INFINITY : INFINITY;
+			}
+			if (my_isnanorinf(state->fogSlope)) {
+				state->fogSlope = std::signbit(state->fogSlope) ? -INFINITY : INFINITY;
+			}
 		}
-		if (my_isnanorinf(state->fogSlope)) {
-			state->fogSlope = std::signbit(state->fogSlope) ? -INFINITY : INFINITY;
+
+		bool canSkipWorldPos = true;
+		bool canSkipViewPos = !state->enableFog;
+		if (state->enableLighting) {
+			Lighting::ComputeState(&state->lightingState, vreader.hasColor0());
+			for (int i = 0; i < 4; ++i) {
+				if (!state->lightingState.lights[i].enabled)
+					continue;
+				if (!state->lightingState.lights[i].directional)
+					canSkipWorldPos = false;
+			}
 		}
+
+		float world[16];
+		float view[16];
+		if (canSkipWorldPos && canSkipViewPos) {
+			state->matrixMode = (uint8_t)MatrixMode::POS_TO_CLIP;
+
+			ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+			ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+
+			float worldview[16];
+			Matrix4ByMatrix4(worldview, world, view);
+			Matrix4ByMatrix4(state->matrix, worldview, gstate.projMatrix);
+		} else if (canSkipWorldPos) {
+			state->matrixMode = (uint8_t)MatrixMode::POS_TO_VIEW;
+
+			ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+			ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+
+			Matrix4ByMatrix4(state->matrix, world, view);
+		} else if (canSkipViewPos) {
+			state->matrixMode = (uint8_t)MatrixMode::WORLD_TO_CLIP;
+
+			ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+			Matrix4ByMatrix4(state->matrix, view, gstate.projMatrix);
+		} else {
+			state->matrixMode = (uint8_t)MatrixMode::NONE;
+		}
+
+		state->screenScale = Vec3f(gstate.getViewportXScale(), gstate.getViewportYScale(), gstate.getViewportZScale());
+		state->screenAdd = Vec3f(gstate.getViewportXCenter(), gstate.getViewportYCenter(), gstate.getViewportZCenter());
 	}
 
-	bool canSkipWorldPos = true;
-	bool canSkipViewPos = !state->enableFog;
-	if (state->enableLighting) {
-		Lighting::ComputeState(&state->lightingState, vreader.hasColor0());
-		for (int i = 0; i < 4; ++i) {
-			if (!state->lightingState.lights[i].enabled)
-				continue;
-			if (!state->lightingState.lights[i].directional)
-				canSkipWorldPos = false;
-		}
-	}
-
-	float world[16];
-	float view[16];
-	if (canSkipWorldPos && canSkipViewPos) {
-		state->matrixMode = (uint8_t)MatrixMode::POS_TO_CLIP;
-
-		ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
-		ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-
-		float worldview[16];
-		Matrix4ByMatrix4(worldview, world, view);
-		Matrix4ByMatrix4(state->matrix, worldview, gstate.projMatrix);
-	} else if (canSkipWorldPos) {
-		state->matrixMode = (uint8_t)MatrixMode::POS_TO_VIEW;
-
-		ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
-		ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-
-		Matrix4ByMatrix4(state->matrix, world, view);
-	} else if (canSkipViewPos) {
-		state->matrixMode = (uint8_t)MatrixMode::WORLD_TO_CLIP;
-
-		ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-		Matrix4ByMatrix4(state->matrix, view, gstate.projMatrix);
-	} else {
-		state->matrixMode = (uint8_t)MatrixMode::NONE;
-	}
-
-	state->screenScale = Vec3f(gstate.getViewportXScale(), gstate.getViewportYScale(), gstate.getViewportZScale());
-	state->screenAdd = Vec3f(gstate.getViewportXCenter(), gstate.getViewportYCenter(), gstate.getViewportZCenter());
 	if (gstate.isDepthClampEnabled())
 		state->roundToScreen = &ClipToScreenInternal<true, true>;
 	else
@@ -435,6 +447,13 @@ struct SplinePatch {
 	int pad[3];
 };
 
+void TransformUnit::SetDirty(SoftDirty flags) {
+	binner_->SetDirty(flags);
+}
+SoftDirty TransformUnit::GetDirty() {
+	return binner_->GetDirty();
+}
+
 void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine)
 {
 	VertexDecoder &vdecoder = *drawEngine->FindVertexDecoder(vertex_type);
@@ -484,8 +503,11 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 
 	binner_->UpdateState();
 
-	TransformState transformState;
-	ComputeTransformState(&transformState, vreader);
+	static TransformState transformState;
+	if (binner_->HasDirty(SoftDirty::LIGHT_ALL | SoftDirty::TRANSFORM_ALL)) {
+		ComputeTransformState(&transformState, vreader);
+		binner_->ClearDirty(SoftDirty::LIGHT_ALL | SoftDirty::TRANSFORM_ALL);
+	}
 
 	bool outside_range_flag = false;
 	switch (prim_type) {

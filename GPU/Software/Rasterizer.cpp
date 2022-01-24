@@ -102,22 +102,23 @@ static inline Vec4<float> Interpolate(const float &c0, const float &c1, const fl
 
 void ComputeRasterizerState(RasterizerState *state) {
 	ComputePixelFuncID(&state->pixelID);
-	ComputeSamplerID(&state->samplerID);
 	state->drawPixel = Rasterizer::GetSingleFunc(state->pixelID);
-	state->linear = Sampler::GetLinearFunc(state->samplerID);
-	state->nearest = Sampler::GetNearestFunc(state->samplerID);
 
-	// Since the definitions are the same, just force this setting using the func pointer.
-	if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR) {
-		state->nearest = state->linear;
-	} else if (g_Config.iTexFiltering == TEX_FILTER_FORCE_NEAREST) {
-		state->linear = state->nearest;
-	}
-
-	state->maxTexLevel = state->samplerID.hasAnyMips ? gstate.getTextureMaxLevel() : 0;
 	state->enableTextures = gstate.isTextureMapEnabled() && !state->pixelID.clearMode;
-
 	if (state->enableTextures) {
+		ComputeSamplerID(&state->samplerID);
+		state->linear = Sampler::GetLinearFunc(state->samplerID);
+		state->nearest = Sampler::GetNearestFunc(state->samplerID);
+
+		// Since the definitions are the same, just force this setting using the func pointer.
+		if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR) {
+			state->nearest = state->linear;
+		} else if (g_Config.iTexFiltering == TEX_FILTER_FORCE_NEAREST) {
+			state->linear = state->nearest;
+		}
+
+		state->maxTexLevel = state->samplerID.hasAnyMips ? gstate.getTextureMaxLevel() : 0;
+
 		GETextureFormat texfmt = state->samplerID.TexFmt();
 		for (uint8_t i = 0; i <= state->maxTexLevel; i++) {
 			u32 texaddr = gstate.getTextureAddress(i);
@@ -130,15 +131,15 @@ void ComputeRasterizerState(RasterizerState *state) {
 		}
 
 		state->textureLodSlope = gstate.getTextureLodSlope();
+		state->texLevelMode = gstate.getTexLevelMode();
+		state->texLevelOffset = (int8_t)gstate.getTexLevelOffset16();
+		state->mipFilt = gstate.isMipmapFilteringEnabled();
+		state->minFilt = gstate.isMinifyFilteringEnabled();
+		state->magFilt = gstate.isMagnifyFilteringEnabled();
 	}
 
-	state->texLevelMode = gstate.getTexLevelMode();
-	state->texLevelOffset = (int8_t)gstate.getTexLevelOffset16();
 	state->shadeGouraud = gstate.getShadeMode() == GE_SHADE_GOURAUD;
 	state->throughMode = gstate.isModeThrough();
-	state->mipFilt = gstate.isMipmapFilteringEnabled();
-	state->minFilt = gstate.isMinifyFilteringEnabled();
-	state->magFilt = gstate.isMagnifyFilteringEnabled();
 	state->antialiasLines = gstate.isAntiAliasEnabled();
 
 	state->screenOffsetX = gstate.getOffsetX16();

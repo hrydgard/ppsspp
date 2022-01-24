@@ -159,27 +159,14 @@ BinManager::~BinManager() {
 
 void BinManager::UpdateState() {
 	PROFILE_THIS_SCOPE("bin_state");
-	if (states_.Full())
-		Flush("states");
-	stateIndex_ = (int)states_.Push(RasterizerState());
-	ComputeRasterizerState(&states_[stateIndex_]);
-	states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
+	if (HasDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL)) {
+		if (states_.Full())
+			Flush("states");
+		stateIndex_ = (int)states_.Push(RasterizerState());
+		ComputeRasterizerState(&states_[stateIndex_]);
+		states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
 
-	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1());
-	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2());
-	ScreenCoords screenScissorTL = TransformUnit::DrawingToScreen(scissorTL, 0);
-	ScreenCoords screenScissorBR = TransformUnit::DrawingToScreen(scissorBR, 0);
-
-	scissor_.x1 = screenScissorTL.x;
-	scissor_.y1 = screenScissorTL.y;
-	scissor_.x2 = screenScissorBR.x + 15;
-	scissor_.y2 = screenScissorBR.y + 15;
-
-	// Our bin sizes are based on offset, so if that changes we have to flush.
-	if (queueOffsetX_ != gstate.getOffsetX16() || queueOffsetY_ != gstate.getOffsetY16()) {
-		Flush("offset");
-		queueOffsetX_ = gstate.getOffsetX16();
-		queueOffsetY_ = gstate.getOffsetY16();
+		ClearDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL);
 	}
 
 	if (lastFlipstats_ != gpuStats.numFlips) {
@@ -187,37 +174,67 @@ void BinManager::UpdateState() {
 		ResetStats();
 	}
 
-	// If we're about to texture from something still pending (i.e. depth), flush.
 	const auto &state = State();
 	const bool hadDepth = pendingWrites_[1].base != 0;
-	if (HasTextureWrite(state))
-		Flush("tex");
 
-	// Okay, now update what's pending.
-	constexpr uint32_t mirrorMask = 0x0FFFFFFF & ~0x00600000;
-	const uint32_t bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
-	pendingWrites_[0].Expand(gstate.getFrameBufAddress() & mirrorMask, bpp, gstate.FrameBufStride(), scissorTL, scissorBR);
-	if (state.pixelID.depthWrite)
-		pendingWrites_[1].Expand(gstate.getDepthBufAddress() & mirrorMask, 2, gstate.DepthBufStride(), scissorTL, scissorBR);
+	if (HasDirty(SoftDirty::BINNER_RANGE)) {
+		DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1());
+		DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2());
+		ScreenCoords screenScissorTL = TransformUnit::DrawingToScreen(scissorTL, 0);
+		ScreenCoords screenScissorBR = TransformUnit::DrawingToScreen(scissorBR, 0);
 
-	// Disallow threads when rendering to the target, even offset.
-	bool selfRender = HasTextureWrite(state);
-	int newMaxTasks = selfRender ? 1 : g_threadManager.GetNumLooperThreads();
-	if (newMaxTasks > MAX_POSSIBLE_TASKS)
-		newMaxTasks = MAX_POSSIBLE_TASKS;
-	// We don't want to overlap wrong, so flush any pending.
-	if (maxTasks_ != newMaxTasks) {
-		maxTasks_ = newMaxTasks;
-		Flush("selfrender");
+		scissor_.x1 = screenScissorTL.x;
+		scissor_.y1 = screenScissorTL.y;
+		scissor_.x2 = screenScissorBR.x + 15;
+		scissor_.y2 = screenScissorBR.y + 15;
+
+		// Our bin sizes are based on offset, so if that changes we have to flush.
+		if (queueOffsetX_ != gstate.getOffsetX16() || queueOffsetY_ != gstate.getOffsetY16()) {
+			Flush("offset");
+			queueOffsetX_ = gstate.getOffsetX16();
+			queueOffsetY_ = gstate.getOffsetY16();
+		}
+
+		// If we're about to texture from something still pending (i.e. depth), flush.
+		if (HasTextureWrite(state))
+			Flush("tex");
+
+		// Okay, now update what's pending.
+		constexpr uint32_t mirrorMask = 0x0FFFFFFF & ~0x00600000;
+		const uint32_t bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
+		pendingWrites_[0].Expand(gstate.getFrameBufAddress() & mirrorMask, bpp, gstate.FrameBufStride(), scissorTL, scissorBR);
+		if (state.pixelID.depthWrite)
+			pendingWrites_[1].Expand(gstate.getDepthBufAddress() & mirrorMask, 2, gstate.DepthBufStride(), scissorTL, scissorBR);
+
+		ClearDirty(SoftDirty::BINNER_RANGE);
+	} else if (pendingOverlap_) {
+		if (HasTextureWrite(state))
+			Flush("tex");
 	}
 
-	// Lastly, we have to check if we're newly writing depth we were texturing before.
-	// This happens in Call of Duty (depth clear after depth texture), for example.
-	if (!hadDepth && state.pixelID.depthWrite) {
-		for (size_t i = 0; i < states_.Size(); ++i) {
-			if (HasTextureWrite(states_.Peek(i)))
-				Flush("selfdepth");
+	if (HasDirty(SoftDirty::BINNER_OVERLAP)) {
+		// Disallow threads when rendering to the target, even offset.
+		bool selfRender = HasTextureWrite(state);
+		int newMaxTasks = selfRender ? 1 : g_threadManager.GetNumLooperThreads();
+		if (newMaxTasks > MAX_POSSIBLE_TASKS)
+			newMaxTasks = MAX_POSSIBLE_TASKS;
+		// We don't want to overlap wrong, so flush any pending.
+		if (maxTasks_ != newMaxTasks) {
+			maxTasks_ = newMaxTasks;
+			Flush("selfrender");
 		}
+		pendingOverlap_ = pendingOverlap_ || selfRender;
+
+		// Lastly, we have to check if we're newly writing depth we were texturing before.
+		// This happens in Call of Duty (depth clear after depth texture), for example.
+		if (!hadDepth && state.pixelID.depthWrite) {
+			for (size_t i = 0; i < states_.Size(); ++i) {
+				if (HasTextureWrite(states_.Peek(i))) {
+					Flush("selfdepth");
+				}
+			}
+		}
+		ClearDirty(SoftDirty::BINNER_OVERLAP);
 	}
 }
 
@@ -347,8 +364,8 @@ void BinManager::Drain() {
 		int h2 = (queueRange_.y2 - queueRange_.y1 + 31) / 32;
 
 		// Always bin the entire possible range, but focus on the drawn area.
-		ScreenCoords tl = TransformUnit::DrawingToScreen(DrawingCoords(0, 0), 0);
-		ScreenCoords br = TransformUnit::DrawingToScreen(DrawingCoords(1024, 1024), 0);
+		ScreenCoords tl(queueOffsetX_, queueOffsetY_, 0);
+		ScreenCoords br(queueOffsetX_ + 1024 * 16, queueOffsetY_ + 1024 * 16, 0);
 
 		taskRanges_.clear();
 		if (h2 >= 18 && w2 >= h2 * 4) {
@@ -435,11 +452,13 @@ void BinManager::Flush(const char *reason) {
 	queueRange_.y1 = 0x7FFFFFFF;
 	queueRange_.x2 = 0;
 	queueRange_.y2 = 0;
-	queueOffsetX_ = -1;
-	queueOffsetY_ = -1;
 
 	for (auto &pending : pendingWrites_)
 		pending.base = 0;
+	pendingOverlap_ = false;
+
+	// We'll need to set the pending writes again, since we just flushed it.
+	dirty_ |= SoftDirty::BINNER_RANGE;
 
 	if (coreCollectDebugStats) {
 		double et = time_now_d();
