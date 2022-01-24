@@ -386,8 +386,8 @@ struct GPUgstate {
 	int getScissorY1() const { return (scissor1 >> 10) & 0x3FF; }
 	int getScissorX2() const { return scissor2 & 0x3FF; }
 	int getScissorY2() const { return (scissor2 >> 10) & 0x3FF; }
-	int getRegionX1() const { return region1 & 0x3FF; }
-	int getRegionY1() const { return (region1 >> 10) & 0x3FF; }
+	int getRegionRateX() const { return 0x100 + (region1 & 0x3FF); }
+	int getRegionRateY() const { return 0x100 + ((region1 >> 10) & 0x3FF); }
 	int getRegionX2() const { return (region2 & 0x3FF); }
 	int getRegionY2() const { return (region2 >> 10) & 0x3FF; }
 

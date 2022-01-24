@@ -249,6 +249,10 @@ void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPU
 	params->regionHeight = gstate.getRegionY2() + 1;
 	params->scissorWidth = gstate.getScissorX2() + 1;
 	params->scissorHeight = gstate.getScissorY2() + 1;
+
+	if (gstate.getRegionRateX() != 0x100 || gstate.getRegionRateY() != 0x100) {
+		WARN_LOG_REPORT_ONCE(regionRate, G3D, "Drawing region rate add non-zero: %04x, %04x of %04x, %04x", gstate.getRegionRateX(), gstate.getRegionRateY(), gstate.getRegionX2(), gstate.getRegionY2());
+	}
 }
 
 VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const FramebufferHeuristicParams &params, u32 skipDrawReason) {

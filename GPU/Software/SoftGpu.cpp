@@ -966,30 +966,26 @@ bool SoftGPU::FramebufferDirty() {
 }
 
 bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) {
-	int x1 = gstate.getRegionX1();
-	int y1 = gstate.getRegionY1();
-	int x2 = gstate.getRegionX2() + 1;
-	int y2 = gstate.getRegionY2() + 1;
+	int w = gstate.getRegionX2() + 1;
+	int h = gstate.getRegionY2() + 1;
 	int stride = gstate.FrameBufStride();
 	GEBufferFormat fmt = gstate.FrameBufFormat();
 
 	if (type == GPU_DBG_FRAMEBUF_DISPLAY) {
-		x1 = 0;
-		y1 = 0;
-		x2 = 480;
-		y2 = 272;
+		w = 480;
+		h = 272;
 		stride = displayStride_;
 		fmt = displayFormat_;
 	}
 
-	buffer.Allocate(x2 - x1, y2 - y1, fmt);
+	buffer.Allocate(w, h, fmt);
 
 	const int depth = fmt == GE_FORMAT_8888 ? 4 : 2;
-	const u8 *src = fb.data + stride * depth * y1;
+	const u8 *src = fb.data;
 	u8 *dst = buffer.GetData();
-	const int byteWidth = (x2 - x1) * depth;
-	for (int y = y1; y < y2; ++y) {
-		memcpy(dst, src + x1, byteWidth);
+	const int byteWidth = w * depth;
+	for (int y = 0; y < h; ++y) {
+		memcpy(dst, src, byteWidth);
 		dst += byteWidth;
 		src += stride * depth;
 	}
@@ -1000,17 +996,16 @@ bool SoftGPU::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	return GetCurrentFramebuffer(buffer, GPU_DBG_FRAMEBUF_DISPLAY, 1);
 }
 
-bool SoftGPU::GetCurrentDepthbuffer(GPUDebugBuffer &buffer)
-{
-	const int w = gstate.getRegionX2() - gstate.getRegionX1() + 1;
-	const int h = gstate.getRegionY2() - gstate.getRegionY1() + 1;
+bool SoftGPU::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
+	const int w = gstate.getRegionX2() + 1;
+	const int h = gstate.getRegionY2() + 1;
 	buffer.Allocate(w, h, GPU_DBG_FORMAT_16BIT);
 
 	const int depth = 2;
-	const u8 *src = depthbuf.data + gstate.DepthBufStride() * depth * gstate.getRegionY1();
+	const u8 *src = depthbuf.data;
 	u8 *dst = buffer.GetData();
-	for (int y = gstate.getRegionY1(); y <= gstate.getRegionY2(); ++y) {
-		memcpy(dst, src + gstate.getRegionX1(), (gstate.getRegionX2() + 1) * depth);
+	for (int y = 0; y < h; ++y) {
+		memcpy(dst, src, w * depth);
 		dst += w * depth;
 		src += gstate.DepthBufStride() * depth;
 	}
