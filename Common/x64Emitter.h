@@ -817,8 +817,10 @@ public:
 	void PEXTRB(OpArg dest, X64Reg arg, u8 subreg);
 	void PEXTRW(OpArg dest, X64Reg arg, u8 subreg);
 	void PEXTRD(OpArg dest, X64Reg arg, u8 subreg);
+	void PEXTRQ(OpArg dest, X64Reg arg, u8 subreg);
 	void PINSRB(X64Reg dest, OpArg arg, u8 subreg);
 	void PINSRD(X64Reg dest, OpArg arg, u8 subreg);
+	void PINSRQ(X64Reg dest, OpArg arg, u8 subreg);
 
 	void PMADDWD(X64Reg dest, OpArg arg);
 	void PMADDUBSW(X64Reg dest, OpArg arg);

@@ -871,14 +871,18 @@ void SamplerJitCache::WriteConstantPool(const SamplerID &id) {
 	// These are unique to the sampler ID.
 	if (!id.hasAnyMips) {
 		float w256f = (1 << id.width0Shift) * 256;
-		WriteDynamicConst4x32(constWidth256f_, *(uint32_t *)&w256f);
 		float h256f = (1 << id.height0Shift) * 256;
+		constWidthHeight256f_ = AlignCode16();
+		Write32(*(uint32_t *)&w256f);
+		Write32(*(uint32_t *)&h256f);
+		Write32(*(uint32_t *)&w256f);
+		Write32(*(uint32_t *)&h256f);
 		WriteDynamicConst4x32(constHeight256f_, *(uint32_t *)&h256f);
 
 		WriteDynamicConst4x32(constWidthMinus1i_, (1 << id.width0Shift) - 1);
 		WriteDynamicConst4x32(constHeightMinus1i_, (1 << id.height0Shift) - 1);
 	} else {
-		constWidth256f_ = nullptr;
+		constWidthHeight256f_ = nullptr;
 		constHeight256f_ = nullptr;
 		constWidthMinus1i_ = nullptr;
 		constHeightMinus1i_ = nullptr;
@@ -2394,7 +2398,7 @@ bool SamplerJitCache::Jit_GetTexelCoords(const SamplerID &id) {
 	X64Reg vReg = regCache_.Alloc(RegCache::GEN_ARG_V);
 	X64Reg sReg = regCache_.Find(RegCache::VEC_ARG_S);
 	X64Reg tReg = regCache_.Find(RegCache::VEC_ARG_T);
-	if (constWidth256f_ == nullptr) {
+	if (constWidthHeight256f_ == nullptr) {
 		// We have to figure out levels and the proper width, ugh.
 		X64Reg idReg = GetSamplerID();
 		X64Reg tempReg = regCache_.Alloc(RegCache::GEN_TEMP0);
@@ -2458,7 +2462,7 @@ bool SamplerJitCache::Jit_GetTexelCoords(const SamplerID &id) {
 		regCache_.Release(tempVecReg, RegCache::VEC_TEMP0);
 	} else {
 		// Multiply, then convert to integer...
-		MULSS(sReg, M(constWidth256f_));
+		MULSS(sReg, M(constWidthHeight256f_));
 		MULSS(tReg, M(constHeight256f_));
 		CVTTPS2DQ(sReg, R(sReg));
 		CVTTPS2DQ(tReg, R(tReg));
@@ -2517,13 +2521,11 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	X64Reg sReg = regCache_.Find(RegCache::VEC_ARG_S);
 	X64Reg tReg = regCache_.Find(RegCache::VEC_ARG_T);
 
-	// Start by multiplying with the width/height... which might be complex with mips.
-	X64Reg width0VecReg = INVALID_REG;
-	X64Reg height0VecReg = INVALID_REG;
-	X64Reg width1VecReg = INVALID_REG;
-	X64Reg height1VecReg = INVALID_REG;
+	// We use this if there are mips later, to apply wrap/clamp.
+	X64Reg sizesReg = INVALID_REG;
 
-	if (constWidth256f_ == nullptr) {
+	// Start by multiplying with the width/height... which might be complex with mips.
+	if (id.hasAnyMips) {
 		// We have to figure out levels and the proper width, ugh.
 		X64Reg idReg = GetSamplerID();
 
@@ -2539,8 +2541,16 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 		}
 
 		// This will load the current and next level's sizes, 16x4.
-		X64Reg sizesReg = regCache_.Alloc(RegCache::VEC_TEMP5);
-		MOVQ_xmm(sizesReg, MComplex(idReg, levelReg, SCALE_4, offsetof(SamplerID, cached.sizes[0].w)));
+		sizesReg = regCache_.Alloc(RegCache::VEC_TEMP5);
+		// We actually want this in 32-bit, though, so extend.
+		if (cpu_info.bSSE4_1) {
+			PMOVZXWD(sizesReg, MComplex(idReg, levelReg, SCALE_4, offsetof(SamplerID, cached.sizes[0].w)));
+		} else {
+			MOVQ_xmm(sizesReg, MComplex(idReg, levelReg, SCALE_4, offsetof(SamplerID, cached.sizes[0].w)));
+			X64Reg zeroReg = GetZeroVec();
+			PUNPCKLWD(sizesReg, R(zeroReg));
+			regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
+		}
 
 		if (releaseLevelReg)
 			regCache_.Release(levelReg, RegCache::GEN_ARG_LEVEL);
@@ -2548,75 +2558,31 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 			regCache_.Unlock(levelReg, RegCache::GEN_ARG_LEVEL);
 		UnlockSamplerID(idReg);
 
-		X64Reg tempVecReg = regCache_.Alloc(RegCache::VEC_TEMP0);
-		auto loadSizeAndMul = [&](X64Reg dest, X64Reg size, bool isY, bool isLevel1) {
-			// Grab the size and mask out 16 bits using walls.
-			if (cpu_info.bSSE4_1) {
-				int lane = (isY ? 1 : 0) + (isLevel1 ? 2 : 0);
-				PMOVZXWD(size, R(sizesReg));
-				PSHUFD(size, R(size), _MM_SHUFFLE(lane, lane, lane, lane));
-			} else {
-				if (size != sizesReg)
-					MOVDQA(size, R(sizesReg));
-				PSLLQ(size, 48 - (isY ? 16 : 0) - (isLevel1 ? 32 : 0));
-				PSRLQ(size, 48);
-				PSHUFD(size, R(size), _MM_SHUFFLE(0, 0, 0, 0));
-			}
+		// Now make a float version of sizesReg, times 256.
+		X64Reg sizes256Reg = regCache_.Alloc(RegCache::VEC_TEMP0);
+		PSLLD(sizes256Reg, sizesReg, 8);
+		CVTDQ2PS(sizes256Reg, R(sizes256Reg));
 
-			PSLLD(tempVecReg, size, 8);
-			CVTDQ2PS(tempVecReg, R(tempVecReg));
-			// And then multiply.
-			MULPS(dest, R(tempVecReg));
-		};
+		// Next off, move S and T into a single reg, which will become U0 V0 U1 V1.
+		UNPCKLPS(sReg, R(tReg));
+		SHUFPS(sReg, R(sReg), _MM_SHUFFLE(1, 0, 1, 0));
+		// And multiply by the sizes, all lined up already.
+		MULPS(sReg, R(sizes256Reg));
+		regCache_.Release(sizes256Reg, RegCache::VEC_TEMP0);
 
-		// Copy out S and T so we can multiply.
-		X64Reg u1Reg = regCache_.Find(RegCache::VEC_U1);
-		X64Reg v1Reg = regCache_.Find(RegCache::VEC_V1);
-		MOVAPS(u1Reg, R(sReg));
-		MOVAPS(v1Reg, R(tReg));
-
-		// Load width and height for the given level, and multiply sReg/tReg meanwhile.
-		width0VecReg = regCache_.Alloc(RegCache::VEC_TEMP2);
-		loadSizeAndMul(sReg, width0VecReg, false, false);
-		height0VecReg = regCache_.Alloc(RegCache::VEC_TEMP3);
-		loadSizeAndMul(tReg, height0VecReg, true, false);
-
-		// And same for the next level, but with u1Reg/v1Reg.
-		width1VecReg = regCache_.Alloc(RegCache::VEC_TEMP4);
-		loadSizeAndMul(u1Reg, width1VecReg, false, true);
-		// We reuse this one we allocated above.
-		height1VecReg = sizesReg;
-		loadSizeAndMul(v1Reg, height1VecReg, true, true);
-
-		regCache_.Unlock(u1Reg, RegCache::VEC_U1);
-		regCache_.Unlock(v1Reg, RegCache::VEC_V1);
-
-		// Now just subtract one.  We use this later for clamp/wrap.
-		MOVDQA(tempVecReg, M(constOnes32_));
-		PSUBD(width0VecReg, R(tempVecReg));
-		PSUBD(height0VecReg, R(tempVecReg));
-		PSUBD(width1VecReg, R(tempVecReg));
-		PSUBD(height1VecReg, R(tempVecReg));
-		regCache_.Release(tempVecReg, RegCache::VEC_TEMP0);
+		// For wrap/clamp purposes, we want width or height minus one.  Do that now.
+		PSUBD(sizesReg, M(constOnes32_));
 	} else {
 		// Easy mode.
-		MULSS(sReg, M(constWidth256f_));
-		MULSS(tReg, M(constHeight256f_));
+		UNPCKLPS(sReg, R(tReg));
+		MULPS(sReg, M(constWidthHeight256f_));
 	}
 
 	// And now, convert to integers for all later processing.
 	CVTPS2DQ(sReg, R(sReg));
-	CVTPS2DQ(tReg, R(tReg));
-	if (regCache_.Has(RegCache::VEC_U1)) {
-		X64Reg u1Reg = regCache_.Find(RegCache::VEC_U1);
-		X64Reg v1Reg = regCache_.Find(RegCache::VEC_V1);
-		CVTPS2DQ(u1Reg, R(u1Reg));
-		CVTPS2DQ(v1Reg, R(v1Reg));
-		regCache_.Unlock(u1Reg, RegCache::VEC_U1);
-		regCache_.Unlock(v1Reg, RegCache::VEC_V1);
-	}
 
 	// Now adjust X and Y...
+	// TODO: Could we cache this?  Should only vary on offset, maybe?
 	X64Reg xReg = regCache_.Find(RegCache::GEN_ARG_X);
 	X64Reg yReg = regCache_.Find(RegCache::GEN_ARG_Y);
 	NEG(32, R(xReg));
@@ -2629,19 +2595,9 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	// Add them in.  We do this in the SSE because we have more to do there...
 	X64Reg tempXYReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 	MOVQ_xmm(tempXYReg, R(xReg));
+	if (id.hasAnyMips)
+		PSHUFD(tempXYReg, R(tempXYReg), _MM_SHUFFLE(1, 0, 1, 0));
 	PADDD(sReg, R(tempXYReg));
-	if (regCache_.Has(RegCache::VEC_U1)) {
-		X64Reg u1Reg = regCache_.Find(RegCache::VEC_U1);
-		PADDD(u1Reg, R(tempXYReg));
-		regCache_.Unlock(u1Reg, RegCache::VEC_U1);
-	}
-	PSHUFD(tempXYReg, R(tempXYReg), _MM_SHUFFLE(1, 1, 1, 1));
-	PADDD(tReg, R(tempXYReg));
-	if (regCache_.Has(RegCache::VEC_V1)) {
-		X64Reg v1Reg = regCache_.Find(RegCache::VEC_V1);
-		PADDD(v1Reg, R(tempXYReg));
-		regCache_.Unlock(v1Reg, RegCache::VEC_V1);
-	}
 	regCache_.Release(tempXYReg, RegCache::VEC_TEMP0);
 
 	regCache_.Unlock(xReg, RegCache::GEN_ARG_X);
@@ -2652,53 +2608,53 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	// We do want the fraction, though, so extract that.
 	X64Reg fracUReg = regCache_.Find(RegCache::GEN_ARG_FRAC_U);
 	X64Reg fracVReg = regCache_.Find(RegCache::GEN_ARG_FRAC_V);
-	if (regCache_.Has(RegCache::VEC_U1)) {
-		// Start with the next level so we end with current in the regs.
-		X64Reg u1Reg = regCache_.Find(RegCache::VEC_U1);
-		X64Reg v1Reg = regCache_.Find(RegCache::VEC_V1);
-		MOVD_xmm(R(fracUReg), u1Reg);
-		MOVD_xmm(R(fracVReg), v1Reg);
-		SHR(32, R(fracUReg), Imm8(4));
-		AND(32, R(fracUReg), Imm8(0x0F));
-		SHR(32, R(fracVReg), Imm8(4));
-		AND(32, R(fracVReg), Imm8(0x0F));
-		regCache_.Unlock(u1Reg, RegCache::VEC_U1);
-		regCache_.Unlock(v1Reg, RegCache::VEC_V1);
-
-		// Store them on the stack for now.
-		MOV(32, MDisp(RSP, stackArgPos_ + stackFracUV1Offset_), R(fracUReg));
-		MOV(32, MDisp(RSP, stackArgPos_ + stackFracUV1Offset_ + 4), R(fracVReg));
+	X64Reg fracExtractReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+	// We only want the four bits after the first four, though.
+	PSLLD(fracExtractReg, sReg, 24);
+	PSRLD(fracExtractReg, 28);
+	// Okay, grab the regs.
+	if (cpu_info.bSSE4_1) {
+		MOVD_xmm(R(fracUReg), fracExtractReg);
+		PEXTRD(R(fracVReg), fracExtractReg, 1);
+	} else {
+		MOVD_xmm(R(fracUReg), fracExtractReg);
+		PSRLDQ(fracExtractReg, 4);
+		MOVD_xmm(R(fracVReg), fracExtractReg);
 	}
-	MOVD_xmm(R(fracUReg), sReg);
-	MOVD_xmm(R(fracVReg), tReg);
-	SHR(32, R(fracUReg), Imm8(4));
-	AND(32, R(fracUReg), Imm8(0x0F));
-	SHR(32, R(fracVReg), Imm8(4));
-	AND(32, R(fracVReg), Imm8(0x0F));
+	// And store frac U1/V1 on the stack, if we have mips.
+	if (id.hasAnyMips) {
+		if (cpu_info.bSSE4_1) {
+			// They're next to each other, so one extract is enough.
+			PEXTRQ(MDisp(RSP, stackArgPos_ + stackFracUV1Offset_), fracExtractReg, 1);
+		} else {
+			// We already shifted 4 for fracVReg, shift again and store.
+			PSRLDQ(fracExtractReg, 4);
+			MOVQ_xmm(MDisp(RSP, stackArgPos_ + stackFracUV1Offset_), fracExtractReg);
+		}
+	}
+	regCache_.Release(fracExtractReg, RegCache::VEC_TEMP0);
 	regCache_.Unlock(fracUReg, RegCache::GEN_ARG_FRAC_U);
 	regCache_.Unlock(fracVReg, RegCache::GEN_ARG_FRAC_V);
 
-	// Get rid of the fractional bits, and spread out.
-	PSHUFD(sReg, R(sReg), _MM_SHUFFLE(0, 0, 0, 0));
-	PSHUFD(tReg, R(tReg), _MM_SHUFFLE(0, 0, 0, 0));
+	// With those extracted, we can now get rid of the fractional bits.
 	PSRAD(sReg, 8);
-	PSRAD(tReg, 8);
-	// Add U/V values for the next coords.
-	PADDD(sReg, M(constUNext_));
-	PADDD(tReg, M(constVNext_));
 
-	if (regCache_.Has(RegCache::VEC_U1)) {
+	// Now it's time to separate the lanes into separate registers and add next UV offsets.
+	if (id.hasAnyMips) {
 		X64Reg u1Reg = regCache_.Find(RegCache::VEC_U1);
 		X64Reg v1Reg = regCache_.Find(RegCache::VEC_V1);
-		PSHUFD(u1Reg, R(u1Reg), _MM_SHUFFLE(0, 0, 0, 0));
-		PSHUFD(v1Reg, R(v1Reg), _MM_SHUFFLE(0, 0, 0, 0));
-		PSRAD(u1Reg, 8);
-		PSRAD(v1Reg, 8);
+		PSHUFD(u1Reg, R(sReg), _MM_SHUFFLE(2, 2, 2, 2));
+		PSHUFD(v1Reg, R(sReg), _MM_SHUFFLE(3, 3, 3, 3));
 		PADDD(u1Reg, M(constUNext_));
 		PADDD(v1Reg, M(constVNext_));
 		regCache_.Unlock(u1Reg, RegCache::VEC_U1);
 		regCache_.Unlock(v1Reg, RegCache::VEC_V1);
 	}
+
+	PSHUFD(tReg, R(sReg), _MM_SHUFFLE(1, 1, 1, 1));
+	PSHUFD(sReg, R(sReg), _MM_SHUFFLE(0, 0, 0, 0));
+	PADDD(tReg, M(constVNext_));
+	PADDD(sReg, M(constUNext_));
 
 	X64Reg temp0ClampReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 	bool temp0ClampZero = false;
@@ -2724,8 +2680,12 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 			PANDN(temp0ClampReg, R(stReg));
 
 			// Now make a mask where bound is greater than the ST value in temp0ClampReg.
-			MOVDQA(stReg, bound);
-			PCMPGTD(stReg, R(temp0ClampReg));
+			if (cpu_info.bAVX && bound.IsSimpleReg()) {
+				VPCMPGTD(128, stReg, bound.GetSimpleReg(), R(temp0ClampReg));
+			} else {
+				MOVDQA(stReg, bound);
+				PCMPGTD(stReg, R(temp0ClampReg));
+			}
 			// Throw away the values that are greater in our temp0ClampReg in progress result.
 			PAND(temp0ClampReg, R(stReg));
 
@@ -2736,26 +2696,31 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 		}
 	};
 
-	doClamp(id.clampS, sReg, width0VecReg == INVALID_REG ? M(constWidthMinus1i_) : R(width0VecReg));
-	doClamp(id.clampT, tReg, height0VecReg == INVALID_REG ? M(constHeightMinus1i_) : R(height0VecReg));
-	if (width1VecReg != INVALID_REG) {
+	if (id.hasAnyMips) {
+		// We'll spread sizes out into a temp.
+		X64Reg spreadSizeReg = regCache_.Alloc(RegCache::VEC_TEMP1);
+
+		PSHUFD(spreadSizeReg, R(sizesReg), _MM_SHUFFLE(0, 0, 0, 0));
+		doClamp(id.clampS, sReg, R(spreadSizeReg));
+		PSHUFD(spreadSizeReg, R(sizesReg), _MM_SHUFFLE(1, 1, 1, 1));
+		doClamp(id.clampT, tReg, R(spreadSizeReg));
 		X64Reg u1Reg = regCache_.Find(RegCache::VEC_U1);
 		X64Reg v1Reg = regCache_.Find(RegCache::VEC_V1);
-		doClamp(id.clampS, u1Reg, R(width1VecReg));
-		doClamp(id.clampT, v1Reg, R(height1VecReg));
+		PSHUFD(spreadSizeReg, R(sizesReg), _MM_SHUFFLE(2, 2, 2, 2));
+		doClamp(id.clampS, u1Reg, R(spreadSizeReg));
+		PSHUFD(spreadSizeReg, R(sizesReg), _MM_SHUFFLE(3, 3, 3, 3));
+		doClamp(id.clampT, v1Reg, R(spreadSizeReg));
 		regCache_.Unlock(u1Reg, RegCache::VEC_U1);
 		regCache_.Unlock(v1Reg, RegCache::VEC_V1);
+
+		regCache_.Release(spreadSizeReg, RegCache::VEC_TEMP1);
+	} else {
+		doClamp(id.clampS, sReg, M(constWidthMinus1i_));
+		doClamp(id.clampT, tReg, M(constHeightMinus1i_));
 	}
 
-	if (width0VecReg != INVALID_REG)
-		regCache_.Release(width0VecReg, RegCache::VEC_TEMP2);
-	if (height0VecReg != INVALID_REG)
-		regCache_.Release(height0VecReg, RegCache::VEC_TEMP3);
-	if (width1VecReg != INVALID_REG)
-		regCache_.Release(width1VecReg, RegCache::VEC_TEMP4);
-	if (height1VecReg != INVALID_REG)
-		regCache_.Release(height1VecReg, RegCache::VEC_TEMP5);
-
+	if (sizesReg != INVALID_REG)
+		regCache_.Release(sizesReg, RegCache::VEC_TEMP5);
 	regCache_.Release(temp0ClampReg, RegCache::VEC_TEMP0);
 
 	regCache_.Unlock(sReg, RegCache::VEC_ARG_S);

@@ -104,7 +104,7 @@ private:
 	int stackFracUV1Offset_ = 0;
 #endif
 
-	const u8 *constWidth256f_ = nullptr;
+	const u8 *constWidthHeight256f_ = nullptr;
 	const u8 *constHeight256f_ = nullptr;
 	const u8 *constWidthMinus1i_ = nullptr;
 	const u8 *constHeightMinus1i_ = nullptr;
