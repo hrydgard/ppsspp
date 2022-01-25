@@ -106,7 +106,6 @@ void SamplerJitCache::Clear() {
 	const10All8_ = nullptr;
 
 	constWidthHeight256f_ = nullptr;
-	constHeight256f_ = nullptr;
 	constWidthMinus1i_ = nullptr;
 	constHeightMinus1i_ = nullptr;
 

@@ -105,7 +105,6 @@ private:
 #endif
 
 	const u8 *constWidthHeight256f_ = nullptr;
-	const u8 *constHeight256f_ = nullptr;
 	const u8 *constWidthMinus1i_ = nullptr;
 	const u8 *constHeightMinus1i_ = nullptr;
 	const u8 *constUNext_ = nullptr;
