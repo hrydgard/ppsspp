@@ -151,11 +151,14 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	// Temporary hack for libretro. For some reason, when we try to load the functions from this extension,
 	// we get null pointers when running libretro. Quite strange.
 #if !defined(__LIBRETRO__)
-	if (IsInstanceExtensionAvailable(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
-		instance_extensions_enabled_.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+	if (EnableInstanceExtension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
 		extensionsLookup_.KHR_get_physical_device_properties2 = true;
 	}
 #endif
+
+	if (EnableInstanceExtension(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME)) {
+		extensionsLookup_.EXT_swapchain_colorspace = true;
+	}
 
 	// Validate that all the instance extensions we ask for are actually available.
 	for (auto ext : instance_extensions_enabled_) {
@@ -615,6 +618,16 @@ bool VulkanContext::EnableDeviceExtension(const char *extension) {
 	return false;
 }
 
+bool VulkanContext::EnableInstanceExtension(const char *extension) {
+	for (auto &iter : instance_extension_properties_) {
+		if (!strcmp(iter.extensionName, extension)) {
+			instance_extensions_enabled_.push_back(extension);
+			return true;
+		}
+	}
+	return false;
+}
+
 VkResult VulkanContext::CreateDevice() {
 	if (!init_error_.empty() || physical_device_ < 0) {
 		ERROR_LOG(G3D, "Vulkan init failed: %s", init_error_.c_str());
@@ -923,8 +936,8 @@ bool VulkanContext::ChooseQueue() {
 		return false;
 	}
 
-	std::vector<VkSurfaceFormatKHR> surfFormats(formatCount);
-	res = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[physical_device_], surface_, &formatCount, surfFormats.data());
+	surfFormats_.resize(formatCount);
+	res = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[physical_device_], surface_, &formatCount, surfFormats_.data());
 	_dbg_assert_(res == VK_SUCCESS);
 	if (res != VK_SUCCESS) {
 		return false;
@@ -932,24 +945,23 @@ bool VulkanContext::ChooseQueue() {
 	// If the format list includes just one entry of VK_FORMAT_UNDEFINED,
 	// the surface has no preferred format.  Otherwise, at least one
 	// supported format will be returned.
-	if (formatCount == 0 || (formatCount == 1 && surfFormats[0].format == VK_FORMAT_UNDEFINED)) {
+	if (formatCount == 0 || (formatCount == 1 && surfFormats_[0].format == VK_FORMAT_UNDEFINED)) {
 		INFO_LOG(G3D, "swapchain_format: Falling back to B8G8R8A8_UNORM");
 		swapchainFormat_ = VK_FORMAT_B8G8R8A8_UNORM;
 	} else {
 		swapchainFormat_ = VK_FORMAT_UNDEFINED;
 		for (uint32_t i = 0; i < formatCount; ++i) {
-			if (surfFormats[i].colorSpace != VK_COLORSPACE_SRGB_NONLINEAR_KHR) {
+			if (surfFormats_[i].colorSpace != VK_COLORSPACE_SRGB_NONLINEAR_KHR) {
 				continue;
 			}
-
-			if (surfFormats[i].format == VK_FORMAT_B8G8R8A8_UNORM || surfFormats[i].format == VK_FORMAT_R8G8B8A8_UNORM) {
-				swapchainFormat_ = surfFormats[i].format;
+			if (surfFormats_[i].format == VK_FORMAT_B8G8R8A8_UNORM || surfFormats_[i].format == VK_FORMAT_R8G8B8A8_UNORM) {
+				swapchainFormat_ = surfFormats_[i].format;
 				break;
 			}
 		}
 		if (swapchainFormat_ == VK_FORMAT_UNDEFINED) {
 			// Okay, take the first one then.
-			swapchainFormat_ = surfFormats[0].format;
+			swapchainFormat_ = surfFormats_[0].format;
 		}
 		INFO_LOG(G3D, "swapchain_format: %d (/%d)", swapchainFormat_, formatCount);
 	}
@@ -1536,4 +1548,66 @@ std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props) {
 	uint32_t minor = VK_VERSION_MINOR(props.driverVersion);
 	uint32_t branch = VK_VERSION_PATCH(props.driverVersion);
 	return StringFromFormat("%d.%d.%d (%08x)", major, minor, branch, props.driverVersion);
+}
+
+// Mainly just the formats seen on gpuinfo.org for swapchains, as this function is only used for listing
+// those in the UI. Also depth buffers that we used in one place.
+// Might add more in the future if we find more uses for this.
+const char *VulkanFormatToString(VkFormat format) {
+	switch (format) {
+	case VK_FORMAT_A1R5G5B5_UNORM_PACK16: return "A1R5G5B5_UNORM_PACK16";
+	case VK_FORMAT_A2B10G10R10_UNORM_PACK32: return "A2B10G10R10_UNORM_PACK32";
+	case VK_FORMAT_A8B8G8R8_SNORM_PACK32: return "A8B8G8R8_SNORM_PACK32";
+	case VK_FORMAT_A8B8G8R8_SRGB_PACK32: return "A8B8G8R8_SRGB_PACK32";
+	case VK_FORMAT_A8B8G8R8_UNORM_PACK32: return "A8B8G8R8_UNORM_PACK32";
+	case VK_FORMAT_B10G11R11_UFLOAT_PACK32: return "B10G11R11_UFLOAT_PACK32";
+	case VK_FORMAT_B4G4R4A4_UNORM_PACK16: return "B4G4R4A4_UNORM_PACK16";
+	case VK_FORMAT_B5G5R5A1_UNORM_PACK16: return "B5G5R5A1_UNORM_PACK16";
+	case VK_FORMAT_B5G6R5_UNORM_PACK16: return "B5G6R5_UNORM_PACK16";
+	case VK_FORMAT_B8G8R8A8_SNORM: return "B8G8R8A8_SNORM";
+	case VK_FORMAT_B8G8R8A8_SRGB: return "B8G8R8A8_SRGB";
+	case VK_FORMAT_B8G8R8A8_UNORM: return "B8G8R8A8_UNORM";
+	case VK_FORMAT_R16G16B16A16_SFLOAT: return "R16G16B16A16_SFLOAT";
+	case VK_FORMAT_R16G16B16A16_SNORM: return "R16G16B16A16_SNORM";
+	case VK_FORMAT_R16G16B16A16_UNORM: return "R16G16B16A16_UNORM";
+	case VK_FORMAT_R4G4B4A4_UNORM_PACK16: return "R4G4B4A4_UNORM_PACK16";
+	case VK_FORMAT_R5G5B5A1_UNORM_PACK16: return "R5G5B5A1_UNORM_PACK16";
+	case VK_FORMAT_R5G6B5_UNORM_PACK16: return "R5G6B5_UNORM_PACK16";
+	case VK_FORMAT_R8G8B8A8_SNORM: return "R8G8B8A8_SNORM";
+	case VK_FORMAT_R8G8B8A8_SRGB: return "R8G8B8A8_SRGB";
+	case VK_FORMAT_R8G8B8A8_UNORM: return "R8G8B8A8_UNORM";
+
+	case VK_FORMAT_D24_UNORM_S8_UINT: return "D24S8";
+	case VK_FORMAT_D16_UNORM: return "D16";
+	case VK_FORMAT_D16_UNORM_S8_UINT: return "D16S8";
+	case VK_FORMAT_D32_SFLOAT: return "D32f";
+	case VK_FORMAT_D32_SFLOAT_S8_UINT: return "D32fS8";
+	case VK_FORMAT_S8_UINT: return "S8";
+	case VK_FORMAT_UNDEFINED: return "UNDEFINED (BAD!)";
+
+	default: return "(format not added to string list)";
+	}
+}
+
+// I miss Rust where this is automatic :(
+const char *VulkanColorSpaceToString(VkColorSpaceKHR colorSpace) {
+	switch (colorSpace) {
+	case VK_COLOR_SPACE_SRGB_NONLINEAR_KHR: return "SRGB_NONLINEAR";
+	case VK_COLOR_SPACE_DISPLAY_P3_NONLINEAR_EXT: return "DISPLAY_P3_NONLINEAR";
+	case VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT: return "EXTENDED_SRGB_LINEAR";
+	case VK_COLOR_SPACE_DISPLAY_P3_LINEAR_EXT: return "DISPLAY_P3_LINEAR";
+	case VK_COLOR_SPACE_DCI_P3_NONLINEAR_EXT: return "DCI_P3_NONLINEAR"; 
+	case VK_COLOR_SPACE_BT709_LINEAR_EXT: return "BT709_LINEAR";
+	case VK_COLOR_SPACE_BT709_NONLINEAR_EXT: return "BT709_NONLINEAR";
+	case VK_COLOR_SPACE_BT2020_LINEAR_EXT: return "BT2020_LINEAR";
+	case VK_COLOR_SPACE_HDR10_ST2084_EXT: return "HDR10_ST2084";
+	case VK_COLOR_SPACE_DOLBYVISION_EXT: return "DOLBYVISION";
+	case VK_COLOR_SPACE_HDR10_HLG_EXT: return "HDR10_HLG";
+	case VK_COLOR_SPACE_ADOBERGB_LINEAR_EXT: return "ADOBERGB_LINEAR";
+	case VK_COLOR_SPACE_ADOBERGB_NONLINEAR_EXT: return "ADOBERGB_NONLINEAR";
+	case VK_COLOR_SPACE_PASS_THROUGH_EXT: return "PASS_THROUGH";
+	case VK_COLOR_SPACE_EXTENDED_SRGB_NONLINEAR_EXT: return "EXTENDED_SRGB_NONLINEAR";
+	case VK_COLOR_SPACE_DISPLAY_NATIVE_AMD: return "DISPLAY_NATIVE_AMD";
+	default: return "(unknown)";
+	}
 }

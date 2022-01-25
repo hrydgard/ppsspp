@@ -1395,20 +1395,6 @@ void AddFeature(std::vector<std::string> &features, const char *name, VkBool32 a
 	features.push_back(buf);
 }
 
-// Limited to depth buffer formats as that's what we need right now.
-static const char *VulkanFormatToString(VkFormat fmt) {
-	switch (fmt) {
-	case VkFormat::VK_FORMAT_D24_UNORM_S8_UINT: return "D24S8";
-	case VkFormat::VK_FORMAT_D16_UNORM: return "D16";
-	case VkFormat::VK_FORMAT_D16_UNORM_S8_UINT: return "D16S8";
-	case VkFormat::VK_FORMAT_D32_SFLOAT: return "D32f";
-	case VkFormat::VK_FORMAT_D32_SFLOAT_S8_UINT: return "D32fS8";
-	case VkFormat::VK_FORMAT_S8_UINT: return "S8";
-	case VkFormat::VK_FORMAT_UNDEFINED: return "UNDEFINED (BAD!)";
-	default: return "UNKNOWN";
-	}
-}
-
 std::vector<std::string> VKContext::GetFeatureList() const {
 	const VkPhysicalDeviceFeatures &available = vulkan_->GetDeviceFeatures().available;
 	const VkPhysicalDeviceFeatures &enabled = vulkan_->GetDeviceFeatures().enabled;

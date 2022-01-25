@@ -24,6 +24,7 @@
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/File/AndroidStorage.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Net/HTTPClient.h"
@@ -54,6 +55,7 @@
 #include "UI/MainScreen.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/GameSettingsScreen.h"
+
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
@@ -720,6 +722,18 @@ void SystemInfoScreen::CreateViews() {
 		for (auto &feature : features) {
 			gpuExtensions->Add(new TextView(feature, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
+		
+		// Vulkan specific code here, can't be bothered to abstract.
+		gpuExtensions->Add(new ItemHeader(si->T("Display Color Formats")));
+		VulkanContext *vk = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
+		if (vk) {
+			for (auto &format : vk->SurfaceFormats()) {
+				std::string line = StringFromFormat("%s : %s", VulkanFormatToString(format.format), VulkanColorSpaceToString(format.colorSpace));
+				gpuExtensions->Add(new TextView(line,
+					new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+			}
+		}
+
 		gpuExtensions->Add(new ItemHeader(si->T("Vulkan Extensions")));
 		std::vector<std::string> extensions = draw->GetExtensionList();
 		for (auto &extension : extensions) {

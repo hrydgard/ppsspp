@@ -238,6 +238,7 @@ struct VulkanExtensions {
 	bool KHR_get_physical_device_properties2;
 	bool KHR_depth_stencil_resolve;
 	bool EXT_shader_stencil_export;
+	bool EXT_swapchain_colorspace;
 	// bool EXT_depth_range_unrestricted;  // Allows depth outside [0.0, 1.0] in 32-bit float depth buffers.
 };
 
