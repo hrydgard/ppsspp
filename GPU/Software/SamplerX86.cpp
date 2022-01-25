@@ -524,7 +524,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	// RET + shadow space + 8 byte space for color arg (the Win32 ABI is kinda ugly.)
 	stackArgPos_ = 8 + 32 + 8;
 	// Free up some more vector regs on Windows too, where we're a bit tight.
-	stackArgPos_ += WriteProlog(0, { XMM6, XMM7, XMM8, XMM9 }, { R15, R14, R13, R12 });
+	stackArgPos_ += WriteProlog(0, { XMM6, XMM7, XMM8, XMM9, XMM10, XMM11 }, { R15, R14, R13, R12 });
 
 	// Positions: stackArgPos_+0=src, stackArgPos_+8=bufw, stackArgPos_+16=level, stackArgPos_+24=levelFrac
 	stackIDOffset_ = 32;
@@ -2526,7 +2526,6 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	if (constWidth256f_ == nullptr) {
 		// We have to figure out levels and the proper width, ugh.
 		X64Reg idReg = GetSamplerID();
-		X64Reg tempReg = regCache_.Alloc(RegCache::GEN_TEMP0);
 
 		X64Reg levelReg = INVALID_REG;
 		// To avoid ABI problems, we don't hold onto level.
@@ -2539,19 +2538,26 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 			MOV(32, R(levelReg), MDisp(RSP, stackArgPos_ + 16));
 		}
 
-		// This will load the current and next level's sizes.
-		MOV(64, R(tempReg), MComplex(idReg, levelReg, SCALE_4, offsetof(SamplerID, cached.sizes[0].w)));
+		// This will load the current and next level's sizes, 16x4.
+		X64Reg sizesReg = regCache_.Alloc(RegCache::VEC_TEMP5);
+		MOVQ_xmm(sizesReg, MComplex(idReg, levelReg, SCALE_4, offsetof(SamplerID, cached.sizes[0].w)));
+
+		if (releaseLevelReg)
+			regCache_.Release(levelReg, RegCache::GEN_ARG_LEVEL);
+		else
+			regCache_.Unlock(levelReg, RegCache::GEN_ARG_LEVEL);
 		UnlockSamplerID(idReg);
 
 		X64Reg tempVecReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 		auto loadSizeAndMul = [&](X64Reg dest, X64Reg size, bool isY, bool isLevel1) {
 			// Grab the size and mask out 16 bits using walls.
-			MOVQ_xmm(size, R(tempReg));
 			if (cpu_info.bSSE4_1) {
 				int lane = (isY ? 1 : 0) + (isLevel1 ? 2 : 0);
-				PMOVZXWD(size, R(size));
+				PMOVZXWD(size, R(sizesReg));
 				PSHUFD(size, R(size), _MM_SHUFFLE(lane, lane, lane, lane));
 			} else {
+				if (size != sizesReg)
+					MOVDQA(size, R(sizesReg));
 				PSLLQ(size, 48 - (isY ? 16 : 0) - (isLevel1 ? 32 : 0));
 				PSRLQ(size, 48);
 				PSHUFD(size, R(size), _MM_SHUFFLE(0, 0, 0, 0));
@@ -2578,14 +2584,9 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 		// And same for the next level, but with u1Reg/v1Reg.
 		width1VecReg = regCache_.Alloc(RegCache::VEC_TEMP4);
 		loadSizeAndMul(u1Reg, width1VecReg, false, true);
-		height1VecReg = regCache_.Alloc(RegCache::VEC_TEMP5);
+		// We reuse this one we allocated above.
+		height1VecReg = sizesReg;
 		loadSizeAndMul(v1Reg, height1VecReg, true, true);
-
-		regCache_.Release(tempReg, RegCache::GEN_TEMP0);
-		if (releaseLevelReg)
-			regCache_.Release(levelReg, RegCache::GEN_ARG_LEVEL);
-		else
-			regCache_.Unlock(levelReg, RegCache::GEN_ARG_LEVEL);
 
 		regCache_.Unlock(u1Reg, RegCache::VEC_U1);
 		regCache_.Unlock(v1Reg, RegCache::VEC_V1);
