@@ -410,7 +410,7 @@ static int sceGeBreak(u32 mode, u32 unknownPtr) {
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 	}
 	// Not sure what this is supposed to be for...
-	if ((int)unknownPtr < 0 || (int)unknownPtr + 16 < 0) {
+	if ((int)unknownPtr < 0 || (int)(unknownPtr + 16) < 0) {
 		WARN_LOG_REPORT(SCEGE, "sceGeBreak(mode=%d, unknown=%08x): invalid ptr", mode, unknownPtr);
 		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
 	} else if (unknownPtr != 0) {
