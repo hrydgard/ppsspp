@@ -1920,8 +1920,30 @@ void XEmitter::PINSRW(X64Reg dest, OpArg arg, u8 subreg)    {WriteSSEOp(0x66, 0x
 void XEmitter::PEXTRB(OpArg dest, X64Reg arg, u8 subreg)    {WriteSSE41Op(0x66, 0x3A14, arg, dest, 1); Write8(subreg);}
 void XEmitter::PEXTRW(OpArg dest, X64Reg arg, u8 subreg)    {WriteSSE41Op(0x66, 0x3A15, arg, dest, 1); Write8(subreg);}
 void XEmitter::PEXTRD(OpArg dest, X64Reg arg, u8 subreg)    {WriteSSE41Op(0x66, 0x3A16, arg, dest, 1); Write8(subreg);}
+void XEmitter::PEXTRQ(OpArg dest, X64Reg arg, u8 subreg) {
+	_assert_msg_(cpu_info.bSSE4_1, "Trying to use SSE4.1 on a system that doesn't support it.");
+	Write8(0x66);
+	dest.operandReg = arg;
+	dest.WriteRex(this, 64, 0);
+	Write8(0x0F);
+	Write8(0x3A);
+	Write8(0x16);
+	dest.WriteRest(this, 1);
+	Write8(subreg);
+}
 void XEmitter::PINSRB(X64Reg dest, OpArg arg, u8 subreg)    {WriteSSE41Op(0x66, 0x3A20, dest, arg, 1); Write8(subreg);}
 void XEmitter::PINSRD(X64Reg dest, OpArg arg, u8 subreg)    {WriteSSE41Op(0x66, 0x3A22, dest, arg, 1); Write8(subreg);}
+void XEmitter::PINSRQ(X64Reg dest, OpArg arg, u8 subreg) {
+	_assert_msg_(cpu_info.bSSE4_1, "Trying to use SSE4.1 on a system that doesn't support it.");
+	Write8(0x66);
+	arg.operandReg = dest;
+	arg.WriteRex(this, 64, 0);
+	Write8(0x0F);
+	Write8(0x3A);
+	Write8(0x22);
+	arg.WriteRest(this, 1);
+	Write8(subreg);
+}
 
 void XEmitter::PMADDWD(X64Reg dest, OpArg arg)  {WriteSSEOp(0x66, 0xF5, dest, arg); }
 void XEmitter::PMADDUBSW(X64Reg dest, OpArg arg) {WriteSSSE3Op(0x66, 0x3804, dest, arg);}
