@@ -15,6 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+// Hack around name collisions between UI and xlib
+// Only affects this file.
+#undef VK_USE_PLATFORM_XLIB_KHR
+#undef VK_USE_PLATFORM_XCB_KHR
+#undef VK_USE_PLATFORM_DIRECTFB_EXT
+#undef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+
 #include <algorithm>
 #include <cstring>
 
@@ -24,6 +31,10 @@
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
+
+#if !PPSSPP_PLATFORM(UWP)
+#include "Common/GPU/Vulkan/VulkanContext.h"
+#endif
 #include "Common/File/AndroidStorage.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Net/HTTPClient.h"
@@ -54,6 +65,7 @@
 #include "UI/MainScreen.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/GameSettingsScreen.h"
+
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
@@ -720,6 +732,22 @@ void SystemInfoScreen::CreateViews() {
 		for (auto &feature : features) {
 			gpuExtensions->Add(new TextView(feature, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
+		
+#if !PPSSPP_PLATFORM(UWP)
+
+		// Vulkan specific code here, can't be bothered to abstract.
+		// OK because of above check.
+		gpuExtensions->Add(new ItemHeader(si->T("Display Color Formats")));
+		VulkanContext *vk = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
+		if (vk) {
+			for (auto &format : vk->SurfaceFormats()) {
+				std::string line = StringFromFormat("%s : %s", VulkanFormatToString(format.format), VulkanColorSpaceToString(format.colorSpace));
+				gpuExtensions->Add(new TextView(line,
+					new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+			}
+		}
+#endif
+
 		gpuExtensions->Add(new ItemHeader(si->T("Vulkan Extensions")));
 		std::vector<std::string> extensions = draw->GetExtensionList();
 		for (auto &extension : extensions) {

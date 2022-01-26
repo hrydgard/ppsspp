@@ -171,6 +171,7 @@ public:
 	int GetBestPhysicalDevice();
 	int GetPhysicalDeviceByName(std::string name);
 	void ChooseDevice(int physical_device);
+	bool EnableInstanceExtension(const char *extension);
 	bool EnableDeviceExtension(const char *extension);
 	VkResult CreateDevice();
 
@@ -338,6 +339,10 @@ public:
 		return allocator_;
 	}
 
+	const std::vector<VkSurfaceFormatKHR> &SurfaceFormats() {
+		return surfFormats_;
+	}
+
 private:
 	bool ChooseQueue();
 
@@ -420,6 +425,7 @@ private:
 	PhysicalDeviceFeatures deviceFeatures_;
 
 	VkSurfaceCapabilitiesKHR surfCapabilities_{};
+	std::vector<VkSurfaceFormatKHR> surfFormats_{};
 
 	std::vector<VkCommandBuffer> cmdQueue_;
 
@@ -445,6 +451,9 @@ enum class GLSLVariant {
 bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *sourceCode, GLSLVariant variant, std::vector<uint32_t> &spirv, std::string *errorMessage);
 
 const char *VulkanResultToString(VkResult res);
+const char *VulkanColorSpaceToString(VkColorSpaceKHR colorSpace);
+const char *VulkanFormatToString(VkFormat format);
+
 std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props);
 
 // Simple heuristic.
