@@ -312,6 +312,7 @@ tests_good = [
   "threads/vtimers/stop",
   "threads/wakeup/wakeup",
   "utility/savedata/autosave",
+  "utility/savedata/filelist",
   "utility/savedata/makedata",
   "umd/callbacks/umd",
   "umd/register",
@@ -437,7 +438,6 @@ tests_next = [
   "umd/wait/wait",
   "utility/msgdialog/abort",
   "utility/msgdialog/dialog",
-  "utility/savedata/filelist",
   "utility/savedata/getsize",
   "utility/savedata/idlist",
   # These tests appear to be broken and just hang.
