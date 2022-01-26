@@ -408,7 +408,8 @@ static u32 sceRtcGetDayOfWeek(u32 year, u32 month, u32 day)
 		restMonth = restMonth % 5;
 		day += grp5 * (31*3+30*2);
 		static u32 t[] = { 31, 31*2, 31*2+30, 31*3+30, 31*3+30*2 };
-		day += t[restMonth-1];
+		if (restMonth > 0)
+			day += t[restMonth-1];
 		month = 12;
 	}
 
@@ -426,7 +427,7 @@ static u32 sceRtcGetDayOfWeek(u32 year, u32 month, u32 day)
 	local.tm_hour = 0;
 	local.tm_min = 0;
 	local.tm_sec = 0;
-	local.tm_isdst = -1;
+	local.tm_isdst = 0;
 
 	mktime(&local);
 	return local.tm_wday;
