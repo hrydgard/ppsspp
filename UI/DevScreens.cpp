@@ -31,7 +31,10 @@
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
+
+#if !PPSSPP_PLATFORM(UWP)
 #include "Common/GPU/Vulkan/VulkanContext.h"
+#endif
 #include "Common/File/AndroidStorage.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Net/HTTPClient.h"
@@ -730,7 +733,10 @@ void SystemInfoScreen::CreateViews() {
 			gpuExtensions->Add(new TextView(feature, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 		
+#if !PPSSPP_PLATFORM(UWP)
+
 		// Vulkan specific code here, can't be bothered to abstract.
+		// OK because of above check.
 		gpuExtensions->Add(new ItemHeader(si->T("Display Color Formats")));
 		VulkanContext *vk = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 		if (vk) {
@@ -740,6 +746,7 @@ void SystemInfoScreen::CreateViews() {
 					new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 			}
 		}
+#endif
 
 		gpuExtensions->Add(new ItemHeader(si->T("Vulkan Extensions")));
 		std::vector<std::string> extensions = draw->GetExtensionList();
