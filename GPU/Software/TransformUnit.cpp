@@ -461,6 +461,12 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 	if (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) {
 		return;
 	}
+	// Throughmode never draws 8-bit primitives, maybe because they can't fully specify the screen?
+	if ((vertex_type & GE_VTYPE_THROUGH_MASK) != 0 && (vertex_type & GE_VTYPE_POS_MASK) == GE_VTYPE_POS_8BIT)
+		return;
+	// Vertices without position are just entirely culled.
+	if ((vertex_type & GE_VTYPE_POS_MASK) == 0)
+		return;
 
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = vertex_count - 1;
