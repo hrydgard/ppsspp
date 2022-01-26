@@ -15,6 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+// Hack around name collisions between UI and xlib
+// Only affects this file.
+#undef VK_USE_PLATFORM_XLIB_KHR
+#undef VK_USE_PLATFORM_XCB_KHR
+#undef VK_USE_PLATFORM_DIRECTFB_EXT
+#undef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+
 #include <algorithm>
 #include <cstring>
 
