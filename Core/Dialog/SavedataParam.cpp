@@ -1221,8 +1221,7 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 	return true;
 }
 
-int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
-{
+int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr) {
 	if (!param)	{
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_STATUS;
 	}
@@ -1269,6 +1268,13 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 	} else {
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_DATA_BROKEN;
 	}
+
+	// TODO: Does this always happen?
+	// Don't know what it is, but PSP always respond this.
+	param->bind = 1021;
+	// This should be set around the same time as the file data.  This runs on a thread, so set immediately.
+	auto requestPtr = PSPPointer<SceUtilitySavedataParam>::Create(requestAddr);
+	requestPtr->bind = 1021;
 
 	// Does not list directories, nor recurse into them, and ignores files not ALL UPPERCASE.
 	auto files = pspFileSystem.GetDirListing(dirPath);
@@ -1320,10 +1326,6 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 		strncpy(entry->name, file->name.c_str(), 16);
 		entry->name[15] = '\0';
 	}
-
-	// TODO: Does this always happen?
-	// Don't know what it is, but PSP always respond this
-	param->bind = 1021;
 
 	NotifyMemInfo(MemBlockFlags::WRITE, fileList.ptr, sizeof(SceUtilitySavedataFileListInfo), "SavedataGetFilesList");
 	if (fileList->resultNumSystemEntries != 0)

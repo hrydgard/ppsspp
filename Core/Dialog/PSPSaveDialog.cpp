@@ -1101,7 +1101,7 @@ void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 		result = 0;
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_FILES:
-		result = param.GetFilesList(param.GetPspParam());
+		result = param.GetFilesList(param.GetPspParam(), requestAddr);
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_GETSIZE:
 		{

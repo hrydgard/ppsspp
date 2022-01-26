@@ -315,7 +315,7 @@ public:
 	int Load(SceUtilitySavedataParam* param, const std::string &saveDirName, int saveId = -1, bool secureMode = true);
 	int GetSizes(SceUtilitySavedataParam* param);
 	bool GetList(SceUtilitySavedataParam* param);
-	int GetFilesList(SceUtilitySavedataParam* param);
+	int GetFilesList(SceUtilitySavedataParam* param, u32 requestAddr);
 	bool GetSize(SceUtilitySavedataParam* param);
 	int GetSaveCryptMode(SceUtilitySavedataParam* param, const std::string &saveDirName);
 	bool IsInSaveDataList(std::string saveName, int count);
