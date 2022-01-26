@@ -436,23 +436,18 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState
 	return vertex;
 }
 
-#define START_OPEN_U 1
-#define END_OPEN_U 2
-#define START_OPEN_V 4
-#define END_OPEN_V 8
-
-struct SplinePatch {
-	VertexData points[16];
-	int type;
-	int pad[3];
-};
-
 void TransformUnit::SetDirty(SoftDirty flags) {
 	binner_->SetDirty(flags);
 }
 SoftDirty TransformUnit::GetDirty() {
 	return binner_->GetDirty();
 }
+
+enum class CullType {
+	CW,
+	CCW,
+	OFF,
+};
 
 void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine)
 {
@@ -509,6 +504,9 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 		binner_->ClearDirty(SoftDirty::LIGHT_ALL | SoftDirty::TRANSFORM_ALL);
 	}
 
+	bool skipCull = !gstate.isCullEnabled() || gstate.isModeClear();
+	const CullType cullType = skipCull ? CullType::OFF : (gstate.getCullMode() ? CullType::CCW : CullType::CW);
+
 	bool outside_range_flag = false;
 	switch (prim_type) {
 	case GE_PRIM_POINTS:
@@ -539,10 +537,10 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				switch (prim_type) {
 				case GE_PRIM_TRIANGLES:
 				{
-					if (!gstate.isCullEnabled() || gstate.isModeClear()) {
+					if (cullType == CullType::OFF) {
 						Clipper::ProcessTriangle(data[0], data[1], data[2], data[2], *binner_);
 						Clipper::ProcessTriangle(data[2], data[1], data[0], data[2], *binner_);
-					} else if (!gstate.getCullMode()) {
+					} else if (cullType == CullType::CW) {
 						Clipper::ProcessTriangle(data[2], data[1], data[0], data[2], *binner_);
 					} else {
 						Clipper::ProcessTriangle(data[0], data[1], data[2], data[2], *binner_);
@@ -587,7 +585,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 			}
 
-			if (data_index == 4 && gstate.isModeThrough()) {
+			if (data_index == 4 && gstate.isModeThrough() && cullType == CullType::OFF) {
 				if (Rasterizer::DetectRectangleSlices(data)) {
 					data[1] = data[3];
 					data_index = 2;
@@ -644,7 +642,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 
 			// If index count == 4, check if we can convert to a rectangle.
 			// This is for Darkstalkers (and should speed up many 2D games).
-			if (data_index == 0 && vertex_count == 4 && gstate.isModeThrough()) {
+			if (data_index == 0 && vertex_count == 4 && gstate.isModeThrough() && cullType == CullType::OFF) {
 				for (int vtx = 0; vtx < 4; ++vtx) {
 					if (indices) {
 						vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
@@ -684,10 +682,10 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					continue;
 				}
 
-				if (!gstate.isCullEnabled() || gstate.isModeClear()) {
+				if (cullType == CullType::OFF) {
 					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index], *binner_);
 					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index], *binner_);
-				} else if ((!gstate.getCullMode()) ^ ((data_index - 1) % 2)) {
+				} else if ((!(int)cullType) ^ ((data_index - 1) % 2)) {
 					// We need to reverse the vertex order for each second primitive,
 					// but we additionally need to do that for every primitive if CCW cullmode is used.
 					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index], *binner_);
@@ -721,7 +719,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					break;
 			}
 
-			if (data_index == 1 && vertex_count == 4 && gstate.isModeThrough()) {
+			if (data_index == 1 && vertex_count == 4 && gstate.isModeThrough() && cullType == CullType::OFF) {
 				for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
 					if (indices) {
 						vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
@@ -760,10 +758,10 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					continue;
 				}
 
-				if (!gstate.isCullEnabled() || gstate.isModeClear()) {
+				if (cullType == CullType::OFF) {
 					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index], *binner_);
 					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index], *binner_);
-				} else if ((!gstate.getCullMode()) ^ ((data_index - 1) % 2)) {
+				} else if ((!(int)cullType) ^ ((data_index - 1) % 2)) {
 					// We need to reverse the vertex order for each second primitive,
 					// but we additionally need to do that for every primitive if CCW cullmode is used.
 					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index], *binner_);

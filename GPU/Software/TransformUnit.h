@@ -32,7 +32,6 @@ typedef Vec3<float> WorldCoords;
 typedef Vec3<float> ViewCoords;
 typedef Vec4<float> ClipCoords; // Range: -w <= x/y/z <= w
 
-struct SplinePatch;
 class BinManager;
 struct TransformState;
 
