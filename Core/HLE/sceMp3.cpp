@@ -651,7 +651,6 @@ static u32 sceMp3ResetPlayPositionByFrame(u32 mp3, u32 frame) {
 }
 
 static u32 sceMp3LowLevelInit(u32 mp3, u32 unk) {
-	INFO_LOG(ME, "sceMp3LowLevelInit(%i, %i)", mp3, unk);
 	auto ctx = new AuCtx;
 
 	ctx->audioType = PSP_CODEC_MP3;
@@ -668,7 +667,7 @@ static u32 sceMp3LowLevelInit(u32 mp3, u32 unk) {
 	// Indicate that we've run low level init by setting version to 1.
 	ctx->Version = 1;
 
-	return 0;
+	return hleLogSuccessInfoI(ME, hleDelayResult(0, "mp3 low level", 600));
 }
 
 static u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr) {
