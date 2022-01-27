@@ -1958,10 +1958,7 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	if ((u32)stacksize < 0x200)
 		return hleReportWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_STACK_SIZE, "bogus thread stack size %08x", stacksize);
 	if (prio < 0x08 || prio > 0x77) {
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateThread(name=%s): bogus priority %08x", threadName, prio);
-		// TODO: Should return this error.
-		// return SCE_KERNEL_ERROR_ILLEGAL_PRIORITY;
-		prio = prio < 0x08 ? 0x08 : 0x77;
+		return hleReportWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_PRIORITY, "bogus thread priority %08x", prio);
 	}
 	if (!Memory::IsValidAddress(entry)) {
 		// The PSP firmware seems to allow NULL...?
