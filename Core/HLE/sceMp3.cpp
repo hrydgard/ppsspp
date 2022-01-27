@@ -141,9 +141,7 @@ void __Mp3DoState(PointerWrap &p) {
 			mp3->SumDecodedSamples = mp3_old->mp3SumDecodedSamples;
 			mp3->Version = mp3_old->mp3Version;
 			mp3->MaxOutputSample = mp3_old->mp3MaxSamples;
-			mp3->readPos = mp3_old->readPosition;
-			mp3->AuBufAvailable = 0; // reset to read from file
-			mp3->askedReadSize = 0;
+			mp3->SetReadPos(mp3_old->readPosition);
 
 			mp3->audioType = PSP_CODEC_MP3;
 			mp3->decoder = new SimpleAudio(mp3->audioType);
@@ -168,11 +166,13 @@ static int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	} else if (ctx->Version < 0 || ctx->AuBuf == 0) {
 		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "not yet init");
 	}
-		
+
 	int pcmBytes = ctx->AuDecode(outPcmPtr);
 	if (pcmBytes > 0) {
 		// decode data successfully, delay thread
 		return hleDelayResult(hleLogSuccessI(ME, pcmBytes), "mp3 decode", mp3DecodeDelay);
+	} else if (pcmBytes == 0) {
+		return hleLogSuccessI(ME, pcmBytes);
 	}
 	// Should already have logged.
 	return pcmBytes;
@@ -249,12 +249,8 @@ static u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 		Au->PCMBufSize = 0;
 	}
 
-	Au->SumDecodedSamples = 0;
-	Au->LoopNum = -1;
-	Au->AuBufAvailable = 0;
-	Au->readPos = Au->startPos;
-
 	Au->audioType = PSP_CODEC_MP3;
+	Au->SetReadPos(Au->startPos);
 	Au->decoder = new SimpleAudio(Au->audioType);
 
 	int handle = (int)mp3Map.size();
@@ -422,7 +418,7 @@ static int sceMp3Init(u32 mp3) {
 
 	// Before we allow init, newer SDK versions next require at least 156 bytes.
 	// That happens to be the size of the first frame header for VBR.
-	if (sdkver >= 0x06000000 && ctx->readPos < 156) {
+	if (sdkver >= 0x06000000 && ctx->ReadPos() < 156) {
 		return hleDelayResult(hleLogError(ME, SCE_KERNEL_ERROR_INVALID_VALUE, "insufficient mp3 data for init"), "mp3 init", PARSE_DELAY_MS);
 	}
 
@@ -647,7 +643,7 @@ static u32 sceMp3ResetPlayPositionByFrame(u32 mp3, u32 frame) {
 		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "not yet init");
 	}
 
-	if ((int)frame >= ctx->AuGetFrameNum()) {
+	if (frame >= (u32)ctx->AuGetFrameNum()) {
 		return hleLogError(ME, ERROR_MP3_BAD_RESET_FRAME, "bad frame position");
 	}
 
@@ -655,7 +651,6 @@ static u32 sceMp3ResetPlayPositionByFrame(u32 mp3, u32 frame) {
 }
 
 static u32 sceMp3LowLevelInit(u32 mp3, u32 unk) {
-	INFO_LOG(ME, "sceMp3LowLevelInit(%i, %i)", mp3, unk);
 	auto ctx = new AuCtx;
 
 	ctx->audioType = PSP_CODEC_MP3;
@@ -672,7 +667,7 @@ static u32 sceMp3LowLevelInit(u32 mp3, u32 unk) {
 	// Indicate that we've run low level init by setting version to 1.
 	ctx->Version = 1;
 
-	return 0;
+	return hleLogSuccessInfoI(ME, hleDelayResult(0, "mp3 low level", 600));
 }
 
 static u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr) {
