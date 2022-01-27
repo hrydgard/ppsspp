@@ -362,7 +362,7 @@ static RetroOption<bool> ppsspp_block_transfer_gpu("ppsspp_block_transfer_gpu", 
 static RetroOption<int> ppsspp_inflight_frames("ppsspp_inflight_frames", "Buffered frames (Slower, less lag, restart)", { { "Up to 2", 2 }, { "Up to 1", 1 }, { "No buffer", 0 }, });
 static RetroOption<int> ppsspp_texture_scaling_level("ppsspp_texture_scaling_level", "Texture Scaling Level", { { "Off", 1 }, { "2x", 2 }, { "3x", 3 }, { "4x", 4 }, { "5x", 5 } });
 static RetroOption<int> ppsspp_texture_scaling_type("ppsspp_texture_scaling_type", "Texture Scaling Type", { { "xbrz", TextureScalerCommon::XBRZ }, { "hybrid", TextureScalerCommon::HYBRID }, { "bicubic", TextureScalerCommon::BICUBIC }, { "hybrid_bicubic", TextureScalerCommon::HYBRID_BICUBIC } });
-static RetroOption<std::string> ppsspp_texture_shader("ppsspp_texture_shader", "Texture Shader (Vulkan only, overrides Texture Scaling Type)", { {"Off", "Off"},  {"4xBRZ", "Tex4xBRZ"}, {"MMPX", "TexMMPX"} });
+static RetroOption<std::string> ppsspp_texture_shader("ppsspp_texture_shader", "Texture Shader (Vulkan only, overrides Texture Scaling Type)", { {"Off", "Off"}, {"2xBRZ", "Tex2xBRZ"}, {"4xBRZ", "Tex4xBRZ"}, {"MMPX", "TexMMPX"} });
 static RetroOption<int> ppsspp_texture_filtering("ppsspp_texture_filtering", "Texture Filtering", { { "Auto", 1 }, { "Nearest", 2 }, { "Linear", 3 }, {"Auto max quality", 4}});
 static RetroOption<int> ppsspp_texture_anisotropic_filtering("ppsspp_texture_anisotropic_filtering", "Anisotropic Filtering", { "off", "2x", "4x", "8x", "16x" });
 static RetroOption<int> ppsspp_lower_resolution_for_effects("ppsspp_lower_resolution_for_effects", "Lower resolution for effects", { {"Off", 0}, {"Safe", 1}, {"Balanced", 2}, {"Aggressive", 3} });
