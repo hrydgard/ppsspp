@@ -157,17 +157,30 @@ bool GetIPList(std::vector<std::string> &IP4s) {
 		return false;
 	}
 
+	struct ifreq* item;
+	struct sockaddr* addr;
+
 	for (int i = 0; i < ifc.ifc_len / sizeof(struct ifreq); ++i)
 	{
+		item = &ifreqs[i];
+		addr = &(item->ifr_addr);
+
+		// Get the IP address
+		r = ioctl(sd, SIOCGIFADDR, item);
+		if (r != 0)
+		{
+			ERROR_LOG(SCENET, "GetIPList failed ioctl/SIOCGIFADDR (i = %i, result = %i, errno = %i)", i, r, errno);
+		}
+
 		if (ifreqs[i].ifr_addr.sa_family == AF_INET) {
 			// is a valid IP4 Address
-			if (inet_ntop(AF_INET, &((struct sockaddr_in*)&ifreqs[i].ifr_addr)->sin_addr, ipstr, sizeof(ipstr)) != 0) {
+			if (inet_ntop(AF_INET, &((struct sockaddr_in*)addr)->sin_addr, ipstr, sizeof(ipstr)) != 0) {
 				IP4s.push_back(ipstr);
 			}
 		}
 		/*else if (ifreqs[i].ifr_addr.sa_family == AF_INET6) {
 			// is a valid IP6 Address
-			if (inet_ntop(AF_INET6, &((struct sockaddr_in6*)&ifreqs[i].ifr_addr)->sin6_addr, ipstr, sizeof(ipstr)) != 0) {
+			if (inet_ntop(AF_INET6, &((struct sockaddr_in6*)addr)->sin6_addr, ipstr, sizeof(ipstr)) != 0) {
 				IP6s.push_back(ipstr);
 			}
 		}*/
