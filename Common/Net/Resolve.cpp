@@ -146,10 +146,16 @@ bool GetIPList(std::vector<std::string> &IP4s) {
 	ifc.ifc_len = sizeof(ifreqs);
 
 	int sd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sd < 0) return false;
+	if (sd < 0) {
+		ERROR_LOG(SCENET, "GetIPList failed to create socket (result = %i, errno = %i)", sd, errno);
+		return false;
+	}
 
 	int r = ioctl(sd, SIOCGIFCONF, (char*)&ifc);
-	if (r != 0) return false;
+	if (r != 0) {
+		ERROR_LOG(SCENET, "GetIPList failed ioctl/SIOCGIFCONF (result = %i, errno = %i)", r, errno);
+		return false;
+	}
 
 	for (int i = 0; i < ifc.ifc_len / sizeof(struct ifreq); ++i)
 	{
