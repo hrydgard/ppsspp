@@ -140,18 +140,18 @@ bool GetIPList(std::vector<std::string> &IP4s) {
 #elif defined(SIOCGIFCONF) // Better detection on Linux/UNIX/MacOS/some Android
 	INFO_LOG(SCENET, "GetIPList from SIOCGIFCONF");
 	static struct ifreq ifreqs[32];
-	struct ifconf ifconf;
-	memset(&ifconf, 0, sizeof(ifconf));
-	ifconf.ifc_req = ifreqs;
-	ifconf.ifc_len = sizeof(ifreqs);
+	struct ifconf ifc;
+	memset(&ifc, 0, sizeof(ifconf));
+	ifc.ifc_req = ifreqs;
+	ifc.ifc_len = sizeof(ifreqs);
 
 	int sd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sd < 0) return false;
 
-	int r = ioctl(sd, SIOCGIFCONF, (char*)&ifconf);
+	int r = ioctl(sd, SIOCGIFCONF, (char*)&ifc);
 	if (r != 0) return false;
 
-	for (int i = 0; i < ifconf.ifc_len / sizeof(struct ifreq); ++i)
+	for (int i = 0; i < ifc.ifc_len / sizeof(struct ifreq); ++i)
 	{
 		if (ifreqs[i].ifr_addr.sa_family == AF_INET) {
 			// is a valid IP4 Address
