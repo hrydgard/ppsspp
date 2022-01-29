@@ -516,7 +516,7 @@ def run_tests(test_list, args):
   if len(test_filenames):
     # TODO: Maybe --compare should detect --graphics?
     cmdline = [PPSSPP_EXE, '--root', TEST_ROOT + '../', '--compare', '--timeout=' + str(TIMEOUT), '@-']
-    cmdline.extend([i for i in args if i not in ['-g', '-m']])
+    cmdline.extend([i for i in args if i not in ['-g', '-m', '-b']])
 
     c = Command(cmdline, '\n'.join(test_filenames))
     returncode = c.run(TIMEOUT * len(test_filenames))
@@ -542,10 +542,14 @@ def main():
   if not tests:
     if '-g' in args:
       tests = tests_good
+    elif '-b' in args:
+      tests = tests_next
     else:
       tests = tests_next + tests_good
   elif '-m' in args and '-g' in args:
     tests = [i for i in tests_good if i.startswith(tests[0])]
+  elif '-m' in args and '-b' in args:
+    tests = [i for i in tests_next if i.startswith(tests[0])]
   elif '-m' in args:
     tests = [i for i in tests_next + tests_good if i.startswith(tests[0])]
 
