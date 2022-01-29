@@ -165,11 +165,11 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 	stackArgPos_ += 32;
 
 #if PPSSPP_PLATFORM(WINDOWS)
-	// Use the shadow space to save U1/V1.  We also use this var for frac U1/V1 in linear.
-	stackFracUV1Offset_ = -8;
+	// Use the shadow space to save U1/V1.
+	stackUV1Offset_ = -8;
 #else
 	// Use the red zone, but account for the R15-R12 we push just below.
-	stackFracUV1Offset_ = -stackArgPos_ - 8;
+	stackUV1Offset_ = -stackArgPos_ - 8;
 #endif
 
 	// We can throw these away right off if there are no mips.
@@ -296,12 +296,12 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 		regCache_.ForceRelease(RegCache::GEN_ARG_TEXPTR_PTR);
 
 		X64Reg uReg = regCache_.Alloc(RegCache::GEN_ARG_U);
-		MOV(32, R(uReg), MDisp(RSP, stackArgPos_ + stackFracUV1Offset_ + 0));
+		MOV(32, R(uReg), MDisp(RSP, stackArgPos_ + stackUV1Offset_ + 0));
 		regCache_.Unlock(uReg, RegCache::GEN_ARG_U);
 		regCache_.ForceRetain(RegCache::GEN_ARG_U);
 
 		X64Reg vReg = regCache_.Alloc(RegCache::GEN_ARG_V);
-		MOV(32, R(vReg), MDisp(RSP, stackArgPos_ + stackFracUV1Offset_ + 4));
+		MOV(32, R(vReg), MDisp(RSP, stackArgPos_ + stackUV1Offset_ + 4));
 		regCache_.Unlock(vReg, RegCache::GEN_ARG_V);
 		regCache_.ForceRetain(RegCache::GEN_ARG_V);
 
@@ -529,8 +529,8 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	// Positions: stackArgPos_+0=src, stackArgPos_+8=bufw, stackArgPos_+16=level, stackArgPos_+24=levelFrac
 	stackIDOffset_ = 32;
 
-	// Store frac UV in the shadow space right before the args.
-	stackFracUV1Offset_ = -8;
+	// If needed, we could store UV1 data in shadow space, but we no longer due.
+	stackUV1Offset_ = -8;
 #else
 	stackArgPos_ = 0;
 	stackArgPos_ += WriteProlog(0, {}, { R15, R14, R13, R12 });
@@ -538,17 +538,13 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	stackIDOffset_ = 8;
 
 	// Use the red zone.
-	stackFracUV1Offset_ = -stackArgPos_ - 8;
+	stackUV1Offset_ = -stackArgPos_ - 8;
 #endif
 
 	// This is what we'll put in them, anyway...
 	if (nearest != nullptr) {
-		regCache_.ChangeReg(R13, RegCache::GEN_ARG_FRAC_V);
-		regCache_.ChangeReg(R12, RegCache::GEN_ARG_FRAC_U);
-	} else {
-		// If we don't need to preserve across the CALL, try to avoid saving regs.
-		regCache_.ChangeReg(R11, RegCache::GEN_ARG_FRAC_V);
-		regCache_.ChangeReg(R10, RegCache::GEN_ARG_FRAC_U);
+		regCache_.ChangeReg(XMM10, RegCache::VEC_FRAC);
+		regCache_.ForceRetain(RegCache::VEC_FRAC);
 	}
 
 	// Reserve a couple regs that the nearest CALL won't use.
@@ -806,6 +802,9 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 
 		SetJumpTarget(skip);
 	}
+
+	if (regCache_.Has(RegCache::VEC_FRAC))
+		regCache_.ForceRelease(RegCache::VEC_FRAC);
 
 	// Finally, it's time to apply the texture function.
 	success = success && Jit_ApplyTextureFunc(id);
@@ -1279,17 +1278,16 @@ bool SamplerJitCache::Jit_BlendQuad(const SamplerID &id, bool level1) {
 		// Next up, we want to multiply and add using a repeated TB frac pair.
 		// That's (0x10 - frac_v) in byte 1, frac_v in byte 2, repeating.
 		X64Reg fracReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+		X64Reg allFracReg = regCache_.Find(RegCache::VEC_FRAC);
 		X64Reg zeroReg = GetZeroVec();
 		if (level1) {
-			MOVD_xmm(fracReg, MDisp(RSP, stackArgPos_ + stackFracUV1Offset_ + 4));
+			PSHUFLW(fracReg, R(allFracReg), _MM_SHUFFLE(3, 3, 3, 3));
 		} else {
-			X64Reg fracVReg = regCache_.Find(RegCache::GEN_ARG_FRAC_V);
-			MOVD_xmm(fracReg, R(fracVReg));
-			regCache_.Unlock(fracVReg, RegCache::GEN_ARG_FRAC_V);
-			regCache_.ForceRelease(RegCache::GEN_ARG_FRAC_V);
+			PSHUFLW(fracReg, R(allFracReg), _MM_SHUFFLE(1, 1, 1, 1));
 		}
 		PSHUFB(fracReg, R(zeroReg));
 		regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
+		regCache_.Unlock(allFracReg, RegCache::VEC_FRAC);
 
 		// Now, inverse fracReg, then interleave into the actual multiplier.
 		// This gives us the repeated TB pairs we wanted.
@@ -1307,16 +1305,14 @@ bool SamplerJitCache::Jit_BlendQuad(const SamplerID &id, bool level1) {
 		// With that done, we need to multiply by LR, or rather 0L0R, and sum again.
 		// Since RRRR was all next to each other, this gives us a clean total R.
 		fracReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+		allFracReg = regCache_.Find(RegCache::VEC_FRAC);
 		if (level1) {
-			MOVD_xmm(fracReg, MDisp(RSP, stackArgPos_ + stackFracUV1Offset_));
+			PSHUFLW(fracReg, R(allFracReg), _MM_SHUFFLE(2, 2, 2, 2));
 		} else {
-			X64Reg fracUReg = regCache_.Find(RegCache::GEN_ARG_FRAC_U);
-			MOVD_xmm(fracReg, R(fracUReg));
-			regCache_.Unlock(fracUReg, RegCache::GEN_ARG_FRAC_U);
-			regCache_.ForceRelease(RegCache::GEN_ARG_FRAC_U);
+			// We can ignore the high bits, since we'll interleave those away anyway.
+			PSHUFLW(fracReg, R(allFracReg), _MM_SHUFFLE(0, 0, 0, 0));
 		}
-		// We can ignore the high bits, since we'll interleave those away anyway.
-		PSHUFLW(fracReg, R(fracReg), _MM_SHUFFLE(0, 0, 0, 0));
+		regCache_.Unlock(allFracReg, RegCache::VEC_FRAC);
 
 		// Again, we're inversing into an interleaved multiplier.  L is the inversed one.
 		// 0L0R is (0x10 - frac_u), frac_u - 2x16 repeated four times.
@@ -1372,16 +1368,14 @@ bool SamplerJitCache::Jit_BlendQuad(const SamplerID &id, bool level1) {
 
 		// Grab frac_u and spread to lower (L) lanes.
 		X64Reg fracReg = regCache_.Alloc(RegCache::VEC_TEMP2);
+		X64Reg allFracReg = regCache_.Find(RegCache::VEC_FRAC);
 		X64Reg fracMulReg = regCache_.Alloc(RegCache::VEC_TEMP3);
 		if (level1) {
-			MOVD_xmm(fracReg, MDisp(RSP, stackArgPos_ + stackFracUV1Offset_));
+			PSHUFLW(fracReg, R(allFracReg), _MM_SHUFFLE(2, 2, 2, 2));
 		} else {
-			X64Reg fracUReg = regCache_.Find(RegCache::GEN_ARG_FRAC_U);
-			MOVD_xmm(fracReg, R(fracUReg));
-			regCache_.Unlock(fracUReg, RegCache::GEN_ARG_FRAC_U);
-			regCache_.ForceRelease(RegCache::GEN_ARG_FRAC_U);
+			PSHUFLW(fracReg, R(allFracReg), _MM_SHUFFLE(0, 0, 0, 0));
 		}
-		PSHUFLW(fracReg, R(fracReg), _MM_SHUFFLE(0, 0, 0, 0));
+		regCache_.Unlock(allFracReg, RegCache::VEC_FRAC);
 		// Now subtract 0x10 - frac_u in the L lanes only: 00000000 LLLLLLLL.
 		MOVDQA(fracMulReg, M(const10Low_));
 		PSUBW(fracMulReg, R(fracReg));
@@ -1397,17 +1391,15 @@ bool SamplerJitCache::Jit_BlendQuad(const SamplerID &id, bool level1) {
 
 		// Time for frac_v.  This time, we want it in all 8 lanes.
 		fracReg = regCache_.Alloc(RegCache::VEC_TEMP2);
+		allFracReg = regCache_.Find(RegCache::VEC_FRAC);
 		X64Reg fracTopReg = regCache_.Alloc(RegCache::VEC_TEMP3);
 		if (level1) {
-			MOVD_xmm(fracReg, MDisp(RSP, stackArgPos_ + stackFracUV1Offset_ + 4));
+			PSHUFLW(fracReg, R(allFracReg), _MM_SHUFFLE(3, 3, 3, 3));
 		} else {
-			X64Reg fracVReg = regCache_.Find(RegCache::GEN_ARG_FRAC_V);
-			MOVD_xmm(fracReg, R(fracVReg));
-			regCache_.Unlock(fracVReg, RegCache::GEN_ARG_FRAC_V);
-			regCache_.ForceRelease(RegCache::GEN_ARG_FRAC_V);
+			PSHUFLW(fracReg, R(allFracReg), _MM_SHUFFLE(2, 2, 2, 2));
 		}
-		PSHUFLW(fracReg, R(fracReg), _MM_SHUFFLE(0, 0, 0, 0));
 		PSHUFD(fracReg, R(fracReg), _MM_SHUFFLE(0, 0, 0, 0));
+		regCache_.Unlock(allFracReg, RegCache::VEC_FRAC);
 
 		// Now, inverse fracReg into fracTopReg for the top row.
 		MOVDQA(fracTopReg, M(const10All16_));
@@ -2486,8 +2478,8 @@ bool SamplerJitCache::Jit_GetTexelCoords(const SamplerID &id) {
 		applyClampWrap(vReg, id.clampT, true, true);
 
 		// Okay, now stuff them on the stack - we'll load them again later.
-		MOV(32, MDisp(RSP, stackArgPos_ + stackFracUV1Offset_ + 0), R(uReg));
-		MOV(32, MDisp(RSP, stackArgPos_ + stackFracUV1Offset_ + 4), R(vReg));
+		MOV(32, MDisp(RSP, stackArgPos_ + stackUV1Offset_ + 0), R(uReg));
+		MOV(32, MDisp(RSP, stackArgPos_ + stackUV1Offset_ + 4), R(vReg));
 
 		// And then the given level.
 		// Note: for non-SSE4, this must be in S/T order.
@@ -2656,36 +2648,19 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	regCache_.ForceRelease(RegCache::GEN_ARG_X);
 	regCache_.ForceRelease(RegCache::GEN_ARG_Y);
 
-	// We do want the fraction, though, so extract that.
-	X64Reg fracUReg = regCache_.Find(RegCache::GEN_ARG_FRAC_U);
-	X64Reg fracVReg = regCache_.Find(RegCache::GEN_ARG_FRAC_V);
-	X64Reg fracExtractReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+	// We do want the fraction, though, so extract that to an XMM for later.
+	X64Reg allFracReg = INVALID_REG;
+	if (regCache_.Has(RegCache::VEC_FRAC))
+		allFracReg = regCache_.Find(RegCache::VEC_FRAC);
+	else
+		allFracReg = regCache_.Alloc(RegCache::VEC_FRAC);
 	// We only want the four bits after the first four, though.
-	PSLLD(fracExtractReg, sReg, 24);
-	PSRLD(fracExtractReg, 28);
-	// Okay, grab the regs.
-	if (cpu_info.bSSE4_1) {
-		MOVD_xmm(R(fracUReg), fracExtractReg);
-		PEXTRD(R(fracVReg), fracExtractReg, 1);
-	} else {
-		MOVD_xmm(R(fracUReg), fracExtractReg);
-		PSRLDQ(fracExtractReg, 4);
-		MOVD_xmm(R(fracVReg), fracExtractReg);
-	}
-	// And store frac U1/V1 on the stack, if we have mips.
-	if (id.hasAnyMips) {
-		if (cpu_info.bSSE4_1) {
-			// They're next to each other, so one extract is enough.
-			PEXTRQ(MDisp(RSP, stackArgPos_ + stackFracUV1Offset_), fracExtractReg, 1);
-		} else {
-			// We already shifted 4 for fracVReg, shift again and store.
-			PSRLDQ(fracExtractReg, 4);
-			MOVQ_xmm(MDisp(RSP, stackArgPos_ + stackFracUV1Offset_), fracExtractReg);
-		}
-	}
-	regCache_.Release(fracExtractReg, RegCache::VEC_TEMP0);
-	regCache_.Unlock(fracUReg, RegCache::GEN_ARG_FRAC_U);
-	regCache_.Unlock(fracVReg, RegCache::GEN_ARG_FRAC_V);
+	PSLLD(allFracReg, sReg, 24);
+	PSRLD(allFracReg, 28);
+	// It's convenient later if this is in the low words only.
+	PACKSSDW(allFracReg, R(allFracReg));
+	regCache_.Unlock(allFracReg, RegCache::VEC_FRAC);
+	regCache_.ForceRetain(RegCache::VEC_FRAC);
 
 	// With those extracted, we can now get rid of the fractional bits.
 	PSRAD(sReg, 8);
