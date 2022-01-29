@@ -160,7 +160,9 @@ const char *ShaderLanguageToString(ShaderLanguage lang) {
 
 bool TestReinterpretShaders() {
 	ShaderLanguage languages[] = {
+#if PPSSPP_PLATFORM(WINDOWS)
 		ShaderLanguage::HLSL_D3D11,
+#endif
 		ShaderLanguage::GLSL_VULKAN,
 		ShaderLanguage::GLSL_3xx,
 	};
@@ -221,8 +223,10 @@ bool TestReinterpretShaders() {
 }
 
 const ShaderLanguage languages[] = {
+#if PPSSPP_PLATFORM(WINDOWS)
 	ShaderLanguage::HLSL_D3D9,
 	ShaderLanguage::HLSL_D3D11,
+#endif
 	ShaderLanguage::GLSL_VULKAN,
 	ShaderLanguage::GLSL_1xx,
 	ShaderLanguage::GLSL_3xx,

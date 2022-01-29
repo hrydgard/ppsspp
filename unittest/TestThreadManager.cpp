@@ -69,7 +69,7 @@ bool TestThreadManager() {
 
 	ResultObject *result = object->BlockUntilReady();
 	if (result) {
-		printf("Got result back!");
+		printf("Got result back!\n");
 	}
 
 	delete object;
