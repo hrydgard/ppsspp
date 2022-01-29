@@ -435,6 +435,9 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	drawEngine_->Init();
 	drawEngineCommon_ = drawEngine_;
 
+	// Push the initial CLUT buffer in case it's all zero (we push only on change.)
+	drawEngine_->transformUnit.NotifyClutUpdate(clut);
+
 	if (gfxCtx && draw) {
 		presentation_ = new PresentationCommon(draw_);
 		presentation_->SetLanguage(draw_->GetShaderLanguageDesc().shaderLanguage);
@@ -895,20 +898,26 @@ void SoftGPU::Execute_LoadClut(u32 op, u32 diff) {
 	// Might be copying drawing into the CLUT, so flush.
 	drawEngine_->transformUnit.FlushIfOverlap("loadclut", clutAddr, clutTotalBytes, clutTotalBytes, 1);
 
+	bool changed = false;
 	if (Memory::IsValidAddress(clutAddr)) {
 		u32 validSize = Memory::ValidSize(clutAddr, clutTotalBytes);
-		Memory::MemcpyUnchecked(clut, clutAddr, validSize);
+		changed = memcmp(clut, Memory::GetPointerUnchecked(clutAddr), validSize) != 0;
+		if (changed)
+			Memory::MemcpyUnchecked(clut, clutAddr, validSize);
 		if (validSize < clutTotalBytes) {
 			// Zero out the parts that were outside valid memory.
 			memset((u8 *)clut + validSize, 0x00, clutTotalBytes - validSize);
+			changed = true;
 		}
 	} else if (clutAddr != 0) {
 		// Some invalid addresses trigger a crash, others fill with zero.  We always fill zero.
 		DEBUG_LOG(G3D, "Software: Invalid CLUT address, filling with garbage instead of crashing");
 		memset(clut, 0x00, clutTotalBytes);
+		changed = true;
 	}
 
-	drawEngine_->transformUnit.NotifyClutUpdate(clut);
+	if (changed)
+		drawEngine_->transformUnit.NotifyClutUpdate(clut);
 	dirtyFlags_ |= SoftDirty::SAMPLER_CLUT;
 }
 

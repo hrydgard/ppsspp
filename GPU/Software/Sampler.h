@@ -101,7 +101,7 @@ private:
 #if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	int stackArgPos_ = 0;
 	int stackIDOffset_ = -1;
-	int stackFracUV1Offset_ = 0;
+	int stackUV1Offset_ = 0;
 #endif
 
 	const u8 *constWidthHeight256f_ = nullptr;
