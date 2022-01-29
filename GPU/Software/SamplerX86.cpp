@@ -631,11 +631,18 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	if (id.hasAnyMips)
 		prepareDataOffsets(RegCache::VEC_U1, RegCache::VEC_V1, true);
 
-	regCache_.ChangeReg(XMM5, RegCache::VEC_RESULT);
-	regCache_.ForceRetain(RegCache::VEC_RESULT);
-	if (id.hasAnyMips) {
-		regCache_.ChangeReg(XMM8, RegCache::VEC_RESULT1);
-		regCache_.ForceRetain(RegCache::VEC_RESULT1);
+	// The data offset goes into V, except in the CLUT4 case and DXT (nearest func) cases.
+	if (nearest == nullptr && id.TexFmt() != GE_TFMT_CLUT4)
+		regCache_.ForceRelease(RegCache::VEC_ARG_U);
+
+	// Hard allocate results if we're using the func method.
+	if (nearest != nullptr) {
+		regCache_.ChangeReg(XMM5, RegCache::VEC_RESULT);
+		regCache_.ForceRetain(RegCache::VEC_RESULT);
+		if (id.hasAnyMips) {
+			regCache_.ChangeReg(XMM8, RegCache::VEC_RESULT1);
+			regCache_.ForceRetain(RegCache::VEC_RESULT1);
+		}
 	}
 
 	// This stores the result in an XMM for later processing.
@@ -741,8 +748,10 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	}
 
 	// We're done with these now.
-	regCache_.ForceRelease(RegCache::VEC_ARG_U);
-	regCache_.ForceRelease(RegCache::VEC_ARG_V);
+	if (nearest != nullptr)
+		regCache_.ForceRelease(RegCache::VEC_ARG_U);
+	if (nearest != nullptr)
+		regCache_.ForceRelease(RegCache::VEC_ARG_V);
 	if (regCache_.Has(RegCache::VEC_U1))
 		regCache_.ForceRelease(RegCache::VEC_U1);
 	if (regCache_.Has(RegCache::VEC_V1))
@@ -983,8 +992,10 @@ bool SamplerJitCache::Jit_GetDataQuad(const SamplerID &id, bool level1, int bits
 	X64Reg destReg = INVALID_REG;
 	if (id.TexFmt() >= GE_TFMT_CLUT4 && id.TexFmt() <= GE_TFMT_CLUT32)
 		destReg = regCache_.Alloc(RegCache::VEC_INDEX);
-	else
+	else if (regCache_.Has(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT))
 		destReg = regCache_.Find(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
+	else
+		destReg = regCache_.Alloc(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
 
 	X64Reg byteOffsetReg = regCache_.Find(level1 ? RegCache::VEC_V1 : RegCache::VEC_ARG_V);
 	if (cpu_info.bAVX2 && id.overReadSafe) {
@@ -1034,6 +1045,7 @@ bool SamplerJitCache::Jit_GetDataQuad(const SamplerID &id, bool level1, int bits
 		regCache_.Release(temp2Reg, RegCache::GEN_TEMP2);
 	}
 	regCache_.Unlock(byteOffsetReg, level1 ? RegCache::VEC_V1 : RegCache::VEC_ARG_V);
+	regCache_.ForceRelease(level1 ? RegCache::VEC_V1 : RegCache::VEC_ARG_V);
 	regCache_.Release(baseReg, RegCache::GEN_ARG_TEXPTR);
 
 	if (bitsPerTexel == 4) {
@@ -1061,12 +1073,15 @@ bool SamplerJitCache::Jit_GetDataQuad(const SamplerID &id, bool level1, int bits
 			regCache_.Release(unshiftedReg, RegCache::VEC_TEMP0);
 		}
 		regCache_.Unlock(uReg, level1 ? RegCache::VEC_U1 : RegCache::VEC_ARG_U);
+		regCache_.ForceRelease(level1 ? RegCache::VEC_U1 : RegCache::VEC_ARG_U);
 	}
 
-	if (id.TexFmt() >= GE_TFMT_CLUT4 && id.TexFmt() <= GE_TFMT_CLUT32)
+	if (id.TexFmt() >= GE_TFMT_CLUT4 && id.TexFmt() <= GE_TFMT_CLUT32) {
 		regCache_.Unlock(destReg, RegCache::VEC_INDEX);
-	else
+	} else {
 		regCache_.Unlock(destReg, level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
+		regCache_.ForceRetain(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
+	}
 
 	return success;
 }
@@ -1186,7 +1201,11 @@ bool SamplerJitCache::Jit_ReadClutQuad(const SamplerID &id, bool level1) {
 	MOV(PTRBITS, R(clutBaseReg), MDisp(idReg, offsetof(SamplerID, cached.clut)));
 	UnlockSamplerID(idReg);
 
-	X64Reg resultReg = regCache_.Find(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
+	X64Reg resultReg = INVALID_REG;
+	if (regCache_.Has(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT))
+		resultReg = regCache_.Find(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
+	else
+		resultReg = regCache_.Alloc(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
 	X64Reg maskReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 	if (cpu_info.bAVX2 && id.overReadSafe)
 		PCMPEQD(maskReg, R(maskReg));
@@ -1253,6 +1272,7 @@ bool SamplerJitCache::Jit_ReadClutQuad(const SamplerID &id, bool level1) {
 	}
 	regCache_.Release(maskReg, RegCache::VEC_TEMP0);
 	regCache_.Unlock(resultReg, level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
+	regCache_.ForceRetain(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
 
 	regCache_.Release(clutBaseReg, RegCache::GEN_TEMP1);
 	regCache_.Release(indexReg, RegCache::VEC_INDEX);
@@ -3308,9 +3328,7 @@ bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
 			// We need to multiply by 16 and add, LEA allows us to copy too.
 			LEA(32, temp2Reg, MScaled(levelReg, SCALE_4, 0));
 			regCache_.Unlock(levelReg, RegCache::GEN_ARG_LEVEL);
-			// Don't release if we're reusing it.
-			if (!regCache_.Has(RegCache::VEC_ARG_U))
-				regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
+			regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
 		} else {
 #if PPSSPP_PLATFORM(WINDOWS)
 			// The argument was saved on the stack.
