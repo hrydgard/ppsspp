@@ -602,12 +602,14 @@ static bool TestPath() {
 	EXPECT_EQ_STR(Path("foo.bar/hello.txt").WithReplacedExtension(".txt", ".html").ToString(), std::string("foo.bar/hello.html"));
 
 	EXPECT_EQ_STR(Path("C:\\Yo").NavigateUp().ToString(), std::string("C:"));
+#if PPSSPP_PLATFORM(WINDOWS)
 	EXPECT_EQ_STR(Path("C:").NavigateUp().ToString(), std::string("/"));
 
 	EXPECT_EQ_STR(Path("C:\\Yo").GetDirectory(), std::string("C:"));
 	EXPECT_EQ_STR(Path("C:\\Yo").GetFilename(), std::string("Yo"));
 	EXPECT_EQ_STR(Path("C:\\Yo\\Lo").GetDirectory(), std::string("C:/Yo"));
 	EXPECT_EQ_STR(Path("C:\\Yo\\Lo").GetFilename(), std::string("Lo"));
+#endif
 
 	std::string computedPath;
 
