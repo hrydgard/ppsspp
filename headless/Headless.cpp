@@ -177,9 +177,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart));
 
 	bool passed = true;
-	// TODO: We must have some kind of stack overflow or we're not following the ABI right.
-	// This gets trashed if it's not static.
-	static double deadline;
+	double deadline;
 	deadline = time_now_d() + timeout;
 
 	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
