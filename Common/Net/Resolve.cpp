@@ -109,7 +109,8 @@ void DNSResolveFree(addrinfo *res)
 
 bool GetIPList(std::vector<std::string> &IP4s) {
 	char ipstr[INET6_ADDRSTRLEN]; // We use IPv6 length since it's longer than IPv4
-#if (__GLIBC__ > 2) || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 3) || (__ANDROID_API__ >= 24) // getifaddrs first appeared in glibc 2.3, On Android officially supported since __ANDROID_API__ >= 24
+// getifaddrs first appeared in glibc 2.3, On Android officially supported since __ANDROID_API__ >= 24
+#if defined(_IFADDRS_H_) || (__GLIBC__ > 2) || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 3) || (__ANDROID_API__ >= 24)
 	INFO_LOG(SCENET, "GetIPList from getifaddrs");
 	struct ifaddrs* ifAddrStruct = NULL;
 	struct ifaddrs* ifa = NULL;
@@ -140,28 +141,47 @@ bool GetIPList(std::vector<std::string> &IP4s) {
 #elif defined(SIOCGIFCONF) // Better detection on Linux/UNIX/MacOS/some Android
 	INFO_LOG(SCENET, "GetIPList from SIOCGIFCONF");
 	static struct ifreq ifreqs[32];
-	struct ifconf ifconf;
-	memset(&ifconf, 0, sizeof(ifconf));
-	ifconf.ifc_req = ifreqs;
-	ifconf.ifc_len = sizeof(ifreqs);
+	struct ifconf ifc;
+	memset(&ifc, 0, sizeof(ifconf));
+	ifc.ifc_req = ifreqs;
+	ifc.ifc_len = sizeof(ifreqs);
 
 	int sd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sd < 0) return false;
+	if (sd < 0) {
+		ERROR_LOG(SCENET, "GetIPList failed to create socket (result = %i, errno = %i)", sd, errno);
+		return false;
+	}
 
-	int r = ioctl(sd, SIOCGIFCONF, (char*)&ifconf);
-	if (r != 0) return false;
+	int r = ioctl(sd, SIOCGIFCONF, (char*)&ifc);
+	if (r != 0) {
+		ERROR_LOG(SCENET, "GetIPList failed ioctl/SIOCGIFCONF (result = %i, errno = %i)", r, errno);
+		return false;
+	}
 
-	for (int i = 0; i < ifconf.ifc_len / sizeof(struct ifreq); ++i)
+	struct ifreq* item;
+	struct sockaddr* addr;
+
+	for (int i = 0; i < ifc.ifc_len / sizeof(struct ifreq); ++i)
 	{
+		item = &ifreqs[i];
+		addr = &(item->ifr_addr);
+
+		// Get the IP address
+		r = ioctl(sd, SIOCGIFADDR, item);
+		if (r != 0)
+		{
+			ERROR_LOG(SCENET, "GetIPList failed ioctl/SIOCGIFADDR (i = %i, result = %i, errno = %i)", i, r, errno);
+		}
+
 		if (ifreqs[i].ifr_addr.sa_family == AF_INET) {
 			// is a valid IP4 Address
-			if (inet_ntop(AF_INET, &((struct sockaddr_in*)&ifreqs[i].ifr_addr)->sin_addr, ipstr, sizeof(ipstr)) != 0) {
+			if (inet_ntop(AF_INET, &((struct sockaddr_in*)addr)->sin_addr, ipstr, sizeof(ipstr)) != 0) {
 				IP4s.push_back(ipstr);
 			}
 		}
 		/*else if (ifreqs[i].ifr_addr.sa_family == AF_INET6) {
 			// is a valid IP6 Address
-			if (inet_ntop(AF_INET6, &((struct sockaddr_in6*)&ifreqs[i].ifr_addr)->sin6_addr, ipstr, sizeof(ipstr)) != 0) {
+			if (inet_ntop(AF_INET6, &((struct sockaddr_in6*)addr)->sin6_addr, ipstr, sizeof(ipstr)) != 0) {
 				IP6s.push_back(ipstr);
 			}
 		}*/
