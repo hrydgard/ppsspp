@@ -102,7 +102,11 @@ jobs:
         name: Windows x64 build
         path: ppsspp/
 
-    - name: Execute tests
+    - name: Execute unit tests
+      working-directory: ${{ env.GITHUB_WORKSPACE }}
+      run: ppsspp\\PPSSPPHeadless.exe ALL
+
+    - name: Execute headless tests
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       run: python test.py -g --graphics=software
 
@@ -115,11 +119,11 @@ jobs:
           extra: test
           cc: clang
           cxx: clang++
-          args: ./b.sh --headless
+          args: ./b.sh --headless --unittest
         - os: ubuntu-latest
           cc: gcc
           cxx: g++
-          args: ./b.sh --headless
+          args: ./b.sh --headless --unittest
 
         - os: ubuntu-latest
           extra: android
@@ -167,7 +171,7 @@ jobs:
           extra: test
           cc: clang
           cxx: clang++
-          args: ./b.sh --headless --fat --no-png --no-sdl2
+          args: ./b.sh --headless --unittest --fat --no-png --no-sdl2
         - os: macos-latest
           extra: ios
           cc: clang
@@ -248,6 +252,11 @@ jobs:
         elif [ -e build*/PPSSPPHeadless ]; then
           cp build*/PPSSPPHeadless ppsspp/
         fi
+        if [ -e build*/$BUILD_CONFIGURATION/PPSSPPUnitTest ]; then
+          cp build*/$BUILD_CONFIGURATION/PPSSPPUnitTest ppsspp/
+        elif [ -e build*/PPSSPPUnitTest ]; then
+          cp build*/PPSSPPUnitTest ppsspp/
+        fi
 
     - name: Upload build
       uses: actions/upload-artifact@v1
@@ -317,7 +326,13 @@ jobs:
       run: |
         cp `find . -name PPSSPPHeadless` .
         chmod +x PPSSPPHeadless
+        cp `find . -name PPSSPPUnitTest` .
+        chmod +x PPSSPPUnitTest
 
-    - name: Execute tests
+    - name: Execute unit tests
+      working-directory: ${{ env.GITHUB_WORKSPACE }}
+      run: ./PPSSPPUnitTest ALL
+
+    - name: Execute headless tests
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       run: python test.py -g --graphics=software
