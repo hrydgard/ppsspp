@@ -3334,11 +3334,12 @@ bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
 			// We need to multiply by 16 and add, LEA allows us to copy too.
 			LEA(32, temp2Reg, MScaled(levelReg, SCALE_4, 0));
 			regCache_.Unlock(levelReg, RegCache::GEN_ARG_LEVEL);
-			regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
+			if (id.fetch)
+				regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
 		} else {
 #if PPSSPP_PLATFORM(WINDOWS)
 			// The argument was saved on the stack.
-			MOV(32, R(temp2Reg), MDisp(RSP, stackArgPos_));
+			MOV(32, R(temp2Reg), MDisp(RSP, stackArgPos_ + (id.fetch ? 0 : 16)));
 #else
 			_assert_(false);
 #endif
