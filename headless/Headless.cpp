@@ -14,6 +14,10 @@
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 
+#include "Common/CommonWindows.h"
+#if PPSSPP_PLATFORM(WINDOWS)
+#include <timeapi.h>
+#endif
 #include "Common/CPUDetect.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/AssetReader.h"
@@ -240,6 +244,9 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 int main(int argc, const char* argv[])
 {
 	PROFILE_INIT();
+#if PPSSPP_PLATFORM(WINDOWS)
+	timeBeginPeriod(1);
+#endif
 
 #if defined(_DEBUG) && defined(_MSC_VER)
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -508,6 +515,10 @@ int main(int argc, const char* argv[])
 	VFSShutdown();
 	LogManager::Shutdown();
 	delete printfLogger;
+
+#if PPSSPP_PLATFORM(WINDOWS)
+	timeEndPeriod(1);
+#endif
 
 	if (!failedTests.empty() && !teamCityMode)
 		return 1;
