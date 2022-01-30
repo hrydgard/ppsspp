@@ -59,15 +59,21 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 	Describe("Init");
 	WriteConstantPool(id);
 
-	const u8 *start = AlignCode16();
+	const u8 *resetPos = AlignCode16();
 	bool success = true;
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	// RET + Windows reserves space to save args, half of 1 xmm + 4 ints before the id.
 	_assert_(!regCache_.Has(RegCache::GEN_ARG_ID));
-	stackIDOffset_ = 8 + 8 + 4 * PTRBITS / 8;
+	int stackSpace = 0;
+	if (id.hasStencilTestMask)
+		stackSpace = WriteProlog(0, { XMM6, XMM7, XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15 }, { R12, R13, R14, R15 });
+	else
+		stackSpace = WriteProlog(0, {}, {});
+	stackIDOffset_ = stackSpace + 8 + 8 + 4 * PTRBITS / 8;
 #else
 	_assert_(regCache_.Has(RegCache::GEN_ARG_ID));
+	WriteProlog(0, {}, {});
 	stackIDOffset_ = -1;
 #endif
 
@@ -105,19 +111,18 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 
 	if (regCache_.Has(RegCache::GEN_ARG_ID))
 		regCache_.ForceRelease(RegCache::GEN_ARG_ID);
-	regCache_.Reset(success);
 
 	if (!success) {
 		ERROR_LOG_REPORT(G3D, "Could not compile pixel func: %s", DescribePixelFuncID(id).c_str());
 
+		regCache_.Reset(false);
 		EndWrite();
-		ResetCodePtr(GetOffset(start));
+		ResetCodePtr(GetOffset(resetPos));
 		return nullptr;
 	}
 
-	RET();
-
-	EndWrite();
+	const u8 *start = WriteFinalizedEpilog();
+	regCache_.Reset(true);
 	return (SingleFunc)start;
 }
 
@@ -595,7 +600,7 @@ bool PixelJitCache::Jit_StencilAndDepthTest(const PixelFuncID &id) {
 	X64Reg stencilReg = GetDestStencil(id);
 	Describe("StencilAndDepth");
 	X64Reg maskedReg = stencilReg;
-	if (id.hasStencilTestMask) {
+	if (id.hasStencilTestMask && stencilReg != INVALID_REG) {
 		X64Reg idReg = GetPixelID();
 		maskedReg = regCache_.Alloc(RegCache::GEN_TEMP0);
 		MOV(32, R(maskedReg), R(stencilReg));
