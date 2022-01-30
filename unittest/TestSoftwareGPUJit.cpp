@@ -22,6 +22,90 @@
 #include "GPU/Software/Sampler.h"
 #include "GPU/Software/SoftGpu.h"
 
+static bool TestSamplerJit() {
+	using namespace Sampler;
+	SamplerJitCache *cache = new SamplerJitCache();
+
+	auto GetLinear = [&](SamplerID &id) {
+		id.linear = true;
+		id.fetch = false;
+		return cache->GetLinear(id);
+	};
+	auto GetNearest = [&](SamplerID &id) {
+		id.linear = false;
+		id.fetch = false;
+		return cache->GetNearest(id);
+	};
+	auto GetFetch = [&](SamplerID &id) {
+		id.linear = false;
+		id.fetch = true;
+		return cache->GetFetch(id);
+	};
+
+	GMRng rng;
+	int successes = 0;
+	int count = 3000;
+	bool header = false;
+
+	u8 **tptr = new u8 *[8];
+	int *bufw = new int[8];
+	u8 *clut = new u8[1024];
+	for (int i = 0; i < 8; ++i) {
+		tptr[i] = new u8[1024 * 1024 * 4];
+		memset(tptr[i], 0, 1024 * 1024 * 4);
+		bufw[i] = 1;
+	}
+
+	for (int i = 0; i < count; ) {
+		SamplerID id;
+		memset(&id, 0, sizeof(id));
+		id.fullKey = rng.R32();
+		id.cached.clut = clut;
+
+		for (int i = 0; i < 8; ++i) {
+			id.cached.sizes[i].w = 1;
+			id.cached.sizes[i].h = 1;
+		}
+
+		std::string desc = DescribeSamplerID(id);
+		if (startsWith(desc, "INVALID"))
+			continue;
+		i++;
+
+		LinearFunc linearFunc = GetLinear(id);
+		NearestFunc nearestFunc = GetNearest(id);
+		FetchFunc fetchFunc = GetFetch(id);
+		if (linearFunc != nullptr && nearestFunc != nullptr && fetchFunc != nullptr) {
+			successes++;
+		} else {
+			if (!header)
+				printf("Failed sampler funcs:\n");
+			header = true;
+			printf(" * %s (L:%d, N:%d, F:%d)\n", desc.c_str(), linearFunc != nullptr, nearestFunc != nullptr, fetchFunc != nullptr);
+			continue;
+		}
+
+		// Try running each to make sure they don't trivially crash.
+		const auto primArg = Rasterizer::ToVec4IntArg(Math3D::Vec4<int>(127, 127, 127, 127));
+		linearFunc(0.0f, 0.0f, 0, 0, primArg, tptr, bufw, 1, 7, id);
+		nearestFunc(0.0f, 0.0f, 0, 0, primArg, tptr, bufw, 1, 7, id);
+		fetchFunc(0, 0, tptr[0], bufw[0], 1, id);
+	}
+
+	if (successes < count)
+		printf("SamplerFunc success: %d / %d\n", successes, count);
+
+	for (int i = 0; i < 8; ++i) {
+		delete [] tptr[i];
+	}
+	delete [] tptr;
+	delete [] bufw;
+	delete [] clut;
+
+	delete cache;
+	return successes == count && !HitAnyAsserts();
+}
+
 static bool TestPixelJit() {
 	using namespace Rasterizer;
 	PixelJitCache *cache = new PixelJitCache();
@@ -52,7 +136,7 @@ static bool TestPixelJit() {
 			successes++;
 		} else {
 			if (!header)
-				printf("Failed funcs:\n");
+				printf("Failed pixel funcs:\n");
 			header = true;
 			printf(" * %s\n", desc.c_str());
 		}
@@ -73,6 +157,10 @@ static bool TestPixelJit() {
 bool TestSoftwareGPUJit() {
 	g_Config.bSoftwareRenderingJit = true;
 	ResetHitAnyAsserts();
+
+	if (!TestSamplerJit()) {
+		return false;
+	}
 
 	if (!TestPixelJit()) {
 		return false;
