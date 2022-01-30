@@ -104,7 +104,7 @@ jobs:
 
     - name: Execute unit tests
       working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: ppsspp\\PPSSPPHeadless.exe ALL
+      run: ppsspp\\UnitTest.exe ALL
 
     - name: Execute headless tests
       working-directory: ${{ env.GITHUB_WORKSPACE }}
