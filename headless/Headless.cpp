@@ -14,6 +14,10 @@
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 
+#include "Common/CommonWindows.h"
+#if PPSSPP_PLATFORM(WINDOWS)
+#include <timeapi.h>
+#endif
 #include "Common/CPUDetect.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/AssetReader.h"
@@ -161,7 +165,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 		coreParameter.collectEmuLog = &output;
 
 	std::string error_string;
-	if (!PSP_Init(coreParameter, &error_string)) {
+	if (!PSP_InitStart(coreParameter, &error_string)) {
 		fprintf(stderr, "Failed to start '%s'. Error: %s\n", coreParameter.fileToStart.c_str(), error_string.c_str());
 		printf("TESTERROR\n");
 		TeamCityPrint("testIgnored name='%s' message='PRX/ELF missing'", currentTestName.c_str());
@@ -175,6 +179,15 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 
 	if (autoCompare)
 		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart));
+
+	while (!PSP_InitUpdate(&error_string))
+		sleep_ms(1);
+	if (!PSP_IsInited()) {
+		TeamCityPrint("testFailed name='%s' message='Startup failed'", currentTestName.c_str());
+		TeamCityPrint("testFinished name='%s'", currentTestName.c_str());
+		GitHubActionsPrint("error", "Test timeout for %s", currentTestName.c_str());
+		return false;
+	}
 
 	bool passed = true;
 	double deadline;
@@ -231,6 +244,9 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 int main(int argc, const char* argv[])
 {
 	PROFILE_INIT();
+#if PPSSPP_PLATFORM(WINDOWS)
+	timeBeginPeriod(1);
+#endif
 
 #if defined(_DEBUG) && defined(_MSC_VER)
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -499,6 +515,10 @@ int main(int argc, const char* argv[])
 	VFSShutdown();
 	LogManager::Shutdown();
 	delete printfLogger;
+
+#if PPSSPP_PLATFORM(WINDOWS)
+	timeEndPeriod(1);
+#endif
 
 	if (!failedTests.empty() && !teamCityMode)
 		return 1;

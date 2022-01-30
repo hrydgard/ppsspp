@@ -345,8 +345,11 @@ void MemSlabMap::FillHeads(Slab *slab) {
 	}
 
 	// Now replace all the rest - we definitely cover the start of them.
-	for (uint32_t i = slice + 1; i <= endSlice; ++i) {
-		heads_[i] = slab;
+	Slab **next = &heads_[slice + 1];
+	// We want to set slice + 1 through endSlice, inclusive.
+	size_t c = endSlice - slice;
+	for (size_t i = 0; i < c; ++i) {
+		next[i] = slab;
 	}
 }
 
