@@ -709,6 +709,12 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		doNearestCall(4, false);
 		doNearestCall(8, false);
 		doNearestCall(12, false);
+
+		// After doing the calls, certain cached things aren't safe.
+		if (regCache_.Has(RegCache::GEN_ID))
+			regCache_.ForceRelease(RegCache::GEN_ID);
+		if (regCache_.Has(RegCache::VEC_ZERO))
+			regCache_.ForceRelease(RegCache::VEC_ZERO);
 	} else {
 		success = success && Jit_FetchQuad(id, false);
 	}
