@@ -75,10 +75,10 @@ static void CalculateFPS() {
 
 	if (now >= lastFpsTime + 1.0) {
 		double frames = (numVBlanks - lastFpsFrame);
-		actualFps = (actualFlips - lastActualFlips);
+		actualFps = (float)(actualFlips - lastActualFlips);
 
 		fps = frames / (now - lastFpsTime);
-		flips = 60.0 * (double)(gpuStats.numFlips - lastNumFlips) / frames;
+		flips = (float)(60.0 * (double)(gpuStats.numFlips - lastNumFlips) / frames);
 
 		lastFpsFrame = numVBlanks;
 		lastNumFlips = gpuStats.numFlips;
@@ -105,17 +105,17 @@ static void CalculateFPS() {
 
 // TODO: Also average actualFps
 void __DisplayGetFPS(float *out_vps, float *out_fps, float *out_actual_fps) {
-	*out_vps = fps;
+	*out_vps = (float)fps;
 	*out_fps = flips;
 	*out_actual_fps = actualFps;
 }
 
 void __DisplayGetVPS(float *out_vps) {
-	*out_vps = fps;
+	*out_vps = (float)fps;
 }
 
 void __DisplayGetAveragedFPS(float *out_vps, float *out_fps) {
-	float avg = 0.0;
+	double avg = 0.0;
 	if (fpsHistoryValid > 0) {
 		for (int i = 0; i < fpsHistoryValid; ++i) {
 			avg += fpsHistory[i];
@@ -123,7 +123,7 @@ void __DisplayGetAveragedFPS(float *out_vps, float *out_fps) {
 		avg /= (double)fpsHistoryValid;
 	}
 
-	*out_vps = *out_fps = avg;
+	*out_vps = *out_fps = (float)avg;
 }
 
 int __DisplayGetFlipCount() {
@@ -147,7 +147,7 @@ uint64_t DisplayFrameStartTicks() {
 }
 
 uint32_t __DisplayGetCurrentHcount() {
-	const int ticksIntoFrame = CoreTiming::GetTicks() - frameStartTicks;
+	const int ticksIntoFrame = (int)(CoreTiming::GetTicks() - frameStartTicks);
 	const int ticksPerVblank = CoreTiming::GetClockFrequencyHz() / 60 / hCountPerVblank;
 	// Can't seem to produce a 0 on real hardware, offsetting by 1 makes things look right.
 	return 1 + (ticksIntoFrame / ticksPerVblank);
@@ -279,7 +279,7 @@ int DisplayCalculateFrameSkip() {
 	int frameSkipNum;
 	if (g_Config.iFrameSkipType == 1) {
 		// Calculate the frames to skip dynamically using the set percentage of the current fps
-		frameSkipNum = ceil(flips * (static_cast<double>(g_Config.iFrameSkip) / 100.00));
+		frameSkipNum = (int)ceil(flips * (static_cast<double>(g_Config.iFrameSkip) / 100.00));
 	} else {
 		// Use the set number of frames to skip
 		frameSkipNum = g_Config.iFrameSkip;

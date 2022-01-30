@@ -656,12 +656,12 @@ void JitBlockCache::ComputeStats(BlockCacheStats &bcStats) const {
 			bcStats.maxBloatBlock = b->originalAddress;
 		}
 		totalBloat += bloat;
-		bcStats.bloatMap[bloat] = b->originalAddress;
+		bcStats.bloatMap[(float)bloat] = b->originalAddress;
 	}
 	bcStats.numBlocks = num_blocks_;
-	bcStats.minBloat = minBloat;
-	bcStats.maxBloat = maxBloat;
-	bcStats.avgBloat = totalBloat / (double)num_blocks_;
+	bcStats.minBloat = (float)minBloat;
+	bcStats.maxBloat = (float)maxBloat;
+	bcStats.avgBloat = (float)(totalBloat / (double)num_blocks_);
 }
 
 JitBlockDebugInfo JitBlockCache::GetBlockDebugInfo(int blockNum) const {

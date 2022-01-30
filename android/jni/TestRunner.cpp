@@ -129,7 +129,7 @@ bool RunTests() {
 		// Run the emu until the test exits
 		INFO_LOG(SYSTEM, "Test: Entering runloop.");
 		while (true) {
-			int blockTicks = usToCycles(1000000 / 10);
+			int blockTicks = (int)usToCycles(1000000 / 10);
 			while (coreState == CORE_RUNNING) {
 				PSP_RunLoopFor(blockTicks);
 			}

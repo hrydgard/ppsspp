@@ -161,7 +161,7 @@ public:
 	inline void Step();
 
 	int GetHeight() const {
-		return height_ > (s64)PSP_SAS_ENVELOPE_HEIGHT_MAX ? PSP_SAS_ENVELOPE_HEIGHT_MAX : height_;
+		return (int)(height_ > (s64)PSP_SAS_ENVELOPE_HEIGHT_MAX ? PSP_SAS_ENVELOPE_HEIGHT_MAX : height_);
 	}
 	bool NeedsKeyOn() const {
 		return state_ == STATE_KEYON;

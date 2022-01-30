@@ -118,7 +118,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 
 	// OK, a guest executable did a bad access. Take care of it.
 
-	uint32_t guestAddress = hostAddress - baseAddress;
+	uint32_t guestAddress = (uint32_t)(hostAddress - baseAddress);
 
 	// TODO: Share the struct between the various analyzers, that will allow us to share most of
 	// the implementations here.
@@ -173,7 +173,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		// TODO: Do the other archs and platforms.
 #if PPSSPP_ARCH(AMD64) && PPSSPP_PLATFORM(WINDOWS)
 		// We know which register the address is in, look in Asm.cpp.
-		targetAddr = context->Rax;
+		targetAddr = (uint32_t)context->Rax;
 #endif
 		Core_ExecException(targetAddr, currentMIPS->pc, ExecExceptionType::JUMP);
 		// Redirect execution to a crash handler that will switch to CoreState::CORE_RUNTIME_ERROR immediately.

@@ -53,11 +53,11 @@ bool IsPowerOfTwo(uint64_t x) {
 
 bool IsImmArithmetic(uint64_t input, u32 *val, bool *shift) {
 	if (input < 4096) {
-		if (val) *val = input;
+		if (val) *val = (uint32_t)input;
 		if (shift) *shift = false;
 		return true;
 	} else if ((input & 0xFFF000) == input) {
-		if (val) *val = input >> 12;
+		if (val) *val = (uint32_t)(input >> 12);
 		if (shift) *shift = true;
 		return true;
 	}
@@ -1963,7 +1963,7 @@ void ARM64XEmitter::MOVI2R(ARM64Reg Rd, u64 imm, bool optimize)
 	// TODO: Make some more systemic use of MOVN, but this will take care of most cases.
 	// Small negative integer. Use MOVN
 	if (!Is64Bit(Rd) && (imm | 0xFFFF0000) == imm) {
-		MOVN(Rd, ~imm, SHIFT_0);
+		MOVN(Rd, (u32)(~imm), SHIFT_0);
 		return;
 	}
 
