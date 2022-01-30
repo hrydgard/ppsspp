@@ -47,6 +47,7 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HW/Display.h"
 #include "Core/Util/PPGeDraw.h"
 
 #include "GPU/GPU.h"
@@ -130,12 +131,6 @@ std::map<SceUID, int> vblankPausedWaits;
 
 // STATE END
 
-// Called when vblank happens (like an internal interrupt.)  Not part of state, should be static.
-static std::mutex listenersLock;
-static std::vector<VblankCallback> vblankListeners;
-typedef std::pair<FlipCallback, void *> FlipListener;
-static std::vector<FlipListener> flipListeners;
-
 // The vblank period is 731.5 us (0.7315 ms)
 const double vblankMs = 0.7315;
 // These are guesses based on tests.
@@ -198,6 +193,7 @@ static void ScheduleLagSync(int over = 0) {
 }
 
 void __DisplayInit() {
+	DisplayHWInit();
 	hasSetMode = false;
 	mode = 0;
 	resumeMode = 0;
@@ -347,49 +343,8 @@ void __DisplayDoState(PointerWrap &p) {
 }
 
 void __DisplayShutdown() {
-	std::lock_guard<std::mutex> guard(listenersLock);
-	vblankListeners.clear();
-	flipListeners.clear();
+	DisplayHWShutdown();
 	vblankWaitingThreads.clear();
-}
-
-void __DisplayListenVblank(VblankCallback callback) {
-	std::lock_guard<std::mutex> guard(listenersLock);
-	vblankListeners.push_back(callback);
-}
-
-void __DisplayListenFlip(FlipCallback callback, void *userdata) {
-	std::lock_guard<std::mutex> guard(listenersLock);
-	flipListeners.push_back(std::make_pair(callback, userdata));
-}
-
-void __DisplayForgetFlip(FlipCallback callback, void *userdata) {
-	std::lock_guard<std::mutex> guard(listenersLock);
-	flipListeners.erase(std::remove_if(flipListeners.begin(), flipListeners.end(), [&](FlipListener item) {
-		return item.first == callback && item.second == userdata;
-	}), flipListeners.end());
-}
-
-static void DisplayFireVblank() {
-	std::vector<VblankCallback> toCall = []{
-		std::lock_guard<std::mutex> guard(listenersLock);
-		return vblankListeners;
-	}();
-
-	for (VblankCallback cb : toCall) {
-		cb();
-	}
-}
-
-static void DisplayFireFlip() {
-	std::vector<FlipListener> toCall = [] {
-		std::lock_guard<std::mutex> guard(listenersLock);
-		return flipListeners;
-	}();
-
-	for (FlipListener cb : toCall) {
-		cb.first(cb.second);
-	}
 }
 
 void __DisplayVblankBeginCallback(SceUID threadID, SceUID prevCallbackId) {

@@ -20,18 +20,18 @@
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
-#include "Core/MIPS/MIPS.h"
-#include "Core/CoreTiming.h"
-#include "Core/MemMapHelpers.h"
-#include "Core/Replay.h"
-#include "Core/Util/AudioFormat.h"  // for clamp_u8
 #include "Core/HLE/sceCtrl.h"
-#include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HW/Display.h"
+#include "Core/MemMapHelpers.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/Replay.h"
+#include "Core/Util/AudioFormat.h"  // for clamp_u8
 
 /* Index for the two analog directions */
 #define CTRL_ANALOG_X   0

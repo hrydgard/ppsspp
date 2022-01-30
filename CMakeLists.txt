@@ -1885,6 +1885,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HW/BufferQueue.h
 	Core/HW/Camera.cpp
 	Core/HW/Camera.h
+	Core/HW/Display.cpp
+	Core/HW/Display.h
 	Core/HW/MediaEngine.cpp
 	Core/HW/MediaEngine.h
 	Core/HW/MpegDemux.cpp

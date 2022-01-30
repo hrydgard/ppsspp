@@ -71,6 +71,7 @@ using namespace std::placeholders;
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HLE/proAdhoc.h"
 #include "Core/HLE/Plugins.h"
+#include "Core/HW/Display.h"
 
 #include "UI/BackgroundAudio.h"
 #include "UI/OnScreenDisplay.h"
