@@ -391,8 +391,10 @@ void Core_UpdateDebugStats(bool collectStats) {
 		mipsr4k.ClearJitCache();
 	}
 
-	kernelStats.ResetFrame();
-	gpuStats.ResetFrame();
+	if (!PSP_CoreParameter().frozen && !Core_IsStepping()) {
+		kernelStats.ResetFrame();
+		gpuStats.ResetFrame();
+	}
 }
 
 void Core_ForceDebugStats(bool enable) {
