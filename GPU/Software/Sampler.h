@@ -60,6 +60,7 @@ public:
 	std::string DescribeCodePtr(const u8 *ptr) override;
 
 private:
+	void Compile(const SamplerID &id);
 	FetchFunc CompileFetch(const SamplerID &id);
 	NearestFunc CompileNearest(const SamplerID &id);
 	LinearFunc CompileLinear(const SamplerID &id);
@@ -101,6 +102,7 @@ private:
 #if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	int stackArgPos_ = 0;
 	int stackIDOffset_ = -1;
+	int stackLevelOffset_ = -1;
 	int stackUV1Offset_ = 0;
 #endif
 

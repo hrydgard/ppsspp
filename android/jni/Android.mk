@@ -738,8 +738,9 @@ ifeq ($(UNITTEST),1)
   LOCAL_SRC_FILES := \
     $(SRC)/unittest/JitHarness.cpp \
     $(SRC)/unittest/TestShaderGenerators.cpp \
-    $(SRC)/unittest/TestVertexJit.cpp \
+    $(SRC)/unittest/TestSoftwareGPUJit.cpp \
     $(SRC)/unittest/TestThreadManager.cpp \
+    $(SRC)/unittest/TestVertexJit.cpp \
     $(TESTARMEMITTER_FILE) \
     $(SRC)/unittest/UnitTest.cpp
 

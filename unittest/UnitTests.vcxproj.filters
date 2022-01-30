@@ -13,6 +13,7 @@
     </ClCompile>
     <ClCompile Include="TestShaderGenerators.cpp" />
     <ClCompile Include="TestThreadManager.cpp" />
+    <ClCompile Include="TestSoftwareGPUJit.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="JitHarness.h" />

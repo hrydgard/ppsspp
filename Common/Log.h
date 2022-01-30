@@ -116,6 +116,9 @@ __attribute__((format(printf, 5, 6)))
 #endif
 ;
 
+bool HitAnyAsserts();
+void ResetHitAnyAsserts();
+
 #if defined(__ANDROID__)
 // Tricky macro to get the basename, that also works if *built* on Win32.
 // Doesn't mean this macro can be used on Win32 though.

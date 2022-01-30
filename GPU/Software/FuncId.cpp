@@ -253,6 +253,8 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 	}
 
 	if (id.AlphaTestFunc() != GE_COMP_ALWAYS) {
+		if (id.clearMode)
+			desc = "INVALID:" + desc;
 		switch (id.AlphaTestFunc()) {
 		case GE_COMP_NEVER: desc += "ANever"; break;
 		case GE_COMP_ALWAYS: break;
@@ -266,9 +268,13 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 		if (id.hasAlphaTestMask)
 			desc += "Msk";
 		desc += StringFromFormat("%02X:", id.alphaTestRef);
+	} else if (id.hasAlphaTestMask || id.alphaTestRef != 0) {
+		desc = "INVALID:" + desc;
 	}
 
 	if (id.DepthTestFunc() != GE_COMP_ALWAYS) {
+		if (id.clearMode)
+			desc = "INVALID:" + desc;
 		switch (id.DepthTestFunc()) {
 		case GE_COMP_NEVER: desc += "ZNever:"; break;
 		case GE_COMP_ALWAYS: break;
@@ -300,6 +306,8 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 		if (id.hasStencilTestMask)
 			desc += "Msk";
 		desc += StringFromFormat("%02X:", id.stencilTestRef);
+	} else if (id.hasStencilTestMask || id.stencilTestRef != 0 || id.stencilTestFunc != 0) {
+		desc = "INVALID:" + desc;
 	}
 
 	switch (id.SFail()) {
@@ -326,8 +334,14 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 	case GE_STENCILOP_INCR: desc += "ZTstTInc:"; break;
 	case GE_STENCILOP_DECR: desc += "ZTstTDec:"; break;
 	}
+	if (!id.stencilTest || id.clearMode) {
+		if (id.sFail != 0 || id.zFail != 0 || id.zPass != 0)
+			desc = "INVALID:" + desc;
+	}
 
 	if (id.alphaBlend) {
+		if (id.clearMode)
+			desc = "INVALID:" + desc;
 		switch (id.AlphaBlendEq()) {
 		case GE_BLENDMODE_MUL_AND_ADD: desc += "BlendAdd<"; break;
 		case GE_BLENDMODE_MUL_AND_SUBTRACT: desc += "BlendSub<"; break;
@@ -366,15 +380,21 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 		case PixelBlendFactor::ZERO: desc += "0>:"; break;
 		case PixelBlendFactor::ONE: desc += "1>:"; break;
 		}
+	} else if (id.alphaBlendEq != 0 || id.alphaBlendSrc != 0 || id.alphaBlendDst != 0) {
+		desc = "INVALID:" + desc;
 	}
 
 	if (id.applyLogicOp)
 		desc += "Logic:";
+	else if (id.clearMode)
+		desc = "INVALID:" + desc;
 	if (id.applyFog)
 		desc += "Fog:";
+	else if (id.clearMode)
+		desc = "INVALID:" + desc;
 
 	if (desc.empty())
-		return desc;
+		return "INVALID";
 	desc.resize(desc.size() - 1);
 	return desc;
 }
@@ -405,6 +425,7 @@ void ComputeSamplerID(SamplerID *id_out) {
 		id.cached.sizes[i].w = w;
 		id.cached.sizes[i].h = h;
 	}
+	// TODO: What specifically happens if these are above 11?
 	id.width0Shift = gstate.texsize[0] & 0xF;
 	id.height0Shift = (gstate.texsize[0] >> 8) & 0xF;
 	id.hasAnyMips = maxLevel != 0;
@@ -450,6 +471,7 @@ std::string DescribeSamplerID(const SamplerID &id) {
 	case GE_TFMT_DXT1: name = "DXT1"; break;
 	case GE_TFMT_DXT3: name = "DXT3"; break;
 	case GE_TFMT_DXT5: name = "DXT5"; break;
+	default: name = "INVALID"; break;
 	}
 	switch (id.ClutFmt()) {
 	case GE_CMODE_16BIT_BGR5650:
@@ -529,6 +551,8 @@ std::string DescribeSamplerID(const SamplerID &id) {
 		break;
 	}
 	name += StringFromFormat(":W%dH%d", 1 << id.width0Shift, 1 << id.height0Shift);
+	if (id.width0Shift > 10 || id.height0Shift > 10)
+		name = "INVALID:" + name;
 
 	return name;
 }

@@ -32,6 +32,8 @@
 
 #define LOG_BUF_SIZE 2048
 
+static bool hitAnyAsserts = false;
+
 bool HandleAssert(const char *function, const char *file, int line, const char *expression, const char* format, ...) {
 	// Read message and write it to the log
 	char text[LOG_BUF_SIZE];
@@ -50,16 +52,22 @@ bool HandleAssert(const char *function, const char *file, int line, const char *
 	// Also do a simple printf for good measure, in case logging of SYSTEM is disabled (should we disallow that?)
 	fprintf(stderr, "%s\n", formatted);
 
+	hitAnyAsserts = true;
+
 #if defined(USING_WIN_UI)
-	int msgBoxStyle = MB_ICONINFORMATION | MB_YESNO;
-	std::wstring wtext = ConvertUTF8ToWString(formatted) + L"\n\nTry to continue?";
-	std::wstring wcaption = ConvertUTF8ToWString(caption);
-	OutputDebugString(wtext.c_str());
-	if (IDYES != MessageBox(0, wtext.c_str(), wcaption.c_str(), msgBoxStyle)) {
-		return false;
-	} else {
-		return true;
+	// Avoid hanging on CI.
+	if (!getenv("CI")) {
+		int msgBoxStyle = MB_ICONINFORMATION | MB_YESNO;
+		std::wstring wtext = ConvertUTF8ToWString(formatted) + L"\n\nTry to continue?";
+		std::wstring wcaption = ConvertUTF8ToWString(caption);
+		OutputDebugString(wtext.c_str());
+		if (IDYES != MessageBox(0, wtext.c_str(), wcaption.c_str(), msgBoxStyle)) {
+			return false;
+		} else {
+			return true;
+		}
 	}
+	return false;
 #elif PPSSPP_PLATFORM(ANDROID)
 	__android_log_assert(expression, "PPSSPP", "%s", formatted);
 	// Doesn't matter what we return here.
@@ -68,4 +76,12 @@ bool HandleAssert(const char *function, const char *file, int line, const char *
 	OutputDebugStringUTF8(text);
 	return false;
 #endif
+}
+
+// These are mainly used for unit testing.
+bool HitAnyAsserts() {
+	return hitAnyAsserts;
+}
+void ResetHitAnyAsserts() {
+	hitAnyAsserts = false;
 }
