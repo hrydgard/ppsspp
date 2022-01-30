@@ -187,6 +187,10 @@ void GameScreen::CreateViews() {
 		case IdentifiedFileType::PSP_ISO_NP:
 		case IdentifiedFileType::PSP_ISO:
 			fileTypeSupportCRC = true;
+			break;
+
+		default:
+			break;
 		}
 	}
 

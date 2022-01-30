@@ -1680,7 +1680,7 @@ UI::EventReturn GameSettingsScreen::OnSysInfo(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeSearchFilter(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
 	auto se = GetI18NCategory("Search");
-	System_InputBoxGetString(se->T("Search term"), searchFilter_, [this](bool result, const std::string &value) {
+	System_InputBoxGetString(se->T("Search term"), searchFilter_, [](bool result, const std::string &value) {
 		if (result) {
 			NativeMessageReceived("gameSettings_search", StripSpaces(value).c_str());
 		}
