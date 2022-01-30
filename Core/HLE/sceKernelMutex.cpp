@@ -933,6 +933,7 @@ int sceKernelTryLockLwMutex(u32 workareaPtr, int count)
 	}
 
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
+	hleEatCycles(24);
 
 	u32 error = 0;
 	if (__KernelLockLwMutex(workarea, count, error))
@@ -954,6 +955,7 @@ int sceKernelTryLockLwMutex_600(u32 workareaPtr, int count)
 	}
 
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
+	hleEatCycles(24);
 
 	u32 error = 0;
 	if (__KernelLockLwMutex(workarea, count, error))
@@ -974,6 +976,7 @@ int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr)
 	}
 
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
+	hleEatCycles(48);
 
 	u32 error = 0;
 	if (__KernelLockLwMutex(workarea, count, error))
@@ -1010,6 +1013,7 @@ int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 	}
 
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
+	hleEatCycles(48);
 
 	u32 error = 0;
 	if (__KernelLockLwMutex(workarea, count, error))
@@ -1046,6 +1050,7 @@ int sceKernelUnlockLwMutex(u32 workareaPtr, int count)
 	}
 
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
+	hleEatCycles(28);
 
 	if (workarea->uid == -1)
 		return PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX;
