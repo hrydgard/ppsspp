@@ -53,9 +53,11 @@ FetchFunc SamplerJitCache::CompileFetch(const SamplerID &id) {
 	// RET and shadow space.
 	stackArgPos_ = 8 + 32;
 	stackIDOffset_ = 8;
+	stackLevelOffset_ = 0;
 #else
 	stackArgPos_ = 0;
 	stackIDOffset_ = -1;
+	stackLevelOffset_ = -1;
 #endif
 
 	// Early exit on !srcPtr.
@@ -147,10 +149,12 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 
 	// Positions: stackArgPos_+0=src, stackArgPos_+8=bufw, stackArgPos_+16=level, stackArgPos_+24=levelFrac
 	stackIDOffset_ = 32;
+	stackLevelOffset_ = 16;
 #else
 	stackArgPos_ = 0;
 	// This is the only arg that went to the stack, it's after the RET.
 	stackIDOffset_ = 8;
+	stackLevelOffset_ = -1;
 #endif
 
 	// Start out by saving some registers, since we'll need more.
@@ -173,7 +177,7 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 #endif
 
 	// We can throw these away right off if there are no mips.
-	if (!id.hasAnyMips && regCache_.Has(RegCache::GEN_ARG_LEVEL))
+	if (!id.hasAnyMips && regCache_.Has(RegCache::GEN_ARG_LEVEL) && id.useSharedClut)
 		regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
 	if (!id.hasAnyMips && regCache_.Has(RegCache::GEN_ARG_LEVELFRAC))
 		regCache_.ForceRelease(RegCache::GEN_ARG_LEVELFRAC);
@@ -528,6 +532,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 
 	// Positions: stackArgPos_+0=src, stackArgPos_+8=bufw, stackArgPos_+16=level, stackArgPos_+24=levelFrac
 	stackIDOffset_ = 32;
+	stackLevelOffset_ = 16;
 
 	// If needed, we could store UV1 data in shadow space, but we no longer due.
 	stackUV1Offset_ = -8;
@@ -536,6 +541,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	stackArgPos_ += WriteProlog(0, {}, { R15, R14, R13, R12 });
 	// Just after the RET.
 	stackIDOffset_ = 8;
+	stackLevelOffset_ = -1;
 
 	// Use the red zone.
 	stackUV1Offset_ = -stackArgPos_ - 8;
@@ -3337,12 +3343,9 @@ bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
 			if (id.fetch)
 				regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
 		} else {
-#if PPSSPP_PLATFORM(WINDOWS)
+			_assert_(stackLevelOffset_ != -1);
 			// The argument was saved on the stack.
-			MOV(32, R(temp2Reg), MDisp(RSP, stackArgPos_ + (id.fetch ? 0 : 16)));
-#else
-			_assert_(false);
-#endif
+			MOV(32, R(temp2Reg), MDisp(RSP, stackArgPos_ + stackLevelOffset_));
 			LEA(32, temp2Reg, MScaled(temp2Reg, SCALE_4, 0));
 		}
 
