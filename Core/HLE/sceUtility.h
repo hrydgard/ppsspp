@@ -17,9 +17,6 @@
 
 #pragma once
 
-#include <algorithm>
-#include <map>
-
 class PointerWrap;
 
 // Valid values for PSP_SYSTEMPARAM_ID_INT_LANGUAGE

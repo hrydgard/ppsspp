@@ -17,6 +17,7 @@
 
 #include "ppsspp_config.h"
 #include "ext/xxhash.h"
+#include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"

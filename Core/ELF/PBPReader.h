@@ -18,7 +18,8 @@
 
 #pragma once
 
-#include "Common/Common.h"
+#include <vector>
+#include "Common/CommonTypes.h"
 #include "Common/Swap.h"
 
 enum PBPSubFile {

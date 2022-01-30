@@ -19,7 +19,6 @@
 
 #include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/FuncId.h"
-#include "GPU/Software/RasterizerRegCache.h"
 #include "GPU/Software/Sampler.h"
 #include "GPU/Software/TransformUnit.h" // for DrawingCoords
 

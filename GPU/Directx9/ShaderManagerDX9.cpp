@@ -31,7 +31,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/System/Display.h"
 
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 

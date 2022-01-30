@@ -30,7 +30,7 @@
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanMemory.h"
 #include "Common/Log.h"
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "GPU/Math3D.h"

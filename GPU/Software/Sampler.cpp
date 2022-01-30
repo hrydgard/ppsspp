@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 #include <unordered_map>
 #include <mutex>
+#include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"

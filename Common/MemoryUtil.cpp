@@ -20,7 +20,7 @@
 #include <cstring>
 #include <cstdlib>
 
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
 #include "Common/StringUtils.h"

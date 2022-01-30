@@ -19,7 +19,6 @@
 
 #if defined(__APPLE__)
 
-#include <string>
 #include <cstdint>
 #include <sys/stat.h>
 #include <fcntl.h>

@@ -15,6 +15,7 @@
 #include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
 
+#include "Core/Config.h"
 #include "Core/System.h"
 
 #if PPSSPP_PLATFORM(ANDROID)

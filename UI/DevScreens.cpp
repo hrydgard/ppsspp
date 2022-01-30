@@ -27,6 +27,7 @@
 
 #include "ppsspp_config.h"
 
+#include "Common/Common.h"
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"

@@ -34,7 +34,7 @@
 #include "ppsspp_config.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/ConsoleListener.h"
 #include "Common/StringUtils.h"
 

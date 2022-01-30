@@ -21,7 +21,7 @@
 #include <algorithm>
 
 #include "Common/BitSet.h"
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/x86/Jit.h"
 #include "Core/MIPS/x86/RegCache.h"

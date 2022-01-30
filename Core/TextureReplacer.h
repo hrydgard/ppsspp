@@ -17,12 +17,11 @@
 
 #pragma once
 
-#include <map>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/MemoryUtil.h"
 #include "Common/File/Path.h"
 

@@ -18,7 +18,7 @@
 #include <map>
 #include <d3d11.h>
 
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"

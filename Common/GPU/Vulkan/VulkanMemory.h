@@ -5,7 +5,6 @@
 #include <vector>
 #include <unordered_map>
 
-#include "Common/Log.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 
 // Forward declaration

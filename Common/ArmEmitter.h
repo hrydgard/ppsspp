@@ -20,7 +20,7 @@
 #include <vector>
 #include <cstdint>
 
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Common/ArmCommon.h"
 #include "Common/CodeBlock.h"

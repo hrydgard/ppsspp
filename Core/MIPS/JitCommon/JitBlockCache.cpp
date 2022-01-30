@@ -20,7 +20,7 @@
 #include <algorithm>
 
 #include "ext/xxhash.h"
-#include "Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Profiler/Profiler.h"
 
 #ifdef _WIN32

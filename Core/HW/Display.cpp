@@ -19,7 +19,7 @@
 #include <cmath>
 #include <mutex>
 #include <vector>
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/System/System.h"
 #include "Common/TimeUtil.h"

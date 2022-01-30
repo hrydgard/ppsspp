@@ -24,7 +24,7 @@
 #include <mutex>
 #include <zstd.h>
 
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Thread/ParallelLoop.h"
 #include "Common/Log.h"

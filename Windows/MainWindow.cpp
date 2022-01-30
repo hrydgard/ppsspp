@@ -28,7 +28,6 @@
 #include <Windowsx.h>
 #include <shellapi.h>
 #include <commctrl.h>
-#include <map>
 #include <string>
 
 #include "Common/System/Display.h"

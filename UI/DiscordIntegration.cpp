@@ -1,5 +1,6 @@
 
 #include <ctime>
+#include <string>
 
 #include "ppsspp_config.h"
 #include "Common/Log.h"

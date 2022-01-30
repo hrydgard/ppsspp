@@ -20,7 +20,7 @@
 #include <map>
 #include <unordered_map>
 
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
 #include "Common/Swap.h"

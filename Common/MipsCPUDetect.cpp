@@ -18,7 +18,7 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(MIPS) || PPSSPP_ARCH(MIPS64)
 
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/CPUDetect.h"
 #include "Common/StringUtils.h"
 #include "Common/File/FileUtil.h"

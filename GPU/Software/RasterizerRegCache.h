@@ -24,6 +24,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "Common/Common.h"
 #if defined(_M_SSE)
 #include <emmintrin.h>
 #endif

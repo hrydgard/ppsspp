@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include <map>
-
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"

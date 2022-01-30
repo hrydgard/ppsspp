@@ -15,7 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <string>
 #include "Qt/QtHost.h"
 
 Path QtHost::SymbolMapFilename(Path currentFilename) {

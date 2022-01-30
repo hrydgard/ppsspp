@@ -33,6 +33,7 @@
 #endif
 
 #include "Common/Log.h"
+#include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/MemFault.h"
 #include "Core/MemMap.h"

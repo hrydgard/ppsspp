@@ -24,7 +24,7 @@
 #include "Common/Math/math_util.h"
 #include "Common/UI/Context.h"
 
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/System.h"

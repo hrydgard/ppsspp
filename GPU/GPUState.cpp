@@ -16,15 +16,15 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
-#include "GPU/ge_constants.h"
-#include "GPU/GPUState.h"
-
+#include "Common/Common.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/CoreParameter.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/MemMap.h"
+#include "GPU/ge_constants.h"
+#include "GPU/GPUState.h"
 
 #ifdef _M_SSE
 #include <emmintrin.h>

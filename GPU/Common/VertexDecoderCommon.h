@@ -21,7 +21,7 @@
 
 #include "ppsspp_config.h"
 
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Data/Collections/Hashmaps.h"
 #include "Common/Log.h"
 #include "Core/Reporting.h"

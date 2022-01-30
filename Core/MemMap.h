@@ -25,8 +25,6 @@
 #include <stddef.h>
 #endif
 
-// Includes
-#include "Common/Common.h"
 #include "Common/CommonTypes.h"
 #include "Common/Swap.h"
 #include "Core/Opcode.h"

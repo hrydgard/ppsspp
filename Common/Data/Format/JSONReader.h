@@ -4,7 +4,6 @@
 
 #include "ext/gason/gason.h"
 #include "Common/Common.h"
-#include "Common/Log.h"
 
 namespace json {
 
@@ -69,16 +68,7 @@ public:
 	const JsonValue rootValue() const { return root_; }
 
 private:
-	bool parse() {
-		char *error_pos;
-		int status = jsonParse(buffer_, &error_pos, &root_, alloc_);
-		if (status != JSON_OK) {
-			ERROR_LOG(IO, "Error at (%i): %s\n%s\n\n", (int)(error_pos - buffer_), jsonStrError(status), error_pos);
-			return false;
-		}
-		ok_ = true;
-		return true;
-	}
+	bool parse();
 
 	char *buffer_ = nullptr;
 	JsonAllocator alloc_;

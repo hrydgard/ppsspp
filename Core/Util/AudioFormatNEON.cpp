@@ -23,7 +23,7 @@
 #else
 #include <arm_neon.h>
 #endif
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Core/Util/AudioFormat.h"
 #include "Core/Util/AudioFormatNEON.h"
 

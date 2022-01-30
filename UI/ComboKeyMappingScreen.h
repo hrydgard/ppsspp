@@ -20,8 +20,6 @@
 #include "MiscScreens.h"
 #include "UI/GamepadEmu.h"
 
-#include <map>
-
 namespace UI {
 	class CheckBox;
 }

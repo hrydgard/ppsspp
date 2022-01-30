@@ -3,8 +3,6 @@
 // For more detailed and configurable input, implement NativeTouch, NativeKey and NativeAxis and do your
 // own mapping. Might later move the mapping system from PPSSPP to native.
 
-#include <map>
-#include <mutex>
 #include <unordered_map>
 #include <vector>
 

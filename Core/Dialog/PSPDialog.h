@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include "Common/Common.h"
 #include "Common/CommonTypes.h"
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Swap.h"

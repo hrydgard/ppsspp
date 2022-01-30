@@ -19,7 +19,7 @@
 
 #include "ppsspp_config.h"
 
-#include "Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "StringUtils.h"
 #include "Common/Data/Encoding/Utf8.h"

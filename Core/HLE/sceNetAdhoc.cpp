@@ -35,6 +35,7 @@
 
 // This is a direct port of Coldbird's code from http://code.google.com/p/aemu/
 // All credit goes to him!
+#include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"

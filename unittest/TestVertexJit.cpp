@@ -17,7 +17,7 @@
 
 #include <math.h>
 
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"

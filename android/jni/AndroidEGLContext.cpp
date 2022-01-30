@@ -5,6 +5,7 @@
 #include "Common/System/System.h"
 #include "AndroidEGLContext.h"
 #include "GL/GLInterface/EGLAndroid.h"
+#include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 

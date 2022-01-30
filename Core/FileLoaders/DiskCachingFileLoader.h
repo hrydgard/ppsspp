@@ -21,7 +21,7 @@
 #include <map>
 #include <mutex>
 
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/File/Path.h"
 #include "Common/Swap.h"
 #include "Core/Loaders.h"

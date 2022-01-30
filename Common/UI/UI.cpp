@@ -1,14 +1,10 @@
 // See header for documentation.
 
-#include <string>
-#include <vector>
 #include <cmath>
 #include <cstring>
 
-#include "Common/Data/Color/RGBAUtil.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/Context.h"
-#include "Common/Render/TextureAtlas.h"
 #include "Common/Render/DrawBuffer.h"
 
 // TODO: UI should probably not own these.

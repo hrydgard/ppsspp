@@ -9,7 +9,7 @@
 #include "Common/ArmCommon.h"
 #include "Common/BitSet.h"
 #include "Common/CodeBlock.h"
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Log.h"
 
 #define DYNA_REC JIT

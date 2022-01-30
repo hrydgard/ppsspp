@@ -23,8 +23,9 @@
 #include <snappy-c.h>
 #include <zstd.h>
 #include "Common/Profiler/Profiler.h"
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Log.h"
+#include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/ELF/ParamSFO.h"

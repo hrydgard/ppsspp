@@ -1,9 +1,5 @@
 #pragma once
 
-#include <thread>
-#include <string>
-#include <functional>
-
 #include "AndroidGraphicsContext.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/GPU/thin3d_create.h"

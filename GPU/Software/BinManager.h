@@ -19,7 +19,6 @@
 
 #include <atomic>
 #include <unordered_map>
-#include "Common/Log.h"
 #include "GPU/Software/Rasterizer.h"
 
 struct BinWaitable;

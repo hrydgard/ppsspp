@@ -19,6 +19,7 @@
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 
 #include "Common/Log.h"
+#include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/StencilCommon.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"

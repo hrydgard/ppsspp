@@ -4,8 +4,6 @@
 #include "Common/Math/math_util.h"
 #include "curves.h"
 
-#include "Common/Common.h"
-
 float linearInOut(int t, int fadeInLength, int solidLength, int fadeOutLength) {
 	if (t < 0) return 0;
 	if (t < fadeInLength) {

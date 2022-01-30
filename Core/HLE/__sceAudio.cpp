@@ -18,7 +18,7 @@
 #include <atomic>
 #include <mutex>
 
-#include "Common/CommonTypes.h"
+#include "Common/Common.h"
 #include "Common/File/Path.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"

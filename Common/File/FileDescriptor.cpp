@@ -17,7 +17,7 @@
 #endif
 #include <fcntl.h>
 
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/File/FileDescriptor.h"
 #include "Common/Log.h"

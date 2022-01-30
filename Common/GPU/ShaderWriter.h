@@ -2,7 +2,6 @@
 
 #include <cstring>
 
-#include "Common/Log.h"
 #include "Common/GPU/Shader.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUCommon.h"

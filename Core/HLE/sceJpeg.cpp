@@ -18,7 +18,7 @@
 #include <algorithm>
 #include "ext/jpge/jpgd.h"
 
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"

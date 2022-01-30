@@ -51,6 +51,7 @@
 #define TCP_MAXSEG 2
 #endif // defined(HAVE_LIBNX) || PPSSPP_PLATFORM(SWITCH)
 
+#include <algorithm>
 #include <mutex>
 #include <cstring>
 
@@ -60,6 +61,7 @@
 
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/TimeUtil.h"
+#include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/Host.h"
 #include "Core/HLE/sceKernelInterrupt.h"

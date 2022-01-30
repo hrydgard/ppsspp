@@ -4,7 +4,6 @@
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
-#include "Common/UI/UI.h"
 
 #include "Common/LogManager.h"
 #include "UI/MiscScreens.h"
