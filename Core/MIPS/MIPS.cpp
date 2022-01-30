@@ -33,7 +33,6 @@
 #include "Core/MIPS/IR/IRJit.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
-#include "Core/HLE/sceDisplay.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/CoreTiming.h"
 

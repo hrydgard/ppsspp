@@ -17,6 +17,10 @@
 
 #pragma once
 
+#include <cstdint>
+
+class PointerWrap;
+
 typedef void (*VblankCallback)();
 // Listen for vblank events.
 void __DisplayListenVblank(VblankCallback callback);
@@ -24,8 +28,31 @@ typedef void (*FlipCallback)(void *userdata);
 void __DisplayListenFlip(FlipCallback callback, void *userdata);
 void __DisplayForgetFlip(FlipCallback callback, void *userdata);
 
-void DisplayFireVblank();
+int __DisplayGetFlipCount();
+int __DisplayGetNumVblanks();
+int __DisplayGetVCount();
+bool DisplayIsVblank();
+uint64_t DisplayFrameStartTicks();
+uint32_t __DisplayGetCurrentHcount();
+uint32_t __DisplayGetAccumulatedHcount();
+void DisplayAdjustAccumulatedHcount(uint32_t diff);
+
+void __DisplayGetDebugStats(char stats[], size_t bufsize);
+void __DisplayGetAveragedFPS(float *out_vps, float *out_fps);
+void __DisplayGetFPS(float *out_vps, float *out_fps, float *out_actual_fps);
+void __DisplayGetVPS(float *out_vps);
+double *__DisplayGetFrameTimes(int *out_valid, int *out_pos, double **out_sleep);
+int DisplayGetSleepPos();
+void DisplayNotifySleep(double t, int pos = -1);
+bool DisplayIsRunningSlow();
+
+void DisplayFireVblankStart();
+void DisplayFireVblankEnd();
 void DisplayFireFlip();
+void DisplayFireActualFlip();
+
+int DisplayCalculateFrameSkip();
 
 void DisplayHWInit();
 void DisplayHWShutdown();
+void DisplayHWDoState(PointerWrap &p, int hleCompatV2);

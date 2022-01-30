@@ -35,7 +35,6 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/HLE/HLETables.h"
-#include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceIo.h"
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/sceKernelMemory.h"

@@ -30,7 +30,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/Host.h"
 #include "Core/System.h"
-#include "Core/HLE/sceDisplay.h"
+#include "Core/HW/Display.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/PresentationCommon.h"
 #include "Common/GPU/ShaderTranslation.h"

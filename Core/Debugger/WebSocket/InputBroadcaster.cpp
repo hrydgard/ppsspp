@@ -20,7 +20,7 @@
 #include "Core/Debugger/WebSocket/InputSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/HLE/sceCtrl.h"
-#include "Core/HLE/sceDisplay.h"
+#include "Core/HW/Display.h"
 
 // Button press state change (input.buttons)
 //

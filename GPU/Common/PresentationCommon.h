@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "Common/Common.h"
 #include "Common/GPU/Shader.h"
 
 struct CardboardSettings {

@@ -34,7 +34,6 @@
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
-#include "Core/HLE/sceDisplay.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
