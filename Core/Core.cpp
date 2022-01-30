@@ -39,6 +39,7 @@
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/Debugger/Breakpoints.h"
+#include "Core/HW/Display.h"
 #include "Core/MIPS/MIPS.h"
 #include "GPU/Debugger/Stepping.h"
 
@@ -279,8 +280,11 @@ void Core_SingleStep() {
 static inline bool Core_WaitStepping() {
 	std::unique_lock<std::mutex> guard(m_hStepMutex);
 	// We only wait 16ms so that we can still draw UI or react to events.
+	double sleepStart = time_now_d();
 	if (!singleStepPending && coreState == CORE_STEPPING)
 		m_StepCond.wait_for(guard, std::chrono::milliseconds(16));
+	double sleepEnd = time_now_d();
+	DisplayNotifySleep(sleepEnd - sleepStart);
 
 	bool result = singleStepPending;
 	singleStepPending = false;

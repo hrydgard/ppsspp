@@ -29,22 +29,6 @@ void Register_sceDisplay();
 bool __DisplayGetFramebuf(PSPPointer<u8> *topaddr, u32 *linesize, u32 *pixelFormat, int mode);
 void __DisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync);
 
-typedef void (*VblankCallback)();
-// Listen for vblank events.
-void __DisplayListenVblank(VblankCallback callback);
-typedef void (*FlipCallback)(void *userdata);
-void __DisplayListenFlip(FlipCallback callback, void *userdata);
-void __DisplayForgetFlip(FlipCallback callback, void *userdata);
-
-void __DisplayGetDebugStats(char stats[], size_t bufsize);
-void __DisplayGetFPS(float *out_vps, float *out_fps, float *out_actual_fps);
-void __DisplayGetVPS(float *out_vps);
-void __DisplayGetAveragedFPS(float *out_vps, float *out_fps);
-double *__DisplayGetFrameTimes(int *out_valid, int *out_pos, double **out_sleep);
-int __DisplayGetNumVblanks();
-int __DisplayGetVCount();
-int __DisplayGetFlipCount();
-
 // Call this when resuming to avoid a small speedup burst
 void __DisplaySetWasPaused();
 

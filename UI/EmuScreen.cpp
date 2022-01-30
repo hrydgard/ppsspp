@@ -63,7 +63,6 @@ using namespace std::placeholders;
 #include "GPU/Vulkan/DebugVisVulkan.h"
 #endif
 #include "Core/HLE/sceCtrl.h"
-#include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceSas.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/SaveState.h"
@@ -71,6 +70,7 @@ using namespace std::placeholders;
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HLE/proAdhoc.h"
 #include "Core/HLE/Plugins.h"
+#include "Core/HW/Display.h"
 
 #include "UI/BackgroundAudio.h"
 #include "UI/OnScreenDisplay.h"

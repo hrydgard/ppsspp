@@ -520,6 +520,7 @@
     <ClInclude Include="..\..\Core\HW\AsyncIOManager.h" />
     <ClInclude Include="..\..\Core\HW\BufferQueue.h" />
     <ClInclude Include="..\..\Core\HW\Camera.h" />
+    <ClInclude Include="..\..\Core\HW\Display.h" />
     <ClInclude Include="..\..\Core\HW\MediaEngine.h" />
     <ClInclude Include="..\..\Core\HW\MemoryStick.h" />
     <ClInclude Include="..\..\Core\HW\MpegDemux.h" />
@@ -752,6 +753,7 @@
     <ClCompile Include="..\..\Core\HW\AsyncIOManager.cpp" />
     <ClCompile Include="..\..\Core\HW\BufferQueue.cpp" />
     <ClCompile Include="..\..\Core\HW\Camera.cpp" />
+    <ClCompile Include="..\..\Core\HW\Display.cpp" />
     <ClCompile Include="..\..\Core\HW\MediaEngine.cpp" />
     <ClCompile Include="..\..\Core\HW\MemoryStick.cpp" />
     <ClCompile Include="..\..\Core\HW\MpegDemux.cpp" />

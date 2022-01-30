@@ -62,7 +62,6 @@
 #include "GPU/GPUInterface.h"
 #include "Common/Data/Text/I18n.h"
 
-#include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceUmd.h"
 
 bool MainScreen::showHomebrewTab = false;

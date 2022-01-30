@@ -17,6 +17,7 @@
 
 #include <atomic>
 #include <cstdio>
+#include <cstring>
 #include <mutex>
 #include <set>
 #include <vector>
@@ -29,7 +30,6 @@
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/HLE/sceKernelThread.h"
-#include "Core/HLE/sceDisplay.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 

@@ -21,7 +21,7 @@
 #include "Core/Debugger/WebSocket/InputSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/HLE/sceCtrl.h"
-#include "Core/HLE/sceDisplay.h"
+#include "Core/HW/Display.h"
 
 // This is also used in InputBroadcaster.
 const std::unordered_map<std::string, uint32_t> buttonLookup = {

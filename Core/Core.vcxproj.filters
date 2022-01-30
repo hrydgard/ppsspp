@@ -1184,6 +1184,9 @@
     <ClCompile Include="Debugger\WebSocket\GPUStatsSubscriber.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
+    <ClCompile Include="HW\Display.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1909,6 +1912,9 @@
     </ClInclude>
     <ClInclude Include="Debugger\WebSocket\GPUStatsSubscriber.h">
       <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\Display.h">
+      <Filter>HW</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

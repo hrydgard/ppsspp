@@ -18,7 +18,7 @@
 #include <mutex>
 #include <vector>
 #include "Core/Debugger/WebSocket/GPUStatsSubscriber.h"
-#include "Core/HLE/sceDisplay.h"
+#include "Core/HW/Display.h"
 #include "Core/System.h"
 
 struct CollectedStats {

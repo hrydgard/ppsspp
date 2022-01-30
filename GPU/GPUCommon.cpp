@@ -27,6 +27,7 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceGe.h"
+#include "Core/HW/Display.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Util/PPGeDraw.h"
 #include "GPU/Common/DrawEngineCommon.h"
@@ -1032,6 +1033,7 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 		double total = time_now_d() - start - timeSpentStepping_;
 		_dbg_assert_msg_(total >= 0.0, "Time spent DL processing became negative");
 		hleSetSteppingTime(timeSpentStepping_);
+		DisplayNotifySleep(timeSpentStepping_);
 		timeSpentStepping_ = 0.0;
 		gpuStats.msProcessingDisplayLists += total;
 	}
