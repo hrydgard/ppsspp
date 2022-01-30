@@ -2318,6 +2318,7 @@ if(UNITTEST)
 		unittest/TestArm64Emitter.cpp
 		unittest/TestX64Emitter.cpp
 		unittest/TestVertexJit.cpp
+		unittest/TestSoftwareGPUJit.cpp
 		unittest/TestThreadManager.cpp
 		unittest/JitHarness.cpp
 		Core/MIPS/ARM/ArmRegCache.cpp
