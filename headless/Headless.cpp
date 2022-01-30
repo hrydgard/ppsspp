@@ -161,7 +161,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 		coreParameter.collectEmuLog = &output;
 
 	std::string error_string;
-	if (!PSP_Init(coreParameter, &error_string)) {
+	if (!PSP_InitStart(coreParameter, &error_string)) {
 		fprintf(stderr, "Failed to start '%s'. Error: %s\n", coreParameter.fileToStart.c_str(), error_string.c_str());
 		printf("TESTERROR\n");
 		TeamCityPrint("testIgnored name='%s' message='PRX/ELF missing'", currentTestName.c_str());
@@ -175,6 +175,15 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 
 	if (autoCompare)
 		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart));
+
+	while (!PSP_InitUpdate(&error_string))
+		sleep_ms(1);
+	if (!PSP_IsInited()) {
+		TeamCityPrint("testFailed name='%s' message='Startup failed'", currentTestName.c_str());
+		TeamCityPrint("testFinished name='%s'", currentTestName.c_str());
+		GitHubActionsPrint("error", "Test timeout for %s", currentTestName.c_str());
+		return false;
+	}
 
 	bool passed = true;
 	double deadline;
