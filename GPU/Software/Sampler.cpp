@@ -141,23 +141,15 @@ NearestFunc SamplerJitCache::GetNearest(const SamplerID &id) {
 	std::lock_guard<std::mutex> guard(jitCacheLock);
 
 	auto it = cache_.find(id);
-	if (it != cache_.end()) {
+	if (it != cache_.end())
 		return (NearestFunc)it->second;
-	}
 
-	// TODO: What should be the min size?  Can we even hit this?
-	if (GetSpaceLeft() < 16384) {
-		Clear();
-	}
+	Compile(id);
 
-#if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
-	if (g_Config.bSoftwareRenderingJit) {
-		addresses_[id] = GetCodePointer();
-		NearestFunc func = CompileNearest(id);
-		cache_[id] = (NearestFunc)func;
-		return func;
-	}
-#endif
+	// Okay, should be there now.
+	it = cache_.find(id);
+	if (it != cache_.end())
+		return (NearestFunc)it->second;
 	return nullptr;
 }
 
@@ -165,23 +157,15 @@ LinearFunc SamplerJitCache::GetLinear(const SamplerID &id) {
 	std::lock_guard<std::mutex> guard(jitCacheLock);
 
 	auto it = cache_.find(id);
-	if (it != cache_.end()) {
+	if (it != cache_.end())
 		return (LinearFunc)it->second;
-	}
 
-	// TODO: What should be the min size?  Can we even hit this?
-	if (GetSpaceLeft() < 16384) {
-		Clear();
-	}
+	Compile(id);
 
-#if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
-	if (g_Config.bSoftwareRenderingJit) {
-		addresses_[id] = GetCodePointer();
-		LinearFunc func = CompileLinear(id);
-		cache_[id] = (NearestFunc)func;
-		return func;
-	}
-#endif
+	// Okay, should be there now.
+	it = cache_.find(id);
+	if (it != cache_.end())
+		return (LinearFunc)it->second;
 	return nullptr;
 }
 
@@ -189,24 +173,47 @@ FetchFunc SamplerJitCache::GetFetch(const SamplerID &id) {
 	std::lock_guard<std::mutex> guard(jitCacheLock);
 
 	auto it = cache_.find(id);
-	if (it != cache_.end()) {
+	if (it != cache_.end())
 		return (FetchFunc)it->second;
-	}
 
-	// TODO: What should be the min size?  Can we even hit this?
+	Compile(id);
+
+	// Okay, should be there now.
+	it = cache_.find(id);
+	if (it != cache_.end())
+		return (FetchFunc)it->second;
+	return nullptr;
+}
+
+void SamplerJitCache::Compile(const SamplerID &id) {
+	// This should be sufficient.
 	if (GetSpaceLeft() < 16384) {
 		Clear();
 	}
 
+	// We compile them together so the cache can't possibly be cleared in between.
+	// We might vary between nearest and linear, so we can't clear between.
 #if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
 	if (g_Config.bSoftwareRenderingJit) {
-		addresses_[id] = GetCodePointer();
-		FetchFunc func = CompileFetch(id);
-		cache_[id] = (NearestFunc)func;
-		return func;
+		SamplerID fetchID = id;
+		fetchID.linear = false;
+		fetchID.fetch = true;
+		addresses_[fetchID] = GetCodePointer();
+		cache_[fetchID] = (NearestFunc)CompileFetch(fetchID);
+
+		SamplerID nearestID = id;
+		nearestID.linear = false;
+		nearestID.fetch = false;
+		addresses_[nearestID] = GetCodePointer();
+		cache_[nearestID] = (NearestFunc)CompileNearest(nearestID);
+
+		SamplerID linearID = id;
+		linearID.linear = true;
+		linearID.fetch = false;
+		addresses_[linearID] = GetCodePointer();
+		cache_[linearID] = (NearestFunc)CompileLinear(linearID);
 	}
 #endif
-	return nullptr;
 }
 
 template <uint32_t texel_size_bits>

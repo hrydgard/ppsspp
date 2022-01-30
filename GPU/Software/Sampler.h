@@ -60,6 +60,7 @@ public:
 	std::string DescribeCodePtr(const u8 *ptr) override;
 
 private:
+	void Compile(const SamplerID &id);
 	FetchFunc CompileFetch(const SamplerID &id);
 	NearestFunc CompileNearest(const SamplerID &id);
 	LinearFunc CompileLinear(const SamplerID &id);
