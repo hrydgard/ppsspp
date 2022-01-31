@@ -28,7 +28,7 @@
 
 #include <ctype.h>
 
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/CPUDetect.h"
 #include "Common/StringUtils.h"
 #include "Common/File/FileUtil.h"

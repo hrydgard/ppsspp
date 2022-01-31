@@ -17,6 +17,7 @@
 
 #include "ppsspp_config.h"
 #include <cmath>
+#include "Common/Common.h"
 #include "Common/CPUDetect.h"
 #include "GPU/GPUState.h"
 #include "GPU/Software/Lighting.h"

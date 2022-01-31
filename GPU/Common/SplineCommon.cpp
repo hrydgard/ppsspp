@@ -18,10 +18,9 @@
 #include <string.h>
 #include <algorithm>
 
-#include "Common/Profiler/Profiler.h"
-
+#include "Common/Common.h"
 #include "Common/CPUDetect.h"
-
+#include "Common/Profiler/Profiler.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"

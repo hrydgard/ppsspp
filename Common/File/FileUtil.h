@@ -20,11 +20,9 @@
 #include <fstream>
 #include <cstdio>
 #include <string>
-#include <vector>
 #include <time.h>
 #include <cstdint>
 
-#include "Common/Common.h"
 #include "Common/File/Path.h"
 
 // Some functions here support Android content URIs. These are marked as such.

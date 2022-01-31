@@ -17,20 +17,19 @@
 
 #pragma once
 
-#include <functional>
-
 #include "Common/UI/View.h"
 #include "MiscScreens.h"
 
 class TiltAnalogSettingsScreen : public UIDialogScreenWithBackground {
 public:
-	TiltAnalogSettingsScreen() : currentTiltX_(0), currentTiltY_(0) {}
+	TiltAnalogSettingsScreen() {}
 
 	void CreateViews() override;
 	bool axis(const AxisInput &axis) override;
 
 private:
 	UI::EventReturn OnCalibrate(UI::EventParams &e);
-	float currentTiltX_, currentTiltY_;
+	float currentTiltX_ = 0.0f;
+	float currentTiltY_ = 0.0f;
 };
 

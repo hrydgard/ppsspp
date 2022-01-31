@@ -20,7 +20,6 @@
 #include <ctype.h>
 #include <algorithm>
 
-#include "Common/Common.h"
 #include "Common/CommonTypes.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"

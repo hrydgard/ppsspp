@@ -20,10 +20,9 @@
 #ifndef _DOLPHIN_FAKE_CODEGEN_
 #define _DOLPHIN_FAKE_CODEGEN_
 
-#include <vector>
 #include <stdint.h>
 
-#include "Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/CodeBlock.h"
 
 // VCVT flags

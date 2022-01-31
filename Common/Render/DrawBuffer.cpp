@@ -148,7 +148,7 @@ void DrawBuffer::RectOutline(float x, float y, float w, float h, uint32_t color,
 void DrawBuffer::MultiVGradient(float x, float y, float w, float h, GradientStop *stops, int numStops) {
 	for (int i = 0; i < numStops - 1; i++) {
 		float t0 = stops[i].t, t1 = stops[i+1].t;
-		uint32_t c0 = stops[i].t, c1 = stops[i+1].t;
+		uint32_t c0 = stops[i].color, c1 = stops[i+1].color;
 		RectVGradient(x, y + h * t0, w, h * (t1 - t0), c0, c1);
 	}
 }

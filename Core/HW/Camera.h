@@ -19,7 +19,6 @@
 
 #include "ppsspp_config.h"
 #include "Core/HLE/sceUsbCam.h"
-#include "Log.h"
 
 #include "ext/jpge/jpgd.h"
 #include "ext/jpge/jpge.h"

@@ -19,6 +19,7 @@
 #include <cstring>
 
 #include "ext/xxhash.h"
+#include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Math/math_util.h"

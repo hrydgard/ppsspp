@@ -18,6 +18,7 @@
 #include <cmath>
 #include <algorithm>
 
+#include "Common/Common.h"
 #include "Common/CPUDetect.h"
 #include "Common/Math/math_util.h"
 #include "Common/MemoryUtil.h"

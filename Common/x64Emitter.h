@@ -22,7 +22,7 @@
 #include <cstddef>
 #include <cstring>
 
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Common/CodeBlock.h"
 

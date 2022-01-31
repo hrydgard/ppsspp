@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include <map>
-
 #include "Common/Data/Collections/Hashmaps.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"

@@ -4,7 +4,6 @@
 
 #include "Common/Thread/Channel.h"
 #include "Common/Thread/ThreadManager.h"
-#include "Common/Log.h"
 
 template<class T>
 class PromiseTask : public Task {

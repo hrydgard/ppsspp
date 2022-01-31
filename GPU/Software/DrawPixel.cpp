@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <mutex>
+#include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Core/Config.h"
 #include "GPU/GPUState.h"

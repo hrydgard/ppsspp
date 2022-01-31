@@ -23,7 +23,7 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Text/I18n.h"
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"

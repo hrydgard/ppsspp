@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "Common.h"
-
+#include <cstdarg>
+#include <cstdint>
 #include <string>
 #include <vector>
 

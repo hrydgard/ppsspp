@@ -1,5 +1,7 @@
 #pragma once
 
+#include <map>
+
 template <typename T, typename U>
 class InitConstMap
 {

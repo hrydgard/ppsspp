@@ -832,7 +832,7 @@ static inline uint32_t mant_mul(uint32_t a, uint32_t b) {
 	if (m & 0x007FFFFF) {
 		m += 0x01437000;
 	}
-	return m >> 23;
+	return (uint32_t)(m >> 23);
 }
 
 float vfpu_rsqrt(float a) {

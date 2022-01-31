@@ -36,6 +36,7 @@
 #include <cstring>
 #include <atomic>
 
+#include "Common/Common.h"
 #include "Common/System/System.h"
 #include "Common/Math/math_util.h"
 #include "Common/Serialize/Serializer.h"

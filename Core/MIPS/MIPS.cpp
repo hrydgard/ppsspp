@@ -21,7 +21,7 @@
 
 #include "Common/Math/math_util.h"
 
-#include "Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/ConfigValues.h"

@@ -20,7 +20,7 @@
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/GPU/OpenGL/GLSLProgram.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 #include "Windows/W32Util/ContextMenu.h"

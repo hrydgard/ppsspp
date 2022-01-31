@@ -22,7 +22,7 @@
 
 #include "Common/BitSet.h"
 #include "Common/BitScan.h"
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/Host.h"

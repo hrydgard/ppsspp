@@ -38,14 +38,14 @@
 #define PACK __attribute__((packed))
 #endif
 
-#include <thread>
-#include <mutex>
 #include <atomic>
+#include <climits>
+#include <mutex>
+#include <thread>
 
 #include "Common/Net/Resolve.h"
 #include "Common/Serialize/Serializer.h"
 
-#include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"

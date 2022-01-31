@@ -12,7 +12,6 @@
 #include <memory>
 #include <mutex>
 #include <string>
-#include <vector>
 
 #include "Common/Common.h"
 #include "Common/File/Path.h"

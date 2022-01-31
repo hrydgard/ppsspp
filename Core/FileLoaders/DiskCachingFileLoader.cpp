@@ -780,12 +780,12 @@ u32 DiskCachingFileLoaderCache::DetermineMaxBlocks() {
 		}
 		// This might be smaller than what's free, but if they try to launch a second game,
 		// they'll be happier when it can be cached too.
-		return freeBlocksWithFlex;
+		return (u32)freeBlocksWithFlex;
 	}
 
 	// Might be lower than LOWER_BOUND, but that's okay.  That means not enough space.
 	// We abandon the idea of flex since there's not enough space free anyway.
-	return freeBlocks;
+	return (u32)freeBlocks;
 }
 
 u32 DiskCachingFileLoaderCache::CountCachedFiles() {

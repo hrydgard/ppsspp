@@ -1,7 +1,5 @@
 #pragma once
 
-#include <string>
-
 // Simple wrapper around the Discord api.
 
 // All platforms should call it, but we only actually take action on

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Common/CommonWindows.h"
-#include "Core/Config.h"
 #include "Core/ConfigValues.h"
 
 // Always 2 channels.

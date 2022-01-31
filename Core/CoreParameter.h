@@ -20,7 +20,6 @@
 #include <string>
 
 #include "Core/Compatibility.h"
-#include "Core/Config.h"
 
 enum GPUCore {
 	GPUCORE_GLES,

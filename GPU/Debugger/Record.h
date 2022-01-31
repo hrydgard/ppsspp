@@ -18,10 +18,10 @@
 #pragma once
 
 #include <functional>
-#include <string>
 
 #include "Common/CommonTypes.h"
-#include "Common/File/Path.h"
+
+class Path;
 
 namespace GPURecord {
 

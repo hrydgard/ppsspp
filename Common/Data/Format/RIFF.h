@@ -9,7 +9,6 @@
 // OR it contains ONLY other chunks
 // otherwise the scheme breaks.
 
-#include <string>
 #include <cstdint>
 
 class RIFFReader {

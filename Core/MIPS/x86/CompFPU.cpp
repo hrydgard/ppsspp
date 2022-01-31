@@ -20,7 +20,7 @@
 
 #include "Core/Config.h"
 #include "Core/MemMap.h"
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/x86/Jit.h"

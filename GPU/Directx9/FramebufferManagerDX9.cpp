@@ -15,10 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common/Math/lin/matrix4x4.h"
-#include "Common/GPU/thin3d.h"
-
+#include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/Math/lin/matrix4x4.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"

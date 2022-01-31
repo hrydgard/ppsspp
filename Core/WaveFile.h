@@ -13,7 +13,6 @@
 #pragma once
 
 #include <array>
-#include <string>
 #include <cstdint>
 
 #include "Common/File/FileUtil.h"

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/StringUtils.h"

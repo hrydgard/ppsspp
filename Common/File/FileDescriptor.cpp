@@ -17,7 +17,7 @@
 #endif
 #include <fcntl.h>
 
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/File/FileDescriptor.h"
 #include "Common/Log.h"
@@ -83,8 +83,8 @@ size_t Write(int fd, const std::string &str) {
 
 bool WaitUntilReady(int fd, double timeout, bool for_write) {
 	struct timeval tv;
-	tv.tv_sec = floor(timeout);
-	tv.tv_usec = (timeout - floor(timeout)) * 1000000.0;
+	tv.tv_sec = (long)floor(timeout);
+	tv.tv_usec = (long)((timeout - floor(timeout)) * 1000000.0);
 
 	fd_set fds;
 	FD_ZERO(&fds);

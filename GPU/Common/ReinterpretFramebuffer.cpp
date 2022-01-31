@@ -2,6 +2,7 @@
 
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/ShaderWriter.h"
+#include "Common/Log.h"
 #include "GPU/Common/ReinterpretFramebuffer.h"
 
 static const VaryingDef varyings[1] = {

@@ -20,7 +20,6 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "MiscScreens.h"
-#include <vector>
 
 class DragDropDisplay;
 

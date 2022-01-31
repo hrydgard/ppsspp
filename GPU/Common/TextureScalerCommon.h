@@ -20,8 +20,6 @@
 #include "Common/CommonTypes.h"
 #include "Common/MemoryUtil.h"
 
-#include <vector>
-
 static const int MIN_TEXSCALE_LINES_PER_THREAD = 4;
 
 class TextureScalerCommon {

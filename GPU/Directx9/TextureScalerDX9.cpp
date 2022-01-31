@@ -17,7 +17,7 @@
 
 #include <algorithm>
 
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Thread/ParallelLoop.h"
 #include "Core/ThreadPools.h"

@@ -6,6 +6,7 @@
 #include "SDL.h"
 #include "SDL_thread.h"
 #endif
+#include <map>
 
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"

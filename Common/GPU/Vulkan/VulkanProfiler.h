@@ -3,7 +3,6 @@
 #include <vector>
 #include <string>
 
-#include "Common/Log.h"
 #include "VulkanLoader.h"
 
 // Simple scoped based profiler, initially meant for instant one-time tasks like texture uploads

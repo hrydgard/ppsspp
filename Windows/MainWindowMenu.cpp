@@ -1,7 +1,7 @@
 #include "ppsspp_config.h"
-#include <map>
 #include <string>
 #include <sstream>
+#include <unordered_map>
 
 #include "CommonWindows.h"
 #include <shellapi.h>

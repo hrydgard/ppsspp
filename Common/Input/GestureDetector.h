@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "Common/Input/InputState.h"
 #include "Common/Math/geom2d.h"
 

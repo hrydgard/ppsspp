@@ -188,8 +188,8 @@ bool UpdateScreenScale(int width, int height) {
 	pixel_in_dps_x = 1.0f / g_dpi_scale_x;
 	pixel_in_dps_y = 1.0f / g_dpi_scale_y;
 
-	int new_dp_xres = width * g_dpi_scale_x;
-	int new_dp_yres = height * g_dpi_scale_y;
+	int new_dp_xres = (int)(width * g_dpi_scale_x);
+	int new_dp_yres = (int)(height * g_dpi_scale_y);
 
 	bool dp_changed = new_dp_xres != dp_xres || new_dp_yres != dp_yres;
 	bool px_changed = pixel_xres != width || pixel_yres != height;

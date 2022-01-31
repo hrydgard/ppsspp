@@ -16,7 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
-#include <vector>
 
 #include "Common/System/Display.h"
 #include "Common/System/System.h"

@@ -2,6 +2,7 @@
 
 #include <queue>
 #include <mutex>
+#include <string>
 
 #include <QtCore>
 #include <QMenuBar>

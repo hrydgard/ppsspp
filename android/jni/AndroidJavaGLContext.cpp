@@ -2,6 +2,7 @@
 #include "Common/System/Display.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Log.h"
+#include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 

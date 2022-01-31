@@ -4,8 +4,6 @@
 #include "Common/Math/math_util.h"
 #include "curves.h"
 
-#include "Common/Common.h"
-
 float linearInOut(int t, int fadeInLength, int solidLength, int fadeOutLength) {
 	if (t < 0) return 0;
 	if (t < fadeInLength) {
@@ -37,7 +35,7 @@ float linearOut(int t, int fadeOutLength) {
 float ease(float val) {
 	if (val > 1.0f) return 1.0f;
 	if (val < 0.0f) return 0.0f;
-	return ((-cosf(val * PI)) + 1.0f) * 0.5;
+	return (float)(((-cosf(val * PI)) + 1.0f) * 0.5);
 }
 
 float ease(int t, int fadeLength)

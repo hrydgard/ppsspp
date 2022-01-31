@@ -5,7 +5,6 @@
 #if !PPSSPP_PLATFORM(UWP)
 
 #include "Common/CommonWindows.h"
-#include <string>
 
 #include "Core/System.h"
 #include "MainWindowMenu.h"

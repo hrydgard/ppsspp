@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include <string>
-
 class PointerWrap;
 class KernelObject;
 
@@ -27,6 +25,7 @@ void __IoDoState(PointerWrap &p);
 void __IoShutdown();
 
 struct ScePspDateTime;
+struct tm;
 
 u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen);
 

@@ -202,7 +202,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	coreState = coreParameter.startBreak ? CORE_STEPPING : CORE_RUNNING;
 	while (coreState == CORE_RUNNING || coreState == CORE_STEPPING)
 	{
-		int blockTicks = usToCycles(1000000 / 10);
+		int blockTicks = (int)usToCycles(1000000 / 10);
 		PSP_RunLoopFor(blockTicks);
 
 		// If we were rendering, this might be a nice time to do something about it.
@@ -319,7 +319,7 @@ int main(int argc, const char* argv[])
 		} else if (!strncmp(argv[i], "--screenshot=", strlen("--screenshot=")) && strlen(argv[i]) > strlen("--screenshot="))
 			screenshotFilename = argv[i] + strlen("--screenshot=");
 		else if (!strncmp(argv[i], "--timeout=", strlen("--timeout=")) && strlen(argv[i]) > strlen("--timeout="))
-			timeout = strtod(argv[i] + strlen("--timeout="), NULL);
+			timeout = (float)strtod(argv[i] + strlen("--timeout="), NULL);
 		else if (!strncmp(argv[i], "--debugger=", strlen("--debugger=")) && strlen(argv[i]) > strlen("--debugger="))
 			debuggerPort = (int)strtoul(argv[i] + strlen("--debugger="), NULL, 10);
 		else if (!strcmp(argv[i], "--teamcity"))

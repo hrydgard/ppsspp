@@ -31,7 +31,7 @@
 #include <cstring>
 #include <memory>
 
-#include "Common.h"
+#include "Common/CommonTypes.h"
 #include "CPUDetect.h"
 #include "StringUtils.h"
 

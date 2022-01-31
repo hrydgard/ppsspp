@@ -22,7 +22,6 @@
 #include "Common/UI/ViewGroup.h"
 #include "Common/Render/DrawBuffer.h"
 
-#include "Common/Common.h"
 #include "Common/Log.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Format/JSONReader.h"

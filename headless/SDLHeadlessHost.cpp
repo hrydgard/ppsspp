@@ -25,18 +25,12 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/thin3d_create.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
-
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/AssetReader.h"
-#include "Common/Log.h"
-#include "Common/File/FileUtil.h"
 #include "Common/GraphicsContext.h"
 #include "Common/TimeUtil.h"
-
-#include "Core/CoreParameter.h"
-#include "Core/ConfigValues.h"
+#include "Core/Config.h"
 #include "Core/System.h"
-#include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUState.h"
 
 const bool WINDOW_VISIBLE = false;

@@ -15,7 +15,7 @@
 static const u8 *prevStart = NULL;
 
 bool CheckLast(Gen::XEmitter &emit, const char *comp) {
-	auto vec = DisassembleX86(prevStart, emit.GetCodePointer() - prevStart);
+	auto vec = DisassembleX86(prevStart, (int)(emit.GetCodePointer() - prevStart));
 	EXPECT_EQ_STR(vec[0], std::string(comp));
 	return true;
 }

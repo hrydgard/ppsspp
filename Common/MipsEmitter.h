@@ -18,11 +18,10 @@
 #pragma once
 
 #include <functional>
-#include <vector>
 #include <stdint.h>
 
 #include "Common/CodeBlock.h"
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 
 namespace MIPSGen {
 

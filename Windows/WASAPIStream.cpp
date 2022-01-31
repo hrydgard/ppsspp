@@ -3,6 +3,7 @@
 #include "WindowsAudio.h"
 #include "WASAPIStream.h"
 #include "Common/Log.h"
+#include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/Util/AudioFormat.h"
 #include "Common/Data/Encoding/Utf8.h"

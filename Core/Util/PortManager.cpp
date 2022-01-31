@@ -35,6 +35,7 @@
 #include "Common/Net/Resolve.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Log.h"
+#include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Host.h"
 #include "Core/ELF/ParamSFO.h"
