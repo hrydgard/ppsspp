@@ -2384,7 +2384,6 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_END:
-		Flush();
 		Execute_End(op, diff);
 		break;
 
