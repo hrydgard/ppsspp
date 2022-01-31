@@ -252,7 +252,7 @@ static u32 sceAacInit(u32 id)
 
 	aac->Channels = 2;
 	aac->MaxOutputSample = aac->PCMBufSize / 4;
-	aac->SetReadPos(aac->startPos);
+	aac->SetReadPos((int)aac->startPos);
 	aac->audioType = PSP_CODEC_AAC;
 
 	// create aac decoder

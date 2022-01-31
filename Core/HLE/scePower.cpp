@@ -81,7 +81,7 @@ int PowerCpuMhzToHz(int desired, int pllHz) {
 	}
 
 	// We match the PSP's HLE funcs better when we have the same float error, it seems.
-	return (float)(freq / 1000000.0f) * 1000000;
+	return (int)((float)(freq / 1000000.0f) * 1000000);
 }
 
 int PowerPllMhzToHz(int mhz) {
