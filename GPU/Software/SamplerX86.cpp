@@ -1877,43 +1877,58 @@ bool SamplerJitCache::Jit_GetDXT1Color(const SamplerID &id, int blockSize, int a
 	CMP(32, R(colorIndexReg), Imm32(3));
 	FixupBranch finishZero = J_CC(CC_E, true);
 
-	// We'll need more regs.  Grab two more.
-	PUSH(R12);
-	PUSH(R13);
-
-	// At this point, resultReg, colorIndexReg, R12, and R13 can be used as temps.
+	// At this point, resultReg, colorIndexReg, and maybe R12/R13 can be used as temps.
 	// We'll add, then shift from 565 a bit less to "divide" by 2 for a 50/50 mix.
 
-	// Start with summing R, then shift into position.
-	MOV(32, R(resultReg), R(color1Reg));
-	AND(32, R(resultReg), Imm32(0x0000F800));
-	MOV(32, R(colorIndexReg), R(color2Reg));
-	AND(32, R(colorIndexReg), Imm32(0x0000F800));
-	LEA(32, R12, MRegSum(resultReg, colorIndexReg));
-	// The position is 9, instead of 8, due to doubling.
-	SHR(32, R(R12), Imm8(9));
+	if (cpu_info.bBMI2_fast) {
+		// Expand everything out to 0BGR at 8888, but halved.
+		MOV(32, R(colorIndexReg), Imm32(0x007C7E7C));
+		PDEP(32, color1Reg, color1Reg, R(colorIndexReg));
+		PDEP(32, color2Reg, color2Reg, R(colorIndexReg));
 
-	// For G, summing leaves it 4 right (doubling made it not need more.)
-	MOV(32, R(resultReg), R(color1Reg));
-	AND(32, R(resultReg), Imm32(0x000007E0));
-	MOV(32, R(colorIndexReg), R(color2Reg));
-	AND(32, R(colorIndexReg), Imm32(0x000007E0));
-	LEA(32, resultReg, MRegSum(resultReg, colorIndexReg));
-	SHL(32, R(resultReg), Imm8(5 - 1));
-	// Now add G and R together.
-	OR(32, R(resultReg), R(R12));
+		// Now let's sum them together (this undoes our halving.)
+		LEA(32, resultReg, MRegSum(color1Reg, color2Reg));
 
-	// At B, we're free to modify the regs in place, finally.
-	AND(32, R(color1Reg), Imm32(0x0000001F));
-	AND(32, R(color2Reg), Imm32(0x0000001F));
-	LEA(32, colorIndexReg, MRegSum(color1Reg, color2Reg));
-	// We shift left 2 into position (not 3 due to doubling), then 16 more into the B slot.
-	SHL(32, R(colorIndexReg), Imm8(16 + 2));
-	// And combine into the result.
-	OR(32, R(resultReg), R(colorIndexReg));
+		// Time to swap into order.  Luckily we can ignore alpha.
+		BSWAP(32, resultReg);
+		SHR(32, R(resultReg), Imm8(8));
+	} else {
+		// We'll need more regs.  Grab two more.
+		PUSH(R12);
+		PUSH(R13);
 
-	POP(R13);
-	POP(R12);
+		// Start with summing R, then shift into position.
+		MOV(32, R(resultReg), R(color1Reg));
+		AND(32, R(resultReg), Imm32(0x0000F800));
+		MOV(32, R(colorIndexReg), R(color2Reg));
+		AND(32, R(colorIndexReg), Imm32(0x0000F800));
+		LEA(32, R12, MRegSum(resultReg, colorIndexReg));
+		// The position is 9, instead of 8, due to doubling.
+		SHR(32, R(R12), Imm8(9));
+
+		// For G, summing leaves it 4 right (doubling made it not need more.)
+		MOV(32, R(resultReg), R(color1Reg));
+		AND(32, R(resultReg), Imm32(0x000007E0));
+		MOV(32, R(colorIndexReg), R(color2Reg));
+		AND(32, R(colorIndexReg), Imm32(0x000007E0));
+		LEA(32, resultReg, MRegSum(resultReg, colorIndexReg));
+		SHL(32, R(resultReg), Imm8(5 - 1));
+		// Now add G and R together.
+		OR(32, R(resultReg), R(R12));
+
+		// At B, we're free to modify the regs in place, finally.
+		AND(32, R(color1Reg), Imm32(0x0000001F));
+		AND(32, R(color2Reg), Imm32(0x0000001F));
+		LEA(32, colorIndexReg, MRegSum(color1Reg, color2Reg));
+		// We shift left 2 into position (not 3 due to doubling), then 16 more into the B slot.
+		SHL(32, R(colorIndexReg), Imm8(16 + 2));
+		// And combine into the result.
+		OR(32, R(resultReg), R(colorIndexReg));
+
+		POP(R13);
+		POP(R12);
+	}
+
 	FixupBranch finishMix50 = J(true);
 
 	// Simply load the 565 color, and convert to 0888.
@@ -1925,29 +1940,34 @@ bool SamplerJitCache::Jit_GetDXT1Color(const SamplerID &id, int blockSize, int a
 	if (id.TexFmt() == GE_TFMT_DXT1)
 		regCache_.ForceRelease(RegCache::GEN_ARG_TEXPTR);
 
-	// Start with R, shifting it into place.
-	MOV(32, R(resultReg), R(colorIndexReg));
-	AND(32, R(resultReg), Imm32(0x0000F800));
-	SHR(32, R(resultReg), Imm8(8));
+	if (cpu_info.bBMI2_fast) {
+		// We're only grabbing the high bits, no swizzle here.
+		MOV(32, R(resultReg), Imm32(0x00F8FCF8));
+		PDEP(32, resultReg, colorIndexReg, R(resultReg));
+		BSWAP(32, resultReg);
+		SHR(32, R(resultReg), Imm8(8));
+	} else {
+		// Start with R, shifting it into place.
+		MOV(32, R(resultReg), R(colorIndexReg));
+		AND(32, R(resultReg), Imm32(0x0000F800));
+		SHR(32, R(resultReg), Imm8(8));
 
-	// Then take G and shift it too.
-	MOV(32, R(color2Reg), R(colorIndexReg));
-	AND(32, R(color2Reg), Imm32(0x000007E0));
-	SHL(32, R(color2Reg), Imm8(5));
-	// And now combine with R, shifting that in the process.
-	OR(32, R(resultReg), R(color2Reg));
+		// Then take G and shift it too.
+		MOV(32, R(color2Reg), R(colorIndexReg));
+		AND(32, R(color2Reg), Imm32(0x000007E0));
+		SHL(32, R(color2Reg), Imm8(5));
+		// And now combine with R, shifting that in the process.
+		OR(32, R(resultReg), R(color2Reg));
 
-	// Modify B in place and OR in.
-	AND(32, R(colorIndexReg), Imm32(0x0000001F));
-	SHL(32, R(colorIndexReg), Imm8(16 + 3));
-	OR(32, R(resultReg), R(colorIndexReg));
+		// Modify B in place and OR in.
+		AND(32, R(colorIndexReg), Imm32(0x0000001F));
+		SHL(32, R(colorIndexReg), Imm8(16 + 3));
+		OR(32, R(resultReg), R(colorIndexReg));
+	}
 	FixupBranch finish565 = J(true);
 
 	// Here we'll mix color1 and color2 by 2/3 (which gets the 2 depends on colorIndexReg.)
 	SetJumpTarget(handleMix23);
-	// We'll need more regs.  Grab two more to keep the stack aligned.
-	PUSH(R12);
-	PUSH(R13);
 
 	// If colorIndexReg is 2, it's color1Reg * 2 + color2Reg, but if colorIndexReg is 3, it's reversed.
 	// Let's swap the regs in that case.
@@ -1956,43 +1976,68 @@ bool SamplerJitCache::Jit_GetDXT1Color(const SamplerID &id, int blockSize, int a
 	XCHG(32, R(color2Reg), R(color1Reg));
 	SetJumpTarget(skipSwap23);
 
-	// Start off with R, adding together first...
-	MOV(32, R(resultReg), R(color1Reg));
-	AND(32, R(resultReg), Imm32(0x0000F800));
-	MOV(32, R(colorIndexReg), R(color2Reg));
-	AND(32, R(colorIndexReg), Imm32(0x0000F800));
-	LEA(32, resultReg, MComplex(colorIndexReg, resultReg, SCALE_2, 0));
-	// We'll overflow if we divide here, so shift into place already.
-	SHR(32, R(resultReg), Imm8(8));
-	// Now we divide that by 3, by actually multiplying by AAAB and shifting off.
-	IMUL(32, R12, R(resultReg), Imm32(0x0000AAAB));
-	// Now we SHR off the extra bits we added on.
-	SHR(32, R(R12), Imm8(17));
+	if (cpu_info.bBMI2_fast) {
+		// Gather B, G, and R and space them apart by 14 or 15 bits.
+		MOV(64, R(colorIndexReg), Imm64(0x00001F0003F0001FULL));
+		PDEP(64, color1Reg, color1Reg, R(colorIndexReg));
+		PDEP(64, color2Reg, color2Reg, R(colorIndexReg));
+		LEA(64, resultReg, MComplex(color2Reg, color1Reg, SCALE_2, 0));
 
-	// Now add up G.  We leave this in place and shift right more.
-	MOV(32, R(resultReg), R(color1Reg));
-	AND(32, R(resultReg), Imm32(0x000007E0));
-	MOV(32, R(colorIndexReg), R(color2Reg));
-	AND(32, R(colorIndexReg), Imm32(0x000007E0));
-	LEA(32, resultReg, MComplex(colorIndexReg, resultReg, SCALE_2, 0));
-	// Again, multiply and now we use AAAB, this time masking.
-	IMUL(32, resultReg, R(resultReg), Imm32(0x0000AAAB));
-	SHR(32, R(resultReg), Imm8(17 - 5));
-	AND(32, R(resultReg), Imm32(0x0000FF00));
-	// Let's combine R in already.
-	OR(32, R(resultReg), R(R12));
+		// Now multiply all of them by a special constant to divide by 3.
+		// This constant is (1 << 13) / 3, which is importantly less than 14 or 15.
+		IMUL(64, resultReg, R(resultReg), Imm32(0x00000AAB));
 
-	// Now for B, it starts in the lowest place so we'll need to mask.
-	AND(32, R(color1Reg), Imm32(0x0000001F));
-	AND(32, R(color2Reg), Imm32(0x0000001F));
-	LEA(32, colorIndexReg, MComplex(color2Reg, color1Reg, SCALE_2, 0));
-	// Instead of shifting left, though, we multiply by a bit more.
-	IMUL(32, colorIndexReg, R(colorIndexReg), Imm32(0x0002AAAB));
-	AND(32, R(colorIndexReg), Imm32(0x00FF0000));
-	OR(32, R(resultReg), R(colorIndexReg));
+		// Now extract the BGR values to 8 bits each.
+		// We subtract 3 from 13 to get 8 from 5 bits, then 2 from 20 + 13, and 3 from 40 + 13.
+		MOV(64, R(colorIndexReg), Imm64((0xFFULL << 10) | (0xFFULL << 31) | (0xFFULL << 50)));
+		PEXT(64, resultReg, resultReg, R(colorIndexReg));
 
-	POP(R13);
-	POP(R12);
+		// Finally swap B and R.
+		BSWAP(32, resultReg);
+		SHR(32, R(resultReg), Imm8(8));
+	} else {
+		// We'll need more regs.  Grab two more to keep the stack aligned.
+		PUSH(R12);
+		PUSH(R13);
+
+		// Start off with R, adding together first...
+		MOV(32, R(resultReg), R(color1Reg));
+		AND(32, R(resultReg), Imm32(0x0000F800));
+		MOV(32, R(colorIndexReg), R(color2Reg));
+		AND(32, R(colorIndexReg), Imm32(0x0000F800));
+		LEA(32, resultReg, MComplex(colorIndexReg, resultReg, SCALE_2, 0));
+		// We'll overflow if we divide here, so shift into place already.
+		SHR(32, R(resultReg), Imm8(8));
+		// Now we divide that by 3, by actually multiplying by AAAB and shifting off.
+		IMUL(32, R12, R(resultReg), Imm32(0x0000AAAB));
+		// Now we SHR off the extra bits we added on.
+		SHR(32, R(R12), Imm8(17));
+
+		// Now add up G.  We leave this in place and shift right more.
+		MOV(32, R(resultReg), R(color1Reg));
+		AND(32, R(resultReg), Imm32(0x000007E0));
+		MOV(32, R(colorIndexReg), R(color2Reg));
+		AND(32, R(colorIndexReg), Imm32(0x000007E0));
+		LEA(32, resultReg, MComplex(colorIndexReg, resultReg, SCALE_2, 0));
+		// Again, multiply and now we use AAAB, this time masking.
+		IMUL(32, resultReg, R(resultReg), Imm32(0x0000AAAB));
+		SHR(32, R(resultReg), Imm8(17 - 5));
+		AND(32, R(resultReg), Imm32(0x0000FF00));
+		// Let's combine R in already.
+		OR(32, R(resultReg), R(R12));
+
+		// Now for B, it starts in the lowest place so we'll need to mask.
+		AND(32, R(color1Reg), Imm32(0x0000001F));
+		AND(32, R(color2Reg), Imm32(0x0000001F));
+		LEA(32, colorIndexReg, MComplex(color2Reg, color1Reg, SCALE_2, 0));
+		// Instead of shifting left, though, we multiply by a bit more.
+		IMUL(32, colorIndexReg, R(colorIndexReg), Imm32(0x0002AAAB));
+		AND(32, R(colorIndexReg), Imm32(0x00FF0000));
+		OR(32, R(resultReg), R(colorIndexReg));
+
+		POP(R13);
+		POP(R12);
+	}
 
 	regCache_.Release(colorIndexReg, RegCache::GEN_TEMP0);
 	regCache_.Release(color1Reg, RegCache::GEN_TEMP1);
