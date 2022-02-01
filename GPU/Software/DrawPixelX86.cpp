@@ -2143,6 +2143,24 @@ bool PixelJitCache::Jit_ConvertTo4444(const PixelFuncID &id, RegCache::Reg color
 
 bool PixelJitCache::Jit_ConvertFrom565(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg) {
 	Describe("ConvertFrom565");
+
+	if (cpu_info.bBMI2_fast) {
+		// Start off with the high bits.
+		MOV(32, R(temp1Reg), Imm32(0x00F8FCF8));
+		PDEP(32, temp1Reg, colorReg, R(temp1Reg));
+
+		// Now grab the low bits (they end up packed.)
+		MOV(32, R(temp2Reg), Imm32(0x0000E61C));
+		PEXT(32, colorReg, colorReg, R(temp2Reg));
+		// And spread them back out.
+		MOV(32, R(temp2Reg), Imm32(0x00070307));
+		PDEP(32, colorReg, colorReg, R(temp2Reg));
+
+		// Finally put the high bits in, we're done.
+		OR(32, R(colorReg), R(temp1Reg));
+		return true;
+	}
+
 	// Filter out red only into temp1.
 	MOV(32, R(temp1Reg), R(colorReg));
 	AND(16, R(temp1Reg), Imm16(0x1F << 0));
@@ -2178,6 +2196,27 @@ bool PixelJitCache::Jit_ConvertFrom565(const PixelFuncID &id, RegCache::Reg colo
 
 bool PixelJitCache::Jit_ConvertFrom5551(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha) {
 	Describe("ConvertFrom5551");
+
+	if (cpu_info.bBMI2_fast) {
+		// First, grab the top bits.
+		MOV(32, R(temp1Reg), Imm32(keepAlpha ? 0x01F8F8F8 : 0x00F8F8F8));
+		PDEP(32, colorReg, colorReg, R(temp1Reg));
+
+		// Now make the swizzle bits.
+		MOV(32, R(temp2Reg), R(colorReg));
+		SHR(32, R(temp2Reg), Imm8(5));
+		AND(32, R(temp2Reg), Imm32(0x00070707));
+
+		if (keepAlpha) {
+			// Sign extend the alpha bit to 8 bits.
+			SHL(32, R(colorReg), Imm8(7));
+			SAR(32, R(colorReg), Imm8(7));
+		}
+
+		OR(32, R(colorReg), R(temp2Reg));
+		return true;
+	}
+
 	// Filter out red only into temp1.
 	MOV(32, R(temp1Reg), R(colorReg));
 	AND(16, R(temp1Reg), Imm16(0x1F << 0));
@@ -2215,6 +2254,19 @@ bool PixelJitCache::Jit_ConvertFrom5551(const PixelFuncID &id, RegCache::Reg col
 
 bool PixelJitCache::Jit_ConvertFrom4444(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha) {
 	Describe("ConvertFrom4444");
+
+	if (cpu_info.bBMI2_fast) {
+		// First, spread the bits out with spaces.
+		MOV(32, R(temp1Reg), Imm32(keepAlpha ? 0xF0F0F0F0 : 0x00F0F0F0));
+		PDEP(32, colorReg, colorReg, R(temp1Reg));
+
+		// Now swizzle the low bits in.
+		MOV(32, R(temp1Reg), R(colorReg));
+		SHR(32, R(temp1Reg), Imm8(4));
+		OR(32, R(colorReg), R(temp1Reg));
+		return true;
+	}
+
 	// Move red into position within temp1.
 	MOV(32, R(temp1Reg), R(colorReg));
 	AND(16, R(temp1Reg), Imm16(0xF << 0));

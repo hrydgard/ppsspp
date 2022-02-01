@@ -255,6 +255,8 @@ void CPUInfo::Detect() {
 			if ((cpu_id[1] >> 11) & 1)
 				bRTM = true;
 		}
+
+		bBMI2_fast = bBMI2 && (vendor != VENDOR_AMD || family >= 0x19);
 	}
 	if (max_ex_fn >= 0x80000004) {
 		// Extract brand string
