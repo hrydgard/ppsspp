@@ -2060,6 +2060,13 @@ bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, RegCache::Reg colorR
 
 bool PixelJitCache::Jit_ConvertTo565(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg) {
 	Describe("ConvertTo565");
+
+	if (cpu_info.bBMI2_fast) {
+		MOV(32, R(temp1Reg), Imm32(0x00F8FCF8));
+		PEXT(32, colorReg, colorReg, R(temp1Reg));
+		return true;
+	}
+
 	// Assemble the 565 color, starting with R...
 	MOV(32, R(temp1Reg), R(colorReg));
 	SHR(32, R(temp1Reg), Imm8(3));
@@ -2081,6 +2088,13 @@ bool PixelJitCache::Jit_ConvertTo565(const PixelFuncID &id, RegCache::Reg colorR
 
 bool PixelJitCache::Jit_ConvertTo5551(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha) {
 	Describe("ConvertTo5551");
+
+	if (cpu_info.bBMI2_fast) {
+		MOV(32, R(temp1Reg), Imm32(keepAlpha ? 0x80F8F8F8 : 0x00F8F8F8));
+		PEXT(32, colorReg, colorReg, R(temp1Reg));
+		return true;
+	}
+
 	// This is R, pretty simple.
 	MOV(32, R(temp1Reg), R(colorReg));
 	SHR(32, R(temp1Reg), Imm8(3));
@@ -2112,6 +2126,13 @@ bool PixelJitCache::Jit_ConvertTo5551(const PixelFuncID &id, RegCache::Reg color
 
 bool PixelJitCache::Jit_ConvertTo4444(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha) {
 	Describe("ConvertTo4444");
+
+	if (cpu_info.bBMI2_fast) {
+		MOV(32, R(temp1Reg), Imm32(keepAlpha ? 0xF0F0F0F0 : 0x00F0F0F0));
+		PEXT(32, colorReg, colorReg, R(temp1Reg));
+		return true;
+	}
+
 	// Shift and mask out R.
 	MOV(32, R(temp1Reg), R(colorReg));
 	SHR(32, R(temp1Reg), Imm8(4));
