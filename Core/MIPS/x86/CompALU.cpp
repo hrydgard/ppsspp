@@ -22,6 +22,7 @@
 
 #include "Common/BitSet.h"
 #include "Common/CommonTypes.h"
+#include "Common/CPUDetect.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/x86/Jit.h"
 #include "Core/MIPS/x86/RegCache.h"
@@ -647,16 +648,36 @@ namespace MIPSComp
 		}
 
 		gpr.Lock(rd, rt, rs);
-		if (gpr.IsImm(rs))
-		{
+		if (gpr.IsImm(rs)) {
 			int sa = gpr.GetImm(rs);
 			gpr.MapReg(rd, rd == rt, true);
-			if (rd != rt)
+			if (cpu_info.bBMI2 && shift == &XEmitter::ROR) {
+				_assert_(!gpr.IsImm(rt));
+				RORX(32, gpr.RX(rd), gpr.R(rt), sa & 0x1F);
+			} else {
+				if (rd != rt)
+					MOV(32, gpr.R(rd), gpr.R(rt));
+				(this->*shift)(32, gpr.R(rd), Imm8(sa & 0x1F));
+			}
+		} else if (cpu_info.bBMI2 && shift != &XEmitter::ROR) {
+			gpr.MapReg(rd, rd == rt || rd == rs, true);
+			gpr.MapReg(rs, true, false);
+			MIPSGPReg src = rt;
+			if (gpr.IsImm(rt) && rd == rs) {
+				gpr.MapReg(rt, true, false);
+			} else if (gpr.IsImm(rt)) {
 				MOV(32, gpr.R(rd), gpr.R(rt));
-			(this->*shift)(32, gpr.R(rd), Imm8(sa));
-		}
-		else
-		{
+				src = rd;
+			}
+			if (shift == &XEmitter::SHL)
+				SHLX(32, gpr.RX(rd), gpr.R(src), gpr.RX(rs));
+			else if (shift == &XEmitter::SHR)
+				SHRX(32, gpr.RX(rd), gpr.R(src), gpr.RX(rs));
+			else if (shift == &XEmitter::SAR)
+				SARX(32, gpr.RX(rd), gpr.R(src), gpr.RX(rs));
+			else
+				_assert_msg_(false, "Unexpected shift type");
+		} else {
 			gpr.FlushLockX(ECX);
 			gpr.MapReg(rd, rd == rt || rd == rs, true);
 			MOV(32, R(ECX), gpr.R(rs));	// Only ECX can be used for variable shifts.
