@@ -438,6 +438,9 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// Push the initial CLUT buffer in case it's all zero (we push only on change.)
 	drawEngine_->transformUnit.NotifyClutUpdate(clut);
 
+	// No need to flush for simple parameter changes.
+	flushOnParams_ = false;
+
 	if (gfxCtx && draw) {
 		presentation_ = new PresentationCommon(draw_);
 		presentation_->SetLanguage(draw_->GetShaderLanguageDesc().shaderLanguage);

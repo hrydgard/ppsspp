@@ -318,6 +318,7 @@ protected:
 	TextureCacheCommon *textureCache_ = nullptr;
 	DrawEngineCommon *drawEngineCommon_ = nullptr;
 	ShaderManagerCommon *shaderManager_ = nullptr;
+	bool flushOnParams_ = true;
 
 	GraphicsContext *gfxCtx_;
 	Draw::DrawContext *draw_;
