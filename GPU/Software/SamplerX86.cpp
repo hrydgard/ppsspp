@@ -3076,36 +3076,54 @@ bool SamplerJitCache::Jit_Decode5650(const SamplerID &id) {
 	X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
 	X64Reg temp2Reg = regCache_.Alloc(RegCache::GEN_TEMP2);
 
-	MOV(32, R(temp2Reg), R(resultReg));
-	AND(32, R(temp2Reg), Imm32(0x0000001F));
+	if (cpu_info.bBMI2_fast) {
+		// Start off with the high bits.
+		MOV(32, R(temp1Reg), Imm32(0x00F8FCF8));
+		PDEP(32, temp1Reg, resultReg, R(temp1Reg));
+		if (id.useTextureAlpha || id.fetch)
+			OR(32, R(temp1Reg), Imm32(0xFF000000));
 
-	// B (we do R and B at the same time, they're both 5.)
-	MOV(32, R(temp1Reg), R(resultReg));
-	AND(32, R(temp1Reg), Imm32(0x0000F800));
-	SHL(32, R(temp1Reg), Imm8(5));
-	OR(32, R(temp2Reg), R(temp1Reg));
+		// Now grab the low bits (they end up packed.)
+		MOV(32, R(temp2Reg), Imm32(0x0000E61C));
+		PEXT(32, resultReg, resultReg, R(temp2Reg));
+		// And spread them back out.
+		MOV(32, R(temp2Reg), Imm32(0x00070307));
+		PDEP(32, resultReg, resultReg, R(temp2Reg));
 
-	// Expand 5 -> 8.  At this point we have 00BB00RR.
-	MOV(32, R(temp1Reg), R(temp2Reg));
-	SHL(32, R(temp2Reg), Imm8(3));
-	SHR(32, R(temp1Reg), Imm8(2));
-	OR(32, R(temp2Reg), R(temp1Reg));
-	AND(32, R(temp2Reg), Imm32(0x00FF00FF));
+		// Finally put the high bits in, we're done.
+		OR(32, R(resultReg), R(temp1Reg));
+	} else {
+		MOV(32, R(temp2Reg), R(resultReg));
+		AND(32, R(temp2Reg), Imm32(0x0000001F));
 
-	// Now's as good a time to put in A as any.
-	if (id.useTextureAlpha || id.fetch)
-		OR(32, R(temp2Reg), Imm32(0xFF000000));
+		// B (we do R and B at the same time, they're both 5.)
+		MOV(32, R(temp1Reg), R(resultReg));
+		AND(32, R(temp1Reg), Imm32(0x0000F800));
+		SHL(32, R(temp1Reg), Imm8(5));
+		OR(32, R(temp2Reg), R(temp1Reg));
 
-	// Last, we need to align, extract, and expand G.
-	// 3 to align to G, and then 2 to expand to 8.
-	SHL(32, R(resultReg), Imm8(3 + 2));
-	AND(32, R(resultReg), Imm32(0x0000FC00));
-	MOV(32, R(temp1Reg), R(resultReg));
-	// 2 to account for resultReg being preshifted, 4 for expansion.
-	SHR(32, R(temp1Reg), Imm8(2 + 4));
-	OR(32, R(resultReg), R(temp1Reg));
-	AND(32, R(resultReg), Imm32(0x0000FF00));
-	OR(32, R(resultReg), R(temp2Reg));
+		// Expand 5 -> 8.  At this point we have 00BB00RR.
+		MOV(32, R(temp1Reg), R(temp2Reg));
+		SHL(32, R(temp2Reg), Imm8(3));
+		SHR(32, R(temp1Reg), Imm8(2));
+		OR(32, R(temp2Reg), R(temp1Reg));
+		AND(32, R(temp2Reg), Imm32(0x00FF00FF));
+
+		// Now's as good a time to put in A as any.
+		if (id.useTextureAlpha || id.fetch)
+			OR(32, R(temp2Reg), Imm32(0xFF000000));
+
+		// Last, we need to align, extract, and expand G.
+		// 3 to align to G, and then 2 to expand to 8.
+		SHL(32, R(resultReg), Imm8(3 + 2));
+		AND(32, R(resultReg), Imm32(0x0000FC00));
+		MOV(32, R(temp1Reg), R(resultReg));
+		// 2 to account for resultReg being preshifted, 4 for expansion.
+		SHR(32, R(temp1Reg), Imm8(2 + 4));
+		OR(32, R(resultReg), R(temp1Reg));
+		AND(32, R(resultReg), Imm32(0x0000FF00));
+		OR(32, R(resultReg), R(temp2Reg));
+	}
 
 	regCache_.Release(temp1Reg, RegCache::GEN_TEMP1);
 	regCache_.Release(temp2Reg, RegCache::GEN_TEMP2);
@@ -3154,34 +3172,54 @@ bool SamplerJitCache::Jit_Decode5551(const SamplerID &id) {
 	X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
 	X64Reg temp2Reg = regCache_.Alloc(RegCache::GEN_TEMP2);
 
-	MOV(32, R(temp2Reg), R(resultReg));
-	MOV(32, R(temp1Reg), R(resultReg));
-	AND(32, R(temp2Reg), Imm32(0x0000001F));
-	AND(32, R(temp1Reg), Imm32(0x000003E0));
-	SHL(32, R(temp1Reg), Imm8(3));
-	OR(32, R(temp2Reg), R(temp1Reg));
+	if (cpu_info.bBMI2_fast) {
+		// First, grab the top bits.
+		bool keepAlpha = id.useTextureAlpha || id.fetch;
+		MOV(32, R(temp1Reg), Imm32(keepAlpha ? 0x01F8F8F8 : 0x00F8F8F8));
+		PDEP(32, resultReg, resultReg, R(temp1Reg));
 
-	MOV(32, R(temp1Reg), R(resultReg));
-	AND(32, R(temp1Reg), Imm32(0x00007C00));
-	SHL(32, R(temp1Reg), Imm8(6));
-	OR(32, R(temp2Reg), R(temp1Reg));
+		// Now make the swizzle bits.
+		MOV(32, R(temp2Reg), R(resultReg));
+		SHR(32, R(temp2Reg), Imm8(5));
+		AND(32, R(temp2Reg), Imm32(0x00070707));
 
-	// Expand 5 -> 8.  After this is just A.
-	MOV(32, R(temp1Reg), R(temp2Reg));
-	SHL(32, R(temp2Reg), Imm8(3));
-	SHR(32, R(temp1Reg), Imm8(2));
-	// Chop off the bits that were shifted out.
-	AND(32, R(temp1Reg), Imm32(0x00070707));
-	OR(32, R(temp2Reg), R(temp1Reg));
+		if (keepAlpha) {
+			// Sign extend the alpha bit to 8 bits.
+			SHL(32, R(resultReg), Imm8(7));
+			SAR(32, R(resultReg), Imm8(7));
+		}
 
-	if (id.useTextureAlpha || id.fetch) {
-		// For A, we sign extend to get either 16 1s or 0s of alpha.
-		SAR(16, R(resultReg), Imm8(15));
-		// Now, shift left by 24 to get the lowest 8 of those at the top.
-		SHL(32, R(resultReg), Imm8(24));
 		OR(32, R(resultReg), R(temp2Reg));
 	} else {
-		MOV(32, R(resultReg), R(temp2Reg));
+		MOV(32, R(temp2Reg), R(resultReg));
+		MOV(32, R(temp1Reg), R(resultReg));
+		AND(32, R(temp2Reg), Imm32(0x0000001F));
+		AND(32, R(temp1Reg), Imm32(0x000003E0));
+		SHL(32, R(temp1Reg), Imm8(3));
+		OR(32, R(temp2Reg), R(temp1Reg));
+
+		MOV(32, R(temp1Reg), R(resultReg));
+		AND(32, R(temp1Reg), Imm32(0x00007C00));
+		SHL(32, R(temp1Reg), Imm8(6));
+		OR(32, R(temp2Reg), R(temp1Reg));
+
+		// Expand 5 -> 8.  After this is just A.
+		MOV(32, R(temp1Reg), R(temp2Reg));
+		SHL(32, R(temp2Reg), Imm8(3));
+		SHR(32, R(temp1Reg), Imm8(2));
+		// Chop off the bits that were shifted out.
+		AND(32, R(temp1Reg), Imm32(0x00070707));
+		OR(32, R(temp2Reg), R(temp1Reg));
+
+		if (id.useTextureAlpha || id.fetch) {
+			// For A, we sign extend to get either 16 1s or 0s of alpha.
+			SAR(16, R(resultReg), Imm8(15));
+			// Now, shift left by 24 to get the lowest 8 of those at the top.
+			SHL(32, R(resultReg), Imm8(24));
+			OR(32, R(resultReg), R(temp2Reg));
+		} else {
+			MOV(32, R(resultReg), R(temp2Reg));
+		}
 	}
 
 	regCache_.Release(temp1Reg, RegCache::GEN_TEMP1);
@@ -3235,31 +3273,46 @@ alignas(16) static const u32 color4444mask[4] = { 0xf00ff00f, 0xf00ff00f, 0xf00f
 bool SamplerJitCache::Jit_Decode4444(const SamplerID &id) {
 	Describe("4444");
 	X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
-	X64Reg vecTemp1Reg = regCache_.Alloc(RegCache::VEC_TEMP1);
-	X64Reg vecTemp2Reg = regCache_.Alloc(RegCache::VEC_TEMP2);
-	X64Reg vecTemp3Reg = regCache_.Alloc(RegCache::VEC_TEMP3);
 
-	MOVD_xmm(vecTemp1Reg, R(resultReg));
-	PUNPCKLBW(vecTemp1Reg, R(vecTemp1Reg));
-	if (RipAccessible(color4444mask)) {
-		PAND(vecTemp1Reg, M(color4444mask));
-	} else {
+	if (cpu_info.bBMI2_fast) {
 		X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
-		MOV(PTRBITS, R(temp1Reg), ImmPtr(color4444mask));
-		PAND(vecTemp1Reg, MatR(temp1Reg));
-		regCache_.Release(temp1Reg, RegCache::GEN_TEMP1);
-	}
-	MOVSS(vecTemp2Reg, R(vecTemp1Reg));
-	MOVSS(vecTemp3Reg, R(vecTemp1Reg));
-	PSRLW(vecTemp2Reg, 4);
-	PSLLW(vecTemp3Reg, 4);
-	POR(vecTemp1Reg, R(vecTemp2Reg));
-	POR(vecTemp1Reg, R(vecTemp3Reg));
-	MOVD_xmm(R(resultReg), vecTemp1Reg);
+		// First, spread the bits out with spaces.
+		MOV(32, R(temp1Reg), Imm32(0xF0F0F0F0));
+		PDEP(32, resultReg, resultReg, R(temp1Reg));
 
-	regCache_.Release(vecTemp1Reg, RegCache::VEC_TEMP1);
-	regCache_.Release(vecTemp2Reg, RegCache::VEC_TEMP2);
-	regCache_.Release(vecTemp3Reg, RegCache::VEC_TEMP3);
+		// Now swizzle the low bits in.
+		MOV(32, R(temp1Reg), R(resultReg));
+		SHR(32, R(temp1Reg), Imm8(4));
+		OR(32, R(resultReg), R(temp1Reg));
+
+		regCache_.Release(temp1Reg, RegCache::GEN_TEMP1);
+	} else {
+		X64Reg vecTemp1Reg = regCache_.Alloc(RegCache::VEC_TEMP1);
+		X64Reg vecTemp2Reg = regCache_.Alloc(RegCache::VEC_TEMP2);
+		X64Reg vecTemp3Reg = regCache_.Alloc(RegCache::VEC_TEMP3);
+
+		MOVD_xmm(vecTemp1Reg, R(resultReg));
+		PUNPCKLBW(vecTemp1Reg, R(vecTemp1Reg));
+		if (RipAccessible(color4444mask)) {
+			PAND(vecTemp1Reg, M(color4444mask));
+		} else {
+			X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
+			MOV(PTRBITS, R(temp1Reg), ImmPtr(color4444mask));
+			PAND(vecTemp1Reg, MatR(temp1Reg));
+			regCache_.Release(temp1Reg, RegCache::GEN_TEMP1);
+		}
+		MOVSS(vecTemp2Reg, R(vecTemp1Reg));
+		MOVSS(vecTemp3Reg, R(vecTemp1Reg));
+		PSRLW(vecTemp2Reg, 4);
+		PSLLW(vecTemp3Reg, 4);
+		POR(vecTemp1Reg, R(vecTemp2Reg));
+		POR(vecTemp1Reg, R(vecTemp3Reg));
+		MOVD_xmm(R(resultReg), vecTemp1Reg);
+
+		regCache_.Release(vecTemp1Reg, RegCache::VEC_TEMP1);
+		regCache_.Release(vecTemp2Reg, RegCache::VEC_TEMP2);
+		regCache_.Release(vecTemp3Reg, RegCache::VEC_TEMP3);
+	}
 	regCache_.Unlock(resultReg, RegCache::GEN_RESULT);
 	return true;
 }
