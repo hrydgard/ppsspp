@@ -184,12 +184,14 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 
 	if (regCache_.Has(RegCache::GEN_ARG_BUFW_PTR)) {
 		// On Linux, RCX is currently bufwptr, but we'll need it for other things.
-		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR);
-		MOV(64, R(R15), R(bufwReg));
-		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW_PTR);
-		regCache_.ForceRelease(RegCache::GEN_ARG_BUFW_PTR);
-		regCache_.ChangeReg(R15, RegCache::GEN_ARG_BUFW_PTR);
-		regCache_.ForceRetain(RegCache::GEN_ARG_BUFW_PTR);
+		if (!cpu_info.bBMI2) {
+			X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR);
+			MOV(64, R(R15), R(bufwReg));
+			regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW_PTR);
+			regCache_.ForceRelease(RegCache::GEN_ARG_BUFW_PTR);
+			regCache_.ChangeReg(R15, RegCache::GEN_ARG_BUFW_PTR);
+			regCache_.ForceRetain(RegCache::GEN_ARG_BUFW_PTR);
+		}
 	} else {
 		// Let's load bufwptr/texptrptr into regs.  Match Linux just for consistency - RDX is free.
 		MOV(64, R(RDX), MDisp(RSP, stackArgPos_ + 0));
@@ -200,8 +202,10 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 		regCache_.ForceRetain(RegCache::GEN_ARG_BUFW_PTR);
 	}
 	// Okay, now lock RCX as a shifting reg.
-	regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
-	regCache_.ForceRetain(RegCache::GEN_SHIFTVAL);
+	if (!cpu_info.bBMI2) {
+		regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
+		regCache_.ForceRetain(RegCache::GEN_SHIFTVAL);
+	}
 
 	bool success = true;
 
@@ -345,7 +349,8 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 		regCache_.ForceRelease(RegCache::GEN_ARG_BUFW_PTR);
 	if (regCache_.Has(RegCache::GEN_ARG_LEVEL))
 		regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
-	regCache_.ForceRelease(RegCache::GEN_SHIFTVAL);
+	if (regCache_.Has(RegCache::GEN_SHIFTVAL))
+		regCache_.ForceRelease(RegCache::GEN_SHIFTVAL);
 	regCache_.ForceRelease(RegCache::GEN_RESULT);
 
 	if (id.hasAnyMips) {
@@ -1820,7 +1825,7 @@ bool SamplerJitCache::Jit_GetDXT1Color(const SamplerID &id, int blockSize, int a
 	regCache_.Release(srcOffsetReg, RegCache::GEN_TEMP1);
 
 	// Make sure we don't grab this as colorIndexReg.
-	if (uReg != ECX)
+	if (uReg != ECX && !cpu_info.bBMI2)
 		regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
 
 	// The colorIndex is simply the 2 bits at blockPos + (v & 3), shifted right by (u & 3) twice.
@@ -1835,6 +1840,9 @@ bool SamplerJitCache::Jit_GetDXT1Color(const SamplerID &id, int blockSize, int a
 	if (uReg == ECX) {
 		SHR(32, R(colorIndexReg), R(CL));
 		SHR(32, R(colorIndexReg), R(CL));
+	} else if (cpu_info.bBMI2) {
+		SHRX(32, colorIndexReg, R(colorIndexReg), uReg);
+		SHRX(32, colorIndexReg, R(colorIndexReg), uReg);
 	} else {
 		bool hasRCX = regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
 		_assert_(hasRCX);
@@ -1869,43 +1877,58 @@ bool SamplerJitCache::Jit_GetDXT1Color(const SamplerID &id, int blockSize, int a
 	CMP(32, R(colorIndexReg), Imm32(3));
 	FixupBranch finishZero = J_CC(CC_E, true);
 
-	// We'll need more regs.  Grab two more.
-	PUSH(R12);
-	PUSH(R13);
-
-	// At this point, resultReg, colorIndexReg, R12, and R13 can be used as temps.
+	// At this point, resultReg, colorIndexReg, and maybe R12/R13 can be used as temps.
 	// We'll add, then shift from 565 a bit less to "divide" by 2 for a 50/50 mix.
 
-	// Start with summing R, then shift into position.
-	MOV(32, R(resultReg), R(color1Reg));
-	AND(32, R(resultReg), Imm32(0x0000F800));
-	MOV(32, R(colorIndexReg), R(color2Reg));
-	AND(32, R(colorIndexReg), Imm32(0x0000F800));
-	LEA(32, R12, MRegSum(resultReg, colorIndexReg));
-	// The position is 9, instead of 8, due to doubling.
-	SHR(32, R(R12), Imm8(9));
+	if (cpu_info.bBMI2_fast) {
+		// Expand everything out to 0BGR at 8888, but halved.
+		MOV(32, R(colorIndexReg), Imm32(0x007C7E7C));
+		PDEP(32, color1Reg, color1Reg, R(colorIndexReg));
+		PDEP(32, color2Reg, color2Reg, R(colorIndexReg));
 
-	// For G, summing leaves it 4 right (doubling made it not need more.)
-	MOV(32, R(resultReg), R(color1Reg));
-	AND(32, R(resultReg), Imm32(0x000007E0));
-	MOV(32, R(colorIndexReg), R(color2Reg));
-	AND(32, R(colorIndexReg), Imm32(0x000007E0));
-	LEA(32, resultReg, MRegSum(resultReg, colorIndexReg));
-	SHL(32, R(resultReg), Imm8(5 - 1));
-	// Now add G and R together.
-	OR(32, R(resultReg), R(R12));
+		// Now let's sum them together (this undoes our halving.)
+		LEA(32, resultReg, MRegSum(color1Reg, color2Reg));
 
-	// At B, we're free to modify the regs in place, finally.
-	AND(32, R(color1Reg), Imm32(0x0000001F));
-	AND(32, R(color2Reg), Imm32(0x0000001F));
-	LEA(32, colorIndexReg, MRegSum(color1Reg, color2Reg));
-	// We shift left 2 into position (not 3 due to doubling), then 16 more into the B slot.
-	SHL(32, R(colorIndexReg), Imm8(16 + 2));
-	// And combine into the result.
-	OR(32, R(resultReg), R(colorIndexReg));
+		// Time to swap into order.  Luckily we can ignore alpha.
+		BSWAP(32, resultReg);
+		SHR(32, R(resultReg), Imm8(8));
+	} else {
+		// We'll need more regs.  Grab two more.
+		PUSH(R12);
+		PUSH(R13);
 
-	POP(R13);
-	POP(R12);
+		// Start with summing R, then shift into position.
+		MOV(32, R(resultReg), R(color1Reg));
+		AND(32, R(resultReg), Imm32(0x0000F800));
+		MOV(32, R(colorIndexReg), R(color2Reg));
+		AND(32, R(colorIndexReg), Imm32(0x0000F800));
+		LEA(32, R12, MRegSum(resultReg, colorIndexReg));
+		// The position is 9, instead of 8, due to doubling.
+		SHR(32, R(R12), Imm8(9));
+
+		// For G, summing leaves it 4 right (doubling made it not need more.)
+		MOV(32, R(resultReg), R(color1Reg));
+		AND(32, R(resultReg), Imm32(0x000007E0));
+		MOV(32, R(colorIndexReg), R(color2Reg));
+		AND(32, R(colorIndexReg), Imm32(0x000007E0));
+		LEA(32, resultReg, MRegSum(resultReg, colorIndexReg));
+		SHL(32, R(resultReg), Imm8(5 - 1));
+		// Now add G and R together.
+		OR(32, R(resultReg), R(R12));
+
+		// At B, we're free to modify the regs in place, finally.
+		AND(32, R(color1Reg), Imm32(0x0000001F));
+		AND(32, R(color2Reg), Imm32(0x0000001F));
+		LEA(32, colorIndexReg, MRegSum(color1Reg, color2Reg));
+		// We shift left 2 into position (not 3 due to doubling), then 16 more into the B slot.
+		SHL(32, R(colorIndexReg), Imm8(16 + 2));
+		// And combine into the result.
+		OR(32, R(resultReg), R(colorIndexReg));
+
+		POP(R13);
+		POP(R12);
+	}
+
 	FixupBranch finishMix50 = J(true);
 
 	// Simply load the 565 color, and convert to 0888.
@@ -1917,29 +1940,34 @@ bool SamplerJitCache::Jit_GetDXT1Color(const SamplerID &id, int blockSize, int a
 	if (id.TexFmt() == GE_TFMT_DXT1)
 		regCache_.ForceRelease(RegCache::GEN_ARG_TEXPTR);
 
-	// Start with R, shifting it into place.
-	MOV(32, R(resultReg), R(colorIndexReg));
-	AND(32, R(resultReg), Imm32(0x0000F800));
-	SHR(32, R(resultReg), Imm8(8));
+	if (cpu_info.bBMI2_fast) {
+		// We're only grabbing the high bits, no swizzle here.
+		MOV(32, R(resultReg), Imm32(0x00F8FCF8));
+		PDEP(32, resultReg, colorIndexReg, R(resultReg));
+		BSWAP(32, resultReg);
+		SHR(32, R(resultReg), Imm8(8));
+	} else {
+		// Start with R, shifting it into place.
+		MOV(32, R(resultReg), R(colorIndexReg));
+		AND(32, R(resultReg), Imm32(0x0000F800));
+		SHR(32, R(resultReg), Imm8(8));
 
-	// Then take G and shift it too.
-	MOV(32, R(color2Reg), R(colorIndexReg));
-	AND(32, R(color2Reg), Imm32(0x000007E0));
-	SHL(32, R(color2Reg), Imm8(5));
-	// And now combine with R, shifting that in the process.
-	OR(32, R(resultReg), R(color2Reg));
+		// Then take G and shift it too.
+		MOV(32, R(color2Reg), R(colorIndexReg));
+		AND(32, R(color2Reg), Imm32(0x000007E0));
+		SHL(32, R(color2Reg), Imm8(5));
+		// And now combine with R, shifting that in the process.
+		OR(32, R(resultReg), R(color2Reg));
 
-	// Modify B in place and OR in.
-	AND(32, R(colorIndexReg), Imm32(0x0000001F));
-	SHL(32, R(colorIndexReg), Imm8(16 + 3));
-	OR(32, R(resultReg), R(colorIndexReg));
+		// Modify B in place and OR in.
+		AND(32, R(colorIndexReg), Imm32(0x0000001F));
+		SHL(32, R(colorIndexReg), Imm8(16 + 3));
+		OR(32, R(resultReg), R(colorIndexReg));
+	}
 	FixupBranch finish565 = J(true);
 
 	// Here we'll mix color1 and color2 by 2/3 (which gets the 2 depends on colorIndexReg.)
 	SetJumpTarget(handleMix23);
-	// We'll need more regs.  Grab two more to keep the stack aligned.
-	PUSH(R12);
-	PUSH(R13);
 
 	// If colorIndexReg is 2, it's color1Reg * 2 + color2Reg, but if colorIndexReg is 3, it's reversed.
 	// Let's swap the regs in that case.
@@ -1948,43 +1976,68 @@ bool SamplerJitCache::Jit_GetDXT1Color(const SamplerID &id, int blockSize, int a
 	XCHG(32, R(color2Reg), R(color1Reg));
 	SetJumpTarget(skipSwap23);
 
-	// Start off with R, adding together first...
-	MOV(32, R(resultReg), R(color1Reg));
-	AND(32, R(resultReg), Imm32(0x0000F800));
-	MOV(32, R(colorIndexReg), R(color2Reg));
-	AND(32, R(colorIndexReg), Imm32(0x0000F800));
-	LEA(32, resultReg, MComplex(colorIndexReg, resultReg, SCALE_2, 0));
-	// We'll overflow if we divide here, so shift into place already.
-	SHR(32, R(resultReg), Imm8(8));
-	// Now we divide that by 3, by actually multiplying by AAAB and shifting off.
-	IMUL(32, R12, R(resultReg), Imm32(0x0000AAAB));
-	// Now we SHR off the extra bits we added on.
-	SHR(32, R(R12), Imm8(17));
+	if (cpu_info.bBMI2_fast) {
+		// Gather B, G, and R and space them apart by 14 or 15 bits.
+		MOV(64, R(colorIndexReg), Imm64(0x00001F0003F0001FULL));
+		PDEP(64, color1Reg, color1Reg, R(colorIndexReg));
+		PDEP(64, color2Reg, color2Reg, R(colorIndexReg));
+		LEA(64, resultReg, MComplex(color2Reg, color1Reg, SCALE_2, 0));
 
-	// Now add up G.  We leave this in place and shift right more.
-	MOV(32, R(resultReg), R(color1Reg));
-	AND(32, R(resultReg), Imm32(0x000007E0));
-	MOV(32, R(colorIndexReg), R(color2Reg));
-	AND(32, R(colorIndexReg), Imm32(0x000007E0));
-	LEA(32, resultReg, MComplex(colorIndexReg, resultReg, SCALE_2, 0));
-	// Again, multiply and now we use AAAB, this time masking.
-	IMUL(32, resultReg, R(resultReg), Imm32(0x0000AAAB));
-	SHR(32, R(resultReg), Imm8(17 - 5));
-	AND(32, R(resultReg), Imm32(0x0000FF00));
-	// Let's combine R in already.
-	OR(32, R(resultReg), R(R12));
+		// Now multiply all of them by a special constant to divide by 3.
+		// This constant is (1 << 13) / 3, which is importantly less than 14 or 15.
+		IMUL(64, resultReg, R(resultReg), Imm32(0x00000AAB));
 
-	// Now for B, it starts in the lowest place so we'll need to mask.
-	AND(32, R(color1Reg), Imm32(0x0000001F));
-	AND(32, R(color2Reg), Imm32(0x0000001F));
-	LEA(32, colorIndexReg, MComplex(color2Reg, color1Reg, SCALE_2, 0));
-	// Instead of shifting left, though, we multiply by a bit more.
-	IMUL(32, colorIndexReg, R(colorIndexReg), Imm32(0x0002AAAB));
-	AND(32, R(colorIndexReg), Imm32(0x00FF0000));
-	OR(32, R(resultReg), R(colorIndexReg));
+		// Now extract the BGR values to 8 bits each.
+		// We subtract 3 from 13 to get 8 from 5 bits, then 2 from 20 + 13, and 3 from 40 + 13.
+		MOV(64, R(colorIndexReg), Imm64((0xFFULL << 10) | (0xFFULL << 31) | (0xFFULL << 50)));
+		PEXT(64, resultReg, resultReg, R(colorIndexReg));
 
-	POP(R13);
-	POP(R12);
+		// Finally swap B and R.
+		BSWAP(32, resultReg);
+		SHR(32, R(resultReg), Imm8(8));
+	} else {
+		// We'll need more regs.  Grab two more to keep the stack aligned.
+		PUSH(R12);
+		PUSH(R13);
+
+		// Start off with R, adding together first...
+		MOV(32, R(resultReg), R(color1Reg));
+		AND(32, R(resultReg), Imm32(0x0000F800));
+		MOV(32, R(colorIndexReg), R(color2Reg));
+		AND(32, R(colorIndexReg), Imm32(0x0000F800));
+		LEA(32, resultReg, MComplex(colorIndexReg, resultReg, SCALE_2, 0));
+		// We'll overflow if we divide here, so shift into place already.
+		SHR(32, R(resultReg), Imm8(8));
+		// Now we divide that by 3, by actually multiplying by AAAB and shifting off.
+		IMUL(32, R12, R(resultReg), Imm32(0x0000AAAB));
+		// Now we SHR off the extra bits we added on.
+		SHR(32, R(R12), Imm8(17));
+
+		// Now add up G.  We leave this in place and shift right more.
+		MOV(32, R(resultReg), R(color1Reg));
+		AND(32, R(resultReg), Imm32(0x000007E0));
+		MOV(32, R(colorIndexReg), R(color2Reg));
+		AND(32, R(colorIndexReg), Imm32(0x000007E0));
+		LEA(32, resultReg, MComplex(colorIndexReg, resultReg, SCALE_2, 0));
+		// Again, multiply and now we use AAAB, this time masking.
+		IMUL(32, resultReg, R(resultReg), Imm32(0x0000AAAB));
+		SHR(32, R(resultReg), Imm8(17 - 5));
+		AND(32, R(resultReg), Imm32(0x0000FF00));
+		// Let's combine R in already.
+		OR(32, R(resultReg), R(R12));
+
+		// Now for B, it starts in the lowest place so we'll need to mask.
+		AND(32, R(color1Reg), Imm32(0x0000001F));
+		AND(32, R(color2Reg), Imm32(0x0000001F));
+		LEA(32, colorIndexReg, MComplex(color2Reg, color1Reg, SCALE_2, 0));
+		// Instead of shifting left, though, we multiply by a bit more.
+		IMUL(32, colorIndexReg, R(colorIndexReg), Imm32(0x0002AAAB));
+		AND(32, R(colorIndexReg), Imm32(0x00FF0000));
+		OR(32, R(resultReg), R(colorIndexReg));
+
+		POP(R13);
+		POP(R12);
+	}
 
 	regCache_.Release(colorIndexReg, RegCache::GEN_TEMP0);
 	regCache_.Release(color1Reg, RegCache::GEN_TEMP1);
@@ -2017,16 +2070,21 @@ bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
 		X64Reg uReg = regCache_.Find(RegCache::GEN_ARG_U);
 		X64Reg vReg = regCache_.Find(RegCache::GEN_ARG_V);
 
-		if (uReg != RCX) {
+		if (uReg != RCX && !cpu_info.bBMI2) {
 			regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
 			_assert_(regCache_.Has(RegCache::GEN_SHIFTVAL));
 		}
 
 		X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
 		MOVZX(32, 16, temp1Reg, MComplex(srcReg, vReg, SCALE_2, 8));
-		// Still depending on it being GEN_SHIFTVAL or GEN_ARG_U above.
-		LEA(32, RCX, MScaled(uReg, SCALE_4, 0));
-		SHR(32, R(temp1Reg), R(CL));
+		if (cpu_info.bBMI2) {
+			LEA(32, uReg, MScaled(uReg, SCALE_4, 0));
+			SHRX(32, temp1Reg, R(temp1Reg), uReg);
+		} else {
+			// Still depending on it being GEN_SHIFTVAL or GEN_ARG_U above.
+			LEA(32, RCX, MScaled(uReg, SCALE_4, 0));
+			SHR(32, R(temp1Reg), R(CL));
+		}
 		SHL(32, R(temp1Reg), Imm8(28));
 		X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
 		OR(32, R(resultReg), R(temp1Reg));
@@ -2046,7 +2104,7 @@ bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
 		X64Reg uReg = regCache_.Find(RegCache::GEN_ARG_U);
 		X64Reg vReg = regCache_.Find(RegCache::GEN_ARG_V);
 
-		if (uReg != RCX)
+		if (uReg != RCX && !cpu_info.bBMI2)
 			regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
 
 		// Let's figure out the alphaIndex bit offset so we can read the right byte.
@@ -2067,13 +2125,17 @@ bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
 
 		// Load 16 bits and mask, in case it straddles bytes.
 		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
-		MOVZX(32, 16, alphaIndexReg, MComplex(srcReg, alphaIndexReg, SCALE_1, 8));
-		// If not, it's in what was bufwReg.
-		if (uReg != RCX) {
-			_assert_(regCache_.Has(RegCache::GEN_SHIFTVAL));
-			MOV(32, R(RCX), R(uReg));
+		if (cpu_info.bBMI2) {
+			SHRX(32, alphaIndexReg, MComplex(srcReg, alphaIndexReg, SCALE_1, 8), uReg);
+		} else {
+			MOVZX(32, 16, alphaIndexReg, MComplex(srcReg, alphaIndexReg, SCALE_1, 8));
+			// If not, it's in what was bufwReg.
+			if (uReg != RCX) {
+				_assert_(regCache_.Has(RegCache::GEN_SHIFTVAL));
+				MOV(32, R(RCX), R(uReg));
+			}
+			SHR(32, R(alphaIndexReg), R(CL));
 		}
-		SHR(32, R(alphaIndexReg), R(CL));
 		AND(32, R(alphaIndexReg), Imm32(7));
 
 		regCache_.Unlock(uReg, RegCache::GEN_ARG_U);
@@ -2190,11 +2252,17 @@ bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {
 		break;
 
 	case 4: {
-		XOR(32, R(temp2Reg), R(temp2Reg));
+		if (cpu_info.bBMI2_fast)
+			MOV(32, R(temp2Reg), Imm32(0x0F));
+		else
+			XOR(32, R(temp2Reg), R(temp2Reg));
 		SHR(32, R(uReg), Imm8(1));
 		FixupBranch skip = J_CC(CC_NC);
 		// Track whether we shifted a 1 off or not.
-		MOV(32, R(temp2Reg), Imm32(4));
+		if (cpu_info.bBMI2_fast)
+			SHL(32, R(temp2Reg), Imm8(4));
+		else
+			MOV(32, R(temp2Reg), Imm32(4));
 		SetJumpTarget(skip);
 		LEA(64, temp1Reg, MRegSum(srcReg, uReg));
 		break;
@@ -2222,7 +2290,7 @@ bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {
 	// We can throw bufw away, now.
 	regCache_.ForceRelease(RegCache::GEN_ARG_BUFW);
 
-	if (bitsPerTexel == 4) {
+	if (bitsPerTexel == 4 && !cpu_info.bBMI2) {
 		bool hasRCX = regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
 		_assert_(hasRCX);
 	}
@@ -2236,12 +2304,20 @@ bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {
 
 	case 4: {
 		SHR(32, R(resultReg), Imm8(1));
-		MOV(8, R(resultReg), MRegSum(temp1Reg, resultReg));
-		// RCX is now free.
-		MOV(8, R(RCX), R(temp2Reg));
-		SHR(8, R(resultReg), R(RCX));
-		// Zero out any bits not shifted off.
-		AND(32, R(resultReg), Imm8(0x0F));
+		if (cpu_info.bBMI2_fast) {
+			MOV(8, R(resultReg), MRegSum(temp1Reg, resultReg));
+			PEXT(32, resultReg, resultReg, R(temp2Reg));
+		} else if (cpu_info.bBMI2) {
+			SHRX(32, resultReg, MRegSum(temp1Reg, resultReg), temp2Reg);
+			AND(32, R(resultReg), Imm8(0x0F));
+		} else {
+			MOV(8, R(resultReg), MRegSum(temp1Reg, resultReg));
+			// RCX is now free.
+			MOV(8, R(RCX), R(temp2Reg));
+			SHR(8, R(resultReg), R(RCX));
+			// Zero out any bits not shifted off.
+			AND(32, R(resultReg), Imm8(0x0F));
+		}
 		break;
 	}
 
@@ -3076,36 +3152,54 @@ bool SamplerJitCache::Jit_Decode5650(const SamplerID &id) {
 	X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
 	X64Reg temp2Reg = regCache_.Alloc(RegCache::GEN_TEMP2);
 
-	MOV(32, R(temp2Reg), R(resultReg));
-	AND(32, R(temp2Reg), Imm32(0x0000001F));
+	if (cpu_info.bBMI2_fast) {
+		// Start off with the high bits.
+		MOV(32, R(temp1Reg), Imm32(0x00F8FCF8));
+		PDEP(32, temp1Reg, resultReg, R(temp1Reg));
+		if (id.useTextureAlpha || id.fetch)
+			OR(32, R(temp1Reg), Imm32(0xFF000000));
 
-	// B (we do R and B at the same time, they're both 5.)
-	MOV(32, R(temp1Reg), R(resultReg));
-	AND(32, R(temp1Reg), Imm32(0x0000F800));
-	SHL(32, R(temp1Reg), Imm8(5));
-	OR(32, R(temp2Reg), R(temp1Reg));
+		// Now grab the low bits (they end up packed.)
+		MOV(32, R(temp2Reg), Imm32(0x0000E61C));
+		PEXT(32, resultReg, resultReg, R(temp2Reg));
+		// And spread them back out.
+		MOV(32, R(temp2Reg), Imm32(0x00070307));
+		PDEP(32, resultReg, resultReg, R(temp2Reg));
 
-	// Expand 5 -> 8.  At this point we have 00BB00RR.
-	MOV(32, R(temp1Reg), R(temp2Reg));
-	SHL(32, R(temp2Reg), Imm8(3));
-	SHR(32, R(temp1Reg), Imm8(2));
-	OR(32, R(temp2Reg), R(temp1Reg));
-	AND(32, R(temp2Reg), Imm32(0x00FF00FF));
+		// Finally put the high bits in, we're done.
+		OR(32, R(resultReg), R(temp1Reg));
+	} else {
+		MOV(32, R(temp2Reg), R(resultReg));
+		AND(32, R(temp2Reg), Imm32(0x0000001F));
 
-	// Now's as good a time to put in A as any.
-	if (id.useTextureAlpha || id.fetch)
-		OR(32, R(temp2Reg), Imm32(0xFF000000));
+		// B (we do R and B at the same time, they're both 5.)
+		MOV(32, R(temp1Reg), R(resultReg));
+		AND(32, R(temp1Reg), Imm32(0x0000F800));
+		SHL(32, R(temp1Reg), Imm8(5));
+		OR(32, R(temp2Reg), R(temp1Reg));
 
-	// Last, we need to align, extract, and expand G.
-	// 3 to align to G, and then 2 to expand to 8.
-	SHL(32, R(resultReg), Imm8(3 + 2));
-	AND(32, R(resultReg), Imm32(0x0000FC00));
-	MOV(32, R(temp1Reg), R(resultReg));
-	// 2 to account for resultReg being preshifted, 4 for expansion.
-	SHR(32, R(temp1Reg), Imm8(2 + 4));
-	OR(32, R(resultReg), R(temp1Reg));
-	AND(32, R(resultReg), Imm32(0x0000FF00));
-	OR(32, R(resultReg), R(temp2Reg));
+		// Expand 5 -> 8.  At this point we have 00BB00RR.
+		MOV(32, R(temp1Reg), R(temp2Reg));
+		SHL(32, R(temp2Reg), Imm8(3));
+		SHR(32, R(temp1Reg), Imm8(2));
+		OR(32, R(temp2Reg), R(temp1Reg));
+		AND(32, R(temp2Reg), Imm32(0x00FF00FF));
+
+		// Now's as good a time to put in A as any.
+		if (id.useTextureAlpha || id.fetch)
+			OR(32, R(temp2Reg), Imm32(0xFF000000));
+
+		// Last, we need to align, extract, and expand G.
+		// 3 to align to G, and then 2 to expand to 8.
+		SHL(32, R(resultReg), Imm8(3 + 2));
+		AND(32, R(resultReg), Imm32(0x0000FC00));
+		MOV(32, R(temp1Reg), R(resultReg));
+		// 2 to account for resultReg being preshifted, 4 for expansion.
+		SHR(32, R(temp1Reg), Imm8(2 + 4));
+		OR(32, R(resultReg), R(temp1Reg));
+		AND(32, R(resultReg), Imm32(0x0000FF00));
+		OR(32, R(resultReg), R(temp2Reg));
+	}
 
 	regCache_.Release(temp1Reg, RegCache::GEN_TEMP1);
 	regCache_.Release(temp2Reg, RegCache::GEN_TEMP2);
@@ -3154,34 +3248,54 @@ bool SamplerJitCache::Jit_Decode5551(const SamplerID &id) {
 	X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
 	X64Reg temp2Reg = regCache_.Alloc(RegCache::GEN_TEMP2);
 
-	MOV(32, R(temp2Reg), R(resultReg));
-	MOV(32, R(temp1Reg), R(resultReg));
-	AND(32, R(temp2Reg), Imm32(0x0000001F));
-	AND(32, R(temp1Reg), Imm32(0x000003E0));
-	SHL(32, R(temp1Reg), Imm8(3));
-	OR(32, R(temp2Reg), R(temp1Reg));
+	if (cpu_info.bBMI2_fast) {
+		// First, grab the top bits.
+		bool keepAlpha = id.useTextureAlpha || id.fetch;
+		MOV(32, R(temp1Reg), Imm32(keepAlpha ? 0x01F8F8F8 : 0x00F8F8F8));
+		PDEP(32, resultReg, resultReg, R(temp1Reg));
 
-	MOV(32, R(temp1Reg), R(resultReg));
-	AND(32, R(temp1Reg), Imm32(0x00007C00));
-	SHL(32, R(temp1Reg), Imm8(6));
-	OR(32, R(temp2Reg), R(temp1Reg));
+		// Now make the swizzle bits.
+		MOV(32, R(temp2Reg), R(resultReg));
+		SHR(32, R(temp2Reg), Imm8(5));
+		AND(32, R(temp2Reg), Imm32(0x00070707));
 
-	// Expand 5 -> 8.  After this is just A.
-	MOV(32, R(temp1Reg), R(temp2Reg));
-	SHL(32, R(temp2Reg), Imm8(3));
-	SHR(32, R(temp1Reg), Imm8(2));
-	// Chop off the bits that were shifted out.
-	AND(32, R(temp1Reg), Imm32(0x00070707));
-	OR(32, R(temp2Reg), R(temp1Reg));
+		if (keepAlpha) {
+			// Sign extend the alpha bit to 8 bits.
+			SHL(32, R(resultReg), Imm8(7));
+			SAR(32, R(resultReg), Imm8(7));
+		}
 
-	if (id.useTextureAlpha || id.fetch) {
-		// For A, we sign extend to get either 16 1s or 0s of alpha.
-		SAR(16, R(resultReg), Imm8(15));
-		// Now, shift left by 24 to get the lowest 8 of those at the top.
-		SHL(32, R(resultReg), Imm8(24));
 		OR(32, R(resultReg), R(temp2Reg));
 	} else {
-		MOV(32, R(resultReg), R(temp2Reg));
+		MOV(32, R(temp2Reg), R(resultReg));
+		MOV(32, R(temp1Reg), R(resultReg));
+		AND(32, R(temp2Reg), Imm32(0x0000001F));
+		AND(32, R(temp1Reg), Imm32(0x000003E0));
+		SHL(32, R(temp1Reg), Imm8(3));
+		OR(32, R(temp2Reg), R(temp1Reg));
+
+		MOV(32, R(temp1Reg), R(resultReg));
+		AND(32, R(temp1Reg), Imm32(0x00007C00));
+		SHL(32, R(temp1Reg), Imm8(6));
+		OR(32, R(temp2Reg), R(temp1Reg));
+
+		// Expand 5 -> 8.  After this is just A.
+		MOV(32, R(temp1Reg), R(temp2Reg));
+		SHL(32, R(temp2Reg), Imm8(3));
+		SHR(32, R(temp1Reg), Imm8(2));
+		// Chop off the bits that were shifted out.
+		AND(32, R(temp1Reg), Imm32(0x00070707));
+		OR(32, R(temp2Reg), R(temp1Reg));
+
+		if (id.useTextureAlpha || id.fetch) {
+			// For A, we sign extend to get either 16 1s or 0s of alpha.
+			SAR(16, R(resultReg), Imm8(15));
+			// Now, shift left by 24 to get the lowest 8 of those at the top.
+			SHL(32, R(resultReg), Imm8(24));
+			OR(32, R(resultReg), R(temp2Reg));
+		} else {
+			MOV(32, R(resultReg), R(temp2Reg));
+		}
 	}
 
 	regCache_.Release(temp1Reg, RegCache::GEN_TEMP1);
@@ -3235,31 +3349,46 @@ alignas(16) static const u32 color4444mask[4] = { 0xf00ff00f, 0xf00ff00f, 0xf00f
 bool SamplerJitCache::Jit_Decode4444(const SamplerID &id) {
 	Describe("4444");
 	X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
-	X64Reg vecTemp1Reg = regCache_.Alloc(RegCache::VEC_TEMP1);
-	X64Reg vecTemp2Reg = regCache_.Alloc(RegCache::VEC_TEMP2);
-	X64Reg vecTemp3Reg = regCache_.Alloc(RegCache::VEC_TEMP3);
 
-	MOVD_xmm(vecTemp1Reg, R(resultReg));
-	PUNPCKLBW(vecTemp1Reg, R(vecTemp1Reg));
-	if (RipAccessible(color4444mask)) {
-		PAND(vecTemp1Reg, M(color4444mask));
-	} else {
+	if (cpu_info.bBMI2_fast) {
 		X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
-		MOV(PTRBITS, R(temp1Reg), ImmPtr(color4444mask));
-		PAND(vecTemp1Reg, MatR(temp1Reg));
-		regCache_.Release(temp1Reg, RegCache::GEN_TEMP1);
-	}
-	MOVSS(vecTemp2Reg, R(vecTemp1Reg));
-	MOVSS(vecTemp3Reg, R(vecTemp1Reg));
-	PSRLW(vecTemp2Reg, 4);
-	PSLLW(vecTemp3Reg, 4);
-	POR(vecTemp1Reg, R(vecTemp2Reg));
-	POR(vecTemp1Reg, R(vecTemp3Reg));
-	MOVD_xmm(R(resultReg), vecTemp1Reg);
+		// First, spread the bits out with spaces.
+		MOV(32, R(temp1Reg), Imm32(0xF0F0F0F0));
+		PDEP(32, resultReg, resultReg, R(temp1Reg));
 
-	regCache_.Release(vecTemp1Reg, RegCache::VEC_TEMP1);
-	regCache_.Release(vecTemp2Reg, RegCache::VEC_TEMP2);
-	regCache_.Release(vecTemp3Reg, RegCache::VEC_TEMP3);
+		// Now swizzle the low bits in.
+		MOV(32, R(temp1Reg), R(resultReg));
+		SHR(32, R(temp1Reg), Imm8(4));
+		OR(32, R(resultReg), R(temp1Reg));
+
+		regCache_.Release(temp1Reg, RegCache::GEN_TEMP1);
+	} else {
+		X64Reg vecTemp1Reg = regCache_.Alloc(RegCache::VEC_TEMP1);
+		X64Reg vecTemp2Reg = regCache_.Alloc(RegCache::VEC_TEMP2);
+		X64Reg vecTemp3Reg = regCache_.Alloc(RegCache::VEC_TEMP3);
+
+		MOVD_xmm(vecTemp1Reg, R(resultReg));
+		PUNPCKLBW(vecTemp1Reg, R(vecTemp1Reg));
+		if (RipAccessible(color4444mask)) {
+			PAND(vecTemp1Reg, M(color4444mask));
+		} else {
+			X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
+			MOV(PTRBITS, R(temp1Reg), ImmPtr(color4444mask));
+			PAND(vecTemp1Reg, MatR(temp1Reg));
+			regCache_.Release(temp1Reg, RegCache::GEN_TEMP1);
+		}
+		MOVSS(vecTemp2Reg, R(vecTemp1Reg));
+		MOVSS(vecTemp3Reg, R(vecTemp1Reg));
+		PSRLW(vecTemp2Reg, 4);
+		PSLLW(vecTemp3Reg, 4);
+		POR(vecTemp1Reg, R(vecTemp2Reg));
+		POR(vecTemp1Reg, R(vecTemp3Reg));
+		MOVD_xmm(R(resultReg), vecTemp1Reg);
+
+		regCache_.Release(vecTemp1Reg, RegCache::VEC_TEMP1);
+		regCache_.Release(vecTemp2Reg, RegCache::VEC_TEMP2);
+		regCache_.Release(vecTemp3Reg, RegCache::VEC_TEMP3);
+	}
 	regCache_.Unlock(resultReg, RegCache::GEN_RESULT);
 	return true;
 }
@@ -3277,8 +3406,10 @@ bool SamplerJitCache::Jit_TransformClutIndex(const SamplerID &id, int bitsPerInd
 		return true;
 	}
 
-	bool hasRCX = regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
-	_assert_msg_(hasRCX, "Could not obtain RCX, locked?");
+	if (!cpu_info.bBMI2) {
+		bool hasRCX = regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
+		_assert_msg_(hasRCX, "Could not obtain RCX, locked?");
+	}
 
 	X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
 	X64Reg idReg = GetSamplerID();
@@ -3286,23 +3417,28 @@ bool SamplerJitCache::Jit_TransformClutIndex(const SamplerID &id, int bitsPerInd
 	UnlockSamplerID(idReg);
 
 	X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
+	int shiftedToSoFar = 0;
 
 	// Shift = (clutformat >> 2) & 0x1F
 	if (id.hasClutShift) {
-		_assert_(regCache_.Has(RegCache::GEN_SHIFTVAL));
-		MOV(32, R(RCX), R(temp1Reg));
-		SHR(32, R(RCX), Imm8(2));
-		AND(32, R(RCX), Imm8(0x1F));
-		SHR(32, R(resultReg), R(RCX));
+		SHR(32, R(temp1Reg), Imm8(2 - shiftedToSoFar));
+		shiftedToSoFar = 2;
+
+		if (cpu_info.bBMI2) {
+			SHRX(32, resultReg, R(resultReg), temp1Reg);
+		} else {
+			_assert_(regCache_.Has(RegCache::GEN_SHIFTVAL));
+			MOV(32, R(RCX), R(temp1Reg));
+			SHR(32, R(resultReg), R(RCX));
+		}
 	}
 
 	// Mask = (clutformat >> 8) & 0xFF
 	if (id.hasClutMask) {
-		X64Reg temp2Reg = regCache_.Alloc(RegCache::GEN_TEMP2);
-		MOV(32, R(temp2Reg), R(temp1Reg));
-		SHR(32, R(temp2Reg), Imm8(8));
-		AND(32, R(resultReg), R(temp2Reg));
-		regCache_.Release(temp2Reg, RegCache::GEN_TEMP2);
+		SHR(32, R(temp1Reg), Imm8(8 - shiftedToSoFar));
+		shiftedToSoFar = 8;
+
+		AND(32, R(resultReg), R(temp1Reg));
 	}
 
 	// We need to wrap any entries beyond the first 1024 bytes.
@@ -3316,7 +3452,7 @@ bool SamplerJitCache::Jit_TransformClutIndex(const SamplerID &id, int bitsPerInd
 
 	// Offset = (clutformat >> 12) & 0x01F0
 	if (id.hasClutOffset) {
-		SHR(32, R(temp1Reg), Imm8(16));
+		SHR(32, R(temp1Reg), Imm8(16 - shiftedToSoFar));
 		SHL(32, R(temp1Reg), Imm8(4));
 		OR(32, R(resultReg), R(temp1Reg));
 		AND(32, R(resultReg), Imm32(offsetMask));

@@ -1458,6 +1458,7 @@ void XEmitter::WriteBMI1Op(int size, u8 opPrefix, u16 op, X64Reg regOp1, X64Reg 
 {
 	CheckFlags();
 	_assert_msg_(cpu_info.bBMI1, "Trying to use BMI1 on a system that doesn't support it.");
+	_assert_msg_(!arg.IsImm(), "Imm arg unsupported for this BMI1 instruction");
 	WriteVEXOp(size, opPrefix, op, regOp1, regOp2, arg, extrabytes);
 }
 
@@ -1465,6 +1466,7 @@ void XEmitter::WriteBMI2Op(int size, u8 opPrefix, u16 op, X64Reg regOp1, X64Reg 
 {
 	CheckFlags();
 	_assert_msg_(cpu_info.bBMI2, "Trying to use BMI2 on a system that doesn't support it.");
+	_assert_msg_(!arg.IsImm(), "Imm arg unsupported for this BMI2 instruction");
 	WriteVEXOp(size, opPrefix, op, regOp1, regOp2, arg, extrabytes);
 }
 

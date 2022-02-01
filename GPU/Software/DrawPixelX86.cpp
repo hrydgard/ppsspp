@@ -1631,8 +1631,12 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 		if (maskReg != INVALID_REG) {
 			// Zero all other bits, then flip maskReg to clear the bits we're keeping in colorReg.
 			AND(16, MatR(colorOff), R(maskReg));
-			NOT(32, R(maskReg));
-			AND(32, R(colorReg), R(maskReg));
+			if (cpu_info.bBMI1) {
+				ANDN(32, colorReg, maskReg, R(colorReg));
+			} else {
+				NOT(32, R(maskReg));
+				AND(32, R(colorReg), R(maskReg));
+			}
 			OR(16, MatR(colorOff), R(colorReg));
 		} else if (fixedKeepMask == 0) {
 			MOV(16, MatR(colorOff), R(colorReg));
@@ -1647,8 +1651,12 @@ bool PixelJitCache::Jit_WriteColor(const PixelFuncID &id) {
 		if (maskReg != INVALID_REG) {
 			// Zero all other bits, then flip maskReg to clear the bits we're keeping in colorReg.
 			AND(32, MatR(colorOff), R(maskReg));
-			NOT(32, R(maskReg));
-			AND(32, R(colorReg), R(maskReg));
+			if (cpu_info.bBMI1) {
+				ANDN(32, colorReg, maskReg, R(colorReg));
+			} else {
+				NOT(32, R(maskReg));
+				AND(32, R(colorReg), R(maskReg));
+			}
 			OR(32, MatR(colorOff), R(colorReg));
 		} else if (fixedKeepMask == 0) {
 			MOV(32, MatR(colorOff), R(colorReg));
@@ -1774,8 +1782,12 @@ bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, RegCache::Reg colorR
 	tableValues[GE_LOGIC_AND_REVERSE] = GetCodePointer();
 	// Reverse memory in a temp reg so we can apply the write mask easily.
 	MOV(bits, R(temp1Reg), MatR(colorOff));
-	NOT(32, R(temp1Reg));
-	AND(32, R(colorReg), R(temp1Reg));
+	if (cpu_info.bBMI1) {
+		ANDN(32, colorReg, temp1Reg, R(colorReg));
+	} else {
+		NOT(32, R(temp1Reg));
+		AND(32, R(colorReg), R(temp1Reg));
+	}
 	// Now add in the stencil bits (must be zero before, since we used AND.)
 	if (stencilReg != INVALID_REG) {
 		OR(32, R(colorReg), R(stencilReg));
@@ -1825,9 +1837,13 @@ bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, RegCache::Reg colorR
 	tableValues[GE_LOGIC_NOOP] = GetCodePointer();
 	if (stencilReg != INVALID_REG && maskReg != INVALID_REG) {
 		// Start by clearing masked bits from stencilReg.
-		NOT(32, R(maskReg));
-		AND(32, R(stencilReg), R(maskReg));
-		NOT(32, R(maskReg));
+		if (cpu_info.bBMI1) {
+			ANDN(32, stencilReg, maskReg, R(stencilReg));
+		} else {
+			NOT(32, R(maskReg));
+			AND(32, R(stencilReg), R(maskReg));
+			NOT(32, R(maskReg));
+		}
 
 		// Now mask out the stencil bits we're writing from memory.
 		OR(bits, R(maskReg), notStencilMask);
@@ -1862,9 +1878,13 @@ bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, RegCache::Reg colorR
 		OR(32, R(colorReg), R(stencilReg));
 
 		// Clear the bits we should be masking out.
-		NOT(32, R(maskReg));
-		AND(32, R(colorReg), R(maskReg));
-		NOT(32, R(maskReg));
+		if (cpu_info.bBMI1) {
+			ANDN(32, colorReg, maskReg, R(colorReg));
+		} else {
+			NOT(32, R(maskReg));
+			AND(32, R(colorReg), R(maskReg));
+			NOT(32, R(maskReg));
+		}
 
 		// Clear all the unmasked stencil bits, so we can set our own.
 		OR(bits, R(maskReg), notStencilMask);
@@ -1875,8 +1895,12 @@ bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, RegCache::Reg colorR
 		AND(bits, MatR(colorOff), notStencilMask);
 	} else if (maskReg != INVALID_REG) {
 		// Clear the bits we should be masking out.
-		NOT(32, R(maskReg));
-		AND(32, R(colorReg), R(maskReg));
+		if (cpu_info.bBMI1) {
+			ANDN(32, colorReg, maskReg, R(colorReg));
+		} else {
+			NOT(32, R(maskReg));
+			AND(32, R(colorReg), R(maskReg));
+		}
 	} else if (id.FBFormat() == GE_FORMAT_8888) {
 		// We only need to do this for 8888, the others already have 0 stencil.
 		AND(bits, R(colorReg), notStencilMask);
@@ -1954,9 +1978,13 @@ bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, RegCache::Reg colorR
 		OR(32, R(colorReg), R(stencilReg));
 
 		// Clear the bits we should be masking out.
-		NOT(32, R(maskReg));
-		AND(32, R(colorReg), R(maskReg));
-		NOT(32, R(maskReg));
+		if (cpu_info.bBMI1) {
+			ANDN(32, colorReg, maskReg, R(colorReg));
+		} else {
+			NOT(32, R(maskReg));
+			AND(32, R(colorReg), R(maskReg));
+			NOT(32, R(maskReg));
+		}
 
 		// Clear all the unmasked stencil bits, so we can set our own.
 		OR(bits, R(maskReg), notStencilMask);
@@ -2032,6 +2060,13 @@ bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, RegCache::Reg colorR
 
 bool PixelJitCache::Jit_ConvertTo565(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg) {
 	Describe("ConvertTo565");
+
+	if (cpu_info.bBMI2_fast) {
+		MOV(32, R(temp1Reg), Imm32(0x00F8FCF8));
+		PEXT(32, colorReg, colorReg, R(temp1Reg));
+		return true;
+	}
+
 	// Assemble the 565 color, starting with R...
 	MOV(32, R(temp1Reg), R(colorReg));
 	SHR(32, R(temp1Reg), Imm8(3));
@@ -2053,6 +2088,13 @@ bool PixelJitCache::Jit_ConvertTo565(const PixelFuncID &id, RegCache::Reg colorR
 
 bool PixelJitCache::Jit_ConvertTo5551(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha) {
 	Describe("ConvertTo5551");
+
+	if (cpu_info.bBMI2_fast) {
+		MOV(32, R(temp1Reg), Imm32(keepAlpha ? 0x80F8F8F8 : 0x00F8F8F8));
+		PEXT(32, colorReg, colorReg, R(temp1Reg));
+		return true;
+	}
+
 	// This is R, pretty simple.
 	MOV(32, R(temp1Reg), R(colorReg));
 	SHR(32, R(temp1Reg), Imm8(3));
@@ -2084,6 +2126,13 @@ bool PixelJitCache::Jit_ConvertTo5551(const PixelFuncID &id, RegCache::Reg color
 
 bool PixelJitCache::Jit_ConvertTo4444(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha) {
 	Describe("ConvertTo4444");
+
+	if (cpu_info.bBMI2_fast) {
+		MOV(32, R(temp1Reg), Imm32(keepAlpha ? 0xF0F0F0F0 : 0x00F0F0F0));
+		PEXT(32, colorReg, colorReg, R(temp1Reg));
+		return true;
+	}
+
 	// Shift and mask out R.
 	MOV(32, R(temp1Reg), R(colorReg));
 	SHR(32, R(temp1Reg), Imm8(4));
@@ -2115,6 +2164,24 @@ bool PixelJitCache::Jit_ConvertTo4444(const PixelFuncID &id, RegCache::Reg color
 
 bool PixelJitCache::Jit_ConvertFrom565(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg) {
 	Describe("ConvertFrom565");
+
+	if (cpu_info.bBMI2_fast) {
+		// Start off with the high bits.
+		MOV(32, R(temp1Reg), Imm32(0x00F8FCF8));
+		PDEP(32, temp1Reg, colorReg, R(temp1Reg));
+
+		// Now grab the low bits (they end up packed.)
+		MOV(32, R(temp2Reg), Imm32(0x0000E61C));
+		PEXT(32, colorReg, colorReg, R(temp2Reg));
+		// And spread them back out.
+		MOV(32, R(temp2Reg), Imm32(0x00070307));
+		PDEP(32, colorReg, colorReg, R(temp2Reg));
+
+		// Finally put the high bits in, we're done.
+		OR(32, R(colorReg), R(temp1Reg));
+		return true;
+	}
+
 	// Filter out red only into temp1.
 	MOV(32, R(temp1Reg), R(colorReg));
 	AND(16, R(temp1Reg), Imm16(0x1F << 0));
@@ -2150,6 +2217,27 @@ bool PixelJitCache::Jit_ConvertFrom565(const PixelFuncID &id, RegCache::Reg colo
 
 bool PixelJitCache::Jit_ConvertFrom5551(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha) {
 	Describe("ConvertFrom5551");
+
+	if (cpu_info.bBMI2_fast) {
+		// First, grab the top bits.
+		MOV(32, R(temp1Reg), Imm32(keepAlpha ? 0x01F8F8F8 : 0x00F8F8F8));
+		PDEP(32, colorReg, colorReg, R(temp1Reg));
+
+		// Now make the swizzle bits.
+		MOV(32, R(temp2Reg), R(colorReg));
+		SHR(32, R(temp2Reg), Imm8(5));
+		AND(32, R(temp2Reg), Imm32(0x00070707));
+
+		if (keepAlpha) {
+			// Sign extend the alpha bit to 8 bits.
+			SHL(32, R(colorReg), Imm8(7));
+			SAR(32, R(colorReg), Imm8(7));
+		}
+
+		OR(32, R(colorReg), R(temp2Reg));
+		return true;
+	}
+
 	// Filter out red only into temp1.
 	MOV(32, R(temp1Reg), R(colorReg));
 	AND(16, R(temp1Reg), Imm16(0x1F << 0));
@@ -2187,6 +2275,19 @@ bool PixelJitCache::Jit_ConvertFrom5551(const PixelFuncID &id, RegCache::Reg col
 
 bool PixelJitCache::Jit_ConvertFrom4444(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha) {
 	Describe("ConvertFrom4444");
+
+	if (cpu_info.bBMI2_fast) {
+		// First, spread the bits out with spaces.
+		MOV(32, R(temp1Reg), Imm32(keepAlpha ? 0xF0F0F0F0 : 0x00F0F0F0));
+		PDEP(32, colorReg, colorReg, R(temp1Reg));
+
+		// Now swizzle the low bits in.
+		MOV(32, R(temp1Reg), R(colorReg));
+		SHR(32, R(temp1Reg), Imm8(4));
+		OR(32, R(colorReg), R(temp1Reg));
+		return true;
+	}
+
 	// Move red into position within temp1.
 	MOV(32, R(temp1Reg), R(colorReg));
 	AND(16, R(temp1Reg), Imm16(0xF << 0));

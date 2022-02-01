@@ -54,6 +54,7 @@ struct CPUInfo {
 	bool bLZCNT;
 	bool bBMI1;
 	bool bBMI2;
+	bool bBMI2_fast;
 	bool bXOP;
 	bool bRTM;
 
