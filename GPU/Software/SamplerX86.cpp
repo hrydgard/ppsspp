@@ -184,12 +184,14 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 
 	if (regCache_.Has(RegCache::GEN_ARG_BUFW_PTR)) {
 		// On Linux, RCX is currently bufwptr, but we'll need it for other things.
-		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR);
-		MOV(64, R(R15), R(bufwReg));
-		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW_PTR);
-		regCache_.ForceRelease(RegCache::GEN_ARG_BUFW_PTR);
-		regCache_.ChangeReg(R15, RegCache::GEN_ARG_BUFW_PTR);
-		regCache_.ForceRetain(RegCache::GEN_ARG_BUFW_PTR);
+		if (!cpu_info.bBMI2) {
+			X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR);
+			MOV(64, R(R15), R(bufwReg));
+			regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW_PTR);
+			regCache_.ForceRelease(RegCache::GEN_ARG_BUFW_PTR);
+			regCache_.ChangeReg(R15, RegCache::GEN_ARG_BUFW_PTR);
+			regCache_.ForceRetain(RegCache::GEN_ARG_BUFW_PTR);
+		}
 	} else {
 		// Let's load bufwptr/texptrptr into regs.  Match Linux just for consistency - RDX is free.
 		MOV(64, R(RDX), MDisp(RSP, stackArgPos_ + 0));
@@ -200,8 +202,10 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 		regCache_.ForceRetain(RegCache::GEN_ARG_BUFW_PTR);
 	}
 	// Okay, now lock RCX as a shifting reg.
-	regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
-	regCache_.ForceRetain(RegCache::GEN_SHIFTVAL);
+	if (!cpu_info.bBMI2) {
+		regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
+		regCache_.ForceRetain(RegCache::GEN_SHIFTVAL);
+	}
 
 	bool success = true;
 
@@ -345,7 +349,8 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 		regCache_.ForceRelease(RegCache::GEN_ARG_BUFW_PTR);
 	if (regCache_.Has(RegCache::GEN_ARG_LEVEL))
 		regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
-	regCache_.ForceRelease(RegCache::GEN_SHIFTVAL);
+	if (regCache_.Has(RegCache::GEN_SHIFTVAL))
+		regCache_.ForceRelease(RegCache::GEN_SHIFTVAL);
 	regCache_.ForceRelease(RegCache::GEN_RESULT);
 
 	if (id.hasAnyMips) {
@@ -1820,7 +1825,7 @@ bool SamplerJitCache::Jit_GetDXT1Color(const SamplerID &id, int blockSize, int a
 	regCache_.Release(srcOffsetReg, RegCache::GEN_TEMP1);
 
 	// Make sure we don't grab this as colorIndexReg.
-	if (uReg != ECX)
+	if (uReg != ECX && !cpu_info.bBMI2)
 		regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
 
 	// The colorIndex is simply the 2 bits at blockPos + (v & 3), shifted right by (u & 3) twice.
@@ -1835,6 +1840,9 @@ bool SamplerJitCache::Jit_GetDXT1Color(const SamplerID &id, int blockSize, int a
 	if (uReg == ECX) {
 		SHR(32, R(colorIndexReg), R(CL));
 		SHR(32, R(colorIndexReg), R(CL));
+	} else if (cpu_info.bBMI2) {
+		SHRX(32, colorIndexReg, R(colorIndexReg), uReg);
+		SHRX(32, colorIndexReg, R(colorIndexReg), uReg);
 	} else {
 		bool hasRCX = regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
 		_assert_(hasRCX);
@@ -2017,16 +2025,21 @@ bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
 		X64Reg uReg = regCache_.Find(RegCache::GEN_ARG_U);
 		X64Reg vReg = regCache_.Find(RegCache::GEN_ARG_V);
 
-		if (uReg != RCX) {
+		if (uReg != RCX && !cpu_info.bBMI2) {
 			regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
 			_assert_(regCache_.Has(RegCache::GEN_SHIFTVAL));
 		}
 
 		X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
 		MOVZX(32, 16, temp1Reg, MComplex(srcReg, vReg, SCALE_2, 8));
-		// Still depending on it being GEN_SHIFTVAL or GEN_ARG_U above.
-		LEA(32, RCX, MScaled(uReg, SCALE_4, 0));
-		SHR(32, R(temp1Reg), R(CL));
+		if (cpu_info.bBMI2) {
+			LEA(32, uReg, MScaled(uReg, SCALE_4, 0));
+			SHRX(32, temp1Reg, R(temp1Reg), uReg);
+		} else {
+			// Still depending on it being GEN_SHIFTVAL or GEN_ARG_U above.
+			LEA(32, RCX, MScaled(uReg, SCALE_4, 0));
+			SHR(32, R(temp1Reg), R(CL));
+		}
 		SHL(32, R(temp1Reg), Imm8(28));
 		X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
 		OR(32, R(resultReg), R(temp1Reg));
@@ -2046,7 +2059,7 @@ bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
 		X64Reg uReg = regCache_.Find(RegCache::GEN_ARG_U);
 		X64Reg vReg = regCache_.Find(RegCache::GEN_ARG_V);
 
-		if (uReg != RCX)
+		if (uReg != RCX && !cpu_info.bBMI2)
 			regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
 
 		// Let's figure out the alphaIndex bit offset so we can read the right byte.
@@ -2067,13 +2080,17 @@ bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
 
 		// Load 16 bits and mask, in case it straddles bytes.
 		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
-		MOVZX(32, 16, alphaIndexReg, MComplex(srcReg, alphaIndexReg, SCALE_1, 8));
-		// If not, it's in what was bufwReg.
-		if (uReg != RCX) {
-			_assert_(regCache_.Has(RegCache::GEN_SHIFTVAL));
-			MOV(32, R(RCX), R(uReg));
+		if (cpu_info.bBMI2) {
+			SHRX(32, alphaIndexReg, MComplex(srcReg, alphaIndexReg, SCALE_1, 8), uReg);
+		} else {
+			MOVZX(32, 16, alphaIndexReg, MComplex(srcReg, alphaIndexReg, SCALE_1, 8));
+			// If not, it's in what was bufwReg.
+			if (uReg != RCX) {
+				_assert_(regCache_.Has(RegCache::GEN_SHIFTVAL));
+				MOV(32, R(RCX), R(uReg));
+			}
+			SHR(32, R(alphaIndexReg), R(CL));
 		}
-		SHR(32, R(alphaIndexReg), R(CL));
 		AND(32, R(alphaIndexReg), Imm32(7));
 
 		regCache_.Unlock(uReg, RegCache::GEN_ARG_U);
@@ -2190,11 +2207,17 @@ bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {
 		break;
 
 	case 4: {
-		XOR(32, R(temp2Reg), R(temp2Reg));
+		if (cpu_info.bBMI2_fast)
+			MOV(32, R(temp2Reg), Imm32(0x0F));
+		else
+			XOR(32, R(temp2Reg), R(temp2Reg));
 		SHR(32, R(uReg), Imm8(1));
 		FixupBranch skip = J_CC(CC_NC);
 		// Track whether we shifted a 1 off or not.
-		MOV(32, R(temp2Reg), Imm32(4));
+		if (cpu_info.bBMI2_fast)
+			SHL(32, R(temp2Reg), Imm8(4));
+		else
+			MOV(32, R(temp2Reg), Imm32(4));
 		SetJumpTarget(skip);
 		LEA(64, temp1Reg, MRegSum(srcReg, uReg));
 		break;
@@ -2222,7 +2245,7 @@ bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {
 	// We can throw bufw away, now.
 	regCache_.ForceRelease(RegCache::GEN_ARG_BUFW);
 
-	if (bitsPerTexel == 4) {
+	if (bitsPerTexel == 4 && !cpu_info.bBMI2) {
 		bool hasRCX = regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
 		_assert_(hasRCX);
 	}
@@ -2236,12 +2259,20 @@ bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {
 
 	case 4: {
 		SHR(32, R(resultReg), Imm8(1));
-		MOV(8, R(resultReg), MRegSum(temp1Reg, resultReg));
-		// RCX is now free.
-		MOV(8, R(RCX), R(temp2Reg));
-		SHR(8, R(resultReg), R(RCX));
-		// Zero out any bits not shifted off.
-		AND(32, R(resultReg), Imm8(0x0F));
+		if (cpu_info.bBMI2_fast) {
+			MOV(8, R(resultReg), MRegSum(temp1Reg, resultReg));
+			PEXT(32, resultReg, resultReg, R(temp2Reg));
+		} else if (cpu_info.bBMI2) {
+			SHRX(32, resultReg, MRegSum(temp1Reg, resultReg), temp2Reg);
+			AND(32, R(resultReg), Imm8(0x0F));
+		} else {
+			MOV(8, R(resultReg), MRegSum(temp1Reg, resultReg));
+			// RCX is now free.
+			MOV(8, R(RCX), R(temp2Reg));
+			SHR(8, R(resultReg), R(RCX));
+			// Zero out any bits not shifted off.
+			AND(32, R(resultReg), Imm8(0x0F));
+		}
 		break;
 	}
 
@@ -3330,8 +3361,10 @@ bool SamplerJitCache::Jit_TransformClutIndex(const SamplerID &id, int bitsPerInd
 		return true;
 	}
 
-	bool hasRCX = regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
-	_assert_msg_(hasRCX, "Could not obtain RCX, locked?");
+	if (!cpu_info.bBMI2) {
+		bool hasRCX = regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
+		_assert_msg_(hasRCX, "Could not obtain RCX, locked?");
+	}
 
 	X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
 	X64Reg idReg = GetSamplerID();
@@ -3339,23 +3372,28 @@ bool SamplerJitCache::Jit_TransformClutIndex(const SamplerID &id, int bitsPerInd
 	UnlockSamplerID(idReg);
 
 	X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
+	int shiftedToSoFar = 0;
 
 	// Shift = (clutformat >> 2) & 0x1F
 	if (id.hasClutShift) {
-		_assert_(regCache_.Has(RegCache::GEN_SHIFTVAL));
-		MOV(32, R(RCX), R(temp1Reg));
-		SHR(32, R(RCX), Imm8(2));
-		AND(32, R(RCX), Imm8(0x1F));
-		SHR(32, R(resultReg), R(RCX));
+		SHR(32, R(temp1Reg), Imm8(2 - shiftedToSoFar));
+		shiftedToSoFar = 2;
+
+		if (cpu_info.bBMI2) {
+			SHRX(32, resultReg, R(resultReg), temp1Reg);
+		} else {
+			_assert_(regCache_.Has(RegCache::GEN_SHIFTVAL));
+			MOV(32, R(RCX), R(temp1Reg));
+			SHR(32, R(resultReg), R(RCX));
+		}
 	}
 
 	// Mask = (clutformat >> 8) & 0xFF
 	if (id.hasClutMask) {
-		X64Reg temp2Reg = regCache_.Alloc(RegCache::GEN_TEMP2);
-		MOV(32, R(temp2Reg), R(temp1Reg));
-		SHR(32, R(temp2Reg), Imm8(8));
-		AND(32, R(resultReg), R(temp2Reg));
-		regCache_.Release(temp2Reg, RegCache::GEN_TEMP2);
+		SHR(32, R(temp1Reg), Imm8(8 - shiftedToSoFar));
+		shiftedToSoFar = 8;
+
+		AND(32, R(resultReg), R(temp1Reg));
 	}
 
 	// We need to wrap any entries beyond the first 1024 bytes.
@@ -3369,7 +3407,7 @@ bool SamplerJitCache::Jit_TransformClutIndex(const SamplerID &id, int bitsPerInd
 
 	// Offset = (clutformat >> 12) & 0x01F0
 	if (id.hasClutOffset) {
-		SHR(32, R(temp1Reg), Imm8(16));
+		SHR(32, R(temp1Reg), Imm8(16 - shiftedToSoFar));
 		SHL(32, R(temp1Reg), Imm8(4));
 		OR(32, R(resultReg), R(temp1Reg));
 		AND(32, R(resultReg), Imm32(offsetMask));
