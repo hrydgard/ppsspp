@@ -44,24 +44,24 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_JUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_Jump },
 	{ GE_CMD_CALL, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_Call },
 	{ GE_CMD_RET, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_Ret },
-	{ GE_CMD_END, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_End },
+	{ GE_CMD_END, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_End },
 	{ GE_CMD_VADDR, FLAG_EXECUTE, 0, &GPUCommon::Execute_Vaddr },
 	{ GE_CMD_IADDR, FLAG_EXECUTE, 0, &GPUCommon::Execute_Iaddr },
 	{ GE_CMD_BJUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_BJump },  // EXECUTE
 	{ GE_CMD_BOUNDINGBOX, FLAG_EXECUTE, 0, &GPUCommon::Execute_BoundingBox }, // Shouldn't need to FLUSHBEFORE.
 
 	{ GE_CMD_PRIM, FLAG_EXECUTE, 0, &GPUCommon::Execute_Prim },
-	{ GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPUCommon::Execute_Bezier },
-	{ GE_CMD_SPLINE, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPUCommon::Execute_Spline },
+	{ GE_CMD_BEZIER, FLAG_EXECUTE, 0, &GPUCommon::Execute_Bezier },
+	{ GE_CMD_SPLINE, FLAG_EXECUTE, 0, &GPUCommon::Execute_Spline },
 
 	// Changing the vertex type requires us to flush.
 	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_VertexType },
 
 	{ GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPUCommon::Execute_LoadClut },
 
-	// These two are actually processed in CMD_END. Not sure if FLAG_FLUSHBEFORE matters.
-	{ GE_CMD_SIGNAL, FLAG_FLUSHBEFORE },
-	{ GE_CMD_FINISH, FLAG_FLUSHBEFORE },
+	// These two are actually processed in CMD_END.
+	{ GE_CMD_SIGNAL },
+	{ GE_CMD_FINISH },
 
 	// Changes that dirty the framebuffer
 	{ GE_CMD_FRAMEBUFPTR, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS },
@@ -301,7 +301,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_TRANSFERSRCPOS, 0 },
 	{ GE_CMD_TRANSFERDSTPOS, 0 },
 	{ GE_CMD_TRANSFERSIZE, 0 },
-	{ GE_CMD_TRANSFERSTART, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC, 0, &GPUCommon::Execute_BlockTransferStart },
+	{ GE_CMD_TRANSFERSTART, FLAG_EXECUTE | FLAG_READS_PC, 0, &GPUCommon::Execute_BlockTransferStart },
 
 	// We don't use the dither table.
 	{ GE_CMD_DITH0 },
@@ -1348,6 +1348,8 @@ void GPUCommon::Execute_Ret(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_End(u32 op, u32 diff) {
+	Flush();
+
 	const u32 prev = Memory::ReadUnchecked_U32(currentList->pc - 4);
 	UpdatePC(currentList->pc, currentList->pc);
 	// Count in a few extra cycles on END.
@@ -1995,8 +1997,10 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_BlockTransferStart(u32 op, u32 diff) {
-	PROFILE_THIS_SCOPE("block");
 	Flush();
+
+	PROFILE_THIS_SCOPE("block");  // don't include the flush in the profile, would be misleading.
+
 	// and take appropriate action. This is a block transfer between RAM and VRAM, or vice versa.
 	// Can we skip this on SkipDraw?
 	DoBlockTransfer(gstate_c.skipDrawReason);
@@ -2380,7 +2384,6 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_END:
-		Flush();
 		Execute_End(op, diff);
 		break;
 
