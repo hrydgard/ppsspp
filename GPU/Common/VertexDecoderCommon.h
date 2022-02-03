@@ -458,6 +458,7 @@ public:
 	DecVtxFormat decFmt;
 
 	bool throughmode;
+	bool skinInDecode;
 	u8 size;
 	u8 onesize_;
 
