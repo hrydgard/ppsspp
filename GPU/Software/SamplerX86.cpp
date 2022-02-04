@@ -2118,16 +2118,16 @@ bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
 		X64Reg alpha1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
 		X64Reg alpha2Reg = regCache_.Alloc(RegCache::GEN_TEMP2);
 
-		// And now the byte offset and bit from there, from those.
-		MOV(32, R(alphaIndexReg), R(uReg));
-		SHR(32, R(alphaIndexReg), Imm8(3));
-		AND(32, R(uReg), Imm32(7));
-
-		// Load 16 bits and mask, in case it straddles bytes.
 		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
 		if (cpu_info.bBMI2) {
-			SHRX(32, alphaIndexReg, MComplex(srcReg, alphaIndexReg, SCALE_1, 8), uReg);
+			SHRX(64, alphaIndexReg, MDisp(srcReg, 8), uReg);
 		} else {
+			// And now the byte offset and bit from there, from those.
+			MOV(32, R(alphaIndexReg), R(uReg));
+			SHR(32, R(alphaIndexReg), Imm8(3));
+			AND(32, R(uReg), Imm32(7));
+
+			// Load 16 bits and mask, in case it straddles bytes.
 			MOVZX(32, 16, alphaIndexReg, MComplex(srcReg, alphaIndexReg, SCALE_1, 8));
 			// If not, it's in what was bufwReg.
 			if (uReg != RCX) {
@@ -2155,7 +2155,6 @@ bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
 		FixupBranch handleLerp8 = J_CC(CC_A);
 
 		// Okay, check for zero or full alpha, at alphaIndex 6 or 7.
-		XOR(32, R(srcReg), R(srcReg));
 		CMP(32, R(alphaIndexReg), Imm32(6));
 		FixupBranch finishZero = J_CC(CC_E, true);
 		// Remember, MOV doesn't affect flags.
@@ -2212,7 +2211,6 @@ bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
 		regCache_.Release(temp3Reg, RegCache::GEN_TEMP3);
 
 		SetJumpTarget(finishFull);
-		SetJumpTarget(finishZero);
 		SetJumpTarget(finishLerp6);
 		SetJumpTarget(finishLerp8);
 
@@ -2221,6 +2219,8 @@ bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
 		OR(32, R(resultReg), R(srcReg));
 		regCache_.Unlock(resultReg, RegCache::GEN_RESULT);
 		success = true;
+
+		SetJumpTarget(finishZero);
 
 		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
 		regCache_.ForceRelease(RegCache::GEN_ARG_TEXPTR);
