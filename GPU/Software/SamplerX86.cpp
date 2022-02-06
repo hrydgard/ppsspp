@@ -474,8 +474,11 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 			lockReg(XMM6, RegCache::VEC_U1);
 			lockReg(XMM7, RegCache::VEC_V1);
 			lockReg(XMM8, RegCache::VEC_RESULT1);
+			lockReg(XMM12, RegCache::VEC_INDEX1);
 		}
 		lockReg(XMM9, RegCache::VEC_ARG_COLOR);
+		lockReg(XMM10, RegCache::VEC_FRAC);
+		lockReg(XMM11, RegCache::VEC_INDEX);
 #endif
 
 		// We'll first write the nearest sampler, which we will CALL.
@@ -508,6 +511,9 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		unlockOptReg(RegCache::VEC_V1);
 		unlockOptReg(RegCache::VEC_RESULT1);
 		unlockOptReg(RegCache::VEC_ARG_COLOR);
+		unlockOptReg(RegCache::VEC_FRAC);
+		unlockOptReg(RegCache::VEC_INDEX);
+		unlockOptReg(RegCache::VEC_INDEX1);
 		regCache_.Reset(true);
 	}
 	EndWrite();
@@ -533,7 +539,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	// RET + shadow space + 8 byte space for color arg (the Win32 ABI is kinda ugly.)
 	stackArgPos_ = 8 + 32 + 8;
 	// Free up some more vector regs on Windows too, where we're a bit tight.
-	stackArgPos_ += WriteProlog(0, { XMM6, XMM7, XMM8, XMM9, XMM10, XMM11 }, { R15, R14, R13, R12 });
+	stackArgPos_ += WriteProlog(0, { XMM6, XMM7, XMM8, XMM9, XMM10, XMM11, XMM12 }, { R15, R14, R13, R12 });
 
 	// Positions: stackArgPos_+0=src, stackArgPos_+8=bufw, stackArgPos_+16=level, stackArgPos_+24=levelFrac
 	stackIDOffset_ = 32;
@@ -556,6 +562,12 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	if (nearest != nullptr) {
 		regCache_.ChangeReg(XMM10, RegCache::VEC_FRAC);
 		regCache_.ForceRetain(RegCache::VEC_FRAC);
+		regCache_.ChangeReg(XMM11, RegCache::VEC_INDEX);
+		regCache_.ForceRetain(RegCache::VEC_INDEX);
+		if (id.hasAnyMips) {
+			regCache_.ChangeReg(XMM12, RegCache::VEC_INDEX1);
+			regCache_.ForceRetain(RegCache::VEC_INDEX1);
+		}
 	}
 
 	// Reserve a couple regs that the nearest CALL won't use.
@@ -689,9 +701,18 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		regCache_.Unlock(uReg, level1 ? RegCache::VEC_U1 : RegCache::VEC_ARG_U);
 		regCache_.Unlock(vReg, level1 ? RegCache::VEC_V1 : RegCache::VEC_ARG_V);
 
+		X64Reg indexReg = regCache_.Find(level1 ? RegCache::VEC_INDEX1 : RegCache::VEC_INDEX);
+		if (cpu_info.bSSE4_1) {
+			PEXTRD(R(srcArgReg), indexReg, off / 4);
+		} else {
+			MOVD_xmm(R(srcArgReg), indexReg);
+			PSRLDQ(indexReg, 4);
+		}
+		regCache_.Unlock(indexReg, level1 ? RegCache::VEC_INDEX1 : RegCache::VEC_INDEX);
+
 		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR_PTR);
 		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR);
-		MOV(64, R(srcArgReg), MDisp(srcReg, level1 ? 8 : 0));
+		ADD(64, R(srcArgReg), MDisp(srcReg, level1 ? 8 : 0));
 		MOV(32, R(bufwArgReg), MDisp(bufwReg, level1 ? 4 : 0));
 		// Leave level/levelFrac, we just always load from RAM on Windows and lock on POSIX.
 		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR_PTR);
@@ -765,10 +786,13 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	}
 
 	// We're done with these now.
-	if (nearest != nullptr)
+	if (nearest != nullptr) {
 		regCache_.ForceRelease(RegCache::VEC_ARG_U);
-	if (nearest != nullptr)
 		regCache_.ForceRelease(RegCache::VEC_ARG_V);
+		regCache_.ForceRelease(RegCache::VEC_INDEX);
+	}
+	if (regCache_.Has(RegCache::VEC_INDEX1))
+		regCache_.ForceRelease(RegCache::VEC_INDEX1);
 	if (regCache_.Has(RegCache::VEC_U1))
 		regCache_.ForceRelease(RegCache::VEC_U1);
 	if (regCache_.Has(RegCache::VEC_V1))
@@ -1789,70 +1813,106 @@ bool SamplerJitCache::Jit_GetDXT1Color(const SamplerID &id, int blockSize, int a
 	// Note: color low bits are red, high bits are blue.
 	_assert_msg_(blockSize == 8 || blockSize == 16, "Invalid DXT block size");
 
-	// First, we need to get the block's offset, which is:
-	// blockPos = src + (v/4 * bufw/4 + u/4) * blockSize
-	// We distribute the blockSize constant for convenience:
-	// blockPos = src + (blockSize*v/4 * bufw/4 + blockSize*u/4)
+	X64Reg colorIndexReg = INVALID_REG;
+	if (!id.linear) {
+		// First, we need to get the block's offset, which is:
+		// blockPos = src + (v/4 * bufw/4 + u/4) * blockSize
+		// We distribute the blockSize constant for convenience:
+		// blockPos = src + (blockSize*v/4 * bufw/4 + blockSize*u/4)
 
-	// Copy u (we'll need it later), and round down to the nearest 4 after scaling.
-	X64Reg uReg = regCache_.Find(RegCache::GEN_ARG_U);
-	X64Reg srcBaseReg = regCache_.Alloc(RegCache::GEN_TEMP0);
-	LEA(32, srcBaseReg, MScaled(uReg, blockSize / 4, 0));
-	AND(32, R(srcBaseReg), Imm32(blockSize == 8 ? ~7 : ~15));
-	// Add in srcReg already, since we'll be multiplying soon.
-	X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
-	ADD(64, R(srcBaseReg), R(srcReg));
+		// Copy u (we'll need it later), and round down to the nearest 4 after scaling.
+		X64Reg uReg = regCache_.Find(RegCache::GEN_ARG_U);
+		X64Reg srcBaseReg = regCache_.Alloc(RegCache::GEN_TEMP0);
+		LEA(32, srcBaseReg, MScaled(uReg, blockSize / 4, 0));
+		AND(32, R(srcBaseReg), Imm32(blockSize == 8 ? ~7 : ~15));
+		// Add in srcReg already, since we'll be multiplying soon.
+		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
+		ADD(64, R(srcBaseReg), R(srcReg));
 
-	X64Reg vReg = regCache_.Find(RegCache::GEN_ARG_V);
-	X64Reg srcOffsetReg = regCache_.Alloc(RegCache::GEN_TEMP1);
-	LEA(32, srcOffsetReg, MScaled(vReg, blockSize / 4, 0));
-	AND(32, R(srcOffsetReg), Imm32(blockSize == 8 ? ~7 : ~15));
-	// Modify bufw in place and then multiply.
-	X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW);
-	SHR(32, R(bufwReg), Imm8(2));
-	IMUL(32, srcOffsetReg, R(bufwReg));
-	regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW);
-	// We no longer need bufwReg.
-	regCache_.ForceRelease(RegCache::GEN_ARG_BUFW);
+		X64Reg vReg = regCache_.Find(RegCache::GEN_ARG_V);
+		X64Reg srcOffsetReg = regCache_.Alloc(RegCache::GEN_TEMP1);
+		LEA(32, srcOffsetReg, MScaled(vReg, blockSize / 4, 0));
+		AND(32, R(srcOffsetReg), Imm32(blockSize == 8 ? ~7 : ~15));
+		// Modify bufw in place and then multiply.
+		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW);
+		SHR(32, R(bufwReg), Imm8(2));
+		IMUL(32, srcOffsetReg, R(bufwReg));
+		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW);
+		// We no longer need bufwReg.
+		regCache_.ForceRelease(RegCache::GEN_ARG_BUFW);
 
-	// And now let's chop off the offset for u and v.
-	AND(32, R(uReg), Imm32(3));
-	AND(32, R(vReg), Imm32(3));
+		// And now let's chop off the offset for u and v.
+		AND(32, R(uReg), Imm32(3));
+		AND(32, R(vReg), Imm32(3));
 
-	// Okay, at this point srcBaseReg + srcOffsetReg = blockPos.  To free up regs, put back in srcReg.
-	LEA(64, srcReg, MRegSum(srcBaseReg, srcOffsetReg));
-	regCache_.Release(srcBaseReg, RegCache::GEN_TEMP0);
-	regCache_.Release(srcOffsetReg, RegCache::GEN_TEMP1);
+		// Okay, at this point srcBaseReg + srcOffsetReg = blockPos.  To free up regs, put back in srcReg.
+		LEA(64, srcReg, MRegSum(srcBaseReg, srcOffsetReg));
+		regCache_.Release(srcBaseReg, RegCache::GEN_TEMP0);
+		regCache_.Release(srcOffsetReg, RegCache::GEN_TEMP1);
 
-	// Make sure we don't grab this as colorIndexReg.
-	if (uReg != ECX && !cpu_info.bBMI2)
-		regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
+		// Make sure we don't grab this as colorIndexReg.
+		if (uReg != ECX && !cpu_info.bBMI2)
+			regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
 
-	// The colorIndex is simply the 2 bits at blockPos + (v & 3), shifted right by (u & 3) twice.
-	X64Reg colorIndexReg = regCache_.Alloc(RegCache::GEN_TEMP0);
-	MOVZX(32, 8, colorIndexReg, MRegSum(srcReg, vReg));
-	regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
-	regCache_.Unlock(vReg, RegCache::GEN_ARG_V);
-	// Only DXT1 needs this reg later.
-	if (id.TexFmt() == GE_TFMT_DXT1)
-		regCache_.ForceRelease(RegCache::GEN_ARG_V);
+		// The colorIndex is simply the 2 bits at blockPos + (v & 3), shifted right by (u & 3) twice.
+		colorIndexReg = regCache_.Alloc(RegCache::GEN_TEMP0);
+		MOVZX(32, 8, colorIndexReg, MRegSum(srcReg, vReg));
+		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
+		regCache_.Unlock(vReg, RegCache::GEN_ARG_V);
+		// Only DXT3/5 need this reg later.
+		if (id.TexFmt() == GE_TFMT_DXT1)
+			regCache_.ForceRelease(RegCache::GEN_ARG_V);
 
-	if (uReg == ECX) {
-		SHR(32, R(colorIndexReg), R(CL));
-		SHR(32, R(colorIndexReg), R(CL));
-	} else if (cpu_info.bBMI2) {
-		SHRX(32, colorIndexReg, R(colorIndexReg), uReg);
-		SHRX(32, colorIndexReg, R(colorIndexReg), uReg);
+		if (uReg == ECX) {
+			SHR(32, R(colorIndexReg), R(CL));
+			SHR(32, R(colorIndexReg), R(CL));
+		} else if (cpu_info.bBMI2) {
+			SHRX(32, colorIndexReg, R(colorIndexReg), uReg);
+			SHRX(32, colorIndexReg, R(colorIndexReg), uReg);
+		} else {
+			bool hasRCX = regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
+			_assert_(hasRCX);
+			LEA(32, ECX, MScaled(uReg, SCALE_2, 0));
+			SHR(32, R(colorIndexReg), R(CL));
+		}
+		regCache_.Unlock(uReg, RegCache::GEN_ARG_U);
+		// If DXT1, there's no alpha and we can toss this reg.
+		if (id.TexFmt() == GE_TFMT_DXT1)
+			regCache_.ForceRelease(RegCache::GEN_ARG_U);
 	} else {
-		bool hasRCX = regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
-		_assert_(hasRCX);
-		LEA(32, ECX, MScaled(uReg, SCALE_2, 0));
-		SHR(32, R(colorIndexReg), R(CL));
-	}
-	regCache_.Unlock(uReg, RegCache::GEN_ARG_U);
-	// If DXT1, there's no alpha and we can toss this reg.
-	if (id.TexFmt() == GE_TFMT_DXT1)
+		// For linear, we already precalculated the block pos into srcReg.
+		// uReg is the shift for the color index fomr the 32 bits of color index data.
+		regCache_.ForceRelease(RegCache::GEN_ARG_BUFW);
+		// If we don't have alpha, we don't need vReg.
+		if (id.TexFmt() == GE_TFMT_DXT1)
+			regCache_.ForceRelease(RegCache::GEN_ARG_V);
+
+		// Make sure we don't grab this as colorIndexReg.
+		X64Reg uReg = regCache_.Find(RegCache::GEN_ARG_U);
+		if (uReg != ECX && !cpu_info.bBMI2)
+			regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
+
+		// Shift and mask out the 2 bits we need into colorIndexReg.
+		colorIndexReg = regCache_.Alloc(RegCache::GEN_TEMP0);
+		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
+		if (cpu_info.bBMI2) {
+			SHRX(32, colorIndexReg, MatR(srcReg), uReg);
+		} else {
+			MOV(32, R(colorIndexReg), MatR(srcReg));
+			if (uReg != RCX) {
+				bool hasRCX = regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
+				_assert_(hasRCX);
+				MOV(32, R(RCX), R(uReg));
+			}
+			SHR(32, R(colorIndexReg), R(CL));
+		}
+		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
+		// We're done with U now.
+		regCache_.Unlock(uReg, RegCache::GEN_ARG_U);
 		regCache_.ForceRelease(RegCache::GEN_ARG_U);
+	}
+
+	// Mask out the value.
 	AND(32, R(colorIndexReg), Imm32(3));
 
 	X64Reg color1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
@@ -1864,7 +1924,7 @@ bool SamplerJitCache::Jit_GetDXT1Color(const SamplerID &id, int blockSize, int a
 	FixupBranch handleSimple565 = J_CC(CC_BE);
 
 	// Otherwise, it depends if color1 or color2 is higher, so fetch them.
-	srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
+	X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
 	MOVZX(32, 16, color1Reg, MDisp(srcReg, 4));
 	MOVZX(32, 16, color2Reg, MDisp(srcReg, 6));
 	regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
@@ -2067,79 +2127,122 @@ bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
 	if (fmt == GE_TFMT_DXT3) {
 		Describe("DXT3A");
 		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
-		X64Reg uReg = regCache_.Find(RegCache::GEN_ARG_U);
 		X64Reg vReg = regCache_.Find(RegCache::GEN_ARG_V);
 
-		if (uReg != RCX && !cpu_info.bBMI2) {
-			regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
-			_assert_(regCache_.Has(RegCache::GEN_SHIFTVAL));
-		}
+		if (id.linear) {
+			// We precalculated the shift for the 64 bits of alpha data in vReg.
+			if (!cpu_info.bBMI2) {
+				regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
+				_assert_(regCache_.Has(RegCache::GEN_SHIFTVAL));
+			}
 
-		X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
-		MOVZX(32, 16, temp1Reg, MComplex(srcReg, vReg, SCALE_2, 8));
-		if (cpu_info.bBMI2) {
-			LEA(32, uReg, MScaled(uReg, SCALE_4, 0));
-			SHRX(32, temp1Reg, R(temp1Reg), uReg);
+			if (cpu_info.bBMI2) {
+				SHRX(64, srcReg, MDisp(srcReg, 8), vReg);
+			} else {
+				MOV(64, R(srcReg), MDisp(srcReg, 8));
+				MOV(32, R(RCX), R(vReg));
+				SHR(64, R(srcReg), R(CL));
+			}
+			// This will mask the 4 bits we want using a wall also.
+			SHL(32, R(srcReg), Imm8(28));
+			X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
+			OR(32, R(resultReg), R(srcReg));
+			regCache_.Unlock(resultReg, RegCache::GEN_RESULT);
+
+			success = true;
 		} else {
-			// Still depending on it being GEN_SHIFTVAL or GEN_ARG_U above.
-			LEA(32, RCX, MScaled(uReg, SCALE_4, 0));
-			SHR(32, R(temp1Reg), R(CL));
-		}
-		SHL(32, R(temp1Reg), Imm8(28));
-		X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
-		OR(32, R(resultReg), R(temp1Reg));
-		regCache_.Unlock(resultReg, RegCache::GEN_RESULT);
-		regCache_.Release(temp1Reg, RegCache::GEN_TEMP1);
+			X64Reg uReg = regCache_.Find(RegCache::GEN_ARG_U);
 
-		success = true;
+			if (uReg != RCX && !cpu_info.bBMI2) {
+				regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
+				_assert_(regCache_.Has(RegCache::GEN_SHIFTVAL));
+			}
+
+			X64Reg temp1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
+			MOVZX(32, 16, temp1Reg, MComplex(srcReg, vReg, SCALE_2, 8));
+			if (cpu_info.bBMI2) {
+				LEA(32, uReg, MScaled(uReg, SCALE_4, 0));
+				SHRX(32, temp1Reg, R(temp1Reg), uReg);
+			} else {
+				// Still depending on it being GEN_SHIFTVAL or GEN_ARG_U above.
+				LEA(32, RCX, MScaled(uReg, SCALE_4, 0));
+				SHR(32, R(temp1Reg), R(CL));
+			}
+			SHL(32, R(temp1Reg), Imm8(28));
+			X64Reg resultReg = regCache_.Find(RegCache::GEN_RESULT);
+			OR(32, R(resultReg), R(temp1Reg));
+			regCache_.Unlock(resultReg, RegCache::GEN_RESULT);
+			regCache_.Release(temp1Reg, RegCache::GEN_TEMP1);
+
+			success = true;
+
+			regCache_.Unlock(uReg, RegCache::GEN_ARG_U);
+			regCache_.ForceRelease(RegCache::GEN_ARG_U);
+		}
 
 		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
 		regCache_.ForceRelease(RegCache::GEN_ARG_TEXPTR);
-		regCache_.Unlock(uReg, RegCache::GEN_ARG_U);
-		regCache_.ForceRelease(RegCache::GEN_ARG_U);
 		regCache_.Unlock(vReg, RegCache::GEN_ARG_V);
 		regCache_.ForceRelease(RegCache::GEN_ARG_V);
 	} else if (fmt == GE_TFMT_DXT5) {
 		Describe("DXT5A");
-		X64Reg uReg = regCache_.Find(RegCache::GEN_ARG_U);
+
 		X64Reg vReg = regCache_.Find(RegCache::GEN_ARG_V);
+		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
+		X64Reg alphaIndexReg = INVALID_REG;
+		if (id.linear) {
+			// We precalculated the shift for the 64 bits of alpha data in vReg.
+			if (cpu_info.bBMI2) {
+				alphaIndexReg = regCache_.Alloc(RegCache::GEN_TEMP0);
+				SHRX(64, alphaIndexReg, MDisp(srcReg, 8), vReg);
+			} else {
+				regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
+				alphaIndexReg = regCache_.Alloc(RegCache::GEN_TEMP0);
 
-		if (uReg != RCX && !cpu_info.bBMI2)
-			regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
+				MOV(64, R(alphaIndexReg), MDisp(srcReg, 8));
+				MOV(32, R(RCX), R(vReg));
+				SHR(64, R(alphaIndexReg), R(CL));
+			}
+			regCache_.Unlock(vReg, RegCache::GEN_ARG_V);
+			regCache_.ForceRelease(RegCache::GEN_ARG_V);
+		} else {
+			X64Reg uReg = regCache_.Find(RegCache::GEN_ARG_U);
+			if (uReg != RCX && !cpu_info.bBMI2)
+				regCache_.ChangeReg(RCX, RegCache::GEN_SHIFTVAL);
+			alphaIndexReg = regCache_.Alloc(RegCache::GEN_TEMP0);
 
-		// Let's figure out the alphaIndex bit offset so we can read the right byte.
-		// bitOffset = (u + v * 4) * 3;
-		LEA(32, uReg, MComplex(uReg, vReg, SCALE_4, 0));
-		LEA(32, uReg, MComplex(uReg, uReg, SCALE_2, 0));
-		regCache_.Unlock(vReg, RegCache::GEN_ARG_V);
-		regCache_.ForceRelease(RegCache::GEN_ARG_V);
+			// Let's figure out the alphaIndex bit offset so we can read the right byte.
+			// bitOffset = (u + v * 4) * 3;
+			LEA(32, uReg, MComplex(uReg, vReg, SCALE_4, 0));
+			LEA(32, uReg, MComplex(uReg, uReg, SCALE_2, 0));
+			regCache_.Unlock(vReg, RegCache::GEN_ARG_V);
+			regCache_.ForceRelease(RegCache::GEN_ARG_V);
 
-		X64Reg alphaIndexReg = regCache_.Alloc(RegCache::GEN_TEMP0);
+			if (cpu_info.bBMI2) {
+				SHRX(64, alphaIndexReg, MDisp(srcReg, 8), uReg);
+			} else {
+				// And now the byte offset and bit from there, from those.
+				MOV(32, R(alphaIndexReg), R(uReg));
+				SHR(32, R(alphaIndexReg), Imm8(3));
+				AND(32, R(uReg), Imm32(7));
+
+				// Load 16 bits and mask, in case it straddles bytes.
+				MOVZX(32, 16, alphaIndexReg, MComplex(srcReg, alphaIndexReg, SCALE_1, 8));
+				// If not, it's in what was bufwReg.
+				if (uReg != RCX) {
+					_assert_(regCache_.Has(RegCache::GEN_SHIFTVAL));
+					MOV(32, R(RCX), R(uReg));
+				}
+				SHR(32, R(alphaIndexReg), R(CL));
+			}
+			regCache_.Unlock(uReg, RegCache::GEN_ARG_U);
+			regCache_.ForceRelease(RegCache::GEN_ARG_U);
+		}
+
 		X64Reg alpha1Reg = regCache_.Alloc(RegCache::GEN_TEMP1);
 		X64Reg alpha2Reg = regCache_.Alloc(RegCache::GEN_TEMP2);
 
-		// And now the byte offset and bit from there, from those.
-		MOV(32, R(alphaIndexReg), R(uReg));
-		SHR(32, R(alphaIndexReg), Imm8(3));
-		AND(32, R(uReg), Imm32(7));
-
-		// Load 16 bits and mask, in case it straddles bytes.
-		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
-		if (cpu_info.bBMI2) {
-			SHRX(32, alphaIndexReg, MComplex(srcReg, alphaIndexReg, SCALE_1, 8), uReg);
-		} else {
-			MOVZX(32, 16, alphaIndexReg, MComplex(srcReg, alphaIndexReg, SCALE_1, 8));
-			// If not, it's in what was bufwReg.
-			if (uReg != RCX) {
-				_assert_(regCache_.Has(RegCache::GEN_SHIFTVAL));
-				MOV(32, R(RCX), R(uReg));
-			}
-			SHR(32, R(alphaIndexReg), R(CL));
-		}
 		AND(32, R(alphaIndexReg), Imm32(7));
-
-		regCache_.Unlock(uReg, RegCache::GEN_ARG_U);
-		regCache_.ForceRelease(RegCache::GEN_ARG_U);
 
 		X64Reg temp3Reg = regCache_.Alloc(RegCache::GEN_TEMP3);
 
@@ -2155,7 +2258,6 @@ bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
 		FixupBranch handleLerp8 = J_CC(CC_A);
 
 		// Okay, check for zero or full alpha, at alphaIndex 6 or 7.
-		XOR(32, R(srcReg), R(srcReg));
 		CMP(32, R(alphaIndexReg), Imm32(6));
 		FixupBranch finishZero = J_CC(CC_E, true);
 		// Remember, MOV doesn't affect flags.
@@ -2212,7 +2314,6 @@ bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
 		regCache_.Release(temp3Reg, RegCache::GEN_TEMP3);
 
 		SetJumpTarget(finishFull);
-		SetJumpTarget(finishZero);
 		SetJumpTarget(finishLerp6);
 		SetJumpTarget(finishLerp8);
 
@@ -2221,6 +2322,8 @@ bool SamplerJitCache::Jit_ApplyDXTAlpha(const SamplerID &id) {
 		OR(32, R(resultReg), R(srcReg));
 		regCache_.Unlock(resultReg, RegCache::GEN_RESULT);
 		success = true;
+
+		SetJumpTarget(finishZero);
 
 		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
 		regCache_.ForceRelease(RegCache::GEN_ARG_TEXPTR);
@@ -2868,7 +2971,7 @@ bool SamplerJitCache::Jit_PrepareDataOffsets(const SamplerID &id, RegCache::Reg 
 	_assert_(id.linear);
 
 	bool success = true;
-	int bits = -1;
+	int bits = 0;
 	switch (id.TexFmt()) {
 	case GE_TFMT_5650:
 	case GE_TFMT_5551:
@@ -2891,16 +2994,22 @@ bool SamplerJitCache::Jit_PrepareDataOffsets(const SamplerID &id, RegCache::Reg 
 		break;
 
 	case GE_TFMT_DXT1:
+		bits = -8;
+		break;
+
 	case GE_TFMT_DXT3:
 	case GE_TFMT_DXT5:
+		bits = -16;
 		break;
 
 	default:
 		success = false;
 	}
 
-	if (success && bits != -1) {
-		if (id.swizzle) {
+	if (success && bits != 0) {
+		if (bits < 0) {
+			success = Jit_PrepareDataDXTOffsets(id, uReg, vReg, level1, -bits);
+		} else if (id.swizzle) {
 			success = Jit_PrepareDataSwizzledOffsets(id, uReg, vReg, level1, bits);
 		} else {
 			success = Jit_PrepareDataDirectOffsets(id, uReg, vReg, level1, bits);
@@ -2915,10 +3024,13 @@ bool SamplerJitCache::Jit_PrepareDataDirectOffsets(const SamplerID &id, RegCache
 	X64Reg bufwVecReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 	if (!id.useStandardBufw || id.hasAnyMips) {
 		// Spread bufw into each lane.
-		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR);
-		MOVD_xmm(bufwVecReg, MDisp(bufwReg, level1 ? 4 : 0));
+		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR); if (cpu_info.bAVX2) {
+			VPBROADCASTD(128, bufwVecReg, MDisp(bufwReg, level1 ? 4 : 0));
+		} else {
+			MOVD_xmm(bufwVecReg, MDisp(bufwReg, level1 ? 4 : 0));
+			PSHUFD(bufwVecReg, R(bufwVecReg), _MM_SHUFFLE(0, 0, 0, 0));
+		}
 		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW_PTR);
-		PSHUFD(bufwVecReg, R(bufwVecReg), _MM_SHUFFLE(0, 0, 0, 0));
 
 		if (bitsPerTexel == 4)
 			PSRLD(bufwVecReg, 1);
@@ -2987,9 +3099,13 @@ bool SamplerJitCache::Jit_PrepareDataSwizzledOffsets(const SamplerID &id, RegCac
 	if (!id.useStandardBufw || id.hasAnyMips) {
 		// Spread bufw into each lane.
 		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR);
-		MOVD_xmm(bufwVecReg, MDisp(bufwReg, level1 ? 4 : 0));
+		if (cpu_info.bAVX2) {
+			VPBROADCASTD(128, bufwVecReg, MDisp(bufwReg, level1 ? 4 : 0));
+		} else {
+			MOVD_xmm(bufwVecReg, MDisp(bufwReg, level1 ? 4 : 0));
+			PSHUFD(bufwVecReg, R(bufwVecReg), _MM_SHUFFLE(0, 0, 0, 0));
+		}
 		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW_PTR);
-		PSHUFD(bufwVecReg, R(bufwVecReg), _MM_SHUFFLE(0, 0, 0, 0));
 	}
 
 	// Divide vvec by 8 in a temp.
@@ -3055,6 +3171,104 @@ bool SamplerJitCache::Jit_PrepareDataSwizzledOffsets(const SamplerID &id, RegCac
 		PADDD(vReg, R(uReg));
 	}
 	regCache_.Release(uCopyReg, RegCache::VEC_TEMP0);
+
+	return true;
+}
+
+bool SamplerJitCache::Jit_PrepareDataDXTOffsets(const SamplerID &id, Rasterizer::RegCache::Reg uReg, Rasterizer::RegCache::Reg vReg, bool level1, int blockSize) {
+	Describe("DataOffDXT");
+	// Wwe need to get the block's offset, which is:
+	// blockPos = src + (v/4 * bufw/4 + u/4) * blockSize
+	// We distribute the blockSize constant for convenience:
+	// blockPos = src + (blockSize*v/4 * bufw/4 + blockSize*u/4)
+
+	X64Reg baseVReg = regCache_.Find(level1 ? RegCache::VEC_INDEX1 : RegCache::VEC_INDEX);
+	// This gives us the V factor for the block, which we multiply by bufw.
+	PSRLD(baseVReg, vReg, 2);
+	PSLLD(baseVReg, blockSize == 16 ? 4 : 3);
+
+	X64Reg bufwVecReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+	if (!id.useStandardBufw || id.hasAnyMips) {
+		// Spread bufw into each lane.
+		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR);
+		if (cpu_info.bAVX2) {
+			VPBROADCASTD(128, bufwVecReg, MDisp(bufwReg, level1 ? 4 : 0));
+		} else {
+			MOVD_xmm(bufwVecReg, MDisp(bufwReg, level1 ? 4 : 0));
+			PSHUFD(bufwVecReg, R(bufwVecReg), _MM_SHUFFLE(0, 0, 0, 0));
+		}
+		regCache_.Unlock(bufwReg, RegCache::GEN_ARG_BUFW_PTR);
+
+		// Divide by 4 before the multiply.
+		PSRLD(bufwVecReg, 2);
+	}
+
+	if (id.useStandardBufw && !id.hasAnyMips) {
+		int amt = id.width0Shift - 2;
+		if (amt < 0)
+			PSRLD(baseVReg, -amt);
+		else if (amt > 0)
+			PSLLD(baseVReg, amt);
+	} else if (cpu_info.bSSE4_1) {
+		// And now multiply.  This is slow, but not worse than the SSE2 version...
+		PMULLD(baseVReg, R(bufwVecReg));
+	} else {
+		// Copy that into another temp for multiply.
+		X64Reg vOddLaneReg = regCache_.Alloc(RegCache::VEC_TEMP1);
+		MOVDQA(vOddLaneReg, R(baseVReg));
+
+		// Okay, first, multiply to get XXXX CCCC XXXX AAAA.
+		PMULUDQ(baseVReg, R(bufwVecReg));
+		PSRLDQ(vOddLaneReg, 4);
+		PSRLDQ(bufwVecReg, 4);
+		// And now get XXXX DDDD XXXX BBBB.
+		PMULUDQ(vOddLaneReg, R(bufwVecReg));
+
+		// We know everything is positive, so XXXX must be zero.  Let's combine.
+		PSLLDQ(vOddLaneReg, 4);
+		POR(baseVReg, R(vOddLaneReg));
+		regCache_.Release(vOddLaneReg, RegCache::VEC_TEMP1);
+	}
+	regCache_.Release(bufwVecReg, RegCache::VEC_TEMP0);
+
+	// Now add in the U factor for the block.
+	X64Reg baseUReg = regCache_.Alloc(RegCache::VEC_TEMP0);
+	PSRLD(baseUReg, uReg, 2);
+	PSLLD(baseUReg, blockSize == 16 ? 4 : 3);
+	PADDD(baseVReg, R(baseUReg));
+	regCache_.Release(baseUReg, RegCache::VEC_TEMP0);
+
+	// Okay, the base index (block byte offset from src) is ready.
+	regCache_.Unlock(baseVReg, level1 ? RegCache::VEC_INDEX1 : RegCache::VEC_INDEX);
+	regCache_.ForceRetain(level1 ? RegCache::VEC_INDEX1 : RegCache::VEC_INDEX);
+
+	// For everything else, we only want the low two bits of U and V.
+	PSLLD(uReg, 30);
+	PSLLD(vReg, 30);
+
+	X64Reg alphaTempRegU = regCache_.Alloc(RegCache::VEC_TEMP0);
+	if (id.TexFmt() == GE_TFMT_DXT3 || id.TexFmt() == GE_TFMT_DXT5)
+		PSRLD(alphaTempRegU, uReg, 30);
+
+	PSRLD(uReg, 30 - 1);
+	PSRLD(vReg, 30 - 3);
+	// At this point, uReg is now the bit offset of the color index.
+	PADDD(uReg, R(vReg));
+
+	// Grab the alpha index into vReg next.
+	if (id.TexFmt() == GE_TFMT_DXT3 || id.TexFmt() == GE_TFMT_DXT5) {
+		PSRLD(vReg, 1);
+		PADDD(vReg, R(alphaTempRegU));
+
+		if (id.TexFmt() == GE_TFMT_DXT3) {
+			PSLLD(vReg, 2);
+		} else if (id.TexFmt() == GE_TFMT_DXT5) {
+			// Multiply by 3.
+			PSLLD(alphaTempRegU, vReg, 1);
+			PADDD(vReg, R(alphaTempRegU));
+		}
+	}
+	regCache_.Release(alphaTempRegU, RegCache::VEC_TEMP0);
 
 	return true;
 }

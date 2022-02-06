@@ -405,16 +405,20 @@ void ComputeSamplerID(SamplerID *id_out) {
 	id.useStandardBufw = true;
 	id.overReadSafe = true;
 	int maxLevel = gstate.isMipmapEnabled() ? gstate.getTextureMaxLevel() : 0;
+	GETextureFormat fmt = gstate.getTextureFormat();
 	for (int i = 0; i <= maxLevel; ++i) {
 		uint32_t addr = gstate.getTextureAddress(i);
 		if (!Memory::IsValidAddress(addr))
 			id.hasInvalidPtr = true;
 
-		int bufw = GetTextureBufw(i, addr, gstate.getTextureFormat());
-		int bitspp = textureBitsPerPixel[gstate.getTextureFormat()];
+		int bufw = GetTextureBufw(i, addr, fmt);
+		int bitspp = textureBitsPerPixel[fmt];
 		// We use a 16 byte minimum for all small bufws, so allow those as standard.
 		int w = gstate.getTextureWidth(i);
 		if (bitspp == 0 || std::max(w, 128 / bitspp) != bufw)
+			id.useStandardBufw = false;
+		// TODO: Verify 16 bit bufw align handling in DXT.
+		if (fmt >= GE_TFMT_DXT1 && w != bufw)
 			id.useStandardBufw = false;
 
 		int h = gstate.getTextureHeight(i);
@@ -430,10 +434,10 @@ void ComputeSamplerID(SamplerID *id_out) {
 	id.height0Shift = (gstate.texsize[0] >> 8) & 0xF;
 	id.hasAnyMips = maxLevel != 0;
 
-	id.texfmt = gstate.getTextureFormat();
+	id.texfmt = fmt;
 	id.swizzle = gstate.isTextureSwizzled();
 	// Only CLUT4 can use separate CLUTs per mimap.
-	id.useSharedClut = gstate.getTextureFormat() != GE_TFMT_CLUT4 || maxLevel == 0 || !gstate.isMipmapEnabled() || gstate.isClutSharedForMipmaps();
+	id.useSharedClut = fmt != GE_TFMT_CLUT4 || maxLevel == 0 || !gstate.isMipmapEnabled() || gstate.isClutSharedForMipmaps();
 	if (gstate.isTextureFormatIndexed()) {
 		id.clutfmt = gstate.getClutPaletteFormat();
 		id.hasClutMask = gstate.getClutIndexMask() != 0xFF;
