@@ -2602,6 +2602,7 @@ void GPUCommon::ResetListPC(int listID, u32 pc) {
 	}
 
 	dls[listID].pc = pc;
+	downcount = 0;
 }
 
 void GPUCommon::ResetListStall(int listID, u32 stall) {
@@ -2611,6 +2612,7 @@ void GPUCommon::ResetListStall(int listID, u32 stall) {
 	}
 
 	dls[listID].stall = stall;
+	downcount = 0;
 }
 
 void GPUCommon::ResetListState(int listID, DisplayListState state) {
@@ -2620,6 +2622,7 @@ void GPUCommon::ResetListState(int listID, DisplayListState state) {
 	}
 
 	dls[listID].state = state;
+	downcount = 0;
 }
 
 GPUDebugOp GPUCommon::DissassembleOp(u32 pc, u32 op) {
@@ -2678,6 +2681,7 @@ void GPUCommon::SetCmdValue(u32 op) {
 	PreExecuteOp(op, diff);
 	gstate.cmdmem[cmd] = op;
 	ExecuteOp(op, diff);
+	downcount = 0;
 }
 
 void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
