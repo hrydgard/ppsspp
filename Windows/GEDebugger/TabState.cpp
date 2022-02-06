@@ -963,6 +963,11 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 	} else {
 		ModifyMenu(subMenu, ID_GEDBG_WATCH, MF_BYCOMMAND | MF_STRING, ID_GEDBG_WATCH, L"Add Watch");
 	}
+	if (info.fmt == CMD_FMT_FLAG) {
+		ModifyMenu(subMenu, ID_REGLIST_CHANGE, MF_BYCOMMAND | MF_STRING, ID_REGLIST_CHANGE, L"Toggle Flag");
+	} else {
+		ModifyMenu(subMenu, ID_REGLIST_CHANGE, MF_BYCOMMAND | MF_STRING, ID_REGLIST_CHANGE, L"Change...");
+	}
 
 	switch (TriggerContextMenu(ContextMenuID::GEDBG_STATE, GetHandle(), ContextPoint::FromClient(point)))
 	{
@@ -994,7 +999,7 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 		break;
 
 	case ID_REGLIST_CHANGE:
-		OnDoubleClick(row, column);
+		OnDoubleClick(row, STATEVALUES_COL_VALUE);
 		break;
 
 	case ID_GEDBG_WATCH:
