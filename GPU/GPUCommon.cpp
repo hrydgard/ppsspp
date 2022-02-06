@@ -993,9 +993,9 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 
 	gpuState = list.pc == list.stall ? GPUSTATE_STALL : GPUSTATE_RUNNING;
 
-	debugRecording_ = GPURecord::IsActive();
-	const bool useDebugger = GPUDebug::IsActive() || debugRecording_;
-	const bool useFastRunLoop = !dumpThisFrame_ && !useDebugger;
+	// To enable breakpoints, we don't do fast matrix loads while debugger active.
+	debugRecording_ = GPUDebug::IsActive() || GPURecord::IsActive();
+	const bool useFastRunLoop = !dumpThisFrame_ && !debugRecording_;
 	while (gpuState == GPUSTATE_RUNNING) {
 		{
 			if (list.pc == list.stall) {
@@ -1679,7 +1679,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	if (!g_Config.bSoftwareSkinning)
 		vtypeCheckMask = 0xFFFFFFFF;
 
-	if (debugRecording_ || GPUDebug::IsActive())
+	if (debugRecording_)
 		goto bail;
 
 	while (src != stall) {
@@ -2602,6 +2602,7 @@ void GPUCommon::ResetListPC(int listID, u32 pc) {
 	}
 
 	dls[listID].pc = pc;
+	downcount = 0;
 }
 
 void GPUCommon::ResetListStall(int listID, u32 stall) {
@@ -2611,6 +2612,7 @@ void GPUCommon::ResetListStall(int listID, u32 stall) {
 	}
 
 	dls[listID].stall = stall;
+	downcount = 0;
 }
 
 void GPUCommon::ResetListState(int listID, DisplayListState state) {
@@ -2620,6 +2622,7 @@ void GPUCommon::ResetListState(int listID, DisplayListState state) {
 	}
 
 	dls[listID].state = state;
+	downcount = 0;
 }
 
 GPUDebugOp GPUCommon::DissassembleOp(u32 pc, u32 op) {
@@ -2678,6 +2681,7 @@ void GPUCommon::SetCmdValue(u32 op) {
 	PreExecuteOp(op, diff);
 	gstate.cmdmem[cmd] = op;
 	ExecuteOp(op, diff);
+	downcount = 0;
 }
 
 void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {

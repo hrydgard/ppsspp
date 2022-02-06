@@ -110,9 +110,17 @@ bool InputBox_GetWString(HINSTANCE hInst, HWND hParent, const wchar_t *title, co
 
 bool InputBox_GetHex(HINSTANCE hInst, HWND hParent, const wchar_t* title, u32 defaultvalue, u32& outvalue)
 {
+	const wchar_t *defaultTitle = L"Input value";
 	wchar_t temp[256];
 	wsprintf(temp, L"%08x", defaultvalue);
 	textBoxContents = temp;
+
+	if (title && wcslen(title) <= 0)
+		windowTitle = defaultTitle;
+	else if (title && wcslen(title) < 255)
+		windowTitle = title;
+	else
+		windowTitle = defaultTitle;
 
 	INT_PTR value = DialogBox(hInst, (LPCWSTR)IDD_INPUTBOX, hParent, InputBoxFunc);
 

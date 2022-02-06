@@ -309,6 +309,8 @@ private:
 	const int LIST_BUF_SIZE = 256 * 1024;
 	std::vector<u32> execListQueue;
 	u16 lastBufw_[8]{};
+	u32 lastTex_[8]{};
+	u32 lastBase_ = 0;
 
 	const std::vector<u8> &pushbuf_;
 	const std::vector<Command> &commands_;
@@ -388,9 +390,12 @@ bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
 		}
 
 		// Since we're here anyway, also NOP out texture addresses.
-		// This makes Step Tex not hit phantom textures.
+		// This makes Step Tex not hit phantom textures, but we rely on it for lastTex_[].
 		if (cmd >= GE_CMD_TEXADDR0 && cmd <= GE_CMD_TEXADDR7) {
 			ops[i] = GE_CMD_NOP << 24;
+		}
+		if (cmd == GE_CMD_SIGNAL || cmd == GE_CMD_BASE) {
+			lastBase_ = 0xFFFFFFFF;
 		}
 	}
 
@@ -409,6 +414,10 @@ void DumpExecute::SubmitListEnd() {
 	Memory::Write_U32(GE_CMD_END << 24, execListPos + 4);
 	execListPos += 8;
 
+	for (int i = 0; i < 8; ++i)
+		lastTex_[i] = 0;
+	lastBase_ = 0xFFFFFFFF;
+
 	SyncStall();
 	gpu->ListSync(execListID, 0);
 }
@@ -416,6 +425,12 @@ void DumpExecute::SubmitListEnd() {
 void DumpExecute::Init(u32 ptr, u32 sz) {
 	gstate.Restore((u32_le *)(pushbuf_.data() + ptr));
 	gpu->ReapplyGfxState();
+
+	for (int i = 0; i < 8; ++i) {
+		lastBufw_[i] = 0;
+		lastTex_[i] = 0;
+	}
+	lastBase_ = 0xFFFFFFFF;
 }
 
 void DumpExecute::Registers(u32 ptr, u32 sz) {
@@ -429,7 +444,10 @@ void DumpExecute::Vertices(u32 ptr, u32 sz) {
 		return;
 	}
 
-	execListQueue.push_back((GE_CMD_BASE << 24) | ((psp >> 8) & 0x00FF0000));
+	if (lastBase_ != (psp & 0x0FF000000)) {
+		execListQueue.push_back((GE_CMD_BASE << 24) | ((psp >> 8) & 0x00FF0000));
+		lastBase_ = psp & 0x0FF000000;
+	}
 	execListQueue.push_back((GE_CMD_VADDR << 24) | (psp & 0x00FFFFFF));
 }
 
@@ -440,7 +458,10 @@ void DumpExecute::Indices(u32 ptr, u32 sz) {
 		return;
 	}
 
-	execListQueue.push_back((GE_CMD_BASE << 24) | ((psp >> 8) & 0x00FF0000));
+	if (lastBase_ != (psp & 0x0FF000000)) {
+		execListQueue.push_back((GE_CMD_BASE << 24) | ((psp >> 8) & 0x00FF0000));
+		lastBase_ = psp & 0x0FF000000;
+	}
 	execListQueue.push_back((GE_CMD_IADDR << 24) | (psp & 0x00FFFFFF));
 }
 
@@ -505,10 +526,13 @@ void DumpExecute::Texture(int level, u32 ptr, u32 sz) {
 		return;
 	}
 
-	u32 bufwCmd = GE_CMD_TEXBUFWIDTH0 + level;
-	u32 addrCmd = GE_CMD_TEXADDR0 + level;
-	execListQueue.push_back((bufwCmd << 24) | ((psp >> 8) & 0x00FF0000) | lastBufw_[level]);
-	execListQueue.push_back((addrCmd << 24) | (psp & 0x00FFFFFF));
+	if (lastTex_[level] != psp) {
+		u32 bufwCmd = GE_CMD_TEXBUFWIDTH0 + level;
+		u32 addrCmd = GE_CMD_TEXADDR0 + level;
+		execListQueue.push_back((bufwCmd << 24) | ((psp >> 8) & 0x00FF0000) | lastBufw_[level]);
+		execListQueue.push_back((addrCmd << 24) | (psp & 0x00FFFFFF));
+		lastTex_[level] = psp;
+	}
 }
 
 void DumpExecute::Framebuf(int level, u32 ptr, u32 sz) {
@@ -522,11 +546,14 @@ void DumpExecute::Framebuf(int level, u32 ptr, u32 sz) {
 
 	FramebufData *framebuf = (FramebufData *)(pushbuf_.data() + ptr);
 
-	u32 bufwCmd = GE_CMD_TEXBUFWIDTH0 + level;
-	u32 addrCmd = GE_CMD_TEXADDR0 + level;
-	execListQueue.push_back((bufwCmd << 24) | ((framebuf->addr >> 8) & 0x00FF0000) | framebuf->bufw);
-	execListQueue.push_back((addrCmd << 24) | (framebuf->addr & 0x00FFFFFF));
-	lastBufw_[level] = framebuf->bufw;
+	if (lastTex_[level] != framebuf->addr || lastBufw_[level] != framebuf->bufw) {
+		u32 bufwCmd = GE_CMD_TEXBUFWIDTH0 + level;
+		u32 addrCmd = GE_CMD_TEXADDR0 + level;
+		execListQueue.push_back((bufwCmd << 24) | ((framebuf->addr >> 8) & 0x00FF0000) | framebuf->bufw);
+		execListQueue.push_back((addrCmd << 24) | (framebuf->addr & 0x00FFFFFF));
+		lastTex_[level] = framebuf->addr;
+		lastBufw_[level] = framebuf->bufw;
+	}
 
 	// And now also copy the data into VRAM (in case it wasn't actually rendered.)
 	u32 headerSize = (u32)sizeof(FramebufData);

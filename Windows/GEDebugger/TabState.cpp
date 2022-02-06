@@ -15,7 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/CommonFuncs.h"
 #include "Common/CommonTypes.h"
+#include "Common/Data/Text/Parsers.h"
+#include "Common/StringUtils.h"
 #include "Windows/resource.h"
 #include "Windows/InputBox.h"
 #include "Windows/GEDebugger/GEDebugger.h"
@@ -28,17 +31,22 @@
 
 using namespace GPUBreakpoints;
 
-// TODO: Show an icon or something for breakpoints, toggle.
+// First column is the breakpoint icon.
 static const GenericListViewColumn stateValuesCols[] = {
-	{ L"Name", 0.50f },
-	{ L"Value", 0.50f },
+	{ L"", 0.03f },
+	{ L"Name", 0.40f },
+	{ L"Value", 0.57f },
 };
 
 GenericListViewDef stateValuesListDef = {
-	stateValuesCols,	ARRAY_SIZE(stateValuesCols),	NULL,	false
+	stateValuesCols,
+	ARRAY_SIZE(stateValuesCols),
+	nullptr,
+	false,
 };
 
 enum StateValuesCols {
+	STATEVALUES_COL_BREAKPOINT,
 	STATEVALUES_COL_NAME,
 	STATEVALUES_COL_VALUE,
 };
@@ -139,7 +147,6 @@ static const TabStateRow stateLightingRows[] = {
 	{ L"Light dir 1",          GE_CMD_LDX1,                    CMD_FMT_XYZ, GE_CMD_LIGHTENABLE1, GE_CMD_LDY1, GE_CMD_LDZ1 },
 	{ L"Light dir 2",          GE_CMD_LDX2,                    CMD_FMT_XYZ, GE_CMD_LIGHTENABLE2, GE_CMD_LDY2, GE_CMD_LDZ2 },
 	{ L"Light dir 3",          GE_CMD_LDX3,                    CMD_FMT_XYZ, GE_CMD_LIGHTENABLE3, GE_CMD_LDY3, GE_CMD_LDZ3 },
-	// TODO: Is this a reasonable display format?
 	{ L"Light att 0",          GE_CMD_LKA0,                    CMD_FMT_XYZ, GE_CMD_LIGHTENABLE0, GE_CMD_LKB0, GE_CMD_LKC0 },
 	{ L"Light att 1",          GE_CMD_LKA1,                    CMD_FMT_XYZ, GE_CMD_LIGHTENABLE1, GE_CMD_LKB1, GE_CMD_LKC1 },
 	{ L"Light att 2",          GE_CMD_LKA2,                    CMD_FMT_XYZ, GE_CMD_LIGHTENABLE2, GE_CMD_LKB2, GE_CMD_LKC2 },
@@ -279,9 +286,52 @@ static void ToggleWatchList(const TabStateRow &info) {
 	watchList.push_back(info);
 }
 
+static bool ToggleBreakpoint(const TabStateRow &info) {
+	if (IsCmdBreakpoint(info.cmd)) {
+		RemoveCmdBreakpoint(info.cmd);
+		if (info.otherCmd)
+			RemoveCmdBreakpoint(info.otherCmd);
+		if (info.otherCmd2)
+			RemoveCmdBreakpoint(info.otherCmd2);
+		return false;
+	}
+
+	AddCmdBreakpoint(info.cmd);
+	if (info.otherCmd)
+		AddCmdBreakpoint(info.otherCmd);
+	if (info.otherCmd2)
+		AddCmdBreakpoint(info.otherCmd2);
+	return true;
+}
+
+bool PromptStateValue(const TabStateRow &info, HWND hparent, const wchar_t *title, u32 &value) {
+	if (info.fmt == CMD_FMT_FLOAT24 || info.fmt == CMD_FMT_XYZ) {
+		union {
+			u32 u;
+			float f;
+		} temp = { value << 8 };
+
+		std::string strvalue = StringFromFormat("%f", temp.f);
+		bool res = InputBox_GetString(GetModuleHandle(NULL), hparent, title, strvalue, strvalue);
+		if (!res)
+			return false;
+
+		// Okay, the result could be a simple float, hex (0x...), or invalid.
+		if (sscanf(strvalue.c_str(), "0x%08x", &value) == 1)
+			return true;
+		if (sscanf(strvalue.c_str(), "%f", &temp.f) == 1) {
+			value = temp.u >> 8;
+			return true;
+		}
+		return false;
+	}
+	return InputBox_GetHex(GetModuleHandle(NULL), hparent, title, value, value);
+}
+
 CtrlStateValues::CtrlStateValues(const TabStateRow *rows, int rowCount, HWND hwnd)
 	: GenericListControl(hwnd, stateValuesListDef),
 	  rows_(rows), rowCount_(rowCount) {
+	SetIconList(12, 12, { (HICON)LoadIcon(GetModuleHandle(nullptr), (LPCWSTR)IDI_BREAKPOINT_SMALL) });
 	Update();
 }
 
@@ -810,6 +860,10 @@ void CtrlStateValues::GetColumnText(wchar_t *dest, int row, int col) {
 	}
 
 	switch (col) {
+	case STATEVALUES_COL_BREAKPOINT:
+		wcscpy(dest, L" ");
+		break;
+
 	case STATEVALUES_COL_NAME:
 		wcscpy(dest, rows_[row].title);
 		break;
@@ -835,11 +889,17 @@ void CtrlStateValues::GetColumnText(wchar_t *dest, int row, int col) {
 }
 
 void CtrlStateValues::OnDoubleClick(int row, int column) {
-	if (gpuDebug == NULL) {
+	if (gpuDebug == nullptr || row >= rowCount_) {
 		return;
 	}
 
 	const auto info = rows_[row];
+
+	if (column == STATEVALUES_COL_BREAKPOINT) {
+		SetItemState(row, ToggleBreakpoint(info) ? 1 : 0);
+		return;
+	}
+
 	switch (info.fmt) {
 	case CMD_FMT_FLAG:
 		{
@@ -851,12 +911,32 @@ void CtrlStateValues::OnDoubleClick(int row, int column) {
 
 	default:
 		{
-			// TODO: Floats/etc., and things with multiple cmds.
+			wchar_t title[1024];
 			const auto state = gpuDebug->GetGState();
+
 			u32 newValue = state.cmdmem[info.cmd] & 0x00FFFFFF;
-			if (InputBox_GetHex(GetModuleHandle(NULL), GetHandle(), L"New value", newValue, newValue)) {
+			swprintf(title, 1023, L"New value for %s", info.title);
+			if (PromptStateValue(info, GetHandle(), title, newValue)) {
 				newValue |= state.cmdmem[info.cmd] & 0xFF000000;
 				SetCmdValue(newValue);
+
+				if (info.otherCmd) {
+					newValue = state.cmdmem[info.otherCmd] & 0x00FFFFFF;
+					swprintf(title, 1023, L"New value for %s (secondary)", info.title);
+					if (PromptStateValue(info, GetHandle(), title, newValue)) {
+						newValue |= state.cmdmem[info.otherCmd] & 0xFF000000;
+						SetCmdValue(newValue);
+
+						if (info.otherCmd2) {
+							newValue = state.cmdmem[info.otherCmd2] & 0x00FFFFFF;
+							swprintf(title, 1023, L"New value for %s (tertiary)", info.title);
+							if (PromptStateValue(info, GetHandle(), title, newValue)) {
+								newValue |= state.cmdmem[info.otherCmd2] & 0xFF000000;
+								SetCmdValue(newValue);
+							}
+						}
+					}
+				}
 			}
 		}
 		break;
@@ -883,23 +963,16 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 	} else {
 		ModifyMenu(subMenu, ID_GEDBG_WATCH, MF_BYCOMMAND | MF_STRING, ID_GEDBG_WATCH, L"Add Watch");
 	}
+	if (info.fmt == CMD_FMT_FLAG) {
+		ModifyMenu(subMenu, ID_REGLIST_CHANGE, MF_BYCOMMAND | MF_STRING, ID_REGLIST_CHANGE, L"Toggle Flag");
+	} else {
+		ModifyMenu(subMenu, ID_REGLIST_CHANGE, MF_BYCOMMAND | MF_STRING, ID_REGLIST_CHANGE, L"Change...");
+	}
 
 	switch (TriggerContextMenu(ContextMenuID::GEDBG_STATE, GetHandle(), ContextPoint::FromClient(point)))
 	{
 	case ID_DISASM_TOGGLEBREAKPOINT:
-		if (IsCmdBreakpoint(info.cmd)) {
-			RemoveCmdBreakpoint(info.cmd);
-			RemoveCmdBreakpoint(info.otherCmd);
-			RemoveCmdBreakpoint(info.otherCmd2);
-		} else {
-			AddCmdBreakpoint(info.cmd);
-			if (info.otherCmd) {
-				AddCmdBreakpoint(info.otherCmd);
-			}
-			if (info.otherCmd2) {
-				AddCmdBreakpoint(info.otherCmd2);
-			}
-		}
+		SetItemState(row, ToggleBreakpoint(info) ? 1 : 0);
 		break;
 
 	case ID_DISASM_COPYINSTRUCTIONHEX: {
@@ -926,7 +999,7 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 		break;
 
 	case ID_REGLIST_CHANGE:
-		OnDoubleClick(row, column);
+		OnDoubleClick(row, STATEVALUES_COL_VALUE);
 		break;
 
 	case ID_GEDBG_WATCH:

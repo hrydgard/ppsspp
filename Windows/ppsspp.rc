@@ -454,6 +454,7 @@ IDI_PPSSPP              ICON                    "ppsspp.ico"
 #endif
 IDI_STOP                ICON                    "icon1.ico"
 IDI_STOPDISABLE         ICON                    "stop1.ico"
+IDI_BREAKPOINT_SMALL    ICON                    "BreakpointSmall.ico"
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -777,6 +778,15 @@ BEGIN
     BEGIN
         MENUITEM "Export Image...",            ID_GEDBG_EXPORT_IMAGE
         MENUITEM "Show Prim Preview",          ID_GEDBG_ENABLE_PREVIEW
+    END
+    POPUP "matrixoptions"
+    BEGIN
+        MENUITEM "Change...",                  ID_REGLIST_CHANGE
+        MENUITEM SEPARATOR
+        MENUITEM "Copy Value",                 ID_DISASM_COPYINSTRUCTIONDISASM
+        MENUITEM "Copy Entire Tab (Formatted)",ID_GEDBG_COPYALL
+        MENUITEM SEPARATOR
+        MENUITEM "Toggle Breakpoint",          ID_DISASM_TOGGLEBREAKPOINT
     END
 END
 

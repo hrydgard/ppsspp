@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
+#include <vector>
 #include "Common/CommonWindows.h"
 
 namespace W32Util
@@ -41,14 +43,17 @@ class GenericListControl
 {
 public:
 	GenericListControl(HWND hwnd, const GenericListViewDef& def);
-	virtual ~GenericListControl() { };
+	virtual ~GenericListControl();
 	void HandleNotify(LPARAM lParam);
 	void Update();
 	int GetSelectedIndex();
 	HWND GetHandle() { return handle; };
 	void SetSendInvalidRows(bool enabled) { sendInvalidRows = enabled; };
 protected:
+	void SetIconList(int w, int h, const std::vector<HICON> &icons);
 	void SetCheckState(int item, bool state);
+	void SetItemState(int item, uint8_t state);
+
 	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue) = 0;
 	virtual void GetColumnText(wchar_t* dest, int row, int col) = 0;
 	virtual int GetRowCount() = 0;
@@ -66,6 +71,7 @@ private:
 
 	HWND handle;
 	WNDPROC oldProc;
+	void *images_ = nullptr;
 	const GenericListViewColumn* columns;
 	int columnCount;
 	wchar_t stringBuffer[256];
