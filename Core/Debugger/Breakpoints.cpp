@@ -22,6 +22,7 @@
 #include "Common/Log.h"
 #include "Core/Core.h"
 #include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
@@ -389,7 +390,9 @@ void CBreakPoints::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, Break
 		check.result = result;
 
 		memChecks_.push_back(check);
-		anyMemChecks_ = true;
+		bool hadAny = anyMemChecks_.exchange(true);
+		if (!hadAny)
+			MemBlockOverrideDetailed();
 		guard.unlock();
 		Update();
 	}
@@ -397,7 +400,9 @@ void CBreakPoints::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, Break
 	{
 		memChecks_[mc].cond = (MemCheckCondition)(memChecks_[mc].cond | cond);
 		memChecks_[mc].result = (BreakAction)(memChecks_[mc].result | result);
-		anyMemChecks_ = true;
+		bool hadAny = anyMemChecks_.exchange(true);
+		if (!hadAny)
+			MemBlockOverrideDetailed();
 		guard.unlock();
 		Update();
 	}
@@ -413,7 +418,9 @@ void CBreakPoints::RemoveMemCheck(u32 start, u32 end)
 	if (mc != INVALID_MEMCHECK)
 	{
 		memChecks_.erase(memChecks_.begin() + mc);
-		anyMemChecks_ = !memChecks_.empty();
+		bool hadAny = anyMemChecks_.exchange(!memChecks_.empty());
+		if (hadAny)
+			MemBlockReleaseDetailed();
 		guard.unlock();
 		Update();
 	}
@@ -441,6 +448,9 @@ void CBreakPoints::ClearAllMemChecks()
 	if (!memChecks_.empty())
 	{
 		memChecks_.clear();
+		bool hadAny = anyMemChecks_.exchange(false);
+		if (hadAny)
+			MemBlockReleaseDetailed();
 		guard.unlock();
 		Update();
 	}
