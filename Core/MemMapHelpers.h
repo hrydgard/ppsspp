@@ -58,21 +58,25 @@ inline void Memcpy(void *to_data, const u32 from_address, const u32 len, const c
 
 inline void Memcpy(const u32 to_address, const u32 from_address, const u32 len, const char *tag, size_t tagLen) {
 	u8 *to = GetPointer(to_address);
-	if (to) {
-		const u8 *from = GetPointer(from_address);
-		if (from) {
-			memcpy(to, from, len);
-			char tagData[128];
-			if (!tag) {
-				const std::string srcTag = GetMemWriteTagAt(from_address, len);
-				tag = tagData;
-				tagLen = snprintf(tagData, sizeof(tagData), "Memcpy/%s", srcTag.c_str());
-			}
-			NotifyMemInfo(MemBlockFlags::READ, from_address, len, tag, tagLen);
-			NotifyMemInfo(MemBlockFlags::WRITE, to_address, len, tag, tagLen);
+	// If not, GetPointer will log.
+	if (!to)
+		return;
+	const u8 *from = GetPointer(from_address);
+	if (!from)
+		return;
+
+	memcpy(to, from, len);
+
+	if (MemBlockInfoDetailed(len)) {
+		char tagData[128];
+		if (!tag) {
+			const std::string srcTag = GetMemWriteTagAt(from_address, len);
+			tag = tagData;
+			tagLen = snprintf(tagData, sizeof(tagData), "Memcpy/%s", srcTag.c_str());
 		}
+		NotifyMemInfo(MemBlockFlags::READ, from_address, len, tag, tagLen);
+		NotifyMemInfo(MemBlockFlags::WRITE, to_address, len, tag, tagLen);
 	}
-	// if not, GetPointer will log.
 }
 
 template<size_t tagLen>

@@ -745,9 +745,11 @@ void SoftGPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 		memcpy(dstp, srcp, width * bpp);
 	}
 
-	const std::string tag = "GPUBlockTransfer/" + GetMemWriteTagAt(src, srcSize);
-	NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag.c_str(), tag.size());
-	NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag.c_str(), tag.size());
+	if (MemBlockInfoDetailed(srcSize, dstSize)) {
+		const std::string tag = "GPUBlockTransfer/" + GetMemWriteTagAt(src, srcSize);
+		NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag.c_str(), tag.size());
+		NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag.c_str(), tag.size());
+	}
 
 	// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
 	cyclesExecuted += ((height * width * bpp) * 16) / 10;
