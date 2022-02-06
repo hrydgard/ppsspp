@@ -331,7 +331,7 @@ bool PromptStateValue(const TabStateRow &info, HWND hparent, const wchar_t *titl
 CtrlStateValues::CtrlStateValues(const TabStateRow *rows, int rowCount, HWND hwnd)
 	: GenericListControl(hwnd, stateValuesListDef),
 	  rows_(rows), rowCount_(rowCount) {
-	SetIconList(12, 12, { (HICON)LoadIcon(GetModuleHandle(0), (LPCWSTR)IDI_BREAKPOINT_SMALL) });
+	SetIconList(12, 12, { (HICON)LoadIcon(GetModuleHandle(nullptr), (LPCWSTR)IDI_BREAKPOINT_SMALL) });
 	Update();
 }
 
@@ -889,7 +889,7 @@ void CtrlStateValues::GetColumnText(wchar_t *dest, int row, int col) {
 }
 
 void CtrlStateValues::OnDoubleClick(int row, int column) {
-	if (gpuDebug == nullptr || row > rowCount_) {
+	if (gpuDebug == nullptr || row >= rowCount_) {
 		return;
 	}
 

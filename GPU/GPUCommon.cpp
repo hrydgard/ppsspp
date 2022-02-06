@@ -993,9 +993,9 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 
 	gpuState = list.pc == list.stall ? GPUSTATE_STALL : GPUSTATE_RUNNING;
 
-	debugRecording_ = GPURecord::IsActive();
-	const bool useDebugger = GPUDebug::IsActive() || debugRecording_;
-	const bool useFastRunLoop = !dumpThisFrame_ && !useDebugger;
+	// To enable breakpoints, we don't do fast matrix loads while debugger active.
+	debugRecording_ = GPUDebug::IsActive() || GPURecord::IsActive();
+	const bool useFastRunLoop = !dumpThisFrame_ && !debugRecording_;
 	while (gpuState == GPUSTATE_RUNNING) {
 		{
 			if (list.pc == list.stall) {
@@ -1679,7 +1679,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	if (!g_Config.bSoftwareSkinning)
 		vtypeCheckMask = 0xFFFFFFFF;
 
-	if (debugRecording_ || GPUDebug::IsActive())
+	if (debugRecording_)
 		goto bail;
 
 	while (src != stall) {

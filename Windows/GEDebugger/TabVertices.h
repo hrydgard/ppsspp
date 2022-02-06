@@ -75,9 +75,17 @@ public:
 	CtrlMatrixList(HWND hwnd);
 
 protected:
-	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue) { return false; };
-	virtual void GetColumnText(wchar_t *dest, int row, int col);
-	virtual int GetRowCount();
+	bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT &returnValue) override {
+		return false;
+	}
+	void GetColumnText(wchar_t *dest, int row, int col) override;
+	int GetRowCount() override;
+	void OnDoubleClick(int row, int column) override;
+	void OnRightClick(int row, int column, const POINT &point) override;
+
+private:
+	bool GetValue(int row, int col, float &val);
+	void ToggleBreakpoint(int row);
 };
 
 class TabMatrices : public Dialog {
