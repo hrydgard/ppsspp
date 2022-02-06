@@ -51,8 +51,12 @@ static int __DmacMemcpy(u32 dst, u32 src, u32 size) {
 	}
 	if (!skip) {
 		currentMIPS->InvalidateICache(src, size);
-		const std::string tag = "DmacMemcpy/" + GetMemWriteTagAt(src, size);
-		Memory::Memcpy(dst, src, size, tag.c_str(), tag.size());
+		if (MemBlockInfoDetailed(size)) {
+			const std::string tag = "DmacMemcpy/" + GetMemWriteTagAt(src, size);
+			Memory::Memcpy(dst, src, size, tag.c_str(), tag.size());
+		} else {
+			Memory::Memcpy(dst, src, size, "DmacMemcpy");
+		}
 		currentMIPS->InvalidateICache(dst, size);
 	}
 

@@ -156,14 +156,16 @@ static int Replace_memcpy() {
 	}
 	RETURN(destPtr);
 
-	const std::string tag = "ReplaceMemcpy/" + GetMemWriteTagAt(srcPtr, bytes);
-	NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
-	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
+	if (MemBlockInfoDetailed(bytes)) {
+		const std::string tag = "ReplaceMemcpy/" + GetMemWriteTagAt(srcPtr, bytes);
+		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
+		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
 
-	// It's pretty common that games will copy video data.
-	if (tag == "ReplaceMemcpy/VideoDecode" || tag == "ReplaceMemcpy/VideoDecodeRange") {
-		if (bytes == 512 * 272 * 4) {
-			gpu->NotifyVideoUpload(destPtr, bytes, 512, GE_FORMAT_8888);
+		// It's pretty common that games will copy video data.
+		if (tag == "ReplaceMemcpy/VideoDecode" || tag == "ReplaceMemcpy/VideoDecodeRange") {
+			if (bytes == 512 * 272 * 4) {
+				gpu->NotifyVideoUpload(destPtr, bytes, 512, GE_FORMAT_8888);
+			}
 		}
 	}
 
@@ -206,14 +208,16 @@ static int Replace_memcpy_jak() {
 	currentMIPS->r[MIPS_REG_A3] = destPtr + bytes;
 	RETURN(destPtr);
 
-	const std::string tag = "ReplaceMemcpy/" + GetMemWriteTagAt(srcPtr, bytes);
-	NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
-	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
+	if (MemBlockInfoDetailed(bytes)) {
+		const std::string tag = "ReplaceMemcpy/" + GetMemWriteTagAt(srcPtr, bytes);
+		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
+		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
 
-	// It's pretty common that games will copy video data.
-	if (tag == "ReplaceMemcpy/VideoDecode" || tag == "ReplaceMemcpy/VideoDecodeRange") {
-		if (bytes == 512 * 272 * 4) {
-			gpu->NotifyVideoUpload(destPtr, bytes, 512, GE_FORMAT_8888);
+		// It's pretty common that games will copy video data.
+		if (tag == "ReplaceMemcpy/VideoDecode" || tag == "ReplaceMemcpy/VideoDecodeRange") {
+			if (bytes == 512 * 272 * 4) {
+				gpu->NotifyVideoUpload(destPtr, bytes, 512, GE_FORMAT_8888);
+			}
 		}
 	}
 
@@ -242,9 +246,11 @@ static int Replace_memcpy16() {
 	}
 	RETURN(destPtr);
 
-	const std::string tag = "ReplaceMemcpy16/" + GetMemWriteTagAt(srcPtr, bytes);
-	NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
-	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
+	if (MemBlockInfoDetailed(bytes)) {
+		const std::string tag = "ReplaceMemcpy16/" + GetMemWriteTagAt(srcPtr, bytes);
+		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
+		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
+	}
 
 	return 10 + bytes / 4;  // approximation
 }
@@ -281,9 +287,11 @@ static int Replace_memcpy_swizzled() {
 
 	RETURN(0);
 
-	const std::string tag = "ReplaceMemcpySwizzle/" + GetMemWriteTagAt(srcPtr, pitch * h);
-	NotifyMemInfo(MemBlockFlags::READ, srcPtr, pitch * h, tag.c_str(), tag.size());
-	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, pitch * h, tag.c_str(), tag.size());
+	if (MemBlockInfoDetailed(pitch * h)) {
+		const std::string tag = "ReplaceMemcpySwizzle/" + GetMemWriteTagAt(srcPtr, pitch * h);
+		NotifyMemInfo(MemBlockFlags::READ, srcPtr, pitch * h, tag.c_str(), tag.size());
+		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, pitch * h, tag.c_str(), tag.size());
+	}
 
 	return 10 + (pitch * h) / 4;  // approximation
 }
@@ -310,9 +318,11 @@ static int Replace_memmove() {
 	}
 	RETURN(destPtr);
 
-	const std::string tag = "ReplaceMemmove/" + GetMemWriteTagAt(srcPtr, bytes);
-	NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
-	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
+	if (MemBlockInfoDetailed(bytes)) {
+		const std::string tag = "ReplaceMemmove/" + GetMemWriteTagAt(srcPtr, bytes);
+		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
+		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
+	}
 
 	return 10 + bytes / 4;  // approximation
 }
