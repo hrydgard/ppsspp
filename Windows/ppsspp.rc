@@ -454,6 +454,7 @@ IDI_PPSSPP              ICON                    "ppsspp.ico"
 #endif
 IDI_STOP                ICON                    "icon1.ico"
 IDI_STOPDISABLE         ICON                    "stop1.ico"
+IDI_BREAKPOINT_SMALL    ICON                    "BreakpointSmall.ico"
 
 
 /////////////////////////////////////////////////////////////////////////////

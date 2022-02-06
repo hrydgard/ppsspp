@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/CommonFuncs.h"
 #include "Common/CommonTypes.h"
 #include "Windows/resource.h"
 #include "Windows/InputBox.h"
@@ -28,17 +29,22 @@
 
 using namespace GPUBreakpoints;
 
-// TODO: Show an icon or something for breakpoints, toggle.
+// First column is the breakpoint icon.
 static const GenericListViewColumn stateValuesCols[] = {
-	{ L"Name", 0.50f },
-	{ L"Value", 0.50f },
+	{ L"", 0.03f },
+	{ L"Name", 0.40f },
+	{ L"Value", 0.57f },
 };
 
 GenericListViewDef stateValuesListDef = {
-	stateValuesCols,	ARRAY_SIZE(stateValuesCols),	NULL,	false
+	stateValuesCols,
+	ARRAY_SIZE(stateValuesCols),
+	nullptr,
+	false,
 };
 
 enum StateValuesCols {
+	STATEVALUES_COL_BREAKPOINT,
 	STATEVALUES_COL_NAME,
 	STATEVALUES_COL_VALUE,
 };
@@ -279,9 +285,28 @@ static void ToggleWatchList(const TabStateRow &info) {
 	watchList.push_back(info);
 }
 
+static bool ToggleBreakpoint(const TabStateRow &info) {
+	if (IsCmdBreakpoint(info.cmd)) {
+		RemoveCmdBreakpoint(info.cmd);
+		RemoveCmdBreakpoint(info.otherCmd);
+		RemoveCmdBreakpoint(info.otherCmd2);
+		return false;
+	}
+
+	AddCmdBreakpoint(info.cmd);
+	if (info.otherCmd) {
+		AddCmdBreakpoint(info.otherCmd);
+	}
+	if (info.otherCmd2) {
+		AddCmdBreakpoint(info.otherCmd2);
+	}
+	return true;
+}
+
 CtrlStateValues::CtrlStateValues(const TabStateRow *rows, int rowCount, HWND hwnd)
 	: GenericListControl(hwnd, stateValuesListDef),
 	  rows_(rows), rowCount_(rowCount) {
+	SetIconList(12, 12, { (HICON)LoadIcon(GetModuleHandle(0), (LPCWSTR)IDI_BREAKPOINT_SMALL) });
 	Update();
 }
 
@@ -810,6 +835,10 @@ void CtrlStateValues::GetColumnText(wchar_t *dest, int row, int col) {
 	}
 
 	switch (col) {
+	case STATEVALUES_COL_BREAKPOINT:
+		wcscpy(dest, L" ");
+		break;
+
 	case STATEVALUES_COL_NAME:
 		wcscpy(dest, rows_[row].title);
 		break;
@@ -835,11 +864,17 @@ void CtrlStateValues::GetColumnText(wchar_t *dest, int row, int col) {
 }
 
 void CtrlStateValues::OnDoubleClick(int row, int column) {
-	if (gpuDebug == NULL) {
+	if (gpuDebug == nullptr || row > rowCount_) {
 		return;
 	}
 
 	const auto info = rows_[row];
+
+	if (column == STATEVALUES_COL_BREAKPOINT) {
+		SetItemState(row, ToggleBreakpoint(info) ? 1 : 0);
+		return;
+	}
+
 	switch (info.fmt) {
 	case CMD_FMT_FLAG:
 		{
@@ -887,19 +922,7 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 	switch (TriggerContextMenu(ContextMenuID::GEDBG_STATE, GetHandle(), ContextPoint::FromClient(point)))
 	{
 	case ID_DISASM_TOGGLEBREAKPOINT:
-		if (IsCmdBreakpoint(info.cmd)) {
-			RemoveCmdBreakpoint(info.cmd);
-			RemoveCmdBreakpoint(info.otherCmd);
-			RemoveCmdBreakpoint(info.otherCmd2);
-		} else {
-			AddCmdBreakpoint(info.cmd);
-			if (info.otherCmd) {
-				AddCmdBreakpoint(info.otherCmd);
-			}
-			if (info.otherCmd2) {
-				AddCmdBreakpoint(info.otherCmd2);
-			}
-		}
+		SetItemState(row, ToggleBreakpoint(info) ? 1 : 0);
 		break;
 
 	case ID_DISASM_COPYINSTRUCTIONHEX: {

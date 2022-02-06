@@ -1703,6 +1703,7 @@
     <None Include="PPSSPP.manifest" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="BreakpointSmall.ico" />
     <Image Include="ppsspp_gold.ico" />
   </ItemGroup>
   <ItemGroup>

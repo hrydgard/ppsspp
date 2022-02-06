@@ -203,6 +203,19 @@ GenericListControl::GenericListControl(HWND hwnd, const GenericListViewDef& def)
 	valid = true;
 }
 
+GenericListControl::~GenericListControl() {
+	if (images_ != nullptr)
+		ImageList_Destroy((HIMAGELIST)images_);
+}
+
+void GenericListControl::SetIconList(int w, int h, const std::vector<HICON> &icons) {
+	images_ = ImageList_Create(w, h, ILC_COLOR32 | ILC_MASK, 0, (int)icons.size());
+	for (const HICON &icon : icons)
+		ImageList_AddIcon((HIMAGELIST)images_, icon);
+
+	ListView_SetImageList(handle, (HIMAGELIST)images_, LVSIL_STATE);
+}
+
 void GenericListControl::HandleNotify(LPARAM lParam)
 {
 	LPNMHDR mhdr = (LPNMHDR) lParam;
@@ -234,6 +247,7 @@ void GenericListControl::HandleNotify(LPARAM lParam)
 			wcscat(stringBuffer,L"Invalid");
 
 		dispInfo->item.pszText = stringBuffer;
+		dispInfo->item.mask |= LVIF_TEXT;
 		return;
 	}
 	 
@@ -310,6 +324,13 @@ void GenericListControl::SetCheckState(int item, bool state)
 {
 	updating = true;
 	ListView_SetCheckState(handle,item,state ? TRUE : FALSE);
+	updating = false;
+}
+
+void GenericListControl::SetItemState(int item, uint8_t state) {
+	updating = true;
+	ListView_SetItemState(handle, item, (state & 0xF) << 12, LVIS_STATEIMAGEMASK);
+	ListView_RedrawItems(handle, item, item);
 	updating = false;
 }
 

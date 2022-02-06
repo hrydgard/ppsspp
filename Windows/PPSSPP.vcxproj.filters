@@ -721,6 +721,9 @@
     <Image Include="ppsspp_gold.ico">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="BreakpointSmall.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\ppge_atlasscript.txt">
