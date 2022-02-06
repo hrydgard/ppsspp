@@ -266,6 +266,17 @@ void GenericListControl::ProcessUpdate() {
 	int newRows = GetRowCount();
 
 	int items = ListView_GetItemCount(handle);
+	ListView_SetItemCount(handle, newRows);
+
+	// Scroll to top if we're removing items.  It kinda does this automatically, but it's buggy.
+	if (items > newRows) {
+		POINT pt{};
+		ListView_GetOrigin(handle, &pt);
+
+		if (pt.x != 0 || pt.y != 0)
+			ListView_Scroll(handle, -pt.x, -pt.y);
+	}
+
 	while (items < newRows)
 	{
 		LVITEM lvI;
@@ -290,6 +301,7 @@ void GenericListControl::ProcessUpdate() {
 
 	InvalidateRect(handle, nullptr, TRUE);
 	UpdateWindow(handle);
+	ListView_RedrawItems(handle, 0, newRows - 1);
 	updating = false;
 }
 
