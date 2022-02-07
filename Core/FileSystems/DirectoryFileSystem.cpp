@@ -201,8 +201,10 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 			flags |= File::OPEN_APPEND;
 		if (access & FILEACCESS_CREATE)
 			flags |= File::OPEN_CREATE;
+		// Important: don't pass TRUNCATE here, the PSP truncates weirdly.  See #579.
+		// See above about truncate behavior.  Just add READ to preserve data here.
 		if (access & FILEACCESS_TRUNCATE)
-			flags |= File::OPEN_TRUNCATE;
+			flags |= File::OPEN_READ;
 
 		int fd = File::OpenFD(fullName, (File::OpenFlag)flags);
 		// Try to detect reads/writes to PSP/GAME to avoid them in replays.
