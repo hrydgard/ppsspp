@@ -1097,27 +1097,29 @@ void GPUCommon::SlowRunLoop(DisplayList &list)
 	const bool dumpThisFrame = dumpThisFrame_;
 	while (downcount > 0)
 	{
-		GPUDebug::NotifyCommand(list.pc);
-		GPURecord::NotifyCommand(list.pc);
-		u32 op = Memory::ReadUnchecked_U32(list.pc);
-		u32 cmd = op >> 24;
+		bool process = GPUDebug::NotifyCommand(list.pc);
+		if (process) {
+			GPURecord::NotifyCommand(list.pc);
+			u32 op = Memory::ReadUnchecked_U32(list.pc);
+			u32 cmd = op >> 24;
 
-		u32 diff = op ^ gstate.cmdmem[cmd];
-		PreExecuteOp(op, diff);
-		if (dumpThisFrame) {
-			char temp[256];
-			u32 prev;
-			if (Memory::IsValidAddress(list.pc - 4)) {
-				prev = Memory::ReadUnchecked_U32(list.pc - 4);
-			} else {
-				prev = 0;
+			u32 diff = op ^ gstate.cmdmem[cmd];
+			PreExecuteOp(op, diff);
+			if (dumpThisFrame) {
+				char temp[256];
+				u32 prev;
+				if (Memory::IsValidAddress(list.pc - 4)) {
+					prev = Memory::ReadUnchecked_U32(list.pc - 4);
+				} else {
+					prev = 0;
+				}
+				GeDisassembleOp(list.pc, op, prev, temp, 256);
+				NOTICE_LOG(G3D, "%08x: %s", op, temp);
 			}
-			GeDisassembleOp(list.pc, op, prev, temp, 256);
-			NOTICE_LOG(G3D, "%08x: %s", op, temp);
-		}
-		gstate.cmdmem[cmd] = op;
+			gstate.cmdmem[cmd] = op;
 
-		ExecuteOp(op, diff);
+			ExecuteOp(op, diff);
+		}
 
 		list.pc += 4;
 		--downcount;

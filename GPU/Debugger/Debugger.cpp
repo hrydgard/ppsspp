@@ -15,7 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <vector>
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "GPU/GPU.h"
 #include "GPU/Debugger/Breakpoints.h"
 #include "GPU/Debugger/Debugger.h"
@@ -31,6 +33,9 @@ static int breakAtCount = -1;
 static int primsLastFrame = 0;
 static int primsThisFrame = 0;
 static int thisFlipNum = 0;
+
+static std::vector<std::pair<int, int>> restrictPrimRanges;
+static std::string restrictPrimRule;
 
 static void Init() {
 	if (!inited) {
@@ -90,9 +95,9 @@ static bool IsBreakpoint(u32 pc, u32 op) {
 	}
 }
 
-void NotifyCommand(u32 pc) {
+bool NotifyCommand(u32 pc) {
 	if (!active)
-		return;
+		return true;
 	u32 op = Memory::ReadUnchecked_U32(pc);
 	u32 cmd = op >> 24;
 	if (thisFlipNum != gpuStats.numFlips) {
@@ -100,8 +105,20 @@ void NotifyCommand(u32 pc) {
 		primsThisFrame = 0;
 		thisFlipNum = gpuStats.numFlips;
 	}
+
+	bool process = true;
 	if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE) {
 		primsThisFrame++;
+
+		if (!restrictPrimRanges.empty()) {
+			process = false;
+			for (const auto &range : restrictPrimRanges) {
+				if (primsThisFrame >= range.first && primsThisFrame <= range.second) {
+					process = true;
+					break;
+				}
+			}
+		}
 	}
 
 	if (IsBreakpoint(pc, op)) {
@@ -111,6 +128,8 @@ void NotifyCommand(u32 pc) {
 		NOTICE_LOG(G3D, "Waiting at %08x, %s", pc, info.desc.c_str());
 		GPUStepping::EnterStepping();
 	}
+
+	return process;
 }
 
 void NotifyDraw() {
@@ -131,17 +150,92 @@ void NotifyDisplay(u32 framebuf, u32 stride, int format) {
 	}
 }
 
-void NotifyTextureAttachment(u32 texaddr) {
-	if (!active)
-		return;
-}
-
 int PrimsThisFrame() {
 	return primsThisFrame;
 }
 
 int PrimsLastFrame() {
 	return primsLastFrame;
+}
+
+static bool ParseRange(const std::string &s, std::pair<int, int> &range) {
+	int c = sscanf(s.c_str(), "%d-%d", &range.first, &range.second);
+	if (c == 0)
+		return false;
+	if (c == 1)
+		range.second = range.first;
+	return true;
+}
+
+bool SetRestrictPrims(const char *rule) {
+	SetActive(true);
+	if (rule == nullptr || rule[0] == 0 || (rule[0] == '*' && rule[1] == 0)) {
+		restrictPrimRanges.clear();
+		restrictPrimRule.clear();
+		return true;
+	}
+
+	static constexpr int MAX_PRIMS = 0x7FFFFFFF;
+	std::vector<std::string> parts;
+	SplitString(rule, ',', parts);
+
+	// Parse expressions like: 0  or  0-1,4-5  or  !2  or  !2-3  or  !2,!3
+	std::vector<std::pair<int, int>> updated;
+	for (auto &part : parts) {
+		std::pair<int, int> range;
+		if (part.size() > 1 && part[0] == '!') {
+			if (!ParseRange(part.substr(1), range))
+				return false;
+
+			// If there's nothing yet, add everything else.
+			if (updated.empty()) {
+				if (range.first > 0)
+					updated.push_back(std::make_pair(0, range.first - 1));
+				if (range.second < MAX_PRIMS)
+					updated.push_back(std::make_pair(range.second + 1, MAX_PRIMS));
+				continue;
+			}
+
+			// Otherwise, remove this range from any existing.
+			for (size_t i = 0; i < updated.size(); ++i) {
+				auto &sub = updated[i];
+				if (sub.second < range.first || sub.first > range.second)
+					continue;
+				if (sub.first >= range.first && sub.second <= range.second) {
+					// Entire subrange is inside the deleted entries, nuke.
+					sub.first = -1;
+					sub.second = -1;
+					continue;
+				}
+				if (sub.first < range.first && sub.second > range.second) {
+					// We're slicing a hole in this subrange.
+					int next = sub.second;
+					sub.second = range.first - 1;
+					updated.push_back(std::make_pair(range.second + 1, next));
+					continue;
+				}
+
+				// If we got here, we're simply clipping the subrange.
+				if (sub.first < range.first && sub.second >= range.first && sub.second <= range.second)
+					sub.second = range.first - 1;
+				if (sub.first >= range.first && sub.first <= range.second && sub.second < range.second)
+					sub.first = range.second + 1;
+			}
+		} else {
+			if (!ParseRange(part, range))
+				return false;
+
+			updated.push_back(range);
+		}
+	}
+
+	restrictPrimRanges = updated;
+	restrictPrimRule = rule;
+	return true;
+}
+
+const char *GetRestrictPrims() {
+	return restrictPrimRule.c_str();
 }
 
 }
