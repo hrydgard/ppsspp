@@ -226,7 +226,7 @@ void DrawEngineVulkan::FrameData::Destroy(VulkanContext *vulkan) {
 }
 
 void DrawEngineVulkan::DestroyDeviceObjects() {
-	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+	VulkanContext *vulkan = draw_ ? (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT) : nullptr;
 
 	delete tessDataTransferVulkan;
 	tessDataTransfer = nullptr;
@@ -258,6 +258,7 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 void DrawEngineVulkan::DeviceLost() {
 	DestroyDeviceObjects();
 	DirtyAllUBOs();
+	draw_ = nullptr;
 }
 
 void DrawEngineVulkan::DeviceRestore(Draw::DrawContext *draw) {

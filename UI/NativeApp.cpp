@@ -1048,12 +1048,12 @@ bool CreateGlobalPipelines() {
 }
 
 void NativeShutdownGraphics() {
+	INFO_LOG(SYSTEM, "NativeShutdownGraphics");
+
 	screenManager->deviceLost();
 
 	if (gpu)
 		gpu->DeviceLost();
-
-	INFO_LOG(SYSTEM, "NativeShutdownGraphics");
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	delete winAudioBackend;
