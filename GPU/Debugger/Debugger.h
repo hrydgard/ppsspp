@@ -40,12 +40,14 @@ void SetBreakNext(BreakNext next);
 void SetBreakCount(int c, bool relative = false);
 
 // While debugging is active, these may block.
-void NotifyCommand(u32 pc);
+bool NotifyCommand(u32 pc);
 void NotifyDraw();
 void NotifyDisplay(u32 framebuf, u32 stride, int format);
-void NotifyTextureAttachment(u32 texaddr);
 
 int PrimsThisFrame();
 int PrimsLastFrame();
+
+bool SetRestrictPrims(const char *rule);
+const char *GetRestrictPrims();
 
 }
