@@ -200,7 +200,7 @@ void TextureCacheVulkan::SetVulkan2D(Vulkan2D *vk2d) {
 }
 
 void TextureCacheVulkan::DeviceLost() {
-	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+	VulkanContext *vulkan = draw_ ? (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT) : nullptr;
 
 	Clear(true);
 
@@ -215,6 +215,7 @@ void TextureCacheVulkan::DeviceLost() {
 	computeShaderManager_.DeviceLost();
 
 	nextTexture_ = nullptr;
+	draw_ = nullptr;
 }
 
 void TextureCacheVulkan::DeviceRestore(Draw::DrawContext *draw) {
