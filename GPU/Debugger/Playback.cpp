@@ -142,6 +142,7 @@ protected:
 	};
 
 	SlabInfo slabs_[SLAB_COUNT]{};
+	u32 lastSlab_ = 0;
 	u32 extraOffset_ = 0;
 	ExtraInfo extra_[EXTRA_COUNT]{};
 
@@ -153,6 +154,9 @@ u32 BufMapping::Map(u32 bufpos, u32 sz, const std::function<void()> &flush) {
 	int slab2 = (bufpos + sz - 1) / SLAB_SIZE;
 
 	if (slab1 == slab2) {
+		// Shortcut in case it's simply the most recent slab.
+		if (slabs_[lastSlab_].Matches(slab1 * SLAB_SIZE))
+			return slabs_[lastSlab_].Ptr(bufpos);
 		// Doesn't straddle, so we can just map to a slab.
 		return MapSlab(bufpos, flush);
 	} else {
@@ -182,6 +186,7 @@ u32 BufMapping::MapSlab(u32 bufpos, const std::function<void()> &flush) {
 	if (!slabs_[best].Setup(slab_pos, pushbuf_)) {
 		return 0;
 	}
+	lastSlab_ = best;
 	return slabs_[best].Ptr(bufpos);
 }
 
@@ -374,7 +379,7 @@ bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
 
 	// TODO: Unfortunate.  Maybe Texture commands should contain the bufw instead.
 	// The goal here is to realistically combine prims in dumps.  Stalling for the bufw flushes.
-	u32_le *ops = (u32_le *)Memory::GetPointer(writePos);
+	u32_le *ops = (u32_le *)Memory::GetPointerUnchecked(writePos);
 	for (u32 i = 0; i < sz / 4; ++i) {
 		u32 cmd = ops[i] >> 24;
 		if (cmd >= GE_CMD_TEXBUFWIDTH0 && cmd <= GE_CMD_TEXBUFWIDTH7) {
