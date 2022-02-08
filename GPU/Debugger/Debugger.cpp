@@ -29,6 +29,7 @@ static bool active = false;
 static bool inited = false;
 static BreakNext breakNext = BreakNext::NONE;
 static int breakAtCount = -1;
+static bool hasBreakpoints = false;
 
 static int primsLastFrame = 0;
 static int primsThisFrame = 0;
@@ -39,7 +40,9 @@ static std::string restrictPrimRule;
 
 static void Init() {
 	if (!inited) {
-		GPUBreakpoints::Init();
+		GPUBreakpoints::Init([](bool flag) {
+			hasBreakpoints = flag;
+		});
 		Core_ListenStopRequest(&GPUStepping::ForceUnpause);
 		inited = true;
 	}
@@ -90,9 +93,10 @@ static bool IsBreakpoint(u32 pc, u32 op) {
 		return true;
 	} else if (breakNext == BreakNext::COUNT) {
 		return primsThisFrame == breakAtCount;
-	} else {
+	} else if (hasBreakpoints) {
 		return GPUBreakpoints::IsBreakpoint(pc, op);
 	}
+	return false;
 }
 
 bool NotifyCommand(u32 pc) {

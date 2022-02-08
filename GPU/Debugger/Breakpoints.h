@@ -20,7 +20,7 @@
 #include "Common/CommonTypes.h"
 
 namespace GPUBreakpoints {
-	void Init();
+	void Init(void (*hasBreakpoints)(bool flag));
 
 	bool IsBreakpoint(u32 pc, u32 op);
 

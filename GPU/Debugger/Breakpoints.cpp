@@ -15,9 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <vector>
-#include <set>
+#include <functional>
 #include <mutex>
+#include <set>
+#include <vector>
 
 #include "Common/CommonFuncs.h"
 #include "GPU/Debugger/Breakpoints.h"
@@ -34,6 +35,7 @@ static std::set<u32> breakRenderTargets;
 static size_t breakPCsCount = 0;
 static size_t breakTexturesCount = 0;
 static size_t breakRenderTargetsCount = 0;
+static std::function<void(bool)> notifyBreakpoints;
 
 // If these are set, the above are also, but they should be temporary.
 static bool breakCmdsTemp[256];
@@ -61,7 +63,8 @@ const static u8 textureRelatedCmds[] = {
 };
 static std::vector<bool> nonTextureCmds;
 
-void Init() {
+void Init(void (*hasBreakpoints)(bool flag)) {
+	notifyBreakpoints = hasBreakpoints;
 	ClearAllBreakpoints();
 
 	nonTextureCmds.clear();
@@ -252,6 +255,20 @@ bool IsCmdBreakpoint(u8 cmd) {
 	return breakCmds[cmd];
 }
 
+static bool HasAnyBreakpoints() {
+	if (breakPCsCount != 0 || breakTexturesCount != 0 || breakRenderTargetsCount != 0)
+		return true;
+	if (textureChangeTemp)
+		return true;
+
+	for (int i = 0; i < 256; ++i) {
+		if (breakCmds[i] || breakCmdsTemp[i])
+			return true;
+	}
+
+	return false;
+}
+
 void AddAddressBreakpoint(u32 addr, bool temp) {
 	std::lock_guard<std::mutex> guard(breaksLock);
 
@@ -268,6 +285,7 @@ void AddAddressBreakpoint(u32 addr, bool temp) {
 	}
 
 	breakPCsCount = breakPCs.size();
+	notifyBreakpoints(true);
 }
 
 void AddCmdBreakpoint(u8 cmd, bool temp) {
@@ -282,6 +300,7 @@ void AddCmdBreakpoint(u8 cmd, bool temp) {
 		breakCmdsTemp[cmd] = false;
 		breakCmds[cmd] = true;
 	}
+	notifyBreakpoints(true);
 }
 
 void AddTextureBreakpoint(u32 addr, bool temp) {
@@ -298,6 +317,7 @@ void AddTextureBreakpoint(u32 addr, bool temp) {
 	}
 
 	breakTexturesCount = breakTextures.size();
+	notifyBreakpoints(true);
 }
 
 void AddRenderTargetBreakpoint(u32 addr, bool temp) {
@@ -316,16 +336,19 @@ void AddRenderTargetBreakpoint(u32 addr, bool temp) {
 	}
 
 	breakRenderTargetsCount = breakRenderTargets.size();
+	notifyBreakpoints(true);
 }
 
 void AddTextureChangeTempBreakpoint() {
 	textureChangeTemp = true;
+	notifyBreakpoints(true);
 }
 
 void AddAnyTempBreakpoint() {
 	for (int i = 0; i < 256; ++i) {
 		AddCmdBreakpoint(i, true);
 	}
+	notifyBreakpoints(true);
 }
 
 void RemoveAddressBreakpoint(u32 addr) {
@@ -335,11 +358,15 @@ void RemoveAddressBreakpoint(u32 addr) {
 	breakPCs.erase(addr);
 
 	breakPCsCount = breakPCs.size();
+	notifyBreakpoints(HasAnyBreakpoints());
 }
 
 void RemoveCmdBreakpoint(u8 cmd) {
+	std::lock_guard<std::mutex> guard(breaksLock);
+
 	breakCmdsTemp[cmd] = false;
 	breakCmds[cmd] = false;
+	notifyBreakpoints(HasAnyBreakpoints());
 }
 
 void RemoveTextureBreakpoint(u32 addr) {
@@ -349,6 +376,7 @@ void RemoveTextureBreakpoint(u32 addr) {
 	breakTextures.erase(addr);
 
 	breakTexturesCount = breakTextures.size();
+	notifyBreakpoints(HasAnyBreakpoints());
 }
 
 void RemoveRenderTargetBreakpoint(u32 addr) {
@@ -360,10 +388,14 @@ void RemoveRenderTargetBreakpoint(u32 addr) {
 	breakRenderTargets.erase(addr);
 
 	breakRenderTargetsCount = breakRenderTargets.size();
+	notifyBreakpoints(HasAnyBreakpoints());
 }
 
 void RemoveTextureChangeTempBreakpoint() {
+	std::lock_guard<std::mutex> guard(breaksLock);
+
 	textureChangeTemp = false;
+	notifyBreakpoints(HasAnyBreakpoints());
 }
 
 void UpdateLastTexture(u32 addr) {
@@ -390,6 +422,7 @@ void ClearAllBreakpoints() {
 	breakRenderTargetsCount = breakRenderTargets.size();
 
 	textureChangeTemp = false;
+	notifyBreakpoints(false);
 }
 
 void ClearTempBreakpoints() {
@@ -422,6 +455,7 @@ void ClearTempBreakpoints() {
 	breakRenderTargetsCount = breakRenderTargets.size();
 
 	textureChangeTemp = false;
+	notifyBreakpoints(HasAnyBreakpoints());
 }
 
 };
