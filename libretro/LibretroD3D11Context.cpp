@@ -1,4 +1,5 @@
 #include "Common/Log.h"
+#include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "libretro/LibretroD3D11Context.h"
 #include "Common/GPU/D3D11/D3D11Loader.h"
