@@ -888,6 +888,62 @@ void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &
 	drawSlice(v0, v1, v2, range.x1, range.y1, range.x2, range.y2, state);
 }
 
+static void RotateUV(const VertexData &tl, const VertexData &br, VertexData &tr, VertexData &bl) {
+	const int x1 = tl.screenpos.x;
+	const int x2 = br.screenpos.x;
+	const int y1 = tl.screenpos.y;
+	const int y2 = br.screenpos.y;
+
+	if ((x1 < x2 && y1 > y2) || (x1 > x2 && y1 < y2)) {
+		std::swap(bl.texturecoords, tr.texturecoords);
+	}
+}
+
+void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
+	VertexData buf[4];
+	buf[0].screenpos = ScreenCoords(v0.screenpos.x, v0.screenpos.y, v1.screenpos.z);
+	buf[0].texturecoords = v0.texturecoords;
+
+	buf[1].screenpos = ScreenCoords(v0.screenpos.x, v1.screenpos.y, v1.screenpos.z);
+	buf[1].texturecoords = Vec2<float>(v0.texturecoords.x, v1.texturecoords.y);
+
+	buf[2].screenpos = ScreenCoords(v1.screenpos.x, v0.screenpos.y, v1.screenpos.z);
+	buf[2].texturecoords = Vec2<float>(v1.texturecoords.x, v0.texturecoords.y);
+
+	buf[3] = v1;
+
+	// Color and depth values of second vertex are used for the whole rectangle
+	buf[0].color0 = buf[1].color0 = buf[2].color0 = buf[3].color0;
+	buf[0].color1 = buf[1].color1 = buf[2].color1 = buf[3].color1;
+	buf[0].clippos.w = buf[1].clippos.w = buf[2].clippos.w = buf[3].clippos.w;
+	// TODO
+	buf[0].fogdepth = buf[1].fogdepth = buf[2].fogdepth = buf[3].fogdepth;
+
+	VertexData *topleft = &buf[0];
+	VertexData *topright = &buf[1];
+	VertexData *bottomleft = &buf[2];
+	VertexData *bottomright = &buf[3];
+
+	// DrawTriangle always culls, so sort out the drawing order.
+	for (int i = 0; i < 4; ++i) {
+		if (buf[i].screenpos.x < topleft->screenpos.x && buf[i].screenpos.y < topleft->screenpos.y)
+			topleft = &buf[i];
+		if (buf[i].screenpos.x > topright->screenpos.x && buf[i].screenpos.y < topright->screenpos.y)
+			topright = &buf[i];
+		if (buf[i].screenpos.x < bottomleft->screenpos.x && buf[i].screenpos.y > bottomleft->screenpos.y)
+			bottomleft = &buf[i];
+		if (buf[i].screenpos.x > bottomright->screenpos.x && buf[i].screenpos.y > bottomright->screenpos.y)
+			bottomright = &buf[i];
+	}
+
+	RotateUV(v0, v1, *topright, *bottomleft);
+
+	DrawTriangle(*topleft, *topright, *bottomleft, range, state);
+	DrawTriangle(*bottomleft, *topright, *topleft, range, state);
+	DrawTriangle(*topright, *bottomright, *bottomleft, range, state);
+	DrawTriangle(*bottomleft, *bottomright, *topright, range, state);
+}
+
 void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerState &state) {
 	ScreenCoords pos = v0.screenpos;
 	Vec4<int> prim_color = v0.color0;
