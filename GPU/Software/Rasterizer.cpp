@@ -888,60 +888,159 @@ void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &
 	drawSlice(v0, v1, v2, range.x1, range.y1, range.x2, range.y2, state);
 }
 
-static void RotateUV(const VertexData &tl, const VertexData &br, VertexData &tr, VertexData &bl) {
-	const int x1 = tl.screenpos.x;
-	const int x2 = br.screenpos.x;
-	const int y1 = tl.screenpos.y;
-	const int y2 = br.screenpos.y;
-
-	if ((x1 < x2 && y1 > y2) || (x1 > x2 && y1 < y2)) {
-		std::swap(bl.texturecoords, tr.texturecoords);
-	}
-}
-
 void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
-	VertexData buf[4];
-	buf[0].screenpos = ScreenCoords(v0.screenpos.x, v0.screenpos.y, v1.screenpos.z);
-	buf[0].texturecoords = v0.texturecoords;
+	int entireX1 = std::min(v0.screenpos.x, v1.screenpos.x);
+	int entireY1 = std::min(v0.screenpos.y, v1.screenpos.y);
+	int entireX2 = std::max(v0.screenpos.x, v1.screenpos.x) - 1;
+	int entireY2 = std::max(v0.screenpos.y, v1.screenpos.y) - 1;
+	int minX = std::max(entireX1, range.x1);
+	int minY = std::max(entireY1, range.y1);
+	int maxX = std::min(entireX2, range.x2);
+	int maxY = std::min(entireY2, range.y2);
 
-	buf[1].screenpos = ScreenCoords(v0.screenpos.x, v1.screenpos.y, v1.screenpos.z);
-	buf[1].texturecoords = Vec2<float>(v0.texturecoords.x, v1.texturecoords.y);
+	Vec2f rowST(0.0f, 0.0f);
+	// Note: this is double the x or y movement.
+	Vec2f stx(0.0f, 0.0f);
+	Vec2f sty(0.0f, 0.0f);
+	if (state.enableTextures) {
+		Vec2f tc0 = v0.texturecoords;
+		Vec2f tc1 = v1.texturecoords;
+		if (state.throughMode) {
+			// For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.
+			tc0.s() *= 1.0f / (float)(1 << state.samplerID.width0Shift);
+			tc1.s() *= 1.0f / (float)(1 << state.samplerID.width0Shift);
+			tc0.t() *= 1.0f / (float)(1 << state.samplerID.height0Shift);
+			tc1.t() *= 1.0f / (float)(1 << state.samplerID.height0Shift);
+		}
 
-	buf[2].screenpos = ScreenCoords(v1.screenpos.x, v0.screenpos.y, v1.screenpos.z);
-	buf[2].texturecoords = Vec2<float>(v1.texturecoords.x, v0.texturecoords.y);
+		int diffX = (entireX2 - entireX1 + 1) / SCREEN_SCALE_FACTOR;
+		int diffY = (entireY2 - entireY1 + 1) / SCREEN_SCALE_FACTOR;
+		float diffS = tc1.s() - tc0.s();
+		float diffT = tc1.t() - tc0.t();
 
-	buf[3] = v1;
+		if (v0.screenpos.x < v1.screenpos.x) {
+			if (v0.screenpos.y < v1.screenpos.y) {
+				// Okay, simple, TL -> BR.  S and T move toward v1 with X and Y.
+				rowST = tc0;
+				stx = Vec2f(2.0f * diffS / diffX, 0.0f);
+				sty = Vec2f(0.0f, 2.0f * diffT / diffY);
+			} else {
+				// BL to TR, rotated.  We start at TL still.
+				// X moves T (not S) toward v1, and Y moves S away from v1.
+				rowST = Vec2f(tc1.s() - diffS / diffY, tc0.t());
+				stx = Vec2f(0.0f, 2.0f * diffT / diffX);
+				sty = Vec2f(2.0f * -diffS / diffY, 0.0f);
+			}
+		} else {
+			if (v0.screenpos.y < v1.screenpos.y) {
+				// TR to BL.  Like BL to TR, rotated.
+				// X moves T (not s) away from v1, and Y moves S toward v1.
+				rowST = Vec2f(tc0.s(), tc1.t() - diffT / diffX);
+				stx = Vec2f(0.0f, 2.0f * -diffT / diffX);
+				sty = Vec2f(2.0f * diffS / diffY, 0.0f);
+			} else {
+				// BR to TL, just inverse of TL to BR.
+				rowST = Vec2f(tc1.s() - diffS / diffX, tc1.t() - diffT / diffY);
+				stx = Vec2f(2.0f * -diffS / diffX, 0.0f);
+				sty = Vec2f(0.0f, 2.0f * -diffT / diffY);
+			}
+		}
 
-	// Color and depth values of second vertex are used for the whole rectangle
-	buf[0].color0 = buf[1].color0 = buf[2].color0 = buf[3].color0;
-	buf[0].color1 = buf[1].color1 = buf[2].color1 = buf[3].color1;
-	buf[0].clippos.w = buf[1].clippos.w = buf[2].clippos.w = buf[3].clippos.w;
-	// TODO
-	buf[0].fogdepth = buf[1].fogdepth = buf[2].fogdepth = buf[3].fogdepth;
-
-	VertexData *topleft = &buf[0];
-	VertexData *topright = &buf[1];
-	VertexData *bottomleft = &buf[2];
-	VertexData *bottomright = &buf[3];
-
-	// DrawTriangle always culls, so sort out the drawing order.
-	for (int i = 0; i < 4; ++i) {
-		if (buf[i].screenpos.x < topleft->screenpos.x && buf[i].screenpos.y < topleft->screenpos.y)
-			topleft = &buf[i];
-		if (buf[i].screenpos.x > topright->screenpos.x && buf[i].screenpos.y < topright->screenpos.y)
-			topright = &buf[i];
-		if (buf[i].screenpos.x < bottomleft->screenpos.x && buf[i].screenpos.y > bottomleft->screenpos.y)
-			bottomleft = &buf[i];
-		if (buf[i].screenpos.x > bottomright->screenpos.x && buf[i].screenpos.y > bottomright->screenpos.y)
-			bottomright = &buf[i];
+		// Okay, now move ST to the minX, minY position.
+		rowST += (stx / (float)(SCREEN_SCALE_FACTOR * 2)) * (minX - entireX1);
+		rowST += (sty / (float)(SCREEN_SCALE_FACTOR * 2)) * (minY - entireY1);
 	}
 
-	RotateUV(v0, v1, *topright, *bottomleft);
+	// And now what we add to spread out to 4 values.
+	const Vec4f sto4(0.0f, 0.5f * stx.s(), 0.5f * sty.s(), 0.5f * stx.s() + 0.5f * sty.s());
+	const Vec4f tto4(0.0f, 0.5f * stx.t(), 0.5f * sty.t(), 0.5f * stx.t() + 0.5f * sty.t());
 
-	DrawTriangle(*topleft, *topright, *bottomleft, range, state);
-	DrawTriangle(*bottomleft, *topright, *topleft, range, state);
-	DrawTriangle(*topright, *bottomright, *bottomleft, range, state);
-	DrawTriangle(*bottomleft, *bottomright, *topright, range, state);
+	ScreenCoords pprime(minX, minY, 0);
+	Vec4<int> fog = Vec4<int>::AssignToAll(ClampFogDepth(v1.fogdepth));
+	Vec4<int> z = Vec4<int>::AssignToAll(v1.screenpos.z);
+	Vec3<int> sec_color = v1.color1;
+
+#if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
+	uint32_t bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
+	std::string tag = StringFromFormat("DisplayListR_%08x", state.listPC);
+	std::string ztag = StringFromFormat("DisplayListRZ_%08x", state.listPC);
+#endif
+
+	for (int64_t curY = minY; curY <= maxY; curY += SCREEN_SCALE_FACTOR * 2, rowST += sty) {
+		DrawingCoords p = TransformUnit::ScreenToDrawing(range.x1, curY);
+
+		int scissorY2 = curY + SCREEN_SCALE_FACTOR > maxY ? -1 : 0;
+		Vec4<int> scissor_mask = Vec4<int>(0, maxX - minX - SCREEN_SCALE_FACTOR, scissorY2, (maxX - minX - SCREEN_SCALE_FACTOR) | scissorY2);
+		Vec4<int> scissor_step = Vec4<int>(0, -(SCREEN_SCALE_FACTOR * 2), 0, -(SCREEN_SCALE_FACTOR * 2));
+		Vec2f st = rowST;
+
+		for (int64_t curX = minX; curX <= maxX; curX += SCREEN_SCALE_FACTOR * 2,
+			st += stx,
+			scissor_mask += scissor_step,
+			p.x = (p.x + 2) & 0x3FF) {
+			Vec4<int> mask = scissor_mask;
+
+			Vec4<int> prim_color[4];
+			for (int i = 0; i < 4; ++i) {
+				prim_color[i] = v1.color0;
+			}
+
+			if (state.enableTextures) {
+				Vec4<float> s, t;
+				s = Vec4<float>::AssignToAll(st.s()) + sto4;
+				t = Vec4<float>::AssignToAll(st.t()) + tto4;
+
+				ApplyTexturing(state, prim_color, mask, s, t, curX, curY);
+			}
+
+			if (!state.pixelID.clearMode) {
+				for (int i = 0; i < 4; ++i) {
+#if defined(_M_SSE)
+					// TODO: Tried making Vec4 do this, but things got slower.
+					const __m128i sec = _mm_and_si128(sec_color.ivec, _mm_set_epi32(0, -1, -1, -1));
+					prim_color[i].ivec = _mm_add_epi32(prim_color[i].ivec, sec);
+#else
+					prim_color[i] += Vec4<int>(sec_color, 0);
+#endif
+				}
+			}
+
+			PROFILE_THIS_SCOPE("draw_rect_px");
+			DrawingCoords subp = p;
+			for (int i = 0; i < 4; ++i) {
+				if (mask[i] < 0) {
+					continue;
+				}
+				subp.x = p.x + (i & 1);
+				subp.y = p.y + (i / 2);
+
+				state.drawPixel(subp.x, subp.y, z[i], fog[i], ToVec4IntArg(prim_color[i]), state.pixelID);
+
+#if defined(SOFTGPU_MEMORY_TAGGING_DETAILED)
+				uint32_t row = gstate.getFrameBufAddress() + subp.y * state.pixelID.cached.framebufStride * bpp;
+				NotifyMemInfo(MemBlockFlags::WRITE, row + subp.x * bpp, bpp, tag.c_str(), tag.size());
+				if (state.pixelID.depthWrite) {
+					row = gstate.getDepthBufAddress() + subp.y * state.pixelID.cached.depthbufStride * 2;
+					NotifyMemInfo(MemBlockFlags::WRITE, row + subp.x * 2, 2, ztag.c_str(), ztag.size());
+				}
+#endif
+			}
+		}
+	}
+
+#if !defined(SOFTGPU_MEMORY_TAGGING_DETAILED) && defined(SOFTGPU_MEMORY_TAGGING_BASIC)
+	for (int y = minY; y <= maxY; y += SCREEN_SCALE_FACTOR) {
+		DrawingCoords p = TransformUnit::ScreenToDrawing(minX, y, state.screenOffsetX, state.screenOffsetY);
+		DrawingCoords pend = TransformUnit::ScreenToDrawing(maxX, y, state.screenOffsetX, state.screenOffsetY);
+		uint32_t row = gstate.getFrameBufAddress() + p.y * state.pixelID.cached.framebufStride * bpp;
+		NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * bpp, (pend.x - p.x) * bpp, tag.c_str(), tag.size());
+
+		if (state.pixelID.depthWrite) {
+			row = gstate.getDepthBufAddress() + p.y * state.pixelID.cached.depthbufStride * 2;
+			NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * 2, (pend.x - p.x) * 2, ztag.c_str(), ztag.size());
+		}
+	}
+#endif
 }
 
 void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerState &state) {
