@@ -204,8 +204,7 @@ GenericListControl::GenericListControl(HWND hwnd, const GenericListViewDef& def)
 }
 
 GenericListControl::~GenericListControl() {
-	if (images_ != nullptr)
-		ImageList_Destroy((HIMAGELIST)images_);
+	// Don't destroy the image list, it's done automatically by the list view.
 }
 
 void GenericListControl::SetIconList(int w, int h, const std::vector<HICON> &icons) {
