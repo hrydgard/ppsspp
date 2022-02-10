@@ -593,7 +593,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 			}
 
 			if (data_index == 4 && gstate.isModeThrough() && cullType == CullType::OFF) {
-				if (Rasterizer::DetectRectangleSlices(data)) {
+				if (Rasterizer::DetectRectangleSlices(binner_->State(), data)) {
 					data[1] = data[3];
 					data_index = 2;
 				}
@@ -661,7 +661,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				// If a strip is effectively a rectangle, draw it as such!
-				if (!outside_range_flag && Rasterizer::DetectRectangleFromThroughModeStrip(data)) {
+				if (!outside_range_flag && Rasterizer::DetectRectangleFromThroughModeStrip(binner_->State(), data)) {
 					Clipper::ProcessRect(data[0], data[3], *binner_);
 					break;
 				}
@@ -737,7 +737,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				int tl = -1, br = -1;
-				if (!outside_range_flag && Rasterizer::DetectRectangleFromThroughModeFan(data, vertex_count, &tl, &br)) {
+				if (!outside_range_flag && Rasterizer::DetectRectangleFromThroughModeFan(binner_->State(), data, vertex_count, &tl, &br)) {
 					Clipper::ProcessRect(data[tl], data[br], *binner_);
 					break;
 				}

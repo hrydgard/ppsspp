@@ -306,22 +306,17 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	return false;
 }
 
-bool DetectRectangleFromThroughModeStrip(const VertexData data[4]) {
-	// We'll only do this when the color is flat.
-	if (!(data[0].color0 == data[1].color0))
-		return false;
-	if (!(data[1].color0 == data[2].color0))
-		return false;
-	if (!(data[2].color0 == data[3].color0))
-		return false;
-
-	// And the depth must also be flat.
-	if (!(data[0].screenpos.z == data[1].screenpos.z))
-		return false;
-	if (!(data[1].screenpos.z == data[2].screenpos.z))
-		return false;
-	if (!(data[2].screenpos.z == data[3].screenpos.z))
-		return false;
+bool DetectRectangleFromThroughModeStrip(const RasterizerState &state, const VertexData data[4]) {
+	// Color and Z must be flat.
+	for (int i = 1; i < 4; ++i) {
+		if (!(data[i].color0 == data[0].color0))
+			return false;
+		if (!(data[i].screenpos.z == data[0].screenpos.z)) {
+			// Sometimes, we don't actually care about z.
+			if (state.pixelID.depthWrite || state.pixelID.DepthTestFunc() != GE_COMP_ALWAYS)
+				return false;
+		}
+	}
 
 	// OK, now let's look at data to detect rectangles. There are a few possibilities
 	// but we focus on Darkstalkers for now.
@@ -371,13 +366,16 @@ bool DetectRectangleFromThroughModeStrip(const VertexData data[4]) {
 	return false;
 }
 
-bool DetectRectangleFromThroughModeFan(const VertexData *data, int c, int *tlIndex, int *brIndex) {
+bool DetectRectangleFromThroughModeFan(const RasterizerState &state, const VertexData *data, int c, int *tlIndex, int *brIndex) {
 	// Color and Z must be flat.
 	for (int i = 1; i < c; ++i) {
 		if (!(data[i].color0 == data[0].color0))
 			return false;
-		if (!(data[i].screenpos.z == data[0].screenpos.z))
-			return false;
+		if (!(data[i].screenpos.z == data[0].screenpos.z)) {
+			// Sometimes, we don't actually care about z.
+			if (state.pixelID.depthWrite || state.pixelID.DepthTestFunc() != GE_COMP_ALWAYS)
+				return false;
+		}
 	}
 
 	// Check for the common case: a single TL-TR-BR-BL.
@@ -411,13 +409,16 @@ bool DetectRectangleFromThroughModeFan(const VertexData *data, int c, int *tlInd
 	return false;
 }
 
-bool DetectRectangleSlices(const VertexData data[4]) {
+bool DetectRectangleSlices(const RasterizerState &state, const VertexData data[4]) {
 	// Color and Z must be flat.
 	for (int i = 1; i < 4; ++i) {
 		if (!(data[i].color0 == data[0].color0))
 			return false;
-		if (!(data[i].screenpos.z == data[0].screenpos.z))
-			return false;
+		if (!(data[i].screenpos.z == data[0].screenpos.z)) {
+			// Sometimes, we don't actually care about z.
+			if (state.pixelID.depthWrite || state.pixelID.DepthTestFunc() != GE_COMP_ALWAYS)
+				return false;
+		}
 	}
 
 	// Games very commonly use vertical strips of rectangles.  Detect and combine.
