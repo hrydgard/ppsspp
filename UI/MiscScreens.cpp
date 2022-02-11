@@ -274,7 +274,7 @@ private:
 	double nextT_ = -INTERVAL;
 };
 
-// TODO: Add more styles. Remember to add to the enum in Config.cpp and the selector in GameSettings too.
+// TODO: Add more styles. Remember to add to the enum in ConfigValues.h and the selector in GameSettings too.
 
 static BackgroundAnimation g_CurBackgroundAnimation = BackgroundAnimation::OFF;
 static std::unique_ptr<Animation> g_Animation;
