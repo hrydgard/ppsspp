@@ -139,7 +139,7 @@ bool NotifyCommand(u32 pc) {
 void NotifyDraw() {
 	if (!active)
 		return;
-	if (breakNext == BreakNext::DRAW) {
+	if (breakNext == BreakNext::DRAW && !GPUStepping::IsStepping()) {
 		NOTICE_LOG(G3D, "Waiting at a draw");
 		GPUStepping::EnterStepping();
 	}
