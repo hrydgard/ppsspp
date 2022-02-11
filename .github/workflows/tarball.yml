@@ -36,4 +36,4 @@ jobs:
         upload_url: ${{ github.event.release.upload_url }}
         asset_path: ./${{ steps.archive.outputs.tarball }}
         asset_name: ${{ steps.archive.outputs.tarball }}
-        asset_content_type: application/gzip
+        asset_content_type: application/x-xz
