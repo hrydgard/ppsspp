@@ -685,6 +685,9 @@ EventReturn SliderFloatPopupScreen::OnDecrease(EventParams &params) {
 	sprintf(temp, "%0.3f", sliderValue_);
 	edit_->SetText(temp);
 	changing_ = false;
+	if (liveUpdate_) {
+		*value_ = sliderValue_;
+	}
 	return EVENT_DONE;
 }
 
@@ -699,6 +702,9 @@ EventReturn SliderFloatPopupScreen::OnIncrease(EventParams &params) {
 	sprintf(temp, "%0.3f", sliderValue_);
 	edit_->SetText(temp);
 	changing_ = false;
+	if (liveUpdate_) {
+		*value_ = sliderValue_;
+	}
 	return EVENT_DONE;
 }
 
@@ -718,6 +724,9 @@ EventReturn SliderFloatPopupScreen::OnTextChange(EventParams &params) {
 	if (!changing_) {
 		sliderValue_ = atof(edit_->GetText().c_str());
 		slider_->Clamp();
+		if (liveUpdate_) {
+			*value_ = sliderValue_;
+		}
 	}
 	return EVENT_DONE;
 }

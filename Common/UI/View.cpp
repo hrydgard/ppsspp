@@ -1336,6 +1336,11 @@ bool Slider::ApplyKey(int keyCode) {
 	default:
 		return false;
 	}
+	EventParams params{};
+	params.v = this;
+	params.a = (uint32_t)(*value_);
+	params.f = (float)(*value_);
+	OnChange.Trigger(params);
 	return true;
 }
 
@@ -1457,6 +1462,11 @@ bool SliderFloat::ApplyKey(int keyCode) {
 	default:
 		return false;
 	}
+	EventParams params{};
+	params.v = this;
+	params.a = (uint32_t)(*value_);
+	params.f = (float)(*value_);
+	OnChange.Trigger(params);
 	return true;
 }
 
