@@ -328,7 +328,7 @@ void PopupScreen::CreateViews() {
 
 	root_->Add(box_);
 	box_->SetBG(dc.theme->popupStyle.background);
-	box_->SetHasDropShadow(true);
+	box_->SetHasDropShadow(hasDropShadow_);
 	// Since we scale a bit, make the dropshadow bleed past the edges.
 	box_->SetDropShadowExpand(std::max(dp_xres, dp_yres));
 
@@ -530,6 +530,7 @@ EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
 
 	SliderFloatPopupScreen *popupScreen = new SliderFloatPopupScreen(value_, minValue_, maxValue_, ChopTitle(text_), step_, units_, liveUpdate_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoiceFloat::HandleChange);
+	popupScreen->SetHasDropShadow(hasDropShadow_);
 	if (e.v)
 		popupScreen->SetPopupOrigin(e.v);
 	screenManager_->push(popupScreen);

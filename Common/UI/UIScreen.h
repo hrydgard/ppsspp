@@ -83,6 +83,8 @@ public:
 	void SetPopupOrigin(const UI::View *view);
 	void SetPopupOffset(float y);
 
+	void SetHasDropShadow(bool has) { hasDropShadow_ = has; }
+
 protected:
 	virtual bool FillVertical() const { return false; }
 	virtual UI::Size PopupWidth() const { return 550; }
@@ -111,6 +113,8 @@ private:
 	bool hasPopupOrigin_ = false;
 	Point popupOrigin_;
 	float offsetY_ = 0.0f;
+
+	bool hasDropShadow_ = true;
 };
 
 class ListPopupScreen : public PopupScreen {
@@ -393,6 +397,10 @@ public:
 	void SetLiveUpdate(bool update) {
 		liveUpdate_ = update;
 	}
+	void SetHasDropShadow(bool has) {
+		hasDropShadow_ = has;
+	}
+
 	Event OnChange;
 
 protected:
@@ -411,6 +419,7 @@ private:
 	ScreenManager *screenManager_;
 	bool restoreFocus_;
 	bool liveUpdate_ = false;
+	bool hasDropShadow_ = true;
 };
 
 class PopupTextInputChoice: public AbstractChoiceWithValueDisplay {
