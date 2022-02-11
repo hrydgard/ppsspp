@@ -279,7 +279,8 @@ void main() {
 };
 
 const UniformBufferDesc vsColBufDesc { sizeof(VsColUB), {
-	{ "WorldViewProj", 0, -1, UniformType::MATRIX4X4, 0 }
+	{ "WorldViewProj", 0, -1, UniformType::MATRIX4X4, 0 },
+	{ "TintSaturation", 4, -1, UniformType::FLOAT2, 64 },
 } };
 
 static const std::vector<ShaderSource> vsTexCol = {
