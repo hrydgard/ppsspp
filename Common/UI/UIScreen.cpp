@@ -528,7 +528,7 @@ std::string PopupSliderChoice::ValueText() const {
 EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
 	restoreFocus_ = HasFocus();
 
-	SliderFloatPopupScreen *popupScreen = new SliderFloatPopupScreen(value_, minValue_, maxValue_, ChopTitle(text_), step_, units_);
+	SliderFloatPopupScreen *popupScreen = new SliderFloatPopupScreen(value_, minValue_, maxValue_, ChopTitle(text_), step_, units_, liveUpdate_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoiceFloat::HandleChange);
 	if (e.v)
 		popupScreen->SetPopupOrigin(e.v);
@@ -707,6 +707,9 @@ EventReturn SliderFloatPopupScreen::OnSliderChange(EventParams &params) {
 	sprintf(temp, "%0.3f", sliderValue_);
 	edit_->SetText(temp);
 	changing_ = false;
+	if (liveUpdate_) {
+		*value_ = sliderValue_;
+	}
 	return EVENT_DONE;
 }
 
@@ -736,6 +739,8 @@ void SliderFloatPopupScreen::OnCompleted(DialogResult result) {
 		e.a = (int)*value_;
 		e.f = *value_;
 		OnChange.Trigger(e);
+	} else {
+		*value_ = originalValue_;
 	}
 }
 

@@ -206,8 +206,8 @@ private:
 
 class SliderFloatPopupScreen : public PopupScreen {
 public:
-	SliderFloatPopupScreen(float *value, float minValue, float maxValue, const std::string &title, float step = 1.0f, const std::string &units = "")
-	: PopupScreen(title, "OK", "Cancel"), units_(units), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step), changing_(false) {}
+	SliderFloatPopupScreen(float *value, float minValue, float maxValue, const std::string &title, float step = 1.0f, const std::string &units = "", bool liveUpdate = false)
+	: PopupScreen(title, "OK", "Cancel"), units_(units), value_(value), originalValue_(*value), minValue_(minValue), maxValue_(maxValue), step_(step), changing_(false), liveUpdate_(liveUpdate) {}
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 
 	Event OnChange;
@@ -222,11 +222,13 @@ private:
 	UI::TextEdit *edit_;
 	std::string units_;
 	float sliderValue_;
+	float originalValue_;
 	float *value_;
 	float minValue_;
 	float maxValue_;
 	float step_;
 	bool changing_;
+	bool liveUpdate_;
 };
 
 class TextEditPopupScreen : public PopupScreen {
@@ -388,7 +390,9 @@ public:
 	void SetZeroLabel(const std::string &str) {
 		zeroLabel_ = str;
 	}
-
+	void SetLiveUpdate(bool update) {
+		liveUpdate_ = update;
+	}
 	Event OnChange;
 
 protected:
@@ -406,6 +410,7 @@ private:
 	std::string units_;
 	ScreenManager *screenManager_;
 	bool restoreFocus_;
+	bool liveUpdate_ = false;
 };
 
 class PopupTextInputChoice: public AbstractChoiceWithValueDisplay {

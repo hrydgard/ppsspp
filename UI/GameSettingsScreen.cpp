@@ -892,6 +892,9 @@ void GameSettingsScreen::CreateViews() {
 		return UI::EVENT_CONTINUE;
 	});
 
+	systemSettings->Add(new PopupSliderChoiceFloat(&g_Config.fUITint, 0.0, 1.0, n->T("Color Tint"), 0.01f, screenManager()))->SetLiveUpdate(true);
+	systemSettings->Add(new PopupSliderChoiceFloat(&g_Config.fUISaturation, 0.0, 1.0, n->T("Color Saturation"), 0.01f, screenManager()))->SetLiveUpdate(true);
+
 	static const char *backgroundAnimations[] = { "No animation", "Floating symbols", "Recent games", "Waves", "Moving background" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iBackgroundAnimation, sy->T("UI background animation"), backgroundAnimations, 0, ARRAY_SIZE(backgroundAnimations), sy->GetName(), screenManager()));
 
