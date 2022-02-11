@@ -1,4 +1,4 @@
-name: Build Source Release
+name: Generate Source Tarball
 
 # Trigger whenever a release is created
 on:
