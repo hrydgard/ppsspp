@@ -25,6 +25,7 @@ jobs:
         mv * /tmp/$PKGNAME
         mv /tmp/$PKGNAME .
         find $PKGNAME/ffmpeg -name '*.a' -delete
+        find $PKGNAME/ffmpeg -name '*.lib' -delete
         find $PKGNAME/ext -name '*.dylib' -delete
         sed -i "s;unknown;${VERSION};" $PKGNAME/git-version.cmake || true
         TARBALL=$PKGNAME.tar.xz
