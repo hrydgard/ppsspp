@@ -26,7 +26,7 @@ jobs:
         mv /tmp/$PKGNAME .
         find $PKGNAME/ffmpeg -name '*.a' -delete
         find $PKGNAME/ext -name '*.dylib' -delete
-        sed -i "s;unknown;${VERSION};" $PKGNAME/build/git-version.cpp
+        sed -i "s;unknown;${VERSION};" $PKGNAME/git-version.cmake || true
         TARBALL=$PKGNAME.tar.xz
         tar cJf $TARBALL $PKGNAME
         echo "::set-output name=tarball::$TARBALL"
