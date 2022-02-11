@@ -24,6 +24,8 @@ jobs:
         mkdir -p /tmp/$PKGNAME
         mv * /tmp/$PKGNAME
         mv /tmp/$PKGNAME .
+        find ffmpeg -name '*.a' -delete
+        find ext -name '*.dylib' -delete
         TARBALL=$PKGNAME.tar.xz
         tar cJf $TARBALL $PKGNAME
         echo "::set-output name=tarball::$TARBALL"
