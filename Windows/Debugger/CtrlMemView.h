@@ -18,6 +18,7 @@
 //To get a class instance to be able to access it, just use getFrom(HWND wnd).
 
 #include <cstdint>
+#include <vector>
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/Debugger/MemBlockInfo.h"
 
@@ -60,7 +61,6 @@ class CtrlMemView
 
 	int matchAddress;
 	bool searching;
-	bool searchStringValue;
 
 	bool hasFocus;
 	static wchar_t szClassName[];
@@ -87,7 +87,7 @@ public:
 	{
 		return debugger;
 	}
-	std::vector<u32> searchString(std::string searchQuery);
+	std::vector<u32> searchString(const std::string &searchQuery);
 	void onPaint(WPARAM wParam, LPARAM lParam);
 	void onVScroll(WPARAM wParam, LPARAM lParam);
 	void onKeyDown(WPARAM wParam, LPARAM lParam);
@@ -108,5 +108,7 @@ public:
 	void setHighlightType(MemBlockFlags flags);
 
 private:
+	bool ParseSearchString(const std::string &query, bool asHex, std::vector<uint8_t> &data);
+
 	bool redrawScheduled_ = false;
 };
