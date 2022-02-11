@@ -1169,34 +1169,7 @@ static ConfigSetting upgradeSettings[] = {
 };
 
 static ConfigSetting themeSettings[] = {
-	ConfigSetting("ItemStyleFg", &g_Config.uItemStyleFg, 0xFFFFFFFF, true, false),
-	ConfigSetting("ItemStyleBg", &g_Config.uItemStyleBg, 0x55000000, true, false),
-	ConfigSetting("ItemFocusedStyleFg", &g_Config.uItemFocusedStyleFg, 0xFFFFFFFF, true, false),
-	ConfigSetting("ItemFocusedStyleBg", &g_Config.uItemFocusedStyleBg, 0xFFEDC24C, true, false),
-	ConfigSetting("ItemDownStyleFg", &g_Config.uItemDownStyleFg, 0xFFFFFFFF, true, false),
-	ConfigSetting("ItemDownStyleBg", &g_Config.uItemDownStyleBg, 0xFFBD9939, true, false),
-	ConfigSetting("ItemDisabledStyleFg", &g_Config.uItemDisabledStyleFg, 0x80EEEEEE, true, false),
-	ConfigSetting("ItemDisabledStyleBg", &g_Config.uItemDisabledStyleBg, 0x55E0D4AF, true, false),
-	ConfigSetting("ItemHighlightedStyleFg", &g_Config.uItemHighlightedStyleFg, 0xFFFFFFFF, true, false),
-	ConfigSetting("ItemHighlightedStyleBg", &g_Config.uItemHighlightedStyleBg, 0x55BDBB39, true, false),
-
-	ConfigSetting("ButtonStyleFg", &g_Config.uButtonStyleFg, 0xFFFFFFFF, true, false),
-	ConfigSetting("ButtonStyleBg", &g_Config.uButtonStyleBg, 0x55000000, true, false),
-	ConfigSetting("ButtonFocusedStyleFg", &g_Config.uButtonFocusedStyleFg, 0xFFFFFFFF, true, false),
-	ConfigSetting("ButtonFocusedStyleBg", &g_Config.uButtonFocusedStyleBg, 0xFFEDC24C, true, false),
-	ConfigSetting("ButtonDownStyleFg", &g_Config.uButtonDownStyleFg, 0xFFFFFFFF, true, false),
-	ConfigSetting("ButtonDownStyleBg", &g_Config.uButtonDownStyleBg, 0xFFBD9939, true, false),
-	ConfigSetting("ButtonDisabledStyleFg", &g_Config.uButtonDisabledStyleFg, 0x80EEEEEE, true, false),
-	ConfigSetting("ButtonDisabledStyleBg", &g_Config.uButtonDisabledStyleBg, 0x55E0D4AF, true, false),
-	ConfigSetting("ButtonHighlightedStyleFg", &g_Config.uButtonHighlightedStyleFg, 0xFFFFFFFF, true, false),
-	ConfigSetting("ButtonHighlightedStyleBg", &g_Config.uButtonHighlightedStyleBg, 0x55BDBB39, true, false),
-
-	ConfigSetting("HeaderStyleFg", &g_Config.uHeaderStyleFg, 0xFFFFFFFF, true, false),
-	ConfigSetting("InfoStyleFg", &g_Config.uInfoStyleFg, 0xFFFFFFFF, true, false),
-	ConfigSetting("InfoStyleBg", &g_Config.uInfoStyleBg, 0x00000000U, true, false),
-	ConfigSetting("PopupTitleStyleFg", &g_Config.uPopupTitleStyleFg, 0xFFE3BE59, true, false),
-	ConfigSetting("PopupStyleFg", &g_Config.uPopupStyleFg, 0xFFFFFFFF, true, false),
-	ConfigSetting("PopupStyleBg", &g_Config.uPopupStyleBg, 0xFF303030, true, false),
+	ConfigSetting("ThemeName", &g_Config.sThemeName, "Default", true, false),
 
 	ConfigSetting(false),
 };

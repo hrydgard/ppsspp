@@ -645,6 +645,8 @@ Path GetSysDirectory(PSPDirectories directoryType) {
 		return pspDirectory / "AUDIO";
 	case DIRECTORY_CUSTOM_SHADERS:
 		return pspDirectory / "shaders";
+	case DIRECTORY_CUSTOM_THEMES:
+		return pspDirectory / "themes";
 
 	case DIRECTORY_MEMSTICK_ROOT:
 		return g_Config.memStickDirectory;

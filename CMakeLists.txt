@@ -1235,6 +1235,8 @@ list(APPEND NativeAppSource
 	UI/TextureUtil.cpp
 	UI/ComboKeyMappingScreen.h
 	UI/ComboKeyMappingScreen.cpp
+	UI/Theme.h
+	UI/Theme.cpp
 )
 
 if(ANDROID)
