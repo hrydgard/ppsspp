@@ -306,8 +306,9 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	return false;
 }
 
-bool DetectRectangleFromThroughModeStrip(const RasterizerState &state, const VertexData data[4]) {
-	// Color and Z must be flat.
+bool DetectRectangleFromThroughModeStrip(const RasterizerState &state, const VertexData data[4], int *tlIndex, int *brIndex) {
+	// Color and Z must be flat.  Also find the TL and BR meanwhile.
+	int tl = 0, br = 0;
 	for (int i = 1; i < 4; ++i) {
 		if (!(data[i].color0 == data[0].color0))
 			return false;
@@ -316,26 +317,30 @@ bool DetectRectangleFromThroughModeStrip(const RasterizerState &state, const Ver
 			if (state.pixelID.depthWrite || state.pixelID.DepthTestFunc() != GE_COMP_ALWAYS)
 				return false;
 		}
+
+		if (data[i].screenpos.x <= data[tl].screenpos.x && data[i].screenpos.y <= data[tl].screenpos.y)
+			tl = i;
+		if (data[i].screenpos.x >= data[br].screenpos.x && data[i].screenpos.y >= data[br].screenpos.y)
+			br = i;
 	}
+
+	*tlIndex = tl;
+	*brIndex = br;
 
 	// OK, now let's look at data to detect rectangles. There are a few possibilities
 	// but we focus on Darkstalkers for now.
 	if (data[0].screenpos.x == data[1].screenpos.x &&
 		data[0].screenpos.y == data[2].screenpos.y &&
 		data[2].screenpos.x == data[3].screenpos.x &&
-		data[1].screenpos.y == data[3].screenpos.y &&
-		data[1].screenpos.y > data[0].screenpos.y &&
-		data[2].screenpos.x > data[0].screenpos.x) {
-		// Okay, this is in the shape of a triangle, but what about rotation/texture?
-		if (!gstate.isTextureMapEnabled())
+		data[1].screenpos.y == data[3].screenpos.y) {
+		// Okay, this is in the shape of a rectangle, but what about texture?
+		if (!state.enableTextures)
 			return true;
 
 		if (data[0].texturecoords.x == data[1].texturecoords.x &&
 			data[0].texturecoords.y == data[2].texturecoords.y &&
 			data[2].texturecoords.x == data[3].texturecoords.x &&
-			data[1].texturecoords.y == data[3].texturecoords.y &&
-			data[1].texturecoords.y > data[0].texturecoords.y &&
-			data[2].texturecoords.x > data[0].texturecoords.x) {
+			data[1].texturecoords.y == data[3].texturecoords.y) {
 			// It's a rectangle!
 			return true;
 		}
@@ -345,19 +350,15 @@ bool DetectRectangleFromThroughModeStrip(const RasterizerState &state, const Ver
 	if (data[0].screenpos.x == data[2].screenpos.x &&
 		data[0].screenpos.y == data[1].screenpos.y &&
 		data[1].screenpos.x == data[3].screenpos.x &&
-		data[2].screenpos.y == data[3].screenpos.y &&
-		data[2].screenpos.y > data[0].screenpos.y &&
-		data[1].screenpos.x > data[0].screenpos.x) {
-		// Okay, this is in the shape of a triangle, but what about rotation/texture?
-		if (!gstate.isTextureMapEnabled())
+		data[2].screenpos.y == data[3].screenpos.y) {
+		// Okay, this is in the shape of a rectangle, but what about texture?
+		if (!state.enableTextures)
 			return true;
 
 		if (data[0].texturecoords.x == data[2].texturecoords.x &&
 			data[0].texturecoords.y == data[1].texturecoords.y &&
 			data[1].texturecoords.x == data[3].texturecoords.x &&
-			data[2].texturecoords.y == data[3].texturecoords.y &&
-			data[2].texturecoords.y > data[0].texturecoords.y &&
-			data[1].texturecoords.x > data[0].texturecoords.x) {
+			data[2].texturecoords.y == data[3].texturecoords.y) {
 			// It's a rectangle!
 			return true;
 		}
@@ -393,7 +394,7 @@ bool DetectRectangleFromThroughModeFan(const RasterizerState &state, const Verte
 			}
 
 			// Do we need to think about rotation?
-			if (!gstate.isTextureMapEnabled())
+			if (!state.enableTextures)
 				return true;
 
 			const auto &textl = data[*tlIndex].texturecoords, &textr = data[*tlIndex ^ 1].texturecoords;
@@ -426,7 +427,7 @@ bool DetectRectangleSlices(const RasterizerState &state, const VertexData data[4
 	const auto &tl2 = data[2].screenpos, &br2 = data[3].screenpos;
 	if (tl1.y == tl2.y && br1.y == br2.y && br1.y > tl1.y) {
 		if (br1.x == tl2.x && tl1.x < br1.x && tl2.x < br2.x) {
-			if (!gstate.isTextureMapEnabled() || gstate.isModeClear())
+			if (!state.enableTextures)
 				return true;
 
 			const auto &textl1 = data[0].texturecoords, &texbr1 = data[1].texturecoords;

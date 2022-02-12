@@ -20,7 +20,7 @@ namespace Rasterizer {
 	bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &binner);
 	void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state);
 
-	bool DetectRectangleFromThroughModeStrip(const RasterizerState &state, const VertexData data[4]);
+	bool DetectRectangleFromThroughModeStrip(const RasterizerState &state, const VertexData data[4], int *tlIndex, int *brIndex);
 	bool DetectRectangleFromThroughModeFan(const RasterizerState &state, const VertexData *data, int c, int *tlIndex, int *brIndex);
 	bool DetectRectangleSlices(const RasterizerState &state, const VertexData data[4]);
 }

@@ -661,8 +661,9 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				// If a strip is effectively a rectangle, draw it as such!
-				if (!outside_range_flag && Rasterizer::DetectRectangleFromThroughModeStrip(binner_->State(), data)) {
-					Clipper::ProcessRect(data[0], data[3], *binner_);
+				int tl = -1, br = -1;
+				if (!outside_range_flag && Rasterizer::DetectRectangleFromThroughModeStrip(binner_->State(), data, &tl, &br)) {
+					Clipper::ProcessRect(data[tl], data[br], *binner_);
 					break;
 				}
 			}
