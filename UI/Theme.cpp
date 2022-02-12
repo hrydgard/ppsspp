@@ -24,6 +24,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/Data/Format/IniFile.h"
+#include "Common/File/DirListing.h"
 
 #include "Core/Config.h"
 
@@ -31,7 +32,7 @@
 #include "Common/UI/Context.h"
 #include "Core/System.h"
 
-struct themeInfo {
+struct ThemeInfo {
 	std::string name;
 
     uint32_t uItemStyleFg = 0xFFFFFFFF;
@@ -66,21 +67,21 @@ struct themeInfo {
 	bool operator == (const std::string &other) {
 		return name == other;
 	}
-	bool operator == (const themeInfo &other) {
+	bool operator == (const ThemeInfo &other) {
 		return name == other.name;
 	}
 };
 
 static UI::Theme ui_theme;
-static std::vector<themeInfo> themeInfos;
+static std::vector<ThemeInfo> themeInfos;
 
 static void LoadThemeInfo(const std::vector<Path> &directories) {
 	themeInfos.clear();
-	themeInfo def{};
+	ThemeInfo def{};
 	def.name = "Default";
 	themeInfos.push_back(def);
 
-	auto appendTheme = [&](const themeInfo &info) {
+	auto appendTheme = [&](const ThemeInfo &info) {
 		auto beginErase = std::remove(themeInfos.begin(), themeInfos.end(), info.name);
 		if (beginErase != themeInfos.end()) {
 			themeInfos.erase(beginErase, themeInfos.end());
@@ -118,7 +119,7 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 			// Alright, let's loop through the sections and see if any is a themes.
 			for (size_t i = 0; i < ini.Sections().size(); i++) {
 				Section &section = ini.Sections()[i];
-				themeInfo info;
+				ThemeInfo info;
 				section.Get("Name", &info.name, section.name().c_str());
 
 				section.Get("ItemStyleFg", &info.uItemStyleFg, 0xFFFFFFFF);
@@ -156,7 +157,7 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 	}
 }
 
-static UI::Style MakeStyle (uint32_t fg, uint32_t bg) {
+static UI::Style MakeStyle(uint32_t fg, uint32_t bg) {
 	UI::Style s;
 	s.background = UI::Drawable(bg);
 	s.fgColor = fg;
