@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "Common/GPU/thin3d.h"
@@ -113,6 +114,14 @@ static inline SoftDirty operator ~(const SoftDirty &v) {
 class PresentationCommon;
 class SoftwareDrawEngine;
 
+enum class SoftGPUVRAMDirty : uint8_t {
+	CLEAR = 0,
+	DIRTY = 1,
+	REALLY_DIRTY = 2,
+};
+
+ENUM_CLASS_BITOPS(SoftGPUVRAMDirty);
+
 class SoftGPU : public GPUCommon {
 public:
 	SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
@@ -145,10 +154,7 @@ public:
 	}
 
 	bool FramebufferDirty() override;
-
-	bool FramebufferReallyDirty() override {
-		return !(gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME);
-	}
+	bool FramebufferReallyDirty() override;
 
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes = -1) override;
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
@@ -187,7 +193,16 @@ protected:
 	void ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, int srcheight, u8 *overrideData = nullptr);
 
 private:
-	bool framebufferDirty_;
+	void MarkDirty(uint32_t addr, uint32_t stride, uint32_t height, GEBufferFormat fmt, SoftGPUVRAMDirty value);
+	void MarkDirty(uint32_t addr, uint32_t bytes, SoftGPUVRAMDirty value);
+	bool ClearDirty(uint32_t addr, uint32_t stride, uint32_t height, GEBufferFormat fmt, SoftGPUVRAMDirty value);
+	bool ClearDirty(uint32_t addr, uint32_t bytes, SoftGPUVRAMDirty value);
+
+	uint8_t vramDirty_[2048];
+	uint32_t lastDirtyAddr_ = 0;
+	uint32_t lastDirtySize_ = 0;
+	SoftGPUVRAMDirty lastDirtyValue_ = SoftGPUVRAMDirty::CLEAR;
+
 	u32 displayFramebuf_;
 	u32 displayStride_;
 	GEBufferFormat displayFormat_;
