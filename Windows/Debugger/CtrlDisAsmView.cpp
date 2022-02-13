@@ -211,9 +211,9 @@ COLORREF scaleColor(COLORREF color, float factor)
 	unsigned char g = (color >> 8) & 0xFF;
 	unsigned char b = (color >> 16) & 0xFF;
 
-	r = min(255,max((int)(r*factor),0));
-	g = min(255,max((int)(g*factor),0));
-	b = min(255,max((int)(b*factor),0));
+	r = std::min(255, std::max((int)(r * factor), 0));
+	g = std::min(255, std::max((int)(g * factor), 0));
+	b = std::min(255, std::max((int)(b * factor), 0));
 
 	return (color & 0xFF000000) | (b << 16) | (g << 8) | r;
 }
@@ -559,7 +559,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		if (CBreakPoints::IsAddressBreakPoint(address,&enabled))
 		{
 			if (enabled) textColor = 0x0000FF;
-			int yOffset = max(-1,(rowHeight-14+1)/2);
+			int yOffset = std::max(-1, (rowHeight - 14 + 1) / 2);
 			if (!enabled) yOffset++;
 			DrawIconEx(hdc,2,rowY1+1+yOffset,enabled ? breakPoint : breakPointDisable,32,32,0,0,DI_NORMAL);
 		}

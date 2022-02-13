@@ -1,4 +1,5 @@
 #include "ppsspp_config.h"
+#include <algorithm>
 #include <string>
 #include <sstream>
 #include <unordered_map>

@@ -201,7 +201,7 @@ void TabDisplayLists::UpdateSize(WORD width, WORD height)
 	positions[0].x = borderMargin;
 	positions[0].y = borderMargin;
 	positions[0].w = width*2/3;
-	positions[0].h = min(height*2/5,200);
+	positions[0].h = std::min(height * 2 / 5, 200);
 
 	// Stack
 	positions[1].x = positions[0].x+positions[0].w+betweenControlsMargin;
