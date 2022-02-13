@@ -18,16 +18,12 @@
 //To get a class instance to be able to access it, just use 
 //  CtrlDisAsmView::getFrom(GetDlgItem(yourdialog, IDC_yourid)).
 
-#include "../../Core/Debugger/DebugInterface.h"
-#include "../../Core/Debugger/DisassemblyManager.h"
-
-
-#include "Common/CommonWindows.h"
 #include <vector>
 #include <algorithm>
-
-using std::min;
-using std::max;
+#include "Common/CommonWindows.h"
+#include "Common/Log.h"
+#include "Core/Debugger/DebugInterface.h"
+#include "Core/Debugger/DisassemblyManager.h"
 
 class CtrlDisAsmView
 {
@@ -124,6 +120,8 @@ public:
 
 	void gotoAddr(unsigned int addr)
 	{
+		if (positionLocked_ != 0)
+			return;
 		u32 windowEnd = manager.getNthNextAddress(windowStart,visibleRows);
 		u32 newAddress = manager.getStartAddress(addr);
 
@@ -174,6 +172,15 @@ public:
 		updateStatusBarText();
 	}
 
+	void LockPosition() {
+		positionLocked_++;
+	}
+	void UnlockPosition() {
+		positionLocked_--;
+		_assert_(positionLocked_ >= 0);
+	}
+
 private:
 	bool redrawScheduled_ = false;
+	int positionLocked_ = 0;
 };
