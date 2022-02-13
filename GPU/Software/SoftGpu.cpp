@@ -423,7 +423,7 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		}
 	}
 
-	framebufferDirty_ = true;
+	memset(vramDirty_, (uint8_t)(SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY), sizeof(vramDirty_));
 	// TODO: Is there a default?
 	displayFramebuf_ = 0;
 	displayStride_ = 512;
@@ -642,7 +642,61 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 void SoftGPU::CopyDisplayToOutput(bool reallyDirty) {
 	// The display always shows 480x272.
 	CopyToCurrentFboFromDisplayRam(FB_WIDTH, FB_HEIGHT);
-	framebufferDirty_ = false;
+	MarkDirty(displayFramebuf_, displayStride_, 272, displayFormat_, SoftGPUVRAMDirty::CLEAR);
+}
+
+void SoftGPU::MarkDirty(uint32_t addr, uint32_t stride, uint32_t height, GEBufferFormat fmt, SoftGPUVRAMDirty value) {
+	uint32_t bytes = height * stride * (fmt == GE_FORMAT_8888 ? 4 : 2);
+	MarkDirty(addr, bytes, value);
+}
+
+void SoftGPU::MarkDirty(uint32_t addr, uint32_t bytes, SoftGPUVRAMDirty value) {
+	// Don't bother tracking if frameskipping.
+	if (g_Config.iFrameSkip == 0)
+		return;
+	if (!Memory::IsVRAMAddress(addr) || !Memory::IsVRAMAddress(addr + bytes - 1))
+		return;
+	if (lastDirtyAddr_ == addr && lastDirtySize_ == bytes && lastDirtyValue_ == value)
+		return;
+
+	uint32_t start = ((addr - PSP_GetVidMemBase()) & 0x001FFFFF) >> 10;
+	uint32_t end = start + ((bytes + 1023) >> 10);
+	if (value == SoftGPUVRAMDirty::CLEAR || value == (SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY)) {
+		memset(vramDirty_ + start, (uint8_t)value, end - start);
+	} else {
+		for (uint32_t i = start; i < end; ++i) {
+			vramDirty_[i] |= (uint8_t)value;
+		}
+	}
+
+	lastDirtyAddr_ = addr;
+	lastDirtySize_ = bytes;
+	lastDirtyValue_ = value;
+}
+
+bool SoftGPU::ClearDirty(uint32_t addr, uint32_t stride, uint32_t height, GEBufferFormat fmt, SoftGPUVRAMDirty value) {
+	uint32_t bytes = height * stride * (fmt == GE_FORMAT_8888 ? 4 : 2);
+	return ClearDirty(addr, bytes, value);
+}
+
+bool SoftGPU::ClearDirty(uint32_t addr, uint32_t bytes, SoftGPUVRAMDirty value) {
+	if (!Memory::IsVRAMAddress(addr) || !Memory::IsVRAMAddress(addr + bytes - 1))
+		return false;
+
+	uint32_t start = ((addr - PSP_GetVidMemBase()) & 0x001FFFFF) >> 10;
+	uint32_t end = start + ((bytes + 1023) >> 10);
+	bool result = false;
+	for (uint32_t i = start; i < end; ++i) {
+		if (vramDirty_[i] & (uint8_t)value) {
+			result = true;
+			vramDirty_[i] &= ~(uint8_t)value;
+		}
+	}
+
+	lastDirtyAddr_ = 0;
+	lastDirtySize_ = 0;
+
+	return result;
 }
 
 void SoftGPU::Resized() {
@@ -755,7 +809,7 @@ void SoftGPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 	cyclesExecuted += ((height * width * bpp) * 16) / 10;
 
 	// Could theoretically dirty the framebuffer.
-	framebufferDirty_ = true;
+	MarkDirty(dst, dstSize, SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY);
 }
 
 void SoftGPU::Execute_Prim(u32 op, u32 diff) {
@@ -786,7 +840,9 @@ void SoftGPU::Execute_Prim(u32 op, u32 diff) {
 	drawEngine_->transformUnit.SetDirty(dirtyFlags_);
 	drawEngine_->transformUnit.SubmitPrimitive(verts, indices, prim, count, gstate.vertType, &bytesRead, drawEngine_);
 	dirtyFlags_ = drawEngine_->transformUnit.GetDirty();
-	framebufferDirty_ = true;
+
+	SoftGPUVRAMDirty mark = (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) != 0 ? SoftGPUVRAMDirty::DIRTY : SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY;
+	MarkDirty(gstate.getFrameBufAddress(), gstate.FrameBufStride(), gstate.getRegionY2() + 1, gstate.FrameBufFormat(), mark);
 
 	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
@@ -837,7 +893,9 @@ void SoftGPU::Execute_Bezier(u32 op, u32 diff) {
 	drawEngine_->transformUnit.SetDirty(dirtyFlags_);
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "bezier");
 	dirtyFlags_ = drawEngine_->transformUnit.GetDirty();
-	framebufferDirty_ = true;
+
+	SoftGPUVRAMDirty mark = (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) != 0 ? SoftGPUVRAMDirty::DIRTY : SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY;
+	MarkDirty(gstate.getFrameBufAddress(), gstate.FrameBufStride(), gstate.getRegionY2() + 1, gstate.FrameBufFormat(), mark);
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
 	int count = surface.num_points_u * surface.num_points_v;
@@ -889,7 +947,9 @@ void SoftGPU::Execute_Spline(u32 op, u32 diff) {
 	drawEngine_->transformUnit.SetDirty(dirtyFlags_);
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "spline");
 	dirtyFlags_ = drawEngine_->transformUnit.GetDirty();
-	framebufferDirty_ = true;
+
+	SoftGPUVRAMDirty mark = (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) != 0 ? SoftGPUVRAMDirty::DIRTY : SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY;
+	MarkDirty(gstate.getFrameBufAddress(), gstate.FrameBufStride(), gstate.getRegionY2() + 1, gstate.FrameBufFormat(), mark);
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
 	int count = surface.num_points_u * surface.num_points_v;
@@ -1059,7 +1119,7 @@ bool SoftGPU::PerformMemoryCopy(u32 dest, u32 src, int size)
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	GPURecord::NotifyMemcpy(dest, src, size);
 	// Let's just be safe.
-	framebufferDirty_ = true;
+	MarkDirty(dest, size, SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY);
 	return false;
 }
 
@@ -1069,7 +1129,7 @@ bool SoftGPU::PerformMemorySet(u32 dest, u8 v, int size)
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	GPURecord::NotifyMemset(dest, v, size);
 	// Let's just be safe.
-	framebufferDirty_ = true;
+	MarkDirty(dest, size, SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY);
 	return false;
 }
 
@@ -1095,9 +1155,14 @@ bool SoftGPU::PerformStencilUpload(u32 dest, int size)
 
 bool SoftGPU::FramebufferDirty() {
 	if (g_Config.iFrameSkip != 0) {
-		bool dirty = framebufferDirty_;
-		framebufferDirty_ = false;
-		return dirty;
+		return ClearDirty(displayFramebuf_, displayStride_, 272, displayFormat_, SoftGPUVRAMDirty::DIRTY);
+	}
+	return true;
+}
+
+bool SoftGPU::FramebufferReallyDirty() {
+	if (g_Config.iFrameSkip != 0) {
+		return ClearDirty(displayFramebuf_, displayStride_, 272, displayFormat_, SoftGPUVRAMDirty::REALLY_DIRTY);
 	}
 	return true;
 }
