@@ -41,7 +41,11 @@ protected:
 	void OnDoubleClick(int row, int column) override;
 	void OnRightClick(int row, int column, const POINT& point) override;
 
+	bool ListenRowPrePaint() override { return true; }
+	bool OnRowPrePaint(int row, LPNMLVCUSTOMDRAW msg) override;
+
 private:
+	bool RowValuesChanged(int row);
 	void SetCmdValue(u32 op);
 
 	const TabStateRow *rows_;
