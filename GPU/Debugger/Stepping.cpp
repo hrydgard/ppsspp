@@ -65,6 +65,8 @@ static GPUDebugBuffer bufferClut;
 static int bufferLevel;
 static u32 pauseSetCmdValue;
 
+static GPUgstate lastGState;
+
 static void SetPauseAction(PauseAction act, bool waitComplete = true) {
 	pauseLock.lock();
 	std::unique_lock<std::mutex> guard(actionLock);
@@ -133,6 +135,22 @@ static void RunPauseAction() {
 	pauseAction = PAUSE_BREAK;
 }
 
+static void StartStepping() {
+	if (lastGState.cmdmem[1] == 0) {
+		lastGState = gstate;
+		// Play it safe so we don't keep resetting.
+		lastGState.cmdmem[1] |= 0x01000000;
+	}
+	gpuDebug->NotifySteppingEnter();
+	isStepping = true;
+}
+
+static void StopStepping() {
+	gpuDebug->NotifySteppingExit();
+	lastGState = gstate;
+	isStepping = false;
+}
+
 bool SingleStep() {
 	std::unique_lock<std::mutex> guard(pauseLock);
 	if (coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME && coreState != CORE_STEPPING) {
@@ -147,13 +165,9 @@ bool SingleStep() {
 		return false;
 	}
 
-	gpuDebug->NotifySteppingEnter();
-	isStepping = true;
-
+	StartStepping();
 	RunPauseAction();
-
-	gpuDebug->NotifySteppingExit();
-	isStepping = false;
+	StopStepping();
 	return true;
 }
 
@@ -171,13 +185,12 @@ bool EnterStepping() {
 		return false;
 	}
 
-	gpuDebug->NotifySteppingEnter();
+	StartStepping();
 
 	// Just to be sure.
 	if (pauseAction == PAUSE_CONTINUE) {
 		pauseAction = PAUSE_BREAK;
 	}
-	isStepping = true;
 	stepCounter++;
 
 	do {
@@ -185,8 +198,7 @@ bool EnterStepping() {
 		pauseWait.wait(guard);
 	} while (pauseAction != PAUSE_CONTINUE);
 
-	gpuDebug->NotifySteppingExit();
-	isStepping = false;
+	StopStepping();
 	return true;
 }
 
@@ -261,6 +273,10 @@ void ForceUnpause() {
 	SetPauseAction(PAUSE_CONTINUE, false);
 	actionComplete = true;
 	actionWait.notify_all();
+}
+
+GPUgstate LastState() {
+	return lastGState;
 }
 
 }  // namespace
