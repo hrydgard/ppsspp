@@ -765,9 +765,9 @@ void DrawTriangleSlice(
 			if (AnyMask<useSSE4>(mask)) {
 				Vec4<float> wsum_recip = EdgeRecip(w0, w1, w2);
 
+				// Color interpolation is not perspective corrected on the PSP.
 				Vec4<int> prim_color[4];
 				if (!flatColor0) {
-					// Does the PSP do perspective-correct color interpolation? The GC doesn't.
 					for (int i = 0; i < 4; ++i) {
 						if (mask[i] >= 0)
 							prim_color[i] = Interpolate(v0.color0, v1.color0, v2.color0, w0[i], w1[i], w2[i], wsum_recip[i]);
@@ -831,7 +831,7 @@ void DrawTriangleSlice(
 				if (flatZ) {
 					z = Vec4<int>::AssignToAll(v2.screenpos.z);
 				} else {
-					// TODO: Is that the correct way to interpolate?
+					// Z is interpolated pretty much directly.
 					Vec4<float> zfloats = w0.Cast<float>() * v0.screenpos.z + w1.Cast<float>() * v1.screenpos.z + w2.Cast<float>() * v2.screenpos.z;
 					z = (zfloats * wsum_recip).Cast<int>();
 				}

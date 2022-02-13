@@ -128,8 +128,6 @@ static void RotateUV(const VertexData &tl, const VertexData &br, VertexData &tr,
 	}
 }
 
-void ProcessTriangleInternal(VertexData &v0, VertexData &v1, VertexData &v2, const VertexData &provoking, BinManager &binner, bool fromRectangle);
-
 static inline bool CheckOutsideZ(ClipCoords p, int &pos, int &neg) {
 	constexpr float outsideValue = 1.000030517578125f;
 	float z = p.z / p.w;
@@ -197,10 +195,11 @@ void ProcessRect(const VertexData &v0, const VertexData &v1, BinManager &binner)
 		RotateUV(*topleft, *bottomright, *topright, *bottomleft);
 
 		// Four triangles to do backfaces as well. Two of them will get backface culled.
-		ProcessTriangleInternal(*topleft, *topright, *bottomright, buf[3], binner, true);
-		ProcessTriangleInternal(*bottomright, *topright, *topleft, buf[3], binner, true);
-		ProcessTriangleInternal(*bottomright, *bottomleft, *topleft, buf[3], binner, true);
-		ProcessTriangleInternal(*topleft, *bottomleft, *bottomright, buf[3], binner, true);
+		// We already clipped, so we don't need additional processing.
+		binner.AddTriangle(*topleft, *topright, *bottomright);
+		binner.AddTriangle(*bottomright, *topright, *topleft);
+		binner.AddTriangle(*bottomright, *bottomleft, *topleft);
+		binner.AddTriangle(*topleft, *bottomleft, *bottomright);
 	} else {
 		// through mode handling
 
@@ -257,12 +256,12 @@ void ProcessRect(const VertexData &v0, const VertexData &v1, BinManager &binner)
 	}
 }
 
-void ProcessPoint(VertexData &v0, BinManager &binner) {
+void ProcessPoint(const VertexData &v0, BinManager &binner) {
 	// Points need no clipping. Will be bounds checked in the rasterizer (which seems backwards?)
 	binner.AddPoint(v0);
 }
 
-void ProcessLine(VertexData &v0, VertexData &v1, BinManager &binner) {
+void ProcessLine(const VertexData &v0, const VertexData &v1, BinManager &binner) {
 	if (gstate.isModeThrough()) {
 		// Actually, should clip this one too so we don't need to do bounds checks in the rasterizer.
 		binner.AddLine(v0, v1);
@@ -280,15 +279,18 @@ void ProcessLine(VertexData &v0, VertexData &v1, BinManager &binner) {
 	else if (outsidePos >= 2 || outsideNeg >= 2)
 		return;
 
-	VertexData *Vertices[2] = {&v0, &v1};
-
 	int mask0 = CalcClipMask(v0.clippos);
 	int mask1 = CalcClipMask(v1.clippos);
 	int mask = mask0 | mask1;
-	bool clipped = false;
-	if (mask) {
-		CLIP_LINE(CLIP_NEG_Z_BIT,  0,  0,  1, 1);
+	if ((mask & CLIP_NEG_Z_BIT) == 0) {
+		binner.AddLine(v0, v1);
+		return;
 	}
+
+	VertexData ClippedVertices[2] = { v0, v1 };
+	VertexData *Vertices[2] = { &ClippedVertices[0], &ClippedVertices[1] };
+	bool clipped = false;
+	CLIP_LINE(CLIP_NEG_Z_BIT,  0,  0,  1, 1);
 
 	VertexData data[2] = { *Vertices[0], *Vertices[1] };
 	if (clipped) {
@@ -298,10 +300,31 @@ void ProcessLine(VertexData &v0, VertexData &v1, BinManager &binner) {
 	binner.AddLine(data[0], data[1]);
 }
 
-void ProcessTriangleInternal(VertexData &v0, VertexData &v1, VertexData &v2, const VertexData &provoking, BinManager &binner, bool fromRectangle) {
-	if (gstate.isModeThrough()) {
-		// In case of cull reordering, make sure the right color is on the final vertex.
+void ProcessTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const VertexData &provoking, BinManager &binner) {
+	int mask = 0;
+	if (!gstate.isModeThrough()) {
+		mask |= CalcClipMask(v0.clippos);
+		mask |= CalcClipMask(v1.clippos);
+		mask |= CalcClipMask(v2.clippos);
+
+		// We may discard the entire triangle based on depth values.  First check what's outside.
+		int outsidePos = 0, outsideNeg = 0;
+		CheckOutsideZ(v0.clippos, outsidePos, outsideNeg);
+		CheckOutsideZ(v1.clippos, outsidePos, outsideNeg);
+		CheckOutsideZ(v2.clippos, outsidePos, outsideNeg);
+
+		// With depth clamp off, we discard the triangle if even one vert is outside.
+		if (outsidePos + outsideNeg > 0 && !gstate.isDepthClampEnabled())
+			return;
+		// With it on, all three must be outside in the same direction.
+		else if (outsidePos >= 3 || outsideNeg >= 3)
+			return;
+	}
+
+	// No clipping is common, let's skip processing if we can.
+	if ((mask & CLIP_NEG_Z_BIT) == 0) {
 		if (gstate.getShadeMode() == GE_SHADE_FLAT) {
+			// So that the order of clipping doesn't matter...
 			VertexData corrected2 = v2;
 			corrected2.color0 = provoking.color0;
 			corrected2.color1 = provoking.color1;
@@ -312,51 +335,21 @@ void ProcessTriangleInternal(VertexData &v0, VertexData &v1, VertexData &v2, con
 		return;
 	}
 
-	int mask = 0;
-	mask |= CalcClipMask(v0.clippos);
-	mask |= CalcClipMask(v1.clippos);
-	mask |= CalcClipMask(v2.clippos);
-
-	// No clipping is common, let's skip processing if we can.
-	if ((mask & CLIP_NEG_Z_BIT) == 0 || fromRectangle) {
-		if (gstate.getShadeMode() == GE_SHADE_FLAT) {
-			// So that the order of clipping doesn't matter...
-			v2.color0 = provoking.color0;
-			v2.color1 = provoking.color1;
-		}
-
-		binner.AddTriangle(v0, v1, v2);
-		return;
-	}
-
 	enum { NUM_CLIPPED_VERTICES = 3, NUM_INDICES = NUM_CLIPPED_VERTICES + 3 };
 
 	VertexData* Vertices[NUM_INDICES];
-	VertexData ClippedVertices[NUM_CLIPPED_VERTICES];
-	for (int i = 0; i < NUM_CLIPPED_VERTICES; ++i)
-		Vertices[i+3] = &ClippedVertices[i];
+	VertexData ClippedVertices[NUM_INDICES];
+	for (int i = 0; i < NUM_INDICES; ++i)
+		Vertices[i] = &ClippedVertices[i];
 
 	// TODO: Change logic when it's a backface (why? In what way?)
-	Vertices[0] = &v0;
-	Vertices[1] = &v1;
-	Vertices[2] = &v2;
+	ClippedVertices[0] = v0;
+	ClippedVertices[1] = v1;
+	ClippedVertices[2] = v2;
 
 	int indices[NUM_INDICES] = { 0, 1, 2, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG };
 	int numIndices = 3;
 	bool clipped = false;
-
-	// We may discard the entire triangle based on depth values.  First check what's outside.
-	int outsidePos = 0, outsideNeg = 0;
-	for (int i = 0; i < 3; ++i) {
-		CheckOutsideZ(Vertices[i]->clippos, outsidePos, outsideNeg);
-	}
-
-	// With depth clamp off, we discard the triangle if even one vert is outside.
-	if (outsidePos + outsideNeg > 0 && !gstate.isDepthClampEnabled())
-		return;
-	// With it on, all three must be outside in the same direction.
-	else if (outsidePos >= 3 || outsideNeg >= 3)
-		return;
 
 	for (int i = 0; i < 3; i += 3) {
 		int vlist[2][2*6+1];
@@ -407,10 +400,6 @@ void ProcessTriangleInternal(VertexData &v0, VertexData &v1, VertexData &v2, con
 			binner.AddTriangle(subv0, subv1, subv2);
 		}
 	}
-}
-
-void ProcessTriangle(VertexData &v0, VertexData &v1, VertexData &v2, const VertexData &provoking, BinManager &binner) {
-	ProcessTriangleInternal(v0, v1, v2, provoking, binner, false);
 }
 
 } // namespace

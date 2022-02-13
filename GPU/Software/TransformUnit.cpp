@@ -593,7 +593,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 			}
 
 			if (data_index == 4 && gstate.isModeThrough() && cullType == CullType::OFF) {
-				if (Rasterizer::DetectRectangleSlices(data)) {
+				if (Rasterizer::DetectRectangleThroughModeSlices(binner_->State(), data)) {
 					data[1] = data[3];
 					data_index = 2;
 				}
@@ -649,7 +649,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 
 			// If index count == 4, check if we can convert to a rectangle.
 			// This is for Darkstalkers (and should speed up many 2D games).
-			if (data_index == 0 && vertex_count == 4 && gstate.isModeThrough() && cullType == CullType::OFF) {
+			if (data_index == 0 && vertex_count == 4 && cullType == CullType::OFF) {
 				for (int vtx = 0; vtx < 4; ++vtx) {
 					if (indices) {
 						vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
@@ -661,8 +661,9 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				// If a strip is effectively a rectangle, draw it as such!
-				if (!outside_range_flag && Rasterizer::DetectRectangleFromThroughModeStrip(data)) {
-					Clipper::ProcessRect(data[0], data[3], *binner_);
+				int tl = -1, br = -1;
+				if (!outside_range_flag && Rasterizer::DetectRectangleFromStrip(binner_->State(), data, &tl, &br)) {
+					Clipper::ProcessRect(data[tl], data[br], *binner_);
 					break;
 				}
 			}
@@ -726,7 +727,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					break;
 			}
 
-			if (data_index == 1 && vertex_count == 4 && gstate.isModeThrough() && cullType == CullType::OFF) {
+			if (data_index == 1 && vertex_count == 4 && cullType == CullType::OFF) {
 				for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
 					if (indices) {
 						vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
@@ -737,7 +738,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				int tl = -1, br = -1;
-				if (!outside_range_flag && Rasterizer::DetectRectangleFromThroughModeFan(data, vertex_count, &tl, &br)) {
+				if (!outside_range_flag && Rasterizer::DetectRectangleFromFan(binner_->State(), data, vertex_count, &tl, &br)) {
 					Clipper::ProcessRect(data[tl], data[br], *binner_);
 					break;
 				}
