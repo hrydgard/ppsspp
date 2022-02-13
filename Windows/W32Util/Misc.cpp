@@ -215,8 +215,7 @@ void GenericListControl::SetIconList(int w, int h, const std::vector<HICON> &ico
 	ListView_SetImageList(handle, (HIMAGELIST)images_, LVSIL_STATE);
 }
 
-void GenericListControl::HandleNotify(LPARAM lParam)
-{
+int GenericListControl::HandleNotify(LPARAM lParam) {
 	LPNMHDR mhdr = (LPNMHDR) lParam;
 
 	if (mhdr->code == NM_DBLCLK)
@@ -224,7 +223,7 @@ void GenericListControl::HandleNotify(LPARAM lParam)
 		LPNMITEMACTIVATE item = (LPNMITEMACTIVATE) lParam;
 		if ((item->iItem != -1 && item->iItem < GetRowCount()) || sendInvalidRows)
 			OnDoubleClick(item->iItem,item->iSubItem);
-		return;
+		return 0;
 	}
 
 	if (mhdr->code == NM_RCLICK)
@@ -232,7 +231,23 @@ void GenericListControl::HandleNotify(LPARAM lParam)
 		const LPNMITEMACTIVATE item = (LPNMITEMACTIVATE)lParam;
 		if ((item->iItem != -1 && item->iItem < GetRowCount()) || sendInvalidRows)
 			OnRightClick(item->iItem,item->iSubItem,item->ptAction);
-		return;
+		return 0;
+	}
+
+	if (mhdr->code == NM_CUSTOMDRAW && ListenRowPrePaint()) {
+		LPNMLVCUSTOMDRAW msg = (LPNMLVCUSTOMDRAW)lParam;
+		switch (msg->nmcd.dwDrawStage) {
+		case CDDS_PREPAINT:
+			return CDRF_NOTIFYITEMDRAW;
+
+		case CDDS_ITEMPREPAINT:
+			if (OnRowPrePaint((int)msg->nmcd.dwItemSpec, msg)) {
+				return CDRF_NEWFONT;
+			}
+			return CDRF_DODEFAULT;
+		}
+
+		return CDRF_DODEFAULT;
 	}
 
 	if (mhdr->code == LVN_GETDISPINFO)
@@ -247,7 +262,7 @@ void GenericListControl::HandleNotify(LPARAM lParam)
 
 		dispInfo->item.pszText = stringBuffer;
 		dispInfo->item.mask |= LVIF_TEXT;
-		return;
+		return 0;
 	}
 	 
 	// handle checkboxes
@@ -263,8 +278,10 @@ void GenericListControl::HandleNotify(LPARAM lParam)
 				OnToggle(item->iItem,newImage == 2);
 		}
 
-		return;
+		return 0;
 	}
+
+	return 0;
 }
 
 void GenericListControl::Update() {

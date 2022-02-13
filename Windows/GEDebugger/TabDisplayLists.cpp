@@ -258,11 +258,11 @@ BOOL TabDisplayLists::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		switch (wParam)
 		{
 		case IDC_GEDBG_LISTS_STACK:
-			stack->HandleNotify(lParam);
-			break;
+			SetWindowLongPtr(m_hDlg, DWLP_MSGRESULT, stack->HandleNotify(lParam));
+			return TRUE;
 		case IDC_GEDBG_LISTS_ALLLISTS:
-			allLists->HandleNotify(lParam);
-			break;
+			SetWindowLongPtr(m_hDlg, DWLP_MSGRESULT, allLists->HandleNotify(lParam));
+			return TRUE;
 		}
 		break;
 

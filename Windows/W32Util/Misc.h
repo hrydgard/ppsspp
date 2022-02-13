@@ -33,6 +33,7 @@ struct GenericListViewDef
 
 #define GLVC_CENTERED		1
 
+typedef struct tagNMLVCUSTOMDRAW *LPNMLVCUSTOMDRAW;
 
 // the most significant bit states whether the key is currently down.
 // simply checking if it's != 0 is not enough, as bit0 is set if
@@ -44,7 +45,7 @@ class GenericListControl
 public:
 	GenericListControl(HWND hwnd, const GenericListViewDef& def);
 	virtual ~GenericListControl();
-	void HandleNotify(LPARAM lParam);
+	int HandleNotify(LPARAM lParam);
 	void Update();
 	int GetSelectedIndex();
 	HWND GetHandle() { return handle; };
@@ -61,6 +62,9 @@ protected:
 	virtual void OnRightClick(int itemIndex, int column, const POINT& point) { };
 	virtual void CopyRows(int start, int size);
 	virtual void OnToggle(int item, bool newValue) { };
+
+	virtual bool ListenRowPrePaint() { return false; }
+	virtual bool OnRowPrePaint(int row, LPNMLVCUSTOMDRAW msg) { return false; }
 
 private:
 	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);

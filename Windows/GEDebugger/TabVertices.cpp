@@ -355,8 +355,8 @@ BOOL TabVertices::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		switch (wParam)
 		{
 		case IDC_GEDBG_VERTICES:
-			values->HandleNotify(lParam);
-			break;
+			SetWindowLongPtr(m_hDlg, DWLP_MSGRESULT, values->HandleNotify(lParam));
+			return TRUE;
 		}
 		break;
 	}
@@ -652,8 +652,8 @@ BOOL TabMatrices::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		switch (wParam)
 		{
 		case IDC_GEDBG_MATRICES:
-			values->HandleNotify(lParam);
-			break;
+			SetWindowLongPtr(m_hDlg, DWLP_MSGRESULT, values->HandleNotify(lParam));
+			return TRUE;
 		}
 		break;
 	}

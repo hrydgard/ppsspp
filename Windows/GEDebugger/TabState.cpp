@@ -1054,8 +1054,8 @@ BOOL TabStateValues::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		switch (wParam)
 		{
 		case IDC_GEDBG_VALUES:
-			values->HandleNotify(lParam);
-			break;
+			SetWindowLongPtr(m_hDlg, DWLP_MSGRESULT, values->HandleNotify(lParam));
+			return TRUE;
 		}
 		break;
 	}
