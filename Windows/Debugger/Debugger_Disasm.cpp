@@ -362,17 +362,17 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			leftTabs->HandleNotify(lParam);
 			break;
 		case IDC_BREAKPOINTLIST:
-			breakpointList->HandleNotify(lParam);
-			break;
+			SetWindowLongPtr(m_hDlg, DWLP_MSGRESULT, breakpointList->HandleNotify(lParam));
+			return TRUE;
 		case IDC_THREADLIST:
-			threadList->HandleNotify(lParam);
-			break;
+			SetWindowLongPtr(m_hDlg, DWLP_MSGRESULT, threadList->HandleNotify(lParam));
+			return TRUE;
 		case IDC_STACKFRAMES:
-			stackTraceView->HandleNotify(lParam);
-			break;
+			SetWindowLongPtr(m_hDlg, DWLP_MSGRESULT, stackTraceView->HandleNotify(lParam));
+			return TRUE;
 		case IDC_MODULELIST:
-			moduleList->HandleNotify(lParam);
-			break;
+			SetWindowLongPtr(m_hDlg, DWLP_MSGRESULT, moduleList->HandleNotify(lParam));
+			return TRUE;
 		case IDC_DEBUG_BOTTOMTABS:
 			bottomTabs->HandleNotify(lParam);
 			break;

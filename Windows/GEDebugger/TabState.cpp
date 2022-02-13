@@ -15,8 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <commctrl.h>
 #include "Common/CommonFuncs.h"
 #include "Common/CommonTypes.h"
+#include "Common/Log.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/StringUtils.h"
 #include "Windows/resource.h"
@@ -28,6 +30,7 @@
 #include "GPU/GeDisasm.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Debugger/Breakpoints.h"
+#include "GPU/Debugger/Stepping.h"
 
 using namespace GPUBreakpoints;
 
@@ -1009,9 +1012,34 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 	}
 }
 
+bool CtrlStateValues::OnRowPrePaint(int row, LPNMLVCUSTOMDRAW msg) {
+	if (RowValuesChanged(row)) {
+		msg->clrText = RGB(255, 0, 0);
+		return true;
+	}
+	return false;
+}
+
 void CtrlStateValues::SetCmdValue(u32 op) {
 	SendMessage(GetParent(GetParent(GetHandle())), WM_GEDBG_SETCMDWPARAM, op, NULL);
 	Update();
+}
+
+bool CtrlStateValues::RowValuesChanged(int row) {
+	_assert_(gpuDebug != nullptr && row >= 0 && row < rowCount_);
+
+	const auto info = rows_[row];
+	const auto state = gpuDebug->GetGState();
+	const auto lastState = GPUStepping::LastState();
+
+	if (state.cmdmem[info.cmd] != lastState.cmdmem[info.cmd])
+		return true;
+	if (info.otherCmd && state.cmdmem[info.otherCmd] != lastState.cmdmem[info.otherCmd])
+		return true;
+	if (info.otherCmd2 && state.cmdmem[info.otherCmd2] != lastState.cmdmem[info.otherCmd2])
+		return true;
+
+	return false;
 }
 
 TabStateValues::TabStateValues(const TabStateRow *rows, int rowCount, LPCSTR dialogID, HINSTANCE _hInstance, HWND _hParent)
@@ -1054,8 +1082,8 @@ BOOL TabStateValues::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		switch (wParam)
 		{
 		case IDC_GEDBG_VALUES:
-			values->HandleNotify(lParam);
-			break;
+			SetWindowLongPtr(m_hDlg, DWLP_MSGRESULT, values->HandleNotify(lParam));
+			return TRUE;
 		}
 		break;
 	}

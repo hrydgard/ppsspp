@@ -22,6 +22,7 @@
 #include "Common/CommonTypes.h"
 #include "Core/Core.h"
 #include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUState.h"
 
 namespace GPUStepping {
 	// Should be called from the emu thread.
@@ -42,4 +43,6 @@ namespace GPUStepping {
 
 	void ResumeFromStepping();
 	void ForceUnpause();
+
+	GPUgstate LastState();
 };
