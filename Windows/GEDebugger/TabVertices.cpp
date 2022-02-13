@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <commctrl.h>
 #include "Common/CommonTypes.h"
 #include "Common/StringUtils.h"
 #include "Core/System.h"
@@ -28,6 +29,7 @@
 #include "GPU/GeDisasm.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Debugger/Breakpoints.h"
+#include "GPU/Debugger/Stepping.h"
 
 static const GenericListViewColumn vertexListCols[] = {
 	{ L"X", 0.1f },
@@ -370,14 +372,57 @@ CtrlMatrixList::CtrlMatrixList(HWND hwnd)
 	Update();
 }
 
-bool CtrlMatrixList::GetValue(int row, int col, float &val) {
+bool CtrlMatrixList::OnColPrePaint(int row, int col, LPNMLVCUSTOMDRAW msg) {
+	const auto state = gpuDebug->GetGState();
+	const auto lastState = GPUStepping::LastState();
+
+	bool changed = false;
+	if (col < MATRIXLIST_COL_0) {
+		for (int c = MATRIXLIST_COL_0; c <= MATRIXLIST_COL_3; ++c) {
+			changed = changed || ColChanged(lastState, state, row, c);
+		}
+	} else {
+		changed = ColChanged(lastState, state, row, col);
+	}
+
+	// At the column level, we have to reset the color back.
+	static int lastRow = -1;
+	static COLORREF rowDefaultText;
+	if (lastRow != row) {
+		rowDefaultText = msg->clrText;
+		lastRow = row;
+	}
+
+	if (changed) {
+		msg->clrText = RGB(255, 0, 0);
+		return true;
+	} else if (msg->clrText != rowDefaultText) {
+		msg->clrText = rowDefaultText;
+		return true;
+	}
+
+	return false;
+}
+
+bool CtrlMatrixList::ColChanged(const GPUgstate &lastState, const GPUgstate &state, int row, int col) {
+	union {
+		float f;
+		uint32_t u;
+	} newVal, oldVal;
+	if (!GetValue(state, row, col, newVal.f) || !GetValue(lastState, row, col, oldVal.f))
+		return false;
+
+	// If there's any difference in bits, highlight.
+	return newVal.u != oldVal.u;
+}
+
+bool CtrlMatrixList::GetValue(const GPUgstate &state, int row, int col, float &val) {
 	if (!gpuDebug || row < 0 || row >= MATRIXLIST_ROW_COUNT || col < 0 || col >= MATRIXLIST_COL_COUNT)
 		return false;
 
 	if (col < MATRIXLIST_COL_0)
 		col = MATRIXLIST_COL_0;
 
-	auto state = gpuDebug->GetGState();
 	if (row >= MATRIXLIST_ROW_BONE_0_0) {
 		int b = (row - MATRIXLIST_ROW_BONE_0_0) / 3;
 		int r = (row - MATRIXLIST_ROW_BONE_0_0) % 3;
@@ -419,7 +464,7 @@ void CtrlMatrixList::GetColumnText(wchar_t *dest, int row, int col) {
 	}
 
 	float val;
-	if (!GetValue(row, col, val)) {
+	if (!GetValue(gpuDebug->GetGState(), row, col, val)) {
 		wcscpy(dest, L"Invalid");
 		return;
 	}
@@ -534,7 +579,7 @@ void CtrlMatrixList::OnDoubleClick(int row, int column) {
 	}
 
 	float val;
-	if (!GetValue(row, column, val))
+	if (!GetValue(gpuDebug->GetGState(), row, column, val))
 		return;
 
 	std::string strvalue = StringFromFormat("%f", val);
@@ -594,7 +639,7 @@ void CtrlMatrixList::OnRightClick(int row, int column, const POINT &point) {
 	case ID_DISASM_COPYINSTRUCTIONDISASM:
 	{
 		float val;
-		if (GetValue(row, column, val)) {
+		if (GetValue(gpuDebug->GetGState(), row, column, val)) {
 			wchar_t dest[512];
 			swprintf(dest, 511, L"%f", val);
 			W32Util::CopyTextToClipboard(GetHandle(), dest);

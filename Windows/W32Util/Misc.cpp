@@ -234,7 +234,7 @@ int GenericListControl::HandleNotify(LPARAM lParam) {
 		return 0;
 	}
 
-	if (mhdr->code == NM_CUSTOMDRAW && ListenRowPrePaint()) {
+	if (mhdr->code == NM_CUSTOMDRAW && (ListenRowPrePaint() || ListenColPrePaint())) {
 		LPNMLVCUSTOMDRAW msg = (LPNMLVCUSTOMDRAW)lParam;
 		switch (msg->nmcd.dwDrawStage) {
 		case CDDS_PREPAINT:
@@ -242,6 +242,12 @@ int GenericListControl::HandleNotify(LPARAM lParam) {
 
 		case CDDS_ITEMPREPAINT:
 			if (OnRowPrePaint((int)msg->nmcd.dwItemSpec, msg)) {
+				return CDRF_NEWFONT;
+			}
+			return ListenColPrePaint() ? CDRF_NOTIFYSUBITEMDRAW : CDRF_DODEFAULT;
+
+		case CDDS_SUBITEM | CDDS_ITEMPREPAINT:
+			if (OnColPrePaint((int)msg->nmcd.dwItemSpec, msg->iSubItem, msg)) {
 				return CDRF_NEWFONT;
 			}
 			return CDRF_DODEFAULT;

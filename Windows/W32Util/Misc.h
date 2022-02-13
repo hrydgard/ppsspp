@@ -64,7 +64,9 @@ protected:
 	virtual void OnToggle(int item, bool newValue) { };
 
 	virtual bool ListenRowPrePaint() { return false; }
+	virtual bool ListenColPrePaint() { return false; }
 	virtual bool OnRowPrePaint(int row, LPNMLVCUSTOMDRAW msg) { return false; }
+	virtual bool OnColPrePaint(int row, int col, LPNMLVCUSTOMDRAW msg) { return false; }
 
 private:
 	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
