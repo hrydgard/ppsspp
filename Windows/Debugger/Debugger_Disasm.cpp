@@ -412,7 +412,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 			case ID_DEBUG_ADDBREAKPOINT:
 				{
+					CtrlDisAsmView *view = DisAsmView();
 					keepStatusBarText = true;
+					view->LockPosition();
 					bool isRunning = Core_IsActive();
 					if (isRunning)
 					{
@@ -425,6 +427,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 					if (isRunning)
 						Core_EnableStepping(false);
+					view->UnlockPosition();
 					keepStatusBarText = false;
 				}
 				break;

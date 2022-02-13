@@ -120,6 +120,8 @@ public:
 
 	void gotoAddr(unsigned int addr)
 	{
+		if (positionLocked_ != 0)
+			return;
 		u32 windowEnd = manager.getNthNextAddress(windowStart,visibleRows);
 		u32 newAddress = manager.getStartAddress(addr);
 
@@ -170,6 +172,15 @@ public:
 		updateStatusBarText();
 	}
 
+	void LockPosition() {
+		positionLocked_++;
+	}
+	void UnlockPosition() {
+		positionLocked_--;
+		_assert_(positionLocked_ >= 0);
+	}
+
 private:
 	bool redrawScheduled_ = false;
+	int positionLocked_ = 0;
 };
