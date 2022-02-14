@@ -221,6 +221,7 @@ void GameSettingsScreen::CreateViews() {
 	auto dev = GetI18NCategory("Developer");
 	auto ri = GetI18NCategory("RemoteISO");
 	auto ps = GetI18NCategory("PostShaders");
+	auto th = GetI18NCategory("Themes");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -884,7 +885,7 @@ void GameSettingsScreen::CreateViews() {
 		backgroundChoice_->OnClick.Handle(this, &GameSettingsScreen::OnChangeBackground);
 	}
 
-	PopupMultiChoiceDynamic *theme = systemSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sThemeName, gr->T("Color Theme"), GetThemeInfoNames(), nullptr, screenManager()));
+	PopupMultiChoiceDynamic *theme = systemSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sThemeName, sy->T("Color Theme"), GetThemeInfoNames(), th->GetName(), screenManager()));
 	theme->OnChoice.Add([=](EventParams &e) {
 		UpdateTheme();
 
