@@ -17,6 +17,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <string>
+#include <vector>
+
 #include "Common/UI/Context.h"
 
 void ReloadAllThemeInfo();

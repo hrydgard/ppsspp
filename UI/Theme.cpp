@@ -81,6 +81,7 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 	def.name = "Default";
 	themeInfos.push_back(def);
 
+	// This will update the theme if already present, as such default in assets/theme will get priority if exist
 	auto appendTheme = [&](const ThemeInfo &info) {
 		auto beginErase = std::remove(themeInfos.begin(), themeInfos.end(), info.name);
 		if (beginErase != themeInfos.end()) {
@@ -122,34 +123,34 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 				ThemeInfo info;
 				section.Get("Name", &info.name, section.name().c_str());
 
-				section.Get("ItemStyleFg", &info.uItemStyleFg, 0xFFFFFFFF);
-				section.Get("ItemStyleBg", &info.uItemStyleBg, 0x55000000);
-				section.Get("ItemFocusedStyleFg", &info.uItemFocusedStyleFg, 0xFFFFFFFF);
-				section.Get("ItemFocusedStyleBg", &info.uItemFocusedStyleBg, 0xFFEDC24C);
-				section.Get("ItemDownStyleFg", &info.uItemDownStyleFg, 0xFFFFFFFF);
-				section.Get("ItemDownStyleBg", &info.uItemDownStyleBg, 0xFFBD9939);
-				section.Get("ItemDisabledStyleFg", &info.uItemDisabledStyleFg, 0x80EEEEEE);
-				section.Get("ItemDisabledStyleBg", &info.uItemDisabledStyleBg, 0x55E0D4AF);
-				section.Get("ItemHighlightedStyleFg", &info.uItemHighlightedStyleFg, 0xFFFFFFFF);
-				section.Get("ItemHighlightedStyleBg", &info.uItemHighlightedStyleBg, 0x55BDBB39);
+				section.Get("ItemStyleFg", &info.uItemStyleFg, info.uItemStyleFg);
+				section.Get("ItemStyleBg", &info.uItemStyleBg, info.uItemStyleBg);
+				section.Get("ItemFocusedStyleFg", &info.uItemFocusedStyleFg, info.uItemFocusedStyleFg);
+				section.Get("ItemFocusedStyleBg", &info.uItemFocusedStyleBg, info.uItemFocusedStyleBg);
+				section.Get("ItemDownStyleFg", &info.uItemDownStyleFg, info.uItemDownStyleFg);
+				section.Get("ItemDownStyleBg", &info.uItemDownStyleBg, info.uItemDownStyleBg);
+				section.Get("ItemDisabledStyleFg", &info.uItemDisabledStyleFg, info.uItemDisabledStyleFg);
+				section.Get("ItemDisabledStyleBg", &info.uItemDisabledStyleBg, info.uItemDisabledStyleBg);
+				section.Get("ItemHighlightedStyleFg", &info.uItemHighlightedStyleFg, info.uItemHighlightedStyleFg);
+				section.Get("ItemHighlightedStyleBg", &info.uItemHighlightedStyleBg, info.uItemHighlightedStyleBg);
 
-				section.Get("ButtonStyleFg", &info.uButtonStyleFg, 0xFFFFFFFF);
-				section.Get("ButtonStyleBg", &info.uButtonStyleBg, 0x55000000);
-				section.Get("ButtonFocusedStyleFg", &info.uButtonFocusedStyleFg, 0xFFFFFFFF);
-				section.Get("ButtonFocusedStyleBg", &info.uButtonFocusedStyleBg, 0xFFBD9939);
-				section.Get("ButtonDownStyleFg", &info.uButtonDownStyleFg, 0xFFFFFFFF);
-				section.Get("ButtonDownStyleBg", &info.uButtonDownStyleBg, 0xFFBD9939);
-				section.Get("ButtonDisabledStyleFg", &info.uButtonDisabledStyleFg, 0x80EEEEEE);
-				section.Get("ButtonDisabledStyleBg", &info.uButtonDisabledStyleBg, 0x55E0D4AF);
-				section.Get("ButtonHighlightedStyleFg", &info.uButtonHighlightedStyleFg, 0xFFFFFFFF);
-				section.Get("ButtonHighlightedStyleBg", &info.uButtonHighlightedStyleBg, 0x55BDBB39);
+				section.Get("ButtonStyleFg", &info.uButtonStyleFg, info.uButtonStyleFg);
+				section.Get("ButtonStyleBg", &info.uButtonStyleBg, info.uButtonStyleBg);
+				section.Get("ButtonFocusedStyleFg", &info.uButtonFocusedStyleFg, info.uButtonFocusedStyleFg);
+				section.Get("ButtonFocusedStyleBg", &info.uButtonFocusedStyleBg, info.uButtonFocusedStyleBg);
+				section.Get("ButtonDownStyleFg", &info.uButtonDownStyleFg, info.uButtonDownStyleFg);
+				section.Get("ButtonDownStyleBg", &info.uButtonDownStyleBg, info.uButtonDownStyleBg);
+				section.Get("ButtonDisabledStyleFg", &info.uButtonDisabledStyleFg, info.uButtonDisabledStyleFg);
+				section.Get("ButtonDisabledStyleBg", &info.uButtonDisabledStyleBg, info.uButtonDisabledStyleBg);
+				section.Get("ButtonHighlightedStyleFg", &info.uButtonHighlightedStyleFg, info.uButtonHighlightedStyleFg);
+				section.Get("ButtonHighlightedStyleBg", &info.uButtonHighlightedStyleBg, info.uButtonHighlightedStyleBg);
 
-				section.Get("HeaderStyleFg", &info.uHeaderStyleFg, 0xFFFFFFFF);
-				section.Get("InfoStyleFg", &info.uInfoStyleFg, 0xFFFFFFFF);
-				section.Get("InfoStyleBg", &info.uInfoStyleBg, 0x00000000);
-				section.Get("PopupTitleStyleFg", &info.uPopupTitleStyleFg, 0xFFE3BE59);
-				section.Get("PopupStyleFg", &info.uPopupStyleFg, 0xFFFFFFFF);
-				section.Get("PopupStyleBg", &info.uPopupStyleBg, 0xFF303030);
+				section.Get("HeaderStyleFg", &info.uHeaderStyleFg, info.uHeaderStyleFg);
+				section.Get("InfoStyleFg", &info.uInfoStyleFg, info.uInfoStyleFg);
+				section.Get("InfoStyleBg", &info.uInfoStyleBg, info.uInfoStyleBg);
+				section.Get("PopupTitleStyleFg", &info.uPopupTitleStyleFg, info.uPopupTitleStyleFg);
+				section.Get("PopupStyleFg", &info.uPopupStyleFg, info.uPopupStyleFg);
+				section.Get("PopupStyleBg", &info.uPopupStyleBg, info.uPopupStyleBg);
 
 				appendTheme(info);
 			}
