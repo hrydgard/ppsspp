@@ -401,7 +401,7 @@ void GameButton::Draw(UIContext &dc) {
 	if (gridStyle_ && g_Config.bShowIDOnGameIcon) {
 		dc.SetFontScale(0.5f*g_Config.fGameGridScale, 0.5f*g_Config.fGameGridScale);
 		dc.DrawText(ginfo->id_version.c_str(), x+5, y+1, 0xFF000000, ALIGN_TOPLEFT);
-		dc.DrawText(ginfo->id_version.c_str(), x+4, y, 0xFFffFFff, ALIGN_TOPLEFT);
+		dc.DrawText(ginfo->id_version.c_str(), x+4, y, dc.theme->infoStyle.fgColor, ALIGN_TOPLEFT);
 		dc.SetFontScale(1.0f, 1.0f);
 	}
 	if (overlayColor) {
@@ -441,11 +441,11 @@ private:
 
 void DirButton::Draw(UIContext &dc) {
 	using namespace UI;
-	Style style = dc.theme->buttonStyle;
+	Style style = dc.theme->itemStyle;
 
-	if (HasFocus()) style = dc.theme->buttonFocusedStyle;
-	if (down_) style = dc.theme->buttonDownStyle;
-	if (!IsEnabled()) style = dc.theme->buttonDisabledStyle;
+	if (HasFocus()) style = dc.theme->itemFocusedStyle;
+	if (down_) style = dc.theme->itemDownStyle;
+	if (!IsEnabled()) style = dc.theme->itemDisabledStyle;
 
 	dc.FillRect(style.background, bounds_);
 
@@ -470,7 +470,7 @@ void DirButton::Draw(UIContext &dc) {
 		if (image == ImageID("I_FOLDER")) {
 			dc.DrawText(text.c_str(), bounds_.x + 5, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 		} else {
-			dc.Draw()->DrawImage(image, bounds_.centerX(), bounds_.centerY(), gridStyle_ ? g_Config.fGameGridScale : 1.0, 0xFFFFFFFF, ALIGN_CENTER);
+			dc.Draw()->DrawImage(image, bounds_.centerX(), bounds_.centerY(), gridStyle_ ? g_Config.fGameGridScale : 1.0, style.fgColor, ALIGN_CENTER);
 		}
 		dc.PopScissor();
 	} else {
@@ -479,7 +479,7 @@ void DirButton::Draw(UIContext &dc) {
 			dc.PushScissor(bounds_);
 			scissor = true;
 		}
-		dc.Draw()->DrawImage(image, bounds_.x + 72, bounds_.centerY(), 0.88f*(gridStyle_ ? g_Config.fGameGridScale : 1.0), 0xFFFFFFFF, ALIGN_CENTER);
+		dc.Draw()->DrawImage(image, bounds_.x + 72, bounds_.centerY(), 0.88f*(gridStyle_ ? g_Config.fGameGridScale : 1.0), style.fgColor, ALIGN_CENTER);
 		dc.DrawText(text.c_str(), bounds_.x + 150, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 
 		if (scissor) {

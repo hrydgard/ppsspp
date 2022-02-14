@@ -43,19 +43,6 @@ struct ThemeInfo {
 	uint32_t uItemDownStyleBg = 0xFFBD9939;
 	uint32_t uItemDisabledStyleFg = 0x80EEEEEE;
 	uint32_t uItemDisabledStyleBg = 0x55000000;
-	uint32_t uItemHighlightedStyleFg = 0xFFFFFFFF;
-	uint32_t uItemHighlightedStyleBg = 0x55BDBB39;
-
-	uint32_t uButtonStyleFg = 0xFFFFFFFF;
-	uint32_t uButtonStyleBg = 0x55000000;
-	uint32_t uButtonFocusedStyleFg = 0xFFFFFFFF;
-	uint32_t uButtonFocusedStyleBg = 0xFFBD9939;
-	uint32_t uButtonDownStyleFg = 0xFFFFFFFF;
-	uint32_t uButtonDownStyleBg = 0xFFBD9939;
-	uint32_t uButtonDisabledStyleFg = 0x80EEEEEE;
-	uint32_t uButtonDisabledStyleBg = 0x55000000;
-	uint32_t uButtonHighlightedStyleFg = 0xFFFFFFFF;
-	uint32_t uButtonHighlightedStyleBg = 0x55BDBB39;
 
 	uint32_t uHeaderStyleFg = 0xFFFFFFFF;
 	uint32_t uInfoStyleFg = 0xFFFFFFFF;
@@ -131,19 +118,6 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 				section.Get("ItemDownStyleBg", &info.uItemDownStyleBg, info.uItemDownStyleBg);
 				section.Get("ItemDisabledStyleFg", &info.uItemDisabledStyleFg, info.uItemDisabledStyleFg);
 				section.Get("ItemDisabledStyleBg", &info.uItemDisabledStyleBg, info.uItemDisabledStyleBg);
-				section.Get("ItemHighlightedStyleFg", &info.uItemHighlightedStyleFg, info.uItemHighlightedStyleFg);
-				section.Get("ItemHighlightedStyleBg", &info.uItemHighlightedStyleBg, info.uItemHighlightedStyleBg);
-
-				section.Get("ButtonStyleFg", &info.uButtonStyleFg, info.uButtonStyleFg);
-				section.Get("ButtonStyleBg", &info.uButtonStyleBg, info.uButtonStyleBg);
-				section.Get("ButtonFocusedStyleFg", &info.uButtonFocusedStyleFg, info.uButtonFocusedStyleFg);
-				section.Get("ButtonFocusedStyleBg", &info.uButtonFocusedStyleBg, info.uButtonFocusedStyleBg);
-				section.Get("ButtonDownStyleFg", &info.uButtonDownStyleFg, info.uButtonDownStyleFg);
-				section.Get("ButtonDownStyleBg", &info.uButtonDownStyleBg, info.uButtonDownStyleBg);
-				section.Get("ButtonDisabledStyleFg", &info.uButtonDisabledStyleFg, info.uButtonDisabledStyleFg);
-				section.Get("ButtonDisabledStyleBg", &info.uButtonDisabledStyleBg, info.uButtonDisabledStyleBg);
-				section.Get("ButtonHighlightedStyleFg", &info.uButtonHighlightedStyleFg, info.uButtonHighlightedStyleFg);
-				section.Get("ButtonHighlightedStyleBg", &info.uButtonHighlightedStyleBg, info.uButtonHighlightedStyleBg);
 
 				section.Get("HeaderStyleFg", &info.uHeaderStyleFg, info.uHeaderStyleFg);
 				section.Get("InfoStyleFg", &info.uInfoStyleFg, info.uInfoStyleFg);
@@ -205,13 +179,6 @@ void UpdateTheme() {
 	ui_theme.itemFocusedStyle = MakeStyle(themeInfos[i].uItemFocusedStyleFg, themeInfos[i].uItemFocusedStyleBg);
 	ui_theme.itemDownStyle = MakeStyle(themeInfos[i].uItemDownStyleFg, themeInfos[i].uItemDownStyleBg);
 	ui_theme.itemDisabledStyle = MakeStyle(themeInfos[i].uItemDisabledStyleFg, themeInfos[i].uItemDisabledStyleBg);
-	ui_theme.itemHighlightedStyle = MakeStyle(themeInfos[i].uItemHighlightedStyleFg, themeInfos[i].uItemHighlightedStyleBg);
-
-	ui_theme.buttonStyle = MakeStyle(themeInfos[i].uButtonStyleFg, themeInfos[i].uButtonStyleBg);
-	ui_theme.buttonFocusedStyle = MakeStyle(themeInfos[i].uButtonFocusedStyleFg, themeInfos[i].uButtonFocusedStyleBg);
-	ui_theme.buttonDownStyle = MakeStyle(themeInfos[i].uButtonDownStyleFg, themeInfos[i].uButtonDownStyleBg);
-	ui_theme.buttonDisabledStyle = MakeStyle(themeInfos[i].uButtonDisabledStyleFg, themeInfos[i].uButtonDisabledStyleBg);
-	ui_theme.buttonHighlightedStyle = MakeStyle(themeInfos[i].uButtonHighlightedStyleFg, themeInfos[i].uButtonHighlightedStyleBg);
 
 	ui_theme.headerStyle.fgColor = themeInfos[i].uHeaderStyleFg;
 	ui_theme.infoStyle = MakeStyle(themeInfos[i].uInfoStyleFg, themeInfos[i].uInfoStyleBg);

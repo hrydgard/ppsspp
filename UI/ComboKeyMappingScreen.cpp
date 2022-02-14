@@ -212,7 +212,7 @@ void ComboKeyScreen::CreateViews() {
 	vertLayout->Add(new CheckBox(show, co->T("Visible")));
 
 	Choice *icon = vertLayout->Add(new Choice(co->T("Icon")));
-	icon->SetIcon(ImageID(comboKeyImages[cfg->image].i), 1.0f, comboKeyImages[cfg->image].r*PI/180); // Set right icon on the choice
+	icon->SetIcon(ImageID(comboKeyImages[cfg->image].i), 1.0f, comboKeyImages[cfg->image].r*PI/180, false, false); // Set right icon on the choice
 	icon->OnClick.Add([=](UI::EventParams &e) {
 		auto iconScreen = new ButtonIconScreen(co->T("Icon"), &(cfg->image));
 		if (e.v)
@@ -223,7 +223,7 @@ void ComboKeyScreen::CreateViews() {
 	});
 
 	Choice *shape = vertLayout->Add(new Choice(co->T("Shape")));
-	shape->SetIcon(ImageID(comboKeyShapes[cfg->shape].l), 0.6f, comboKeyShapes[cfg->shape].r*PI/180, comboKeyShapes[cfg->shape].f); // Set right icon on the choice
+	shape->SetIcon(ImageID(comboKeyShapes[cfg->shape].l), 0.6f, comboKeyShapes[cfg->shape].r*PI/180, comboKeyShapes[cfg->shape].f, false); // Set right icon on the choice
 	shape->OnClick.Add([=](UI::EventParams &e) {
 		auto shape = new ButtonShapeScreen(co->T("Shape"), &(cfg->shape));
 		if (e.v)
