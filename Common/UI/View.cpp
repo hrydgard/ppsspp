@@ -687,8 +687,15 @@ EventReturn CheckBox::OnClicked(EventParams &e) {
 
 void CheckBox::Draw(UIContext &dc) {
 	Style style = dc.theme->itemStyle;
-	if (!IsEnabled())
+	if (!IsEnabled()) {
 		style = dc.theme->itemDisabledStyle;
+	}
+	if (HasFocus()) {
+		style = dc.theme->itemFocusedStyle;
+	}
+	if (down_) {
+		style = dc.theme->itemDownStyle;
+	}
 	dc.SetFontStyle(dc.theme->uiFont);
 
 	ClickableItem::Draw(dc);

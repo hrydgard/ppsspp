@@ -822,6 +822,12 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 	if (!IsEnabled()) {
 		style = dc.theme->itemDisabledStyle;
 	}
+	if (HasFocus()) {
+		style = dc.theme->itemFocusedStyle;
+	}
+	if (down_) {
+		style = dc.theme->itemDownStyle;
+	}
 	int paddingX = 12;
 	dc.SetFontStyle(dc.theme->uiFont);
 
