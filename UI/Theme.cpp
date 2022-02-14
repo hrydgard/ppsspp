@@ -42,7 +42,7 @@ struct ThemeInfo {
 	uint32_t uItemDownStyleFg = 0xFFFFFFFF;
 	uint32_t uItemDownStyleBg = 0xFFBD9939;
 	uint32_t uItemDisabledStyleFg = 0x80EEEEEE;
-	uint32_t uItemDisabledStyleBg = 0x55E0D4AF;
+	uint32_t uItemDisabledStyleBg = 0x55000000;
 	uint32_t uItemHighlightedStyleFg = 0xFFFFFFFF;
 	uint32_t uItemHighlightedStyleBg = 0x55BDBB39;
 
@@ -53,7 +53,7 @@ struct ThemeInfo {
 	uint32_t uButtonDownStyleFg = 0xFFFFFFFF;
 	uint32_t uButtonDownStyleBg = 0xFFBD9939;
 	uint32_t uButtonDisabledStyleFg = 0x80EEEEEE;
-	uint32_t uButtonDisabledStyleBg = 0x55E0D4AF;
+	uint32_t uButtonDisabledStyleBg = 0x55000000;
 	uint32_t uButtonHighlightedStyleFg = 0xFFFFFFFF;
 	uint32_t uButtonHighlightedStyleBg = 0x55BDBB39;
 

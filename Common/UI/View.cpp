@@ -415,6 +415,9 @@ ClickableItem::ClickableItem(LayoutParams *layoutParams) : Clickable(layoutParam
 void ClickableItem::Draw(UIContext &dc) {
 	Style style = dc.theme->itemStyle;
 
+	if (!IsEnabled()) {
+		style = dc.theme->itemDisabledStyle;
+	}
 	if (HasFocus()) {
 		style = dc.theme->itemFocusedStyle;
 	}
@@ -475,27 +478,13 @@ void Choice::HighlightChanged(bool highlighted){
 }
 
 void Choice::Draw(UIContext &dc) {
-	if (!IsSticky()) {
-		ClickableItem::Draw(dc);
-	} else {
-		Style style = dc.theme->itemStyle;
-		if (highlighted_) {
-			style = dc.theme->itemHighlightedStyle;
-		}
-		if (down_) {
-			style = dc.theme->itemDownStyle;
-		}
-		if (HasFocus()) {
-			style = dc.theme->itemFocusedStyle;
-		}
-
-		DrawBG(dc, style);
-	}
-
 	Style style = dc.theme->itemStyle;
-	if (!IsEnabled()) {
-		style = dc.theme->itemDisabledStyle;
-	}
+	if (HasFocus()) style = dc.theme->itemFocusedStyle;
+	if (down_) style = dc.theme->itemDownStyle;
+	if (!IsEnabled()) style = dc.theme->itemDisabledStyle;
+	if (highlighted_) style = dc.theme->itemHighlightedStyle;
+
+	DrawBG(dc, style);
 
 	if (image_.isValid() && text_.empty()) {
 		dc.Draw()->DrawImageRotated(image_, bounds_.centerX(), bounds_.centerY(), imgScale_, imgRot_, style.fgColor, imgFlipH_);
