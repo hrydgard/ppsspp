@@ -99,11 +99,11 @@ FetchFunc SamplerJitCache::CompileFetch(const SamplerID &id) {
 	if (cpu_info.bSSE4_1) {
 		PMOVZXBD(vecResultReg, R(vecResultReg));
 	} else {
-		X64Reg vecTempReg = regCache_.Find(RegCache::VEC_TEMP0);
+		X64Reg vecTempReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 		PXOR(vecTempReg, R(vecTempReg));
 		PUNPCKLBW(vecResultReg, R(vecTempReg));
 		PUNPCKLWD(vecResultReg, R(vecTempReg));
-		regCache_.Unlock(vecTempReg, RegCache::VEC_TEMP0);
+		regCache_.Release(vecTempReg, RegCache::VEC_TEMP0);
 	}
 	regCache_.Unlock(vecResultReg, RegCache::VEC_RESULT);
 
@@ -1068,17 +1068,17 @@ bool SamplerJitCache::Jit_GetDataQuad(const SamplerID &id, bool level1, int bits
 				if (i != 3)
 					PSRLDQ(byteOffsetReg, 4);
 				if (bitsPerTexel <= 8) {
-					MOVZX(32, 8, temp2Reg, MComplex(baseReg, temp2Reg, SCALE_2, 0));
+					MOVZX(32, 8, temp2Reg, MComplex(baseReg, temp2Reg, SCALE_1, 0));
 					PINSRW(destReg, R(temp2Reg), i * 2);
 				} else if (bitsPerTexel == 16) {
-					PINSRW(destReg, MComplex(baseReg, temp2Reg, SCALE_2, 0), i * 2);
+					PINSRW(destReg, MComplex(baseReg, temp2Reg, SCALE_1, 0), i * 2);
 				} else if (bitsPerTexel == 32) {
 					if (i == 0) {
-						MOVD_xmm(destReg, MComplex(baseReg, temp2Reg, SCALE_2, 0));
+						MOVD_xmm(destReg, MComplex(baseReg, temp2Reg, SCALE_1, 0));
 					} else {
 						// Maybe a temporary would be better, but this path should be rare.
-						PINSRW(destReg, MComplex(baseReg, temp2Reg, SCALE_2, 0), i * 2);
-						PINSRW(destReg, MComplex(baseReg, temp2Reg, SCALE_2, 2), i * 2 + 1);
+						PINSRW(destReg, MComplex(baseReg, temp2Reg, SCALE_1, 0), i * 2);
+						PINSRW(destReg, MComplex(baseReg, temp2Reg, SCALE_1, 2), i * 2 + 1);
 					}
 				}
 			}
@@ -1410,18 +1410,12 @@ bool SamplerJitCache::Jit_BlendQuad(const SamplerID &id, bool level1) {
 		X64Reg bottomReg = regCache_.Alloc(RegCache::VEC_TEMP1);
 
 		X64Reg quadReg = regCache_.Find(level1 ? RegCache::VEC_RESULT1 : RegCache::VEC_RESULT);
-		if (!cpu_info.bSSE4_1) {
-			X64Reg zeroReg = GetZeroVec();
-			PSHUFD(topReg, R(quadReg), _MM_SHUFFLE(0, 0, 1, 0));
-			PSHUFD(bottomReg, R(quadReg), _MM_SHUFFLE(0, 0, 3, 2));
-			PUNPCKLBW(topReg, R(zeroReg));
-			PUNPCKLBW(bottomReg, R(zeroReg));
-			regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
-		} else {
-			PSHUFD(bottomReg, R(quadReg), _MM_SHUFFLE(0, 0, 3, 2));
-			PMOVZXBW(topReg, R(quadReg));
-			PMOVZXBW(bottomReg, R(bottomReg));
-		}
+		X64Reg zeroReg = GetZeroVec();
+		PSHUFD(topReg, R(quadReg), _MM_SHUFFLE(0, 0, 1, 0));
+		PSHUFD(bottomReg, R(quadReg), _MM_SHUFFLE(0, 0, 3, 2));
+		PUNPCKLBW(topReg, R(zeroReg));
+		PUNPCKLBW(bottomReg, R(zeroReg));
+		regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
 		if (!level1) {
 			regCache_.Unlock(quadReg, RegCache::VEC_RESULT);
 			regCache_.ForceRelease(RegCache::VEC_RESULT);
@@ -1440,7 +1434,7 @@ bool SamplerJitCache::Jit_BlendQuad(const SamplerID &id, bool level1) {
 		// Now subtract 0x10 - frac_u in the L lanes only: 00000000 LLLLLLLL.
 		MOVDQA(fracMulReg, M(const10Low_));
 		PSUBW(fracMulReg, R(fracReg));
-		// Then we just shift and OR in the original frac_u.
+		// Then we just put the original frac_u in the upper bits.
 		PUNPCKLQDQ(fracMulReg, R(fracReg));
 		regCache_.Release(fracReg, RegCache::VEC_TEMP2);
 
@@ -1457,7 +1451,7 @@ bool SamplerJitCache::Jit_BlendQuad(const SamplerID &id, bool level1) {
 		if (level1) {
 			PSHUFLW(fracReg, R(allFracReg), _MM_SHUFFLE(3, 3, 3, 3));
 		} else {
-			PSHUFLW(fracReg, R(allFracReg), _MM_SHUFFLE(2, 2, 2, 2));
+			PSHUFLW(fracReg, R(allFracReg), _MM_SHUFFLE(1, 1, 1, 1));
 		}
 		PSHUFD(fracReg, R(fracReg), _MM_SHUFFLE(0, 0, 0, 0));
 		regCache_.Unlock(allFracReg, RegCache::VEC_FRAC);
@@ -3024,7 +3018,8 @@ bool SamplerJitCache::Jit_PrepareDataDirectOffsets(const SamplerID &id, RegCache
 	X64Reg bufwVecReg = regCache_.Alloc(RegCache::VEC_TEMP0);
 	if (!id.useStandardBufw || id.hasAnyMips) {
 		// Spread bufw into each lane.
-		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR); if (cpu_info.bAVX2) {
+		X64Reg bufwReg = regCache_.Find(RegCache::GEN_ARG_BUFW_PTR);
+		if (cpu_info.bAVX2) {
 			VPBROADCASTD(128, bufwVecReg, MDisp(bufwReg, level1 ? 4 : 0));
 		} else {
 			MOVD_xmm(bufwVecReg, MDisp(bufwReg, level1 ? 4 : 0));
