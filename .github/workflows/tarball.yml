@@ -1,0 +1,48 @@
+name: Generate Source Tarball
+
+# Trigger whenever a release is created
+on:
+  release:
+    types:
+      - created
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+
+    - name: archive
+      id: archive
+      run: |
+        VERSION=$(printf "%s\n" ${{ github.event.release.tag_name }} | sed 's/^v//')
+        PKGNAME="ppsspp-$VERSION"
+        mkdir -p /tmp/$PKGNAME
+        mv * /tmp/$PKGNAME
+        mv /tmp/$PKGNAME .
+        find $PKGNAME/ffmpeg -name '*.a' -delete || true
+        find $PKGNAME/ffmpeg -name '*.lib' -delete || true
+        find $PKGNAME/ext -name '*.dylib' -delete || true
+        find $PKGNAME/ext -name '*.lib' -delete || true
+        find $PKGNAME/ext -name '*.so.*' -delete || true
+        find $PKGNAME/dx9sdk -name '*.lib' -delete || true
+        find $PKGNAME/dx9sdk -name '*.dll' -delete || true
+        rm -rf $PKGNAME/ext/rapidjson/thirdparty/gtest || true
+        sed -i "s;unknown;${VERSION};" $PKGNAME/git-version.cmake || true
+        TARBALL=$PKGNAME.tar.xz
+        tar cJf $TARBALL $PKGNAME
+        echo "::set-output name=tarball::$TARBALL"
+
+    - name: upload tarball
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./${{ steps.archive.outputs.tarball }}
+        asset_name: ${{ steps.archive.outputs.tarball }}
+        asset_content_type: application/x-xz
