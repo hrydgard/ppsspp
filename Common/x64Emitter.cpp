@@ -1698,7 +1698,7 @@ void XEmitter::PSRLW(X64Reg dest, X64Reg reg, int shift) {
 		}
 		MOVDQA(dest, R(reg));
 	}
-	WriteSSEOp(0x66, 0x71, (X64Reg)2, R(reg));
+	WriteSSEOp(0x66, 0x71, (X64Reg)2, R(dest));
 	Write8(shift);
 }
 
@@ -1710,7 +1710,7 @@ void XEmitter::PSRLD(X64Reg dest, X64Reg reg, int shift) {
 		}
 		MOVDQA(dest, R(reg));
 	}
-	WriteSSEOp(0x66, 0x72, (X64Reg)2, R(reg));
+	WriteSSEOp(0x66, 0x72, (X64Reg)2, R(dest));
 	Write8(shift);
 }
 
@@ -1722,7 +1722,7 @@ void XEmitter::PSRLQ(X64Reg dest, X64Reg reg, int shift) {
 		}
 		MOVDQA(dest, R(reg));
 	}
-	WriteSSEOp(0x66, 0x73, (X64Reg)2, R(reg));
+	WriteSSEOp(0x66, 0x73, (X64Reg)2, R(dest));
 	Write8(shift);
 }
 
@@ -1734,7 +1734,7 @@ void XEmitter::PSRLDQ(X64Reg dest, X64Reg reg, int shift) {
 		}
 		MOVDQA(dest, R(reg));
 	}
-	WriteSSEOp(0x66, 0x73, (X64Reg)3, R(reg));
+	WriteSSEOp(0x66, 0x73, (X64Reg)3, R(dest));
 	Write8(shift);
 }
 
@@ -1750,7 +1750,7 @@ void XEmitter::PSLLW(X64Reg dest, X64Reg reg, int shift) {
 		}
 		MOVDQA(dest, R(reg));
 	}
-	WriteSSEOp(0x66, 0x71, (X64Reg)6, R(reg));
+	WriteSSEOp(0x66, 0x71, (X64Reg)6, R(dest));
 	Write8(shift);
 }
 
@@ -1762,7 +1762,7 @@ void XEmitter::PSLLD(X64Reg dest, X64Reg reg, int shift) {
 		}
 		MOVDQA(dest, R(reg));
 	}
-	WriteSSEOp(0x66, 0x72, (X64Reg)6, R(reg));
+	WriteSSEOp(0x66, 0x72, (X64Reg)6, R(dest));
 	Write8(shift);
 }
 
@@ -1774,7 +1774,7 @@ void XEmitter::PSLLQ(X64Reg dest, X64Reg reg, int shift) {
 		}
 		MOVDQA(dest, R(reg));
 	}
-	WriteSSEOp(0x66, 0x73, (X64Reg)6, R(reg));
+	WriteSSEOp(0x66, 0x73, (X64Reg)6, R(dest));
 	Write8(shift);
 }
 
@@ -1786,7 +1786,7 @@ void XEmitter::PSLLDQ(X64Reg dest, X64Reg reg, int shift) {
 		}
 		MOVDQA(dest, R(reg));
 	}
-	WriteSSEOp(0x66, 0x73, (X64Reg)7, R(reg));
+	WriteSSEOp(0x66, 0x73, (X64Reg)7, R(dest));
 	Write8(shift);
 }
 
@@ -1802,7 +1802,7 @@ void XEmitter::PSRAW(X64Reg dest, X64Reg reg, int shift) {
 		}
 		MOVDQA(dest, R(reg));
 	}
-	WriteSSEOp(0x66, 0x71, (X64Reg)4, R(reg));
+	WriteSSEOp(0x66, 0x71, (X64Reg)4, R(dest));
 	Write8(shift);
 }
 
@@ -1814,7 +1814,7 @@ void XEmitter::PSRAD(X64Reg dest, X64Reg reg, int shift) {
 		}
 		MOVDQA(dest, R(reg));
 	}
-	WriteSSEOp(0x66, 0x72, (X64Reg)4, R(reg));
+	WriteSSEOp(0x66, 0x72, (X64Reg)4, R(dest));
 	Write8(shift);
 }
 
