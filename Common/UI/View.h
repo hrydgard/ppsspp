@@ -100,17 +100,10 @@ struct Theme {
 	ImageID whiteImage;
 	ImageID dropShadow4Grid;
 
-	Style buttonStyle;
-	Style buttonFocusedStyle;
-	Style buttonDownStyle;
-	Style buttonDisabledStyle;
-	Style buttonHighlightedStyle;
-
 	Style itemStyle;
 	Style itemDownStyle;
 	Style itemFocusedStyle;
 	Style itemDisabledStyle;
-	Style itemHighlightedStyle;
 
 	Style headerStyle;
 	Style infoStyle;
@@ -716,14 +709,14 @@ public:
 		: ClickableItem(layoutParams), image_(image), rightIconImage_(ImageID::invalid()), imgScale_(imgScale), imgRot_(imgRot), imgFlipH_(imgFlipH) {}
 
 	void Click() override;
-	virtual void HighlightChanged(bool highlighted);
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
 	virtual void SetCentered(bool c) {
 		centered_ = c;
 	}
-	virtual void SetIcon(ImageID iconImage, float scale = 1.0f, float rot = 0.0f, bool flipH = false) {
+	virtual void SetIcon(ImageID iconImage, float scale = 1.0f, float rot = 0.0f, bool flipH = false, bool keepColor = true) {
+		rightIconKeepColor_ = keepColor;
 		rightIconScale_ = scale;
 		rightIconRot_ = rot;
 		rightIconFlipH_ = flipH;
@@ -742,9 +735,9 @@ protected:
 	float rightIconScale_;
 	float rightIconRot_;
 	bool rightIconFlipH_;
+	bool rightIconKeepColor_;
 	Padding textPadding_;
 	bool centered_ = false;
-	bool highlighted_ = false;
 	float imgScale_ = 1.0f;
 	float imgRot_ = 0.0f;
 	bool imgFlipH_ = false;

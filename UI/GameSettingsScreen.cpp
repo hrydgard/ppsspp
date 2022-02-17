@@ -51,6 +51,7 @@
 #include "UI/TiltEventProcessor.h"
 #include "UI/GPUDriverTestScreen.h"
 #include "UI/MemStickScreen.h"
+#include "UI/Theme.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/OSVersion.h"
@@ -191,6 +192,7 @@ bool PathToVisualUsbPath(Path path, std::string &outPath) {
 
 void GameSettingsScreen::CreateViews() {
 	ReloadAllPostShaderInfo(screenManager()->getDrawContext());
+	ReloadAllThemeInfo();
 
 	if (editThenRestore_) {
 		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, 0);
@@ -219,6 +221,7 @@ void GameSettingsScreen::CreateViews() {
 	auto dev = GetI18NCategory("Developer");
 	auto ri = GetI18NCategory("RemoteISO");
 	auto ps = GetI18NCategory("PostShaders");
+	auto th = GetI18NCategory("Themes");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -881,6 +884,14 @@ void GameSettingsScreen::CreateViews() {
 	if (backgroundChoice_ != nullptr) {
 		backgroundChoice_->OnClick.Handle(this, &GameSettingsScreen::OnChangeBackground);
 	}
+
+	PopupMultiChoiceDynamic *theme = systemSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sThemeName, sy->T("Color Theme"), GetThemeInfoNames(), th->GetName(), screenManager()));
+	theme->OnChoice.Add([=](EventParams &e) {
+		UpdateTheme();
+
+		return UI::EVENT_CONTINUE;
+	});
+
 	static const char *backgroundAnimations[] = { "No animation", "Floating symbols", "Recent games", "Waves", "Moving background" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iBackgroundAnimation, sy->T("UI background animation"), backgroundAnimations, 0, ARRAY_SIZE(backgroundAnimations), sy->GetName(), screenManager()));
 

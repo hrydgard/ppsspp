@@ -115,6 +115,7 @@
 #include "UI/RemoteISOScreen.h"
 #include "UI/TiltEventProcessor.h"
 #include "UI/TextureUtil.h"
+#include "UI/Theme.h"
 
 #if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
 #include "Qt/QtHost.h"
@@ -131,7 +132,6 @@
 
 // The new UI framework, for initialization
 
-static UI::Theme ui_theme;
 static Atlas g_ui_atlas;
 static Atlas g_font_atlas;
 
@@ -873,49 +873,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	restarting = false;
 }
 
-static UI::Style MakeStyle(uint32_t fg, uint32_t bg) {
-	UI::Style s;
-	s.background = UI::Drawable(bg);
-	s.fgColor = fg;
-	return s;
-}
-
-static void UIThemeInit() {
-#if defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP) || defined(USING_QT_UI)
-	ui_theme.uiFont = UI::FontStyle(FontID("UBUNTU24"), g_Config.sFont.c_str(), 22);
-	ui_theme.uiFontSmall = UI::FontStyle(FontID("UBUNTU24"), g_Config.sFont.c_str(), 15);
-	ui_theme.uiFontSmaller = UI::FontStyle(FontID("UBUNTU24"), g_Config.sFont.c_str(), 12);
-#else
-	ui_theme.uiFont = UI::FontStyle(FontID("UBUNTU24"), "", 20);
-	ui_theme.uiFontSmall = UI::FontStyle(FontID("UBUNTU24"), "", 14);
-	ui_theme.uiFontSmaller = UI::FontStyle(FontID("UBUNTU24"), "", 11);
-#endif
-
-	ui_theme.checkOn = ImageID("I_CHECKEDBOX");
-	ui_theme.checkOff = ImageID("I_SQUARE");
-	ui_theme.whiteImage = ImageID("I_SOLIDWHITE");
-	ui_theme.sliderKnob = ImageID("I_CIRCLE");
-	ui_theme.dropShadow4Grid = ImageID("I_DROP_SHADOW");
-
-	ui_theme.itemStyle = MakeStyle(g_Config.uItemStyleFg, g_Config.uItemStyleBg);
-	ui_theme.itemFocusedStyle = MakeStyle(g_Config.uItemFocusedStyleFg, g_Config.uItemFocusedStyleBg);
-	ui_theme.itemDownStyle = MakeStyle(g_Config.uItemDownStyleFg, g_Config.uItemDownStyleBg);
-	ui_theme.itemDisabledStyle = MakeStyle(g_Config.uItemDisabledStyleFg, g_Config.uItemDisabledStyleBg);
-	ui_theme.itemHighlightedStyle = MakeStyle(g_Config.uItemHighlightedStyleFg, g_Config.uItemHighlightedStyleBg);
-
-	ui_theme.buttonStyle = MakeStyle(g_Config.uButtonStyleFg, g_Config.uButtonStyleBg);
-	ui_theme.buttonFocusedStyle = MakeStyle(g_Config.uButtonFocusedStyleFg, g_Config.uButtonFocusedStyleBg);
-	ui_theme.buttonDownStyle = MakeStyle(g_Config.uButtonDownStyleFg, g_Config.uButtonDownStyleBg);
-	ui_theme.buttonDisabledStyle = MakeStyle(g_Config.uButtonDisabledStyleFg, g_Config.uButtonDisabledStyleBg);
-	ui_theme.buttonHighlightedStyle = MakeStyle(g_Config.uButtonHighlightedStyleFg, g_Config.uButtonHighlightedStyleBg);
-
-	ui_theme.headerStyle.fgColor = g_Config.uHeaderStyleFg;
-	ui_theme.infoStyle = MakeStyle(g_Config.uInfoStyleFg, g_Config.uInfoStyleBg);
-
-	ui_theme.popupTitle.fgColor = g_Config.uPopupTitleStyleFg;
-	ui_theme.popupStyle = MakeStyle(g_Config.uPopupStyleFg, g_Config.uPopupStyleBg);
-}
-
 void RenderOverlays(UIContext *dc, void *userdata);
 bool CreateGlobalPipelines();
 
@@ -962,10 +919,9 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	ui_draw2d_front.SetAtlas(&g_ui_atlas);
 	ui_draw2d_front.SetFontAtlas(&g_font_atlas);
 
-	UIThemeInit();
-
+	UpdateTheme();
 	uiContext = new UIContext();
-	uiContext->theme = &ui_theme;
+	uiContext->theme = GetTheme();
 
 	ui_draw2d.Init(g_draw, texColorPipeline);
 	ui_draw2d_front.Init(g_draw, texColorPipeline);

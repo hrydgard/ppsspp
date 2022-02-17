@@ -415,6 +415,9 @@ ClickableItem::ClickableItem(LayoutParams *layoutParams) : Clickable(layoutParam
 void ClickableItem::Draw(UIContext &dc) {
 	Style style = dc.theme->itemStyle;
 
+	if (!IsEnabled()) {
+		style = dc.theme->itemDisabledStyle;
+	}
 	if (HasFocus()) {
 		style = dc.theme->itemFocusedStyle;
 	}
@@ -470,32 +473,13 @@ float Choice::CalculateTextScale(const UIContext &dc, float availWidth) const {
 	return 1.0f;
 }
 
-void Choice::HighlightChanged(bool highlighted){
-	highlighted_ = highlighted;
-}
-
 void Choice::Draw(UIContext &dc) {
-	if (!IsSticky()) {
-		ClickableItem::Draw(dc);
-	} else {
-		Style style = dc.theme->itemStyle;
-		if (highlighted_) {
-			style = dc.theme->itemHighlightedStyle;
-		}
-		if (down_) {
-			style = dc.theme->itemDownStyle;
-		}
-		if (HasFocus()) {
-			style = dc.theme->itemFocusedStyle;
-		}
-
-		DrawBG(dc, style);
-	}
-
 	Style style = dc.theme->itemStyle;
-	if (!IsEnabled()) {
-		style = dc.theme->itemDisabledStyle;
-	}
+	if (HasFocus()) style = dc.theme->itemFocusedStyle;
+	if (down_) style = dc.theme->itemDownStyle;
+	if (!IsEnabled()) style = dc.theme->itemDisabledStyle;
+
+	DrawBG(dc, style);
 
 	if (image_.isValid() && text_.empty()) {
 		dc.Draw()->DrawImageRotated(image_, bounds_.centerX(), bounds_.centerY(), imgScale_, imgRot_, style.fgColor, imgFlipH_);
@@ -510,7 +494,7 @@ void Choice::Draw(UIContext &dc) {
 			paddingX += image->w + 6;
 			availWidth -= image->w + 6;
 			// TODO: Use scale rotation and flip here as well (DrawImageRotated is always ALIGN_CENTER for now)
-			dc.Draw()->DrawImage(image_, bounds_.x + 6, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
+			dc.Draw()->DrawImage(image_, bounds_.x + 6, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 		}
 
 		float scale = CalculateTextScale(dc, availWidth);
@@ -520,7 +504,8 @@ void Choice::Draw(UIContext &dc) {
 			dc.DrawTextRect(text_.c_str(), bounds_, style.fgColor, ALIGN_CENTER | FLAG_WRAP_TEXT);
 		} else {
 			if (rightIconImage_.isValid()) {
-				dc.Draw()->DrawImageRotated(rightIconImage_, bounds_.x2() - 32 - paddingX, bounds_.centerY(), rightIconScale_, rightIconRot_, style.fgColor, rightIconFlipH_);
+				uint32_t col = rightIconKeepColor_ ? 0xffffffff : style.fgColor; // Don't apply theme to gold icon
+				dc.Draw()->DrawImageRotated(rightIconImage_, bounds_.x2() - 32 - paddingX, bounds_.centerY(), rightIconScale_, rightIconRot_, col, rightIconFlipH_);
 			}
 			Bounds textBounds(bounds_.x + paddingX + textPadding_.left, bounds_.y, availWidth, bounds_.h);
 			dc.DrawTextRect(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
@@ -553,7 +538,7 @@ void InfoItem::Draw(UIContext &dc) {
 	UI::Style style = HasFocus() ? dc.theme->itemFocusedStyle : dc.theme->infoStyle;
 
 	if (choiceStyle_) {
-		style = HasFocus() ? dc.theme->buttonFocusedStyle : dc.theme->buttonStyle;
+		style = HasFocus() ? dc.theme->itemFocusedStyle : dc.theme->itemStyle;
 	}
 
 
@@ -702,8 +687,15 @@ EventReturn CheckBox::OnClicked(EventParams &e) {
 
 void CheckBox::Draw(UIContext &dc) {
 	Style style = dc.theme->itemStyle;
-	if (!IsEnabled())
+	if (!IsEnabled()) {
 		style = dc.theme->itemDisabledStyle;
+	}
+	if (HasFocus()) {
+		style = dc.theme->itemFocusedStyle;
+	}
+	if (down_) {
+		style = dc.theme->itemDownStyle;
+	}
 	dc.SetFontStyle(dc.theme->uiFont);
 
 	ClickableItem::Draw(dc);
@@ -821,11 +813,11 @@ void Button::Click() {
 }
 
 void Button::Draw(UIContext &dc) {
-	Style style = dc.theme->buttonStyle;
+	Style style = dc.theme->itemStyle;
 
-	if (HasFocus()) style = dc.theme->buttonFocusedStyle;
-	if (down_) style = dc.theme->buttonDownStyle;
-	if (!IsEnabled()) style = dc.theme->buttonDisabledStyle;
+	if (HasFocus()) style = dc.theme->itemFocusedStyle;
+	if (down_) style = dc.theme->itemDownStyle;
+	if (!IsEnabled()) style = dc.theme->itemDisabledStyle;
 
 	// dc.Draw()->DrawImage4Grid(style.image, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), style.bgColor);
 	DrawBG(dc, style);
@@ -840,13 +832,13 @@ void Button::Draw(UIContext &dc) {
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.SetFontScale(scale_, scale_);
 	if (imageID_.isValid() && (ignoreText_ || text_.empty())) {
-		dc.Draw()->DrawImage(imageID_, bounds_.centerX(), bounds_.centerY(), scale_, 0xFFFFFFFF, ALIGN_CENTER);
+		dc.Draw()->DrawImage(imageID_, bounds_.centerX(), bounds_.centerY(), scale_, style.fgColor, ALIGN_CENTER);
 	} else if (!text_.empty()) {
 		float textX = bounds_.centerX();
 		if (imageID_.isValid()) {
 			const AtlasImage *img = dc.Draw()->GetAtlas()->getImage(imageID_);
 			if (img) {
-				dc.Draw()->DrawImage(imageID_, bounds_.centerX() - tw / 2 - 5, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
+				dc.Draw()->DrawImage(imageID_, bounds_.centerX() - tw / 2 - 5, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
 				textX += img->w / 2.0f;
 			}
 		}
@@ -884,13 +876,13 @@ void RadioButton::Click() {
 }
 
 void RadioButton::Draw(UIContext &dc) {
-	Style style = dc.theme->buttonStyle;
+	Style style = dc.theme->itemStyle;
 
 	bool checked = *value_ == thisButtonValue_;
 
-	if (HasFocus()) style = dc.theme->buttonFocusedStyle;
-	if (down_) style = dc.theme->buttonDownStyle;
-	if (!IsEnabled()) style = dc.theme->buttonDisabledStyle;
+	if (HasFocus()) style = dc.theme->itemFocusedStyle;
+	if (down_) style = dc.theme->itemDownStyle;
+	if (!IsEnabled()) style = dc.theme->itemDisabledStyle;
 
 	DrawBG(dc, style);
 

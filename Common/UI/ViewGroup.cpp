@@ -1505,12 +1505,6 @@ void ChoiceStrip::SetSelection(int sel, bool triggerClick) {
 	}
 }
 
-void ChoiceStrip::HighlightChoice(int choice) {
-	if (choice < (int)views_.size()) {
-		Choice(choice)->HighlightChanged(true);
-	}
-}
-
 void ChoiceStrip::EnableChoice(int choice, bool enabled) {
 	if (choice < (int)views_.size()) {
 		Choice(choice)->SetEnabled(enabled);

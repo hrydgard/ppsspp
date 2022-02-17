@@ -953,7 +953,7 @@ public:
 	void Draw(UIContext &dc) override {
 		uint32_t c = 0xFFFFFFFF;
 		if (HasFocus() || Selected())
-			c = dc.theme->buttonFocusedStyle.background.color;
+			c = dc.theme->itemFocusedStyle.background.color;
 
 		float scales[2]{};
 		if (bgImg_.isValid())

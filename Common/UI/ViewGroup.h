@@ -330,7 +330,6 @@ public:
 	int GetSelection() const { return selected_; }
 	void SetSelection(int sel, bool triggerClick);
 
-	void HighlightChoice(int choice);
 	void EnableChoice(int choice, bool enabled);
 
 	bool Key(const KeyInput &input) override;
