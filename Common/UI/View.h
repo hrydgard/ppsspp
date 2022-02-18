@@ -110,6 +110,8 @@ struct Theme {
 
 	Style popupTitle;
 	Style popupStyle;
+
+	uint32_t backgroundColor;
 };
 
 // The four cardinal directions should be enough, plus Prev/Next in "element order".
