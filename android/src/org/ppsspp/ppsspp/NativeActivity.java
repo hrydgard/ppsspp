@@ -451,9 +451,7 @@ public abstract class NativeActivity extends Activity {
 		sendInitialGrants();
 
 		// OK, config should be initialized, we can query for screen rotation.
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD) {
-			updateScreenRotation("Initialize");
-		}
+		updateScreenRotation("Initialize");
 
 		// Detect OpenGL support.
 		// We don't currently use this detection for anything but good to have in the log.
@@ -835,9 +833,7 @@ public abstract class NativeActivity extends Activity {
 		}
 
 		// OK, config should be initialized, we can query for screen rotation.
-		if (javaGL || Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD) {
-			updateScreenRotation("onResume");
-		}
+		updateScreenRotation("onResume");
 
 		Log.i(TAG, "onResume");
 		if (javaGL) {
@@ -1151,7 +1147,7 @@ public abstract class NativeActivity extends Activity {
 					}
 				}
 			} catch (Exception e) {
-				Log.w(TAG, "Exception receiving image: " + e.toString());
+				Log.w(TAG, "Exception receiving image: " + e);
 			}
 		} else if (requestCode == RESULT_OPEN_DOCUMENT) {
 			Uri selectedFile = data.getData();
@@ -1466,9 +1462,7 @@ public abstract class NativeActivity extends Activity {
 					Log.i(TAG, "Must recreate activity on rotation");
 				}
 			} else {
-				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD) {
-					updateScreenRotation("rotate");
-				}
+				updateScreenRotation("rotate");
 			}
 		} else if (command.equals("sustainedPerfMode")) {
 			updateSustainedPerformanceMode();
