@@ -334,7 +334,7 @@ void DrawBackground(UIContext &dc, float alpha, float x, float y, float z) {
 	} else {
 		// I_BG original color: 0xFF754D24
 		ImageID img = ImageID("I_BG");
-		ui_draw2d.DrawImageStretch(img, dc.GetBounds(), bgColor & 0xFF754D24);
+		ui_draw2d.DrawImageStretch(img, dc.GetBounds(), bgColor & dc.theme->backgroundColor);
 	}
 
 #if PPSSPP_PLATFORM(IOS)
