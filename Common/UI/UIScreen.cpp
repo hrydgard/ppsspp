@@ -328,7 +328,7 @@ void PopupScreen::CreateViews() {
 
 	root_->Add(box_);
 	box_->SetBG(dc.theme->popupStyle.background);
-	box_->SetHasDropShadow(true);
+	box_->SetHasDropShadow(hasDropShadow_);
 	// Since we scale a bit, make the dropshadow bleed past the edges.
 	box_->SetDropShadowExpand(std::max(dp_xres, dp_yres));
 
@@ -528,8 +528,9 @@ std::string PopupSliderChoice::ValueText() const {
 EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
 	restoreFocus_ = HasFocus();
 
-	SliderFloatPopupScreen *popupScreen = new SliderFloatPopupScreen(value_, minValue_, maxValue_, ChopTitle(text_), step_, units_);
+	SliderFloatPopupScreen *popupScreen = new SliderFloatPopupScreen(value_, minValue_, maxValue_, ChopTitle(text_), step_, units_, liveUpdate_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoiceFloat::HandleChange);
+	popupScreen->SetHasDropShadow(hasDropShadow_);
 	if (e.v)
 		popupScreen->SetPopupOrigin(e.v);
 	screenManager_->push(popupScreen);
@@ -684,6 +685,9 @@ EventReturn SliderFloatPopupScreen::OnDecrease(EventParams &params) {
 	sprintf(temp, "%0.3f", sliderValue_);
 	edit_->SetText(temp);
 	changing_ = false;
+	if (liveUpdate_) {
+		*value_ = sliderValue_;
+	}
 	return EVENT_DONE;
 }
 
@@ -698,6 +702,9 @@ EventReturn SliderFloatPopupScreen::OnIncrease(EventParams &params) {
 	sprintf(temp, "%0.3f", sliderValue_);
 	edit_->SetText(temp);
 	changing_ = false;
+	if (liveUpdate_) {
+		*value_ = sliderValue_;
+	}
 	return EVENT_DONE;
 }
 
@@ -707,6 +714,9 @@ EventReturn SliderFloatPopupScreen::OnSliderChange(EventParams &params) {
 	sprintf(temp, "%0.3f", sliderValue_);
 	edit_->SetText(temp);
 	changing_ = false;
+	if (liveUpdate_) {
+		*value_ = sliderValue_;
+	}
 	return EVENT_DONE;
 }
 
@@ -714,6 +724,9 @@ EventReturn SliderFloatPopupScreen::OnTextChange(EventParams &params) {
 	if (!changing_) {
 		sliderValue_ = atof(edit_->GetText().c_str());
 		slider_->Clamp();
+		if (liveUpdate_) {
+			*value_ = sliderValue_;
+		}
 	}
 	return EVENT_DONE;
 }
@@ -736,6 +749,8 @@ void SliderFloatPopupScreen::OnCompleted(DialogResult result) {
 		e.a = (int)*value_;
 		e.f = *value_;
 		OnChange.Trigger(e);
+	} else {
+		*value_ = originalValue_;
 	}
 }
 

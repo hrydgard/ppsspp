@@ -715,10 +715,16 @@ extern const UniformBufferDesc UBPresetDesc;
 
 struct VsTexColUB {
 	float WorldViewProj[16];
+	float tint;
+	float saturation;
+	float pad[2];
 };
 extern const UniformBufferDesc vsTexColBufDesc;
 struct VsColUB {
 	float WorldViewProj[16];
+	float tint;
+	float saturation;
+	float pad[2];
 };
 extern const UniformBufferDesc vsColBufDesc;
 

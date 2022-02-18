@@ -73,7 +73,7 @@ struct UniformDesc {
 	int16_t vertexReg;        // For D3D
 	int16_t fragmentReg;      // For D3D
 	UniformType type;
-	int16_t offset;
+	int16_t offset;  // in bytes
 	// TODO: Support array elements etc.
 };
 

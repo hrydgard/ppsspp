@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "Core/Config.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/UI/UI.h"
@@ -56,6 +57,8 @@ void UIContext::BeginFrame() {
 	}
 	uidrawbufferTop_->SetCurZ(0.0f);
 	uidrawbuffer_->SetCurZ(0.0f);
+	uidrawbuffer_->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
+	uidrawbufferTop_->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
 	ActivateTopScissor();
 }
 

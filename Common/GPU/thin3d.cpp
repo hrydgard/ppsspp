@@ -226,6 +226,7 @@ static const std::vector<ShaderSource> vsCol = {
 	"varying vec4 oColor0;\n"
 
 	"uniform mat4 WorldViewProj;\n"
+	"uniform vec2 TintSaturation;\n"
 	"void main() {\n"
 	"  gl_Position = WorldViewProj * vec4(Position, 1.0);\n"
 	"  oColor0 = Color0;\n"
@@ -235,6 +236,7 @@ static const std::vector<ShaderSource> vsCol = {
 	"struct VS_INPUT { float3 Position : POSITION; float4 Color0 : COLOR0; };\n"
 	"struct VS_OUTPUT { float4 Position : POSITION; float4 Color0 : COLOR0; };\n"
 	"float4x4 WorldViewProj : register(c0);\n"
+	"float2 TintSaturation : register(c4);\n"
 	"VS_OUTPUT main(VS_INPUT input) {\n"
 	"  VS_OUTPUT output;\n"
 	"  output.Position = mul(float4(input.Position, 1.0), WorldViewProj);\n"
@@ -247,6 +249,7 @@ static const std::vector<ShaderSource> vsCol = {
 	"struct VS_OUTPUT { float4 Color0 : COLOR0; float4 Position : SV_Position; };\n"
 	"cbuffer ConstantBuffer : register(b0) {\n"
 	"  matrix WorldViewProj;\n"
+	"  float2 TintSaturation;\n"
 	"};\n"
 	"VS_OUTPUT main(VS_INPUT input) {\n"
 	"  VS_OUTPUT output;\n"
@@ -256,94 +259,171 @@ static const std::vector<ShaderSource> vsCol = {
 	"}\n"
 	},
 	{ ShaderLanguage::GLSL_VULKAN,
-	"#version 450\n"
-	"#extension GL_ARB_separate_shader_objects : enable\n"
-	"#extension GL_ARB_shading_language_420pack : enable\n"
-	"layout (std140, set = 0, binding = 0) uniform bufferVals {\n"
-	"    mat4 WorldViewProj;\n"
-	"} myBufferVals;\n"
-	"layout (location = 0) in vec4 pos;\n"
-	"layout (location = 1) in vec4 inColor;\n"
-	"layout (location = 0) out vec4 outColor;\n"
-	"out gl_PerVertex { vec4 gl_Position; };\n"
-	"void main() {\n"
-	"   outColor = inColor;\n"
-	"   gl_Position = myBufferVals.WorldViewProj * pos;\n"
-	"}\n"
+R"(#version 450
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_420pack : enable
+layout (std140, set = 0, binding = 0) uniform bufferVals {
+	mat4 WorldViewProj;
+	vec2 TintSaturation;
+} myBufferVals;
+layout (location = 0) in vec4 pos;
+layout (location = 1) in vec4 inColor;
+layout (location = 0) out vec4 outColor;
+out gl_PerVertex { vec4 gl_Position; };
+void main() {
+    outColor = inColor;
+	gl_Position = myBufferVals.WorldViewProj * pos;
+}
+)"
 	}
 };
 
 const UniformBufferDesc vsColBufDesc { sizeof(VsColUB), {
-	{ "WorldViewProj", 0, -1, UniformType::MATRIX4X4, 0 }
+	{ "WorldViewProj", 0, -1, UniformType::MATRIX4X4, 0 },
+	{ "TintSaturation", 4, -1, UniformType::FLOAT2, 64 },
 } };
 
 static const std::vector<ShaderSource> vsTexCol = {
 	{ GLSL_1xx,
-	"#if __VERSION__ >= 130\n"
-	"#define attribute in\n"
-	"#define varying out\n"
-	"#endif\n"
-	"attribute vec3 Position;\n"
-	"attribute vec4 Color0;\n"
-	"attribute vec2 TexCoord0;\n"
-	"varying vec4 oColor0;\n"
-	"varying vec2 oTexCoord0;\n"
-	"uniform mat4 WorldViewProj;\n"
-	"void main() {\n"
-	"  gl_Position = WorldViewProj * vec4(Position, 1.0);\n"
-	"  oColor0 = Color0;\n"
-	"  oTexCoord0 = TexCoord0;\n"
-	"}\n"
+	R"(
+#if __VERSION__ >= 130
+#define attribute in
+#define varying out
+#endif
+attribute vec3 Position;
+attribute vec4 Color0;
+attribute vec2 TexCoord0;
+varying vec4 oColor0;
+varying vec2 oTexCoord0;
+uniform mat4 WorldViewProj;
+uniform vec2 TintSaturation;
+vec3 rgb2hsv(vec3 c) {
+	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+	vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+	vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+	float d = q.x - min(q.w, q.y);
+	float e = 1.0e-10;
+	return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+vec3 hsv2rgb(vec3 c) {
+	vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+	vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+	return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+void main() {
+	gl_Position = WorldViewProj * vec4(Position, 1.0);
+	vec3 hsv = rgb2hsv(Color0.xyz);
+	hsv.x += TintSaturation.x;
+	hsv.y *= TintSaturation.y;
+    oColor0 = vec4(hsv2rgb(hsv), Color0.w);
+	oTexCoord0 = TexCoord0;
+})",
 	},
 	{ ShaderLanguage::HLSL_D3D9,
-	"struct VS_INPUT { float3 Position : POSITION; float2 Texcoord0 : TEXCOORD0; float4 Color0 : COLOR0; };\n"
-	"struct VS_OUTPUT { float4 Position : POSITION; float2 Texcoord0 : TEXCOORD0; float4 Color0 : COLOR0; };\n"
-	"float4x4 WorldViewProj : register(c0);\n"
-	"VS_OUTPUT main(VS_INPUT input) {\n"
-	"  VS_OUTPUT output;\n"
-	"  output.Position = mul(float4(input.Position, 1.0), WorldViewProj);\n"
-	"  output.Texcoord0 = input.Texcoord0;\n"
-	"  output.Color0 = input.Color0;\n"
-	"  return output;\n"
-	"}\n"
+	R"(
+struct VS_INPUT { float3 Position : POSITION; float2 Texcoord0 : TEXCOORD0; float4 Color0 : COLOR0; };
+struct VS_OUTPUT { float4 Position : POSITION; float2 Texcoord0 : TEXCOORD0; float4 Color0 : COLOR0; };
+float4x4 WorldViewProj : register(c0);
+float2 TintSaturation : register(c4);
+float3 rgb2hsv(float3 c) {
+	float4 K = float4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+	float4 p = lerp(float4(c.bg, K.wz), float4(c.gb, K.xy), step(c.b, c.g));
+	float4 q = lerp(float4(p.xyw, c.r), float4(c.r, p.yzx), step(p.x, c.r));
+	float d = q.x - min(q.w, q.y);
+	float e = 1.0e-10;
+	return float3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+float3 hsv2rgb(float3 c) {
+	float4 K = float4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+	float3 p = abs(frac(c.xxx + K.xyz) * 6.0 - K.www);
+	return c.z * lerp(K.xxx, saturate(p - K.xxx), c.y);
+}
+VS_OUTPUT main(VS_INPUT input) {
+	VS_OUTPUT output;
+	float3 hsv = rgb2hsv(input.Color0.xyz);
+	hsv.x += TintSaturation.x;
+	hsv.y *= TintSaturation.y;
+    output.Color0 = float4(hsv2rgb(hsv), input.Color0.w);
+	output.Position = mul(float4(input.Position, 1.0), WorldViewProj);
+	output.Texcoord0 = input.Texcoord0;
+	return output;
+}
+)"
 	},
 	{ ShaderLanguage::HLSL_D3D11,
-	"struct VS_INPUT { float3 Position : POSITION; float2 Texcoord0 : TEXCOORD0; float4 Color0 : COLOR0; };\n"
-	"struct VS_OUTPUT { float4 Color0 : COLOR0; float2 Texcoord0 : TEXCOORD0; float4 Position : SV_Position; };\n"
-	"cbuffer ConstantBuffer : register(b0) {\n"
-	"  matrix WorldViewProj;\n"
-	"};\n"
-	"VS_OUTPUT main(VS_INPUT input) {\n"
-	"  VS_OUTPUT output;\n"
-	"  output.Position = mul(WorldViewProj, float4(input.Position, 1.0));\n"
-	"  output.Texcoord0 = input.Texcoord0;\n"
-	"  output.Color0 = input.Color0;\n"
-	"  return output;\n"
-	"}\n"
+R"(
+struct VS_INPUT { float3 Position : POSITION; float2 Texcoord0 : TEXCOORD0; float4 Color0 : COLOR0; };
+struct VS_OUTPUT { float4 Color0 : COLOR0; float2 Texcoord0 : TEXCOORD0; float4 Position : SV_Position; };
+cbuffer ConstantBuffer : register(b0) {
+	matrix WorldViewProj;
+	float2 TintSaturation;
+};
+float3 rgb2hsv(float3 c) {
+	float4 K = float4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+	float4 p = lerp(float4(c.bg, K.wz), float4(c.gb, K.xy), step(c.b, c.g));
+	float4 q = lerp(float4(p.xyw, c.r), float4(c.r, p.yzx), step(p.x, c.r));
+	float d = q.x - min(q.w, q.y);
+	float e = 1.0e-10;
+	return float3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+float3 hsv2rgb(float3 c) {
+	float4 K = float4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+	float3 p = abs(frac(c.xxx + K.xyz) * 6.0 - K.www);
+	return c.z * lerp(K.xxx, saturate(p - K.xxx), c.y);
+}
+VS_OUTPUT main(VS_INPUT input) {
+	VS_OUTPUT output;
+	float3 hsv = rgb2hsv(input.Color0.xyz);
+	hsv.x += TintSaturation.x;
+	hsv.y *= TintSaturation.y;
+    output.Color0 = float4(hsv2rgb(hsv), input.Color0.w);
+	output.Position = mul(WorldViewProj, float4(input.Position, 1.0));
+	output.Texcoord0 = input.Texcoord0;
+	return output;
+}
+)"
 	},
 	{ ShaderLanguage::GLSL_VULKAN,
-	"#version 450\n"
-	"#extension GL_ARB_separate_shader_objects : enable\n"
-	"#extension GL_ARB_shading_language_420pack : enable\n"
-	"layout (std140, set = 0, binding = 0) uniform bufferVals {\n"
-	"    mat4 WorldViewProj;\n"
-	"} myBufferVals;\n"
-	"layout (location = 0) in vec4 pos;\n"
-	"layout (location = 1) in vec4 inColor;\n"
-	"layout (location = 2) in vec2 inTexCoord;\n"
-	"layout (location = 0) out vec4 outColor;\n"
-	"layout (location = 1) out vec2 outTexCoord;\n"
-	"out gl_PerVertex { vec4 gl_Position; };\n"
-	"void main() {\n"
-	"   outColor = inColor;\n"
-	"   outTexCoord = inTexCoord;\n"
-	"   gl_Position = myBufferVals.WorldViewProj * pos;\n"
-	"}\n"
-	}
-};
+	R"(#version 450
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_420pack : enable
+layout (std140, set = 0, binding = 0) uniform bufferVals {
+	mat4 WorldViewProj;
+	vec2 TintSaturation;
+} myBufferVals;
+vec3 rgb2hsv(vec3 c) {
+	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+	vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+	vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+	float d = q.x - min(q.w, q.y);
+	float e = 1.0e-10;
+	return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+vec3 hsv2rgb(vec3 c) {
+	vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+	vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+	return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+layout (location = 0) in vec4 pos;
+layout (location = 1) in vec4 inColor;
+layout (location = 2) in vec2 inTexCoord;
+layout (location = 0) out vec4 outColor;
+layout (location = 1) out vec2 outTexCoord;
+out gl_PerVertex { vec4 gl_Position; };
+void main() {
+	vec3 hsv = rgb2hsv(inColor.xyz);
+	hsv.x += myBufferVals.TintSaturation.x;
+	hsv.y *= myBufferVals.TintSaturation.y;
+    outColor = vec4(hsv2rgb(hsv), inColor.w);
+	outTexCoord = inTexCoord;
+	gl_Position = myBufferVals.WorldViewProj * pos;
+}
+)"
+} };
 
 const UniformBufferDesc vsTexColBufDesc{ sizeof(VsTexColUB),{
-	{ "WorldViewProj", 0, -1, UniformType::MATRIX4X4, 0 }
+	{ "WorldViewProj", 0, -1, UniformType::MATRIX4X4, 0 },
+	{ "TintSaturation", 4, -1, UniformType::FLOAT2, 64 },
 } };
 
 ShaderModule *CreateShader(DrawContext *draw, ShaderStage stage, const std::vector<ShaderSource> &sources) {

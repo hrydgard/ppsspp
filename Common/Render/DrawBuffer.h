@@ -180,6 +180,11 @@ public:
 		curZ_ = curZ;
 	}
 
+	void SetTintSaturation(float tint, float saturation) {
+		tint_ = tint;
+		saturation_ = saturation;
+	}
+
 private:
 	struct Vertex {
 		float x, y, z;
@@ -206,5 +211,7 @@ private:
 	float fontscalex = 1.0f;
 	float fontscaley = 1.0f;
 
+	float tint_ = 0.0f;
+	float saturation_ = 1.0f;
 	float curZ_ = 0.0f;
 };

@@ -579,6 +579,8 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("InternalScreenRotation", &g_Config.iInternalScreenRotation, ROTATION_LOCKED_HORIZONTAL),
 
 	ConfigSetting("BackgroundAnimation", &g_Config.iBackgroundAnimation, 1, true, false),
+	ConfigSetting("UITint", &g_Config.fUITint, 0.0, true, false),
+	ConfigSetting("UISaturation", &g_Config.fUISaturation, 1.0, true, false),
 
 #if defined(USING_WIN_UI)
 	ConfigSetting("TopMost", &g_Config.bTopMost, false),
