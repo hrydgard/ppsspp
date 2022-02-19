@@ -134,10 +134,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	GELogicOp replaceLogicOpType = isModeClear ? GE_LOGIC_COPY : (GELogicOp)id.Bits(FS_BIT_REPLACE_LOGIC_OP, 4);
 	bool replaceLogicOp = replaceLogicOpType != GE_LOGIC_COPY && compat.bitwiseOps;
 
-	bool readFramebuffer = replaceBlend == REPLACE_BLEND_READ_FRAMEBUFFER || colorWriteMask || replaceLogicOp;
-	bool readFramebufferTex = readFramebuffer && !gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH);
+	bool needFramebufferRead = replaceBlend == REPLACE_BLEND_READ_FRAMEBUFFER || colorWriteMask || replaceLogicOp;
 
-	bool needFragCoord = readFramebuffer || gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
+	bool fetchFramebuffer = needFramebufferRead && gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH);
+	bool readFramebufferTex = needFramebufferRead && !gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH);
+
+	bool needFragCoord = readFramebufferTex || gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
 	bool writeDepth = gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
 
 	if (shaderDepalMode != ShaderDepalMode::OFF && !doTexture) {
@@ -157,6 +159,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		if (readFramebufferTex) {
 			WRITE(p, "layout (binding = 1) uniform sampler2D fbotex;\n");
+		} else if (fetchFramebuffer) {
+			WRITE(p, "layout (input_attachment_index = 0, binding = 9) uniform subpassInput inputColor;\n");
+			if (fragmentShaderFlags) {
+				*fragmentShaderFlags |= FragmentShaderFlags::INPUT_ATTACHMENT;
+			}
 		}
 
 		if (shaderDepalMode != ShaderDepalMode::OFF) {
@@ -416,7 +423,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		if (!strcmp(compat.fragColor0, "fragColor0")) {
 			const char *qualifierColor0 = "out";
-			if (readFramebuffer && compat.lastFragData && !strcmp(compat.lastFragData, compat.fragColor0)) {
+			if (fetchFramebuffer && compat.lastFragData && !strcmp(compat.lastFragData, compat.fragColor0)) {
 				qualifierColor0 = "inout";
 			}
 			// Output the output color definitions.
@@ -492,19 +499,25 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	// Two things read from the old framebuffer - shader replacement blending and bit-level masking.
-	if (readFramebuffer) {
+	if (readFramebufferTex) {
 		if (compat.shaderLanguage == HLSL_D3D11) {
 			WRITE(p, "  vec4 destColor = fbotex.Load(int3((int)gl_FragCoord.x, (int)gl_FragCoord.y, 0));\n");
 		} else if (compat.shaderLanguage == HLSL_D3D9) {
 			WRITE(p, "  vec4 destColor = tex2D(fbotex, gl_FragCoord.xy * u_fbotexSize.xy);\n", compat.texture);
-		} else if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
-			// If we have EXT_shader_framebuffer_fetch / ARM_shader_framebuffer_fetch, we skip the blit.
-			// We can just read the prev value more directly.
-			WRITE(p, "  lowp vec4 destColor = %s;\n", compat.lastFragData);
 		} else if (!compat.texelFetch) {
 			WRITE(p, "  lowp vec4 destColor = %s(fbotex, gl_FragCoord.xy * u_fbotexSize.xy);\n", compat.texture);
 		} else {
 			WRITE(p, "  lowp vec4 destColor = %s(fbotex, ivec2(gl_FragCoord.x, gl_FragCoord.y), 0);\n", compat.texelFetch);
+		}
+	} else if (fetchFramebuffer) {
+		// If we have EXT_shader_framebuffer_fetch / ARM_shader_framebuffer_fetch, we skip the blit.
+		// We can just read the prev value more directly.
+		if (compat.shaderLanguage == GLSL_3xx) {
+			WRITE(p, "  lowp vec4 destColor = %s;\n", compat.lastFragData);
+		} else if (compat.shaderLanguage == GLSL_VULKAN) {
+			WRITE(p, "  lowp vec4 destColor = subpassLoad(inputColor);\n", compat.lastFragData);
+		} else {
+			_assert_msg_(false, "Need fetch destColor, but not a compatible language");
 		}
 	}
 

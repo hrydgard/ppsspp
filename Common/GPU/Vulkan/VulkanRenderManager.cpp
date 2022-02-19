@@ -223,7 +223,7 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 	// Strictly speaking we don't yet need VK_IMAGE_USAGE_SAMPLED_BIT for depth buffers since we do not yet sample depth buffers.
 	ici.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	if (color) {
-		ici.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		ici.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
 	} else {
 		ici.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 	}
@@ -774,6 +774,9 @@ void VulkanRenderManager::EndCurRenderStep() {
 	curRenderStep_->render.pipelineFlags = curPipelineFlags_;
 	if (!curRenderStep_->render.framebuffer) {
 		rpType = RP_TYPE_BACKBUFFER;
+	} else if (curPipelineFlags_ & PipelineFlags::USES_INPUT_ATTACHMENT) {
+		// Not allowed on backbuffers.
+		rpType = RP_TYPE_COLOR_DEPTH_INPUT;
 	}
 
 	VKRRenderPass *renderPass = queueRunner_.GetRenderPass(key);
@@ -806,7 +809,12 @@ void VulkanRenderManager::EndCurRenderStep() {
 
 	// We no longer have a current render step.
 	curRenderStep_ = nullptr;
-	curPipelineFlags_ = 0;
+	curPipelineFlags_ = (PipelineFlags)0;
+}
+
+void VulkanRenderManager::BindCurrentFramebufferAsInputAttachment0(VkImageAspectFlags aspectBits) {
+	_dbg_assert_(curRenderStep_);
+	curRenderStep_->commands.push_back(VkRenderData{ VKRRenderCommand::SELF_DEPENDENCY_BARRIER });
 }
 
 void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction color, VKRRenderPassLoadAction depth, VKRRenderPassLoadAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {

@@ -242,6 +242,7 @@ enum class NativeObject {
 	INIT_COMMANDBUFFER,
 	BOUND_TEXTURE0_IMAGEVIEW,
 	BOUND_TEXTURE1_IMAGEVIEW,
+	BOUND_FRAMEBUFFER_COLOR_IMAGEVIEW,
 	RENDER_MANAGER,
 	TEXTURE_VIEW,
 	NULL_IMAGEVIEW,
@@ -650,6 +651,9 @@ public:
 
 	// binding must be < MAX_TEXTURE_SLOTS (0, 1 are okay if it's 2).
 	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) = 0;
+
+	// Framebuffer fetch / input attachment support, needs to be explicit in Vulkan.
+	virtual void BindCurrentFramebufferForColorInput() {}
 
 	// deprecated, only used by D3D9
 	virtual uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) {

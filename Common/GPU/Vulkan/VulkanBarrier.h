@@ -21,6 +21,7 @@ public:
 	) {
 		srcStageMask_ |= srcStageMask;
 		dstStageMask_ |= dstStageMask;
+		dependencyFlags_ |= VK_DEPENDENCY_BY_REGION_BIT;
 
 		VkImageMemoryBarrier imageBarrier;
 		imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -112,4 +113,5 @@ private:
 	VkPipelineStageFlags srcStageMask_ = 0;
 	VkPipelineStageFlags dstStageMask_ = 0;
 	std::vector<VkImageMemoryBarrier> imageBarriers_;
+	VkDependencyFlags dependencyFlags_ = 0;
 };

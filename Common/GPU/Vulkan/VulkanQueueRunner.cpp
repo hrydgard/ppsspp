@@ -34,8 +34,11 @@ RenderPassType MergeRPTypes(RenderPassType a, RenderPassType b) {
 	if (a == b) {
 		// Trivial merging case.
 		return a;
+	} else if (a == RP_TYPE_COLOR_DEPTH && b == RP_TYPE_COLOR_DEPTH_INPUT) {
+		return RP_TYPE_COLOR_DEPTH_INPUT;
+	} else if (a == RP_TYPE_COLOR_DEPTH_INPUT && b == RP_TYPE_COLOR_DEPTH) {
+		return RP_TYPE_COLOR_DEPTH_INPUT;
 	}
-	// More cases to be added later.
 	return a;
 }
 
@@ -155,7 +158,12 @@ static VkAttachmentStoreOp ConvertStoreAction(VKRRenderPassStoreAction action) {
 	return VK_ATTACHMENT_STORE_OP_DONT_CARE;  // avoid compiler warning
 }
 
+// Self-dependency: https://github.com/gpuweb/gpuweb/issues/442#issuecomment-547604827
+// Also see https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#synchronization-pipeline-barriers-subpass-self-dependencies
+
 VkRenderPass CreateRP(VulkanContext *vulkan, const RPKey &key, RenderPassType rpType) {
+	bool selfDependency = rpType == RP_TYPE_COLOR_DEPTH_INPUT;
+
 	VkAttachmentDescription attachments[2] = {};
 	attachments[0].format = rpType == RP_TYPE_BACKBUFFER ? vulkan->GetSwapchainFormat() : VK_FORMAT_R8G8B8A8_UNORM;
 	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
@@ -179,7 +187,7 @@ VkRenderPass CreateRP(VulkanContext *vulkan, const RPKey &key, RenderPassType rp
 
 	VkAttachmentReference color_reference{};
 	color_reference.attachment = 0;
-	color_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	color_reference.layout = selfDependency ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 	VkAttachmentReference depth_reference{};
 	depth_reference.attachment = 1;
@@ -188,8 +196,13 @@ VkRenderPass CreateRP(VulkanContext *vulkan, const RPKey &key, RenderPassType rp
 	VkSubpassDescription subpass{};
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	subpass.flags = 0;
-	subpass.inputAttachmentCount = 0;
-	subpass.pInputAttachments = nullptr;
+	if (selfDependency) {
+		subpass.inputAttachmentCount = 1;
+		subpass.pInputAttachments = &color_reference;
+	} else {
+		subpass.inputAttachmentCount = 0;
+		subpass.pInputAttachments = nullptr;
+	}
 	subpass.colorAttachmentCount = 1;
 	subpass.pColorAttachments = &color_reference;
 	subpass.pResolveAttachments = nullptr;
@@ -198,22 +211,40 @@ VkRenderPass CreateRP(VulkanContext *vulkan, const RPKey &key, RenderPassType rp
 	subpass.pPreserveAttachments = nullptr;
 
 	// Not sure if this is really necessary.
-	VkSubpassDependency dep{};
-	dep.srcSubpass = VK_SUBPASS_EXTERNAL;
-	dep.dstSubpass = 0;
-	dep.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dep.srcAccessMask = 0;
-	dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	VkSubpassDependency deps[2]{};
+	size_t numDeps = 0;
 
 	VkRenderPassCreateInfo rp{ VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
 	rp.attachmentCount = 2;
 	rp.pAttachments = attachments;
 	rp.subpassCount = 1;
 	rp.pSubpasses = &subpass;
+
 	if (rpType == RP_TYPE_BACKBUFFER) {
+		deps[numDeps].srcSubpass = VK_SUBPASS_EXTERNAL;
+		deps[numDeps].dstSubpass = 0;
+		deps[numDeps].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		deps[numDeps].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		deps[numDeps].srcAccessMask = 0;
+		deps[numDeps].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		numDeps++;
 		rp.dependencyCount = 1;
-		rp.pDependencies = &dep;
+	}
+
+	if (selfDependency) {
+		deps[numDeps].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+		deps[numDeps].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		deps[numDeps].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+		deps[numDeps].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		deps[numDeps].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		deps[numDeps].srcSubpass = 0;
+		deps[numDeps].dstSubpass = 0;
+		numDeps++;
+	}
+
+	if (numDeps > 0) {
+		rp.dependencyCount = (u32)numDeps;
+		rp.pDependencies = deps;
 	}
 
 	VkRenderPass pass;
@@ -244,6 +275,30 @@ VKRRenderPass *VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 	VKRRenderPass *pass = new VKRRenderPass(key);
 	renderPasses_.Insert(key, pass);
 	return pass;
+}
+
+// Must match the subpass self-dependency declared above.
+void VulkanQueueRunner::SelfDependencyBarrier(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier) {
+	if (aspect & VK_IMAGE_ASPECT_COLOR_BIT) {
+		VkAccessFlags srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		VkAccessFlags dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+		VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		recordBarrier->TransitionImage(
+			img.image,
+			0,
+			1,
+			aspect,
+			VK_IMAGE_LAYOUT_GENERAL,
+			VK_IMAGE_LAYOUT_GENERAL,
+			srcAccessMask,
+			dstAccessMask,
+			srcStageMask,
+			dstStageMask
+		);
+	} else {
+		_assert_msg_(false, "Depth self-dependencies not yet supported");
+	}
 }
 
 void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
@@ -817,6 +872,9 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass, bool verbose) {
 			case VKRRenderCommand::REMOVED:
 				INFO_LOG(G3D, "  (Removed)");
 				break;
+			case VKRRenderCommand::SELF_DEPENDENCY_BARRIER:
+				INFO_LOG(G3D, "  SelfBarrier()");
+				break;
 			case VKRRenderCommand::BIND_GRAPHICS_PIPELINE:
 				INFO_LOG(G3D, "  BindGraphicsPipeline(%x)", (int)(intptr_t)cmd.graphics_pipeline.pipeline);
 				break;
@@ -1232,6 +1290,15 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			float bc[4];
 			Uint8x4ToFloat4(bc, c.blendColor.color);
 			vkCmdSetBlendConstants(cmd, bc);
+			break;
+		}
+
+		case VKRRenderCommand::SELF_DEPENDENCY_BARRIER:
+		{
+			_assert_(step.render.pipelineFlags & PipelineFlags::USES_INPUT_ATTACHMENT);
+			VulkanBarrier barrier;
+			SelfDependencyBarrier(step.render.framebuffer->color, VK_IMAGE_ASPECT_COLOR_BIT, &barrier);
+			barrier.Flush(cmd);
 			break;
 		}
 

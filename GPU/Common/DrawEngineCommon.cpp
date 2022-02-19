@@ -484,12 +484,12 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 	return GE_VTYPE_TC_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_NRM_FLOAT | GE_VTYPE_POS_FLOAT | (vertType & (GE_VTYPE_IDX_MASK | GE_VTYPE_THROUGH));
 }
 
-void DrawEngineCommon::ApplyFramebufferRead(bool *fboTexNeedsBind) {
+void DrawEngineCommon::ApplyFramebufferRead(FBOTexState *fboTexState) {
 	if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
-		*fboTexNeedsBind = false;
+		*fboTexState = FBO_TEX_READ_FRAMEBUFFER;
 	} else {
 		gpuStats.numCopiesForShaderBlend++;
-		*fboTexNeedsBind = true;
+		*fboTexState = FBO_TEX_COPY_BIND_TEX;
 	}
 
 	gstate_c.Dirty(DIRTY_SHADERBLEND);

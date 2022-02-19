@@ -71,6 +71,7 @@ enum {
 	DRAW_BINDING_TESS_STORAGE_BUF = 6,
 	DRAW_BINDING_TESS_STORAGE_BUF_WU = 7,
 	DRAW_BINDING_TESS_STORAGE_BUF_WV = 8,
+	DRAW_BINDING_INPUT_ATTACHMENT = 9,
 };
 
 enum {
@@ -94,7 +95,10 @@ DrawEngineVulkan::DrawEngineVulkan(Draw::DrawContext *draw)
 
 void DrawEngineVulkan::InitDeviceObjects() {
 	// All resources we need for PSP drawing. Usually only bindings 0 and 2-4 are populated.
-	VkDescriptorSetLayoutBinding bindings[9]{};
+
+	// TODO: Make things more flexible, so we at least have specialized layouts for input attachments and tess.
+	// Note that it becomes a support matrix..
+	VkDescriptorSetLayoutBinding bindings[10]{};
 	bindings[0].descriptorCount = 1;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -132,6 +136,10 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	bindings[8].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	bindings[8].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	bindings[8].binding = DRAW_BINDING_TESS_STORAGE_BUF_WV;
+	bindings[9].descriptorCount = 1;
+	bindings[9].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+	bindings[9].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	bindings[9].binding = DRAW_BINDING_INPUT_ATTACHMENT;
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	VkDevice device = vulkan->GetDevice();
@@ -417,15 +425,15 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	}
 
 	if (boundSecondary_) {
-		tex[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		tex[1].imageLayout = key.secondaryIsInputAttachment ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		tex[1].imageView = boundSecondary_;
 		tex[1].sampler = samplerSecondaryNearest_;
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writes[n].pNext = nullptr;
-		writes[n].dstBinding = DRAW_BINDING_2ND_TEXTURE;
+		writes[n].dstBinding = key.secondaryIsInputAttachment ? DRAW_BINDING_INPUT_ATTACHMENT : DRAW_BINDING_2ND_TEXTURE;
 		writes[n].pImageInfo = &tex[1];
 		writes[n].descriptorCount = 1;
-		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		writes[n].descriptorType = key.secondaryIsInputAttachment ? VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		writes[n].dstSet = desc;
 		n++;
 	}
@@ -788,7 +796,7 @@ void DrawEngineVulkan::DoFlush() {
 				lastRenderStepId_ = curRenderStepId;
 			}
 
-			renderManager->BindPipeline(pipeline->pipeline, (PipelineFlags)pipeline->flags, pipelineLayout_);
+			renderManager->BindPipeline(pipeline->pipeline, pipeline->pipelineFlags, pipelineLayout_);
 			if (pipeline != lastPipeline_) {
 				if (lastPipeline_ && !(lastPipeline_->UsesBlendConstant() && pipeline->UsesBlendConstant())) {
 					gstate_c.Dirty(DIRTY_BLEND_STATE);
@@ -916,7 +924,7 @@ void DrawEngineVulkan::DoFlush() {
 					lastRenderStepId_ = curRenderStepId;
 				}
 
-				renderManager->BindPipeline(pipeline->pipeline, (PipelineFlags)pipeline->flags, pipelineLayout_);
+				renderManager->BindPipeline(pipeline->pipeline, pipeline->pipelineFlags, pipelineLayout_);
 				if (pipeline != lastPipeline_) {
 					if (lastPipeline_ && !lastPipeline_->UsesBlendConstant() && pipeline->UsesBlendConstant()) {
 						gstate_c.Dirty(DIRTY_BLEND_STATE);

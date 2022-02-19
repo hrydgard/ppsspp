@@ -153,20 +153,23 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			// We ignore the logicState on D3D since there's no support, the emulation of it is blend-and-shader only.
 
 			if (pipelineState_.FramebufferRead()) {
-				bool fboTexNeedsBind = false;
-				ApplyFramebufferRead(&fboTexNeedsBind);
+				FBOTexState fboTexBindState_ = FBO_TEX_NONE;
+				ApplyFramebufferRead(&fboTexBindState_);
 				// The shader takes over the responsibility for blending, so recompute.
 				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 
-				if (fboTexNeedsBind) {
+				if (fboTexBindState_ == FBO_TEX_COPY_BIND_TEX) {
 					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 					// No sampler required, we do a plain Load in the pixel shader.
 					fboTexBound_ = true;
+					fboTexBindState_ = FBO_TEX_NONE;
 
 					framebufferManager_->RebindFramebuffer("RebindFramebuffer - ApplyDrawState");
 					// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
 					dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE;
 					gstate_c.Dirty(DIRTY_BLEND_STATE);
+				} else if (fboTexBindState_ == FBO_TEX_READ_FRAMEBUFFER) {
+					fboTexBindState_ = FBO_TEX_NONE;
 				}
 
 				dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
