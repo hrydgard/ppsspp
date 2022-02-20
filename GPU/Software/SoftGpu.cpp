@@ -235,9 +235,9 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 	{ GE_CMD_MAXZ, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_CACHED },
 
 	// Region doesn't seem to affect scissor or anything.
-	// TODO: Double check, the registers are always set so they ought to... do something?
-	{ GE_CMD_REGION1 },
-	{ GE_CMD_REGION2 },
+	// As long as REGION1 is zero, REGION2 is effectively another scissor.
+	{ GE_CMD_REGION1, 0, SoftDirty::BINNER_RANGE },
+	{ GE_CMD_REGION2, 0, SoftDirty::BINNER_RANGE },
 
 	// Scissor, only used by the binner.
 	{ GE_CMD_SCISSOR1, 0, SoftDirty::BINNER_RANGE },
