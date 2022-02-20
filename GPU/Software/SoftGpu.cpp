@@ -220,8 +220,8 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 	{ GE_CMD_ANTIALIASENABLE, 0, SoftDirty::RAST_BASIC },
 
 	// Viewport and offset for positions.
-	{ GE_CMD_OFFSETX, 0, SoftDirty::BINNER_RANGE | SoftDirty::TRANSFORM_BASIC | SoftDirty::RAST_OFFSET },
-	{ GE_CMD_OFFSETY, 0, SoftDirty::BINNER_RANGE | SoftDirty::TRANSFORM_BASIC | SoftDirty::RAST_OFFSET },
+	{ GE_CMD_OFFSETX, 0, SoftDirty::RAST_OFFSET },
+	{ GE_CMD_OFFSETY, 0, SoftDirty::RAST_OFFSET },
 	{ GE_CMD_VIEWPORTXSCALE, 0, SoftDirty::TRANSFORM_VIEWPORT },
 	{ GE_CMD_VIEWPORTYSCALE, 0, SoftDirty::TRANSFORM_VIEWPORT },
 	{ GE_CMD_VIEWPORTXCENTER, 0, SoftDirty::TRANSFORM_VIEWPORT },

@@ -249,10 +249,10 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 
 bool g_needsClearAfterDialog = false;
 
-static inline bool NoClampOrWrap(const Vec2f &tc) {
+static inline bool NoClampOrWrap(const RasterizerState &state, const Vec2f &tc) {
 	if (tc.x < 0 || tc.y < 0)
 		return false;
-	return tc.x <= gstate.getTextureWidth(0) && tc.y <= gstate.getTextureHeight(0);
+	return tc.x <= state.samplerID.cached.sizes[0].w && tc.y <= state.samplerID.cached.sizes[0].h;
 }
 
 // Returns true if the normal path should be skipped.
@@ -271,7 +271,7 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	// Currently only works for TL/BR, which is the most common but not required.
 	bool orient_check = xdiff >= 0 && ydiff >= 0;
 	// We already have a fast path for clear in ClearRectangle.
-	bool state_check = !state.pixelID.clearMode && !state.samplerID.hasAnyMips && NoClampOrWrap(v0.texturecoords) && NoClampOrWrap(v1.texturecoords);
+	bool state_check = !state.pixelID.clearMode && !state.samplerID.hasAnyMips && NoClampOrWrap(state, v0.texturecoords) && NoClampOrWrap(state, v1.texturecoords);
 	if ((coord_check || !state.enableTextures) && orient_check && state_check) {
 		binner.AddSprite(v0, v1);
 		return true;

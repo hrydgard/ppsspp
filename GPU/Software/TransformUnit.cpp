@@ -180,8 +180,6 @@ struct TransformState {
 
 	float fogEnd;
 	float fogSlope;
-	uint16_t screenOffsetX;
-	uint16_t screenOffsetY;
 
 	float matrix[16];
 	Vec3f screenScale;
@@ -210,8 +208,6 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 	state->negateNormals = gstate.areNormalsReversed();
 
 	state->uvGenMode = gstate.getUVGenMode();
-	state->screenOffsetX = gstate.getOffsetX16();
-	state->screenOffsetY = gstate.getOffsetY16();
 
 	if (state->enableTransform) {
 		if (state->enableFog) {
