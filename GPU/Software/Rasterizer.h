@@ -76,7 +76,6 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state);
 void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state);
 
-bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
 bool GetCurrentTexture(GPUDebugBuffer &buffer, int level);
 
 // Shared functions with RasterizerRectangle.cpp

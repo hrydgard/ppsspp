@@ -183,7 +183,7 @@ void BinManager::UpdateState() {
 
 	if (HasDirty(SoftDirty::BINNER_RANGE)) {
 		DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1());
-		DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2());
+		DrawingCoords scissorBR(std::min(gstate.getScissorX2(), gstate.getRegionX2()), std::min(gstate.getScissorY2(), gstate.getRegionY2()));
 		ScreenCoords screenScissorTL = TransformUnit::DrawingToScreen(scissorTL, 0);
 		ScreenCoords screenScissorBR = TransformUnit::DrawingToScreen(scissorBR, 0);
 
