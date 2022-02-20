@@ -88,12 +88,12 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
 
-	DrawingCoords pos0 = TransformUnit::ScreenToDrawing(v0.screenpos, state.screenOffsetX, state.screenOffsetY);
+	DrawingCoords pos0 = TransformUnit::ScreenToDrawing(v0.screenpos);
 	// Include the ending pixel based on its center, not start.
-	DrawingCoords pos1 = TransformUnit::ScreenToDrawing(v1.screenpos + ScreenCoords(7, 7, 0), state.screenOffsetX, state.screenOffsetY);
+	DrawingCoords pos1 = TransformUnit::ScreenToDrawing(v1.screenpos + ScreenCoords(7, 7, 0));
 
-	DrawingCoords scissorTL = TransformUnit::ScreenToDrawing(range.x1, range.y1, state.screenOffsetX, state.screenOffsetY);
-	DrawingCoords scissorBR = TransformUnit::ScreenToDrawing(range.x2, range.y2, state.screenOffsetX, state.screenOffsetY);
+	DrawingCoords scissorTL = TransformUnit::ScreenToDrawing(range.x1, range.y1);
+	DrawingCoords scissorBR = TransformUnit::ScreenToDrawing(range.x2, range.y2);
 
 	int z = v1.screenpos.z;
 	int fog = 255;
@@ -249,10 +249,10 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 
 bool g_needsClearAfterDialog = false;
 
-static inline bool NoClampOrWrap(const Vec2f &tc) {
+static inline bool NoClampOrWrap(const RasterizerState &state, const Vec2f &tc) {
 	if (tc.x < 0 || tc.y < 0)
 		return false;
-	return tc.x <= gstate.getTextureWidth(0) && tc.y <= gstate.getTextureHeight(0);
+	return tc.x <= state.samplerID.cached.sizes[0].w && tc.y <= state.samplerID.cached.sizes[0].h;
 }
 
 // Returns true if the normal path should be skipped.
@@ -263,15 +263,15 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	// Check for 1:1 texture mapping. In that case we can call DrawSprite.
 	int xdiff = v1.screenpos.x - v0.screenpos.x;
 	int ydiff = v1.screenpos.y - v0.screenpos.y;
-	int udiff = (v1.texturecoords.x - v0.texturecoords.x) * 16.0f;
-	int vdiff = (v1.texturecoords.y - v0.texturecoords.y) * 16.0f;
+	int udiff = (v1.texturecoords.x - v0.texturecoords.x) * (float)SCREEN_SCALE_FACTOR;
+	int vdiff = (v1.texturecoords.y - v0.texturecoords.y) * (float)SCREEN_SCALE_FACTOR;
 	bool coord_check =
 		(xdiff == udiff || xdiff == -udiff) &&
 		(ydiff == vdiff || ydiff == -vdiff);
 	// Currently only works for TL/BR, which is the most common but not required.
 	bool orient_check = xdiff >= 0 && ydiff >= 0;
 	// We already have a fast path for clear in ClearRectangle.
-	bool state_check = !state.pixelID.clearMode && !state.samplerID.hasAnyMips && NoClampOrWrap(v0.texturecoords) && NoClampOrWrap(v1.texturecoords);
+	bool state_check = !state.pixelID.clearMode && !state.samplerID.hasAnyMips && NoClampOrWrap(state, v0.texturecoords) && NoClampOrWrap(state, v1.texturecoords);
 	if ((coord_check || !state.enableTextures) && orient_check && state_check) {
 		binner.AddSprite(v0, v1);
 		return true;
@@ -282,9 +282,9 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && v0.texturecoords.x == 64.0f && v0.texturecoords.y == 16.0f && v1.texturecoords.x == 448.0f && v1.texturecoords.y == 240.0f) {
 		// check for save/load dialog.
 		if (!currentDialogActive) {
-			if (v0.screenpos.x == 0x7100 && v0.screenpos.y == 0x7780 && v1.screenpos.x == 0x8f00 && v1.screenpos.y == 0x8880) {
+			if (v0.screenpos.x + state.screenOffsetX == 0x7100 && v0.screenpos.y + state.screenOffsetY == 0x7780 && v1.screenpos.x + state.screenOffsetX == 0x8f00 && v1.screenpos.y + state.screenOffsetY == 0x8880) {
 				g_DarkStalkerStretch = DSStretch::Wide;
-			} else if (v0.screenpos.x == 0x7400 && v0.screenpos.y == 0x7780 && v1.screenpos.x == 0x8C00 && v1.screenpos.y == 0x8880) {
+			} else if (v0.screenpos.x + state.screenOffsetX == 0x7400 && v0.screenpos.y + state.screenOffsetY == 0x7780 && v1.screenpos.x + state.screenOffsetX == 0x8C00 && v1.screenpos.y + state.screenOffsetY == 0x8880) {
 				g_DarkStalkerStretch = DSStretch::Normal;
 			} else {
 				return false;
@@ -456,8 +456,8 @@ bool DetectRectangleThroughModeSlices(const RasterizerState &state, const Vertex
 				return false;
 
 			// We might be able to compare ratios, but let's expect 1:1.
-			int texdiff1 = (texbr1.x - textl1.x) * 16.0f;
-			int texdiff2 = (texbr2.x - textl2.x) * 16.0f;
+			int texdiff1 = (texbr1.x - textl1.x) * (float)SCREEN_SCALE_FACTOR;
+			int texdiff2 = (texbr2.x - textl2.x) * (float)SCREEN_SCALE_FACTOR;
 			int posdiff1 = br1.x - tl1.x;
 			int posdiff2 = br2.x - tl2.x;
 			return texdiff1 == posdiff1 && texdiff2 == posdiff2;

@@ -2582,22 +2582,8 @@ bool SamplerJitCache::Jit_GetTexelCoords(const SamplerID &id) {
 	Describe("Texel");
 
 	// First, adjust X and Y...
-	X64Reg xReg = regCache_.Find(RegCache::GEN_ARG_X);
-	X64Reg yReg = regCache_.Find(RegCache::GEN_ARG_Y);
-	NEG(32, R(xReg));
-	ADD(32, R(xReg), Imm8(12));
-	NEG(32, R(yReg));
-	ADD(32, R(yReg), Imm8(12));
-
-	X64Reg tempXYReg = regCache_.Alloc(RegCache::VEC_TEMP5);
-	SHL(64, R(yReg), Imm8(32));
-	OR(64, R(xReg), R(yReg));
-	MOVQ_xmm(tempXYReg, R(xReg));
-	if (id.hasAnyMips)
-		PSHUFD(tempXYReg, R(tempXYReg), _MM_SHUFFLE(1, 0, 1, 0));
-	regCache_.Unlock(xReg, RegCache::GEN_ARG_X);
+	// TODO: Shouldn't do this in the sampler, need to get s/t right.
 	regCache_.ForceRelease(RegCache::GEN_ARG_X);
-	regCache_.Unlock(yReg, RegCache::GEN_ARG_Y);
 	regCache_.ForceRelease(RegCache::GEN_ARG_Y);
 
 	X64Reg uReg = regCache_.Alloc(RegCache::GEN_ARG_U);
@@ -2640,12 +2626,11 @@ bool SamplerJitCache::Jit_GetTexelCoords(const SamplerID &id) {
 		CVTTPS2DQ(sReg, R(sReg));
 		regCache_.Release(sizesReg, RegCache::VEC_TEMP0);
 
-		PADDD(sReg, R(tempXYReg));
 		PSRLD(sReg, 8);
 
 		// Reuse tempXYReg for the level1 values.
 		if (!cpu_info.bSSE4_1)
-			PSHUFD(tempXYReg, R(sReg), _MM_SHUFFLE(3, 2, 3, 2));
+			PSHUFD(tReg, R(sReg), _MM_SHUFFLE(3, 2, 3, 2));
 
 		auto applyClampWrap = [&](X64Reg dest, bool clamp, bool isY, bool isLevel1) {
 			int offset = offsetof(SamplerID, cached.sizes[0].w) + (isY ? 2 : 0) + (isLevel1 ? 4 : 0);
@@ -2659,7 +2644,7 @@ bool SamplerJitCache::Jit_GetTexelCoords(const SamplerID &id) {
 				else
 					MOVD_xmm(R(dest), sReg);
 			} else {
-				X64Reg srcReg = isLevel1 ? tempXYReg : sReg;
+				X64Reg srcReg = isLevel1 ? tReg : sReg;
 				MOVD_xmm(R(dest), srcReg);
 				if (!isY)
 					PSRLDQ(srcReg, 4);
@@ -2699,8 +2684,7 @@ bool SamplerJitCache::Jit_GetTexelCoords(const SamplerID &id) {
 		UNPCKLPS(sReg, R(tReg));
 		MULPS(sReg, M(constWidthHeight256f_));
 		CVTTPS2DQ(sReg, R(sReg));
-		// Add the X/Y offsets, then shift out the fraction.
-		PADDD(sReg, R(tempXYReg));
+		// Great, shift out the fraction.
 		PSRLD(sReg, 8);
 
 		// Square textures are kinda common.
@@ -2757,8 +2741,6 @@ bool SamplerJitCache::Jit_GetTexelCoords(const SamplerID &id) {
 	regCache_.Unlock(tReg, RegCache::VEC_ARG_T);
 	regCache_.ForceRelease(RegCache::VEC_ARG_S);
 	regCache_.ForceRelease(RegCache::VEC_ARG_T);
-
-	regCache_.Release(tempXYReg, RegCache::VEC_TEMP5);
 
 	return true;
 }
@@ -2830,26 +2812,12 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	CVTPS2DQ(sReg, R(sReg));
 
 	// Now adjust X and Y...
-	// TODO: Could we cache this?  Should only vary on offset, maybe?
-	X64Reg xReg = regCache_.Find(RegCache::GEN_ARG_X);
-	X64Reg yReg = regCache_.Find(RegCache::GEN_ARG_Y);
-	NEG(32, R(xReg));
-	SUB(32, R(xReg), Imm8(128 - 12));
-	NEG(32, R(yReg));
-	SUB(32, R(yReg), Imm8(128 - 12));
-	SHL(64, R(yReg), Imm8(32));
-	OR(64, R(xReg), R(yReg));
-
-	// Add them in.  We do this in the SSE because we have more to do there...
 	X64Reg tempXYReg = regCache_.Alloc(RegCache::VEC_TEMP0);
-	MOVQ_xmm(tempXYReg, R(xReg));
-	if (id.hasAnyMips)
-		PSHUFD(tempXYReg, R(tempXYReg), _MM_SHUFFLE(1, 0, 1, 0));
+	// Product a -128 constant.
+	PCMPEQD(tempXYReg, R(tempXYReg));
+	PSLLD(tempXYReg, 7);
 	PADDD(sReg, R(tempXYReg));
 	regCache_.Release(tempXYReg, RegCache::VEC_TEMP0);
-
-	regCache_.Unlock(xReg, RegCache::GEN_ARG_X);
-	regCache_.Unlock(yReg, RegCache::GEN_ARG_Y);
 	regCache_.ForceRelease(RegCache::GEN_ARG_X);
 	regCache_.ForceRelease(RegCache::GEN_ARG_Y);
 

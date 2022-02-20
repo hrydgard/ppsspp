@@ -418,8 +418,8 @@ static inline void GetTexelCoordinates(int level, float s, float t, int &out_u, 
 	int width = samplerID.cached.sizes[level].w;
 	int height = samplerID.cached.sizes[level].h;
 
-	int base_u = (int)(s * width * 256.0f) + 12 - x;
-	int base_v = (int)(t * height * 256.0f) + 12 - y;
+	int base_u = (int)(s * width * 256.0f);
+	int base_v = (int)(t * height * 256.0f);
 
 	base_u >>= 8;
 	base_v >>= 8;
@@ -610,7 +610,7 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuadT(bool clamp, int v
 static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadS(int level, float in_s, int &frac_u, int x, const SamplerID &samplerID) {
 	int width = samplerID.cached.sizes[level].w;
 
-	int base_u = (int)(in_s * width * 256) + 12 - x - 128;
+	int base_u = (int)(in_s * width * 256) - 128;
 	frac_u = (int)(base_u >> 4) & 0x0F;
 	base_u >>= 8;
 
@@ -621,7 +621,7 @@ static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadS(int level, fl
 static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadT(int level, float in_t, int &frac_v, int y, const SamplerID &samplerID) {
 	int height = samplerID.cached.sizes[level].h;
 
-	int base_v = (int)(in_t * height * 256) + 12 - y - 128;
+	int base_v = (int)(in_t * height * 256) - 128;
 	frac_v = (int)(base_v >> 4) & 0x0F;
 	base_v >>= 8;
 
