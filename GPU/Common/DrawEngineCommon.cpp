@@ -155,13 +155,13 @@ static Vec3f ClipToScreen(const Vec4f& coords) {
 	float z = coords.z * zScale / coords.w + zCenter;
 
 	// 16 = 0xFFFF / 4095.9375
-	return Vec3f(x * 16, y * 16, z);
+	return Vec3f(x * 16 - gstate.getOffsetX16(), y * 16 - gstate.getOffsetY16(), z);
 }
 
 static Vec3f ScreenToDrawing(const Vec3f& coords) {
 	Vec3f ret;
-	ret.x = (coords.x - gstate.getOffsetX16()) * (1.0f / 16.0f);
-	ret.y = (coords.y - gstate.getOffsetY16()) * (1.0f / 16.0f);
+	ret.x = coords.x * (1.0f / 16.0f);
+	ret.y = coords.y * (1.0f / 16.0f);
 	ret.z = coords.z;
 	return ret;
 }

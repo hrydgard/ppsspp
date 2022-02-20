@@ -104,15 +104,15 @@ public:
 	static ViewCoords WorldToView(const WorldCoords& coords);
 	static ClipCoords ViewToClip(const ViewCoords& coords);
 	static ScreenCoords ClipToScreen(const ClipCoords& coords);
-	static inline DrawingCoords ScreenToDrawing(int x, int y, int offsetX, int offsetY) {
+	static inline DrawingCoords ScreenToDrawing(int x, int y) {
 		DrawingCoords ret;
-		// When offset > coord, it correctly goes negative and force-scissors.
-		ret.x = (x - offsetX) / 16;
-		ret.y = (y - offsetY) / 16;
+		// When offset > coord, this is negative and force-scissors.
+		ret.x = x / 16;
+		ret.y = y / 16;
 		return ret;
 	}
-	static inline DrawingCoords ScreenToDrawing(const ScreenCoords &coords, int offsetX, int offsetY) {
-		return ScreenToDrawing(coords.x, coords.y, offsetX, offsetY);
+	static inline DrawingCoords ScreenToDrawing(const ScreenCoords &coords) {
+		return ScreenToDrawing(coords.x, coords.y);
 	}
 	static ScreenCoords DrawingToScreen(const DrawingCoords &coords, u16 z);
 

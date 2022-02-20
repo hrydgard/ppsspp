@@ -234,8 +234,6 @@ private:
 	BinCoords scissor_;
 	BinItemQueue queue_;
 	BinCoords queueRange_;
-	int queueOffsetX_ = -1;
-	int queueOffsetY_ = -1;
 	SoftDirty dirty_ = SoftDirty::NONE;
 
 	int maxTasks_ = 1;

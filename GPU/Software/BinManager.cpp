@@ -188,13 +188,6 @@ void BinManager::UpdateState() {
 		scissor_.x2 = screenScissorBR.x + 15;
 		scissor_.y2 = screenScissorBR.y + 15;
 
-		// Our bin sizes are based on offset, so if that changes we have to flush.
-		if (queueOffsetX_ != gstate.getOffsetX16() || queueOffsetY_ != gstate.getOffsetY16()) {
-			Flush("offset");
-			queueOffsetX_ = gstate.getOffsetX16();
-			queueOffsetY_ = gstate.getOffsetY16();
-		}
-
 		// If we're about to texture from something still pending (i.e. depth), flush.
 		if (HasTextureWrite(state))
 			Flush("tex");
@@ -364,8 +357,8 @@ void BinManager::Drain() {
 		int h2 = (queueRange_.y2 - queueRange_.y1 + 31) / 32;
 
 		// Always bin the entire possible range, but focus on the drawn area.
-		ScreenCoords tl(queueOffsetX_, queueOffsetY_, 0);
-		ScreenCoords br(queueOffsetX_ + 1024 * 16, queueOffsetY_ + 1024 * 16, 0);
+		ScreenCoords tl(0, 0, 0);
+		ScreenCoords br(1024 * 16, 1024 * 16, 0);
 
 		taskRanges_.clear();
 		if (h2 >= 18 && w2 >= h2 * 4) {
