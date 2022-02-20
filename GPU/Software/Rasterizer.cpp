@@ -1038,7 +1038,7 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
 
-	if (state.enableTextures && !pixelID.clearMode) {
+	if (state.enableTextures) {
 		float s = v0.texturecoords.s();
 		float t = v0.texturecoords.t();
 		if (state.throughMode) {
@@ -1064,7 +1064,7 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 	u16 z = pos.z;
 
 	u8 fog = 255;
-	if (pixelID.applyFog && !pixelID.clearMode) {
+	if (pixelID.applyFog) {
 		fog = ClampFogDepth(v0.fogdepth);
 	}
 
@@ -1315,7 +1315,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 			}
 
 			u8 fog = 255;
-			if (pixelID.applyFog && !pixelID.clearMode) {
+			if (pixelID.applyFog) {
 				fog = ClampFogDepth((v0.fogdepth * (float)(steps - i) + v1.fogdepth * (float)i) / steps1);
 			}
 
@@ -1325,7 +1325,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 				prim_color.a() = 0x7F;
 			}
 
-			if (state.enableTextures && !pixelID.clearMode) {
+			if (state.enableTextures) {
 				float s, s1;
 				float t, t1;
 				if (state.throughMode) {
