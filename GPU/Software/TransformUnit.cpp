@@ -125,6 +125,7 @@ static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords,
 
 	// 16 = 0xFFFF / 4095.9375
 	// Round up at 0.625 to the nearest subpixel.
+	static_assert(SCREEN_SCALE_FACTOR == 16, "Currently only supports scale 16");
 	int x = (int)(scaled.x * 16.0f + 0.375f - gstate.getOffsetX16());
 	int y = (int)(scaled.y * 16.0f + 0.375f - gstate.getOffsetY16());
 	return ScreenCoords(x, y, scaled.z);
@@ -161,8 +162,8 @@ ScreenCoords TransformUnit::ClipToScreen(const ClipCoords &coords) {
 
 ScreenCoords TransformUnit::DrawingToScreen(const DrawingCoords &coords, u16 z) {
 	ScreenCoords ret;
-	ret.x = (u32)coords.x * 16;
-	ret.y = (u32)coords.y * 16;
+	ret.x = (u32)coords.x * SCREEN_SCALE_FACTOR;
+	ret.y = (u32)coords.y * SCREEN_SCALE_FACTOR;
 	ret.z = z;
 	return ret;
 }
@@ -429,8 +430,8 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState
 		if (state.enableLighting)
 			Lighting::Process(vertex, worldpos, worldnormal, state.lightingState);
 	} else {
-		vertex.screenpos.x = (int)(pos[0] * 16);
-		vertex.screenpos.y = (int)(pos[1] * 16);
+		vertex.screenpos.x = (int)(pos[0] * SCREEN_SCALE_FACTOR);
+		vertex.screenpos.y = (int)(pos[1] * SCREEN_SCALE_FACTOR);
 		vertex.screenpos.z = pos[2];
 		vertex.clippos.w = 1.f;
 		vertex.fogdepth = 1.f;

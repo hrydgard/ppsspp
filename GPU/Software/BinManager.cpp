@@ -185,8 +185,8 @@ void BinManager::UpdateState() {
 
 		scissor_.x1 = screenScissorTL.x;
 		scissor_.y1 = screenScissorTL.y;
-		scissor_.x2 = screenScissorBR.x + 15;
-		scissor_.y2 = screenScissorBR.y + 15;
+		scissor_.x2 = screenScissorBR.x + SCREEN_SCALE_FACTOR - 1;
+		scissor_.y2 = screenScissorBR.y + SCREEN_SCALE_FACTOR - 1;
 
 		// If we're about to texture from something still pending (i.e. depth), flush.
 		if (HasTextureWrite(state))
@@ -287,6 +287,7 @@ void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const V
 	Vec2<int> d12((int)v1.screenpos.x - (int)v2.screenpos.x, (int)v1.screenpos.y - (int)v2.screenpos.y);
 
 	// Drop primitives which are not in CCW order by checking the cross product.
+	static_assert(SCREEN_SCALE_FACTOR <= 16, "Fails if scale factor is too high");
 	if (d01.x * d02.y - d01.y * d02.x < 0)
 		return;
 	// If all points have identical coords, we'll have 0 weights and not skip properly, so skip here.
@@ -353,23 +354,23 @@ void BinManager::Drain() {
 
 	// If the waitable has fully drained, we can update our binning decisions.
 	if (!tasksSplit_ || waitable_->Empty()) {
-		int w2 = (queueRange_.x2 - queueRange_.x1 + 31) / 32;
-		int h2 = (queueRange_.y2 - queueRange_.y1 + 31) / 32;
+		int w2 = (queueRange_.x2 - queueRange_.x1 + (SCREEN_SCALE_FACTOR * 2 - 1)) / (SCREEN_SCALE_FACTOR * 2);
+		int h2 = (queueRange_.y2 - queueRange_.y1 + (SCREEN_SCALE_FACTOR * 2 - 1)) / (SCREEN_SCALE_FACTOR * 2);
 
 		// Always bin the entire possible range, but focus on the drawn area.
 		ScreenCoords tl(0, 0, 0);
-		ScreenCoords br(1024 * 16, 1024 * 16, 0);
+		ScreenCoords br(1024 * SCREEN_SCALE_FACTOR, 1024 * SCREEN_SCALE_FACTOR, 0);
 
 		taskRanges_.clear();
 		if (h2 >= 18 && w2 >= h2 * 4) {
-			int bin_w = std::max(4, (w2 + maxTasks_ - 1) / maxTasks_) * 32;
+			int bin_w = std::max(4, (w2 + maxTasks_ - 1) / maxTasks_) * SCREEN_SCALE_FACTOR * 2;
 			taskRanges_.push_back(BinCoords{ tl.x, tl.y, queueRange_.x1 + bin_w - 1, br.y - 1 });
 			for (int x = queueRange_.x1 + bin_w; x <= queueRange_.x2; x += bin_w) {
 				int x2 = x + bin_w > queueRange_.x2 ? br.x : x + bin_w;
 				taskRanges_.push_back(BinCoords{ x, tl.y, x2 - 1, br.y - 1 });
 			}
 		} else if (h2 >= 18 && w2 >= 18) {
-			int bin_h = std::max(4, (h2 + maxTasks_ - 1) / maxTasks_) * 32;
+			int bin_h = std::max(4, (h2 + maxTasks_ - 1) / maxTasks_) * SCREEN_SCALE_FACTOR * 2;
 			taskRanges_.push_back(BinCoords{ tl.x, tl.y, br.x - 1, queueRange_.y1 + bin_h - 1 });
 			for (int y = queueRange_.y1 + bin_h; y <= queueRange_.y2; y += bin_h) {
 				int y2 = y + bin_h > queueRange_.y2 ? br.y : y + bin_h;
@@ -557,28 +558,28 @@ BinCoords BinManager::Scissor(BinCoords range) {
 
 BinCoords BinManager::Range(const VertexData &v0, const VertexData &v1, const VertexData &v2) {
 	BinCoords range;
-	range.x1 = std::min(std::min(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) & ~0xF;
-	range.y1 = std::min(std::min(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) & ~0xF;
-	range.x2 = std::max(std::max(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) | 0xF;
-	range.y2 = std::max(std::max(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) | 0xF;
+	range.x1 = std::min(std::min(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) & ~(SCREEN_SCALE_FACTOR - 1);
+	range.y1 = std::min(std::min(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) & ~(SCREEN_SCALE_FACTOR - 1);
+	range.x2 = std::max(std::max(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) | (SCREEN_SCALE_FACTOR - 1);
+	range.y2 = std::max(std::max(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) | (SCREEN_SCALE_FACTOR - 1);
 	return Scissor(range);
 }
 
 BinCoords BinManager::Range(const VertexData &v0, const VertexData &v1) {
 	BinCoords range;
-	range.x1 = std::min(v0.screenpos.x, v1.screenpos.x) & ~0xF;
-	range.y1 = std::min(v0.screenpos.y, v1.screenpos.y) & ~0xF;
-	range.x2 = std::max(v0.screenpos.x, v1.screenpos.x) | 0xF;
-	range.y2 = std::max(v0.screenpos.y, v1.screenpos.y) | 0xF;
+	range.x1 = std::min(v0.screenpos.x, v1.screenpos.x) & ~(SCREEN_SCALE_FACTOR - 1);
+	range.y1 = std::min(v0.screenpos.y, v1.screenpos.y) & ~(SCREEN_SCALE_FACTOR - 1);
+	range.x2 = std::max(v0.screenpos.x, v1.screenpos.x) | (SCREEN_SCALE_FACTOR - 1);
+	range.y2 = std::max(v0.screenpos.y, v1.screenpos.y) | (SCREEN_SCALE_FACTOR - 1);
 	return Scissor(range);
 }
 
 BinCoords BinManager::Range(const VertexData &v0) {
 	BinCoords range;
-	range.x1 = v0.screenpos.x & ~0xF;
-	range.y1 = v0.screenpos.y & ~0xF;
-	range.x2 = v0.screenpos.x | 0xF;
-	range.y2 = v0.screenpos.y | 0xF;
+	range.x1 = v0.screenpos.x & ~(SCREEN_SCALE_FACTOR - 1);
+	range.y1 = v0.screenpos.y & ~(SCREEN_SCALE_FACTOR - 1);
+	range.x2 = v0.screenpos.x | (SCREEN_SCALE_FACTOR - 1);
+	range.y2 = v0.screenpos.y | (SCREEN_SCALE_FACTOR - 1);
 	return Scissor(range);
 }
 
@@ -588,7 +589,7 @@ void BinManager::Expand(const BinCoords &range) {
 	queueRange_.x2 = std::max(queueRange_.x2, range.x2);
 	queueRange_.y2 = std::max(queueRange_.y2, range.y2);
 
-	if (maxTasks_ == 1 || (queueRange_.y2 - queueRange_.y1 >= 224 * 16 && enqueues_ < 36 * maxTasks_)) {
+	if (maxTasks_ == 1 || (queueRange_.y2 - queueRange_.y1 >= 224 * SCREEN_SCALE_FACTOR && enqueues_ < 36 * maxTasks_)) {
 		Drain();
 	}
 }

@@ -25,6 +25,8 @@
 
 using namespace Math3D;
 
+static constexpr int32_t SCREEN_SCALE_FACTOR = 16;
+
 typedef u16 u10; // TODO: erm... :/
 
 typedef Vec3<float> ModelCoords;
@@ -107,8 +109,8 @@ public:
 	static inline DrawingCoords ScreenToDrawing(int x, int y) {
 		DrawingCoords ret;
 		// When offset > coord, this is negative and force-scissors.
-		ret.x = x / 16;
-		ret.y = y / 16;
+		ret.x = x / SCREEN_SCALE_FACTOR;
+		ret.y = y / SCREEN_SCALE_FACTOR;
 		return ret;
 	}
 	static inline DrawingCoords ScreenToDrawing(const ScreenCoords &coords) {

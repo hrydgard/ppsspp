@@ -263,8 +263,8 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	// Check for 1:1 texture mapping. In that case we can call DrawSprite.
 	int xdiff = v1.screenpos.x - v0.screenpos.x;
 	int ydiff = v1.screenpos.y - v0.screenpos.y;
-	int udiff = (v1.texturecoords.x - v0.texturecoords.x) * 16.0f;
-	int vdiff = (v1.texturecoords.y - v0.texturecoords.y) * 16.0f;
+	int udiff = (v1.texturecoords.x - v0.texturecoords.x) * (float)SCREEN_SCALE_FACTOR;
+	int vdiff = (v1.texturecoords.y - v0.texturecoords.y) * (float)SCREEN_SCALE_FACTOR;
 	bool coord_check =
 		(xdiff == udiff || xdiff == -udiff) &&
 		(ydiff == vdiff || ydiff == -vdiff);
@@ -456,8 +456,8 @@ bool DetectRectangleThroughModeSlices(const RasterizerState &state, const Vertex
 				return false;
 
 			// We might be able to compare ratios, but let's expect 1:1.
-			int texdiff1 = (texbr1.x - textl1.x) * 16.0f;
-			int texdiff2 = (texbr2.x - textl2.x) * 16.0f;
+			int texdiff1 = (texbr1.x - textl1.x) * (float)SCREEN_SCALE_FACTOR;
+			int texdiff2 = (texbr2.x - textl2.x) * (float)SCREEN_SCALE_FACTOR;
 			int posdiff1 = br1.x - tl1.x;
 			int posdiff2 = br2.x - tl2.x;
 			return texdiff1 == posdiff1 && texdiff2 == posdiff2;
