@@ -71,6 +71,7 @@ void ComputeRasterizerState(RasterizerState *state);
 
 // Draws a triangle if its vertices are specified in counter-clockwise order
 void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const BinCoords &range, const RasterizerState &state);
+void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state);
 void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerState &state);
 void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state);
 void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state);

@@ -27,6 +27,7 @@ class DrawBinItemsTask;
 enum class BinItemType {
 	TRIANGLE,
 	CLEAR_RECT,
+	RECT,
 	SPRITE,
 	LINE,
 	POINT,
@@ -189,6 +190,7 @@ public:
 
 	void AddTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2);
 	void AddClearRect(const VertexData &v0, const VertexData &v1);
+	void AddRect(const VertexData &v0, const VertexData &v1);
 	void AddSprite(const VertexData &v0, const VertexData &v1);
 	void AddLine(const VertexData &v0, const VertexData &v1);
 	void AddPoint(const VertexData &v0);

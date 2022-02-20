@@ -117,17 +117,6 @@ inline float clip_dotprod(const VertexData &vert, float A, float B, float C, flo
 	}															\
 }
 
-static void RotateUV(const VertexData &tl, const VertexData &br, VertexData &tr, VertexData &bl) {
-	const int x1 = tl.screenpos.x;
-	const int x2 = br.screenpos.x;
-	const int y1 = tl.screenpos.y;
-	const int y2 = br.screenpos.y;
-
-	if ((x1 < x2 && y1 > y2) || (x1 > x2 && y1 < y2)) {
-		std::swap(bl.texturecoords, tr.texturecoords);
-	}
-}
-
 static inline bool CheckOutsideZ(ClipCoords p, int &pos, int &neg) {
 	constexpr float outsideValue = 1.000030517578125f;
 	float z = p.z / p.w;
@@ -156,102 +145,32 @@ void ProcessRect(const VertexData &v0, const VertexData &v1, BinManager &binner)
 		else if (outsidePos >= 2 || outsideNeg >= 2)
 			return;
 
-		VertexData buf[4];
-		buf[0].clippos = ClipCoords(v0.clippos.x, v0.clippos.y, v1.clippos.z, v1.clippos.w);
-		buf[0].screenpos = TransformUnit::ClipToScreen(buf[0].clippos);
-		buf[0].texturecoords = v0.texturecoords;
+		if (v0.fogdepth != v1.fogdepth) {
+			// Rectangles seem to always use nearest along X for fog depth, but reversed.
+			// TODO: Check exactness of middle.
+			VertexData vhalf0 = v1;
+			vhalf0.screenpos.x = v0.screenpos.x + (v1.screenpos.x - v0.screenpos.x) / 2;
 
-		buf[1].clippos = ClipCoords(v0.clippos.x, v1.clippos.y, v1.clippos.z, v1.clippos.w);
-		buf[1].screenpos = TransformUnit::ClipToScreen(buf[1].clippos);
-		buf[1].texturecoords = Vec2<float>(v0.texturecoords.x, v1.texturecoords.y);
+			VertexData vhalf1 = v1;
+			vhalf1.screenpos.x = v0.screenpos.x + (v1.screenpos.x - v0.screenpos.x) / 2;
+			vhalf1.screenpos.y = v0.screenpos.y;
 
-		buf[2].clippos = ClipCoords(v1.clippos.x, v0.clippos.y, v1.clippos.z, v1.clippos.w);
-		buf[2].screenpos = TransformUnit::ClipToScreen(buf[2].clippos);
-		buf[2].texturecoords = Vec2<float>(v1.texturecoords.x, v0.texturecoords.y);
+			VertexData vrev1 = v1;
+			vrev1.fogdepth = v0.fogdepth;
 
-		buf[3] = v1;
-
-		// Color and depth values of second vertex are used for the whole rectangle
-		buf[0].color0 = buf[1].color0 = buf[2].color0 = buf[3].color0;
-		buf[0].color1 = buf[1].color1 = buf[2].color1 = buf[3].color1;
-		buf[0].fogdepth = buf[1].fogdepth = buf[2].fogdepth = buf[3].fogdepth;
-
-		VertexData* topleft = &buf[0];
-		VertexData* topright = &buf[1];
-		VertexData* bottomleft = &buf[2];
-		VertexData* bottomright = &buf[3];
-
-		for (int i = 0; i < 4; ++i) {
-			if (buf[i].clippos.x < topleft->clippos.x && buf[i].clippos.y < topleft->clippos.y)
-				topleft = &buf[i];
-			if (buf[i].clippos.x > topright->clippos.x && buf[i].clippos.y < topright->clippos.y)
-				topright = &buf[i];
-			if (buf[i].clippos.x < bottomleft->clippos.x && buf[i].clippos.y > bottomleft->clippos.y)
-				bottomleft = &buf[i];
-			if (buf[i].clippos.x > bottomright->clippos.x && buf[i].clippos.y > bottomright->clippos.y)
-				bottomright = &buf[i];
+			binner.AddRect(v0, vhalf0);
+			binner.AddRect(vhalf1, vrev1);
+		} else {
+			binner.AddRect(v0, v1);
 		}
-
-		RotateUV(*topleft, *bottomright, *topright, *bottomleft);
-
-		// Four triangles to do backfaces as well. Two of them will get backface culled.
-		// We already clipped, so we don't need additional processing.
-		binner.AddTriangle(*topleft, *topright, *bottomright);
-		binner.AddTriangle(*bottomright, *topright, *topleft);
-		binner.AddTriangle(*bottomright, *bottomleft, *topleft);
-		binner.AddTriangle(*topleft, *bottomleft, *bottomright);
 	} else {
 		// through mode handling
-
 		if (Rasterizer::RectangleFastPath(v0, v1, binner)) {
 			return;
-		}
-
-		VertexData buf[4];
-		buf[0].screenpos = ScreenCoords(v0.screenpos.x, v0.screenpos.y, v1.screenpos.z);
-		buf[0].texturecoords = v0.texturecoords;
-
-		buf[1].screenpos = ScreenCoords(v0.screenpos.x, v1.screenpos.y, v1.screenpos.z);
-		buf[1].texturecoords = Vec2<float>(v0.texturecoords.x, v1.texturecoords.y);
-
-		buf[2].screenpos = ScreenCoords(v1.screenpos.x, v0.screenpos.y, v1.screenpos.z);
-		buf[2].texturecoords = Vec2<float>(v1.texturecoords.x, v0.texturecoords.y);
-
-		buf[3] = v1;
-
-		// Color and depth values of second vertex are used for the whole rectangle
-		buf[0].color0 = buf[1].color0 = buf[2].color0 = buf[3].color0;
-		buf[0].color1 = buf[1].color1 = buf[2].color1 = buf[3].color1;  // is color1 ever used in through mode?
-		buf[0].clippos.w = buf[1].clippos.w = buf[2].clippos.w = buf[3].clippos.w = 1.0f;
-		buf[0].fogdepth = buf[1].fogdepth = buf[2].fogdepth = buf[3].fogdepth = 1.0f;
-
-		VertexData* topleft = &buf[0];
-		VertexData* topright = &buf[1];
-		VertexData* bottomleft = &buf[2];
-		VertexData* bottomright = &buf[3];
-
-		// DrawTriangle always culls, so sort out the drawing order.
-		for (int i = 0; i < 4; ++i) {
-			if (buf[i].screenpos.x < topleft->screenpos.x && buf[i].screenpos.y < topleft->screenpos.y)
-				topleft = &buf[i];
-			if (buf[i].screenpos.x > topright->screenpos.x && buf[i].screenpos.y < topright->screenpos.y)
-				topright = &buf[i];
-			if (buf[i].screenpos.x < bottomleft->screenpos.x && buf[i].screenpos.y > bottomleft->screenpos.y)
-				bottomleft = &buf[i];
-			if (buf[i].screenpos.x > bottomright->screenpos.x && buf[i].screenpos.y > bottomright->screenpos.y)
-				bottomright = &buf[i];
-		}
-
-		RotateUV(v0, v1, *topright, *bottomleft);
-
-		if (gstate.isModeClear() && !gstate.isDitherEnabled()) {
+		} else if (gstate.isModeClear() && !gstate.isDitherEnabled()) {
 			binner.AddClearRect(v0, v1);
 		} else {
-			// Four triangles to do backfaces as well. Two of them will get backface culled.
-			binner.AddTriangle(*topleft, *topright, *bottomleft);
-			binner.AddTriangle(*bottomleft, *topright, *topleft);
-			binner.AddTriangle(*topright, *bottomright, *bottomleft);
-			binner.AddTriangle(*bottomleft, *bottomright, *topright);
+			binner.AddRect(v0, v1);
 		}
 	}
 }

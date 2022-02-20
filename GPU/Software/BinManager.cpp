@@ -74,6 +74,10 @@ static inline void DrawBinItem(const BinItem &item, const RasterizerState &state
 		ClearRectangle(item.v0, item.v1, item.range, state);
 		break;
 
+	case BinItemType::RECT:
+		DrawRectangle(item.v0, item.v1, item.range, state);
+		break;
+
 	case BinItemType::SPRITE:
 		DrawSprite(item.v0, item.v1, item.range, state);
 		break;
@@ -313,6 +317,17 @@ void BinManager::AddClearRect(const VertexData &v0, const VertexData &v1) {
 	if (queue_.Full())
 		Drain();
 	queue_.Push(BinItem{ BinItemType::CLEAR_RECT, stateIndex_, range, v0, v1 });
+	Expand(range);
+}
+
+void BinManager::AddRect(const VertexData &v0, const VertexData &v1) {
+	const BinCoords range = Range(v0, v1);
+	if (range.Invalid())
+		return;
+
+	if (queue_.Full())
+		Drain();
+	queue_.Push(BinItem{ BinItemType::RECT, stateIndex_, range, v0, v1 });
 	Expand(range);
 }
 

@@ -2626,7 +2626,7 @@ bool SamplerJitCache::Jit_GetTexelCoords(const SamplerID &id) {
 		CVTTPS2DQ(sReg, R(sReg));
 		regCache_.Release(sizesReg, RegCache::VEC_TEMP0);
 
-		PSRLD(sReg, 8);
+		PSRAD(sReg, 8);
 
 		// Reuse tempXYReg for the level1 values.
 		if (!cpu_info.bSSE4_1)
@@ -2685,7 +2685,7 @@ bool SamplerJitCache::Jit_GetTexelCoords(const SamplerID &id) {
 		MULPS(sReg, M(constWidthHeight256f_));
 		CVTTPS2DQ(sReg, R(sReg));
 		// Great, shift out the fraction.
-		PSRLD(sReg, 8);
+		PSRAD(sReg, 8);
 
 		// Square textures are kinda common.
 		bool clampApplied = false;
