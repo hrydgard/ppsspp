@@ -564,8 +564,10 @@ void DumpExecute::Framebuf(int level, u32 ptr, u32 sz) {
 	u32 headerSize = (u32)sizeof(FramebufData);
 	u32 pspSize = sz - headerSize;
 	const bool isTarget = (framebuf->flags & 1) != 0;
+	const bool unchangedVRAM = (framebuf->flags & 2) != 0;
+	// TODO: Could use drawnVRAM flag, but it can be wrong.
 	// Could potentially always skip if !isTarget, but playing it safe for offset texture behavior.
-	if (Memory::IsValidRange(framebuf->addr, pspSize) && (!isTarget || !g_Config.bSoftwareRendering)) {
+	if (Memory::IsValidRange(framebuf->addr, pspSize) && !unchangedVRAM && (!isTarget || !g_Config.bSoftwareRendering)) {
 		// Intentionally don't trigger an upload here.
 		Memory::MemcpyUnchecked(framebuf->addr, pushbuf_.data() + ptr + headerSize, pspSize);
 	}
