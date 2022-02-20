@@ -57,6 +57,17 @@ static std::vector<u32> lastRegisters;
 static std::vector<u32> lastTextures;
 static std::set<u32> lastRenderTargets;
 
+enum class DirtyVRAMFlag : uint8_t {
+	CLEAN = 0,
+	DIRTY = 1,
+	DRAWN = 2,
+};
+static constexpr uint32_t DIRTY_VRAM_SHIFT = 8;
+static constexpr uint32_t DIRTY_VRAM_ROUND = (1 << DIRTY_VRAM_SHIFT) - 1;
+static constexpr uint32_t DIRTY_VRAM_SIZE = (2 * 1024 * 1024) >> DIRTY_VRAM_SHIFT;
+static constexpr uint32_t DIRTY_VRAM_MASK = (2 * 1024 * 1024 - 1) >> DIRTY_VRAM_SHIFT;
+static DirtyVRAMFlag dirtyVRAM[DIRTY_VRAM_SIZE];
+
 static void FlushRegisters() {
 	if (!lastRegisters.empty()) {
 		Command last{CommandType::REGISTERS};
@@ -90,6 +101,43 @@ static Path GenRecordingFilename() {
 	return dumpDir / StringFromFormat("%s_%04d.ppdmp", prefix.c_str(), 9999);
 }
 
+static void DirtyAllVRAM(DirtyVRAMFlag flag) {
+	for (uint32_t i = 0; i < DIRTY_VRAM_SIZE; ++i)
+		dirtyVRAM[i] = flag;
+}
+
+static void DirtyVRAM(u32 start, u32 sz, DirtyVRAMFlag flag) {
+	u32 count = (sz + DIRTY_VRAM_ROUND) >> DIRTY_VRAM_SHIFT;
+	u32 first = (start >> 10) & DIRTY_VRAM_MASK;
+	if (first + count > DIRTY_VRAM_SIZE) {
+		DirtyAllVRAM(flag);
+		return;
+	}
+
+	for (u32 i = 0; i < count; ++i)
+		dirtyVRAM[first + i] = flag;
+}
+
+static void DirtyDrawnVRAM() {
+	int w = std::max(gstate.getScissorX2(), gstate.getRegionX2()) + 1;
+	int h = std::max(gstate.getScissorY2(), gstate.getRegionY2()) + 1;
+
+	bool drawZ = gstate.isDepthWriteEnabled() && gstate.isDepthTestEnabled();
+	bool clearZ = gstate.isModeClear() && gstate.isClearModeDepthMask();
+	if (drawZ || clearZ) {
+		int bytes = 2 * gstate.DepthBufStride() * h;
+		if (w > gstate.DepthBufStride())
+			bytes += 2 * (w - gstate.DepthBufStride());
+		DirtyVRAM(gstate.getDepthBufAddress(), bytes, DirtyVRAMFlag::DRAWN);
+	}
+
+	int bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
+	int bytes = bpp * gstate.FrameBufStride() * h;
+	if (w > gstate.FrameBufStride())
+		bytes += bpp * (w - gstate.FrameBufStride());
+	DirtyVRAM(gstate.getFrameBufAddress(), bytes, DirtyVRAMFlag::DRAWN);
+}
+
 static void BeginRecording() {
 	active = true;
 	nextFrame = false;
@@ -103,6 +151,7 @@ static void BeginRecording() {
 	gstate.Save((u32_le *)(pushbuf.data() + ptr));
 
 	commands.push_back({CommandType::INIT, sz, ptr});
+	DirtyAllVRAM(DirtyVRAMFlag::DIRTY);
 }
 
 static void WriteCompressed(FILE *fp, const void *p, size_t sz) {
@@ -278,8 +327,22 @@ static void EmitTextureData(int level, u32 texaddr) {
 			u32 pad;
 		};
 
+		bool isDirtyVRAM = false;
+		bool isDrawnVRAM = false;
+		for (uint32_t i = 0; i < (sizeInRAM + DIRTY_VRAM_ROUND) >> DIRTY_VRAM_SHIFT; ++i) {
+			DirtyVRAMFlag flag = dirtyVRAM[(texaddr >> DIRTY_VRAM_SHIFT) + i];
+			isDirtyVRAM = isDirtyVRAM || flag != DirtyVRAMFlag::CLEAN;
+			isDrawnVRAM = isDrawnVRAM || flag == DirtyVRAMFlag::DRAWN;
+		}
+
 		// The isTarget flag is mostly used for replay of dumps on a PSP.
 		u32 flags = isTarget ? 1 : 0;
+		// The unchangedVRAM flag tells us we can skip recopying.
+		if (!isDirtyVRAM)
+			flags |= 2;
+		// And the drawn flag tells us this data was potentially drawn to.
+		if (isDrawnVRAM)
+			flags |= 4;
 		FramebufData framebuf{ texaddr, bufw, flags };
 		framebufData.resize(sizeof(framebuf) + bytes);
 		memcpy(&framebufData[0], &framebuf, sizeof(framebuf));
@@ -352,7 +415,8 @@ static void EmitTransfer(u32 op) {
 	FlushRegisters();
 
 	// This may not make a lot of sense right now, unless it's to a framebuf...
-	if (!Memory::IsVRAMAddress(gstate.getTransferDstAddress())) {
+	u32 dstBasePtr = gstate.getTransferDstAddress();
+	if (!Memory::IsVRAMAddress(dstBasePtr)) {
 		// Skip, not VRAM, so can't affect drawing (we flush textures each prim.)
 		return;
 	}
@@ -361,6 +425,9 @@ static void EmitTransfer(u32 op) {
 	u32 srcStride = gstate.getTransferSrcStride();
 	int srcX = gstate.getTransferSrcX();
 	int srcY = gstate.getTransferSrcY();
+	u32 dstStride = gstate.getTransferDstStride();
+	int dstX = gstate.getTransferDstX();
+	int dstY = gstate.getTransferDstY();
 	int width = gstate.getTransferWidth();
 	int height = gstate.getTransferHeight();
 	int bpp = gstate.getTransferBpp();
@@ -368,8 +435,12 @@ static void EmitTransfer(u32 op) {
 	u32 srcBytes = ((srcY + height - 1) * srcStride + (srcX + width)) * bpp;
 	srcBytes = Memory::ValidSize(srcBasePtr, srcBytes);
 
+	u32 dstBytes = ((dstY + height - 1) * dstStride + (dstX + width)) * bpp;
+	dstBytes = Memory::ValidSize(dstBasePtr, dstBytes);
+
 	if (srcBytes != 0) {
 		EmitCommandWithRAM(CommandType::TRANSFERSRC, Memory::GetPointerUnchecked(srcBasePtr), srcBytes, 16);
+		DirtyVRAM(dstBasePtr, dstBytes, DirtyVRAMFlag::DIRTY);
 	}
 
 	lastRegisters.push_back(op);
@@ -391,6 +462,7 @@ static void EmitPrim(u32 op) {
 	FlushPrimState(op & 0x0000FFFF);
 
 	lastRegisters.push_back(op);
+	DirtyDrawnVRAM();
 }
 
 static void EmitBezierSpline(u32 op) {
@@ -399,6 +471,7 @@ static void EmitBezierSpline(u32 op) {
 	FlushPrimState(ucount * vcount);
 
 	lastRegisters.push_back(op);
+	DirtyDrawnVRAM();
 }
 
 bool IsActive() {
@@ -503,6 +576,7 @@ void NotifyMemcpy(u32 dest, u32 src, u32 sz) {
 		sz = Memory::ValidSize(dest, sz);
 		if (sz != 0) {
 			EmitCommandWithRAM(CommandType::MEMCPYDATA, Memory::GetPointer(dest), sz, 1);
+			DirtyVRAM(dest, sz, DirtyVRAMFlag::DIRTY);
 		}
 	}
 }
@@ -525,6 +599,7 @@ void NotifyMemset(u32 dest, int v, u32 sz) {
 		Command cmd{CommandType::MEMSET, sizeof(data), (u32)pushbuf.size()};
 		pushbuf.resize(pushbuf.size() + sizeof(data));
 		memcpy(pushbuf.data() + cmd.ptr, &data, sizeof(data));
+		DirtyVRAM(dest, sz, DirtyVRAMFlag::DIRTY);
 	}
 }
 
@@ -533,6 +608,8 @@ void NotifyUpload(u32 dest, u32 sz) {
 		return;
 	}
 	NotifyMemcpy(dest, dest, sz);
+	if (Memory::IsVRAMAddress(dest))
+		DirtyVRAM(dest, sz, DirtyVRAMFlag::DIRTY);
 }
 
 static bool HasDrawCommands() {
@@ -616,6 +693,10 @@ void NotifyFrame() {
 		NOTICE_LOG(SYSTEM, "Recording starting on frame...");
 		BeginRecording();
 	}
+}
+
+void NotifyCPU() {
+	DirtyAllVRAM(DirtyVRAMFlag::DIRTY);
 }
 
 };

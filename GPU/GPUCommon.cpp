@@ -1021,6 +1021,8 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	}
 
 	FinishDeferred();
+	if (debugRecording_)
+		GPURecord::NotifyCPU();
 
 	// We haven't run the op at list.pc, so it shouldn't count.
 	if (cycleLastPC != list.pc) {
