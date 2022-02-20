@@ -208,19 +208,6 @@ static inline void SetPixelDepth(int x, int y, int stride, u16 value) {
 	depthbuf.Set16(x, y, stride, value);
 }
 
-static inline u8 GetPixelStencil(GEBufferFormat fmt, int fbStride, int x, int y) {
-	if (fmt == GE_FORMAT_565) {
-		// Always treated as 0 for comparison purposes.
-		return 0;
-	} else if (fmt == GE_FORMAT_5551) {
-		return ((fb.Get16(x, y, fbStride) & 0x8000) != 0) ? 0xFF : 0;
-	} else if (fmt == GE_FORMAT_4444) {
-		return Convert4To8(fb.Get16(x, y, fbStride) >> 12);
-	} else {
-		return fb.Get32(x, y, fbStride) >> 24;
-	}
-}
-
 static inline bool IsRightSideOrFlatBottomLine(const Vec2<int>& vertex, const Vec2<int>& line1, const Vec2<int>& line2)
 {
 	if (line1.y == line2.y) {
@@ -1245,21 +1232,6 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 		y += yinc;
 		z += zinc;
 	}
-}
-
-bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
-	int w = gstate.getRegionX2() + 1;
-	int h = gstate.getRegionY2() + 1;
-	buffer.Allocate(w, h, GPU_DBG_FORMAT_8BIT);
-
-	u8 *row = buffer.GetData();
-	for (int y = 0; y < w; ++y) {
-		for (int x = 0; x < h; ++x) {
-			row[x] = GetPixelStencil(gstate.FrameBufFormat(), gstate.FrameBufStride(), x, y);
-		}
-		row += w;
-	}
-	return true;
 }
 
 bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
