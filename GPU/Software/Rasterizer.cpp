@@ -893,8 +893,8 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	int entireY1 = std::min(v0.screenpos.y, v1.screenpos.y);
 	int entireX2 = std::max(v0.screenpos.x, v1.screenpos.x) - 1;
 	int entireY2 = std::max(v0.screenpos.y, v1.screenpos.y) - 1;
-	int minX = std::max(entireX1, range.x1);
-	int minY = std::max(entireY1, range.y1);
+	int minX = std::max(entireX1, range.x1) | (SCREEN_SCALE_FACTOR / 2 - 1);
+	int minY = std::max(entireY1, range.y1) | (SCREEN_SCALE_FACTOR / 2 - 1);
 	int maxX = std::min(entireX2, range.x2);
 	int maxY = std::min(entireY2, range.y2);
 
@@ -927,7 +927,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 			} else {
 				// BL to TR, rotated.  We start at TL still.
 				// X moves T (not S) toward v1, and Y moves S away from v1.
-				rowST = Vec2f(tc1.s() - diffS / diffY, tc0.t());
+				rowST = Vec2f(tc1.s(), tc0.t());
 				stx = Vec2f(0.0f, 2.0f * diffT / diffX);
 				sty = Vec2f(2.0f * -diffS / diffY, 0.0f);
 			}
@@ -935,12 +935,12 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 			if (v0.screenpos.y < v1.screenpos.y) {
 				// TR to BL.  Like BL to TR, rotated.
 				// X moves T (not s) away from v1, and Y moves S toward v1.
-				rowST = Vec2f(tc0.s(), tc1.t() - diffT / diffX);
+				rowST = Vec2f(tc0.s(), tc1.t());
 				stx = Vec2f(0.0f, 2.0f * -diffT / diffX);
 				sty = Vec2f(2.0f * diffS / diffY, 0.0f);
 			} else {
 				// BR to TL, just inverse of TL to BR.
-				rowST = Vec2f(tc1.s() - diffS / diffX, tc1.t() - diffT / diffY);
+				rowST = Vec2f(tc1.s(), tc1.t());
 				stx = Vec2f(2.0f * -diffS / diffX, 0.0f);
 				sty = Vec2f(0.0f, 2.0f * -diffT / diffY);
 			}
