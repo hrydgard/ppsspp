@@ -869,13 +869,6 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void Invalidate(int invalidateMask) {
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::INVALIDATE };
-		data.clear.clearMask = invalidateMask;
-		curRenderStep_->commands.push_back(data);
-	}
-
 	void Draw(GLenum mode, int first, int count) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::DRAW };

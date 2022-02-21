@@ -631,45 +631,6 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 		}
 	}
 
-	auto ignoresContents = [](GLRRenderPassAction act) {
-		return act == GLRRenderPassAction::CLEAR || act == GLRRenderPassAction::DONT_CARE;
-	};
-	int invalidateAllMask = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
-
-	/*
-	for (int j = 0; j < (int)steps.size() - 1; ++j) {
-		GLRStep &primaryStep = *steps[j];
-		if (primaryStep.stepType == GLRStepType::RENDER) {
-			const GLRFramebuffer *fb = primaryStep.render.framebuffer;
-
-			// Let's see if we can invalidate it...
-			int invalidateMask = 0;
-			for (int i = j + 1; i < (int)steps.size(); ++i) {
-				const GLRStep &secondaryStep = *steps[i];
-				if (secondaryStep.stepType == GLRStepType::RENDER && secondaryStep.render.framebuffer == fb) {
-					if (ignoresContents(secondaryStep.render.color))
-						invalidateMask |= GL_COLOR_BUFFER_BIT;
-					if (ignoresContents(secondaryStep.render.depth))
-						invalidateMask |= GL_DEPTH_BUFFER_BIT;
-					if (ignoresContents(secondaryStep.render.stencil))
-						invalidateMask |= GL_STENCIL_BUFFER_BIT;
-
-					if (invalidateMask == invalidateAllMask)
-						break;
-				} else if (secondaryStep.dependencies.contains(fb)) {
-					// Can't do it, this step may depend on fb's data.
-					break;
-				}
-			}
-
-			if (invalidateMask) {
-				GLRRenderData data{ GLRRenderCommand::INVALIDATE };
-				data.clear.clearMask = invalidateMask;
-				primaryStep.commands.push_back(data);
-			}
-		}
-	}*/
-
 	CHECK_GL_ERROR_IF_DEBUG();
 	size_t renderCount = 0;
 	for (size_t i = 0; i < steps.size(); i++) {
@@ -918,23 +879,6 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
-		case GLRRenderCommand::INVALIDATE:
-		{
-			GLenum attachments[3];
-			int count = 0;
-			bool isFBO = step.render.framebuffer != nullptr;
-			bool hasDepth = isFBO ? step.render.framebuffer->z_stencil_ : false;
-			if (c.clear.clearMask & GL_COLOR_BUFFER_BIT)
-				attachments[count++] = isFBO ? GL_COLOR_ATTACHMENT0 : GL_COLOR;
-			if (hasDepth && (c.clear.clearMask & GL_DEPTH_BUFFER_BIT))
-				attachments[count++] = isFBO ? GL_DEPTH_ATTACHMENT : GL_DEPTH;
-			if (hasDepth && (c.clear.clearMask & GL_STENCIL_BUFFER_BIT))
-				attachments[count++] = isFBO ? GL_STENCIL_ATTACHMENT : GL_STENCIL;
-			if (glInvalidateFramebuffer != nullptr && count != 0)
-				glInvalidateFramebuffer(GL_FRAMEBUFFER, count, attachments);
-			CHECK_GL_ERROR_IF_DEBUG();
-			break;
-		}
 		case GLRRenderCommand::BLENDCOLOR:
 			glBlendColor(c.blendColor.color[0], c.blendColor.color[1], c.blendColor.color[2], c.blendColor.color[3]);
 			break;
