@@ -283,6 +283,7 @@ void CheckGLExtensions() {
 				gl_extensions.GLES3 = true;
 				// Though, let's ban Mali from the GLES 3 path for now, see #4078
 				if (strstr(renderer, "Mali") != 0) {
+					INFO_LOG(G3D, "Forcing GLES3 off for Mali driver version: %s\n", versionStr ? versionStr : "N/A");
 					gl_extensions.GLES3 = false;
 				}
 			} else {
@@ -349,8 +350,6 @@ void CheckGLExtensions() {
 			&& !(((strncmp(renderer, "ATI RADEON X", 12) == 0) || (strncmp(renderer, "ATI MOBILITY RADEON X", 21) == 0)));
 	}
 
-	gl_extensions.ARB_blend_func_extended = g_set_gl_extensions.count("GL_ARB_blend_func_extended") != 0;
-	gl_extensions.EXT_blend_func_extended = g_set_gl_extensions.count("GL_EXT_blend_func_extended") != 0;
 	gl_extensions.ARB_conservative_depth = g_set_gl_extensions.count("GL_ARB_conservative_depth") != 0;
 	gl_extensions.ARB_shader_image_load_store = (g_set_gl_extensions.count("GL_ARB_shader_image_load_store") != 0) || (g_set_gl_extensions.count("GL_EXT_shader_image_load_store") != 0);
 	gl_extensions.ARB_shading_language_420pack = (g_set_gl_extensions.count("GL_ARB_shading_language_420pack") != 0);
@@ -373,6 +372,7 @@ void CheckGLExtensions() {
 	gl_extensions.ARB_explicit_attrib_location = g_set_gl_extensions.count("GL_ARB_explicit_attrib_location") != 0;
 
 	if (gl_extensions.IsGLES) {
+		gl_extensions.EXT_blend_func_extended = g_set_gl_extensions.count("GL_EXT_blend_func_extended") != 0;
 		gl_extensions.OES_texture_npot = g_set_gl_extensions.count("GL_OES_texture_npot") != 0;
 		gl_extensions.OES_packed_depth_stencil = (g_set_gl_extensions.count("GL_OES_packed_depth_stencil") != 0) || gl_extensions.GLES3;
 		gl_extensions.OES_depth24 = g_set_gl_extensions.count("GL_OES_depth24") != 0;
@@ -427,6 +427,8 @@ void CheckGLExtensions() {
 		gl_extensions.EXT_discard_framebuffer = false;
 #endif
 	} else {
+		gl_extensions.ARB_blend_func_extended = g_set_gl_extensions.count("GL_ARB_blend_func_extended") != 0;
+
 		// Desktops support minmax and subimage unpack (GL_UNPACK_ROW_LENGTH etc)
 		gl_extensions.EXT_blend_minmax = true;
 		gl_extensions.EXT_unpack_subimage = true;
