@@ -210,7 +210,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 				glBindFragDataLocation(program->program, 0, "fragColor0");
 			}
 #elif !PPSSPP_PLATFORM(IOS)
-			if (gl_extensions.GLES3 && step.create_program.support_dual_source) {
+			if (gl_extensions.EXT_blend_func_extended && step.create_program.support_dual_source) {
 				glBindFragDataLocationIndexedEXT(program->program, 0, 0, "fragColor0");
 				glBindFragDataLocationIndexedEXT(program->program, 0, 1, "fragColor1");
 			}
