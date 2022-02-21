@@ -203,6 +203,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 
 #if !defined(USING_GLES2)
 			if (step.create_program.support_dual_source) {
+				_dbg_assert_msg_(gl_extensions.ARB_blend_func_extended, "ARB_blend_func_extended required for dual src");
 				// Dual source alpha
 				glBindFragDataLocationIndexed(program->program, 0, 0, "fragColor0");
 				glBindFragDataLocationIndexed(program->program, 0, 1, "fragColor1");
@@ -210,7 +211,9 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 				glBindFragDataLocation(program->program, 0, "fragColor0");
 			}
 #elif !PPSSPP_PLATFORM(IOS)
-			if (gl_extensions.EXT_blend_func_extended && step.create_program.support_dual_source) {
+			if (gl_extensions.GLES3 && step.create_program.support_dual_source) {
+				// For GLES2, we use gl_SecondaryFragColorEXT as fragColor1.
+				_dbg_assert_msg_(gl_extensions.EXT_blend_func_extended, "EXT_blend_func_extended required for dual src");
 				glBindFragDataLocationIndexedEXT(program->program, 0, 0, "fragColor0");
 				glBindFragDataLocationIndexedEXT(program->program, 0, 1, "fragColor1");
 			}
