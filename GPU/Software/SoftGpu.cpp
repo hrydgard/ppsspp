@@ -792,10 +792,24 @@ void SoftGPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 
 	DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
 
-	for (int y = 0; y < height; y++) {
-		const u8 *srcp = Memory::GetPointer(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
-		u8 *dstp = Memory::GetPointer(dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp);
-		memcpy(dstp, srcp, width * bpp);
+	if (srcStride == dstStride && (u32)width == srcStride) {
+		u32 srcLineStartAddr = srcBasePtr + (srcY * srcStride + srcX) * bpp;
+		u32 dstLineStartAddr = dstBasePtr + (dstY * dstStride + dstX) * bpp;
+
+		const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
+		u8 *dstp = Memory::GetPointer(dstLineStartAddr);
+		memcpy(dstp, srcp, width * height * bpp);
+		GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, width * height * bpp);
+	} else {
+		for (int y = 0; y < height; y++) {
+			u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
+			u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
+
+			const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
+			u8 *dstp = Memory::GetPointer(dstLineStartAddr);
+			memcpy(dstp, srcp, width * bpp);
+			GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, width * bpp);
+		}
 	}
 
 	if (MemBlockInfoDetailed(srcSize, dstSize)) {
