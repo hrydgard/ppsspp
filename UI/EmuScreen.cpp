@@ -1130,7 +1130,18 @@ static const char *CPUCoreAsString(int core) {
 static void DrawCrashDump(UIContext *ctx) {
 	const ExceptionInfo &info = Core_GetExceptionInfo();
 
+	auto sy = GetI18NCategory("System");
 	FontID ubuntu24("UBUNTU24");
+
+	int x = 20 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
+	int y = 20 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
+
+	ctx->Flush();
+	if (ctx->Draw()->GetFontAtlas()->getFont(ubuntu24))
+		ctx->BindFontTexture();
+	ctx->Draw()->SetFontScale(1.2f, 1.2f);
+	ctx->Draw()->DrawTextShadow(ubuntu24, sy->T("Game crashed"), x, y, 0xFFFFFFFF);
+
 	char statbuf[4096];
 	char versionString[256];
 	snprintf(versionString, sizeof(versionString), "%s", PPSSPP_GIT_VERSION);
@@ -1147,9 +1158,7 @@ static void DrawCrashDump(UIContext *ctx) {
 	int sysVersion = System_GetPropertyInt(SYSPROP_SYSTEMVERSION);
 
 	// First column
-	ctx->Flush();
-	int x = 20 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
-	int y = 50 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
+	y += 65;
 
 	int columnWidth = (ctx->GetBounds().w - x - 10) / 2;
 	int height = ctx->GetBounds().h;
@@ -1167,8 +1176,6 @@ static void DrawCrashDump(UIContext *ctx) {
 		sysName.c_str(), sysVersion, GetCompilerABI()
 	);
 
-	if (ctx->Draw()->GetFontAtlas()->getFont(ubuntu24))
-		ctx->BindFontTexture();
 	ctx->Draw()->SetFontScale(.7f, .7f);
 	ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 	y += 140;
@@ -1210,7 +1217,7 @@ BREAK
 	// Draw some additional stuff to the right.
 
 	x += columnWidth + 10;
-	y = 50;
+	y = 85;
 	snprintf(statbuf, sizeof(statbuf),
 		"CPU Core: %s (flags: %08x)\n"
 		"Locked CPU freq: %d MHz\n"
