@@ -731,6 +731,7 @@ void InitSysDirectories() {
 	File::CreateDir(GetSysDirectory(DIRECTORY_GAME));
 	File::CreateDir(GetSysDirectory(DIRECTORY_SAVEDATA));
 	File::CreateDir(GetSysDirectory(DIRECTORY_SAVESTATE));
+	File::CreateDir(GetSysDirectory(DIRECTORY_SYSTEM));
 
 	if (g_Config.currentDirectory.empty()) {
 		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_GAME);
