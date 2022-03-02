@@ -608,6 +608,10 @@ static bool TestPath() {
 	EXPECT_EQ_STR(Path("C:\\Yo").GetFilename(), std::string("Yo"));
 	EXPECT_EQ_STR(Path("C:\\Yo\\Lo").GetDirectory(), std::string("C:/Yo"));
 	EXPECT_EQ_STR(Path("C:\\Yo\\Lo").GetFilename(), std::string("Lo"));
+
+	EXPECT_EQ_STR(Path(R"(\\host\share\filename)").GetRootVolume().ToString(), std::string("//host"));
+	EXPECT_EQ_STR(Path(R"(\\?\UNC\share\filename)").GetRootVolume().ToString(), std::string("//?/UNC"));
+	EXPECT_EQ_STR(Path(R"(\\?\C:\share\filename)").GetRootVolume().ToString(), std::string("//?/C:"));
 #endif
 
 	std::string computedPath;

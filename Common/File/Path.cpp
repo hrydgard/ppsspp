@@ -307,6 +307,17 @@ Path Path::GetRootVolume() const {
 		std::string path = path_.substr(0, 2);
 		return Path(path);
 	}
+	// Support UNC and device paths.
+	if (path_[0] == '/' && path_[1] == '/') {
+		size_t next = 2;
+		if ((path_[2] == '.' || path_[2] == '?') && path_[3] == '/') {
+			// Device path, or "\\.\UNC" path, skip the dot and consider the device the root.
+			next = 4;
+		}
+
+		size_t len = path_.find_first_of('/', next);
+		return Path(path_.substr(0, len));
+	}
 #endif
 	return Path("/");
 }
