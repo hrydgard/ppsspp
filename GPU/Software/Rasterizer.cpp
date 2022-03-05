@@ -1017,8 +1017,8 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 
 #if !defined(SOFTGPU_MEMORY_TAGGING_DETAILED) && defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	for (int y = minY; y <= maxY; y += SCREEN_SCALE_FACTOR) {
-		DrawingCoords p = TransformUnit::ScreenToDrawing(minX, y, state.screenOffsetX, state.screenOffsetY);
-		DrawingCoords pend = TransformUnit::ScreenToDrawing(maxX, y, state.screenOffsetX, state.screenOffsetY);
+		DrawingCoords p = TransformUnit::ScreenToDrawing(minX, y);
+		DrawingCoords pend = TransformUnit::ScreenToDrawing(maxX, y);
 		uint32_t row = gstate.getFrameBufAddress() + p.y * state.pixelID.cached.framebufStride * bpp;
 		NotifyMemInfo(MemBlockFlags::WRITE, row + p.x * bpp, (pend.x - p.x) * bpp, tag.c_str(), tag.size());
 
