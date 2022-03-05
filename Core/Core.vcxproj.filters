@@ -1187,6 +1187,9 @@
     <ClCompile Include="HW\Display.cpp">
       <Filter>HW</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceNp2.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1915,6 +1918,9 @@
     </ClInclude>
     <ClInclude Include="HW\Display.h">
       <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceNp2.h">
+      <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

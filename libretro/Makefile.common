@@ -547,6 +547,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/sceVaudio.cpp \
 	       $(COREDIR)/HLE/scePspNpDrm_user.cpp \
 	       $(COREDIR)/HLE/sceNp.cpp \
+		   $(COREDIR)/HLE/sceNp2.cpp \
 	       $(COREDIR)/HLE/scePauth.cpp \
 	       $(COREDIR)/HLE/sceUsbGps.cpp \
 	       $(COREDIR)/HW/BufferQueue.cpp \
