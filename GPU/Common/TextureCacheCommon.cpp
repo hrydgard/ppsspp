@@ -1277,6 +1277,13 @@ u32 TextureCacheCommon::EstimateTexMemoryUsage(const TexCacheEntry *entry) {
 }
 
 ReplacedTexture &TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &w, int &h) {
+	// Short circuit the non-enabled case.
+	// Otherwise, due to bReplaceTexturesAllowLate, we'll still spawn tasks looking for replacements
+	// that then won't be used.
+	if (!replacer_.Enabled()) {
+		return replacer_.FindNone();
+	}
+
 	// Allow some delay to reduce pop-in.
 	constexpr double MAX_BUDGET_PER_TEX = 0.25 / 60.0;
 

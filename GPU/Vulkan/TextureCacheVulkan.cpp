@@ -657,7 +657,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		badMipSizes = false;
 	}
 
-
 	// Don't scale the PPGe texture.
 	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd()) {
 		scaleFactor = 1;
