@@ -2771,9 +2771,12 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 		framebufferManager_->NotifyBlockTransferAfter(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason);
 	}
 
+	const uint32_t numBytes = width * height * bpp;
 	const uint32_t srcSize = height * srcStride * bpp;
 	const uint32_t dstSize = height * dstStride * bpp;
-	if (MemBlockInfoDetailed(srcSize, dstSize)) {
+	// We do the check here on the number of bytes to avoid marking really tiny images.
+	// Helps perf in GT menu which does insane amounts of these, one for each text character per frame.
+	if (MemBlockInfoDetailed(numBytes, numBytes)) {
 		const uint32_t src = srcBasePtr + (srcY * srcStride + srcX) * bpp;
 		const uint32_t dst = dstBasePtr + (dstY * dstStride + dstX) * bpp;
 		const std::string tag = "GPUBlockTransfer/" + GetMemWriteTagAt(src, srcSize);
