@@ -111,7 +111,8 @@ void GameScreen::CreateViews() {
 
 		tvTitle_ = infoLayout->Add(new TextView(info->GetTitle(), ALIGN_LEFT | FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvTitle_->SetShadow(true);
-		infoLayout->Add(new Spacer(12));
+		tvID_ = infoLayout->Add(new TextView("", ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		tvID_->SetShadow(true);
 		// This one doesn't need to be updated.
 		infoLayout->Add(new TextView(gamePath_.ToVisualString(), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetShadow(true);
 		tvGameSize_ = infoLayout->Add(new TextView("...", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
@@ -133,6 +134,7 @@ void GameScreen::CreateViews() {
 		tvInstallDataSize_ = nullptr;
 		tvRegion_ = nullptr;
 		tvCRC_ = nullptr;
+		tvID_ = nullptr;
 	}
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
@@ -256,7 +258,7 @@ void GameScreen::render() {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(thin3d, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
 	if (tvTitle_) {
-		tvTitle_->SetText(info->GetTitle() + " (" + info->id + ")");
+		tvTitle_->SetText(info->GetTitle());
 	}
 
 	if (info->gameSize) {
@@ -297,6 +299,10 @@ void GameScreen::render() {
 		std::string crc = StringFromFormat("%08X", Reporting::RetrieveCRC(gamePath_));
 		tvCRC_->SetText(ReplaceAll(rp->T("FeedbackCRCValue", "Disc CRC: %1"), "%1", crc));
 		tvCRC_->SetVisibility(UI::V_VISIBLE);
+	}
+
+	if (tvID_) {
+		tvID_->SetText(ReplaceAll(info->id_version, "_", " v"));
 	}
 
 	if (!info->id.empty()) {
