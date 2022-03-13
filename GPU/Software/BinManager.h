@@ -61,11 +61,11 @@ struct BinQueue {
 		Reset();
 	}
 	~BinQueue() {
-		delete [] items_;
+		FreeAlignedMemory(items_);
 	}
 
 	void Setup() {
-		items_ = new T[N];
+		items_ = (T *)AllocateAlignedMemory(sizeof(T) * N, 16);
 	}
 
 	void Reset() {
