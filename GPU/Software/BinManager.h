@@ -216,7 +216,12 @@ public:
 	}
 
 protected:
+#if PPSSPP_ARCH(32BIT)
+	// Use less memory and less address space.  We're unlikely to have 32 cores on a 32-bit CPU.
+	static constexpr int MAX_POSSIBLE_TASKS = 16;
+#else
 	static constexpr int MAX_POSSIBLE_TASKS = 64;
+#endif
 	// This is about 1MB of state data.
 	static constexpr int QUEUED_STATES = 4096;
 	// These are 1KB each, so half an MB.
