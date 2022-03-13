@@ -1285,10 +1285,26 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 	SectionID sceModuleInfoSection = reader.GetSectionByName(".rodata.sceModuleInfo");
 	PspModuleInfo *modinfo;
+
+	u32 modinfoaddr;
+
 	if (sceModuleInfoSection != -1)
-		modinfo = (PspModuleInfo *)Memory::GetPointer(reader.GetSectionAddr(sceModuleInfoSection));
+		modinfoaddr = reader.GetSectionAddr(sceModuleInfoSection);
 	else
-		modinfo = (PspModuleInfo *)Memory::GetPointer(reader.GetSegmentVaddr(0) + (reader.GetSegmentPaddr(0) & 0x7FFFFFFF) - reader.GetSegmentOffset(0));
+		modinfoaddr = reader.GetSegmentVaddr(0) + (reader.GetSegmentPaddr(0) & 0x7FFFFFFF) - reader.GetSegmentOffset(0);
+
+	if (!Memory::IsValidAddress(modinfoaddr)) {
+		*error_string = StringFromFormat("Bad module info address %08x", modinfoaddr);
+		ERROR_LOG(SCEMODULE, "Bad module info address %08x", modinfoaddr);
+		if (newptr)
+			delete[] newptr;
+		module->Cleanup();
+		kernelObjects.Destroy<PSPModule>(module->GetUID());
+		error = SCE_KERNEL_ERROR_BAD_FILE;  // Probably not the right error code.
+		return nullptr;
+	}
+
+	modinfo = (PspModuleInfo *)Memory::GetPointer(modinfoaddr);
 
 	module->nm.nsegment = reader.GetNumSegments();
 	module->nm.attribute = modinfo->moduleAttrs;
