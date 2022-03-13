@@ -831,7 +831,7 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass, bool verbose) {
 
 	INFO_LOG(G3D, "RENDER %s Begin(%s, draws: %d, %dx%d, %s, %s, %s)", pass.tag, framebuf, r.numDraws, w, h, RenderPassActionName(r.color), RenderPassActionName(r.depth), RenderPassActionName(r.stencil));
 	// TODO: Log these in detail.
-	for (int i = 0; i < pass.preTransitions.size(); i++) {
+	for (int i = 0; i < (int)pass.preTransitions.size(); i++) {
 		INFO_LOG(G3D, "  PRETRANSITION: %s %s -> %s", pass.preTransitions[i].fb->tag.c_str(), AspectToString(pass.preTransitions[i].aspect), ImageLayoutToString(pass.preTransitions[i].targetLayout));
 	}
 

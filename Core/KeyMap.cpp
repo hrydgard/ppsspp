@@ -599,7 +599,7 @@ bool IsKeyMapped(int device, int key) {
 
 bool ReplaceSingleKeyMapping(int btn, int index, KeyDef key) {
 	// Check for duplicate
-	for (int i = 0; i < g_controllerMap[btn].size(); ++i) {
+	for (int i = 0; i < (int)g_controllerMap[btn].size(); ++i) {
 		if (i != index && g_controllerMap[btn][i] == key) {
 			g_controllerMap[btn].erase(g_controllerMap[btn].begin()+index);
 			g_controllerMapGeneration++;
