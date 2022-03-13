@@ -221,7 +221,7 @@ void ThreadManager::EnqueueTask(Task *task) {
 	}
 
 	// Find a thread with no outstanding work.
-	_assert_(maxThread <= global_->threads_.size());
+	_assert_(maxThread <= (int)global_->threads_.size());
 	for (int threadNum = minThread; threadNum < maxThread; threadNum++) {
 		ThreadContext *thread = global_->threads_[threadNum];
 		if (thread->queue_size.load() == 0) {

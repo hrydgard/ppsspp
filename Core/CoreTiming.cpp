@@ -192,7 +192,7 @@ void RestoreRegisterEvent(int &event_type, const char *name, TimedCallback callb
 		event_type = -1;
 	if (event_type == -1)
 		event_type = nextEventTypeRestoreId++;
-	if (event_type >= event_types.size()) {
+	if (event_type >= (int)event_types.size()) {
 		// Give it any unused event id starting from the end.
 		// Older save states with messed up ids have gaps near the end.
 		for (int i = (int)event_types.size() - 1; i >= 0; --i) {
@@ -202,7 +202,7 @@ void RestoreRegisterEvent(int &event_type, const char *name, TimedCallback callb
 			}
 		}
 	}
-	_assert_msg_(event_type >= 0 && event_type < event_types.size(), "Invalid event type %d", event_type);
+	_assert_msg_(event_type >= 0 && event_type < (int)event_types.size(), "Invalid event type %d", event_type);
 	event_types[event_type] = EventType{ callback, name };
 	usedEventTypes.insert(event_type);
 	restoredEventTypes.insert(event_type);

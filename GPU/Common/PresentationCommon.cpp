@@ -228,7 +228,7 @@ bool PresentationCommon::UpdatePostShader() {
 
 	bool usePreviousFrame = false;
 	bool usePreviousAtOutputResolution = false;
-	for (int i = 0; i < shaderInfo.size(); ++i) {
+	for (size_t i = 0; i < shaderInfo.size(); ++i) {
 		const ShaderInfo *next = i + 1 < shaderInfo.size() ? shaderInfo[i + 1] : nullptr;
 		if (!BuildPostShader(shaderInfo[i], next)) {
 			DestroyPostShader();
@@ -712,7 +712,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 				// This is the last pass and we're going direct to the backbuffer after this.
 				// Redirect output to a separate framebuffer to keep the previous frame.
 				previousIndex_++;
-				if (previousIndex_ >= previousFramebuffers_.size())
+				if (previousIndex_ >= (int)previousFramebuffers_.size())
 					previousIndex_ = 0;
 				postShaderFramebuffer = previousFramebuffers_[previousIndex_];
 			}
@@ -734,7 +734,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 
 		// Pick the next to render to.
 		previousIndex_++;
-		if (previousIndex_ >= previousFramebuffers_.size())
+		if (previousIndex_ >= (int)previousFramebuffers_.size())
 			previousIndex_ = 0;
 		Draw::Framebuffer *postShaderFramebuffer = previousFramebuffers_[previousIndex_];
 
