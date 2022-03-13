@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
 #include <cmath>
 
 #include "Common/Common.h"
@@ -874,7 +875,7 @@ typedef Math3D::Vec4<float> Vec4f;
 
 #if defined(_M_SSE)
 template<unsigned i>
-float vectorGetByIndex(__m128 v) {
+float MATH3D_CALL vectorGetByIndex(__m128 v) {
 	// shuffle V so that the element that we want is moved to the bottom
 	return _mm_cvtss_f32(_mm_shuffle_ps(v, v, _MM_SHUFFLE(i, i, i, i)));
 }
@@ -930,7 +931,7 @@ inline void Vec3ByMatrix43(float vecOut[3], const float v[3], const float m[12])
 }
 
 inline Vec3f MATH3D_CALL Vec3ByMatrix43(const Vec3f v, const float m[12]) {
-#if defined(_M_SSE)
+#if defined(_M_SSE) && PPSSPP_ARCH(64BIT)
 	__m128 x = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(0, 0, 0, 0));
 	__m128 y = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(1, 1, 1, 1));
 	__m128 z = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(2, 2, 2, 2));
@@ -988,7 +989,7 @@ inline void Vec3ByMatrix44(float vecOut[4], const float v[3], const float m[16])
 }
 
 inline Vec4f MATH3D_CALL Vec3ByMatrix44(const Vec3f v, const float m[16]) {
-#if defined(_M_SSE)
+#if defined(_M_SSE) && PPSSPP_ARCH(64BIT)
 	__m128 x = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(0, 0, 0, 0));
 	__m128 y = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(1, 1, 1, 1));
 	__m128 z = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(2, 2, 2, 2));
@@ -1047,7 +1048,7 @@ inline void Norm3ByMatrix43(float vecOut[3], const float v[3], const float m[12]
 }
 
 inline Vec3f MATH3D_CALL Norm3ByMatrix43(const Vec3f v, const float m[12]) {
-#if defined(_M_SSE)
+#if defined(_M_SSE) && PPSSPP_ARCH(64BIT)
 	__m128 x = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(0, 0, 0, 0));
 	__m128 y = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(1, 1, 1, 1));
 	__m128 z = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(2, 2, 2, 2));
@@ -1203,7 +1204,11 @@ template<>
 __forceinline unsigned int Vec3<float>::ToRGB() const
 {
 #if defined(_M_SSE)
+#if PPSSPP_ARCH(64BIT)
 	__m128i c = _mm_cvtps_epi32(_mm_mul_ps(vec, _mm_set_ps1(255.0f)));
+#else
+	__m128i c = _mm_cvtps_epi32(_mm_mul_ps(_mm_loadu_ps((float *)&vec), _mm_set_ps1(255.0f)));
+#endif
 	__m128i c16 = _mm_packs_epi32(c, c);
 	return _mm_cvtsi128_si32(_mm_packus_epi16(c16, c16)) & 0x00FFFFFF;
 #else
@@ -1217,7 +1222,11 @@ template<>
 __forceinline unsigned int Vec3<int>::ToRGB() const
 {
 #if defined(_M_SSE)
+#if PPSSPP_ARCH(64BIT)
 	__m128i c16 = _mm_packs_epi32(ivec, ivec);
+#else
+	__m128i c16 = _mm_packs_epi32(_mm_loadu_si128(&ivec), _mm_setzero_si128());
+#endif
 	return _mm_cvtsi128_si32(_mm_packus_epi16(c16, c16)) & 0x00FFFFFF;
 #else
 	return clamp_u8(r()) | (clamp_u8(g()) << 8) | (clamp_u8(b()) << 16);
@@ -1263,7 +1272,11 @@ template<>
 __forceinline unsigned int Vec4<float>::ToRGBA() const
 {
 #if defined(_M_SSE)
+#if PPSSPP_ARCH(64BIT)
 	__m128i c = _mm_cvtps_epi32(_mm_mul_ps(vec, _mm_set_ps1(255.0f)));
+#else
+	__m128i c = _mm_cvtps_epi32(_mm_mul_ps(_mm_loadu_ps((float *)&vec), _mm_set_ps1(255.0f)));
+#endif
 	__m128i c16 = _mm_packs_epi32(c, c);
 	return _mm_cvtsi128_si32(_mm_packus_epi16(c16, c16));
 #else
@@ -1278,7 +1291,11 @@ template<>
 __forceinline unsigned int Vec4<int>::ToRGBA() const
 {
 #if defined(_M_SSE)
+#if PPSSPP_ARCH(64BIT)
 	__m128i c16 = _mm_packs_epi32(ivec, ivec);
+#else
+	__m128i c16 = _mm_packs_epi32(_mm_loadu_si128(&ivec), _mm_setzero_si128());
+#endif
 	return _mm_cvtsi128_si32(_mm_packus_epi16(c16, c16));
 #else
 	return clamp_u8(r()) | (clamp_u8(g()) << 8) | (clamp_u8(b()) << 16) | (clamp_u8(a()) << 24);
