@@ -472,9 +472,8 @@ SoftGPU::~SoftGPU() {
 		fbTex = nullptr;
 	}
 
-	if (presentation_) {
-		delete presentation_;
-	}
+	delete presentation_;
+	delete drawEngine_;
 
 	Sampler::Shutdown();
 	Rasterizer::Shutdown();
