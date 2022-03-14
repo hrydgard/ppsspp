@@ -876,13 +876,6 @@ int DoBlockingPtpFlush(int uid, AdhocSocketRequest& req, s64& result) {
 		else
 			result = ERROR_NET_ADHOC_TIMEOUT;
 	}
-	else if (isDisconnected(sockerr)) {
-		// Change Socket State. // FIXME: Does Alerted Socket should be closed too?
-		ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
-
-		// Disconnected
-		result = ERROR_NET_ADHOC_DISCONNECTED;
-	}
 	
 	if (sockerr != 0) {
 		DEBUG_LOG(SCENET, "sceNetAdhocPtpFlush[%i]: Socket Error (%i)", req.id, sockerr);
@@ -4261,13 +4254,6 @@ static int sceNetAdhocPtpFlush(int id, int timeout, int nonblock) {
 					// Simulate blocking behaviour with non-blocking socket
 					u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
 					return WaitBlockingAdhocSocket(threadSocketId, PTP_FLUSH, id, nullptr, nullptr, timeout, nullptr, nullptr, "ptp flush");
-				}
-				else if (isDisconnected(error)) {
-					// Change Socket State
-					ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
-
-					// Disconnected
-					return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected");
 				}
 
 				if (error != 0)
