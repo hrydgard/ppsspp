@@ -257,7 +257,7 @@ jobs:
         ${{ matrix.args }}
 
     - name: Package build
-      if: matrix.extra == 'test' || matrix.extra == 'ios' || matrix.id == 'android-arm32'
+      if: matrix.extra == 'test' || matrix.extra == 'ios'
       run: |
         mkdir ppsspp
         if [ -e build*/$BUILD_CONFIGURATION/PPSSPPSDL ]; then
@@ -281,11 +281,6 @@ jobs:
           cp build*/PPSSPPSDL ppsspp/
           cp -r assets ppsspp/assets
         fi
-        if [ -e build*/$BUILD_CONFIGURATION/ppsspp_headless ]; then
-          cp build*/$BUILD_CONFIGURATION/ppsspp_headless ppsspp/
-        elif [ -e build*/ppsspp_headless ]; then
-          cp build*/ppsspp_headless ppsspp/
-        fi
         if [ -e build*/$BUILD_CONFIGURATION/PPSSPPHeadless ]; then
           cp build*/$BUILD_CONFIGURATION/PPSSPPHeadless ppsspp/
         elif [ -e build*/PPSSPPHeadless ]; then
@@ -299,7 +294,7 @@ jobs:
 
     - name: Upload build
       uses: actions/upload-artifact@v1
-      if: matrix.extra == 'test' || matrix.extra == 'ios' || matrix.id == 'android-arm32'
+      if: matrix.extra == 'test' || matrix.extra == 'ios'
       with:
         name: ${{ matrix.os }} ${{ matrix.id }} build
         path: ppsspp/
