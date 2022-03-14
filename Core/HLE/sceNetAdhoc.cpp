@@ -795,7 +795,7 @@ int DoBlockingPtpAccept(int uid, AdhocSocketRequest& req, s64& result) {
 	return 0;
 }
 
-int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
+int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTargets& targetPeer) {
 	auto sock = adhocSockets[req.id - 1];
 	if (!sock) {
 		result = ERROR_NET_ADHOC_SOCKET_DELETED;
@@ -808,16 +808,35 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
 		return 0;
 	}
 
-	int sockerr;
-	// Wait for Connection (assuming "connect" has been called before)		
-	int ret = IsSocketReady(uid, false, true, &sockerr);
+	int sockerr, ret;
+	// Try to connect again if the first attempt failed due to remote side was not listening yet (ie. ECONNREFUSED or ETIMEDOUT)
+	if (sock->attemptCount < 1) {
+		struct sockaddr_in sin;
+		memset(&sin, 0, sizeof(sin));
+		sin.sin_family = AF_INET;
+		sin.sin_addr.s_addr = targetPeer.peers[0].ip;
+		sin.sin_port = htons(ptpsocket.pport + targetPeer.peers[0].portOffset);
+
+		// Try to Connect
+		int ret = connect(uid, (struct sockaddr*)&sin, sizeof(sin));
+		int sockerr = errno;
+		if (connectInProgress(sockerr)) {
+			sock->data.ptp.state = ADHOC_PTP_STATE_SYN_SENT;
+			sock->attemptCount = 1;
+		}
+	}
+	// Check if the connection has completed (assuming "connect" has been called before)
+	ret = IsSocketReady(uid, false, true, &sockerr);
 
 	// Connection is ready
 	if (ret > 0) {
 		struct sockaddr_in sin;
 		memset(&sin, 0, sizeof(sin));
 		socklen_t sinlen = sizeof(sin);
-		getpeername(uid, (struct sockaddr*)&sin, &sinlen);
+		ret = getpeername(uid, (struct sockaddr*)&sin, &sinlen);
+		if (ret == SOCKET_ERROR) {
+			WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: getpeername error %i", req.id, ptpsocket.lport, errno);
+		}
 
 		// Set Connected State
 		ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
@@ -838,7 +857,7 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
 			if (sock->nonblocking)
 				result = ERROR_NET_ADHOC_WOULD_BLOCK;
 			else
-				result = ERROR_NET_ADHOC_TIMEOUT; // FIXME: PSP never returned ERROR_NET_ADHOC_TIMEOUT on PtpConnect? or only returned ERROR_NET_ADHOC_TIMEOUT when the host is too busy? Seems to be returning ERROR_NET_ADHOC_CONNECTION_REFUSED on timedout instead (if the other side in not listening yet).
+				result = ERROR_NET_ADHOC_TIMEOUT; // FIXME: PSP never returned ERROR_NET_ADHOC_TIMEOUT on PtpConnect? or only returned ERROR_NET_ADHOC_TIMEOUT when the host is too busy? Seems to be returning ERROR_NET_ADHOC_CONNECTION_REFUSED on timedout instead (if the other side in not listening yet, which is similar to BSD).
 		}
 	}
 	// Select was interrupted or contains invalid args?
@@ -987,7 +1006,7 @@ static void __AdhocSocketNotify(u64 userdata, int cyclesLate) {
 		break;
 
 	case PTP_CONNECT:
-		if (DoBlockingPtpConnect(uid, req, result)) {
+		if (DoBlockingPtpConnect(uid, req, result, sendTargetPeers[userdata])) {
 			// Try again in another 0.5ms until data available or timedout.
 			CoreTiming::ScheduleEvent(usToCycles(delayUS) - cyclesLate, adhocSocketNotifyEvent, userdata);
 			return;
@@ -1565,7 +1584,8 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 								// Get Peer IP. Some games (ie. Vulcanus Seek and Destroy) seems to try to send to zero-MAC (ie. 00:00:00:00:00:00) first before sending to the actual destination MAC.. So may be sending to zero-MAC has a special meaning? (ie. to peek send buffer availability may be?)
 								if (resolveMAC((SceNetEtherAddr *)daddr, (uint32_t *)&target.sin_addr.s_addr)) {
 									// Some games (ie. PSP2) might try to talk to it's self, not sure if they talked through WAN or LAN when using public Adhoc Server tho
-									target.sin_port = htons(dport + ((isOriPort && !isPrivateIP(target.sin_addr.s_addr)) ? 0 : portOffset));
+									uint16_t finalPortOffset = ((isOriPort && !isPrivateIP(target.sin_addr.s_addr)) ? 0 : portOffset);
+									target.sin_port = htons(dport + finalPortOffset);
 
 									// Acquire Network Lock
 									//_acquireNetworkLock();
@@ -3358,6 +3378,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 								changeBlockingMode(tcpsocket, 1);
 
 								// Initiate PtpConnect (ie. The Warrior seems to try to PtpSend right after PtpOpen without trying to PtpConnect first)
+								// TODO: Need to handle ECONNREFUSED better on non-Windows, if there are games that never called PtpConnect and only relies on [blocking?] PtpOpen to get connected
 								NetAdhocPtp_Connect(i + 1, rexmt_int, 1, false);
 
 								// Workaround to give some time to get connected before returning from PtpOpen over high latency
@@ -3648,7 +3669,8 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 				// Grab Peer IP
 				if (resolveMAC(&ptpsocket.paddr, (uint32_t*)&sin.sin_addr.s_addr)) {
 					// Some games (ie. PSP2) might try to talk to it's self, not sure if they talked through WAN or LAN when using public Adhoc Server tho
-					sin.sin_port = htons(ptpsocket.pport + ((isOriPort && !isPrivateIP(sin.sin_addr.s_addr)) ? 0 : portOffset));
+					uint16_t finalPortOffset = ((isOriPort && !isPrivateIP(sin.sin_addr.s_addr)) ? 0 : portOffset);
+					sin.sin_port = htons(ptpsocket.pport + finalPortOffset);
 
 					// Connect Socket to Peer
 					// NOTE: Based on what i read at stackoverflow, The First Non-blocking POSIX connect will always returns EAGAIN/EWOULDBLOCK because it returns without waiting for ACK/handshake, But GvG Next Plus is treating non-blocking PtpConnect just like blocking connect, May be on a real PSP the first non-blocking sceNetAdhocPtpConnect can be successfull?
@@ -3678,30 +3700,35 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 
 					// Error handling
 					else if (connectresult == SOCKET_ERROR) {
-						// Connection in Progress
-						if (connectInProgress(errorcode)) {
-							socket->data.ptp.state = ADHOC_PTP_STATE_SYN_SENT;
-							socket->attemptCount++;
+						// Connection in Progress, or
+						// ECONNREFUSED = No connection could be made because the target device actively refused it (on Windows/Linux/Android), or no one listening on the remote address (on Linux/Android) thus should try to connect again later (treated similarly to ETIMEDOUT/ENETUNREACH).
+						if (connectInProgress(errorcode) || errorcode == ECONNREFUSED || errorcode == ENETUNREACH) {
+							if (connectInProgress(errorcode))
+							{
+								socket->data.ptp.state = ADHOC_PTP_STATE_SYN_SENT;
+								socket->attemptCount++;
+							}
 							socket->lastAttempt = CoreTiming::GetGlobalTimeUsScaled();
 							// Blocking Mode
 							// Workaround: Forcing first attempt to be blocking to prevent issue related to lobby or high latency networks. (can be useful for GvG Next Plus, Dissidia 012, and Fate Unlimited Codes)
-							if (!flag || (allowForcedConnect && g_Config.bForcedFirstConnect && socket->attemptCount == 1)) {
+							if (!flag || (allowForcedConnect && g_Config.bForcedFirstConnect && socket->attemptCount <= 1)) {
 								// Simulate blocking behaviour with non-blocking socket
 								u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
+								if (sendTargetPeers.find(threadSocketId) != sendTargetPeers.end()) {
+									DEBUG_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Socket(%d) is Busy!", id, ptpsocket.lport, ptpsocket.id);
+									return hleLogError(SCENET, ERROR_NET_ADHOC_BUSY, "busy?");
+								}
+
+								AdhocSendTargets dest = { 0, {}, false };
+								dest.peers.push_back({ sin.sin_addr.s_addr, ptpsocket.pport, finalPortOffset });
+								sendTargetPeers[threadSocketId] = dest;
 								return WaitBlockingAdhocSocket(threadSocketId, PTP_CONNECT, id, nullptr, nullptr, (flag) ? std::max((int)socket->retry_interval, timeout) : timeout, nullptr, nullptr, "ptp connect");
 							}
 							// NonBlocking Mode
 							else {
+								// Returning WOULD_BLOCK as Workaround for ERROR_NET_ADHOC_CONNECTION_REFUSED to be more cross-platform, since there is no way to simulate ERROR_NET_ADHOC_CONNECTION_REFUSED properly on Windows
 								return hleLogDebug(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 							}
-						}
-						// No connection could be made because the target device actively refused it (on Windows/Linux/Android), or no one listening on the remote address (on Linux/Android).
-						else if (errorcode == ECONNREFUSED) {
-							// Workaround for ERROR_NET_ADHOC_CONNECTION_REFUSED to be more cross-platform, since there is no way to simulate ERROR_NET_ADHOC_CONNECTION_REFUSED properly on Windows
-							if (flag)
-								return hleLogError(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "connection refused workaround");
-							else
-								return hleLogError(SCENET, ERROR_NET_ADHOC_TIMEOUT, "connection refused workaround");
 						}
 					}
 				}
