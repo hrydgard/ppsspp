@@ -4205,7 +4205,10 @@ int FlushPtpSocket(int socketId) {
 	int n = getSockNoDelay(socketId);
 
 	// Disable Nagle Algo to send immediately
-	setSockNoDelay(socketId, 1);
+	int result = setSockNoDelay(socketId, 1);
+	if (result < 0) {
+		DEBUG_LOG(SCENET, "FlushPtpSocket - setSockNoDelay(1) Error: %i", errno);
+	}
 
 	// Send Empty Data just to trigger Nagle on/off effect to flush the send buffer, Do we need to trigger this at all or is it automatically flushed?
 	//changeBlockingMode(socket->id, nonblock);
@@ -4214,7 +4217,10 @@ int FlushPtpSocket(int socketId) {
 	//changeBlockingMode(socket->id, 1);
 
 	// Restore/Enable Nagle Algo
-	setSockNoDelay(socketId, n);
+	result = setSockNoDelay(socketId, n);
+	if (result < 0) {
+		DEBUG_LOG(SCENET, "FlushPtpSocket - setSockNoDelay(n=%i) Error: %i", n, errno);
+	}
 
 	return ret;
 }
@@ -4249,9 +4255,13 @@ static int sceNetAdhocPtpFlush(int id, int timeout, int nonblock) {
 				hleEatMicro(50);
 				// There are two ways to flush, you can either set TCP_NODELAY to 1 or TCP_CORK to 0.
 				// Apply Send Timeout Settings to Socket
-				setSockTimeout(ptpsocket.id, SO_SNDTIMEO, timeout);
+				int result = setSockTimeout(ptpsocket.id, SO_SNDTIMEO, timeout);
+				if (result < 0)
+					DEBUG_LOG(SCENET, "PtpFlush - setSockTimeout Error: %i", errno);
 
 				int error = FlushPtpSocket(ptpsocket.id);
+				if (error != 0)
+					DEBUG_LOG(SCENET, "PtpFlush - FlushPtpSocket Error: %i", error);
 
 				if (error == EAGAIN || error == EWOULDBLOCK) {
 					// Non-Blocking
