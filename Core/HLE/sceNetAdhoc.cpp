@@ -3678,9 +3678,13 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 
 					// Error handling
 					else if (connectresult == SOCKET_ERROR) {
-						// Connection in Progress
-						if (connectInProgress(errorcode)) {
-							socket->data.ptp.state = ADHOC_PTP_STATE_SYN_SENT;
+						// Connection in Progress, or
+						// No connection could be made because the target device actively refused it (on Windows/Linux/Android), or no one listening on the remote address (on Linux/Android) thus should try again later.
+						if (connectInProgress(errorcode) || errorcode == ECONNREFUSED) {
+							//if (connectInProgress(errorcode)) 
+							{
+								socket->data.ptp.state = ADHOC_PTP_STATE_SYN_SENT;
+							}
 							socket->attemptCount++;
 							socket->lastAttempt = CoreTiming::GetGlobalTimeUsScaled();
 							// Blocking Mode
@@ -3691,17 +3695,10 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 								return WaitBlockingAdhocSocket(threadSocketId, PTP_CONNECT, id, nullptr, nullptr, (flag) ? std::max((int)socket->retry_interval, timeout) : timeout, nullptr, nullptr, "ptp connect");
 							}
 							// NonBlocking Mode
+							// Returning WOULD_BLOCK as Workaround for ERROR_NET_ADHOC_CONNECTION_REFUSED to be more cross-platform, since there is no way to simulate ERROR_NET_ADHOC_CONNECTION_REFUSED properly on Windows
 							else {
 								return hleLogDebug(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 							}
-						}
-						// No connection could be made because the target device actively refused it (on Windows/Linux/Android), or no one listening on the remote address (on Linux/Android).
-						else if (errorcode == ECONNREFUSED) {
-							// Workaround for ERROR_NET_ADHOC_CONNECTION_REFUSED to be more cross-platform, since there is no way to simulate ERROR_NET_ADHOC_CONNECTION_REFUSED properly on Windows
-							if (flag)
-								return hleLogError(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "connection refused workaround");
-							else
-								return hleLogError(SCENET, ERROR_NET_ADHOC_TIMEOUT, "connection refused workaround");
 						}
 					}
 				}
