@@ -230,7 +230,7 @@ jobs:
         sudo apt-get install libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev
 
     - name: Create macOS git-version.cpp for tagged release
-      if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS' && matrix.extra == 'test'
+      if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS' && (matrix.extra == 'test' || matrix.extra == 'ios')
       run: |
         echo "const char *PPSSPP_GIT_VERSION = \"${GITHUB_REF##*/}\";" > git-version.cpp
         echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
@@ -251,7 +251,7 @@ jobs:
         ${{ matrix.args }}
 
     - name: Package build
-      if: matrix.extra == 'test'
+      if: matrix.extra == 'test' || matrix.extra == 'ios' || matrix.id == 'android-arm32'
       run: |
         mkdir ppsspp
         if [ -e build*/$BUILD_CONFIGURATION/PPSSPPSDL ]; then
@@ -263,9 +263,22 @@ jobs:
           zip -qry PPSSPPSDL.zip PPSSPPSDL.app
           rm -rf PPSSPPSDL.app
           cd -
+        elif [ -e build*/PPSSPP.app ]; then
+          mkdir ppsspp/Payload
+          cp -a build*/PPSSPP.app ppsspp/Payload
+          # GitHub Actions zipping kills symlinks and permissions.
+          cd ppsspp
+          zip -qry PPSSPP.ipa Payload
+          rm -rf Payload
+          cd -
         elif [ -e build*/PPSSPPSDL ]; then
           cp build*/PPSSPPSDL ppsspp/
           cp -r assets ppsspp/assets
+        fi
+        if [ -e build*/$BUILD_CONFIGURATION/ppsspp_headless ]; then
+          cp build*/$BUILD_CONFIGURATION/ppsspp_headless ppsspp/
+        elif [ -e build*/ppsspp_headless ]; then
+          cp build*/ppsspp_headless ppsspp/
         fi
         if [ -e build*/$BUILD_CONFIGURATION/PPSSPPHeadless ]; then
           cp build*/$BUILD_CONFIGURATION/PPSSPPHeadless ppsspp/
@@ -280,9 +293,9 @@ jobs:
 
     - name: Upload build
       uses: actions/upload-artifact@v1
-      if: matrix.extra == 'test'
+      if: matrix.extra == 'test' || matrix.extra == 'ios' || matrix.id == 'android-arm32'
       with:
-        name: ${{ matrix.os }} build
+        name: ${{ matrix.os }} ${{ matrix.id }} build
         path: ppsspp/
 
     - name: Create macOS release
@@ -307,7 +320,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        include:
+        - os: ubuntu-latest
+          id: clang
+        
+        - os: macos-latest
+          id: macos
 
     runs-on: ${{ matrix.os }}
     needs: build
@@ -337,7 +355,7 @@ jobs:
     - name: Download build
       uses: actions/download-artifact@v2
       with:
-        name: ${{ matrix.os }} build
+        name: ${{ matrix.os }} ${{ matrix.id }} build
         path: ppsspp/
 
     # Not sure where it's ending up, but test.py can't find it...
