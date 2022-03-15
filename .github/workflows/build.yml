@@ -321,7 +321,7 @@ jobs:
       if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS' && matrix.extra == 'ios'
       run: |
         cd ppsspp || exit 1
-        mv PPSSPP.ipa PPSSPPSDL-iOS-${GITHUB_REF##*/}.ipa || exit 1
+        mv PPSSPP.ipa PPSSPP-iOS-${GITHUB_REF##*/}.ipa || exit 1
 
     - name: Upload iOS release
       uses: softprops/action-gh-release@v1
