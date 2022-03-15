@@ -1685,7 +1685,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 								// Non-blocking
 								else {
 									// Iterate Peers
-									for (auto peer : dest.peers) {
+									for (auto& peer : dest.peers) {
 										// Fill in Target Structure
 										struct sockaddr_in target {};
 										target.sin_family = AF_INET;
@@ -4492,7 +4492,7 @@ static int sceNetAdhocGameModeUpdateReplica(int id, u32 infoAddr) {
 		gmuinfo = (GameModeUpdateInfo*)Memory::GetPointer(infoAddr);
 	}
 
-	for (auto gma : replicaGameModeAreas) {
+	for (auto& gma : replicaGameModeAreas) {
 		if (gma.id == id) {
 			if (gma.data && gma.dataUpdated) {
 				Memory::Memcpy(gma.addr, gma.data, gma.size);
@@ -6421,7 +6421,7 @@ void sendAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 		uint32_t siblingbuflen = 0;
 
 		// Parent Mode
-		if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) siblingbuflen = sizeof(SceNetEtherAddr) * (countConnectedPeers(context) - 2);
+		if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) siblingbuflen = (u32)sizeof(SceNetEtherAddr) * (countConnectedPeers(context) - 2);
 
 		// Sibling Count
 		int siblingcount = siblingbuflen / sizeof(SceNetEtherAddr);

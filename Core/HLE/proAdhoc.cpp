@@ -1906,7 +1906,7 @@ static std::vector<std::pair<uint32_t, uint32_t>> InitPrivateIPRanges() {
 
 bool isPrivateIP(uint32_t ip) {
 	static const std::vector<std::pair<uint32_t, uint32_t>> ip_ranges = InitPrivateIPRanges();
-	for (auto ipRange : ip_ranges) {
+	for (auto& ipRange : ip_ranges) {
 		if ((ip & ipRange.second) == (ipRange.first & ipRange.second)) // We can just use ipRange.first directly if it's already correctly formatted
 			return true;
 	}
