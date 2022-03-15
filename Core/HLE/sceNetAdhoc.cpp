@@ -600,7 +600,7 @@ int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTa
 	bool retry = false;
 	for (auto peer = targetPeers.peers.begin(); peer != targetPeers.peers.end(); ) {
 		// Fill in Target Structure
-		struct sockaddr_in target;
+		struct sockaddr_in target {};
 		target.sin_family = AF_INET;
 		target.sin_addr.s_addr = peer->ip;
 		target.sin_port = htons(peer->port + ((isOriPort && !isPrivateIP(peer->ip)) ? 0 : portOffset));
@@ -1379,7 +1379,7 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 f
 					setUDPConnReset(usocket, false);
 
 					// Binding Information for local Port
-					struct sockaddr_in addr;
+					struct sockaddr_in addr {};
 					addr.sin_family = AF_INET;
 					addr.sin_addr.s_addr = INADDR_ANY;
 					if (isLocalServer) {
@@ -1577,7 +1577,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 							// Single Target
 							if (!isBroadcastMAC(daddr)) {
 								// Fill in Target Structure
-								struct sockaddr_in target;
+								struct sockaddr_in target {};
 								target.sin_family = AF_INET;
 								target.sin_port = htons(dport + portOffset);
 
@@ -1687,7 +1687,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 									// Iterate Peers
 									for (auto peer : dest.peers) {
 										// Fill in Target Structure
-										struct sockaddr_in target;
+										struct sockaddr_in target {};
 										target.sin_family = AF_INET;
 										target.sin_addr.s_addr = peer.ip;
 										target.sin_port = htons(dport + ((isOriPort && !isPrivateIP(peer.ip)) ? 0 : portOffset));
@@ -2164,7 +2164,7 @@ int NetAdhocPdp_Delete(int id, int unknown) {
 			// Valid Socket
 			if (sock != NULL && sock->type == SOCK_PDP) {
 				// Close Connection
-				struct linger sl;
+				struct linger sl {};
 				sl.l_onoff = 1;		// non-zero value enables linger option in kernel
 				sl.l_linger = 0;	// timeout interval in seconds
 				setsockopt(sock->data.pdp.id, SOL_SOCKET, SO_LINGER, (const char*)&sl, sizeof(sl));
@@ -3307,7 +3307,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 					setSockNoDelay(tcpsocket, 1);
 
 					// Binding Information for local Port
-					struct sockaddr_in addr;
+					struct sockaddr_in addr {};
 					// addr.sin_len = sizeof(addr);
 					addr.sin_family = AF_INET;
 					addr.sin_addr.s_addr = INADDR_ANY;
@@ -3776,7 +3776,7 @@ int NetAdhocPtp_Close(int id, int unknown) {
 			// Valid Socket
 			if (socket != NULL && socket->type == SOCK_PTP) {
 				// Close Connection
-				struct linger sl;
+				struct linger sl {};
 				sl.l_onoff = 1;		// non-zero value enables linger option in kernel
 				sl.l_linger = 0;	// timeout interval in seconds
 				setsockopt(socket->data.ptp.id, SOL_SOCKET, SO_LINGER, (const char*)&sl, sizeof(sl));
@@ -3892,7 +3892,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 					setSockNoDelay(tcpsocket, 1);
 
 					// Binding Information for local Port
-					struct sockaddr_in addr;
+					struct sockaddr_in addr {};
 					addr.sin_family = AF_INET;
 					addr.sin_addr.s_addr = INADDR_ANY;
 					if (isLocalServer) {

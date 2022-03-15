@@ -1795,7 +1795,7 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 
 #if !PPSSPP_PLATFORM(SWITCH)
 	if (metasocket != (int)INVALID_SOCKET) {
-		struct sockaddr_in localAddr;
+		struct sockaddr_in localAddr {};
 		localAddr.sin_addr.s_addr = INADDR_ANY;
 		socklen_t addrLen = sizeof(localAddr);
 		int ret = getsockname((int)metasocket, (struct sockaddr*)&localAddr, &addrLen);
@@ -1876,7 +1876,7 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 }
 
 uint32_t getLocalIp(int sock) {
-	struct sockaddr_in localAddr;
+	struct sockaddr_in localAddr {};
 	localAddr.sin_addr.s_addr = INADDR_ANY;
 	socklen_t addrLen = sizeof(localAddr);
 	getsockname(sock, (struct sockaddr*)&localAddr, &addrLen);
@@ -1887,7 +1887,7 @@ uint32_t getLocalIp(int sock) {
 }
 
 static std::vector<std::pair<uint32_t, uint32_t>> InitPrivateIPRanges() {
-	struct sockaddr_in saNet, saMask;
+	struct sockaddr_in saNet {}, saMask{};
 	std::vector<std::pair<uint32_t, uint32_t>> ip_ranges;
 
 	if (1 == inet_pton(AF_INET, "192.168.0.0", &(saNet.sin_addr)) && 1 == inet_pton(AF_INET, "255.255.0.0", &(saMask.sin_addr)))
@@ -1934,7 +1934,7 @@ void getLocalMac(SceNetEtherAddr * addr){
 }
 
 uint16_t getLocalPort(int sock) {
-	struct sockaddr_in localAddr;
+	struct sockaddr_in localAddr {};
 	localAddr.sin_port = 0;
 	socklen_t addrLen = sizeof(localAddr);
 	getsockname(sock, (struct sockaddr*)&localAddr, &addrLen);
