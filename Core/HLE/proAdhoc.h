@@ -294,11 +294,12 @@ typedef struct SceNetAdhocctlPeerInfo {
   SceNetAdhocctlPeerInfo * next;
   SceNetAdhocctlNickname nickname;
   SceNetEtherAddr mac_addr;
-  u16_le padding;
+  u16_le padding; // a copy of the padding(?) from SceNetAdhocctlPeerInfoEmu
   u32_le flags;
   u64_le last_recv; // Need to use the same method with sceKernelGetSystemTimeWide (ie. CoreTiming::GetGlobalTimeUsScaled) to prevent timing issue (ie. in game timeout)
   
   u32_le ip_addr; // internal use only
+  u16_le port_offset; // IP-specific port offset (internal use only)
 } PACK SceNetAdhocctlPeerInfo;
 
 // Peer Information with u32 pointers
@@ -306,7 +307,7 @@ typedef struct SceNetAdhocctlPeerInfoEmu {
   u32_le next; // Changed the pointer to u32
   SceNetAdhocctlNickname nickname;
   SceNetEtherAddr mac_addr;
-  u16_le padding; //00 00
+  u16_le padding; //00 00 // Note: Not sure whether this is really padding or reserved/unknown field
   u32_le flags; //00 04 00 00 on KHBBS and FF FF FF FF on Ys vs. Sora no Kiseki // State of the peer? Or related to sceNetAdhocAuth_CF4D9BED ?
   u64_le last_recv; // Need to use the same method with sceKernelGetSystemTimeWide (ie. CoreTiming::GetGlobalTimeUsScaled) to prevent timing issue (ie. in game timeout)
 } PACK SceNetAdhocctlPeerInfoEmu;
@@ -1448,9 +1449,10 @@ bool resolveIP(uint32_t ip, SceNetEtherAddr * mac);
  * Resolve MAC to IP
  * @param mac Peer MAC Address
  * @param ip OUT: Peer IP
+ * @param port_offset OUT: Peer IP-specific Port Offset
  * @return true on success
  */
-bool resolveMAC(SceNetEtherAddr * mac, uint32_t * ip);
+bool resolveMAC(SceNetEtherAddr* mac, uint32_t* ip, u16* port_offset = nullptr);
 
 /**
  * Check whether Network Name contains only valid symbols

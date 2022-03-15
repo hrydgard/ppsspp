@@ -603,7 +603,7 @@ int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTa
 		struct sockaddr_in target {};
 		target.sin_family = AF_INET;
 		target.sin_addr.s_addr = peer->ip;
-		target.sin_port = htons(peer->port + ((isOriPort && !isPrivateIP(peer->ip)) ? 0 : portOffset));
+		target.sin_port = htons(peer->port + peer->portOffset);
 
 		int ret = sendto(pdpsocket.id, (const char*)req.buffer, targetPeers.length, MSG_NOSIGNAL, (struct sockaddr*)&target, sizeof(target));
 		int sockerr = errno;
@@ -1580,11 +1580,11 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 								struct sockaddr_in target {};
 								target.sin_family = AF_INET;
 								target.sin_port = htons(dport + portOffset);
+								u16 finalPortOffset;
 
 								// Get Peer IP. Some games (ie. Vulcanus Seek and Destroy) seems to try to send to zero-MAC (ie. 00:00:00:00:00:00) first before sending to the actual destination MAC.. So may be sending to zero-MAC has a special meaning? (ie. to peek send buffer availability may be?)
-								if (resolveMAC((SceNetEtherAddr *)daddr, (uint32_t *)&target.sin_addr.s_addr)) {
+								if (resolveMAC((SceNetEtherAddr *)daddr, (uint32_t *)&target.sin_addr.s_addr, &finalPortOffset)) {
 									// Some games (ie. PSP2) might try to talk to it's self, not sure if they talked through WAN or LAN when using public Adhoc Server tho
-									uint16_t finalPortOffset = ((isOriPort && !isPrivateIP(target.sin_addr.s_addr)) ? 0 : portOffset);
 									target.sin_port = htons(dport + finalPortOffset);
 
 									// Acquire Network Lock
@@ -1604,7 +1604,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 											}
 
 											AdhocSendTargets dest = { len, {}, false };
-											dest.peers.push_back({ target.sin_addr.s_addr, dport });
+											dest.peers.push_back({ target.sin_addr.s_addr, dport, finalPortOffset });
 											sendTargetPeers[threadSocketId] = dest;
 											return WaitBlockingAdhocSocket(threadSocketId, PDP_SEND, id, data, nullptr, timeout, nullptr, nullptr, "pdp send");
 										}
@@ -1665,7 +1665,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 									if (peer->last_recv == 0)
 										continue;
 
-									dest.peers.push_back({ peer->ip_addr, dport });
+									dest.peers.push_back({ peer->ip_addr, dport, peer->port_offset });
 								}
 								// Free Peer Lock
 								peerlock.unlock();
@@ -1690,7 +1690,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 										struct sockaddr_in target {};
 										target.sin_family = AF_INET;
 										target.sin_addr.s_addr = peer.ip;
-										target.sin_port = htons(dport + ((isOriPort && !isPrivateIP(peer.ip)) ? 0 : portOffset));
+										target.sin_port = htons(dport + peer.portOffset);
 
 										int sent = sendto(pdpsocket.id, (const char*)data, len, MSG_NOSIGNAL, (struct sockaddr*)&target, sizeof(target));
 										int error = errno;
@@ -3665,11 +3665,11 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 				// sin.sin_len = sizeof(sin);
 				sin.sin_family = AF_INET;
 				sin.sin_port = htons(ptpsocket.pport + portOffset);
+				u16 finalPortOffset;
 
 				// Grab Peer IP
-				if (resolveMAC(&ptpsocket.paddr, (uint32_t*)&sin.sin_addr.s_addr)) {
+				if (resolveMAC(&ptpsocket.paddr, (uint32_t*)&sin.sin_addr.s_addr, &finalPortOffset)) {
 					// Some games (ie. PSP2) might try to talk to it's self, not sure if they talked through WAN or LAN when using public Adhoc Server tho
-					uint16_t finalPortOffset = ((isOriPort && !isPrivateIP(sin.sin_addr.s_addr)) ? 0 : portOffset);
 					sin.sin_port = htons(ptpsocket.pport + finalPortOffset);
 
 					// Connect Socket to Peer

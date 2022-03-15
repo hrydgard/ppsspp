@@ -228,6 +228,8 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet) {
 		peer->nickname = packet->name;
 		peer->mac_addr = packet->mac;
 		peer->ip_addr = packet->ip;
+		// Calculate final IP-specific Port Offset
+		peer->port_offset = ((isOriPort && !isPrivateIP(peer->ip_addr)) ? 0 : portOffset);
 		// Update TimeStamp
 		peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
 	}
@@ -247,6 +249,9 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet) {
 
 			// Save IP Address
 			peer->ip_addr = packet->ip;
+
+			// Calculate final IP-specific Port Offset
+			peer->port_offset = ((isOriPort && !isPrivateIP(peer->ip_addr)) ? 0 : portOffset);
 
 			// TimeStamp
 			peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
@@ -2286,7 +2291,7 @@ bool resolveIP(uint32_t ip, SceNetEtherAddr * mac) {
 	return false;
 }
 
-bool resolveMAC(SceNetEtherAddr * mac, uint32_t * ip) {
+bool resolveMAC(SceNetEtherAddr* mac, uint32_t* ip, u16* port_offset) {
 	// Get Local MAC Address
 	SceNetEtherAddr localMac;
 	getLocalMac(&localMac);
@@ -2296,6 +2301,8 @@ bool resolveMAC(SceNetEtherAddr * mac, uint32_t * ip) {
 		sockaddr_in sockAddr;
 		getLocalIp(&sockAddr);
 		*ip = sockAddr.sin_addr.s_addr;
+		if (port_offset)
+			*port_offset = portOffset;
 		return true; // return succes
 	}
 
@@ -2311,7 +2318,8 @@ bool resolveMAC(SceNetEtherAddr * mac, uint32_t * ip) {
 		if (isMacMatch(&peer->mac_addr, mac)) {
 			// Copy Data
 			*ip = peer->ip_addr;
-
+			if (port_offset)
+				*port_offset = peer->port_offset;
 			// Return Success
 			return true;
 		}
