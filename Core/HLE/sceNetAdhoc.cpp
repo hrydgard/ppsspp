@@ -116,6 +116,7 @@ void sendBulkDataPacket(SceNetAdhocMatchingContext* context, SceNetEtherAddr* ma
 int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEtherAddr* addr, u16_le* port);
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock);
 int FlushPtpSocket(int socketId);
+int RecreatePtpSocket(int ptpId);
 int NetAdhocGameMode_DeleteMaster();
 int NetAdhocctl_ExitGameMode();
 int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect = true);
@@ -824,6 +825,12 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result, AdhocSen
 			sock->data.ptp.state = ADHOC_PTP_STATE_SYN_SENT;
 			sock->attemptCount = 1;
 		}
+		// On Windows you can call connect again using the same socket after ECONNREFUSED/ETIMEDOUT/ENETUNREACH error, but on non-Windows you'll need to recreate the socket first
+		else {
+			if (RecreatePtpSocket(req.id) < 0) {
+				WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Failed to Recreate Socket", req.id, ptpsocket.lport);
+			}
+		}
 	}
 	// Check if the connection has completed (assuming "connect" has been called before)
 	ret = IsSocketReady(uid, false, true, &sockerr);
@@ -1342,6 +1349,7 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 f
 
 	// Library is initialized
 	SceNetEtherAddr * saddr = (SceNetEtherAddr *)mac;
+	bool isClient = false;
 	if (netAdhocInited) {
 		// Valid Arguments are supplied
 		if (mac != NULL && bufferSize > 0) {
@@ -1352,7 +1360,10 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 f
 			}
 
 			//sport 0 should be shifted back to 0 when using offset Phantasy Star Portable 2 use this
-			if (port == 0) port = -static_cast<int>(portOffset);
+			if (port == 0) {
+				isClient = true;
+				port = -static_cast<int>(portOffset);
+			}
 			// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems :( So we try to fix it here
 			if (saddr != NULL) {
 				getLocalMac(saddr);
@@ -1431,6 +1442,7 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 f
 								internal->type = SOCK_PDP;
 								internal->nonblocking = flag;
 								internal->buffer_size = bufferSize;
+								internal->isClient = isClient;
 
 								// Fill in Data
 								internal->data.pdp.id = usocket;
@@ -3236,6 +3248,92 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 }
 
 
+int RecreatePtpSocket(int ptpId) {
+	auto sock = adhocSockets[ptpId - 1];
+	if (!sock) {
+		return ERROR_NET_ADHOC_SOCKET_ID_NOT_AVAIL;
+	}
+
+	// Close old socket
+	struct linger sl {};
+	sl.l_onoff = 1;		// non-zero value enables linger option in kernel
+	sl.l_linger = 0;	// timeout interval in seconds
+	setsockopt(sock->data.ptp.id, SOL_SOCKET, SO_LINGER, (const char*)&sl, sizeof(sl));
+	closesocket(sock->data.ptp.id);
+
+	// Create a new socket
+	int tcpsocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+	// Valid Socket produced
+	if (tcpsocket > 0) {
+		sock->data.ptp.id = tcpsocket;
+
+		// Change socket MSS
+		setSockMSS(tcpsocket, PSP_ADHOC_PTP_MSS);
+
+		// Change socket buffer size to be consistent on all platforms.
+		setSockBufferSize(tcpsocket, SO_SNDBUF, sock->buffer_size * 5); //PSP_ADHOC_PTP_MSS
+		setSockBufferSize(tcpsocket, SO_RCVBUF, sock->buffer_size * 10); //PSP_ADHOC_PTP_MSS*10
+
+		// Enable KeepAlive
+		setSockKeepAlive(tcpsocket, true, sock->retry_interval / 1000000L, sock->retry_count);
+
+		// Ignore SIGPIPE when supported (ie. BSD/MacOS)
+		setSockNoSIGPIPE(tcpsocket, 1);
+
+		// Enable Port Re-use
+		setSockReuseAddrPort(tcpsocket);
+
+		// Apply Default Send Timeout Settings to Socket
+		setSockTimeout(tcpsocket, SO_SNDTIMEO, sock->retry_interval);
+
+		// Disable Nagle Algo to send immediately. Or may be we shouldn't disable Nagle since there is PtpFlush function?
+		setSockNoDelay(tcpsocket, 1);
+
+		// Binding Information for local Port
+		struct sockaddr_in addr {};
+		// addr.sin_len = sizeof(addr);
+		addr.sin_family = AF_INET;
+		addr.sin_addr.s_addr = INADDR_ANY;
+		if (isLocalServer) {
+			getLocalIp(&addr);
+		}
+		uint16_t requestedport = static_cast<int>(sock->data.ptp.lport + static_cast<int>(portOffset));
+		// Avoid getting random port due to port offset when original port wasn't 0 (ie. original_port + port_offset = 65536 = 0)
+		if (requestedport == 0 && sock->data.ptp.lport > 0)
+			requestedport = 65535; // Hopefully it will be safe to default it to 65535 since there can't be more than one port that can bumped into 65536
+		addr.sin_port = htons(requestedport);
+
+		// Bound Socket to local Port
+		if (bind(tcpsocket, (struct sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
+			ERROR_LOG(SCENET, "RecreatePtpSocket(%i) - Socket error (%i) when binding port %u", ptpId, errno, ntohs(addr.sin_port));
+		}
+		else {
+			// Update sport with the port assigned internal->lport = ntohs(local.sin_port)
+			socklen_t len = sizeof(addr);
+			if (getsockname(tcpsocket, (struct sockaddr*)&addr, &len) == 0) {
+				uint16_t boundport = ntohs(addr.sin_port);
+				if (sock->data.ptp.lport + static_cast<int>(portOffset) >= 65536 || static_cast<int>(boundport) - static_cast<int>(portOffset) <= 0)
+					WARN_LOG(SCENET, "RecreatePtpSocket(%id) - Wrapped Port Detected: Original(%d) -> Requested(%d), Bound(%d) -> BoundOriginal(%d)", ptpId, sock->data.ptp.lport, requestedport, boundport, boundport - portOffset);
+				u16 newlport = boundport - portOffset;
+				if (newlport != sock->data.ptp.lport) {
+					WARN_LOG(SCENET, "RecreatePtpSocket(%id) - Old and New LPort is different! The port may need to be reforwarded");
+					if (!sock->isClient)
+						UPnP_Add(IP_PROTOCOL_TCP, isOriPort ? newlport : newlport + portOffset, newlport + portOffset);
+				}
+				sock->data.ptp.lport = newlport;
+			}
+		}
+
+		// Switch to non-blocking for futher usage
+		changeBlockingMode(tcpsocket, 1);
+	}
+	else
+		return ERROR_NET_ADHOC_SOCKET_ID_NOT_AVAIL;
+
+	return 0;
+}
+
 /**
  * Adhoc Emulator PTP Active Socket Creator
  * @param saddr Local MAC (Unused)
@@ -3356,11 +3454,12 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 								internal->retry_count = rexmt_cnt;
 								internal->nonblocking = flag;
 								internal->buffer_size = bufsize;
+								internal->isClient = isClient;
 
 								// Copy Infrastructure Socket ID
 								internal->data.ptp.id = tcpsocket;
 
-								// Copy Address Information
+								// Copy Address & Port Information
 								internal->data.ptp.laddr = *saddr;
 								internal->data.ptp.paddr = *daddr;
 								internal->data.ptp.lport = sport;
@@ -3468,6 +3567,8 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 					internal->attemptCount = 1; // Used to differentiate between closed state of disconnected socket and not connected yet.
 					internal->retry_interval = socket->retry_interval;
 					internal->retry_count = socket->retry_count;
+					internal->isClient = true;
+
 					// Enable KeepAlive
 					setSockKeepAlive(newsocket, true, internal->retry_interval / 1000000L, internal->retry_count);
 
@@ -3708,6 +3809,12 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 								socket->data.ptp.state = ADHOC_PTP_STATE_SYN_SENT;
 								socket->attemptCount++;
 							}
+							// On Windows you can call connect again using the same socket after ECONNREFUSED/ETIMEDOUT/ENETUNREACH error, but on non-Windows you'll need to recreate the socket first
+							else {
+								if (RecreatePtpSocket(id) < 0) {
+									WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Failed to Recreate Socket", id, ptpsocket.lport);
+								}
+							}
 							socket->lastAttempt = CoreTiming::GetGlobalTimeUsScaled();
 							// Blocking Mode
 							// Workaround: Forcing first attempt to be blocking to prevent issue related to lobby or high latency networks. (can be useful for GvG Next Plus, Dissidia 012, and Fate Unlimited Codes)
@@ -3842,6 +3949,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 	}
 	// Library is initialized
 	SceNetEtherAddr * saddr = (SceNetEtherAddr *)srcmac;
+	bool isClient = false;
 	if (netAdhocInited) {
 		// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems :( So we try to fix it here
 		if (saddr != NULL) {
@@ -3857,6 +3965,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 
 			// Random Port required
 			if (sport == 0) {
+				isClient = true;
 				//sport 0 should be shifted back to 0 when using offset Phantasy Star Portable 2 use this
 				sport = -static_cast<int>(portOffset);
 			}
@@ -3942,11 +4051,12 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 									internal->retry_count = rexmt_cnt;
 									internal->nonblocking = flag;
 									internal->buffer_size = bufsize;
+									internal->isClient = isClient;
 
 									// Copy Infrastructure Socket ID
 									internal->data.ptp.id = tcpsocket;
 
-									// Copy Address Information
+									// Copy Address & Port Information
 									internal->data.ptp.laddr = *saddr;
 									internal->data.ptp.lport = sport;
 
