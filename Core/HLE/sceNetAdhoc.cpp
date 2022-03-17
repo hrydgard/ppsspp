@@ -460,12 +460,13 @@ int StartGameModeScheduler() {
 	return 0;
 }
 
-int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
+int DoBlockingPdpRecv(AdhocSocketRequest& req, s64& result) {
 	auto sock = adhocSockets[req.id - 1];
 	if (!sock) {
 		result = ERROR_NET_ADHOC_SOCKET_DELETED;
 		return 0;
 	}
+	auto& pdpsocket = sock->data.pdp;
 	if (sock->flags & ADHOC_F_ALERTRECV) {
 		result = ERROR_NET_ADHOC_SOCKET_ALERTED;
 		sock->alerted_flags |= ADHOC_F_ALERTRECV;
@@ -482,7 +483,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	memset(&sin, 0, sinlen);
 
 	// On Windows: MSG_TRUNC are not supported on recvfrom (socket error WSAEOPNOTSUPP), so we use dummy buffer as an alternative
-	ret = recvfrom(uid, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_PEEK | MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
+	ret = recvfrom(pdpsocket.id, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_PEEK | MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
 	sockerr = errno;
 
 	// Discard packets from IP that can't be translated into MAC address to prevent confusing the game, since the sender MAC won't be updated and may contains invalid/undefined value.
@@ -494,7 +495,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 		// Remove the packet from socket buffer
 		sinlen = sizeof(sin);
 		memset(&sin, 0, sinlen);
-		recvfrom(uid, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
+		recvfrom(pdpsocket.id, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
 		// Try again later, until timeout reached
 		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (req.timeout != 0 && now - req.startTime > req.timeout) {
@@ -514,11 +515,11 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	if (ret >= 0 && ret <= *req.length) {
 		sinlen = sizeof(sin);
         memset(&sin, 0, sinlen);
-		ret = recvfrom(uid, (char*)req.buffer, std::max(0, *req.length), MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
+		ret = recvfrom(pdpsocket.id, (char*)req.buffer, std::max(0, *req.length), MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
 		// UDP can also receives 0 data, while on TCP receiving 0 data = connection gracefully closed, but not sure whether PDP can send/recv 0 data or not tho
 		*req.length = 0;
 		if (ret >= 0) {
-			DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %s:%u\n", req.id, getLocalPort(uid), ret, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
+			DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %s:%u\n", req.id, getLocalPort(pdpsocket.id), ret, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
 
 			// Find Peer MAC
 			if (resolveIP(sin.sin_addr.s_addr, &mac)) {
@@ -540,7 +541,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 				*req.length = ret;
 				*req.remotePort = ntohs(sin.sin_port) - portOffset;
 
-				WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %i bytes from Unknown Peer %s:%u", req.id, getLocalPort(uid), ret, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
+				WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %i bytes from Unknown Peer %s:%u", req.id, getLocalPort(pdpsocket.id), ret, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
 			}
 		}
 		result = 0;
@@ -557,7 +558,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	}
 	// Returning required buffer size when available data in recv buffer is larger than provided buffer size
 	else if (ret > *req.length) {
-		WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Peeked %u/%u bytes from %s:%u\n", req.id, getLocalPort(uid), ret, *req.length, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
+		WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Peeked %u/%u bytes from %s:%u\n", req.id, getLocalPort(pdpsocket.id), ret, *req.length, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
 		*req.length = ret;
 
 		// Find Peer MAC
@@ -584,7 +585,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	return 0;
 }
 
-int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTargets& targetPeers) {
+int DoBlockingPdpSend(AdhocSocketRequest& req, s64& result, AdhocSendTargets& targetPeers) {
 	auto sock = adhocSockets[req.id - 1];
 	if (!sock) {
 		result = ERROR_NET_ADHOC_SOCKET_DELETED;
@@ -610,7 +611,7 @@ int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTa
 		int sockerr = errno;
 
 		if (ret >= 0) {
-			DEBUG_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u](B): Sent %u bytes to %s:%u\n", uid, getLocalPort(pdpsocket.id), ret, ip2str(target.sin_addr).c_str(), ntohs(target.sin_port));
+			DEBUG_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u](B): Sent %u bytes to %s:%u\n", req.id, getLocalPort(pdpsocket.id), ret, ip2str(target.sin_addr).c_str(), ntohs(target.sin_port));
 			// Remove successfully sent to peer to prevent sending the same data again during a retry
 			peer = targetPeers.peers.erase(peer);
 		}
@@ -628,7 +629,7 @@ int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTa
 		}
 
 		if (ret == SOCKET_ERROR)
-			DEBUG_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpSend[%i:%u->%u](B) [size=%i]", sockerr, uid, getLocalPort(pdpsocket.id), ntohs(target.sin_port), targetPeers.length);
+			DEBUG_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpSend[%i:%u->%u](B) [size=%i]", sockerr, req.id, getLocalPort(pdpsocket.id), ntohs(target.sin_port), targetPeers.length);
 	}
 
 	if (retry)
@@ -637,7 +638,7 @@ int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTa
 	return 0;
 }
 
-int DoBlockingPtpSend(int uid, AdhocSocketRequest& req, s64& result) {
+int DoBlockingPtpSend(AdhocSocketRequest& req, s64& result) {
 	auto sock = adhocSockets[req.id - 1];
 	if (!sock) {
 		result = ERROR_NET_ADHOC_SOCKET_DELETED;
@@ -651,7 +652,7 @@ int DoBlockingPtpSend(int uid, AdhocSocketRequest& req, s64& result) {
 	}
 
 	// Send Data
-	int ret = send(uid, (const char*)req.buffer, *req.length, MSG_NOSIGNAL);
+	int ret = send(ptpsocket.id, (const char*)req.buffer, *req.length, MSG_NOSIGNAL);
 	int sockerr = errno;
 
 	// Success
@@ -690,7 +691,7 @@ int DoBlockingPtpSend(int uid, AdhocSocketRequest& req, s64& result) {
 	return 0;
 }
 
-int DoBlockingPtpRecv(int uid, AdhocSocketRequest& req, s64& result) {
+int DoBlockingPtpRecv(AdhocSocketRequest& req, s64& result) {
 	auto sock = adhocSockets[req.id - 1];
 	if (!sock) {
 		result = ERROR_NET_ADHOC_SOCKET_DELETED;
@@ -703,7 +704,7 @@ int DoBlockingPtpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 		return 0;
 	}
 
-	int ret = recv(uid, (char*)req.buffer, std::max(0, *req.length), MSG_NOSIGNAL);
+	int ret = recv(ptpsocket.id, (char*)req.buffer, std::max(0, *req.length), MSG_NOSIGNAL);
 	int sockerr = errno;
 
 	// Received Data. POSIX: May received 0 bytes when the remote peer already closed the connection.
@@ -746,7 +747,7 @@ int DoBlockingPtpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	return 0;
 }
 
-int DoBlockingPtpAccept(int uid, AdhocSocketRequest& req, s64& result) {
+int DoBlockingPtpAccept(AdhocSocketRequest& req, s64& result) {
 	auto sock = adhocSockets[req.id - 1];
 	if (!sock) {
 		result = ERROR_NET_ADHOC_SOCKET_DELETED;
@@ -765,10 +766,10 @@ int DoBlockingPtpAccept(int uid, AdhocSocketRequest& req, s64& result) {
 	int ret, sockerr;
 
 	// Check if listening socket is ready to accept
-	ret = IsSocketReady(uid, true, false, &sockerr);
+	ret = IsSocketReady(ptpsocket.id, true, false, &sockerr);
 	if (ret > 0) {
 		// Accept Connection
-		ret = accept(uid, (struct sockaddr*)&sin, &sinlen);
+		ret = accept(ptpsocket.id, (struct sockaddr*)&sin, &sinlen);
 		sockerr = errno;
 	}
 
@@ -796,7 +797,7 @@ int DoBlockingPtpAccept(int uid, AdhocSocketRequest& req, s64& result) {
 	return 0;
 }
 
-int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTargets& targetPeer) {
+int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets& targetPeer) {
 	auto sock = adhocSockets[req.id - 1];
 	if (!sock) {
 		result = ERROR_NET_ADHOC_SOCKET_DELETED;
@@ -819,7 +820,7 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result, AdhocSen
 		sin.sin_port = htons(ptpsocket.pport + targetPeer.peers[0].portOffset);
 
 		// Try to Connect
-		int ret = connect(uid, (struct sockaddr*)&sin, sizeof(sin));
+		int ret = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
 		int sockerr = errno;
 		if (connectInProgress(sockerr)) {
 			sock->data.ptp.state = ADHOC_PTP_STATE_SYN_SENT;
@@ -833,14 +834,14 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result, AdhocSen
 		}
 	}
 	// Check if the connection has completed (assuming "connect" has been called before)
-	ret = IsSocketReady(uid, false, true, &sockerr);
+	ret = IsSocketReady(ptpsocket.id, false, true, &sockerr);
 
 	// Connection is ready
 	if (ret > 0) {
 		struct sockaddr_in sin;
 		memset(&sin, 0, sizeof(sin));
 		socklen_t sinlen = sizeof(sin);
-		ret = getpeername(uid, (struct sockaddr*)&sin, &sinlen);
+		ret = getpeername(ptpsocket.id, (struct sockaddr*)&sin, &sinlen);
 		if (ret == SOCKET_ERROR) {
 			WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: getpeername error %i", req.id, ptpsocket.lport, errno);
 		}
@@ -877,7 +878,7 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result, AdhocSen
 	return 0;
 }
 
-int DoBlockingPtpFlush(int uid, AdhocSocketRequest& req, s64& result) {
+int DoBlockingPtpFlush(AdhocSocketRequest& req, s64& result) {
 	auto sock = adhocSockets[req.id - 1];
 	if (!sock) {
 		result = ERROR_NET_ADHOC_SOCKET_DELETED;
@@ -891,7 +892,7 @@ int DoBlockingPtpFlush(int uid, AdhocSocketRequest& req, s64& result) {
 	}
 
 	// Try Sending Empty Data
-	int sockerr = FlushPtpSocket(uid);
+	int sockerr = FlushPtpSocket(ptpsocket.id);
 	result = 0;
 
 	if (sockerr == EAGAIN || sockerr == EWOULDBLOCK) {
@@ -910,7 +911,7 @@ int DoBlockingPtpFlush(int uid, AdhocSocketRequest& req, s64& result) {
 	return 0;
 }
 
-int DoBlockingAdhocPollSocket(int uid, AdhocSocketRequest& req, s64& result) {
+int DoBlockingAdhocPollSocket(AdhocSocketRequest& req, s64& result) {
 	SceNetAdhocPollSd* sds = (SceNetAdhocPollSd*)req.buffer;
 	int ret = PollAdhocSocket(sds, req.id, 0, 0);
 	if (ret <= 0) {
@@ -972,7 +973,7 @@ static void __AdhocSocketNotify(u64 userdata, int cyclesLate) {
 			result = 0;
 			break;
 		}
-		if (DoBlockingPdpSend(uid, req, result, sendTargetPeers[userdata])) {
+		if (DoBlockingPdpSend(req, result, sendTargetPeers[userdata])) {
 			// Try again in another 0.5ms until data available or timedout.
 			CoreTiming::ScheduleEvent(usToCycles(delayUS) - cyclesLate, adhocSocketNotifyEvent, userdata);
 			return;
@@ -981,7 +982,7 @@ static void __AdhocSocketNotify(u64 userdata, int cyclesLate) {
 		break;
 
 	case PDP_RECV:
-		if (DoBlockingPdpRecv(uid, req, result)) {
+		if (DoBlockingPdpRecv(req, result)) {
 			// Try again in another 0.5ms until data available or timedout.
 			CoreTiming::ScheduleEvent(usToCycles(delayUS) - cyclesLate, adhocSocketNotifyEvent, userdata);
 			return;
@@ -989,7 +990,7 @@ static void __AdhocSocketNotify(u64 userdata, int cyclesLate) {
 		break;
 
 	case PTP_SEND:
-		if (DoBlockingPtpSend(uid, req, result)) {
+		if (DoBlockingPtpSend(req, result)) {
 			// Try again in another 0.5ms until data available or timedout.
 			CoreTiming::ScheduleEvent(usToCycles(delayUS) - cyclesLate, adhocSocketNotifyEvent, userdata);
 			return;
@@ -997,7 +998,7 @@ static void __AdhocSocketNotify(u64 userdata, int cyclesLate) {
 		break;
 
 	case PTP_RECV:
-		if (DoBlockingPtpRecv(uid, req, result)) {
+		if (DoBlockingPtpRecv(req, result)) {
 			// Try again in another 0.5ms until data available or timedout.
 			CoreTiming::ScheduleEvent(usToCycles(delayUS) - cyclesLate, adhocSocketNotifyEvent, userdata);
 			return;
@@ -1005,7 +1006,7 @@ static void __AdhocSocketNotify(u64 userdata, int cyclesLate) {
 		break;
 
 	case PTP_ACCEPT:
-		if (DoBlockingPtpAccept(uid, req, result)) {
+		if (DoBlockingPtpAccept(req, result)) {
 			// Try again in another 0.5ms until data available or timedout.
 			CoreTiming::ScheduleEvent(usToCycles(delayUS) - cyclesLate, adhocSocketNotifyEvent, userdata);
 			return;
@@ -1013,7 +1014,7 @@ static void __AdhocSocketNotify(u64 userdata, int cyclesLate) {
 		break;
 
 	case PTP_CONNECT:
-		if (DoBlockingPtpConnect(uid, req, result, sendTargetPeers[userdata])) {
+		if (DoBlockingPtpConnect(req, result, sendTargetPeers[userdata])) {
 			// Try again in another 0.5ms until data available or timedout.
 			CoreTiming::ScheduleEvent(usToCycles(delayUS) - cyclesLate, adhocSocketNotifyEvent, userdata);
 			return;
@@ -1021,7 +1022,7 @@ static void __AdhocSocketNotify(u64 userdata, int cyclesLate) {
 		break;
 
 	case PTP_FLUSH:
-		if (DoBlockingPtpFlush(uid, req, result)) {
+		if (DoBlockingPtpFlush(req, result)) {
 			// Try again in another 0.5ms until data available or timedout.
 			CoreTiming::ScheduleEvent(usToCycles(delayUS) - cyclesLate, adhocSocketNotifyEvent, userdata);
 			return;
@@ -1029,7 +1030,7 @@ static void __AdhocSocketNotify(u64 userdata, int cyclesLate) {
 		break;
 
 	case ADHOC_POLL_SOCKET:
-		if (DoBlockingAdhocPollSocket(uid, req, result)) {
+		if (DoBlockingAdhocPollSocket(req, result)) {
 			// Try again in another 0.5ms until data available or timedout.
 			CoreTiming::ScheduleEvent(usToCycles(delayUS) - cyclesLate, adhocSocketNotifyEvent, userdata);
 			return;
