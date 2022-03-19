@@ -3,23 +3,10 @@ on:
   workflow_dispatch:
     inputs:
 
-      baseUrl:
-        description: 'Base URL'
+      buildVariant:
+        description: 'Build Variant'     
         required: true
-        default: 'https://production.example.com/api/v1'
-
-      mapKey:
-        description: 'Map Key'
-        required: true
-        default: 'production_sample_key'
-
-      reAttempt:
-        description: 'Number of re-attempts'
-        default: '3'
-
-      thresholdValue:
-        description: 'Threshold value'
-        default: '0.05'
+        default: 'normalOptimized'
 
 jobs:
 
@@ -39,16 +26,17 @@ jobs:
         with:
           ndk-version: r21d
 
-      - name: Print Params Values
-        run: |
-          # bash update_properties.sh ${{ github.event.inputs.baseUrl }} ${{ github.event.inputs.mapKey }} ${{ github.event.inputs.reAttempt }} ${{ github.event.inputs.thresholdValue }}
-          touch local.properties
-          echo "BASE_URL=\\"${{ github.event.inputs.baseUrl }}\\"" >> local.properties
-          echo "MAP_KEY=\\"${{ github.event.inputs.mapKey }}\\"" >> local.properties
-          echo "RETRY_ATTEMPTS=${{ github.event.inputs.reAttempt }}" >> local.properties
-          echo "THRESHOLD_VALUE=${{ github.event.inputs.thresholdValue }}" >> local.properties
+      #- name: Print Params Values
+      #  run: |
+      #    # bash update_properties.sh ${{ github.event.inputs.baseUrl }} ${{ github.event.inputs.mapKey }} ${{ github.event.inputs.reAttempt }} ${{ github.event.inputs.thresholdValue }}
+      #    touch local.properties
+      #    echo "BASE_URL=\\"${{ github.event.inputs.baseUrl }}\\"" >> local.properties
+      #    echo "MAP_KEY=\\"${{ github.event.inputs.mapKey }}\\"" >> local.properties
+      #    echo "RETRY_ATTEMPTS=${{ github.event.inputs.reAttempt }}" >> local.properties
+      #    echo "THRESHOLD_VALUE=${{ github.event.inputs.thresholdValue }}" >> local.properties
+      
       - name: Assemble app APK
-        run: bash ./gradlew normalOptimized --stacktrace
+        run: bash ./gradlew ${{ github.event.inputs.buildVariant }} --stacktrace
 
       - name: Upload app APK
         uses: actions/upload-artifact@v1
