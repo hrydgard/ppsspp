@@ -88,8 +88,10 @@ static MemSlabMap suballocMap;
 static MemSlabMap writeMap;
 static MemSlabMap textureMap;
 static std::vector<PendingNotifyMem> pendingNotifies;
-static std::atomic<uint32_t> pendingNotifyMinAddr;
-static std::atomic<uint32_t> pendingNotifyMaxAddr;
+static std::atomic<uint32_t> pendingNotifyMinAddr1;
+static std::atomic<uint32_t> pendingNotifyMaxAddr1;
+static std::atomic<uint32_t> pendingNotifyMinAddr2;
+static std::atomic<uint32_t> pendingNotifyMaxAddr2;
 static std::mutex pendingMutex;
 static int detailedOverride;
 
@@ -391,8 +393,10 @@ void FlushPendingMemInfo() {
 		}
 	}
 	pendingNotifies.clear();
-	pendingNotifyMinAddr = 0xFFFFFFFF;
-	pendingNotifyMaxAddr = 0;
+	pendingNotifyMinAddr1 = 0xFFFFFFFF;
+	pendingNotifyMaxAddr1 = 0;
+	pendingNotifyMinAddr2 = 0xFFFFFFFF;
+	pendingNotifyMaxAddr2 = 0;
 }
 
 void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_t pc, const char *tagStr, size_t strLength) {
@@ -417,8 +421,13 @@ void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_
 		info.tag[copyLength] = 0;
 
 		std::lock_guard<std::mutex> guard(pendingMutex);
-		pendingNotifyMinAddr = std::min(pendingNotifyMinAddr.load(), start);
-		pendingNotifyMaxAddr = std::max(pendingNotifyMaxAddr.load(), start + size);
+		if (start < 0x08000000) {
+			pendingNotifyMinAddr1 = std::min(pendingNotifyMinAddr1.load(), start);
+			pendingNotifyMaxAddr1 = std::max(pendingNotifyMaxAddr1.load(), start + size);
+		} else {
+			pendingNotifyMinAddr2 = std::min(pendingNotifyMinAddr2.load(), start);
+			pendingNotifyMaxAddr2 = std::max(pendingNotifyMaxAddr2.load(), start + size);
+		}
 		pendingNotifies.push_back(info);
 		needFlush = pendingNotifies.size() > MAX_PENDING_NOTIFIES;
 	}
@@ -443,7 +452,9 @@ void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const cha
 std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size) {
 	start &= ~0xC0000000;
 
-	if (pendingNotifyMinAddr < start + size && pendingNotifyMaxAddr >= start)
+	if (pendingNotifyMinAddr1 < start + size && pendingNotifyMaxAddr1 >= start)
+		FlushPendingMemInfo();
+	if (pendingNotifyMinAddr2 < start + size && pendingNotifyMaxAddr2 >= start)
 		FlushPendingMemInfo();
 
 	std::vector<MemBlockInfo> results;
@@ -457,7 +468,9 @@ std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size) {
 std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start, uint32_t size) {
 	start &= ~0xC0000000;
 
-	if (pendingNotifyMinAddr < start + size && pendingNotifyMaxAddr >= start)
+	if (pendingNotifyMinAddr1 < start + size && pendingNotifyMaxAddr1 >= start)
+		FlushPendingMemInfo();
+	if (pendingNotifyMinAddr2 < start + size && pendingNotifyMaxAddr2 >= start)
 		FlushPendingMemInfo();
 
 	std::vector<MemBlockInfo> results;
@@ -475,7 +488,9 @@ std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start,
 static std::string FindWriteTagByFlag(MemBlockFlags flags, uint32_t start, uint32_t size) {
 	start &= ~0xC0000000;
 
-	if (pendingNotifyMinAddr < start + size && pendingNotifyMaxAddr >= start)
+	if (pendingNotifyMinAddr1 < start + size && pendingNotifyMaxAddr1 >= start)
+		FlushPendingMemInfo();
+	if (pendingNotifyMinAddr2 < start + size && pendingNotifyMaxAddr2 >= start)
 		FlushPendingMemInfo();
 
 	std::string tag;
@@ -514,8 +529,10 @@ std::string GetMemWriteTagAt(uint32_t start, uint32_t size) {
 void MemBlockInfoInit() {
 	std::lock_guard<std::mutex> guard(pendingMutex);
 	pendingNotifies.reserve(MAX_PENDING_NOTIFIES);
-	pendingNotifyMinAddr = 0xFFFFFFFF;
-	pendingNotifyMaxAddr = 0;
+	pendingNotifyMinAddr1 = 0xFFFFFFFF;
+	pendingNotifyMaxAddr1 = 0;
+	pendingNotifyMinAddr2 = 0xFFFFFFFF;
+	pendingNotifyMaxAddr2 = 0;
 }
 
 void MemBlockInfoShutdown() {
