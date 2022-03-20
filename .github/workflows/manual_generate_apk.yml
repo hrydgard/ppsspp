@@ -1,0 +1,60 @@
+name: Manual Generate APK
+on:
+  workflow_dispatch:
+    inputs:
+
+      buildVariant:
+        type: choice
+        description: 'Build Variant'     
+        required: true
+        default: 'NormalOptimized'
+        options: 
+        - NormalOptimized
+        - NormalDebug
+
+jobs:
+
+  apk:
+    name: Generate ${{ github.event.inputs.buildVariant }} APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          submodules: recursive
+        
+      - name: Setup JDK
+        uses: actions/setup-java@v1
+        with:
+          java-version: '11'
+        
+      #- name: Setup SDK
+      #  uses: android-actions/setup-android@v2
+          
+      #- name: Setup NDK
+      #  uses: nttld/setup-ndk@v1
+      #  with:
+      #    ndk-version: r21d
+      
+      - name: Assemble APK
+        run: bash ./gradlew assemble${{ github.event.inputs.buildVariant }} --stacktrace
+      
+      #- name: Gradle Test
+      #  run: bash ./gradlew test${{ github.event.inputs.buildVariant }}UnitTest --stacktrace
+      
+      - name: Package build
+        run: |
+          find . -name "*.apk"
+          mkdir ppsspp
+          if [ -e android/build/*/apk/*/*/android-normal-optimized.apk ]; then
+            cp android/build/*/apk/*/*/android-normal-optimized.apk ppsspp/
+          elif [ -e android/build/*/apk/*/*/android-normal-debug.apk ]; then
+            cp android/build/*/apk/*/*/android-normal-debug.apk ppsspp/
+          fi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v1
+        with:
+          name: android-${{ github.event.inputs.buildVariant }} build
+          path: ppsspp/
