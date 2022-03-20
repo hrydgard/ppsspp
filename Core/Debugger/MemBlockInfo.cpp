@@ -37,6 +37,7 @@ public:
 
 	bool Mark(uint32_t addr, uint32_t size, uint64_t ticks, uint32_t pc, bool allocated, const char *tag);
 	bool Find(MemBlockFlags flags, uint32_t addr, uint32_t size, std::vector<MemBlockInfo> &results);
+	bool FastFindWriteTag(MemBlockFlags flags, uint32_t addr, uint32_t size, std::string &result);
 	void Reset();
 	void DoState(PointerWrap &p);
 
@@ -139,13 +140,26 @@ bool MemSlabMap::Find(MemBlockFlags flags, uint32_t addr, uint32_t size, std::ve
 	Slab *slab = FindSlab(addr);
 	bool found = false;
 	while (slab != nullptr && slab->start < end) {
-		if (slab->pc != 0 || strlen(slab->tag)) {
+		if (slab->pc != 0 || slab->tag[0] != '\0') {
 			results.push_back({ flags, slab->start, slab->end - slab->start, slab->ticks, slab->pc, slab->tag, slab->allocated });
 			found = true;
 		}
 		slab = slab->next;
 	}
 	return found;
+}
+
+bool MemSlabMap::FastFindWriteTag(MemBlockFlags flags, uint32_t addr, uint32_t size, std::string &result) {
+	uint32_t end = addr + size;
+	Slab *slab = FindSlab(addr);
+	while (slab != nullptr && slab->start < end) {
+		if (slab->pc != 0 || slab->tag[0] != '\0') {
+			result = slab->tag;
+			return true;
+		}
+		slab = slab->next;
+	}
+	return false;
 }
 
 void MemSlabMap::Reset() {
@@ -458,18 +472,42 @@ std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start,
 	return results;
 }
 
-std::string GetMemWriteTagAt(uint32_t start, uint32_t size) {
-	std::vector<MemBlockInfo> memRangeInfo = FindMemInfoByFlag(MemBlockFlags::WRITE, start, size);
-	for (auto range : memRangeInfo) {
-		if (range.tag != "MemInit")
-			return range.tag;
+static std::string FindWriteTagByFlag(MemBlockFlags flags, uint32_t start, uint32_t size) {
+	start &= ~0xC0000000;
+
+	if (pendingNotifyMinAddr < start + size && pendingNotifyMaxAddr >= start)
+		FlushPendingMemInfo();
+
+	std::string tag;
+	if (flags & MemBlockFlags::ALLOC) {
+		if (allocMap.FastFindWriteTag(MemBlockFlags::ALLOC, start, size, tag))
+			return tag;
 	}
+	if (flags & MemBlockFlags::SUB_ALLOC) {
+		if (suballocMap.FastFindWriteTag(MemBlockFlags::SUB_ALLOC, start, size, tag))
+			return tag;
+	}
+	if (flags & MemBlockFlags::WRITE) {
+		if (writeMap.FastFindWriteTag(MemBlockFlags::WRITE, start, size, tag))
+			return tag;
+	}
+	if (flags & MemBlockFlags::TEXTURE) {
+		if (textureMap.FastFindWriteTag(MemBlockFlags::TEXTURE, start, size, tag))
+			return tag;
+	}
+	return "";
+}
+
+std::string GetMemWriteTagAt(uint32_t start, uint32_t size) {
+	std::string tag = FindWriteTagByFlag(MemBlockFlags::WRITE, start, size);
+	if (!tag.empty() && tag != "MemInit")
+		return tag;
 
 	// Fall back to alloc and texture, especially for VRAM.  We prefer write above.
-	memRangeInfo = FindMemInfoByFlag(MemBlockFlags::ALLOC | MemBlockFlags::TEXTURE, start, size);
-	for (auto range : memRangeInfo) {
-		return range.tag;
-	}
+	tag = FindWriteTagByFlag(MemBlockFlags::ALLOC | MemBlockFlags::TEXTURE, start, size);
+	if (!tag.empty())
+		return tag;
+
 	return StringFromFormat("%08x_size_%08x", start, size);
 }
 
