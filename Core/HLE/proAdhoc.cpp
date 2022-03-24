@@ -2192,15 +2192,16 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 
 	// Don't need to connect if AdhocServer DNS was not resolved
 	if (g_adhocServerIP.in.sin_addr.s_addr == INADDR_NONE)
-		return -1;
+		return SOCKET_ERROR;
 
 	// Don't need to connect if AdhocServer IP is the same with this instance localhost IP and having AdhocServer disabled
 	if (g_adhocServerIP.in.sin_addr.s_addr == g_localhostIP.in.sin_addr.s_addr && !g_Config.bEnableAdhocServer)
-		return -1;
+		return SOCKET_ERROR;
 
 	// Connect to Adhoc Server
 	int errorcode = 0;
 	int cnt = 0;
+	DEBUG_LOG(SCENET, "InitNetwork: Connecting to AdhocServer");
 	iResult = connect((int)metasocket, &g_adhocServerIP.addr, sizeof(g_adhocServerIP));
 	errorcode = errno;
 
@@ -2208,8 +2209,10 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		u64 startTime = (u64)(time_now_d() * 1000000.0);
 		while (IsSocketReady((int)metasocket, false, true) <= 0) {
 			u64 now = (u64)(time_now_d() * 1000000.0);
-			if (coreState == CORE_POWERDOWN) return iResult;
-			if (now - startTime > adhocDefaultTimeout) break;
+			if (coreState == CORE_POWERDOWN) 
+				return iResult;
+			if (now - startTime > (getSockError((int)metasocket) == EINPROGRESS ? adhocDefaultTimeout*2LL: adhocDefaultTimeout))
+				break;
 			sleep_ms(10);
 		}
 		if (IsSocketReady((int)metasocket, false, true) <= 0) {
@@ -2230,6 +2233,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	memcpy(packet.game.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
 
 	IsSocketReady((int)metasocket, false, true, nullptr, adhocDefaultTimeout);
+	DEBUG_LOG(SCENET, "InitNetwork: Sending LOGIN OPCODE %d", packet.base.opcode);
 	int sent = send((int)metasocket, (char*)&packet, sizeof(packet), MSG_NOSIGNAL);
 	if (sent > 0) {
 		socklen_t addrLen = sizeof(LocalIP);
