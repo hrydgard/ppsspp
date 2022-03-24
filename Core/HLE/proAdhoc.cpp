@@ -1804,7 +1804,8 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 		localAddr.sin_addr.s_addr = INADDR_ANY;
 		socklen_t addrLen = sizeof(localAddr);
 		int ret = getsockname((int)metasocket, (struct sockaddr*)&localAddr, &addrLen);
-		if (SOCKET_ERROR != ret) {
+		// Note: Sometimes metasocket still contains a valid socket fd right after failed to connect to AdhocServer on a different thread, thus ended with 0.0.0.0 here
+		if (SOCKET_ERROR != ret && localAddr.sin_addr.s_addr != 0) {
 			SocketAddress->sin_addr = localAddr.sin_addr;
 			return 0;
 		}
@@ -1812,27 +1813,8 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 #endif // !PPSSPP_PLATFORM(SWITCH)
 
 // Fallback if not connected to AdhocServer
-#if defined(_WIN32)
-	// Get local host name
-	char szHostName[256] = "";
-
-	if (::gethostname(szHostName, sizeof(szHostName))) {
-		// Error handling 
-	}
-	// Get local network IP addresses (LAN/VPN/loopback)
-	struct addrinfo hints, * res = 0;
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_INET; // AF_UNSPEC;
-	hints.ai_socktype = SOCK_DGRAM;
-	hints.ai_flags = AI_ADDRCONFIG; // getaddrinfo with AI_ADDRCONFIG will fail when there is no local network connected? https://github.com/stephane/libmodbus/issues/575
-	// Note: getaddrinfo could cause freezes on Android if there is no network https://github.com/hrydgard/ppsspp/issues/13300
-	if (getaddrinfo(szHostName, NULL, &hints, &res) == 0 && res != NULL) {
-		memcpy(&SocketAddress->sin_addr, &((struct sockaddr_in*)res->ai_addr)->sin_addr, sizeof(SocketAddress->sin_addr));
-		freeaddrinfo(res);
-		return 0;
-	}
-
-#elif defined(getifaddrs) // On Android: Requires __ANDROID_API__ >= 24
+// getifaddrs first appeared in glibc 2.3, On Android officially supported since __ANDROID_API__ >= 24
+#if defined(_IFADDRS_H_) || (__GLIBC__ > 2) || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 3) || (__ANDROID_API__ >= 24)
 	struct ifaddrs* ifAddrStruct = NULL;
 	struct ifaddrs* ifa = NULL;
 
@@ -1857,15 +1839,16 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 	if (sock != SOCKET_ERROR) {
 		const char* kGoogleDnsIp = "8.8.8.8"; // Needs to be an IP string so it can be resolved as fast as possible to IP, doesn't need to be reachable
 		uint16_t kDnsPort = 53;
-		struct sockaddr_in serv;
-		memset(&serv, 0, sizeof(serv));
+		struct sockaddr_in serv {};
+		u32 ipv4 = INADDR_NONE; // inet_addr(kGoogleDnsIp); // deprecated?
+		inet_pton(AF_INET, kGoogleDnsIp, &ipv4);
 		serv.sin_family = AF_INET;
-		serv.sin_addr.s_addr = inet_addr(kGoogleDnsIp);
+		serv.sin_addr.s_addr = ipv4;
 		serv.sin_port = htons(kDnsPort);
 
-		int err = connect(sock, (struct sockaddr*)&serv, sizeof(serv));
+		int err = connect(sock, (struct sockaddr*)&serv, sizeof(serv)); // connect should succeed even with SOCK_DGRAM
 		if (err != SOCKET_ERROR) {
-			struct sockaddr_in name;
+			struct sockaddr_in name {};
 			socklen_t namelen = sizeof(name);
 			err = getsockname(sock, (struct sockaddr*)&name, &namelen);
 			if (err != SOCKET_ERROR) {
