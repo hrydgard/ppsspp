@@ -1989,6 +1989,15 @@ int setSockTimeout(int sock, int opt, unsigned long timeout_usec) { // opt = SO_
 	return setsockopt(sock, SOL_SOCKET, opt, (char*)&optval, sizeof(optval));
 }
 
+int getSockError(int sock) {
+	int result = 0;
+	socklen_t result_len = sizeof(result);
+	if (getsockopt(sock, SOL_SOCKET, SO_ERROR, (char*)&result, &result_len) < 0) {
+		result = errno;
+	}
+	return result;
+}
+
 int getSockNoDelay(int tcpsock) { 
 	int opt = 0;
 	socklen_t optlen = sizeof(opt);

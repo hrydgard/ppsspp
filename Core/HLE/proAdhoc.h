@@ -1341,6 +1341,11 @@ int setSockMSS(int sock, int size);
 int setSockTimeout(int sock, int opt, unsigned long timeout_usec);
 
 /*
+ * Get Socket SO_ERROR (Requests and clears pending error information on the socket)
+ */
+int getSockError(int sock);
+
+/*
  * Get TCP Socket TCP_NODELAY (Nagle Algo)
  */
 int getSockNoDelay(int tcpsock);
