@@ -83,9 +83,9 @@ void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type,
 		;
 bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 
-#if defined(_DEBUG) || defined(_WIN32)
+#if defined(_DEBUG) || defined(_WIN32) || defined(__linux__) || defined(__APPLE__) || defined(ANDROID)
 
-#define MAX_LOGLEVEL DEBUG_LEVEL
+#define MAX_LOGLEVEL VERBOSE_LEVEL
 
 #else
 
