@@ -831,6 +831,21 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 			if (RecreatePtpSocket(req.id) < 0) {
 				WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Failed to Recreate Socket", req.id, ptpsocket.lport);
 			}
+
+			u64 now = (u64)(time_now_d() * 1000000.0);
+			if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+				// Try again later
+				return -1;
+			}
+			else {
+				// Handle Workaround that force the first Connect to be blocking for issue related to lobby or high latency networks
+				if (sock->nonblocking)
+					result = ERROR_NET_ADHOC_WOULD_BLOCK;
+				else
+					result = ERROR_NET_ADHOC_TIMEOUT; // FIXME: PSP never returned ERROR_NET_ADHOC_TIMEOUT on PtpConnect? or only returned ERROR_NET_ADHOC_TIMEOUT when the host is too busy? Seems to be returning ERROR_NET_ADHOC_CONNECTION_REFUSED on timedout instead (if the other side in not listening yet, which is similar to BSD).
+				
+				return 0;
+			}
 		}
 	}
 	// Check if the connection has completed (assuming "connect" has been called before)

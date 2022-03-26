@@ -298,8 +298,11 @@ int IsSocketReady(int fd, bool readfd, bool writefd, int* errorcode, int timeout
 	timeval tval;
 
 	// Avoid getting Fatal signal 6 (SIGABRT) on linux/android
-	if (fd < 0)
-	    return SOCKET_ERROR;
+	if (fd < 0) {
+		if (errorcode != nullptr)
+			*errorcode = EBADF;
+		return SOCKET_ERROR;
+	}
 
 	FD_ZERO(&readfds);
 	writefds = readfds;
@@ -312,9 +315,10 @@ int IsSocketReady(int fd, bool readfd, bool writefd, int* errorcode, int timeout
 	tval.tv_sec = timeoutUS / 1000000;
 	tval.tv_usec = timeoutUS % 1000000;
 
+	// Note: select will flags an unconnected TCP socket (ie. a freshly created socket without connecting first, or when connect failed with ECONNREFUSED on linux) as writeable/readable, thus can't be used to tell whether the connection has established or not.
 	int ret = select(fd + 1, readfd? &readfds: nullptr, writefd? &writefds: nullptr, nullptr, &tval);
 	if (errorcode != nullptr)
-		*errorcode = errno;
+		*errorcode = (ret < 0? errno: 0);
 
 	return ret;
 }
