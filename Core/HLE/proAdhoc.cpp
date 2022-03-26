@@ -298,8 +298,11 @@ int IsSocketReady(int fd, bool readfd, bool writefd, int* errorcode, int timeout
 	timeval tval;
 
 	// Avoid getting Fatal signal 6 (SIGABRT) on linux/android
-	if (fd < 0)
-	    return SOCKET_ERROR;
+	if (fd < 0) {
+		if (errorcode != nullptr)
+			*errorcode = EBADF;
+		return SOCKET_ERROR;
+	}
 
 	FD_ZERO(&readfds);
 	writefds = readfds;
@@ -313,8 +316,9 @@ int IsSocketReady(int fd, bool readfd, bool writefd, int* errorcode, int timeout
 	tval.tv_usec = timeoutUS % 1000000;
 
 	int ret = select(fd + 1, readfd? &readfds: nullptr, writefd? &writefds: nullptr, nullptr, &tval);
+	// Note: select seems to return positive value even when errno is 22 (EINVAL) on linux when using a freshly created TCP socket without connecting it first.
 	if (errorcode != nullptr)
-		*errorcode = errno;
+		*errorcode = (ret < 0? errno: 0);
 
 	return ret;
 }
