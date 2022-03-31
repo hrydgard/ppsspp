@@ -885,9 +885,9 @@ void GameSettingsScreen::CreateViews() {
 		backgroundChoice_->OnClick.Handle(this, &GameSettingsScreen::OnChangeBackground);
 	}
 
-	PopupMultiChoiceDynamic *theme = systemSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sThemeName, sy->T("Color Theme"), GetThemeInfoNames(), th->GetName(), screenManager()));
+	PopupMultiChoiceDynamic *theme = systemSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sThemeName, sy->T("Theme"), GetThemeInfoNames(), th->GetName(), screenManager()));
 	theme->OnChoice.Add([=](EventParams &e) {
-		UpdateTheme();
+		UpdateTheme(screenManager()->getUIContext());
 
 		return UI::EVENT_CONTINUE;
 	});

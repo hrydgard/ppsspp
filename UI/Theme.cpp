@@ -25,6 +25,7 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/File/DirListing.h"
+#include "Common/LogManager.h"
 
 #include "Core/Config.h"
 
@@ -52,6 +53,8 @@ struct ThemeInfo {
 	uint32_t uPopupStyleBg = 0xFF303030;
 	uint32_t uBackgroundColor = 0xFF754D24;
 
+	std::string UIAtlas;
+
 	bool operator == (const std::string &other) {
 		return name == other;
 	}
@@ -62,6 +65,9 @@ struct ThemeInfo {
 
 static UI::Theme ui_theme;
 static std::vector<ThemeInfo> themeInfos;
+
+static Atlas ui_atlas;
+static Atlas font_atlas;
 
 static void LoadThemeInfo(const std::vector<Path> &directories) {
 	themeInfos.clear();
@@ -128,6 +134,22 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 				section.Get("PopupStyleBg", &info.uPopupStyleBg, info.uPopupStyleBg);
 				section.Get("BackgroundColor", &info.uBackgroundColor, info.uBackgroundColor);
 
+				std::string tmpPath;
+				section.Get("UIAtlas", &tmpPath, "");
+				if (tmpPath != "") {
+					tmpPath = (path / tmpPath).ToString();
+
+					File::FileInfo tmpInfo;
+					if (VFSGetFileInfo((tmpPath+".meta").c_str(), &tmpInfo) && VFSGetFileInfo((tmpPath+".zim").c_str(), &tmpInfo)) {
+						info.UIAtlas = tmpPath;
+					} else {
+						// Files not found, fallback to default
+						info.UIAtlas = "ui_atlas";
+					}
+				} else {
+					info.UIAtlas = "ui_atlas";
+				}
+
 				appendTheme(info);
 			}
 		}
@@ -141,7 +163,23 @@ static UI::Style MakeStyle(uint32_t fg, uint32_t bg) {
 	return s;
 }
 
-void UpdateTheme() {
+static void LoadAtlasMetadata(Atlas &metadata, const char *filename, bool required) {
+	size_t atlas_data_size = 0;
+	if (!metadata.IsMetadataLoaded()) {
+		const uint8_t *atlas_data = VFSReadFile(filename, &atlas_data_size);
+		bool load_success = atlas_data != nullptr && metadata.Load(atlas_data, atlas_data_size);
+		if (!load_success) {
+			if (required)
+				ERROR_LOG(G3D, "Failed to load %s - graphics will be broken", filename);
+			else
+				WARN_LOG(G3D, "Failed to load %s", filename);
+			// Stumble along with broken visuals instead of dying...
+		}
+		delete[] atlas_data;
+	}
+}
+
+void UpdateTheme(UIContext *ctx) {
 	// First run, get the default in at least
 	if (themeInfos.empty()) {
 		ReloadAllThemeInfo();
@@ -188,10 +226,28 @@ void UpdateTheme() {
 	ui_theme.popupTitle.fgColor = themeInfos[i].uPopupTitleStyleFg;
 	ui_theme.popupStyle = MakeStyle(themeInfos[i].uPopupStyleFg, themeInfos[i].uPopupStyleBg);
 	ui_theme.backgroundColor = themeInfos[i].uBackgroundColor;
+
+	// Load any missing atlas metadata (the images are loaded from UIContext).
+	LoadAtlasMetadata(ui_atlas, (themeInfos[i].UIAtlas+".meta").c_str(), true);
+#if !(PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID))
+	LoadAtlasMetadata(font_atlas, "font_atlas.meta", ui_atlas.num_fonts == 0);
+#else
+	LoadAtlasMetadata(font_atlas, "asciifont_atlas.meta", ui_atlas.num_fonts == 0);
+#endif
+
+	ctx->setUIAtlas(themeInfos[i].UIAtlas+".zim");
 }
 
 UI::Theme *GetTheme() {
 	return &ui_theme;
+}
+
+Atlas *GetFontAtlas() {
+	return &font_atlas;
+}
+
+Atlas *GetUIAtlas() {
+	return &ui_atlas;
 }
 
 void ReloadAllThemeInfo() {

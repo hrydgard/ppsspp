@@ -130,11 +130,6 @@
 #include "android/jni/app-android.h"
 #endif
 
-// The new UI framework, for initialization
-
-static Atlas g_ui_atlas;
-static Atlas g_font_atlas;
-
 #if PPSSPP_ARCH(ARM) && defined(__ANDROID__)
 #include "../../android/jni/ArmEmitterTest.h"
 #elif PPSSPP_ARCH(ARM64) && defined(__ANDROID__)
@@ -876,22 +871,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 void RenderOverlays(UIContext *dc, void *userdata);
 bool CreateGlobalPipelines();
 
-static void LoadAtlasMetadata(Atlas &metadata, const char *filename, bool required) {
-	size_t atlas_data_size = 0;
-	if (!metadata.IsMetadataLoaded()) {
-		const uint8_t *atlas_data = VFSReadFile(filename, &atlas_data_size);
-		bool load_success = atlas_data != nullptr && metadata.Load(atlas_data, atlas_data_size);
-		if (!load_success) {
-			if (required)
-				ERROR_LOG(G3D, "Failed to load %s - graphics will be broken", filename);
-			else
-				WARN_LOG(G3D, "Failed to load %s", filename);
-			// Stumble along with broken visuals instead of dying...
-		}
-		delete[] atlas_data;
-	}
-}
-
 bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	INFO_LOG(SYSTEM, "NativeInitGraphics");
 
@@ -906,22 +885,14 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 		return false;
 	}
 
-	// Load any missing atlas metadata (the images are loaded from UIContext).
-	LoadAtlasMetadata(g_ui_atlas, "ui_atlas.meta", true);
-#if !(PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID))
-	LoadAtlasMetadata(g_font_atlas, "font_atlas.meta", g_ui_atlas.num_fonts == 0);
-#else
-	LoadAtlasMetadata(g_font_atlas, "asciifont_atlas.meta", g_ui_atlas.num_fonts == 0);
-#endif
+	ui_draw2d.SetAtlas(GetUIAtlas());
+	ui_draw2d.SetFontAtlas(GetFontAtlas());
+	ui_draw2d_front.SetAtlas(GetUIAtlas());
+	ui_draw2d_front.SetFontAtlas(GetFontAtlas());
 
-	ui_draw2d.SetAtlas(&g_ui_atlas);
-	ui_draw2d.SetFontAtlas(&g_font_atlas);
-	ui_draw2d_front.SetAtlas(&g_ui_atlas);
-	ui_draw2d_front.SetFontAtlas(&g_font_atlas);
-
-	UpdateTheme();
 	uiContext = new UIContext();
 	uiContext->theme = GetTheme();
+	UpdateTheme(uiContext);
 
 	ui_draw2d.Init(g_draw, texColorPipeline);
 	ui_draw2d_front.Init(g_draw, texColorPipeline);
