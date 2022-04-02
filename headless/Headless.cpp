@@ -17,6 +17,8 @@
 #include "Common/CommonWindows.h"
 #if PPSSPP_PLATFORM(WINDOWS)
 #include <timeapi.h>
+#else
+#include <csignal>
 #endif
 #include "Common/CPUDetect.h"
 #include "Common/File/VFS/VFS.h"
@@ -246,6 +248,11 @@ int main(int argc, const char* argv[])
 	PROFILE_INIT();
 #if PPSSPP_PLATFORM(WINDOWS)
 	timeBeginPeriod(1);
+#else
+	// Ignore sigpipe.
+	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
+		perror("Unable to ignore SIGPIPE");
+	}
 #endif
 
 #if defined(_DEBUG) && defined(_MSC_VER)
