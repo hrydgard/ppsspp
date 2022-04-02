@@ -26,7 +26,7 @@
 cInterfaceBase* HostGL_CreateGLInterface(){
 	#ifdef __ANDROID__
 		return new cInterfaceEGLAndroid;
-	#elif if PPSSPP_PLATFORM(SWITCH)
+	#elif PPSSPP_PLATFORM(SWITCH)
 		return new cInterfaceEGLSwitch;
 	#elif defined(__APPLE__)
 		return new cInterfaceAGL;
