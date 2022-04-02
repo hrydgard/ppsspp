@@ -83,6 +83,13 @@ else
 	BUILD_DIR="build"
 fi
 
+CORES_COUNT=4
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        CORES_COUNT="$(nproc)"
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+        CORES_COUNT="$(sysctl -n hw.physicalcpu)"
+fi
+
 # Strict errors. Any non-zero return exits this script
 set -e
 
@@ -90,6 +97,5 @@ mkdir -p ${BUILD_DIR}
 pushd ${BUILD_DIR}
 
 cmake $CMAKE_ARGS ..
-
-make -j4 $MAKE_OPT
+make -j$CORES_COUNT $MAKE_OPT
 popd
