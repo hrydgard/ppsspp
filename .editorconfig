@@ -32,3 +32,7 @@ charset = utf-8
 [libretro/**.{cpp,h}]
 indent_style = space
 indent_size = 3
+
+[SDL/SDLMain.mm]
+indent_style = space
+indent_size = 4

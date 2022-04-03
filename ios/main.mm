@@ -4,6 +4,7 @@
 #import <dlfcn.h>
 #import <mach/mach.h>
 #import <pthread.h>
+#import <signal.h>
 #import <string>
 #import <stdio.h>
 #import <stdlib.h>
@@ -269,6 +270,11 @@ int main(int argc, char *argv[])
 */
 
 	PROFILE_INIT();
+
+	// Ignore sigpipe.
+	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
+		perror("Unable to ignore SIGPIPE");
+	}
 
 	@autoreleasepool {
 		return UIApplicationMain(argc, argv, NSStringFromClass([PPSSPPUIApplication class]), NSStringFromClass([AppDelegate class]));

@@ -18,6 +18,7 @@ SDLJoystick *joystick = NULL;
 #include <atomic>
 #include <algorithm>
 #include <cmath>
+#include <csignal>
 #include <thread>
 #include <locale>
 
@@ -519,6 +520,11 @@ int main(int argc, char *argv[]) {
 #ifdef HAVE_LIBNX
 	socketInitializeDefault();
 	nxlinkStdio();
+#else // HAVE_LIBNX
+	// Ignore sigpipe.
+	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
+		perror("Unable to ignore SIGPIPE");
+	}
 #endif // HAVE_LIBNX
 
 	PROFILE_INIT();

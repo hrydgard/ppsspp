@@ -48,6 +48,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/HW/Camera.h"
 
+#include <signal.h>
 #include <string.h>
 
 MainUI *emugl = nullptr;
@@ -708,6 +709,11 @@ int main(int argc, char *argv[])
 			printf("%s\n", PPSSPP_GIT_VERSION);
 			return 0;
 		}
+	}
+
+	// Ignore sigpipe.
+	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
+		perror("Unable to ignore SIGPIPE");
 	}
 
 	PROFILE_INIT();
