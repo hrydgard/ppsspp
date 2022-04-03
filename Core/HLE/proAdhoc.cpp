@@ -303,6 +303,13 @@ int IsSocketReady(int fd, bool readfd, bool writefd, int* errorcode, int timeout
 			*errorcode = EBADF;
 		return SOCKET_ERROR;
 	}
+#if !defined(_WIN32)
+	if (fd >= FD_SETSIZE) {
+		if (errorcode != nullptr)
+			*errorcode = EBADF;
+		return SOCKET_ERROR;
+	}
+#endif
 
 	FD_ZERO(&readfds);
 	writefds = readfds;
