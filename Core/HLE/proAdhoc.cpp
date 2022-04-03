@@ -2222,7 +2222,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 			u64 now = (u64)(time_now_d() * 1000000.0);
 			if (coreState == CORE_POWERDOWN) 
 				return iResult;
-			if (now - startTime > (u64)(getSockError((int)metasocket) == EINPROGRESS ? adhocDefaultTimeout*2LL: adhocDefaultTimeout))
+			if (static_cast<s64>(now - startTime) > (getSockError((int)metasocket) == EINPROGRESS ? adhocDefaultTimeout*2LL: adhocDefaultTimeout))
 				break;
 			sleep_ms(10);
 		}
