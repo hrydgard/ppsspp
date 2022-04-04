@@ -2038,6 +2038,7 @@ int setSockNoSIGPIPE(int sock, int flag) {
 	// Set SIGPIPE when supported (ie. BSD/MacOS X)
 	int opt = flag;
 #if defined(SO_NOSIGPIPE)
+	// Note: Linux might have SO_NOSIGPIPE defined too, but using it on setsockopt will result to EINVAL error
 	return setsockopt(sock, SOL_SOCKET, SO_NOSIGPIPE, (void*)&opt, sizeof(opt));
 #endif
 	return -1;
