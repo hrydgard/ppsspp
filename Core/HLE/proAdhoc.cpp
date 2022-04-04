@@ -322,10 +322,10 @@ int IsSocketReady(int fd, bool readfd, bool writefd, int* errorcode, int timeout
 	tval.tv_sec = timeoutUS / 1000000;
 	tval.tv_usec = timeoutUS % 1000000;
 
+	// Note: select will flags an unconnected TCP socket (ie. a freshly created socket without connecting first, or when connect failed with ECONNREFUSED on linux) as writeable/readable, thus can't be used to tell whether the connection has established or not.
 	int ret = select(fd + 1, readfd? &readfds: nullptr, writefd? &writefds: nullptr, nullptr, &tval);
-	// Note: select seems to return positive value even when errno is 22 (EINVAL) on linux when using a freshly created TCP socket without connecting it first.
 	if (errorcode != nullptr)
-		*errorcode = (ret < 0? errno: 0);
+		*errorcode = (ret < 0 ? errno : 0);
 
 	return ret;
 }
