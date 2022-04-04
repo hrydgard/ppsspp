@@ -810,7 +810,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		return 0;
 	}
 
-	int sockerr, ret;
+	int sockerr = 0, ret;
 	// Try to connect again if the first attempt failed due to remote side was not listening yet (ie. ECONNREFUSED or ETIMEDOUT)
 	if (sock->attemptCount < 1) {
 		struct sockaddr_in sin;
@@ -820,16 +820,16 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		sin.sin_port = htons(ptpsocket.pport + targetPeer.peers[0].portOffset);
 
 		// Try to Connect
-		int ret = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
-		int sockerr = errno;
-		if (connectInProgress(sockerr)) {
+		ret = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
+		sockerr = errno;
+		if (connectInProgress(sockerr) || sockerr == EISCONN) {
 			sock->data.ptp.state = ADHOC_PTP_STATE_SYN_SENT;
 			sock->attemptCount = 1;
 		}
 		// On Windows you can call connect again using the same socket after ECONNREFUSED/ETIMEDOUT/ENETUNREACH error, but on non-Windows you'll need to recreate the socket first
 		else {
 			if (RecreatePtpSocket(req.id) < 0) {
-				WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Failed to Recreate Socket", req.id, ptpsocket.lport);
+				WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: RecreatePtpSocket error %i", req.id, ptpsocket.lport, errno);
 			}
 
 			u64 now = (u64)(time_now_d() * 1000000.0);
@@ -848,11 +848,14 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 			}
 		}
 	}
-	// Check if the connection has completed (assuming "connect" has been called before)
-	ret = IsSocketReady(ptpsocket.id, false, true, &sockerr);
 
-	// Connection is ready? Apparently this is true even when sockerr is not 0 ?! (ie. invalid argument error)
-	if (ret > 0) {
+	// Check if the connection has completed (assuming "connect" has been called before and is in-progress)
+	ret = IsSocketReady(ptpsocket.id, false, true, &sockerr);
+	if (ret > 0)
+		sockerr = getSockError(ptpsocket.id);
+
+	// Connection is ready?
+	if (ret > 0 && (sockerr == 0 || sockerr == EISCONN)) {
 		struct sockaddr_in sin;
 		memset(&sin, 0, sizeof(sin));
 		socklen_t sinlen = sizeof(sin);
@@ -883,8 +886,8 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 			result = 0;
 		}
 	}
-	// Timeout
-	else if (ret == 0) {
+	// Timeout?
+	else {
 		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
@@ -897,9 +900,6 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 				result = ERROR_NET_ADHOC_TIMEOUT; // FIXME: PSP never returned ERROR_NET_ADHOC_TIMEOUT on PtpConnect? or only returned ERROR_NET_ADHOC_TIMEOUT when the host is too busy? Seems to be returning ERROR_NET_ADHOC_CONNECTION_REFUSED on timedout instead (if the other side in not listening yet, which is similar to BSD).
 		}
 	}
-	// Select was interrupted or contains invalid args?
-	else
-		result = ERROR_NET_ADHOC_EXCEPTION_EVENT; // ERROR_NET_ADHOC_INVALID_ARG;
 
 	if (ret == SOCKET_ERROR)
 		DEBUG_LOG(SCENET, "sceNetAdhocPtpConnect[%i]: Socket Error (%i)", req.id, sockerr);
@@ -3295,71 +3295,74 @@ int RecreatePtpSocket(int ptpId) {
 	int tcpsocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
 	// Valid Socket produced
-	if (tcpsocket > 0) {
-		sock->data.ptp.id = tcpsocket;
+	if (tcpsocket < 0)
+		return ERROR_NET_ADHOC_SOCKET_ID_NOT_AVAIL;
 
-		// Change socket MSS
-		setSockMSS(tcpsocket, PSP_ADHOC_PTP_MSS);
+	// Update posix socket fd
+	sock->data.ptp.id = tcpsocket;
 
-		// Change socket buffer size to be consistent on all platforms.
-		setSockBufferSize(tcpsocket, SO_SNDBUF, sock->buffer_size * 5); //PSP_ADHOC_PTP_MSS
-		setSockBufferSize(tcpsocket, SO_RCVBUF, sock->buffer_size * 10); //PSP_ADHOC_PTP_MSS*10
+	// Change socket MSS
+	setSockMSS(tcpsocket, PSP_ADHOC_PTP_MSS);
 
-		// Enable KeepAlive
-		setSockKeepAlive(tcpsocket, true, sock->retry_interval / 1000000L, sock->retry_count);
+	// Change socket buffer size to be consistent on all platforms.
+	setSockBufferSize(tcpsocket, SO_SNDBUF, sock->buffer_size * 5); //PSP_ADHOC_PTP_MSS
+	setSockBufferSize(tcpsocket, SO_RCVBUF, sock->buffer_size * 10); //PSP_ADHOC_PTP_MSS*10
 
-		// Ignore SIGPIPE when supported (ie. BSD/MacOS)
-		setSockNoSIGPIPE(tcpsocket, 1);
+	// Enable KeepAlive
+	setSockKeepAlive(tcpsocket, true, sock->retry_interval / 1000000L, sock->retry_count);
 
-		// Enable Port Re-use
-		setSockReuseAddrPort(tcpsocket);
+	// Ignore SIGPIPE when supported (ie. BSD/MacOS)
+	setSockNoSIGPIPE(tcpsocket, 1);
 
-		// Apply Default Send Timeout Settings to Socket
-		setSockTimeout(tcpsocket, SO_SNDTIMEO, sock->retry_interval);
+	// Enable Port Re-use
+	setSockReuseAddrPort(tcpsocket);
 
-		// Disable Nagle Algo to send immediately. Or may be we shouldn't disable Nagle since there is PtpFlush function?
-		setSockNoDelay(tcpsocket, 1);
+	// Apply Default Send Timeout Settings to Socket
+	setSockTimeout(tcpsocket, SO_SNDTIMEO, sock->retry_interval);
 
-		// Binding Information for local Port
-		struct sockaddr_in addr {};
-		// addr.sin_len = sizeof(addr);
-		addr.sin_family = AF_INET;
-		addr.sin_addr.s_addr = INADDR_ANY;
-		if (isLocalServer) {
-			getLocalIp(&addr);
-		}
-		uint16_t requestedport = static_cast<int>(sock->data.ptp.lport + static_cast<int>(portOffset));
-		// Avoid getting random port due to port offset when original port wasn't 0 (ie. original_port + port_offset = 65536 = 0)
-		if (requestedport == 0 && sock->data.ptp.lport > 0)
-			requestedport = 65535; // Hopefully it will be safe to default it to 65535 since there can't be more than one port that can bumped into 65536
-		addr.sin_port = htons(requestedport);
+	// Disable Nagle Algo to send immediately. Or may be we shouldn't disable Nagle since there is PtpFlush function?
+	setSockNoDelay(tcpsocket, 1);
 
-		// Bound Socket to local Port
-		if (bind(tcpsocket, (struct sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
-			ERROR_LOG(SCENET, "RecreatePtpSocket(%i) - Socket error (%i) when binding port %u", ptpId, errno, ntohs(addr.sin_port));
+	// Binding Information for local Port
+	struct sockaddr_in addr {};
+	// addr.sin_len = sizeof(addr);
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = INADDR_ANY;
+	if (isLocalServer) {
+		getLocalIp(&addr);
+	}
+	uint16_t requestedport = static_cast<int>(sock->data.ptp.lport + static_cast<int>(portOffset));
+	// Avoid getting random port due to port offset when original port wasn't 0 (ie. original_port + port_offset = 65536 = 0)
+	if (requestedport == 0 && sock->data.ptp.lport > 0)
+		requestedport = 65535; // Hopefully it will be safe to default it to 65535 since there can't be more than one port that can bumped into 65536
+	addr.sin_port = htons(requestedport);
+
+	// Bound Socket to local Port
+	if (bind(tcpsocket, (struct sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
+		ERROR_LOG(SCENET, "RecreatePtpSocket(%i) - Socket error (%i) when binding port %u", ptpId, errno, ntohs(addr.sin_port));
+	}
+	else {
+		// Update sport with the port assigned internal->lport = ntohs(local.sin_port)
+		socklen_t len = sizeof(addr);
+		if (getsockname(tcpsocket, (struct sockaddr*)&addr, &len) == 0) {
+			uint16_t boundport = ntohs(addr.sin_port);
+			if (sock->data.ptp.lport + static_cast<int>(portOffset) >= 65536 || static_cast<int>(boundport) - static_cast<int>(portOffset) <= 0)
+				WARN_LOG(SCENET, "RecreatePtpSocket(%i) - Wrapped Port Detected: Original(%d) -> Requested(%d), Bound(%d) -> BoundOriginal(%d)", ptpId, sock->data.ptp.lport, requestedport, boundport, boundport - portOffset);
+			u16 newlport = boundport - portOffset;
+			if (newlport != sock->data.ptp.lport) {
+				WARN_LOG(SCENET, "RecreatePtpSocket(%i) - Old and New LPort is different! The port may need to be reforwarded", ptpId);
+				if (!sock->isClient)
+					UPnP_Add(IP_PROTOCOL_TCP, isOriPort ? newlport : newlport + portOffset, newlport + portOffset);
+			}
+			sock->data.ptp.lport = newlport;
 		}
 		else {
-			// Update sport with the port assigned internal->lport = ntohs(local.sin_port)
-			socklen_t len = sizeof(addr);
-			if (getsockname(tcpsocket, (struct sockaddr*)&addr, &len) == 0) {
-				uint16_t boundport = ntohs(addr.sin_port);
-				if (sock->data.ptp.lport + static_cast<int>(portOffset) >= 65536 || static_cast<int>(boundport) - static_cast<int>(portOffset) <= 0)
-					WARN_LOG(SCENET, "RecreatePtpSocket(%id) - Wrapped Port Detected: Original(%d) -> Requested(%d), Bound(%d) -> BoundOriginal(%d)", ptpId, sock->data.ptp.lport, requestedport, boundport, boundport - portOffset);
-				u16 newlport = boundport - portOffset;
-				if (newlport != sock->data.ptp.lport) {
-					WARN_LOG(SCENET, "RecreatePtpSocket(%id) - Old and New LPort is different! The port may need to be reforwarded");
-					if (!sock->isClient)
-						UPnP_Add(IP_PROTOCOL_TCP, isOriPort ? newlport : newlport + portOffset, newlport + portOffset);
-				}
-				sock->data.ptp.lport = newlport;
-			}
+			WARN_LOG(SCENET, "RecreatePtpSocket(%i): getsockname error %i", ptpId, errno);
 		}
-
-		// Switch to non-blocking for futher usage
-		changeBlockingMode(tcpsocket, 1);
 	}
-	else
-		return ERROR_NET_ADHOC_SOCKET_ID_NOT_AVAIL;
+
+	// Switch to non-blocking for further usage
+	changeBlockingMode(tcpsocket, 1);
 
 	return 0;
 }
