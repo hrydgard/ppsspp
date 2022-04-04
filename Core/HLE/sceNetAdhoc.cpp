@@ -849,11 +849,14 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		}
 	}
 
+	if (sockerr != 0)
+		WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: connect(%i) error = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
 	// Check if the connection has completed (assuming "connect" has been called before and is in-progress)
 	ret = IsSocketReady(ptpsocket.id, false, true, &sockerr);
 	if (ret > 0)
 		sockerr = getSockError(ptpsocket.id);
-
+	if (sockerr != 0)
+		WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: getSockError(%i) = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
 	// Connection is ready?
 	if (ret > 0 && (sockerr == 0 || sockerr == EISCONN)) {
 		struct sockaddr_in sin;
