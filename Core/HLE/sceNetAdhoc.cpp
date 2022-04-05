@@ -3841,7 +3841,7 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 					else if (connectresult == SOCKET_ERROR) {
 						// Connection in Progress, or
 						// ECONNREFUSED = No connection could be made because the target device actively refused it (on Windows/Linux/Android), or no one listening on the remote address (on Linux/Android) thus should try to connect again later (treated similarly to ETIMEDOUT/ENETUNREACH).
-						if (connectInProgress(errorcode) || errorcode == ECONNREFUSED || errorcode == ENETUNREACH) {
+						if (connectInProgress(errorcode) || errorcode == ECONNREFUSED) {
 							if (connectInProgress(errorcode))
 							{
 								ptpsocket.state = ADHOC_PTP_STATE_SYN_SENT;

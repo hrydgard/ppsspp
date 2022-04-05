@@ -84,7 +84,7 @@
 #define EALREADY WSAEALREADY
 #define ETIMEDOUT WSAETIMEDOUT
 #define EOPNOTSUPP WSAEOPNOTSUPP
-inline bool connectInProgress(int errcode){ return (/*errcode == WSAEWOULDBLOCK ||*/ errcode == WSAEINPROGRESS || errcode == WSAEALREADY); }
+inline bool connectInProgress(int errcode){ return (/*errcode == WSAEWOULDBLOCK || errcode == WSAEALREADY ||*/ errcode == WSAEINPROGRESS); }
 inline bool isDisconnected(int errcode) { return (errcode == WSAECONNRESET || errcode == WSAECONNABORTED || errcode == WSAESHUTDOWN); }
 #else
 #define INVALID_SOCKET -1
@@ -93,7 +93,7 @@ inline bool isDisconnected(int errcode) { return (errcode == WSAECONNRESET || er
 #ifndef ESHUTDOWN
 #define ESHUTDOWN ENETDOWN
 #endif
-inline bool connectInProgress(int errcode){ return (/*errcode == EAGAIN || errcode == EWOULDBLOCK || */errcode == EINPROGRESS || errcode == EALREADY); }
+inline bool connectInProgress(int errcode){ return (/*errcode == EAGAIN || errcode == EWOULDBLOCK || errcode == EALREADY ||*/ errcode == EINPROGRESS); }
 inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode == ECONNRESET || errcode == ECONNABORTED || errcode == ESHUTDOWN); }
 #endif
 
