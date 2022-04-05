@@ -822,6 +822,9 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		// Try to Connect
 		ret = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
 		sockerr = errno;
+		if (sockerr != 0)
+			WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: connect(%i) error = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
+
 		if (ret != SOCKET_ERROR || sockerr == EISCONN) {
 			ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
 		}
@@ -830,6 +833,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		}
 		// On Windows you can call connect again using the same socket after ECONNREFUSED/ETIMEDOUT/ENETUNREACH error, but on non-Windows you'll need to recreate the socket first
 		else {
+			INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Recreating Socket %i, errno = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
 			if (RecreatePtpSocket(req.id) < 0) {
 				WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: RecreatePtpSocket error %i", req.id, ptpsocket.lport, errno);
 			}
@@ -852,7 +856,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 	}
 
 	if (sockerr != 0)
-		WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: connect(%i) error = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
+		WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: sockerr = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
 	// Check if the connection has completed (assuming "connect" has been called before and is in-progress)
 	ret = IsSocketReady(ptpsocket.id, false, true, &sockerr);
 	if (ret > 0)
