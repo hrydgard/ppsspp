@@ -812,7 +812,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 
 	int sockerr = 0, ret;
 	// Try to connect again if the first attempt failed due to remote side was not listening yet (ie. ECONNREFUSED or ETIMEDOUT)
-	if (sock->attemptCount < 1) {
+	if (ptpsocket.state == ADHOC_PTP_STATE_CLOSED) {
 		struct sockaddr_in sin;
 		memset(&sin, 0, sizeof(sin));
 		sin.sin_family = AF_INET;
@@ -824,11 +824,9 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		sockerr = errno;
 		if (ret != SOCKET_ERROR || sockerr == EISCONN) {
 			ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
-			sock->attemptCount = 1;
 		}
 		else if (connectInProgress(sockerr)) {
 			ptpsocket.state = ADHOC_PTP_STATE_SYN_SENT;
-			sock->attemptCount = 1;
 		}
 		// On Windows you can call connect again using the same socket after ECONNREFUSED/ETIMEDOUT/ENETUNREACH error, but on non-Windows you'll need to recreate the socket first
 		else {
@@ -3846,8 +3844,7 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 						if (connectInProgress(errorcode) || errorcode == ECONNREFUSED || errorcode == ENETUNREACH) {
 							if (connectInProgress(errorcode))
 							{
-								socket->data.ptp.state = ADHOC_PTP_STATE_SYN_SENT;
-								socket->attemptCount++;
+								ptpsocket.state = ADHOC_PTP_STATE_SYN_SENT;
 							}
 							// On Windows you can call connect again using the same socket after ECONNREFUSED/ETIMEDOUT/ENETUNREACH error, but on non-Windows you'll need to recreate the socket first
 							else {
@@ -3855,6 +3852,7 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 									WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Failed to Recreate Socket", id, ptpsocket.lport);
 								}
 							}
+							socket->attemptCount++;
 							socket->lastAttempt = CoreTiming::GetGlobalTimeUsScaled();
 							// Blocking Mode
 							// Workaround: Forcing first attempt to be blocking to prevent issue related to lobby or high latency networks. (can be useful for GvG Next Plus, Dissidia 012, and Fate Unlimited Codes)
