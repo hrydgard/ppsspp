@@ -822,8 +822,12 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		// Try to Connect
 		ret = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
 		sockerr = errno;
-		if (connectInProgress(sockerr) || sockerr == EISCONN) {
-			sock->data.ptp.state = ADHOC_PTP_STATE_SYN_SENT;
+		if (ret != SOCKET_ERROR || sockerr == EISCONN) {
+			ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+			sock->attemptCount = 1;
+		}
+		else if (connectInProgress(sockerr)) {
+			ptpsocket.state = ADHOC_PTP_STATE_SYN_SENT;
 			sock->attemptCount = 1;
 		}
 		// On Windows you can call connect again using the same socket after ECONNREFUSED/ETIMEDOUT/ENETUNREACH error, but on non-Windows you'll need to recreate the socket first
