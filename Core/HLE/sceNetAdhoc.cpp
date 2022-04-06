@@ -857,7 +857,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 	}
 
 	if (sockerr != 0)
-		WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: sockerr = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
+		WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: sockerr(%i) = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
 	// Check if the connection has completed (assuming "connect" has been called before and is in-progress)
 	ret = IsSocketReady(ptpsocket.id, false, true, &sockerr);
 	if (ret > 0)
