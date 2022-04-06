@@ -837,6 +837,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 			if (RecreatePtpSocket(req.id) < 0) {
 				WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: RecreatePtpSocket error %i", req.id, ptpsocket.lport, errno);
 			}
+			ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
 
 			u64 now = (u64)(time_now_d() * 1000000.0);
 			if (req.timeout == 0 || now - req.startTime <= req.timeout) {
@@ -3856,6 +3857,7 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 								if (RecreatePtpSocket(id) < 0) {
 									WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Failed to Recreate Socket", id, ptpsocket.lport);
 								}
+								ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
 							}
 							socket->attemptCount++;
 							socket->lastAttempt = CoreTiming::GetGlobalTimeUsScaled();
