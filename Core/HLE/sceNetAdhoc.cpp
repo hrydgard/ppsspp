@@ -811,9 +811,9 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 	}
 
 	int sockerr = 0, ret;
+	struct sockaddr_in sin;
 	// Try to connect again if the first attempt failed due to remote side was not listening yet (ie. ECONNREFUSED or ETIMEDOUT)
 	if (ptpsocket.state == ADHOC_PTP_STATE_CLOSED) {
-		struct sockaddr_in sin;
 		memset(&sin, 0, sizeof(sin));
 		sin.sin_family = AF_INET;
 		sin.sin_addr.s_addr = targetPeer.peers[0].ip;
@@ -831,13 +831,30 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		ret = IsSocketReady(ptpsocket.id, false, true, &sockerr);
 		if (ret > 0)
 			sockerr = getSockError(ptpsocket.id);
-		if (sockerr != 0)
+		if (sockerr != 0) {
 			WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: getSockError(%i) = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
+			ret = SOCKET_ERROR; // Ensure returned value from select to be negative when the socket has error (the socket may need to be recreated again)
+		}
+	}
+
+	// Check whether the connection has been established or not
+	if (ret != SOCKET_ERROR) {
+		socklen_t sinlen = sizeof(sin);
+		memset(&sin, 0, sinlen);
+		// Note: getpeername shouldn't failed if the connection has been established
+		ret = getpeername(ptpsocket.id, (struct sockaddr*)&sin, &sinlen);
+		if (ret == SOCKET_ERROR) {
+			WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: getpeername error %i, sockerr = %i", req.id, ptpsocket.lport, errno, sockerr);
+		}
 	}
 
 	// Update Adhoc Socket state
 	if (ret != SOCKET_ERROR || sockerr == EISCONN) {
 		ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+		INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Established (%s:%u)", req.id, ptpsocket.lport, ip2str(sin.sin_addr).c_str(), ptpsocket.pport);
+
+		// Done
+		result = 0;
 	}
 	else if (connectInProgress(sockerr)) {
 		ptpsocket.state = ADHOC_PTP_STATE_SYN_SENT;
@@ -849,7 +866,10 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 			WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: RecreatePtpSocket error %i", req.id, ptpsocket.lport, errno);
 		}
 		ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
+	}
 
+	// Still in progress, try again next time until Timedout
+	if (ptpsocket.state != ADHOC_PTP_STATE_ESTABLISHED) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			// Try again later
@@ -862,54 +882,8 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 			else
 				result = ERROR_NET_ADHOC_TIMEOUT; // FIXME: PSP never returned ERROR_NET_ADHOC_TIMEOUT on PtpConnect? or only returned ERROR_NET_ADHOC_TIMEOUT when the host is too busy? Seems to be returning ERROR_NET_ADHOC_CONNECTION_REFUSED on timedout instead (if the other side in not listening yet, which is similar to BSD).
 
+			// Done
 			return 0;
-		}
-	}
-
-	// Connection has established?
-	if (ret > 0 && (sockerr == 0 || sockerr == EISCONN)) {
-		struct sockaddr_in sin;
-		memset(&sin, 0, sizeof(sin));
-		socklen_t sinlen = sizeof(sin);
-		// Note: getpeername shouldn't failed if the connection has been established
-		ret = getpeername(ptpsocket.id, (struct sockaddr*)&sin, &sinlen);
-		if (ret == SOCKET_ERROR) {
-			WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: getpeername error %i, sockerr = %i", req.id, ptpsocket.lport, errno, sockerr);
-			u64 now = (u64)(time_now_d() * 1000000.0);
-			if (req.timeout == 0 || now - req.startTime <= req.timeout) {
-				// Try again later
-				return -1;
-			}
-			else {
-				// Handle Workaround that force the first Connect to be blocking for issue related to lobby or high latency networks
-				if (sock->nonblocking)
-					result = ERROR_NET_ADHOC_WOULD_BLOCK;
-				else
-					result = ERROR_NET_ADHOC_TIMEOUT; // FIXME: PSP never returned ERROR_NET_ADHOC_TIMEOUT on PtpConnect? or only returned ERROR_NET_ADHOC_TIMEOUT when the host is too busy? Seems to be returning ERROR_NET_ADHOC_CONNECTION_REFUSED on timedout instead (if the other side in not listening yet, which is similar to BSD).
-			}
-		}
-		else {
-			// Set Connected State
-			ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
-
-			INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Established (%s:%u)", req.id, ptpsocket.lport, ip2str(sin.sin_addr).c_str(), ptpsocket.pport);
-
-			// Success
-			result = 0;
-		}
-	}
-	// Still in progress until Timedout?
-	else {
-		u64 now = (u64)(time_now_d() * 1000000.0);
-		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
-			return -1;
-		}
-		else {
-			// Handle Workaround that force the first Connect to be blocking for issue related to lobby or high latency networks
-			if (sock->nonblocking)
-				result = ERROR_NET_ADHOC_WOULD_BLOCK;
-			else
-				result = ERROR_NET_ADHOC_TIMEOUT; // FIXME: PSP never returned ERROR_NET_ADHOC_TIMEOUT on PtpConnect? or only returned ERROR_NET_ADHOC_TIMEOUT when the host is too busy? Seems to be returning ERROR_NET_ADHOC_CONNECTION_REFUSED on timedout instead (if the other side in not listening yet, which is similar to BSD).
 		}
 	}
 
