@@ -819,60 +819,62 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		sin.sin_addr.s_addr = targetPeer.peers[0].ip;
 		sin.sin_port = htons(ptpsocket.pport + targetPeer.peers[0].portOffset);
 
-		// Try to Connect
 		ret = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
 		sockerr = errno;
 		if (sockerr != 0)
 			WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: connect(%i) error = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
+		else
+			ret = 1; // Ensure returned success value from connect to be compatible with returned success value from select (ie. positive value)
+	}
+	// Check the connection state (assuming "connect" has been called before and is in-progress)
+	else {
+		ret = IsSocketReady(ptpsocket.id, false, true, &sockerr);
+		if (ret > 0)
+			sockerr = getSockError(ptpsocket.id);
+		if (sockerr != 0)
+			WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: getSockError(%i) = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
+	}
 
-		if (ret != SOCKET_ERROR || sockerr == EISCONN) {
-			ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+	// Update Adhoc Socket state
+	if (ret != SOCKET_ERROR || sockerr == EISCONN) {
+		ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+	}
+	else if (connectInProgress(sockerr)) {
+		ptpsocket.state = ADHOC_PTP_STATE_SYN_SENT;
+	}
+	// On Windows you can call connect again using the same socket after ECONNREFUSED/ETIMEDOUT/ENETUNREACH error, but on non-Windows you'll need to recreate the socket first
+	else {
+		INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Recreating Socket %i, errno = %i, state = %i, attempt = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr, ptpsocket.state, sock->attemptCount);
+		if (RecreatePtpSocket(req.id) < 0) {
+			WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: RecreatePtpSocket error %i", req.id, ptpsocket.lport, errno);
 		}
-		else if (connectInProgress(sockerr)) {
-			ptpsocket.state = ADHOC_PTP_STATE_SYN_SENT;
+		ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
+
+		u64 now = (u64)(time_now_d() * 1000000.0);
+		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+			// Try again later
+			return -1;
 		}
-		// On Windows you can call connect again using the same socket after ECONNREFUSED/ETIMEDOUT/ENETUNREACH error, but on non-Windows you'll need to recreate the socket first
 		else {
-			INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Recreating Socket %i, errno = %i, state = %i, attempt = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr, ptpsocket.state, sock->attemptCount);
-			if (RecreatePtpSocket(req.id) < 0) {
-				WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: RecreatePtpSocket error %i", req.id, ptpsocket.lport, errno);
-			}
-			ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
+			// Handle Workaround that force the first Connect to be blocking for issue related to lobby or high latency networks
+			if (sock->nonblocking)
+				result = ERROR_NET_ADHOC_WOULD_BLOCK;
+			else
+				result = ERROR_NET_ADHOC_TIMEOUT; // FIXME: PSP never returned ERROR_NET_ADHOC_TIMEOUT on PtpConnect? or only returned ERROR_NET_ADHOC_TIMEOUT when the host is too busy? Seems to be returning ERROR_NET_ADHOC_CONNECTION_REFUSED on timedout instead (if the other side in not listening yet, which is similar to BSD).
 
-			u64 now = (u64)(time_now_d() * 1000000.0);
-			if (req.timeout == 0 || now - req.startTime <= req.timeout) {
-				// Try again later
-				return -1;
-			}
-			else {
-				// Handle Workaround that force the first Connect to be blocking for issue related to lobby or high latency networks
-				if (sock->nonblocking)
-					result = ERROR_NET_ADHOC_WOULD_BLOCK;
-				else
-					result = ERROR_NET_ADHOC_TIMEOUT; // FIXME: PSP never returned ERROR_NET_ADHOC_TIMEOUT on PtpConnect? or only returned ERROR_NET_ADHOC_TIMEOUT when the host is too busy? Seems to be returning ERROR_NET_ADHOC_CONNECTION_REFUSED on timedout instead (if the other side in not listening yet, which is similar to BSD).
-				
-				return 0;
-			}
+			return 0;
 		}
 	}
 
-	if (sockerr != 0)
-		WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: sockerr(%i) = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
-	// Check if the connection has completed (assuming "connect" has been called before and is in-progress)
-	ret = IsSocketReady(ptpsocket.id, false, true, &sockerr);
-	if (ret > 0)
-		sockerr = getSockError(ptpsocket.id);
-	if (sockerr != 0)
-		WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: getSockError(%i) = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
-	// Connection is ready?
+	// Connection has established?
 	if (ret > 0 && (sockerr == 0 || sockerr == EISCONN)) {
 		struct sockaddr_in sin;
 		memset(&sin, 0, sizeof(sin));
 		socklen_t sinlen = sizeof(sin);
-		// Note: The socket may not really connected if getpeername failed
+		// Note: getpeername shouldn't failed if the connection has been established
 		ret = getpeername(ptpsocket.id, (struct sockaddr*)&sin, &sinlen);
 		if (ret == SOCKET_ERROR) {
-			WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: getpeername error %i", req.id, ptpsocket.lport, errno);
+			WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: getpeername error %i, sockerr = %i", req.id, ptpsocket.lport, errno, sockerr);
 			u64 now = (u64)(time_now_d() * 1000000.0);
 			if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 				// Try again later
@@ -896,7 +898,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 			result = 0;
 		}
 	}
-	// Timeout?
+	// Still in progress until Timedout?
 	else {
 		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
