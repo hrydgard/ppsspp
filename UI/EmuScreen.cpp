@@ -1496,7 +1496,7 @@ void EmuScreen::renderUI() {
 		DrawFrameTimes(ctx, ctx->GetLayoutBounds());
 	}
 
-#if !PPSSPP_PLATFORM(UWP)
+#if !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(SWITCH)
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN && g_Config.bShowAllocatorDebug) {
 		DrawAllocatorVis(ctx, gpu);
 	}

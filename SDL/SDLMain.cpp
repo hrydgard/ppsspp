@@ -741,6 +741,7 @@ int main(int argc, char *argv[]) {
 			printf("GL init error '%s'\n", error_message.c_str());
 		}
 		graphicsContext = ctx;
+#if !PPSSPP_PLATFORM(SWITCH)
 	} else if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
 		SDLVulkanGraphicsContext *ctx = new SDLVulkanGraphicsContext();
 		if (!ctx->Init(window, x, y, mode, &error_message)) {
@@ -754,6 +755,7 @@ int main(int argc, char *argv[]) {
 		} else {
 			graphicsContext = ctx;
 		}
+#endif
 	}
 
 	bool useEmuThread = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;

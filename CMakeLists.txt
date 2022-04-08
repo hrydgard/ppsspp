@@ -83,7 +83,7 @@ if(NOT ANDROID AND NOT IOS)
 	endif()
 endif()
 
-if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux" AND NOT USE_LIBNX)
 	set(LINUX ON)
 	add_definitions(-D__STDC_CONSTANT_MACROS)
 endif()
@@ -146,6 +146,7 @@ option(UNITTEST "Set to ON to generate the unittest target" ${UNITTEST})
 option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" ${SIMULATOR})
 option(LIBRETRO "Set to ON to generate the libretro target" OFF)
 # :: Options
+option(USE_LIBNX "Set to ON to build for Switch(libnx)" OFF)
 option(USE_FFMPEG "Build with FFMPEG support" ON)
 option(USE_DISCORD "Build with Discord support" ON)
 option(USE_MINIUPNPC "Build with miniUPnPc support" ON)
@@ -1147,8 +1148,12 @@ elseif(TARGET SDL2::SDL2)
 		SDL/SDLJoystick.cpp
 		SDL/SDLMain.cpp
 		SDL/SDLGLGraphicsContext.cpp
-		SDL/SDLVulkanGraphicsContext.cpp
 	)
+	if(NOT USE_LIBNX)
+		set(nativeExtra ${nativeExtra}
+			SDL/SDLVulkanGraphicsContext.cpp
+		)
+	endif()
 	set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
 	if(APPLE)
 		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm SDL/SDLCocoaMetalLayer.h SDL/SDLCocoaMetalLayer.mm)

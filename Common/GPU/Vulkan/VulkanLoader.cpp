@@ -24,7 +24,7 @@
 #include "Common/Log.h"
 #include "Common/System/System.h"
 
-#ifndef _WIN32
+#if !PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(SWITCH)
 #include <dlfcn.h>
 #endif
 
@@ -224,11 +224,17 @@ PFN_vkGetPhysicalDeviceFeatures2KHR vkGetPhysicalDeviceFeatures2KHR;
 
 using namespace PPSSPP_VK;
 
-#ifdef _WIN32
-static HINSTANCE vulkanLibrary;
+#if PPSSPP_PLATFORM(SWITCH)
+typedef void *VulkanLibraryHandle;
+static VulkanLibraryHandle vulkanLibrary;
+#define dlsym(x, y) nullptr
+#elif PPSSPP_PLATFORM(WINDOWS)
+typedef HINSTANCE VulkanLibraryHandle;
+static VulkanLibraryHandle vulkanLibrary;
 #define dlsym(x, y) GetProcAddress(x, y)
 #else
-static void *vulkanLibrary;
+typedef void *VulkanLibraryHandle;
+static VulkanLibraryHandle vulkanLibrary;
 #endif
 const char *VulkanResultToString(VkResult res);
 
@@ -261,6 +267,38 @@ static const char *so_names[] = {
 };
 #endif
 
+static VulkanLibraryHandle VulkanLoadLibrary(const char *logname) {
+#if PPSSPP_PLATFORM(SWITCH)
+	// Always unavailable, for now.
+	return nullptr;
+#elif PPSSPP_PLATFORM(WINDOWS)
+	return LoadLibrary(L"vulkan-1.dll");
+#else
+	void *lib = nullptr;
+	for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
+		lib = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
+		if (lib) {
+			INFO_LOG(G3D, "%s: Library loaded ('%s')", logname, so_names[i]);
+			break;
+		}
+	}
+	return lib;
+#endif
+}
+
+static void VulkanFreeLibrary(VulkanLibraryHandle &h) {
+	if (h) {
+#if PPSSPP_PLATFORM(SWITCH)
+		// Can't load, and can't free.
+#elif PPSSPP_PLATFORM(WINDOWS)
+		FreeLibrary(h);
+#else
+		dlclose(h);
+#endif
+		h = nullptr;
+	}
+}
+
 void VulkanSetAvailable(bool available) {
 	g_vulkanAvailabilityChecked = true;
 	g_vulkanMayBeAvailable = available;
@@ -282,19 +320,7 @@ bool VulkanMayBeAvailable() {
 	}
 	INFO_LOG(G3D, "VulkanMayBeAvailable: Device allowed ('%s')", name.c_str());
 
-#ifndef _WIN32
-	void *lib = nullptr;
-	for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
-		lib = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
-		if (lib) {
-			INFO_LOG(G3D, "VulkanMayBeAvailable: Library loaded ('%s')", so_names[i]);
-			break;
-		}
-	}
-#else
-	// LoadLibrary etc
-	HINSTANCE lib = LoadLibrary(L"vulkan-1.dll");
-#endif
+	VulkanLibraryHandle lib = VulkanLoadLibrary("VulkanMayBeAvailable");
 	if (!lib) {
 		INFO_LOG(G3D, "Vulkan loader: Library not available");
 		g_vulkanAvailabilityChecked = true;
@@ -452,11 +478,7 @@ bail:
 		localDestroyInstance(instance, nullptr);
 	}
 	if (lib) {
-#ifndef _WIN32
-		dlclose(lib);
-#else
-		FreeLibrary(lib);
-#endif
+		VulkanFreeLibrary(lib);
 	} else {
 		ERROR_LOG(G3D, "Vulkan with working device not detected.");
 	}
@@ -465,18 +487,7 @@ bail:
 
 bool VulkanLoad() {
 	if (!vulkanLibrary) {
-#ifndef _WIN32
-		for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
-			vulkanLibrary = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
-			if (vulkanLibrary) {
-				INFO_LOG(G3D, "VulkanLoad: Found library '%s'", so_names[i]);
-				break;
-			}
-		}
-#else
-		// LoadLibrary etc
-		vulkanLibrary = LoadLibrary(L"vulkan-1.dll");
-#endif
+		vulkanLibrary = VulkanLoadLibrary("VulkanLoad");
 		if (!vulkanLibrary) {
 			return false;
 		}
@@ -495,12 +506,7 @@ bool VulkanLoad() {
 		return true;
 	} else {
 		ERROR_LOG(G3D, "VulkanLoad: Failed to load Vulkan base functions.");
-#ifndef _WIN32
-		dlclose(vulkanLibrary);
-#else
-		FreeLibrary(vulkanLibrary);
-#endif
-		vulkanLibrary = nullptr;
+		VulkanFreeLibrary(vulkanLibrary);
 		return false;
 	}
 }
@@ -706,12 +712,5 @@ void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledE
 }
 
 void VulkanFree() {
-	if (vulkanLibrary) {
-#ifdef _WIN32
-		FreeLibrary(vulkanLibrary);
-#else
-		dlclose(vulkanLibrary);
-#endif
-		vulkanLibrary = nullptr;
-	}
+	VulkanFreeLibrary(vulkanLibrary);
 }

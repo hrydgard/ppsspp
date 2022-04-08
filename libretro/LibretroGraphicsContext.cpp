@@ -109,6 +109,7 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 		delete ctx;
 	}
 
+#ifndef HAVE_LIBNX
 	if (preferred == RETRO_HW_CONTEXT_DUMMY || preferred == RETRO_HW_CONTEXT_VULKAN) {
 		ctx = new LibretroVulkanContext();
 
@@ -117,6 +118,7 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 		}
 		delete ctx;
 	}
+#endif
 
 #ifdef _WIN32
 	if (preferred == RETRO_HW_CONTEXT_DUMMY || preferred == RETRO_HW_CONTEXT_DIRECT3D) {
