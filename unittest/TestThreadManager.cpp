@@ -6,6 +6,7 @@
 #include "Common/Thread/Promise.h"
 #include "Common/Thread/ParallelLoop.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/Thread/Waitable.h"
 
 #include "UnitTest.h"
 
@@ -61,7 +62,7 @@ bool TestParallelLoop(ThreadManager *threadMan) {
 
 // This is some ugly stuff but realistic.
 const size_t THREAD_COUNT = 6;  // Must match the number of threads in TestMultithreadedScheduling
-const size_t ITERATIONS = 100000;
+const size_t ITERATIONS = 1000;
 
 static std::atomic<int> g_atomicCounter;
 static ThreadManager *g_threadMan;
@@ -69,19 +70,23 @@ static CountingBarrier g_barrier(THREAD_COUNT + 1);
 
 class IncrementTask : public Task {
 public:
-	IncrementTask(TaskType type) : type_(type) {}
+	IncrementTask(TaskType type, LimitedWaitable *waitable) : type_(type), waitable_(waitable) {}
 	~IncrementTask() {}
 	virtual TaskType Type() const { return type_; }
 	virtual void Run() {
 		g_atomicCounter++;
+		waitable_->Notify();
 	}
 private:
 	TaskType type_;
+	LimitedWaitable *waitable_;
 };
 
 void ThreadFunc() {
 	for (int i = 0; i < ITERATIONS; i++) {
-		g_threadMan->EnqueueTask(new IncrementTask((i & 1) ? TaskType::CPU_COMPUTE : TaskType::IO_BLOCKING));
+		auto threadWaitable = new LimitedWaitable();
+		g_threadMan->EnqueueTask(new IncrementTask((i & 1) ? TaskType::CPU_COMPUTE : TaskType::IO_BLOCKING, threadWaitable));
+		threadWaitable->WaitAndRelease();
 	}
 	g_barrier.Arrive();
 }

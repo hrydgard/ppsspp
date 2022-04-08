@@ -418,6 +418,9 @@
     <ClInclude Include="Thread\Barrier.h">
       <Filter>Thread</Filter>
     </ClInclude>
+    <ClInclude Include="Thread\Waitable.h">
+      <Filter>Thread</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
