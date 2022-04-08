@@ -12,8 +12,8 @@ public:
 	}
 
 	void Wait() override {
+		std::unique_lock<std::mutex> lock;
 		if (!triggered_) {
-			std::unique_lock<std::mutex> lock;
 			cond_.wait(lock, [&] { return triggered_.load(); });
 		}
 	}
