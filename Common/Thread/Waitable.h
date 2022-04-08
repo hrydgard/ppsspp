@@ -14,7 +14,7 @@ public:
 	void Wait() override {
 		if (!triggered_) {
 			std::unique_lock<std::mutex> lock(mutex_);
-			cond_.wait(lock, [&] { return !triggered_; });
+			cond_.wait(lock, [&] { return triggered_.load(); });
 		}
 	}
 
@@ -24,7 +24,7 @@ public:
 			if (us == 0)
 				return false;
 			std::unique_lock<std::mutex> lock(mutex_);
-			cond_.wait_for(lock, std::chrono::microseconds(us), [&] { return !triggered_; });
+			cond_.wait_for(lock, std::chrono::microseconds(us), [&] { return triggered_.load(); });
 		}
 		return triggered_;
 	}

@@ -7,12 +7,15 @@
 
 struct Event : public Waitable {
 public:
+	Event() {
+		triggered_ = false;
+	}
+
 	void Wait() override {
-		if (triggered_) {
-			return;
+		if (!triggered_) {
+			std::unique_lock<std::mutex> lock;
+			cond_.wait(lock, [&] { return triggered_.load(); });
 		}
-		std::unique_lock<std::mutex> lock;
-		cond_.wait(lock, [&] { return !triggered_; });
 	}
 
 	void Notify() {
@@ -24,5 +27,5 @@ public:
 private:
 	std::condition_variable cond_;
 	std::mutex mutex_;
-	bool triggered_ = false;
+	std::atomic<bool> triggered_;
 };

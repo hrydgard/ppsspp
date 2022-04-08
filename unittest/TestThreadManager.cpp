@@ -1,3 +1,5 @@
+#include <thread>
+
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Common/Thread/Barrier.h"
@@ -62,7 +64,7 @@ bool TestParallelLoop(ThreadManager *threadMan) {
 
 // This is some ugly stuff but realistic.
 const size_t THREAD_COUNT = 6;  // Must match the number of threads in TestMultithreadedScheduling
-const size_t ITERATIONS = 1000;
+const size_t ITERATIONS = 40000;
 
 static std::atomic<int> g_atomicCounter;
 static ThreadManager *g_threadMan;
