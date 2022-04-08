@@ -88,6 +88,9 @@ void ThreadFunc() {
 
 bool TestMultithreadedScheduling() {
 	g_atomicCounter = 0;
+
+	auto start = Instant::Now();
+
 	std::thread thread1(ThreadFunc);
 	std::thread thread2(ThreadFunc);
 	std::thread thread3(ThreadFunc);
@@ -107,6 +110,8 @@ bool TestMultithreadedScheduling() {
 	thread4.join();
 	thread5.join();
 	thread6.join();
+
+	printf("Stress test elapsed: %0.2f", start.Elapsed());
 
 	return true;
 }
