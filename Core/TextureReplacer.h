@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -170,6 +171,7 @@ protected:
 	ReplacedTextureAlpha alphaStatus_;
 	double lastUsed_ = 0.0;
 	LimitedWaitable *threadWaitable_ = nullptr;
+	std::mutex mutex_;
 	bool cancelPrepare_ = false;
 
 	friend TextureReplacer;
