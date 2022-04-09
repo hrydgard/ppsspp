@@ -32,6 +32,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Thread/ParallelLoop.h"
+#include "Common/Thread/Waitable.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
@@ -744,46 +745,9 @@ float TextureReplacer::LookupReduceHashRange(int& w, int& h) {
 	}
 }
 
-class LimitedWaitable : public Waitable {
-public:
-	LimitedWaitable() {
-		triggered_ = false;
-	}
-
-	void Wait() override {
-		if (!triggered_) {
-			std::unique_lock<std::mutex> lock(mutex_);
-			cond_.wait(lock, [&] { return !triggered_; });
-		}
-	}
-
-	bool WaitFor(double budget) {
-		uint32_t us = budget > 0 ? (uint32_t)(budget * 1000000.0) : 0;
-		if (!triggered_) {
-			if (us == 0)
-				return false;
-			std::unique_lock<std::mutex> lock(mutex_);
-			cond_.wait_for(lock, std::chrono::microseconds(us), [&] { return !triggered_; });
-		}
-		return triggered_;
-	}
-
-	void Notify() {
-		std::unique_lock<std::mutex> lock(mutex_);
-		triggered_ = true;
-		cond_.notify_all();
-	}
-
-private:
-	std::condition_variable cond_;
-	std::mutex mutex_;
-	std::atomic<bool> triggered_;
-};
-
 class ReplacedTextureTask : public Task {
 public:
-	ReplacedTextureTask(ReplacedTexture &tex, LimitedWaitable *w) : tex_(tex), waitable_(w) {
-	}
+	ReplacedTextureTask(ReplacedTexture &tex, LimitedWaitable *w) : tex_(tex), waitable_(w) {}
 
 	TaskType Type() const override {
 		return TaskType::IO_BLOCKING;

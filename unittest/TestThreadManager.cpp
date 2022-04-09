@@ -1,10 +1,16 @@
+#include <thread>
+
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
+#include "Common/Thread/Barrier.h"
 #include "Common/Thread/ThreadManager.h"
 #include "Common/Thread/Channel.h"
 #include "Common/Thread/Promise.h"
 #include "Common/Thread/ParallelLoop.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/Thread/Waitable.h"
+
+#include "UnitTest.h"
 
 struct ResultObject {
 	bool ok;
@@ -56,16 +62,79 @@ bool TestParallelLoop(ThreadManager *threadMan) {
 	return true;
 }
 
+// This is some ugly stuff but realistic.
+const size_t THREAD_COUNT = 6;  // Must match the number of threads in TestMultithreadedScheduling
+const size_t ITERATIONS = 40000;
+
+static std::atomic<int> g_atomicCounter;
+static ThreadManager *g_threadMan;
+static CountingBarrier g_barrier(THREAD_COUNT + 1);
+
+class IncrementTask : public Task {
+public:
+	IncrementTask(TaskType type, LimitedWaitable *waitable) : type_(type), waitable_(waitable) {}
+	~IncrementTask() {}
+	virtual TaskType Type() const { return type_; }
+	virtual void Run() {
+		g_atomicCounter++;
+		waitable_->Notify();
+	}
+private:
+	TaskType type_;
+	LimitedWaitable *waitable_;
+};
+
+void ThreadFunc() {
+	for (int i = 0; i < ITERATIONS; i++) {
+		auto threadWaitable = new LimitedWaitable();
+		g_threadMan->EnqueueTask(new IncrementTask((i & 1) ? TaskType::CPU_COMPUTE : TaskType::IO_BLOCKING, threadWaitable));
+		threadWaitable->WaitAndRelease();
+	}
+	g_barrier.Arrive();
+}
+
+bool TestMultithreadedScheduling() {
+	g_atomicCounter = 0;
+
+	auto start = Instant::Now();
+
+	std::thread thread1(ThreadFunc);
+	std::thread thread2(ThreadFunc);
+	std::thread thread3(ThreadFunc);
+	std::thread thread4(ThreadFunc);
+	std::thread thread5(ThreadFunc);
+	std::thread thread6(ThreadFunc);
+
+	// Just testing the barrier
+	g_barrier.Arrive();
+	// OK, all are done.
+
+	EXPECT_EQ_INT(g_atomicCounter, THREAD_COUNT * ITERATIONS);
+
+	thread1.join();
+	thread2.join();
+	thread3.join();
+	thread4.join();
+	thread5.join();
+	thread6.join();
+
+	printf("Stress test elapsed: %0.2f", start.Elapsed());
+
+	return true;
+}
+
 bool TestThreadManager() {
 	ThreadManager manager;
 	manager.Init(8, 1);
+
+	g_threadMan = &manager;
 
 	Promise<ResultObject *> *object(Promise<ResultObject *>::Spawn(&manager, &ResultProducer, TaskType::IO_BLOCKING));
 
 	if (!TestParallelLoop(&manager)) {
 		return false;
 	}
-	sleep_ms(1000);
+	sleep_ms(100);
 
 	ResultObject *result = object->BlockUntilReady();
 	if (result) {
@@ -75,6 +144,10 @@ bool TestThreadManager() {
 	delete object;
 
 	if (!TestMailbox()) {
+		return false;
+	}
+
+	if (!TestMultithreadedScheduling()) {
 		return false;
 	}
 

@@ -529,8 +529,10 @@
     <ClInclude Include="System\Display.h" />
     <ClInclude Include="System\NativeApp.h" />
     <ClInclude Include="System\System.h" />
+    <ClInclude Include="Thread\Barrier.h" />
     <ClInclude Include="Thread\Channel.h" />
     <ClInclude Include="Thread\Event.h" />
+    <ClInclude Include="Thread\Waitable.h" />
     <ClInclude Include="Thread\ParallelLoop.h" />
     <ClInclude Include="Thread\Promise.h" />
     <ClInclude Include="Thread\ThreadManager.h" />
