@@ -1,7 +1,8 @@
 #pragma once
 
-#include <mutex>
+#include <atomic>
 #include <condition_variable>
+#include <mutex>
 
 #include "Common/Thread/ThreadManager.h"
 
@@ -11,22 +12,29 @@ public:
 		triggered_ = false;
 	}
 
+	~LimitedWaitable() {
+		// Make sure no one is still waiting, and any notify lock is released.
+		Notify();
+	}
+
 	void Wait() override {
+		if (triggered_)
+			return;
+
 		std::unique_lock<std::mutex> lock(mutex_);
-		if (!triggered_) {
-			cond_.wait(lock, [&] { return triggered_.load(); });
-		}
+		cond_.wait(lock, [&] { return triggered_.load(); });
 	}
 
 	bool WaitFor(double budget) {
+		if (triggered_)
+			return true;
+
 		uint32_t us = budget > 0 ? (uint32_t)(budget * 1000000.0) : 0;
+		if (us == 0)
+			return false;
+
 		std::unique_lock<std::mutex> lock(mutex_);
-		if (!triggered_) {
-			if (us == 0)
-				return false;
-			cond_.wait_for(lock, std::chrono::microseconds(us), [&] { return triggered_.load(); });
-		}
-		return triggered_;
+		return cond_.wait_for(lock, std::chrono::microseconds(us), [&] { return triggered_.load(); });
 	}
 
 	void Notify() {

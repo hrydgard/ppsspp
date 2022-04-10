@@ -765,13 +765,8 @@ private:
 
 bool ReplacedTexture::IsReady(double budget) {
 	lastUsed_ = time_now_d();
-	if (threadWaitable_) {
-		if (!threadWaitable_->WaitFor(budget)) {
-			return false;
-		} else {
-			threadWaitable_->WaitAndRelease();
-			threadWaitable_ = nullptr;
-		}
+	if (threadWaitable_ && !threadWaitable_->WaitFor(budget)) {
+		return false;
 	}
 
 	// Loaded already, or not yet on a thread?
@@ -786,9 +781,6 @@ bool ReplacedTexture::IsReady(double budget) {
 		g_threadManager.EnqueueTask(new ReplacedTextureTask(*this, threadWaitable_));
 
 		if (threadWaitable_->WaitFor(budget)) {
-			threadWaitable_->WaitAndRelease();
-			threadWaitable_ = nullptr;
-
 			// If we finished all the levels, we're done.
 			return !levelData_.empty();
 		}
@@ -802,12 +794,19 @@ bool ReplacedTexture::IsReady(double budget) {
 }
 
 void ReplacedTexture::Prepare() {
+	std::unique_lock<std::mutex> lock(mutex_);
+	if (cancelPrepare_)
+		return;
+
 	levelData_.resize(MaxLevel() + 1);
 	for (int i = 0; i <= MaxLevel(); ++i) {
 		if (cancelPrepare_)
 			break;
 		PrepareData(i);
 	}
+
+	if (!cancelPrepare_ && threadWaitable_)
+		threadWaitable_->Notify();
 }
 
 void ReplacedTexture::PrepareData(int level) {
@@ -909,7 +908,7 @@ void ReplacedTexture::PrepareData(int level) {
 }
 
 void ReplacedTexture::PurgeIfOlder(double t) {
-	if (lastUsed_ < t && !threadWaitable_) {
+	if (lastUsed_ < t && (!threadWaitable_ || threadWaitable_->WaitFor(0.0))) {
 		levelData_.clear();
 	}
 }
@@ -917,6 +916,8 @@ void ReplacedTexture::PurgeIfOlder(double t) {
 ReplacedTexture::~ReplacedTexture() {
 	if (threadWaitable_) {
 		cancelPrepare_ = true;
+
+		std::unique_lock<std::mutex> lock(mutex_);
 		threadWaitable_->WaitAndRelease();
 		threadWaitable_ = nullptr;
 	}
