@@ -1,4 +1,5 @@
 #include <thread>
+#include <vector>
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
@@ -62,8 +63,7 @@ bool TestParallelLoop(ThreadManager *threadMan) {
 	return true;
 }
 
-// This is some ugly stuff but realistic.
-const size_t THREAD_COUNT = 6;  // Must match the number of threads in TestMultithreadedScheduling
+const size_t THREAD_COUNT = 9;
 const size_t ITERATIONS = 40000;
 
 static std::atomic<int> g_atomicCounter;
@@ -98,12 +98,10 @@ bool TestMultithreadedScheduling() {
 
 	auto start = Instant::Now();
 
-	std::thread thread1(ThreadFunc);
-	std::thread thread2(ThreadFunc);
-	std::thread thread3(ThreadFunc);
-	std::thread thread4(ThreadFunc);
-	std::thread thread5(ThreadFunc);
-	std::thread thread6(ThreadFunc);
+	std::vector<std::thread> threads;
+	for (int i = 0; i < THREAD_COUNT; i++) {
+		threads.push_back(std::thread(ThreadFunc));
+	}
 
 	// Just testing the barrier
 	g_barrier.Arrive();
@@ -111,12 +109,11 @@ bool TestMultithreadedScheduling() {
 
 	EXPECT_EQ_INT(g_atomicCounter, THREAD_COUNT * ITERATIONS);
 
-	thread1.join();
-	thread2.join();
-	thread3.join();
-	thread4.join();
-	thread5.join();
-	thread6.join();
+	for (int i = 0; i < THREAD_COUNT; i++) {
+		threads[i].join();
+	}
+
+	threads.clear();
 
 	printf("Stress test elapsed: %0.2f", start.Elapsed());
 
