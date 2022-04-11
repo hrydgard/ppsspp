@@ -675,14 +675,15 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		decPitch = std::max(w * pixelSize, 4);
 
 		pixelData = (uint8_t *)AllocateAlignedMemory(decPitch * h * pixelSize, 16);
-		DecodeTextureLevel(pixelData, decPitch, GETextureFormat(entry.format), clutformat, texaddr, level, bufw, true, false, false);
+		u32 fullAlphaMask = 0;
+		u32 alphaSum = 0xFFFFFFFF;
+		DecodeTextureLevel(pixelData, decPitch, GETextureFormat(entry.format), clutformat, texaddr, level, bufw, true, false, false, &alphaSum, &fullAlphaMask);
 
 		// We check before scaling since scaling shouldn't invent alpha from a full alpha texture.
-		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
-			TexCacheEntry::TexStatus alphaStatus = CheckAlpha(pixelData, dstFmt, decPitch / pixelSize, w, h);
-			entry.SetAlphaStatus(alphaStatus, level);
+		if (AlphaSumIsFull(alphaSum, fullAlphaMask)) {
+			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_FULL, level);
 		} else {
-			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
+			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN, level);
 		}
 
 		if (scaleFactor > 1) {

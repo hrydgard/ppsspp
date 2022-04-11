@@ -980,17 +980,17 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 		}
 
 		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || dstFmt == VK_FORMAT_R8G8B8A8_UNORM;
-		DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, expand32);
+
+		u32 alphaSum = 0xFFFFFFFF;
+		u32 fullAlphaMask = 0x0;
+
+		DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, expand32, &alphaSum, &fullAlphaMask);
 		gpuStats.numTexturesDecoded++;
 
-		// We check before scaling since scaling shouldn't invent alpha from a full alpha texture.
-		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
-			// TODO: When we decode directly, this can be more expensive (maybe not on mobile?)
-			// This does allow us to skip alpha testing, though.
-			TexCacheEntry::TexStatus alphaStatus = CheckAlpha(pixelData, dstFmt, decPitch / bpp, w, h);
-			entry.SetAlphaStatus(alphaStatus, level);
+		if (AlphaSumIsFull(alphaSum, fullAlphaMask)) {
+			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_FULL, level);
 		} else {
-			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
+			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN, level);
 		}
 
 		if (scaleFactor > 1) {

@@ -65,7 +65,7 @@ struct DXT5Block {
 	u8 alpha1; u8 alpha2;
 };
 
-void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, int height, bool ignore1bitAlpha);
+void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, int height, u32 *alpha);
 void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch, int height);
 void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch, int height);
 
@@ -94,15 +94,23 @@ static const u8 textureBitsPerPixel[16] = {
 
 u32 GetTextureBufw(int level, u32 texaddr, GETextureFormat format);
 
+inline bool AlphaSumIsFull(u32 alphaSum, u32 fullAlphaMask) {
+	return fullAlphaMask != 0 && (alphaSum & fullAlphaMask) == fullAlphaMask;
+}
+
 template <typename IndexT, typename ClutT>
-inline void DeIndexTexture(ClutT *dest, const IndexT *indexed, int length, const ClutT *clut) {
+inline void DeIndexTexture(/*WRITEONLY*/ ClutT *dest, const IndexT *indexed, int length, const ClutT *clut, u32 *outAlphaSum) {
 	// Usually, there is no special offset, mask, or shift.
 	const bool nakedIndex = gstate.isClutIndexSimple();
+
+	ClutT alphaSum = (ClutT)(-1);
 
 	if (nakedIndex) {
 		if (sizeof(IndexT) == 1) {
 			for (int i = 0; i < length; ++i) {
-				*dest++ = clut[*indexed++];
+				ClutT color = clut[*indexed++];
+				*dest++ = color;
+
 			}
 		} else {
 			for (int i = 0; i < length; ++i) {
@@ -117,29 +125,38 @@ inline void DeIndexTexture(ClutT *dest, const IndexT *indexed, int length, const
 }
 
 template <typename IndexT, typename ClutT>
-inline void DeIndexTexture(ClutT *dest, const u32 texaddr, int length, const ClutT *clut) {
+inline void DeIndexTexture(/*WRITEONLY*/ ClutT *dest, const u32 texaddr, int length, const ClutT *clut, u32 *outAlphaSum) {
 	const IndexT *indexed = (const IndexT *) Memory::GetPointer(texaddr);
-	DeIndexTexture(dest, indexed, length, clut);
+	DeIndexTexture(dest, indexed, length, clut, outAlphaSum);
 }
 
 template <typename ClutT>
-inline void DeIndexTexture4(ClutT *dest, const u8 *indexed, int length, const ClutT *clut) {
+inline void DeIndexTexture4(/*WRITEONLY*/ ClutT *dest, const u8 *indexed, int length, const ClutT *clut, u32 *outAlphaSum) {
 	// Usually, there is no special offset, mask, or shift.
 	const bool nakedIndex = gstate.isClutIndexSimple();
 
+	ClutT alphaSum = (ClutT)(-1);
 	if (nakedIndex) {
 		for (int i = 0; i < length; i += 2) {
 			u8 index = *indexed++;
-			dest[i + 0] = clut[(index >> 0) & 0xf];
-			dest[i + 1] = clut[(index >> 4) & 0xf];
+			ClutT color0 = clut[index & 0xf];
+			ClutT color1 = clut[index >> 4];
+			dest[i + 0] = color0;
+			dest[i + 1] = color1;
+			alphaSum &= color0 & color1;
 		}
 	} else {
 		for (int i = 0; i < length; i += 2) {
 			u8 index = *indexed++;
-			dest[i + 0] = clut[gstate.transformClutIndex((index >> 0) & 0xf)];
-			dest[i + 1] = clut[gstate.transformClutIndex((index >> 4) & 0xf)];
+			ClutT color0 = clut[gstate.transformClutIndex((index >> 0) & 0xf)];
+			ClutT color1 = clut[gstate.transformClutIndex((index >> 4) & 0xf)];
+			dest[i + 0] = color0;
+			dest[i + 1] = color1;
+			alphaSum &= color0 & color1;
 		}
 	}
+
+	*outAlphaSum &= (u32)alphaSum;
 }
 
 template <typename ClutT>

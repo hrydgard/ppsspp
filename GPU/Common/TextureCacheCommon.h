@@ -275,9 +275,9 @@ protected:
 	virtual void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) = 0;
 	bool CheckFullHash(TexCacheEntry *entry, bool &doDelete);
 
-	void DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool useBGRA, bool expandTo32Bit);
+	void DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool useBGRA, bool expandTo32Bit, u32 *alphaSum, u32 *fullAlphaMask);
 	void UnswizzleFromMem(u32 *dest, u32 destPitch, const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel);
-	void ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool expandTo32Bit);
+	void ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool expandTo32Bit, u32 *alphaSum, u32 *fullAlphaMask);
 	ReplacedTexture &FindReplacement(TexCacheEntry *entry, int &w, int &h);
 
 	template <typename T>
