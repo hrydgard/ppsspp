@@ -1431,7 +1431,7 @@ inline u32 TfmtRawToFullAlpha(GETextureFormat fmt) {
 }
 
 // TODO: SSE/SIMD
-// At least on x86, compiler actually parallelizes these pretty well.
+// At least on x86, compiler actually SIMDs these pretty well.
 void CopyAndSumMask16(u16 *dst, const u16 *src, int width, u32 *outMask) {
 	u16 mask = 0xFFFF;
 	for (int i = 0; i < width; i++) {
@@ -1491,7 +1491,7 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 		case GE_CMODE_16BIT_ABGR4444:
 		{
 			if (clutAlphaLinear_ && mipmapShareClut && !expandTo32bit) {
-				// We don't bother with fullalpha here
+				// We don't bother with fullalpha here (clutAlphaLinear_)
 				// Here, reverseColors means the CLUT is already reversed.
 				if (reverseColors) {
 					for (int y = 0; y < h; ++y) {
