@@ -677,9 +677,13 @@ void GameInfoCache::Clear() {
 
 void GameInfoCache::CancelAll() {
 	for (auto info : info_) {
-		auto fl = info.second->GetFileLoader();
-		if (fl) {
-			fl->Cancel();
+		// GetFileLoader will create one if there isn't one already.
+		// Avoid that by checking.
+		if (info.second->HasFileLoader()) {
+			auto fl = info.second->GetFileLoader();
+			if (fl) {
+				fl->Cancel();
+			}
 		}
 	}
 }

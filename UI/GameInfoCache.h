@@ -87,6 +87,10 @@ public:
 	bool DeleteAllSaveData();
 	bool LoadFromPath(const Path &gamePath);
 
+	bool HasFileLoader() const {
+		return fileLoader.get() != nullptr;
+	}
+
 	std::shared_ptr<FileLoader> GetFileLoader();
 	void DisposeFileLoader();
 
