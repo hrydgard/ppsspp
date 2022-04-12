@@ -1977,7 +1977,21 @@ int getSockBufferSize(int sock, int opt) { // opt = SO_RCVBUF/SO_SNDBUF
 
 int setSockBufferSize(int sock, int opt, int size) { // opt = SO_RCVBUF/SO_SNDBUF
 	int n = size; // 8192; //16384
-	return setsockopt(sock, SOL_SOCKET, opt, (char *)&n, sizeof(n));
+	int ret = setsockopt(sock, SOL_SOCKET, opt, (char *)&n, sizeof(n));
+	if (ret < 0)
+		WARN_LOG(SCENET, "SetSockBufferSize(%i, %i, %i) error %i", sock, opt, size, errno);
+	else
+		INFO_LOG(SCENET, "SetSockBufferSize(%i, %i, %i) = %i", sock, opt, size, n);
+
+	n = 0;
+	socklen_t m = sizeof(n);
+	int ret2 = getsockopt(sock, SOL_SOCKET, opt, (char*)&n, &m);
+	if (ret2 < 0)
+		WARN_LOG(SCENET, "GetSockBufferSize(%i, %i, %i) error %i", sock, opt, size, errno);
+	else
+		INFO_LOG(SCENET, "GetSockBufferSize(%i, %i, %i) = %i", sock, opt, size, n);
+
+	return ret;
 }
 
 int setSockMSS(int sock, int size) {
