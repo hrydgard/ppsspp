@@ -109,17 +109,21 @@ inline void DeIndexTexture(/*WRITEONLY*/ ClutT *dest, const IndexT *indexed, int
 		if (sizeof(IndexT) == 1) {
 			for (int i = 0; i < length; ++i) {
 				ClutT color = clut[*indexed++];
+				alphaSum &= color;
 				*dest++ = color;
-
 			}
 		} else {
 			for (int i = 0; i < length; ++i) {
-				*dest++ = clut[(*indexed++) & 0xFF];
+				ClutT color = (*indexed++) & 0xFF;
+				alphaSum &= color;
+				*dest++ = color;
 			}
 		}
 	} else {
 		for (int i = 0; i < length; ++i) {
-			*dest++ = clut[gstate.transformClutIndex(*indexed++)];
+			ClutT color = clut[gstate.transformClutIndex(*indexed++)];
+			alphaSum &= color;
+			*dest++ = color;
 		}
 	}
 }

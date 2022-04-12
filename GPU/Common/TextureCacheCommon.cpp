@@ -1313,7 +1313,7 @@ static void ReverseColors(void *dstBuf, const void *srcBuf, GETextureFormat fmt,
 	case GE_TFMT_4444:
 		ConvertRGBA4444ToABGR4444((u16 *)dstBuf, (const u16 *)srcBuf, numPixels);
 		break;
-	// Final Fantasy 2 uses this heavily in animated textures.
+		// Final Fantasy 2 uses this heavily in animated textures.
 	case GE_TFMT_5551:
 		ConvertRGBA5551ToABGR1555((u16 *)dstBuf, (const u16 *)srcBuf, numPixels);
 		break;
