@@ -18,14 +18,20 @@
 #include "ppsspp_config.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
-// NEON is in a separate file so that it can be compiled with a runtime check.
-#include "Common/Data/Convert/ColorConvNEON.h"
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
 
 #ifdef _M_SSE
 #include <emmintrin.h>
 #include <smmintrin.h>
+#endif
+
+#if PPSSPP_ARCH(ARM_NEON)
+#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
+#include <arm64_neon.h>
+#else
+#include <arm_neon.h>
+#endif
 #endif
 
 inline u16 RGBA8888toRGB565(u32 px) {
@@ -133,8 +139,6 @@ void convert5551_dx9(u16* data, u32* out, int width, int l, int u) {
 		}
 	}
 }
-
-
 
 void ConvertBGRA8888ToRGBA8888(u32 *dst, const u32 *src, u32 numPixels) {
 #ifdef _M_SSE
@@ -540,7 +544,7 @@ void ConvertRGB565ToBGRA8888(u32 *dst, const u16 *src, u32 numPixels) {
 	}
 }
 
-void ConvertRGBA4444ToABGR4444Basic(u16 *dst, const u16 *src, u32 numPixels) {
+void ConvertRGBA4444ToABGR4444(u16 *dst, const u16 *src, u32 numPixels) {
 #ifdef _M_SSE
 	const __m128i mask0040 = _mm_set1_epi16(0x00F0);
 
@@ -560,6 +564,28 @@ void ConvertRGBA4444ToABGR4444Basic(u16 *dst, const u16 *src, u32 numPixels) {
 	}
 	// The remainder is done in chunks of 2, SSE was chunks of 8.
 	u32 i = sseChunks * 8 / 2;
+#elif PPSSPP_ARCH(ARM_NEON)
+	const uint16x8_t mask0040 = vdupq_n_u16(0x00F0);
+
+	if (((uintptr_t)dst & 15) == 0 && ((uintptr_t)src & 15) == 0) {
+		u32 simdable = (numPixels / 8) * 8;
+		for (u32 i = 0; i < simdable; i += 8) {
+			uint16x8_t c = vld1q_u16(src);
+
+			const uint16x8_t a = vshrq_n_u16(c, 12);
+			const uint16x8_t b = vandq_u16(vshrq_n_u16(c, 4), mask0040);
+			const uint16x8_t g = vshlq_n_u16(vandq_u16(c, mask0040), 4);
+			const uint16x8_t r = vshlq_n_u16(c, 12);
+
+			uint16x8_t res = vorrq_u16(vorrq_u16(r, g), vorrq_u16(b, a));
+			vst1q_u16(dst, res);
+
+			src += 8;
+			dst += 8;
+		}
+		numPixels -= simdable;
+	}
+	u32 i = 0;  // already moved the pointers forward
 #else
 	u32 i = 0;
 #endif
@@ -584,7 +610,7 @@ void ConvertRGBA4444ToABGR4444Basic(u16 *dst, const u16 *src, u32 numPixels) {
 	}
 }
 
-void ConvertRGBA5551ToABGR1555Basic(u16 *dst, const u16 *src, u32 numPixels) {
+void ConvertRGBA5551ToABGR1555(u16 *dst, const u16 *src, u32 numPixels) {
 #ifdef _M_SSE
 	const __m128i maskB = _mm_set1_epi16(0x003E);
 	const __m128i maskG = _mm_set1_epi16(0x07C0);
@@ -605,6 +631,29 @@ void ConvertRGBA5551ToABGR1555Basic(u16 *dst, const u16 *src, u32 numPixels) {
 	}
 	// The remainder is done in chunks of 2, SSE was chunks of 8.
 	u32 i = sseChunks * 8 / 2;
+#elif PPSSPP_ARCH(ARM_NEON)
+	const uint16x8_t maskB = vdupq_n_u16(0x003E);
+	const uint16x8_t maskG = vdupq_n_u16(0x07C0);
+
+	if (((uintptr_t)dst & 15) == 0 && ((uintptr_t)src & 15) == 0) {
+		u32 simdable = (numPixels / 8) * 8;
+		for (u32 i = 0; i < simdable; i += 8) {
+			uint16x8_t c = vld1q_u16(src);
+
+			const uint16x8_t a = vshrq_n_u16(c, 15);
+			const uint16x8_t b = vandq_u16(vshrq_n_u16(c, 9), maskB);
+			const uint16x8_t g = vandq_u16(vshlq_n_u16(c, 1), maskG);
+			const uint16x8_t r = vshlq_n_u16(c, 11);
+
+			uint16x8_t res = vorrq_u16(vorrq_u16(r, g), vorrq_u16(b, a));
+			vst1q_u16(dst, res);
+
+			src += 8;
+			dst += 8;
+		}
+		numPixels -= simdable;
+	}
+	u32 i = 0;
 #else
 	u32 i = 0;
 #endif
@@ -629,7 +678,7 @@ void ConvertRGBA5551ToABGR1555Basic(u16 *dst, const u16 *src, u32 numPixels) {
 	}
 }
 
-void ConvertRGB565ToBGR565Basic(u16 *dst, const u16 *src, u32 numPixels) {
+void ConvertRGB565ToBGR565(u16 *dst, const u16 *src, u32 numPixels) {
 #ifdef _M_SSE
 	const __m128i maskG = _mm_set1_epi16(0x07E0);
 
@@ -648,6 +697,28 @@ void ConvertRGB565ToBGR565Basic(u16 *dst, const u16 *src, u32 numPixels) {
 	}
 	// The remainder is done in chunks of 2, SSE was chunks of 8.
 	u32 i = sseChunks * 8 / 2;
+#elif PPSSPP_ARCH(ARM_NEON)
+	const uint16x8_t maskG = vdupq_n_u16(0x07E0);
+
+	if (((uintptr_t)dst & 15) == 0 && ((uintptr_t)src & 15) == 0) {
+		u32 simdable = (numPixels / 8) * 8;
+		for (u32 i = 0; i < simdable; i += 8) {
+			uint16x8_t c = vld1q_u16(src);
+
+			const uint16x8_t b = vshrq_n_u16(c, 11);
+			const uint16x8_t g = vandq_u16(c, maskG);
+			const uint16x8_t r = vshlq_n_u16(c, 11);
+
+			uint16x8_t res = vorrq_u16(vorrq_u16(r, g), b);
+			vst1q_u16(dst, res);
+
+			src += 8;
+			dst += 8;
+		}
+		numPixels -= simdable;
+	}
+
+	u32 i = 0;
 #else
 	u32 i = 0;
 #endif
@@ -683,21 +754,4 @@ void ConvertBGRA5551ToABGR1555(u16 *dst, const u16 *src, u32 numPixels) {
 		const u16 c = src[i];
 		dst[i] = (c >> 15) | (c << 1);
 	}
-}
-
-// Reuse the logic from the header - if these aren't defined, we need externs.
-#ifndef ConvertRGBA4444ToABGR4444
-Convert16bppTo16bppFunc ConvertRGBA4444ToABGR4444 = &ConvertRGBA4444ToABGR4444Basic;
-Convert16bppTo16bppFunc ConvertRGBA5551ToABGR1555 = &ConvertRGBA5551ToABGR1555Basic;
-Convert16bppTo16bppFunc ConvertRGB565ToBGR565 = &ConvertRGB565ToBGR565Basic;
-#endif
-
-void SetupColorConv() {
-#if PPSSPP_ARCH(ARM_NEON) && !PPSSPP_ARCH(ARM64)
-	if (cpu_info.bNEON) {
-		ConvertRGBA4444ToABGR4444 = &ConvertRGBA4444ToABGR4444NEON;
-		ConvertRGBA5551ToABGR1555 = &ConvertRGBA5551ToABGR1555NEON;
-		ConvertRGB565ToBGR565 = &ConvertRGB565ToBGR565NEON;
-	}
-#endif
 }

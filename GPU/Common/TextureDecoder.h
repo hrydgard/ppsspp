@@ -17,25 +17,24 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
+
+#include "Common/Common.h"
+#include "Common/Swap.h"
+#include "Core/MemMap.h"
+#include "Core/ConfigValues.h"
+#include "GPU/ge_constants.h"
+#include "GPU/GPUState.h"
+
 enum CheckAlphaResult {
 	// These are intended to line up with TexCacheEntry::STATUS_ALPHA_UNKNOWN, etc.
 	CHECKALPHA_FULL = 0,
 	CHECKALPHA_ANY = 4,
 };
 
-#include "ppsspp_config.h"
-#include "Common/Common.h"
-#include "Common/Swap.h"
-#include "Core/MemMap.h"
-#include "Core/ConfigValues.h"
-#include "GPU/ge_constants.h"
-#include "GPU/Common/TextureDecoderNEON.h"
-#include "GPU/GPUState.h"
-
-void SetupTextureDecoder();
-
-// Pitch must be aligned to 16 bits (as is the case on a PSP)
+// For both of these, pitch must be aligned to 16 bits (as is the case on a PSP).
 void DoSwizzleTex16(const u32 *ysrcp, u8 *texptr, int bxc, int byc, u32 pitch);
+void DoUnswizzleTex16(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch);
 
 // For SSE, we statically link the SSE2 algorithms.
 #if defined(_M_SSE)
@@ -43,22 +42,22 @@ u32 QuickTexHashSSE2(const void *checkp, u32 size);
 #define DoQuickTexHash QuickTexHashSSE2
 #define StableQuickTexHash QuickTexHashSSE2
 
-// Pitch must be aligned to 16 bytes (as is the case on a PSP)
-void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch);
-#define DoUnswizzleTex16 DoUnswizzleTex16Basic
+// For ARM/ARM64, NEON is mandatory, so we also statically link.
+#elif PPSSPP_ARCH(ARM_NEON)
 
-// For ARM64, NEON is mandatory, so we also statically link.
-#elif PPSSPP_ARCH(ARM64)
+u32 QuickTexHashNEON(const void *checkp, u32 size);
+
 #define DoQuickTexHash QuickTexHashNEON
 #define StableQuickTexHash QuickTexHashNEON
-#define DoUnswizzleTex16 DoUnswizzleTex16NEON
-#else
-typedef u32 (*QuickTexHashFunc)(const void *checkp, u32 size);
-extern QuickTexHashFunc DoQuickTexHash;
-extern QuickTexHashFunc StableQuickTexHash;
 
-typedef void (*UnswizzleTex16Func)(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch);
-extern UnswizzleTex16Func DoUnswizzleTex16;
+#else
+
+u32 QuickTexHashBasic(const void *checkp, u32 size);
+u32 QuickTexHashNonSSE(const void *checkp, u32 size);
+
+#define DoQuickTexHash QuickTexHashBasic
+#define StableQuickTexHash QuickTexHashNonSSE
+
 #endif
 
 CheckAlphaResult CheckAlphaRGBA8888Basic(const u32 *pixelData, int stride, int w, int h);

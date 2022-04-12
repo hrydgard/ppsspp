@@ -374,9 +374,6 @@
     <ClInclude Include="GPU\ShaderTranslation.h">
       <Filter>GPU</Filter>
     </ClInclude>
-    <ClInclude Include="Data\Convert\ColorConvNEON.h">
-      <Filter>Data\Convert</Filter>
-    </ClInclude>
     <ClInclude Include="Data\Convert\ColorConv.h">
       <Filter>Data\Convert</Filter>
     </ClInclude>
@@ -767,9 +764,6 @@
     </ClCompile>
     <ClCompile Include="GPU\ShaderTranslation.cpp">
       <Filter>GPU</Filter>
-    </ClCompile>
-    <ClCompile Include="Data\Convert\ColorConvNEON.cpp">
-      <Filter>Data\Convert</Filter>
     </ClCompile>
     <ClCompile Include="Data\Convert\ColorConv.cpp">
       <Filter>Data\Convert</Filter>

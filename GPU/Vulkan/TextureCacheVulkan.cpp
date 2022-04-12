@@ -183,7 +183,6 @@ TextureCacheVulkan::TextureCacheVulkan(Draw::DrawContext *draw, VulkanContext *v
 		computeShaderManager_(vulkan),
 		samplerCache_(vulkan) {
 	DeviceRestore(draw);
-	SetupTextureDecoder();
 }
 
 TextureCacheVulkan::~TextureCacheVulkan() {

@@ -20,7 +20,6 @@
 #include "ppsspp_config.h"
 #include "Common/Common.h"
 #include "Common/CommonTypes.h"
-#include "Core/Util/AudioFormatNEON.h"
 
 #define IS_LITTLE_ENDIAN (*(const u16 *)"\0\xff" >= 0x100)
 
@@ -66,15 +65,5 @@ static inline s16 ApplySampleVolume20Bit(s16 sample, int vol20) {
 	return clamp_s16((sample * (vol20 >> 4)) >> 12);
 }
 
-void SetupAudioFormats();
-void AdjustVolumeBlockStandard(s16 *out, s16 *in, size_t size, int leftVol, int rightVol);
+void AdjustVolumeBlock(s16 *out, s16 *in, size_t size, int leftVol, int rightVol);
 void ConvertS16ToF32(float *ou, const s16 *in, size_t size);
-
-#ifdef _M_SSE
-#define AdjustVolumeBlock AdjustVolumeBlockStandard
-#elif PPSSPP_ARCH(ARM64)
-#define AdjustVolumeBlock AdjustVolumeBlockNEON
-#else
-typedef void (*AdjustVolumeBlockFunc)(s16 *out, s16 *in, size_t size, int leftVol, int rightVol);
-extern AdjustVolumeBlockFunc AdjustVolumeBlock;
-#endif

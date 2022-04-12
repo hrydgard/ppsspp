@@ -126,8 +126,6 @@ TextureCacheD3D11::TextureCacheD3D11(Draw::DrawContext *draw)
 
 	HRESULT result = 0;
 
-	SetupTextureDecoder();
-
 	nextTexture_ = nullptr;
 }
 

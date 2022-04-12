@@ -474,8 +474,6 @@ private:
 };
 
 bool TestQuickTexHash() {
-	SetupTextureDecoder();
-
 	static const int BUF_SIZE = 1024;
 	AlignedMem buf(BUF_SIZE, 16);
 

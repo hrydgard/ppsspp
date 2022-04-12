@@ -467,8 +467,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	InitFastMath(cpu_info.bNEON);
 	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
 
-	SetupAudioFormats();
-
 	g_Discord.SetPresenceMenu();
 
 	// Make sure UI state is MENU.

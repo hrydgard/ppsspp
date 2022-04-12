@@ -577,9 +577,6 @@
     <ClCompile Include="HLE\sceSha256.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
-    <ClCompile Include="Util\AudioFormatNEON.cpp">
-      <Filter>Util</Filter>
-    </ClCompile>
     <ClCompile Include="Util\AudioFormat.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -1661,9 +1658,6 @@
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="Util\AudioFormat.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Util\AudioFormatNEON.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="..\ext\sfmt19937\SFMT.h">
