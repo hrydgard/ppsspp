@@ -36,29 +36,8 @@ enum CheckAlphaResult {
 void DoSwizzleTex16(const u32 *ysrcp, u8 *texptr, int bxc, int byc, u32 pitch);
 void DoUnswizzleTex16(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch);
 
-// For SSE, we statically link the SSE2 algorithms.
-#if defined(_M_SSE)
-u32 QuickTexHashSSE2(const void *checkp, u32 size);
-#define DoQuickTexHash QuickTexHashSSE2
-#define StableQuickTexHash QuickTexHashSSE2
-
-// For ARM/ARM64, NEON is mandatory, so we also statically link.
-#elif PPSSPP_ARCH(ARM_NEON)
-
-u32 QuickTexHashNEON(const void *checkp, u32 size);
-
-#define DoQuickTexHash QuickTexHashNEON
-#define StableQuickTexHash QuickTexHashNEON
-
-#else
-
-u32 QuickTexHashBasic(const void *checkp, u32 size);
-u32 QuickTexHashNonSSE(const void *checkp, u32 size);
-
-#define DoQuickTexHash QuickTexHashBasic
-#define StableQuickTexHash QuickTexHashNonSSE
-
-#endif
+u32 DoQuickTexHash(const void *checkp, u32 size);
+u32 StableQuickTexHash(const void *checkp, u32 size);
 
 CheckAlphaResult CheckAlphaRGBA8888Basic(const u32 *pixelData, int stride, int w, int h);
 CheckAlphaResult CheckAlphaABGR4444Basic(const u32 *pixelData, int stride, int w, int h);

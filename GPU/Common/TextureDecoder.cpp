@@ -43,7 +43,7 @@
 
 #ifdef _M_SSE
 
-u32 QuickTexHashSSE2(const void *checkp, u32 size) {
+static u32 QuickTexHashSSE2(const void *checkp, u32 size) {
 	u32 check = 0;
 
 	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
@@ -81,9 +81,8 @@ u32 QuickTexHashSSE2(const void *checkp, u32 size) {
 
 alignas(16) static const u16 QuickTexHashInitial[8] = { 0xc00bU, 0x9bd9U, 0x4b73U, 0xb651U, 0x4d9bU, 0x4309U, 0x0083U, 0x0001U };
 
-u32 QuickTexHashNEON(const void *checkp, u32 size) {
+static u32 QuickTexHashNEON(const void *checkp, u32 size) {
 	u32 check = 0;
-	__builtin_prefetch(checkp, 0, 0);
 
 	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
 #if PPSSPP_PLATFORM(IOS) || PPSSPP_ARCH(ARM64) || defined(_MSC_VER) || !PPSSPP_ARCH(ARMV7)
@@ -212,7 +211,7 @@ u32 GetTextureBufw(int level, u32 texaddr, GETextureFormat format) {
 }
 
 // Is this compatible with QuickTexHashNEON/SSE?
-u32 QuickTexHashNonSSE(const void *checkp, u32 size) {
+static u32 QuickTexHashNonSSE(const void *checkp, u32 size) {
 	u32 check = 0;
 
 	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
@@ -263,7 +262,7 @@ u32 QuickTexHashNonSSE(const void *checkp, u32 size) {
 	return check;
 }
 
-u32 QuickTexHashBasic(const void *checkp, u32 size) {
+static u32 QuickTexHashBasic(const void *checkp, u32 size) {
 	u32 check = 0;
 	const u32 size_u32 = size / 4;
 	const u32 *p = (const u32 *)checkp;
@@ -275,6 +274,26 @@ u32 QuickTexHashBasic(const void *checkp, u32 size) {
 	}
 
 	return check;
+}
+
+u32 DoQuickTexHash(const void *checkp, u32 size) {
+#if defined(_M_SSE)
+	return QuickTexHashSSE2(checkp, size);
+#elif PPSSPP_ARCH(ARM_NEON)
+	return QuickTexHashNEON(checkp, size);
+#else
+	return QuickTexHashBasic(checkp, size);
+#endif
+}
+
+u32 StableQuickTexHash(const void *checkp, u32 size) {
+#if defined(_M_SSE)
+	return QuickTexHashSSE2(checkp, size);
+#elif PPSSPP_ARCH(ARM_NEON)
+	return QuickTexHashNEON(checkp, size);
+#else
+	return QuickTexHashNonSSE(checkp, size);
+#endif
 }
 
 void DoSwizzleTex16(const u32 *ysrcp, u8 *texptr, int bxc, int byc, u32 pitch) {
