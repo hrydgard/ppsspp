@@ -1429,6 +1429,15 @@ inline u32 TfmtRawToFullAlpha(GETextureFormat fmt) {
 	return 0;
 }
 
+#ifdef _M_SSE
+inline u32 SSEReduce32And(__m128i value) {
+	// TODO: Should use a shuffle instead of slri, probably.
+	value = _mm_and_si128(value, _mm_srli_si128(value, 64));
+	value = _mm_and_si128(value, _mm_srli_si128(value, 32));
+	return _mm_cvtsi128_si32(value);
+}
+#endif
+
 // TODO: SSE/SIMD
 // At least on x86, compiler actually SIMDs these pretty well.
 void CopyAndSumMask16(u16 *dst, const u16 *src, int width, u32 *outMask) {
@@ -1441,8 +1450,23 @@ void CopyAndSumMask16(u16 *dst, const u16 *src, int width, u32 *outMask) {
 	*outMask &= (u32)mask;
 }
 
+// Used in video playback so nice to have being fast.
 void CopyAndSumMask32(u32 *dst, const u32 *src, int width, u32 *outMask) {
 	u32 mask = 0xFFFFFFFF;
+#ifdef _M_SSE
+	if (width >= 4) {
+		__m128i wideMask = _mm_set1_epi32(0xFFFFFFFF);
+		while (width >= 4) {
+			__m128i color = _mm_loadu_si128((__m128i *)src);
+			wideMask = _mm_and_si128(wideMask, color);
+			_mm_storeu_si128((__m128i *)dst, color);
+			src += 4;
+			dst += 4;
+			width -= 4;
+		}
+		mask = SSEReduce32And(wideMask);
+	}
+#endif
 	for (int i = 0; i < width; i++) {
 		u32 color = src[i];
 		mask &= color;
@@ -1461,6 +1485,18 @@ void CheckMask16(const u16 *src, int width, u32 *outMask) {
 
 void CheckMask32(const u32 *src, int width, u32 *outMask) {
 	u32 mask = 0xFFFFFFFF;
+#ifdef _M_SSE
+	if (width >= 4) {
+		__m128i wideMask = _mm_set1_epi32(0xFFFFFFFF);
+		while (width >= 4) {
+			wideMask = _mm_and_si128(wideMask, _mm_loadu_si128((__m128i *)src));
+			src += 4;
+			width -= 4;
+		}
+		mask = SSEReduce32And(wideMask);
+	}
+#endif
+
 	for (int i = 0; i < width; i++) {
 		mask &= src[i];
 	}
