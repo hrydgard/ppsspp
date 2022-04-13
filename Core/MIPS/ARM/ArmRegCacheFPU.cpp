@@ -27,13 +27,7 @@
 using namespace ArmGen;
 using namespace ArmJitConstants;
 
-ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo) : mips_(mipsState), js_(js), jo_(jo), vr(mr + 32) {
-	if (cpu_info.bNEON) {
-		numARMFpuReg_ = 32;
-	} else {
-		numARMFpuReg_ = 16;
-	}
-}
+ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo) : mips_(mipsState), js_(js), jo_(jo), vr(mr + 32) {}
 
 void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
 	if (!initialReady) {
@@ -47,7 +41,7 @@ void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
 }
 
 void ArmRegCacheFPU::SetupInitialRegs() {
-	for (int i = 0; i < numARMFpuReg_; i++) {
+	for (int i = 0; i < NUM_ARMFPUREG; i++) {
 		arInitial[i].mipsReg = -1;
 		arInitial[i].isDirty = false;
 	}
@@ -57,7 +51,7 @@ void ArmRegCacheFPU::SetupInitialRegs() {
 		mrInitial[i].spillLock = false;
 		mrInitial[i].tempLock = false;
 	}
-	for (int i = 0; i < MAX_ARMQUADS; i++) {
+	for (int i = 0; i < NUM_ARMQUADS; i++) {
 		qr[i].isDirty = false;
 		qr[i].mipsVec = -1;
 		qr[i].sz = V_Invalid;
@@ -68,14 +62,6 @@ void ArmRegCacheFPU::SetupInitialRegs() {
 }
 
 const ARMReg *ArmRegCacheFPU::GetMIPSAllocationOrder(int &count) {
-	// We reserve S0-S1 as scratch. Can afford two registers. Maybe even four, which could simplify some things.
-	static const ARMReg allocationOrder[] = {
-		          S2,  S3,
-		S4,  S5,  S6,  S7,
-		S8,  S9,  S10, S11,
-		S12, S13, S14, S15
-	};
-
 	// VFP mapping
 	// VFPU registers and regular FP registers are mapped interchangably on top of the standard
 	// 16 FPU registers.
@@ -116,12 +102,9 @@ const ARMReg *ArmRegCacheFPU::GetMIPSAllocationOrder(int &count) {
 	if (jo_->useNEONVFPU) {
 		count = sizeof(allocationOrderNEONVFPU) / sizeof(const ARMReg);
 		return allocationOrderNEONVFPU;
-	} else if (cpu_info.bNEON) {
+	} else {
 		count = sizeof(allocationOrderNEON) / sizeof(const ARMReg);
 		return allocationOrderNEON;
-	} else {
-		count = sizeof(allocationOrder) / sizeof(const ARMReg);
-		return allocationOrder;
 	}
 }
 
@@ -404,19 +387,12 @@ void ArmRegCacheFPU::FlushR(MIPSReg r) {
 	mr[r].reg = (int)INVALID_REG;
 }
 
-int ArmRegCacheFPU::GetNumARMFPURegs() {
-	if (cpu_info.bNEON)
-		return 32;
-	else
-		return 16;
-}
-
 // Scalar only. Need a similar one for sequential Q vectors.
-int ArmRegCacheFPU::FlushGetSequential(int a, int maxArmReg) {
+int ArmRegCacheFPU::FlushGetSequential(int a) {
 	int c = 1;
 	int lastMipsOffset = GetMipsRegOffset(ar[a].mipsReg);
 	a++;
-	while (a < maxArmReg) {
+	while (a < 32) {
 		if (!ar[a].isDirty || ar[a].mipsReg == -1)
 			break;
 		int mipsOffset = GetMipsRegOffset(ar[a].mipsReg);
@@ -444,7 +420,7 @@ void ArmRegCacheFPU::FlushAll() {
 
 	// Flush quads!
 	// These could also use sequential detection.
-	for (int i = 4; i < MAX_ARMQUADS; i++) {
+	for (int i = 4; i < NUM_ARMQUADS; i++) {
 		QFlush(i);
 	}
 
@@ -466,7 +442,7 @@ void ArmRegCacheFPU::FlushAll() {
 				continue;
 			}
 
-			int c = FlushGetSequential(a, GetNumARMFPURegs());
+			int c = FlushGetSequential(a);
 			if (c == 1) {
 				// INFO_LOG(JIT, "Got single register: %i (%i)", a, m);
 				emit_->VSTR((ARMReg)(a + S0), CTXREG, GetMipsRegOffset(m));
@@ -502,7 +478,7 @@ void ArmRegCacheFPU::FlushAll() {
 	}
 
 	// Sanity check
-	for (int i = 0; i < numARMFpuReg_; i++) {
+	for (int i = 0; i < NUM_ARMFPUREG; i++) {
 		if (ar[i].mipsReg != -1) {
 			ERROR_LOG(JIT, "Flush fail: ar[%i].mipsReg=%i", i, ar[i].mipsReg);
 		}
@@ -594,7 +570,7 @@ void ArmRegCacheFPU::ReleaseSpillLocksAndDiscardTemps() {
 	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; ++i) {
 		DiscardR(i);
 	}
-	for (int i = 0; i < MAX_ARMQUADS; i++) {
+	for (int i = 0; i < NUM_ARMQUADS; i++) {
 		qr[i].spillLock = false;
 		if (qr[i].isTemp) {
 			qr[i].isTemp = false;

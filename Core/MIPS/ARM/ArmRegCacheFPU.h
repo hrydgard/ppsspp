@@ -127,7 +127,7 @@ public:
 	// VFPU registers as single VFP registers.
 	ArmGen::ARMReg V(int vreg) { return R(vreg + 32); }
 	 
-	int FlushGetSequential(int a, int maxArmReg);
+	int FlushGetSequential(int a);
 	void FlushAll();
 
 	// This one is allowed at any point.
@@ -180,7 +180,6 @@ private:
 	}
 	// This one WILL get a free quad as long as you haven't spill-locked them all.
 	int QGetFreeQuad(int start, int count, const char *reason);
-	int GetNumARMFPURegs();
 
 	void SetupInitialRegs();
 
@@ -189,24 +188,23 @@ private:
 	MIPSComp::JitState *js_;
 	MIPSComp::JitOptions *jo_;
 
-	int numARMFpuReg_;
 	int qTime_;
 
 	enum {
 		// With NEON, we have 64 S = 32 D = 16 Q registers. Only the first 32 S registers
 		// are individually mappable though.
-		MAX_ARMFPUREG = 32,
-		MAX_ARMQUADS = 16,
+		NUM_ARMFPUREG = 32,
+		NUM_ARMQUADS = 16,
 		NUM_MIPSFPUREG = ArmJitConstants::TOTAL_MAPPABLE_MIPSFPUREGS,
 	};
 
-	FPURegARM ar[MAX_ARMFPUREG];
+	FPURegARM ar[NUM_ARMFPUREG];
 	FPURegMIPS mr[NUM_MIPSFPUREG];
-	FPURegQuad qr[MAX_ARMQUADS];
+	FPURegQuad qr[NUM_ARMQUADS];
 	FPURegMIPS *vr;
 
 	bool pendingFlush;
 	bool initialReady = false;
-	FPURegARM arInitial[MAX_ARMFPUREG];
+	FPURegARM arInitial[NUM_ARMFPUREG];
 	FPURegMIPS mrInitial[NUM_MIPSFPUREG];
 };

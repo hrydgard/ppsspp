@@ -464,7 +464,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	ShaderTranslationInit();
 
-	InitFastMath(cpu_info.bNEON);
+	InitFastMath();
 	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
 
 	g_Discord.SetPresenceMenu();
