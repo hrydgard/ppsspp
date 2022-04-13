@@ -36,7 +36,6 @@ enum CheckAlphaResult {
 void DoSwizzleTex16(const u32 *ysrcp, u8 *texptr, int bxc, int byc, u32 pitch);
 void DoUnswizzleTex16(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch);
 
-u32 DoQuickTexHash(const void *checkp, u32 size);
 u32 StableQuickTexHash(const void *checkp, u32 size);
 
 CheckAlphaResult CheckAlphaRGBA8888Basic(const u32 *pixelData, int stride, int w, int h);

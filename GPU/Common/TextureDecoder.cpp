@@ -276,16 +276,6 @@ static u32 QuickTexHashBasic(const void *checkp, u32 size) {
 	return check;
 }
 
-u32 DoQuickTexHash(const void *checkp, u32 size) {
-#if defined(_M_SSE)
-	return QuickTexHashSSE2(checkp, size);
-#elif PPSSPP_ARCH(ARM_NEON)
-	return QuickTexHashNEON(checkp, size);
-#else
-	return QuickTexHashBasic(checkp, size);
-#endif
-}
-
 u32 StableQuickTexHash(const void *checkp, u32 size) {
 #if defined(_M_SSE)
 	return QuickTexHashSSE2(checkp, size);
@@ -388,9 +378,6 @@ void DoUnswizzleTex16(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch
 	} else
 #elif PPSSPP_ARCH(ARM_NEON)
 	if (((uintptr_t)ydestp & 0xF) == 0 && (pitch & 0xF) == 0) {
-		// TODO: Does this really do anything meaningful? 
-		__builtin_prefetch(texptr, 0, 0);
-
 		const u32 *src = (const u32 *)texptr;
 		for (int by = 0; by < byc; by++) {
 			u32 *xdest = ydestp;

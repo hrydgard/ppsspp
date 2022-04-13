@@ -316,7 +316,7 @@ protected:
 		gpuStats.numTextureDataBytesHashed += sizeInRAM;
 
 		if (Memory::IsValidAddress(addr + sizeInRAM)) {
-			return DoQuickTexHash(checkp, sizeInRAM);
+			return StableQuickTexHash(checkp, sizeInRAM);
 		} else {
 			return 0;
 		}
