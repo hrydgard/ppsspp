@@ -14,7 +14,7 @@ extern "C" {
 
 // See fast_matrix.h for the first set of functions.
 
-void InitFastMath(int enableNEON);
+void InitFastMath();
 
 #ifdef __cplusplus
 }

@@ -1132,10 +1132,6 @@ namespace MIPSComp
 			DISABLE;
 		}
 
-		if (!cpu_info.bNEON) {
-			DISABLE;
-		}
-
 		// This multi-VCVT.F32.F16 is only available in the VFPv4 extension.
 		// The VFPv3 one is VCVTB, VCVTT which we don't yet have support for.
 		if (!(cpu_info.bHalf && cpu_info.bVFPv4)) {
@@ -1596,10 +1592,6 @@ namespace MIPSComp
 		NEON_IF_AVAILABLE(CompNEON_Vi2x);
 		CONDITIONAL_DISABLE(VFPU_VEC);
 		if (js.HasUnknownPrefix()) {
-			DISABLE;
-		}
-
-		if (!cpu_info.bNEON) {
 			DISABLE;
 		}
 
