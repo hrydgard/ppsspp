@@ -1404,7 +1404,6 @@ static void DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t texaddr, const 
 		break;
 	}
 
-	w = (w + 3) & ~3;
 	if (reverseColors) {
 		ReverseColors(out, out, GE_TFMT_8888, outPitch32 * h, useBGRA);
 	}
