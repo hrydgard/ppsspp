@@ -126,6 +126,8 @@ inline void DeIndexTexture(/*WRITEONLY*/ ClutT *dest, const IndexT *indexed, int
 			*dest++ = color;
 		}
 	}
+
+	*outAlphaSum = alphaSum;
 }
 
 template <typename IndexT, typename ClutT>
