@@ -249,7 +249,7 @@ static std::string ReadShaderSrc(const Path &filename) {
 	size_t sz = 0;
 	char *data = (char *)VFSReadFile(filename.c_str(), &sz);
 	if (!data)
-		return "";
+		return std::string();
 
 	std::string src(data, sz);
 	delete[] data;
@@ -961,6 +961,8 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
+	gpuStats.numTexturesDecoded++;
+
 	{
 		PROFILE_THIS_SCOPE("decodetex");
 
@@ -981,17 +983,8 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 
 		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || dstFmt == VK_FORMAT_R8G8B8A8_UNORM;
 
-		u32 alphaSum = 0xFFFFFFFF;
-		u32 fullAlphaMask = 0x0;
-
-		DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, expand32, &alphaSum, &fullAlphaMask);
-		gpuStats.numTexturesDecoded++;
-
-		if (AlphaSumIsFull(alphaSum, fullAlphaMask)) {
-			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_FULL, level);
-		} else {
-			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN, level);
-		}
+		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, expand32);
+		entry.SetAlphaStatus(alphaResult, level);
 
 		if (scaleFactor > 1) {
 			u32 fmt = dstFmt;

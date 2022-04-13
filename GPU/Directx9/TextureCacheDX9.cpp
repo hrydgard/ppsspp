@@ -634,16 +634,8 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 			decPitch = w * bpp;
 		}
 
-		u32 fullAlphaMask = 0;
-		u32 alphaSum = 0xFFFFFFFF;
-		DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, false, &alphaSum, &fullAlphaMask);
-
-		// We check before scaling since scaling shouldn't invent alpha from a full alpha texture.
-		if (AlphaSumIsFull(alphaSum, fullAlphaMask)) {
-			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_FULL, level);
-		} else {
-			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN, level);
-		}
+		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, false);
+		entry.SetAlphaStatus(alphaResult, level);
 
 		if (scaleFactor > 1) {
 			scaler.ScaleAlways((u32 *)rect.pBits, pixelData, dstFmt, w, h, scaleFactor);

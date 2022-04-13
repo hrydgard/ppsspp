@@ -1451,13 +1451,17 @@ void CopyAndSumMask32(u32 *dst, const u32 *src, int width, u32 *outMask) {
 	*outMask &= (u32)mask;
 }
 
-void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool useBGRA, bool expandTo32bit, u32 *alphaSum, u32 *fullAlphaMask) {
+CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool useBGRA, bool expandTo32bit) {
+	u32 alphaSum = 0xFFFFFFFF;
+	u32 fullAlphaMask = 0x0;
+
 	bool swizzled = gstate.isTextureSwizzled();
 	if ((texaddr & 0x00600000) != 0 && Memory::IsVRAMAddress(texaddr)) {
 		// This means it's in a mirror, possibly a swizzled mirror.  Let's report.
 		WARN_LOG_REPORT_ONCE(texmirror, G3D, "Decoding texture from VRAM mirror at %08x swizzle=%d", texaddr, swizzled ? 1 : 0);
 		if ((texaddr & 0x00200000) == 0x00200000) {
 			// Technically 2 and 6 are slightly different, but this is better than nothing probably.
+			// We should only see this with depth textures anyway which we don't support uploading (yet).
 			swizzled = !swizzled;
 		}
 		// Note that (texaddr & 0x00600000) == 0x00600000 is very likely to be depth texturing.
@@ -1506,14 +1510,14 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 				if (expandTo32bit && !reverseColors) {
 					// We simply expand the CLUT to 32-bit, then we deindex as usual. Probably the fastest way.
 					ConvertFormatToRGBA8888(clutformat, expandClut_, clut, 16);
-					*fullAlphaMask = 0xFF000000;
+					fullAlphaMask = 0xFF000000;
 					for (int y = 0; y < h; ++y) {
-						DeIndexTexture4<u32>((u32 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, expandClut_, alphaSum);
+						DeIndexTexture4<u32>((u32 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, expandClut_, &alphaSum);
 					}
 				} else {
-					*fullAlphaMask = ClutFormatToFullAlpha(clutformat);
+					fullAlphaMask = ClutFormatToFullAlpha(clutformat);
 					for (int y = 0; y < h; ++y) {
-						DeIndexTexture4<u16>((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut, alphaSum);
+						DeIndexTexture4<u16>((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut, &alphaSum);
 					}
 				}
 			}
@@ -1523,30 +1527,30 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 		case GE_CMODE_32BIT_ABGR8888:
 		{
 			const u32 *clut = GetCurrentClut<u32>() + clutSharingOffset;
-			*fullAlphaMask = 0xFF000000;
+			fullAlphaMask = 0xFF000000;
 			for (int y = 0; y < h; ++y) {
-				DeIndexTexture4<u32>((u32 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut, alphaSum);
+				DeIndexTexture4<u32>((u32 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut, &alphaSum);
 			}
 		}
 		break;
 
 		default:
 			ERROR_LOG_REPORT(G3D, "Unknown CLUT4 texture mode %d", gstate.getClutPaletteFormat());
-			return;
+			return CHECKALPHA_ANY;
 		}
 	}
 	break;
 
 	case GE_TFMT_CLUT8:
-		ReadIndexedTex(out, outPitch, level, texptr, 1, bufw, expandTo32bit, alphaSum, fullAlphaMask);
+		ReadIndexedTex(out, outPitch, level, texptr, 1, bufw, expandTo32bit, &alphaSum, &fullAlphaMask);
 		break;
 
 	case GE_TFMT_CLUT16:
-		ReadIndexedTex(out, outPitch, level, texptr, 2, bufw, expandTo32bit, alphaSum, fullAlphaMask);
+		ReadIndexedTex(out, outPitch, level, texptr, 2, bufw, expandTo32bit, &alphaSum, &fullAlphaMask);
 		break;
 
 	case GE_TFMT_CLUT32:
-		ReadIndexedTex(out, outPitch, level, texptr, 4, bufw, expandTo32bit, alphaSum, fullAlphaMask);
+		ReadIndexedTex(out, outPitch, level, texptr, 4, bufw, expandTo32bit, &alphaSum, &fullAlphaMask);
 		break;
 
 	case GE_TFMT_4444:
@@ -1565,9 +1569,9 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 					ConvertFormatToRGBA8888(format, (u32 *)(out + outPitch * y), (const u16 *)texptr + bufw * y, w);
 				}
 			} else {
-				*fullAlphaMask = TfmtRawToFullAlpha(format);
+				fullAlphaMask = TfmtRawToFullAlpha(format);
 				for (int y = 0; y < h; ++y) {
-					CopyAndSumMask16((u16 *)(out + outPitch * y), (u16 *)(texptr + bufw * sizeof(u16) * y), w, alphaSum);
+					CopyAndSumMask16((u16 *)(out + outPitch * y), (u16 *)(texptr + bufw * sizeof(u16) * y), w, &alphaSum);
 				}
 			}
 		} /* else if (h >= 8 && bufw <= w && !expandTo32bit) {
@@ -1594,9 +1598,9 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 					ConvertFormatToRGBA8888(format, (u32 *)(out + outPitch * y), (const u16 *)unswizzled + bufw * y, w);
 				}
 			} else {
-				*fullAlphaMask = TfmtRawToFullAlpha(format);
+				fullAlphaMask = TfmtRawToFullAlpha(format);
 				for (int y = 0; y < h; ++y) {
-					CopyAndSumMask16((u16 *)(out + outPitch * y), (const u16 *)(unswizzled + bufw * sizeof(u16) * y), w, alphaSum);
+					CopyAndSumMask16((u16 *)(out + outPitch * y), (const u16 *)(unswizzled + bufw * sizeof(u16) * y), w, &alphaSum);
 				}
 			}
 		}
@@ -1605,14 +1609,14 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 	case GE_TFMT_8888:
 		if (!swizzled) {
 			if (reverseColors) {
-				*fullAlphaMask = 0;  // ignore alpha optimization for now
+				fullAlphaMask = 0;  // ignore alpha optimization for now
 				for (int y = 0; y < h; ++y) {
 					ReverseColors(out + outPitch * y, texptr + bufw * sizeof(u32) * y, format, w, useBGRA);
 				}
 			} else {
-				*fullAlphaMask = TfmtRawToFullAlpha(format);
+				fullAlphaMask = TfmtRawToFullAlpha(format);
 				for (int y = 0; y < h; ++y) {
-					CopyAndSumMask32((u32 *)(out + outPitch * y), (const u32 *)(texptr + bufw * sizeof(u32) * y), w * sizeof(u32), alphaSum);
+					CopyAndSumMask32((u32 *)(out + outPitch * y), (const u32 *)(texptr + bufw * sizeof(u32) * y), w * sizeof(u32), &alphaSum);
 				}
 			}
 		} /* else if (h >= 8 && bufw <= w) {
@@ -1632,30 +1636,32 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 					ReverseColors(out + outPitch * y, unswizzled + bufw * sizeof(u32) * y, format, w, useBGRA);
 				}
 			} else {
-				*fullAlphaMask = TfmtRawToFullAlpha(format);
+				fullAlphaMask = TfmtRawToFullAlpha(format);
 				for (int y = 0; y < h; ++y) {
-					CopyAndSumMask32((u32 *)(out + outPitch * y), (const u32 *)(unswizzled + bufw * sizeof(u32) * y), w * sizeof(u32), alphaSum);
+					CopyAndSumMask32((u32 *)(out + outPitch * y), (const u32 *)(unswizzled + bufw * sizeof(u32) * y), w * sizeof(u32), &alphaSum);
 				}
 			}
 		}
 		break;
 
 	case GE_TFMT_DXT1:
-		DecodeDXTBlocks<DXT1Block, 1>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors, useBGRA, alphaSum, fullAlphaMask);
+		DecodeDXTBlocks<DXT1Block, 1>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors, useBGRA, &alphaSum, &fullAlphaMask);
 		break;
 
 	case GE_TFMT_DXT3:
-		DecodeDXTBlocks<DXT3Block, 3>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors, useBGRA, alphaSum, fullAlphaMask);
+		DecodeDXTBlocks<DXT3Block, 3>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors, useBGRA, &alphaSum, &fullAlphaMask);
 		break;
 
 	case GE_TFMT_DXT5:
-		DecodeDXTBlocks<DXT5Block, 5>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors, useBGRA, alphaSum, fullAlphaMask);
+		DecodeDXTBlocks<DXT5Block, 5>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors, useBGRA, &alphaSum, &fullAlphaMask);
 		break;
 
 	default:
 		ERROR_LOG_REPORT(G3D, "Unknown Texture Format %d!!!", format);
 		break;
 	}
+
+	return AlphaSumIsFull(alphaSum, fullAlphaMask) ? CHECKALPHA_FULL : CHECKALPHA_ANY;
 }
 
 void TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool expandTo32Bit, u32 *alphaSum, u32 *fullAlphaMask) {
