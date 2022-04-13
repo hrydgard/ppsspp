@@ -127,7 +127,7 @@ inline void DeIndexTexture(/*WRITEONLY*/ ClutT *dest, const IndexT *indexed, int
 		}
 	}
 
-	*outAlphaSum = alphaSum;
+	*outAlphaSum &= (u32)alphaSum;
 }
 
 template <typename IndexT, typename ClutT>
