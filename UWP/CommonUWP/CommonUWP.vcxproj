@@ -461,7 +461,6 @@
     <ClInclude Include="..\..\Common\Serialize\SerializeSet.h" />
     <ClInclude Include="..\..\Common\CodeBlock.h" />
     <ClInclude Include="..\..\Common\Data\Convert\ColorConv.h" />
-    <ClInclude Include="..\..\Common\Data\Convert\ColorConvNEON.h" />
     <ClInclude Include="..\..\Common\Common.h" />
     <ClInclude Include="..\..\Common\CommonFuncs.h" />
     <ClInclude Include="..\..\Common\CommonTypes.h" />
@@ -578,7 +577,6 @@
     <ClCompile Include="..\..\Common\Render\Text\draw_text_win.cpp" />
     <ClCompile Include="..\..\Common\Serialize\Serializer.cpp" />
     <ClCompile Include="..\..\Common\Data\Convert\ColorConv.cpp" />
-    <ClCompile Include="..\..\Common\Data\Convert\ColorConvNEON.cpp" />
     <ClCompile Include="..\..\Common\ConsoleListener.cpp" />
     <ClCompile Include="..\..\Common\CPUDetect.cpp" />
     <ClCompile Include="..\..\Common\FakeCPUDetect.cpp" />

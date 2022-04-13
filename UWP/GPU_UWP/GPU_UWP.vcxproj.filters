@@ -17,7 +17,6 @@
     <ClCompile Include="..\..\GPU\Common\StencilCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\TextureCacheCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\TextureDecoder.cpp" />
-    <ClCompile Include="..\..\GPU\Common\TextureDecoderNEON.cpp" />
     <ClCompile Include="..\..\GPU\Common\TextureScalerCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\TransformCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\VertexDecoderArm.cpp" />
@@ -79,7 +78,6 @@
     <ClInclude Include="..\..\GPU\Common\StencilCommon.h" />
     <ClInclude Include="..\..\GPU\Common\TextureCacheCommon.h" />
     <ClInclude Include="..\..\GPU\Common\TextureDecoder.h" />
-    <ClInclude Include="..\..\GPU\Common\TextureDecoderNEON.h" />
     <ClInclude Include="..\..\GPU\Common\TextureScalerCommon.h" />
     <ClInclude Include="..\..\GPU\Common\TransformCommon.h" />
     <ClInclude Include="..\..\GPU\Common\VertexDecoderCommon.h" />

@@ -382,7 +382,6 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 	static_assert(sizeof(DisplayList) == 456, "Bad DisplayList size");
 
 	Reinitialize();
-	SetupColorConv();
 	gstate.Reset();
 	gstate_c.Reset();
 	gpuStats.Reset();

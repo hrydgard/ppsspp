@@ -627,10 +627,7 @@ ifeq ($(WITH_DYNAREC),1)
 		ifeq ($(HAVE_NEON),1)
 			SOURCES_CXX   += \
 					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEON.cpp \
-					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEONUtil.cpp \
-					 $(COREDIR)/Util/AudioFormatNEON.cpp \
-					 $(COMMONDIR)/Data/Convert/ColorConvNEON.cpp \
-					 $(GPUDIR)/Common/TextureDecoderNEON.cpp
+					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEONUtil.cpp
 
 			SOURCES_C += $(EXTDIR)/libpng17/arm/arm_init.c \
 				     $(EXTDIR)/libpng17/arm/filter_neon_intrinsics.c
@@ -656,10 +653,7 @@ ifeq ($(WITH_DYNAREC),1)
 		ifeq ($(HAVE_NEON),1)
 			SOURCES_CXX   += \
 					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEON.cpp \
-					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEONUtil.cpp \
-					 $(COREDIR)/Util/AudioFormatNEON.cpp \
-					 $(COMMONDIR)/Data/Convert/ColorConvNEON.cpp \
-					 $(GPUDIR)/Common/TextureDecoderNEON.cpp
+					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEONUtil.cpp
 
 			SOURCES_C += $(EXTDIR)/libpng17/arm/arm_init.c \
 				     $(EXTDIR)/libpng17/arm/filter_neon_intrinsics.c

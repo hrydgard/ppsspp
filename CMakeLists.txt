@@ -433,7 +433,6 @@ set(CommonARM
 	Common/ArmCPUDetect.cpp
 	Common/ArmEmitter.h
 	Common/ArmEmitter.cpp
-	Common/Data/Convert/ColorConvNEON.cpp
 )
 source_group(ARM FILES ${CommonARM})
 
@@ -1515,9 +1514,6 @@ if(WIN32)
 	list(APPEND GPU_IMPLS ${GPU_D3D9} ${GPU_D3D11})
 endif()
 
-if(ARMV7 OR ARM64)
-	set(GPU_NEON GPU/Common/TextureDecoderNEON.cpp)
-endif()
 set(GPU_SOURCES
 	${GPU_IMPLS}
 	${GPU_NEON}
@@ -1976,8 +1972,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/ThreadPools.h
 	Core/Util/AudioFormat.cpp
 	Core/Util/AudioFormat.h
-	Core/Util/AudioFormatNEON.cpp
-	Core/Util/AudioFormatNEON.h
 	Core/Util/GameManager.cpp
 	Core/Util/GameManager.h
 	Core/Util/PortManager.cpp
@@ -1986,7 +1980,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/BlockAllocator.h
 	Core/Util/PPGeDraw.cpp
 	Core/Util/PPGeDraw.h
-	${CORE_NEON}
 	${GPU_SOURCES}
 	ext/disarm.cpp
 	${CMAKE_CURRENT_BINARY_DIR}/git-version.cpp

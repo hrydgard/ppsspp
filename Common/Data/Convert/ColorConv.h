@@ -19,9 +19,6 @@
 
 #include "ppsspp_config.h"
 #include "Common/CommonTypes.h"
-#include "Common/Data/Convert/ColorConvNEON.h"
-
-void SetupColorConv();
 
 inline u8 Convert4To8(u8 v) {
 	// Swizzle bits: 00001234 -> 12341234
@@ -103,11 +100,6 @@ void convert5551_dx9(u16* data, u32* out, int width, int l, int u);
 // TODO: Need to revisit the naming convention of these. Seems totally backwards
 // now that we've standardized on Draw::DataFormat.
 
-typedef void (*Convert16bppTo16bppFunc)(u16 *dst, const u16 *src, u32 numPixels);
-typedef void (*Convert16bppTo32bppFunc)(u32 *dst, const u16 *src, u32 numPixels);
-typedef void (*Convert32bppTo16bppFunc)(u16 *dst, const u32 *src, u32 numPixels);
-typedef void (*Convert32bppTo32bppFunc)(u32 *dst, const u32 *src, u32 numPixels);
-
 void ConvertBGRA8888ToRGBA8888(u32 *dst, const u32 *src, u32 numPixels);
 #define ConvertRGBA8888ToBGRA8888 ConvertBGRA8888ToRGBA8888
 void ConvertBGRA8888ToRGB888(u8 *dst, const u32 *src, u32 numPixels);
@@ -133,31 +125,7 @@ void ConvertRGBA4444ToBGRA8888(u32 *dst, const u16 *src, u32 numPixels);
 void ConvertRGBA5551ToBGRA8888(u32 *dst, const u16 *src, u32 numPixels);
 void ConvertRGB565ToBGRA8888(u32 *dst, const u16 *src, u32 numPixels);
 
-void ConvertRGBA4444ToABGR4444Basic(u16 *dst, const u16 *src, u32 numPixels);
-void ConvertRGBA5551ToABGR1555Basic(u16 *dst, const u16 *src, u32 numPixels);
-void ConvertRGB565ToBGR565Basic(u16 *dst, const u16 *src, u32 numPixels);
+void ConvertRGBA4444ToABGR4444(u16 *dst, const u16 *src, u32 numPixels);
+void ConvertRGBA5551ToABGR1555(u16 *dst, const u16 *src, u32 numPixels);
+void ConvertRGB565ToBGR565(u16 *dst, const u16 *src, u32 numPixels);
 void ConvertBGRA5551ToABGR1555(u16 *dst, const u16 *src, u32 numPixels);
-
-#if PPSSPP_ARCH(ARM64)
-#define ConvertRGBA4444ToABGR4444 ConvertRGBA4444ToABGR4444NEON
-#elif !PPSSPP_ARCH(ARM)
-#define ConvertRGBA4444ToABGR4444 ConvertRGBA4444ToABGR4444Basic
-#else
-extern Convert16bppTo16bppFunc ConvertRGBA4444ToABGR4444;
-#endif
-
-#if PPSSPP_ARCH(ARM64)
-#define ConvertRGBA5551ToABGR1555 ConvertRGBA5551ToABGR1555NEON
-#elif !PPSSPP_ARCH(ARM)
-#define ConvertRGBA5551ToABGR1555 ConvertRGBA5551ToABGR1555Basic
-#else
-extern Convert16bppTo16bppFunc ConvertRGBA5551ToABGR1555;
-#endif
-
-#if PPSSPP_ARCH(ARM64)
-#define ConvertRGB565ToBGR565 ConvertRGB565ToBGR565NEON
-#elif !PPSSPP_ARCH(ARM)
-#define ConvertRGB565ToBGR565 ConvertRGB565ToBGR565Basic
-#else
-extern Convert16bppTo16bppFunc ConvertRGB565ToBGR565;
-#endif

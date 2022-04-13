@@ -474,29 +474,27 @@ private:
 };
 
 bool TestQuickTexHash() {
-	SetupTextureDecoder();
-
 	static const int BUF_SIZE = 1024;
 	AlignedMem buf(BUF_SIZE, 16);
 
 	memset(buf, 0, BUF_SIZE);
-	EXPECT_EQ_HEX(DoQuickTexHash(buf, BUF_SIZE), 0xaa756edc);
+	EXPECT_EQ_HEX(StableQuickTexHash(buf, BUF_SIZE), 0xaa756edc);
 
 	memset(buf, 1, BUF_SIZE);
-	EXPECT_EQ_HEX(DoQuickTexHash(buf, BUF_SIZE), 0x66f81b1c);
+	EXPECT_EQ_HEX(StableQuickTexHash(buf, BUF_SIZE), 0x66f81b1c);
 
 	strncpy(buf, "hello", BUF_SIZE);
-	EXPECT_EQ_HEX(DoQuickTexHash(buf, BUF_SIZE), 0xf6028131);
+	EXPECT_EQ_HEX(StableQuickTexHash(buf, BUF_SIZE), 0xf6028131);
 
 	strncpy(buf, "goodbye", BUF_SIZE);
-	EXPECT_EQ_HEX(DoQuickTexHash(buf, BUF_SIZE), 0xef81b54f);
+	EXPECT_EQ_HEX(StableQuickTexHash(buf, BUF_SIZE), 0xef81b54f);
 
 	// Simple patterns.
 	for (int i = 0; i < BUF_SIZE; ++i) {
 		char *p = buf;
 		p[i] = i & 0xFF;
 	}
-	EXPECT_EQ_HEX(DoQuickTexHash(buf, BUF_SIZE), 0x0d64531c);
+	EXPECT_EQ_HEX(StableQuickTexHash(buf, BUF_SIZE), 0x0d64531c);
 
 	int j = 573;
 	for (int i = 0; i < BUF_SIZE; ++i) {
@@ -504,7 +502,7 @@ bool TestQuickTexHash() {
 		j += ((i * 7) + (i & 3)) * 11;
 		p[i] = j & 0xFF;
 	}
-	EXPECT_EQ_HEX(DoQuickTexHash(buf, BUF_SIZE), 0x58de8dbc);
+	EXPECT_EQ_HEX(StableQuickTexHash(buf, BUF_SIZE), 0x58de8dbc);
 
 	return true;
 }

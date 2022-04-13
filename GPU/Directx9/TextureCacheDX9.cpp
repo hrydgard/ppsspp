@@ -69,7 +69,6 @@ TextureCacheDX9::TextureCacheDX9(Draw::DrawContext *draw)
 	} else {
 		maxAnisotropyLevel = pCaps.MaxAnisotropy;
 	}
-	SetupTextureDecoder();
 
 	nextTexture_ = nullptr;
 	device_->CreateVertexDeclaration(g_FramebufferVertexElements, &pFramebufferVertexDecl);

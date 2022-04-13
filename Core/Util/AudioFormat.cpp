@@ -19,13 +19,25 @@
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
 #include "Core/Util/AudioFormat.h"
-#include "Core/Util/AudioFormatNEON.h"
 
 #ifdef _M_SSE
 #include <emmintrin.h>
 #endif
 
-void AdjustVolumeBlockStandard(s16 *out, s16 *in, size_t size, int leftVol, int rightVol) {
+#if PPSSPP_ARCH(ARM_NEON)
+#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
+#include <arm64_neon.h>
+#else
+#include <arm_neon.h>
+#endif
+#endif // PPSSPP_ARCH(ARM_NEON)
+
+// TODO: This shouldn't be a global.
+#if PPSSPP_ARCH(ARM_NEON)
+alignas(16) static s16 volumeValues[4] = {};
+#endif
+
+void AdjustVolumeBlock(s16 *out, s16 *in, size_t size, int leftVol, int rightVol) {
 #ifdef _M_SSE
 	if (leftVol <= 0x7fff && -leftVol <= 0x8000 && rightVol <= 0x7fff && -rightVol <= 0x8000) {
 		__m128i volume = _mm_set_epi16(leftVol, rightVol, leftVol, rightVol, leftVol, rightVol, leftVol, rightVol);
@@ -67,7 +79,36 @@ void AdjustVolumeBlockStandard(s16 *out, s16 *in, size_t size, int leftVol, int 
 		}
 	}
 #endif
+
+#elif PPSSPP_ARCH(ARM_NEON)
+	if (leftVol <= 0xFFFF && -leftVol <= 0x10000 && rightVol <= 0xFFFF && -rightVol <= 0x10000) {
+		// Note: vqshrn_n_s32 takes a const argument, so we always go with 1 here, 15 there.
+		volumeValues[0] = leftVol >> 1;
+		volumeValues[1] = rightVol >> 1;
+		volumeValues[2] = leftVol >> 1;
+		volumeValues[3] = rightVol >> 1;
+
+		const int16x4_t vol = vld1_s16(volumeValues);
+		while (size >= 16) {
+			int16x8_t indata1 = vld1q_s16(in);
+			int16x8_t indata2 = vld1q_s16(in + 8);
+
+			int32x4_t outh1 = vmull_s16(vget_high_s16(indata1), vol);
+			int32x4_t outh2 = vmull_s16(vget_high_s16(indata2), vol);
+			int32x4_t outl1 = vmull_s16(vget_low_s16(indata1), vol);
+			int32x4_t outl2 = vmull_s16(vget_low_s16(indata2), vol);
+
+			int16x8_t outdata1 = vcombine_s16(vqshrn_n_s32(outl1, 15), vqshrn_n_s32(outh1, 15));
+			int16x8_t outdata2 = vcombine_s16(vqshrn_n_s32(outl2, 15), vqshrn_n_s32(outh2, 15));
+			vst1q_s16(out, outdata1);
+			vst1q_s16(out + 8, outdata2);
+			in += 16;
+			out += 16;
+			size -= 16;
+		}
+	}
 #endif
+
 	if (leftVol <= 0x7fff && -leftVol <= 0x8000 && rightVol <= 0x7fff && -rightVol <= 0x8000) {
 		for (size_t i = 0; i < size; i += 2) {
 			out[i] = ApplySampleVolume(in[i], leftVol);
@@ -110,19 +151,3 @@ void ConvertS16ToF32(float *out, const s16 *in, size_t size) {
 		out[i] = in[i] * (1.0f / 32767.0f);
 	}
 }
-
-#if !defined(_M_SSE) && !PPSSPP_ARCH(ARM64)
-AdjustVolumeBlockFunc AdjustVolumeBlock = &AdjustVolumeBlockStandard;
-
-// This has to be done after CPUDetect has done its magic.
-void SetupAudioFormats() {
-#if PPSSPP_ARCH(ARM_NEON) && !PPSSPP_ARCH(ARM64)
-	if (cpu_info.bNEON) {
-		AdjustVolumeBlock = &AdjustVolumeBlockNEON;
-	}
-#endif
-}
-#else
-void SetupAudioFormats() {
-}
-#endif

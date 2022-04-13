@@ -59,10 +59,7 @@ endif
 
 ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
 ARCH_FILES := \
-  $(SRC)/GPU/Common/TextureDecoderNEON.cpp.neon \
-  $(SRC)/Core/Util/AudioFormatNEON.cpp.neon \
   $(SRC)/Common/ArmEmitter.cpp \
-  $(SRC)/Common/Data/Convert/ColorConvNEON.cpp.neon \
   $(SRC)/Common/Math/fast/fast_matrix_neon.S.neon \
   $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
   $(SRC)/Core/MIPS/ARM/ArmCompBranch.cpp \
@@ -86,10 +83,7 @@ endif
 
 ifeq ($(findstring arm64-v8a,$(TARGET_ARCH_ABI)),arm64-v8a)
 ARCH_FILES := \
-  $(SRC)/GPU/Common/TextureDecoderNEON.cpp \
-  $(SRC)/Core/Util/AudioFormatNEON.cpp \
   $(SRC)/Common/Arm64Emitter.cpp \
-  $(SRC)/Common/Data/Convert/ColorConvNEON.cpp \
   $(SRC)/Core/MIPS/ARM64/Arm64CompALU.cpp \
   $(SRC)/Core/MIPS/ARM64/Arm64CompBranch.cpp \
   $(SRC)/Core/MIPS/ARM64/Arm64CompFPU.cpp \

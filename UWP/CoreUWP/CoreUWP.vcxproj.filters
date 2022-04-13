@@ -239,9 +239,6 @@
     <ClCompile Include="..\..\Core\Util\AudioFormat.cpp">
       <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Core\Util\AudioFormatNEON.cpp">
-      <Filter>Util</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Core\Util\BlockAllocator.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -1228,9 +1225,6 @@
       <Filter>HW</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\Util\AudioFormat.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Core\Util\AudioFormatNEON.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\Util\BlockAllocator.h">

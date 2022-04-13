@@ -49,8 +49,6 @@ TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw)
 	: TextureCacheCommon(draw) {
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
-	SetupTextureDecoder();
-
 	nextTexture_ = nullptr;
 
 	std::vector<GLRInputLayout::Entry> entries;
