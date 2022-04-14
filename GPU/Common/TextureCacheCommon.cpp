@@ -15,9 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+
 #include <algorithm>
 
-#include "ppsspp_config.h"
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
@@ -1436,6 +1437,20 @@ inline u32 SSEReduce32And(__m128i value) {
 	value = _mm_and_si128(value, _mm_srli_si128(value, 32));
 	return _mm_cvtsi128_si32(value);
 }
+inline u32 SSEReduce16And(__m128i value) {
+	// TODO: Should use a shuffle instead of slri, probably.
+	value = _mm_and_si128(value, _mm_srli_si128(value, 64));
+	value = _mm_and_si128(value, _mm_srli_si128(value, 32));
+	value = _mm_and_si128(value, _mm_srli_si128(value, 16));
+	return _mm_cvtsi128_si32(value);
+}
+#endif
+
+#if PPSSPP_ARCH(ARM_NEON)
+inline u32 NEONReduce32And(uint32x4_t value) {
+	// TODO: Maybe a shuffle and a vector and, or something?
+	return vgetq_lane_u32(value, 0) & vgetq_lane_u32(value, 1) & vgetq_lane_u32(value, 2) & vgetq_lane_u32(value, 3);
+}
 #endif
 
 // TODO: SSE/SIMD
@@ -1467,6 +1482,7 @@ void CopyAndSumMask32(u32 *dst, const u32 *src, int width, u32 *outMask) {
 		mask = SSEReduce32And(wideMask);
 	}
 #endif
+
 	for (int i = 0; i < width; i++) {
 		u32 color = src[i];
 		mask &= color;
@@ -1494,6 +1510,16 @@ void CheckMask32(const u32 *src, int width, u32 *outMask) {
 			width -= 4;
 		}
 		mask = SSEReduce32And(wideMask);
+	}
+#elif PPSSPP_ARCH(ARM_NEON)
+	if (width >= 4) {
+		uint32x4_t wideMask = vdupq_n_u32(0xFFFFFFFF);
+		while (width >= 4) {
+			wideMask = vandq_u32(wideMask, vld1q_u32(src));
+			src += 4;
+			width -= 4;
+		}
+		mask = NEONReduce32And(wideMask);
 	}
 #endif
 
