@@ -1651,10 +1651,9 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 	case GE_TFMT_5650:
 		if (!swizzled) {
 			// Just a simple copy, we swizzle the color format.
+			fullAlphaMask = TfmtRawToFullAlpha(format);
 			if (reverseColors) {
 				// Just check the input's alpha to reuse code. TODO: make a specialized ReverseColors that checks as we go.
-				fullAlphaMask = TfmtRawToFullAlpha(format);
-
 				for (int y = 0; y < h; ++y) {
 					CheckMask16((const u16 *)(texptr + bufw * sizeof(u16) * y), w, &alphaSum);
 					ReverseColors(out + outPitch * y, texptr + bufw * sizeof(u16) * y, format, w, useBGRA);
@@ -1665,7 +1664,6 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 					ConvertFormatToRGBA8888(format, (u32 *)(out + outPitch * y), (const u16 *)texptr + bufw * y, w);
 				}
 			} else {
-				fullAlphaMask = TfmtRawToFullAlpha(format);
 				for (int y = 0; y < h; ++y) {
 					CopyAndSumMask16((u16 *)(out + outPitch * y), (u16 *)(texptr + bufw * sizeof(u16) * y), w, &alphaSum);
 				}
@@ -1683,22 +1681,20 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 			UnswizzleFromMem(tmpTexBuf32_.data(), bufw * 2, texptr, bufw, h, 2);
 			const u8 *unswizzled = (u8 *)tmpTexBuf32_.data();
 
+			fullAlphaMask = TfmtRawToFullAlpha(format);
 			if (reverseColors) {
 				// Just check the swizzled input's alpha to reuse code. TODO: make a specialized ReverseColors that checks as we go.
-				fullAlphaMask = TfmtRawToFullAlpha(format);
 				for (int y = 0; y < h; ++y) {
 					CheckMask16((const u16 *)(unswizzled + bufw * sizeof(u16) * y), w, &alphaSum);
 					ReverseColors(out + outPitch * y, unswizzled + bufw * sizeof(u16) * y, format, w, useBGRA);
 				}
 			} else if (expandTo32bit) {
 				// Just check the swizzled input's alpha to reuse code. TODO: make a specialized ConvertFormatToRGBA8888 that checks as we go.
-				fullAlphaMask = TfmtRawToFullAlpha(format);
 				for (int y = 0; y < h; ++y) {
 					CheckMask16((const u16 *)(unswizzled + bufw * sizeof(u16) * y), w, &alphaSum);
 					ConvertFormatToRGBA8888(format, (u32 *)(out + outPitch * y), (const u16 *)unswizzled + bufw * y, w);
 				}
 			} else {
-				fullAlphaMask = TfmtRawToFullAlpha(format);
 				for (int y = 0; y < h; ++y) {
 					CopyAndSumMask16((u16 *)(out + outPitch * y), (const u16 *)(unswizzled + bufw * sizeof(u16) * y), w, &alphaSum);
 				}
@@ -1711,14 +1707,13 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 
 	case GE_TFMT_8888:
 		if (!swizzled) {
+			fullAlphaMask = TfmtRawToFullAlpha(format);
 			if (reverseColors) {
-				fullAlphaMask = TfmtRawToFullAlpha(format);
 				for (int y = 0; y < h; ++y) {
 					CheckMask32((const u32 *)(texptr + bufw * sizeof(u32) * y), w, &alphaSum);
 					ReverseColors(out + outPitch * y, texptr + bufw * sizeof(u32) * y, format, w, useBGRA);
 				}
 			} else {
-				fullAlphaMask = TfmtRawToFullAlpha(format);
 				for (int y = 0; y < h; ++y) {
 					CopyAndSumMask32((u32 *)(out + outPitch * y), (const u32 *)(texptr + bufw * sizeof(u32) * y), w * sizeof(u32), &alphaSum);
 				}
@@ -1734,14 +1729,13 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 			UnswizzleFromMem(tmpTexBuf32_.data(), bufw * 4, texptr, bufw, h, 4);
 			const u8 *unswizzled = (u8 *)tmpTexBuf32_.data();
 
+			fullAlphaMask = TfmtRawToFullAlpha(format);
 			if (reverseColors) {
-				fullAlphaMask = TfmtRawToFullAlpha(format);
 				for (int y = 0; y < h; ++y) {
-					fullAlphaMask = TfmtRawToFullAlpha(format);
+					CheckMask32((const u32 *)(unswizzled + bufw * sizeof(u32) * y), w, &alphaSum);
 					ReverseColors(out + outPitch * y, unswizzled + bufw * sizeof(u32) * y, format, w, useBGRA);
 				}
 			} else {
-				fullAlphaMask = TfmtRawToFullAlpha(format);
 				for (int y = 0; y < h; ++y) {
 					CopyAndSumMask32((u32 *)(out + outPitch * y), (const u32 *)(unswizzled + bufw * sizeof(u32) * y), w * sizeof(u32), &alphaSum);
 				}
