@@ -1481,6 +1481,19 @@ void CopyAndSumMask32(u32 *dst, const u32 *src, int width, u32 *outMask) {
 		}
 		mask = SSEReduce32And(wideMask);
 	}
+#elif PPSSPP_ARCH(ARM_NEON)
+	if (width >= 4) {
+		uint32x4_t wideMask = vdupq_n_u32(0xFFFFFFFF);
+		while (width >= 4) {
+			uint32x4_t colors = vld1q_u32(src);
+			wideMask = vandq_u32(wideMask, colors);
+			vst1q_u32(dst, colors);
+			src += 4;
+			dst += 4;
+			width -= 4;
+		}
+		mask = NEONReduce32And(wideMask);
+	}
 #endif
 
 	for (int i = 0; i < width; i++) {
