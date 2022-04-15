@@ -42,7 +42,8 @@
 #endif
 
 #ifdef __clang__
-#define DO_NOT_VECTORIZE_LOOP #pragma clang loop vectorize(disable)
+// Weird how you can't just use #pragma in a macro.
+#define DO_NOT_VECTORIZE_LOOP _Pragma("clang loop vectorize(disable)")
 #else
 #define DO_NOT_VECTORIZE_LOOP
 #endif
@@ -713,7 +714,7 @@ void CopyAndSumMask16(u16 *dst, const u16 *src, int width, u32 *outMask) {
 	}
 #endif
 
-	DO_NOT_VECTORIZE_LOOP;
+	DO_NOT_VECTORIZE_LOOP
 	for (int i = 0; i < width; i++) {
 		u16 color = src[i];
 		mask &= color;
@@ -753,7 +754,7 @@ void CopyAndSumMask32(u32 *dst, const u32 *src, int width, u32 *outMask) {
 	}
 #endif
 
-	DO_NOT_VECTORIZE_LOOP;
+	DO_NOT_VECTORIZE_LOOP
 	for (int i = 0; i < width; i++) {
 		u32 color = src[i];
 		mask &= color;
@@ -786,7 +787,7 @@ void CheckMask16(const u16 *src, int width, u32 *outMask) {
 	}
 #endif
 
-	DO_NOT_VECTORIZE_LOOP;
+	DO_NOT_VECTORIZE_LOOP
 	for (int i = 0; i < width; i++) {
 		mask &= src[i];
 	}
@@ -817,7 +818,7 @@ void CheckMask32(const u32 *src, int width, u32 *outMask) {
 	}
 #endif
 
-	DO_NOT_VECTORIZE_LOOP;
+	DO_NOT_VECTORIZE_LOOP
 	for (int i = 0; i < width; i++) {
 		mask &= src[i];
 	}
