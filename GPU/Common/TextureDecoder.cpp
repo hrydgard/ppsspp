@@ -657,8 +657,8 @@ inline u32 SSEReduce16And(__m128i value) {
 	// TODO: Should use a shuffle instead of slri, probably.
 	value = _mm_and_si128(value, _mm_srli_si128(value, 64));
 	value = _mm_and_si128(value, _mm_srli_si128(value, 32));
-	value = _mm_and_si128(value, _mm_srli_si128(value, 16));
-	return _mm_cvtsi128_si32(value);
+	u32 mask = _mm_cvtsi128_si32(value);
+	return mask & (mask >> 16);
 }
 #endif
 
@@ -667,12 +667,45 @@ inline u32 NEONReduce32And(uint32x4_t value) {
 	// TODO: Maybe a shuffle and a vector and, or something?
 	return vgetq_lane_u32(value, 0) & vgetq_lane_u32(value, 1) & vgetq_lane_u32(value, 2) & vgetq_lane_u32(value, 3);
 }
+inline u32 NEONReduce16And(uint32x4_t value) {
+	// TODO: Maybe a shuffle and a vector and, or something?
+	u32 mask = vgetq_lane_u32(value, 0) & vgetq_lane_u32(value, 1) & vgetq_lane_u32(value, 2) & vgetq_lane_u32(value, 3);
+	return mask & (mask >> 16);
+}
 #endif
 
 // TODO: SSE/SIMD
 // At least on x86, compiler actually SIMDs these pretty well.
 void CopyAndSumMask16(u16 *dst, const u16 *src, int width, u32 *outMask) {
 	u16 mask = 0xFFFF;
+#ifdef _M_SSE
+	if (width >= 8) {
+		__m128i wideMask = _mm_set1_epi32(0xFFFFFFFF);
+		while (width >= 8) {
+			__m128i color = _mm_loadu_si128((__m128i *)src);
+			wideMask = _mm_and_si128(wideMask, color);
+			_mm_storeu_si128((__m128i *)dst, color);
+			src += 8;
+			dst += 8;
+			width -= 8;
+		}
+		mask = SSEReduce16And(wideMask);
+	}
+#elif PPSSPP_ARCH(ARM_NEON)
+	if (width >= 8) {
+		uint32x4_t wideMask = vdupq_n_u32(0xFFFFFFFF);
+		while (width >= 8) {
+			uint32x4_t colors = vld1q_u32(src);
+			wideMask = vandq_u32(wideMask, colors);
+			vst1q_u32(dst, colors);
+			src += 8;
+			dst += 8;
+			width -= 8;
+		}
+		mask = NEONReduce16And(wideMask);
+	}
+#endif
+
 	for (int i = 0; i < width; i++) {
 		u16 color = src[i];
 		mask &= color;
@@ -722,6 +755,27 @@ void CopyAndSumMask32(u32 *dst, const u32 *src, int width, u32 *outMask) {
 
 void CheckMask16(const u16 *src, int width, u32 *outMask) {
 	u16 mask = 0xFFFF;
+#ifdef _M_SSE
+	if (width >= 8) {
+		__m128i wideMask = _mm_set1_epi32(0xFFFFFFFF);
+		while (width >= 8) {
+			wideMask = _mm_and_si128(wideMask, _mm_loadu_si128((__m128i *)src));
+			src += 8;
+			width -= 8;
+		}
+		mask = SSEReduce16And(wideMask);
+	}
+#elif PPSSPP_ARCH(ARM_NEON)
+	if (width >= 8) {
+		uint32x4_t wideMask = vdupq_n_u32(0xFFFFFFFF);
+		while (width >= 8) {
+			wideMask = vandq_u32(wideMask, vld1q_u32(src));
+			src += 8;
+			width -= 8;
+		}
+		mask = NEONReduce16And(wideMask);
+	}
+#endif
 	for (int i = 0; i < width; i++) {
 		mask &= src[i];
 	}
