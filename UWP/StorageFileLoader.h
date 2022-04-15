@@ -56,6 +56,8 @@ private:
 	Windows::Storage::Streams::IRandomAccessStreamWithContentType ^stream_;
 	Path path_;
 
+	std::mutex operationMutex_;
+
 	bool operationRequested_ = false;
 	Operation operation_{ OpType::NONE, 0, 0 };
 	std::condition_variable cond_;

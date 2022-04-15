@@ -43,7 +43,6 @@ StorageFileLoader::~StorageFileLoader() {
 void StorageFileLoader::threadfunc() {
 	SetCurrentThreadName("StorageFileLoader");
 
-
 	{
 		std::unique_lock<std::mutex> lock(initMutex);
 		_assert_(!active_);
@@ -85,10 +84,10 @@ void StorageFileLoader::threadfunc() {
 		if (operationRequested_) {
 			switch (operation_.type) {
 			case OpType::READ_AT: {
-				Streams::Buffer ^buf = ref new Streams::Buffer(operation_.size);
+				Streams::Buffer ^buf = ref new Streams::Buffer((unsigned int)operation_.size);
 				operationFailed_ = false;
 				stream_->Seek(operation_.offset);
-				auto task = create_task(stream_->ReadAsync(buf, operation_.size, Streams::InputStreamOptions::None));
+				auto task = create_task(stream_->ReadAsync(buf, (unsigned int)operation_.size, Streams::InputStreamOptions::None));
 				Streams::IBuffer ^output = nullptr;
 				try {
 					task.wait();
@@ -98,8 +97,8 @@ void StorageFileLoader::threadfunc() {
 					const char *what = e.what();
 					INFO_LOG(SYSTEM, "%s", what);
 				}
-				operationRequested_ = false;
 				std::unique_lock<std::mutex> lock(mutexResponse_);
+				operationRequested_ = false;
 				response_.buffer = output;
 				responseAvailable_ = true;
 				condResponse_.notify_one();
@@ -142,7 +141,11 @@ void StorageFileLoader::EnsureOpen() {
 }
 
 size_t StorageFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags) {
+	// We can't handle multiple of these at a time, so serialize the easy way.
+	std::unique_lock<std::mutex> lock(operationMutex_);
+
 	EnsureOpen();
+
 	_assert_(!operationRequested_);
 	_assert_(!responseAvailable_)
 
@@ -166,6 +169,7 @@ size_t StorageFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, vo
 		if (operationFailed_) {
 			return 0;
 		}
+
 		DataReader ^rd = DataReader::FromBuffer(response_.buffer);
 		size_t len = response_.buffer->Length;
 		Platform::Array<uint8_t> ^bytearray = ref new Platform::Array<uint8_t>((unsigned int)len);
