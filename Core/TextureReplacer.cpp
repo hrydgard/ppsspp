@@ -839,6 +839,7 @@ void ReplacedTexture::PrepareData(int level) {
 
 		int w, h, f;
 		uint8_t *image;
+
 		if (LoadZIMPtr(&zim[0], zimSize, &w, &h, &f, &image)) {
 			if (w > info.w || h > info.h) {
 				ERROR_LOG(G3D, "Texture replacement changed since header read: %s", info.file.c_str());
@@ -857,7 +858,7 @@ void ReplacedTexture::PrepareData(int level) {
 			free(image);
 		}
 
-		CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)&out[0], info.w, w, h);
+		CheckAlphaResult res = CheckAlpha32Rect((u32 *)&out[0], info.w, w, h, 0xFF000000);
 		if (res == CHECKALPHA_ANY || level == 0) {
 			alphaStatus_ = ReplacedTextureAlpha(res);
 		}
@@ -897,7 +898,7 @@ void ReplacedTexture::PrepareData(int level) {
 
 		if (!checkedAlpha) {
 			// This will only check the hashed bits.
-			CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)&out[0], info.w, png.width, png.height);
+			CheckAlphaResult res = CheckAlpha32Rect((u32 *)&out[0], info.w, png.width, png.height, 0xFF000000);
 			if (res == CHECKALPHA_ANY || level == 0) {
 				alphaStatus_ = ReplacedTextureAlpha(res);
 			}

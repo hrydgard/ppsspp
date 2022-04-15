@@ -375,8 +375,8 @@ void TextureCacheDX9::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, G
 		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 
-		TexCacheEntry::TexStatus alphaStatus = CheckAlpha(clutBuf_, getClutDestFormat(clutFormat), clutTotalColors, clutTotalColors, 1);
-		gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
+		CheckAlphaResult alphaStatus = CheckAlpha(clutBuf_, getClutDestFormat(clutFormat), clutTotalColors);
+		gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
 	} else {
 		framebufferManagerDX9_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 
@@ -525,25 +525,18 @@ D3DFORMAT TextureCacheDX9::GetDestFormat(GETextureFormat format, GEPaletteFormat
 	}
 }
 
-TexCacheEntry::TexStatus TextureCacheDX9::CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h) {
-	CheckAlphaResult res;
+CheckAlphaResult TextureCacheDX9::CheckAlpha(const u32 *pixelData, u32 dstFmt, int w) {
 	switch (dstFmt) {
 	case D3DFMT_A4R4G4B4:
-		res = CheckAlphaRGBA4444Basic(pixelData, stride, w, h);
-		break;
+		return CheckAlpha16((const u16 *)pixelData, w, 0xF000);
 	case D3DFMT_A1R5G5B5:
-		res = CheckAlphaRGBA5551Basic(pixelData, stride, w, h);
-		break;
+		return CheckAlpha16((const u16 *)pixelData, w, 0x8000);
 	case D3DFMT_R5G6B5:
 		// Never has any alpha.
-		res = CHECKALPHA_FULL;
-		break;
+		return CHECKALPHA_FULL;
 	default:
-		res = CheckAlphaRGBA8888Basic(pixelData, stride, w, h);
-		break;
+		return CheckAlpha32(pixelData, w, 0xFF000000);
 	}
-
-	return (TexCacheEntry::TexStatus)res;
 }
 
 ReplacedTextureFormat FromD3D9Format(u32 fmt) {

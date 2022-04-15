@@ -373,8 +373,8 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 			gstate_c.depalFramebufferFormat = framebuffer->drawnFormat;
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
-			TexCacheEntry::TexStatus alphaStatus = CheckAlpha((const uint8_t *)clutBuf_, getClutDestFormat(clutFormat), clutTotalColors, clutTotalColors, 1);
-			gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
+			CheckAlphaResult alphaStatus = CheckAlpha((const uint8_t *)clutBuf_, getClutDestFormat(clutFormat), clutTotalColors);
+			gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
 			return;
 		}
 
@@ -407,8 +407,8 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 
-		TexCacheEntry::TexStatus alphaStatus = CheckAlpha((const uint8_t *)clutBuf_, getClutDestFormat(clutFormat), clutTotalColors, clutTotalColors, 1);
-		gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
+		CheckAlphaResult alphaStatus = CheckAlpha((const uint8_t *)clutBuf_, getClutDestFormat(clutFormat), clutTotalColors);
+		gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
 	} else {
 		framebufferManagerGL_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 
@@ -614,25 +614,18 @@ Draw::DataFormat TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPalet
 	}
 }
 
-TexCacheEntry::TexStatus TextureCacheGLES::CheckAlpha(const uint8_t *pixelData, Draw::DataFormat dstFmt, int stride, int w, int h) {
-	CheckAlphaResult res;
+CheckAlphaResult TextureCacheGLES::CheckAlpha(const uint8_t *pixelData, Draw::DataFormat dstFmt, int w) {
 	switch (dstFmt) {
 	case Draw::DataFormat::R4G4B4A4_UNORM_PACK16:
-		res = CheckAlphaABGR4444Basic((const uint32_t *)pixelData, stride, w, h);
-		break;
+		return CheckAlpha16((const u16 *)pixelData, w, 0x000F);
 	case Draw::DataFormat::R5G5B5A1_UNORM_PACK16:
-		res = CheckAlphaABGR1555Basic((const uint32_t *)pixelData, stride, w, h);
-		break;
+		return CheckAlpha16((const u16 *)pixelData, w, 0x0001);
 	case Draw::DataFormat::R5G6B5_UNORM_PACK16:
 		// Never has any alpha.
-		res = CHECKALPHA_FULL;
-		break;
+		return CHECKALPHA_FULL;
 	default:
-		res = CheckAlphaRGBA8888Basic((const uint32_t *)pixelData, stride, w, h);
-		break;
+		return CheckAlpha32((const u32 *)pixelData, w, 0xFF000000);  // note, the normal order here, unlike the 16-bit formats
 	}
-
-	return (TexCacheEntry::TexStatus)res;
 }
 
 void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int scaleFactor, Draw::DataFormat dstFmt) {

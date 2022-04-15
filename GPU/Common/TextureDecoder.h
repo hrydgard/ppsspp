@@ -38,11 +38,11 @@ void DoUnswizzleTex16(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch
 
 u32 StableQuickTexHash(const void *checkp, u32 size);
 
-CheckAlphaResult CheckAlphaRGBA8888Basic(const u32 *pixelData, int stride, int w, int h);
-CheckAlphaResult CheckAlphaABGR4444Basic(const u32 *pixelData, int stride, int w, int h);
-CheckAlphaResult CheckAlphaRGBA4444Basic(const u32 *pixelData, int stride, int w, int h);
-CheckAlphaResult CheckAlphaABGR1555Basic(const u32 *pixelData, int stride, int w, int h);
-CheckAlphaResult CheckAlphaRGBA5551Basic(const u32 *pixelData, int stride, int w, int h);
+// outMask is an in/out parameter.
+void CopyAndSumMask16(u16 *dst, const u16 *src, int width, u32 *outMask);
+void CopyAndSumMask32(u32 *dst, const u32 *src, int width, u32 *outMask);
+void CheckMask16(const u16 *src, int width, u32 *outMask);
+void CheckMask32(const u32 *src, int width, u32 *outMask);
 
 // All these DXT structs are in the reverse order, as compared to PC.
 // On PC, alpha comes before color, and interpolants are before the tile data.
@@ -96,6 +96,26 @@ u32 GetTextureBufw(int level, u32 texaddr, GETextureFormat format);
 
 inline bool AlphaSumIsFull(u32 alphaSum, u32 fullAlphaMask) {
 	return fullAlphaMask != 0 && (alphaSum & fullAlphaMask) == fullAlphaMask;
+}
+
+inline CheckAlphaResult CheckAlpha16(const u16 *pixelData, int width, u32 fullAlphaMask) {
+	u32 alphaSum = 0xFFFFFFFF;
+	CheckMask16(pixelData, width, &alphaSum);
+	return AlphaSumIsFull(alphaSum, fullAlphaMask) ? CHECKALPHA_FULL : CHECKALPHA_ANY;
+}
+
+inline CheckAlphaResult CheckAlpha32(const u32 *pixelData, int width, u32 fullAlphaMask) {
+	u32 alphaSum = 0xFFFFFFFF;
+	CheckMask32(pixelData, width, &alphaSum);
+	return AlphaSumIsFull(alphaSum, fullAlphaMask) ? CHECKALPHA_FULL : CHECKALPHA_ANY;
+}
+
+inline CheckAlphaResult CheckAlpha32Rect(const u32 *pixelData, int stride, int width, int height, u32 fullAlphaMask) {
+	u32 alphaSum = 0xFFFFFFFF;
+	for (int y = 0; y < height; y++) {
+		CheckMask32(pixelData + stride * y, width, &alphaSum);
+	}
+	return AlphaSumIsFull(alphaSum, fullAlphaMask) ? CHECKALPHA_FULL : CHECKALPHA_ANY;
 }
 
 template <typename IndexT, typename ClutT>

@@ -647,417 +647,113 @@ void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch, int height) {
 }
 
 #ifdef _M_SSE
-static inline u32 CombineSSEBitsToDWORD(const __m128i &v) {
-	__m128i temp;
-	temp = _mm_or_si128(v, _mm_srli_si128(v, 8));
-	temp = _mm_or_si128(temp, _mm_srli_si128(temp, 4));
-	return _mm_cvtsi128_si32(temp);
+inline u32 SSEReduce32And(__m128i value) {
+	// TODO: Should use a shuffle instead of slri, probably.
+	value = _mm_and_si128(value, _mm_srli_si128(value, 64));
+	value = _mm_and_si128(value, _mm_srli_si128(value, 32));
+	return _mm_cvtsi128_si32(value);
 }
-
-CheckAlphaResult CheckAlphaRGBA8888SSE2(const u32 *pixelData, int stride, int w, int h) {
-	const __m128i mask = _mm_set1_epi32(0xFF000000);
-
-	const __m128i *p = (const __m128i *)pixelData;
-	const int w4 = w / 4;
-	const int stride4 = stride / 4;
-
-	__m128i bits = mask;
-	for (int y = 0; y < h; ++y) {
-		for (int i = 0; i < w4; ++i) {
-			const __m128i a = _mm_load_si128(&p[i]);
-			bits = _mm_and_si128(bits, a);
-		}
-
-		__m128i result = _mm_xor_si128(bits, mask);
-		if (CombineSSEBitsToDWORD(result) != 0) {
-			return CHECKALPHA_ANY;
-		}
-
-		p += stride4;
-	}
-
-	return CHECKALPHA_FULL;
+inline u32 SSEReduce16And(__m128i value) {
+	// TODO: Should use a shuffle instead of slri, probably.
+	value = _mm_and_si128(value, _mm_srli_si128(value, 64));
+	value = _mm_and_si128(value, _mm_srli_si128(value, 32));
+	value = _mm_and_si128(value, _mm_srli_si128(value, 16));
+	return _mm_cvtsi128_si32(value);
 }
-
-CheckAlphaResult CheckAlphaABGR4444SSE2(const u32 *pixelData, int stride, int w, int h) {
-	const __m128i mask = _mm_set1_epi16((short)0x000F);
-
-	const __m128i *p = (const __m128i *)pixelData;
-	const int w8 = w / 8;
-	const int stride8 = stride / 8;
-
-	__m128i bits = mask;
-	for (int y = 0; y < h; ++y) {
-		for (int i = 0; i < w8; ++i) {
-			const __m128i a = _mm_load_si128(&p[i]);
-			bits = _mm_and_si128(bits, a);
-		}
-
-		__m128i result = _mm_xor_si128(bits, mask);
-		if (CombineSSEBitsToDWORD(result) != 0) {
-			return CHECKALPHA_ANY;
-		}
-
-		p += stride8;
-	}
-
-	return CHECKALPHA_FULL;
-}
-
-CheckAlphaResult CheckAlphaABGR1555SSE2(const u32 *pixelData, int stride, int w, int h) {
-	const __m128i mask = _mm_set1_epi16((short)0x0001);
-
-	const __m128i *p = (const __m128i *)pixelData;
-	const int w8 = w / 8;
-	const int stride8 = stride / 8;
-
-	__m128i bits = mask;
-	for (int y = 0; y < h; ++y) {
-		for (int i = 0; i < w8; ++i) {
-			const __m128i a = _mm_load_si128(&p[i]);
-			bits = _mm_and_si128(bits, a);
-		}
-
-		__m128i result = _mm_xor_si128(bits, mask);
-		if (CombineSSEBitsToDWORD(result) != 0) {
-			return CHECKALPHA_ANY;
-		}
-
-		p += stride8;
-	}
-
-	return CHECKALPHA_FULL;
-}
-
-CheckAlphaResult CheckAlphaRGBA4444SSE2(const u32 *pixelData, int stride, int w, int h) {
-	const __m128i mask = _mm_set1_epi16((short)0xF000);
-
-	const __m128i *p = (const __m128i *)pixelData;
-	const int w8 = w / 8;
-	const int stride8 = stride / 8;
-
-	__m128i bits = mask;
-	for (int y = 0; y < h; ++y) {
-		for (int i = 0; i < w8; ++i) {
-			const __m128i a = _mm_load_si128(&p[i]);
-			bits = _mm_and_si128(bits, a);
-		}
-
-		__m128i result = _mm_xor_si128(bits, mask);
-		if (CombineSSEBitsToDWORD(result) != 0) {
-			return CHECKALPHA_ANY;
-		}
-
-		p += stride8;
-	}
-
-	return CHECKALPHA_FULL;
-}
-
-CheckAlphaResult CheckAlphaRGBA5551SSE2(const u32 *pixelData, int stride, int w, int h) {
-	const __m128i mask = _mm_set1_epi16((short)0x8000);
-
-	const __m128i *p = (const __m128i *)pixelData;
-	const int w8 = w / 8;
-	const int stride8 = stride / 8;
-
-	__m128i bits = mask;
-	for (int y = 0; y < h; ++y) {
-		for (int i = 0; i < w8; ++i) {
-			const __m128i a = _mm_load_si128(&p[i]);
-			bits = _mm_and_si128(bits, a);
-		}
-
-		__m128i result = _mm_xor_si128(bits, mask);
-		if (CombineSSEBitsToDWORD(result) != 0) {
-			return CHECKALPHA_ANY;
-		}
-
-		p += stride8;
-	}
-
-	return CHECKALPHA_FULL;
-}
-
-#endif  // _M_SSE
+#endif
 
 #if PPSSPP_ARCH(ARM_NEON)
-
-static inline bool VectorIsNonZeroNEON(const uint32x4_t &v) {
-	u64 low = vgetq_lane_u64(vreinterpretq_u64_u32(v), 0);
-	u64 high = vgetq_lane_u64(vreinterpretq_u64_u32(v), 1);
-
-	return (low | high) != 0;
-}
-
-#ifndef _MSC_VER
-// MSVC consider this function the same as the one above! uint16x8_t is typedef'd to the same type as uint32x4_t.
-static inline bool VectorIsNonZeroNEON(const uint16x8_t &v) {
-	u64 low = vgetq_lane_u64(vreinterpretq_u64_u16(v), 0);
-	u64 high = vgetq_lane_u64(vreinterpretq_u64_u16(v), 1);
-
-	return (low | high) != 0;
+inline u32 NEONReduce32And(uint32x4_t value) {
+	// TODO: Maybe a shuffle and a vector and, or something?
+	return vgetq_lane_u32(value, 0) & vgetq_lane_u32(value, 1) & vgetq_lane_u32(value, 2) & vgetq_lane_u32(value, 3);
 }
 #endif
 
-CheckAlphaResult CheckAlphaRGBA8888NEON(const u32 *pixelData, int stride, int w, int h) {
-	const u32 *p = (const u32 *)pixelData;
-
-	const uint32x4_t mask = vdupq_n_u32(0xFF000000);
-	uint32x4_t bits = mask;
-	for (int y = 0; y < h; ++y) {
-		for (int i = 0; i < w; i += 4) {
-			const uint32x4_t a = vld1q_u32(&p[i]);
-			bits = vandq_u32(bits, a);
-		}
-
-		uint32x4_t result = veorq_u32(bits, mask);
-		if (VectorIsNonZeroNEON(result)) {
-			return CHECKALPHA_ANY;
-		}
-
-		p += stride;
+// TODO: SSE/SIMD
+// At least on x86, compiler actually SIMDs these pretty well.
+void CopyAndSumMask16(u16 *dst, const u16 *src, int width, u32 *outMask) {
+	u16 mask = 0xFFFF;
+	for (int i = 0; i < width; i++) {
+		u16 color = src[i];
+		mask &= color;
+		dst[i] = color;
 	}
-
-	return CHECKALPHA_FULL;
+	*outMask &= (u32)mask;
 }
 
-CheckAlphaResult CheckAlphaABGR4444NEON(const u32 *pixelData, int stride, int w, int h) {
-	const u16 *p = (const u16 *)pixelData;
-
-	const uint16x8_t mask = vdupq_n_u16((u16)0x000F);
-	uint16x8_t bits = mask;
-	for (int y = 0; y < h; ++y) {
-		for (int i = 0; i < w; i += 8) {
-			const uint16x8_t a = vld1q_u16(&p[i]);
-			bits = vandq_u16(bits, a);
-		}
-
-		uint16x8_t result = veorq_u16(bits, mask);
-		if (VectorIsNonZeroNEON(result)) {
-			return CHECKALPHA_ANY;
-		}
-
-		p += stride;
-	}
-
-	return CHECKALPHA_FULL;
-}
-
-CheckAlphaResult CheckAlphaABGR1555NEON(const u32 *pixelData, int stride, int w, int h) {
-	const u16 *p = (const u16 *)pixelData;
-
-	const uint16x8_t mask = vdupq_n_u16((u16)0x0001);
-	uint16x8_t bits = mask;
-	for (int y = 0; y < h; ++y) {
-		for (int i = 0; i < w; i += 8) {
-			const uint16x8_t a = vld1q_u16(&p[i]);
-			bits = vandq_u16(bits, a);
-		}
-
-		uint16x8_t result = veorq_u16(bits, mask);
-		if (VectorIsNonZeroNEON(result)) {
-			return CHECKALPHA_ANY;
-		}
-
-		p += stride;
-	}
-
-	return CHECKALPHA_FULL;
-}
-
-CheckAlphaResult CheckAlphaRGBA4444NEON(const u32 *pixelData, int stride, int w, int h) {
-	const u16 *p = (const u16 *)pixelData;
-
-	const uint16x8_t mask = vdupq_n_u16((u16)0xF000);
-	uint16x8_t bits = mask;
-	for (int y = 0; y < h; ++y) {
-		for (int i = 0; i < w; i += 8) {
-			const uint16x8_t a = vld1q_u16(&p[i]);
-			bits = vandq_u16(bits, a);
-		}
-
-		uint16x8_t result = veorq_u16(bits, mask);
-		if (VectorIsNonZeroNEON(result)) {
-			return CHECKALPHA_ANY;
-		}
-
-		p += stride;
-	}
-
-	return CHECKALPHA_FULL;
-}
-
-CheckAlphaResult CheckAlphaRGBA5551NEON(const u32 *pixelData, int stride, int w, int h) {
-	const u16 *p = (const u16 *)pixelData;
-
-	const uint16x8_t mask = vdupq_n_u16((u16)0x8000);
-	uint16x8_t bits = mask;
-	for (int y = 0; y < h; ++y) {
-		for (int i = 0; i < w; i += 8) {
-			const uint16x8_t a = vld1q_u16(&p[i]);
-			bits = vandq_u16(bits, a);
-		}
-
-		uint16x8_t result = veorq_u16(bits, mask);
-		if (VectorIsNonZeroNEON(result)) {
-			return CHECKALPHA_ANY;
-		}
-
-		p += stride;
-	}
-
-	return CHECKALPHA_FULL;
-}
-
-#endif
-
-CheckAlphaResult CheckAlphaRGBA8888Basic(const u32 *pixelData, int stride, int w, int h) {
-	// Use SIMD if aligned to 16 bytes / 4 pixels (almost always the case.)
-	if ((w & 3) == 0 && (stride & 3) == 0) {
+// Used in video playback so nice to have being fast.
+void CopyAndSumMask32(u32 *dst, const u32 *src, int width, u32 *outMask) {
+	u32 mask = 0xFFFFFFFF;
 #ifdef _M_SSE
-		return CheckAlphaRGBA8888SSE2(pixelData, stride, w, h);
+	if (width >= 4) {
+		__m128i wideMask = _mm_set1_epi32(0xFFFFFFFF);
+		while (width >= 4) {
+			__m128i color = _mm_loadu_si128((__m128i *)src);
+			wideMask = _mm_and_si128(wideMask, color);
+			_mm_storeu_si128((__m128i *)dst, color);
+			src += 4;
+			dst += 4;
+			width -= 4;
+		}
+		mask = SSEReduce32And(wideMask);
+	}
 #elif PPSSPP_ARCH(ARM_NEON)
-		return CheckAlphaRGBA8888NEON(pixelData, stride, w, h);
+	if (width >= 4) {
+		uint32x4_t wideMask = vdupq_n_u32(0xFFFFFFFF);
+		while (width >= 4) {
+			uint32x4_t colors = vld1q_u32(src);
+			wideMask = vandq_u32(wideMask, colors);
+			vst1q_u32(dst, colors);
+			src += 4;
+			dst += 4;
+			width -= 4;
+		}
+		mask = NEONReduce32And(wideMask);
+	}
 #endif
+
+	for (int i = 0; i < width; i++) {
+		u32 color = src[i];
+		mask &= color;
+		dst[i] = color;
 	}
-
-	const u32 *p = pixelData;
-	for (int y = 0; y < h; ++y) {
-		u32 bits = 0xFF000000;
-		for (int i = 0; i < w; ++i) {
-			bits &= p[i];
-		}
-
-		if (bits != 0xFF000000) {
-			// We're done, we hit non-full alpha.
-			return CHECKALPHA_ANY;
-		}
-
-		p += stride;
-	}
-
-	return CHECKALPHA_FULL;
+	*outMask &= (u32)mask;
 }
 
-CheckAlphaResult CheckAlphaABGR4444Basic(const u32 *pixelData, int stride, int w, int h) {
-	// Use SIMD if aligned to 16 bytes / 8 pixels (usually the case.)
-	if ((w & 7) == 0 && (stride & 7) == 0) {
-#ifdef _M_SSE
-		return CheckAlphaABGR4444SSE2(pixelData, stride, w, h);
-#elif PPSSPP_ARCH(ARM_NEON)
-		return CheckAlphaABGR4444NEON(pixelData, stride, w, h);
-#endif
+void CheckMask16(const u16 *src, int width, u32 *outMask) {
+	u16 mask = 0xFFFF;
+	for (int i = 0; i < width; i++) {
+		mask &= src[i];
 	}
-
-	const u32 *p = pixelData;
-	const int w2 = (w + 1) / 2;
-	const int stride2 = (stride + 1) / 2;
-
-	for (int y = 0; y < h; ++y) {
-		u32 bits = 0x000F000F;
-		for (int i = 0; i < w2; ++i) {
-			bits &= p[i];
-		}
-
-		if (bits != 0x000F000F) {
-			// We're done, we hit non-full alpha.
-			return CHECKALPHA_ANY;
-		}
-
-		p += stride2;
-	}
-
-	return CHECKALPHA_FULL;
+	*outMask &= (u32)mask;
 }
 
-CheckAlphaResult CheckAlphaABGR1555Basic(const u32 *pixelData, int stride, int w, int h) {
-	// Use SIMD if aligned to 16 bytes / 8 pixels (usually the case.)
-	if ((w & 7) == 0 && (stride & 7) == 0) {
+void CheckMask32(const u32 *src, int width, u32 *outMask) {
+	u32 mask = 0xFFFFFFFF;
 #ifdef _M_SSE
-		return CheckAlphaABGR1555SSE2(pixelData, stride, w, h);
+	if (width >= 4) {
+		__m128i wideMask = _mm_set1_epi32(0xFFFFFFFF);
+		while (width >= 4) {
+			wideMask = _mm_and_si128(wideMask, _mm_loadu_si128((__m128i *)src));
+			src += 4;
+			width -= 4;
+		}
+		mask = SSEReduce32And(wideMask);
+	}
 #elif PPSSPP_ARCH(ARM_NEON)
-		return CheckAlphaABGR1555NEON(pixelData, stride, w, h);
+	if (width >= 4) {
+		uint32x4_t wideMask = vdupq_n_u32(0xFFFFFFFF);
+		while (width >= 4) {
+			wideMask = vandq_u32(wideMask, vld1q_u32(src));
+			src += 4;
+			width -= 4;
+		}
+		mask = NEONReduce32And(wideMask);
+	}
 #endif
+
+	for (int i = 0; i < width; i++) {
+		mask &= src[i];
 	}
-
-	const u32 *p = pixelData;
-	const int w2 = (w + 1) / 2;
-	const int stride2 = (stride + 1) / 2;
-
-	for (int y = 0; y < h; ++y) {
-		u32 bits = 0x00010001;
-		for (int i = 0; i < w2; ++i) {
-			bits &= p[i];
-		}
-
-		if (bits != 0x00010001) {
-			return CHECKALPHA_ANY;
-		}
-
-		p += stride2;
-	}
-
-	return CHECKALPHA_FULL;
-}
-
-CheckAlphaResult CheckAlphaRGBA4444Basic(const u32 *pixelData, int stride, int w, int h) {
-	// Use SSE if aligned to 16 bytes / 8 pixels (usually the case.)
-	if ((w & 7) == 0 && (stride & 7) == 0) {
-#ifdef _M_SSE
-		return CheckAlphaRGBA4444SSE2(pixelData, stride, w, h);
-#elif PPSSPP_ARCH(ARM_NEON)
-		return CheckAlphaRGBA4444NEON(pixelData, stride, w, h);
-#endif
-	}
-
-	const u32 *p = pixelData;
-	const int w2 = (w + 1) / 2;
-	const int stride2 = (stride + 1) / 2;
-
-	for (int y = 0; y < h; ++y) {
-		u32 bits = 0xF000F000;
-		for (int i = 0; i < w2; ++i) {
-			bits &= p[i];
-		}
-
-		if (bits != 0xF000F000) {
-			// We're done, we hit non-full alpha.
-			return CHECKALPHA_ANY;
-		}
-
-		p += stride2;
-	}
-
-	return CHECKALPHA_FULL;
-}
-
-CheckAlphaResult CheckAlphaRGBA5551Basic(const u32 *pixelData, int stride, int w, int h) {
-	// Use SSE if aligned to 16 bytes / 8 pixels (usually the case.)
-	if ((w & 7) == 0 && (stride & 7) == 0) {
-#ifdef _M_SSE
-		return CheckAlphaRGBA5551SSE2(pixelData, stride, w, h);
-#elif PPSSPP_ARCH(ARM_NEON)
-		return CheckAlphaRGBA5551NEON(pixelData, stride, w, h);
-#endif
-	}
-
-	const u32 *p = pixelData;
-	const int w2 = (w + 1) / 2;
-	const int stride2 = (stride + 1) / 2;
-
-	for (int y = 0; y < h; ++y) {
-		u32 bits = 0x80008000;
-		for (int i = 0; i < w2; ++i) {
-			bits &= p[i];
-		}
-
-		if (bits != 0x80008000) {
-			return CHECKALPHA_ANY;
-		}
-
-		p += stride2;
-	}
-
-	return CHECKALPHA_FULL;
+	*outMask &= (u32)mask;
 }
