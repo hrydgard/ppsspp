@@ -1,4 +1,16 @@
 #include "ppsspp_config.h"
+
+#if defined(_M_SSE)
+#include <emmintrin.h>
+#endif
+#if PPSSPP_ARCH(ARM_NEON)
+#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
+#include <arm64_neon.h>
+#else
+#include <arm_neon.h>
+#endif
+#endif
+
 #include <algorithm>
 #include <type_traits>
 #include <mutex>
@@ -2957,6 +2969,21 @@ bool GPUCommon::FramebufferReallyDirty() {
 		return dirty;
 	}
 	return true;
+}
+
+void GPUCommon::UpdateUVScaleOffset() {
+#ifdef _M_SSE
+	__m128i values = _mm_slli_epi32(_mm_load_si128((const __m128i *) & gstate.texscaleu), 8);
+	_mm_storeu_si128((__m128i *) & gstate_c.uv, values);
+#elif PPSSPP_ARCH(ARM_NEON)
+	const uint32x4_t values = vshlq_n_u32(vld1q_u32((const u32 *)&gstate.texscaleu), 8);
+	vst1q_u32((u32 *)&gstate_c.uv, values);
+#else
+	gstate_c.uv.uScale = getFloat24(gstate.texscaleu);
+	gstate_c.uv.vScale = getFloat24(gstate.texscalev);
+	gstate_c.uv.uOff = getFloat24(gstate.texoffsetu);
+	gstate_c.uv.vOff = getFloat24(gstate.texoffsetv);
+#endif
 }
 
 size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {

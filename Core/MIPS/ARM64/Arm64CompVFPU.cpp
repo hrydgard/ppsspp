@@ -1792,7 +1792,7 @@ namespace MIPSComp {
 			fpr.MapRegsAndSpillLockV(sregs, sz, 0);
 			gpr.MapReg(MIPS_REG_VFPUCC);
 			for (int i = 0; i < n; i++) {
-				TSTI2R(gpr.R(MIPS_REG_VFPUCC), 1 << i);
+				TSTI2R(gpr.R(MIPS_REG_VFPUCC), 1ULL << i);
 				FixupBranch b = B(tf ? CC_NEQ : CC_EQ);
 				fp.FMOV(fpr.V(dregs[i]), fpr.V(sregs[i]));
 				SetJumpTarget(b);

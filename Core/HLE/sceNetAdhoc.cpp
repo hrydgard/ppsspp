@@ -3318,7 +3318,7 @@ int RecreatePtpSocket(int ptpId) {
 					WARN_LOG(SCENET, "RecreatePtpSocket(%id) - Wrapped Port Detected: Original(%d) -> Requested(%d), Bound(%d) -> BoundOriginal(%d)", ptpId, sock->data.ptp.lport, requestedport, boundport, boundport - portOffset);
 				u16 newlport = boundport - portOffset;
 				if (newlport != sock->data.ptp.lport) {
-					WARN_LOG(SCENET, "RecreatePtpSocket(%id) - Old and New LPort is different! The port may need to be reforwarded");
+					WARN_LOG(SCENET, "RecreatePtpSocket(%id) - Old and New LPort is different! The port may need to be reforwarded", ptpId);
 					if (!sock->isClient)
 						UPnP_Add(IP_PROTOCOL_TCP, isOriPort ? newlport : newlport + portOffset, newlport + portOffset);
 				}

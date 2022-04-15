@@ -9,7 +9,7 @@
 #ifdef _M_SSE
 #include <emmintrin.h>
 #endif
-#if PPSSPP_PLATFORM(ARM_NEON)
+#if PPSSPP_ARCH(ARM_NEON)
 #if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
 #include <arm64_neon.h>
 #else
@@ -31,13 +31,12 @@ inline void Uint8x4ToFloat4(float f[4], uint32_t u) {
 	__m128i value32 = _mm_unpacklo_epi16(_mm_unpacklo_epi8(value, zero), zero);
 	__m128 fvalues = _mm_mul_ps(_mm_cvtepi32_ps(value32), _mm_load_ps(one_over_255_x4));
 	_mm_storeu_ps(f, fvalues);
-#elif PPSSPP_PLATFORM(ARM_NEON)
-	const float32x4_t one_over = vdupq_n_f32(1.0f/255.0f);
-	const uint8x8_t value = vld1_lane_u32(u);
-	const uint16x8_t value16 = vmovl_s8(value);
-	const uint32x4_t value32 = vmovl_s16(vget_low_s16(value16));
-	const float32x4_t valueFloat = vmulq_f32(vcvtq_f32_u32(value32), one_over);
-	vst1q_u32((uint32_t *)dest, valueFloat);
+#elif PPSSPP_ARCH(ARM_NEON)
+	const uint8x8_t value = (uint8x8_t)vdup_n_u32(u);
+	const uint16x8_t value16 = vmovl_u8(value);
+	const uint32x4_t value32 = vmovl_u16(vget_low_u16(value16));
+	const float32x4_t valueFloat = vmulq_f32(vcvtq_f32_u32(value32), vdupq_n_f32(1.0f / 255.0f));
+	vst1q_f32(f, valueFloat);
 #else
 	f[0] = ((u >> 0) & 0xFF) * (1.0f / 255.0f);
 	f[1] = ((u >> 8) & 0xFF) * (1.0f / 255.0f);
@@ -62,7 +61,7 @@ inline uint32_t Float4ToUint8x4(const float f[4]) {
 }
 
 inline void Uint8x3ToFloat4_AlphaUint8(float f[4], uint32_t u, uint8_t alpha) {
-#if defined(_M_SSE) || PPSSPP_PLATFORM(ARM_NEON)
+#if defined(_M_SSE) || PPSSPP_ARCH(ARM_NEON)
 	Uint8x4ToFloat4(f, (u & 0xFFFFFF) | (alpha << 24));
 #else
 	f[0] = ((u >> 0) & 0xFF) * (1.0f / 255.0f);
@@ -73,7 +72,7 @@ inline void Uint8x3ToFloat4_AlphaUint8(float f[4], uint32_t u, uint8_t alpha) {
 }
 
 inline void Uint8x3ToFloat4(float f[4], uint32_t u) {
-#if defined(_M_SSE) || PPSSPP_PLATFORM(ARM_NEON)
+#if defined(_M_SSE) || PPSSPP_ARCH(ARM_NEON)
 	Uint8x4ToFloat4(f, u & 0xFFFFFF);
 #else
 	f[0] = ((u >> 0) & 0xFF) * (1.0f / 255.0f);
@@ -168,8 +167,8 @@ inline void ExpandFloat24x3ToFloat4(float dest[4], const uint32_t src[3]) {
 #ifdef _M_SSE
 	__m128i values = _mm_slli_epi32(_mm_loadu_si128((const __m128i *)src), 8);
 	_mm_storeu_si128((__m128i *)dest, values);
-#elif PPSSPP_PLATFORM(ARM_NEON)
-	const uint32x4_t values = vshlq_n_u32(vld1q_u32(&gstate.texscaleu), 8);
+#elif PPSSPP_ARCH(ARM_NEON)
+	const uint32x4_t values = vshlq_n_u32(vld1q_u32(src), 8);
 	vst1q_u32((uint32_t *)dest, values);
 #else
 	uint32_t temp[4] = { src[0] << 8, src[1] << 8, src[2] << 8, 0 };
