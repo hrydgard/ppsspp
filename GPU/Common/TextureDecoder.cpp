@@ -667,9 +667,10 @@ inline u32 NEONReduce32And(uint32x4_t value) {
 	// TODO: Maybe a shuffle and a vector and, or something?
 	return vgetq_lane_u32(value, 0) & vgetq_lane_u32(value, 1) & vgetq_lane_u32(value, 2) & vgetq_lane_u32(value, 3);
 }
-inline u32 NEONReduce16And(uint32x4_t value) {
+inline u32 NEONReduce16And(uint16x8_t value) {
+	uint32x4_t value32 = vreinterpretq_u32_u16(value);
 	// TODO: Maybe a shuffle and a vector and, or something?
-	u32 mask = vgetq_lane_u32(value, 0) & vgetq_lane_u32(value, 1) & vgetq_lane_u32(value, 2) & vgetq_lane_u32(value, 3);
+	u32 mask = vgetq_lane_u32(value32, 0) & vgetq_lane_u32(value32, 1) & vgetq_lane_u32(value32, 2) & vgetq_lane_u32(value32, 3);
 	return mask & (mask >> 16);
 }
 #endif
@@ -693,11 +694,11 @@ void CopyAndSumMask16(u16 *dst, const u16 *src, int width, u32 *outMask) {
 	}
 #elif PPSSPP_ARCH(ARM_NEON)
 	if (width >= 8) {
-		uint32x4_t wideMask = vdupq_n_u32(0xFFFFFFFF);
+		uint16x8_t wideMask = vdupq_n_u16(0xFFFF);
 		while (width >= 8) {
-			uint32x4_t colors = vld1q_u32(src);
-			wideMask = vandq_u32(wideMask, colors);
-			vst1q_u32(dst, colors);
+			uint16x8_t colors = vld1q_u16(src);
+			wideMask = vandq_u16(wideMask, colors);
+			vst1q_u16(dst, colors);
 			src += 8;
 			dst += 8;
 			width -= 8;
@@ -767,9 +768,9 @@ void CheckMask16(const u16 *src, int width, u32 *outMask) {
 	}
 #elif PPSSPP_ARCH(ARM_NEON)
 	if (width >= 8) {
-		uint32x4_t wideMask = vdupq_n_u32(0xFFFFFFFF);
+		uint16x8_t wideMask = vdupq_n_u16(0xFFFF);
 		while (width >= 8) {
-			wideMask = vandq_u32(wideMask, vld1q_u32(src));
+			wideMask = vandq_u16(wideMask, vld1q_u16(src));
 			src += 8;
 			width -= 8;
 		}
