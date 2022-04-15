@@ -1603,7 +1603,7 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 				}
 			} else {
 				for (int y = 0; y < h; ++y) {
-					CopyAndSumMask32((u32 *)(out + outPitch * y), (const u32 *)(texptr + bufw * sizeof(u32) * y), w * sizeof(u32), &alphaSum);
+					CopyAndSumMask32((u32 *)(out + outPitch * y), (const u32 *)(texptr + bufw * sizeof(u32) * y), w, &alphaSum);
 				}
 			}
 		} /* else if (h >= 8 && bufw <= w) {
@@ -1625,7 +1625,7 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 				}
 			} else {
 				for (int y = 0; y < h; ++y) {
-					CopyAndSumMask32((u32 *)(out + outPitch * y), (const u32 *)(unswizzled + bufw * sizeof(u32) * y), w * sizeof(u32), &alphaSum);
+					CopyAndSumMask32((u32 *)(out + outPitch * y), (const u32 *)(unswizzled + bufw * sizeof(u32) * y), w, &alphaSum);
 				}
 			}
 		}

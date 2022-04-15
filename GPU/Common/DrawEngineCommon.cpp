@@ -522,7 +522,7 @@ void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts) {
 	int indexUpperBound = dc.indexUpperBound;
 
 	if (dc.indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
-		// Decode the verts and apply morphing. Simple.
+		// Decode the verts (and at the same time apply morphing/skinning). Simple.
 		dec_->DecodeVerts(dest + decodedVerts * (int)dec_->GetDecVtxFmt().stride,
 			dc.verts, indexLowerBound, indexUpperBound);
 		decodedVerts += indexUpperBound - indexLowerBound + 1;
