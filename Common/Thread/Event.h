@@ -11,15 +11,21 @@ public:
 		triggered_ = false;
 	}
 
+	~Event() {
+		// Make sure no one is still waiting, and any notify lock is released.
+		Notify();
+	}
+
 	void Wait() override {
-		std::unique_lock<std::mutex> lock;
-		if (!triggered_) {
-			cond_.wait(lock, [&] { return triggered_.load(); });
+		if (triggered_) {
+			return;
 		}
+		std::unique_lock<std::mutex> lock(mutex_);
+		cond_.wait(lock, [&] { return triggered_.load(); });
 	}
 
 	void Notify() {
-		std::unique_lock<std::mutex> lock;
+		std::unique_lock<std::mutex> lock(mutex_);
 		triggered_ = true;
 		cond_.notify_one();
 	}
