@@ -107,7 +107,7 @@ protected:
 private:
 	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch,  int level, int scaleFactor, VkFormat dstFmt);
 	VkFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
-	static TexCacheEntry::TexStatus CheckAlpha(const u32 *pixelData, VkFormat dstFmt, int stride, int w, int h);
+	static CheckAlphaResult CheckAlpha(const u32 *pixelData, VkFormat dstFmt, int w);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
 	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) override;
