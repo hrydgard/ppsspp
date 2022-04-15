@@ -249,7 +249,7 @@ static std::string ReadShaderSrc(const Path &filename) {
 	size_t sz = 0;
 	char *data = (char *)VFSReadFile(filename.c_str(), &sz);
 	if (!data)
-		return "";
+		return std::string();
 
 	std::string src(data, sz);
 	delete[] data;
@@ -961,6 +961,8 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
+	gpuStats.numTexturesDecoded++;
+
 	{
 		PROFILE_THIS_SCOPE("decodetex");
 
@@ -980,18 +982,11 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 		}
 
 		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || dstFmt == VK_FORMAT_R8G8B8A8_UNORM;
-		DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, expand32);
-		gpuStats.numTexturesDecoded++;
 
-		// We check before scaling since scaling shouldn't invent alpha from a full alpha texture.
-		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
-			// TODO: When we decode directly, this can be more expensive (maybe not on mobile?)
-			// This does allow us to skip alpha testing, though.
-			TexCacheEntry::TexStatus alphaStatus = CheckAlpha(pixelData, dstFmt, decPitch / bpp, w, h);
-			entry.SetAlphaStatus(alphaStatus, level);
-		} else {
-			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
-		}
+		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, expand32);
+
+		// WARN_LOG(G3D, "Alpha: full=%d w=%d h=%d level=%d %s/%s", (int)(alphaResult == CHECKALPHA_FULL), w, h, level, GeTextureFormatToString(tfmt), GEPaletteFormatToString(clutformat));
+		entry.SetAlphaStatus(alphaResult, level);
 
 		if (scaleFactor > 1) {
 			u32 fmt = dstFmt;

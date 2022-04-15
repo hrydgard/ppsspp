@@ -99,6 +99,10 @@ void convert5551_dx9(u16* data, u32* out, int width, int l, int u);
 
 // TODO: Need to revisit the naming convention of these. Seems totally backwards
 // now that we've standardized on Draw::DataFormat.
+// 
+// The functions that have the same bit width of input and output can generally
+// tolerate being called with src == dst, which is used a lot for ReverseColors
+// in the GLES backend.
 
 void ConvertBGRA8888ToRGBA8888(u32 *dst, const u32 *src, u32 numPixels);
 #define ConvertRGBA8888ToBGRA8888 ConvertBGRA8888ToRGBA8888
