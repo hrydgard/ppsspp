@@ -80,6 +80,7 @@ struct CompatFlags {
 	bool MpegAvcWarmUp;
 	bool BlueToAlpha;
 	bool CenteredLines;
+	bool MaliDepthStencilBugWorkaround;
 };
 
 class IniFile;
