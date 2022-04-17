@@ -45,15 +45,20 @@ void FreeAlignedMemory(void* ptr);
 
 int GetMemoryProtectPageSize();
 
+// A simple buffer that bypasses the libc memory allocator. As a result the buffer is always page-aligned.
 template <typename T>
 class SimpleBuf {
 public:
-	SimpleBuf() : buf_(0), size_(0) {
-	}
+	SimpleBuf() : buf_(0), size_(0) {}
 
 	SimpleBuf(size_t size) : buf_(0) {
 		resize(size);
 	}
+
+	SimpleBuf(const SimpleBuf &o) : buf_(o.buf_), size_(o.size_) {}
+
+	// Move constructor
+	SimpleBuf(SimpleBuf &&o) noexcept : buf_(o.buf_), size_(o.size_) { o.buf_ = nullptr; o.size_ = 0; }
 
 	~SimpleBuf() {
 		if (buf_ != 0) {

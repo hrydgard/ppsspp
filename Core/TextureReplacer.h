@@ -227,7 +227,6 @@ protected:
 	void PopulateReplacement(ReplacedTexture *result, u64 cachekey, u32 hash, int w, int h);
 	bool PopulateLevel(ReplacedTextureLevel &level);
 
-	SimpleBuf<u32> saveBuf;
 	bool enabled_ = false;
 	bool allowVideo_ = false;
 	bool ignoreAddress_ = false;

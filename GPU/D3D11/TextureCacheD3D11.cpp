@@ -736,6 +736,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			replacedInfo.scaleFactor = scaleFactor;
 			replacedInfo.fmt = FromD3D11Format(dstFmt);
 
+			// NOTE: Reading the decoded texture here may be very slow, if we just wrote it to write-combined memory.
 			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, level, w, h);
 		}
 	}
