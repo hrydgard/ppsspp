@@ -880,6 +880,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 					// When hardware texture scaling is enabled, this saves the original.
 					int w = dataScaled ? mipWidth : mipUnscaledWidth;
 					int h = dataScaled ? mipHeight : mipUnscaledHeight;
+					// NOTE: Reading the decoded texture here may be very slow, if we just wrote it to write-combined memory.
 					replacer_.NotifyTextureDecoded(replacedInfo, data, stride, i, w, h);
 				}
 			}
