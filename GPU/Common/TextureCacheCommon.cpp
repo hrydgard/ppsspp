@@ -1414,20 +1414,20 @@ inline u32 ClutFormatToFullAlpha(GEPaletteFormat fmt) {
 	switch (fmt) {
 	case GE_CMODE_16BIT_ABGR4444: return 0xF000;
 	case GE_CMODE_16BIT_ABGR5551: return 0x8000;
-	case GE_CMODE_16BIT_BGR5650: return 0x0000;
 	case GE_CMODE_32BIT_ABGR8888: return 0xFF000000;
+	case GE_CMODE_16BIT_BGR5650:
+	default: return 0;
 	}
-	return 0;
 }
 
 inline u32 TfmtRawToFullAlpha(GETextureFormat fmt) {
 	switch (fmt) {
 	case GE_TFMT_4444: return 0xF000;
 	case GE_TFMT_5551: return 0x8000;
-	case GE_TFMT_5650: return 0x0000;
 	case GE_TFMT_8888: return 0xFF000000;
+	case GE_TFMT_5650:
+	default: return 0;
 	}
-	return 0;
 }
 
 CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool useBGRA, bool expandTo32bit) {

@@ -208,8 +208,12 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	case VULKAN_VENDOR_ARM:
 	{
 		// This check is probably not exactly accurate. But old drivers had problems with reverse-Z, just like AMD and Qualcomm.
+
+		// NOTE: Galaxy S8 has version 16 but still seems to have some problems with accurate depth.
+
 		bool driverTooOld = IsHashMaliDriverVersion(vulkan->GetPhysicalDeviceProperties().properties)
 			|| VK_VERSION_MAJOR(vulkan->GetPhysicalDeviceProperties().properties.driverVersion) < 14;
+
 		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || driverTooOld) {
 			features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 		}
