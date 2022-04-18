@@ -531,7 +531,7 @@ public:
 			return;
 
 		// And we always skip if the replace file already exists.
-		if (hashfile.empty() || File::Exists(filename))
+		if (File::Exists(filename))
 			return;
 
 		// Create subfolder as needed.
@@ -605,9 +605,15 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	ReplacementCacheKey replacementKey(cachekey, replacedInfo.hash);
 	auto it = savedCache_.find(replacementKey);
 	bool skipIfExists = false;
+	double now = time_now_d();
 	if (it != savedCache_.end()) {
 		// We've already saved this texture.  Let's only save if it's bigger (e.g. scaled now.)
-		if (it->second.w >= w && it->second.h >= h) {
+		if (it->second.first.w >= w && it->second.first.h >= h) {
+			// If it's been more than 5 seconds, we'll check again.  Maybe they deleted.
+			double age = now - it->second.second;
+			if (age < 5.0)
+				return;
+
 			skipIfExists = true;
 		}
 	}
@@ -686,7 +692,7 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	saved.file = filename;
 	saved.w = w;
 	saved.h = h;
-	savedCache_[replacementKey] = saved;
+	savedCache_[replacementKey] = std::make_pair(saved, now);
 }
 
 void TextureReplacer::Decimate(bool forcePressure) {

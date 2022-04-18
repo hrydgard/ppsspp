@@ -249,5 +249,5 @@ protected:
 
 	ReplacedTexture none_;
 	std::unordered_map<ReplacementCacheKey, ReplacedTexture> cache_;
-	std::unordered_map<ReplacementCacheKey, ReplacedTextureLevel> savedCache_;
+	std::unordered_map<ReplacementCacheKey, std::pair<ReplacedTextureLevel, double>> savedCache_;
 };
