@@ -33,6 +33,7 @@
 #include "Common/StringUtils.h"
 #include "Common/Thread/ParallelLoop.h"
 #include "Common/Thread/Waitable.h"
+#include "Common/Thread/ThreadManager.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
@@ -502,6 +503,39 @@ static bool WriteTextureToPNG(png_imagep image, const Path &filename, int conver
 	}
 }
 
+class TextureSaveTask : public Task {
+public:
+	// Could probably just use a vector.
+	SimpleBuf<u32> data;
+
+	int w = 0;
+	int h = 0;
+	int pitch = 0;  // bytes
+
+	Path path;
+	u32 replacedInfoHash;
+
+	TextureSaveTask(SimpleBuf<u32> _data) : data(std::move(_data)) {}
+
+	TaskType Type() const override { return TaskType::CPU_COMPUTE; }  // Also I/O blocking but dominated by compute
+	void Run() override {
+		png_image png;
+		memset(&png, 0, sizeof(png));
+		png.version = PNG_IMAGE_VERSION;
+		png.format = PNG_FORMAT_RGBA;
+		png.width = w;
+		png.height = h;
+		bool success = WriteTextureToPNG(&png, path, 0, data.data(), pitch, nullptr);
+		png_image_free(&png);
+		if (png.warning_or_error >= 2) {
+			ERROR_LOG(COMMON, "Saving screenshot to PNG produced errors.");
+		} else if (success) {
+			NOTICE_LOG(G3D, "Saving texture for replacement: %08x / %dx%d", replacedInfoHash, w, h);
+		}
+	}
+};
+
+
 void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int w, int h) {
 	_assert_msg_(enabled_, "Replacement not enabled");
 	if (!g_Config.bSaveNewTextures) {
@@ -564,6 +598,10 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 		h = lookupH * replacedInfo.scaleFactor;
 	}
 
+	SimpleBuf<u32> saveBuf;
+
+	// TODO: Move the color conversion to the thread as well.
+	// Actually may be better to re-decode using expand32?
 	if (replacedInfo.fmt != ReplacedTextureFormat::F_8888) {
 		saveBuf.resize((pitch * h) / sizeof(u16));
 		switch (replacedInfo.fmt) {
@@ -598,24 +636,27 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 			// We doubled our pitch.
 			pitch *= 2;
 		}
+	} else {
+		// Copy data to a buffer so we can send it to the thread. Might as well compact-away the pitch
+		// while we're at it.
+		saveBuf.resize(w * h);
+		for (int y = 0; y < h; y++) {
+			memcpy((u8 *)saveBuf.data() + y * w * 4, (const u8 *)data + y * pitch, w * sizeof(u32));
+		}
+		pitch = w * 4;
 	}
 
-	png_image png;
-	memset(&png, 0, sizeof(png));
-	png.version = PNG_IMAGE_VERSION;
-	png.format = PNG_FORMAT_RGBA;
-	png.width = w;
-	png.height = h;
-	bool success = WriteTextureToPNG(&png, saveFilename, 0, data, pitch, nullptr);
-	png_image_free(&png);
-
-	if (png.warning_or_error >= 2) {
-		ERROR_LOG(COMMON, "Saving screenshot to PNG produced errors.");
-	} else if (success) {
-		NOTICE_LOG(G3D, "Saving texture for replacement: %08x / %dx%d", replacedInfo.hash, w, h);
-	}
+	TextureSaveTask *task = new TextureSaveTask(std::move(saveBuf));
+	// Should probably do a proper move constructor but this'll work.
+	task->w = w;
+	task->h = h;
+	task->pitch = pitch;
+	task->path = saveFilename;
+	task->replacedInfoHash = replacedInfo.hash;
+	g_threadManager.EnqueueTask(task);  // We don't care about waiting for the task. It'll be fine.
 
 	// Remember that we've saved this for next time.
+	// Should be OK that the actual disk write may not be finished yet.
 	ReplacedTextureLevel saved;
 	saved.fmt = ReplacedTextureFormat::F_8888;
 	saved.file = filename;
