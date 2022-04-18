@@ -628,8 +628,7 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 
 	SimpleBuf<u32> saveBuf;
 
-	// TODO: Move the color conversion to the thread as well.
-	// Actually may be better to re-decode using expand32?
+	// Since we're copying, change the format meanwhile.  Not much extra cost.
 	if (replacedInfo.fmt != ReplacedTextureFormat::F_8888) {
 		saveBuf.resize((pitch * h) / sizeof(u16));
 		switch (replacedInfo.fmt) {

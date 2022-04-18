@@ -794,6 +794,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	ReplacedTextureDecodeInfo replacedInfo;
+	bool willSaveTex = false;
 	if (replacer_.Enabled() && !replaced.Valid()) {
 		replacedInfo.cachekey = entry->CacheKey();
 		replacedInfo.hash = entry->fullhash;
@@ -802,6 +803,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		replacedInfo.isFinal = (entry->status & TexCacheEntry::STATUS_TO_SCALE) == 0;
 		replacedInfo.scaleFactor = scaleFactor;
 		replacedInfo.fmt = FromVulkanFormat(actualFmt);
+		willSaveTex = replacer_.WillSave(replacedInfo);
 	}
 
 	if (entry->vkTex) {
@@ -821,6 +823,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			if (replaced.Valid()) {
 				replaced.GetSize(i, mipWidth, mipHeight);
 			}
+
 			int bpp = actualFmt == VULKAN_8888_FORMAT ? 4 : 2;
 			int stride = (mipWidth * bpp + 15) & ~15;
 			int size = stride * mipHeight;
@@ -829,6 +832,20 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			// NVIDIA reports a min alignment of 1 but that can't be healthy... let's align by 16 as a minimum.
 			int pushAlignment = std::max(16, (int)vulkan->GetPhysicalDeviceProperties().properties.limits.optimalBufferCopyOffsetAlignment);
 			void *data;
+			std::vector<uint8_t> saveData;
+
+			auto loadLevel = [&](int sz, int lstride, int lfactor) {
+				if (willSaveTex) {
+					saveData.resize(sz);
+					data = &saveData[0];
+				} else {
+					data = drawEngine_->GetPushBufferForTextureData()->PushAligned(sz, &bufferOffset, &texBuf, pushAlignment);
+				}
+				LoadTextureLevel(*entry, (uint8_t *)data, lstride, level, lfactor, dstFmt);
+				if (willSaveTex)
+					bufferOffset = drawEngine_->GetPushBufferForTextureData()->PushAligned(&saveData[0], sz, pushAlignment, &texBuf);
+			};
+
 			bool dataScaled = true;
 			if (replaced.Valid()) {
 				// Directly load the replaced image.
@@ -842,18 +859,16 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
 			} else {
 				if (fakeMipmap) {
-					data = drawEngine_->GetPushBufferForTextureData()->PushAligned(size, &bufferOffset, &texBuf, pushAlignment);
-					LoadTextureLevel(*entry, (uint8_t *)data, stride, level, scaleFactor, dstFmt);
+					loadLevel(size, stride, scaleFactor);
 					entry->vkTex->UploadMip(cmdInit, 0, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
 				} else {
 					if (computeUpload) {
 						int srcBpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;
 						int srcStride = mipUnscaledWidth * srcBpp;
 						int srcSize = srcStride * mipUnscaledHeight;
-
-						data = drawEngine_->GetPushBufferForTextureData()->PushAligned(srcSize, &bufferOffset, &texBuf, pushAlignment);
+						loadLevel(srcSize, srcStride, 1);
 						dataScaled = false;
-						LoadTextureLevel(*entry, (uint8_t *)data, srcStride, i, 1, dstFmt);
+
 						// This format can be used with storage images.
 						VkImageView view = entry->vkTex->CreateViewForMip(i);
 						VkDescriptorSet descSet = computeShaderManager_.GetDescriptorSet(view, texBuf, bufferOffset, srcSize);
@@ -867,8 +882,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 						VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 						vulkan->Delete().QueueDeleteImageView(view);
 					} else {
-						data = drawEngine_->GetPushBufferForTextureData()->PushAligned(size, &bufferOffset, &texBuf, pushAlignment);
-						LoadTextureLevel(*entry, (uint8_t *)data, stride, i, scaleFactor, dstFmt);
+						loadLevel(size, stride, scaleFactor);
 						VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT,
 							"Copy Upload: %dx%d", mipWidth, mipHeight);
 						entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
@@ -879,7 +893,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 					// When hardware texture scaling is enabled, this saves the original.
 					int w = dataScaled ? mipWidth : mipUnscaledWidth;
 					int h = dataScaled ? mipHeight : mipUnscaledHeight;
-					// NOTE: Reading the decoded texture here may be very slow, if we just wrote it to write-combined memory.
+					// At this point, data should be saveData, and not slow.
 					replacer_.NotifyTextureDecoded(replacedInfo, data, stride, i, w, h);
 				}
 			}
