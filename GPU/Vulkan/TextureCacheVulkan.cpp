@@ -845,7 +845,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 					data = drawEngine_->GetPushBufferForTextureData()->PushAligned(size, &bufferOffset, &texBuf, pushAlignment);
 					LoadTextureLevel(*entry, (uint8_t *)data, stride, level, scaleFactor, dstFmt);
 					entry->vkTex->UploadMip(cmdInit, 0, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
-					break;
 				} else {
 					if (computeUpload) {
 						int srcBpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;

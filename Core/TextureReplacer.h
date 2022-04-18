@@ -208,6 +208,7 @@ public:
 		return none_;
 	}
 
+	// Notify that a new texture was decoded.  May already be upscaled, saves the data passed.
 	void NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int w, int h);
 
 	void Decimate(bool forcePressure);
