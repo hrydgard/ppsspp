@@ -208,6 +208,10 @@ public:
 		return none_;
 	}
 
+	// Check if a NotifyTextureDecoded for this texture is desired (used to avoid reads from write-combined memory.)
+	bool WillSave(const ReplacedTextureDecodeInfo &replacedInfo);
+
+	// Notify that a new texture was decoded.  May already be upscaled, saves the data passed.
 	void NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int w, int h);
 
 	void Decimate(bool forcePressure);
@@ -245,5 +249,5 @@ protected:
 
 	ReplacedTexture none_;
 	std::unordered_map<ReplacementCacheKey, ReplacedTexture> cache_;
-	std::unordered_map<ReplacementCacheKey, ReplacedTextureLevel> savedCache_;
+	std::unordered_map<ReplacementCacheKey, std::pair<ReplacedTextureLevel, double>> savedCache_;
 };

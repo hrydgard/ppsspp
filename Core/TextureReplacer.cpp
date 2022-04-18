@@ -512,20 +512,50 @@ public:
 	int h = 0;
 	int pitch = 0;  // bytes
 
-	Path path;
+	Path basePath;
+	std::string hashfile;
 	u32 replacedInfoHash;
+
+	bool skipIfExists = false;
 
 	TextureSaveTask(SimpleBuf<u32> _data) : data(std::move(_data)) {}
 
 	TaskType Type() const override { return TaskType::CPU_COMPUTE; }  // Also I/O blocking but dominated by compute
 	void Run() override {
+		const Path filename = basePath / hashfile;
+		const Path saveFilename = basePath / NEW_TEXTURE_DIR / hashfile;
+
+		// Should we skip writing if the newly saved data already exists?
+		// We do this on the thread due to slow IO.
+		if (skipIfExists && File::Exists(saveFilename))
+			return;
+
+		// And we always skip if the replace file already exists.
+		if (File::Exists(filename))
+			return;
+
+		// Create subfolder as needed.
+#ifdef _WIN32
+		size_t slash = hashfile.find_last_of("/\\");
+#else
+		size_t slash = hashfile.find_last_of("/");
+#endif
+		if (slash != hashfile.npos) {
+			// Create any directory structure as needed.
+			const Path saveDirectory = basePath / NEW_TEXTURE_DIR / hashfile.substr(0, slash);
+			if (!File::Exists(saveDirectory)) {
+				File::CreateFullPath(saveDirectory);
+				File::CreateEmptyFile(saveDirectory / ".nomedia");
+			}
+		}
+
 		png_image png;
 		memset(&png, 0, sizeof(png));
 		png.version = PNG_IMAGE_VERSION;
 		png.format = PNG_FORMAT_RGBA;
 		png.width = w;
 		png.height = h;
-		bool success = WriteTextureToPNG(&png, path, 0, data.data(), pitch, nullptr);
+		bool success = WriteTextureToPNG(&png, saveFilename, 0, data.data(), pitch, nullptr);
 		png_image_free(&png);
 		if (png.warning_or_error >= 2) {
 			ERROR_LOG(COMMON, "Saving screenshot to PNG produced errors.");
@@ -535,58 +565,56 @@ public:
 	}
 };
 
+bool TextureReplacer::WillSave(const ReplacedTextureDecodeInfo &replacedInfo) {
+	_assert_msg_(enabled_, "Replacement not enabled");
+	if (!g_Config.bSaveNewTextures)
+		return false;
+	// Don't save the PPGe texture.
+	if (replacedInfo.addr > 0x05000000 && replacedInfo.addr < PSP_GetKernelMemoryEnd())
+		return false;
+	if (replacedInfo.isVideo && !allowVideo_)
+		return false;
+
+	return true;
+}
 
 void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int w, int h) {
 	_assert_msg_(enabled_, "Replacement not enabled");
-	if (!g_Config.bSaveNewTextures) {
+	if (!WillSave(replacedInfo)) {
 		// Ignore.
 		return;
-	}
-	if (replacedInfo.addr > 0x05000000 && replacedInfo.addr < PSP_GetKernelMemoryEnd()) {
-		// Don't save the PPGe texture.
-		return;
-	}
-	if (replacedInfo.isVideo && !allowVideo_) {
-		return;
-	}
-	u64 cachekey = replacedInfo.cachekey;
-	if (ignoreAddress_) {
-		cachekey = cachekey & 0xFFFFFFFFULL;
 	}
 	if (ignoreMipmap_ && level > 0) {
 		return;
 	}
 
+	u64 cachekey = replacedInfo.cachekey;
+	if (ignoreAddress_) {
+		cachekey = cachekey & 0xFFFFFFFFULL;
+	}
+
 	std::string hashfile = LookupHashFile(cachekey, replacedInfo.hash, level);
 	const Path filename = basePath_ / hashfile;
-	const Path saveFilename = basePath_ / NEW_TEXTURE_DIR / hashfile;
 
 	// If it's empty, it's an ignored hash, we intentionally don't save.
-	if (hashfile.empty() || File::Exists(filename)) {
+	if (hashfile.empty()) {
 		// If it exists, must've been decoded and saved as a new texture already.
 		return;
 	}
 
 	ReplacementCacheKey replacementKey(cachekey, replacedInfo.hash);
 	auto it = savedCache_.find(replacementKey);
-	if (it != savedCache_.end() && File::Exists(saveFilename)) {
+	bool skipIfExists = false;
+	double now = time_now_d();
+	if (it != savedCache_.end()) {
 		// We've already saved this texture.  Let's only save if it's bigger (e.g. scaled now.)
-		if (it->second.w >= w && it->second.h >= h) {
-			return;
-		}
-	}
+		if (it->second.first.w >= w && it->second.first.h >= h) {
+			// If it's been more than 5 seconds, we'll check again.  Maybe they deleted.
+			double age = now - it->second.second;
+			if (age < 5.0)
+				return;
 
-#ifdef _WIN32
-	size_t slash = hashfile.find_last_of("/\\");
-#else
-	size_t slash = hashfile.find_last_of("/");
-#endif
-	if (slash != hashfile.npos) {
-		// Create any directory structure as needed.
-		const Path saveDirectory = basePath_ / NEW_TEXTURE_DIR / hashfile.substr(0, slash);
-		if (!File::Exists(saveDirectory)) {
-			File::CreateFullPath(saveDirectory);
-			File::CreateEmptyFile(saveDirectory / ".nomedia");
+			skipIfExists = true;
 		}
 	}
 
@@ -600,8 +628,7 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 
 	SimpleBuf<u32> saveBuf;
 
-	// TODO: Move the color conversion to the thread as well.
-	// Actually may be better to re-decode using expand32?
+	// Since we're copying, change the format meanwhile.  Not much extra cost.
 	if (replacedInfo.fmt != ReplacedTextureFormat::F_8888) {
 		saveBuf.resize((pitch * h) / sizeof(u16));
 		switch (replacedInfo.fmt) {
@@ -651,8 +678,10 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	task->w = w;
 	task->h = h;
 	task->pitch = pitch;
-	task->path = saveFilename;
+	task->basePath = basePath_;
+	task->hashfile = hashfile;
 	task->replacedInfoHash = replacedInfo.hash;
+	task->skipIfExists = skipIfExists;
 	g_threadManager.EnqueueTask(task);  // We don't care about waiting for the task. It'll be fine.
 
 	// Remember that we've saved this for next time.
@@ -662,7 +691,7 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	saved.file = filename;
 	saved.w = w;
 	saved.h = h;
-	savedCache_[replacementKey] = saved;
+	savedCache_[replacementKey] = std::make_pair(saved, now);
 }
 
 void TextureReplacer::Decimate(bool forcePressure) {
