@@ -58,3 +58,4 @@ jobs:
         with:
           name: android-${{ github.event.inputs.buildVariant }} build
           path: ppsspp/
+

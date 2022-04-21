@@ -234,6 +234,12 @@ jobs:
       run: |
         echo "const char *PPSSPP_GIT_VERSION = \"${GITHUB_REF##*/}\";" > git-version.cpp
         echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
+        
+    - name: Create iOS git-version.cpp
+      if: runner.os == 'macOS' && matrix.extra == 'ios'
+      run: |
+        echo "const char *PPSSPP_GIT_VERSION = \"${GITHUB_REF##*/}\";" > git-version.cpp
+        echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
 
     - name: Setup ccache
       uses: hendrikmuhs/ccache-action@v1
@@ -251,7 +257,7 @@ jobs:
         ${{ matrix.args }}
 
     - name: Package build
-      if: matrix.extra == 'test'
+      if: matrix.extra == 'test' || matrix.extra == 'ios'
       run: |
         mkdir ppsspp
         if [ -e build*/$BUILD_CONFIGURATION/PPSSPPSDL ]; then
@@ -262,6 +268,14 @@ jobs:
           cd ppsspp
           zip -qry PPSSPPSDL.zip PPSSPPSDL.app
           rm -rf PPSSPPSDL.app
+          cd -
+        elif [ -e build*/PPSSPP.app ]; then
+          mkdir ppsspp/Payload
+          cp -a build*/PPSSPP.app ppsspp/Payload
+          # GitHub Actions zipping kills symlinks and permissions.
+          cd ppsspp
+          zip -qry PPSSPP.ipa Payload
+          rm -rf Payload
           cd -
         elif [ -e build*/PPSSPPSDL ]; then
           cp build*/PPSSPPSDL ppsspp/
@@ -280,9 +294,9 @@ jobs:
 
     - name: Upload build
       uses: actions/upload-artifact@v1
-      if: matrix.extra == 'test'
+      if: matrix.extra == 'test' || matrix.extra == 'ios'
       with:
-        name: ${{ matrix.os }} build
+        name: ${{ matrix.os }} ${{ matrix.id }} build
         path: ppsspp/
 
     - name: Create macOS release
@@ -290,12 +304,20 @@ jobs:
       run: |
         cd ppsspp || exit 1
         mv PPSSPPSDL.zip PPSSPPSDL-macOS-${GITHUB_REF##*/}.zip || exit 1
+        
+    - name: Create iOS release
+      if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS' && matrix.extra == 'ios'
+      run: |
+        cd ppsspp || exit 1
+        mv PPSSPP.ipa PPSSPP-iOS-${GITHUB_REF##*/}.ipa || exit 1
 
-    - name: Upload macOS release
+    - name: Upload macOS and iOS release
       uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS' && matrix.extra == 'test'
+      if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS' && (matrix.extra == 'test' || matrix.extra == 'ios')
       with:
-        files: ppsspp/*.zip
+        files: |
+          ppsspp/*.zip
+          ppsspp/*.ipa
         body: >
           PPSSPP is a cross-platform PSP emulator.
           Visit PPSSPP [official website](https://ppsspp.org)
@@ -307,7 +329,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        include:
+        - os: ubuntu-latest
+          id: clang
+        
+        - os: macos-latest
+          id: macos
 
     runs-on: ${{ matrix.os }}
     needs: build
@@ -337,7 +364,7 @@ jobs:
     - name: Download build
       uses: actions/download-artifact@v2
       with:
-        name: ${{ matrix.os }} build
+        name: ${{ matrix.os }} ${{ matrix.id }} build
         path: ppsspp/
 
     # Not sure where it's ending up, but test.py can't find it...
