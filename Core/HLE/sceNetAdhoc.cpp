@@ -3121,8 +3121,10 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 						sinlen = sizeof(sin);
 						memset(&sin, 0, sinlen);
 						int received = recvfrom(sock->data.pdp.id, dummyPeekBuf64k, std::min((u32)dummyPeekBuf64kSize, sock->buffer_size), MSG_PEEK | MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
-						if (received > 0)
+						if (received > 0) {
 							sock->data.pdp.rcv_sb_cc = received;
+							VERBOSE_LOG(SCENET, "sceNetAdhocGetPdpStat - Peeked size[%i] = %i", j + 1, received);
+						}
 					}
 
 					// Copy Socket Data from Internal Memory

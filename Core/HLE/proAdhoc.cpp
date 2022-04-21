@@ -1976,7 +1976,7 @@ int getSockBufferSize(int sock, int opt) { // opt = SO_RCVBUF/SO_SNDBUF
 }
 
 int setSockBufferSize(int sock, int opt, int size) { // opt = SO_RCVBUF/SO_SNDBUF
-	int n = size; // 8192; //16384
+	int n = std::min(PSP_ADHOC_PDP_MTU, size); // 8192; //16384
 	int ret = setsockopt(sock, SOL_SOCKET, opt, (char *)&n, sizeof(n));
 	if (ret < 0)
 		WARN_LOG(SCENET, "SetSockBufferSize(%i, %i, %i) error %i", sock, opt, size, errno);
