@@ -811,8 +811,14 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			"Texture Upload (%08x) video=%d", entry->addr, isVideo);
 
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
-		u8 level = std::max(0, gstate.getTexLevelOffset16() / 16);
-		bool fakeMipmap = IsFakeMipmapChange() && level > 0;
+
+		u8 level = 0;
+		bool fakeMipmap = false;
+		if (IsFakeMipmapChange()) {
+			level = std::max(0, gstate.getTexLevelOffset16() / 16);
+			fakeMipmap = level > 0;
+		}
+
 		// Upload the texture data.
 		for (int i = 0; i <= maxLevel; i++) {
 			int mipUnscaledWidth = gstate.getTextureWidth(i);
@@ -976,6 +982,9 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 		GETextureFormat tfmt = (GETextureFormat)entry.format;
 		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
 		u32 texaddr = gstate.getTextureAddress(level);
+
+		_assert_msg_(texaddr != 0, "Can't load a texture from address null")
+
 		int bufw = GetTextureBufw(level, texaddr, tfmt);
 		int bpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;
 

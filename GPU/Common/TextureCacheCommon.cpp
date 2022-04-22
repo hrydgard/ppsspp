@@ -355,8 +355,9 @@ void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) 
 
 TexCacheEntry *TextureCacheCommon::SetTexture() {
 	u8 level = 0;
-	if (IsFakeMipmapChange())
+	if (IsFakeMipmapChange()) {
 		level = std::max(0, gstate.getTexLevelOffset16() / 16);
+	}
 	u32 texaddr = gstate.getTextureAddress(level);
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
