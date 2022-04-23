@@ -60,7 +60,7 @@ private:
 	VulkanContext *vulkan_;
 	VkImage image_ = VK_NULL_HANDLE;
 	VkImageView view_ = VK_NULL_HANDLE;
-	VmaAllocation allocation_;
+	VmaAllocation allocation_ = VK_NULL_HANDLE;
 
 	int32_t width_ = 0;
 	int32_t height_ = 0;
