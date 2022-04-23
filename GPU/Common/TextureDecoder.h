@@ -134,7 +134,7 @@ inline void DeIndexTexture(/*WRITEONLY*/ ClutT *dest, const IndexT *indexed, int
 			}
 		} else {
 			for (int i = 0; i < length; ++i) {
-				ClutT color = (*indexed++) & 0xFF;
+				ClutT color = clut[(*indexed++) & 0xFF];
 				alphaSum &= color;
 				*dest++ = color;
 			}
