@@ -395,6 +395,11 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_ANALOG_ROTATE_CW, "Rotate Analog (CW)"},
 	{VIRTKEY_ANALOG_ROTATE_CCW, "Rotate Analog (CCW)"},
 
+	{VIRTKEY_SCREEN_ROTATION_VERTICAL, "Display Portrait"},
+	{VIRTKEY_SCREEN_ROTATION_VERTICAL180, "Display Portrait Reversed"},
+	{VIRTKEY_SCREEN_ROTATION_HORIZONTAL, "Display Landscape"},
+	{VIRTKEY_SCREEN_ROTATION_HORIZONTAL180, "Display Landscape Reversed"},
+
 	{CTRL_HOME, "Home"},
 	{CTRL_HOLD, "Hold"},
 	{CTRL_WLAN, "Wlan"},

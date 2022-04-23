@@ -709,6 +709,18 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 	case VIRTKEY_MUTE_TOGGLE:
 		g_Config.bEnableSound = !g_Config.bEnableSound;
 		break;
+	case VIRTKEY_SCREEN_ROTATION_VERTICAL:
+		g_Config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL;
+		break;
+	case VIRTKEY_SCREEN_ROTATION_VERTICAL180:
+		g_Config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL180;
+		break;
+	case VIRTKEY_SCREEN_ROTATION_HORIZONTAL:
+		g_Config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL;
+		break;
+	case VIRTKEY_SCREEN_ROTATION_HORIZONTAL180:
+		g_Config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL180;
+		break;
 	}
 }
 
