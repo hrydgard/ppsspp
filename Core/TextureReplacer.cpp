@@ -549,8 +549,7 @@ public:
 			}
 		}
 
-		png_image png;
-		memset(&png, 0, sizeof(png));
+		png_image png{};
 		png.version = PNG_IMAGE_VERSION;
 		png.format = PNG_FORMAT_RGBA;
 		png.width = w;
