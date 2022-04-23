@@ -830,8 +830,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				replaced.GetSize(i, mipWidth, mipHeight);
 			}
 
-			int bpp = actualFmt == VULKAN_8888_FORMAT ? 4 : 2;
-			int stride = (mipWidth * bpp + 15) & ~15;
+			int bpp = actualFmt == VULKAN_8888_FORMAT ? 4 : 2;  // output bpp
+			int stride = (mipWidth * bpp + 15) & ~15;  // output stride
 			int size = stride * mipHeight;
 			uint32_t bufferOffset;
 			VkBuffer texBuf;
@@ -840,7 +840,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			void *data;
 			std::vector<uint8_t> saveData;
 
-			auto loadLevel = [&](int sz, int lstride, int lfactor) {
+			auto loadLevel = [&](int sz, int level, int lstride, int lfactor) {
 				if (willSaveTex) {
 					saveData.resize(sz);
 					data = &saveData[0];
@@ -865,14 +865,14 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
 			} else {
 				if (fakeMipmap) {
-					loadLevel(size, stride, scaleFactor);
+					loadLevel(size, i, stride, scaleFactor);
 					entry->vkTex->UploadMip(cmdInit, 0, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
 				} else {
 					if (computeUpload) {
 						int srcBpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;
 						int srcStride = mipUnscaledWidth * srcBpp;
 						int srcSize = srcStride * mipUnscaledHeight;
-						loadLevel(srcSize, srcStride, 1);
+						loadLevel(srcSize, i, srcStride, 1);
 						dataScaled = false;
 
 						// This format can be used with storage images.
@@ -888,7 +888,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 						VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 						vulkan->Delete().QueueDeleteImageView(view);
 					} else {
-						loadLevel(size, stride, scaleFactor);
+						loadLevel(size, i, stride, scaleFactor);
 						VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT,
 							"Copy Upload: %dx%d", mipWidth, mipHeight);
 						entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
@@ -990,6 +990,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 
 		u32 *pixelData = (u32 *)writePtr;
 		int decPitch = rowPitch;
+
 		if (scaleFactor > 1) {
 			tmpTexBufRearrange_.resize(std::max(bufw, w) * h);
 			pixelData = tmpTexBufRearrange_.data();
