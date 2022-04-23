@@ -21,9 +21,12 @@
 #include <vector>
 
 #include "Common/UI/Context.h"
+#include "Common/Render/TextureAtlas.h"
 
 void ReloadAllThemeInfo();
 
 std::vector<std::string> GetThemeInfoNames();
-void UpdateTheme();
+void UpdateTheme(UIContext *ctx);
+Atlas *GetFontAtlas();
+Atlas *GetUIAtlas();
 UI::Theme *GetTheme();

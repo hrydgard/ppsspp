@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 #include <cstdint>
+#include <string>
 
 #include "Common/Math/geom2d.h"
 #include "Common/Math/lin/vec3.h"
@@ -100,6 +101,8 @@ public:
 	void PopTransform();
 	Bounds TransformBounds(const Bounds &bounds);
 
+	void setUIAtlas(const std::string &name);
+
 private:
 	Draw::DrawContext *draw_ = nullptr;
 	Bounds bounds_;
@@ -120,4 +123,7 @@ private:
 
 	std::vector<Bounds> scissorStack_;
 	std::vector<UITransform> transformStack_;
+
+	std::string lastUIAtlas_;
+	std::string UIAtlas_ = "ui_atlas.zim";
 };

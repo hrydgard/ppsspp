@@ -10,7 +10,6 @@
 #include "Common/UI/Context.h"
 #include "Common/Render/DrawBuffer.h"
 #include "Common/Render/Text/draw_text.h"
-
 #include "Common/Log.h"
 #include "UI/TextureUtil.h"
 
@@ -36,10 +35,14 @@ void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pi
 	textDrawer_ = TextDrawer::Create(thin3d);  // May return nullptr if no implementation is available for this platform.
 }
 
+void UIContext::setUIAtlas(const std::string &name) {
+	UIAtlas_ = name;
+}
+
 void UIContext::BeginFrame() {
-	if (!uitexture_) {
-		uitexture_ = CreateTextureFromFile(draw_, "ui_atlas.zim", ImageFileType::ZIM, false);
-		_dbg_assert_msg_(uitexture_, "Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
+	if (!uitexture_ || UIAtlas_ != lastUIAtlas_) {
+		uitexture_ = CreateTextureFromFile(draw_, UIAtlas_.c_str(), ImageFileType::ZIM, false);
+		lastUIAtlas_ = UIAtlas_;
 		if (!fontTexture_) {
 #if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID)
 			// Don't bother with loading font_atlas.zim
