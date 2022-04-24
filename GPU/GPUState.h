@@ -593,6 +593,8 @@ struct GPUStateCache {
 
 	KnownVertexBounds vertBounds;
 
+	GEBufferFormat framebufFormat;
+
 	// TODO: These should be accessed from the current VFB object directly.
 	u32 curRTWidth;
 	u32 curRTHeight;

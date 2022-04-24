@@ -218,7 +218,7 @@ void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPU
 		params->z_stride = 0;
 	}
 
-	params->fmt = gstate.FrameBufFormat();
+	params->fmt = gstate_c.framebufFormat;
 
 	params->isClearingDepth = gstate.isModeClear() && gstate.isClearModeDepthMask();
 	// Technically, it may write depth later, but we're trying to detect it only when it's really true.
@@ -672,7 +672,7 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 
 	draw_->InvalidateCachedState();
 	draw_->CopyFramebufferImage(vfb->fbo, 0, 0, 0, 0, temp, 0, 0, 0, 0, vfb->renderWidth, vfb->renderHeight, 1, Draw::FBChannel::FB_COLOR_BIT, "reinterpret_prep");
-	draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, reinterpretStrings[(int)oldFormat][(int)newFormat]);
+	draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, reinterpretStrings[(int)oldFormat][(int)newFormat]);
 	draw_->BindPipeline(pipeline);
 	draw_->BindFramebufferAsTexture(temp, 0, Draw::FBChannel::FB_COLOR_BIT, 0);
 	draw_->BindSamplerStates(0, 1, &reinterpretSampler_);
@@ -1694,12 +1694,12 @@ void FramebufferManagerCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2
 	}
 
 	u8 *addr = Memory::GetPointerUnchecked(gstate.getFrameBufAddress());
-	const int bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
+	const int bpp = gstate_c.framebufFormat == GE_FORMAT_8888 ? 4 : 2;
 
 	u32 clearBits = clearColor;
 	if (bpp == 2) {
 		u16 clear16 = 0;
-		switch (gstate.FrameBufFormat()) {
+		switch (gstate_c.framebufFormat) {
 		case GE_FORMAT_565: clear16 = RGBA8888toRGB565(clearColor); break;
 		case GE_FORMAT_5551: clear16 = RGBA8888toRGBA5551(clearColor); break;
 		case GE_FORMAT_4444: clear16 = RGBA8888toRGBA4444(clearColor); break;

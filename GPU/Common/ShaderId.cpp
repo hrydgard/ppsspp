@@ -252,7 +252,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const Draw::Bugs &bugs) {
 
 		// Note how we here recompute some of the work already done in state mapping.
 		// Not ideal! At least we share the code.
-		ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowFramebufferRead, gstate.FrameBufFormat());
+		ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowFramebufferRead, gstate_c.framebufFormat);
 		if (colorWriteMask) {
 			replaceBlend = REPLACE_BLEND_COPY_FBO;
 		}

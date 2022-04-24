@@ -1633,6 +1633,10 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 			return;
 	}
 
+	// Update cached framebuffer format.
+	// We store it in the cache so it can be modified for blue-to-alpha, next.
+	gstate_c.framebufFormat = gstate.FrameBufFormat();
+
 	// This also makes skipping drawing very effective.
 	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 
@@ -2897,7 +2901,7 @@ bool GPUCommon::PerformStencilUpload(u32 dest, int size) {
 bool GPUCommon::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) {
 	u32 fb_address = type == GPU_DBG_FRAMEBUF_RENDER ? (gstate.getFrameBufRawAddress() | 0x04000000) : framebufferManager_->DisplayFramebufAddr();
 	int fb_stride = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.FrameBufStride() : framebufferManager_->DisplayFramebufStride();
-	GEBufferFormat format = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.FrameBufFormat() : framebufferManager_->DisplayFramebufFormat();
+	GEBufferFormat format = type == GPU_DBG_FRAMEBUF_RENDER ? gstate_c.framebufFormat : framebufferManager_->DisplayFramebufFormat();
 	return framebufferManager_->GetFramebuffer(fb_address, fb_stride, format, buffer, maxRes);
 }
 
