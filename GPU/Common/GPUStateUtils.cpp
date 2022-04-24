@@ -1033,7 +1033,7 @@ void ConvertMaskState(GenericMaskState &maskState, bool allowFramebufferRead) {
 }
 
 // Called even if AlphaBlendEnable == false - it also deals with stencil-related blend state.
-void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead) {
+void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead, bool forceReplaceBlend) {
 	// Blending is a bit complex to emulate.  This is due to several reasons:
 	//
 	//  * Doubled blend modes (src, dst, inversed) aren't supported in OpenGL.
@@ -1050,6 +1050,9 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead)
 	blendState.replaceAlphaWithStencil = REPLACE_ALPHA_NO;
 
 	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(allowFramebufferRead, gstate.FrameBufFormat());
+	if (forceReplaceBlend) {
+		replaceBlend = REPLACE_BLEND_COPY_FBO;
+	}
 	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
 	bool usePreSrc = false;
 

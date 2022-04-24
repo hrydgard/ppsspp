@@ -155,11 +155,12 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		} else {
 			// Do the large chunks of state conversion. We might be able to hide these two behind a dirty-flag each,
 			// to avoid recomputing heavy stuff unnecessarily every draw call.
-			GenericBlendState blendState;
-			ConvertBlendState(blendState, gstate_c.allowFramebufferRead);
 
 			GenericMaskState maskState;
 			ConvertMaskState(maskState, gstate_c.allowFramebufferRead);
+
+			GenericBlendState blendState;
+			ConvertBlendState(blendState, gstate_c.allowFramebufferRead, maskState.applyFramebufferRead);
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
 				if (ApplyFramebufferRead(&fboTexNeedsBind_)) {
