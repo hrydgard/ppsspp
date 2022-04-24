@@ -50,6 +50,9 @@
     <Filter Include="Content\flash0\font">
       <UniqueIdentifier>{d2294c79-82bd-470f-b984-f838f0fbcd25}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Content\themes">
+      <UniqueIdentifier>{da2113a6-e616-4fc9-8be3-ff75b963664b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="App.cpp" />
@@ -358,6 +361,9 @@
     </None>
     <None Include="..\assets\ui_atlas.meta">
       <Filter>Content</Filter>
+    </None>
+    <None Include="..\assets\themes\defaultthemes.ini">
+      <Filter>Content\themes</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

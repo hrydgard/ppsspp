@@ -36,6 +36,7 @@ void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pi
 }
 
 void UIContext::setUIAtlas(const std::string &name) {
+	_dbg_assert_(!name.empty());
 	UIAtlas_ = name;
 }
 
