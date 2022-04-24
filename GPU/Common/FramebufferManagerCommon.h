@@ -100,6 +100,8 @@ struct VirtualFramebuffer {
 	bool dirtyAfterDisplay;
 	bool reallyDirtyAfterDisplay;  // takes frame skipping into account
 
+	bool blueToAlphaUsed;
+
 	int last_frame_used;
 	int last_frame_attached;
 	int last_frame_render;

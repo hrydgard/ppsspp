@@ -1642,8 +1642,7 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 
 	// Create a new fbo if none was found for the size
 	if (!nvfb) {
-		nvfb = new VirtualFramebuffer();
-		memset(nvfb, 0, sizeof(VirtualFramebuffer));
+		nvfb = new VirtualFramebuffer{};
 		nvfb->fbo = nullptr;
 		nvfb->fb_address = vfb->fb_address;
 		nvfb->fb_stride = vfb->fb_stride;

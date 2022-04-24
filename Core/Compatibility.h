@@ -44,6 +44,7 @@
 //
 // We already have the Action Replay-based cheat system for such use cases.
 
+// TODO: Turn into bitfield for smaller mem footprint. Though I think it still fits in a cacheline...
 struct CompatFlags {
 	bool VertexDepthRounding;
 	bool PixelDepthRounding;
@@ -77,6 +78,7 @@ struct CompatFlags {
 	bool DisableFirstFrameReadback;
 	bool DisableRangeCulling;
 	bool MpegAvcWarmUp;
+	bool BlueToAlpha;
 };
 
 class IniFile;

@@ -191,6 +191,10 @@ ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend) {
 		}
 	}
 
+	if (replaceBlend == ReplaceBlendType::REPLACE_BLEND_BLUE_TO_ALPHA) {
+		return REPLACE_ALPHA_NO;  // irrelevant
+	}
+
 	return REPLACE_ALPHA_YES;
 }
 
@@ -254,6 +258,10 @@ StencilValueType ReplaceAlphaWithStencilType() {
 }
 
 ReplaceBlendType ReplaceBlendWithShader(bool allowFramebufferRead, GEBufferFormat bufferFormat) {
+	if (gstate_c.blueToAlpha) {
+		return REPLACE_BLEND_BLUE_TO_ALPHA;
+	}
+
 	if (!gstate.isAlphaBlendEnabled() || gstate.isModeClear()) {
 		return REPLACE_BLEND_NO;
 	}
@@ -976,6 +984,11 @@ bool IsColorWriteMaskComplex(bool allowFramebufferRead) {
 		return false;
 	}
 
+	if (gstate_c.blueToAlpha) {
+		// We'll generate a simple ___A mask.
+		return false;
+	}
+
 	uint32_t colorMask = (gstate.pmskc & 0xFFFFFF) | (gstate.pmska << 24);
 
 	for (int i = 0; i < 4; i++) {
@@ -996,6 +1009,15 @@ bool IsColorWriteMaskComplex(bool allowFramebufferRead) {
 // When that's not enough, we fall back on a technique similar to shader blending,
 // we read from the framebuffer (or a copy of it).
 void ConvertMaskState(GenericMaskState &maskState, bool allowFramebufferRead) {
+	if (gstate_c.blueToAlpha) {
+		maskState.applyFramebufferRead = false;
+		maskState.rgba[0] = false;
+		maskState.rgba[1] = false;
+		maskState.rgba[2] = false;
+		maskState.rgba[3] = true;
+		return;
+	}
+
 	// Invert to convert masks from the PSP's format where 1 is don't draw to PC where 1 is draw.
 	uint32_t colorMask = ~((gstate.pmskc & 0xFFFFFF) | (gstate.pmska << 24));
 
@@ -1056,12 +1078,18 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead,
 	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
 	bool usePreSrc = false;
 
+	bool blueToAlpha = false;
+
 	switch (replaceBlend) {
 	case REPLACE_BLEND_NO:
 		blendState.resetFramebufferRead = true;
 		// We may still want to do something about stencil -> alpha.
 		ApplyStencilReplaceAndLogicOpIgnoreBlend(replaceAlphaWithStencil, blendState);
 		return;
+
+	case REPLACE_BLEND_BLUE_TO_ALPHA:
+		blueToAlpha = true;
+		break;
 
 	case REPLACE_BLEND_COPY_FBO:
 		blendState.applyFramebufferRead = true;
@@ -1303,6 +1331,10 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead,
 			alphaEq = BlendEq::REVERSE_SUBTRACT;
 			break;
 		}
+	} else if (blueToAlpha) {
+		blendState.setFactors(BlendFactor::ZERO, BlendFactor::ZERO, glBlendFuncA, glBlendFuncB);
+		blendState.setEquation(BlendEq::ADD, colorEq);
+		return;
 	} else {
 		// Retain the existing value when stencil testing is off.
 		blendState.setFactors(glBlendFuncA, glBlendFuncB, BlendFactor::ZERO, BlendFactor::ONE);

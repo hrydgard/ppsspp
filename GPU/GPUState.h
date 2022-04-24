@@ -594,6 +594,11 @@ struct GPUStateCache {
 	KnownVertexBounds vertBounds;
 
 	GEBufferFormat framebufFormat;
+	// Some games use a very specific masking setup to draw into the alpha channel of a 4444 target using the blue channel of a 565 target.
+	// This is done because on PSP you can't write to destination alpha, other than stencil values, which can't be set from a texture.
+	// Examples of games that do this: Outrun, Split/Second.
+	// We detect this case and go into a special drawing mode.
+	bool blueToAlpha;
 
 	// TODO: These should be accessed from the current VFB object directly.
 	u32 curRTWidth;

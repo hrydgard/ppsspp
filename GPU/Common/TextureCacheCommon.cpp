@@ -915,7 +915,7 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 		}
 		// NOTE: This check is okay because the first texture formats are the same as the buffer formats.
 		if (IsTextureFormatBufferCompatible(entry.format)) {
-			if (TextureFormatMatchesBufferFormat(entry.format, framebuffer->format)) {
+			if (TextureFormatMatchesBufferFormat(entry.format, framebuffer->format) || framebuffer->blueToAlphaUsed) {
 				return FramebufferMatchInfo{ FramebufferMatch::VALID };
 			} else if (IsTextureFormat16Bit(entry.format) && IsBufferFormat16Bit(framebuffer->format)) {
 				WARN_LOG_ONCE(diffFormat1, G3D, "Texturing from framebuffer with reinterpretable format: %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format));

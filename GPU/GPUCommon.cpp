@@ -1637,8 +1637,21 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	// We store it in the cache so it can be modified for blue-to-alpha, next.
 	gstate_c.framebufFormat = gstate.FrameBufFormat();
 
+	// See the documentation for gstate_c.blueToAlpha.
+	bool blueToAlpha = false;
+	if (gstate_c.framebufFormat == GEBufferFormat::GE_FORMAT_565 && gstate.getColorMask() == 0x0FFFFF && PSP_CoreParameter().compat.flags().BlueToAlpha) {
+		blueToAlpha = true;
+	}
+	if (blueToAlpha != gstate_c.blueToAlpha) {
+		gstate_c.blueToAlpha = blueToAlpha;
+		gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_BLEND_STATE);
+	}
+
 	// This also makes skipping drawing very effective.
-	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+	VirtualFramebuffer *vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+	if (blueToAlpha) {
+		vfb->blueToAlphaUsed = true;
+	}
 
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// Rough estimate, not sure what's correct.
