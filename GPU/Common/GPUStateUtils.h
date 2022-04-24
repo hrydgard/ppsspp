@@ -54,9 +54,6 @@ bool IsAlphaTestAgainstZero();
 bool NeedsTestDiscard();
 bool IsStencilTestOutputDisabled();
 
-// If not, we have to emulate it in the shader, similar to blend replace.
-bool IsColorMaskSimple(uint32_t colorMask);
-
 StencilValueType ReplaceAlphaWithStencilType();
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
 ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bufferFormat);

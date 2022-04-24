@@ -1699,9 +1699,9 @@ void FramebufferManagerCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2
 	if (bpp == 2) {
 		u16 clear16 = 0;
 		switch (gstate.FrameBufFormat()) {
-		case GE_FORMAT_565: ConvertRGBA8888ToRGB565(&clear16, &clearColor, 1); break;
-		case GE_FORMAT_5551: ConvertRGBA8888ToRGBA5551(&clear16, &clearColor, 1); break;
-		case GE_FORMAT_4444: ConvertRGBA8888ToRGBA4444(&clear16, &clearColor, 1); break;
+		case GE_FORMAT_565: clear16 = RGBA8888toRGB565(clearColor); break;
+		case GE_FORMAT_5551: clear16 = RGBA8888toRGBA5551(clearColor); break;
+		case GE_FORMAT_4444: clear16 = RGBA8888toRGBA4444(clearColor); break;
 		default: _dbg_assert_(0); break;
 		}
 		clearBits = clear16 | (clear16 << 16);
