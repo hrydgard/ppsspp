@@ -691,7 +691,7 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 	shaderManager_->DirtyLastShader();
 	textureCache_->ForgetLastTexture();
 
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE);
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 
 	if (currentRenderVfb_ != vfb) {
 		// In case ReinterpretFramebuffer was called from the texture manager.
@@ -1688,6 +1688,7 @@ void FramebufferManagerCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2
 			return;
 		}
 	}
+
 	if (!Memory::IsValidAddress(gstate.getFrameBufAddress())) {
 		return;
 	}
