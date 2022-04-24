@@ -1332,7 +1332,7 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead,
 			break;
 		}
 	} else if (blueToAlpha) {
-		blendState.setFactors(BlendFactor::ZERO, BlendFactor::ZERO, glBlendFuncA, glBlendFuncB);
+		blendState.setFactors(BlendFactor::ZERO, BlendFactor::ZERO, BlendFactor::ONE, glBlendFuncB);
 		blendState.setEquation(BlendEq::ADD, colorEq);
 		return;
 	} else {

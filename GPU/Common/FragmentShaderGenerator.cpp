@@ -858,7 +858,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
 		}
 
-		if (replaceBlend == REPLACE_BLEND_PRE_SRC || replaceBlend == REPLACE_BLEND_PRE_SRC_2X_ALPHA) {
+		// In some cases we need to replicate the first half of the blend equation here.
+		// In case of blue-to-alpha, it's since we overwrite alpha with blue before the actual blend equation runs.
+		if (replaceBlend == REPLACE_BLEND_PRE_SRC || replaceBlend == REPLACE_BLEND_PRE_SRC_2X_ALPHA || replaceBlend == REPLACE_BLEND_BLUE_TO_ALPHA) {
 			const char *srcFactor = "ERROR";
 			switch (replaceBlendFuncA) {
 			case GE_SRCBLEND_DSTCOLOR:          srcFactor = "ERROR"; break;

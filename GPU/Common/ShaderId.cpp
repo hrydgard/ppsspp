@@ -190,7 +190,7 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	if (blendBits) {
 		switch (blendBits) {
 		case ReplaceBlendType::REPLACE_BLEND_BLUE_TO_ALPHA:
-			desc << "BlueToAlpha";
+			desc << "BlueToAlpha_" << "A:" << id.Bits(FS_BIT_BLENDFUNC_A, 4);
 			break;
 		default:
 			desc << "ReplaceBlend_" << id.Bits(FS_BIT_REPLACE_BLEND, 3)
@@ -325,6 +325,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const Draw::Bugs &bugs) {
 		// If replaceBlend == REPLACE_BLEND_STANDARD (or REPLACE_BLEND_NO) nothing is done, so we kill these bits.
 		if (replaceBlend == REPLACE_BLEND_BLUE_TO_ALPHA) {
 			id.SetBits(FS_BIT_REPLACE_BLEND, 3, replaceBlend);
+			id.SetBits(FS_BIT_BLENDFUNC_A, 4, gstate.getBlendFuncA());
 		} else if (replaceBlend > REPLACE_BLEND_STANDARD) {
 			// 3 bits.
 			id.SetBits(FS_BIT_REPLACE_BLEND, 3, replaceBlend);
