@@ -589,7 +589,7 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 
 			// Games that are marked as doing reinterpret just ignore this - better to keep the data than to clear.
 			// Fixes #13717.
-			if (!PSP_CoreParameter().compat.flags().ReinterpretFramebuffers) {
+			if (!PSP_CoreParameter().compat.flags().ReinterpretFramebuffers && !PSP_CoreParameter().compat.flags().BlueToAlpha) {
 				draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "FakeReinterpret");
 				// Need to dirty anything that has command buffer dynamic state, in case we started a new pass above.
 				// Should find a way to feed that information back, maybe... Or simply correct the issue in the rendermanager.
