@@ -501,7 +501,7 @@ bool DrawEngineCommon::ApplyFramebufferRead(bool *fboTexNeedsBind) {
 		lastFrameBlit = gpuStats.numFlips;
 	}
 	++blitsThisFrame;
-	if (blitsThisFrame > MAX_REASONABLE_BLITS_PER_FRAME * 2) {
+	if (blitsThisFrame > MAX_REASONABLE_BLITS_PER_FRAME * 4) {
 		WARN_LOG_ONCE(blendingBlit2, G3D, "Skipping additional blits needed for obscure blending: %d per frame, blend %d/%d/%d", blitsThisFrame, gstate.getBlendFuncA(), gstate.getBlendFuncB(), gstate.getBlendEq());
 		return false;
 	}

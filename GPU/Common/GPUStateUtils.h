@@ -166,7 +166,7 @@ struct GenericBlendState {
 	}
 };
 
-void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend);
+void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend, bool forceReplaceBlend);
 void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState);
 
 struct GenericMaskState {
