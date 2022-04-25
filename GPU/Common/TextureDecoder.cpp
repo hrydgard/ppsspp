@@ -637,7 +637,7 @@ void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, int height, u32 
 	DXTDecoder dxt;
 	dxt.DecodeColors(src, false);
 	dxt.WriteColorsDXT1(dst, src, pitch, height);
-	*alpha = dxt.AnyNonFullAlpha() ? 0 : 0xFFFFFFFF;
+	*alpha &= dxt.AnyNonFullAlpha() ? 0 : 1;
 }
 
 void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch, int height) {

@@ -1357,14 +1357,14 @@ static inline void ConvertFormatToRGBA8888(GEPaletteFormat format, u32 *dst, con
 }
 
 template <typename DXTBlock, int n>
-static void DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t texaddr, const uint8_t *texptr,
-	int w, int h, int bufw, bool reverseColors, bool useBGRA,
-	u32 *alphaSum, u32 *fullAlphaMask) {
+static CheckAlphaResult DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t texaddr, const uint8_t *texptr,
+	int w, int h, int bufw, bool reverseColors, bool useBGRA) {
 
 	int minw = std::min(bufw, w);
 	uint32_t *dst = (uint32_t *)out;
 	int outPitch32 = outPitch / sizeof(uint32_t);
 	const DXTBlock *src = (const DXTBlock *)texptr;
+
 
 	if (!Memory::IsValidRange(texaddr, (h / 4) * (bufw / 4) * sizeof(DXTBlock))) {
 		ERROR_LOG_REPORT(G3D, "DXT%d texture extends beyond valid RAM: %08x + %d x %d", n, texaddr, bufw, h);
@@ -1373,16 +1373,14 @@ static void DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t texaddr, const 
 		h = (((int)limited / sizeof(DXTBlock)) / (bufw / 4)) * 4;
 	}
 
-	*fullAlphaMask = 1;  // we just use one bit here.
-
-	u32 alpha = 0xFFFFFFFF;
+	u32 alphaSum = 1;
 	for (int y = 0; y < h; y += 4) {
 		u32 blockIndex = (y / 4) * (bufw / 4);
 		int blockHeight = std::min(h - y, 4);
 		for (int x = 0; x < minw; x += 4) {
 			switch (n) {
 			case 1:
-				DecodeDXT1Block(dst + outPitch32 * y + x, (const DXT1Block *)src + blockIndex, outPitch32, blockHeight, &alpha);
+				DecodeDXT1Block(dst + outPitch32 * y + x, (const DXT1Block *)src + blockIndex, outPitch32, blockHeight, &alphaSum);
 				break;
 			case 3:
 				DecodeDXT3Block(dst + outPitch32 * y + x, (const DXT3Block *)src + blockIndex, outPitch32, blockHeight);
@@ -1395,19 +1393,15 @@ static void DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t texaddr, const 
 		}
 	}
 
-	switch (n) {
-	case 1:
-		*alphaSum = alpha;
-		break;
-	case 3:
-	case 5:
-		// Just report that we don't have full alpha, since these formats are made for that.
-		*alphaSum = 0;
-		break;
-	}
-
 	if (reverseColors) {
 		ReverseColors(out, out, GE_TFMT_8888, outPitch32 * h, useBGRA);
+	}
+
+	if (n == 1) {
+		return alphaSum == 1 ? CHECKALPHA_FULL : CHECKALPHA_ANY;
+	} else {
+		// Just report that we don't have full alpha, since these formats are made for that.
+		return CHECKALPHA_ANY;
 	}
 }
 
@@ -1633,16 +1627,13 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 		break;
 
 	case GE_TFMT_DXT1:
-		DecodeDXTBlocks<DXT1Block, 1>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors, useBGRA, &alphaSum, &fullAlphaMask);
-		break;
+		return DecodeDXTBlocks<DXT1Block, 1>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors, useBGRA);
 
 	case GE_TFMT_DXT3:
-		DecodeDXTBlocks<DXT3Block, 3>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors, useBGRA, &alphaSum, &fullAlphaMask);
-		break;
+		return DecodeDXTBlocks<DXT3Block, 3>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors, useBGRA);
 
 	case GE_TFMT_DXT5:
-		DecodeDXTBlocks<DXT5Block, 5>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors, useBGRA, &alphaSum, &fullAlphaMask);
-		break;
+		return DecodeDXTBlocks<DXT5Block, 5>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors, useBGRA);
 
 	default:
 		ERROR_LOG_REPORT(G3D, "Unknown Texture Format %d!!!", format);
