@@ -324,6 +324,9 @@ void CPUInfo::Detect()
 	unsigned short CPUPart = GetCPUPart();
 	if (GetCPUImplementer() == 0x51 && (CPUPart == 0x4D || CPUPart == 0x6F))
 		bIDIVa = bIDIVt = true;
+	// Vero4k supports NEON but doesn't report it. Check for Arm Cortex-A53.
+	if (GetCPUImplementer() == 0x41 && CPUPart == 0xd03)
+		bNEON = true;
 	// These two require ARMv8 or higher
 	bFP = CheckCPUFeature("fp");
 	bASIMD = CheckCPUFeature("asimd");
