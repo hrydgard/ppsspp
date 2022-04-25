@@ -1405,12 +1405,12 @@ static CheckAlphaResult DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t tex
 	}
 }
 
-inline u32 ClutFormatToFullAlpha(GEPaletteFormat fmt) {
+inline u32 ClutFormatToFullAlpha(GEPaletteFormat fmt, bool reverseColors) {
 	switch (fmt) {
-	case GE_CMODE_16BIT_ABGR4444: return 0xF000;
-	case GE_CMODE_16BIT_ABGR5551: return 0x8000;
+	case GE_CMODE_16BIT_ABGR4444: return reverseColors ? 0x000F : 0xF000;
+	case GE_CMODE_16BIT_ABGR5551: return reverseColors ? 0x0001 : 0x8000;
 	case GE_CMODE_32BIT_ABGR8888: return 0xFF000000;
-	case GE_CMODE_16BIT_BGR5650:
+	case GE_CMODE_16BIT_BGR5650: return 0;
 	default: return 0;
 	}
 }
@@ -1420,7 +1420,7 @@ inline u32 TfmtRawToFullAlpha(GETextureFormat fmt) {
 	case GE_TFMT_4444: return 0xF000;
 	case GE_TFMT_5551: return 0x8000;
 	case GE_TFMT_8888: return 0xFF000000;
-	case GE_TFMT_5650:
+	case GE_TFMT_5650: return 0;
 	default: return 0;
 	}
 }
@@ -1489,7 +1489,8 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 						DeIndexTexture4<u32>((u32 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, expandClut_, &alphaSum);
 					}
 				} else {
-					fullAlphaMask = ClutFormatToFullAlpha(clutformat);
+					// If we're reversing colors, the CLUT was already reversed.
+					fullAlphaMask = ClutFormatToFullAlpha(clutformat, reverseColors);
 					for (int y = 0; y < h; ++y) {
 						DeIndexTexture4<u16>((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut, &alphaSum);
 					}
@@ -1521,13 +1522,13 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 	break;
 
 	case GE_TFMT_CLUT8:
-		return ReadIndexedTex(out, outPitch, level, texptr, 1, bufw, expandTo32bit);
+		return ReadIndexedTex(out, outPitch, level, texptr, 1, bufw, reverseColors, expandTo32bit);
 
 	case GE_TFMT_CLUT16:
-		return ReadIndexedTex(out, outPitch, level, texptr, 2, bufw, expandTo32bit);
+		return ReadIndexedTex(out, outPitch, level, texptr, 2, bufw, reverseColors, expandTo32bit);
 
 	case GE_TFMT_CLUT32:
-		return ReadIndexedTex(out, outPitch, level, texptr, 4, bufw, expandTo32bit);
+		return ReadIndexedTex(out, outPitch, level, texptr, 4, bufw, reverseColors, expandTo32bit);
 
 	case GE_TFMT_4444:
 	case GE_TFMT_5551:
@@ -1643,7 +1644,7 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 	return AlphaSumIsFull(alphaSum, fullAlphaMask) ? CHECKALPHA_FULL : CHECKALPHA_ANY;
 }
 
-CheckAlphaResult TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool expandTo32Bit) {
+CheckAlphaResult TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool reverseColors, bool expandTo32Bit) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
@@ -1665,7 +1666,7 @@ CheckAlphaResult TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int l
 	}
 
 	u32 alphaSum = 0xFFFFFFFF;
-	u32 fullAlphaMask = ClutFormatToFullAlpha(palFormat);
+	u32 fullAlphaMask = ClutFormatToFullAlpha(palFormat, reverseColors);
 
 	switch (palFormat) {
 	case GE_CMODE_16BIT_BGR5650:
