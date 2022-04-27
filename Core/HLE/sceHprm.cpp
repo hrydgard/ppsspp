@@ -44,6 +44,16 @@ static u32 sceHprmIsRemoteExist() {
 	return 0;
 }
 
+static u32 sceHprmRegisterCallback() {
+	ERROR_LOG(HLE, "UNIMPL %s", __FUNCTION__);
+	return 0;
+}
+
+static u32 sceHprmUnregisterCallback() {
+	ERROR_LOG(HLE, "UNIMPL %s", __FUNCTION__);
+	return 0;
+}
+
 static u32 sceHprmPeekLatch(u32 latchAddr) {
 	DEBUG_LOG(HLE,"sceHprmPeekLatch latchAddr %08x",latchAddr);
 	return 0;
@@ -61,7 +71,8 @@ const HLEFunction sceHprm[] =
 	{0X208DB1BD, &WrapU_V<sceHprmIsRemoteExist>,     "sceHprmIsRemoteExist",      'x', "" },
 	{0X7E69EDA4, &WrapU_V<sceHprmIsHeadphoneExist>,  "sceHprmIsHeadphoneExist",   'x', "" },
 	{0X219C58F1, &WrapU_V<sceHprmIsMicrophoneExist>, "sceHprmIsMicrophoneExist",  'x', "" },
-	{0XC7154136, nullptr,                            "sceHprmRegisterCallback",   '?', "" },
+	{0XC7154136, &WrapU_V<sceHprmRegisterCallback>,  "sceHprmRegisterCallback",   'x', "" },
+	{0xFD7DE6CD, &WrapU_V<sceHprmUnregisterCallback>,"sceHprmUnregisterCallback", 'x', "" },
 	{0X444ED0B7, nullptr,                            "sceHprmUnregitserCallback", '?', "" }, // Typo.
 	{0X2BCEC83E, &WrapU_U<sceHprmPeekLatch>,         "sceHprmPeekLatch",          'x', "x"},
 	{0X40D2F9F0, &WrapU_U<sceHprmReadLatch>,         "sceHprmReadLatch",          'x', "x"},

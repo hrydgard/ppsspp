@@ -112,6 +112,7 @@ static const ModuleLoadInfo moduleLoadInfo[] = {
 	ModuleLoadInfo(0x0306, 0x00004000),
 	ModuleLoadInfo(0x0307, 0x00000000),
 	ModuleLoadInfo(0x0308, 0x0003c000, mp4ModuleDeps),
+	ModuleLoadInfo(0x03fe, 0x00000000),
 	ModuleLoadInfo(0x03ff, 0x00000000),
 	ModuleLoadInfo(0x0400, 0x0000c000),
 	ModuleLoadInfo(0x0401, 0x00018000),
