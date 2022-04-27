@@ -45,12 +45,12 @@ static u32 sceHprmIsRemoteExist() {
 }
 
 static u32 sceHprmRegisterCallback() {
-	DEBUG_LOG(HLE, "sceHprmRegisterCallback()");
+	ERROR_LOG(HLE, "UNIMPL %s", __FUNCTION__);
 	return 0;
 }
 
 static u32 sceHprmUnregisterCallback() {
-	DEBUG_LOG(HLE, "sceHprmUnregisterCallback()");
+	ERROR_LOG(HLE, "UNIMPL %s", __FUNCTION__);
 	return 0;
 }
 
