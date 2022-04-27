@@ -822,18 +822,24 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		ret = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
 		sockerr = errno;
 		if (sockerr != 0)
-			WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: connect(%i) error = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
+			DEBUG_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: connect(%i) error = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
 		else
 			ret = 1; // Ensure returned success value from connect to be compatible with returned success value from select (ie. positive value)
 	}
 	// Check the connection state (assuming "connect" has been called before and is in-progress)
+	// Note: On Linux "select" can return > 0 (with SO_ERROR = 0) even when the connection is not accepted yet, thus need "getpeername" to ensure
 	else {
 		ret = IsSocketReady(ptpsocket.id, false, true, &sockerr);
-		if (ret > 0)
-			sockerr = getSockError(ptpsocket.id);
+		DEBUG_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Select(%i) = %i, error = %i", req.id, ptpsocket.lport, ptpsocket.id, ret, sockerr);
 		if (sockerr != 0) {
-			WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: getSockError(%i) = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
+			DEBUG_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: SelectError(%i) = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
 			ret = SOCKET_ERROR; // Ensure returned value from select to be negative when the socket has error (the socket may need to be recreated again)
+		}
+
+		if (ret <= 0) {
+			if (sockerr == 0)
+				sockerr = EAGAIN;
+			ret = SOCKET_ERROR; // Ensure returned value from select to be negative when the socket is not ready yet, due to a possibility for "getpeername" to succeed on Windows even when "connect" hasn't been accepted yet
 		}
 	}
 
@@ -841,10 +847,12 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 	if (ret != SOCKET_ERROR) {
 		socklen_t sinlen = sizeof(sin);
 		memset(&sin, 0, sinlen);
-		// Note: getpeername shouldn't failed if the connection has been established
+		// Note: "getpeername" shouldn't failed if the connection has been established, but on Windows it may succeed even when "connect" is still in-progress and not accepted yet (ie. "Tales of VS" on Windows)
 		ret = getpeername(ptpsocket.id, (struct sockaddr*)&sin, &sinlen);
 		if (ret == SOCKET_ERROR) {
-			WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: getpeername error %i, sockerr = %i", req.id, ptpsocket.lport, errno, sockerr);
+			int err = errno;
+			VERBOSE_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: getpeername(%i) error %i, sockerr = %i", req.id, ptpsocket.lport, ptpsocket.id, err, sockerr);
+			sockerr = err;
 		}
 	}
 
@@ -856,16 +864,20 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		// Done
 		result = 0;
 	}
-	else if (connectInProgress(sockerr)) {
+	else if (connectInProgress(sockerr) /* || sockerr == 0*/) {
 		ptpsocket.state = ADHOC_PTP_STATE_SYN_SENT;
 	}
 	// On Windows you can call connect again using the same socket after ECONNREFUSED/ETIMEDOUT/ENETUNREACH error, but on non-Windows you'll need to recreate the socket first
 	else {
-		INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Recreating Socket %i, errno = %i, state = %i, attempt = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr, ptpsocket.state, sock->attemptCount);
-		if (RecreatePtpSocket(req.id) < 0) {
-			WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: RecreatePtpSocket error %i", req.id, ptpsocket.lport, errno);
+		// Only recreate the socket once per frame (just like most adhoc games that tried to PtpConnect once per frame when using non-blocking mode)
+		if (/*sockerr == ECONNREFUSED ||*/ static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - sock->internalLastAttempt) > 16666) {
+			DEBUG_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Recreating Socket %i, errno = %i, state = %i, attempt = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr, ptpsocket.state, sock->attemptCount);
+			if (RecreatePtpSocket(req.id) < 0) {
+				WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: RecreatePtpSocket error %i", req.id, ptpsocket.lport, errno);
+			}
+			ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
+			sock->internalLastAttempt = CoreTiming::GetGlobalTimeUsScaled();
 		}
-		ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
 	}
 
 	// Still in progress, try again next time until Timedout
@@ -3208,10 +3220,16 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 				if ( sock != NULL && sock->type == SOCK_PTP) {
 					// Update connection state. 
 					// GvG Next Plus relies on GetPtpStat to determine if Connection has been Established or not, but should not be updated too long for GvG to work, and should not be updated too fast(need to be 1 frame after PollSocket checking for ADHOC_EV_CONNECT) for Bleach Heat the Soul 7 to work properly.
-					if ((sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT || sock->data.ptp.state == ADHOC_PTP_STATE_SYN_RCVD) && (static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - sock->lastAttempt) > 35000/*sock->retry_interval*/)) {
+					if ((sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT || sock->data.ptp.state == ADHOC_PTP_STATE_SYN_RCVD) && (static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - sock->lastAttempt) > 33333/*sock->retry_interval*/)) {
 						// FIXME: May be we should poll all of them together on a single poll call instead of each socket separately?
 						if (IsSocketReady(sock->data.ptp.id, true, true) > 0) {
-							sock->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
+							struct sockaddr_in sin;
+							socklen_t sinlen = sizeof(sin);
+							memset(&sin, 0, sinlen);
+							// Ensure that the connection really established or not, since "select" alone can't accurately detects it
+							if (getpeername(sock->data.ptp.id, (struct sockaddr*)&sin, &sinlen) != SOCKET_ERROR) {
+								sock->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
+							}
 						}
 					}
 
@@ -3810,6 +3828,7 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 					if (connectresult != SOCKET_ERROR || errorcode == EISCONN) {
 						socket->attemptCount++;
 						socket->lastAttempt = CoreTiming::GetGlobalTimeUsScaled();
+						socket->internalLastAttempt = socket->lastAttempt;
 						// Set Connected State
 						ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
 
@@ -3837,6 +3856,7 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 							}
 							socket->attemptCount++;
 							socket->lastAttempt = CoreTiming::GetGlobalTimeUsScaled();
+							socket->internalLastAttempt = socket->lastAttempt;
 							// Blocking Mode
 							// Workaround: Forcing first attempt to be blocking to prevent issue related to lobby or high latency networks. (can be useful for GvG Next Plus, Dissidia 012, and Fate Unlimited Codes)
 							if (!flag || (allowForcedConnect && g_Config.bForcedFirstConnect && socket->attemptCount <= 1)) {
@@ -4218,16 +4238,16 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					// Change Socket State
 					ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
 					
-					// Disconnected or Not connected?
-					return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected?");
+					// Disconnected
+					return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected");
 				}
 				
 				// Invalid Arguments
 				return hleLogError(SCENET, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg");
 			}
 			
-			// Disconnected
-			return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected");
+			// Not Connected
+			return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_CONNECTED, "not connected");
 		}
 		
 		// Invalid Socket
@@ -4332,11 +4352,12 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					// Change Socket State
 					ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
 
-					// Disconnected or Not connected?
-					return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected?");
+					// Disconnected
+					return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected");
 				}
 
-				return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected");
+				// Not Connected
+				return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_CONNECTED, "not connected");
 			}
 
 			// Invalid Socket
