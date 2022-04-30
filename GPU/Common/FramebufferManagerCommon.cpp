@@ -670,9 +670,11 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 	// Copy to a temp framebuffer.
 	Draw::Framebuffer *temp = GetTempFBO(TempFBO::REINTERPRET, vfb->renderWidth, vfb->renderHeight);
 
+	// Ideally on Vulkan this should be using the original framebuffer as an input attachment, allowing it to read from
+	// itself while writing.
 	draw_->InvalidateCachedState();
 	draw_->CopyFramebufferImage(vfb->fbo, 0, 0, 0, 0, temp, 0, 0, 0, 0, vfb->renderWidth, vfb->renderHeight, 1, Draw::FBChannel::FB_COLOR_BIT, "reinterpret_prep");
-	draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, reinterpretStrings[(int)oldFormat][(int)newFormat]);
+	draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, reinterpretStrings[(int)oldFormat][(int)newFormat]);
 	draw_->BindPipeline(pipeline);
 	draw_->BindFramebufferAsTexture(temp, 0, Draw::FBChannel::FB_COLOR_BIT, 0);
 	draw_->BindSamplerStates(0, 1, &reinterpretSampler_);

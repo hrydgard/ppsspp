@@ -44,6 +44,7 @@ enum {
 	FB_USAGE_CLUT = 8,
 	FB_USAGE_DOWNLOAD = 16,
 	FB_USAGE_DOWNLOAD_CLEAR = 32,
+	FB_USAGE_BLUE_TO_ALPHA = 64,
 };
 
 enum {
@@ -99,8 +100,6 @@ struct VirtualFramebuffer {
 
 	bool dirtyAfterDisplay;
 	bool reallyDirtyAfterDisplay;  // takes frame skipping into account
-
-	bool blueToAlphaUsed;
 
 	int last_frame_used;
 	int last_frame_attached;

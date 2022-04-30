@@ -1637,22 +1637,6 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	// We store it in the cache so it can be modified for blue-to-alpha, next.
 	gstate_c.framebufFormat = gstate.FrameBufFormat();
 
-	// See the documentation for gstate_c.blueToAlpha.
-	bool blueToAlpha = false;
-	if (gstate_c.framebufFormat == GEBufferFormat::GE_FORMAT_565 && gstate.getColorMask() == 0x0FFFFF && PSP_CoreParameter().compat.flags().BlueToAlpha) {
-		blueToAlpha = true;
-	}
-	if (blueToAlpha != gstate_c.blueToAlpha) {
-		gstate_c.blueToAlpha = blueToAlpha;
-		gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_BLEND_STATE);
-	}
-
-	// This also makes skipping drawing very effective.
-	VirtualFramebuffer *vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
-	if (blueToAlpha) {
-		vfb->blueToAlphaUsed = true;
-	}
-
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// Rough estimate, not sure what's correct.
 		cyclesExecuted += EstimatePerVertexCost() * count;
@@ -1665,6 +1649,24 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
 		ERROR_LOG(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
 		return;
+	}
+
+	// See the documentation for gstate_c.blueToAlpha.
+	bool blueToAlpha = false;
+	if (PSP_CoreParameter().compat.flags().BlueToAlpha) {
+		if (gstate_c.framebufFormat == GEBufferFormat::GE_FORMAT_565 && gstate.getColorMask() == 0x0FFFFF) {
+			blueToAlpha = true;
+		}
+		if (blueToAlpha != gstate_c.blueToAlpha) {
+			gstate_c.blueToAlpha = blueToAlpha;
+			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_BLEND_STATE);
+		}
+	}
+
+	// This also makes skipping drawing very effective.
+	VirtualFramebuffer *vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+	if (blueToAlpha) {
+		vfb->usageFlags |= FB_USAGE_BLUE_TO_ALPHA;
 	}
 
 	void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
@@ -2997,7 +2999,7 @@ bool GPUCommon::FramebufferReallyDirty() {
 void GPUCommon::UpdateUVScaleOffset() {
 #ifdef _M_SSE
 	__m128i values = _mm_slli_epi32(_mm_load_si128((const __m128i *) & gstate.texscaleu), 8);
-	_mm_storeu_si128((__m128i *) & gstate_c.uv, values);
+	_mm_storeu_si128((__m128i *)&gstate_c.uv, values);
 #elif PPSSPP_ARCH(ARM_NEON)
 	const uint32x4_t values = vshlq_n_u32(vld1q_u32((const u32 *)&gstate.texscaleu), 8);
 	vst1q_u32((u32 *)&gstate_c.uv, values);
