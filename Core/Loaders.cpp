@@ -126,6 +126,9 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		return IdentifiedFileType::NORMAL_DIRECTORY;
 	}
 
+	// OK, quick methods of identification for common types failed. Moving on to more expensive methods,
+	// starting by reading the first few bytes.
+
 	u32_le id;
 
 	size_t readSize = fileLoader->ReadAt(0, 4, 1, &id);
@@ -141,8 +144,28 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 	} else if (!memcmp(&_id, "\x00PBP", 4)) {
 		fileLoader->ReadAt(0x24, 4, 1, &psar_offset);
 		fileLoader->ReadAt(psar_offset, 4, 1, &psar_id);
+		// Fall through to the below if chain.
 	} else if (!memcmp(&_id, "Rar!", 4)) {
 		return IdentifiedFileType::ARCHIVE_RAR;
+	} else if (!memcmp(&_id, "\x37\x7A\xBC\xAF", 4)) {
+		return IdentifiedFileType::ARCHIVE_7Z;
+	} else if (!memcmp(&_id, "\0\0\0\0", 4)) {
+		// All zeroes. ISO files start like this but their 16th 2048-byte sector contains metadata.
+		if (fileLoader->FileSize() > 0x8100) {
+			char buffer[16];
+			fileLoader->ReadAt(0x8000, sizeof(buffer), buffer);
+			if (!memcmp(buffer + 1, "CD001", 5)) {
+				// It's an ISO file.
+				if (!memcmp(buffer + 8, "PSP GAME", 8)) {
+					return IdentifiedFileType::PSP_ISO;
+				}
+				return IdentifiedFileType::UNKNOWN_ISO;
+			}
+		}
+	} else if (!memcmp(&_id, "CISO", 4)) {
+		// CISO are not used for many other kinds of ISO so let's just guess it's a PSP one and let it
+		// fail later...
+		return IdentifiedFileType::PSP_ISO;
 	}
 
 	if (id == 'FLE\x7F') {
@@ -337,6 +360,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 
 	case IdentifiedFileType::UNKNOWN_BIN:
 	case IdentifiedFileType::UNKNOWN_ELF:
+	case IdentifiedFileType::UNKNOWN_ISO:
 	case IdentifiedFileType::UNKNOWN:
 		ERROR_LOG(LOADER, "Unknown file type: %s (%s)", fileLoader->GetPath().c_str(), error_string->c_str());
 		*error_string = "Unknown file type: " + fileLoader->GetPath().ToString();

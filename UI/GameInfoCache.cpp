@@ -83,6 +83,7 @@ bool GameInfo::Delete() {
 	case IdentifiedFileType::PSP_ELF:
 	case IdentifiedFileType::UNKNOWN_BIN:
 	case IdentifiedFileType::UNKNOWN_ELF:
+	case IdentifiedFileType::UNKNOWN_ISO:
 	case IdentifiedFileType::ARCHIVE_RAR:
 	case IdentifiedFileType::ARCHIVE_ZIP:
 	case IdentifiedFileType::ARCHIVE_7Z:
