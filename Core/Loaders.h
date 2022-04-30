@@ -37,6 +37,7 @@ enum class IdentifiedFileType {
 
 	UNKNOWN_BIN,
 	UNKNOWN_ELF,
+	UNKNOWN_ISO,
 
 	// Try to reduce support emails...
 	ARCHIVE_RAR,
