@@ -159,6 +159,7 @@ namespace KeyMap {
 	bool IsXperiaPlay(const std::string &name);
 	bool IsOuya(const std::string &name);
 	bool IsMOQII7S(const std::string &name);
+	bool IsRetroid(const std::string &name);
 	bool HasBuiltinController(const std::string &name);
 
 	const std::set<std::string> &GetSeenPads();
