@@ -136,4 +136,7 @@ extern volatile CoreState coreState;
 extern volatile bool coreStatePending;
 void Core_UpdateState(CoreState newState);
 
-CoreParameter &PSP_CoreParameter();
+inline CoreParameter &PSP_CoreParameter() {
+	extern CoreParameter g_CoreParameter;
+	return g_CoreParameter;
+}
