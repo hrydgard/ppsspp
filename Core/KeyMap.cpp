@@ -655,6 +655,8 @@ void RestoreDefault() {
 	SetDefaultKeyMap(DEFAULT_MAPPING_PAD, false);
 #elif PPSSPP_PLATFORM(ANDROID)
 	// Autodetect a few common (and less common) devices
+	// Note that here we check the device name, not the controller name. We don't get
+	// the controller name until a button has been pressed so can't use it to set defaults.
 	std::string name = System_GetProperty(SYSPROP_NAME);
 	if (IsNvidiaShield(name)) {
 		SetDefaultKeyMap(DEFAULT_MAPPING_SHIELD, false);
@@ -663,10 +665,10 @@ void RestoreDefault() {
 	} else if (IsXperiaPlay(name)) {
 		SetDefaultKeyMap(DEFAULT_MAPPING_XPERIA_PLAY, false);
 	} else if (IsMOQII7S(name)) {
-		INFO_LOG(SYSTEM, "MOQI pad map");
 		SetDefaultKeyMap(DEFAULT_MAPPING_MOQI_I7S, false);
+	} else if (IsRetroid(name)) {
+		SetDefaultKeyMap(DEFAULT_MAPPING_RETRO_STATION_CONTROLLER, false);
 	} else {
-		INFO_LOG(SYSTEM, "Default pad map");
 		SetDefaultKeyMap(DEFAULT_MAPPING_ANDROID_PAD, false);
 	}
 #else
@@ -737,6 +739,12 @@ bool IsNvidiaShield(const std::string &name) {
 	return name == "NVIDIA:SHIELD";
 }
 
+bool IsRetroid(const std::string &name) {
+	// TODO: Not sure if there are differences between different Retroid devices.
+	// The one I have is a "Retroid Pocket 2+".
+	return startsWith(name, "Retroid:");
+}
+
 bool IsNvidiaShieldTV(const std::string &name) {
 	return name == "NVIDIA:SHIELD Android TV";
 }
@@ -750,7 +758,7 @@ bool IsMOQII7S(const std::string &name) {
 }
 
 bool HasBuiltinController(const std::string &name) {
-	return IsOuya(name) || IsXperiaPlay(name) || IsNvidiaShield(name) || IsMOQII7S(name);
+	return IsOuya(name) || IsXperiaPlay(name) || IsNvidiaShield(name) || IsMOQII7S(name) || IsRetroid(name);
 }
 
 void NotifyPadConnected(const std::string &name) {
@@ -765,8 +773,8 @@ void AutoConfForPad(const std::string &name) {
 #if PPSSPP_PLATFORM(ANDROID)
 	if (name.find("Xbox") != std::string::npos) {
 		SetDefaultKeyMap(DEFAULT_MAPPING_ANDROID_XBOX, false);
-	} else {
-		SetDefaultKeyMap(DEFAULT_MAPPING_ANDROID_PAD, false);
+	} else if (name == "Retro Station Controller") {
+		SetDefaultKeyMap(DEFAULT_MAPPING_RETRO_STATION_CONTROLLER, false);
 	}
 #else
 	// TODO: Should actually check for XInput?

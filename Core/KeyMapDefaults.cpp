@@ -194,6 +194,31 @@ static const DefMappingStruct defaultAndroidXboxControllerMap[] = {
 	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, -1},
 };
 
+// Retroid reports its controller as "Retro Station Controller".
+// It's very similar to the Android Xbox mapping, just with main buttons swapped around.
+static const DefMappingStruct defaultRetroStationControllerMap[] = {
+	{CTRL_CROSS          , NKCODE_BUTTON_B},
+	{CTRL_CIRCLE         , NKCODE_BUTTON_A},
+	{CTRL_SQUARE         , NKCODE_BUTTON_Y},
+	{CTRL_TRIANGLE       , NKCODE_BUTTON_X},
+	// The hat for DPAD is standard for bluetooth pads, which is the most likely pads on Android I think.
+	{CTRL_LEFT           , NKCODE_DPAD_LEFT},
+	{CTRL_RIGHT          , NKCODE_DPAD_RIGHT},
+	{CTRL_UP             , NKCODE_DPAD_UP},
+	{CTRL_DOWN           , NKCODE_DPAD_DOWN},
+	{CTRL_START          , NKCODE_BUTTON_START},
+	{CTRL_SELECT         , NKCODE_BACK},
+	{CTRL_LTRIGGER       , NKCODE_BUTTON_L1},
+	{CTRL_RTRIGGER       , NKCODE_BUTTON_R1},
+	{VIRTKEY_FASTFORWARD , JOYSTICK_AXIS_RTRIGGER, +1},
+	{VIRTKEY_PAUSE       , JOYSTICK_AXIS_LTRIGGER, +1},
+	{VIRTKEY_AXIS_X_MIN, JOYSTICK_AXIS_X, -1},
+	{VIRTKEY_AXIS_X_MAX, JOYSTICK_AXIS_X, +1},
+	{VIRTKEY_AXIS_Y_MIN, JOYSTICK_AXIS_Y, +1},
+	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, -1},
+};
+
+
 static const DefMappingStruct defaultPadMapAndroid[] = {
 	{CTRL_CROSS          , NKCODE_BUTTON_A},
 	{CTRL_CIRCLE         , NKCODE_BUTTON_B},
@@ -336,6 +361,9 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 		break;
 	case DEFAULT_MAPPING_ANDROID_XBOX:
 		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultAndroidXboxControllerMap, ARRAY_SIZE(defaultAndroidXboxControllerMap), replace);
+		break;
+	case DEFAULT_MAPPING_RETRO_STATION_CONTROLLER:
+		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultRetroStationControllerMap, ARRAY_SIZE(defaultRetroStationControllerMap), replace);
 		break;
 	}
 
