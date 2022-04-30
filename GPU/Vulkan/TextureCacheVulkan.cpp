@@ -133,7 +133,12 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 		samp.maxAnisotropy = 1.0f;
 		samp.anisotropyEnable = false;
 	}
-	samp.maxLod = (float)(int32_t)key.maxLevel * (1.0f / 256.0f);
+	if (key.maxLevel == 9 * 256) {
+		// No max level needed.
+		samp.maxLod = VK_LOD_CLAMP_NONE;
+	} else {
+		samp.maxLod = (float)(int32_t)key.maxLevel * (1.0f / 256.0f);
+	}
 	samp.minLod = (float)(int32_t)key.minLevel * (1.0f / 256.0f);
 	samp.mipLodBias = (float)(int32_t)key.lodBias * (1.0f / 256.0f);
 
