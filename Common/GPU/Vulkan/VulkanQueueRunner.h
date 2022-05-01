@@ -7,6 +7,7 @@
 
 #include "Common/Data/Collections/Hashmaps.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanBarrier.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Data/Collections/TinySet.h"
 #include "Common/GPU/DataFormat.h"
@@ -318,4 +319,9 @@ private:
 	// Compile done notifications.
 	std::mutex compileDoneMutex_;
 	std::condition_variable compileDone_;
+
+	// Image barrier helper used during command buffer record (PerformRenderPass etc).
+	// Stored here to help reuse the allocation.
+
+	VulkanBarrier recordBarrier_;
 };
