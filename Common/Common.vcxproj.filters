@@ -418,6 +418,9 @@
     <ClInclude Include="Thread\Waitable.h">
       <Filter>Thread</Filter>
     </ClInclude>
+    <ClInclude Include="GPU\Vulkan\VulkanBarrier.h">
+      <Filter>GPU\Vulkan</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -790,6 +793,9 @@
       <Filter>ext\vma</Filter>
     </ClCompile>
     <ClCompile Include="GPU\Vulkan\VulkanProfiler.cpp">
+      <Filter>GPU\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\Vulkan\VulkanBarrier.cpp">
       <Filter>GPU\Vulkan</Filter>
     </ClCompile>
   </ItemGroup>
