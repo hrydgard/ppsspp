@@ -169,15 +169,8 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			ConvertBlendState(blendState, gstate_c.allowFramebufferRead, maskState.applyFramebufferRead);
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
-				if (ApplyFramebufferRead(&fboTexNeedsBind_)) {
-					// The shader takes over the responsibility for blending, so recompute.
-					ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
-				} else {
-					// Until next time, force it off.
-					ResetFramebufferRead();
-					gstate_c.SetAllowFramebufferRead(false);
-					// Make sure we recompute the fragment shader ID to one that doesn't try to use shader blending.
-				}
+				// The shader takes over the responsibility for blending, so recompute.
+				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			} else if (blendState.resetFramebufferRead) {
 				ResetFramebufferRead();
