@@ -126,6 +126,7 @@ VULKAN_FILES := \
   $(SRC)/Common/GPU/Vulkan/VulkanImage.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanMemory.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanProfiler.cpp \
+  $(SRC)/Common/GPU/Vulkan/VulkanBarrier.cpp \
   $(SRC)/GPU/Vulkan/DrawEngineVulkan.cpp \
   $(SRC)/GPU/Vulkan/FramebufferManagerVulkan.cpp \
   $(SRC)/GPU/Vulkan/GPU_Vulkan.cpp \
