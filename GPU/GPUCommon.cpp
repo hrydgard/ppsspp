@@ -1633,8 +1633,9 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 			return;
 	}
 
-	// This also makes skipping drawing very effective.
-	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+	// Update cached framebuffer format.
+	// We store it in the cache so it can be modified for blue-to-alpha, next.
+	gstate_c.framebufFormat = gstate.FrameBufFormat();
 
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// Rough estimate, not sure what's correct.
@@ -1648,6 +1649,24 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
 		ERROR_LOG(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
 		return;
+	}
+
+	// See the documentation for gstate_c.blueToAlpha.
+	bool blueToAlpha = false;
+	if (PSP_CoreParameter().compat.flags().BlueToAlpha) {
+		if (gstate_c.framebufFormat == GEBufferFormat::GE_FORMAT_565 && gstate.getColorMask() == 0x0FFFFF) {
+			blueToAlpha = true;
+		}
+		if (blueToAlpha != gstate_c.blueToAlpha) {
+			gstate_c.blueToAlpha = blueToAlpha;
+			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_BLEND_STATE);
+		}
+	}
+
+	// This also makes skipping drawing very effective.
+	VirtualFramebuffer *vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+	if (blueToAlpha) {
+		vfb->usageFlags |= FB_USAGE_BLUE_TO_ALPHA;
 	}
 
 	void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
@@ -1845,6 +1864,8 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
 	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 
+	gstate_c.framebufFormat = gstate.FrameBufFormat();
+
 	// This also make skipping drawing very effective.
 	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
@@ -1912,6 +1933,8 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
 	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+
+	gstate_c.framebufFormat = gstate.FrameBufFormat();
 
 	// This also make skipping drawing very effective.
 	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
@@ -2016,6 +2039,8 @@ void GPUCommon::Execute_BlockTransferStart(u32 op, u32 diff) {
 	Flush();
 
 	PROFILE_THIS_SCOPE("block");  // don't include the flush in the profile, would be misleading.
+
+	gstate_c.framebufFormat = gstate.FrameBufFormat();
 
 	// and take appropriate action. This is a block transfer between RAM and VRAM, or vice versa.
 	// Can we skip this on SkipDraw?
@@ -2897,7 +2922,7 @@ bool GPUCommon::PerformStencilUpload(u32 dest, int size) {
 bool GPUCommon::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) {
 	u32 fb_address = type == GPU_DBG_FRAMEBUF_RENDER ? (gstate.getFrameBufRawAddress() | 0x04000000) : framebufferManager_->DisplayFramebufAddr();
 	int fb_stride = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.FrameBufStride() : framebufferManager_->DisplayFramebufStride();
-	GEBufferFormat format = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.FrameBufFormat() : framebufferManager_->DisplayFramebufFormat();
+	GEBufferFormat format = type == GPU_DBG_FRAMEBUF_RENDER ? gstate_c.framebufFormat : framebufferManager_->DisplayFramebufFormat();
 	return framebufferManager_->GetFramebuffer(fb_address, fb_stride, format, buffer, maxRes);
 }
 
@@ -2974,7 +2999,7 @@ bool GPUCommon::FramebufferReallyDirty() {
 void GPUCommon::UpdateUVScaleOffset() {
 #ifdef _M_SSE
 	__m128i values = _mm_slli_epi32(_mm_load_si128((const __m128i *) & gstate.texscaleu), 8);
-	_mm_storeu_si128((__m128i *) & gstate_c.uv, values);
+	_mm_storeu_si128((__m128i *)&gstate_c.uv, values);
 #elif PPSSPP_ARCH(ARM_NEON)
 	const uint32x4_t values = vshlq_n_u32(vld1q_u32((const u32 *)&gstate.texscaleu), 8);
 	vst1q_u32((u32 *)&gstate_c.uv, values);

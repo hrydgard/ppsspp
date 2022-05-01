@@ -218,7 +218,7 @@ void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPU
 		params->z_stride = 0;
 	}
 
-	params->fmt = gstate.FrameBufFormat();
+	params->fmt = gstate_c.framebufFormat;
 
 	params->isClearingDepth = gstate.isModeClear() && gstate.isClearModeDepthMask();
 	// Technically, it may write depth later, but we're trying to detect it only when it's really true.
@@ -589,7 +589,7 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 
 			// Games that are marked as doing reinterpret just ignore this - better to keep the data than to clear.
 			// Fixes #13717.
-			if (!PSP_CoreParameter().compat.flags().ReinterpretFramebuffers) {
+			if (!PSP_CoreParameter().compat.flags().ReinterpretFramebuffers && !PSP_CoreParameter().compat.flags().BlueToAlpha) {
 				draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "FakeReinterpret");
 				// Need to dirty anything that has command buffer dynamic state, in case we started a new pass above.
 				// Should find a way to feed that information back, maybe... Or simply correct the issue in the rendermanager.
@@ -670,9 +670,11 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 	// Copy to a temp framebuffer.
 	Draw::Framebuffer *temp = GetTempFBO(TempFBO::REINTERPRET, vfb->renderWidth, vfb->renderHeight);
 
+	// Ideally on Vulkan this should be using the original framebuffer as an input attachment, allowing it to read from
+	// itself while writing.
 	draw_->InvalidateCachedState();
 	draw_->CopyFramebufferImage(vfb->fbo, 0, 0, 0, 0, temp, 0, 0, 0, 0, vfb->renderWidth, vfb->renderHeight, 1, Draw::FBChannel::FB_COLOR_BIT, "reinterpret_prep");
-	draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, reinterpretStrings[(int)oldFormat][(int)newFormat]);
+	draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, reinterpretStrings[(int)oldFormat][(int)newFormat]);
 	draw_->BindPipeline(pipeline);
 	draw_->BindFramebufferAsTexture(temp, 0, Draw::FBChannel::FB_COLOR_BIT, 0);
 	draw_->BindSamplerStates(0, 1, &reinterpretSampler_);
@@ -691,7 +693,7 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 	shaderManager_->DirtyLastShader();
 	textureCache_->ForgetLastTexture();
 
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE);
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 
 	if (currentRenderVfb_ != vfb) {
 		// In case ReinterpretFramebuffer was called from the texture manager.
@@ -1642,8 +1644,7 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 
 	// Create a new fbo if none was found for the size
 	if (!nvfb) {
-		nvfb = new VirtualFramebuffer();
-		memset(nvfb, 0, sizeof(VirtualFramebuffer));
+		nvfb = new VirtualFramebuffer{};
 		nvfb->fbo = nullptr;
 		nvfb->fb_address = vfb->fb_address;
 		nvfb->fb_stride = vfb->fb_stride;
@@ -1688,20 +1689,21 @@ void FramebufferManagerCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2
 			return;
 		}
 	}
+
 	if (!Memory::IsValidAddress(gstate.getFrameBufAddress())) {
 		return;
 	}
 
 	u8 *addr = Memory::GetPointerUnchecked(gstate.getFrameBufAddress());
-	const int bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
+	const int bpp = gstate_c.framebufFormat == GE_FORMAT_8888 ? 4 : 2;
 
 	u32 clearBits = clearColor;
 	if (bpp == 2) {
 		u16 clear16 = 0;
-		switch (gstate.FrameBufFormat()) {
-		case GE_FORMAT_565: ConvertRGBA8888ToRGB565(&clear16, &clearColor, 1); break;
-		case GE_FORMAT_5551: ConvertRGBA8888ToRGBA5551(&clear16, &clearColor, 1); break;
-		case GE_FORMAT_4444: ConvertRGBA8888ToRGBA4444(&clear16, &clearColor, 1); break;
+		switch (gstate_c.framebufFormat) {
+		case GE_FORMAT_565: clear16 = RGBA8888toRGB565(clearColor); break;
+		case GE_FORMAT_5551: clear16 = RGBA8888toRGBA5551(clearColor); break;
+		case GE_FORMAT_4444: clear16 = RGBA8888toRGBA4444(clearColor); break;
 		default: _dbg_assert_(0); break;
 		}
 		clearBits = clear16 | (clear16 << 16);

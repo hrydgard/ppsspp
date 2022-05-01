@@ -35,6 +35,30 @@ inline u8 Convert6To8(u8 v) {
 	return (v << 2) | (v >> 4);
 }
 
+inline u16 RGBA8888toRGB565(u32 px) {
+	return ((px >> 3) & 0x001F) | ((px >> 5) & 0x07E0) | ((px >> 8) & 0xF800);
+}
+
+inline u16 RGBA8888toRGBA4444(u32 px) {
+	return ((px >> 4) & 0x000F) | ((px >> 8) & 0x00F0) | ((px >> 12) & 0x0F00) | ((px >> 16) & 0xF000);
+}
+
+inline u16 BGRA8888toRGB565(u32 px) {
+	return ((px >> 19) & 0x001F) | ((px >> 5) & 0x07E0) | ((px << 8) & 0xF800);
+}
+
+inline u16 BGRA8888toRGBA4444(u32 px) {
+	return ((px >> 20) & 0x000F) | ((px >> 8) & 0x00F0) | ((px << 4) & 0x0F00) | ((px >> 16) & 0xF000);
+}
+
+inline u16 BGRA8888toRGBA5551(u32 px) {
+	return ((px >> 19) & 0x001F) | ((px >> 6) & 0x03E0) | ((px << 7) & 0x7C00) | ((px >> 16) & 0x8000);
+}
+
+inline u16 RGBA8888toRGBA5551(u32 px) {
+	return ((px >> 3) & 0x001F) | ((px >> 6) & 0x03E0) | ((px >> 9) & 0x7C00) | ((px >> 16) & 0x8000);
+}
+
 inline u32 RGBA4444ToRGBA8888(u16 src) {
 	const u32 r = (src & 0x000F) << 0;
 	const u32 g = (src & 0x00F0) << 4;

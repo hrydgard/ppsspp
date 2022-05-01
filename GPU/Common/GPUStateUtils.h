@@ -39,6 +39,9 @@ enum ReplaceBlendType {
 	// Full blend equation runs in shader.
 	// We might have to make a copy of the framebuffer target to read from.
 	REPLACE_BLEND_COPY_FBO,
+
+	// Color blend mode and color gets copied to alpha blend mode.
+	REPLACE_BLEND_BLUE_TO_ALPHA,
 };
 
 enum LogicOpReplaceType {
@@ -53,9 +56,6 @@ bool IsColorTestTriviallyTrue();
 bool IsAlphaTestAgainstZero();
 bool NeedsTestDiscard();
 bool IsStencilTestOutputDisabled();
-
-// If not, we have to emulate it in the shader, similar to blend replace.
-bool IsColorMaskSimple(uint32_t colorMask);
 
 StencilValueType ReplaceAlphaWithStencilType();
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);

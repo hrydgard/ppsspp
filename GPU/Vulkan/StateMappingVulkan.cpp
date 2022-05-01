@@ -367,7 +367,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 }
 
 void DrawEngineVulkan::BindShaderBlendTex() {
-	// TODO:  At this point, we know if the vertices are full alpha or not.
+	// TODO: At this point, we know if the vertices are full alpha or not.
 	// Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
 	if (!gstate.isModeClear()) {
 		if (fboTexNeedsBind_) {
