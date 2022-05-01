@@ -163,27 +163,22 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			ConvertBlendState(blendState, gstate_c.allowFramebufferRead, maskState.applyFramebufferRead);
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
-				if (ApplyFramebufferRead(&fboTexNeedsBind_)) {
-					// The shader takes over the responsibility for blending, so recompute.
-					ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
+				ApplyFramebufferRead(&fboTexNeedsBind_);
+				// The shader takes over the responsibility for blending, so recompute.
+				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 
-					// We copy the framebuffer here, as doing so will wipe any blend state if we do it later.
-					if (fboTexNeedsBind_) {
-						// Note that this is positions, not UVs, that we need the copy from.
-						framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
-						// If we are rendering at a higher resolution, linear is probably best for the dest color.
-						renderManager->SetTextureSampler(1, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, 0.0f);
-						fboTexBound_ = true;
-						fboTexNeedsBind_ = false;
+				// We copy the framebuffer here, as doing so will wipe any blend state if we do it later.
+				if (fboTexNeedsBind_) {
+					// Note that this is positions, not UVs, that we need the copy from.
+					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
+					// If we are rendering at a higher resolution, linear is probably best for the dest color.
+					renderManager->SetTextureSampler(1, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, 0.0f);
+					fboTexBound_ = true;
+					fboTexNeedsBind_ = false;
 
-						framebufferManager_->RebindFramebuffer("RebindFramebuffer - ApplyDrawState");
-						// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
-						gstate_c.Dirty(DIRTY_BLEND_STATE);
-					}
-				} else {
-					// Until next time, force it off.
-					ResetFramebufferRead();
-					gstate_c.SetAllowFramebufferRead(false);
+					framebufferManager_->RebindFramebuffer("RebindFramebuffer - ApplyDrawState");
+					// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
+					gstate_c.Dirty(DIRTY_BLEND_STATE);
 				}
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			} else if (blendState.resetFramebufferRead) {

@@ -119,7 +119,7 @@ protected:
 	// Vertex decoding
 	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts);
 
-	bool ApplyFramebufferRead(bool *fboTexNeedsBind);
+	void ApplyFramebufferRead(bool *fboTexNeedsBind);
 
 	inline int IndexSize(u32 vtype) const {
 		const u32 indexType = (vtype & GE_VTYPE_IDX_MASK);
