@@ -1092,6 +1092,12 @@ void TransitionFromOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayou
 void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd) {
 	// TODO: If there are multiple, we can transition them together.
 
+	VkPipelineStageFlags srcStage{};
+	VkPipelineStageFlags dstStage{};
+
+	std::vector<VkImageMemoryBarrier> barriers;
+	barriers.reserve(step.preTransitions.size());
+
 	for (const auto &iter : step.preTransitions) {
 		if (iter.aspect == VK_IMAGE_ASPECT_COLOR_BIT && iter.fb->color.layout != iter.targetLayout) {
 			VkImageMemoryBarrier barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
@@ -1099,24 +1105,22 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			barrier.subresourceRange.layerCount = 1;
 			barrier.subresourceRange.levelCount = 1;
 			barrier.image = iter.fb->color.image;
-			VkPipelineStageFlags srcStage{};
-			VkPipelineStageFlags dstStage{};
 			switch (barrier.oldLayout) {
 			case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
 				barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-				srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+				srcStage |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 				break;
 			case VK_IMAGE_LAYOUT_UNDEFINED:
 				barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-				srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+				srcStage |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 				break;
 			case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
 				barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-				srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+				srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 				break;
 			case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
 				barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-				srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+				srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 				break;
 			default:
 				_assert_msg_(false, "PerformRenderPass: Unexpected oldLayout: %d", (int)barrier.oldLayout);
@@ -1126,7 +1130,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			switch (barrier.newLayout) {
 			case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
 				barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-				dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+				dstStage |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 				break;
 			default:
 				_assert_msg_(false, "PerformRenderPass: Unexpected newLayout: %d", (int)barrier.newLayout);
@@ -1135,7 +1139,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-			vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+			barriers.push_back(barrier);
+
 			iter.fb->color.layout = barrier.newLayout;
 		} else if ((iter.aspect & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) && iter.fb->depth.layout != iter.targetLayout) {
 			VkImageMemoryBarrier barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
@@ -1149,15 +1154,15 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			switch (barrier.oldLayout) {
 			case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
 				barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-				srcStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+				srcStage |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
 				break;
 			case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
 				barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-				srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+				srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 				break;
 			case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
 				barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-				srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+				srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 				break;
 			default:
 				Crash();
@@ -1167,7 +1172,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			switch (barrier.newLayout) {
 			case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
 				barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-				dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+				dstStage |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 				break;
 			default:
 				Crash();
@@ -1176,22 +1181,27 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-			vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+			barriers.push_back(barrier);
 			iter.fb->depth.layout = barrier.newLayout;
 		}
+	}
+
+	// Flush the pending barrier
+	if (!barriers.empty()) {
+		vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, barriers.size(), barriers.data());
 	}
 
 	// Don't execute empty renderpasses that keep the contents.
 	if (step.commands.empty() && step.render.color == VKRRenderPassAction::KEEP && step.render.depth == VKRRenderPassAction::KEEP && step.render.stencil == VKRRenderPassAction::KEEP) {
 		// Nothing to do.
-
 		// TODO: Though - a later step might have used this step's finalColorLayout etc to get things in a layout it expects.
 		// Should we just do a barrier? Or just let the later step deal with not having things in its preferred layout, like now?
-
 		return;
 	}
 
 	// Write-after-write hazards. Fixed flicker in God of War on ARM (before we added another fix that removed these).
+	// These aren't so common so not bothering to combine the barrier with the pretransition one.
 	if (step.render.framebuffer) {
 		int n = 0;
 		int stage = 0;
