@@ -1088,6 +1088,13 @@ bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int leve
 
 	int w = texture->GetWidth();
 	int h = texture->GetHeight();
+	if (level > 0) {
+		// In the future, maybe this could do something for 3D textures...
+		if (level >= texture->GetNumMips())
+			return false;
+		w >>= level;
+		h >>= level;
+	}
 	buffer.Allocate(w, h, bufferFormat);
 
 	renderManager->CopyImageToMemorySync(texture->GetImage(), level, 0, 0, w, h, drawFormat, (uint8_t *)buffer.GetData(), w, "GetCurrentTextureDebug");
