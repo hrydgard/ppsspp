@@ -53,7 +53,8 @@ struct ThemeInfo {
 	uint32_t uPopupStyleBg = 0xFF303030;
 	uint32_t uBackgroundColor = 0xFF754D24;
 
-	std::string UIAtlas;
+	std::string UIAtlasMeta = "ui_atlas.meta";
+	std::string UIAtlasImage = "ui_atlas.zim";
 
 	bool operator == (const std::string &other) {
 		return name == other;
@@ -73,7 +74,6 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 	themeInfos.clear();
 	ThemeInfo def{};
 	def.name = "Default";
-	def.UIAtlas = "ui_atlas";
 	themeInfos.push_back(def);
 
 	// This will update the theme if already present, as such default in assets/theme will get priority if exist
@@ -135,20 +135,19 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 				section.Get("PopupStyleBg", &info.uPopupStyleBg, info.uPopupStyleBg);
 				section.Get("BackgroundColor", &info.uBackgroundColor, info.uBackgroundColor);
 
-				std::string tmpPath;
-				section.Get("UIAtlas", &tmpPath, "");
-				if (tmpPath != "") {
-					tmpPath = (path / tmpPath).ToString();
+				std::string tmpImage;
+				std::string tmpMeta;
+				section.Get("UIAtlasImage", &tmpImage, "");
+				section.Get("UIAtlasMeta", &tmpMeta, "");
+				if (tmpImage != "" && tmpMeta != "") {
+					tmpImage = (path / tmpImage).ToString();
+					tmpMeta = (path / tmpMeta).ToString();
 
 					File::FileInfo tmpInfo;
-					if (VFSGetFileInfo((tmpPath+".meta").c_str(), &tmpInfo) && VFSGetFileInfo((tmpPath+".zim").c_str(), &tmpInfo)) {
-						info.UIAtlas = tmpPath;
-					} else {
-						// Files not found, fallback to default
-						info.UIAtlas = "ui_atlas";
+					if (VFSGetFileInfo(tmpMeta.c_str(), &tmpInfo) && VFSGetFileInfo(tmpImage.c_str(), &tmpInfo)) {
+						info.UIAtlasImage = tmpImage;
+						info.UIAtlasMeta = tmpMeta;
 					}
-				} else {
-					info.UIAtlas = "ui_atlas";
 				}
 
 				appendTheme(info);
@@ -227,14 +226,14 @@ void UpdateTheme(UIContext *ctx) {
 	ui_theme.backgroundColor = themeInfos[i].uBackgroundColor;
 
 	// Load any missing atlas metadata (the images are loaded from UIContext).
-	LoadAtlasMetadata(ui_atlas, (themeInfos[i].UIAtlas + ".meta").c_str(), true);
+	LoadAtlasMetadata(ui_atlas, themeInfos[i].UIAtlasMeta.c_str(), true);
 #if !(PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID))
 	LoadAtlasMetadata(font_atlas, "font_atlas.meta", ui_atlas.num_fonts == 0);
 #else
 	LoadAtlasMetadata(font_atlas, "asciifont_atlas.meta", ui_atlas.num_fonts == 0);
 #endif
 
-	ctx->setUIAtlas(themeInfos[i].UIAtlas + ".zim");
+	ctx->setUIAtlas(themeInfos[i].UIAtlasImage);
 }
 
 UI::Theme *GetTheme() {
