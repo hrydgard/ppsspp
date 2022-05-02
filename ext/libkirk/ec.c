@@ -1,6 +1,7 @@
-// Copyright 2007,2008,2010  Segher Boessenkool  <segher@kernel.crashing.org>
-// Licensed under the terms of the GNU GPL, version 2
-// http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt
+// Copyright 2007-2022  Segher Boessenkool  <segher@kernel.crashing.org>
+// Licensed under the terms of the GNU GPL, either version 2 or version 3
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt
+// https://www.gnu.org/licenses/gpl-3.0.html
 
 
 // Modified for Kirk engine by setting single curve and internal function
