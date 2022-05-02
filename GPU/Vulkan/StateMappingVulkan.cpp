@@ -124,6 +124,7 @@ static const VkLogicOp logicOps[] = {
 
 void DrawEngineVulkan::ResetFramebufferRead() {
 	boundSecondary_ = VK_NULL_HANDLE;
+	fboTexBound_ = false;
 }
 
 // TODO: Do this more progressively. No need to compute the entire state if the entire state hasn't changed.
@@ -169,6 +170,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			ConvertBlendState(blendState, gstate_c.allowFramebufferRead, maskState.applyFramebufferRead);
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
+				ApplyFramebufferRead(&fboTexNeedsBind_);
 				// The shader takes over the responsibility for blending, so recompute.
 				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
