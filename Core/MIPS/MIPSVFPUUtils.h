@@ -150,7 +150,7 @@ u32 VFPURewritePrefix(int ctrl, u32 remove, u32 add);
 void ReadMatrix(float *rd, MatrixSize size, int reg);
 void WriteMatrix(const float *rs, MatrixSize size, int reg);
 
-void WriteVector(const float *rs, VectorSize N, int reg);
+void WriteVector(const float *rs, VectorSize N, int reg, bool is_svq = false);
 void ReadVector(float *rd, VectorSize N, int reg);
 
 void GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg);

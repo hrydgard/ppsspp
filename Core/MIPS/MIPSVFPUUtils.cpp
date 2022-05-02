@@ -22,6 +22,7 @@
 
 #include "Common/BitScan.h"
 #include "Common/CommonFuncs.h"
+#include "Common/Math/math_util.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
@@ -183,7 +184,7 @@ void ReadVector(float *rd, VectorSize size, int reg) {
 	}
 }
 
-void WriteVector(const float *rd, VectorSize size, int reg) {
+void WriteVector(const float *rd, VectorSize size, int reg, bool is_svq) {
 	if (size == V_Single) {
 		// Optimize the common case.
 		if (!currentMIPS->VfpuWriteMask(0)) {
@@ -204,6 +205,15 @@ void WriteVector(const float *rd, VectorSize size, int reg) {
 	case V_Triple: row=(reg>>6)&1; length = 3; break;
 	case V_Quad:   row=(reg>>5)&2; length = 4; break;
 	default: _assert_msg_(false, "%s: Bad vector size", __FUNCTION__);
+	}
+
+	// TEMP HACK for issue #15149
+	// There's often garbage in the fourth coordinate so ignore it.
+	// Additionally, the SVQ instruction specifically stores some NaN data.
+	for (int i = 0; i < std::min(length, 3); i++) {
+		if (my_isnan(rd[i]) && !is_svq) {
+			DebugBreak();
+		}
 	}
 
 	if (currentMIPS->VfpuWriteMask() == 0) {

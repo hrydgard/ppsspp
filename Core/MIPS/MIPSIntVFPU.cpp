@@ -235,7 +235,7 @@ namespace MIPSInt
 						d[i] = Memory::Read_Float(addr + 4 * i);
 					}
 				}
-				WriteVector(d, V_Quad, vt);
+				WriteVector(d, V_Quad, vt, true);
 			}
 			break;
 
@@ -247,7 +247,7 @@ namespace MIPSInt
 #ifndef COMMON_BIG_ENDIAN
 			f = reinterpret_cast<float *>(Memory::GetPointer(addr));
 			if (f)
-				WriteVector(f, V_Quad, vt);
+				WriteVector(f, V_Quad, vt, true);
 #else
 			float lvqd[4];
 
