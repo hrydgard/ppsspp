@@ -1778,7 +1778,7 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new Choice(dev->T("Load language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoadLanguageIni);
 	list->Add(new Choice(dev->T("Save language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSaveLanguageIni);
 	list->Add(new ItemHeader(dev->T("Texture Replacement")));
-	list->Add(new CheckBox(&g_Config.bSaveNewTextures, dev->T("Save new textures")))->SetEnabledPtr(&g_Config.bReplaceTextures);
+	list->Add(new CheckBox(&g_Config.bSaveNewTextures, dev->T("Save new textures")));
 	list->Add(new CheckBox(&g_Config.bReplaceTextures, dev->T("Replace textures")));
 
 	// Makes it easy to get savestates out of an iOS device. The file listing shown in MacOS doesn't allow
