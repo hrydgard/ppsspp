@@ -51,6 +51,8 @@ UWP/.vs
 
 # For Mac
 .DS_Store
+PPSSPPSDL.app
+include/glslang/build_info.h
 
 # For ppsspp.ini, etc.
 ppsspp.ini
@@ -117,3 +119,6 @@ debian/ppsspp/
 
 # RenderDoc
 *.rdc
+
+# CMake stuff
+CMakeFiles
