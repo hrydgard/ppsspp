@@ -1272,7 +1272,7 @@ if(LINUX AND NOT ANDROID)
 endif()
 
 set(ATOMIC_LIB)
-if(ANDROID)
+if(LINUX)
 	set(ATOMIC_LIB atomic)
 endif()
 
