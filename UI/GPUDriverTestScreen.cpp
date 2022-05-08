@@ -321,6 +321,7 @@ void GPUDriverTestScreen::DiscardTest() {
 
 		InputLayout *inputLayout = ui_draw2d.CreateInputLayout(draw);
 		BlendState *blendOff = draw->CreateBlendState({ false, 0xF });
+		BlendState *blendOffNoColor = draw->CreateBlendState({ false, 0x8 });
 
 		// Write depth, write stencil.
 		DepthStencilStateDesc dsDesc{};
@@ -331,8 +332,8 @@ void GPUDriverTestScreen::DiscardTest() {
 		dsDesc.front.compareMask = 0xFF;
 		dsDesc.front.compareOp = Comparison::ALWAYS;
 		dsDesc.front.passOp = StencilOp::REPLACE;
-		dsDesc.front.failOp = StencilOp::ZERO;
-		dsDesc.front.depthFailOp = StencilOp::ZERO;
+		dsDesc.front.failOp = StencilOp::REPLACE;  // These two shouldn't matter, because the test that fails is discard, not stencil.
+		dsDesc.front.depthFailOp = StencilOp::REPLACE;
 		dsDesc.front.writeMask = 0xFF;
 		dsDesc.back = dsDesc.front;
 		DepthStencilState *depthStencilWrite = draw->CreateDepthStencilState(dsDesc);
@@ -353,6 +354,9 @@ void GPUDriverTestScreen::DiscardTest() {
 		dsDesc.stencilEnabled = true;
 		dsDesc.depthCompare = Comparison::ALWAYS;
 		dsDesc.front.compareOp = Comparison::EQUAL;
+		dsDesc.front.failOp = StencilOp::KEEP;
+		dsDesc.front.depthFailOp = StencilOp::KEEP;
+		dsDesc.front.writeMask = 0x0;
 		dsDesc.back = dsDesc.front;
 		DepthStencilState *stencilEqualDepthAlways = draw->CreateDepthStencilState(dsDesc);
 
@@ -393,7 +397,7 @@ void GPUDriverTestScreen::DiscardTest() {
 		PipelineDesc discardDesc{
 			Primitive::TRIANGLE_LIST,
 			{ draw->GetVshaderPreset(VS_TEXTURE_COLOR_2D), discardFragShader_ },
-			inputLayout, depthStencilWrite, blendOff, rasterNoCull, &vsColBufDesc,
+			inputLayout, depthStencilWrite, blendOffNoColor, rasterNoCull, &vsColBufDesc,
 		};
 		discardWriteDepthStencil_ = draw->CreateGraphicsPipeline(discardDesc);
 		discardDesc.depthStencil = depthWrite;
@@ -501,7 +505,7 @@ void GPUDriverTestScreen::DiscardTest() {
 			dc.Flush();
 
 			dc.BeginPipeline(writePipelines[j], samplerNearest_);
-			// Draw the rectangle with stencil value 0, depth 0.1f and the text with stencil 0xFF, depth 0.9. Then leave 0xFF as the stencil value and draw the rectangles at depth 0.5.
+			// Draw the rectangle with stencil value 0, depth 0.1f and the text with stencil 0xFF, depth 0.9. Then set 0xFF as the stencil value and draw the rectangles at depth 0.5.
 			draw->SetStencilRef(0x0);
 			dc.SetCurZ(0.1f);
 			dc.FillRect(UI::Drawable(bgColorBAD), bounds);
