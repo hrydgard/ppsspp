@@ -1256,8 +1256,8 @@ bool SoftGPU::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
 	buffer.Allocate(size.x, size.y, GPU_DBG_FORMAT_8BIT);
 
 	u8 *row = buffer.GetData();
-	for (int16_t y = 0; y < size.x; ++y) {
-		for (int16_t x = 0; x < size.y; ++x) {
+	for (int16_t y = 0; y < size.y; ++y) {
+		for (int16_t x = 0; x < size.x; ++x) {
 			row[x] = GetPixelStencil(gstate.FrameBufFormat(), gstate.FrameBufStride(), x, y);
 		}
 		row += size.x;
