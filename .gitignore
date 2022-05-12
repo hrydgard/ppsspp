@@ -122,3 +122,6 @@ debian/ppsspp/
 
 # CMake stuff
 CMakeFiles
+
+# Clangd 
+.cache/
