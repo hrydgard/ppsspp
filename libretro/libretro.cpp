@@ -410,7 +410,7 @@ static RetroOption<int> ppsspp_pro_ad_hoc_ipv4[] = {
    {"ppsspp_pro_ad_hoc_server_address11", "PRO ad hoc server IP address Pt 11: ---.---.---.-x- ", 0, 10, 1},
    {"ppsspp_pro_ad_hoc_server_address12", "PRO ad hoc server IP address Pt 12: ---.---.---.--x ", 0, 10, 1}
 };
-static RetroOption<bool> ppsspp_enable_upnp("ppsspp_enable_upnp", "Enable UPnP (need a few seconds to detect)", true);
+static RetroOption<bool> ppsspp_enable_upnp("ppsspp_enable_upnp", "Enable UPnP (need a few seconds to detect)", false);
 static RetroOption<bool> ppsspp_upnp_use_original_port("ppsspp_upnp_use_original_port", "UPnP use original port (enabled = PSP compatibility)", true);
 static RetroOption<bool> ppsspp_enable_network_chat("ppsspp_enable_network_chat", "Enable network chat", true);
 static RetroOption<int> ppsspp_chat_button_position("ppsspp_chat_button_position", "Chat button position", {
