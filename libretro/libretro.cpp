@@ -344,10 +344,8 @@ template <typename T> class RetroOption
 
       void Show(bool show)
       {
-       struct retro_core_option_display optionDisplay;
-	optionDisplay.key = id_;
-	optionDisplay.visible = show;
-	environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &optionDisplay);
+      struct retro_core_option_display optionDisplay{id_, show};
+      environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &optionDisplay);
       }
 
    private:
@@ -392,22 +390,22 @@ static RetroOption<bool> ppsspp_enable_wlan("ppsspp_enable_wlan", "Enable Networ
 static RetroOption<int> ppsspp_wlan_channel("ppsspp_wlan_channel", "WLAN channel", {{"Auto", 0}, {"1", 1}, {"6", 6}, {"11", 11}} );
 static RetroOption<bool> ppsspp_discord_presence("ppsspp_discord_presence", "Send Discord \"Rich Presence\" information", true);
 static RetroOption<bool> ppsspp_enable_builtin_pro_ad_hoc_server("ppsspp_enable_builtin_pro_ad_hoc_server", "Enable built-in PRO ad hoc server", false);
-static RetroOption<std::string> ppsspp_change_pro_ad_hoc_server_address("ppsspp_change_pro_ad_hoc_server_address", "Change PRO ad hoc server", {
+static RetroOption<std::string> ppsspp_change_pro_ad_hoc_server_address("ppsspp_change_pro_ad_hoc_server_address", "Change PRO ad hoc server IP address (localhost = multiple instances)", {
     {"socom.cc", "socom.cc"},
     {"myneighborsushicat.com", "myneighborsushicat.com"},
     {"localhost", "localhost"},
     {"IP address", "IP address"}
 });
 static RetroOption<int> ppsspp_pro_ad_hoc_ipv4[] = {
-   {"ppsspp_pro_ad_hoc_server_address1", "PRO ad hoc server IP address Pt  1: x--.---.---.--- ", 0, 10, 1},
-   {"ppsspp_pro_ad_hoc_server_address2", "PRO ad hoc server IP address Pt  2: -x-.---.---.--- ", 0, 10, 1},
-   {"ppsspp_pro_ad_hoc_server_address3", "PRO ad hoc server IP address Pt  3: --x.---.---.--- ", 0, 10, 1},
-   {"ppsspp_pro_ad_hoc_server_address4", "PRO ad hoc server IP address Pt  4: ---.x--.---.--- ", 0, 10, 1},
-   {"ppsspp_pro_ad_hoc_server_address5", "PRO ad hoc server IP address Pt  5: ---.-x-.---.--- ", 0, 10, 1},
-   {"ppsspp_pro_ad_hoc_server_address6", "PRO ad hoc server IP address Pt  6: ---.--x.---.--- ", 0, 10, 1},
-   {"ppsspp_pro_ad_hoc_server_address7", "PRO ad hoc server IP address Pt  7: ---.---.x--.--- ", 0, 10, 1},
-   {"ppsspp_pro_ad_hoc_server_address8", "PRO ad hoc server IP address Pt  8: ---.---.-x-.--- ", 0, 10, 1},
-   {"ppsspp_pro_ad_hoc_server_address9", "PRO ad hoc server IP address Pt  9: ---.---.--x.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address01", "PRO ad hoc server IP address Pt  1: x--.---.---.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address02", "PRO ad hoc server IP address Pt  2: -x-.---.---.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address03", "PRO ad hoc server IP address Pt  3: --x.---.---.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address04", "PRO ad hoc server IP address Pt  4: ---.x--.---.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address05", "PRO ad hoc server IP address Pt  5: ---.-x-.---.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address06", "PRO ad hoc server IP address Pt  6: ---.--x.---.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address07", "PRO ad hoc server IP address Pt  7: ---.---.x--.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address08", "PRO ad hoc server IP address Pt  8: ---.---.-x-.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address09", "PRO ad hoc server IP address Pt  9: ---.---.--x.--- ", 0, 10, 1},
    {"ppsspp_pro_ad_hoc_server_address10", "PRO ad hoc server IP address Pt 10: ---.---.---.x-- ", 0, 10, 1},
    {"ppsspp_pro_ad_hoc_server_address11", "PRO ad hoc server IP address Pt 11: ---.---.---.-x- ", 0, 10, 1},
    {"ppsspp_pro_ad_hoc_server_address12", "PRO ad hoc server IP address Pt 12: ---.---.---.--x ", 0, 10, 1}
