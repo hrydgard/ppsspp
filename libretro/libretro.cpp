@@ -65,6 +65,7 @@
 #define AUDIO_FRAMES_MOVING_AVG_ALPHA (1.0f / 180.0f)
 
 static bool libretro_supports_bitmasks = false;
+static std::string changeProAdhocServer;
 
 namespace Libretro
 {
@@ -341,6 +342,14 @@ template <typename T> class RetroOption
          return false;
       }
 
+      void Show(bool show)
+      {
+       struct retro_core_option_display optionDisplay;
+	optionDisplay.key = id_;
+	optionDisplay.visible = show;
+	environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &optionDisplay);
+      }
+
    private:
       const char *id_;
       const char *name_;
@@ -379,9 +388,112 @@ static RetroOption<bool> ppsspp_retain_changed_textures("ppsspp_retain_changed_t
 static RetroOption<bool> ppsspp_force_lag_sync("ppsspp_force_lag_sync", "Force real clock sync (Slower, less lag)", false);
 static RetroOption<int> ppsspp_spline_quality("ppsspp_spline_quality", "Spline/Bezier curves quality", { {"Low", 0}, {"Medium", 1}, {"High", 2} });
 static RetroOption<bool> ppsspp_disable_slow_framebuffer_effects("ppsspp_disable_slow_framebuffer_effects", "Disable slower effects (Speedup)", false);
+static RetroOption<bool> ppsspp_enable_wlan("ppsspp_enable_wlan", "Enable Networking/WLAN (beta, may break games)", false);
+static RetroOption<int> ppsspp_wlan_channel("ppsspp_wlan_channel", "WLAN channel", {{"Auto", 0}, {"1", 1}, {"6", 6}, {"11", 11}} );
+static RetroOption<bool> ppsspp_discord_presence("ppsspp_discord_presence", "Send Discord \"Rich Presence\" information", true);
+static RetroOption<bool> ppsspp_enable_builtin_pro_ad_hoc_server("ppsspp_enable_builtin_pro_ad_hoc_server", "Enable built-in PRO ad hoc server", false);
+static RetroOption<std::string> ppsspp_change_pro_ad_hoc_server_address("ppsspp_change_pro_ad_hoc_server_address", "Change PRO ad hoc server", {
+    {"socom.cc", "socom.cc"},
+    {"myneighborsushicat.com", "myneighborsushicat.com"},
+    {"localhost", "localhost"},
+    {"IP address", "IP address"}
+});
+static RetroOption<int> ppsspp_pro_ad_hoc_ipv4[] = {
+   {"ppsspp_pro_ad_hoc_server_address1", "PRO ad hoc server IP address Pt  1: x--.---.---.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address2", "PRO ad hoc server IP address Pt  2: -x-.---.---.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address3", "PRO ad hoc server IP address Pt  3: --x.---.---.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address4", "PRO ad hoc server IP address Pt  4: ---.x--.---.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address5", "PRO ad hoc server IP address Pt  5: ---.-x-.---.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address6", "PRO ad hoc server IP address Pt  6: ---.--x.---.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address7", "PRO ad hoc server IP address Pt  7: ---.---.x--.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address8", "PRO ad hoc server IP address Pt  8: ---.---.-x-.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address9", "PRO ad hoc server IP address Pt  9: ---.---.--x.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address10", "PRO ad hoc server IP address Pt 10: ---.---.---.x-- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address11", "PRO ad hoc server IP address Pt 11: ---.---.---.-x- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address12", "PRO ad hoc server IP address Pt 12: ---.---.---.--x ", 0, 10, 1}
+};
+static RetroOption<bool> ppsspp_enable_upnp("ppsspp_enable_upnp", "Enable UPnP (need a few seconds to detect)", true);
+static RetroOption<bool> ppsspp_upnp_use_original_port("ppsspp_upnp_use_original_port", "UPnP use original port (enabled = PSP compatibility)", true);
+static RetroOption<bool> ppsspp_enable_network_chat("ppsspp_enable_network_chat", "Enable network chat", true);
+static RetroOption<int> ppsspp_chat_button_position("ppsspp_chat_button_position", "Chat button position", {
+    {"Bottom left", BOTTOM_LEFT},
+    {"Bottom center", BOTTOM_CENTER},
+    {"Bottom right", BOTOM_RIGHT},
+    {"Top left", TOP_LEFT},
+    {"Top center", TOP_CENTER},
+    {"Top right", TOP_RIGHT},
+    {"Center left", CENTER_LEFT},
+    {"Center right", CENTER_RIGHT},
+    {"None", 8}
+});
+static RetroOption<int> ppsspp_chat_screen_position("ppsspp_chat_screen_position", "Chat screen position", {
+    {"Bottom left", BOTTOM_LEFT},
+    {"Bottom center", BOTTOM_CENTER},
+    {"Bottom right", BOTOM_RIGHT},
+    {"Top left", TOP_LEFT},
+    {"Top center", TOP_CENTER},
+    {"Top right", TOP_RIGHT},
+    {"Center left", CENTER_LEFT},
+    {"Center right", CENTER_RIGHT}
+});
+static RetroOption<int> ppsspp_port_offset("ppsspp_port_offset", "Port offset (0 = PSP compatibility)", {{"0", 0}, {"5000", 5000}, {"10000", 10000}, {"15000", 15000}});
+static RetroOption<int> ppsspp_minimum_timeout("ppsspp_minimum timeout", "Minimum timeout (override in ms, 0 = default))", 0, 15000, 100);
+static RetroOption<bool> ppsspp_forced_first_connect("ppsspp_forced_first_connect", "Forced first connect (faster connect)", false);
+
+static bool set_variable_visibility(void)
+{
+   bool updated = false;
+
+   if (ppsspp_change_pro_ad_hoc_server_address.Update(&changeProAdhocServer))
+       updated = true;
+
+   if (changeProAdhocServer == "IP address")
+   {
+      g_Config.proAdhocServer = "";
+      for (int i = 0;;)
+      {
+         int addressPt = 0;
+         ppsspp_pro_ad_hoc_ipv4[i].Show(true);
+         ppsspp_pro_ad_hoc_ipv4[i].Update(&addressPt);
+         g_Config.proAdhocServer += static_cast<char>('0' + addressPt);
+
+         if (++i == 12)
+            break;
+
+         if (i % 3 == 0)
+            g_Config.proAdhocServer += '.';
+      }
+   }
+   else
+   {
+      g_Config.proAdhocServer = changeProAdhocServer;
+
+      for (int i = 0; i < 12; ++i)
+         ppsspp_pro_ad_hoc_ipv4[i].Show(false);
+   }
+
+   if (ppsspp_enable_upnp.Update(&g_Config.bEnableUPnP))
+      updated = true;
+
+    ppsspp_upnp_use_original_port.Show(g_Config.bEnableUPnP);
+
+   if (ppsspp_enable_network_chat.Update(&g_Config.bEnableNetworkChat))
+       updated = true;
+
+   ppsspp_chat_button_position.Show(g_Config.bEnableNetworkChat);
+   ppsspp_chat_screen_position.Show(g_Config.bEnableNetworkChat);
+
+   return updated;
+}
 
 void retro_set_environment(retro_environment_t cb)
 {
+   environ_cb = cb;
+
+   struct retro_core_options_update_display_callback update_display_cb;
+   update_display_cb.callback = set_variable_visibility;
+   cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_UPDATE_DISPLAY_CALLBACK, &update_display_cb);
+
    std::vector<retro_variable> vars;
    vars.push_back(ppsspp_internal_resolution.GetOptions());
    vars.push_back(ppsspp_cpu_core.GetOptions());
@@ -414,9 +526,22 @@ void retro_set_environment(retro_environment_t cb)
    vars.push_back(ppsspp_io_timing_method.GetOptions());
    vars.push_back(ppsspp_ignore_bad_memory_access.GetOptions());
    vars.push_back(ppsspp_cheats.GetOptions());
+   vars.push_back(ppsspp_enable_wlan.GetOptions());
+   vars.push_back(ppsspp_wlan_channel.GetOptions());
+   vars.push_back(ppsspp_discord_presence.GetOptions());
+   vars.push_back(ppsspp_enable_builtin_pro_ad_hoc_server.GetOptions());
+   vars.push_back(ppsspp_change_pro_ad_hoc_server_address.GetOptions());
+   for (int i = 0; i < 12; ++i)
+      vars.push_back(ppsspp_pro_ad_hoc_ipv4[i].GetOptions());
+   vars.push_back(ppsspp_enable_upnp.GetOptions());
+   vars.push_back(ppsspp_upnp_use_original_port.GetOptions());
+   vars.push_back(ppsspp_enable_network_chat.GetOptions());
+   vars.push_back(ppsspp_chat_button_position.GetOptions());
+   vars.push_back(ppsspp_chat_screen_position.GetOptions());
+   vars.push_back(ppsspp_port_offset.GetOptions());
+   vars.push_back(ppsspp_minimum_timeout.GetOptions());
+   vars.push_back(ppsspp_forced_first_connect.GetOptions());
    vars.push_back({});
-
-   environ_cb = cb;
 
    cb(RETRO_ENVIRONMENT_SET_VARIABLES, (void *)vars.data());
 }
@@ -527,7 +652,7 @@ static void check_variables(CoreParameter &coreParam)
    const bool do_scaling_type_update = ppsspp_texture_scaling_type.Update(&g_Config.iTexScalingType);
    const bool do_scaling_level_update = ppsspp_texture_scaling_level.Update(&g_Config.iTexScalingLevel);
    const bool do_texture_shader_update = ppsspp_texture_shader.Update(&g_Config.sTextureShaderName);
-   
+
    g_Config.bTexHardwareScaling = "Off" != g_Config.sTextureShaderName;
    
    if (gpu && (do_scaling_type_update || do_scaling_level_update || do_texture_shader_update))
@@ -559,6 +684,20 @@ static void check_variables(CoreParameter &coreParam)
 
    bool isFastForwarding = environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &isFastForwarding);
    coreParam.fastForward = isFastForwarding;
+
+   ppsspp_enable_wlan.Update(&g_Config.bEnableWlan);
+   ppsspp_wlan_channel.Update(&g_Config.iWlanAdhocChannel);
+   ppsspp_discord_presence.Update(&g_Config.bDiscordPresence);
+   ppsspp_enable_builtin_pro_ad_hoc_server.Update(&g_Config.bEnableAdhocServer);
+
+   ppsspp_chat_button_position.Update(&g_Config.iChatButtonPosition);
+   ppsspp_chat_screen_position.Update(&g_Config.iChatButtonPosition);
+   ppsspp_upnp_use_original_port.Update(&g_Config.bUPnPUseOriginalPort);
+   ppsspp_port_offset.Update(&g_Config.iPortOffset);
+   ppsspp_minimum_timeout.Update(&g_Config.iMinTimeout);
+   ppsspp_forced_first_connect.Update(&g_Config.bForcedFirstConnect);
+
+   set_variable_visibility();
 }
 
 void retro_set_audio_sample_batch(retro_audio_sample_batch_t cb) { audio_batch_cb = cb; }
@@ -818,6 +957,8 @@ bool retro_load_game(const struct retro_game_info *game)
       ERROR_LOG(BOOT, "%s", error_string.c_str());
       return false;
    }
+
+   set_variable_visibility();
 
    return true;
 }
