@@ -689,7 +689,7 @@ static void check_variables(CoreParameter &coreParam)
    ppsspp_enable_builtin_pro_ad_hoc_server.Update(&g_Config.bEnableAdhocServer);
 
    ppsspp_chat_button_position.Update(&g_Config.iChatButtonPosition);
-   ppsspp_chat_screen_position.Update(&g_Config.iChatButtonPosition);
+   ppsspp_chat_screen_position.Update(&g_Config.iChatScreenPosition);
    ppsspp_upnp_use_original_port.Update(&g_Config.bUPnPUseOriginalPort);
    ppsspp_port_offset.Update(&g_Config.iPortOffset);
    ppsspp_minimum_timeout.Update(&g_Config.iMinTimeout);
