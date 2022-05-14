@@ -428,7 +428,6 @@ static RetroOption<std::string> ppsspp_change_mac_address[] = {
     {"ppsspp_change_mac_address12", "MAC address Pt 12: --:--:--:--:--:-X", MAC_INITIALIZER_LIST}
 };
 static RetroOption<int> ppsspp_wlan_channel("ppsspp_wlan_channel", "WLAN channel", {{"Auto", 0}, {"1", 1}, {"6", 6}, {"11", 11}} );
-static RetroOption<bool> ppsspp_discord_presence("ppsspp_discord_presence", "Send Discord \"Rich Presence\" information", true);
 static RetroOption<bool> ppsspp_enable_builtin_pro_ad_hoc_server("ppsspp_enable_builtin_pro_ad_hoc_server", "Enable built-in PRO ad hoc server", false);
 static RetroOption<std::string> ppsspp_change_pro_ad_hoc_server_address("ppsspp_change_pro_ad_hoc_server_address", "Change PRO ad hoc server IP address (localhost = multiple instances)", {
     {"socom.cc", "socom.cc"},
@@ -540,7 +539,6 @@ void retro_set_environment(retro_environment_t cb)
    for (int i = 0; i < 12; ++i)
       vars.push_back(ppsspp_change_mac_address[i].GetOptions());
    vars.push_back(ppsspp_wlan_channel.GetOptions());
-   vars.push_back(ppsspp_discord_presence.GetOptions());
    vars.push_back(ppsspp_enable_builtin_pro_ad_hoc_server.GetOptions());
    vars.push_back(ppsspp_change_pro_ad_hoc_server_address.GetOptions());
    for (int i = 0; i < 12; ++i)
@@ -696,7 +694,6 @@ static void check_variables(CoreParameter &coreParam)
 
    ppsspp_enable_wlan.Update(&g_Config.bEnableWlan);
    ppsspp_wlan_channel.Update(&g_Config.iWlanAdhocChannel);
-   ppsspp_discord_presence.Update(&g_Config.bDiscordPresence);
    ppsspp_enable_builtin_pro_ad_hoc_server.Update(&g_Config.bEnableAdhocServer);
 
    ppsspp_upnp_use_original_port.Update(&g_Config.bUPnPUseOriginalPort);
@@ -805,6 +802,7 @@ void retro_init(void)
    g_Config.flash0Directory = retro_base_dir / "flash0";
    g_Config.internalDataDirectory = retro_base_dir;
    g_Config.bEnableNetworkChat = false;
+   g_Config.bDiscordPresence = false;
 
    VFSRegister("", new DirectoryAssetReader(retro_base_dir));
 
