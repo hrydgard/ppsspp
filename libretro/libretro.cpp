@@ -452,28 +452,6 @@ static RetroOption<int> ppsspp_pro_ad_hoc_ipv4[] = {
 };
 static RetroOption<bool> ppsspp_enable_upnp("ppsspp_enable_upnp", "Enable UPnP (need a few seconds to detect)", false);
 static RetroOption<bool> ppsspp_upnp_use_original_port("ppsspp_upnp_use_original_port", "UPnP use original port (enabled = PSP compatibility)", true);
-static RetroOption<bool> ppsspp_enable_network_chat("ppsspp_enable_network_chat", "Enable network chat", true);
-static RetroOption<int> ppsspp_chat_button_position("ppsspp_chat_button_position", "Chat button position", {
-    {"Bottom left", BOTTOM_LEFT},
-    {"Bottom center", BOTTOM_CENTER},
-    {"Bottom right", BOTOM_RIGHT},
-    {"Top left", TOP_LEFT},
-    {"Top center", TOP_CENTER},
-    {"Top right", TOP_RIGHT},
-    {"Center left", CENTER_LEFT},
-    {"Center right", CENTER_RIGHT},
-    {"None", 8}
-});
-static RetroOption<int> ppsspp_chat_screen_position("ppsspp_chat_screen_position", "Chat screen position", {
-    {"Bottom left", BOTTOM_LEFT},
-    {"Bottom center", BOTTOM_CENTER},
-    {"Bottom right", BOTOM_RIGHT},
-    {"Top left", TOP_LEFT},
-    {"Top center", TOP_CENTER},
-    {"Top right", TOP_RIGHT},
-    {"Center left", CENTER_LEFT},
-    {"Center right", CENTER_RIGHT}
-});
 static RetroOption<int> ppsspp_port_offset("ppsspp_port_offset", "Port offset (0 = PSP compatibility)", {{"0", 0}, {"5000", 5000}, {"10000", 10000}, {"15000", 15000}});
 static RetroOption<int> ppsspp_minimum_timeout("ppsspp_minimum timeout", "Minimum timeout (override in ms, 0 = default))", 0, 15000, 100);
 static RetroOption<bool> ppsspp_forced_first_connect("ppsspp_forced_first_connect", "Forced first connect (faster connect)", false);
@@ -514,12 +492,6 @@ static bool set_variable_visibility(void)
       updated = true;
 
     ppsspp_upnp_use_original_port.Show(g_Config.bEnableUPnP);
-
-   if (ppsspp_enable_network_chat.Update(&g_Config.bEnableNetworkChat))
-       updated = true;
-
-   ppsspp_chat_button_position.Show(g_Config.bEnableNetworkChat);
-   ppsspp_chat_screen_position.Show(g_Config.bEnableNetworkChat);
 
    return updated;
 }
@@ -575,9 +547,6 @@ void retro_set_environment(retro_environment_t cb)
       vars.push_back(ppsspp_pro_ad_hoc_ipv4[i].GetOptions());
    vars.push_back(ppsspp_enable_upnp.GetOptions());
    vars.push_back(ppsspp_upnp_use_original_port.GetOptions());
-   vars.push_back(ppsspp_enable_network_chat.GetOptions());
-   vars.push_back(ppsspp_chat_button_position.GetOptions());
-   vars.push_back(ppsspp_chat_screen_position.GetOptions());
    vars.push_back(ppsspp_port_offset.GetOptions());
    vars.push_back(ppsspp_minimum_timeout.GetOptions());
    vars.push_back(ppsspp_forced_first_connect.GetOptions());
@@ -730,8 +699,6 @@ static void check_variables(CoreParameter &coreParam)
    ppsspp_discord_presence.Update(&g_Config.bDiscordPresence);
    ppsspp_enable_builtin_pro_ad_hoc_server.Update(&g_Config.bEnableAdhocServer);
 
-   ppsspp_chat_button_position.Update(&g_Config.iChatButtonPosition);
-   ppsspp_chat_screen_position.Update(&g_Config.iChatScreenPosition);
    ppsspp_upnp_use_original_port.Update(&g_Config.bUPnPUseOriginalPort);
    ppsspp_port_offset.Update(&g_Config.iPortOffset);
    ppsspp_minimum_timeout.Update(&g_Config.iMinTimeout);
@@ -837,6 +804,7 @@ void retro_init(void)
    g_Config.memStickDirectory = retro_save_dir;
    g_Config.flash0Directory = retro_base_dir / "flash0";
    g_Config.internalDataDirectory = retro_base_dir;
+   g_Config.bEnableNetworkChat = false;
 
    VFSRegister("", new DirectoryAssetReader(retro_base_dir));
 
