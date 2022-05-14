@@ -452,7 +452,7 @@ static RetroOption<int> ppsspp_pro_ad_hoc_ipv4[] = {
 };
 static RetroOption<bool> ppsspp_enable_upnp("ppsspp_enable_upnp", "Enable UPnP (need a few seconds to detect)", false);
 static RetroOption<bool> ppsspp_upnp_use_original_port("ppsspp_upnp_use_original_port", "UPnP use original port (enabled = PSP compatibility)", true);
-static RetroOption<int> ppsspp_port_offset("ppsspp_port_offset", "Port offset (0 = PSP compatibility)", {{"0", 0}, {"5000", 5000}, {"10000", 10000}, {"15000", 15000}});
+static RetroOption<int> ppsspp_port_offset("ppsspp_port_offset", "Port offset (0 = PSP compatibility)", 0, 65001, 1000);
 static RetroOption<int> ppsspp_minimum_timeout("ppsspp_minimum timeout", "Minimum timeout (override in ms, 0 = default))", 0, 15000, 100);
 static RetroOption<bool> ppsspp_forced_first_connect("ppsspp_forced_first_connect", "Forced first connect (faster connect)", false);
 
