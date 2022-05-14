@@ -1,7 +1,7 @@
 #!/bin/bash
 
 langfile='../../assets/lang/en_US.ini'
-folders=('../../UI/' '../../Core/' '../../Common/' '../../Windows/' '../../assets/shaders' '../../assets/themes')
+folders=('../../UI/' '../../Core/' '../../Common/' '../../GPU/' '../../Windows/' '../../assets/shaders' '../../assets/themes')
 
 # reading each line
 while read line; do
