@@ -149,8 +149,12 @@ void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId);
 
 void __DisplayFlip(int cyclesLate);
 
+static bool UseLagSync() {
+	return g_Config.bForceLagSync && !g_Config.bAutoFrameSkip;
+}
+
 static void ScheduleLagSync(int over = 0) {
-	lagSyncScheduled = g_Config.bForceLagSync;
+	lagSyncScheduled = UseLagSync();
 	if (lagSyncScheduled) {
 		// Reset over if it became too high, such as after pausing or initial loading.
 		// There's no real sense in it being more than 1/60th of a second.
@@ -239,7 +243,7 @@ void __DisplayDoState(PointerWrap &p) {
 		Do(p, lagSyncScheduled);
 		CoreTiming::RestoreRegisterEvent(lagSyncEvent, "LagSync", &hleLagSync);
 		lastLagSync = time_now_d();
-		if (lagSyncScheduled != g_Config.bForceLagSync) {
+		if (lagSyncScheduled != UseLagSync()) {
 			ScheduleLagSync();
 		}
 	} else {
@@ -652,7 +656,7 @@ void hleAfterFlip(u64 userdata, int cyclesLate) {
 	PPGeNotifyFrame();
 
 	// This seems like as good a time as any to check if the config changed.
-	if (lagSyncScheduled != g_Config.bForceLagSync) {
+	if (lagSyncScheduled != UseLagSync()) {
 		ScheduleLagSync();
 	}
 }
