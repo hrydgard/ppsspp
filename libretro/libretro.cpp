@@ -65,6 +65,7 @@
 #define AUDIO_FRAMES_MOVING_AVG_ALPHA (1.0f / 180.0f)
 
 static bool libretro_supports_bitmasks = false;
+static std::string changeProAdhocServer;
 
 namespace Libretro
 {
@@ -341,12 +342,44 @@ template <typename T> class RetroOption
          return false;
       }
 
+      void Show(bool show)
+      {
+      struct retro_core_option_display optionDisplay{id_, show};
+      environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &optionDisplay);
+      }
+
+      void Set(const char *val)
+      {
+      struct retro_variable var{id_, val};
+      environ_cb(RETRO_ENVIRONMENT_SET_VARIABLE, &var);
+      }
+
    private:
       const char *id_;
       const char *name_;
       std::string options_;
       std::vector<std::pair<std::string, T>> list_;
 };
+
+#define MAC_INITIALIZER_LIST \
+{                            \
+   {"0", "0"},               \
+   {"1", "1"},               \
+   {"2", "2"},               \
+   {"3", "3"},               \
+   {"4", "4"},               \
+   {"5", "5"},               \
+   {"6", "6"},               \
+   {"7", "7"},               \
+   {"8", "8"},               \
+   {"9", "9"},               \
+   {"a", "a"},               \
+   {"b", "b"},               \
+   {"c", "c"},               \
+   {"d", "d"},               \
+   {"e", "e"},               \
+   {"f", "f"}                \
+}
 
 static RetroOption<CPUCore> ppsspp_cpu_core("ppsspp_cpu_core", "CPU Core", { { "JIT", CPUCore::JIT }, { "IR JIT", CPUCore::IR_JIT }, { "Interpreter", CPUCore::INTERPRETER } });
 static RetroOption<int> ppsspp_locked_cpu_speed("ppsspp_locked_cpu_speed", "Locked CPU Speed", { { "off", 0 }, { "222MHz", 222 }, { "266MHz", 266 }, { "333MHz", 333 } });
@@ -379,9 +412,97 @@ static RetroOption<bool> ppsspp_retain_changed_textures("ppsspp_retain_changed_t
 static RetroOption<bool> ppsspp_force_lag_sync("ppsspp_force_lag_sync", "Force real clock sync (Slower, less lag)", false);
 static RetroOption<int> ppsspp_spline_quality("ppsspp_spline_quality", "Spline/Bezier curves quality", { {"Low", 0}, {"Medium", 1}, {"High", 2} });
 static RetroOption<bool> ppsspp_disable_slow_framebuffer_effects("ppsspp_disable_slow_framebuffer_effects", "Disable slower effects (Speedup)", false);
+static RetroOption<bool> ppsspp_enable_wlan("ppsspp_enable_wlan", "Enable Networking/WLAN (beta, may break games)", false);
+static RetroOption<std::string> ppsspp_change_mac_address[] = {
+    {"ppsspp_change_mac_address01", "MAC address Pt  1: X-:--:--:--:--:--", MAC_INITIALIZER_LIST},
+    {"ppsspp_change_mac_address02", "MAC address Pt  2: -X:--:--:--:--:--", MAC_INITIALIZER_LIST},
+    {"ppsspp_change_mac_address03", "MAC address Pt  3: --:X-:--:--:--:--", MAC_INITIALIZER_LIST},
+    {"ppsspp_change_mac_address04", "MAC address Pt  4: --:-X:--:--:--:--", MAC_INITIALIZER_LIST},
+    {"ppsspp_change_mac_address05", "MAC address Pt  5: --:--:X-:--:--:--", MAC_INITIALIZER_LIST},
+    {"ppsspp_change_mac_address06", "MAC address Pt  6: --:--:-X:--:--:--", MAC_INITIALIZER_LIST},
+    {"ppsspp_change_mac_address07", "MAC address Pt  7: --:--:--:X-:--:--", MAC_INITIALIZER_LIST},
+    {"ppsspp_change_mac_address08", "MAC address Pt  8: --:--:--:-X:--:--", MAC_INITIALIZER_LIST},
+    {"ppsspp_change_mac_address09", "MAC address Pt  9: --:--:--:--:X-:--", MAC_INITIALIZER_LIST},
+    {"ppsspp_change_mac_address10", "MAC address Pt 10: --:--:--:--:-X:--", MAC_INITIALIZER_LIST},
+    {"ppsspp_change_mac_address11", "MAC address Pt 11: --:--:--:--:--:X-", MAC_INITIALIZER_LIST},
+    {"ppsspp_change_mac_address12", "MAC address Pt 12: --:--:--:--:--:-X", MAC_INITIALIZER_LIST}
+};
+static RetroOption<int> ppsspp_wlan_channel("ppsspp_wlan_channel", "WLAN channel", {{"Auto", 0}, {"1", 1}, {"6", 6}, {"11", 11}} );
+static RetroOption<bool> ppsspp_enable_builtin_pro_ad_hoc_server("ppsspp_enable_builtin_pro_ad_hoc_server", "Enable built-in PRO ad hoc server", false);
+static RetroOption<std::string> ppsspp_change_pro_ad_hoc_server_address("ppsspp_change_pro_ad_hoc_server_address", "Change PRO ad hoc server IP address (localhost = multiple instances)", {
+    {"socom.cc", "socom.cc"},
+    {"myneighborsushicat.com", "myneighborsushicat.com"},
+    {"localhost", "localhost"},
+    {"IP address", "IP address"}
+});
+static RetroOption<int> ppsspp_pro_ad_hoc_ipv4[] = {
+   {"ppsspp_pro_ad_hoc_server_address01", "PRO ad hoc server IP address Pt  1: x--.---.---.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address02", "PRO ad hoc server IP address Pt  2: -x-.---.---.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address03", "PRO ad hoc server IP address Pt  3: --x.---.---.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address04", "PRO ad hoc server IP address Pt  4: ---.x--.---.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address05", "PRO ad hoc server IP address Pt  5: ---.-x-.---.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address06", "PRO ad hoc server IP address Pt  6: ---.--x.---.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address07", "PRO ad hoc server IP address Pt  7: ---.---.x--.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address08", "PRO ad hoc server IP address Pt  8: ---.---.-x-.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address09", "PRO ad hoc server IP address Pt  9: ---.---.--x.--- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address10", "PRO ad hoc server IP address Pt 10: ---.---.---.x-- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address11", "PRO ad hoc server IP address Pt 11: ---.---.---.-x- ", 0, 10, 1},
+   {"ppsspp_pro_ad_hoc_server_address12", "PRO ad hoc server IP address Pt 12: ---.---.---.--x ", 0, 10, 1}
+};
+static RetroOption<bool> ppsspp_enable_upnp("ppsspp_enable_upnp", "Enable UPnP (need a few seconds to detect)", false);
+static RetroOption<bool> ppsspp_upnp_use_original_port("ppsspp_upnp_use_original_port", "UPnP use original port (enabled = PSP compatibility)", true);
+static RetroOption<int> ppsspp_port_offset("ppsspp_port_offset", "Port offset (0 = PSP compatibility)", 0, 65001, 1000);
+static RetroOption<int> ppsspp_minimum_timeout("ppsspp_minimum timeout", "Minimum timeout (override in ms, 0 = default))", 0, 5001, 100);
+static RetroOption<bool> ppsspp_forced_first_connect("ppsspp_forced_first_connect", "Forced first connect (faster connect)", false);
+
+static bool set_variable_visibility(void)
+{
+   bool updated = false;
+
+   if (ppsspp_change_pro_ad_hoc_server_address.Update(&changeProAdhocServer))
+       updated = true;
+
+   if (changeProAdhocServer == "IP address")
+   {
+      g_Config.proAdhocServer = "";
+      for (int i = 0;;)
+      {
+         int addressPt = 0;
+         ppsspp_pro_ad_hoc_ipv4[i].Show(true);
+         ppsspp_pro_ad_hoc_ipv4[i].Update(&addressPt);
+         g_Config.proAdhocServer += static_cast<char>('0' + addressPt);
+
+         if (++i == 12)
+            break;
+
+         if (i % 3 == 0)
+            g_Config.proAdhocServer += '.';
+      }
+   }
+   else
+   {
+      g_Config.proAdhocServer = changeProAdhocServer;
+
+      for (int i = 0; i < 12; ++i)
+         ppsspp_pro_ad_hoc_ipv4[i].Show(false);
+   }
+
+   if (ppsspp_enable_upnp.Update(&g_Config.bEnableUPnP))
+      updated = true;
+
+    ppsspp_upnp_use_original_port.Show(g_Config.bEnableUPnP);
+
+   return updated;
+}
 
 void retro_set_environment(retro_environment_t cb)
 {
+   environ_cb = cb;
+
+   struct retro_core_options_update_display_callback update_display_cb;
+   update_display_cb.callback = set_variable_visibility;
+   cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_UPDATE_DISPLAY_CALLBACK, &update_display_cb);
+
    std::vector<retro_variable> vars;
    vars.push_back(ppsspp_internal_resolution.GetOptions());
    vars.push_back(ppsspp_cpu_core.GetOptions());
@@ -414,9 +535,20 @@ void retro_set_environment(retro_environment_t cb)
    vars.push_back(ppsspp_io_timing_method.GetOptions());
    vars.push_back(ppsspp_ignore_bad_memory_access.GetOptions());
    vars.push_back(ppsspp_cheats.GetOptions());
+   vars.push_back(ppsspp_enable_wlan.GetOptions());
+   for (int i = 0; i < 12; ++i)
+      vars.push_back(ppsspp_change_mac_address[i].GetOptions());
+   vars.push_back(ppsspp_wlan_channel.GetOptions());
+   vars.push_back(ppsspp_enable_builtin_pro_ad_hoc_server.GetOptions());
+   vars.push_back(ppsspp_change_pro_ad_hoc_server_address.GetOptions());
+   for (int i = 0; i < 12; ++i)
+      vars.push_back(ppsspp_pro_ad_hoc_ipv4[i].GetOptions());
+   vars.push_back(ppsspp_enable_upnp.GetOptions());
+   vars.push_back(ppsspp_upnp_use_original_port.GetOptions());
+   vars.push_back(ppsspp_port_offset.GetOptions());
+   vars.push_back(ppsspp_minimum_timeout.GetOptions());
+   vars.push_back(ppsspp_forced_first_connect.GetOptions());
    vars.push_back({});
-
-   environ_cb = cb;
 
    cb(RETRO_ENVIRONMENT_SET_VARIABLES, (void *)vars.data());
 }
@@ -527,7 +659,7 @@ static void check_variables(CoreParameter &coreParam)
    const bool do_scaling_type_update = ppsspp_texture_scaling_type.Update(&g_Config.iTexScalingType);
    const bool do_scaling_level_update = ppsspp_texture_scaling_level.Update(&g_Config.iTexScalingLevel);
    const bool do_texture_shader_update = ppsspp_texture_shader.Update(&g_Config.sTextureShaderName);
-   
+
    g_Config.bTexHardwareScaling = "Off" != g_Config.sTextureShaderName;
    
    if (gpu && (do_scaling_type_update || do_scaling_level_update || do_texture_shader_update))
@@ -559,6 +691,42 @@ static void check_variables(CoreParameter &coreParam)
 
    bool isFastForwarding = environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &isFastForwarding);
    coreParam.fastForward = isFastForwarding;
+
+   ppsspp_enable_wlan.Update(&g_Config.bEnableWlan);
+   ppsspp_wlan_channel.Update(&g_Config.iWlanAdhocChannel);
+   ppsspp_enable_builtin_pro_ad_hoc_server.Update(&g_Config.bEnableAdhocServer);
+
+   ppsspp_upnp_use_original_port.Update(&g_Config.bUPnPUseOriginalPort);
+   ppsspp_port_offset.Update(&g_Config.iPortOffset);
+   ppsspp_minimum_timeout.Update(&g_Config.iMinTimeout);
+   ppsspp_forced_first_connect.Update(&g_Config.bForcedFirstConnect);
+
+   g_Config.sMACAddress = "";
+   for (int i = 0; i < 12;)
+   {
+      std::string digit;
+      ppsspp_change_mac_address[i].Update(&digit);
+      g_Config.sMACAddress += digit;
+
+      if (++i == 12)
+         break;
+
+      if (i % 2 == 0)
+          g_Config.sMACAddress += ":";
+   }
+
+   if (g_Config.sMACAddress == "00:00:00:00:00:00")
+   {
+      g_Config.sMACAddress = CreateRandMAC();
+
+      for (int i = 0; i < 12; ++i)
+      {
+         std::string digit = {g_Config.sMACAddress[i + i / 2]};
+         ppsspp_change_mac_address[i].Set(digit.c_str());
+      }
+   }
+
+   set_variable_visibility();
 }
 
 void retro_set_audio_sample_batch(retro_audio_sample_batch_t cb) { audio_batch_cb = cb; }
@@ -611,7 +779,6 @@ void retro_init(void)
 
    g_Config.Load("", "");
    g_Config.iInternalResolution = 0;
-   g_Config.sMACAddress = "12:34:56:78:9A:BC";
    g_Config.bRenderDuplicateFrames = true;
 
    const char* nickname = NULL;
@@ -634,6 +801,8 @@ void retro_init(void)
    g_Config.memStickDirectory = retro_save_dir;
    g_Config.flash0Directory = retro_base_dir / "flash0";
    g_Config.internalDataDirectory = retro_base_dir;
+   g_Config.bEnableNetworkChat = false;
+   g_Config.bDiscordPresence = false;
 
    VFSRegister("", new DirectoryAssetReader(retro_base_dir));
 
@@ -818,6 +987,8 @@ bool retro_load_game(const struct retro_game_info *game)
       ERROR_LOG(BOOT, "%s", error_string.c_str());
       return false;
    }
+
+   set_variable_visibility();
 
    return true;
 }
