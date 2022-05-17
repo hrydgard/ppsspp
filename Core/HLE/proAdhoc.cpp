@@ -2221,15 +2221,26 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 
 	if (iResult == SOCKET_ERROR && errorcode != EISCONN) {
 		u64 startTime = (u64)(time_now_d() * 1000000.0);
-		while (IsSocketReady((int)metasocket, false, true) <= 0) {
-			u64 now = (u64)(time_now_d() * 1000000.0);
+		bool done = false;
+		while (!done) {
 			if (coreState == CORE_POWERDOWN) 
 				return iResult;
-			if (static_cast<s64>(now - startTime) > (getSockError((int)metasocket) == EINPROGRESS ? adhocDefaultTimeout*2LL: adhocDefaultTimeout))
+
+			done = (IsSocketReady((int)metasocket, false, true) > 0);
+			struct sockaddr_in sin;
+			socklen_t sinlen = sizeof(sin);
+			memset(&sin, 0, sinlen);
+			// Ensure that the connection really established or not, since "select" alone can't accurately detects it
+			done &= (getpeername((int)metasocket, (struct sockaddr*)&sin, &sinlen) != SOCKET_ERROR);
+			u64 now = (u64)(time_now_d() * 1000000.0);
+			if (static_cast<s64>(now - startTime) > adhocDefaultTimeout) {
+				if (connectInProgress(errorcode))
+					errorcode = ETIMEDOUT;
 				break;
+			}
 			sleep_ms(10);
 		}
-		if (IsSocketReady((int)metasocket, false, true) <= 0) {
+		if (!done) {
 			ERROR_LOG(SCENET, "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.proAdhocServer.c_str(), ip2str(g_adhocServerIP.in.sin_addr).c_str(), ntohs(g_adhocServerIP.in.sin_port));
 			host->NotifyUserMessage(std::string(n->T("Failed to connect to Adhoc Server")) + " (" + std::string(n->T("Error")) + ": " + std::to_string(errorcode) + ")", 1.0f, 0x0000ff);
 			return iResult;
