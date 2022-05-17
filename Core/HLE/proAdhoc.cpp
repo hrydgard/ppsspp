@@ -2171,6 +2171,8 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	setSockNoDelay((int)metasocket, 1);
 	// Switch to Nonblocking Behaviour
 	changeBlockingMode((int)metasocket, 1);
+	// Ignore SIGPIPE when supported (ie. BSD/MacOS)
+	setSockNoSIGPIPE((int)metasocket, 1);
 
 	// If Server is at localhost Try to Bind socket to specific adapter before connecting to prevent 2nd instance being recognized as already existing 127.0.0.1 by AdhocServer
 	// (may not works in WinXP/2003 for IPv4 due to "Weak End System" model)
