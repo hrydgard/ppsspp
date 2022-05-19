@@ -298,8 +298,18 @@ int IsSocketReady(int fd, bool readfd, bool writefd, int* errorcode, int timeout
 	timeval tval;
 
 	// Avoid getting Fatal signal 6 (SIGABRT) on linux/android
-	if (fd < 0)
-	    return SOCKET_ERROR;
+	if (fd < 0) {
+		if (errorcode != nullptr)
+			*errorcode = EBADF;
+		return SOCKET_ERROR;
+	}
+#if !defined(_WIN32)
+	if (fd >= FD_SETSIZE) {
+		if (errorcode != nullptr)
+			*errorcode = EBADF;
+		return SOCKET_ERROR;
+	}
+#endif
 
 	FD_ZERO(&readfds);
 	writefds = readfds;
@@ -312,9 +322,10 @@ int IsSocketReady(int fd, bool readfd, bool writefd, int* errorcode, int timeout
 	tval.tv_sec = timeoutUS / 1000000;
 	tval.tv_usec = timeoutUS % 1000000;
 
+	// Note: select will flags an unconnected TCP socket (ie. a freshly created socket without connecting first, or when connect failed with ECONNREFUSED on linux) as writeable/readable, thus can't be used to tell whether the connection has established or not.
 	int ret = select(fd + 1, readfd? &readfds: nullptr, writefd? &writefds: nullptr, nullptr, &tval);
 	if (errorcode != nullptr)
-		*errorcode = errno;
+		*errorcode = (ret < 0? errno: 0);
 
 	return ret;
 }
@@ -2027,6 +2038,7 @@ int setSockNoSIGPIPE(int sock, int flag) {
 	// Set SIGPIPE when supported (ie. BSD/MacOS X)
 	int opt = flag;
 #if defined(SO_NOSIGPIPE)
+	// Note: Linux might have SO_NOSIGPIPE defined too, but using it on setsockopt will result to EINVAL error
 	return setsockopt(sock, SOL_SOCKET, SO_NOSIGPIPE, (void*)&opt, sizeof(opt));
 #endif
 	return -1;
@@ -2159,6 +2171,8 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	setSockNoDelay((int)metasocket, 1);
 	// Switch to Nonblocking Behaviour
 	changeBlockingMode((int)metasocket, 1);
+	// Ignore SIGPIPE when supported (ie. BSD/MacOS)
+	setSockNoSIGPIPE((int)metasocket, 1);
 
 	// If Server is at localhost Try to Bind socket to specific adapter before connecting to prevent 2nd instance being recognized as already existing 127.0.0.1 by AdhocServer
 	// (may not works in WinXP/2003 for IPv4 due to "Weak End System" model)
@@ -2207,15 +2221,26 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 
 	if (iResult == SOCKET_ERROR && errorcode != EISCONN) {
 		u64 startTime = (u64)(time_now_d() * 1000000.0);
-		while (IsSocketReady((int)metasocket, false, true) <= 0) {
-			u64 now = (u64)(time_now_d() * 1000000.0);
+		bool done = false;
+		while (!done) {
 			if (coreState == CORE_POWERDOWN) 
 				return iResult;
-			if (now - startTime > (u64)(getSockError((int)metasocket) == EINPROGRESS ? adhocDefaultTimeout*2LL: adhocDefaultTimeout))
+
+			done = (IsSocketReady((int)metasocket, false, true) > 0);
+			struct sockaddr_in sin;
+			socklen_t sinlen = sizeof(sin);
+			memset(&sin, 0, sinlen);
+			// Ensure that the connection really established or not, since "select" alone can't accurately detects it
+			done &= (getpeername((int)metasocket, (struct sockaddr*)&sin, &sinlen) != SOCKET_ERROR);
+			u64 now = (u64)(time_now_d() * 1000000.0);
+			if (static_cast<s64>(now - startTime) > adhocDefaultTimeout) {
+				if (connectInProgress(errorcode))
+					errorcode = ETIMEDOUT;
 				break;
+			}
 			sleep_ms(10);
 		}
-		if (IsSocketReady((int)metasocket, false, true) <= 0) {
+		if (!done) {
 			ERROR_LOG(SCENET, "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.proAdhocServer.c_str(), ip2str(g_adhocServerIP.in.sin_addr).c_str(), ntohs(g_adhocServerIP.in.sin_port));
 			host->NotifyUserMessage(std::string(n->T("Failed to connect to Adhoc Server")) + " (" + std::string(n->T("Error")) + ": " + std::to_string(errorcode) + ")", 1.0f, 0x0000ff);
 			return iResult;

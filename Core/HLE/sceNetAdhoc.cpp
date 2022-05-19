@@ -810,54 +810,81 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		return 0;
 	}
 
-	int sockerr, ret;
+	int sockerr = 0, ret;
+	struct sockaddr_in sin;
 	// Try to connect again if the first attempt failed due to remote side was not listening yet (ie. ECONNREFUSED or ETIMEDOUT)
-	if (sock->attemptCount < 1) {
-		struct sockaddr_in sin;
+	if (ptpsocket.state == ADHOC_PTP_STATE_CLOSED) {
 		memset(&sin, 0, sizeof(sin));
 		sin.sin_family = AF_INET;
 		sin.sin_addr.s_addr = targetPeer.peers[0].ip;
 		sin.sin_port = htons(ptpsocket.pport + targetPeer.peers[0].portOffset);
 
-		// Try to Connect
-		int ret = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
-		int sockerr = errno;
-		if (connectInProgress(sockerr)) {
-			sock->data.ptp.state = ADHOC_PTP_STATE_SYN_SENT;
-			sock->attemptCount = 1;
+		ret = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
+		sockerr = errno;
+		if (sockerr != 0)
+			DEBUG_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: connect(%i) error = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
+		else
+			ret = 1; // Ensure returned success value from connect to be compatible with returned success value from select (ie. positive value)
+	}
+	// Check the connection state (assuming "connect" has been called before and is in-progress)
+	// Note: On Linux "select" can return > 0 (with SO_ERROR = 0) even when the connection is not accepted yet, thus need "getpeername" to ensure
+	else {
+		ret = IsSocketReady(ptpsocket.id, false, true, &sockerr);
+		DEBUG_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Select(%i) = %i, error = %i", req.id, ptpsocket.lport, ptpsocket.id, ret, sockerr);
+		if (sockerr != 0) {
+			DEBUG_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: SelectError(%i) = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
+			ret = SOCKET_ERROR; // Ensure returned value from select to be negative when the socket has error (the socket may need to be recreated again)
 		}
-		// On Windows you can call connect again using the same socket after ECONNREFUSED/ETIMEDOUT/ENETUNREACH error, but on non-Windows you'll need to recreate the socket first
-		else {
-			if (RecreatePtpSocket(req.id) < 0) {
-				WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Failed to Recreate Socket", req.id, ptpsocket.lport);
-			}
+
+		if (ret <= 0) {
+			if (sockerr == 0)
+				sockerr = EAGAIN;
+			ret = SOCKET_ERROR; // Ensure returned value from select to be negative when the socket is not ready yet, due to a possibility for "getpeername" to succeed on Windows even when "connect" hasn't been accepted yet
 		}
 	}
-	// Check if the connection has completed (assuming "connect" has been called before)
-	ret = IsSocketReady(ptpsocket.id, false, true, &sockerr);
 
-	// Connection is ready
-	if (ret > 0) {
-		struct sockaddr_in sin;
-		memset(&sin, 0, sizeof(sin));
+	// Check whether the connection has been established or not
+	if (ret != SOCKET_ERROR) {
 		socklen_t sinlen = sizeof(sin);
+		memset(&sin, 0, sinlen);
+		// Note: "getpeername" shouldn't failed if the connection has been established, but on Windows it may succeed even when "connect" is still in-progress and not accepted yet (ie. "Tales of VS" on Windows)
 		ret = getpeername(ptpsocket.id, (struct sockaddr*)&sin, &sinlen);
 		if (ret == SOCKET_ERROR) {
-			WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: getpeername error %i", req.id, ptpsocket.lport, errno);
+			int err = errno;
+			VERBOSE_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: getpeername(%i) error %i, sockerr = %i", req.id, ptpsocket.lport, ptpsocket.id, err, sockerr);
+			sockerr = err;
 		}
+	}
 
-		// Set Connected State
+	// Update Adhoc Socket state
+	if (ret != SOCKET_ERROR || sockerr == EISCONN) {
 		ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
-
 		INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Established (%s:%u)", req.id, ptpsocket.lport, ip2str(sin.sin_addr).c_str(), ptpsocket.pport);
 
-		// Success
+		// Done
 		result = 0;
 	}
-	// Timeout
-	else if (ret == 0) {
+	else if (connectInProgress(sockerr) /* || sockerr == 0*/) {
+		ptpsocket.state = ADHOC_PTP_STATE_SYN_SENT;
+	}
+	// On Windows you can call connect again using the same socket after ECONNREFUSED/ETIMEDOUT/ENETUNREACH error, but on non-Windows you'll need to recreate the socket first
+	else {
+		// Only recreate the socket once per frame (just like most adhoc games that tried to PtpConnect once per frame when using non-blocking mode)
+		if (/*sockerr == ECONNREFUSED ||*/ static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - sock->internalLastAttempt) > 16666) {
+			DEBUG_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Recreating Socket %i, errno = %i, state = %i, attempt = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr, ptpsocket.state, sock->attemptCount);
+			if (RecreatePtpSocket(req.id) < 0) {
+				WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: RecreatePtpSocket error %i", req.id, ptpsocket.lport, errno);
+			}
+			ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
+			sock->internalLastAttempt = CoreTiming::GetGlobalTimeUsScaled();
+		}
+	}
+
+	// Still in progress, try again next time until Timedout
+	if (ptpsocket.state != ADHOC_PTP_STATE_ESTABLISHED) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+			// Try again later
 			return -1;
 		}
 		else {
@@ -866,11 +893,11 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 				result = ERROR_NET_ADHOC_WOULD_BLOCK;
 			else
 				result = ERROR_NET_ADHOC_TIMEOUT; // FIXME: PSP never returned ERROR_NET_ADHOC_TIMEOUT on PtpConnect? or only returned ERROR_NET_ADHOC_TIMEOUT when the host is too busy? Seems to be returning ERROR_NET_ADHOC_CONNECTION_REFUSED on timedout instead (if the other side in not listening yet, which is similar to BSD).
+
+			// Done
+			return 0;
 		}
 	}
-	// Select was interrupted or contains invalid args?
-	else
-		result = ERROR_NET_ADHOC_EXCEPTION_EVENT; // ERROR_NET_ADHOC_INVALID_ARG;
 
 	if (ret == SOCKET_ERROR)
 		DEBUG_LOG(SCENET, "sceNetAdhocPtpConnect[%i]: Socket Error (%i)", req.id, sockerr);
@@ -3193,10 +3220,16 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 				if ( sock != NULL && sock->type == SOCK_PTP) {
 					// Update connection state. 
 					// GvG Next Plus relies on GetPtpStat to determine if Connection has been Established or not, but should not be updated too long for GvG to work, and should not be updated too fast(need to be 1 frame after PollSocket checking for ADHOC_EV_CONNECT) for Bleach Heat the Soul 7 to work properly.
-					if ((sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT || sock->data.ptp.state == ADHOC_PTP_STATE_SYN_RCVD) && (static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - sock->lastAttempt) > 35000/*sock->retry_interval*/)) {
+					if ((sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT || sock->data.ptp.state == ADHOC_PTP_STATE_SYN_RCVD) && (static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - sock->lastAttempt) > 33333/*sock->retry_interval*/)) {
 						// FIXME: May be we should poll all of them together on a single poll call instead of each socket separately?
 						if (IsSocketReady(sock->data.ptp.id, true, true) > 0) {
-							sock->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
+							struct sockaddr_in sin;
+							socklen_t sinlen = sizeof(sin);
+							memset(&sin, 0, sinlen);
+							// Ensure that the connection really established or not, since "select" alone can't accurately detects it
+							if (getpeername(sock->data.ptp.id, (struct sockaddr*)&sin, &sinlen) != SOCKET_ERROR) {
+								sock->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
+							}
 						}
 					}
 
@@ -3266,71 +3299,74 @@ int RecreatePtpSocket(int ptpId) {
 	int tcpsocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
 	// Valid Socket produced
-	if (tcpsocket > 0) {
-		sock->data.ptp.id = tcpsocket;
+	if (tcpsocket < 0)
+		return ERROR_NET_ADHOC_SOCKET_ID_NOT_AVAIL;
 
-		// Change socket MSS
-		setSockMSS(tcpsocket, PSP_ADHOC_PTP_MSS);
+	// Update posix socket fd
+	sock->data.ptp.id = tcpsocket;
 
-		// Change socket buffer size to be consistent on all platforms.
-		setSockBufferSize(tcpsocket, SO_SNDBUF, sock->buffer_size * 5); //PSP_ADHOC_PTP_MSS
-		setSockBufferSize(tcpsocket, SO_RCVBUF, sock->buffer_size * 10); //PSP_ADHOC_PTP_MSS*10
+	// Change socket MSS
+	setSockMSS(tcpsocket, PSP_ADHOC_PTP_MSS);
 
-		// Enable KeepAlive
-		setSockKeepAlive(tcpsocket, true, sock->retry_interval / 1000000L, sock->retry_count);
+	// Change socket buffer size to be consistent on all platforms.
+	setSockBufferSize(tcpsocket, SO_SNDBUF, sock->buffer_size * 5); //PSP_ADHOC_PTP_MSS
+	setSockBufferSize(tcpsocket, SO_RCVBUF, sock->buffer_size * 10); //PSP_ADHOC_PTP_MSS*10
 
-		// Ignore SIGPIPE when supported (ie. BSD/MacOS)
-		setSockNoSIGPIPE(tcpsocket, 1);
+	// Enable KeepAlive
+	setSockKeepAlive(tcpsocket, true, sock->retry_interval / 1000000L, sock->retry_count);
 
-		// Enable Port Re-use
-		setSockReuseAddrPort(tcpsocket);
+	// Ignore SIGPIPE when supported (ie. BSD/MacOS)
+	setSockNoSIGPIPE(tcpsocket, 1);
 
-		// Apply Default Send Timeout Settings to Socket
-		setSockTimeout(tcpsocket, SO_SNDTIMEO, sock->retry_interval);
+	// Enable Port Re-use
+	setSockReuseAddrPort(tcpsocket);
 
-		// Disable Nagle Algo to send immediately. Or may be we shouldn't disable Nagle since there is PtpFlush function?
-		setSockNoDelay(tcpsocket, 1);
+	// Apply Default Send Timeout Settings to Socket
+	setSockTimeout(tcpsocket, SO_SNDTIMEO, sock->retry_interval);
 
-		// Binding Information for local Port
-		struct sockaddr_in addr {};
-		// addr.sin_len = sizeof(addr);
-		addr.sin_family = AF_INET;
-		addr.sin_addr.s_addr = INADDR_ANY;
-		if (isLocalServer) {
-			getLocalIp(&addr);
-		}
-		uint16_t requestedport = static_cast<int>(sock->data.ptp.lport + static_cast<int>(portOffset));
-		// Avoid getting random port due to port offset when original port wasn't 0 (ie. original_port + port_offset = 65536 = 0)
-		if (requestedport == 0 && sock->data.ptp.lport > 0)
-			requestedport = 65535; // Hopefully it will be safe to default it to 65535 since there can't be more than one port that can bumped into 65536
-		addr.sin_port = htons(requestedport);
+	// Disable Nagle Algo to send immediately. Or may be we shouldn't disable Nagle since there is PtpFlush function?
+	setSockNoDelay(tcpsocket, 1);
 
-		// Bound Socket to local Port
-		if (bind(tcpsocket, (struct sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
-			ERROR_LOG(SCENET, "RecreatePtpSocket(%i) - Socket error (%i) when binding port %u", ptpId, errno, ntohs(addr.sin_port));
+	// Binding Information for local Port
+	struct sockaddr_in addr {};
+	// addr.sin_len = sizeof(addr);
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = INADDR_ANY;
+	if (isLocalServer) {
+		getLocalIp(&addr);
+	}
+	uint16_t requestedport = static_cast<int>(sock->data.ptp.lport + static_cast<int>(portOffset));
+	// Avoid getting random port due to port offset when original port wasn't 0 (ie. original_port + port_offset = 65536 = 0)
+	if (requestedport == 0 && sock->data.ptp.lport > 0)
+		requestedport = 65535; // Hopefully it will be safe to default it to 65535 since there can't be more than one port that can bumped into 65536
+	addr.sin_port = htons(requestedport);
+
+	// Bound Socket to local Port
+	if (bind(tcpsocket, (struct sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
+		ERROR_LOG(SCENET, "RecreatePtpSocket(%i) - Socket error (%i) when binding port %u", ptpId, errno, ntohs(addr.sin_port));
+	}
+	else {
+		// Update sport with the port assigned internal->lport = ntohs(local.sin_port)
+		socklen_t len = sizeof(addr);
+		if (getsockname(tcpsocket, (struct sockaddr*)&addr, &len) == 0) {
+			uint16_t boundport = ntohs(addr.sin_port);
+			if (sock->data.ptp.lport + static_cast<int>(portOffset) >= 65536 || static_cast<int>(boundport) - static_cast<int>(portOffset) <= 0)
+				WARN_LOG(SCENET, "RecreatePtpSocket(%i) - Wrapped Port Detected: Original(%d) -> Requested(%d), Bound(%d) -> BoundOriginal(%d)", ptpId, sock->data.ptp.lport, requestedport, boundport, boundport - portOffset);
+			u16 newlport = boundport - portOffset;
+			if (newlport != sock->data.ptp.lport) {
+				WARN_LOG(SCENET, "RecreatePtpSocket(%i) - Old and New LPort is different! The port may need to be reforwarded", ptpId);
+				if (!sock->isClient)
+					UPnP_Add(IP_PROTOCOL_TCP, isOriPort ? newlport : newlport + portOffset, newlport + portOffset);
+			}
+			sock->data.ptp.lport = newlport;
 		}
 		else {
-			// Update sport with the port assigned internal->lport = ntohs(local.sin_port)
-			socklen_t len = sizeof(addr);
-			if (getsockname(tcpsocket, (struct sockaddr*)&addr, &len) == 0) {
-				uint16_t boundport = ntohs(addr.sin_port);
-				if (sock->data.ptp.lport + static_cast<int>(portOffset) >= 65536 || static_cast<int>(boundport) - static_cast<int>(portOffset) <= 0)
-					WARN_LOG(SCENET, "RecreatePtpSocket(%id) - Wrapped Port Detected: Original(%d) -> Requested(%d), Bound(%d) -> BoundOriginal(%d)", ptpId, sock->data.ptp.lport, requestedport, boundport, boundport - portOffset);
-				u16 newlport = boundport - portOffset;
-				if (newlport != sock->data.ptp.lport) {
-					WARN_LOG(SCENET, "RecreatePtpSocket(%id) - Old and New LPort is different! The port may need to be reforwarded", ptpId);
-					if (!sock->isClient)
-						UPnP_Add(IP_PROTOCOL_TCP, isOriPort ? newlport : newlport + portOffset, newlport + portOffset);
-				}
-				sock->data.ptp.lport = newlport;
-			}
+			WARN_LOG(SCENET, "RecreatePtpSocket(%i): getsockname error %i", ptpId, errno);
 		}
-
-		// Switch to non-blocking for futher usage
-		changeBlockingMode(tcpsocket, 1);
 	}
-	else
-		return ERROR_NET_ADHOC_SOCKET_ID_NOT_AVAIL;
+
+	// Switch to non-blocking for further usage
+	changeBlockingMode(tcpsocket, 1);
 
 	return 0;
 }
@@ -3792,6 +3828,7 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 					if (connectresult != SOCKET_ERROR || errorcode == EISCONN) {
 						socket->attemptCount++;
 						socket->lastAttempt = CoreTiming::GetGlobalTimeUsScaled();
+						socket->internalLastAttempt = socket->lastAttempt;
 						// Set Connected State
 						ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
 
@@ -3804,19 +3841,22 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 					else if (connectresult == SOCKET_ERROR) {
 						// Connection in Progress, or
 						// ECONNREFUSED = No connection could be made because the target device actively refused it (on Windows/Linux/Android), or no one listening on the remote address (on Linux/Android) thus should try to connect again later (treated similarly to ETIMEDOUT/ENETUNREACH).
-						if (connectInProgress(errorcode) || errorcode == ECONNREFUSED || errorcode == ENETUNREACH) {
+						if (connectInProgress(errorcode) || errorcode == ECONNREFUSED) {
 							if (connectInProgress(errorcode))
 							{
-								socket->data.ptp.state = ADHOC_PTP_STATE_SYN_SENT;
-								socket->attemptCount++;
+								ptpsocket.state = ADHOC_PTP_STATE_SYN_SENT;
 							}
 							// On Windows you can call connect again using the same socket after ECONNREFUSED/ETIMEDOUT/ENETUNREACH error, but on non-Windows you'll need to recreate the socket first
 							else {
+								DEBUG_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Recreating Socket %i, errno = %i, state = %i, attempt = %i", id, ptpsocket.lport, ptpsocket.id, errorcode, ptpsocket.state, socket->attemptCount);
 								if (RecreatePtpSocket(id) < 0) {
 									WARN_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Failed to Recreate Socket", id, ptpsocket.lport);
 								}
+								ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
 							}
+							socket->attemptCount++;
 							socket->lastAttempt = CoreTiming::GetGlobalTimeUsScaled();
+							socket->internalLastAttempt = socket->lastAttempt;
 							// Blocking Mode
 							// Workaround: Forcing first attempt to be blocking to prevent issue related to lobby or high latency networks. (can be useful for GvG Next Plus, Dissidia 012, and Fate Unlimited Codes)
 							if (!flag || (allowForcedConnect && g_Config.bForcedFirstConnect && socket->attemptCount <= 1)) {
@@ -4198,16 +4238,16 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					// Change Socket State
 					ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
 					
-					// Disconnected or Not connected?
-					return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected?");
+					// Disconnected
+					return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected");
 				}
 				
 				// Invalid Arguments
 				return hleLogError(SCENET, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg");
 			}
 			
-			// Disconnected
-			return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected");
+			// Not Connected
+			return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_CONNECTED, "not connected");
 		}
 		
 		// Invalid Socket
@@ -4312,11 +4352,12 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					// Change Socket State
 					ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
 
-					// Disconnected or Not connected?
-					return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected?");
+					// Disconnected
+					return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected");
 				}
 
-				return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected");
+				// Not Connected
+				return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_CONNECTED, "not connected");
 			}
 
 			// Invalid Socket

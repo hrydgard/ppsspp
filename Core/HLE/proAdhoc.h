@@ -63,6 +63,7 @@
 #undef ECONNREFUSED
 #undef ENETUNREACH
 #undef ENOTCONN
+#undef EBADF
 #undef EAGAIN
 #undef EINPROGRESS
 #undef EISCONN
@@ -76,6 +77,7 @@
 #define ECONNREFUSED WSAECONNREFUSED
 #define ENETUNREACH WSAENETUNREACH
 #define ENOTCONN WSAENOTCONN
+#define EBADF WSAEBADF
 #define EAGAIN WSAEWOULDBLOCK
 #define EINPROGRESS WSAEWOULDBLOCK
 #define EISCONN WSAEISCONN
@@ -396,7 +398,8 @@ typedef struct AdhocSocket {
 	s32 retry_interval; // related to keepalive
 	s32 retry_count; // multiply with retry interval to be used as keepalive timeout
 	s32 attemptCount; // connect/accept attempts
-	u64 lastAttempt; // timestamp to retry again
+	u64 lastAttempt; // timestamp to retry again (attempted by the game)
+	u64 internalLastAttempt; // timestamp to retry again (internal use only)
 	bool isClient; // true if the game is using local port 0 when creating the socket
 	union {
 		SceNetAdhocPdpStat pdp;
