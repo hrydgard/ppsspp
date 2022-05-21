@@ -111,15 +111,17 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 #endif
 
 	// Check whether hostAddress is within the PSP memory space, which (likely) means it was a guest executable that did the bad access.
+	bool invalidHostAddress = hostAddress == (uintptr_t)0xFFFFFFFFFFFFFFFFULL;
 	if (hostAddress < baseAddress || hostAddress >= baseAddress + addressSpaceSize) {
 		// Host address outside - this was a different kind of crash.
-		return false;
+		if (!invalidHostAddress)
+			return false;
 	}
 
 
 	// OK, a guest executable did a bad access. Take care of it.
 
-	uint32_t guestAddress = (uint32_t)(hostAddress - baseAddress);
+	uint32_t guestAddress = invalidHostAddress ? 0xFFFFFFFFUL : (uint32_t)(hostAddress - baseAddress);
 
 	// TODO: Share the struct between the various analyzers, that will allow us to share most of
 	// the implementations here.
