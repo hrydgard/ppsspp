@@ -1637,15 +1637,6 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	// We store it in the cache so it can be modified for blue-to-alpha, next.
 	gstate_c.framebufFormat = gstate.FrameBufFormat();
 
-	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
-		// Rough estimate, not sure what's correct.
-		cyclesExecuted += EstimatePerVertexCost() * count;
-		if (gstate.isModeClear()) {
-			gpuStats.numClears++;
-		}
-		return;
-	}
-
 	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
 		ERROR_LOG(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
 		return;
@@ -1667,6 +1658,16 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	VirtualFramebuffer *vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (blueToAlpha) {
 		vfb->usageFlags |= FB_USAGE_BLUE_TO_ALPHA;
+	}
+
+	// Must check this after SetRenderFrameBuffer so we know SKIPDRAW_NON_DISPLAYED_FB.
+	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
+		// Rough estimate, not sure what's correct.
+		cyclesExecuted += EstimatePerVertexCost() * count;
+		if (gstate.isModeClear()) {
+			gpuStats.numClears++;
+		}
+		return;
 	}
 
 	void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
