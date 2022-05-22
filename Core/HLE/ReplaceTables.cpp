@@ -1325,6 +1325,19 @@ static int Hook_openseason_data_decode() {
 	return 0;
 }
 
+static int Hook_soltrigger_render_ucschar() {
+	u32 targetInfoPtrPtr = currentMIPS->r[MIPS_REG_A2];
+	u32 targetInfoPtr = Memory::IsValidRange(targetInfoPtrPtr, 4) ? Memory::ReadUnchecked_U32(targetInfoPtrPtr) : 0;
+	if (Memory::IsValidRange(targetInfoPtr, 32)) {
+		u32 targetPtr = Memory::Read_U32(targetInfoPtr + 8);
+		u32 targetByteStride = Memory::Read_U32(targetInfoPtr + 16);
+
+		// We don't know the height specifically.
+		gpu->InvalidateCache(targetPtr, targetByteStride * 512, GPU_INVALIDATE_HINT);
+	}
+	return 0;
+}
+
 #define JITFUNC(f) (&MIPSComp::MIPSFrontendInterface::f)
 
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
@@ -1440,6 +1453,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "motorstorm_pixel_read", &Hook_motorstorm_pixel_read, 0, REPFLAG_HOOKENTER, 0 },
 	{ "worms_copy_normalize_alpha", &Hook_worms_copy_normalize_alpha, 0, REPFLAG_HOOKENTER, 0x0CC },
 	{ "openseason_data_decode", &Hook_openseason_data_decode, 0, REPFLAG_HOOKENTER, 0x2F0 },
+	{ "soltrigger_render_ucschar", &Hook_soltrigger_render_ucschar, 0, REPFLAG_HOOKENTER, 0 },
 	{}
 };
 
