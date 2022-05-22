@@ -156,6 +156,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x1f53eac122f96b37, 224, "cosf", },
 	{ 0x2097a8b75c8fe651, 436, "atan2", },
 	{ 0x21411b3c860822c0, 36, "matrix_scale_q_t", },
+	{ 0x2161ea81a06bcacd, 1032, "soltrigger_render_ucschar", }, // Sol Trigger
 	{ 0x24d82a8675800808, 220, "ceilf", },
 	{ 0x26cc90cb25af9d27, 476, "log10", },
 	{ 0x275c79791a2bab83, 116, "rezel_cross_download_frame", }, // Rezel Cross
