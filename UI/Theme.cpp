@@ -96,6 +96,9 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 		for (size_t f = 0; f < fileInfo.size(); f++) {
 			IniFile ini;
 			bool success = false;
+			if (fileInfo[f].isDirectory)
+				continue;
+
 			Path name = fileInfo[f].fullName;
 			Path path = directories[d];
 			// Hack around Android VFS path bug. really need to redesign this.
