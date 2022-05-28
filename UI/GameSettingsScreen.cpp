@@ -388,8 +388,10 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
 	if (System_GetPropertyInt(SYSPROP_DISPLAY_COUNT) > 1) {
 		CheckBox *fullscreenMulti = new CheckBox(&g_Config.bFullScreenMulti, gr->T("Use all displays"));
-		fullscreenMulti->SetEnabledPtr(&g_Config.bFullScreen);
-		graphicsSettings->Add(fullscreenMulti)->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
+		fullscreenMulti->SetEnabledFunc([] {
+			return g_Config.UseFullScreen();
+		});
+		graphicsSettings->Add(fullscreenMulti)->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenMultiChange);
 	}
 #endif
 	// Display Layout Editor: To avoid overlapping touch controls on large tablets, meet geeky demands for integer zoom/unstretched image etc.
@@ -1257,7 +1259,13 @@ UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnFullscreenChange(UI::EventParams &e) {
-	System_SendMessage("toggle_fullscreen", g_Config.bFullScreen ? "1" : "0");
+	g_Config.iForceFullScreen = -1;
+	System_SendMessage("toggle_fullscreen", g_Config.UseFullScreen() ? "1" : "0");
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnFullscreenMultiChange(UI::EventParams &e) {
+	System_SendMessage("toggle_fullscreen", g_Config.UseFullScreen() ? "1" : "0");
 	return UI::EVENT_DONE;
 }
 

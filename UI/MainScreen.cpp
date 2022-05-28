@@ -1107,9 +1107,10 @@ void MainScreen::CreateViews() {
 	logos->Add(new ImageView(ImageID("I_LOGO"), "PPSSPP", IS_DEFAULT, new AnchorLayoutParams(180, 64, 64, -5.0f, NONE, NONE, false)));
 
 #if !defined(MOBILE_DEVICE)
-	if (!g_Config.bFullScreen) {
+	if (!g_Config.UseFullScreen()) {
 		auto gr = GetI18NCategory("Graphics");
-		fullscreenButton_ = logos->Add(new Button(gr->T("FullScreen", "Full Screen"), ImageID(g_Config.bFullScreen ? "I_RESTORE" : "I_FULLSCREEN"), new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, false)));
+		ImageID icon(g_Config.UseFullScreen() ? "I_RESTORE" : "I_FULLSCREEN");
+		fullscreenButton_ = logos->Add(new Button(gr->T("FullScreen", "Full Screen"), icon, new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, false)));
 		fullscreenButton_->SetIgnoreText(true);
 		fullscreenButton_->OnClick.Handle(this, &MainScreen::OnFullScreenToggle);
 	}
@@ -1261,8 +1262,10 @@ UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 }
 
 UI::EventReturn MainScreen::OnFullScreenToggle(UI::EventParams &e) {
+	if (g_Config.iForceFullScreen != -1)
+		g_Config.bFullScreen = g_Config.UseFullScreen();
 	if (fullscreenButton_) {
-		fullscreenButton_->SetImageID(ImageID(!g_Config.bFullScreen ? "I_RESTORE" : "I_FULLSCREEN"));
+		fullscreenButton_->SetImageID(ImageID(!g_Config.UseFullScreen() ? "I_RESTORE" : "I_FULLSCREEN"));
 	}
 #if !defined(MOBILE_DEVICE)
 	g_Config.bFullScreen = !g_Config.bFullScreen;

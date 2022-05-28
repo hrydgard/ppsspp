@@ -195,6 +195,7 @@ public:
 	bool bVertexDecoderJit;
 	bool bFullScreen;
 	bool bFullScreenMulti;
+	int iForceFullScreen = -1; // -1 = nope, 0 = force off, 1 = force on (not saved.)
 	int iInternalResolution;  // 0 = Auto (native), 1 = 1x (480x272), 2 = 2x, 3 = 3x, 4 = 4x and so on.
 	int iAnisotropyLevel;  // 0 - 5, powers of 2: 0 = 1x = no aniso
 	int bHighQualityDepth;
@@ -521,6 +522,12 @@ public:
 	bool IsPortrait() const;
 	int NextValidBackend();
 	bool IsBackendEnabled(GPUBackend backend, bool validate = true);
+
+	bool UseFullScreen() const {
+		if (iForceFullScreen != -1)
+			return iForceFullScreen == 1;
+		return bFullScreen;
+	}
 
 protected:
 	void LoadStandardControllerIni();

@@ -671,7 +671,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	if (iCmdShow == SW_MAXIMIZE) {
 		// Consider this to mean --fullscreen.
-		g_Config.bFullScreen = true;
+		g_Config.iForceFullScreen = 1;
 	}
 
 	// Consider at least the following cases before changing this code:

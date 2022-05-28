@@ -672,11 +672,11 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				if (!strncmp(argv[i], "--pause-menu-exit", strlen("--pause-menu-exit")))
 					g_Config.bPauseMenuExitsEmulator = true;
 				if (!strcmp(argv[i], "--fullscreen")) {
-					g_Config.bFullScreen = true;
+					g_Config.iForceFullScreen = 1;
 					System_SendMessage("toggle_fullscreen", "1");
 				}
 				if (!strcmp(argv[i], "--windowed")) {
-					g_Config.bFullScreen = false;
+					g_Config.iForceFullScreen = 0;
 					System_SendMessage("toggle_fullscreen", "0");
 				}
 				if (!strcmp(argv[i], "--touchscreentest"))
@@ -849,7 +849,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	isOuya = KeyMap::IsOuya(sysName);
 
 #if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
-	MainWindow *mainWindow = new MainWindow(nullptr, g_Config.bFullScreen);
+	MainWindow *mainWindow = new MainWindow(nullptr, g_Config.UseFullScreen());
 	mainWindow->show();
 	if (host == nullptr) {
 		host = new QtHost(mainWindow);

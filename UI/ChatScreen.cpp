@@ -179,7 +179,7 @@ void ChatMenu::Update() {
 
 #if defined(USING_WIN_UI)
 	// Could remove the fullscreen check here, it works now.
-	if (promptInput_ && g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen) {
+	if (promptInput_ && g_Config.bBypassOSKWithKeyboard && !g_Config.UseFullScreen()) {
 		System_InputBoxGetString(n->T("Chat"), n->T("Chat Here"), [](bool result, const std::string &value) {
 			if (result) {
 				sendChat(value);
