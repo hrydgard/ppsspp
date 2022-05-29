@@ -189,7 +189,7 @@ namespace MainWindow
 	}
 
 	void SavePosition() {
-		if (g_Config.bFullScreen || inFullscreenResize)
+		if (g_Config.UseFullScreen() || inFullscreenResize)
 			return;
 
 		WINDOWPLACEMENT placement;
@@ -239,7 +239,7 @@ namespace MainWindow
 	}
 
 	void CorrectCursor() {
-		bool autoHide = ((g_Config.bFullScreen && !mouseButtonDown) || (g_Config.bMouseControl && trapMouse)) && GetUIState() == UISTATE_INGAME;
+		bool autoHide = ((g_Config.UseFullScreen() && !mouseButtonDown) || (g_Config.bMouseControl && trapMouse)) && GetUIState() == UISTATE_INGAME;
 		if (autoHide && (hideCursor || g_Config.bMouseControl)) {
 			while (cursorCounter >= 0) {
 				cursorCounter = ShowCursor(FALSE);
@@ -303,7 +303,7 @@ namespace MainWindow
 		}
 
 		// Don't save the window state if fullscreen.
-		if (!g_Config.bFullScreen) {
+		if (!g_Config.UseFullScreen()) {
 			g_WindowState = newSizingType;
 		}
 	}
@@ -353,7 +353,10 @@ namespace MainWindow
 		// Remove the menu bar. This can trigger WM_SIZE
 		::SetMenu(hWnd, goingFullscreen ? NULL : menu);
 
-		g_Config.bFullScreen = goingFullscreen;
+		if (g_Config.UseFullScreen() != goingFullscreen) {
+			g_Config.bFullScreen = goingFullscreen;
+			g_Config.iForceFullScreen = -1;
+		}
 		g_isFullscreen = goingFullscreen;
 
 		g_IgnoreWM_SIZE = false;
@@ -414,7 +417,7 @@ namespace MainWindow
 		bool resetPositionX = true;
 		bool resetPositionY = true;
 
-		if (g_Config.iWindowWidth > 0 && g_Config.iWindowHeight > 0 && !g_Config.bFullScreen) {
+		if (g_Config.iWindowWidth > 0 && g_Config.iWindowHeight > 0 && !g_Config.UseFullScreen()) {
 			bool visibleHorizontally = ((g_Config.iWindowX + g_Config.iWindowWidth) >= virtualScreenX) &&
 				((g_Config.iWindowX + g_Config.iWindowWidth) < (virtualScreenWidth + g_Config.iWindowWidth));
 
@@ -522,7 +525,7 @@ namespace MainWindow
 		hideCursor = true;
 		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
 
-		ToggleFullscreen(hwndMain, g_Config.bFullScreen);
+		ToggleFullscreen(hwndMain, g_Config.UseFullScreen());
 
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 
@@ -654,7 +657,7 @@ namespace MainWindow
 				double now = time_now_d();
 				if ((now - lastMouseDown) < 0.001 * GetDoubleClickTime()) {
 					if (!g_Config.bShowTouchControls && !g_Config.bMouseControl && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
-						SendToggleFullscreen(!g_Config.bFullScreen);
+						SendToggleFullscreen(!g_Config.UseFullScreen());
 					}
 					lastMouseDown = 0.0;
 				} else {

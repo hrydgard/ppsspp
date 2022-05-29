@@ -51,16 +51,16 @@ void MainWindow::newFrame()
 {
 	if (lastUIState != GetUIState()) {
 		lastUIState = GetUIState();
-		if (lastUIState == UISTATE_INGAME && g_Config.bFullScreen && !QApplication::overrideCursor() && !g_Config.bShowTouchControls)
+		if (lastUIState == UISTATE_INGAME && g_Config.UseFullScreen() && !QApplication::overrideCursor() && !g_Config.bShowTouchControls)
 			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
-		if (lastUIState != UISTATE_INGAME && g_Config.bFullScreen && QApplication::overrideCursor())
+		if (lastUIState != UISTATE_INGAME && g_Config.UseFullScreen() && QApplication::overrideCursor())
 			QApplication::restoreOverrideCursor();
 
 		updateMenus();
 	}
 
-	if (g_Config.bFullScreen != isFullScreen())
-		SetFullScreen(g_Config.bFullScreen);
+	if (g_Config.UseFullScreen() != isFullScreen())
+		SetFullScreen(g_Config.UseFullScreen());
 
 	std::unique_lock<std::mutex> lock(msgMutex_);
 	while (!msgQueue_.empty()) {
@@ -398,6 +398,7 @@ void MainWindow::fullscrAct()
 {
 	// Toggle the current state.
 	g_Config.bFullScreen = !isFullScreen();
+	g_Config.iForceFullScreen = -1;
 	SetFullScreen(g_Config.bFullScreen);
 
 	QTimer::singleShot(1000, this, SLOT(raiseTopMost()));
