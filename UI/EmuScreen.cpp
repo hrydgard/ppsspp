@@ -414,6 +414,9 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 		System_SendMessage("event", "exitgame");
 		quit_ = false;
 	}
+	// Returning to the PauseScreen, unless we're stepping, means we should go back to controls.
+	if (Core_IsActive())
+		UI::EnableFocusMovement(false);
 	RecreateViews();
 }
 
