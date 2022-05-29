@@ -1527,7 +1527,11 @@ bool Config::Save(const char *saveReason) {
 	}
 	if (jitForcedOff) {
 		// force JIT off again just in case Config::Save() is called without exiting PPSSPP
+#if PPSSPP_PLATFORM(IOS)
+		g_Config.iCpuCore = (int)CPUCore::IR_JIT;
+#else
 		g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
+#endif
 	}
 	return true;
 }
