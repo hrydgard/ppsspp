@@ -21,6 +21,7 @@
 #include <StringUtils.h>
 #include "Core/MemMapHelpers.h"
 #include <Core/CoreTiming.h>
+#include <Core/Config.h>
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceNp.h"
@@ -105,6 +106,8 @@ void notifyNpAuthHandlers(u32 id, u32 result, u32 argAddr) {
 static int sceNpInit()
 {
 	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
+	npOnlineId = g_Config.sNickName;
+
 	return 0;
 }
 
