@@ -943,7 +943,7 @@ int PSPOskDialog::Update(int animSpeed) {
 	// Windows: Fall back to the OSK/continue normally if we're in fullscreen.
 	// The dialog box doesn't work right if in fullscreen.
 	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
-		if (g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen)
+		if (g_Config.bBypassOSKWithKeyboard && !g_Config.UseFullScreen())
 			return NativeKeyboard();
 	}
 #endif
