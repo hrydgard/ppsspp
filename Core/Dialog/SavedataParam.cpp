@@ -403,7 +403,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		ERROR_LOG_REPORT(SCEUTILITY, "Savedata version requested on save: %d", param->secureVersion);
 		return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
 	} else if (param->secureVersion != 0) {
-		if (param->secureVersion != 1 && !HasKey(param)) {
+		if (param->secureVersion != 1 && !HasKey(param) && secureMode) {
 			ERROR_LOG_REPORT(SCEUTILITY, "Savedata version with missing key on save: %d", param->secureVersion);
 			return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
 		}
@@ -638,7 +638,7 @@ int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::strin
 		ERROR_LOG_REPORT(SCEUTILITY, "Savedata version requested: %d", param->secureVersion);
 		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM;
 	} else if (param->secureVersion != 0) {
-		if (param->secureVersion != 1 && !HasKey(param)) {
+		if (param->secureVersion != 1 && !HasKey(param) && secureMode) {
 			ERROR_LOG_REPORT(SCEUTILITY, "Savedata version with missing key: %d", param->secureVersion);
 			return SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM;
 		}
