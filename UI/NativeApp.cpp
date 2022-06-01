@@ -1466,6 +1466,12 @@ void NativeShutdown() {
 
 	INFO_LOG(SYSTEM, "NativeShutdown called");
 
+	for (auto &cat : GetI18NMissingKeys()) {
+		for (auto &key : cat.second) {
+			INFO_LOG(SYSTEM, "Missing translation [%s]: %s", cat.first.c_str(), key.c_str());
+		}
+	}
+
 	ShutdownWebServer();
 
 	System_SendMessage("finish", "");
