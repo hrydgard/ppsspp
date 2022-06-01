@@ -46,7 +46,7 @@ public:
 		return T(key.c_str(), nullptr);
 	}
 
-	const std::map<std::string, std::string> &Missed() const {
+	const std::map<std::string, std::string> Missed() const {
 		std::lock_guard<std::mutex> guard(missedKeyLock_);
 		return missedKeyLog_;
 	}
