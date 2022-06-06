@@ -894,11 +894,11 @@ void GameSettingsScreen::CreateViews() {
 		return UI::EVENT_CONTINUE;
 	});
 
-	PopupSliderChoiceFloat *tint = new PopupSliderChoiceFloat(&g_Config.fUITint, 0.0, 1.0, n->T("Color Tint"), 0.01f, screenManager());
+	PopupSliderChoiceFloat *tint = new PopupSliderChoiceFloat(&g_Config.fUITint, 0.0, 1.0, sy->T("Color Tint"), 0.01f, screenManager());
 	tint->SetHasDropShadow(false);
 	tint->SetLiveUpdate(true);
 	systemSettings->Add(tint);
-	PopupSliderChoiceFloat *saturation = new PopupSliderChoiceFloat(&g_Config.fUISaturation, 0.0, 2.0, n->T("Color Saturation"), 0.01f, screenManager());
+	PopupSliderChoiceFloat *saturation = new PopupSliderChoiceFloat(&g_Config.fUISaturation, 0.0, 2.0, sy->T("Color Saturation"), 0.01f, screenManager());
 	saturation->SetHasDropShadow(false);
 	saturation->SetLiveUpdate(true);
 	systemSettings->Add(saturation);
