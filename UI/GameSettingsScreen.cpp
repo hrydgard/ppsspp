@@ -1063,18 +1063,20 @@ void GameSettingsScreen::CreateViews() {
 	static const char *buttonPref[] = { "Use O to confirm", "Use X to confirm" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, sy->T("Confirmation Button"), buttonPref, 0, 2, sy->GetName(), screenManager()));
 
+	// Search
+	LinearLayout *searchSettings = AddTab("GameSettingsSearch", ms->T("Search"), true);
+
+	searchSettings->Add(new ItemHeader(se->T("Find settings")));
 	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
-		// Search
-		LinearLayout *searchSettings = AddTab("GameSettingsSearch", ms->T("Search"), true);
-
-		searchSettings->Add(new ItemHeader(se->T("Find settings")));
 		searchSettings->Add(new ChoiceWithValueDisplay(&searchFilter_, se->T("Filter"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeSearchFilter);
-		clearSearchChoice_ = searchSettings->Add(new Choice(se->T("Clear filter")));
-		clearSearchChoice_->OnClick.Handle(this, &GameSettingsScreen::OnClearSearchFilter);
-		noSearchResults_ = searchSettings->Add(new TextView(se->T("No settings matched '%1'"), new LinearLayoutParams(Margins(20, 5))));
-
-		ApplySearchFilter();
+	} else {
+		searchSettings->Add(new PopupTextInputChoice(&searchFilter_, se->T("Filter"), "", 64, screenManager()))->OnChange.Handle(this, &GameSettingsScreen::OnChangeSearchFilter);
 	}
+	clearSearchChoice_ = searchSettings->Add(new Choice(se->T("Clear filter")));
+	clearSearchChoice_->OnClick.Handle(this, &GameSettingsScreen::OnClearSearchFilter);
+	noSearchResults_ = searchSettings->Add(new TextView(se->T("No settings matched '%1'"), new LinearLayoutParams(Margins(20, 5))));
+
+	ApplySearchFilter();
 }
 
 UI::LinearLayout *GameSettingsScreen::AddTab(const char *tag, const std::string &title, bool isSearch) {
@@ -1711,6 +1713,9 @@ UI::EventReturn GameSettingsScreen::OnChangeSearchFilter(UI::EventParams &e) {
 			NativeMessageReceived("gameSettings_search", StripSpaces(value).c_str());
 		}
 	});
+#else
+	if (!System_GetPropertyBool(SYSPROP_HAS_KEYBOARD))
+		NativeMessageReceived("gameSettings_search", StripSpaces(searchFilter_).c_str());
 #endif
 	return UI::EVENT_DONE;
 }
