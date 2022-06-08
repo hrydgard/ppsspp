@@ -97,6 +97,7 @@ asciifont_atlas.zim.png
 ppge_atlas.zim.png
 local.properties
 r.sh
+Windows/compileData*
 
 # For vim
 *.swp
