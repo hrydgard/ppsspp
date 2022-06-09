@@ -1063,6 +1063,7 @@ void GameSettingsScreen::CreateViews() {
 	static const char *buttonPref[] = { "Use O to confirm", "Use X to confirm" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, sy->T("Confirmation Button"), buttonPref, 0, 2, sy->GetName(), screenManager()));
 
+#if !defined(MOBILE_DEVICE) || PPSSPP_PLATFORM(ANDROID)
 	// Search
 	LinearLayout *searchSettings = AddTab("GameSettingsSearch", ms->T("Search"), true);
 
@@ -1077,6 +1078,7 @@ void GameSettingsScreen::CreateViews() {
 	noSearchResults_ = searchSettings->Add(new TextView(se->T("No settings matched '%1'"), new LinearLayoutParams(Margins(20, 5))));
 
 	ApplySearchFilter();
+#endif
 }
 
 UI::LinearLayout *GameSettingsScreen::AddTab(const char *tag, const std::string &title, bool isSearch) {
