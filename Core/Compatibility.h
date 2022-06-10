@@ -79,6 +79,7 @@ struct CompatFlags {
 	bool DisableRangeCulling;
 	bool MpegAvcWarmUp;
 	bool BlueToAlpha;
+	bool CenteredLines;
 };
 
 class IniFile;

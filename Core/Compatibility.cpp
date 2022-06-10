@@ -80,6 +80,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "DisableRangeCulling", &flags_.DisableRangeCulling);
 	CheckSetting(iniFile, gameID, "MpegAvcWarmUp", &flags_.MpegAvcWarmUp);
 	CheckSetting(iniFile, gameID, "BlueToAlpha", &flags_.BlueToAlpha);
+	CheckSetting(iniFile, gameID, "CenteredLines", &flags_.CenteredLines);
 }
 
 void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag) {

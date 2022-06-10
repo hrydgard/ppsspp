@@ -769,57 +769,121 @@ void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, 
 	}
 
 	maxIndex = 4 * (vertexCount / 2);
-	for (int i = 0; i < vertexCount; i += 2) {
-		const TransformedVertex &transVtx1 = transformed[indsIn[i + 0]];
-		const TransformedVertex &transVtx2 = transformed[indsIn[i + 1]];
 
-		const TransformedVertex &transVtxT = transVtx1.y <= transVtx2.y ? transVtx1 : transVtx2;
-		const TransformedVertex &transVtxB = transVtx1.y <= transVtx2.y ? transVtx2 : transVtx1;
-		const TransformedVertex &transVtxL = transVtx1.x <= transVtx2.x ? transVtx1 : transVtx2;
-		const TransformedVertex &transVtxR = transVtx1.x <= transVtx2.x ? transVtx2 : transVtx1;
+	if (PSP_CoreParameter().compat.flags().CenteredLines) {
+		// Lines meant to be pretty in 3D like in Echochrome.
 
-		// Sort the points so our perpendicular will bias the right direction.
-		const TransformedVertex &transVtxTL = (transVtxT.y != transVtxB.y || transVtxT.x > transVtxB.x) ? transVtxT : transVtxB;
-		const TransformedVertex &transVtxBL = (transVtxT.y != transVtxB.y || transVtxT.x > transVtxB.x) ? transVtxB : transVtxT;
+		// We expand them in both directions for symmetry, so we need to halve the expansion.
+		dx *= 0.5f;
+		dy *= 0.5f;
 
-		// Okay, let's calculate the perpendicular.
-		float horizontal = transVtxTL.x - transVtxBL.x;
-		float vertical = transVtxTL.y - transVtxBL.y;
-		Vec2f addWidth = Vec2f(-vertical, horizontal).Normalized();
+		for (int i = 0; i < vertexCount; i += 2) {
+			const TransformedVertex &transVtx1 = transformed[indsIn[i + 0]];
+			const TransformedVertex &transVtx2 = transformed[indsIn[i + 1]];
 
-		// bottom right
-		trans[0] = transVtxBL;
-		trans[0].x += addWidth.x * dx;
-		trans[0].y += addWidth.y * dy;
-		trans[0].u += addWidth.x * du;
-		trans[0].v += addWidth.y * dv;
+			// Okay, let's calculate the perpendicular.
+			float horizontal = transVtx2.x - transVtx1.x;
+			float vertical = transVtx2.y - transVtx1.y;
+			Vec2f addWidth = Vec2f(-vertical, horizontal).Normalized();
 
-		// top right
-		trans[1] = transVtxTL;
-		trans[1].x += addWidth.x * dx;
-		trans[1].y += addWidth.y * dy;
-		trans[1].u += addWidth.x * du;
-		trans[1].v += addWidth.y * dv;
+			// bottom right
+			trans[0] = transVtx2;
+			trans[0].x += addWidth.x * dx;
+			trans[0].y += addWidth.y * dy;
+			trans[0].u += addWidth.x * du;
+			trans[0].v += addWidth.y * dv;
 
-		// top left
-		trans[2] = transVtxTL;
+			// top right
+			trans[1] = transVtx1;
+			trans[1].x += addWidth.x * dx;
+			trans[1].y += addWidth.y * dy;
+			trans[1].u += addWidth.x * du;
+			trans[1].v += addWidth.y * dv;
 
-		// bottom left
-		trans[3] = transVtxBL;
+			// top left
+			trans[2] = transVtx1;
+			trans[2].x -= addWidth.x * dx;
+			trans[2].y -= addWidth.y * dy;
+			trans[2].u -= addWidth.x * du;
+			trans[2].v -= addWidth.y * dv;
 
-		// Triangle: BR-TR-TL
-		indsOut[0] = i * 2 + 0;
-		indsOut[1] = i * 2 + 1;
-		indsOut[2] = i * 2 + 2;
-		// Triangle: BL-BR-TL
-		indsOut[3] = i * 2 + 3;
-		indsOut[4] = i * 2 + 0;
-		indsOut[5] = i * 2 + 2;
-		trans += 4;
-		indsOut += 6;
+			// bottom left
+			trans[3] = transVtx2;
+			trans[3].x -= addWidth.x * dx;
+			trans[3].y -= addWidth.y * dy;
+			trans[3].u -= addWidth.x * du;
+			trans[3].v -= addWidth.y * dv;
 
-		numTrans += 6;
+			// Triangle: BR-TR-TL
+			indsOut[0] = i * 2 + 0;
+			indsOut[1] = i * 2 + 1;
+			indsOut[2] = i * 2 + 2;
+			// Triangle: BL-BR-TL
+			indsOut[3] = i * 2 + 3;
+			indsOut[4] = i * 2 + 0;
+			indsOut[5] = i * 2 + 2;
+			trans += 4;
+			indsOut += 6;
+
+			numTrans += 6;
+		}
+	} else {
+		// Lines meant to be as closely compatible with upscaled 2D drawing as possible.
+		// We use this as default.
+
+		for (int i = 0; i < vertexCount; i += 2) {
+			const TransformedVertex &transVtx1 = transformed[indsIn[i + 0]];
+			const TransformedVertex &transVtx2 = transformed[indsIn[i + 1]];
+
+			const TransformedVertex &transVtxT = transVtx1.y <= transVtx2.y ? transVtx1 : transVtx2;
+			const TransformedVertex &transVtxB = transVtx1.y <= transVtx2.y ? transVtx2 : transVtx1;
+			const TransformedVertex &transVtxL = transVtx1.x <= transVtx2.x ? transVtx1 : transVtx2;
+			const TransformedVertex &transVtxR = transVtx1.x <= transVtx2.x ? transVtx2 : transVtx1;
+
+			// Sort the points so our perpendicular will bias the right direction.
+			const TransformedVertex &transVtxTL = (transVtxT.y != transVtxB.y || transVtxT.x > transVtxB.x) ? transVtxT : transVtxB;
+			const TransformedVertex &transVtxBL = (transVtxT.y != transVtxB.y || transVtxT.x > transVtxB.x) ? transVtxB : transVtxT;
+
+			// Okay, let's calculate the perpendicular.
+			float horizontal = transVtxTL.x - transVtxBL.x;
+			float vertical = transVtxTL.y - transVtxBL.y;
+			Vec2f addWidth = Vec2f(-vertical, horizontal).Normalized();
+
+			// bottom right
+			trans[0] = transVtxBL;
+			trans[0].x += addWidth.x * dx;
+			trans[0].y += addWidth.y * dy;
+			trans[0].u += addWidth.x * du;
+			trans[0].v += addWidth.y * dv;
+
+			// top right
+			trans[1] = transVtxTL;
+			trans[1].x += addWidth.x * dx;
+			trans[1].y += addWidth.y * dy;
+			trans[1].u += addWidth.x * du;
+			trans[1].v += addWidth.y * dv;
+
+			// top left
+			trans[2] = transVtxTL;
+
+			// bottom left
+			trans[3] = transVtxBL;
+
+			// Triangle: BR-TR-TL
+			indsOut[0] = i * 2 + 0;
+			indsOut[1] = i * 2 + 1;
+			indsOut[2] = i * 2 + 2;
+			// Triangle: BL-BR-TL
+			indsOut[3] = i * 2 + 3;
+			indsOut[4] = i * 2 + 0;
+			indsOut[5] = i * 2 + 2;
+			trans += 4;
+			indsOut += 6;
+
+			numTrans += 6;
+		}
 	}
+
 	inds = newInds;
 }
 
