@@ -758,8 +758,8 @@ void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, 
 	u16 *newInds = inds + vertexCount;
 	u16 *indsOut = newInds;
 
-	float dx = 1.0f * gstate_c.vpWidthScale * (1.0f / gstate.getViewportXScale());
-	float dy = 1.0f * gstate_c.vpHeightScale * (1.0f / gstate.getViewportYScale());
+	float dx = 1.0f * gstate_c.vpWidthScale * (1.0f / fabsf(gstate.getViewportXScale()));
+	float dy = 1.0f * gstate_c.vpHeightScale * (1.0f / fabsf(gstate.getViewportYScale()));
 	float du = 1.0f / gstate_c.curTextureWidth;
 	float dv = 1.0f / gstate_c.curTextureHeight;
 
@@ -779,8 +779,8 @@ void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, 
 		const TransformedVertex &transVtxR = transVtx1.x <= transVtx2.x ? transVtx2 : transVtx1;
 
 		// Sort the points so our perpendicular will bias the right direction.
-		const TransformedVertex &transVtxTL = transVtxT.y != transVtxB.y || transVtxT.x > transVtxB.x ? transVtxT : transVtxB;
-		const TransformedVertex &transVtxBL = transVtxT.y != transVtxB.y || transVtxT.x > transVtxB.x ? transVtxB : transVtxT;
+		const TransformedVertex &transVtxTL = (transVtxT.y != transVtxB.y || transVtxT.x > transVtxB.x) ? transVtxT : transVtxB;
+		const TransformedVertex &transVtxBL = (transVtxT.y != transVtxB.y || transVtxT.x > transVtxB.x) ? transVtxB : transVtxT;
 
 		// Okay, let's calculate the perpendicular.
 		float horizontal = transVtxTL.x - transVtxBL.x;
