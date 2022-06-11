@@ -369,8 +369,8 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *
 	key.raster = rasterKey;
 	key.renderPass = renderPass;
 	key.useHWTransform = useHwTransform;
-	key.vShader = vs->GetModule()->BlockUntilReady();
-	key.fShader = fs->GetModule()->BlockUntilReady();
+	key.vShader = vs->GetModule();
+	key.fShader = fs->GetModule();
 	key.vtxFmtId = useHwTransform ? decFmt->id : 0;
 
 	auto iter = pipelines_.Get(key);
@@ -633,8 +633,8 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 	pipelines_.Iterate([&](const VulkanPipelineKey &pkey, VulkanPipeline *value) {
 		if (failed)
 			return;
-		VulkanVertexShader *vshader = shaderManager->GetVertexShaderFromModule(pkey.vShader);
-		VulkanFragmentShader *fshader = shaderManager->GetFragmentShaderFromModule(pkey.fShader);
+		VulkanVertexShader *vshader = shaderManager->GetVertexShaderFromModule(pkey.vShader->BlockUntilReady());
+		VulkanFragmentShader *fshader = shaderManager->GetFragmentShaderFromModule(pkey.fShader->BlockUntilReady());
 		if (!vshader || !fshader) {
 			failed = true;
 			return;
