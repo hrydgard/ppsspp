@@ -156,9 +156,9 @@ struct VKRStep {
 			VKRRenderPassLoadAction colorLoad;
 			VKRRenderPassLoadAction depthLoad;
 			VKRRenderPassLoadAction stencilLoad;
+			u8 clearStencil;
 			uint32_t clearColor;
 			float clearDepth;
-			int clearStencil;
 			int numDraws;
 			// Downloads and textures from this pass.
 			int numReads;
