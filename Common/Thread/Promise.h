@@ -2,6 +2,7 @@
 
 #include <functional>
 
+#include "Common/Log.h"
 #include "Common/Thread/Channel.h"
 #include "Common/Thread/ThreadManager.h"
 
