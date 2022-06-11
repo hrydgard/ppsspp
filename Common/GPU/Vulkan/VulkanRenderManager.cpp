@@ -29,6 +29,34 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan) {
 		// Already failed to create this one.
 		return false;
 	}
+
+	// Fill in the last part of the desc since now it's time to block.
+	VkShaderModule vs = desc->vertexShader->BlockUntilReady();
+	VkShaderModule fs = desc->fragmentShader->BlockUntilReady();
+
+	if (!vs || !fs) {
+		ERROR_LOG(G3D, "Failed creating graphics pipeline - missing shader modules");
+		// We're kinda screwed here?
+		return false;
+	}
+
+	VkPipelineShaderStageCreateInfo ss[2]{};
+	ss[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	ss[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+	ss[0].pSpecializationInfo = nullptr;
+	ss[0].module = vs;
+	ss[0].pName = "main";
+	ss[0].flags = 0;
+	ss[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	ss[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	ss[1].pSpecializationInfo = nullptr;
+	ss[1].module = fs;
+	ss[1].pName = "main";
+	ss[1].flags = 0;
+
+	desc->pipe.pStages = ss;
+	desc->pipe.stageCount = 2;
+
 	VkPipeline vkpipeline;
 	VkResult result = vkCreateGraphicsPipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &desc->pipe, nullptr, &vkpipeline);
 

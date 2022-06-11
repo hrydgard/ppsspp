@@ -12,6 +12,7 @@
 #include <thread>
 #include <queue>
 
+#include "Common/Thread/Promise.h"
 #include "Common/System/Display.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
@@ -121,7 +122,11 @@ struct VKRGraphicsPipelineDesc {
 	VkPipelineDynamicStateCreateInfo ds{ VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
 	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
 	VkPipelineMultisampleStateCreateInfo ms{ VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
-	VkPipelineShaderStageCreateInfo shaderStageInfo[2]{};
+
+	// Replaced the ShaderStageInfo with promises here so we can wait for compiles to finish.
+	Promise<VkShaderModule> *vertexShader;
+	Promise<VkShaderModule> *fragmentShader;
+
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{ VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
 	VkVertexInputAttributeDescription attrs[8]{};
 	VkVertexInputBindingDescription ibd{};
