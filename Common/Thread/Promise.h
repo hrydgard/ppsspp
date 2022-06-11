@@ -59,7 +59,6 @@ public:
 		// A promise should have been fulfilled before it's destroyed.
 		_assert_(ready_);
 		_assert_(!rx_);
-		delete data_;
 	}
 
 	// Returns T if the data is ready, nullptr if it's not.
@@ -93,7 +92,7 @@ public:
 private:
 	Promise() {}
 
-	// Promise can only be constructed in Spawn.
+	// Promise can only be constructed in Spawn (or AlreadyDone).
 	T data_ = nullptr;
 	bool ready_ = false;
 	Mailbox<T> *rx_ = nullptr;

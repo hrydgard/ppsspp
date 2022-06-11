@@ -100,6 +100,7 @@ VulkanFragmentShader::~VulkanFragmentShader() {
 	if (module_) {
 		VkShaderModule shaderModule = module_->BlockUntilReady();
 		vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
+		delete module_;
 	}
 }
 
@@ -130,6 +131,7 @@ VulkanVertexShader::~VulkanVertexShader() {
 	if (module_) {
 		VkShaderModule shaderModule = module_->BlockUntilReady();
 		vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
+		delete module_;
 	}
 }
 
