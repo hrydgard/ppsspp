@@ -94,7 +94,7 @@ private:
 	Promise() {}
 
 	// Promise can only be constructed in Spawn (or AlreadyDone).
-	T data_ = nullptr;
+	T data_{};
 	bool ready_ = false;
 	Mailbox<T> *rx_ = nullptr;
 };
