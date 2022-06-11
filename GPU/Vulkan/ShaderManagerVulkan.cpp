@@ -43,42 +43,44 @@
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
 
 Promise<VkShaderModule> *CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code) {
-	PROFILE_THIS_SCOPE("shadercomp");
+	return Promise<VkShaderModule>::Spawn(&g_threadManager, [=] {
+		PROFILE_THIS_SCOPE("shadercomp");
 
-	std::string errorMessage;
-	std::vector<uint32_t> spirv;
+		std::string errorMessage;
+		std::vector<uint32_t> spirv;
 
-	bool success = GLSLtoSPV(stage, code, GLSLVariant::VULKAN, spirv, &errorMessage);
+		bool success = GLSLtoSPV(stage, code, GLSLVariant::VULKAN, spirv, &errorMessage);
 
-	VkShaderModule shaderModule = VK_NULL_HANDLE;
+		VkShaderModule shaderModule = VK_NULL_HANDLE;
 
-	if (!errorMessage.empty()) {
-		if (success) {
-			ERROR_LOG(G3D, "Warnings in shader compilation!");
+		if (!errorMessage.empty()) {
+			if (success) {
+				ERROR_LOG(G3D, "Warnings in shader compilation!");
+			} else {
+				ERROR_LOG(G3D, "Error in shader compilation!");
+			}
+			ERROR_LOG(G3D, "Messages: %s", errorMessage.c_str());
+			ERROR_LOG(G3D, "Shader source:\n%s", code);
+#ifdef SHADERLOG
+			OutputDebugStringA(LineNumberString(code).c_str());
+			OutputDebugStringA("Error messages:\n");
+			OutputDebugStringA(errorMessage.c_str());
+#endif
+			Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
 		} else {
-			ERROR_LOG(G3D, "Error in shader compilation!");
+			VkShaderModule shaderModule;
+			success = vulkan->CreateShaderModule(spirv, &shaderModule);
+#ifdef SHADERLOG
+			OutputDebugStringA("OK");
+#endif
 		}
-		ERROR_LOG(G3D, "Messages: %s", errorMessage.c_str());
-		ERROR_LOG(G3D, "Shader source:\n%s", code);
-#ifdef SHADERLOG
-		OutputDebugStringA(LineNumberString(code).c_str());
-		OutputDebugStringA("Error messages:\n");
-		OutputDebugStringA(errorMessage.c_str());
-#endif
-		Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
-	} else {
-		VkShaderModule shaderModule;
-		success = vulkan->CreateShaderModule(spirv, &shaderModule);
-#ifdef SHADERLOG
-		OutputDebugStringA("OK");
-#endif
-	}
 
-	if (success) {
-		vulkan->CreateShaderModule(spirv, &shaderModule);
-	}
+		if (success) {
+			vulkan->CreateShaderModule(spirv, &shaderModule);
+		}
 
-	return Promise<VkShaderModule>::AlreadyDone(shaderModule);
+		return shaderModule;
+	}, TaskType::CPU_COMPUTE);
 }
 
 
