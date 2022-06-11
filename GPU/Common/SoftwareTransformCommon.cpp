@@ -786,33 +786,17 @@ void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, 
 			float vertical = transVtx2.y - transVtx1.y;
 			Vec2f addWidth = Vec2f(-vertical, horizontal).Normalized();
 
+			float xoff = addWidth.x * dx;
+			float yoff = addWidth.y * dy;
+
 			// bottom right
-			trans[0] = transVtx2;
-			trans[0].x += addWidth.x * dx;
-			trans[0].y += addWidth.y * dy;
-			trans[0].u += addWidth.x * du;
-			trans[0].v += addWidth.y * dv;
-
+			trans[0].CopyFromWithOffset(transVtx2, xoff, yoff);
 			// top right
-			trans[1] = transVtx1;
-			trans[1].x += addWidth.x * dx;
-			trans[1].y += addWidth.y * dy;
-			trans[1].u += addWidth.x * du;
-			trans[1].v += addWidth.y * dv;
-
+			trans[1].CopyFromWithOffset(transVtx1, xoff, yoff);
 			// top left
-			trans[2] = transVtx1;
-			trans[2].x -= addWidth.x * dx;
-			trans[2].y -= addWidth.y * dy;
-			trans[2].u -= addWidth.x * du;
-			trans[2].v -= addWidth.y * dv;
-
+			trans[2].CopyFromWithOffset(transVtx1, -xoff, -yoff);
 			// bottom left
-			trans[3] = transVtx2;
-			trans[3].x -= addWidth.x * dx;
-			trans[3].y -= addWidth.y * dy;
-			trans[3].u -= addWidth.x * du;
-			trans[3].v -= addWidth.y * dv;
+			trans[3].CopyFromWithOffset(transVtx2, -xoff, -yoff);
 
 			// Triangle: BR-TR-TL
 			indsOut[0] = i * 2 + 0;
