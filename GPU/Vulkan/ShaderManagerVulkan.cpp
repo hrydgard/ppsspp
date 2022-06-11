@@ -42,7 +42,9 @@
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
 
-Promise<VkShaderModule> *CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code) {
+// Most drivers treat vkCreateShaderModule as pretty much a memcpy. What actually
+// takes time here, and makes this worthy of parallelization, is GLSLtoSPV.
+Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code) {
 	return Promise<VkShaderModule>::Spawn(&g_threadManager, [=] {
 		PROFILE_THIS_SCOPE("shadercomp");
 
@@ -50,8 +52,6 @@ Promise<VkShaderModule> *CompileShaderModule(VulkanContext *vulkan, VkShaderStag
 		std::vector<uint32_t> spirv;
 
 		bool success = GLSLtoSPV(stage, code, GLSLVariant::VULKAN, spirv, &errorMessage);
-
-		VkShaderModule shaderModule = VK_NULL_HANDLE;
 
 		if (!errorMessage.empty()) {
 			if (success) {
@@ -67,16 +67,14 @@ Promise<VkShaderModule> *CompileShaderModule(VulkanContext *vulkan, VkShaderStag
 			OutputDebugStringA(errorMessage.c_str());
 #endif
 			Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
-		} else {
-			VkShaderModule shaderModule;
+		}
+
+		VkShaderModule shaderModule = VK_NULL_HANDLE;
+		if (success) {
 			success = vulkan->CreateShaderModule(spirv, &shaderModule);
 #ifdef SHADERLOG
 			OutputDebugStringA("OK");
 #endif
-		}
-
-		if (success) {
-			vulkan->CreateShaderModule(spirv, &shaderModule);
 		}
 
 		return shaderModule;
@@ -87,7 +85,7 @@ Promise<VkShaderModule> *CompileShaderModule(VulkanContext *vulkan, VkShaderStag
 VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, const char *code)
 	: vulkan_(vulkan), id_(id) {
 	source_ = code;
-	module_ = CompileShaderModule(vulkan, VK_SHADER_STAGE_FRAGMENT_BIT, source_.c_str());
+	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_FRAGMENT_BIT, source_.c_str());
 	if (!module_) {
 		failed_ = true;
 		return;
@@ -118,7 +116,7 @@ std::string VulkanFragmentShader::GetShaderString(DebugShaderStringType type) co
 VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, const char *code, bool useHWTransform)
 	: vulkan_(vulkan), useHWTransform_(useHWTransform), id_(id) {
 	source_ = code;
-	module_ = CompileShaderModule(vulkan, VK_SHADER_STAGE_VERTEX_BIT, source_.c_str());
+	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_VERTEX_BIT, source_.c_str());
 	if (!module_) {
 		failed_ = true;
 		return;

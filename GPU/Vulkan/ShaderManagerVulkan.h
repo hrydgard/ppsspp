@@ -48,7 +48,7 @@ public:
 	const FShaderID &GetID() { return id_; }
 
 protected:	
-	Promise<VkShaderModule> *module_;
+	Promise<VkShaderModule> *module_ = nullptr;
 
 	VulkanContext *vulkan_;
 	std::string source_;
