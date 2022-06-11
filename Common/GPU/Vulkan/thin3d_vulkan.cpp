@@ -1530,9 +1530,9 @@ DataFormat VKContext::PreferredFramebufferReadbackFormat(Framebuffer *src) {
 
 void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
-	VKRRenderPassAction color = (VKRRenderPassAction)rp.color;
-	VKRRenderPassAction depth = (VKRRenderPassAction)rp.depth;
-	VKRRenderPassAction stencil = (VKRRenderPassAction)rp.stencil;
+	VKRRenderPassLoadAction color = (VKRRenderPassLoadAction)rp.color;
+	VKRRenderPassLoadAction depth = (VKRRenderPassLoadAction)rp.depth;
+	VKRRenderPassLoadAction stencil = (VKRRenderPassLoadAction)rp.stencil;
 
 	renderManager_.BindFramebufferAsRenderTarget(fb ? fb->GetFB() : nullptr, color, depth, stencil, rp.clearColor, rp.clearDepth, rp.clearStencil, tag);
 	curFramebuffer_ = fb;

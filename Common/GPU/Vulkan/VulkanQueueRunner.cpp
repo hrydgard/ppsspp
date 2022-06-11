@@ -31,7 +31,7 @@ void VulkanQueueRunner::CreateDeviceObjects() {
 	INFO_LOG(G3D, "VulkanQueueRunner::CreateDeviceObjects");
 	InitBackbufferRenderPass();
 
-	framebufferRenderPass_ = GetRenderPass(VKRRenderPassAction::CLEAR, VKRRenderPassAction::CLEAR, VKRRenderPassAction::CLEAR);
+	framebufferRenderPass_ = GetRenderPass(VKRRenderPassLoadAction::CLEAR, VKRRenderPassLoadAction::CLEAR, VKRRenderPassLoadAction::CLEAR);
 
 #if 0
 	// Just to check whether it makes sense to split some of these. drawidx is way bigger than the others...
@@ -199,13 +199,13 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 	attachments[0].format = VK_FORMAT_R8G8B8A8_UNORM;
 	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
 	switch (key.colorLoadAction) {
-	case VKRRenderPassAction::CLEAR:
+	case VKRRenderPassLoadAction::CLEAR:
 		attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		break;
-	case VKRRenderPassAction::KEEP:
+	case VKRRenderPassLoadAction::KEEP:
 		attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 		break;
-	case VKRRenderPassAction::DONT_CARE:
+	case VKRRenderPassLoadAction::DONT_CARE:
 	default:
 		attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		break;
@@ -220,24 +220,24 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 	attachments[1].format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
 	attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
 	switch (key.depthLoadAction) {
-	case VKRRenderPassAction::CLEAR:
+	case VKRRenderPassLoadAction::CLEAR:
 		attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		break;
-	case VKRRenderPassAction::KEEP:
+	case VKRRenderPassLoadAction::KEEP:
 		attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 		break;
-	case VKRRenderPassAction::DONT_CARE:
+	case VKRRenderPassLoadAction::DONT_CARE:
 		attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		break;
 	}
 	switch (key.stencilLoadAction) {
-	case VKRRenderPassAction::CLEAR:
+	case VKRRenderPassLoadAction::CLEAR:
 		attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		break;
-	case VKRRenderPassAction::KEEP:
+	case VKRRenderPassLoadAction::KEEP:
 		attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 		break;
-	case VKRRenderPassAction::DONT_CARE:
+	case VKRRenderPassLoadAction::DONT_CARE:
 		attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		break;
 	}
@@ -303,24 +303,24 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 		if (steps.size() > 1 && steps[j]->stepType == VKRStepType::RENDER &&
 			steps[j]->render.numDraws == 0 &&
 			steps[j]->render.numReads == 0 &&
-			steps[j]->render.color == VKRRenderPassAction::CLEAR &&
-			steps[j]->render.stencil == VKRRenderPassAction::CLEAR &&
-			steps[j]->render.depth == VKRRenderPassAction::CLEAR) {
+			steps[j]->render.colorLoad == VKRRenderPassLoadAction::CLEAR &&
+			steps[j]->render.stencilLoad == VKRRenderPassLoadAction::CLEAR &&
+			steps[j]->render.depthLoad == VKRRenderPassLoadAction::CLEAR) {
 
 			// Drop the clear step, and merge it into the next step that touches the same framebuffer.
 			for (int i = j + 1; i < (int)steps.size(); i++) {
 				if (steps[i]->stepType == VKRStepType::RENDER &&
 					steps[i]->render.framebuffer == steps[j]->render.framebuffer) {
-					if (steps[i]->render.color != VKRRenderPassAction::CLEAR) {
-						steps[i]->render.color = VKRRenderPassAction::CLEAR;
+					if (steps[i]->render.colorLoad != VKRRenderPassLoadAction::CLEAR) {
+						steps[i]->render.colorLoad = VKRRenderPassLoadAction::CLEAR;
 						steps[i]->render.clearColor = steps[j]->render.clearColor;
 					}
-					if (steps[i]->render.depth != VKRRenderPassAction::CLEAR) {
-						steps[i]->render.depth = VKRRenderPassAction::CLEAR;
+					if (steps[i]->render.depthLoad != VKRRenderPassLoadAction::CLEAR) {
+						steps[i]->render.depthLoad = VKRRenderPassLoadAction::CLEAR;
 						steps[i]->render.clearDepth = steps[j]->render.clearDepth;
 					}
-					if (steps[i]->render.stencil != VKRRenderPassAction::CLEAR) {
-						steps[i]->render.stencil = VKRRenderPassAction::CLEAR;
+					if (steps[i]->render.stencilLoad != VKRRenderPassLoadAction::CLEAR) {
+						steps[i]->render.stencilLoad = VKRRenderPassLoadAction::CLEAR;
 						steps[i]->render.clearStencil = steps[j]->render.clearStencil;
 					}
 					MergeRenderAreaRectInto(&steps[i]->render.renderArea, steps[j]->render.renderArea);
@@ -489,9 +489,9 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 			steps[i]->render.numDraws == 1 &&
 			steps[i + 1]->render.numDraws == 1 &&
 			steps[i + 2]->render.numDraws == 1 &&
-			steps[i]->render.color == VKRRenderPassAction::DONT_CARE &&
-			steps[i + 1]->render.color == VKRRenderPassAction::KEEP &&
-			steps[i + 2]->render.color == VKRRenderPassAction::DONT_CARE))
+			steps[i]->render.colorLoad == VKRRenderPassLoadAction::DONT_CARE &&
+			steps[i + 1]->render.colorLoad == VKRRenderPassLoadAction::KEEP &&
+			steps[i + 2]->render.colorLoad == VKRRenderPassLoadAction::DONT_CARE))
 			continue;
 		VKRFramebuffer *depalFramebuffer = steps[i]->render.framebuffer;
 		VKRFramebuffer *targetFramebuffer = steps[i + 1]->render.framebuffer;
@@ -501,7 +501,7 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 				// This should be a depal draw.
 				if (steps[j]->render.numDraws != 1)
 					break;
-				if (steps[j]->render.color != VKRRenderPassAction::DONT_CARE)
+				if (steps[j]->render.colorLoad != VKRRenderPassLoadAction::DONT_CARE)
 					break;
 				if (steps[j]->render.framebuffer != depalFramebuffer)
 					break;
@@ -510,7 +510,7 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 				// This should be a target draw.
 				if (steps[j]->render.numDraws != 1)
 					break;
-				if (steps[j]->render.color != VKRRenderPassAction::KEEP)
+				if (steps[j]->render.colorLoad != VKRRenderPassLoadAction::KEEP)
 					break;
 				if (steps[j]->render.framebuffer != targetFramebuffer)
 					break;
@@ -706,7 +706,7 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 	};
 	auto renderHasClear = [](const VKRStep *step) {
 		const auto &r = step->render;
-		return r.color == VKRRenderPassAction::CLEAR || r.depth == VKRRenderPassAction::CLEAR || r.stencil == VKRRenderPassAction::CLEAR;
+		return r.colorLoad == VKRRenderPassLoadAction::CLEAR || r.depthLoad == VKRRenderPassLoadAction::CLEAR || r.stencilLoad == VKRRenderPassLoadAction::CLEAR;
 	};
 
 	// Now, let's go through the steps. If we find one that is rendered to more than once,
@@ -797,13 +797,13 @@ void VulkanQueueRunner::LogSteps(const std::vector<VKRStep *> &steps, bool verbo
 	INFO_LOG(G3D, "-------------------  SUBMIT  ------------------");
 }
 
-const char *RenderPassActionName(VKRRenderPassAction a) {
+const char *RenderPassActionName(VKRRenderPassLoadAction a) {
 	switch (a) {
-	case VKRRenderPassAction::CLEAR:
+	case VKRRenderPassLoadAction::CLEAR:
 		return "CLEAR";
-	case VKRRenderPassAction::DONT_CARE:
+	case VKRRenderPassLoadAction::DONT_CARE:
 		return "DONT_CARE";
-	case VKRRenderPassAction::KEEP:
+	case VKRRenderPassLoadAction::KEEP:
 		return "KEEP";
 	}
 	return "?";
@@ -829,7 +829,7 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass, bool verbose) {
 	int w = r.framebuffer ? r.framebuffer->width : vulkan_->GetBackbufferWidth();
 	int h = r.framebuffer ? r.framebuffer->height : vulkan_->GetBackbufferHeight();
 
-	INFO_LOG(G3D, "RENDER %s Begin(%s, draws: %d, %dx%d, %s, %s, %s)", pass.tag, framebuf, r.numDraws, w, h, RenderPassActionName(r.color), RenderPassActionName(r.depth), RenderPassActionName(r.stencil));
+	INFO_LOG(G3D, "RENDER %s Begin(%s, draws: %d, %dx%d, %s, %s, %s)", pass.tag, framebuf, r.numDraws, w, h, RenderPassActionName(r.colorLoad), RenderPassActionName(r.depthLoad), RenderPassActionName(r.stencilLoad));
 	// TODO: Log these in detail.
 	for (int i = 0; i < (int)pass.preTransitions.size(); i++) {
 		INFO_LOG(G3D, "  PRETRANSITION: %s %s -> %s", pass.preTransitions[i].fb->tag.c_str(), AspectToString(pass.preTransitions[i].aspect), ImageLayoutToString(pass.preTransitions[i].targetLayout));
@@ -1098,7 +1098,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 	
 	// Don't execute empty renderpasses that keep the contents.
-	if (step.commands.empty() && step.render.color == VKRRenderPassAction::KEEP && step.render.depth == VKRRenderPassAction::KEEP && step.render.stencil == VKRRenderPassAction::KEEP) {
+	if (step.commands.empty() && step.render.colorLoad == VKRRenderPassLoadAction::KEEP && step.render.depthLoad == VKRRenderPassLoadAction::KEEP && step.render.stencilLoad == VKRRenderPassLoadAction::KEEP) {
 		// Flush the pending barrier
 		recordBarrier_.Flush(cmd);
 		// Nothing to do.
@@ -1372,7 +1372,7 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 		// To avoid this, we transition to GENERAL and back in this case (ARM-approved workaround).
 		// See pull request #10723.
 		bool maliBugWorkaround = step.render.numDraws == 0 &&
-			step.render.color == VKRRenderPassAction::CLEAR &&
+			step.render.colorLoad == VKRRenderPassLoadAction::CLEAR &&
 			vulkan_->GetPhysicalDeviceProperties().properties.driverVersion == 0xaa9c4b29;
 		if (maliBugWorkaround) {
 			recordBarrier_.TransitionImage(step.render.framebuffer->color.image, 0, 1, VK_IMAGE_ASPECT_COLOR_BIT,
@@ -1385,16 +1385,16 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 
 		TransitionToOptimal(cmd, fb->color.image, fb->color.layout, fb->depth.image, fb->depth.layout, &recordBarrier_);
 
-		renderPass = GetRenderPass(step.render.color, step.render.depth, step.render.stencil);
+		renderPass = GetRenderPass(step.render.colorLoad, step.render.depthLoad, step.render.stencilLoad);
 
 		// The transition from the optimal format happens after EndRenderPass, now that we don't
 		// do it as part of the renderpass itself anymore.
 
-		if (step.render.color == VKRRenderPassAction::CLEAR) {
+		if (step.render.colorLoad == VKRRenderPassLoadAction::CLEAR) {
 			Uint8x4ToFloat4(clearVal[0].color.float32, step.render.clearColor);
 			numClearVals = 1;
 		}
-		if (step.render.depth == VKRRenderPassAction::CLEAR || step.render.stencil == VKRRenderPassAction::CLEAR) {
+		if (step.render.depthLoad == VKRRenderPassLoadAction::CLEAR || step.render.stencilLoad == VKRRenderPassLoadAction::CLEAR) {
 			clearVal[1].depthStencil.depth = step.render.clearDepth;
 			clearVal[1].depthStencil.stencil = step.render.clearStencil;
 			numClearVals = 2;
