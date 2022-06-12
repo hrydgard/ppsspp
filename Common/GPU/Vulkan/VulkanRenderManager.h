@@ -153,7 +153,7 @@ struct VKRComputePipeline {
 	VKRComputePipelineDesc *desc = nullptr;
 	Promise<VkPipeline> *pipeline = nullptr;
 
-	bool Create(VulkanContext *vulkan);
+	bool CreateAsync(VulkanContext *vulkan);
 	bool Pending() const {
 		return pipeline == VK_NULL_HANDLE && desc != nullptr;
 	}
