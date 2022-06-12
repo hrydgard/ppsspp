@@ -19,7 +19,7 @@ struct Mailbox {
 
 	std::mutex mutex_;
 	std::condition_variable condvar_;
-	T data_ = nullptr;
+	T data_{};
 
 	T Wait() {
 		std::unique_lock<std::mutex> lock(mutex_);
