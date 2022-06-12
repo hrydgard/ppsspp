@@ -43,7 +43,7 @@ struct Mailbox {
 		std::unique_lock<std::mutex> lock(mutex_);
 		if (!data_) {
 			data_ = data;
-			condvar_.notify_one();
+			condvar_.notify_all();
 			return true;
 		} else {
 			// Already has value.

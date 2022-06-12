@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <mutex>
 
 #include "Common/Log.h"
 #include "Common/Thread/Channel.h"
@@ -63,7 +64,14 @@ public:
 		return promise;
 	}
 
+	// Allow an empty promise to spawn, too, in case we want to delay it.
+	void SpawnEmpty(ThreadManager *threadman, std::function<T()> fun, TaskType taskType) {
+		PromiseTask<T> *task = new PromiseTask<T>(fun, rx_, taskType);
+		threadman->EnqueueTask(task);
+	}
+
 	~Promise() {
+		std::lock_guard<std::mutex> guard(readyMutex_);
 		// A promise should have been fulfilled before it's destroyed.
 		_assert_(ready_);
 		_assert_(!rx_);
@@ -71,6 +79,7 @@ public:
 
 	// Returns T if the data is ready, nullptr if it's not.
 	T Poll() {
+		std::lock_guard<std::mutex> guard(readyMutex_);
 		if (ready_) {
 			return data_;
 		} else {
@@ -86,6 +95,7 @@ public:
 	}
 
 	T BlockUntilReady() {
+		std::lock_guard<std::mutex> guard(readyMutex_);
 		if (ready_) {
 			return data_;
 		} else {
@@ -108,5 +118,6 @@ private:
 	// Promise can only be constructed in Spawn (or AlreadyDone).
 	T data_{};
 	bool ready_ = false;
+	std::mutex readyMutex_;
 	Mailbox<T> *rx_ = nullptr;
 };
