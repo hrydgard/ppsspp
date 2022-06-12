@@ -36,7 +36,7 @@ void PipelineManagerVulkan::Clear() {
 
 	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
 		if (value->pipeline) {
-			VkPipeline pipeline = value->pipeline->pipeline;
+			VkPipeline pipeline = value->pipeline->pipeline->BlockUntilReady();
 			vulkan_->Delete().QueueDeletePipeline(pipeline);
 			vulkan_->Delete().QueueCallback([](void *p) {
 				VKRGraphicsPipeline *pipeline = (VKRGraphicsPipeline *)p;

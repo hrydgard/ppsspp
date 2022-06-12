@@ -56,6 +56,13 @@ public:
 		return promise;
 	}
 
+	static Promise<T> *CreateEmpty() {
+		Mailbox<T> *mailbox = new Mailbox<T>();
+		Promise<T> *promise = new Promise<T>();
+		promise->rx_ = mailbox;
+		return promise;
+	}
+
 	~Promise() {
 		// A promise should have been fulfilled before it's destroyed.
 		_assert_(ready_);
@@ -88,6 +95,11 @@ public:
 			ready_ = true;
 			return data_;
 		}
+	}
+
+	// For outside injection of data, when not using Spawn
+	void Post(T data) {
+		rx_->Send(data);
 	}
 
 private:

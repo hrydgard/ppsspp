@@ -5,6 +5,7 @@
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
 
 #include "Common/GPU/Vulkan/VulkanAlloc.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
@@ -57,8 +58,11 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan) {
 	desc->pipe.pStages = ss;
 	desc->pipe.stageCount = 2;
 
+	double start = time_now_d();
 	VkPipeline vkpipeline;
 	VkResult result = vkCreateGraphicsPipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &desc->pipe, nullptr, &vkpipeline);
+
+	NOTICE_LOG(G3D, "Pipeline creation time: %0.2f ms", (time_now_d() - start) * 1000.0);
 
 	bool success = true;
 	if (result == VK_INCOMPLETE) {
@@ -66,14 +70,14 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan) {
 		// Would really like to log more here, we could probably attach more info to desc.
 		//
 		// At least create a null placeholder to avoid creating over and over if something is broken.
-		pipeline = VK_NULL_HANDLE;
+		pipeline->Post(VK_NULL_HANDLE);
 		success = false;
 	} else if (result != VK_SUCCESS) {
-		pipeline = VK_NULL_HANDLE;
+		pipeline->Post(VK_NULL_HANDLE);
 		ERROR_LOG(G3D, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
 		success = false;
 	} else {
-		pipeline = vkpipeline;
+		pipeline->Post(vkpipeline);
 	}
 
 	delete desc;
@@ -91,11 +95,11 @@ bool VKRComputePipeline::Create(VulkanContext *vulkan) {
 
 	bool success = true;
 	if (result != VK_SUCCESS) {
-		pipeline = VK_NULL_HANDLE;
+		pipeline->Post(VK_NULL_HANDLE);
 		ERROR_LOG(G3D, "Failed creating compute pipeline! result='%s'", VulkanResultToString(result));
 		success = false;
 	} else {
-		pipeline = vkpipeline;
+		pipeline->Post(vkpipeline);
 	}
 
 	delete desc;
@@ -477,6 +481,8 @@ void VulkanRenderManager::CompileThreadFunc() {
 		if (!run_) {
 			break;
 		}
+
+		NOTICE_LOG(G3D, "Compilation thread has %d pipelines to create", (int)toCompile.size());
 
 		// TODO: Here we can sort the pending pipelines by vertex and fragment shaders,
 		// and split up further.
