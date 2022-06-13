@@ -79,6 +79,7 @@ d814000000000000cecf000000000000,MC Cthulhu,platform:Mac OS X,leftx:,lefty:,righ
 81170000000000007e05000000000000,Sega Saturn,x:b0,a:b2,b:b4,y:b6,start:b13,dpleft:b15,dpdown:b16,dpright:b14,dpup:b17,leftshoulder:b8,lefttrigger:a5,lefttrigger:b10,rightshoulder:b9,righttrigger:a4,righttrigger:b11,leftx:a0,lefty:a2,platform:Mac OS X,
 bd1200000000000015d0000000000000,Tomee SNES USB Controller,x:b3,a:b2,b:b1,y:b0,back:b8,start:b9,leftshoulder:b4,rightshoulder:b5,leftx:a0,lefty:a1,platform:Mac OS X,
 03000000632500002305000000010000,Redragon Saturn,a:b2,b:b1,x:b3,y:b0,back:b8,start:b9,leftstick:b10,rightstick:b11,leftshoulder:b4,rightshoulder:b5,dpup:h0.1,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,leftx:a0,lefty:a1,rightx:a2,righty:a3,lefttrigger:b6,righttrigger:b7,platform:Mac OS X,
+03000000632500002605000000010000,HJD-X,platform:Mac OS X,a:b0,b:b1,x:b3,y:b4,back:b10,guide:b12,start:b11,leftstick:b13,rightstick:b14,leftshoulder:b6,rightshoulder:b7,dpup:h0.1,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,leftx:a0,lefty:a1,rightx:a2,righty:a3,lefttrigger:a4,righttrigger:a5,
 
 # Linux
 050000004c0500006802000000000000,Sony PLAYSTATION(R)3 Controller,platform:Linux,a:b14,b:b13,x:b15,y:b12,back:b0,guide:b16,start:b3,leftstick:b1,rightstick:b2,leftshoulder:b10,rightshoulder:b11,dpup:b4,dpdown:b6,dpleft:b7,dpright:b5,leftx:a0,lefty:a1,rightx:a2,righty:a3,lefttrigger:a12,righttrigger:a13,
