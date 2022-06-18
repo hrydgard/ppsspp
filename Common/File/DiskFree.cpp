@@ -16,7 +16,7 @@
 #include <ctype.h>
 #include <fcntl.h>
 #endif
-#include <inttypes.h>
+#include <cinttypes>
 
 #include "Common/Log.h"
 #include "Common/File/Path.h"
