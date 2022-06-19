@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
+
 #include "CommonTypes.h"
 
 #ifndef ARRAY_SIZE
@@ -28,11 +30,12 @@
 #include <unistd.h>
 #include <errno.h>
 
-#if defined(_M_IX86) || defined(_M_X86)
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 #define Crash() {asm ("int $3");}
-#else
-#include <signal.h>
-#define Crash() {kill(getpid(), SIGINT);}
+#elif PPSSPP_ARCH(ARM)
+#define Crash() {asm ("bkpt #0");}
+#elif PPSSPP_ARCH(ARM64)
+#define Crash() {asm ("brk #0");}
 #endif
 
 inline u32 __rotl(u32 x, int shift) {
@@ -64,11 +67,12 @@ inline u64 __rotr64(u64 x, unsigned int shift){
 	#define strcasecmp _stricmp
 	#define strncasecmp _strnicmp
 #endif
-	#define unlink _unlink
-	#define __rotl _rotl
-	#define __rotl64 _rotl64
-	#define __rotr _rotr
-	#define __rotr64 _rotr64
+
+#define unlink _unlink
+#define __rotl _rotl
+#define __rotl64 _rotl64
+#define __rotr _rotr
+#define __rotr64 _rotr64
 
 // 64 bit offsets for windows
 #ifndef __MINGW32__
