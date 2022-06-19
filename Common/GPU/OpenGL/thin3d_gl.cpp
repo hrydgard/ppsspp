@@ -582,6 +582,12 @@ OpenGLContext::OpenGLContext() {
 		}
 	}
 
+#if PPSSPP_ARCH(ARMV7)
+	if (caps_.vendor == GPUVendor::VENDOR_BROADCOM) {
+		bugs_.Infest(Bugs::RASPBERRY_SHADER_COMP_HANG);
+	}
+#endif
+
 	// Try to detect old Tegra chips by checking for sub 3.0 GL versions. Like Vivante and Broadcom,
 	// those can't handle NaN values in conditionals.
 	if (caps_.vendor == GPUVendor::VENDOR_VIVANTE ||

@@ -323,6 +323,7 @@ public:
 		BROKEN_FLAT_IN_SHADER = 6,
 		EQUAL_WZ_CORRUPTS_DEPTH = 7,
 		MALI_STENCIL_DISCARD_BUG = 8,
+		RASPBERRY_SHADER_COMP_HANG = 9,
 		MAX_BUG,
 	};
 
@@ -347,8 +348,7 @@ private:
 
 template <typename T>
 struct AutoRef {
-	AutoRef() {
-	}
+	AutoRef() {}
 	explicit AutoRef(T *p) {
 		ptr = p;
 		if (ptr)
