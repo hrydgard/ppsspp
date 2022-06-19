@@ -62,6 +62,7 @@ struct ConfigCustomButton {
 	int image;
 	int shape;
 	bool toggle;
+	bool repeat;
 };
 
 struct Config {
