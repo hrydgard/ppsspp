@@ -308,6 +308,10 @@ public:
 	void Infest(uint32_t bug) {
 		flags_ |= (1 << bug);
 	}
+	uint32_t MaxBugIndex() const {
+		return (uint32_t)MAX_BUG;
+	}
+	const char *GetBugName(uint32_t bug);
 
 	enum : uint32_t {
 		NO_DEPTH_CANNOT_DISCARD_STENCIL = 0,
@@ -318,6 +322,8 @@ public:
 		COLORWRITEMASK_BROKEN_WITH_DEPTHTEST = 5,
 		BROKEN_FLAT_IN_SHADER = 6,
 		EQUAL_WZ_CORRUPTS_DEPTH = 7,
+		MALI_STENCIL_DISCARD_BUG = 8,
+		MAX_BUG,
 	};
 
 protected:

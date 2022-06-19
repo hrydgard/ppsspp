@@ -3,6 +3,7 @@
 
 #include "Common/GPU/thin3d.h"
 #include "Common/StringUtils.h"
+#include "Core/System.h"
 #include "Core/Config.h"
 
 #include "GPU/ge_constants.h"
@@ -340,6 +341,10 @@ void ComputeFragmentShaderID(FShaderID *id_out, const Draw::Bugs &bugs) {
 
 		if (g_Config.bVendorBugChecksEnabled) {
 			if (bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL)) {
+				id.SetBit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL, !IsStencilTestOutputDisabled() && !gstate.isDepthWriteEnabled());
+			} else if (bugs.Has(Draw::Bugs::MALI_STENCIL_DISCARD_BUG) && PSP_CoreParameter().compat.flags().MaliDepthStencilBugWorkaround) {
+				// Very similar driver bug to the Adreno one, with the same workaround (though might look into if there are cheaper ones!)
+				// Keeping the conditions separate since it can probably be made tighter.
 				id.SetBit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL, !IsStencilTestOutputDisabled() && !gstate.isDepthWriteEnabled());
 			}
 		}
