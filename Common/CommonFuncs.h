@@ -36,6 +36,9 @@
 #define Crash() {asm ("bkpt #0");}
 #elif PPSSPP_ARCH(ARM64)
 #define Crash() {asm ("brk #0");}
+#else
+#include <signal.h>
+#define Crash() {kill(getpid(), SIGINT);}
 #endif
 
 inline u32 __rotl(u32 x, int shift) {
