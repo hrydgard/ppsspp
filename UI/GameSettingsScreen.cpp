@@ -894,14 +894,18 @@ void GameSettingsScreen::CreateViews() {
 		return UI::EVENT_CONTINUE;
 	});
 
-	PopupSliderChoiceFloat *tint = new PopupSliderChoiceFloat(&g_Config.fUITint, 0.0, 1.0, sy->T("Color Tint"), 0.01f, screenManager());
-	tint->SetHasDropShadow(false);
-	tint->SetLiveUpdate(true);
-	systemSettings->Add(tint);
-	PopupSliderChoiceFloat *saturation = new PopupSliderChoiceFloat(&g_Config.fUISaturation, 0.0, 2.0, sy->T("Color Saturation"), 0.01f, screenManager());
-	saturation->SetHasDropShadow(false);
-	saturation->SetLiveUpdate(true);
-	systemSettings->Add(saturation);
+
+	if (!draw->GetBugs().Has(Draw::Bugs::RASPBERRY_SHADER_COMP_HANG)) {
+		// We use shaders without tint capability on hardware with this driver bug.
+		PopupSliderChoiceFloat *tint = new PopupSliderChoiceFloat(&g_Config.fUITint, 0.0, 1.0, sy->T("Color Tint"), 0.01f, screenManager());
+		tint->SetHasDropShadow(false);
+		tint->SetLiveUpdate(true);
+		systemSettings->Add(tint);
+		PopupSliderChoiceFloat *saturation = new PopupSliderChoiceFloat(&g_Config.fUISaturation, 0.0, 2.0, sy->T("Color Saturation"), 0.01f, screenManager());
+		saturation->SetHasDropShadow(false);
+		saturation->SetLiveUpdate(true);
+		systemSettings->Add(saturation);
+	}
 
 	static const char *backgroundAnimations[] = { "No animation", "Floating symbols", "Recent games", "Waves", "Moving background" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iBackgroundAnimation, sy->T("UI background animation"), backgroundAnimations, 0, ARRAY_SIZE(backgroundAnimations), sy->GetName(), screenManager()));
