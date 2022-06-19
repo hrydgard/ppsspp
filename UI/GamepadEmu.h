@@ -169,16 +169,19 @@ const int baseActionButtonSpacing = 60;
 
 class ComboKey : public MultiTouchButton {
 public:
-	ComboKey(uint64_t pspButtonBit, const char *key, bool toggle, ControlMapper* controllMapper, ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, bool invertedContextDimension, UI::LayoutParams *layoutParams)
-		: MultiTouchButton(key, bgImg, bgDownImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit), toggle_(toggle), controllMapper_(controllMapper), on_(false), invertedContextDimension_(invertedContextDimension) {
+	ComboKey(uint64_t pspButtonBit, const char *key, bool toggle, bool repeat, ControlMapper* controllMapper, ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, bool invertedContextDimension, UI::LayoutParams *layoutParams)
+		: MultiTouchButton(key, bgImg, bgDownImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit), toggle_(toggle), repeat_(repeat), controllMapper_(controllMapper), on_(false), invertedContextDimension_(invertedContextDimension) {
 	}
 	void Touch(const TouchInput &input) override;
+	void Update() override;
 	bool IsDown() override;
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 private:
 	uint64_t pspButtonBit_;
 	bool toggle_;
+	bool repeat_;
+	int pressedFrames_ = 0;
 	ControlMapper* controllMapper_;
 	bool on_;
 	bool invertedContextDimension_; // Swap width and height
