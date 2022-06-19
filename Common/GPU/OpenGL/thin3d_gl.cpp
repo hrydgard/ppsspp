@@ -582,9 +582,6 @@ OpenGLContext::OpenGLContext() {
 		}
 	}
 
-	bugs_.Infest(Bugs::RASPBERRY_SHADER_COMP_HANG);
-
-
 #if PPSSPP_ARCH(ARMV7)
 	if (caps_.vendor == GPUVendor::VENDOR_BROADCOM) {
 		bugs_.Infest(Bugs::RASPBERRY_SHADER_COMP_HANG);
