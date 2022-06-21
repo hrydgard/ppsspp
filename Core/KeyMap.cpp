@@ -81,6 +81,7 @@ void UpdateNativeMenuKeys() {
 	const KeyDef hardcodedConfirmKeys[] = {
 		KeyDef(DEVICE_ID_KEYBOARD, NKCODE_SPACE),
 		KeyDef(DEVICE_ID_KEYBOARD, NKCODE_ENTER),
+		KeyDef(DEVICE_ID_KEYBOARD, NKCODE_NUMPAD_ENTER),
 		KeyDef(DEVICE_ID_ANY, NKCODE_BUTTON_A),
 		KeyDef(DEVICE_ID_PAD_0, NKCODE_DPAD_CENTER),  // A number of Android devices.
 	};
