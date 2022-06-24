@@ -258,7 +258,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		{
 #if defined(_M_SSE)
 			_mm_store_ps(&mips->f[inst->dest], _mm_load_ps(&mips->f[inst->src1]));
-#elif PPSSPP_ARCH(ARM64)
+#elif PPSSPP_ARCH(ARM64_NEON)
 			vst1q_f32(&mips->f[inst->dest], vld1q_f32(&mips->f[inst->src1]));
 #else
 			memcpy(&mips->f[inst->dest], &mips->f[inst->src1], 4 * sizeof(float));
@@ -270,7 +270,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		{
 #if defined(_M_SSE)
 			_mm_store_ps(&mips->f[inst->dest], _mm_add_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
-#elif PPSSPP_ARCH(ARM64)
+#elif PPSSPP_ARCH(ARM64_NEON)
 			vst1q_f32(&mips->f[inst->dest], vaddq_f32(vld1q_f32(&mips->f[inst->src1]), vld1q_f32(&mips->f[inst->src2])));
 #else
 			for (int i = 0; i < 4; i++)
@@ -283,7 +283,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		{
 #if defined(_M_SSE)
 			_mm_store_ps(&mips->f[inst->dest], _mm_sub_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
-#elif PPSSPP_ARCH(ARM64)
+#elif PPSSPP_ARCH(ARM64_NEON)
 			vst1q_f32(&mips->f[inst->dest], vsubq_f32(vld1q_f32(&mips->f[inst->src1]), vld1q_f32(&mips->f[inst->src2])));
 #else
 			for (int i = 0; i < 4; i++)
@@ -296,7 +296,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		{
 #if defined(_M_SSE)
 			_mm_store_ps(&mips->f[inst->dest], _mm_mul_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
-#elif PPSSPP_ARCH(ARM64)
+#elif PPSSPP_ARCH(ARM64_NEON)
 			vst1q_f32(&mips->f[inst->dest], vmulq_f32(vld1q_f32(&mips->f[inst->src1]), vld1q_f32(&mips->f[inst->src2])));
 #else
 			for (int i = 0; i < 4; i++)
@@ -331,7 +331,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		{
 #if defined(_M_SSE)
 			_mm_store_ps(&mips->f[inst->dest], _mm_xor_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps((const float *)signBits)));
-#elif PPSSPP_ARCH(ARM64)
+#elif PPSSPP_ARCH(ARM64_NEON)
 			vst1q_f32(&mips->f[inst->dest], vnegq_f32(vld1q_f32(&mips->f[inst->src1])));
 #else
 			for (int i = 0; i < 4; i++)
@@ -344,7 +344,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		{
 #if defined(_M_SSE)
 			_mm_store_ps(&mips->f[inst->dest], _mm_and_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps((const float *)noSignMask)));
-#elif PPSSPP_ARCH(ARM64)
+#elif PPSSPP_ARCH(ARM64_NEON)
 			vst1q_f32(&mips->f[inst->dest], vabsq_f32(vld1q_f32(&mips->f[inst->src1])));
 #else
 			for (int i = 0; i < 4; i++)

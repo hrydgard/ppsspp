@@ -54,6 +54,7 @@
     #define PPSSPP_ARCH_ARM64 1
     #define PPSSPP_ARCH_64BIT 1
     #define PPSSPP_ARCH_ARM_NEON 1
+    #define PPSSPP_ARCH_ARM64_NEON 1
 #endif
 
 #if defined(__mips64__)
