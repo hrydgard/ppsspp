@@ -24,7 +24,7 @@ namespace Rasterizer {
 void RegCache::SetupABI(const std::vector<Purpose> &args, bool forceRetain) {
 #if PPSSPP_ARCH(ARM)
 	_assert_msg_(false, "Not yet implemented");
-#elif PPSSPP_ARCH(ARM64)
+#elif PPSSPP_ARCH(ARM64_NEON)
 	using namespace Arm64Gen;
 
 	// ARM64 has a generous allotment of registers.
@@ -389,7 +389,7 @@ RegCache::RegStatus *RegCache::FindReg(Reg r, Purpose p) {
 }
 
 CodeBlock::CodeBlock(int size)
-#if PPSSPP_ARCH(ARM64)
+#if PPSSPP_ARCH(ARM64_NEON)
 	: fp(this)
 #endif
 {

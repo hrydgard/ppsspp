@@ -28,7 +28,7 @@
 #if defined(_M_SSE)
 #include <emmintrin.h>
 #endif
-#if PPSSPP_ARCH(ARM_NEON) && PPSSPP_ARCH(ARM64)
+#if PPSSPP_ARCH(ARM64_NEON)
 #if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
 #include <arm64_neon.h>
 #else
@@ -38,7 +38,7 @@
 
 #if PPSSPP_ARCH(ARM)
 #include "Common/ArmEmitter.h"
-#elif PPSSPP_ARCH(ARM64)
+#elif PPSSPP_ARCH(ARM64_NEON)
 #include "Common/Arm64Emitter.h"
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 #include "Common/x64Emitter.h"
@@ -54,7 +54,7 @@ namespace Rasterizer {
 // While not part of the reg cache proper, this is the type it is built for.
 #if PPSSPP_ARCH(ARM)
 typedef ArmGen::ARMXCodeBlock BaseCodeBlock;
-#elif PPSSPP_ARCH(ARM64)
+#elif PPSSPP_ARCH(ARM64_NEON)
 typedef Arm64Gen::ARM64CodeBlock BaseCodeBlock;
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 typedef Gen::XCodeBlock BaseCodeBlock;
@@ -65,7 +65,7 @@ typedef FakeGen::FakeXCodeBlock BaseCodeBlock;
 #endif
 
 // We also have the types of things that end up in regs.
-#if PPSSPP_ARCH(ARM64)
+#if PPSSPP_ARCH(ARM64_NEON)
 typedef int32x4_t Vec4IntArg;
 typedef int32x4_t Vec4IntResult;
 typedef float32x4_t Vec4FloatArg;
@@ -160,7 +160,7 @@ struct RegCache {
 #if PPSSPP_ARCH(ARM)
 	typedef ArmGen::ARMReg Reg;
 	static constexpr Reg REG_INVALID_VALUE = ArmGen::INVALID_REG;
-#elif PPSSPP_ARCH(ARM64)
+#elif PPSSPP_ARCH(ARM64_NEON)
 	typedef Arm64Gen::ARM64Reg Reg;
 	static constexpr Reg REG_INVALID_VALUE = Arm64Gen::INVALID_REG;
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
@@ -242,7 +242,7 @@ protected:
 	void WriteDynamicConst8x16(const u8 *&ptr, uint16_t value);
 	void WriteDynamicConst4x32(const u8 *&ptr, uint32_t value);
 
-#if PPSSPP_ARCH(ARM64)
+#if PPSSPP_ARCH(ARM64_NEON)
 	Arm64Gen::ARM64FloatEmitter fp;
 #endif
 
