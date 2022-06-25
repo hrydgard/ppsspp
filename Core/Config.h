@@ -29,6 +29,8 @@
 
 extern const char *PPSSPP_GIT_VERSION;
 
+extern bool jitForcedOff;
+
 enum ChatPositions {
 	BOTTOM_LEFT = 0,
 	BOTTOM_CENTER = 1,
@@ -60,6 +62,7 @@ struct ConfigCustomButton {
 	int image;
 	int shape;
 	bool toggle;
+	bool repeat;
 };
 
 struct Config {

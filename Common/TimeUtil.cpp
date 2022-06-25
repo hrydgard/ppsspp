@@ -19,6 +19,8 @@
 #endif
 #include <ctime>
 
+// TODO: https://github.com/floooh/sokol/blob/9a6237fcdf213e6da48e4f9201f144bcb2dcb46f/sokol_time.h#L229-L248
+
 static double curtime = 0;
 
 #ifdef _WIN32

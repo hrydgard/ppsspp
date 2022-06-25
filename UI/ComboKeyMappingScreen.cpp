@@ -235,6 +235,7 @@ void ComboKeyScreen::CreateViews() {
 
 	vertLayout->Add(new ItemHeader(co->T("Button Binding")));
 	vertLayout->Add(new CheckBox(&(cfg->toggle), co->T("Toggle mode")));
+	vertLayout->Add(new CheckBox(&(cfg->repeat), co->T("Repeat mode")));
 
 	const int cellSize = 400;
 	UI::GridLayoutSettings gridsettings(cellSize, 64, 5);

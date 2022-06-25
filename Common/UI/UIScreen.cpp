@@ -235,7 +235,7 @@ bool PopupScreen::touch(const TouchInput &touch) {
 
 bool PopupScreen::key(const KeyInput &key) {
 	if (key.flags & KEY_DOWN) {
-		if (key.keyCode == NKCODE_ENTER && defaultButton_) {
+		if ((key.keyCode == NKCODE_ENTER || key.keyCode == NKCODE_NUMPAD_ENTER) && defaultButton_) {
 			UI::EventParams e{};
 			defaultButton_->OnClick.Trigger(e);
 			return true;
@@ -795,8 +795,7 @@ void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	edit_->SetTextColor(dc.theme->popupStyle.fgColor);
 	lin->Add(edit_);
 
-	if (IsFocusMovementEnabled())
-		UI::SetFocusedView(edit_);
+	UI::SetFocusedView(edit_);
 }
 
 void TextEditPopupScreen::OnCompleted(DialogResult result) {

@@ -1784,6 +1784,8 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 	int srcHeight = height;
 	int dstWidth = width;
 	int dstHeight = height;
+
+	// This looks at the compat flags BlockTransferAllowCreateFB*.
 	FindTransferFramebuffers(dstBuffer, srcBuffer, dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, srcWidth, srcHeight, dstWidth, dstHeight, bpp);
 
 	if (dstBuffer && srcBuffer) {

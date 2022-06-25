@@ -279,7 +279,7 @@ bool IsAcceptKey(const KeyInput &key) {
 		// This path is pretty much not used, confirmKeys should be set.
 		// TODO: Get rid of this stuff?
 		if (key.deviceId == DEVICE_ID_KEYBOARD) {
-			return key.keyCode == NKCODE_SPACE || key.keyCode == NKCODE_ENTER || key.keyCode == NKCODE_Z;
+			return key.keyCode == NKCODE_SPACE || key.keyCode == NKCODE_ENTER || key.keyCode == NKCODE_Z || key.keyCode == NKCODE_NUMPAD_ENTER;
 		} else {
 			return key.keyCode == NKCODE_BUTTON_A || key.keyCode == NKCODE_BUTTON_CROSS || key.keyCode == NKCODE_BUTTON_1 || key.keyCode == NKCODE_DPAD_CENTER;
 		}

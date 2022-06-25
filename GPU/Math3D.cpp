@@ -23,6 +23,7 @@ namespace Math3D {
 template<>
 float Vec2<float>::Length() const
 {
+	// Doubt this is worth it for a vec2 :/
 #if defined(_M_SSE)
 	float ret;
 	__m128 xy = _mm_loadu_ps(&x);

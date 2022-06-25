@@ -170,10 +170,13 @@ bool isPTPPortInUse(uint16_t port, bool forListen, SceNetEtherAddr* dstmac, uint
 }
 
 // Replacement for inet_ntoa since it's getting deprecated
-std::string ip2str(in_addr in) {
+std::string ip2str(in_addr in, bool maskPublicIP) {
 	char str[INET_ADDRSTRLEN] = "...";
 	u8* ipptr = (u8*)&in;
-	snprintf(str, sizeof(str), "%u.%u.%u.%u", ipptr[0], ipptr[1], ipptr[2], ipptr[3]);
+	if (maskPublicIP && !isPrivateIP(in.s_addr))
+		snprintf(str, sizeof(str), "%u.%u.xx.%u", ipptr[0], ipptr[1], ipptr[3]);
+	else
+		snprintf(str, sizeof(str), "%u.%u.%u.%u", ipptr[0], ipptr[1], ipptr[2], ipptr[3]);
 	return std::string(str);
 }
 

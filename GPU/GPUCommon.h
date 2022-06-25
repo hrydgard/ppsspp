@@ -57,6 +57,13 @@ struct TransformedVertex {
 		u8 color1[4];   // prelit
 		u32 color1_32;
 	};
+
+
+	void CopyFromWithOffset(const TransformedVertex &other, float xoff, float yoff) {
+		this->x = other.x + xoff;
+		this->y = other.y + yoff;
+		memcpy(&this->z, &other.z, sizeof(*this) - sizeof(float) * 2);
+	}
 };
 
 class GPUCommon : public GPUInterface, public GPUDebugInterface {

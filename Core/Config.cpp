@@ -190,8 +190,8 @@ struct ConfigSetting {
 		default_.touchPos = def;
 	}
 
-	ConfigSetting(const char *iniKey, const char *iniImage, const char *iniShape, const char *iniToggle, ConfigCustomButton *v, ConfigCustomButton def, bool save = true, bool perGame = false)
-		: iniKey_(iniKey), ini2_(iniImage), ini3_(iniShape), ini4_(iniToggle), type_(TYPE_CUSTOM_BUTTON), report_(false), save_(save), perGame_(perGame) {
+	ConfigSetting(const char *iniKey, const char *iniImage, const char *iniShape, const char *iniToggle, const char *iniRepeat, ConfigCustomButton *v, ConfigCustomButton def, bool save = true, bool perGame = false)
+		: iniKey_(iniKey), ini2_(iniImage), ini3_(iniShape), ini4_(iniToggle), ini5_(iniRepeat), type_(TYPE_CUSTOM_BUTTON), report_(false), save_(save), perGame_(perGame) {
 		ptr_.customButton = v;
 		cb_.customButton = nullptr;
 		default_.customButton = def;
@@ -315,6 +315,7 @@ struct ConfigSetting {
 			section->Get(ini2_, &ptr_.customButton->image, default_.customButton.image);
 			section->Get(ini3_, &ptr_.customButton->shape, default_.customButton.shape);
 			section->Get(ini4_, &ptr_.customButton->toggle, default_.customButton.toggle);
+			section->Get(ini5_, &ptr_.customButton->repeat, default_.customButton.repeat);
 			return true;
 		default:
 			_dbg_assert_msg_(false, "Unexpected ini setting type");
@@ -358,6 +359,7 @@ struct ConfigSetting {
 			section->Set(ini2_, ptr_.customButton->image);
 			section->Set(ini3_, ptr_.customButton->shape);
 			section->Set(ini4_, ptr_.customButton->toggle);
+			section->Set(ini5_, ptr_.customButton->repeat);
 			return;
 		default:
 			_dbg_assert_msg_(false, "Unexpected ini setting type");
@@ -400,6 +402,7 @@ struct ConfigSetting {
 	const char *ini2_;
 	const char *ini3_;
 	const char *ini4_;
+	const char *ini5_;
 	Type type_;
 	bool report_;
 	bool save_;
@@ -965,16 +968,16 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("ShowTouchSquare", &g_Config.bShowTouchSquare, true, true, true),
 	ConfigSetting("ShowTouchTriangle", &g_Config.bShowTouchTriangle, true, true, true),
 
-	ConfigSetting("Custom0Mapping", "Custom0Image", "Custom0Shape", "Custom0Toggle", &g_Config.CustomKey0, {0, 0, 0, false}, true, true),
-	ConfigSetting("Custom1Mapping", "Custom1Image", "Custom1Shape", "Custom1Toggle", &g_Config.CustomKey1, {0, 1, 0, false}, true, true),
-	ConfigSetting("Custom2Mapping", "Custom2Image", "Custom2Shape", "Custom2Toggle", &g_Config.CustomKey2, {0, 2, 0, false}, true, true),
-	ConfigSetting("Custom3Mapping", "Custom3Image", "Custom3Shape", "Custom3Toggle", &g_Config.CustomKey3, {0, 3, 0, false}, true, true),
-	ConfigSetting("Custom4Mapping", "Custom4Image", "Custom4Shape", "Custom4Toggle", &g_Config.CustomKey4, {0, 4, 0, false}, true, true),
-	ConfigSetting("Custom5Mapping", "Custom5Image", "Custom5Shape", "Custom5Toggle", &g_Config.CustomKey5, {0, 0, 1, false}, true, true),
-	ConfigSetting("Custom6Mapping", "Custom6Image", "Custom6Shape", "Custom6Toggle", &g_Config.CustomKey6, {0, 1, 1, false}, true, true),
-	ConfigSetting("Custom7Mapping", "Custom7Image", "Custom7Shape", "Custom7Toggle", &g_Config.CustomKey7, {0, 2, 1, false}, true, true),
-	ConfigSetting("Custom8Mapping", "Custom8Image", "Custom8Shape", "Custom8Toggle", &g_Config.CustomKey8, {0, 3, 1, false}, true, true),
-	ConfigSetting("Custom9Mapping", "Custom9Image", "Custom9Shape", "Custom9Toggle", &g_Config.CustomKey9, {0, 4, 1, false}, true, true),
+	ConfigSetting("Custom0Mapping", "Custom0Image", "Custom0Shape", "Custom0Toggle", "Custom0Repeat", &g_Config.CustomKey0, {0, 0, 0, false, false}, true, true),
+	ConfigSetting("Custom1Mapping", "Custom1Image", "Custom1Shape", "Custom1Toggle", "Custom1Repeat", &g_Config.CustomKey1, {0, 1, 0, false, false}, true, true),
+	ConfigSetting("Custom2Mapping", "Custom2Image", "Custom2Shape", "Custom2Toggle", "Custom2Repeat", &g_Config.CustomKey2, {0, 2, 0, false, false}, true, true),
+	ConfigSetting("Custom3Mapping", "Custom3Image", "Custom3Shape", "Custom3Toggle", "Custom3Repeat", &g_Config.CustomKey3, {0, 3, 0, false, false}, true, true),
+	ConfigSetting("Custom4Mapping", "Custom4Image", "Custom4Shape", "Custom4Toggle", "Custom4Repeat", &g_Config.CustomKey4, {0, 4, 0, false, false}, true, true),
+	ConfigSetting("Custom5Mapping", "Custom5Image", "Custom5Shape", "Custom5Toggle", "Custom5Repeat", &g_Config.CustomKey5, {0, 0, 1, false, false}, true, true),
+	ConfigSetting("Custom6Mapping", "Custom6Image", "Custom6Shape", "Custom6Toggle", "Custom6Repeat", &g_Config.CustomKey6, {0, 1, 1, false, false}, true, true),
+	ConfigSetting("Custom7Mapping", "Custom7Image", "Custom7Shape", "Custom7Toggle", "Custom7Repeat", &g_Config.CustomKey7, {0, 2, 1, false, false}, true, true),
+	ConfigSetting("Custom8Mapping", "Custom8Image", "Custom8Shape", "Custom8Toggle", "Custom8Repeat", &g_Config.CustomKey8, {0, 3, 1, false, false}, true, true),
+	ConfigSetting("Custom9Mapping", "Custom9Image", "Custom9Shape", "Custom9Toggle", "Custom9Repeat", &g_Config.CustomKey9, {0, 4, 1, false, false}, true, true),
 
 #if defined(_WIN32)
 	// A win32 user seeing touch controls is likely using PPSSPP on a tablet. There it makes
@@ -1527,7 +1530,11 @@ bool Config::Save(const char *saveReason) {
 	}
 	if (jitForcedOff) {
 		// force JIT off again just in case Config::Save() is called without exiting PPSSPP
+#if PPSSPP_PLATFORM(IOS)
+		g_Config.iCpuCore = (int)CPUCore::IR_JIT;
+#else
 		g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
+#endif
 	}
 	return true;
 }

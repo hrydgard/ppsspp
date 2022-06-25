@@ -87,7 +87,7 @@ enum CPUThreadState {
 MetaFileSystem pspFileSystem;
 ParamSFOData g_paramSFO;
 static GlobalUIState globalUIState;
-static CoreParameter coreParameter;
+CoreParameter g_CoreParameter;
 static FileLoader *loadedFile;
 // For background loading thread.
 static std::mutex loadingLock;
@@ -231,7 +231,7 @@ bool CPU_Init(std::string *errorString) {
 	g_DoubleTextureCoordinates = false;
 	Memory::g_PSPModel = g_Config.iPSPModel;
 
-	Path filename = coreParameter.fileToStart;
+	Path filename = g_CoreParameter.fileToStart;
 	loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename));
 #if PPSSPP_ARCH(AMD64)
 	if (g_Config.bCacheFullIsoInRam) {
@@ -242,8 +242,8 @@ bool CPU_Init(std::string *errorString) {
 	IdentifiedFileType type = Identify_File(loadedFile, errorString);
 
 	// TODO: Put this somewhere better?
-	if (!coreParameter.mountIso.empty()) {
-		coreParameter.mountIsoLoader = ConstructFileLoader(coreParameter.mountIso);
+	if (!g_CoreParameter.mountIso.empty()) {
+		g_CoreParameter.mountIsoLoader = ConstructFileLoader(g_CoreParameter.mountIso);
 	}
 
 	MIPSAnalyst::Reset();
@@ -287,7 +287,7 @@ bool CPU_Init(std::string *errorString) {
 	// Here we have read the PARAM.SFO, let's see if we need any compatibility overrides.
 	// Homebrew usually has an empty discID, and even if they do have a disc id, it's not
 	// likely to collide with any commercial ones.
-	coreParameter.compat.Load(g_paramSFO.GetDiscID());
+	g_CoreParameter.compat.Load(g_paramSFO.GetDiscID());
 
 	InitVFPUSinCos();
 
@@ -301,7 +301,7 @@ bool CPU_Init(std::string *errorString) {
 
 	host->AttemptLoadSymbolMap();
 
-	if (coreParameter.enableSound) {
+	if (g_CoreParameter.enableSound) {
 		Audio_Init();
 	}
 
@@ -314,13 +314,13 @@ bool CPU_Init(std::string *errorString) {
 
 	// If they shut down early, we'll catch it when load completes.
 	// Note: this may return before init is complete, which is checked if CPU_IsReady().
-	if (!LoadFile(&loadedFile, &coreParameter.errorString)) {
+	if (!LoadFile(&loadedFile, &g_CoreParameter.errorString)) {
 		CPU_Shutdown();
-		coreParameter.fileToStart.clear();
+		g_CoreParameter.fileToStart.clear();
 		return false;
 	}
 
-	if (coreParameter.updateRecent) {
+	if (g_CoreParameter.updateRecent) {
 		g_Config.AddRecent(filename.ToString());
 	}
 
@@ -352,7 +352,7 @@ void CPU_Shutdown() {
 	CoreTiming::Shutdown();
 	__KernelShutdown();
 	HLEShutdown();
-	if (coreParameter.enableSound) {
+	if (g_CoreParameter.enableSound) {
 		Audio_Shutdown();
 	}
 
@@ -364,11 +364,11 @@ void CPU_Shutdown() {
 	delete loadedFile;
 	loadedFile = nullptr;
 
-	delete coreParameter.mountIsoLoader;
+	delete g_CoreParameter.mountIsoLoader;
 	delete g_symbolMap;
 	g_symbolMap = nullptr;
 
-	coreParameter.mountIsoLoader = nullptr;
+	g_CoreParameter.mountIsoLoader = nullptr;
 }
 
 // TODO: Maybe loadedFile doesn't even belong here...
@@ -420,17 +420,17 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 #endif
 
 	Core_NotifyLifecycle(CoreLifecycle::STARTING);
-	GraphicsContext *temp = coreParameter.graphicsContext;
-	coreParameter = coreParam;
-	if (coreParameter.graphicsContext == nullptr) {
-		coreParameter.graphicsContext = temp;
+	GraphicsContext *temp = g_CoreParameter.graphicsContext;
+	g_CoreParameter = coreParam;
+	if (g_CoreParameter.graphicsContext == nullptr) {
+		g_CoreParameter.graphicsContext = temp;
 	}
-	coreParameter.errorString = "";
+	g_CoreParameter.errorString = "";
 	pspIsIniting = true;
 	PSP_SetLoading("Loading game...");
 
-	if (!CPU_Init(&coreParameter.errorString)) {
-		*error_string = coreParameter.errorString;
+	if (!CPU_Init(&g_CoreParameter.errorString)) {
+		*error_string = g_CoreParameter.errorString;
 		if (error_string->empty()) {
 			*error_string = "Failed initializing CPU/Memory";
 		}
@@ -440,11 +440,11 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 
 	// Compat flags get loaded in CPU_Init (which is a bit of a misnomer) so we check for SW renderer here.
 	if (g_Config.bSoftwareRendering || PSP_CoreParameter().compat.flags().ForceSoftwareRenderer) {
-		coreParameter.gpuCore = GPUCORE_SOFTWARE;
+		g_CoreParameter.gpuCore = GPUCORE_SOFTWARE;
 	}
 
-	*error_string = coreParameter.errorString;
-	bool success = !coreParameter.fileToStart.empty();
+	*error_string = g_CoreParameter.errorString;
+	bool success = !g_CoreParameter.fileToStart.empty();
 	if (!success) {
 		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
 		pspIsIniting = false;
@@ -461,12 +461,12 @@ bool PSP_InitUpdate(std::string *error_string) {
 		return false;
 	}
 
-	bool success = !coreParameter.fileToStart.empty();
-	*error_string = coreParameter.errorString;
+	bool success = !g_CoreParameter.fileToStart.empty();
+	*error_string = g_CoreParameter.errorString;
 	if (success && gpu == nullptr) {
 		PSP_SetLoading("Starting graphics...");
-		Draw::DrawContext *draw = coreParameter.graphicsContext ? coreParameter.graphicsContext->GetDrawContext() : nullptr;
-		success = GPU_Init(coreParameter.graphicsContext, draw);
+		Draw::DrawContext *draw = g_CoreParameter.graphicsContext ? g_CoreParameter.graphicsContext->GetDrawContext() : nullptr;
+		success = GPU_Init(g_CoreParameter.graphicsContext, draw);
 		if (!success) {
 			*error_string = "Unable to initialize rendering engine.";
 		}
@@ -591,10 +591,6 @@ void PSP_SetLoading(const std::string &reason) {
 std::string PSP_GetLoading() {
 	std::lock_guard<std::mutex> guard(loadingReasonLock);
 	return loadingReason;
-}
-
-CoreParameter &PSP_CoreParameter() {
-	return coreParameter;
 }
 
 Path GetSysDirectory(PSPDirectories directoryType) {

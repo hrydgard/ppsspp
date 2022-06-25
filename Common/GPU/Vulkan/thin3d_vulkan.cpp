@@ -823,6 +823,8 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 		// corrupt the depth buffer. This is easily worked around by simply scaling Z down a tiny bit when this case
 		// is detected. See: https://github.com/hrydgard/ppsspp/issues/11937
 		bugs_.Infest(Bugs::EQUAL_WZ_CORRUPTS_DEPTH);
+		// At least one driver at the upper end of the range is known to be likely to suffer from the bug causing issue #13833 (Midnight Club map broken).
+		bugs_.Infest(Bugs::MALI_STENCIL_DISCARD_BUG);
 	}
 
 	caps_.deviceID = deviceProps.deviceID;
@@ -1530,9 +1532,9 @@ DataFormat VKContext::PreferredFramebufferReadbackFormat(Framebuffer *src) {
 
 void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
-	VKRRenderPassAction color = (VKRRenderPassAction)rp.color;
-	VKRRenderPassAction depth = (VKRRenderPassAction)rp.depth;
-	VKRRenderPassAction stencil = (VKRRenderPassAction)rp.stencil;
+	VKRRenderPassLoadAction color = (VKRRenderPassLoadAction)rp.color;
+	VKRRenderPassLoadAction depth = (VKRRenderPassLoadAction)rp.depth;
+	VKRRenderPassLoadAction stencil = (VKRRenderPassLoadAction)rp.stencil;
 
 	renderManager_.BindFramebufferAsRenderTarget(fb ? fb->GetFB() : nullptr, color, depth, stencil, rp.clearColor, rp.clearDepth, rp.clearStencil, tag);
 	curFramebuffer_ = fb;

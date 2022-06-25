@@ -770,7 +770,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		// Just gonna force it to the IR interpreter on startup.
 		// We don't hide the option, but we make sure it's off on bootup. In case someone wants
 		// to experiment in future iOS versions or something...
-		g_Config.iCpuCore = (int)CPUCore::IR_JIT;
+		jitForcedOff = true;
 	}
 
 	auto des = GetI18NCategory("DesktopUI");
@@ -1465,6 +1465,12 @@ void NativeShutdown() {
 	g_Config.Save("NativeShutdown");
 
 	INFO_LOG(SYSTEM, "NativeShutdown called");
+
+	for (auto &cat : GetI18NMissingKeys()) {
+		for (auto &key : cat.second) {
+			INFO_LOG(SYSTEM, "Missing translation [%s]: %s", cat.first.c_str(), key.c_str());
+		}
+	}
 
 	ShutdownWebServer();
 

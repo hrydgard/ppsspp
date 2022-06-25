@@ -121,7 +121,7 @@ enum class VKRStepType : uint8_t {
 	READBACK_IMAGE,
 };
 
-enum class VKRRenderPassAction : uint8_t {
+enum class VKRRenderPassLoadAction : uint8_t {
 	DONT_CARE,
 	CLEAR,
 	KEEP,
@@ -153,12 +153,12 @@ struct VKRStep {
 	union {
 		struct {
 			VKRFramebuffer *framebuffer;
-			VKRRenderPassAction color;
-			VKRRenderPassAction depth;
-			VKRRenderPassAction stencil;
+			VKRRenderPassLoadAction colorLoad;
+			VKRRenderPassLoadAction depthLoad;
+			VKRRenderPassLoadAction stencilLoad;
+			u8 clearStencil;
 			uint32_t clearColor;
 			float clearDepth;
-			int clearStencil;
 			int numDraws;
 			// Downloads and textures from this pass.
 			int numReads;
@@ -222,21 +222,21 @@ public:
 		return framebufferRenderPass_;
 	}
 
-	inline int RPIndex(VKRRenderPassAction color, VKRRenderPassAction depth) {
+	inline int RPIndex(VKRRenderPassLoadAction color, VKRRenderPassLoadAction depth) {
 		return (int)depth * 3 + (int)color;
 	}
 
 	void CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
 
 	struct RPKey {
-		VKRRenderPassAction colorLoadAction;
-		VKRRenderPassAction depthLoadAction;
-		VKRRenderPassAction stencilLoadAction;
+		VKRRenderPassLoadAction colorLoadAction;
+		VKRRenderPassLoadAction depthLoadAction;
+		VKRRenderPassLoadAction stencilLoadAction;
 	};
 
 	// Only call this from the render thread! Also ok during initialization (LoadCache).
 	VkRenderPass GetRenderPass(
-		VKRRenderPassAction colorLoadAction, VKRRenderPassAction depthLoadAction, VKRRenderPassAction stencilLoadAction) {
+		VKRRenderPassLoadAction colorLoadAction, VKRRenderPassLoadAction depthLoadAction, VKRRenderPassLoadAction stencilLoadAction) {
 		RPKey key{ colorLoadAction, depthLoadAction, stencilLoadAction };
 		return GetRenderPass(key);
 	}

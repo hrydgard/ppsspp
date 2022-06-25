@@ -283,6 +283,27 @@ const UniformBufferDesc vsColBufDesc { sizeof(VsColUB), {
 	{ "TintSaturation", 4, -1, UniformType::FLOAT2, 64 },
 } };
 
+static const std::vector<ShaderSource> vsTexColNoTint = { {
+	GLSL_1xx,
+	R"(
+#if __VERSION__ >= 130
+#define attribute in
+#define varying out
+#endif
+attribute vec3 Position;
+attribute vec4 Color0;
+attribute vec2 TexCoord0;
+varying vec4 oColor0;
+varying vec2 oTexCoord0;
+uniform mat4 WorldViewProj;
+uniform vec2 TintSaturation;
+void main() {
+	gl_Position = WorldViewProj * vec4(Position, 1.0);
+    oColor0 = Color0;
+	oTexCoord0 = TexCoord0;
+})"
+} };
+
 static const std::vector<ShaderSource> vsTexCol = {
 	{ GLSL_1xx,
 	R"(
@@ -437,7 +458,12 @@ ShaderModule *CreateShader(DrawContext *draw, ShaderStage stage, const std::vect
 }
 
 bool DrawContext::CreatePresets() {
-	vsPresets_[VS_TEXTURE_COLOR_2D] = CreateShader(this, ShaderStage::Vertex, vsTexCol);
+	if (bugs_.Has(Bugs::RASPBERRY_SHADER_COMP_HANG)) {
+		vsPresets_[VS_TEXTURE_COLOR_2D] = CreateShader(this, ShaderStage::Vertex, vsTexColNoTint);
+	} else {
+		vsPresets_[VS_TEXTURE_COLOR_2D] = CreateShader(this, ShaderStage::Vertex, vsTexCol);
+	}
+
 	vsPresets_[VS_COLOR_2D] = CreateShader(this, ShaderStage::Vertex, vsCol);
 
 	fsPresets_[FS_TEXTURE_COLOR_2D] = CreateShader(this, ShaderStage::Fragment, fsTexCol);
@@ -592,5 +618,20 @@ void ConvertToD32F(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_
 	}
 }
 
+const char *Bugs::GetBugName(uint32_t bug) {
+	switch (bug) {
+	case NO_DEPTH_CANNOT_DISCARD_STENCIL: return "NO_DEPTH_CANNOT_DISCARD_STENCIL";
+	case DUAL_SOURCE_BLENDING_BROKEN: return "DUAL_SOURCE_BLENDING_BROKEN";
+	case ANY_MAP_BUFFER_RANGE_SLOW: return "ANY_MAP_BUFFER_RANGE_SLOW";
+	case PVR_GENMIPMAP_HEIGHT_GREATER: return "PVR_GENMIPMAP_HEIGHT_GREATER";
+	case BROKEN_NAN_IN_CONDITIONAL: return "BROKEN_NAN_IN_CONDITIONAL";
+	case COLORWRITEMASK_BROKEN_WITH_DEPTHTEST: return "COLORWRITEMASK_BROKEN_WITH_DEPTHTEST";
+	case BROKEN_FLAT_IN_SHADER: return "BROKEN_FLAT_IN_SHADER";
+	case EQUAL_WZ_CORRUPTS_DEPTH: return "EQUAL_WZ_CORRUPTS_DEPTH";
+	case MALI_STENCIL_DISCARD_BUG: return "MALI_STENCIL_DISCARD_BUG";
+	case RASPBERRY_SHADER_COMP_HANG: return "RASPBERRY_SHADER_COMP_HANG";
+	default: return "(N/A)";
+	}
+}
 
 }  // namespace Draw

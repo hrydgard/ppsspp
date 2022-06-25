@@ -109,6 +109,17 @@ bool I18NRepo::LoadIni(const std::string &languageID, const Path &overridePath) 
 	return true;
 }
 
+std::map<std::string, std::vector<std::string>> I18NRepo::GetMissingKeys() const {
+	std::map<std::string, std::vector<std::string>> ret;
+	std::lock_guard<std::mutex> guard(catsLock_);
+	for (auto &cat : cats_) {
+		for (auto &key : cat.second->Missed()) {
+			ret[cat.first].push_back(key.first);
+		}
+	}
+	return ret;
+}
+
 I18NCategory *I18NRepo::LoadSection(const Section *section, const char *name) {
 	I18NCategory *cat = new I18NCategory(this, name);
 	std::map<std::string, std::string> sectionMap = section->ToMap();

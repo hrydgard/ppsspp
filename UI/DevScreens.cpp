@@ -682,6 +682,26 @@ void SystemInfoScreen::CreateViews() {
 		cpuExtensions->Add(new TextView(exts[i], new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 	}
 
+	ViewGroup *driverBugsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	driverBugsScroll->SetTag("DevSystemInfoDriverBugs");
+	LinearLayout *driverBugs = new LinearLayoutList(ORIENT_VERTICAL);
+	driverBugs->SetSpacing(0);
+	driverBugsScroll->Add(driverBugs);
+
+	tabHolder->AddTab(si->T("Driver bugs"), driverBugsScroll);
+
+	bool anyDriverBugs = false;
+	for (int i = 0; i < (int)draw->GetBugs().MaxBugIndex(); i++) {
+		if (draw->GetBugs().Has(i)) {
+			anyDriverBugs = true;
+			driverBugs->Add(new TextView(draw->GetBugs().GetBugName(i), new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+		}
+	}
+
+	if (!anyDriverBugs) {
+		driverBugs->Add(new TextView(si->T("No GPU driver bugs detected"), new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	}
+
 	ViewGroup *gpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	gpuExtensionsScroll->SetTag("DevSystemInfoOGLExt");
 	LinearLayout *gpuExtensions = new LinearLayoutList(ORIENT_VERTICAL);

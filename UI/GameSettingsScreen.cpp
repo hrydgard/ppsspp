@@ -894,14 +894,18 @@ void GameSettingsScreen::CreateViews() {
 		return UI::EVENT_CONTINUE;
 	});
 
-	PopupSliderChoiceFloat *tint = new PopupSliderChoiceFloat(&g_Config.fUITint, 0.0, 1.0, n->T("Color Tint"), 0.01f, screenManager());
-	tint->SetHasDropShadow(false);
-	tint->SetLiveUpdate(true);
-	systemSettings->Add(tint);
-	PopupSliderChoiceFloat *saturation = new PopupSliderChoiceFloat(&g_Config.fUISaturation, 0.0, 2.0, n->T("Color Saturation"), 0.01f, screenManager());
-	saturation->SetHasDropShadow(false);
-	saturation->SetLiveUpdate(true);
-	systemSettings->Add(saturation);
+
+	if (!draw->GetBugs().Has(Draw::Bugs::RASPBERRY_SHADER_COMP_HANG)) {
+		// We use shaders without tint capability on hardware with this driver bug.
+		PopupSliderChoiceFloat *tint = new PopupSliderChoiceFloat(&g_Config.fUITint, 0.0, 1.0, sy->T("Color Tint"), 0.01f, screenManager());
+		tint->SetHasDropShadow(false);
+		tint->SetLiveUpdate(true);
+		systemSettings->Add(tint);
+		PopupSliderChoiceFloat *saturation = new PopupSliderChoiceFloat(&g_Config.fUISaturation, 0.0, 2.0, sy->T("Color Saturation"), 0.01f, screenManager());
+		saturation->SetHasDropShadow(false);
+		saturation->SetLiveUpdate(true);
+		systemSettings->Add(saturation);
+	}
 
 	static const char *backgroundAnimations[] = { "No animation", "Floating symbols", "Recent games", "Waves", "Moving background" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iBackgroundAnimation, sy->T("UI background animation"), backgroundAnimations, 0, ARRAY_SIZE(backgroundAnimations), sy->GetName(), screenManager()));
@@ -1063,18 +1067,22 @@ void GameSettingsScreen::CreateViews() {
 	static const char *buttonPref[] = { "Use O to confirm", "Use X to confirm" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, sy->T("Confirmation Button"), buttonPref, 0, 2, sy->GetName(), screenManager()));
 
+#if !defined(MOBILE_DEVICE) || PPSSPP_PLATFORM(ANDROID)
+	// Search
+	LinearLayout *searchSettings = AddTab("GameSettingsSearch", ms->T("Search"), true);
+
+	searchSettings->Add(new ItemHeader(se->T("Find settings")));
 	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
-		// Search
-		LinearLayout *searchSettings = AddTab("GameSettingsSearch", ms->T("Search"), true);
-
-		searchSettings->Add(new ItemHeader(se->T("Find settings")));
 		searchSettings->Add(new ChoiceWithValueDisplay(&searchFilter_, se->T("Filter"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeSearchFilter);
-		clearSearchChoice_ = searchSettings->Add(new Choice(se->T("Clear filter")));
-		clearSearchChoice_->OnClick.Handle(this, &GameSettingsScreen::OnClearSearchFilter);
-		noSearchResults_ = searchSettings->Add(new TextView(se->T("No settings matched '%1'"), new LinearLayoutParams(Margins(20, 5))));
-
-		ApplySearchFilter();
+	} else {
+		searchSettings->Add(new PopupTextInputChoice(&searchFilter_, se->T("Filter"), "", 64, screenManager()))->OnChange.Handle(this, &GameSettingsScreen::OnChangeSearchFilter);
 	}
+	clearSearchChoice_ = searchSettings->Add(new Choice(se->T("Clear filter")));
+	clearSearchChoice_->OnClick.Handle(this, &GameSettingsScreen::OnClearSearchFilter);
+	noSearchResults_ = searchSettings->Add(new TextView(se->T("No settings matched '%1'"), new LinearLayoutParams(Margins(20, 5))));
+
+	ApplySearchFilter();
+#endif
 }
 
 UI::LinearLayout *GameSettingsScreen::AddTab(const char *tag, const std::string &title, bool isSearch) {
@@ -1711,6 +1719,9 @@ UI::EventReturn GameSettingsScreen::OnChangeSearchFilter(UI::EventParams &e) {
 			NativeMessageReceived("gameSettings_search", StripSpaces(value).c_str());
 		}
 	});
+#else
+	if (!System_GetPropertyBool(SYSPROP_HAS_KEYBOARD))
+		NativeMessageReceived("gameSettings_search", StripSpaces(searchFilter_).c_str());
 #endif
 	return UI::EVENT_DONE;
 }

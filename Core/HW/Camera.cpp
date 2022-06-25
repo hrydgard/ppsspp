@@ -14,14 +14,13 @@
 
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
-
 #include "ppsspp_config.h"
 #include "Camera.h"
 #include "Core/Config.h"
 
+#ifdef USE_FFMPEG
 void convert_frame(int inw, int inh, unsigned char *inData, AVPixelFormat inFormat,
 					int outw, int outh, unsigned char **outData, int *outLen) {
-
 	struct SwsContext *sws_context = sws_getContext(
 				inw, inh, inFormat,
 				outw, outh, AV_PIX_FMT_RGB24,
@@ -56,8 +55,11 @@ void convert_frame(int inw, int inh, unsigned char *inData, AVPixelFormat inForm
 		*outData, *outLen, outw, outh, 3, rgbData, params);
 	free(rgbData);
 }
+#endif //USE_FFMPEG
+
 
 void __cameraDummyImage(int width, int height, unsigned char** outData, int* outLen) {
+#ifdef USE_FFMPEG
 	unsigned char* rgbData = (unsigned char*)malloc(3 * width * height);
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
@@ -77,6 +79,7 @@ void __cameraDummyImage(int width, int height, unsigned char** outData, int* out
 	jpge::compress_image_to_jpeg_file_in_memory(
 		*outData, *outLen, width, height, 3, rgbData, params);
 	free(rgbData);
+#endif //USE_FFMPEG
 }
 
 
@@ -102,6 +105,7 @@ QList<QVideoFrame::PixelFormat> MyViewfinder::supportedPixelFormats(QAbstractVid
 }
 
 bool MyViewfinder::present(const QVideoFrame &frame) {
+#ifdef USE_FFMPEG
 	if (frame.isValid()) {
 		QVideoFrame cloneFrame(frame);
 		cloneFrame.map(QAbstractVideoBuffer::ReadOnly);
@@ -130,6 +134,7 @@ bool MyViewfinder::present(const QVideoFrame &frame) {
 		cloneFrame.unmap();
 		return true;
 	}
+#endif //USE_FFMPEG
 	return false;
 }
 
@@ -195,6 +200,7 @@ int __qt_stopCapture() {
 
 std::vector<std::string> __v4l_getDeviceList() {
 	std::vector<std::string> deviceList;
+#ifdef USE_FFMPEG
 	for (int i = 0; i < 64; i++) {
 		char path[256];
 		snprintf(path, sizeof(path), "/dev/video%d", i);
@@ -219,10 +225,12 @@ cont:
 		close(fd);
 		fd = -1;
 	}
+#endif //USE_FFMPEG
 	return deviceList;
 }
 
 void *v4l_loop(void *data) {
+#ifdef USE_FFMPEG
 	SetCurrentThreadName("v4l_loop");
 	while (v4l_fd >= 0) {
 		struct v4l2_buffer buf;
@@ -272,9 +280,11 @@ void *v4l_loop(void *data) {
 		}
 	}
 	return nullptr;
+#endif //USE_FFMPEG
 }
 
 int __v4l_startCapture(int ideal_width, int ideal_height) {
+#ifdef USE_FFMPEG
 	if (v4l_fd >= 0) {
 		__v4l_stopCapture();
 	}
@@ -420,7 +430,7 @@ int __v4l_startCapture(int ideal_width, int ideal_height) {
 	}
 
 	pthread_create(&v4l_thread, NULL, v4l_loop, NULL);
-
+#endif //USE_FFMPEG
 	return 0;
 }
 

@@ -201,19 +201,54 @@ void ComboKey::Touch(const TouchInput &input) {
 	if (down && !lastDown) {
 		if (g_Config.bHapticFeedback)
 			Vibrate(HAPTIC_VIRTUAL_KEY);
-		for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++) {
-			if (pspButtonBit_ & (1ULL << i)) {
-				controllMapper_->pspKey(comboKeyList[i].c, (on_ && toggle_) ? KEY_UP : KEY_DOWN);
+
+		if (!repeat_) {
+			for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++) {
+				if (pspButtonBit_ & (1ULL << i)) {
+					controllMapper_->pspKey(comboKeyList[i].c, (on_ && toggle_) ? KEY_UP : KEY_DOWN);
+				}
 			}
 		}
-		if (toggle_)
-			on_ = !on_;
+		on_ = toggle_ ? !on_ : true;
 	} else if (!toggle_ && lastDown && !down) {
-		for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++) {
-			if (pspButtonBit_ & (1ULL << i)) {
-				controllMapper_->pspKey(comboKeyList[i].c, KEY_UP);
+		if (!repeat_) {
+			for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++) {
+				if (pspButtonBit_ & (1ULL << i)) {
+					controllMapper_->pspKey(comboKeyList[i].c, KEY_UP);
+				}
 			}
 		}
+		on_ = false;
+	}
+}
+
+void ComboKey::Update() {
+	MultiTouchButton::Update();
+	using namespace CustomKey;
+
+	if (repeat_) {
+		// Give the game some time to process the input, frame based so it's faster when fast-forwarding.
+		static constexpr int DOWN_FRAME = 5;
+
+		if (pressedFrames_ == 2*DOWN_FRAME) {
+			pressedFrames_ = 0;
+		} else if (pressedFrames_ == DOWN_FRAME) {
+			for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++) {
+				if (pspButtonBit_ & (1ULL << i)) {
+					controllMapper_->pspKey(comboKeyList[i].c, KEY_UP);
+				}
+			}
+		} else if (on_ && pressedFrames_ == 0) {
+			for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++) {
+				if (pspButtonBit_ & (1ULL << i)) {
+					controllMapper_->pspKey(comboKeyList[i].c, KEY_DOWN);
+				}
+			}
+			pressedFrames_ = 1;
+		}
+
+		if (pressedFrames_ > 0)
+			pressedFrames_++;
 	}
 }
 
@@ -782,7 +817,7 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 	auto addComboKey = [=](const ConfigCustomButton& cfg, const char *key, const ConfigTouchPos &touch) -> ComboKey * {
 		using namespace CustomKey;
 		if (touch.show) {
-			auto aux = root->Add(new ComboKey(cfg.key, key, cfg.toggle, controllMapper, 
+			auto aux = root->Add(new ComboKey(cfg.key, key, cfg.toggle, cfg.repeat, controllMapper, 
 					g_Config.iTouchButtonStyle == 0 ? comboKeyShapes[cfg.shape].i : comboKeyShapes[cfg.shape].l, comboKeyShapes[cfg.shape].i, 
 					comboKeyImages[cfg.image].i, touch.scale, comboKeyShapes[cfg.shape].d, buttonLayoutParams(touch)));
 			aux->SetAngle(comboKeyImages[cfg.image].r, comboKeyShapes[cfg.shape].r);

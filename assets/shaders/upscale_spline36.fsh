@@ -1,5 +1,6 @@
 // Spline36 upscaling shader.
 // See issue #3921
+// Modified as per #15566
 
 #ifdef GL_ES
 precision mediump float;
@@ -71,7 +72,7 @@ vec4 interpolateHorizontally(vec2 inputPos, ivec2 inputPosFloor, int dy) {
 }
 
 vec4 process(vec2 outputPos) {
-	vec2 inputPos = outputPos / u_texelDelta;
+	vec2 inputPos = outputPos / u_texelDelta - HALF_PIXEL;
 	ivec2 inputPosFloor = ivec2(inputPos);
 
 	// Vertical interporation
