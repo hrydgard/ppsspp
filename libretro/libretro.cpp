@@ -583,6 +583,7 @@ static RetroOption<int> ppsspp_wlan_channel("ppsspp_wlan_channel", "WLAN channel
 static RetroOption<bool> ppsspp_enable_builtin_pro_ad_hoc_server("ppsspp_enable_builtin_pro_ad_hoc_server", "Enable built-in PRO ad hoc server", false);
 static RetroOption<std::string> ppsspp_change_pro_ad_hoc_server_address("ppsspp_change_pro_ad_hoc_server_address", "Change PRO ad hoc server IP address (localhost = multiple instances)", {
     {"socom.cc", "socom.cc"},
+    {"psp.gameplayer.club", "psp.gameplayer.club"},
     {"myneighborsushicat.com", "myneighborsushicat.com"},
     {"localhost", "localhost"},
     {"IP address", "IP address"}
