@@ -1999,7 +1999,7 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	listIP.clear(); listIP.shrink_to_fit();
 
 	progressView_ = parent->Add(new TextView(n->T("Validating address..."), ALIGN_HCENTER, false, new LinearLayoutParams(Margins(0, 5, 0, 0))));
-	progressView_->SetVisibility(V_INVISIBLE);
+	progressView_->SetVisibility(UI::V_GONE);
 }
 
 void HostnameSelectScreen::SendEditKey(int keyCode, int flags) {
@@ -2119,7 +2119,7 @@ bool HostnameSelectScreen::CanComplete(DialogResult result) {
 			lastResolvedResult_ = toResolveResult_;
 
 			if (lastResolvedResult_) {
-				progressView_->SetVisibility(UI::V_INVISIBLE);
+				progressView_->SetVisibility(UI::V_GONE);
 			} else {
 				progressView_->SetText(n->T("Invalid IP or hostname"));
 				progressView_->SetTextColor(0xFF3030FF);
