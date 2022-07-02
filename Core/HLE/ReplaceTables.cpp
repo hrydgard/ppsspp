@@ -1341,8 +1341,12 @@ static int Hook_soltrigger_render_ucschar() {
 }
 
 static int Hook_gow_fps_hack() {
-	if (PSP_CoreParameter().compat.flags().Fixed60FPShack) {
-		__DisplayWaitForVblanks("vblank start waited", 1);
+	if (PSP_CoreParameter().compat.flags().Fixed60FPShack || PSP_CoreParameter().compat.flags().Fixed30FPShack) {
+		if (PSP_CoreParameter().compat.flags().Fixed30FPShack) {
+			__DisplayWaitForVblanks("vblank start waited", 2);
+		} else {
+			__DisplayWaitForVblanks("vblank start waited", 1);
+		}
 	}
 	return 0;
 }
