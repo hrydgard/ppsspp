@@ -507,6 +507,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xfe5dd338ab862291, 216, "memset", }, // Metal Gear Solid: Peace Walker demo
 	{ 0xffc8f5f8f946152c, 192, "dl_write_light_color", },
 	{ 0x249a3c5981c73480, 1472, "openseason_data_decode", },  // Open Season
+	{ 0x795d940ad0a605f8, 40, "gow_fps_hack", }, // God of War (all)
 };
 
 namespace MIPSAnalyst {

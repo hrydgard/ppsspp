@@ -25,6 +25,7 @@
 #include "Common/Log.h"
 #include "Common/Swap.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Debugger/SymbolMap.h"
@@ -34,6 +35,7 @@
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceDisplay.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPU.h"
@@ -1338,6 +1340,13 @@ static int Hook_soltrigger_render_ucschar() {
 	return 0;
 }
 
+static int Hook_gow_fps_hack() {
+	if (PSP_CoreParameter().compat.flags().Fixed60FPShack) {
+		__DisplayWaitForVblanks("vblank start waited", 1);
+	}
+	return 0;
+}
+
 #define JITFUNC(f) (&MIPSComp::MIPSFrontendInterface::f)
 
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
@@ -1454,6 +1463,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "worms_copy_normalize_alpha", &Hook_worms_copy_normalize_alpha, 0, REPFLAG_HOOKENTER, 0x0CC },
 	{ "openseason_data_decode", &Hook_openseason_data_decode, 0, REPFLAG_HOOKENTER, 0x2F0 },
 	{ "soltrigger_render_ucschar", &Hook_soltrigger_render_ucschar, 0, REPFLAG_HOOKENTER, 0 },
+	{ "gow_fps_hack", &Hook_gow_fps_hack, 0, REPFLAG_HOOKEXIT , 0 },
 	{}
 };
 
