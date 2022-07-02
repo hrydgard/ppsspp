@@ -804,7 +804,7 @@ void GameSettingsScreen::CreateViews() {
 	auto useOriPort = networkingSettings->Add(new CheckBox(&g_Config.bUPnPUseOriginalPort, n->T("UPnP use original port", "UPnP use original port (Enabled = PSP compatibility)")));
 	useOriPort->OnClick.Add([=](EventParams& e) {
 		if (g_Config.bUPnPUseOriginalPort)
-			settingInfo_->Show(n->T("UseOriginalPort Tip", "Be sure you can play the game using Port Offset = 0 on PC before enabling this option (E.g. on Android)"), e.v);
+			settingInfo_->Show(n->T("UseOriginalPort Tip", "May not work for all devices or games, see wiki."), e.v);
 		return UI::EVENT_CONTINUE;
 	});
 	useOriPort->SetEnabledPtr(&g_Config.bEnableUPnP);
