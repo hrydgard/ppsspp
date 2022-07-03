@@ -1351,6 +1351,15 @@ static int Hook_gow_fps_hack() {
 	return 0;
 }
 
+static int Hook_gow_vortex_hack() {
+	if (PSP_CoreParameter().compat.flags().Fixed60FPShack) {
+		if (currentMIPS->r[MIPS_REG_S1] == 0) {
+			currentMIPS->r[MIPS_REG_S1] = 1;
+		}
+	}
+	return 0;
+}
+
 #define JITFUNC(f) (&MIPSComp::MIPSFrontendInterface::f)
 
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
@@ -1468,6 +1477,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "openseason_data_decode", &Hook_openseason_data_decode, 0, REPFLAG_HOOKENTER, 0x2F0 },
 	{ "soltrigger_render_ucschar", &Hook_soltrigger_render_ucschar, 0, REPFLAG_HOOKENTER, 0 },
 	{ "gow_fps_hack", &Hook_gow_fps_hack, 0, REPFLAG_HOOKEXIT , 0 },
+	{ "gow_vortex_hack", &Hook_gow_vortex_hack, 0, REPFLAG_HOOKENTER, 0x60 },
 	{}
 };
 
