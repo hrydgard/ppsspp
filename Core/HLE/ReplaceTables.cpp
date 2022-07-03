@@ -1353,7 +1353,8 @@ static int Hook_gow_fps_hack() {
 
 static int Hook_gow_vortex_hack() {
 	if (PSP_CoreParameter().compat.flags().Fixed60FPShack) {
-		if (currentMIPS->r[MIPS_REG_S1] == 0) {
+		//from my tests ==0x3F800000 takes around 1:50s, when != it's roughtly 2:50s and that seems more correct
+		if (currentMIPS->r[MIPS_REG_S1] == 0 && currentMIPS->r[MIPS_REG_A0] == 0xC0 && currentMIPS->r[MIPS_REG_T4] != 0x3F800000) {
 			currentMIPS->r[MIPS_REG_S1] = 1;
 		}
 	}
