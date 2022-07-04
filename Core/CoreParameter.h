@@ -33,6 +33,7 @@ enum class FPSLimit {
 	NORMAL = 0,
 	CUSTOM1 = 1,
 	CUSTOM2 = 2,
+	ANALOG = 3,
 };
 
 class FileLoader;
@@ -76,6 +77,7 @@ struct CoreParameter {
 	// Can be modified at runtime.
 	bool fastForward = false;
 	FPSLimit fpsLimit = FPSLimit::NORMAL;
+	int analogFpsLimit = 0;
 
 	bool updateRecent = true;
 

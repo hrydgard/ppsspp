@@ -67,6 +67,7 @@ enum {
 	VIRTKEY_SCREEN_ROTATION_VERTICAL180 = 0x40000021,
 	VIRTKEY_SCREEN_ROTATION_HORIZONTAL = 0x40000022,
 	VIRTKEY_SCREEN_ROTATION_HORIZONTAL180 = 0x40000023,
+	VIRTKEY_SPEED_ANALOG = 0x40000024,
 	VIRTKEY_LAST,
 	VIRTKEY_COUNT = VIRTKEY_LAST - VIRTKEY_FIRST
 };
@@ -163,6 +164,7 @@ namespace KeyMap {
 	bool HasBuiltinController(const std::string &name);
 
 	const std::set<std::string> &GetSeenPads();
+	std::string PadName(int deviceId);
 	void AutoConfForPad(const std::string &name);
 
 	bool IsKeyMapped(int device, int key);

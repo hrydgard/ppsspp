@@ -369,6 +369,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_SPEED_TOGGLE, "SpeedToggle"},
 	{VIRTKEY_SPEED_CUSTOM1, "Alt speed 1"},
 	{VIRTKEY_SPEED_CUSTOM2, "Alt speed 2"},
+	{VIRTKEY_SPEED_ANALOG, "Analog speed"},
 	{VIRTKEY_PAUSE, "Pause"},
 #ifndef MOBILE_DEVICE
 	{VIRTKEY_FRAME_ADVANCE, "Frame Advance"},
@@ -543,8 +544,10 @@ bool AxisFromPspButton(int btn, int *deviceId, int *axisId, int *direction) {
 	for (auto iter = g_controllerMap.begin(); iter != g_controllerMap.end(); ++iter) {
 		for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
 			if (iter->first == btn && iter2->keyCode >= AXIS_BIND_NKCODE_START) {
-				*deviceId = iter2->deviceId;
-				*axisId = TranslateKeyCodeToAxis(iter2->keyCode, *direction);
+				if (deviceId)
+					*deviceId = iter2->deviceId;
+				if (axisId)
+					*axisId = TranslateKeyCodeToAxis(iter2->keyCode, *direction);
 				return true;
 			}
 		}
@@ -796,6 +799,13 @@ void AutoConfForPad(const std::string &name) {
 
 const std::set<std::string> &GetSeenPads() {
 	return g_seenPads;
+}
+
+std::string PadName(int deviceId) {
+	auto it = g_padNames.find(deviceId);
+	if (it != g_padNames.end())
+		return it->second;
+	return "";
 }
 
 // Swap direction buttons and left analog axis

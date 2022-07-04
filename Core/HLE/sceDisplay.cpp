@@ -354,6 +354,8 @@ static int FrameTimingLimit() {
 		return g_Config.iFpsLimit1;
 	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2)
 		return g_Config.iFpsLimit2;
+	if (PSP_CoreParameter().fpsLimit == FPSLimit::ANALOG)
+		return PSP_CoreParameter().analogFpsLimit;
 	if (PSP_CoreParameter().fastForward)
 		return 0;
 	return 60;

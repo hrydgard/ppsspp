@@ -337,6 +337,9 @@ bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 		if (key.keyCode == NKCODE_EXT_MOUSEBUTTON_1) {
 			return true;
 		}
+		// Only map analog values to this mapping.
+		if (pspBtn_ == VIRTKEY_SPEED_ANALOG)
+			return true;
 
 		mapped_ = true;
 		KeyDef kdf(key.deviceId, key.keyCode);
