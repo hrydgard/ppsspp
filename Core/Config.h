@@ -144,6 +144,8 @@ public:
 	std::vector<std::string> vPinnedPaths;
 	std::string sLanguageIni;
 
+	std::string sIgnoreCompatSettings;
+
 	bool bDiscordPresence;  // Enables setting the Discord presence to the current game (or menu)
 
 	// GFX
