@@ -23,6 +23,7 @@
 
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
+#include "Common/StringUtils.h"
 #include "Common/System/NativeApp.h"
 #include "Core/Config.h"
 #include "Core/HLE/sceCtrl.h"
@@ -56,8 +57,6 @@ static const int dinput_buttons[] = {
 	NKCODE_BUTTON_15,
 	NKCODE_BUTTON_16,
 };
-
-static float NormalizedDeadzoneFilter(short value);
 
 #define DIFF  (JOY_POVRIGHT - JOY_POVFORWARD) / 2
 #define JOY_POVFORWARD_RIGHT	JOY_POVFORWARD + DIFF
@@ -150,6 +149,11 @@ DinputDevice::DinputDevice(int devnum) {
 	if ( (devnum >= (int)devices.size()) || FAILED(getPDI()->CreateDevice(devices.at(devnum).guidInstance, &pJoystick, NULL)))
 	{
 		return;
+	}
+
+	wchar_t guid[64];
+	if (StringFromGUID2(devices.at(devnum).guidProduct, guid, ARRAY_SIZE(guid)) != 0) {
+		KeyMap::NotifyPadConnected(DEVICE_ID_PAD_0 + pDevNum, StringFromFormat("%S: %S", devices.at(devnum).tszProductName, guid));
 	}
 
 	if (FAILED(pJoystick->SetDataFormat(&c_dfDIJoystick2))) {

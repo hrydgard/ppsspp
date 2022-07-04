@@ -153,7 +153,7 @@ namespace KeyMap {
 	void SwapAxis();
 	void UpdateNativeMenuKeys();
 
-	void NotifyPadConnected(const std::string &name);
+	void NotifyPadConnected(int deviceId, const std::string &name);
 	bool IsNvidiaShield(const std::string &name);
 	bool IsNvidiaShieldTV(const std::string &name);
 	bool IsXperiaPlay(const std::string &name);

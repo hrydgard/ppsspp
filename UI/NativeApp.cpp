@@ -1176,8 +1176,12 @@ void NativeRender(GraphicsContext *graphicsContext) {
 }
 
 void HandleGlobalMessage(const std::string &msg, const std::string &value) {
+	int nextInputDeviceID = -1;
+	if (msg == "inputDeviceConnectedID") {
+		nextInputDeviceID = parseLong(value);
+	}
 	if (msg == "inputDeviceConnected") {
-		KeyMap::NotifyPadConnected(value);
+		KeyMap::NotifyPadConnected(nextInputDeviceID, value);
 	}
 	if (msg == "bgImage_updated") {
 		if (!value.empty()) {
@@ -1419,7 +1423,6 @@ bool NativeAxis(const AxisInput &axis) {
 }
 
 void NativeMessageReceived(const char *message, const char *value) {
-	// We can only have one message queued.
 	std::lock_guard<std::mutex> lock(pendingMutex);
 	PendingMessage pendingMessage;
 	pendingMessage.msg = message;

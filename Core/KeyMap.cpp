@@ -40,6 +40,7 @@ KeyMapping g_controllerMap;
 // Incremented on modification, so we know when to update menus.
 int g_controllerMapGeneration = 0;
 std::set<std::string> g_seenPads;
+std::map<int, std::string> g_padNames;
 std::set<int> g_seenDeviceIds;
 
 bool g_swapped_keys = false;
@@ -762,8 +763,9 @@ bool HasBuiltinController(const std::string &name) {
 	return IsOuya(name) || IsXperiaPlay(name) || IsNvidiaShield(name) || IsMOQII7S(name) || IsRetroid(name);
 }
 
-void NotifyPadConnected(const std::string &name) {
+void NotifyPadConnected(int deviceId, const std::string &name) {
 	g_seenPads.insert(name);
+	g_padNames[deviceId] = name;
 }
 
 void AutoConfForPad(const std::string &name) {
