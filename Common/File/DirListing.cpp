@@ -4,6 +4,9 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <direct.h>
+#if PPSSPP_PLATFORM(UWP)
+#include <fileapifromapp.h>
+#endif
 #else
 #include <strings.h>
 #include <dirent.h>
@@ -62,7 +65,11 @@ bool GetFileInfo(const Path &path, FileInfo * fileInfo) {
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	WIN32_FILE_ATTRIBUTE_DATA attrs;
+#if PPSSPP_PLATFORM(UWP)
+	if (!GetFileAttributesExFromAppW(path.ToWString().c_str(), GetFileExInfoStandard, &attrs)) {
+#else
 	if (!GetFileAttributesExW(path.ToWString().c_str(), GetFileExInfoStandard, &attrs)) {
+#endif
 		fileInfo->size = 0;
 		fileInfo->isDirectory = false;
 		fileInfo->exists = false;
@@ -206,7 +213,11 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 	}
 	// Find the first file in the directory.
 	WIN32_FIND_DATA ffd;
+#if PPSSPP_PLATFORM(UWP)
+	HANDLE hFind = FindFirstFileExFromAppW((directory.ToWString() + L"\\*").c_str(), FindExInfoStandard, &ffd, FindExSearchNameMatch, NULL, 0);
+#else
 	HANDLE hFind = FindFirstFileEx((directory.ToWString() + L"\\*").c_str(), FindExInfoStandard, &ffd, FindExSearchNameMatch, NULL, 0);
+#endif
 	if (hFind == INVALID_HANDLE_VALUE) {
 		return 0;
 	}

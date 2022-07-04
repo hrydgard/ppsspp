@@ -33,6 +33,10 @@
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
 #include "Core/System.h"
 
+#if PPSSPP_PLATFORM(UWP)
+#include <fileapifromapp.h>
+#endif
+
 #if PPSSPP_PLATFORM(SWITCH)
 // Far from optimal, but I guess it works...
 #define fseeko fseek
@@ -827,7 +831,11 @@ void DiskCachingFileLoaderCache::GarbageCollectCacheFiles(u64 goalBytes) {
 
 #ifdef _WIN32
 		const std::wstring w32path = file.fullName.ToWString();
+#if PPSSPP_PLATFORM(UWP)
+		bool success = DeleteFileFromAppW(w32path.c_str()) != 0;
+#else
 		bool success = DeleteFileW(w32path.c_str()) != 0;
+#endif
 #else
 		bool success = unlink(file.fullName.c_str()) == 0;
 #endif
