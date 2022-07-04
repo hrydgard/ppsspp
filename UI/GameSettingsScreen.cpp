@@ -1826,13 +1826,11 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new Choice(dev->T("Copy savestates to memstick root")))->OnClick.Handle(this, &DeveloperToolsScreen::OnCopyStatesToRoot);
 #endif
 
-#if !defined(MOBILE_DEVICE)
 	Choice *createTextureIni = list->Add(new Choice(dev->T("Create/Open textures.ini file for current game")));
 	createTextureIni->OnClick.Handle(this, &DeveloperToolsScreen::OnOpenTexturesIniFile);
 	if (!PSP_IsInited()) {
 		createTextureIni->SetEnabled(false);
 	}
-#endif
 }
 
 void DeveloperToolsScreen::onFinish(DialogResult result) {
