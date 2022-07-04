@@ -205,10 +205,14 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 	static bool notified[XUSER_MAX_COUNT]{};
 	if (!notified[pad]) {
 		notified[pad] = true;
+#if !PPSSPP_PLATFORM(UWP)
 		XINPUT_CAPABILITIES_EX caps;
 		if (PPSSPP_XInputGetCapabilitiesEx != nullptr && PPSSPP_XInputGetCapabilitiesEx(1, pad, 0, &caps) == ERROR_SUCCESS) {
 			KeyMap::NotifyPadConnected(DEVICE_ID_XINPUT_0 + pad, StringFromFormat("Xbox 360 Pad: %d/%d", caps.vendorId, caps.productId));
 		} else {
+#else
+		{
+#endif
 			KeyMap::NotifyPadConnected(DEVICE_ID_XINPUT_0 + pad, "Xbox 360 Pad");
 		}
 	}
