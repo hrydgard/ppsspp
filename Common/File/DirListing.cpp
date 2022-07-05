@@ -300,11 +300,21 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 // Returns a vector with the device names
 std::vector<std::string> GetWindowsDrives()
 {
-#if PPSSPP_PLATFORM(UWP)
-	return std::vector<std::string>();  // TODO UWP http://stackoverflow.com/questions/37404405/how-to-get-logical-drives-names-in-windows-10
-#else
 	std::vector<std::string> drives;
 
+#if PPSSPP_PLATFORM(UWP)
+	DWORD logicaldrives = GetLogicalDrives();
+	for (int i = 0; i < 26; i++)
+	{
+		if (logicaldrives & (1 << i))
+		{
+			CHAR driveName[] = { TEXT('A') + i, TEXT(':'), TEXT('\\'), TEXT('\0') };
+			std::string str(driveName);
+			drives.push_back(driveName);
+		}
+	}
+	return drives;
+#else
 	const DWORD buffsize = GetLogicalDriveStrings(0, NULL);
 	std::vector<wchar_t> buff(buffsize);
 	if (GetLogicalDriveStrings(buffsize, buff.data()) == buffsize - 1)
@@ -319,7 +329,7 @@ std::vector<std::string> GetWindowsDrives()
 
 			// advance to next drive
 			while (*drive++) {}
-		}
+}
 	}
 	return drives;
 #endif  // PPSSPP_PLATFORM(UWP)
