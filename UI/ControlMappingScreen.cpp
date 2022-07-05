@@ -338,13 +338,13 @@ bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 			return true;
 		}
 		// Only map analog values to this mapping.
-		if (pspBtn_ == VIRTKEY_SPEED_ANALOG)
+		if (pspBtn_ == VIRTKEY_SPEED_ANALOG && !UI::IsEscapeKey(key))
 			return true;
 
 		mapped_ = true;
 		KeyDef kdf(key.deviceId, key.keyCode);
 		TriggerFinish(DR_YES);
-		if (callback_)
+		if (callback_ && pspBtn_ != VIRTKEY_SPEED_ANALOG)
 			callback_(kdf);
 	}
 	return true;
