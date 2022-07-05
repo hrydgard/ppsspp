@@ -408,7 +408,7 @@ void ControlMapper::ProcessAnalogSpeed(const AxisInput &axis, bool opposite) {
 		case JOYSTICK_AXIS_RY:
 		case JOYSTICK_AXIS_RZ:
 			// These, at least on directinput, can be used for triggers that go from mapped to opposite.
-			mode = AnalogFpsMode::MAPPED_TO_OPPOSITE;
+			mode = AnalogFpsMode::MAPPED_DIR_TO_OPPOSITE_DIR;
 			break;
 
 		default:
@@ -421,9 +421,10 @@ void ControlMapper::ProcessAnalogSpeed(const AxisInput &axis, bool opposite) {
 	// Okay, now let's map it as appropriate.
 	if (mode == AnalogFpsMode::MAPPED_DIRECTION) {
 		value = fabsf(value);
+		// Clamp to 0 in this case if we're processing the opposite direction.
 		if (opposite)
-			return;
-	} else if (mode == AnalogFpsMode::MAPPED_TO_OPPOSITE) {
+			value = 0.0f;
+	} else if (mode == AnalogFpsMode::MAPPED_DIR_TO_OPPOSITE_DIR) {
 		value = fabsf(value);
 		if (opposite)
 			value = -value;

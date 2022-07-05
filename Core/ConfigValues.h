@@ -134,5 +134,5 @@ enum class BackgroundAnimation {
 enum class AnalogFpsMode {
 	AUTO = 0,
 	MAPPED_DIRECTION = 1,
-	MAPPED_TO_OPPOSITE = 2,
+	MAPPED_DIR_TO_OPPOSITE_DIR = 2,
 };
