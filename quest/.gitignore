@@ -1,0 +1,10 @@
+bin
+gen
+libs
+obj
+build*/
+gen
+obj
+.cxx
+.externalNativeBuild
+android.iml

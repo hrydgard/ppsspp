@@ -116,6 +116,11 @@ include(GNUInstallDirs)
 
 add_definitions(-DASSETS_DIR="${CMAKE_INSTALL_FULL_DATADIR}/ppsspp/assets/")
 
+if(OPENXR)
+	add_definitions(-DOPENXR)
+	message("OpenXR enabled")
+endif()
+
 if(GOLD)
 	add_definitions(-DGOLD)
 	message("Gold Build")

@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:tools="http://schemas.android.com/tools"
+    package="org.ppsspp.ppsspp"
+    android:installLocation="auto"
+    android:versionCode="112030000"
+    android:versionName="1.12.3.0">
+    <!-- Note that versionCode should be in the format xyyzzrrrr. Example: 110030000 -->
+    <!-- In this same case, versionName should be 1.10.3.0 -->
+    <!-- Also note that we are overriding these values anyway from gradle. -->
+
+    <uses-feature android:glEsVersion="0x00020000" />
+    <uses-feature android:name="android.hardware.screen.landscape" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+    <uses-feature android:name="android.hardware.gamepad" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <uses-feature android:name="android.hardware.location.network" android:required="false" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+
+    <!-- I tried using android:maxSdkVersion="29" on WRITE/READ_EXTERNAL_STORAGE, but that made
+    <it so that in legacy mode, you can't ask for permission anymore. So removed that. -->
+
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="archos.permission.FULLSCREEN.FULL" />
+    <uses-permission-sdk-23 android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission-sdk-23 android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission-sdk-23 android:name="android.permission.CAMERA" />
+    <uses-permission-sdk-23 android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- AndroidX minimum SDK workaround. We don't care if it's broken on older versions. -->
+    <uses-sdk tools:overrideLibrary="androidx.appcompat.resources,androidx.appcompat,androidx.fragment,androidx.drawerlayout,androidx.vectordrawable.animated,androidx.vectordrawable,androidx.viewpager,androidx.loader,androidx.activity,androidx.annotation,androidx.customview,androidx.cursoradapter,androidx.arch,androidx.collection,androidx.core,androidx.versionedparcelable,androidx.interpolator,androidx.lifecycle,androidx.loader,androidx.savedstate,androidx.lifecycle.viewmodel,androidx.lifecycle.livedata,androidx.lifecycle.livedata.core,androidx.arch.core,androidx.documentfile"/>
+
+    <supports-screens
+        android:largeScreens="true"
+        android:normalScreens="true"
+        android:smallScreens="true"
+        android:xlargeScreens="true" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name" 
+        android:logo="@drawable/ic_banner"
+        android:isGame="true"
+        android:banner="@drawable/tv_banner"
+        android:requestLegacyExternalStorage="true"
+        android:preserveLegacyExternalStorage="true">
+        <meta-data android:name="android.max_aspect" android:value="2.4" />
+        <activity
+            android:name=".PpssppActivity"
+            android:configChanges="locale|keyboard|keyboardHidden|navigation|uiMode"
+            android:label="@string/app_name"
+            android:theme="@style/ppsspp_style"
+            android:exported="true">
+            <!-- android:screenOrientation="landscape" -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+                <category android:name="tv.ouya.intent.category.GAME"/>
+            </intent-filter>
+            <intent-filter>
+				<action android:name="android.intent.action.VIEW" />
+				
+				<category android:name="android.intent.category.DEFAULT" />
+				<category android:name="android.intent.category.BROWSABLE" />
+				
+				<data
+					android:host="*"
+					android:mimeType="*/*"
+					android:pathPattern=".*\\.iso"
+					android:scheme="file" />
+				<data
+					android:host="*"
+					android:mimeType="*/*"
+					android:pathPattern=".*\\.cso"
+					android:scheme="file" />
+				<data
+					android:host="*"
+					android:mimeType="*/*"
+					android:pathPattern=".*\\.elf"
+					android:scheme="file" />
+				<data
+					android:host="*"
+					android:mimeType="*/*"
+					android:pathPattern=".*\\.ISO"
+					android:scheme="file" />
+				<data
+					android:host="*"
+					android:mimeType="*/*"
+					android:pathPattern=".*\\.CSO"
+					android:scheme="file" />
+				<data
+					android:host="*"
+					android:mimeType="*/*"
+					android:pathPattern=".*\\.ELF"
+					android:scheme="file" />
+			</intent-filter>
+        </activity>
+        <meta-data android:name="isGame" android:value="true" />
+        <activity
+            android:name=".ShortcutActivity"
+            android:label="@string/shortcut_name"
+            android:exported="true">
+            <intent-filter>
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <action android:name="android.intent.action.CREATE_SHORTCUT" />
+            </intent-filter>
+        </activity>
+
+        <meta-data
+            android:name="xperiaplayoptimized_content"
+            android:resource="@drawable/ic_launcher" />
+    </application>
+
+</manifest>
