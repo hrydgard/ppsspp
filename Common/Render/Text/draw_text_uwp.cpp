@@ -41,7 +41,7 @@ public:
 			weight,
 			DWRITE_FONT_STYLE_NORMAL,
 			DWRITE_FONT_STRETCH_NORMAL,
-			MulDiv(height, (int)(96.0f * (1.0f / dpiScale)), 72),
+			MulDiv(height, (int)(96.0f * (1.0f / dpiScale)), 72.0f),
 			L"",
 			&textFmt
 		);
@@ -233,8 +233,8 @@ void TextDrawerUWP::MeasureString(const char *str, size_t len, float *w, float *
 		layout->Release();
 
 		entry = new TextMeasureEntry();
-		entry->width = metrics.width + 1;
-		entry->height = metrics.height + 1;
+		entry->width = metrics.width + 1.0f;
+		entry->height = metrics.height + 1.0f;
 		sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
 	}
 
