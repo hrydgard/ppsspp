@@ -144,6 +144,8 @@ public:
 	std::vector<std::string> vPinnedPaths;
 	std::string sLanguageIni;
 
+	std::string sIgnoreCompatSettings;
+
 	bool bDiscordPresence;  // Enables setting the Discord presence to the current game (or menu)
 
 	// GFX
@@ -212,6 +214,8 @@ public:
 	bool bTexHardwareScaling;
 	int iFpsLimit1;
 	int iFpsLimit2;
+	int iAnalogFpsLimit;
+	int iAnalogFpsMode; // 0 = auto, 1 = single direction, 2 = mapped to opposite
 	int iMaxRecent;
 	int iCurrentStateSlot;
 	int iRewindFlipFrequency;

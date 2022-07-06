@@ -31,6 +31,7 @@
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
+#include "Core/KeyMap.h"
 #include "Core/System.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
@@ -94,6 +95,7 @@ static float dp_yscale = 1.0f;
 static double lastSelectPress = 0.0f;
 static double lastStartPress = 0.0f;
 static bool simulateAnalog = false;
+static bool iCadeConnectNotified = false;
 static bool threadEnabled = true;
 static bool threadStopped = false;
 static UITouch *g_touches[10];
@@ -507,6 +509,11 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 
 - (void)buttonUp:(iCadeState)button
 {
+	if (!iCadeConnectNotified) {
+		iCadeConnectNotified = true;
+		KeyMap::NotifyPadConnected(DEVICE_ID_PAD_0, "iCade");
+	}
+
 	if (button == iCadeButtonA) {
 		// Pressing Select twice within 1 second toggles the DPad between
 		//     normal operation and simulating the Analog stick.

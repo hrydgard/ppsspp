@@ -18,11 +18,21 @@
 #include <cstring>
 
 #include "Common/Data/Format/IniFile.h"
+#include "Common/StringUtils.h"
 #include "Core/Compatibility.h"
+#include "Core/Config.h"
 #include "Core/System.h"
 
 void Compatibility::Load(const std::string &gameID) {
 	Clear();
+
+	// Allow ignoring compat settings by name (regardless of game ID.)
+	std::vector<std::string> ignored;
+	SplitString(g_Config.sIgnoreCompatSettings, ',', ignored);
+	ignored_ = std::set<std::string>(ignored.begin(), ignored.end());
+	// If ALL, don't process any compat flags.
+	if (ignored_.find("ALL") != ignored_.end())
+		return;
 
 	{
 		IniFile compat;
@@ -85,5 +95,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 }
 
 void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag) {
-	iniFile.Get(option, gameID.c_str(), flag, *flag);
+	if (ignored_.find(option) != ignored_.end()) {
+		iniFile.Get(option, gameID.c_str(), flag, *flag);
+	}
 }

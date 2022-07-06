@@ -8,6 +8,7 @@
 #include "Common/System/System.h"
 
 #include "Core/Config.h"
+#include "Core/KeyMap.h"
 #include "SDL/SDLJoystick.h"
 
 using namespace std;
@@ -54,11 +55,12 @@ void SDLJoystick::setUpControllers() {
 }
 
 void SDLJoystick::setUpController(int deviceIndex) {
+	static constexpr int cbGUID = 33;
+	char pszGUID[cbGUID];
+
 	if (!SDL_IsGameController(deviceIndex)) {
 		cout << "Control pad device " << deviceIndex << " not supported by SDL game controller database, attempting to create default mapping..." << endl;
-		int cbGUID = 33;
-		char pszGUID[cbGUID];
-		SDL_Joystick* joystick = SDL_JoystickOpen(deviceIndex);
+		SDL_Joystick *joystick = SDL_JoystickOpen(deviceIndex);
 		if (joystick) {
 			SDL_JoystickGetGUIDString(SDL_JoystickGetGUID(joystick), pszGUID, cbGUID);
 			// create default mapping - this is the PS3 dual shock mapping
@@ -73,6 +75,12 @@ void SDLJoystick::setUpController(int deviceIndex) {
 		} else {
 			cout << "Failed to get joystick identifier. Read-only device? Control pad device " + std::to_string(deviceIndex) << endl;
 		}
+	} else {
+		SDL_Joystick *joystick = SDL_JoystickOpen(deviceIndex);
+		if (joystick) {
+			SDL_JoystickGetGUIDString(SDL_JoystickGetGUID(joystick), pszGUID, cbGUID);
+			SDL_JoystickClose(joystick);
+		}
 	}
 	SDL_GameController *controller = SDL_GameControllerOpen(deviceIndex);
 	if (controller) {
@@ -80,6 +88,7 @@ void SDLJoystick::setUpController(int deviceIndex) {
 			controllers.push_back(controller);
 			controllerDeviceMap[SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(controller))] = deviceIndex;
 			cout << "found control pad: " << SDL_GameControllerName(controller) << ", loading mapping: ";
+			KeyMap::NotifyPadConnected(deviceIndex, std::string(pszGUID) + ": " + SDL_GameControllerName(controller));
 			auto mapping = SDL_GameControllerMapping(controller);
 			if (mapping == NULL) {
 				//cout << "FAILED" << endl;
