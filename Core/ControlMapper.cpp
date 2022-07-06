@@ -388,6 +388,9 @@ void ControlMapper::processAxis(const AxisInput &axis, int direction) {
 }
 
 void ControlMapper::ProcessAnalogSpeed(const AxisInput &axis, bool opposite) {
+	static constexpr float DEADZONE_THRESHOLD = 0.15f;
+	static constexpr float DEADZONE_SCALE = 1.0f / (1.0f - DEADZONE_THRESHOLD);
+
 	FPSLimit &limitMode = PSP_CoreParameter().fpsLimit;
 	// If we're using an alternate speed already, let that win.
 	if (limitMode != FPSLimit::NORMAL && limitMode != FPSLimit::ANALOG)
@@ -430,6 +433,9 @@ void ControlMapper::ProcessAnalogSpeed(const AxisInput &axis, bool opposite) {
 			value = -value;
 		value = 0.5f - value * 0.5f;
 	}
+
+	// Apply a small deadzone (against the resting position.)
+	value = std::max(0.0f, (value - DEADZONE_THRESHOLD) * DEADZONE_SCALE);
 
 	// If target is above 60, value is how much to speed up over 60.  Otherwise, it's how much slower.
 	// So normalize the target.
