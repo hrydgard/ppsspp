@@ -329,7 +329,7 @@ std::vector<std::string> GetWindowsDrives()
 
 			// advance to next drive
 			while (*drive++) {}
-}
+		}
 	}
 	return drives;
 #endif  // PPSSPP_PLATFORM(UWP)
