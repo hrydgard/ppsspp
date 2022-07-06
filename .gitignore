@@ -43,6 +43,7 @@ PPSSPPDebugARM64.exe.manifest
 PPSSPPDebugARM.exe.manifest
 assets/flash0
 UWP/icph
+UWP/*.ipch
 UWP/Content/*
 !UWP/Content/.empty
 UWP/.vs

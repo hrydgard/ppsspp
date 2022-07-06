@@ -31,6 +31,9 @@
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
+#if PPSSPP_PLATFORM(UWP)
+#include <fileapifromapp.h>
+#endif
 #else
 #include <fcntl.h>
 #endif
@@ -85,7 +88,7 @@ LocalFileLoader::LocalFileLoader(const Path &filename)
 
 	const DWORD access = GENERIC_READ, share = FILE_SHARE_READ, mode = OPEN_EXISTING, flags = FILE_ATTRIBUTE_NORMAL;
 #if PPSSPP_PLATFORM(UWP)
-	handle_ = CreateFile2(filename.ToWString().c_str(), access, share, mode, nullptr);
+	handle_ = CreateFile2FromAppW(filename.ToWString().c_str(), access, share, mode, nullptr);
 #else
 	handle_ = CreateFile(filename.ToWString().c_str(), access, share, nullptr, mode, flags, nullptr);
 #endif

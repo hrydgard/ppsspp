@@ -38,6 +38,9 @@
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 #include <sys/stat.h>
+#if PPSSPP_PLATFORM(UWP)
+#include <fileapifromapp.h>
+#endif
 #else
 #include <dirent.h>
 #include <unistd.h>
@@ -673,8 +676,11 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 
 	std::wstring w32path = GetLocalPath(path).ToWString() + L"\\*.*";
 
+#if PPSSPP_PLATFORM(UWP)
+	hFind = FindFirstFileExFromAppW(w32path.c_str(), FindExInfoStandard, &findData, FindExSearchNameMatch, NULL, 0);
+#else
 	hFind = FindFirstFileEx(w32path.c_str(), FindExInfoStandard, &findData, FindExSearchNameMatch, NULL, 0);
-
+#endif
 	if (hFind == INVALID_HANDLE_VALUE) {
 		return myVector; //the empty list
 	}

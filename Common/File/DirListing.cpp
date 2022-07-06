@@ -4,6 +4,9 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <direct.h>
+#if PPSSPP_PLATFORM(UWP)
+#include <fileapifromapp.h>
+#endif
 #else
 #include <strings.h>
 #include <dirent.h>
@@ -62,7 +65,11 @@ bool GetFileInfo(const Path &path, FileInfo * fileInfo) {
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	WIN32_FILE_ATTRIBUTE_DATA attrs;
+#if PPSSPP_PLATFORM(UWP)
+	if (!GetFileAttributesExFromAppW(path.ToWString().c_str(), GetFileExInfoStandard, &attrs)) {
+#else
 	if (!GetFileAttributesExW(path.ToWString().c_str(), GetFileExInfoStandard, &attrs)) {
+#endif
 		fileInfo->size = 0;
 		fileInfo->isDirectory = false;
 		fileInfo->exists = false;
@@ -206,7 +213,11 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 	}
 	// Find the first file in the directory.
 	WIN32_FIND_DATA ffd;
+#if PPSSPP_PLATFORM(UWP)
+	HANDLE hFind = FindFirstFileExFromAppW((directory.ToWString() + L"\\*").c_str(), FindExInfoStandard, &ffd, FindExSearchNameMatch, NULL, 0);
+#else
 	HANDLE hFind = FindFirstFileEx((directory.ToWString() + L"\\*").c_str(), FindExInfoStandard, &ffd, FindExSearchNameMatch, NULL, 0);
+#endif
 	if (hFind == INVALID_HANDLE_VALUE) {
 		return 0;
 	}
@@ -289,11 +300,21 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 // Returns a vector with the device names
 std::vector<std::string> GetWindowsDrives()
 {
-#if PPSSPP_PLATFORM(UWP)
-	return std::vector<std::string>();  // TODO UWP http://stackoverflow.com/questions/37404405/how-to-get-logical-drives-names-in-windows-10
-#else
 	std::vector<std::string> drives;
 
+#if PPSSPP_PLATFORM(UWP)
+	DWORD logicaldrives = GetLogicalDrives();
+	for (int i = 0; i < 26; i++)
+	{
+		if (logicaldrives & (1 << i))
+		{
+			CHAR driveName[] = { TEXT('A') + i, TEXT(':'), TEXT('\\'), TEXT('\0') };
+			std::string str(driveName);
+			drives.push_back(driveName);
+		}
+	}
+	return drives;
+#else
 	const DWORD buffsize = GetLogicalDriveStrings(0, NULL);
 	std::vector<wchar_t> buff(buffsize);
 	if (GetLogicalDriveStrings(buffsize, buff.data()) == buffsize - 1)
