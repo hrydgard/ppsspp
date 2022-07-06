@@ -4,13 +4,14 @@
 #include <algorithm>
 
 #include "Common/System/NativeApp.h"
-#include "Core/Config.h"
 #include "Common/CommonWindows.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
 #include "XinputDevice.h"
+#include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/KeyMap.h"
 #include "Core/HLE/sceCtrl.h"
@@ -21,11 +22,21 @@ static double newVibrationTime = 0.0;
 
 #if !PPSSPP_PLATFORM(UWP)
 
+struct XINPUT_CAPABILITIES_EX {
+	XINPUT_CAPABILITIES Capabilities;
+	WORD vendorId;
+	WORD productId;
+	WORD revisionId;
+	DWORD a4; //unknown
+};
+
 typedef DWORD (WINAPI *XInputGetState_t) (DWORD dwUserIndex, XINPUT_STATE* pState);
 typedef DWORD (WINAPI *XInputSetState_t) (DWORD dwUserIndex, XINPUT_VIBRATION* pVibration);
+typedef DWORD (WINAPI *XInputGetCapabilitiesEx_t) (DWORD unknown, DWORD dwUserIndex, DWORD flags, XINPUT_CAPABILITIES_EX *pCapabilities);
 
 static XInputGetState_t PPSSPP_XInputGetState = nullptr;
 static XInputSetState_t PPSSPP_XInputSetState = nullptr;
+static XInputGetCapabilitiesEx_t PPSSPP_XInputGetCapabilitiesEx = nullptr;
 static DWORD PPSSPP_XInputVersion = 0;
 static HMODULE s_pXInputDLL = 0;
 static int s_XInputDLLRefCount = 0;
@@ -81,6 +92,10 @@ static int LoadXInputDLL() {
 	if (!PPSSPP_XInputSetState) {
 		UnloadXInputDLL();
 		return -1;
+	}
+
+	if (PPSSPP_XInputVersion >= ((1 << 16) | 4)) {
+		PPSSPP_XInputGetCapabilitiesEx = (XInputGetCapabilitiesEx_t)GetProcAddress((HMODULE)s_pXInputDLL, (LPCSTR)108);
 	}
 
 	return 0;
@@ -187,10 +202,19 @@ int XinputDevice::UpdateState() {
 }
 
 void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATION &vibration) {
-	static bool notified = false;
-	if (!notified) {
-		notified = true;
-		KeyMap::NotifyPadConnected("Xbox 360 Pad");
+	static bool notified[XUSER_MAX_COUNT]{};
+	if (!notified[pad]) {
+		notified[pad] = true;
+#if !PPSSPP_PLATFORM(UWP)
+		XINPUT_CAPABILITIES_EX caps;
+		if (PPSSPP_XInputGetCapabilitiesEx != nullptr && PPSSPP_XInputGetCapabilitiesEx(1, pad, 0, &caps) == ERROR_SUCCESS) {
+			KeyMap::NotifyPadConnected(DEVICE_ID_XINPUT_0 + pad, StringFromFormat("Xbox 360 Pad: %d/%d", caps.vendorId, caps.productId));
+		} else {
+#else
+		{
+#endif
+			KeyMap::NotifyPadConnected(DEVICE_ID_XINPUT_0 + pad, "Xbox 360 Pad");
+		}
 	}
 	ApplyButtons(pad, state);
 	ApplyVibration(pad, vibration);

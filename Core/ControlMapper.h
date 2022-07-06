@@ -33,6 +33,7 @@ private:
 	void setVKeyAnalog(char axis, int stick, int virtualKeyMin, int virtualKeyMax, bool setZero = true);
 
 	void SetPSPAxis(char axis, float value, int stick);
+	void ProcessAnalogSpeed(const AxisInput &axis, bool opposite);
 
 	void onVKeyDown(int vkey);
 	void onVKeyUp(int vkey);
