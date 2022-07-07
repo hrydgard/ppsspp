@@ -66,7 +66,7 @@ android {
 			versionName ANDROID_VERSION_NAME
 		}
 		ndk {
-			abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+			abiFilters 'arm64-v8a'
 		}
 		signingConfig signingConfigs.debug
 	}
@@ -99,9 +99,8 @@ android {
 			java.srcDirs = ['../android/src']
 			aidl.srcDirs = ['../android/src']
 			resources.srcDirs = ['../android/src']
-			assets.srcDirs = [
-					'../assets',
-			]
+			assets.srcDirs = ['../assets']
+			jniLibs.srcDirs = ['libs']
 		}
 		gold {
 			res.srcDirs = ['../android/gold/res']
@@ -120,7 +119,7 @@ android {
 							'-DANDROID_CPP_FEATURES=',
 							'-DANDROID_STL=c++_static',
 							'-DANDROID_ARM_NEON=TRUE',
-					        '-DOPENXR=TRUE'
+							'-DOPENXR=TRUE'
 				}
 			}
 		}

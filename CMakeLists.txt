@@ -118,6 +118,8 @@ add_definitions(-DASSETS_DIR="${CMAKE_INSTALL_FULL_DATADIR}/ppsspp/assets/")
 
 if(OPENXR)
 	add_definitions(-DOPENXR)
+	include_directories(ext/openxr)
+	link_directories(quest/libs/arm64-v8a)
 	message("OpenXR enabled")
 endif()
 
