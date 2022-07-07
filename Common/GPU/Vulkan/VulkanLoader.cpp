@@ -307,8 +307,8 @@ void VulkanSetAvailable(bool available) {
 bool VulkanMayBeAvailable() {
 
 #ifdef OPENXR
-    //unsupported at the moment
-    return false;
+	//unsupported at the moment
+	return false;
 #endif
 
 	if (g_vulkanAvailabilityChecked) {
