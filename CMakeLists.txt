@@ -118,7 +118,7 @@ add_definitions(-DASSETS_DIR="${CMAKE_INSTALL_FULL_DATADIR}/ppsspp/assets/")
 
 if(OPENXR)
 	add_definitions(-DOPENXR)
-	include_directories(ext/openxr)
+	include_directories(ext/openxr vr)
 	link_directories(quest/libs/arm64-v8a)
 	message("OpenXR enabled")
 endif()
@@ -1063,6 +1063,13 @@ if(ANDROID)
 		android/jni/OpenSLContext.cpp
 		android/jni/OpenSLContext.h
 	)
+
+	if (OPENXR)
+		set(nativeExtra ${nativeExtra}
+			VR/VRFramebuffer.c
+			VR/VRFramebuffer.h
+		)
+	endif()
 	# No target
 elseif(IOS)
 	set(nativeExtra ${nativeExtra}
