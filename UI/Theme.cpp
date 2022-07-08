@@ -37,21 +37,21 @@ struct ThemeInfo {
 	std::string name;
 
 	uint32_t uItemStyleFg = 0xFFFFFFFF;
-	uint32_t uItemStyleBg = 0x00000055;
+	uint32_t uItemStyleBg = 0x55000000;
 	uint32_t uItemFocusedStyleFg = 0xFFFFFFFF;
-	uint32_t uItemFocusedStyleBg = 0x4CC2EDFF;
+	uint32_t uItemFocusedStyleBg = 0xFFEDC24C;
 	uint32_t uItemDownStyleFg = 0xFFFFFFFF;
-	uint32_t uItemDownStyleBg = 0x3999BDFF;
-	uint32_t uItemDisabledStyleFg = 0xEEEEEE80;
-	uint32_t uItemDisabledStyleBg = 0x00000055;
+	uint32_t uItemDownStyleBg = 0xFFBD9939;
+	uint32_t uItemDisabledStyleFg = 0x80EEEEEE;
+	uint32_t uItemDisabledStyleBg = 0x55000000;
 
 	uint32_t uHeaderStyleFg = 0xFFFFFFFF;
 	uint32_t uInfoStyleFg = 0xFFFFFFFF;
 	uint32_t uInfoStyleBg = 0x00000000;
-	uint32_t uPopupTitleStyleFg = 0x59BEE3FF;
+	uint32_t uPopupTitleStyleFg = 0xFFE3BE59;
 	uint32_t uPopupStyleFg = 0xFFFFFFFF;
-	uint32_t uPopupStyleBg = 0x303030FF;
-	uint32_t uBackgroundColor = 0x244D75FF;
+	uint32_t uPopupStyleBg = 0xFF303030;
+	uint32_t uBackgroundColor = 0xFF754D24;
 
 	std::string sUIAtlas = "ui_atlas";
 
@@ -69,38 +69,10 @@ static std::vector<ThemeInfo> themeInfos;
 static Atlas ui_atlas;
 static Atlas font_atlas;
 
-static void FlipColorEndianess(ThemeInfo &info) {
-	auto convert = [](uint32_t abgr) {
-		int a = (abgr >> 24) & 0xff;
-		int b = (abgr >> 16) & 0xff;
-		int g = (abgr >> 8) & 0xff;
-		int r = abgr & 0xff;
-		return (r << 24) | (g << 16) | (b << 8) | a;
-	};
-
-	info.uItemStyleFg = convert(info.uItemStyleFg);
-	info.uItemStyleBg = convert(info.uItemStyleBg);
-	info.uItemFocusedStyleFg = convert(info.uItemFocusedStyleFg);
-	info.uItemFocusedStyleBg = convert(info.uItemFocusedStyleBg);
-	info.uItemDownStyleFg = convert(info.uItemDownStyleFg);
-	info.uItemDownStyleBg = convert(info.uItemDownStyleBg);
-	info.uItemDisabledStyleFg = convert(info.uItemDisabledStyleFg);
-	info.uItemDisabledStyleBg = convert(info.uItemDisabledStyleBg);
-
-	info.uHeaderStyleFg = convert(info.uHeaderStyleFg);
-	info.uInfoStyleFg = convert(info.uInfoStyleFg);
-	info.uInfoStyleBg = convert(info.uInfoStyleBg);
-	info.uPopupTitleStyleFg = convert(info.uPopupTitleStyleFg);
-	info.uPopupStyleFg = convert(info.uPopupStyleFg);
-	info.uPopupStyleBg = convert(info.uPopupStyleBg);
-	info.uBackgroundColor = convert(info.uBackgroundColor);
-}
-
 static void LoadThemeInfo(const std::vector<Path> &directories) {
 	themeInfos.clear();
 	ThemeInfo def{};
 	def.name = "Default";
-	FlipColorEndianess(def);
 	themeInfos.push_back(def);
 
 	// This will update the theme if already present, as such default in assets/theme will get priority if exist
@@ -176,7 +148,6 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 					}
 				}
 
-				FlipColorEndianess(info);
 				appendTheme(info);
 			}
 		}
