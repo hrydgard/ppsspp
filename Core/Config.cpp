@@ -547,21 +547,6 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("GridView1", &g_Config.bGridView1, true),
 	ConfigSetting("GridView2", &g_Config.bGridView2, true),
 	ConfigSetting("GridView3", &g_Config.bGridView3, false),
-	ConfigSetting("RightAnalogUp", &g_Config.iRightAnalogUp, 0, true, true),
-	ConfigSetting("RightAnalogDown", &g_Config.iRightAnalogDown, 0, true, true),
-	ConfigSetting("RightAnalogLeft", &g_Config.iRightAnalogLeft, 0, true, true),
-	ConfigSetting("RightAnalogRight", &g_Config.iRightAnalogRight, 0, true, true),
-	ConfigSetting("RightAnalogPress", &g_Config.iRightAnalogPress, 0, true, true),
-	ConfigSetting("RightAnalogCustom", &g_Config.bRightAnalogCustom, false, true, true),
-	ConfigSetting("RightAnalogDisableDiagonal", &g_Config.bRightAnalogDisableDiagonal, false, true, true),
-	ConfigSetting("SwipeUp", &g_Config.iSwipeUp, 0, true, true),
-	ConfigSetting("SwipeDown", &g_Config.iSwipeDown, 0, true, true),
-	ConfigSetting("SwipeLeft", &g_Config.iSwipeLeft, 0, true, true),
-	ConfigSetting("SwipeRight", &g_Config.iSwipeRight, 0, true, true),
-	ConfigSetting("SwipeSensitivity", &g_Config.fSwipeSensitivity, 1.0f, true, true),
-	ConfigSetting("SwipeSmoothing", &g_Config.fSwipeSmoothing, 0.3f, true, true),
-	ConfigSetting("DoubleTapGesture", &g_Config.iDoubleTapGesture, 0, true, true),
-	ConfigSetting("GestureControlEnabled", &g_Config.bGestureControlEnabled, false, true, true),
 
 	// "default" means let emulator decide, "" means disable.
 	ConfigSetting("ReportingHost", &g_Config.sReportHost, "default"),
@@ -606,6 +591,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("EnablePlugins", &g_Config.bLoadPlugins, true, true, true),
 
 	ReportedConfigSetting("IgnoreCompatSettings", &g_Config.sIgnoreCompatSettings, "", true, true),
+	ConfigSetting("SettingsVersion", &g_Config.uSettingsVersion, 0u, true, true), // Per game for game configs
 };
 
 static bool DefaultSasThread() {
@@ -1039,6 +1025,23 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("MouseSensitivity", &g_Config.fMouseSensitivity, 0.1f, true, true),
 	ConfigSetting("MouseSmoothing", &g_Config.fMouseSmoothing, 0.9f, true, true),
 
+	ConfigSetting("RightAnalogUp", &g_Config.iRightAnalogUp, 0, true, true),
+	ConfigSetting("RightAnalogDown", &g_Config.iRightAnalogDown, 0, true, true),
+	ConfigSetting("RightAnalogLeft", &g_Config.iRightAnalogLeft, 0, true, true),
+	ConfigSetting("RightAnalogRight", &g_Config.iRightAnalogRight, 0, true, true),
+	ConfigSetting("RightAnalogPress", &g_Config.iRightAnalogPress, 0, true, true),
+	ConfigSetting("RightAnalogCustom", &g_Config.bRightAnalogCustom, false, true, true),
+	ConfigSetting("RightAnalogDisableDiagonal", &g_Config.bRightAnalogDisableDiagonal, false, true, true),
+
+	ConfigSetting("SwipeUp", &g_Config.iSwipeUp, 0, true, true),
+	ConfigSetting("SwipeDown", &g_Config.iSwipeDown, 0, true, true),
+	ConfigSetting("SwipeLeft", &g_Config.iSwipeLeft, 0, true, true),
+	ConfigSetting("SwipeRight", &g_Config.iSwipeRight, 0, true, true),
+	ConfigSetting("SwipeSensitivity", &g_Config.fSwipeSensitivity, 1.0f, true, true),
+	ConfigSetting("SwipeSmoothing", &g_Config.fSwipeSmoothing, 0.3f, true, true),
+	ConfigSetting("DoubleTapGesture", &g_Config.iDoubleTapGesture, 0, true, true),
+	ConfigSetting("GestureControlEnabled", &g_Config.bGestureControlEnabled, false, true, true),
+
 	ConfigSetting("SystemControls", &g_Config.bSystemControls, true, true, false),
 };
 
@@ -1315,6 +1318,24 @@ void Config::UpdateAfterSettingAutoFrameSkip() {
 	}
 }
 
+static void loadOldControlSettings(IniFile &iniFile) {
+	iniFile.GetIfExists("General", "RightAnalogUp", &g_Config.iRightAnalogUp);
+	iniFile.GetIfExists("General", "RightAnalogDown", &g_Config.iRightAnalogDown);
+	iniFile.GetIfExists("General", "RightAnalogLeft", &g_Config.iRightAnalogLeft);
+	iniFile.GetIfExists("General", "RightAnalogRight", &g_Config.iRightAnalogRight);
+	iniFile.GetIfExists("General", "RightAnalogPress", &g_Config.iRightAnalogPress);
+	iniFile.GetIfExists("General", "SwipeUp", &g_Config.iSwipeUp);
+	iniFile.GetIfExists("General", "SwipeDown", &g_Config.iSwipeDown);
+	iniFile.GetIfExists("General", "SwipeLeft", &g_Config.iSwipeLeft);
+	iniFile.GetIfExists("General", "SwipeRight", &g_Config.iSwipeRight);
+	iniFile.GetIfExists("General", "DoubleTapGesture", &g_Config.iDoubleTapGesture);
+	iniFile.GetIfExists("General", "SwipeSensitivity", &g_Config.fSwipeSensitivity);
+	iniFile.GetIfExists("General", "SwipeSmoothing", &g_Config.fSwipeSmoothing);
+	iniFile.GetIfExists("General", "RightAnalogCustom", &g_Config.bRightAnalogCustom);
+	iniFile.GetIfExists("General", "RightAnalogDisableDiagonal", &g_Config.bRightAnalogDisableDiagonal);
+	iniFile.GetIfExists("General", "GestureControlEnabled", &g_Config.bGestureControlEnabled);
+}
+
 void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	if (!bUpdatedInstanceCounter) {
 		InitInstanceCounter();
@@ -1419,6 +1440,12 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		ResetControlLayout();
 	}
 
+	if (g_Config.uSettingsVersion == 0) {
+		g_Config.uSettingsVersion = 1;
+
+		loadOldControlSettings(iniFile);
+	}
+
 	const char *gitVer = PPSSPP_GIT_VERSION;
 	Version installed(gitVer);
 	Version upgrade(upgradeVersion);
@@ -1464,6 +1491,58 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	PostLoadCleanup(false);
 
 	INFO_LOG(LOADER, "Config loaded: '%s'", iniFilename_.c_str());
+}
+
+bool Config::SaveControllerProfile(uint32_t id) {
+	IniFile iniFile;
+	if (!iniFile.Load(controllerIniFilename_)) {
+		ERROR_LOG(LOADER, "Error saving controller profile - can't read ini '%s'", controllerIniFilename_.c_str());
+		return false;
+	}
+
+	Section *section = iniFile.GetOrCreateSection(StringFromFormat("ControlProfile%uSettings", id).c_str());
+	for (auto &setting : controlSettings) {
+		setting.Set(section);
+	}
+
+	KeyMap::SaveToIni(iniFile, StringFromFormat("ControlProfile%uMapping", id).c_str());
+
+	if (!iniFile.Save(controllerIniFilename_)) {
+		ERROR_LOG(LOADER, "Error saving controller profile - can't write ini '%s'", controllerIniFilename_.c_str());
+		return false;
+	}
+
+	return true;
+}
+
+bool Config::ControllerProfileExist(uint32_t id) {
+	IniFile iniFile;
+	if (!iniFile.Load(controllerIniFilename_)) {
+		ERROR_LOG(LOADER, "Error checking controller profile - can't read ini '%s'", controllerIniFilename_.c_str());
+		return false;
+	}
+
+	return iniFile.HasSection(StringFromFormat("ControlProfile%uSettings", id).c_str());
+}
+
+bool Config::LoadControllerProfile(uint32_t id) {
+	IniFile iniFile;
+	if (!iniFile.Load(controllerIniFilename_)) {
+		ERROR_LOG(LOADER, "Error loading controller profile - can't read ini '%s'", controllerIniFilename_.c_str());
+		return false;
+	}
+
+	if (!iniFile.HasSection(StringFromFormat("ControlProfile%uSettings", id).c_str()))
+		return false;
+
+	Section *section = iniFile.GetOrCreateSection(StringFromFormat("ControlProfile%uSettings", id).c_str());
+	for (auto &setting : controlSettings) {
+		setting.Get(section);
+	}
+
+	KeyMap::LoadFromIni(iniFile, StringFromFormat("ControlProfile%uMapping", id).c_str());
+
+	return true;
 }
 
 bool Config::Save(const char *saveReason) {
@@ -1943,6 +2022,12 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 			setting.Get(section);
 		}
 	});
+
+	if (g_Config.uSettingsVersion == 0) {
+		g_Config.uSettingsVersion = 1;
+
+		loadOldControlSettings(iniFile);
+	}
 
 	KeyMap::LoadFromIni(iniFile);
 

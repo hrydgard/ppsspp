@@ -754,6 +754,26 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		if (down)
 			g_Config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL180;
 		break;
+	case VIRTKEY_CONTROLLER_PROFILE_1:
+		g_Config.LoadControllerProfile(1);
+		RecreateViews();
+		break;
+	case VIRTKEY_CONTROLLER_PROFILE_2:
+		g_Config.LoadControllerProfile(2);
+		RecreateViews();
+		break;
+	case VIRTKEY_CONTROLLER_PROFILE_3:
+		g_Config.LoadControllerProfile(3);
+		RecreateViews();
+		break;
+	case VIRTKEY_CONTROLLER_PROFILE_4:
+		g_Config.LoadControllerProfile(4);
+		RecreateViews();
+		break;
+	case VIRTKEY_CONTROLLER_PROFILE_5:
+		g_Config.LoadControllerProfile(5);
+		RecreateViews();
+		break;
 	}
 }
 

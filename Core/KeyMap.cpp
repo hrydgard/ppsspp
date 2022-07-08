@@ -421,6 +421,12 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{CTRL_VOL_DOWN, "Vol -"},
 	{CTRL_SCREEN, "Screen"},
 	{CTRL_NOTE, "Note"},
+
+	{VIRTKEY_CONTROLLER_PROFILE_1, "Load control profile 1"},
+	{VIRTKEY_CONTROLLER_PROFILE_2, "Load control profile 2"},
+	{VIRTKEY_CONTROLLER_PROFILE_3, "Load control profile 3"},
+	{VIRTKEY_CONTROLLER_PROFILE_4, "Load control profile 4"},
+	{VIRTKEY_CONTROLLER_PROFILE_5, "Load control profile 5"},
 };
 
 static std::string FindName(int key, const KeyMap_IntStrPair list[], size_t size) {
@@ -647,13 +653,13 @@ void RestoreDefault() {
 }
 
 // TODO: Make the ini format nicer.
-void LoadFromIni(IniFile &file) {
+void LoadFromIni(IniFile &file, const char *section) {
 	RestoreDefault();
-	if (!file.HasSection("ControlMapping")) {
+	if (!file.HasSection("ControlMapping")) { // Only on default section
 		return;
 	}
 
-	Section *controls = file.GetOrCreateSection("ControlMapping");
+	Section *controls = file.GetOrCreateSection(section);
 	for (size_t i = 0; i < ARRAY_SIZE(psp_button_names); i++) {
 		std::string value;
 		controls->Get(psp_button_names[i].name, &value, "");
@@ -680,8 +686,8 @@ void LoadFromIni(IniFile &file) {
 	UpdateNativeMenuKeys();
 }
 
-void SaveToIni(IniFile &file) {
-	Section *controls = file.GetOrCreateSection("ControlMapping");
+void SaveToIni(IniFile &file, const char *section) {
+	Section *controls = file.GetOrCreateSection(section);
 
 	for (size_t i = 0; i < ARRAY_SIZE(psp_button_names); i++) {
 		std::vector<InputMapping> keys;

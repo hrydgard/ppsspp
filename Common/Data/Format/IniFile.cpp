@@ -717,6 +717,18 @@ bool IniFile::Get(const char* sectionName, const char* key, bool* value, bool de
 	}
 }
 
+bool IniFile::Get(const char* sectionName, const char* key, float* value, float defaultValue)
+{
+	Section *section = GetSection(sectionName);
+	if (!section) {
+		*value = defaultValue;
+		return false;
+	} else {
+		return section->Get(key, value, defaultValue);
+	}
+}
+
+
 
 // Unit test. TODO: Move to the real unit test framework.
 /*
