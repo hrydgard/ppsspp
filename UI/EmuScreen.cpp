@@ -96,6 +96,10 @@ using namespace std::placeholders;
 static AVIDump avi;
 #endif
 
+#ifdef OPENXR
+#include "VR/VRBase.h"
+#endif
+
 // TODO: Ugly!
 static bool frameStep_;
 static int lastNumFlips;
@@ -189,6 +193,10 @@ EmuScreen::EmuScreen(const Path &filename)
 	// Usually, we don't want focus movement enabled on this screen, so disable on start.
 	// Only if you open chat or dev tools do we want it to start working.
 	UI::EnableFocusMovement(false);
+
+#ifdef OPENXR
+	VR_EnterVR(VR_GetEngine());
+#endif
 }
 
 bool EmuScreen::bootAllowStorage(const Path &filename) {

@@ -6,8 +6,6 @@
 #define XR_USE_PLATFORM_ANDROID 1
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
-#include <GLES3/gl3.h>
-#include <GLES3/gl3ext.h>
 #include <jni.h>
 #include <math.h>
 #include <openxr.h>
@@ -58,8 +56,8 @@ typedef struct {
     uint32_t TextureSwapChainIndex;
     ovrSwapChain ColorSwapChain;
     XrSwapchainImageOpenGLESKHR* ColorSwapChainImage;
-    GLuint* DepthBuffers;
-    GLuint* FrameBuffers;
+    unsigned int* DepthBuffers;
+    unsigned int* FrameBuffers;
 } ovrFramebuffer;
 
 typedef struct {
@@ -67,13 +65,13 @@ typedef struct {
 } ovrRenderer;
 
 typedef struct {
-    GLboolean Active;
+    int Active;
     XrPosef Pose;
 } ovrTrackedController;
 
 typedef struct {
     ovrEgl Egl;
-    GLboolean Focused;
+    int Focused;
 
     XrInstance Instance;
     XrSession Session;
@@ -84,7 +82,7 @@ typedef struct {
     XrSpace StageSpace;
     XrSpace FakeStageSpace;
     XrSpace CurrentSpace;
-    GLboolean SessionActive;
+    int SessionActive;
 
     int SwapInterval;
     // These threads will be marked as performance threads.
@@ -93,7 +91,7 @@ typedef struct {
     ovrCompositorLayer_Union Layers[ovrMaxLayerCount];
     int LayerCount;
 
-    GLboolean TouchPadDownLastFrame;
+    int TouchPadDownLastFrame;
     ovrRenderer Renderer;
     ovrTrackedController TrackedController[2];
 } ovrApp;
@@ -138,7 +136,7 @@ typedef struct {
 
 void ovrApp_Clear(ovrApp* app);
 void ovrApp_Destroy(ovrApp* app);
-GLboolean ovrApp_HandleXrEvents(ovrApp* app);
+int ovrApp_HandleXrEvents(ovrApp* app);
 
 void ovrEgl_CreateContext(ovrEgl* egl, const ovrEgl* shareEgl);
 void ovrEgl_DestroyContext(ovrEgl* egl);

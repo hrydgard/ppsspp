@@ -17,6 +17,8 @@ Copyright : Copyright (c) Facebook Technologies, LLC and its affiliates. All rig
 #include <pthread.h>
 #include <sys/prctl.h>
 #include <assert.h>
+#include <GLES3/gl3.h>
+#include <GLES3/gl3ext.h>
 
 /*
 ================================================================================
@@ -420,9 +422,9 @@ void ovrApp_HandleSessionStateChanges(ovrApp* app, XrSessionState state) {
     }
 }
 
-GLboolean ovrApp_HandleXrEvents(ovrApp* app) {
+int ovrApp_HandleXrEvents(ovrApp* app) {
     XrEventDataBuffer eventDataBuffer = {};
-    GLboolean recenter = GL_FALSE;
+    int recenter = 0;
 
     // Poll for events
     for (;;) {
@@ -467,7 +469,7 @@ GLboolean ovrApp_HandleXrEvents(ovrApp* app) {
                         ref_space_change_event->referenceSpaceType,
                         (void*)ref_space_change_event->session,
                         FromXrTime(ref_space_change_event->changeTime));
-                recenter = GL_TRUE;
+                recenter = 1;
             } break;
             case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED: {
                 const XrEventDataSessionStateChanged* session_state_changed_event =

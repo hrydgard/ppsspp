@@ -843,7 +843,11 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("CardboardXShift", &g_Config.iCardboardXShift, 0, true, true),
 	ConfigSetting("CardboardYShift", &g_Config.iCardboardYShift, 0, true, true),
 	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0, true, true),
+#ifdef OPENXR
+	g_Config.iGPUBackend = (int)GPUBackend::OPENGL,
+#else
 	ReportedConfigSetting("GraphicsBackend", &g_Config.iGPUBackend, &DefaultGPUBackend, &GPUBackendTranslator::To, &GPUBackendTranslator::From, true, false),
+#endif
 	ConfigSetting("FailedGraphicsBackends", &g_Config.sFailedGPUBackends, ""),
 	ConfigSetting("DisabledGraphicsBackends", &g_Config.sDisabledGPUBackends, ""),
 	ConfigSetting("VulkanDevice", &g_Config.sVulkanDevice, "", true, false),

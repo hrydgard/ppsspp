@@ -93,6 +93,10 @@ struct JNIEnv {};
 #include "Common/Log.h"
 #include "UI/GameInfoCache.h"
 
+#ifdef OPENXR
+#include "VR/VRBase.h"
+#endif
+
 #include "app-android.h"
 
 bool useCPUThread = true;
@@ -753,6 +757,13 @@ retry:
 		INFO_LOG(SYSTEM, "NativeApp.init() - launching emu thread");
 		EmuThreadStart();
 	}
+
+#ifdef OPENXR
+	ovrJava java;
+	java.Vm = gJvm;
+	java.ActivityObject = nativeActivity;
+	VR_Init(java);
+#endif
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioInit(JNIEnv *, jclass) {

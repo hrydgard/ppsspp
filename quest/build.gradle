@@ -100,7 +100,6 @@ android {
 			aidl.srcDirs = ['../android/src']
 			resources.srcDirs = ['../android/src']
 			assets.srcDirs = ['../assets']
-			jniLibs.srcDirs = ['libs']
 		}
 		gold {
 			res.srcDirs = ['../android/gold/res']

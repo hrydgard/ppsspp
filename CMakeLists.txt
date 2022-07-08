@@ -118,8 +118,9 @@ add_definitions(-DASSETS_DIR="${CMAKE_INSTALL_FULL_DATADIR}/ppsspp/assets/")
 
 if(OPENXR)
 	add_definitions(-DOPENXR)
-	include_directories(ext/openxr vr)
-	link_directories(quest/libs/arm64-v8a)
+	add_library(openxr SHARED IMPORTED)
+	include_directories(ext/openxr)
+	set_property(TARGET openxr PROPERTY IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/ext/openxr/libs/arm64-v8a/libopenxr_loader.so")
 	message("OpenXR enabled")
 endif()
 
@@ -1066,9 +1067,12 @@ if(ANDROID)
 
 	if (OPENXR)
 		set(nativeExtra ${nativeExtra}
-			VR/VRFramebuffer.c
+			VR/VRBase.cpp
+			VR/VRBase.h
+			VR/VRFramebuffer.cpp
 			VR/VRFramebuffer.h
 		)
+		set(nativeExtraLibs ${nativeExtraLibs} openxr)
 	endif()
 	# No target
 elseif(IOS)
