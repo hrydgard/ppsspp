@@ -61,6 +61,13 @@ static bool ParseLineKey(const std::string &line, size_t &pos, std::string *keyO
 static bool ParseLineValue(const std::string &line, size_t &pos, std::string *valueOut) {
 	std::string value = "";
 
+	std::string strippedLine = StripSpaces(line.substr(pos));
+	if (strippedLine[0] == '"' && strippedLine[strippedLine.size()-1] == '"') {
+		// Don't remove comment if is surrounded by " "
+		value += line.substr(pos);
+		pos = line.npos; // Won't enter the while below
+	}
+
 	while (pos < line.size()) {
 		size_t next = line.find('#', pos);
 		if (next == line.npos) {
@@ -117,6 +124,7 @@ static bool ParseLine(const std::string& line, std::string* keyOut, std::string*
 	// 3. A \# in a line is not part of a comment and becomes # in the value.
 	// 4. Whitespace around values is removed.
 	// 5. Double quotes around values is removed.
+	// 6. Value surrounded by double quotes don't parsed to strip comment.
 
 	if (line.size() < 2 || line[0] == ';')
 		return false;
