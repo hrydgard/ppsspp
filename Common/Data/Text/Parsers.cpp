@@ -63,7 +63,7 @@ bool ParseMacAddress(std::string str, uint8_t macAddr[6]) {
 	return true;
 }
 
-static bool ParseUnsigned32(const std::string &str, uint32_t *const output) {
+static bool TryParseUnsigned32(const std::string &str, uint32_t *const output) {
 	char *endptr = NULL;
 
 	// Holy crap this is ugly.
@@ -95,11 +95,11 @@ static bool ParseUnsigned32(const std::string &str, uint32_t *const output) {
 
 bool TryParse(const std::string &str, uint32_t *const output) {
 	if (str[0] != '#') {
-		return ParseUnsigned32(str, output);
+		return TryParseUnsigned32(str, output);
 	} else {
 		// Parse it as "#RGBA" and convert to a ABGR interger
 		std::string s = ReplaceAll(str, "#", "0x");
-		if (ParseUnsigned32(s, output)) {
+		if (TryParseUnsigned32(s, output)) {
 			int a = (*output >> 24) & 0xff;
 			int b = (*output >> 16) & 0xff;
 			int g = (*output >> 8) & 0xff;
