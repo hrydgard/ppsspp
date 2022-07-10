@@ -416,7 +416,7 @@ bool VulkanMayBeAvailable() {
 	return false;
 }
 
-void SystemToast(const char *str) {}
+void System_Toast(const char *str) {}
 
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {

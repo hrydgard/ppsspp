@@ -146,7 +146,7 @@ static void StopSDLAudioDevice() {
 // Simple implementations of System functions
 
 
-void SystemToast(const char *text) {
+void System_Toast(const char *text) {
 #ifdef _WIN32
 	std::wstring str = ConvertUTF8ToWString(text);
 	MessageBox(0, str.c_str(), L"Toast!", MB_ICONINFORMATION);

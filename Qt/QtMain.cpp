@@ -280,7 +280,7 @@ void System_SendMessage(const char *command, const char *parameter) {
 #endif
 	}
 }
-void SystemToast(const char *text) {}
+void System_Toast(const char *text) {}
 
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }

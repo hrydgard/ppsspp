@@ -329,7 +329,7 @@ void PushCommand(std::string cmd, std::string param) {
 }
 
 // Android implementation of callbacks to the Java part of the app
-void SystemToast(const char *text) {
+void System_Toast(const char *text) {
 	PushCommand("toast", text);
 }
 
@@ -894,7 +894,7 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 		INFO_LOG(G3D, "Shut down both threads. Now let's bring it up again!");
 
 		if (!graphicsContext->InitFromRenderThread(nullptr, 0, 0, 0, 0)) {
-			SystemToast("Graphics initialization failed. Quitting.");
+			System_Toast("Graphics initialization failed. Quitting.");
 			return false;
 		}
 
@@ -907,7 +907,7 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 		} else {
 			if (!NativeInitGraphics(graphicsContext)) {
 				// Gonna be in a weird state here, not good.
-				SystemToast("Failed to initialize graphics.");
+				System_Toast("Failed to initialize graphics.");
 				return false;
 			}
 		}
@@ -917,7 +917,7 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 	} else {
 		INFO_LOG(G3D, "NativeApp.displayInit() first time");
 		if (!graphicsContext->InitFromRenderThread(nullptr, 0, 0, 0, 0)) {
-			SystemToast("Graphics initialization failed. Quitting.");
+			System_Toast("Graphics initialization failed. Quitting.");
 			return false;
 		}
 
@@ -1385,7 +1385,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 			return true;
 		} else {
 			ERROR_LOG(G3D, "Failed to initialize graphics context.");
-			SystemToast("Failed to initialize graphics context.");
+			System_Toast("Failed to initialize graphics context.");
 			return false;
 		}
 	};

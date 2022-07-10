@@ -430,7 +430,7 @@ void System_InputBoxGetString(const std::string &title, const std::string &defau
 	});
 }
 
-void SystemToast(const char *text) {
+void System_Toast(const char *text) {
 	// Not-very-good implementation. Will normally not be used on Windows anyway.
 	std::wstring str = ConvertUTF8ToWString(text);
 	MessageBox(0, str.c_str(), L"Toast!", MB_ICONINFORMATION);

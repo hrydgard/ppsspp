@@ -17,7 +17,7 @@ enum PermissionStatus {
 
 // These APIs must be implemented by every port (for example app-android.cpp, SDLMain.cpp).
 // Ideally these should be safe to call from any thread.
-void SystemToast(const char *text);
+void System_Toast(const char *text);
 void ShowKeyboard();
 
 // Vibrate either takes a number of milliseconds to vibrate unconditionally,
