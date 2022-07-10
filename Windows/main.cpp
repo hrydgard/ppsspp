@@ -334,6 +334,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;
 	case SYSPROP_HAS_KEYBOARD:
 		return true;
+	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
+		return true;  // FileUtil.cpp: OpenFileInEditor
 	default:
 		return false;
 	}
@@ -426,6 +428,12 @@ void System_InputBoxGetString(const std::string &title, const std::string &defau
 			NativeInputBoxReceived(cb, false, "");
 		}
 	});
+}
+
+void System_Toast(const char *text) {
+	// Not-very-good implementation. Will normally not be used on Windows anyway.
+	std::wstring str = ConvertUTF8ToWString(text);
+	MessageBox(0, str.c_str(), L"Toast!", MB_ICONINFORMATION);
 }
 
 static std::string GetDefaultLangRegion() {

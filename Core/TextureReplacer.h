@@ -217,6 +217,7 @@ public:
 	void Decimate(bool forcePressure);
 
 	static bool GenerateIni(const std::string &gameID, Path &generatedFilename);
+	static bool IniExists(const std::string &gameID);
 
 protected:
 	bool LoadIni();
