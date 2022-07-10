@@ -66,6 +66,8 @@ struct CompatFlags {
 	bool YugiohSaveFix;
 	bool ForceUMDDelay;
 	bool ForceMax60FPS;
+	bool GoWFramerateHack60;
+	bool GoWFramerateHack30;
 	bool JitInvalidationHack;
 	bool HideISOFiles;
 	bool MoreAccurateVMMUL;

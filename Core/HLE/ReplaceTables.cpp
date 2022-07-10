@@ -25,6 +25,7 @@
 #include "Common/Log.h"
 #include "Common/Swap.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Debugger/SymbolMap.h"
@@ -34,6 +35,7 @@
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceDisplay.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPU.h"
@@ -1338,6 +1340,27 @@ static int Hook_soltrigger_render_ucschar() {
 	return 0;
 }
 
+static int Hook_gow_fps_hack() {
+	if (PSP_CoreParameter().compat.flags().GoWFramerateHack60 || PSP_CoreParameter().compat.flags().GoWFramerateHack30) {
+		if (PSP_CoreParameter().compat.flags().GoWFramerateHack30) {
+			__DisplayWaitForVblanks("vblank start waited", 2);
+		} else {
+			__DisplayWaitForVblanks("vblank start waited", 1);
+		}
+	}
+	return 0;
+}
+
+static int Hook_gow_vortex_hack() {
+	if (PSP_CoreParameter().compat.flags().GoWFramerateHack60) {
+		// from my tests both ==0x3F800000 and !=0x3F800000 takes around 1:40-1:50, that seems to match correct behaviour
+		if (currentMIPS->r[MIPS_REG_S1] == 0 && currentMIPS->r[MIPS_REG_A0] == 0xC0 && currentMIPS->r[MIPS_REG_T4] != 0x3F800000) {
+			currentMIPS->r[MIPS_REG_S1] = 1;
+		}
+	}
+	return 0;
+}
+
 #define JITFUNC(f) (&MIPSComp::MIPSFrontendInterface::f)
 
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
@@ -1454,6 +1477,8 @@ static const ReplacementTableEntry entries[] = {
 	{ "worms_copy_normalize_alpha", &Hook_worms_copy_normalize_alpha, 0, REPFLAG_HOOKENTER, 0x0CC },
 	{ "openseason_data_decode", &Hook_openseason_data_decode, 0, REPFLAG_HOOKENTER, 0x2F0 },
 	{ "soltrigger_render_ucschar", &Hook_soltrigger_render_ucschar, 0, REPFLAG_HOOKENTER, 0 },
+	{ "gow_fps_hack", &Hook_gow_fps_hack, 0, REPFLAG_HOOKEXIT , 0 },
+	{ "gow_vortex_hack", &Hook_gow_vortex_hack, 0, REPFLAG_HOOKENTER, 0x60 },
 	{}
 };
 
