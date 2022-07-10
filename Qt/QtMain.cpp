@@ -236,6 +236,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_FILE_BROWSER:
 	case SYSPROP_HAS_FOLDER_BROWSER:
 		return true;
+	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
+		return true;  // FileUtil.cpp: OpenFileInEditor
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
 		return true;

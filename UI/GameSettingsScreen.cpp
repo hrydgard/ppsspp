@@ -1887,8 +1887,17 @@ UI::EventReturn DeveloperToolsScreen::OnLoadLanguageIni(UI::EventParams &e) {
 UI::EventReturn DeveloperToolsScreen::OnOpenTexturesIniFile(UI::EventParams &e) {
 	std::string gameID = g_paramSFO.GetDiscID();
 	Path generatedFilename;
+
+	bool existedBefore = TextureReplacer::IniExists(gameID);
+
 	if (TextureReplacer::GenerateIni(gameID, generatedFilename)) {
-		File::OpenFileInEditor(generatedFilename);
+		if (System_GetPropertyBool(SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR)) {
+			File::OpenFileInEditor(generatedFilename);
+		} else {
+			// Can't do much here, let's send a "toast" so the user sees that something happened.
+			auto dev = GetI18NCategory("Developer");
+			SystemToast((generatedFilename.ToVisualString() + ": " +  dev->T("Texture ini file created")).c_str());
+		}
 	}
 	return UI::EVENT_DONE;
 }

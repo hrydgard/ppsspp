@@ -458,6 +458,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		// Doesn't actually mean it's usable though, in many early versions of Android
 		// this dialog is complete garbage and only lets you select subfolders of the Downloads folder.
 		return androidVersion >= 21;  // when ACTION_OPEN_DOCUMENT_TREE was added
+	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
+		return false;  // Update if we add support in FileUtil.cpp: OpenFileInEditor
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
 		return true;

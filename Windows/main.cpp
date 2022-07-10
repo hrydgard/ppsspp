@@ -334,6 +334,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;
 	case SYSPROP_HAS_KEYBOARD:
 		return true;
+	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
+		return true;  // FileUtil.cpp: OpenFileInEditor
 	default:
 		return false;
 	}

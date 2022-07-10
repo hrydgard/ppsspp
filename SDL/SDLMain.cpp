@@ -419,6 +419,9 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #endif
 	case SYSPROP_CAN_JIT:
 		return true;
+	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
+		return true;  // FileUtil.cpp: OpenFileInEditor
+
 	default:
 		return false;
 	}
