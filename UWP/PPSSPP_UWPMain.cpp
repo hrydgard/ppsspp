@@ -416,6 +416,8 @@ bool VulkanMayBeAvailable() {
 	return false;
 }
 
+void SystemToast(const char *str) {}
+
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_HAS_FILE_BROWSER:
