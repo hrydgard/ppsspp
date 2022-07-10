@@ -1828,6 +1828,15 @@ void DeveloperToolsScreen::CreateViews() {
 
 	Choice *createTextureIni = list->Add(new Choice(dev->T("Create/Open textures.ini file for current game")));
 	createTextureIni->OnClick.Handle(this, &DeveloperToolsScreen::OnOpenTexturesIniFile);
+
+	// Disable the choice to Open/Create if the textures.ini file already exists, and we can't open it due to platform support limitations.
+	if (!System_GetPropertyBool(SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR)) {
+		std::string gameID = g_paramSFO.GetDiscID();
+		if (TextureReplacer::IniExists(gameID)) {
+			createTextureIni->SetEnabled(false);
+		}
+	}
+
 	if (!PSP_IsInited()) {
 		createTextureIni->SetEnabled(false);
 	}
