@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include "Common/System/Display.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
@@ -18,6 +20,7 @@ public:
 	void render() override;
 
 private:
+	void MaliDiscardTest();
 	void DiscardTest();
 	void ShaderTest();
 
@@ -43,6 +46,12 @@ private:
 	Draw::Pipeline *drawTestStencilAlwaysDepthGreater_ = nullptr;
 	Draw::Pipeline *drawTestDepthLessEqual_ = nullptr;
 	Draw::Pipeline *drawTestDepthGreater_ = nullptr;
+
+	// Mali discard pipelines
+	Draw::Texture *circleTexture_ = nullptr;
+	Draw::Texture *chessTexture_ = nullptr;
+	std::vector<Draw::Pipeline *> maliWriteStencilPipelines_;
+	std::vector<Draw::Pipeline *> maliReadStencilPipelines_;
 
 
 	// Shader tests

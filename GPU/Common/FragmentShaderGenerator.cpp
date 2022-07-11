@@ -112,7 +112,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		shading = doFlatShading ? "flat" : "";
 
 	bool earlyFragmentTests = ((!enableAlphaTest && !enableColorTest) || testForceToZero) && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
-	bool useAdrenoBugWorkaround = id.Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL);
+	bool useDiscardStencilBugWorkaround = id.Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL);
 
 	bool readFramebuffer = replaceBlend == REPLACE_BLEND_COPY_FBO || colorWriteMask;
 	bool readFramebufferTex = readFramebuffer && !gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH);
@@ -133,7 +133,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	if (compat.shaderLanguage == ShaderLanguage::GLSL_VULKAN) {
 		if (earlyFragmentTests) {
 			WRITE(p, "layout (early_fragment_tests) in;\n");
-		} else if (useAdrenoBugWorkaround && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
+		} else if (useDiscardStencilBugWorkaround && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
 			WRITE(p, "layout (depth_unchanged) out float gl_FragDepth;\n");
 		}
 
@@ -1052,9 +1052,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "  z = (1.0/65535.0) * floor(z * 65535.0);\n");
 		}
 		WRITE(p, "  gl_FragDepth = z;\n");
-	} else if (!earlyFragmentTests && useAdrenoBugWorkaround) {
-		// Adreno (and possibly MESA/others) apply early frag tests even with discard in the shader.
-		// Writing depth prevents the bug, even with depth_unchanged specified.
+	} else if (!earlyFragmentTests && useDiscardStencilBugWorkaround) {
+		// Older Adreno drivers and many Mali drivers apply early frag tests even with discard in the shader,
+		// in some situations.
+		// For Adreno, writing depth reliably prevents the bug, even with depth_unchanged specified.
+		// On Mali, results so far are mixed but this workaround works in many situations.
 		WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
 	}
 

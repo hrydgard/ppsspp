@@ -185,10 +185,10 @@ VkShaderStageFlagBits StageToVulkan(ShaderStage stage) {
 // invoke Compile again to recreate the shader then link them together.
 class VKShaderModule : public ShaderModule {
 public:
-	VKShaderModule(ShaderStage stage, const std::string &tag) : stage_(stage), tag_(tag) {
+	VKShaderModule(VulkanContext *vulkan, ShaderStage stage, const std::string &tag) : vulkan_(vulkan), stage_(stage), tag_(tag) {
 		vkstage_ = StageToVulkan(stage);
 	}
-	bool Compile(VulkanContext *vulkan, ShaderLanguage language, const uint8_t *data, size_t size);
+	bool Compile(ShaderLanguage language, const uint8_t *data, size_t size);
 	const std::string &GetSource() const { return source_; }
 	~VKShaderModule() {
 		if (module_) {
@@ -210,8 +210,7 @@ private:
 	std::string tag_;
 };
 
-bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, const uint8_t *data, size_t size) {
-	vulkan_ = vulkan;
+bool VKShaderModule::Compile(ShaderLanguage language, const uint8_t *data, size_t size) {
 	// We'll need this to free it later.
 	source_ = (const char *)data;
 	std::vector<uint32_t> spirv;
@@ -230,7 +229,7 @@ bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, con
 	}
 #endif
 
-	if (vulkan->CreateShaderModule(spirv, &module_)) {
+	if (vulkan_->CreateShaderModule(spirv, &module_)) {
 		ok_ = true;
 	} else {
 		WARN_LOG(G3D, "vkCreateShaderModule failed");
@@ -1052,6 +1051,8 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 			ERROR_LOG(G3D,  "CreateGraphicsPipeline got passed a null shader");
 			return nullptr;
 		}
+		// Here we could addref the shader modules, and store them in VkPipeline for later Release -
+		// however, are NOT, or at least should not, be needed after creation, so not much point.
 		VkPipelineShaderStageCreateInfo &stage = stages[i++];
 		stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		stage.pNext = nullptr;
@@ -1280,8 +1281,9 @@ void VKContext::BindTextures(int start, int count, Texture **textures) {
 }
 
 ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size, const std::string &tag) {
-	VKShaderModule *shader = new VKShaderModule(stage, tag);
-	if (shader->Compile(vulkan_, language, data, size)) {
+	_CrtCheckMemory();
+	VKShaderModule *shader = new VKShaderModule(vulkan_, stage, tag);
+	if (shader->Compile(language, data, size)) {
 		return shader;
 	} else {
 		ERROR_LOG(G3D,  "Failed to compile shader:\n%s", (const char *)data);

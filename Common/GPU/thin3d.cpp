@@ -68,6 +68,7 @@ bool DataFormatIsDepthStencil(DataFormat fmt) {
 
 
 bool RefCountedObject::Release() {
+	_assert_(this != nullptr);
 	if (refcount_ > 0 && refcount_ < 10000) {
 		if (--refcount_ == 0) {
 			delete this;

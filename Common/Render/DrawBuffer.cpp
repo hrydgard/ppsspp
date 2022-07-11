@@ -24,13 +24,13 @@ DrawBuffer::~DrawBuffer() {
 	delete [] verts_;
 }
 
-void DrawBuffer::Init(Draw::DrawContext *t3d, Draw::Pipeline *pipeline) {
+void DrawBuffer::Init(Draw::DrawContext *draw, Draw::Pipeline *pipeline) {
 	using namespace Draw;
 
 	if (inited_)
 		return;
 
-	draw_ = t3d;
+	draw_ = draw;
 	inited_ = true;
 
 	if (pipeline->RequiresBuffer()) {
@@ -40,7 +40,7 @@ void DrawBuffer::Init(Draw::DrawContext *t3d, Draw::Pipeline *pipeline) {
 	}
 }
 
-Draw::InputLayout *DrawBuffer::CreateInputLayout(Draw::DrawContext *t3d) {
+Draw::InputLayout *DrawBuffer::CreateInputLayout(Draw::DrawContext *draw) {
 	using namespace Draw;
 	InputLayoutDesc desc = {
 		{
@@ -53,7 +53,7 @@ Draw::InputLayout *DrawBuffer::CreateInputLayout(Draw::DrawContext *t3d) {
 		},
 	};
 
-	return t3d->CreateInputLayout(desc);
+	return draw->CreateInputLayout(desc);
 }
 
 void DrawBuffer::Shutdown() {

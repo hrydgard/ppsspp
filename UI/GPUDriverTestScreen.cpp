@@ -231,6 +231,64 @@ static const std::vector<Draw::ShaderSource> vsFlat = {
 	}
 };
 
+// Focused test for Mali on Vulkan.
+
+static const std::vector<Draw::ShaderSource> fsMaliDiscard = {
+	{ShaderLanguage::GLSL_VULKAN,
+	R"(#version 450
+	#extension GL_ARB_separate_shader_objects : enable
+	#extension GL_ARB_shading_language_420pack : enable
+	layout(location = 0) in vec4 oColor0;
+	layout(location = 1) in vec2 oTexCoord0;
+	layout(location = 0) out vec4 fragColor0;
+	layout(set = 0, binding = 1) uniform sampler2D Sampler0;
+	void main() {
+		vec4 color = texture(Sampler0, oTexCoord0) * oColor0;
+		if (color.a <= 0.0)
+			discard;
+		fragColor0 = color;
+	})"
+	},
+};
+
+static const std::vector<Draw::ShaderSource> fsMaliTest = {
+	{ShaderLanguage::GLSL_VULKAN,
+	R"(#version 450
+	#extension GL_ARB_separate_shader_objects : enable
+	#extension GL_ARB_shading_language_420pack : enable
+	layout(location = 0) in vec4 oColor0;
+	layout(location = 1) in vec2 oTexCoord0;
+	layout(location = 0) out vec4 fragColor0;
+	layout(set = 0, binding = 1) uniform sampler2D Sampler0;
+	void main() {
+		fragColor0 = texture(Sampler0, oTexCoord0) * oColor0;;
+	})"
+	},
+};
+
+static const std::vector<Draw::ShaderSource> vsMaliTest = {
+	{ ShaderLanguage::GLSL_VULKAN,
+	R"(#version 450
+	#extension GL_ARB_separate_shader_objects : enable
+	#extension GL_ARB_shading_language_420pack : enable
+	layout (std140, set = 0, binding = 0) uniform bufferVals {
+	    mat4 WorldViewProj;
+	} myBufferVals;
+	layout (location = 0) in vec4 pos;
+	layout (location = 1) in vec4 inColor;
+	layout (location = 2) in vec2 inTexCoord;
+	layout (location = 0) out vec4 outColor;
+	layout (location = 1) out highp vec2 outTexCoord;
+	out gl_PerVertex { vec4 gl_Position; };
+	void main() {
+	   outColor = inColor;
+	   outTexCoord = inTexCoord;
+	   gl_Position = myBufferVals.WorldViewProj * pos;
+	})"
+	}
+};
+
+
 GPUDriverTestScreen::GPUDriverTestScreen() {
 	using namespace Draw;
 }
@@ -280,6 +338,20 @@ GPUDriverTestScreen::~GPUDriverTestScreen() {
 
 	if (samplerNearest_)
 		samplerNearest_->Release();
+
+	if (chessTexture_)
+		chessTexture_->Release();
+
+	if (circleTexture_)
+		circleTexture_->Release();
+
+	for (auto pipeline : maliWriteStencilPipelines_) {
+		pipeline->Release();
+	}
+
+	for (auto pipeline : maliReadStencilPipelines_) {
+		pipeline->Release();
+	}
 }
 
 void GPUDriverTestScreen::CreateViews() {
@@ -301,20 +373,184 @@ void GPUDriverTestScreen::CreateViews() {
 
 	tabHolder_ = new TabHolder(ORIENT_HORIZONTAL, 30.0f, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT, false));
 	anchor->Add(tabHolder_);
+
 	tabHolder_->AddTab("Discard", new LinearLayout(ORIENT_VERTICAL));
 	tabHolder_->AddTab("Shader", new LinearLayout(ORIENT_VERTICAL));
 
+	// TODO: Check for Vulkan
+	tabHolder_->AddTab("Mali Discard", new LinearLayout(ORIENT_VERTICAL));
+
+	tabHolder_->SetCurrentTab(2, true);
+
 	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(100, WRAP_CONTENT, 10, NONE, NONE, 10));
-	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	back->OnClick.Handle<UIScreen> (this, &UIScreen::OnBack);
 	anchor->Add(back);
+}
+
+// In this path we're trying to get as close as possible to the situation in Surf's Up, which breaks.
+void GPUDriverTestScreen::MaliDiscardTest() {
+	using namespace UI;
+	using namespace Draw;
+
+	UIContext &dc = *screenManager()->getUIContext();
+	DrawContext *draw = dc.GetDrawContext();
+
+	if (!chessTexture_) {
+		uint8_t *data = new uint8_t[32 * 32];
+		for (int y = 0; y < 32; y++) {
+			for (int x = 0; x < 32; x++) {
+				data[y * 32 + x] = ((x ^ y) & 1) * 255;
+			}
+		}
+
+		TextureDesc desc{};
+		desc.width = 32;
+		desc.height = 32;
+		desc.depth = 1;
+		desc.mipLevels = 1;
+		desc.format = DataFormat::R8_UNORM;
+		desc.generateMips = false;
+		desc.initData.push_back(data);
+		chessTexture_ = draw->CreateTexture(desc);
+		delete[] data;
+	}
+
+	if (!circleTexture_) {
+		uint8_t *data = new uint8_t[32 * 32];
+		for (int y = 0; y < 32; y++) {
+			float dy = (y - 16.0f) / 16.0f;
+			for (int x = 0; x < 32; x++) {
+				float dx = (x - 16.0f) / 16.0f;
+				float alpha = std::max(0.0, 1.0 - sqrtf(dx * dx + dy * dy));
+				data[y * 32 + x] = (uint8_t)(alpha * 255.0);
+			}
+		}
+
+		TextureDesc desc{};
+		desc.width = 32;
+		desc.height = 32;
+		desc.depth = 1;
+		desc.mipLevels = 1;
+		desc.format = DataFormat::R8_UNORM;
+		desc.generateMips = false;
+		desc.initData.push_back(data);
+		circleTexture_ = draw->CreateTexture(desc);
+		delete[] data;
+	}
+	_CrtCheckMemory();
+	if (maliWriteStencilPipelines_.empty()) {
+		InputLayout *inputLayout = ui_draw2d.CreateInputLayout(draw);
+
+		ShaderModule *maliVs = CreateShader(draw, ShaderStage::Vertex, vsMaliTest);
+		ShaderModule *maliFsWrite = CreateShader(draw, ShaderStage::Fragment, fsMaliDiscard);
+		ShaderModule *maliFsRead = CreateShader(draw, ShaderStage::Fragment, fsMaliTest);
+
+		BlendStateDesc desc{};
+		desc.colorMask = 0xF;
+		desc.srcCol = BlendFactor::SRC_ALPHA;
+		desc.dstCol = BlendFactor::ONE_MINUS_SRC_ALPHA;
+		desc.srcAlpha = BlendFactor::ONE;
+		desc.dstAlpha = BlendFactor::ZERO;
+		desc.enabled = true;
+		BlendState *blendOn = draw->CreateBlendState(desc);
+
+		DepthStencilStateDesc writeStencil{};
+		writeStencil.stencilEnabled = true;
+		writeStencil.front.passOp = StencilOp::INCREMENT_AND_CLAMP;
+		writeStencil.front.failOp = StencilOp::KEEP;
+		writeStencil.front.depthFailOp = StencilOp::KEEP;
+		writeStencil.front.compareMask = 0xFF;
+		writeStencil.front.compareOp = Comparison::ALWAYS;
+		writeStencil.front.writeMask = 0x0;
+		writeStencil.back = writeStencil.front;
+
+		DepthStencilState *writeStencilState = draw->CreateDepthStencilState(writeStencil);
+
+		DepthStencilStateDesc readStencil{};
+		readStencil.stencilEnabled = true;
+		readStencil.front.passOp = StencilOp::KEEP;
+		readStencil.front.failOp = StencilOp::KEEP;
+		readStencil.front.depthFailOp = StencilOp::KEEP;
+		readStencil.front.compareMask = 0xFF;
+		readStencil.front.compareOp = Comparison::NOT_EQUAL;
+		readStencil.front.writeMask = 0x0;
+		readStencil.back = readStencil.front;
+
+		DepthStencilState *readStencilState = draw->CreateDepthStencilState(readStencil);
+
+		std::vector<ShaderModule *> shaders;
+		shaders.push_back(maliVs);
+		shaders.push_back(maliFsWrite);
+		RasterState *rasterNoCull = draw->CreateRasterState({});
+
+		Pipeline *maliWritePipeline = draw->CreateGraphicsPipeline(PipelineDesc{
+			Primitive::TRIANGLE_LIST,
+			shaders,
+			inputLayout,
+			writeStencilState,
+			blendOn,
+			rasterNoCull,
+		});
+
+		shaders.clear();
+		shaders.push_back(maliVs);
+		shaders.push_back(maliFsRead);
+
+		Pipeline *maliReadPipeline = draw->CreateGraphicsPipeline(PipelineDesc{
+			Primitive::TRIANGLE_LIST,
+			shaders,
+			inputLayout,
+			readStencilState,
+			blendOn,
+			rasterNoCull,
+		});
+
+		inputLayout->Release();
+		blendOn->Release();
+		rasterNoCull->Release();
+
+		writeStencilState->Release();
+		readStencilState->Release();
+
+		maliFsRead->Release();
+		maliFsWrite->Release();
+		maliVs->Release();
+
+		maliReadStencilPipelines_.push_back(maliReadPipeline);
+		maliWriteStencilPipelines_.push_back(maliWritePipeline);
+	}
+
+	_CrtCheckMemory();
+
+	for (int i = 0; i < maliReadStencilPipelines_.size(); i++) {
+		Bounds bounds = { 40.0f, 40.0f + (float)i * 100.0f, 96.0f, 96.0f };
+		dc.BeginPipeline(maliReadStencilPipelines_[i], samplerNearest_);
+		draw->SetStencilRef(0x0);
+		draw->BindTexture(0, circleTexture_);
+		dc.SetCurZ(0.1f);
+		dc.FillRect(UI::Drawable(0xFFFFFFFF), bounds);
+		dc.Flush();
+
+		/*
+		dc.BeginPipeline(maliWriteStencilPipelines_[i], samplerNearest_);
+		draw->SetStencilRef(0x0);
+		draw->BindTexture(0, chessTexture_);
+		dc.SetCurZ(0.1f);
+		dc.FillRect(UI::Drawable(0xFFFFFFFF), bounds);
+		dc.Flush();
+		*/
+	}
+	_CrtCheckMemory();
 }
 
 void GPUDriverTestScreen::DiscardTest() {
 	using namespace UI;
 	using namespace Draw;
-	if (!discardWriteDepthStencil_) {
-		DrawContext *draw = screenManager()->getDrawContext();
 
+	UIContext &dc = *screenManager()->getUIContext();
+	DrawContext *draw = dc.GetDrawContext();
+
+	if (!discardWriteDepthStencil_) {
 		// Create the special shader module.
 
 		discardFragShader_ = CreateShader(draw, ShaderStage::Fragment, fsDiscard);
@@ -446,9 +682,6 @@ void GPUDriverTestScreen::DiscardTest() {
 		depthTestGreater->Release();
 		rasterNoCull->Release();
 	}
-
-	UIContext &dc = *screenManager()->getUIContext();
-	Draw::DrawContext *draw = dc.GetDrawContext();
 
 	static const char * const writeModeNames[] = { "Stencil+Depth", "Stencil", "Depth" };
 	Pipeline *writePipelines[] = { discardWriteDepthStencil_, discardWriteStencil_, discardWriteDepth_ };
@@ -646,6 +879,9 @@ void GPUDriverTestScreen::render() {
 		break;
 	case 1:
 		ShaderTest();
+		break;
+	case 2:
+		MaliDiscardTest();
 		break;
 	}
 }
