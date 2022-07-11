@@ -258,6 +258,7 @@ public:
 	}
 
 	void SetDynamicUniformData(const void *data, size_t size) {
+		_assert_(size <= uboSize_);
 		memcpy(ubo_, data, size);
 	}
 
@@ -1281,7 +1282,6 @@ void VKContext::BindTextures(int start, int count, Texture **textures) {
 }
 
 ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size, const std::string &tag) {
-	_CrtCheckMemory();
 	VKShaderModule *shader = new VKShaderModule(vulkan_, stage, tag);
 	if (shader->Compile(language, data, size)) {
 		return shader;

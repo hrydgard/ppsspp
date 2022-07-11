@@ -4,6 +4,7 @@
 #include "Common/UI/View.h"
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/ShaderWriter.h"
+#include "Core/Config.h"
 
 const uint32_t textColorOK = 0xFF30FF30;
 const uint32_t textColorBAD = 0xFF3030FF;
@@ -377,10 +378,11 @@ void GPUDriverTestScreen::CreateViews() {
 	tabHolder_->AddTab("Discard", new LinearLayout(ORIENT_VERTICAL));
 	tabHolder_->AddTab("Shader", new LinearLayout(ORIENT_VERTICAL));
 
-	// TODO: Check for Vulkan
-	tabHolder_->AddTab("Mali Discard", new LinearLayout(ORIENT_VERTICAL));
-
-	tabHolder_->SetCurrentTab(2, true);
+	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
+		// TODO: Check for Vulkan
+		tabHolder_->AddTab("Mali Discard", new LinearLayout(ORIENT_VERTICAL));
+		tabHolder_->SetCurrentTab(2, true);
+	}
 
 	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(100, WRAP_CONTENT, 10, NONE, NONE, 10));
 	back->OnClick.Handle<UIScreen> (this, &UIScreen::OnBack);
@@ -437,7 +439,6 @@ void GPUDriverTestScreen::MaliDiscardTest() {
 		circleTexture_ = draw->CreateTexture(desc);
 		delete[] data;
 	}
-	_CrtCheckMemory();
 	if (maliWriteStencilPipelines_.empty()) {
 		InputLayout *inputLayout = ui_draw2d.CreateInputLayout(draw);
 
@@ -490,6 +491,7 @@ void GPUDriverTestScreen::MaliDiscardTest() {
 			writeStencilState,
 			blendOn,
 			rasterNoCull,
+			&vsColBufDesc,
 		});
 
 		shaders.clear();
@@ -503,6 +505,7 @@ void GPUDriverTestScreen::MaliDiscardTest() {
 			readStencilState,
 			blendOn,
 			rasterNoCull,
+			&vsColBufDesc,
 		});
 
 		inputLayout->Release();
@@ -519,8 +522,6 @@ void GPUDriverTestScreen::MaliDiscardTest() {
 		maliReadStencilPipelines_.push_back(maliReadPipeline);
 		maliWriteStencilPipelines_.push_back(maliWritePipeline);
 	}
-
-	_CrtCheckMemory();
 
 	for (int i = 0; i < maliReadStencilPipelines_.size(); i++) {
 		Bounds bounds = { 40.0f, 40.0f + (float)i * 100.0f, 96.0f, 96.0f };
@@ -540,7 +541,6 @@ void GPUDriverTestScreen::MaliDiscardTest() {
 		dc.Flush();
 		*/
 	}
-	_CrtCheckMemory();
 }
 
 void GPUDriverTestScreen::DiscardTest() {
