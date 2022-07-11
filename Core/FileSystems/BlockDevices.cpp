@@ -88,8 +88,9 @@ FileBlockDevice::~FileBlockDevice() {
 
 bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached) {
 	FileLoader::Flags flags = uncached ? FileLoader::Flags::HINT_UNCACHED : FileLoader::Flags::NONE;
-	if (fileLoader_->ReadAt((u64)blockNumber * (u64)GetBlockSize(), 1, 2048, outPtr, flags) != 2048) {
-		DEBUG_LOG(FILESYS, "Could not read 2048 bytes from block");
+	size_t retval = fileLoader_->ReadAt((u64)blockNumber * (u64)GetBlockSize(), 1, 2048, outPtr, flags);
+	if (retval != 2048) {
+		DEBUG_LOG(FILESYS, "Could not read 2048 byte block, at block offset %d. Only got %d bytes", blockNumber, (int)retval);
 		return false;
 	}
 
@@ -97,8 +98,9 @@ bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached) {
 }
 
 bool FileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
-	if (fileLoader_->ReadAt((u64)minBlock * (u64)GetBlockSize(), 2048, count, outPtr) != (size_t)count) {
-		ERROR_LOG(FILESYS, "Could not read %d bytes from block", 2048 * count);
+	size_t retval = fileLoader_->ReadAt((u64)minBlock * (u64)GetBlockSize(), 2048, count, outPtr);
+	if (retval != (size_t)count) {
+		ERROR_LOG(FILESYS, "Could not read %d blocks, at block offset %d. Only got %d blocks", count, minBlock, (int)retval);
 		return false;
 	}
 	return true;
