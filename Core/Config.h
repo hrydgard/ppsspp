@@ -535,15 +535,9 @@ public:
 		return bFullScreen;
 	}
 
-	std::vector<std::string> RecentIsos() const {
-		return recentIsos;
-	}
-	bool HasRecentIsos() const {
-		return !recentIsos.empty();
-	}
-	void ClearRecentIsos() {
-		recentIsos.clear();
-	}
+	std::vector<std::string> RecentIsos() const;
+	bool HasRecentIsos() const;
+	void ClearRecentIsos();
 
 protected:
 	void LoadStandardControllerIni();
