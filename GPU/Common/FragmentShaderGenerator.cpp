@@ -111,8 +111,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	if (compat.glslES30 || compat.shaderLanguage == ShaderLanguage::GLSL_VULKAN)
 		shading = doFlatShading ? "flat" : "";
 
-	bool earlyFragmentTests = ((!enableAlphaTest && !enableColorTest) || testForceToZero) && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
-	bool useAdrenoBugWorkaround = id.Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL);
+	bool useDiscardStencilBugWorkaround = id.Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL);
 
 	bool readFramebuffer = replaceBlend == REPLACE_BLEND_COPY_FBO || colorWriteMask;
 	bool readFramebufferTex = readFramebuffer && !gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH);
@@ -131,9 +130,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	if (compat.shaderLanguage == ShaderLanguage::GLSL_VULKAN) {
-		if (earlyFragmentTests) {
-			WRITE(p, "layout (early_fragment_tests) in;\n");
-		} else if (useAdrenoBugWorkaround && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
+		if (useDiscardStencilBugWorkaround && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
 			WRITE(p, "layout (depth_unchanged) out float gl_FragDepth;\n");
 		}
 
@@ -1052,9 +1049,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "  z = (1.0/65535.0) * floor(z * 65535.0);\n");
 		}
 		WRITE(p, "  gl_FragDepth = z;\n");
-	} else if (!earlyFragmentTests && useAdrenoBugWorkaround) {
-		// Adreno (and possibly MESA/others) apply early frag tests even with discard in the shader.
-		// Writing depth prevents the bug, even with depth_unchanged specified.
+	} else if (useDiscardStencilBugWorkaround) {
+		// Adreno and some Mali drivers apply early frag tests even with discard in the shader,
+		// when only stencil is used. The exact situation seems to vary by driver.
+		// Writing depth prevents the bug for both vendors, even with depth_unchanged specified.
+		// This doesn't make a ton of sense, but empirically does work.
 		WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
 	}
 
