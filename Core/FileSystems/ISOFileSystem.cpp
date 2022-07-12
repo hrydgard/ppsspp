@@ -145,7 +145,8 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 	hAlloc = _hAlloc;
 
 	VolDescriptor desc;
-	blockDevice->ReadBlock(16, (u8*)&desc);
+	if (!blockDevice->ReadBlock(16, (u8*)&desc))
+		blockDevice->NotifyReadError();
 
 	entireISO.name = "";
 	entireISO.isDirectory = false;
@@ -228,6 +229,12 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 			entry->dirsize = dir.dataLength;
 			entry->valid = isFile;  // Can pre-mark as valid if file, as we don't recurse into those.
 			VERBOSE_LOG(FILESYS, "%s: %s %08x %08x %i", entry->isDirectory ? "D" : "F", entry->name.c_str(), (u32)dir.firstDataSector, entry->startingPosition, entry->startingPosition);
+
+			// Round down to avoid any false reports.
+			if (isFile && dir.firstDataSector + (dir.dataLength / 2048) > blockDevice->GetNumBlocks()) {
+				blockDevice->NotifyReadError();
+				ERROR_LOG(FILESYS, "File '%s' starts or ends outside ISO", entry->name.c_str());
+			}
 
 			if (entry->isDirectory && !relative) {
 				if (entry->startsector == root->startsector) {
