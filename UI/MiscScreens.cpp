@@ -203,7 +203,7 @@ public:
 			lastIndex_ = nextIndex_;
 		}
 
-		if (!g_Config.recentIsos.empty()) {
+		if (g_Config.HasRecentIsos()) {
 			std::shared_ptr<GameInfo> lastInfo = GetInfo(dc, lastIndex_);
 			std::shared_ptr<GameInfo> nextInfo = GetInfo(dc, nextIndex_);
 			dc.Flush();
@@ -220,12 +220,12 @@ public:
 
 private:
 	void CheckNext(UIContext &dc, double t) {
-		if (g_Config.recentIsos.empty()) {
+		if (!g_Config.HasRecentIsos()) {
 			return;
 		}
 
 		for (int index = lastIndex_ + 1; index != lastIndex_; ++index) {
-			if (index < 0 || index >= (int)g_Config.recentIsos.size()) {
+			if (index < 0 || index >= (int)g_Config.RecentIsos().size()) {
 				if (lastIndex_ == -1)
 					break;
 				index = 0;
@@ -250,7 +250,10 @@ private:
 		if (index < 0) {
 			return nullptr;
 		}
-		return g_gameInfoCache->GetInfo(dc.GetDrawContext(), Path(g_Config.recentIsos[index]), GAMEINFO_WANTBG);
+		const auto recentIsos = g_Config.RecentIsos();
+		if (index >= recentIsos.size())
+			return nullptr;
+		return g_gameInfoCache->GetInfo(dc.GetDrawContext(), Path(recentIsos[index]), GAMEINFO_WANTBG);
 	}
 
 	void DrawTex(UIContext &dc, std::shared_ptr<GameInfo> &ginfo, float amount) {

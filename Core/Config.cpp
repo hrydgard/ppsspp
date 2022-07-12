@@ -1701,7 +1701,7 @@ void Config::RestoreDefaults() {
 	} else {
 		if (File::Exists(iniFilename_))
 			File::Delete(iniFilename_);
-		recentIsos.clear();
+		ClearRecentIsos();
 		currentDirectory = defaultCurrentDirectory;
 	}
 	Load();
