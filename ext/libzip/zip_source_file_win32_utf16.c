@@ -30,6 +30,9 @@
   OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
   IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#ifdef MS_UWP
+#include <fileapifromapp.h>
+#endif
 
 #include "zip_source_file_win32.h"
 
@@ -92,7 +95,7 @@ utf16_create_file(const char *name, DWORD access, DWORD share_mode, PSECURITY_AT
 
     return CreateFile2((const wchar_t *)name, access, share_mode, creation_disposition, &extParams);
 #else
-    return CreateFile2((const wchar_t *)name, access, share_mode, creation_disposition, NULL);
+    return CreateFile2FromAppW((const wchar_t *)name, access, share_mode, creation_disposition, NULL);
 #endif
 #else
     return CreateFileW((const wchar_t *)name, access, share_mode, security_attributes, creation_disposition, file_attributes, template_file);

@@ -260,11 +260,12 @@ void App::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ ar
 	float scale = m_deviceResources->GetDpi() / 96.0f;
 
 	m_deviceResources->SetLogicalSize(Size(width, height));
-	m_main->CreateWindowSizeDependentResources();
+	if (m_main) {
+		m_main->CreateWindowSizeDependentResources();
+	}
 
 	PSP_CoreParameter().pixelWidth = (int)(width * scale);
 	PSP_CoreParameter().pixelHeight = (int)(height * scale);
-
 	if (UpdateScreenScale((int)width, (int)height)) {
 		NativeMessageReceived("gpu_resized", "");
 	}

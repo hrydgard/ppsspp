@@ -1021,6 +1021,15 @@ bool ReplacedTexture::Load(int level, void *out, int rowPitch) {
 	return true;
 }
 
+bool TextureReplacer::IniExists(const std::string &gameID) {
+	if (gameID.empty())
+		return false;
+
+	Path texturesDirectory = GetSysDirectory(DIRECTORY_TEXTURES) / gameID;
+	Path generatedFilename = texturesDirectory / INI_FILENAME;
+	return File::Exists(generatedFilename);
+}
+
 bool TextureReplacer::GenerateIni(const std::string &gameID, Path &generatedFilename) {
 	if (gameID.empty())
 		return false;

@@ -732,6 +732,10 @@ static int DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks
 	return hleLogSuccessVerboseI(SCEDISPLAY, 0, "waiting for %d vblanks", vblanks);
 }
 
+void __DisplayWaitForVblanks(const char* reason, int vblanks, bool callbacks) {
+	DisplayWaitForVblanks(reason, vblanks, callbacks);
+}
+
 static u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
 	if (displayMode != PSP_DISPLAY_MODE_LCD || displayWidth != 480 || displayHeight != 272) {
 		WARN_LOG_REPORT(SCEDISPLAY, "Video out requested, not supported: mode=%d size=%d,%d", displayMode, displayWidth, displayHeight);

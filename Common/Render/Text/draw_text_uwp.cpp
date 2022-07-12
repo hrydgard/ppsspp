@@ -41,7 +41,7 @@ public:
 			weight,
 			DWRITE_FONT_STYLE_NORMAL,
 			DWRITE_FONT_STRETCH_NORMAL,
-			MulDiv(height, (int)(96.0f * (1.0f / dpiScale)), 72),
+			(float)MulDiv(height, (int)(96.0f * (1.0f / dpiScale)), 72),
 			L"",
 			&textFmt
 		);
@@ -233,8 +233,8 @@ void TextDrawerUWP::MeasureString(const char *str, size_t len, float *w, float *
 		layout->Release();
 
 		entry = new TextMeasureEntry();
-		entry->width = metrics.width + 1;
-		entry->height = metrics.height + 1;
+		entry->width = (int)(metrics.width + 1.0f);
+		entry->height = (int)(metrics.height + 1.0f);
 		sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
 	}
 
@@ -298,8 +298,8 @@ void TextDrawerUWP::MeasureStringRect(const char *str, size_t len, const Bounds 
 			layout->Release();
 
 			entry = new TextMeasureEntry();
-			entry->width = metrics.width + 1;
-			entry->height = metrics.height + 1;
+			entry->width = (int)(metrics.width + 1.0f);
+			entry->height = (int)(metrics.height + 1.0f);
 			sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
 		}
 		entry->lastUsedFrame = frameCount_;
@@ -356,8 +356,8 @@ void TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 	layout->SetMaxHeight(metrics.height);
 	layout->SetMaxWidth(metrics.width);
 
-	size.cx = metrics.width + 1;
-	size.cy = metrics.height + 1;
+	size.cx = (int)metrics.width + 1;
+	size.cy = (int)metrics.height + 1;
 
 	if (size.cx > MAX_TEXT_WIDTH)
 		size.cx = MAX_TEXT_WIDTH;

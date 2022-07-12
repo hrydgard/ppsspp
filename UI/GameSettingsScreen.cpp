@@ -1830,13 +1830,23 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new Choice(dev->T("Copy savestates to memstick root")))->OnClick.Handle(this, &DeveloperToolsScreen::OnCopyStatesToRoot);
 #endif
 
-#if !defined(MOBILE_DEVICE)
+	// Reconsider whenever recreating views.
+	hasTexturesIni_ = HasIni::MAYBE;
+
 	Choice *createTextureIni = list->Add(new Choice(dev->T("Create/Open textures.ini file for current game")));
 	createTextureIni->OnClick.Handle(this, &DeveloperToolsScreen::OnOpenTexturesIniFile);
-	if (!PSP_IsInited()) {
-		createTextureIni->SetEnabled(false);
-	}
-#endif
+	createTextureIni->SetEnabledFunc([&] {
+		if (!PSP_IsInited())
+			return false;
+
+		// Disable the choice to Open/Create if the textures.ini file already exists, and we can't open it due to platform support limitations.
+		if (!System_GetPropertyBool(SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR)) {
+			if (hasTexturesIni_ == HasIni::MAYBE)
+				hasTexturesIni_ = TextureReplacer::IniExists(g_paramSFO.GetDiscID()) ? HasIni::YES : HasIni::NO;
+			return hasTexturesIni_ != HasIni::YES;
+		}
+		return true;
+	});
 }
 
 void DeveloperToolsScreen::onFinish(DialogResult result) {
@@ -1893,8 +1903,17 @@ UI::EventReturn DeveloperToolsScreen::OnLoadLanguageIni(UI::EventParams &e) {
 UI::EventReturn DeveloperToolsScreen::OnOpenTexturesIniFile(UI::EventParams &e) {
 	std::string gameID = g_paramSFO.GetDiscID();
 	Path generatedFilename;
+
 	if (TextureReplacer::GenerateIni(gameID, generatedFilename)) {
-		File::OpenFileInEditor(generatedFilename);
+		if (System_GetPropertyBool(SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR)) {
+			File::OpenFileInEditor(generatedFilename);
+		} else {
+			// Can't do much here, let's send a "toast" so the user sees that something happened.
+			auto dev = GetI18NCategory("Developer");
+			System_Toast((generatedFilename.ToVisualString() + ": " +  dev->T("Texture ini file created")).c_str());
+		}
+
+		hasTexturesIni_ = HasIni::YES;
 	}
 	return UI::EVENT_DONE;
 }
@@ -2203,8 +2222,7 @@ void GestureMappingScreen::CreateViews() {
 	vert->Add(new PopupMultiChoice(&g_Config.iSwipeRight, mc->T("Swipe Right"), gestureButton, 0, ARRAY_SIZE(gestureButton), mc->GetName(), screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
 	vert->Add(new PopupSliderChoiceFloat(&g_Config.fSwipeSensitivity, 0.01f, 1.0f, co->T("Swipe sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
 	vert->Add(new PopupSliderChoiceFloat(&g_Config.fSwipeSmoothing, 0.0f, 0.95f, co->T("Swipe smoothing"), 0.05f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
-	
+
 	vert->Add(new ItemHeader(co->T("Double tap")));
 	vert->Add(new PopupMultiChoice(&g_Config.iDoubleTapGesture, mc->T("Double tap button"), gestureButton, 0, ARRAY_SIZE(gestureButton), mc->GetName(), screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
 }
-

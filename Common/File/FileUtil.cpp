@@ -51,6 +51,9 @@
 #include <commdlg.h>	// for GetSaveFileName
 #include <io.h>
 #include <direct.h>		// getcwd
+#if PPSSPP_PLATFORM(UWP)
+#include <fileapifromapp.h>
+#endif
 #else
 #include <sys/param.h>
 #include <sys/types.h>
@@ -253,7 +256,7 @@ static bool ResolvePathVista(const std::wstring &path, wchar_t *buf, DWORD bufSi
 
 	if (getFinalPathNameByHandleW) {
 #if PPSSPP_PLATFORM(UWP)
-		HANDLE hFile = CreateFile2(path.c_str(), GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING, nullptr);
+		HANDLE hFile = CreateFile2FromAppW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING, nullptr);
 #else
 		HANDLE hFile = CreateFile(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
 #endif
@@ -367,9 +370,15 @@ bool Exists(const Path &path) {
 	int OldMode = SetErrorMode(SEM_FAILCRITICALERRORS);
 #endif
 	WIN32_FILE_ATTRIBUTE_DATA data{};
+#if PPSSPP_PLATFORM(UWP)
+	if (!GetFileAttributesExFromAppW(path.ToWString().c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
+		return false;
+	}
+#else
 	if (!GetFileAttributesEx(path.ToWString().c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
 		return false;
 	}
+#endif
 #if !PPSSPP_PLATFORM(UWP)
 	SetErrorMode(OldMode);
 #endif
@@ -399,7 +408,11 @@ bool IsDirectory(const Path &filename) {
 
 #if defined(_WIN32)
 	WIN32_FILE_ATTRIBUTE_DATA data{};
+#if PPSSPP_PLATFORM(UWP)
+	if (!GetFileAttributesExFromAppW(filename.ToWString().c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
+#else
 	if (!GetFileAttributesEx(filename.ToWString().c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
+#endif
 		auto err = GetLastError();
 		if (err != ERROR_FILE_NOT_FOUND) {
 			WARN_LOG(COMMON, "GetFileAttributes failed on %s: %08x %s", filename.ToVisualString().c_str(), (uint32_t)err, GetStringErrorMsg(err).c_str());
@@ -448,10 +461,17 @@ bool Delete(const Path &filename) {
 	}
 
 #ifdef _WIN32
+#if PPSSPP_PLATFORM(UWP)
+	if (!DeleteFileFromAppW(filename.ToWString().c_str())) {
+		WARN_LOG(COMMON, "Delete: DeleteFile failed on %s: %s", filename.c_str(), GetLastErrorMsg().c_str());
+		return false;
+	}
+#else
 	if (!DeleteFile(filename.ToWString().c_str())) {
 		WARN_LOG(COMMON, "Delete: DeleteFile failed on %s: %s", filename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
+#endif
 #else
 	if (unlink(filename.c_str()) == -1) {
 		WARN_LOG(COMMON, "Delete: unlink failed on %s: %s", 
@@ -496,8 +516,14 @@ bool CreateDir(const Path &path) {
 
 	DEBUG_LOG(COMMON, "CreateDir('%s')", path.c_str());
 #ifdef _WIN32
+#if PPSSPP_PLATFORM(UWP)
+	if (CreateDirectoryFromAppW(path.ToWString().c_str(), NULL))
+		return true;
+#else
 	if (::CreateDirectory(path.ToWString().c_str(), NULL))
 		return true;
+#endif
+	
 	DWORD error = GetLastError();
 	if (error == ERROR_ALREADY_EXISTS) {
 		WARN_LOG(COMMON, "CreateDir: CreateDirectory failed on %s: already exists", path.c_str());
@@ -585,8 +611,13 @@ bool DeleteDir(const Path &path) {
 	}
 
 #ifdef _WIN32
+#if PPSSPP_PLATFORM(UWP)
+	if (RemoveDirectoryFromAppW(path.ToWString().c_str()))
+		return true;
+#else
 	if (::RemoveDirectory(path.ToWString().c_str()))
 		return true;
+#endif
 #else
 	if (rmdir(path.c_str()) == 0)
 		return true;
@@ -662,9 +693,8 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 	INFO_LOG(COMMON, "Copy: %s --> %s", srcFilename.c_str(), destFilename.c_str());
 #ifdef _WIN32
 #if PPSSPP_PLATFORM(UWP)
-	if (CopyFile2(srcFilename.ToWString().c_str(), destFilename.ToWString().c_str(), nullptr))
+	if (CopyFileFromAppW(srcFilename.ToWString().c_str(), destFilename.ToWString().c_str(), FALSE))
 		return true;
-	return false;
 #else
 	if (CopyFile(srcFilename.ToWString().c_str(), destFilename.ToWString().c_str(), FALSE))
 		return true;
@@ -796,7 +826,11 @@ uint64_t GetFileSize(const Path &filename) {
 
 #if defined(_WIN32) && defined(UNICODE)
 	WIN32_FILE_ATTRIBUTE_DATA attr;
+#if PPSSPP_PLATFORM(UWP)
+	if (!GetFileAttributesExFromAppW(filename.ToWString().c_str(), GetFileExInfoStandard, &attr))
+#else
 	if (!GetFileAttributesEx(filename.ToWString().c_str(), GetFileExInfoStandard, &attr))
+#endif
 		return 0;
 	if (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 		return 0;

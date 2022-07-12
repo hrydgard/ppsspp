@@ -838,7 +838,7 @@ static void check_variables(CoreParameter &coreParam)
    const bool do_texture_shader_update = ppsspp_texture_shader.Update(&g_Config.sTextureShaderName);
 
    g_Config.bTexHardwareScaling = "Off" != g_Config.sTextureShaderName;
-   
+
    if (gpu && (do_scaling_type_update || do_scaling_level_update || do_texture_shader_update))
    {
       gpu->ClearCacheNextFrame();
@@ -1486,6 +1486,8 @@ void System_SendMessage(const char *command, const char *parameter) {}
 void NativeUpdate() {}
 void NativeRender(GraphicsContext *graphicsContext) {}
 void NativeResized() {}
+
+void System_Toast(const char *str) {}
 
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 std::vector<std::string> __cameraGetDeviceList() { return std::vector<std::string>(); }
