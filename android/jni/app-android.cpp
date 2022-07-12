@@ -95,6 +95,7 @@ struct JNIEnv {};
 
 #ifdef OPENXR
 #include "VR/VRBase.h"
+#include "VR/VRRenderer.h"
 #endif
 
 #include "app-android.h"
@@ -938,6 +939,11 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 		renderer_inited = true;
 	}
 	NativeMessageReceived("recreateviews", "");
+
+#ifdef OPENXR
+	VR_EnterVR(VR_GetEngine());
+	VR_InitRenderer(VR_GetEngine());
+#endif
 	return true;
 }
 
