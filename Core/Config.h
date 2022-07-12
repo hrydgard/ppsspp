@@ -48,6 +48,7 @@ namespace http {
 }
 
 struct UrlEncoder;
+struct ConfigPrivate;
 
 struct ConfigTouchPos {
 	float x;
@@ -550,6 +551,7 @@ private:
 	Path iniFilename_;
 	Path controllerIniFilename_;
 	Path searchPath_;
+	ConfigPrivate *private_ = nullptr;
 };
 
 std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();

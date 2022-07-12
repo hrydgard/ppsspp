@@ -58,9 +58,17 @@ http::Downloader g_DownloadManager;
 Config g_Config;
 
 bool jitForcedOff;
-static std::mutex recentIsosLock;
-static std::mutex recentIsosThreadLock;
-static std::thread recentIsosThread;
+
+// Not in Config.h because it's #included a lot.
+struct ConfigPrivate {
+	std::mutex recentIsosLock;
+	std::mutex recentIsosThreadLock;
+	std::thread recentIsosThread;
+	bool recentIsosThreadPending = false;
+
+	void ResetRecentIsosThread();
+	void SetRecentIsosThread(std::function<void()> f);
+};
 
 #ifdef _DEBUG
 static const char *logSectionName = "LogDebug";
@@ -1211,27 +1219,30 @@ static void IterateSettings(IniFile &iniFile, std::function<void(Section *sectio
 	}
 }
 
-static void ResetRecentIsosThread() {
+void ConfigPrivate::ResetRecentIsosThread() {
 	std::lock_guard<std::mutex> guard(recentIsosThreadLock);
-	if (recentIsosThread.joinable())
+	if (recentIsosThreadPending && recentIsosThread.joinable())
 		recentIsosThread.join();
 }
 
-static void SetRecentIsosThread(std::function<void()> f) {
+void ConfigPrivate::SetRecentIsosThread(std::function<void()> f) {
 	std::lock_guard<std::mutex> guard(recentIsosThreadLock);
-	if (recentIsosThread.joinable())
+	if (recentIsosThreadPending && recentIsosThread.joinable())
 		recentIsosThread.join();
 	recentIsosThread = std::thread(f);
+	recentIsosThreadPending = true;
 }
 
 Config::Config() {
+	private_ = new ConfigPrivate();
 }
 
 Config::~Config() {
 	if (bUpdatedInstanceCounter) {
 		ShutdownInstanceCounter();
 	}
-	ResetRecentIsosThread();
+	private_->ResetRecentIsosThread();
+	delete private_;
 }
 
 std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
@@ -1334,8 +1345,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		iMaxRecent = 60;
 
 	if (iMaxRecent > 0) {
-		ResetRecentIsosThread();
-		std::lock_guard<std::mutex> guard(recentIsosLock);
+		private_->ResetRecentIsosThread();
+		std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 		recentIsos.clear();
 		for (int i = 0; i < iMaxRecent; i++) {
 			char keyName[64];
@@ -1491,11 +1502,11 @@ bool Config::Save(const char *saveReason) {
 		Section *recent = iniFile.GetOrCreateSection("Recent");
 		recent->Set("MaxRecent", iMaxRecent);
 
-		ResetRecentIsosThread();
+		private_->ResetRecentIsosThread();
 		for (int i = 0; i < iMaxRecent; i++) {
 			char keyName[64];
 			snprintf(keyName, sizeof(keyName), "FileName%d", i);
-			std::lock_guard<std::mutex> guard(recentIsosLock);
+			std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 			if (i < (int)recentIsos.size()) {
 				recent->Set(keyName, recentIsos[i]);
 			} else {
@@ -1633,8 +1644,8 @@ void Config::AddRecent(const std::string &file) {
 	// We'll add it back below.  This makes sure it's at the front, and only once.
 	RemoveRecent(file);
 
-	ResetRecentIsosThread();
-	std::lock_guard<std::mutex> guard(recentIsosLock);
+	private_->ResetRecentIsosThread();
+	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 	const std::string filename = File::ResolvePath(file);
 	recentIsos.insert(recentIsos.begin(), filename);
 	if ((int)recentIsos.size() > iMaxRecent)
@@ -1646,8 +1657,8 @@ void Config::RemoveRecent(const std::string &file) {
 	if (iMaxRecent <= 0)
 		return;
 
-	ResetRecentIsosThread();
-	std::lock_guard<std::mutex> guard(recentIsosLock);
+	private_->ResetRecentIsosThread();
+	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 	const std::string filename = File::ResolvePath(file);
 	for (auto iter = recentIsos.begin(); iter != recentIsos.end();) {
 		const std::string recent = File::ResolvePath(*iter);
@@ -1661,10 +1672,10 @@ void Config::RemoveRecent(const std::string &file) {
 }
 
 void Config::CleanRecent() {
-	SetRecentIsosThread([this] {
+	private_->SetRecentIsosThread([this] {
 		double startTime = time_now_d();
 
-		std::lock_guard<std::mutex> guard(recentIsosLock);
+		std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 		std::vector<std::string> cleanedRecent;
 		for (size_t i = 0; i < recentIsos.size(); i++) {
 			bool exists = false;
@@ -1696,16 +1707,16 @@ void Config::CleanRecent() {
 }
 
 std::vector<std::string> Config::RecentIsos() const {
-	std::lock_guard<std::mutex> guard(recentIsosLock);
+	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 	return recentIsos;
 }
 bool Config::HasRecentIsos() const {
-	std::lock_guard<std::mutex> guard(recentIsosLock);
+	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 	return !recentIsos.empty();
 }
 void Config::ClearRecentIsos() {
-	ResetRecentIsosThread();
-	std::lock_guard<std::mutex> guard(recentIsosLock);
+	private_->ResetRecentIsosThread();
+	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 	recentIsos.clear();
 }
 
