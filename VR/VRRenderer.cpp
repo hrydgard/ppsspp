@@ -12,6 +12,7 @@ XrFovf fov = {};
 XrView* projections;
 XrPosef invViewTransform[2];
 XrFrameState frameState = {};
+GLboolean initialized = GL_FALSE;
 GLboolean stageSupported = GL_FALSE;
 float menuYaw = 0;
 
@@ -209,12 +210,14 @@ void VR_InitRenderer( engine_t* engine ) {
             &engine->appState.Renderer,
             engine->appState.ViewConfigurationView[0].recommendedImageRectWidth,
             engine->appState.ViewConfigurationView[0].recommendedImageRectHeight);
+    initialized = GL_TRUE;
 }
 
 void VR_DestroyRenderer( engine_t* engine )
 {
     ovrRenderer_Destroy(&engine->appState.Renderer);
     free(projections);
+    initialized = GL_FALSE;
 }
 
 void VR_ReInitRenderer()
@@ -408,7 +411,7 @@ void VR_DrawFrame( engine_t* engine ) {
         cylinder_layer.pose.position = pos;
         cylinder_layer.radius = 12.0f;
         cylinder_layer.centralAngle = MATH_PI * 0.5f;
-        cylinder_layer.aspectRatio = width / (float)height / 0.75f;
+        cylinder_layer.aspectRatio = 16.0f / 9.0f;
 
         engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
     }
@@ -436,6 +439,7 @@ void VR_DrawFrame( engine_t* engine ) {
 
 unsigned int VR_Framebuffer( engine_t* engine, int eye )
 {
+    if (!initialized) return 0;
     ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[eye];
     int swapchainIndex = frameBuffer->TextureSwapChainIndex;
     int glFramebuffer = frameBuffer->FrameBuffers[swapchainIndex];
