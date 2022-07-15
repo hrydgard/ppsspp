@@ -150,7 +150,7 @@ static std::string RemotePathForRecent(const std::string &filename) {
 }
 
 static Path LocalFromRemotePath(const std::string &path) {
-	for (const std::string &filename : g_Config.recentIsos) {
+	for (const std::string &filename : g_Config.RecentIsos()) {
 		std::string basename = RemotePathForRecent(filename);
 		if (basename == path) {
 			return Path(filename);
@@ -216,7 +216,7 @@ static void HandleListing(const http::Request &request) {
 	request.Out()->Printf("/\n");
 	if (serverFlags & (int)WebServerFlags::DISCS) {
 		// List the current discs in their recent order.
-		for (const std::string &filename : g_Config.recentIsos) {
+		for (const std::string &filename : g_Config.RecentIsos()) {
 			std::string basename = RemotePathForRecent(filename);
 			if (!basename.empty()) {
 				request.Out()->Printf("%s\n", basename.c_str());

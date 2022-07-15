@@ -587,7 +587,7 @@ bool GameBrowser::DisplayTopBar() {
 bool GameBrowser::HasSpecialFiles(std::vector<Path> &filenames) {
 	if (path_.GetPath().ToString() == "!RECENT") {
 		filenames.clear();
-		for (auto &str : g_Config.recentIsos) {
+		for (auto &str : g_Config.RecentIsos()) {
 			filenames.push_back(Path(str));
 		}
 		return true;
@@ -986,7 +986,7 @@ void MainScreen::CreateViews() {
 		System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE) == PERMISSION_STATUS_GRANTED;
 	bool storageIsTemporary = IsTempPath(GetSysDirectory(DIRECTORY_SAVEDATA)) && !confirmedTemporary_;
 	if (showRecent && !hasStorageAccess) {
-		showRecent = !g_Config.recentIsos.empty();
+		showRecent = g_Config.HasRecentIsos();
 	}
 
 	if (showRecent) {
@@ -1036,7 +1036,7 @@ void MainScreen::CreateViews() {
 		tabAllGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 		tabHomebrew->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 
-		if (g_Config.recentIsos.size() > 0) {
+		if (g_Config.HasRecentIsos()) {
 			tabHolder_->SetCurrentTab(0, true);
 		} else if (g_Config.iMaxRecent > 0) {
 			tabHolder_->SetCurrentTab(1, true);
@@ -1490,7 +1490,7 @@ void UmdReplaceScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(di->T("Cancel")))->OnClick.Handle(this, &UmdReplaceScreen::OnCancel);
 	rightColumnItems->Add(new Choice(mm->T("Game Settings")))->OnClick.Handle(this, &UmdReplaceScreen::OnGameSettings);
 
-	if (g_Config.recentIsos.size() > 0) {
+	if (g_Config.HasRecentIsos()) {
 		leftColumn->SetCurrentTab(0, true);
 	} else if (g_Config.iMaxRecent > 0) {
 		leftColumn->SetCurrentTab(1, true);
@@ -1569,7 +1569,7 @@ UI::EventReturn GridSettingsScreen::GridMinusClick(UI::EventParams &e) {
 }
 
 UI::EventReturn GridSettingsScreen::OnRecentClearClick(UI::EventParams &e) {
-	g_Config.recentIsos.clear();
+	g_Config.ClearRecentIsos();
 	OnRecentChanged.Trigger(e);
 	return UI::EVENT_DONE;
 }
