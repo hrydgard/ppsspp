@@ -508,7 +508,8 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xffc8f5f8f946152c, 192, "dl_write_light_color", },
 	{ 0x249a3c5981c73480, 1472, "openseason_data_decode", },  // Open Season
 	{ 0x795d940ad0a605f8, 40, "gow_fps_hack", }, // God of War (all)
-	{ 0x4c75043b7b0c643b, 512, "gow_vortex_hack", } // God of War: Ghost of Sparta vortex timer hack, avoids softlock #8299
+	{ 0x4c75043b7b0c643b, 512, "gow_vortex_hack", }, // God of War: Ghost of Sparta vortex timer hack, avoids softlock #8299
+	{ 0x7624dde603717640, 288, "ZZT3_select_hack", }, // Zettai Zetsumei Toshi 3 - bypasses softlock on character select screen #4901
 };
 
 namespace MIPSAnalyst {
