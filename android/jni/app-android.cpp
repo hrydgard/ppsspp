@@ -1063,9 +1063,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	} else {
 		UpdateRunLoopAndroid(env);
 	}
-#ifdef OPENXR
-	VR_DrawFrame(VR_GetEngine());
-#endif
 }
 
 void System_AskForPermission(SystemPermission permission) {

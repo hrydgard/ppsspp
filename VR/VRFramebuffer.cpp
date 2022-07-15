@@ -105,19 +105,15 @@ bool ovrFramebuffer_Create(
         // Create depth buffer.
         GL(glGenRenderbuffers(1, &frameBuffer->DepthBuffers[i]));
         GL(glBindRenderbuffer(GL_RENDERBUFFER, frameBuffer->DepthBuffers[i]));
-        GL(glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height));
+        GL(glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height));
         GL(glBindRenderbuffer(GL_RENDERBUFFER, 0));
 
         // Create the frame buffer.
         GL(glGenFramebuffers(1, &frameBuffer->FrameBuffers[i]));
         GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->FrameBuffers[i]));
-        GL(glFramebufferRenderbuffer(
-                GL_DRAW_FRAMEBUFFER,
-                GL_DEPTH_ATTACHMENT,
-                GL_RENDERBUFFER,
-                frameBuffer->DepthBuffers[i]));
-        GL(glFramebufferTexture2D(
-                GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0));
+        GL(glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, frameBuffer->DepthBuffers[i]));
+        GL(glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, frameBuffer->DepthBuffers[i]));
+        GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0));
         GL(GLenum renderFramebufferStatus = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER));
         GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0));
         if (renderFramebufferStatus != GL_FRAMEBUFFER_COMPLETE) {

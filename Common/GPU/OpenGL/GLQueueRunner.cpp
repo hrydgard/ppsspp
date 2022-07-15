@@ -30,6 +30,11 @@ static constexpr int TEXCACHE_NAME_CACHE_SIZE = 16;
 extern void bindDefaultFBO();
 #endif
 
+#ifdef OPENXR
+#include "VR/VRBase.h"
+#include "VR/VRRenderer.h"
+#endif
+
 // Workaround for Retroarch. Simply declare
 //   extern GLuint g_defaultFBO;
 // and set is as appropriate. Can adjust the variables in ext/native/base/display.h as
@@ -1651,6 +1656,11 @@ void GLQueueRunner::fbo_unbind() {
 
 #if PPSSPP_PLATFORM(IOS)
 	bindDefaultFBO();
+#endif
+
+#ifdef OPENXR
+	GLuint fbo = VR_Framebuffer(VR_GetEngine(), 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 #endif
 
 	currentDrawHandle_ = 0;

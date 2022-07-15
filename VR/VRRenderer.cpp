@@ -8,7 +8,10 @@
 #include <GLES3/gl3.h>
 #include <GLES3/gl3ext.h>
 
+XrFovf fov = {};
 XrView* projections;
+XrPosef invViewTransform[2];
+XrFrameState frameState = {};
 GLboolean stageSupported = GL_FALSE;
 float menuYaw = 0;
 
@@ -225,7 +228,7 @@ void VR_ClearFrameBuffer( int width, int height)
     glEnable( GL_SCISSOR_TEST );
     glViewport( 0, 0, width, height );
 
-    glClearColor( 0.0f, 0.5f, 1.0f, 1.0f );
+    glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
 
     glScissor( 0, 0, width, height );
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
@@ -234,8 +237,8 @@ void VR_ClearFrameBuffer( int width, int height)
     glDisable( GL_SCISSOR_TEST );
 }
 
-void VR_DrawFrame( engine_t* engine ) {
-
+void VR_BeginFrame( engine_t* engine )
+{
     GLboolean stageBoundsDirty = GL_TRUE;
     if (ovrApp_HandleXrEvents(&engine->appState)) {
         VR_Recenter(engine);
@@ -255,7 +258,6 @@ void VR_DrawFrame( engine_t* engine ) {
     waitFrameInfo.type = XR_TYPE_FRAME_WAIT_INFO;
     waitFrameInfo.next = NULL;
 
-    XrFrameState frameState = {};
     frameState.type = XR_TYPE_FRAME_STATE;
     frameState.next = NULL;
 
@@ -294,8 +296,6 @@ void VR_DrawFrame( engine_t* engine ) {
             projections));
     //
 
-    XrFovf fov = {};
-    XrPosef invViewTransform[2];
     for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
         invViewTransform[eye] = projections[eye].pose;
 
@@ -331,8 +331,9 @@ void VR_DrawFrame( engine_t* engine ) {
         ovrFramebuffer_SetCurrent(frameBuffer);
         VR_ClearFrameBuffer(frameBuffer->ColorSwapChain.Width, frameBuffer->ColorSwapChain.Height);
     }
+}
 
-    //TODO:Com_Frame();
+void VR_DrawFrame( engine_t* engine ) {
 
     for (int eye = 0; eye < ovrMaxNumEyes; eye++)
     {
@@ -431,4 +432,12 @@ void VR_DrawFrame( engine_t* engine ) {
         frameBuffer->TextureSwapChainIndex++;
         frameBuffer->TextureSwapChainIndex %= frameBuffer->TextureSwapChainLength;
     }
+}
+
+unsigned int VR_Framebuffer( engine_t* engine, int eye )
+{
+    ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[eye];
+    int swapchainIndex = frameBuffer->TextureSwapChainIndex;
+    int glFramebuffer = frameBuffer->FrameBuffers[swapchainIndex];
+    return glFramebuffer;
 }
