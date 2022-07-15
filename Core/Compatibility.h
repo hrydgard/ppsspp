@@ -85,6 +85,7 @@ struct CompatFlags {
 	bool CenteredLines;
 	bool MaliDepthStencilBugWorkaround;
 	bool ZZT3SelectHack;
+	bool AllowLargeFBTextureOffsets;
 };
 
 class IniFile;
