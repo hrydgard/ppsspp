@@ -938,14 +938,14 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 		}, nullptr);
 
 		graphicsContext->ThreadStart();
+#ifdef OPENXR
+		VR_EnterVR(VR_GetEngine());
+		VR_InitRenderer(VR_GetEngine());
+#endif
 		renderer_inited = true;
 	}
 	NativeMessageReceived("recreateviews", "");
 
-#ifdef OPENXR
-	VR_EnterVR(VR_GetEngine());
-	VR_InitRenderer(VR_GetEngine());
-#endif
 	return true;
 }
 
@@ -1063,6 +1063,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	} else {
 		UpdateRunLoopAndroid(env);
 	}
+#ifdef OPENXR
+	VR_DrawFrame(VR_GetEngine());
+#endif
 }
 
 void System_AskForPermission(SystemPermission permission) {

@@ -9,7 +9,6 @@ static engine_t vr_engine;
 int vr_initialized = 0;
 
 const char* const requiredExtensionNames[] = {
-        XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME,
         XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME,
         XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME};
 const uint32_t numRequiredExtensions =
@@ -21,13 +20,6 @@ void VR_Init( ovrJava java )
         return;
 
     ovrApp_Clear(&vr_engine.appState);
-
-    // Create the EGL Context
-    ovrEgl_CreateContext(&vr_engine.appState.Egl, NULL);
-
-    XrInstanceCreateInfoAndroidKHR instanceCreateInfoAndroid = {XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR};
-    instanceCreateInfoAndroid.applicationVM = java.Vm;
-    instanceCreateInfoAndroid.applicationActivity = java.ActivityObject;
 
     PFN_xrInitializeLoaderKHR xrInitializeLoaderKHR;
     xrGetInstanceProcAddr(
@@ -54,7 +46,7 @@ void VR_Init( ovrJava java )
     XrInstanceCreateInfo instanceCreateInfo;
     memset(&instanceCreateInfo, 0, sizeof(instanceCreateInfo));
     instanceCreateInfo.type = XR_TYPE_INSTANCE_CREATE_INFO;
-    instanceCreateInfo.next = (XrBaseInStructure*)&instanceCreateInfoAndroid;
+    instanceCreateInfo.next = NULL;
     instanceCreateInfo.createFlags = 0;
     instanceCreateInfo.applicationInfo = appInfo;
     instanceCreateInfo.enabledApiLayerCount = 0;
@@ -115,7 +107,6 @@ void VR_Destroy( engine_t* engine )
 {
     if (engine == &vr_engine) {
         xrDestroyInstance(engine->appState.Instance);
-        ovrEgl_DestroyContext(&engine->appState.Egl);
         ovrApp_Destroy(&engine->appState);
     }
 }
@@ -131,9 +122,9 @@ void VR_EnterVR( engine_t* engine ) {
     XrGraphicsBindingOpenGLESAndroidKHR graphicsBindingAndroidGLES = {};
     graphicsBindingAndroidGLES.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR;
     graphicsBindingAndroidGLES.next = NULL;
-    graphicsBindingAndroidGLES.display = engine->appState.Egl.Display;
-    graphicsBindingAndroidGLES.config = engine->appState.Egl.Config;
-    graphicsBindingAndroidGLES.context = engine->appState.Egl.Context;
+    graphicsBindingAndroidGLES.display = eglGetCurrentDisplay();
+    graphicsBindingAndroidGLES.config = eglGetCurrentSurface(EGL_DRAW);
+    graphicsBindingAndroidGLES.context = eglGetCurrentContext();
 
     XrSessionCreateInfo sessionCreateInfo = {};
     memset(&sessionCreateInfo, 0, sizeof(sessionCreateInfo));

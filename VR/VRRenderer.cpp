@@ -168,11 +168,6 @@ void VR_Recenter(engine_t* engine) {
 }
 
 void VR_InitRenderer( engine_t* engine ) {
-#if ENABLE_GL_DEBUG
-	glEnable(GL_DEBUG_OUTPUT);
-	glDebugMessageCallback(VR_GLDebugLog, 0);
-#endif
-
 	int eyeW, eyeH;
     VR_GetResolution(engine, &eyeW, &eyeH);
 
@@ -349,7 +344,7 @@ void VR_DrawFrame( engine_t* engine ) {
         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
         ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[eye];
-        ovrFramebuffer_Resolve(frameBuffer);
+        //TODO:ovrFramebuffer_Resolve(frameBuffer);
         ovrFramebuffer_Release(frameBuffer);
     }
     ovrFramebuffer_SetNone();
