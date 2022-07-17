@@ -412,7 +412,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 
 		// We might already want to copy depth, in case this is a temp buffer.  See #7810.
 		if (prevDepth->vfb != vfb) {
-			if (!params.isClearingDepth) {
+			if (!params.isClearingDepth && prevDepth->vfb) {
 				BlitFramebufferDepth(prevDepth->vfb, vfb);
 			}
 			prevDepth->vfb = vfb;
@@ -559,6 +559,12 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 
 TrackedDepthBuffer *FramebufferManagerCommon::GetOrCreateTrackedDepthBuffer(VirtualFramebuffer *vfb) {
 	for (auto tracked : trackedDepthBuffers_) {
+		// Disable tracking if color of the new vfb is clashing with tracked depth.
+		if (vfb->fb_address == tracked->z_address) {
+			tracked->vfb = nullptr;  // this is checked for. Cheaper than deleting.
+			continue;
+		}
+
 		if (vfb->z_address == tracked->z_address && vfb->z_stride == tracked->z_stride) {
 			return tracked;
 		}
@@ -785,7 +791,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 
 	// We might already want to copy depth, in case this is a temp buffer.  See #7810.
 	if (prevDepth->vfb != vfb) {
-		if (!isClearingDepth) {
+		if (!isClearingDepth && prevDepth->vfb) {
 			BlitFramebufferDepth(prevDepth->vfb, vfb);
 		}
 		prevDepth->vfb = vfb;
