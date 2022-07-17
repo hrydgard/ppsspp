@@ -96,7 +96,6 @@ void UIScreen::preRender() {
 	screenManager()->getUIContext()->BeginFrame();
 
 #ifdef OPENXR
-	VR_GetResolution(VR_GetEngine(), &pixel_xres, &pixel_yres);
 	GLuint fbo = VR_Framebuffer(VR_GetEngine(), 0);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 #endif

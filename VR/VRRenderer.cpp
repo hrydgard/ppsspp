@@ -411,15 +411,15 @@ void VR_DrawFrame( engine_t* engine ) {
         cylinder_layer.subImage.imageArrayIndex = 0;
         const XrVector3f axis = {0.0f, 1.0f, 0.0f};
         XrVector3f pos = {
-                invViewTransform[0].position.x - sin(radians(menuYaw)) * 4.0f,
+                invViewTransform[0].position.x - sin(radians(menuYaw)) * 6.0f,
                 invViewTransform[0].position.y,
-                invViewTransform[0].position.z - cos(radians(menuYaw)) * 4.0f
+                invViewTransform[0].position.z - cos(radians(menuYaw)) * 6.0f
         };
         cylinder_layer.pose.orientation = XrQuaternionf_CreateFromVectorAngle(axis, radians(menuYaw));
         cylinder_layer.pose.position = pos;
         cylinder_layer.radius = 12.0f;
         cylinder_layer.centralAngle = MATH_PI * 0.5f;
-        cylinder_layer.aspectRatio = 16.0f / 9.0f;
+        cylinder_layer.aspectRatio = height / (float)width;
 
         engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
     }

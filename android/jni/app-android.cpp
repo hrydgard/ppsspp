@@ -986,6 +986,9 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	pixel_xres = bufw;
 	pixel_yres = bufh;
 	backbuffer_format = format;
+#ifdef OPENXR
+	VR_GetResolution(VR_GetEngine(), &pixel_xres, &pixel_yres);
+#endif
 
 	recalculateDpi();
 
@@ -1283,6 +1286,14 @@ void getDesiredBackbufferSize(int &sz_x, int &sz_y) {
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JNIEnv *, jclass, jint xres, jint yres, jint dpi, jfloat refreshRate) {
 	INFO_LOG(G3D, "NativeApp.setDisplayParameters(%d x %d, dpi=%d, refresh=%0.2f)", xres, yres, dpi, refreshRate);
+#ifdef OPENXR
+	int width, height;
+	VR_GetResolution(VR_GetEngine(), &width, &height);
+	xres = width;
+	yres = height;
+	dpi = 320;
+#endif
+
 	bool changed = false;
 	changed = changed || display_xres != xres || display_yres != yres;
 	changed = changed || display_dpi_x != dpi || display_dpi_y != dpi;
