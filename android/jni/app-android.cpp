@@ -113,18 +113,29 @@ struct ButtonMapping
 };
 
 std::vector<ButtonMapping> leftControllerMapping = {
+	ButtonMapping(52, ovrButton_X),
+	ButtonMapping(53, ovrButton_Y),
+	ButtonMapping(54, ovrButton_LThumb),
+	ButtonMapping(55, ovrButton_GripTrigger),
 	ButtonMapping(19, ovrButton_Up),
 	ButtonMapping(20, ovrButton_Down),
 	ButtonMapping(21, ovrButton_Left),
 	ButtonMapping(22, ovrButton_Right),
+	ButtonMapping(23, ovrButton_Joystick),
 	ButtonMapping(66, ovrButton_Trigger),
+	ButtonMapping(4, ovrButton_Enter),
 };
 
 std::vector<ButtonMapping> rightControllerMapping = {
+	ButtonMapping(29, ovrButton_A),
+	ButtonMapping(30, ovrButton_B),
+	ButtonMapping(31, ovrButton_RThumb),
+	ButtonMapping(32, ovrButton_GripTrigger),
 	ButtonMapping(19, ovrButton_Up),
 	ButtonMapping(20, ovrButton_Down),
 	ButtonMapping(21, ovrButton_Left),
 	ButtonMapping(22, ovrButton_Right),
+	ButtonMapping(23, ovrButton_Joystick),
 	ButtonMapping(66, ovrButton_Trigger),
 };
 

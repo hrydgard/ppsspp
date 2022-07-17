@@ -691,7 +691,6 @@ void GameSettingsScreen::CreateViews() {
 		MicChoice->OnChoice.Handle(this, &GameSettingsScreen::OnMicDeviceChange);
 	}
 
-#ifndef OPENXR
 	// Control
 	LinearLayout *controlsSettings = AddTab("GameSettingsControls", ms->T("Controls"));
 
@@ -717,6 +716,7 @@ void GameSettingsScreen::CreateViews() {
 		});
 	}
 
+#ifndef OPENXR
 	// TVs don't have touch control, at least not yet.
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_TV) {
 		controlsSettings->Add(new ItemHeader(co->T("OnScreen", "On-Screen Touch Controls")));
