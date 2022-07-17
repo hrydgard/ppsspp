@@ -226,12 +226,6 @@ void VR_DestroyRenderer( engine_t* engine )
     initialized = GL_FALSE;
 }
 
-void VR_ReInitRenderer()
-{
-    VR_DestroyRenderer( VR_GetEngine() );
-    VR_InitRenderer( VR_GetEngine() );
-}
-
 void VR_ClearFrameBuffer( int width, int height)
 {
     glEnable( GL_SCISSOR_TEST );

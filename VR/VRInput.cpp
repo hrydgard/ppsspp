@@ -579,6 +579,14 @@ void IN_VRInputFrame( engine_t* engine )
     //thumbstick
     moveJoystickState[0] = GetActionStateVector2(moveOnLeftJoystickAction);
     moveJoystickState[1] = GetActionStateVector2(moveOnRightJoystickAction);
+    if (moveJoystickState[0].currentState.x > 0.5) lButtons |= ovrButton_Right;
+    if (moveJoystickState[0].currentState.x < -0.5) lButtons |= ovrButton_Left;
+    if (moveJoystickState[0].currentState.y > 0.5) lButtons |= ovrButton_Up;
+    if (moveJoystickState[0].currentState.y < -0.5) lButtons |= ovrButton_Down;
+    if (moveJoystickState[1].currentState.x > 0.5) rButtons |= ovrButton_Right;
+    if (moveJoystickState[1].currentState.x < -0.5) rButtons |= ovrButton_Left;
+    if (moveJoystickState[1].currentState.y > 0.5) rButtons |= ovrButton_Up;
+    if (moveJoystickState[1].currentState.y < -0.5) rButtons |= ovrButton_Down;
 
 	lastframetime = in_vrEventTime;
 	in_vrEventTime = milliseconds( );

@@ -97,6 +97,41 @@ struct JNIEnv {};
 #include "VR/VRBase.h"
 #include "VR/VRInput.h"
 #include "VR/VRRenderer.h"
+
+struct ButtonMapping
+{
+	ovrButton ovr;
+	int keycode;
+	bool pressed;
+
+	ButtonMapping(int keycode, ovrButton ovr)
+	{
+		this->keycode = keycode;
+		this->ovr = ovr;
+		pressed = false;
+	}
+};
+
+std::vector<ButtonMapping> leftControllerMapping = {
+	ButtonMapping(19, ovrButton_Up),
+	ButtonMapping(20, ovrButton_Down),
+	ButtonMapping(21, ovrButton_Left),
+	ButtonMapping(22, ovrButton_Right),
+	ButtonMapping(66, ovrButton_Trigger),
+};
+
+std::vector<ButtonMapping> rightControllerMapping = {
+	ButtonMapping(19, ovrButton_Up),
+	ButtonMapping(20, ovrButton_Down),
+	ButtonMapping(21, ovrButton_Left),
+	ButtonMapping(22, ovrButton_Right),
+	ButtonMapping(66, ovrButton_Trigger),
+};
+
+std::vector<ButtonMapping> controllerMapping[2] = {
+	leftControllerMapping,
+	rightControllerMapping
+};
 #endif
 
 #include "app-android.h"
@@ -1068,6 +1103,30 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	} else {
 		UpdateRunLoopAndroid(env);
 	}
+
+#ifdef OPENXR
+	KeyInput keyInput = {};
+	for (int j = 0; j < 2; j++) {
+		int status = IN_VRGetButtonState(j);
+		for (ButtonMapping& m : controllerMapping[j]) {
+			keyInput.flags = status & m.ovr ? KEY_DOWN : KEY_UP;
+			keyInput.keyCode = m.keycode;
+			keyInput.deviceId = j;
+
+			if (status & m.ovr) {
+				if (m.pressed) {
+					keyInput.flags |= KEY_IS_REPEAT;
+				}
+				m.pressed = true;
+			} else {
+				m.pressed = false;
+			}
+			if (!(keyInput.flags & KEY_IS_REPEAT)) {
+				NativeKey(keyInput);
+			}
+		}
+	}
+#endif
 }
 
 void System_AskForPermission(SystemPermission permission) {
