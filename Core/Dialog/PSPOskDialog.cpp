@@ -148,6 +148,17 @@ static const char16_t oskKeys[OSK_KEYBOARD_COUNT][6][14] =
 
 // This isn't a complete representation of these flags, it just helps ensure we show the right keyboards.
 int allowedInputFlagsMap[OSK_KEYBOARD_COUNT] = {
+	PSP_UTILITY_OSK_INPUTTYPE_LATIN_LOWERCASE | PSP_UTILITY_OSK_INPUTTYPE_LATIN_UPPERCASE | PSP_UTILITY_OSK_INPUTTYPE_LATIN_SYMBOL | PSP_UTILITY_OSK_INPUTTYPE_LATIN_DIGIT,
+	PSP_UTILITY_OSK_INPUTTYPE_LATIN_LOWERCASE | PSP_UTILITY_OSK_INPUTTYPE_LATIN_UPPERCASE | PSP_UTILITY_OSK_INPUTTYPE_LATIN_SYMBOL,
+	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_HIRAGANA,
+	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_KATAKANA | PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_HALF_KATAKANA,
+	PSP_UTILITY_OSK_INPUTTYPE_KOREAN,
+	PSP_UTILITY_OSK_INPUTTYPE_RUSSIAN_LOWERCASE | PSP_UTILITY_OSK_INPUTTYPE_RUSSIAN_UPPERCASE,
+	PSP_UTILITY_OSK_INPUTTYPE_RUSSIAN_LOWERCASE | PSP_UTILITY_OSK_INPUTTYPE_RUSSIAN_UPPERCASE,
+	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_LOWERCASE | PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_UPPERCASE | PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_SYMBOL | PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_DIGIT,
+	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_LOWERCASE | PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_UPPERCASE | PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_SYMBOL,
+};
+int defaultInputFlagsMap[OSK_KEYBOARD_COUNT] = {
 	PSP_UTILITY_OSK_INPUTTYPE_LATIN_LOWERCASE | PSP_UTILITY_OSK_INPUTTYPE_LATIN_SYMBOL | PSP_UTILITY_OSK_INPUTTYPE_LATIN_DIGIT,
 	PSP_UTILITY_OSK_INPUTTYPE_LATIN_UPPERCASE | PSP_UTILITY_OSK_INPUTTYPE_LATIN_SYMBOL,
 	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_HIRAGANA,
@@ -249,11 +260,17 @@ static void FindValidKeyboard(s32 inputType, int direction, OskKeyboardLanguage 
 	if (inputType == 0) {
 		return;
 	}
+	// We use direction = 0 for default, but we actually move "forward".
+	int *matchMap = allowedInputFlagsMap;
+	if (direction == 0) {
+		direction = 1;
+		matchMap = defaultInputFlagsMap;
+	}
 
 	// TODO: Limit by allowed keyboards properly... this is just an approximation.
 	int tries = OSK_LANGUAGE_COUNT * 2;
-	while (!(inputType & allowedInputFlagsMap[disp]) && tries > 0) {
-		if ((--tries % 1) == 0) {
+	while (!(inputType & matchMap[disp]) && tries > 0) {
+		if ((--tries % 2) == 0) {
 			lang = (OskKeyboardLanguage)((OSK_LANGUAGE_COUNT + lang + direction) % OSK_LANGUAGE_COUNT);
 			disp = OskKeyboardCases[lang][LOWERCASE];
 		} else {
@@ -312,7 +329,7 @@ int PSPOskDialog::Init(u32 oskPtr) {
 	selectedChar = 0;
 	currentKeyboardLanguage = OSK_LANGUAGE_ENGLISH;
 	currentKeyboard = OSK_KEYBOARD_LATIN_LOWERCASE;
-	FindValidKeyboard(oskParams->fields[0].inputtype, 1, currentKeyboardLanguage, currentKeyboard);
+	FindValidKeyboard(oskParams->fields[0].inputtype, 0, currentKeyboardLanguage, currentKeyboard);
 
 	ConvertUCS2ToUTF8(oskDesc, oskParams->fields[0].desc);
 	ConvertUCS2ToUTF8(oskIntext, oskParams->fields[0].intext);
