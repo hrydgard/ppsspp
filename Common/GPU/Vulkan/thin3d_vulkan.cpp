@@ -828,10 +828,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 
 		// This started in driver 31 or 32.
 		if (VK_API_VERSION_MAJOR(deviceProps.driverVersion) >= 32) {
-			NOTICE_LOG(G3D, "Driver version %08x infested: major=%d", deviceProps.driverVersion, VK_API_VERSION_MAJOR(deviceProps.driverVersion));
 			bugs_.Infest(Bugs::MALI_CONSTANT_LOAD_BUG);  // See issue #15661
-		} else {
-			NOTICE_LOG(G3D, "Driver version %08x not infested: major=%d", deviceProps.driverVersion, VK_API_VERSION_MAJOR(deviceProps.driverVersion));
 		}
 	}
 
