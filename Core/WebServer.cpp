@@ -248,7 +248,7 @@ static bool ServeDebuggerFile(const http::Request &request) {
 	} else if (ext == ".js") {
 		mimeType = "application/javascript";
 	} else if (ext == ".svg") {
-		mimeType = "image/svg";
+		mimeType = "image/svg+xml";
 	} else if (ext == ".png") {
 		mimeType = "image/png";
 	} else if (ext == ".css") {
