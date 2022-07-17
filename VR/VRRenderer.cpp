@@ -1,4 +1,5 @@
 #include "VRBase.h"
+#include "VRInput.h"
 #include "VRRenderer.h"
 
 #include <assert.h>
@@ -14,7 +15,13 @@ XrPosef invViewTransform[2];
 XrFrameState frameState = {};
 GLboolean initialized = GL_FALSE;
 GLboolean stageSupported = GL_FALSE;
+
 float menuYaw = 0;
+float recenterYaw = 0;
+vec3_t hmdorientation;
+vec3_t hmdposition;
+
+extern float radians(float deg);
 
 void VR_UpdateStageBounds(ovrApp* pappState) {
     XrExtent2Df stageBounds = {};
@@ -132,15 +139,14 @@ void VR_Recenter(engine_t* engine) {
         XrSpaceLocation loc = {};
         loc.type = XR_TYPE_SPACE_LOCATION;
         OXR(xrLocateSpace(engine->appState.HeadSpace, engine->appState.CurrentSpace, engine->predictedDisplayTime, &loc));
-        //TODO:rewrite
-        /*vec3_t rotation = {0, 0, 0};
-		QuatToYawPitchRoll(loc.pose.orientation, rotation, vr.hmdorientation);
+        vec3_t rotation = {0, 0, 0};
+        QuatToYawPitchRoll(loc.pose.orientation, rotation, hmdorientation);
 
-        vr.recenterYaw += radians(vr.hmdorientation[YAW]);
+        recenterYaw += radians(hmdorientation[YAW]);
         spaceCreateInfo.poseInReferenceSpace.orientation.x = 0;
-        spaceCreateInfo.poseInReferenceSpace.orientation.y = sin(vr.recenterYaw / 2);
+        spaceCreateInfo.poseInReferenceSpace.orientation.y = sin(recenterYaw / 2);
         spaceCreateInfo.poseInReferenceSpace.orientation.z = 0;
-        spaceCreateInfo.poseInReferenceSpace.orientation.w = cos(vr.recenterYaw / 2);*/
+        spaceCreateInfo.poseInReferenceSpace.orientation.w = cos(recenterYaw / 2);
     }
 
     // Delete previous space instances
@@ -308,10 +314,13 @@ void VR_BeginFrame( engine_t* engine )
         fov.angleDown += projections[eye].fov.angleDown / 2.0f;
     }
 
-    //TODO: Update HMD and controllers
-    /*IN_VRUpdateHMD( invViewTransform[0] );
-    IN_VRUpdateControllers( frameState.predictedDisplayTime );
-    IN_VRSyncActions();*/
+    // Update HMD and controllers
+    vec3_t rotation = {0, 0, 0};
+    QuatToYawPitchRoll(invViewTransform[0].orientation, rotation, hmdorientation);
+	hmdposition[0] = invViewTransform[0].position.x;
+	hmdposition[1] = invViewTransform[0].position.y;
+	hmdposition[2] = invViewTransform[0].position.z;
+	IN_VRInputFrame(engine);
 
     const ovrMatrix4f projectionMatrix = ovrMatrix4f_CreateProjectionFov(
             fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown, 1.0f, 0.0f );
@@ -355,7 +364,7 @@ void VR_DrawFrame( engine_t* engine ) {
 
     XrCompositionLayerProjectionView projection_layer_elements[2] = {};
     if (false) {
-        //TODO:vr.menuYaw = vr.hmdorientation[YAW];
+        menuYaw = hmdorientation[YAW];
 
         for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
             ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[eye];
@@ -401,13 +410,12 @@ void VR_DrawFrame( engine_t* engine ) {
         cylinder_layer.subImage.imageRect.extent.height = height;
         cylinder_layer.subImage.imageArrayIndex = 0;
         const XrVector3f axis = {0.0f, 1.0f, 0.0f};
-		float yaw = menuYaw * 180.0f / M_PI;
         XrVector3f pos = {
-                invViewTransform[0].position.x - sin(yaw) * 4.0f,
+                invViewTransform[0].position.x - sin(radians(menuYaw)) * 4.0f,
                 invViewTransform[0].position.y,
-                invViewTransform[0].position.z - cos(yaw) * 4.0f
+                invViewTransform[0].position.z - cos(radians(menuYaw)) * 4.0f
         };
-        cylinder_layer.pose.orientation = XrQuaternionf_CreateFromVectorAngle(axis, yaw);
+        cylinder_layer.pose.orientation = XrQuaternionf_CreateFromVectorAngle(axis, radians(menuYaw));
         cylinder_layer.pose.position = pos;
         cylinder_layer.radius = 12.0f;
         cylinder_layer.centralAngle = MATH_PI * 0.5f;

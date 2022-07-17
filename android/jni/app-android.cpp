@@ -95,6 +95,7 @@ struct JNIEnv {};
 
 #ifdef OPENXR
 #include "VR/VRBase.h"
+#include "VR/VRInput.h"
 #include "VR/VRRenderer.h"
 #endif
 
@@ -941,6 +942,7 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 #ifdef OPENXR
 		VR_EnterVR(VR_GetEngine());
 		VR_InitRenderer(VR_GetEngine());
+		IN_VRInit(VR_GetEngine());
 #endif
 		renderer_inited = true;
 	}

@@ -1071,6 +1071,8 @@ if(ANDROID)
 			VR/VRBase.h
 			VR/VRFramebuffer.cpp
 			VR/VRFramebuffer.h
+			VR/VRInput.cpp
+			VR/VRInput.h
 			VR/VRRenderer.cpp
 			VR/VRRenderer.h
 		)
