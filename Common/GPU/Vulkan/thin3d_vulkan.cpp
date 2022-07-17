@@ -825,6 +825,11 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 		bugs_.Infest(Bugs::EQUAL_WZ_CORRUPTS_DEPTH);
 		// At least one driver at the upper end of the range is known to be likely to suffer from the bug causing issue #13833 (Midnight Club map broken).
 		bugs_.Infest(Bugs::MALI_STENCIL_DISCARD_BUG);
+
+		// This started in driver 31 or 32.
+		if (VK_API_VERSION_MAJOR(deviceProps.driverVersion) >= 32) {
+			bugs_.Infest(Bugs::MALI_CONSTANT_LOAD_BUG);  // See issue #15661
+		}
 	}
 
 	caps_.deviceID = deviceProps.deviceID;
