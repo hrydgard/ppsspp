@@ -322,7 +322,17 @@ void GameButton::Draw(UIContext &dc) {
 	dc.Draw()->Flush();
 	dc.RebindTexture();
 	dc.SetFontStyle(dc.theme->uiFont);
-	if (!gridStyle_) {
+	if (gridStyle_ && ginfo->fileType == IdentifiedFileType::PPSSPP_GE_DUMP) {
+		// Super simple drawing for ge dumps.
+		dc.PushScissor(bounds_);
+		const std::string currentTitle = ginfo->GetTitle();
+		dc.SetFontScale(0.6f, 0.6f);
+		dc.DrawText(title_.c_str(), bounds_.x + 4.0f, bounds_.centerY(), style.fgColor, ALIGN_VCENTER | ALIGN_LEFT);
+		dc.SetFontScale(1.0f, 1.0f);
+		title_ = currentTitle;
+		dc.Draw()->Flush();
+		dc.PopScissor();
+	} else if (!gridStyle_) {
 		float tw, th;
 		dc.Draw()->Flush();
 		dc.PushScissor(bounds_);
