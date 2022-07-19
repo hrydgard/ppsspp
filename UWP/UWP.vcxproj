@@ -495,7 +495,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <Image Include="AssetsGold\StoreLogo.scale-100.png">
-      <DeploymentContent>true</DeploymentContent>
+      <DeploymentContent>false</DeploymentContent>
     </Image>
     <Image Include="Assets\LockScreenLogo.scale-200.png">
       <DeploymentContent>true</DeploymentContent>
