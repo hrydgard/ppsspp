@@ -509,12 +509,9 @@ void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
 		prevPrevDisplayFramebuf_ = nullptr;
 
 	// Remove any depth buffer tracking related to this vfb.
-	for (auto it = trackedDepthBuffers_.begin(); it != trackedDepthBuffers_.end(); it) {
+	for (auto it = trackedDepthBuffers_.begin(); it != trackedDepthBuffers_.end(); it++) {
 		if ((*it)->vfb == v) {
-			delete *it;
-			it = trackedDepthBuffers_.erase(it);
-		} else {
-			it++;
+			(*it)->vfb = nullptr;  // Mark for deletion in the next Decimate
 		}
 	}
 
@@ -565,8 +562,13 @@ TrackedDepthBuffer *FramebufferManagerCommon::GetOrCreateTrackedDepthBuffer(Virt
 			continue;
 		}
 
-		if (vfb->z_address == tracked->z_address && vfb->z_stride == tracked->z_stride) {
-			return tracked;
+		if (vfb->z_address == tracked->z_address) {
+			if (vfb->z_stride == tracked->z_stride) {
+				return tracked;
+			} else {
+				// Stride has changed, mark as bad.
+				tracked->vfb = nullptr;
+			}
 		}
 	}
 
@@ -1319,6 +1321,16 @@ void FramebufferManagerCommon::DecimateFBOs() {
 			INFO_LOG(FRAMEBUF, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
 			DestroyFramebuf(vfb);
 			bvfbs_.erase(bvfbs_.begin() + i--);
+		}
+	}
+
+	// Also clean up the TrackedDepthBuffer array...
+	for (auto it = trackedDepthBuffers_.begin(); it != trackedDepthBuffers_.end(); it) {
+		if ((*it)->vfb == nullptr) {
+			delete *it;
+			it = trackedDepthBuffers_.erase(it);
+		} else {
+			it++;
 		}
 	}
 }
