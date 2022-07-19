@@ -122,7 +122,6 @@ private:
 	RingbufferLogListener *ringLog_ = nullptr;
 	static LogManager *logManager_;  // Singleton. Ugh.
 
-	std::mutex log_lock_;
 	std::mutex listeners_lock_;
 	std::vector<LogListener*> listeners_;
 
