@@ -44,6 +44,7 @@ body:
         - Raspberry Pi
         - Linux / BSD
         - macOS
+        - UWP / Xbox
         - Other
 
   - type: input
