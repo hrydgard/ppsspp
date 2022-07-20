@@ -312,7 +312,7 @@ void Reinit() {
 }
 
 static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
-	uint8_t *d = GetPointer(start);
+	uint8_t *d = GetPointerWrite(start);
 	uint8_t *&storage = *p.ptr;
 
 	// We only handle aligned data and sizes.
@@ -479,7 +479,7 @@ void Write_Opcode_JIT(const u32 _Address, const Opcode& _Value)
 
 void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength, const char *tag) {
 	if (IsValidRange(_Address, _iLength)) {
-		uint8_t *ptr = GetPointerUnchecked(_Address);
+		uint8_t *ptr = GetPointerWriteUnchecked(_Address);
 		memset(ptr, _iValue, _iLength);
 	} else {
 		for (size_t i = 0; i < _iLength; i++)

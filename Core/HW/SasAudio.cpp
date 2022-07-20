@@ -64,13 +64,13 @@ void VagDecoder::Start(u32 data, u32 vagSize, bool loopEnabled) {
 	s_2 = 0;
 }
 
-void VagDecoder::DecodeBlock(u8 *&read_pointer) {
+void VagDecoder::DecodeBlock(const u8 *&read_pointer) {
 	if (curBlock_ == numBlocks_ - 1) {
 		end_ = true;
 		return;
 	}
 
-	u8 *readp = read_pointer;
+	const u8 *readp = read_pointer;
 	int predict_nr = *readp++;
 	int shift_factor = predict_nr & 0xf;
 	predict_nr >>= 4;
@@ -124,8 +124,8 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 		WARN_LOG(SASMIX, "Bad VAG samples address?");
 		return;
 	}
-	u8 *readp = Memory::GetPointerUnchecked(read_);
-	u8 *origp = readp;
+	const u8 *readp = Memory::GetPointerUnchecked(read_);
+	const u8 *origp = readp;
 
 	for (int i = 0; i < numSamples; i++) {
 		if (curSample == 28) {

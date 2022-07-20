@@ -28,19 +28,19 @@
 
 namespace Memory {
 
-u8 *GetPointer(const u32 address) {
+u8 *GetPointerWrite(const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000) {
 		// RAM
-		return GetPointerUnchecked(address);
+		return GetPointerWriteUnchecked(address);
 	} else if ((address & 0x3F800000) == 0x04000000) {
 		// VRAM
-		return GetPointerUnchecked(address);
+		return GetPointerWriteUnchecked(address);
 	} else if ((address & 0xBFFFC000) == 0x00010000) {
 		// Scratchpad
-		return GetPointerUnchecked(address);
+		return GetPointerWriteUnchecked(address);
 	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
 		// More RAM (remasters, etc.)
-		return GetPointerUnchecked(address);
+		return GetPointerWriteUnchecked(address);
 	} else {
 		static bool reported = false;
 		if (!reported) {
@@ -50,6 +50,10 @@ u8 *GetPointer(const u32 address) {
 		Core_MemoryException(address, currentMIPS->pc, MemoryExceptionType::WRITE_BLOCK);
 		return nullptr;
 	}
+}
+
+const u8 *GetPointer(const u32 address) {
+	return (const u8 *)GetPointerWrite(address);
 }
 
 template <typename T>

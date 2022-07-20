@@ -364,7 +364,7 @@ static int CalculateMp3SamplesPerFrame(int versionBits, int layerBits) {
 static int FindMp3Header(AuCtx *ctx, int &header, int end) {
 	u32 addr = ctx->AuBuf + ctx->AuStreamWorkareaSize();
 	if (Memory::IsValidRange(addr, end)) {
-		u8 *ptr = Memory::GetPointerUnchecked(addr);
+		const u8 *ptr = Memory::GetPointerUnchecked(addr);
 		for (int offset = 0; offset < end; ++offset) {
 			// If we hit valid sync bits, then we've found a header.
 			if (ptr[offset] == 0xFF && (ptr[offset + 1] & 0xC0) == 0xC0) {
@@ -689,11 +689,11 @@ static u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumed
 		return -1;
 	}
 
-	auto inbuff = Memory::GetPointer(sourceAddr);
-	auto outbuff = Memory::GetPointer(samplesAddr);
+	auto inbuff = Memory::GetPointerWriteUnchecked(sourceAddr);
+	auto outbuff = Memory::GetPointerWriteUnchecked(samplesAddr);
 	
 	int outpcmbytes = 0;
-	ctx->decoder->Decode((void*)inbuff, 4096, outbuff, &outpcmbytes);
+	ctx->decoder->Decode(inbuff, 4096, outbuff, &outpcmbytes);
 	NotifyMemInfo(MemBlockFlags::WRITE, samplesAddr, outpcmbytes, "Mp3LowLevelDecode");
 	
 	Memory::Write_U32(ctx->decoder->GetSourcePos(), sourceBytesConsumedAddr);

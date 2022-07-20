@@ -1412,7 +1412,7 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 
 	Sampler::FetchFunc sampler = Sampler::GetFetchFunc(id);
 
-	u8 *texptr = Memory::GetPointer(texaddr);
+	u8 *texptr = Memory::GetPointerWrite(texaddr);
 	u32 *row = (u32 *)buffer.GetData();
 	for (int y = 0; y < h; ++y) {
 		for (int x = 0; x < w; ++x) {

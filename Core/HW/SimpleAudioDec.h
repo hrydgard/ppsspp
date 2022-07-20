@@ -45,7 +45,7 @@ public:
 	SimpleAudio(int audioType, int sample_rate = 44100, int channels = 2);
 	~SimpleAudio();
 
-	bool Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes);
+	bool Decode(const uint8_t* inbuf, int inbytes, uint8_t *outbuf, int *outbytes);
 	bool IsOK() const;
 
 	int GetOutSamples();

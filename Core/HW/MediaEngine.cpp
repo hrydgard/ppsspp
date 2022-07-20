@@ -805,7 +805,7 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 		return 0;
 	}
 
-	u8 *buffer = Memory::GetPointer(bufferPtr);
+	u8 *buffer = Memory::GetPointerWrite(bufferPtr);
 
 #ifdef USE_FFMPEG
 	if (!m_pFrame || !m_pFrameRGB)
@@ -895,7 +895,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		return 0;
 	}
 
-	u8 *buffer = Memory::GetPointer(bufferPtr);
+	u8 *buffer = Memory::GetPointerWrite(bufferPtr);
 
 #ifdef USE_FFMPEG
 	if (!m_pFrame || !m_pFrameRGB)
@@ -1032,7 +1032,7 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 		ERROR_LOG_REPORT(ME, "Ignoring bad audio decode address %08x during video playback", bufferPtr);
 	}
 
-	u8 *buffer = Memory::GetPointer(bufferPtr);
+	u8 *buffer = Memory::GetPointerWrite(bufferPtr);
 	if (!m_demux) {
 		return 0;
 	}

@@ -5120,7 +5120,7 @@ static int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddres
 						if ((optLen == 0) || (optLen > 0 && optDataPtr != 0))
 						{
 							void * opt = NULL;
-							if (Memory::IsValidAddress(optDataPtr)) opt = Memory::GetPointer(optDataPtr);
+							if (Memory::IsValidAddress(optDataPtr)) opt = Memory::GetPointerWriteUnchecked(optDataPtr);
 							// Host Mode
 							if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT)
 							{
@@ -5247,7 +5247,7 @@ int NetAdhocMatching_CancelTargetWithOpt(int matchingId, const char* macAddress,
 	{
 		SceNetEtherAddr* target = (SceNetEtherAddr*)macAddress;
 		void* opt = NULL;
-		if (Memory::IsValidAddress(optDataPtr)) opt = Memory::GetPointer(optDataPtr);
+		if (Memory::IsValidAddress(optDataPtr)) opt = Memory::GetPointerWriteUnchecked(optDataPtr);
 
 		// Valid Arguments
 		if (target != NULL && ((optLen == 0) || (optLen > 0 && opt != NULL)))
@@ -5351,7 +5351,7 @@ int sceNetAdhocMatchingGetHelloOpt(int matchingId, u32 optLenAddr, u32 optDataAd
 		// Get OptData
 		*optlen = item->hellolen;
 		if ((*optlen > 0) && Memory::IsValidAddress(optDataAddr)) {
-			uint8_t * optdata = Memory::GetPointer(optDataAddr);
+			uint8_t * optdata = Memory::GetPointerWriteUnchecked(optDataAddr);
 			memcpy(optdata, item->hello, *optlen);
 		}
 		//else return ERROR_NET_ADHOC_MATCHING_INVALID_ARG;
@@ -5666,7 +5666,7 @@ int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u3
 						return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_INVALID_DATALEN, "invalid datalen");
 
 					void* data = NULL;
-					if (Memory::IsValidAddress(dataAddr)) data = Memory::GetPointer(dataAddr);
+					if (Memory::IsValidAddress(dataAddr)) data = Memory::GetPointerWriteUnchecked(dataAddr);
 
 					// Lock the peer
 					std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
