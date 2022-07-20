@@ -25,7 +25,7 @@ namespace Draw {
 // Useful in UBOs
 typedef int bool32;
 
-enum class Comparison : int {
+enum class Comparison : uint8_t {
 	NEVER,
 	LESS,
 	EQUAL,
@@ -37,7 +37,7 @@ enum class Comparison : int {
 };
 
 // Had to prefix with LOGIC, too many clashes
-enum class LogicOp : int {
+enum class LogicOp : uint8_t {
 	LOGIC_CLEAR,
 	LOGIC_SET,
 	LOGIC_COPY,
@@ -56,7 +56,7 @@ enum class LogicOp : int {
 	LOGIC_OR_INVERTED,
 };
 
-enum class BlendOp : int {
+enum class BlendOp : uint8_t {
 	ADD,
 	SUBTRACT,
 	REV_SUBTRACT,
@@ -96,7 +96,7 @@ enum class StencilOp {
 	DECREMENT_AND_WRAP = 7,
 };
 
-enum class TextureFilter : int {
+enum class TextureFilter : uint8_t {
 	NEAREST = 0,
 	LINEAR = 1,
 };

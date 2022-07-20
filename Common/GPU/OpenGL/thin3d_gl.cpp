@@ -1112,7 +1112,7 @@ void OpenGLContext::ApplySamplers() {
 		const OpenGLSamplerState *samp = boundSamplers_[i];
 		const GLRTexture *tex = boundTextures_[i];
 		if (tex) {
-			_assert_(samp);
+			_assert_msg_(samp, "Sampler missing");
 		} else {
 			continue;
 		}

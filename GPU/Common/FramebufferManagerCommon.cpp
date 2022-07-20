@@ -2488,6 +2488,10 @@ void FramebufferManagerCommon::DeviceLost() {
 	DoRelease(reinterpretVBuf_);
 	DoRelease(reinterpretSampler_);
 	DoRelease(reinterpretVS_);
+	DoRelease(stencilUploadFs_);
+	DoRelease(stencilUploadVs_);
+	DoRelease(stencilUploadSampler_);
+	DoRelease(stencilUploadPipeline_);
 	presentation_->DeviceLost();
 	draw_ = nullptr;
 }

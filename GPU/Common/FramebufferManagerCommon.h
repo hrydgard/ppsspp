@@ -253,7 +253,7 @@ public:
 	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
 	void UpdateFromMemory(u32 addr, int size, bool safe);
 	void ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 clearColor);
-	virtual bool NotifyStencilUpload(u32 addr, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR) = 0;
+	bool NotifyStencilUpload(u32 addr, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR);
 	// Returns true if it's sure this is a direct FBO->FBO transfer and it has already handle it.
 	// In that case we hardly need to actually copy the bytes in VRAM, they will be wrong anyway (unless
 	// read framebuffers is on, in which case this should always return false).
@@ -467,4 +467,11 @@ protected:
 	Draw::ShaderModule *reinterpretVS_ = nullptr;
 	Draw::SamplerState *reinterpretSampler_ = nullptr;
 	Draw::Buffer *reinterpretVBuf_ = nullptr;
+
+	// Common implementation of stencil buffer upload. Also not 100% optimal, but not perforamnce
+	// critical either.
+	Draw::Pipeline *stencilUploadPipeline_ = nullptr;
+	Draw::ShaderModule *stencilUploadVs_ = nullptr;
+	Draw::ShaderModule *stencilUploadFs_ = nullptr;
+	Draw::SamplerState *stencilUploadSampler_ = nullptr;
 };

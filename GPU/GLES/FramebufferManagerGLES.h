@@ -50,7 +50,7 @@ public:
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;
 
-	bool NotifyStencilUpload(u32 addr, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR) override;
+	bool NotifyStencilUpload(u32 addr, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR);
 
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
 
@@ -75,10 +75,6 @@ private:
 	u32 convBufSize_ = 0;
 
 	GLRProgram *draw2dprogram_ = nullptr;
-
-	GLRProgram *stencilUploadProgram_ = nullptr;
-	int u_stencilUploadTex = -1;
-	int u_stencilValue = -1;
 
 	GLRProgram *depthDownloadProgram_ = nullptr;
 	int u_depthDownloadTex = -1;

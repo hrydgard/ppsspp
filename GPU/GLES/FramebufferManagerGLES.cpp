@@ -144,10 +144,12 @@ void FramebufferManagerGLES::DestroyDeviceObjects() {
 		render_->DeleteProgram(draw2dprogram_);
 		draw2dprogram_ = nullptr;
 	}
-	if (stencilUploadProgram_) {
-		render_->DeleteProgram(stencilUploadProgram_);
-		stencilUploadProgram_ = nullptr;
+
+	if (stencilUploadPipeline_) {
+		stencilUploadPipeline_->Release();
+		stencilUploadPipeline_ = nullptr;
 	}
+
 	if (depthDownloadProgram_) {
 		render_->DeleteProgram(depthDownloadProgram_);
 		depthDownloadProgram_ = nullptr;

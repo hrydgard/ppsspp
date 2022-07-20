@@ -369,7 +369,6 @@ SOURCES_CXX += \
 	$(GPUDIR)/GLES/TextureCacheGLES.cpp \
 	$(GPUDIR)/GLES/ShaderManagerGLES.cpp \
 	$(GPUDIR)/GLES/StateMappingGLES.cpp \
-	$(GPUDIR)/GLES/StencilBufferGLES.cpp \
 	$(EXTDIR)/glslang/OGLCompilersDLL/InitializeDll.cpp \
 	$(EXTDIR)/glslang/glslang/GenericCodeGen/CodeGen.cpp \
 	$(EXTDIR)/glslang/glslang/GenericCodeGen/Link.cpp \
@@ -732,7 +731,6 @@ SOURCES_CXX += \
 	$(GPUDIR)/Vulkan/PipelineManagerVulkan.cpp \
 	$(GPUDIR)/Vulkan/ShaderManagerVulkan.cpp \
 	$(GPUDIR)/Vulkan/StateMappingVulkan.cpp \
-	$(GPUDIR)/Vulkan/StencilBufferVulkan.cpp \
 	$(GPUDIR)/Vulkan/TextureCacheVulkan.cpp \
 	$(GPUDIR)/Vulkan/VulkanUtil.cpp \
 	$(LIBRETRODIR)/LibretroVulkanContext.cpp \
@@ -747,7 +745,6 @@ SOURCES_CXX += \
 	$(GPUDIR)/Directx9/GPU_DX9.cpp \
 	$(GPUDIR)/Directx9/ShaderManagerDX9.cpp \
 	$(GPUDIR)/Directx9/StateMappingDX9.cpp \
-	$(GPUDIR)/Directx9/StencilBufferDX9.cpp \
 	$(GPUDIR)/Directx9/TextureCacheDX9.cpp
 
 SOURCES_CXX += \
@@ -758,7 +755,6 @@ SOURCES_CXX += \
 	$(GPUDIR)/D3D11/D3D11Util.cpp \
 	$(GPUDIR)/D3D11/ShaderManagerD3D11.cpp \
 	$(GPUDIR)/D3D11/StateMappingD3D11.cpp \
-	$(GPUDIR)/D3D11/StencilBufferD3D11.cpp \
 	$(GPUDIR)/D3D11/TextureCacheD3D11.cpp \
    $(LIBRETRODIR)/LibretroD3D11Context.cpp
 

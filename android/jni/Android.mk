@@ -351,7 +351,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GLES/DepalettizeShaderGLES.cpp \
   $(SRC)/GPU/GLES/DepthBufferGLES.cpp \
   $(SRC)/GPU/GLES/GPU_GLES.cpp.arm \
-  $(SRC)/GPU/GLES/StencilBufferGLES.cpp \
   $(SRC)/GPU/GLES/TextureCacheGLES.cpp.arm \
   $(SRC)/GPU/GLES/DrawEngineGLES.cpp.arm \
   $(SRC)/GPU/GLES/StateMappingGLES.cpp.arm \

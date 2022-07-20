@@ -1455,7 +1455,6 @@ set(GPU_GLES
 	GPU/GLES/ShaderManagerGLES.h
 	GPU/GLES/StateMappingGLES.cpp
 	GPU/GLES/StateMappingGLES.h
-	GPU/GLES/StencilBufferGLES.cpp
 	GPU/GLES/TextureCacheGLES.cpp
 	GPU/GLES/TextureCacheGLES.h
 	GPU/GLES/DrawEngineGLES.cpp
@@ -1479,7 +1478,6 @@ set(GPU_VULKAN
 	GPU/Vulkan/ShaderManagerVulkan.h
 	GPU/Vulkan/StateMappingVulkan.cpp
 	GPU/Vulkan/StateMappingVulkan.h
-	GPU/Vulkan/StencilBufferVulkan.cpp
 	GPU/Vulkan/TextureCacheVulkan.cpp
 	GPU/Vulkan/TextureCacheVulkan.h
 	GPU/Vulkan/VulkanUtil.cpp
@@ -1499,7 +1497,6 @@ set(GPU_D3D9
 	GPU/Directx9/ShaderManagerDX9.h
 	GPU/Directx9/StateMappingDX9.cpp
 	GPU/Directx9/StateMappingDX9.h
-	GPU/Directx9/StencilBufferDX9.cpp
 	GPU/Directx9/TextureCacheDX9.cpp
 	GPU/Directx9/TextureCacheDX9.h
 )
@@ -1519,7 +1516,6 @@ set(GPU_D3D11
 	GPU/D3D11/ShaderManagerD3D11.h
 	GPU/D3D11/StateMappingD3D11.cpp
 	GPU/D3D11/StateMappingD3D11.h
-	GPU/D3D11/StencilBufferD3D11.cpp
 	GPU/D3D11/TextureCacheD3D11.cpp
 	GPU/D3D11/TextureCacheD3D11.h
 )
