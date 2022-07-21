@@ -27,6 +27,7 @@ u32 Evaluate(u32 a, u32 b, IROp op) {
 	case IROp::Slt: case IROp::SltConst: return ((s32)a < (s32)b);
 	case IROp::SltU: case IROp::SltUConst: return (a < b);
 	default:
+		_assert_msg_(false, "Unable to evaluate two op %d", (int)op);
 		return -1;
 	}
 }
@@ -50,6 +51,7 @@ u32 Evaluate(u32 a, IROp op) {
 		return count;
 	}
 	default:
+		_assert_msg_(false, "Unable to evaluate one op %d", (int)op);
 		return -1;
 	}
 }
@@ -64,6 +66,7 @@ IROp ArithToArithConst(IROp op) {
 	case IROp::Slt: return IROp::SltConst;
 	case IROp::SltU: return IROp::SltUConst;
 	default:
+		_assert_msg_(false, "Invalid ArithToArithConst for op %d", (int)op);
 		return (IROp)-1;
 	}
 }
@@ -75,6 +78,7 @@ IROp ShiftToShiftImm(IROp op) {
 	case IROp::Ror: return IROp::RorImm;
 	case IROp::Sar: return IROp::SarImm;
 	default:
+		_assert_msg_(false, "Invalid ShiftToShiftImm for op %d", (int)op);
 		return (IROp)-1;
 	}
 }
@@ -834,7 +838,8 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 					// This happens with lwl/lwr temps.  Replace the original dest.
 					insts[check.index] = IRReplaceDestGPR(insts[check.index], check.reg, inst.dest);
 					lastWrittenTo[inst.dest] = check.index;
-					check.reg = inst.dest;
+					// If it's being read from (by inst), we can't optimize out.
+					check.reg = 0;
 					// Update the read by exit flag to match the new reg.
 					check.readByExit = inst.dest < IRTEMP_0 || inst.dest > IRTEMP_LR_SHIFT;
 					// And swap the args for this mov, since we changed the other dest.  We'll optimize this out later.
