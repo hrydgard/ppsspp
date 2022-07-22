@@ -103,12 +103,14 @@ struct ButtonMapping
 	ovrButton ovr;
 	int keycode;
 	bool pressed;
+	int repeat;
 
 	ButtonMapping(int keycode, ovrButton ovr)
 	{
 		this->keycode = keycode;
 		this->ovr = ovr;
 		pressed = false;
+		repeat = 0;
 	}
 };
 
@@ -1119,14 +1121,21 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	for (int j = 0; j < 2; j++) {
 		int status = IN_VRGetButtonState(j);
 		for (ButtonMapping& m : controllerMapping[j]) {
-			keyInput.flags = status & m.ovr ? KEY_DOWN : KEY_UP;
+			bool pressed = status & m.ovr;
+			keyInput.flags = pressed ? KEY_DOWN : KEY_UP;
 			keyInput.keyCode = m.keycode;
 			keyInput.deviceId = controllerIds[j];
 
-			bool pressed = status & m.ovr;
 			if (m.pressed != pressed) {
 				NativeKey(keyInput);
 				m.pressed = pressed;
+				m.repeat = 0;
+			} else if (pressed && (m.repeat > 30)) {
+				keyInput.flags |= KEY_IS_REPEAT;
+				NativeKey(keyInput);
+				m.repeat = 0;
+			} else {
+				m.repeat++;
 			}
 		}
 	}
