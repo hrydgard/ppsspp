@@ -113,32 +113,31 @@ struct ButtonMapping
 };
 
 std::vector<ButtonMapping> leftControllerMapping = {
-	ButtonMapping(52, ovrButton_X),
-	ButtonMapping(53, ovrButton_Y),
-	ButtonMapping(54, ovrButton_LThumb),
-	ButtonMapping(55, ovrButton_GripTrigger),
-	ButtonMapping(19, ovrButton_Up),
-	ButtonMapping(20, ovrButton_Down),
-	ButtonMapping(21, ovrButton_Left),
-	ButtonMapping(22, ovrButton_Right),
-	ButtonMapping(23, ovrButton_Joystick),
-	ButtonMapping(66, ovrButton_Trigger),
-	ButtonMapping(4, ovrButton_Enter),
+	ButtonMapping(NKCODE_X, ovrButton_X),
+	ButtonMapping(NKCODE_Y, ovrButton_Y),
+	ButtonMapping(NKCODE_ALT_LEFT, ovrButton_GripTrigger),
+	ButtonMapping(NKCODE_DPAD_UP, ovrButton_Up),
+	ButtonMapping(NKCODE_DPAD_DOWN, ovrButton_Down),
+	ButtonMapping(NKCODE_DPAD_LEFT, ovrButton_Left),
+	ButtonMapping(NKCODE_DPAD_RIGHT, ovrButton_Right),
+	ButtonMapping(NKCODE_BUTTON_THUMBL, ovrButton_LThumb),
+	ButtonMapping(NKCODE_ENTER, ovrButton_Trigger),
+	ButtonMapping(NKCODE_BACK, ovrButton_Enter),
 };
 
 std::vector<ButtonMapping> rightControllerMapping = {
-	ButtonMapping(29, ovrButton_A),
-	ButtonMapping(30, ovrButton_B),
-	ButtonMapping(31, ovrButton_RThumb),
-	ButtonMapping(32, ovrButton_GripTrigger),
-	ButtonMapping(19, ovrButton_Up),
-	ButtonMapping(20, ovrButton_Down),
-	ButtonMapping(21, ovrButton_Left),
-	ButtonMapping(22, ovrButton_Right),
-	ButtonMapping(23, ovrButton_Joystick),
-	ButtonMapping(66, ovrButton_Trigger),
+	ButtonMapping(NKCODE_A, ovrButton_A),
+	ButtonMapping(NKCODE_B, ovrButton_B),
+	ButtonMapping(NKCODE_ALT_RIGHT, ovrButton_GripTrigger),
+	ButtonMapping(NKCODE_DPAD_UP, ovrButton_Up),
+	ButtonMapping(NKCODE_DPAD_DOWN, ovrButton_Down),
+	ButtonMapping(NKCODE_DPAD_LEFT, ovrButton_Left),
+	ButtonMapping(NKCODE_DPAD_RIGHT, ovrButton_Right),
+	ButtonMapping(NKCODE_BUTTON_THUMBR, ovrButton_RThumb),
+	ButtonMapping(NKCODE_ENTER, ovrButton_Trigger),
 };
 
+int controllerIds[] = {DEVICE_ID_XR_CONTROLLER_LEFT, DEVICE_ID_XR_CONTROLLER_RIGHT};
 std::vector<ButtonMapping> controllerMapping[2] = {
 	leftControllerMapping,
 	rightControllerMapping
@@ -1122,18 +1121,12 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 		for (ButtonMapping& m : controllerMapping[j]) {
 			keyInput.flags = status & m.ovr ? KEY_DOWN : KEY_UP;
 			keyInput.keyCode = m.keycode;
-			keyInput.deviceId = j;
+			keyInput.deviceId = controllerIds[j];
 
-			if (status & m.ovr) {
-				if (m.pressed) {
-					keyInput.flags |= KEY_IS_REPEAT;
-				}
-				m.pressed = true;
-			} else {
-				m.pressed = false;
-			}
-			if (!(keyInput.flags & KEY_IS_REPEAT)) {
+			bool pressed = status & m.ovr;
+			if (m.pressed != pressed) {
 				NativeKey(keyInput);
+				m.pressed = pressed;
 			}
 		}
 	}
