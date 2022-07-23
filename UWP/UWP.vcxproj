@@ -1721,7 +1721,6 @@
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</DeploymentContent>
     </None>
     <None Include="PPSSPP_UWP_TemporaryKey.pfx" />
-    <None Include="UWP_TemporaryKey.pfx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="Armips_UWP\Armips_UWP.vcxproj">
