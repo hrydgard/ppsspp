@@ -1,13 +1,5 @@
 #include "VRFramebuffer.h"
 
-/************************************************************************************
-
-Original file name  : XrCompositor_NativeActivity.c
-
-Copyright : Copyright (c) Facebook Technologies, LLC and its affiliates. All rights reserved.
-
-*************************************************************************************/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
