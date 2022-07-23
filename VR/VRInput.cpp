@@ -36,6 +36,10 @@ uint32_t lButtons = 0;
 uint32_t rButtons = 0;
 XrActionStateVector2f moveJoystickState[2];
 
+//0 = left, 1 = right
+float vibration_channel_duration[2] = {0.0f, 0.0f};
+float vibration_channel_intensity[2] = {0.0f, 0.0f};
+
 float radians(float deg) {
     return (deg * M_PI) / 180.0;
 }
@@ -133,10 +137,6 @@ void QuatToYawPitchRoll(XrQuaternionf q, vec3_t rotation, vec3_t out) {
 
     GetAnglesFromVectors(forwardNormal, rightNormal, upNormal, out);
 }
-
-//0 = left, 1 = right
-float vibration_channel_duration[2] = {0.0f, 0.0f};
-float vibration_channel_intensity[2] = {0.0f, 0.0f};
 
 void VR_Vibrate( int duration, int chan, float intensity ) {
     for (int i = 0; i < 2; ++i) {
