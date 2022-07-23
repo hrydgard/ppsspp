@@ -14,8 +14,7 @@ const char* const requiredExtensionNames[] = {
 const uint32_t numRequiredExtensions =
         sizeof(requiredExtensionNames) / sizeof(requiredExtensionNames[0]);
 
-void VR_Init( ovrJava java )
-{
+void VR_Init( ovrJava java ) {
     if (vr_initialized)
         return;
 
@@ -103,8 +102,7 @@ void VR_Init( ovrJava java )
     vr_initialized = 1;
 }
 
-void VR_Destroy( engine_t* engine )
-{
+void VR_Destroy( engine_t* engine ) {
     if (engine == &vr_engine) {
         xrDestroyInstance(engine->appState.Instance);
         ovrApp_Destroy(&engine->appState);

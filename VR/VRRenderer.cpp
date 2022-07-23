@@ -40,13 +40,11 @@ void VR_UpdateStageBounds(ovrApp* pappState) {
     ALOGV("Stage bounds: width = %f, depth %f", stageBounds.width, stageBounds.height);
 }
 
-void VR_GetResolution(engine_t* engine, int *pWidth, int *pHeight)
-{
+void VR_GetResolution(engine_t* engine, int *pWidth, int *pHeight) {
 	static int width = 0;
 	static int height = 0;
 	
-	if (engine)
-	{
+	if (engine) {
         // Enumerate the viewport configurations.
         uint32_t viewportConfigTypeCount = 0;
         OXR(xrEnumerateViewConfigurations(
@@ -120,9 +118,7 @@ void VR_GetResolution(engine_t* engine, int *pWidth, int *pHeight)
 
         *pWidth = width = engine->appState.ViewConfigurationView[0].recommendedImageRectWidth;
         *pHeight = height = engine->appState.ViewConfigurationView[0].recommendedImageRectHeight;
-	}
-	else
-	{
+	} else {
 		//use cached values
 		*pWidth = width;
 		*pHeight = height;
@@ -219,15 +215,13 @@ void VR_InitRenderer( engine_t* engine ) {
     initialized = GL_TRUE;
 }
 
-void VR_DestroyRenderer( engine_t* engine )
-{
+void VR_DestroyRenderer( engine_t* engine ) {
     ovrRenderer_Destroy(&engine->appState.Renderer);
     free(projections);
     initialized = GL_FALSE;
 }
 
-void VR_ClearFrameBuffer( int width, int height)
-{
+void VR_ClearFrameBuffer( int width, int height) {
     glEnable( GL_SCISSOR_TEST );
     glViewport( 0, 0, width, height );
 
@@ -240,8 +234,7 @@ void VR_ClearFrameBuffer( int width, int height)
     glDisable( GL_SCISSOR_TEST );
 }
 
-void VR_BeginFrame( engine_t* engine )
-{
+void VR_BeginFrame( engine_t* engine ) {
     GLboolean stageBoundsDirty = GL_TRUE;
     if (ovrApp_HandleXrEvents(&engine->appState)) {
         VR_Recenter(engine);
@@ -327,8 +320,7 @@ void VR_BeginFrame( engine_t* engine )
                          engine->appState.Renderer.FrameBuffer[0].FrameBuffers[engine->appState.Renderer.FrameBuffer[0].TextureSwapChainIndex],
                          engine->appState.Renderer.FrameBuffer[1].FrameBuffers[engine->appState.Renderer.FrameBuffer[1].TextureSwapChainIndex]);*/
 
-    for (int eye = 0; eye < ovrMaxNumEyes; eye++)
-    {
+    for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
         ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[eye];
         int swapchainIndex = frameBuffer->TextureSwapChainIndex;
         int glFramebuffer = frameBuffer->FrameBuffers[swapchainIndex];
@@ -341,8 +333,7 @@ void VR_BeginFrame( engine_t* engine )
 
 void VR_DrawFrame( engine_t* engine ) {
 
-    for (int eye = 0; eye < ovrMaxNumEyes; eye++)
-    {
+    for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
 
         // Clear the alpha channel, other way OpenXR would not transfer the framebuffer fully
         glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
@@ -439,8 +430,7 @@ void VR_DrawFrame( engine_t* engine ) {
     }
 }
 
-unsigned int VR_Framebuffer( engine_t* engine, int eye )
-{
+unsigned int VR_Framebuffer( engine_t* engine, int eye ) {
     if (!initialized) return 0;
     ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[eye];
     int swapchainIndex = frameBuffer->TextureSwapChainIndex;

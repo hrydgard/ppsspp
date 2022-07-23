@@ -36,20 +36,17 @@ uint32_t lButtons = 0;
 uint32_t rButtons = 0;
 XrActionStateVector2f moveJoystickState[2];
 
-float radians(float deg)
-{
+float radians(float deg) {
     return (deg * M_PI) / 180.0;
 }
 
 unsigned long sys_timeBase = 0;
-int milliseconds(void)
-{
+int milliseconds(void) {
 	struct timeval tp;
 
 	gettimeofday(&tp, NULL);
 
-	if (!sys_timeBase)
-	{
+	if (!sys_timeBase) {
 		sys_timeBase = tp.tv_sec;
 		return tp.tv_usec/1000;
 	}
@@ -72,8 +69,7 @@ XrVector3f normalizeVec(XrVector3f vec) {
     return result;
 }
 
-void GetAnglesFromVectors(const XrVector3f forward, const XrVector3f right, const XrVector3f up, vec3_t angles)
-{
+void GetAnglesFromVectors(const XrVector3f forward, const XrVector3f right, const XrVector3f up, vec3_t angles) {
     float sr, sp, sy, cr, cp, cy;
 
     sp = -forward.z;
@@ -91,24 +87,15 @@ void GetAnglesFromVectors(const XrVector3f forward, const XrVector3f right, cons
     cr = cos(roll);
     sr = sin(roll);
 
-    if (fabs(cy) > EPSILON)
-    {
+    if (fabs(cy) > EPSILON) {
         cp = cp_x_cy / cy;
-    }
-    else if (fabs(sy) > EPSILON)
-    {
+    } else if (fabs(sy) > EPSILON) {
         cp = cp_x_sy / sy;
-    }
-    else if (fabs(sr) > EPSILON)
-    {
+    } else if (fabs(sr) > EPSILON) {
         cp = cp_x_sr / sr;
-    }
-    else if (fabs(cr) > EPSILON)
-    {
+    } else if (fabs(cr) > EPSILON) {
         cp = cp_x_cr / cr;
-    }
-    else
-    {
+    } else {
         cp = cos(asin(sp));
     }
 
@@ -123,8 +110,7 @@ void QuatToYawPitchRoll(XrQuaternionf q, vec3_t rotation, vec3_t out) {
 
     ovrMatrix4f mat = ovrMatrix4f_CreateFromQuaternion( &q );
 
-    if (rotation[0] != 0.0f || rotation[1] != 0.0f || rotation[2] != 0.0f)
-    {
+    if (rotation[0] != 0.0f || rotation[1] != 0.0f || rotation[2] != 0.0f) {
         ovrMatrix4f rot = ovrMatrix4f_CreateRotation(radians(rotation[0]), radians(rotation[1]), radians(rotation[2]));
         mat = ovrMatrix4f_Multiply(&mat, &rot);
     }
@@ -152,13 +138,10 @@ void QuatToYawPitchRoll(XrQuaternionf q, vec3_t rotation, vec3_t out) {
 float vibration_channel_duration[2] = {0.0f, 0.0f};
 float vibration_channel_intensity[2] = {0.0f, 0.0f};
 
-void VR_Vibrate( int duration, int chan, float intensity )
-{
-    for (int i = 0; i < 2; ++i)
-    {
+void VR_Vibrate( int duration, int chan, float intensity ) {
+    for (int i = 0; i < 2; ++i) {
         int channel = (i + 1) & chan;
-        if (channel)
-        {
+        if (channel) {
             if (vibration_channel_duration[channel-1] > 0.0f)
                 return;
 
@@ -317,8 +300,7 @@ XrActionStateVector2f GetActionStateVector2(XrAction action) {
     return state;
 }
 
-void IN_VRInit( engine_t *engine )
-{
+void IN_VRInit( engine_t *engine ) {
     if (inputInitialized)
         return;
 
@@ -521,8 +503,7 @@ void IN_VRInit( engine_t *engine )
     inputInitialized = 1;
 }
 
-void IN_VRInputFrame( engine_t* engine )
-{
+void IN_VRInputFrame( engine_t* engine ) {
     // Attach to session
     if (!actionsAttached) {
         XrSessionActionSetsAttachInfo attachInfo = {};
@@ -593,10 +574,8 @@ void IN_VRInputFrame( engine_t* engine )
 }
 
 
-uint32_t IN_VRGetButtonState( int controllerIndex )
-{
-	switch (controllerIndex)
-	{
+uint32_t IN_VRGetButtonState( int controllerIndex ) {
+	switch (controllerIndex) {
 		case 0:
 			return lButtons;
 		case 1:
@@ -606,7 +585,6 @@ uint32_t IN_VRGetButtonState( int controllerIndex )
 	}
 }
 
-XrVector2f IN_VRGetJoystickState( int controllerIndex )
-{
+XrVector2f IN_VRGetJoystickState( int controllerIndex ) {
 	return moveJoystickState[controllerIndex].currentState;
 }
