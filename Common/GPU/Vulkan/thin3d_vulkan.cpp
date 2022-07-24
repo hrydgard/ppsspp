@@ -1207,7 +1207,7 @@ Texture *VKContext::CreateTexture(const TextureDesc &desc) {
 	}
 }
 
-static inline void CopySide(VkStencilOpState &dest, const StencilSide &src) {
+static inline void CopySide(VkStencilOpState &dest, const StencilSetup &src) {
 	dest.compareMask = src.compareMask;
 	dest.writeMask = src.writeMask;
 	dest.compareOp = compToVK[(int)src.compareOp];
@@ -1224,8 +1224,8 @@ DepthStencilState *VKContext::CreateDepthStencilState(const DepthStencilStateDes
 	ds->info.stencilTestEnable = desc.stencilEnabled;
 	ds->info.depthBoundsTestEnable = false;
 	if (ds->info.stencilTestEnable) {
-		CopySide(ds->info.front, desc.front);
-		CopySide(ds->info.back, desc.back);
+		CopySide(ds->info.front, desc.stencil);
+		CopySide(ds->info.back, desc.stencil);
 	}
 	return ds;
 }

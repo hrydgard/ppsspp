@@ -936,12 +936,12 @@ DepthStencilState *OpenGLContext::CreateDepthStencilState(const DepthStencilStat
 	ds->depthWriteEnabled = desc.depthWriteEnabled;
 	ds->depthComp = compToGL[(int)desc.depthCompare];
 	ds->stencilEnabled = desc.stencilEnabled;
-	ds->stencilCompareOp = compToGL[(int)desc.front.compareOp];
-	ds->stencilPass = stencilOpToGL[(int)desc.front.passOp];
-	ds->stencilFail = stencilOpToGL[(int)desc.front.failOp];
-	ds->stencilZFail = stencilOpToGL[(int)desc.front.depthFailOp];
-	ds->stencilWriteMask = desc.front.writeMask;
-	ds->stencilCompareMask = desc.front.compareMask;
+	ds->stencilCompareOp = compToGL[(int)desc.stencil.compareOp];
+	ds->stencilPass = stencilOpToGL[(int)desc.stencil.passOp];
+	ds->stencilFail = stencilOpToGL[(int)desc.stencil.failOp];
+	ds->stencilZFail = stencilOpToGL[(int)desc.stencil.depthFailOp];
+	ds->stencilWriteMask = desc.stencil.writeMask;
+	ds->stencilCompareMask = desc.stencil.compareMask;
 	return ds;
 }
 

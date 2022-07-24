@@ -487,7 +487,7 @@ static D3D11_PRIMITIVE_TOPOLOGY primToD3D11[] = {
 	D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ,
 };
 
-inline void CopyStencilSide(D3D11_DEPTH_STENCILOP_DESC &side, const StencilSide &input) {
+inline void CopyStencilSide(D3D11_DEPTH_STENCILOP_DESC &side, const StencilSetup &input) {
 	side.StencilFunc = compareToD3D11[(int)input.compareOp];
 	side.StencilDepthFailOp = stencilOpToD3D11[(int)input.depthFailOp];
 	side.StencilFailOp = stencilOpToD3D11[(int)input.failOp];
@@ -501,8 +501,8 @@ DepthStencilState *D3D11DrawContext::CreateDepthStencilState(const DepthStencilS
 	d3ddesc.DepthWriteMask = desc.depthWriteEnabled ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
 	d3ddesc.DepthFunc = compareToD3D11[(int)desc.depthCompare];
 	d3ddesc.StencilEnable = desc.stencilEnabled;
-	CopyStencilSide(d3ddesc.FrontFace, desc.front);
-	CopyStencilSide(d3ddesc.BackFace, desc.back);
+	CopyStencilSide(d3ddesc.FrontFace, desc.stencil);
+	CopyStencilSide(d3ddesc.BackFace, desc.stencil);
 	if (SUCCEEDED(device_->CreateDepthStencilState(&d3ddesc, &ds->dss)))
 		return ds;
 	delete ds;

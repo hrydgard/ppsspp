@@ -730,12 +730,12 @@ DepthStencilState *D3D9Context::CreateDepthStencilState(const DepthStencilStateD
 	ds->depthWriteEnabled = desc.depthWriteEnabled;
 	ds->depthCompare = compareToD3D9[(int)desc.depthCompare];
 	ds->stencilEnabled = desc.stencilEnabled;
-	ds->stencilCompareOp = compareToD3D9[(int)desc.front.compareOp];
-	ds->stencilPass = stencilOpToD3D9[(int)desc.front.passOp];
-	ds->stencilFail = stencilOpToD3D9[(int)desc.front.failOp];
-	ds->stencilZFail = stencilOpToD3D9[(int)desc.front.depthFailOp];
-	ds->stencilWriteMask = desc.front.writeMask;
-	ds->stencilCompareMask = desc.front.compareMask;
+	ds->stencilCompareOp = compareToD3D9[(int)desc.stencil.compareOp];
+	ds->stencilPass = stencilOpToD3D9[(int)desc.stencil.passOp];
+	ds->stencilFail = stencilOpToD3D9[(int)desc.stencil.failOp];
+	ds->stencilZFail = stencilOpToD3D9[(int)desc.stencil.depthFailOp];
+	ds->stencilWriteMask = desc.stencil.writeMask;
+	ds->stencilCompareMask = desc.stencil.compareMask;
 	return ds;
 }
 

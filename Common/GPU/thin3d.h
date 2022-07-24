@@ -453,7 +453,7 @@ public:
 
 class RasterState : public RefCountedObject {};
 
-struct StencilSide {
+struct StencilSetup {
 	StencilOp failOp;
 	StencilOp passOp;
 	StencilOp depthFailOp;
@@ -467,8 +467,7 @@ struct DepthStencilStateDesc {
 	bool depthWriteEnabled;
 	Comparison depthCompare;
 	bool stencilEnabled;
-	StencilSide front;
-	StencilSide back;
+	StencilSetup stencil;
 };
 
 struct BlendStateDesc {
