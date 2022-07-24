@@ -1,5 +1,4 @@
-#ifndef __VR_INPUT_H
-#define __VR_INPUT_H
+#pragma once
 
 #include "VRBase.h"
 
@@ -42,5 +41,3 @@ uint32_t IN_VRGetButtonState( int controllerIndex );
 XrVector2f IN_VRGetJoystickState( int controllerIndex );
 
 void QuatToYawPitchRoll(XrQuaternionf q, vec3_t rotation, vec3_t out);
-
-#endif

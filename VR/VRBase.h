@@ -1,5 +1,4 @@
-#ifndef __VR_BASE
-#define __VR_BASE
+#pragma once
 
 #include "VRFramebuffer.h"
 
@@ -9,5 +8,3 @@ void VR_EnterVR( engine_t* engine );
 void VR_LeaveVR( engine_t* engine );
 
 engine_t* VR_GetEngine( void );
-
-#endif

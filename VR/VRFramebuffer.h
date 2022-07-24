@@ -1,5 +1,4 @@
-#ifndef __VR_FRAMEBUFFER
-#define __VR_FRAMEBUFFER
+#pragma once
 
 //OpenXR
 #define XR_USE_GRAPHICS_API_OPENGL_ES 1
@@ -244,5 +243,3 @@ static inline XrPosef XrPosef_Multiply(const XrPosef a, const XrPosef b) {
 	c.position = XrPosef_Transform(a, b.position);
 	return c;
 }
-
-#endif
