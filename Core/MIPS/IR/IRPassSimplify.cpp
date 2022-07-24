@@ -738,6 +738,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		}
 		}
 	}
+	gpr.FlushAll();
 	return logBlocks;
 }
 
