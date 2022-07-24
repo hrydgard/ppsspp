@@ -433,7 +433,8 @@ void GameSettingsScreen::CreateViews() {
 	});
 
 #if PPSSPP_PLATFORM(ANDROID)
-	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_TV) {
+	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
+	if ((deviceType != DEVICE_TYPE_TV) && (deviceType != DEVICE_TYPE_VR)) {
 		static const char *deviceResolutions[] = { "Native device resolution", "Auto (same as Rendering)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
 		int max_res_temp = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 2;
 		if (max_res_temp == 3)
