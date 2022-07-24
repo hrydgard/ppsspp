@@ -191,7 +191,7 @@ bool FramebufferManagerCommon::NotifyStencilUpload(u32 addr, int size, StencilUp
 
 		// Clear destination alpha.
 		// render_->Clear(0, 0, 0, GL_COLOR_BUFFER_BIT, 0x8, 0, 0, 0, 0);
-		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
+		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE);
 		return true;
 	}
 
@@ -320,10 +320,10 @@ bool FramebufferManagerCommon::NotifyStencilUpload(u32 addr, int size, StencilUp
 		// Note that scissors don't affect blits on other APIs than OpenGL, so might want to try to get rid of this.
 		draw_->SetScissorRect(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
 		draw_->BlitFramebuffer(blitFBO, 0, 0, w, h, dstBuffer->fbo, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, Draw::FB_STENCIL_BIT, Draw::FB_BLIT_NEAREST, "NotifyStencilUpload_Blit");
+		RebindFramebuffer("RebindFramebuffer - Stencil");
 	}
-
+	
 	tex->Release();
-	RebindFramebuffer("RebindFramebuffer - Stencil");
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	return true;
 }
