@@ -106,6 +106,20 @@ static const IRVerification tests[] = {
 		{ &PurgeTemps },
 	},
 	{
+		"DoubleClobberTemp",
+		{
+			{ IROp::Add, MIPS_REG_A0, MIPS_REG_A1, MIPS_REG_A2 },
+			{ IROp::Mov, MIPS_REG_S0, MIPS_REG_A0 },
+			{ IROp::Mov, MIPS_REG_S0, MIPS_REG_A1 },
+		},
+		{
+			{ IROp::Add, MIPS_REG_S0, MIPS_REG_A1, MIPS_REG_A2 },
+			{ IROp::Mov, MIPS_REG_A0, MIPS_REG_S0 },
+			{ IROp::Mov, MIPS_REG_S0, MIPS_REG_A1 },
+		},
+		{ &PurgeTemps },
+	},
+	{
 		"SimplePropagateConstants",
 		{
 			{ IROp::SetConst, MIPS_REG_A0, 0, 0, 0x12340000 },
