@@ -211,7 +211,9 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			if (alphaMask) {
 				dxstate.stencilTest.enable();
 				dxstate.stencilOp.set(D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE);
-				dxstate.stencilFunc.set(D3DCMP_ALWAYS, 255, 0xFF);
+				dxstate.stencilFunc.set(D3DCMP_ALWAYS);
+				dxstate.stencilRef.set(0xFF);
+				dxstate.stencilCompareMask.set(0xFF);
 				dxstate.stencilWriteMask.set(stencilState.writeMask);
 			} else {
 				dxstate.stencilTest.disable();
@@ -233,7 +235,9 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			// Stencil Test
 			if (stencilState.enabled) {
 				dxstate.stencilTest.enable();
-				dxstate.stencilFunc.set(ztests[stencilState.testFunc], stencilState.testRef, stencilState.testMask);
+				dxstate.stencilFunc.set(ztests[stencilState.testFunc]);
+				dxstate.stencilRef.set(stencilState.testRef);
+				dxstate.stencilCompareMask.set(stencilState.testMask);
 				dxstate.stencilOp.set(stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass]);
 				dxstate.stencilWriteMask.set(stencilState.writeMask);
 			} else {

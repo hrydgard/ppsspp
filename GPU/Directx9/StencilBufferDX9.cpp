@@ -202,7 +202,9 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 
 	// TODO: Ideally, we should clear alpha to zero here (but not RGB.)
 
-	dxstate.stencilFunc.set(D3DCMP_ALWAYS, 0xFF, 0xFF);
+	dxstate.stencilFunc.set(D3DCMP_ALWAYS);
+	dxstate.stencilRef.set(0xFF);
+	dxstate.stencilCompareMask.set(0xFF);
 
 	float coord[20] = {
 		-1.0f,  1.0f, 0.0f, 0.0f, 0.0f,
