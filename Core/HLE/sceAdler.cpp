@@ -33,7 +33,7 @@ static u32 sceAdler32(u32 adler, u32 data, u32 datalen) {
 	}
 	INFO_LOG(SCEMISC, "sceAdler32(adler=%08x, data=%08x, datalen=%08x)", adler, data, datalen);
 
-	u8 *buf = Memory::GetPointerUnchecked(data);
+	u8 *buf = Memory::GetPointerWriteUnchecked(data);
 	u32 ret = adler32(adler, buf, datalen);
 
 	return ret;

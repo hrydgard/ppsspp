@@ -369,7 +369,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 					// TODO: Handle the other formats?  We don't currently create them, I think.
 					const int dstByteOffset = (y * vfb->fb_stride + x) * dstBpp;
 					// Pixel size always 4 here because we always request BGRA8888.
-					ConvertFromBGRA8888(Memory::GetPointer(fb_address + dstByteOffset), (u8 *)locked.pBits, vfb->fb_stride, locked.Pitch / 4, w, h, vfb->format);
+					ConvertFromBGRA8888(Memory::GetPointerWrite(fb_address + dstByteOffset), (u8 *)locked.pBits, vfb->fb_stride, locked.Pitch / 4, w, h, vfb->format);
 					offscreen->UnlockRect();
 				} else {
 					ERROR_LOG_REPORT(G3D, "Unable to lock rect from %08x: %d,%d %dx%d of %dx%d", fb_address, (int)rect.left, (int)rect.top, (int)rect.right, (int)rect.bottom, vfb->renderWidth, vfb->renderHeight);
@@ -464,7 +464,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 			if (!Memory::IsValidAddress(fb_address))
 				return false;
 			// If there's no vfb and we're drawing there, must be memory?
-			buffer = GPUDebugBuffer(Memory::GetPointer(fb_address), fb_stride, 512, fb_format);
+			buffer = GPUDebugBuffer(Memory::GetPointerWrite(fb_address), fb_stride, 512, fb_format);
 			return true;
 		}
 		LPDIRECT3DSURFACE9 renderTarget = vfb->fbo ? (LPDIRECT3DSURFACE9)draw_->GetFramebufferAPITexture(vfb->fbo, Draw::FB_COLOR_BIT | Draw::FB_SURFACE_BIT, 0) : nullptr;
@@ -541,7 +541,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 
 		if (!vfb) {
 			// If there's no vfb and we're drawing there, must be memory?
-			buffer = GPUDebugBuffer(Memory::GetPointer(z_address), z_stride, 512, GPU_DBG_FORMAT_16BIT);
+			buffer = GPUDebugBuffer(Memory::GetPointerWrite(z_address), z_stride, 512, GPU_DBG_FORMAT_16BIT);
 			return true;
 		}
 
@@ -579,7 +579,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 
 		if (!vfb) {
 			// If there's no vfb and we're drawing there, must be memory?
-			buffer = GPUDebugBuffer(Memory::GetPointer(vfb->z_address), vfb->z_stride, 512, GPU_DBG_FORMAT_16BIT);
+			buffer = GPUDebugBuffer(Memory::GetPointerWrite(vfb->z_address), vfb->z_stride, 512, GPU_DBG_FORMAT_16BIT);
 			return true;
 		}
 

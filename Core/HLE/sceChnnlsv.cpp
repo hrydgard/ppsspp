@@ -218,7 +218,7 @@ static int sceSdGetLastIndex(u32 addressCtx, u32 addressHash, u32 addressKey)
 {
 	pspChnnlsvContext1 ctx;
 	Memory::ReadStruct(addressCtx, &ctx);
-	int res = sceSdGetLastIndex_(ctx, Memory::GetPointer(addressHash), Memory::GetPointer(addressKey));
+	int res = sceSdGetLastIndex_(ctx, Memory::GetPointerWrite(addressHash), Memory::GetPointerWrite(addressKey));
 	Memory::WriteStruct(addressCtx, &ctx);
 	return res;
 }
@@ -348,7 +348,7 @@ static int sceSdRemoveValue(u32 addressCtx, u32 addressData, int length)
 {
 	pspChnnlsvContext1 ctx;
 	Memory::ReadStruct(addressCtx, &ctx);
-	int res = sceSdRemoveValue_(ctx, Memory::GetPointer(addressData), length);
+	int res = sceSdRemoveValue_(ctx, Memory::GetPointerWrite(addressData), length);
 	Memory::WriteStruct(addressCtx, &ctx);
 
 	return res;
@@ -400,8 +400,8 @@ static int sceSdCreateList(u32 ctx2Addr, int mode, int unkwn, u32 dataAddr, u32 
 {
 	pspChnnlsvContext2 ctx2;
 	Memory::ReadStruct(ctx2Addr, &ctx2);
-	u8* data = Memory::GetPointer(dataAddr);
-	u8* cryptkey = Memory::GetPointer(cryptkeyAddr);
+	u8* data = Memory::GetPointerWrite(dataAddr);
+	u8* cryptkey = Memory::GetPointerWrite(cryptkeyAddr);
 
 	int res = sceSdCreateList_(ctx2, mode, unkwn, data, cryptkey);
 
@@ -468,7 +468,7 @@ static int sceSdSetMember(u32 ctxAddr, u32 dataAddr, int alignedLen)
 {
 	pspChnnlsvContext2 ctx;
 	Memory::ReadStruct(ctxAddr, &ctx);
-	u8* data = Memory::GetPointer(dataAddr);
+	u8* data = Memory::GetPointerWrite(dataAddr);
 
 	int res = sceSdSetMember_(ctx, data, alignedLen);
 

@@ -29,7 +29,7 @@
 
 static int scePauth_F7AA47F6(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 workArea)
 {
-	auto src = Memory::GetPointer(srcPtr);
+	auto src = Memory::GetPointerWrite(srcPtr);
 	auto key = Memory::GetPointer(workArea);
 
 	const auto decryptResult = pspDecryptPRX(src, src, srcLength, key);
@@ -46,7 +46,7 @@ static int scePauth_F7AA47F6(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 w
 
 static int scePauth_98B83B5D(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 workArea)
 {
-	auto src = Memory::GetPointer(srcPtr);
+	auto src = Memory::GetPointerWrite(srcPtr);
 	auto key = Memory::GetPointer(workArea);
 
 	const auto decryptResult = pspDecryptPRX(src, src, srcLength, key);

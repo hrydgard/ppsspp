@@ -634,8 +634,8 @@ static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 	// Technically should crash if these are invalid and size > 0...
 	if (!skip && Memory::IsValidAddress(dst) && Memory::IsValidAddress(src) && Memory::IsValidAddress(dst + size - 1) && Memory::IsValidAddress(src + size - 1))
 	{
-		u8 *dstp = Memory::GetPointerUnchecked(dst);
-		u8 *srcp = Memory::GetPointerUnchecked(src);
+		u8 *dstp = Memory::GetPointerWriteUnchecked(dst);
+		const u8 *srcp = Memory::GetPointerUnchecked(src);
 
 		// If it's non-overlapping, just do it in one go.
 		if (dst + size < src || src + size < dst)
@@ -688,7 +688,7 @@ const HLEFunction Kernel_Library[] =
 
 static u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {	
 	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
-		memcpy(Memory::GetPointer(dst), Memory::GetPointer(src), size);
+		memcpy(Memory::GetPointerWriteUnchecked(dst), Memory::GetPointerUnchecked(src), size);
 	}
 	if (MemBlockInfoDetailed(size)) {
 		const std::string tag = "KernelMemcpy/" + GetMemWriteTagAt(src, size);
@@ -701,7 +701,7 @@ static u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {
 static u32 sysclib_strcat(u32 dst, u32 src) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_strcat(dest=%08x, src=%08x)", dst, src);
 	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(src)) {
-		strcat((char *)Memory::GetPointer(dst), (char *)Memory::GetPointer(src));
+		strcat((char *)Memory::GetPointerWriteUnchecked(dst), (const char *)Memory::GetPointerUnchecked(src));
 	}
 	return dst;
 }
@@ -709,7 +709,7 @@ static u32 sysclib_strcat(u32 dst, u32 src) {
 static int sysclib_strcmp(u32 dst, u32 src) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_strcmp(dest=%08x, src=%08x)", dst, src);
 	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(src)) {
-		return strcmp((char *)Memory::GetPointer(dst), (char *)Memory::GetPointer(src));
+		return strcmp((const char *)Memory::GetPointerUnchecked(dst), (const char *)Memory::GetPointerUnchecked(src));
 	} else {
 		// What to do? Crash, probably.
 		return 0;
@@ -719,7 +719,7 @@ static int sysclib_strcmp(u32 dst, u32 src) {
 static u32 sysclib_strcpy(u32 dst, u32 src) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_strcpy(dest=%08x, src=%08x)", dst, src);
 	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(src)) {
-		strcpy((char *)Memory::GetPointer(dst), (char *)Memory::GetPointer(src));
+		strcpy((char *)Memory::GetPointerWriteUnchecked(dst), (const char *)Memory::GetPointerUnchecked(src));
 	}
 	return dst;
 }
@@ -758,7 +758,7 @@ static int sysclib_sprintf(u32 dst, u32 fmt) {
 static u32 sysclib_memset(u32 destAddr, int data, int size) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_memset(dest=%08x, data=%d ,size=%d)", destAddr, data, size);
 	if (Memory::IsValidRange(destAddr, size)) {
-		memset(Memory::GetPointer(destAddr), data, size);
+		memset(Memory::GetPointerWriteUnchecked(destAddr), data, size);
 	}
 	NotifyMemInfo(MemBlockFlags::WRITE, destAddr, size, "KernelMemset");
 	return 0;
@@ -791,7 +791,7 @@ static int sysclib_strncmp(u32 s1, u32 s2, u32 size) {
 static u32 sysclib_memmove(u32 dst, u32 src, u32 size) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_memmove(%08x, %08x, %08x)", dst, src, size);
 	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
-		memmove(Memory::GetPointer(dst), Memory::GetPointer(src), size);
+		memmove(Memory::GetPointerWriteUnchecked(dst), Memory::GetPointerUnchecked(src), size);
 	}
 	if (MemBlockInfoDetailed(size)) {
 		const std::string tag = "KernelMemmove/" + GetMemWriteTagAt(src, size);
@@ -810,7 +810,7 @@ static u32 sysclib_strncpy(u32 dest, u32 src, u32 size) {
 	u32 i = 0;
 	u32 srcSize = Memory::ValidSize(src, size);
 	const u8 *srcp = Memory::GetPointer(src);
-	u8 *destp = Memory::GetPointer(dest);
+	u8 *destp = Memory::GetPointerWrite(dest);
 	for (i = 0; i < srcSize; ++i) {
 		u8 c = *srcp++;
 		if (c == 0)

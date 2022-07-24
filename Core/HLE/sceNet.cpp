@@ -684,7 +684,7 @@ static u32 sceWlanGetEtherAddr(u32 addrAddr) {
 		return hleLogError(SCENET, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "illegal address");
 	}
 
-	u8 *addr = Memory::GetPointer(addrAddr);
+	u8 *addr = Memory::GetPointerWriteUnchecked(addrAddr);
 	if (PPSSPP_ID > 1) {
 		Memory::Memset(addrAddr, PPSSPP_ID, 6);
 		// Making sure the 1st 2-bits on the 1st byte of OUI are zero to prevent issue with some games (ie. Gran Turismo)
@@ -722,8 +722,8 @@ static void sceNetEtherNtostr(u32 macPtr, u32 bufferPtr) {
 	DEBUG_LOG(SCENET, "sceNetEtherNtostr(%08x, %08x) at %08x", macPtr, bufferPtr, currentMIPS->pc);
 
 	if (Memory::IsValidAddress(bufferPtr) && Memory::IsValidAddress(macPtr)) {
-		char *buffer = (char *)Memory::GetPointer(bufferPtr);
-		const u8 *mac = Memory::GetPointer(macPtr);
+		char *buffer = (char *)Memory::GetPointerWriteUnchecked(bufferPtr);
+		const u8 *mac = Memory::GetPointerUnchecked(macPtr);
 
 		// MAC address is always 6 bytes / 48 bits.
 		sprintf(buffer, "%02x:%02x:%02x:%02x:%02x:%02x",
@@ -748,8 +748,8 @@ static void sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 	DEBUG_LOG(SCENET, "sceNetEtherStrton(%08x, %08x)", bufferPtr, macPtr);
 
 	if (Memory::IsValidAddress(bufferPtr) && Memory::IsValidAddress(macPtr)) {
-		const char *buffer = (char *)Memory::GetPointer(bufferPtr);
-		u8 *mac = Memory::GetPointer(macPtr);
+		const char *buffer = (const char *)Memory::GetPointerUnchecked(bufferPtr);
+		u8 *mac = Memory::GetPointerWrite(macPtr);
 
 		// MAC address is always 6 pairs of hex digits.
 		// TODO: Funny stuff happens if it's too short.
@@ -896,7 +896,7 @@ static int sceNetApctlGetInfo(int code, u32 pInfoAddr) {
 	if (!Memory::IsValidAddress(pInfoAddr))
 		return hleLogError(SCENET, -1, "apctl invalid arg");
 
-	u8* info = Memory::GetPointer(pInfoAddr); // FIXME: Points to a union instead of a struct thus each field have the same address
+	u8* info = Memory::GetPointerWrite(pInfoAddr); // FIXME: Points to a union instead of a struct thus each field have the same address
 
 	switch (code) {
 	case PSP_NET_APCTL_INFO_PROFILE_NAME:

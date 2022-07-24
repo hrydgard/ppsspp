@@ -29,10 +29,10 @@ static int sceSha256Digest(u32 data, int dataLen, u32 digestPtr) {
 	INFO_LOG(HLE, "sceSha256Digest(data=%08x, len=%d, digest=%08x)", data, dataLen, digestPtr);
 
 	// Already checked above...
-	u8 *digest = Memory::GetPointerUnchecked(digestPtr);
+	u8 *digest = Memory::GetPointerWriteUnchecked(digestPtr);
 	sha256_context ctx;
 	sha256_starts(&ctx);
-	sha256_update(&ctx, Memory::GetPointerUnchecked(data), dataLen);
+	sha256_update(&ctx, Memory::GetPointerWriteUnchecked(data), dataLen);
 	sha256_finish(&ctx, digest);
 
 	return 0;

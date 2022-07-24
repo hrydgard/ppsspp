@@ -245,7 +245,7 @@ namespace MIPSInt
 				_dbg_assert_msg_( 0, "Misaligned lv.q at %08x (pc = %08x)", addr, PC);
 			}
 #ifndef COMMON_BIG_ENDIAN
-			f = reinterpret_cast<float *>(Memory::GetPointer(addr));
+			f = reinterpret_cast<float *>(Memory::GetPointerWrite(addr));
 			if (f)
 				WriteVector(f, V_Quad, vt);
 #else
@@ -294,7 +294,7 @@ namespace MIPSInt
 				_dbg_assert_msg_( 0, "Misaligned sv.q at %08x (pc = %08x)", addr, PC);
 			}
 #ifndef COMMON_BIG_ENDIAN
-			f = reinterpret_cast<float *>(Memory::GetPointer(addr));
+			f = reinterpret_cast<float *>(Memory::GetPointerWrite(addr));
 			if (f)
 				ReadVector(f, V_Quad, vt);
 #else

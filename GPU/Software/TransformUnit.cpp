@@ -65,12 +65,12 @@ void SoftwareDrawEngine::DispatchFlush() {
 	transformUnit.Flush("debug");
 }
 
-void SoftwareDrawEngine::DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
+void SoftwareDrawEngine::DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
 	_assert_msg_(cullMode == gstate.getCullMode(), "Mixed cull mode not supported.");
 	transformUnit.SubmitPrimitive(verts, inds, prim, vertexCount, vertTypeID, bytesRead, this);
 }
 
-void SoftwareDrawEngine::DispatchSubmitImm(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
+void SoftwareDrawEngine::DispatchSubmitImm(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
 	_assert_msg_(cullMode == gstate.getCullMode(), "Mixed cull mode not supported.");
 	// TODO: For now, just setting all dirty.
 	transformUnit.SetDirty(SoftDirty(-1));
@@ -449,7 +449,7 @@ enum class CullType {
 	OFF,
 };
 
-void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine)
+void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine)
 {
 	VertexDecoder &vdecoder = *drawEngine->FindVertexDecoder(vertex_type);
 	const DecVtxFormat &vtxfmt = vdecoder.GetDecVtxFmt();

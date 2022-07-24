@@ -138,7 +138,7 @@ static int Replace_memcpy() {
 		}
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointer(destPtr);
+		u8 *dst = Memory::GetPointerWrite(destPtr);
 		const u8 *src = Memory::GetPointer(srcPtr);
 
 		if (!dst || !src) {
@@ -190,7 +190,7 @@ static int Replace_memcpy_jak() {
 		}
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointer(destPtr);
+		u8 *dst = Memory::GetPointerWrite(destPtr);
 		const u8 *src = Memory::GetPointer(srcPtr);
 
 		if (!dst || !src) {
@@ -240,7 +240,7 @@ static int Replace_memcpy16() {
 		}
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointer(destPtr);
+		u8 *dst = Memory::GetPointerWrite(destPtr);
 		const u8 *src = Memory::GetPointer(srcPtr);
 		if (dst && src) {
 			memmove(dst, src, bytes);
@@ -267,7 +267,7 @@ static int Replace_memcpy_swizzled() {
 			gpu->PerformMemoryDownload(srcPtr, pitch * h);
 		}
 	}
-	u8 *dstp = Memory::GetPointer(destPtr);
+	u8 *dstp = Memory::GetPointerWrite(destPtr);
 	const u8 *srcp = Memory::GetPointer(srcPtr);
 
 	if (dstp && srcp) {
@@ -312,7 +312,7 @@ static int Replace_memmove() {
 		}
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointer(destPtr);
+		u8 *dst = Memory::GetPointerWrite(destPtr);
 		const u8 *src = Memory::GetPointer(srcPtr);
 		if (dst && src) {
 			memmove(dst, src, bytes);
@@ -338,7 +338,7 @@ static int Replace_memset() {
 		skip = gpu->PerformMemorySet(destPtr, value, bytes);
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointer(destPtr);
+		u8 *dst = Memory::GetPointerWrite(destPtr);
 		if (dst) {
 			memset(dst, value, bytes);
 		}
@@ -365,7 +365,7 @@ static int Replace_memset_jak() {
 		skip = gpu->PerformMemorySet(destPtr, value, bytes);
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointer(destPtr);
+		u8 *dst = Memory::GetPointerWrite(destPtr);
 		if (dst) {
 			memset(dst, value, bytes);
 		}
