@@ -81,6 +81,7 @@ private:
 	UI::Choice *btnSetBackground_ = nullptr;
 
 	UI::Choice *btnCalcCRC_ = nullptr;
+	UI::Choice* btnCalcMD5_ = nullptr;
 
 	std::vector<UI::Choice *> otherChoices_;
 	std::vector<Path> saveDirs;
