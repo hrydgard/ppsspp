@@ -13,6 +13,7 @@
 #include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/Common/VertexShaderGenerator.h"
 #include "GPU/Common/ReinterpretFramebuffer.h"
+#include "GPU/Common/StencilCommon.h"
 
 #if PPSSPP_PLATFORM(WINDOWS)
 #include "GPU/D3D11/D3D11Util.h"
@@ -159,6 +160,8 @@ const char *ShaderLanguageToString(ShaderLanguage lang) {
 }
 
 bool TestReinterpretShaders() {
+	Draw::Bugs bugs;
+
 	ShaderLanguage languages[] = {
 #if PPSSPP_PLATFORM(WINDOWS)
 		ShaderLanguage::HLSL_D3D11,
@@ -197,6 +200,7 @@ bool TestReinterpretShaders() {
 		printf("=== %s ===\n\n", ShaderLanguageToString(languages[k]));
 
 		ShaderLanguageDesc desc(languages[k]);
+		std::string errorMessage;
 
 		for (int i = 0; i < 3; i++) {
 			for (int j = 0; j < 3; j++) {
@@ -206,7 +210,6 @@ bool TestReinterpretShaders() {
 					printf("Failed!\n%s\n", buffer);
 					failed = true;
 				} else {
-					std::string errorMessage;
 					if (!TestCompileShader(buffer, languages[k], false, &errorMessage)) {
 						printf("Error compiling fragment shader %d:\n\n%s\n\n%s\n", (int)j, LineNumberString(buffer).c_str(), errorMessage.c_str());
 						failed = true;
@@ -218,6 +221,23 @@ bool TestReinterpretShaders() {
 			}
 		}
 
+		GenerateStencilFs(buffer, desc, bugs);
+		if (!TestCompileShader(buffer, languages[k], false, &errorMessage)) {
+			printf("Error compiling stencil shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
+			failed = true;
+			return false;
+		} else {
+			printf("===\n%s\n===\n", buffer);
+		}
+
+		GenerateStencilVs(buffer, desc);
+		if (!TestCompileShader(buffer, languages[k], false, &errorMessage)) {
+			printf("Error compiling stencil shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
+			failed = true;
+			return false;
+		} else {
+			printf("===\n%s\n===\n", buffer);
+		}
 	}
 	return !failed;
 }
