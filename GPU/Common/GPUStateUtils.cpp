@@ -592,7 +592,6 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 	int scissorX2 = gstate.getScissorX2() + 1;
 	int scissorY2 = gstate.getScissorY2() + 1;
 
-	out.scissorEnable = true;
 	if (scissorX2 < scissorX1 || scissorY2 < scissorY1) {
 		out.scissorX = 0;
 		out.scissorY = 0;
