@@ -48,6 +48,10 @@
 #include "UI/OnScreenDisplay.h"
 #include "UI/GameInfoCache.h"
 
+#ifdef OPENXR
+#include <VR/VRRenderer.h>
+#endif
+
 AsyncImageFileView::AsyncImageFileView(const Path &filename, UI::ImageSizeMode sizeMode, UI::LayoutParams *layoutParams)
 	: UI::Clickable(layoutParams), canFocus_(true), filename_(filename), color_(0xFFFFFFFF), sizeMode_(sizeMode), textureFailed_(false), fixedSizeW_(0.0f), fixedSizeH_(0.0f) {}
 
@@ -364,6 +368,10 @@ GamePauseScreen::~GamePauseScreen() {
 }
 
 void GamePauseScreen::CreateViews() {
+#ifdef OPENXR
+	VR_SetMode(VR_MODE_FLAT_SCREEN);
+#endif
+
 	static const int NUM_SAVESLOTS = 5;
 
 	using namespace UI;

@@ -422,6 +422,10 @@ void VR_EndFrame( engine_t* engine ) {
 	}
 }
 
+void VR_SetMode( VRMode mode ) {
+	vrMode = mode;
+}
+
 void VR_BindFramebuffer( engine_t* engine, int eye ) {
 	if (!initialized) return;
 	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[eye];

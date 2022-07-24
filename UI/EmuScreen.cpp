@@ -96,6 +96,10 @@ using namespace std::placeholders;
 static AVIDump avi;
 #endif
 
+#ifdef OPENXR
+#include <VR/VRRenderer.h>
+#endif
+
 // TODO: Ugly!
 static bool frameStep_;
 static int lastNumFlips;
@@ -821,6 +825,9 @@ protected:
 };
 
 void EmuScreen::CreateViews() {
+#ifdef OPENXR
+	VR_SetMode(VR_MODE_MONO_6DOF);
+#endif
 	using namespace UI;
 
 	auto dev = GetI18NCategory("Developer");
