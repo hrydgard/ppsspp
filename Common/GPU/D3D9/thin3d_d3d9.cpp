@@ -163,9 +163,7 @@ public:
 	D3DSTENCILOP stencilPass;
 	D3DCMPFUNC stencilCompareOp;
 
-	uint8_t stencilCompareMask;
-	uint8_t stencilWriteMask;
-	void Apply(LPDIRECT3DDEVICE9 device, uint8_t stencilRef) {
+	void Apply(LPDIRECT3DDEVICE9 device, uint8_t stencilRef, uint8_t stencilWriteMask, uint8_t stencilCompareMask) {
 		using namespace DX9;
 		dxstate.depthTest.set(depthTestEnabled);
 		if (depthTestEnabled) {
@@ -289,7 +287,7 @@ public:
 	AutoRef<D3D9RasterState> raster;
 	UniformBufferDesc dynamicUniforms;
 
-	void Apply(LPDIRECT3DDEVICE9 device, uint8_t stencilRef);
+	void Apply(LPDIRECT3DDEVICE9 device, uint8_t stencilRef, uint8_t stencilWriteMask, uint8_t stencilCompareMask);
 };
 
 class D3D9Texture : public Texture {
@@ -558,6 +556,7 @@ public:
 	void SetBlendFactor(float color[4]) override;
 	void SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) override;
 
+	void ApplyDynamicState();
 	void Draw(int vertexCount, int offset) override;
 	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
@@ -615,6 +614,10 @@ private:
 	AutoRef<D3D9Buffer> curIBuffer_;
 	int curIBufferOffset_ = 0;
 	AutoRef<Framebuffer> curRenderTarget_;
+
+	u8 stencilRefValue_ = 0;
+	u8 stencilCompareMask_ = 0xFF;
+	u8 stencilWriteMask_ = 0xFF;
 
 	// Framebuffer state
 	LPDIRECT3DSURFACE9 deviceRTsurf = 0;
@@ -952,32 +955,44 @@ void D3D9Context::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offse
 	}
 }
 
-void D3D9Pipeline::Apply(LPDIRECT3DDEVICE9 device, uint8_t stencilRef) {
+void D3D9Pipeline::Apply(LPDIRECT3DDEVICE9 device, uint8_t stencilRef, uint8_t stencilWriteMask, uint8_t stencilCompareMask) {
 	vshader->Apply(device);
 	pshader->Apply(device);
 	blend->Apply(device);
-	depthStencil->Apply(device, stencilRef);
+	depthStencil->Apply(device, stencilRef, stencilWriteMask, stencilCompareMask);
 	raster->Apply(device);
+}
+
+void D3D9Context::ApplyDynamicState() {
+	// Apply dynamic state.
+	if (curPipeline_->depthStencil->stencilEnabled) {
+		device_->SetRenderState(D3DRS_STENCILREF, (DWORD)stencilRefValue_);
+		device_->SetRenderState(D3DRS_STENCILWRITEMASK, (DWORD)stencilWriteMask_);
+		device_->SetRenderState(D3DRS_STENCILMASK, (DWORD)stencilCompareMask_);
+	}
 }
 
 void D3D9Context::Draw(int vertexCount, int offset) {
 	device_->SetStreamSource(0, curVBuffers_[0]->vbuffer_, curVBufferOffsets_[0], curPipeline_->inputLayout->GetStride(0));
-	curPipeline_->Apply(device_, stencilRef_);
 	curPipeline_->inputLayout->Apply(device_);
+	curPipeline_->Apply(device_, stencilRef_, stencilWriteMask_, stencilCompareMask_);
+	ApplyDynamicState();
 	device_->DrawPrimitive(curPipeline_->prim, offset, vertexCount / 3);
 }
 
 void D3D9Context::DrawIndexed(int vertexCount, int offset) {
-	curPipeline_->Apply(device_, stencilRef_);
 	curPipeline_->inputLayout->Apply(device_);
+	curPipeline_->Apply(device_, stencilRef_, stencilWriteMask_, stencilCompareMask_);
+	ApplyDynamicState();
 	device_->SetStreamSource(0, curVBuffers_[0]->vbuffer_, curVBufferOffsets_[0], curPipeline_->inputLayout->GetStride(0));
 	device_->SetIndices(curIBuffer_->ibuffer_);
 	device_->DrawIndexedPrimitive(curPipeline_->prim, 0, 0, vertexCount, offset, vertexCount / curPipeline_->primDivisor);
 }
 
 void D3D9Context::DrawUP(const void *vdata, int vertexCount) {
-	curPipeline_->Apply(device_, stencilRef_);
 	curPipeline_->inputLayout->Apply(device_);
+	curPipeline_->Apply(device_, stencilRef_, stencilWriteMask_, stencilCompareMask_);
+	ApplyDynamicState();
 	device_->DrawPrimitiveUP(curPipeline_->prim, vertexCount / 3, vdata, curPipeline_->inputLayout->GetStride(0));
 }
 
@@ -1019,6 +1034,12 @@ void D3D9Context::SetBlendFactor(float color[4]) {
 	uint32_t a = (uint32_t)(color[3] * 255.0f);
 	using namespace DX9;
 	dxstate.blendColor.set(color);
+}
+
+void D3D9Context::SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) {
+	stencilRefValue_ = refValue;
+	stencilWriteMask_ = writeMask;
+	stencilCompareMask_ = compareMask;
 }
 
 bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, size_t size) {
