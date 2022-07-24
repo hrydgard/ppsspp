@@ -206,10 +206,15 @@ void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> var
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
 		if (!uniforms.is_empty()) {
+			C("cbuffer base : register(b0) {\n");
+
 			for (auto &uniform : uniforms) {
-				//F("  %s %s : %s;\n", uniform.type, uniform.name, uniform.index);
+				F("  %s %s;\n", uniform.type, uniform.name);
 			}
+
+			C("};\n");
 		}
+
 		// Let's do the varyings as parameters to main, no struct.
 		C("vec4 main(");
 		for (auto &varying : varyings) {

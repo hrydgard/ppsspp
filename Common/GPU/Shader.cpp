@@ -86,12 +86,14 @@ void ShaderLanguageDesc::Init(ShaderLanguage lang) {
 		texelFetch = "texelFetch";
 		forceMatrix4x4 = false;
 		coefsFromBuffers = true;
+		vertexIndex = true;
 		break;
 	case HLSL_D3D9:
 	case HLSL_D3D11:
 		if (lang == HLSL_D3D11) {
 			fragColor0 = "outfragment.target";
 			fragColor1 = "outfragment.target1";
+			vertexIndex = true;  // if declared as a semantic input
 		} else {
 			fragColor0 = "outfragment.target";
 		}

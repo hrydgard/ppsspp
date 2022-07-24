@@ -65,7 +65,7 @@ struct StencilUB {
 };
 
 const UniformBufferDesc stencilUBDesc { sizeof(StencilUB), {
-	{ "stencilValue", 0, -1, UniformType::FLOAT1, 0 },
+	{ "stencilValue", -1, 0, UniformType::FLOAT1, 0 },
 } };
 
 // TODO: Merge this with UniformBufferDesc
@@ -97,7 +97,7 @@ void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw:
 	writer.BeginFSMain(uniforms, varyings);
 
 	writer.C("  vec4 index = ").SampleTexture2D("tex", "samp", "v_texcoord.xy").C(";\n");
-	writer.C("  vec4 outColor = vec4(v_texcoord.x, v_texcoord.y, 0.0, index.a);\n");
+	writer.C("  vec4 outColor = index.aaaa;\n");  // Only care about a.
 	writer.C("  float shifted = roundAndScaleTo255f(index.a) / roundAndScaleTo255f(stencilValue);\n");
 	// Bitwise operations on floats, ugh.
 	writer.C("  if (mod(floor(shifted), 2.0) < 0.99) DISCARD;\n");
@@ -109,13 +109,21 @@ void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw:
 	writer.EndFSMain("outColor");
 }
 
+// This can probably be shared with some other shaders, like reinterpret or the future depth upload.
 void GenerateStencilVs(char *buffer, const ShaderLanguageDesc &lang) {
 	ShaderWriter writer(buffer, lang, ShaderStage::Vertex, nullptr, 0);
 
-	writer.BeginVSMain(inputs, Slice<UniformDef>::empty(), varyings);
+	writer.BeginVSMain(lang.vertexIndex ? Slice<InputDef>::empty() : inputs, Slice<UniformDef>::empty(), varyings);
 
-	writer.C("  v_texcoord = a_position * 2.0;\n");    // yes, this should be right. Should be 2.0 in the far corners.
+	if (lang.vertexIndex) {
+		writer.C("  float x = float((gl_VertexIndex & 1) << 1);\n");
+		writer.C("  float y = float(gl_VertexIndex & 2);\n");
+		writer.C("  v_texcoord = vec2(x, y);\n");
+	} else {
+		writer.C("  v_texcoord = a_position * 2.0;\n");    // yes, this should be right. Should be 2.0 in the far corners.
+	}
 	writer.C("  gl_Position = vec4(v_texcoord * 2.0 - vec2(1.0, 1.0), 0.0, 1.0);\n");
+	writer.F("  gl_Position.y *= %s1.0;\n", lang.viewportYSign);
 
 	writer.EndVSMain(varyings);
 }
@@ -243,8 +251,8 @@ bool FramebufferManagerCommon::NotifyStencilUpload(u32 addr, int size, StencilUp
 		stencilUploadSampler_ = draw_->CreateSamplerState(descNearest);
 	}
 
-	// Fullscreen triangle
-	const float positions[6] = {
+	// Fullscreen triangle coordinates.
+	static const float positions[6] = {
 		0.0, 0.0,
 		1.0, 0.0,
 		0.0, 1.0,
@@ -255,6 +263,7 @@ bool FramebufferManagerCommon::NotifyStencilUpload(u32 addr, int size, StencilUp
 	// Our fragment shader (and discard) is slow.  Since the source is 1x, we can stencil to 1x.
 	// Then after we're done, we'll just blit it across and stretch it there. Not worth doing
 	// if already at 1x size though, of course.
+	// TODO: This path means that we don't write color alpha... Ugh.
 	if (dstBuffer->width == dstBuffer->renderWidth || !dstBuffer->fbo) {
 		useBlit = false;
 	}
@@ -292,7 +301,7 @@ bool FramebufferManagerCommon::NotifyStencilUpload(u32 addr, int size, StencilUp
 			// It's already zero, let's skip it.
 			continue;
 		}
-		StencilUB ub;
+		StencilUB ub{};
 		if (dstBuffer->format == GE_FORMAT_4444) {
 			draw_->SetStencilParams(0xFF, (i << 4) | i, 0xFF);
 			ub.stencilValue = i * (16.0f / 255.0f);
