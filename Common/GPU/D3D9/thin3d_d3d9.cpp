@@ -556,9 +556,7 @@ public:
 	void SetScissorRect(int left, int top, int width, int height) override;
 	void SetViewports(int count, Viewport *viewports) override;
 	void SetBlendFactor(float color[4]) override;
-	void SetStencilRef(uint8_t ref) override {
-		stencilRef_ = ref;
-	}
+	void SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) override;
 
 	void Draw(int vertexCount, int offset) override;
 	void DrawIndexed(int vertexCount, int offset) override;
@@ -734,8 +732,6 @@ DepthStencilState *D3D9Context::CreateDepthStencilState(const DepthStencilStateD
 	ds->stencilPass = stencilOpToD3D9[(int)desc.stencil.passOp];
 	ds->stencilFail = stencilOpToD3D9[(int)desc.stencil.failOp];
 	ds->stencilZFail = stencilOpToD3D9[(int)desc.stencil.depthFailOp];
-	ds->stencilWriteMask = desc.stencil.writeMask;
-	ds->stencilCompareMask = desc.stencil.compareMask;
 	return ds;
 }
 

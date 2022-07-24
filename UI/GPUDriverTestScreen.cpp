@@ -329,12 +329,10 @@ void GPUDriverTestScreen::DiscardTest() {
 		dsDesc.depthWriteEnabled = true;
 		dsDesc.depthCompare = Comparison::ALWAYS;
 		dsDesc.stencilEnabled = true;
-		dsDesc.stencil.compareMask = 0xFF;
 		dsDesc.stencil.compareOp = Comparison::ALWAYS;
 		dsDesc.stencil.passOp = StencilOp::REPLACE;
 		dsDesc.stencil.failOp = StencilOp::REPLACE;  // These two shouldn't matter, because the test that fails is discard, not stencil.
 		dsDesc.stencil.depthFailOp = StencilOp::REPLACE;
-		dsDesc.stencil.writeMask = 0xFF;
 		DepthStencilState *depthStencilWrite = draw->CreateDepthStencilState(dsDesc);
 
 		// Write only depth.
@@ -355,7 +353,6 @@ void GPUDriverTestScreen::DiscardTest() {
 		dsDesc.stencil.compareOp = Comparison::EQUAL;
 		dsDesc.stencil.failOp = StencilOp::KEEP;
 		dsDesc.stencil.depthFailOp = StencilOp::KEEP;
-		dsDesc.stencil.writeMask = 0x0;
 		DepthStencilState *stencilEqualDepthAlways = draw->CreateDepthStencilState(dsDesc);
 
 		dsDesc.depthTestEnabled = false;
@@ -500,27 +497,28 @@ void GPUDriverTestScreen::DiscardTest() {
 
 			dc.BeginPipeline(writePipelines[j], samplerNearest_);
 			// Draw the rectangle with stencil value 0, depth 0.1f and the text with stencil 0xFF, depth 0.9. Then set 0xFF as the stencil value and draw the rectangles at depth 0.5.
-			draw->SetStencilRef(0x0);
+
+			draw->SetStencilParams(0, 0xFF, 0xFF);
 			dc.SetCurZ(0.1f);
 			dc.FillRect(UI::Drawable(bgColorBAD), bounds);
 			// test bounds
 			dc.Flush();
 
-			draw->SetStencilRef(0xff);
+			draw->SetStencilParams(0xff, 0xFF, 0xFF);
 			dc.SetCurZ(0.9f);
 			dc.DrawTextRect("TEST OK", bounds, textColorBAD, ALIGN_HCENTER | ALIGN_VCENTER | FLAG_DYNAMIC_ASCII);
 			dc.Flush();
 
 			// Draw rectangle that should result in the text
 			dc.BeginPipeline(testPipeline1[i], samplerNearest_);
-			draw->SetStencilRef(0xff);
+			draw->SetStencilParams(0xff, 0, 0xFF);
 			dc.SetCurZ(0.5f);
 			dc.FillRect(UI::Drawable(textColorOK), bounds);
 			dc.Flush();
 
 			// Draw rectangle that should result in the bg
 			dc.BeginPipeline(testPipeline2[i], samplerNearest_);
-			draw->SetStencilRef(0xff);
+			draw->SetStencilParams(0xff, 0, 0xFF);
 			dc.SetCurZ(0.5f);
 			dc.FillRect(UI::Drawable(bgColorOK), bounds);
 			dc.Flush();

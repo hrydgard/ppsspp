@@ -13,6 +13,8 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Log.h"
 
+#include <map>
+
 #include <cfloat>
 #include <D3Dcommon.h>
 #include <d3d11.h>
@@ -38,6 +40,24 @@ class D3D11DepthStencilState;
 class D3D11SamplerState;
 class D3D11RasterState;
 class D3D11Framebuffer;
+
+// This must stay POD for the memcmp to work reliably.
+struct D3D11DepthStencilKey {
+	DepthStencilStateDesc desc;
+	u8 writeMask;
+	u8 compareMask;
+
+	bool operator < (const D3D11DepthStencilKey &other) const {
+		return memcmp(this, &other, sizeof(D3D11DepthStencilKey)) < 0;
+	}
+};
+
+
+class D3D11DepthStencilState : public DepthStencilState {
+public:
+	~D3D11DepthStencilState() {}
+	DepthStencilStateDesc desc;
+};
 
 class D3D11DrawContext : public DrawContext {
 public:
@@ -102,9 +122,11 @@ public:
 			blendFactorDirty_ = true;
 		}
 	}
-	void SetStencilRef(uint8_t ref) override {
-		stencilRef_ = ref;
-		stencilRefDirty_ = true;
+	void SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) override {
+		stencilRef_ = refValue;
+		stencilWriteMask_ = writeMask;
+		stencilCompareMask_ = compareMask;
+		stencilDirty_ = true;
 	}
 
 	void EndFrame() override;
@@ -174,6 +196,8 @@ public:
 private:
 	void ApplyCurrentState();
 
+	ID3D11DepthStencilState *GetCachedDepthStencilState(D3D11DepthStencilState *state, uint8_t stencilWriteMask, uint8_t stencilCompareMask);
+
 	HWND hWnd_;
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
@@ -200,8 +224,11 @@ private:
 	DeviceCaps caps_{};
 
 	AutoRef<D3D11BlendState> curBlend_;
-	AutoRef<D3D11DepthStencilState> curDepth_;
+	AutoRef<D3D11DepthStencilState> curDepthStencil_;
 	AutoRef<D3D11RasterState> curRaster_;
+
+	std::map<D3D11DepthStencilKey, ID3D11DepthStencilState *> depthStencilCache_;
+
 	ID3D11InputLayout *curInputLayout_ = nullptr;
 	ID3D11VertexShader *curVS_ = nullptr;
 	ID3D11PixelShader *curPS_ = nullptr;
@@ -219,7 +246,9 @@ private:
 	float blendFactor_[4]{};
 	bool blendFactorDirty_ = false;
 	uint8_t stencilRef_ = 0;
-	bool stencilRefDirty_ = true;
+	uint8_t stencilWriteMask_ = 0xFF;
+	uint8_t stencilCompareMask_ = 0xFF;
+	bool stencilDirty_ = true;
 
 	// Temporaries
 	ID3D11Texture2D *packTexture_ = nullptr;
@@ -415,14 +444,6 @@ void D3D11DrawContext::SetScissorRect(int left, int top, int width, int height) 
 	context_->RSSetScissorRects(1, &rc);
 }
 
-class D3D11DepthStencilState : public DepthStencilState {
-public:
-	~D3D11DepthStencilState() {
-		dss->Release();
-	}
-	ID3D11DepthStencilState *dss;
-};
-
 static const D3D11_COMPARISON_FUNC compareToD3D11[] = {
 	D3D11_COMPARISON_NEVER,
 	D3D11_COMPARISON_LESS,
@@ -494,21 +515,6 @@ inline void CopyStencilSide(D3D11_DEPTH_STENCILOP_DESC &side, const StencilSetup
 	side.StencilPassOp = stencilOpToD3D11[(int)input.passOp];
 }
 
-DepthStencilState *D3D11DrawContext::CreateDepthStencilState(const DepthStencilStateDesc &desc) {
-	D3D11DepthStencilState *ds = new D3D11DepthStencilState();
-	D3D11_DEPTH_STENCIL_DESC d3ddesc{};
-	d3ddesc.DepthEnable = desc.depthTestEnabled;
-	d3ddesc.DepthWriteMask = desc.depthWriteEnabled ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
-	d3ddesc.DepthFunc = compareToD3D11[(int)desc.depthCompare];
-	d3ddesc.StencilEnable = desc.stencilEnabled;
-	CopyStencilSide(d3ddesc.FrontFace, desc.stencil);
-	CopyStencilSide(d3ddesc.BackFace, desc.stencil);
-	if (SUCCEEDED(device_->CreateDepthStencilState(&d3ddesc, &ds->dss)))
-		return ds;
-	delete ds;
-	return nullptr;
-}
-
 static const D3D11_BLEND_OP blendOpToD3D11[] = {
 	D3D11_BLEND_OP_ADD,
 	D3D11_BLEND_OP_SUBTRACT,
@@ -546,6 +552,44 @@ public:
 	ID3D11BlendState *bs;
 	float blendFactor[4];
 };
+
+ID3D11DepthStencilState *D3D11DrawContext::GetCachedDepthStencilState(D3D11DepthStencilState *state, uint8_t stencilWriteMask, uint8_t stencilCompareMask) {
+	D3D11DepthStencilKey key;
+	key.desc = state->desc;
+	key.writeMask = stencilWriteMask;
+	key.compareMask = stencilCompareMask;
+
+	auto findResult = depthStencilCache_.find(key);
+
+	if (findResult != depthStencilCache_.end()) {
+		return findResult->second;
+	}
+
+	// OK, create and insert.
+	D3D11_DEPTH_STENCIL_DESC d3ddesc{};
+	d3ddesc.DepthEnable = state->desc.depthTestEnabled;
+	d3ddesc.DepthWriteMask = state->desc.depthWriteEnabled ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
+	d3ddesc.DepthFunc = compareToD3D11[(int)state->desc.depthCompare];
+	d3ddesc.StencilEnable = state->desc.stencilEnabled;
+	if (d3ddesc.StencilEnable) {
+		CopyStencilSide(d3ddesc.FrontFace, state->desc.stencil);
+		CopyStencilSide(d3ddesc.BackFace, state->desc.stencil);
+	}
+
+	ID3D11DepthStencilState *dss = nullptr;
+	if (SUCCEEDED(device_->CreateDepthStencilState(&d3ddesc, &dss))) {
+		depthStencilCache_[key] = dss;
+		return dss;
+	} else {
+		return nullptr;
+	}
+}
+
+DepthStencilState *D3D11DrawContext::CreateDepthStencilState(const DepthStencilStateDesc &desc) {
+	D3D11DepthStencilState *dss = new D3D11DepthStencilState();
+	dss->desc = desc;
+	return dynamic_cast<DepthStencilState *>(dss);
+}
 
 BlendState *D3D11DrawContext::CreateBlendState(const BlendStateDesc &desc) {
 	D3D11BlendState *bs = new D3D11BlendState();
@@ -677,8 +721,7 @@ InputLayout *D3D11DrawContext::CreateInputLayout(const InputLayoutDesc &desc) {
 
 class D3D11ShaderModule : public ShaderModule {
 public:
-	D3D11ShaderModule(const std::string &tag) : tag_(tag) {
-	}
+	D3D11ShaderModule(const std::string &tag) : tag_(tag) { }
 	~D3D11ShaderModule() {
 		if (vs)
 			vs->Release();
@@ -716,8 +759,11 @@ public:
 	AutoRef<D3D11InputLayout> input;
 	ID3D11InputLayout *il = nullptr;
 	AutoRef<D3D11BlendState> blend;
-	AutoRef<D3D11DepthStencilState> depth;
 	AutoRef<D3D11RasterState> raster;
+
+	// Combined with dynamic state to key into cached D3D11DepthStencilState, to emulate dynamic parameters.
+	AutoRef<D3D11DepthStencilState> depthStencil;
+
 	ID3D11VertexShader *vs = nullptr;
 	ID3D11PixelShader *ps = nullptr;
 	ID3D11GeometryShader *gs = nullptr;
@@ -969,7 +1015,7 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	D3D11Pipeline *dPipeline = new D3D11Pipeline();
 	dPipeline->blend = (D3D11BlendState *)desc.blend;
-	dPipeline->depth = (D3D11DepthStencilState *)desc.depthStencil;
+	dPipeline->depthStencil = (D3D11DepthStencilState *)desc.depthStencil;
 	dPipeline->input = (D3D11InputLayout *)desc.inputLayout;
 	dPipeline->raster = (D3D11RasterState *)desc.raster;
 	dPipeline->topology = primToD3D11[(int)desc.prim];
@@ -1042,7 +1088,7 @@ void D3D11DrawContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 void D3D11DrawContext::InvalidateCachedState() {
 	// This is a signal to forget all our state caching.
 	curBlend_ = nullptr;
-	curDepth_ = nullptr;
+	curDepthStencil_ = nullptr;
 	curRaster_ = nullptr;
 	curPS_ = nullptr;
 	curVS_ = nullptr;
@@ -1065,10 +1111,11 @@ void D3D11DrawContext::ApplyCurrentState() {
 		curBlend_ = curPipeline_->blend;
 		blendFactorDirty_ = false;
 	}
-	if (curDepth_ != curPipeline_->depth || stencilRefDirty_) {
-		context_->OMSetDepthStencilState(curPipeline_->depth->dss, stencilRef_);
-		curDepth_ = curPipeline_->depth;
-		stencilRefDirty_ = false;
+	if (curDepthStencil_ != curPipeline_->depthStencil || stencilDirty_) {
+		ID3D11DepthStencilState *dss = GetCachedDepthStencilState(curPipeline_->depthStencil, stencilWriteMask_, stencilCompareMask_);
+		context_->OMSetDepthStencilState(dss, stencilRef_);
+		curDepthStencil_ = curPipeline_->depthStencil;
+		stencilDirty_ = false;
 	}
 	if (curRaster_ != curPipeline_->raster) {
 		context_->RSSetState(curPipeline_->raster->rs);
@@ -1375,8 +1422,8 @@ void D3D11DrawContext::BeginFrame() {
 	if (curBlend_ != nullptr) {
 		context_->OMSetBlendState(curBlend_->bs, blendFactor_, 0xFFFFFFFF);
 	}
-	if (curDepth_ != nullptr) {
-		context_->OMSetDepthStencilState(curDepth_->dss, stencilRef_);
+	if (curDepthStencil_ != nullptr) {
+		context_->OMSetDepthStencilState(GetCachedDepthStencilState(curDepthStencil_, stencilWriteMask_, stencilCompareMask_), stencilRef_);
 	}
 	if (curRaster_ != nullptr) {
 		context_->RSSetState(curRaster_->rs);

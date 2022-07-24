@@ -407,7 +407,7 @@ public:
 	void SetScissorRect(int left, int top, int width, int height) override;
 	void SetViewports(int count, Viewport *viewports) override;
 	void SetBlendFactor(float color[4]) override;
-	void SetStencilRef(uint8_t stencilRef) override;
+	void SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) override;
 
 	void BindSamplerStates(int start, int count, SamplerState **state) override;
 	void BindTextures(int start, int count, Texture **textures) override;
@@ -554,6 +554,8 @@ private:
 	DeviceCaps caps_{};
 
 	uint8_t stencilRef_ = 0;
+	uint8_t stencilWriteMask_ = 0xFF;
+	uint8_t stencilCompareMask_ = 0xFF;
 };
 
 static int GetBpp(VkFormat format) {
@@ -1160,10 +1162,12 @@ void VKContext::SetBlendFactor(float color[4]) {
 	renderManager_.SetBlendFactor(col);
 }
 
-void VKContext::SetStencilRef(uint8_t stencilRef) {
+void VKContext::SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) {
 	if (curPipeline_->usesStencil)
-		renderManager_.SetStencilParams(curPipeline_->stencilWriteMask, curPipeline_->stencilTestMask, stencilRef);
-	stencilRef_ = stencilRef;
+		renderManager_.SetStencilParams(writeMask, compareMask, refValue);
+	stencilRef_ = refValue;
+	stencilWriteMask_ = refValue;
+	stencilCompareMask_ = refValue;
 }
 
 InputLayout *VKContext::CreateInputLayout(const InputLayoutDesc &desc) {
@@ -1208,8 +1212,6 @@ Texture *VKContext::CreateTexture(const TextureDesc &desc) {
 }
 
 static inline void CopySide(VkStencilOpState &dest, const StencilSetup &src) {
-	dest.compareMask = src.compareMask;
-	dest.writeMask = src.writeMask;
 	dest.compareOp = compToVK[(int)src.compareOp];
 	dest.failOp = stencilOpToVK[(int)src.failOp];
 	dest.passOp = stencilOpToVK[(int)src.passOp];
