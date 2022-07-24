@@ -584,6 +584,7 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 	}
 
 	renderX = gstate_c.curRTOffsetX;
+	renderY = gstate_c.curRTOffsetY;
 
 	// Scissor
 	int scissorX1 = gstate.getScissorX1();

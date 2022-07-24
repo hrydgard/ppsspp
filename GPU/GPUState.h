@@ -606,13 +606,15 @@ struct GPUStateCache {
 	u32 curRTRenderWidth;
 	u32 curRTRenderHeight;
 
-	void SetCurRTOffsetX(int off) {
-		if (off != curRTOffsetX) {
-			curRTOffsetX = off;
+	void SetCurRTOffset(u32 xoff, u32 yoff) {
+		if (xoff != curRTOffsetX || yoff != curRTOffsetY) {
+			curRTOffsetX = xoff;
+			curRTOffsetY = yoff;
 			Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 		}
 	}
 	u32 curRTOffsetX;
+	u32 curRTOffsetY;
 
 	// Set if we are doing hardware bezier/spline.
 	SubmitType submitType;

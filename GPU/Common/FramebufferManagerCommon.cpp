@@ -266,13 +266,16 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	int drawing_width, drawing_height;
 	EstimateDrawingSize(params.fb_address, params.fmt, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, std::max(params.fb_stride, 4), drawing_width, drawing_height);
 
-	gstate_c.SetCurRTOffsetX(0);
+	gstate_c.SetCurRTOffset(0, 0);
 	bool vfbFormatChanged = false;
 
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = nullptr;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
+
+		const u32 bpp = v->format == GE_FORMAT_8888 ? 4 : 2;
+
 		if (v->fb_address == params.fb_address) {
 			vfb = v;
 			// Update fb stride in case it changed
@@ -302,18 +305,36 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 				vfb->height = drawing_height;
 			}
 			break;
-		} else if (v->fb_address < params.fb_address && v->fb_address + v->fb_stride * 4 > params.fb_address) {
-			// Possibly a render-to-offset.
-			const u32 bpp = v->format == GE_FORMAT_8888 ? 4 : 2;
-			const int x_offset = (params.fb_address - v->fb_address) / bpp;
-			if (v->format == params.fmt && v->fb_stride == params.fb_stride && x_offset < params.fb_stride && v->height >= drawing_height) {
-				WARN_LOG_REPORT_ONCE(renderoffset, HLE, "Rendering to framebuffer offset: %08x +%dx%d", v->fb_address, x_offset, 0);
-				vfb = v;
-				gstate_c.SetCurRTOffsetX(x_offset);
-				vfb->width = std::max((int)vfb->width, x_offset + drawing_width);
-				// To prevent the newSize code from being confused.
-				drawing_width += x_offset;
-				break;
+		} else if (v->fb_stride == params.fb_stride && v->format == params.fmt) {
+			u32 v_fb_first_line_end_ptr = v->fb_address + v->fb_stride * 4;  // This should be * bpp, but leaving like this until after 1.13 to be safe. The God of War games use this for shadows.
+			u32 v_fb_end_ptr = v->fb_address + v->fb_stride * v->height * bpp;
+
+			if (params.fb_address > v->fb_address && params.fb_address < v_fb_first_line_end_ptr) {
+				const int x_offset = (params.fb_address - v->fb_address) / bpp;
+				if (x_offset < params.fb_stride && v->height >= drawing_height) {
+					// Pretty certainly a pure render-to-X-offset.
+					WARN_LOG_REPORT_ONCE(renderoffset, HLE, "Rendering to framebuffer offset: %08x +%dx%d", v->fb_address, x_offset, 0);
+					vfb = v;
+					gstate_c.SetCurRTOffset(x_offset, 0);
+					vfb->width = std::max((int)vfb->width, x_offset + drawing_width);
+					// To prevent the newSize code from being confused.
+					drawing_width += x_offset;
+					break;
+				}
+			} else if (params.fb_address > v->fb_address && params.fb_address < v_fb_end_ptr && PSP_CoreParameter().compat.flags().AllowLargeFBTextureOffsets) {
+				if (params.fb_address % params.fb_stride == v->fb_address % params.fb_stride) {
+					// Framebuffers are overlapping on the Y axis.
+					const int y_offset = (params.fb_address - v->fb_address) / (bpp * params.fb_stride);
+
+					vfb = v;
+					gstate_c.SetCurRTOffset(0, y_offset);
+					// To prevent the newSize code from being confused.
+					drawing_height += y_offset;
+					break;
+				}
+			} else {
+				// We ignore this match.
+				// TODO: We can allow X/Y overlaps too, but haven't seen any so safer to not.
 			}
 		}
 	}
@@ -386,7 +407,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 
 		SetColorUpdated(vfb, skipDrawReason);
 
-		INFO_LOG(FRAMEBUF, "Creating FBO for %08x (z: %08x) : %i x %i x %i", vfb->fb_address, vfb->z_address, vfb->width, vfb->height, vfb->format);
+		INFO_LOG(FRAMEBUF, "Creating FBO for %08x (z: %08x) : %d x %d x %s", vfb->fb_address, vfb->z_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->format));
 
 		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed_ = gpuStats.numFlips;
