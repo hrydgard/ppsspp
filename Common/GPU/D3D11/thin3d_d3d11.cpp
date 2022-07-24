@@ -571,6 +571,8 @@ ID3D11DepthStencilState *D3D11DrawContext::GetCachedDepthStencilState(D3D11Depth
 	d3ddesc.DepthWriteMask = state->desc.depthWriteEnabled ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
 	d3ddesc.DepthFunc = compareToD3D11[(int)state->desc.depthCompare];
 	d3ddesc.StencilEnable = state->desc.stencilEnabled;
+	d3ddesc.StencilReadMask = stencilCompareMask;
+	d3ddesc.StencilWriteMask = stencilWriteMask;
 	if (d3ddesc.StencilEnable) {
 		CopyStencilSide(d3ddesc.FrontFace, state->desc.stencil);
 		CopyStencilSide(d3ddesc.BackFace, state->desc.stencil);
@@ -1023,8 +1025,9 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		dPipeline->dynamicUniformsSize = desc.uniformDesc->uniformBufferSize;
 		D3D11_BUFFER_DESC bufdesc{};
 		bufdesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-		bufdesc.ByteWidth = (UINT)dPipeline->dynamicUniformsSize;
-		bufdesc.StructureByteStride = (UINT)dPipeline->dynamicUniformsSize;
+		// We just round up to 16 here. If we get some garbage, that's fine.
+		bufdesc.ByteWidth = ((UINT)dPipeline->dynamicUniformsSize + 15) & ~15;
+		bufdesc.StructureByteStride = bufdesc.ByteWidth;
 		bufdesc.Usage = D3D11_USAGE_DYNAMIC;
 		bufdesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 		HRESULT hr = device_->CreateBuffer(&bufdesc, nullptr, &dPipeline->dynamicUniforms);
