@@ -16,8 +16,8 @@
 #define ALOGV(...) printf(__VA_ARGS__)
 
 typedef union {
-    XrCompositionLayerProjection Projection;
-    XrCompositionLayerCylinderKHR Cylinder;
+	XrCompositionLayerProjection Projection;
+	XrCompositionLayerCylinderKHR Cylinder;
 } ovrCompositorLayer_Union;
 
 enum { ovrMaxLayerCount = 1 };
@@ -33,60 +33,60 @@ typedef struct {
 } ovrJava;
 
 typedef struct {
-    XrSwapchain Handle;
-    uint32_t Width;
-    uint32_t Height;
+	XrSwapchain Handle;
+	uint32_t Width;
+	uint32_t Height;
 } ovrSwapChain;
 
 typedef struct {
-    int Width;
-    int Height;
-    uint32_t TextureSwapChainLength;
-    uint32_t TextureSwapChainIndex;
-    ovrSwapChain ColorSwapChain;
-    XrSwapchainImageOpenGLESKHR* ColorSwapChainImage;
-    unsigned int* DepthBuffers;
-    unsigned int* FrameBuffers;
+	int Width;
+	int Height;
+	uint32_t TextureSwapChainLength;
+	uint32_t TextureSwapChainIndex;
+	ovrSwapChain ColorSwapChain;
+	XrSwapchainImageOpenGLESKHR* ColorSwapChainImage;
+	unsigned int* DepthBuffers;
+	unsigned int* FrameBuffers;
 } ovrFramebuffer;
 
 typedef struct {
-    ovrFramebuffer FrameBuffer[ovrMaxNumEyes];
+	ovrFramebuffer FrameBuffer[ovrMaxNumEyes];
 } ovrRenderer;
 
 typedef struct {
-    int Active;
-    XrPosef Pose;
+	int Active;
+	XrPosef Pose;
 } ovrTrackedController;
 
 typedef struct {
-    int Focused;
+	int Focused;
 
-    XrInstance Instance;
-    XrSession Session;
-    XrViewConfigurationProperties ViewportConfig;
-    XrViewConfigurationView ViewConfigurationView[ovrMaxNumEyes];
-    XrSystemId SystemId;
-    XrSpace HeadSpace;
-    XrSpace StageSpace;
-    XrSpace FakeStageSpace;
-    XrSpace CurrentSpace;
-    int SessionActive;
+	XrInstance Instance;
+	XrSession Session;
+	XrViewConfigurationProperties ViewportConfig;
+	XrViewConfigurationView ViewConfigurationView[ovrMaxNumEyes];
+	XrSystemId SystemId;
+	XrSpace HeadSpace;
+	XrSpace StageSpace;
+	XrSpace FakeStageSpace;
+	XrSpace CurrentSpace;
+	int SessionActive;
 
-    int SwapInterval;
-    // These threads will be marked as performance threads.
-    int MainThreadTid;
-    int RenderThreadTid;
-    ovrCompositorLayer_Union Layers[ovrMaxLayerCount];
-    int LayerCount;
+	int SwapInterval;
+	// These threads will be marked as performance threads.
+	int MainThreadTid;
+	int RenderThreadTid;
+	ovrCompositorLayer_Union Layers[ovrMaxLayerCount];
+	int LayerCount;
 
-    int TouchPadDownLastFrame;
-    ovrRenderer Renderer;
-    ovrTrackedController TrackedController[2];
+	int TouchPadDownLastFrame;
+	ovrRenderer Renderer;
+	ovrTrackedController TrackedController[2];
 } ovrApp;
 
 
 typedef struct {
-    float M[4][4];
+	float M[4][4];
 } ovrMatrix4f;
 
 typedef struct {
