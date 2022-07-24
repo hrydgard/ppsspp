@@ -283,8 +283,6 @@ public:
 	int dynamicUniformSize = 0;
 
 	bool usesStencil = false;
-	uint8_t stencilWriteMask = 0xFF;
-	uint8_t stencilTestMask = 0xFF;
 
 private:
 	VulkanContext *vulkan_;
@@ -1133,8 +1131,6 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	}
 	if (depth->info.stencilTestEnable) {
 		pipeline->usesStencil = true;
-		pipeline->stencilTestMask = depth->info.front.compareMask;
-		pipeline->stencilWriteMask = depth->info.front.writeMask;
 	}
 	return pipeline;
 }
@@ -1166,8 +1162,8 @@ void VKContext::SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t co
 	if (curPipeline_->usesStencil)
 		renderManager_.SetStencilParams(writeMask, compareMask, refValue);
 	stencilRef_ = refValue;
-	stencilWriteMask_ = refValue;
-	stencilCompareMask_ = refValue;
+	stencilWriteMask_ = writeMask;
+	stencilCompareMask_ = compareMask;
 }
 
 InputLayout *VKContext::CreateInputLayout(const InputLayoutDesc &desc) {
@@ -1315,7 +1311,7 @@ void VKContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 void VKContext::ApplyDynamicState() {
 	// TODO: blend constants, stencil, viewports should be here, after bindpipeline..
 	if (curPipeline_->usesStencil) {
-		renderManager_.SetStencilParams(curPipeline_->stencilWriteMask, curPipeline_->stencilTestMask, stencilRef_);
+		renderManager_.SetStencilParams(stencilWriteMask_, stencilCompareMask_, stencilRef_);
 	}
 }
 
