@@ -162,6 +162,11 @@ void ShaderWriter::BeginVSMain(Slice<InputDef> inputs, Slice<UniformDef> uniform
 		if (lang_.shaderLanguage == HLSL_D3D11) {
 			C("uint gl_VertexIndex : SV_VertexID, ");
 		}
+		// List the inputs.
+		for (auto &input : inputs) {
+			F("in %s %s : %s, ", input.type, input.name, input.semantic);
+		}
+
 		Rewind(2);  // Get rid of the last comma.
 		C(") {\n");
 		C("  vec4 gl_Position;\n");
@@ -305,6 +310,7 @@ void ShaderWriter::DeclareTexture2D(const char *name, int binding) {
 		F("Texture2D<float4> %s : register(t%d);\n", name, binding);
 		break;
 	case HLSL_D3D9:
+		F("sampler %s: register(s%d);\n", name, binding);
 		break;
 	case GLSL_VULKAN:
 		// In the thin3d descriptor set layout, textures start at 1 in set 0. Hence the +1.

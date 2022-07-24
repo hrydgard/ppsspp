@@ -19,6 +19,7 @@
 struct InputDef {
 	const char *type;
 	const char *name;
+	const char *semantic;
 };
 
 struct UniformDef {

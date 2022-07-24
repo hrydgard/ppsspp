@@ -74,7 +74,7 @@ static const UniformDef uniforms[1] = {
 };
 
 static const InputDef inputs[1] = {
-	{ "vec2", "a_position" }
+	{ "vec2", "a_position", "POSITION", }
 };
 
 static const VaryingDef varyings[1] = {
@@ -100,7 +100,7 @@ void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw:
 	writer.C("  vec4 outColor = vec4(v_texcoord.x, v_texcoord.y, 0.0, index.a);\n");
 	writer.C("  float shifted = roundAndScaleTo255f(index.a) / roundAndScaleTo255f(stencilValue);\n");
 	// Bitwise operations on floats, ugh.
-	writer.C("  if (mod(floor(shifted), 2.0) < 0.99) discard;\n");
+	writer.C("  if (mod(floor(shifted), 2.0) < 0.99) DISCARD;\n");
 
 	if (bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL)) {
 		writer.C("  gl_FragDepth = gl_FragCoord.z;\n");
