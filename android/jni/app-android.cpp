@@ -98,15 +98,13 @@ struct JNIEnv {};
 #include "VR/VRInput.h"
 #include "VR/VRRenderer.h"
 
-struct ButtonMapping
-{
+struct ButtonMapping {
 	ovrButton ovr;
 	int keycode;
 	bool pressed;
 	int repeat;
 
-	ButtonMapping(int keycode, ovrButton ovr)
-	{
+	ButtonMapping(int keycode, ovrButton ovr) {
 		this->keycode = keycode;
 		this->ovr = ovr;
 		pressed = false;
