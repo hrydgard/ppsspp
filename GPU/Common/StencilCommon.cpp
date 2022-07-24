@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/GPU/Shader.h"
+#include "Common/GPU/ShaderWriter.h"
 #include "Common/GPU/OpenGL/GLSLProgram.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -67,57 +68,57 @@ const UniformBufferDesc stencilUBDesc { sizeof(StencilUB), {
 	{ "stencilValue", 0, -1, UniformType::FLOAT1, 0 },
 } };
 
-static const char *stencil_fs = R"(
-#ifdef GL_ES
-#ifdef GL_FRAGMENT_PRECISION_HIGH
-precision highp float;
-#else
-precision mediump float;  // just hope it's enough..
-#endif
-#endif
-#if __VERSION__ >= 130
-#define varying in
-#define texture2D texture
-#define gl_FragColor fragColor0
-out vec4 fragColor0;
-#endif
-varying vec2 v_texcoord0;
-uniform float stencilValue;
-uniform sampler2D tex;
-float roundAndScaleTo255f(in float x) { return floor(x * 255.99); }
-void main() {
-  vec4 index = texture2D(tex, v_texcoord0);
-  gl_FragColor = vec4(v_texcoord0.x, v_texcoord0.y, 0.0, index.a);
-  float shifted = roundAndScaleTo255f(index.a) / roundAndScaleTo255f(stencilValue);
-  // Bitwise operations on floats, ugh.
-  if (mod(floor(shifted), 2.0) < 0.99) discard;
-}
-)";
-
-static const char *stencil_vs = R"(
-#ifdef GL_ES
-precision highp float;
-#endif
-#if __VERSION__ >= 130
-#define attribute in
-#define varying out
-#endif
-attribute vec2 a_position;
-varying vec2 v_texcoord0;
-void main() {
-  v_texcoord0 = a_position * 2.0;  // yes, this should be right. Should be 2.0 in the far corners.
-  gl_Position = vec4(v_texcoord0 * 2.0 - vec2(1.0, 1.0), 0.0, 1.0);
-}
-)";
-
-
-static const std::vector<Draw::ShaderSource> fsStencilSources = {
-	{ShaderLanguage::GLSL_1xx, stencil_fs}
+// TODO: Merge this with UniformBufferDesc
+static const UniformDef uniforms[1] = {
+	{ "float", "stencilValue", 0 },
 };
 
-static const std::vector<Draw::ShaderSource> vsStencilSources = {
-	{ShaderLanguage::GLSL_1xx, stencil_vs}
+static const InputDef inputs[1] = {
+	{ "vec2", "a_position" }
 };
+
+static const VaryingDef varyings[1] = {
+	{ "vec2", "v_texcoord", "TEXCOORD0", 0, "highp" },
+};
+
+void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw::Bugs &bugs) {
+	ShaderWriter writer(buffer, lang, ShaderStage::Fragment, nullptr, 0);
+	writer.HighPrecisionFloat();
+
+	writer.DeclareSampler2D("samp", 0);
+	writer.DeclareTexture2D("tex", 0);
+
+	if (bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL)) {
+		writer.C("layout (depth_unchanged) out float gl_FragDepth;\n");
+	}
+
+	writer.C("float roundAndScaleTo255f(in float x) { return floor(x * 255.99); }\n");
+
+	writer.BeginFSMain(uniforms, varyings);
+
+	writer.C("  vec4 index = ").SampleTexture2D("tex", "samp", "v_texcoord.xy").C(";\n");
+	writer.C("  vec4 outColor = vec4(v_texcoord.x, v_texcoord.y, 0.0, index.a);\n");
+	writer.C("  float shifted = roundAndScaleTo255f(index.a) / roundAndScaleTo255f(stencilValue);\n");
+	// Bitwise operations on floats, ugh.
+	writer.C("  if (mod(floor(shifted), 2.0) < 0.99) discard;\n");
+
+	if (bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL)) {
+		writer.C("  gl_FragDepth = gl_FragCoord.z;\n");
+	}
+
+	writer.EndFSMain("outColor");
+}
+
+void GenerateStencilVs(char *buffer, const ShaderLanguageDesc &lang) {
+	ShaderWriter writer(buffer, lang, ShaderStage::Vertex, nullptr, 0);
+
+	writer.BeginVSMain(inputs, Slice<UniformDef>::empty(), varyings);
+
+	writer.C("  v_texcoord = a_position * 2.0;\n");    // yes, this should be right. Should be 2.0 in the far corners.
+	writer.C("  gl_Position = vec4(v_texcoord * 2.0 - vec2(1.0, 1.0), 0.0, 1.0);\n");
+
+	writer.EndVSMain(varyings);
+}
 
 bool FramebufferManagerCommon::NotifyStencilUpload(u32 addr, int size, StencilUpload flags) {
 	using namespace Draw;
@@ -190,8 +191,15 @@ bool FramebufferManagerCommon::NotifyStencilUpload(u32 addr, int size, StencilUp
 	textureCache_->ForgetLastTexture();
 
 	if (!stencilUploadPipeline_) {
-		stencilUploadFs_ = CreateShader(draw_, ShaderStage::Fragment, fsStencilSources);
-		stencilUploadVs_ = CreateShader(draw_, ShaderStage::Vertex, vsStencilSources);
+		const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
+
+		char *fsCode = new char[4000];
+		char *vsCode = new char[4000];
+		GenerateStencilFs(fsCode, shaderLanguageDesc, draw_->GetBugs());
+		GenerateStencilVs(vsCode, shaderLanguageDesc);
+
+		stencilUploadFs_ = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), "stencil_fs");
+		stencilUploadVs_ = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)vsCode, strlen(vsCode), "stencil_vs");
 
 		_assert_(stencilUploadFs_ && stencilUploadVs_);
 
@@ -222,6 +230,9 @@ bool FramebufferManagerCommon::NotifyStencilUpload(u32 addr, int size, StencilUp
 		};
 		stencilUploadPipeline_ = draw_->CreateGraphicsPipeline(stencilWriteDesc);
 		_assert_(stencilUploadPipeline_);
+
+		delete[] fsCode;
+		delete[] vsCode;
 
 		rasterNoCull->Release();
 		blendOff->Release();
