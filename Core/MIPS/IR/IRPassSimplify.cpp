@@ -416,8 +416,8 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 			} else if (gpr.IsImm(inst.src2)) {
 				const u32 imm2 = gpr.GetImm(inst.src2);
 				gpr.MapDirtyIn(inst.dest, inst.src1);
-				if (imm2 == 0 && (inst.op == IROp::Add || inst.op == IROp::Or)) {
-					// Add / Or with zero is just a Mov.
+				if (imm2 == 0 && (inst.op == IROp::Add || inst.op == IROp::Sub || inst.op == IROp::Or || inst.op == IROp::Xor)) {
+					// Add / Sub / Or / Xor with zero is just a Mov.  Add / Or are most common.
 					if (inst.dest != inst.src1)
 						out.Write(IROp::Mov, inst.dest, inst.src1);
 				} else {
@@ -426,8 +426,8 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 			} else if (symmetric && gpr.IsImm(inst.src1)) {
 				const u32 imm1 = gpr.GetImm(inst.src1);
 				gpr.MapDirtyIn(inst.dest, inst.src2);
-				if (imm1 == 0 && (inst.op == IROp::Add || inst.op == IROp::Or)) {
-					// Add / Or with zero is just a Mov.
+				if (imm1 == 0 && (inst.op == IROp::Add || inst.op == IROp::Or || inst.op == IROp::Xor)) {
+					// Add / Or / Xor with zero is just a Mov.
 					if (inst.dest != inst.src2)
 						out.Write(IROp::Mov, inst.dest, inst.src2);
 				} else {
@@ -467,6 +467,11 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 				gpr.SetImm(inst.dest, 0);
 			} else if (gpr.IsImm(inst.src1)) {
 				gpr.SetImm(inst.dest, Evaluate(gpr.GetImm(inst.src1), inst.constant, inst.op));
+			} else if (inst.constant == 0 && (inst.op == IROp::AddConst || inst.op == IROp::SubConst || inst.op == IROp::OrConst || inst.op == IROp::XorConst)) {
+				// Convert an Add/Sub/Or/Xor with a constant zero to a Mov (just like with reg zero.)
+				gpr.MapDirtyIn(inst.dest, inst.src1);
+				if (inst.dest != inst.src1)
+					out.Write(IROp::Mov, inst.dest, inst.src1);
 			} else {
 				gpr.MapDirtyIn(inst.dest, inst.src1);
 				goto doDefault;
