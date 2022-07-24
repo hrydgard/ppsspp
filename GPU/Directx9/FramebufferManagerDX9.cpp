@@ -200,12 +200,12 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		dxstate.texMipLodBias.set(0.0f);
 		dxstate.texMaxMipLevel.set(0);
 		dxstate.blend.disable();
-		dxstate.cullMode.set(false, false);
+		dxstate.cullMode.set(D3DCULL_NONE);
 		dxstate.depthTest.disable();
 		dxstate.scissorTest.disable();
 		dxstate.stencilTest.disable();
-		dxstate.colorMask.set(true, true, true, true);
-		dxstate.stencilMask.set(0xFF);
+		dxstate.colorMask.set(0xF);
+		dxstate.stencilWriteMask.set(0xFF);
 		HRESULT hr = device_->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
 		if (FAILED(hr)) {
 			ERROR_LOG_REPORT(G3D, "DrawActiveTexture() failed: %08x", (uint32_t)hr);
