@@ -309,6 +309,28 @@ static const DefMappingStruct defaultXperiaPlay[] = {
 	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, +1},
 };
 
+static const DefMappingStruct defaultVRLeftController[] = {
+	{CTRL_UP             , NKCODE_DPAD_UP},
+	{CTRL_DOWN           , NKCODE_DPAD_DOWN},
+	{CTRL_LEFT           , NKCODE_DPAD_LEFT},
+	{CTRL_RIGHT          , NKCODE_DPAD_RIGHT},
+	{CTRL_SELECT         , NKCODE_BUTTON_THUMBL},
+	{CTRL_LTRIGGER       , NKCODE_BUTTON_X},
+	{CTRL_RTRIGGER       , NKCODE_BUTTON_Y},
+};
+
+static const DefMappingStruct defaultVRRightController[] = {
+	{CTRL_CIRCLE         , NKCODE_ALT_RIGHT},
+	{CTRL_CROSS          , NKCODE_ENTER},
+	{CTRL_SQUARE         , NKCODE_BUTTON_B},
+	{CTRL_TRIANGLE       , NKCODE_BUTTON_A},
+	{CTRL_START          , NKCODE_BUTTON_THUMBR},
+	{VIRTKEY_AXIS_Y_MAX, NKCODE_DPAD_UP},
+	{VIRTKEY_AXIS_Y_MIN, NKCODE_DPAD_DOWN},
+	{VIRTKEY_AXIS_X_MIN, NKCODE_DPAD_LEFT},
+	{VIRTKEY_AXIS_X_MAX, NKCODE_DPAD_RIGHT},
+};
+
 static void SetDefaultKeyMap(int deviceId, const DefMappingStruct *array, size_t count, bool replace) {
 	for (size_t i = 0; i < count; i++) {
 		if (array[i].direction == 0)
@@ -364,6 +386,10 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 		break;
 	case DEFAULT_MAPPING_RETRO_STATION_CONTROLLER:
 		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultRetroStationControllerMap, ARRAY_SIZE(defaultRetroStationControllerMap), replace);
+		break;
+	case DEFAULT_MAPPING_VR_HEADSET:
+		SetDefaultKeyMap(DEVICE_ID_XR_CONTROLLER_LEFT, defaultVRLeftController, ARRAY_SIZE(defaultVRLeftController), replace);
+		SetDefaultKeyMap(DEVICE_ID_XR_CONTROLLER_RIGHT, defaultVRRightController, ARRAY_SIZE(defaultVRRightController), replace);
 		break;
 	}
 

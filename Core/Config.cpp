@@ -682,6 +682,10 @@ const char * const vulkanDefaultBlacklist[] = {
 };
 
 static int DefaultGPUBackend() {
+#ifdef OPENXR
+	return (int)GPUBackend::OPENGL;
+#endif
+
 #if PPSSPP_PLATFORM(WINDOWS)
 	// If no Vulkan, use Direct3D 11 on Windows 8+ (most importantly 10.)
 	if (DoesVersionMatchWindows(6, 2, 0, 0, true)) {
@@ -843,11 +847,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("CardboardXShift", &g_Config.iCardboardXShift, 0, true, true),
 	ConfigSetting("CardboardYShift", &g_Config.iCardboardYShift, 0, true, true),
 	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0, true, true),
-#ifdef OPENXR
-	g_Config.iGPUBackend = (int)GPUBackend::OPENGL,
-#else
 	ReportedConfigSetting("GraphicsBackend", &g_Config.iGPUBackend, &DefaultGPUBackend, &GPUBackendTranslator::To, &GPUBackendTranslator::From, true, false),
-#endif
 	ConfigSetting("FailedGraphicsBackends", &g_Config.sFailedGPUBackends, ""),
 	ConfigSetting("DisabledGraphicsBackends", &g_Config.sDisabledGPUBackends, ""),
 	ConfigSetting("VulkanDevice", &g_Config.sVulkanDevice, "", true, false),
@@ -960,6 +960,8 @@ static bool DefaultShowTouchControls() {
 		return false;
 	} else if (deviceType == DEVICE_TYPE_DESKTOP) {
 		return false;
+	} else if (deviceType == DEVICE_TYPE_VR) {
+		return false;
 	} else {
 		return false;
 	}
@@ -998,11 +1000,7 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("IgnoreWindowsKey", &g_Config.bIgnoreWindowsKey, false, true, true),
 #endif
 
-#ifdef OPENXR
-	g_Config.bShowTouchControls = false,
-#else
 	ConfigSetting("ShowTouchControls", &g_Config.bShowTouchControls, &DefaultShowTouchControls, true, true),
-#endif
 
 	// ConfigSetting("KeyMapping", &g_Config.iMappingMap, 0),
 

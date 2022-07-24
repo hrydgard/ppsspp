@@ -654,6 +654,11 @@ void SetAxisMapping(int btn, int deviceId, int axisId, int direction, bool repla
 void RestoreDefault() {
 	g_controllerMap.clear();
 	g_controllerMapGeneration++;
+#ifdef OPENXR
+	SetDefaultKeyMap(DEFAULT_MAPPING_VR_HEADSET, false);
+	return;
+#endif
+
 #if PPSSPP_PLATFORM(WINDOWS)
 	SetDefaultKeyMap(DEFAULT_MAPPING_KEYBOARD, true);
 	SetDefaultKeyMap(DEFAULT_MAPPING_XINPUT, false);

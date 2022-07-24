@@ -115,8 +115,8 @@ struct ButtonMapping
 };
 
 std::vector<ButtonMapping> leftControllerMapping = {
-	ButtonMapping(NKCODE_X, ovrButton_X),
-	ButtonMapping(NKCODE_Y, ovrButton_Y),
+	ButtonMapping(NKCODE_BUTTON_X, ovrButton_X),
+	ButtonMapping(NKCODE_BUTTON_Y, ovrButton_Y),
 	ButtonMapping(NKCODE_ALT_LEFT, ovrButton_GripTrigger),
 	ButtonMapping(NKCODE_DPAD_UP, ovrButton_Up),
 	ButtonMapping(NKCODE_DPAD_DOWN, ovrButton_Down),
@@ -128,8 +128,8 @@ std::vector<ButtonMapping> leftControllerMapping = {
 };
 
 std::vector<ButtonMapping> rightControllerMapping = {
-	ButtonMapping(NKCODE_A, ovrButton_A),
-	ButtonMapping(NKCODE_B, ovrButton_B),
+	ButtonMapping(NKCODE_BUTTON_A, ovrButton_A),
+	ButtonMapping(NKCODE_BUTTON_B, ovrButton_B),
 	ButtonMapping(NKCODE_ALT_RIGHT, ovrButton_GripTrigger),
 	ButtonMapping(NKCODE_DPAD_UP, ovrButton_Up),
 	ButtonMapping(NKCODE_DPAD_DOWN, ovrButton_Down),
@@ -696,6 +696,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	renderer_inited = false;
 	androidVersion = jAndroidVersion;
 	deviceType = jdeviceType;
+#ifdef OPENXR
+	deviceType = DEVICE_TYPE_VR;
+#endif
 
 	left_joystick_x_async = 0;
 	left_joystick_y_async = 0;
