@@ -390,6 +390,7 @@ void GameSettingsScreen::CreateViews() {
 		}
 	}
 
+#ifndef OPENXR
 	graphicsSettings->Add(new ItemHeader(gr->T("Screen layout")));
 #if !defined(MOBILE_DEVICE)
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
@@ -420,6 +421,7 @@ void GameSettingsScreen::CreateViews() {
 		// Let's reuse the Fullscreen translation string from desktop.
 		graphicsSettings->Add(new CheckBox(&g_Config.bImmersiveMode, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnImmersiveModeChange);
 	}
+#endif
 #endif
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Performance")));
