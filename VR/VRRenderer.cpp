@@ -9,12 +9,12 @@
 #include <GLES3/gl3.h>
 #include <GLES3/gl3ext.h>
 
-XrFovf fov = {};
 XrView* projections;
 XrPosef invViewTransform[2];
 XrFrameState frameState = {};
 GLboolean initialized = GL_FALSE;
 GLboolean stageSupported = GL_FALSE;
+VRMode vrMode = VR_MODE_FLAT_SCREEN;
 
 float menuYaw = 0;
 float recenterYaw = 0;
@@ -294,11 +294,6 @@ void VR_BeginFrame( engine_t* engine ) {
 
     for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
         invViewTransform[eye] = projections[eye].pose;
-
-        fov.angleLeft += projections[eye].fov.angleLeft / 2.0f;
-        fov.angleRight += projections[eye].fov.angleRight / 2.0f;
-        fov.angleUp += projections[eye].fov.angleUp / 2.0f;
-        fov.angleDown += projections[eye].fov.angleDown / 2.0f;
     }
 
     // Update HMD and controllers
@@ -309,16 +304,8 @@ void VR_BeginFrame( engine_t* engine ) {
 	hmdposition[2] = invViewTransform[0].position.z;
 	IN_VRInputFrame(engine);
 
-    const ovrMatrix4f projectionMatrix = ovrMatrix4f_CreateProjectionFov(
-            fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown, 1.0f, 0.0f );
-
     engine->appState.LayerCount = 0;
     memset(engine->appState.Layers, 0, sizeof(ovrCompositorLayer_Union) * ovrMaxLayerCount);
-
-	//TODO:
-    /*re.SetVRHeadsetParms(projectionMatrix.M,
-                         engine->appState.Renderer.FrameBuffer[0].FrameBuffers[engine->appState.Renderer.FrameBuffer[0].TextureSwapChainIndex],
-                         engine->appState.Renderer.FrameBuffer[1].FrameBuffers[engine->appState.Renderer.FrameBuffer[1].TextureSwapChainIndex]);*/
 
     for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
         ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[eye];
@@ -331,7 +318,7 @@ void VR_BeginFrame( engine_t* engine ) {
     }
 }
 
-void VR_DrawFrame( engine_t* engine ) {
+void VR_EndFrame( engine_t* engine ) {
 
     for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
 
@@ -348,16 +335,19 @@ void VR_DrawFrame( engine_t* engine ) {
     ovrFramebuffer_SetNone();
 
     XrCompositionLayerProjectionView projection_layer_elements[2] = {};
-    if (false) {
+    if ((vrMode == VR_MODE_MONO_6DOF) || (vrMode == VR_MODE_STEREO_6DOF)) {
         menuYaw = hmdorientation[YAW];
 
         for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
             ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[eye];
+            if (vrMode == VR_MODE_MONO_6DOF) {
+                frameBuffer = &engine->appState.Renderer.FrameBuffer[0];
+            }
 
             memset(&projection_layer_elements[eye], 0, sizeof(XrCompositionLayerProjectionView));
             projection_layer_elements[eye].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
             projection_layer_elements[eye].pose = invViewTransform[eye];
-            projection_layer_elements[eye].fov = fov;
+            projection_layer_elements[eye].fov = projections[eye].fov;
 
             memset(&projection_layer_elements[eye].subImage, 0, sizeof(XrSwapchainSubImage));
             projection_layer_elements[eye].subImage.swapchain = frameBuffer->ColorSwapChain.Handle;
@@ -377,7 +367,7 @@ void VR_DrawFrame( engine_t* engine ) {
         projection_layer.views = projection_layer_elements;
 
         engine->appState.Layers[engine->appState.LayerCount++].Projection = projection_layer;
-    } else {
+    } else if (vrMode == VR_MODE_FLAT_SCREEN) {
 
         // Build the cylinder layer
         int width = engine->appState.Renderer.FrameBuffer[0].ColorSwapChain.Width;
@@ -407,6 +397,8 @@ void VR_DrawFrame( engine_t* engine ) {
         cylinder_layer.aspectRatio = height / (float)width;
 
         engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
+    } else {
+        assert(false);
     }
 
     // Compose the layers for this frame.
@@ -430,10 +422,31 @@ void VR_DrawFrame( engine_t* engine ) {
     }
 }
 
-unsigned int VR_Framebuffer( engine_t* engine, int eye ) {
-    if (!initialized) return 0;
+void VR_BindFramebuffer( engine_t* engine, int eye ) {
+    if (!initialized) return;
     ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[eye];
     int swapchainIndex = frameBuffer->TextureSwapChainIndex;
     int glFramebuffer = frameBuffer->FrameBuffers[swapchainIndex];
-    return glFramebuffer;
+    glBindFramebuffer(GL_FRAMEBUFFER, glFramebuffer);
+}
+
+ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {
+    ovrMatrix4f output;
+    if (matrix == VR_PROJECTION_MATRIX_HUD) {
+        float hudScale = radians(15.0f);
+        output = ovrMatrix4f_CreateProjectionFov(-hudScale, hudScale, hudScale, -hudScale, 1.0f, 0.0f );
+    } else if ((matrix == VR_PROJECTION_MATRIX_LEFT_EYE) || (matrix == VR_PROJECTION_MATRIX_RIGHT_EYE)) {
+        XrFovf fov = matrix == VR_PROJECTION_MATRIX_LEFT_EYE ? projections[0].fov : projections[1].fov;
+        output = ovrMatrix4f_CreateProjectionFov(fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown, 1.0f, 0.0f );
+     } else if ((matrix == VR_PROJECTION_MATRIX_LEFT_EYE) || (matrix == VR_PROJECTION_MATRIX_RIGHT_EYE)) {
+        XrPosef invView = matrix == VR_VIEW_MATRIX_LEFT_EYE ? invViewTransform[0] : invViewTransform[1];
+        XrPosef view = XrPosef_Inverse(invView);
+        output = ovrMatrix4f_CreateFromQuaternion(&view.orientation);
+        output.M[3][0] = view.position.x;
+        output.M[3][1] = view.position.y;
+        output.M[3][2] = view.position.z;
+    } else {
+        assert(false);
+    }
+    return output;
 }

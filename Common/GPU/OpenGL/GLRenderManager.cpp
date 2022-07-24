@@ -249,7 +249,7 @@ bool GLRenderManager::ThreadFrame() {
 		VLOG("PULL: Finished frame %d", threadFrame_);
 	} while (!nextFrame);
 #ifdef OPENXR
-	VR_DrawFrame(VR_GetEngine());
+	VR_EndFrame(VR_GetEngine());
 #endif
 	return true;
 }

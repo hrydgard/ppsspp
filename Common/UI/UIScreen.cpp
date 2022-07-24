@@ -17,8 +17,6 @@
 #include "Common/StringUtils.h"
 
 #ifdef OPENXR
-#include <GLES3/gl3.h>
-#include <GLES3/gl3ext.h>
 #include "VR/VRBase.h"
 #include "VR/VRRenderer.h"
 #endif
@@ -96,8 +94,7 @@ void UIScreen::preRender() {
 	screenManager()->getUIContext()->BeginFrame();
 
 #ifdef OPENXR
-	GLuint fbo = VR_Framebuffer(VR_GetEngine(), 0);
-	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	VR_BindFramebuffer(VR_GetEngine(), 0);
 #endif
 
 	Draw::Viewport viewport;

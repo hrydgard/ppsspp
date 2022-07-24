@@ -243,3 +243,10 @@ static inline XrPosef XrPosef_Multiply(const XrPosef a, const XrPosef b) {
 	c.position = XrPosef_Transform(a, b.position);
 	return c;
 }
+
+static inline XrPosef XrPosef_Inverse(const XrPosef a) {
+	XrPosef b;
+	b.orientation = XrQuaternionf_Inverse(a.orientation);
+	b.position = XrQuaternionf_Rotate(b.orientation, XrVector3f_ScalarMultiply(a.position, -1.0f));
+	return b;
+}
