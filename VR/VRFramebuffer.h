@@ -126,6 +126,40 @@ ovrMatrix4f ovrMatrix4f_CreateProjectionFov(
 		const float nearZ,
 		const float farZ);
 
+static inline float
+ovrMatrix4f_Minor(const ovrMatrix4f* m, int r0, int r1, int r2, int c0, int c1, int c2) {
+	return m->M[r0][c0] * (m->M[r1][c1] * m->M[r2][c2] - m->M[r2][c1] * m->M[r1][c2]) -
+	       m->M[r0][c1] * (m->M[r1][c0] * m->M[r2][c2] - m->M[r2][c0] * m->M[r1][c2]) +
+	       m->M[r0][c2] * (m->M[r1][c0] * m->M[r2][c1] - m->M[r2][c0] * m->M[r1][c1]);
+}
+
+static inline ovrMatrix4f ovrMatrix4f_Inverse(const ovrMatrix4f* m) {
+	const float rcpDet = 1.0f /
+	                     (m->M[0][0] * ovrMatrix4f_Minor(m, 1, 2, 3, 1, 2, 3) -
+	                      m->M[0][1] * ovrMatrix4f_Minor(m, 1, 2, 3, 0, 2, 3) +
+	                      m->M[0][2] * ovrMatrix4f_Minor(m, 1, 2, 3, 0, 1, 3) -
+	                      m->M[0][3] * ovrMatrix4f_Minor(m, 1, 2, 3, 0, 1, 2));
+	ovrMatrix4f out;
+	out.M[0][0] = ovrMatrix4f_Minor(m, 1, 2, 3, 1, 2, 3) * rcpDet;
+	out.M[0][1] = -ovrMatrix4f_Minor(m, 0, 2, 3, 1, 2, 3) * rcpDet;
+	out.M[0][2] = ovrMatrix4f_Minor(m, 0, 1, 3, 1, 2, 3) * rcpDet;
+	out.M[0][3] = -ovrMatrix4f_Minor(m, 0, 1, 2, 1, 2, 3) * rcpDet;
+	out.M[1][0] = -ovrMatrix4f_Minor(m, 1, 2, 3, 0, 2, 3) * rcpDet;
+	out.M[1][1] = ovrMatrix4f_Minor(m, 0, 2, 3, 0, 2, 3) * rcpDet;
+	out.M[1][2] = -ovrMatrix4f_Minor(m, 0, 1, 3, 0, 2, 3) * rcpDet;
+	out.M[1][3] = ovrMatrix4f_Minor(m, 0, 1, 2, 0, 2, 3) * rcpDet;
+	out.M[2][0] = ovrMatrix4f_Minor(m, 1, 2, 3, 0, 1, 3) * rcpDet;
+	out.M[2][1] = -ovrMatrix4f_Minor(m, 0, 2, 3, 0, 1, 3) * rcpDet;
+	out.M[2][2] = ovrMatrix4f_Minor(m, 0, 1, 3, 0, 1, 3) * rcpDet;
+	out.M[2][3] = -ovrMatrix4f_Minor(m, 0, 1, 2, 0, 1, 3) * rcpDet;
+	out.M[3][0] = -ovrMatrix4f_Minor(m, 1, 2, 3, 0, 1, 2) * rcpDet;
+	out.M[3][1] = ovrMatrix4f_Minor(m, 0, 2, 3, 0, 1, 2) * rcpDet;
+	out.M[3][2] = -ovrMatrix4f_Minor(m, 0, 1, 3, 0, 1, 2) * rcpDet;
+	out.M[3][3] = ovrMatrix4f_Minor(m, 0, 1, 2, 0, 1, 2) * rcpDet;
+	return out;
+}
+
+
 XrVector4f XrVector4f_MultiplyMatrix4f(const ovrMatrix4f* a, const XrVector4f* v);
 
 

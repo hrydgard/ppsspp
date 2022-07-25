@@ -50,6 +50,10 @@
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 
+#ifdef OPENXR
+#include "VR/VRRenderer.h"
+#endif
+
 using namespace Lin;
 
 Shader::Shader(GLRenderManager *render, const char *code, const std::string &desc, const ShaderDescGLES &params)
@@ -313,7 +317,23 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	// Update any dirty uniforms before we draw
 	if (dirty & DIRTY_PROJMATRIX) {
 		Matrix4x4 flippedMatrix;
+#ifdef OPENXR
+		if (VR_GetMode() == VR_MODE_FLAT_SCREEN) {
+			memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
+		} else {
+			ovrMatrix4f hmdProjection = VR_GetMatrix(VR_PROJECTION_MATRIX_LEFT_EYE);
+			for (int i = 0; i < 4; i++) {
+				for (int j = 0; j < 4; j++) {
+					if ((hmdProjection.M[i][j] > 0) != (gstate.projMatrix[i * 4 + j] > 0)) {
+						hmdProjection.M[i][j] *= -1.0f;
+					}
+				}
+			}
+			memcpy(&flippedMatrix, hmdProjection.M, 16 * sizeof(float));
+		}
+#else
 		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
+#endif
 
 		const bool invertedY = useBufferedRendering ? (gstate_c.vpHeight < 0) : (gstate_c.vpHeight > 0);
 		if (invertedY) {
@@ -463,7 +483,32 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		SetMatrix4x3(render_, &u_world, gstate.worldMatrix);
 	}
 	if (dirty & DIRTY_VIEWMATRIX) {
+#ifdef OPENXR
+		if (VR_GetMode() == VR_MODE_FLAT_SCREEN) {
+			SetMatrix4x3(render_, &u_view, gstate.viewMatrix);
+		} else {
+			// Get view matrix from the game
+			float m4x4[16];
+			ovrMatrix4f gameView;
+			ConvertMatrix4x3To4x4Transposed(m4x4, gstate.viewMatrix);
+			memcpy(gameView.M, m4x4, 16 * sizeof(float));
+
+			// Get view matrix from the headset
+			if (gstate.projMatrix[0] * gstate.projMatrix[5] * gstate.projMatrix[10] > 0) {
+				VR_SetInvertedProjection(true);
+			} else {
+				VR_SetInvertedProjection(false);
+			}
+			ovrMatrix4f hmdView = VR_GetMatrix(VR_VIEW_MATRIX_LEFT_EYE);
+
+			// Combine the matrices
+			ovrMatrix4f renderView = ovrMatrix4f_Multiply(&hmdView, &gameView);
+			memcpy(m4x4, renderView.M, 16 * sizeof(float));
+			render_->SetUniformM4x4(&u_view, m4x4);
+		}
+#else
 		SetMatrix4x3(render_, &u_view, gstate.viewMatrix);
+#endif
 	}
 	if (dirty & DIRTY_TEXMATRIX) {
 		SetMatrix4x3(render_, &u_texmtx, gstate.tgenMatrix);

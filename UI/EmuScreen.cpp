@@ -97,6 +97,8 @@ static AVIDump avi;
 #endif
 
 #ifdef OPENXR
+#include <VR/VRBase.h>
+#include <VR/VRInput.h>
 #include <VR/VRRenderer.h>
 #endif
 
@@ -1012,6 +1014,17 @@ UI::EventReturn EmuScreen::OnReset(UI::EventParams &params) {
 }
 
 void EmuScreen::update() {
+#ifdef OPENXR
+	// hack to quick enable 2D mode in game and adjust the view
+	bool leftPressed = IN_VRGetButtonState(0) & ovrButton_Left;
+	bool rightPressed = IN_VRGetButtonState(0) & ovrButton_Right;
+	bool gripPressed = IN_VRGetButtonState(0) & ovrButton_GripTrigger;
+	if (gripPressed && leftPressed) {
+		VR_SetMode(VR_MODE_FLAT_SCREEN);
+	} else if (gripPressed && rightPressed) {
+		VR_SetMode(VR_MODE_MONO_6DOF);
+	}
+#endif
 	using namespace UI;
 
 	UIScreen::update();

@@ -14,6 +14,7 @@ XrPosef invViewTransform[2];
 XrFrameState frameState = {};
 GLboolean initialized = GL_FALSE;
 GLboolean stageSupported = GL_FALSE;
+GLboolean viewInverted = GL_FALSE;
 VRMode vrMode = VR_MODE_FLAT_SCREEN;
 
 float menuYaw = 0;
@@ -426,6 +427,11 @@ void VR_SetMode( VRMode mode ) {
 	vrMode = mode;
 }
 
+
+VRMode VR_GetMode() {
+	return vrMode;
+}
+
 void VR_BindFramebuffer( engine_t* engine, int eye ) {
 	if (!initialized) return;
 	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[eye];
@@ -441,16 +447,38 @@ ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {
 		output = ovrMatrix4f_CreateProjectionFov(-hudScale, hudScale, hudScale, -hudScale, 1.0f, 0.0f );
 	} else if ((matrix == VR_PROJECTION_MATRIX_LEFT_EYE) || (matrix == VR_PROJECTION_MATRIX_RIGHT_EYE)) {
 		XrFovf fov = matrix == VR_PROJECTION_MATRIX_LEFT_EYE ? projections[0].fov : projections[1].fov;
+		float fovZoom = 2.0f;
+		fov.angleLeft /= fovZoom;
+		fov.angleRight /= fovZoom;
+		fov.angleUp /= fovZoom;
+		fov.angleDown /= fovZoom;
 		output = ovrMatrix4f_CreateProjectionFov(fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown, 1.0f, 0.0f );
 	} else if ((matrix == VR_VIEW_MATRIX_LEFT_EYE) || (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
 		XrPosef invView = matrix == VR_VIEW_MATRIX_LEFT_EYE ? invViewTransform[0] : invViewTransform[1];
-		XrPosef view = XrPosef_Inverse(invView);
-		output = ovrMatrix4f_CreateFromQuaternion(&view.orientation);
-		output.M[3][0] = view.position.x;
-		output.M[3][1] = view.position.y;
-		output.M[3][2] = view.position.z;
+
+		if (viewInverted) {
+			vec3_t rotation = {0, 0, 0};
+			QuatToYawPitchRoll(invView.orientation, rotation, rotation);
+			XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, -radians(rotation[PITCH]));
+			XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, radians(rotation[YAW]));
+			XrQuaternionf roll = XrQuaternionf_CreateFromVectorAngle({0, 0, 1}, radians(rotation[ROLL]));
+			invView.orientation = XrQuaternionf_Multiply(roll, XrQuaternionf_Multiply(pitch, yaw));
+			invView.position.x *= -1.0f;
+			invView.position.y *= -1.0f;
+			invView.position.z *= -1.0f;
+		} else {
+			invView = XrPosef_Inverse(invView);
+		}
+		output = ovrMatrix4f_CreateFromQuaternion(&invView.orientation);
+		output.M[0][3] = 0;//invView.position.x;
+		output.M[1][3] = 0;//invView.position.y;
+		output.M[2][3] = 0;//invView.position.z;
 	} else {
 		assert(false);
 	}
 	return output;
+}
+
+void VR_SetInvertedProjection( bool inverted ) {
+	viewInverted = inverted;
 }
