@@ -300,8 +300,8 @@ struct GPUgstate {
 	bool isTextureFormatIndexed() const { return (texformat & 4) != 0; } // GE_TFMT_CLUT4 - GE_TFMT_CLUT32 are 0b1xx.
 	int getTextureEnvColRGB() const { return texenvcolor & 0x00FFFFFF; }
 	u32 getClutAddress() const { return (clutaddr & 0x00FFFFF0) | ((clutaddrupper << 8) & 0x0F000000); }
-	int getClutLoadBytes() const { return (loadclut & 0x3F) * 32; }
-	int getClutLoadBlocks() const { return (loadclut & 0x3F); }
+	int getClutLoadBytes() const { return (loadclut & 0x7F) * 32; }
+	int getClutLoadBlocks() const { return (loadclut & 0x7F); }
 	GEPaletteFormat getClutPaletteFormat() const { return static_cast<GEPaletteFormat>(clutformat & 3); }
 	int getClutIndexShift() const { return (clutformat >> 2) & 0x1F; }
 	int getClutIndexMask() const { return (clutformat >> 8) & 0xFF; }

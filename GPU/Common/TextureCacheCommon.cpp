@@ -1678,10 +1678,13 @@ CheckAlphaResult TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int l
 		texptr = (u8 *)tmpTexBuf32_.data();
 	}
 
+	const bool mipmapShareClut = gstate.isClutSharedForMipmaps();
+	const int clutSharingOffset = mipmapShareClut ? 0 : (level & 1) * 256;
+
 	GEPaletteFormat palFormat = (GEPaletteFormat)gstate.getClutPaletteFormat();
 
-	const u16 *clut16 = (const u16 *)clutBuf_;
-	const u32 *clut32 = (const u32 *)clutBuf_;
+	const u16 *clut16 = (const u16 *)clutBuf_ + clutSharingOffset;
+	const u32 *clut32 = (const u32 *)clutBuf_ + clutSharingOffset;
 
 	if (expandTo32Bit && palFormat != GE_CMODE_32BIT_ABGR8888) {
 		ConvertFormatToRGBA8888(GEPaletteFormat(palFormat), expandClut_, clut16, 256);
@@ -1721,6 +1724,7 @@ CheckAlphaResult TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int l
 
 	case GE_CMODE_32BIT_ABGR8888:
 	{
+
 		switch (bytesPerIndex) {
 		case 1:
 			for (int y = 0; y < h; ++y) {

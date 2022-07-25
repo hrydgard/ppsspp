@@ -560,7 +560,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 					}
 				} else {
 					if (texture3D) {
-						WRITE(p, "  float bias = pow(u_mipBias, 1.0);\n");
+						WRITE(p, "  float bias = u_mipBias * 1.0;\n");
 						if (doTextureProjection) {
 							WRITE(p, "  vec4 t = %sProj(tex, vec4(%s.xy, bias, %s.z));\n", compat.texture, texcoord, texcoord);
 						} else {
@@ -573,7 +573,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 							WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord);
 						}
 					}
-				} 
+				}
 			} else {
 				if (doTextureProjection) {
 					// We don't use textureProj because we need better control and it's probably not much of a savings anyway.
