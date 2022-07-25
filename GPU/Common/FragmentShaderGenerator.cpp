@@ -78,6 +78,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool enableColorDoubling = id.Bit(FS_BIT_COLOR_DOUBLE);
 	bool doTextureProjection = id.Bit(FS_BIT_DO_TEXTURE_PROJ);
 	bool doTextureAlpha = id.Bit(FS_BIT_TEXALPHA);
+	bool texture3D = id.Bit(FS_BIT_3D_TEXTURE);
 
 	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
 
@@ -136,7 +137,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseUBO {\n%s};\n", ub_baseStr);
 		if (doTexture) {
-			WRITE(p, "layout (binding = 0) uniform sampler2D tex;\n");
+			WRITE(p, "layout (binding = 0) uniform %s tex;\n", texture3D ? "sampler3D" : "sampler2D");
 		}
 
 		if (readFramebufferTex) {
@@ -558,10 +559,19 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 						WRITE(p, "  vec4 t = tex2D(tex, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
 					}
 				} else {
-					if (doTextureProjection) {
-						WRITE(p, "  vec4 t = %sProj(tex, %s);\n", compat.texture, texcoord);
+					if (texture3D) {
+						WRITE(p, "  float bias = pow(u_mipBias, 1.0);\n");
+						if (doTextureProjection) {
+							WRITE(p, "  vec4 t = %sProj(tex, vec4(%s.xy, bias, %s.z));\n", compat.texture, texcoord, texcoord);
+						} else {
+							WRITE(p, "  vec4 t = %s(tex, vec3(%s.xy, bias));\n", compat.texture, texcoord);
+						}
 					} else {
-						WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord);
+						if (doTextureProjection) {
+							WRITE(p, "  vec4 t = %sProj(tex, %s);\n", compat.texture, texcoord);
+						} else {
+							WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord);
+						}
 					}
 				} 
 			} else {
@@ -572,7 +582,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				} else {
 					WRITE(p, "  vec2 uv = %s.xy;\n  vec2 uv_round;\n", texcoord);
 				}
-				WRITE(p, "  vec2 tsize = vec2(textureSize(tex, 0));\n");
+				WRITE(p, "  vec2 tsize = textureSize(tex, 0).xy;\n");
 				WRITE(p, "  vec2 fraction;\n");
 				WRITE(p, "  bool bilinear = (u_depal_mask_shift_off_fmt >> 31) != 0U;\n");
 				WRITE(p, "  if (bilinear) {\n");

@@ -640,7 +640,7 @@ VulkanTexture *VKContext::GetNullTexture() {
 		nullTexture_->SetTag("Null");
 		int w = 8;
 		int h = 8;
-		nullTexture_->CreateDirect(cmdInit, w, h, 1, VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		nullTexture_->CreateDirect(cmdInit, w, h, 1, 1, VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 		uint32_t bindOffset;
 		VkBuffer bindBuf;
@@ -651,7 +651,7 @@ VulkanTexture *VKContext::GetNullTexture() {
 				data[y*w + x] = 0;  // black
 			}
 		}
-		nullTexture_->UploadMip(cmdInit, 0, w, h, bindBuf, bindOffset, w);
+		nullTexture_->UploadMip(cmdInit, 0, w, h, 0, bindBuf, bindOffset, w);
 		nullTexture_->EndCreate(cmdInit, false, VK_PIPELINE_STAGE_TRANSFER_BIT);
 	} else {
 		nullTexture_->Touch();
@@ -733,7 +733,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 		usageBits |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	}
 
-	if (!vkTex_->CreateDirect(cmd, width_, height_, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits)) {
+	if (!vkTex_->CreateDirect(cmd, width_, height_, 1, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits)) {
 		ERROR_LOG(G3D,  "Failed to create VulkanTexture: %dx%dx%d fmt %d, %d levels", width_, height_, depth_, (int)vulkanFormat, mipLevels_);
 		return false;
 	}
@@ -755,7 +755,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 			} else {
 				offset = push->PushAligned((const void *)desc.initData[i], size, 16, &buf);
 			}
-			vkTex_->UploadMip(cmd, i, w, h, buf, offset, w);
+			vkTex_->UploadMip(cmd, i, w, h, 0, buf, offset, w);
 			w = (w + 1) / 2;
 			h = (h + 1) / 2;
 			d = (d + 1) / 2;

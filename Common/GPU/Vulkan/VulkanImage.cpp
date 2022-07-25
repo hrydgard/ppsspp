@@ -31,7 +31,7 @@ static bool IsDepthStencilFormat(VkFormat format) {
 	}
 }
 
-bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage, const VkComponentMapping *mapping) {
+bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage, const VkComponentMapping *mapping) {
 	if (w == 0 || h == 0 || numMips == 0) {
 		ERROR_LOG(G3D, "Can't create a zero-size VulkanTexture");
 		return false;
@@ -41,17 +41,18 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 
 	width_ = w;
 	height_ = h;
+	depth_ = depth;
 	numMips_ = numMips;
 	format_ = format;
 
 	VkImageAspectFlags aspect = IsDepthStencilFormat(format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
 	VkImageCreateInfo image_create_info{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-	image_create_info.imageType = VK_IMAGE_TYPE_2D;
+	image_create_info.imageType = depth > 1 ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
 	image_create_info.format = format_;
 	image_create_info.extent.width = width_;
 	image_create_info.extent.height = height_;
-	image_create_info.extent.depth = 1;
+	image_create_info.extent.depth = depth;
 	image_create_info.mipLevels = numMips;
 	image_create_info.arrayLayers = 1;
 	image_create_info.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -98,7 +99,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 	// Create the view while we're at it.
 	VkImageViewCreateInfo view_info{ VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
 	view_info.image = image_;
-	view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	view_info.viewType = depth > 1 ? VK_IMAGE_VIEW_TYPE_3D : VK_IMAGE_VIEW_TYPE_2D;
 	view_info.format = format_;
 	if (mapping) {
 		view_info.components = *mapping;
@@ -122,11 +123,12 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 }
 
 // TODO: Batch these.
-void VulkanTexture::UploadMip(VkCommandBuffer cmd, int mip, int mipWidth, int mipHeight, VkBuffer buffer, uint32_t offset, size_t rowLength) {
+void VulkanTexture::UploadMip(VkCommandBuffer cmd, int mip, int mipWidth, int mipHeight, int depthLayer, VkBuffer buffer, uint32_t offset, size_t rowLength) {
 	VkBufferImageCopy copy_region{};
 	copy_region.bufferOffset = offset;
 	copy_region.bufferRowLength = (uint32_t)rowLength;
 	copy_region.bufferImageHeight = 0;  // 2D
+	copy_region.imageOffset.z = depthLayer;
 	copy_region.imageExtent.width = mipWidth;
 	copy_region.imageExtent.height = mipHeight;
 	copy_region.imageExtent.depth = 1;

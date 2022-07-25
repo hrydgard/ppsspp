@@ -1565,6 +1565,12 @@ void GPUCommon::Execute_TexLevel(u32 op, u32 diff) {
 		Flush();
 	}
 	gstate.texlevel ^= diff;
+
+	if (diff & 0xFF0000) {
+		// Piggyback on this flag for 3D textures.
+		gstate_c.Dirty(DIRTY_TEXCLAMP);
+	}
+
 	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE);
 }
 

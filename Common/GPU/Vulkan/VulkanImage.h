@@ -22,9 +22,11 @@ public:
 	// Fast uploads from buffer. Mipmaps supported.
 	// Usage must at least include VK_IMAGE_USAGE_TRANSFER_DST_BIT in order to use UploadMip.
 	// When using UploadMip, initialLayout should be VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.
-	bool CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, const VkComponentMapping *mapping = nullptr);
+	bool CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, const VkComponentMapping *mapping = nullptr);
 	void ClearMip(VkCommandBuffer cmd, int mip, uint32_t value);
-	void UploadMip(VkCommandBuffer cmd, int mip, int mipWidth, int mipHeight, VkBuffer buffer, uint32_t offset, size_t rowLength);  // rowLength is in pixels
+
+	// Can also be used to copy individual levels of a 3D texture.
+	void UploadMip(VkCommandBuffer cmd, int mip, int mipWidth, int mipHeight, int depthLayer, VkBuffer buffer, uint32_t offset, size_t rowLength);  // rowLength is in pixels
 
 	void GenerateMips(VkCommandBuffer cmd, int firstMipToGenerate, bool fromCompute);
 	void EndCreate(VkCommandBuffer cmd, bool vertexTexture, VkPipelineStageFlags prevStage, VkImageLayout layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -62,10 +64,11 @@ private:
 	VkImageView view_ = VK_NULL_HANDLE;
 	VmaAllocation allocation_ = VK_NULL_HANDLE;
 
-	int32_t width_ = 0;
-	int32_t height_ = 0;
-	int32_t numMips_ = 1;
+	int16_t width_ = 0;
+	int16_t height_ = 0;
+	int16_t numMips_ = 1;
+	int16_t depth_ = 1;
+
 	VkFormat format_ = VK_FORMAT_UNDEFINED;
-	size_t offset_ = 0;
 	std::string tag_;
 };
