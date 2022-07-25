@@ -105,7 +105,8 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		ub->texClampOffset[0] = gstate_c.curTextureXOffset * invW;
 		ub->texClampOffset[1] = gstate_c.curTextureYOffset * invH;
 
-		ub->mipBias = (float)gstate.getTexLevelOffset16() * (1.0 / 16.0f);
+		float mipBias = (float)gstate.getTexLevelOffset16() * (1.0 / 16.0f);
+		ub->mipBias = (mipBias + 0.5f) / (float)(gstate.getTextureMaxLevel() + 1);
 	}
 
 	if (dirtyUniforms & DIRTY_PROJMATRIX) {

@@ -560,11 +560,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 					}
 				} else {
 					if (texture3D) {
-						WRITE(p, "  float bias = u_mipBias * 1.0;\n");
 						if (doTextureProjection) {
-							WRITE(p, "  vec4 t = %sProj(tex, vec4(%s.xy, bias, %s.z));\n", compat.texture, texcoord, texcoord);
+							WRITE(p, "  vec4 t = %sProj(tex, vec4(%s.xy, u_mipBias, %s.z));\n", compat.texture, texcoord, texcoord);
 						} else {
-							WRITE(p, "  vec4 t = %s(tex, vec3(%s.xy, bias));\n", compat.texture, texcoord);
+							WRITE(p, "  vec4 t = %s(tex, vec3(%s.xy, u_mipBias));\n", compat.texture, texcoord);
 						}
 					} else {
 						if (doTextureProjection) {
