@@ -340,15 +340,17 @@ void VR_EndFrame( engine_t* engine ) {
 		menuYaw = hmdorientation[YAW];
 
 		for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
+			XrFovf fov = projections[eye].fov;
 			ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[eye];
 			if (vrMode == VR_MODE_MONO_6DOF) {
 				frameBuffer = &engine->appState.Renderer.FrameBuffer[0];
+				fov = projections[0].fov;
 			}
 
 			memset(&projection_layer_elements[eye], 0, sizeof(XrCompositionLayerProjectionView));
 			projection_layer_elements[eye].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
 			projection_layer_elements[eye].pose = invViewTransform[eye];
-			projection_layer_elements[eye].fov = projections[eye].fov;
+			projection_layer_elements[eye].fov = fov;
 
 			memset(&projection_layer_elements[eye].subImage, 0, sizeof(XrSwapchainSubImage));
 			projection_layer_elements[eye].subImage.swapchain = frameBuffer->ColorSwapChain.Handle;
