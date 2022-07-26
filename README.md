@@ -25,6 +25,49 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.13
+==================
+
+General
+
+* Fix assorted Android "scoped storage"-related bugs and performance issues ([#15237], [#15487]), etc.
+* Analog mapping for fast-forward ([#15645])
+* Major softgpu accuracy fixes and speedups, including a JIT ([#15163], [#15345], [#15389], [#15529], [#15440], [#15410], [#15405], [#15400]) and many, many more
+* Fixed some NEON code paths ([#15481])
+* Fix performance of texture uploads with Vulkan ([#15474])
+* Don't include the large font atlas when we don't need it
+* Improved upscaling shaders ([#15566])
+* Vulkan texture upscaling performance improvements ([#15238]), etc.
+* Vulkan correctness fixes ([#15217], [#15211]), use the VMA allocator ([#15162]), etc.
+* Fixes to depth culling ([#15106]), many more
+* Background loading of texture replacement ([#15025])
+* Threading manager improvements and fixes ([#15470]), etc.
+* Added search in settings ([#14414])
+* Added fast button repeats on custom touch buttons ([#15613])
+* Two new bicubic upscaling shader: Catmull-Rom and Mitchell-Netravali ([#15569])
+* Allow to change screen rotation per game and to bind a key to change it ([#15494], [#15510])
+* Re-enabled software rendering option on Android ([#12958])
+
+Game fixes
+
+* Add more workarounds for Mali driver bugs ([#15016])
+* Vortex in God of War: Ghost of Sparta can now be passed ([#15640])
+* Various proAdhoc fixes ([#15213], [#15215]), and many more
+* Correct flickering text in Sol Trigger and Last Ranker. ([#15549])
+* Fix and improve line drawing in Echochrome ([#15583]), after line refactoring ([#15073], [#15075])
+* Fix HUD graphics in Split/Second ([#15500], [#15501])
+* Fix bad screen overlay issues in Clone Wars and Force Unleashed ([#15691], [#15696], [#12949], [#9572])
+* Zettai Zetsumei Toshi 3 no longer hangs on character select screen ([#15687])
+* Juiced 2: Bloom effect no longer covering the screen ([#7295], [#15717])
+* Fix keyboard shift issue in a few games ([#15698])
+
+UI
+
+* Windows/Xbox UWP directory navigation improvements ([#15652])
+* Color change and basic theme support ([#15396], [#15394])
+* Fix input focus bug ([#15560])
+* New GE debugger features and other UI fixes ([#15393], [#15324], [#15377], [#15424], [#15402], [#15378], [#15338]), etc.
+
 What's new in 1.12.3
 ====================
 * Fix background music speed. A couple translation fixes.
@@ -61,9 +104,9 @@ Game fixes:
 Graphics and Sound:
 * Add new texture filtering mode "Auto Max Quality" ([#14789])
 * Fix Princess Maker 5 Portable half screen in Vulkan ([#13741])
-* Fix Pro Yakyu Spirits 2010 (NPJH50234): Rendering errors with hardware transform off  ([#14167])
+* Fix Pro Yakyu Spirits 2010 (NPJH50234): Rendering errors with hardware transform off ([#14167])
 * Support texture replacement filtering overrides ([#14230])
-* Fix Yarudora Portable: Double Cast's FMVs artifacting  ([#13759])
+* Fix Yarudora Portable: Double Cast's FMVs artifacting ([#13759])
 * Fix Sims 2 Castaway/Pets EA Logo glitched out ([#13146])
 * Fix bad size & position on Japanese & Numbers & Alphabets ([#14209])
 * Implement basic depth texturing for OpenGL ([#14042])
@@ -80,9 +123,9 @@ UI:
 * Track and show memory allocation / usage information in debugger ([#14056])
 * Allow searching within the savedata manager ([#14237])
 * Enable postshaders to access previous frame ([#14528])
-* Add missing japanese keyboard symbol ([#14548])
+* Add missing Japanese keyboard symbol ([#14548])
 * Add Reset button on crash screen, allow load state and related ([#14708])
-* Implement savestate load and save undo ([#14676], [#14679], [#14697])
+* Implement save state load and save undo ([#14676], [#14679], [#14697])
 * A lot of minor debugger improvements
 
 Controls:
@@ -207,7 +250,7 @@ What's new in 1.10.0
 * Frames in-flight now configurable to reduce input lag at the cost of speed ([#12660])
 * Add toggle mode to combo button ([#12623])
 * SDL mouse support, Qt menu upgrades ([#12612], [#12817])
-* Real support for chinese patched version of Hatsune Miku Project Diva Extend ([#13007])
+* Real support for Chinese patched version of Hatsune Miku Project Diva Extend ([#13007])
 * Some minor kernel module support ([#13028], [#12225], [#13026], [#13004], [#13038], [#13023])
 * Fixed fullscreen toggling with Vulkan in SDL builds ([#11974])
 
@@ -404,3 +447,59 @@ Credit goes to:
 [#14513]: https://github.com/hrydgard/ppsspp/issues/14513 "[Adhoc] Reducing HLE delays due to Mutiplayer performance regressions"
 [#14849]: https://github.com/hrydgard/ppsspp/issues/14849 "[Adhoc] Fix Socket error 10014 on Windows when hosting a game of Vulcanus Seek and Destroy"
 [#14711]: https://github.com/hrydgard/ppsspp/issues/14711 "Sas: Add option to control reverb volume"
+[#15237]: https://github.com/hrydgard/ppsspp/issues/15237 "Path: Check for PSP case insensitively"
+[#15487]: https://github.com/hrydgard/ppsspp/issues/15487 "Save textures on background tasks when texture dumping is enabled."
+[#15645]: https://github.com/hrydgard/ppsspp/issues/15645 "UI: Add analog speed limit mapping"
+[#15566]: https://github.com/hrydgard/ppsspp/issues/15566 "Screen upscaling shaders improvements"
+[#15163]: https://github.com/hrydgard/ppsspp/issues/15163 "Implement a jit for drawing pixels in the software renderer"
+[#15345]: https://github.com/hrydgard/ppsspp/issues/15345 "Fix some minor softgpu blending bugs"
+[#15389]: https://github.com/hrydgard/ppsspp/issues/15389 "Draw rectangles always using a specialized path in softgpu"
+[#15529]: https://github.com/hrydgard/ppsspp/issues/15529 "softgpu: Fix viewport flag clean/dirty"
+[#15440]: https://github.com/hrydgard/ppsspp/issues/15440 "softgpu: Plug bad leak of bin queue data"
+[#15410]: https://github.com/hrydgard/ppsspp/issues/15410 "softgpu: Remove offset from screenpos, adjust filtering coords"
+[#15405]: https://github.com/hrydgard/ppsspp/issues/15405 "Fix some samplerjit issues without SSE4 or AVX"
+[#15400]: https://github.com/hrydgard/ppsspp/issues/15400 "softgpu: Track dirty vs really dirty per buffer"
+[#15481]: https://github.com/hrydgard/ppsspp/issues/15481 "Fix some NEON code that had bad compile-time checks"
+[#15474]: https://github.com/hrydgard/ppsspp/issues/15474 "Merge CheckAlpha into texture decoding"
+[#15238]: https://github.com/hrydgard/ppsspp/issues/15238 "Vulkan: Be more restrictive about hardware texture upscaling on \"slow\" GPUs"
+[#15217]: https://github.com/hrydgard/ppsspp/issues/15217 "Vulkan is strict about scissor rect, so let's clamp centrally."
+[#15211]: https://github.com/hrydgard/ppsspp/issues/15211 "Vulkan: Specify Vulkan version, fix mip level generation calculation"
+[#15162]: https://github.com/hrydgard/ppsspp/issues/15162 "Integrate VMA (Vulkan Memory Allocator)"
+[#15106]: https://github.com/hrydgard/ppsspp/issues/15106 "GLES: Explicitly enable ARB_cull_distance"
+[#15075]: https://github.com/hrydgard/ppsspp/issues/15075 "Draw points using triangles"
+[#15470]: https://github.com/hrydgard/ppsspp/issues/15470 "Threading manager stresstest and fixes"
+[#14414]: https://github.com/hrydgard/ppsspp/issues/14414 "Add search for settings"
+[#15613]: https://github.com/hrydgard/ppsspp/issues/15613 "Allow to repeat a \"single\" button"
+[#15569]: https://github.com/hrydgard/ppsspp/issues/15569 "Upscaling shaders"
+[#15494]: https://github.com/hrydgard/ppsspp/issues/15494 "Add key bind to hotswap internal screen rotation"
+[#15510]: https://github.com/hrydgard/ppsspp/issues/15510 "Allow to set InternalScreenRotation per game"
+[#12958]: https://github.com/hrydgard/ppsspp/issues/12958 "Feature Request: restore software rendering ui setting on android"
+[#15016]: https://github.com/hrydgard/ppsspp/issues/15016 "[Android][Mali GPU] Vulkan backend workaround issue in some games with graphics glitch."
+[#15640]: https://github.com/hrydgard/ppsspp/issues/15640 "Disable ForceMax60FPS for GOW games and replace it with fixed 60 fps"
+[#15213]: https://github.com/hrydgard/ppsspp/issues/15213 "[Adhoc] Updated PdpCreate, PdpSend, PdpRecv, GetPdpStat, GetPtpStat"
+[#15215]: https://github.com/hrydgard/ppsspp/issues/15215 "[Adhocctl] Fix Tekken 5 Dark Resurrection Multiplayer"
+[#15549]: https://github.com/hrydgard/ppsspp/issues/15549 "GPU: Hook Sol Trigger func to flush texture"
+[#15583]: https://github.com/hrydgard/ppsspp/issues/15583 "Fix and further improve line drawing in Echochrome"
+[#15073]: https://github.com/hrydgard/ppsspp/issues/15073 "Cleanup line/point handling and refactor a bit"
+[#15500]: https://github.com/hrydgard/ppsspp/issues/15500 "Add BlueToAlpha compat.ini workaround, fixes Split/Second graphics"
+[#15501]: https://github.com/hrydgard/ppsspp/issues/15501 "Make the existing ReinterpretFramebuffers/ShaderColorBitmask path work for Split/Second"
+[#15652]: https://github.com/hrydgard/ppsspp/issues/15652 "Replace Win32 file IO with UWP safe variants and add support for getting drives to UWP build"
+[#15396]: https://github.com/hrydgard/ppsspp/issues/15396 "Add UI Tint/Saturation settings"
+[#15394]: https://github.com/hrydgard/ppsspp/issues/15394 "Allow custom UI themes"
+[#15560]: https://github.com/hrydgard/ppsspp/issues/15560 "UI: Abandon focus movement on returning from pause"
+[#15393]: https://github.com/hrydgard/ppsspp/issues/15393 "GE Debugger: Avoid crash on Step Draw with flush"
+[#15324]: https://github.com/hrydgard/ppsspp/issues/15324 "UI: Reset ZIP install errors for new ZIPs"
+[#15377]: https://github.com/hrydgard/ppsspp/issues/15377 "Debugger: Avoid mem write tag lookup on small alloc"
+[#15424]: https://github.com/hrydgard/ppsspp/issues/15424 "Windows: Create SYSTEM directory early"
+[#15402]: https://github.com/hrydgard/ppsspp/issues/15402 "GE Debugger: Highlight changed state values"
+[#15378]: https://github.com/hrydgard/ppsspp/issues/15378 "GE Debugger: Add filter to skip prim calls"
+[#15338]: https://github.com/hrydgard/ppsspp/issues/15338 "Alow flushing at will via the GE debugger"
+[#15025]: https://github.com/hrydgard/ppsspp/issues/15025 "Allow delayed loading of texture replacements"
+[#15691]: https://github.com/hrydgard/ppsspp/issues/15691 "Add a simple compat flag to workaround the Clone Wars issue, #12949"
+[#15696]: https://github.com/hrydgard/ppsspp/issues/15696 "Use the recent Clone Wars fix for Star Wars: Force Unleashed too"
+[#12949]: https://github.com/hrydgard/ppsspp/issues/12949 "Star Wars: The Clone Wars - Graphic glitch [Android/Windows]"
+[#9572]: https://github.com/hrydgard/ppsspp/issues/9572 "Star Wars force unleashed [Screen Overlay problem]"
+[#15687]: https://github.com/hrydgard/ppsspp/issues/15687 "Add Zettai Zetsumei Toshi 3"
+[#7295]: https://github.com/hrydgard/ppsspp/issues/7295 "Juiced 2: Hot Import Nights, screen artifacts and missing half of race tracks"
+[#15717]: https://github.com/hrydgard/ppsspp/issues/15717 "Allows \"merging\" render targets that overlap on the Y axis. Fixes Juiced 2"
+[#15698]: https://github.com/hrydgard/ppsspp/issues/15698 "Osk: Allow upper/lower for all keyboards"
