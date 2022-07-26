@@ -83,7 +83,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
 
 	bool doFlatShading = id.Bit(FS_BIT_FLATSHADE) && !flatBug;
-	bool shaderDepal = id.Bit(FS_BIT_SHADER_DEPAL);
+	bool shaderDepal = id.Bit(FS_BIT_SHADER_DEPAL) && !texture3D;  // combination with texture3D not supported. Enforced elsewhere too.
 	bool bgraTexture = id.Bit(FS_BIT_BGRA_TEXTURE);
 	bool colorWriteMask = id.Bit(FS_BIT_COLOR_WRITEMASK) && compat.bitwiseOps;
 
@@ -559,6 +559,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 						WRITE(p, "  vec4 t = tex2D(tex, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
 					}
 				} else {
+					// Note that here we're relying on the filter to be linear. We would have to otherwise to do two samples and manually filter in Z.
+					// Let's add that if we run into a case...
 					if (texture3D) {
 						if (doTextureProjection) {
 							WRITE(p, "  vec4 t = %sProj(tex, vec4(%s.xy, u_mipBias, %s.z));\n", compat.texture, texcoord, texcoord);

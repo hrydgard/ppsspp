@@ -414,7 +414,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 	bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS);
 	bool depth = channel == NOTIFY_FB_DEPTH;
-	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && !depth;
+	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && !depth && !gstate_c.curTextureIs3D;
 
 	bool need_depalettize = IsClutFormat(texFormat);
 
