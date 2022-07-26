@@ -119,7 +119,8 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = key.sClamp ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	samp.addressModeV = key.tClamp ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samp.addressModeW = samp.addressModeU;  // irrelevant, but Mali recommends that all clamp modes are the same if possible.
+	// W addressing is irrelevant for 2d textures, but Mali recommends that all clamp modes are the same if possible so just copy from U.
+	samp.addressModeW = key.texture3d ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : samp.addressModeU;
 	samp.compareOp = VK_COMPARE_OP_ALWAYS;
 	samp.flags = 0;
 	samp.magFilter = key.magFilt ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
