@@ -112,7 +112,7 @@ struct ButtonMapping {
 	}
 };
 
-std::vector<ButtonMapping> leftControllerMapping = {
+static std::vector<ButtonMapping> leftControllerMapping = {
 	ButtonMapping(NKCODE_BUTTON_X, ovrButton_X),
 	ButtonMapping(NKCODE_BUTTON_Y, ovrButton_Y),
 	ButtonMapping(NKCODE_ALT_LEFT, ovrButton_GripTrigger),
@@ -125,7 +125,7 @@ std::vector<ButtonMapping> leftControllerMapping = {
 	ButtonMapping(NKCODE_BACK, ovrButton_Enter),
 };
 
-std::vector<ButtonMapping> rightControllerMapping = {
+static std::vector<ButtonMapping> rightControllerMapping = {
 	ButtonMapping(NKCODE_BUTTON_A, ovrButton_A),
 	ButtonMapping(NKCODE_BUTTON_B, ovrButton_B),
 	ButtonMapping(NKCODE_ALT_RIGHT, ovrButton_GripTrigger),
@@ -137,8 +137,8 @@ std::vector<ButtonMapping> rightControllerMapping = {
 	ButtonMapping(NKCODE_ENTER, ovrButton_Trigger),
 };
 
-int controllerIds[] = {DEVICE_ID_XR_CONTROLLER_LEFT, DEVICE_ID_XR_CONTROLLER_RIGHT};
-std::vector<ButtonMapping> controllerMapping[2] = {
+static const int controllerIds[] = {DEVICE_ID_XR_CONTROLLER_LEFT, DEVICE_ID_XR_CONTROLLER_RIGHT};
+static std::vector<ButtonMapping> controllerMapping[2] = {
 	leftControllerMapping,
 	rightControllerMapping
 };
