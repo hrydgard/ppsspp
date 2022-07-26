@@ -75,6 +75,7 @@ struct GPUStatistics {
 		numReadbacks = 0;
 		numUploads = 0;
 		numClears = 0;
+		numDepthCopies = 0;
 		msProcessingDisplayLists = 0;
 		vertexGPUCycles = 0;
 		otherGPUCycles = 0;
@@ -100,6 +101,7 @@ struct GPUStatistics {
 	int numReadbacks;
 	int numUploads;
 	int numClears;
+	int numDepthCopies;
 	double msProcessingDisplayLists;
 	int vertexGPUCycles;
 	int otherGPUCycles;

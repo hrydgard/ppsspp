@@ -30,6 +30,8 @@ typedef struct {
 	JavaVM* Vm;
 	jobject ActivityObject;
 	JNIEnv* Env;
+	char AppName[64];
+	int AppVersion;
 } ovrJava;
 
 typedef struct {

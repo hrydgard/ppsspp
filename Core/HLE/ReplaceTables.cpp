@@ -138,7 +138,7 @@ static int Replace_memcpy() {
 		}
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointer(destPtr);
+		u8 *dst = Memory::GetPointerWrite(destPtr);
 		const u8 *src = Memory::GetPointer(srcPtr);
 
 		if (!dst || !src) {
@@ -190,7 +190,7 @@ static int Replace_memcpy_jak() {
 		}
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointer(destPtr);
+		u8 *dst = Memory::GetPointerWrite(destPtr);
 		const u8 *src = Memory::GetPointer(srcPtr);
 
 		if (!dst || !src) {
@@ -240,7 +240,7 @@ static int Replace_memcpy16() {
 		}
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointer(destPtr);
+		u8 *dst = Memory::GetPointerWrite(destPtr);
 		const u8 *src = Memory::GetPointer(srcPtr);
 		if (dst && src) {
 			memmove(dst, src, bytes);
@@ -267,7 +267,7 @@ static int Replace_memcpy_swizzled() {
 			gpu->PerformMemoryDownload(srcPtr, pitch * h);
 		}
 	}
-	u8 *dstp = Memory::GetPointer(destPtr);
+	u8 *dstp = Memory::GetPointerWrite(destPtr);
 	const u8 *srcp = Memory::GetPointer(srcPtr);
 
 	if (dstp && srcp) {
@@ -312,7 +312,7 @@ static int Replace_memmove() {
 		}
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointer(destPtr);
+		u8 *dst = Memory::GetPointerWrite(destPtr);
 		const u8 *src = Memory::GetPointer(srcPtr);
 		if (dst && src) {
 			memmove(dst, src, bytes);
@@ -338,7 +338,7 @@ static int Replace_memset() {
 		skip = gpu->PerformMemorySet(destPtr, value, bytes);
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointer(destPtr);
+		u8 *dst = Memory::GetPointerWrite(destPtr);
 		if (dst) {
 			memset(dst, value, bytes);
 		}
@@ -365,7 +365,7 @@ static int Replace_memset_jak() {
 		skip = gpu->PerformMemorySet(destPtr, value, bytes);
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointer(destPtr);
+		u8 *dst = Memory::GetPointerWrite(destPtr);
 		if (dst) {
 			memset(dst, value, bytes);
 		}
@@ -1361,6 +1361,15 @@ static int Hook_gow_vortex_hack() {
 	return 0;
 }
 
+static int Hook_ZZT3_select_hack() {
+	if (PSP_CoreParameter().compat.flags().ZZT3SelectHack) {
+		if (currentMIPS->r[MIPS_REG_V0] == 0) {
+			currentMIPS->r[MIPS_REG_V0] = 1;
+		}
+	}
+	return 0;
+}
+
 #define JITFUNC(f) (&MIPSComp::MIPSFrontendInterface::f)
 
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
@@ -1479,6 +1488,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "soltrigger_render_ucschar", &Hook_soltrigger_render_ucschar, 0, REPFLAG_HOOKENTER, 0 },
 	{ "gow_fps_hack", &Hook_gow_fps_hack, 0, REPFLAG_HOOKEXIT , 0 },
 	{ "gow_vortex_hack", &Hook_gow_vortex_hack, 0, REPFLAG_HOOKENTER, 0x60 },
+	{ "ZZT3_select_hack", &Hook_ZZT3_select_hack, 0, REPFLAG_HOOKENTER, 0xC4 },
 	{}
 };
 

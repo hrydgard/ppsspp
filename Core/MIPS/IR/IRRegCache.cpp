@@ -27,8 +27,7 @@ IRRegCache::IRRegCache(IRWriter *ir) : ir_(ir) {
 
 void IRRegCache::FlushAll() {
 	for (int i = 0; i < TOTAL_MAPPABLE_MIPSREGS; i++) {
-		//if (i < IRTEMP_0)
-			Flush(i);
+		Flush(i);
 	}
 }
 

@@ -31,7 +31,7 @@ namespace Memory
 {
 
 inline void Memcpy(const u32 to_address, const void *from_data, const u32 len, const char *tag, size_t tagLen) {
-	u8 *to = GetPointer(to_address);
+	u8 *to = GetPointerWrite(to_address);
 	if (to) {
 		memcpy(to, from_data, len);
 		if (!tag) {
@@ -57,7 +57,7 @@ inline void Memcpy(void *to_data, const u32 from_address, const u32 len, const c
 }
 
 inline void Memcpy(const u32 to_address, const u32 from_address, const u32 len, const char *tag, size_t tagLen) {
-	u8 *to = GetPointer(to_address);
+	u8 *to = GetPointerWrite(to_address);
 	// If not, GetPointer will log.
 	if (!to)
 		return;

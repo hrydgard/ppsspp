@@ -94,6 +94,8 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "BlueToAlpha", &flags_.BlueToAlpha);
 	CheckSetting(iniFile, gameID, "CenteredLines", &flags_.CenteredLines);
 	CheckSetting(iniFile, gameID, "MaliDepthStencilBugWorkaround", &flags_.MaliDepthStencilBugWorkaround);
+	CheckSetting(iniFile, gameID, "ZZT3SelectHack", &flags_.ZZT3SelectHack);
+	CheckSetting(iniFile, gameID, "AllowLargeFBTextureOffsets", &flags_.AllowLargeFBTextureOffsets);
 }
 
 void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag) {

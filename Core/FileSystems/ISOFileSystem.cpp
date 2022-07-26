@@ -407,7 +407,7 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 		}
 
 		INFO_LOG(SCEIO, "sceIoIoctl: reading ISO9660 volume descriptor read");
-		blockDevice->ReadBlock(16, Memory::GetPointer(outdataPtr));
+		blockDevice->ReadBlock(16, Memory::GetPointerWriteUnchecked(outdataPtr));
 		return 0;
 
 	// Get ISO9660 path table (from open ISO9660 file.)
@@ -424,7 +424,7 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 		} else {
 			int block = (u16)desc.firstLETableSector;
 			u32 size = Memory::ValidSize(outdataPtr, (u32)desc.pathTableLength);
-			u8 *out = Memory::GetPointer(outdataPtr);
+			u8 *out = Memory::GetPointerWrite(outdataPtr);
 
 			int blocks = size / blockDevice->GetBlockSize();
 			blockDevice->ReadBlocks(block, blocks, out);

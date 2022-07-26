@@ -1088,20 +1088,23 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, sy->T("Confirmation Button"), buttonPref, 0, 2, sy->GetName(), screenManager()));
 
 #if !defined(MOBILE_DEVICE) || PPSSPP_PLATFORM(ANDROID)
-	// Search
-	LinearLayout *searchSettings = AddTab("GameSettingsSearch", ms->T("Search"), true);
+	// Hide search if screen is too small.
+	if (dp_xres < dp_yres || dp_yres >= 500) {
+		// Search
+		LinearLayout *searchSettings = AddTab("GameSettingsSearch", ms->T("Search"), true);
 
-	searchSettings->Add(new ItemHeader(se->T("Find settings")));
-	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
-		searchSettings->Add(new ChoiceWithValueDisplay(&searchFilter_, se->T("Filter"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeSearchFilter);
-	} else {
-		searchSettings->Add(new PopupTextInputChoice(&searchFilter_, se->T("Filter"), "", 64, screenManager()))->OnChange.Handle(this, &GameSettingsScreen::OnChangeSearchFilter);
+		searchSettings->Add(new ItemHeader(se->T("Find settings")));
+		if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
+			searchSettings->Add(new ChoiceWithValueDisplay(&searchFilter_, se->T("Filter"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeSearchFilter);
+		} else {
+			searchSettings->Add(new PopupTextInputChoice(&searchFilter_, se->T("Filter"), "", 64, screenManager()))->OnChange.Handle(this, &GameSettingsScreen::OnChangeSearchFilter);
+		}
+		clearSearchChoice_ = searchSettings->Add(new Choice(se->T("Clear filter")));
+		clearSearchChoice_->OnClick.Handle(this, &GameSettingsScreen::OnClearSearchFilter);
+		noSearchResults_ = searchSettings->Add(new TextView(se->T("No settings matched '%1'"), new LinearLayoutParams(Margins(20, 5))));
+
+		ApplySearchFilter();
 	}
-	clearSearchChoice_ = searchSettings->Add(new Choice(se->T("Clear filter")));
-	clearSearchChoice_->OnClick.Handle(this, &GameSettingsScreen::OnClearSearchFilter);
-	noSearchResults_ = searchSettings->Add(new TextView(se->T("No settings matched '%1'"), new LinearLayoutParams(Margins(20, 5))));
-
-	ApplySearchFilter();
 #endif
 }
 

@@ -267,7 +267,7 @@ static int sceNpAuthGetTicket(u32 requestId, u32 bufferAddr, u32 length)
 	// Dummy Login ticket returned as Login response. Dummy ticket contents were taken from https://www.psdevwiki.com/ps3/X-I-5-Ticket
 	ticket.header.version = TICKET_VER_2_1;
 	ticket.header.size = 0xF0; // size excluding the header
-	u8* buf = Memory::GetPointer(bufferAddr + sizeof(ticket));
+	u8* buf = Memory::GetPointerWrite(bufferAddr + sizeof(ticket));
 	int ofs = 0;
 	ofs += writeTicketParam(buf, PARAM_TYPE_STRING_ASCII, "\x4c\x47\x56\x3b\x81\x39\x4a\x22\xd8\x6b\xc1\x57\x71\x6e\xfd\xb8\xab\x63\xcc\x51", 20); // 20 random letters, token key?
 	ofs += writeTicketU32Param(buf + ofs, PARAM_TYPE_INT, 0x0100); // a flags?

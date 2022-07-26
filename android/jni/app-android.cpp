@@ -112,7 +112,7 @@ struct ButtonMapping {
 	}
 };
 
-std::vector<ButtonMapping> leftControllerMapping = {
+static std::vector<ButtonMapping> leftControllerMapping = {
 	ButtonMapping(NKCODE_BUTTON_X, ovrButton_X),
 	ButtonMapping(NKCODE_BUTTON_Y, ovrButton_Y),
 	ButtonMapping(NKCODE_ALT_LEFT, ovrButton_GripTrigger),
@@ -125,7 +125,7 @@ std::vector<ButtonMapping> leftControllerMapping = {
 	ButtonMapping(NKCODE_BACK, ovrButton_Enter),
 };
 
-std::vector<ButtonMapping> rightControllerMapping = {
+static std::vector<ButtonMapping> rightControllerMapping = {
 	ButtonMapping(NKCODE_BUTTON_A, ovrButton_A),
 	ButtonMapping(NKCODE_BUTTON_B, ovrButton_B),
 	ButtonMapping(NKCODE_ALT_RIGHT, ovrButton_GripTrigger),
@@ -137,8 +137,8 @@ std::vector<ButtonMapping> rightControllerMapping = {
 	ButtonMapping(NKCODE_ENTER, ovrButton_Trigger),
 };
 
-int controllerIds[] = {DEVICE_ID_XR_CONTROLLER_LEFT, DEVICE_ID_XR_CONTROLLER_RIGHT};
-std::vector<ButtonMapping> controllerMapping[2] = {
+static const int controllerIds[] = {DEVICE_ID_XR_CONTROLLER_LEFT, DEVICE_ID_XR_CONTROLLER_RIGHT};
+static std::vector<ButtonMapping> controllerMapping[2] = {
 	leftControllerMapping,
 	rightControllerMapping
 };
@@ -503,7 +503,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_FILE_BROWSER:
 		// It's only really needed with scoped storage, but why not make it available
 		// as far back as possible - works just fine.
-		return androidVersion >= 19;  // when ACTION_OPEN_DOCUMENT was added
+		return (androidVersion >= 19) && (deviceType != DEVICE_TYPE_VR);  // when ACTION_OPEN_DOCUMENT was added
 	case SYSPROP_HAS_FOLDER_BROWSER:
 		// Uses OPEN_DOCUMENT_TREE to let you select a folder.
 		// Doesn't actually mean it's usable though, in many early versions of Android
@@ -811,9 +811,12 @@ retry:
 	}
 
 #ifdef OPENXR
+	Version gitVer(PPSSPP_GIT_VERSION);
 	ovrJava java;
 	java.Vm = gJvm;
 	java.ActivityObject = nativeActivity;
+	java.AppVersion = gitVer.ToInteger();
+	strcpy(java.AppName, "PPSSPP");
 	VR_Init(java);
 #endif
 }

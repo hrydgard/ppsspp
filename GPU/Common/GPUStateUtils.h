@@ -65,7 +65,6 @@ LogicOpReplaceType ReplaceLogicOpType();
 
 // Common representation, should be able to set this directly with any modern API.
 struct ViewportAndScissor {
-	bool scissorEnable;
 	int scissorX;
 	int scissorY;
 	int scissorW;

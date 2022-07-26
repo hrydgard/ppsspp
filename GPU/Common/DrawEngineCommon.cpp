@@ -192,7 +192,7 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 //
 // It does the simplest and safest test possible: If all points of a bbox is outside a single of
 // our clipping planes, we reject the box. Tighter bounds would be desirable but would take more calculations.
-bool DrawEngineCommon::TestBoundingBox(void* control_points, int vertexCount, u32 vertType, int *bytesRead) {
+bool DrawEngineCommon::TestBoundingBox(const void* control_points, int vertexCount, u32 vertType, int *bytesRead) {
 	SimpleVertex *corners = (SimpleVertex *)(decoded + 65536 * 12);
 	float *verts = (float *)(decoded + 65536 * 18);
 
@@ -217,7 +217,7 @@ bool DrawEngineCommon::TestBoundingBox(void* control_points, int vertexCount, u3
 		// Simplify away bones and morph before proceeding
 		u8 *temp_buffer = decoded + 65536 * 24;
 		int vertexSize = 0;
-		NormalizeVertices((u8 *)corners, temp_buffer, (u8 *)control_points, 0, vertexCount, vertType, &vertexSize);
+		NormalizeVertices((u8 *)corners, temp_buffer, (const u8 *)control_points, 0, vertexCount, vertType, &vertexSize);
 		for (int i = 0; i < vertexCount; i++) {
 			verts[i * 3] = corners[i].pos.x;
 			verts[i * 3 + 1] = corners[i].pos.y;
@@ -663,7 +663,7 @@ uint64_t DrawEngineCommon::ComputeHash() {
 }
 
 // vertTypeID is the vertex type but with the UVGen mode smashed into the top bits.
-void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
+void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
 		DispatchFlush();
 	}

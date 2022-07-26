@@ -375,7 +375,7 @@ bool GameManager::DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest)
 	std::string gameID = games.begin()->first;
 	if (games.size() > 1) {
 		// Check for any supported game on their recent list and use that instead.
-		for (const std::string &path : g_Config.recentIsos) {
+		for (const std::string &path : g_Config.RecentIsos()) {
 			std::string recentID = GetGameID(Path(path));
 			if (games.find(recentID) != games.end()) {
 				gameID = recentID;
