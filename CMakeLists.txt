@@ -1067,14 +1067,14 @@ if(ANDROID)
 
 	if (OPENXR)
 		set(nativeExtra ${nativeExtra}
-			VR/VRBase.cpp
-			VR/VRBase.h
-			VR/VRFramebuffer.cpp
-			VR/VRFramebuffer.h
-			VR/VRInput.cpp
-			VR/VRInput.h
-			VR/VRRenderer.cpp
-			VR/VRRenderer.h
+			Common/VR/VRBase.cpp
+			Common/VR/VRBase.h
+			Common/VR/VRFramebuffer.cpp
+			Common/VR/VRFramebuffer.h
+			Common/VR/VRInput.cpp
+			Common/VR/VRInput.h
+			Common/VR/VRRenderer.cpp
+			Common/VR/VRRenderer.h
 		)
 		set(nativeExtraLibs ${nativeExtraLibs} openxr)
 	endif()
