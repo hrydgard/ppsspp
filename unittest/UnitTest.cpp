@@ -756,6 +756,7 @@ bool TestArm64Emitter();
 bool TestX64Emitter();
 bool TestShaderGenerators();
 bool TestSoftwareGPUJit();
+bool TestIRPassSimplify();
 bool TestThreadManager();
 
 TestItem availableTests[] = {
@@ -774,6 +775,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(VFPUSinCos),
 	TEST_ITEM(MathUtil),
 	TEST_ITEM(Parsers),
+	TEST_ITEM(IRPassSimplify),
 	TEST_ITEM(Jit),
 	TEST_ITEM(MatrixTranspose),
 	TEST_ITEM(ParseLBN),

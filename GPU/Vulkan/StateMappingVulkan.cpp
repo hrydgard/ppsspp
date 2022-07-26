@@ -347,17 +347,10 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 		}
 
 		ScissorRect &scissor = dynState.scissor;
-		if (vpAndScissor.scissorEnable) {
-			scissor.x = vpAndScissor.scissorX;
-			scissor.y = vpAndScissor.scissorY;
-			scissor.width = std::max(0, vpAndScissor.scissorW);
-			scissor.height = std::max(0, vpAndScissor.scissorH);
-		} else {
-			scissor.x = 0;
-			scissor.y = 0;
-			scissor.width = framebufferManager_->GetRenderWidth();
-			scissor.height = framebufferManager_->GetRenderHeight();
-		}
+		scissor.x = vpAndScissor.scissorX;
+		scissor.y = vpAndScissor.scissorY;
+		scissor.width = std::max(0, vpAndScissor.scissorW);
+		scissor.height = std::max(0, vpAndScissor.scissorH);
 	}
 }
 

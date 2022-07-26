@@ -19,8 +19,10 @@
 #include <cstdlib>
 #include <ctime>
 #include <functional>
+#include <mutex>
 #include <set>
 #include <sstream>
+#include <thread>
 
 #include "ppsspp_config.h"
 
@@ -56,6 +58,17 @@ http::Downloader g_DownloadManager;
 Config g_Config;
 
 bool jitForcedOff;
+
+// Not in Config.h because it's #included a lot.
+struct ConfigPrivate {
+	std::mutex recentIsosLock;
+	std::mutex recentIsosThreadLock;
+	std::thread recentIsosThread;
+	bool recentIsosThreadPending = false;
+
+	void ResetRecentIsosThread();
+	void SetRecentIsosThread(std::function<void()> f);
+};
 
 #ifdef _DEBUG
 static const char *logSectionName = "LogDebug";
@@ -1214,13 +1227,30 @@ static void IterateSettings(IniFile &iniFile, std::function<void(Section *sectio
 	}
 }
 
+void ConfigPrivate::ResetRecentIsosThread() {
+	std::lock_guard<std::mutex> guard(recentIsosThreadLock);
+	if (recentIsosThreadPending && recentIsosThread.joinable())
+		recentIsosThread.join();
+}
+
+void ConfigPrivate::SetRecentIsosThread(std::function<void()> f) {
+	std::lock_guard<std::mutex> guard(recentIsosThreadLock);
+	if (recentIsosThreadPending && recentIsosThread.joinable())
+		recentIsosThread.join();
+	recentIsosThread = std::thread(f);
+	recentIsosThreadPending = true;
+}
+
 Config::Config() {
+	private_ = new ConfigPrivate();
 }
 
 Config::~Config() {
 	if (bUpdatedInstanceCounter) {
 		ShutdownInstanceCounter();
 	}
+	private_->ResetRecentIsosThread();
+	delete private_;
 }
 
 std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
@@ -1323,6 +1353,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		iMaxRecent = 60;
 
 	if (iMaxRecent > 0) {
+		private_->ResetRecentIsosThread();
+		std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 		recentIsos.clear();
 		for (int i = 0; i < iMaxRecent; i++) {
 			char keyName[64];
@@ -1478,9 +1510,11 @@ bool Config::Save(const char *saveReason) {
 		Section *recent = iniFile.GetOrCreateSection("Recent");
 		recent->Set("MaxRecent", iMaxRecent);
 
+		private_->ResetRecentIsosThread();
 		for (int i = 0; i < iMaxRecent; i++) {
 			char keyName[64];
 			snprintf(keyName, sizeof(keyName), "FileName%d", i);
+			std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 			if (i < (int)recentIsos.size()) {
 				recent->Set(keyName, recentIsos[i]);
 			} else {
@@ -1618,6 +1652,8 @@ void Config::AddRecent(const std::string &file) {
 	// We'll add it back below.  This makes sure it's at the front, and only once.
 	RemoveRecent(file);
 
+	private_->ResetRecentIsosThread();
+	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 	const std::string filename = File::ResolvePath(file);
 	recentIsos.insert(recentIsos.begin(), filename);
 	if ((int)recentIsos.size() > iMaxRecent)
@@ -1629,6 +1665,8 @@ void Config::RemoveRecent(const std::string &file) {
 	if (iMaxRecent <= 0)
 		return;
 
+	private_->ResetRecentIsosThread();
+	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 	const std::string filename = File::ResolvePath(file);
 	for (auto iter = recentIsos.begin(); iter != recentIsos.end();) {
 		const std::string recent = File::ResolvePath(*iter);
@@ -1642,35 +1680,52 @@ void Config::RemoveRecent(const std::string &file) {
 }
 
 void Config::CleanRecent() {
-	double startTime = time_now_d();
+	private_->SetRecentIsosThread([this] {
+		double startTime = time_now_d();
 
-	std::vector<std::string> cleanedRecent;
-	for (size_t i = 0; i < recentIsos.size(); i++) {
-		bool exists = false;
-		Path path = Path(recentIsos[i]);
-		switch (path.Type()) {
-		case PathType::CONTENT_URI:
-		case PathType::NATIVE:
-			exists = File::Exists(path);
-			break;
-		default:
-			FileLoader *loader = ConstructFileLoader(path);
-			exists = loader->ExistsFast();
-			delete loader;
-			break;
-		}
+		std::lock_guard<std::mutex> guard(private_->recentIsosLock);
+		std::vector<std::string> cleanedRecent;
+		for (size_t i = 0; i < recentIsos.size(); i++) {
+			bool exists = false;
+			Path path = Path(recentIsos[i]);
+			switch (path.Type()) {
+			case PathType::CONTENT_URI:
+			case PathType::NATIVE:
+				exists = File::Exists(path);
+				break;
+			default:
+				FileLoader *loader = ConstructFileLoader(path);
+				exists = loader->ExistsFast();
+				delete loader;
+				break;
+			}
 
-		if (exists) {
-			// Make sure we don't have any redundant items.
-			auto duplicate = std::find(cleanedRecent.begin(), cleanedRecent.end(), recentIsos[i]);
-			if (duplicate == cleanedRecent.end()) {
-				cleanedRecent.push_back(recentIsos[i]);
+			if (exists) {
+				// Make sure we don't have any redundant items.
+				auto duplicate = std::find(cleanedRecent.begin(), cleanedRecent.end(), recentIsos[i]);
+				if (duplicate == cleanedRecent.end()) {
+					cleanedRecent.push_back(recentIsos[i]);
+				}
 			}
 		}
-	}
 
-	INFO_LOG(SYSTEM, "CleanRecent took %0.2f", time_now_d() - startTime);
-	recentIsos = cleanedRecent;
+		INFO_LOG(SYSTEM, "CleanRecent took %0.2f", time_now_d() - startTime);
+		recentIsos = cleanedRecent;
+	});
+}
+
+std::vector<std::string> Config::RecentIsos() const {
+	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
+	return recentIsos;
+}
+bool Config::HasRecentIsos() const {
+	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
+	return !recentIsos.empty();
+}
+void Config::ClearRecentIsos() {
+	private_->ResetRecentIsosThread();
+	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
+	recentIsos.clear();
 }
 
 void Config::SetSearchPath(const Path &searchPath) {
@@ -1709,7 +1764,7 @@ void Config::RestoreDefaults() {
 	} else {
 		if (File::Exists(iniFilename_))
 			File::Delete(iniFilename_);
-		recentIsos.clear();
+		ClearRecentIsos();
 		currentDirectory = defaultCurrentDirectory;
 	}
 	Load();

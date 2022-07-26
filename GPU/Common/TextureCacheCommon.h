@@ -203,7 +203,6 @@ typedef std::map<u64, std::unique_ptr<TexCacheEntry>> TexCache;
 #undef IGNORE
 #endif
 
-// TODO: Try to get rid of IGNORE, it doesn't match what we want to do
 enum class FramebufferMatch {
 	// Valid, exact match.
 	VALID = 0,
@@ -224,6 +223,8 @@ struct AttachCandidate {
 	TextureDefinition entry;
 	VirtualFramebuffer *fb;
 	FramebufferNotificationChannel channel;
+
+	std::string ToString();
 };
 
 class FramebufferManagerCommon;

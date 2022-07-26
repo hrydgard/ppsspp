@@ -266,13 +266,16 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	int drawing_width, drawing_height;
 	EstimateDrawingSize(params.fb_address, params.fmt, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, std::max(params.fb_stride, 4), drawing_width, drawing_height);
 
-	gstate_c.SetCurRTOffsetX(0);
+	gstate_c.SetCurRTOffset(0, 0);
 	bool vfbFormatChanged = false;
 
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = nullptr;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
+
+		const u32 bpp = v->format == GE_FORMAT_8888 ? 4 : 2;
+
 		if (v->fb_address == params.fb_address) {
 			vfb = v;
 			// Update fb stride in case it changed
@@ -302,18 +305,36 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 				vfb->height = drawing_height;
 			}
 			break;
-		} else if (v->fb_address < params.fb_address && v->fb_address + v->fb_stride * 4 > params.fb_address) {
-			// Possibly a render-to-offset.
-			const u32 bpp = v->format == GE_FORMAT_8888 ? 4 : 2;
-			const int x_offset = (params.fb_address - v->fb_address) / bpp;
-			if (v->format == params.fmt && v->fb_stride == params.fb_stride && x_offset < params.fb_stride && v->height >= drawing_height) {
-				WARN_LOG_REPORT_ONCE(renderoffset, HLE, "Rendering to framebuffer offset: %08x +%dx%d", v->fb_address, x_offset, 0);
-				vfb = v;
-				gstate_c.SetCurRTOffsetX(x_offset);
-				vfb->width = std::max((int)vfb->width, x_offset + drawing_width);
-				// To prevent the newSize code from being confused.
-				drawing_width += x_offset;
-				break;
+		} else if (v->fb_stride == params.fb_stride && v->format == params.fmt) {
+			u32 v_fb_first_line_end_ptr = v->fb_address + v->fb_stride * 4;  // This should be * bpp, but leaving like this until after 1.13 to be safe. The God of War games use this for shadows.
+			u32 v_fb_end_ptr = v->fb_address + v->fb_stride * v->height * bpp;
+
+			if (params.fb_address > v->fb_address && params.fb_address < v_fb_first_line_end_ptr) {
+				const int x_offset = (params.fb_address - v->fb_address) / bpp;
+				if (x_offset < params.fb_stride && v->height >= drawing_height) {
+					// Pretty certainly a pure render-to-X-offset.
+					WARN_LOG_REPORT_ONCE(renderoffset, HLE, "Rendering to framebuffer offset: %08x +%dx%d", v->fb_address, x_offset, 0);
+					vfb = v;
+					gstate_c.SetCurRTOffset(x_offset, 0);
+					vfb->width = std::max((int)vfb->width, x_offset + drawing_width);
+					// To prevent the newSize code from being confused.
+					drawing_width += x_offset;
+					break;
+				}
+			} else if (params.fb_address > v->fb_address && params.fb_address < v_fb_end_ptr && PSP_CoreParameter().compat.flags().AllowLargeFBTextureOffsets) {
+				if (params.fb_address % params.fb_stride == v->fb_address % params.fb_stride) {
+					// Framebuffers are overlapping on the Y axis.
+					const int y_offset = (params.fb_address - v->fb_address) / (bpp * params.fb_stride);
+
+					vfb = v;
+					gstate_c.SetCurRTOffset(0, y_offset);
+					// To prevent the newSize code from being confused.
+					drawing_height += y_offset;
+					break;
+				}
+			} else {
+				// We ignore this match.
+				// TODO: We can allow X/Y overlaps too, but haven't seen any so safer to not.
 			}
 		}
 	}
@@ -386,7 +407,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 
 		SetColorUpdated(vfb, skipDrawReason);
 
-		INFO_LOG(FRAMEBUF, "Creating FBO for %08x (z: %08x) : %i x %i x %i", vfb->fb_address, vfb->z_address, vfb->width, vfb->height, vfb->format);
+		INFO_LOG(FRAMEBUF, "Creating FBO for %08x (z: %08x) : %d x %d x %s", vfb->fb_address, vfb->z_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->format));
 
 		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed_ = gpuStats.numFlips;
@@ -493,6 +514,8 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 		// This is an optimization: it probably doesn't need to be copied in this case.
 		return;
 	}
+
+	gpuStats.numDepthCopies++;
 
 	int w = std::min(src->renderWidth, dst->renderWidth);
 	int h = std::min(src->renderHeight, dst->renderHeight);
@@ -852,7 +875,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 		draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 	}
 
-	Draw::Texture *pixelsTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height, u1, v1);
+	Draw::Texture *pixelsTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 	if (pixelsTex) {
 		draw_->BindTextures(0, 1, &pixelsTex);
 		Bind2DShader();
@@ -934,7 +957,7 @@ void FramebufferManagerCommon::CopyFramebufferForColorTexture(VirtualFramebuffer
 	}
 }
 
-Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
+Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 	// TODO: We can just change the texture format and flip some bits around instead of this.
 	// Could share code with the texture cache perhaps.
 	auto generateTexture = [&](uint8_t *data, const uint8_t *initData, uint32_t w, uint32_t h, uint32_t d, uint32_t byteStride, uint32_t sliceByteStride) {
@@ -1009,7 +1032,7 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 
 	float u0 = 0.0f, u1 = 480.0f / 512.0f;
 	float v0 = 0.0f, v1 = 1.0f;
-	Draw::Texture *pixelsTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272, u1, v1);
+	Draw::Texture *pixelsTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
 	if (!pixelsTex)
 		return;
 
@@ -1694,7 +1717,7 @@ void FramebufferManagerCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2
 		return;
 	}
 
-	u8 *addr = Memory::GetPointerUnchecked(gstate.getFrameBufAddress());
+	u8 *addr = Memory::GetPointerWriteUnchecked(gstate.getFrameBufAddress());
 	const int bpp = gstate_c.framebufFormat == GE_FORMAT_8888 ? 4 : 2;
 
 	u32 clearBits = clearColor;
@@ -2033,7 +2056,7 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 		if (!Memory::IsValidAddress(fb_address))
 			return false;
 		// If there's no vfb and we're drawing there, must be memory?
-		buffer = GPUDebugBuffer(Memory::GetPointer(fb_address), fb_stride, 512, format);
+		buffer = GPUDebugBuffer(Memory::GetPointerWriteUnchecked(fb_address), fb_stride, 512, format);
 		return true;
 	}
 
@@ -2090,7 +2113,7 @@ bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32
 		if (!Memory::IsValidAddress(z_address))
 			return false;
 		// If there's no vfb and we're drawing there, must be memory?
-		buffer = GPUDebugBuffer(Memory::GetPointer(z_address), z_stride, 512, GPU_DBG_FORMAT_16BIT);
+		buffer = GPUDebugBuffer(Memory::GetPointerWriteUnchecked(z_address), z_stride, 512, GPU_DBG_FORMAT_16BIT);
 		return true;
 	}
 
@@ -2128,7 +2151,7 @@ bool FramebufferManagerCommon::GetStencilbuffer(u32 fb_address, int fb_stride, G
 			return false;
 		// If there's no vfb and we're drawing there, must be memory?
 		// TODO: Actually get the stencil.
-		buffer = GPUDebugBuffer(Memory::GetPointer(fb_address), fb_stride, 512, GPU_DBG_FORMAT_8888);
+		buffer = GPUDebugBuffer(Memory::GetPointerWrite(fb_address), fb_stride, 512, GPU_DBG_FORMAT_8888);
 		return true;
 	}
 
@@ -2193,7 +2216,7 @@ void FramebufferManagerCommon::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 		return;
 	}
 
-	u8 *destPtr = Memory::GetPointer(fb_address + dstByteOffset);
+	u8 *destPtr = Memory::GetPointerWriteUnchecked(fb_address + dstByteOffset);
 
 	// We always need to convert from the framebuffer native format.
 	// Right now that's always 8888.

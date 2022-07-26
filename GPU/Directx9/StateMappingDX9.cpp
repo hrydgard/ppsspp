@@ -239,12 +239,8 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
 			vpAndScissor);
 
-		if (vpAndScissor.scissorEnable) {
-			dxstate.scissorTest.enable();
-			dxstate.scissorRect.set(vpAndScissor.scissorX, vpAndScissor.scissorY, vpAndScissor.scissorX + vpAndScissor.scissorW, vpAndScissor.scissorY + vpAndScissor.scissorH);
-		} else {
-			dxstate.scissorTest.disable();
-		}
+		dxstate.scissorTest.enable();
+		dxstate.scissorRect.set(vpAndScissor.scissorX, vpAndScissor.scissorY, vpAndScissor.scissorX + vpAndScissor.scissorW, vpAndScissor.scissorY + vpAndScissor.scissorH);
 
 		float depthMin = vpAndScissor.depthRangeMin;
 		float depthMax = vpAndScissor.depthRangeMax;

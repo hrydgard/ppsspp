@@ -32,7 +32,7 @@ u32 sceKernelUtilsMt19937Init(u32 ctx, u32 seed) {
 	DEBUG_LOG(HLE, "sceKernelUtilsMt19937Init(%08x, %08x)", ctx, seed);
 	if (!Memory::IsValidAddress(ctx))
 		return -1;
-	void *ptr = Memory::GetPointer(ctx);
+	void *ptr = Memory::GetPointerWrite(ctx);
 	// This is made to match the memory layout of a PSP MT structure exactly.
 	// Let's just construct it in place with placement new. Elite C++ hackery FTW.
 	new (ptr) MersenneTwister(seed);
@@ -43,7 +43,7 @@ u32 sceKernelUtilsMt19937UInt(u32 ctx) {
 	VERBOSE_LOG(HLE, "sceKernelUtilsMt19937UInt(%08x)", ctx);
 	if (!Memory::IsValidAddress(ctx))
 		return -1;
-	MersenneTwister *mt = (MersenneTwister *)Memory::GetPointer(ctx);
+	MersenneTwister *mt = (MersenneTwister *)Memory::GetPointerUnchecked(ctx);
 	return mt->R32();
 }
 
@@ -57,7 +57,7 @@ static int sceMd5Digest(u32 dataAddr, u32 len, u32 digestAddr) {
 	if (!Memory::IsValidAddress(dataAddr) || !Memory::IsValidAddress(digestAddr))
 		return -1;
 
-	md5(Memory::GetPointer(dataAddr), (int)len, Memory::GetPointer(digestAddr));
+	md5(Memory::GetPointerWriteUnchecked(dataAddr), (int)len, Memory::GetPointerWriteUnchecked(digestAddr));
 	return 0;
 }
 
@@ -78,7 +78,7 @@ static int sceMd5BlockUpdate(u32 ctxAddr, u32 dataPtr, u32 len) {
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(dataPtr))
 		return -1;
 	
-	md5_update(&md5_ctx, Memory::GetPointer(dataPtr), (int)len);
+	md5_update(&md5_ctx, Memory::GetPointerWriteUnchecked(dataPtr), (int)len);
 	return 0;
 }
 
@@ -87,7 +87,7 @@ static int sceMd5BlockResult(u32 ctxAddr, u32 digestAddr) {
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(digestAddr))
 		return -1;
 
-	md5_finish(&md5_ctx, Memory::GetPointer(digestAddr));
+	md5_finish(&md5_ctx, Memory::GetPointerWriteUnchecked(digestAddr));
 	return 0;
 }
 
@@ -97,7 +97,7 @@ int sceKernelUtilsMd5Digest(u32 dataAddr, int len, u32 digestAddr) {
 	if (!Memory::IsValidAddress(dataAddr) || !Memory::IsValidAddress(digestAddr))
 		return -1;
 
-	md5(Memory::GetPointer(dataAddr), (int)len, Memory::GetPointer(digestAddr));
+	md5(Memory::GetPointerWriteUnchecked(dataAddr), (int)len, Memory::GetPointerWriteUnchecked(digestAddr));
 	return 0;
 }
 
@@ -118,7 +118,7 @@ int sceKernelUtilsMd5BlockUpdate(u32 ctxAddr, u32 dataPtr, int len) {
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(dataPtr))
 		return -1;
 
-	md5_update(&md5_ctx, Memory::GetPointer(dataPtr), (int)len);
+	md5_update(&md5_ctx, Memory::GetPointerWriteUnchecked(dataPtr), (int)len);
 	return 0;
 }
 
@@ -127,7 +127,7 @@ int sceKernelUtilsMd5BlockResult(u32 ctxAddr, u32 digestAddr) {
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(digestAddr))
 		return -1;
 
-	md5_finish(&md5_ctx, Memory::GetPointer(digestAddr));
+	md5_finish(&md5_ctx, Memory::GetPointerWriteUnchecked(digestAddr));
 	return 0;
 }
 
@@ -140,7 +140,7 @@ int sceKernelUtilsSha1Digest(u32 dataAddr, int len, u32 digestAddr) {
 	if (!Memory::IsValidAddress(dataAddr) || !Memory::IsValidAddress(digestAddr))
 		return -1;
 
-	sha1(Memory::GetPointer(dataAddr), (int)len, Memory::GetPointer(digestAddr));
+	sha1(Memory::GetPointerWriteUnchecked(dataAddr), (int)len, Memory::GetPointerWriteUnchecked(digestAddr));
 	return 0;
 }
 
@@ -162,7 +162,7 @@ int sceKernelUtilsSha1BlockUpdate(u32 ctxAddr, u32 dataAddr, int len) {
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(dataAddr))
 		return -1;
 
-	sha1_update(&sha1_ctx, Memory::GetPointer(dataAddr), (int)len);
+	sha1_update(&sha1_ctx, Memory::GetPointerWriteUnchecked(dataAddr), (int)len);
 	return 0;
 }
 
@@ -171,7 +171,7 @@ int sceKernelUtilsSha1BlockResult(u32 ctxAddr, u32 digestAddr) {
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(digestAddr))
 		return -1;
 
-	sha1_finish(&sha1_ctx, Memory::GetPointer(digestAddr));
+	sha1_finish(&sha1_ctx, Memory::GetPointerWriteUnchecked(digestAddr));
 	return 0;
 }
 

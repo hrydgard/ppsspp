@@ -35,7 +35,7 @@ jobs:
       #- name: Setup NDK
       #  uses: nttld/setup-ndk@v1
       #  with:
-      #    ndk-version: r21d
+      #    ndk-version: r21e
       
       - name: Assemble APK
         run: bash ./gradlew assemble${{ github.event.inputs.buildVariant }} --stacktrace

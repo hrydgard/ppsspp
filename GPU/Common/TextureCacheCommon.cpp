@@ -633,8 +633,17 @@ std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const 
 
 	if (candidates.size() > 1) {
 		bool depth = channel == FramebufferNotificationChannel::NOTIFY_FB_DEPTH;
-		WARN_LOG_REPORT_ONCE(multifbcandidate, G3D, "GetFramebufferCandidates(%s): Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s)",
-			depth ? "DEPTH" : "COLOR", (int)candidates.size(), entry.addr, texAddrOffset, dimWidth(entry.dim), dimHeight(entry.dim), entry.bufw, GeTextureFormatToString(entry.format));
+
+		std::string cands;
+		for (auto &candidate : candidates) {
+			cands += candidate.ToString() + " ";
+		}
+
+		WARN_LOG_REPORT_ONCE(multifbcandidate, G3D, "GetFramebufferCandidates(%s): Multiple (%d) candidate framebuffers. First will be chosen. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
+			depth ? "DEPTH" : "COLOR", (int)candidates.size(),
+			entry.addr, texAddrOffset, dimWidth(entry.dim), dimHeight(entry.dim), entry.bufw, GeTextureFormatToString(entry.format),
+			cands.c_str()
+		);
 	}
 
 	return candidates;
@@ -975,7 +984,7 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 
 		// Trying to play it safe.  Below 0x04110000 is almost always framebuffers.
 		// TODO: Maybe we can reduce this check and find a better way above 0x04110000?
-		if (fbInfo.yOffset > MAX_SUBAREA_Y_OFFSET_SAFE && addr > 0x04110000) {
+		if (fbInfo.yOffset > MAX_SUBAREA_Y_OFFSET_SAFE && addr > 0x04110000 && !PSP_CoreParameter().compat.flags().AllowLargeFBTextureOffsets) {
 			WARN_LOG_REPORT_ONCE(subareaIgnored, G3D, "Ignoring possible texturing from framebuffer at %08x +%dx%d / %dx%d", fb_address, fbInfo.xOffset, fbInfo.yOffset, framebuffer->width, framebuffer->height);
 			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
 		}
@@ -1995,4 +2004,8 @@ void TextureCacheCommon::InvalidateAll(GPUInvalidationType /*unused*/) {
 
 void TextureCacheCommon::ClearNextFrame() {
 	clearCacheNextFrame_ = true;
+}
+
+std::string AttachCandidate::ToString() {
+	return StringFromFormat("[C:%08x/%d Z:%08x/%d X:%d Y:%d reint: %s]", this->fb->fb_address, this->fb->fb_stride, this->fb->z_address, this->fb->z_stride, this->match.xOffset, this->match.yOffset, this->match.reinterpret ? "true" : "false");
 }

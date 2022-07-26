@@ -157,9 +157,7 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, StencilUpl
 
 	u16 w = dstBuffer->renderWidth;
 	u16 h = dstBuffer->renderHeight;
-	float u1 = 1.0f;
-	float v1 = 1.0f;
-	Draw::Texture *tex = MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight, u1, v1);
+	Draw::Texture *tex = MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight);
 	if (!tex)
 		return false;
 	if (dstBuffer->fbo) {
@@ -175,9 +173,9 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, StencilUpl
 
 	float coord[20] = {
 		-1.0f,  1.0f, 0.0f, 0.0f, 0.0f,
-		 1.0f,  1.0f, 0.0f, u1,   0.0f,
-		-1.0f, -1.0f, 0.0f, 0.0f, v1,
-		 1.0f, -1.0f, 0.0f, u1,   v1,
+		 1.0f,  1.0f, 0.0f, 1.0,  0.0f,
+		-1.0f, -1.0f, 0.0f, 0.0f, 1.0,
+		 1.0f, -1.0f, 0.0f, 1.0,  1.0,
 	};
 
 	D3D11_MAPPED_SUBRESOURCE map;

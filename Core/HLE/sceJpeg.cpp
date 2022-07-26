@@ -133,7 +133,7 @@ static u32 convertARGBtoABGR(u32 argb) {
 }
 
 static int __DecodeJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr) {
-	u8 *buf = Memory::GetPointer(jpegAddr);
+	const u8 *buf = Memory::GetPointer(jpegAddr);
 	int width, height, actual_components;
 	unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, 3);
 
@@ -219,7 +219,7 @@ static int getYCbCrBufferSize(int w, int h) {
 }
 
 static int __JpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr) {
-	u8 *buf = Memory::GetPointer(jpegAddr);
+	const u8 *buf = Memory::GetPointer(jpegAddr);
 	int width, height, actual_components;
 	unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, 3);
 
@@ -325,7 +325,7 @@ static int __JpegConvertRGBToYCbCr (const void *data, u32 bufferOutputAddr, int 
 }
 
 static int __JpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr) {
-	u8 *buf = Memory::GetPointer(jpegAddr);
+	const u8 *buf = Memory::GetPointer(jpegAddr);
 	int width, height, actual_components;
 	unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, 3);
 

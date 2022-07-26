@@ -242,6 +242,14 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 		info.atime = FiletimeToStatTime(ffd.ftLastAccessTime);
 		info.mtime = FiletimeToStatTime(ffd.ftLastWriteTime);
 		info.ctime = FiletimeToStatTime(ffd.ftCreationTime);
+		if (ffd.dwFileAttributes & FILE_ATTRIBUTE_READONLY) {
+			info.access = 0444;  // Read
+		} else {
+			info.access = 0666;  // Read/Write
+		}
+		if (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+			info.access |= 0111;  // Execute
+		}
 		if (!info.isDirectory) {
 			std::string ext = info.fullName.GetFileExtension();
 			if (!ext.empty()) {

@@ -779,7 +779,7 @@ std::vector<u32> CtrlMemView::searchString(const std::string &searchQuery) {
 				return searchResAddrs;
 			}
 
-			u8 *ptr = Memory::GetPointerUnchecked(pos);
+			const u8 *ptr = Memory::GetPointerUnchecked(pos);
 			if (memcmp(ptr, searchData.data(), searchData.size()) == 0) {
 				searchResAddrs.push_back(pos);
 			}
@@ -798,7 +798,7 @@ void CtrlMemView::search(bool continueSearch)
 	u32 searchAddress = 0;
 	u32 segmentStart = 0;
 	u32 segmentEnd = 0;
-	u8* dataPointer = 0;
+	const u8* dataPointer = 0;
 	if (continueSearch == false || searchQuery.empty())
 	{
 		if (InputBox_GetString(GetModuleHandle(NULL), wnd, L"Search for", searchQuery, searchQuery) == false)

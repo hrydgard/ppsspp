@@ -27,6 +27,7 @@ u32 Evaluate(u32 a, u32 b, IROp op) {
 	case IROp::Slt: case IROp::SltConst: return ((s32)a < (s32)b);
 	case IROp::SltU: case IROp::SltUConst: return (a < b);
 	default:
+		_assert_msg_(false, "Unable to evaluate two op %d", (int)op);
 		return -1;
 	}
 }
@@ -50,6 +51,7 @@ u32 Evaluate(u32 a, IROp op) {
 		return count;
 	}
 	default:
+		_assert_msg_(false, "Unable to evaluate one op %d", (int)op);
 		return -1;
 	}
 }
@@ -64,6 +66,7 @@ IROp ArithToArithConst(IROp op) {
 	case IROp::Slt: return IROp::SltConst;
 	case IROp::SltU: return IROp::SltUConst;
 	default:
+		_assert_msg_(false, "Invalid ArithToArithConst for op %d", (int)op);
 		return (IROp)-1;
 	}
 }
@@ -75,6 +78,7 @@ IROp ShiftToShiftImm(IROp op) {
 	case IROp::Ror: return IROp::RorImm;
 	case IROp::Sar: return IROp::SarImm;
 	default:
+		_assert_msg_(false, "Invalid ShiftToShiftImm for op %d", (int)op);
 		return (IROp)-1;
 	}
 }
@@ -412,8 +416,8 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 			} else if (gpr.IsImm(inst.src2)) {
 				const u32 imm2 = gpr.GetImm(inst.src2);
 				gpr.MapDirtyIn(inst.dest, inst.src1);
-				if (imm2 == 0 && (inst.op == IROp::Add || inst.op == IROp::Or)) {
-					// Add / Or with zero is just a Mov.
+				if (imm2 == 0 && (inst.op == IROp::Add || inst.op == IROp::Sub || inst.op == IROp::Or || inst.op == IROp::Xor)) {
+					// Add / Sub / Or / Xor with zero is just a Mov.  Add / Or are most common.
 					if (inst.dest != inst.src1)
 						out.Write(IROp::Mov, inst.dest, inst.src1);
 				} else {
@@ -422,8 +426,8 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 			} else if (symmetric && gpr.IsImm(inst.src1)) {
 				const u32 imm1 = gpr.GetImm(inst.src1);
 				gpr.MapDirtyIn(inst.dest, inst.src2);
-				if (imm1 == 0 && (inst.op == IROp::Add || inst.op == IROp::Or)) {
-					// Add / Or with zero is just a Mov.
+				if (imm1 == 0 && (inst.op == IROp::Add || inst.op == IROp::Or || inst.op == IROp::Xor)) {
+					// Add / Or / Xor with zero is just a Mov.
 					if (inst.dest != inst.src2)
 						out.Write(IROp::Mov, inst.dest, inst.src2);
 				} else {
@@ -463,6 +467,11 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 				gpr.SetImm(inst.dest, 0);
 			} else if (gpr.IsImm(inst.src1)) {
 				gpr.SetImm(inst.dest, Evaluate(gpr.GetImm(inst.src1), inst.constant, inst.op));
+			} else if (inst.constant == 0 && (inst.op == IROp::AddConst || inst.op == IROp::SubConst || inst.op == IROp::OrConst || inst.op == IROp::XorConst)) {
+				// Convert an Add/Sub/Or/Xor with a constant zero to a Mov (just like with reg zero.)
+				gpr.MapDirtyIn(inst.dest, inst.src1);
+				if (inst.dest != inst.src1)
+					out.Write(IROp::Mov, inst.dest, inst.src1);
 			} else {
 				gpr.MapDirtyIn(inst.dest, inst.src1);
 				goto doDefault;
@@ -734,6 +743,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		}
 		}
 	}
+	gpr.FlushAll();
 	return logBlocks;
 }
 
@@ -834,7 +844,8 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 					// This happens with lwl/lwr temps.  Replace the original dest.
 					insts[check.index] = IRReplaceDestGPR(insts[check.index], check.reg, inst.dest);
 					lastWrittenTo[inst.dest] = check.index;
-					check.reg = inst.dest;
+					// If it's being read from (by inst), we can't optimize out.
+					check.reg = 0;
 					// Update the read by exit flag to match the new reg.
 					check.readByExit = inst.dest < IRTEMP_0 || inst.dest > IRTEMP_LR_SHIFT;
 					// And swap the args for this mov, since we changed the other dest.  We'll optimize this out later.

@@ -1042,7 +1042,7 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 		} else if (Memory::IsValidAddress(data_addr)) {
 			const std::string tag = "IoRead/" + IODetermineFilename(f);
 			NotifyMemInfo(MemBlockFlags::WRITE, data_addr, size, tag.c_str(), tag.size());
-			u8 *data = (u8 *)Memory::GetPointer(data_addr);
+			u8 *data = (u8 *)Memory::GetPointerUnchecked(data_addr);
 			u32 validSize = Memory::ValidSize(data_addr, size);
 			if (f->npdrm) {
 				result = npdrmRead(f, data, validSize);
@@ -2482,7 +2482,7 @@ static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, 
 		u8 pgd_magic[4] = {0x00, 0x50, 0x47, 0x44};
 
 		if (Memory::IsValidAddress(indataPtr) && inlen == 16) {
-			memcpy(keybuf, Memory::GetPointer(indataPtr), 16);
+			memcpy(keybuf, Memory::GetPointerUnchecked(indataPtr), 16);
 			key_ptr = keybuf;
 		}else{
 			key_ptr = NULL;

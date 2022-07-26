@@ -220,7 +220,7 @@ jobs:
       if: matrix.extra == 'android'
       id: setup-ndk
       with:
-        ndk-version: r21d
+        ndk-version: r21e
 
     - name: Install Linux dependencies
       if: runner.os == 'Linux' && matrix.extra != 'android'

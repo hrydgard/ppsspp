@@ -177,7 +177,7 @@ bool SimpleAudio::IsOK() const {
 #endif
 }
 
-bool SimpleAudio::Decode(void *inbuf, int inbytes, uint8_t *outbuf, int *outbytes) {
+bool SimpleAudio::Decode(const uint8_t *inbuf, int inbytes, uint8_t *outbuf, int *outbytes) {
 #ifdef USE_FFMPEG
 	if (!codecOpen_) {
 		OpenCodec(inbytes);
@@ -185,7 +185,7 @@ bool SimpleAudio::Decode(void *inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 
 	AVPacket packet;
 	av_init_packet(&packet);
-	packet.data = static_cast<uint8_t *>(inbuf);
+	packet.data = (uint8_t *)(inbuf);
 	packet.size = inbytes;
 
 	int got_frame = 0;
@@ -338,7 +338,7 @@ size_t AuCtx::FindNextMp3Sync() {
 // return output pcm size, <0 error
 u32 AuCtx::AuDecode(u32 pcmAddr) {
 	u32 outptr = PCMBuf + nextOutputHalf * PCMBufSize / 2;
-	auto outbuf = Memory::GetPointer(outptr);
+	auto outbuf = Memory::GetPointerWrite(outptr);
 	int outpcmbufsize = 0;
 
 	if (pcmAddr)

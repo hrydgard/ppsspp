@@ -1409,7 +1409,7 @@ bool retro_unserialize(const void *data, size_t size)
 void *retro_get_memory_data(unsigned id)
 {
    if ( id == RETRO_MEMORY_SYSTEM_RAM )
-      return Memory::GetPointerUnchecked(PSP_GetKernelMemoryBase()) ;
+      return Memory::GetPointerWriteUnchecked(PSP_GetKernelMemoryBase()) ;
    return NULL;
 }
 

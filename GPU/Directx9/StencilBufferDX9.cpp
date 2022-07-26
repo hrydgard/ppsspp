@@ -196,9 +196,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 	D3DVIEWPORT9 vp{ 0, 0, w, h, 0.0f, 1.0f };
 	device_->SetViewport(&vp);
 
-	float u1 = 1.0f;
-	float v1 = 1.0f;
-	Draw::Texture *tex = MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight, u1, v1);
+	Draw::Texture *tex = MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight);
 	if (!tex)
 		return false;
 
@@ -208,9 +206,9 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 
 	float coord[20] = {
 		-1.0f,  1.0f, 0.0f, 0.0f, 0.0f,
-		 1.0f,  1.0f, 0.0f, u1,   0.0f,
-		-1.0f, -1.0f, 0.0f, 0.0f, v1,
-		 1.0f, -1.0f, 0.0f, u1,   v1,
+		 1.0f,  1.0f, 0.0f, 1.0f, 0.0f,
+		-1.0f, -1.0f, 0.0f, 0.0f, 1.0f,
+		 1.0f, -1.0f, 0.0f, 1.0f, 1.0f,
 	};
 
 	device_->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);

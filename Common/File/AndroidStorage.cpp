@@ -160,7 +160,9 @@ static bool ParseFileInfo(const std::string &line, File::FileInfo *fileInfo) {
 	fileInfo->exists = true;
 	sscanf(parts[1].c_str(), "%" PRIu64, &fileInfo->size);
 	fileInfo->isWritable = true;  // TODO: Should be passed as part of the string.
-	fileInfo->access = fileInfo->isDirectory ? 0666 : 0777;  // TODO: For read-only mappings, reflect that here, similarly as with isWritable.
+	// TODO: For read-only mappings, reflect that here, similarly as with isWritable.
+	// Directories are normally executable (0111) which means they're traversable.
+	fileInfo->access = fileInfo->isDirectory ? 0777 : 0666;
 
 	uint64_t lastModifiedMs = 0;
 	sscanf(parts[3].c_str(), "%" PRIu64, &lastModifiedMs);
