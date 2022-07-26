@@ -77,12 +77,9 @@ void GameScreen::update() {
 			tvCRC_->SetText(CRC32string);
 			btnCalcCRC_->SetVisibility(UI::V_GONE);
 		}
-	}
-	if (MD5string == "...") {
-		tvCRC_->SetText(MD5string);
-		btnCalcMD5_->SetVisibility(UI::V_GONE);
-
-	}
+	}	
+	tvMD5_->SetText(MD5string);
+	//btnCalcMD5_->SetVisibility(UI::V_GONE);	
 
 }
 
@@ -134,6 +131,8 @@ void GameScreen::CreateViews() {
 		tvCRC_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvCRC_->SetShadow(true);
 		tvCRC_->SetVisibility(Reporting::HasCRC(gamePath_) ? V_VISIBLE : V_GONE);
+		tvMD5_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		tvMD5_->SetShadow(true);
 	} else {
 		tvTitle_ = nullptr;
 		tvGameSize_ = nullptr;
@@ -141,6 +140,7 @@ void GameScreen::CreateViews() {
 		tvInstallDataSize_ = nullptr;
 		tvRegion_ = nullptr;
 		tvCRC_ = nullptr;
+		tvMD5_ = nullptr;
 		tvID_ = nullptr;
 	}
 
@@ -211,8 +211,16 @@ void GameScreen::CreateViews() {
 		btnCalcCRC_ = nullptr;
 		//btnCalcMD5_ = nullptr;
 	}
-	btnCalcMD5_ = rightColumnItems->Add(new ChoiceWithValueDisplay(&MD5string, ga->T("Calculate MD5"), (const char*)nullptr));
-	btnCalcMD5_->OnClick.Handle(this, &GameScreen::OnDoMD5);
+	if (MD5string != "...") {
+		btnCalcMD5_ = rightColumnItems->Add(new ChoiceWithValueDisplay(&MD5string, ga->T("Calculate MD5"), (const char*)nullptr));
+		btnCalcMD5_->OnClick.Handle(this, &GameScreen::OnDoMD5);
+		btnCalcMD5_->SetVisibility(UI::V_VISIBLE);
+	}
+	else {
+		btnCalcMD5_ = nullptr;
+		btnCalcMD5_->SetVisibility(UI::V_GONE);
+
+	}
 
 }
 
@@ -360,6 +368,7 @@ UI::EventReturn GameScreen::OnDoMD5(UI::EventParams& e) {
 	//MD5string = md5file(gamePath_);
 	auto chrs = gamePath_.c_str();
 	MD5string = md5file(chrs);
+	MD5string = "MD5: "+ MD5string;
 	btnCalcMD5_->SetEnabled(false);
 	return UI::EVENT_DONE;
 }

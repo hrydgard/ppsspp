@@ -73,7 +73,7 @@ private:
 	UI::TextView *tvInstallDataSize_ = nullptr;
 	UI::TextView *tvRegion_ = nullptr;
 	UI::TextView *tvCRC_ = nullptr;
-	UI::TextView *tvmd5_ = nullptr;
+	UI::TextView *tvMD5_ = nullptr;
 	UI::TextView *tvID_ = nullptr;
 
 	UI::Choice *btnGameSettings_ = nullptr;
