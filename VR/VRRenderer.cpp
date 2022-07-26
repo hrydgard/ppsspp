@@ -16,6 +16,7 @@ GLboolean initialized = GL_FALSE;
 GLboolean stageSupported = GL_FALSE;
 GLboolean viewInverted = GL_FALSE;
 VRMode vrMode = VR_MODE_FLAT_SCREEN;
+int view3DCount = 0;
 
 float menuYaw = 0;
 float recenterYaw = 0;
@@ -432,6 +433,14 @@ void VR_SetMode( VRMode mode ) {
 
 VRMode VR_GetMode() {
 	return vrMode;
+}
+
+int VR_GeView3DCount() {
+	return view3DCount;
+}
+
+void VR_SetView3DCount( int value ) {
+	view3DCount = value;
 }
 
 void VR_BindFramebuffer( engine_t* engine, int eye ) {

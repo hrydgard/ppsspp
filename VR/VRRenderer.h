@@ -25,6 +25,9 @@ void VR_EndFrame( engine_t* engine );
 void VR_SetMode( VRMode mode );
 VRMode VR_GetMode();
 
+int VR_GeView3DCount();
+void VR_SetView3DCount( int value );
+
 void VR_BindFramebuffer( engine_t* engine, int eye );
 ovrMatrix4f VR_GetMatrix( VRMatrix matrix );
 void VR_SetInvertedProjection( bool inverted );

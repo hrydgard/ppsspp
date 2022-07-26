@@ -51,6 +51,7 @@
 #include "GPU/GLES/FramebufferManagerGLES.h"
 
 #ifdef OPENXR
+#include "VR/VRBase.h"
 #include "VR/VRRenderer.h"
 #endif
 
@@ -314,11 +315,23 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		render_->SetUniformUI1(&u_depal_mask_shift_off_fmt, val);
 	}
 
+#ifdef OPENXR
+	bool is2D = true;
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			if ((i != j) && (fabs(gstate.projMatrix[i * 4 + j]) > 0.0001f)) {
+				VR_SetView3DCount(VR_GeView3DCount() + 1);
+				is2D = false;
+			}
+		}
+	}
+#endif
+
 	// Update any dirty uniforms before we draw
 	if (dirty & DIRTY_PROJMATRIX) {
 		Matrix4x4 flippedMatrix;
 #ifdef OPENXR
-		if (VR_GetMode() == VR_MODE_FLAT_SCREEN) {
+		if ((VR_GetMode() == VR_MODE_FLAT_SCREEN) || is2D) {
 			memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 		} else {
 			ovrMatrix4f hmdProjection = VR_GetMatrix(VR_PROJECTION_MATRIX_LEFT_EYE);
@@ -484,7 +497,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	}
 	if (dirty & DIRTY_VIEWMATRIX) {
 #ifdef OPENXR
-		if (VR_GetMode() == VR_MODE_FLAT_SCREEN) {
+		if ((VR_GetMode() == VR_MODE_FLAT_SCREEN) || is2D) {
 			SetMatrix4x3(render_, &u_view, gstate.viewMatrix);
 		} else {
 			// Get view matrix from the game
