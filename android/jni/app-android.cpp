@@ -811,9 +811,12 @@ retry:
 	}
 
 #ifdef OPENXR
+	Version gitVer(PPSSPP_GIT_VERSION);
 	ovrJava java;
 	java.Vm = gJvm;
 	java.ActivityObject = nativeActivity;
+	java.AppVersion = gitVer.ToInteger();
+	strcpy(java.AppName, "PPSSPP");
 	VR_Init(java);
 #endif
 }

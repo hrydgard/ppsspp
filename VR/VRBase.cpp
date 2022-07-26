@@ -36,10 +36,10 @@ void VR_Init( ovrJava java ) {
 	// Create the OpenXR instance.
 	XrApplicationInfo appInfo;
 	memset(&appInfo, 0, sizeof(appInfo));
-	strcpy(appInfo.applicationName, "PPSSPP");
-	appInfo.applicationVersion = 0;
-	strcpy(appInfo.engineName, "PPSSPP");
-	appInfo.engineVersion = 0;
+	strcpy(appInfo.applicationName, java.AppName);
+	strcpy(appInfo.engineName, java.AppName);
+	appInfo.applicationVersion = java.AppVersion;
+	appInfo.engineVersion = java.AppVersion;
 	appInfo.apiVersion = XR_CURRENT_API_VERSION;
 
 	XrInstanceCreateInfo instanceCreateInfo;
