@@ -64,6 +64,7 @@ private:
 	UI::EventReturn OnCwCheat(UI::EventParams &e);
 	UI::EventReturn OnSetBackground(UI::EventParams &e);
 	UI::EventReturn OnDoCRC32(UI::EventParams& e);
+	UI::EventReturn OnDoMD5(UI::EventParams& e);
 
 	// As we load metadata in the background, we need to be able to update these after the fact.
 	UI::TextView *tvTitle_ = nullptr;
@@ -72,6 +73,7 @@ private:
 	UI::TextView *tvInstallDataSize_ = nullptr;
 	UI::TextView *tvRegion_ = nullptr;
 	UI::TextView *tvCRC_ = nullptr;
+	UI::TextView *tvmd5_ = nullptr;
 	UI::TextView *tvID_ = nullptr;
 
 	UI::Choice *btnGameSettings_ = nullptr;
@@ -86,4 +88,5 @@ private:
 	std::vector<UI::Choice *> otherChoices_;
 	std::vector<Path> saveDirs;
 	std::string CRC32string;
+	std::string MD5string;
 };

@@ -44,6 +44,7 @@
 #include "UI/MainScreen.h"
 #include "UI/BackgroundAudio.h"
 #include "Core/Reporting.h"
+#include "UI/mmd5.h"
 
 GameScreen::GameScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
 	g_BackgroundAudio.SetGame(gamePath);
@@ -77,6 +78,12 @@ void GameScreen::update() {
 			btnCalcCRC_->SetVisibility(UI::V_GONE);
 		}
 	}
+	if (MD5string == "...") {
+		tvCRC_->SetText(MD5string);
+		btnCalcMD5_->SetVisibility(UI::V_GONE);
+
+	}
+
 }
 
 void GameScreen::CreateViews() {
@@ -200,12 +207,13 @@ void GameScreen::CreateViews() {
 	if (fileTypeSupportCRC && !isHomebrew && !Reporting::HasCRC(gamePath_) ) {
 		btnCalcCRC_ = rightColumnItems->Add(new ChoiceWithValueDisplay(&CRC32string, ga->T("Calculate CRC"), (const char*)nullptr));
 		btnCalcCRC_->OnClick.Handle(this, &GameScreen::OnDoCRC32);
-		btnCalcMD5_ = rightColumnItems->Add(new ChoiceWithValueDisplay(&CRC32string, ga->T("Calculate MD5"), (const char*)nullptr));
-		btnCalcMD5_->OnClick.Handle(this, &GameScreen::OnDoCRC32);
 	} else {
 		btnCalcCRC_ = nullptr;
-		btnCalcMD5_ = nullptr;
+		//btnCalcMD5_ = nullptr;
 	}
+	btnCalcMD5_ = rightColumnItems->Add(new ChoiceWithValueDisplay(&MD5string, ga->T("Calculate MD5"), (const char*)nullptr));
+	btnCalcMD5_->OnClick.Handle(this, &GameScreen::OnDoMD5);
+
 }
 
 UI::Choice *GameScreen::AddOtherChoice(UI::Choice *choice) {
@@ -346,6 +354,15 @@ UI::EventReturn GameScreen::OnDoCRC32(UI::EventParams& e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn GameScreen::OnDoMD5(UI::EventParams& e) {
+	MD5string = "...";
+	//Reporting::QueueCRC(gamePath_);
+	//MD5string = md5file(gamePath_);
+	auto chrs = gamePath_.c_str();
+	MD5string = md5file(chrs);
+	btnCalcMD5_->SetEnabled(false);
+	return UI::EVENT_DONE;
+}
 
 UI::EventReturn GameScreen::OnSwitchBack(UI::EventParams &e) {
 	TriggerFinish(DR_OK);
