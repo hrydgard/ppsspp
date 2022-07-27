@@ -78,7 +78,7 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 	bool rotated = rotation == ROTATION_LOCKED_VERTICAL || rotation == ROTATION_LOCKED_VERTICAL180;
 
 #ifdef OPENXR
-	if (VR_GetMode() == VR_MODE_FLAT_SCREEN) {
+	if (VR_GetConfig(VR_CONFIG_MODE) == VR_MODE_FLAT_SCREEN) {
 		g_Config.iSmallDisplayZoomType = (int)SmallDisplayZoom::AUTO;
 	} else {
 		g_Config.iSmallDisplayZoomType = (int)SmallDisplayZoom::STRETCH;

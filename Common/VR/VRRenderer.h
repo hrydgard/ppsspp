@@ -2,6 +2,14 @@
 
 #include "VRFramebuffer.h"
 
+enum VRConfig {
+	VR_CONFIG_MODE,
+	VR_CONFIG_INVERTED_PROJECTION,
+	VR_CONFIG_3D_GEOMETRY_COUNT,
+	VR_CONFIG_FOV_SCALE,
+	VR_CONFIG_MAX
+};
+
 enum VRMatrix {
 	VR_PROJECTION_MATRIX_HUD = 0,
 	VR_PROJECTION_MATRIX_LEFT_EYE = 1,
@@ -22,12 +30,9 @@ void VR_DestroyRenderer( engine_t* engine );
 
 void VR_BeginFrame( engine_t* engine );
 void VR_EndFrame( engine_t* engine );
-void VR_SetMode( VRMode mode );
-VRMode VR_GetMode();
 
-int VR_GeView3DCount();
-void VR_SetView3DCount( int value );
+int VR_GetConfig( VRConfig config );
+void VR_SetConfig( VRConfig config, int value);
 
 void VR_BindFramebuffer( engine_t* engine, int eye );
 ovrMatrix4f VR_GetMatrix( VRMatrix matrix );
-void VR_SetInvertedProjection( bool inverted );

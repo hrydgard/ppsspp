@@ -453,6 +453,10 @@ public:
 	int iFirmwareVersion;
 	bool bBypassOSKWithKeyboard;
 
+	// Virtual reality
+	bool bEnableVR;
+	int iFieldOfViewPercentage;
+
 	// Debugger
 	int iDisasmWindowX;
 	int iDisasmWindowY;

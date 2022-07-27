@@ -224,6 +224,9 @@ void GameSettingsScreen::CreateViews() {
 	auto ri = GetI18NCategory("RemoteISO");
 	auto ps = GetI18NCategory("PostShaders");
 	auto th = GetI18NCategory("Themes");
+	auto vr = GetI18NCategory("VR");
+
+	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -433,7 +436,6 @@ void GameSettingsScreen::CreateViews() {
 	});
 
 #if PPSSPP_PLATFORM(ANDROID)
-	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
 	if ((deviceType != DEVICE_TYPE_TV) && (deviceType != DEVICE_TYPE_VR)) {
 		static const char *deviceResolutions[] = { "Native device resolution", "Auto (same as Rendering)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
 		int max_res_temp = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 2;
@@ -1106,6 +1108,14 @@ void GameSettingsScreen::CreateViews() {
 		ApplySearchFilter();
 	}
 #endif
+
+	if (deviceType == DEVICE_TYPE_VR) {
+		LinearLayout *vrSettings = AddTab("GameSettingsVR", ms->T("VR"));
+		vrSettings->Add(new ItemHeader(vr->T("Virtual reality")));
+		vrSettings->Add(new CheckBox(&g_Config.bEnableVR, vr->T("Enable virtual reality")));
+		PopupSliderChoice *vrFieldOfView = vrSettings->Add(new PopupSliderChoice(&g_Config.iFieldOfViewPercentage, 50, 150, vr->T("Field of view scale", "Headset's field of view scale"), 10, screenManager(), vr->T("% of native FoV")));
+		vrFieldOfView->SetEnabledPtr(&g_Config.bEnableVR);
+	}
 }
 
 UI::LinearLayout *GameSettingsScreen::AddTab(const char *tag, const std::string &title, bool isSearch) {

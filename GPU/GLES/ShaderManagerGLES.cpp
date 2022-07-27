@@ -316,14 +316,24 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	}
 
 #ifdef OPENXR
-	bool is2D = true;
+	float e = 0.00001f;
+	bool identity = true;
+	bool oneTranslation = true;
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
-			if ((i != j) && (fabs(gstate.projMatrix[i * 4 + j]) > 0.0001f)) {
-				VR_SetView3DCount(VR_GeView3DCount() + 1);
-				is2D = false;
-			}
+			float value = gstate.projMatrix[i * 4 + j];
+
+			// Other number than zero on non-diagonale
+			if ((i != j) && (fabs(value) > e)) identity = false;
+			// Other number than one on diagonale
+			if ((i == j) && (fabs(value - 1.0f) > e)) identity = false;
+			// Special case detecting UI in Lego games
+			if (((i == 3) && (fabs(fabs(value) - 1.0f) > e))) oneTranslation = false;
 		}
+	}
+	bool is2D = identity || oneTranslation;
+	if (!is2D) {
+		VR_SetConfig(VR_CONFIG_3D_GEOMETRY_COUNT, VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) + 1);
 	}
 #endif
 
@@ -331,7 +341,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	if (dirty & DIRTY_PROJMATRIX) {
 		Matrix4x4 flippedMatrix;
 #ifdef OPENXR
-		if ((VR_GetMode() == VR_MODE_FLAT_SCREEN) || is2D) {
+		if ((VR_GetConfig(VR_CONFIG_MODE) == VR_MODE_FLAT_SCREEN) || is2D) {
 			memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 		} else {
 			ovrMatrix4f hmdProjection = VR_GetMatrix(VR_PROJECTION_MATRIX_LEFT_EYE);
@@ -497,7 +507,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	}
 	if (dirty & DIRTY_VIEWMATRIX) {
 #ifdef OPENXR
-		if ((VR_GetMode() == VR_MODE_FLAT_SCREEN) || is2D) {
+		if ((VR_GetConfig(VR_CONFIG_MODE) == VR_MODE_FLAT_SCREEN) || is2D) {
 			SetMatrix4x3(render_, &u_view, gstate.viewMatrix);
 		} else {
 			// Get view matrix from the game
@@ -508,9 +518,9 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 
 			// Get view matrix from the headset
 			if (gstate.projMatrix[0] * gstate.projMatrix[5] * gstate.projMatrix[10] > 0) {
-				VR_SetInvertedProjection(true);
+				VR_SetConfig(VR_CONFIG_INVERTED_PROJECTION, true);
 			} else {
-				VR_SetInvertedProjection(false);
+				VR_SetConfig(VR_CONFIG_INVERTED_PROJECTION, false);
 			}
 			ovrMatrix4f hmdView = VR_GetMatrix(VR_VIEW_MATRIX_LEFT_EYE);
 

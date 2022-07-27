@@ -14,9 +14,7 @@ XrPosef invViewTransform[2];
 XrFrameState frameState = {};
 GLboolean initialized = GL_FALSE;
 GLboolean stageSupported = GL_FALSE;
-GLboolean viewInverted = GL_FALSE;
-VRMode vrMode = VR_MODE_FLAT_SCREEN;
-int view3DCount = 0;
+int vrConfig[VR_CONFIG_MAX] = {};
 
 float menuYaw = 0;
 float recenterYaw = 0;
@@ -337,6 +335,7 @@ void VR_EndFrame( engine_t* engine ) {
 	ovrFramebuffer_SetNone();
 
 	XrCompositionLayerProjectionView projection_layer_elements[2] = {};
+	int vrMode = vrConfig[VR_CONFIG_MODE];
 	if ((vrMode == VR_MODE_MONO_6DOF) || (vrMode == VR_MODE_STEREO_6DOF)) {
 		menuYaw = hmdorientation[YAW];
 
@@ -426,21 +425,12 @@ void VR_EndFrame( engine_t* engine ) {
 	}
 }
 
-void VR_SetMode( VRMode mode ) {
-	vrMode = mode;
+int VR_GetConfig( VRConfig config ) {
+	return vrConfig[config];
 }
 
-
-VRMode VR_GetMode() {
-	return vrMode;
-}
-
-int VR_GeView3DCount() {
-	return view3DCount;
-}
-
-void VR_SetView3DCount( int value ) {
-	view3DCount = value;
+void VR_SetConfig( VRConfig config, int value) {
+	vrConfig[config] = value;
 }
 
 void VR_BindFramebuffer( engine_t* engine, int eye ) {
@@ -458,16 +448,16 @@ ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {
 		output = ovrMatrix4f_CreateProjectionFov(-hudScale, hudScale, hudScale, -hudScale, 1.0f, 0.0f );
 	} else if ((matrix == VR_PROJECTION_MATRIX_LEFT_EYE) || (matrix == VR_PROJECTION_MATRIX_RIGHT_EYE)) {
 		XrFovf fov = matrix == VR_PROJECTION_MATRIX_LEFT_EYE ? projections[0].fov : projections[1].fov;
-		float fovZoom = 2.0f;
-		fov.angleLeft /= fovZoom;
-		fov.angleRight /= fovZoom;
-		fov.angleUp /= fovZoom;
-		fov.angleDown /= fovZoom;
+		float fovScale = vrConfig[VR_CONFIG_FOV_SCALE] * 0.01f;
+		fov.angleLeft *= fovScale;
+		fov.angleRight *= fovScale;
+		fov.angleUp *= fovScale;
+		fov.angleDown *= fovScale;
 		output = ovrMatrix4f_CreateProjectionFov(fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown, 1.0f, 0.0f );
 	} else if ((matrix == VR_VIEW_MATRIX_LEFT_EYE) || (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
 		XrPosef invView = matrix == VR_VIEW_MATRIX_LEFT_EYE ? invViewTransform[0] : invViewTransform[1];
 
-		if (viewInverted) {
+		if (vrConfig[VR_CONFIG_INVERTED_PROJECTION]) {
 			vec3_t rotation = {0, 0, 0};
 			QuatToYawPitchRoll(invView.orientation, rotation, rotation);
 			XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, -radians(rotation[PITCH]));
@@ -488,8 +478,4 @@ ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {
 		assert(false);
 	}
 	return output;
-}
-
-void VR_SetInvertedProjection( bool inverted ) {
-	viewInverted = inverted;
 }

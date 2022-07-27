@@ -9,6 +9,7 @@
 #include "Common/Math/math_util.h"
 
 #ifdef OPENXR
+#include "Core/Config.h"
 #include "VR/VRBase.h"
 #include "VR/VRInput.h"
 #include "VR/VRRenderer.h"
@@ -212,16 +213,19 @@ bool GLRenderManager::ThreadFrame() {
 	VR_BeginFrame(VR_GetEngine());
 
 	// Decide if the scene is 3D or not
-	if (VR_GeView3DCount() > 100) {
-		VR_SetMode(VR_MODE_MONO_6DOF);
+	if (g_Config.bEnableVR && (VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) > 100)) {
+		VR_SetConfig(VR_CONFIG_MODE, VR_MODE_MONO_6DOF);
 	} else {
-		VR_SetMode(VR_MODE_FLAT_SCREEN);
+		VR_SetConfig(VR_CONFIG_MODE, VR_MODE_FLAT_SCREEN);
 	}
-	VR_SetView3DCount(VR_GeView3DCount() / 2);
+	VR_SetConfig(VR_CONFIG_3D_GEOMETRY_COUNT, VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) / 2);
+
+	// Set customizations
+	VR_SetConfig(VR_CONFIG_FOV_SCALE, g_Config.iFieldOfViewPercentage);
 
 	// hack to quick enable 2D mode in game
 	if (IN_VRGetButtonState(0) & ovrButton_GripTrigger) {
-		VR_SetMode(VR_MODE_FLAT_SCREEN);
+		VR_SetConfig(VR_CONFIG_MODE, VR_MODE_FLAT_SCREEN);
 	}
 #endif
 
