@@ -523,17 +523,36 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 		return;
 	}
 
-	LoadTextureLevel(*entry, replaced, level, 0, maxLevel, scaleFactor, dstFmt);
-
 	if (!texture) {
 		return;
 	}
 
 	// Mipmapping is only enabled when texture scaling is disabled.
+	int count = maxLevel;
 	if (maxLevel > 0 && scaleFactor == 1) {
-		for (int i = 1; i <= maxLevel; i++) {
-			LoadTextureLevel(*entry, replaced, i, i, maxLevel, scaleFactor, dstFmt);
+		count = maxLevel + 1;
+	} else {
+		count = 1;
+	}
+
+	for (int i = 0; i < count; i++) {
+		D3DLOCKED_RECT rect;
+
+		int dstLevel = i;
+		HRESULT result;
+		uint32_t lockFlag = dstLevel == 0 ? D3DLOCK_DISCARD : 0;  // Can only discard the top level
+		result = texture->LockRect(dstLevel, &rect, NULL, lockFlag);
+		if (FAILED(result)) {
+			ERROR_LOG(G3D, "Failed to lock D3D texture: %dx%d", w, h);
+			return;
 		}
+
+		uint8_t *data = (uint8_t *)rect.pBits;
+		int stride = rect.Pitch;
+
+		LoadTextureLevel(*entry, data, stride, replaced, i, scaleFactor, dstFmt);
+
+		texture->UnlockRect(0);
 	}
 
 	if (maxLevel == 0) {
@@ -582,25 +601,14 @@ CheckAlphaResult TextureCacheDX9::CheckAlpha(const u32 *pixelData, u32 dstFmt, i
 	}
 }
 
-void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int srcLevel, int dstLevel, int maxLevel, int scaleFactor, u32 dstFmt) {
+void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, int stride, ReplacedTexture &replaced, int srcLevel, int scaleFactor, u32 dstFmt) {
 	int w = gstate.getTextureWidth(srcLevel);
 	int h = gstate.getTextureHeight(srcLevel);
-
-	LPDIRECT3DTEXTURE9 &texture = DxTex(&entry);
-	D3DLOCKED_RECT rect;
-
-	HRESULT result;
-	uint32_t lockFlag = dstLevel == 0 ? D3DLOCK_DISCARD : 0;  // Can only discard the top level
-	result = texture->LockRect(dstLevel, &rect, NULL, lockFlag);
-	if (FAILED(result)) {
-		ERROR_LOG(G3D, "Failed to lock D3D texture: %dx%d", w, h);
-		return;
-	}
 
 	gpuStats.numTexturesDecoded++;
 	if (replaced.GetSize(srcLevel, w, h)) {
 		double replaceStart = time_now_d();
-		replaced.Load(srcLevel, rect.pBits, rect.Pitch);
+		replaced.Load(srcLevel, data, stride);
 		replacementTimeThisFrame_ += time_now_d() - replaceStart;
 		dstFmt = ToD3D9Format(replaced.Format(srcLevel));
 	} else {
@@ -610,8 +618,8 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 		int bufw = GetTextureBufw(srcLevel, texaddr, tfmt);
 		int bpp = dstFmt == D3DFMT_A8R8G8B8 ? 4 : 2;
 
-		u32 *pixelData = (u32 *)rect.pBits;
-		int decPitch = rect.Pitch;
+		u32 *pixelData = (u32 *)data;
+		int decPitch = stride;
 		if (scaleFactor > 1) {
 			tmpTexBufRearrange_.resize(std::max(bufw, w) * h);
 			pixelData = tmpTexBufRearrange_.data();
@@ -623,21 +631,21 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 		entry.SetAlphaStatus(alphaResult, srcLevel);
 
 		if (scaleFactor > 1) {
-			scaler.ScaleAlways((u32 *)rect.pBits, pixelData, dstFmt, w, h, scaleFactor);
-			pixelData = (u32 *)rect.pBits;
+			scaler.ScaleAlways((u32 *)data, pixelData, dstFmt, w, h, scaleFactor);
+			pixelData = (u32 *)data;
 
 			// We always end up at 8888.  Other parts assume this.
 			_assert_(dstFmt == D3DFMT_A8R8G8B8);
 			bpp = sizeof(u32);
 			decPitch = w * bpp;
 
-			if (decPitch != rect.Pitch) {
+			if (decPitch != stride) {
 				// Rearrange in place to match the requested pitch.
 				// (it can only be larger than w * bpp, and a match is likely.)
 				for (int y = h - 1; y >= 0; --y) {
-					memcpy((u8 *)rect.pBits + rect.Pitch * y, (u8 *)rect.pBits + decPitch * y, w * bpp);
+					memcpy(data + stride * y, (u8 *)data + decPitch * y, w * bpp);
 				}
-				decPitch = rect.Pitch;
+				decPitch = stride;
 			}
 		}
 
@@ -654,8 +662,6 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, srcLevel, w, h);
 		}
 	}
-
-	texture->UnlockRect(0);
 }
 
 bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
