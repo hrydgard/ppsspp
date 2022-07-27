@@ -467,11 +467,15 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 				gpr.SetImm(inst.dest, 0);
 			} else if (gpr.IsImm(inst.src1)) {
 				gpr.SetImm(inst.dest, Evaluate(gpr.GetImm(inst.src1), inst.constant, inst.op));
-			} else if (inst.constant == 0 && (inst.op == IROp::AddConst || inst.op == IROp::SubConst || inst.op == IROp::OrConst || inst.op == IROp::XorConst)) {
+			} else if (false && inst.constant == 0 && (inst.op == IROp::AddConst || inst.op == IROp::SubConst || inst.op == IROp::OrConst || inst.op == IROp::XorConst)) {
+				// NOTE: Disabled with the "false" above due to #15735.
+				// This should work though.
+				//
 				// Convert an Add/Sub/Or/Xor with a constant zero to a Mov (just like with reg zero.)
 				gpr.MapDirtyIn(inst.dest, inst.src1);
 				if (inst.dest != inst.src1)
 					out.Write(IROp::Mov, inst.dest, inst.src1);
+				// In the else case here, we have a NOP, effectively. Do we even need the MapDirtyIn?
 			} else {
 				gpr.MapDirtyIn(inst.dest, inst.src1);
 				goto doDefault;

@@ -134,6 +134,9 @@ static const IRVerification tests[] = {
 		},
 		{ &PropagateConstants },
 	},
+
+	// Temporarily disabled this test, see #15735
+	/*
 	{
 		// Needed for PurgeTemps optimizations to work.
 		"OrToMov",
@@ -153,6 +156,7 @@ static const IRVerification tests[] = {
 		},
 		{ &PropagateConstants },
 	},
+	*/
 };
 
 bool TestIRPassSimplify() {
