@@ -467,15 +467,11 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 				gpr.SetImm(inst.dest, 0);
 			} else if (gpr.IsImm(inst.src1)) {
 				gpr.SetImm(inst.dest, Evaluate(gpr.GetImm(inst.src1), inst.constant, inst.op));
-			} else if (false && inst.constant == 0 && (inst.op == IROp::AddConst || inst.op == IROp::SubConst || inst.op == IROp::OrConst || inst.op == IROp::XorConst)) {
-				// NOTE: Disabled with the "false" above due to #15735.
-				// This should work though.
-				//
+			} else if (inst.constant == 0 && (inst.op == IROp::AddConst || inst.op == IROp::SubConst || inst.op == IROp::OrConst || inst.op == IROp::XorConst)) {
 				// Convert an Add/Sub/Or/Xor with a constant zero to a Mov (just like with reg zero.)
 				gpr.MapDirtyIn(inst.dest, inst.src1);
 				if (inst.dest != inst.src1)
 					out.Write(IROp::Mov, inst.dest, inst.src1);
-				// In the else case here, we have a NOP, effectively. Do we even need the MapDirtyIn?
 			} else {
 				gpr.MapDirtyIn(inst.dest, inst.src1);
 				goto doDefault;
@@ -841,7 +837,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				// Read from, but was this just a copy?
 				bool mutatesReg = IRMutatesDestGPR(inst, check.reg);
 				bool cannotReplace = inst.op == IROp::Interpret || inst.op == IROp::CallReplacement;
-				if (!mutatesReg && !cannotReplace && check.srcReg >= 0 && lastWrittenTo[check.srcReg] < check.index) {
+				if (false && !mutatesReg && !cannotReplace && check.srcReg >= 0 && lastWrittenTo[check.srcReg] < check.index) {
 					// Replace with the srcReg instead.  This happens with non-nice delay slots.
 					inst = IRReplaceSrcGPR(inst, check.reg, check.srcReg);
 				} else if (!IRMutatesDestGPR(insts[check.index], check.reg) && inst.op == IROp::Mov && i == check.index + 1) {
