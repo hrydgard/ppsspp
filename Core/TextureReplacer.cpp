@@ -456,6 +456,11 @@ bool TextureReplacer::PopulateLevel(ReplacedTextureLevel &level) {
 	bool good = false;
 
 	FILE *fp = File::OpenCFile(level.file, "rb");
+	if (!fp) {
+		ERROR_LOG(G3D, "Error opening replacement texture file '%s'", level.file.c_str());
+		return false;
+	}
+
 	auto imageType = Identify(fp);
 	if (imageType == ReplacedImageType::ZIM) {
 		fseek(fp, 4, SEEK_SET);
