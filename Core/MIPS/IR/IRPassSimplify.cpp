@@ -838,8 +838,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				bool mutatesReg = IRMutatesDestGPR(inst, check.reg);
 				bool cannotReplace = inst.op == IROp::Interpret || inst.op == IROp::CallReplacement;
 
-				// See #15736 for info about the disabling-by-false here.
-				if (false && !mutatesReg && !cannotReplace && check.srcReg >= 0 && lastWrittenTo[check.srcReg] < check.index) {
+				if (!mutatesReg && !cannotReplace && check.srcReg >= 0 && lastWrittenTo[check.srcReg] < check.index) {
 					// Replace with the srcReg instead.  This happens with non-nice delay slots.
 					inst = IRReplaceSrcGPR(inst, check.reg, check.srcReg);
 				} else if (!IRMutatesDestGPR(insts[check.index], check.reg) && inst.op == IROp::Mov && i == check.index + 1) {
@@ -884,13 +883,16 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			// So we consider them not read unless proven read.
 			lastWrittenTo[dest] = i;
 			// If this is a copy, we might be able to optimize out the copy.
-			if (inst.op == IROp::Mov) {
+
+			// See #15736 for info about the commenting-out here.
+			/* if (inst.op == IROp::Mov) {
 				Check check(dest, i, false);
 				check.srcReg = inst.src1;
 				checks.push_back(check);
 			} else {
+			*/
 				checks.push_back(Check(dest, i, false));
-			}
+			// }
 			break;
 
 		default:
