@@ -527,7 +527,6 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		}
 	}
 
-	// Seems to cause problems in Tactics Ogre.
 	if (badMipSizes) {
 		maxLevel = 0;
 	}
@@ -575,11 +574,6 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	entry->textureView = view;
 
 	LoadTextureLevel(*entry, replaced, srcLevel, 0, maxLevel, scaleFactor, dstFmt);
-
-	ID3D11ShaderResourceView *textureView = DxView(entry);
-	if (!textureView) {
-		return;
-	}
 
 	// Mipmapping is only enabled when texture scaling is disabled.
 	if (maxLevel > 0 && scaleFactor == 1) {
