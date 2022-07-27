@@ -77,6 +77,12 @@ std::string TextDrawerAndroid::NormalizeString(std::string str) {
 }
 
 void TextDrawerAndroid::MeasureString(const char *str, size_t len, float *w, float *h) {
+	if (!str) {
+		*w = 0.0;
+		*h = 0.0;
+		return;
+	}
+
 	CacheKey key{ std::string(str, len), fontHash_ };
 	TextMeasureEntry *entry;
 	auto iter = sizeCache_.find(key);
