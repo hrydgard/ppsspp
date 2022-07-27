@@ -837,6 +837,8 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				// Read from, but was this just a copy?
 				bool mutatesReg = IRMutatesDestGPR(inst, check.reg);
 				bool cannotReplace = inst.op == IROp::Interpret || inst.op == IROp::CallReplacement;
+
+				// See #15736 for info about the disabling-by-false here.
 				if (false && !mutatesReg && !cannotReplace && check.srcReg >= 0 && lastWrittenTo[check.srcReg] < check.index) {
 					// Replace with the srcReg instead.  This happens with non-nice delay slots.
 					inst = IRReplaceSrcGPR(inst, check.reg, check.srcReg);
