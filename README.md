@@ -25,6 +25,16 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.13.1
+====================
+
+* Confirmation dialog added before change of MAC address ([#15738])
+* IR interpreter regression fixed ([#15739])
+* Fix clearing of replacement texture cache ([#15740])
+* Improved Portuguese-pt translation ([#15734])
+* Fix graphical regression in Split/Second ([#15733])
+* Couple of minor crash fixes
+
 What's new in 1.13
 ==================
 
