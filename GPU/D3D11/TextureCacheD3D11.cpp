@@ -644,8 +644,6 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 	int w = gstate.getTextureWidth(srcLevel);
 	int h = gstate.getTextureHeight(srcLevel);
 
-	ID3D11Texture2D *texture = DxTex(&entry);
-
 	gpuStats.numTexturesDecoded++;
 	// For UpdateSubresource, we can't decode directly into the texture so we allocate a buffer :(
 	u32 *mapData = nullptr;
@@ -656,7 +654,6 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		double replaceStart = time_now_d();
 		replaced.Load(srcLevel, mapData, mapRowPitch);
 		replacementTimeThisFrame_ += time_now_d() - replaceStart;
-		dstFmt = ToDXGIFormat(replaced.Format(srcLevel));
 	} else {
 		GETextureFormat tfmt = (GETextureFormat)entry.format;
 		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
@@ -725,6 +722,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		}
 	}
 
+	ID3D11Texture2D *texture = DxTex(&entry);
 	context_->UpdateSubresource(texture, dstLevel, nullptr, mapData, mapRowPitch, 0);
 	FreeAlignedMemory(mapData);
 }

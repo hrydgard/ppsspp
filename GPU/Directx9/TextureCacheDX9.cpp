@@ -598,7 +598,6 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, int 
 		double replaceStart = time_now_d();
 		replaced.Load(level, data, stride);
 		replacementTimeThisFrame_ += time_now_d() - replaceStart;
-		dstFmt = ToD3D9Format(replaced.Format(level));
 	} else {
 		GETextureFormat tfmt = (GETextureFormat)entry.format;
 		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();

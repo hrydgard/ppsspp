@@ -1014,7 +1014,6 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 		uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(w * scaleFactor * h * scaleFactor * 4, 16);
 		scaler.ScaleAlways((u32 *)rearrange, pixelData, fmt, w, h, scaleFactor);
 		pixelData = (u32 *)writePtr;
-		dstFmt = (VkFormat)fmt;
 
 		// We always end up at 8888.  Other parts assume this.
 		_assert_(dstFmt == VULKAN_8888_FORMAT);

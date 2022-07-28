@@ -635,9 +635,8 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 	gpuStats.numTexturesDecoded++;
 
 	if (replaced.GetSize(srcLevel, w, h)) {
-		PROFILE_THIS_SCOPE("replacetex");
-
 		int bpp = (int)DataFormatSizeInBytes(replaced.Format(srcLevel));
+		
 		decPitch = w * bpp;
 		uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(decPitch * h, 16);
 		double replaceStart = time_now_d();
@@ -647,8 +646,6 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 
 		dstFmt = replaced.Format(srcLevel);
 	} else {
-		PROFILE_THIS_SCOPE("decodetex");
-
 		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
 		u32 texaddr = gstate.getTextureAddress(srcLevel);
 		int bufw = GetTextureBufw(srcLevel, texaddr, GETextureFormat(entry.format));
@@ -686,7 +683,6 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		}
 	}
 	
-	PROFILE_THIS_SCOPE("loadtex");
 	render_->TextureImage(entry.textureName, dstLevel, w, h, dstFmt, pixelData, GLRAllocType::ALIGNED);
 }
 
