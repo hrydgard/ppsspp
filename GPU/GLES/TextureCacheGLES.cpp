@@ -426,107 +426,10 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 }
 
 void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
-	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
-
-	// For the estimate, we assume cluts always point to 8888 for simplicity.
-	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
-
-	if ((entry->bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && entry->addr >= PSP_GetKernelMemoryEnd()) {
-		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
-		// Proceeding here can cause a crash.
+	BuildTexturePlan plan;
+	if (!PrepareBuildTexture(plan, entry)) {
+		// We're screwed?
 		return;
-	}
-
-	bool badMipSizes = false;
-	// maxLevel here is the max level to upload. Not the count.
-	bool canAutoGen = false;
-	int maxLevel = entry->maxLevel;
-	for (int i = 0; i <= maxLevel; i++) {
-		// If encountering levels pointing to nothing, adjust max level.
-		u32 levelTexaddr = gstate.getTextureAddress(i);
-		if (!Memory::IsValidAddress(levelTexaddr)) {
-			maxLevel = i - 1;
-			break;
-		}
-
-		// If size reaches 1, stop, and override maxlevel.
-		int tw = gstate.getTextureWidth(i);
-		int th = gstate.getTextureHeight(i);
-		if (tw == 1 || th == 1) {
-			maxLevel = i;
-			break;
-		}
-
-		if (i > 0) {
-			int lastW = gstate.getTextureWidth(i - 1);
-			int lastH = gstate.getTextureHeight(i - 1);
-
-			if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-				if (tw != 1 && tw != (lastW >> 1))
-					badMipSizes = true;
-				else if (th != 1 && th != (lastH >> 1))
-					badMipSizes = true;
-			}
-
-			if (lastW > tw || lastH > th)
-				canAutoGen = true;
-		}
-	}
-
-	int scaleFactor = standardScaleFactor_;
-
-	// Rachet down scale factor in low-memory mode.
-	if (lowMemoryMode_) {
-		// Keep it even, though, just in case of npot troubles.
-		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
-	}
-
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
-	ReplacedTexture &replaced = FindReplacement(entry, w, h);
-	if (replaced.Valid()) {
-		// We're replacing, so we won't scale.
-		scaleFactor = 1;
-		maxLevel = replaced.MaxLevel();
-		badMipSizes = false;
-	}
-
-	// Don't scale the PPGe texture.
-	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd())
-		scaleFactor = 1;
-
-	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0 && scaleFactor != 1) {
-		// Remember for later that we /wanted/ to scale this texture.
-		entry->status |= TexCacheEntry::STATUS_TO_SCALE;
-		scaleFactor = 1;
-	}
-
-	if (scaleFactor != 1) {
-		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED) {
-			entry->status |= TexCacheEntry::STATUS_TO_SCALE;
-			scaleFactor = 1;
-		} else {
-			entry->status &= ~TexCacheEntry::STATUS_TO_SCALE;
-			entry->status |= TexCacheEntry::STATUS_IS_SCALED;
-			texelsScaledThisFrame_ += w * h;
-		}
-	}
-
-	if (badMipSizes) {
-		maxLevel = 0;
-	}
-
-	// Always load base level texture here 
-	int srcLevel = 0;
-	if (IsFakeMipmapChange()) {
-		// NOTE: Since the level is not part of the cache key, we assume it never changes.
-		srcLevel = std::max(0, gstate.getTexLevelOffset16() / 16);
-	}
-
-	if (maxLevel == 0) {
-		entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
-	} else {
-		entry->status &= ~TexCacheEntry::STATUS_BAD_MIPS;
 	}
 
 	_assert_(!entry->textureName);
@@ -544,34 +447,34 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 
 	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
-	LoadTextureLevel(*entry, replaced, srcLevel, 0, scaleFactor, dstFmt);
+	LoadTextureLevel(*entry, *plan.replaced, plan.srcLevel, 0, plan.scaleFactor, dstFmt);
 
 	// Mipmapping is only enabled when texture scaling is disabled.
 	int texMaxLevel = 0;
 	bool genMips = false;
-	if (maxLevel > 0 && scaleFactor == 1) {
+	if (plan.maxLevel > 0 && plan.scaleFactor == 1) {
 		if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-			if (badMipSizes) {
+			if (plan.badMipSizes) {
 				// WARN_LOG(G3D, "Bad mipmap for texture sized %dx%dx%d - autogenerating", w, h, (int)format);
-				if (canAutoGen) {
+				if (plan.canAutoGen) {
 					genMips = true;
 				} else {
 					texMaxLevel = 0;
-					maxLevel = 0;
+					plan.maxLevel = 0;
 				}
 			} else {
-				for (int i = 1; i <= maxLevel; i++) {
-					LoadTextureLevel(*entry, replaced, i, i, scaleFactor, dstFmt);
+				for (int i = 1; i <= plan.maxLevel; i++) {
+					LoadTextureLevel(*entry, *plan.replaced, i, i, plan.scaleFactor, dstFmt);
 				}
-				texMaxLevel = maxLevel;
+				texMaxLevel = plan.maxLevel;
 			}
 		} else {
 			// Avoid PowerVR driver bug
-			if (canAutoGen && w > 1 && h > 1 && !(h > w && draw_->GetBugs().Has(Draw::Bugs::PVR_GENMIPMAP_HEIGHT_GREATER))) {  // Really! only seems to fail if height > width
+			if (plan.canAutoGen && plan.w > 1 && plan.h > 1 && !(plan.h > plan.w && draw_->GetBugs().Has(Draw::Bugs::PVR_GENMIPMAP_HEIGHT_GREATER))) {  // Really! only seems to fail if height > width
 				// NOTICE_LOG(G3D, "Generating mipmap for texture sized %dx%d%d", w, h, (int)format);
 				genMips = true;
 			} else {
-				maxLevel = 0;
+				plan.maxLevel = 0;
 			}
 		}
 	} else if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
@@ -580,13 +483,13 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 
 	render_->FinalizeTexture(entry->textureName, texMaxLevel, genMips);
 
-	if (maxLevel == 0) {
+	if (plan.maxLevel == 0) {
 		entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
 	} else {
 		entry->status &= ~TexCacheEntry::STATUS_BAD_MIPS;
 	}
-	if (replaced.Valid()) {
-		entry->SetAlphaStatus(TexCacheEntry::TexStatus(replaced.AlphaStatus()));
+	if (plan.replaced->Valid()) {
+		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
 	}
 }
 

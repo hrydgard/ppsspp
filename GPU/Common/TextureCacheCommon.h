@@ -229,6 +229,17 @@ struct AttachCandidate {
 
 class FramebufferManagerCommon;
 
+struct BuildTexturePlan {
+	bool badMipSizes;
+	bool canAutoGen;
+	int maxLevel;
+	int srcLevel;
+	int scaleFactor;
+	int w;
+	int h;
+	ReplacedTexture *replaced;
+};
+
 class TextureCacheCommon {
 public:
 	TextureCacheCommon(Draw::DrawContext *draw);
@@ -270,6 +281,8 @@ public:
 	virtual bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) { return false; }
 
 protected:
+	bool PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry);
+
 	virtual void BindTexture(TexCacheEntry *entry) = 0;
 	virtual void Unbind() = 0;
 	virtual void ReleaseTexture(TexCacheEntry *entry, bool delete_them) = 0;
