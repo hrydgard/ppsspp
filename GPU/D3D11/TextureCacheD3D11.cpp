@@ -459,12 +459,9 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		return;
 	}
 
-	// Adjust maxLevel to actually present levels..
 	bool badMipSizes = false;
-
 	// maxLevel here is the max level to upload. Not the count.
 	int maxLevel = entry->maxLevel;
-
 	for (int i = 0; i <= maxLevel; i++) {
 		// If encountering levels pointing to nothing, adjust max level.
 		u32 levelTexaddr = gstate.getTextureAddress(i);
@@ -531,20 +528,26 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		maxLevel = 0;
 	}
 
+	int levels = scaleFactor == 1 ? (maxLevel + 1) : 1;
+	int tw = w, th = h;
+
 	int srcLevel = 0;
 	if (IsFakeMipmapChange()) {
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
 		srcLevel = std::max(0, gstate.getTexLevelOffset16() / 16);
+		levels = 1;
+	}
+
+	if (levels == 1) {
+		entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
+	} else {
+		entry->status &= ~TexCacheEntry::STATUS_BAD_MIPS;
 	}
 
 	DXGI_FORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-
+	ID3D11ShaderResourceView *view;
 	ID3D11Texture2D *texture = DxTex(entry);
 	_assert_(texture == nullptr);
-
-	// Create texture
-	int levels = scaleFactor == 1 ? maxLevel + 1 : 1;
-	int tw = w, th = h;
 	DXGI_FORMAT tfmt = dstFmt;
 	if (replaced.GetSize(srcLevel, tw, th)) {
 		tfmt = ToDXGIFormat(replaced.Format(srcLevel));
@@ -564,29 +567,19 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	desc.Width = tw;
 	desc.Height = th;
 	desc.Format = tfmt;
-	desc.MipLevels = IsFakeMipmapChange() ? 1 : levels;
+	desc.MipLevels = levels;
 	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
 	ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &texture));
-	ID3D11ShaderResourceView *view;
 	ASSERT_SUCCESS(device_->CreateShaderResourceView(texture, nullptr, &view));
 	entry->texturePtr = texture;
 	entry->textureView = view;
 
-	LoadTextureLevel(*entry, replaced, srcLevel, 0, maxLevel, scaleFactor, dstFmt);
-
 	// Mipmapping is only enabled when texture scaling is disabled.
-	if (maxLevel > 0 && scaleFactor == 1) {
-		for (int i = 1; i <= maxLevel; i++) {
-			LoadTextureLevel(*entry, replaced, i, i, maxLevel, scaleFactor, dstFmt);
-		}
+	for (int i = 0; i < levels; i++) {
+		LoadTextureLevel(*entry, replaced, (i == 0) ? srcLevel : i, i, scaleFactor, dstFmt);
 	}
 
-	if (maxLevel == 0) {
-		entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
-	} else {
-		entry->status &= ~TexCacheEntry::STATUS_BAD_MIPS;
-	}
 	if (replaced.Valid()) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(replaced.AlphaStatus()));
 	}
@@ -647,7 +640,7 @@ CheckAlphaResult TextureCacheD3D11::CheckAlpha(const u32 *pixelData, u32 dstFmt,
 	}
 }
 
-void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int srcLevel, int dstLevel, int maxLevel, int scaleFactor, DXGI_FORMAT dstFmt) {
+void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int srcLevel, int dstLevel, int scaleFactor, DXGI_FORMAT dstFmt) {
 	int w = gstate.getTextureWidth(srcLevel);
 	int h = gstate.getTextureHeight(srcLevel);
 

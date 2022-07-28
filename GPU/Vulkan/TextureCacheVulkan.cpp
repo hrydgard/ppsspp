@@ -974,9 +974,9 @@ CheckAlphaResult TextureCacheVulkan::CheckAlpha(const u32 *pixelData, VkFormat d
 	}
 }
 
-void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch, int srcLevel, int scaleFactor, VkFormat dstFmt) {
-	int w = gstate.getTextureWidth(srcLevel);
-	int h = gstate.getTextureHeight(srcLevel);
+void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch, int level, int scaleFactor, VkFormat dstFmt) {
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
 
 	gpuStats.numTexturesDecoded++;
 
@@ -984,11 +984,11 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 
 	GETextureFormat tfmt = (GETextureFormat)entry.format;
 	GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
-	u32 texaddr = gstate.getTextureAddress(srcLevel);
+	u32 texaddr = gstate.getTextureAddress(level);
 
 	_assert_msg_(texaddr != 0, "Can't load a texture from address null")
 
-	int bufw = GetTextureBufw(srcLevel, texaddr, tfmt);
+	int bufw = GetTextureBufw(level, texaddr, tfmt);
 	int bpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;
 
 	u32 *pixelData = (u32 *)writePtr;
@@ -1003,11 +1003,10 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 		decPitch = w * bpp;
 	}
 
-	CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, srcLevel, bufw, false, expand32);
-	gpuStats.numTexturesDecoded++;
+	CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, expand32);
 
 	// WARN_LOG(G3D, "Alpha: full=%d w=%d h=%d level=%d %s/%s", (int)(alphaResult == CHECKALPHA_FULL), w, h, level, GeTextureFormatToString(tfmt), GEPaletteFormatToString(clutformat));
-	entry.SetAlphaStatus(alphaResult, srcLevel);
+	entry.SetAlphaStatus(alphaResult, level);
 
 	if (scaleFactor > 1) {
 		u32 fmt = dstFmt;
