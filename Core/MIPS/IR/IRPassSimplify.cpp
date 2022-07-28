@@ -747,7 +747,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 	return logBlocks;
 }
 
-bool IRReadsFromGPR(const IRInst &inst, int reg) {
+bool IRReadsFromGPR(const IRInst &inst, int reg, bool directly = false) {
 	const IRMeta *m = GetIRMeta(inst.op);
 
 	if (m->types[1] == 'G' && inst.src1 == reg) {
@@ -759,8 +759,11 @@ bool IRReadsFromGPR(const IRInst &inst, int reg) {
 	if ((m->flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0 && m->types[0] == 'G' && inst.src3 == reg) {
 		return true;
 	}
-	if (inst.op == IROp::Interpret || inst.op == IROp::CallReplacement) {
-		return true;
+	if (!directly) {
+		if (inst.op == IROp::Interpret || inst.op == IROp::CallReplacement || inst.op == IROp::Syscall || inst.op == IROp::Break)
+			return true;
+		if (inst.op == IROp::Breakpoint || inst.op == IROp::MemoryCheck)
+			return true;
 	}
 	return false;
 }
@@ -810,16 +813,22 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	std::vector<IRInst> insts;
 	insts.reserve(in.GetInstructions().size());
 
+	// We track writes both to rename regs and to purge dead stores.
 	struct Check {
 		Check(int r, int i, bool rbx) : reg(r), index(i), readByExit(rbx) {
 		}
 
+		// Register this instruction wrote to.
 		int reg;
+		// Only other than -1 when it's a Mov, equivalent reg at this point.
 		int srcReg = -1;
+		// Index into insts for this op.
 		int index;
+		// Whether the dest reg is read by any Exit.
 		bool readByExit;
 	};
 	std::vector<Check> checks;
+	// This tracks the last index at which each reg was modified.
 	int lastWrittenTo[256];
 	memset(lastWrittenTo, -1, sizeof(lastWrittenTo));
 
@@ -828,23 +837,34 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 		IRInst inst = in.GetInstructions()[i];
 		const IRMeta *m = GetIRMeta(inst.op);
 
+		// Check if we can optimize by running through all the writes we've previously found.
 		for (Check &check : checks) {
 			if (check.reg == 0) {
+				// This means we already optimized this or a later inst depends on it.
 				continue;
 			}
 
 			if (IRReadsFromGPR(inst, check.reg)) {
-				// Read from, but was this just a copy?
+				// If this reads from the reg, we either depend on it or we can fold or swap.
+				// That's determined below.
+
+				// If this reads and writes the reg (e.g. MovZ, Load32Left), we can't just swap.
 				bool mutatesReg = IRMutatesDestGPR(inst, check.reg);
-				bool cannotReplace = inst.op == IROp::Interpret || inst.op == IROp::CallReplacement;
+				// If this doesn't directly read (i.e. Interpret), we can't swap.
+				bool cannotReplace = !IRReadsFromGPR(inst, check.reg, true);
 				if (!mutatesReg && !cannotReplace && check.srcReg >= 0 && lastWrittenTo[check.srcReg] < check.index) {
 					// Replace with the srcReg instead.  This happens with non-nice delay slots.
+					// We're changing "Mov A, B; Add C, C, A" to "Mov A, B; Add C, C, B" here.
+					// srcReg should only be set when it was a Mov.
 					inst = IRReplaceSrcGPR(inst, check.reg, check.srcReg);
 				} else if (!IRMutatesDestGPR(insts[check.index], check.reg) && inst.op == IROp::Mov && i == check.index + 1) {
+					// As long as the previous inst wasn't modifying its dest reg, and this is a Mov, we can swap.
+					// We're changing "Add A, B, C; Mov B, A" to "Add B, B, C; Mov A, B" here.
+
 					// This happens with lwl/lwr temps.  Replace the original dest.
 					insts[check.index] = IRReplaceDestGPR(insts[check.index], check.reg, inst.dest);
 					lastWrittenTo[inst.dest] = check.index;
-					// If it's being read from (by inst), we can't optimize out.
+					// If it's being read from (by inst now), we can't optimize out.
 					check.reg = 0;
 					// Update the read by exit flag to match the new reg.
 					check.readByExit = inst.dest < IRTEMP_0 || inst.dest > IRTEMP_LR_SHIFT;
@@ -855,6 +875,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 					check.reg = 0;
 				}
 			} else if (check.readByExit && (m->flags & IRFLAG_EXIT) != 0) {
+				// This is an exit, and the reg is read by any exit.  Clear it.
 				check.reg = 0;
 			} else if (IRDestGPR(inst) == check.reg) {
 				// Clobbered, we can optimize out.
@@ -878,7 +899,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 		case IRTEMP_LR_VALUE:
 		case IRTEMP_LR_MASK:
 		case IRTEMP_LR_SHIFT:
-			// Unlike other ops, these don't need to persist between blocks.
+			// Unlike other registers, these don't need to persist between blocks.
 			// So we consider them not read unless proven read.
 			lastWrittenTo[dest] = i;
 			// If this is a copy, we might be able to optimize out the copy.
@@ -911,6 +932,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 		insts.push_back(inst);
 	}
 
+	// Since we're done with the instructions, all remaining can be nuked.
 	for (Check &check : checks) {
 		if (!check.readByExit && check.reg > 0) {
 			insts[check.index].op = IROp::Mov;
@@ -920,6 +942,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	}
 
 	for (const IRInst &inst : insts) {
+		// Simply skip any Mov 0, 0 instructions, since that's how we nuke one.
 		if (inst.op != IROp::Mov || inst.dest != 0 || inst.src1 != 0) {
 			out.Write(inst);
 		}
