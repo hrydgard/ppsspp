@@ -454,7 +454,8 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		return;
 	}
 
-	int tw = plan.w, th = plan.h;
+	int tw = plan.w;
+	int th = plan.h;
 
 	DXGI_FORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 	ID3D11ShaderResourceView *view;
