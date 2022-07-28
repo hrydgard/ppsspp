@@ -188,6 +188,12 @@ struct ReplacedTextureDecodeInfo {
 	ReplacedTextureFormat fmt;
 };
 
+enum class ReplacerDecimateMode {
+	NEW_FRAME,
+	FORCE_PRESSURE,
+	ALL,
+};
+
 class TextureReplacer {
 public:
 	TextureReplacer();
@@ -214,7 +220,7 @@ public:
 	// Notify that a new texture was decoded.  May already be upscaled, saves the data passed.
 	void NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int w, int h);
 
-	void Decimate(bool forcePressure);
+	void Decimate(ReplacerDecimateMode mode);
 
 	static bool GenerateIni(const std::string &gameID, Path &generatedFilename);
 	static bool IniExists(const std::string &gameID);

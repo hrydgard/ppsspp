@@ -62,6 +62,7 @@ void TextureReplacer::Init() {
 void TextureReplacer::NotifyConfigChanged() {
 	gameID_ = g_paramSFO.GetDiscID();
 
+	bool wasEnabled = enabled_;
 	enabled_ = g_Config.bReplaceTextures || g_Config.bSaveNewTextures;
 	if (enabled_) {
 		basePath_ = GetSysDirectory(DIRECTORY_TEXTURES) / gameID_;
@@ -75,6 +76,8 @@ void TextureReplacer::NotifyConfigChanged() {
 		}
 
 		enabled_ = File::Exists(basePath_) && File::IsDirectory(basePath_);
+	} else if (wasEnabled) {
+		Decimate(ReplacerDecimateMode::ALL);
 	}
 
 	if (enabled_) {
@@ -698,9 +701,14 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	savedCache_[replacementKey] = std::make_pair(saved, now);
 }
 
-void TextureReplacer::Decimate(bool forcePressure) {
+void TextureReplacer::Decimate(ReplacerDecimateMode mode) {
 	// Allow replacements to be cached for a long time, although they're large.
-	const double age = forcePressure ? 90.0 : 1800.0;
+	double age = 1800.0;
+	if (mode == ReplacerDecimateMode::FORCE_PRESSURE)
+		age = 90.0;
+	else if (mode == ReplacerDecimateMode::ALL)
+		age = 0.0;
+
 	const double threshold = time_now_d() - age;
 	for (auto &item : cache_) {
 		item.second.PurgeIfOlder(threshold);
@@ -851,6 +859,8 @@ bool ReplacedTexture::IsReady(double budget) {
 		return false;
 
 	if (g_Config.bReplaceTexturesAllowLate) {
+		if (threadWaitable_)
+			delete threadWaitable_;
 		threadWaitable_ = new LimitedWaitable();
 		g_threadManager.EnqueueTask(new ReplacedTextureTask(*this, threadWaitable_));
 
