@@ -857,6 +857,15 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 					// We're changing "Mov A, B; Add C, C, A" to "Mov A, B; Add C, C, B" here.
 					// srcReg should only be set when it was a Mov.
 					inst = IRReplaceSrcGPR(inst, check.reg, check.srcReg);
+
+					// If the Mov modified the same reg as this instruction, we can't optimize from it anymore.
+					if (inst.dest == check.reg) {
+						check.reg = 0;
+						// We can also optimize it out since we've essentially moved now.
+						insts[check.index].op = IROp::Mov;
+						insts[check.index].dest = 0;
+						insts[check.index].src1 = 0;
+					}
 				} else if (!IRMutatesDestGPR(insts[check.index], check.reg) && inst.op == IROp::Mov && i == check.index + 1) {
 					// As long as the previous inst wasn't modifying its dest reg, and this is a Mov, we can swap.
 					// We're changing "Add A, B, C; Mov B, A" to "Add B, B, C; Mov A, B" here.

@@ -93,6 +93,19 @@ static const IRVerification tests[] = {
 		{ &PurgeTemps },
 	},
 	{
+		"Load32LeftPurgeTemps",
+		{
+			{ IROp::Mov, { IRTEMP_LR_ADDR }, MIPS_REG_A0 },
+			{ IROp::AndConst, { IRTEMP_LR_ADDR }, IRTEMP_LR_ADDR, 0, 0xFFFFFFFC },
+			{ IROp::Load32, { MIPS_REG_V0 }, IRTEMP_LR_ADDR, 0, 0 },
+		},
+		{
+			{ IROp::AndConst, { IRTEMP_LR_ADDR }, MIPS_REG_A0, 0, 0xFFFFFFFC },
+			{ IROp::Load32, { MIPS_REG_V0 }, IRTEMP_LR_ADDR, 0, 0 },
+		},
+		{ &PurgeTemps },
+	},
+	{
 		"SwapClobberTemp",
 		{
 			{ IROp::Sub, { MIPS_REG_A0 }, MIPS_REG_A1, MIPS_REG_A2 },
