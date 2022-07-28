@@ -577,6 +577,10 @@ static VkFormat ToVulkanFormat(Draw::DataFormat fmt) {
 }
 
 void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+	bool hardwareScaling = g_Config.bTexHardwareScaling && uploadCS_ != VK_NULL_HANDLE;
+	bool slowScaler = !hardwareScaling || vulkan->DevicePerfClass() == PerfClass::SLOW;  // Or the GPU is slow - TODO add check!
+
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
@@ -620,8 +624,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	int scaleFactor = standardScaleFactor_;
 
-	bool hardwareScaling = g_Config.bTexHardwareScaling && uploadCS_ != VK_NULL_HANDLE;
-
 	// Rachet down scale factor in low-memory mode.
 	// TODO: I think really we should just turn it off?
 	if (lowMemoryMode_ && !hardwareScaling) {
@@ -629,21 +631,17 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
 	}
 
-	// In addition, simply don't load more than level 0 if g_Config.bMipMap is false.
 	if (badMipSizes) {
 		maxLevel = 0;
+	}
+
+	if (hardwareScaling) {
+		scaleFactor = shaderScaleFactor_;
 	}
 
 	// We generate missing mipmaps from maxLevel+1 up to this level. maxLevel can get overwritten below
 	// such as when using replacement textures - but let's keep the same amount of levels.
 	int maxLevelToGenerate = maxLevel;
-
-	VkFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-
-	if (hardwareScaling) {
-		scaleFactor = shaderScaleFactor_;
-		dstFmt = VK_FORMAT_R8G8B8A8_UNORM;
-	}
 
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
@@ -659,10 +657,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd()) {
 		scaleFactor = 1;
 	}
-
-	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
-
-	bool slowScaler = !hardwareScaling || vulkan->DevicePerfClass() == PerfClass::SLOW;  // Or the GPU is slow - TODO add check!
 
 	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0 && scaleFactor != 1 && slowScaler) {
 		// Remember for later that we /wanted/ to scale this texture.
@@ -701,6 +695,12 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		maxPossibleMipLevel = 0;
 	}
 
+	VkFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
+
+	if (hardwareScaling) {
+		dstFmt = VK_FORMAT_R8G8B8A8_UNORM;
+	}
+
 	// We don't generate mipmaps for 512x512 textures because they're almost exclusively used for menu backgrounds
 	// and similar, which don't really need it.
 	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY && w <= 256 && h <= 256) {
@@ -728,21 +728,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 		const VkComponentMapping *mapping;
 		switch (actualFmt) {
-		case VULKAN_4444_FORMAT:
-			mapping = &VULKAN_4444_SWIZZLE;
-			break;
-
-		case VULKAN_1555_FORMAT:
-			mapping = &VULKAN_1555_SWIZZLE;
-			break;
-
-		case VULKAN_565_FORMAT:
-			mapping = &VULKAN_565_SWIZZLE;
-			break;
-
-		default:
-			mapping = &VULKAN_8888_SWIZZLE;
-			break;
+		case VULKAN_4444_FORMAT: mapping = &VULKAN_4444_SWIZZLE; break;
+		case VULKAN_1555_FORMAT: mapping = &VULKAN_1555_SWIZZLE; break;
+		case VULKAN_565_FORMAT:  mapping = &VULKAN_565_SWIZZLE;  break;
+		default:                 mapping = &VULKAN_8888_SWIZZLE; break;
 		}
 
 		VkImageLayout imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
