@@ -859,6 +859,8 @@ bool ReplacedTexture::IsReady(double budget) {
 		return false;
 
 	if (g_Config.bReplaceTexturesAllowLate) {
+		if (threadWaitable_)
+			delete threadWaitable_;
 		threadWaitable_ = new LimitedWaitable();
 		g_threadManager.EnqueueTask(new ReplacedTextureTask(*this, threadWaitable_));
 
