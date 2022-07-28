@@ -234,6 +234,7 @@ struct BuildTexturePlan {
 	bool canAutoGen;
 	int maxLevel;
 	int srcLevel;
+	int levels;
 	int scaleFactor;
 	int w;
 	int h;

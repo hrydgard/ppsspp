@@ -448,113 +448,25 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer,
 }
 
 void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
-	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
-
-	// For the estimate, we assume cluts always point to 8888 for simplicity.
-	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
-
-	if ((entry->bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && entry->addr >= PSP_GetKernelMemoryEnd()) {
-		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
-		// Proceeding here can cause a crash.
+	BuildTexturePlan plan;
+	if (!PrepareBuildTexture(plan, entry)) {
+		// We're screwed?
 		return;
 	}
 
-	bool badMipSizes = false;
-	// maxLevel here is the max level to upload. Not the count.
-	int maxLevel = entry->maxLevel;
-	for (int i = 0; i <= maxLevel; i++) {
-		// If encountering levels pointing to nothing, adjust max level.
-		u32 levelTexaddr = gstate.getTextureAddress(i);
-		if (!Memory::IsValidAddress(levelTexaddr)) {
-			maxLevel = i - 1;
-			break;
-		}
-
-		// If size reaches 1, stop, and override maxlevel.
-		int tw = gstate.getTextureWidth(i);
-		int th = gstate.getTextureHeight(i);
-		if (tw == 1 || th == 1) {
-			maxLevel = i;
-			break;
-		}
-
-		if (i > 0 && gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-			if (tw != 1 && tw != (gstate.getTextureWidth(i - 1) >> 1))
-				badMipSizes = true;
-			else if (th != 1 && th != (gstate.getTextureHeight(i - 1) >> 1))
-				badMipSizes = true;
-		}
-	}
-
-	int scaleFactor = standardScaleFactor_;
-
-	// Rachet down scale factor in low-memory mode.
-	if (lowMemoryMode_) {
-		// Keep it even, though, just in case of npot troubles.
-		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
-	}
-
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
-	ReplacedTexture &replaced = FindReplacement(entry, w, h);
-	if (replaced.Valid()) {
-		// We're replacing, so we won't scale.
-		scaleFactor = 1;
-		maxLevel = replaced.MaxLevel();
-		badMipSizes = false;
-	}
-
-	// Don't scale the PPGe texture.
-	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd())
-		scaleFactor = 1;
-	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0 && scaleFactor != 1) {
-		// Remember for later that we /wanted/ to scale this texture.
-		entry->status |= TexCacheEntry::STATUS_TO_SCALE;
-		scaleFactor = 1;
-	}
-
-	if (scaleFactor != 1) {
-		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED) {
-			entry->status |= TexCacheEntry::STATUS_TO_SCALE;
-			scaleFactor = 1;
-		} else {
-			entry->status &= ~TexCacheEntry::STATUS_TO_SCALE;
-			entry->status |= TexCacheEntry::STATUS_IS_SCALED;
-			texelsScaledThisFrame_ += w * h;
-		}
-	}
-
-	if (badMipSizes) {
-		maxLevel = 0;
-	}
-
-	int levels = scaleFactor == 1 ? (maxLevel + 1) : 1;
-	int tw = w, th = h;
-
-	int srcLevel = 0;
-	if (IsFakeMipmapChange()) {
-		// NOTE: Since the level is not part of the cache key, we assume it never changes.
-		srcLevel = std::max(0, gstate.getTexLevelOffset16() / 16);
-		levels = 1;
-	}
-
-	if (levels == 1) {
-		entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
-	} else {
-		entry->status &= ~TexCacheEntry::STATUS_BAD_MIPS;
-	}
+	int tw = plan.w, th = plan.h;
 
 	DXGI_FORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 	ID3D11ShaderResourceView *view;
 	ID3D11Texture2D *texture = DxTex(entry);
 	_assert_(texture == nullptr);
 	DXGI_FORMAT tfmt = dstFmt;
-	if (replaced.GetSize(srcLevel, tw, th)) {
-		tfmt = ToDXGIFormat(replaced.Format(srcLevel));
+	if (plan.replaced->GetSize(plan.srcLevel, tw, th)) {
+		tfmt = ToDXGIFormat(plan.replaced->Format(plan.srcLevel));
 	} else {
-		tw *= scaleFactor;
-		th *= scaleFactor;
-		if (scaleFactor > 1) {
+		tw *= plan.scaleFactor;
+		th *= plan.scaleFactor;
+		if (plan.scaleFactor > 1) {
 			tfmt = DXGI_FORMAT_B8G8R8A8_UNORM;
 		}
 	}
@@ -567,7 +479,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	desc.Width = tw;
 	desc.Height = th;
 	desc.Format = tfmt;
-	desc.MipLevels = levels;
+	desc.MipLevels = plan.levels;
 	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
 	ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &texture));
@@ -576,12 +488,12 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	entry->textureView = view;
 
 	// Mipmapping is only enabled when texture scaling is disabled.
-	for (int i = 0; i < levels; i++) {
-		LoadTextureLevel(*entry, replaced, (i == 0) ? srcLevel : i, i, scaleFactor, dstFmt);
+	for (int i = 0; i < plan.levels; i++) {
+		LoadTextureLevel(*entry, *plan.replaced, (i == 0) ? plan.srcLevel : i, i, plan.scaleFactor, dstFmt);
 	}
 
-	if (replaced.Valid()) {
-		entry->SetAlphaStatus(TexCacheEntry::TexStatus(replaced.AlphaStatus()));
+	if (plan.replaced->Valid()) {
+		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
 	}
 }
 

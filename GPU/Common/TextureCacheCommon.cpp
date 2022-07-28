@@ -2099,14 +2099,17 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		plan.maxLevel = 0;
 	}
 
+	plan.levels = plan.scaleFactor == 1 ? (plan.maxLevel + 1) : 1;
+
 	// Always load base level texture here 
 	plan.srcLevel = 0;
 	if (IsFakeMipmapChange()) {
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
 		plan.srcLevel = std::max(0, gstate.getTexLevelOffset16() / 16);
+		plan.levels = 1;
 	}
 
-	if (plan.maxLevel == 0) {
+	if (plan.levels == 1) {
 		entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
 	} else {
 		entry->status &= ~TexCacheEntry::STATUS_BAD_MIPS;
