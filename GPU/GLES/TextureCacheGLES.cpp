@@ -437,8 +437,8 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		return;
 	}
 
-	// Adjust maxLevel to actually present levels..
 	bool badMipSizes = false;
+	// maxLevel here is the max level to upload. Not the count.
 	bool canAutoGen = false;
 	int maxLevel = entry->maxLevel;
 	for (int i = 0; i <= maxLevel; i++) {
@@ -472,9 +472,6 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 				canAutoGen = true;
 		}
 	}
-
-	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
-	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
 	int scaleFactor = standardScaleFactor_;
 
@@ -515,10 +512,9 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		}
 	}
 
-	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
-	// don't specify mips all the way down. As a result, we either need to manually generate
-	// the bottom few levels or rely on OpenGL's autogen mipmaps instead, which might not
-	// be as good quality as the game's own (might even be better in some cases though).
+	if (badMipSizes) {
+		maxLevel = 0;
+	}
 
 	// Always load base level texture here 
 	int srcLevel = 0;
@@ -527,13 +523,26 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		srcLevel = std::max(0, gstate.getTexLevelOffset16() / 16);
 	}
 
+	if (maxLevel == 0) {
+		entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
+	} else {
+		entry->status &= ~TexCacheEntry::STATUS_BAD_MIPS;
+	}
+
 	_assert_(!entry->textureName);
+
+	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
+	// don't specify mips all the way down. As a result, we either need to manually generate
+	// the bottom few levels or rely on OpenGL's autogen mipmaps instead, which might not
+	// be as good quality as the game's own (might even be better in some cases though).
 
 	// TODO: Actually pass in correct size here. The size here is (in GL) not yet used for anything else
 	// than determining if we can wrap this texture size, that is, it's pow2 or not on very old hardware, else true.
 	// This will be easy after .. well, yet another refactoring, where I hoist the size calculation out of LoadTextureLevel
 	// and unify BuildTexture.
 	entry->textureName = render_->CreateTexture(GL_TEXTURE_2D, 16, 16, 1);
+
+	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
 	LoadTextureLevel(*entry, replaced, srcLevel, 0, scaleFactor, dstFmt);
 
