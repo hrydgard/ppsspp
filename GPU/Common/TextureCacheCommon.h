@@ -230,11 +230,16 @@ struct AttachCandidate {
 class FramebufferManagerCommon;
 
 struct BuildTexturePlan {
+	// Inputs
+	bool hardwareScaling = false;
+	bool slowScaler = true;
+
 	bool badMipSizes;
 	bool canAutoGen;
 	int maxLevel;
-	int srcLevel;
+	int maxLevelToGenerate;
 	int levels;
+	int srcLevel;
 	int scaleFactor;
 	int w;
 	int h;
@@ -398,6 +403,7 @@ protected:
 	u16 clutAlphaLinearColor_;
 
 	int standardScaleFactor_;
+	int shaderScaleFactor_ = 0;
 
 	const char *nextChangeReason_;
 	bool nextNeedsRehash_;

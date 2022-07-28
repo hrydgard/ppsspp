@@ -25,6 +25,7 @@
 #include "Common/MemoryUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
+#include "Common/Math/math_util.h"
 #include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Reporting.h"
@@ -2008,8 +2009,6 @@ std::string AttachCandidate::ToString() {
 }
 
 bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry) {
-	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
-
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
 	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
 
@@ -2058,10 +2057,24 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	plan.scaleFactor = standardScaleFactor_;
 
 	// Rachet down scale factor in low-memory mode.
-	if (lowMemoryMode_) {
+	// TODO: I think really we should just turn it off?
+	if (lowMemoryMode_ && !plan.hardwareScaling) {
 		// Keep it even, though, just in case of npot troubles.
 		plan.scaleFactor = plan.scaleFactor > 4 ? 4 : (plan.scaleFactor > 2 ? 2 : 1);
 	}
+
+	if (plan.badMipSizes) {
+		plan.maxLevel = 0;
+	}
+
+	if (plan.hardwareScaling) {
+		plan.scaleFactor = shaderScaleFactor_;
+	}
+
+	// We generate missing mipmaps from maxLevel+1 up to this level. maxLevel can get overwritten below
+	// such as when using replacement textures - but let's keep the same amount of levels for generation.
+	// Not all backends will generate mipmaps, and in GL we can't really control the number of levels.
+	plan.maxLevelToGenerate = plan.maxLevel;
 
 	plan.w = gstate.getTextureWidth(0);
 	plan.h = gstate.getTextureHeight(0);
@@ -2078,14 +2091,14 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd())
 		plan.scaleFactor = 1;
 
-	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0 && plan.scaleFactor != 1) {
+	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0 && plan.scaleFactor != 1 && plan.slowScaler) {
 		// Remember for later that we /wanted/ to scale this texture.
 		entry->status |= TexCacheEntry::STATUS_TO_SCALE;
 		plan.scaleFactor = 1;
 	}
 
 	if (plan.scaleFactor != 1) {
-		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED) {
+		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED && plan.slowScaler) {
 			entry->status |= TexCacheEntry::STATUS_TO_SCALE;
 			plan.scaleFactor = 1;
 		} else {
@@ -2095,8 +2108,18 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		}
 	}
 
-	if (plan.badMipSizes) {
+	bool isVideo = IsVideo(entry->addr);
+
+	// TODO: Support reading actual mip levels for upscaled images, instead of just generating them.
+	// Probably can just remove this check?
+	if (plan.scaleFactor > 1) {
 		plan.maxLevel = 0;
+
+		bool enableVideoUpscaling = false;
+
+		if (!enableVideoUpscaling && isVideo) {
+			plan.scaleFactor = 1;
+		}
 	}
 
 	plan.levels = plan.scaleFactor == 1 ? (plan.maxLevel + 1) : 1;
@@ -2114,5 +2137,8 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	} else {
 		entry->status &= ~TexCacheEntry::STATUS_BAD_MIPS;
 	}
+
+	// Will be filled in again during decode.
+	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 	return true;
 }
