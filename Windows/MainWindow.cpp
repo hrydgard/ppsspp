@@ -87,6 +87,8 @@
 int verysleepy__useSendMessage = 1;
 
 const UINT WM_VERYSLEEPY_MSG = WM_APP + 0x3117;
+const UINT WM_USER_GET_BASE_POINTER = WM_APP + 0x3118;  // 0xB118
+
 // Respond TRUE to a message with this param value to indicate support.
 const WPARAM VERYSLEEPY_WPARAM_SUPPORTED = 0;
 // Respond TRUE to a message wit this param value after filling in the addr name.
@@ -733,6 +735,17 @@ namespace MainWindow
 			if (!DoesVersionMatchWindows(6, 0, 0, 0, true)) {
 				// Remove the D3D11 choice on versions below XP
 				RemoveMenu(GetMenu(hWnd), ID_OPTIONS_DIRECT3D11, MF_BYCOMMAND);
+			}
+			break;
+
+		case WM_USER_GET_BASE_POINTER:
+			switch (lParam) {
+			case 0:
+				return (u32)(u64)Memory::base;
+			case 1:
+				return (u32)((u64)Memory::base >> 32);
+			default:
+				return 0;
 			}
 			break;
 
