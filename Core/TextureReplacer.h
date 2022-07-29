@@ -25,6 +25,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/MemoryUtil.h"
 #include "Common/File/Path.h"
+#include "Common/GPU/DataFormat.h"
 
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/ge_constants.h"
@@ -34,12 +35,6 @@ class TextureCacheCommon;
 class TextureReplacer;
 class ReplacedTextureTask;
 class LimitedWaitable;
-
-enum class ReplacedTextureFormat {
-	F_8888,
-	// Might add compressed formats here later, maybe universal ones like Basis.
-	// We don't bother with the 16-bit formats for replacement storage, they're not commonly used these days.
-};
 
 // These must match the constants in TextureCacheCommon.
 enum class ReplacedTextureAlpha {
@@ -57,7 +52,7 @@ enum class ReplacedTextureHash {
 struct ReplacedTextureLevel {
 	int w;
 	int h;
-	ReplacedTextureFormat fmt;
+	Draw::DataFormat fmt;  // NOTE: Right now, the only supported format is Draw::DataFormat::R8G8B8A8_UNORM.
 	Path file;
 };
 
@@ -141,11 +136,11 @@ struct ReplacedTexture {
 		return (int)levels_.size() - 1;
 	}
 
-	ReplacedTextureFormat Format(int level) {
+	Draw::DataFormat Format(int level) {
 		if ((size_t)level < levels_.size()) {
 			return levels_[level].fmt;
 		}
-		return ReplacedTextureFormat::F_8888;
+		return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 
 	u8 AlphaStatus() {
@@ -180,7 +175,7 @@ struct ReplacedTextureDecodeInfo {
 	bool isVideo;
 	bool isFinal;
 	int scaleFactor;
-	ReplacedTextureFormat fmt;
+	Draw::DataFormat fmt;
 };
 
 enum class ReplacerDecimateMode {

@@ -564,15 +564,15 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
 }
 
-ReplacedTextureFormat FromVulkanFormat(VkFormat fmt) {
+static Draw::DataFormat FromVulkanFormat(VkFormat fmt) {
 	switch (fmt) {
-	case VULKAN_8888_FORMAT: default: return ReplacedTextureFormat::F_8888;
+	case VULKAN_8888_FORMAT: default: return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 }
 
-VkFormat ToVulkanFormat(ReplacedTextureFormat fmt) {
+static VkFormat ToVulkanFormat(Draw::DataFormat fmt) {
 	switch (fmt) {
-	case ReplacedTextureFormat::F_8888: default: return VULKAN_8888_FORMAT;
+	case Draw::DataFormat::R8G8B8A8_UNORM: default: return VULKAN_8888_FORMAT;
 	}
 }
 

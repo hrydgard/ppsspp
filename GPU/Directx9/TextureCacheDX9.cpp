@@ -539,15 +539,15 @@ CheckAlphaResult TextureCacheDX9::CheckAlpha(const u32 *pixelData, u32 dstFmt, i
 	}
 }
 
-ReplacedTextureFormat FromD3D9Format(u32 fmt) {
+Draw::DataFormat FromD3D9Format(u32 fmt) {
 	switch (fmt) {
-	case D3DFMT_A8R8G8B8: default: return ReplacedTextureFormat::F_8888;
+	case D3DFMT_A8R8G8B8: default: return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 }
 
-D3DFORMAT ToD3D9Format(ReplacedTextureFormat fmt) {
+D3DFORMAT ToD3D9Format(Draw::DataFormat fmt) {
 	switch (fmt) {
-	case ReplacedTextureFormat::F_8888: default: return D3DFMT_A8R8G8B8;
+	case Draw::DataFormat::R8G8B8A8_UNORM: default: return D3DFMT_A8R8G8B8;
 	}
 }
 

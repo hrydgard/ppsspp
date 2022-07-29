@@ -410,7 +410,7 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 		}
 
 		ReplacedTextureLevel level;
-		level.fmt = ReplacedTextureFormat::F_8888;
+		level.fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 		level.file = filename;
 		bool good = PopulateLevel(level);
 
@@ -657,7 +657,7 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	// Remember that we've saved this for next time.
 	// Should be OK that the actual disk write may not be finished yet.
 	ReplacedTextureLevel saved;
-	saved.fmt = ReplacedTextureFormat::F_8888;
+	saved.fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 	saved.file = filename;
 	saved.w = w;
 	saved.h = h;
