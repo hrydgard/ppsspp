@@ -44,7 +44,7 @@
 #include "UI/MainScreen.h"
 #include "UI/BackgroundAudio.h"
 #include "Core/Reporting.h"
-#include "UI/mmd5.h"
+#include "Common/Crypto/md5.h"
 
 GameScreen::GameScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
 	g_BackgroundAudio.SetGame(gamePath);
@@ -360,6 +360,31 @@ UI::EventReturn GameScreen::OnDoCRC32(UI::EventParams& e) {
 	Reporting::QueueCRC(gamePath_);
 	btnCalcCRC_->SetEnabled(false);
 	return UI::EVENT_DONE;
+}
+
+static char hb2hex(unsigned char hb) {
+	hb = hb & 0xF;
+	return hb < 10 ? '0' + hb : hb - 10 + 'a';
+}
+
+std::string md5file(const char* filename) {
+	std::FILE* file = std::fopen(filename, "rb");
+	unsigned char buff[BUFSIZ];
+	md5_context c;
+	md5_starts(&c);
+	unsigned char out[16];
+	size_t len = 0;	
+	while ((len = std::fread(buff, sizeof(char), BUFSIZ, file)) > 0) {
+		md5_update(&c, buff, len);
+	}
+	md5_finish(&c, out);
+	std::string res;
+	for (size_t i = 0; i < 16; ++i) {
+		res.push_back(hb2hex(out[i] >> 4));
+		res.push_back(hb2hex(out[i]));
+	}
+	std::fclose(file);
+	return res;
 }
 
 UI::EventReturn GameScreen::OnDoMD5(UI::EventParams& e) {
