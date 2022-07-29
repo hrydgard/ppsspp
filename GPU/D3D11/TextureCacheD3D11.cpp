@@ -238,7 +238,7 @@ void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
 		context_->PSSetShaderResources(0, 1, &textureView);
 		lastBoundTexture = textureView;
 	}
-	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
+	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
 	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, samplerKey);
 	context_->PSSetSamplers(0, 1, &state);
@@ -462,8 +462,8 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	ID3D11Texture2D *texture = DxTex(entry);
 	_assert_(texture == nullptr);
 	DXGI_FORMAT tfmt = dstFmt;
-	if (plan.replaced->GetSize(plan.srcLevel, tw, th)) {
-		tfmt = ToDXGIFormat(plan.replaced->Format(plan.srcLevel));
+	if (plan.replaced->GetSize(plan.baseLevelSrc, tw, th)) {
+		tfmt = ToDXGIFormat(plan.replaced->Format(plan.baseLevelSrc));
 	} else {
 		tw *= plan.scaleFactor;
 		th *= plan.scaleFactor;
@@ -480,7 +480,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	desc.Width = tw;
 	desc.Height = th;
 	desc.Format = tfmt;
-	desc.MipLevels = plan.levels;
+	desc.MipLevels = plan.levelsToCreate;
 	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
 	ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &texture));
@@ -489,8 +489,8 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	entry->textureView = view;
 
 	// Mipmapping is only enabled when texture scaling is disabled.
-	for (int i = 0; i < plan.levels; i++) {
-		LoadTextureLevel(*entry, *plan.replaced, (i == 0) ? plan.srcLevel : i, i, plan.scaleFactor, dstFmt);
+	for (int i = 0; i < plan.levelsToCreate; i++) {
+		LoadTextureLevel(*entry, *plan.replaced, (i == 0) ? plan.baseLevelSrc : i, i, plan.scaleFactor, dstFmt);
 	}
 
 	if (plan.replaced->Valid()) {

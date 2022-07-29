@@ -228,7 +228,7 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 		render_->BindTexture(0, entry->textureName);
 		lastBoundTexture = entry->textureName;
 	}
-	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
+	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
 	ApplySamplingParams(samplerKey);
 	gstate_c.SetUseShaderDepal(false);
@@ -447,12 +447,12 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 
 	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
-	LoadTextureLevel(*entry, *plan.replaced, plan.srcLevel, 0, plan.scaleFactor, dstFmt);
+	LoadTextureLevel(*entry, *plan.replaced, plan.baseLevelSrc, 0, plan.scaleFactor, dstFmt);
 
 	// Mipmapping is only enabled when texture scaling is disabled.
 	int texMaxLevel = 0;
 	bool genMips = false;
-	if (plan.maxLevel > 0 && plan.scaleFactor == 1) {
+	if (plan.maxLevelToLoad > 0 && plan.scaleFactor == 1) {
 		if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
 			if (plan.badMipSizes) {
 				// WARN_LOG(G3D, "Bad mipmap for texture sized %dx%dx%d - autogenerating", w, h, (int)format);
@@ -460,13 +460,13 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 					genMips = true;
 				} else {
 					texMaxLevel = 0;
-					plan.maxLevel = 0;
+					plan.maxLevelToLoad = 0;
 				}
 			} else {
-				for (int i = 1; i <= plan.maxLevel; i++) {
+				for (int i = 1; i <= plan.maxLevelToLoad; i++) {
 					LoadTextureLevel(*entry, *plan.replaced, i, i, plan.scaleFactor, dstFmt);
 				}
-				texMaxLevel = plan.maxLevel;
+				texMaxLevel = plan.maxLevelToLoad;
 			}
 		} else {
 			// Avoid PowerVR driver bug
@@ -474,7 +474,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 				// NOTICE_LOG(G3D, "Generating mipmap for texture sized %dx%d%d", w, h, (int)format);
 				genMips = true;
 			} else {
-				plan.maxLevel = 0;
+				plan.maxLevelToLoad = 0;
 			}
 		}
 	} else if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
@@ -483,10 +483,10 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 
 	render_->FinalizeTexture(entry->textureName, texMaxLevel, genMips);
 
-	if (plan.maxLevel == 0) {
-		entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
+	if (plan.maxLevelToLoad == 0) {
+		entry->status |= TexCacheEntry::STATUS_NO_MIPS;
 	} else {
-		entry->status &= ~TexCacheEntry::STATUS_BAD_MIPS;
+		entry->status &= ~TexCacheEntry::STATUS_NO_MIPS;
 	}
 	if (plan.replaced->Valid()) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));

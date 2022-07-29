@@ -392,7 +392,7 @@ void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 
 	entry->vkTex->Touch();
 	imageView_ = entry->vkTex->GetImageView();
-	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
+	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
 	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
 	drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
@@ -915,9 +915,9 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 
 	if (maxLevel == 0) {
-		entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
+		entry->status |= TexCacheEntry::STATUS_NO_MIPS;
 	} else {
-		entry->status &= ~TexCacheEntry::STATUS_BAD_MIPS;
+		entry->status &= ~TexCacheEntry::STATUS_NO_MIPS;
 	}
 	if (replaced.Valid()) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(replaced.AlphaStatus()));

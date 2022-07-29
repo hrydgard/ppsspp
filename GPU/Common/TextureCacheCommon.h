@@ -129,7 +129,7 @@ struct TexCacheEntry {
 		// texture, and set this flag to allow scaling the texture just once for the new hash.
 		STATUS_FREE_CHANGE = 0x0400,   // Allow one change before marking "frequent".
 
-		STATUS_BAD_MIPS = 0x0800,      // Has bad or unusable mipmap levels.
+		STATUS_NO_MIPS = 0x0800,      // Has bad or unusable mipmap levels.
 
 		STATUS_FRAMEBUFFER_OVERLAP = 0x1000,
 
@@ -234,15 +234,35 @@ struct BuildTexturePlan {
 	bool hardwareScaling = false;
 	bool slowScaler = true;
 
+	// Set if the PSP software specified an unusual mip chain,
+	// such as the same size throughout, or anything else that doesn't divide by
+	// two on each level. If this is set, we won't generate mips nor use any.
+	// However, we still respect baseLevelSrc.
 	bool badMipSizes;
+
+	// Set if we can autogenerate mipmaps. Probably redundant.
 	bool canAutoGen;
-	int maxLevel;
-	int maxLevelToGenerate;
-	int levels;
-	int srcLevel;
+
+	// Highest index of a level to load.
+	int maxLevelToLoad;
+
+	// The number of levels in total to create. If more than maxLevelToLoad,
+	// the backend is expected to either generate the levels, or limit itself to maxLevelToLoad.
+	int levelsToCreate;
+
+	// Load the 0-mip from this PSP texture level instead of 0.
+	// If non-zero, we are only loading one level.
+	int baseLevelSrc;
+
+	// The scale factor of the final texture.
 	int scaleFactor;
+
+	// Unscaled size of the 0-mip of the original texture.
+	// Don't really need to have it here, but convenient.
 	int w;
 	int h;
+
+	// The replacement for the texture.
 	ReplacedTexture *replaced;
 };
 

@@ -2021,12 +2021,12 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	plan.badMipSizes = false;
 	// maxLevel here is the max level to upload. Not the count.
 	plan.canAutoGen = false;
-	plan.maxLevel = entry->maxLevel;
-	for (int i = 0; i <= plan.maxLevel; i++) {
+	plan.maxLevelToLoad = entry->maxLevel;
+	for (int i = 0; i <= plan.maxLevelToLoad; i++) {
 		// If encountering levels pointing to nothing, adjust max level.
 		u32 levelTexaddr = gstate.getTextureAddress(i);
 		if (!Memory::IsValidAddress(levelTexaddr)) {
-			plan.maxLevel = i - 1;
+			plan.maxLevelToLoad = i - 1;
 			break;
 		}
 
@@ -2034,7 +2034,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		int tw = gstate.getTextureWidth(i);
 		int th = gstate.getTextureHeight(i);
 		if (tw == 1 || th == 1) {
-			plan.maxLevel = i;
+			plan.maxLevelToLoad = i;
 			break;
 		}
 
@@ -2064,7 +2064,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	}
 
 	if (plan.badMipSizes) {
-		plan.maxLevel = 0;
+		plan.maxLevelToLoad = 0;
 	}
 
 	if (plan.hardwareScaling) {
@@ -2074,7 +2074,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	// We generate missing mipmaps from maxLevel+1 up to this level. maxLevel can get overwritten below
 	// such as when using replacement textures - but let's keep the same amount of levels for generation.
 	// Not all backends will generate mipmaps, and in GL we can't really control the number of levels.
-	plan.maxLevelToGenerate = plan.maxLevel;
+	plan.levelsToCreate = plan.maxLevelToLoad + 1;
 
 	plan.w = gstate.getTextureWidth(0);
 	plan.h = gstate.getTextureHeight(0);
@@ -2083,7 +2083,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	if (plan.replaced->Valid()) {
 		// We're replacing, so we won't scale.
 		plan.scaleFactor = 1;
-		plan.maxLevel = plan.replaced->MaxLevel();
+		plan.maxLevelToLoad = plan.replaced->MaxLevel();
 		plan.badMipSizes = false;
 	}
 
@@ -2111,31 +2111,31 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	bool isVideo = IsVideo(entry->addr);
 
 	// TODO: Support reading actual mip levels for upscaled images, instead of just generating them.
-	// Probably can just remove this check?
+	// Maybe can just remove this check?
 	if (plan.scaleFactor > 1) {
-		plan.maxLevel = 0;
+		plan.maxLevelToLoad = 0;
 
 		bool enableVideoUpscaling = false;
 
 		if (!enableVideoUpscaling && isVideo) {
 			plan.scaleFactor = 1;
+			plan.levelsToCreate = 1;
 		}
 	}
 
-	plan.levels = plan.scaleFactor == 1 ? (plan.maxLevel + 1) : 1;
-
 	// Always load base level texture here 
-	plan.srcLevel = 0;
+	plan.baseLevelSrc = 0;
 	if (IsFakeMipmapChange()) {
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
-		plan.srcLevel = std::max(0, gstate.getTexLevelOffset16() / 16);
-		plan.levels = 1;
+		plan.baseLevelSrc = std::max(0, gstate.getTexLevelOffset16() / 16);
+		plan.levelsToCreate = 1;
+		plan.maxLevelToLoad = 0;
 	}
 
-	if (plan.levels == 1) {
-		entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
+	if (plan.levelsToCreate == 1) {
+		entry->status |= TexCacheEntry::STATUS_NO_MIPS;
 	} else {
-		entry->status &= ~TexCacheEntry::STATUS_BAD_MIPS;
+		entry->status &= ~TexCacheEntry::STATUS_NO_MIPS;
 	}
 
 	// Will be filled in again during decode.
