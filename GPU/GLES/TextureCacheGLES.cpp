@@ -443,47 +443,34 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	// than determining if we can wrap this texture size, that is, it's pow2 or not on very old hardware, else true.
 	// This will be easy after .. well, yet another refactoring, where I hoist the size calculation out of LoadTextureLevel
 	// and unify BuildTexture.
-	entry->textureName = render_->CreateTexture(GL_TEXTURE_2D, 16, 16, 1);
+	entry->textureName = render_->CreateTexture(GL_TEXTURE_2D, plan.w, plan.h, plan.levelsToCreate);
 
 	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
-	LoadTextureLevel(*entry, *plan.replaced, plan.baseLevelSrc, 0, plan.scaleFactor, dstFmt);
-
-	// Mipmapping is only enabled when texture scaling is disabled.
-	int texMaxLevel = 0;
-	bool genMips = false;
-	if (plan.maxLevelToLoad > 0 && plan.scaleFactor == 1) {
-		if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-			if (plan.badMipSizes) {
-				// WARN_LOG(G3D, "Bad mipmap for texture sized %dx%dx%d - autogenerating", w, h, (int)format);
-				if (plan.canAutoGen) {
-					genMips = true;
-				} else {
-					texMaxLevel = 0;
-					plan.maxLevelToLoad = 0;
-				}
-			} else {
-				for (int i = 1; i <= plan.maxLevelToLoad; i++) {
-					LoadTextureLevel(*entry, *plan.replaced, i, i, plan.scaleFactor, dstFmt);
-				}
-				texMaxLevel = plan.maxLevelToLoad;
-			}
+	// Apply some additional compatibility checks.
+	if (plan.levelsToLoad > 1) {
+		// Avoid PowerVR driver bug
+		if (plan.w > 1 && plan.h > 1 && !(plan.h > plan.w && draw_->GetBugs().Has(Draw::Bugs::PVR_GENMIPMAP_HEIGHT_GREATER))) {  // Really! only seems to fail if height > width
+			// It's ok to generate mipmaps beyond the loaded levels.
 		} else {
-			// Avoid PowerVR driver bug
-			if (plan.canAutoGen && plan.w > 1 && plan.h > 1 && !(plan.h > plan.w && draw_->GetBugs().Has(Draw::Bugs::PVR_GENMIPMAP_HEIGHT_GREATER))) {  // Really! only seems to fail if height > width
-				// NOTICE_LOG(G3D, "Generating mipmap for texture sized %dx%d%d", w, h, (int)format);
-				genMips = true;
-			} else {
-				plan.maxLevelToLoad = 0;
-			}
+			plan.levelsToCreate = plan.levelsToLoad;
 		}
-	} else if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-		texMaxLevel = 0;
+	} 
+
+	if (!gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
+		// Force no additional mipmaps.
+		plan.levelsToCreate = plan.levelsToLoad;
 	}
 
-	render_->FinalizeTexture(entry->textureName, texMaxLevel, genMips);
+	for (int i = 0; i < plan.levelsToLoad; i++) {
+		LoadTextureLevel(*entry, *plan.replaced, i == 0 ? plan.baseLevelSrc : i, i, plan.scaleFactor, dstFmt);
+	}
 
-	if (plan.maxLevelToLoad == 0) {
+	bool genMips = plan.levelsToCreate > plan.levelsToLoad;
+
+	render_->FinalizeTexture(entry->textureName, plan.levelsToLoad, genMips);
+
+	if (plan.levelsToLoad == 1) {
 		entry->status |= TexCacheEntry::STATUS_NO_MIPS;
 	} else {
 		entry->status &= ~TexCacheEntry::STATUS_NO_MIPS;

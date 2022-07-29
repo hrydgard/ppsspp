@@ -845,8 +845,8 @@ void ReplacedTexture::Prepare() {
 	if (cancelPrepare_)
 		return;
 
-	levelData_.resize(MaxLevel() + 1);
-	for (int i = 0; i <= MaxLevel(); ++i) {
+	levelData_.resize(NumLevels());
+	for (int i = 0; i < NumLevels(); ++i) {
 		if (cancelPrepare_)
 			break;
 		PrepareData(i);

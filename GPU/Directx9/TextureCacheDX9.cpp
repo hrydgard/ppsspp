@@ -428,7 +428,10 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 		}
 	}
 
-	HRESULT hr = device_->CreateTexture(tw, th, plan.levelsToCreate, usage, tfmt, pool, &texture, NULL);
+	// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
+	int levels = std::min(plan.levelsToCreate, plan.levelsToLoad);
+
+	HRESULT hr = device_->CreateTexture(tw, th, levels, usage, tfmt, pool, &texture, NULL);
 
 	if (FAILED(hr)) {
 		INFO_LOG(G3D, "Failed to create D3D texture: %dx%d", tw, th);
@@ -442,7 +445,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	// Mipmapping is only enabled when texture scaling is disabled.
-	for (int i = 0; i < plan.levelsToCreate; i++) {
+	for (int i = 0; i < levels; i++) {
 		int dstLevel = i;
 		HRESULT result;
 		uint32_t lockFlag = dstLevel == 0 ? D3DLOCK_DISCARD : 0;  // Can only discard the top level

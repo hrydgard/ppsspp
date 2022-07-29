@@ -649,7 +649,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	if (replaced.Valid()) {
 		// We're replacing, so we won't scale.
 		scaleFactor = 1;
-		maxLevel = replaced.MaxLevel();
+		maxLevel = replaced.NumLevels() - 1;
 		badMipSizes = false;
 	}
 

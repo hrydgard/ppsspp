@@ -240,14 +240,12 @@ struct BuildTexturePlan {
 	// However, we still respect baseLevelSrc.
 	bool badMipSizes;
 
-	// Set if we can autogenerate mipmaps. Probably redundant.
-	bool canAutoGen;
+	// Number of mip levels to load from PSP memory (or replacement).
+	int levelsToLoad;
 
-	// Highest index of a level to load.
-	int maxLevelToLoad;
-
-	// The number of levels in total to create. If more than maxLevelToLoad,
-	// the backend is expected to either generate the levels, or limit itself to maxLevelToLoad.
+	// The number of levels in total to create.
+	// If greater than maxLevelToLoad, the backend is expected to either generate
+	// the missing levels, or limit itself to levelsToLoad levels.
 	int levelsToCreate;
 
 	// Load the 0-mip from this PSP texture level instead of 0.

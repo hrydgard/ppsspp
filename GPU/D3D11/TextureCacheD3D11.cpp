@@ -472,6 +472,9 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		}
 	}
 
+	// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
+	int levels = std::min(plan.levelsToCreate, plan.levelsToLoad);
+
 	D3D11_TEXTURE2D_DESC desc{};
 	desc.CPUAccessFlags = 0;
 	desc.Usage = D3D11_USAGE_DEFAULT;
@@ -480,7 +483,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	desc.Width = tw;
 	desc.Height = th;
 	desc.Format = tfmt;
-	desc.MipLevels = plan.levelsToCreate;
+	desc.MipLevels = levels;
 	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
 	ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &texture));
@@ -489,8 +492,14 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	entry->textureView = view;
 
 	// Mipmapping is only enabled when texture scaling is disabled.
-	for (int i = 0; i < plan.levelsToCreate; i++) {
+	for (int i = 0; i < levels; i++) {
 		LoadTextureLevel(*entry, *plan.replaced, (i == 0) ? plan.baseLevelSrc : i, i, plan.scaleFactor, dstFmt);
+	}
+
+	if (levels == 1) {
+		entry->status |= TexCacheEntry::STATUS_NO_MIPS;
+	} else {
+		entry->status &= ~TexCacheEntry::STATUS_NO_MIPS;
 	}
 
 	if (plan.replaced->Valid()) {

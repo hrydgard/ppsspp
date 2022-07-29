@@ -376,9 +376,9 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 				boundTexture = tex->texture;
 			}
 			if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
-				glTexParameteri(tex->target, GL_TEXTURE_MAX_LEVEL, step.texture_finalize.maxLevel);
+				glTexParameteri(tex->target, GL_TEXTURE_MAX_LEVEL, step.texture_finalize.loadedLevels - 1);
 			}
-			tex->maxLod = (float)step.texture_finalize.maxLevel;
+			tex->maxLod = (float)step.texture_finalize.loadedLevels - 1;
 			if (step.texture_finalize.genMips) {
 				glGenerateMipmap(tex->target);
 			}
