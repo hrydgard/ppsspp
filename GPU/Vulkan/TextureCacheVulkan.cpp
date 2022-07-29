@@ -620,66 +620,64 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	bool computeUpload = false;
 	VkCommandBuffer cmdInit = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 
-	{
+	delete entry->vkTex;
+	entry->vkTex = new VulkanTexture(vulkan);
+	VulkanTexture *image = entry->vkTex;
+
+	const VkComponentMapping *mapping;
+	switch (actualFmt) {
+	case VULKAN_4444_FORMAT: mapping = &VULKAN_4444_SWIZZLE; break;
+	case VULKAN_1555_FORMAT: mapping = &VULKAN_1555_SWIZZLE; break;
+	case VULKAN_565_FORMAT:  mapping = &VULKAN_565_SWIZZLE;  break;
+	default:                 mapping = &VULKAN_8888_SWIZZLE; break;
+	}
+
+	VkImageLayout imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+
+	if (actualFmt == VULKAN_8888_FORMAT && plan.scaleFactor > 1 && plan.hardwareScaling) {
+		if (uploadCS_ != VK_NULL_HANDLE) {
+			computeUpload = true;
+		} else {
+			WARN_LOG(G3D, "Falling back to software scaling, hardware shader didn't compile");
+		}
+	}
+
+	if (computeUpload) {
+		usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+		imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+	}
+
+	char texName[128]{};
+	snprintf(texName, sizeof(texName), "tex_%08x_%s", entry->addr, GeTextureFormatToString((GETextureFormat)entry->format, gstate.getClutPaletteFormat()));
+	image->SetTag(texName);
+
+	bool allocSuccess = image->CreateDirect(cmdInit, plan.w * plan.scaleFactor, plan.h * plan.scaleFactor, plan.levelsToCreate, actualFmt, imageLayout, usage, mapping);
+	if (!allocSuccess && !lowMemoryMode_) {
+		WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
+		lowMemoryMode_ = true;
+		decimationCounter_ = 0;
+		Decimate();
+		// TODO: We should stall the GPU here and wipe things out of memory.
+		// As is, it will almost definitely fail the second time, but next frame it may recover.
+
+		auto err = GetI18NCategory("Error");
+		if (plan.scaleFactor > 1) {
+			host->NotifyUserMessage(err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
+		} else {
+			host->NotifyUserMessage(err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
+		}
+
+		plan.scaleFactor = 1;
+		actualFmt = dstFmt;
+
+		allocSuccess = image->CreateDirect(cmdInit, plan.w * plan.scaleFactor, plan.h * plan.scaleFactor, plan.levelsToCreate, actualFmt, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
+	}
+
+	if (!allocSuccess) {
+		ERROR_LOG(G3D, "Failed to create texture (%dx%d)", plan.w, plan.h);
 		delete entry->vkTex;
-		entry->vkTex = new VulkanTexture(vulkan);
-		VulkanTexture *image = entry->vkTex;
-
-		const VkComponentMapping *mapping;
-		switch (actualFmt) {
-		case VULKAN_4444_FORMAT: mapping = &VULKAN_4444_SWIZZLE; break;
-		case VULKAN_1555_FORMAT: mapping = &VULKAN_1555_SWIZZLE; break;
-		case VULKAN_565_FORMAT:  mapping = &VULKAN_565_SWIZZLE;  break;
-		default:                 mapping = &VULKAN_8888_SWIZZLE; break;
-		}
-
-		VkImageLayout imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-		VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-
-		if (actualFmt == VULKAN_8888_FORMAT && plan.scaleFactor > 1 && plan.hardwareScaling) {
-			if (uploadCS_ != VK_NULL_HANDLE) {
-				computeUpload = true;
-			} else {
-				WARN_LOG(G3D, "Falling back to software scaling, hardware shader didn't compile");
-			}
-		}
-
-		if (computeUpload) {
-			usage |= VK_IMAGE_USAGE_STORAGE_BIT;
-			imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-		}
-
-		char texName[128]{};
-		snprintf(texName, sizeof(texName), "tex_%08x_%s", entry->addr, GeTextureFormatToString((GETextureFormat)entry->format, gstate.getClutPaletteFormat()));
-		image->SetTag(texName);
-
-		bool allocSuccess = image->CreateDirect(cmdInit, plan.w * plan.scaleFactor, plan.h * plan.scaleFactor, plan.levelsToCreate, actualFmt, imageLayout, usage, mapping);
-		if (!allocSuccess && !lowMemoryMode_) {
-			WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
-			lowMemoryMode_ = true;
-			decimationCounter_ = 0;
-			Decimate();
-			// TODO: We should stall the GPU here and wipe things out of memory.
-			// As is, it will almost definitely fail the second time, but next frame it may recover.
-
-			auto err = GetI18NCategory("Error");
-			if (plan.scaleFactor > 1) {
-				host->NotifyUserMessage(err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
-			} else {
-				host->NotifyUserMessage(err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
-			}
-
-			plan.scaleFactor = 1;
-			actualFmt = dstFmt;
-
-			allocSuccess = image->CreateDirect(cmdInit, plan.w * plan.scaleFactor, plan.h * plan.scaleFactor, plan.levelsToCreate, actualFmt, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
-		}
-
-		if (!allocSuccess) {
-			ERROR_LOG(G3D, "Failed to create texture (%dx%d)", plan.w, plan.h);
-			delete entry->vkTex;
-			entry->vkTex = nullptr;
-		}
+		entry->vkTex = nullptr;
 	}
 
 	if (!entry->vkTex) {
