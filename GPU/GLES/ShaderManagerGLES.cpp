@@ -317,6 +317,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 
 #ifdef OPENXR
 	float e = 0.00001f;
+	bool ortho = true;
 	bool identity = true;
 	bool oneTranslation = true;
 	for (int i = 0; i < 4; i++) {
@@ -327,11 +328,13 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 			if ((i != j) && (fabs(value) > e)) identity = false;
 			// Other number than one on diagonale
 			if ((i == j) && (fabs(value - 1.0f) > e)) identity = false;
+			// Special case detecting UI in Flatout
+			if ((i == j) && (i < 2) && (fabs(value) < 10.0f)) ortho = false;
 			// Special case detecting UI in Lego games
 			if (((i == 3) && (fabs(fabs(value) - 1.0f) > e))) oneTranslation = false;
 		}
 	}
-	bool is2D = identity || oneTranslation;
+	bool is2D = identity || oneTranslation || ortho;
 	if (!is2D) {
 		VR_SetConfig(VR_CONFIG_3D_GEOMETRY_COUNT, VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) + 1);
 	}
