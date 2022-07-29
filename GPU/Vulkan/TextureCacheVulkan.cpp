@@ -566,18 +566,12 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 ReplacedTextureFormat FromVulkanFormat(VkFormat fmt) {
 	switch (fmt) {
-	case VULKAN_565_FORMAT: return ReplacedTextureFormat::F_5650;
-	case VULKAN_1555_FORMAT: return ReplacedTextureFormat::F_5551;
-	case VULKAN_4444_FORMAT: return ReplacedTextureFormat::F_4444;
 	case VULKAN_8888_FORMAT: default: return ReplacedTextureFormat::F_8888;
 	}
 }
 
 VkFormat ToVulkanFormat(ReplacedTextureFormat fmt) {
 	switch (fmt) {
-	case ReplacedTextureFormat::F_5650: return VULKAN_565_FORMAT;
-	case ReplacedTextureFormat::F_5551: return VULKAN_1555_FORMAT;
-	case ReplacedTextureFormat::F_4444: return VULKAN_4444_FORMAT;
 	case ReplacedTextureFormat::F_8888: default: return VULKAN_8888_FORMAT;
 	}
 }

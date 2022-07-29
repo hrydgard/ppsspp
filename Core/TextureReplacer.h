@@ -36,14 +36,9 @@ class ReplacedTextureTask;
 class LimitedWaitable;
 
 enum class ReplacedTextureFormat {
-	F_5650,
-	F_5551,
-	F_4444,
 	F_8888,
-	F_0565_ABGR,
-	F_1555_ABGR,
-	F_4444_ABGR,
-	F_8888_BGRA,
+	// Might add compressed formats here later, maybe universal ones like Basis.
+	// We don't bother with the 16-bit formats for replacement storage, they're not commonly used these days.
 };
 
 // These must match the constants in TextureCacheCommon.
