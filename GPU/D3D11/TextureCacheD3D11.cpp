@@ -605,6 +605,8 @@ CheckAlphaResult TextureCacheD3D11::CheckAlpha(const u32 *pixelData, u32 dstFmt,
 	}
 }
 
+// NOTE: In the D3D backends, we flip R and B in the shaders, so while these look wrong, they're OK.
+
 Draw::DataFormat FromD3D11Format(u32 fmt) {
 	switch (fmt) {
 	case DXGI_FORMAT_B8G8R8A8_UNORM: default: return Draw::DataFormat::R8G8B8A8_UNORM;
