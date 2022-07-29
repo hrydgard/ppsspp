@@ -255,6 +255,9 @@ struct BuildTexturePlan {
 	// The scale factor of the final texture.
 	int scaleFactor;
 
+	// Whether it's a video texture or not. Some decisions might depend on this.
+	bool isVideo;
+
 	// Unscaled size of the 0-mip of the original texture.
 	// Don't really need to have it here, but convenient.
 	int w;
@@ -344,7 +347,7 @@ protected:
 	void SetTextureFramebuffer(const AttachCandidate &candidate);
 
 	void DecimateVideos();
-	bool IsVideo(u32 texaddr);
+	bool IsVideo(u32 texaddr) const;
 
 	inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, GETextureFormat format, TexCacheEntry *entry) const {
 		if (replacer.Enabled()) {

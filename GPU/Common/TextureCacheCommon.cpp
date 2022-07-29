@@ -757,9 +757,9 @@ void TextureCacheCommon::DecimateVideos() {
 	}
 }
 
-bool TextureCacheCommon::IsVideo(u32 texaddr) {
+bool TextureCacheCommon::IsVideo(u32 texaddr) const {
 	texaddr &= 0x3FFFFFFF;
-	for (auto info : videos_) {
+	for (auto &info : videos_) {
 		if (texaddr < info.addr) {
 			continue;
 		}
@@ -2104,7 +2104,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		}
 	}
 
-	bool isVideo = IsVideo(entry->addr);
+	plan.isVideo = IsVideo(entry->addr);
 
 	// TODO: Support reading actual mip levels for upscaled images, instead of just generating them.
 	// Maybe can just remove this check?
@@ -2113,7 +2113,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 
 		bool enableVideoUpscaling = false;
 
-		if (!enableVideoUpscaling && isVideo) {
+		if (!enableVideoUpscaling && plan.isVideo) {
 			plan.scaleFactor = 1;
 			plan.levelsToCreate = 1;
 		}

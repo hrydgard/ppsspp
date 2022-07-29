@@ -155,6 +155,7 @@ void VulkanTexture::ClearMip(VkCommandBuffer cmd, int mip, uint32_t value) {
 // Low-quality mipmap generation by bilinear blit, but works okay.
 void VulkanTexture::GenerateMips(VkCommandBuffer cmd, int firstMipToGenerate, bool fromCompute) {
 	_assert_msg_(firstMipToGenerate > 0, "Cannot generate the first level");
+	_assert_msg_(firstMipToGenerate < numMips_, "Can't generate levels beyond storage");
 
 	// Transition the pre-set levels to GENERAL.
 	TransitionImageLayout2(cmd, image_, 0, firstMipToGenerate, VK_IMAGE_ASPECT_COLOR_BIT,
