@@ -696,7 +696,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 
 		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS);
 
-		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, expand32);
+		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, expand32);
 		entry.SetAlphaStatus(alphaResult, level);
 
 		if (scaleFactor > 1) {

@@ -999,7 +999,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 
 		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || dstFmt == VK_FORMAT_R8G8B8A8_UNORM;
 
-		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, expand32);
+		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, expand32);
 
 		// WARN_LOG(G3D, "Alpha: full=%d w=%d h=%d level=%d %s/%s", (int)(alphaResult == CHECKALPHA_FULL), w, h, level, GeTextureFormatToString(tfmt), GEPaletteFormatToString(clutformat));
 		entry.SetAlphaStatus(alphaResult, level);

@@ -621,7 +621,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 			decPitch = w * bpp;
 		}
 
-		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, false);
+		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false);
 		entry.SetAlphaStatus(alphaResult, level);
 
 		if (scaleFactor > 1) {

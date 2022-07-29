@@ -649,7 +649,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 
 		pixelData = (uint8_t *)AllocateAlignedMemory(decPitch * h * pixelSize, 16);
 
-		CheckAlphaResult alphaStatus = DecodeTextureLevel(pixelData, decPitch, GETextureFormat(entry.format), clutformat, texaddr, level, bufw, true, false, false);
+		CheckAlphaResult alphaStatus = DecodeTextureLevel(pixelData, decPitch, GETextureFormat(entry.format), clutformat, texaddr, level, bufw, true, false);
 		entry.SetAlphaStatus(alphaStatus, level);
 
 		if (scaleFactor > 1) {
