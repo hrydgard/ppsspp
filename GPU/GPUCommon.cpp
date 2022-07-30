@@ -1560,16 +1560,18 @@ void GPUCommon::Execute_TexLevel(u32 op, u32 diff) {
 	// TODO: If you change the rules here, don't forget to update the inner interpreter in Execute_Prim.
 	if (diff == 0xFFFFFFFF)
 		return;
-	gstate.texlevel ^= diff;
-	if (gstate.getTexLevelMode() != GE_TEXLEVEL_MODE_AUTO && (0x00FF0000 & gstate.texlevel) != 0) {
-		Flush();
-	}
+
 	gstate.texlevel ^= diff;
 
 	if (diff & 0xFF0000) {
 		// Piggyback on this flag for 3D textures.
 		gstate_c.Dirty(DIRTY_TEXCLAMP);
 	}
+	if (gstate.getTexLevelMode() != GE_TEXLEVEL_MODE_AUTO && (0x00FF0000 & gstate.texlevel) != 0) {
+		Flush();
+	}
+
+	gstate.texlevel ^= diff;
 
 	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE);
 }
