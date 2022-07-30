@@ -792,7 +792,7 @@ OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) :
 	format_ = desc.format;
 	type_ = desc.type;
 	GLenum target = TypeToTarget(desc.type);
-	tex_ = render->CreateTexture(target, desc.width, desc.height, desc.mipLevels);
+	tex_ = render->CreateTexture(target, desc.width, desc.height, 1, desc.mipLevels);
 
 	mipLevels_ = desc.mipLevels;
 	if (desc.initData.empty())
@@ -877,7 +877,7 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		}
 	}
 
-	render_->TextureImage(tex_, level, width, height, format_, texData);
+	render_->TextureImage(tex_, level, width, height, depth, format_, texData);
 }
 
 #ifdef DEBUG_READ_PIXELS

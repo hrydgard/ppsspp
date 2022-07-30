@@ -174,6 +174,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_tess_weights_v, "u_tess_weights_v" });
 	queries.push_back({ &u_spline_counts, "u_spline_counts" });
 	queries.push_back({ &u_depal_mask_shift_off_fmt, "u_depal_mask_shift_off_fmt" });
+	queries.push_back({ &u_mipBias, "u_mipBias" });
 
 	attrMask = vs->GetAttrMask();
 	availableUniforms = vs->GetUniformMask() | fs->GetUniformMask();
@@ -456,6 +457,13 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		if (u_texclampoff != -1) {
 			render_->SetUniformF(&u_texclampoff, 2, texclampoff);
 		}
+	}
+
+	if ((dirty & DIRTY_TEXCLAMP) && u_mipBias != -1) {
+		float mipBias = (float)gstate.getTexLevelOffset16() * (1.0 / 16.0f);
+		mipBias = (mipBias + 0.5f) / (float)(gstate.getTextureMaxLevel() + 1);
+
+		render_->SetUniformF(&u_mipBias, 1, &mipBias);
 	}
 
 	// Transform

@@ -276,8 +276,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "precision highp int;\n");
 		}
 
-		if (doTexture)
-			WRITE(p, "uniform sampler2D tex;\n");
+		if (doTexture) {
+			if (texture3D) {
+				WRITE(p, "uniform sampler3D tex;\n");
+			} else {
+				WRITE(p, "uniform sampler2D tex;\n");
+			}
+		}
 
 		if (readFramebufferTex) {
 			if (!compat.texelFetch) {
@@ -335,6 +340,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (doTexture && texFunc == GE_TEXFUNC_BLEND) {
 			*uniformMask |= DIRTY_TEXENV;
 			WRITE(p, "uniform vec3 u_texenv;\n");
+		}
+
+		if (texture3D) {
+			*uniformMask |= DIRTY_TEXCLAMP;
+			WRITE(p, "uniform float u_mipBias;\n");
 		}
 
 		WRITE(p, "%s %s lowp vec4 v_color0;\n", shading, compat.varying_fs);

@@ -316,8 +316,9 @@ void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 		PSSetFloatArray(CONST_PS_TEXCLAMPOFF, texclampoff, 2);
 
 		float mipBias = (float)gstate.getTexLevelOffset16() * (1.0 / 16.0f);
-		mipBias = (mipBias + 0.5f) / (float)(gstate.getTextureMaxLevel() + 1);
 
+		// NOTE: This equation needs some adjustment in D3D9. Can't get it to look completely smooth :(
+		mipBias = (mipBias + 0.25f) / (float)(gstate.getTextureMaxLevel() + 1);
 		PSSetFloatArray(CONST_PS_MIPBIAS, &mipBias, 1);
 	}
 }
