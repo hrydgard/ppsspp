@@ -458,17 +458,12 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	int th = plan.h;
 
 	DXGI_FORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-	ID3D11ShaderResourceView *view;
-	ID3D11Texture2D *texture = DxTex(entry);
-	_assert_(texture == nullptr);
 	if (plan.replaced->GetSize(plan.baseLevelSrc, tw, th)) {
 		dstFmt = ToDXGIFormat(plan.replaced->Format(plan.baseLevelSrc));
-	} else {
+	} else if (plan.scaleFactor > 1) {
 		tw *= plan.scaleFactor;
 		th *= plan.scaleFactor;
-		if (plan.scaleFactor > 1) {
-			dstFmt = DXGI_FORMAT_B8G8R8A8_UNORM;
-		}
+		dstFmt = DXGI_FORMAT_B8G8R8A8_UNORM;
 	}
 
 	// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
@@ -484,6 +479,10 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	desc.Format = dstFmt;
 	desc.MipLevels = levels;
 	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+	ID3D11ShaderResourceView *view;
+	ID3D11Texture2D *texture = DxTex(entry);
+	_assert_(texture == nullptr);
 
 	ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &texture));
 	ASSERT_SUCCESS(device_->CreateShaderResourceView(texture, nullptr, &view));
@@ -524,7 +523,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 			return;
 		}
 
-		LoadTextureLevel(*entry, data, stride, *plan.replaced, srcLevel, plan.scaleFactor, texFmt);
+		LoadTextureLevel(*entry, data, stride, *plan.replaced, srcLevel, plan.scaleFactor, texFmt, false);
 
 		ID3D11Texture2D *texture = DxTex(entry);
 		context_->UpdateSubresource(texture, i, nullptr, data, stride, 0);

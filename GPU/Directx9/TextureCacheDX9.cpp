@@ -413,23 +413,21 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 	int tw = plan.w;
 	int th = plan.h;
 
-	LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
 	D3DFORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-	D3DPOOL pool = D3DPOOL_DEFAULT;
-	int usage = D3DUSAGE_DYNAMIC;
 	if (plan.replaced->GetSize(plan.baseLevelSrc, tw, th)) {
 		dstFmt = ToD3D9Format(plan.replaced->Format(plan.baseLevelSrc));
-	} else {
+	} else if (plan.scaleFactor > 1) {
 		tw *= plan.scaleFactor;
 		th *= plan.scaleFactor;
-		if (plan.scaleFactor > 1) {
-			dstFmt = D3DFMT_A8R8G8B8;
-		}
+		dstFmt = D3DFMT_A8R8G8B8;
 	}
 
 	// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
 	int levels = std::min(plan.levelsToCreate, plan.levelsToLoad);
 
+	LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
+	D3DPOOL pool = D3DPOOL_DEFAULT;
+	int usage = D3DUSAGE_DYNAMIC;
 	HRESULT hr = device_->CreateTexture(tw, th, levels, usage, dstFmt, pool, &texture, NULL);
 
 	if (FAILED(hr)) {
@@ -460,7 +458,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 		uint8_t *data = (uint8_t *)rect.pBits;
 		int stride = rect.Pitch;
 
-		LoadTextureLevel(*entry, data, stride, *plan.replaced, (i == 0) ? plan.baseLevelSrc : i, plan.scaleFactor, texFmt);
+		LoadTextureLevel(*entry, data, stride, *plan.replaced, (i == 0) ? plan.baseLevelSrc : i, plan.scaleFactor, texFmt, false);
 
 		texture->UnlockRect(dstLevel);
 	}

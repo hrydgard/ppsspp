@@ -845,8 +845,6 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
-	PROFILE_THIS_SCOPE("decodetex");
-
 	GETextureFormat tfmt = (GETextureFormat)entry.format;
 	GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
 	u32 texaddr = gstate.getTextureAddress(level);

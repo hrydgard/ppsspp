@@ -2143,9 +2143,11 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	return true;
 }
 
-void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, int stride, ReplacedTexture &replaced, int srcLevel, int scaleFactor, Draw::DataFormat dstFmt) {
+void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, int stride, ReplacedTexture &replaced, int srcLevel, int scaleFactor, Draw::DataFormat dstFmt, bool reverseColors) {
 	int w = gstate.getTextureWidth(srcLevel);
 	int h = gstate.getTextureHeight(srcLevel);
+
+	PROFILE_THIS_SCOPE("decodetex");
 
 	if (replaced.GetSize(srcLevel, w, h)) {
 		double replaceStart = time_now_d();
@@ -2170,7 +2172,7 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, i
 
 		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || scaleFactor > 1;
 
-		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, srcLevel, bufw, false, expand32);
+		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, srcLevel, bufw, reverseColors, expand32);
 		entry.SetAlphaStatus(alphaResult, srcLevel);
 
 		if (scaleFactor > 1) {
