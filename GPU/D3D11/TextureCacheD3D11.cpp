@@ -598,8 +598,6 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, uint8_t *mapData,
 	int w = gstate.getTextureWidth(srcLevel);
 	int h = gstate.getTextureHeight(srcLevel);
 
-	gpuStats.numTexturesDecoded++;
-
 	if (replaced.GetSize(srcLevel, w, h)) {
 		double replaceStart = time_now_d();
 		replaced.Load(srcLevel, mapData, mapRowPitch);

@@ -530,8 +530,6 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 	uint8_t *pixelData;
 	int decPitch = 0;
 
-	gpuStats.numTexturesDecoded++;
-
 	if (replaced.GetSize(srcLevel, w, h)) {
 		int bpp = (int)DataFormatSizeInBytes(replaced.Format(srcLevel));
 		

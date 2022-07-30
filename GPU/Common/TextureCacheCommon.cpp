@@ -2011,6 +2011,8 @@ std::string AttachCandidate::ToString() {
 }
 
 bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry) {
+	gpuStats.numTexturesDecoded++;
+
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
 	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
 

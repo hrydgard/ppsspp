@@ -508,7 +508,6 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, int 
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
-	gpuStats.numTexturesDecoded++;
 	if (replaced.GetSize(level, w, h)) {
 		double replaceStart = time_now_d();
 		replaced.Load(level, data, stride);
