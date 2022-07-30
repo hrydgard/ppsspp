@@ -2142,3 +2142,69 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 	return true;
 }
+
+uint8_t *TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, int stride, ReplacedTexture &replaced, int srcLevel, int scaleFactor, Draw::DataFormat dstFmt) {
+	int w = gstate.getTextureWidth(srcLevel);
+	int h = gstate.getTextureHeight(srcLevel);
+
+	if (replaced.GetSize(srcLevel, w, h)) {
+		double replaceStart = time_now_d();
+		replaced.Load(srcLevel, data, stride);
+		replacementTimeThisFrame_ += time_now_d() - replaceStart;
+	} else {
+		GETextureFormat tfmt = (GETextureFormat)entry.format;
+		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
+		u32 texaddr = gstate.getTextureAddress(srcLevel);
+		int bufw = GetTextureBufw(srcLevel, texaddr, tfmt);
+		u32 *pixelData;
+		int decPitch;
+		if (scaleFactor > 1) {
+			tmpTexBufRearrange_.resize(std::max(bufw, w) * h);
+			pixelData = tmpTexBufRearrange_.data();
+			// We want to end up with a neatly packed texture for scaling.
+			decPitch = w * 4;
+		} else {
+			pixelData = (u32 *)data;
+			decPitch = stride;
+		}
+
+		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || scaleFactor > 1;
+
+		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, srcLevel, bufw, false, expand32);
+		entry.SetAlphaStatus(alphaResult, srcLevel);
+
+		if (scaleFactor > 1) {
+			// Note that this updates w and h!
+			scaler_.ScaleAlways((u32 *)data, pixelData, w, h, scaleFactor);
+			pixelData = (u32 *)data;
+
+			decPitch = w * 4;
+
+			if (decPitch != stride) {
+				// Rearrange in place to match the requested pitch.
+				// (it can only be larger than w * bpp, and a match is likely.)
+				// Note! This is bad because it reads the mapped memory! TODO: Look into if DX9 does this right.
+				for (int y = h - 1; y >= 0; --y) {
+					memcpy((u8 *)data + stride * y, (u8 *)data + decPitch * y, w * 4);
+				}
+				decPitch = stride;
+			}
+		}
+
+		if (replacer_.Enabled()) {
+			ReplacedTextureDecodeInfo replacedInfo;
+			replacedInfo.cachekey = entry.CacheKey();
+			replacedInfo.hash = entry.fullhash;
+			replacedInfo.addr = entry.addr;
+			replacedInfo.isVideo = IsVideo(entry.addr);
+			replacedInfo.isFinal = (entry.status & TexCacheEntry::STATUS_TO_SCALE) == 0;
+			replacedInfo.scaleFactor = scaleFactor;
+			replacedInfo.fmt = dstFmt;
+
+			// NOTE: Reading the decoded texture here may be very slow, if we just wrote it to write-combined memory.
+			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, srcLevel, w, h);
+		}
+	}
+
+	return data;
+}

@@ -329,6 +329,9 @@ protected:
 	CheckAlphaResult ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool reverseColors, bool expandTo32Bit);
 	ReplacedTexture &FindReplacement(TexCacheEntry *entry, int &w, int &h);
 
+	// Return value is mapData normally, but could be another buffer allocated with AllocateAlignedMemory.
+	uint8_t *LoadTextureLevel(TexCacheEntry &entry, uint8_t *mapData, int mapRowPitch, ReplacedTexture &replaced, int srcLevel, int scaleFactor, Draw::DataFormat dstFmt);
+
 	template <typename T>
 	inline const T *GetCurrentClut() {
 		return (const T *)clutBuf_;
