@@ -283,8 +283,6 @@ public:
 	int dynamicUniformSize = 0;
 
 	bool usesStencil = false;
-	uint8_t stencilWriteMask = 0xFF;
-	uint8_t stencilTestMask = 0xFF;
 
 private:
 	VulkanContext *vulkan_;
@@ -407,7 +405,7 @@ public:
 	void SetScissorRect(int left, int top, int width, int height) override;
 	void SetViewports(int count, Viewport *viewports) override;
 	void SetBlendFactor(float color[4]) override;
-	void SetStencilRef(uint8_t stencilRef) override;
+	void SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) override;
 
 	void BindSamplerStates(int start, int count, SamplerState **state) override;
 	void BindTextures(int start, int count, Texture **textures) override;
@@ -554,6 +552,8 @@ private:
 	DeviceCaps caps_{};
 
 	uint8_t stencilRef_ = 0;
+	uint8_t stencilWriteMask_ = 0xFF;
+	uint8_t stencilCompareMask_ = 0xFF;
 };
 
 static int GetBpp(VkFormat format) {
@@ -1131,8 +1131,6 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	}
 	if (depth->info.stencilTestEnable) {
 		pipeline->usesStencil = true;
-		pipeline->stencilTestMask = depth->info.front.compareMask;
-		pipeline->stencilWriteMask = depth->info.front.writeMask;
 	}
 	return pipeline;
 }
@@ -1160,10 +1158,12 @@ void VKContext::SetBlendFactor(float color[4]) {
 	renderManager_.SetBlendFactor(col);
 }
 
-void VKContext::SetStencilRef(uint8_t stencilRef) {
+void VKContext::SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) {
 	if (curPipeline_->usesStencil)
-		renderManager_.SetStencilParams(curPipeline_->stencilWriteMask, curPipeline_->stencilTestMask, stencilRef);
-	stencilRef_ = stencilRef;
+		renderManager_.SetStencilParams(writeMask, compareMask, refValue);
+	stencilRef_ = refValue;
+	stencilWriteMask_ = writeMask;
+	stencilCompareMask_ = compareMask;
 }
 
 InputLayout *VKContext::CreateInputLayout(const InputLayoutDesc &desc) {
@@ -1207,9 +1207,7 @@ Texture *VKContext::CreateTexture(const TextureDesc &desc) {
 	}
 }
 
-static inline void CopySide(VkStencilOpState &dest, const StencilSide &src) {
-	dest.compareMask = src.compareMask;
-	dest.writeMask = src.writeMask;
+static inline void CopySide(VkStencilOpState &dest, const StencilSetup &src) {
 	dest.compareOp = compToVK[(int)src.compareOp];
 	dest.failOp = stencilOpToVK[(int)src.failOp];
 	dest.passOp = stencilOpToVK[(int)src.passOp];
@@ -1224,8 +1222,8 @@ DepthStencilState *VKContext::CreateDepthStencilState(const DepthStencilStateDes
 	ds->info.stencilTestEnable = desc.stencilEnabled;
 	ds->info.depthBoundsTestEnable = false;
 	if (ds->info.stencilTestEnable) {
-		CopySide(ds->info.front, desc.front);
-		CopySide(ds->info.back, desc.back);
+		CopySide(ds->info.front, desc.stencil);
+		CopySide(ds->info.back, desc.stencil);
 	}
 	return ds;
 }
@@ -1313,7 +1311,7 @@ void VKContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 void VKContext::ApplyDynamicState() {
 	// TODO: blend constants, stencil, viewports should be here, after bindpipeline..
 	if (curPipeline_->usesStencil) {
-		renderManager_.SetStencilParams(curPipeline_->stencilWriteMask, curPipeline_->stencilTestMask, stencilRef_);
+		renderManager_.SetStencilParams(stencilWriteMask_, stencilCompareMask_, stencilRef_);
 	}
 }
 
