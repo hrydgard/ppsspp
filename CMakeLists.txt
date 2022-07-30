@@ -1436,8 +1436,6 @@ set(GPU_GLES
 	GPU/GLES/StencilBufferGLES.cpp
 	GPU/GLES/TextureCacheGLES.cpp
 	GPU/GLES/TextureCacheGLES.h
-	GPU/GLES/TextureScalerGLES.cpp
-	GPU/GLES/TextureScalerGLES.h
 	GPU/GLES/DrawEngineGLES.cpp
 	GPU/GLES/DrawEngineGLES.h
 )
@@ -1462,8 +1460,6 @@ set(GPU_VULKAN
 	GPU/Vulkan/StencilBufferVulkan.cpp
 	GPU/Vulkan/TextureCacheVulkan.cpp
 	GPU/Vulkan/TextureCacheVulkan.h
-	GPU/Vulkan/TextureScalerVulkan.cpp
-	GPU/Vulkan/TextureScalerVulkan.h
 	GPU/Vulkan/VulkanUtil.cpp
 	GPU/Vulkan/VulkanUtil.h
 )
@@ -1484,8 +1480,6 @@ set(GPU_D3D9
 	GPU/Directx9/StencilBufferDX9.cpp
 	GPU/Directx9/TextureCacheDX9.cpp
 	GPU/Directx9/TextureCacheDX9.h
-	GPU/Directx9/TextureScalerDX9.cpp
-	GPU/Directx9/TextureScalerDX9.h
 )
 
 set(GPU_D3D11
@@ -1506,8 +1500,6 @@ set(GPU_D3D11
 	GPU/D3D11/StencilBufferD3D11.cpp
 	GPU/D3D11/TextureCacheD3D11.cpp
 	GPU/D3D11/TextureCacheD3D11.h
-	GPU/D3D11/TextureScalerD3D11.cpp
-	GPU/D3D11/TextureScalerD3D11.h
 )
 
 # We build Vulkan even on Apple to avoid annoying build differences.

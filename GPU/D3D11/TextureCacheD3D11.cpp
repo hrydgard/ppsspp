@@ -461,14 +461,13 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	ID3D11ShaderResourceView *view;
 	ID3D11Texture2D *texture = DxTex(entry);
 	_assert_(texture == nullptr);
-	DXGI_FORMAT tfmt = dstFmt;
 	if (plan.replaced->GetSize(plan.baseLevelSrc, tw, th)) {
-		tfmt = ToDXGIFormat(plan.replaced->Format(plan.baseLevelSrc));
+		dstFmt = ToDXGIFormat(plan.replaced->Format(plan.baseLevelSrc));
 	} else {
 		tw *= plan.scaleFactor;
 		th *= plan.scaleFactor;
 		if (plan.scaleFactor > 1) {
-			tfmt = DXGI_FORMAT_B8G8R8A8_UNORM;
+			dstFmt = DXGI_FORMAT_B8G8R8A8_UNORM;
 		}
 	}
 
@@ -482,7 +481,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	desc.SampleDesc.Count = 1;
 	desc.Width = tw;
 	desc.Height = th;
-	desc.Format = tfmt;
+	desc.Format = dstFmt;
 	desc.MipLevels = levels;
 	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
@@ -603,18 +602,15 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			decPitch = mapRowPitch;
 		}
 
-		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS);
+		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || scaleFactor > 1;
 
 		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, srcLevel, bufw, false, expand32);
 		entry.SetAlphaStatus(alphaResult, srcLevel);
 
 		if (scaleFactor > 1) {
-			u32 scaleFmt = (u32)dstFmt;
-			scaler.ScaleAlways((u32 *)mapData, pixelData, scaleFmt, w, h, scaleFactor);
+			scaler_.ScaleAlways((u32 *)mapData, pixelData, w, h, scaleFactor);
 			pixelData = (u32 *)mapData;
 
-			// We always end up at 8888.  Other parts assume this.
-			_assert_(scaleFmt == DXGI_FORMAT_B8G8R8A8_UNORM);
 			bpp = sizeof(u32);
 			decPitch = w * bpp;
 

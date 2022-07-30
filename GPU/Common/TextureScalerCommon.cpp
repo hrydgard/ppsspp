@@ -499,30 +499,22 @@ TextureScalerCommon::TextureScalerCommon() {
 TextureScalerCommon::~TextureScalerCommon() {
 }
 
-bool TextureScalerCommon::IsEmptyOrFlat(u32* data, int pixels, int fmt) {
-	int pixelsPerWord = 4 / BytesPerPixel(fmt);
+bool TextureScalerCommon::IsEmptyOrFlat(u32* data, int pixels) {
+	int pixelsPerWord = 1;
 	u32 ref = data[0];
-	if (pixelsPerWord > 1 && (ref & 0x0000FFFF) != (ref >> 16)) {
-		return false;
-	}
-	for (int i = 0; i < pixels / pixelsPerWord; ++i) {
-		if (data[i] != ref) return false;
+	// TODO: SIMD-ify this (although, for most textures we'll get our very early)
+	for (int i = 0; i < pixels; ++i) {
+		if (data[i] != ref)
+			return false;
 	}
 	return true;
 }
 
-void TextureScalerCommon::ScaleAlways(u32 *out, u32 *src, u32 &dstFmt, int &width, int &height, int factor) {
-	if (IsEmptyOrFlat(src, width*height, dstFmt)) {
+void TextureScalerCommon::ScaleAlways(u32 *out, u32 *src, int &width, int &height, int factor) {
+	if (IsEmptyOrFlat(src, width * height)) {
 		// This means it was a flat texture.  Vulkan wants the size up front, so we need to make it happen.
-		u32 pixel;
-		// Since it's flat, one pixel is enough.  It might end up pointing to data, though.
-		u32 *pixelPointer = &pixel;
-		ConvertTo8888(dstFmt, src, pixelPointer, 1, 1);
-		if (pixelPointer != &pixel) {
-			pixel = *pixelPointer;
-		}
+		u32 pixel = *src;
 
-		dstFmt = Get8888Format();
 		width *= factor;
 		height *= factor;
 
@@ -536,24 +528,20 @@ void TextureScalerCommon::ScaleAlways(u32 *out, u32 *src, u32 &dstFmt, int &widt
 			}
 		}
 	} else {
-		ScaleInto(out, src, dstFmt, width, height, factor);
+		ScaleInto(out, src, width, height, factor);
 	}
 }
 
-bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, u32 &dstFmt, int &width, int &height, int factor) {
+bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, int &width, int &height, int factor) {
 #ifdef SCALING_MEASURE_TIME
 	double t_start = time_now_d();
 #endif
 
-	bufInput.resize(width*height); // used to store the input image image if it needs to be reformatted
-	u32 *inputBuf = bufInput.data();
-
-	// convert texture to correct format for scaling
-	ConvertTo8888(dstFmt, src, inputBuf, width, height);
+	u32 *inputBuf = src;
 
 	// deposterize
 	if (g_Config.bTexDeposterize) {
-		bufDeposter.resize(width*height);
+		bufDeposter.resize(width * height);
 		DePosterize(inputBuf, bufDeposter.data(), width, height);
 		inputBuf = bufDeposter.data();
 	}
@@ -577,7 +565,6 @@ bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, u32 &dstFmt, int &
 	}
 
 	// update values accordingly
-	dstFmt = Get8888Format();
 	width *= factor;
 	height *= factor;
 
@@ -592,18 +579,18 @@ bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, u32 &dstFmt, int &
 	return true;
 }
 
-bool TextureScalerCommon::Scale(u32* &data, u32 &dstFmt, int &width, int &height, int factor) {
+bool TextureScalerCommon::Scale(u32* &data, int &width, int &height, int factor) {
 	// prevent processing empty or flat textures (this happens a lot in some games)
 	// doesn't hurt the standard case, will be very quick for textures with actual texture
-	if (IsEmptyOrFlat(data, width*height, dstFmt)) {
+	if (IsEmptyOrFlat(data, width*height)) {
 		DEBUG_LOG(G3D, "TextureScaler: early exit -- empty/flat texture");
 		return false;
 	}
 
-	bufOutput.resize(width*height*factor*factor); // used to store the upscaled image
+	bufOutput.resize(width * height * (factor * factor)); // used to store the upscaled image
 	u32 *outputBuf = bufOutput.data();
 
-	if (ScaleInto(outputBuf, data, dstFmt, width, height, factor)) {
+	if (ScaleInto(outputBuf, data, width, height, factor)) {
 		data = outputBuf;
 		return true;
 	}

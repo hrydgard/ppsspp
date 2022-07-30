@@ -416,22 +416,21 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 	LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
 	D3DFORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 	D3DPOOL pool = D3DPOOL_DEFAULT;
-	D3DFORMAT tfmt = (D3DFORMAT)(dstFmt);
 	int usage = D3DUSAGE_DYNAMIC;
 	if (plan.replaced->GetSize(plan.baseLevelSrc, tw, th)) {
-		tfmt = ToD3D9Format(plan.replaced->Format(plan.baseLevelSrc));
+		dstFmt = ToD3D9Format(plan.replaced->Format(plan.baseLevelSrc));
 	} else {
 		tw *= plan.scaleFactor;
 		th *= plan.scaleFactor;
 		if (plan.scaleFactor > 1) {
-			tfmt = D3DFMT_A8R8G8B8;
+			dstFmt = D3DFMT_A8R8G8B8;
 		}
 	}
 
 	// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
 	int levels = std::min(plan.levelsToCreate, plan.levelsToLoad);
 
-	HRESULT hr = device_->CreateTexture(tw, th, levels, usage, tfmt, pool, &texture, NULL);
+	HRESULT hr = device_->CreateTexture(tw, th, levels, usage, dstFmt, pool, &texture, NULL);
 
 	if (FAILED(hr)) {
 		INFO_LOG(G3D, "Failed to create D3D texture: %dx%d", tw, th);
@@ -532,11 +531,13 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, int 
 			decPitch = w * bpp;
 		}
 
-		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false);
+		bool expand32 = scaleFactor > 1;
+
+		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, expand32);
 		entry.SetAlphaStatus(alphaResult, level);
 
 		if (scaleFactor > 1) {
-			scaler.ScaleAlways((u32 *)data, pixelData, dstFmt, w, h, scaleFactor);
+			scaler_.ScaleAlways((u32 *)data, pixelData, w, h, scaleFactor);
 			pixelData = (u32 *)data;
 
 			// We always end up at 8888.  Other parts assume this.
