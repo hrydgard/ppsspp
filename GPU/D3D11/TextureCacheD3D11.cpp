@@ -458,17 +458,12 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	int th = plan.h;
 
 	DXGI_FORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-	ID3D11ShaderResourceView *view;
-	ID3D11Texture2D *texture = DxTex(entry);
-	_assert_(texture == nullptr);
 	if (plan.replaced->GetSize(plan.baseLevelSrc, tw, th)) {
 		dstFmt = ToDXGIFormat(plan.replaced->Format(plan.baseLevelSrc));
-	} else {
+	} else if (plan.scaleFactor > 1) {
 		tw *= plan.scaleFactor;
 		th *= plan.scaleFactor;
-		if (plan.scaleFactor > 1) {
-			dstFmt = DXGI_FORMAT_B8G8R8A8_UNORM;
-		}
+		dstFmt = DXGI_FORMAT_B8G8R8A8_UNORM;
 	}
 
 	// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
@@ -485,14 +480,54 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	desc.MipLevels = levels;
 	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
+	ID3D11ShaderResourceView *view;
+	ID3D11Texture2D *texture = DxTex(entry);
+	_assert_(texture == nullptr);
+
 	ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &texture));
 	ASSERT_SUCCESS(device_->CreateShaderResourceView(texture, nullptr, &view));
 	entry->texturePtr = texture;
 	entry->textureView = view;
 
-	// Mipmapping is only enabled when texture scaling is disabled.
+	Draw::DataFormat texFmt = FromD3D11Format(dstFmt);
+
 	for (int i = 0; i < levels; i++) {
-		LoadTextureLevel(*entry, *plan.replaced, (i == 0) ? plan.baseLevelSrc : i, i, plan.scaleFactor, dstFmt);
+		int srcLevel = (i == 0) ? plan.baseLevelSrc : i;
+
+		int w = gstate.getTextureWidth(srcLevel);
+		int h = gstate.getTextureHeight(srcLevel);
+
+		u8 *data = nullptr;
+		int stride = 0;
+
+		// For UpdateSubresource, we can't decode directly into the texture so we allocate a buffer :(
+		// NOTE: Could reuse it between levels or textures!
+		if (plan.replaced->GetSize(srcLevel, w, h)) {
+			int bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format(srcLevel));
+			stride = w * bpp;
+			data = (u8 *)AllocateAlignedMemory(stride * h, 16);
+		} else {
+			if (plan.scaleFactor > 1) {
+				data = (u8 *)AllocateAlignedMemory(4 * (w * plan.scaleFactor) * (h * plan.scaleFactor), 16);
+				stride = w * plan.scaleFactor * 4;
+			} else {
+				int bpp = dstFmt == DXGI_FORMAT_B8G8R8A8_UNORM ? 4 : 2;
+
+				stride = std::max(w * bpp, 16);
+				data = (u8 *)AllocateAlignedMemory(stride * h, 16);
+			}
+		}
+
+		if (!data) {
+			ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", w, h);
+			return;
+		}
+
+		LoadTextureLevel(*entry, data, stride, *plan.replaced, srcLevel, plan.scaleFactor, texFmt, false);
+
+		ID3D11Texture2D *texture = DxTex(entry);
+		context_->UpdateSubresource(texture, i, nullptr, data, stride, 0);
+		FreeAlignedMemory(data);
 	}
 
 	if (levels == 1) {
@@ -559,90 +594,6 @@ CheckAlphaResult TextureCacheD3D11::CheckAlpha(const u32 *pixelData, u32 dstFmt,
 	default:
 		return CheckAlpha32((const u32 *)pixelData, w, 0xFF000000);
 	}
-}
-
-void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int srcLevel, int dstLevel, int scaleFactor, DXGI_FORMAT dstFmt) {
-	int w = gstate.getTextureWidth(srcLevel);
-	int h = gstate.getTextureHeight(srcLevel);
-
-	gpuStats.numTexturesDecoded++;
-	// For UpdateSubresource, we can't decode directly into the texture so we allocate a buffer :(
-	u32 *mapData = nullptr;
-	int mapRowPitch = 0;
-	if (replaced.GetSize(srcLevel, w, h)) {
-		mapData = (u32 *)AllocateAlignedMemory(w * h * sizeof(u32), 16);
-		mapRowPitch = w * 4;
-		double replaceStart = time_now_d();
-		replaced.Load(srcLevel, mapData, mapRowPitch);
-		replacementTimeThisFrame_ += time_now_d() - replaceStart;
-	} else {
-		GETextureFormat tfmt = (GETextureFormat)entry.format;
-		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
-		u32 texaddr = gstate.getTextureAddress(srcLevel);
-		int bufw = GetTextureBufw(srcLevel, texaddr, tfmt);
-		int bpp = dstFmt == DXGI_FORMAT_B8G8R8A8_UNORM ? 4 : 2;
-		u32 *pixelData;
-		int decPitch;
-		if (scaleFactor > 1) {
-			tmpTexBufRearrange_.resize(std::max(bufw, w) * h);
-			pixelData = tmpTexBufRearrange_.data();
-			// We want to end up with a neatly packed texture for scaling.
-			decPitch = w * bpp;
-			mapData = (u32 *)AllocateAlignedMemory(sizeof(u32) * (w * scaleFactor) * (h * scaleFactor), 16);
-			mapRowPitch = w * scaleFactor * 4;
-		} else {
-			mapRowPitch = std::max(w * bpp, 16);
-			size_t bufSize = sizeof(u32) * (mapRowPitch / bpp) * h;
-			mapData = (u32 *)AllocateAlignedMemory(bufSize, 16);
-			if (!mapData) {
-				ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (alloc size: %lld, %dx%d)", (unsigned long long)bufSize, mapRowPitch / (int)sizeof(u32), h);
-				return;
-			}
-			pixelData = (u32 *)mapData;
-			decPitch = mapRowPitch;
-		}
-
-		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || scaleFactor > 1;
-
-		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, srcLevel, bufw, false, expand32);
-		entry.SetAlphaStatus(alphaResult, srcLevel);
-
-		if (scaleFactor > 1) {
-			scaler_.ScaleAlways((u32 *)mapData, pixelData, w, h, scaleFactor);
-			pixelData = (u32 *)mapData;
-
-			bpp = sizeof(u32);
-			decPitch = w * bpp;
-
-			if (decPitch != mapRowPitch) {
-				// Rearrange in place to match the requested pitch.
-				// (it can only be larger than w * bpp, and a match is likely.)
-				// Note! This is bad because it reads the mapped memory! TODO: Look into if DX9 does this right.
-				for (int y = h - 1; y >= 0; --y) {
-					memcpy((u8 *)mapData + mapRowPitch * y, (u8 *)mapData + decPitch * y, w * bpp);
-				}
-				decPitch = mapRowPitch;
-			}
-		}
-
-		if (replacer_.Enabled()) {
-			ReplacedTextureDecodeInfo replacedInfo;
-			replacedInfo.cachekey = entry.CacheKey();
-			replacedInfo.hash = entry.fullhash;
-			replacedInfo.addr = entry.addr;
-			replacedInfo.isVideo = IsVideo(entry.addr);
-			replacedInfo.isFinal = (entry.status & TexCacheEntry::STATUS_TO_SCALE) == 0;
-			replacedInfo.scaleFactor = scaleFactor;
-			replacedInfo.fmt = FromD3D11Format(dstFmt);
-
-			// NOTE: Reading the decoded texture here may be very slow, if we just wrote it to write-combined memory.
-			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, srcLevel, w, h);
-		}
-	}
-
-	ID3D11Texture2D *texture = DxTex(&entry);
-	context_->UpdateSubresource(texture, dstLevel, nullptr, mapData, mapRowPitch, 0);
-	FreeAlignedMemory(mapData);
 }
 
 bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {

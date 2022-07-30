@@ -445,12 +445,10 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 	if (plan.replaced->GetSize(plan.baseLevelSrc, tw, th)) {
 		dstFmt = plan.replaced->Format(plan.baseLevelSrc);
-	} else {
+	} else if (plan.scaleFactor > 1) {
 		tw *= plan.scaleFactor;
 		th *= plan.scaleFactor;
-		if (plan.scaleFactor > 1) {
-			dstFmt = Draw::DataFormat::R8G8B8A8_UNORM;
-		}
+		dstFmt = Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 
 	entry->textureName = render_->CreateTexture(GL_TEXTURE_2D, tw, tw, plan.levelsToCreate);
@@ -471,18 +469,45 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	for (int i = 0; i < plan.levelsToLoad; i++) {
-		LoadTextureLevel(*entry, *plan.replaced, i == 0 ? plan.baseLevelSrc : i, i, plan.scaleFactor, dstFmt);
+		int srcLevel = i == 0 ? plan.baseLevelSrc : i;
+
+		int w = gstate.getTextureWidth(srcLevel);
+		int h = gstate.getTextureHeight(srcLevel);
+
+		u8 *data = nullptr;
+		int stride = 0;
+
+		if (plan.replaced->GetSize(srcLevel, w, h)) {
+			int bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format(srcLevel));
+			stride = w * bpp;
+			data = (u8 *)AllocateAlignedMemory(stride * h, 16);
+		} else {
+			if (plan.scaleFactor > 1) {
+				data = (u8 *)AllocateAlignedMemory(4 * (w * plan.scaleFactor) * (h * plan.scaleFactor), 16);
+				stride = w * plan.scaleFactor * 4;
+			} else {
+				int bpp = dstFmt == Draw::DataFormat::R8G8B8A8_UNORM ? 4 : 2;
+
+				stride = std::max(w * bpp, 4);
+				data = (u8 *)AllocateAlignedMemory(stride * h, 16);
+			}
+		}
+
+		if (!data) {
+			ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", w, h);
+			return;
+		}
+
+		LoadTextureLevel(*entry, data, stride, *plan.replaced, srcLevel, plan.scaleFactor, dstFmt, true);
+
+		// NOTE: TextureImage takes ownership of data, so we don't free it afterwards.
+		render_->TextureImage(entry->textureName, i, w * plan.scaleFactor, h * plan.scaleFactor, dstFmt, data, GLRAllocType::ALIGNED);
 	}
 
 	bool genMips = plan.levelsToCreate > plan.levelsToLoad;
 
 	render_->FinalizeTexture(entry->textureName, plan.levelsToLoad, genMips);
 
-	if (plan.levelsToLoad == 1) {
-		entry->status |= TexCacheEntry::STATUS_NO_MIPS;
-	} else {
-		entry->status &= ~TexCacheEntry::STATUS_NO_MIPS;
-	}
 	if (plan.replaced->Valid()) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
 	}
@@ -522,67 +547,6 @@ CheckAlphaResult TextureCacheGLES::CheckAlpha(const uint8_t *pixelData, Draw::Da
 	default:
 		return CheckAlpha32((const u32 *)pixelData, w, 0xFF000000);  // note, the normal order here, unlike the 16-bit formats
 	}
-}
-
-void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int srcLevel, int dstLevel, int scaleFactor, Draw::DataFormat dstFmt) {
-	int w = gstate.getTextureWidth(srcLevel);
-	int h = gstate.getTextureHeight(srcLevel);
-	uint8_t *pixelData;
-	int decPitch = 0;
-
-	gpuStats.numTexturesDecoded++;
-
-	if (replaced.GetSize(srcLevel, w, h)) {
-		int bpp = (int)DataFormatSizeInBytes(replaced.Format(srcLevel));
-		
-		decPitch = w * bpp;
-		uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(decPitch * h, 16);
-		double replaceStart = time_now_d();
-		replaced.Load(srcLevel, rearrange, decPitch);
-		replacementTimeThisFrame_ += time_now_d() - replaceStart;
-		pixelData = rearrange;
-
-		dstFmt = replaced.Format(srcLevel);
-	} else {
-		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
-		u32 texaddr = gstate.getTextureAddress(srcLevel);
-		int bufw = GetTextureBufw(srcLevel, texaddr, GETextureFormat(entry.format));
-
-		int pixelSize = dstFmt == Draw::DataFormat::R8G8B8A8_UNORM ? 4 : 2;
-
-		// We leave GL_UNPACK_ALIGNMENT at 4, so this must be at least 4.
-		decPitch = std::max(w * pixelSize, 4);
-
-		pixelData = (uint8_t *)AllocateAlignedMemory(decPitch * h * pixelSize, 16);
-
-		bool expand32 = scaleFactor > 1;
-
-		CheckAlphaResult alphaStatus = DecodeTextureLevel(pixelData, decPitch, GETextureFormat(entry.format), clutformat, texaddr, srcLevel, bufw, true, expand32);
-		entry.SetAlphaStatus(alphaStatus, srcLevel);
-
-		if (scaleFactor > 1) {
-			uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(w * scaleFactor * h * scaleFactor * 4, 16);
-			scaler_.ScaleAlways((u32 *)rearrange, (u32 *)pixelData, w, h, scaleFactor);
-			FreeAlignedMemory(pixelData);
-			pixelData = rearrange;
-			decPitch = w * 4;
-		}
-
-		if (replacer_.Enabled()) {
-			ReplacedTextureDecodeInfo replacedInfo;
-			replacedInfo.cachekey = entry.CacheKey();
-			replacedInfo.hash = entry.fullhash;
-			replacedInfo.addr = entry.addr;
-			replacedInfo.isVideo = IsVideo(entry.addr);
-			replacedInfo.isFinal = (entry.status & TexCacheEntry::STATUS_TO_SCALE) == 0;
-			replacedInfo.scaleFactor = scaleFactor;
-			replacedInfo.fmt = dstFmt;
-
-			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, srcLevel, w, h);
-		}
-	}
-	
-	render_->TextureImage(entry.textureName, dstLevel, w, h, dstFmt, pixelData, GLRAllocType::ALIGNED);
 }
 
 bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {

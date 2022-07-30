@@ -69,7 +69,6 @@ protected:
 
 private:
 	void ApplySamplingParams(const SamplerCacheKey &key);
-	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int srcLevel, int dstLevel, int scaleFactor, Draw::DataFormat dstFmt);
 	Draw::DataFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 
 	static CheckAlphaResult CheckAlpha(const uint8_t *pixelData, Draw::DataFormat dstFmt, int w);

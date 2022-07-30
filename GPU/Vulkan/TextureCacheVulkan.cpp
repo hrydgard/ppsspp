@@ -845,10 +845,6 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
-	gpuStats.numTexturesDecoded++;
-
-	PROFILE_THIS_SCOPE("decodetex");
-
 	GETextureFormat tfmt = (GETextureFormat)entry.format;
 	GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
 	u32 texaddr = gstate.getTextureAddress(level);
@@ -858,21 +854,22 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 	int bufw = GetTextureBufw(level, texaddr, tfmt);
 	int bpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;
 
-	u32 *pixelData = (u32 *)writePtr;
-	int decPitch = rowPitch;
+	u32 *pixelData;
+	int decPitch;
 
-	bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || dstFmt == VK_FORMAT_R8G8B8A8_UNORM || scaleFactor > 1;
+	bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || scaleFactor > 1;
 
 	if (scaleFactor > 1) {
 		tmpTexBufRearrange_.resize(std::max(bufw, w) * h);
 		pixelData = tmpTexBufRearrange_.data();
 		// We want to end up with a neatly packed texture for scaling.
 		decPitch = w * bpp;
+	} else {
+		pixelData = (u32 *)writePtr;
+		decPitch = rowPitch;
 	}
 
 	CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, expand32);
-
-	// WARN_LOG(G3D, "Alpha: full=%d w=%d h=%d level=%d %s/%s", (int)(alphaResult == CHECKALPHA_FULL), w, h, level, GeTextureFormatToString(tfmt), GEPaletteFormatToString(clutformat));
 	entry.SetAlphaStatus(alphaResult, level);
 
 	if (scaleFactor > 1) {

@@ -413,23 +413,21 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 	int tw = plan.w;
 	int th = plan.h;
 
-	LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
 	D3DFORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-	D3DPOOL pool = D3DPOOL_DEFAULT;
-	int usage = D3DUSAGE_DYNAMIC;
 	if (plan.replaced->GetSize(plan.baseLevelSrc, tw, th)) {
 		dstFmt = ToD3D9Format(plan.replaced->Format(plan.baseLevelSrc));
-	} else {
+	} else if (plan.scaleFactor > 1) {
 		tw *= plan.scaleFactor;
 		th *= plan.scaleFactor;
-		if (plan.scaleFactor > 1) {
-			dstFmt = D3DFMT_A8R8G8B8;
-		}
+		dstFmt = D3DFMT_A8R8G8B8;
 	}
 
 	// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
 	int levels = std::min(plan.levelsToCreate, plan.levelsToLoad);
 
+	LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
+	D3DPOOL pool = D3DPOOL_DEFAULT;
+	int usage = D3DUSAGE_DYNAMIC;
 	HRESULT hr = device_->CreateTexture(tw, th, levels, usage, dstFmt, pool, &texture, NULL);
 
 	if (FAILED(hr)) {
@@ -442,6 +440,8 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 		// What to do here?
 		return;
 	}
+
+	Draw::DataFormat texFmt = FromD3D9Format(dstFmt);
 
 	// Mipmapping is only enabled when texture scaling is disabled.
 	for (int i = 0; i < levels; i++) {
@@ -458,7 +458,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 		uint8_t *data = (uint8_t *)rect.pBits;
 		int stride = rect.Pitch;
 
-		LoadTextureLevel(*entry, data, stride, *plan.replaced, (i == 0) ? plan.baseLevelSrc : i, plan.scaleFactor, dstFmt);
+		LoadTextureLevel(*entry, data, stride, *plan.replaced, (i == 0) ? plan.baseLevelSrc : i, plan.scaleFactor, texFmt, false);
 
 		texture->UnlockRect(dstLevel);
 	}
@@ -501,70 +501,6 @@ CheckAlphaResult TextureCacheDX9::CheckAlpha(const u32 *pixelData, u32 dstFmt, i
 		return CHECKALPHA_FULL;
 	default:
 		return CheckAlpha32(pixelData, w, 0xFF000000);
-	}
-}
-
-void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, int stride, ReplacedTexture &replaced, int level, int scaleFactor, u32 dstFmt) {
-	int w = gstate.getTextureWidth(level);
-	int h = gstate.getTextureHeight(level);
-
-	gpuStats.numTexturesDecoded++;
-	if (replaced.GetSize(level, w, h)) {
-		double replaceStart = time_now_d();
-		replaced.Load(level, data, stride);
-		replacementTimeThisFrame_ += time_now_d() - replaceStart;
-	} else {
-		GETextureFormat tfmt = (GETextureFormat)entry.format;
-		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
-		u32 texaddr = gstate.getTextureAddress(level);
-
-		int bufw = GetTextureBufw(level, texaddr, tfmt);
-		int bpp = dstFmt == D3DFMT_A8R8G8B8 ? 4 : 2;
-
-		u32 *pixelData = (u32 *)data;
-		int decPitch = stride;
-
-		if (scaleFactor > 1) {
-			tmpTexBufRearrange_.resize(std::max(bufw, w) * h);
-			pixelData = tmpTexBufRearrange_.data();
-			// We want to end up with a neatly packed texture for scaling.
-			decPitch = w * bpp;
-		}
-
-		bool expand32 = scaleFactor > 1;
-
-		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, expand32);
-		entry.SetAlphaStatus(alphaResult, level);
-
-		if (scaleFactor > 1) {
-			scaler_.ScaleAlways((u32 *)data, pixelData, w, h, scaleFactor);
-			pixelData = (u32 *)data;
-
-			// We always end up at 8888.  Other parts assume this.
-			_assert_(dstFmt == D3DFMT_A8R8G8B8);
-			bpp = sizeof(u32);
-			decPitch = w * bpp;
-
-			if (decPitch != stride) {
-				for (int y = h - 1; y >= 0; --y) {
-					memcpy(data + stride * y, (u8 *)data + decPitch * y, w * bpp);
-				}
-				decPitch = stride;
-			}
-		}
-
-		if (replacer_.Enabled()) {
-			ReplacedTextureDecodeInfo replacedInfo;
-			replacedInfo.cachekey = entry.CacheKey();
-			replacedInfo.hash = entry.fullhash;
-			replacedInfo.addr = entry.addr;
-			replacedInfo.isVideo = IsVideo(entry.addr);
-			replacedInfo.isFinal = (entry.status & TexCacheEntry::STATUS_TO_SCALE) == 0;
-			replacedInfo.scaleFactor = scaleFactor;
-			replacedInfo.fmt = FromD3D9Format(dstFmt);
-
-			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, level, w, h);
-		}
 	}
 }
 
