@@ -98,7 +98,7 @@ void TextureCacheDX9::SetFramebufferManager(FramebufferManagerDX9 *fbManager) {
 }
 
 void TextureCacheDX9::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
-	LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
+	LPDIRECT3DBASETEXTURE9 &texture = DxTex(entry);
 	if (texture) {
 		texture->Release();
 		texture = nullptr;
@@ -205,7 +205,7 @@ void TextureCacheDX9::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase
 }
 
 void TextureCacheDX9::BindTexture(TexCacheEntry *entry) {
-	LPDIRECT3DTEXTURE9 texture = DxTex(entry);
+	LPDIRECT3DBASETEXTURE9 texture = DxTex(entry);
 	if (texture != lastBoundTexture) {
 		device_->SetTexture(0, texture);
 		lastBoundTexture = texture;
@@ -425,10 +425,20 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 	// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
 	int levels = std::min(plan.levelsToCreate, plan.levelsToLoad);
 
-	LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
+	LPDIRECT3DBASETEXTURE9 &texture = DxTex(entry);
 	D3DPOOL pool = D3DPOOL_DEFAULT;
 	int usage = D3DUSAGE_DYNAMIC;
-	HRESULT hr = device_->CreateTexture(tw, th, levels, usage, dstFmt, pool, &texture, NULL);
+
+	HRESULT hr;
+	if (plan.depth == 1) {
+		LPDIRECT3DTEXTURE9 tex;
+		hr = device_->CreateTexture(tw, th, levels, usage, dstFmt, pool, &tex, nullptr);
+		texture = tex;
+	} else {
+		LPDIRECT3DVOLUMETEXTURE9 tex;
+		hr = device_->CreateVolumeTexture(tw, th, plan.depth, 1, usage, dstFmt, pool, &tex, nullptr);
+		texture = tex;
+	}
 
 	if (FAILED(hr)) {
 		INFO_LOG(G3D, "Failed to create D3D texture: %dx%d", tw, th);
@@ -443,24 +453,45 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 
 	Draw::DataFormat texFmt = FromD3D9Format(dstFmt);
 
-	// Mipmapping is only enabled when texture scaling is disabled.
-	for (int i = 0; i < levels; i++) {
-		int dstLevel = i;
-		HRESULT result;
-		uint32_t lockFlag = dstLevel == 0 ? D3DLOCK_DISCARD : 0;  // Can only discard the top level
-		D3DLOCKED_RECT rect{};
-		result = texture->LockRect(dstLevel, &rect, NULL, lockFlag);
+	if (plan.depth == 1) {
+		// Regular loop.
+		for (int i = 0; i < levels; i++) {
+			int dstLevel = i;
+			HRESULT result;
+			uint32_t lockFlag = dstLevel == 0 ? D3DLOCK_DISCARD : 0;  // Can only discard the top level
+			D3DLOCKED_RECT rect{};
+
+			result = ((LPDIRECT3DTEXTURE9)texture)->LockRect(dstLevel, &rect, NULL, lockFlag);
+			if (FAILED(result)) {
+				ERROR_LOG(G3D, "Failed to lock D3D 2D texture at level %d: %dx%d", i, plan.w, plan.h);
+				return;
+			}
+			uint8_t *data = (uint8_t *)rect.pBits;
+			int stride = rect.Pitch;
+			LoadTextureLevel(*entry, data, stride, *plan.replaced, (i == 0) ? plan.baseLevelSrc : i, plan.scaleFactor, texFmt, false);
+			((LPDIRECT3DTEXTURE9)texture)->UnlockRect(dstLevel);
+		}
+	} else {
+		// 3D loop.
+		D3DLOCKED_BOX box;
+		HRESULT result = ((LPDIRECT3DVOLUMETEXTURE9)texture)->LockBox(0, &box, nullptr, D3DLOCK_DISCARD);
 		if (FAILED(result)) {
-			ERROR_LOG(G3D, "Failed to lock D3D texture at level %d: %dx%d", i, plan.w, plan.h);
+			ERROR_LOG(G3D, "Failed to lock D3D 2D texture: %dx%dx%d", plan.w, plan.h, plan.depth);
 			return;
 		}
 
-		uint8_t *data = (uint8_t *)rect.pBits;
-		int stride = rect.Pitch;
+		uint8_t *data = (uint8_t *)box.pBits;
+		int stride = box.RowPitch;
+		for (int i = 0; i < plan.depth; i++) {
+			LoadTextureLevel(*entry, data, stride, *plan.replaced, (i == 0) ? plan.baseLevelSrc : i, plan.scaleFactor, texFmt, false);
+			data += box.SlicePitch;
+		}
+		((LPDIRECT3DVOLUMETEXTURE9)texture)->UnlockBox(0);
+	}
 
-		LoadTextureLevel(*entry, data, stride, *plan.replaced, (i == 0) ? plan.baseLevelSrc : i, plan.scaleFactor, texFmt, false);
-
-		texture->UnlockRect(dstLevel);
+	// Signal that we support depth textures so use it as one.
+	if (plan.depth > 1) {
+		entry->status |= TexCacheEntry::STATUS_3D;
 	}
 
 	if (plan.replaced->Valid()) {

@@ -208,6 +208,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			if (enableFog) {
 				WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
 			}
+			if (texture3D) {
+				WRITE(p, "float u_mipBias : register(c%i);\n", CONST_PS_MIPBIAS);
+			}
 		} else {
 			WRITE(p, "SamplerState samp : register(s0);\n");
 			if (texture3D) {
@@ -565,10 +568,18 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 						}
 					}
 				} else if (compat.shaderLanguage == HLSL_D3D9) {
-					if (doTextureProjection) {
-						WRITE(p, "  vec4 t = tex2Dproj(tex, vec4(v_texcoord.x, v_texcoord.y, 0, v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
+					if (texture3D) {
+						if (doTextureProjection) {
+							WRITE(p, "  vec4 t = tex3Dproj(tex, vec4(v_texcoord.x, v_texcoord.y, u_mipBias, v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
+						} else {
+							WRITE(p, "  vec4 t = tex3D(tex, vec3(%s.x, %s.y, u_mipBias))%s;\n", texcoord, texcoord, bgraTexture ? ".bgra" : "");
+						}
 					} else {
-						WRITE(p, "  vec4 t = tex2D(tex, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+						if (doTextureProjection) {
+							WRITE(p, "  vec4 t = tex2Dproj(tex, vec3(v_texcoord.x, v_texcoord.y, v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
+						} else {
+							WRITE(p, "  vec4 t = tex2D(tex, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+						}
 					}
 				} else {
 					// Note that here we're relying on the filter to be linear. We would have to otherwise to do two samples and manually filter in Z.
