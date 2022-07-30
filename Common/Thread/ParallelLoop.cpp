@@ -107,7 +107,7 @@ void ParallelRangeLoop(ThreadManager *threadMan, const std::function<void(int, i
 // NOTE: Supports a max of 2GB.
 void ParallelMemcpy(ThreadManager *threadMan, void *dst, const void *src, size_t bytes) {
 	// This threshold can probably be a lot bigger.
-	if (true || bytes < 512) {
+	if (bytes < 512) {
 		memcpy(dst, src, bytes);
 		return;
 	}
