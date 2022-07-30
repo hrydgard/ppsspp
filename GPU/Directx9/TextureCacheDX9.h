@@ -21,7 +21,6 @@
 
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
-#include "GPU/Directx9/TextureScalerDX9.h"
 #include "GPU/Common/TextureCacheCommon.h"
 
 struct VirtualFramebuffer;
@@ -76,8 +75,6 @@ private:
 
 	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DDEVICE9EX deviceEx_;
-
-	TextureScalerDX9 scaler;
 
 	LPDIRECT3DVERTEXDECLARATION9 pFramebufferVertexDecl;
 

@@ -439,13 +439,21 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	// the bottom few levels or rely on OpenGL's autogen mipmaps instead, which might not
 	// be as good quality as the game's own (might even be better in some cases though).
 
-	// TODO: Actually pass in correct size here. The size here is (in GL) not yet used for anything else
-	// than determining if we can wrap this texture size, that is, it's pow2 or not on very old hardware, else true.
-	// This will be easy after .. well, yet another refactoring, where I hoist the size calculation out of LoadTextureLevel
-	// and unify BuildTexture.
-	entry->textureName = render_->CreateTexture(GL_TEXTURE_2D, plan.w, plan.h, plan.levelsToCreate);
+	int tw = plan.w;
+	int th = plan.h;
 
 	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
+	if (plan.replaced->GetSize(plan.baseLevelSrc, tw, th)) {
+		dstFmt = plan.replaced->Format(plan.baseLevelSrc);
+	} else {
+		tw *= plan.scaleFactor;
+		th *= plan.scaleFactor;
+		if (plan.scaleFactor > 1) {
+			dstFmt = Draw::DataFormat::R8G8B8A8_UNORM;
+		}
+	}
+
+	entry->textureName = render_->CreateTexture(GL_TEXTURE_2D, tw, tw, plan.levelsToCreate);
 
 	// Apply some additional compatibility checks.
 	if (plan.levelsToLoad > 1) {
@@ -541,19 +549,20 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		int bufw = GetTextureBufw(srcLevel, texaddr, GETextureFormat(entry.format));
 
 		int pixelSize = dstFmt == Draw::DataFormat::R8G8B8A8_UNORM ? 4 : 2;
+
 		// We leave GL_UNPACK_ALIGNMENT at 4, so this must be at least 4.
 		decPitch = std::max(w * pixelSize, 4);
 
 		pixelData = (uint8_t *)AllocateAlignedMemory(decPitch * h * pixelSize, 16);
 
-		CheckAlphaResult alphaStatus = DecodeTextureLevel(pixelData, decPitch, GETextureFormat(entry.format), clutformat, texaddr, srcLevel, bufw, true, false);
+		bool expand32 = scaleFactor > 1;
+
+		CheckAlphaResult alphaStatus = DecodeTextureLevel(pixelData, decPitch, GETextureFormat(entry.format), clutformat, texaddr, srcLevel, bufw, true, expand32);
 		entry.SetAlphaStatus(alphaStatus, srcLevel);
 
 		if (scaleFactor > 1) {
 			uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(w * scaleFactor * h * scaleFactor * 4, 16);
-			u32 dFmt = (u32)dstFmt;
-			scaler.ScaleAlways((u32 *)rearrange, (u32 *)pixelData, dFmt, w, h, scaleFactor);
-			dstFmt = (Draw::DataFormat)dFmt;
+			scaler_.ScaleAlways((u32 *)rearrange, (u32 *)pixelData, w, h, scaleFactor);
 			FreeAlignedMemory(pixelData);
 			pixelData = rearrange;
 			decPitch = w * 4;

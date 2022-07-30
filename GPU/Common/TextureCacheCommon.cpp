@@ -1543,16 +1543,17 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 		if (!swizzled) {
 			// Just a simple copy, we swizzle the color format.
 			fullAlphaMask = TfmtRawToFullAlpha(format);
-			if (reverseColors) {
+			if (expandTo32bit) {
+				// This is OK even if reverseColors is on, because it expands to the 8888 format which is the same in reverse mode.
+				for (int y = 0; y < h; ++y) {
+					CheckMask16((const u16 *)(texptr + bufw * sizeof(u16) * y), w, &alphaSum);
+					ConvertFormatToRGBA8888(format, (u32 *)(out + outPitch * y), (const u16 *)texptr + bufw * y, w);
+				}
+			} else if (reverseColors) {
 				// Just check the input's alpha to reuse code. TODO: make a specialized ReverseColors that checks as we go.
 				for (int y = 0; y < h; ++y) {
 					CheckMask16((const u16 *)(texptr + bufw * sizeof(u16) * y), w, &alphaSum);
 					ReverseColors(out + outPitch * y, texptr + bufw * sizeof(u16) * y, format, w);
-				}
-			} else if (expandTo32bit) {
-				for (int y = 0; y < h; ++y) {
-					CheckMask16((const u16 *)(texptr + bufw * sizeof(u16) * y), w, &alphaSum);
-					ConvertFormatToRGBA8888(format, (u32 *)(out + outPitch * y), (const u16 *)texptr + bufw * y, w);
 				}
 			} else {
 				for (int y = 0; y < h; ++y) {
@@ -1573,17 +1574,18 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 			const u8 *unswizzled = (u8 *)tmpTexBuf32_.data();
 
 			fullAlphaMask = TfmtRawToFullAlpha(format);
-			if (reverseColors) {
-				// Just check the swizzled input's alpha to reuse code. TODO: make a specialized ReverseColors that checks as we go.
-				for (int y = 0; y < h; ++y) {
-					CheckMask16((const u16 *)(unswizzled + bufw * sizeof(u16) * y), w, &alphaSum);
-					ReverseColors(out + outPitch * y, unswizzled + bufw * sizeof(u16) * y, format, w);
-				}
-			} else if (expandTo32bit) {
+			if (expandTo32bit) {
+				// This is OK even if reverseColors is on, because it expands to the 8888 format which is the same in reverse mode.
 				// Just check the swizzled input's alpha to reuse code. TODO: make a specialized ConvertFormatToRGBA8888 that checks as we go.
 				for (int y = 0; y < h; ++y) {
 					CheckMask16((const u16 *)(unswizzled + bufw * sizeof(u16) * y), w, &alphaSum);
 					ConvertFormatToRGBA8888(format, (u32 *)(out + outPitch * y), (const u16 *)unswizzled + bufw * y, w);
+				}
+			} else if (reverseColors) {
+				// Just check the swizzled input's alpha to reuse code. TODO: make a specialized ReverseColors that checks as we go.
+				for (int y = 0; y < h; ++y) {
+					CheckMask16((const u16 *)(unswizzled + bufw * sizeof(u16) * y), w, &alphaSum);
+					ReverseColors(out + outPitch * y, unswizzled + bufw * sizeof(u16) * y, format, w);
 				}
 			} else {
 				for (int y = 0; y < h; ++y) {

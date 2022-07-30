@@ -23,7 +23,6 @@
 
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
-#include "GPU/D3D11/TextureScalerD3D11.h"
 #include "GPU/Common/TextureCacheCommon.h"
 
 struct VirtualFramebuffer;
@@ -85,8 +84,6 @@ private:
 	ID3D11ShaderResourceView *DxView(TexCacheEntry *entry) {
 		return (ID3D11ShaderResourceView *)entry->textureView;
 	}
-
-	TextureScalerD3D11 scaler;
 
 	SamplerCacheD3D11 samplerCache_;
 

@@ -27,6 +27,7 @@
 #include "Core/System.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/TextureDecoder.h"
+#include "GPU/Common/TextureScalerCommon.h"
 
 enum FramebufferNotification {
 	NOTIFY_FB_CREATED,
@@ -376,6 +377,7 @@ protected:
 
 	Draw::DrawContext *draw_;
 	TextureReplacer replacer_;
+	TextureScalerCommon scaler_;
 	FramebufferManagerCommon *framebufferManager_;
 
 	bool clearCacheNextFrame_ = false;

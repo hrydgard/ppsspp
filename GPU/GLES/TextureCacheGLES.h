@@ -22,7 +22,6 @@
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-#include "GPU/GLES/TextureScalerGLES.h"
 #include "GPU/Common/TextureCacheCommon.h"
 
 struct VirtualFramebuffer;
@@ -80,8 +79,6 @@ private:
 	void BuildTexture(TexCacheEntry *const entry) override;
 
 	GLRenderManager *render_;
-
-	TextureScalerGLES scaler;
 
 	GLRTexture *lastBoundTexture = nullptr;
 
