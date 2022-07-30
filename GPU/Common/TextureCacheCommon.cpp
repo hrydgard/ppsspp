@@ -25,6 +25,7 @@
 #include "Common/MemoryUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
+#include "Common/Math/math_util.h"
 #include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Reporting.h"
@@ -756,9 +757,9 @@ void TextureCacheCommon::DecimateVideos() {
 	}
 }
 
-bool TextureCacheCommon::IsVideo(u32 texaddr) {
+bool TextureCacheCommon::IsVideo(u32 texaddr) const {
 	texaddr &= 0x3FFFFFFF;
-	for (auto info : videos_) {
+	for (auto &info : videos_) {
 		if (texaddr < info.addr) {
 			continue;
 		}
@@ -2005,4 +2006,135 @@ void TextureCacheCommon::ClearNextFrame() {
 
 std::string AttachCandidate::ToString() {
 	return StringFromFormat("[C:%08x/%d Z:%08x/%d X:%d Y:%d reint: %s]", this->fb->fb_address, this->fb->fb_stride, this->fb->z_address, this->fb->z_stride, this->match.xOffset, this->match.yOffset, this->match.reinterpret ? "true" : "false");
+}
+
+bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry) {
+	// For the estimate, we assume cluts always point to 8888 for simplicity.
+	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
+
+	if ((entry->bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && entry->addr >= PSP_GetKernelMemoryEnd()) {
+		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
+		// Proceeding here can cause a crash.
+		return false;
+	}
+
+	plan.badMipSizes = false;
+	// maxLevel here is the max level to upload. Not the count.
+	plan.levelsToLoad = entry->maxLevel + 1;
+	for (int i = 0; i < plan.levelsToLoad; i++) {
+		// If encountering levels pointing to nothing, adjust max level.
+		u32 levelTexaddr = gstate.getTextureAddress(i);
+		if (!Memory::IsValidAddress(levelTexaddr)) {
+			plan.levelsToLoad = i;
+			break;
+		}
+
+		// If size reaches 1, stop, and override maxlevel.
+		int tw = gstate.getTextureWidth(i);
+		int th = gstate.getTextureHeight(i);
+		if (tw == 1 || th == 1) {
+			plan.levelsToLoad = i + 1;  // next level is assumed to be invalid
+			break;
+		}
+
+		if (i > 0) {
+			int lastW = gstate.getTextureWidth(i - 1);
+			int lastH = gstate.getTextureHeight(i - 1);
+
+			if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
+				if (tw != 1 && tw != (lastW >> 1))
+					plan.badMipSizes = true;
+				else if (th != 1 && th != (lastH >> 1))
+					plan.badMipSizes = true;
+			}
+		}
+	}
+
+	plan.scaleFactor = standardScaleFactor_;
+
+	// Rachet down scale factor in low-memory mode.
+	// TODO: I think really we should just turn it off?
+	if (lowMemoryMode_ && !plan.hardwareScaling) {
+		// Keep it even, though, just in case of npot troubles.
+		plan.scaleFactor = plan.scaleFactor > 4 ? 4 : (plan.scaleFactor > 2 ? 2 : 1);
+	}
+
+	if (plan.badMipSizes) {
+		plan.levelsToLoad = 1;
+	}
+
+	if (plan.hardwareScaling) {
+		plan.scaleFactor = shaderScaleFactor_;
+	}
+
+	// We generate missing mipmaps from maxLevel+1 up to this level. maxLevel can get overwritten below
+	// such as when using replacement textures - but let's keep the same amount of levels for generation.
+	// Not all backends will generate mipmaps, and in GL we can't really control the number of levels.
+	plan.levelsToCreate = plan.levelsToLoad;
+
+	plan.w = gstate.getTextureWidth(0);
+	plan.h = gstate.getTextureHeight(0);
+
+	plan.replaced = &FindReplacement(entry, plan.w, plan.h);
+	if (plan.replaced->Valid()) {
+		// We're replacing, so we won't scale.
+		plan.scaleFactor = 1;
+		plan.levelsToLoad = plan.replaced->NumLevels();
+		plan.badMipSizes = false;
+	}
+
+	// Don't scale the PPGe texture.
+	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd())
+		plan.scaleFactor = 1;
+
+	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0 && plan.scaleFactor != 1 && plan.slowScaler) {
+		// Remember for later that we /wanted/ to scale this texture.
+		entry->status |= TexCacheEntry::STATUS_TO_SCALE;
+		plan.scaleFactor = 1;
+	}
+
+	if (plan.scaleFactor != 1) {
+		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED && plan.slowScaler) {
+			entry->status |= TexCacheEntry::STATUS_TO_SCALE;
+			plan.scaleFactor = 1;
+		} else {
+			entry->status &= ~TexCacheEntry::STATUS_TO_SCALE;
+			entry->status |= TexCacheEntry::STATUS_IS_SCALED;
+			texelsScaledThisFrame_ += plan.w * plan.h;
+		}
+	}
+
+	plan.isVideo = IsVideo(entry->addr);
+
+	// TODO: Support reading actual mip levels for upscaled images, instead of just generating them.
+	// Maybe can just remove this check?
+	if (plan.scaleFactor > 1) {
+		plan.levelsToLoad = 1;
+
+		bool enableVideoUpscaling = false;
+
+		if (!enableVideoUpscaling && plan.isVideo) {
+			plan.scaleFactor = 1;
+			plan.levelsToCreate = 1;
+		}
+	}
+
+	// Always load base level texture here 
+	plan.baseLevelSrc = 0;
+	if (IsFakeMipmapChange()) {
+		// NOTE: Since the level is not part of the cache key, we assume it never changes.
+		plan.baseLevelSrc = std::max(0, gstate.getTexLevelOffset16() / 16);
+		plan.levelsToCreate = 1;
+		plan.levelsToLoad = 1;
+	}
+
+	if (plan.levelsToCreate == 1) {
+		entry->status |= TexCacheEntry::STATUS_NO_MIPS;
+	} else {
+		entry->status &= ~TexCacheEntry::STATUS_NO_MIPS;
+	}
+
+	// Will be filled in again during decode.
+	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
+	return true;
 }

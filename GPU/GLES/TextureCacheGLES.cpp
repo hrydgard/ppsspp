@@ -228,7 +228,7 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 		render_->BindTexture(0, entry->textureName);
 		lastBoundTexture = entry->textureName;
 	}
-	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
+	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
 	ApplySamplingParams(samplerKey);
 	gstate_c.SetUseShaderDepal(false);
@@ -426,150 +426,58 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 }
 
 void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
-	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
-
-	// For the estimate, we assume cluts always point to 8888 for simplicity.
-	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
-
-	if ((entry->bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && entry->addr >= PSP_GetKernelMemoryEnd()) {
-		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
-		// Proceeding here can cause a crash.
+	BuildTexturePlan plan;
+	if (!PrepareBuildTexture(plan, entry)) {
+		// We're screwed?
 		return;
 	}
 
-	// Adjust maxLevel to actually present levels..
-	bool badMipSizes = false;
-	bool canAutoGen = false;
-	int maxLevel = entry->maxLevel;
-	for (int i = 0; i <= maxLevel; i++) {
-		// If encountering levels pointing to nothing, adjust max level.
-		u32 levelTexaddr = gstate.getTextureAddress(i);
-		if (!Memory::IsValidAddress(levelTexaddr)) {
-			maxLevel = i - 1;
-			break;
-		}
-
-		// If size reaches 1, stop, and override maxlevel.
-		int tw = gstate.getTextureWidth(i);
-		int th = gstate.getTextureHeight(i);
-		if (tw == 1 || th == 1) {
-			maxLevel = i;
-			break;
-		}
-
-		if (i > 0) {
-			int lastW = gstate.getTextureWidth(i - 1);
-			int lastH = gstate.getTextureHeight(i - 1);
-
-			if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-				if (tw != 1 && tw != (lastW >> 1))
-					badMipSizes = true;
-				else if (th != 1 && th != (lastH >> 1))
-					badMipSizes = true;
-			}
-
-			if (lastW > tw || lastH > th)
-				canAutoGen = true;
-		}
-	}
-
-	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
-	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-
-	int scaleFactor = standardScaleFactor_;
-
-	// Rachet down scale factor in low-memory mode.
-	if (lowMemoryMode_) {
-		// Keep it even, though, just in case of npot troubles.
-		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
-	}
-
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
-	ReplacedTexture &replaced = FindReplacement(entry, w, h);
-	if (replaced.Valid()) {
-		// We're replacing, so we won't scale.
-		scaleFactor = 1;
-		maxLevel = replaced.MaxLevel();
-		badMipSizes = false;
-	}
-
-	// Don't scale the PPGe texture.
-	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd())
-		scaleFactor = 1;
-
-	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0 && scaleFactor != 1) {
-		// Remember for later that we /wanted/ to scale this texture.
-		entry->status |= TexCacheEntry::STATUS_TO_SCALE;
-		scaleFactor = 1;
-	}
-
-	if (scaleFactor != 1) {
-		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED) {
-			entry->status |= TexCacheEntry::STATUS_TO_SCALE;
-			scaleFactor = 1;
-		} else {
-			entry->status &= ~TexCacheEntry::STATUS_TO_SCALE;
-			entry->status |= TexCacheEntry::STATUS_IS_SCALED;
-			texelsScaledThisFrame_ += w * h;
-		}
-	}
+	_assert_(!entry->textureName);
 
 	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
 	// don't specify mips all the way down. As a result, we either need to manually generate
 	// the bottom few levels or rely on OpenGL's autogen mipmaps instead, which might not
 	// be as good quality as the game's own (might even be better in some cases though).
 
-	// Always load base level texture here 
-	u8 level = 0;
-	if (IsFakeMipmapChange()) {
-		// NOTE: Since the level is not part of the cache key, we assume it never changes.
-		level = std::max(0, gstate.getTexLevelOffset16() / 16);
-	}
-	LoadTextureLevel(*entry, replaced, level, scaleFactor, dstFmt);
+	// TODO: Actually pass in correct size here. The size here is (in GL) not yet used for anything else
+	// than determining if we can wrap this texture size, that is, it's pow2 or not on very old hardware, else true.
+	// This will be easy after .. well, yet another refactoring, where I hoist the size calculation out of LoadTextureLevel
+	// and unify BuildTexture.
+	entry->textureName = render_->CreateTexture(GL_TEXTURE_2D, plan.w, plan.h, plan.levelsToCreate);
 
-	// Mipmapping is only enabled when texture scaling is disabled.
-	int texMaxLevel = 0;
-	bool genMips = false;
-	if (maxLevel > 0 && scaleFactor == 1) {
-		if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-			if (badMipSizes) {
-				// WARN_LOG(G3D, "Bad mipmap for texture sized %dx%dx%d - autogenerating", w, h, (int)format);
-				if (canAutoGen) {
-					genMips = true;
-				} else {
-					texMaxLevel = 0;
-					maxLevel = 0;
-				}
-			} else {
-				for (int i = 1; i <= maxLevel; i++) {
-					LoadTextureLevel(*entry, replaced, i, scaleFactor, dstFmt);
-				}
-				texMaxLevel = maxLevel;
-			}
+	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
+
+	// Apply some additional compatibility checks.
+	if (plan.levelsToLoad > 1) {
+		// Avoid PowerVR driver bug
+		if (plan.w > 1 && plan.h > 1 && !(plan.h > plan.w && draw_->GetBugs().Has(Draw::Bugs::PVR_GENMIPMAP_HEIGHT_GREATER))) {  // Really! only seems to fail if height > width
+			// It's ok to generate mipmaps beyond the loaded levels.
 		} else {
-			// Avoid PowerVR driver bug
-			if (canAutoGen && w > 1 && h > 1 && !(h > w && draw_->GetBugs().Has(Draw::Bugs::PVR_GENMIPMAP_HEIGHT_GREATER))) {  // Really! only seems to fail if height > width
-				// NOTICE_LOG(G3D, "Generating mipmap for texture sized %dx%d%d", w, h, (int)format);
-				genMips = true;
-			} else {
-				maxLevel = 0;
-			}
+			plan.levelsToCreate = plan.levelsToLoad;
 		}
-	} else if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-		texMaxLevel = 0;
+	} 
+
+	if (!gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
+		// Force no additional mipmaps.
+		plan.levelsToCreate = plan.levelsToLoad;
 	}
 
-	if (maxLevel == 0) {
-		entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
+	for (int i = 0; i < plan.levelsToLoad; i++) {
+		LoadTextureLevel(*entry, *plan.replaced, i == 0 ? plan.baseLevelSrc : i, i, plan.scaleFactor, dstFmt);
+	}
+
+	bool genMips = plan.levelsToCreate > plan.levelsToLoad;
+
+	render_->FinalizeTexture(entry->textureName, plan.levelsToLoad, genMips);
+
+	if (plan.levelsToLoad == 1) {
+		entry->status |= TexCacheEntry::STATUS_NO_MIPS;
 	} else {
-		entry->status &= ~TexCacheEntry::STATUS_BAD_MIPS;
+		entry->status &= ~TexCacheEntry::STATUS_NO_MIPS;
 	}
-	if (replaced.Valid()) {
-		entry->SetAlphaStatus(TexCacheEntry::TexStatus(replaced.AlphaStatus()));
+	if (plan.replaced->Valid()) {
+		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
 	}
-
-	render_->FinalizeTexture(entry->textureName, texMaxLevel, genMips);
 }
 
 Draw::DataFormat TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
@@ -608,40 +516,29 @@ CheckAlphaResult TextureCacheGLES::CheckAlpha(const uint8_t *pixelData, Draw::Da
 	}
 }
 
-void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int scaleFactor, Draw::DataFormat dstFmt) {
-	int w = gstate.getTextureWidth(level);
-	int h = gstate.getTextureHeight(level);
+void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int srcLevel, int dstLevel, int scaleFactor, Draw::DataFormat dstFmt) {
+	int w = gstate.getTextureWidth(srcLevel);
+	int h = gstate.getTextureHeight(srcLevel);
 	uint8_t *pixelData;
 	int decPitch = 0;
 
 	gpuStats.numTexturesDecoded++;
 
-	if (!entry.textureName) {
-		// TODO: Actually pass in correct size here. The size here is not yet used for anything else
-		// than determining if we can wrap this texture size, that is, it's pow2 or not on very old hardware, else true.
-		// This will be easy after .. well, yet another refactoring, where I hoist the size calculation out of LoadTextureLevel
-		// and unify BuildTexture.
-		entry.textureName = render_->CreateTexture(GL_TEXTURE_2D, 16, 16, 1);
-	}
-
-	if (replaced.GetSize(level, w, h)) {
-		PROFILE_THIS_SCOPE("replacetex");
-
-		int bpp = (int)DataFormatSizeInBytes(replaced.Format(level));
+	if (replaced.GetSize(srcLevel, w, h)) {
+		int bpp = (int)DataFormatSizeInBytes(replaced.Format(srcLevel));
+		
 		decPitch = w * bpp;
 		uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(decPitch * h, 16);
 		double replaceStart = time_now_d();
-		replaced.Load(level, rearrange, decPitch);
+		replaced.Load(srcLevel, rearrange, decPitch);
 		replacementTimeThisFrame_ += time_now_d() - replaceStart;
 		pixelData = rearrange;
 
-		dstFmt = replaced.Format(level);
+		dstFmt = replaced.Format(srcLevel);
 	} else {
-		PROFILE_THIS_SCOPE("decodetex");
-
 		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
-		u32 texaddr = gstate.getTextureAddress(level);
-		int bufw = GetTextureBufw(level, texaddr, GETextureFormat(entry.format));
+		u32 texaddr = gstate.getTextureAddress(srcLevel);
+		int bufw = GetTextureBufw(srcLevel, texaddr, GETextureFormat(entry.format));
 
 		int pixelSize = dstFmt == Draw::DataFormat::R8G8B8A8_UNORM ? 4 : 2;
 		// We leave GL_UNPACK_ALIGNMENT at 4, so this must be at least 4.
@@ -649,8 +546,8 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 
 		pixelData = (uint8_t *)AllocateAlignedMemory(decPitch * h * pixelSize, 16);
 
-		CheckAlphaResult alphaStatus = DecodeTextureLevel(pixelData, decPitch, GETextureFormat(entry.format), clutformat, texaddr, level, bufw, true, false);
-		entry.SetAlphaStatus(alphaStatus, level);
+		CheckAlphaResult alphaStatus = DecodeTextureLevel(pixelData, decPitch, GETextureFormat(entry.format), clutformat, texaddr, srcLevel, bufw, true, false);
+		entry.SetAlphaStatus(alphaStatus, srcLevel);
 
 		if (scaleFactor > 1) {
 			uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(w * scaleFactor * h * scaleFactor * 4, 16);
@@ -672,15 +569,11 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 			replacedInfo.scaleFactor = scaleFactor;
 			replacedInfo.fmt = dstFmt;
 
-			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, level, w, h);
+			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, srcLevel, w, h);
 		}
 	}
 	
-	PROFILE_THIS_SCOPE("loadtex");
-	if (IsFakeMipmapChange())
-		render_->TextureImage(entry.textureName, 0, w, h, dstFmt, pixelData, GLRAllocType::ALIGNED);
-	else
-		render_->TextureImage(entry.textureName, level, w, h, dstFmt, pixelData, GLRAllocType::ALIGNED);
+	render_->TextureImage(entry.textureName, dstLevel, w, h, dstFmt, pixelData, GLRAllocType::ALIGNED);
 }
 
 bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {

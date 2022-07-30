@@ -129,7 +129,7 @@ struct TexCacheEntry {
 		// texture, and set this flag to allow scaling the texture just once for the new hash.
 		STATUS_FREE_CHANGE = 0x0400,   // Allow one change before marking "frequent".
 
-		STATUS_BAD_MIPS = 0x0800,      // Has bad or unusable mipmap levels.
+		STATUS_NO_MIPS = 0x0800,      // Has bad or unusable mipmap levels.
 
 		STATUS_FRAMEBUFFER_OVERLAP = 0x1000,
 
@@ -229,6 +229,44 @@ struct AttachCandidate {
 
 class FramebufferManagerCommon;
 
+struct BuildTexturePlan {
+	// Inputs
+	bool hardwareScaling = false;
+	bool slowScaler = true;
+
+	// Set if the PSP software specified an unusual mip chain,
+	// such as the same size throughout, or anything else that doesn't divide by
+	// two on each level. If this is set, we won't generate mips nor use any.
+	// However, we still respect baseLevelSrc.
+	bool badMipSizes;
+
+	// Number of mip levels to load from PSP memory (or replacement).
+	int levelsToLoad;
+
+	// The number of levels in total to create.
+	// If greater than maxLevelToLoad, the backend is expected to either generate
+	// the missing levels, or limit itself to levelsToLoad levels.
+	int levelsToCreate;
+
+	// Load the 0-mip from this PSP texture level instead of 0.
+	// If non-zero, we are only loading one level.
+	int baseLevelSrc;
+
+	// The scale factor of the final texture.
+	int scaleFactor;
+
+	// Whether it's a video texture or not. Some decisions might depend on this.
+	bool isVideo;
+
+	// Unscaled size of the 0-mip of the original texture.
+	// Don't really need to have it here, but convenient.
+	int w;
+	int h;
+
+	// The replacement for the texture.
+	ReplacedTexture *replaced;
+};
+
 class TextureCacheCommon {
 public:
 	TextureCacheCommon(Draw::DrawContext *draw);
@@ -270,6 +308,8 @@ public:
 	virtual bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) { return false; }
 
 protected:
+	bool PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry);
+
 	virtual void BindTexture(TexCacheEntry *entry) = 0;
 	virtual void Unbind() = 0;
 	virtual void ReleaseTexture(TexCacheEntry *entry, bool delete_them) = 0;
@@ -307,7 +347,7 @@ protected:
 	void SetTextureFramebuffer(const AttachCandidate &candidate);
 
 	void DecimateVideos();
-	bool IsVideo(u32 texaddr);
+	bool IsVideo(u32 texaddr) const;
 
 	inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, GETextureFormat format, TexCacheEntry *entry) const {
 		if (replacer.Enabled()) {
@@ -384,6 +424,7 @@ protected:
 	u16 clutAlphaLinearColor_;
 
 	int standardScaleFactor_;
+	int shaderScaleFactor_ = 0;
 
 	const char *nextChangeReason_;
 	bool nextNeedsRehash_;

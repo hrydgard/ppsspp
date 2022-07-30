@@ -267,7 +267,7 @@ struct GLRInitStep {
 		} texture_image;
 		struct {
 			GLRTexture *texture;
-			int maxLevel;
+			int loadedLevels;
 			bool genMips;
 		} texture_finalize;
 	};

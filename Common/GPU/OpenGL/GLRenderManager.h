@@ -565,10 +565,10 @@ public:
 		curRenderStep_->commands.push_back(_data);
 	}
 
-	void FinalizeTexture(GLRTexture *texture, int maxLevels, bool genMips) {
+	void FinalizeTexture(GLRTexture *texture, int loadedLevels, bool genMips) {
 		GLRInitStep step{ GLRInitStepType::TEXTURE_FINALIZE };
 		step.texture_finalize.texture = texture;
-		step.texture_finalize.maxLevel = maxLevels;
+		step.texture_finalize.loadedLevels = loadedLevels;
 		step.texture_finalize.genMips = genMips;
 		initSteps_.push_back(step);
 	}
