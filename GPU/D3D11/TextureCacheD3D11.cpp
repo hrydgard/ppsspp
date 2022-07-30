@@ -493,28 +493,29 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	Draw::DataFormat texFmt = FromD3D11Format(dstFmt);
 
 	for (int i = 0; i < levels; i++) {
-		u8 *data = nullptr;
-		int stride = 0;
-		int bpp = dstFmt == DXGI_FORMAT_B8G8R8A8_UNORM ? 4 : 2;
-
 		int srcLevel = (i == 0) ? plan.baseLevelSrc : i;
 
 		int w = gstate.getTextureWidth(srcLevel);
 		int h = gstate.getTextureHeight(srcLevel);
 
+		u8 *data = nullptr;
+		int stride = 0;
+
 		// For UpdateSubresource, we can't decode directly into the texture so we allocate a buffer :(
 		// NOTE: Could reuse it between levels or textures!
 		if (plan.replaced->GetSize(srcLevel, w, h)) {
-			data = (u8 *)AllocateAlignedMemory(w * h * 4, 16);
-			stride = w * 4;
+			int bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format(srcLevel));
+			stride = w * bpp;
+			data = (u8 *)AllocateAlignedMemory(stride * h, 16);
 		} else {
 			if (plan.scaleFactor > 1) {
 				data = (u8 *)AllocateAlignedMemory(4 * (w * plan.scaleFactor) * (h * plan.scaleFactor), 16);
 				stride = w * plan.scaleFactor * 4;
 			} else {
+				int bpp = dstFmt == DXGI_FORMAT_B8G8R8A8_UNORM ? 4 : 2;
+
 				stride = std::max(w * bpp, 16);
-				size_t bufSize = sizeof(u32) * (stride / bpp) * h;
-				data = (u8 *)AllocateAlignedMemory(bufSize, 16);
+				data = (u8 *)AllocateAlignedMemory(stride * h, 16);
 			}
 		}
 
@@ -523,7 +524,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 			return;
 		}
 
-		data = LoadTextureLevel(*entry, data, stride, *plan.replaced, srcLevel, plan.scaleFactor, texFmt);
+		LoadTextureLevel(*entry, data, stride, *plan.replaced, srcLevel, plan.scaleFactor, texFmt);
 
 		ID3D11Texture2D *texture = DxTex(entry);
 		context_->UpdateSubresource(texture, i, nullptr, data, stride, 0);
