@@ -367,14 +367,18 @@ static char hb2hex(unsigned char hb) {
 	return hb < 10 ? '0' + hb : hb - 10 + 'a';
 }
 
-std::string md5file(const char* filename) {
-	std::FILE* file = std::fopen(filename, "rb");
+std::string md5file(const Path filename) {	
+	FILE* in = File::OpenCFile(filename, "rb");
+	if (!in) {
+		WARN_LOG(COMMON, "Unable to open %s\n", filename.c_str());
+		return "";
+	}
 	unsigned char buff[BUFSIZ];
 	md5_context c;
 	md5_starts(&c);
 	unsigned char out[16];
 	size_t len = 0;	
-	while ((len = std::fread(buff, sizeof(char), BUFSIZ, file)) > 0) {
+	while ((len = std::fread(buff, sizeof(char), BUFSIZ, in)) > 0) {
 		md5_update(&c, buff, len);
 	}
 	md5_finish(&c, out);
@@ -383,16 +387,15 @@ std::string md5file(const char* filename) {
 		res.push_back(hb2hex(out[i] >> 4));
 		res.push_back(hb2hex(out[i]));
 	}
-	std::fclose(file);
+	fclose(in);
 	return res;
 }
 
 UI::EventReturn GameScreen::OnDoMD5(UI::EventParams& e) {
 	MD5string = "...";
-	//Reporting::QueueCRC(gamePath_);
-	//MD5string = md5file(gamePath_);
-	auto chrs = gamePath_.c_str();
-	MD5string = md5file(chrs);
+	//auto chrs = gamePath_.c_str();
+	//MD5string = md5file(chrs);
+	MD5string = md5file(gamePath_);
 	MD5string = "MD5: "+ MD5string;
 	btnCalcMD5_->SetEnabled(false);
 	return UI::EVENT_DONE;
