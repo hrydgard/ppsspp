@@ -271,41 +271,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 			WRITE(p, "};\n");
 		}
-	} else if (compat.shaderLanguage == HLSL_D3D9) {
-		if (doTexture)
-			WRITE(p, "sampler tex : register(s0);\n");
-		if (readFramebufferTex) {
-			WRITE(p, "vec2 u_fbotexSize : register(c%i);\n", CONST_PS_FBOTEXSIZE);
-			WRITE(p, "sampler fbotex : register(s1);\n");
-		}
-		if (replaceBlend > REPLACE_BLEND_STANDARD) {
-			if (replaceBlendFuncA >= GE_SRCBLEND_FIXA) {
-				WRITE(p, "float3 u_blendFixA : register(c%i);\n", CONST_PS_BLENDFIXA);
-			}
-			if (replaceBlendFuncB >= GE_DSTBLEND_FIXB) {
-				WRITE(p, "float3 u_blendFixB : register(c%i);\n", CONST_PS_BLENDFIXB);
-			}
-		}
-		if (needShaderTexClamp && doTexture) {
-			WRITE(p, "vec4 u_texclamp : register(c%i);\n", CONST_PS_TEXCLAMP);
-			if (textureAtOffset) {
-				WRITE(p, "vec2 u_texclampoff : register(c%i);\n", CONST_PS_TEXCLAMPOFF);
-			}
-		}
-
-		if (enableAlphaTest || enableColorTest) {
-			WRITE(p, "vec4 u_alphacolorref : register(c%i);\n", CONST_PS_ALPHACOLORREF);
-			WRITE(p, "vec4 u_alphacolormask : register(c%i);\n", CONST_PS_ALPHACOLORMASK);
-		}
-		if (stencilToAlpha && replaceAlphaWithStencilType == STENCIL_VALUE_UNIFORM) {
-			WRITE(p, "float u_stencilReplaceValue : register(c%i);\n", CONST_PS_STENCILREPLACE);
-		}
-		if (doTexture && texFunc == GE_TEXFUNC_BLEND) {
-			WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
-		}
-		if (enableFog) {
-			WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
-		}
 	} else if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
 		if ((shaderDepal || colorWriteMask) && gl_extensions.IsGLES) {
 			WRITE(p, "precision highp int;\n");
