@@ -598,7 +598,9 @@ rotateVBO:
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (result.setStencil) {
-				dxstate.stencilFunc.set(D3DCMP_ALWAYS, result.stencilValue, 255);
+				dxstate.stencilFunc.set(D3DCMP_ALWAYS);
+				dxstate.stencilRef.set(result.stencilValue);
+				dxstate.stencilCompareMask.set(255);
 			}
 
 			// TODO: Add a post-transform cache here for multi-RECTANGLES only.

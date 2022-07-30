@@ -119,11 +119,15 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 		gstate_c.SetAllowFramebufferRead(false);
 		if (gstate.isModeClear()) {
 			dxstate.blend.disable();
-
 			// Color Mask
-			bool colorMask = gstate.isClearModeColorMask();
-			bool alphaMask = gstate.isClearModeAlphaMask();
-			dxstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
+			u32 mask = 0;
+			if (gstate.isClearModeColorMask()) {
+				mask |= 7;
+			}
+			if (gstate.isClearModeAlphaMask()) {
+				mask |= 8;
+			}
+			dxstate.colorMask.set(mask);
 		} else {
 			GenericMaskState maskState;
 			ConvertMaskState(maskState, gstate_c.allowFramebufferRead);
@@ -158,20 +162,27 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 				dxstate.blend.disable();
 			}
 
-			dxstate.colorMask.set(maskState.rgba[0], maskState.rgba[1], maskState.rgba[2], maskState.rgba[3]);
+			u32 mask = 0;
+			for (int i = 0; i < 4; i++) {
+				if (maskState.rgba[i])
+					mask |= 1 << i;
+			}
+			dxstate.colorMask.set(mask);
 		}
 	}
 
 	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
 		gstate_c.Clean(DIRTY_RASTER_STATE);
-		// Set Dither
-		if (gstate.isDitherEnabled()) {
-			dxstate.dither.enable();
-		} else {
-			dxstate.dither.disable();
-		}
 		bool wantCull = !gstate.isModeClear() && prim != GE_PRIM_RECTANGLES && prim > GE_PRIM_LINE_STRIP && gstate.isCullEnabled();
-		dxstate.cullMode.set(wantCull, gstate.getCullMode());
+		if (wantCull) {
+			if (gstate.getCullMode() == 1) {
+				dxstate.cullMode.set(D3DCULL_CCW);
+			} else {
+				dxstate.cullMode.set(D3DCULL_CW);
+			}
+		} else {
+			dxstate.cullMode.set(D3DCULL_NONE);
+		}
 		if (gstate.isModeClear()) {
 			// Well, probably doesn't matter...
 			dxstate.shadeMode.set(D3DSHADE_GOURAUD);
@@ -200,8 +211,10 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			if (alphaMask) {
 				dxstate.stencilTest.enable();
 				dxstate.stencilOp.set(D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE);
-				dxstate.stencilFunc.set(D3DCMP_ALWAYS, 255, 0xFF);
-				dxstate.stencilMask.set(stencilState.writeMask);
+				dxstate.stencilFunc.set(D3DCMP_ALWAYS);
+				dxstate.stencilRef.set(0xFF);
+				dxstate.stencilCompareMask.set(0xFF);
+				dxstate.stencilWriteMask.set(stencilState.writeMask);
 			} else {
 				dxstate.stencilTest.disable();
 			}
@@ -222,9 +235,11 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			// Stencil Test
 			if (stencilState.enabled) {
 				dxstate.stencilTest.enable();
-				dxstate.stencilFunc.set(ztests[stencilState.testFunc], stencilState.testRef, stencilState.testMask);
+				dxstate.stencilFunc.set(ztests[stencilState.testFunc]);
+				dxstate.stencilRef.set(stencilState.testRef);
+				dxstate.stencilCompareMask.set(stencilState.testMask);
 				dxstate.stencilOp.set(stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass]);
-				dxstate.stencilMask.set(stencilState.writeMask);
+				dxstate.stencilWriteMask.set(stencilState.writeMask);
 			} else {
 				dxstate.stencilTest.disable();
 			}

@@ -256,7 +256,7 @@ void GPU_DX9::DeviceRestore() {
 void GPU_DX9::InitClear() {
 	if (!framebufferManager_->UseBufferedRendering()) {
 		dxstate.depthWrite.set(true);
-		dxstate.colorMask.set(true, true, true, true);
+		dxstate.colorMask.set(0xF);
 		device_->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);
 	}
 }
@@ -298,7 +298,7 @@ void GPU_DX9::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 
 void GPU_DX9::CopyDisplayToOutput(bool reallyDirty) {
 	dxstate.depthWrite.set(true);
-	dxstate.colorMask.set(true, true, true, true);
+	dxstate.colorMask.set(0xF);
 
 	drawEngine_.Flush();
 

@@ -304,6 +304,7 @@ public:
 	}
 
 	void Shade() {
+		// Intentionally bypassing the dxstate cache here (and using .Restore to recover afterwards). Not sure if this is a good idea.
 		device_->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
 		device_->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, FALSE);
 		device_->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA);
@@ -318,7 +319,6 @@ public:
 		if (FAILED(hr)) {
 			ERROR_LOG_REPORT(G3D, "Depal render failed: %08x", (uint32_t)hr);
 		}
-
 		dxstate.Restore();
 	}
 
