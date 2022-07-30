@@ -46,6 +46,7 @@ struct ShaderLanguageDesc {
 	const char *fragColor0 = nullptr;
 	const char *fragColor1 = nullptr;
 	const char *texture = nullptr;
+	const char *texture3D = nullptr;
 	const char *texelFetch = nullptr;
 	const char *lastFragData = nullptr;
 	const char *framebufferFetchExtension = nullptr;

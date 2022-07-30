@@ -277,11 +277,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 
 		if (doTexture) {
-			if (texture3D) {
-				WRITE(p, "uniform sampler3D tex;\n");
-			} else {
-				WRITE(p, "uniform sampler2D tex;\n");
-			}
+			WRITE(p, "uniform %s tex;\n", texture3D ? "sampler3D" : "sampler2D");
 		}
 
 		if (readFramebufferTex) {
@@ -561,9 +557,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 					// Let's add that if we run into a case...
 					if (texture3D) {
 						if (doTextureProjection) {
-							WRITE(p, "  vec4 t = %sProj(tex, vec4(%s.xy, u_mipBias, %s.z));\n", compat.texture, texcoord, texcoord);
+							WRITE(p, "  vec4 t = %sProj(tex, vec4(%s.xy, u_mipBias, %s.z));\n", compat.texture3D, texcoord, texcoord);
 						} else {
-							WRITE(p, "  vec4 t = %s(tex, vec3(%s.xy, u_mipBias));\n", compat.texture, texcoord);
+							WRITE(p, "  vec4 t = %s(tex, vec3(%s.xy, u_mipBias));\n", compat.texture3D, texcoord);
 						}
 					} else {
 						if (doTextureProjection) {
