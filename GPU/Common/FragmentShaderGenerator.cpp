@@ -556,7 +556,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 						}
 					} else {
 						if (doTextureProjection) {
-							WRITE(p, "  vec4 t = tex2Dproj(tex, vec3(v_texcoord.x, v_texcoord.y, v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
+							WRITE(p, "  vec4 t = tex2Dproj(tex, vec4(v_texcoord.x, v_texcoord.y, 0.0, v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
 						} else {
 							WRITE(p, "  vec4 t = tex2D(tex, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
 						}
