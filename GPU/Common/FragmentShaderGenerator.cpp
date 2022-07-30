@@ -210,7 +210,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 		} else {
 			WRITE(p, "SamplerState samp : register(s0);\n");
-			WRITE(p, "Texture2D<vec4> tex : register(t0);\n");
+			if (texture3D) {
+				WRITE(p, "Texture3D<vec4> tex : register(t0);\n");
+			} else {
+				WRITE(p, "Texture2D<vec4> tex : register(t0);\n");
+			}
 			if (readFramebufferTex) {
 				// No sampler required, we Load
 				WRITE(p, "Texture2D<vec4> fboTex : register(t1);\n");
@@ -547,10 +551,18 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 			if (!shaderDepal) {
 				if (compat.shaderLanguage == HLSL_D3D11) {
-					if (doTextureProjection) {
-						WRITE(p, "  vec4 t = tex.Sample(samp, v_texcoord.xy / v_texcoord.z)%s;\n", bgraTexture ? ".bgra" : "");
+					if (texture3D) {
+						if (doTextureProjection) {
+							WRITE(p, "  vec4 t = tex.Sample(samp, vec3(v_texcoord.xy / v_texcoord.z, u_mipBias))%s;\n", bgraTexture ? ".bgra" : "");
+						} else {
+							WRITE(p, "  vec4 t = tex.Sample(samp, vec3(%s.xy, u_mipBias))%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+						}
 					} else {
-						WRITE(p, "  vec4 t = tex.Sample(samp, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+						if (doTextureProjection) {
+							WRITE(p, "  vec4 t = tex.Sample(samp, v_texcoord.xy / v_texcoord.z)%s;\n", bgraTexture ? ".bgra" : "");
+						} else {
+							WRITE(p, "  vec4 t = tex.Sample(samp, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+						}
 					}
 				} else if (compat.shaderLanguage == HLSL_D3D9) {
 					if (doTextureProjection) {

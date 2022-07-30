@@ -808,6 +808,11 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	entry->vkTex->EndCreate(cmdInit, false, prevStage, layout);
 	VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 
+	// Signal that we support depth textures so use it as one.
+	if (plan.depth > 1) {
+		entry->status |= TexCacheEntry::STATUS_3D;
+	}
+
 	if (plan.replaced->Valid()) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
 	}

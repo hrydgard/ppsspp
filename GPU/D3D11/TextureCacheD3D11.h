@@ -77,8 +77,8 @@ private:
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
 
-	ID3D11Texture2D *&DxTex(TexCacheEntry *entry) {
-		return (ID3D11Texture2D *&)entry->texturePtr;
+	ID3D11Resource *&DxTex(TexCacheEntry *entry) {
+		return (ID3D11Resource *&)entry->texturePtr;
 	}
 	ID3D11ShaderResourceView *DxView(TexCacheEntry *entry) {
 		return (ID3D11ShaderResourceView *)entry->textureView;

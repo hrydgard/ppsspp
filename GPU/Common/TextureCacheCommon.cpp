@@ -2177,10 +2177,6 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		entry->status &= ~TexCacheEntry::STATUS_NO_MIPS;
 	}
 
-	if (plan.depth > 1) {
-		entry->status |= TexCacheEntry::STATUS_3D;
-	}
-
 	// Will be filled in again during decode.
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 	return true;
