@@ -410,7 +410,6 @@
     <ClInclude Include="..\..\GPU\D3D11\ShaderManagerD3D11.h" />
     <ClInclude Include="..\..\GPU\D3D11\StateMappingD3D11.h" />
     <ClInclude Include="..\..\GPU\D3D11\TextureCacheD3D11.h" />
-    <ClInclude Include="..\..\GPU\D3D11\TextureScalerD3D11.h" />
     <ClInclude Include="..\..\GPU\Debugger\Breakpoints.h" />
     <ClInclude Include="..\..\GPU\Debugger\Debugger.h" />
     <ClInclude Include="..\..\GPU\Debugger\Playback.h" />
@@ -473,7 +472,6 @@
     <ClCompile Include="..\..\GPU\D3D11\StateMappingD3D11.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\StencilBufferD3D11.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\TextureCacheD3D11.cpp" />
-    <ClCompile Include="..\..\GPU\D3D11\TextureScalerD3D11.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Breakpoints.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Debugger.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Playback.cpp" />
