@@ -49,6 +49,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		highpTexcoord = highpFog;
 	}
 
+	bool texture3D = id.Bit(FS_BIT_3D_TEXTURE);
+
 	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2));
 
 	std::vector<const char*> gl_exts;
@@ -61,6 +63,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 		if (compat.framebufferFetchExtension) {
 			gl_exts.push_back(compat.framebufferFetchExtension);
+		}
+		if (gl_extensions.OES_texture_3D && texture3D) {
+			gl_exts.push_back("#extension GL_OES_texture_3D: enable");
 		}
 	}
 
@@ -78,7 +83,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool enableColorDoubling = id.Bit(FS_BIT_COLOR_DOUBLE);
 	bool doTextureProjection = id.Bit(FS_BIT_DO_TEXTURE_PROJ);
 	bool doTextureAlpha = id.Bit(FS_BIT_TEXALPHA);
-	bool texture3D = id.Bit(FS_BIT_3D_TEXTURE);
 
 	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
 
@@ -277,7 +281,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 
 		if (doTexture) {
-			WRITE(p, "uniform %s tex;\n", texture3D ? "sampler3D" : "sampler2D");
+			if (texture3D) {
+				// For whatever reason, a precision specifier is required here.
+				WRITE(p, "uniform lowp sampler3D tex;\n");
+			} else {
+				WRITE(p, "uniform sampler2D tex;\n");
+			}
 		}
 
 		if (readFramebufferTex) {

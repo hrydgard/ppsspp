@@ -51,6 +51,7 @@ struct GLExtensions {
 	bool OES_vertex_array_object;
 	bool OES_copy_image;
 	bool OES_texture_float;
+	bool OES_texture_3D;
 
 	// ARB
 	bool ARB_framebuffer_object;

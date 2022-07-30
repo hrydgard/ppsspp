@@ -2097,7 +2097,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 			}
 		}
 
-		if (pure3D) {
+		if (pure3D && draw_->GetDeviceCaps().texture3DSupported) {
 			plan.depth = plan.levelsToLoad;
 			plan.scaleFactor = 1;
 		}

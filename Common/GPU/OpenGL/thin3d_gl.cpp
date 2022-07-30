@@ -536,8 +536,10 @@ OpenGLContext::OpenGLContext() {
 		} else {
 			caps_.preferredDepthBufferFormat = DataFormat::D16;
 		}
+		caps_.texture3DSupported = gl_extensions.OES_texture_3D;
 	} else {
 		caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
+		caps_.texture3DSupported = true;
 	}
 	caps_.framebufferBlitSupported = gl_extensions.NV_framebuffer_blit || gl_extensions.ARB_framebuffer_object;
 	caps_.framebufferDepthBlitSupported = caps_.framebufferBlitSupported;
