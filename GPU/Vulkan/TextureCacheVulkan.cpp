@@ -564,21 +564,15 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
 }
 
-ReplacedTextureFormat FromVulkanFormat(VkFormat fmt) {
+static Draw::DataFormat FromVulkanFormat(VkFormat fmt) {
 	switch (fmt) {
-	case VULKAN_565_FORMAT: return ReplacedTextureFormat::F_5650;
-	case VULKAN_1555_FORMAT: return ReplacedTextureFormat::F_5551;
-	case VULKAN_4444_FORMAT: return ReplacedTextureFormat::F_4444;
-	case VULKAN_8888_FORMAT: default: return ReplacedTextureFormat::F_8888;
+	case VULKAN_8888_FORMAT: default: return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 }
 
-VkFormat ToVulkanFormat(ReplacedTextureFormat fmt) {
+static VkFormat ToVulkanFormat(Draw::DataFormat fmt) {
 	switch (fmt) {
-	case ReplacedTextureFormat::F_5650: return VULKAN_565_FORMAT;
-	case ReplacedTextureFormat::F_5551: return VULKAN_1555_FORMAT;
-	case ReplacedTextureFormat::F_4444: return VULKAN_4444_FORMAT;
-	case ReplacedTextureFormat::F_8888: default: return VULKAN_8888_FORMAT;
+	case Draw::DataFormat::R8G8B8A8_UNORM: default: return VULKAN_8888_FORMAT;
 	}
 }
 
@@ -1005,7 +999,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 
 		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || dstFmt == VK_FORMAT_R8G8B8A8_UNORM;
 
-		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, expand32);
+		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, expand32);
 
 		// WARN_LOG(G3D, "Alpha: full=%d w=%d h=%d level=%d %s/%s", (int)(alphaResult == CHECKALPHA_FULL), w, h, level, GeTextureFormatToString(tfmt), GEPaletteFormatToString(clutformat));
 		entry.SetAlphaStatus(alphaResult, level);

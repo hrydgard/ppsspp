@@ -605,21 +605,17 @@ CheckAlphaResult TextureCacheD3D11::CheckAlpha(const u32 *pixelData, u32 dstFmt,
 	}
 }
 
-ReplacedTextureFormat FromD3D11Format(u32 fmt) {
+// NOTE: In the D3D backends, we flip R and B in the shaders, so while these look wrong, they're OK.
+
+Draw::DataFormat FromD3D11Format(u32 fmt) {
 	switch (fmt) {
-	case DXGI_FORMAT_B5G6R5_UNORM: return ReplacedTextureFormat::F_5650;
-	case DXGI_FORMAT_B5G5R5A1_UNORM: return ReplacedTextureFormat::F_5551;
-	case DXGI_FORMAT_B4G4R4A4_UNORM: return ReplacedTextureFormat::F_4444;
-	case DXGI_FORMAT_B8G8R8A8_UNORM: default: return ReplacedTextureFormat::F_8888;
+	case DXGI_FORMAT_B8G8R8A8_UNORM: default: return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 }
 
-DXGI_FORMAT ToDXGIFormat(ReplacedTextureFormat fmt) {
+DXGI_FORMAT ToDXGIFormat(Draw::DataFormat fmt) {
 	switch (fmt) {
-	case ReplacedTextureFormat::F_5650: return DXGI_FORMAT_B5G6R5_UNORM;
-	case ReplacedTextureFormat::F_5551: return DXGI_FORMAT_B5G5R5A1_UNORM;
-	case ReplacedTextureFormat::F_4444: return DXGI_FORMAT_B4G4R4A4_UNORM;
-	case ReplacedTextureFormat::F_8888: default: return DXGI_FORMAT_B8G8R8A8_UNORM;
+	case Draw::DataFormat::R8G8B8A8_UNORM: default: return DXGI_FORMAT_B8G8R8A8_UNORM;
 	}
 }
 
@@ -702,7 +698,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 
 		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS);
 
-		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, expand32);
+		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, expand32);
 		entry.SetAlphaStatus(alphaResult, level);
 
 		if (scaleFactor > 1) {

@@ -1319,7 +1319,7 @@ ReplacedTexture &TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &
 
 // This is only used in the GLES backend, where we don't point these to video memory.
 // So we shouldn't add a check for dstBuf != srcBuf, as long as the functions we call can handle that.
-static void ReverseColors(void *dstBuf, const void *srcBuf, GETextureFormat fmt, int numPixels, bool useBGRA) {
+static void ReverseColors(void *dstBuf, const void *srcBuf, GETextureFormat fmt, int numPixels) {
 	switch (fmt) {
 	case GE_TFMT_4444:
 		ConvertRGBA4444ToABGR4444((u16 *)dstBuf, (const u16 *)srcBuf, numPixels);
@@ -1332,12 +1332,9 @@ static void ReverseColors(void *dstBuf, const void *srcBuf, GETextureFormat fmt,
 		ConvertRGB565ToBGR565((u16 *)dstBuf, (const u16 *)srcBuf, numPixels);
 		break;
 	default:
-		if (useBGRA) {
-			ConvertRGBA8888ToBGRA8888((u32 *)dstBuf, (const u32 *)srcBuf, numPixels);
-		} else {
-			// No need to convert RGBA8888, right order already
-			if (dstBuf != srcBuf)
-				memcpy(dstBuf, srcBuf, numPixels * sizeof(u32));
+		// No need to convert RGBA8888, right order already
+		if (dstBuf != srcBuf) {
+			memcpy(dstBuf, srcBuf, numPixels * sizeof(u32));
 		}
 		break;
 	}
@@ -1367,7 +1364,7 @@ static inline void ConvertFormatToRGBA8888(GEPaletteFormat format, u32 *dst, con
 
 template <typename DXTBlock, int n>
 static CheckAlphaResult DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t texaddr, const uint8_t *texptr,
-	int w, int h, int bufw, bool reverseColors, bool useBGRA) {
+	int w, int h, int bufw, bool reverseColors) {
 
 	int minw = std::min(bufw, w);
 	uint32_t *dst = (uint32_t *)out;
@@ -1403,7 +1400,7 @@ static CheckAlphaResult DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t tex
 	}
 
 	if (reverseColors) {
-		ReverseColors(out, out, GE_TFMT_8888, outPitch32 * h, useBGRA);
+		ReverseColors(out, out, GE_TFMT_8888, outPitch32 * h);
 	}
 
 	if (n == 1) {
@@ -1434,7 +1431,7 @@ inline u32 TfmtRawToFullAlpha(GETextureFormat fmt) {
 	}
 }
 
-CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool useBGRA, bool expandTo32bit) {
+CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool expandTo32bit) {
 	u32 alphaSum = 0xFFFFFFFF;
 	u32 fullAlphaMask = 0x0;
 
@@ -1549,7 +1546,7 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 				// Just check the input's alpha to reuse code. TODO: make a specialized ReverseColors that checks as we go.
 				for (int y = 0; y < h; ++y) {
 					CheckMask16((const u16 *)(texptr + bufw * sizeof(u16) * y), w, &alphaSum);
-					ReverseColors(out + outPitch * y, texptr + bufw * sizeof(u16) * y, format, w, useBGRA);
+					ReverseColors(out + outPitch * y, texptr + bufw * sizeof(u16) * y, format, w);
 				}
 			} else if (expandTo32bit) {
 				for (int y = 0; y < h; ++y) {
@@ -1579,7 +1576,7 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 				// Just check the swizzled input's alpha to reuse code. TODO: make a specialized ReverseColors that checks as we go.
 				for (int y = 0; y < h; ++y) {
 					CheckMask16((const u16 *)(unswizzled + bufw * sizeof(u16) * y), w, &alphaSum);
-					ReverseColors(out + outPitch * y, unswizzled + bufw * sizeof(u16) * y, format, w, useBGRA);
+					ReverseColors(out + outPitch * y, unswizzled + bufw * sizeof(u16) * y, format, w);
 				}
 			} else if (expandTo32bit) {
 				// Just check the swizzled input's alpha to reuse code. TODO: make a specialized ConvertFormatToRGBA8888 that checks as we go.
@@ -1604,7 +1601,7 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 			if (reverseColors) {
 				for (int y = 0; y < h; ++y) {
 					CheckMask32((const u32 *)(texptr + bufw * sizeof(u32) * y), w, &alphaSum);
-					ReverseColors(out + outPitch * y, texptr + bufw * sizeof(u32) * y, format, w, useBGRA);
+					ReverseColors(out + outPitch * y, texptr + bufw * sizeof(u32) * y, format, w);
 				}
 			} else {
 				for (int y = 0; y < h; ++y) {
@@ -1626,7 +1623,7 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 			if (reverseColors) {
 				for (int y = 0; y < h; ++y) {
 					CheckMask32((const u32 *)(unswizzled + bufw * sizeof(u32) * y), w, &alphaSum);
-					ReverseColors(out + outPitch * y, unswizzled + bufw * sizeof(u32) * y, format, w, useBGRA);
+					ReverseColors(out + outPitch * y, unswizzled + bufw * sizeof(u32) * y, format, w);
 				}
 			} else {
 				for (int y = 0; y < h; ++y) {
@@ -1637,13 +1634,13 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 		break;
 
 	case GE_TFMT_DXT1:
-		return DecodeDXTBlocks<DXT1Block, 1>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors, useBGRA);
+		return DecodeDXTBlocks<DXT1Block, 1>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors);
 
 	case GE_TFMT_DXT3:
-		return DecodeDXTBlocks<DXT3Block, 3>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors, useBGRA);
+		return DecodeDXTBlocks<DXT3Block, 3>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors);
 
 	case GE_TFMT_DXT5:
-		return DecodeDXTBlocks<DXT5Block, 5>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors, useBGRA);
+		return DecodeDXTBlocks<DXT5Block, 5>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors);
 
 	default:
 		ERROR_LOG_REPORT(G3D, "Unknown Texture Format %d!!!", format);

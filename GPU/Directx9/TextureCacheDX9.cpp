@@ -539,21 +539,17 @@ CheckAlphaResult TextureCacheDX9::CheckAlpha(const u32 *pixelData, u32 dstFmt, i
 	}
 }
 
-ReplacedTextureFormat FromD3D9Format(u32 fmt) {
+// NOTE: In the D3D backends, we flip R and B in the shaders, so while these look wrong, they're OK.
+
+Draw::DataFormat FromD3D9Format(u32 fmt) {
 	switch (fmt) {
-	case D3DFMT_R5G6B5: return ReplacedTextureFormat::F_5650;
-	case D3DFMT_A1R5G5B5: return ReplacedTextureFormat::F_5551;
-	case D3DFMT_A4R4G4B4: return ReplacedTextureFormat::F_4444;
-	case D3DFMT_A8R8G8B8: default: return ReplacedTextureFormat::F_8888;
+	case D3DFMT_A8R8G8B8: default: return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 }
 
-D3DFORMAT ToD3D9Format(ReplacedTextureFormat fmt) {
+D3DFORMAT ToD3D9Format(Draw::DataFormat fmt) {
 	switch (fmt) {
-	case ReplacedTextureFormat::F_5650: return D3DFMT_R5G6B5;
-	case ReplacedTextureFormat::F_5551: return D3DFMT_A1R5G5B5;
-	case ReplacedTextureFormat::F_4444: return D3DFMT_A4R4G4B4;
-	case ReplacedTextureFormat::F_8888: default: return D3DFMT_A8R8G8B8;
+	case Draw::DataFormat::R8G8B8A8_UNORM: default: return D3DFMT_A8R8G8B8;
 	}
 }
 
@@ -627,7 +623,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 			decPitch = w * bpp;
 		}
 
-		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, false);
+		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false);
 		entry.SetAlphaStatus(alphaResult, level);
 
 		if (scaleFactor > 1) {

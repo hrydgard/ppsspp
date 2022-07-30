@@ -425,25 +425,6 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 }
 
-ReplacedTextureFormat FromDataFormat(Draw::DataFormat fmt) {
-	// TODO: 16-bit formats are incorrect, since swizzled.
-	switch (fmt) {
-	case Draw::DataFormat::R5G6B5_UNORM_PACK16: return ReplacedTextureFormat::F_0565_ABGR;
-	case Draw::DataFormat::R5G5B5A1_UNORM_PACK16: return ReplacedTextureFormat::F_1555_ABGR;
-	case Draw::DataFormat::R4G4B4A4_UNORM_PACK16: return ReplacedTextureFormat::F_4444_ABGR;
-	case Draw::DataFormat::R8G8B8A8_UNORM: default: return ReplacedTextureFormat::F_8888;
-	}
-}
-
-Draw::DataFormat ToDataFormat(ReplacedTextureFormat fmt) {
-	switch (fmt) {
-	case ReplacedTextureFormat::F_5650: return Draw::DataFormat::R5G6B5_UNORM_PACK16;
-	case ReplacedTextureFormat::F_5551: return Draw::DataFormat::R5G5B5A1_UNORM_PACK16;
-	case ReplacedTextureFormat::F_4444: return Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
-	case ReplacedTextureFormat::F_8888: default: return Draw::DataFormat::R8G8B8A8_UNORM;
-	}
-}
-
 void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 
@@ -646,7 +627,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 	if (replaced.GetSize(level, w, h)) {
 		PROFILE_THIS_SCOPE("replacetex");
 
-		int bpp = replaced.Format(level) == ReplacedTextureFormat::F_8888 ? 4 : 2;
+		int bpp = (int)DataFormatSizeInBytes(replaced.Format(level));
 		decPitch = w * bpp;
 		uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(decPitch * h, 16);
 		double replaceStart = time_now_d();
@@ -654,7 +635,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		replacementTimeThisFrame_ += time_now_d() - replaceStart;
 		pixelData = rearrange;
 
-		dstFmt = ToDataFormat(replaced.Format(level));
+		dstFmt = replaced.Format(level);
 	} else {
 		PROFILE_THIS_SCOPE("decodetex");
 
@@ -668,7 +649,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 
 		pixelData = (uint8_t *)AllocateAlignedMemory(decPitch * h * pixelSize, 16);
 
-		CheckAlphaResult alphaStatus = DecodeTextureLevel(pixelData, decPitch, GETextureFormat(entry.format), clutformat, texaddr, level, bufw, true, false, false);
+		CheckAlphaResult alphaStatus = DecodeTextureLevel(pixelData, decPitch, GETextureFormat(entry.format), clutformat, texaddr, level, bufw, true, false);
 		entry.SetAlphaStatus(alphaStatus, level);
 
 		if (scaleFactor > 1) {
@@ -689,7 +670,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 			replacedInfo.isVideo = IsVideo(entry.addr);
 			replacedInfo.isFinal = (entry.status & TexCacheEntry::STATUS_TO_SCALE) == 0;
 			replacedInfo.scaleFactor = scaleFactor;
-			replacedInfo.fmt = FromDataFormat(dstFmt);
+			replacedInfo.fmt = dstFmt;
 
 			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, level, w, h);
 		}
