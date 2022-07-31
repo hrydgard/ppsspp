@@ -45,7 +45,7 @@ protected:
 
 	void DePosterize(u32* source, u32* dest, int width, int height);
 
-	bool IsEmptyOrFlat(u32* data, int pixels);
+	bool IsEmptyOrFlat(const u32 *data, int pixels) const;
 
 	// depending on the factor and texture sizes, these can get pretty large 
 	// maximum is (100 MB total for a 512 by 512 texture with scaling factor 5 and hybrid scaling)
