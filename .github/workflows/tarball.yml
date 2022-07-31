@@ -7,7 +7,7 @@ on:
       - created
   push:
     tags:
-      - "v*.*.*"
+      - "v*.*"
 
 jobs:
   build:

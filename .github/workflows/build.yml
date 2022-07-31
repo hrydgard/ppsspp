@@ -7,7 +7,7 @@ on:
     # For testing.
     - actions
     tags:
-      - "v*.*.*"
+      - "v*.*"
     paths-ignore:
     - '*.{txt,md}'
     - 'Tools/**'
