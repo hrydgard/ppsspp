@@ -581,7 +581,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	BuildTexturePlan plan;
 	plan.hardwareScaling = g_Config.bTexHardwareScaling && uploadCS_ != VK_NULL_HANDLE;
-	plan.slowScaler = !plan.hardwareScaling || vulkan->DevicePerfClass() == PerfClass::SLOW;  // Or the GPU is slow - TODO add check!
+	plan.slowScaler = !plan.hardwareScaling || vulkan->DevicePerfClass() == PerfClass::SLOW;
 	if (!PrepareBuildTexture(plan, entry)) {
 		// We're screwed?
 		return;

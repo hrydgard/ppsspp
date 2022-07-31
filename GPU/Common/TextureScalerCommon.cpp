@@ -499,11 +499,10 @@ TextureScalerCommon::TextureScalerCommon() {
 TextureScalerCommon::~TextureScalerCommon() {
 }
 
-bool TextureScalerCommon::IsEmptyOrFlat(u32* data, int pixels) {
-	int pixelsPerWord = 1;
+bool TextureScalerCommon::IsEmptyOrFlat(const u32 *data, int pixels) const {
 	u32 ref = data[0];
-	// TODO: SIMD-ify this (although, for most textures we'll get our very early)
-	for (int i = 0; i < pixels; ++i) {
+	// TODO: SIMD-ify this (although, for most textures we'll get out very early)
+	for (int i = 1; i < pixels; ++i) {
 		if (data[i] != ref)
 			return false;
 	}
