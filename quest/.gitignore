@@ -1,9 +1,0 @@
-bin
-gen
-obj
-build*/
-gen
-obj
-.cxx
-.externalNativeBuild
-android.iml
