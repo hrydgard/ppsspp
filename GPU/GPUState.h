@@ -557,6 +557,14 @@ struct GPUStateCache {
 			Dirty(DIRTY_FRAGMENTSHADER_STATE | (is3D ? DIRTY_MIPBIAS : 0));
 		}
 	}
+	void SetFramebufferRenderMode(FramebufferRenderMode mode) {
+		if (mode != renderMode) {
+			// This mode modifies the fragment shader to write depth, the depth state to write without testing, and the blend state to write nothing to color.
+			// So we need to re-evaluate those states.
+			Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
+			renderMode = mode;
+		}
+	}
 
 	u32 featureFlags;
 
@@ -606,6 +614,9 @@ struct GPUStateCache {
 	// Examples of games that do this: Outrun, Split/Second.
 	// We detect this case and go into a special drawing mode.
 	bool blueToAlpha;
+
+	// Some games try to write to the Z buffer using color. Catch that and actually do the writes to the Z buffer instead.
+	FramebufferRenderMode renderMode;
 
 	// TODO: These should be accessed from the current VFB object directly.
 	u32 curRTWidth;

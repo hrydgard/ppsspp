@@ -250,7 +250,14 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 		GenericStencilFuncState stencilState;
 		ConvertStencilFuncState(stencilState);
 
-		if (gstate.isModeClear()) {
+		if (gstate_c.renderMode == FB_MODE_COLOR_TO_DEPTH) {
+			// Enforce plain depth writing.
+			key.depthTestEnable = true;
+			key.depthWriteEnable = true;
+			key.stencilTestEnable = false;
+			key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
+			key.depthClampEnable = false;
+		} else if (gstate.isModeClear()) {
 			key.depthTestEnable = true;
 			key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
 			key.depthWriteEnable = gstate.isClearModeDepthMask();
