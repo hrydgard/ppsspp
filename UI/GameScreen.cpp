@@ -45,6 +45,7 @@
 #include "UI/BackgroundAudio.h"
 #include "Core/Reporting.h"
 #include "Common/Crypto/md5.h"
+#include <sstream>
 
 GameScreen::GameScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
 	g_BackgroundAudio.SetGame(gamePath);
@@ -367,7 +368,7 @@ static char hb2hex(unsigned char hb) {
 	return hb < 10 ? '0' + hb : hb - 10 + 'a';
 }
 
-std::string md5file(const Path filename) {	
+std::string MD5FullFile(const Path filename) {
 	FILE* in = File::OpenCFile(filename, "rb");
 	if (!in) {
 		WARN_LOG(COMMON, "Unable to open %s\n", filename.c_str());
@@ -391,12 +392,54 @@ std::string md5file(const Path filename) {
 	return res;
 }
 
+std::string MD5_262144_File(const Path filename) {
+	const size_t BD_FILE_HEADER_SIZE = 262144;
+	const size_t MD5_DIGEST_LENGTH = 16;
+	std::ifstream is(filename.c_str(), std::ifstream::binary);
+	//char* buffer = new char[BUFSIZ];
+	//is.read(buffer, BD_FILE_HEADER_SIZE);
+	md5_context c;
+	md5_starts(&c);
+	//char buf[1024 * 16];
+	char buf[BD_FILE_HEADER_SIZE];
+	//while (is.good()) {
+		is.read(buf, sizeof(buf));
+		md5_update(&c, (unsigned char*)buf, is.gcount());
+	//}
+	unsigned char out[MD5_DIGEST_LENGTH];
+	md5_finish(&c, out);
+	std::string res;
+	for (size_t i = 0; i < 16; ++i) {
+		res.push_back(hb2hex(out[i] >> 4));
+		res.push_back(hb2hex(out[i]));
+	}
+	return res;
+}
+
+std::string FileSize(const Path filename) {
+	FILE* in = File::OpenCFile(filename, "rb");
+	if (!in) {
+		WARN_LOG(COMMON, "Unable to open %s\n", filename.c_str());
+		return "";
+	}
+	fseek(in, 0, SEEK_END);
+	int size = ftell(in);
+	fclose(in);
+	std::ostringstream stm;
+	stm << size;
+	return stm.str();
+}
+
 UI::EventReturn GameScreen::OnDoMD5(UI::EventParams& e) {
 	MD5string = "...";
 	//auto chrs = gamePath_.c_str();
 	//MD5string = md5file(chrs);
-	MD5string = md5file(gamePath_);
-	MD5string = "MD5: "+ MD5string;
+	//MD5string = MD5FullFile(gamePath_);
+	//MD5string = "MD5: "+ MD5string;
+	//MD5string = FileSize(gamePath_);
+	//MD5string = "Filesize: " + MD5string;
+	MD5string = MD5_262144_File(gamePath_);
+	MD5string = "MD5_262144_: "+ MD5string;
 	btnCalcMD5_->SetEnabled(false);
 	return UI::EVENT_DONE;
 }
