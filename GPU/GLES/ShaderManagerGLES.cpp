@@ -359,14 +359,17 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 			memcpy(&flippedMatrix, hmdProjection.M, 16 * sizeof(float));
 
 			// Assign axis mirroring
+			VR_SetConfig(VR_CONFIG_MIRROR_AXIS_X, gstate.projMatrix[0] < 0);
+			VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Y, gstate.projMatrix[5] < 0);
+			VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Z, gstate.projMatrix[10] > 0);
 			if (gstate.projMatrix[0] * gstate.projMatrix[5] * gstate.projMatrix[10] > 0) {
-				VR_SetConfig(VR_CONFIG_MIRROR_AXIS_X, false);
-				VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Y, true);
-				VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Z, true);
+				VR_SetConfig(VR_CONFIG_MIRROR_PITCH, false);
+				VR_SetConfig(VR_CONFIG_MIRROR_YAW, true);
+				VR_SetConfig(VR_CONFIG_MIRROR_ROLL, true);
 			} else {
-				VR_SetConfig(VR_CONFIG_MIRROR_AXIS_X, false);
-				VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Y, false);
-				VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Z, false);
+				VR_SetConfig(VR_CONFIG_MIRROR_PITCH, false);
+				VR_SetConfig(VR_CONFIG_MIRROR_YAW, false);
+				VR_SetConfig(VR_CONFIG_MIRROR_ROLL, false);
 			}
 		}
 #else

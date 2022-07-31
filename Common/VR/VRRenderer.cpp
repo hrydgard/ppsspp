@@ -156,7 +156,9 @@ void VR_Recenter(engine_t* engine) {
 	// Create a default stage space to use if SPACE_TYPE_STAGE is not
 	// supported, or calls to xrGetReferenceSpaceBoundsRect fail.
 	spaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+#ifdef OPENXR_FLOOR_STAGE
 	spaceCreateInfo.poseInReferenceSpace.position.y = -1.6750f;
+#endif
 	OXR(xrCreateReferenceSpace(engine->appState.Session, &spaceCreateInfo, &engine->appState.FakeStageSpace));
 	ALOGV("Created fake stage space from local space with offset");
 	engine->appState.CurrentSpace = engine->appState.FakeStageSpace;
@@ -166,7 +168,9 @@ void VR_Recenter(engine_t* engine) {
 		spaceCreateInfo.poseInReferenceSpace.position.y = 0.0;
 		OXR(xrCreateReferenceSpace(engine->appState.Session, &spaceCreateInfo, &engine->appState.StageSpace));
 		ALOGV("Created stage space");
+#ifdef OPENXR_FLOOR_STAGE
 		engine->appState.CurrentSpace = engine->appState.StageSpace;
+#endif
 	}
 
 	// Update menu orientation
@@ -309,8 +313,6 @@ void VR_BeginFrame( engine_t* engine ) {
 
 	for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
 		ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[eye];
-		int swapchainIndex = frameBuffer->TextureSwapChainIndex;
-		int glFramebuffer = frameBuffer->FrameBuffers[swapchainIndex];
 
 		ovrFramebuffer_Acquire(frameBuffer);
 		ovrFramebuffer_SetCurrent(frameBuffer);
@@ -458,11 +460,11 @@ ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {
 		XrPosef invView = matrix == VR_VIEW_MATRIX_LEFT_EYE ? invViewTransform[0] : invViewTransform[1];
 
 		// get axis mirroring configuration
-		float mx = vrConfig[VR_CONFIG_MIRROR_AXIS_X] ? -1 : 1;
-		float my = vrConfig[VR_CONFIG_MIRROR_AXIS_Y] ? -1 : 1;
-		float mz = vrConfig[VR_CONFIG_MIRROR_AXIS_Z] ? -1 : 1;
+		float mx = vrConfig[VR_CONFIG_MIRROR_PITCH] ? -1 : 1;
+		float my = vrConfig[VR_CONFIG_MIRROR_YAW] ? -1 : 1;
+		float mz = vrConfig[VR_CONFIG_MIRROR_ROLL] ? -1 : 1;
 
-		// ensure there is maximally one axis to mirror
+		// ensure there is maximally one axis to mirror rotation
 		if (mx + my + mz < 0) {
 			mx *= -1.0f;
 			my *= -1.0f;
@@ -482,6 +484,11 @@ ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {
 		}
 
 		output = ovrMatrix4f_CreateFromQuaternion(&invView.orientation);
+		if (vrConfig[VR_CONFIG_6DOF]) {
+			output.M[0][3] -= hmdposition[0] * (vrConfig[VR_CONFIG_MIRROR_AXIS_X] ? -1.0f : 1.0f);
+			output.M[1][3] -= hmdposition[1] * (vrConfig[VR_CONFIG_MIRROR_AXIS_Y] ? -1.0f : 1.0f);
+			output.M[2][3] -= hmdposition[2] * (vrConfig[VR_CONFIG_MIRROR_AXIS_Z] ? -1.0f : 1.0f);
+		}
 	} else {
 		assert(false);
 	}

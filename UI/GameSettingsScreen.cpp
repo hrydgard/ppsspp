@@ -1113,6 +1113,8 @@ void GameSettingsScreen::CreateViews() {
 		LinearLayout *vrSettings = AddTab("GameSettingsVR", ms->T("VR"));
 		vrSettings->Add(new ItemHeader(vr->T("Virtual reality")));
 		vrSettings->Add(new CheckBox(&g_Config.bEnableVR, vr->T("Enable virtual reality")));
+		CheckBox *vr6DoF = vrSettings->Add(new CheckBox(&g_Config.bEnable6DoF, vr->T("Enable 6 degrees of freedom movement")));
+		vr6DoF->SetEnabledPtr(&g_Config.bEnableVR);
 		PopupSliderChoice *vrFieldOfView = vrSettings->Add(new PopupSliderChoice(&g_Config.iFieldOfViewPercentage, 50, 150, vr->T("Field of view scale", "Headset's field of view scale"), 10, screenManager(), vr->T("% of native FoV")));
 		vrFieldOfView->SetEnabledPtr(&g_Config.bEnableVR);
 	}
