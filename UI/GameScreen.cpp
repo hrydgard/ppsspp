@@ -46,6 +46,11 @@
 #include "Core/Reporting.h"
 #include "Common/Crypto/md5.h"
 #include <sstream>
+#include <sys/stat.h>
+#ifdef _WIN32
+#define stat64 _stat64
+#endif
+
 
 GameScreen::GameScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
 	g_BackgroundAudio.SetGame(gamePath);
@@ -416,18 +421,13 @@ std::string MD5_262144_File(const Path filename) {
 	return res;
 }
 
-std::string sFileSize(const Path filename) {
-	FILE* in = File::OpenCFile(filename, "rb");
-	if (!in) {
-		WARN_LOG(COMMON, "Unable to open %s\n", filename.c_str());
-		return "";
-	}
-	fseek(in, 0, SEEK_END);
-	int size = ftell(in);
-	fclose(in);
-	std::ostringstream stm;
-	stm << size;
-	return stm.str();
+long long sFileSize(const Path filename) {
+	struct stat64 st;
+
+	if (stat64(filename.c_str(), &st) == 0)
+		return st.st_size;
+
+	return -1;
 }
 
 UI::EventReturn GameScreen::OnDoMD5(UI::EventParams& e) {
@@ -438,8 +438,7 @@ UI::EventReturn GameScreen::OnDoMD5(UI::EventParams& e) {
 	//MD5string = "MD5: "+ MD5string;
 	//MD5string = FileSize(gamePath_);
 	//MD5string = "Filesize: " + MD5string;
-	std::string ssFileSize = sFileSize(gamePath_);
-	int num = stoi(ssFileSize);
+	long long  num = sFileSize(gamePath_);
 	if (num <= 262144) {
 		MD5string = MD5FullFile(gamePath_);
 	}
