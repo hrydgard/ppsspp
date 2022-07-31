@@ -457,23 +457,31 @@ ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {
 	} else if ((matrix == VR_VIEW_MATRIX_LEFT_EYE) || (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
 		XrPosef invView = matrix == VR_VIEW_MATRIX_LEFT_EYE ? invViewTransform[0] : invViewTransform[1];
 
-		if (vrConfig[VR_CONFIG_INVERTED_PROJECTION]) {
-			vec3_t rotation = {0, 0, 0};
-			QuatToYawPitchRoll(invView.orientation, rotation, rotation);
-			XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, -radians(rotation[PITCH]));
-			XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, radians(rotation[YAW]));
-			XrQuaternionf roll = XrQuaternionf_CreateFromVectorAngle({0, 0, 1}, radians(rotation[ROLL]));
-			invView.orientation = XrQuaternionf_Multiply(roll, XrQuaternionf_Multiply(pitch, yaw));
-			invView.position.x *= -1.0f;
-			invView.position.y *= -1.0f;
-			invView.position.z *= -1.0f;
+		// get axis mirroring configuration
+		float mx = vrConfig[VR_CONFIG_MIRROR_AXIS_X] ? -1 : 1;
+		float my = vrConfig[VR_CONFIG_MIRROR_AXIS_Y] ? -1 : 1;
+		float mz = vrConfig[VR_CONFIG_MIRROR_AXIS_Z] ? -1 : 1;
+
+		// ensure there is maximally one axis to mirror
+		if (mx + my + mz < 0) {
+			mx *= -1.0f;
+			my *= -1.0f;
+			mz *= -1.0f;
 		} else {
 			invView = XrPosef_Inverse(invView);
 		}
+
+		// create updated quaternion
+		if (mx + my + mz < 3 - 0.001f) {
+			vec3_t rotation = {0, 0, 0};
+			QuatToYawPitchRoll(invView.orientation, rotation, rotation);
+			XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, mx * radians(rotation[0]));
+			XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, my * radians(rotation[1]));
+			XrQuaternionf roll = XrQuaternionf_CreateFromVectorAngle({0, 0, 1}, mz * radians(rotation[2]));
+			invView.orientation = XrQuaternionf_Multiply(roll, XrQuaternionf_Multiply(pitch, yaw));
+		}
+
 		output = ovrMatrix4f_CreateFromQuaternion(&invView.orientation);
-		output.M[0][3] = 0;//invView.position.x;
-		output.M[1][3] = 0;//invView.position.y;
-		output.M[2][3] = 0;//invView.position.z;
 	} else {
 		assert(false);
 	}

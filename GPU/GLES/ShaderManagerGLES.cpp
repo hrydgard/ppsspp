@@ -347,6 +347,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		if ((VR_GetConfig(VR_CONFIG_MODE) == VR_MODE_FLAT_SCREEN) || is2D) {
 			memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 		} else {
+			// Update the projection matrix
 			ovrMatrix4f hmdProjection = VR_GetMatrix(VR_PROJECTION_MATRIX_LEFT_EYE);
 			for (int i = 0; i < 4; i++) {
 				for (int j = 0; j < 4; j++) {
@@ -356,6 +357,17 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 				}
 			}
 			memcpy(&flippedMatrix, hmdProjection.M, 16 * sizeof(float));
+
+			// Assign axis mirroring
+			if (gstate.projMatrix[0] * gstate.projMatrix[5] * gstate.projMatrix[10] > 0) {
+				VR_SetConfig(VR_CONFIG_MIRROR_AXIS_X, false);
+				VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Y, true);
+				VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Z, true);
+			} else {
+				VR_SetConfig(VR_CONFIG_MIRROR_AXIS_X, false);
+				VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Y, false);
+				VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Z, false);
+			}
 		}
 #else
 		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
@@ -520,11 +532,6 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 			memcpy(gameView.M, m4x4, 16 * sizeof(float));
 
 			// Get view matrix from the headset
-			if (gstate.projMatrix[0] * gstate.projMatrix[5] * gstate.projMatrix[10] > 0) {
-				VR_SetConfig(VR_CONFIG_INVERTED_PROJECTION, true);
-			} else {
-				VR_SetConfig(VR_CONFIG_INVERTED_PROJECTION, false);
-			}
 			ovrMatrix4f hmdView = VR_GetMatrix(VR_VIEW_MATRIX_LEFT_EYE);
 
 			// Combine the matrices
