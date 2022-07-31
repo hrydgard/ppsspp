@@ -12,12 +12,13 @@
 #include "Core/MIPS/MIPSAsm.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/Config.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "Core/Reporting.h"
 #include "Common/StringUtils.h"
 #include "Windows/Debugger/CtrlDisAsmView.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/BreakpointWindow.h"
-#include "Core/Debugger/SymbolMap.h"
 #include "Windows/main.h"
 
 #include "Common/CommonWindows.h"
@@ -303,6 +304,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 					if (strcasecmp(debugger->GetRegName(cat,reg),registerName.c_str()) == 0)
 					{
 						debugger->SetRegValue(cat,reg,value);
+						Reporting::NotifyDebugger();
 						SendMessage(GetParent(wnd),WM_DEB_UPDATE,0,0);
 						return;
 					}
@@ -314,6 +316,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 	}
 
 	result = MIPSAsm::MipsAssembleOpcode(op.c_str(),debugger,address);
+	Reporting::NotifyDebugger();
 	if (result == true)
 	{
 		scanFunctions();

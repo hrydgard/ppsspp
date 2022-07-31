@@ -21,12 +21,13 @@
 #include "Common/Data/Encoding/Base64.h"
 #include "Common/StringUtils.h"
 #include "Core/Core.h"
+#include "Core/Debugger/WebSocket/MemorySubscriber.h"
+#include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
+#include "Core/Reporting.h"
 #include "Core/System.h"
-#include "Core/Debugger/WebSocket/MemorySubscriber.h"
-#include "Core/Debugger/WebSocket/WebSocketUtils.h"
 
 DebuggerSubscriber *WebSocketMemoryInit(DebuggerEventHandlerMap &map) {
 	// No need to bind or alloc state, these are all global.
@@ -279,6 +280,7 @@ void WebSocketMemoryWriteU8(DebuggerRequest &req) {
 	}
 	currentMIPS->InvalidateICache(addr, 1);
 	Memory::Write_U8(val, addr);
+	Reporting::NotifyDebugger();
 
 	JsonWriter &json = req.Respond();
 	json.writeUint("value", Memory::Read_U8(addr));
@@ -311,6 +313,7 @@ void WebSocketMemoryWriteU16(DebuggerRequest &req) {
 	}
 	currentMIPS->InvalidateICache(addr, 2);
 	Memory::Write_U16(val, addr);
+	Reporting::NotifyDebugger();
 
 	JsonWriter &json = req.Respond();
 	json.writeUint("value", Memory::Read_U16(addr));
@@ -343,6 +346,7 @@ void WebSocketMemoryWriteU32(DebuggerRequest &req) {
 	}
 	currentMIPS->InvalidateICache(addr, 4);
 	Memory::Write_U32(val, addr);
+	Reporting::NotifyDebugger();
 
 	JsonWriter &json = req.Respond();
 	json.writeUint("value", Memory::Read_U32(addr));
@@ -377,5 +381,6 @@ void WebSocketMemoryWrite(DebuggerRequest &req) {
 
 	currentMIPS->InvalidateICache(addr, size);
 	Memory::MemcpyUnchecked(addr, &value[0], size);
+	Reporting::NotifyDebugger();
 	req.Respond();
 }

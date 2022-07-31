@@ -26,6 +26,7 @@
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSStackWalk.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/Reporting.h"
 
 DebuggerSubscriber *WebSocketHLEInit(DebuggerEventHandlerMap &map) {
 	map["hle.thread.list"] = &WebSocketHLEThreadList;
@@ -146,6 +147,8 @@ void WebSocketHLEThreadWake(DebuggerRequest &req) {
 		return req.Fail("Cannot force run thread based on current status");
 	}
 
+	Reporting::NotifyDebugger();
+
 	JsonWriter &json = req.Respond();
 	json.writeUint("thread", threadInfo.id);
 	json.writeString("status", "ready");
@@ -181,6 +184,8 @@ void WebSocketHLEThreadStop(DebuggerRequest &req) {
 		return;
 	if ((threadInfo.status & THREADSTATUS_DORMANT) == 0)
 		return req.Fail("Failed to stop thread");
+
+	Reporting::NotifyDebugger();
 
 	JsonWriter &json = req.Respond();
 	json.writeUint("thread", threadInfo.id);
