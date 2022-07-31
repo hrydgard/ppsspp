@@ -390,6 +390,11 @@ namespace Reporting
 			everUnsupported = true;
 	}
 
+	void NotifyDebugger() {
+		currentSupported = false;
+		everUnsupported = true;
+	}
+
 	std::string CurrentGameID()
 	{
 		// TODO: Maybe ParamSFOData shouldn't include nulls in std::strings?  Don't work to break savedata, though...

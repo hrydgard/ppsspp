@@ -49,6 +49,7 @@
 #include "Core/KeyMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/Reporting.h"
 #include "Windows/InputBox.h"
 #include "Windows/InputDevice.h"
 #if PPSSPP_API(ANY_GL)
@@ -739,6 +740,7 @@ namespace MainWindow
 			break;
 
 		case WM_USER_GET_BASE_POINTER:
+			Reporting::NotifyDebugger();
 			switch (lParam) {
 			case 0:
 				return (u32)(u64)Memory::base;
