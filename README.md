@@ -25,6 +25,16 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.13.1
+====================
+
+* Confirmation dialog added before change of MAC address ([#15738])
+* IR interpreter regression fixed ([#15739])
+* Fix clearing of replacement texture cache ([#15740])
+* Improved Portuguese-pt translation ([#15734])
+* Fix graphical regression in Split/Second ([#15733])
+* Couple of minor crash fixes
+
 What's new in 1.13
 ==================
 
@@ -503,3 +513,8 @@ Credit goes to:
 [#7295]: https://github.com/hrydgard/ppsspp/issues/7295 "Juiced 2: Hot Import Nights, screen artifacts and missing half of race tracks"
 [#15717]: https://github.com/hrydgard/ppsspp/issues/15717 "Allows \"merging\" render targets that overlap on the Y axis. Fixes Juiced 2"
 [#15698]: https://github.com/hrydgard/ppsspp/issues/15698 "Osk: Allow upper/lower for all keyboards"
+[#15738]: https://github.com/hrydgard/ppsspp/issues/15738 "Add confirmation dialog when generating a new Mac address"
+[#15739]: https://github.com/hrydgard/ppsspp/issues/15739 "irjit: Correct another PurgeTemps case"
+[#15740]: https://github.com/hrydgard/ppsspp/issues/15740 "Replacement: Clear cache on disable"
+[#15734]: https://github.com/hrydgard/ppsspp/issues/15734 "Better pt-pt translation"
+[#15733]: https://github.com/hrydgard/ppsspp/issues/15733 "Fix bug in blue-to-alpha - alpha blending could be on when it shouldn't be."

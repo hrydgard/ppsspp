@@ -5,16 +5,17 @@
 
 #include "Common/System/Display.h"
 #include "Common/Data/Encoding/Utf8.h"
-#include "Windows/resource.h"
+#include "Core/Config.h"
 #include "Core/MemMap.h"
+#include "Core/Reporting.h"
 #include "Windows/W32Util/ContextMenu.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/InputBox.h"
+#include "Windows/resource.h"
 
 #include "CtrlRegisterList.h"
 #include "Debugger_MemoryDlg.h"
 
-#include "Core/Config.h"
 #include "Debugger_Disasm.h"
 #include "DebuggerShared.h"
 
@@ -443,6 +444,7 @@ void CtrlRegisterList::editRegisterValue()
 				cpu->SetRegValue(category, reg, val);
 				break;
 			}
+			Reporting::NotifyDebugger();
 			redraw();
 			SendMessage(GetParent(wnd),WM_DEB_UPDATE,0,0);	// registers changed -> disassembly needs to be updated
 		}

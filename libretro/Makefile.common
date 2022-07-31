@@ -367,7 +367,6 @@ SOURCES_CXX += \
 	$(GPUDIR)/GLES/FragmentTestCacheGLES.cpp \
 	$(GPUDIR)/GLES/FramebufferManagerGLES.cpp \
 	$(GPUDIR)/GLES/TextureCacheGLES.cpp \
-	$(GPUDIR)/GLES/TextureScalerGLES.cpp \
 	$(GPUDIR)/GLES/ShaderManagerGLES.cpp \
 	$(GPUDIR)/GLES/StateMappingGLES.cpp \
 	$(GPUDIR)/GLES/StencilBufferGLES.cpp \
@@ -735,7 +734,6 @@ SOURCES_CXX += \
 	$(GPUDIR)/Vulkan/StateMappingVulkan.cpp \
 	$(GPUDIR)/Vulkan/StencilBufferVulkan.cpp \
 	$(GPUDIR)/Vulkan/TextureCacheVulkan.cpp \
-	$(GPUDIR)/Vulkan/TextureScalerVulkan.cpp \
 	$(GPUDIR)/Vulkan/VulkanUtil.cpp \
 	$(LIBRETRODIR)/LibretroVulkanContext.cpp \
 	$(LIBRETRODIR)/libretro_vulkan.cpp
@@ -750,8 +748,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Directx9/ShaderManagerDX9.cpp \
 	$(GPUDIR)/Directx9/StateMappingDX9.cpp \
 	$(GPUDIR)/Directx9/StencilBufferDX9.cpp \
-	$(GPUDIR)/Directx9/TextureCacheDX9.cpp \
-	$(GPUDIR)/Directx9/TextureScalerDX9.cpp
+	$(GPUDIR)/Directx9/TextureCacheDX9.cpp
 
 SOURCES_CXX += \
 	$(GPUDIR)/D3D11/DepalettizeShaderD3D11.cpp \
@@ -763,7 +760,6 @@ SOURCES_CXX += \
 	$(GPUDIR)/D3D11/StateMappingD3D11.cpp \
 	$(GPUDIR)/D3D11/StencilBufferD3D11.cpp \
 	$(GPUDIR)/D3D11/TextureCacheD3D11.cpp \
-	$(GPUDIR)/D3D11/TextureScalerD3D11.cpp \
    $(LIBRETRODIR)/LibretroD3D11Context.cpp
 
 SOURCES_CXX += \

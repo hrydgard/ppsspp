@@ -25,6 +25,7 @@
 #include "Common/MemoryUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
+#include "Common/Math/math_util.h"
 #include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Reporting.h"
@@ -743,7 +744,7 @@ void TextureCacheCommon::Decimate(bool forcePressure) {
 	}
 
 	DecimateVideos();
-	replacer_.Decimate(forcePressure);
+	replacer_.Decimate(forcePressure ? ReplacerDecimateMode::FORCE_PRESSURE : ReplacerDecimateMode::NEW_FRAME);
 }
 
 void TextureCacheCommon::DecimateVideos() {
@@ -756,9 +757,9 @@ void TextureCacheCommon::DecimateVideos() {
 	}
 }
 
-bool TextureCacheCommon::IsVideo(u32 texaddr) {
+bool TextureCacheCommon::IsVideo(u32 texaddr) const {
 	texaddr &= 0x3FFFFFFF;
-	for (auto info : videos_) {
+	for (auto &info : videos_) {
 		if (texaddr < info.addr) {
 			continue;
 		}
@@ -1319,7 +1320,7 @@ ReplacedTexture &TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &
 
 // This is only used in the GLES backend, where we don't point these to video memory.
 // So we shouldn't add a check for dstBuf != srcBuf, as long as the functions we call can handle that.
-static void ReverseColors(void *dstBuf, const void *srcBuf, GETextureFormat fmt, int numPixels, bool useBGRA) {
+static void ReverseColors(void *dstBuf, const void *srcBuf, GETextureFormat fmt, int numPixels) {
 	switch (fmt) {
 	case GE_TFMT_4444:
 		ConvertRGBA4444ToABGR4444((u16 *)dstBuf, (const u16 *)srcBuf, numPixels);
@@ -1332,12 +1333,9 @@ static void ReverseColors(void *dstBuf, const void *srcBuf, GETextureFormat fmt,
 		ConvertRGB565ToBGR565((u16 *)dstBuf, (const u16 *)srcBuf, numPixels);
 		break;
 	default:
-		if (useBGRA) {
-			ConvertRGBA8888ToBGRA8888((u32 *)dstBuf, (const u32 *)srcBuf, numPixels);
-		} else {
-			// No need to convert RGBA8888, right order already
-			if (dstBuf != srcBuf)
-				memcpy(dstBuf, srcBuf, numPixels * sizeof(u32));
+		// No need to convert RGBA8888, right order already
+		if (dstBuf != srcBuf) {
+			memcpy(dstBuf, srcBuf, numPixels * sizeof(u32));
 		}
 		break;
 	}
@@ -1367,7 +1365,7 @@ static inline void ConvertFormatToRGBA8888(GEPaletteFormat format, u32 *dst, con
 
 template <typename DXTBlock, int n>
 static CheckAlphaResult DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t texaddr, const uint8_t *texptr,
-	int w, int h, int bufw, bool reverseColors, bool useBGRA) {
+	int w, int h, int bufw, bool reverseColors) {
 
 	int minw = std::min(bufw, w);
 	uint32_t *dst = (uint32_t *)out;
@@ -1403,7 +1401,7 @@ static CheckAlphaResult DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t tex
 	}
 
 	if (reverseColors) {
-		ReverseColors(out, out, GE_TFMT_8888, outPitch32 * h, useBGRA);
+		ReverseColors(out, out, GE_TFMT_8888, outPitch32 * h);
 	}
 
 	if (n == 1) {
@@ -1434,7 +1432,7 @@ inline u32 TfmtRawToFullAlpha(GETextureFormat fmt) {
 	}
 }
 
-CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool useBGRA, bool expandTo32bit) {
+CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool expandTo32bit) {
 	u32 alphaSum = 0xFFFFFFFF;
 	u32 fullAlphaMask = 0x0;
 
@@ -1545,16 +1543,17 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 		if (!swizzled) {
 			// Just a simple copy, we swizzle the color format.
 			fullAlphaMask = TfmtRawToFullAlpha(format);
-			if (reverseColors) {
-				// Just check the input's alpha to reuse code. TODO: make a specialized ReverseColors that checks as we go.
-				for (int y = 0; y < h; ++y) {
-					CheckMask16((const u16 *)(texptr + bufw * sizeof(u16) * y), w, &alphaSum);
-					ReverseColors(out + outPitch * y, texptr + bufw * sizeof(u16) * y, format, w, useBGRA);
-				}
-			} else if (expandTo32bit) {
+			if (expandTo32bit) {
+				// This is OK even if reverseColors is on, because it expands to the 8888 format which is the same in reverse mode.
 				for (int y = 0; y < h; ++y) {
 					CheckMask16((const u16 *)(texptr + bufw * sizeof(u16) * y), w, &alphaSum);
 					ConvertFormatToRGBA8888(format, (u32 *)(out + outPitch * y), (const u16 *)texptr + bufw * y, w);
+				}
+			} else if (reverseColors) {
+				// Just check the input's alpha to reuse code. TODO: make a specialized ReverseColors that checks as we go.
+				for (int y = 0; y < h; ++y) {
+					CheckMask16((const u16 *)(texptr + bufw * sizeof(u16) * y), w, &alphaSum);
+					ReverseColors(out + outPitch * y, texptr + bufw * sizeof(u16) * y, format, w);
 				}
 			} else {
 				for (int y = 0; y < h; ++y) {
@@ -1575,17 +1574,18 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 			const u8 *unswizzled = (u8 *)tmpTexBuf32_.data();
 
 			fullAlphaMask = TfmtRawToFullAlpha(format);
-			if (reverseColors) {
-				// Just check the swizzled input's alpha to reuse code. TODO: make a specialized ReverseColors that checks as we go.
-				for (int y = 0; y < h; ++y) {
-					CheckMask16((const u16 *)(unswizzled + bufw * sizeof(u16) * y), w, &alphaSum);
-					ReverseColors(out + outPitch * y, unswizzled + bufw * sizeof(u16) * y, format, w, useBGRA);
-				}
-			} else if (expandTo32bit) {
+			if (expandTo32bit) {
+				// This is OK even if reverseColors is on, because it expands to the 8888 format which is the same in reverse mode.
 				// Just check the swizzled input's alpha to reuse code. TODO: make a specialized ConvertFormatToRGBA8888 that checks as we go.
 				for (int y = 0; y < h; ++y) {
 					CheckMask16((const u16 *)(unswizzled + bufw * sizeof(u16) * y), w, &alphaSum);
 					ConvertFormatToRGBA8888(format, (u32 *)(out + outPitch * y), (const u16 *)unswizzled + bufw * y, w);
+				}
+			} else if (reverseColors) {
+				// Just check the swizzled input's alpha to reuse code. TODO: make a specialized ReverseColors that checks as we go.
+				for (int y = 0; y < h; ++y) {
+					CheckMask16((const u16 *)(unswizzled + bufw * sizeof(u16) * y), w, &alphaSum);
+					ReverseColors(out + outPitch * y, unswizzled + bufw * sizeof(u16) * y, format, w);
 				}
 			} else {
 				for (int y = 0; y < h; ++y) {
@@ -1604,7 +1604,7 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 			if (reverseColors) {
 				for (int y = 0; y < h; ++y) {
 					CheckMask32((const u32 *)(texptr + bufw * sizeof(u32) * y), w, &alphaSum);
-					ReverseColors(out + outPitch * y, texptr + bufw * sizeof(u32) * y, format, w, useBGRA);
+					ReverseColors(out + outPitch * y, texptr + bufw * sizeof(u32) * y, format, w);
 				}
 			} else {
 				for (int y = 0; y < h; ++y) {
@@ -1626,7 +1626,7 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 			if (reverseColors) {
 				for (int y = 0; y < h; ++y) {
 					CheckMask32((const u32 *)(unswizzled + bufw * sizeof(u32) * y), w, &alphaSum);
-					ReverseColors(out + outPitch * y, unswizzled + bufw * sizeof(u32) * y, format, w, useBGRA);
+					ReverseColors(out + outPitch * y, unswizzled + bufw * sizeof(u32) * y, format, w);
 				}
 			} else {
 				for (int y = 0; y < h; ++y) {
@@ -1637,13 +1637,13 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 		break;
 
 	case GE_TFMT_DXT1:
-		return DecodeDXTBlocks<DXT1Block, 1>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors, useBGRA);
+		return DecodeDXTBlocks<DXT1Block, 1>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors);
 
 	case GE_TFMT_DXT3:
-		return DecodeDXTBlocks<DXT3Block, 3>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors, useBGRA);
+		return DecodeDXTBlocks<DXT3Block, 3>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors);
 
 	case GE_TFMT_DXT5:
-		return DecodeDXTBlocks<DXT5Block, 5>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors, useBGRA);
+		return DecodeDXTBlocks<DXT5Block, 5>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors);
 
 	default:
 		ERROR_LOG_REPORT(G3D, "Unknown Texture Format %d!!!", format);
@@ -2008,4 +2008,203 @@ void TextureCacheCommon::ClearNextFrame() {
 
 std::string AttachCandidate::ToString() {
 	return StringFromFormat("[C:%08x/%d Z:%08x/%d X:%d Y:%d reint: %s]", this->fb->fb_address, this->fb->fb_stride, this->fb->z_address, this->fb->z_stride, this->match.xOffset, this->match.yOffset, this->match.reinterpret ? "true" : "false");
+}
+
+bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry) {
+	gpuStats.numTexturesDecoded++;
+
+	// For the estimate, we assume cluts always point to 8888 for simplicity.
+	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
+
+	if ((entry->bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && entry->addr >= PSP_GetKernelMemoryEnd()) {
+		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
+		// Proceeding here can cause a crash.
+		return false;
+	}
+
+	plan.badMipSizes = false;
+	// maxLevel here is the max level to upload. Not the count.
+	plan.levelsToLoad = entry->maxLevel + 1;
+	for (int i = 0; i < plan.levelsToLoad; i++) {
+		// If encountering levels pointing to nothing, adjust max level.
+		u32 levelTexaddr = gstate.getTextureAddress(i);
+		if (!Memory::IsValidAddress(levelTexaddr)) {
+			plan.levelsToLoad = i;
+			break;
+		}
+
+		// If size reaches 1, stop, and override maxlevel.
+		int tw = gstate.getTextureWidth(i);
+		int th = gstate.getTextureHeight(i);
+		if (tw == 1 || th == 1) {
+			plan.levelsToLoad = i + 1;  // next level is assumed to be invalid
+			break;
+		}
+
+		if (i > 0) {
+			int lastW = gstate.getTextureWidth(i - 1);
+			int lastH = gstate.getTextureHeight(i - 1);
+
+			if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
+				if (tw != 1 && tw != (lastW >> 1))
+					plan.badMipSizes = true;
+				else if (th != 1 && th != (lastH >> 1))
+					plan.badMipSizes = true;
+			}
+		}
+	}
+
+	plan.scaleFactor = standardScaleFactor_;
+
+	// Rachet down scale factor in low-memory mode.
+	// TODO: I think really we should just turn it off?
+	if (lowMemoryMode_ && !plan.hardwareScaling) {
+		// Keep it even, though, just in case of npot troubles.
+		plan.scaleFactor = plan.scaleFactor > 4 ? 4 : (plan.scaleFactor > 2 ? 2 : 1);
+	}
+
+	if (plan.badMipSizes) {
+		plan.levelsToLoad = 1;
+	}
+
+	if (plan.hardwareScaling) {
+		plan.scaleFactor = shaderScaleFactor_;
+	}
+
+	// We generate missing mipmaps from maxLevel+1 up to this level. maxLevel can get overwritten below
+	// such as when using replacement textures - but let's keep the same amount of levels for generation.
+	// Not all backends will generate mipmaps, and in GL we can't really control the number of levels.
+	plan.levelsToCreate = plan.levelsToLoad;
+
+	plan.w = gstate.getTextureWidth(0);
+	plan.h = gstate.getTextureHeight(0);
+
+	plan.replaced = &FindReplacement(entry, plan.w, plan.h);
+	if (plan.replaced->Valid()) {
+		// We're replacing, so we won't scale.
+		plan.scaleFactor = 1;
+		plan.levelsToLoad = plan.replaced->NumLevels();
+		plan.badMipSizes = false;
+	}
+
+	// Don't scale the PPGe texture.
+	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd())
+		plan.scaleFactor = 1;
+
+	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0 && plan.scaleFactor != 1 && plan.slowScaler) {
+		// Remember for later that we /wanted/ to scale this texture.
+		entry->status |= TexCacheEntry::STATUS_TO_SCALE;
+		plan.scaleFactor = 1;
+	}
+
+	if (plan.scaleFactor != 1) {
+		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED && plan.slowScaler) {
+			entry->status |= TexCacheEntry::STATUS_TO_SCALE;
+			plan.scaleFactor = 1;
+		} else {
+			entry->status &= ~TexCacheEntry::STATUS_TO_SCALE;
+			entry->status |= TexCacheEntry::STATUS_IS_SCALED;
+			texelsScaledThisFrame_ += plan.w * plan.h;
+		}
+	}
+
+	plan.isVideo = IsVideo(entry->addr);
+
+	// TODO: Support reading actual mip levels for upscaled images, instead of just generating them.
+	// Maybe can just remove this check?
+	if (plan.scaleFactor > 1) {
+		plan.levelsToLoad = 1;
+
+		bool enableVideoUpscaling = false;
+
+		if (!enableVideoUpscaling && plan.isVideo) {
+			plan.scaleFactor = 1;
+			plan.levelsToCreate = 1;
+		}
+	}
+
+	// Always load base level texture here 
+	plan.baseLevelSrc = 0;
+	if (IsFakeMipmapChange()) {
+		// NOTE: Since the level is not part of the cache key, we assume it never changes.
+		plan.baseLevelSrc = std::max(0, gstate.getTexLevelOffset16() / 16);
+		plan.levelsToCreate = 1;
+		plan.levelsToLoad = 1;
+	}
+
+	if (plan.levelsToCreate == 1) {
+		entry->status |= TexCacheEntry::STATUS_NO_MIPS;
+	} else {
+		entry->status &= ~TexCacheEntry::STATUS_NO_MIPS;
+	}
+
+	// Will be filled in again during decode.
+	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
+	return true;
+}
+
+void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, int stride, ReplacedTexture &replaced, int srcLevel, int scaleFactor, Draw::DataFormat dstFmt, bool reverseColors) {
+	int w = gstate.getTextureWidth(srcLevel);
+	int h = gstate.getTextureHeight(srcLevel);
+
+	PROFILE_THIS_SCOPE("decodetex");
+
+	if (replaced.GetSize(srcLevel, w, h)) {
+		double replaceStart = time_now_d();
+		replaced.Load(srcLevel, data, stride);
+		replacementTimeThisFrame_ += time_now_d() - replaceStart;
+	} else {
+		GETextureFormat tfmt = (GETextureFormat)entry.format;
+		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
+		u32 texaddr = gstate.getTextureAddress(srcLevel);
+		int bufw = GetTextureBufw(srcLevel, texaddr, tfmt);
+		u32 *pixelData;
+		int decPitch;
+		if (scaleFactor > 1) {
+			tmpTexBufRearrange_.resize(std::max(bufw, w) * h);
+			pixelData = tmpTexBufRearrange_.data();
+			// We want to end up with a neatly packed texture for scaling.
+			decPitch = w * 4;
+		} else {
+			pixelData = (u32 *)data;
+			decPitch = stride;
+		}
+
+		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || scaleFactor > 1;
+
+		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, srcLevel, bufw, reverseColors, expand32);
+		entry.SetAlphaStatus(alphaResult, srcLevel);
+
+		if (scaleFactor > 1) {
+			// Note that this updates w and h!
+			scaler_.ScaleAlways((u32 *)data, pixelData, w, h, scaleFactor);
+			pixelData = (u32 *)data;
+
+			decPitch = w * 4;
+
+			if (decPitch != stride) {
+				// Rearrange in place to match the requested pitch.
+				// (it can only be larger than w * bpp, and a match is likely.)
+				// Note! This is bad because it reads the mapped memory! TODO: Look into if DX9 does this right.
+				for (int y = h - 1; y >= 0; --y) {
+					memcpy((u8 *)data + stride * y, (u8 *)data + decPitch * y, w * 4);
+				}
+				decPitch = stride;
+			}
+		}
+
+		if (replacer_.Enabled()) {
+			ReplacedTextureDecodeInfo replacedInfo;
+			replacedInfo.cachekey = entry.CacheKey();
+			replacedInfo.hash = entry.fullhash;
+			replacedInfo.addr = entry.addr;
+			replacedInfo.isVideo = IsVideo(entry.addr);
+			replacedInfo.isFinal = (entry.status & TexCacheEntry::STATUS_TO_SCALE) == 0;
+			replacedInfo.scaleFactor = scaleFactor;
+			replacedInfo.fmt = dstFmt;
+
+			// NOTE: Reading the decoded texture here may be very slow, if we just wrote it to write-combined memory.
+			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, srcLevel, w, h);
+		}
+	}
 }

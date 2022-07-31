@@ -280,9 +280,11 @@ namespace Reporting
 			return false;
 
 		if (http.Resolve(serverHost, ServerPort())) {
-			http.Connect();
-			int result = http.POST(http::RequestParams(uri), data, mimeType, output, &progress);
-			http.Disconnect();
+			int result = -1;
+			if (http.Connect()) {
+				result = http.POST(http::RequestParams(uri), data, mimeType, output, &progress);
+				http.Disconnect();
+			}
 
 			return result >= 200 && result < 300;
 		} else {
@@ -386,6 +388,11 @@ namespace Reporting
 		currentSupported = IsSupported();
 		if (!currentSupported && PSP_IsInited())
 			everUnsupported = true;
+	}
+
+	void NotifyDebugger() {
+		currentSupported = false;
+		everUnsupported = true;
 	}
 
 	std::string CurrentGameID()

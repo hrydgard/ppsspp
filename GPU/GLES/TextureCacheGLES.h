@@ -22,7 +22,6 @@
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-#include "GPU/GLES/TextureScalerGLES.h"
 #include "GPU/Common/TextureCacheCommon.h"
 
 struct VirtualFramebuffer;
@@ -70,7 +69,6 @@ protected:
 
 private:
 	void ApplySamplingParams(const SamplerCacheKey &key);
-	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int scaleFactor, Draw::DataFormat dstFmt);
 	Draw::DataFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 
 	static CheckAlphaResult CheckAlpha(const uint8_t *pixelData, Draw::DataFormat dstFmt, int w);
@@ -80,8 +78,6 @@ private:
 	void BuildTexture(TexCacheEntry *const entry) override;
 
 	GLRenderManager *render_;
-
-	TextureScalerGLES scaler;
 
 	GLRTexture *lastBoundTexture = nullptr;
 

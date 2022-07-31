@@ -1,1 +1,1 @@
-include ':android',':quest'
+include ':android'

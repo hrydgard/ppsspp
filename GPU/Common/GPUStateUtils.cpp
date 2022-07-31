@@ -1089,9 +1089,12 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead,
 
 	case REPLACE_BLEND_BLUE_TO_ALPHA:
 		blueToAlpha = true;
+		blendState.enabled = gstate.isAlphaBlendEnabled();
+		// We'll later convert the color blend to blend in the alpha channel.
 		break;
 
 	case REPLACE_BLEND_COPY_FBO:
+		blendState.enabled = true;
 		blendState.applyFramebufferRead = true;
 		blendState.resetFramebufferRead = false;
 		blendState.replaceAlphaWithStencil = replaceAlphaWithStencil;
@@ -1099,16 +1102,17 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead,
 
 	case REPLACE_BLEND_PRE_SRC:
 	case REPLACE_BLEND_PRE_SRC_2X_ALPHA:
+		blendState.enabled = true;
 		usePreSrc = true;
 		break;
 
 	case REPLACE_BLEND_STANDARD:
 	case REPLACE_BLEND_2X_ALPHA:
 	case REPLACE_BLEND_2X_SRC:
+		blendState.enabled = true;
 		break;
 	}
 
-	blendState.enabled = true;
 	blendState.resetFramebufferRead = true;
 
 	const GEBlendMode blendFuncEq = gstate.getBlendEq();

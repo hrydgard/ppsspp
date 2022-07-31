@@ -6,12 +6,13 @@
 #include <iomanip>
 #include "ext/xxhash.h"
 #include "Core/Config.h"
-#include "Windows/resource.h"
 #include "Core/MemMap.h"
+#include "Core/Reporting.h"
 #include "Windows/W32Util/ContextMenu.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/InputBox.h"
 #include "Windows/main.h"
+#include "Windows/resource.h"
 #include "Common/System/Display.h"
 
 #include "Debugger_Disasm.h"
@@ -462,6 +463,7 @@ void CtrlMemView::onChar(WPARAM wParam, LPARAM lParam)
 		}
 	}
 
+	Reporting::NotifyDebugger();
 	if (active) Core_EnableStepping(false);
 }
 

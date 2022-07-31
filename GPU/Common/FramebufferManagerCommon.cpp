@@ -69,6 +69,12 @@ FramebufferManagerCommon::~FramebufferManagerCommon() {
 	}
 	bvfbs_.clear();
 
+	// Shouldn't be anything left here in theory, but just in case...
+	for (auto trackedDepth : trackedDepthBuffers_) {
+		delete trackedDepth;
+	}
+	trackedDepthBuffers_.clear();
+
 	delete presentation_;
 }
 
@@ -400,9 +406,16 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		ResizeFramebufFBO(vfb, drawing_width, drawing_height, true);
 		NotifyRenderFramebufferCreated(vfb);
 
+		// Looks up by z_address, so if one is found here and not have last pointers equal to this one,
+		// there is another one.
+		TrackedDepthBuffer *prevDepth = GetOrCreateTrackedDepthBuffer(vfb);
+
 		// We might already want to copy depth, in case this is a temp buffer.  See #7810.
-		if (currentRenderVfb_ && !params.isClearingDepth) {
-			BlitFramebufferDepth(currentRenderVfb_, vfb);
+		if (prevDepth->vfb != vfb) {
+			if (!params.isClearingDepth && prevDepth->vfb) {
+				BlitFramebufferDepth(prevDepth->vfb, vfb);
+			}
+			prevDepth->vfb = vfb;
 		}
 
 		SetColorUpdated(vfb, skipDrawReason);
@@ -495,6 +508,13 @@ void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
 	if (prevPrevDisplayFramebuf_ == v)
 		prevPrevDisplayFramebuf_ = nullptr;
 
+	// Remove any depth buffer tracking related to this vfb.
+	for (auto it = trackedDepthBuffers_.begin(); it != trackedDepthBuffers_.end(); it++) {
+		if ((*it)->vfb == v) {
+			(*it)->vfb = nullptr;  // Mark for deletion in the next Decimate
+		}
+	}
+
 	delete v;
 }
 
@@ -503,9 +523,10 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 
 	// Check that the depth address is even the same before actually blitting.
 	bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
-	bool matchingSize = src->width == dst->width && src->height == dst->height;
-	if (!matchingDepthBuffer || !matchingSize)
+	bool matchingSize = (src->width == dst->width || src->width == 512 && dst->width == 480) || (src->width == 480 && dst->width == 512) && src->height == dst->height;
+	if (!matchingDepthBuffer || !matchingSize) {
 		return;
+	}
 
 	// Copy depth value from the previously bound framebuffer to the current one.
 	bool hasNewerDepth = src->last_frame_depth_render != 0 && src->last_frame_depth_render >= dst->last_frame_depth_updated;
@@ -520,7 +541,9 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 	int w = std::min(src->renderWidth, dst->renderWidth);
 	int h = std::min(src->renderHeight, dst->renderHeight);
 
-	// Note: We prefer Blit ahead of Copy here, since at least on GL, Copy will always also copy stencil which we don't want. See #9740.
+	// Note: We prefer Blit ahead of Copy here, since at least on GL, Copy will always also copy stencil which we don't want.
+	// See #9740.
+	// TODO: This ordering should probably apply to GL only, since in Vulkan you can totally copy just the depth aspect.
 	if (gstate_c.Supports(GPU_SUPPORTS_FRAMEBUFFER_BLIT_TO_DEPTH)) {
 		draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebufferDepth");
 		RebindFramebuffer("After BlitFramebufferDepth");
@@ -529,6 +552,34 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 		RebindFramebuffer("After BlitFramebufferDepth");
 	}
 	dst->last_frame_depth_updated = gpuStats.numFlips;
+}
+
+TrackedDepthBuffer *FramebufferManagerCommon::GetOrCreateTrackedDepthBuffer(VirtualFramebuffer *vfb) {
+	for (auto tracked : trackedDepthBuffers_) {
+		// Disable tracking if color of the new vfb is clashing with tracked depth.
+		if (vfb->fb_address == tracked->z_address) {
+			tracked->vfb = nullptr;  // this is checked for. Cheaper than deleting.
+			continue;
+		}
+
+		if (vfb->z_address == tracked->z_address) {
+			if (vfb->z_stride == tracked->z_stride) {
+				return tracked;
+			} else {
+				// Stride has changed, mark as bad.
+				tracked->vfb = nullptr;
+			}
+		}
+	}
+
+	TrackedDepthBuffer *tracked = new TrackedDepthBuffer();
+	tracked->vfb = vfb;
+	tracked->z_address = vfb->z_address;
+	tracked->z_stride = vfb->z_stride;
+
+	trackedDepthBuffers_.push_back(tracked);
+
+	return tracked;
 }
 
 void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) {
@@ -738,8 +789,14 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	shaderManager_->DirtyLastShader();
 
 	// Copy depth between the framebuffers, if the z_address is the same (checked inside.)
-	if (prevVfb && !isClearingDepth) {
-		BlitFramebufferDepth(prevVfb, vfb);
+	TrackedDepthBuffer *prevDepth = GetOrCreateTrackedDepthBuffer(vfb);
+
+	// We might already want to copy depth, in case this is a temp buffer.  See #7810.
+	if (prevDepth->vfb != vfb) {
+		if (!isClearingDepth && prevDepth->vfb) {
+			BlitFramebufferDepth(prevDepth->vfb, vfb);
+		}
+		prevDepth->vfb = vfb;
 	}
 
 	if (vfb->drawnFormat != vfb->format) {
@@ -1264,6 +1321,16 @@ void FramebufferManagerCommon::DecimateFBOs() {
 			INFO_LOG(FRAMEBUF, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
 			DestroyFramebuf(vfb);
 			bvfbs_.erase(bvfbs_.begin() + i--);
+		}
+	}
+
+	// Also clean up the TrackedDepthBuffer array...
+	for (auto it = trackedDepthBuffers_.begin(); it != trackedDepthBuffers_.end(); it) {
+		if ((*it)->vfb == nullptr) {
+			delete *it;
+			it = trackedDepthBuffers_.erase(it);
+		} else {
+			it++;
 		}
 	}
 }

@@ -175,10 +175,8 @@ public:
 	GLuint stencilZFail;
 	GLuint stencilPass;
 	GLuint stencilCompareOp;
-	uint8_t stencilCompareMask;
-	uint8_t stencilWriteMask;
 
-	void Apply(GLRenderManager *render, uint8_t stencilRef) {
+	void Apply(GLRenderManager *render, uint8_t stencilRef, uint8_t stencilWriteMask, uint8_t stencilCompareMask) {
 		render->SetDepth(depthTestEnabled, depthWriteEnabled, depthComp);
 		render->SetStencilFunc(stencilEnabled, stencilCompareOp, stencilRef, stencilCompareMask);
 		render->SetStencilOp(stencilWriteMask, stencilFail, stencilZFail, stencilPass);
@@ -388,13 +386,21 @@ public:
 		renderManager_.SetBlendFactor(color);
 	}
 
-	void SetStencilRef(uint8_t ref) override {
-		stencilRef_ = ref;
+	void SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) override {
+		stencilRef_ = refValue;
+		stencilWriteMask_ = writeMask;
+		stencilCompareMask_ = compareMask;
+		// Do we need to update on the fly here?
 		renderManager_.SetStencilFunc(
 			curPipeline_->depthStencil->stencilEnabled,
 			curPipeline_->depthStencil->stencilCompareOp,
-			ref,
-			curPipeline_->depthStencil->stencilCompareMask);
+			refValue,
+			compareMask);
+		renderManager_.SetStencilOp(
+			writeMask,
+			curPipeline_->depthStencil->stencilFail,
+			curPipeline_->depthStencil->stencilZFail,
+			curPipeline_->depthStencil->stencilPass);
 	}
 
 	void BindTextures(int start, int count, Texture **textures) override;
@@ -491,6 +497,8 @@ private:
 	AutoRef<Framebuffer> curRenderTarget_;
 
 	uint8_t stencilRef_ = 0;
+	uint8_t stencilWriteMask_ = 0;
+	uint8_t stencilCompareMask_ = 0;
 
 	// Frames in flight is not such a strict concept as with Vulkan until we start using glBufferStorage and fences.
 	// But might as well have the structure ready, and can't hurt to rotate buffers.
@@ -936,12 +944,10 @@ DepthStencilState *OpenGLContext::CreateDepthStencilState(const DepthStencilStat
 	ds->depthWriteEnabled = desc.depthWriteEnabled;
 	ds->depthComp = compToGL[(int)desc.depthCompare];
 	ds->stencilEnabled = desc.stencilEnabled;
-	ds->stencilCompareOp = compToGL[(int)desc.front.compareOp];
-	ds->stencilPass = stencilOpToGL[(int)desc.front.passOp];
-	ds->stencilFail = stencilOpToGL[(int)desc.front.failOp];
-	ds->stencilZFail = stencilOpToGL[(int)desc.front.depthFailOp];
-	ds->stencilWriteMask = desc.front.writeMask;
-	ds->stencilCompareMask = desc.front.compareMask;
+	ds->stencilCompareOp = compToGL[(int)desc.stencil.compareOp];
+	ds->stencilPass = stencilOpToGL[(int)desc.stencil.passOp];
+	ds->stencilFail = stencilOpToGL[(int)desc.stencil.failOp];
+	ds->stencilZFail = stencilOpToGL[(int)desc.stencil.depthFailOp];
 	return ds;
 }
 
@@ -1185,7 +1191,7 @@ void OpenGLContext::BindPipeline(Pipeline *pipeline) {
 		return;
 	}
 	curPipeline_->blend->Apply(&renderManager_);
-	curPipeline_->depthStencil->Apply(&renderManager_, stencilRef_);
+	curPipeline_->depthStencil->Apply(&renderManager_, stencilRef_, stencilWriteMask_, stencilCompareMask_);
 	curPipeline_->raster->Apply(&renderManager_);
 	renderManager_.BindProgram(curPipeline_->program_);
 }

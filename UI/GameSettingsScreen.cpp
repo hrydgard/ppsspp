@@ -1654,7 +1654,17 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
-	g_Config.sMACAddress = CreateRandMAC();
+	auto n = GetI18NCategory("Networking");
+	auto di = GetI18NCategory("Dialog");
+
+	auto confirmScreen = new PromptScreen(
+		n->T("Change Mac Address"), di->T("Yes"), di->T("No"),
+		[&](bool success) {
+		if (success) {
+			g_Config.sMACAddress = CreateRandMAC();
+		}}
+	);
+	screenManager()->push(confirmScreen);
 
 	return UI::EVENT_DONE;
 }

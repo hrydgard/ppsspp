@@ -2649,6 +2649,7 @@ void GPUCommon::ResetListPC(int listID, u32 pc) {
 		return;
 	}
 
+	Reporting::NotifyDebugger();
 	dls[listID].pc = pc;
 	downcount = 0;
 }
@@ -2659,6 +2660,7 @@ void GPUCommon::ResetListStall(int listID, u32 stall) {
 		return;
 	}
 
+	Reporting::NotifyDebugger();
 	dls[listID].stall = stall;
 	downcount = 0;
 }
@@ -2669,6 +2671,7 @@ void GPUCommon::ResetListState(int listID, DisplayListState state) {
 		return;
 	}
 
+	Reporting::NotifyDebugger();
 	dls[listID].state = state;
 	downcount = 0;
 }
@@ -2726,6 +2729,7 @@ void GPUCommon::SetCmdValue(u32 op) {
 	u32 cmd = op >> 24;
 	u32 diff = op ^ gstate.cmdmem[cmd];
 
+	Reporting::NotifyDebugger();
 	PreExecuteOp(op, diff);
 	gstate.cmdmem[cmd] = op;
 	ExecuteOp(op, diff);

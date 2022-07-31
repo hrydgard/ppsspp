@@ -117,7 +117,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 
 		// Let's not bother with the shader if it's just zero.
 		dxstate.scissorTest.disable();
-		dxstate.colorMask.set(false, false, false, true);
+		dxstate.colorMask.set(0x8);
 		// TODO: Verify this clears only stencil/alpha.
 		device_->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_STENCIL, D3DCOLOR_RGBA(0, 0, 0, 0), 0.0f, 0);
 
@@ -181,7 +181,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 
 	shaderManager_->DirtyLastShader();
 
-	dxstate.colorMask.set(false, false, false, true);
+	dxstate.colorMask.set(0x8);
 	dxstate.stencilTest.enable();
 	dxstate.stencilOp.set(D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE);
 
@@ -202,7 +202,9 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 
 	// TODO: Ideally, we should clear alpha to zero here (but not RGB.)
 
-	dxstate.stencilFunc.set(D3DCMP_ALWAYS, 0xFF, 0xFF);
+	dxstate.stencilFunc.set(D3DCMP_ALWAYS);
+	dxstate.stencilRef.set(0xFF);
+	dxstate.stencilCompareMask.set(0xFF);
 
 	float coord[20] = {
 		-1.0f,  1.0f, 0.0f, 0.0f, 0.0f,
@@ -228,15 +230,15 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 			continue;
 		}
 		if (dstBuffer->format == GE_FORMAT_4444) {
-			dxstate.stencilMask.set(i | (i << 4));
+			dxstate.stencilWriteMask.set(i | (i << 4));
 			const float f[4] = {i * (16.0f / 255.0f)};
 			device_->SetPixelShaderConstantF(CONST_PS_STENCILVALUE, f, 1);
 		} else if (dstBuffer->format == GE_FORMAT_5551) {
-			dxstate.stencilMask.set(0xFF);
+			dxstate.stencilWriteMask.set(0xFF);
 			const float f[4] = {i * (128.0f / 255.0f)};
 			device_->SetPixelShaderConstantF(CONST_PS_STENCILVALUE, f, 1);
 		} else {
-			dxstate.stencilMask.set(i);
+			dxstate.stencilWriteMask.set(i);
 			const float f[4] = {i * (1.0f / 255.0f)};
 			device_->SetPixelShaderConstantF(CONST_PS_STENCILVALUE, f, 1);
 		}
@@ -247,7 +249,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 	}
 
 	tex->Release();
-	dxstate.stencilMask.set(0xFF);
+	dxstate.stencilWriteMask.set(0xFF);
 	dxstate.viewport.restore();
 	RebindFramebuffer("RebindFramebuffer stencil");
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);

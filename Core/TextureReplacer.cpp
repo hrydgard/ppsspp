@@ -62,6 +62,7 @@ void TextureReplacer::Init() {
 void TextureReplacer::NotifyConfigChanged() {
 	gameID_ = g_paramSFO.GetDiscID();
 
+	bool wasEnabled = enabled_;
 	enabled_ = g_Config.bReplaceTextures || g_Config.bSaveNewTextures;
 	if (enabled_) {
 		basePath_ = GetSysDirectory(DIRECTORY_TEXTURES) / gameID_;
@@ -75,6 +76,8 @@ void TextureReplacer::NotifyConfigChanged() {
 		}
 
 		enabled_ = File::Exists(basePath_) && File::IsDirectory(basePath_);
+	} else if (wasEnabled) {
+		Decimate(ReplacerDecimateMode::ALL);
 	}
 
 	if (enabled_) {
@@ -407,7 +410,7 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 		}
 
 		ReplacedTextureLevel level;
-		level.fmt = ReplacedTextureFormat::F_8888;
+		level.fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 		level.file = filename;
 		bool good = PopulateLevel(level);
 
@@ -456,6 +459,11 @@ bool TextureReplacer::PopulateLevel(ReplacedTextureLevel &level) {
 	bool good = false;
 
 	FILE *fp = File::OpenCFile(level.file, "rb");
+	if (!fp) {
+		ERROR_LOG(G3D, "Error opening replacement texture file '%s'", level.file.c_str());
+		return false;
+	}
+
 	auto imageType = Identify(fp);
 	if (imageType == ReplacedImageType::ZIM) {
 		fseek(fp, 4, SEEK_SET);
@@ -627,50 +635,13 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 
 	SimpleBuf<u32> saveBuf;
 
-	// Since we're copying, change the format meanwhile.  Not much extra cost.
-	if (replacedInfo.fmt != ReplacedTextureFormat::F_8888) {
-		saveBuf.resize((pitch * h) / sizeof(u16));
-		switch (replacedInfo.fmt) {
-		case ReplacedTextureFormat::F_5650:
-			ConvertRGB565ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
-			break;
-		case ReplacedTextureFormat::F_5551:
-			ConvertRGBA5551ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
-			break;
-		case ReplacedTextureFormat::F_4444:
-			ConvertRGBA4444ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
-			break;
-		case ReplacedTextureFormat::F_0565_ABGR:
-			ConvertBGR565ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
-			break;
-		case ReplacedTextureFormat::F_1555_ABGR:
-			ConvertABGR1555ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
-			break;
-		case ReplacedTextureFormat::F_4444_ABGR:
-			ConvertABGR4444ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
-			break;
-		case ReplacedTextureFormat::F_8888_BGRA:
-			ConvertBGRA8888ToRGBA8888(saveBuf.data(), (const u32 *)data, (pitch * h) / sizeof(u32));
-			break;
-		case ReplacedTextureFormat::F_8888:
-			// Impossible.  Just so we can get warnings on other missed formats.
-			break;
-		}
-
-		data = saveBuf.data();
-		if (replacedInfo.fmt != ReplacedTextureFormat::F_8888_BGRA) {
-			// We doubled our pitch.
-			pitch *= 2;
-		}
-	} else {
-		// Copy data to a buffer so we can send it to the thread. Might as well compact-away the pitch
-		// while we're at it.
-		saveBuf.resize(w * h);
-		for (int y = 0; y < h; y++) {
-			memcpy((u8 *)saveBuf.data() + y * w * 4, (const u8 *)data + y * pitch, w * sizeof(u32));
-		}
-		pitch = w * 4;
+	// Copy data to a buffer so we can send it to the thread. Might as well compact-away the pitch
+	// while we're at it.
+	saveBuf.resize(w * h);
+	for (int y = 0; y < h; y++) {
+		memcpy((u8 *)saveBuf.data() + y * w * 4, (const u8 *)data + y * pitch, w * sizeof(u32));
 	}
+	pitch = w * 4;
 
 	TextureSaveTask *task = new TextureSaveTask(std::move(saveBuf));
 	// Should probably do a proper move constructor but this'll work.
@@ -686,16 +657,21 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	// Remember that we've saved this for next time.
 	// Should be OK that the actual disk write may not be finished yet.
 	ReplacedTextureLevel saved;
-	saved.fmt = ReplacedTextureFormat::F_8888;
+	saved.fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 	saved.file = filename;
 	saved.w = w;
 	saved.h = h;
 	savedCache_[replacementKey] = std::make_pair(saved, now);
 }
 
-void TextureReplacer::Decimate(bool forcePressure) {
+void TextureReplacer::Decimate(ReplacerDecimateMode mode) {
 	// Allow replacements to be cached for a long time, although they're large.
-	const double age = forcePressure ? 90.0 : 1800.0;
+	double age = 1800.0;
+	if (mode == ReplacerDecimateMode::FORCE_PRESSURE)
+		age = 90.0;
+	else if (mode == ReplacerDecimateMode::ALL)
+		age = 0.0;
+
 	const double threshold = time_now_d() - age;
 	for (auto &item : cache_) {
 		item.second.PurgeIfOlder(threshold);
@@ -846,6 +822,8 @@ bool ReplacedTexture::IsReady(double budget) {
 		return false;
 
 	if (g_Config.bReplaceTexturesAllowLate) {
+		if (threadWaitable_)
+			delete threadWaitable_;
 		threadWaitable_ = new LimitedWaitable();
 		g_threadManager.EnqueueTask(new ReplacedTextureTask(*this, threadWaitable_));
 
@@ -867,8 +845,8 @@ void ReplacedTexture::Prepare() {
 	if (cancelPrepare_)
 		return;
 
-	levelData_.resize(MaxLevel() + 1);
-	for (int i = 0; i <= MaxLevel(); ++i) {
+	levelData_.resize(NumLevels());
+	for (int i = 0; i < NumLevels(); ++i) {
 		if (cancelPrepare_)
 			break;
 		PrepareData(i);
