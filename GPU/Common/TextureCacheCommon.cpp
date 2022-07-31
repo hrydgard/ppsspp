@@ -538,7 +538,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			const AttachCandidate &candidate = candidates[index];
 			nextTexture_ = nullptr;
 			nextNeedsRebuild_ = false;
-			SetTextureFramebuffer(candidate);
+			SetTextureFramebuffer(candidate);  // sets curTexture3D
 			return nullptr;
 		}
 	}
@@ -1072,6 +1072,8 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 		nextFramebufferTexture_ = nullptr;
 		nextTexture_ = nullptr;
 	}
+
+	gstate_c.SetTextureIs3D(false);
 
 	nextNeedsRehash_ = false;
 	nextNeedsChange_ = false;
@@ -1771,7 +1773,9 @@ void TextureCacheCommon::ApplyTexture() {
 			ApplyTextureFramebuffer(nextFramebufferTexture_, gstate.getTextureFormat(), depth ? NOTIFY_FB_DEPTH : NOTIFY_FB_COLOR);
 			nextFramebufferTexture_ = nullptr;
 		}
-		gstate_c.SetTextureIs3D(false);
+
+		// We don't set the 3D texture state here or anything else, on some backends (?)
+		// a nextTexture_ of nullptr means keep the current texture.
 		return;
 	}
 
