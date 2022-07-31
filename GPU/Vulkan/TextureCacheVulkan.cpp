@@ -589,7 +589,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	int maxPossibleMipLevels;
-	if (plan.isVideo) {
+	if (plan.isVideo || plan.depth != 1) {
 		maxPossibleMipLevels = 1;
 	} else {
 		maxPossibleMipLevels = log2i(std::min(plan.w * plan.scaleFactor, plan.h * plan.scaleFactor)) + 1;
