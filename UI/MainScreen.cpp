@@ -1137,11 +1137,13 @@ void MainScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
 	rightColumnItems->Add(new Choice(mm->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
 	rightColumnItems->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
+#ifndef OPENXR
 	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		Choice *gold = rightColumnItems->Add(new Choice(mm->T("Buy PPSSPP Gold")));
 		gold->OnClick.Handle(this, &MainScreen::OnSupport);
 		gold->SetIcon(ImageID("I_ICONGOLD"), 0.5f);
 	}
+#endif
 
 #if !PPSSPP_PLATFORM(UWP)
 	// Having an exit button is against UWP guidelines.

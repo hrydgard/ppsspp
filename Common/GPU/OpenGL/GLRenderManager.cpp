@@ -8,6 +8,11 @@
 #include "Common/MemoryUtil.h"
 #include "Common/Math/math_util.h"
 
+#ifdef OPENXR
+#include "VR/VRBase.h"
+#include "VR/VRRenderer.h"
+#endif
+
 #if 0 // def _DEBUG
 #define VLOG(...) INFO_LOG(G3D, __VA_ARGS__)
 #else
@@ -202,6 +207,9 @@ bool GLRenderManager::ThreadFrame() {
 	std::unique_lock<std::mutex> lock(mutex_);
 	if (!run_)
 		return false;
+#ifdef OPENXR
+	VR_BeginFrame(VR_GetEngine());
+#endif
 
 	// In case of syncs or other partial completion, we keep going until we complete a frame.
 	do {
@@ -240,6 +248,9 @@ bool GLRenderManager::ThreadFrame() {
 		Run(threadFrame_);
 		VLOG("PULL: Finished frame %d", threadFrame_);
 	} while (!nextFrame);
+#ifdef OPENXR
+	VR_EndFrame(VR_GetEngine());
+#endif
 	return true;
 }
 
@@ -300,6 +311,7 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 #ifdef _DEBUG
 	curProgram_ = nullptr;
 #endif
+
 	// Eliminate dupes.
 	if (steps_.size() && steps_.back()->render.framebuffer == fb && steps_.back()->stepType == GLRStepType::RENDER) {
 		if (color != GLRRenderPassAction::CLEAR && depth != GLRRenderPassAction::CLEAR && stencil != GLRRenderPassAction::CLEAR) {

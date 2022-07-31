@@ -695,6 +695,10 @@ const char * const vulkanDefaultBlacklist[] = {
 };
 
 static int DefaultGPUBackend() {
+#ifdef OPENXR
+	return (int)GPUBackend::OPENGL;
+#endif
+
 #if PPSSPP_PLATFORM(WINDOWS)
 	// If no Vulkan, use Direct3D 11 on Windows 8+ (most importantly 10.)
 	if (DoesVersionMatchWindows(6, 2, 0, 0, true)) {
@@ -969,6 +973,8 @@ static bool DefaultShowTouchControls() {
 		return false;
 	} else if (deviceType == DEVICE_TYPE_DESKTOP) {
 		return false;
+	} else if (deviceType == DEVICE_TYPE_VR) {
+		return false;
 	} else {
 		return false;
 	}
@@ -1006,7 +1012,9 @@ static ConfigSetting controlSettings[] = {
 #if defined(USING_WIN_UI)
 	ConfigSetting("IgnoreWindowsKey", &g_Config.bIgnoreWindowsKey, false, true, true),
 #endif
+
 	ConfigSetting("ShowTouchControls", &g_Config.bShowTouchControls, &DefaultShowTouchControls, true, true),
+
 	// ConfigSetting("KeyMapping", &g_Config.iMappingMap, 0),
 
 #ifdef MOBILE_DEVICE

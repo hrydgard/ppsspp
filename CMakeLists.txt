@@ -116,6 +116,14 @@ include(GNUInstallDirs)
 
 add_definitions(-DASSETS_DIR="${CMAKE_INSTALL_FULL_DATADIR}/ppsspp/assets/")
 
+if(OPENXR)
+	add_definitions(-DOPENXR)
+	add_library(openxr SHARED IMPORTED)
+	include_directories(ext/openxr)
+	set_property(TARGET openxr PROPERTY IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/ext/openxr/libs/arm64-v8a/libopenxr_loader.so")
+	message("OpenXR enabled")
+endif()
+
 if(GOLD)
 	add_definitions(-DGOLD)
 	message("Gold Build")
@@ -1056,6 +1064,20 @@ if(ANDROID)
 		android/jni/OpenSLContext.cpp
 		android/jni/OpenSLContext.h
 	)
+
+	if (OPENXR)
+		set(nativeExtra ${nativeExtra}
+			Common/VR/VRBase.cpp
+			Common/VR/VRBase.h
+			Common/VR/VRFramebuffer.cpp
+			Common/VR/VRFramebuffer.h
+			Common/VR/VRInput.cpp
+			Common/VR/VRInput.h
+			Common/VR/VRRenderer.cpp
+			Common/VR/VRRenderer.h
+		)
+		set(nativeExtraLibs ${nativeExtraLibs} openxr)
+	endif()
 	# No target
 elseif(IOS)
 	set(nativeExtra ${nativeExtra}

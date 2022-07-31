@@ -390,6 +390,7 @@ void GameSettingsScreen::CreateViews() {
 		}
 	}
 
+#ifndef OPENXR
 	graphicsSettings->Add(new ItemHeader(gr->T("Screen layout")));
 #if !defined(MOBILE_DEVICE)
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
@@ -421,6 +422,7 @@ void GameSettingsScreen::CreateViews() {
 		graphicsSettings->Add(new CheckBox(&g_Config.bImmersiveMode, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnImmersiveModeChange);
 	}
 #endif
+#endif
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Performance")));
 	static const char *internalResolutions[] = { "Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP", "6x PSP", "7x PSP", "8x PSP", "9x PSP", "10x PSP" };
@@ -431,7 +433,8 @@ void GameSettingsScreen::CreateViews() {
 	});
 
 #if PPSSPP_PLATFORM(ANDROID)
-	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_TV) {
+	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
+	if ((deviceType != DEVICE_TYPE_TV) && (deviceType != DEVICE_TYPE_VR)) {
 		static const char *deviceResolutions[] = { "Native device resolution", "Auto (same as Rendering)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
 		int max_res_temp = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 2;
 		if (max_res_temp == 3)
@@ -585,7 +588,9 @@ void GameSettingsScreen::CreateViews() {
 	static const char *bufFilters[] = { "Linear", "Nearest", };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
 
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+#ifdef OPENXR
+	bool showCardboardSettings = false;
+#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	bool showCardboardSettings = true;
 #else
 	// If you enabled it through the ini, you can see this. Useful for testing.
@@ -714,6 +719,7 @@ void GameSettingsScreen::CreateViews() {
 		});
 	}
 
+#ifndef OPENXR
 	// TVs don't have touch control, at least not yet.
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_TV) {
 		controlsSettings->Add(new ItemHeader(co->T("OnScreen", "On-Screen Touch Controls")));
@@ -784,6 +790,7 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new CheckBox(&g_Config.bMouseConfine, co->T("Confine Mouse", "Trap mouse within window/display area")))->SetEnabledPtr(&g_Config.bMouseControl);
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSensitivity, 0.01f, 1.0f, co->T("Mouse sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bMouseControl);
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSmoothing, 0.0f, 0.95f, co->T("Mouse smoothing"), 0.05f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bMouseControl);
+#endif
 #endif
 
 	LinearLayout *networkingSettings = AddTab("GameSettingsNetworking", ms->T("Networking"));

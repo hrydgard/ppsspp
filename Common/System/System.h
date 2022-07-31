@@ -45,6 +45,7 @@ enum SystemDeviceType {
 	DEVICE_TYPE_MOBILE = 0,  // phones and pads
 	DEVICE_TYPE_TV = 1,  // Android TV and similar
 	DEVICE_TYPE_DESKTOP = 2,  // Desktop computer
+	DEVICE_TYPE_VR = 3,  // VR headset
 };
 
 enum SystemKeyboardLayout {
