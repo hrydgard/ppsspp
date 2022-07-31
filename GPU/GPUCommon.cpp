@@ -1565,7 +1565,7 @@ void GPUCommon::Execute_TexLevel(u32 op, u32 diff) {
 
 	if (diff & 0xFF0000) {
 		// Piggyback on this flag for 3D textures.
-		gstate_c.Dirty(DIRTY_TEXCLAMP);
+		gstate_c.Dirty(DIRTY_MIPBIAS);
 	}
 	if (gstate.getTexLevelMode() != GE_TEXLEVEL_MODE_AUTO && (0x00FF0000 & gstate.texlevel) != 0) {
 		Flush();

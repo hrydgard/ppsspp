@@ -554,7 +554,7 @@ struct GPUStateCache {
 	void SetTextureIs3D(bool is3D) {
 		if (is3D != curTextureIs3D) {
 			curTextureIs3D = is3D;
-			Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_UVSCALEOFFSET);
+			Dirty(DIRTY_FRAGMENTSHADER_STATE | (is3D ? DIRTY_MIPBIAS : 0));
 		}
 	}
 

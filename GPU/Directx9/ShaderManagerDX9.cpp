@@ -263,7 +263,7 @@ static void ConvertProjMatrixToD3DThrough(Matrix4x4 &in) {
 	in.translateAndScale(Vec3(xoff, yoff, 0.5f), Vec3(1.0f, 1.0f, 0.5f));
 }
 
-const uint64_t psUniforms = DIRTY_TEXENV | DIRTY_ALPHACOLORREF | DIRTY_ALPHACOLORMASK | DIRTY_FOGCOLOR | DIRTY_STENCILREPLACEVALUE | DIRTY_SHADERBLEND | DIRTY_TEXCLAMP;
+const uint64_t psUniforms = DIRTY_TEXENV | DIRTY_ALPHACOLORREF | DIRTY_ALPHACOLORMASK | DIRTY_FOGCOLOR | DIRTY_STENCILREPLACEVALUE | DIRTY_SHADERBLEND | DIRTY_TEXCLAMP | DIRTY_MIPBIAS;
 
 void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
@@ -314,7 +314,9 @@ void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 		};
 		PSSetFloatArray(CONST_PS_TEXCLAMP, texclamp, 4);
 		PSSetFloatArray(CONST_PS_TEXCLAMPOFF, texclampoff, 2);
+	}
 
+	if (dirtyUniforms & DIRTY_MIPBIAS) {
 		float mipBias = (float)gstate.getTexLevelOffset16() * (1.0 / 16.0f);
 
 		// NOTE: This equation needs some adjustment in D3D9. Can't get it to look completely smooth :(

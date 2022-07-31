@@ -348,7 +348,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 
 		if (texture3D) {
-			*uniformMask |= DIRTY_TEXCLAMP;
+			*uniformMask |= DIRTY_MIPBIAS;
 			WRITE(p, "uniform float u_mipBias;\n");
 		}
 

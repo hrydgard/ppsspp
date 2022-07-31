@@ -459,7 +459,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		}
 	}
 
-	if ((dirty & DIRTY_TEXCLAMP) && u_mipBias != -1) {
+	if ((dirty & DIRTY_MIPBIAS) && u_mipBias != -1) {
 		float mipBias = (float)gstate.getTexLevelOffset16() * (1.0 / 16.0f);
 		mipBias = (mipBias + 0.5f) / (float)(gstate.getTextureMaxLevel() + 1);
 
