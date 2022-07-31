@@ -45,5 +45,5 @@ jobs:
     - name: upload tarball
       uses: softprops/action-gh-release@v1
       with:
-       files: ${{ steps.archive.outputs.tarball }}
-       token: ${{ secrets.GITHUB_TOKEN }}
+        files: ${{ steps.archive.outputs.tarball }}
+        token: ${{ secrets.GITHUB_TOKEN }}
