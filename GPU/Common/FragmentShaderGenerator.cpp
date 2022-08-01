@@ -1051,8 +1051,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	if (colorToDepth) {
+		DepthScaleFactors factors = GetDepthScaleFactors();
+
 		WRITE(p, "  highp float depthValue = float(uint(%s.x * 32.0) | (uint(%s.y * 64.0) << 5) | (uint(%s.z * 32.0) << 11)) / 65535.0;\n", "v", "v", "v"); // compat.fragColor0, compat.fragColor0, compat.fragColor0);
-		WRITE(p, "  gl_FragDepth = depthValue;\n");  // TODO: Don't forget to apply accurate-depth kind of stuff
+		WRITE(p, "  gl_FragDepth = (depthValue / %f) - %f;\n", factors.scale / 65535.0f, factors.offset);
 	}
 
 	if (gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
