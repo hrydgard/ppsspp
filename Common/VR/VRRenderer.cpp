@@ -18,10 +18,8 @@ int vrConfig[VR_CONFIG_MAX] = {};
 
 float menuYaw = 0;
 float recenterYaw = 0;
-vec3_t hmdorientation;
-vec3_t hmdposition;
-
-extern float radians(float deg);
+XrVector3f hmdorientation;
+XrVector3f hmdposition;
 
 void VR_UpdateStageBounds(ovrApp* pappState) {
 	XrExtent2Df stageBounds = {};
@@ -135,10 +133,9 @@ void VR_Recenter(engine_t* engine) {
 		XrSpaceLocation loc = {};
 		loc.type = XR_TYPE_SPACE_LOCATION;
 		OXR(xrLocateSpace(engine->appState.HeadSpace, engine->appState.CurrentSpace, engine->predictedDisplayTime, &loc));
-		vec3_t rotation = {0, 0, 0};
-		QuatToYawPitchRoll(loc.pose.orientation, rotation, hmdorientation);
+		hmdorientation = XrQuaternionf_ToEulerAngles(loc.pose.orientation);
 
-		recenterYaw += radians(hmdorientation[YAW]);
+		recenterYaw += ToRadians(hmdorientation.y);
 		spaceCreateInfo.poseInReferenceSpace.orientation.x = 0;
 		spaceCreateInfo.poseInReferenceSpace.orientation.y = sin(recenterYaw / 2);
 		spaceCreateInfo.poseInReferenceSpace.orientation.z = 0;
@@ -301,11 +298,8 @@ void VR_BeginFrame( engine_t* engine ) {
 	}
 
 	// Update HMD and controllers
-	vec3_t rotation = {0, 0, 0};
-	QuatToYawPitchRoll(invViewTransform[0].orientation, rotation, hmdorientation);
-	hmdposition[0] = invViewTransform[0].position.x;
-	hmdposition[1] = invViewTransform[0].position.y;
-	hmdposition[2] = invViewTransform[0].position.z;
+	hmdorientation = XrQuaternionf_ToEulerAngles(invViewTransform[0].orientation);
+	hmdposition = invViewTransform[0].position;
 	IN_VRInputFrame(engine);
 
 	engine->appState.LayerCount = 0;
@@ -339,7 +333,7 @@ void VR_EndFrame( engine_t* engine ) {
 	XrCompositionLayerProjectionView projection_layer_elements[2] = {};
 	int vrMode = vrConfig[VR_CONFIG_MODE];
 	if ((vrMode == VR_MODE_MONO_6DOF) || (vrMode == VR_MODE_STEREO_6DOF)) {
-		menuYaw = hmdorientation[YAW];
+		menuYaw = hmdorientation.y;
 
 		for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
 			XrFovf fov = projections[eye].fov;
@@ -391,14 +385,14 @@ void VR_EndFrame( engine_t* engine ) {
 		cylinder_layer.subImage.imageArrayIndex = 0;
 		const XrVector3f axis = {0.0f, 1.0f, 0.0f};
 		XrVector3f pos = {
-				invViewTransform[0].position.x - sin(radians(menuYaw)) * 6.0f,
+				invViewTransform[0].position.x - sin(ToRadians(menuYaw)) * 6.0f,
 				invViewTransform[0].position.y,
-				invViewTransform[0].position.z - cos(radians(menuYaw)) * 6.0f
+				invViewTransform[0].position.z - cos(ToRadians(menuYaw)) * 6.0f
 		};
-		cylinder_layer.pose.orientation = XrQuaternionf_CreateFromVectorAngle(axis, radians(menuYaw));
+		cylinder_layer.pose.orientation = XrQuaternionf_CreateFromVectorAngle(axis, ToRadians(menuYaw));
 		cylinder_layer.pose.position = pos;
 		cylinder_layer.radius = 12.0f;
-		cylinder_layer.centralAngle = MATH_PI * 0.5f;
+		cylinder_layer.centralAngle = M_PI * 0.5f;
 		cylinder_layer.aspectRatio = height / (float)width;
 
 		engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
@@ -446,7 +440,7 @@ void VR_BindFramebuffer( engine_t* engine, int eye ) {
 ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {
 	ovrMatrix4f output;
 	if (matrix == VR_PROJECTION_MATRIX_HUD) {
-		float hudScale = radians(15.0f);
+		float hudScale = ToRadians(15.0f);
 		output = ovrMatrix4f_CreateProjectionFov(-hudScale, hudScale, hudScale, -hudScale, 1.0f, 0.0f );
 	} else if ((matrix == VR_PROJECTION_MATRIX_LEFT_EYE) || (matrix == VR_PROJECTION_MATRIX_RIGHT_EYE)) {
 		XrFovf fov = matrix == VR_PROJECTION_MATRIX_LEFT_EYE ? projections[0].fov : projections[1].fov;
@@ -474,20 +468,19 @@ ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {
 		}
 
 		// create updated quaternion
-		if (mx + my + mz < 3 - 0.001f) {
-			vec3_t rotation = {0, 0, 0};
-			QuatToYawPitchRoll(invView.orientation, rotation, rotation);
-			XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, mx * radians(rotation[0]));
-			XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, my * radians(rotation[1]));
-			XrQuaternionf roll = XrQuaternionf_CreateFromVectorAngle({0, 0, 1}, mz * radians(rotation[2]));
+		if (mx + my + mz < 3 - EPSILON) {
+			XrVector3f rotation = XrQuaternionf_ToEulerAngles(invView.orientation);
+			XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, mx * ToRadians(rotation.x));
+			XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, my * ToRadians(rotation.y));
+			XrQuaternionf roll = XrQuaternionf_CreateFromVectorAngle({0, 0, 1}, mz * ToRadians(rotation.z));
 			invView.orientation = XrQuaternionf_Multiply(roll, XrQuaternionf_Multiply(pitch, yaw));
 		}
 
 		output = ovrMatrix4f_CreateFromQuaternion(&invView.orientation);
 		if (vrConfig[VR_CONFIG_6DOF]) {
-			output.M[0][3] -= hmdposition[0] * (vrConfig[VR_CONFIG_MIRROR_AXIS_X] ? -1.0f : 1.0f);
-			output.M[1][3] -= hmdposition[1] * (vrConfig[VR_CONFIG_MIRROR_AXIS_Y] ? -1.0f : 1.0f);
-			output.M[2][3] -= hmdposition[2] * (vrConfig[VR_CONFIG_MIRROR_AXIS_Z] ? -1.0f : 1.0f);
+			output.M[0][3] -= hmdposition.x * (vrConfig[VR_CONFIG_MIRROR_AXIS_X] ? -1.0f : 1.0f);
+			output.M[1][3] -= hmdposition.y * (vrConfig[VR_CONFIG_MIRROR_AXIS_Y] ? -1.0f : 1.0f);
+			output.M[2][3] -= hmdposition.z * (vrConfig[VR_CONFIG_MIRROR_AXIS_Z] ? -1.0f : 1.0f);
 		}
 	} else {
 		assert(false);

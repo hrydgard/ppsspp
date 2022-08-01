@@ -1,6 +1,7 @@
 #pragma once
 
 #include "VRFramebuffer.h"
+#include "VRMath.h"
 
 enum VRConfig {
 	VR_CONFIG_MODE,

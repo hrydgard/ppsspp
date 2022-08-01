@@ -1073,6 +1073,8 @@ if(ANDROID)
 			Common/VR/VRFramebuffer.h
 			Common/VR/VRInput.cpp
 			Common/VR/VRInput.h
+			Common/VR/VRMath.cpp
+			Common/VR/VRMath.h
 			Common/VR/VRRenderer.cpp
 			Common/VR/VRRenderer.h
 		)

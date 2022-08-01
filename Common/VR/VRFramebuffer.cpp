@@ -12,6 +12,10 @@
 #include <GLES3/gl3.h>
 #include <GLES3/gl3ext.h>
 
+double FromXrTime(const XrTime time) {
+	return (time * 1e-9);
+}
+
 /*
 ================================================================================
 
@@ -19,7 +23,6 @@ ovrFramebuffer
 
 ================================================================================
 */
-
 
 void ovrFramebuffer_Clear(ovrFramebuffer* frameBuffer) {
 	frameBuffer->Width = 0;
@@ -342,194 +345,4 @@ int ovrApp_HandleXrEvents(ovrApp* app) {
 		}
 	}
 	return recenter;
-}
-
-/*
-================================================================================
-
-ovrMatrix4f
-
-================================================================================
-*/
-
-ovrMatrix4f ovrMatrix4f_CreateProjectionFov(
-		const float angleLeft,
-		const float angleRight,
-		const float angleUp,
-		const float angleDown,
-		const float nearZ,
-		const float farZ) {
-
-	const float tanAngleLeft = tanf(angleLeft);
-	const float tanAngleRight = tanf(angleRight);
-
-	const float tanAngleDown = tanf(angleDown);
-	const float tanAngleUp = tanf(angleUp);
-
-	const float tanAngleWidth = tanAngleRight - tanAngleLeft;
-
-	// Set to tanAngleDown - tanAngleUp for a clip space with positive Y
-	// down (Vulkan). Set to tanAngleUp - tanAngleDown for a clip space with
-	// positive Y up (OpenGL / D3D / Metal).
-	const float tanAngleHeight = tanAngleUp - tanAngleDown;
-
-	// Set to nearZ for a [-1,1] Z clip space (OpenGL / OpenGL ES).
-	// Set to zero for a [0,1] Z clip space (Vulkan / D3D / Metal).
-	const float offsetZ = nearZ;
-
-	ovrMatrix4f result;
-	if (farZ <= nearZ) {
-		// place the far plane at infinity
-		result.M[0][0] = 2 / tanAngleWidth;
-		result.M[0][1] = 0;
-		result.M[0][2] = (tanAngleRight + tanAngleLeft) / tanAngleWidth;
-		result.M[0][3] = 0;
-
-		result.M[1][0] = 0;
-		result.M[1][1] = 2 / tanAngleHeight;
-		result.M[1][2] = (tanAngleUp + tanAngleDown) / tanAngleHeight;
-		result.M[1][3] = 0;
-
-		result.M[2][0] = 0;
-		result.M[2][1] = 0;
-		result.M[2][2] = -1;
-		result.M[2][3] = -(nearZ + offsetZ);
-
-		result.M[3][0] = 0;
-		result.M[3][1] = 0;
-		result.M[3][2] = -1;
-		result.M[3][3] = 0;
-	} else {
-		// normal projection
-		result.M[0][0] = 2 / tanAngleWidth;
-		result.M[0][1] = 0;
-		result.M[0][2] = (tanAngleRight + tanAngleLeft) / tanAngleWidth;
-		result.M[0][3] = 0;
-
-		result.M[1][0] = 0;
-		result.M[1][1] = 2 / tanAngleHeight;
-		result.M[1][2] = (tanAngleUp + tanAngleDown) / tanAngleHeight;
-		result.M[1][3] = 0;
-
-		result.M[2][0] = 0;
-		result.M[2][1] = 0;
-		result.M[2][2] = -(farZ + offsetZ) / (farZ - nearZ);
-		result.M[2][3] = -(farZ * (nearZ + offsetZ)) / (farZ - nearZ);
-
-		result.M[3][0] = 0;
-		result.M[3][1] = 0;
-		result.M[3][2] = -1;
-		result.M[3][3] = 0;
-	}
-	return result;
-}
-
-ovrMatrix4f ovrMatrix4f_CreateFromQuaternion(const XrQuaternionf* q) {
-	const float ww = q->w * q->w;
-	const float xx = q->x * q->x;
-	const float yy = q->y * q->y;
-	const float zz = q->z * q->z;
-
-	ovrMatrix4f out;
-	out.M[0][0] = ww + xx - yy - zz;
-	out.M[0][1] = 2 * (q->x * q->y - q->w * q->z);
-	out.M[0][2] = 2 * (q->x * q->z + q->w * q->y);
-	out.M[0][3] = 0;
-
-	out.M[1][0] = 2 * (q->x * q->y + q->w * q->z);
-	out.M[1][1] = ww - xx + yy - zz;
-	out.M[1][2] = 2 * (q->y * q->z - q->w * q->x);
-	out.M[1][3] = 0;
-
-	out.M[2][0] = 2 * (q->x * q->z - q->w * q->y);
-	out.M[2][1] = 2 * (q->y * q->z + q->w * q->x);
-	out.M[2][2] = ww - xx - yy + zz;
-	out.M[2][3] = 0;
-
-	out.M[3][0] = 0;
-	out.M[3][1] = 0;
-	out.M[3][2] = 0;
-	out.M[3][3] = 1;
-	return out;
-}
-
-
-/// Use left-multiplication to accumulate transformations.
-ovrMatrix4f ovrMatrix4f_Multiply(const ovrMatrix4f* a, const ovrMatrix4f* b) {
-	ovrMatrix4f out;
-	out.M[0][0] = a->M[0][0] * b->M[0][0] + a->M[0][1] * b->M[1][0] + a->M[0][2] * b->M[2][0] +
-	              a->M[0][3] * b->M[3][0];
-	out.M[1][0] = a->M[1][0] * b->M[0][0] + a->M[1][1] * b->M[1][0] + a->M[1][2] * b->M[2][0] +
-	              a->M[1][3] * b->M[3][0];
-	out.M[2][0] = a->M[2][0] * b->M[0][0] + a->M[2][1] * b->M[1][0] + a->M[2][2] * b->M[2][0] +
-	              a->M[2][3] * b->M[3][0];
-	out.M[3][0] = a->M[3][0] * b->M[0][0] + a->M[3][1] * b->M[1][0] + a->M[3][2] * b->M[2][0] +
-	              a->M[3][3] * b->M[3][0];
-
-	out.M[0][1] = a->M[0][0] * b->M[0][1] + a->M[0][1] * b->M[1][1] + a->M[0][2] * b->M[2][1] +
-	              a->M[0][3] * b->M[3][1];
-	out.M[1][1] = a->M[1][0] * b->M[0][1] + a->M[1][1] * b->M[1][1] + a->M[1][2] * b->M[2][1] +
-	              a->M[1][3] * b->M[3][1];
-	out.M[2][1] = a->M[2][0] * b->M[0][1] + a->M[2][1] * b->M[1][1] + a->M[2][2] * b->M[2][1] +
-	              a->M[2][3] * b->M[3][1];
-	out.M[3][1] = a->M[3][0] * b->M[0][1] + a->M[3][1] * b->M[1][1] + a->M[3][2] * b->M[2][1] +
-	              a->M[3][3] * b->M[3][1];
-
-	out.M[0][2] = a->M[0][0] * b->M[0][2] + a->M[0][1] * b->M[1][2] + a->M[0][2] * b->M[2][2] +
-	              a->M[0][3] * b->M[3][2];
-	out.M[1][2] = a->M[1][0] * b->M[0][2] + a->M[1][1] * b->M[1][2] + a->M[1][2] * b->M[2][2] +
-	              a->M[1][3] * b->M[3][2];
-	out.M[2][2] = a->M[2][0] * b->M[0][2] + a->M[2][1] * b->M[1][2] + a->M[2][2] * b->M[2][2] +
-	              a->M[2][3] * b->M[3][2];
-	out.M[3][2] = a->M[3][0] * b->M[0][2] + a->M[3][1] * b->M[1][2] + a->M[3][2] * b->M[2][2] +
-	              a->M[3][3] * b->M[3][2];
-
-	out.M[0][3] = a->M[0][0] * b->M[0][3] + a->M[0][1] * b->M[1][3] + a->M[0][2] * b->M[2][3] +
-	              a->M[0][3] * b->M[3][3];
-	out.M[1][3] = a->M[1][0] * b->M[0][3] + a->M[1][1] * b->M[1][3] + a->M[1][2] * b->M[2][3] +
-	              a->M[1][3] * b->M[3][3];
-	out.M[2][3] = a->M[2][0] * b->M[0][3] + a->M[2][1] * b->M[1][3] + a->M[2][2] * b->M[2][3] +
-	              a->M[2][3] * b->M[3][3];
-	out.M[3][3] = a->M[3][0] * b->M[0][3] + a->M[3][1] * b->M[1][3] + a->M[3][2] * b->M[2][3] +
-	              a->M[3][3] * b->M[3][3];
-	return out;
-}
-
-ovrMatrix4f ovrMatrix4f_CreateRotation(const float radiansX, const float radiansY, const float radiansZ) {
-	const float sinX = sinf(radiansX);
-	const float cosX = cosf(radiansX);
-	const ovrMatrix4f rotationX = {
-			{{1, 0, 0, 0}, {0, cosX, -sinX, 0}, {0, sinX, cosX, 0}, {0, 0, 0, 1}}};
-	const float sinY = sinf(radiansY);
-	const float cosY = cosf(radiansY);
-	const ovrMatrix4f rotationY = {
-			{{cosY, 0, sinY, 0}, {0, 1, 0, 0}, {-sinY, 0, cosY, 0}, {0, 0, 0, 1}}};
-	const float sinZ = sinf(radiansZ);
-	const float cosZ = cosf(radiansZ);
-	const ovrMatrix4f rotationZ = {
-			{{cosZ, -sinZ, 0, 0}, {sinZ, cosZ, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}}};
-	const ovrMatrix4f rotationXY = ovrMatrix4f_Multiply(&rotationY, &rotationX);
-	return ovrMatrix4f_Multiply(&rotationZ, &rotationXY);
-}
-
-XrVector4f XrVector4f_MultiplyMatrix4f(const ovrMatrix4f* a, const XrVector4f* v) {
-	XrVector4f out;
-	out.x = a->M[0][0] * v->x + a->M[0][1] * v->y + a->M[0][2] * v->z + a->M[0][3] * v->w;
-	out.y = a->M[1][0] * v->x + a->M[1][1] * v->y + a->M[1][2] * v->z + a->M[1][3] * v->w;
-	out.z = a->M[2][0] * v->x + a->M[2][1] * v->y + a->M[2][2] * v->z + a->M[2][3] * v->w;
-	out.w = a->M[3][0] * v->x + a->M[3][1] * v->y + a->M[3][2] * v->z + a->M[3][3] * v->w;
-	return out;
-}
-
-/*
-================================================================================
-
-ovrTrackedController
-
-================================================================================
-*/
-
-void ovrTrackedController_Clear(ovrTrackedController* controller) {
-	controller->Active = false;
-	controller->Pose = XrPosef_Identity();
 }
