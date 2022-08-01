@@ -598,7 +598,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	VkFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
 	if (plan.hardwareScaling) {
-		dstFmt = VK_FORMAT_R8G8B8A8_UNORM;
+		dstFmt = VULKAN_8888_FORMAT;
 	}
 
 	// We don't generate mipmaps for 512x512 textures because they're almost exclusively used for menu backgrounds
@@ -607,7 +607,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		// Boost the number of mipmaps.
 		if (maxPossibleMipLevels > plan.levelsToCreate) {
 			// We have to generate mips with a shader. This requires decoding to R8G8B8A8_UNORM format to avoid extra complications.
-			dstFmt = VK_FORMAT_R8G8B8A8_UNORM;
+			dstFmt = VULKAN_8888_FORMAT;
 		}
 		plan.levelsToCreate = maxPossibleMipLevels;
 	}
@@ -873,7 +873,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 	u32 *pixelData;
 	int decPitch;
 
-	bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || scaleFactor > 1;
+	bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || scaleFactor > 1 || dstFmt == VULKAN_8888_FORMAT;
 
 	if (scaleFactor > 1) {
 		tmpTexBufRearrange_.resize(std::max(bufw, w) * h);
