@@ -477,10 +477,11 @@ ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {
 		}
 
 		output = ovrMatrix4f_CreateFromQuaternion(&invView.orientation);
-		if (vrConfig[VR_CONFIG_6DOF]) {
-			output.M[0][3] -= hmdposition.x * (vrConfig[VR_CONFIG_MIRROR_AXIS_X] ? -1.0f : 1.0f);
-			output.M[1][3] -= hmdposition.y * (vrConfig[VR_CONFIG_MIRROR_AXIS_Y] ? -1.0f : 1.0f);
-			output.M[2][3] -= hmdposition.z * (vrConfig[VR_CONFIG_MIRROR_AXIS_Z] ? -1.0f : 1.0f);
+		if (vrConfig[VR_CONFIG_6DOF_ENABLED]) {
+			float scale = (float)VR_GetConfig(VR_CONFIG_6DOF_SCALE) * 0.001f;
+			output.M[0][3] -= hmdposition.x * (vrConfig[VR_CONFIG_MIRROR_AXIS_X] ? -1.0f : 1.0f) * scale;
+			output.M[1][3] -= hmdposition.y * (vrConfig[VR_CONFIG_MIRROR_AXIS_Y] ? -1.0f : 1.0f) * scale;
+			output.M[2][3] -= hmdposition.z * (vrConfig[VR_CONFIG_MIRROR_AXIS_Z] ? -1.0f : 1.0f) * scale;
 		}
 	} else {
 		assert(false);

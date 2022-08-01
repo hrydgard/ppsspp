@@ -221,7 +221,7 @@ bool GLRenderManager::ThreadFrame() {
 	VR_SetConfig(VR_CONFIG_3D_GEOMETRY_COUNT, VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) / 2);
 
 	// Set customizations
-	VR_SetConfig(VR_CONFIG_6DOF, g_Config.bEnable6DoF);
+	VR_SetConfig(VR_CONFIG_6DOF_ENABLED, g_Config.bEnable6DoF);
 	VR_SetConfig(VR_CONFIG_FOV_SCALE, g_Config.iFieldOfViewPercentage);
 
 	// hack to quick enable 2D mode in game

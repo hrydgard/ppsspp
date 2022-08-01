@@ -538,6 +538,10 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 			ConvertMatrix4x3To4x4Transposed(m4x4, gstate.viewMatrix);
 			memcpy(gameView.M, m4x4, 16 * sizeof(float));
 
+			// Set 6DoF scale
+			float scale = pow(fabs(gstate.projMatrix[14]), 1.15f);
+			VR_SetConfig(VR_CONFIG_6DOF_SCALE, (int)(scale * 1000));
+
 			// Get view matrix from the headset
 			ovrMatrix4f hmdView = VR_GetMatrix(VR_VIEW_MATRIX_LEFT_EYE);
 
