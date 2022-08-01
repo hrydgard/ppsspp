@@ -202,6 +202,8 @@ enum FormatSupport {
 	FMT_INPUTLAYOUT = 4,
 	FMT_DEPTHSTENCIL = 8,
 	FMT_AUTOGEN_MIPS = 16,
+	FMT_BLIT = 32,
+	FMT_STORAGE_IMAGE = 64,
 };
 
 enum InfoField {
@@ -530,6 +532,7 @@ struct DeviceCaps {
 	bool framebufferCopySupported;
 	bool framebufferBlitSupported;
 	bool framebufferDepthCopySupported;
+	bool framebufferSeparateDepthCopySupported;
 	bool framebufferDepthBlitSupported;
 	bool framebufferFetchSupported;
 	bool texture3DSupported;

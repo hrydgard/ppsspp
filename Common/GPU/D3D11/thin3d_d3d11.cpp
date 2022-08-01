@@ -283,6 +283,7 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	caps_.framebufferCopySupported = true;
 	caps_.framebufferDepthBlitSupported = false;
 	caps_.framebufferDepthCopySupported = true;
+	caps_.framebufferSeparateDepthCopySupported = false;
 	caps_.texture3DSupported = true;
 
 	D3D11_FEATURE_DATA_D3D11_OPTIONS options{};

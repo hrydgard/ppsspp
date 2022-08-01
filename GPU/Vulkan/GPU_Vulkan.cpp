@@ -232,18 +232,12 @@ void GPU_Vulkan::CheckGPUFeatures() {
 
 	// Mandatory features on Vulkan, which may be checked in "centralized" code
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
-	features |= GPU_SUPPORTS_FRAMEBUFFER_BLIT;
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
-	features |= GPU_SUPPORTS_COPY_IMAGE;
 	features |= GPU_SUPPORTS_TEXTURE_NPOT;
 	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
 	features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
 	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 	features |= GPU_SUPPORTS_DEPTH_TEXTURE;
-
-	if (vulkan->GetDeviceInfo().canBlitToPreferredDepthStencilFormat) {
-		features |= GPU_SUPPORTS_FRAMEBUFFER_BLIT_TO_DEPTH;
-	}
 
 	auto &enabledFeatures = vulkan->GetDeviceFeatures().enabled;
 	if (enabledFeatures.depthClamp) {

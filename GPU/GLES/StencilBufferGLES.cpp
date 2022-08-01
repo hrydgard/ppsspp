@@ -158,7 +158,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, StencilUplo
 
 	shaderManager_->DirtyLastShader();
 
-	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_FRAMEBUFFER_BLIT);
+	bool useBlit = draw_->GetDeviceCaps().framebufferDepthBlitSupported;
 
 	// Our fragment shader (and discard) is slow.  Since the source is 1x, we can stencil to 1x.
 	// Then after we're done, we'll just blit it across and stretch it there.
