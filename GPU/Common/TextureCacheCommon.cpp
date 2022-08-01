@@ -162,6 +162,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 	key.sClamp = gstate.isTexCoordClampedS();
 	key.tClamp = gstate.isTexCoordClampedT();
 	key.aniso = false;
+	key.texture3d = gstate_c.curTextureIs3D;
 
 	GETexLevelMode mipMode = gstate.getTexLevelMode();
 	bool autoMip = mipMode == GE_TEXLEVEL_MODE_AUTO;
@@ -481,7 +482,8 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		if (match && (entry->status & TexCacheEntry::STATUS_TO_REPLACE) && replacementTimeThisFrame_ < replacementFrameBudget_) {
 			int w0 = gstate.getTextureWidth(0);
 			int h0 = gstate.getTextureHeight(0);
-			ReplacedTexture &replaced = FindReplacement(entry, w0, h0);
+			int d0 = 1;
+			ReplacedTexture &replaced = FindReplacement(entry, w0, h0, d0);
 			if (replaced.Valid()) {
 				match = false;
 				reason = "replacing";
@@ -492,6 +494,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			// got one!
 			gstate_c.curTextureWidth = w;
 			gstate_c.curTextureHeight = h;
+			gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 			if (rehash) {
 				// Update in case any of these changed.
 				entry->sizeInRAM = (textureBitsPerPixel[format] * bufw * h / 2) / 8;
@@ -535,7 +538,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			const AttachCandidate &candidate = candidates[index];
 			nextTexture_ = nullptr;
 			nextNeedsRebuild_ = false;
-			SetTextureFramebuffer(candidate);
+			SetTextureFramebuffer(candidate);  // sets curTexture3D
 			return nullptr;
 		}
 	}
@@ -597,6 +600,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
+	gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 
 	nextTexture_ = entry;
 	if (nextFramebufferTexture_) {
@@ -1069,6 +1073,8 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 		nextTexture_ = nullptr;
 	}
 
+	gstate_c.SetTextureIs3D(false);
+
 	nextNeedsRehash_ = false;
 	nextNeedsChange_ = false;
 	nextNeedsRebuild_ = false;
@@ -1132,6 +1138,13 @@ void TextureCacheCommon::NotifyVideoUpload(u32 addr, int size, int width, GEBuff
 }
 
 void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
+	if (loadBytes == 0) {
+		// Don't accidentally overwrite clutTotalBytes_ with a zero.
+		return;
+	}
+
+	u32 startPos = gstate.getClutIndexStartPos();
+
 	clutTotalBytes_ = loadBytes;
 	clutRenderAddress_ = 0xFFFFFFFF;
 
@@ -1288,7 +1301,12 @@ u32 TextureCacheCommon::EstimateTexMemoryUsage(const TexCacheEntry *entry) {
 	return pixelSize << (dimW + dimH);
 }
 
-ReplacedTexture &TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &w, int &h) {
+ReplacedTexture &TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &w, int &h, int &d) {
+	if (d != 1) {
+		// We don't yet support replacing 3D textures.
+		return replacer_.FindNone();
+	}
+
 	// Short circuit the non-enabled case.
 	// Otherwise, due to bReplaceTexturesAllowLate, we'll still spawn tasks looking for replacements
 	// that then won't be used.
@@ -1663,10 +1681,13 @@ CheckAlphaResult TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int l
 		texptr = (u8 *)tmpTexBuf32_.data();
 	}
 
+	const bool mipmapShareClut = gstate.isClutSharedForMipmaps();
+	const int clutSharingOffset = mipmapShareClut ? 0 : (level & 1) * 256;
+
 	GEPaletteFormat palFormat = (GEPaletteFormat)gstate.getClutPaletteFormat();
 
-	const u16 *clut16 = (const u16 *)clutBuf_;
-	const u32 *clut32 = (const u32 *)clutBuf_;
+	const u16 *clut16 = (const u16 *)clutBuf_ + clutSharingOffset;
+	const u32 *clut32 = (const u32 *)clutBuf_ + clutSharingOffset;
 
 	if (expandTo32Bit && palFormat != GE_CMODE_32BIT_ABGR8888) {
 		ConvertFormatToRGBA8888(GEPaletteFormat(palFormat), expandClut_, clut16, 256);
@@ -1706,6 +1727,7 @@ CheckAlphaResult TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int l
 
 	case GE_CMODE_32BIT_ABGR8888:
 	{
+
 		switch (bytesPerIndex) {
 		case 1:
 			for (int y = 0; y < h; ++y) {
@@ -1751,6 +1773,9 @@ void TextureCacheCommon::ApplyTexture() {
 			ApplyTextureFramebuffer(nextFramebufferTexture_, gstate.getTextureFormat(), depth ? NOTIFY_FB_DEPTH : NOTIFY_FB_COLOR);
 			nextFramebufferTexture_ = nullptr;
 		}
+
+		// We don't set the 3D texture state here or anything else, on some backends (?)
+		// a nextTexture_ of nullptr means keep the current texture.
 		return;
 	}
 
@@ -1805,6 +1830,7 @@ void TextureCacheCommon::ApplyTexture() {
 	entry->lastFrame = gpuStats.numFlips;
 	BindTexture(entry);
 	gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
+	gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 }
 
 void TextureCacheCommon::Clear(bool delete_them) {
@@ -2055,6 +2081,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	}
 
 	plan.scaleFactor = standardScaleFactor_;
+	plan.depth = 1;
 
 	// Rachet down scale factor in low-memory mode.
 	// TODO: I think really we should just turn it off?
@@ -2064,7 +2091,23 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	}
 
 	if (plan.badMipSizes) {
+		// Check for pure 3D texture.
+		int tw = gstate.getTextureWidth(0);
+		int th = gstate.getTextureHeight(0);
+		bool pure3D = true;
+		for (int i = 0; i < plan.levelsToLoad; i++) {
+			if (gstate.getTextureWidth(i) != gstate.getTextureWidth(0) || gstate.getTextureHeight(i) != gstate.getTextureHeight(0)) {
+				pure3D = false;
+			}
+		}
+
+		if (pure3D && draw_->GetDeviceCaps().texture3DSupported) {
+			plan.depth = plan.levelsToLoad;
+			plan.scaleFactor = 1;
+		}
+
 		plan.levelsToLoad = 1;
+		plan.levelsToCreate = 1;
 	}
 
 	if (plan.hardwareScaling) {
@@ -2079,7 +2122,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	plan.w = gstate.getTextureWidth(0);
 	plan.h = gstate.getTextureHeight(0);
 
-	plan.replaced = &FindReplacement(entry, plan.w, plan.h);
+	plan.replaced = &FindReplacement(entry, plan.w, plan.h, plan.depth);
 	if (plan.replaced->Valid()) {
 		// We're replacing, so we won't scale.
 		plan.scaleFactor = 1;

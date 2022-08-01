@@ -34,8 +34,9 @@ struct FShaderID;
 #define CONST_PS_FBOTEXSIZE 7
 #define CONST_PS_TEXCLAMP 8
 #define CONST_PS_TEXCLAMPOFF 9
+#define CONST_PS_MIPBIAS 10
 
 // For stencil upload
-#define CONST_PS_STENCILVALUE 10
+#define CONST_PS_STENCILVALUE 11
 
 bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint64_t *uniformMask, std::string *errorString);

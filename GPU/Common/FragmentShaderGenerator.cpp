@@ -49,6 +49,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		highpTexcoord = highpFog;
 	}
 
+	bool texture3D = id.Bit(FS_BIT_3D_TEXTURE);
+
 	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2));
 
 	std::vector<const char*> gl_exts;
@@ -61,6 +63,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 		if (compat.framebufferFetchExtension) {
 			gl_exts.push_back(compat.framebufferFetchExtension);
+		}
+		if (gl_extensions.OES_texture_3D && texture3D) {
+			gl_exts.push_back("#extension GL_OES_texture_3D: enable");
 		}
 	}
 
@@ -82,7 +87,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
 
 	bool doFlatShading = id.Bit(FS_BIT_FLATSHADE) && !flatBug;
-	bool shaderDepal = id.Bit(FS_BIT_SHADER_DEPAL);
+	bool shaderDepal = id.Bit(FS_BIT_SHADER_DEPAL) && !texture3D;  // combination with texture3D not supported. Enforced elsewhere too.
 	bool bgraTexture = id.Bit(FS_BIT_BGRA_TEXTURE);
 	bool colorWriteMask = id.Bit(FS_BIT_COLOR_WRITEMASK) && compat.bitwiseOps;
 
@@ -136,7 +141,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseUBO {\n%s};\n", ub_baseStr);
 		if (doTexture) {
-			WRITE(p, "layout (binding = 0) uniform sampler2D tex;\n");
+			WRITE(p, "layout (binding = 0) uniform %s tex;\n", texture3D ? "sampler3D" : "sampler2D");
 		}
 
 		if (readFramebufferTex) {
@@ -207,9 +212,16 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			if (enableFog) {
 				WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
 			}
+			if (texture3D) {
+				WRITE(p, "float u_mipBias : register(c%i);\n", CONST_PS_MIPBIAS);
+			}
 		} else {
 			WRITE(p, "SamplerState samp : register(s0);\n");
-			WRITE(p, "Texture2D<vec4> tex : register(t0);\n");
+			if (texture3D) {
+				WRITE(p, "Texture3D<vec4> tex : register(t0);\n");
+			} else {
+				WRITE(p, "Texture2D<vec4> tex : register(t0);\n");
+			}
 			if (readFramebufferTex) {
 				// No sampler required, we Load
 				WRITE(p, "Texture2D<vec4> fboTex : register(t1);\n");
@@ -263,48 +275,19 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 			WRITE(p, "};\n");
 		}
-	} else if (compat.shaderLanguage == HLSL_D3D9) {
-		if (doTexture)
-			WRITE(p, "sampler tex : register(s0);\n");
-		if (readFramebufferTex) {
-			WRITE(p, "vec2 u_fbotexSize : register(c%i);\n", CONST_PS_FBOTEXSIZE);
-			WRITE(p, "sampler fbotex : register(s1);\n");
-		}
-		if (replaceBlend > REPLACE_BLEND_STANDARD) {
-			if (replaceBlendFuncA >= GE_SRCBLEND_FIXA) {
-				WRITE(p, "float3 u_blendFixA : register(c%i);\n", CONST_PS_BLENDFIXA);
-			}
-			if (replaceBlendFuncB >= GE_DSTBLEND_FIXB) {
-				WRITE(p, "float3 u_blendFixB : register(c%i);\n", CONST_PS_BLENDFIXB);
-			}
-		}
-		if (needShaderTexClamp && doTexture) {
-			WRITE(p, "vec4 u_texclamp : register(c%i);\n", CONST_PS_TEXCLAMP);
-			if (textureAtOffset) {
-				WRITE(p, "vec2 u_texclampoff : register(c%i);\n", CONST_PS_TEXCLAMPOFF);
-			}
-		}
-
-		if (enableAlphaTest || enableColorTest) {
-			WRITE(p, "vec4 u_alphacolorref : register(c%i);\n", CONST_PS_ALPHACOLORREF);
-			WRITE(p, "vec4 u_alphacolormask : register(c%i);\n", CONST_PS_ALPHACOLORMASK);
-		}
-		if (stencilToAlpha && replaceAlphaWithStencilType == STENCIL_VALUE_UNIFORM) {
-			WRITE(p, "float u_stencilReplaceValue : register(c%i);\n", CONST_PS_STENCILREPLACE);
-		}
-		if (doTexture && texFunc == GE_TEXFUNC_BLEND) {
-			WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
-		}
-		if (enableFog) {
-			WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
-		}
 	} else if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
 		if ((shaderDepal || colorWriteMask) && gl_extensions.IsGLES) {
 			WRITE(p, "precision highp int;\n");
 		}
 
-		if (doTexture)
-			WRITE(p, "uniform sampler2D tex;\n");
+		if (doTexture) {
+			if (texture3D) {
+				// For whatever reason, a precision specifier is required here.
+				WRITE(p, "uniform lowp sampler3D tex;\n");
+			} else {
+				WRITE(p, "uniform sampler2D tex;\n");
+			}
+		}
 
 		if (readFramebufferTex) {
 			if (!compat.texelFetch) {
@@ -362,6 +345,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (doTexture && texFunc == GE_TEXFUNC_BLEND) {
 			*uniformMask |= DIRTY_TEXENV;
 			WRITE(p, "uniform vec3 u_texenv;\n");
+		}
+
+		if (texture3D) {
+			*uniformMask |= DIRTY_MIPBIAS;
+			WRITE(p, "uniform float u_mipBias;\n");
 		}
 
 		WRITE(p, "%s %s lowp vec4 v_color0;\n", shading, compat.varying_fs);
@@ -546,24 +534,50 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 			if (!shaderDepal) {
 				if (compat.shaderLanguage == HLSL_D3D11) {
-					if (doTextureProjection) {
-						WRITE(p, "  vec4 t = tex.Sample(samp, v_texcoord.xy / v_texcoord.z)%s;\n", bgraTexture ? ".bgra" : "");
+					if (texture3D) {
+						if (doTextureProjection) {
+							WRITE(p, "  vec4 t = tex.Sample(samp, vec3(v_texcoord.xy / v_texcoord.z, u_mipBias))%s;\n", bgraTexture ? ".bgra" : "");
+						} else {
+							WRITE(p, "  vec4 t = tex.Sample(samp, vec3(%s.xy, u_mipBias))%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+						}
 					} else {
-						WRITE(p, "  vec4 t = tex.Sample(samp, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+						if (doTextureProjection) {
+							WRITE(p, "  vec4 t = tex.Sample(samp, v_texcoord.xy / v_texcoord.z)%s;\n", bgraTexture ? ".bgra" : "");
+						} else {
+							WRITE(p, "  vec4 t = tex.Sample(samp, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+						}
 					}
 				} else if (compat.shaderLanguage == HLSL_D3D9) {
-					if (doTextureProjection) {
-						WRITE(p, "  vec4 t = tex2Dproj(tex, vec4(v_texcoord.x, v_texcoord.y, 0, v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
+					if (texture3D) {
+						if (doTextureProjection) {
+							WRITE(p, "  vec4 t = tex3Dproj(tex, vec4(v_texcoord.x, v_texcoord.y, u_mipBias, v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
+						} else {
+							WRITE(p, "  vec4 t = tex3D(tex, vec3(%s.x, %s.y, u_mipBias))%s;\n", texcoord, texcoord, bgraTexture ? ".bgra" : "");
+						}
 					} else {
-						WRITE(p, "  vec4 t = tex2D(tex, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+						if (doTextureProjection) {
+							WRITE(p, "  vec4 t = tex2Dproj(tex, vec4(v_texcoord.x, v_texcoord.y, 0.0, v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
+						} else {
+							WRITE(p, "  vec4 t = tex2D(tex, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+						}
 					}
 				} else {
-					if (doTextureProjection) {
-						WRITE(p, "  vec4 t = %sProj(tex, %s);\n", compat.texture, texcoord);
+					// Note that here we're relying on the filter to be linear. We would have to otherwise to do two samples and manually filter in Z.
+					// Let's add that if we run into a case...
+					if (texture3D) {
+						if (doTextureProjection) {
+							WRITE(p, "  vec4 t = %sProj(tex, vec4(%s.xy, u_mipBias, %s.z));\n", compat.texture3D, texcoord, texcoord);
+						} else {
+							WRITE(p, "  vec4 t = %s(tex, vec3(%s.xy, u_mipBias));\n", compat.texture3D, texcoord);
+						}
 					} else {
-						WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord);
+						if (doTextureProjection) {
+							WRITE(p, "  vec4 t = %sProj(tex, %s);\n", compat.texture, texcoord);
+						} else {
+							WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord);
+						}
 					}
-				} 
+				}
 			} else {
 				if (doTextureProjection) {
 					// We don't use textureProj because we need better control and it's probably not much of a savings anyway.
@@ -572,7 +586,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				} else {
 					WRITE(p, "  vec2 uv = %s.xy;\n  vec2 uv_round;\n", texcoord);
 				}
-				WRITE(p, "  vec2 tsize = vec2(textureSize(tex, 0));\n");
+				WRITE(p, "  vec2 tsize = textureSize(tex, 0).xy;\n");
 				WRITE(p, "  vec2 fraction;\n");
 				WRITE(p, "  bool bilinear = (u_depal_mask_shift_off_fmt >> 31) != 0U;\n");
 				WRITE(p, "  if (bilinear) {\n");

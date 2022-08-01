@@ -467,24 +467,46 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
-	int levels = std::min(plan.levelsToCreate, plan.levelsToLoad);
-
-	D3D11_TEXTURE2D_DESC desc{};
-	desc.CPUAccessFlags = 0;
-	desc.Usage = D3D11_USAGE_DEFAULT;
-	desc.ArraySize = 1;
-	desc.SampleDesc.Count = 1;
-	desc.Width = tw;
-	desc.Height = th;
-	desc.Format = dstFmt;
-	desc.MipLevels = levels;
-	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	int levels;;
 
 	ID3D11ShaderResourceView *view;
-	ID3D11Texture2D *texture = DxTex(entry);
+	ID3D11Resource *texture = DxTex(entry);
 	_assert_(texture == nullptr);
 
-	ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &texture));
+	if (plan.depth == 1) {
+		ID3D11Texture2D *tex;
+		D3D11_TEXTURE2D_DESC desc{};
+		desc.CPUAccessFlags = 0;
+		desc.Usage = D3D11_USAGE_DEFAULT;
+		desc.ArraySize = 1;
+		desc.SampleDesc.Count = 1;
+		desc.Width = tw;
+		desc.Height = th;
+		desc.Format = dstFmt;
+		desc.MipLevels = plan.levelsToCreate;
+		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+		ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &tex));
+		texture = tex;
+
+		levels = std::min(plan.levelsToCreate, plan.levelsToLoad);
+	} else {
+		ID3D11Texture3D *tex;
+		D3D11_TEXTURE3D_DESC desc{};
+		desc.CPUAccessFlags = 0;
+		desc.Usage = D3D11_USAGE_DEFAULT;
+		desc.Width = tw;
+		desc.Height = th;
+		desc.Depth = plan.depth;
+		desc.Format = dstFmt;
+		desc.MipLevels = 1;
+		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+		ASSERT_SUCCESS(device_->CreateTexture3D(&desc, nullptr, &tex));
+		texture = tex;
+
+		levels = plan.depth;
+	}
+
 	ASSERT_SUCCESS(device_->CreateShaderResourceView(texture, nullptr, &view));
 	entry->texturePtr = texture;
 	entry->textureView = view;
@@ -525,9 +547,22 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 
 		LoadTextureLevel(*entry, data, stride, *plan.replaced, srcLevel, plan.scaleFactor, texFmt, false);
 
-		ID3D11Texture2D *texture = DxTex(entry);
-		context_->UpdateSubresource(texture, i, nullptr, data, stride, 0);
+		if (plan.depth == 1) {
+			context_->UpdateSubresource(texture, i, nullptr, data, stride, 0);
+		} else {
+			D3D11_BOX box{};
+			box.front = i;
+			box.back = i + 1;
+			box.right = w * plan.scaleFactor;
+			box.bottom = h * plan.scaleFactor;
+			context_->UpdateSubresource(texture, 0, &box, data, stride, 0);
+		}
 		FreeAlignedMemory(data);
+	}
+
+	// Signal that we support depth textures so use it as one.
+	if (plan.depth > 1) {
+		entry->status |= TexCacheEntry::STATUS_3D;
 	}
 
 	if (levels == 1) {

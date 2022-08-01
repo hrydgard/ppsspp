@@ -68,8 +68,8 @@ private:
 	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) override;
 	void BuildTexture(TexCacheEntry *const entry) override;
 
-	LPDIRECT3DTEXTURE9 &DxTex(TexCacheEntry *entry) {
-		return *(LPDIRECT3DTEXTURE9 *)&entry->texturePtr;
+	LPDIRECT3DBASETEXTURE9 &DxTex(TexCacheEntry *entry) {
+		return *(LPDIRECT3DBASETEXTURE9 *)&entry->texturePtr;
 	}
 
 	LPDIRECT3DDEVICE9 device_;
@@ -77,7 +77,7 @@ private:
 
 	LPDIRECT3DVERTEXDECLARATION9 pFramebufferVertexDecl;
 
-	LPDIRECT3DTEXTURE9 lastBoundTexture;
+	LPDIRECT3DBASETEXTURE9 lastBoundTexture;
 	float maxAnisotropyLevel;
 
 	FramebufferManagerDX9 *framebufferManagerDX9_;

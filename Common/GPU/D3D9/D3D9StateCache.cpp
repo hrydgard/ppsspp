@@ -59,6 +59,7 @@ void DirectXState::Restore() {
 	texMaxMipLevel.restore(); count++;
 	texAddressU.restore(); count++;
 	texAddressV.restore(); count++;
+	texAddressW.restore(); count++;
 }
 
 }  // namespace DX9

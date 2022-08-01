@@ -335,6 +335,8 @@ void DrawEngineD3D11::DoFlush() {
 	// until critical state changes. That's when we draw (flush).
 
 	GEPrimitiveType prim = prevPrim_;
+
+	// SetTexture is called in here, along with setting a lot of other state.
 	ApplyDrawState(prim);
 
 	// Always use software for flat shading to fix the provoking index.
@@ -508,7 +510,7 @@ rotateVBO:
 			prim = indexGen.Prim();
 		}
 
-		VERBOSE_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
+		VERBOSE_LOG(G3D, "Flush prim %d! %d verts in one go", prim, vertexCount);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);

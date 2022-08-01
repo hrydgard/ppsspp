@@ -393,6 +393,7 @@ public:
 	DxSampler0State1<D3DSAMP_MAXMIPLEVEL, 0> texMaxMipLevel;
 	DxSampler0State1<D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP> texAddressU;
 	DxSampler0State1<D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP> texAddressV;
+	DxSampler0State1<D3DSAMP_ADDRESSW, D3DTADDRESS_CLAMP> texAddressW;
 };
 
 #undef STATE1
