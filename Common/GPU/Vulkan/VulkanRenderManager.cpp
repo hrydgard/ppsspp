@@ -1054,7 +1054,17 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	_dbg_assert_msg_(dstPos.x + srcRect.extent.width <= (uint32_t)dst->width, "dstPos + extent x > width");
 	_dbg_assert_msg_(dstPos.y + srcRect.extent.height <= (uint32_t)dst->height, "dstPos + extent y > height");
 
-	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
+	bool injectBeforeCurrent = false;
+	int lastStepToCheck = (int)steps_.size() - 1;
+	if (aspectMask == VK_IMAGE_ASPECT_DEPTH_BIT && curRenderStep_) {
+		// We allow injection of these while in the render pass, so we don't have to split the render pass.
+		injectBeforeCurrent = true;
+		lastStepToCheck--;
+	} else {
+		EndCurRenderStep();
+	}
+
+	for (int i = lastStepToCheck; i >= 0; i--) {
 		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == src) {
 			if (aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
 				if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
@@ -1070,7 +1080,8 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 			break;
 		}
 	}
-	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
+
+	for (int i = lastStepToCheck; i >= 0; i--) {
 		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == dst) {
 			if (aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
 				if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
@@ -1102,7 +1113,12 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 		step->dependencies.insert(dst);
 
 	std::unique_lock<std::mutex> lock(mutex_);
-	steps_.push_back(step);
+
+	if (injectBeforeCurrent) {
+		steps_.insert(steps_.begin() + steps_.size() - 1, step);
+	} else {
+		steps_.push_back(step);
+	}
 }
 
 void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkRect2D dstRect, VkImageAspectFlags aspectMask, VkFilter filter, const char *tag) {
@@ -1122,16 +1138,24 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	_dbg_assert_msg_(dstRect.extent.width > 0, "blit dstwidth == 0");
 	_dbg_assert_msg_(dstRect.extent.height > 0, "blit dstheight == 0");
 
-	// TODO: Seem to be missing final layouts here like in Copy...
+	bool injectBeforeCurrent = false;
 
-	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
+	int lastStepToCheck = (int)steps_.size() - 1;
+
+	if (aspectMask == VK_IMAGE_ASPECT_DEPTH_BIT && curRenderStep_) {
+		// We allow injection of these while in the render pass, so we don't have to split the render pass.
+		injectBeforeCurrent = true;
+		lastStepToCheck--;
+	} else {
+		EndCurRenderStep();
+	}
+
+	for (int i = lastStepToCheck; i >= 0; i--) {
 		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == src) {
 			steps_[i]->render.numReads++;
 			break;
 		}
 	}
-
-	EndCurRenderStep();
 
 	VKRStep *step = new VKRStep{ VKRStepType::BLIT };
 
@@ -1148,7 +1172,12 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 		step->dependencies.insert(dst);
 
 	std::unique_lock<std::mutex> lock(mutex_);
-	steps_.push_back(step);
+
+	if (injectBeforeCurrent) {
+		steps_.insert(steps_.begin() + steps_.size() - 1, step);
+	} else {
+		steps_.push_back(step);
+	}
 }
 
 VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBit, int attachment) {
