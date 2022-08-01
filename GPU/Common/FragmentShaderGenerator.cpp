@@ -1063,14 +1063,17 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	if (colorToDepth) {
 		DepthScaleFactors factors = GetDepthScaleFactors();
-
 		if (compat.bitwiseOps) {
-			WRITE(p, "  highp float depthValue = float(uint(%s.x * 32.0) | (uint(%s.y * 64.0) << 5) | (uint(%s.z * 32.0) << 11)) / 65535.0;\n", "v", "v", "v"); // compat.fragColor0, compat.fragColor0, compat.fragColor0);
+			WRITE(p, "  highp float depthValue = float(int(%s.x * 31.99) | (int(%s.y * 63.99) << 5) | (int(%s.z * 31.99) << 11)) / 65535.0;\n", "v", "v", "v"); // compat.fragColor0, compat.fragColor0, compat.fragColor0);
 		} else {
 			// D3D9-compatible alternative
-			WRITE(p, "  highp float depthValue = (floor(%s.x * 32.0) + floor(%s.y * 64.0) * 32.0 + floor(%s.z * 32.0) * 2048.0) / 65535.0;\n", "v", "v", "v"); // compat.fragColor0, compat.fragColor0, compat.fragColor0);
+			WRITE(p, "  highp float depthValue = (floor(%s.x * 31.99) + floor(%s.y * 63.99) * 32.0 + floor(%s.z * 31.99) * 2048.0) / 65535.0;\n", "v", "v", "v"); // compat.fragColor0, compat.fragColor0, compat.fragColor0);
 		}
-		WRITE(p, "  gl_FragDepth = (depthValue / %f) + %f;\n", factors.scale / 65535.0f, factors.offset);
+		if (factors.scale != 1.0 || factors.offset != 0.0) {
+			WRITE(p, "  gl_FragDepth = (depthValue / %f) + %f;\n", factors.scale / 65535.0f, factors.offset);
+		} else {
+			WRITE(p, "  gl_FragDepth = depthValue;\n");
+		}
 	}
 
 	if (gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
