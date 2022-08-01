@@ -42,7 +42,7 @@
 #include "UI/GameInfoCache.h"
 #include "UI/MiscScreens.h"
 #include "UI/MainScreen.h"
-#include "UI/BackgroundAudio.h"
+//#include "UI/BackgroundAudio.h"
 #include "Core/Reporting.h"
 #include "Common/Crypto/md5.h"
 #include <sstream>
@@ -53,7 +53,7 @@
 
 
 GameScreen::GameScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
-	g_BackgroundAudio.SetGame(gamePath);
+	//g_BackgroundAudio.SetGame(gamePath);
 }
 
 GameScreen::~GameScreen() {
@@ -119,35 +119,35 @@ void GameScreen::CreateViews() {
 		LinearLayout *infoLayout = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(10, 200, NONE, NONE));
 		leftColumn->Add(infoLayout);
 
-		tvTitle_ = infoLayout->Add(new TextView(info->GetTitle(), ALIGN_LEFT | FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		tvTitle_->SetShadow(true);
-		tvID_ = infoLayout->Add(new TextView("", ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		tvID_->SetShadow(true);
+		//tvTitle_ = infoLayout->Add(new TextView(info->GetTitle(), ALIGN_LEFT | FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		//tvTitle_->SetShadow(true);
+		//tvID_ = infoLayout->Add(new TextView("", ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		//tvID_->SetShadow(true);
 		// This one doesn't need to be updated.
 		infoLayout->Add(new TextView(gamePath_.ToVisualString(), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetShadow(true);
 		tvGameSize_ = infoLayout->Add(new TextView("...", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvGameSize_->SetShadow(true);
-		tvSaveDataSize_ = infoLayout->Add(new TextView("...", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		tvSaveDataSize_->SetShadow(true);
-		tvInstallDataSize_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		tvInstallDataSize_->SetShadow(true);
-		tvInstallDataSize_->SetVisibility(V_GONE);
-		tvRegion_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		tvRegion_->SetShadow(true);
+		//tvSaveDataSize_ = infoLayout->Add(new TextView("...", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		//tvSaveDataSize_->SetShadow(true);
+		//tvInstallDataSize_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		//tvInstallDataSize_->SetShadow(true);
+		//tvInstallDataSize_->SetVisibility(V_GONE);
+		//tvRegion_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		//tvRegion_->SetShadow(true);
 		tvCRC_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvCRC_->SetShadow(true);
 		tvCRC_->SetVisibility(Reporting::HasCRC(gamePath_) ? V_VISIBLE : V_GONE);
 		tvMD5_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvMD5_->SetShadow(true);
 	} else {
-		tvTitle_ = nullptr;
+		//tvTitle_ = nullptr;
 		tvGameSize_ = nullptr;
-		tvSaveDataSize_ = nullptr;
-		tvInstallDataSize_ = nullptr;
-		tvRegion_ = nullptr;
+		//tvSaveDataSize_ = nullptr;
+		//tvInstallDataSize_ = nullptr;
+		//tvRegion_ = nullptr;
 		tvCRC_ = nullptr;
 		tvMD5_ = nullptr;
-		tvID_ = nullptr;
+		//tvID_ = nullptr;
 	}
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
@@ -282,27 +282,32 @@ void GameScreen::render() {
 
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(thin3d, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
-	if (tvTitle_) {
-		tvTitle_->SetText(info->GetTitle());
-	}
-
+	//if (tvTitle_) {
+		//tvTitle_->SetText(info->GetTitle());
+	//}
+	
 	if (info->gameSize) {
 		char temp[256];
 		if (tvGameSize_) {
 			snprintf(temp, sizeof(temp), "%s: %1.1f %s", ga->T("Game"), (float)(info->gameSize) / 1024.f / 1024.f, ga->T("MB"));
 			tvGameSize_->SetText(temp);
 		}
+		/*
 		if (tvSaveDataSize_) {
 			snprintf(temp, sizeof(temp), "%s: %1.2f %s", ga->T("SaveData"), (float)(info->saveDataSize) / 1024.f / 1024.f, ga->T("MB"));
 			tvSaveDataSize_->SetText(temp);
 		}
+		tvSaveDataSize_->SetText("");
+		
 		if (info->installDataSize > 0 && tvInstallDataSize_) {
 			snprintf(temp, sizeof(temp), "%s: %1.2f %s", ga->T("InstallData"), (float) (info->installDataSize) / 1024.f / 1024.f, ga->T("MB"));
 			tvInstallDataSize_->SetText(temp);
 			tvInstallDataSize_->SetVisibility(UI::V_VISIBLE);
 		}
+		*/
+		
 	}
-
+	/*
 	if (tvRegion_) {
 		if (info->region >= 0 && info->region < GAMEREGION_MAX && info->region != GAMEREGION_OTHER) {
 			static const char *regionNames[GAMEREGION_MAX] = {
@@ -318,14 +323,14 @@ void GameScreen::render() {
 			tvRegion_->SetText(ga->T("Homebrew"));
 		}
 	}
-
+	*/
 	if (tvCRC_ && Reporting::HasCRC(gamePath_)) {
 		auto rp = GetI18NCategory("Reporting");
 		std::string crc = StringFromFormat("%08X", Reporting::RetrieveCRC(gamePath_));
 		tvCRC_->SetText(ReplaceAll(rp->T("FeedbackCRCValue", "Disc CRC: %1"), "%1", crc));
 		tvCRC_->SetVisibility(UI::V_VISIBLE);
 	}
-
+	/*
 	if (tvID_) {
 		tvID_->SetText(ReplaceAll(info->id_version, "_", " v"));
 	}
@@ -349,6 +354,7 @@ void GameScreen::render() {
 			choice->SetVisibility(UI::V_VISIBLE);
 		}
 	}
+	*/
 }
 
 UI::EventReturn GameScreen::OnShowInFolder(UI::EventParams &e) {
