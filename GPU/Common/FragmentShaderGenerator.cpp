@@ -275,6 +275,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "  float depth : SV_Depth;\n");
 			}
 			WRITE(p, "};\n");
+		} else if (compat.shaderLanguage == HLSL_D3D9) {
+			WRITE(p, "struct PS_OUT {\n");
+			WRITE(p, "  vec4 target : COLOR;\n");
+			if (writeDepth) {
+				WRITE(p, "  float depth : DEPTH;\n");
+			}
+			WRITE(p, "};\n");
 		}
 	} else if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
 		if ((shaderDepal || colorWriteMask) && gl_extensions.IsGLES) {
@@ -442,8 +449,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "  float gl_FragDepth;\n");
 		}
 	} else if (compat.shaderLanguage == HLSL_D3D9) {
-		WRITE(p, "vec4 main( PS_IN In ) : COLOR {\n");
+		WRITE(p, "PS_OUT main( PS_IN In ) {\n");
+		WRITE(p, "  PS_OUT outfragment;\n");
 		WRITE(p, "  vec4 target;\n");
+		if (colorToDepth) {
+			WRITE(p, "  float gl_FragDepth;\n");
+		}
 	} else {
 		WRITE(p, "void main() {\n");
 	}
@@ -1053,8 +1064,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	if (colorToDepth) {
 		DepthScaleFactors factors = GetDepthScaleFactors();
 
-		WRITE(p, "  highp float depthValue = float(uint(%s.x * 32.0) | (uint(%s.y * 64.0) << 5) | (uint(%s.z * 32.0) << 11)) / 65535.0;\n", "v", "v", "v"); // compat.fragColor0, compat.fragColor0, compat.fragColor0);
-		WRITE(p, "  gl_FragDepth = (depthValue / %f) - %f;\n", factors.scale / 65535.0f, factors.offset);
+		if (compat.bitwiseOps) {
+			WRITE(p, "  highp float depthValue = float(uint(%s.x * 32.0) | (uint(%s.y * 64.0) << 5) | (uint(%s.z * 32.0) << 11)) / 65535.0;\n", "v", "v", "v"); // compat.fragColor0, compat.fragColor0, compat.fragColor0);
+		} else {
+			// D3D9-compatible alternative
+			WRITE(p, "  highp float depthValue = (floor(%s.x * 32.0) + floor(%s.y * 64.0) * 32.0 + floor(%s.z * 32.0) * 2048.0) / 65535.0;\n", "v", "v", "v"); // compat.fragColor0, compat.fragColor0, compat.fragColor0);
+		}
+		WRITE(p, "  gl_FragDepth = (depthValue / %f) + %f;\n", factors.scale / 65535.0f, factors.offset);
 	}
 
 	if (gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
@@ -1081,13 +1097,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
 	}
 
-	if (compat.shaderLanguage == HLSL_D3D11) {
+	if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
 		if (writeDepth) {
 			WRITE(p, "  outfragment.depth = gl_FragDepth;\n");
 		}
 		WRITE(p, "  return outfragment;\n");
-	} else if (compat.shaderLanguage == HLSL_D3D9) {
-		WRITE(p, "  return target;\n");
 	}
 
 	WRITE(p, "}\n");

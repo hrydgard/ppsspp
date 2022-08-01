@@ -93,7 +93,7 @@ void ShaderLanguageDesc::Init(ShaderLanguage lang) {
 			fragColor0 = "outfragment.target";
 			fragColor1 = "outfragment.target1";
 		} else {
-			fragColor0 = "target";
+			fragColor0 = "outfragment.target";
 		}
 		varying_fs = "in";
 		varying_vs = "out";
