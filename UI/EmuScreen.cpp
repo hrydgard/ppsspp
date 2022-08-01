@@ -72,7 +72,7 @@ using namespace std::placeholders;
 #include "Core/HLE/Plugins.h"
 #include "Core/HW/Display.h"
 
-#include "UI/BackgroundAudio.h"
+//#include "UI/BackgroundAudio.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/GamepadEmu.h"
 #include "UI/PauseScreen.h"
@@ -240,7 +240,7 @@ void EmuScreen::bootGame(const Path &filename) {
 		return;
 	}
 
-	g_BackgroundAudio.SetGame(Path());
+	//g_BackgroundAudio.SetGame(Path());
 
 	// Check permission status first, in case we came from a shortcut.
 	if (!bootAllowStorage(filename))

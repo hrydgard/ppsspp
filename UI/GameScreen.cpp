@@ -57,9 +57,9 @@ GameScreen::GameScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(
 }
 
 GameScreen::~GameScreen() {
-	if (CRC32string == "...") {
-		Reporting::CancelCRC();
-	}
+//	if (CRC32string == "...") {
+//		Reporting::CancelCRC();
+//	}
 }
 
 template <typename I> std::string int2hexstr(I w, size_t hex_len = sizeof(I) << 1) {
@@ -74,6 +74,7 @@ void GameScreen::update() {
 	UIScreen::update();
 
 	// Has the user requested a CRC32?
+	/*
 	if (CRC32string == "...") {
 		// Wait until the CRC32 is ready.  It might take time on some devices.
 		if (Reporting::HasCRC(gamePath_)) {
@@ -84,7 +85,9 @@ void GameScreen::update() {
 			btnCalcCRC_->SetVisibility(UI::V_GONE);
 		}
 	}	
+	
 	tvMD5_->SetText(MD5string);
+	*/
 	//btnCalcMD5_->SetVisibility(UI::V_GONE);	
 
 }
@@ -114,7 +117,7 @@ void GameScreen::CreateViews() {
 
 	leftColumn->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
 	if (info) {
-		leftColumn->Add(new GameIconView(gamePath_, 2.0f, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
+		//leftColumn->Add(new GameIconView(gamePath_, 2.0f, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
 
 		LinearLayout *infoLayout = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(10, 200, NONE, NONE));
 		leftColumn->Add(infoLayout);
@@ -134,9 +137,9 @@ void GameScreen::CreateViews() {
 		//tvInstallDataSize_->SetVisibility(V_GONE);
 		//tvRegion_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		//tvRegion_->SetShadow(true);
-		tvCRC_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		tvCRC_->SetShadow(true);
-		tvCRC_->SetVisibility(Reporting::HasCRC(gamePath_) ? V_VISIBLE : V_GONE);
+		//tvCRC_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		//tvCRC_->SetShadow(true);
+		//tvCRC_->SetVisibility(Reporting::HasCRC(gamePath_) ? V_VISIBLE : V_GONE);
 		tvMD5_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvMD5_->SetShadow(true);
 	} else {
@@ -145,7 +148,7 @@ void GameScreen::CreateViews() {
 		//tvSaveDataSize_ = nullptr;
 		//tvInstallDataSize_ = nullptr;
 		//tvRegion_ = nullptr;
-		tvCRC_ = nullptr;
+		//tvCRC_ = nullptr;
 		tvMD5_ = nullptr;
 		//tvID_ = nullptr;
 	}
@@ -157,22 +160,22 @@ void GameScreen::CreateViews() {
 	rightColumnItems->SetSpacing(0.0f);
 	rightColumn->Add(rightColumnItems);
 
-	rightColumnItems->Add(new Choice(ga->T("Play")))->OnClick.Handle(this, &GameScreen::OnPlay);
+	//rightColumnItems->Add(new Choice(ga->T("Play")))->OnClick.Handle(this, &GameScreen::OnPlay);
 
-	btnGameSettings_ = rightColumnItems->Add(new Choice(ga->T("Game Settings")));
-	btnGameSettings_->OnClick.Handle(this, &GameScreen::OnGameSettings);
-	btnDeleteGameConfig_ = rightColumnItems->Add(new Choice(ga->T("Delete Game Config")));
-	btnDeleteGameConfig_->OnClick.Handle(this, &GameScreen::OnDeleteConfig);
-	btnCreateGameConfig_ = rightColumnItems->Add(new Choice(ga->T("Create Game Config")));
-	btnCreateGameConfig_->OnClick.Handle(this, &GameScreen::OnCreateConfig);
+	//btnGameSettings_ = rightColumnItems->Add(new Choice(ga->T("Game Settings")));
+	//btnGameSettings_->OnClick.Handle(this, &GameScreen::OnGameSettings);
+	//btnDeleteGameConfig_ = rightColumnItems->Add(new Choice(ga->T("Delete Game Config")));
+	//btnDeleteGameConfig_->OnClick.Handle(this, &GameScreen::OnDeleteConfig);
+	//btnCreateGameConfig_ = rightColumnItems->Add(new Choice(ga->T("Create Game Config")));
+	//btnCreateGameConfig_->OnClick.Handle(this, &GameScreen::OnCreateConfig);
 
-	btnGameSettings_->SetVisibility(V_GONE);
-	btnDeleteGameConfig_->SetVisibility(V_GONE);
-	btnCreateGameConfig_->SetVisibility(V_GONE);
+	//btnGameSettings_->SetVisibility(V_GONE);
+	//btnDeleteGameConfig_->SetVisibility(V_GONE);
+	//btnCreateGameConfig_->SetVisibility(V_GONE);
 
-	btnDeleteSaveData_ = new Choice(ga->T("Delete Save Data"));
-	rightColumnItems->Add(btnDeleteSaveData_)->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
-	btnDeleteSaveData_->SetVisibility(V_GONE);
+	//btnDeleteSaveData_ = new Choice(ga->T("Delete Save Data"));
+	//rightColumnItems->Add(btnDeleteSaveData_)->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
+	//btnDeleteSaveData_->SetVisibility(V_GONE);
 
 	otherChoices_.clear();
 
@@ -210,6 +213,7 @@ void GameScreen::CreateViews() {
 	}
 
 	bool isHomebrew = info && info->region > GAMEREGION_MAX;
+	/*
 	if (fileTypeSupportCRC && !isHomebrew && !Reporting::HasCRC(gamePath_) ) {
 		btnCalcCRC_ = rightColumnItems->Add(new ChoiceWithValueDisplay(&CRC32string, ga->T("Calculate CRC"), (const char*)nullptr));
 		btnCalcCRC_->OnClick.Handle(this, &GameScreen::OnDoCRC32);
@@ -217,8 +221,11 @@ void GameScreen::CreateViews() {
 		btnCalcCRC_ = nullptr;
 		//btnCalcMD5_ = nullptr;
 	}
+	*/
 	if (MD5string != "...") {
-		btnCalcMD5_ = rightColumnItems->Add(new ChoiceWithValueDisplay(&MD5string, ga->T("Calculate MD5"), (const char*)nullptr));
+		//btnCalcMD5_ = rightColumnItems->Add(new ChoiceWithValueDisplay(&MD5string, ga->T("Calculate MD5"), (const char*)nullptr));
+		//btnGameSettings_ = rightColumnItems->Add(new Choice(ga->T("Game Settings")));
+		btnCalcMD5_ = rightColumnItems->Add(new Choice(ga->T("Calculate MD5")));
 		btnCalcMD5_->OnClick.Handle(this, &GameScreen::OnDoMD5);
 		btnCalcMD5_->SetVisibility(UI::V_VISIBLE);
 	}
@@ -324,12 +331,14 @@ void GameScreen::render() {
 		}
 	}
 	*/
+	/*
 	if (tvCRC_ && Reporting::HasCRC(gamePath_)) {
 		auto rp = GetI18NCategory("Reporting");
 		std::string crc = StringFromFormat("%08X", Reporting::RetrieveCRC(gamePath_));
 		tvCRC_->SetText(ReplaceAll(rp->T("FeedbackCRCValue", "Disc CRC: %1"), "%1", crc));
 		tvCRC_->SetVisibility(UI::V_VISIBLE);
 	}
+	*/
 	/*
 	if (tvID_) {
 		tvID_->SetText(ReplaceAll(info->id_version, "_", " v"));
@@ -389,7 +398,7 @@ std::string MD5FullFile(const Path filename) {
 	md5_context c;
 	md5_starts(&c);
 	unsigned char out[16];
-	size_t len = 0;	
+	long long len = 0;	
 	while ((len = std::fread(buff, sizeof(char), BUFSIZ, in)) > 0) {
 		md5_update(&c, buff, len);
 	}
@@ -453,6 +462,7 @@ UI::EventReturn GameScreen::OnDoMD5(UI::EventParams& e) {
 	}
 	MD5string = "MD5_262144_: "+ MD5string;
 	btnCalcMD5_->SetEnabled(false);
+	tvMD5_->SetText(MD5string);
 	return UI::EVENT_DONE;
 }
 

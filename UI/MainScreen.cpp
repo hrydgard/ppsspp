@@ -45,7 +45,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Util/GameManager.h"
 
-#include "UI/BackgroundAudio.h"
+//#include "UI/BackgroundAudio.h"
 #include "UI/EmuScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/GameScreen.h"
@@ -964,12 +964,12 @@ UI::EventReturn GameBrowser::OnHomebrewStore(UI::EventParams &e) {
 
 MainScreen::MainScreen() {
 	System_SendMessage("event", "mainscreen");
-	g_BackgroundAudio.SetGame(Path());
+	//g_BackgroundAudio.SetGame(Path());
 	lastVertical_ = UseVerticalLayout();
 }
 
 MainScreen::~MainScreen() {
-	g_BackgroundAudio.SetGame(Path());
+	//g_BackgroundAudio.SetGame(Path());
 }
 
 void MainScreen::CreateViews() {
@@ -1347,8 +1347,8 @@ UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
 
 	// Restore focus if it was highlighted (e.g. by gamepad.)
 	restoreFocusGamePath_ = highlightedGamePath_;
-	g_BackgroundAudio.SetGame(path);
-	lockBackgroundAudio_ = true;
+	//g_BackgroundAudio.SetGame(path);
+	//lockBackgroundAudio_ = true;
 	screenManager()->push(new GameScreen(path));
 	return UI::EVENT_DONE;
 }
@@ -1374,7 +1374,7 @@ UI::EventReturn MainScreen::OnGameHighlight(UI::EventParams &e) {
 	}
 
 	if ((!highlightedGamePath_.empty() || e.a == FF_LOSTFOCUS) && !lockBackgroundAudio_) {
-		g_BackgroundAudio.SetGame(highlightedGamePath_);
+	//	g_BackgroundAudio.SetGame(highlightedGamePath_);
 	}
 
 	lockBackgroundAudio_ = false;
@@ -1451,7 +1451,7 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 			restoreFocusGamePath_.clear();
 		} else {
 			// Not refocusing, so we need to stop the audio.
-			g_BackgroundAudio.SetGame(Path());
+		//	g_BackgroundAudio.SetGame(Path());
 		}
 	}
 }
