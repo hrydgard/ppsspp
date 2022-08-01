@@ -425,6 +425,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 
 	// None found? Create one.
 	if (!vfb) {
+		gstate_c.usingDepth = false;  // reset depth buffer tracking
+
 		vfb = new VirtualFramebuffer{};
 		vfb->fbo = nullptr;
 		vfb->fb_address = params.fb_address;
@@ -450,18 +452,6 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		// This is where we actually create the framebuffer. The true is "force".
 		ResizeFramebufFBO(vfb, drawing_width, drawing_height, true);
 		NotifyRenderFramebufferCreated(vfb);
-
-		// Looks up by z_address, so if one is found here and not have last pointers equal to this one,
-		// there is another one.
-		TrackedDepthBuffer *prevDepth = GetOrCreateTrackedDepthBuffer(vfb);
-
-		// We might already want to copy depth, in case this is a temp buffer.  See #7810.
-		if (prevDepth->vfb != vfb) {
-			if (!params.isClearingDepth && prevDepth->vfb) {
-				BlitFramebufferDepth(prevDepth->vfb, vfb);
-			}
-			prevDepth->vfb = vfb;
-		}
 
 		SetColorUpdated(vfb, skipDrawReason);
 
@@ -520,6 +510,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		VirtualFramebuffer *prev = currentRenderVfb_;
 		currentRenderVfb_ = vfb;
 		NotifyRenderFramebufferSwitched(prev, vfb, params.isClearingDepth);
+		gstate_c.usingDepth = false;  // reset depth buffer tracking
 	} else {
 		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed_ = gpuStats.numFlips;
@@ -535,6 +526,25 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	gstate_c.curRTRenderWidth = vfb->renderWidth;
 	gstate_c.curRTRenderHeight = vfb->renderHeight;
 	return vfb;
+}
+
+// Called on the first use of depth in a render pass.
+void FramebufferManagerCommon::SetDepthFrameBuffer() {
+	if (!currentRenderVfb_) {
+		return;
+	}
+
+	// Looks up by z_address, so if one is found here and not have last pointers equal to this one,
+	// there is another one.
+	TrackedDepthBuffer *prevDepth = GetOrCreateTrackedDepthBuffer(currentRenderVfb_);
+
+	// We might already want to copy depth, in case this is a temp buffer.  See #7810.
+	if (prevDepth->vfb != currentRenderVfb_) {
+		if (!gstate_c.clearingDepth && prevDepth->vfb) {
+			BlitFramebufferDepth(prevDepth->vfb, currentRenderVfb_);
+		}
+		prevDepth->vfb = currentRenderVfb_;
+	}
 }
 
 void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
@@ -856,17 +866,6 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	}
 	textureCache_->ForgetLastTexture();
 	shaderManager_->DirtyLastShader();
-
-	// Copy depth between the framebuffers, if the z_address is the same (checked inside.)
-	TrackedDepthBuffer *prevDepth = GetOrCreateTrackedDepthBuffer(vfb);
-
-	// We might already want to copy depth, in case this is a temp buffer.  See #7810.
-	if (prevDepth->vfb != vfb) {
-		if (!isClearingDepth && prevDepth->vfb) {
-			BlitFramebufferDepth(prevDepth->vfb, vfb);
-		}
-		prevDepth->vfb = vfb;
-	}
 
 	if (vfb->drawnFormat != vfb->format) {
 		ReinterpretFramebuffer(vfb, vfb->drawnFormat, vfb->format);
