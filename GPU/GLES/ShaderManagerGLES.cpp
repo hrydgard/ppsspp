@@ -362,14 +362,18 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 			VR_SetConfig(VR_CONFIG_MIRROR_AXIS_X, gstate.projMatrix[0] < 0);
 			VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Y, gstate.projMatrix[5] < 0);
 			VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Z, gstate.projMatrix[10] > 0);
-			if (gstate.projMatrix[0] * gstate.projMatrix[5] * gstate.projMatrix[10] > 0) {
-				VR_SetConfig(VR_CONFIG_MIRROR_PITCH, false);
-				VR_SetConfig(VR_CONFIG_MIRROR_YAW, true);
-				VR_SetConfig(VR_CONFIG_MIRROR_ROLL, true);
-			} else {
+			if (gstate.projMatrix[10] < 0) { //GTA
 				VR_SetConfig(VR_CONFIG_MIRROR_PITCH, false);
 				VR_SetConfig(VR_CONFIG_MIRROR_YAW, false);
 				VR_SetConfig(VR_CONFIG_MIRROR_ROLL, false);
+			} else if (gstate.projMatrix[5] < 0) { //PES
+				VR_SetConfig(VR_CONFIG_MIRROR_PITCH, true);
+				VR_SetConfig(VR_CONFIG_MIRROR_YAW, true);
+				VR_SetConfig(VR_CONFIG_MIRROR_ROLL, false);
+			} else { //Lego
+				VR_SetConfig(VR_CONFIG_MIRROR_PITCH, false);
+				VR_SetConfig(VR_CONFIG_MIRROR_YAW, true);
+				VR_SetConfig(VR_CONFIG_MIRROR_ROLL, true);
 			}
 		}
 #else
