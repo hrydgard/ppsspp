@@ -24,6 +24,11 @@ class GPUInterface;
 class GPUDebugInterface;
 class GraphicsContext;
 
+enum FramebufferRenderMode {
+	FB_MODE_NORMAL = 0,
+	FB_MODE_COLOR_TO_DEPTH = 1,
+};
+
 enum SkipDrawReasonFlags {
 	SKIPDRAW_SKIPFRAME = 1,
 	SKIPDRAW_NON_DISPLAYED_FB = 2,   // Skip drawing to FBO:s that have not been displayed.

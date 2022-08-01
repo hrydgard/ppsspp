@@ -90,6 +90,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool shaderDepal = id.Bit(FS_BIT_SHADER_DEPAL) && !texture3D;  // combination with texture3D not supported. Enforced elsewhere too.
 	bool bgraTexture = id.Bit(FS_BIT_BGRA_TEXTURE);
 	bool colorWriteMask = id.Bit(FS_BIT_COLOR_WRITEMASK) && compat.bitwiseOps;
+	bool colorToDepth = id.Bit(FS_BIT_COLOR_TO_DEPTH);
 
 	GEComparison alphaTestFunc = (GEComparison)id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3);
 	GEComparison colorTestFunc = (GEComparison)id.Bits(FS_BIT_COLOR_TEST_FUNC, 2);
@@ -122,7 +123,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool readFramebufferTex = readFramebuffer && !gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH);
 
 	bool needFragCoord = readFramebuffer || gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
-	bool writeDepth = gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
+	bool writeDepth = gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || colorToDepth;
 
 	if (shaderDepal && !doTexture) {
 		*errorString = "depal requires a texture";
@@ -135,6 +136,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	if (compat.shaderLanguage == ShaderLanguage::GLSL_VULKAN) {
+		if (colorToDepth) {
+			WRITE(p, "precision highp int;\n");
+			WRITE(p, "precision highp float;\n");
+		}
+
 		if (useDiscardStencilBugWorkaround && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
 			WRITE(p, "layout (depth_unchanged) out float gl_FragDepth;\n");
 		}
@@ -274,9 +280,16 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "  float depth : SV_Depth;\n");
 			}
 			WRITE(p, "};\n");
+		} else if (compat.shaderLanguage == HLSL_D3D9) {
+			WRITE(p, "struct PS_OUT {\n");
+			WRITE(p, "  vec4 target : COLOR;\n");
+			if (writeDepth) {
+				WRITE(p, "  float depth : DEPTH;\n");
+			}
+			WRITE(p, "};\n");
 		}
 	} else if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
-		if ((shaderDepal || colorWriteMask) && gl_extensions.IsGLES) {
+		if ((shaderDepal || colorWriteMask || colorToDepth) && gl_extensions.IsGLES) {
 			WRITE(p, "precision highp int;\n");
 		}
 
@@ -441,8 +454,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "  float gl_FragDepth;\n");
 		}
 	} else if (compat.shaderLanguage == HLSL_D3D9) {
-		WRITE(p, "vec4 main( PS_IN In ) : COLOR {\n");
+		WRITE(p, "PS_OUT main( PS_IN In ) {\n");
+		WRITE(p, "  PS_OUT outfragment;\n");
 		WRITE(p, "  vec4 target;\n");
+		if (colorToDepth) {
+			WRITE(p, "  float gl_FragDepth;\n");
+		}
 	} else {
 		WRITE(p, "void main() {\n");
 	}
@@ -1034,7 +1051,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	// Final color computed - apply color write mask.
 	// TODO: Maybe optimize to only do math on the affected channels?
-	// Or .. meh.
+	// Or .. meh. That would require more shader bits. Though we could
+	// of course optimize for the common mask 0xF00000, though again, blue-to-alpha
+	// does a better job with that.
 	if (colorWriteMask) {
 		WRITE(p, "  highp uint v32 = packUnorm4x8(%s);\n", compat.fragColor0);
 		WRITE(p, "  highp uint d32 = packUnorm4x8(destColor);\n");
@@ -1045,6 +1064,22 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	if (blueToAlpha) {
 		WRITE(p, "  %s = vec4(0.0, 0.0, 0.0, %s.z);  // blue to alpha\n", compat.fragColor0, compat.fragColor0);
+	}
+
+	if (colorToDepth) {
+		DepthScaleFactors factors = GetDepthScaleFactors();
+
+		if (compat.bitwiseOps) {
+			WRITE(p, "  highp float depthValue = float(int(%s.x * 31.99) | (int(%s.y * 63.99) << 5) | (int(%s.z * 31.99) << 11)) / 65535.0;\n", "v", "v", "v"); // compat.fragColor0, compat.fragColor0, compat.fragColor0);
+		} else {
+			// D3D9-compatible alternative
+			WRITE(p, "  highp float depthValue = (floor(%s.x * 31.99) + floor(%s.y * 63.99) * 32.0 + floor(%s.z * 31.99) * 2048.0) / 65535.0;\n", "v", "v", "v"); // compat.fragColor0, compat.fragColor0, compat.fragColor0);
+		}
+		if (factors.scale != 1.0 || factors.offset != 0.0) {
+			WRITE(p, "  gl_FragDepth = (depthValue / %f) + %f;\n", factors.scale / 65535.0f, factors.offset);
+		} else {
+			WRITE(p, "  gl_FragDepth = depthValue;\n");
+		}
 	}
 
 	if (gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
@@ -1060,7 +1095,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "  z = floor(z * %f) * (1.0 / %f);\n", scale, scale);
 			}
 		} else {
-			WRITE(p, "  z = (1.0/65535.0) * floor(z * 65535.0);\n");
+			WRITE(p, "  z = (1.0 / 65535.0) * floor(z * 65535.0);\n");
 		}
 		WRITE(p, "  gl_FragDepth = z;\n");
 	} else if (useDiscardStencilBugWorkaround) {
@@ -1071,13 +1106,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
 	}
 
-	if (compat.shaderLanguage == HLSL_D3D11) {
+	if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
 		if (writeDepth) {
 			WRITE(p, "  outfragment.depth = gl_FragDepth;\n");
 		}
 		WRITE(p, "  return outfragment;\n");
-	} else if (compat.shaderLanguage == HLSL_D3D9) {
-		WRITE(p, "  return target;\n");
 	}
 
 	WRITE(p, "}\n");
