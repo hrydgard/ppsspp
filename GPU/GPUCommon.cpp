@@ -1685,6 +1685,16 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 		return;
 	}
 
+	if (!gstate_c.usingDepth) {
+		bool isClearingDepth = gstate.isModeClear() && gstate.isClearModeDepthMask();;
+
+		if ((gstate.isDepthTestEnabled() || isClearingDepth)) {
+			gstate_c.usingDepth = true;
+			gstate_c.clearingDepth = isClearingDepth;
+			framebufferManager_->SetDepthFrameBuffer();
+		}
+	}
+
 	const void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *inds = nullptr;
 	u32 vertexType = gstate.vertType;

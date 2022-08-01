@@ -572,6 +572,9 @@ struct GPUStateCache {
 
 	uint64_t dirty;
 
+	bool usingDepth;  // For deferred depth copies.
+	bool clearingDepth;
+
 	bool textureFullAlpha;
 	bool vertexFullAlpha;
 
