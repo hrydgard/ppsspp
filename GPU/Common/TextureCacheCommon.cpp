@@ -2135,8 +2135,14 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	}
 
 	// Don't scale the PPGe texture.
-	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd())
+	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd()) {
 		plan.scaleFactor = 1;
+	}
+
+	// Don't upscale textures in color-to-depth mode.
+	if (gstate_c.renderMode == FB_MODE_COLOR_TO_DEPTH) {
+		plan.scaleFactor = 1;
+	}
 
 	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0 && plan.scaleFactor != 1 && plan.slowScaler) {
 		// Remember for later that we /wanted/ to scale this texture.
