@@ -261,6 +261,10 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 		}
 	}
 
+	if (gstate_c.renderMode == FB_MODE_COLOR_TO_DEPTH) {
+		forceFiltering = TEX_FILTER_FORCE_NEAREST;
+	}
+
 	switch (forceFiltering) {
 	case TEX_FILTER_AUTO:
 		break;

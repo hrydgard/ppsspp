@@ -561,7 +561,7 @@ struct GPUStateCache {
 		if (mode != renderMode) {
 			// This mode modifies the fragment shader to write depth, the depth state to write without testing, and the blend state to write nothing to color.
 			// So we need to re-evaluate those states.
-			Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
+			Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_TEXTURE_PARAMS);
 			renderMode = mode;
 		}
 	}
