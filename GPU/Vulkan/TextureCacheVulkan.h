@@ -127,7 +127,6 @@ private:
 	Vulkan2D *vulkan2D_;
 
 	std::string textureShader_;
-	int shaderScaleFactor_ = 0;
 	VkShaderModule uploadCS_ = VK_NULL_HANDLE;
 
 	// Bound state to emulate an API similar to the others
