@@ -2933,7 +2933,7 @@ void GPUCommon::NotifyVideoUpload(u32 addr, int size, int width, int format) {
 
 bool GPUCommon::PerformStencilUpload(u32 dest, int size) {
 	if (framebufferManager_->MayIntersectFramebuffer(dest)) {
-		framebufferManager_->NotifyStencilUpload(dest, size);
+		framebufferManager_->PerformStencilUpload(dest, size);
 		return true;
 	}
 	return false;

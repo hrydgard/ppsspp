@@ -17,15 +17,13 @@
 
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/ShaderWriter.h"
-#include "Common/GPU/OpenGL/GLSLProgram.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/StencilCommon.h"
-#include "GPU/GLES/DrawEngineGLES.h"
-#include "GPU/GLES/FramebufferManagerGLES.h"
-#include "GPU/GLES/ShaderManagerGLES.h"
-#include "GPU/GLES/TextureCacheGLES.h"
+#include "GPU/Common/DrawEngineCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
+#include "GPU/Common/TextureCacheCommon.h"
 
 static u8 StencilBits5551(const u8 *ptr8, u32 numPixels) {
 	const u32 *ptr = (const u32 *)ptr8;
@@ -128,7 +126,7 @@ void GenerateStencilVs(char *buffer, const ShaderLanguageDesc &lang) {
 	writer.EndVSMain(varyings);
 }
 
-bool FramebufferManagerCommon::NotifyStencilUpload(u32 addr, int size, StencilUpload flags) {
+bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilUpload flags) {
 	using namespace Draw;
 
 	addr &= 0x3FFFFFFF;
@@ -179,9 +177,11 @@ bool FramebufferManagerCommon::NotifyStencilUpload(u32 addr, int size, StencilUp
 
 	if (usedBits == 0) {
 		if (flags == StencilUpload::STENCIL_IS_ZERO) {
-			// Common when creating buffers, it's already 0.  We're done.
+			// Common when creating buffers, it's already 0.
+			// We're done.
 			return false;
 		}
+
 		shaderManager_->DirtyLastShader();
 
 		// Let's not bother with the shader if it's just zero.
@@ -189,8 +189,8 @@ bool FramebufferManagerCommon::NotifyStencilUpload(u32 addr, int size, StencilUp
 			draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "NotifyStencilUpload_Clear");
 		}
 
-		// Clear destination alpha.
-		// render_->Clear(0, 0, 0, GL_COLOR_BUFFER_BIT, 0x8, 0, 0, 0, 0);
+		// Here we might want to clear destination alpha by using a draw, but we haven't found a need for this yet.
+		// Will implement when needed...
 		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE);
 		return true;
 	}
@@ -324,6 +324,6 @@ bool FramebufferManagerCommon::NotifyStencilUpload(u32 addr, int size, StencilUp
 	}
 	
 	tex->Release();
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 	return true;
 }

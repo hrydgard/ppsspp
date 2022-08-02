@@ -50,8 +50,6 @@ public:
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;
 
-	bool NotifyStencilUpload(u32 addr, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR);
-
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
 
 protected:
