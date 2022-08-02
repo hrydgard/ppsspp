@@ -144,8 +144,8 @@ GLRTexture *FragmentTestCacheGLES::CreateTestTexture(const GEComparison funcs[4]
 		}
 	}
 
-	GLRTexture *tex = render_->CreateTexture(GL_TEXTURE_2D, 256, 1, 1);
-	render_->TextureImage(tex, 0, 256, 1, Draw::DataFormat::R8G8B8A8_UNORM, data);
+	GLRTexture *tex = render_->CreateTexture(GL_TEXTURE_2D, 256, 1, 1, 1);
+	render_->TextureImage(tex, 0, 256, 1, 1, Draw::DataFormat::R8G8B8A8_UNORM, data);
 	return tex;
 }
 

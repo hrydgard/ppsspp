@@ -87,11 +87,13 @@ enum : uint64_t {
 	DIRTY_DEPAL = 1ULL << 35,
 	DIRTY_COLORWRITEMASK = 1ULL << 36,
 
+	DIRTY_MIPBIAS = 1ULL << 37,
+
 	// space for 4 more uniform dirty flags. Remember to update DIRTY_ALL_UNIFORMS.
 
 	DIRTY_BONE_UNIFORMS = 0xFF000000ULL,
 
-	DIRTY_ALL_UNIFORMS = 0x1FFFFFFFFFULL,
+	DIRTY_ALL_UNIFORMS = 0x3FFFFFFFFFULL,
 	DIRTY_ALL_LIGHTS = DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3,
 
 	// Other dirty elements that aren't uniforms!

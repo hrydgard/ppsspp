@@ -28,7 +28,7 @@ static bool OnRenderThread() {
 }
 #endif
 
-GLRTexture::GLRTexture(int width, int height, int numMips) {
+GLRTexture::GLRTexture(int width, int height, int depth, int numMips) {
 	if (gl_extensions.OES_texture_npot) {
 		canWrap = true;
 	} else {
@@ -36,6 +36,7 @@ GLRTexture::GLRTexture(int width, int height, int numMips) {
 	}
 	w = width;
 	h = height;
+	depth = depth;
 	this->numMips = numMips;
 }
 

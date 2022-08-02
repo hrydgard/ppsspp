@@ -536,8 +536,10 @@ OpenGLContext::OpenGLContext() {
 		} else {
 			caps_.preferredDepthBufferFormat = DataFormat::D16;
 		}
+		caps_.texture3DSupported = gl_extensions.OES_texture_3D;
 	} else {
 		caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
+		caps_.texture3DSupported = true;
 	}
 	caps_.framebufferBlitSupported = gl_extensions.NV_framebuffer_blit || gl_extensions.ARB_framebuffer_object;
 	caps_.framebufferDepthBlitSupported = caps_.framebufferBlitSupported;
@@ -636,6 +638,7 @@ OpenGLContext::OpenGLContext() {
 			shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_3xx;
 			shaderLanguageDesc_.fragColor0 = "fragColor0";
 			shaderLanguageDesc_.texture = "texture";
+			shaderLanguageDesc_.texture3D = "texture";
 			shaderLanguageDesc_.glslES30 = true;
 			shaderLanguageDesc_.bitwiseOps = true;
 			shaderLanguageDesc_.texelFetch = "texelFetch";
@@ -659,6 +662,7 @@ OpenGLContext::OpenGLContext() {
 			shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_3xx;
 			shaderLanguageDesc_.fragColor0 = "fragColor0";
 			shaderLanguageDesc_.texture = "texture";
+			shaderLanguageDesc_.texture3D = "texture";
 			shaderLanguageDesc_.glslES30 = true;
 			shaderLanguageDesc_.bitwiseOps = true;
 			shaderLanguageDesc_.texelFetch = "texelFetch";
@@ -669,6 +673,7 @@ OpenGLContext::OpenGLContext() {
 			shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_1xx;
 			shaderLanguageDesc_.fragColor0 = "fragColor0";
 			shaderLanguageDesc_.texture = "texture";
+			shaderLanguageDesc_.texture3D = "texture";
 			shaderLanguageDesc_.bitwiseOps = true;
 			shaderLanguageDesc_.texelFetch = "texelFetch";
 			shaderLanguageDesc_.varying_vs = "out";
@@ -792,7 +797,7 @@ OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) :
 	format_ = desc.format;
 	type_ = desc.type;
 	GLenum target = TypeToTarget(desc.type);
-	tex_ = render->CreateTexture(target, desc.width, desc.height, desc.mipLevels);
+	tex_ = render->CreateTexture(target, desc.width, desc.height, 1, desc.mipLevels);
 
 	mipLevels_ = desc.mipLevels;
 	if (desc.initData.empty())
@@ -877,7 +882,7 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		}
 	}
 
-	render_->TextureImage(tex_, level, width, height, format_, texData);
+	render_->TextureImage(tex_, level, width, height, depth, format_, texData);
 }
 
 #ifdef DEBUG_READ_PIXELS

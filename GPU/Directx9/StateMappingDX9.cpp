@@ -197,7 +197,14 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 		ConvertStencilFuncState(stencilState);
 
 		// Set Stencil/Depth
-		if (gstate.isModeClear()) {
+
+		if (gstate_c.renderMode == FB_MODE_COLOR_TO_DEPTH) {
+			// Enforce plain depth writing.
+			dxstate.depthTest.enable();
+			dxstate.depthFunc.set(D3DCMP_ALWAYS);
+			dxstate.depthWrite.set(true);
+			dxstate.stencilTest.disable();
+		} else if (gstate.isModeClear()) {
 			// Depth Test
 			dxstate.depthTest.enable();
 			dxstate.depthFunc.set(D3DCMP_ALWAYS);

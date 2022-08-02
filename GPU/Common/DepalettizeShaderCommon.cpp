@@ -145,8 +145,9 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 	}
 
 	float texturePixels = 256;
-	if (clutFormat != GE_CMODE_32BIT_ABGR8888)
+	if (clutFormat != GE_CMODE_32BIT_ABGR8888) {
 		texturePixels = 512;
+	}
 
 	if (shift) {
 		WRITE(p, "  index = (int(uint(index) >> uint(%i)) & 0x%02x)", shift, mask);

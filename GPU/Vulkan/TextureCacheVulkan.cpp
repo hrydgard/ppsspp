@@ -119,7 +119,8 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = key.sClamp ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	samp.addressModeV = key.tClamp ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samp.addressModeW = samp.addressModeU;  // irrelevant, but Mali recommends that all clamp modes are the same if possible.
+	// W addressing is irrelevant for 2d textures, but Mali recommends that all clamp modes are the same if possible so just copy from U.
+	samp.addressModeW = key.texture3d ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : samp.addressModeU;
 	samp.compareOp = VK_COMPARE_OP_ALWAYS;
 	samp.flags = 0;
 	samp.magFilter = key.magFilt ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
@@ -413,7 +414,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 	bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS);
 	bool depth = channel == NOTIFY_FB_DEPTH;
-	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && !depth;
+	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && !depth && !gstate_c.curTextureIs3D;
 
 	bool need_depalettize = IsClutFormat(texFormat);
 
@@ -588,7 +589,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	int maxPossibleMipLevels;
-	if (plan.isVideo) {
+	if (plan.isVideo || plan.depth != 1) {
 		maxPossibleMipLevels = 1;
 	} else {
 		maxPossibleMipLevels = log2i(std::min(plan.w * plan.scaleFactor, plan.h * plan.scaleFactor)) + 1;
@@ -597,7 +598,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	VkFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
 	if (plan.hardwareScaling) {
-		dstFmt = VK_FORMAT_R8G8B8A8_UNORM;
+		dstFmt = VULKAN_8888_FORMAT;
 	}
 
 	// We don't generate mipmaps for 512x512 textures because they're almost exclusively used for menu backgrounds
@@ -606,7 +607,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		// Boost the number of mipmaps.
 		if (maxPossibleMipLevels > plan.levelsToCreate) {
 			// We have to generate mips with a shader. This requires decoding to R8G8B8A8_UNORM format to avoid extra complications.
-			dstFmt = VK_FORMAT_R8G8B8A8_UNORM;
+			dstFmt = VULKAN_8888_FORMAT;
 		}
 		plan.levelsToCreate = maxPossibleMipLevels;
 	}
@@ -652,7 +653,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	snprintf(texName, sizeof(texName), "tex_%08x_%s", entry->addr, GeTextureFormatToString((GETextureFormat)entry->format, gstate.getClutPaletteFormat()));
 	image->SetTag(texName);
 
-	bool allocSuccess = image->CreateDirect(cmdInit, plan.w * plan.scaleFactor, plan.h * plan.scaleFactor, plan.levelsToCreate, actualFmt, imageLayout, usage, mapping);
+	bool allocSuccess = image->CreateDirect(cmdInit, plan.w * plan.scaleFactor, plan.h * plan.scaleFactor, plan.depth, plan.levelsToCreate, actualFmt, imageLayout, usage, mapping);
 	if (!allocSuccess && !lowMemoryMode_) {
 		WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
 		lowMemoryMode_ = true;
@@ -671,7 +672,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		plan.scaleFactor = 1;
 		actualFmt = dstFmt;
 
-		allocSuccess = image->CreateDirect(cmdInit, plan.w * plan.scaleFactor, plan.h * plan.scaleFactor, plan.levelsToCreate, actualFmt, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
+		allocSuccess = image->CreateDirect(cmdInit, plan.w * plan.scaleFactor, plan.h * plan.scaleFactor, plan.depth, plan.levelsToCreate, actualFmt, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
 	}
 
 	if (!allocSuccess) {
@@ -686,7 +687,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	ReplacedTextureDecodeInfo replacedInfo;
 	bool willSaveTex = false;
-	if (replacer_.Enabled() && !plan.replaced->Valid()) {
+	if (replacer_.Enabled() && !plan.replaced->Valid() && plan.depth == 1) {
 		replacedInfo.cachekey = entry->CacheKey();
 		replacedInfo.hash = entry->fullhash;
 		replacedInfo.addr = entry->addr;
@@ -700,8 +701,15 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 		"Texture Upload (%08x) video=%d", entry->addr, plan.isVideo);
 
-	// Upload the texture data.
-	for (int i = 0; i < plan.levelsToLoad; i++) {
+	// Upload the texture data. We simply reuse the same loop for 3D texture slices instead of mips, if we have those.
+	int levels;
+	if (plan.depth > 1) {
+		levels = plan.depth;
+	} else {
+		levels = plan.levelsToLoad;
+	}
+
+	for (int i = 0; i < levels; i++) {
 		int mipUnscaledWidth = gstate.getTextureWidth(i);
 		int mipUnscaledHeight = gstate.getTextureHeight(i);
 
@@ -742,10 +750,13 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			replacementTimeThisFrame_ += time_now_d() - replaceStart;
 			VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT,
 				"Copy Upload (replaced): %dx%d", mipWidth, mipHeight);
-			entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
+			entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, 0, texBuf, bufferOffset, stride / bpp);
 			VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
 		} else {
-			if (computeUpload) {
+			if (plan.depth != 1) {
+				loadLevel(size, i, stride, plan.scaleFactor);
+				entry->vkTex->UploadMip(cmdInit, 0, mipWidth, mipHeight, i, texBuf, bufferOffset, stride / bpp);
+			} else if (computeUpload) {
 				int srcBpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;
 				int srcStride = mipUnscaledWidth * srcBpp;
 				int srcSize = srcStride * mipUnscaledHeight;
@@ -768,7 +779,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				loadLevel(size, i == 0 ? plan.baseLevelSrc : i, stride, plan.scaleFactor);
 				VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT,
 					"Copy Upload: %dx%d", mipWidth, mipHeight);
-				entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
+				entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, 0, texBuf, bufferOffset, stride / bpp);
 				VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
 			}
 			if (replacer_.Enabled()) {
@@ -796,6 +807,11 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	entry->vkTex->EndCreate(cmdInit, false, prevStage, layout);
 	VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+
+	// Signal that we support depth textures so use it as one.
+	if (plan.depth > 1) {
+		entry->status |= TexCacheEntry::STATUS_3D;
+	}
 
 	if (plan.replaced->Valid()) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
@@ -857,7 +873,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 	u32 *pixelData;
 	int decPitch;
 
-	bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || scaleFactor > 1;
+	bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || scaleFactor > 1 || dstFmt == VULKAN_8888_FORMAT;
 
 	if (scaleFactor > 1) {
 		tmpTexBufRearrange_.resize(std::max(bufw, w) * h);

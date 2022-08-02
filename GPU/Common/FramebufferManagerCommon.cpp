@@ -275,6 +275,14 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	gstate_c.SetCurRTOffset(0, 0);
 	bool vfbFormatChanged = false;
 
+	if (params.fb_address == params.z_address) {
+		// Most likely Z will not be used in this pass, as that would wreak havoc (undefined behavior for sure)
+		// We probably don't need to do anything about that, but let's log it.
+		WARN_LOG_ONCE(color_equal_z, G3D, "Framebuffer bound with color addr == z addr, likely will not use Z in this pass: %08x", params.fb_address);
+	}
+
+	FramebufferRenderMode mode = FB_MODE_NORMAL;
+
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = nullptr;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
@@ -282,7 +290,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 
 		const u32 bpp = v->format == GE_FORMAT_8888 ? 4 : 2;
 
-		if (v->fb_address == params.fb_address) {
+		if (params.fb_address == v->fb_address) {
 			vfb = v;
 			// Update fb stride in case it changed
 			if (vfb->fb_stride != params.fb_stride) {
@@ -311,6 +319,19 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 				vfb->height = drawing_height;
 			}
 			break;
+		} else if (params.fb_address == v->z_address && params.fmt != GE_FORMAT_8888 && params.fb_stride == v->z_stride) {
+			// Looks like the game might be intending to use color to write directly to a Z buffer.
+			// This is seen in Kuroyou 2.
+
+			// Ignore this in this loop, BUT, we do a lookup in the depth tracking afterwards to
+			// make sure we get the latest one.
+			WARN_LOG_ONCE(color_matches_z, G3D, "Color framebuffer bound at %08x with likely intent to write explicit Z values using color. fmt = %s", params.fb_address, GeBufferFormatToString(params.fmt));
+			// Seems impractical to use the other 16-bit formats for this due to the limited control over alpha,
+			// so we'll simply only support 565.
+			if (params.fmt == GE_FORMAT_565) {
+				mode = FB_MODE_COLOR_TO_DEPTH;
+				break;
+			}
 		} else if (v->fb_stride == params.fb_stride && v->format == params.fmt) {
 			u32 v_fb_first_line_end_ptr = v->fb_address + v->fb_stride * 4;  // This should be * bpp, but leaving like this until after 1.13 to be safe. The God of War games use this for shadows.
 			u32 v_fb_end_ptr = v->fb_address + v->fb_stride * v->height * bpp;
@@ -344,6 +365,25 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 			}
 		}
 	}
+
+	if (mode == FB_MODE_COLOR_TO_DEPTH) {
+		// Lookup in the depth tracking to find which VFB has the latest version of this Z buffer.
+		// Then bind it in color-to-depth mode.
+		//
+		// We are going to do this by having a special render mode where we take color and move to
+		// depth in the fragment shader, and set color writes to off.
+		//
+		// We'll need a special fragment shader flag to convert color to depth.
+
+		for (auto &depth : this->trackedDepthBuffers_) {
+			if (depth->z_address == params.fb_address && depth->z_stride == params.fb_stride) {
+				// Found the matching depth buffer. Use this vfb.
+				vfb = depth->vfb;
+			}
+		}
+	}
+
+	gstate_c.SetFramebufferRenderMode(mode);
 
 	if (vfb) {
 		if ((drawing_width != vfb->bufferWidth || drawing_height != vfb->bufferHeight)) {

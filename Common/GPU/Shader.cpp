@@ -44,6 +44,7 @@ void ShaderLanguageDesc::Init(ShaderLanguage lang) {
 		fragColor0 = "gl_FragColor";
 		fragColor1 = "fragColor1";
 		texture = "texture2D";
+		texture3D = "texture3D";
 		texelFetch = nullptr;
 		bitwiseOps = false;
 		lastFragData = nullptr;
@@ -59,6 +60,7 @@ void ShaderLanguageDesc::Init(ShaderLanguage lang) {
 		fragColor0 = "fragColor0";
 		fragColor1 = "fragColor1";
 		texture = "texture";
+		texture3D = "texture";
 		texelFetch = "texelFetch";
 		bitwiseOps = true;
 		lastFragData = nullptr;
@@ -80,6 +82,7 @@ void ShaderLanguageDesc::Init(ShaderLanguage lang) {
 		glslVersionNumber = 450;
 		lastFragData = nullptr;
 		texture = "texture";
+		texture3D = "texture";
 		texelFetch = "texelFetch";
 		forceMatrix4x4 = false;
 		coefsFromBuffers = true;
@@ -90,7 +93,7 @@ void ShaderLanguageDesc::Init(ShaderLanguage lang) {
 			fragColor0 = "outfragment.target";
 			fragColor1 = "outfragment.target1";
 		} else {
-			fragColor0 = "target";
+			fragColor0 = "outfragment.target";
 		}
 		varying_fs = "in";
 		varying_vs = "out";
@@ -102,6 +105,7 @@ void ShaderLanguageDesc::Init(ShaderLanguage lang) {
 		glslVersionNumber = 0;
 		lastFragData = nullptr;
 		texture = "texture";
+		texture3D = "texture";
 		texelFetch = "texelFetch";
 		forceMatrix4x4 = false;
 		coefsFromBuffers = true;

@@ -353,7 +353,17 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 			GLenum internalFormat, format, type;
 			int alignment;
 			Thin3DFormatToFormatAndType(step.texture_image.format, internalFormat, format, type, alignment);
-			glTexImage2D(tex->target, step.texture_image.level, internalFormat, step.texture_image.width, step.texture_image.height, 0, format, type, step.texture_image.data);
+			if (step.texture_image.depth == 1) {
+				glTexImage2D(tex->target,
+					step.texture_image.level, internalFormat,
+					step.texture_image.width, step.texture_image.height, 0,
+					format, type, step.texture_image.data);
+			} else {
+				glTexImage3D(tex->target,
+					step.texture_image.level, internalFormat,
+					step.texture_image.width, step.texture_image.height, step.texture_image.depth, 0,
+					format, type, step.texture_image.data);
+			}
 			allocatedTextures = true;
 			if (step.texture_image.allocType == GLRAllocType::ALIGNED) {
 				FreeAlignedMemory(step.texture_image.data);
@@ -369,6 +379,9 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 			glTexParameteri(tex->target, GL_TEXTURE_WRAP_T, tex->wrapT);
 			glTexParameteri(tex->target, GL_TEXTURE_MAG_FILTER, tex->magFilter);
 			glTexParameteri(tex->target, GL_TEXTURE_MIN_FILTER, tex->minFilter);
+			if (step.texture_image.depth > 1) {
+				glTexParameteri(tex->target, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
@@ -380,7 +393,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 				glBindTexture(tex->target, tex->texture);
 				boundTexture = tex->texture;
 			}
-			if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
+			if ((!gl_extensions.IsGLES || gl_extensions.GLES3) && step.texture_finalize.loadedLevels > 1) {
 				glTexParameteri(tex->target, GL_TEXTURE_MAX_LEVEL, step.texture_finalize.loadedLevels - 1);
 			}
 			tex->maxLod = (float)step.texture_finalize.loadedLevels - 1;
@@ -1144,28 +1157,28 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			CHECK_GL_ERROR_IF_DEBUG();
 			if (tex->canWrap) {
 				if (tex->wrapS != c.textureSampler.wrapS) {
-					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, c.textureSampler.wrapS);
+					glTexParameteri(tex->target, GL_TEXTURE_WRAP_S, c.textureSampler.wrapS);
 					tex->wrapS = c.textureSampler.wrapS;
 				}
 				if (tex->wrapT != c.textureSampler.wrapT) {
-					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, c.textureSampler.wrapT);
+					glTexParameteri(tex->target, GL_TEXTURE_WRAP_T, c.textureSampler.wrapT);
 					tex->wrapT = c.textureSampler.wrapT;
 				}
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			if (tex->magFilter != c.textureSampler.magFilter) {
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, c.textureSampler.magFilter);
+				glTexParameteri(tex->target, GL_TEXTURE_MAG_FILTER, c.textureSampler.magFilter);
 				tex->magFilter = c.textureSampler.magFilter;
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			if (tex->minFilter != c.textureSampler.minFilter) {
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, c.textureSampler.minFilter);
+				glTexParameteri(tex->target, GL_TEXTURE_MIN_FILTER, c.textureSampler.minFilter);
 				tex->minFilter = c.textureSampler.minFilter;
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			if (tex->anisotropy != c.textureSampler.anisotropy) {
 				if (c.textureSampler.anisotropy != 0.0f) {
-					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, c.textureSampler.anisotropy);
+					glTexParameterf(tex->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, c.textureSampler.anisotropy);
 				}
 				tex->anisotropy = c.textureSampler.anisotropy;
 			}
@@ -1185,16 +1198,16 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			}
 #ifndef USING_GLES2
 			if (tex->lodBias != c.textureLod.lodBias && !gl_extensions.IsGLES) {
-				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, c.textureLod.lodBias);
+				glTexParameterf(tex->target, GL_TEXTURE_LOD_BIAS, c.textureLod.lodBias);
 				tex->lodBias = c.textureLod.lodBias;
 			}
 #endif
 			if (tex->minLod != c.textureLod.minLod) {
-				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, c.textureLod.minLod);
+				glTexParameterf(tex->target, GL_TEXTURE_MIN_LOD, c.textureLod.minLod);
 				tex->minLod = c.textureLod.minLod;
 			}
 			if (tex->maxLod != c.textureLod.maxLod) {
-				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, c.textureLod.maxLod);
+				glTexParameterf(tex->target, GL_TEXTURE_MAX_LOD, c.textureLod.maxLod);
 				tex->maxLod = c.textureLod.maxLod;
 			}
 			break;
@@ -1205,6 +1218,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			// TODO: Need bind?
 			if (!c.texture_subimage.data)
 				Crash();
+			_assert_(tex->target == GL_TEXTURE_2D);
 			// For things to show in RenderDoc, need to split into glTexImage2D(..., nullptr) and glTexSubImage.
 			GLuint internalFormat, format, type;
 			int alignment;

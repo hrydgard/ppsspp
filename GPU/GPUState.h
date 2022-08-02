@@ -300,8 +300,8 @@ struct GPUgstate {
 	bool isTextureFormatIndexed() const { return (texformat & 4) != 0; } // GE_TFMT_CLUT4 - GE_TFMT_CLUT32 are 0b1xx.
 	int getTextureEnvColRGB() const { return texenvcolor & 0x00FFFFFF; }
 	u32 getClutAddress() const { return (clutaddr & 0x00FFFFF0) | ((clutaddrupper << 8) & 0x0F000000); }
-	int getClutLoadBytes() const { return (loadclut & 0x3F) * 32; }
-	int getClutLoadBlocks() const { return (loadclut & 0x3F); }
+	int getClutLoadBytes() const { return (loadclut & 0x7F) * 32; }
+	int getClutLoadBlocks() const { return (loadclut & 0x7F); }
 	GEPaletteFormat getClutPaletteFormat() const { return static_cast<GEPaletteFormat>(clutformat & 3); }
 	int getClutIndexShift() const { return (clutformat >> 2) & 0x1F; }
 	int getClutIndexMask() const { return (clutformat >> 8) & 0xFF; }
@@ -551,6 +551,20 @@ struct GPUStateCache {
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
+	void SetTextureIs3D(bool is3D) {
+		if (is3D != curTextureIs3D) {
+			curTextureIs3D = is3D;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE | (is3D ? DIRTY_MIPBIAS : 0));
+		}
+	}
+	void SetFramebufferRenderMode(FramebufferRenderMode mode) {
+		if (mode != renderMode) {
+			// This mode modifies the fragment shader to write depth, the depth state to write without testing, and the blend state to write nothing to color.
+			// So we need to re-evaluate those states.
+			Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_TEXTURE_PARAMS);
+			renderMode = mode;
+		}
+	}
 
 	u32 featureFlags;
 
@@ -580,6 +594,7 @@ struct GPUStateCache {
 	// Only applied when needShaderTexClamp = true.
 	u32 curTextureXOffset;
 	u32 curTextureYOffset;
+	bool curTextureIs3D;
 
 	float vpWidth;
 	float vpHeight;
@@ -599,6 +614,9 @@ struct GPUStateCache {
 	// Examples of games that do this: Outrun, Split/Second.
 	// We detect this case and go into a special drawing mode.
 	bool blueToAlpha;
+
+	// Some games try to write to the Z buffer using color. Catch that and actually do the writes to the Z buffer instead.
+	FramebufferRenderMode renderMode;
 
 	// TODO: These should be accessed from the current VFB object directly.
 	u32 curRTWidth;

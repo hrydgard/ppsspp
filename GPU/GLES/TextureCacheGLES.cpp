@@ -451,7 +451,11 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		dstFmt = Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 
-	entry->textureName = render_->CreateTexture(GL_TEXTURE_2D, tw, tw, plan.levelsToCreate);
+	if (plan.depth == 1) {
+		entry->textureName = render_->CreateTexture(GL_TEXTURE_2D, tw, tw, 1, plan.levelsToCreate);
+	} else {
+		entry->textureName = render_->CreateTexture(GL_TEXTURE_3D, tw, tw, plan.depth, 1);
+	}
 
 	// Apply some additional compatibility checks.
 	if (plan.levelsToLoad > 1) {
@@ -468,45 +472,67 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		plan.levelsToCreate = plan.levelsToLoad;
 	}
 
-	for (int i = 0; i < plan.levelsToLoad; i++) {
-		int srcLevel = i == 0 ? plan.baseLevelSrc : i;
+	if (plan.depth == 1) {
+		for (int i = 0; i < plan.levelsToLoad; i++) {
+			int srcLevel = i == 0 ? plan.baseLevelSrc : i;
 
-		int w = gstate.getTextureWidth(srcLevel);
-		int h = gstate.getTextureHeight(srcLevel);
+			int w = gstate.getTextureWidth(srcLevel);
+			int h = gstate.getTextureHeight(srcLevel);
 
-		u8 *data = nullptr;
-		int stride = 0;
+			u8 *data = nullptr;
+			int stride = 0;
 
-		if (plan.replaced->GetSize(srcLevel, w, h)) {
-			int bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format(srcLevel));
-			stride = w * bpp;
-			data = (u8 *)AllocateAlignedMemory(stride * h, 16);
-		} else {
-			if (plan.scaleFactor > 1) {
-				data = (u8 *)AllocateAlignedMemory(4 * (w * plan.scaleFactor) * (h * plan.scaleFactor), 16);
-				stride = w * plan.scaleFactor * 4;
-			} else {
-				int bpp = dstFmt == Draw::DataFormat::R8G8B8A8_UNORM ? 4 : 2;
-
-				stride = std::max(w * bpp, 4);
+			if (plan.replaced->GetSize(srcLevel, w, h)) {
+				int bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format(srcLevel));
+				stride = w * bpp;
 				data = (u8 *)AllocateAlignedMemory(stride * h, 16);
+			} else {
+				if (plan.scaleFactor > 1) {
+					data = (u8 *)AllocateAlignedMemory(4 * (w * plan.scaleFactor) * (h * plan.scaleFactor), 16);
+					stride = w * plan.scaleFactor * 4;
+				} else {
+					int bpp = dstFmt == Draw::DataFormat::R8G8B8A8_UNORM ? 4 : 2;
+
+					stride = std::max(w * bpp, 4);
+					data = (u8 *)AllocateAlignedMemory(stride * h, 16);
+				}
 			}
+
+			if (!data) {
+				ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", w, h);
+				return;
+			}
+
+			LoadTextureLevel(*entry, data, stride, *plan.replaced, srcLevel, plan.scaleFactor, dstFmt, true);
+
+			// NOTE: TextureImage takes ownership of data, so we don't free it afterwards.
+			render_->TextureImage(entry->textureName, i, w * plan.scaleFactor, h * plan.scaleFactor, 1, dstFmt, data, GLRAllocType::ALIGNED);
 		}
 
-		if (!data) {
-			ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", w, h);
-			return;
+		bool genMips = plan.levelsToCreate > plan.levelsToLoad;
+
+		render_->FinalizeTexture(entry->textureName, plan.levelsToLoad, genMips);
+	} else {
+		int bpp = dstFmt == Draw::DataFormat::R8G8B8A8_UNORM ? 4 : 2;
+		int stride = bpp * (plan.w * plan.scaleFactor);
+		int levelStride = stride * (plan.h * plan.scaleFactor);
+
+		u8 *data = (u8 *)AllocateAlignedMemory(levelStride * plan.depth, 16);
+		memset(data, 0, levelStride * plan.depth);
+		u8 *p = data;
+
+		for (int i = 0; i < plan.depth; i++) {
+			LoadTextureLevel(*entry, p, stride, *plan.replaced, i, plan.scaleFactor, dstFmt, true);
+			p += levelStride;
 		}
 
-		LoadTextureLevel(*entry, data, stride, *plan.replaced, srcLevel, plan.scaleFactor, dstFmt, true);
+		render_->TextureImage(entry->textureName, 0, plan.w * plan.scaleFactor, plan.h * plan.scaleFactor, plan.depth, dstFmt, data, GLRAllocType::ALIGNED);
 
-		// NOTE: TextureImage takes ownership of data, so we don't free it afterwards.
-		render_->TextureImage(entry->textureName, i, w * plan.scaleFactor, h * plan.scaleFactor, dstFmt, data, GLRAllocType::ALIGNED);
+		// Signal that we support depth textures so use it as one.
+		entry->status |= TexCacheEntry::STATUS_3D;
+
+		render_->FinalizeTexture(entry->textureName, 1, false);
 	}
-
-	bool genMips = plan.levelsToCreate > plan.levelsToLoad;
-
-	render_->FinalizeTexture(entry->textureName, plan.levelsToLoad, genMips);
 
 	if (plan.replaced->Valid()) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
