@@ -272,9 +272,6 @@ public:
 	D3D9Pipeline() {}
 	~D3D9Pipeline() {
 	}
-	bool RequiresBuffer() override {
-		return false;
-	}
 
 	D3D9ShaderModule *vshader;
 	D3D9ShaderModule *pshader;

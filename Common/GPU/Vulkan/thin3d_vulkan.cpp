@@ -271,9 +271,6 @@ public:
 	int GetUBOSize() const {
 		return uboSize_;
 	}
-	bool RequiresBuffer() override {
-		return false;
-	}
 
 	VkPipeline backbufferPipeline = VK_NULL_HANDLE;
 	VkPipeline framebufferPipeline = VK_NULL_HANDLE;

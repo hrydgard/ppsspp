@@ -450,7 +450,6 @@ public:
 class Pipeline : public RefCountedObject {
 public:
 	virtual ~Pipeline() {}
-	virtual bool RequiresBuffer() = 0;
 };
 
 class RasterState : public RefCountedObject {};

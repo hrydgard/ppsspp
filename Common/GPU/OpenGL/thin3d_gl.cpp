@@ -261,9 +261,6 @@ public:
 	~OpenGLInputLayout();
 
 	void Compile(const InputLayoutDesc &desc);
-	bool RequiresBuffer() {
-		return false;
-	}
 
 	GLRInputLayout *inputLayout_ = nullptr;
 	int stride = 0;
@@ -283,10 +280,6 @@ public:
 	}
 
 	bool LinkShaders();
-
-	bool RequiresBuffer() override {
-		return inputLayout && inputLayout->RequiresBuffer();
-	}
 
 	GLuint prim = 0;
 	std::vector<OpenGLShaderModule *> shaders;
