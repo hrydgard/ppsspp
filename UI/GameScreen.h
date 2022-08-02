@@ -67,14 +67,15 @@ private:
 	UI::EventReturn OnDoMD5(UI::EventParams& e);
 
 	// As we load metadata in the background, we need to be able to update these after the fact.
-	UI::TextView *tvTitle_ = nullptr;
+	//UI::TextView *tvTitle_ = nullptr;
 	UI::TextView *tvGameSize_ = nullptr;
-	UI::TextView *tvSaveDataSize_ = nullptr;
-	UI::TextView *tvInstallDataSize_ = nullptr;
-	UI::TextView *tvRegion_ = nullptr;
-	UI::TextView *tvCRC_ = nullptr;
+	//UI::TextView *tvSaveDataSize_ = nullptr;
+	//UI::TextView *tvInstallDataSize_ = nullptr;
+	//UI::TextView *tvRegion_ = nullptr;
+	//UI::TextView *tvCRC_ = nullptr;
 	UI::TextView *tvMD5_ = nullptr;
-	UI::TextView *tvID_ = nullptr;
+	UI::TextView* tvBaiduMD5_ = nullptr;
+	//UI::TextView *tvID_ = nullptr;
 
 	UI::Choice *btnGameSettings_ = nullptr;
 	UI::Choice *btnCreateGameConfig_ = nullptr;

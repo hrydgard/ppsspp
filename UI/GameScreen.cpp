@@ -107,11 +107,12 @@ void GameScreen::CreateViews() {
 	// Back button to the bottom left.
 	// Scrolling action menu to the right.
 	using namespace UI;
-
-	Margins actionMenuMargins(0, 100, 15, 0);
-
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
-
+	auto sy = GetI18NCategory("System");	
+	//Margins actionMenuMargins(0, 100, 15, 0);	
+	Margins actionMenuMargins(0, 0, 0, 0);
+	//root_ = new LinearLayout(ORIENT_HORIZONTAL);
+	root_ = new LinearLayout(ORIENT_VERTICAL);
+	root_->Add(new PopupTextInputChoice(&MD5string, sy->T("Baid md5"), "", 32, screenManager()));
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
 	root_->Add(leftColumn);
 
@@ -142,6 +143,9 @@ void GameScreen::CreateViews() {
 		//tvCRC_->SetVisibility(Reporting::HasCRC(gamePath_) ? V_VISIBLE : V_GONE);
 		tvMD5_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvMD5_->SetShadow(true);
+
+		
+
 	} else {
 		//tvTitle_ = nullptr;
 		tvGameSize_ = nullptr;
