@@ -65,6 +65,7 @@ private:
 	UI::EventReturn OnSetBackground(UI::EventParams &e);
 	UI::EventReturn OnDoCRC32(UI::EventParams& e);
 	UI::EventReturn OnDoMD5(UI::EventParams& e);
+	UI::EventReturn OnCopyBaidMD5(UI::EventParams& e);
 
 	// As we load metadata in the background, we need to be able to update these after the fact.
 	//UI::TextView *tvTitle_ = nullptr;

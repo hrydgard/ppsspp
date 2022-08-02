@@ -92,6 +92,18 @@ void GameScreen::update() {
 
 }
 
+UI::EventReturn GameScreen::OnCopyBaidMD5(UI::EventParams& e) {
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
+	auto sy = GetI18NCategory("System");
+	System_InputBoxGetString(sy->T("Copy Baid md5"), MD5string, [](bool result, const std::string& value) {
+		//if (result) {
+			//g_Config.sNickName = StripSpaces(value);
+	//	}
+		});
+#endif
+	return UI::EVENT_DONE;
+}
+
 void GameScreen::CreateViews() {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
@@ -112,7 +124,16 @@ void GameScreen::CreateViews() {
 	Margins actionMenuMargins(0, 0, 0, 0);
 	//root_ = new LinearLayout(ORIENT_HORIZONTAL);
 	root_ = new LinearLayout(ORIENT_VERTICAL);
-	root_->Add(new PopupTextInputChoice(&MD5string, sy->T("Baid md5"), "", 32, screenManager()));
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
+	root_->Add(new ChoiceWithValueDisplay(&MD5string, sy->T("Copy Baid md5"), (const char*)nullptr))->OnClick.Handle(this, &GameScreen::OnCopyBaidMD5);	
+#elif !defined(MOBILE_DEVICE)
+	root_->Add(new PopupTextInputChoice(&MD5string, sy->T("Copy Baid md5"), "", 254, screenManager()));
+#elif PPSSPP_PLATFORM(ANDROID)
+	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD))
+		root_->Add(new ChoiceWithValueDisplay(&MD5string, sy->T("Copy Baid md5"), (const char*)nullptr))->OnClick.Handle(this, &GameScreen::OnCopyBaidMD5);
+	else
+		root_->Add(new PopupTextInputChoice(&MD5string, sy->T("Copy Baid md5"), "", 254, screenManager()));
+#endif
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
 	root_->Add(leftColumn);
 
@@ -450,21 +471,18 @@ long long sFileSize(const Path filename) {
 }
 
 UI::EventReturn GameScreen::OnDoMD5(UI::EventParams& e) {
-	MD5string = "...";
-	//auto chrs = gamePath_.c_str();
-	//MD5string = md5file(chrs);
-	//MD5string = MD5FullFile(gamePath_);
-	//MD5string = "MD5: "+ MD5string;
-	//MD5string = FileSize(gamePath_);
-	//MD5string = "Filesize: " + MD5string;
-	long long  num = sFileSize(gamePath_);
-	if (num <= 262144) {
-		MD5string = MD5FullFile(gamePath_);
+	MD5string = "";
+	MD5string = MD5FullFile(gamePath_) + "#";
+
+
+	long long  tempfilesize = sFileSize(gamePath_);
+	if (tempfilesize <= 262144) {
+		MD5string = MD5string + MD5FullFile(gamePath_);
 	}
 	else {
-		MD5string = MD5_262144_File(gamePath_);
+		MD5string = MD5string + MD5_262144_File(gamePath_);
 	}
-	MD5string = "MD5_262144_: "+ MD5string;
+	MD5string = MD5string + "#" + std::to_string(tempfilesize) + "#"+ gamePath_.GetFilename();
 	btnCalcMD5_->SetEnabled(false);
 	tvMD5_->SetText(MD5string);
 	return UI::EVENT_DONE;
