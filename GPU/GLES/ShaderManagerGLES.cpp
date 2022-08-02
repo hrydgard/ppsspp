@@ -134,6 +134,10 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_cullRangeMin, "u_cullRangeMin" });
 	queries.push_back({ &u_cullRangeMax, "u_cullRangeMax" });
 	queries.push_back({ &u_rotation, "u_rotation" });
+#ifdef OPENXR
+	queries.push_back({ &u_scaleX, "u_scaleX" });
+	queries.push_back({ &u_scaleY, "u_scaleY" });
+#endif
 
 #ifdef USE_BONE_ARRAY
 	queries.push_back({ &u_bone, "u_bone" });
@@ -334,9 +338,21 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 			if (((i == 3) && (fabs(fabs(value) - 1.0f) > e))) oneTranslation = false;
 		}
 	}
+
+	// Count 3D objects
 	bool is2D = identity || oneTranslation || ortho;
 	if (!is2D) {
 		VR_SetConfig(VR_CONFIG_3D_GEOMETRY_COUNT, VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) + 1);
+	}
+
+	// Set HUD mode
+	if (is2D && (VR_GetConfig(VR_CONFIG_MODE) != VR_MODE_FLAT_SCREEN)) {
+		float scale = 0.5f;
+		render_->SetUniformF1(&u_scaleX, scale);
+		render_->SetUniformF1(&u_scaleY, scale / 16.0f * 9.0f);
+	} else {
+		render_->SetUniformF1(&u_scaleX, 1.0f);
+		render_->SetUniformF1(&u_scaleY, 1.0f);
 	}
 #endif
 
