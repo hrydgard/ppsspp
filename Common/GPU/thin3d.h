@@ -533,6 +533,7 @@ struct DeviceCaps {
 	bool framebufferDepthCopySupported;
 	bool framebufferSeparateDepthCopySupported;
 	bool framebufferDepthBlitSupported;
+	bool framebufferStencilBlitSupported;
 	bool framebufferFetchSupported;
 	bool texture3DSupported;
 

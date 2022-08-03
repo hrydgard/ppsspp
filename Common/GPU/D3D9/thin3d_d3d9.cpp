@@ -664,6 +664,7 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	caps_.framebufferBlitSupported = true;
 	caps_.framebufferCopySupported = false;
 	caps_.framebufferDepthBlitSupported = true;
+	caps_.framebufferStencilBlitSupported = false;
 	caps_.framebufferDepthCopySupported = false;
 	caps_.framebufferSeparateDepthCopySupported = false;
 	caps_.texture3DSupported = true;

@@ -784,6 +784,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	caps_.framebufferBlitSupported = true;
 	caps_.framebufferCopySupported = true;
 	caps_.framebufferDepthBlitSupported = vulkan->GetDeviceInfo().canBlitToPreferredDepthStencilFormat;
+	caps_.framebufferStencilBlitSupported = caps_.framebufferDepthBlitSupported;
 	caps_.framebufferDepthCopySupported = true;   // Will pretty much always be the case.
 	caps_.framebufferSeparateDepthCopySupported = true;   // Will pretty much always be the case.
 	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;  // TODO: Ask vulkan.

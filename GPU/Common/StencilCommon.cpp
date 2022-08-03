@@ -258,7 +258,7 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 		0.0, 1.0,
 	};
 
-	bool useBlit = draw_->GetDeviceCaps().framebufferDepthBlitSupported;
+	bool useBlit = draw_->GetDeviceCaps().framebufferStencilBlitSupported;
 
 	// Our fragment shader (and discard) is slow.  Since the source is 1x, we can stencil to 1x.
 	// Then after we're done, we'll just blit it across and stretch it there. Not worth doing
