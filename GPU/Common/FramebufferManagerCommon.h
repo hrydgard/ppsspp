@@ -363,7 +363,12 @@ protected:
 	virtual void DecimateFBOs();  // keeping it virtual to let D3D do a little extra
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
-	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag) = 0;
+	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag);
+
+	void BlitUsingRaster(
+		Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
+		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2, bool linearFilter);
+
 	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags);
 
 	void EstimateDrawingSize(u32 fb_address, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int fb_stride, int &drawing_width, int &drawing_height);

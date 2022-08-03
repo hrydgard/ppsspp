@@ -54,10 +54,6 @@ protected:
 private:
 	void Bind2DShader() override;
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
-	void SimpleBlit(
-		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
-		Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
-		bool linearFilter);
 
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;

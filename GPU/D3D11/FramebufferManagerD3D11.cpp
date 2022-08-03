@@ -198,41 +198,6 @@ static void CopyPixelDepthOnly(u32 *dstp, const u32 *srcp, size_t c) {
 	}
 }
 
-void FramebufferManagerD3D11::SimpleBlit(
-	Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
-	Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2, bool linearFilter) {
-
-	int destW, destH, srcW, srcH;
-	draw_->GetFramebufferDimensions(src, &srcW, &srcH);
-	draw_->GetFramebufferDimensions(dest, &destW, &destH);
-
-	if (srcW == destW && srcH == destH && destX2 - destX1 == srcX2 - srcX1 && destY2 - destY1 == srcY2 - srcY1) {
-		// Optimize to a copy
-		draw_->CopyFramebufferImage(src, 0, (int)srcX1, (int)srcY1, 0, dest, 0, (int)destX1, (int)destY1, 0, (int)(srcX2 - srcX1), (int)(srcY2 - srcY1), 1, Draw::FB_COLOR_BIT, "SimpleBlit");
-		return;
-	}
-
-	float dX = 1.0f / (float)destW;
-	float dY = 1.0f / (float)destH;
-	float sX = 1.0f / (float)srcW;
-	float sY = 1.0f / (float)srcH;
-	Draw2DVertex vtx[4] = {
-		{ -1.0f + 2.0f * dX * destX1, -(1.0f - 2.0f * dY * destY1), sX * srcX1, sY * srcY1 },
-		{ -1.0f + 2.0f * dX * destX2, -(1.0f - 2.0f * dY * destY1), sX * srcX2, sY * srcY1 },
-		{ -1.0f + 2.0f * dX * destX1, -(1.0f - 2.0f * dY * destY2), sX * srcX1, sY * srcY2 },
-		{ -1.0f + 2.0f * dX * destX2, -(1.0f - 2.0f * dY * destY2), sX * srcX2, sY * srcY2 },
-	};
-
-	// Unbind the texture first to avoid the D3D11 hazard check (can't set render target to things bound as textures and vice versa, not even temporarily).
-	draw_->BindTexture(0, nullptr);
-	draw_->BindFramebufferAsRenderTarget(dest, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "SimpleBlit");
-	draw_->BindFramebufferAsTexture(src, 0, Draw::FB_COLOR_BIT, 0);
-
-	DrawStrip2D(nullptr, vtx, 4, linearFilter);
-
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
-}
-
 void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag) {
 	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 		// This can happen if they recently switched from non-buffered.
