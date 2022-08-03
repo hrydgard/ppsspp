@@ -32,12 +32,6 @@ void DrawBuffer::Init(Draw::DrawContext *t3d, Draw::Pipeline *pipeline) {
 
 	draw_ = t3d;
 	inited_ = true;
-
-	if (pipeline->RequiresBuffer()) {
-		vbuf_ = draw_->CreateBuffer(MAX_VERTS * sizeof(Vertex), BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
-	} else {
-		vbuf_ = nullptr;
-	}
 }
 
 Draw::InputLayout *DrawBuffer::CreateInputLayout(Draw::DrawContext *t3d) {
@@ -57,10 +51,6 @@ Draw::InputLayout *DrawBuffer::CreateInputLayout(Draw::DrawContext *t3d) {
 }
 
 void DrawBuffer::Shutdown() {
-	if (vbuf_) {
-		vbuf_->Release();
-		vbuf_ = nullptr;
-	}
 	inited_ = false;
 	alphaStack_.clear();
 	drawMatrixStack_.clear();
@@ -90,14 +80,7 @@ void DrawBuffer::Flush(bool set_blend_state) {
 	ub.tint = tint_;
 	ub.saturation = saturation_;
 	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
-	if (vbuf_) {
-		draw_->UpdateBuffer(vbuf_, (const uint8_t *)verts_, 0, sizeof(Vertex) * count_, Draw::UPDATE_DISCARD);
-		draw_->BindVertexBuffers(0, 1, &vbuf_, nullptr);
-		int offset = 0;
-		draw_->Draw(count_, offset);
-	} else {
-		draw_->DrawUP((const void *)verts_, count_);
-	}
+	draw_->DrawUP((const void *)verts_, count_);
 	count_ = 0;
 }
 

@@ -207,7 +207,7 @@ void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float
 		coord[i].pos.y = -(coord[i].pos.y * invDestH - 1.0f);
 	}
 
-	if (g_display_rotation != DisplayRotation::ROTATE_0) {
+	if ((flags & DRAWTEX_TO_BACKBUFFER) && g_display_rotation != DisplayRotation::ROTATE_0) {
 		for (int i = 0; i < 4; i++) {
 			// backwards notation, should fix that...
 			coord[i].pos = coord[i].pos * g_display_rot_matrix;

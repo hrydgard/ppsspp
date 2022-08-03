@@ -162,6 +162,11 @@ void ShaderWriter::BeginVSMain(Slice<InputDef> inputs, Slice<UniformDef> uniform
 		if (lang_.shaderLanguage == HLSL_D3D11) {
 			C("uint gl_VertexIndex : SV_VertexID, ");
 		}
+		// List the inputs.
+		for (auto &input : inputs) {
+			F("in %s %s : %s, ", input.type, input.name, input.semantic);
+		}
+
 		Rewind(2);  // Get rid of the last comma.
 		C(") {\n");
 		C("  vec4 gl_Position;\n");
@@ -171,13 +176,23 @@ void ShaderWriter::BeginVSMain(Slice<InputDef> inputs, Slice<UniformDef> uniform
 		break;
 	}
 	case GLSL_VULKAN:
+	{
+		int i = 0;
+		for (auto &input : inputs) {
+			F("layout(location = %d) in %s %s;\n", i, input.type, input.name);
+			i++;
+		}
 		for (auto &varying : varyings) {
 			F("layout(location = %d) %s out %s %s;  // %s\n",
 				varying.index, varying.precision ? varying.precision : "", varying.type, varying.name, varying.semantic);
 		}
 		C("void main() {\n");
 		break;
+	}
 	default:  // OpenGL
+		for (auto &input : inputs) {
+			F("in %s %s;\n", input.type, input.name);
+		}
 		for (auto &varying : varyings) {
 			F("%s %s %s %s;  // %s (%d)\n", lang_.varying_vs, varying.precision ? varying.precision : "", varying.type, varying.name, varying.semantic, varying.index);
 		}
@@ -191,10 +206,15 @@ void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> var
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
 		if (!uniforms.is_empty()) {
+			C("cbuffer base : register(b0) {\n");
+
 			for (auto &uniform : uniforms) {
-				//F("  %s %s : %s;\n", uniform.type, uniform.name, uniform.index);
+				F("  %s %s;\n", uniform.type, uniform.name);
 			}
+
+			C("};\n");
 		}
+
 		// Let's do the varyings as parameters to main, no struct.
 		C("vec4 main(");
 		for (auto &varying : varyings) {
@@ -224,11 +244,22 @@ void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> var
 			F("layout(location = %d) %s in %s %s;  // %s\n", varying.index, varying.precision ? varying.precision : "", varying.type, varying.name,  varying.semantic);
 		}
 		C("layout(location = 0, index = 0) out vec4 fragColor0;\n");
+		if (!uniforms.is_empty()) {
+			C("layout(std140, set = 0, binding = 0) uniform bufferVals {\n");
+			for (auto &uniform : uniforms) {
+				F("%s %s;\n", uniform.type, uniform.name);
+			}
+			C("};\n");
+		}
 		C("\nvoid main() {\n");
 		break;
-	default:
+
+	default:  // GLSL OpenGL
 		for (auto &varying : varyings) {
 			F("%s %s %s %s;  // %s\n", lang_.varying_fs, varying.precision ? varying.precision : "", varying.type, varying.name, varying.semantic);
+		}
+		for (auto &uniform : uniforms) {
+			F("uniform %s %s;\n", uniform.type, uniform.name);
 		}
 		if (!strcmp(lang_.fragColor0, "fragColor0")) {
 			C("out vec4 fragColor0;\n");
@@ -284,6 +315,7 @@ void ShaderWriter::DeclareTexture2D(const char *name, int binding) {
 		F("Texture2D<float4> %s : register(t%d);\n", name, binding);
 		break;
 	case HLSL_D3D9:
+		F("sampler %s: register(s%d);\n", name, binding);
 		break;
 	case GLSL_VULKAN:
 		// In the thin3d descriptor set layout, textures start at 1 in set 0. Hence the +1.

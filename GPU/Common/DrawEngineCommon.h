@@ -35,6 +35,16 @@ enum {
 	DECODED_INDEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 16,
 };
 
+enum {
+	TEX_SLOT_PSP_TEXTURE = 0,
+	TEX_SLOT_SHADERBLEND_SRC = 1,
+	TEX_SLOT_ALPHATEST = 2,
+	TEX_SLOT_CLUT = 3,
+	TEX_SLOT_SPLINE_POINTS = 4,
+	TEX_SLOT_SPLINE_WEIGHTS_U = 5,
+	TEX_SLOT_SPLINE_WEIGHTS_V = 6,
+};
+
 inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode) {
 	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
 	// into the top of the verttype where there are unused bits.

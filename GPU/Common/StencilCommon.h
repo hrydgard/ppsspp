@@ -2,6 +2,8 @@
 
 #include "Common/CommonTypes.h"
 
-u8 StencilBits8888(const u8 *ptr8, u32 numPixels);
-u8 StencilBits4444(const u8 *ptr8, u32 numPixels);
-u8 StencilBits5551(const u8 *ptr8, u32 numPixels);
+#include "Common/GPU/thin3d.h"
+
+// Exposed for automated tests
+void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw::Bugs &bugs);
+void GenerateStencilVs(char *buffer, const ShaderLanguageDesc &lang);

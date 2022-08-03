@@ -23,6 +23,7 @@
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/D3D9/D3D9StateCache.h"
+#include "Common/StringUtils.h"
 
 #include "Common/Log.h"
 
@@ -271,9 +272,6 @@ class D3D9Pipeline : public Pipeline {
 public:
 	D3D9Pipeline() {}
 	~D3D9Pipeline() {
-	}
-	bool RequiresBuffer() override {
-		return false;
 	}
 
 	D3D9ShaderModule *vshader;
@@ -666,6 +664,7 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	caps_.framebufferBlitSupported = true;
 	caps_.framebufferCopySupported = false;
 	caps_.framebufferDepthBlitSupported = true;
+	caps_.framebufferStencilBlitSupported = false;
 	caps_.framebufferDepthCopySupported = false;
 	caps_.framebufferSeparateDepthCopySupported = false;
 	caps_.texture3DSupported = true;
@@ -1065,6 +1064,10 @@ bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, si
 			// No D3D9-compatible shader compiler installed.
 			error = "D3D9 shader compiler not installed";
 		}
+
+		ERROR_LOG(G3D, "Compile error: %s", error);
+		ERROR_LOG(G3D, "%s", LineNumberString(std::string((const char *)data)).c_str());
+
 		OutputDebugStringA(source);
 		OutputDebugStringA(error);
 		if (errorBuffer)
