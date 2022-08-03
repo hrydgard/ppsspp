@@ -41,7 +41,6 @@ public:
 	void SetShaderManager(ShaderManagerVulkan *sm);
 	void SetDrawEngine(DrawEngineVulkan *td);
 	void SetVulkan2D(Vulkan2D *vk2d) { vulkan2D_ = vk2d; }
-	void SetPushBuffer(VulkanPushBuffer *push) { push_ = push; }
 
 	void BeginFrameVulkan();  // there's a BeginFrame in the base class, which this calls
 	void EndFrame();
@@ -53,38 +52,7 @@ public:
 	// do that.
 	void NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth);
 
-protected:
-	void Bind2DShader() override;
-
-	// Used by ReadFramebufferToMemory and later framebuffer block copies
-	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag) override;
-
 private:
-	void InitDeviceObjects();
-	void DestroyDeviceObjects();
-
-	// Used to keep track of command buffers here but have moved all that into Thin3D.
-
-	VulkanPushBuffer *push_;
-
-	enum {
-		MAX_COMMAND_BUFFERS = 32,
-	};
-
-	VkPipelineCache pipelineCache2D_;
-
-	// Basic shaders
-	VkShaderModule fsBasicTex_ = VK_NULL_HANDLE;
-	VkShaderModule vsBasicTex_ = VK_NULL_HANDLE;
-
-	VkShaderModule stencilVs_ = VK_NULL_HANDLE;
-	VkShaderModule stencilFs_ = VK_NULL_HANDLE;
-
-	VkPipeline cur2DPipeline_ = VK_NULL_HANDLE;
-
-	VkSampler linearSampler_;
-	VkSampler nearestSampler_;
-
 	// Simple 2D drawing engine.
 	Vulkan2D *vulkan2D_;
 };

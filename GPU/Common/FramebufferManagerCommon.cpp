@@ -978,7 +978,6 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	Draw::Texture *pixelsTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 	if (pixelsTex) {
 		draw_->BindTextures(0, 1, &pixelsTex);
-		Bind2DShader();
 		DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
 		gpuStats.numUploads++;
 		pixelsTex->Release();
@@ -1460,7 +1459,6 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	if (old.fbo) {
 		INFO_LOG(FRAMEBUF, "Resizing FBO for %08x : %dx%dx%s", vfb->fb_address, w, h, GeBufferFormatToString(vfb->format));
 		if (vfb->fbo) {
-			// TODO: Swap the order of the below? That way we can avoid the needGLESRebinds_ check below I think.
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "ResizeFramebufFBO");
 			if (!skipCopy) {
 				// TODO: In this case, it'll nearly always be better to draw the old framebuffer to the new one than to do an actual blit.
@@ -2391,6 +2389,7 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 			}
 		}
 
+		draw_->InvalidateCachedState();
 		textureCache_->ForgetLastTexture();
 		RebindFramebuffer("RebindFramebuffer - ReadFramebufferToMemory");
 	}
@@ -2445,6 +2444,7 @@ void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 lo
 }
 
 void FramebufferManagerCommon::RebindFramebuffer(const char *tag) {
+	draw_->InvalidateCachedState();
 	shaderManager_->DirtyLastShader();
 	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
 		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, tag);
@@ -2559,4 +2559,136 @@ void FramebufferManagerCommon::DrawActiveTexture(float x, float y, float w, floa
 	DrawStrip2D(nullptr, coord, 4, (flags & DRAWTEX_LINEAR) != 0);
 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
+}
+
+void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag) {
+	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
+		// This can happen if they recently switched from non-buffered.
+		if (useBufferedRendering_) {
+			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "BlitFramebuffer");
+		}
+		return;
+	}
+
+	// Perform a little bit of clipping first.
+	// Block transfer coords are unsigned so I don't think we need to clip on the left side.. Although there are
+	// other uses for BlitFramebuffer.
+	if (dstX + w > dst->bufferWidth) {
+		w -= dstX + w - dst->bufferWidth;
+	}
+	if (dstY + h > dst->bufferHeight) {
+		h -= dstY + h - dst->bufferHeight;
+	}
+	if (srcX + w > src->bufferWidth) {
+		w -= srcX + w - src->bufferWidth;
+	}
+	if (srcY + h > src->bufferHeight) {
+		h -= srcY + h - src->bufferHeight;
+	}
+
+	if (w <= 0 || h <= 0) {
+		// The whole rectangle got clipped.
+		return;
+	}
+
+	bool useBlit = draw_->GetDeviceCaps().framebufferBlitSupported;
+	bool useCopy = draw_->GetDeviceCaps().framebufferCopySupported;
+	if (dst == currentRenderVfb_) {
+		// If already bound, using either a blit or a copy is unlikely to be an optimization.
+		// So we're gonna use a raster draw instead.
+		useBlit = false;
+		useCopy = false;
+	}
+
+	float srcXFactor = src->renderScaleFactor;
+	float srcYFactor = src->renderScaleFactor;
+	const int srcBpp = src->format == GE_FORMAT_8888 ? 4 : 2;
+	if (srcBpp != bpp && bpp != 0) {
+		srcXFactor = (srcXFactor * bpp) / srcBpp;
+	}
+	int srcX1 = srcX * srcXFactor;
+	int srcX2 = (srcX + w) * srcXFactor;
+	int srcY1 = srcY * srcYFactor;
+	int srcY2 = (srcY + h) * srcYFactor;
+
+	float dstXFactor = dst->renderScaleFactor;
+	float dstYFactor = dst->renderScaleFactor;
+	const int dstBpp = dst->format == GE_FORMAT_8888 ? 4 : 2;
+	if (dstBpp != bpp && bpp != 0) {
+		dstXFactor = (dstXFactor * bpp) / dstBpp;
+	}
+	int dstX1 = dstX * dstXFactor;
+	int dstX2 = (dstX + w) * dstXFactor;
+	int dstY1 = dstY * dstYFactor;
+	int dstY2 = (dstY + h) * dstYFactor;
+
+	if (src == dst && srcX == dstX && srcY == dstY) {
+		// Let's just skip a copy where the destination is equal to the source.
+		WARN_LOG_REPORT_ONCE(blitSame, G3D, "Skipped blit with equal dst and src");
+		return;
+	}
+
+	if (useCopy) {
+		// glBlitFramebuffer can clip, but glCopyImageSubData is more restricted.
+		// In case the src goes outside, we just skip the optimization in that case.
+		const bool sameSize = dstX2 - dstX1 == srcX2 - srcX1 && dstY2 - dstY1 == srcY2 - srcY1;
+		const bool srcInsideBounds = srcX2 <= src->renderWidth && srcY2 <= src->renderHeight;
+		const bool dstInsideBounds = dstX2 <= dst->renderWidth && dstY2 <= dst->renderHeight;
+		const bool xOverlap = src == dst && srcX2 > dstX1 && srcX1 < dstX2;
+		const bool yOverlap = src == dst && srcY2 > dstY1 && srcY1 < dstY2;
+		if (sameSize && srcInsideBounds && dstInsideBounds && !(xOverlap && yOverlap)) {
+			draw_->CopyFramebufferImage(src->fbo, 0, srcX1, srcY1, 0, dst->fbo, 0, dstX1, dstY1, 0, dstX2 - dstX1, dstY2 - dstY1, 1, Draw::FB_COLOR_BIT, tag);
+			return;
+		}
+	}
+
+	if (useBlit) {
+		draw_->BlitFramebuffer(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST, tag);
+	} else {
+		Draw::Framebuffer *srcFBO = src->fbo;
+		if (src == dst) {
+			Draw::Framebuffer *tempFBO = GetTempFBO(TempFBO::BLIT, src->renderWidth, src->renderHeight);
+			BlitUsingRaster(src->fbo, srcX1, srcY1, srcX2, srcY2, tempFBO, dstX1, dstY1, dstX2, dstY2, false);
+			srcFBO = tempFBO;
+		}
+		BlitUsingRaster(srcFBO, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, false);
+	}
+
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE);
+}
+
+void FramebufferManagerCommon::BlitUsingRaster(
+	Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
+	Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
+	bool linearFilter) {
+
+	int destW, destH, srcW, srcH;
+	draw_->GetFramebufferDimensions(src, &srcW, &srcH);
+	draw_->GetFramebufferDimensions(dest, &destW, &destH);
+
+	if (srcW == destW && srcH == destH && destX2 - destX1 == srcX2 - srcX1 && destY2 - destY1 == srcY2 - srcY1) {
+		// Optimize to a copy
+		draw_->CopyFramebufferImage(src, 0, (int)srcX1, (int)srcY1, 0, dest, 0, (int)destX1, (int)destY1, 0, (int)(srcX2 - srcX1), (int)(srcY2 - srcY1), 1, Draw::FB_COLOR_BIT, "BlitUsingRaster");
+		return;
+	}
+
+	float dX = 1.0f / (float)destW;
+	float dY = 1.0f / (float)destH;
+	float sX = 1.0f / (float)srcW;
+	float sY = 1.0f / (float)srcH;
+	Draw2DVertex vtx[4] = {
+		{ -1.0f + 2.0f * dX * destX1, -(1.0f - 2.0f * dY * destY1), sX * srcX1, sY * srcY1 },
+		{ -1.0f + 2.0f * dX * destX2, -(1.0f - 2.0f * dY * destY1), sX * srcX2, sY * srcY1 },
+		{ -1.0f + 2.0f * dX * destX1, -(1.0f - 2.0f * dY * destY2), sX * srcX1, sY * srcY2 },
+		{ -1.0f + 2.0f * dX * destX2, -(1.0f - 2.0f * dY * destY2), sX * srcX2, sY * srcY2 },
+	};
+
+	// Unbind the texture first to avoid the D3D11 hazard check (can't set render target to things bound as textures and vice versa, not even temporarily).
+	draw_->BindTexture(0, nullptr);
+	draw_->BindFramebufferAsRenderTarget(dest, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "BlitUsingRaster");
+	draw_->BindFramebufferAsTexture(src, 0, Draw::FB_COLOR_BIT, 0);
+
+	DrawStrip2D(nullptr, vtx, 4, linearFilter);
+
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }

@@ -56,11 +56,7 @@ public:
 	LPDIRECT3DSURFACE9 GetOffscreenSurface(D3DFORMAT fmt, u32 w, u32 h);
 
 protected:
-	void Bind2DShader() override;
 	void DecimateFBOs() override;
-
-	// Used by ReadFramebufferToMemory and later framebuffer block copies
-	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag) override;
 
 private:
 	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) override;
@@ -70,16 +66,6 @@ private:
 	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DDEVICE9 deviceEx_;
 
-	LPDIRECT3DVERTEXSHADER9 pFramebufferVertexShader = nullptr;
-	LPDIRECT3DPIXELSHADER9 pFramebufferPixelShader = nullptr;
-	LPDIRECT3DVERTEXDECLARATION9 pFramebufferVertexDecl = nullptr;
-
-	LPDIRECT3DPIXELSHADER9 stencilUploadPS_ = nullptr;
-	LPDIRECT3DVERTEXSHADER9 stencilUploadVS_ = nullptr;
-	bool stencilUploadFailed_ = false;
-
-	LPDIRECT3DTEXTURE9 nullTex_ = nullptr;
-	
 	struct OffscreenSurface {
 		LPDIRECT3DSURFACE9 surface;
 		int last_frame_used;
@@ -88,4 +74,4 @@ private:
 	std::unordered_map<u64, OffscreenSurface> offscreenSurfaces_;
 };
 
-};
+}

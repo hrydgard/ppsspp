@@ -47,97 +47,20 @@
 
 namespace DX9 {
 
-static const char *vscode = R"(
-struct VS_IN {
-	float4 ObjPos   : POSITION;
-	float2 Uv    : TEXCOORD0;
-};
-struct VS_OUT {
-	float4 ProjPos  : POSITION;
-	float2 Uv    : TEXCOORD0;
-};
-VS_OUT main( VS_IN In ) {
-	VS_OUT Out;
-	Out.ProjPos = In.ObjPos;
-	Out.Uv = In.Uv;
-	return Out;
-}
-)";
-
-static const char *pscode = R"(
-sampler s: register(s0);
-struct PS_IN {
-	float2 Uv : TEXCOORD0;
-};
-float4 main( PS_IN In ) : COLOR {
-	float4 c =  tex2D(s, In.Uv);
-	return c;
-}
-)";
-
-static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
-	{ 0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
-	{ 0, 12, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
-	D3DDECL_END()
-};
-
 	FramebufferManagerDX9::FramebufferManagerDX9(Draw::DrawContext *draw)
 		: FramebufferManagerCommon(draw) {
 
 		device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 		deviceEx_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
-		std::string errorMsg;
-		if (!CompileVertexShaderD3D9(device_, vscode, &pFramebufferVertexShader, &errorMsg)) {
-			OutputDebugStringA(errorMsg.c_str());
-		}
-
-		if (!CompilePixelShaderD3D9(device_, pscode, &pFramebufferPixelShader, &errorMsg)) {
-			OutputDebugStringA(errorMsg.c_str());
-			if (pFramebufferVertexShader) {
-				pFramebufferVertexShader->Release();
-			}
-		}
-
-		device_->CreateVertexDeclaration(g_FramebufferVertexElements, &pFramebufferVertexDecl);
-
-
-		int usage = 0;
-		D3DPOOL pool = D3DPOOL_MANAGED;
-		if (deviceEx_) {
-			pool = D3DPOOL_DEFAULT;
-			usage = D3DUSAGE_DYNAMIC;
-		}
-		HRESULT hr = device_->CreateTexture(1, 1, 1, usage, D3DFMT_A8R8G8B8, pool, &nullTex_, nullptr);
-		D3DLOCKED_RECT rect;
-		nullTex_->LockRect(0, &rect, nullptr, D3DLOCK_DISCARD);
-		memset(rect.pBits, 0, 4);
-		nullTex_->UnlockRect(0);
 
 		presentation_->SetLanguage(HLSL_D3D9);
 		preferredPixelsFormat_ = Draw::DataFormat::B8G8R8A8_UNORM;
 	}
 
 	FramebufferManagerDX9::~FramebufferManagerDX9() {
-		if (pFramebufferVertexShader) {
-			pFramebufferVertexShader->Release();
-			pFramebufferVertexShader = nullptr;
-		}
-		if (pFramebufferPixelShader) {
-			pFramebufferPixelShader->Release();
-			pFramebufferPixelShader = nullptr;
-		}
-		pFramebufferVertexDecl->Release();
 		for (auto &it : offscreenSurfaces_) {
 			it.second.surface->Release();
 		}
-		if (stencilUploadPS_) {
-			stencilUploadPS_->Release();
-		}
-		if (stencilUploadVS_) {
-			stencilUploadVS_->Release();
-		}
-		if (nullTex_)
-			nullTex_->Release();
 	}
 
 	void FramebufferManagerDX9::SetTextureCache(TextureCacheDX9 *tc) {
@@ -150,12 +73,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 
 	void FramebufferManagerDX9::SetDrawEngine(DrawEngineDX9 *td) {
 		drawEngine_ = td;
-	}
-
-	void FramebufferManagerDX9::Bind2DShader() {
-		device_->SetVertexDeclaration(pFramebufferVertexDecl);
-		device_->SetPixelShader(pFramebufferPixelShader);
-		device_->SetVertexShader(pFramebufferVertexShader);
 	}
 
 	LPDIRECT3DSURFACE9 FramebufferManagerDX9::GetOffscreenSurface(LPDIRECT3DSURFACE9 similarSurface, VirtualFramebuffer *vfb) {
@@ -187,57 +104,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		const OffscreenSurface info = {offscreen, gpuStats.numFlips};
 		offscreenSurfaces_[key] = info;
 		return offscreen;
-	}
-
-	void FramebufferManagerDX9::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag) {
-		if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
-			// This can happen if we recently switched from non-buffered.
-			if (useBufferedRendering_)
-				draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "BlitFramebuffer_Fail");
-			return;
-		}
-
-		float srcXFactor = (float)src->renderScaleFactor;
-		float srcYFactor = (float)src->renderScaleFactor;
-		const int srcBpp = src->format == GE_FORMAT_8888 ? 4 : 2;
-		if (srcBpp != bpp && bpp != 0) {
-			srcXFactor = (srcXFactor * bpp) / srcBpp;
-		}
-		int srcX1 = srcX * srcXFactor;
-		int srcX2 = (srcX + w) * srcXFactor;
-		int srcY1 = srcY * srcYFactor;
-		int srcY2 = (srcY + h) * srcYFactor;
-
-		float dstXFactor = (float)dst->renderScaleFactor;
-		float dstYFactor = (float)dst->renderScaleFactor;
-		const int dstBpp = dst->format == GE_FORMAT_8888 ? 4 : 2;
-		if (dstBpp != bpp && bpp != 0) {
-			dstXFactor = (dstXFactor * bpp) / dstBpp;
-		}
-		int dstX1 = dstX * dstXFactor;
-		int dstX2 = (dstX + w) * dstXFactor;
-		int dstY1 = dstY * dstYFactor;
-		int dstY2 = (dstY + h) * dstYFactor;
-
-		// Direct3D 9 doesn't support rect -> self.
-		Draw::Framebuffer *srcFBO = src->fbo;
-		if (src == dst) {
-			Draw::Framebuffer *tempFBO = GetTempFBO(TempFBO::BLIT, src->renderWidth, src->renderHeight);
-			bool result = draw_->BlitFramebuffer(
-				src->fbo, srcX1, srcY1, srcX2, srcY2,
-				tempFBO, dstX1, dstY1, dstX2, dstY2,
-				Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST, tag);
-			if (result) {
-				srcFBO = tempFBO;
-			}
-		}
-		bool result = draw_->BlitFramebuffer(
-			srcFBO, srcX1, srcY1, srcX2, srcY2,
-			dst->fbo, dstX1, dstY1, dstX2, dstY2,
-			Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST, tag);
-		if (!result) {
-			ERROR_LOG_REPORT(G3D, "fbo_blit_color failed in blit (%08x -> %08x)", src->fb_address, dst->fb_address);
-		}
 	}
 
 	void ConvertFromBGRA8888(u8 *dst, u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format) {

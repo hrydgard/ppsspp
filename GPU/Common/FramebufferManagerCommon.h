@@ -327,7 +327,6 @@ public:
 			SetColorUpdated(currentRenderVfb_, skipDrawReason);
 		}
 	}
-	void SetRenderSize(VirtualFramebuffer *vfb);
 	void SetSafeSize(u16 w, u16 h);
 
 	virtual void Resized();
@@ -354,7 +353,6 @@ protected:
 	void SetViewport2D(int x, int y, int w, int h);
 	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags);
-	virtual void Bind2DShader() = 0;
 
 	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter);
 
@@ -364,7 +362,12 @@ protected:
 	virtual void DecimateFBOs();  // keeping it virtual to let D3D do a little extra
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
-	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag) = 0;
+	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag);
+
+	void BlitUsingRaster(
+		Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
+		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2, bool linearFilter);
+
 	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags);
 
 	void EstimateDrawingSize(u32 fb_address, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int fb_stride, int &drawing_width, int &drawing_height);
@@ -442,7 +445,6 @@ protected:
 	int pixelHeight_;
 	int bloomHack_ = 0;
 
-	bool needGLESRebinds_ = false;
 	Draw::DataFormat preferredPixelsFormat_ = Draw::DataFormat::R8G8B8A8_UNORM;
 
 	struct TempFBOInfo {
