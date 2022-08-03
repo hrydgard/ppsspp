@@ -56,9 +56,6 @@ public:
 protected:
 	void Bind2DShader() override;
 
-	// Used by ReadFramebufferToMemory and later framebuffer block copies
-	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag) override;
-
 private:
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();

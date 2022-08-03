@@ -2570,10 +2570,32 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 		return;
 	}
 
+	// Perform a little bit of clipping first.
+	// Block transfer coords are unsigned so I don't think we need to clip on the left side.. Although there are
+	// other uses for BlitFramebuffer.
+	if (dstX + w > dst->bufferWidth) {
+		w -= dstX + w - dst->bufferWidth;
+	}
+	if (dstY + h > dst->bufferHeight) {
+		h -= dstY + h - dst->bufferHeight;
+	}
+	if (srcX + w > src->bufferWidth) {
+		w -= srcX + w - src->bufferWidth;
+	}
+	if (srcY + h > src->bufferHeight) {
+		h -= srcY + h - src->bufferHeight;
+	}
+
+	if (w <= 0 || h <= 0) {
+		// The whole rectangle got clipped.
+		return;
+	}
+
 	bool useBlit = draw_->GetDeviceCaps().framebufferBlitSupported;
 	bool useCopy = draw_->GetDeviceCaps().framebufferCopySupported;
 	if (dst == currentRenderVfb_) {
 		// If already bound, using either a blit or a copy is unlikely to be an optimization.
+		// So we're gonna use a raster draw instead.
 		useBlit = false;
 		useCopy = false;
 	}
