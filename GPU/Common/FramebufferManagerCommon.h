@@ -29,11 +29,11 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
-#include "Core/MemMap.h"
+#include "Common/GPU/thin3d.h"
 #include "GPU/GPU.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUInterface.h"
-#include "Common/GPU/thin3d.h"
+#include "GPU/Common/Draw2D.h"
 
 enum {
 	FB_USAGE_DISPLAYED_FRAMEBUFFER = 1,
@@ -357,6 +357,8 @@ protected:
 	virtual void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) = 0;
 	virtual void Bind2DShader() = 0;
 
+	void Draw2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, float viewportWidth, float viewportHeight);
+
 	bool UpdateSize();
 
 	void FlushBeforeCopy();
@@ -473,4 +475,10 @@ protected:
 	Draw::ShaderModule *stencilUploadVs_ = nullptr;
 	Draw::ShaderModule *stencilUploadFs_ = nullptr;
 	Draw::SamplerState *stencilUploadSampler_ = nullptr;
+
+	// Draw2D pipelines
+	Draw::Pipeline *draw2DPipelineLinear_ = nullptr;
+	Draw::SamplerState *draw2DSamplerLinear_ = nullptr;
+	Draw::ShaderModule *draw2DVs_ = nullptr;
+	Draw::ShaderModule *draw2DFs_ = nullptr;
 };

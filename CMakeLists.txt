@@ -1529,6 +1529,8 @@ endif()
 set(GPU_SOURCES
 	${GPU_IMPLS}
 	${GPU_NEON}
+	GPU/Common/Draw2D.cpp
+	GPU/Common/Draw2D.h
 	GPU/Common/DepalettizeShaderCommon.cpp
 	GPU/Common/DepalettizeShaderCommon.h
 	GPU/Common/FragmentShaderGenerator.cpp
