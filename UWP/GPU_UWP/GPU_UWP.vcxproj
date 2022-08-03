@@ -380,6 +380,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\GPU\Common\DepalettizeShaderCommon.h" />
+    <ClInclude Include="..\..\GPU\Common\Draw2D.h" />
     <ClInclude Include="..\..\GPU\Common\DrawEngineCommon.h" />
     <ClInclude Include="..\..\GPU\Common\FragmentShaderGenerator.h" />
     <ClInclude Include="..\..\GPU\Common\FramebufferManagerCommon.h" />
@@ -439,6 +440,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\GPU\Common\DepalettizeShaderCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\Draw2D.cpp" />
     <ClCompile Include="..\..\GPU\Common\DrawEngineCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\FragmentShaderGenerator.cpp" />
     <ClCompile Include="..\..\GPU\Common\FramebufferManagerCommon.cpp" />
