@@ -152,66 +152,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		drawEngine_ = td;
 	}
 
-	void FramebufferManagerDX9::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {
-		// TODO: StretchRect instead when possible?
-		float coord[20] = {
-			x,y,0, u0,v0,
-			x+w,y,0, u1,v0,
-			x+w,y+h,0, u1,v1,
-			x,y+h,0, u0,v1,
-		};
-
-		if (uvRotation != ROTATION_LOCKED_HORIZONTAL) {
-			float temp[8];
-			int rotation = 0;
-			switch (uvRotation) {
-			case ROTATION_LOCKED_HORIZONTAL180: rotation = 2; break;
-			case ROTATION_LOCKED_VERTICAL: rotation = 1; break;
-			case ROTATION_LOCKED_VERTICAL180: rotation = 3; break;
-			}
-
-			for (int i = 0; i < 4; i++) {
-				temp[i * 2] = coord[((i + rotation) & 3) * 5 + 3];
-				temp[i * 2 + 1] = coord[((i + rotation) & 3) * 5 + 4];
-			}
-
-			for (int i = 0; i < 4; i++) {
-				coord[i * 5 + 3] = temp[i * 2];
-				coord[i * 5 + 4] = temp[i * 2 + 1];
-			}
-		}
-
-		float invDestW = 1.0f / (destW * 0.5f);
-		float invDestH = 1.0f / (destH * 0.5f);
-		float halfPixelX = invDestW * 0.5f;
-		float halfPixelY = invDestH * 0.5f;
-		for (int i = 0; i < 4; i++) {
-			coord[i * 5] = coord[i * 5] * invDestW - 1.0f - halfPixelX;
-			coord[i * 5 + 1] = -(coord[i * 5 + 1] * invDestH - 1.0f - halfPixelY);
-		}
-
-		if (flags & DRAWTEX_LINEAR) {
-			dxstate.texMagFilter.set(D3DTEXF_LINEAR);
-			dxstate.texMinFilter.set(D3DTEXF_LINEAR);
-		} else {
-			dxstate.texMagFilter.set(D3DTEXF_POINT);
-			dxstate.texMinFilter.set(D3DTEXF_POINT);
-		}
-		dxstate.texMipLodBias.set(0.0f);
-		dxstate.texMaxMipLevel.set(0);
-		dxstate.blend.disable();
-		dxstate.cullMode.set(D3DCULL_NONE);
-		dxstate.depthTest.disable();
-		dxstate.scissorTest.disable();
-		dxstate.stencilTest.disable();
-		dxstate.colorMask.set(0xF);
-		dxstate.stencilWriteMask.set(0xFF);
-		HRESULT hr = device_->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
-		if (FAILED(hr)) {
-			ERROR_LOG_REPORT(G3D, "DrawActiveTexture() failed: %08x", (uint32_t)hr);
-		}
-	}
-
 	void FramebufferManagerDX9::Bind2DShader() {
 		device_->SetVertexDeclaration(pFramebufferVertexDecl);
 		device_->SetPixelShader(pFramebufferPixelShader);
