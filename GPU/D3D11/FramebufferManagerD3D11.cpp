@@ -43,65 +43,16 @@
 #include <emmintrin.h>
 #endif
 
-static const char *vscode =
-	"struct VS_IN {\n"
-	"  float4 ObjPos   : POSITION;\n"
-	"  float2 Uv    : TEXCOORD0;\n"
-	"};\n"
-	"struct VS_OUT {\n"
-	"  float2 Uv    : TEXCOORD0;\n"
-	"  float4 ProjPos  : SV_Position;\n"
-	"};\n"
-	"VS_OUT main(VS_IN In) {\n"
-	"  VS_OUT Out;\n"
-	"  Out.ProjPos = In.ObjPos;\n"
-	"  Out.Uv = In.Uv;\n"
-	"  return Out;\n"
-	"}\n";
-
-static const char *pscode =
-	"SamplerState samp : register(s0);\n"
-	"Texture2D<float4> tex : register(t0);\n"
-	"struct PS_IN {\n"
-	"  float2 Uv : TEXCOORD0;\n"
-	"};\n"
-	"float4 main( PS_IN In ) : SV_Target {\n"
-	"  float4 c = tex.Sample(samp, In.Uv);\n"
-	"  return c;\n"
-	"}\n";
-
-const D3D11_INPUT_ELEMENT_DESC FramebufferManagerD3D11::g_QuadVertexElements[2] = {
-	{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, },
-	{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, },
-};
-
 FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 	: FramebufferManagerCommon(draw) {
 	device_ = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	context_ = (ID3D11DeviceContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 	featureLevel_ = (D3D_FEATURE_LEVEL)draw->GetNativeObject(Draw::NativeObject::FEATURE_LEVEL);
 
-	std::vector<uint8_t> bytecode;
-
-	std::string errorMsg;
-	quadVertexShader_ = CreateVertexShaderD3D11(device_, vscode, strlen(vscode), &bytecode, featureLevel_);
-	quadPixelShader_ = CreatePixelShaderD3D11(device_, pscode, strlen(pscode), featureLevel_);
-	ASSERT_SUCCESS(device_->CreateInputLayout(g_QuadVertexElements, ARRAY_SIZE(g_QuadVertexElements), bytecode.data(), bytecode.size(), &quadInputLayout_));
-
-	// STRIP geometry
-	static const float fsCoord[20] = {
-		-1.0f,-1.0f, 0.0f, 0.0f, 0.0f,
-		 1.0f,-1.0f, 0.0f, 1.0f, 0.0f,
-		-1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
-		 1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-	};
 	D3D11_BUFFER_DESC vb{};
 	vb.ByteWidth = 20 * 4;
 	vb.Usage = D3D11_USAGE_IMMUTABLE;
-	vb.CPUAccessFlags = 0;
 	vb.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	D3D11_SUBRESOURCE_DATA data{ fsCoord };
-	ASSERT_SUCCESS(device_->CreateBuffer(&vb, &data, &fsQuadBuffer_));
 	vb.Usage = D3D11_USAGE_DYNAMIC;
 	vb.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	ASSERT_SUCCESS(device_->CreateBuffer(&vb, nullptr, &quadBuffer_));
@@ -127,13 +78,7 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 
 FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 	// Drawing cleanup
-	if (quadVertexShader_)
-		quadVertexShader_->Release();
-	if (quadPixelShader_)
-		quadPixelShader_->Release();
-	quadInputLayout_->Release();
 	quadBuffer_->Release();
-	fsQuadBuffer_->Release();
 
 	// Stencil cleanup
 	for (int i = 0; i < 256; i++) {
@@ -165,12 +110,6 @@ void FramebufferManagerD3D11::SetShaderManager(ShaderManagerD3D11 *sm) {
 
 void FramebufferManagerD3D11::SetDrawEngine(DrawEngineD3D11 *td) {
 	drawEngine_ = td;
-}
-
-void FramebufferManagerD3D11::Bind2DShader() {
-	context_->IASetInputLayout(quadInputLayout_);
-	context_->PSSetShader(quadPixelShader_, 0, 0);
-	context_->VSSetShader(quadVertexShader_, 0, 0);
 }
 
 static void CopyPixelDepthOnly(u32 *dstp, const u32 *srcp, size_t c) {

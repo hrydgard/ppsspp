@@ -100,52 +100,10 @@ void FramebufferManagerVulkan::SetDrawEngine(DrawEngineVulkan *td) {
 }
 
 void FramebufferManagerVulkan::InitDeviceObjects() {
-	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
-	std::string fs_errors, vs_errors;
-	fsBasicTex_ = CompileShaderModule(vulkan, VK_SHADER_STAGE_FRAGMENT_BIT, tex_fs, &fs_errors);
-	vsBasicTex_ = CompileShaderModule(vulkan, VK_SHADER_STAGE_VERTEX_BIT, tex_vs, &vs_errors);
-	_assert_(fsBasicTex_ != VK_NULL_HANDLE);
-	_assert_(vsBasicTex_ != VK_NULL_HANDLE);
-
-	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samp.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samp.magFilter = VK_FILTER_NEAREST;
-	samp.minFilter = VK_FILTER_NEAREST;
-	VkResult res = vkCreateSampler(vulkan->GetDevice(), &samp, nullptr, &nearestSampler_);
-	_assert_(res == VK_SUCCESS);
-	samp.magFilter = VK_FILTER_LINEAR;
-	samp.minFilter = VK_FILTER_LINEAR;
-	res = vkCreateSampler(vulkan->GetDevice(), &samp, nullptr, &linearSampler_);
-	_assert_(res == VK_SUCCESS);
 }
 
 void FramebufferManagerVulkan::DestroyDeviceObjects() {
-	if (!draw_)
-		return;
-	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
-	if (fsBasicTex_ != VK_NULL_HANDLE) {
-		vulkan2D_->PurgeFragmentShader(fsBasicTex_);
-		vulkan->Delete().QueueDeleteShaderModule(fsBasicTex_);
-	}
-	if (vsBasicTex_ != VK_NULL_HANDLE) {
-		vulkan2D_->PurgeVertexShader(vsBasicTex_);
-		vulkan->Delete().QueueDeleteShaderModule(vsBasicTex_);
-	}
-	if (stencilFs_ != VK_NULL_HANDLE) {
-		vulkan2D_->PurgeFragmentShader(stencilFs_);
-		vulkan->Delete().QueueDeleteShaderModule(stencilFs_);
-	}
-	if (stencilVs_ != VK_NULL_HANDLE) {
-		vulkan2D_->PurgeVertexShader(stencilVs_);
-		vulkan->Delete().QueueDeleteShaderModule(stencilVs_);
-	}
 
-	if (linearSampler_ != VK_NULL_HANDLE)
-		vulkan->Delete().QueueDeleteSampler(linearSampler_);
-	if (nearestSampler_ != VK_NULL_HANDLE)
-		vulkan->Delete().QueueDeleteSampler(nearestSampler_);
 }
 
 void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {
@@ -168,11 +126,6 @@ void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, boo
 	if (clearDepth) {
 		SetDepthUpdated();
 	}
-}
-
-void FramebufferManagerVulkan::Bind2DShader() {
-	VkRenderPass rp = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::COMPATIBLE_RENDERPASS);
-	cur2DPipeline_ = vulkan2D_->GetPipeline(rp, vsBasicTex_, fsBasicTex_);
 }
 
 void FramebufferManagerVulkan::BeginFrameVulkan() {

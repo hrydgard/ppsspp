@@ -48,22 +48,14 @@ public:
 	}
 
 private:
-	void Bind2DShader() override;
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
 	D3D_FEATURE_LEVEL featureLevel_;
 
-	ID3D11VertexShader *quadVertexShader_;
-	ID3D11PixelShader *quadPixelShader_;
-	ID3D11InputLayout *quadInputLayout_;
 	// Dynamic
 	ID3D11Buffer *quadBuffer_;
-	ID3D11Buffer *fsQuadBuffer_;
-	const UINT quadStride_ = 20;
-	const UINT quadOffset_ = 0;
-	static const D3D11_INPUT_ELEMENT_DESC g_QuadVertexElements[2];
 
 	ID3D11PixelShader *stencilUploadPS_ = nullptr;
 	ID3D11VertexShader *stencilUploadVS_ = nullptr;

@@ -70,33 +70,6 @@ void main() {
 }
 )";
 
-void FramebufferManagerGLES::CompileDraw2DProgram() {
-	if (!draw2dprogram_) {
-		std::string errorString;
-		static std::string vs_code, fs_code;
-		vs_code = ApplyGLSLPrelude(basic_vs, GL_VERTEX_SHADER);
-		fs_code = ApplyGLSLPrelude(tex_fs, GL_FRAGMENT_SHADER);
-		std::vector<GLRShader *> shaders;
-		shaders.push_back(render_->CreateShader(GL_VERTEX_SHADER, vs_code, "draw2d"));
-		shaders.push_back(render_->CreateShader(GL_FRAGMENT_SHADER, fs_code, "draw2d"));
-
-		std::vector<GLRProgram::UniformLocQuery> queries;
-		queries.push_back({ &u_draw2d_tex, "u_tex" });
-		std::vector<GLRProgram::Initializer> initializers;
-		initializers.push_back({ &u_draw2d_tex, 0 });
-		std::vector<GLRProgram::Semantic> semantics;
-		semantics.push_back({ 0, "a_position" });
-		semantics.push_back({ 1, "a_texcoord0" });
-		draw2dprogram_ = render_->CreateProgram(shaders, semantics, queries, initializers, false, false);
-		for (auto shader : shaders)
-			render_->DeleteShader(shader);
-	}
-}
-
-void FramebufferManagerGLES::Bind2DShader() {
-	render_->BindProgram(draw2dprogram_);
-}
-
 FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw, GLRenderManager *render) :
 	FramebufferManagerCommon(draw),
 	render_(render)
@@ -109,7 +82,6 @@ FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw, GLRender
 
 void FramebufferManagerGLES::Init() {
 	FramebufferManagerCommon::Init();
-	CompileDraw2DProgram();
 }
 
 void FramebufferManagerGLES::SetTextureCache(TextureCacheGLES *tc) {
@@ -126,25 +98,9 @@ void FramebufferManagerGLES::SetDrawEngine(DrawEngineGLES *td) {
 }
 
 void FramebufferManagerGLES::CreateDeviceObjects() {
-	CompileDraw2DProgram();
-
-	std::vector<GLRInputLayout::Entry> entries;
-	entries.push_back({ 0, 3, GL_FLOAT, GL_FALSE, sizeof(Simple2DVertex), offsetof(Simple2DVertex, pos) });
-	entries.push_back({ 1, 2, GL_FLOAT, GL_FALSE, sizeof(Simple2DVertex), offsetof(Simple2DVertex, uv) });
-	simple2DInputLayout_ = render_->CreateInputLayout(entries);
 }
 
 void FramebufferManagerGLES::DestroyDeviceObjects() {
-	if (simple2DInputLayout_) {
-		render_->DeleteInputLayout(simple2DInputLayout_);
-		simple2DInputLayout_ = nullptr;
-	}
-
-	if (draw2dprogram_) {
-		render_->DeleteProgram(draw2dprogram_);
-		draw2dprogram_ = nullptr;
-	}
-
 	if (stencilUploadPipeline_) {
 		stencilUploadPipeline_->Release();
 		stencilUploadPipeline_ = nullptr;

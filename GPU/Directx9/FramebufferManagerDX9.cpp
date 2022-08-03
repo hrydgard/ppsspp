@@ -47,59 +47,11 @@
 
 namespace DX9 {
 
-static const char *vscode = R"(
-struct VS_IN {
-	float4 ObjPos   : POSITION;
-	float2 Uv    : TEXCOORD0;
-};
-struct VS_OUT {
-	float4 ProjPos  : POSITION;
-	float2 Uv    : TEXCOORD0;
-};
-VS_OUT main( VS_IN In ) {
-	VS_OUT Out;
-	Out.ProjPos = In.ObjPos;
-	Out.Uv = In.Uv;
-	return Out;
-}
-)";
-
-static const char *pscode = R"(
-sampler s: register(s0);
-struct PS_IN {
-	float2 Uv : TEXCOORD0;
-};
-float4 main( PS_IN In ) : COLOR {
-	float4 c =  tex2D(s, In.Uv);
-	return c;
-}
-)";
-
-static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
-	{ 0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
-	{ 0, 12, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
-	D3DDECL_END()
-};
-
 	FramebufferManagerDX9::FramebufferManagerDX9(Draw::DrawContext *draw)
 		: FramebufferManagerCommon(draw) {
 
 		device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 		deviceEx_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
-		std::string errorMsg;
-		if (!CompileVertexShaderD3D9(device_, vscode, &pFramebufferVertexShader, &errorMsg)) {
-			OutputDebugStringA(errorMsg.c_str());
-		}
-
-		if (!CompilePixelShaderD3D9(device_, pscode, &pFramebufferPixelShader, &errorMsg)) {
-			OutputDebugStringA(errorMsg.c_str());
-			if (pFramebufferVertexShader) {
-				pFramebufferVertexShader->Release();
-			}
-		}
-
-		device_->CreateVertexDeclaration(g_FramebufferVertexElements, &pFramebufferVertexDecl);
-
 
 		int usage = 0;
 		D3DPOOL pool = D3DPOOL_MANAGED;
@@ -118,23 +70,8 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	}
 
 	FramebufferManagerDX9::~FramebufferManagerDX9() {
-		if (pFramebufferVertexShader) {
-			pFramebufferVertexShader->Release();
-			pFramebufferVertexShader = nullptr;
-		}
-		if (pFramebufferPixelShader) {
-			pFramebufferPixelShader->Release();
-			pFramebufferPixelShader = nullptr;
-		}
-		pFramebufferVertexDecl->Release();
 		for (auto &it : offscreenSurfaces_) {
 			it.second.surface->Release();
-		}
-		if (stencilUploadPS_) {
-			stencilUploadPS_->Release();
-		}
-		if (stencilUploadVS_) {
-			stencilUploadVS_->Release();
 		}
 		if (nullTex_)
 			nullTex_->Release();
@@ -150,12 +87,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 
 	void FramebufferManagerDX9::SetDrawEngine(DrawEngineDX9 *td) {
 		drawEngine_ = td;
-	}
-
-	void FramebufferManagerDX9::Bind2DShader() {
-		device_->SetVertexDeclaration(pFramebufferVertexDecl);
-		device_->SetPixelShader(pFramebufferPixelShader);
-		device_->SetVertexShader(pFramebufferVertexShader);
 	}
 
 	LPDIRECT3DSURFACE9 FramebufferManagerDX9::GetOffscreenSurface(LPDIRECT3DSURFACE9 similarSurface, VirtualFramebuffer *vfb) {
