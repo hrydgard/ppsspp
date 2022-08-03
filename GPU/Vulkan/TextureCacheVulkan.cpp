@@ -597,7 +597,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	VkFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
-	if (plan.hardwareScaling) {
+	if (plan.scaleFactor > 1) {
+		// Whether hardware or software scaling, this is the dest format.
 		dstFmt = VULKAN_8888_FORMAT;
 	}
 
