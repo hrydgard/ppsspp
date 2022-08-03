@@ -2390,6 +2390,7 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 			}
 		}
 
+		draw_->InvalidateCachedState();
 		textureCache_->ForgetLastTexture();
 		RebindFramebuffer("RebindFramebuffer - ReadFramebufferToMemory");
 	}
@@ -2444,6 +2445,7 @@ void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 lo
 }
 
 void FramebufferManagerCommon::RebindFramebuffer(const char *tag) {
+	draw_->InvalidateCachedState();
 	shaderManager_->DirtyLastShader();
 	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
 		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, tag);
@@ -2599,8 +2601,8 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 		useCopy = false;
 	}
 
-	float srcXFactor = useBlit ? src->renderScaleFactor : 1.0f;
-	float srcYFactor = useBlit ? src->renderScaleFactor : 1.0f;
+	float srcXFactor = src->renderScaleFactor;
+	float srcYFactor = src->renderScaleFactor;
 	const int srcBpp = src->format == GE_FORMAT_8888 ? 4 : 2;
 	if (srcBpp != bpp && bpp != 0) {
 		srcXFactor = (srcXFactor * bpp) / srcBpp;
@@ -2610,8 +2612,8 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 	int srcY1 = srcY * srcYFactor;
 	int srcY2 = (srcY + h) * srcYFactor;
 
-	float dstXFactor = useBlit ? dst->renderScaleFactor : 1.0f;
-	float dstYFactor = useBlit ? dst->renderScaleFactor : 1.0f;
+	float dstXFactor = dst->renderScaleFactor;
+	float dstYFactor = dst->renderScaleFactor;
 	const int dstBpp = dst->format == GE_FORMAT_8888 ? 4 : 2;
 	if (dstBpp != bpp && bpp != 0) {
 		dstXFactor = (dstXFactor * bpp) / dstBpp;
