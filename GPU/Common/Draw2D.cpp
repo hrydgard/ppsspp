@@ -57,7 +57,7 @@ void GenerateDraw2DVS(char *buffer, const ShaderLanguageDesc &lang) {
 }
 
 // verts have positions in clip coordinates.
-void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount) {
+void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter) {
 	using namespace Draw;
 
 	if (!draw2DPipelineLinear_) {
@@ -112,12 +112,20 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 		descLinear.wrapU = TextureAddressMode::CLAMP_TO_EDGE;
 		descLinear.wrapV = TextureAddressMode::CLAMP_TO_EDGE;
 		draw2DSamplerLinear_= draw_->CreateSamplerState(descLinear);
+
+		SamplerStateDesc descNearest{};
+		descLinear.magFilter = TextureFilter::NEAREST;
+		descLinear.minFilter = TextureFilter::NEAREST;
+		descLinear.mipFilter = TextureFilter::NEAREST;
+		descLinear.wrapU = TextureAddressMode::CLAMP_TO_EDGE;
+		descLinear.wrapV = TextureAddressMode::CLAMP_TO_EDGE;
+		draw2DSamplerNearest_ = draw_->CreateSamplerState(descNearest);
 	}
 
 	draw_->BindPipeline(draw2DPipelineLinear_);
 	if (tex) {
 		draw_->BindTextures(TEX_SLOT_PSP_TEXTURE, 1, &tex);
 	}
-	draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, &draw2DSamplerLinear_);
+	draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, linearFilter ? &draw2DSamplerLinear_ : &draw2DSamplerNearest_);
 	draw_->DrawUP(verts, vertexCount);
 }

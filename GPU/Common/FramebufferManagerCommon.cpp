@@ -2495,6 +2495,7 @@ void FramebufferManagerCommon::DeviceLost() {
 	DoRelease(stencilUploadSampler_);
 	DoRelease(stencilUploadPipeline_);
 	DoRelease(draw2DPipelineLinear_);
+	DoRelease(draw2DSamplerNearest_);
 	DoRelease(draw2DSamplerLinear_);
 	DoRelease(draw2DVs_);
 	DoRelease(draw2DFs_);
@@ -2555,7 +2556,7 @@ void FramebufferManagerCommon::DrawActiveTexture(float x, float y, float w, floa
 	// Rearrange to strip form.
 	std::swap(coord[2], coord[3]);
 
-	DrawStrip2D(nullptr, coord, 4);
+	DrawStrip2D(nullptr, coord, 4, (flags & DRAWTEX_LINEAR) != 0);
 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
