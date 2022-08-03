@@ -357,7 +357,7 @@ protected:
 	virtual void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) = 0;
 	virtual void Bind2DShader() = 0;
 
-	void Draw2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, float viewportWidth, float viewportHeight);
+	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount);
 
 	bool UpdateSize();
 

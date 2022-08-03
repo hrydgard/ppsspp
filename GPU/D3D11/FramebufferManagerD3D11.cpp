@@ -171,14 +171,12 @@ void FramebufferManagerD3D11::SetDrawEngine(DrawEngineD3D11 *td) {
 }
 
 void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {
-	struct Coord {
-		Lin::Vec3 pos; float u, v;
-	};
-	Coord coord[4] = {
-		{{x, y, 0}, u0, v0},
-		{{x + w, y, 0}, u1, v0},
-		{{x + w, y + h,0}, u1, v1},
-		{{x, y + h, 0}, u0, v1},
+	// Will be drawn as a strip.
+	Draw2DVertex coord[4] = {
+		{x,     y,     u0, v0},
+		{x + w, y,     u1, v0},
+		{x + w, y + h, u1, v1},
+		{x,     y + h, u0, v1},
 	};
 
 	if (uvRotation != ROTATION_LOCKED_HORIZONTAL) {
@@ -200,39 +198,28 @@ void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float
 		}
 	}
 
-	float invDestW = 1.0f / (destW * 0.5f);
-	float invDestH = 1.0f / (destH * 0.5f);
+	const float invDestW = 2.0f / destW;
+	const float invDestH = 2.0f / destH;
 	for (int i = 0; i < 4; i++) {
-		coord[i].pos.x = coord[i].pos.x * invDestW - 1.0f;
-		coord[i].pos.y = -(coord[i].pos.y * invDestH - 1.0f);
+		coord[i].x = coord[i].x * invDestW - 1.0f;
+		coord[i].y = coord[i].y * invDestH - 1.0f;
 	}
 
 	if ((flags & DRAWTEX_TO_BACKBUFFER) && g_display_rotation != DisplayRotation::ROTATE_0) {
 		for (int i = 0; i < 4; i++) {
 			// backwards notation, should fix that...
-			coord[i].pos = coord[i].pos * g_display_rot_matrix;
+			Lin::Vec3 pos = Lin::Vec3(coord[i].x, coord[i].y, 0.0);
+			pos = pos * g_display_rot_matrix;
+			coord[i].x = pos.x;
+			coord[i].y = pos.y;
 		}
 	}
 
-	// The above code is for FAN geometry but we can only do STRIP. So rearrange it a little.
-	D3D11_MAPPED_SUBRESOURCE map;
-	context_->Map(quadBuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
-	float *dest = (float *)map.pData;
-	memcpy(dest, coord, sizeof(Coord));
-	memcpy(dest + 5, coord + 1, sizeof(Coord));
-	memcpy(dest + 10, coord + 3, sizeof(Coord));
-	memcpy(dest + 15, coord + 2, sizeof(Coord));
-	context_->Unmap(quadBuffer_, 0);
+	// Rearrange to strip form.
+	std::swap(coord[2], coord[3]);
 
-	context_->RSSetState(stockD3D11.rasterStateNoCull);
-	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], nullptr, 0xFFFFFFFF);
-	context_->OMSetDepthStencilState(stockD3D11.depthStencilDisabled, 0);
-	context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-	context_->PSSetSamplers(0, 1, (flags & DRAWTEX_LINEAR) ? &stockD3D11.samplerLinear2DClamp : &stockD3D11.samplerPoint2DClamp);
-	UINT stride = 20;
-	UINT offset = 0;
-	context_->IASetVertexBuffers(0, 1, &quadBuffer_, &stride, &offset);
-	context_->Draw(4, 0);
+	DrawStrip2D(nullptr, coord, 4);
+
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
 }
 

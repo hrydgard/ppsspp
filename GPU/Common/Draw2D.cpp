@@ -50,14 +50,14 @@ void GenerateDraw2DVS(char *buffer, const ShaderLanguageDesc &lang) {
 	writer.BeginVSMain(inputs, Slice<UniformDef>::empty(), varyings);
 
 	writer.C("  v_texcoord = a_texcoord;\n");    // yes, this should be right. Should be 2.0 in the far corners.
-	writer.C("  gl_Position = a_position;\n");
+	writer.C("  gl_Position = vec4(a_position, 0.0, 1.0);\n");
 	writer.F("  gl_Position.y *= %s1.0;\n", lang.viewportYSign);
 
 	writer.EndVSMain(varyings);
 }
 
 // verts have positions in clip coordinates.
-void FramebufferManagerCommon::Draw2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, float viewportWidth, float viewportHeight) {
+void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount) {
 	using namespace Draw;
 
 	if (!draw2DPipelineLinear_) {
@@ -71,7 +71,7 @@ void FramebufferManagerCommon::Draw2D(Draw::Texture *tex, Draw2DVertex *verts, i
 		draw2DFs_ = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), "draw2d_fs");
 		draw2DVs_ = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)vsCode, strlen(vsCode), "draw2d_vs");
 
-		_assert_(stencilUploadFs_ && stencilUploadVs_);
+		_assert_(draw2DFs_ && draw2DVs_);
 
 		InputLayoutDesc desc = {
 			{
@@ -79,7 +79,7 @@ void FramebufferManagerCommon::Draw2D(Draw::Texture *tex, Draw2DVertex *verts, i
 			},
 			{
 				{ 0, SEM_POSITION, DataFormat::R32G32_FLOAT, 0 },
-				{ 16, SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 8 },
+				{ 0, SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 8 },
 			},
 		};
 		InputLayout *inputLayout = draw_->CreateInputLayout(desc);
@@ -115,7 +115,9 @@ void FramebufferManagerCommon::Draw2D(Draw::Texture *tex, Draw2DVertex *verts, i
 	}
 
 	draw_->BindPipeline(draw2DPipelineLinear_);
-	draw_->BindTextures(TEX_SLOT_PSP_TEXTURE, 1, &tex);
+	if (tex) {
+		draw_->BindTextures(TEX_SLOT_PSP_TEXTURE, 1, &tex);
+	}
 	draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, &draw2DSamplerLinear_);
 	draw_->DrawUP(verts, vertexCount);
 
