@@ -1077,6 +1077,8 @@ if(ANDROID)
 			Common/VR/VRMath.h
 			Common/VR/VRRenderer.cpp
 			Common/VR/VRRenderer.h
+			Common/VR/VRTweaks.cpp
+			Common/VR/VRTweaks.h
 		)
 		set(nativeExtraLibs ${nativeExtraLibs} openxr)
 	endif()

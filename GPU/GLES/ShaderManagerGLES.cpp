@@ -53,6 +53,7 @@
 #ifdef OPENXR
 #include "VR/VRBase.h"
 #include "VR/VRRenderer.h"
+#include "VR/VRTweaks.h"
 #endif
 
 using namespace Lin;
@@ -321,33 +322,14 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	}
 
 #ifdef OPENXR
-	float e = 0.00001f;
-	bool ortho = true;
-	bool identity = true;
-	bool oneTranslation = true;
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
-			float value = gstate.projMatrix[i * 4 + j];
-
-			// Other number than zero on non-diagonale
-			if ((i != j) && (fabs(value) > e)) identity = false;
-			// Other number than one on diagonale
-			if ((i == j) && (fabs(value - 1.0f) > e)) identity = false;
-			// Special case detecting UI in Flatout
-			if ((i == j) && (i < 2) && (fabs(value) < 10.0f)) ortho = false;
-			// Special case detecting UI in Lego games
-			if (((i == 3) && (fabs(fabs(value) - 1.0f) > e))) oneTranslation = false;
-		}
-	}
-
-	// Count 3D objects
-	bool is2D = identity || oneTranslation || ortho;
+	// Count 3D instances
+	bool is2D = VR_TweakIs2D(gstate.projMatrix);
 	if (!is2D) {
 		VR_SetConfig(VR_CONFIG_3D_GEOMETRY_COUNT, VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) + 1);
 	}
 
 	// Set HUD mode
-	if (is2D && (VR_GetConfig(VR_CONFIG_MODE) != VR_MODE_FLAT_SCREEN)) {
+	if (VR_TweakIsHUD(is2D, dirty & DIRTY_PROJTHROUGHMATRIX, dirty & DIRTY_PROJMATRIX)) {
 		float scale = 0.5f;
 		render_->SetUniformF1(&u_scaleX, scale);
 		render_->SetUniformF1(&u_scaleY, scale / 16.0f * 9.0f);
@@ -364,34 +346,8 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		if ((VR_GetConfig(VR_CONFIG_MODE) == VR_MODE_FLAT_SCREEN) || is2D) {
 			memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 		} else {
-			// Update the projection matrix
-			ovrMatrix4f hmdProjection = VR_GetMatrix(VR_PROJECTION_MATRIX_LEFT_EYE);
-			for (int i = 0; i < 4; i++) {
-				for (int j = 0; j < 4; j++) {
-					if ((hmdProjection.M[i][j] > 0) != (gstate.projMatrix[i * 4 + j] > 0)) {
-						hmdProjection.M[i][j] *= -1.0f;
-					}
-				}
-			}
-			memcpy(&flippedMatrix, hmdProjection.M, 16 * sizeof(float));
-
-			// Assign axis mirroring
-			VR_SetConfig(VR_CONFIG_MIRROR_AXIS_X, gstate.projMatrix[0] < 0);
-			VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Y, gstate.projMatrix[5] < 0);
-			VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Z, gstate.projMatrix[10] > 0);
-			if (gstate.projMatrix[10] < 0) { //GTA
-				VR_SetConfig(VR_CONFIG_MIRROR_PITCH, false);
-				VR_SetConfig(VR_CONFIG_MIRROR_YAW, false);
-				VR_SetConfig(VR_CONFIG_MIRROR_ROLL, false);
-			} else if (gstate.projMatrix[5] < 0) { //PES
-				VR_SetConfig(VR_CONFIG_MIRROR_PITCH, true);
-				VR_SetConfig(VR_CONFIG_MIRROR_YAW, true);
-				VR_SetConfig(VR_CONFIG_MIRROR_ROLL, false);
-			} else { //Lego
-				VR_SetConfig(VR_CONFIG_MIRROR_PITCH, false);
-				VR_SetConfig(VR_CONFIG_MIRROR_YAW, true);
-				VR_SetConfig(VR_CONFIG_MIRROR_ROLL, true);
-			}
+			VR_TweakProjection(gstate.projMatrix, flippedMatrix.m, VR_PROJECTION_MATRIX_LEFT_EYE);
+			VR_TweakMirroring(gstate.projMatrix);
 		}
 #else
 		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
@@ -556,22 +512,9 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		if ((VR_GetConfig(VR_CONFIG_MODE) == VR_MODE_FLAT_SCREEN) || is2D) {
 			SetMatrix4x3(render_, &u_view, gstate.viewMatrix);
 		} else {
-			// Get view matrix from the game
 			float m4x4[16];
-			ovrMatrix4f gameView;
 			ConvertMatrix4x3To4x4Transposed(m4x4, gstate.viewMatrix);
-			memcpy(gameView.M, m4x4, 16 * sizeof(float));
-
-			// Set 6DoF scale
-			float scale = pow(fabs(gstate.projMatrix[14]), 1.15f);
-			VR_SetConfig(VR_CONFIG_6DOF_SCALE, (int)(scale * 1000));
-
-			// Get view matrix from the headset
-			ovrMatrix4f hmdView = VR_GetMatrix(VR_VIEW_MATRIX_LEFT_EYE);
-
-			// Combine the matrices
-			ovrMatrix4f renderView = ovrMatrix4f_Multiply(&hmdView, &gameView);
-			memcpy(m4x4, renderView.M, 16 * sizeof(float));
+			VR_TweakView(m4x4, gstate.projMatrix, VR_VIEW_MATRIX_LEFT_EYE);
 			render_->SetUniformM4x4(&u_view, m4x4);
 		}
 #else
