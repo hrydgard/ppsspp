@@ -327,7 +327,6 @@ public:
 			SetColorUpdated(currentRenderVfb_, skipDrawReason);
 		}
 	}
-	void SetRenderSize(VirtualFramebuffer *vfb);
 	void SetSafeSize(u16 w, u16 h);
 
 	virtual void Resized();

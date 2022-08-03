@@ -216,40 +216,21 @@ void FramebufferManagerD3D11::SimpleBlit(
 	float dY = 1.0f / (float)destH;
 	float sX = 1.0f / (float)srcW;
 	float sY = 1.0f / (float)srcH;
-	struct Vtx {
-		float x, y, z, u, v;
+	Draw2DVertex vtx[4] = {
+		{ -1.0f + 2.0f * dX * destX1, -(1.0f - 2.0f * dY * destY1), sX * srcX1, sY * srcY1 },
+		{ -1.0f + 2.0f * dX * destX2, -(1.0f - 2.0f * dY * destY1), sX * srcX2, sY * srcY1 },
+		{ -1.0f + 2.0f * dX * destX1, -(1.0f - 2.0f * dY * destY2), sX * srcX1, sY * srcY2 },
+		{ -1.0f + 2.0f * dX * destX2, -(1.0f - 2.0f * dY * destY2), sX * srcX2, sY * srcY2 },
 	};
-	Vtx vtx[4] = {
-		{ -1.0f + 2.0f * dX * destX1, 1.0f - 2.0f * dY * destY1, 0.0f, sX * srcX1, sY * srcY1 },
-		{ -1.0f + 2.0f * dX * destX2, 1.0f - 2.0f * dY * destY1, 0.0f, sX * srcX2, sY * srcY1 },
-		{ -1.0f + 2.0f * dX * destX1, 1.0f - 2.0f * dY * destY2, 0.0f, sX * srcX1, sY * srcY2 },
-		{ -1.0f + 2.0f * dX * destX2, 1.0f - 2.0f * dY * destY2, 0.0f, sX * srcX2, sY * srcY2 },
-	};
-
-	D3D11_MAPPED_SUBRESOURCE map;
-	ASSERT_SUCCESS(context_->Map(quadBuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map));
-	memcpy(map.pData, vtx, 4 * sizeof(Vtx));
-	context_->Unmap(quadBuffer_, 0);
 
 	// Unbind the texture first to avoid the D3D11 hazard check (can't set render target to things bound as textures and vice versa, not even temporarily).
 	draw_->BindTexture(0, nullptr);
 	draw_->BindFramebufferAsRenderTarget(dest, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "SimpleBlit");
 	draw_->BindFramebufferAsTexture(src, 0, Draw::FB_COLOR_BIT, 0);
 
-	Bind2DShader();
-	D3D11_VIEWPORT vp{ 0.0f, 0.0f, (float)destW, (float)destH, 0.0f, 1.0f };
-	context_->RSSetViewports(1, &vp);
-	context_->RSSetState(stockD3D11.rasterStateNoCull);
-	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], nullptr, 0xFFFFFFFF);
-	context_->OMSetDepthStencilState(stockD3D11.depthStencilDisabled, 0);
-	context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-	context_->PSSetSamplers(0, 1, linearFilter ? &stockD3D11.samplerLinear2DClamp : &stockD3D11.samplerPoint2DClamp);
-	UINT stride = sizeof(Vtx);
-	UINT offset = 0;
-	context_->IASetVertexBuffers(0, 1, &quadBuffer_, &stride, &offset);
-	context_->Draw(4, 0);
+	DrawStrip2D(nullptr, vtx, 4, linearFilter);
 
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE);
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
 void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag) {
