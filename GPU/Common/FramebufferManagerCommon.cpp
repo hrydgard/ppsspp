@@ -2623,7 +2623,13 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 	if (useBlit) {
 		draw_->BlitFramebuffer(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST, tag);
 	} else {
-		BlitUsingRaster(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, false);
+		Draw::Framebuffer *srcFBO = src->fbo;
+		if (src == dst) {
+			Draw::Framebuffer *tempFBO = GetTempFBO(TempFBO::BLIT, src->renderWidth, src->renderHeight);
+			BlitUsingRaster(src->fbo, srcX1, srcY1, srcX2, srcY2, tempFBO, dstX1, dstY1, dstX2, dstY2, false);
+			srcFBO = tempFBO;
+		}
+		BlitUsingRaster(srcFBO, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, false);
 	}
 
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE);

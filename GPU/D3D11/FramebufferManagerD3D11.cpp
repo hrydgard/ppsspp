@@ -198,52 +198,6 @@ static void CopyPixelDepthOnly(u32 *dstp, const u32 *srcp, size_t c) {
 	}
 }
 
-void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag) {
-	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
-		// This can happen if they recently switched from non-buffered.
-		if (useBufferedRendering_) {
-			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "BlitFramebuffer_Fail");
-		}
-		return;
-	}
-
-	float srcXFactor = src->renderScaleFactor;
-	float srcYFactor = src->renderScaleFactor;
-	const int srcBpp = src->format == GE_FORMAT_8888 ? 4 : 2;
-	if (srcBpp != bpp && bpp != 0) {
-		srcXFactor = (srcXFactor * bpp) / srcBpp;
-	}
-	int srcX1 = srcX * srcXFactor;
-	int srcX2 = (srcX + w) * srcXFactor;
-	int srcY1 = srcY * srcYFactor;
-	int srcY2 = (srcY + h) * srcYFactor;
-
-	float dstXFactor = dst->renderScaleFactor;
-	float dstYFactor = dst->renderScaleFactor;
-	const int dstBpp = dst->format == GE_FORMAT_8888 ? 4 : 2;
-	if (dstBpp != bpp && bpp != 0) {
-		dstXFactor = (dstXFactor * bpp) / dstBpp;
-	}
-	int dstX1 = dstX * dstXFactor;
-	int dstX2 = (dstX + w) * dstXFactor;
-	int dstY1 = dstY * dstYFactor;
-	int dstY2 = (dstY + h) * dstYFactor;
-
-	// Direct3D doesn't support rect -> self.
-	Draw::Framebuffer *srcFBO = src->fbo;
-	if (src == dst) {
-		Draw::Framebuffer *tempFBO = GetTempFBO(TempFBO::BLIT, src->renderWidth, src->renderHeight);
-		SimpleBlit(tempFBO, dstX1, dstY1, dstX2, dstY2, src->fbo, srcX1, srcY1, srcX2, srcY2, false);
-		srcFBO = tempFBO;
-	}
-	SimpleBlit(
-		dst->fbo, dstX1, dstY1, dstX2, dstY2,
-		srcFBO, srcX1, srcY1, srcX2, srcY2,
-		false);
-
-	draw_->BindTexture(0, nullptr);
-}
-
 // Nobody calls this yet.
 void FramebufferManagerD3D11::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
 	if (!vfb->fbo) {
