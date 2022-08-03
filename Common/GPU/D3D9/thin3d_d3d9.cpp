@@ -667,6 +667,7 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	caps_.framebufferCopySupported = false;
 	caps_.framebufferDepthBlitSupported = true;
 	caps_.framebufferDepthCopySupported = false;
+	caps_.framebufferSeparateDepthCopySupported = false;
 	caps_.texture3DSupported = true;
 
 	if (d3d) {
@@ -1241,14 +1242,26 @@ void D3D9Context::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 bool D3D9Context::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) {
 	D3D9Framebuffer *src = (D3D9Framebuffer *)srcfb;
 	D3D9Framebuffer *dst = (D3D9Framebuffer *)dstfb;
-	if (channelBits != FB_COLOR_BIT)
-		return false;
+
+	LPDIRECT3DSURFACE9 srcSurf;
+	LPDIRECT3DSURFACE9 dstSurf;
 	RECT srcRect{ (LONG)srcX1, (LONG)srcY1, (LONG)srcX2, (LONG)srcY2 };
 	RECT dstRect{ (LONG)dstX1, (LONG)dstY1, (LONG)dstX2, (LONG)dstY2 };
-	LPDIRECT3DSURFACE9 srcSurf = src ? src->surf : deviceRTsurf;
-	LPDIRECT3DSURFACE9 dstSurf = dst ? dst->surf : deviceRTsurf;
+	if (channelBits == FB_COLOR_BIT) {
+		srcSurf = src ? src->surf : deviceRTsurf;
+		dstSurf = dst ? dst->surf : deviceRTsurf;
+	} else if (channelBits & FB_DEPTH_BIT) {
+		if (!src || !dst) {
+			// Might have implications for non-buffered rendering.
+			return false;
+		}
+		srcSurf = src->depthstencil;
+		dstSurf = dst->depthstencil;
+	} else {
+		return false;
+	}
 	stepId_++;
-	return SUCCEEDED(device_->StretchRect(srcSurf, &srcRect, dstSurf, &dstRect, filter == FB_BLIT_LINEAR ? D3DTEXF_LINEAR : D3DTEXF_POINT));
+	return SUCCEEDED(device_->StretchRect(srcSurf, &srcRect, dstSurf, &dstRect, (filter == FB_BLIT_LINEAR && channelBits == FB_COLOR_BIT) ? D3DTEXF_LINEAR : D3DTEXF_POINT));
 }
 
 void D3D9Context::HandleEvent(Event ev, int width, int height, void *param1, void *param2) {

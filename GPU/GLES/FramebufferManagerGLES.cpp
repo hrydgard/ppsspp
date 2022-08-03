@@ -257,7 +257,13 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 		return;
 	}
 
-	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_FRAMEBUFFER_BLIT);
+	bool useBlit = draw_->GetDeviceCaps().framebufferBlitSupported;
+	bool useCopy = draw_->GetDeviceCaps().framebufferCopySupported;
+	if (dst == currentRenderVfb_) {
+		// If already bound, using either a blit or a copy is unlikely to be an optimization.
+		useBlit = false;
+		useCopy = false;
+	}
 
 	float srcXFactor = useBlit ? src->renderScaleFactor : 1.0f;
 	float srcYFactor = useBlit ? src->renderScaleFactor : 1.0f;
@@ -287,7 +293,7 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 		return;
 	}
 
-	if (gstate_c.Supports(GPU_SUPPORTS_COPY_IMAGE)) {
+	if (useCopy && draw_->GetDeviceCaps().framebufferCopySupported) {
 		// glBlitFramebuffer can clip, but glCopyImageSubData is more restricted.
 		// In case the src goes outside, we just skip the optimization in that case.
 		const bool sameSize = dstX2 - dstX1 == srcX2 - srcX1 && dstY2 - dstY1 == srcY2 - srcY1;
@@ -304,8 +310,7 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 	if (useBlit) {
 		draw_->BlitFramebuffer(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST, tag);
 	} else {
-		// TODO: Move this workaround out into thin3d, instead of dirtying up the code here.
-
+		// TODO: Use thin3d for this, instead of dirtying up the code here.
 		draw_->BindFramebufferAsRenderTarget(dst->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, tag);
 		draw_->BindFramebufferAsTexture(src->fbo, 0, Draw::FB_COLOR_BIT, 0);
 

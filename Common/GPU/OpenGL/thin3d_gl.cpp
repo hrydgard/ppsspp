@@ -541,7 +541,9 @@ OpenGLContext::OpenGLContext() {
 		caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
 		caps_.texture3DSupported = true;
 	}
-	caps_.framebufferBlitSupported = gl_extensions.NV_framebuffer_blit || gl_extensions.ARB_framebuffer_object;
+
+	caps_.framebufferCopySupported = gl_extensions.OES_copy_image || gl_extensions.NV_copy_image || gl_extensions.EXT_copy_image || gl_extensions.ARB_copy_image;
+	caps_.framebufferBlitSupported = gl_extensions.NV_framebuffer_blit || gl_extensions.ARB_framebuffer_object || gl_extensions.GLES3;
 	caps_.framebufferDepthBlitSupported = caps_.framebufferBlitSupported;
 	caps_.depthClampSupported = gl_extensions.ARB_depth_clamp;
 	if (gl_extensions.IsGLES) {

@@ -578,7 +578,7 @@ static int GetBpp(VkFormat format) {
 	}
 }
 
-VkFormat DataFormatToVulkan(DataFormat format) {
+static VkFormat DataFormatToVulkan(DataFormat format) {
 	switch (format) {
 	case DataFormat::D16: return VK_FORMAT_D16_UNORM;
 	case DataFormat::D32F: return VK_FORMAT_D32_SFLOAT;
@@ -774,6 +774,8 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	: vulkan_(vulkan), renderManager_(vulkan) {
 	shaderLanguageDesc_.Init(GLSL_VULKAN);
 
+	VkFormat depthStencilFormat = vulkan->GetDeviceInfo().preferredDepthStencilFormat;
+
 	caps_.anisoSupported = vulkan->GetDeviceFeatures().enabled.samplerAnisotropy != 0;
 	caps_.geometryShaderSupported = vulkan->GetDeviceFeatures().enabled.geometryShader != 0;
 	caps_.tesselationShaderSupported = vulkan->GetDeviceFeatures().enabled.tessellationShader != 0;
@@ -784,8 +786,9 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	caps_.cullDistanceSupported = vulkan->GetDeviceFeatures().enabled.shaderCullDistance != 0;
 	caps_.framebufferBlitSupported = true;
 	caps_.framebufferCopySupported = true;
-	caps_.framebufferDepthBlitSupported = false;  // Can be checked for.
+	caps_.framebufferDepthBlitSupported = vulkan->GetDeviceInfo().canBlitToPreferredDepthStencilFormat;
 	caps_.framebufferDepthCopySupported = true;   // Will pretty much always be the case.
+	caps_.framebufferSeparateDepthCopySupported = true;   // Will pretty much always be the case.
 	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;  // TODO: Ask vulkan.
 	caps_.texture3DSupported = true;
 
@@ -1440,17 +1443,23 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 	VkFormatProperties properties;
 	vkGetPhysicalDeviceFormatProperties(vulkan_->GetCurrentPhysicalDevice(), vulkan_format, &properties);
 	uint32_t flags = 0;
-	if (properties.optimalTilingFeatures & VkFormatFeatureFlagBits::VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) {
+	if (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) {
 		flags |= FMT_RENDERTARGET;
 	}
-	if (properties.optimalTilingFeatures & VkFormatFeatureFlagBits::VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+	if (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
 		flags |= FMT_DEPTHSTENCIL;
 	}
-	if (properties.optimalTilingFeatures & VkFormatFeatureFlagBits::VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) {
+	if (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) {
 		flags |= FMT_TEXTURE;
 	}
-	if (properties.bufferFeatures & VkFormatFeatureFlagBits::VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT) {
+	if (properties.bufferFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT) {
 		flags |= FMT_INPUTLAYOUT;
+	}
+	if ((properties.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT) && (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT)) {
+		flags |= FMT_BLIT;
+	}
+	if (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) {
+		flags |= FMT_STORAGE_IMAGE;
 	}
 	return flags;
 }

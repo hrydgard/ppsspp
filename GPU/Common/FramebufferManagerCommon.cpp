@@ -581,14 +581,15 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 	int w = std::min(src->renderWidth, dst->renderWidth);
 	int h = std::min(src->renderHeight, dst->renderHeight);
 
-	// Note: We prefer Blit ahead of Copy here, since at least on GL, Copy will always also copy stencil which we don't want.
-	// See #9740.
-	// TODO: This ordering should probably apply to GL only, since in Vulkan you can totally copy just the depth aspect.
-	if (gstate_c.Supports(GPU_SUPPORTS_FRAMEBUFFER_BLIT_TO_DEPTH)) {
-		draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebufferDepth");
-		RebindFramebuffer("After BlitFramebufferDepth");
-	} else if (gstate_c.Supports(GPU_SUPPORTS_COPY_IMAGE)) {
+	// TODO: It might even be advantageous on some GPUs to do this copy using a fragment shader that writes to Z, that way upcoming commands can just continue that render pass.
+
+	// Some GPUs can copy depth but only if stencil gets to come along for the ride. We only want to use this if there is no blit functionality.
+	if (draw_->GetDeviceCaps().framebufferSeparateDepthCopySupported || !draw_->GetDeviceCaps().framebufferDepthBlitSupported) {
 		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, w, h, 1, Draw::FB_DEPTH_BIT, "BlitFramebufferDepth");
+		RebindFramebuffer("After BlitFramebufferDepth");
+	} else if (draw_->GetDeviceCaps().framebufferDepthBlitSupported) {
+		// We'll accept whether we get a separate depth blit or not...
+		draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebufferDepth");
 		RebindFramebuffer("After BlitFramebufferDepth");
 	}
 	dst->last_frame_depth_updated = gpuStats.numFlips;
@@ -693,7 +694,7 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 	bool doReinterpret = PSP_CoreParameter().compat.flags().ReinterpretFramebuffers &&
 		(lang == HLSL_D3D11 || lang == GLSL_VULKAN || lang == GLSL_3xx);
 	// Copy image required for now.
-	if (!gstate_c.Supports(GPU_SUPPORTS_COPY_IMAGE))
+	if (!draw_->GetDeviceCaps().framebufferCopySupported)
 		doReinterpret = false;
 	if (!doReinterpret) {
 		// Fake reinterpret - just clear the way we always did on Vulkan. Just clear color and stencil.
