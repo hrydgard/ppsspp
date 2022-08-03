@@ -49,38 +49,9 @@
 
 using namespace PPSSPP_VK;
 
-static const char tex_fs[] = R"(#version 450
-#extension GL_ARB_separate_shader_objects : enable
-#extension GL_ARB_shading_language_420pack : enable
-layout (binding = 0) uniform sampler2D sampler0;
-layout (location = 0) in vec2 v_texcoord0;
-layout (location = 0) out vec4 fragColor;
-void main() {
-  fragColor = texture(sampler0, v_texcoord0);
-}
-)";
-
-static const char tex_vs[] = R"(#version 450
-#extension GL_ARB_separate_shader_objects : enable
-#extension GL_ARB_shading_language_420pack : enable
-layout (location = 0) in vec3 a_position;
-layout (location = 1) in vec2 a_texcoord0;
-layout (location = 0) out vec2 v_texcoord0;
-out gl_PerVertex { vec4 gl_Position; };
-void main() {
-  v_texcoord0 = a_texcoord0;
-  gl_Position = vec4(a_position, 1.0);
-}
-)";
-
 FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw) :
 	FramebufferManagerCommon(draw) {
 	presentation_->SetLanguage(GLSL_VULKAN);
-
-	InitDeviceObjects();
-
-	// After a blit we do need to rebind for the VulkanRenderManager to know what to do.
-	needGLESRebinds_ = true;
 }
 
 FramebufferManagerVulkan::~FramebufferManagerVulkan() {
@@ -97,13 +68,6 @@ void FramebufferManagerVulkan::SetShaderManager(ShaderManagerVulkan *sm) {
 
 void FramebufferManagerVulkan::SetDrawEngine(DrawEngineVulkan *td) {
 	drawEngine_ = td;
-}
-
-void FramebufferManagerVulkan::InitDeviceObjects() {
-}
-
-void FramebufferManagerVulkan::DestroyDeviceObjects() {
-
 }
 
 void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {
@@ -136,11 +100,9 @@ void FramebufferManagerVulkan::EndFrame() {
 }
 
 void FramebufferManagerVulkan::DeviceLost() {
-	DestroyDeviceObjects();
 	FramebufferManagerCommon::DeviceLost();
 }
 
 void FramebufferManagerVulkan::DeviceRestore(Draw::DrawContext *draw) {
 	FramebufferManagerCommon::DeviceRestore(draw);
-	InitDeviceObjects();
 }

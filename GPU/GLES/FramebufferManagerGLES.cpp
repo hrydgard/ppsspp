@@ -39,45 +39,16 @@
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 
-static const char tex_fs[] = R"(
-#if __VERSION__ >= 130
-#define varying in
-#define texture2D texture
-#define gl_FragColor fragColor0
-out vec4 fragColor0;
-#endif
-#ifdef GL_ES
-precision mediump float;
-#endif
-uniform sampler2D sampler0;
-varying vec2 v_texcoord0;
-void main() {
-	gl_FragColor = texture2D(sampler0, v_texcoord0);
-}
-)";
-
-static const char basic_vs[] = R"(
-#if __VERSION__ >= 130
-#define attribute in
-#define varying out
-#endif
-attribute vec4 a_position;
-attribute vec2 a_texcoord0;
-varying vec2 v_texcoord0;
-void main() {
-  v_texcoord0 = a_texcoord0;
-  gl_Position = a_position;
-}
-)";
-
 FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw, GLRenderManager *render) :
 	FramebufferManagerCommon(draw),
 	render_(render)
 {
 	needBackBufferYSwap_ = true;
-	needGLESRebinds_ = true;
 	presentation_->SetLanguage(draw_->GetShaderLanguageDesc().shaderLanguage);
-	CreateDeviceObjects();
+}
+
+FramebufferManagerGLES::~FramebufferManagerGLES() {
+	delete[] convBuf_;
 }
 
 void FramebufferManagerGLES::Init() {
@@ -97,27 +68,6 @@ void FramebufferManagerGLES::SetDrawEngine(DrawEngineGLES *td) {
 	drawEngine_ = td;
 }
 
-void FramebufferManagerGLES::CreateDeviceObjects() {
-}
-
-void FramebufferManagerGLES::DestroyDeviceObjects() {
-	if (stencilUploadPipeline_) {
-		stencilUploadPipeline_->Release();
-		stencilUploadPipeline_ = nullptr;
-	}
-
-	if (depthDownloadProgram_) {
-		render_->DeleteProgram(depthDownloadProgram_);
-		depthDownloadProgram_ = nullptr;
-	}
-}
-
-FramebufferManagerGLES::~FramebufferManagerGLES() {
-	DestroyDeviceObjects();
-
-	delete [] convBuf_;
-}
-
 void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
 	_assert_msg_(nvfb->fbo, "Expecting a valid nvfb in UpdateDownloadTempBuffer");
 
@@ -135,13 +85,15 @@ void FramebufferManagerGLES::EndFrame() {
 
 void FramebufferManagerGLES::DeviceLost() {
 	FramebufferManagerCommon::DeviceLost();
-	DestroyDeviceObjects();
+	if (depthDownloadProgram_) {
+		render_->DeleteProgram(depthDownloadProgram_);
+		depthDownloadProgram_ = nullptr;
+	}
 }
 
 void FramebufferManagerGLES::DeviceRestore(Draw::DrawContext *draw) {
 	FramebufferManagerCommon::DeviceRestore(draw);
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	CreateDeviceObjects();
 }
 
 void FramebufferManagerGLES::Resized() {

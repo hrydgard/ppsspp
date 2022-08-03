@@ -41,7 +41,6 @@ public:
 	void SetShaderManager(ShaderManagerVulkan *sm);
 	void SetDrawEngine(DrawEngineVulkan *td);
 	void SetVulkan2D(Vulkan2D *vk2d) { vulkan2D_ = vk2d; }
-	void SetPushBuffer(VulkanPushBuffer *push) { push_ = push; }
 
 	void BeginFrameVulkan();  // there's a BeginFrame in the base class, which this calls
 	void EndFrame();
@@ -54,19 +53,6 @@ public:
 	void NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth);
 
 private:
-	void InitDeviceObjects();
-	void DestroyDeviceObjects();
-
-	// Used to keep track of command buffers here but have moved all that into Thin3D.
-
-	VulkanPushBuffer *push_;
-
-	enum {
-		MAX_COMMAND_BUFFERS = 32,
-	};
-
-	VkPipelineCache pipelineCache2D_;
-
 	// Simple 2D drawing engine.
 	Vulkan2D *vulkan2D_;
 };

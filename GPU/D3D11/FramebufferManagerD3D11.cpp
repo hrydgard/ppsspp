@@ -57,21 +57,6 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 	vb.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	ASSERT_SUCCESS(device_->CreateBuffer(&vb, nullptr, &quadBuffer_));
 
-	D3D11_TEXTURE2D_DESC desc{};
-	desc.CPUAccessFlags = 0;
-	desc.Usage = D3D11_USAGE_DEFAULT;
-	desc.ArraySize = 1;
-	desc.SampleDesc.Count = 1;
-	desc.Width = 1;
-	desc.Height = 1;
-	desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-	desc.MipLevels = 1;
-	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &nullTexture_));
-	ASSERT_SUCCESS(device_->CreateShaderResourceView(nullTexture_, nullptr, &nullTextureView_));
-	uint32_t nullData[1]{};
-	context_->UpdateSubresource(nullTexture_, 0, nullptr, nullData, 1, 0);
-
 	presentation_->SetLanguage(HLSL_D3D11);
 	preferredPixelsFormat_ = Draw::DataFormat::B8G8R8A8_UNORM;
 }
@@ -93,11 +78,6 @@ FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 		stencilUploadInputLayout_->Release();
 	if (stencilValueBuffer_)
 		stencilValueBuffer_->Release();
-
-	if (nullTextureView_)
-		nullTextureView_->Release();
-	if (nullTexture_)
-		nullTexture_->Release();
 }
 
 void FramebufferManagerD3D11::SetTextureCache(TextureCacheD3D11 *tc) {

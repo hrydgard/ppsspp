@@ -66,8 +66,6 @@ private:
 	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DDEVICE9 deviceEx_;
 
-	LPDIRECT3DTEXTURE9 nullTex_ = nullptr;
-	
 	struct OffscreenSurface {
 		LPDIRECT3DSURFACE9 surface;
 		int last_frame_used;

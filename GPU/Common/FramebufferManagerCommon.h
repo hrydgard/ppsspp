@@ -445,7 +445,6 @@ protected:
 	int pixelHeight_;
 	int bloomHack_ = 0;
 
-	bool needGLESRebinds_ = false;
 	Draw::DataFormat preferredPixelsFormat_ = Draw::DataFormat::R8G8B8A8_UNORM;
 
 	struct TempFBOInfo {

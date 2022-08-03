@@ -53,9 +53,6 @@ protected:
 	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
 private:
-	void CreateDeviceObjects();
-	void DestroyDeviceObjects();
-
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
 	GLRenderManager *render_;
@@ -70,5 +67,4 @@ private:
 	int u_depthDownloadTo8 = -1;
 	
 	DrawEngineGLES *drawEngineGL_ = nullptr;
-
 };

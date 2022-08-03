@@ -53,18 +53,6 @@ namespace DX9 {
 		device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 		deviceEx_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
 
-		int usage = 0;
-		D3DPOOL pool = D3DPOOL_MANAGED;
-		if (deviceEx_) {
-			pool = D3DPOOL_DEFAULT;
-			usage = D3DUSAGE_DYNAMIC;
-		}
-		HRESULT hr = device_->CreateTexture(1, 1, 1, usage, D3DFMT_A8R8G8B8, pool, &nullTex_, nullptr);
-		D3DLOCKED_RECT rect;
-		nullTex_->LockRect(0, &rect, nullptr, D3DLOCK_DISCARD);
-		memset(rect.pBits, 0, 4);
-		nullTex_->UnlockRect(0);
-
 		presentation_->SetLanguage(HLSL_D3D9);
 		preferredPixelsFormat_ = Draw::DataFormat::B8G8R8A8_UNORM;
 	}
@@ -73,8 +61,6 @@ namespace DX9 {
 		for (auto &it : offscreenSurfaces_) {
 			it.second.surface->Release();
 		}
-		if (nullTex_)
-			nullTex_->Release();
 	}
 
 	void FramebufferManagerDX9::SetTextureCache(TextureCacheDX9 *tc) {

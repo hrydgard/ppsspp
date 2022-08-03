@@ -62,7 +62,4 @@ private:
 	ID3D11InputLayout *stencilUploadInputLayout_ = nullptr;
 	ID3D11Buffer *stencilValueBuffer_ = nullptr;
 	ID3D11DepthStencilState *stencilMaskStates_[256]{};
-
-	ID3D11Texture2D *nullTexture_ = nullptr;
-	ID3D11ShaderResourceView *nullTextureView_ = nullptr;
 };
