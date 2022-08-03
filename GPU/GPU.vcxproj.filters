@@ -264,6 +264,9 @@
     <ClInclude Include="Software\BinManager.h">
       <Filter>Software</Filter>
     </ClInclude>
+    <ClInclude Include="Common\Draw2D.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -517,6 +520,9 @@
     </ClCompile>
     <ClCompile Include="Software\BinManager.cpp">
       <Filter>Software</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Draw2D.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

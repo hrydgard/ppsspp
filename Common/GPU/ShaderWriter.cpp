@@ -6,7 +6,7 @@
 #include "Common/GPU/ShaderWriter.h"
 #include "Common/Log.h"
 
-const char *vulkan_glsl_preamble_fs =
+const char * const vulkan_glsl_preamble_fs =
 "#version 450\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_ARB_shading_language_420pack : enable\n"
@@ -18,7 +18,7 @@ const char *vulkan_glsl_preamble_fs =
 "precision highp int;\n"
 "\n";
 
-const char *hlsl_preamble_fs =
+const char * const hlsl_preamble_fs =
 "#define vec2 float2\n"
 "#define vec3 float3\n"
 "#define vec4 float4\n"
@@ -35,14 +35,14 @@ const char *hlsl_preamble_fs =
 "#define highp\n"
 "#define mod(x, y) fmod(x, y)\n";
 
-const char *hlsl_d3d11_preamble_fs =
+static const char * const hlsl_d3d11_preamble_fs =
 "#define DISCARD discard\n"
 "#define DISCARD_BELOW(x) clip(x);\n";
-const char *hlsl_d3d9_preamble_fs =
+static const char * const hlsl_d3d9_preamble_fs =
 "#define DISCARD clip(-1)\n"
 "#define DISCARD_BELOW(x) clip(x)\n";
 
-const char *vulkan_glsl_preamble_vs =
+static const char * const vulkan_glsl_preamble_vs =
 "#version 450\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_ARB_shading_language_420pack : enable\n"
@@ -51,7 +51,7 @@ const char *vulkan_glsl_preamble_vs =
 "precision highp float;\n"
 "\n";
 
-const char *hlsl_preamble_vs =
+static const char * const hlsl_preamble_vs =
 "#define vec2 float2\n"
 "#define vec3 float3\n"
 "#define vec4 float4\n"
@@ -65,6 +65,16 @@ const char *hlsl_preamble_vs =
 "#define mediump\n"
 "#define highp\n"
 "\n";
+
+static const char * const semanticNames[8] = {
+	"POSITION",
+	"COLOR0",
+	"TEXCOORD0",
+	"TEXCOORD1",
+	"NORMAL",
+	"TANGENT",
+	"BINORMAL",
+};
 
 // Unsafe. But doesn't matter, we'll use big buffers for shader gen.
 ShaderWriter & ShaderWriter::F(const char *format, ...) {
@@ -153,7 +163,7 @@ void ShaderWriter::BeginVSMain(Slice<InputDef> inputs, Slice<UniformDef> uniform
 	{
 		C("struct VS_OUTPUT {\n");
 		for (auto &varying : varyings) {
-			F("  %s %s : %s;\n", varying.type, varying.name, varying.semantic);
+			F("  %s %s : %s;\n", varying.type, varying.name, semanticNames[varying.semantic]);
 		}
 		F("  vec4 pos : %s;\n", lang_.shaderLanguage == HLSL_D3D11 ? "SV_Position" : "POSITION");
 		C("};\n");
@@ -164,27 +174,25 @@ void ShaderWriter::BeginVSMain(Slice<InputDef> inputs, Slice<UniformDef> uniform
 		}
 		// List the inputs.
 		for (auto &input : inputs) {
-			F("in %s %s : %s, ", input.type, input.name, input.semantic);
+			F("in %s %s : %s, ", input.type, input.name, semanticNames[input.semantic]);
 		}
 
 		Rewind(2);  // Get rid of the last comma.
 		C(") {\n");
 		C("  vec4 gl_Position;\n");
 		for (auto &varying : varyings) {
-			F("  %s %s;\n", varying.type, varying.name);
+			F("  %s %s;  // %s\n", varying.type, varying.name, semanticNames[varying.semantic]);
 		}
 		break;
 	}
 	case GLSL_VULKAN:
 	{
-		int i = 0;
 		for (auto &input : inputs) {
-			F("layout(location = %d) in %s %s;\n", i, input.type, input.name);
-			i++;
+			F("layout(location = %d) in %s %s;\n", input.semantic /*index*/, input.type, input.name);
 		}
 		for (auto &varying : varyings) {
 			F("layout(location = %d) %s out %s %s;  // %s\n",
-				varying.index, varying.precision ? varying.precision : "", varying.type, varying.name, varying.semantic);
+				varying.index, varying.precision ? varying.precision : "", varying.type, varying.name, semanticNames[varying.semantic]);
 		}
 		C("void main() {\n");
 		break;
@@ -194,7 +202,7 @@ void ShaderWriter::BeginVSMain(Slice<InputDef> inputs, Slice<UniformDef> uniform
 			F("in %s %s;\n", input.type, input.name);
 		}
 		for (auto &varying : varyings) {
-			F("%s %s %s %s;  // %s (%d)\n", lang_.varying_vs, varying.precision ? varying.precision : "", varying.type, varying.name, varying.semantic, varying.index);
+			F("%s %s %s %s;  // %s (%d)\n", lang_.varying_vs, varying.precision ? varying.precision : "", varying.type, varying.name, semanticNames[varying.semantic], varying.index);
 		}
 		C("void main() {\n");
 		break;
@@ -218,7 +226,7 @@ void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> var
 		// Let's do the varyings as parameters to main, no struct.
 		C("vec4 main(");
 		for (auto &varying : varyings) {
-			F("  %s %s : %s, ", varying.type, varying.name, varying.semantic);
+			F("  %s %s : %s, ", varying.type, varying.name, semanticNames[varying.semantic]);
 		}
 		// Erase the last comma
 		Rewind(2);
@@ -232,7 +240,7 @@ void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> var
 		// Let's do the varyings as parameters to main, no struct.
 		C("vec4 main(");
 		for (auto &varying : varyings) {
-			F("  %s %s : %s, ", varying.type, varying.name, varying.semantic);
+			F("  %s %s : %s, ", varying.type, varying.name, semanticNames[varying.semantic]);
 		}
 		// Erase the last comma
 		Rewind(2);
@@ -241,7 +249,7 @@ void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> var
 		break;
 	case GLSL_VULKAN:
 		for (auto &varying : varyings) {
-			F("layout(location = %d) %s in %s %s;  // %s\n", varying.index, varying.precision ? varying.precision : "", varying.type, varying.name,  varying.semantic);
+			F("layout(location = %d) %s in %s %s;  // %s\n", varying.index, varying.precision ? varying.precision : "", varying.type, varying.name, semanticNames[varying.semantic]);
 		}
 		C("layout(location = 0, index = 0) out vec4 fragColor0;\n");
 		if (!uniforms.is_empty()) {
@@ -256,7 +264,7 @@ void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> var
 
 	default:  // GLSL OpenGL
 		for (auto &varying : varyings) {
-			F("%s %s %s %s;  // %s\n", lang_.varying_fs, varying.precision ? varying.precision : "", varying.type, varying.name, varying.semantic);
+			F("%s %s %s %s;  // %s\n", lang_.varying_fs, varying.precision ? varying.precision : "", varying.type, varying.name, semanticNames[varying.semantic]);
 		}
 		for (auto &uniform : uniforms) {
 			F("uniform %s %s;\n", uniform.type, uniform.name);

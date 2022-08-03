@@ -29,11 +29,11 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
-#include "Core/MemMap.h"
+#include "Common/GPU/thin3d.h"
 #include "GPU/GPU.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUInterface.h"
-#include "Common/GPU/thin3d.h"
+#include "GPU/Common/Draw2D.h"
 
 enum {
 	FB_USAGE_DISPLAYED_FRAMEBUFFER = 1,
@@ -164,7 +164,6 @@ enum BindFramebufferColorFlags {
 enum DrawTextureFlags {
 	DRAWTEX_NEAREST = 0,
 	DRAWTEX_LINEAR = 1,
-	DRAWTEX_KEEP_STENCIL_ALPHA = 4,
 	DRAWTEX_TO_BACKBUFFER = 8,
 };
 
@@ -354,8 +353,10 @@ protected:
 	virtual void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void SetViewport2D(int x, int y, int w, int h);
 	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
-	virtual void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) = 0;
+	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags);
 	virtual void Bind2DShader() = 0;
+
+	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter);
 
 	bool UpdateSize();
 
@@ -473,4 +474,11 @@ protected:
 	Draw::ShaderModule *stencilUploadVs_ = nullptr;
 	Draw::ShaderModule *stencilUploadFs_ = nullptr;
 	Draw::SamplerState *stencilUploadSampler_ = nullptr;
+
+	// Draw2D pipelines
+	Draw::Pipeline *draw2DPipelineLinear_ = nullptr;
+	Draw::SamplerState *draw2DSamplerLinear_ = nullptr;
+	Draw::SamplerState *draw2DSamplerNearest_ = nullptr;
+	Draw::ShaderModule *draw2DVs_ = nullptr;
+	Draw::ShaderModule *draw2DFs_ = nullptr;
 };

@@ -170,66 +170,6 @@ void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, boo
 	}
 }
 
-void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {
-	float texCoords[8] = {
-		u0,v0,
-		u1,v0,
-		u1,v1,
-		u0,v1,
-	};
-
-	if (uvRotation != ROTATION_LOCKED_HORIZONTAL) {
-		float temp[8];
-		int rotation = 0;
-		switch (uvRotation) {
-		case ROTATION_LOCKED_HORIZONTAL180: rotation = 4; break;
-		case ROTATION_LOCKED_VERTICAL: rotation = 2; break;
-		case ROTATION_LOCKED_VERTICAL180: rotation = 6; break;
-		}
-		for (int i = 0; i < 8; i++) {
-			temp[i] = texCoords[(i + rotation) & 7];
-		}
-		memcpy(texCoords, temp, sizeof(temp));
-	}
-
-	Vulkan2D::Vertex vtx[4] = {
-		{x,     y,     0, texCoords[0], texCoords[1]},
-		{x + w, y,     0, texCoords[2], texCoords[3]},
-		{x,     y + h, 0, texCoords[6], texCoords[7]},
-		{x + w, y + h, 0, texCoords[4], texCoords[5]},
-	};
-
-	float invDestW = 1.0f / (destW * 0.5f);
-	float invDestH = 1.0f / (destH * 0.5f);
-	for (int i = 0; i < 4; i++) {
-		vtx[i].x = vtx[i].x * invDestW - 1.0f;
-		vtx[i].y = vtx[i].y * invDestH - 1.0f;
-	}
-
-	if ((flags & DRAWTEX_TO_BACKBUFFER) && g_display_rotation != DisplayRotation::ROTATE_0) {
-		for (int i = 0; i < 4; i++) {
-			Lin::Vec3 v(vtx[i].x, vtx[i].y, 0.0f);
-			// backwards notation, should fix that...
-			v = v * g_display_rot_matrix;
-			vtx[i].x = v.x;
-			vtx[i].y = v.y;
-		}
-	}
-
-	draw_->FlushState();
-
-	// TODO: Should probably use draw_ directly and not go low level
-
-	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-
-	VkImageView view = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
-	VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(view, (flags & DRAWTEX_LINEAR) ? linearSampler_ : nearestSampler_, VK_NULL_HANDLE, VK_NULL_HANDLE);
-	VkBuffer vbuffer;
-	VkDeviceSize offset = push_->Push(vtx, sizeof(vtx), &vbuffer);
-	renderManager->BindPipeline(cur2DPipeline_, (PipelineFlags)0);
-	renderManager->Draw(vulkan2D_->GetPipelineLayout(), descSet, 0, nullptr, vbuffer, offset, 4);
-}
-
 void FramebufferManagerVulkan::Bind2DShader() {
 	VkRenderPass rp = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::COMPATIBLE_RENDERPASS);
 	cur2DPipeline_ = vulkan2D_->GetPipeline(rp, vsBasicTex_, fsBasicTex_);

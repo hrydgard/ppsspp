@@ -315,6 +315,7 @@ SOURCES_C +=\
 	$(COMMONDIR)/GPU/OpenGL/gl3stub.c
 
 SOURCES_CXX += \
+	$(GPUCOMMONDIR)/Draw2D.cpp \
 	$(GPUCOMMONDIR)/VertexDecoderCommon.cpp \
 	$(GPUCOMMONDIR)/GPUStateUtils.cpp \
 	$(GPUCOMMONDIR)/DrawEngineCommon.cpp \

@@ -72,11 +72,11 @@ static const UniformDef uniforms[1] = {
 };
 
 static const InputDef inputs[1] = {
-	{ "vec2", "a_position", "POSITION", }
+	{ "vec2", "a_position", Draw::SEM_POSITION, }
 };
 
 static const VaryingDef varyings[1] = {
-	{ "vec2", "v_texcoord", "TEXCOORD0", 0, "highp" },
+	{ "vec2", "v_texcoord", Draw::SEM_TEXCOORD0, 0, "highp" },
 };
 
 void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw::Bugs &bugs) {
