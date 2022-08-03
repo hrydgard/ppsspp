@@ -21,9 +21,6 @@
 
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
-#include "Common/System/Display.h"
-#include "Common/Math/lin/matrix4x4.h"
-#include "Common/Math/math_util.h"
 #include "Common/GPU/thin3d.h"
 
 #include "Core/MemMap.h"
@@ -168,59 +165,6 @@ void FramebufferManagerD3D11::SetShaderManager(ShaderManagerD3D11 *sm) {
 
 void FramebufferManagerD3D11::SetDrawEngine(DrawEngineD3D11 *td) {
 	drawEngine_ = td;
-}
-
-void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {
-	// Will be drawn as a strip.
-	Draw2DVertex coord[4] = {
-		{x,     y,     u0, v0},
-		{x + w, y,     u1, v0},
-		{x + w, y + h, u1, v1},
-		{x,     y + h, u0, v1},
-	};
-
-	if (uvRotation != ROTATION_LOCKED_HORIZONTAL) {
-		float temp[8];
-		int rotation = 0;
-		switch (uvRotation) {
-		case ROTATION_LOCKED_HORIZONTAL180: rotation = 2; break;
-		case ROTATION_LOCKED_VERTICAL: rotation = 1; break;
-		case ROTATION_LOCKED_VERTICAL180: rotation = 3; break;
-		}
-		for (int i = 0; i < 4; i++) {
-			temp[i * 2] = coord[((i + rotation) & 3)].u;
-			temp[i * 2 + 1] = coord[((i + rotation) & 3)].v;
-		}
-
-		for (int i = 0; i < 4; i++) {
-			coord[i].u = temp[i * 2];
-			coord[i].v = temp[i * 2 + 1];
-		}
-	}
-
-	const float invDestW = 2.0f / destW;
-	const float invDestH = 2.0f / destH;
-	for (int i = 0; i < 4; i++) {
-		coord[i].x = coord[i].x * invDestW - 1.0f;
-		coord[i].y = coord[i].y * invDestH - 1.0f;
-	}
-
-	if ((flags & DRAWTEX_TO_BACKBUFFER) && g_display_rotation != DisplayRotation::ROTATE_0) {
-		for (int i = 0; i < 4; i++) {
-			// backwards notation, should fix that...
-			Lin::Vec3 pos = Lin::Vec3(coord[i].x, coord[i].y, 0.0);
-			pos = pos * g_display_rot_matrix;
-			coord[i].x = pos.x;
-			coord[i].y = pos.y;
-		}
-	}
-
-	// Rearrange to strip form.
-	std::swap(coord[2], coord[3]);
-
-	DrawStrip2D(nullptr, coord, 4);
-
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
 }
 
 void FramebufferManagerD3D11::Bind2DShader() {
