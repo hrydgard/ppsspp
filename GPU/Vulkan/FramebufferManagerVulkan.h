@@ -43,9 +43,6 @@ public:
 	void SetVulkan2D(Vulkan2D *vk2d) { vulkan2D_ = vk2d; }
 	void SetPushBuffer(VulkanPushBuffer *push) { push_ = push; }
 
-	// x,y,w,h are relative to destW, destH which fill out the target completely.
-	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) override;
-
 	void BeginFrameVulkan();  // there's a BeginFrame in the base class, which this calls
 	void EndFrame();
 

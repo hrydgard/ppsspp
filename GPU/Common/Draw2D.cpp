@@ -27,12 +27,12 @@
 #include "GPU/Common/TextureCacheCommon.h"
 
 static const InputDef inputs[2] = {
-	{ "vec2", "a_position", "POSITION" },
-	{ "vec2", "a_texcoord", "TEXCOORD0" },
+	{ "vec2", "a_position", Draw::SEM_POSITION },
+	{ "vec2", "a_texcoord", Draw::SEM_TEXCOORD0 },
 };
 
 static const VaryingDef varyings[1] = {
-	{ "vec2", "v_texcoord", "TEXCOORD0", 0, "highp" },
+	{ "vec2", "v_texcoord", Draw::SEM_TEXCOORD0, 0, "highp" },
 };
 
 void GenerateDraw2DFs(char *buffer, const ShaderLanguageDesc &lang, const Draw::Bugs &bugs) {

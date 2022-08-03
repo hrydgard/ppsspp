@@ -3,10 +3,11 @@
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/ShaderWriter.h"
 #include "Common/Log.h"
+#include "Common/GPU/thin3d.h"
 #include "GPU/Common/ReinterpretFramebuffer.h"
 
 static const VaryingDef varyings[1] = {
-	{ "vec2", "v_texcoord", "TEXCOORD0", 0, "highp" },
+	{ "vec2", "v_texcoord", Draw::SEM_TEXCOORD0, 0, "highp" },
 };
 
 // TODO: We could possibly have an option to preserve any extra color precision? But gonna start without it.
