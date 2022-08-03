@@ -46,10 +46,6 @@
 #include "Core/Reporting.h"
 #include "Common/Crypto/md5.h"
 #include <sstream>
-#include <sys/stat.h>
-#ifdef _WIN32
-#define stat64 _stat64
-#endif
 
 
 GameScreen::GameScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
@@ -323,6 +319,7 @@ void GameScreen::render() {
 		if (tvGameSize_) {
 			snprintf(temp, sizeof(temp), "%s: %1.1f %s", ga->T("Game"), (float)(info->gameSize) / 1024.f / 1024.f, ga->T("MB"));
 			tvGameSize_->SetText(temp);
+			sfilesize = info->gameSize;
 		}
 		/*
 		if (tvSaveDataSize_) {
@@ -461,28 +458,20 @@ std::string MD5_262144_File(const Path filename) {
 	return res;
 }
 
-long long sFileSize(const Path filename) {
-	struct stat64 st;
-
-	if (stat64(filename.c_str(), &st) == 0)
-		return st.st_size;
-
-	return -1;
-}
 
 UI::EventReturn GameScreen::OnDoMD5(UI::EventParams& e) {
 	MD5string = "";
 	MD5string = MD5FullFile(gamePath_) + "#";
 
 
-	long long  tempfilesize = sFileSize(gamePath_);
-	if (tempfilesize <= 262144) {
+
+	if (sfilesize <= 262144) {
 		MD5string = MD5string + MD5FullFile(gamePath_);
 	}
 	else {
 		MD5string = MD5string + MD5_262144_File(gamePath_);
 	}
-	MD5string = MD5string + "#" + std::to_string(tempfilesize) + "#"+ gamePath_.GetFilename();
+	MD5string = MD5string + "#" + std::to_string(sfilesize) + "#"+ gamePath_.GetFilename();
 	btnCalcMD5_->SetEnabled(false);
 	tvMD5_->SetText(MD5string);
 	return UI::EVENT_DONE;

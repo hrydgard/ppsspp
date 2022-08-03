@@ -89,6 +89,7 @@ private:
 
 	std::vector<UI::Choice *> otherChoices_;
 	std::vector<Path> saveDirs;
-	std::string CRC32string;
-	std::string MD5string;
+	std::string CRC32string = "";
+	std::string MD5string = "";
+	u64 sfilesize = 0;
 };
