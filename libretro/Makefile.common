@@ -459,6 +459,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/Dialog/PSPGamedataInstallDialog.cpp \
 	       $(COREDIR)/Dialog/PSPMsgDialog.cpp \
 	       $(COREDIR)/Dialog/PSPNetconfDialog.cpp \
+		   $(COREDIR)/Dialog/PSPNpSigninDialog.cpp \
 	       $(COREDIR)/Dialog/PSPOskDialog.cpp \
 	       $(COREDIR)/Dialog/PSPSaveDialog.cpp \
 	       $(COREDIR)/Dialog/PSPScreenshotDialog.cpp \
@@ -546,6 +547,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/sceVaudio.cpp \
 	       $(COREDIR)/HLE/scePspNpDrm_user.cpp \
 	       $(COREDIR)/HLE/sceNp.cpp \
+		   $(COREDIR)/HLE/sceNp2.cpp \
 	       $(COREDIR)/HLE/scePauth.cpp \
 	       $(COREDIR)/HLE/sceUsbGps.cpp \
 	       $(COREDIR)/HW/BufferQueue.cpp \

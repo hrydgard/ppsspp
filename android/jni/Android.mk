@@ -439,6 +439,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Dialog/PSPGamedataInstallDialog.cpp \
   $(SRC)/Core/Dialog/PSPMsgDialog.cpp \
   $(SRC)/Core/Dialog/PSPNetconfDialog.cpp \
+  $(SRC)/Core/Dialog/PSPNpSigninDialog.cpp \
   $(SRC)/Core/Dialog/PSPOskDialog.cpp \
   $(SRC)/Core/Dialog/PSPScreenshotDialog.cpp \
   $(SRC)/Core/Dialog/PSPPlaceholderDialog.cpp \
@@ -517,6 +518,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/scePspNpDrm_user.cpp \
   $(SRC)/Core/HLE/sceGameUpdate.cpp \
   $(SRC)/Core/HLE/sceNp.cpp \
+  $(SRC)/Core/HLE/sceNp2.cpp \
   $(SRC)/Core/HLE/scePauth.cpp \
   $(SRC)/Core/FileSystems/BlobFileSystem.cpp \
   $(SRC)/Core/FileSystems/BlockDevices.cpp \

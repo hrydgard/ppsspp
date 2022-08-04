@@ -539,6 +539,9 @@
     <ClCompile Include="..\..\Core\Dialog\PSPNetconfDialog.cpp">
       <Filter>Dialog</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\Dialog\PSPNpSigninDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\Dialog\PSPOskDialog.cpp">
       <Filter>Dialog</Filter>
     </ClCompile>
@@ -1112,6 +1115,9 @@
     <ClCompile Include="..\..\Core\ThreadPools.cpp" />
     <ClCompile Include="..\..\Core\ControlMapper.cpp" />
     <ClCompile Include="..\..\Core\KeyMapDefaults.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceNp2.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1539,6 +1545,9 @@
     <ClInclude Include="..\..\Core\Dialog\PSPNetconfDialog.h">
       <Filter>Dialog</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Core\Dialog\PSPNpSigninDialog.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\Core\Dialog\PSPOskDialog.h">
       <Filter>Dialog</Filter>
     </ClInclude>
@@ -1755,6 +1764,9 @@
     <ClInclude Include="..\..\Core\ThreadPools.h" />
     <ClInclude Include="..\..\Core\ControlMapper.h" />
     <ClInclude Include="..\..\Core\KeyMapDefaults.h" />
+    <ClInclude Include="..\..\Core\HLE\sceNp2.h">
+      <Filter>HLE</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\gason\LICENSE">

@@ -1709,6 +1709,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Dialog/PSPMsgDialog.h
 	Core/Dialog/PSPNetconfDialog.cpp
 	Core/Dialog/PSPNetconfDialog.h
+	Core/Dialog/PSPNpSigninDialog.cpp
+	Core/Dialog/PSPNpSigninDialog.h
 	Core/Dialog/PSPOskDialog.cpp
 	Core/Dialog/PSPOskDialog.h
 	Core/Dialog/PSPPlaceholderDialog.cpp
@@ -1892,6 +1894,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/scePspNpDrm_user.h
 	Core/HLE/sceNp.cpp
 	Core/HLE/sceNp.h
+	Core/HLE/sceNp2.cpp
+	Core/HLE/sceNp2.h
 	Core/HLE/scePauth.cpp
 	Core/HLE/scePauth.h
 	Core/HW/SimpleAudioDec.cpp
