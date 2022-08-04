@@ -420,7 +420,7 @@ std::string MD5FullFile(const Path filename) {
 	md5_context c;
 	md5_starts(&c);
 	unsigned char out[16];
-	long long len = 0;	
+	long long len = 0;
 	while ((len = std::fread(buff, sizeof(char), BUFSIZ, in)) > 0) {
 		md5_update(&c, buff, len);
 	}
@@ -435,29 +435,32 @@ std::string MD5FullFile(const Path filename) {
 }
 
 std::string MD5_262144_File(const Path filename) {
-	//const size_t BD_FILE_HEADER_SIZE = 262144;
-	std::ifstream is(filename.c_str(), std::ifstream::binary);
-	//char* buffer = new char[BUFSIZ];
-	//is.read(buffer, BD_FILE_HEADER_SIZE);
+	FILE* in = File::OpenCFile(filename, "rb");
+	if (!in) {
+		WARN_LOG(COMMON, "Unable to open %s\n", filename.c_str());
+		return "";
+	}
+
+	unsigned char buff[BUFSIZ];
 	md5_context c;
 	md5_starts(&c);
-	//char buf[1024 * 16];
-	char buf[256];
-	//while (is.good()) {
-	for (size_t i = 0; i < 1024; ++i) {
-		is.read(buf, sizeof(buf));
-		md5_update(&c, (unsigned char*)buf, is.gcount());
-	}
 	unsigned char out[16];
+	long len = 0;
+	int bytes_read = 0;
+	while ((len = std::fread(buff, sizeof(char), std::min(BUFSIZ, 262144 - bytes_read), in)) > 0) {
+		md5_update(&c, buff, len);
+		bytes_read += len;
+		if (bytes_read == 262144) break;
+	}
 	md5_finish(&c, out);
 	std::string res;
 	for (size_t i = 0; i < 16; ++i) {
 		res.push_back(hb2hex(out[i] >> 4));
 		res.push_back(hb2hex(out[i]));
 	}
+	fclose(in);
 	return res;
 }
-
 
 UI::EventReturn GameScreen::OnDoMD5(UI::EventParams& e) {
 	MD5string = "";
