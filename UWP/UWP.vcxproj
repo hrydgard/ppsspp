@@ -184,14 +184,14 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
-    <PackageCertificateKeyFile>PPSSPP_UWP_TemporaryKey.pfx</PackageCertificateKeyFile>
     <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
     <AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
     <AppxBundle>Never</AppxBundle>
-    <PackageCertificateThumbprint>b5e422213fb26042db3327f1102c4f9b86c27b1c</PackageCertificateThumbprint>
+    <PackageCertificateThumbprint>169879A9D7A20F22B0DD435921035E3E6D5996A4</PackageCertificateThumbprint>
     <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
     <AppInstallerUpdateFrequency>1</AppInstallerUpdateFrequency>
     <AppInstallerCheckForUpdateFrequency>OnApplicationRun</AppInstallerCheckForUpdateFrequency>
+    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <Link>
@@ -596,6 +596,13 @@
       <DeploymentContent>true</DeploymentContent>
       <FileType>Document</FileType>
     </Image>
+    <Image Include="Content\asciifont_atlas.zim">
+      <DeploymentContent>true</DeploymentContent>
+      <FileType>Document</FileType>
+    </Image>
+    <None Include="Content\asciifont_atlas.meta">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
     <None Include="..\assets\ppge_atlas.meta">
       <DeploymentContent>true</DeploymentContent>
     </None>
