@@ -20,7 +20,7 @@
 #include <mutex>
 #include <deque>
 #include <map>
-#include <Core/HLE/sceRtc.h>
+#include "Core/HLE/sceRtc.h"
 #include "Common/Net/HTTPClient.h"
 #include "Common/Net/Resolve.h"
 #include "Common/Net/URL.h"

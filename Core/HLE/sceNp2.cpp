@@ -18,9 +18,11 @@
 // This is pretty much a stub implementation. Doesn't actually do anything, just tries to return values
 // to keep games happy anyway.
 
+#include <mutex>
+#include <deque>
 #include <StringUtils.h>
 #include "Core/MemMapHelpers.h"
-#include <Core/CoreTiming.h>
+#include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceNp.h"
