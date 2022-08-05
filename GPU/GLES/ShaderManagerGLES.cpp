@@ -307,6 +307,9 @@ void LinkedShader::use(const ShaderID &VSID) {
 void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBufferedRendering) {
 	u64 dirty = dirtyUniforms & availableUniforms;
 	dirtyUniforms = 0;
+#ifdef OPENXR
+	dirty |= DIRTY_VIEWMATRIX;
+#endif
 	if (!dirty)
 		return;
 
