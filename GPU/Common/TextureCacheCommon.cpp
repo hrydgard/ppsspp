@@ -1849,7 +1849,6 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
 	bool need_depalettize = IsClutFormat(texFormat);
-	bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS);
 	bool depth = channel == NOTIFY_FB_DEPTH;
 	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && !depth && !gstate_c.curTextureIs3D;
 

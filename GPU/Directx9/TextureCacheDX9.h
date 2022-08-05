@@ -54,7 +54,7 @@ protected:
 	void BindAsClutTexture(Draw::Texture *tex) override;
 
 private:
-	void ApplySamplingParams(const SamplerCacheKey &key);
+	void ApplySamplingParams(const SamplerCacheKey &key) override;
 
 	D3DFORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 	static CheckAlphaResult CheckAlpha(const u32 *pixelData, u32 dstFmt, int w);

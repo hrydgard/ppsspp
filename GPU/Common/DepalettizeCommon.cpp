@@ -96,8 +96,6 @@ Draw::Texture *DepalShaderCache::GetClutTexture(GEPaletteFormat clutFormat, cons
 	case GEPaletteFormat::GE_CMODE_32BIT_ABGR8888:
 		desc.initData.push_back((const uint8_t *)rawClut);
 		break;
-
-	// TODO: The 16-bit CLUTs might be pre-reversed for OpenGL! :/
 	case GEPaletteFormat::GE_CMODE_16BIT_BGR5650:
 		ConvertRGBA5551ToRGBA8888((u32 *)convTemp, (const u16 *)rawClut, texturePixels);
 		desc.initData.push_back(convTemp);
