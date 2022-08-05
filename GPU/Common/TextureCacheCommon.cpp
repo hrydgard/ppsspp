@@ -2264,3 +2264,17 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, i
 		}
 	}
 }
+
+CheckAlphaResult TextureCacheCommon::CheckCLUTAlpha(const uint8_t *pixelData, GEPaletteFormat clutFormat, int w) {
+	switch (clutFormat) {
+	case GE_CMODE_16BIT_ABGR4444:
+		return CheckAlpha16((const u16 *)pixelData, w, 0xF000);
+	case GE_CMODE_16BIT_ABGR5551:
+		return CheckAlpha16((const u16 *)pixelData, w, 0x8000);
+	case GE_CMODE_16BIT_BGR5650:
+		// Never has any alpha.
+		return CHECKALPHA_FULL;
+	default:
+		return CheckAlpha32((const u32 *)pixelData, w, 0xFF000000);  // note, the normal order here, unlike the 16-bit formats
+	}
+}
