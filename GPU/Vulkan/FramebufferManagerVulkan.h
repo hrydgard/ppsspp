@@ -23,7 +23,6 @@
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/PresentationCommon.h"
 #include "GPU/Vulkan/VulkanUtil.h"
-#include "GPU/Vulkan/DepalettizeShaderVulkan.h"
 
 class TextureCacheVulkan;
 class DrawEngineVulkan;
@@ -50,8 +49,4 @@ public:
 	// If within a render pass, this will just issue a regular clear. If beginning a new render pass,
 	// do that.
 	void NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth);
-
-private:
-	// Simple 2D drawing engine.
-	Vulkan2D *vulkan2D_;
 };

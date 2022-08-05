@@ -379,6 +379,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\GPU\Common\DepalettizeCommon.h" />
     <ClInclude Include="..\..\GPU\Common\DepalettizeShaderCommon.h" />
     <ClInclude Include="..\..\GPU\Common\Draw2D.h" />
     <ClInclude Include="..\..\GPU\Common\DrawEngineCommon.h" />
@@ -438,6 +439,7 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\GPU\Common\DepalettizeCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\DepalettizeShaderCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\Draw2D.cpp" />
     <ClCompile Include="..\..\GPU\Common\DrawEngineCommon.cpp" />

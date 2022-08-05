@@ -727,7 +727,6 @@ SOURCES_C += \
     $(EXTDIR)/miniupnp/miniupnpc/upnpreplyparse.c
 
 SOURCES_CXX += \
-	$(GPUDIR)/Vulkan/DepalettizeShaderVulkan.cpp \
 	$(GPUDIR)/Vulkan/DrawEngineVulkan.cpp \
 	$(GPUDIR)/Vulkan/FramebufferManagerVulkan.cpp \
 	$(GPUDIR)/Vulkan/GPU_Vulkan.cpp \
