@@ -50,6 +50,7 @@ enum FramebufferNotificationChannel {
 
 struct VirtualFramebuffer;
 class TextureReplacer;
+class ShaderManagerCommon;
 
 namespace Draw {
 class DrawContext;
@@ -288,6 +289,10 @@ public:
 	// TODO: Return stuff directly instead of keeping state.
 	TexCacheEntry *SetTexture();
 
+	void SetShaderManager(ShaderManagerCommon *sm) {
+		shaderManager_ = sm;
+	}
+
 	void ApplyTexture();
 	bool SetOffsetTexture(u32 yOffset);
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
@@ -328,7 +333,7 @@ protected:
 	void DeleteTexture(TexCache::iterator it);
 	void Decimate(bool forcePressure = false);
 
-	virtual void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) = 0;
+	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel);
 
 	void HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
 	virtual void BuildTexture(TexCacheEntry *const entry) = 0;
@@ -405,6 +410,7 @@ protected:
 	TextureScalerCommon scaler_;
 	FramebufferManagerCommon *framebufferManager_;
 	DepalShaderCache *depalShaderCache_;
+	ShaderManagerCommon *shaderManager_;
 
 	bool clearCacheNextFrame_ = false;
 	bool lowMemoryMode_ = false;

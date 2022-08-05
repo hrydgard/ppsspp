@@ -49,9 +49,6 @@ public:
 	void StartFrame() override;
 
 	void SetFramebufferManager(FramebufferManagerD3D11 *fbManager);
-	void SetShaderManager(ShaderManagerD3D11 *sm) {
-		shaderManager_ = sm;
-	}
 
 	void ForgetLastTexture() override;
 	void InvalidateLastTexture() override;
@@ -70,7 +67,6 @@ private:
 	static CheckAlphaResult CheckAlpha(const u32 *pixelData, u32 dstFmt, int w);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
-	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) override;
 	void BuildTexture(TexCacheEntry *const entry) override;
 
 	ID3D11Device *device_;
@@ -89,7 +85,6 @@ private:
 	ID3D11Buffer *depalConstants_;
 
 	FramebufferManagerD3D11 *framebufferManagerD3D11_;
-	ShaderManagerD3D11 *shaderManager_;
 };
 
 DXGI_FORMAT GetClutDestFormatD3D11(GEPaletteFormat format);

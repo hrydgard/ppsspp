@@ -44,9 +44,6 @@ public:
 	void SetDepalShaderCache(DepalShaderCache *dpCache) {
 		depalShaderCache_ = dpCache;
 	}
-	void SetShaderManager(ShaderManagerGLES *sm) {
-		shaderManager_ = sm;
-	}
 	void SetDrawEngine(DrawEngineGLES *td) {
 		drawEngine_ = td;
 	}
@@ -75,8 +72,6 @@ private:
 	Draw::DataFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
-	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) override;
-
 	void BuildTexture(TexCacheEntry *const entry) override;
 
 	GLRenderManager *render_;
@@ -84,7 +79,7 @@ private:
 	GLRTexture *lastBoundTexture = nullptr;
 
 	FramebufferManagerGLES *framebufferManagerGL_;
-	ShaderManagerGLES *shaderManager_;
+	ShaderManagerGLES *shaderManagerGL_;
 	DrawEngineGLES *drawEngine_;
 
 	enum { INVALID_TEX = -1 };

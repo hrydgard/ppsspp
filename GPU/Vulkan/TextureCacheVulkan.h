@@ -67,9 +67,6 @@ public:
 	void SetDepalShaderCache(DepalShaderCache *dpCache) {
 		depalShaderCache_ = dpCache;
 	}
-	void SetShaderManager(ShaderManagerVulkan *sm) {
-		shaderManagerVulkan_ = sm;
-	}
 	void SetDrawEngine(DrawEngineVulkan *td) {
 		drawEngine_ = td;
 	}
@@ -109,7 +106,6 @@ private:
 	static CheckAlphaResult CheckAlpha(const u32 *pixelData, VkFormat dstFmt, int w);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
-	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) override;
 	void BuildTexture(TexCacheEntry *const entry) override;
 
 	void CompileScalingShader();
@@ -121,7 +117,6 @@ private:
 
 	SamplerCache samplerCache_;
 
-	ShaderManagerVulkan *shaderManagerVulkan_;
 	DrawEngineVulkan *drawEngine_;
 
 	std::string textureShader_;

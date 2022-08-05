@@ -42,9 +42,6 @@ public:
 	void SetDepalShaderCache(DepalShaderCache *dpCache) {
 		depalShaderCache_ = dpCache;
 	}
-	void SetShaderManager(ShaderManagerDX9 *sm) {
-		shaderManager_ = sm;
-	}
 
 	void ForgetLastTexture() override {
 		InvalidateLastTexture();
@@ -66,7 +63,6 @@ private:
 	static CheckAlphaResult CheckAlpha(const u32 *pixelData, u32 dstFmt, int w);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
-	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) override;
 	void BuildTexture(TexCacheEntry *const entry) override;
 
 	LPDIRECT3DBASETEXTURE9 &DxTex(TexCacheEntry *entry) {
@@ -82,7 +78,6 @@ private:
 	float maxAnisotropyLevel;
 
 	FramebufferManagerDX9 *framebufferManagerDX9_;
-	ShaderManagerDX9 *shaderManager_;
 };
 
 D3DFORMAT getClutDestFormat(GEPaletteFormat format);
