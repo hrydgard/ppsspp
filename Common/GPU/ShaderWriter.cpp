@@ -317,6 +317,13 @@ void ShaderWriter::HighPrecisionFloat() {
 	}
 }
 
+void ShaderWriter::DeclareSamplers(Slice<SamplerDef> samplers) {
+	for (int i = 0; i < (int)samplers.size(); i++) {
+		DeclareTexture2D(samplers[i].name,i);
+		DeclareSampler2D(samplers[i].name, i);
+	}
+}
+
 void ShaderWriter::DeclareTexture2D(const char *name, int binding) {
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:

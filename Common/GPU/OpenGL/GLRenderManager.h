@@ -108,6 +108,7 @@ public:
 	struct UniformLocQuery {
 		GLint *dest;
 		const char *name;
+		bool required;
 	};
 
 	struct Initializer {
@@ -424,13 +425,13 @@ public:
 	// not be an active render pass.
 	GLRProgram *CreateProgram(
 		std::vector<GLRShader *> shaders, std::vector<GLRProgram::Semantic> semantics, std::vector<GLRProgram::UniformLocQuery> queries,
-		std::vector<GLRProgram::Initializer> initalizers, bool supportDualSource, bool useClipDistance0) {
+		std::vector<GLRProgram::Initializer> initializers, bool supportDualSource, bool useClipDistance0) {
 		GLRInitStep step{ GLRInitStepType::CREATE_PROGRAM };
 		_assert_(shaders.size() <= ARRAY_SIZE(step.create_program.shaders));
 		step.create_program.program = new GLRProgram();
 		step.create_program.program->semantics_ = semantics;
 		step.create_program.program->queries_ = queries;
-		step.create_program.program->initialize_ = initalizers;
+		step.create_program.program->initialize_ = initializers;
 		step.create_program.program->use_clip_distance0 = useClipDistance0;
 		step.create_program.support_dual_source = supportDualSource;
 		_assert_msg_(shaders.size() > 0, "Can't create a program with zero shaders");

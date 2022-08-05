@@ -85,6 +85,12 @@ struct UniformBufferDesc {
 	std::vector<UniformDesc> uniforms;
 };
 
+struct SamplerDef {
+	const char *name;
+	// TODO: Might need unsigned samplers, 3d samplers, or other types in the future.
+};
+
+
 // For passing error messages from shader compilation (and other critical issues) back to the host.
 // This can run on any thread - be aware!
 // TODO: See if we can find a less generic name for this.

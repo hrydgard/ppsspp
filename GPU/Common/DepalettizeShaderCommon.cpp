@@ -19,6 +19,9 @@
 
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
+#include "Common/GPU/Shader.h"
+#include "Common/GPU/ShaderWriter.h"
+
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "Common/StringUtils.h"
@@ -30,15 +33,13 @@
 
 #define WRITE p+=sprintf
 
-// TODO: Add a compute shader path. Complete waste of time to set up a graphics state.
-
 // Uses integer instructions available since OpenGL 3.0. Suitable for ES 3.0 as well.
 void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLanguage language) {
 	char *p = buffer;
 	if (language == HLSL_D3D11) {
 		WRITE(p, "SamplerState texSamp : register(s0);\n");
 		WRITE(p, "Texture2D<float4> tex : register(t0);\n");
-		WRITE(p, "Texture2D<float4> pal : register(t3);\n");
+		WRITE(p, "Texture2D<float4> pal : register(t1);\n");
 		// Support for depth.
 		if (pixelFormat == GE_FORMAT_DEPTH16) {
 			WRITE(p, "cbuffer params : register(b0) {\n");

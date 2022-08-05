@@ -72,6 +72,8 @@ public:
 	void DeclareSampler2D(const char *name, int binding);
 	void DeclareTexture2D(const char *name, int binding);
 
+	void DeclareSamplers(Slice<SamplerDef> samplers);
+
 	ShaderWriter &SampleTexture2D(const char *texName, const char *samplerName, const char *uv);
 
 	// Simple shaders with no special tricks.

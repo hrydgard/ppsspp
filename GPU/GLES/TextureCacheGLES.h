@@ -20,6 +20,7 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "Common/GPU/thin3d.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/TextureCacheCommon.h"
@@ -67,6 +68,8 @@ protected:
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
 
+	void BindAsClutTexture(Draw::Texture *tex); // override
+
 private:
 	void ApplySamplingParams(const SamplerCacheKey &key);
 	Draw::DataFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
@@ -85,8 +88,6 @@ private:
 	DepalShaderCacheGLES *depalShaderCache_;
 	ShaderManagerGLES *shaderManager_;
 	DrawEngineGLES *drawEngine_;
-
-	GLRInputLayout *shadeInputLayout_ = nullptr;
 
 	enum { INVALID_TEX = -1 };
 };

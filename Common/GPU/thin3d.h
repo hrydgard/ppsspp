@@ -15,6 +15,7 @@
 
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/Shader.h"
+#include "Common/Data/Collections/Slice.h"
 
 namespace Lin {
 class Matrix4x4;
@@ -245,6 +246,7 @@ enum class NativeObject {
 	BOUND_TEXTURE0_IMAGEVIEW,
 	BOUND_TEXTURE1_IMAGEVIEW,
 	RENDER_MANAGER,
+	TEXTURE_IMAGEVIEW,
 	NULL_IMAGEVIEW,
 };
 
@@ -509,6 +511,7 @@ struct PipelineDesc {
 	BlendState *blend;
 	RasterState *raster;
 	const UniformBufferDesc *uniformDesc;
+	const Slice<SamplerDef> samplers;
 };
 
 struct DeviceCaps {

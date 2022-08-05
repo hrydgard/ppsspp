@@ -16,27 +16,26 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <map>
+#include <vector>
+#include <string>
 
 #include "Common/CommonTypes.h"
-#include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/Shader.h"
 #include "Common/GPU/thin3d.h"
-#include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
 class DepalShader {
 public:
-	GLRProgram *program;
-	GLRShader *fragShader;
-	GLint u_tex;
-	GLint u_pal;
+	Draw::ShaderModule *fragShader;
+	Draw::Pipeline *pipeline;
 	std::string code;
 };
 
 class DepalTexture {
 public:
-	GLRTexture *texture;
+	Draw::Texture *texture;
 	int lastFrame;
 };
 
@@ -48,24 +47,27 @@ public:
 
 	// This also uploads the palette and binds the correct texture.
 	DepalShader *GetDepalettizeShader(uint32_t clutMode, GEBufferFormat pixelFormat);
-	GLRTexture *GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
-	void Init();
+	Draw::Texture *GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
+
+	Draw::SamplerState *GetSampler();
+
 	void Clear();
 	void Decimate();
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 
-	void DeviceLost() {
-		Clear();
-	}
+	void DeviceLost();
 	void DeviceRestore(Draw::DrawContext *draw);
 
-private:
-	bool CreateVertexShader();
+	// Exposed for testing.
+	static bool GenerateVertexShader(char *buffer, const ShaderLanguageDesc &lang);
 
-	GLRenderManager *render_;
-	bool useGL3_;
-	GLRShader *vertexShader_ = nullptr;
+private:
+
+	Draw::DrawContext *draw_;
+	Draw::ShaderModule *vertexShader_ = nullptr;
+	Draw::SamplerState *nearestSampler_ = nullptr;
+
 	std::map<u32, DepalShader *> cache_;
 	std::map<u32, DepalTexture *> texCache_;
 };

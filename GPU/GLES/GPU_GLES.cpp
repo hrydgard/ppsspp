@@ -77,7 +77,6 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	framebufferManagerGL_->SetShaderManager(shaderManagerGL_);
 	framebufferManagerGL_->SetDrawEngine(&drawEngine_);
 	framebufferManagerGL_->Init();
-	depalShaderCache_.Init();
 	textureCacheGL_->SetFramebufferManager(framebufferManagerGL_);
 	textureCacheGL_->SetDepalShaderCache(&depalShaderCache_);
 	textureCacheGL_->SetShaderManager(shaderManagerGL_);

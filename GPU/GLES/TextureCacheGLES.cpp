@@ -50,17 +50,9 @@ TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw)
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	nextTexture_ = nullptr;
-
-	std::vector<GLRInputLayout::Entry> entries;
-	entries.push_back({ 0, 3, GL_FLOAT, GL_FALSE, 20, 0 });
-	entries.push_back({ 1, 2, GL_FLOAT, GL_FALSE, 20, 12 });
-	shadeInputLayout_ = render_->CreateInputLayout(entries);
 }
 
 TextureCacheGLES::~TextureCacheGLES() {
-	if (shadeInputLayout_) {
-		render_->DeleteInputLayout(shadeInputLayout_);
-	}
 	Clear(true);
 }
 
@@ -93,7 +85,7 @@ Draw::DataFormat getClutDestFormat(GEPaletteFormat format) {
 	case GE_CMODE_32BIT_ABGR8888:
 		return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
-	return Draw::DataFormat::UNDEFINED;;
+	return Draw::DataFormat::UNDEFINED;
 }
 
 static const GLuint MinFiltGL[8] = {
@@ -239,33 +231,33 @@ void TextureCacheGLES::Unbind() {
 	InvalidateLastTexture();
 }
 
+// TODO: Move this thing directly into Depal.
 class TextureShaderApplier {
 public:
 	struct Pos {
 		float x;
 		float y;
-		float z;
 	};
 	struct UV {
 		float u;
 		float v;
 	};
 
-	TextureShaderApplier(DepalShader *shader, float bufferW, float bufferH, int renderW, int renderH)
-		: shader_(shader), bufferW_(bufferW), bufferH_(bufferH), renderW_(renderW), renderH_(renderH) {
+	TextureShaderApplier(Draw::DrawContext *draw, DepalShader *shader, float bufferW, float bufferH, int renderW, int renderH)
+		: draw_(draw), shader_(shader), bufferW_(bufferW), bufferH_(bufferH), renderW_(renderW), renderH_(renderH) {
 		static const Pos pos[4] = {
-			{-1, -1, -1},
-			{ 1, -1, -1},
-			{ 1,  1, -1},
-			{-1,  1, -1},
+			{-1, -1 },
+			{ 1, -1 },
+			{-1,  1 },
+			{ 1,  1 },
 		};
 		memcpy(pos_, pos, sizeof(pos_));
 
 		static const UV uv[4] = {
-			{0, 0},
-			{1, 0},
-			{1, 1},
-			{0, 1},
+			{ 0, 0 },
+			{ 1, 0 },
+			{ 0, 1 },
+			{ 1, 1 },
 		};
 		memcpy(uv_, uv, sizeof(uv_));
 	}
@@ -289,10 +281,10 @@ public:
 			const float top = v1 * invHalfHeight - 1.0f;
 			const float bottom = v2 * invHalfHeight - 1.0f;
 			// Points are: BL, BR, TR, TL.
-			pos_[0] = Pos{ left, bottom, -1.0f };
-			pos_[1] = Pos{ right, bottom, -1.0f };
-			pos_[2] = Pos{ right, top, -1.0f };
-			pos_[3] = Pos{ left, top, -1.0f };
+			pos_[0] = Pos{ left, bottom };
+			pos_[1] = Pos{ right, bottom };
+			pos_[2] = Pos{ left, top };
+			pos_[3] = Pos{ right, top };
 
 			// And also the UVs, same order.
 			const float uvleft = u1 * invWidth;
@@ -301,45 +293,50 @@ public:
 			const float uvbottom = v2 * invHeight;
 			uv_[0] = UV{ uvleft, uvbottom };
 			uv_[1] = UV{ uvright, uvbottom };
-			uv_[2] = UV{ uvright, uvtop };
-			uv_[3] = UV{ uvleft, uvtop };
+			uv_[2] = UV{ uvleft, uvtop };
+			uv_[3] = UV{ uvright, uvtop };
 
 			// We need to reapply the texture next time since we cropped UV.
 			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 		}
 	}
 
-	void Use(GLRenderManager *render, DrawEngineGLES *transformDraw, GLRInputLayout *inputLayout) {
-		render->BindProgram(shader_->program);
+	void Use(DrawEngineGLES *transformDraw) {
+		draw_->BindPipeline(shader_->pipeline);
 		struct SimpleVertex {
-			float pos[3];
+			float pos[2];
 			float uv[2];
 		};
-		uint32_t bindOffset;
-		GLRBuffer *bindBuffer;
-		SimpleVertex *verts = (SimpleVertex *)transformDraw->GetPushVertexBuffer()->Push(sizeof(SimpleVertex) * 4, &bindOffset, &bindBuffer);
-		int order[4] = { 0 ,1, 3, 2 };
 		for (int i = 0; i < 4; i++) {
-			memcpy(verts[i].pos, &pos_[order[i]], sizeof(Pos));
-			memcpy(verts[i].uv, &uv_[order[i]], sizeof(UV));
+			memcpy(&verts_[i].x, &pos_[i], sizeof(Pos));
+			memcpy(&verts_[i].u, &uv_[i], sizeof(UV));
 		}
-		render->BindVertexBuffer(inputLayout, bindBuffer, bindOffset);
 	}
 
-	void Shade(GLRenderManager *render) {
-		render->SetViewport(GLRViewport{ 0, 0, (float)renderW_, (float)renderH_, 0.0f, 1.0f });
-		render->Draw(GL_TRIANGLE_STRIP, 0, 4);
+	void Shade() {
+		Draw::Viewport vp{ 0.0f, 0.0f, (float)renderW_, (float)renderH_, 0.0f, 1.0f };
+		draw_->SetViewports(1, &vp);
+		draw_->SetScissorRect(0, 0, renderW_, renderH_);
+		draw_->DrawUP((const uint8_t *)verts_, 4);
 	}
 
 protected:
+	Draw::DrawContext *draw_;
 	DepalShader *shader_;
 	Pos pos_[4];
 	UV uv_[4];
+	Draw2DVertex verts_[4];
 	float bufferW_;
 	float bufferH_;
 	int renderW_;
 	int renderH_;
 };
+
+void TextureCacheGLES::BindAsClutTexture(Draw::Texture *tex) {
+	draw_->BindTexture(1, tex);
+	GLRTexture *glrTex = (GLRTexture *)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE1_IMAGEVIEW);
+	render_->BindTexture(TEX_SLOT_CLUT, glrTex);
+}
 
 void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) {
 	DepalShader *depalShader = nullptr;
@@ -347,7 +344,7 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 	bool need_depalettize = IsClutFormat(texFormat);
 
 	bool depth = channel == NOTIFY_FB_DEPTH;
-	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300) || gstate_c.Supports(GPU_SUPPORTS_GLSL_330)) && !depth;
+	bool useShaderDepal = false && framebufferManager_->GetCurrentRenderVFB() != framebuffer && (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300) || gstate_c.Supports(GPU_SUPPORTS_GLSL_330)) && !depth;
 	if (!gstate_c.Supports(GPU_SUPPORTS_32BIT_INT_FSHADER)) {
 		useShaderDepal = false;
 		depth = false;  // Can't support this
@@ -356,8 +353,10 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
 		if (useShaderDepal) {
 			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-			GLRTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
-			render_->BindTexture(TEX_SLOT_CLUT, clutTexture);
+			// Very icky conflation here of native and thin3d rendering. This will need careful work per backend.
+			Draw::Texture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
+			BindAsClutTexture(clutTexture);
+
 			render_->SetTextureSampler(TEX_SLOT_CLUT, GL_REPEAT, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
 			framebufferManagerGL_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 			SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
@@ -381,26 +380,30 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 		depalShader = depalShaderCache_->GetDepalettizeShader(clutMode, depth ? GE_FORMAT_DEPTH16 : framebuffer->drawnFormat);
 		gstate_c.SetUseShaderDepal(false);
 	}
+
 	if (depalShader) {
-		shaderManager_->DirtyLastShader();
+		// This is the part we can easily make generic.
 
 		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-		GLRTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
-		Draw::Framebuffer *depalFBO = framebufferManagerGL_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight);
+		Draw::Texture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
+		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight);
 		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
 
-		render_->SetScissor(GLRect2D{ 0, 0, (int)framebuffer->renderWidth, (int)framebuffer->renderHeight });
-		render_->SetViewport(GLRViewport{ 0.0f, 0.0f, (float)framebuffer->renderWidth, (float)framebuffer->renderHeight, 0.0f, 1.0f });
-		TextureShaderApplier shaderApply(depalShader, framebuffer->bufferWidth, framebuffer->bufferHeight, framebuffer->renderWidth, framebuffer->renderHeight);
+		draw_->SetScissorRect(0, 0, (int)framebuffer->renderWidth, (int)framebuffer->renderHeight);
+		Draw::Viewport vp{ 0.0f, 0.0f, (float)framebuffer->renderWidth, (float)framebuffer->renderHeight, 0.0f, 1.0f };
+		draw_->SetViewports(1, &vp);
+
+		TextureShaderApplier shaderApply(draw_, depalShader, framebuffer->bufferWidth, framebuffer->bufferHeight, framebuffer->renderWidth, framebuffer->renderHeight);
 		shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset);
-		shaderApply.Use(render_, drawEngine_, shadeInputLayout_);
+		shaderApply.Use(drawEngine_);
 
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, 0);
+		Draw::SamplerState *nearest = depalShaderCache_->GetSampler();
+		draw_->BindSamplerStates(0, 1, &nearest);
+		draw_->BindSamplerStates(1, 1, &nearest);
+		draw_->BindTexture(1, clutTexture);
 
-		render_->BindTexture(TEX_SLOT_CLUT, clutTexture);
-		render_->SetTextureSampler(TEX_SLOT_CLUT, GL_REPEAT, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
-
-		shaderApply.Shade(render_);
+		shaderApply.Shade();
 
 		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
 
@@ -409,6 +412,9 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 
 		CheckAlphaResult alphaStatus = CheckAlpha((const uint8_t *)clutBuf_, getClutDestFormat(clutFormat), clutTotalColors);
 		gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
+
+		draw_->InvalidateCachedState();
+		shaderManager_->DirtyLastShader();
 	} else {
 		framebufferManagerGL_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 
@@ -639,10 +645,6 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level)
 }
 
 void TextureCacheGLES::DeviceLost() {
-	if (shadeInputLayout_) {
-		render_->DeleteInputLayout(shadeInputLayout_);
-		shadeInputLayout_ = nullptr;
-	}
 	Clear(false);
 	draw_ = nullptr;
 	render_ = nullptr;
@@ -651,10 +653,4 @@ void TextureCacheGLES::DeviceLost() {
 void TextureCacheGLES::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	if (!shadeInputLayout_) {
-		std::vector<GLRInputLayout::Entry> entries;
-		entries.push_back({ 0, 3, GL_FLOAT, GL_FALSE, 20, 0 });
-		entries.push_back({ 1, 2, GL_FLOAT, GL_FALSE, 20, 12 });
-		shadeInputLayout_ = render_->CreateInputLayout(entries);
-	}
 }

@@ -294,6 +294,10 @@ public:
 	std::vector<GLint> dynamicUniformLocs_;
 	GLRProgram *program_ = nullptr;
 
+	// Allow using other sampler names than sampler0, sampler1 etc in shaders.
+	// If not set, will default to those, though.
+	Slice<SamplerDef> samplers_;
+
 private:
 	GLRenderManager *render_;
 };
@@ -1079,6 +1083,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		pipeline->dynamicUniforms = *desc.uniformDesc;
 		pipeline->dynamicUniformLocs_.resize(desc.uniformDesc->uniforms.size());
 	}
+	pipeline->samplers_ = desc.samplers;
 	if (pipeline->LinkShaders()) {
 		// Build the rest of the virtual pipeline object.
 		pipeline->prim = primToGL[(int)desc.prim];
@@ -1171,17 +1176,31 @@ bool OpenGLPipeline::LinkShaders() {
 	// For postshaders.
 	semantics.push_back({ SEM_POSITION, "a_position" });
 	semantics.push_back({ SEM_TEXCOORD0, "a_texcoord0" });
+
 	std::vector<GLRProgram::UniformLocQuery> queries;
-	queries.push_back({ &samplerLocs_[0], "sampler0" });
-	queries.push_back({ &samplerLocs_[1], "sampler1" });
-	queries.push_back({ &samplerLocs_[2], "sampler2" });
-	_assert_(queries.size() >= MAX_TEXTURE_SLOTS);
+	if (!samplers_.is_empty()) {
+		for (int i = 0; i < (int)std::min((const uint32_t)samplers_.size(), MAX_TEXTURE_SLOTS); i++) {
+			queries.push_back({ &samplerLocs_[i], samplers_[i].name, true });
+		}
+	} else {
+		queries.push_back({ &samplerLocs_[0], "sampler0" });
+		queries.push_back({ &samplerLocs_[1], "sampler1" });
+		queries.push_back({ &samplerLocs_[2], "sampler2" });
+	}
+
+	_assert_(queries.size() <= MAX_TEXTURE_SLOTS);
 	for (size_t i = 0; i < dynamicUniforms.uniforms.size(); ++i) {
 		queries.push_back({ &dynamicUniformLocs_[i], dynamicUniforms.uniforms[i].name });
 	}
 	std::vector<GLRProgram::Initializer> initialize;
-	for (int i = 0; i < MAX_TEXTURE_SLOTS; ++i)
-		initialize.push_back({ &samplerLocs_[i], 0, i });
+	for (int i = 0; i < MAX_TEXTURE_SLOTS; ++i) {
+		if (i < queries.size()) {
+			initialize.push_back({ &samplerLocs_[i], 0, i });
+		} else {
+			samplerLocs_[i] = -1;
+		}
+	}
+
 	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, false, false);
 	return true;
 }
