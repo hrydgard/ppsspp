@@ -373,6 +373,8 @@ protected:
 
 	void SetTextureFramebuffer(const AttachCandidate &candidate);
 
+	virtual void BoundFramebufferTexture() {}
+
 	virtual void StartFrame();
 
 	void DecimateVideos();

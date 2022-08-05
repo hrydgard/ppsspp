@@ -52,9 +52,7 @@
 #include "Core/HLE/sceGe.h"
 
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
-	: GPUCommon(gfxCtx, draw),
-		depalShaderCache_(draw),
-		drawEngine_(draw) {
+	: GPUCommon(gfxCtx, draw), drawEngine_(draw) {
 	CheckGPUFeatures();
 
 	VulkanContext *vulkan = (VulkanContext *)gfxCtx->GetAPIContext();
@@ -79,7 +77,6 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	framebufferManagerVulkan_->SetDrawEngine(&drawEngine_);
 	framebufferManagerVulkan_->SetShaderManager(shaderManagerVulkan_);
 	framebufferManagerVulkan_->Init();
-	textureCacheVulkan_->SetDepalShaderCache(&depalShaderCache_);
 	textureCacheVulkan_->SetFramebufferManager(framebufferManagerVulkan_);
 	textureCacheVulkan_->SetShaderManager(shaderManagerVulkan_);
 	textureCacheVulkan_->SetDrawEngine(&drawEngine_);
@@ -179,8 +176,6 @@ GPU_Vulkan::~GPU_Vulkan() {
 	// Note: We save the cache in DeviceLost
 	DestroyDeviceObjects();
 	framebufferManagerVulkan_->DestroyAllFBOs();
-	depalShaderCache_.Clear();
-	depalShaderCache_.DeviceLost();
 	drawEngine_.DeviceLost();
 	delete textureCacheVulkan_;
 	delete pipelineManager_;
@@ -429,7 +424,6 @@ void GPU_Vulkan::BuildReportingInfo() {
 
 void GPU_Vulkan::Reinitialize() {
 	GPUCommon::Reinitialize();
-	depalShaderCache_.Clear();
 }
 
 void GPU_Vulkan::InitClear() {
@@ -541,7 +535,6 @@ void GPU_Vulkan::DeviceLost() {
 	drawEngine_.DeviceLost();
 	pipelineManager_->DeviceLost();
 	textureCacheVulkan_->DeviceLost();
-	depalShaderCache_.DeviceLost();
 	shaderManagerVulkan_->ClearShaders();
 
 	GPUCommon::DeviceLost();
@@ -560,7 +553,6 @@ void GPU_Vulkan::DeviceRestore() {
 	pipelineManager_->DeviceRestore(vulkan);
 	textureCacheVulkan_->DeviceRestore(draw_);
 	shaderManagerVulkan_->DeviceRestore(draw_);
-	depalShaderCache_.DeviceRestore(draw_);
 }
 
 void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
@@ -602,7 +594,6 @@ void GPU_Vulkan::DoState(PointerWrap &p) {
 	// In Freeze-Frame mode, we don't want to do any of this.
 	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
 		textureCache_->Clear(true);
-		depalShaderCache_.Clear();
 
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		framebufferManager_->DestroyAllFBOs();

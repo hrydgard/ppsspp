@@ -763,6 +763,10 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 	}
 }
 
+void TextureCacheVulkan::BoundFramebufferTexture() {
+	imageView_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
+}
+
 bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
 	SetTexture();
 	if (!nextTexture_) {

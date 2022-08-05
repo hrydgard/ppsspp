@@ -39,9 +39,6 @@ public:
 	void StartFrame() override;
 
 	void SetFramebufferManager(FramebufferManagerDX9 *fbManager);
-	void SetDepalShaderCache(DepalShaderCache *dpCache) {
-		depalShaderCache_ = dpCache;
-	}
 
 	void ForgetLastTexture() override {
 		InvalidateLastTexture();

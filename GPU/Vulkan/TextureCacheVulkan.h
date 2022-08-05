@@ -64,9 +64,6 @@ public:
 	void DeviceRestore(Draw::DrawContext *draw);
 
 	void SetFramebufferManager(FramebufferManagerVulkan *fbManager);
-	void SetDepalShaderCache(DepalShaderCache *dpCache) {
-		depalShaderCache_ = dpCache;
-	}
 	void SetDrawEngine(DrawEngineVulkan *td) {
 		drawEngine_ = td;
 	}
@@ -99,6 +96,7 @@ protected:
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
 	void BindAsClutTexture(Draw::Texture *tex) override;
 	void ApplySamplingParams(const SamplerCacheKey &key) override;
+	void BoundFramebufferTexture() override;
 
 private:
 	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch,  int level, int scaleFactor, VkFormat dstFmt);

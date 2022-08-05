@@ -77,7 +77,6 @@ private:
 
 	FramebufferManagerDX9 *framebufferManagerDX9_;
 	TextureCacheDX9 *textureCacheDX9_;
-	DepalShaderCache depalShaderCache_;
 	DrawEngineDX9 drawEngine_;
 	ShaderManagerDX9 *shaderManagerDX9_;
 };

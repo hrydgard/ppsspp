@@ -134,9 +134,10 @@ TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw)
 }
 
 TextureCacheCommon::~TextureCacheCommon() {
+	delete depalShaderCache_;
+
 	FreeAlignedMemory(clutBufConverted_);
 	FreeAlignedMemory(clutBufRaw_);
-	delete depalShaderCache_;
 }
 
 // Produces a signed 1.23.8 value.
@@ -1846,10 +1847,11 @@ void TextureCacheCommon::ApplyTexture() {
 void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) {
 	DepalShader *depalShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
-	bool need_depalettize = IsClutFormat(texFormat);
 
+	bool need_depalettize = IsClutFormat(texFormat);
+	bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS);
 	bool depth = channel == NOTIFY_FB_DEPTH;
-	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && !depth;
+	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && !depth && !gstate_c.curTextureIs3D;
 
 	// TODO: Implement shader depal in the fragment shader generator for D3D11 at least.
 	if (!draw_->GetDeviceCaps().fragmentShaderInt32Supported) {
@@ -1875,6 +1877,9 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			BindAsClutTexture(clutTexture);
 
 			framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
+			// Vulkan needs to do some extra work here to pick out the native handle from Draw.
+			BoundFramebufferTexture();
+
 			SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 			samplerKey.magFilt = false;
 			samplerKey.minFilt = false;
@@ -1892,6 +1897,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 			draw_->InvalidateCachedState();
 			InvalidateLastTexture();
+
 			return;
 		}
 
@@ -1926,6 +1932,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");
 
 		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
+		BoundFramebufferTexture();
 
 		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
@@ -1938,6 +1945,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	} else {
 		framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");
 		framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
+		BoundFramebufferTexture();
 
 		gstate_c.SetUseShaderDepal(false);
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);

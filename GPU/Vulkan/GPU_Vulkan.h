@@ -91,7 +91,6 @@ private:
 
 	FramebufferManagerVulkan *framebufferManagerVulkan_;
 	TextureCacheVulkan *textureCacheVulkan_;
-	DepalShaderCache depalShaderCache_;
 	DrawEngineVulkan drawEngine_;
 
 	// Manages shaders and UBO data
