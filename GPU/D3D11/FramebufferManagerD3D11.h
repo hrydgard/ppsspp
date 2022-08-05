@@ -34,18 +34,8 @@ class ShaderManagerD3D11;
 class FramebufferManagerD3D11 : public FramebufferManagerCommon {
 public:
 	FramebufferManagerD3D11(Draw::DrawContext *draw);
-	~FramebufferManagerD3D11();
-
-	void SetTextureCache(TextureCacheD3D11 *tc);
-	void SetShaderManager(ShaderManagerD3D11 *sm);
-	void SetDrawEngine(DrawEngineD3D11 *td);
 
 	void EndFrame();
-
-	// TODO: Remove
-	ID3D11Buffer *GetDynamicQuadBuffer() {
-		return quadBuffer_;
-	}
 
 private:
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
@@ -53,13 +43,4 @@ private:
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
 	D3D_FEATURE_LEVEL featureLevel_;
-
-	// Dynamic
-	ID3D11Buffer *quadBuffer_;
-
-	ID3D11PixelShader *stencilUploadPS_ = nullptr;
-	ID3D11VertexShader *stencilUploadVS_ = nullptr;
-	ID3D11InputLayout *stencilUploadInputLayout_ = nullptr;
-	ID3D11Buffer *stencilValueBuffer_ = nullptr;
-	ID3D11DepthStencilState *stencilMaskStates_[256]{};
 };

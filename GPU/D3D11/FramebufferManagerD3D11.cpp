@@ -49,47 +49,8 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 	context_ = (ID3D11DeviceContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 	featureLevel_ = (D3D_FEATURE_LEVEL)draw->GetNativeObject(Draw::NativeObject::FEATURE_LEVEL);
 
-	D3D11_BUFFER_DESC vb{};
-	vb.ByteWidth = 20 * 4;
-	vb.Usage = D3D11_USAGE_IMMUTABLE;
-	vb.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	vb.Usage = D3D11_USAGE_DYNAMIC;
-	vb.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	ASSERT_SUCCESS(device_->CreateBuffer(&vb, nullptr, &quadBuffer_));
-
 	presentation_->SetLanguage(HLSL_D3D11);
 	preferredPixelsFormat_ = Draw::DataFormat::B8G8R8A8_UNORM;
-}
-
-FramebufferManagerD3D11::~FramebufferManagerD3D11() {
-	// Drawing cleanup
-	quadBuffer_->Release();
-
-	// Stencil cleanup
-	for (int i = 0; i < 256; i++) {
-		if (stencilMaskStates_[i])
-			stencilMaskStates_[i]->Release();
-	}
-	if (stencilUploadPS_)
-		stencilUploadPS_->Release();
-	if (stencilUploadVS_)
-		stencilUploadVS_->Release();
-	if (stencilUploadInputLayout_)
-		stencilUploadInputLayout_->Release();
-	if (stencilValueBuffer_)
-		stencilValueBuffer_->Release();
-}
-
-void FramebufferManagerD3D11::SetTextureCache(TextureCacheD3D11 *tc) {
-	textureCache_ = tc;
-}
-
-void FramebufferManagerD3D11::SetShaderManager(ShaderManagerD3D11 *sm) {
-	shaderManager_ = sm;
-}
-
-void FramebufferManagerD3D11::SetDrawEngine(DrawEngineD3D11 *td) {
-	drawEngine_ = td;
 }
 
 static void CopyPixelDepthOnly(u32 *dstp, const u32 *srcp, size_t c) {

@@ -93,7 +93,6 @@ TextureCacheDX9::~TextureCacheDX9() {
 }
 
 void TextureCacheDX9::SetFramebufferManager(FramebufferManagerDX9 *fbManager) {
-	framebufferManagerDX9_ = fbManager;
 	framebufferManager_ = fbManager;
 }
 

@@ -55,19 +55,6 @@ void FramebufferManagerGLES::Init() {
 	FramebufferManagerCommon::Init();
 }
 
-void FramebufferManagerGLES::SetTextureCache(TextureCacheGLES *tc) {
-	textureCache_ = tc;
-}
-
-void FramebufferManagerGLES::SetShaderManager(ShaderManagerGLES *sm) {
-	shaderManager_ = sm;
-}
-
-void FramebufferManagerGLES::SetDrawEngine(DrawEngineGLES *td) {
-	drawEngineGL_ = td;
-	drawEngine_ = td;
-}
-
 void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
 	_assert_msg_(nvfb->fbo, "Expecting a valid nvfb in UpdateDownloadTempBuffer");
 

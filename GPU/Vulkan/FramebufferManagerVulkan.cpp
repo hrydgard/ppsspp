@@ -58,18 +58,6 @@ FramebufferManagerVulkan::~FramebufferManagerVulkan() {
 	DeviceLost();
 }
 
-void FramebufferManagerVulkan::SetTextureCache(TextureCacheVulkan *tc) {
-	textureCache_ = tc;
-}
-
-void FramebufferManagerVulkan::SetShaderManager(ShaderManagerVulkan *sm) {
-	shaderManager_ = sm;
-}
-
-void FramebufferManagerVulkan::SetDrawEngine(DrawEngineVulkan *td) {
-	drawEngine_ = td;
-}
-
 void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {
 	int mask = 0;
 	// The Clear detection takes care of doing a regular draw instead if separate masking

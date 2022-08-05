@@ -36,10 +36,6 @@ public:
 	FramebufferManagerVulkan(Draw::DrawContext *draw);
 	~FramebufferManagerVulkan();
 
-	void SetTextureCache(TextureCacheVulkan *tc);
-	void SetShaderManager(ShaderManagerVulkan *sm);
-	void SetDrawEngine(DrawEngineVulkan *td);
-
 	void BeginFrameVulkan();  // there's a BeginFrame in the base class, which this calls
 	void EndFrame();
 
