@@ -1,8 +1,6 @@
 #include "VRTweaks.h"
 #include <iostream>
 
-static bool vrIsHUD = false;
-
 bool VR_TweakIs2D(float* projMatrix) {
 	bool ortho = true;
 	bool identity = true;
