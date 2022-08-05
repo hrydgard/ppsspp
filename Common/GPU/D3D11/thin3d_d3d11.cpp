@@ -163,30 +163,7 @@ public:
 		}
 	}
 
-	uint64_t GetNativeObject(NativeObject obj, void *srcObject) override {
-		switch (obj) {
-		case NativeObject::DEVICE:
-			return (uint64_t)(uintptr_t)device_;
-		case NativeObject::CONTEXT:
-			return (uint64_t)(uintptr_t)context_;
-		case NativeObject::DEVICE_EX:
-			return (uint64_t)(uintptr_t)device1_;
-		case NativeObject::CONTEXT_EX:
-			return (uint64_t)(uintptr_t)context1_;
-		case NativeObject::BACKBUFFER_COLOR_TEX:
-			return (uint64_t)(uintptr_t)bbRenderTargetTex_;
-		case NativeObject::BACKBUFFER_DEPTH_TEX:
-			return (uint64_t)(uintptr_t)bbDepthStencilTex_;
-		case NativeObject::BACKBUFFER_COLOR_VIEW:
-			return (uint64_t)(uintptr_t)bbRenderTargetView_;
-		case NativeObject::BACKBUFFER_DEPTH_VIEW:
-			return (uint64_t)(uintptr_t)bbDepthStencilView_;
-		case NativeObject::FEATURE_LEVEL:
-			return (uint64_t)(uintptr_t)featureLevel_;
-		default:
-			return 0;
-		}
-	}
+	uint64_t GetNativeObject(NativeObject obj, void *srcObject) override;
 
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override;
 
@@ -1698,6 +1675,33 @@ void D3D11DrawContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, F
 		break;
 	default:
 		break;
+	}
+}
+
+uint64_t D3D11DrawContext::GetNativeObject(NativeObject obj, void *srcObject) {
+	switch (obj) {
+	case NativeObject::DEVICE:
+		return (uint64_t)(uintptr_t)device_;
+	case NativeObject::CONTEXT:
+		return (uint64_t)(uintptr_t)context_;
+	case NativeObject::DEVICE_EX:
+		return (uint64_t)(uintptr_t)device1_;
+	case NativeObject::CONTEXT_EX:
+		return (uint64_t)(uintptr_t)context1_;
+	case NativeObject::BACKBUFFER_COLOR_TEX:
+		return (uint64_t)(uintptr_t)bbRenderTargetTex_;
+	case NativeObject::BACKBUFFER_DEPTH_TEX:
+		return (uint64_t)(uintptr_t)bbDepthStencilTex_;
+	case NativeObject::BACKBUFFER_COLOR_VIEW:
+		return (uint64_t)(uintptr_t)bbRenderTargetView_;
+	case NativeObject::BACKBUFFER_DEPTH_VIEW:
+		return (uint64_t)(uintptr_t)bbDepthStencilView_;
+	case NativeObject::FEATURE_LEVEL:
+		return (uint64_t)(uintptr_t)featureLevel_;
+	case NativeObject::TEXTURE_VIEW:
+		return (uint64_t)(((D3D11Texture *)srcObject)->view);
+	default:
+		return 0;
 	}
 }
 

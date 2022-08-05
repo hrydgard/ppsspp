@@ -232,7 +232,7 @@ void TextureCacheGLES::Unbind() {
 }
 
 void TextureCacheGLES::BindAsClutTexture(Draw::Texture *tex) {
-	GLRTexture *glrTex = (GLRTexture *)draw_->GetNativeObject(Draw::NativeObject::TEXTURE, tex);
+	GLRTexture *glrTex = (GLRTexture *)draw_->GetNativeObject(Draw::NativeObject::TEXTURE_VIEW, tex);
 	render_->BindTexture(TEX_SLOT_CLUT, glrTex);
 	render_->SetTextureSampler(TEX_SLOT_CLUT, GL_REPEAT, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
 }

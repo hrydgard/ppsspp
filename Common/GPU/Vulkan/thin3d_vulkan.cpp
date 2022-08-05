@@ -485,6 +485,8 @@ public:
 			return (uint64_t)(uintptr_t)&renderManager_;
 		case NativeObject::NULL_IMAGEVIEW:
 			return (uint64_t)GetNullTexture()->GetImageView();
+		case NativeObject::TEXTURE_VIEW:
+			return (uint64_t)(((VulkanTexture *)srcObject)->GetImageView());
 		default:
 			Crash();
 			return 0;

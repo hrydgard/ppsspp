@@ -293,6 +293,18 @@ public:
 	D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, const TextureDesc &desc);
 	~D3D9Texture();
 	void SetToSampler(LPDIRECT3DDEVICE9 device, int sampler);
+	LPDIRECT3DBASETEXTURE9 Texture() const {
+		// TODO: Cleanup
+		if (tex_) {
+			return tex_;
+		} else if (volTex_) {
+			return volTex_;
+		} else if (cubeTex_) {
+			return cubeTex_;
+		} else {
+			return nullptr;
+		}
+	}
 
 private:
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback callback);
@@ -302,9 +314,9 @@ private:
 	TextureType type_;
 	DataFormat format_;
 	D3DFORMAT d3dfmt_;
-	LPDIRECT3DTEXTURE9 tex_;
-	LPDIRECT3DVOLUMETEXTURE9 volTex_;
-	LPDIRECT3DCUBETEXTURE9 cubeTex_;
+	LPDIRECT3DTEXTURE9 tex_ = nullptr;
+	LPDIRECT3DVOLUMETEXTURE9 volTex_ = nullptr;
+	LPDIRECT3DCUBETEXTURE9 cubeTex_ = nullptr;
 };
 
 D3D9Texture::D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, const TextureDesc &desc)
@@ -568,6 +580,8 @@ public:
 			return (uint64_t)(uintptr_t)device_;
 		case NativeObject::DEVICE_EX:
 			return (uint64_t)(uintptr_t)deviceEx_;
+		case NativeObject::TEXTURE_VIEW:
+			return (uint64_t)(((D3D9Texture *)srcObject)->Texture());
 		default:
 			return 0;
 		}

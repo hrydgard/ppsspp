@@ -27,6 +27,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUStateUtils.h"
+#include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
@@ -250,6 +251,12 @@ void TextureCacheD3D11::Unbind() {
 	InvalidateLastTexture();
 }
 
+void TextureCacheD3D11::BindAsClutTexture(Draw::Texture *tex) {
+	ID3D11ShaderResourceView *clutTexture = (ID3D11ShaderResourceView *)draw_->GetNativeObject(Draw::NativeObject::TEXTURE_VIEW, tex);
+	context_->PSSetShaderResources(TEX_SLOT_CLUT, 1, &clutTexture);
+	context_->PSSetSamplers(3, 1, &stockD3D11.samplerPoint2DWrap);
+}
+
 class TextureShaderApplierD3D11 {
 public:
 	struct Pos {
@@ -407,7 +414,8 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer,
 		ID3D11ShaderResourceView *nullTexture = nullptr;
 		context_->PSSetShaderResources(0, 1, &nullTexture);  // In case the target was used in the last draw call. Happens in Sega Rally.
 		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "ApplyTextureFramebuffer_DepalShader");
-		context_->PSSetShaderResources(3, 1, &clutTexture);
+		// BindAsClutTexture(clutTexture);
+		context_->PSSetShaderResources(TEX_SLOT_CLUT, 1, &clutTexture);
 		context_->PSSetSamplers(3, 1, &stockD3D11.samplerPoint2DWrap);
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, 0);
 		context_->PSSetSamplers(0, 1, &stockD3D11.samplerPoint2DWrap);
