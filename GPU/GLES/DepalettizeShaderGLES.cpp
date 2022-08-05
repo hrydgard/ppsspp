@@ -21,6 +21,7 @@
 #include "Common/StringUtils.h"
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/ShaderWriter.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
@@ -90,19 +91,20 @@ Draw::Texture *DepalShaderCacheGLES::GetClutTexture(GEPaletteFormat clutFormat, 
 
 	switch (clutFormat) {
 	case GEPaletteFormat::GE_CMODE_32BIT_ABGR8888:
-		 //memcpy(desc.initData.data(), rawClut, texturePixels * 4);
 		desc.initData.push_back((const uint8_t *)rawClut);
 		break;
+
+	// TODO: The 16-bit CLUTs might be pre-reversed for OpenGL! :/
 	case GEPaletteFormat::GE_CMODE_16BIT_BGR5650:
-		// TODO
+		ConvertRGBA5551ToRGBA8888((u32 *)convTemp, (const u16 *)rawClut, texturePixels);
 		desc.initData.push_back(convTemp);
 		break;
 	case GEPaletteFormat::GE_CMODE_16BIT_ABGR5551:
-		// TODO
+		ConvertRGB565ToRGBA8888((u32 *)convTemp, (const u16 *)rawClut, texturePixels);
 		desc.initData.push_back(convTemp);
 		break;
 	case GEPaletteFormat::GE_CMODE_16BIT_ABGR4444:
-		// TODO
+		ConvertRGBA4444ToRGBA8888((u32 *)convTemp, (const u16 *)rawClut, texturePixels);
 		desc.initData.push_back(convTemp);
 		break;
 	}
