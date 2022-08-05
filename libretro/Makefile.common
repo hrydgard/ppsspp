@@ -327,6 +327,7 @@ SOURCES_CXX += \
 	$(GPUCOMMONDIR)/ShaderCommon.cpp \
 	$(GPUCOMMONDIR)/ShaderUniforms.cpp \
 	$(GPUCOMMONDIR)/GPUDebugInterface.cpp \
+	$(GPUCOMMONDIR)/DepalettizeCommon.cpp \
 	$(GPUCOMMONDIR)/DepalettizeShaderCommon.cpp \
 	$(GPUCOMMONDIR)/TransformCommon.cpp \
 	$(GPUCOMMONDIR)/IndexGenerator.cpp \
@@ -361,7 +362,6 @@ SOURCES_CXX += \
 	$(GPUDIR)/Software/Rasterizer.cpp \
 	$(GPUDIR)/Software/RasterizerRectangle.cpp \
 	$(GPUDIR)/Software/RasterizerRegCache.cpp \
-	$(GPUDIR)/GLES/DepalettizeShaderGLES.cpp \
 	$(GPUDIR)/GLES/DepthBufferGLES.cpp \
 	$(GPUDIR)/GLES/DrawEngineGLES.cpp \
 	$(GPUDIR)/GLES/GPU_GLES.cpp \

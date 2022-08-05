@@ -36,7 +36,7 @@
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/Common/FragmentShaderGenerator.h"
-#include "GPU/GLES/DepalettizeShaderGLES.h"
+#include "GPU/Common/DepalettizeCommon.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/Common/TextureDecoder.h"

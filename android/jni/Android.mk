@@ -320,6 +320,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GeConstants.cpp \
   $(SRC)/GPU/GeDisasm.cpp \
   $(SRC)/GPU/Common/Draw2D.cpp \
+  $(SRC)/GPU/Common/DepalettizeCommon.cpp \
   $(SRC)/GPU/Common/DepalettizeShaderCommon.cpp \
   $(SRC)/GPU/Common/FragmentShaderGenerator.cpp \
   $(SRC)/GPU/Common/FramebufferManagerCommon.cpp \
@@ -348,7 +349,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Debugger/Record.cpp \
   $(SRC)/GPU/Debugger/Stepping.cpp \
   $(SRC)/GPU/GLES/FramebufferManagerGLES.cpp \
-  $(SRC)/GPU/GLES/DepalettizeShaderGLES.cpp \
   $(SRC)/GPU/GLES/DepthBufferGLES.cpp \
   $(SRC)/GPU/GLES/GPU_GLES.cpp.arm \
   $(SRC)/GPU/GLES/TextureCacheGLES.cpp.arm \

@@ -26,7 +26,7 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
-#include "GPU/GLES/DepalettizeShaderGLES.h"
+#include "GPU/Common/DepalettizeCommon.h"
 
 static const InputDef vsInputs[2] = {
 	{ "vec2", "a_position", Draw::SEM_POSITION, },
@@ -42,21 +42,21 @@ static const SamplerDef samplers[2] = {
 	{ "pal" },
 };
 
-DepalShaderCacheGLES::DepalShaderCacheGLES(Draw::DrawContext *draw) : draw_(draw) { }
+DepalShaderCache::DepalShaderCache(Draw::DrawContext *draw) : draw_(draw) { }
 
-DepalShaderCacheGLES::~DepalShaderCacheGLES() {
+DepalShaderCache::~DepalShaderCache() {
 	DeviceLost();
 }
 
-void DepalShaderCacheGLES::DeviceRestore(Draw::DrawContext *draw) {
+void DepalShaderCache::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
 }
 
-void DepalShaderCacheGLES::DeviceLost() {
+void DepalShaderCache::DeviceLost() {
 	Clear();
 }
 
-bool DepalShaderCacheGLES::GenerateVertexShader(char *buffer, const ShaderLanguageDesc &lang) {
+bool DepalShaderCache::GenerateVertexShader(char *buffer, const ShaderLanguageDesc &lang) {
 	ShaderWriter writer(buffer, lang, ShaderStage::Vertex, nullptr, 0);
 	writer.BeginVSMain(vsInputs, Slice<UniformDef>::empty(), varyings);
 	writer.C("  v_texcoord0 = a_texcoord0;\n");
@@ -65,7 +65,7 @@ bool DepalShaderCacheGLES::GenerateVertexShader(char *buffer, const ShaderLangua
 	return true;
 }
 
-Draw::Texture *DepalShaderCacheGLES::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut) {
+Draw::Texture *DepalShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut) {
 	u32 clutId = GetClutID(clutFormat, clutHash);
 
 	auto oldtex = texCache_.find(clutId);
@@ -116,7 +116,7 @@ Draw::Texture *DepalShaderCacheGLES::GetClutTexture(GEPaletteFormat clutFormat, 
 	return tex->texture;
 }
 
-void DepalShaderCacheGLES::Clear() {
+void DepalShaderCache::Clear() {
 	for (auto shader = cache_.begin(); shader != cache_.end(); ++shader) {
 		shader->second->fragShader->Release();
 		if (shader->second->pipeline) {
@@ -140,7 +140,7 @@ void DepalShaderCacheGLES::Clear() {
 	}
 }
 
-void DepalShaderCacheGLES::Decimate() {
+void DepalShaderCache::Decimate() {
 	for (auto tex = texCache_.begin(); tex != texCache_.end(); ) {
 		if (tex->second->lastFrame + DEPAL_TEXTURE_OLD_AGE < gpuStats.numFlips) {
 			tex->second->texture->Release();
@@ -152,7 +152,7 @@ void DepalShaderCacheGLES::Decimate() {
 	}
 }
 
-Draw::SamplerState *DepalShaderCacheGLES::GetSampler() {
+Draw::SamplerState *DepalShaderCache::GetSampler() {
 	if (!nearestSampler_) {
 		Draw::SamplerStateDesc desc{};
 		desc.wrapU = Draw::TextureAddressMode::CLAMP_TO_EDGE;
@@ -163,7 +163,7 @@ Draw::SamplerState *DepalShaderCacheGLES::GetSampler() {
 	return nearestSampler_;
 }
 
-DepalShader *DepalShaderCacheGLES::GetDepalettizeShader(uint32_t clutMode, GEBufferFormat pixelFormat) {
+DepalShader *DepalShaderCache::GetDepalettizeShader(uint32_t clutMode, GEBufferFormat pixelFormat) {
 	using namespace Draw;
 
 	u32 id = GenerateShaderID(clutMode, pixelFormat);
@@ -232,7 +232,7 @@ DepalShader *DepalShaderCacheGLES::GetDepalettizeShader(uint32_t clutMode, GEBuf
 	return depal->pipeline ? depal : nullptr;
 }
 
-std::vector<std::string> DepalShaderCacheGLES::DebugGetShaderIDs(DebugShaderType type) {
+std::vector<std::string> DepalShaderCache::DebugGetShaderIDs(DebugShaderType type) {
 	std::vector<std::string> ids;
 	for (auto &iter : cache_) {
 		ids.push_back(StringFromFormat("%08x", iter.first));
@@ -240,7 +240,7 @@ std::vector<std::string> DepalShaderCacheGLES::DebugGetShaderIDs(DebugShaderType
 	return ids;
 }
 
-std::string DepalShaderCacheGLES::DebugGetShaderString(std::string idstr, DebugShaderType type, DebugShaderStringType stringType) {
+std::string DepalShaderCache::DebugGetShaderString(std::string idstr, DebugShaderType type, DebugShaderStringType stringType) {
 	uint32_t id;
 	sscanf(idstr.c_str(), "%08x", &id);
 	auto iter = cache_.find(id);

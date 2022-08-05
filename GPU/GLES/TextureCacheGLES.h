@@ -27,7 +27,7 @@
 
 struct VirtualFramebuffer;
 class FramebufferManagerGLES;
-class DepalShaderCacheGLES;
+class DepalShaderCache;
 class ShaderManagerGLES;
 class DrawEngineGLES;
 class GLRTexture;
@@ -41,7 +41,7 @@ public:
 	void StartFrame();
 
 	void SetFramebufferManager(FramebufferManagerGLES *fbManager);
-	void SetDepalShaderCache(DepalShaderCacheGLES *dpCache) {
+	void SetDepalShaderCache(DepalShaderCache *dpCache) {
 		depalShaderCache_ = dpCache;
 	}
 	void SetShaderManager(ShaderManagerGLES *sm) {
@@ -85,7 +85,7 @@ private:
 	GLRTexture *lastBoundTexture = nullptr;
 
 	FramebufferManagerGLES *framebufferManagerGL_;
-	DepalShaderCacheGLES *depalShaderCache_;
+	DepalShaderCache *depalShaderCache_;
 	ShaderManagerGLES *shaderManager_;
 	DrawEngineGLES *drawEngine_;
 
