@@ -25,7 +25,7 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
-#include "GPU/Vulkan/DepalettizeShaderVulkan.h"
+#include "GPU/Common/DepalettizeCommon.h"
 
 class FramebufferManagerVulkan;
 class ShaderManagerVulkan;
@@ -91,7 +91,7 @@ private:
 
 	FramebufferManagerVulkan *framebufferManagerVulkan_;
 	TextureCacheVulkan *textureCacheVulkan_;
-	DepalShaderCacheVulkan depalShaderCache_;
+	DepalShaderCache depalShaderCache_;
 	DrawEngineVulkan drawEngine_;
 
 	// Manages shaders and UBO data

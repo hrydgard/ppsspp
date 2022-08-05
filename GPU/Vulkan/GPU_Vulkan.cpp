@@ -327,7 +327,6 @@ void GPU_Vulkan::BeginHostFrame() {
 	frame.push_->Begin(vulkan);
 
 	framebufferManagerVulkan_->BeginFrameVulkan();
-	depalShaderCache_.SetPushBuffer(frameData_[curFrame].push_);
 	textureCacheVulkan_->SetPushBuffer(frameData_[curFrame].push_);
 
 	vulkan2D_.BeginFrame();

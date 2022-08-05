@@ -41,13 +41,13 @@
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
+#include "GPU/Common/DepalettizeCommon.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Vulkan/VulkanContext.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
-#include "GPU/Vulkan/DepalettizeShaderVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 
@@ -201,7 +201,6 @@ void TextureCacheVulkan::SetFramebufferManager(FramebufferManagerVulkan *fbManag
 
 void TextureCacheVulkan::SetVulkan2D(Vulkan2D *vk2d) {
 	vulkan2D_ = vk2d;
-	depalShaderCache_->SetVulkan2D(vk2d);
 }
 
 void TextureCacheVulkan::DeviceLost() {
@@ -416,151 +415,98 @@ void TextureCacheVulkan::BindAsClutTexture(Draw::Texture *tex) {
 }
 
 void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) {
-	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
-
-	DepalShaderVulkan *depalShader = nullptr;
+	DepalShader *depalShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
-
-	bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS);
-	bool depth = channel == NOTIFY_FB_DEPTH;
-	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && !depth && !gstate_c.curTextureIs3D;
-
 	bool need_depalettize = IsClutFormat(texFormat);
+
+	bool depth = channel == NOTIFY_FB_DEPTH;
+	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300) || gstate_c.Supports(GPU_SUPPORTS_GLSL_330)) && !depth;
+	if (!gstate_c.Supports(GPU_SUPPORTS_32BIT_INT_FSHADER)) {
+		useShaderDepal = false;
+		depth = false;  // Can't support this
+	}
 
 	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
 		if (useShaderDepal) {
-			depalShaderCache_->SetPushBuffer(drawEngine_->GetPushBufferForTextureData());
 			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-			VulkanTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_, expand32);
-			drawEngine_->SetDepalTexture(clutTexture ? clutTexture->GetImageView() : VK_NULL_HANDLE);
-			// Only point filtering enabled.
+
+			// Very icky conflation here of native and thin3d rendering. This will need careful work per backend in BindAsClutTexture.
+			Draw::Texture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
+			BindAsClutTexture(clutTexture);
+
+			framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
+			SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 			samplerKey.magFilt = false;
 			samplerKey.minFilt = false;
-			samplerKey.mipFilt = false;
-			// Make sure to update the uniforms, and also texture - needs a recheck.
+			samplerKey.mipEnable = false;
+			ApplySamplingParams(samplerKey);
+
+			// Since we started/ended render passes, might need these.
 			gstate_c.Dirty(DIRTY_DEPAL);
 			gstate_c.SetUseShaderDepal(true);
 			gstate_c.depalFramebufferFormat = framebuffer->drawnFormat;
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
-			CheckAlphaResult alphaStatus = CheckAlpha(clutBuf_, getClutDestFormatVulkan(clutFormat), clutTotalColors);
+			CheckAlphaResult alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBuf_, clutFormat, clutTotalColors);
 			gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
-			curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
-			if (framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET)) {
-				imageView_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
-			} else {
-				imageView_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::NULL_IMAGEVIEW);
-			}
-			return;
-		} else {
-			depalShader = depalShaderCache_->GetDepalettizeShader(clutMode, depth ? GE_FORMAT_DEPTH16 : framebuffer->drawnFormat);
-			drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
-			gstate_c.SetUseShaderDepal(false);
-		}
-	}
-	if (depalShader) {
-		depalShaderCache_->SetPushBuffer(drawEngine_->GetPushBufferForTextureData());
-		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-		VulkanTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_, expand32);
 
+			draw_->InvalidateCachedState();
+			InvalidateLastTexture();
+			return;
+		}
+
+		depalShader = depalShaderCache_->GetDepalettizeShader(clutMode, depth ? GE_FORMAT_DEPTH16 : framebuffer->drawnFormat);
+		gstate_c.SetUseShaderDepal(false);
+	}
+
+	if (depalShader) {
+		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
+		Draw::Texture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
 		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight);
+		draw_->BindTexture(0, nullptr);
 		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
 
-		Vulkan2D::Vertex verts[4] = {
-			{ -1, -1, 0.0f, 0, 0 },
-			{  1, -1, 0.0f, 1, 0 },
-			{ -1,  1, 0.0f, 0, 1 },
-			{  1,  1, 0.0f, 1, 1 },
-		};
+		draw_->SetScissorRect(0, 0, (int)framebuffer->renderWidth, (int)framebuffer->renderHeight);
+		Draw::Viewport vp{ 0.0f, 0.0f, (float)framebuffer->renderWidth, (float)framebuffer->renderHeight, 0.0f, 1.0f };
+		draw_->SetViewports(1, &vp);
 
-		// If min is not < max, then we don't have values (wasn't set during decode.)
-		if (gstate_c.vertBounds.minV < gstate_c.vertBounds.maxV) {
-			const float invWidth = 1.0f / (float)framebuffer->bufferWidth;
-			const float invHeight = 1.0f / (float)framebuffer->bufferHeight;
-			// Inverse of half = double.
-			const float invHalfWidth = invWidth * 2.0f;
-			const float invHalfHeight = invHeight * 2.0f;
-
-			const int u1 = gstate_c.vertBounds.minU + gstate_c.curTextureXOffset;
-			const int v1 = gstate_c.vertBounds.minV + gstate_c.curTextureYOffset;
-			const int u2 = gstate_c.vertBounds.maxU + gstate_c.curTextureXOffset;
-			const int v2 = gstate_c.vertBounds.maxV + gstate_c.curTextureYOffset;
-
-			const float left = u1 * invHalfWidth - 1.0f;
-			const float right = u2 * invHalfWidth - 1.0f;
-			const float top = v1 * invHalfHeight - 1.0f;
-			const float bottom = v2 * invHalfHeight - 1.0f;
-			// Points are: BL, BR, TR, TL.
-			verts[0].x = left;
-			verts[0].y = bottom;
-			verts[1].x = right;
-			verts[1].y = bottom;
-			verts[2].x = left;
-			verts[2].y = top;
-			verts[3].x = right;
-			verts[3].y = top;
-
-			// And also the UVs, same order.
-			const float uvleft = u1 * invWidth;
-			const float uvright = u2 * invWidth;
-			const float uvtop = v1 * invHeight;
-			const float uvbottom = v2 * invHeight;
-			verts[0].u = uvleft;
-			verts[0].v = uvbottom;
-			verts[1].u = uvright;
-			verts[1].v = uvbottom;
-			verts[2].u = uvleft;
-			verts[2].v = uvtop;
-			verts[3].u = uvright;
-			verts[3].v = uvtop;
-
-			// We need to reapply the texture next time since we cropped UV.
-			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-		}
-
-		VkBuffer pushed;
-		uint32_t offset = push_->PushAligned(verts, sizeof(verts), 4, &pushed);
+		TextureShaderApplier shaderApply(draw_, depalShader, framebuffer->bufferWidth, framebuffer->bufferHeight, framebuffer->renderWidth, framebuffer->renderHeight);
+		shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset);
+		shaderApply.Use();
 
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, 0);
-		VkImageView fbo = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
+		Draw::SamplerState *nearest = depalShaderCache_->GetSampler();
+		draw_->BindSamplerStates(0, 1, &nearest);
+		draw_->BindSamplerStates(1, 1, &nearest);
+		draw_->BindTexture(1, clutTexture);
 
-		VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(fbo, samplerNearest_, clutTexture->GetImageView(), samplerNearest_);
-		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		renderManager->BindPipeline(depalShader->pipeline, (PipelineFlags)0);
+		shaderApply.Shade();
 
-		renderManager->SetScissor(0, 0, (int)framebuffer->renderWidth, (int)framebuffer->renderHeight);
-		renderManager->SetViewport(VkViewport{ 0.f, 0.f, (float)framebuffer->renderWidth, (float)framebuffer->renderHeight, 0.f, 1.f });
-		renderManager->Draw(vulkan2D_->GetPipelineLayout(), descSet, 0, nullptr, pushed, offset, 4);
-		shaderManagerVulkan_->DirtyLastShader();
+		framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");
+
+		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
 
 		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 
-		CheckAlphaResult alphaStatus = CheckAlpha(clutBuf_, getClutDestFormatVulkan(clutFormat), clutTotalColors);
+		CheckAlphaResult alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBufRaw_, clutFormat, clutTotalColors);
 		gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
 
-		framebufferManager_->RebindFramebuffer("RebindFramebuffer - ApplyTextureFramebuffer");
-		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
-		imageView_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
-
-		// Need to rebind the pipeline since we switched it.
-		drawEngine_->DirtyPipeline();
-		// Since we may have switched render targets, we need to re-set depth/stencil etc states.
-		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE);
+		draw_->InvalidateCachedState();
+		shaderManagerVulkan_->DirtyLastShader();
 	} else {
-		if (framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET)) {
-			imageView_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
-		} else {
-			imageView_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::NULL_IMAGEVIEW);
-		}
+		framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");
+		framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 
-		drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
 		gstate_c.SetUseShaderDepal(false);
-
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
 
-	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
+	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+	ApplySamplingParams(samplerKey);
+
+	// Since we started/ended render passes, might need these.
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 }
 
 static Draw::DataFormat FromVulkanFormat(VkFormat fmt) {

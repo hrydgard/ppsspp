@@ -22,6 +22,7 @@
 #include "GPU/GPUState.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Common/DepalettizeCommon.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
 struct VirtualFramebuffer;
@@ -65,7 +66,7 @@ public:
 	void DeviceRestore(Draw::DrawContext *draw);
 
 	void SetFramebufferManager(FramebufferManagerVulkan *fbManager);
-	void SetDepalShaderCache(DepalShaderCacheVulkan *dpCache) {
+	void SetDepalShaderCache(DepalShaderCache *dpCache) {
 		depalShaderCache_ = dpCache;
 	}
 	void SetShaderManager(ShaderManagerVulkan *sm) {
@@ -123,7 +124,7 @@ private:
 
 	SamplerCache samplerCache_;
 
-	DepalShaderCacheVulkan *depalShaderCache_;
+	DepalShaderCache *depalShaderCache_;
 	ShaderManagerVulkan *shaderManagerVulkan_;
 	DrawEngineVulkan *drawEngine_;
 	Vulkan2D *vulkan2D_;

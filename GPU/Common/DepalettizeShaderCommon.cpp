@@ -50,8 +50,8 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		WRITE(p, "#version 450\n");
 		WRITE(p, "#extension GL_ARB_separate_shader_objects : enable\n");
 		WRITE(p, "#extension GL_ARB_shading_language_420pack : enable\n");
-		WRITE(p, "layout(set = 0, binding = 0) uniform sampler2D tex;\n");
-		WRITE(p, "layout(set = 0, binding = 1) uniform sampler2D pal;\n");
+		WRITE(p, "layout(set = 0, binding = 1) uniform sampler2D tex;\n");
+		WRITE(p, "layout(set = 0, binding = 2) uniform sampler2D pal;\n");
 		WRITE(p, "layout(location = 0) in vec2 v_texcoord0;\n");
 		WRITE(p, "layout(location = 0) out vec4 fragColor0;\n");
 

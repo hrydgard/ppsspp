@@ -132,9 +132,6 @@
     <ClInclude Include="Common\ShaderId.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="Vulkan\DepalettizeShaderVulkan.h">
-      <Filter>Vulkan</Filter>
-    </ClInclude>
     <ClInclude Include="Vulkan\DrawEngineVulkan.h">
       <Filter>Vulkan</Filter>
     </ClInclude>
@@ -373,9 +370,6 @@
     </ClCompile>
     <ClCompile Include="Common\ShaderId.cpp">
       <Filter>Common</Filter>
-    </ClCompile>
-    <ClCompile Include="Vulkan\DepalettizeShaderVulkan.cpp">
-      <Filter>Vulkan</Filter>
     </ClCompile>
     <ClCompile Include="Vulkan\DrawEngineVulkan.cpp">
       <Filter>Vulkan</Filter>
