@@ -464,7 +464,7 @@ public:
 	std::vector<std::string> GetFeatureList() const override;
 	std::vector<std::string> GetExtensionList() const override;
 
-	uint64_t GetNativeObject(NativeObject obj) override {
+	uint64_t GetNativeObject(NativeObject obj, void *srcObject) override {
 		switch (obj) {
 		case NativeObject::CONTEXT:
 			return (uint64_t)vulkan_;

@@ -456,14 +456,7 @@ public:
 		}
 	}
 
-	uint64_t GetNativeObject(NativeObject obj) override {
-		switch (obj) {
-		case NativeObject::RENDER_MANAGER:
-			return (uint64_t)(uintptr_t)&renderManager_;
-		default:
-			return 0;
-		}
-	}
+	uint64_t GetNativeObject(NativeObject obj, void *srcObject) override;
 
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override {}
 
@@ -1424,6 +1417,17 @@ void OpenGLContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	} else {
 		*w = targetWidth_;
 		*h = targetHeight_;
+	}
+}
+
+uint64_t OpenGLContext::GetNativeObject(NativeObject obj, void *srcObject) {
+	switch (obj) {
+	case NativeObject::RENDER_MANAGER:
+		return (uint64_t)(uintptr_t)&renderManager_;
+	case NativeObject::TEXTURE:  // Gets the GLRTexture *
+		return (uint64_t)(((OpenGLTexture *)srcObject)->GetTex());
+	default:
+		return 0;
 	}
 }
 

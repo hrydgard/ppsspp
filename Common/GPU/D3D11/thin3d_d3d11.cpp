@@ -163,7 +163,7 @@ public:
 		}
 	}
 
-	uint64_t GetNativeObject(NativeObject obj) override {
+	uint64_t GetNativeObject(NativeObject obj, void *srcObject) override {
 		switch (obj) {
 		case NativeObject::DEVICE:
 			return (uint64_t)(uintptr_t)device_;

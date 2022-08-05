@@ -246,7 +246,7 @@ enum class NativeObject {
 	BOUND_TEXTURE0_IMAGEVIEW,
 	BOUND_TEXTURE1_IMAGEVIEW,
 	RENDER_MANAGER,
-	TEXTURE_IMAGEVIEW,
+	TEXTURE,
 	NULL_IMAGEVIEW,
 };
 
@@ -700,7 +700,7 @@ public:
 	}
 
 	virtual std::string GetInfoString(InfoField info) const = 0;
-	virtual uint64_t GetNativeObject(NativeObject obj) = 0;
+	virtual uint64_t GetNativeObject(NativeObject obj, void *srcObject = nullptr) = 0;  // Most uses don't need an srcObject.
 
 	virtual void HandleEvent(Event ev, int width, int height, void *param1 = nullptr, void *param2 = nullptr) = 0;
 

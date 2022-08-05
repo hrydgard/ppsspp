@@ -333,9 +333,9 @@ protected:
 };
 
 void TextureCacheGLES::BindAsClutTexture(Draw::Texture *tex) {
-	draw_->BindTexture(1, tex);
-	GLRTexture *glrTex = (GLRTexture *)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE1_IMAGEVIEW);
+	GLRTexture *glrTex = (GLRTexture *)draw_->GetNativeObject(Draw::NativeObject::TEXTURE, tex);
 	render_->BindTexture(TEX_SLOT_CLUT, glrTex);
+	render_->SetTextureSampler(TEX_SLOT_CLUT, GL_REPEAT, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
 }
 
 void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) {
@@ -353,18 +353,17 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
 		if (useShaderDepal) {
 			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-			// Very icky conflation here of native and thin3d rendering. This will need careful work per backend.
+
+			// Very icky conflation here of native and thin3d rendering. This will need careful work per backend in BindAsClutTexture.
 			Draw::Texture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
 			BindAsClutTexture(clutTexture);
 
-			render_->SetTextureSampler(TEX_SLOT_CLUT, GL_REPEAT, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
 			framebufferManagerGL_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 			SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 			samplerKey.magFilt = false;
 			samplerKey.minFilt = false;
 			samplerKey.mipEnable = false;
 			ApplySamplingParams(samplerKey);
-			InvalidateLastTexture();
 
 			// Since we started/ended render passes, might need these.
 			gstate_c.Dirty(DIRTY_DEPAL);
@@ -374,6 +373,9 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 			CheckAlphaResult alphaStatus = CheckAlpha((const uint8_t *)clutBuf_, getClutDestFormat(clutFormat), clutTotalColors);
 			gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
+
+			draw_->InvalidateCachedState();
+			InvalidateLastTexture();
 			return;
 		}
 
