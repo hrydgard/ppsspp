@@ -1850,9 +1850,20 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 	bool depth = channel == NOTIFY_FB_DEPTH;
 	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && !depth;
+
+	// TODO: Implement shader depal in the fragment shader generator for D3D11 at least.
 	if (!draw_->GetDeviceCaps().fragmentShaderInt32Supported) {
 		useShaderDepal = false;
 		depth = false;  // Can't support this
+	}
+
+	switch (draw_->GetShaderLanguageDesc().shaderLanguage) {
+	case ShaderLanguage::HLSL_D3D11:
+	case ShaderLanguage::HLSL_D3D9:
+		useShaderDepal = false;
+		break;
+	default:
+		break;
 	}
 
 	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
