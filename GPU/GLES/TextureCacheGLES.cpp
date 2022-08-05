@@ -257,7 +257,7 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 			Draw::Texture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
 			BindAsClutTexture(clutTexture);
 
-			framebufferManagerGL_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
+			framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 			SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 			samplerKey.magFilt = false;
 			samplerKey.minFilt = false;
@@ -286,6 +286,7 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 		Draw::Texture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
 		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight);
+		draw_->BindTexture(0, nullptr);
 		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
 
 		draw_->SetScissorRect(0, 0, (int)framebuffer->renderWidth, (int)framebuffer->renderHeight);
@@ -304,6 +305,8 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 
 		shaderApply.Shade();
 
+		framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");
+
 		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
 
 		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
@@ -315,13 +318,12 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 		draw_->InvalidateCachedState();
 		shaderManager_->DirtyLastShader();
 	} else {
-		framebufferManagerGL_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
+		framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");
+		framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 
 		gstate_c.SetUseShaderDepal(false);
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
-
-	framebufferManagerGL_->RebindFramebuffer("ApplyTextureFramebuffer");
 
 	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 	ApplySamplingParams(samplerKey);

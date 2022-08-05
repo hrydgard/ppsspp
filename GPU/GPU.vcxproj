@@ -374,7 +374,6 @@
     <ClInclude Include="Debugger\Record.h" />
     <ClInclude Include="Debugger\RecordFormat.h" />
     <ClInclude Include="Debugger\Stepping.h" />
-    <ClInclude Include="Directx9\DepalettizeShaderDX9.h" />
     <ClInclude Include="Directx9\FramebufferManagerDX9.h" />
     <ClInclude Include="Directx9\GPU_DX9.h" />
     <ClInclude Include="Directx9\ShaderManagerDX9.h" />
@@ -515,7 +514,6 @@
     <ClCompile Include="Debugger\Playback.cpp" />
     <ClCompile Include="Debugger\Record.cpp" />
     <ClCompile Include="Debugger\Stepping.cpp" />
-    <ClCompile Include="Directx9\DepalettizeShaderDX9.cpp" />
     <ClCompile Include="Directx9\FramebufferManagerDX9.cpp" />
     <ClCompile Include="Directx9\GPU_DX9.cpp" />
     <ClCompile Include="Directx9\ShaderManagerDX9.cpp" />

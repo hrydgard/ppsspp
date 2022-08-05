@@ -1483,8 +1483,6 @@ set(GPU_VULKAN
 )
 
 set(GPU_D3D9
-	GPU/Directx9/DepalettizeShaderDX9.cpp
-	GPU/Directx9/DepalettizeShaderDX9.h
 	GPU/Directx9/DrawEngineDX9.cpp
 	GPU/Directx9/DrawEngineDX9.h
 	GPU/Directx9/FramebufferManagerDX9.cpp

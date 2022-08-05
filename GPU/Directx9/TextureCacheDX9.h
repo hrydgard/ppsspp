@@ -24,11 +24,11 @@
 #include "GPU/Common/TextureCacheCommon.h"
 
 struct VirtualFramebuffer;
+class DepalShaderCache;
 
 namespace DX9 {
 
 class FramebufferManagerDX9;
-class DepalShaderCacheDX9;
 class ShaderManagerDX9;
 
 class TextureCacheDX9 : public TextureCacheCommon {
@@ -39,7 +39,7 @@ public:
 	void StartFrame();
 
 	void SetFramebufferManager(FramebufferManagerDX9 *fbManager);
-	void SetDepalShaderCache(DepalShaderCacheDX9 *dpCache) {
+	void SetDepalShaderCache(DepalShaderCache *dpCache) {
 		depalShaderCache_ = dpCache;
 	}
 	void SetShaderManager(ShaderManagerDX9 *sm) {
@@ -57,6 +57,7 @@ protected:
 	void BindTexture(TexCacheEntry *entry) override;
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
+	void BindAsClutTexture(Draw::Texture *tex) override;
 
 private:
 	void ApplySamplingParams(const SamplerCacheKey &key);
@@ -81,7 +82,7 @@ private:
 	float maxAnisotropyLevel;
 
 	FramebufferManagerDX9 *framebufferManagerDX9_;
-	DepalShaderCacheDX9 *depalShaderCache_;
+	DepalShaderCache *depalShaderCache_;
 	ShaderManagerDX9 *shaderManager_;
 };
 
