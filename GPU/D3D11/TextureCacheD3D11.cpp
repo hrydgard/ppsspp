@@ -415,8 +415,8 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer,
 		context_->PSSetShaderResources(0, 1, &nullTexture);  // In case the target was used in the last draw call. Happens in Sega Rally.
 		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "ApplyTextureFramebuffer_DepalShader");
 		// BindAsClutTexture(clutTexture);
-		context_->PSSetShaderResources(TEX_SLOT_CLUT, 1, &clutTexture);
-		context_->PSSetSamplers(3, 1, &stockD3D11.samplerPoint2DWrap);
+		context_->PSSetShaderResources(1, 1, &clutTexture);
+		context_->PSSetSamplers(1, 1, &stockD3D11.samplerPoint2DWrap);
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, 0);
 		context_->PSSetSamplers(0, 1, &stockD3D11.samplerPoint2DWrap);
 
