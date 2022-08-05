@@ -38,7 +38,7 @@ public:
 	~TextureCacheGLES();
 
 	void Clear(bool delete_them) override;
-	void StartFrame();
+	void StartFrame() override;
 
 	void SetFramebufferManager(FramebufferManagerGLES *fbManager);
 	void SetDepalShaderCache(DepalShaderCache *dpCache) {
@@ -84,7 +84,6 @@ private:
 	GLRTexture *lastBoundTexture = nullptr;
 
 	FramebufferManagerGLES *framebufferManagerGL_;
-	DepalShaderCache *depalShaderCache_;
 	ShaderManagerGLES *shaderManager_;
 	DrawEngineGLES *drawEngine_;
 

@@ -53,7 +53,7 @@
 #endif
 
 GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
-	: GPUCommon(gfxCtx, draw), depalShaderCache_(draw), drawEngine_(draw), fragmentTestCache_(draw) {
+	: GPUCommon(gfxCtx, draw), drawEngine_(draw), fragmentTestCache_(draw) {
 	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
 
@@ -78,7 +78,6 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	framebufferManagerGL_->SetDrawEngine(&drawEngine_);
 	framebufferManagerGL_->Init();
 	textureCacheGL_->SetFramebufferManager(framebufferManagerGL_);
-	textureCacheGL_->SetDepalShaderCache(&depalShaderCache_);
 	textureCacheGL_->SetShaderManager(shaderManagerGL_);
 	textureCacheGL_->SetDrawEngine(&drawEngine_);
 	fragmentTestCache_.SetTextureCache(textureCacheGL_);
@@ -141,7 +140,6 @@ GPU_GLES::~GPU_GLES() {
 
 	framebufferManagerGL_->DestroyAllFBOs();
 	shaderManagerGL_->ClearCache(true);
-	depalShaderCache_.Clear();
 	fragmentTestCache_.Clear();
 	
 	delete shaderManagerGL_;
@@ -311,7 +309,6 @@ void GPU_GLES::DeviceLost() {
 	shaderManagerGL_->DeviceLost();
 	textureCacheGL_->DeviceLost();
 	fragmentTestCache_.DeviceLost();
-	depalShaderCache_.DeviceLost();
 	drawEngine_.DeviceLost();
 
 	GPUCommon::DeviceLost();
@@ -327,12 +324,10 @@ void GPU_GLES::DeviceRestore() {
 	textureCacheGL_->DeviceRestore(draw_);
 	drawEngine_.DeviceRestore(draw_);
 	fragmentTestCache_.DeviceRestore(draw_);
-	depalShaderCache_.DeviceRestore(draw_);
 }
 
 void GPU_GLES::Reinitialize() {
 	GPUCommon::Reinitialize();
-	depalShaderCache_.Clear();
 }
 
 void GPU_GLES::InitClear() {
@@ -363,7 +358,6 @@ void GPU_GLES::ReapplyGfxState() {
 
 void GPU_GLES::BeginFrame() {
 	textureCacheGL_->StartFrame();
-	depalShaderCache_.Decimate();
 	fragmentTestCache_.Decimate();
 
 	GPUCommon::BeginFrame();
@@ -464,7 +458,6 @@ void GPU_GLES::DoState(PointerWrap &p) {
 	// In Freeze-Frame mode, we don't want to do any of this.
 	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
 		textureCache_->Clear(true);
-		depalShaderCache_.Clear();
 		drawEngine_.ClearTrackedVertexArrays();
 
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
@@ -477,7 +470,7 @@ std::vector<std::string> GPU_GLES::DebugGetShaderIDs(DebugShaderType type) {
 	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngine_.DebugGetVertexLoaderIDs();
 	case SHADER_TYPE_DEPAL:
-		return depalShaderCache_.DebugGetShaderIDs(type);
+		return textureCache_->GetDepalShaderCache()->DebugGetShaderIDs(type);
 	default:
 		return shaderManagerGL_->DebugGetShaderIDs(type);
 	}
@@ -488,7 +481,7 @@ std::string GPU_GLES::DebugGetShaderString(std::string id, DebugShaderType type,
 	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
 	case SHADER_TYPE_DEPAL:
-		return depalShaderCache_.DebugGetShaderString(id, type, stringType);
+		return textureCache_->GetDepalShaderCache()->DebugGetShaderString(id, type, stringType);
 	default:
 		return shaderManagerGL_->DebugGetShaderString(id, type, stringType);
 	}

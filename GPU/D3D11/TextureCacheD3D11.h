@@ -46,12 +46,9 @@ public:
 	TextureCacheD3D11(Draw::DrawContext *draw);
 	~TextureCacheD3D11();
 
-	void StartFrame();
+	void StartFrame() override;
 
 	void SetFramebufferManager(FramebufferManagerD3D11 *fbManager);
-	void SetDepalShaderCache(DepalShaderCache *dpCache) {
-		depalShaderCache_ = dpCache;
-	}
 	void SetShaderManager(ShaderManagerD3D11 *sm) {
 		shaderManager_ = sm;
 	}
@@ -92,9 +89,7 @@ private:
 	ID3D11Buffer *depalConstants_;
 
 	FramebufferManagerD3D11 *framebufferManagerD3D11_;
-	DepalShaderCache *depalShaderCache_;
 	ShaderManagerD3D11 *shaderManager_;
-
 };
 
 DXGI_FORMAT GetClutDestFormatD3D11(GEPaletteFormat format);

@@ -64,7 +64,6 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	textureCache_ = textureCacheD3D11_;
 	drawEngineCommon_ = &drawEngine_;
 	shaderManager_ = shaderManagerD3D11_;
-	depalShaderCache_ = new DepalShaderCache(draw);
 	drawEngine_.SetShaderManager(shaderManagerD3D11_);
 	drawEngine_.SetTextureCache(textureCacheD3D11_);
 	drawEngine_.SetFramebufferManager(framebufferManagerD3D11_);
@@ -74,7 +73,6 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	framebufferManagerD3D11_->SetDrawEngine(&drawEngine_);
 	framebufferManagerD3D11_->Init();
 	textureCacheD3D11_->SetFramebufferManager(framebufferManagerD3D11_);
-	textureCacheD3D11_->SetDepalShaderCache(depalShaderCache_);
 	textureCacheD3D11_->SetShaderManager(shaderManagerD3D11_);
 
 	// Sanity check gstate
@@ -95,7 +93,6 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 }
 
 GPU_D3D11::~GPU_D3D11() {
-	delete depalShaderCache_;
 	framebufferManagerD3D11_->DestroyAllFBOs();
 	delete framebufferManagerD3D11_;
 	shaderManagerD3D11_->ClearShaders();
@@ -235,7 +232,6 @@ void GPU_D3D11::BeginFrame() {
 
 	textureCacheD3D11_->StartFrame();
 	drawEngine_.BeginFrame();
-	depalShaderCache_->Decimate();
 	// fragmentTestCache_.Decimate();
 
 	shaderManagerD3D11_->DirtyLastShader();
@@ -328,7 +324,6 @@ void GPU_D3D11::DoState(PointerWrap &p) {
 	// None of these are necessary when saving.
 	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
 		textureCache_->Clear(true);
-		depalShaderCache_->Clear();
 		drawEngine_.ClearTrackedVertexArrays();
 
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
@@ -341,7 +336,7 @@ std::vector<std::string> GPU_D3D11::DebugGetShaderIDs(DebugShaderType type) {
 	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngine_.DebugGetVertexLoaderIDs();
 	case SHADER_TYPE_DEPAL:
-		return depalShaderCache_->DebugGetShaderIDs(type);
+		return textureCache_->GetDepalShaderCache()->DebugGetShaderIDs(type);
 	default:
 		return shaderManagerD3D11_->DebugGetShaderIDs(type);
 	}
@@ -352,7 +347,7 @@ std::string GPU_D3D11::DebugGetShaderString(std::string id, DebugShaderType type
 	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
 	case SHADER_TYPE_DEPAL:
-		return depalShaderCache_->DebugGetShaderString(id, type, stringType);
+		return textureCache_->GetDepalShaderCache()->DebugGetShaderString(id, type, stringType);
 	default:
 		return shaderManagerD3D11_->DebugGetShaderString(id, type, stringType);
 	}

@@ -78,7 +78,6 @@ private:
 
 	FramebufferManagerD3D11 *framebufferManagerD3D11_;
 	TextureCacheD3D11 *textureCacheD3D11_;
-	DepalShaderCache *depalShaderCache_;
 	DrawEngineD3D11 drawEngine_;
 	ShaderManagerD3D11 *shaderManagerD3D11_;
 };

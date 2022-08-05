@@ -142,6 +142,8 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, Draw::DataFormat dst
 }
 
 void TextureCacheGLES::StartFrame() {
+	TextureCacheCommon::StartFrame();
+
 	InvalidateLastTexture();
 	timesInvalidatedAllThisFrame_ = 0;
 	replacementTimeThisFrame_ = 0.0;
@@ -532,6 +534,7 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level)
 }
 
 void TextureCacheGLES::DeviceLost() {
+	depalShaderCache_->DeviceLost();
 	Clear(false);
 	draw_ = nullptr;
 	render_ = nullptr;
@@ -540,4 +543,5 @@ void TextureCacheGLES::DeviceLost() {
 void TextureCacheGLES::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	depalShaderCache_->DeviceRestore(draw);
 }

@@ -59,7 +59,7 @@ public:
 	TextureCacheVulkan(Draw::DrawContext *draw, VulkanContext *vulkan);
 	~TextureCacheVulkan();
 
-	void StartFrame();
+	void StartFrame() override;
 	void EndFrame();
 
 	void DeviceLost();
@@ -124,7 +124,6 @@ private:
 
 	SamplerCache samplerCache_;
 
-	DepalShaderCache *depalShaderCache_;
 	ShaderManagerVulkan *shaderManagerVulkan_;
 	DrawEngineVulkan *drawEngine_;
 	Vulkan2D *vulkan2D_;

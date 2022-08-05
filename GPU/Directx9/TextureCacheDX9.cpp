@@ -146,6 +146,8 @@ void TextureCacheDX9::ApplySamplingParams(const SamplerCacheKey &key) {
 }
 
 void TextureCacheDX9::StartFrame() {
+	TextureCacheCommon::StartFrame();
+
 	InvalidateLastTexture();
 	timesInvalidatedAllThisFrame_ = 0;
 	replacementTimeThisFrame_ = 0.0;

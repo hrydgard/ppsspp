@@ -129,11 +129,14 @@ TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw)
 	tmpTexBufRearrange_.resize(512 * 512);   // 1MB
 
 	replacer_.Init();
+
+	depalShaderCache_ = new DepalShaderCache(draw);
 }
 
 TextureCacheCommon::~TextureCacheCommon() {
 	FreeAlignedMemory(clutBufConverted_);
 	FreeAlignedMemory(clutBufRaw_);
+	delete depalShaderCache_;
 }
 
 // Produces a signed 1.23.8 value.
@@ -1841,6 +1844,8 @@ void TextureCacheCommon::ApplyTexture() {
 }
 
 void TextureCacheCommon::Clear(bool delete_them) {
+	depalShaderCache_->Clear();
+
 	ForgetLastTexture();
 	for (TexCache::iterator iter = cache_.begin(); iter != cache_.end(); ++iter) {
 		ReleaseTexture(iter->second.get(), delete_them);
@@ -2277,4 +2282,8 @@ CheckAlphaResult TextureCacheCommon::CheckCLUTAlpha(const uint8_t *pixelData, GE
 	default:
 		return CheckAlpha32((const u32 *)pixelData, w, 0xFF000000);  // note, the normal order here, unlike the 16-bit formats
 	}
+}
+
+void TextureCacheCommon::StartFrame() {
+	depalShaderCache_->Decimate();
 }

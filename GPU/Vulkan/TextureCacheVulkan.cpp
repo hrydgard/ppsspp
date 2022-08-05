@@ -204,6 +204,8 @@ void TextureCacheVulkan::SetVulkan2D(Vulkan2D *vk2d) {
 }
 
 void TextureCacheVulkan::DeviceLost() {
+	depalShaderCache_->DeviceLost();
+
 	VulkanContext *vulkan = draw_ ? (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT) : nullptr;
 
 	Clear(true);
@@ -229,6 +231,7 @@ void TextureCacheVulkan::DeviceRestore(Draw::DrawContext *draw) {
 	_assert_(!allocator_);
 
 	samplerCache_.DeviceRestore(vulkan);
+	depalShaderCache_->DeviceRestore(draw);
 
 	VkSamplerCreateInfo samp{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -318,6 +321,8 @@ static const VkFilter MagFiltVK[2] = {
 };
 
 void TextureCacheVulkan::StartFrame() {
+	TextureCacheCommon::StartFrame();
+
 	InvalidateLastTexture();
 	depalShaderCache_->Decimate();
 

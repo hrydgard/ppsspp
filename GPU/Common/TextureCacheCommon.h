@@ -28,6 +28,7 @@
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/TextureScalerCommon.h"
+#include "GPU/Common/DepalettizeCommon.h"
 
 enum FramebufferNotification {
 	NOTIFY_FB_CREATED,
@@ -293,6 +294,8 @@ public:
 	void InvalidateAll(GPUInvalidationType type);
 	void ClearNextFrame();
 
+	DepalShaderCache *GetDepalShaderCache() { return depalShaderCache_; }
+
 	virtual void ForgetLastTexture() = 0;
 	virtual void InvalidateLastTexture() = 0;
 	virtual void Clear(bool delete_them);
@@ -365,6 +368,8 @@ protected:
 
 	void SetTextureFramebuffer(const AttachCandidate &candidate);
 
+	virtual void StartFrame();
+
 	void DecimateVideos();
 	bool IsVideo(u32 texaddr) const;
 
@@ -399,6 +404,7 @@ protected:
 	TextureReplacer replacer_;
 	TextureScalerCommon scaler_;
 	FramebufferManagerCommon *framebufferManager_;
+	DepalShaderCache *depalShaderCache_;
 
 	bool clearCacheNextFrame_ = false;
 	bool lowMemoryMode_ = false;

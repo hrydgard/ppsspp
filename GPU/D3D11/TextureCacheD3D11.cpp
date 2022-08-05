@@ -181,6 +181,8 @@ void TextureCacheD3D11::InvalidateLastTexture() {
 }
 
 void TextureCacheD3D11::StartFrame() {
+	TextureCacheCommon::StartFrame();
+
 	InvalidateLastTexture();
 	timesInvalidatedAllThisFrame_ = 0;
 	replacementTimeThisFrame_ = 0.0;

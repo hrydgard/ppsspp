@@ -83,7 +83,6 @@ private:
 
 	FramebufferManagerGLES *framebufferManagerGL_;
 	TextureCacheGLES *textureCacheGL_;
-	DepalShaderCache depalShaderCache_;
 	DrawEngineGLES drawEngine_;
 	FragmentTestCacheGLES fragmentTestCache_;
 	ShaderManagerGLES *shaderManagerGL_;

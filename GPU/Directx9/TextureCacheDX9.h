@@ -36,7 +36,7 @@ public:
 	TextureCacheDX9(Draw::DrawContext *draw);
 	~TextureCacheDX9();
 
-	void StartFrame();
+	void StartFrame() override;
 
 	void SetFramebufferManager(FramebufferManagerDX9 *fbManager);
 	void SetDepalShaderCache(DepalShaderCache *dpCache) {
@@ -82,7 +82,6 @@ private:
 	float maxAnisotropyLevel;
 
 	FramebufferManagerDX9 *framebufferManagerDX9_;
-	DepalShaderCache *depalShaderCache_;
 	ShaderManagerDX9 *shaderManager_;
 };
 
