@@ -115,7 +115,6 @@ public:
 
 protected:
 	bool UpdateUseHWTessellation(bool enable) override;
-	void DecimateTrackedVertexArrays() {}
 
 private:
 	void InitDeviceObjects();

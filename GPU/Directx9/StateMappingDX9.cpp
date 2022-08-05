@@ -91,14 +91,14 @@ static const D3DSTENCILOP stencilOps[] = {
 };
 
 inline void DrawEngineDX9::ResetFramebufferRead() {
-	if (fboTexBound_) {
-		device_->SetTexture(1, nullptr);
-		fboTexBound_ = false;
-	}
+	fboTexBound_ = false;
 }
 
 void DrawEngineDX9::ApplyDrawState(int prim) {
-	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
+	if (!gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
+		// nothing to do
+		return;
+	}
 
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
@@ -114,7 +114,6 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 	bool useBufferedRendering = framebufferManager_->UseBufferedRendering();
 
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
-		gstate_c.Clean(DIRTY_BLEND_STATE);
 		// Unfortunately, this isn't implemented on DX9 yet.
 		gstate_c.SetAllowFramebufferRead(false);
 		if (gstate.isModeClear()) {
@@ -140,6 +139,18 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 				ApplyFramebufferRead(&fboTexNeedsBind_);
 				// The shader takes over the responsibility for blending, so recompute.
 				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
+
+				if (fboTexNeedsBind_) {
+					// Note that this is positions, not UVs, that we need the copy from.
+					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
+					// If we are rendering at a higher resolution, linear is probably best for the dest color.
+					device_->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+					device_->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+					fboTexBound_ = true;
+					fboTexNeedsBind_ = false;
+					gstate_c.Dirty(DIRTY_BLEND_STATE);
+				}
+
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			} else if (blendState.resetFramebufferRead) {
 				ResetFramebufferRead();
@@ -172,7 +183,6 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 	}
 
 	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
-		gstate_c.Clean(DIRTY_RASTER_STATE);
 		bool wantCull = !gstate.isModeClear() && prim != GE_PRIM_RECTANGLES && prim > GE_PRIM_LINE_STRIP && gstate.isCullEnabled();
 		if (wantCull) {
 			if (gstate.getCullMode() == 1) {
@@ -192,7 +202,6 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 	}
 
 	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
-		gstate_c.Clean(DIRTY_DEPTHSTENCIL_STATE);
 		GenericStencilFuncState stencilState;
 		ConvertStencilFuncState(stencilState);
 
@@ -254,7 +263,6 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 	}
 
 	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
-		gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE);
 		ViewportAndScissor vpAndScissor;
 		ConvertViewportAndScissor(useBufferedRendering,
 			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
@@ -275,26 +283,14 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			gstate_c.Dirty(DIRTY_DEPTHRANGE);
 		}
 	}
+
+	gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_BLEND_STATE);
 }
 
 void DrawEngineDX9::ApplyDrawStateLate() {
 	// At this point, we know if the vertices are full alpha or not.
 	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
-	if (!gstate.isModeClear()) {
-		textureCache_->ApplyTexture();
 
-		if (fboTexNeedsBind_) {
-			// Note that this is positions, not UVs, that we need the copy from.
-			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
-			// If we are rendering at a higher resolution, linear is probably best for the dest color.
-			device_->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-			device_->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-			fboTexBound_ = true;
-			fboTexNeedsBind_ = false;
-		}
-
-		// TODO: Test texture?
-	}
 }
 
 }
