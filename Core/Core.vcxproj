@@ -535,6 +535,7 @@
     <ClCompile Include="HLE\KUBridge.cpp" />
     <ClCompile Include="HLE\Plugins.cpp" />
     <ClCompile Include="HLE\sceKernelHeap.cpp" />
+    <ClCompile Include="HLE\sceNp2.cpp" />
     <ClCompile Include="HLE\sceUsbAcc.cpp" />
     <ClCompile Include="HLE\sceUsbCam.cpp" />
     <ClCompile Include="HLE\sceUsbMic.cpp" />
@@ -572,6 +573,7 @@
     <ClCompile Include="Dialog\PSPDialog.cpp" />
     <ClCompile Include="Dialog\PSPMsgDialog.cpp" />
     <ClCompile Include="Dialog\PSPNetconfDialog.cpp" />
+    <ClCompile Include="Dialog\PSPNpSigninDialog.cpp" />
     <ClCompile Include="Dialog\PSPOskDialog.cpp" />
     <ClCompile Include="Dialog\PSPPlaceholderDialog.cpp" />
     <ClCompile Include="Dialog\PSPSaveDialog.cpp" />
@@ -1086,6 +1088,7 @@
     <ClInclude Include="HLE\KUBridge.h" />
     <ClInclude Include="HLE\Plugins.h" />
     <ClInclude Include="HLE\sceKernelHeap.h" />
+    <ClInclude Include="HLE\sceNp2.h" />
     <ClInclude Include="HLE\sceUsbAcc.h" />
     <ClInclude Include="HLE\sceUsbCam.h" />
     <ClInclude Include="HLE\sceUsbMic.h" />
@@ -1118,6 +1121,7 @@
     <ClInclude Include="Dialog\PSPDialog.h" />
     <ClInclude Include="Dialog\PSPMsgDialog.h" />
     <ClInclude Include="Dialog\PSPNetconfDialog.h" />
+    <ClInclude Include="Dialog\PSPNpSigninDialog.h" />
     <ClInclude Include="Dialog\PSPOskDialog.h" />
     <ClInclude Include="Dialog\PSPPlaceholderDialog.h" />
     <ClInclude Include="Dialog\PSPSaveDialog.h" />

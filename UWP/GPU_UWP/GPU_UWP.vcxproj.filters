@@ -30,7 +30,6 @@
     <ClCompile Include="..\..\GPU\D3D11\GPU_D3D11.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\ShaderManagerD3D11.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\StateMappingD3D11.cpp" />
-    <ClCompile Include="..\..\GPU\D3D11\StencilBufferD3D11.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\TextureCacheD3D11.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Breakpoints.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Debugger.cpp" />
@@ -58,6 +57,7 @@
     <ClCompile Include="..\..\GPU\Common\FragmentShaderGenerator.cpp" />
     <ClCompile Include="..\..\GPU\Common\VertexShaderGenerator.cpp" />
     <ClCompile Include="..\..\GPU\Common\ReinterpretFramebuffer.cpp" />
+    <ClCompile Include="..\..\GPU\Common\Draw2D.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\GPU\Common\DepalettizeShaderCommon.h" />
@@ -117,5 +117,6 @@
     <ClInclude Include="..\..\GPU\Common\FragmentShaderGenerator.h" />
     <ClInclude Include="..\..\GPU\Common\VertexShaderGenerator.h" />
     <ClInclude Include="..\..\GPU\Common\ReinterpretFramebuffer.h" />
+    <ClInclude Include="..\..\GPU\Common\Draw2D.h" />
   </ItemGroup>
 </Project>

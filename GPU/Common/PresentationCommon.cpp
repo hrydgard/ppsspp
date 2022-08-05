@@ -807,13 +807,11 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		draw_->DrawIndexed(6, 0);
 	}
 
-	draw_->BindIndexBuffer(nullptr, 0);
-
 	DoRelease(srcFramebuffer_);
 	DoRelease(srcTexture_);
 
 	// Unbinds all textures and samplers too, needed since sometimes a MakePixelTexture is deleted etc.
-	draw_->BindPipeline(nullptr);
+	draw_->InvalidateCachedState();
 
 	previousUniforms_ = uniforms;
 }

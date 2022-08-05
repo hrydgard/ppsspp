@@ -19,7 +19,6 @@
 // Here's a list of functionality to unify into FramebufferManagerCommon:
 // * DrawActiveTexture
 // * BlitFramebuffer
-// * StencilBuffer*.cpp
 //
 // Also, in TextureCache we should be able to unify texture-based depal.
 
@@ -30,11 +29,11 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
-#include "Core/MemMap.h"
+#include "Common/GPU/thin3d.h"
 #include "GPU/GPU.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUInterface.h"
-#include "Common/GPU/thin3d.h"
+#include "GPU/Common/Draw2D.h"
 
 enum {
 	FB_USAGE_DISPLAYED_FRAMEBUFFER = 1,
@@ -165,7 +164,6 @@ enum BindFramebufferColorFlags {
 enum DrawTextureFlags {
 	DRAWTEX_NEAREST = 0,
 	DRAWTEX_LINEAR = 1,
-	DRAWTEX_KEEP_STENCIL_ALPHA = 4,
 	DRAWTEX_TO_BACKBUFFER = 8,
 };
 
@@ -253,7 +251,7 @@ public:
 	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
 	void UpdateFromMemory(u32 addr, int size, bool safe);
 	void ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 clearColor);
-	virtual bool NotifyStencilUpload(u32 addr, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR) = 0;
+	bool PerformStencilUpload(u32 addr, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR);
 	// Returns true if it's sure this is a direct FBO->FBO transfer and it has already handle it.
 	// In that case we hardly need to actually copy the bytes in VRAM, they will be wrong anyway (unless
 	// read framebuffers is on, in which case this should always return false).
@@ -329,7 +327,6 @@ public:
 			SetColorUpdated(currentRenderVfb_, skipDrawReason);
 		}
 	}
-	void SetRenderSize(VirtualFramebuffer *vfb);
 	void SetSafeSize(u16 w, u16 h);
 
 	virtual void Resized();
@@ -355,8 +352,9 @@ protected:
 	virtual void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void SetViewport2D(int x, int y, int w, int h);
 	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
-	virtual void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) = 0;
-	virtual void Bind2DShader() = 0;
+	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags);
+
+	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter);
 
 	bool UpdateSize();
 
@@ -364,7 +362,12 @@ protected:
 	virtual void DecimateFBOs();  // keeping it virtual to let D3D do a little extra
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
-	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag) = 0;
+	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag);
+
+	void BlitUsingRaster(
+		Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
+		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2, bool linearFilter);
+
 	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags);
 
 	void EstimateDrawingSize(u32 fb_address, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int fb_stride, int &drawing_width, int &drawing_height);
@@ -442,7 +445,6 @@ protected:
 	int pixelHeight_;
 	int bloomHack_ = 0;
 
-	bool needGLESRebinds_ = false;
 	Draw::DataFormat preferredPixelsFormat_ = Draw::DataFormat::R8G8B8A8_UNORM;
 
 	struct TempFBOInfo {
@@ -467,4 +469,18 @@ protected:
 	Draw::ShaderModule *reinterpretVS_ = nullptr;
 	Draw::SamplerState *reinterpretSampler_ = nullptr;
 	Draw::Buffer *reinterpretVBuf_ = nullptr;
+
+	// Common implementation of stencil buffer upload. Also not 100% optimal, but not perforamnce
+	// critical either.
+	Draw::Pipeline *stencilUploadPipeline_ = nullptr;
+	Draw::ShaderModule *stencilUploadVs_ = nullptr;
+	Draw::ShaderModule *stencilUploadFs_ = nullptr;
+	Draw::SamplerState *stencilUploadSampler_ = nullptr;
+
+	// Draw2D pipelines
+	Draw::Pipeline *draw2DPipelineLinear_ = nullptr;
+	Draw::SamplerState *draw2DSamplerLinear_ = nullptr;
+	Draw::SamplerState *draw2DSamplerNearest_ = nullptr;
+	Draw::ShaderModule *draw2DVs_ = nullptr;
+	Draw::ShaderModule *draw2DFs_ = nullptr;
 };

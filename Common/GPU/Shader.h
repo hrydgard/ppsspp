@@ -52,6 +52,8 @@ struct ShaderLanguageDesc {
 	const char *framebufferFetchExtension = nullptr;
 	const char *vsOutPrefix = "";
 	const char *viewportYSign = "";
+
+	bool vertexIndex = false;
 	bool glslES30 = false;  // really glslES30Features. TODO: Clean this up.
 	bool bitwiseOps = false;
 	bool forceMatrix4x4 = false;

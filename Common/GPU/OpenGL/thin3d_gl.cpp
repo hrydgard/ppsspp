@@ -261,9 +261,6 @@ public:
 	~OpenGLInputLayout();
 
 	void Compile(const InputLayoutDesc &desc);
-	bool RequiresBuffer() {
-		return false;
-	}
 
 	GLRInputLayout *inputLayout_ = nullptr;
 	int stride = 0;
@@ -283,10 +280,6 @@ public:
 	}
 
 	bool LinkShaders();
-
-	bool RequiresBuffer() override {
-		return inputLayout && inputLayout->RequiresBuffer();
-	}
 
 	GLuint prim = 0;
 	std::vector<OpenGLShaderModule *> shaders;
@@ -541,8 +534,11 @@ OpenGLContext::OpenGLContext() {
 		caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
 		caps_.texture3DSupported = true;
 	}
-	caps_.framebufferBlitSupported = gl_extensions.NV_framebuffer_blit || gl_extensions.ARB_framebuffer_object;
+
+	caps_.framebufferCopySupported = gl_extensions.OES_copy_image || gl_extensions.NV_copy_image || gl_extensions.EXT_copy_image || gl_extensions.ARB_copy_image;
+	caps_.framebufferBlitSupported = gl_extensions.NV_framebuffer_blit || gl_extensions.ARB_framebuffer_object || gl_extensions.GLES3;
 	caps_.framebufferDepthBlitSupported = caps_.framebufferBlitSupported;
+	caps_.framebufferStencilBlitSupported = caps_.framebufferBlitSupported;
 	caps_.depthClampSupported = gl_extensions.ARB_depth_clamp;
 	if (gl_extensions.IsGLES) {
 		caps_.clipDistanceSupported = gl_extensions.EXT_clip_cull_distance || gl_extensions.APPLE_clip_distance;
@@ -1117,7 +1113,7 @@ void OpenGLContext::ApplySamplers() {
 		const OpenGLSamplerState *samp = boundSamplers_[i];
 		const GLRTexture *tex = boundTextures_[i];
 		if (tex) {
-			_assert_(samp);
+			_assert_msg_(samp, "Sampler missing");
 		} else {
 			continue;
 		}

@@ -38,6 +38,7 @@ class D3D11Pipeline;
 class D3D11BlendState;
 class D3D11DepthStencilState;
 class D3D11SamplerState;
+class D3D11Buffer;
 class D3D11RasterState;
 class D3D11Framebuffer;
 
@@ -248,10 +249,12 @@ private:
 	uint8_t stencilRef_ = 0;
 	uint8_t stencilWriteMask_ = 0xFF;
 	uint8_t stencilCompareMask_ = 0xFF;
+
 	bool stencilDirty_ = true;
 
 	// Temporaries
 	ID3D11Texture2D *packTexture_ = nullptr;
+	Buffer *upBuffer_ = nullptr;
 
 	// System info
 	D3D_FEATURE_LEVEL featureLevel_;
@@ -282,7 +285,9 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	caps_.framebufferBlitSupported = false;
 	caps_.framebufferCopySupported = true;
 	caps_.framebufferDepthBlitSupported = false;
+	caps_.framebufferStencilBlitSupported = false;
 	caps_.framebufferDepthCopySupported = true;
+	caps_.framebufferSeparateDepthCopySupported = false;  // Though could be emulated with a draw.
 	caps_.texture3DSupported = true;
 
 	D3D11_FEATURE_DATA_D3D11_OPTIONS options{};
@@ -337,9 +342,14 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	_assert_(SUCCEEDED(hr));
 
 	shaderLanguageDesc_.Init(HLSL_D3D11);
+
+	const size_t UP_MAX_BYTES = 65536 * 24;
+
+	upBuffer_ = CreateBuffer(UP_MAX_BYTES, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
 }
 
 D3D11DrawContext::~D3D11DrawContext() {
+	upBuffer_->Release();
 	packTexture_->Release();
 
 	// Release references.
@@ -754,9 +764,6 @@ public:
 		for (D3D11ShaderModule *shaderModule : shaderModules) {
 			shaderModule->Release();
 		}
-	}
-	bool RequiresBuffer() override {
-		return true;
 	}
 
 	AutoRef<D3D11InputLayout> input;
@@ -1247,7 +1254,13 @@ void D3D11DrawContext::DrawIndexed(int indexCount, int offset) {
 
 void D3D11DrawContext::DrawUP(const void *vdata, int vertexCount) {
 	ApplyCurrentState();
-	// TODO: Upload the data then draw..
+
+	int byteSize = vertexCount * curPipeline_->input->strides[0];
+
+	UpdateBuffer(upBuffer_, (const uint8_t *)vdata, 0, byteSize, Draw::UPDATE_DISCARD);
+	BindVertexBuffers(0, 1, &upBuffer_, nullptr);
+	int offset = 0;
+	Draw(vertexCount, offset);
 }
 
 uint32_t D3D11DrawContext::GetDataFormatSupport(DataFormat fmt) const {

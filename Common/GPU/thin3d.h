@@ -25,7 +25,7 @@ namespace Draw {
 // Useful in UBOs
 typedef int bool32;
 
-enum class Comparison : int {
+enum class Comparison : uint8_t {
 	NEVER,
 	LESS,
 	EQUAL,
@@ -37,7 +37,7 @@ enum class Comparison : int {
 };
 
 // Had to prefix with LOGIC, too many clashes
-enum class LogicOp : int {
+enum class LogicOp : uint8_t {
 	LOGIC_CLEAR,
 	LOGIC_SET,
 	LOGIC_COPY,
@@ -56,7 +56,7 @@ enum class LogicOp : int {
 	LOGIC_OR_INVERTED,
 };
 
-enum class BlendOp : int {
+enum class BlendOp : uint8_t {
 	ADD,
 	SUBTRACT,
 	REV_SUBTRACT,
@@ -96,7 +96,7 @@ enum class StencilOp {
 	DECREMENT_AND_WRAP = 7,
 };
 
-enum class TextureFilter : int {
+enum class TextureFilter : uint8_t {
 	NEAREST = 0,
 	LINEAR = 1,
 };
@@ -202,6 +202,8 @@ enum FormatSupport {
 	FMT_INPUTLAYOUT = 4,
 	FMT_DEPTHSTENCIL = 8,
 	FMT_AUTOGEN_MIPS = 16,
+	FMT_BLIT = 32,
+	FMT_STORAGE_IMAGE = 64,
 };
 
 enum InfoField {
@@ -448,7 +450,6 @@ public:
 class Pipeline : public RefCountedObject {
 public:
 	virtual ~Pipeline() {}
-	virtual bool RequiresBuffer() = 0;
 };
 
 class RasterState : public RefCountedObject {};
@@ -530,7 +531,9 @@ struct DeviceCaps {
 	bool framebufferCopySupported;
 	bool framebufferBlitSupported;
 	bool framebufferDepthCopySupported;
+	bool framebufferSeparateDepthCopySupported;
 	bool framebufferDepthBlitSupported;
+	bool framebufferStencilBlitSupported;
 	bool framebufferFetchSupported;
 	bool texture3DSupported;
 

@@ -19,6 +19,7 @@
 struct InputDef {
 	const char *type;
 	const char *name;
+	int semantic;
 };
 
 struct UniformDef {
@@ -30,7 +31,7 @@ struct UniformDef {
 struct VaryingDef {
 	const char *type;
 	const char *name;
-	const char *semantic;
+	int semantic;
 	int index;
 	const char *precision;
 };

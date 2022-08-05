@@ -47,6 +47,7 @@
 #include "Core/Dialog/PSPOskDialog.h"
 #include "Core/Dialog/PSPGamedataInstallDialog.h"
 #include "Core/Dialog/PSPNetconfDialog.h"
+#include "Core/Dialog/PSPNpSigninDialog.h"
 #include "Core/Dialog/PSPScreenshotDialog.h"
 
 #define PSP_AV_MODULE_AVCODEC     0
@@ -132,6 +133,7 @@ static PSPOskDialog *oskDialog;
 static PSPNetconfDialog *netDialog;
 static PSPScreenshotDialog *screenshotDialog;
 static PSPGamedataInstallDialog *gamedataInstallDialog;
+static PSPNpSigninDialog *npSigninDialog;
 
 static int oldStatus = -1;
 static std::map<int, u32> currentlyLoadedModules;
@@ -195,6 +197,8 @@ static PSPDialog *CurrentDialog(UtilityDialogType type) {
 		break;
 	case UtilityDialogType::GAMEDATAINSTALL:
 		return gamedataInstallDialog;
+	case UtilityDialogType::NPSIGNIN:
+		return npSigninDialog;
 	}
 	return nullptr;
 }
@@ -212,6 +216,7 @@ void __UtilityInit() {
 	netDialog = new PSPNetconfDialog(UtilityDialogType::NET);
 	screenshotDialog = new PSPScreenshotDialog(UtilityDialogType::SCREENSHOT);
 	gamedataInstallDialog = new PSPGamedataInstallDialog(UtilityDialogType::GAMEDATAINSTALL);
+	npSigninDialog = new PSPNpSigninDialog(UtilityDialogType::NPSIGNIN);
 
 	currentDialogType = UtilityDialogType::NONE;
 	DeactivateDialog();
@@ -221,7 +226,7 @@ void __UtilityInit() {
 }
 
 void __UtilityDoState(PointerWrap &p) {
-	auto s = p.Section("sceUtility", 1, 5);
+	auto s = p.Section("sceUtility", 1, 6);
 	if (!s) {
 		return;
 	}
@@ -267,6 +272,10 @@ void __UtilityDoState(PointerWrap &p) {
 	if (s >= 5)
 		Do(p, accessThreadFinished);
 
+	if (s >= 6) {
+		npSigninDialog->DoState(p);
+	}
+
 	if (!hasAccessThread && accessThread) {
 		accessThread->Forget();
 		delete accessThread;
@@ -282,6 +291,7 @@ void __UtilityShutdown() {
 	netDialog->Shutdown(true);
 	screenshotDialog->Shutdown(true);
 	gamedataInstallDialog->Shutdown(true);
+	npSigninDialog->Shutdown(true);
 
 	if (accessThread) {
 		delete accessThread;
@@ -296,6 +306,7 @@ void __UtilityShutdown() {
 	delete netDialog;
 	delete screenshotDialog;
 	delete gamedataInstallDialog;
+	delete npSigninDialog;
 }
 
 void UtilityDialogInitialize(UtilityDialogType type, int delayUs, int priority) {
@@ -884,15 +895,43 @@ static u32 sceUtilityUnloadNetModule(u32 module)
 }
 
 static int sceUtilityNpSigninInitStart(u32 paramsPtr) {
-	return hleLogError(SCEUTILITY, 0, "not implemented");
+	if (currentDialogActive && currentDialogType != UtilityDialogType::NPSIGNIN) {
+		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
+	}
+
+	ActivateDialog(UtilityDialogType::NPSIGNIN);
+	return hleLogSuccessInfoI(SCEUTILITY, npSigninDialog->Init(paramsPtr));
+}
+
+static int sceUtilityNpSigninShutdownStart() {
+	if (currentDialogType != UtilityDialogType::NPSIGNIN) {
+		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
+	}
+
+	DeactivateDialog();
+	return hleLogSuccessI(SCEUTILITY, npSigninDialog->Shutdown());
 }
 
 static int sceUtilityNpSigninUpdate(int animSpeed) {
-	return hleLogError(SCEUTILITY, 0, "not implemented");
+	if (currentDialogType != UtilityDialogType::NPSIGNIN) {
+		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
+	}
+
+	return hleLogSuccessI(SCEUTILITY, npSigninDialog->Update(animSpeed));
 }
 
 static int sceUtilityNpSigninGetStatus() {
-	return hleLogError(SCEUTILITY, 0, "not implemented");
+	if (currentDialogType != UtilityDialogType::NPSIGNIN) {
+		return hleLogDebug(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
+	}
+
+	int status = npSigninDialog->GetStatus();
+	CleanupDialogThreads();
+	if (oldStatus != status) {
+		oldStatus = status;
+		return hleLogSuccessI(SCEUTILITY, status);
+	}
+	return hleLogSuccessVerboseI(SCEUTILITY, status);
 }
 
 static void sceUtilityInstallInitStart(u32 unknown)
@@ -1066,7 +1105,7 @@ const HLEFunction sceUtility[] =
 	{0X180F7B62, &WrapI_V<sceUtilityGamedataInstallAbort>,         "sceUtilityGamedataInstallAbort",         'i', ""   },
 
 	{0X16D02AF0, &WrapI_U<sceUtilityNpSigninInitStart>,            "sceUtilityNpSigninInitStart",            'i', "x"  },
-	{0XE19C97D6, nullptr,                                          "sceUtilityNpSigninShutdownStart",        'i', ""   },
+	{0XE19C97D6, &WrapI_V<sceUtilityNpSigninShutdownStart>,        "sceUtilityNpSigninShutdownStart",        'i', ""   },
 	{0XF3FBC572, &WrapI_I<sceUtilityNpSigninUpdate>,               "sceUtilityNpSigninUpdate",               'i', "i"  },
 	{0X86ABDB1B, &WrapI_V<sceUtilityNpSigninGetStatus>,            "sceUtilityNpSigninGetStatus",            'i', ""   },
 

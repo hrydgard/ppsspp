@@ -3,10 +3,11 @@
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/ShaderWriter.h"
 #include "Common/Log.h"
+#include "Common/GPU/thin3d.h"
 #include "GPU/Common/ReinterpretFramebuffer.h"
 
 static const VaryingDef varyings[1] = {
-	{ "vec2", "v_texcoord", "TEXCOORD0", 0, "highp" },
+	{ "vec2", "v_texcoord", Draw::SEM_TEXCOORD0, 0, "highp" },
 };
 
 // TODO: We could possibly have an option to preserve any extra color precision? But gonna start without it.
@@ -79,9 +80,10 @@ bool GenerateReinterpretVertexShader(char *buffer, const ShaderLanguageDesc &lan
 	writer.C("  float x = -1.0 + float((gl_VertexIndex & 1) << 2);\n");
 	writer.C("  float y = -1.0 + float((gl_VertexIndex & 2) << 1);\n");
 	writer.C("  v_texcoord = (vec2(x, y) + vec2(1.0, 1.0)) * 0.5;\n");
-	writer.F("  y *= %s1.0;\n", lang.viewportYSign);
+	if (strlen(lang.viewportYSign)) {
+		writer.F("  y *= %s1.0;\n", lang.viewportYSign);
+	}
 	writer.C("  gl_Position = vec4(x, y, 0.0, 1.0);\n");
-
 	writer.EndVSMain(varyings);
 	return true;
 }
