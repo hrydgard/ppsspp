@@ -419,18 +419,6 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer,
 		context_->PSSetSamplers(1, 1, &stockD3D11.samplerPoint2DWrap);
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, 0);
 		context_->PSSetSamplers(0, 1, &stockD3D11.samplerPoint2DWrap);
-
-		if (depth) {
-			DepthScaleFactors scaleFactors = GetDepthScaleFactors();
-			DepthPushConstants push;
-			push.z_scale = scaleFactors.scale;
-			push.z_offset = scaleFactors.offset;
-			D3D11_MAPPED_SUBRESOURCE map;
-			context_->Map(depalConstants_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
-			memcpy(map.pData, &push, sizeof(push));
-			context_->Unmap(depalConstants_, 0);
-			context_->PSSetConstantBuffers(0, 1, &depalConstants_);
-		}
 		shaderApply.Shade();
 
 		context_->PSSetShaderResources(0, 1, &nullTexture);  // Make D3D11 validation happy. Really of no consequence since we rebind anyway.

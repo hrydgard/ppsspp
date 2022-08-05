@@ -102,6 +102,7 @@ protected:
 	void BindTexture(TexCacheEntry *entry) override;
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
+	void BindAsClutTexture(Draw::Texture *tex) override;
 
 private:
 	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch,  int level, int scaleFactor, VkFormat dstFmt);

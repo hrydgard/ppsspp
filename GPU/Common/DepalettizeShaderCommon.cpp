@@ -42,9 +42,9 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		WRITE(p, "Texture2D<float4> pal : register(t1);\n");
 		// Support for depth.
 		if (pixelFormat == GE_FORMAT_DEPTH16) {
-			WRITE(p, "cbuffer params : register(b0) {\n");
-			WRITE(p, "  float z_scale; float z_offset;\n");
-			WRITE(p, "};\n");
+			DepthScaleFactors factors = GetDepthScaleFactors();
+			WRITE(p, "static const float z_scale = %f;\n", factors.scale);
+			WRITE(p, "static const float z_offset = %f;\n", factors.offset);
 		}
 	} else if (language == GLSL_VULKAN) {
 		WRITE(p, "#version 450\n");
@@ -57,9 +57,9 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 
 		// Support for depth.
 		if (pixelFormat == GE_FORMAT_DEPTH16) {
-			WRITE(p, "layout (push_constant) uniform params {\n");
-			WRITE(p, "  float z_scale; float z_offset;\n");
-			WRITE(p, "};\n");
+			DepthScaleFactors factors = GetDepthScaleFactors();
+			WRITE(p, "const float z_scale = %f;\n", factors.scale);
+			WRITE(p, "const float z_offset = %f;\n", factors.offset);
 		}
 	} else {
 		if (gl_extensions.IsGLES) {

@@ -406,6 +406,11 @@ void TextureCacheVulkan::Unbind() {
 	InvalidateLastTexture();
 }
 
+void TextureCacheVulkan::BindAsClutTexture(Draw::Texture *tex) {
+	VkImageView clutTexture = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::TEXTURE_VIEW, tex);
+	drawEngine_->SetDepalTexture(clutTexture);
+}
+
 void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) {
 	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 
@@ -519,17 +524,6 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		renderManager->BindPipeline(depalShader->pipeline, (PipelineFlags)0);
 
-		if (depth) {
-			DepthScaleFactors scaleFactors = GetDepthScaleFactors();
-			struct DepthPushConstants {
-				float z_scale;
-				float z_offset;
-			};
-			DepthPushConstants push;
-			push.z_scale = scaleFactors.scale;
-			push.z_offset = scaleFactors.offset;
-			renderManager->PushConstants(vulkan2D_->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(DepthPushConstants), &push);
-		}
 		renderManager->SetScissor(0, 0, (int)framebuffer->renderWidth, (int)framebuffer->renderHeight);
 		renderManager->SetViewport(VkViewport{ 0.f, 0.f, (float)framebuffer->renderWidth, (float)framebuffer->renderHeight, 0.f, 1.f });
 		renderManager->Draw(vulkan2D_->GetPipelineLayout(), descSet, 0, nullptr, pushed, offset, 4);
