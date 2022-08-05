@@ -435,16 +435,17 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer,
 		CheckAlphaResult alphaStatus = CheckAlpha(clutBuf_, GetClutDestFormatD3D11(clutFormat), clutTotalColors);
 		gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
 	} else {
-		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 		framebufferManager_->RebindFramebuffer("RebindFramebuffer - ApplyTextureFramebuffer");
 		framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
+		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
 
 	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, samplerKey);
 	context_->PSSetSamplers(0, 1, &state);
 
-	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE);
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+	draw_->InvalidateCachedState();
 }
 
 void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {

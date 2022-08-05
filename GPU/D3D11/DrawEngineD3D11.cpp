@@ -20,6 +20,8 @@
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
 #include "Common/TimeUtil.h"
+#include "Common/Profiler/Profiler.h"
+
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
@@ -273,6 +275,8 @@ void DrawEngineD3D11::BeginFrame() {
 	pushVerts_->Reset();
 	pushInds_->Reset();
 
+	gpuStats.numTrackedVertexArrays = (int)vai_.size();
+
 	if (--decimationCounter_ <= 0) {
 		decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	} else {
@@ -321,23 +325,30 @@ VertexArrayInfoD3D11::~VertexArrayInfoD3D11() {
 // The inline wrapper in the header checks for numDrawCalls == 0
 void DrawEngineD3D11::DoFlush() {
 	gpuStats.numFlushes++;
-	gpuStats.numTrackedVertexArrays = (int)vai_.size();
 
 	// In D3D, we're synchronous and state carries over so all we reset here on a new step is the viewport/scissor.
 	int curRenderStepId = draw_->GetCurrentStepId();
 	if (lastRenderStepId_ != curRenderStepId) {
 		// Dirty everything that has dynamic state that will need re-recording.
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+		textureCache_->ForgetLastTexture();
 		lastRenderStepId_ = curRenderStepId;
+	}
+
+	bool textureNeedsApply = false;
+	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+		textureCache_->SetTexture();
+		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+		textureNeedsApply = true;
+	} else if (gstate.getTextureAddress(0) == ((gstate.getFrameBufRawAddress() | 0x04000000) & 0x3FFFFFFF)) {
+		// This catches the case of clearing a texture. (#10957)
+		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 	}
 
 	// This is not done on every drawcall, we collect vertex data
 	// until critical state changes. That's when we draw (flush).
 
 	GEPrimitiveType prim = prevPrim_;
-
-	// SetTexture is called in here, along with setting a lot of other state.
-	ApplyDrawState(prim);
 
 	// Always use software for flat shading to fix the provoking index.
 	bool tess = gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE;
@@ -510,7 +521,6 @@ rotateVBO:
 			prim = indexGen.Prim();
 		}
 
-		VERBOSE_LOG(G3D, "Flush prim %d! %d verts in one go", prim, vertexCount);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
@@ -518,6 +528,12 @@ rotateVBO:
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
+		if (textureNeedsApply) {
+			textureCache_->ApplyTexture();
+		}
+
+		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
+		ApplyDrawState(prim);
 		ApplyDrawStateLate(true, dynState_.stencilRef);
 
 		D3D11VertexShader *vshader;
@@ -532,6 +548,7 @@ rotateVBO:
 		context_->IASetInputLayout(inputLayout);
 		UINT stride = dec_->GetDecVtxFmt().stride;
 		context_->IASetPrimitiveTopology(d3d11prim[prim]);
+
 		if (!vb_) {
 			// Push!
 			UINT vOffset;
@@ -563,6 +580,7 @@ rotateVBO:
 			}
 		}
 	} else {
+		PROFILE_THIS_SCOPE("soft");
 		DecodeVerts(decoded);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -611,15 +629,22 @@ rotateVBO:
 		swTransform.Decode(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), maxIndex, &result);
 		if (result.action == SW_NOT_READY) {
 			swTransform.DetectOffsetTexture(maxIndex);
-			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, maxIndex, &result);
 		}
 
+		if (textureNeedsApply)
+			textureCache_->ApplyTexture();
+
+		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
+		ApplyDrawState(prim);
+
+		if (result.action == SW_NOT_READY)
+			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, maxIndex, &result);
 		if (result.setSafeSize)
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
 
-		if (result.action == SW_DRAW_PRIMITIVES) {
-			ApplyDrawStateLate(result.setStencil, result.stencilValue);
+		ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
+		if (result.action == SW_DRAW_PRIMITIVES) {
 			D3D11VertexShader *vshader;
 			D3D11FragmentShader *fshader;
 			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, false, false, decOptions_.expandAllWeightsToFloat);

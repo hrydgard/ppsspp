@@ -547,10 +547,6 @@ void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
 }
 
 VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellation, u32 vertType, bool weightsAsFloat) {
-	// Always use software for flat shading to fix the provoking index.
-	bool tess = gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE;
-	useHWTransform = useHWTransform && (tess || gstate.getShadeMode() != GE_SHADE_FLAT);
-
 	VShaderID VSID;
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
