@@ -160,24 +160,9 @@ void GPU_GLES::CheckGPUFeatures() {
 		}
 	}
 
-	if (gl_extensions.IsGLES) {
-		if (gl_extensions.GLES3) {
-			features |= GPU_SUPPORTS_GLSL_ES_300;
-			// Mali reports 30 but works fine...
-			if (gl_extensions.range[1][5][1] >= 30) {
-				features |= GPU_SUPPORTS_32BIT_INT_FSHADER;
-			}
-		}
-	} else {
-		if (gl_extensions.VersionGEThan(3, 3, 0)) {
-			features |= GPU_SUPPORTS_GLSL_330;
-			features |= GPU_SUPPORTS_32BIT_INT_FSHADER;
-		}
-	}
-
 	if (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch) {
 		// This has caused problems in the past.  Let's only enable on GLES3.
-		if (features & GPU_SUPPORTS_GLSL_ES_300) {
+		if (gl_extensions.GLES3) {
 			features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
 		}
 	}

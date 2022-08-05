@@ -526,8 +526,17 @@ OpenGLContext::OpenGLContext() {
 		} else {
 			caps_.preferredDepthBufferFormat = DataFormat::D16;
 		}
+		if (gl_extensions.GLES3) {
+			// Mali reports 30 but works fine...
+			if (gl_extensions.range[1][5][1] >= 30) {
+				caps_.fragmentShaderInt32Supported = true;
+			}
+		}
 		caps_.texture3DSupported = gl_extensions.OES_texture_3D;
 	} else {
+		if (gl_extensions.VersionGEThan(3, 3, 0)) {
+			caps_.fragmentShaderInt32Supported = true;
+		}
 		caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
 		caps_.texture3DSupported = true;
 	}
