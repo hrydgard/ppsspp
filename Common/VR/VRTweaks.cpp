@@ -24,16 +24,6 @@ bool VR_TweakIs2D(float* projMatrix) {
 	return identity || oneTranslation || ortho;
 }
 
-bool VR_TweakIsHUD(bool is2D, bool isOrtho, bool isProjection) {
-	bool flatScreen = VR_GetConfig(VR_CONFIG_MODE) == VR_MODE_FLAT_SCREEN;
-	if (isProjection) {
-		vrIsHUD = is2D && !flatScreen;
-	} else if (isOrtho) {
-		vrIsHUD = !flatScreen;
-	}
-	return vrIsHUD;
-}
-
 void VR_TweakMirroring(float* projMatrix) {
 	VR_SetConfig(VR_CONFIG_MIRROR_AXIS_X, projMatrix[0] < 0);
 	VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Y, projMatrix[5] < 0);

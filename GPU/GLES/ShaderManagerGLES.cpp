@@ -329,7 +329,13 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	}
 
 	// Set HUD mode
-	if (VR_TweakIsHUD(is2D, dirty & DIRTY_PROJTHROUGHMATRIX, dirty & DIRTY_PROJMATRIX)) {
+	bool flatScreen = VR_GetConfig(VR_CONFIG_MODE) == VR_MODE_FLAT_SCREEN;
+	bool hud = is2D && !flatScreen &&
+               gstate.isModeThrough() &&       //2D content requires orthographic projection
+               gstate.isAlphaBlendEnabled() && //2D content has to be blended
+               !gstate.isLightingEnabled() &&  //2D content cannot be rendered with lights on
+               !gstate.isFogEnabled();         //2D content cannot be rendered with fog on
+	if (hud) {
 		float scale = 0.5f;
 		render_->SetUniformF1(&u_scaleX, scale);
 		render_->SetUniformF1(&u_scaleY, scale / 16.0f * 9.0f);
@@ -343,7 +349,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	if (dirty & DIRTY_PROJMATRIX) {
 		Matrix4x4 flippedMatrix;
 #ifdef OPENXR
-		if ((VR_GetConfig(VR_CONFIG_MODE) == VR_MODE_FLAT_SCREEN) || is2D) {
+		if (flatScreen || is2D) {
 			memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 		} else {
 			VR_TweakProjection(gstate.projMatrix, flippedMatrix.m, VR_PROJECTION_MATRIX_LEFT_EYE);
@@ -509,7 +515,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	}
 	if (dirty & DIRTY_VIEWMATRIX) {
 #ifdef OPENXR
-		if ((VR_GetConfig(VR_CONFIG_MODE) == VR_MODE_FLAT_SCREEN) || is2D) {
+		if (flatScreen || is2D) {
 			SetMatrix4x3(render_, &u_view, gstate.viewMatrix);
 		} else {
 			float m4x4[16];
