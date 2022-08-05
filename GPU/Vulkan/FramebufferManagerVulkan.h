@@ -40,7 +40,6 @@ public:
 	void SetTextureCache(TextureCacheVulkan *tc);
 	void SetShaderManager(ShaderManagerVulkan *sm);
 	void SetDrawEngine(DrawEngineVulkan *td);
-	void SetVulkan2D(Vulkan2D *vk2d) { vulkan2D_ = vk2d; }
 
 	void BeginFrameVulkan();  // there's a BeginFrame in the base class, which this calls
 	void EndFrame();

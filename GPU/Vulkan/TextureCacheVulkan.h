@@ -52,8 +52,6 @@ private:
 	DenseHashMap<SamplerCacheKey, VkSampler, (VkSampler)VK_NULL_HANDLE> cache_;
 };
 
-class Vulkan2D;
-
 class TextureCacheVulkan : public TextureCacheCommon {
 public:
 	TextureCacheVulkan(Draw::DrawContext *draw, VulkanContext *vulkan);
@@ -75,7 +73,6 @@ public:
 	void SetDrawEngine(DrawEngineVulkan *td) {
 		drawEngine_ = td;
 	}
-	void SetVulkan2D(Vulkan2D *vk2d);
 	void SetPushBuffer(VulkanPushBuffer *push) {
 		push_ = push;
 	}
@@ -126,7 +123,6 @@ private:
 
 	ShaderManagerVulkan *shaderManagerVulkan_;
 	DrawEngineVulkan *drawEngine_;
-	Vulkan2D *vulkan2D_;
 
 	std::string textureShader_;
 	VkShaderModule uploadCS_ = VK_NULL_HANDLE;

@@ -54,8 +54,7 @@
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw),
 		depalShaderCache_(draw),
-		drawEngine_(draw),
-		vulkan2D_((VulkanContext *)gfxCtx->GetAPIContext()) {
+		drawEngine_(draw) {
 	CheckGPUFeatures();
 
 	VulkanContext *vulkan = (VulkanContext *)gfxCtx->GetAPIContext();
@@ -76,7 +75,6 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	drawEngine_.SetShaderManager(shaderManagerVulkan_);
 	drawEngine_.SetPipelineManager(pipelineManager_);
 	drawEngine_.Init();
-	framebufferManagerVulkan_->SetVulkan2D(&vulkan2D_);
 	framebufferManagerVulkan_->SetTextureCache(textureCacheVulkan_);
 	framebufferManagerVulkan_->SetDrawEngine(&drawEngine_);
 	framebufferManagerVulkan_->SetShaderManager(shaderManagerVulkan_);
@@ -85,7 +83,6 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	textureCacheVulkan_->SetFramebufferManager(framebufferManagerVulkan_);
 	textureCacheVulkan_->SetShaderManager(shaderManagerVulkan_);
 	textureCacheVulkan_->SetDrawEngine(&drawEngine_);
-	textureCacheVulkan_->SetVulkan2D(&vulkan2D_);
 
 	InitDeviceObjects();
 
@@ -185,7 +182,6 @@ GPU_Vulkan::~GPU_Vulkan() {
 	depalShaderCache_.Clear();
 	depalShaderCache_.DeviceLost();
 	drawEngine_.DeviceLost();
-	vulkan2D_.Shutdown();
 	delete textureCacheVulkan_;
 	delete pipelineManager_;
 	delete shaderManagerVulkan_;
@@ -329,8 +325,6 @@ void GPU_Vulkan::BeginHostFrame() {
 	framebufferManagerVulkan_->BeginFrameVulkan();
 	textureCacheVulkan_->SetPushBuffer(frameData_[curFrame].push_);
 
-	vulkan2D_.BeginFrame();
-
 	shaderManagerVulkan_->DirtyShader();
 	gstate_c.Dirty(DIRTY_ALL);
 
@@ -348,8 +342,6 @@ void GPU_Vulkan::EndHostFrame() {
 	int curFrame = vulkan->GetCurFrame();
 	FrameData &frame = frameData_[curFrame];
 	frame.push_->End();
-
-	vulkan2D_.EndFrame();
 
 	drawEngine_.EndFrame();
 	framebufferManagerVulkan_->EndFrame();
@@ -546,7 +538,6 @@ void GPU_Vulkan::DeviceLost() {
 		SaveCache(shaderCachePath_);
 	}
 	DestroyDeviceObjects();
-	vulkan2D_.DeviceLost();
 	drawEngine_.DeviceLost();
 	pipelineManager_->DeviceLost();
 	textureCacheVulkan_->DeviceLost();
@@ -565,7 +556,6 @@ void GPU_Vulkan::DeviceRestore() {
 	UpdateCmdInfo();
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
-	vulkan2D_.DeviceRestore(vulkan);
 	drawEngine_.DeviceRestore(draw_);
 	pipelineManager_->DeviceRestore(vulkan);
 	textureCacheVulkan_->DeviceRestore(draw_);

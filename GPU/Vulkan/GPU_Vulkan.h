@@ -100,9 +100,6 @@ private:
 	// Manages state and pipeline objects
 	PipelineManagerVulkan *pipelineManager_;
 
-	// Simple 2D drawing engine.
-	Vulkan2D vulkan2D_;
-
 	struct FrameData {
 		VulkanPushBuffer *push_;
 	};

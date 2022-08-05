@@ -199,10 +199,6 @@ void TextureCacheVulkan::SetFramebufferManager(FramebufferManagerVulkan *fbManag
 	framebufferManager_ = fbManager;
 }
 
-void TextureCacheVulkan::SetVulkan2D(Vulkan2D *vk2d) {
-	vulkan2D_ = vk2d;
-}
-
 void TextureCacheVulkan::DeviceLost() {
 	depalShaderCache_->DeviceLost();
 
