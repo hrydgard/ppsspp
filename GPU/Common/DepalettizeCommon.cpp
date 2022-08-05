@@ -61,6 +61,9 @@ bool DepalShaderCache::GenerateVertexShader(char *buffer, const ShaderLanguageDe
 	writer.BeginVSMain(vsInputs, Slice<UniformDef>::empty(), varyings);
 	writer.C("  v_texcoord0 = a_texcoord0;\n");
 	writer.C("  gl_Position = vec4(a_position, 0.0, 1.0);\n");
+	if (strlen(lang.viewportYSign)) {
+		writer.F("  gl_Position.y *= %s1.0;\n", lang.viewportYSign);
+	}
 	writer.EndVSMain(varyings);
 	return true;
 }

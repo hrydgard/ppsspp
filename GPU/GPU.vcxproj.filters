@@ -195,9 +195,6 @@
     <ClInclude Include="D3D11\DrawEngineD3D11.h">
       <Filter>D3D11</Filter>
     </ClInclude>
-    <ClInclude Include="D3D11\DepalettizeShaderD3D11.h">
-      <Filter>D3D11</Filter>
-    </ClInclude>
     <ClInclude Include="D3D11\D3D11Util.h">
       <Filter>D3D11</Filter>
     </ClInclude>
@@ -441,9 +438,6 @@
       <Filter>D3D11</Filter>
     </ClCompile>
     <ClCompile Include="D3D11\DrawEngineD3D11.cpp">
-      <Filter>D3D11</Filter>
-    </ClCompile>
-    <ClCompile Include="D3D11\DepalettizeShaderD3D11.cpp">
       <Filter>D3D11</Filter>
     </ClCompile>
     <ClCompile Include="D3D11\D3D11Util.cpp">

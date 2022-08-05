@@ -751,7 +751,6 @@ SOURCES_CXX += \
 	$(GPUDIR)/Directx9/TextureCacheDX9.cpp
 
 SOURCES_CXX += \
-	$(GPUDIR)/D3D11/DepalettizeShaderD3D11.cpp \
 	$(GPUDIR)/D3D11/DrawEngineD3D11.cpp \
 	$(GPUDIR)/D3D11/FramebufferManagerD3D11.cpp \
 	$(GPUDIR)/D3D11/GPU_D3D11.cpp \

@@ -71,7 +71,7 @@ protected:
 	void BindAsClutTexture(Draw::Texture *tex) override;
 
 private:
-	void ApplySamplingParams(const SamplerCacheKey &key);
+	void ApplySamplingParams(const SamplerCacheKey &key) override;
 	Draw::DataFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;

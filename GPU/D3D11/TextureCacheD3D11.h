@@ -28,7 +28,7 @@
 struct VirtualFramebuffer;
 
 class FramebufferManagerD3D11;
-class DepalShaderCacheD3D11;
+class DepalShaderCache;
 class ShaderManagerD3D11;
 
 class SamplerCacheD3D11 {
@@ -49,7 +49,7 @@ public:
 	void StartFrame();
 
 	void SetFramebufferManager(FramebufferManagerD3D11 *fbManager);
-	void SetDepalShaderCache(DepalShaderCacheD3D11 *dpCache) {
+	void SetDepalShaderCache(DepalShaderCache *dpCache) {
 		depalShaderCache_ = dpCache;
 	}
 	void SetShaderManager(ShaderManagerD3D11 *sm) {
@@ -66,6 +66,7 @@ protected:
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
 	void BindAsClutTexture(Draw::Texture *tex) override;
+	void ApplySamplingParams(const SamplerCacheKey &key) override;
 
 private:
 	DXGI_FORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
@@ -91,7 +92,7 @@ private:
 	ID3D11Buffer *depalConstants_;
 
 	FramebufferManagerD3D11 *framebufferManagerD3D11_;
-	DepalShaderCacheD3D11 *depalShaderCache_;
+	DepalShaderCache *depalShaderCache_;
 	ShaderManagerD3D11 *shaderManager_;
 
 };

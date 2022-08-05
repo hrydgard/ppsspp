@@ -64,7 +64,7 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	textureCache_ = textureCacheD3D11_;
 	drawEngineCommon_ = &drawEngine_;
 	shaderManager_ = shaderManagerD3D11_;
-	depalShaderCache_ = new DepalShaderCacheD3D11(draw);
+	depalShaderCache_ = new DepalShaderCache(draw);
 	drawEngine_.SetShaderManager(shaderManagerD3D11_);
 	drawEngine_.SetTextureCache(textureCacheD3D11_);
 	drawEngine_.SetFramebufferManager(framebufferManagerD3D11_);

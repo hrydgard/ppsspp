@@ -23,7 +23,7 @@
 
 #include "GPU/GPUCommon.h"
 #include "GPU/D3D11/DrawEngineD3D11.h"
-#include "GPU/D3D11/DepalettizeShaderD3D11.h"
+#include "GPU/Common/DepalettizeCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
 class FramebufferManagerD3D11;
@@ -78,7 +78,7 @@ private:
 
 	FramebufferManagerD3D11 *framebufferManagerD3D11_;
 	TextureCacheD3D11 *textureCacheD3D11_;
-	DepalShaderCacheD3D11 *depalShaderCache_;
+	DepalShaderCache *depalShaderCache_;
 	DrawEngineD3D11 drawEngine_;
 	ShaderManagerD3D11 *shaderManagerD3D11_;
 };

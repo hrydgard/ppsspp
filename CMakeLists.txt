@@ -1500,8 +1500,6 @@ set(GPU_D3D9
 )
 
 set(GPU_D3D11
-	GPU/D3D11/DepalettizeShaderD3D11.cpp
-	GPU/D3D11/DepalettizeShaderD3D11.h
 	GPU/D3D11/DrawEngineD3D11.cpp
 	GPU/D3D11/DrawEngineD3D11.h
 	GPU/D3D11/FramebufferManagerD3D11.cpp

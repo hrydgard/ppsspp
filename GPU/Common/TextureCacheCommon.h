@@ -297,6 +297,7 @@ public:
 	virtual void InvalidateLastTexture() = 0;
 	virtual void Clear(bool delete_them);
 	virtual void NotifyConfigChanged();
+	virtual void ApplySamplingParams(const SamplerCacheKey &key) = 0;
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to,
 	// so that it can invalidate TexCacheEntries pointed at those addresses.
