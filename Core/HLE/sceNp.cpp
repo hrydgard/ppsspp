@@ -487,7 +487,7 @@ int sceNpAuthGetTicketParam(u32 ticketBufPtr, int ticketLen, int paramNum, u32 b
 		SceNpTicketParamData* ticketParam = (SceNpTicketParamData*)Memory::GetPointer(inbuf);
 		u32 sz = (u32)sizeof(SceNpTicketParamData) + ticketParam->length;
 		Memory::Memcpy(outbuf, inbuf, sz);
-		DEBUG_LOG(SCENET, "%s - Param #%d: Type = %04hx, Length = %u", __FUNCTION__, i, static_cast<unsigned short>(ticketParam->type), static_cast<unsigned int>(ticketParam->length));
+		DEBUG_LOG(SCENET, "%s - Param #%d: Type = %04x, Length = %u", __FUNCTION__, i, static_cast<unsigned int>(ticketParam->type), static_cast<unsigned int>(ticketParam->length));
 		outbuf += sz;
 		inbuf += sz;
 		if (outbuf - bufferPtr >= PARAM_BUFFER_MAX_SIZE || inbuf - ticketBufPtr >= (u32)ticketLen)
