@@ -565,7 +565,7 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 
 	// Check that the depth address is even the same before actually blitting.
 	bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
-	bool matchingSize = (src->width == dst->width || src->width == 512 && dst->width == 480 || src->width == 480 && dst->width == 512) && src->height == dst->height;
+	bool matchingSize = (src->width == dst->width || (src->width == 512 && dst->width == 480) || (src->width == 480 && dst->width == 512)) && src->height == dst->height;
 	if (!matchingDepthBuffer || !matchingSize) {
 		return;
 	}
@@ -586,7 +586,7 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 	// TODO: It might even be advantageous on some GPUs to do this copy using a fragment shader that writes to Z, that way upcoming commands can just continue that render pass.
 
 	// Some GPUs can copy depth but only if stencil gets to come along for the ride. We only want to use this if there is no blit functionality.
-	if (draw_->GetDeviceCaps().framebufferSeparateDepthCopySupported || !draw_->GetDeviceCaps().framebufferDepthBlitSupported) {
+	if (draw_->GetDeviceCaps().framebufferSeparateDepthCopySupported || (!draw_->GetDeviceCaps().framebufferDepthBlitSupported && draw_->GetDeviceCaps().framebufferCopySupported)) {
 		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, w, h, 1, Draw::FB_DEPTH_BIT, "BlitFramebufferDepth");
 		RebindFramebuffer("After BlitFramebufferDepth");
 	} else if (draw_->GetDeviceCaps().framebufferDepthBlitSupported) {
