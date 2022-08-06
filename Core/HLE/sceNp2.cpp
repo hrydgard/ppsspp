@@ -183,11 +183,12 @@ static int sceNpMatching2ContextStart(int ctxId)
 		int i = 1;
 		while (true) {
 			ofs = entity.find("<agent-fqdn", ++ofs2);
-			if (ofs == std::string::npos)
+			if (ofs == std::string::npos) {
 				if (i == 1)
 					return hleLogError(SCENET, SCE_NP_COMMUNITY_SERVER_ERROR_NO_SUCH_TITLE, "agent-fqdn not found");
 				else
 					break;
+			}
 
 			size_t frontPos = ++ofs;
 			ofs = entity.find("id=", frontPos);

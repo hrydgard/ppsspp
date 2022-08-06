@@ -565,7 +565,7 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 
 	// Check that the depth address is even the same before actually blitting.
 	bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
-	bool matchingSize = (src->width == dst->width || src->width == 512 && dst->width == 480) || (src->width == 480 && dst->width == 512) && src->height == dst->height;
+	bool matchingSize = (src->width == dst->width || src->width == 512 && dst->width == 480 || src->width == 480 && dst->width == 512) && src->height == dst->height;
 	if (!matchingDepthBuffer || !matchingSize) {
 		return;
 	}
@@ -1367,7 +1367,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 	}
 
 	// Also clean up the TrackedDepthBuffer array...
-	for (auto it = trackedDepthBuffers_.begin(); it != trackedDepthBuffers_.end(); it) {
+	for (auto it = trackedDepthBuffers_.begin(); it != trackedDepthBuffers_.end();) {
 		if ((*it)->vfb == nullptr) {
 			delete *it;
 			it = trackedDepthBuffers_.erase(it);
