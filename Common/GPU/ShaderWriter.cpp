@@ -199,7 +199,7 @@ void ShaderWriter::BeginVSMain(Slice<InputDef> inputs, Slice<UniformDef> uniform
 	}
 	default:  // OpenGL
 		for (auto &input : inputs) {
-			F("in %s %s;\n", input.type, input.name);
+			F("%s %s %s;\n", lang_.attribute, input.type, input.name);
 		}
 		for (auto &varying : varyings) {
 			F("%s %s %s %s;  // %s (%d)\n", lang_.varying_vs, varying.precision ? varying.precision : "", varying.type, varying.name, semanticNames[varying.semantic], varying.index);
