@@ -70,6 +70,7 @@ struct GLExtensions {
 	bool ARB_cull_distance;
 	bool ARB_depth_clamp;
 	bool ARB_uniform_buffer_object;
+	bool ARB_texture_non_power_of_two;
 
 	// EXT
 	bool EXT_swap_control_tear;
