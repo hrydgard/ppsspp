@@ -1142,7 +1142,8 @@ void MainScreen::CreateViews() {
 		//gold->OnClick.Handle(this, &MainScreen::OnSupport);
 		//gold->SetIcon(ImageID("I_ICONGOLD"), 0.5f);
 	//}
-
+	auto dev = GetI18NCategory("Developer");
+	rightColumnItems->Add(new Choice(dev->T("Language", "Language")))->OnClick.Handle(this, &MainScreen::OnLanguage);
 #if !PPSSPP_PLATFORM(UWP)
 	// Having an exit button is against UWP guidelines.
 	rightColumnItems->Add(new Spacer(25.0));
@@ -1166,8 +1167,7 @@ void MainScreen::CreateViews() {
 	} else if (tabHolder_->GetVisibility() != V_GONE) {
 		root_->SetDefaultFocusView(tabHolder_);
 	}
-
-	auto u = GetI18NCategory("Upgrade");
+	//auto u = GetI18NCategory("Upgrade");
 
 	upgradeBar_ = 0;
 	/*
@@ -1194,6 +1194,25 @@ void MainScreen::CreateViews() {
 		root_ = newRoot;
 	}
 	*/
+}
+
+UI::EventReturn MainScreen::OnLanguage(UI::EventParams& e) {
+	auto dev = GetI18NCategory("Developer");
+	auto langScreen = new NewLanguageScreen(dev->T("Language"));
+	langScreen->OnChoice.Handle(this, &MainScreen::OnLanguageChange);
+	if (e.v)
+		langScreen->SetPopupOrigin(e.v);
+	screenManager()->push(langScreen);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MainScreen::OnLanguageChange(UI::EventParams& e) {
+	screenManager()->RecreateAllViews();
+
+	if (host) {
+		host->UpdateUI();
+	}
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn MainScreen::OnAllowStorage(UI::EventParams &e) {

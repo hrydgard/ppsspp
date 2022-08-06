@@ -130,6 +130,8 @@ protected:
 	UI::EventReturn OnDismissUpgrade(UI::EventParams &e);
 	UI::EventReturn OnAllowStorage(UI::EventParams &e);
 	UI::EventReturn OnFullScreenToggle(UI::EventParams &e);
+	UI::EventReturn OnLanguage(UI::EventParams& e);
+	UI::EventReturn OnLanguageChange(UI::EventParams& e);
 
 	UI::LinearLayout *upgradeBar_ = nullptr;
 	UI::TabHolder *tabHolder_ = nullptr;
