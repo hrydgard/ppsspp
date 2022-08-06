@@ -1134,14 +1134,14 @@ void MainScreen::CreateViews() {
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
 		rightColumnItems->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 	}
-	rightColumnItems->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
-	rightColumnItems->Add(new Choice(mm->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
-	rightColumnItems->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
-	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		Choice *gold = rightColumnItems->Add(new Choice(mm->T("Buy PPSSPP Gold")));
-		gold->OnClick.Handle(this, &MainScreen::OnSupport);
-		gold->SetIcon(ImageID("I_ICONGOLD"), 0.5f);
-	}
+	//rightColumnItems->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
+	//rightColumnItems->Add(new Choice(mm->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
+	//rightColumnItems->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
+	//if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
+		//Choice *gold = rightColumnItems->Add(new Choice(mm->T("Buy PPSSPP Gold")));
+		//gold->OnClick.Handle(this, &MainScreen::OnSupport);
+		//gold->SetIcon(ImageID("I_ICONGOLD"), 0.5f);
+	//}
 
 #if !PPSSPP_PLATFORM(UWP)
 	// Having an exit button is against UWP guidelines.
@@ -1170,6 +1170,7 @@ void MainScreen::CreateViews() {
 	auto u = GetI18NCategory("Upgrade");
 
 	upgradeBar_ = 0;
+	/*
 	if (!g_Config.upgradeMessage.empty()) {
 		upgradeBar_ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
@@ -1184,7 +1185,7 @@ void MainScreen::CreateViews() {
 		upgradeBar_->Add(new Button(u->T("Details"), new LinearLayoutParams(buttonMargins)))->OnClick.Handle(this, &MainScreen::OnDownloadUpgrade);
 #endif
 		upgradeBar_->Add(new Button(u->T("Dismiss"), new LinearLayoutParams(buttonMargins)))->OnClick.Handle(this, &MainScreen::OnDismissUpgrade);
-
+		
 		// Slip in under root_
 		LinearLayout *newRoot = new LinearLayout(ORIENT_VERTICAL);
 		newRoot->Add(root_);
@@ -1192,6 +1193,7 @@ void MainScreen::CreateViews() {
 		root_->ReplaceLayoutParams(new LinearLayoutParams(1.0));
 		root_ = newRoot;
 	}
+	*/
 }
 
 UI::EventReturn MainScreen::OnAllowStorage(UI::EventParams &e) {
