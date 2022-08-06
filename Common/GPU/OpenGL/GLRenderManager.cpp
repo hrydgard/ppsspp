@@ -27,7 +27,8 @@ static bool OnRenderThread() {
 #endif
 
 GLRTexture::GLRTexture(int width, int height, int depth, int numMips) {
-	if (gl_extensions.OES_texture_npot) {
+	// Should move this check to thin3d, but really only OpenGL cares, so...
+	if (gl_extensions.IsCoreContext || gl_extensions.GLES3 || gl_extensions.ARB_texture_non_power_of_two || gl_extensions.OES_texture_npot) {
 		canWrap = true;
 	} else {
 		canWrap = isPowerOf2(width) && isPowerOf2(height);
