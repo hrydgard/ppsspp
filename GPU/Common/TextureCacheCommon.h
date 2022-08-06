@@ -343,6 +343,11 @@ protected:
 		return (const T *)clutBuf_;
 	}
 
+	template <typename T>
+	inline const T *GetCurrentRawClut() {
+		return (const T *)clutBufRaw_;
+	}
+
 	u32 EstimateTexMemoryUsage(const TexCacheEntry *entry);
 
 	SamplerCacheKey GetSamplingParams(int maxLevel, const TexCacheEntry *entry);

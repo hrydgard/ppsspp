@@ -1509,16 +1509,18 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 					}
 				}
 			} else {
-				const u16 *clut = GetCurrentClut<u16>() + clutSharingOffset;
-				if (expandTo32bit && !reverseColors) {
+				// Need to have the "un-reversed" (raw) CLUT here since we are using a generic conversion function.
+				if (expandTo32bit) {
 					// We simply expand the CLUT to 32-bit, then we deindex as usual. Probably the fastest way.
+					const u16 *clut = GetCurrentRawClut<u16>() + clutSharingOffset;
 					ConvertFormatToRGBA8888(clutformat, expandClut_, clut, 16);
 					fullAlphaMask = 0xFF000000;
 					for (int y = 0; y < h; ++y) {
 						DeIndexTexture4<u32>((u32 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, expandClut_, &alphaSum);
 					}
 				} else {
-					// If we're reversing colors, the CLUT was already reversed.
+					// If we're reversing colors, the CLUT was already reversed, no special handling needed.
+					const u16 *clut = GetCurrentClut<u16>() + clutSharingOffset;
 					fullAlphaMask = ClutFormatToFullAlpha(clutformat, reverseColors);
 					for (int y = 0; y < h; ++y) {
 						DeIndexTexture4<u16>((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut, &alphaSum);
@@ -1694,7 +1696,8 @@ CheckAlphaResult TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int l
 	const u32 *clut32 = (const u32 *)clutBuf_ + clutSharingOffset;
 
 	if (expandTo32Bit && palFormat != GE_CMODE_32BIT_ABGR8888) {
-		ConvertFormatToRGBA8888(GEPaletteFormat(palFormat), expandClut_, clut16, 256);
+		const u16 *clut16raw = (const u16 *)clutBufRaw_ + clutSharingOffset;
+		ConvertFormatToRGBA8888(GEPaletteFormat(palFormat), expandClut_, clut16raw, 256);
 		clut32 = expandClut_;
 		palFormat = GE_CMODE_32BIT_ABGR8888;
 	}
