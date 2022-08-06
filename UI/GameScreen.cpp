@@ -246,7 +246,7 @@ void GameScreen::CreateViews() {
 	if (MD5string != "...") {
 		//btnCalcMD5_ = rightColumnItems->Add(new ChoiceWithValueDisplay(&MD5string, ga->T("Calculate MD5"), (const char*)nullptr));
 		//btnGameSettings_ = rightColumnItems->Add(new Choice(ga->T("Game Settings")));
-		btnCalcMD5_ = rightColumnItems->Add(new Choice(ga->T("Calculate MD5")));
+		btnCalcMD5_ = rightColumnItems->Add(new Choice(sy->T("Calculate MD5")));
 		btnCalcMD5_->OnClick.Handle(this, &GameScreen::OnDoMD5);
 		btnCalcMD5_->SetVisibility(UI::V_VISIBLE);
 	}
