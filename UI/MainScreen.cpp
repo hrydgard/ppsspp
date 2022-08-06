@@ -1407,7 +1407,8 @@ UI::EventReturn MainScreen::OnGameHighlight(UI::EventParams &e) {
 UI::EventReturn MainScreen::OnGameSelectedInstant(UI::EventParams &e) {
 	g_Config.Save("MainScreen::OnGameSelectedInstant");
 	ScreenManager *screen = screenManager();
-	LaunchFile(screen, Path(e.s));
+	screenManager()->push(new GameScreen(Path(e.s)));
+	//LaunchFile(screen, Path(e.s));
 	return UI::EVENT_DONE;
 }
 
