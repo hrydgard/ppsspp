@@ -80,7 +80,7 @@ static int sceNpMatching2Term()
 
 static int sceNpMatching2CreateContext(u32 communicationIdPtr, u32 passPhrasePtr, u32 ctxIdPtr, int unknown)
 {
-	ERROR_LOG(SCENET, "UNIMPL %s(%08x[%s], %08x[%08x], %08x[%d], %d) at %08x", __FUNCTION__, communicationIdPtr, Memory::GetCharPointer(communicationIdPtr), passPhrasePtr, Memory::Read_U32(passPhrasePtr), ctxIdPtr, Memory::Read_U16(ctxIdPtr), unknown, currentMIPS->pc);
+	ERROR_LOG(SCENET, "UNIMPL %s(%08x[%s], %08x[%08x], %08x[%hu], %i) at %08x", __FUNCTION__, communicationIdPtr, safe_string(Memory::GetCharPointer(communicationIdPtr)), passPhrasePtr, Memory::Read_U32(passPhrasePtr), ctxIdPtr, Memory::Read_U16(ctxIdPtr), unknown, currentMIPS->pc);
 	if (!npMatching2Inited)
 		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
