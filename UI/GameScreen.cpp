@@ -46,7 +46,7 @@
 #include "Core/Reporting.h"
 #include "Common/Crypto/md5.h"
 #include <sstream>
-
+#include <string.h>
 
 GameScreen::GameScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
 	//g_BackgroundAudio.SetGame(gamePath);
@@ -464,19 +464,17 @@ std::string MD5_262144_File(const Path filename) {
 
 UI::EventReturn GameScreen::OnDoMD5(UI::EventParams& e) {
 	MD5string = "";
+	std::string tmpstr = gamePath_.GetFilename();		
+	size_t pos = tmpstr.rfind('/');
+	tmpstr = tmpstr.substr(pos + 1);
+
 	MD5string = MD5FullFile(gamePath_) + "#";
-
-
-
-	if (sfilesize <= 262144) {
-		MD5string = MD5string + MD5FullFile(gamePath_);
-	}
-	else {
-		MD5string = MD5string + MD5_262144_File(gamePath_);
-	}
-	MD5string = MD5string + "#" + std::to_string(sfilesize) + "#"+ gamePath_.GetFilename();
+	MD5string = MD5string + MD5_262144_File(gamePath_);
+	MD5string = MD5string + "#" + std::to_string(sfilesize) + "#" + tmpstr;
+	
 	btnCalcMD5_->SetEnabled(false);
 	tvMD5_->SetText(MD5string);
+	
 	return UI::EVENT_DONE;
 }
 
