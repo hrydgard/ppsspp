@@ -1229,11 +1229,13 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 
 	if (screenManager()->topScreen() == this) {
 		if (!strcmp(message, "boot")) {
-			LaunchFile(screenManager(), Path(std::string(value)));
+			//LaunchFile(screenManager(), Path(std::string(value)));
+			screenManager()->push(new GameScreen(Path(std::string(value))));
 		}
 		if (!strcmp(message, "browse_fileSelect")) {
 			INFO_LOG(SYSTEM, "Attempting to launch: '%s'", value);
-			LaunchFile(screenManager(), Path(std::string(value)));
+			//LaunchFile(screenManager(), Path(std::string(value)));
+			screenManager()->push(new GameScreen(Path(std::string(value))));
 		}
 		if (!strcmp(message, "browse_folderSelect")) {
 			std::string filename = value;
