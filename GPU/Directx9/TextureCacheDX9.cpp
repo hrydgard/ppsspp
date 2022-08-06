@@ -27,8 +27,8 @@
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/FramebufferManagerDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
-#include "GPU/Directx9/DepalettizeShaderDX9.h"
 #include "Common/GPU/D3D9/D3D9StateCache.h"
+#include "GPU/Common/DepalettizeCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
@@ -93,7 +93,6 @@ TextureCacheDX9::~TextureCacheDX9() {
 }
 
 void TextureCacheDX9::SetFramebufferManager(FramebufferManagerDX9 *fbManager) {
-	framebufferManagerDX9_ = fbManager;
 	framebufferManager_ = fbManager;
 }
 
@@ -146,6 +145,8 @@ void TextureCacheDX9::ApplySamplingParams(const SamplerCacheKey &key) {
 }
 
 void TextureCacheDX9::StartFrame() {
+	TextureCacheCommon::StartFrame();
+
 	InvalidateLastTexture();
 	timesInvalidatedAllThisFrame_ = 0;
 	replacementTimeThisFrame_ = 0.0;
@@ -220,187 +221,12 @@ void TextureCacheDX9::Unbind() {
 	InvalidateLastTexture();
 }
 
-class TextureShaderApplierDX9 {
-public:
-	struct Pos {
-		Pos(float x_, float y_, float z_) : x(x_), y(y_), z(z_) {
-		}
-		Pos() {
-		}
-
-		float x;
-		float y;
-		float z;
-	};
-	struct UV {
-		UV(float u_, float v_) : u(u_), v(v_) {
-		}
-		UV() {
-		}
-
-		float u;
-		float v;
-	};
-
-	struct PosUV {
-		Pos pos;
-		UV uv;
-	};
-
-	TextureShaderApplierDX9(LPDIRECT3DDEVICE9 device, LPDIRECT3DPIXELSHADER9 pshader, LPDIRECT3DVERTEXDECLARATION9 decl, float bufferW, float bufferH, int renderW, int renderH, float xoff, float yoff)
-		: device_(device), pshader_(pshader), decl_(decl), bufferW_(bufferW), bufferH_(bufferH), renderW_(renderW), renderH_(renderH) {
-		static const Pos pos[4] = {
-			{-1,  1, 0},
-			{ 1,  1, 0},
-			{-1, -1, 0},
-			{ 1, -1, 0},
-		};
-		static const UV uv[4] = {
-			{0, 0},
-			{1, 0},
-			{0, 1},
-			{1, 1},
-		};
-
-		for (int i = 0; i < 4; ++i) {
-			verts_[i].pos = pos[i];
-			verts_[i].pos.x += xoff;
-			verts_[i].pos.y += yoff;
-			verts_[i].uv = uv[i];
-		}
-	}
-
-	void ApplyBounds(const KnownVertexBounds &bounds, u32 uoff, u32 voff, float xoff, float yoff) {
-		// If min is not < max, then we don't have values (wasn't set during decode.)
-		if (bounds.minV < bounds.maxV) {
-			const float invWidth = 1.0f / bufferW_;
-			const float invHeight = 1.0f / bufferH_;
-			// Inverse of half = double.
-			const float invHalfWidth = invWidth * 2.0f;
-			const float invHalfHeight = invHeight * 2.0f;
-
-			const int u1 = bounds.minU + uoff;
-			const int v1 = bounds.minV + voff;
-			const int u2 = bounds.maxU + uoff;
-			const int v2 = bounds.maxV + voff;
-
-			const float left = u1 * invHalfWidth - 1.0f + xoff;
-			const float right = u2 * invHalfWidth - 1.0f + xoff;
-			const float top = (bufferH_ - v1) * invHalfHeight - 1.0f + yoff;
-			const float bottom = (bufferH_ - v2) * invHalfHeight - 1.0f + yoff;
-
-			float z = 0.0f;
-			verts_[0].pos = Pos(left, top, z);
-			verts_[1].pos = Pos(right, top, z);
-			verts_[2].pos = Pos(left, bottom, z);
-			verts_[3].pos = Pos(right, bottom, z);
-
-			// And also the UVs, same order.
-			const float uvleft = u1 * invWidth;
-			const float uvright = u2 * invWidth;
-			const float uvtop = v1 * invHeight;
-			const float uvbottom = v2 * invHeight;
-
-			verts_[0].uv = UV(uvleft, uvtop);
-			verts_[1].uv = UV(uvright, uvtop);
-			verts_[2].uv = UV(uvleft, uvbottom);
-			verts_[3].uv = UV(uvright, uvbottom);
-
-			// We need to reapply the texture next time since we cropped UV.
-			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-		}
-	}
-
-	void Use(LPDIRECT3DVERTEXSHADER9 vshader) {
-		device_->SetPixelShader(pshader_);
-		device_->SetVertexShader(vshader);
-		device_->SetVertexDeclaration(decl_);
-	}
-
-	void Shade() {
-		// Intentionally bypassing the dxstate cache here (and using .Restore to recover afterwards). Not sure if this is a good idea.
-		device_->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
-		device_->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, FALSE);
-		device_->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA);
-		device_->SetRenderState(D3DRS_ZENABLE, FALSE);
-		device_->SetRenderState(D3DRS_STENCILENABLE, FALSE);
-		device_->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
-		device_->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-
-		D3DVIEWPORT9 vp{ 0, 0, (DWORD)renderW_, (DWORD)renderH_, 0.0f, 1.0f };
-		device_->SetViewport(&vp);
-		HRESULT hr = device_->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, verts_, (3 + 2) * sizeof(float));
-		if (FAILED(hr)) {
-			ERROR_LOG_REPORT(G3D, "Depal render failed: %08x", (uint32_t)hr);
-		}
-		dxstate.Restore();
-	}
-
-protected:
-	LPDIRECT3DDEVICE9 device_;
-	LPDIRECT3DPIXELSHADER9 pshader_;
-	LPDIRECT3DVERTEXDECLARATION9 decl_;
-	PosUV verts_[4];
-	float bufferW_;
-	float bufferH_;
-	int renderW_;
-	int renderH_;
-};
-
-void TextureCacheDX9::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) {
-	LPDIRECT3DPIXELSHADER9 pshader = nullptr;
-	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
-	bool need_depalettize = IsClutFormat(texFormat);
-	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
-		pshader = depalShaderCache_->GetDepalettizePixelShader(clutMode, framebuffer->drawnFormat);
-	}
-
-	if (pshader) {
-		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-		LPDIRECT3DTEXTURE9 clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
-
-		Draw::Framebuffer *depalFBO = framebufferManagerDX9_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight);
-		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
-		shaderManager_->DirtyLastShader();
-
-		float xoff = -0.5f / framebuffer->renderWidth;
-		float yoff = 0.5f / framebuffer->renderHeight;
-
-		TextureShaderApplierDX9 shaderApply(device_, pshader, pFramebufferVertexDecl, framebuffer->bufferWidth, framebuffer->bufferHeight, framebuffer->renderWidth, framebuffer->renderHeight, xoff, yoff);
-		shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset, xoff, yoff);
-		shaderApply.Use(depalShaderCache_->GetDepalettizeVertexShader());
-
-		device_->SetTexture(1, clutTexture);
-		device_->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_POINT);
-		device_->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
-		device_->SetSamplerState(1, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
-
-		framebufferManagerDX9_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_SKIP_COPY | BINDFBCOLOR_FORCE_SELF);
-		device_->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
-		device_->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
-		device_->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
-		device_->SetSamplerState(0, D3DSAMP_MIPMAPLODBIAS, 0);
-		device_->SetSamplerState(0, D3DSAMP_MAXMIPLEVEL, 0);
-
-		shaderApply.Shade();
-
-		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
-
-		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
-		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
-
-		CheckAlphaResult alphaStatus = CheckAlpha(clutBuf_, getClutDestFormat(clutFormat), clutTotalColors);
-		gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
-	} else {
-		framebufferManagerDX9_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
-
-		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
-	}
-
-	framebufferManagerDX9_->RebindFramebuffer("RebindFramebuffer - ApplyTextureFromFramebuffer");
-
-	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
-	ApplySamplingParams(samplerKey);
+void TextureCacheDX9::BindAsClutTexture(Draw::Texture *tex) {
+	LPDIRECT3DBASETEXTURE9 clutTexture = (LPDIRECT3DBASETEXTURE9)draw_->GetNativeObject(Draw::NativeObject::TEXTURE_VIEW, tex);
+	device_->SetTexture(1, clutTexture);
+	device_->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+	device_->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+	device_->SetSamplerState(1, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
 }
 
 void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {

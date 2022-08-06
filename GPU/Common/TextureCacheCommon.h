@@ -28,6 +28,7 @@
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/TextureScalerCommon.h"
+#include "GPU/Common/DepalettizeCommon.h"
 
 enum FramebufferNotification {
 	NOTIFY_FB_CREATED,
@@ -49,9 +50,11 @@ enum FramebufferNotificationChannel {
 
 struct VirtualFramebuffer;
 class TextureReplacer;
+class ShaderManagerCommon;
 
 namespace Draw {
 class DrawContext;
+class Texture;
 }
 
 // Used by D3D11 and Vulkan, could be used by modern GL
@@ -286,16 +289,23 @@ public:
 	// TODO: Return stuff directly instead of keeping state.
 	TexCacheEntry *SetTexture();
 
+	void SetShaderManager(ShaderManagerCommon *sm) {
+		shaderManager_ = sm;
+	}
+
 	void ApplyTexture();
 	bool SetOffsetTexture(u32 yOffset);
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
 	void InvalidateAll(GPUInvalidationType type);
 	void ClearNextFrame();
 
+	DepalShaderCache *GetDepalShaderCache() { return depalShaderCache_; }
+
 	virtual void ForgetLastTexture() = 0;
 	virtual void InvalidateLastTexture() = 0;
 	virtual void Clear(bool delete_them);
 	virtual void NotifyConfigChanged();
+	virtual void ApplySamplingParams(const SamplerCacheKey &key) = 0;
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to,
 	// so that it can invalidate TexCacheEntries pointed at those addresses.
@@ -323,12 +333,14 @@ protected:
 	void DeleteTexture(TexCache::iterator it);
 	void Decimate(bool forcePressure = false);
 
-	virtual void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) = 0;
+	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel);
 
 	void HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
 	virtual void BuildTexture(TexCacheEntry *const entry) = 0;
 	virtual void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) = 0;
 	bool CheckFullHash(TexCacheEntry *entry, bool &doDelete);
+
+	virtual void BindAsClutTexture(Draw::Texture *tex) {}
 
 	CheckAlphaResult DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool expandTo32Bit);
 	void UnswizzleFromMem(u32 *dest, u32 destPitch, const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel);
@@ -361,8 +373,14 @@ protected:
 
 	void SetTextureFramebuffer(const AttachCandidate &candidate);
 
+	virtual void BoundFramebufferTexture() {}
+
+	virtual void StartFrame();
+
 	void DecimateVideos();
 	bool IsVideo(u32 texaddr) const;
+
+	static CheckAlphaResult CheckCLUTAlpha(const uint8_t *pixelData, GEPaletteFormat clutFmt, int w);
 
 	inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, GETextureFormat format, TexCacheEntry *entry) const {
 		if (replacer.Enabled()) {
@@ -393,6 +411,8 @@ protected:
 	TextureReplacer replacer_;
 	TextureScalerCommon scaler_;
 	FramebufferManagerCommon *framebufferManager_;
+	DepalShaderCache *depalShaderCache_;
+	ShaderManagerCommon *shaderManager_;
 
 	bool clearCacheNextFrame_ = false;
 	bool lowMemoryMode_ = false;

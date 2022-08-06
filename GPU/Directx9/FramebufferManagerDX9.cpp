@@ -63,18 +63,6 @@ namespace DX9 {
 		}
 	}
 
-	void FramebufferManagerDX9::SetTextureCache(TextureCacheDX9 *tc) {
-		textureCache_ = tc;
-	}
-
-	void FramebufferManagerDX9::SetShaderManager(ShaderManagerDX9 *sm) {
-		shaderManager_ = sm;
-	}
-
-	void FramebufferManagerDX9::SetDrawEngine(DrawEngineDX9 *td) {
-		drawEngine_ = td;
-	}
-
 	LPDIRECT3DSURFACE9 FramebufferManagerDX9::GetOffscreenSurface(LPDIRECT3DSURFACE9 similarSurface, VirtualFramebuffer *vfb) {
 		D3DSURFACE_DESC desc = {};
 		HRESULT hr = similarSurface->GetDesc(&desc);

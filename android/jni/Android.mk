@@ -134,7 +134,6 @@ VULKAN_FILES := \
   $(SRC)/GPU/Vulkan/ShaderManagerVulkan.cpp \
   $(SRC)/GPU/Vulkan/StateMappingVulkan.cpp \
   $(SRC)/GPU/Vulkan/TextureCacheVulkan.cpp \
-  $(SRC)/GPU/Vulkan/DepalettizeShaderVulkan.cpp \
   $(SRC)/GPU/Vulkan/VulkanUtil.cpp \
   $(SRC)/GPU/Vulkan/DebugVisVulkan.cpp
 #endif
@@ -320,6 +319,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GeConstants.cpp \
   $(SRC)/GPU/GeDisasm.cpp \
   $(SRC)/GPU/Common/Draw2D.cpp \
+  $(SRC)/GPU/Common/DepalettizeCommon.cpp \
   $(SRC)/GPU/Common/DepalettizeShaderCommon.cpp \
   $(SRC)/GPU/Common/FragmentShaderGenerator.cpp \
   $(SRC)/GPU/Common/FramebufferManagerCommon.cpp \
@@ -348,7 +348,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Debugger/Record.cpp \
   $(SRC)/GPU/Debugger/Stepping.cpp \
   $(SRC)/GPU/GLES/FramebufferManagerGLES.cpp \
-  $(SRC)/GPU/GLES/DepalettizeShaderGLES.cpp \
   $(SRC)/GPU/GLES/DepthBufferGLES.cpp \
   $(SRC)/GPU/GLES/GPU_GLES.cpp.arm \
   $(SRC)/GPU/GLES/TextureCacheGLES.cpp.arm \

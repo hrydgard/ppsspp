@@ -112,19 +112,6 @@ static const D3DSTENCILOP stencilOpToD3D9[] = {
 	D3DSTENCILOP_DECR,
 };
 
-static const int primCountDivisor[] = {
-	1,
-	2,
-	3,
-	3,
-	3,
-	1,
-	1,
-	1,
-	1,
-	1,
-};
-
 D3DFORMAT FormatToD3DFMT(DataFormat fmt) {
 	switch (fmt) {
 	case DataFormat::R8G8B8A8_UNORM: return D3DFMT_A8R8G8B8;
@@ -278,7 +265,6 @@ public:
 	D3D9ShaderModule *pshader;
 
 	D3DPRIMITIVETYPE prim;
-	int primDivisor;
 	AutoRef<D3D9InputLayout> inputLayout;
 	AutoRef<D3D9DepthStencilState> depthStencil;
 	AutoRef<D3D9BlendState> blend;
@@ -293,6 +279,18 @@ public:
 	D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, const TextureDesc &desc);
 	~D3D9Texture();
 	void SetToSampler(LPDIRECT3DDEVICE9 device, int sampler);
+	LPDIRECT3DBASETEXTURE9 Texture() const {
+		// TODO: Cleanup
+		if (tex_) {
+			return tex_;
+		} else if (volTex_) {
+			return volTex_;
+		} else if (cubeTex_) {
+			return cubeTex_;
+		} else {
+			return nullptr;
+		}
+	}
 
 private:
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback callback);
@@ -302,9 +300,9 @@ private:
 	TextureType type_;
 	DataFormat format_;
 	D3DFORMAT d3dfmt_;
-	LPDIRECT3DTEXTURE9 tex_;
-	LPDIRECT3DVOLUMETEXTURE9 volTex_;
-	LPDIRECT3DCUBETEXTURE9 cubeTex_;
+	LPDIRECT3DTEXTURE9 tex_ = nullptr;
+	LPDIRECT3DVOLUMETEXTURE9 volTex_ = nullptr;
+	LPDIRECT3DCUBETEXTURE9 cubeTex_ = nullptr;
 };
 
 D3D9Texture::D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, const TextureDesc &desc)
@@ -560,7 +558,7 @@ public:
 	void DrawUP(const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
-	uint64_t GetNativeObject(NativeObject obj) override {
+	uint64_t GetNativeObject(NativeObject obj, void *srcObject) override {
 		switch (obj) {
 		case NativeObject::CONTEXT:
 			return (uint64_t)(uintptr_t)d3d_;
@@ -568,6 +566,8 @@ public:
 			return (uint64_t)(uintptr_t)device_;
 		case NativeObject::DEVICE_EX:
 			return (uint64_t)(uintptr_t)deviceEx_;
+		case NativeObject::TEXTURE_VIEW:
+			return (uint64_t)(((D3D9Texture *)srcObject)->Texture());
 		default:
 			return 0;
 		}
@@ -717,7 +717,6 @@ Pipeline *D3D9Context::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		}
 	}
 	pipeline->prim = primToD3D9[(int)desc.prim];
-	pipeline->primDivisor = primCountDivisor[(int)desc.prim];
 	pipeline->depthStencil = (D3D9DepthStencilState *)desc.depthStencil;
 	pipeline->blend = (D3D9BlendState *)desc.blend;
 	pipeline->raster = (D3D9RasterState *)desc.raster;
@@ -974,12 +973,26 @@ void D3D9Context::ApplyDynamicState() {
 	}
 }
 
+static const int D3DPRIMITIVEVERTEXCOUNT[8][2] = {
+	{0, 0}, // invalid
+	{1, 0}, // 1 = D3DPT_POINTLIST,
+	{2, 0}, // 2 = D3DPT_LINELIST,
+	{2, 1}, // 3 = D3DPT_LINESTRIP,
+	{3, 0}, // 4 = D3DPT_TRIANGLELIST,
+	{1, 2}, // 5 = D3DPT_TRIANGLESTRIP,
+	{1, 2}, // 6 = D3DPT_TRIANGLEFAN,
+};
+
+inline int D3DPrimCount(D3DPRIMITIVETYPE prim, int size) {
+	return (size / D3DPRIMITIVEVERTEXCOUNT[prim][0]) - D3DPRIMITIVEVERTEXCOUNT[prim][1];
+}
+
 void D3D9Context::Draw(int vertexCount, int offset) {
 	device_->SetStreamSource(0, curVBuffers_[0]->vbuffer_, curVBufferOffsets_[0], curPipeline_->inputLayout->GetStride(0));
 	curPipeline_->inputLayout->Apply(device_);
 	curPipeline_->Apply(device_, stencilRef_, stencilWriteMask_, stencilCompareMask_);
 	ApplyDynamicState();
-	device_->DrawPrimitive(curPipeline_->prim, offset, vertexCount / 3);
+	device_->DrawPrimitive(curPipeline_->prim, offset, D3DPrimCount(curPipeline_->prim, vertexCount));
 }
 
 void D3D9Context::DrawIndexed(int vertexCount, int offset) {
@@ -988,14 +1001,15 @@ void D3D9Context::DrawIndexed(int vertexCount, int offset) {
 	ApplyDynamicState();
 	device_->SetStreamSource(0, curVBuffers_[0]->vbuffer_, curVBufferOffsets_[0], curPipeline_->inputLayout->GetStride(0));
 	device_->SetIndices(curIBuffer_->ibuffer_);
-	device_->DrawIndexedPrimitive(curPipeline_->prim, 0, 0, vertexCount, offset, vertexCount / curPipeline_->primDivisor);
+	device_->DrawIndexedPrimitive(curPipeline_->prim, 0, 0, vertexCount, offset, D3DPrimCount(curPipeline_->prim, vertexCount));
 }
 
 void D3D9Context::DrawUP(const void *vdata, int vertexCount) {
 	curPipeline_->inputLayout->Apply(device_);
 	curPipeline_->Apply(device_, stencilRef_, stencilWriteMask_, stencilCompareMask_);
 	ApplyDynamicState();
-	device_->DrawPrimitiveUP(curPipeline_->prim, vertexCount / 3, vdata, curPipeline_->inputLayout->GetStride(0));
+
+	device_->DrawPrimitiveUP(curPipeline_->prim, D3DPrimCount(curPipeline_->prim, vertexCount), vdata, curPipeline_->inputLayout->GetStride(0));
 }
 
 static uint32_t SwapRB(uint32_t c) {

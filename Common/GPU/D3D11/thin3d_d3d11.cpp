@@ -163,30 +163,7 @@ public:
 		}
 	}
 
-	uint64_t GetNativeObject(NativeObject obj) override {
-		switch (obj) {
-		case NativeObject::DEVICE:
-			return (uint64_t)(uintptr_t)device_;
-		case NativeObject::CONTEXT:
-			return (uint64_t)(uintptr_t)context_;
-		case NativeObject::DEVICE_EX:
-			return (uint64_t)(uintptr_t)device1_;
-		case NativeObject::CONTEXT_EX:
-			return (uint64_t)(uintptr_t)context1_;
-		case NativeObject::BACKBUFFER_COLOR_TEX:
-			return (uint64_t)(uintptr_t)bbRenderTargetTex_;
-		case NativeObject::BACKBUFFER_DEPTH_TEX:
-			return (uint64_t)(uintptr_t)bbDepthStencilTex_;
-		case NativeObject::BACKBUFFER_COLOR_VIEW:
-			return (uint64_t)(uintptr_t)bbRenderTargetView_;
-		case NativeObject::BACKBUFFER_DEPTH_VIEW:
-			return (uint64_t)(uintptr_t)bbDepthStencilView_;
-		case NativeObject::FEATURE_LEVEL:
-			return (uint64_t)(uintptr_t)featureLevel_;
-		default:
-			return 0;
-		}
-	}
+	uint64_t GetNativeObject(NativeObject obj, void *srcObject) override;
 
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override;
 
@@ -289,6 +266,7 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	caps_.framebufferDepthCopySupported = true;
 	caps_.framebufferSeparateDepthCopySupported = false;  // Though could be emulated with a draw.
 	caps_.texture3DSupported = true;
+	caps_.fragmentShaderInt32Supported = true;
 
 	D3D11_FEATURE_DATA_D3D11_OPTIONS options{};
 	HRESULT result = device_->CheckFeatureSupport(D3D11_FEATURE_D3D11_OPTIONS, &options, sizeof(options));
@@ -1698,6 +1676,33 @@ void D3D11DrawContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, F
 		break;
 	default:
 		break;
+	}
+}
+
+uint64_t D3D11DrawContext::GetNativeObject(NativeObject obj, void *srcObject) {
+	switch (obj) {
+	case NativeObject::DEVICE:
+		return (uint64_t)(uintptr_t)device_;
+	case NativeObject::CONTEXT:
+		return (uint64_t)(uintptr_t)context_;
+	case NativeObject::DEVICE_EX:
+		return (uint64_t)(uintptr_t)device1_;
+	case NativeObject::CONTEXT_EX:
+		return (uint64_t)(uintptr_t)context1_;
+	case NativeObject::BACKBUFFER_COLOR_TEX:
+		return (uint64_t)(uintptr_t)bbRenderTargetTex_;
+	case NativeObject::BACKBUFFER_DEPTH_TEX:
+		return (uint64_t)(uintptr_t)bbDepthStencilTex_;
+	case NativeObject::BACKBUFFER_COLOR_VIEW:
+		return (uint64_t)(uintptr_t)bbRenderTargetView_;
+	case NativeObject::BACKBUFFER_DEPTH_VIEW:
+		return (uint64_t)(uintptr_t)bbDepthStencilView_;
+	case NativeObject::FEATURE_LEVEL:
+		return (uint64_t)(uintptr_t)featureLevel_;
+	case NativeObject::TEXTURE_VIEW:
+		return (uint64_t)(((D3D11Texture *)srcObject)->view);
+	default:
+		return 0;
 	}
 }
 

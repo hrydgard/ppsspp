@@ -217,6 +217,16 @@ public:
 	FramebufferManagerCommon(Draw::DrawContext *draw);
 	virtual ~FramebufferManagerCommon();
 
+	void SetTextureCache(TextureCacheCommon *tc) {
+		textureCache_ = tc;
+	}
+	void SetShaderManager(ShaderManagerCommon * sm) {
+		shaderManager_ = sm;
+	}
+	void SetDrawEngine(DrawEngineCommon *td) {
+		drawEngine_ = td;
+	}
+
 	virtual void Init();
 	virtual void BeginFrame();
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
@@ -406,9 +416,11 @@ protected:
 	PresentationCommon *presentation_ = nullptr;
 
 	Draw::DrawContext *draw_ = nullptr;
+
 	TextureCacheCommon *textureCache_ = nullptr;
 	ShaderManagerCommon *shaderManager_ = nullptr;
 	DrawEngineCommon *drawEngine_ = nullptr;
+
 	bool needBackBufferYSwap_ = false;
 
 	u32 displayFramebufPtr_ = 0;

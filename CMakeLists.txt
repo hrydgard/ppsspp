@@ -1442,8 +1442,6 @@ if(NOT MOBILE_DEVICE)
 endif()
 
 set(GPU_GLES
-	GPU/GLES/DepalettizeShaderGLES.cpp
-	GPU/GLES/DepalettizeShaderGLES.h
 	GPU/GLES/DepthBufferGLES.cpp
 	GPU/GLES/GPU_GLES.cpp
 	GPU/GLES/GPU_GLES.h
@@ -1462,8 +1460,6 @@ set(GPU_GLES
 )
 
 set(GPU_VULKAN
-	GPU/Vulkan/DepalettizeShaderVulkan.cpp
-	GPU/Vulkan/DepalettizeShaderVulkan.h
 	GPU/Vulkan/DebugVisVulkan.cpp
 	GPU/Vulkan/DebugVisVulkan.h
 	GPU/Vulkan/DrawEngineVulkan.cpp
@@ -1485,8 +1481,6 @@ set(GPU_VULKAN
 )
 
 set(GPU_D3D9
-	GPU/Directx9/DepalettizeShaderDX9.cpp
-	GPU/Directx9/DepalettizeShaderDX9.h
 	GPU/Directx9/DrawEngineDX9.cpp
 	GPU/Directx9/DrawEngineDX9.h
 	GPU/Directx9/FramebufferManagerDX9.cpp
@@ -1502,8 +1496,6 @@ set(GPU_D3D9
 )
 
 set(GPU_D3D11
-	GPU/D3D11/DepalettizeShaderD3D11.cpp
-	GPU/D3D11/DepalettizeShaderD3D11.h
 	GPU/D3D11/DrawEngineD3D11.cpp
 	GPU/D3D11/DrawEngineD3D11.h
 	GPU/D3D11/FramebufferManagerD3D11.cpp
@@ -1531,6 +1523,8 @@ set(GPU_SOURCES
 	${GPU_NEON}
 	GPU/Common/Draw2D.cpp
 	GPU/Common/Draw2D.h
+	GPU/Common/DepalettizeCommon.cpp
+	GPU/Common/DepalettizeCommon.h
 	GPU/Common/DepalettizeShaderCommon.cpp
 	GPU/Common/DepalettizeShaderCommon.h
 	GPU/Common/FragmentShaderGenerator.cpp

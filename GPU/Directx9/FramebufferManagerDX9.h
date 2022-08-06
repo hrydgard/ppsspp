@@ -39,10 +39,6 @@ public:
 	FramebufferManagerDX9(Draw::DrawContext *draw);
 	~FramebufferManagerDX9();
 
-	void SetTextureCache(TextureCacheDX9 *tc);
-	void SetShaderManager(ShaderManagerDX9 *sm);
-	void SetDrawEngine(DrawEngineDX9 *td);
-
 	void DestroyAllFBOs() override;
 
 	void EndFrame();

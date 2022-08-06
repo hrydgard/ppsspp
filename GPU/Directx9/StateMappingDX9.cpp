@@ -100,16 +100,23 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 		return;
 	}
 
-	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
-		textureCache_->SetTexture();
-		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
-	} else if (gstate.getTextureAddress(0) == ((gstate.getFrameBufRawAddress() | 0x04000000) & 0x3FFFFFFF)) {
-		// This catches the case of clearing a texture.
-		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-	}
+	// At this point, we know if the vertices are full alpha or not.
+	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
+	if (!gstate.isModeClear()) {
+		textureCache_->ApplyTexture();
 
-	// Start profiling here to skip SetTexture which is already accounted for
-	PROFILE_THIS_SCOPE("applydrawstate");
+		if (fboTexNeedsBind_) {
+			// Note that this is positions, not UVs, that we need the copy from.
+			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
+			// If we are rendering at a higher resolution, linear is probably best for the dest color.
+			device_->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+			device_->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+			fboTexBound_ = true;
+			fboTexNeedsBind_ = false;
+		}
+
+		// TODO: Test texture?
+	}
 
 	bool useBufferedRendering = framebufferManager_->UseBufferedRendering();
 
@@ -290,7 +297,6 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 void DrawEngineDX9::ApplyDrawStateLate() {
 	// At this point, we know if the vertices are full alpha or not.
 	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
-
 }
 
 }
