@@ -1647,8 +1647,12 @@ UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
 	auto n = GetI18NCategory("Networking");
 	auto di = GetI18NCategory("Dialog");
 
+	const char *confirmMessage = n->T("ChangeMacSaveConfirm", "Generate a new MAC address?");
+	const char *warningMessage = n->T("ChangeMacSaveWarning", "Some games verify the MAC address when loading savedata, so this may break old saves.");
+	std::string combined = std::string(confirmMessage) + "\n\n" + warningMessage;
+
 	auto confirmScreen = new PromptScreen(
-		n->T("Change Mac Address"), di->T("Yes"), di->T("No"),
+		combined, di->T("Yes"), di->T("No"),
 		[&](bool success) {
 		if (success) {
 			g_Config.sMACAddress = CreateRandMAC();
