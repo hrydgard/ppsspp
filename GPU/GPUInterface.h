@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "Common/Common.h"
 #include "Common/Swap.h"
 #include "GPU/GPU.h"
 #include "Core/MemMap.h"
@@ -107,10 +108,11 @@ enum GPUSyncType {
 };
 
 enum class StencilUpload {
-	NEEDS_CLEAR,
-	STENCIL_IS_ZERO,
-	IGNORE_ALPHA,
+	NEEDS_CLEAR = 1,
+	STENCIL_IS_ZERO = 2,
+	IGNORE_ALPHA = 4,
 };
+ENUM_CLASS_BITOPS(StencilUpload);
 
 // Used for debug
 struct FramebufferInfo {

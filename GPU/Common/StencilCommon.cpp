@@ -176,14 +176,14 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 	}
 
 	if (usedBits == 0) {
-		if (flags == StencilUpload::STENCIL_IS_ZERO) {
+		if (flags & StencilUpload::STENCIL_IS_ZERO) {
 			// Common when creating buffers, it's already 0.
 			// We're done.
 			return false;
 		}
 
 		// Otherwise, we can skip alpha in many cases, in which case we don't even use a shader.
-		if (flags == StencilUpload::IGNORE_ALPHA) {
+		if (flags & StencilUpload::IGNORE_ALPHA) {
 			shaderManager_->DirtyLastShader();
 
 			if (dstBuffer->fbo) {
@@ -267,7 +267,7 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 		useBlit = false;
 	}
 	// The blit path doesn't set alpha, so we can't use it if that's needed.
-	if (flags != StencilUpload::IGNORE_ALPHA) {
+	if (!(flags & StencilUpload::IGNORE_ALPHA)) {
 		useBlit = false;
 	}
 

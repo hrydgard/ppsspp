@@ -471,7 +471,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 
 		if (useBufferedRendering_ && !g_Config.bDisableSlowFramebufEffects) {
 			gpu->PerformMemoryUpload(params.fb_address, byteSize);
-			PerformStencilUpload(params.fb_address, byteSize, StencilUpload::STENCIL_IS_ZERO);
+			// Alpha was already done by PerformMemoryUpload.
+			PerformStencilUpload(params.fb_address, byteSize, StencilUpload::STENCIL_IS_ZERO | StencilUpload::IGNORE_ALPHA);
 			// TODO: Is it worth trying to upload the depth buffer (only if it wasn't copied above..?)
 		}
 
