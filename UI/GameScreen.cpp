@@ -91,14 +91,14 @@ void GameScreen::update() {
 UI::EventReturn GameScreen::OnCopyBaidMD5(UI::EventParams& e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
 	auto sy = GetI18NCategory("System");
-	//System_InputBoxGetString(sy->T("Copy Baid md5"), MD5string, [](bool result, const std::string& value) {
+	System_InputBoxGetString(sy->T("Copy Baid md5"), MD5string, [](bool result, const std::string& value) {
 		//if (result) {
 			//g_Config.sNickName = StripSpaces(value);
-	//	}
+		}
 		//});
-	System_SendMessage("setclipboardtext", MD5string.c_str());
+	//System_SendMessage("setclipboardtext", MD5string.c_str()); don't work in android
 	
-	tvMD5_->SetText(sy->T("Copied code"));
+	//tvMD5_->SetText(sy->T("Copied code"));
 
 #endif
 	return UI::EVENT_DONE;
