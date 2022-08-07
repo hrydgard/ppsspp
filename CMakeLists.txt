@@ -350,6 +350,9 @@ if(NOT MSVC)
 	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -D_NDEBUG")
 	set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -O2 -g -D_NDEBUG")
 
+	# Enable checking printf-like format strings (also works for logging functions)
+	add_definitions(-Wformat)
+
 	# Disable some warnings
 	add_definitions(-Wno-multichar)
 
