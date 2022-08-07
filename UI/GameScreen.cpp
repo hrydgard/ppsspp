@@ -95,12 +95,13 @@ UI::EventReturn GameScreen::OnCopyBaidMD5(UI::EventParams& e) {
 		//if (result) {
 			//g_Config.sNickName = StripSpaces(value);
 		}
-		//});
+	);
 	//System_SendMessage("setclipboardtext", MD5string.c_str()); don't work in android
-	
+
 	//tvMD5_->SetText(sy->T("Copied code"));
 
 #endif
+
 	return UI::EVENT_DONE;
 }
 
