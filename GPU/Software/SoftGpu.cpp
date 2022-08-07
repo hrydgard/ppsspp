@@ -1161,7 +1161,7 @@ bool SoftGPU::PerformMemoryUpload(u32 dest, int size)
 	return false;
 }
 
-bool SoftGPU::PerformStencilUpload(u32 dest, int size)
+bool SoftGPU::PerformStencilUpload(u32 dest, int size, StencilUpload flags)
 {
 	return false;
 }

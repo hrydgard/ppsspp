@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "Common/Common.h"
 #include "Common/Swap.h"
 #include "GPU/GPU.h"
 #include "Core/MemMap.h"
@@ -105,6 +106,13 @@ enum GPUSyncType {
 	GPU_SYNC_DRAW,
 	GPU_SYNC_LIST,
 };
+
+enum class StencilUpload {
+	NEEDS_CLEAR = 1,
+	STENCIL_IS_ZERO = 2,
+	IGNORE_ALPHA = 4,
+};
+ENUM_CLASS_BITOPS(StencilUpload);
 
 // Used for debug
 struct FramebufferInfo {
@@ -216,7 +224,7 @@ public:
 	virtual bool PerformMemorySet(u32 dest, u8 v, int size) = 0;
 	virtual bool PerformMemoryDownload(u32 dest, int size) = 0;
 	virtual bool PerformMemoryUpload(u32 dest, int size) = 0;
-	virtual bool PerformStencilUpload(u32 dest, int size) = 0;
+	virtual bool PerformStencilUpload(u32 dest, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR) = 0;
 
 	// Will cause the texture cache to be cleared at the start of the next frame.
 	virtual void ClearCacheNextFrame() = 0;

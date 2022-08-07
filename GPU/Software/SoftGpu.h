@@ -141,7 +141,7 @@ public:
 	bool PerformMemorySet(u32 dest, u8 v, int size) override;
 	bool PerformMemoryDownload(u32 dest, int size) override;
 	bool PerformMemoryUpload(u32 dest, int size) override;
-	bool PerformStencilUpload(u32 dest, int size) override;
+	bool PerformStencilUpload(u32 dest, int size, StencilUpload flags) override;
 	void ClearCacheNextFrame() override {}
 
 	void DeviceLost() override;
