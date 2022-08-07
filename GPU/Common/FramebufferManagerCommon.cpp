@@ -694,11 +694,11 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 
 	ShaderLanguage lang = draw_->GetShaderLanguageDesc().shaderLanguage;
 
+	// Copy image required for now, might get rid of this later.
 	bool doReinterpret = PSP_CoreParameter().compat.flags().ReinterpretFramebuffers &&
-		(lang == HLSL_D3D11 || lang == GLSL_VULKAN || lang == GLSL_3xx);
-	// Copy image required for now.
-	if (!draw_->GetDeviceCaps().framebufferCopySupported)
-		doReinterpret = false;
+		(lang == HLSL_D3D11 || lang == GLSL_VULKAN || lang == GLSL_3xx) &&
+		draw_->GetDeviceCaps().framebufferCopySupported;
+
 	if (!doReinterpret) {
 		// Fake reinterpret - just clear the way we always did on Vulkan. Just clear color and stencil.
 		if (oldFormat == GE_FORMAT_565) {
@@ -2666,12 +2666,6 @@ void FramebufferManagerCommon::BlitUsingRaster(
 	int destW, destH, srcW, srcH;
 	draw_->GetFramebufferDimensions(src, &srcW, &srcH);
 	draw_->GetFramebufferDimensions(dest, &destW, &destH);
-
-	if (srcW == destW && srcH == destH && destX2 - destX1 == srcX2 - srcX1 && destY2 - destY1 == srcY2 - srcY1) {
-		// Optimize to a copy
-		draw_->CopyFramebufferImage(src, 0, (int)srcX1, (int)srcY1, 0, dest, 0, (int)destX1, (int)destY1, 0, (int)(srcX2 - srcX1), (int)(srcY2 - srcY1), 1, Draw::FB_COLOR_BIT, "BlitUsingRaster");
-		return;
-	}
 
 	float dX = 1.0f / (float)destW;
 	float dY = 1.0f / (float)destH;
