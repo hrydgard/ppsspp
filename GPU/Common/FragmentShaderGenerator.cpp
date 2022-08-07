@@ -233,6 +233,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "Texture2D<vec4> fboTex : register(t1);\n");
 			}
 			WRITE(p, "cbuffer base : register(b0) {\n%s};\n", ub_baseStr);
+
+			if (shaderDepal) {
+				WRITE(p, "float2 textureSize(Texture2D<float4> tex, int mip) { float2 size; tex.GetDimensions(size.x, size.y); return size; }\n");
+			}
 		}
 
 		if (enableAlphaTest) {

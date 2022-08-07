@@ -48,6 +48,7 @@ private:
 	UI::EventReturn OnCheckBox(int index);
 
 	enum { INDEX_ALL = -1 };
+	bool HasCheatWithName(const std::string &name);
 	bool RebuildCheatFile(int index);
 
 	UI::ScrollView *rightScroll_ = nullptr;

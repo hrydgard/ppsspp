@@ -28,7 +28,7 @@
 
 static const InputDef inputs[2] = {
 	{ "vec2", "a_position", Draw::SEM_POSITION },
-	{ "vec2", "a_texcoord", Draw::SEM_TEXCOORD0 },
+	{ "vec2", "a_texcoord0", Draw::SEM_TEXCOORD0 },
 };
 
 static const VaryingDef varyings[1] = {
@@ -49,7 +49,7 @@ void GenerateDraw2DVS(char *buffer, const ShaderLanguageDesc &lang) {
 
 	writer.BeginVSMain(inputs, Slice<UniformDef>::empty(), varyings);
 
-	writer.C("  v_texcoord = a_texcoord;\n");    // yes, this should be right. Should be 2.0 in the far corners.
+	writer.C("  v_texcoord = a_texcoord0;\n");    // yes, this should be right. Should be 2.0 in the far corners.
 	writer.C("  gl_Position = vec4(a_position, 0.0, 1.0);\n");
 	writer.F("  gl_Position.y *= %s1.0;\n", lang.viewportYSign);
 

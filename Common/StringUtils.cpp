@@ -55,6 +55,10 @@ void truncate_cpy(char *dest, size_t destSize, const char *src) {
 	}
 }
 
+const char* safe_string(const char* s) {
+	return s ? s : "(null)";
+}
+
 long parseHexLong(std::string s) {
 	long value = 0;
 

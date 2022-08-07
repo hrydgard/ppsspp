@@ -207,8 +207,8 @@ static int sceNpGetAccountRegion(u32 countryCodePtr, u32 regionCodePtr)
 	SceNpCountryCode dummyRegionCode{};
 	memcpy(dummyRegionCode.data, npRegionCode, sizeof(dummyRegionCode.data));
 
-	INFO_LOG(SCENET, "%s - Country Code: %d", __FUNCTION__, dummyCountryCode.data);
-	INFO_LOG(SCENET, "%s - Region? Code: %d", __FUNCTION__, dummyRegionCode.data);
+	INFO_LOG(SCENET, "%s - Country Code: %s", __FUNCTION__, dummyCountryCode.data);
+	INFO_LOG(SCENET, "%s - Region? Code: %s", __FUNCTION__, dummyRegionCode.data);
 
 	Memory::WriteStruct(countryCodePtr, &dummyCountryCode);
 	Memory::WriteStruct(regionCodePtr, &dummyRegionCode);
@@ -487,7 +487,7 @@ int sceNpAuthGetTicketParam(u32 ticketBufPtr, int ticketLen, int paramNum, u32 b
 		SceNpTicketParamData* ticketParam = (SceNpTicketParamData*)Memory::GetPointer(inbuf);
 		u32 sz = (u32)sizeof(SceNpTicketParamData) + ticketParam->length;
 		Memory::Memcpy(outbuf, inbuf, sz);
-		DEBUG_LOG(SCENET, "%s - Param #%d: Type = %04x, Length = %u", __FUNCTION__, i, ticketParam->type, static_cast<unsigned int>(ticketParam->length));
+		DEBUG_LOG(SCENET, "%s - Param #%d: Type = %04x, Length = %u", __FUNCTION__, i, static_cast<unsigned int>(ticketParam->type), static_cast<unsigned int>(ticketParam->length));
 		outbuf += sz;
 		inbuf += sz;
 		if (outbuf - bufferPtr >= PARAM_BUFFER_MAX_SIZE || inbuf - ticketBufPtr >= (u32)ticketLen)

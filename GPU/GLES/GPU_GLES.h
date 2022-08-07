@@ -23,9 +23,9 @@
 #include "Common/File/Path.h"
 
 #include "GPU/GPUCommon.h"
+#include "GPU/Common/DepalettizeCommon.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
-#include "GPU/GLES/DepalettizeShaderGLES.h"
 #include "GPU/GLES/FragmentTestCacheGLES.h"
 
 class ShaderManagerGLES;
@@ -83,7 +83,6 @@ private:
 
 	FramebufferManagerGLES *framebufferManagerGL_;
 	TextureCacheGLES *textureCacheGL_;
-	DepalShaderCacheGLES depalShaderCache_;
 	DrawEngineGLES drawEngine_;
 	FragmentTestCacheGLES fragmentTestCache_;
 	ShaderManagerGLES *shaderManagerGL_;

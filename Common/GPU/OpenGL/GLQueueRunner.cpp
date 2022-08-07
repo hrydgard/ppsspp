@@ -43,7 +43,7 @@ GLuint g_defaultFBO = 0;
 
 void GLQueueRunner::CreateDeviceObjects() {
 	CHECK_GL_ERROR_IF_DEBUG();
-	if (gl_extensions.EXT_texture_filter_anisotropic) {
+	if (caps_.anisoSupported) {
 		glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel_);
 	} else {
 		maxAnisotropyLevel_ = 0.0f;
@@ -208,7 +208,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 
 #if !defined(USING_GLES2)
 			if (step.create_program.support_dual_source) {
-				_dbg_assert_msg_(gl_extensions.ARB_blend_func_extended, "ARB_blend_func_extended required for dual src");
+				_dbg_assert_msg_(caps_.dualSourceBlend, "ARB/EXT_blend_func_extended required for dual src blend");
 				// Dual source alpha
 				glBindFragDataLocationIndexed(program->program, 0, 0, "fragColor0");
 				glBindFragDataLocationIndexed(program->program, 0, 1, "fragColor1");
@@ -261,9 +261,13 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 
 			// Query all the uniforms.
 			for (size_t j = 0; j < program->queries_.size(); j++) {
-				auto &x = program->queries_[j];
-				_dbg_assert_(x.name);
-				*x.dest = glGetUniformLocation(program->program, x.name);
+				auto &query = program->queries_[j];
+				_dbg_assert_(query.name);
+				int location = glGetUniformLocation(program->program, query.name);
+				if (location < 0 && query.required) {
+					WARN_LOG(G3D, "Required uniform query for '%s' failed", query.name);
+				}
+				*query.dest = location;
 			}
 
 			// Run initializers.
@@ -966,18 +970,10 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			}
 			if (loc >= 0) {
 				switch (c.uniform4.count) {
-				case 1:
-					glUniform1uiv(loc, 1, (GLuint *)&c.uniform4.v[0]);
-					break;
-				case 2:
-					glUniform2uiv(loc, 1, (GLuint *)c.uniform4.v);
-					break;
-				case 3:
-					glUniform3uiv(loc, 1, (GLuint *)c.uniform4.v);
-					break;
-				case 4:
-					glUniform4uiv(loc, 1, (GLuint *)c.uniform4.v);
-					break;
+				case 1: glUniform1uiv(loc, 1, (GLuint *)c.uniform4.v); break;
+				case 2: glUniform2uiv(loc, 1, (GLuint *)c.uniform4.v); break;
+				case 3: glUniform3uiv(loc, 1, (GLuint *)c.uniform4.v); break;
+				case 4: glUniform4uiv(loc, 1, (GLuint *)c.uniform4.v); break;
 				}
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
@@ -992,18 +988,10 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			}
 			if (loc >= 0) {
 				switch (c.uniform4.count) {
-				case 1:
-					glUniform1iv(loc, 1, (GLint *)&c.uniform4.v[0]);
-					break;
-				case 2:
-					glUniform2iv(loc, 1, (GLint *)c.uniform4.v);
-					break;
-				case 3:
-					glUniform3iv(loc, 1, (GLint *)c.uniform4.v);
-					break;
-				case 4:
-					glUniform4iv(loc, 1, (GLint *)c.uniform4.v);
-					break;
+				case 1: glUniform1iv(loc, 1, (GLint *)c.uniform4.v); break;
+				case 2: glUniform2iv(loc, 1, (GLint *)c.uniform4.v); break;
+				case 3: glUniform3iv(loc, 1, (GLint *)c.uniform4.v); break;
+				case 4: glUniform4iv(loc, 1, (GLint *)c.uniform4.v); break;
 				}
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
@@ -1353,16 +1341,16 @@ void GLQueueRunner::PerformCopy(const GLRStep &step) {
 	_dbg_assert_(srcTex);
 	_dbg_assert_(dstTex);
 
+	_assert_msg_(caps_.framebufferCopySupported, "Image copy extension expected");
+
 #if defined(USING_GLES2)
 #if !PPSSPP_PLATFORM(IOS)
-	_assert_msg_(gl_extensions.OES_copy_image || gl_extensions.NV_copy_image || gl_extensions.EXT_copy_image, "Image copy extension expected");
 	glCopyImageSubDataOES(
 		srcTex, target, srcLevel, srcRect.x, srcRect.y, srcZ,
 		dstTex, target, dstLevel, dstPos.x, dstPos.y, dstZ,
 		srcRect.w, srcRect.h, depth);
 #endif
 #else
-	_assert_msg_(gl_extensions.ARB_copy_image || gl_extensions.NV_copy_image, "Image copy extension expected");
 	if (gl_extensions.ARB_copy_image) {
 		glCopyImageSubData(
 			srcTex, target, srcLevel, srcRect.x, srcRect.y, srcZ,

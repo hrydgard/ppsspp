@@ -33,6 +33,7 @@ const char * const hlsl_preamble_fs =
 "#define lowp\n"
 "#define mediump\n"
 "#define highp\n"
+"#define fract frac\n"
 "#define mod(x, y) fmod(x, y)\n";
 
 static const char * const hlsl_d3d11_preamble_fs =
@@ -199,7 +200,7 @@ void ShaderWriter::BeginVSMain(Slice<InputDef> inputs, Slice<UniformDef> uniform
 	}
 	default:  // OpenGL
 		for (auto &input : inputs) {
-			F("in %s %s;\n", input.type, input.name);
+			F("%s %s %s;\n", lang_.attribute, input.type, input.name);
 		}
 		for (auto &varying : varyings) {
 			F("%s %s %s %s;  // %s (%d)\n", lang_.varying_vs, varying.precision ? varying.precision : "", varying.type, varying.name, semanticNames[varying.semantic], varying.index);
@@ -314,6 +315,13 @@ void ShaderWriter::EndFSMain(const char *vec4_color_variable) {
 void ShaderWriter::HighPrecisionFloat() {
 	if ((ShaderLanguageIsOpenGL(lang_.shaderLanguage) && lang_.gles) || lang_.shaderLanguage == GLSL_VULKAN) {
 		C("precision highp float;\n");
+	}
+}
+
+void ShaderWriter::DeclareSamplers(Slice<SamplerDef> samplers) {
+	for (int i = 0; i < (int)samplers.size(); i++) {
+		DeclareTexture2D(samplers[i].name,i);
+		DeclareSampler2D(samplers[i].name, i);
 	}
 }
 

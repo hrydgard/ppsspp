@@ -176,23 +176,23 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 	}
 
 	if (usedBits == 0) {
-		if (flags == StencilUpload::STENCIL_IS_ZERO) {
+		if (flags & StencilUpload::STENCIL_IS_ZERO) {
 			// Common when creating buffers, it's already 0.
 			// We're done.
 			return false;
 		}
 
-		shaderManager_->DirtyLastShader();
+		// Otherwise, we can skip alpha in many cases, in which case we don't even use a shader.
+		if (flags & StencilUpload::IGNORE_ALPHA) {
+			shaderManager_->DirtyLastShader();
 
-		// Let's not bother with the shader if it's just zero.
-		if (dstBuffer->fbo) {
-			draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "NotifyStencilUpload_Clear");
+			if (dstBuffer->fbo) {
+				draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "PerformStencilUpload_Clear");
+			}
+
+			gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE);
+			return true;
 		}
-
-		// Here we might want to clear destination alpha by using a draw, but we haven't found a need for this yet.
-		// Will implement when needed...
-		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE);
-		return true;
 	}
 
 	shaderManager_->DirtyLastShader();
@@ -263,8 +263,11 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 	// Our fragment shader (and discard) is slow.  Since the source is 1x, we can stencil to 1x.
 	// Then after we're done, we'll just blit it across and stretch it there. Not worth doing
 	// if already at 1x size though, of course.
-	// TODO: This path means that we don't write color alpha... Ugh.
 	if (dstBuffer->width == dstBuffer->renderWidth || !dstBuffer->fbo) {
+		useBlit = false;
+	}
+	// The blit path doesn't set alpha, so we can't use it if that's needed.
+	if (!(flags & StencilUpload::IGNORE_ALPHA)) {
 		useBlit = false;
 	}
 
@@ -274,9 +277,9 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 	Draw::Framebuffer *blitFBO = nullptr;
 	if (useBlit) {
 		blitFBO = GetTempFBO(TempFBO::STENCIL, w, h);
-		draw_->BindFramebufferAsRenderTarget(blitFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::CLEAR }, "NotifyStencilUpload_Blit");
+		draw_->BindFramebufferAsRenderTarget(blitFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::CLEAR }, "PerformStencilUpload_Blit");
 	} else if (dstBuffer->fbo) {
-		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "NotifyStencilUpload_NoBlit");
+		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "PerformStencilUpload_NoBlit");
 	}
 
 	Draw::Viewport viewport = { 0.0f, 0.0f, (float)w, (float)h, 0.0f, 1.0f };
@@ -319,7 +322,7 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 	if (useBlit) {
 		// Note that scissors don't affect blits on other APIs than OpenGL, so might want to try to get rid of this.
 		draw_->SetScissorRect(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
-		draw_->BlitFramebuffer(blitFBO, 0, 0, w, h, dstBuffer->fbo, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, Draw::FB_STENCIL_BIT, Draw::FB_BLIT_NEAREST, "NotifyStencilUpload_Blit");
+		draw_->BlitFramebuffer(blitFBO, 0, 0, w, h, dstBuffer->fbo, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, Draw::FB_STENCIL_BIT, Draw::FB_BLIT_NEAREST, "PerformStencilUpload_Blit");
 		RebindFramebuffer("RebindFramebuffer - Stencil");
 	}
 	tex->Release();

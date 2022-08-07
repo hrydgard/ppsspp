@@ -148,7 +148,7 @@ void DrawEngineGLES::ClearInputLayoutMap() {
 }
 
 void DrawEngineGLES::BeginFrame() {
-	DecimateTrackedVertexArrays();
+	gpuStats.numTrackedVertexArrays = 0;
 
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
 	render_->BeginPushBuffer(frameData.pushIndex);
@@ -238,11 +238,9 @@ void *DrawEngineGLES::DecodeVertsToPushBuffer(GLPushBuffer *push, uint32_t *bind
 
 void DrawEngineGLES::DoFlush() {
 	PROFILE_THIS_SCOPE("flush");
-
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
 	
 	gpuStats.numFlushes++;
-	gpuStats.numTrackedVertexArrays = 0;
 
 	// A new render step means we need to flush any dynamic state. Really, any state that is reset in
 	// GLQueueRunner::PerformRenderPass.
@@ -277,7 +275,6 @@ void DrawEngineGLES::DoFlush() {
 	if (vshader->UseHWTransform()) {
 		int vertexCount = 0;
 		bool useElements = true;
-		bool populateCache = false;
 
 		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			// If software skinning, we've already predecoded into "decoded". So push that content.
@@ -301,7 +298,6 @@ void DrawEngineGLES::DoFlush() {
 		}
 		prim = indexGen.Prim();
 
-		VERBOSE_LOG(G3D, "Flush prim %d! %d verts in one go", prim, vertexCount);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
@@ -309,8 +305,9 @@ void DrawEngineGLES::DoFlush() {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
-		if (textureNeedsApply)
+		if (textureNeedsApply) {
 			textureCache_->ApplyTexture();
+		}
 
 		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
 		ApplyDrawState(prim);
@@ -331,6 +328,7 @@ void DrawEngineGLES::DoFlush() {
 			render_->Draw(glprim[prim], 0, vertexCount);
 		}
 	} else {
+		PROFILE_THIS_SCOPE("soft");
 		DecodeVerts(decoded);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -354,7 +352,7 @@ void DrawEngineGLES::DoFlush() {
 		params.transformedExpanded = transformedExpanded;
 		params.fbman = framebufferManager_;
 		params.texCache = textureCache_;
-		params.allowClear = true;
+		params.allowClear = true;  // Clear in OpenGL respects scissor rects, so we'll use it.
 		params.allowSeparateAlphaClear = true;
 		params.provokeFlatFirst = false;
 		params.flippedY = framebufferManager_->UseBufferedRendering();

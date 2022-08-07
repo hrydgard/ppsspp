@@ -36,10 +36,6 @@ public:
 	FramebufferManagerGLES(Draw::DrawContext *draw, GLRenderManager *render);
 	~FramebufferManagerGLES();
 
-	void SetTextureCache(TextureCacheGLES *tc);
-	void SetShaderManager(ShaderManagerGLES *sm);
-	void SetDrawEngine(DrawEngineGLES *td);
-
 	virtual void Init() override;
 	void EndFrame();
 	void Resized() override;

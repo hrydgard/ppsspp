@@ -171,11 +171,6 @@ inline DrawTextureFlags operator | (const DrawTextureFlags &lhs, const DrawTextu
 	return DrawTextureFlags((u32)lhs | (u32)rhs);
 }
 
-enum class StencilUpload {
-	NEEDS_CLEAR,
-	STENCIL_IS_ZERO,
-};
-
 enum class TempFBO {
 	DEPAL,
 	BLIT,
@@ -217,6 +212,16 @@ public:
 	FramebufferManagerCommon(Draw::DrawContext *draw);
 	virtual ~FramebufferManagerCommon();
 
+	void SetTextureCache(TextureCacheCommon *tc) {
+		textureCache_ = tc;
+	}
+	void SetShaderManager(ShaderManagerCommon * sm) {
+		shaderManager_ = sm;
+	}
+	void SetDrawEngine(DrawEngineCommon *td) {
+		drawEngine_ = td;
+	}
+
 	virtual void Init();
 	virtual void BeginFrame();
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
@@ -251,7 +256,7 @@ public:
 	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
 	void UpdateFromMemory(u32 addr, int size, bool safe);
 	void ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 clearColor);
-	bool PerformStencilUpload(u32 addr, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR);
+	bool PerformStencilUpload(u32 addr, int size, StencilUpload flags);
 	// Returns true if it's sure this is a direct FBO->FBO transfer and it has already handle it.
 	// In that case we hardly need to actually copy the bytes in VRAM, they will be wrong anyway (unless
 	// read framebuffers is on, in which case this should always return false).
@@ -406,9 +411,11 @@ protected:
 	PresentationCommon *presentation_ = nullptr;
 
 	Draw::DrawContext *draw_ = nullptr;
+
 	TextureCacheCommon *textureCache_ = nullptr;
 	ShaderManagerCommon *shaderManager_ = nullptr;
 	DrawEngineCommon *drawEngine_ = nullptr;
+
 	bool needBackBufferYSwap_ = false;
 
 	u32 displayFramebufPtr_ = 0;

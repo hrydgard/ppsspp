@@ -117,9 +117,6 @@
     <ClInclude Include="Common\DepalettizeShaderCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="Directx9\DepalettizeShaderDX9.h">
-      <Filter>DirectX9</Filter>
-    </ClInclude>
     <ClInclude Include="Common\TextureScalerCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -134,9 +131,6 @@
     </ClInclude>
     <ClInclude Include="Common\ShaderId.h">
       <Filter>Common</Filter>
-    </ClInclude>
-    <ClInclude Include="Vulkan\DepalettizeShaderVulkan.h">
-      <Filter>Vulkan</Filter>
     </ClInclude>
     <ClInclude Include="Vulkan\DrawEngineVulkan.h">
       <Filter>Vulkan</Filter>
@@ -171,9 +165,6 @@
     <ClInclude Include="GLES\StateMappingGLES.h">
       <Filter>GLES</Filter>
     </ClInclude>
-    <ClInclude Include="GLES\DepalettizeShaderGLES.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
     <ClInclude Include="GLES\FramebufferManagerGLES.h">
       <Filter>GLES</Filter>
     </ClInclude>
@@ -196,9 +187,6 @@
       <Filter>D3D11</Filter>
     </ClInclude>
     <ClInclude Include="D3D11\DrawEngineD3D11.h">
-      <Filter>D3D11</Filter>
-    </ClInclude>
-    <ClInclude Include="D3D11\DepalettizeShaderD3D11.h">
       <Filter>D3D11</Filter>
     </ClInclude>
     <ClInclude Include="D3D11\D3D11Util.h">
@@ -265,6 +253,9 @@
       <Filter>Software</Filter>
     </ClInclude>
     <ClInclude Include="Common\Draw2D.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\DepalettizeCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
   </ItemGroup>
@@ -362,9 +353,6 @@
     <ClCompile Include="Common\DepalettizeShaderCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="Directx9\DepalettizeShaderDX9.cpp">
-      <Filter>DirectX9</Filter>
-    </ClCompile>
     <ClCompile Include="Common\VertexDecoderArm64.cpp">
       <Filter>Common</Filter>
     </ClCompile>
@@ -382,9 +370,6 @@
     </ClCompile>
     <ClCompile Include="Common\ShaderId.cpp">
       <Filter>Common</Filter>
-    </ClCompile>
-    <ClCompile Include="Vulkan\DepalettizeShaderVulkan.cpp">
-      <Filter>Vulkan</Filter>
     </ClCompile>
     <ClCompile Include="Vulkan\DrawEngineVulkan.cpp">
       <Filter>Vulkan</Filter>
@@ -416,9 +401,6 @@
     <ClCompile Include="GLES\StateMappingGLES.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
-    <ClCompile Include="GLES\DepalettizeShaderGLES.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
     <ClCompile Include="GLES\FramebufferManagerGLES.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
@@ -444,9 +426,6 @@
       <Filter>D3D11</Filter>
     </ClCompile>
     <ClCompile Include="D3D11\DrawEngineD3D11.cpp">
-      <Filter>D3D11</Filter>
-    </ClCompile>
-    <ClCompile Include="D3D11\DepalettizeShaderD3D11.cpp">
       <Filter>D3D11</Filter>
     </ClCompile>
     <ClCompile Include="D3D11\D3D11Util.cpp">
@@ -522,6 +501,9 @@
       <Filter>Software</Filter>
     </ClCompile>
     <ClCompile Include="Common\Draw2D.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\DepalettizeCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>

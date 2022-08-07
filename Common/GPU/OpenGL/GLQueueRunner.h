@@ -7,7 +7,9 @@
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/Shader.h"
+#include "Common/GPU/thin3d.h"
 #include "Common/Data/Collections/TinySet.h"
+
 
 struct GLRViewport {
 	float x, y, w, h, minZ, maxZ;
@@ -350,6 +352,10 @@ public:
 		errorCallbackUserData_ = userdata;
 	}
 
+	void SetDeviceCaps(const Draw::DeviceCaps &caps) {
+		caps_ = caps;
+	}
+
 	void RunInitSteps(const std::vector<GLRInitStep> &steps, bool skipGLCalls);
 
 	void RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls);
@@ -388,14 +394,6 @@ private:
 	void PerformReadback(const GLRStep &pass);
 	void PerformReadbackImage(const GLRStep &pass);
 
-	void LogRenderPass(const GLRStep &pass);
-	void LogCopy(const GLRStep &pass);
-	void LogBlit(const GLRStep &pass);
-	void LogReadback(const GLRStep &pass);
-	void LogReadbackImage(const GLRStep &pass);
-
-	void ResizeReadbackBuffer(size_t requiredSize);
-
 	void fbo_ext_create(const GLRInitStep &step);
 	void fbo_bind_fb_target(bool read, GLuint name);
 	GLenum fbo_get_fb_target(bool read, GLuint **cached);
@@ -404,6 +402,8 @@ private:
 	GLRFramebuffer *curFB_ = nullptr;
 
 	GLuint globalVAO_ = 0;
+
+	Draw::DeviceCaps caps_{};  // For sanity checks.
 
 	int curFBWidth_ = 0;
 	int curFBHeight_ = 0;

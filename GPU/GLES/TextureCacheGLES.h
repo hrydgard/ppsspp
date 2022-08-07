@@ -20,13 +20,14 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "Common/GPU/thin3d.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/TextureCacheCommon.h"
 
 struct VirtualFramebuffer;
 class FramebufferManagerGLES;
-class DepalShaderCacheGLES;
+class DepalShaderCache;
 class ShaderManagerGLES;
 class DrawEngineGLES;
 class GLRTexture;
@@ -37,14 +38,11 @@ public:
 	~TextureCacheGLES();
 
 	void Clear(bool delete_them) override;
-	void StartFrame();
+	void StartFrame() override;
 
 	void SetFramebufferManager(FramebufferManagerGLES *fbManager);
-	void SetDepalShaderCache(DepalShaderCacheGLES *dpCache) {
+	void SetDepalShaderCache(DepalShaderCache *dpCache) {
 		depalShaderCache_ = dpCache;
-	}
-	void SetShaderManager(ShaderManagerGLES *sm) {
-		shaderManager_ = sm;
 	}
 	void SetDrawEngine(DrawEngineGLES *td) {
 		drawEngine_ = td;
@@ -67,14 +65,13 @@ protected:
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
 
+	void BindAsClutTexture(Draw::Texture *tex) override;
+
 private:
-	void ApplySamplingParams(const SamplerCacheKey &key);
+	void ApplySamplingParams(const SamplerCacheKey &key) override;
 	Draw::DataFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 
-	static CheckAlphaResult CheckAlpha(const uint8_t *pixelData, Draw::DataFormat dstFmt, int w);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
-	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) override;
-
 	void BuildTexture(TexCacheEntry *const entry) override;
 
 	GLRenderManager *render_;
@@ -82,11 +79,8 @@ private:
 	GLRTexture *lastBoundTexture = nullptr;
 
 	FramebufferManagerGLES *framebufferManagerGL_;
-	DepalShaderCacheGLES *depalShaderCache_;
-	ShaderManagerGLES *shaderManager_;
+	ShaderManagerGLES *shaderManagerGL_;
 	DrawEngineGLES *drawEngine_;
-
-	GLRInputLayout *shadeInputLayout_ = nullptr;
 
 	enum { INVALID_TEX = -1 };
 };

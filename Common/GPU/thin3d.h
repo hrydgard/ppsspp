@@ -15,6 +15,7 @@
 
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/Shader.h"
+#include "Common/Data/Collections/Slice.h"
 
 namespace Lin {
 class Matrix4x4;
@@ -245,6 +246,7 @@ enum class NativeObject {
 	BOUND_TEXTURE0_IMAGEVIEW,
 	BOUND_TEXTURE1_IMAGEVIEW,
 	RENDER_MANAGER,
+	TEXTURE_VIEW,
 	NULL_IMAGEVIEW,
 };
 
@@ -509,6 +511,7 @@ struct PipelineDesc {
 	BlendState *blend;
 	RasterState *raster;
 	const UniformBufferDesc *uniformDesc;
+	const Slice<SamplerDef> samplers;
 };
 
 struct DeviceCaps {
@@ -536,6 +539,8 @@ struct DeviceCaps {
 	bool framebufferStencilBlitSupported;
 	bool framebufferFetchSupported;
 	bool texture3DSupported;
+	bool fragmentShaderInt32Supported;
+	bool textureNPOTFullySupported;
 
 	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
 };
@@ -697,7 +702,7 @@ public:
 	}
 
 	virtual std::string GetInfoString(InfoField info) const = 0;
-	virtual uint64_t GetNativeObject(NativeObject obj) = 0;
+	virtual uint64_t GetNativeObject(NativeObject obj, void *srcObject = nullptr) = 0;  // Most uses don't need an srcObject.
 
 	virtual void HandleEvent(Event ev, int width, int height, void *param1 = nullptr, void *param2 = nullptr) = 0;
 

@@ -23,7 +23,7 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/Directx9/FramebufferManagerDX9.h"
 #include "GPU/Directx9/DrawEngineDX9.h"
-#include "GPU/Directx9/DepalettizeShaderDX9.h"
+#include "GPU/Common/DepalettizeCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
 namespace DX9 {
@@ -77,7 +77,6 @@ private:
 
 	FramebufferManagerDX9 *framebufferManagerDX9_;
 	TextureCacheDX9 *textureCacheDX9_;
-	DepalShaderCacheDX9 depalShaderCache_;
 	DrawEngineDX9 drawEngine_;
 	ShaderManagerDX9 *shaderManagerDX9_;
 };

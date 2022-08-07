@@ -129,9 +129,13 @@ TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw)
 	tmpTexBufRearrange_.resize(512 * 512);   // 1MB
 
 	replacer_.Init();
+
+	depalShaderCache_ = new DepalShaderCache(draw);
 }
 
 TextureCacheCommon::~TextureCacheCommon() {
+	delete depalShaderCache_;
+
 	FreeAlignedMemory(clutBufConverted_);
 	FreeAlignedMemory(clutBufRaw_);
 }
@@ -1121,6 +1125,7 @@ void TextureCacheCommon::NotifyConfigChanged() {
 
 	if (!gstate_c.Supports(GPU_SUPPORTS_TEXTURE_NPOT)) {
 		// Reduce the scale factor to a power of two (e.g. 2 or 4) if textures must be a power of two.
+		// TODO: In addition we should probably remove these options from the UI in this case.
 		while ((scaleFactor & (scaleFactor - 1)) != 0) {
 			--scaleFactor;
 		}
@@ -1509,16 +1514,18 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 					}
 				}
 			} else {
-				const u16 *clut = GetCurrentClut<u16>() + clutSharingOffset;
-				if (expandTo32bit && !reverseColors) {
+				// Need to have the "un-reversed" (raw) CLUT here since we are using a generic conversion function.
+				if (expandTo32bit) {
 					// We simply expand the CLUT to 32-bit, then we deindex as usual. Probably the fastest way.
+					const u16 *clut = GetCurrentRawClut<u16>() + clutSharingOffset;
 					ConvertFormatToRGBA8888(clutformat, expandClut_, clut, 16);
 					fullAlphaMask = 0xFF000000;
 					for (int y = 0; y < h; ++y) {
 						DeIndexTexture4<u32>((u32 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, expandClut_, &alphaSum);
 					}
 				} else {
-					// If we're reversing colors, the CLUT was already reversed.
+					// If we're reversing colors, the CLUT was already reversed, no special handling needed.
+					const u16 *clut = GetCurrentClut<u16>() + clutSharingOffset;
 					fullAlphaMask = ClutFormatToFullAlpha(clutformat, reverseColors);
 					for (int y = 0; y < h; ++y) {
 						DeIndexTexture4<u16>((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut, &alphaSum);
@@ -1694,7 +1701,8 @@ CheckAlphaResult TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int l
 	const u32 *clut32 = (const u32 *)clutBuf_ + clutSharingOffset;
 
 	if (expandTo32Bit && palFormat != GE_CMODE_32BIT_ABGR8888) {
-		ConvertFormatToRGBA8888(GEPaletteFormat(palFormat), expandClut_, clut16, 256);
+		const u16 *clut16raw = (const u16 *)clutBufRaw_ + clutSharingOffset;
+		ConvertFormatToRGBA8888(GEPaletteFormat(palFormat), expandClut_, clut16raw, 256);
 		clut32 = expandClut_;
 		palFormat = GE_CMODE_32BIT_ABGR8888;
 	}
@@ -1837,7 +1845,122 @@ void TextureCacheCommon::ApplyTexture() {
 	gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 }
 
+void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) {
+	DepalShader *depalShader = nullptr;
+	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
+
+	bool need_depalettize = IsClutFormat(texFormat);
+	bool depth = channel == NOTIFY_FB_DEPTH;
+	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && !depth && !gstate_c.curTextureIs3D;
+
+	// TODO: Implement shader depal in the fragment shader generator for D3D11 at least.
+	if (!draw_->GetDeviceCaps().fragmentShaderInt32Supported) {
+		useShaderDepal = false;
+		depth = false;  // Can't support this
+	}
+
+	switch (draw_->GetShaderLanguageDesc().shaderLanguage) {
+	case ShaderLanguage::HLSL_D3D11:
+	case ShaderLanguage::HLSL_D3D9:
+		useShaderDepal = false;
+		break;
+	default:
+		break;
+	}
+
+	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
+		if (useShaderDepal) {
+			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
+
+			// Very icky conflation here of native and thin3d rendering. This will need careful work per backend in BindAsClutTexture.
+			Draw::Texture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
+			BindAsClutTexture(clutTexture);
+
+			framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
+			// Vulkan needs to do some extra work here to pick out the native handle from Draw.
+			BoundFramebufferTexture();
+
+			SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+			samplerKey.magFilt = false;
+			samplerKey.minFilt = false;
+			samplerKey.mipEnable = false;
+			ApplySamplingParams(samplerKey);
+
+			// Since we started/ended render passes, might need these.
+			gstate_c.Dirty(DIRTY_DEPAL);
+			gstate_c.SetUseShaderDepal(true);
+			gstate_c.depalFramebufferFormat = framebuffer->drawnFormat;
+			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
+			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
+			CheckAlphaResult alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBuf_, clutFormat, clutTotalColors);
+			gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
+
+			draw_->InvalidateCachedState();
+			InvalidateLastTexture();
+
+			return;
+		}
+
+		depalShader = depalShaderCache_->GetDepalettizeShader(clutMode, depth ? GE_FORMAT_DEPTH16 : framebuffer->drawnFormat);
+		gstate_c.SetUseShaderDepal(false);
+	}
+
+	if (depalShader) {
+		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
+		Draw::Texture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
+		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight);
+		draw_->BindTexture(0, nullptr);
+		draw_->BindTexture(1, nullptr);
+		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
+
+		draw_->SetScissorRect(0, 0, (int)framebuffer->renderWidth, (int)framebuffer->renderHeight);
+		Draw::Viewport vp{ 0.0f, 0.0f, (float)framebuffer->renderWidth, (float)framebuffer->renderHeight, 0.0f, 1.0f };
+		draw_->SetViewports(1, &vp);
+
+		TextureShaderApplier shaderApply(draw_, depalShader, framebuffer->bufferWidth, framebuffer->bufferHeight, framebuffer->renderWidth, framebuffer->renderHeight);
+		shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset);
+		shaderApply.Use();
+
+		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, 0);
+		Draw::SamplerState *nearest = depalShaderCache_->GetSampler();
+		draw_->BindSamplerStates(0, 1, &nearest);
+		draw_->BindSamplerStates(1, 1, &nearest);
+		draw_->BindTexture(1, clutTexture);
+
+		shaderApply.Shade();
+		draw_->BindTexture(0, nullptr);
+		framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");
+
+		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
+		BoundFramebufferTexture();
+
+		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
+		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
+
+		CheckAlphaResult alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBufRaw_, clutFormat, clutTotalColors);
+		gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
+
+		draw_->InvalidateCachedState();
+		shaderManager_->DirtyLastShader();
+	} else {
+		framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");
+		framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
+		BoundFramebufferTexture();
+
+		gstate_c.SetUseShaderDepal(false);
+		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
+	}
+
+	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+	ApplySamplingParams(samplerKey);
+
+	// Since we started/ended render passes, might need these.
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
+}
+
 void TextureCacheCommon::Clear(bool delete_them) {
+	depalShaderCache_->Clear();
+
 	ForgetLastTexture();
 	for (TexCache::iterator iter = cache_.begin(); iter != cache_.end(); ++iter) {
 		ReleaseTexture(iter->second.get(), delete_them);
@@ -2260,4 +2383,22 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, i
 			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, srcLevel, w, h);
 		}
 	}
+}
+
+CheckAlphaResult TextureCacheCommon::CheckCLUTAlpha(const uint8_t *pixelData, GEPaletteFormat clutFormat, int w) {
+	switch (clutFormat) {
+	case GE_CMODE_16BIT_ABGR4444:
+		return CheckAlpha16((const u16 *)pixelData, w, 0xF000);
+	case GE_CMODE_16BIT_ABGR5551:
+		return CheckAlpha16((const u16 *)pixelData, w, 0x8000);
+	case GE_CMODE_16BIT_BGR5650:
+		// Never has any alpha.
+		return CHECKALPHA_FULL;
+	default:
+		return CheckAlpha32((const u32 *)pixelData, w, 0xFF000000);  // note, the normal order here, unlike the 16-bit formats
+	}
+}
+
+void TextureCacheCommon::StartFrame() {
+	depalShaderCache_->Decimate();
 }

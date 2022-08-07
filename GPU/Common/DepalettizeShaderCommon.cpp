@@ -19,6 +19,9 @@
 
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
+#include "Common/GPU/Shader.h"
+#include "Common/GPU/ShaderWriter.h"
+
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "Common/StringUtils.h"
@@ -30,35 +33,33 @@
 
 #define WRITE p+=sprintf
 
-// TODO: Add a compute shader path. Complete waste of time to set up a graphics state.
-
 // Uses integer instructions available since OpenGL 3.0. Suitable for ES 3.0 as well.
 void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLanguage language) {
 	char *p = buffer;
 	if (language == HLSL_D3D11) {
 		WRITE(p, "SamplerState texSamp : register(s0);\n");
 		WRITE(p, "Texture2D<float4> tex : register(t0);\n");
-		WRITE(p, "Texture2D<float4> pal : register(t3);\n");
+		WRITE(p, "Texture2D<float4> pal : register(t1);\n");
 		// Support for depth.
 		if (pixelFormat == GE_FORMAT_DEPTH16) {
-			WRITE(p, "cbuffer params : register(b0) {\n");
-			WRITE(p, "  float z_scale; float z_offset;\n");
-			WRITE(p, "};\n");
+			DepthScaleFactors factors = GetDepthScaleFactors();
+			WRITE(p, "static const float z_scale = %f;\n", factors.scale);
+			WRITE(p, "static const float z_offset = %f;\n", factors.offset);
 		}
 	} else if (language == GLSL_VULKAN) {
 		WRITE(p, "#version 450\n");
 		WRITE(p, "#extension GL_ARB_separate_shader_objects : enable\n");
 		WRITE(p, "#extension GL_ARB_shading_language_420pack : enable\n");
-		WRITE(p, "layout(set = 0, binding = 0) uniform sampler2D tex;\n");
-		WRITE(p, "layout(set = 0, binding = 1) uniform sampler2D pal;\n");
+		WRITE(p, "layout(set = 0, binding = 1) uniform sampler2D tex;\n");
+		WRITE(p, "layout(set = 0, binding = 2) uniform sampler2D pal;\n");
 		WRITE(p, "layout(location = 0) in vec2 v_texcoord0;\n");
 		WRITE(p, "layout(location = 0) out vec4 fragColor0;\n");
 
 		// Support for depth.
 		if (pixelFormat == GE_FORMAT_DEPTH16) {
-			WRITE(p, "layout (push_constant) uniform params {\n");
-			WRITE(p, "  float z_scale; float z_offset;\n");
-			WRITE(p, "};\n");
+			DepthScaleFactors factors = GetDepthScaleFactors();
+			WRITE(p, "const float z_scale = %f;\n", factors.scale);
+			WRITE(p, "const float z_offset = %f;\n", factors.offset);
 		}
 	} else {
 		if (gl_extensions.IsGLES) {

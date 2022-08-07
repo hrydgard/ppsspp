@@ -33,26 +33,6 @@ bool CompileShader(const char *source, GLuint shader, const char *filename, std:
 	return true;
 }
 
-GLSLProgram *glsl_create(const char *vshader, const char *fshader, std::string *error_message) {
-	GLSLProgram *program = new GLSLProgram();
-	program->program_ = 0;
-	program->vsh_ = 0;
-	program->fsh_ = 0;
-	program->vshader_source = 0;
-	program->fshader_source = 0;
-	strcpy(program->name, vshader + strlen(vshader) - 15);
-	strcpy(program->vshader_filename, vshader);
-	strcpy(program->fshader_filename, fshader);
-	if (glsl_recompile(program, error_message)) {
-		active_programs.insert(program);
-	} else {
-		ERROR_LOG(G3D, "Failed compiling GLSL program: %s %s", vshader, fshader);
-		delete program;
-		return 0;
-	}
-	return program;
-}
-
 GLSLProgram *glsl_create_source(const char *vshader_src, const char *fshader_src, std::string *error_message) {
 	GLSLProgram *program = new GLSLProgram();
 	program->program_ = 0;
@@ -201,8 +181,8 @@ bool glsl_recompile(GLSLProgram *program, std::string *error_message) {
 	program->sampler1 = glGetUniformLocation(program->program_, "sampler1");
 
 	program->a_position	= glGetAttribLocation(program->program_, "a_position");
-	program->a_color		 = glGetAttribLocation(program->program_, "a_color");
-	program->a_normal		= glGetAttribLocation(program->program_, "a_normal");
+	program->a_color = glGetAttribLocation(program->program_, "a_color");
+	program->a_normal = glGetAttribLocation(program->program_, "a_normal");
 	program->a_texcoord0 = glGetAttribLocation(program->program_, "a_texcoord0");
 	program->a_texcoord1 = glGetAttribLocation(program->program_, "a_texcoord1");
 
