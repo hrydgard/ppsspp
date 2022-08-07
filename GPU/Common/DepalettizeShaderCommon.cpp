@@ -267,7 +267,7 @@ void GenerateDepalFs(char *buffer, const DepalConfig &config, const ShaderLangua
 	ShaderWriter writer(buffer, lang, ShaderStage::Fragment, nullptr, 0);
 	writer.DeclareSamplers(samplers);
 	writer.HighPrecisionFloat();
-	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings);
+	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_NONE);
 	switch (lang.shaderLanguage) {
 	case HLSL_D3D9:
 	case GLSL_1xx:
@@ -281,7 +281,7 @@ void GenerateDepalFs(char *buffer, const DepalConfig &config, const ShaderLangua
 	default:
 		_assert_msg_(false, "Depal shader language not supported: %d", (int)lang.shaderLanguage);
 	}
-	writer.EndFSMain("outColor");
+	writer.EndFSMain("outColor", FSFLAG_NONE);
 }
 
 void GenerateDepalVs(char *buffer, const ShaderLanguageDesc &lang) {

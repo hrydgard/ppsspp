@@ -28,7 +28,7 @@ bool GenerateReinterpretFragmentShader(char *buffer, GEBufferFormat from, GEBuff
 
 	writer.DeclareSamplers(samplers);
 
-	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings);
+	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_NONE);
 
 	writer.C("  vec4 val = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
 
@@ -68,7 +68,7 @@ bool GenerateReinterpretFragmentShader(char *buffer, GEBufferFormat from, GEBuff
 		break;
 	}
 
-	writer.EndFSMain("outColor");
+	writer.EndFSMain("outColor", FSFLAG_NONE);
 	return true;
 }
 
