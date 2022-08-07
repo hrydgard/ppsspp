@@ -555,6 +555,7 @@ OpenGLContext::OpenGLContext() {
 		caps_.clipDistanceSupported = gl_extensions.VersionGEThan(3, 0);
 		caps_.cullDistanceSupported = gl_extensions.ARB_cull_distance;
 	}
+	caps_.textureNPOTFullySupported = gl_extensions.IsCoreContext || gl_extensions.GLES3 || gl_extensions.ARB_texture_non_power_of_two || gl_extensions.OES_texture_npot;
 
 	// Interesting potential hack for emulating GL_DEPTH_CLAMP (use a separate varying, force depth in fragment shader):
 	// This will induce a performance penalty on many architectures though so a blanket enable of this
