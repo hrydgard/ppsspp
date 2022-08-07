@@ -72,18 +72,21 @@ void GetTimeFormatted(char formattedTime[13]) {
 	time_t sysTime;
 	time(&sysTime);
 
+	uint32_t milliseconds;
+#ifdef _WIN32
+	struct timeb tp;
+	(void)::ftime(&tp);
+	milliseconds = tp.millitm;
+#else
+	struct timeval t;
+	(void)gettimeofday(&t, NULL);
+	milliseconds = (int)(t.tv_usec / 1000);
+#endif
+
 	struct tm *gmTime = localtime(&sysTime);
 	char tmp[6];
 	strftime(tmp, sizeof(tmp), "%M:%S", gmTime);
 
 	// Now tack on the milliseconds
-#ifdef _WIN32
-	struct timeb tp;
-	(void)::ftime(&tp);
-	snprintf(formattedTime, 11, "%s:%03i", tmp, tp.millitm);
-#else
-	struct timeval t;
-	(void)gettimeofday(&t, NULL);
-	snprintf(formattedTime, 11, "%s:%03d", tmp, (int)(t.tv_usec / 1000));
-#endif
+	snprintf(formattedTime, 11, "%s:%03u", tmp, milliseconds % 1000);
 }
