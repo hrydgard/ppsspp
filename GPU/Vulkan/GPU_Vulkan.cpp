@@ -258,7 +258,7 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	if (enabledFeatures.logicOp) {
 		features |= GPU_SUPPORTS_LOGIC_OP;
 	}
-	if (enabledFeatures.samplerAnisotropy) {
+	if (draw_->GetDeviceCaps().anisoSupported) {
 		features |= GPU_SUPPORTS_ANISOTROPY;
 	}
 

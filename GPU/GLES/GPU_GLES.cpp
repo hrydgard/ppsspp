@@ -149,12 +149,14 @@ GPU_GLES::~GPU_GLES() {
 }
 
 // Take the raw GL extension and versioning data and turn into feature flags.
+// TODO: This should use DrawContext::GetDeviceCaps() more and more, and eventually
+// this can be shared between all the backends.
 void GPU_GLES::CheckGPUFeatures() {
 	u32 features = 0;
 
 	features |= GPU_SUPPORTS_16BIT_FORMATS;
 
-	if (gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended) {
+	if (draw_->GetDeviceCaps().dualSourceBlend) {
 		if (!g_Config.bVendorBugChecksEnabled || !draw_->GetBugs().Has(Draw::Bugs::DUAL_SOURCE_BLENDING_BROKEN)) {
 			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 		}
@@ -170,19 +172,19 @@ void GPU_GLES::CheckGPUFeatures() {
 	if ((gl_extensions.gpuVendor == GPU_VENDOR_NVIDIA) || (gl_extensions.gpuVendor == GPU_VENDOR_AMD))
 		features |= GPU_PREFER_REVERSE_COLOR_ORDER;
 
-	if (gl_extensions.OES_texture_npot)
+	if (draw_->GetDeviceCaps().textureNPOTFullySupported)
 		features |= GPU_SUPPORTS_TEXTURE_NPOT;
 
 	if (gl_extensions.EXT_blend_minmax)
 		features |= GPU_SUPPORTS_BLEND_MINMAX;
 
-	if (!gl_extensions.IsGLES)
+	if (draw_->GetDeviceCaps().logicOpSupported)
 		features |= GPU_SUPPORTS_LOGIC_OP;
 
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 
-	if (gl_extensions.EXT_texture_filter_anisotropic)
+	if (draw_->GetDeviceCaps().anisoSupported)
 		features |= GPU_SUPPORTS_ANISOTROPY;
 
 	bool canUseInstanceID = gl_extensions.EXT_draw_instanced || gl_extensions.ARB_draw_instanced;

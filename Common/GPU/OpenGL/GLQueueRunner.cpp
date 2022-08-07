@@ -43,7 +43,7 @@ GLuint g_defaultFBO = 0;
 
 void GLQueueRunner::CreateDeviceObjects() {
 	CHECK_GL_ERROR_IF_DEBUG();
-	if (gl_extensions.EXT_texture_filter_anisotropic) {
+	if (caps_.anisoSupported) {
 		glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel_);
 	} else {
 		maxAnisotropyLevel_ = 0.0f;
@@ -208,7 +208,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 
 #if !defined(USING_GLES2)
 			if (step.create_program.support_dual_source) {
-				_dbg_assert_msg_(gl_extensions.ARB_blend_func_extended, "ARB_blend_func_extended required for dual src");
+				_dbg_assert_msg_(caps_.dualSourceBlend, "ARB/EXT_blend_func_extended required for dual src blend");
 				// Dual source alpha
 				glBindFragDataLocationIndexed(program->program, 0, 0, "fragColor0");
 				glBindFragDataLocationIndexed(program->program, 0, 1, "fragColor1");
@@ -1341,16 +1341,14 @@ void GLQueueRunner::PerformCopy(const GLRStep &step) {
 	_dbg_assert_(srcTex);
 	_dbg_assert_(dstTex);
 
+	_assert_msg_(caps_.framebufferCopySupported, "Image copy extension expected");
+
 #if defined(USING_GLES2)
-#if !PPSSPP_PLATFORM(IOS)
-	_assert_msg_(gl_extensions.OES_copy_image || gl_extensions.NV_copy_image || gl_extensions.EXT_copy_image, "Image copy extension expected");
 	glCopyImageSubDataOES(
 		srcTex, target, srcLevel, srcRect.x, srcRect.y, srcZ,
 		dstTex, target, dstLevel, dstPos.x, dstPos.y, dstZ,
 		srcRect.w, srcRect.h, depth);
-#endif
 #else
-	_assert_msg_(gl_extensions.ARB_copy_image || gl_extensions.NV_copy_image, "Image copy extension expected");
 	if (gl_extensions.ARB_copy_image) {
 		glCopyImageSubData(
 			srcTex, target, srcLevel, srcRect.x, srcRect.y, srcZ,

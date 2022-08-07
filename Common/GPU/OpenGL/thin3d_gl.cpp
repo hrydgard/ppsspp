@@ -541,6 +541,8 @@ OpenGLContext::OpenGLContext() {
 		caps_.texture3DSupported = true;
 	}
 
+	caps_.dualSourceBlend = gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended;
+	caps_.anisoSupported = gl_extensions.EXT_texture_filter_anisotropic;
 	caps_.framebufferCopySupported = gl_extensions.OES_copy_image || gl_extensions.NV_copy_image || gl_extensions.EXT_copy_image || gl_extensions.ARB_copy_image;
 	caps_.framebufferBlitSupported = gl_extensions.NV_framebuffer_blit || gl_extensions.ARB_framebuffer_object || gl_extensions.GLES3;
 	caps_.framebufferDepthBlitSupported = caps_.framebufferBlitSupported;
@@ -701,6 +703,8 @@ OpenGLContext::OpenGLContext() {
 			shaderLanguageDesc_.lastFragData = "gl_LastFragColorARM";
 		}
 	}
+
+	renderManager_.SetDeviceCaps(caps_);
 }
 
 OpenGLContext::~OpenGLContext() {

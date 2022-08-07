@@ -25,7 +25,7 @@ constexpr int MAX_GL_TEXTURE_SLOTS = 8;
 
 class GLRTexture {
 public:
-	GLRTexture(int width, int height, int depth, int numMips);
+	GLRTexture(const Draw::DeviceCaps &caps, int width, int height, int depth, int numMips);
 	~GLRTexture();
 
 	GLuint texture = 0;
@@ -49,14 +49,12 @@ public:
 
 class GLRFramebuffer {
 public:
-	GLRFramebuffer(int _width, int _height, bool z_stencil)
-		: color_texture(_width, _height, 1, 1), z_stencil_texture(_width, _height, 1, 1),
+	GLRFramebuffer(const Draw::DeviceCaps &caps, int _width, int _height, bool z_stencil)
+		: color_texture(caps, _width, _height, 1, 1), z_stencil_texture(caps, _width, _height, 1, 1),
 		width(_width), height(_height), z_stencil_(z_stencil) {
 	}
 
 	~GLRFramebuffer();
-
-	int numShadows = 1;  // TODO: Support this.
 
 	GLuint handle = 0;
 	GLRTexture color_texture;
@@ -360,11 +358,15 @@ public:
 // directly in the destructor.
 class GLRenderManager {
 public:
-	GLRenderManager();
+	GLRenderManager() {}
 	~GLRenderManager();
 
 	void SetErrorCallback(ErrorCallbackFn callback, void *userdata) {
 		queueRunner_.SetErrorCallback(callback, userdata);
+	}
+	void SetDeviceCaps(const Draw::DeviceCaps &caps) {
+		queueRunner_.SetDeviceCaps(caps);
+		caps_ = caps;
 	}
 
 	void ThreadStart(Draw::DrawContext *draw);
@@ -388,7 +390,7 @@ public:
 	// and then we'll also need formats and stuff.
 	GLRTexture *CreateTexture(GLenum target, int width, int height, int depth, int numMips) {
 		GLRInitStep step{ GLRInitStepType::CREATE_TEXTURE };
-		step.create_texture.texture = new GLRTexture(width, height, depth, numMips);
+		step.create_texture.texture = new GLRTexture(caps_, width, height, depth, numMips);
 		step.create_texture.texture->target = target;
 		initSteps_.push_back(step);
 		return step.create_texture.texture;
@@ -416,7 +418,7 @@ public:
 
 	GLRFramebuffer *CreateFramebuffer(int width, int height, bool z_stencil) {
 		GLRInitStep step{ GLRInitStepType::CREATE_FRAMEBUFFER };
-		step.create_framebuffer.framebuffer = new GLRFramebuffer(width, height, z_stencil);
+		step.create_framebuffer.framebuffer = new GLRFramebuffer(caps_, width, height, z_stencil);
 		initSteps_.push_back(step);
 		return step.create_framebuffer.framebuffer;
 	}
@@ -1047,4 +1049,5 @@ private:
 #ifdef _DEBUG
 	GLRProgram *curProgram_ = nullptr;
 #endif
+	Draw::DeviceCaps caps_{};
 };
