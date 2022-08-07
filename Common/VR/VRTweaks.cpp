@@ -1,25 +1,34 @@
 #include "VRTweaks.h"
 #include <iostream>
 
-bool VR_TweakIs2D(float* projMatrix) {
-	bool ortho = true;
-	bool identity = true;
-	bool oneTranslation = true;
+bool VR_TweakIsMatrixBigScale(float* matrix) {
+	for (int i = 0; i < 2; i++) {
+		float value = matrix[i * 4 + i];
+		if (fabs(value) < 10.0f) return false;
+	}
+	return true;
+}
+
+bool VR_TweakIsMatrixIdentity(float* matrix) {
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
-			float value = projMatrix[i * 4 + j];
+			float value = matrix[i * 4 + j];
 
 			// Other number than zero on non-diagonale
-			if ((i != j) && (fabs(value) > EPSILON)) identity = false;
+			if ((i != j) && (fabs(value) > EPSILON)) return false;
 			// Other number than one on diagonale
-			if ((i == j) && (fabs(value - 1.0f) > EPSILON)) identity = false;
-			// Special case detecting UI in Flatout
-			if ((i == j) && (i < 2) && (fabs(value) < 10.0f)) ortho = false;
-			// Special case detecting UI in Lego games
-			if (((i == 3) && (fabs(fabs(value) - 1.0f) > EPSILON))) oneTranslation = false;
+			if ((i == j) && (fabs(value - 1.0f) > EPSILON)) return false;
 		}
 	}
-	return identity || oneTranslation || ortho;
+	return true;
+}
+
+bool VR_TweakIsMatrixOneTransform(float* matrix) {
+	for (int j = 0; j < 4; j++) {
+		float value = matrix[12 + j];
+		if (fabs(fabs(value) - 1.0f) > EPSILON) return false;
+	}
+	return true;
 }
 
 void VR_TweakMirroring(float* projMatrix) {

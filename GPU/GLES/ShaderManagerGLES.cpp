@@ -326,8 +326,10 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 
 #ifdef OPENXR
 	// Count 3D instances
-	bool is2D = VR_TweakIs2D(gstate.projMatrix);
-	if (!is2D) {
+	bool is2D = VR_TweakIsMatrixBigScale(gstate.projMatrix) ||
+			    VR_TweakIsMatrixIdentity(gstate.projMatrix) ||
+			    VR_TweakIsMatrixOneTransform(gstate.projMatrix);
+	if (!is2D && !gstate.isModeThrough()) {
 		VR_SetConfig(VR_CONFIG_3D_GEOMETRY_COUNT, VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) + 1);
 	}
 
