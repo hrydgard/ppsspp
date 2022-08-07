@@ -1344,10 +1344,12 @@ void GLQueueRunner::PerformCopy(const GLRStep &step) {
 	_assert_msg_(caps_.framebufferCopySupported, "Image copy extension expected");
 
 #if defined(USING_GLES2)
+#if !PPSSPP_PLATFORM(IOS)
 	glCopyImageSubDataOES(
 		srcTex, target, srcLevel, srcRect.x, srcRect.y, srcZ,
 		dstTex, target, dstLevel, dstPos.x, dstPos.y, dstZ,
 		srcRect.w, srcRect.h, depth);
+#endif
 #else
 	if (gl_extensions.ARB_copy_image) {
 		glCopyImageSubData(
