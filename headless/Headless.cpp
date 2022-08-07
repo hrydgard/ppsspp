@@ -527,6 +527,8 @@ int main(int argc, const char* argv[])
 	timeEndPeriod(1);
 #endif
 
+	g_threadManager.Teardown();
+
 	if (!failedTests.empty() && !teamCityMode)
 		return 1;
 	return 0;
