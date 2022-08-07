@@ -182,17 +182,17 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 			return false;
 		}
 
-		shaderManager_->DirtyLastShader();
+		// Otherwise, we can skip alpha in many cases, in which case we don't even use a shader.
+		if (flags == StencilUpload::IGNORE_ALPHA) {
+			shaderManager_->DirtyLastShader();
 
-		// Let's not bother with the shader if it's just zero.
-		if (dstBuffer->fbo) {
-			draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "PerformStencilUpload_Clear");
+			if (dstBuffer->fbo) {
+				draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "PerformStencilUpload_Clear");
+			}
+
+			gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE);
+			return true;
 		}
-
-		// Here we might want to clear destination alpha by using a draw, but we haven't found a need for this yet.
-		// Will implement when needed...
-		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE);
-		return true;
 	}
 
 	shaderManager_->DirtyLastShader();
@@ -263,8 +263,11 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 	// Our fragment shader (and discard) is slow.  Since the source is 1x, we can stencil to 1x.
 	// Then after we're done, we'll just blit it across and stretch it there. Not worth doing
 	// if already at 1x size though, of course.
-	// TODO: This path means that we don't write color alpha... Ugh.
 	if (dstBuffer->width == dstBuffer->renderWidth || !dstBuffer->fbo) {
+		useBlit = false;
+	}
+	// The blit path doesn't set alpha, so we can't use it if that's needed.
+	if (flags != StencilUpload::IGNORE_ALPHA) {
 		useBlit = false;
 	}
 

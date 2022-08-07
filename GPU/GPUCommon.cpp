@@ -2931,9 +2931,9 @@ void GPUCommon::NotifyVideoUpload(u32 addr, int size, int width, int format) {
 	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
 }
 
-bool GPUCommon::PerformStencilUpload(u32 dest, int size) {
+bool GPUCommon::PerformStencilUpload(u32 dest, int size, StencilUpload flags) {
 	if (framebufferManager_->MayIntersectFramebuffer(dest)) {
-		framebufferManager_->PerformStencilUpload(dest, size);
+		framebufferManager_->PerformStencilUpload(dest, size, flags);
 		return true;
 	}
 	return false;

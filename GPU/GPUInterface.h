@@ -106,6 +106,12 @@ enum GPUSyncType {
 	GPU_SYNC_LIST,
 };
 
+enum class StencilUpload {
+	NEEDS_CLEAR,
+	STENCIL_IS_ZERO,
+	IGNORE_ALPHA,
+};
+
 // Used for debug
 struct FramebufferInfo {
 	u32 fb_address;
@@ -216,7 +222,7 @@ public:
 	virtual bool PerformMemorySet(u32 dest, u8 v, int size) = 0;
 	virtual bool PerformMemoryDownload(u32 dest, int size) = 0;
 	virtual bool PerformMemoryUpload(u32 dest, int size) = 0;
-	virtual bool PerformStencilUpload(u32 dest, int size) = 0;
+	virtual bool PerformStencilUpload(u32 dest, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR) = 0;
 
 	// Will cause the texture cache to be cleared at the start of the next frame.
 	virtual void ClearCacheNextFrame() = 0;
