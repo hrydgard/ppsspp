@@ -26,9 +26,8 @@ static bool OnRenderThread() {
 }
 #endif
 
-GLRTexture::GLRTexture(int width, int height, int depth, int numMips) {
-	// Should move this check to thin3d, but really only OpenGL cares, so...
-	if (gl_extensions.IsCoreContext || gl_extensions.GLES3 || gl_extensions.ARB_texture_non_power_of_two || gl_extensions.OES_texture_npot) {
+GLRTexture::GLRTexture(const Draw::DeviceCaps &caps, int width, int height, int depth, int numMips) {
+	if (caps.textureNPOTFullySupported) {
 		canWrap = true;
 	} else {
 		canWrap = isPowerOf2(width) && isPowerOf2(height);
@@ -114,12 +113,6 @@ void GLDeleter::Perform(GLRenderManager *renderManager, bool skipGLCalls) {
 		delete framebuffer;
 	}
 	framebuffers.clear();
-}
-
-GLRenderManager::GLRenderManager() {
-	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
-
-	}
 }
 
 GLRenderManager::~GLRenderManager() {

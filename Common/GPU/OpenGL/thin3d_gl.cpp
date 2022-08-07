@@ -541,6 +541,8 @@ OpenGLContext::OpenGLContext() {
 		caps_.texture3DSupported = true;
 	}
 
+	caps_.dualSourceBlend = gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended;
+	caps_.anisoSupported = gl_extensions.EXT_texture_filter_anisotropic;
 	caps_.framebufferCopySupported = gl_extensions.OES_copy_image || gl_extensions.NV_copy_image || gl_extensions.EXT_copy_image || gl_extensions.ARB_copy_image;
 	caps_.framebufferBlitSupported = gl_extensions.NV_framebuffer_blit || gl_extensions.ARB_framebuffer_object || gl_extensions.GLES3;
 	caps_.framebufferDepthBlitSupported = caps_.framebufferBlitSupported;
@@ -553,6 +555,10 @@ OpenGLContext::OpenGLContext() {
 		caps_.clipDistanceSupported = gl_extensions.VersionGEThan(3, 0);
 		caps_.cullDistanceSupported = gl_extensions.ARB_cull_distance;
 	}
+	caps_.textureNPOTFullySupported =
+		(!gl_extensions.IsGLES && gl_extensions.VersionGEThan(2, 0, 0)) ||
+		gl_extensions.IsCoreContext || gl_extensions.GLES3 ||
+		gl_extensions.ARB_texture_non_power_of_two || gl_extensions.OES_texture_npot;
 
 	// Interesting potential hack for emulating GL_DEPTH_CLAMP (use a separate varying, force depth in fragment shader):
 	// This will induce a performance penalty on many architectures though so a blanket enable of this
@@ -701,6 +707,8 @@ OpenGLContext::OpenGLContext() {
 			shaderLanguageDesc_.lastFragData = "gl_LastFragColorARM";
 		}
 	}
+
+	renderManager_.SetDeviceCaps(caps_);
 }
 
 OpenGLContext::~OpenGLContext() {

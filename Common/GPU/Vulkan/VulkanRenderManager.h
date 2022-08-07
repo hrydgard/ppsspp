@@ -45,8 +45,6 @@ public:
 	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VkRenderPass renderPass, int _width, int _height, const char *tag);
 	~VKRFramebuffer();
 
-	int numShadows = 1;  // TODO: Support this.
-
 	VkFramebuffer framebuf = VK_NULL_HANDLE;
 	VKRImage color{};
 	VKRImage depth{};

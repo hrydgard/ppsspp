@@ -668,6 +668,7 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	caps_.framebufferDepthCopySupported = false;
 	caps_.framebufferSeparateDepthCopySupported = false;
 	caps_.texture3DSupported = true;
+	caps_.textureNPOTFullySupported = true;
 
 	if (d3d) {
 		D3DDISPLAYMODE displayMode;

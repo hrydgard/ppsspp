@@ -694,11 +694,11 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 
 	ShaderLanguage lang = draw_->GetShaderLanguageDesc().shaderLanguage;
 
+	// Copy image required for now, might get rid of this later.
 	bool doReinterpret = PSP_CoreParameter().compat.flags().ReinterpretFramebuffers &&
-		(lang == HLSL_D3D11 || lang == GLSL_VULKAN || lang == GLSL_3xx);
-	// Copy image required for now.
-	if (!draw_->GetDeviceCaps().framebufferCopySupported)
-		doReinterpret = false;
+		(lang == HLSL_D3D11 || lang == GLSL_VULKAN || lang == GLSL_3xx) &&
+		draw_->GetDeviceCaps().framebufferCopySupported;
+
 	if (!doReinterpret) {
 		// Fake reinterpret - just clear the way we always did on Vulkan. Just clear color and stencil.
 		if (oldFormat == GE_FORMAT_565) {
@@ -2667,12 +2667,6 @@ void FramebufferManagerCommon::BlitUsingRaster(
 	draw_->GetFramebufferDimensions(src, &srcW, &srcH);
 	draw_->GetFramebufferDimensions(dest, &destW, &destH);
 
-	if (srcW == destW && srcH == destH && destX2 - destX1 == srcX2 - srcX1 && destY2 - destY1 == srcY2 - srcY1) {
-		// Optimize to a copy
-		draw_->CopyFramebufferImage(src, 0, (int)srcX1, (int)srcY1, 0, dest, 0, (int)destX1, (int)destY1, 0, (int)(srcX2 - srcX1), (int)(srcY2 - srcY1), 1, Draw::FB_COLOR_BIT, "BlitUsingRaster");
-		return;
-	}
-
 	float dX = 1.0f / (float)destW;
 	float dY = 1.0f / (float)destH;
 	float sX = 1.0f / (float)srcW;
@@ -2684,11 +2678,16 @@ void FramebufferManagerCommon::BlitUsingRaster(
 		{ -1.0f + 2.0f * dX * destX2, -(1.0f - 2.0f * dY * destY2), sX * srcX2, sY * srcY2 },
 	};
 
-	// Unbind the texture first to avoid the D3D11 hazard check (can't set render target to things bound as textures and vice versa, not even temporarily).
-	draw_->BindTexture(0, nullptr);
-	draw_->BindFramebufferAsRenderTarget(dest, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "BlitUsingRaster");
+	if (dest != currentRenderVfb_->fbo) {
+		// Unbind the texture first to avoid the D3D11 hazard check (can't set render target to things bound as textures and vice versa, not even temporarily).
+		draw_->BindTexture(0, nullptr);
+		draw_->BindFramebufferAsRenderTarget(dest, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "BlitUsingRaster");
+	}
 	draw_->BindFramebufferAsTexture(src, 0, Draw::FB_COLOR_BIT, 0);
 
+	Draw::Viewport vp{ 0.0f, 0.0f, (float)dest->Width(), (float)dest->Height(), 0.0f, 1.0f };
+	draw_->SetViewports(1, &vp);
+	draw_->SetScissorRect(0, 0, (int)dest->Width(), (int)dest->Height());
 	DrawStrip2D(nullptr, vtx, 4, linearFilter);
 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
