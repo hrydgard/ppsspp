@@ -541,6 +541,7 @@ struct DeviceCaps {
 	bool texture3DSupported;
 	bool fragmentShaderInt32Supported;
 	bool textureNPOTFullySupported;
+	bool fragmentShaderDepthWriteSupported;
 
 	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
 };

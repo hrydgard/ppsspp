@@ -584,11 +584,17 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 	bool useCopy = draw_->GetDeviceCaps().framebufferSeparateDepthCopySupported || (!draw_->GetDeviceCaps().framebufferDepthBlitSupported && draw_->GetDeviceCaps().framebufferCopySupported);
 	bool useBlit = draw_->GetDeviceCaps().framebufferDepthBlitSupported;
 
-	// Attempt at optimization - if destination already bound, draw depth using raster
-	if (true || currentRenderVfb_ == dst) {
+	bool useRaster = draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported;
+
+	// Could do an attempt at optimization - if destination already bound, draw depth using raster.
+	// Let's experiment later, commented out for now. Currently we fall back to raster as a last resort here.
+	
+	/*
+	if (currentRenderVfb_ == dst) {
 		useCopy = false;
 		useBlit = false;
 	}
+	*/
 
 	int w = std::min(src->renderWidth, dst->renderWidth);
 	int h = std::min(src->renderHeight, dst->renderHeight);
@@ -603,7 +609,7 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 		// We'll accept whether we get a separate depth blit or not...
 		draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebufferDepth");
 		RebindFramebuffer("After BlitFramebufferDepth");
-	} else {
+	} else if (useRaster) {
 		BlitUsingRaster(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, false, RasterChannel::RASTER_DEPTH);
 	}
 
@@ -2687,6 +2693,10 @@ void FramebufferManagerCommon::BlitUsingRaster(
 	Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
 	bool linearFilter,
 	RasterChannel channel) {
+
+	if (channel == RASTER_DEPTH) {
+		_dbg_assert_(draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported);
+	}
 
 	int destW, destH, srcW, srcH;
 	draw_->GetFramebufferDimensions(src, &srcW, &srcH);
