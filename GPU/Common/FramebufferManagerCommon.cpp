@@ -283,7 +283,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		WARN_LOG_ONCE(color_equal_z, G3D, "Framebuffer bound with color addr == z addr, likely will not use Z in this pass: %08x", params.fb_address);
 	}
 
-	FramebufferRenderMode mode = FB_MODE_NORMAL;
+	RasterMode mode = RASTER_MODE_NORMAL;
 
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = nullptr;
@@ -331,7 +331,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 			// Seems impractical to use the other 16-bit formats for this due to the limited control over alpha,
 			// so we'll simply only support 565.
 			if (params.fmt == GE_FORMAT_565) {
-				mode = FB_MODE_COLOR_TO_DEPTH;
+				mode = RASTER_MODE_COLOR_TO_DEPTH;
 				break;
 			}
 		} else if (v->fb_stride == params.fb_stride && v->format == params.fmt) {
@@ -368,7 +368,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		}
 	}
 
-	if (mode == FB_MODE_COLOR_TO_DEPTH) {
+	if (mode == RASTER_MODE_COLOR_TO_DEPTH) {
 		// Lookup in the depth tracking to find which VFB has the latest version of this Z buffer.
 		// Then bind it in color-to-depth mode.
 		//
