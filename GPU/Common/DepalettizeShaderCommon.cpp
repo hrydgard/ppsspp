@@ -162,7 +162,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 	}
 
 	if (language == HLSL_D3D11) {
-		WRITE(p, "  return pal.Load(int3(index, 0, 0)).bgra;\n");
+		WRITE(p, "  return pal.Load(int3(index, 0, 0));\n");
 	} else {
 		WRITE(p, "  fragColor0 = texture(pal, vec2((float(index) + 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
 	}
@@ -320,7 +320,7 @@ void GenerateDepalShaderFloat(char *buffer, GEBufferFormat pixelFormat, ShaderLa
 		WRITE(p, "float4 main(float2 v_texcoord0 : TEXCOORD0) : COLOR0 {\n");
 		WRITE(p, "  float4 index = tex2D(tex, v_texcoord0);\n");
 		WRITE(p, "  float coord = (%s * %f)%s;\n", lookupMethod, index_multiplier, offset);
-		WRITE(p, "  return tex2D(pal, float2(coord, 0.0)).bgra;\n");
+		WRITE(p, "  return tex2D(pal, float2(coord, 0.0));\n");
 		WRITE(p, "}\n");
 	}
 }
