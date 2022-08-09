@@ -1897,7 +1897,6 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 			draw_->InvalidateCachedState();
 			InvalidateLastTexture();
-
 			return;
 		}
 
@@ -1922,10 +1921,10 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		shaderApply.Use();
 
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, 0);
+		draw_->BindTexture(1, clutTexture);
 		Draw::SamplerState *nearest = depalShaderCache_->GetSampler();
 		draw_->BindSamplerStates(0, 1, &nearest);
 		draw_->BindSamplerStates(1, 1, &nearest);
-		draw_->BindTexture(1, clutTexture);
 
 		shaderApply.Shade();
 		draw_->BindTexture(0, nullptr);

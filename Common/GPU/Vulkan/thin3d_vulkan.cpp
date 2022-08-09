@@ -1293,7 +1293,7 @@ ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, ShaderLanguage la
 	if (shader->Compile(vulkan_, language, data, size)) {
 		return shader;
 	} else {
-		ERROR_LOG(G3D,  "Failed to compile shader:\n%s", (const char *)data);
+		ERROR_LOG(G3D,  "Failed to compile shader:\n%s", (const char *)LineNumberString((const char *)data).c_str());
 		shader->Release();
 		return nullptr;
 	}
