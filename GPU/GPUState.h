@@ -555,7 +555,7 @@ struct GPUStateCache {
 			Dirty(DIRTY_FRAGMENTSHADER_STATE | (is3D ? DIRTY_MIPBIAS : 0));
 		}
 	}
-	void SetFramebufferRenderMode(FramebufferRenderMode mode) {
+	void SetFramebufferRenderMode(RasterMode mode) {
 		if (mode != renderMode) {
 			// This mode modifies the fragment shader to write depth, the depth state to write without testing, and the blend state to write nothing to color.
 			// So we need to re-evaluate those states.
@@ -614,7 +614,7 @@ struct GPUStateCache {
 	bool blueToAlpha;
 
 	// Some games try to write to the Z buffer using color. Catch that and actually do the writes to the Z buffer instead.
-	FramebufferRenderMode renderMode;
+	RasterMode renderMode;
 
 	// TODO: These should be accessed from the current VFB object directly.
 	u32 curRTWidth;

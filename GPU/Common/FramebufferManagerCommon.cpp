@@ -283,7 +283,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		WARN_LOG_ONCE(color_equal_z, G3D, "Framebuffer bound with color addr == z addr, likely will not use Z in this pass: %08x", params.fb_address);
 	}
 
-	FramebufferRenderMode mode = FB_MODE_NORMAL;
+	RasterMode mode = RASTER_MODE_NORMAL;
 
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = nullptr;
@@ -331,7 +331,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 			// Seems impractical to use the other 16-bit formats for this due to the limited control over alpha,
 			// so we'll simply only support 565.
 			if (params.fmt == GE_FORMAT_565) {
-				mode = FB_MODE_COLOR_TO_DEPTH;
+				mode = RASTER_MODE_COLOR_TO_DEPTH;
 				break;
 			}
 		} else if (v->fb_stride == params.fb_stride && v->format == params.fmt) {
@@ -368,7 +368,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		}
 	}
 
-	if (mode == FB_MODE_COLOR_TO_DEPTH) {
+	if (mode == RASTER_MODE_COLOR_TO_DEPTH) {
 		// Lookup in the depth tracking to find which VFB has the latest version of this Z buffer.
 		// Then bind it in color-to-depth mode.
 		//
@@ -564,6 +564,8 @@ void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
 void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
 	_dbg_assert_(src && dst);
 
+	_dbg_assert_(src != dst);
+
 	// Check that the depth address is even the same before actually blitting.
 	bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
 	bool matchingSize = (src->width == dst->width || (src->width == 512 && dst->width == 480) || (src->width == 480 && dst->width == 512)) && src->height == dst->height;
@@ -579,7 +581,20 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 		return;
 	}
 
-	gpuStats.numDepthCopies++;
+	bool useCopy = draw_->GetDeviceCaps().framebufferSeparateDepthCopySupported || (!draw_->GetDeviceCaps().framebufferDepthBlitSupported && draw_->GetDeviceCaps().framebufferCopySupported);
+	bool useBlit = draw_->GetDeviceCaps().framebufferDepthBlitSupported;
+
+	bool useRaster = draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported;
+
+	// Could do an attempt at optimization - if destination already bound, draw depth using raster.
+	// Let's experiment later, commented out for now. Currently we fall back to raster as a last resort here.
+	
+	/*
+	if (currentRenderVfb_ == dst) {
+		useCopy = false;
+		useBlit = false;
+	}
+	*/
 
 	int w = std::min(src->renderWidth, dst->renderWidth);
 	int h = std::min(src->renderHeight, dst->renderHeight);
@@ -587,14 +602,20 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 	// TODO: It might even be advantageous on some GPUs to do this copy using a fragment shader that writes to Z, that way upcoming commands can just continue that render pass.
 
 	// Some GPUs can copy depth but only if stencil gets to come along for the ride. We only want to use this if there is no blit functionality.
-	if (draw_->GetDeviceCaps().framebufferSeparateDepthCopySupported || (!draw_->GetDeviceCaps().framebufferDepthBlitSupported && draw_->GetDeviceCaps().framebufferCopySupported)) {
+	if (useCopy) {
 		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, w, h, 1, Draw::FB_DEPTH_BIT, "BlitFramebufferDepth");
 		RebindFramebuffer("After BlitFramebufferDepth");
-	} else if (draw_->GetDeviceCaps().framebufferDepthBlitSupported) {
+	} else if (useBlit) {
 		// We'll accept whether we get a separate depth blit or not...
 		draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebufferDepth");
 		RebindFramebuffer("After BlitFramebufferDepth");
+	} else if (useRaster) {
+		BlitUsingRaster(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, false, RasterChannel::RASTER_DEPTH);
 	}
+
+	draw_->InvalidateCachedState();
+
+	gpuStats.numDepthCopies++;
 	dst->last_frame_depth_updated = gpuStats.numFlips;
 }
 
@@ -2495,11 +2516,13 @@ void FramebufferManagerCommon::DeviceLost() {
 	DoRelease(stencilUploadVs_);
 	DoRelease(stencilUploadSampler_);
 	DoRelease(stencilUploadPipeline_);
-	DoRelease(draw2DPipelineLinear_);
+	DoRelease(draw2DPipelineColor_);
+	DoRelease(draw2DPipelineDepth_);
 	DoRelease(draw2DSamplerNearest_);
 	DoRelease(draw2DSamplerLinear_);
 	DoRelease(draw2DVs_);
 	DoRelease(draw2DFs_);
+	DoRelease(draw2DFsDepth_);
 	presentation_->DeviceLost();
 	draw_ = nullptr;
 }
@@ -2557,15 +2580,18 @@ void FramebufferManagerCommon::DrawActiveTexture(float x, float y, float w, floa
 	// Rearrange to strip form.
 	std::swap(coord[2], coord[3]);
 
-	DrawStrip2D(nullptr, coord, 4, (flags & DRAWTEX_LINEAR) != 0);
+	DrawStrip2D(nullptr, coord, 4, (flags & DRAWTEX_LINEAR) != 0, RASTER_COLOR);
 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
 void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag) {
+	RasterChannel channel = RASTER_COLOR;
+
 	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 		// This can happen if they recently switched from non-buffered.
 		if (useBufferedRendering_) {
+			// Just bind the back buffer for rendering, forget about doing anything else as we're in a weird state.
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "BlitFramebuffer");
 		}
 		return;
@@ -2638,22 +2664,26 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 		const bool xOverlap = src == dst && srcX2 > dstX1 && srcX1 < dstX2;
 		const bool yOverlap = src == dst && srcY2 > dstY1 && srcY1 < dstY2;
 		if (sameSize && srcInsideBounds && dstInsideBounds && !(xOverlap && yOverlap)) {
-			draw_->CopyFramebufferImage(src->fbo, 0, srcX1, srcY1, 0, dst->fbo, 0, dstX1, dstY1, 0, dstX2 - dstX1, dstY2 - dstY1, 1, Draw::FB_COLOR_BIT, tag);
+			draw_->CopyFramebufferImage(src->fbo, 0, srcX1, srcY1, 0, dst->fbo, 0, dstX1, dstY1, 0, dstX2 - dstX1, dstY2 - dstY1, 1, 
+				channel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, tag);
 			return;
 		}
 	}
 
 	if (useBlit) {
-		draw_->BlitFramebuffer(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST, tag);
+		draw_->BlitFramebuffer(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2,
+			channel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, tag);
 	} else {
 		Draw::Framebuffer *srcFBO = src->fbo;
 		if (src == dst) {
 			Draw::Framebuffer *tempFBO = GetTempFBO(TempFBO::BLIT, src->renderWidth, src->renderHeight);
-			BlitUsingRaster(src->fbo, srcX1, srcY1, srcX2, srcY2, tempFBO, dstX1, dstY1, dstX2, dstY2, false);
+			BlitUsingRaster(src->fbo, srcX1, srcY1, srcX2, srcY2, tempFBO, dstX1, dstY1, dstX2, dstY2, false, channel);
 			srcFBO = tempFBO;
 		}
-		BlitUsingRaster(srcFBO, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, false);
+		BlitUsingRaster(srcFBO, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, false, channel);
 	}
+
+	draw_->InvalidateCachedState();
 
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE);
 }
@@ -2661,7 +2691,12 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 void FramebufferManagerCommon::BlitUsingRaster(
 	Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
 	Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
-	bool linearFilter) {
+	bool linearFilter,
+	RasterChannel channel) {
+
+	if (channel == RASTER_DEPTH) {
+		_dbg_assert_(draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported);
+	}
 
 	int destW, destH, srcW, srcH;
 	draw_->GetFramebufferDimensions(src, &srcW, &srcH);
@@ -2678,17 +2713,16 @@ void FramebufferManagerCommon::BlitUsingRaster(
 		{ -1.0f + 2.0f * dX * destX2, -(1.0f - 2.0f * dY * destY2), sX * srcX2, sY * srcY2 },
 	};
 
-	if (dest != currentRenderVfb_->fbo) {
-		// Unbind the texture first to avoid the D3D11 hazard check (can't set render target to things bound as textures and vice versa, not even temporarily).
-		draw_->BindTexture(0, nullptr);
-		draw_->BindFramebufferAsRenderTarget(dest, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "BlitUsingRaster");
-	}
-	draw_->BindFramebufferAsTexture(src, 0, Draw::FB_COLOR_BIT, 0);
+	// Unbind the texture first to avoid the D3D11 hazard check (can't set render target to things bound as textures and vice versa, not even temporarily).
+	draw_->BindTexture(0, nullptr);
+	// This will get optimized away in case it's already bound (in VK and GL at least..)
+	draw_->BindFramebufferAsRenderTarget(dest, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "BlitUsingRaster");
+	draw_->BindFramebufferAsTexture(src, 0, channel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, 0);
 
 	Draw::Viewport vp{ 0.0f, 0.0f, (float)dest->Width(), (float)dest->Height(), 0.0f, 1.0f };
 	draw_->SetViewports(1, &vp);
 	draw_->SetScissorRect(0, 0, (int)dest->Width(), (int)dest->Height());
-	DrawStrip2D(nullptr, vtx, 4, linearFilter);
+	DrawStrip2D(nullptr, vtx, 4, linearFilter, channel);
 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }

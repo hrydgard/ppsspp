@@ -1018,7 +1018,7 @@ void ConvertMaskState(GenericMaskState &maskState, bool allowFramebufferRead) {
 		return;
 	}
 
-	if (gstate_c.renderMode == FB_MODE_COLOR_TO_DEPTH) {
+	if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
 		// Suppress color writes entirely in this mode.
 		maskState.applyFramebufferRead = false;
 		maskState.rgba[0] = false;

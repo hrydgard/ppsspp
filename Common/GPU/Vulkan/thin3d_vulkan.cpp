@@ -793,6 +793,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	caps_.texture3DSupported = true;
 	caps_.fragmentShaderInt32Supported = true;
 	caps_.textureNPOTFullySupported = true;
+	caps_.fragmentShaderDepthWriteSupported = true;
 
 	auto deviceProps = vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDeviceIndex()).properties;
 	switch (deviceProps.vendorID) {

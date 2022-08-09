@@ -264,7 +264,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const Draw::Bugs &bugs) {
 		bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;
 		bool useShaderDepal = gstate_c.useShaderDepal;
 		bool colorWriteMask = IsColorWriteMaskComplex(gstate_c.allowFramebufferRead);
-		bool colorToDepth = gstate_c.renderMode == FramebufferRenderMode::FB_MODE_COLOR_TO_DEPTH;
+		bool colorToDepth = gstate_c.renderMode == RasterMode::RASTER_MODE_COLOR_TO_DEPTH;
 
 		// Note how we here recompute some of the work already done in state mapping.
 		// Not ideal! At least we share the code.

@@ -251,7 +251,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		GenericStencilFuncState stencilState;
 		ConvertStencilFuncState(stencilState);
 
-		if (gstate_c.renderMode == FB_MODE_COLOR_TO_DEPTH) {
+		if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
 			// Enforce plain depth writing.
 			renderManager->SetStencilDisabled();
 			renderManager->SetDepth(true, true, GL_ALWAYS);
