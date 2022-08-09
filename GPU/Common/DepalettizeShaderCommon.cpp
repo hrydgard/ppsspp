@@ -31,7 +31,7 @@
 
 static const InputDef vsInputs[2] = {
 	{ "vec2", "a_position", Draw::SEM_POSITION, },
-	{ "vec2", "a_texcoord", Draw::SEM_TEXCOORD0, },
+	{ "vec2", "a_texcoord0", Draw::SEM_TEXCOORD0, },
 };
 
 // TODO: Deduplicate with DepalettizeCommon.cpp
@@ -135,6 +135,12 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config, c
 	const int shift = config.shift;
 	const int mask = config.mask;
 
+	if (config.pixelFormat == GE_FORMAT_DEPTH16) {
+		DepthScaleFactors factors = GetDepthScaleFactors();
+		writer.ConstFloat("z_scale", factors.scale);
+		writer.ConstFloat("z_offset", factors.offset);
+	}
+
 	float index_multiplier = 1.0f;
 	// pixelformat is the format of the texture we are sampling.
 	bool formatOK = true;
@@ -216,9 +222,14 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config, c
 	case GE_FORMAT_DEPTH16:
 	{
 		// TODO: I think we can handle most scenarios here, but texturing from depth buffers requires an extension on ES 2.0 anyway.
-		if ((mask & (mask + 1)) == 0 && shift < 16) {
+		if (shift < 16) {
 			index_multiplier = 1.0f / (float)(1 << shift);
-			truncate_cpy(lookupMethod, "index.r");
+			truncate_cpy(lookupMethod, "((index.x - z_offset) * z_scale)");
+
+			if ((mask & (mask + 1)) != 0) {
+				// But we'll try with the above anyway.
+				formatOK = false;
+			}
 		} else {
 			formatOK = false;
 		}
@@ -262,11 +273,10 @@ void GenerateDepalFs(char *buffer, const DepalConfig &config, const ShaderLangua
 	case GLSL_1xx:
 		GenerateDepalShaderFloat(writer, config, lang);
 		break;
-	case GLSL_3xx:
 	case GLSL_VULKAN:
+	case GLSL_3xx:
 	case HLSL_D3D11:
 		GenerateDepalShader300(writer, config, lang);
-		break;
 		break;
 	default:
 		_assert_msg_(false, "Depal shader language not supported: %d", (int)lang.shaderLanguage);
@@ -277,7 +287,7 @@ void GenerateDepalFs(char *buffer, const DepalConfig &config, const ShaderLangua
 void GenerateDepalVs(char *buffer, const ShaderLanguageDesc &lang) {
 	ShaderWriter writer(buffer, lang, ShaderStage::Vertex, nullptr, 0);
 	writer.BeginVSMain(vsInputs, Slice<UniformDef>::empty(), varyings);
-	writer.C("  v_texcoord = a_texcoord;\n");
+	writer.C("  v_texcoord = a_texcoord0;\n");
 	writer.C("  gl_Position = vec4(a_position, 0.0, 1.0);\n");
 	if (strlen(lang.viewportYSign)) {
 		writer.F("  gl_Position.y *= %s1.0;\n", lang.viewportYSign);

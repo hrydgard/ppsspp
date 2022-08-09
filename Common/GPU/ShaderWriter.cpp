@@ -14,6 +14,7 @@ const char * const vulkan_glsl_preamble_fs =
 "#extension GL_ARB_shader_image_load_store : enable\n"
 "#define splat3(x) vec3(x)\n"
 "#define DISCARD discard\n"
+"precision lowp float;\n"
 "precision highp int;\n"
 "\n";
 
@@ -131,6 +132,7 @@ void ShaderWriter::Preamble(const char **gl_extensions, size_t num_gl_extensions
 		case ShaderStage::Fragment:
 			C("#define DISCARD discard\n");
 			if (lang_.gles) {
+				C("precision lowp float;\n");
 				if (lang_.glslES30) {
 					C("precision highp int;\n");
 				}
