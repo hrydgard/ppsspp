@@ -255,6 +255,9 @@ struct BuildTexturePlan {
 	// the missing levels, or limit itself to levelsToLoad levels.
 	int levelsToCreate;
 
+	// The maximum number of mips levels we can create for this texture.
+	int maxPossibleLevels;
+
 	// Load the 0-mip from this PSP texture level instead of 0.
 	// If non-zero, we are only loading one level.
 	int baseLevelSrc;

@@ -282,8 +282,14 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	} 
 
 	if (!gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-		// Force no additional mipmaps.
-		plan.levelsToCreate = plan.levelsToLoad;
+		// If the mip chain is not full..
+		if (plan.levelsToCreate != plan.maxPossibleLevels) {
+			// We need to avoid creating mips at all, or generate them all - can't be incomplete
+			// on this hardware (strict OpenGL rules).
+			plan.levelsToCreate = 1;
+			plan.levelsToLoad = 1;
+			entry->status |= TexCacheEntry::STATUS_NO_MIPS;
+		}
 	}
 
 	if (plan.depth == 1) {

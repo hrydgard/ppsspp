@@ -2307,6 +2307,12 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		plan.levelsToLoad = 1;
 	}
 
+	if (plan.isVideo || plan.depth != 1) {
+		plan.maxPossibleLevels = 1;
+	} else {
+		plan.maxPossibleLevels = log2i(std::min(plan.w * plan.scaleFactor, plan.h * plan.scaleFactor)) + 1;
+	}
+
 	if (plan.levelsToCreate == 1) {
 		entry->status |= TexCacheEntry::STATUS_NO_MIPS;
 	} else {

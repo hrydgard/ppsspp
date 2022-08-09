@@ -438,13 +438,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		return;
 	}
 
-	int maxPossibleMipLevels;
-	if (plan.isVideo || plan.depth != 1) {
-		maxPossibleMipLevels = 1;
-	} else {
-		maxPossibleMipLevels = log2i(std::min(plan.w * plan.scaleFactor, plan.h * plan.scaleFactor)) + 1;
-	}
-
 	VkFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
 	if (plan.scaleFactor > 1) {
@@ -456,11 +449,11 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	// and similar, which don't really need it.
 	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY && plan.w <= 256 && plan.h <= 256) {
 		// Boost the number of mipmaps.
-		if (maxPossibleMipLevels > plan.levelsToCreate) {
+		if (plan.maxPossibleLevels > plan.levelsToCreate) {
 			// We have to generate mips with a shader. This requires decoding to R8G8B8A8_UNORM format to avoid extra complications.
 			dstFmt = VULKAN_8888_FORMAT;
 		}
-		plan.levelsToCreate = maxPossibleMipLevels;
+		plan.levelsToCreate = plan.maxPossibleLevels;
 	}
 
 	// Any texture scaling is gonna move away from the original 16-bit format, if any.
