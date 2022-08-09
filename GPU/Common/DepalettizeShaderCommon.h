@@ -24,4 +24,13 @@
 
 static const int DEPAL_TEXTURE_OLD_AGE = 120;
 
-void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat, ShaderLanguage language);
+struct DepalConfig {
+	int mask;
+	int shift;
+	u32 startPos;
+	GEPaletteFormat clutFormat;
+	GEBufferFormat pixelFormat;
+};
+
+void GenerateDepalFs(char *buffer, const DepalConfig &config, const ShaderLanguageDesc &lang);
+void GenerateDepalVs(char *buffer, const ShaderLanguageDesc &lang);

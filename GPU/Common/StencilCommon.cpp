@@ -79,12 +79,14 @@ static const VaryingDef varyings[1] = {
 	{ "vec2", "v_texcoord", Draw::SEM_TEXCOORD0, 0, "highp" },
 };
 
+static const SamplerDef samplers[1] = {
+	{ "tex" },
+};
+
 void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw::Bugs &bugs) {
 	ShaderWriter writer(buffer, lang, ShaderStage::Fragment, nullptr, 0);
 	writer.HighPrecisionFloat();
-
-	writer.DeclareSampler2D("samp", 0);
-	writer.DeclareTexture2D("tex", 0);
+	writer.DeclareSamplers(samplers);
 
 	if (bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL)) {
 		writer.C("layout (depth_unchanged) out float gl_FragDepth;\n");
@@ -94,7 +96,7 @@ void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw:
 
 	writer.BeginFSMain(uniforms, varyings);
 
-	writer.C("  vec4 index = ").SampleTexture2D("tex", "samp", "v_texcoord.xy").C(";\n");
+	writer.C("  vec4 index = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
 	writer.C("  vec4 outColor = index.aaaa;\n");  // Only care about a.
 	writer.C("  float shifted = roundAndScaleTo255f(index.a) / roundAndScaleTo255f(stencilValue);\n");
 	// Bitwise operations on floats, ugh.

@@ -14,6 +14,7 @@
 #include "GPU/Common/VertexShaderGenerator.h"
 #include "GPU/Common/ReinterpretFramebuffer.h"
 #include "GPU/Common/StencilCommon.h"
+#include "GPU/Common/DepalettizeShaderCommon.h"
 
 #if PPSSPP_PLATFORM(WINDOWS)
 #include "GPU/D3D11/D3D11Util.h"
@@ -272,6 +273,61 @@ bool TestStencilShaders() {
 	return !failed;
 }
 
+bool TestDepalShaders() {
+	Draw::Bugs bugs;
+
+	ShaderLanguage languages[] = {
+#if PPSSPP_PLATFORM(WINDOWS)
+		ShaderLanguage::HLSL_D3D9,
+		ShaderLanguage::HLSL_D3D11,
+#endif
+		ShaderLanguage::GLSL_VULKAN,
+		ShaderLanguage::GLSL_3xx,
+		ShaderLanguage::GLSL_1xx,
+	};
+
+	char *buffer = new char[65536];
+
+	bool failed = false;
+
+	for (int k = 0; k < ARRAY_SIZE(languages); k++) {
+		printf("=== %s ===\n\n", ShaderLanguageToString(languages[k]));
+
+		ShaderLanguageDesc desc(languages[k]);
+		std::string errorMessage;
+
+		// TODO: Try some different configurations of the fragment shader.
+		// But first just try one.
+		DepalConfig config{};
+		config.clutFormat = GE_CMODE_16BIT_ABGR4444;
+		config.shift = 8;
+		config.startPos = 64;
+		config.mask = 0xFF;
+		config.pixelFormat = GE_FORMAT_8888;
+
+		GenerateDepalFs(buffer, config, desc);
+		if (!TestCompileShader(buffer, languages[k], ShaderStage::Fragment, &errorMessage)) {
+			printf("Error compiling depal shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
+			failed = true;
+			return false;
+		} else {
+			printf("===\n%s\n===\n", buffer);
+		}
+
+		GenerateDepalVs(buffer, desc);
+		if (!TestCompileShader(buffer, languages[k], ShaderStage::Vertex, &errorMessage)) {
+			printf("Error compiling depal shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
+			failed = true;
+			return false;
+		} else {
+			printf("===\n%s\n===\n", buffer);
+		}
+	}
+
+	delete[] buffer;
+	return !failed;
+}
+
 const ShaderLanguage languages[] = {
 #if PPSSPP_PLATFORM(WINDOWS)
 	ShaderLanguage::HLSL_D3D9,
@@ -424,6 +480,10 @@ bool TestShaderGenerators() {
 	}
 
 	if (!TestReinterpretShaders()) {
+		return false;
+	}
+
+	if (!TestDepalShaders()) {
 		return false;
 	}
 

@@ -28,13 +28,8 @@
 #include "GPU/Common/DepalettizeShaderCommon.h"
 #include "GPU/Common/DepalettizeCommon.h"
 
-static const InputDef vsInputs[2] = {
-	{ "vec2", "a_position", Draw::SEM_POSITION, },
-	{ "vec2", "a_texcoord0", Draw::SEM_TEXCOORD0, },
-};
-
 static const VaryingDef varyings[1] = {
-	{ "vec2", "v_texcoord0", Draw::SEM_TEXCOORD0, 0, "highp" },
+	{ "vec2", "v_texcoord", Draw::SEM_TEXCOORD0, 0, "highp" },
 };
 
 static const SamplerDef samplers[2] = {
@@ -54,18 +49,6 @@ void DepalShaderCache::DeviceRestore(Draw::DrawContext *draw) {
 
 void DepalShaderCache::DeviceLost() {
 	Clear();
-}
-
-bool DepalShaderCache::GenerateVertexShader(char *buffer, const ShaderLanguageDesc &lang) {
-	ShaderWriter writer(buffer, lang, ShaderStage::Vertex, nullptr, 0);
-	writer.BeginVSMain(vsInputs, Slice<UniformDef>::empty(), varyings);
-	writer.C("  v_texcoord0 = a_texcoord0;\n");
-	writer.C("  gl_Position = vec4(a_position, 0.0, 1.0);\n");
-	if (strlen(lang.viewportYSign)) {
-		writer.F("  gl_Position.y *= %s1.0;\n", lang.viewportYSign);
-	}
-	writer.EndVSMain(varyings);
-	return true;
 }
 
 Draw::Texture *DepalShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut) {
@@ -178,16 +161,19 @@ DepalShader *DepalShaderCache::GetDepalettizeShader(uint32_t clutMode, GEBufferF
 	char *buffer = new char[4096];
 
 	if (!vertexShader_) {
-		if (!GenerateVertexShader(buffer, draw_->GetShaderLanguageDesc())) {
-			// The vertex shader failed, no need to bother trying the fragment.
-			delete[] buffer;
-			return nullptr;
-		}
+		GenerateDepalVs(buffer, draw_->GetShaderLanguageDesc());
 		vertexShader_ = draw_->CreateShaderModule(ShaderStage::Vertex, draw_->GetShaderLanguageDesc().shaderLanguage, (const uint8_t *)buffer, strlen(buffer), "depal_vs");
 	}
 
-	// TODO: Replace with ShaderWriter-based implementation.
-	GenerateDepalShader(buffer, pixelFormat, draw_->GetShaderLanguageDesc().shaderLanguage);
+	// TODO: Parse these out of clutMode some nice way, to become a bit more stateless.
+	DepalConfig config;
+	config.clutFormat = gstate.getClutPaletteFormat();
+	config.startPos = gstate.getClutIndexStartPos();
+	config.shift = gstate.getClutIndexShift();
+	config.mask = gstate.getClutIndexMask();
+	config.pixelFormat = pixelFormat;
+
+	GenerateDepalFs(buffer, config, draw_->GetShaderLanguageDesc());
 	
 	std::string src(buffer);
 	ShaderModule *fragShader = draw_->CreateShaderModule(ShaderStage::Fragment, draw_->GetShaderLanguageDesc().shaderLanguage, (const uint8_t *)buffer, strlen(buffer), "depal_fs");

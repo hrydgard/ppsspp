@@ -35,12 +35,15 @@ static const VaryingDef varyings[1] = {
 	{ "vec2", "v_texcoord", Draw::SEM_TEXCOORD0, 0, "highp" },
 };
 
+static const SamplerDef samplers[1] = {
+	{ "tex" },
+};
+
 void GenerateDraw2DFs(char *buffer, const ShaderLanguageDesc &lang, const Draw::Bugs &bugs) {
 	ShaderWriter writer(buffer, lang, ShaderStage::Fragment, nullptr, 0);
-	writer.DeclareSampler2D("samp", 0);
-	writer.DeclareTexture2D("tex", 0);
+	writer.DeclareSamplers(samplers);
 	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings);
-	writer.C("  vec4 outColor = ").SampleTexture2D("tex", "samp", "v_texcoord.xy").C(";\n");
+	writer.C("  vec4 outColor = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
 	writer.EndFSMain("outColor");
 }
 

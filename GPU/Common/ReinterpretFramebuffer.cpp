@@ -10,6 +10,10 @@ static const VaryingDef varyings[1] = {
 	{ "vec2", "v_texcoord", Draw::SEM_TEXCOORD0, 0, "highp" },
 };
 
+static const SamplerDef samplers[1] = {
+	{ "tex" }
+};
+
 // TODO: We could possibly have an option to preserve any extra color precision? But gonna start without it.
 // Requires full size integer math. It would be possible to make a floating point-only version with lots of
 // modulo and stuff, might do it one day.
@@ -22,12 +26,11 @@ bool GenerateReinterpretFragmentShader(char *buffer, GEBufferFormat from, GEBuff
 
 	writer.HighPrecisionFloat();
 
-	writer.DeclareSampler2D("samp", 0);
-	writer.DeclareTexture2D("tex", 0);
+	writer.DeclareSamplers(samplers);
 
 	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings);
 
-	writer.C("  vec4 val = ").SampleTexture2D("tex", "samp", "v_texcoord.xy").C(";\n");
+	writer.C("  vec4 val = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
 
 	switch (from) {
 	case GE_FORMAT_4444:

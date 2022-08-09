@@ -62,9 +62,6 @@ public:
 	void DeviceLost();
 	void DeviceRestore(Draw::DrawContext *draw);
 
-	// Exposed for testing.
-	static bool GenerateVertexShader(char *buffer, const ShaderLanguageDesc &lang);
-
 private:
 	static uint32_t GenerateShaderID(uint32_t clutMode, GEBufferFormat pixelFormat) {
 		return (clutMode & 0xFFFFFF) | (pixelFormat << 24);

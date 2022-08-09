@@ -14,7 +14,6 @@ const char * const vulkan_glsl_preamble_fs =
 "#extension GL_ARB_shader_image_load_store : enable\n"
 "#define splat3(x) vec3(x)\n"
 "#define DISCARD discard\n"
-"precision lowp float;\n"
 "precision highp int;\n"
 "\n";
 
@@ -125,12 +124,13 @@ void ShaderWriter::Preamble(const char **gl_extensions, size_t num_gl_extensions
 			F("%s\n", gl_extensions[i]);
 		}
 		// Print some system info - useful to gather information directly from screenshots.
-		F("// %s\n", lang_.driverInfo);
+		if (strlen(lang_.driverInfo) != 0) {
+			F("// Driver: %s\n", lang_.driverInfo);
+		}
 		switch (stage_) {
 		case ShaderStage::Fragment:
 			C("#define DISCARD discard\n");
 			if (lang_.gles) {
-				C("precision lowp float;\n");
 				if (lang_.glslES30) {
 					C("precision highp int;\n");
 				}
@@ -318,9 +318,27 @@ void ShaderWriter::HighPrecisionFloat() {
 	}
 }
 
+void ShaderWriter::LowPrecisionFloat() {
+	if ((ShaderLanguageIsOpenGL(lang_.shaderLanguage) && lang_.gles) || lang_.shaderLanguage == GLSL_VULKAN) {
+		C("precision lowp float;\n");
+	}
+}
+
+void ShaderWriter::ConstFloat(const char *name, float value) {
+	switch (lang_.shaderLanguage) {
+	case HLSL_D3D11:
+	case HLSL_D3D9:
+		F("static const float %s = %f;\n", name, value);
+		break;
+	default:
+		F("#define %s %f\n", name, value);
+		break;
+	}
+}
+
 void ShaderWriter::DeclareSamplers(Slice<SamplerDef> samplers) {
 	for (int i = 0; i < (int)samplers.size(); i++) {
-		DeclareTexture2D(samplers[i].name,i);
+		DeclareTexture2D(samplers[i].name, i);
 		DeclareSampler2D(samplers[i].name, i);
 	}
 }
@@ -347,24 +365,24 @@ void ShaderWriter::DeclareSampler2D(const char *name, int binding) {
 	// We only use separate samplers in HLSL D3D11, where we have no choice.
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
-		F("SamplerState %s : register(s%d);\n", name, binding);
+		F("SamplerState %sSamp : register(s%d);\n", name, binding);
 		break;
 	default:
 		break;
 	}
 }
 
-ShaderWriter &ShaderWriter::SampleTexture2D(const char *texName, const char *samplerName, const char *uv) {
+ShaderWriter &ShaderWriter::SampleTexture2D(const char *sampName, const char *uv) {
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
-		F("%s.Sample(%s, %s)", texName, samplerName, uv);
+		F("%s.Sample(%sSamp, %s)", sampName, sampName, uv);
 		break;
 	case HLSL_D3D9:
-		F("tex2D(%s, %s)", texName, uv);
+		F("tex2D(%s, %s)", sampName, uv);
 		break;
 	default:
 		// Note: we ignore the sampler. make sure you bound samplers to the textures correctly.
-		F("%s(%s, %s)", lang_.texture, texName, uv);
+		F("%s(%s, %s)", lang_.texture, sampName, uv);
 		break;
 	}
 	return *this;
