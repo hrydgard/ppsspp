@@ -43,7 +43,7 @@ public:
 };
 
 // Caches both shaders and palette textures.
-class DepalShaderCache : public DepalShaderCacheCommon {
+class DepalShaderCache {
 public:
 	DepalShaderCache(Draw::DrawContext *draw);
 	~DepalShaderCache();
@@ -66,6 +66,15 @@ public:
 	static bool GenerateVertexShader(char *buffer, const ShaderLanguageDesc &lang);
 
 private:
+	static uint32_t GenerateShaderID(uint32_t clutMode, GEBufferFormat pixelFormat) {
+		return (clutMode & 0xFFFFFF) | (pixelFormat << 24);
+	}
+
+	static uint32_t GetClutID(GEPaletteFormat clutFormat, uint32_t clutHash) {
+		// Simplistic.
+		return clutHash ^ (uint32_t)clutFormat;
+	}
+
 	Draw::DrawContext *draw_;
 	Draw::ShaderModule *vertexShader_ = nullptr;
 	Draw::SamplerState *nearestSampler_ = nullptr;

@@ -343,13 +343,4 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat, ShaderLanguag
 	}
 }
 
-uint32_t DepalShaderCacheCommon::GenerateShaderID(uint32_t clutMode, GEBufferFormat pixelFormat) const {
-	return (clutMode & 0xFFFFFF) | (pixelFormat << 24);
-}
-
-uint32_t DepalShaderCacheCommon::GetClutID(GEPaletteFormat clutFormat, uint32_t clutHash) const {
-	// Simplistic.
-	return clutHash ^ (uint32_t)clutFormat;
-}
-
 #undef WRITE
