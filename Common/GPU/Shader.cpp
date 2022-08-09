@@ -33,6 +33,7 @@ ShaderLanguageDesc::ShaderLanguageDesc(ShaderLanguage lang) {
 
 void ShaderLanguageDesc::Init(ShaderLanguage lang) {
 	shaderLanguage = lang;
+	strcpy(driverInfo, "");
 	switch (lang) {
 	case GLSL_1xx:
 		// Just used in the shader test, and as a basis for the others in DetectShaderLanguage.

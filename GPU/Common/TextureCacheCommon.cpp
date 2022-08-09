@@ -1892,12 +1892,11 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			gstate_c.depalFramebufferFormat = framebuffer->drawnFormat;
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
-			CheckAlphaResult alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBuf_, clutFormat, clutTotalColors);
+			CheckAlphaResult alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBufRaw_, clutFormat, clutTotalColors);
 			gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
 
 			draw_->InvalidateCachedState();
 			InvalidateLastTexture();
-
 			return;
 		}
 
@@ -1922,10 +1921,10 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		shaderApply.Use();
 
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, 0);
+		draw_->BindTexture(1, clutTexture);
 		Draw::SamplerState *nearest = depalShaderCache_->GetSampler();
 		draw_->BindSamplerStates(0, 1, &nearest);
 		draw_->BindSamplerStates(1, 1, &nearest);
-		draw_->BindTexture(1, clutTexture);
 
 		shaderApply.Shade();
 		draw_->BindTexture(0, nullptr);
@@ -2306,6 +2305,12 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		plan.baseLevelSrc = std::max(0, gstate.getTexLevelOffset16() / 16);
 		plan.levelsToCreate = 1;
 		plan.levelsToLoad = 1;
+	}
+
+	if (plan.isVideo || plan.depth != 1) {
+		plan.maxPossibleLevels = 1;
+	} else {
+		plan.maxPossibleLevels = log2i(std::min(plan.w * plan.scaleFactor, plan.h * plan.scaleFactor)) + 1;
 	}
 
 	if (plan.levelsToCreate == 1) {
