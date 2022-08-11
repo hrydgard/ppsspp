@@ -1511,10 +1511,12 @@ void ConvertStencilFuncState(GenericStencilFuncState &state) {
 	state.testRef = gstate.getStencilTestRef();
 	state.testMask = gstate.getStencilTestMask();
 
-	if ((state.sFail == state.zFail || !gstate.isDepthTestEnabled()) && state.sFail == state.zPass) {
+	bool depthTest = gstate.isDepthTestEnabled();
+	if ((state.sFail == state.zFail || !depthTest) && state.sFail == state.zPass) {
 		// Common case: we're writing only to stencil (usually REPLACE/REPLACE/REPLACE.)
 		// We want to write stencil to alpha in this case, so switch to ALWAYS if already masked.
-		if ((gstate.getColorMask() & 0x00FFFFFF) == 0x00FFFFFF) {
+		bool depthWrite = gstate.isDepthWriteEnabled();
+		if ((gstate.getColorMask() & 0x00FFFFFF) == 0x00FFFFFF && (!depthTest || !depthWrite)) {
 			state.testFunc = GE_COMP_ALWAYS;
 		}
 	}
