@@ -81,8 +81,8 @@ private:
 	void PrimaryPreviewHover(int x, int y);
 	void SecondPreviewHover(int x, int y);
 	void PreviewExport(const GPUDebugBuffer *buffer);
-	void DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]);
-	void DescribePixelRGBA(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]);
+	static void DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]);
+	static void DescribePixelRGBA(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]);
 	void UpdateMenus();
 
 	u32 TexturePreviewFlags(const GPUgstate &state);
@@ -93,12 +93,16 @@ private:
 	TabStateLighting *lighting = nullptr;
 	TabStateTexture *textureState = nullptr;
 	TabStateSettings *settings = nullptr;
+	TabStateLighting *lightingRight_ = nullptr;
+	TabStateTexture *textureStateRight_ = nullptr;
+	TabStateSettings *settingsRight_ = nullptr;
 	TabVertices *vertices = nullptr;
 	TabMatrices *matrices = nullptr;
 	SimpleGLWindow *primaryWindow = nullptr;
 	SimpleGLWindow *secondWindow = nullptr;
 	TabStateWatch *watch = nullptr;
 	TabControl *tabs = nullptr;
+	TabControl *tabsRight_ = nullptr;
 	TabControl *fbTabs = nullptr;
 	int textureLevel_ = 0;
 	bool showClut_ = false;

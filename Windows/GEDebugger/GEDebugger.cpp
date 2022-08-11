@@ -146,8 +146,10 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&frameRect,2);
 	MoveWindow(frameWnd,frameRect.left,frameRect.top,512,272,TRUE);
 
-	tabs = new TabControl(GetDlgItem(m_hDlg,IDC_GEDBG_MAINTAB));
-	HWND wnd = tabs->AddTabWindow(L"CtrlDisplayListView",L"Display List");
+	tabs = new TabControl(GetDlgItem(m_hDlg, IDC_GEDBG_MAINTAB));
+	tabsRight_ = new TabControl(GetDlgItem(m_hDlg, IDC_GEDBG_RIGHTTAB));
+
+	HWND wnd = tabs->AddTabWindow(L"CtrlDisplayListView", L"Display List");
 	displayList = CtrlDisplayListView::getFrom(wnd);
 
 	fbTabs = new TabControl(GetDlgItem(m_hDlg, IDC_GEDBG_FBTABS));
@@ -162,7 +164,7 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	tabs->AddTabDialog(flags, L"Flags");
 
 	lighting = new TabStateLighting(_hInstance, m_hDlg);
-	tabs->AddTabDialog(lighting, L"Lighting");
+	tabs->AddTabDialog(lighting, L"Light");
 
 	textureState = new TabStateTexture(_hInstance, m_hDlg);
 	tabs->AddTabDialog(textureState, L"Texture");
@@ -171,7 +173,7 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	tabs->AddTabDialog(settings, L"Settings");
 
 	vertices = new TabVertices(_hInstance, m_hDlg);
-	tabs->AddTabDialog(vertices, L"Vertices");
+	tabs->AddTabDialog(vertices, L"Verts");
 
 	matrices = new TabMatrices(_hInstance, m_hDlg);
 	tabs->AddTabDialog(matrices, L"Matrices");
@@ -183,6 +185,18 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	tabs->AddTabDialog(watch, L"Watch");
 
 	tabs->ShowTab(0, true);
+
+
+	lightingRight_ = new TabStateLighting(_hInstance, m_hDlg);
+	tabsRight_->AddTabDialog(lightingRight_, L"Light");
+
+	textureStateRight_ = new TabStateTexture(_hInstance, m_hDlg);
+	tabsRight_->AddTabDialog(textureStateRight_, L"Texture");
+
+	settingsRight_ = new TabStateSettings(_hInstance, m_hDlg);
+	tabsRight_->AddTabDialog(settingsRight_, L"Settings");
+
+	tabsRight_->ShowTab(0, true);
 
 	// set window position
 	int x = g_Config.iGEWindowX == -1 ? windowRect.left : g_Config.iGEWindowX;
@@ -200,13 +214,17 @@ CGEDebugger::~CGEDebugger() {
 	CleanupPrimPreview();
 	delete flags;
 	delete lighting;
+	delete lightingRight_;
 	delete textureState;
+	delete textureStateRight_;
 	delete settings;
+	delete settingsRight_;
 	delete vertices;
 	delete matrices;
 	delete lists;
 	delete watch;
 	delete tabs;
+	delete tabsRight_;
 	delete fbTabs;
 }
 
@@ -364,8 +382,11 @@ void CGEDebugger::UpdatePreviews() {
 
 	flags->Update();
 	lighting->Update();
+	lightingRight_->Update();
 	textureState->Update();
+	textureStateRight_->Update();
 	settings->Update();
+	settingsRight_->Update();
 	vertices->Update();
 	matrices->Update();
 	lists->Update();
@@ -696,16 +717,23 @@ void CGEDebugger::UpdateTextureLevel(int level) {
 }
 
 void CGEDebugger::UpdateSize(WORD width, WORD height) {
-	// only resize the tab for now
+	// only resize the tabs for now
 	HWND tabControl = GetDlgItem(m_hDlg, IDC_GEDBG_MAINTAB);
+	HWND tabControlRight = GetDlgItem(m_hDlg, IDC_GEDBG_RIGHTTAB);
 
 	RECT tabRect;
 	GetWindowRect(tabControl,&tabRect);
 	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&tabRect,2);
 
-	tabRect.right = tabRect.left + (width-tabRect.left*2);				// assume same gap on both sides
+	tabRect.right = tabRect.left + (width / 2-tabRect.left*2);				// assume same gap on both sides
 	tabRect.bottom = tabRect.top + (height-tabRect.top-tabRect.left);	// assume same gap on bottom too
-	MoveWindow(tabControl,tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,TRUE);
+	
+	RECT tabRectRight = tabRect;
+	tabRectRight.left += tabRect.right;
+	tabRectRight.right += tabRect.right;
+	
+	MoveWindow(tabControl, tabRect.left, tabRect.top, tabRect.right - tabRect.left, tabRect.bottom - tabRect.top, TRUE);
+	MoveWindow(tabControlRight, tabRectRight.left, tabRectRight.top, tabRectRight.right - tabRectRight.left, tabRectRight.bottom - tabRectRight.top, TRUE);
 }
 
 void CGEDebugger::SavePosition() {
@@ -776,6 +804,9 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			if (gpuDebug != nullptr) {
 				lists->Update();
 			}
+			break;
+		case IDC_GEDBG_RIGHTTAB:
+			tabsRight_->HandleNotify(lParam);
 			break;
 		case IDC_GEDBG_FBTABS:
 			fbTabs->HandleNotify(lParam);
