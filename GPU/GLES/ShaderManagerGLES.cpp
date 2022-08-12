@@ -326,18 +326,19 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 
 #ifdef OPENXR
 	// Count 3D instances
-	bool is3D = gstate.isDepthWriteEnabled();
 	bool is2D = VR_TweakIsMatrixBigScale(gstate.projMatrix) ||
 			    VR_TweakIsMatrixIdentity(gstate.projMatrix) ||
+			    VR_TweakIsMatrixOneOrtho(gstate.projMatrix) ||
+			    VR_TweakIsMatrixOneScale(gstate.projMatrix) ||
 			    VR_TweakIsMatrixOneTransform(gstate.projMatrix);
-	is2D = is2D && !is3D;
 	if (!is2D && !gstate.isModeThrough()) {
 		VR_SetConfig(VR_CONFIG_3D_GEOMETRY_COUNT, VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) + 1);
 	}
 
 	// Set HUD mode
+	bool is3D = gstate.isDepthWriteEnabled();
 	bool flatScreen = VR_GetConfig(VR_CONFIG_MODE) == VR_MODE_FLAT_SCREEN;
-	bool hud = is2D && !flatScreen &&
+	bool hud = is2D && !is3D && !flatScreen &&
                gstate.isModeThrough() &&       //2D content requires orthographic projection
                gstate.isAlphaBlendEnabled() && //2D content has to be blended
                !gstate.isLightingEnabled() &&  //2D content cannot be rendered with lights on
