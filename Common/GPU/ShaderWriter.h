@@ -36,6 +36,11 @@ struct VaryingDef {
 	const char *precision;
 };
 
+enum FSFlags {
+	FSFLAG_NONE = 0,
+	FSFLAG_WRITEDEPTH = 1,
+};
+
 class ShaderWriter {
 public:
 	ShaderWriter(char *buffer, const ShaderLanguageDesc &lang, ShaderStage stage, const char **gl_extensions, size_t num_gl_extensions) : p_(buffer), lang_(lang), stage_(stage) {
@@ -82,11 +87,11 @@ public:
 
 	// Simple shaders with no special tricks.
 	void BeginVSMain(Slice<InputDef> inputs, Slice<UniformDef> uniforms, Slice<VaryingDef> varyings);
-	void BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> varyings);
+	void BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> varyings, FSFlags flags);
 
 	// For simple shaders that output a single color, we can deal with this generically.
 	void EndVSMain(Slice<VaryingDef> varyings);
-	void EndFSMain(const char *vec4_color_variable);
+	void EndFSMain(const char *vec4_color_variable, FSFlags flags);
 
 
 	void Rewind(size_t offset) {

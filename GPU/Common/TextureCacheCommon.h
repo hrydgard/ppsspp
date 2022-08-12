@@ -25,6 +25,7 @@
 #include "Common/MemoryUtil.h"
 #include "Core/TextureReplacer.h"
 #include "Core/System.h"
+#include "GPU/GPU.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/TextureScalerCommon.h"
@@ -34,11 +35,6 @@ enum FramebufferNotification {
 	NOTIFY_FB_CREATED,
 	NOTIFY_FB_UPDATED,
 	NOTIFY_FB_DESTROYED,
-};
-
-enum FramebufferNotificationChannel {
-	NOTIFY_FB_COLOR = 0,
-	NOTIFY_FB_DEPTH = 1,
 };
 
 // Changes more frequent than this will be considered "frequent" and prevent texture scaling.
@@ -229,7 +225,7 @@ struct AttachCandidate {
 	FramebufferMatchInfo match;
 	TextureDefinition entry;
 	VirtualFramebuffer *fb;
-	FramebufferNotificationChannel channel;
+	RasterChannel channel;
 
 	std::string ToString();
 };
@@ -336,7 +332,7 @@ protected:
 	void DeleteTexture(TexCache::iterator it);
 	void Decimate(bool forcePressure = false);
 
-	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel);
+	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel);
 
 	void HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
 	virtual void BuildTexture(TexCacheEntry *const entry) = 0;
@@ -369,7 +365,7 @@ protected:
 	SamplerCacheKey GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
-	FramebufferMatchInfo MatchFramebuffer(const TextureDefinition &entry, VirtualFramebuffer *framebuffer, u32 texaddrOffset, FramebufferNotificationChannel channel) const;
+	FramebufferMatchInfo MatchFramebuffer(const TextureDefinition &entry, VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel) const;
 
 	std::vector<AttachCandidate> GetFramebufferCandidates(const TextureDefinition &entry, u32 texAddrOffset);
 	int GetBestCandidateIndex(const std::vector<AttachCandidate> &candidates);

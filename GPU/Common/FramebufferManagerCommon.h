@@ -359,7 +359,7 @@ protected:
 	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags);
 
-	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter);
+	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, RasterChannel channel);
 
 	bool UpdateSize();
 
@@ -367,11 +367,11 @@ protected:
 	virtual void DecimateFBOs();  // keeping it virtual to let D3D do a little extra
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
-	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag);
+	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag);
 
 	void BlitUsingRaster(
 		Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
-		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2, bool linearFilter);
+		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2, bool linearFilter, RasterChannel channel);
 
 	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags);
 
@@ -485,9 +485,11 @@ protected:
 	Draw::SamplerState *stencilUploadSampler_ = nullptr;
 
 	// Draw2D pipelines
-	Draw::Pipeline *draw2DPipelineLinear_ = nullptr;
+	Draw::Pipeline *draw2DPipelineColor_ = nullptr;
+	Draw::Pipeline *draw2DPipelineDepth_ = nullptr;
 	Draw::SamplerState *draw2DSamplerLinear_ = nullptr;
 	Draw::SamplerState *draw2DSamplerNearest_ = nullptr;
 	Draw::ShaderModule *draw2DVs_ = nullptr;
 	Draw::ShaderModule *draw2DFs_ = nullptr;
+	Draw::ShaderModule *draw2DFsDepth_ = nullptr;
 };

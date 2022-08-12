@@ -560,6 +560,13 @@ OpenGLContext::OpenGLContext() {
 		gl_extensions.IsCoreContext || gl_extensions.GLES3 ||
 		gl_extensions.ARB_texture_non_power_of_two || gl_extensions.OES_texture_npot;
 
+	if (gl_extensions.IsGLES) {
+		caps_.fragmentShaderDepthWriteSupported = gl_extensions.GLES3;
+		// There's also GL_EXT_frag_depth but it's rare along with 2.0. Most chips that support it are simply 3.0 chips.
+	} else {
+		caps_.fragmentShaderDepthWriteSupported = true;
+	}
+
 	// Interesting potential hack for emulating GL_DEPTH_CLAMP (use a separate varying, force depth in fragment shader):
 	// This will induce a performance penalty on many architectures though so a blanket enable of this
 	// is probably not a good idea.

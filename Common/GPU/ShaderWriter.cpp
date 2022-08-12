@@ -212,7 +212,7 @@ void ShaderWriter::BeginVSMain(Slice<InputDef> inputs, Slice<UniformDef> uniform
 	}
 }
 
-void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> varyings) {
+void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> varyings, FSFlags flags) {
 	_assert_(this->stage_ == ShaderStage::Fragment);
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
@@ -226,29 +226,56 @@ void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> var
 			C("};\n");
 		}
 
+		if (flags & FSFLAG_WRITEDEPTH) {
+			C("float gl_FragDepth;\n");
+		}
+
+		C("struct PS_OUT {\n");
+		C("  vec4 target : SV_Target0;\n");
+		if (flags & FSFLAG_WRITEDEPTH) {
+			C("  float depth : SV_Depth;\n");
+		}
+		C("};\n");
+
 		// Let's do the varyings as parameters to main, no struct.
-		C("vec4 main(");
+		C("PS_OUT main(");
 		for (auto &varying : varyings) {
 			F("  %s %s : %s, ", varying.type, varying.name, semanticNames[varying.semantic]);
 		}
 		// Erase the last comma
 		Rewind(2);
 
-		F(") : SV_Target0 {\n");
+		F(") {\n");
+		C("  PS_OUT ps_out;\n");
+		if (flags & FSFLAG_WRITEDEPTH) {
+			C("  float gl_FragDepth;\n");
+		}
 		break;
 	case HLSL_D3D9:
+		C("struct PS_OUT {\n");
+		C("  vec4 target : SV_Target0;\n");
+		if (flags & FSFLAG_WRITEDEPTH) {
+			C("  float depth : DEPTH;\n");
+		}
+		C("};\n");
+
 		for (auto &uniform : uniforms) {
 			F("  %s %s : register(c%d);\n", uniform.type, uniform.name, uniform.index);
 		}
 		// Let's do the varyings as parameters to main, no struct.
-		C("vec4 main(");
+		C("PS_OUT main(");
 		for (auto &varying : varyings) {
 			F("  %s %s : %s, ", varying.type, varying.name, semanticNames[varying.semantic]);
 		}
 		// Erase the last comma
 		Rewind(2);
 
-		F(") : COLOR {\n");
+		F(") {\n");
+		C("  PS_OUT ps_out;\n");
+		if (flags & FSFLAG_WRITEDEPTH) {
+			C("  float gl_FragDepth;\n");
+		}
+
 		break;
 	case GLSL_VULKAN:
 		for (auto &varying : varyings) {
@@ -299,12 +326,16 @@ void ShaderWriter::EndVSMain(Slice<VaryingDef> varyings) {
 	C("}\n");
 }
 
-void ShaderWriter::EndFSMain(const char *vec4_color_variable) {
+void ShaderWriter::EndFSMain(const char *vec4_color_variable, FSFlags flags) {
 	_assert_(this->stage_ == ShaderStage::Fragment);
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
 	case HLSL_D3D9:
-		F("  return %s;\n", vec4_color_variable);
+		F("  ps_out.target = %s;\n", vec4_color_variable);
+		if (flags & FSFLAG_WRITEDEPTH) {
+			C("  ps_out.depth = gl_FragDepth;\n");
+		}
+		C("  return ps_out;\n");
 		break;
 	case GLSL_VULKAN:
 	default:  // OpenGL

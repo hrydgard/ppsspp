@@ -1018,7 +1018,7 @@ void ConvertMaskState(GenericMaskState &maskState, bool allowFramebufferRead) {
 		return;
 	}
 
-	if (gstate_c.renderMode == FB_MODE_COLOR_TO_DEPTH) {
+	if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
 		// Suppress color writes entirely in this mode.
 		maskState.applyFramebufferRead = false;
 		maskState.rgba[0] = false;
@@ -1510,6 +1510,16 @@ void ConvertStencilFuncState(GenericStencilFuncState &state) {
 	state.testFunc = gstate.getStencilTestFunction();
 	state.testRef = gstate.getStencilTestRef();
 	state.testMask = gstate.getStencilTestMask();
+
+	bool depthTest = gstate.isDepthTestEnabled();
+	if ((state.sFail == state.zFail || !depthTest) && state.sFail == state.zPass) {
+		// Common case: we're writing only to stencil (usually REPLACE/REPLACE/REPLACE.)
+		// We want to write stencil to alpha in this case, so switch to ALWAYS if already masked.
+		bool depthWrite = gstate.isDepthWriteEnabled();
+		if ((gstate.getColorMask() & 0x00FFFFFF) == 0x00FFFFFF && (!depthTest || !depthWrite)) {
+			state.testFunc = GE_COMP_ALWAYS;
+		}
+	}
 
 	switch (gstate_c.framebufFormat) {
 	case GE_FORMAT_565:

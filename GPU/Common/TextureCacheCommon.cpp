@@ -265,7 +265,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 		}
 	}
 
-	if (gstate_c.renderMode == FB_MODE_COLOR_TO_DEPTH) {
+	if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
 		forceFiltering = TEX_FILTER_FORCE_NEAREST;
 	}
 
@@ -625,8 +625,8 @@ std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const 
 
 	std::vector<AttachCandidate> candidates;
 
-	FramebufferNotificationChannel channel = Memory::IsDepthTexVRAMAddress(entry.addr) ? FramebufferNotificationChannel::NOTIFY_FB_DEPTH : FramebufferNotificationChannel::NOTIFY_FB_COLOR;
-	if (channel == FramebufferNotificationChannel::NOTIFY_FB_DEPTH && !gstate_c.Supports(GPU_SUPPORTS_DEPTH_TEXTURE)) {
+	RasterChannel channel = Memory::IsDepthTexVRAMAddress(entry.addr) ? RasterChannel::RASTER_DEPTH : RasterChannel::RASTER_COLOR;
+	if (channel == RasterChannel::RASTER_DEPTH && !gstate_c.Supports(GPU_SUPPORTS_DEPTH_TEXTURE)) {
 		// Depth texture not supported. Don't try to match it, fall back to the memory behind..
 		return std::vector<AttachCandidate>();
 	}
@@ -645,7 +645,7 @@ std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const 
 	}
 
 	if (candidates.size() > 1) {
-		bool depth = channel == FramebufferNotificationChannel::NOTIFY_FB_DEPTH;
+		bool depth = channel == RasterChannel::RASTER_DEPTH;
 
 		std::string cands;
 		for (auto &candidate : candidates) {
@@ -687,7 +687,7 @@ int TextureCacheCommon::GetBestCandidateIndex(const std::vector<AttachCandidate>
 		}
 
 		// Bonus point for matching stride.
-		if (candidate.channel == NOTIFY_FB_COLOR && candidate.fb->fb_stride == candidate.entry.bufw) {
+		if (candidate.channel == RASTER_COLOR && candidate.fb->fb_stride == candidate.entry.bufw) {
 			relevancy += 100;
 		}
 
@@ -696,9 +696,9 @@ int TextureCacheCommon::GetBestCandidateIndex(const std::vector<AttachCandidate>
 			relevancy += 10;
 		}
 
-		if (candidate.channel == NOTIFY_FB_COLOR && candidate.fb->last_frame_render == gpuStats.numFlips) {
+		if (candidate.channel == RASTER_COLOR && candidate.fb->last_frame_render == gpuStats.numFlips) {
 			relevancy += 5;
-		} else if (candidate.channel == NOTIFY_FB_DEPTH && candidate.fb->last_frame_depth_render == gpuStats.numFlips) {
+		} else if (candidate.channel == RASTER_DEPTH && candidate.fb->last_frame_depth_render == gpuStats.numFlips) {
 			relevancy += 5;
 		}
 
@@ -878,10 +878,10 @@ void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, Fram
 
 FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 	const TextureDefinition &entry,
-	VirtualFramebuffer *framebuffer, u32 texaddrOffset, FramebufferNotificationChannel channel) const {
+	VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel) const {
 	static const u32 MAX_SUBAREA_Y_OFFSET_SAFE = 32;
 
-	uint32_t fb_address = channel == NOTIFY_FB_DEPTH ? framebuffer->z_address : framebuffer->fb_address;
+	uint32_t fb_address = channel == RASTER_DEPTH ? framebuffer->z_address : framebuffer->fb_address;
 
 	u32 addr = fb_address & 0x3FFFFFFF;
 	u32 texaddr = entry.addr + texaddrOffset;
@@ -906,14 +906,14 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 		case 0x00000000:
 		case 0x00400000:
 			// Don't match the depth channel with these addresses when texturing.
-			if (channel == FramebufferNotificationChannel::NOTIFY_FB_DEPTH) {
+			if (channel == RasterChannel::RASTER_DEPTH) {
 				return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
 			}
 			break;
 		case 0x00200000:
 		case 0x00600000:
 			// Don't match the color channel with these addresses when texturing.
-			if (channel == FramebufferNotificationChannel::NOTIFY_FB_COLOR) {
+			if (channel == RasterChannel::RASTER_COLOR) {
 				return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
 			}
 			break;
@@ -924,7 +924,7 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 	}
 
 	const bool noOffset = texaddr == addr;
-	const bool exactMatch = noOffset && entry.format < 4 && channel == NOTIFY_FB_COLOR;
+	const bool exactMatch = noOffset && entry.format < 4 && channel == RASTER_COLOR;
 	const u32 w = 1 << ((entry.dim >> 0) & 0xf);
 	const u32 h = 1 << ((entry.dim >> 8) & 0xf);
 	// 512 on a 272 framebuffer is sane, so let's be lenient.
@@ -958,9 +958,9 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 
 		// Check works for D16 too (???)
 		const bool matchingClutFormat =
-			(channel != NOTIFY_FB_COLOR && entry.format == GE_TFMT_CLUT16) ||
-			(channel == NOTIFY_FB_COLOR && framebuffer->format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT32) ||
-			(channel == NOTIFY_FB_COLOR && framebuffer->format != GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT16);
+			(channel != RASTER_COLOR && entry.format == GE_TFMT_CLUT16) ||
+			(channel == RASTER_COLOR && framebuffer->format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT32) ||
+			(channel == RASTER_COLOR && framebuffer->format != GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT16);
 
 		// To avoid ruining git blame, kept the same name as the old struct.
 		FramebufferMatchInfo fbInfo{ FramebufferMatch::VALID };
@@ -1782,7 +1782,7 @@ void TextureCacheCommon::ApplyTexture() {
 		if (nextFramebufferTexture_) {
 			bool depth = Memory::IsDepthTexVRAMAddress(gstate.getTextureAddress(0));
 			// ApplyTextureFrameBuffer is responsible for setting SetTextureFullAlpha.
-			ApplyTextureFramebuffer(nextFramebufferTexture_, gstate.getTextureFormat(), depth ? NOTIFY_FB_DEPTH : NOTIFY_FB_COLOR);
+			ApplyTextureFramebuffer(nextFramebufferTexture_, gstate.getTextureFormat(), depth ? RASTER_DEPTH : RASTER_COLOR);
 			nextFramebufferTexture_ = nullptr;
 		}
 
@@ -1845,12 +1845,12 @@ void TextureCacheCommon::ApplyTexture() {
 	gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 }
 
-void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) {
+void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel) {
 	DepalShader *depalShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
 	bool need_depalettize = IsClutFormat(texFormat);
-	bool depth = channel == NOTIFY_FB_DEPTH;
+	bool depth = channel == RASTER_DEPTH;
 	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && !depth && !gstate_c.curTextureIs3D;
 
 	// TODO: Implement shader depal in the fragment shader generator for D3D11 at least.
@@ -2262,7 +2262,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	}
 
 	// Don't upscale textures in color-to-depth mode.
-	if (gstate_c.renderMode == FB_MODE_COLOR_TO_DEPTH) {
+	if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
 		plan.scaleFactor = 1;
 	}
 
