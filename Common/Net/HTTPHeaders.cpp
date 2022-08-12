@@ -154,7 +154,7 @@ void RequestHeader::ParseHeaders(net::InputSink *sink) {
 	}
 
 	VERBOSE_LOG(IO, "finished parsing request.");
-	ok = line_count > 1;
+	ok = line_count > 1 && resource != nullptr;
 }
 
 }  // namespace http
