@@ -68,15 +68,10 @@ void VR_TweakMirroring(float* projMatrix) {
 }
 
 void VR_TweakProjection(float* src, float* dst, VRMatrix matrix) {
+	memcpy(dst, src, 16 * sizeof(float));
 	ovrMatrix4f hmdProjection = VR_GetMatrix(matrix);
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
-			if ((hmdProjection.M[i][j] > 0) != (src[i * 4 + j] > 0)) {
-				hmdProjection.M[i][j] *= -1.0f;
-			}
-		}
-	}
-	memcpy(dst, hmdProjection.M, 16 * sizeof(float));
+	dst[0] = (dst[0] > 0 ? 1.0f : -1.0f) * hmdProjection.M[0][0];
+	dst[5] = (dst[5] > 0 ? 1.0f : -1.0f) * hmdProjection.M[1][1];
 }
 
 void VR_TweakView(float* view, float* projMatrix, VRMatrix matrix) {
