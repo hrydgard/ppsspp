@@ -108,7 +108,7 @@ static void DirtyAllVRAM(DirtyVRAMFlag flag) {
 
 static void DirtyVRAM(u32 start, u32 sz, DirtyVRAMFlag flag) {
 	u32 count = (sz + DIRTY_VRAM_ROUND) >> DIRTY_VRAM_SHIFT;
-	u32 first = (start >> 10) & DIRTY_VRAM_MASK;
+	u32 first = (start >> DIRTY_VRAM_SHIFT) & DIRTY_VRAM_MASK;
 	if (first + count > DIRTY_VRAM_SIZE) {
 		DirtyAllVRAM(flag);
 		return;
@@ -329,10 +329,15 @@ static void EmitTextureData(int level, u32 texaddr) {
 
 		bool isDirtyVRAM = false;
 		bool isDrawnVRAM = false;
+		uint32_t start = (texaddr >> DIRTY_VRAM_SHIFT) & DIRTY_VRAM_MASK;
 		for (uint32_t i = 0; i < (sizeInRAM + DIRTY_VRAM_ROUND) >> DIRTY_VRAM_SHIFT; ++i) {
-			DirtyVRAMFlag flag = dirtyVRAM[(texaddr >> DIRTY_VRAM_SHIFT) + i];
+			DirtyVRAMFlag flag = dirtyVRAM[start + i];
 			isDirtyVRAM = isDirtyVRAM || flag != DirtyVRAMFlag::CLEAN;
 			isDrawnVRAM = isDrawnVRAM || flag == DirtyVRAMFlag::DRAWN;
+
+			// Mark the VRAM clean now that it's been copied to VRAM.
+			if (flag == DirtyVRAMFlag::DIRTY)
+				dirtyVRAM[start + i] = DirtyVRAMFlag::CLEAN;
 		}
 
 		// The isTarget flag is mostly used for replay of dumps on a PSP.
