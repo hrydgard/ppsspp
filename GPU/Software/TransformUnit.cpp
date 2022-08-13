@@ -281,6 +281,8 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState
 
 	if (state.readUV) {
 		vreader.ReadUV(vertex.texturecoords.AsArray());
+	} else {
+		vertex.texturecoords.SetZero();
 	}
 
 	Vec3<float> normal;
