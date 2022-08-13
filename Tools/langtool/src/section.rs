@@ -11,6 +11,28 @@ pub struct Section {
 }
 
 impl Section {
+    pub fn remove_line(&mut self, key: &str) -> Option<String> {
+        let mut remove_index = None;
+        for (index, line) in self.lines.iter().enumerate() {
+            let prefix = if let Some(pos) = line.find(" =") {
+                &line[0..pos]
+            } else {
+                continue;
+            };
+
+            if prefix.eq_ignore_ascii_case(&key) {
+                remove_index = Some(index);
+                break;
+            }
+        }
+
+        if let Some(remove_index) = remove_index {
+            Some(self.lines.remove(remove_index))
+        } else {
+            None
+        }
+    }
+
     pub fn insert_line_if_missing(&mut self, line: &str) -> bool {
         let prefix = if let Some(pos) = line.find(" =") {
             &line[0..pos + 2]

@@ -16,6 +16,11 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 
+#ifdef OPENXR
+#include "VR/VRBase.h"
+#include "VR/VRRenderer.h"
+#endif
+
 static const bool ClickDebug = false;
 
 UIScreen::UIScreen()
@@ -87,6 +92,10 @@ void UIScreen::preRender() {
 	// Bind and clear the back buffer
 	draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 }, "UI");
 	screenManager()->getUIContext()->BeginFrame();
+
+#ifdef OPENXR
+	VR_BindFramebuffer(VR_GetEngine(), 0);
+#endif
 
 	Draw::Viewport viewport;
 	viewport.TopLeftX = 0;

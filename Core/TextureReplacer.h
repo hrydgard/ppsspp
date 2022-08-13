@@ -25,6 +25,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/MemoryUtil.h"
 #include "Common/File/Path.h"
+#include "Common/GPU/DataFormat.h"
 
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/ge_constants.h"
@@ -34,17 +35,6 @@ class TextureCacheCommon;
 class TextureReplacer;
 class ReplacedTextureTask;
 class LimitedWaitable;
-
-enum class ReplacedTextureFormat {
-	F_5650,
-	F_5551,
-	F_4444,
-	F_8888,
-	F_0565_ABGR,
-	F_1555_ABGR,
-	F_4444_ABGR,
-	F_8888_BGRA,
-};
 
 // These must match the constants in TextureCacheCommon.
 enum class ReplacedTextureAlpha {
@@ -62,7 +52,7 @@ enum class ReplacedTextureHash {
 struct ReplacedTextureLevel {
 	int w;
 	int h;
-	ReplacedTextureFormat fmt;
+	Draw::DataFormat fmt;  // NOTE: Right now, the only supported format is Draw::DataFormat::R8G8B8A8_UNORM.
 	Path file;
 };
 
@@ -70,8 +60,7 @@ struct ReplacementCacheKey {
 	u64 cachekey;
 	u32 hash;
 
-	ReplacementCacheKey(u64 c, u32 h) : cachekey(c), hash(h) {
-	}
+	ReplacementCacheKey(u64 c, u32 h) : cachekey(c), hash(h) { }
 
 	bool operator ==(const ReplacementCacheKey &k) const {
 		return k.cachekey == cachekey && k.hash == hash;
@@ -95,8 +84,7 @@ struct ReplacementAliasKey {
 		};
 	};
 
-	ReplacementAliasKey(u64 c, u32 h, u32 l) : cachekey(c), level(l), hash(h) {
-	}
+	ReplacementAliasKey(u64 c, u32 h, u32 l) : cachekey(c), level(l), hash(h) { }
 
 	bool operator ==(const ReplacementAliasKey &k) const {
 		return k.cachekey == cachekey && k.hashAndLevel == hashAndLevel;
@@ -129,11 +117,11 @@ namespace std {
 struct ReplacedTexture {
 	~ReplacedTexture();
 
-	inline bool Valid() {
+	inline bool Valid() const {
 		return !levels_.empty();
 	}
 
-	bool GetSize(int level, int &w, int &h) {
+	bool GetSize(int level, int &w, int &h) const {
 		if ((size_t)level < levels_.size()) {
 			w = levels_[level].w;
 			h = levels_[level].h;
@@ -142,18 +130,18 @@ struct ReplacedTexture {
 		return false;
 	}
 
-	int MaxLevel() {
-		return (int)levels_.size() - 1;
+	int NumLevels() const {
+		return (int)levels_.size();
 	}
 
-	ReplacedTextureFormat Format(int level) {
+	Draw::DataFormat Format(int level) const {
 		if ((size_t)level < levels_.size()) {
 			return levels_[level].fmt;
 		}
-		return ReplacedTextureFormat::F_8888;
+		return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 
-	u8 AlphaStatus() {
+	u8 AlphaStatus() const {
 		return (u8)alphaStatus_;
 	}
 
@@ -185,7 +173,13 @@ struct ReplacedTextureDecodeInfo {
 	bool isVideo;
 	bool isFinal;
 	int scaleFactor;
-	ReplacedTextureFormat fmt;
+	Draw::DataFormat fmt;
+};
+
+enum class ReplacerDecimateMode {
+	NEW_FRAME,
+	FORCE_PRESSURE,
+	ALL,
 };
 
 class TextureReplacer {
@@ -214,9 +208,10 @@ public:
 	// Notify that a new texture was decoded.  May already be upscaled, saves the data passed.
 	void NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int w, int h);
 
-	void Decimate(bool forcePressure);
+	void Decimate(ReplacerDecimateMode mode);
 
 	static bool GenerateIni(const std::string &gameID, Path &generatedFilename);
+	static bool IniExists(const std::string &gameID);
 
 protected:
 	bool LoadIni();

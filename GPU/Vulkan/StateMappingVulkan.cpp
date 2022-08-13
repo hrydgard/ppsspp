@@ -250,7 +250,14 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 		GenericStencilFuncState stencilState;
 		ConvertStencilFuncState(stencilState);
 
-		if (gstate.isModeClear()) {
+		if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
+			// Enforce plain depth writing.
+			key.depthTestEnable = true;
+			key.depthWriteEnable = true;
+			key.stencilTestEnable = false;
+			key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
+			key.depthClampEnable = false;
+		} else if (gstate.isModeClear()) {
 			key.depthTestEnable = true;
 			key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
 			key.depthWriteEnable = gstate.isClearModeDepthMask();
@@ -347,17 +354,10 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 		}
 
 		ScissorRect &scissor = dynState.scissor;
-		if (vpAndScissor.scissorEnable) {
-			scissor.x = vpAndScissor.scissorX;
-			scissor.y = vpAndScissor.scissorY;
-			scissor.width = std::max(0, vpAndScissor.scissorW);
-			scissor.height = std::max(0, vpAndScissor.scissorH);
-		} else {
-			scissor.x = 0;
-			scissor.y = 0;
-			scissor.width = framebufferManager_->GetRenderWidth();
-			scissor.height = framebufferManager_->GetRenderHeight();
-		}
+		scissor.x = vpAndScissor.scissorX;
+		scissor.y = vpAndScissor.scissorY;
+		scissor.width = std::max(0, vpAndScissor.scissorW);
+		scissor.height = std::max(0, vpAndScissor.scissorH);
 	}
 }
 

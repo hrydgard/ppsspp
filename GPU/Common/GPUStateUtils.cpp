@@ -584,6 +584,7 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 	}
 
 	renderX = gstate_c.curRTOffsetX;
+	renderY = gstate_c.curRTOffsetY;
 
 	// Scissor
 	int scissorX1 = gstate.getScissorX1();
@@ -591,7 +592,6 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 	int scissorX2 = gstate.getScissorX2() + 1;
 	int scissorY2 = gstate.getScissorY2() + 1;
 
-	out.scissorEnable = true;
 	if (scissorX2 < scissorX1 || scissorY2 < scissorY1) {
 		out.scissorX = 0;
 		out.scissorY = 0;
@@ -1018,6 +1018,16 @@ void ConvertMaskState(GenericMaskState &maskState, bool allowFramebufferRead) {
 		return;
 	}
 
+	if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
+		// Suppress color writes entirely in this mode.
+		maskState.applyFramebufferRead = false;
+		maskState.rgba[0] = false;
+		maskState.rgba[1] = false;
+		maskState.rgba[2] = false;
+		maskState.rgba[3] = false;
+		return;
+	}
+
 	// Invert to convert masks from the PSP's format where 1 is don't draw to PC where 1 is draw.
 	uint32_t colorMask = ~((gstate.pmskc & 0xFFFFFF) | (gstate.pmska << 24));
 
@@ -1089,9 +1099,12 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead,
 
 	case REPLACE_BLEND_BLUE_TO_ALPHA:
 		blueToAlpha = true;
+		blendState.enabled = gstate.isAlphaBlendEnabled();
+		// We'll later convert the color blend to blend in the alpha channel.
 		break;
 
 	case REPLACE_BLEND_COPY_FBO:
+		blendState.enabled = true;
 		blendState.applyFramebufferRead = true;
 		blendState.resetFramebufferRead = false;
 		blendState.replaceAlphaWithStencil = replaceAlphaWithStencil;
@@ -1099,16 +1112,17 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead,
 
 	case REPLACE_BLEND_PRE_SRC:
 	case REPLACE_BLEND_PRE_SRC_2X_ALPHA:
+		blendState.enabled = true;
 		usePreSrc = true;
 		break;
 
 	case REPLACE_BLEND_STANDARD:
 	case REPLACE_BLEND_2X_ALPHA:
 	case REPLACE_BLEND_2X_SRC:
+		blendState.enabled = true;
 		break;
 	}
 
-	blendState.enabled = true;
 	blendState.resetFramebufferRead = true;
 
 	const GEBlendMode blendFuncEq = gstate.getBlendEq();
@@ -1496,6 +1510,16 @@ void ConvertStencilFuncState(GenericStencilFuncState &state) {
 	state.testFunc = gstate.getStencilTestFunction();
 	state.testRef = gstate.getStencilTestRef();
 	state.testMask = gstate.getStencilTestMask();
+
+	bool depthTest = gstate.isDepthTestEnabled();
+	if ((state.sFail == state.zFail || !depthTest) && state.sFail == state.zPass) {
+		// Common case: we're writing only to stencil (usually REPLACE/REPLACE/REPLACE.)
+		// We want to write stencil to alpha in this case, so switch to ALWAYS if already masked.
+		bool depthWrite = gstate.isDepthWriteEnabled();
+		if ((gstate.getColorMask() & 0x00FFFFFF) == 0x00FFFFFF && (!depthTest || !depthWrite)) {
+			state.testFunc = GE_COMP_ALWAYS;
+		}
+	}
 
 	switch (gstate_c.framebufFormat) {
 	case GE_FORMAT_565:

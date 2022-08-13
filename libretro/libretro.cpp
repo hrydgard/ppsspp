@@ -583,6 +583,7 @@ static RetroOption<int> ppsspp_wlan_channel("ppsspp_wlan_channel", "WLAN channel
 static RetroOption<bool> ppsspp_enable_builtin_pro_ad_hoc_server("ppsspp_enable_builtin_pro_ad_hoc_server", "Enable built-in PRO ad hoc server", false);
 static RetroOption<std::string> ppsspp_change_pro_ad_hoc_server_address("ppsspp_change_pro_ad_hoc_server_address", "Change PRO ad hoc server IP address (localhost = multiple instances)", {
     {"socom.cc", "socom.cc"},
+    {"psp.gameplayer.club", "psp.gameplayer.club"},
     {"myneighborsushicat.com", "myneighborsushicat.com"},
     {"localhost", "localhost"},
     {"IP address", "IP address"}
@@ -837,7 +838,7 @@ static void check_variables(CoreParameter &coreParam)
    const bool do_texture_shader_update = ppsspp_texture_shader.Update(&g_Config.sTextureShaderName);
 
    g_Config.bTexHardwareScaling = "Off" != g_Config.sTextureShaderName;
-   
+
    if (gpu && (do_scaling_type_update || do_scaling_level_update || do_texture_shader_update))
    {
       gpu->ClearCacheNextFrame();
@@ -1408,7 +1409,7 @@ bool retro_unserialize(const void *data, size_t size)
 void *retro_get_memory_data(unsigned id)
 {
    if ( id == RETRO_MEMORY_SYSTEM_RAM )
-      return Memory::GetPointerUnchecked(PSP_GetKernelMemoryBase()) ;
+      return Memory::GetPointerWriteUnchecked(PSP_GetKernelMemoryBase()) ;
    return NULL;
 }
 
@@ -1485,6 +1486,8 @@ void System_SendMessage(const char *command, const char *parameter) {}
 void NativeUpdate() {}
 void NativeRender(GraphicsContext *graphicsContext) {}
 void NativeResized() {}
+
+void System_Toast(const char *str) {}
 
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 std::vector<std::string> __cameraGetDeviceList() { return std::vector<std::string>(); }

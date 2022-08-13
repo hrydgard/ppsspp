@@ -19,8 +19,10 @@
 #include <cstdlib>
 #include <ctime>
 #include <functional>
+#include <mutex>
 #include <set>
 #include <sstream>
+#include <thread>
 
 #include "ppsspp_config.h"
 
@@ -56,6 +58,17 @@ http::Downloader g_DownloadManager;
 Config g_Config;
 
 bool jitForcedOff;
+
+// Not in Config.h because it's #included a lot.
+struct ConfigPrivate {
+	std::mutex recentIsosLock;
+	std::mutex recentIsosThreadLock;
+	std::thread recentIsosThread;
+	bool recentIsosThreadPending = false;
+
+	void ResetRecentIsosThread();
+	void SetRecentIsosThread(std::function<void()> f);
+};
 
 #ifdef _DEBUG
 static const char *logSectionName = "LogDebug";
@@ -600,6 +613,8 @@ static ConfigSetting generalSettings[] = {
 	ReportedConfigSetting("MemStickInserted", &g_Config.bMemStickInserted, true, true, true),
 	ConfigSetting("EnablePlugins", &g_Config.bLoadPlugins, true, true, true),
 
+	ReportedConfigSetting("IgnoreCompatSettings", &g_Config.sIgnoreCompatSettings, "", true, true),
+
 	ConfigSetting(false),
 };
 
@@ -680,6 +695,10 @@ const char * const vulkanDefaultBlacklist[] = {
 };
 
 static int DefaultGPUBackend() {
+#ifdef OPENXR
+	return (int)GPUBackend::OPENGL;
+#endif
+
 #if PPSSPP_PLATFORM(WINDOWS)
 	// If no Vulkan, use Direct3D 11 on Windows 8+ (most importantly 10.)
 	if (DoesVersionMatchWindows(6, 2, 0, 0, true)) {
@@ -865,6 +884,8 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("AutoFrameSkip", &g_Config.bAutoFrameSkip, false, true, true),
 	ConfigSetting("FrameRate", &g_Config.iFpsLimit1, 0, true, true),
 	ConfigSetting("FrameRate2", &g_Config.iFpsLimit2, -1, true, true),
+	ConfigSetting("AnalogFrameRate", &g_Config.iAnalogFpsLimit, 240, true, true),
+	ConfigSetting("AnalogFrameRateMode", &g_Config.iAnalogFpsMode, 0, true, true),
 	ConfigSetting("UnthrottlingMode", &g_Config.iFastForwardMode, &DefaultFastForwardMode, &FastForwardModeToString, &FastForwardModeFromString, true, true),
 #if defined(USING_WIN_UI)
 	ConfigSetting("RestartRequired", &g_Config.bRestartRequired, false, false),
@@ -952,6 +973,8 @@ static bool DefaultShowTouchControls() {
 		return false;
 	} else if (deviceType == DEVICE_TYPE_DESKTOP) {
 		return false;
+	} else if (deviceType == DEVICE_TYPE_VR) {
+		return false;
 	} else {
 		return false;
 	}
@@ -989,7 +1012,9 @@ static ConfigSetting controlSettings[] = {
 #if defined(USING_WIN_UI)
 	ConfigSetting("IgnoreWindowsKey", &g_Config.bIgnoreWindowsKey, false, true, true),
 #endif
+
 	ConfigSetting("ShowTouchControls", &g_Config.bShowTouchControls, &DefaultShowTouchControls, true, true),
+
 	// ConfigSetting("KeyMapping", &g_Config.iMappingMap, 0),
 
 #ifdef MOBILE_DEVICE
@@ -1202,13 +1227,30 @@ static void IterateSettings(IniFile &iniFile, std::function<void(Section *sectio
 	}
 }
 
+void ConfigPrivate::ResetRecentIsosThread() {
+	std::lock_guard<std::mutex> guard(recentIsosThreadLock);
+	if (recentIsosThreadPending && recentIsosThread.joinable())
+		recentIsosThread.join();
+}
+
+void ConfigPrivate::SetRecentIsosThread(std::function<void()> f) {
+	std::lock_guard<std::mutex> guard(recentIsosThreadLock);
+	if (recentIsosThreadPending && recentIsosThread.joinable())
+		recentIsosThread.join();
+	recentIsosThread = std::thread(f);
+	recentIsosThreadPending = true;
+}
+
 Config::Config() {
+	private_ = new ConfigPrivate();
 }
 
 Config::~Config() {
 	if (bUpdatedInstanceCounter) {
 		ShutdownInstanceCounter();
 	}
+	private_->ResetRecentIsosThread();
+	delete private_;
 }
 
 std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
@@ -1311,6 +1353,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		iMaxRecent = 60;
 
 	if (iMaxRecent > 0) {
+		private_->ResetRecentIsosThread();
+		std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 		recentIsos.clear();
 		for (int i = 0; i < iMaxRecent; i++) {
 			char keyName[64];
@@ -1466,9 +1510,11 @@ bool Config::Save(const char *saveReason) {
 		Section *recent = iniFile.GetOrCreateSection("Recent");
 		recent->Set("MaxRecent", iMaxRecent);
 
+		private_->ResetRecentIsosThread();
 		for (int i = 0; i < iMaxRecent; i++) {
 			char keyName[64];
 			snprintf(keyName, sizeof(keyName), "FileName%d", i);
+			std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 			if (i < (int)recentIsos.size()) {
 				recent->Set(keyName, recentIsos[i]);
 			} else {
@@ -1606,6 +1652,8 @@ void Config::AddRecent(const std::string &file) {
 	// We'll add it back below.  This makes sure it's at the front, and only once.
 	RemoveRecent(file);
 
+	private_->ResetRecentIsosThread();
+	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 	const std::string filename = File::ResolvePath(file);
 	recentIsos.insert(recentIsos.begin(), filename);
 	if ((int)recentIsos.size() > iMaxRecent)
@@ -1617,6 +1665,8 @@ void Config::RemoveRecent(const std::string &file) {
 	if (iMaxRecent <= 0)
 		return;
 
+	private_->ResetRecentIsosThread();
+	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 	const std::string filename = File::ResolvePath(file);
 	for (auto iter = recentIsos.begin(); iter != recentIsos.end();) {
 		const std::string recent = File::ResolvePath(*iter);
@@ -1630,35 +1680,52 @@ void Config::RemoveRecent(const std::string &file) {
 }
 
 void Config::CleanRecent() {
-	double startTime = time_now_d();
+	private_->SetRecentIsosThread([this] {
+		double startTime = time_now_d();
 
-	std::vector<std::string> cleanedRecent;
-	for (size_t i = 0; i < recentIsos.size(); i++) {
-		bool exists = false;
-		Path path = Path(recentIsos[i]);
-		switch (path.Type()) {
-		case PathType::CONTENT_URI:
-		case PathType::NATIVE:
-			exists = File::Exists(path);
-			break;
-		default:
-			FileLoader *loader = ConstructFileLoader(path);
-			exists = loader->ExistsFast();
-			delete loader;
-			break;
-		}
+		std::lock_guard<std::mutex> guard(private_->recentIsosLock);
+		std::vector<std::string> cleanedRecent;
+		for (size_t i = 0; i < recentIsos.size(); i++) {
+			bool exists = false;
+			Path path = Path(recentIsos[i]);
+			switch (path.Type()) {
+			case PathType::CONTENT_URI:
+			case PathType::NATIVE:
+				exists = File::Exists(path);
+				break;
+			default:
+				FileLoader *loader = ConstructFileLoader(path);
+				exists = loader->ExistsFast();
+				delete loader;
+				break;
+			}
 
-		if (exists) {
-			// Make sure we don't have any redundant items.
-			auto duplicate = std::find(cleanedRecent.begin(), cleanedRecent.end(), recentIsos[i]);
-			if (duplicate == cleanedRecent.end()) {
-				cleanedRecent.push_back(recentIsos[i]);
+			if (exists) {
+				// Make sure we don't have any redundant items.
+				auto duplicate = std::find(cleanedRecent.begin(), cleanedRecent.end(), recentIsos[i]);
+				if (duplicate == cleanedRecent.end()) {
+					cleanedRecent.push_back(recentIsos[i]);
+				}
 			}
 		}
-	}
 
-	INFO_LOG(SYSTEM, "CleanRecent took %0.2f", time_now_d() - startTime);
-	recentIsos = cleanedRecent;
+		INFO_LOG(SYSTEM, "CleanRecent took %0.2f", time_now_d() - startTime);
+		recentIsos = cleanedRecent;
+	});
+}
+
+std::vector<std::string> Config::RecentIsos() const {
+	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
+	return recentIsos;
+}
+bool Config::HasRecentIsos() const {
+	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
+	return !recentIsos.empty();
+}
+void Config::ClearRecentIsos() {
+	private_->ResetRecentIsosThread();
+	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
+	recentIsos.clear();
 }
 
 void Config::SetSearchPath(const Path &searchPath) {
@@ -1697,7 +1764,7 @@ void Config::RestoreDefaults() {
 	} else {
 		if (File::Exists(iniFilename_))
 			File::Delete(iniFilename_);
-		recentIsos.clear();
+		ClearRecentIsos();
 		currentDirectory = defaultCurrentDirectory;
 	}
 	Load();

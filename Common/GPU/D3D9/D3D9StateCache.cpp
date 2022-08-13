@@ -50,9 +50,7 @@ void DirectXState::Restore() {
 	stencilTest.restore(); count++;
 	stencilOp.restore(); count++;
 	stencilFunc.restore(); count++;
-	stencilMask.restore(); count++;
-
-	dither.restore(); count++;
+	stencilWriteMask.restore(); count++;
 
 	texMinFilter.restore(); count++;
 	texMagFilter.restore(); count++;
@@ -61,6 +59,7 @@ void DirectXState::Restore() {
 	texMaxMipLevel.restore(); count++;
 	texAddressU.restore(); count++;
 	texAddressV.restore(); count++;
+	texAddressW.restore(); count++;
 }
 
 }  // namespace DX9

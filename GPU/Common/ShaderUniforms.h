@@ -34,7 +34,7 @@ struct UB_VS_FS_Base {
 	float cullRangeMin[4];
 	float cullRangeMax[4];
 	uint32_t spline_counts; uint32_t depal_mask_shift_off_fmt;  // 4 params packed into one.
-	uint32_t colorWriteMask; int pad3;
+	uint32_t colorWriteMask; float mipBias;
 	// Fragment data
 	float fogColor[4];
 	float texEnvColor[4];
@@ -63,7 +63,7 @@ R"(  mat4 u_proj;
   uint u_spline_counts;
   uint u_depal_mask_shift_off_fmt;
   uint u_colorWriteMask;
-  int u_pad3;
+  float u_mipBias;
   vec3 u_fogcolor;
   vec3 u_texenv;
   ivec4 u_alphacolorref;

@@ -271,9 +271,6 @@ public:
 	int GetUBOSize() const {
 		return uboSize_;
 	}
-	bool RequiresBuffer() override {
-		return false;
-	}
 
 	VkPipeline backbufferPipeline = VK_NULL_HANDLE;
 	VkPipeline framebufferPipeline = VK_NULL_HANDLE;
@@ -283,8 +280,6 @@ public:
 	int dynamicUniformSize = 0;
 
 	bool usesStencil = false;
-	uint8_t stencilWriteMask = 0xFF;
-	uint8_t stencilTestMask = 0xFF;
 
 private:
 	VulkanContext *vulkan_;
@@ -407,7 +402,7 @@ public:
 	void SetScissorRect(int left, int top, int width, int height) override;
 	void SetViewports(int count, Viewport *viewports) override;
 	void SetBlendFactor(float color[4]) override;
-	void SetStencilRef(uint8_t stencilRef) override;
+	void SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) override;
 
 	void BindSamplerStates(int start, int count, SamplerState **state) override;
 	void BindTextures(int start, int count, Texture **textures) override;
@@ -469,7 +464,7 @@ public:
 	std::vector<std::string> GetFeatureList() const override;
 	std::vector<std::string> GetExtensionList() const override;
 
-	uint64_t GetNativeObject(NativeObject obj) override {
+	uint64_t GetNativeObject(NativeObject obj, void *srcObject) override {
 		switch (obj) {
 		case NativeObject::CONTEXT:
 			return (uint64_t)vulkan_;
@@ -490,6 +485,8 @@ public:
 			return (uint64_t)(uintptr_t)&renderManager_;
 		case NativeObject::NULL_IMAGEVIEW:
 			return (uint64_t)GetNullTexture()->GetImageView();
+		case NativeObject::TEXTURE_VIEW:
+			return (uint64_t)(((VKTexture *)srcObject)->GetImageView());
 		default:
 			Crash();
 			return 0;
@@ -554,6 +551,8 @@ private:
 	DeviceCaps caps_{};
 
 	uint8_t stencilRef_ = 0;
+	uint8_t stencilWriteMask_ = 0xFF;
+	uint8_t stencilCompareMask_ = 0xFF;
 };
 
 static int GetBpp(VkFormat format) {
@@ -578,7 +577,7 @@ static int GetBpp(VkFormat format) {
 	}
 }
 
-VkFormat DataFormatToVulkan(DataFormat format) {
+static VkFormat DataFormatToVulkan(DataFormat format) {
 	switch (format) {
 	case DataFormat::D16: return VK_FORMAT_D16_UNORM;
 	case DataFormat::D32F: return VK_FORMAT_D32_SFLOAT;
@@ -640,7 +639,7 @@ VulkanTexture *VKContext::GetNullTexture() {
 		nullTexture_->SetTag("Null");
 		int w = 8;
 		int h = 8;
-		nullTexture_->CreateDirect(cmdInit, w, h, 1, VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		nullTexture_->CreateDirect(cmdInit, w, h, 1, 1, VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 		uint32_t bindOffset;
 		VkBuffer bindBuf;
@@ -651,7 +650,7 @@ VulkanTexture *VKContext::GetNullTexture() {
 				data[y*w + x] = 0;  // black
 			}
 		}
-		nullTexture_->UploadMip(cmdInit, 0, w, h, bindBuf, bindOffset, w);
+		nullTexture_->UploadMip(cmdInit, 0, w, h, 0, bindBuf, bindOffset, w);
 		nullTexture_->EndCreate(cmdInit, false, VK_PIPELINE_STAGE_TRANSFER_BIT);
 	} else {
 		nullTexture_->Touch();
@@ -733,7 +732,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 		usageBits |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	}
 
-	if (!vkTex_->CreateDirect(cmd, width_, height_, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits)) {
+	if (!vkTex_->CreateDirect(cmd, width_, height_, 1, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits)) {
 		ERROR_LOG(G3D,  "Failed to create VulkanTexture: %dx%dx%d fmt %d, %d levels", width_, height_, depth_, (int)vulkanFormat, mipLevels_);
 		return false;
 	}
@@ -755,7 +754,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 			} else {
 				offset = push->PushAligned((const void *)desc.initData[i], size, 16, &buf);
 			}
-			vkTex_->UploadMip(cmd, i, w, h, buf, offset, w);
+			vkTex_->UploadMip(cmd, i, w, h, 0, buf, offset, w);
 			w = (w + 1) / 2;
 			h = (h + 1) / 2;
 			d = (d + 1) / 2;
@@ -774,6 +773,8 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	: vulkan_(vulkan), renderManager_(vulkan) {
 	shaderLanguageDesc_.Init(GLSL_VULKAN);
 
+	VkFormat depthStencilFormat = vulkan->GetDeviceInfo().preferredDepthStencilFormat;
+
 	caps_.anisoSupported = vulkan->GetDeviceFeatures().enabled.samplerAnisotropy != 0;
 	caps_.geometryShaderSupported = vulkan->GetDeviceFeatures().enabled.geometryShader != 0;
 	caps_.tesselationShaderSupported = vulkan->GetDeviceFeatures().enabled.tessellationShader != 0;
@@ -784,9 +785,15 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	caps_.cullDistanceSupported = vulkan->GetDeviceFeatures().enabled.shaderCullDistance != 0;
 	caps_.framebufferBlitSupported = true;
 	caps_.framebufferCopySupported = true;
-	caps_.framebufferDepthBlitSupported = false;  // Can be checked for.
+	caps_.framebufferDepthBlitSupported = vulkan->GetDeviceInfo().canBlitToPreferredDepthStencilFormat;
+	caps_.framebufferStencilBlitSupported = caps_.framebufferDepthBlitSupported;
 	caps_.framebufferDepthCopySupported = true;   // Will pretty much always be the case.
+	caps_.framebufferSeparateDepthCopySupported = true;   // Will pretty much always be the case.
 	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;  // TODO: Ask vulkan.
+	caps_.texture3DSupported = true;
+	caps_.fragmentShaderInt32Supported = true;
+	caps_.textureNPOTFullySupported = true;
+	caps_.fragmentShaderDepthWriteSupported = true;
 
 	auto deviceProps = vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDeviceIndex()).properties;
 	switch (deviceProps.vendorID) {
@@ -825,6 +832,11 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 		bugs_.Infest(Bugs::EQUAL_WZ_CORRUPTS_DEPTH);
 		// At least one driver at the upper end of the range is known to be likely to suffer from the bug causing issue #13833 (Midnight Club map broken).
 		bugs_.Infest(Bugs::MALI_STENCIL_DISCARD_BUG);
+
+		// This started in driver 31 or 32.
+		if (VK_API_VERSION_MAJOR(deviceProps.driverVersion) >= 32) {
+			bugs_.Infest(Bugs::MALI_CONSTANT_LOAD_BUG);  // See issue #15661
+		}
 	}
 
 	caps_.deviceID = deviceProps.deviceID;
@@ -1126,8 +1138,6 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	}
 	if (depth->info.stencilTestEnable) {
 		pipeline->usesStencil = true;
-		pipeline->stencilTestMask = depth->info.front.compareMask;
-		pipeline->stencilWriteMask = depth->info.front.writeMask;
 	}
 	return pipeline;
 }
@@ -1155,10 +1165,12 @@ void VKContext::SetBlendFactor(float color[4]) {
 	renderManager_.SetBlendFactor(col);
 }
 
-void VKContext::SetStencilRef(uint8_t stencilRef) {
+void VKContext::SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) {
 	if (curPipeline_->usesStencil)
-		renderManager_.SetStencilParams(curPipeline_->stencilWriteMask, curPipeline_->stencilTestMask, stencilRef);
-	stencilRef_ = stencilRef;
+		renderManager_.SetStencilParams(writeMask, compareMask, refValue);
+	stencilRef_ = refValue;
+	stencilWriteMask_ = writeMask;
+	stencilCompareMask_ = compareMask;
 }
 
 InputLayout *VKContext::CreateInputLayout(const InputLayoutDesc &desc) {
@@ -1202,9 +1214,7 @@ Texture *VKContext::CreateTexture(const TextureDesc &desc) {
 	}
 }
 
-static inline void CopySide(VkStencilOpState &dest, const StencilSide &src) {
-	dest.compareMask = src.compareMask;
-	dest.writeMask = src.writeMask;
+static inline void CopySide(VkStencilOpState &dest, const StencilSetup &src) {
 	dest.compareOp = compToVK[(int)src.compareOp];
 	dest.failOp = stencilOpToVK[(int)src.failOp];
 	dest.passOp = stencilOpToVK[(int)src.passOp];
@@ -1219,8 +1229,8 @@ DepthStencilState *VKContext::CreateDepthStencilState(const DepthStencilStateDes
 	ds->info.stencilTestEnable = desc.stencilEnabled;
 	ds->info.depthBoundsTestEnable = false;
 	if (ds->info.stencilTestEnable) {
-		CopySide(ds->info.front, desc.front);
-		CopySide(ds->info.back, desc.back);
+		CopySide(ds->info.front, desc.stencil);
+		CopySide(ds->info.back, desc.stencil);
 	}
 	return ds;
 }
@@ -1284,7 +1294,7 @@ ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, ShaderLanguage la
 	if (shader->Compile(vulkan_, language, data, size)) {
 		return shader;
 	} else {
-		ERROR_LOG(G3D,  "Failed to compile shader:\n%s", (const char *)data);
+		ERROR_LOG(G3D,  "Failed to compile shader:\n%s", (const char *)LineNumberString((const char *)data).c_str());
 		shader->Release();
 		return nullptr;
 	}
@@ -1308,7 +1318,7 @@ void VKContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 void VKContext::ApplyDynamicState() {
 	// TODO: blend constants, stencil, viewports should be here, after bindpipeline..
 	if (curPipeline_->usesStencil) {
-		renderManager_.SetStencilParams(curPipeline_->stencilWriteMask, curPipeline_->stencilTestMask, stencilRef_);
+		renderManager_.SetStencilParams(stencilWriteMask_, stencilCompareMask_, stencilRef_);
 	}
 }
 
@@ -1436,17 +1446,23 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 	VkFormatProperties properties;
 	vkGetPhysicalDeviceFormatProperties(vulkan_->GetCurrentPhysicalDevice(), vulkan_format, &properties);
 	uint32_t flags = 0;
-	if (properties.optimalTilingFeatures & VkFormatFeatureFlagBits::VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) {
+	if (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) {
 		flags |= FMT_RENDERTARGET;
 	}
-	if (properties.optimalTilingFeatures & VkFormatFeatureFlagBits::VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+	if (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
 		flags |= FMT_DEPTHSTENCIL;
 	}
-	if (properties.optimalTilingFeatures & VkFormatFeatureFlagBits::VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) {
+	if (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) {
 		flags |= FMT_TEXTURE;
 	}
-	if (properties.bufferFeatures & VkFormatFeatureFlagBits::VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT) {
+	if (properties.bufferFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT) {
 		flags |= FMT_INPUTLAYOUT;
+	}
+	if ((properties.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT) && (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT)) {
+		flags |= FMT_BLIT;
+	}
+	if (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) {
+		flags |= FMT_STORAGE_IMAGE;
 	}
 	return flags;
 }

@@ -199,7 +199,6 @@ private:
 	std::vector<float> alphaStack_;
 
 	Draw::DrawContext *draw_ = nullptr;
-	Draw::Buffer *vbuf_ = nullptr;
 	Draw::Pipeline *pipeline_ = nullptr;
 
 	Vertex *verts_;

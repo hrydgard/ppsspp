@@ -40,16 +40,6 @@ struct TransformedVertex;
 
 struct DecVtxFormat;
 
-enum {
-	TEX_SLOT_PSP_TEXTURE = 0,
-	TEX_SLOT_SHADERBLEND_SRC = 1,
-	TEX_SLOT_ALPHATEST = 2,
-	TEX_SLOT_CLUT = 3,
-	TEX_SLOT_SPLINE_POINTS = 4,
-	TEX_SLOT_SPLINE_WEIGHTS_U = 5,
-	TEX_SLOT_SPLINE_WEIGHTS_V = 6,
-};
-
 class TessellationDataTransferGLES : public TessellationDataTransfer {
 private:
 	GLRTexture *data_tex[3]{};
@@ -125,7 +115,6 @@ public:
 
 protected:
 	bool UpdateUseHWTessellation(bool enable) override;
-	void DecimateTrackedVertexArrays() {}
 
 private:
 	void InitDeviceObjects();

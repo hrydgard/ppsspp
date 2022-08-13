@@ -18,11 +18,21 @@
 #include <cstring>
 
 #include "Common/Data/Format/IniFile.h"
+#include "Common/StringUtils.h"
 #include "Core/Compatibility.h"
+#include "Core/Config.h"
 #include "Core/System.h"
 
 void Compatibility::Load(const std::string &gameID) {
 	Clear();
+
+	// Allow ignoring compat settings by name (regardless of game ID.)
+	std::vector<std::string> ignored;
+	SplitString(g_Config.sIgnoreCompatSettings, ',', ignored);
+	ignored_ = std::set<std::string>(ignored.begin(), ignored.end());
+	// If ALL, don't process any compat flags.
+	if (ignored_.find("ALL") != ignored_.end())
+		return;
 
 	{
 		IniFile compat;
@@ -66,6 +76,8 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "YugiohSaveFix", &flags_.YugiohSaveFix);
 	CheckSetting(iniFile, gameID, "ForceUMDDelay", &flags_.ForceUMDDelay);
 	CheckSetting(iniFile, gameID, "ForceMax60FPS", &flags_.ForceMax60FPS);
+	CheckSetting(iniFile, gameID, "GoWFramerateHack60", &flags_.GoWFramerateHack60);
+	CheckSetting(iniFile, gameID, "GoWFramerateHack30", &flags_.GoWFramerateHack30);
 	CheckSetting(iniFile, gameID, "JitInvalidationHack", &flags_.JitInvalidationHack);
 	CheckSetting(iniFile, gameID, "HideISOFiles", &flags_.HideISOFiles);
 	CheckSetting(iniFile, gameID, "MoreAccurateVMMUL", &flags_.MoreAccurateVMMUL);
@@ -82,8 +94,12 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "BlueToAlpha", &flags_.BlueToAlpha);
 	CheckSetting(iniFile, gameID, "CenteredLines", &flags_.CenteredLines);
 	CheckSetting(iniFile, gameID, "MaliDepthStencilBugWorkaround", &flags_.MaliDepthStencilBugWorkaround);
+	CheckSetting(iniFile, gameID, "ZZT3SelectHack", &flags_.ZZT3SelectHack);
+	CheckSetting(iniFile, gameID, "AllowLargeFBTextureOffsets", &flags_.AllowLargeFBTextureOffsets);
 }
 
 void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag) {
-	iniFile.Get(option, gameID.c_str(), flag, *flag);
+	if (ignored_.find(option) == ignored_.end()) {
+		iniFile.Get(option, gameID.c_str(), flag, *flag);
+	}
 }

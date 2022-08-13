@@ -38,6 +38,9 @@ namespace Reporting
 	// Should be called whenever the game configuration changes.
 	void UpdateConfig();
 
+	// Should be called when debugging APIs are used in a way that could make the game crash.
+	void NotifyDebugger();
+
 	// Returns whether or not the reporting system is currently enabled.
 	bool IsEnabled();
 

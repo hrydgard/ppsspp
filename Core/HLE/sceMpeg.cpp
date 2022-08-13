@@ -628,7 +628,7 @@ static int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 	DEBUG_LOG(ME, "sceMpegQueryStreamOffset(%08x, %08x, %08x)", mpeg, bufferAddr, offsetAddr);
 
 	// Kinda destructive, no?
-	AnalyzeMpeg(Memory::GetPointer(bufferAddr), Memory::ValidSize(bufferAddr, 32768), ctx);
+	AnalyzeMpeg(Memory::GetPointerWriteUnchecked(bufferAddr), Memory::ValidSize(bufferAddr, 32768), ctx);
 
 	if (ctx->mpegMagic != PSMF_MAGIC) {
 		ERROR_LOG(ME, "sceMpegQueryStreamOffset: Bad PSMF magic");
@@ -660,7 +660,7 @@ static u32 sceMpegQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
 	MpegContext ctx;
 	ctx.mediaengine = 0;
 
-	AnalyzeMpeg(Memory::GetPointer(bufferAddr), Memory::ValidSize(bufferAddr, 32768), &ctx);
+	AnalyzeMpeg(Memory::GetPointerWriteUnchecked(bufferAddr), Memory::ValidSize(bufferAddr, 32768), &ctx);
 
 	if (ctx.mpegMagic != PSMF_MAGIC) {
 		ERROR_LOG(ME, "sceMpegQueryStreamSize: Bad PSMF magic");
@@ -965,7 +965,7 @@ static bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxA
 		for (int i = 0; i < pmp_nBlocks; i++){
 			auto lli = PSPPointer<SceMpegLLI>::Create(pmp_videoSource);
 			// add source block into pmpframes
-			pmpframes->add(Memory::GetPointer(lli->pSrc), lli->iSize);
+			pmpframes->add(Memory::GetPointerWrite(lli->pSrc), lli->iSize);
 			// get next block
 			pmp_videoSource += sizeof(SceMpegLLI);
 		}
@@ -1962,7 +1962,8 @@ static u32 sceMpegAvcCopyYCbCr(u32 mpeg, u32 sourceAddr, u32 YCbCrAddr)
 		return -1;
 	}
 
-	WARN_LOG(ME, "UNIMPL sceMpegAvcCopyYCbCr(%08x, %08x, %08x)", mpeg, sourceAddr, YCbCrAddr);
+	// This is very common.
+	DEBUG_LOG(ME, "UNIMPL sceMpegAvcCopyYCbCr(%08x, %08x, %08x)", mpeg, sourceAddr, YCbCrAddr);
 	return 0;
 }
 

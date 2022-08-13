@@ -33,3 +33,4 @@ void __DisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync);
 void __DisplaySetWasPaused();
 
 void Register_sceDisplay_driver();
+void __DisplayWaitForVblanks(const char* reason, int vblanks, bool callbacks = false);

@@ -49,6 +49,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		highpTexcoord = highpFog;
 	}
 
+	bool texture3D = id.Bit(FS_BIT_3D_TEXTURE);
+
 	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2));
 
 	std::vector<const char*> gl_exts;
@@ -61,6 +63,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 		if (compat.framebufferFetchExtension) {
 			gl_exts.push_back(compat.framebufferFetchExtension);
+		}
+		if (gl_extensions.OES_texture_3D && texture3D) {
+			gl_exts.push_back("#extension GL_OES_texture_3D: enable");
 		}
 	}
 
@@ -82,9 +87,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
 
 	bool doFlatShading = id.Bit(FS_BIT_FLATSHADE) && !flatBug;
-	bool shaderDepal = id.Bit(FS_BIT_SHADER_DEPAL);
+	bool shaderDepal = id.Bit(FS_BIT_SHADER_DEPAL) && !texture3D;  // combination with texture3D not supported. Enforced elsewhere too.
 	bool bgraTexture = id.Bit(FS_BIT_BGRA_TEXTURE);
 	bool colorWriteMask = id.Bit(FS_BIT_COLOR_WRITEMASK) && compat.bitwiseOps;
+	bool colorToDepth = id.Bit(FS_BIT_COLOR_TO_DEPTH);
 
 	GEComparison alphaTestFunc = (GEComparison)id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3);
 	GEComparison colorTestFunc = (GEComparison)id.Bits(FS_BIT_COLOR_TEST_FUNC, 2);
@@ -111,14 +117,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	if (compat.glslES30 || compat.shaderLanguage == ShaderLanguage::GLSL_VULKAN)
 		shading = doFlatShading ? "flat" : "";
 
-	bool earlyFragmentTests = ((!enableAlphaTest && !enableColorTest) || testForceToZero) && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
-	bool useAdrenoBugWorkaround = id.Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL);
+	bool useDiscardStencilBugWorkaround = id.Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL);
 
 	bool readFramebuffer = replaceBlend == REPLACE_BLEND_COPY_FBO || colorWriteMask;
 	bool readFramebufferTex = readFramebuffer && !gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH);
 
 	bool needFragCoord = readFramebuffer || gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
-	bool writeDepth = gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
+	bool writeDepth = gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || colorToDepth;
 
 	if (shaderDepal && !doTexture) {
 		*errorString = "depal requires a texture";
@@ -131,15 +136,18 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	if (compat.shaderLanguage == ShaderLanguage::GLSL_VULKAN) {
-		if (earlyFragmentTests) {
-			WRITE(p, "layout (early_fragment_tests) in;\n");
-		} else if (useAdrenoBugWorkaround && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
+		if (colorToDepth) {
+			WRITE(p, "precision highp int;\n");
+			WRITE(p, "precision highp float;\n");
+		}
+
+		if (useDiscardStencilBugWorkaround && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
 			WRITE(p, "layout (depth_unchanged) out float gl_FragDepth;\n");
 		}
 
 		WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseUBO {\n%s};\n", ub_baseStr);
 		if (doTexture) {
-			WRITE(p, "layout (binding = 0) uniform sampler2D tex;\n");
+			WRITE(p, "layout (binding = 0) uniform %s tex;\n", texture3D ? "sampler3D" : "sampler2D");
 		}
 
 		if (readFramebufferTex) {
@@ -210,14 +218,25 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			if (enableFog) {
 				WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
 			}
+			if (texture3D) {
+				WRITE(p, "float u_mipBias : register(c%i);\n", CONST_PS_MIPBIAS);
+			}
 		} else {
 			WRITE(p, "SamplerState samp : register(s0);\n");
-			WRITE(p, "Texture2D<vec4> tex : register(t0);\n");
+			if (texture3D) {
+				WRITE(p, "Texture3D<vec4> tex : register(t0);\n");
+			} else {
+				WRITE(p, "Texture2D<vec4> tex : register(t0);\n");
+			}
 			if (readFramebufferTex) {
 				// No sampler required, we Load
 				WRITE(p, "Texture2D<vec4> fboTex : register(t1);\n");
 			}
 			WRITE(p, "cbuffer base : register(b0) {\n%s};\n", ub_baseStr);
+
+			if (shaderDepal) {
+				WRITE(p, "float2 textureSize(Texture2D<float4> tex, int mip) { float2 size; tex.GetDimensions(size.x, size.y); return size; }\n");
+			}
 		}
 
 		if (enableAlphaTest) {
@@ -265,49 +284,27 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "  float depth : SV_Depth;\n");
 			}
 			WRITE(p, "};\n");
-		}
-	} else if (compat.shaderLanguage == HLSL_D3D9) {
-		if (doTexture)
-			WRITE(p, "sampler tex : register(s0);\n");
-		if (readFramebufferTex) {
-			WRITE(p, "vec2 u_fbotexSize : register(c%i);\n", CONST_PS_FBOTEXSIZE);
-			WRITE(p, "sampler fbotex : register(s1);\n");
-		}
-		if (replaceBlend > REPLACE_BLEND_STANDARD) {
-			if (replaceBlendFuncA >= GE_SRCBLEND_FIXA) {
-				WRITE(p, "float3 u_blendFixA : register(c%i);\n", CONST_PS_BLENDFIXA);
+		} else if (compat.shaderLanguage == HLSL_D3D9) {
+			WRITE(p, "struct PS_OUT {\n");
+			WRITE(p, "  vec4 target : COLOR;\n");
+			if (writeDepth) {
+				WRITE(p, "  float depth : DEPTH;\n");
 			}
-			if (replaceBlendFuncB >= GE_DSTBLEND_FIXB) {
-				WRITE(p, "float3 u_blendFixB : register(c%i);\n", CONST_PS_BLENDFIXB);
-			}
-		}
-		if (needShaderTexClamp && doTexture) {
-			WRITE(p, "vec4 u_texclamp : register(c%i);\n", CONST_PS_TEXCLAMP);
-			if (textureAtOffset) {
-				WRITE(p, "vec2 u_texclampoff : register(c%i);\n", CONST_PS_TEXCLAMPOFF);
-			}
-		}
-
-		if (enableAlphaTest || enableColorTest) {
-			WRITE(p, "vec4 u_alphacolorref : register(c%i);\n", CONST_PS_ALPHACOLORREF);
-			WRITE(p, "vec4 u_alphacolormask : register(c%i);\n", CONST_PS_ALPHACOLORMASK);
-		}
-		if (stencilToAlpha && replaceAlphaWithStencilType == STENCIL_VALUE_UNIFORM) {
-			WRITE(p, "float u_stencilReplaceValue : register(c%i);\n", CONST_PS_STENCILREPLACE);
-		}
-		if (doTexture && texFunc == GE_TEXFUNC_BLEND) {
-			WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
-		}
-		if (enableFog) {
-			WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
+			WRITE(p, "};\n");
 		}
 	} else if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
-		if ((shaderDepal || colorWriteMask) && gl_extensions.IsGLES) {
+		if ((shaderDepal || colorWriteMask || colorToDepth) && gl_extensions.IsGLES) {
 			WRITE(p, "precision highp int;\n");
 		}
 
-		if (doTexture)
-			WRITE(p, "uniform sampler2D tex;\n");
+		if (doTexture) {
+			if (texture3D) {
+				// For whatever reason, a precision specifier is required here.
+				WRITE(p, "uniform lowp sampler3D tex;\n");
+			} else {
+				WRITE(p, "uniform sampler2D tex;\n");
+			}
+		}
 
 		if (readFramebufferTex) {
 			if (!compat.texelFetch) {
@@ -365,6 +362,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (doTexture && texFunc == GE_TEXFUNC_BLEND) {
 			*uniformMask |= DIRTY_TEXENV;
 			WRITE(p, "uniform vec3 u_texenv;\n");
+		}
+
+		if (texture3D) {
+			*uniformMask |= DIRTY_MIPBIAS;
+			WRITE(p, "uniform float u_mipBias;\n");
 		}
 
 		WRITE(p, "%s %s lowp vec4 v_color0;\n", shading, compat.varying_fs);
@@ -456,8 +458,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "  float gl_FragDepth;\n");
 		}
 	} else if (compat.shaderLanguage == HLSL_D3D9) {
-		WRITE(p, "vec4 main( PS_IN In ) : COLOR {\n");
+		WRITE(p, "PS_OUT main( PS_IN In ) {\n");
+		WRITE(p, "  PS_OUT outfragment;\n");
 		WRITE(p, "  vec4 target;\n");
+		if (colorToDepth) {
+			WRITE(p, "  float gl_FragDepth;\n");
+		}
 	} else {
 		WRITE(p, "void main() {\n");
 	}
@@ -549,24 +555,50 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 			if (!shaderDepal) {
 				if (compat.shaderLanguage == HLSL_D3D11) {
-					if (doTextureProjection) {
-						WRITE(p, "  vec4 t = tex.Sample(samp, v_texcoord.xy / v_texcoord.z)%s;\n", bgraTexture ? ".bgra" : "");
+					if (texture3D) {
+						if (doTextureProjection) {
+							WRITE(p, "  vec4 t = tex.Sample(samp, vec3(v_texcoord.xy / v_texcoord.z, u_mipBias))%s;\n", bgraTexture ? ".bgra" : "");
+						} else {
+							WRITE(p, "  vec4 t = tex.Sample(samp, vec3(%s.xy, u_mipBias))%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+						}
 					} else {
-						WRITE(p, "  vec4 t = tex.Sample(samp, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+						if (doTextureProjection) {
+							WRITE(p, "  vec4 t = tex.Sample(samp, v_texcoord.xy / v_texcoord.z)%s;\n", bgraTexture ? ".bgra" : "");
+						} else {
+							WRITE(p, "  vec4 t = tex.Sample(samp, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+						}
 					}
 				} else if (compat.shaderLanguage == HLSL_D3D9) {
-					if (doTextureProjection) {
-						WRITE(p, "  vec4 t = tex2Dproj(tex, vec4(v_texcoord.x, v_texcoord.y, 0, v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
+					if (texture3D) {
+						if (doTextureProjection) {
+							WRITE(p, "  vec4 t = tex3Dproj(tex, vec4(v_texcoord.x, v_texcoord.y, u_mipBias, v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
+						} else {
+							WRITE(p, "  vec4 t = tex3D(tex, vec3(%s.x, %s.y, u_mipBias))%s;\n", texcoord, texcoord, bgraTexture ? ".bgra" : "");
+						}
 					} else {
-						WRITE(p, "  vec4 t = tex2D(tex, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+						if (doTextureProjection) {
+							WRITE(p, "  vec4 t = tex2Dproj(tex, vec4(v_texcoord.x, v_texcoord.y, 0.0, v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
+						} else {
+							WRITE(p, "  vec4 t = tex2D(tex, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+						}
 					}
 				} else {
-					if (doTextureProjection) {
-						WRITE(p, "  vec4 t = %sProj(tex, %s);\n", compat.texture, texcoord);
+					// Note that here we're relying on the filter to be linear. We would have to otherwise to do two samples and manually filter in Z.
+					// Let's add that if we run into a case...
+					if (texture3D) {
+						if (doTextureProjection) {
+							WRITE(p, "  vec4 t = %sProj(tex, vec4(%s.xy, u_mipBias, %s.z));\n", compat.texture3D, texcoord, texcoord);
+						} else {
+							WRITE(p, "  vec4 t = %s(tex, vec3(%s.xy, u_mipBias));\n", compat.texture3D, texcoord);
+						}
 					} else {
-						WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord);
+						if (doTextureProjection) {
+							WRITE(p, "  vec4 t = %sProj(tex, %s);\n", compat.texture, texcoord);
+						} else {
+							WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord);
+						}
 					}
-				} 
+				}
 			} else {
 				if (doTextureProjection) {
 					// We don't use textureProj because we need better control and it's probably not much of a savings anyway.
@@ -575,7 +607,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				} else {
 					WRITE(p, "  vec2 uv = %s.xy;\n  vec2 uv_round;\n", texcoord);
 				}
-				WRITE(p, "  vec2 tsize = vec2(textureSize(tex, 0));\n");
+				WRITE(p, "  vec2 tsize = vec2(textureSize(tex, 0).xy);\n");
 				WRITE(p, "  vec2 fraction;\n");
 				WRITE(p, "  bool bilinear = (u_depal_mask_shift_off_fmt >> 31) != 0U;\n");
 				WRITE(p, "  if (bilinear) {\n");
@@ -1023,7 +1055,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	// Final color computed - apply color write mask.
 	// TODO: Maybe optimize to only do math on the affected channels?
-	// Or .. meh.
+	// Or .. meh. That would require more shader bits. Though we could
+	// of course optimize for the common mask 0xF00000, though again, blue-to-alpha
+	// does a better job with that.
 	if (colorWriteMask) {
 		WRITE(p, "  highp uint v32 = packUnorm4x8(%s);\n", compat.fragColor0);
 		WRITE(p, "  highp uint d32 = packUnorm4x8(destColor);\n");
@@ -1034,6 +1068,22 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	if (blueToAlpha) {
 		WRITE(p, "  %s = vec4(0.0, 0.0, 0.0, %s.z);  // blue to alpha\n", compat.fragColor0, compat.fragColor0);
+	}
+
+	if (colorToDepth) {
+		DepthScaleFactors factors = GetDepthScaleFactors();
+
+		if (compat.bitwiseOps) {
+			WRITE(p, "  highp float depthValue = float(int(%s.x * 31.99) | (int(%s.y * 63.99) << 5) | (int(%s.z * 31.99) << 11)) / 65535.0;\n", "v", "v", "v"); // compat.fragColor0, compat.fragColor0, compat.fragColor0);
+		} else {
+			// D3D9-compatible alternative
+			WRITE(p, "  highp float depthValue = (floor(%s.x * 31.99) + floor(%s.y * 63.99) * 32.0 + floor(%s.z * 31.99) * 2048.0) / 65535.0;\n", "v", "v", "v"); // compat.fragColor0, compat.fragColor0, compat.fragColor0);
+		}
+		if (factors.scale != 1.0 || factors.offset != 0.0) {
+			WRITE(p, "  gl_FragDepth = (depthValue / %f) + %f;\n", factors.scale / 65535.0f, factors.offset);
+		} else {
+			WRITE(p, "  gl_FragDepth = depthValue;\n");
+		}
 	}
 
 	if (gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
@@ -1049,22 +1099,22 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "  z = floor(z * %f) * (1.0 / %f);\n", scale, scale);
 			}
 		} else {
-			WRITE(p, "  z = (1.0/65535.0) * floor(z * 65535.0);\n");
+			WRITE(p, "  z = (1.0 / 65535.0) * floor(z * 65535.0);\n");
 		}
 		WRITE(p, "  gl_FragDepth = z;\n");
-	} else if (!earlyFragmentTests && useAdrenoBugWorkaround) {
-		// Adreno (and possibly MESA/others) apply early frag tests even with discard in the shader.
-		// Writing depth prevents the bug, even with depth_unchanged specified.
+	} else if (useDiscardStencilBugWorkaround) {
+		// Adreno and some Mali drivers apply early frag tests even with discard in the shader,
+		// when only stencil is used. The exact situation seems to vary by driver.
+		// Writing depth prevents the bug for both vendors, even with depth_unchanged specified.
+		// This doesn't make a ton of sense, but empirically does work.
 		WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
 	}
 
-	if (compat.shaderLanguage == HLSL_D3D11) {
+	if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
 		if (writeDepth) {
 			WRITE(p, "  outfragment.depth = gl_FragDepth;\n");
 		}
 		WRITE(p, "  return outfragment;\n");
-	} else if (compat.shaderLanguage == HLSL_D3D9) {
-		WRITE(p, "  return target;\n");
 	}
 
 	WRITE(p, "}\n");

@@ -200,7 +200,9 @@ void System_SendMessage(const char *command, const char *parameter) {
 	}
 }
 
+void System_Toast(const char *text) {}
 void System_AskForPermission(SystemPermission permission) {}
+
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
 FOUNDATION_EXTERN void AudioServicesPlaySystemSoundWithVibration(unsigned long, objc_object*, NSDictionary*);

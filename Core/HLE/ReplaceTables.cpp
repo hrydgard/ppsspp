@@ -25,6 +25,7 @@
 #include "Common/Log.h"
 #include "Common/Swap.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Debugger/SymbolMap.h"
@@ -34,6 +35,7 @@
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceDisplay.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPU.h"
@@ -136,7 +138,7 @@ static int Replace_memcpy() {
 		}
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointer(destPtr);
+		u8 *dst = Memory::GetPointerWrite(destPtr);
 		const u8 *src = Memory::GetPointer(srcPtr);
 
 		if (!dst || !src) {
@@ -188,7 +190,7 @@ static int Replace_memcpy_jak() {
 		}
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointer(destPtr);
+		u8 *dst = Memory::GetPointerWrite(destPtr);
 		const u8 *src = Memory::GetPointer(srcPtr);
 
 		if (!dst || !src) {
@@ -238,7 +240,7 @@ static int Replace_memcpy16() {
 		}
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointer(destPtr);
+		u8 *dst = Memory::GetPointerWrite(destPtr);
 		const u8 *src = Memory::GetPointer(srcPtr);
 		if (dst && src) {
 			memmove(dst, src, bytes);
@@ -265,7 +267,7 @@ static int Replace_memcpy_swizzled() {
 			gpu->PerformMemoryDownload(srcPtr, pitch * h);
 		}
 	}
-	u8 *dstp = Memory::GetPointer(destPtr);
+	u8 *dstp = Memory::GetPointerWrite(destPtr);
 	const u8 *srcp = Memory::GetPointer(srcPtr);
 
 	if (dstp && srcp) {
@@ -310,7 +312,7 @@ static int Replace_memmove() {
 		}
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointer(destPtr);
+		u8 *dst = Memory::GetPointerWrite(destPtr);
 		const u8 *src = Memory::GetPointer(srcPtr);
 		if (dst && src) {
 			memmove(dst, src, bytes);
@@ -336,7 +338,7 @@ static int Replace_memset() {
 		skip = gpu->PerformMemorySet(destPtr, value, bytes);
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointer(destPtr);
+		u8 *dst = Memory::GetPointerWrite(destPtr);
 		if (dst) {
 			memset(dst, value, bytes);
 		}
@@ -363,7 +365,7 @@ static int Replace_memset_jak() {
 		skip = gpu->PerformMemorySet(destPtr, value, bytes);
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointer(destPtr);
+		u8 *dst = Memory::GetPointerWrite(destPtr);
 		if (dst) {
 			memset(dst, value, bytes);
 		}
@@ -706,7 +708,7 @@ static int Hook_hexyzforce_monoclome_thread() {
 static int Hook_starocean_write_stencil() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_T7];
 	if (Memory::IsVRAMAddress(fb_address)) {
-		gpu->PerformStencilUpload(fb_address, 0x00088000);
+		gpu->PerformStencilUpload(fb_address, 0x00088000, StencilUpload::IGNORE_ALPHA);
 	}
 	return 0;
 }
@@ -1338,6 +1340,36 @@ static int Hook_soltrigger_render_ucschar() {
 	return 0;
 }
 
+static int Hook_gow_fps_hack() {
+	if (PSP_CoreParameter().compat.flags().GoWFramerateHack60 || PSP_CoreParameter().compat.flags().GoWFramerateHack30) {
+		if (PSP_CoreParameter().compat.flags().GoWFramerateHack30) {
+			__DisplayWaitForVblanks("vblank start waited", 2);
+		} else {
+			__DisplayWaitForVblanks("vblank start waited", 1);
+		}
+	}
+	return 0;
+}
+
+static int Hook_gow_vortex_hack() {
+	if (PSP_CoreParameter().compat.flags().GoWFramerateHack60) {
+		// from my tests both ==0x3F800000 and !=0x3F800000 takes around 1:40-1:50, that seems to match correct behaviour
+		if (currentMIPS->r[MIPS_REG_S1] == 0 && currentMIPS->r[MIPS_REG_A0] == 0xC0 && currentMIPS->r[MIPS_REG_T4] != 0x3F800000) {
+			currentMIPS->r[MIPS_REG_S1] = 1;
+		}
+	}
+	return 0;
+}
+
+static int Hook_ZZT3_select_hack() {
+	if (PSP_CoreParameter().compat.flags().ZZT3SelectHack) {
+		if (currentMIPS->r[MIPS_REG_V0] == 0) {
+			currentMIPS->r[MIPS_REG_V0] = 1;
+		}
+	}
+	return 0;
+}
+
 #define JITFUNC(f) (&MIPSComp::MIPSFrontendInterface::f)
 
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
@@ -1454,6 +1486,9 @@ static const ReplacementTableEntry entries[] = {
 	{ "worms_copy_normalize_alpha", &Hook_worms_copy_normalize_alpha, 0, REPFLAG_HOOKENTER, 0x0CC },
 	{ "openseason_data_decode", &Hook_openseason_data_decode, 0, REPFLAG_HOOKENTER, 0x2F0 },
 	{ "soltrigger_render_ucschar", &Hook_soltrigger_render_ucschar, 0, REPFLAG_HOOKENTER, 0 },
+	{ "gow_fps_hack", &Hook_gow_fps_hack, 0, REPFLAG_HOOKEXIT , 0 },
+	{ "gow_vortex_hack", &Hook_gow_vortex_hack, 0, REPFLAG_HOOKENTER, 0x60 },
+	{ "ZZT3_select_hack", &Hook_ZZT3_select_hack, 0, REPFLAG_HOOKENTER, 0xC4 },
 	{}
 };
 

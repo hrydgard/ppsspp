@@ -352,7 +352,7 @@ UI::EventReturn MemStickScreen::SetFolderManually(UI::EventParams &params) {
 
 			if (newPath.empty()) {
 				// Reuse below message instead of adding yet another string.
-				SystemToast(sy->T("Path does not exist!"));
+				System_Toast(sy->T("Path does not exist!"));
 				return;
 			}
 
@@ -386,7 +386,7 @@ UI::EventReturn MemStickScreen::SetFolderManually(UI::EventParams &params) {
 			}
 
 			if (!File::Exists(pendingMemStickFolder)) {
-				SystemToast(sy->T("Path does not exist!"));
+				System_Toast(sy->T("Path does not exist!"));
 				return;
 			}
 

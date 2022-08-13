@@ -93,6 +93,7 @@ GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID,
 	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), editThenRestore_(editThenRestore) {
 	lastVertical_ = UseVerticalLayout();
 	prevInflightFrames_ = g_Config.iInflightFrames;
+	analogSpeedMapped_ = KeyMap::AxisFromPspButton(VIRTKEY_SPEED_ANALOG, nullptr, nullptr, nullptr);
 }
 
 bool GameSettingsScreen::UseVerticalLayout() const {
@@ -201,6 +202,7 @@ void GameSettingsScreen::CreateViews() {
 
 	iAlternateSpeedPercent1_ = g_Config.iFpsLimit1 < 0 ? -1 : (g_Config.iFpsLimit1 * 100) / 60;
 	iAlternateSpeedPercent2_ = g_Config.iFpsLimit2 < 0 ? -1 : (g_Config.iFpsLimit2 * 100) / 60;
+	iAlternateSpeedPercentAnalog_ = (g_Config.iAnalogFpsLimit * 100) / 60;
 
 	bool vertical = UseVerticalLayout();
 
@@ -335,6 +337,11 @@ void GameSettingsScreen::CreateViews() {
 	altSpeed2->SetZeroLabel(gr->T("Unlimited"));
 	altSpeed2->SetNegativeDisable(gr->T("Disabled"));
 
+	if (analogSpeedMapped_) {
+		PopupSliderChoice *analogSpeed = graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercentAnalog_, 1, 1000, gr->T("Analog Alternative Speed", "Analog alternative speed (in %)"), 5, screenManager(), gr->T("%")));
+		altSpeed2->SetFormat("%i%%");
+	}
+
 	graphicsSettings->Add(new ItemHeader(gr->T("Postprocessing effect")));
 
 	std::set<std::string> alreadyAddedShader;
@@ -383,6 +390,7 @@ void GameSettingsScreen::CreateViews() {
 		}
 	}
 
+#ifndef OPENXR
 	graphicsSettings->Add(new ItemHeader(gr->T("Screen layout")));
 #if !defined(MOBILE_DEVICE)
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
@@ -414,6 +422,7 @@ void GameSettingsScreen::CreateViews() {
 		graphicsSettings->Add(new CheckBox(&g_Config.bImmersiveMode, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnImmersiveModeChange);
 	}
 #endif
+#endif
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Performance")));
 	static const char *internalResolutions[] = { "Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP", "6x PSP", "7x PSP", "8x PSP", "9x PSP", "10x PSP" };
@@ -424,7 +433,8 @@ void GameSettingsScreen::CreateViews() {
 	});
 
 #if PPSSPP_PLATFORM(ANDROID)
-	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_TV) {
+	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
+	if ((deviceType != DEVICE_TYPE_TV) && (deviceType != DEVICE_TYPE_VR)) {
 		static const char *deviceResolutions[] = { "Native device resolution", "Auto (same as Rendering)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
 		int max_res_temp = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 2;
 		if (max_res_temp == 3)
@@ -578,7 +588,9 @@ void GameSettingsScreen::CreateViews() {
 	static const char *bufFilters[] = { "Linear", "Nearest", };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
 
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+#ifdef OPENXR
+	bool showCardboardSettings = false;
+#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	bool showCardboardSettings = true;
 #else
 	// If you enabled it through the ini, you can see this. Useful for testing.
@@ -707,6 +719,7 @@ void GameSettingsScreen::CreateViews() {
 		});
 	}
 
+#ifndef OPENXR
 	// TVs don't have touch control, at least not yet.
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_TV) {
 		controlsSettings->Add(new ItemHeader(co->T("OnScreen", "On-Screen Touch Controls")));
@@ -778,12 +791,13 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSensitivity, 0.01f, 1.0f, co->T("Mouse sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bMouseControl);
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSmoothing, 0.0f, 0.95f, co->T("Mouse smoothing"), 0.05f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bMouseControl);
 #endif
+#endif
 
 	LinearLayout *networkingSettings = AddTab("GameSettingsNetworking", ms->T("Networking"));
 
 	networkingSettings->Add(new ItemHeader(ms->T("Networking")));
 
-	networkingSettings->Add(new Choice(n->T("PPSSPP Ad-Hoc Wiki Page")))->OnClick.Handle(this, &GameSettingsScreen::OnAdhocGuides);
+	networkingSettings->Add(new Choice(n->T("Open PPSSPP Multiplayer Wiki Page")))->OnClick.Handle(this, &GameSettingsScreen::OnAdhocGuides);
 
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableWlan, n->T("Enable networking", "Enable networking/wlan (beta)")));
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, n->T("Change Mac Address"), (const char*)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
@@ -801,7 +815,13 @@ void GameSettingsScreen::CreateViews() {
 
 	networkingSettings->Add(new ItemHeader(n->T("UPnP (port-forwarding)")));
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableUPnP, n->T("Enable UPnP", "Enable UPnP (need a few seconds to detect)")));
-	networkingSettings->Add(new CheckBox(&g_Config.bUPnPUseOriginalPort, n->T("UPnP use original port", "UPnP use original port (Enabled = PSP compatibility)")))->SetEnabledPtr(&g_Config.bEnableUPnP);
+	auto useOriPort = networkingSettings->Add(new CheckBox(&g_Config.bUPnPUseOriginalPort, n->T("UPnP use original port", "UPnP use original port (Enabled = PSP compatibility)")));
+	useOriPort->OnClick.Add([=](EventParams& e) {
+		if (g_Config.bUPnPUseOriginalPort)
+			settingInfo_->Show(n->T("UseOriginalPort Tip", "May not work for all devices or games, see wiki."), e.v);
+		return UI::EVENT_CONTINUE;
+	});
+	useOriPort->SetEnabledPtr(&g_Config.bEnableUPnP);
 
 	networkingSettings->Add(new ItemHeader(n->T("Chat")));
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableNetworkChat, n->T("Enable network chat", "Enable network chat")));
@@ -1068,20 +1088,23 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, sy->T("Confirmation Button"), buttonPref, 0, 2, sy->GetName(), screenManager()));
 
 #if !defined(MOBILE_DEVICE) || PPSSPP_PLATFORM(ANDROID)
-	// Search
-	LinearLayout *searchSettings = AddTab("GameSettingsSearch", ms->T("Search"), true);
+	// Hide search if screen is too small.
+	if (dp_xres < dp_yres || dp_yres >= 500) {
+		// Search
+		LinearLayout *searchSettings = AddTab("GameSettingsSearch", ms->T("Search"), true);
 
-	searchSettings->Add(new ItemHeader(se->T("Find settings")));
-	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
-		searchSettings->Add(new ChoiceWithValueDisplay(&searchFilter_, se->T("Filter"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeSearchFilter);
-	} else {
-		searchSettings->Add(new PopupTextInputChoice(&searchFilter_, se->T("Filter"), "", 64, screenManager()))->OnChange.Handle(this, &GameSettingsScreen::OnChangeSearchFilter);
+		searchSettings->Add(new ItemHeader(se->T("Find settings")));
+		if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
+			searchSettings->Add(new ChoiceWithValueDisplay(&searchFilter_, se->T("Filter"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeSearchFilter);
+		} else {
+			searchSettings->Add(new PopupTextInputChoice(&searchFilter_, se->T("Filter"), "", 64, screenManager()))->OnChange.Handle(this, &GameSettingsScreen::OnChangeSearchFilter);
+		}
+		clearSearchChoice_ = searchSettings->Add(new Choice(se->T("Clear filter")));
+		clearSearchChoice_->OnClick.Handle(this, &GameSettingsScreen::OnClearSearchFilter);
+		noSearchResults_ = searchSettings->Add(new TextView(se->T("No settings matched '%1'"), new LinearLayoutParams(Margins(20, 5))));
+
+		ApplySearchFilter();
 	}
-	clearSearchChoice_ = searchSettings->Add(new Choice(se->T("Clear filter")));
-	clearSearchChoice_->OnClick.Handle(this, &GameSettingsScreen::OnClearSearchFilter);
-	noSearchResults_ = searchSettings->Add(new TextView(se->T("No settings matched '%1'"), new LinearLayoutParams(Margins(20, 5))));
-
-	ApplySearchFilter();
 #endif
 }
 
@@ -1396,7 +1419,14 @@ void GameSettingsScreen::dialogFinished(const Screen *dialog, DialogResult resul
 	if (result == DialogResult::DR_OK) {
 		g_Config.iFpsLimit1 = iAlternateSpeedPercent1_ < 0 ? -1 : (iAlternateSpeedPercent1_ * 60) / 100;
 		g_Config.iFpsLimit2 = iAlternateSpeedPercent2_ < 0 ? -1 : (iAlternateSpeedPercent2_ * 60) / 100;
+		g_Config.iAnalogFpsLimit = (iAlternateSpeedPercentAnalog_ * 60) / 100;
 
+		RecreateViews();
+	}
+
+	bool mapped = KeyMap::AxisFromPspButton(VIRTKEY_SPEED_ANALOG, nullptr, nullptr, nullptr);
+	if (mapped != analogSpeedMapped_) {
+		analogSpeedMapped_ = mapped;
 		RecreateViews();
 	}
 }
@@ -1614,7 +1644,21 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
-	g_Config.sMACAddress = CreateRandMAC();
+	auto n = GetI18NCategory("Networking");
+	auto di = GetI18NCategory("Dialog");
+
+	const char *confirmMessage = n->T("ChangeMacSaveConfirm", "Generate a new MAC address?");
+	const char *warningMessage = n->T("ChangeMacSaveWarning", "Some games verify the MAC address when loading savedata, so this may break old saves.");
+	std::string combined = std::string(confirmMessage) + "\n\n" + warningMessage;
+
+	auto confirmScreen = new PromptScreen(
+		combined, di->T("Yes"), di->T("No"),
+		[&](bool success) {
+		if (success) {
+			g_Config.sMACAddress = CreateRandMAC();
+		}}
+	);
+	screenManager()->push(confirmScreen);
 
 	return UI::EVENT_DONE;
 }
@@ -1806,13 +1850,23 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new Choice(dev->T("Copy savestates to memstick root")))->OnClick.Handle(this, &DeveloperToolsScreen::OnCopyStatesToRoot);
 #endif
 
-#if !defined(MOBILE_DEVICE)
+	// Reconsider whenever recreating views.
+	hasTexturesIni_ = HasIni::MAYBE;
+
 	Choice *createTextureIni = list->Add(new Choice(dev->T("Create/Open textures.ini file for current game")));
 	createTextureIni->OnClick.Handle(this, &DeveloperToolsScreen::OnOpenTexturesIniFile);
-	if (!PSP_IsInited()) {
-		createTextureIni->SetEnabled(false);
-	}
-#endif
+	createTextureIni->SetEnabledFunc([&] {
+		if (!PSP_IsInited())
+			return false;
+
+		// Disable the choice to Open/Create if the textures.ini file already exists, and we can't open it due to platform support limitations.
+		if (!System_GetPropertyBool(SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR)) {
+			if (hasTexturesIni_ == HasIni::MAYBE)
+				hasTexturesIni_ = TextureReplacer::IniExists(g_paramSFO.GetDiscID()) ? HasIni::YES : HasIni::NO;
+			return hasTexturesIni_ != HasIni::YES;
+		}
+		return true;
+	});
 }
 
 void DeveloperToolsScreen::onFinish(DialogResult result) {
@@ -1869,8 +1923,17 @@ UI::EventReturn DeveloperToolsScreen::OnLoadLanguageIni(UI::EventParams &e) {
 UI::EventReturn DeveloperToolsScreen::OnOpenTexturesIniFile(UI::EventParams &e) {
 	std::string gameID = g_paramSFO.GetDiscID();
 	Path generatedFilename;
+
 	if (TextureReplacer::GenerateIni(gameID, generatedFilename)) {
-		File::OpenFileInEditor(generatedFilename);
+		if (System_GetPropertyBool(SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR)) {
+			File::OpenFileInEditor(generatedFilename);
+		} else {
+			// Can't do much here, let's send a "toast" so the user sees that something happened.
+			auto dev = GetI18NCategory("Developer");
+			System_Toast((generatedFilename.ToVisualString() + ": " +  dev->T("Texture ini file created")).c_str());
+		}
+
+		hasTexturesIni_ = HasIni::YES;
 	}
 	return UI::EVENT_DONE;
 }
@@ -1977,7 +2040,7 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	buttonsRow2->Add(new Button(di->T("Toggle List")))->OnClick.Handle(this, &HostnameSelectScreen::OnShowIPListClick);
 	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, G_RIGHT)));
 
-	std::vector<std::string> listIP = {"socom.cc", "myneighborsushicat.com", "localhost"}; // TODO: Add some saved recent history too?
+	std::vector<std::string> listIP = {"socom.cc", "psp.gameplayer.club", "myneighborsushicat.com", "localhost"}; // TODO: Add some saved recent history too?
 	net::GetIPList(listIP);
 	ipRows_ = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
 	ScrollView* scrollView = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
@@ -1998,8 +2061,8 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	parent->Add(ipRows_);
 	listIP.clear(); listIP.shrink_to_fit();
 
-	progressView_ = parent->Add(new TextView(n->T("Validating address..."), ALIGN_HCENTER, false, new LinearLayoutParams(Margins(0, 10, 0, 0))));
-	progressView_->SetVisibility(V_INVISIBLE);
+	progressView_ = parent->Add(new TextView(n->T("Validating address..."), ALIGN_HCENTER, false, new LinearLayoutParams(Margins(0, 5, 0, 0))));
+	progressView_->SetVisibility(UI::V_GONE);
 }
 
 void HostnameSelectScreen::SendEditKey(int keyCode, int flags) {
@@ -2119,7 +2182,7 @@ bool HostnameSelectScreen::CanComplete(DialogResult result) {
 			lastResolvedResult_ = toResolveResult_;
 
 			if (lastResolvedResult_) {
-				progressView_->SetVisibility(UI::V_INVISIBLE);
+				progressView_->SetVisibility(UI::V_GONE);
 			} else {
 				progressView_->SetText(n->T("Invalid IP or hostname"));
 				progressView_->SetTextColor(0xFF3030FF);
@@ -2179,8 +2242,7 @@ void GestureMappingScreen::CreateViews() {
 	vert->Add(new PopupMultiChoice(&g_Config.iSwipeRight, mc->T("Swipe Right"), gestureButton, 0, ARRAY_SIZE(gestureButton), mc->GetName(), screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
 	vert->Add(new PopupSliderChoiceFloat(&g_Config.fSwipeSensitivity, 0.01f, 1.0f, co->T("Swipe sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
 	vert->Add(new PopupSliderChoiceFloat(&g_Config.fSwipeSmoothing, 0.0f, 0.95f, co->T("Swipe smoothing"), 0.05f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
-	
+
 	vert->Add(new ItemHeader(co->T("Double tap")));
 	vert->Add(new PopupMultiChoice(&g_Config.iDoubleTapGesture, mc->T("Double tap button"), gestureButton, 0, ARRAY_SIZE(gestureButton), mc->GetName(), screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
 }
-

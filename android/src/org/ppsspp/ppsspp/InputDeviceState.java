@@ -128,6 +128,7 @@ public class InputDeviceState {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
 			logAdvanced(device);
 		}
+		NativeApp.sendMessage("inputDeviceConnectedID", String.valueOf(this.deviceId));
 		NativeApp.sendMessage("inputDeviceConnected", device.getName());
 	}
 

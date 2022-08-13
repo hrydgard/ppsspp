@@ -27,8 +27,8 @@
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/FramebufferManagerDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
-#include "GPU/Directx9/DepalettizeShaderDX9.h"
 #include "Common/GPU/D3D9/D3D9StateCache.h"
+#include "GPU/Common/DepalettizeCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
@@ -37,6 +37,19 @@
 #include "ext/xxhash.h"
 #include "Common/Math/math_util.h"
 
+// NOTE: In the D3D backends, we flip R and B in the shaders, so while these look wrong, they're OK.
+
+Draw::DataFormat FromD3D9Format(u32 fmt) {
+	switch (fmt) {
+	case D3DFMT_A8R8G8B8: default: return Draw::DataFormat::R8G8B8A8_UNORM;
+	}
+}
+
+D3DFORMAT ToD3D9Format(Draw::DataFormat fmt) {
+	switch (fmt) {
+	case Draw::DataFormat::R8G8B8A8_UNORM: default: return D3DFMT_A8R8G8B8;
+	}
+}
 
 namespace DX9 {
 
@@ -80,12 +93,11 @@ TextureCacheDX9::~TextureCacheDX9() {
 }
 
 void TextureCacheDX9::SetFramebufferManager(FramebufferManagerDX9 *fbManager) {
-	framebufferManagerDX9_ = fbManager;
 	framebufferManager_ = fbManager;
 }
 
 void TextureCacheDX9::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
-	LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
+	LPDIRECT3DBASETEXTURE9 &texture = DxTex(entry);
 	if (texture) {
 		texture->Release();
 		texture = nullptr;
@@ -112,7 +124,8 @@ D3DFORMAT getClutDestFormat(GEPaletteFormat format) {
 }
 
 void TextureCacheDX9::ApplySamplingParams(const SamplerCacheKey &key) {
-	dxstate.texMinFilter.set(key.minFilt ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+	D3DTEXTUREFILTERTYPE minFilt = (false ? D3DTEXF_ANISOTROPIC : D3DTEXF_LINEAR);
+	dxstate.texMinFilter.set(key.minFilt ? minFilt : D3DTEXF_POINT);
 	dxstate.texMipFilter.set(key.mipFilt ? D3DTEXF_LINEAR : D3DTEXF_POINT);
 	dxstate.texMagFilter.set(key.magFilt ? D3DTEXF_LINEAR : D3DTEXF_POINT);
 
@@ -132,6 +145,8 @@ void TextureCacheDX9::ApplySamplingParams(const SamplerCacheKey &key) {
 }
 
 void TextureCacheDX9::StartFrame() {
+	TextureCacheCommon::StartFrame();
+
 	InvalidateLastTexture();
 	timesInvalidatedAllThisFrame_ = 0;
 	replacementTimeThisFrame_ = 0.0;
@@ -191,12 +206,12 @@ void TextureCacheDX9::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase
 }
 
 void TextureCacheDX9::BindTexture(TexCacheEntry *entry) {
-	LPDIRECT3DTEXTURE9 texture = DxTex(entry);
+	LPDIRECT3DBASETEXTURE9 texture = DxTex(entry);
 	if (texture != lastBoundTexture) {
 		device_->SetTexture(0, texture);
 		lastBoundTexture = texture;
 	}
-	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
+	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
 	ApplySamplingParams(samplerKey);
 }
@@ -206,300 +221,107 @@ void TextureCacheDX9::Unbind() {
 	InvalidateLastTexture();
 }
 
-class TextureShaderApplierDX9 {
-public:
-	struct Pos {
-		Pos(float x_, float y_, float z_) : x(x_), y(y_), z(z_) {
-		}
-		Pos() {
-		}
-
-		float x;
-		float y;
-		float z;
-	};
-	struct UV {
-		UV(float u_, float v_) : u(u_), v(v_) {
-		}
-		UV() {
-		}
-
-		float u;
-		float v;
-	};
-
-	struct PosUV {
-		Pos pos;
-		UV uv;
-	};
-
-	TextureShaderApplierDX9(LPDIRECT3DDEVICE9 device, LPDIRECT3DPIXELSHADER9 pshader, LPDIRECT3DVERTEXDECLARATION9 decl, float bufferW, float bufferH, int renderW, int renderH, float xoff, float yoff)
-		: device_(device), pshader_(pshader), decl_(decl), bufferW_(bufferW), bufferH_(bufferH), renderW_(renderW), renderH_(renderH) {
-		static const Pos pos[4] = {
-			{-1,  1, 0},
-			{ 1,  1, 0},
-			{-1, -1, 0},
-			{ 1, -1, 0},
-		};
-		static const UV uv[4] = {
-			{0, 0},
-			{1, 0},
-			{0, 1},
-			{1, 1},
-		};
-
-		for (int i = 0; i < 4; ++i) {
-			verts_[i].pos = pos[i];
-			verts_[i].pos.x += xoff;
-			verts_[i].pos.y += yoff;
-			verts_[i].uv = uv[i];
-		}
-	}
-
-	void ApplyBounds(const KnownVertexBounds &bounds, u32 uoff, u32 voff, float xoff, float yoff) {
-		// If min is not < max, then we don't have values (wasn't set during decode.)
-		if (bounds.minV < bounds.maxV) {
-			const float invWidth = 1.0f / bufferW_;
-			const float invHeight = 1.0f / bufferH_;
-			// Inverse of half = double.
-			const float invHalfWidth = invWidth * 2.0f;
-			const float invHalfHeight = invHeight * 2.0f;
-
-			const int u1 = bounds.minU + uoff;
-			const int v1 = bounds.minV + voff;
-			const int u2 = bounds.maxU + uoff;
-			const int v2 = bounds.maxV + voff;
-
-			const float left = u1 * invHalfWidth - 1.0f + xoff;
-			const float right = u2 * invHalfWidth - 1.0f + xoff;
-			const float top = (bufferH_ - v1) * invHalfHeight - 1.0f + yoff;
-			const float bottom = (bufferH_ - v2) * invHalfHeight - 1.0f + yoff;
-
-			float z = 0.0f;
-			verts_[0].pos = Pos(left, top, z);
-			verts_[1].pos = Pos(right, top, z);
-			verts_[2].pos = Pos(left, bottom, z);
-			verts_[3].pos = Pos(right, bottom, z);
-
-			// And also the UVs, same order.
-			const float uvleft = u1 * invWidth;
-			const float uvright = u2 * invWidth;
-			const float uvtop = v1 * invHeight;
-			const float uvbottom = v2 * invHeight;
-
-			verts_[0].uv = UV(uvleft, uvtop);
-			verts_[1].uv = UV(uvright, uvtop);
-			verts_[2].uv = UV(uvleft, uvbottom);
-			verts_[3].uv = UV(uvright, uvbottom);
-
-			// We need to reapply the texture next time since we cropped UV.
-			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-		}
-	}
-
-	void Use(LPDIRECT3DVERTEXSHADER9 vshader) {
-		device_->SetPixelShader(pshader_);
-		device_->SetVertexShader(vshader);
-		device_->SetVertexDeclaration(decl_);
-	}
-
-	void Shade() {
-		device_->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
-		device_->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, FALSE);
-		device_->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA);
-		device_->SetRenderState(D3DRS_ZENABLE, FALSE);
-		device_->SetRenderState(D3DRS_STENCILENABLE, FALSE);
-		device_->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
-		device_->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-
-		D3DVIEWPORT9 vp{ 0, 0, (DWORD)renderW_, (DWORD)renderH_, 0.0f, 1.0f };
-		device_->SetViewport(&vp);
-		HRESULT hr = device_->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, verts_, (3 + 2) * sizeof(float));
-		if (FAILED(hr)) {
-			ERROR_LOG_REPORT(G3D, "Depal render failed: %08x", (uint32_t)hr);
-		}
-
-		dxstate.Restore();
-	}
-
-protected:
-	LPDIRECT3DDEVICE9 device_;
-	LPDIRECT3DPIXELSHADER9 pshader_;
-	LPDIRECT3DVERTEXDECLARATION9 decl_;
-	PosUV verts_[4];
-	float bufferW_;
-	float bufferH_;
-	int renderW_;
-	int renderH_;
-};
-
-void TextureCacheDX9::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) {
-	LPDIRECT3DPIXELSHADER9 pshader = nullptr;
-	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
-	bool need_depalettize = IsClutFormat(texFormat);
-	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
-		pshader = depalShaderCache_->GetDepalettizePixelShader(clutMode, framebuffer->drawnFormat);
-	}
-
-	if (pshader) {
-		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-		LPDIRECT3DTEXTURE9 clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
-
-		Draw::Framebuffer *depalFBO = framebufferManagerDX9_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight);
-		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
-		shaderManager_->DirtyLastShader();
-
-		float xoff = -0.5f / framebuffer->renderWidth;
-		float yoff = 0.5f / framebuffer->renderHeight;
-
-		TextureShaderApplierDX9 shaderApply(device_, pshader, pFramebufferVertexDecl, framebuffer->bufferWidth, framebuffer->bufferHeight, framebuffer->renderWidth, framebuffer->renderHeight, xoff, yoff);
-		shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset, xoff, yoff);
-		shaderApply.Use(depalShaderCache_->GetDepalettizeVertexShader());
-
-		device_->SetTexture(1, clutTexture);
-		device_->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_POINT);
-		device_->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
-		device_->SetSamplerState(1, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
-
-		framebufferManagerDX9_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_SKIP_COPY | BINDFBCOLOR_FORCE_SELF);
-		device_->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
-		device_->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
-		device_->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
-		device_->SetSamplerState(0, D3DSAMP_MIPMAPLODBIAS, 0);
-		device_->SetSamplerState(0, D3DSAMP_MAXMIPLEVEL, 0);
-
-		shaderApply.Shade();
-
-		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
-
-		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
-		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
-
-		CheckAlphaResult alphaStatus = CheckAlpha(clutBuf_, getClutDestFormat(clutFormat), clutTotalColors);
-		gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
-	} else {
-		framebufferManagerDX9_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
-
-		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
-	}
-
-	framebufferManagerDX9_->RebindFramebuffer("RebindFramebuffer - ApplyTextureFromFramebuffer");
-
-	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
-	ApplySamplingParams(samplerKey);
+void TextureCacheDX9::BindAsClutTexture(Draw::Texture *tex) {
+	LPDIRECT3DBASETEXTURE9 clutTexture = (LPDIRECT3DBASETEXTURE9)draw_->GetNativeObject(Draw::NativeObject::TEXTURE_VIEW, tex);
+	device_->SetTexture(1, clutTexture);
+	device_->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+	device_->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+	device_->SetSamplerState(1, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
 }
 
 void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
-	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
-
-	// For the estimate, we assume cluts always point to 8888 for simplicity.
-	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
-
-	if ((entry->bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && entry->addr >= PSP_GetKernelMemoryEnd()) {
-		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
-		// Proceeding here can cause a crash.
+	BuildTexturePlan plan;
+	if (!PrepareBuildTexture(plan, entry)) {
+		// We're screwed?
 		return;
 	}
 
-	// Adjust maxLevel to actually present levels..
-	bool badMipSizes = false;
-	int maxLevel = entry->maxLevel;
-	for (int i = 0; i <= maxLevel; i++) {
-		// If encountering levels pointing to nothing, adjust max level.
-		u32 levelTexaddr = gstate.getTextureAddress(i);
-		if (!Memory::IsValidAddress(levelTexaddr)) {
-			maxLevel = i - 1;
-			break;
-		}
+	int tw = plan.w;
+	int th = plan.h;
 
-		// If size reaches 1, stop, and override maxlevel.
-		int tw = gstate.getTextureWidth(i);
-		int th = gstate.getTextureHeight(i);
-		if (tw == 1 || th == 1) {
-			maxLevel = i;
-			break;
-		}
-
-		if (i > 0 && gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-			if (tw != 1 && tw != (gstate.getTextureWidth(i - 1) >> 1))
-				badMipSizes = true;
-			else if (th != 1 && th != (gstate.getTextureHeight(i - 1) >> 1))
-				badMipSizes = true;
-		}
-	}
-
-	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
 	D3DFORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-
-	int scaleFactor = standardScaleFactor_;
-
-	// Rachet down scale factor in low-memory mode.
-	if (lowMemoryMode_) {
-		// Keep it even, though, just in case of npot troubles.
-		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
+	if (plan.replaced->GetSize(plan.baseLevelSrc, tw, th)) {
+		dstFmt = ToD3D9Format(plan.replaced->Format(plan.baseLevelSrc));
+	} else if (plan.scaleFactor > 1) {
+		tw *= plan.scaleFactor;
+		th *= plan.scaleFactor;
+		dstFmt = D3DFMT_A8R8G8B8;
 	}
 
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
-	ReplacedTexture &replaced = FindReplacement(entry, w, h);
-	if (replaced.Valid()) {
-		// We're replacing, so we won't scale.
-		scaleFactor = 1;
-		maxLevel = replaced.MaxLevel();
-		badMipSizes = false;
+	// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
+	int levels = std::min(plan.levelsToCreate, plan.levelsToLoad);
+
+	LPDIRECT3DBASETEXTURE9 &texture = DxTex(entry);
+	D3DPOOL pool = D3DPOOL_DEFAULT;
+	int usage = D3DUSAGE_DYNAMIC;
+
+	HRESULT hr;
+	if (plan.depth == 1) {
+		LPDIRECT3DTEXTURE9 tex;
+		hr = device_->CreateTexture(tw, th, levels, usage, dstFmt, pool, &tex, nullptr);
+		texture = tex;
+	} else {
+		LPDIRECT3DVOLUMETEXTURE9 tex;
+		hr = device_->CreateVolumeTexture(tw, th, plan.depth, 1, usage, dstFmt, pool, &tex, nullptr);
+		texture = tex;
 	}
 
-	// Don't scale the PPGe texture.
-	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd())
-		scaleFactor = 1;
-	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0 && scaleFactor != 1) {
-		// Remember for later that we /wanted/ to scale this texture.
-		entry->status |= TexCacheEntry::STATUS_TO_SCALE;
-		scaleFactor = 1;
-	}
-
-	if (scaleFactor != 1) {
-		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED) {
-			entry->status |= TexCacheEntry::STATUS_TO_SCALE;
-			scaleFactor = 1;
-		} else {
-			entry->status &= ~TexCacheEntry::STATUS_TO_SCALE;
-			entry->status |= TexCacheEntry::STATUS_IS_SCALED;
-			texelsScaledThisFrame_ += w * h;
-		}
-	}
-
-	// Seems to cause problems in Tactics Ogre.
-	if (badMipSizes) {
-		maxLevel = 0;
-	}
-
-	u8 level = 0;
-	if (IsFakeMipmapChange()) {
-		// NOTE: Since the level is not part of the cache key, we assume it never changes.
-		level = std::max(0, gstate.getTexLevelOffset16() / 16);
-	}
-	LoadTextureLevel(*entry, replaced, level, maxLevel, scaleFactor, dstFmt);
-
-	LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
-	if (!texture) {
+	if (FAILED(hr)) {
+		INFO_LOG(G3D, "Failed to create D3D texture: %dx%d", tw, th);
+		ReleaseTexture(entry, true);
 		return;
 	}
 
-	// Mipmapping is only enabled when texture scaling is disabled.
-	if (maxLevel > 0 && scaleFactor == 1) {
-		for (int i = 1; i <= maxLevel; i++) {
-			LoadTextureLevel(*entry, replaced, i, maxLevel, scaleFactor, dstFmt);
-		}
+	if (!texture) {
+		// What to do here?
+		return;
 	}
 
-	if (maxLevel == 0) {
-		entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
+	Draw::DataFormat texFmt = FromD3D9Format(dstFmt);
+
+	if (plan.depth == 1) {
+		// Regular loop.
+		for (int i = 0; i < levels; i++) {
+			int dstLevel = i;
+			HRESULT result;
+			uint32_t lockFlag = dstLevel == 0 ? D3DLOCK_DISCARD : 0;  // Can only discard the top level
+			D3DLOCKED_RECT rect{};
+
+			result = ((LPDIRECT3DTEXTURE9)texture)->LockRect(dstLevel, &rect, NULL, lockFlag);
+			if (FAILED(result)) {
+				ERROR_LOG(G3D, "Failed to lock D3D 2D texture at level %d: %dx%d", i, plan.w, plan.h);
+				return;
+			}
+			uint8_t *data = (uint8_t *)rect.pBits;
+			int stride = rect.Pitch;
+			LoadTextureLevel(*entry, data, stride, *plan.replaced, (i == 0) ? plan.baseLevelSrc : i, plan.scaleFactor, texFmt, false);
+			((LPDIRECT3DTEXTURE9)texture)->UnlockRect(dstLevel);
+		}
 	} else {
-		entry->status &= ~TexCacheEntry::STATUS_BAD_MIPS;
+		// 3D loop.
+		D3DLOCKED_BOX box;
+		HRESULT result = ((LPDIRECT3DVOLUMETEXTURE9)texture)->LockBox(0, &box, nullptr, D3DLOCK_DISCARD);
+		if (FAILED(result)) {
+			ERROR_LOG(G3D, "Failed to lock D3D 2D texture: %dx%dx%d", plan.w, plan.h, plan.depth);
+			return;
+		}
+
+		uint8_t *data = (uint8_t *)box.pBits;
+		int stride = box.RowPitch;
+		for (int i = 0; i < plan.depth; i++) {
+			LoadTextureLevel(*entry, data, stride, *plan.replaced, (i == 0) ? plan.baseLevelSrc : i, plan.scaleFactor, texFmt, false);
+			data += box.SlicePitch;
+		}
+		((LPDIRECT3DVOLUMETEXTURE9)texture)->UnlockBox(0);
 	}
-	if (replaced.Valid()) {
-		entry->SetAlphaStatus(TexCacheEntry::TexStatus(replaced.AlphaStatus()));
+
+	// Signal that we support depth textures so use it as one.
+	if (plan.depth > 1) {
+		entry->status |= TexCacheEntry::STATUS_3D;
+	}
+
+	if (plan.replaced->Valid()) {
+		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
 	}
 }
 
@@ -537,136 +359,6 @@ CheckAlphaResult TextureCacheDX9::CheckAlpha(const u32 *pixelData, u32 dstFmt, i
 	default:
 		return CheckAlpha32(pixelData, w, 0xFF000000);
 	}
-}
-
-ReplacedTextureFormat FromD3D9Format(u32 fmt) {
-	switch (fmt) {
-	case D3DFMT_R5G6B5: return ReplacedTextureFormat::F_5650;
-	case D3DFMT_A1R5G5B5: return ReplacedTextureFormat::F_5551;
-	case D3DFMT_A4R4G4B4: return ReplacedTextureFormat::F_4444;
-	case D3DFMT_A8R8G8B8: default: return ReplacedTextureFormat::F_8888;
-	}
-}
-
-D3DFORMAT ToD3D9Format(ReplacedTextureFormat fmt) {
-	switch (fmt) {
-	case ReplacedTextureFormat::F_5650: return D3DFMT_R5G6B5;
-	case ReplacedTextureFormat::F_5551: return D3DFMT_A1R5G5B5;
-	case ReplacedTextureFormat::F_4444: return D3DFMT_A4R4G4B4;
-	case ReplacedTextureFormat::F_8888: default: return D3DFMT_A8R8G8B8;
-	}
-}
-
-void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, int scaleFactor, u32 dstFmt) {
-	int w = gstate.getTextureWidth(level);
-	int h = gstate.getTextureHeight(level);
-
-	LPDIRECT3DTEXTURE9 &texture = DxTex(&entry);
-	if ((level == 0 || IsFakeMipmapChange()) && texture == nullptr) {
-		// Create texture
-		D3DPOOL pool = D3DPOOL_MANAGED;
-		int usage = 0;
-		pool = D3DPOOL_DEFAULT;
-		usage = D3DUSAGE_DYNAMIC;  // TODO: Switch to using a staging texture?
-		int levels = scaleFactor == 1 ? maxLevel + 1 : 1;
-		int tw = w, th = h;
-		D3DFORMAT tfmt = (D3DFORMAT)(dstFmt);
-		if (replaced.GetSize(level, tw, th)) {
-			tfmt = ToD3D9Format(replaced.Format(level));
-		} else {
-			tw *= scaleFactor;
-			th *= scaleFactor;
-			if (scaleFactor > 1) {
-				tfmt = D3DFMT_A8R8G8B8;
-			}
-		}
-		HRESULT hr;
-		if (IsFakeMipmapChange())
-			hr = device_->CreateTexture(tw, th, 1, usage, tfmt, pool, &texture, NULL);
-		else
-			hr = device_->CreateTexture(tw, th, levels, usage, tfmt, pool, &texture, NULL);
-		if (FAILED(hr)) {
-			INFO_LOG(G3D, "Failed to create D3D texture: %dx%d", tw, th);
-			ReleaseTexture(&entry, true);
-			return;
-		}
-	}
-
-	D3DLOCKED_RECT rect;
-
-	HRESULT result;
-	uint32_t lockFlag = level == 0 ? D3DLOCK_DISCARD : 0;  // Can only discard the top level
-	if (IsFakeMipmapChange())
-		result = texture->LockRect(0, &rect, NULL, lockFlag);
-	else
-		result = texture->LockRect(level, &rect, NULL, lockFlag);
-	if (FAILED(result)) {
-		ERROR_LOG(G3D, "Failed to lock D3D texture: %dx%d", w, h);
-		return;
-	}
-
-	gpuStats.numTexturesDecoded++;
-	if (replaced.GetSize(level, w, h)) {
-		double replaceStart = time_now_d();
-		replaced.Load(level, rect.pBits, rect.Pitch);
-		replacementTimeThisFrame_ += time_now_d() - replaceStart;
-		dstFmt = ToD3D9Format(replaced.Format(level));
-	} else {
-		GETextureFormat tfmt = (GETextureFormat)entry.format;
-		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
-		u32 texaddr = gstate.getTextureAddress(level);
-		int bufw = GetTextureBufw(level, texaddr, tfmt);
-		int bpp = dstFmt == D3DFMT_A8R8G8B8 ? 4 : 2;
-
-		u32 *pixelData = (u32 *)rect.pBits;
-		int decPitch = rect.Pitch;
-		if (scaleFactor > 1) {
-			tmpTexBufRearrange_.resize(std::max(bufw, w) * h);
-			pixelData = tmpTexBufRearrange_.data();
-			// We want to end up with a neatly packed texture for scaling.
-			decPitch = w * bpp;
-		}
-
-		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, false);
-		entry.SetAlphaStatus(alphaResult, level);
-
-		if (scaleFactor > 1) {
-			scaler.ScaleAlways((u32 *)rect.pBits, pixelData, dstFmt, w, h, scaleFactor);
-			pixelData = (u32 *)rect.pBits;
-
-			// We always end up at 8888.  Other parts assume this.
-			_assert_(dstFmt == D3DFMT_A8R8G8B8);
-			bpp = sizeof(u32);
-			decPitch = w * bpp;
-
-			if (decPitch != rect.Pitch) {
-				// Rearrange in place to match the requested pitch.
-				// (it can only be larger than w * bpp, and a match is likely.)
-				for (int y = h - 1; y >= 0; --y) {
-					memcpy((u8 *)rect.pBits + rect.Pitch * y, (u8 *)rect.pBits + decPitch * y, w * bpp);
-				}
-				decPitch = rect.Pitch;
-			}
-		}
-
-		if (replacer_.Enabled()) {
-			ReplacedTextureDecodeInfo replacedInfo;
-			replacedInfo.cachekey = entry.CacheKey();
-			replacedInfo.hash = entry.fullhash;
-			replacedInfo.addr = entry.addr;
-			replacedInfo.isVideo = IsVideo(entry.addr);
-			replacedInfo.isFinal = (entry.status & TexCacheEntry::STATUS_TO_SCALE) == 0;
-			replacedInfo.scaleFactor = scaleFactor;
-			replacedInfo.fmt = FromD3D9Format(dstFmt);
-
-			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, level, w, h);
-		}
-	}
-
-	if (IsFakeMipmapChange())
-		texture->UnlockRect(0);
-	else
-		texture->UnlockRect(level);
 }
 
 bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {

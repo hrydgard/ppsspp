@@ -1052,6 +1052,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					WRITE(p, "  %sv_color0 = color0;\n", compat.vsOutPrefix);
 			} else {
 				WRITE(p, "  %sv_color0 = u_matambientalpha;\n", compat.vsOutPrefix);
+				if (bugs.Has(Draw::Bugs::MALI_CONSTANT_LOAD_BUG) && g_Config.bVendorBugChecksEnabled) {
+					WRITE(p, "  %sv_color0.r += 0.000001;\n", compat.vsOutPrefix);
+				}
 			}
 			if (lmode)
 				WRITE(p, "  %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);

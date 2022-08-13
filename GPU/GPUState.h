@@ -300,8 +300,8 @@ struct GPUgstate {
 	bool isTextureFormatIndexed() const { return (texformat & 4) != 0; } // GE_TFMT_CLUT4 - GE_TFMT_CLUT32 are 0b1xx.
 	int getTextureEnvColRGB() const { return texenvcolor & 0x00FFFFFF; }
 	u32 getClutAddress() const { return (clutaddr & 0x00FFFFF0) | ((clutaddrupper << 8) & 0x0F000000); }
-	int getClutLoadBytes() const { return (loadclut & 0x3F) * 32; }
-	int getClutLoadBlocks() const { return (loadclut & 0x3F); }
+	int getClutLoadBytes() const { return (loadclut & 0x7F) * 32; }
+	int getClutLoadBlocks() const { return (loadclut & 0x7F); }
 	GEPaletteFormat getClutPaletteFormat() const { return static_cast<GEPaletteFormat>(clutformat & 3); }
 	int getClutIndexShift() const { return (clutformat >> 2) & 0x1F; }
 	int getClutIndexMask() const { return (clutformat >> 8) & 0xFF; }
@@ -463,7 +463,7 @@ struct UVScale {
 // Might want to move this mechanism into the backend later.
 enum {
 	GPU_SUPPORTS_DUALSOURCE_BLEND = FLAG_BIT(0),
-	GPU_SUPPORTS_GLSL_ES_300 = FLAG_BIT(1),
+	// Free bit: 1
 	GPU_SUPPORTS_GLSL_330 = FLAG_BIT(2),
 	GPU_SUPPORTS_VS_RANGE_CULLING = FLAG_BIT(3),
 	GPU_SUPPORTS_BLEND_MINMAX = FLAG_BIT(4),
@@ -476,18 +476,16 @@ enum {
 	GPU_SUPPORTS_TEXTURE_FLOAT = FLAG_BIT(12),
 	GPU_SUPPORTS_16BIT_FORMATS = FLAG_BIT(13),
 	GPU_SUPPORTS_DEPTH_CLAMP = FLAG_BIT(14),
-	GPU_SUPPORTS_32BIT_INT_FSHADER = FLAG_BIT(15),
+	// Free bit: 15
 	GPU_SUPPORTS_DEPTH_TEXTURE = FLAG_BIT(16),
 	GPU_SUPPORTS_ACCURATE_DEPTH = FLAG_BIT(17),
-	// Free bit: 18
-	GPU_SUPPORTS_COPY_IMAGE = FLAG_BIT(19),
+	// Free bits: 18-19
 	GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH = FLAG_BIT(20),
 	GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT = FLAG_BIT(21),
 	GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT = FLAG_BIT(22),
 	GPU_ROUND_DEPTH_TO_16BIT = FLAG_BIT(23),  // Can be disabled either per game or if we use a real 16-bit depth buffer
 	GPU_SUPPORTS_TEXTURE_LOD_CONTROL = FLAG_BIT(24),
-	GPU_SUPPORTS_FRAMEBUFFER_BLIT = FLAG_BIT(26),
-	GPU_SUPPORTS_FRAMEBUFFER_BLIT_TO_DEPTH = FLAG_BIT(27),
+	// Free bits: 25-27
 	GPU_SUPPORTS_TEXTURE_NPOT = FLAG_BIT(28),
 	GPU_SUPPORTS_CLIP_DISTANCE = FLAG_BIT(29),
 	GPU_SUPPORTS_CULL_DISTANCE = FLAG_BIT(30),
@@ -551,6 +549,20 @@ struct GPUStateCache {
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
+	void SetTextureIs3D(bool is3D) {
+		if (is3D != curTextureIs3D) {
+			curTextureIs3D = is3D;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE | (is3D ? DIRTY_MIPBIAS : 0));
+		}
+	}
+	void SetFramebufferRenderMode(RasterMode mode) {
+		if (mode != renderMode) {
+			// This mode modifies the fragment shader to write depth, the depth state to write without testing, and the blend state to write nothing to color.
+			// So we need to re-evaluate those states.
+			Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_TEXTURE_PARAMS);
+			renderMode = mode;
+		}
+	}
 
 	u32 featureFlags;
 
@@ -580,6 +592,7 @@ struct GPUStateCache {
 	// Only applied when needShaderTexClamp = true.
 	u32 curTextureXOffset;
 	u32 curTextureYOffset;
+	bool curTextureIs3D;
 
 	float vpWidth;
 	float vpHeight;
@@ -600,19 +613,24 @@ struct GPUStateCache {
 	// We detect this case and go into a special drawing mode.
 	bool blueToAlpha;
 
+	// Some games try to write to the Z buffer using color. Catch that and actually do the writes to the Z buffer instead.
+	RasterMode renderMode;
+
 	// TODO: These should be accessed from the current VFB object directly.
 	u32 curRTWidth;
 	u32 curRTHeight;
 	u32 curRTRenderWidth;
 	u32 curRTRenderHeight;
 
-	void SetCurRTOffsetX(int off) {
-		if (off != curRTOffsetX) {
-			curRTOffsetX = off;
+	void SetCurRTOffset(u32 xoff, u32 yoff) {
+		if (xoff != curRTOffsetX || yoff != curRTOffsetY) {
+			curRTOffsetX = xoff;
+			curRTOffsetY = yoff;
 			Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 		}
 	}
 	u32 curRTOffsetX;
+	u32 curRTOffsetY;
 
 	// Set if we are doing hardware bezier/spline.
 	SubmitType submitType;

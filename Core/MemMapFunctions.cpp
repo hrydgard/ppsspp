@@ -28,18 +28,28 @@
 
 namespace Memory {
 
-u8 *GetPointer(const u32 address) {
-	if ((address & 0x3E000000) == 0x08000000) {
-		// RAM
-		return GetPointerUnchecked(address);
-	} else if ((address & 0x3F800000) == 0x04000000) {
-		// VRAM
-		return GetPointerUnchecked(address);
-	} else if ((address & 0xBFFFC000) == 0x00010000) {
-		// Scratchpad
-		return GetPointerUnchecked(address);
-	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
-		// More RAM (remasters, etc.)
+u8 *GetPointerWrite(const u32 address) {
+	if ((address & 0x3E000000) == 0x08000000 || // RAM
+		(address & 0x3F800000) == 0x04000000 || // VRAM
+		(address & 0xBFFFC000) == 0x00010000 || // Scratchpad
+		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
+		return GetPointerWriteUnchecked(address);
+	} else {
+		static bool reported = false;
+		if (!reported) {
+			Reporting::ReportMessage("Unknown GetPointerWrite %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
+			reported = true;
+		}
+		Core_MemoryException(address, currentMIPS->pc, MemoryExceptionType::WRITE_BLOCK);
+		return nullptr;
+	}
+}
+
+const u8 *GetPointer(const u32 address) {
+	if ((address & 0x3E000000) == 0x08000000 || // RAM
+		(address & 0x3F800000) == 0x04000000 || // VRAM
+		(address & 0xBFFFC000) == 0x00010000 || // Scratchpad
+		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
 		return GetPointerUnchecked(address);
 	} else {
 		static bool reported = false;
@@ -47,7 +57,7 @@ u8 *GetPointer(const u32 address) {
 			Reporting::ReportMessage("Unknown GetPointer %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 			reported = true;
 		}
-		Core_MemoryException(address, currentMIPS->pc, MemoryExceptionType::WRITE_BLOCK);
+		Core_MemoryException(address, currentMIPS->pc, MemoryExceptionType::READ_BLOCK);
 		return nullptr;
 	}
 }

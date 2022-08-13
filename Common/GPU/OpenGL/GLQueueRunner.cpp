@@ -30,6 +30,11 @@ static constexpr int TEXCACHE_NAME_CACHE_SIZE = 16;
 extern void bindDefaultFBO();
 #endif
 
+#ifdef OPENXR
+#include "VR/VRBase.h"
+#include "VR/VRRenderer.h"
+#endif
+
 // Workaround for Retroarch. Simply declare
 //   extern GLuint g_defaultFBO;
 // and set is as appropriate. Can adjust the variables in ext/native/base/display.h as
@@ -38,7 +43,7 @@ GLuint g_defaultFBO = 0;
 
 void GLQueueRunner::CreateDeviceObjects() {
 	CHECK_GL_ERROR_IF_DEBUG();
-	if (gl_extensions.EXT_texture_filter_anisotropic) {
+	if (caps_.anisoSupported) {
 		glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel_);
 	} else {
 		maxAnisotropyLevel_ = 0.0f;
@@ -203,7 +208,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 
 #if !defined(USING_GLES2)
 			if (step.create_program.support_dual_source) {
-				_dbg_assert_msg_(gl_extensions.ARB_blend_func_extended, "ARB_blend_func_extended required for dual src");
+				_dbg_assert_msg_(caps_.dualSourceBlend, "ARB/EXT_blend_func_extended required for dual src blend");
 				// Dual source alpha
 				glBindFragDataLocationIndexed(program->program, 0, 0, "fragColor0");
 				glBindFragDataLocationIndexed(program->program, 0, 1, "fragColor1");
@@ -256,9 +261,13 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 
 			// Query all the uniforms.
 			for (size_t j = 0; j < program->queries_.size(); j++) {
-				auto &x = program->queries_[j];
-				_dbg_assert_(x.name);
-				*x.dest = glGetUniformLocation(program->program, x.name);
+				auto &query = program->queries_[j];
+				_dbg_assert_(query.name);
+				int location = glGetUniformLocation(program->program, query.name);
+				if (location < 0 && query.required) {
+					WARN_LOG(G3D, "Required uniform query for '%s' failed", query.name);
+				}
+				*query.dest = location;
 			}
 
 			// Run initializers.
@@ -348,7 +357,17 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 			GLenum internalFormat, format, type;
 			int alignment;
 			Thin3DFormatToFormatAndType(step.texture_image.format, internalFormat, format, type, alignment);
-			glTexImage2D(tex->target, step.texture_image.level, internalFormat, step.texture_image.width, step.texture_image.height, 0, format, type, step.texture_image.data);
+			if (step.texture_image.depth == 1) {
+				glTexImage2D(tex->target,
+					step.texture_image.level, internalFormat,
+					step.texture_image.width, step.texture_image.height, 0,
+					format, type, step.texture_image.data);
+			} else {
+				glTexImage3D(tex->target,
+					step.texture_image.level, internalFormat,
+					step.texture_image.width, step.texture_image.height, step.texture_image.depth, 0,
+					format, type, step.texture_image.data);
+			}
 			allocatedTextures = true;
 			if (step.texture_image.allocType == GLRAllocType::ALIGNED) {
 				FreeAlignedMemory(step.texture_image.data);
@@ -364,6 +383,9 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 			glTexParameteri(tex->target, GL_TEXTURE_WRAP_T, tex->wrapT);
 			glTexParameteri(tex->target, GL_TEXTURE_MAG_FILTER, tex->magFilter);
 			glTexParameteri(tex->target, GL_TEXTURE_MIN_FILTER, tex->minFilter);
+			if (step.texture_image.depth > 1) {
+				glTexParameteri(tex->target, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
@@ -375,10 +397,10 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 				glBindTexture(tex->target, tex->texture);
 				boundTexture = tex->texture;
 			}
-			if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
-				glTexParameteri(tex->target, GL_TEXTURE_MAX_LEVEL, step.texture_finalize.maxLevel);
+			if ((!gl_extensions.IsGLES || gl_extensions.GLES3) && step.texture_finalize.loadedLevels > 1) {
+				glTexParameteri(tex->target, GL_TEXTURE_MAX_LEVEL, step.texture_finalize.loadedLevels - 1);
 			}
-			tex->maxLod = (float)step.texture_finalize.maxLevel;
+			tex->maxLod = (float)step.texture_finalize.loadedLevels - 1;
 			if (step.texture_finalize.genMips) {
 				glGenerateMipmap(tex->target);
 			}
@@ -948,18 +970,10 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			}
 			if (loc >= 0) {
 				switch (c.uniform4.count) {
-				case 1:
-					glUniform1uiv(loc, 1, (GLuint *)&c.uniform4.v[0]);
-					break;
-				case 2:
-					glUniform2uiv(loc, 1, (GLuint *)c.uniform4.v);
-					break;
-				case 3:
-					glUniform3uiv(loc, 1, (GLuint *)c.uniform4.v);
-					break;
-				case 4:
-					glUniform4uiv(loc, 1, (GLuint *)c.uniform4.v);
-					break;
+				case 1: glUniform1uiv(loc, 1, (GLuint *)c.uniform4.v); break;
+				case 2: glUniform2uiv(loc, 1, (GLuint *)c.uniform4.v); break;
+				case 3: glUniform3uiv(loc, 1, (GLuint *)c.uniform4.v); break;
+				case 4: glUniform4uiv(loc, 1, (GLuint *)c.uniform4.v); break;
 				}
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
@@ -974,18 +988,10 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			}
 			if (loc >= 0) {
 				switch (c.uniform4.count) {
-				case 1:
-					glUniform1iv(loc, 1, (GLint *)&c.uniform4.v[0]);
-					break;
-				case 2:
-					glUniform2iv(loc, 1, (GLint *)c.uniform4.v);
-					break;
-				case 3:
-					glUniform3iv(loc, 1, (GLint *)c.uniform4.v);
-					break;
-				case 4:
-					glUniform4iv(loc, 1, (GLint *)c.uniform4.v);
-					break;
+				case 1: glUniform1iv(loc, 1, (GLint *)c.uniform4.v); break;
+				case 2: glUniform2iv(loc, 1, (GLint *)c.uniform4.v); break;
+				case 3: glUniform3iv(loc, 1, (GLint *)c.uniform4.v); break;
+				case 4: glUniform4iv(loc, 1, (GLint *)c.uniform4.v); break;
 				}
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
@@ -1139,28 +1145,28 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			CHECK_GL_ERROR_IF_DEBUG();
 			if (tex->canWrap) {
 				if (tex->wrapS != c.textureSampler.wrapS) {
-					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, c.textureSampler.wrapS);
+					glTexParameteri(tex->target, GL_TEXTURE_WRAP_S, c.textureSampler.wrapS);
 					tex->wrapS = c.textureSampler.wrapS;
 				}
 				if (tex->wrapT != c.textureSampler.wrapT) {
-					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, c.textureSampler.wrapT);
+					glTexParameteri(tex->target, GL_TEXTURE_WRAP_T, c.textureSampler.wrapT);
 					tex->wrapT = c.textureSampler.wrapT;
 				}
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			if (tex->magFilter != c.textureSampler.magFilter) {
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, c.textureSampler.magFilter);
+				glTexParameteri(tex->target, GL_TEXTURE_MAG_FILTER, c.textureSampler.magFilter);
 				tex->magFilter = c.textureSampler.magFilter;
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			if (tex->minFilter != c.textureSampler.minFilter) {
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, c.textureSampler.minFilter);
+				glTexParameteri(tex->target, GL_TEXTURE_MIN_FILTER, c.textureSampler.minFilter);
 				tex->minFilter = c.textureSampler.minFilter;
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			if (tex->anisotropy != c.textureSampler.anisotropy) {
 				if (c.textureSampler.anisotropy != 0.0f) {
-					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, c.textureSampler.anisotropy);
+					glTexParameterf(tex->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, c.textureSampler.anisotropy);
 				}
 				tex->anisotropy = c.textureSampler.anisotropy;
 			}
@@ -1180,16 +1186,16 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			}
 #ifndef USING_GLES2
 			if (tex->lodBias != c.textureLod.lodBias && !gl_extensions.IsGLES) {
-				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, c.textureLod.lodBias);
+				glTexParameterf(tex->target, GL_TEXTURE_LOD_BIAS, c.textureLod.lodBias);
 				tex->lodBias = c.textureLod.lodBias;
 			}
 #endif
 			if (tex->minLod != c.textureLod.minLod) {
-				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, c.textureLod.minLod);
+				glTexParameterf(tex->target, GL_TEXTURE_MIN_LOD, c.textureLod.minLod);
 				tex->minLod = c.textureLod.minLod;
 			}
 			if (tex->maxLod != c.textureLod.maxLod) {
-				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, c.textureLod.maxLod);
+				glTexParameterf(tex->target, GL_TEXTURE_MAX_LOD, c.textureLod.maxLod);
 				tex->maxLod = c.textureLod.maxLod;
 			}
 			break;
@@ -1200,6 +1206,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			// TODO: Need bind?
 			if (!c.texture_subimage.data)
 				Crash();
+			_assert_(tex->target == GL_TEXTURE_2D);
 			// For things to show in RenderDoc, need to split into glTexImage2D(..., nullptr) and glTexSubImage.
 			GLuint internalFormat, format, type;
 			int alignment;
@@ -1334,16 +1341,16 @@ void GLQueueRunner::PerformCopy(const GLRStep &step) {
 	_dbg_assert_(srcTex);
 	_dbg_assert_(dstTex);
 
+	_assert_msg_(caps_.framebufferCopySupported, "Image copy extension expected");
+
 #if defined(USING_GLES2)
 #if !PPSSPP_PLATFORM(IOS)
-	_assert_msg_(gl_extensions.OES_copy_image || gl_extensions.NV_copy_image || gl_extensions.EXT_copy_image, "Image copy extension expected");
 	glCopyImageSubDataOES(
 		srcTex, target, srcLevel, srcRect.x, srcRect.y, srcZ,
 		dstTex, target, dstLevel, dstPos.x, dstPos.y, dstZ,
 		srcRect.w, srcRect.h, depth);
 #endif
 #else
-	_assert_msg_(gl_extensions.ARB_copy_image || gl_extensions.NV_copy_image, "Image copy extension expected");
 	if (gl_extensions.ARB_copy_image) {
 		glCopyImageSubData(
 			srcTex, target, srcLevel, srcRect.x, srcRect.y, srcZ,
@@ -1651,6 +1658,10 @@ void GLQueueRunner::fbo_unbind() {
 
 #if PPSSPP_PLATFORM(IOS)
 	bindDefaultFBO();
+#endif
+
+#ifdef OPENXR
+	VR_BindFramebuffer(VR_GetEngine(), 0);
 #endif
 
 	currentDrawHandle_ = 0;

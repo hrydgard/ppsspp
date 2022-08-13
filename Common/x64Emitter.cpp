@@ -1608,8 +1608,20 @@ void XEmitter::MOVDQU(OpArg arg, X64Reg regOp)  {WriteSSEOp(0xF3, sseMOVDQtoRM, 
 
 void XEmitter::MOVSS(X64Reg regOp, OpArg arg)   {WriteSSEOp(0xF3, sseMOVUPfromRM, regOp, arg);}
 void XEmitter::MOVSD(X64Reg regOp, OpArg arg)   {WriteSSEOp(0xF2, sseMOVUPfromRM, regOp, arg);}
-void XEmitter::MOVSS(OpArg arg, X64Reg regOp)   {WriteSSEOp(0xF3, sseMOVUPtoRM, regOp, arg);}
-void XEmitter::MOVSD(OpArg arg, X64Reg regOp)   {WriteSSEOp(0xF2, sseMOVUPtoRM, regOp, arg);}
+void XEmitter::MOVSS(OpArg arg, X64Reg regOp) {
+	// Make Valgrind happy.
+	if (arg.IsSimpleReg())
+		MOVSS(arg.GetSimpleReg(), R(regOp));
+	else
+		WriteSSEOp(0xF3, sseMOVUPtoRM, regOp, arg);
+}
+void XEmitter::MOVSD(OpArg arg, X64Reg regOp) {
+	// Make Valgrind happy.
+	if (arg.IsSimpleReg())
+		MOVSD(arg.GetSimpleReg(), R(regOp));
+	else
+		WriteSSEOp(0xF2, sseMOVUPtoRM, regOp, arg);
+}
 
 void XEmitter::MOVLPS(X64Reg regOp, OpArg arg)  { WriteSSEOp(0x00, sseMOVLPfromRM, regOp, arg); }
 void XEmitter::MOVLPD(X64Reg regOp, OpArg arg)  { WriteSSEOp(0x66, sseMOVLPfromRM, regOp, arg); }

@@ -7,6 +7,8 @@
 #include "Core/KeyMap.h"
 #include "Core/ControlMapper.h"
 #include "Core/Config.h"
+#include "Core/CoreParameter.h"
+#include "Core/System.h"
 
 static float MapAxisValue(float v) {
 	const float deadzone = g_Config.fAnalogDeadzone;
@@ -334,11 +336,20 @@ void ControlMapper::processAxis(const AxisInput &axis, int direction) {
 		case VIRTKEY_AXIS_RIGHT_Y_MAX:
 			SetPSPAxis('Y', value, CTRL_STICK_RIGHT);
 			break;
+
+		case VIRTKEY_SPEED_ANALOG:
+			ProcessAnalogSpeed(axis, false);
+			break;
 		}
 	}
 
 	std::vector<int> resultsOpposite;
 	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, -direction, &resultsOpposite);
+
+	for (int result : resultsOpposite) {
+		if (result == VIRTKEY_SPEED_ANALOG)
+			ProcessAnalogSpeed(axis, true);
+	}
 
 	int axisState = 0;
 	float threshold = axis.deviceId == DEVICE_ID_MOUSE ? AXIS_BIND_THRESHOLD_MOUSE : AXIS_BIND_THRESHOLD;
@@ -374,4 +385,63 @@ void ControlMapper::processAxis(const AxisInput &axis, int direction) {
 			}
 		}
 	}
+}
+
+void ControlMapper::ProcessAnalogSpeed(const AxisInput &axis, bool opposite) {
+	static constexpr float DEADZONE_THRESHOLD = 0.15f;
+	static constexpr float DEADZONE_SCALE = 1.0f / (1.0f - DEADZONE_THRESHOLD);
+
+	FPSLimit &limitMode = PSP_CoreParameter().fpsLimit;
+	// If we're using an alternate speed already, let that win.
+	if (limitMode != FPSLimit::NORMAL && limitMode != FPSLimit::ANALOG)
+		return;
+	// Don't even try if the limit is invalid.
+	if (g_Config.iAnalogFpsLimit <= 0)
+		return;
+
+	AnalogFpsMode mode = (AnalogFpsMode)g_Config.iAnalogFpsMode;
+	float value = axis.value;
+	if (mode == AnalogFpsMode::AUTO) {
+		// TODO: Consider the pad name for better auto?  KeyMap::PadName(axis.deviceId);
+		switch (axis.axisId) {
+		case JOYSTICK_AXIS_X:
+		case JOYSTICK_AXIS_Y:
+		case JOYSTICK_AXIS_Z:
+		case JOYSTICK_AXIS_RX:
+		case JOYSTICK_AXIS_RY:
+		case JOYSTICK_AXIS_RZ:
+			// These, at least on directinput, can be used for triggers that go from mapped to opposite.
+			mode = AnalogFpsMode::MAPPED_DIR_TO_OPPOSITE_DIR;
+			break;
+
+		default:
+			// Other axises probably don't go from negative to positive.
+			mode = AnalogFpsMode::MAPPED_DIRECTION;
+			break;
+		}
+	}
+
+	// Okay, now let's map it as appropriate.
+	if (mode == AnalogFpsMode::MAPPED_DIRECTION) {
+		value = fabsf(value);
+		// Clamp to 0 in this case if we're processing the opposite direction.
+		if (opposite)
+			value = 0.0f;
+	} else if (mode == AnalogFpsMode::MAPPED_DIR_TO_OPPOSITE_DIR) {
+		value = fabsf(value);
+		if (opposite)
+			value = -value;
+		value = 0.5f - value * 0.5f;
+	}
+
+	// Apply a small deadzone (against the resting position.)
+	value = std::max(0.0f, (value - DEADZONE_THRESHOLD) * DEADZONE_SCALE);
+
+	// If target is above 60, value is how much to speed up over 60.  Otherwise, it's how much slower.
+	// So normalize the target.
+	int target = g_Config.iAnalogFpsLimit - 60;
+	PSP_CoreParameter().analogFpsLimit = 60 + (int)(target * value);
+
+	// If we've reset back to normal, turn it off.
+	limitMode = PSP_CoreParameter().analogFpsLimit == 60 ? FPSLimit::NORMAL : FPSLimit::ANALOG;
 }

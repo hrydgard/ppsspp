@@ -183,6 +183,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			} else if (blendState.resetFramebufferRead) {
 				ResetFramebufferRead();
+				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			}
 
 			if (blendState.enabled) {
@@ -250,7 +251,11 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		GenericStencilFuncState stencilState;
 		ConvertStencilFuncState(stencilState);
 
-		if (gstate.isModeClear()) {
+		if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
+			// Enforce plain depth writing.
+			renderManager->SetStencilDisabled();
+			renderManager->SetDepth(true, true, GL_ALWAYS);
+		} else if (gstate.isModeClear()) {
 			// Depth Test
 			if (gstate.isClearModeDepthMask()) {
 				framebufferManager_->SetDepthUpdated();

@@ -65,7 +65,6 @@ LogicOpReplaceType ReplaceLogicOpType();
 
 // Common representation, should be able to set this directly with any modern API.
 struct ViewportAndScissor {
-	bool scissorEnable;
 	int scissorX;
 	int scissorY;
 	int scissorW;
@@ -82,13 +81,16 @@ struct ViewportAndScissor {
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out);
 float ToScaledDepthFromIntegerScale(float z);
 
-// Use like this: (z - offset) * scale
 struct DepthScaleFactors {
 	float offset;
 	float scale;
 
 	float Apply(float z) const {
 		return (z - offset) * scale;
+	}
+
+	float ApplyInverse(float z) const {
+		return (z / scale) + offset;
 	}
 };
 DepthScaleFactors GetDepthScaleFactors();

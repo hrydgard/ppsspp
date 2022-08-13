@@ -53,8 +53,7 @@ namespace DX9 {
 
 GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw),
-		depalShaderCache_(draw),
-		drawEngine_(draw) {
+	  drawEngine_(draw) {
 	device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	deviceEx_ = (LPDIRECT3DDEVICE9EX)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
 
@@ -75,7 +74,6 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	framebufferManagerDX9_->SetDrawEngine(&drawEngine_);
 	framebufferManagerDX9_->Init();
 	textureCacheDX9_->SetFramebufferManager(framebufferManagerDX9_);
-	textureCacheDX9_->SetDepalShaderCache(&depalShaderCache_);
 	textureCacheDX9_->SetShaderManager(shaderManagerDX9_);
 
 	// Sanity check gstate
@@ -256,7 +254,7 @@ void GPU_DX9::DeviceRestore() {
 void GPU_DX9::InitClear() {
 	if (!framebufferManager_->UseBufferedRendering()) {
 		dxstate.depthWrite.set(true);
-		dxstate.colorMask.set(true, true, true, true);
+		dxstate.colorMask.set(0xF);
 		device_->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);
 	}
 }
@@ -282,7 +280,6 @@ void GPU_DX9::ReapplyGfxState() {
 void GPU_DX9::BeginFrame() {
 	textureCacheDX9_->StartFrame();
 	drawEngine_.BeginFrame();
-	depalShaderCache_.Decimate();
 	// fragmentTestCache_.Decimate();
 
 	GPUCommon::BeginFrame();
@@ -298,7 +295,7 @@ void GPU_DX9::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 
 void GPU_DX9::CopyDisplayToOutput(bool reallyDirty) {
 	dxstate.depthWrite.set(true);
-	dxstate.colorMask.set(true, true, true, true);
+	dxstate.colorMask.set(0xF);
 
 	drawEngine_.Flush();
 
@@ -371,7 +368,6 @@ void GPU_DX9::DoState(PointerWrap &p) {
 	// None of these are necessary when saving.
 	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
 		textureCache_->Clear(true);
-		depalShaderCache_.Clear();
 		drawEngine_.ClearTrackedVertexArrays();
 
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
@@ -384,7 +380,7 @@ std::vector<std::string> GPU_DX9::DebugGetShaderIDs(DebugShaderType type) {
 	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngine_.DebugGetVertexLoaderIDs();
 	case SHADER_TYPE_DEPAL:
-		return depalShaderCache_.DebugGetShaderIDs(type);
+		return textureCache_->GetDepalShaderCache()->DebugGetShaderIDs(type);
 	default:
 		return shaderManagerDX9_->DebugGetShaderIDs(type);
 	}
@@ -395,7 +391,7 @@ std::string GPU_DX9::DebugGetShaderString(std::string id, DebugShaderType type, 
 	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
 	case SHADER_TYPE_DEPAL:
-		return depalShaderCache_.DebugGetShaderString(id, type, stringType);
+		return textureCache_->GetDepalShaderCache()->DebugGetShaderString(id, type, stringType);
 	default:
 		return shaderManagerDX9_->DebugGetShaderString(id, type, stringType);
 	}

@@ -116,6 +116,14 @@ include(GNUInstallDirs)
 
 add_definitions(-DASSETS_DIR="${CMAKE_INSTALL_FULL_DATADIR}/ppsspp/assets/")
 
+if(OPENXR)
+	add_definitions(-DOPENXR)
+	add_library(openxr SHARED IMPORTED)
+	include_directories(ext/openxr)
+	set_property(TARGET openxr PROPERTY IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/ext/openxr/libs/arm64-v8a/libopenxr_loader.so")
+	message("OpenXR enabled")
+endif()
+
 if(GOLD)
 	add_definitions(-DGOLD)
 	message("Gold Build")
@@ -341,6 +349,9 @@ if(NOT MSVC)
 	set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -Os -D_NDEBUG")
 	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -D_NDEBUG")
 	set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -O2 -g -D_NDEBUG")
+
+	# Enable checking printf-like format strings (also works for logging functions)
+	add_definitions(-Wformat)
 
 	# Disable some warnings
 	add_definitions(-Wno-multichar)
@@ -1056,6 +1067,20 @@ if(ANDROID)
 		android/jni/OpenSLContext.cpp
 		android/jni/OpenSLContext.h
 	)
+
+	if (OPENXR)
+		set(nativeExtra ${nativeExtra}
+			Common/VR/VRBase.cpp
+			Common/VR/VRBase.h
+			Common/VR/VRFramebuffer.cpp
+			Common/VR/VRFramebuffer.h
+			Common/VR/VRInput.cpp
+			Common/VR/VRInput.h
+			Common/VR/VRRenderer.cpp
+			Common/VR/VRRenderer.h
+		)
+		set(nativeExtraLibs ${nativeExtraLibs} openxr)
+	endif()
 	# No target
 elseif(IOS)
 	set(nativeExtra ${nativeExtra}
@@ -1420,8 +1445,6 @@ if(NOT MOBILE_DEVICE)
 endif()
 
 set(GPU_GLES
-	GPU/GLES/DepalettizeShaderGLES.cpp
-	GPU/GLES/DepalettizeShaderGLES.h
 	GPU/GLES/DepthBufferGLES.cpp
 	GPU/GLES/GPU_GLES.cpp
 	GPU/GLES/GPU_GLES.h
@@ -1433,18 +1456,13 @@ set(GPU_GLES
 	GPU/GLES/ShaderManagerGLES.h
 	GPU/GLES/StateMappingGLES.cpp
 	GPU/GLES/StateMappingGLES.h
-	GPU/GLES/StencilBufferGLES.cpp
 	GPU/GLES/TextureCacheGLES.cpp
 	GPU/GLES/TextureCacheGLES.h
-	GPU/GLES/TextureScalerGLES.cpp
-	GPU/GLES/TextureScalerGLES.h
 	GPU/GLES/DrawEngineGLES.cpp
 	GPU/GLES/DrawEngineGLES.h
 )
 
 set(GPU_VULKAN
-	GPU/Vulkan/DepalettizeShaderVulkan.cpp
-	GPU/Vulkan/DepalettizeShaderVulkan.h
 	GPU/Vulkan/DebugVisVulkan.cpp
 	GPU/Vulkan/DebugVisVulkan.h
 	GPU/Vulkan/DrawEngineVulkan.cpp
@@ -1459,18 +1477,13 @@ set(GPU_VULKAN
 	GPU/Vulkan/ShaderManagerVulkan.h
 	GPU/Vulkan/StateMappingVulkan.cpp
 	GPU/Vulkan/StateMappingVulkan.h
-	GPU/Vulkan/StencilBufferVulkan.cpp
 	GPU/Vulkan/TextureCacheVulkan.cpp
 	GPU/Vulkan/TextureCacheVulkan.h
-	GPU/Vulkan/TextureScalerVulkan.cpp
-	GPU/Vulkan/TextureScalerVulkan.h
 	GPU/Vulkan/VulkanUtil.cpp
 	GPU/Vulkan/VulkanUtil.h
 )
 
 set(GPU_D3D9
-	GPU/Directx9/DepalettizeShaderDX9.cpp
-	GPU/Directx9/DepalettizeShaderDX9.h
 	GPU/Directx9/DrawEngineDX9.cpp
 	GPU/Directx9/DrawEngineDX9.h
 	GPU/Directx9/FramebufferManagerDX9.cpp
@@ -1481,16 +1494,11 @@ set(GPU_D3D9
 	GPU/Directx9/ShaderManagerDX9.h
 	GPU/Directx9/StateMappingDX9.cpp
 	GPU/Directx9/StateMappingDX9.h
-	GPU/Directx9/StencilBufferDX9.cpp
 	GPU/Directx9/TextureCacheDX9.cpp
 	GPU/Directx9/TextureCacheDX9.h
-	GPU/Directx9/TextureScalerDX9.cpp
-	GPU/Directx9/TextureScalerDX9.h
 )
 
 set(GPU_D3D11
-	GPU/D3D11/DepalettizeShaderD3D11.cpp
-	GPU/D3D11/DepalettizeShaderD3D11.h
 	GPU/D3D11/DrawEngineD3D11.cpp
 	GPU/D3D11/DrawEngineD3D11.h
 	GPU/D3D11/FramebufferManagerD3D11.cpp
@@ -1503,11 +1511,8 @@ set(GPU_D3D11
 	GPU/D3D11/ShaderManagerD3D11.h
 	GPU/D3D11/StateMappingD3D11.cpp
 	GPU/D3D11/StateMappingD3D11.h
-	GPU/D3D11/StencilBufferD3D11.cpp
 	GPU/D3D11/TextureCacheD3D11.cpp
 	GPU/D3D11/TextureCacheD3D11.h
-	GPU/D3D11/TextureScalerD3D11.cpp
-	GPU/D3D11/TextureScalerD3D11.h
 )
 
 # We build Vulkan even on Apple to avoid annoying build differences.
@@ -1519,6 +1524,10 @@ endif()
 set(GPU_SOURCES
 	${GPU_IMPLS}
 	${GPU_NEON}
+	GPU/Common/Draw2D.cpp
+	GPU/Common/Draw2D.h
+	GPU/Common/DepalettizeCommon.cpp
+	GPU/Common/DepalettizeCommon.h
 	GPU/Common/DepalettizeShaderCommon.cpp
 	GPU/Common/DepalettizeShaderCommon.h
 	GPU/Common/FragmentShaderGenerator.cpp
@@ -1697,6 +1706,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Dialog/PSPMsgDialog.h
 	Core/Dialog/PSPNetconfDialog.cpp
 	Core/Dialog/PSPNetconfDialog.h
+	Core/Dialog/PSPNpSigninDialog.cpp
+	Core/Dialog/PSPNpSigninDialog.h
 	Core/Dialog/PSPOskDialog.cpp
 	Core/Dialog/PSPOskDialog.h
 	Core/Dialog/PSPPlaceholderDialog.cpp
@@ -1880,6 +1891,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/scePspNpDrm_user.h
 	Core/HLE/sceNp.cpp
 	Core/HLE/sceNp.h
+	Core/HLE/sceNp2.cpp
+	Core/HLE/sceNp2.h
 	Core/HLE/scePauth.cpp
 	Core/HLE/scePauth.h
 	Core/HW/SimpleAudioDec.cpp
@@ -2322,6 +2335,7 @@ if(UNITTEST)
 		unittest/TestShaderGenerators.cpp
 		unittest/TestArmEmitter.cpp
 		unittest/TestArm64Emitter.cpp
+		unittest/TestIRPassSimplify.cpp
 		unittest/TestX64Emitter.cpp
 		unittest/TestVertexJit.cpp
 		unittest/TestSoftwareGPUJit.cpp

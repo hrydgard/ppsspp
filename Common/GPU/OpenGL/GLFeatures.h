@@ -51,6 +51,7 @@ struct GLExtensions {
 	bool OES_vertex_array_object;
 	bool OES_copy_image;
 	bool OES_texture_float;
+	bool OES_texture_3D;
 
 	// ARB
 	bool ARB_framebuffer_object;
@@ -69,6 +70,7 @@ struct GLExtensions {
 	bool ARB_cull_distance;
 	bool ARB_depth_clamp;
 	bool ARB_uniform_buffer_object;
+	bool ARB_texture_non_power_of_two;
 
 	// EXT
 	bool EXT_swap_control_tear;

@@ -3,10 +3,15 @@
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/ShaderWriter.h"
 #include "Common/Log.h"
+#include "Common/GPU/thin3d.h"
 #include "GPU/Common/ReinterpretFramebuffer.h"
 
 static const VaryingDef varyings[1] = {
-	{ "vec2", "v_texcoord", "TEXCOORD0", 0, "highp" },
+	{ "vec2", "v_texcoord", Draw::SEM_TEXCOORD0, 0, "highp" },
+};
+
+static const SamplerDef samplers[1] = {
+	{ "tex" }
 };
 
 // TODO: We could possibly have an option to preserve any extra color precision? But gonna start without it.
@@ -21,12 +26,11 @@ bool GenerateReinterpretFragmentShader(char *buffer, GEBufferFormat from, GEBuff
 
 	writer.HighPrecisionFloat();
 
-	writer.DeclareSampler2D("samp", 0);
-	writer.DeclareTexture2D("tex", 0);
+	writer.DeclareSamplers(samplers);
 
-	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings);
+	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_NONE);
 
-	writer.C("  vec4 val = ").SampleTexture2D("tex", "samp", "v_texcoord.xy").C(";\n");
+	writer.C("  vec4 val = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
 
 	switch (from) {
 	case GE_FORMAT_4444:
@@ -64,7 +68,7 @@ bool GenerateReinterpretFragmentShader(char *buffer, GEBufferFormat from, GEBuff
 		break;
 	}
 
-	writer.EndFSMain("outColor");
+	writer.EndFSMain("outColor", FSFLAG_NONE);
 	return true;
 }
 
@@ -79,9 +83,10 @@ bool GenerateReinterpretVertexShader(char *buffer, const ShaderLanguageDesc &lan
 	writer.C("  float x = -1.0 + float((gl_VertexIndex & 1) << 2);\n");
 	writer.C("  float y = -1.0 + float((gl_VertexIndex & 2) << 1);\n");
 	writer.C("  v_texcoord = (vec2(x, y) + vec2(1.0, 1.0)) * 0.5;\n");
-	writer.F("  y *= %s1.0;\n", lang.viewportYSign);
+	if (strlen(lang.viewportYSign)) {
+		writer.F("  y *= %s1.0;\n", lang.viewportYSign);
+	}
 	writer.C("  gl_Position = vec4(x, y, 0.0, 1.0);\n");
-
 	writer.EndVSMain(varyings);
 	return true;
 }

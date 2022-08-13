@@ -65,9 +65,6 @@ android {
 			versionCode ANDROID_VERSION_CODE
 			versionName ANDROID_VERSION_NAME
 		}
-		ndk {
-			abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
-		}
 		signingConfig signingConfigs.debug
 	}
 	buildTypes {
@@ -106,6 +103,9 @@ android {
 		gold {
 			res.srcDirs = ['gold/res']
 		}
+		quest {
+			manifest.srcFile 'QuestManifest.xml'
+		}
 	}
 	productFlavors {
 		normal {
@@ -121,6 +121,9 @@ android {
 							'-DANDROID_STL=c++_static',
 							'-DANDROID_ARM_NEON=TRUE'
 				}
+			}
+			ndk {
+				abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
 			}
 		}
 		gold {
@@ -138,6 +141,28 @@ android {
 							'-DGOLD=TRUE'
 				}
 			}
+			ndk {
+				abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+			}
+		}
+		quest {
+			applicationId 'org.ppsspp.ppsspp'
+			dimension "variant"
+			externalNativeBuild {
+				cmake {
+					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
+					arguments '-DANDROID=true',
+							'-DANDROID_PLATFORM=android-16',
+							'-DANDROID_TOOLCHAIN=clang',
+							'-DANDROID_CPP_FEATURES=',
+							'-DANDROID_STL=c++_static',
+							'-DANDROID_ARM_NEON=TRUE',
+							'-DOPENXR=TRUE'
+				}
+			}
+			ndk {
+				abiFilters 'arm64-v8a'
+			}
 		}
 	}
 	variantFilter { variant ->
@@ -145,7 +170,10 @@ android {
 			'normalDebug',		// for debugging
 			'normalOptimized',	// for testing
 			'normalRelease',	// for Google Play releases
-			'goldRelease'		// for Google Play releases
+			'goldRelease',		// for Google Play releases
+			'questDebug',		// for VR debugging
+			'questOptimized',	// for VR testing
+			'questRelease',		// for VR releases
 		]
 		variant.setIgnore(!needed)
 	}

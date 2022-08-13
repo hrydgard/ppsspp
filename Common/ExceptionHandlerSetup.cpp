@@ -214,6 +214,8 @@ void UninstallExceptionHandler() {
 
 #else
 
+#include <signal.h>
+
 static struct sigaction old_sa_segv;
 static struct sigaction old_sa_bus;
 

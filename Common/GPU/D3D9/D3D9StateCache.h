@@ -288,66 +288,6 @@ private:
 		}
 	};
 
-	class SavedColorMask {
-		DWORD mask;
-	public:
-		SavedColorMask() {
-			mask = D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA;
-			DirectXState::state_count++;
-		}
-
-		inline void set(bool r, bool g, bool b, bool a) {
-			DWORD newmask = 0;
-			if (r) {
-				newmask |= D3DCOLORWRITEENABLE_RED;
-			}
-			if (g) {
-				newmask |= D3DCOLORWRITEENABLE_GREEN;
-			}
-			if (b) {
-				newmask |= D3DCOLORWRITEENABLE_BLUE;
-			}
-			if (a) {
-				newmask |= D3DCOLORWRITEENABLE_ALPHA;
-			}
-			if (mask != newmask) {
-				mask = newmask;
-				restore();
-			}
-		}
-		void force(bool r, bool g, bool b, bool a) {
-			DWORD old = mask;
-			set(r, g, b, a);
-			mask = old;
-		}
-		inline void restore() {
-			pD3Ddevice->SetRenderState(D3DRS_COLORWRITEENABLE, mask);
-		}
-	};
-
-
-	class BoolUnused {
-	public:
-		BoolUnused() {
-			DirectXState::state_count++;
-		}
-		inline void set(bool) {
-			// Nothing.
-		}
-		void force(bool) {
-			// Nothing.
-		}
-		inline void restore() {
-			// Nothing.
-		}
-		inline void enable() {
-			set(true);
-		}
-		inline void disable() {
-			set(false);
-		}
-	};
-
 	class StateVp {
 		D3DVIEWPORT9 viewport;
 	public:
@@ -404,36 +344,6 @@ private:
 		}
 	};
 
-	class CullMode {
-		DWORD cull;
-	public:
-		CullMode() : cull (D3DCULL_NONE) {
-		}
-
-		inline void set(int wantcull, int cullmode) {
-			DWORD newcull;
-			if (!wantcull) {
-				// disable
-				newcull = D3DCULL_NONE;
-			} else {
-				// add front face ...
-				newcull = cullmode==0 ? D3DCULL_CW:D3DCULL_CCW;
-			}
-			if (cull != newcull) {
-				cull = newcull;
-				restore();
-			}
-		}
-		void force(int wantcull, int cullmode) {
-			DWORD old = cull;
-			set(wantcull, cullmode);
-			cull = old;
-		}
-		inline void restore() {
-			pD3Ddevice->SetRenderState(D3DRS_CULLMODE, cull);
-		}
-	};
-
 	bool initialized;
 
 public:
@@ -451,9 +361,7 @@ public:
 
 	BoolState<D3DRS_SCISSORTESTENABLE, false> scissorTest;
 
-	BoolUnused dither;
-
-	CullMode cullMode;
+	DxState1<D3DRS_CULLMODE, D3DCULL_NONE> cullMode;
 	DxState1<D3DRS_SHADEMODE, D3DSHADE_GOURAUD> shadeMode;
 
 	BoolState<D3DRS_ZENABLE, false> depthTest;
@@ -465,7 +373,7 @@ public:
 	DxState1<D3DRS_ZFUNC, D3DCMP_LESSEQUAL> depthFunc;
 	DxState1<D3DRS_ZWRITEENABLE, TRUE> depthWrite;
 
-	SavedColorMask colorMask;
+	DxState1<D3DRS_COLORWRITEENABLE, 0xF> colorMask;
 
 	StateVp viewport;
 	StateScissor scissorRect;
@@ -473,8 +381,10 @@ public:
 	BoolState<D3DRS_STENCILENABLE, false> stencilTest;
 
 	DxState3<D3DRS_STENCILFAIL, D3DSTENCILOP_KEEP, D3DRS_STENCILZFAIL, D3DSTENCILOP_KEEP, D3DRS_STENCILPASS, D3DSTENCILOP_KEEP> stencilOp;
-	DxState3<D3DRS_STENCILFUNC, D3DCMP_ALWAYS, D3DRS_STENCILREF, 0, D3DRS_STENCILMASK, 0xFFFFFFFF> stencilFunc;
-	DxState1<D3DRS_STENCILWRITEMASK, 0xFFFFFFFF> stencilMask;
+	DxState1<D3DRS_STENCILFUNC, D3DCMP_ALWAYS> stencilFunc;
+	DxState1<D3DRS_STENCILREF, 0> stencilRef;
+	DxState1<D3DRS_STENCILWRITEMASK, 0xFFFFFFFF> stencilWriteMask;
+	DxState1<D3DRS_STENCILMASK, 0xFFFFFFFF> stencilCompareMask;
 
 	DxSampler0State1<D3DSAMP_MINFILTER, D3DTEXF_POINT> texMinFilter;
 	DxSampler0State1<D3DSAMP_MAGFILTER, D3DTEXF_POINT> texMagFilter;
@@ -483,6 +393,7 @@ public:
 	DxSampler0State1<D3DSAMP_MAXMIPLEVEL, 0> texMaxMipLevel;
 	DxSampler0State1<D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP> texAddressU;
 	DxSampler0State1<D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP> texAddressV;
+	DxSampler0State1<D3DSAMP_ADDRESSW, D3DTADDRESS_CLAMP> texAddressW;
 };
 
 #undef STATE1

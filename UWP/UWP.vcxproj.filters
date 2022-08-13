@@ -88,9 +88,6 @@
     <Image Include="Content\7z.png">
       <Filter>Content</Filter>
     </Image>
-    <Image Include="Content\rargray.png">
-      <Filter>Content</Filter>
-    </Image>
     <Image Include="Content\unknown.png">
       <Filter>Content</Filter>
     </Image>
@@ -103,12 +100,17 @@
     <Image Include="AssetsGold\StoreLogo.scale-100.png">
       <Filter>Assets</Filter>
     </Image>
+    <Image Include="Content\rargray.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Content\asciifont_atlas.zim">
+      <Filter>Content</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="UWP_TemporaryKey.pfx" />
     <None Include="Content\compat.ini">
       <Filter>Content</Filter>
     </None>
@@ -364,6 +366,9 @@
     </None>
     <None Include="..\assets\themes\defaultthemes.ini">
       <Filter>Content\themes</Filter>
+    </None>
+    <None Include="Content\asciifont_atlas.meta">
+      <Filter>Content</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

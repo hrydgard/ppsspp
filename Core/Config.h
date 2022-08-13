@@ -48,6 +48,7 @@ namespace http {
 }
 
 struct UrlEncoder;
+struct ConfigPrivate;
 
 struct ConfigTouchPos {
 	float x;
@@ -140,9 +141,10 @@ public:
 	int iInternalScreenRotation;  // The internal screen rotation angle. Useful for vertical SHMUPs and similar.
 
 	std::string sReportHost;
-	std::vector<std::string> recentIsos;
 	std::vector<std::string> vPinnedPaths;
 	std::string sLanguageIni;
+
+	std::string sIgnoreCompatSettings;
 
 	bool bDiscordPresence;  // Enables setting the Discord presence to the current game (or menu)
 
@@ -212,6 +214,8 @@ public:
 	bool bTexHardwareScaling;
 	int iFpsLimit1;
 	int iFpsLimit2;
+	int iAnalogFpsLimit;
+	int iAnalogFpsMode; // 0 = auto, 1 = single direction, 2 = mapped to opposite
 	int iMaxRecent;
 	int iCurrentStateSlot;
 	int iRewindFlipFrequency;
@@ -532,6 +536,10 @@ public:
 		return bFullScreen;
 	}
 
+	std::vector<std::string> RecentIsos() const;
+	bool HasRecentIsos() const;
+	void ClearRecentIsos();
+
 protected:
 	void LoadStandardControllerIni();
 
@@ -539,9 +547,11 @@ private:
 	bool reload_ = false;
 	std::string gameId_;
 	std::string gameIdTitle_;
+	std::vector<std::string> recentIsos;
 	Path iniFilename_;
 	Path controllerIniFilename_;
 	Path searchPath_;
+	ConfigPrivate *private_ = nullptr;
 };
 
 std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();

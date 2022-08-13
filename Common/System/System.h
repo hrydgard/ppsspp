@@ -17,7 +17,7 @@ enum PermissionStatus {
 
 // These APIs must be implemented by every port (for example app-android.cpp, SDLMain.cpp).
 // Ideally these should be safe to call from any thread.
-void SystemToast(const char *text);
+void System_Toast(const char *text);
 void ShowKeyboard();
 
 // Vibrate either takes a number of milliseconds to vibrate unconditionally,
@@ -45,6 +45,7 @@ enum SystemDeviceType {
 	DEVICE_TYPE_MOBILE = 0,  // phones and pads
 	DEVICE_TYPE_TV = 1,  // Android TV and similar
 	DEVICE_TYPE_DESKTOP = 2,  // Desktop computer
+	DEVICE_TYPE_VR = 3,  // VR headset
 };
 
 enum SystemKeyboardLayout {
@@ -105,6 +106,7 @@ enum SystemProperty {
 
 	SYSPROP_SUPPORTS_PERMISSIONS,
 	SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE,
+	SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR,  // See FileUtil.cpp: OpenFileInEditor
 
 	// Android-specific.
 	SYSPROP_ANDROID_SCOPED_STORAGE,

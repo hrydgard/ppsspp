@@ -137,9 +137,11 @@ private:
 	// Temporaries to convert setting types, cache enabled, etc.
 	int iAlternateSpeedPercent1_;
 	int iAlternateSpeedPercent2_;
+	int iAlternateSpeedPercentAnalog_;
 	int prevInflightFrames_;
 	bool enableReports_ = false;
 	bool enableReportsSet_ = false;
+	bool analogSpeedMapped_ = false;
 	std::string shaderNames_[256];
 	std::string searchFilter_;
 
@@ -179,6 +181,12 @@ private:
 
 	bool allowDebugger_ = false;
 	bool canAllowDebugger_ = true;
+	enum class HasIni {
+		NO,
+		YES,
+		MAYBE,
+	};
+	HasIni hasTexturesIni_ = HasIni::MAYBE;
 };
 
 class HostnameSelectScreen : public PopupScreen {

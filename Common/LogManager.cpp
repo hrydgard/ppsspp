@@ -234,7 +234,6 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 			file = fileshort + 1;
 	}
 
-	std::lock_guard<std::mutex> lk(log_lock_);
 	GetTimeFormatted(message.timestamp);
 
 	if (hleCurrentThreadName) {

@@ -263,7 +263,7 @@ static void ConvertProjMatrixToD3DThrough(Matrix4x4 &in) {
 	in.translateAndScale(Vec3(xoff, yoff, 0.5f), Vec3(1.0f, 1.0f, 0.5f));
 }
 
-const uint64_t psUniforms = DIRTY_TEXENV | DIRTY_ALPHACOLORREF | DIRTY_ALPHACOLORMASK | DIRTY_FOGCOLOR | DIRTY_STENCILREPLACEVALUE | DIRTY_SHADERBLEND | DIRTY_TEXCLAMP;
+const uint64_t psUniforms = DIRTY_TEXENV | DIRTY_ALPHACOLORREF | DIRTY_ALPHACOLORMASK | DIRTY_FOGCOLOR | DIRTY_STENCILREPLACEVALUE | DIRTY_SHADERBLEND | DIRTY_TEXCLAMP | DIRTY_MIPBIAS;
 
 void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
@@ -314,6 +314,14 @@ void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 		};
 		PSSetFloatArray(CONST_PS_TEXCLAMP, texclamp, 4);
 		PSSetFloatArray(CONST_PS_TEXCLAMPOFF, texclampoff, 2);
+	}
+
+	if (dirtyUniforms & DIRTY_MIPBIAS) {
+		float mipBias = (float)gstate.getTexLevelOffset16() * (1.0 / 16.0f);
+
+		// NOTE: This equation needs some adjustment in D3D9. Can't get it to look completely smooth :(
+		mipBias = (mipBias + 0.25f) / (float)(gstate.getTextureMaxLevel() + 1);
+		PSSetFloatArray(CONST_PS_MIPBIAS, &mipBias, 1);
 	}
 }
 
@@ -539,10 +547,6 @@ void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
 }
 
 VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellation, u32 vertType, bool weightsAsFloat) {
-	// Always use software for flat shading to fix the provoking index.
-	bool tess = gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE;
-	useHWTransform = useHWTransform && (tess || gstate.getShadeMode() != GE_SHADE_FLAT);
-
 	VShaderID VSID;
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);

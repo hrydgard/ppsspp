@@ -7,7 +7,7 @@ on:
     # For testing.
     - actions
     tags:
-      - "v*.*.*"
+      - "v*.*"
     paths-ignore:
     - '*.{txt,md}'
     - 'Tools/**'
@@ -120,12 +120,12 @@ jobs:
           cc: clang
           cxx: clang++
           args: ./b.sh --headless --unittest
-          id: clang
+          id: clang-normal
         - os: ubuntu-latest
           cc: gcc
           cxx: g++
           args: ./b.sh --headless --unittest
-          id: gcc
+          id: gcc-normal
 
         - os: ubuntu-latest
           extra: android
@@ -220,7 +220,7 @@ jobs:
       if: matrix.extra == 'android'
       id: setup-ndk
       with:
-        ndk-version: r21d
+        ndk-version: r21e
 
     - name: Install Linux dependencies
       if: runner.os == 'Linux' && matrix.extra != 'android'

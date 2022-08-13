@@ -175,10 +175,8 @@ public:
 	GLuint stencilZFail;
 	GLuint stencilPass;
 	GLuint stencilCompareOp;
-	uint8_t stencilCompareMask;
-	uint8_t stencilWriteMask;
 
-	void Apply(GLRenderManager *render, uint8_t stencilRef) {
+	void Apply(GLRenderManager *render, uint8_t stencilRef, uint8_t stencilWriteMask, uint8_t stencilCompareMask) {
 		render->SetDepth(depthTestEnabled, depthWriteEnabled, depthComp);
 		render->SetStencilFunc(stencilEnabled, stencilCompareOp, stencilRef, stencilCompareMask);
 		render->SetStencilOp(stencilWriteMask, stencilFail, stencilZFail, stencilPass);
@@ -263,9 +261,6 @@ public:
 	~OpenGLInputLayout();
 
 	void Compile(const InputLayoutDesc &desc);
-	bool RequiresBuffer() {
-		return false;
-	}
 
 	GLRInputLayout *inputLayout_ = nullptr;
 	int stride = 0;
@@ -286,10 +281,6 @@ public:
 
 	bool LinkShaders();
 
-	bool RequiresBuffer() override {
-		return inputLayout && inputLayout->RequiresBuffer();
-	}
-
 	GLuint prim = 0;
 	std::vector<OpenGLShaderModule *> shaders;
 	AutoRef<OpenGLInputLayout> inputLayout;
@@ -302,6 +293,10 @@ public:
 	GLint samplerLocs_[MAX_TEXTURE_SLOTS]{};
 	std::vector<GLint> dynamicUniformLocs_;
 	GLRProgram *program_ = nullptr;
+
+	// Allow using other sampler names than sampler0, sampler1 etc in shaders.
+	// If not set, will default to those, though.
+	Slice<SamplerDef> samplers_;
 
 private:
 	GLRenderManager *render_;
@@ -388,13 +383,21 @@ public:
 		renderManager_.SetBlendFactor(color);
 	}
 
-	void SetStencilRef(uint8_t ref) override {
-		stencilRef_ = ref;
+	void SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) override {
+		stencilRef_ = refValue;
+		stencilWriteMask_ = writeMask;
+		stencilCompareMask_ = compareMask;
+		// Do we need to update on the fly here?
 		renderManager_.SetStencilFunc(
 			curPipeline_->depthStencil->stencilEnabled,
 			curPipeline_->depthStencil->stencilCompareOp,
-			ref,
-			curPipeline_->depthStencil->stencilCompareMask);
+			refValue,
+			compareMask);
+		renderManager_.SetStencilOp(
+			writeMask,
+			curPipeline_->depthStencil->stencilFail,
+			curPipeline_->depthStencil->stencilZFail,
+			curPipeline_->depthStencil->stencilPass);
 	}
 
 	void BindTextures(int start, int count, Texture **textures) override;
@@ -453,14 +456,7 @@ public:
 		}
 	}
 
-	uint64_t GetNativeObject(NativeObject obj) override {
-		switch (obj) {
-		case NativeObject::RENDER_MANAGER:
-			return (uint64_t)(uintptr_t)&renderManager_;
-		default:
-			return 0;
-		}
-	}
+	uint64_t GetNativeObject(NativeObject obj, void *srcObject) override;
 
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override {}
 
@@ -491,6 +487,8 @@ private:
 	AutoRef<Framebuffer> curRenderTarget_;
 
 	uint8_t stencilRef_ = 0;
+	uint8_t stencilWriteMask_ = 0;
+	uint8_t stencilCompareMask_ = 0;
 
 	// Frames in flight is not such a strict concept as with Vulkan until we start using glBufferStorage and fences.
 	// But might as well have the structure ready, and can't hurt to rotate buffers.
@@ -528,11 +526,27 @@ OpenGLContext::OpenGLContext() {
 		} else {
 			caps_.preferredDepthBufferFormat = DataFormat::D16;
 		}
+		if (gl_extensions.GLES3) {
+			// Mali reports 30 but works fine...
+			if (gl_extensions.range[1][5][1] >= 30) {
+				caps_.fragmentShaderInt32Supported = true;
+			}
+		}
+		caps_.texture3DSupported = gl_extensions.OES_texture_3D;
 	} else {
+		if (gl_extensions.VersionGEThan(3, 3, 0)) {
+			caps_.fragmentShaderInt32Supported = true;
+		}
 		caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
+		caps_.texture3DSupported = true;
 	}
-	caps_.framebufferBlitSupported = gl_extensions.NV_framebuffer_blit || gl_extensions.ARB_framebuffer_object;
+
+	caps_.dualSourceBlend = gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended;
+	caps_.anisoSupported = gl_extensions.EXT_texture_filter_anisotropic;
+	caps_.framebufferCopySupported = gl_extensions.OES_copy_image || gl_extensions.NV_copy_image || gl_extensions.EXT_copy_image || gl_extensions.ARB_copy_image;
+	caps_.framebufferBlitSupported = gl_extensions.NV_framebuffer_blit || gl_extensions.ARB_framebuffer_object || gl_extensions.GLES3;
 	caps_.framebufferDepthBlitSupported = caps_.framebufferBlitSupported;
+	caps_.framebufferStencilBlitSupported = caps_.framebufferBlitSupported;
 	caps_.depthClampSupported = gl_extensions.ARB_depth_clamp;
 	if (gl_extensions.IsGLES) {
 		caps_.clipDistanceSupported = gl_extensions.EXT_clip_cull_distance || gl_extensions.APPLE_clip_distance;
@@ -540,6 +554,17 @@ OpenGLContext::OpenGLContext() {
 	} else {
 		caps_.clipDistanceSupported = gl_extensions.VersionGEThan(3, 0);
 		caps_.cullDistanceSupported = gl_extensions.ARB_cull_distance;
+	}
+	caps_.textureNPOTFullySupported =
+		(!gl_extensions.IsGLES && gl_extensions.VersionGEThan(2, 0, 0)) ||
+		gl_extensions.IsCoreContext || gl_extensions.GLES3 ||
+		gl_extensions.ARB_texture_non_power_of_two || gl_extensions.OES_texture_npot;
+
+	if (gl_extensions.IsGLES) {
+		caps_.fragmentShaderDepthWriteSupported = gl_extensions.GLES3;
+		// There's also GL_EXT_frag_depth but it's rare along with 2.0. Most chips that support it are simply 3.0 chips.
+	} else {
+		caps_.fragmentShaderDepthWriteSupported = true;
 	}
 
 	// Interesting potential hack for emulating GL_DEPTH_CLAMP (use a separate varying, force depth in fragment shader):
@@ -628,6 +653,7 @@ OpenGLContext::OpenGLContext() {
 			shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_3xx;
 			shaderLanguageDesc_.fragColor0 = "fragColor0";
 			shaderLanguageDesc_.texture = "texture";
+			shaderLanguageDesc_.texture3D = "texture";
 			shaderLanguageDesc_.glslES30 = true;
 			shaderLanguageDesc_.bitwiseOps = true;
 			shaderLanguageDesc_.texelFetch = "texelFetch";
@@ -651,6 +677,7 @@ OpenGLContext::OpenGLContext() {
 			shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_3xx;
 			shaderLanguageDesc_.fragColor0 = "fragColor0";
 			shaderLanguageDesc_.texture = "texture";
+			shaderLanguageDesc_.texture3D = "texture";
 			shaderLanguageDesc_.glslES30 = true;
 			shaderLanguageDesc_.bitwiseOps = true;
 			shaderLanguageDesc_.texelFetch = "texelFetch";
@@ -661,6 +688,7 @@ OpenGLContext::OpenGLContext() {
 			shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_1xx;
 			shaderLanguageDesc_.fragColor0 = "fragColor0";
 			shaderLanguageDesc_.texture = "texture";
+			shaderLanguageDesc_.texture3D = "texture";
 			shaderLanguageDesc_.bitwiseOps = true;
 			shaderLanguageDesc_.texelFetch = "texelFetch";
 			shaderLanguageDesc_.varying_vs = "out";
@@ -686,6 +714,8 @@ OpenGLContext::OpenGLContext() {
 			shaderLanguageDesc_.lastFragData = "gl_LastFragColorARM";
 		}
 	}
+
+	renderManager_.SetDeviceCaps(caps_);
 }
 
 OpenGLContext::~OpenGLContext() {
@@ -784,7 +814,7 @@ OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) :
 	format_ = desc.format;
 	type_ = desc.type;
 	GLenum target = TypeToTarget(desc.type);
-	tex_ = render->CreateTexture(target, desc.width, desc.height, desc.mipLevels);
+	tex_ = render->CreateTexture(target, desc.width, desc.height, 1, desc.mipLevels);
 
 	mipLevels_ = desc.mipLevels;
 	if (desc.initData.empty())
@@ -869,7 +899,7 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		}
 	}
 
-	render_->TextureImage(tex_, level, width, height, format_, texData);
+	render_->TextureImage(tex_, level, width, height, depth, format_, texData);
 }
 
 #ifdef DEBUG_READ_PIXELS
@@ -936,12 +966,10 @@ DepthStencilState *OpenGLContext::CreateDepthStencilState(const DepthStencilStat
 	ds->depthWriteEnabled = desc.depthWriteEnabled;
 	ds->depthComp = compToGL[(int)desc.depthCompare];
 	ds->stencilEnabled = desc.stencilEnabled;
-	ds->stencilCompareOp = compToGL[(int)desc.front.compareOp];
-	ds->stencilPass = stencilOpToGL[(int)desc.front.passOp];
-	ds->stencilFail = stencilOpToGL[(int)desc.front.failOp];
-	ds->stencilZFail = stencilOpToGL[(int)desc.front.depthFailOp];
-	ds->stencilWriteMask = desc.front.writeMask;
-	ds->stencilCompareMask = desc.front.compareMask;
+	ds->stencilCompareOp = compToGL[(int)desc.stencil.compareOp];
+	ds->stencilPass = stencilOpToGL[(int)desc.stencil.passOp];
+	ds->stencilFail = stencilOpToGL[(int)desc.stencil.failOp];
+	ds->stencilZFail = stencilOpToGL[(int)desc.stencil.depthFailOp];
 	return ds;
 }
 
@@ -1072,6 +1100,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		pipeline->dynamicUniforms = *desc.uniformDesc;
 		pipeline->dynamicUniformLocs_.resize(desc.uniformDesc->uniforms.size());
 	}
+	pipeline->samplers_ = desc.samplers;
 	if (pipeline->LinkShaders()) {
 		// Build the rest of the virtual pipeline object.
 		pipeline->prim = primToGL[(int)desc.prim];
@@ -1106,7 +1135,7 @@ void OpenGLContext::ApplySamplers() {
 		const OpenGLSamplerState *samp = boundSamplers_[i];
 		const GLRTexture *tex = boundTextures_[i];
 		if (tex) {
-			_assert_(samp);
+			_assert_msg_(samp, "Sampler missing");
 		} else {
 			continue;
 		}
@@ -1164,17 +1193,31 @@ bool OpenGLPipeline::LinkShaders() {
 	// For postshaders.
 	semantics.push_back({ SEM_POSITION, "a_position" });
 	semantics.push_back({ SEM_TEXCOORD0, "a_texcoord0" });
+
 	std::vector<GLRProgram::UniformLocQuery> queries;
-	queries.push_back({ &samplerLocs_[0], "sampler0" });
-	queries.push_back({ &samplerLocs_[1], "sampler1" });
-	queries.push_back({ &samplerLocs_[2], "sampler2" });
-	_assert_(queries.size() >= MAX_TEXTURE_SLOTS);
+	if (!samplers_.is_empty()) {
+		for (int i = 0; i < (int)std::min((const uint32_t)samplers_.size(), MAX_TEXTURE_SLOTS); i++) {
+			queries.push_back({ &samplerLocs_[i], samplers_[i].name, true });
+		}
+	} else {
+		queries.push_back({ &samplerLocs_[0], "sampler0" });
+		queries.push_back({ &samplerLocs_[1], "sampler1" });
+		queries.push_back({ &samplerLocs_[2], "sampler2" });
+	}
+
+	_assert_(queries.size() <= MAX_TEXTURE_SLOTS);
 	for (size_t i = 0; i < dynamicUniforms.uniforms.size(); ++i) {
 		queries.push_back({ &dynamicUniformLocs_[i], dynamicUniforms.uniforms[i].name });
 	}
 	std::vector<GLRProgram::Initializer> initialize;
-	for (int i = 0; i < MAX_TEXTURE_SLOTS; ++i)
-		initialize.push_back({ &samplerLocs_[i], 0, i });
+	for (int i = 0; i < MAX_TEXTURE_SLOTS; ++i) {
+		if (i < queries.size()) {
+			initialize.push_back({ &samplerLocs_[i], 0, i });
+		} else {
+			samplerLocs_[i] = -1;
+		}
+	}
+
 	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, false, false);
 	return true;
 }
@@ -1185,7 +1228,7 @@ void OpenGLContext::BindPipeline(Pipeline *pipeline) {
 		return;
 	}
 	curPipeline_->blend->Apply(&renderManager_);
-	curPipeline_->depthStencil->Apply(&renderManager_, stencilRef_);
+	curPipeline_->depthStencil->Apply(&renderManager_, stencilRef_, stencilWriteMask_, stencilCompareMask_);
 	curPipeline_->raster->Apply(&renderManager_);
 	renderManager_.BindProgram(curPipeline_->program_);
 }
@@ -1398,6 +1441,17 @@ void OpenGLContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	} else {
 		*w = targetWidth_;
 		*h = targetHeight_;
+	}
+}
+
+uint64_t OpenGLContext::GetNativeObject(NativeObject obj, void *srcObject) {
+	switch (obj) {
+	case NativeObject::RENDER_MANAGER:
+		return (uint64_t)(uintptr_t)&renderManager_;
+	case NativeObject::TEXTURE_VIEW:  // Gets the GLRTexture *
+		return (uint64_t)(((OpenGLTexture *)srcObject)->GetTex());
+	default:
+		return 0;
 	}
 }
 

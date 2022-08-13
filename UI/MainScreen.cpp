@@ -322,7 +322,17 @@ void GameButton::Draw(UIContext &dc) {
 	dc.Draw()->Flush();
 	dc.RebindTexture();
 	dc.SetFontStyle(dc.theme->uiFont);
-	if (!gridStyle_) {
+	if (gridStyle_ && ginfo->fileType == IdentifiedFileType::PPSSPP_GE_DUMP) {
+		// Super simple drawing for ge dumps.
+		dc.PushScissor(bounds_);
+		const std::string currentTitle = ginfo->GetTitle();
+		dc.SetFontScale(0.6f, 0.6f);
+		dc.DrawText(title_.c_str(), bounds_.x + 4.0f, bounds_.centerY(), style.fgColor, ALIGN_VCENTER | ALIGN_LEFT);
+		dc.SetFontScale(1.0f, 1.0f);
+		title_ = currentTitle;
+		dc.Draw()->Flush();
+		dc.PopScissor();
+	} else if (!gridStyle_) {
 		float tw, th;
 		dc.Draw()->Flush();
 		dc.PushScissor(bounds_);
@@ -587,7 +597,7 @@ bool GameBrowser::DisplayTopBar() {
 bool GameBrowser::HasSpecialFiles(std::vector<Path> &filenames) {
 	if (path_.GetPath().ToString() == "!RECENT") {
 		filenames.clear();
-		for (auto &str : g_Config.recentIsos) {
+		for (auto &str : g_Config.RecentIsos()) {
 			filenames.push_back(Path(str));
 		}
 		return true;
@@ -986,7 +996,7 @@ void MainScreen::CreateViews() {
 		System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE) == PERMISSION_STATUS_GRANTED;
 	bool storageIsTemporary = IsTempPath(GetSysDirectory(DIRECTORY_SAVEDATA)) && !confirmedTemporary_;
 	if (showRecent && !hasStorageAccess) {
-		showRecent = !g_Config.recentIsos.empty();
+		showRecent = g_Config.HasRecentIsos();
 	}
 
 	if (showRecent) {
@@ -1036,7 +1046,7 @@ void MainScreen::CreateViews() {
 		tabAllGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 		tabHomebrew->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 
-		if (g_Config.recentIsos.size() > 0) {
+		if (g_Config.HasRecentIsos()) {
 			tabHolder_->SetCurrentTab(0, true);
 		} else if (g_Config.iMaxRecent > 0) {
 			tabHolder_->SetCurrentTab(1, true);
@@ -1127,11 +1137,13 @@ void MainScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
 	rightColumnItems->Add(new Choice(mm->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
 	rightColumnItems->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
+#ifndef OPENXR
 	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		Choice *gold = rightColumnItems->Add(new Choice(mm->T("Buy PPSSPP Gold")));
 		gold->OnClick.Handle(this, &MainScreen::OnSupport);
 		gold->SetIcon(ImageID("I_ICONGOLD"), 0.5f);
 	}
+#endif
 
 #if !PPSSPP_PLATFORM(UWP)
 	// Having an exit button is against UWP guidelines.
@@ -1490,7 +1502,7 @@ void UmdReplaceScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(di->T("Cancel")))->OnClick.Handle(this, &UmdReplaceScreen::OnCancel);
 	rightColumnItems->Add(new Choice(mm->T("Game Settings")))->OnClick.Handle(this, &UmdReplaceScreen::OnGameSettings);
 
-	if (g_Config.recentIsos.size() > 0) {
+	if (g_Config.HasRecentIsos()) {
 		leftColumn->SetCurrentTab(0, true);
 	} else if (g_Config.iMaxRecent > 0) {
 		leftColumn->SetCurrentTab(1, true);
@@ -1569,7 +1581,7 @@ UI::EventReturn GridSettingsScreen::GridMinusClick(UI::EventParams &e) {
 }
 
 UI::EventReturn GridSettingsScreen::OnRecentClearClick(UI::EventParams &e) {
-	g_Config.recentIsos.clear();
+	g_Config.ClearRecentIsos();
 	OnRecentChanged.Trigger(e);
 	return UI::EVENT_DONE;
 }

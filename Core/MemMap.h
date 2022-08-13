@@ -140,11 +140,19 @@ u16 Read_U16(const u32 _Address);
 u32 Read_U32(const u32 _Address);
 u64 Read_U64(const u32 _Address);
 
-inline u8* GetPointerUnchecked(const u32 address) {
+inline u8* GetPointerWriteUnchecked(const u32 address) {
 #ifdef MASKED_PSP_MEMORY
 	return (u8 *)(base + (address & MEMVIEW32_MASK));
 #else
 	return (u8 *)(base + address);
+#endif
+}
+
+inline const u8* GetPointerUnchecked(const u32 address) {
+#ifdef MASKED_PSP_MEMORY
+	return (const u8 *)(base + (address & MEMVIEW32_MASK));
+#else
+	return (const u8 *)(base + address);
 #endif
 }
 
@@ -236,7 +244,8 @@ inline void Write_Float(float f, u32 address)
 	Write_U32(u, address);
 }
 
-u8* GetPointer(const u32 address);
+u8* GetPointerWrite(const u32 address);
+const u8* GetPointer(const u32 address);
 bool IsRAMAddress(const u32 address);
 inline bool IsVRAMAddress(const u32 address) {
 	return ((address & 0x3F800000) == 0x04000000);
@@ -272,11 +281,11 @@ inline void MemcpyUnchecked(void *to_data, const u32 from_address, const u32 len
 }
 
 inline void MemcpyUnchecked(const u32 to_address, const void *from_data, const u32 len) {
-	memcpy(GetPointerUnchecked(to_address), from_data, len);
+	memcpy(GetPointerWriteUnchecked(to_address), from_data, len);
 }
 
 inline void MemcpyUnchecked(const u32 to_address, const u32 from_address, const u32 len) {
-	MemcpyUnchecked(GetPointer(to_address), from_address, len);
+	MemcpyUnchecked(GetPointerWrite(to_address), from_address, len);
 }
 
 inline bool IsValidAddress(const u32 address) {

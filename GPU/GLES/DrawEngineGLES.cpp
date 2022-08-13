@@ -148,7 +148,7 @@ void DrawEngineGLES::ClearInputLayoutMap() {
 }
 
 void DrawEngineGLES::BeginFrame() {
-	DecimateTrackedVertexArrays();
+	gpuStats.numTrackedVertexArrays = 0;
 
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
 	render_->BeginPushBuffer(frameData.pushIndex);
@@ -238,11 +238,9 @@ void *DrawEngineGLES::DecodeVertsToPushBuffer(GLPushBuffer *push, uint32_t *bind
 
 void DrawEngineGLES::DoFlush() {
 	PROFILE_THIS_SCOPE("flush");
-
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
 	
 	gpuStats.numFlushes++;
-	gpuStats.numTrackedVertexArrays = 0;
 
 	// A new render step means we need to flush any dynamic state. Really, any state that is reset in
 	// GLQueueRunner::PerformRenderPass.
@@ -277,7 +275,6 @@ void DrawEngineGLES::DoFlush() {
 	if (vshader->UseHWTransform()) {
 		int vertexCount = 0;
 		bool useElements = true;
-		bool populateCache = false;
 
 		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			// If software skinning, we've already predecoded into "decoded". So push that content.
@@ -301,7 +298,6 @@ void DrawEngineGLES::DoFlush() {
 		}
 		prim = indexGen.Prim();
 
-		VERBOSE_LOG(G3D, "Flush prim %d! %d verts in one go", prim, vertexCount);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
@@ -309,8 +305,9 @@ void DrawEngineGLES::DoFlush() {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
-		if (textureNeedsApply)
+		if (textureNeedsApply) {
 			textureCache_->ApplyTexture();
+		}
 
 		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
 		ApplyDrawState(prim);
@@ -331,6 +328,7 @@ void DrawEngineGLES::DoFlush() {
 			render_->Draw(glprim[prim], 0, vertexCount);
 		}
 	} else {
+		PROFILE_THIS_SCOPE("soft");
 		DecodeVerts(decoded);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -354,7 +352,7 @@ void DrawEngineGLES::DoFlush() {
 		params.transformedExpanded = transformedExpanded;
 		params.fbman = framebufferManager_;
 		params.texCache = textureCache_;
-		params.allowClear = true;
+		params.allowClear = true;  // Clear in OpenGL respects scissor rects, so we'll use it.
 		params.allowSeparateAlphaClear = true;
 		params.provokeFlatFirst = false;
 		params.flippedY = framebufferManager_->UseBufferedRendering();
@@ -373,8 +371,11 @@ void DrawEngineGLES::DoFlush() {
 
 		// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.
 #if defined(MOBILE_DEVICE)
-		if (vertexCount > 0x10000 / 3)
-			vertexCount = 0x10000 / 3;
+		constexpr int vertexCountLimit = 0x10000 / 3;
+		if (vertexCount > vertexCountLimit) {
+			WARN_LOG_REPORT_ONCE(manyVerts, G3D, "Truncating vertex count from %d to %d", vertexCount, vertexCountLimit);
+			vertexCount = vertexCountLimit;
+		}
 #endif
 
 		SoftwareTransform swTransform(params);
@@ -499,8 +500,8 @@ void TessellationDataTransferGLES::SendDataToShader(const SimpleVertex *const *p
 		prevSizeU = size_u;
 		prevSizeV = size_v;
 		if (!data_tex[0])
-			data_tex[0] = renderManager_->CreateTexture(GL_TEXTURE_2D, size_u * 3, size_v, 1);
-		renderManager_->TextureImage(data_tex[0], 0, size_u * 3, size_v, Draw::DataFormat::R32G32B32A32_FLOAT, nullptr, GLRAllocType::NONE, false);
+			data_tex[0] = renderManager_->CreateTexture(GL_TEXTURE_2D, size_u * 3, size_v, 1, 1);
+		renderManager_->TextureImage(data_tex[0], 0, size_u * 3, size_v, 1, Draw::DataFormat::R32G32B32A32_FLOAT, nullptr, GLRAllocType::NONE, false);
 		renderManager_->FinalizeTexture(data_tex[0], 0, false);
 	}
 	renderManager_->BindTexture(TEX_SLOT_SPLINE_POINTS, data_tex[0]);
@@ -517,8 +518,8 @@ void TessellationDataTransferGLES::SendDataToShader(const SimpleVertex *const *p
 	if (prevSizeWU < weights.size_u) {
 		prevSizeWU = weights.size_u;
 		if (!data_tex[1])
-			data_tex[1] = renderManager_->CreateTexture(GL_TEXTURE_2D, weights.size_u * 2, 1, 1);
-		renderManager_->TextureImage(data_tex[1], 0, weights.size_u * 2, 1, Draw::DataFormat::R32G32B32A32_FLOAT, nullptr, GLRAllocType::NONE, false);
+			data_tex[1] = renderManager_->CreateTexture(GL_TEXTURE_2D, weights.size_u * 2, 1, 1, 1);
+		renderManager_->TextureImage(data_tex[1], 0, weights.size_u * 2, 1, 1, Draw::DataFormat::R32G32B32A32_FLOAT, nullptr, GLRAllocType::NONE, false);
 		renderManager_->FinalizeTexture(data_tex[1], 0, false);
 	}
 	renderManager_->BindTexture(TEX_SLOT_SPLINE_WEIGHTS_U, data_tex[1]);
@@ -528,8 +529,8 @@ void TessellationDataTransferGLES::SendDataToShader(const SimpleVertex *const *p
 	if (prevSizeWV < weights.size_v) {
 		prevSizeWV = weights.size_v;
 		if (!data_tex[2])
-			data_tex[2] = renderManager_->CreateTexture(GL_TEXTURE_2D, weights.size_v * 2, 1, 1);
-		renderManager_->TextureImage(data_tex[2], 0, weights.size_v * 2, 1, Draw::DataFormat::R32G32B32A32_FLOAT, nullptr, GLRAllocType::NONE, false);
+			data_tex[2] = renderManager_->CreateTexture(GL_TEXTURE_2D, weights.size_v * 2, 1, 1, 1);
+		renderManager_->TextureImage(data_tex[2], 0, weights.size_v * 2, 1, 1, Draw::DataFormat::R32G32B32A32_FLOAT, nullptr, GLRAllocType::NONE, false);
 		renderManager_->FinalizeTexture(data_tex[2], 0, false);
 	}
 	renderManager_->BindTexture(TEX_SLOT_SPLINE_WEIGHTS_V, data_tex[2]);

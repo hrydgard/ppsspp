@@ -46,11 +46,14 @@ struct ShaderLanguageDesc {
 	const char *fragColor0 = nullptr;
 	const char *fragColor1 = nullptr;
 	const char *texture = nullptr;
+	const char *texture3D = nullptr;
 	const char *texelFetch = nullptr;
 	const char *lastFragData = nullptr;
 	const char *framebufferFetchExtension = nullptr;
 	const char *vsOutPrefix = "";
 	const char *viewportYSign = "";
+
+	bool vertexIndex = false;
 	bool glslES30 = false;  // really glslES30Features. TODO: Clean this up.
 	bool bitwiseOps = false;
 	bool forceMatrix4x4 = false;
@@ -81,6 +84,12 @@ struct UniformBufferDesc {
 	size_t uniformBufferSize;
 	std::vector<UniformDesc> uniforms;
 };
+
+struct SamplerDef {
+	const char *name;
+	// TODO: Might need unsigned samplers, 3d samplers, or other types in the future.
+};
+
 
 // For passing error messages from shader compilation (and other critical issues) back to the host.
 // This can run on any thread - be aware!

@@ -8,6 +8,11 @@
 #include "Common/MemoryUtil.h"
 #include "Common/Math/math_util.h"
 
+#ifdef OPENXR
+#include "VR/VRBase.h"
+#include "VR/VRRenderer.h"
+#endif
+
 #if 0 // def _DEBUG
 #define VLOG(...) INFO_LOG(G3D, __VA_ARGS__)
 #else
@@ -21,14 +26,15 @@ static bool OnRenderThread() {
 }
 #endif
 
-GLRTexture::GLRTexture(int width, int height, int numMips) {
-	if (gl_extensions.OES_texture_npot) {
+GLRTexture::GLRTexture(const Draw::DeviceCaps &caps, int width, int height, int depth, int numMips) {
+	if (caps.textureNPOTFullySupported) {
 		canWrap = true;
 	} else {
 		canWrap = isPowerOf2(width) && isPowerOf2(height);
 	}
 	w = width;
 	h = height;
+	depth = depth;
 	this->numMips = numMips;
 }
 
@@ -107,12 +113,6 @@ void GLDeleter::Perform(GLRenderManager *renderManager, bool skipGLCalls) {
 		delete framebuffer;
 	}
 	framebuffers.clear();
-}
-
-GLRenderManager::GLRenderManager() {
-	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
-
-	}
 }
 
 GLRenderManager::~GLRenderManager() {
@@ -202,6 +202,9 @@ bool GLRenderManager::ThreadFrame() {
 	std::unique_lock<std::mutex> lock(mutex_);
 	if (!run_)
 		return false;
+#ifdef OPENXR
+	VR_BeginFrame(VR_GetEngine());
+#endif
 
 	// In case of syncs or other partial completion, we keep going until we complete a frame.
 	do {
@@ -240,6 +243,9 @@ bool GLRenderManager::ThreadFrame() {
 		Run(threadFrame_);
 		VLOG("PULL: Finished frame %d", threadFrame_);
 	} while (!nextFrame);
+#ifdef OPENXR
+	VR_EndFrame(VR_GetEngine());
+#endif
 	return true;
 }
 
@@ -300,6 +306,7 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 #ifdef _DEBUG
 	curProgram_ = nullptr;
 #endif
+
 	// Eliminate dupes.
 	if (steps_.size() && steps_.back()->render.framebuffer == fb && steps_.back()->stepType == GLRStepType::RENDER) {
 		if (color != GLRRenderPassAction::CLEAR && depth != GLRRenderPassAction::CLEAR && stencil != GLRRenderPassAction::CLEAR) {

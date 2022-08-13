@@ -370,7 +370,7 @@ void CheckGLExtensions() {
 	gl_extensions.ARB_depth_clamp = g_set_gl_extensions.count("GL_ARB_depth_clamp") != 0;
 	gl_extensions.ARB_uniform_buffer_object = g_set_gl_extensions.count("GL_ARB_uniform_buffer_object") != 0;
 	gl_extensions.ARB_explicit_attrib_location = g_set_gl_extensions.count("GL_ARB_explicit_attrib_location") != 0;
-
+	gl_extensions.ARB_texture_non_power_of_two = g_set_gl_extensions.count("GL_ARB_texture_non_power_of_two") != 0;
 	if (gl_extensions.IsGLES) {
 		gl_extensions.EXT_blend_func_extended = g_set_gl_extensions.count("GL_EXT_blend_func_extended") != 0;
 		gl_extensions.OES_texture_npot = g_set_gl_extensions.count("GL_OES_texture_npot") != 0;
@@ -383,6 +383,7 @@ void CheckGLExtensions() {
 		gl_extensions.EXT_shader_framebuffer_fetch = g_set_gl_extensions.count("GL_EXT_shader_framebuffer_fetch") != 0;
 		gl_extensions.ARM_shader_framebuffer_fetch = g_set_gl_extensions.count("GL_ARM_shader_framebuffer_fetch") != 0;
 		gl_extensions.OES_texture_float = g_set_gl_extensions.count("GL_OES_texture_float") != 0;
+		gl_extensions.OES_texture_3D = g_set_gl_extensions.count("GL_OES_texture_3D") != 0;
 		gl_extensions.EXT_buffer_storage = g_set_gl_extensions.count("GL_EXT_buffer_storage") != 0;
 		gl_extensions.EXT_clip_cull_distance = g_set_gl_extensions.count("GL_EXT_clip_cull_distance") != 0;
 		gl_extensions.APPLE_clip_distance = g_set_gl_extensions.count("GL_APPLE_clip_distance") != 0;

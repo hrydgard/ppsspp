@@ -50,6 +50,9 @@
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 #include <sys/stat.h>
+#if PPSSPP_PLATFORM(UWP)
+#include <fileapifromapp.h>
+#endif
 #undef FILE_OPEN
 #else
 #include <dirent.h>
@@ -158,7 +161,7 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 
 	// Let's do it!
 #if PPSSPP_PLATFORM(UWP)
-	hFile = CreateFile2(fullName.ToWString().c_str(), desired, sharemode, openmode, nullptr);
+	hFile = CreateFile2FromAppW(fullName.ToWString().c_str(), desired, sharemode, openmode, nullptr);
 #else
 	hFile = CreateFile(fullName.ToWString().c_str(), desired, sharemode, 0, openmode, 0, 0);
 #endif
@@ -170,7 +173,7 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 			// Sometimes, the file is locked for write, let's try again.
 			sharemode |= FILE_SHARE_WRITE;
 #if PPSSPP_PLATFORM(UWP)
-			hFile = CreateFile2(fullName.ToWString().c_str(), desired, sharemode, openmode, nullptr);
+			hFile = CreateFile2FromAppW(fullName.ToWString().c_str(), desired, sharemode, openmode, nullptr);
 #else
 			hFile = CreateFile(fullName.ToWString().c_str(), desired, sharemode, 0, openmode, 0, 0);
 #endif

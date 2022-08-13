@@ -35,6 +35,16 @@ enum {
 	DECODED_INDEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 16,
 };
 
+enum {
+	TEX_SLOT_PSP_TEXTURE = 0,
+	TEX_SLOT_SHADERBLEND_SRC = 1,
+	TEX_SLOT_ALPHATEST = 2,
+	TEX_SLOT_CLUT = 3,
+	TEX_SLOT_SPLINE_POINTS = 4,
+	TEX_SLOT_SPLINE_WEIGHTS_U = 5,
+	TEX_SLOT_SPLINE_WEIGHTS_V = 6,
+};
+
 inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode) {
 	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
 	// into the top of the verttype where there are unused bits.
@@ -69,18 +79,18 @@ public:
 	// This would seem to be unnecessary now, but is still required for splines/beziers to work in the software backend since SubmitPrim
 	// is different. Should probably refactor that.
 	// Note that vertTypeID should be computed using GetVertTypeID().
-	virtual void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
+	virtual void DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
 		SubmitPrim(verts, inds, prim, vertexCount, vertTypeID, cullMode, bytesRead);
 	}
 
-	virtual void DispatchSubmitImm(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
+	virtual void DispatchSubmitImm(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
 		SubmitPrim(verts, inds, prim, vertexCount, vertTypeID, cullMode, bytesRead);
 		DispatchFlush();
 	}
 
-	bool TestBoundingBox(void* control_points, int vertexCount, u32 vertType, int *bytesRead);
+	bool TestBoundingBox(const void* control_points, int vertexCount, u32 vertType, int *bytesRead);
 
-	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead);
+	void SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead);
 	template<class Surface>
 	void SubmitCurve(const void *control_points, const void *indices, Surface &surface, u32 vertType, int *bytesRead, const char *scope);
 	void ClearSplineBezierWeights();
@@ -150,8 +160,8 @@ protected:
 
 	// Defer all vertex decoding to a "Flush" (except when software skinning)
 	struct DeferredDrawCall {
-		void *verts;
-		void *inds;
+		const void *verts;
+		const void *inds;
 		u32 vertexCount;
 		u8 indexType;
 		s8 prim;

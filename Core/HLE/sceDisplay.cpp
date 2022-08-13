@@ -354,6 +354,8 @@ static int FrameTimingLimit() {
 		return g_Config.iFpsLimit1;
 	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2)
 		return g_Config.iFpsLimit2;
+	if (PSP_CoreParameter().fpsLimit == FPSLimit::ANALOG)
+		return PSP_CoreParameter().analogFpsLimit;
 	if (PSP_CoreParameter().fastForward)
 		return 0;
 	return 60;
@@ -728,6 +730,10 @@ static int DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, callbacks, reason);
 
 	return hleLogSuccessVerboseI(SCEDISPLAY, 0, "waiting for %d vblanks", vblanks);
+}
+
+void __DisplayWaitForVblanks(const char* reason, int vblanks, bool callbacks) {
+	DisplayWaitForVblanks(reason, vblanks, callbacks);
 }
 
 static u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {

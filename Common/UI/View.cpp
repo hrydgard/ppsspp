@@ -1046,7 +1046,7 @@ void TextEdit::Draw(UIContext &dc) {
 }
 
 void TextEdit::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text_.size() ? text_.c_str() : "Wj", &w, &h, align_);
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, !text_.empty() ? text_.c_str() : "Wj", &w, &h, align_);
 	w += 2;
 	h += 2;
 }

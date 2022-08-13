@@ -36,7 +36,7 @@
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/Common/FragmentShaderGenerator.h"
-#include "GPU/GLES/DepalettizeShaderGLES.h"
+#include "GPU/Common/DepalettizeCommon.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -50,17 +50,9 @@ TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw)
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	nextTexture_ = nullptr;
-
-	std::vector<GLRInputLayout::Entry> entries;
-	entries.push_back({ 0, 3, GL_FLOAT, GL_FALSE, 20, 0 });
-	entries.push_back({ 1, 2, GL_FLOAT, GL_FALSE, 20, 12 });
-	shadeInputLayout_ = render_->CreateInputLayout(entries);
 }
 
 TextureCacheGLES::~TextureCacheGLES() {
-	if (shadeInputLayout_) {
-		render_->DeleteInputLayout(shadeInputLayout_);
-	}
 	Clear(true);
 }
 
@@ -93,7 +85,7 @@ Draw::DataFormat getClutDestFormat(GEPaletteFormat format) {
 	case GE_CMODE_32BIT_ABGR8888:
 		return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
-	return Draw::DataFormat::UNDEFINED;;
+	return Draw::DataFormat::UNDEFINED;
 }
 
 static const GLuint MinFiltGL[8] = {
@@ -150,6 +142,8 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, Draw::DataFormat dst
 }
 
 void TextureCacheGLES::StartFrame() {
+	TextureCacheCommon::StartFrame();
+
 	InvalidateLastTexture();
 	timesInvalidatedAllThisFrame_ = 0;
 	replacementTimeThisFrame_ = 0.0;
@@ -228,7 +222,7 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 		render_->BindTexture(0, entry->textureName);
 		lastBoundTexture = entry->textureName;
 	}
-	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
+	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
 	ApplySamplingParams(samplerKey);
 	gstate_c.SetUseShaderDepal(false);
@@ -239,356 +233,130 @@ void TextureCacheGLES::Unbind() {
 	InvalidateLastTexture();
 }
 
-class TextureShaderApplier {
-public:
-	struct Pos {
-		float x;
-		float y;
-		float z;
-	};
-	struct UV {
-		float u;
-		float v;
-	};
-
-	TextureShaderApplier(DepalShader *shader, float bufferW, float bufferH, int renderW, int renderH)
-		: shader_(shader), bufferW_(bufferW), bufferH_(bufferH), renderW_(renderW), renderH_(renderH) {
-		static const Pos pos[4] = {
-			{-1, -1, -1},
-			{ 1, -1, -1},
-			{ 1,  1, -1},
-			{-1,  1, -1},
-		};
-		memcpy(pos_, pos, sizeof(pos_));
-
-		static const UV uv[4] = {
-			{0, 0},
-			{1, 0},
-			{1, 1},
-			{0, 1},
-		};
-		memcpy(uv_, uv, sizeof(uv_));
-	}
-
-	void ApplyBounds(const KnownVertexBounds &bounds, u32 uoff, u32 voff) {
-		// If min is not < max, then we don't have values (wasn't set during decode.)
-		if (bounds.minV < bounds.maxV) {
-			const float invWidth = 1.0f / bufferW_;
-			const float invHeight = 1.0f / bufferH_;
-			// Inverse of half = double.
-			const float invHalfWidth = invWidth * 2.0f;
-			const float invHalfHeight = invHeight * 2.0f;
-
-			const int u1 = bounds.minU + uoff;
-			const int v1 = bounds.minV + voff;
-			const int u2 = bounds.maxU + uoff;
-			const int v2 = bounds.maxV + voff;
-
-			const float left = u1 * invHalfWidth - 1.0f;
-			const float right = u2 * invHalfWidth - 1.0f;
-			const float top = v1 * invHalfHeight - 1.0f;
-			const float bottom = v2 * invHalfHeight - 1.0f;
-			// Points are: BL, BR, TR, TL.
-			pos_[0] = Pos{ left, bottom, -1.0f };
-			pos_[1] = Pos{ right, bottom, -1.0f };
-			pos_[2] = Pos{ right, top, -1.0f };
-			pos_[3] = Pos{ left, top, -1.0f };
-
-			// And also the UVs, same order.
-			const float uvleft = u1 * invWidth;
-			const float uvright = u2 * invWidth;
-			const float uvtop = v1 * invHeight;
-			const float uvbottom = v2 * invHeight;
-			uv_[0] = UV{ uvleft, uvbottom };
-			uv_[1] = UV{ uvright, uvbottom };
-			uv_[2] = UV{ uvright, uvtop };
-			uv_[3] = UV{ uvleft, uvtop };
-
-			// We need to reapply the texture next time since we cropped UV.
-			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-		}
-	}
-
-	void Use(GLRenderManager *render, DrawEngineGLES *transformDraw, GLRInputLayout *inputLayout) {
-		render->BindProgram(shader_->program);
-		struct SimpleVertex {
-			float pos[3];
-			float uv[2];
-		};
-		uint32_t bindOffset;
-		GLRBuffer *bindBuffer;
-		SimpleVertex *verts = (SimpleVertex *)transformDraw->GetPushVertexBuffer()->Push(sizeof(SimpleVertex) * 4, &bindOffset, &bindBuffer);
-		int order[4] = { 0 ,1, 3, 2 };
-		for (int i = 0; i < 4; i++) {
-			memcpy(verts[i].pos, &pos_[order[i]], sizeof(Pos));
-			memcpy(verts[i].uv, &uv_[order[i]], sizeof(UV));
-		}
-		render->BindVertexBuffer(inputLayout, bindBuffer, bindOffset);
-	}
-
-	void Shade(GLRenderManager *render) {
-		render->SetViewport(GLRViewport{ 0, 0, (float)renderW_, (float)renderH_, 0.0f, 1.0f });
-		render->Draw(GL_TRIANGLE_STRIP, 0, 4);
-	}
-
-protected:
-	DepalShader *shader_;
-	Pos pos_[4];
-	UV uv_[4];
-	float bufferW_;
-	float bufferH_;
-	int renderW_;
-	int renderH_;
-};
-
-void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) {
-	DepalShader *depalShader = nullptr;
-	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
-	bool need_depalettize = IsClutFormat(texFormat);
-
-	bool depth = channel == NOTIFY_FB_DEPTH;
-	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300) || gstate_c.Supports(GPU_SUPPORTS_GLSL_330)) && !depth;
-	if (!gstate_c.Supports(GPU_SUPPORTS_32BIT_INT_FSHADER)) {
-		useShaderDepal = false;
-		depth = false;  // Can't support this
-	}
-
-	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
-		if (useShaderDepal) {
-			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-			GLRTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
-			render_->BindTexture(TEX_SLOT_CLUT, clutTexture);
-			render_->SetTextureSampler(TEX_SLOT_CLUT, GL_REPEAT, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
-			framebufferManagerGL_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
-			SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
-			samplerKey.magFilt = false;
-			samplerKey.minFilt = false;
-			samplerKey.mipEnable = false;
-			ApplySamplingParams(samplerKey);
-			InvalidateLastTexture();
-
-			// Since we started/ended render passes, might need these.
-			gstate_c.Dirty(DIRTY_DEPAL);
-			gstate_c.SetUseShaderDepal(true);
-			gstate_c.depalFramebufferFormat = framebuffer->drawnFormat;
-			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
-			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
-			CheckAlphaResult alphaStatus = CheckAlpha((const uint8_t *)clutBuf_, getClutDestFormat(clutFormat), clutTotalColors);
-			gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
-			return;
-		}
-
-		depalShader = depalShaderCache_->GetDepalettizeShader(clutMode, depth ? GE_FORMAT_DEPTH16 : framebuffer->drawnFormat);
-		gstate_c.SetUseShaderDepal(false);
-	}
-	if (depalShader) {
-		shaderManager_->DirtyLastShader();
-
-		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-		GLRTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
-		Draw::Framebuffer *depalFBO = framebufferManagerGL_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight);
-		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
-
-		render_->SetScissor(GLRect2D{ 0, 0, (int)framebuffer->renderWidth, (int)framebuffer->renderHeight });
-		render_->SetViewport(GLRViewport{ 0.0f, 0.0f, (float)framebuffer->renderWidth, (float)framebuffer->renderHeight, 0.0f, 1.0f });
-		TextureShaderApplier shaderApply(depalShader, framebuffer->bufferWidth, framebuffer->bufferHeight, framebuffer->renderWidth, framebuffer->renderHeight);
-		shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset);
-		shaderApply.Use(render_, drawEngine_, shadeInputLayout_);
-
-		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, 0);
-
-		render_->BindTexture(TEX_SLOT_CLUT, clutTexture);
-		render_->SetTextureSampler(TEX_SLOT_CLUT, GL_REPEAT, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
-
-		shaderApply.Shade(render_);
-
-		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
-
-		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
-		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
-
-		CheckAlphaResult alphaStatus = CheckAlpha((const uint8_t *)clutBuf_, getClutDestFormat(clutFormat), clutTotalColors);
-		gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
-	} else {
-		framebufferManagerGL_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
-
-		gstate_c.SetUseShaderDepal(false);
-		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
-	}
-
-	framebufferManagerGL_->RebindFramebuffer("ApplyTextureFramebuffer");
-
-	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
-	ApplySamplingParams(samplerKey);
-
-	// Since we started/ended render passes, might need these.
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
-}
-
-ReplacedTextureFormat FromDataFormat(Draw::DataFormat fmt) {
-	// TODO: 16-bit formats are incorrect, since swizzled.
-	switch (fmt) {
-	case Draw::DataFormat::R5G6B5_UNORM_PACK16: return ReplacedTextureFormat::F_0565_ABGR;
-	case Draw::DataFormat::R5G5B5A1_UNORM_PACK16: return ReplacedTextureFormat::F_1555_ABGR;
-	case Draw::DataFormat::R4G4B4A4_UNORM_PACK16: return ReplacedTextureFormat::F_4444_ABGR;
-	case Draw::DataFormat::R8G8B8A8_UNORM: default: return ReplacedTextureFormat::F_8888;
-	}
-}
-
-Draw::DataFormat ToDataFormat(ReplacedTextureFormat fmt) {
-	switch (fmt) {
-	case ReplacedTextureFormat::F_5650: return Draw::DataFormat::R5G6B5_UNORM_PACK16;
-	case ReplacedTextureFormat::F_5551: return Draw::DataFormat::R5G5B5A1_UNORM_PACK16;
-	case ReplacedTextureFormat::F_4444: return Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
-	case ReplacedTextureFormat::F_8888: default: return Draw::DataFormat::R8G8B8A8_UNORM;
-	}
+void TextureCacheGLES::BindAsClutTexture(Draw::Texture *tex) {
+	GLRTexture *glrTex = (GLRTexture *)draw_->GetNativeObject(Draw::NativeObject::TEXTURE_VIEW, tex);
+	render_->BindTexture(TEX_SLOT_CLUT, glrTex);
+	render_->SetTextureSampler(TEX_SLOT_CLUT, GL_REPEAT, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
 }
 
 void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
-	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
-
-	// For the estimate, we assume cluts always point to 8888 for simplicity.
-	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
-
-	if ((entry->bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && entry->addr >= PSP_GetKernelMemoryEnd()) {
-		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
-		// Proceeding here can cause a crash.
+	BuildTexturePlan plan;
+	if (!PrepareBuildTexture(plan, entry)) {
+		// We're screwed?
 		return;
 	}
 
-	// Adjust maxLevel to actually present levels..
-	bool badMipSizes = false;
-	bool canAutoGen = false;
-	int maxLevel = entry->maxLevel;
-	for (int i = 0; i <= maxLevel; i++) {
-		// If encountering levels pointing to nothing, adjust max level.
-		u32 levelTexaddr = gstate.getTextureAddress(i);
-		if (!Memory::IsValidAddress(levelTexaddr)) {
-			maxLevel = i - 1;
-			break;
-		}
-
-		// If size reaches 1, stop, and override maxlevel.
-		int tw = gstate.getTextureWidth(i);
-		int th = gstate.getTextureHeight(i);
-		if (tw == 1 || th == 1) {
-			maxLevel = i;
-			break;
-		}
-
-		if (i > 0) {
-			int lastW = gstate.getTextureWidth(i - 1);
-			int lastH = gstate.getTextureHeight(i - 1);
-
-			if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-				if (tw != 1 && tw != (lastW >> 1))
-					badMipSizes = true;
-				else if (th != 1 && th != (lastH >> 1))
-					badMipSizes = true;
-			}
-
-			if (lastW > tw || lastH > th)
-				canAutoGen = true;
-		}
-	}
-
-	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
-	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-
-	int scaleFactor = standardScaleFactor_;
-
-	// Rachet down scale factor in low-memory mode.
-	if (lowMemoryMode_) {
-		// Keep it even, though, just in case of npot troubles.
-		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
-	}
-
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
-	ReplacedTexture &replaced = FindReplacement(entry, w, h);
-	if (replaced.Valid()) {
-		// We're replacing, so we won't scale.
-		scaleFactor = 1;
-		maxLevel = replaced.MaxLevel();
-		badMipSizes = false;
-	}
-
-	// Don't scale the PPGe texture.
-	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd())
-		scaleFactor = 1;
-
-	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0 && scaleFactor != 1) {
-		// Remember for later that we /wanted/ to scale this texture.
-		entry->status |= TexCacheEntry::STATUS_TO_SCALE;
-		scaleFactor = 1;
-	}
-
-	if (scaleFactor != 1) {
-		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED) {
-			entry->status |= TexCacheEntry::STATUS_TO_SCALE;
-			scaleFactor = 1;
-		} else {
-			entry->status &= ~TexCacheEntry::STATUS_TO_SCALE;
-			entry->status |= TexCacheEntry::STATUS_IS_SCALED;
-			texelsScaledThisFrame_ += w * h;
-		}
-	}
+	_assert_(!entry->textureName);
 
 	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
 	// don't specify mips all the way down. As a result, we either need to manually generate
 	// the bottom few levels or rely on OpenGL's autogen mipmaps instead, which might not
 	// be as good quality as the game's own (might even be better in some cases though).
 
-	// Always load base level texture here 
-	u8 level = 0;
-	if (IsFakeMipmapChange()) {
-		// NOTE: Since the level is not part of the cache key, we assume it never changes.
-		level = std::max(0, gstate.getTexLevelOffset16() / 16);
-	}
-	LoadTextureLevel(*entry, replaced, level, scaleFactor, dstFmt);
+	int tw = plan.w;
+	int th = plan.h;
 
-	// Mipmapping is only enabled when texture scaling is disabled.
-	int texMaxLevel = 0;
-	bool genMips = false;
-	if (maxLevel > 0 && scaleFactor == 1) {
-		if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-			if (badMipSizes) {
-				// WARN_LOG(G3D, "Bad mipmap for texture sized %dx%dx%d - autogenerating", w, h, (int)format);
-				if (canAutoGen) {
-					genMips = true;
-				} else {
-					texMaxLevel = 0;
-					maxLevel = 0;
-				}
-			} else {
-				for (int i = 1; i <= maxLevel; i++) {
-					LoadTextureLevel(*entry, replaced, i, scaleFactor, dstFmt);
-				}
-				texMaxLevel = maxLevel;
-			}
-		} else {
-			// Avoid PowerVR driver bug
-			if (canAutoGen && w > 1 && h > 1 && !(h > w && draw_->GetBugs().Has(Draw::Bugs::PVR_GENMIPMAP_HEIGHT_GREATER))) {  // Really! only seems to fail if height > width
-				// NOTICE_LOG(G3D, "Generating mipmap for texture sized %dx%d%d", w, h, (int)format);
-				genMips = true;
-			} else {
-				maxLevel = 0;
-			}
-		}
-	} else if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-		texMaxLevel = 0;
+	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
+	if (plan.replaced->GetSize(plan.baseLevelSrc, tw, th)) {
+		dstFmt = plan.replaced->Format(plan.baseLevelSrc);
+	} else if (plan.scaleFactor > 1) {
+		tw *= plan.scaleFactor;
+		th *= plan.scaleFactor;
+		dstFmt = Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 
-	if (maxLevel == 0) {
-		entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
+	if (plan.depth == 1) {
+		entry->textureName = render_->CreateTexture(GL_TEXTURE_2D, tw, tw, 1, plan.levelsToCreate);
 	} else {
-		entry->status &= ~TexCacheEntry::STATUS_BAD_MIPS;
-	}
-	if (replaced.Valid()) {
-		entry->SetAlphaStatus(TexCacheEntry::TexStatus(replaced.AlphaStatus()));
+		entry->textureName = render_->CreateTexture(GL_TEXTURE_3D, tw, tw, plan.depth, 1);
 	}
 
-	render_->FinalizeTexture(entry->textureName, texMaxLevel, genMips);
+	// Apply some additional compatibility checks.
+	if (plan.levelsToLoad > 1) {
+		// Avoid PowerVR driver bug
+		if (plan.w > 1 && plan.h > 1 && !(plan.h > plan.w && draw_->GetBugs().Has(Draw::Bugs::PVR_GENMIPMAP_HEIGHT_GREATER))) {  // Really! only seems to fail if height > width
+			// It's ok to generate mipmaps beyond the loaded levels.
+		} else {
+			plan.levelsToCreate = plan.levelsToLoad;
+		}
+	} 
+
+	if (!gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
+		// If the mip chain is not full..
+		if (plan.levelsToCreate != plan.maxPossibleLevels) {
+			// We need to avoid creating mips at all, or generate them all - can't be incomplete
+			// on this hardware (strict OpenGL rules).
+			plan.levelsToCreate = 1;
+			plan.levelsToLoad = 1;
+			entry->status |= TexCacheEntry::STATUS_NO_MIPS;
+		}
+	}
+
+	if (plan.depth == 1) {
+		for (int i = 0; i < plan.levelsToLoad; i++) {
+			int srcLevel = i == 0 ? plan.baseLevelSrc : i;
+
+			int w = gstate.getTextureWidth(srcLevel);
+			int h = gstate.getTextureHeight(srcLevel);
+
+			u8 *data = nullptr;
+			int stride = 0;
+
+			if (plan.replaced->GetSize(srcLevel, w, h)) {
+				int bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format(srcLevel));
+				stride = w * bpp;
+				data = (u8 *)AllocateAlignedMemory(stride * h, 16);
+			} else {
+				if (plan.scaleFactor > 1) {
+					data = (u8 *)AllocateAlignedMemory(4 * (w * plan.scaleFactor) * (h * plan.scaleFactor), 16);
+					stride = w * plan.scaleFactor * 4;
+				} else {
+					int bpp = dstFmt == Draw::DataFormat::R8G8B8A8_UNORM ? 4 : 2;
+
+					stride = std::max(w * bpp, 4);
+					data = (u8 *)AllocateAlignedMemory(stride * h, 16);
+				}
+			}
+
+			if (!data) {
+				ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", w, h);
+				return;
+			}
+
+			LoadTextureLevel(*entry, data, stride, *plan.replaced, srcLevel, plan.scaleFactor, dstFmt, true);
+
+			// NOTE: TextureImage takes ownership of data, so we don't free it afterwards.
+			render_->TextureImage(entry->textureName, i, w * plan.scaleFactor, h * plan.scaleFactor, 1, dstFmt, data, GLRAllocType::ALIGNED);
+		}
+
+		bool genMips = plan.levelsToCreate > plan.levelsToLoad;
+
+		render_->FinalizeTexture(entry->textureName, plan.levelsToLoad, genMips);
+	} else {
+		int bpp = dstFmt == Draw::DataFormat::R8G8B8A8_UNORM ? 4 : 2;
+		int stride = bpp * (plan.w * plan.scaleFactor);
+		int levelStride = stride * (plan.h * plan.scaleFactor);
+
+		u8 *data = (u8 *)AllocateAlignedMemory(levelStride * plan.depth, 16);
+		memset(data, 0, levelStride * plan.depth);
+		u8 *p = data;
+
+		for (int i = 0; i < plan.depth; i++) {
+			LoadTextureLevel(*entry, p, stride, *plan.replaced, i, plan.scaleFactor, dstFmt, true);
+			p += levelStride;
+		}
+
+		render_->TextureImage(entry->textureName, 0, plan.w * plan.scaleFactor, plan.h * plan.scaleFactor, plan.depth, dstFmt, data, GLRAllocType::ALIGNED);
+
+		// Signal that we support depth textures so use it as one.
+		entry->status |= TexCacheEntry::STATUS_3D;
+
+		render_->FinalizeTexture(entry->textureName, 1, false);
+	}
+
+	if (plan.replaced->Valid()) {
+		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
+	}
 }
 
 Draw::DataFormat TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
@@ -611,95 +379,6 @@ Draw::DataFormat TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPalet
 	default:
 		return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
-}
-
-CheckAlphaResult TextureCacheGLES::CheckAlpha(const uint8_t *pixelData, Draw::DataFormat dstFmt, int w) {
-	switch (dstFmt) {
-	case Draw::DataFormat::R4G4B4A4_UNORM_PACK16:
-		return CheckAlpha16((const u16 *)pixelData, w, 0x000F);
-	case Draw::DataFormat::R5G5B5A1_UNORM_PACK16:
-		return CheckAlpha16((const u16 *)pixelData, w, 0x0001);
-	case Draw::DataFormat::R5G6B5_UNORM_PACK16:
-		// Never has any alpha.
-		return CHECKALPHA_FULL;
-	default:
-		return CheckAlpha32((const u32 *)pixelData, w, 0xFF000000);  // note, the normal order here, unlike the 16-bit formats
-	}
-}
-
-void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int scaleFactor, Draw::DataFormat dstFmt) {
-	int w = gstate.getTextureWidth(level);
-	int h = gstate.getTextureHeight(level);
-	uint8_t *pixelData;
-	int decPitch = 0;
-
-	gpuStats.numTexturesDecoded++;
-
-	if (!entry.textureName) {
-		// TODO: Actually pass in correct size here. The size here is not yet used for anything else
-		// than determining if we can wrap this texture size, that is, it's pow2 or not on very old hardware, else true.
-		// This will be easy after .. well, yet another refactoring, where I hoist the size calculation out of LoadTextureLevel
-		// and unify BuildTexture.
-		entry.textureName = render_->CreateTexture(GL_TEXTURE_2D, 16, 16, 1);
-	}
-
-	if (replaced.GetSize(level, w, h)) {
-		PROFILE_THIS_SCOPE("replacetex");
-
-		int bpp = replaced.Format(level) == ReplacedTextureFormat::F_8888 ? 4 : 2;
-		decPitch = w * bpp;
-		uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(decPitch * h, 16);
-		double replaceStart = time_now_d();
-		replaced.Load(level, rearrange, decPitch);
-		replacementTimeThisFrame_ += time_now_d() - replaceStart;
-		pixelData = rearrange;
-
-		dstFmt = ToDataFormat(replaced.Format(level));
-	} else {
-		PROFILE_THIS_SCOPE("decodetex");
-
-		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
-		u32 texaddr = gstate.getTextureAddress(level);
-		int bufw = GetTextureBufw(level, texaddr, GETextureFormat(entry.format));
-
-		int pixelSize = dstFmt == Draw::DataFormat::R8G8B8A8_UNORM ? 4 : 2;
-		// We leave GL_UNPACK_ALIGNMENT at 4, so this must be at least 4.
-		decPitch = std::max(w * pixelSize, 4);
-
-		pixelData = (uint8_t *)AllocateAlignedMemory(decPitch * h * pixelSize, 16);
-
-		CheckAlphaResult alphaStatus = DecodeTextureLevel(pixelData, decPitch, GETextureFormat(entry.format), clutformat, texaddr, level, bufw, true, false, false);
-		entry.SetAlphaStatus(alphaStatus, level);
-
-		if (scaleFactor > 1) {
-			uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(w * scaleFactor * h * scaleFactor * 4, 16);
-			u32 dFmt = (u32)dstFmt;
-			scaler.ScaleAlways((u32 *)rearrange, (u32 *)pixelData, dFmt, w, h, scaleFactor);
-			dstFmt = (Draw::DataFormat)dFmt;
-			FreeAlignedMemory(pixelData);
-			pixelData = rearrange;
-			decPitch = w * 4;
-		}
-
-		if (replacer_.Enabled()) {
-			ReplacedTextureDecodeInfo replacedInfo;
-			replacedInfo.cachekey = entry.CacheKey();
-			replacedInfo.hash = entry.fullhash;
-			replacedInfo.addr = entry.addr;
-			replacedInfo.isVideo = IsVideo(entry.addr);
-			replacedInfo.isFinal = (entry.status & TexCacheEntry::STATUS_TO_SCALE) == 0;
-			replacedInfo.scaleFactor = scaleFactor;
-			replacedInfo.fmt = FromDataFormat(dstFmt);
-
-			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, level, w, h);
-		}
-	}
-	
-	PROFILE_THIS_SCOPE("loadtex");
-	if (IsFakeMipmapChange())
-		render_->TextureImage(entry.textureName, 0, w, h, dstFmt, pixelData, GLRAllocType::ALIGNED);
-	else
-		render_->TextureImage(entry.textureName, level, w, h, dstFmt, pixelData, GLRAllocType::ALIGNED);
 }
 
 bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
@@ -766,10 +445,7 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level)
 }
 
 void TextureCacheGLES::DeviceLost() {
-	if (shadeInputLayout_) {
-		render_->DeleteInputLayout(shadeInputLayout_);
-		shadeInputLayout_ = nullptr;
-	}
+	depalShaderCache_->DeviceLost();
 	Clear(false);
 	draw_ = nullptr;
 	render_ = nullptr;
@@ -778,10 +454,5 @@ void TextureCacheGLES::DeviceLost() {
 void TextureCacheGLES::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	if (!shadeInputLayout_) {
-		std::vector<GLRInputLayout::Entry> entries;
-		entries.push_back({ 0, 3, GL_FLOAT, GL_FALSE, 20, 0 });
-		entries.push_back({ 1, 2, GL_FLOAT, GL_FALSE, 20, 12 });
-		shadeInputLayout_ = render_->CreateInputLayout(entries);
-	}
+	depalShaderCache_->DeviceRestore(draw);
 }

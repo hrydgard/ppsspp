@@ -88,8 +88,9 @@ FileBlockDevice::~FileBlockDevice() {
 
 bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached) {
 	FileLoader::Flags flags = uncached ? FileLoader::Flags::HINT_UNCACHED : FileLoader::Flags::NONE;
-	if (fileLoader_->ReadAt((u64)blockNumber * (u64)GetBlockSize(), 1, 2048, outPtr, flags) != 2048) {
-		DEBUG_LOG(FILESYS, "Could not read 2048 bytes from block");
+	size_t retval = fileLoader_->ReadAt((u64)blockNumber * (u64)GetBlockSize(), 1, 2048, outPtr, flags);
+	if (retval != 2048) {
+		DEBUG_LOG(FILESYS, "Could not read 2048 byte block, at block offset %d. Only got %d bytes", blockNumber, (int)retval);
 		return false;
 	}
 
@@ -97,8 +98,9 @@ bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached) {
 }
 
 bool FileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
-	if (fileLoader_->ReadAt((u64)minBlock * (u64)GetBlockSize(), 2048, count, outPtr) != (size_t)count) {
-		ERROR_LOG(FILESYS, "Could not read %d bytes from block", 2048 * count);
+	size_t retval = fileLoader_->ReadAt((u64)minBlock * (u64)GetBlockSize(), 2048, count, outPtr);
+	if (retval != (size_t)count) {
+		ERROR_LOG(FILESYS, "Could not read %d blocks, at block offset %d. Only got %d blocks", count, minBlock, (int)retval);
 		return false;
 	}
 	return true;
@@ -229,7 +231,7 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 	const u32 idx = index[frameNumber];
 	const u32 indexPos = idx & 0x7FFFFFFF;
 	const u32 nextIndexPos = index[frameNumber + 1] & 0x7FFFFFFF;
-	z_stream z;
+	z_stream z{};
 
 	const u64 compressedReadPos = (u64)indexPos << indexShift;
 	const u64 compressedReadEnd = (u64)nextIndexPos << indexShift;
@@ -309,10 +311,7 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 	const u32 afterLastIndexPos = index[lastFrameNumber + 1] & 0x7FFFFFFF;
 	const u64 totalReadEnd = (u64)afterLastIndexPos << indexShift;
 
-	z_stream z;
-	z.zalloc = Z_NULL;
-	z.zfree = Z_NULL;
-	z.opaque = Z_NULL;
+	z_stream z{};
 	if (inflateInit2(&z, -15) != Z_OK) {
 		ERROR_LOG(LOADER, "Unable to initialize inflate: %s\n", (z.msg) ? z.msg : "?");
 		return false;

@@ -630,6 +630,7 @@ const char *Bugs::GetBugName(uint32_t bug) {
 	case EQUAL_WZ_CORRUPTS_DEPTH: return "EQUAL_WZ_CORRUPTS_DEPTH";
 	case MALI_STENCIL_DISCARD_BUG: return "MALI_STENCIL_DISCARD_BUG";
 	case RASPBERRY_SHADER_COMP_HANG: return "RASPBERRY_SHADER_COMP_HANG";
+	case MALI_CONSTANT_LOAD_BUG: return "MALI_CONSTANT_LOAD_BUG";
 	default: return "(N/A)";
 	}
 }

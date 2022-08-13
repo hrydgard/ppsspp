@@ -631,7 +631,7 @@
     <ClCompile Include="..\..\ext\libpng17\pngwutil.c" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\..\ext\libpng17\CMakeLists.txt" />
+    <None Include="..\..\ext\libpng17\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\Common\Math\fast\fast_matrix_neon.S" />

@@ -136,62 +136,62 @@
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
+    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
+    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
+    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
+    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
+    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
+    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
+    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
+    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
+    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
+    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
+    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=10.0.17763.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
+    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsMobile, Version=$(WindowsTargetPlatformVersion)`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsMobile.props')" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
-    <PackageCertificateKeyFile>PPSSPP_UWP_TemporaryKey.pfx</PackageCertificateKeyFile>
     <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
     <AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
     <AppxBundle>Never</AppxBundle>
-    <PackageCertificateThumbprint>b5e422213fb26042db3327f1102c4f9b86c27b1c</PackageCertificateThumbprint>
+    <PackageCertificateThumbprint>169879A9D7A20F22B0DD435921035E3E6D5996A4</PackageCertificateThumbprint>
     <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
     <AppInstallerUpdateFrequency>1</AppInstallerUpdateFrequency>
     <AppInstallerCheckForUpdateFrequency>OnApplicationRun</AppInstallerCheckForUpdateFrequency>
+    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <Link>
@@ -495,7 +495,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <Image Include="AssetsGold\StoreLogo.scale-100.png">
-      <DeploymentContent>true</DeploymentContent>
+      <DeploymentContent>false</DeploymentContent>
     </Image>
     <Image Include="Assets\LockScreenLogo.scale-200.png">
       <DeploymentContent>true</DeploymentContent>
@@ -596,6 +596,13 @@
       <DeploymentContent>true</DeploymentContent>
       <FileType>Document</FileType>
     </Image>
+    <Image Include="Content\asciifont_atlas.zim">
+      <DeploymentContent>true</DeploymentContent>
+      <FileType>Document</FileType>
+    </Image>
+    <None Include="Content\asciifont_atlas.meta">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
     <None Include="..\assets\ppge_atlas.meta">
       <DeploymentContent>true</DeploymentContent>
     </None>
@@ -1721,7 +1728,6 @@
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</DeploymentContent>
     </None>
     <None Include="PPSSPP_UWP_TemporaryKey.pfx" />
-    <None Include="UWP_TemporaryKey.pfx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="Armips_UWP\Armips_UWP.vcxproj">
@@ -1761,7 +1767,7 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <SDKReference Include="WindowsMobile, Version=10.0.17763.0" />
+    <SDKReference Include="WindowsMobile, Version=$(WindowsTargetPlatformVersion)" />
   </ItemGroup>
   <ItemGroup>
     <Font Include="Content\Roboto-Condensed.ttf" />

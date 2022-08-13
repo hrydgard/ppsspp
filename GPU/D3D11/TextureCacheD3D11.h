@@ -23,13 +23,12 @@
 
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
-#include "GPU/D3D11/TextureScalerD3D11.h"
 #include "GPU/Common/TextureCacheCommon.h"
 
 struct VirtualFramebuffer;
 
 class FramebufferManagerD3D11;
-class DepalShaderCacheD3D11;
+class DepalShaderCache;
 class ShaderManagerD3D11;
 
 class SamplerCacheD3D11 {
@@ -47,15 +46,9 @@ public:
 	TextureCacheD3D11(Draw::DrawContext *draw);
 	~TextureCacheD3D11();
 
-	void StartFrame();
+	void StartFrame() override;
 
 	void SetFramebufferManager(FramebufferManagerD3D11 *fbManager);
-	void SetDepalShaderCache(DepalShaderCacheD3D11 *dpCache) {
-		depalShaderCache_ = dpCache;
-	}
-	void SetShaderManager(ShaderManagerD3D11 *sm) {
-		shaderManager_ = sm;
-	}
 
 	void ForgetLastTexture() override;
 	void InvalidateLastTexture() override;
@@ -66,27 +59,25 @@ protected:
 	void BindTexture(TexCacheEntry *entry) override;
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
+	void BindAsClutTexture(Draw::Texture *tex) override;
+	void ApplySamplingParams(const SamplerCacheKey &key) override;
 
 private:
-	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, int scaleFactor, DXGI_FORMAT dstFmt);
 	DXGI_FORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 	static CheckAlphaResult CheckAlpha(const u32 *pixelData, u32 dstFmt, int w);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
-	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) override;
 	void BuildTexture(TexCacheEntry *const entry) override;
 
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
 
-	ID3D11Texture2D *&DxTex(TexCacheEntry *entry) {
-		return (ID3D11Texture2D *&)entry->texturePtr;
+	ID3D11Resource *&DxTex(TexCacheEntry *entry) {
+		return (ID3D11Resource *&)entry->texturePtr;
 	}
 	ID3D11ShaderResourceView *DxView(TexCacheEntry *entry) {
 		return (ID3D11ShaderResourceView *)entry->textureView;
 	}
-
-	TextureScalerD3D11 scaler;
 
 	SamplerCacheD3D11 samplerCache_;
 
@@ -94,9 +85,6 @@ private:
 	ID3D11Buffer *depalConstants_;
 
 	FramebufferManagerD3D11 *framebufferManagerD3D11_;
-	DepalShaderCacheD3D11 *depalShaderCache_;
-	ShaderManagerD3D11 *shaderManager_;
-
 };
 
 DXGI_FORMAT GetClutDestFormatD3D11(GEPaletteFormat format);

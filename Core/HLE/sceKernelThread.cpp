@@ -580,7 +580,7 @@ public:
 	u32 currentMipscallId = -1;
 	SceUID currentCallbackId = -1;
 
-	PSPThreadContext context;
+	PSPThreadContext context{};
 	KernelThreadDebugInterface debug;
 
 	std::vector<SceUID> callbacks;

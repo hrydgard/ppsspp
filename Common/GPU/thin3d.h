@@ -15,6 +15,7 @@
 
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/Shader.h"
+#include "Common/Data/Collections/Slice.h"
 
 namespace Lin {
 class Matrix4x4;
@@ -25,7 +26,7 @@ namespace Draw {
 // Useful in UBOs
 typedef int bool32;
 
-enum class Comparison : int {
+enum class Comparison : uint8_t {
 	NEVER,
 	LESS,
 	EQUAL,
@@ -37,7 +38,7 @@ enum class Comparison : int {
 };
 
 // Had to prefix with LOGIC, too many clashes
-enum class LogicOp : int {
+enum class LogicOp : uint8_t {
 	LOGIC_CLEAR,
 	LOGIC_SET,
 	LOGIC_COPY,
@@ -56,7 +57,7 @@ enum class LogicOp : int {
 	LOGIC_OR_INVERTED,
 };
 
-enum class BlendOp : int {
+enum class BlendOp : uint8_t {
 	ADD,
 	SUBTRACT,
 	REV_SUBTRACT,
@@ -96,7 +97,7 @@ enum class StencilOp {
 	DECREMENT_AND_WRAP = 7,
 };
 
-enum class TextureFilter : int {
+enum class TextureFilter : uint8_t {
 	NEAREST = 0,
 	LINEAR = 1,
 };
@@ -202,6 +203,8 @@ enum FormatSupport {
 	FMT_INPUTLAYOUT = 4,
 	FMT_DEPTHSTENCIL = 8,
 	FMT_AUTOGEN_MIPS = 16,
+	FMT_BLIT = 32,
+	FMT_STORAGE_IMAGE = 64,
 };
 
 enum InfoField {
@@ -243,6 +246,7 @@ enum class NativeObject {
 	BOUND_TEXTURE0_IMAGEVIEW,
 	BOUND_TEXTURE1_IMAGEVIEW,
 	RENDER_MANAGER,
+	TEXTURE_VIEW,
 	NULL_IMAGEVIEW,
 };
 
@@ -324,6 +328,7 @@ public:
 		EQUAL_WZ_CORRUPTS_DEPTH = 7,
 		MALI_STENCIL_DISCARD_BUG = 8,
 		RASPBERRY_SHADER_COMP_HANG = 9,
+		MALI_CONSTANT_LOAD_BUG = 10,
 		MAX_BUG,
 	};
 
@@ -447,18 +452,15 @@ public:
 class Pipeline : public RefCountedObject {
 public:
 	virtual ~Pipeline() {}
-	virtual bool RequiresBuffer() = 0;
 };
 
 class RasterState : public RefCountedObject {};
 
-struct StencilSide {
+struct StencilSetup {
 	StencilOp failOp;
 	StencilOp passOp;
 	StencilOp depthFailOp;
 	Comparison compareOp;
-	uint8_t compareMask;
-	uint8_t writeMask;
 };
 
 struct DepthStencilStateDesc {
@@ -466,8 +468,7 @@ struct DepthStencilStateDesc {
 	bool depthWriteEnabled;
 	Comparison depthCompare;
 	bool stencilEnabled;
-	StencilSide front;
-	StencilSide back;
+	StencilSetup stencil;
 };
 
 struct BlendStateDesc {
@@ -510,6 +511,7 @@ struct PipelineDesc {
 	BlendState *blend;
 	RasterState *raster;
 	const UniformBufferDesc *uniformDesc;
+	const Slice<SamplerDef> samplers;
 };
 
 struct DeviceCaps {
@@ -532,8 +534,15 @@ struct DeviceCaps {
 	bool framebufferCopySupported;
 	bool framebufferBlitSupported;
 	bool framebufferDepthCopySupported;
+	bool framebufferSeparateDepthCopySupported;
 	bool framebufferDepthBlitSupported;
+	bool framebufferStencilBlitSupported;
 	bool framebufferFetchSupported;
+	bool texture3DSupported;
+	bool fragmentShaderInt32Supported;
+	bool textureNPOTFullySupported;
+	bool fragmentShaderDepthWriteSupported;
+
 	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
 };
 
@@ -651,7 +660,7 @@ public:
 	virtual void SetScissorRect(int left, int top, int width, int height) = 0;
 	virtual void SetViewports(int count, Viewport *viewports) = 0;
 	virtual void SetBlendFactor(float color[4]) = 0;
-	virtual void SetStencilRef(uint8_t ref) = 0;
+	virtual void SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) = 0;
 
 	virtual void BindSamplerStates(int start, int count, SamplerState **state) = 0;
 	virtual void BindTextures(int start, int count, Texture **textures) = 0;
@@ -694,7 +703,7 @@ public:
 	}
 
 	virtual std::string GetInfoString(InfoField info) const = 0;
-	virtual uint64_t GetNativeObject(NativeObject obj) = 0;
+	virtual uint64_t GetNativeObject(NativeObject obj, void *srcObject = nullptr) = 0;  // Most uses don't need an srcObject.
 
 	virtual void HandleEvent(Event ev, int width, int height, void *param1 = nullptr, void *param2 = nullptr) = 0;
 

@@ -49,7 +49,7 @@ IRJit::IRJit(MIPSState *mipsState) : frontend_(mipsState->HasDefaultPrefix()), m
 
 	IROptions opts{};
 	opts.disableFlags = g_Config.uJitDisableFlags;
-	opts.unalignedLoadStore = opts.disableFlags & (uint32_t)JitDisable::LSU_UNALIGNED;
+	opts.unalignedLoadStore = (opts.disableFlags & (uint32_t)JitDisable::LSU_UNALIGNED) == 0;
 	frontend_.SetOptions(opts);
 }
 

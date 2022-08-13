@@ -130,3 +130,9 @@ enum class BackgroundAnimation {
 	WAVE = 3,
 	MOVING_BACKGROUND = 4,
 };
+
+enum class AnalogFpsMode {
+	AUTO = 0,
+	MAPPED_DIRECTION = 1,
+	MAPPED_DIR_TO_OPPOSITE_DIR = 2,
+};

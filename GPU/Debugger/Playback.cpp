@@ -282,8 +282,8 @@ int BufMapping::slabGeneration_ = 0;
 
 class DumpExecute {
 public:
-	DumpExecute(const std::vector<u8> &pushbuf, const std::vector<Command> &commands)
-		: pushbuf_(pushbuf), commands_(commands), mapping_(pushbuf) {
+	DumpExecute(const std::vector<u8> &pushbuf, const std::vector<Command> &commands, uint32_t version)
+		: pushbuf_(pushbuf), commands_(commands), mapping_(pushbuf), version_(version) {
 	}
 	~DumpExecute();
 
@@ -320,6 +320,7 @@ private:
 	const std::vector<u8> &pushbuf_;
 	const std::vector<Command> &commands_;
 	BufMapping mapping_;
+	uint32_t version_ = 0;
 };
 
 void DumpExecute::SyncStall() {
@@ -564,7 +565,7 @@ void DumpExecute::Framebuf(int level, u32 ptr, u32 sz) {
 	u32 headerSize = (u32)sizeof(FramebufData);
 	u32 pspSize = sz - headerSize;
 	const bool isTarget = (framebuf->flags & 1) != 0;
-	const bool unchangedVRAM = (framebuf->flags & 2) != 0;
+	const bool unchangedVRAM = version_ >= 6 && (framebuf->flags & 2) != 0;
 	// TODO: Could use drawnVRAM flag, but it can be wrong.
 	// Could potentially always skip if !isTarget, but playing it safe for offset texture behavior.
 	if (Memory::IsValidRange(framebuf->addr, pspSize) && !unchangedVRAM && (!isTarget || !g_Config.bSoftwareRendering)) {
@@ -708,11 +709,14 @@ bool RunMountedReplay(const std::string &filename) {
 
 	std::lock_guard<std::mutex> guard(executeLock);
 	Core_ListenStopRequest(&ReplayStop);
+
+	uint32_t version = 0;
 	if (lastExecFilename != filename) {
 		PROFILE_THIS_SCOPE("ReplayLoad");
 		u32 fp = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
 		Header header;
 		pspFileSystem.ReadFile(fp, (u8 *)&header, sizeof(header));
+		version = header.version;
 
 		if (memcmp(header.magic, HEADER_MAGIC, sizeof(header.magic)) != 0 || header.version > VERSION || header.version < MIN_VERSION) {
 			ERROR_LOG(SYSTEM, "Invalid GE dump or unsupported version");
@@ -751,7 +755,7 @@ bool RunMountedReplay(const std::string &filename) {
 		lastExecFilename = filename;
 	}
 
-	DumpExecute executor(lastExecPushbuf, lastExecCommands);
+	DumpExecute executor(lastExecPushbuf, lastExecCommands, version);
 	return executor.Run();
 }
 

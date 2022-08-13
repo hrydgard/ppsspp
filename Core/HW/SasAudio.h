@@ -102,7 +102,7 @@ public:
 
 	void GetSamples(s16 *outSamples, int numSamples);
 
-	void DecodeBlock(u8 *&readp);
+	void DecodeBlock(const u8 *&readp);
 	bool End() const { return end_; }
 
 	void DoState(PointerWrap &p);

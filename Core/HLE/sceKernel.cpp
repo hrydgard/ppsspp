@@ -353,7 +353,8 @@ int sceKernelRegisterDefaultExceptionHandler()
 void sceKernelSetGPO(u32 ledAddr)
 {
 	// Sets debug LEDs.
-	DEBUG_LOG(SCEKERNEL, "sceKernelSetGPO(%02x)", ledAddr);
+	// Not really interesting, and a few games really spam it
+	// DEBUG_LOG(SCEKERNEL, "sceKernelSetGPO(%02x)", ledAddr);
 }
 
 u32 sceKernelGetGPI()

@@ -6,12 +6,13 @@
 #include <iomanip>
 #include "ext/xxhash.h"
 #include "Core/Config.h"
-#include "Windows/resource.h"
 #include "Core/MemMap.h"
+#include "Core/Reporting.h"
 #include "Windows/W32Util/ContextMenu.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/InputBox.h"
 #include "Windows/main.h"
+#include "Windows/resource.h"
 #include "Common/System/Display.h"
 
 #include "Debugger_Disasm.h"
@@ -462,6 +463,7 @@ void CtrlMemView::onChar(WPARAM wParam, LPARAM lParam)
 		}
 	}
 
+	Reporting::NotifyDebugger();
 	if (active) Core_EnableStepping(false);
 }
 
@@ -779,7 +781,7 @@ std::vector<u32> CtrlMemView::searchString(const std::string &searchQuery) {
 				return searchResAddrs;
 			}
 
-			u8 *ptr = Memory::GetPointerUnchecked(pos);
+			const u8 *ptr = Memory::GetPointerUnchecked(pos);
 			if (memcmp(ptr, searchData.data(), searchData.size()) == 0) {
 				searchResAddrs.push_back(pos);
 			}
@@ -798,7 +800,7 @@ void CtrlMemView::search(bool continueSearch)
 	u32 searchAddress = 0;
 	u32 segmentStart = 0;
 	u32 segmentEnd = 0;
-	u8* dataPointer = 0;
+	const u8* dataPointer = 0;
 	if (continueSearch == false || searchQuery.empty())
 	{
 		if (InputBox_GetString(GetModuleHandle(NULL), wnd, L"Search for", searchQuery, searchQuery) == false)

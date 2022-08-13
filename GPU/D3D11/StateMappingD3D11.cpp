@@ -124,8 +124,6 @@ static const D3D11_LOGIC_OP logicOps[] = {
 
 void DrawEngineD3D11::ResetFramebufferRead() {
 	if (fboTexBound_) {
-		ID3D11ShaderResourceView *srv = nullptr;
-		context_->PSSetShaderResources(0, 1, &srv);
 		fboTexBound_ = false;
 	}
 }
@@ -167,6 +165,18 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				ApplyFramebufferRead(&fboTexNeedsBind_);
 				// The shader takes over the responsibility for blending, so recompute.
 				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
+
+				if (fboTexNeedsBind_) {
+					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
+					// No sampler required, we do a plain Load in the pixel shader.
+					fboTexBound_ = true;
+					fboTexNeedsBind_ = false;
+
+					framebufferManager_->RebindFramebuffer("RebindFramebuffer - ApplyDrawState");
+					// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
+					gstate_c.Dirty(DIRTY_BLEND_STATE);
+				}
+
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			} else if (blendState.resetFramebufferRead) {
 				ResetFramebufferRead();
@@ -283,7 +293,14 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		GenericStencilFuncState stencilState;
 		ConvertStencilFuncState(stencilState);
 
-		if (gstate.isModeClear()) {
+		if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
+			// Enforce plain depth writing.
+			keys_.depthStencil.value = 0;
+			keys_.depthStencil.depthTestEnable = true;
+			keys_.depthStencil.depthWriteEnable = true;
+			keys_.depthStencil.stencilTestEnable = false;
+			keys_.depthStencil.depthCompareOp = D3D11_COMPARISON_ALWAYS;
+		} else if (gstate.isModeClear()) {
 			keys_.depthStencil.value = 0;
 			keys_.depthStencil.depthTestEnable = true;
 			keys_.depthStencil.depthCompareOp = D3D11_COMPARISON_ALWAYS;
@@ -393,17 +410,10 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		}
 
 		D3D11_RECT &scissor = dynState_.scissor;
-		if (vpAndScissor.scissorEnable) {
-			scissor.left = vpAndScissor.scissorX;
-			scissor.top = vpAndScissor.scissorY;
-			scissor.right = vpAndScissor.scissorX + std::max(0, vpAndScissor.scissorW);
-			scissor.bottom = vpAndScissor.scissorY + std::max(0, vpAndScissor.scissorH);
-		} else {
-			scissor.left = 0;
-			scissor.top = 0;
-			scissor.right = framebufferManager_->GetRenderWidth();
-			scissor.bottom = framebufferManager_->GetRenderHeight();
-		}
+		scissor.left = vpAndScissor.scissorX;
+		scissor.top = vpAndScissor.scissorY;
+		scissor.right = vpAndScissor.scissorX + std::max(0, vpAndScissor.scissorW);
+		scissor.bottom = vpAndScissor.scissorY + std::max(0, vpAndScissor.scissorH);
 	}
 
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
@@ -416,16 +426,6 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 }
 
 void DrawEngineD3D11::ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRef) {
-	if (!gstate.isModeClear()) {
-		if (fboTexNeedsBind_) {
-			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
-			// No sampler required, we do a plain Load in the pixel shader.
-			fboTexBound_ = true;
-			fboTexNeedsBind_ = false;
-		}
-		textureCache_->ApplyTexture();
-	}
-
 	// we go through Draw here because it automatically handles screen rotation, as needed in UWP on mobiles.
 	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
 		draw_->SetViewports(1, &dynState_.viewport);
@@ -435,7 +435,7 @@ void DrawEngineD3D11::ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRe
 		context_->RSSetState(rasterState_);
 	}
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
-		// Need to do this AFTER ApplyTexture because the process of depallettization can ruin the blend state.
+		// Need to do this AFTER ApplyTexture because the process of depalettization can ruin the blend state.
 		float blendColor[4];
 		Uint8x4ToFloat4(blendColor, dynState_.blendColor);
 		if (device1_) {

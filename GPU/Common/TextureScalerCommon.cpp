@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/. 
 
+#include <cstddef>
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
@@ -196,180 +197,275 @@ void mix(u32* data, u32* source, u32* mask, u32 maskmax, int width, int l, int u
 
 //////////////////////////////////////////////////////////////////// Bicubic scaling
 
-// generate the value of a Mitchell-Netravali scaling spline at distance d, with parameters A and B
-// B=1 C=0   : cubic B spline (very smooth)
-// B=C=1/3   : recommended for general upscaling
-// B=0 C=1/2 : Catmull-Rom spline (sharp, ringing)
-// see Mitchell & Netravali, "Reconstruction Filters in Computer Graphics"
-inline float mitchell(float x, float B, float C) {
-	float ax = fabs(x);
-	if (ax >= 2.0f) return 0.0f;
-	if (ax >= 1.0f) return ((-B - 6 * C)*(x*x*x) + (6 * B + 30 * C)*(x*x) + (-12 * B - 48 * C)*x + (8 * B + 24 * C)) / 6.0f;
-	return ((12 - 9 * B - 6 * C)*(x*x*x) + (-18 + 12 * B + 6 * C)*(x*x) + (6 - 2 * B)) / 6.0f;
+// Code for the cubic upscaler is pasted below as-is.
+// WARNING: different codestyle.
+
+// NOTE: in several places memcpy is used instead of type punning,
+// to avoid strict aliasing problems. This may produce suboptimal
+// code, especially on MSVC.
+
+// Loads a sample (4 bytes) from image into 'output'.
+static void load_sample(ptrdiff_t w, ptrdiff_t h, ptrdiff_t s, const u8 *pixels, int wrap_mode, ptrdiff_t x, ptrdiff_t y, u8 *output) {
+	// Check if the sample is inside. NOTE: for b>=0
+	// the expression (UNSIGNED)a<(UNSIGNED)b is
+	// equivalent to a>=0&&a<b.
+	typedef int static_assert_size_matches[sizeof(ptrdiff_t)==sizeof(size_t)?1:-1];
+
+	if((size_t)x >= (size_t)w||(size_t)y >= (size_t)h) {
+		switch(wrap_mode) {
+			case 0: // Wrap
+				if(!((w&(w-1))|(h&(h-1)))) {
+					// Both w and h are powers of 2.
+					x &= w-1;
+					y &= h-1;
+				} else {
+					// For e.g. 1x1 images we might need to wrap several
+					// times, hence 'while', instead of 'if'. Probably
+					// still faster, than modulo.
+					while(x <  0) x += w;
+					while(y <  0) y += h;
+					while(x >= w) x -= w;
+					while(y >= h) y -= h;
+				}
+				break;
+			case 1: // Clamp
+				if(x <  0) x = 0;
+				if(y <  0) y = 0;
+				if(x >= w) x = w-1;
+				if(y >= h) y = h-1;
+				break;
+			case 2: // Zero
+				memset(output, 0, 4);
+				break;
+		}
+	}
+	memcpy(output, pixels+s*y+4*x, 4);
 }
 
-// arrays for pre-calculating weights and sums (~20KB)
-// Dimensions:
-//   0: 0 = BSpline, 1 = mitchell
-//   2: 2-5x scaling
-// 2,3: 5x5 generated pixels 
-// 4,5: 5x5 pixels sampled from
-float bicubicWeights[2][4][5][5][5][5];
-float bicubicInvSums[2][4][5][5];
+#define BLOCK 8
 
-// initialize pre-computed weights array
-void initBicubicWeights() {
-	float B[2] = { 1.0f, 0.334f };
-	float C[2] = { 0.0f, 0.334f };
-	for (int type = 0; type < 2; ++type) {
-		for (int factor = 2; factor <= 5; ++factor) {
-			for (int x = 0; x < factor; ++x) {
-				for (int y = 0; y < factor; ++y) {
-					float sum = 0.0f;
-					for (int sx = -2; sx <= 2; ++sx) {
-						for (int sy = -2; sy <= 2; ++sy) {
-							float dx = (x + 0.5f) / factor - (sx + 0.5f);
-							float dy = (y + 0.5f) / factor - (sy + 0.5f);
-							float dist = sqrt(dx*dx + dy*dy);
-							float weight = mitchell(dist, B[type], C[type]);
-							bicubicWeights[type][factor - 2][x][y][sx + 2][sy + 2] = weight;
-							sum += weight;
-						}
-					}
-					bicubicInvSums[type][factor - 2][x][y] = 1.0f / sum;
-				}
-			}
+static void init_block(
+	ptrdiff_t w, ptrdiff_t h,
+	ptrdiff_t src_stride, const u8 *src_pixels,
+	int wrap_mode, ptrdiff_t factor, float B, float C,
+	ptrdiff_t x0, ptrdiff_t y0,
+	float (*cx)[4], float (*cy)[4],
+	ptrdiff_t *lx, ptrdiff_t *ly, ptrdiff_t *lx0, ptrdiff_t *ly0, ptrdiff_t *sx, ptrdiff_t *sy,
+	u8 (*src)[(BLOCK+4)*4]) {
+	// Precomputed coefficients for pixel weights
+	// in the Mitchell-Netravali filter:
+	//   output = SUM(wij*pixel[i]*t^j)
+	// where t is distance from pixel[1] to the
+	// sampling position.
+	float   w00 = B/6.0f     ,  w01 = -C-0.5f*B,  w02 = 2.0f*C+0.5f*B      , w03 = -C-B/6.0f     ;
+	float   w10 = 1.0f-B/3.0f,/*w11 = 0.0f     ,*/w12 = C+2.0f*B-3.0f      , w13 = -C-1.5f*B+2.0f;
+	float   w20 = B/6.0f     ,  w21 =  C+0.5f*B,  w22 = -2.0f*C-2.5f*B+3.0f, w23 =  C+1.5f*B-2.0f;
+	float /*w30 = 0.0f       ,  w31 = 0.0f     ,*/w32 = -C                 , w33 =  C+B/6.0f      ;
+	// Express the sampling position as a rational
+	// number num/den-1 (off by one, so that num is
+	// always positive, since the C language does
+	// not do Euclidean division). Sampling points
+	// for both src and dst are assumed at pixel centers.
+	ptrdiff_t den = 2*factor;
+	float inv_den = 1.0f/(float)den;
+	for(int dir = 0; dir < 2; ++dir) {
+		ptrdiff_t num = (dir?2*y0+1+factor:2*x0+1+factor);
+		ptrdiff_t *l = (dir?ly:lx), *l0 = (dir?ly0:lx0), *s = (dir?sy:sx);
+		float (*c)[4] = (dir?cy:cx);
+		(*l0) = num/den-2;
+		num = num%den;
+		for(ptrdiff_t i = 0, j = 0; i < BLOCK; ++i) {
+			l[i] = j; // i-th dst pixel accesses src pixels (l0+l[i])..(l0+l[i]+3) in {x|y} direction.
+			float t = (float)num*inv_den; // Fractional part of the sampling position.
+			// Write out pixel weights.
+			c[i][0] = ((w03*t+w02)*t  +w01  )*t  +w00  ;
+			c[i][1] = ((w13*t+w12)*t/*+w11*/)*t  +w10  ;
+			c[i][2] = ((w23*t+w22)*t  +w21  )*t  +w20  ;
+			c[i][3] = ((w33*t+w32)*t/*+w31*/)*t/*+w30*/;
+			// Increment the sampling position.
+			if((num += 2) >= den) {num -= den; j += 1;}
 		}
+		(*s) = l[BLOCK-1]+4; // Total sampled src pixels in {x|y} direction.
+	}
+	// Get a local copy of the source pixels.
+	if((*lx0) >=0 && (*ly0) >= 0 && *lx0+(*sx) <= w && *ly0+(*sy) <= h) {
+		for(ptrdiff_t iy = 0; iy < (*sy); ++iy)
+			memcpy(src[iy], src_pixels+src_stride*((*ly0)+iy)+4*(*lx0), (size_t)(4*(*sx)));
+	}
+	else {
+		for(ptrdiff_t iy = 0; iy < (*sy); ++iy) for(ptrdiff_t ix = 0; ix < (*sx); ++ix)
+			load_sample(w, h, src_stride, src_pixels, wrap_mode, (*lx0)+ix, (*ly0)+iy, src[iy]+4*ix);
 	}
 }
 
-// perform bicubic scaling by factor f, with precomputed spline type T
-template<int f, int T>
-void scaleBicubicT(u32* data, u32* out, int w, int h, int l, int u) {
-	int outw = w*f;
-	for (int yb = 0; yb < (u - l)*f / BLOCK_SIZE + 1; ++yb) {
-		for (int xb = 0; xb < w*f / BLOCK_SIZE + 1; ++xb) {
-			for (int y = l*f + yb*BLOCK_SIZE; y < l*f + (yb + 1)*BLOCK_SIZE && y < u*f; ++y) {
-				for (int x = xb*BLOCK_SIZE; x < (xb + 1)*BLOCK_SIZE && x < w*f; ++x) {
-					float r = 0.0f, g = 0.0f, b = 0.0f, a = 0.0f;
-					int cx = x / f, cy = y / f;
-					// sample supporting pixels in original image
-					for (int sx = -2; sx <= 2; ++sx) {
-						for (int sy = -2; sy <= 2; ++sy) {
-							float weight = bicubicWeights[T][f - 2][x%f][y%f][sx + 2][sy + 2];
-							if (weight != 0.0f) {
-								// clamp pixel locations
-								int csy = std::max(std::min(sy + cy, h - 1), 0);
-								int csx = std::max(std::min(sx + cx, w - 1), 0);
-								// sample & add weighted components
-								u32 sample = data[csy*w + csx];
-								r += weight*R(sample);
-								g += weight*G(sample);
-								b += weight*B(sample);
-								a += weight*A(sample);
-							}
-						}
-					}
-					// generate and write result
-					float invSum = bicubicInvSums[T][f - 2][x%f][y%f];
-					int ri = std::min(std::max(static_cast<int>(ceilf(r*invSum)), 0), 255);
-					int gi = std::min(std::max(static_cast<int>(ceilf(g*invSum)), 0), 255);
-					int bi = std::min(std::max(static_cast<int>(ceilf(b*invSum)), 0), 255);
-					int ai = std::min(std::max(static_cast<int>(ceilf(a*invSum)), 0), 255);
-					out[y*outw + x] = (ai << 24) | (bi << 16) | (gi << 8) | ri;
-				}
-			}
-		}
+static void upscale_block_c(
+	ptrdiff_t w, ptrdiff_t h,
+	ptrdiff_t src_stride, const u8 *src_pixels,
+	int wrap_mode, ptrdiff_t factor, float B, float C,
+	ptrdiff_t x0, ptrdiff_t y0,
+	u8 *dst_pixels) {
+	float cx[BLOCK][4], cy[BLOCK][4];
+	ptrdiff_t lx[BLOCK], ly[BLOCK], lx0, ly0, sx, sy;
+	u8 src[BLOCK+4][(BLOCK+4)*4];
+	float buf[2][BLOCK+4][BLOCK+4][4];
+	init_block(
+		w, h, src_stride, src_pixels, wrap_mode, factor, B, C, x0, y0,
+		cx, cy, lx, ly, &lx0, &ly0, &sx, &sy, src);
+	// Unpack source pixels.
+	for(ptrdiff_t iy = 0; iy < sy; ++iy)
+		for(ptrdiff_t ix = 0; ix < sx; ++ix)
+			for(ptrdiff_t k = 0; k < 4; ++k)
+				buf[0][iy][ix][k] = (float)(int)src[iy][4*ix+k];
+	// Horizontal pass.
+	for(ptrdiff_t ix = 0; ix < BLOCK; ++ix) {
+		#define S(i) (buf[0][iy][lx[ix]+i][k])
+		float C0 = cx[ix][0], C1 = cx[ix][1], C2 = cx[ix][2], C3 = cx[ix][3];
+		for(ptrdiff_t iy = 0; iy < sy; ++iy)
+			for(ptrdiff_t k = 0; k < 4; ++k)
+				buf[1][iy][ix][k] = S(0)*C0+S(1)*C1+S(2)*C2+S(3)*C3;
+		#undef S
 	}
+	// Vertical pass.
+	for(ptrdiff_t iy = 0; iy < BLOCK; ++iy) {
+		#define S(i) (buf[1][ly[iy]+i][ix][k])
+		float C0 = cy[iy][0], C1 = cy[iy][1], C2 = cy[iy][2], C3 = cy[iy][3];
+		for(ptrdiff_t ix = 0; ix < BLOCK; ++ix)
+			for(ptrdiff_t k = 0; k < 4; ++k)
+				buf[0][iy][ix][k] = S(0)*C0+S(1)*C1+S(2)*C2+S(3)*C3;
+		#undef S
+	}
+	// Pack destination pixels.
+	for(ptrdiff_t iy = 0; iy < BLOCK; ++iy)
+		for(ptrdiff_t ix = 0; ix < BLOCK; ++ix) {
+			u8 pixel[4];
+			for(ptrdiff_t k = 0; k < 4; ++k) {
+				float C = buf[0][iy][ix][k];
+				if(!(C>0.0f)) C = 0.0f;
+				if(C>255.0f)  C = 255.0f;
+				pixel[k] = (u8)(int)(C+0.5f);
+			}
+			memcpy(dst_pixels+4*(BLOCK*iy+ix), pixel, 4);
+		}
 }
+
 #if defined(_M_SSE)
-template<int f, int T>
-#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
-[[gnu::target("sse4.1")]]
+
+#if defined(__GNUC__)
+#define ALIGNED(n) __attribute__((aligned(n)))
+#elif defined(_MSC_VER)
+#define ALIGNED(n) __declspec(align(n))
+#else
+// For our use case, ALIGNED is a hint, not a requirement,
+// so it's fine to ignore it.
+#define ALIGNED(n)
 #endif
-static void scaleBicubicTSSE41(u32* data, u32* out, int w, int h, int l, int u) {
-	int outw = w*f;
-	for (int yb = 0; yb < (u - l)*f / BLOCK_SIZE + 1; ++yb) {
-		for (int xb = 0; xb < w*f / BLOCK_SIZE + 1; ++xb) {
-			for (int y = l*f + yb*BLOCK_SIZE; y < l*f + (yb + 1)*BLOCK_SIZE && y < u*f; ++y) {
-				for (int x = xb*BLOCK_SIZE; x < (xb + 1)*BLOCK_SIZE && x < w*f; ++x) {
-					__m128 result = _mm_set1_ps(0.0f);
-					int cx = x / f, cy = y / f;
-					// sample supporting pixels in original image
-					for (int sx = -2; sx <= 2; ++sx) {
-						for (int sy = -2; sy <= 2; ++sy) {
-							float weight = bicubicWeights[T][f - 2][x%f][y%f][sx + 2][sy + 2];
-							if (weight != 0.0f) {
-								// clamp pixel locations
-								int csy = std::max(std::min(sy + cy, h - 1), 0);
-								int csx = std::max(std::min(sx + cx, w - 1), 0);
-								// sample & add weighted components
-								__m128i sample = _mm_cvtsi32_si128(data[csy*w + csx]);
-								sample = _mm_cvtepu8_epi32(sample);
-								__m128 col = _mm_cvtepi32_ps(sample);
-								col = _mm_mul_ps(col, _mm_set1_ps(weight));
-								result = _mm_add_ps(result, col);
-							}
-						}
-					}
-					// generate and write result
-					__m128i pixel = _mm_cvtps_epi32(_mm_mul_ps(result, _mm_set1_ps(bicubicInvSums[T][f - 2][x%f][y%f])));
-					pixel = _mm_packs_epi32(pixel, pixel);
-					pixel = _mm_packus_epi16(pixel, pixel);
-					out[y*outw + x] = _mm_cvtsi128_si32(pixel);
-				}
-			}
+
+static void upscale_block_sse2(
+	ptrdiff_t w, ptrdiff_t h,
+	ptrdiff_t src_stride, const u8 *src_pixels,
+	int wrap_mode, ptrdiff_t factor, float B, float C,
+	ptrdiff_t x0, ptrdiff_t y0,
+	u8 *dst_pixels) {
+	float cx[BLOCK][4], cy[BLOCK][4];
+	ptrdiff_t lx[BLOCK], ly[BLOCK], lx0, ly0, sx, sy;
+	ALIGNED(16) u8 src[BLOCK+4][(BLOCK+4)*4];
+	ALIGNED(16) float buf[2][BLOCK+4][BLOCK+4][4];
+	init_block(
+		w, h, src_stride, src_pixels, wrap_mode, factor, B, C, x0, y0,
+		cx, cy, lx, ly, &lx0, &ly0, &sx, &sy, src);
+	// Unpack source pixels.
+	for(ptrdiff_t iy = 0; iy < sy; ++iy)
+		for(ptrdiff_t ix = 0; ix < sx; ++ix) {
+			int pixel;
+			memcpy(&pixel, src[iy]+4*ix, 4);
+			__m128i C = _mm_cvtsi32_si128(pixel);
+			C = _mm_unpacklo_epi8(C, _mm_set1_epi32(0));
+			C = _mm_unpacklo_epi8(C, _mm_set1_epi32(0));
+			_mm_storeu_ps(buf[0][iy][ix], _mm_cvtepi32_ps(C));
 		}
+	// Horizontal pass.
+	for(ptrdiff_t ix = 0; ix < BLOCK; ++ix) {
+		#define S(i) (buf[0][iy][lx[ix]+i])
+		__m128 C0 = _mm_set1_ps(cx[ix][0]),
+			C1 = _mm_set1_ps(cx[ix][1]),
+			C2 = _mm_set1_ps(cx[ix][2]),
+			C3 = _mm_set1_ps(cx[ix][3]);
+		for(ptrdiff_t iy = 0; iy < sy; ++iy)
+			_mm_storeu_ps(buf[1][iy][ix],
+				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(0)), C0),
+				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(1)), C1),
+				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(2)), C2),
+						_mm_mul_ps(_mm_loadu_ps(S(3)), C3)))));
+		#undef S
 	}
+	// Vertical pass.
+	for(ptrdiff_t iy = 0; iy < BLOCK; ++iy) {
+		#define S(i) (buf[1][ly[iy]+i][ix])
+		__m128 C0 = _mm_set1_ps(cy[iy][0]),
+			C1 = _mm_set1_ps(cy[iy][1]),
+			C2 = _mm_set1_ps(cy[iy][2]),
+			C3 = _mm_set1_ps(cy[iy][3]);
+		for(ptrdiff_t ix = 0; ix < BLOCK; ++ix)
+			_mm_storeu_ps(buf[0][iy][ix],
+				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(0)), C0),
+				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(1)), C1),
+				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(2)), C2),
+						_mm_mul_ps(_mm_loadu_ps(S(3)), C3)))));
+		#undef S
+	}
+	// Pack destination pixels.
+	for(ptrdiff_t iy = 0; iy < BLOCK; ++iy)
+		for(ptrdiff_t ix = 0; ix < BLOCK; ++ix) {
+			__m128 C = _mm_loadu_ps(buf[0][iy][ix]);
+			C = _mm_min_ps(_mm_max_ps(C, _mm_set1_ps(0.0f)), _mm_set1_ps(255.0f));
+			C = _mm_add_ps(C, _mm_set1_ps(0.5f));
+			__m128i R = _mm_cvttps_epi32(C);
+			R = _mm_packus_epi16(R, R);
+			R = _mm_packus_epi16(R, R);
+			int pixel = _mm_cvtsi128_si32(R);
+			memcpy(dst_pixels+4*(BLOCK*iy+ix), &pixel, 4);
+		}
 }
+#endif // defined(_M_SSE)
+
+static void upscale_cubic(
+	ptrdiff_t width, ptrdiff_t height, ptrdiff_t src_stride_in_bytes, const void *src_pixels,
+									ptrdiff_t dst_stride_in_bytes, void       *dst_pixels,
+	ptrdiff_t scale, float B, float C, int wrap_mode,
+	ptrdiff_t x0, ptrdiff_t y0, ptrdiff_t x1, ptrdiff_t y1) {
+	u8 pixels[BLOCK*BLOCK*4];
+	for(ptrdiff_t y = y0; y < y1; y+= BLOCK)
+		for(ptrdiff_t x = x0; x < x1; x+= BLOCK) {
+#if defined(_M_SSE)
+			upscale_block_sse2(width, height, src_stride_in_bytes, (const u8*)src_pixels, wrap_mode, scale, B, C, x, y, pixels);
+#else
+			upscale_block_c   (width, height, src_stride_in_bytes, (const u8*)src_pixels, wrap_mode, scale, B, C, x, y, pixels);
 #endif
+			for(ptrdiff_t iy = 0, ny = (y1-y < BLOCK?y1-y:BLOCK), nx = (x1-x < BLOCK?x1-x:BLOCK); iy < ny; ++iy)
+				memcpy((u8*)dst_pixels+dst_stride_in_bytes*(y+iy)+4*x, pixels+BLOCK*4*iy, (size_t)(4*nx));
+		}
+}
+
+// End of pasted cubic upscaler.
 
 void scaleBicubicBSpline(int factor, u32* data, u32* out, int w, int h, int l, int u) {
-#if defined(_M_SSE)
-	if (cpu_info.bSSE4_1) {
-		switch (factor) {
-		case 2: scaleBicubicTSSE41<2, 0>(data, out, w, h, l, u); break; // when I first tested this, 
-		case 3: scaleBicubicTSSE41<3, 0>(data, out, w, h, l, u); break; // it was even slower than I had expected
-		case 4: scaleBicubicTSSE41<4, 0>(data, out, w, h, l, u); break; // turns out I had not included
-		case 5: scaleBicubicTSSE41<5, 0>(data, out, w, h, l, u); break; // any of these break statements
-		default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 5");
-		}
-	} else {
-#endif
-		switch (factor) {
-		case 2: scaleBicubicT<2, 0>(data, out, w, h, l, u); break; // when I first tested this, 
-		case 3: scaleBicubicT<3, 0>(data, out, w, h, l, u); break; // it was even slower than I had expected
-		case 4: scaleBicubicT<4, 0>(data, out, w, h, l, u); break; // turns out I had not included
-		case 5: scaleBicubicT<5, 0>(data, out, w, h, l, u); break; // any of these break statements
-		default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 5");
-		}
-#if defined(_M_SSE)
-	}
-#endif
+	const float B = 1.0f, C = 0.0f;
+	const int wrap_mode = 0; // Clamp
+	upscale_cubic(
+		w, h, w*4, data,
+		factor*w*4, out,
+		factor, B, C, wrap_mode,
+		0, factor*l, factor*w, factor*u);
 }
 
 void scaleBicubicMitchell(int factor, u32* data, u32* out, int w, int h, int l, int u) {
-#if defined(_M_SSE)
-	if (cpu_info.bSSE4_1) {
-		switch (factor) {
-		case 2: scaleBicubicTSSE41<2, 1>(data, out, w, h, l, u); break;
-		case 3: scaleBicubicTSSE41<3, 1>(data, out, w, h, l, u); break;
-		case 4: scaleBicubicTSSE41<4, 1>(data, out, w, h, l, u); break;
-		case 5: scaleBicubicTSSE41<5, 1>(data, out, w, h, l, u); break;
-		default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 5");
-		}
-	} else {
-#endif
-		switch (factor) {
-		case 2: scaleBicubicT<2, 1>(data, out, w, h, l, u); break;
-		case 3: scaleBicubicT<3, 1>(data, out, w, h, l, u); break;
-		case 4: scaleBicubicT<4, 1>(data, out, w, h, l, u); break;
-		case 5: scaleBicubicT<5, 1>(data, out, w, h, l, u); break;
-		default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 5");
-		}
-#if defined(_M_SSE)
-	}
-#endif
+	const float B = 0.0f, C = 0.5f; // Actually, Catmull-Rom
+	const int wrap_mode = 0; // Clamp
+	upscale_cubic(
+		w, h, w*4, data,
+		factor*w*4, out,
+		factor, B, C, wrap_mode,
+		0, factor*l, factor*w, factor*u);
 }
 
 //////////////////////////////////////////////////////////////////// Bilinear scaling
@@ -493,36 +589,27 @@ void dbgPGM(int w, int h, u32* pixels, const char* prefix = "dbg") { // 1 compon
 /////////////////////////////////////// Texture Scaler
 
 TextureScalerCommon::TextureScalerCommon() {
-	initBicubicWeights();
+	// initBicubicWeights() used to be here.
 }
 
 TextureScalerCommon::~TextureScalerCommon() {
 }
 
-bool TextureScalerCommon::IsEmptyOrFlat(u32* data, int pixels, int fmt) {
-	int pixelsPerWord = 4 / BytesPerPixel(fmt);
+bool TextureScalerCommon::IsEmptyOrFlat(const u32 *data, int pixels) const {
 	u32 ref = data[0];
-	if (pixelsPerWord > 1 && (ref & 0x0000FFFF) != (ref >> 16)) {
-		return false;
-	}
-	for (int i = 0; i < pixels / pixelsPerWord; ++i) {
-		if (data[i] != ref) return false;
+	// TODO: SIMD-ify this (although, for most textures we'll get out very early)
+	for (int i = 1; i < pixels; ++i) {
+		if (data[i] != ref)
+			return false;
 	}
 	return true;
 }
 
-void TextureScalerCommon::ScaleAlways(u32 *out, u32 *src, u32 &dstFmt, int &width, int &height, int factor) {
-	if (IsEmptyOrFlat(src, width*height, dstFmt)) {
+void TextureScalerCommon::ScaleAlways(u32 *out, u32 *src, int &width, int &height, int factor) {
+	if (IsEmptyOrFlat(src, width * height)) {
 		// This means it was a flat texture.  Vulkan wants the size up front, so we need to make it happen.
-		u32 pixel;
-		// Since it's flat, one pixel is enough.  It might end up pointing to data, though.
-		u32 *pixelPointer = &pixel;
-		ConvertTo8888(dstFmt, src, pixelPointer, 1, 1);
-		if (pixelPointer != &pixel) {
-			pixel = *pixelPointer;
-		}
+		u32 pixel = *src;
 
-		dstFmt = Get8888Format();
 		width *= factor;
 		height *= factor;
 
@@ -536,24 +623,20 @@ void TextureScalerCommon::ScaleAlways(u32 *out, u32 *src, u32 &dstFmt, int &widt
 			}
 		}
 	} else {
-		ScaleInto(out, src, dstFmt, width, height, factor);
+		ScaleInto(out, src, width, height, factor);
 	}
 }
 
-bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, u32 &dstFmt, int &width, int &height, int factor) {
+bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, int &width, int &height, int factor) {
 #ifdef SCALING_MEASURE_TIME
 	double t_start = time_now_d();
 #endif
 
-	bufInput.resize(width*height); // used to store the input image image if it needs to be reformatted
-	u32 *inputBuf = bufInput.data();
-
-	// convert texture to correct format for scaling
-	ConvertTo8888(dstFmt, src, inputBuf, width, height);
+	u32 *inputBuf = src;
 
 	// deposterize
 	if (g_Config.bTexDeposterize) {
-		bufDeposter.resize(width*height);
+		bufDeposter.resize(width * height);
 		DePosterize(inputBuf, bufDeposter.data(), width, height);
 		inputBuf = bufDeposter.data();
 	}
@@ -577,7 +660,6 @@ bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, u32 &dstFmt, int &
 	}
 
 	// update values accordingly
-	dstFmt = Get8888Format();
 	width *= factor;
 	height *= factor;
 
@@ -592,18 +674,18 @@ bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, u32 &dstFmt, int &
 	return true;
 }
 
-bool TextureScalerCommon::Scale(u32* &data, u32 &dstFmt, int &width, int &height, int factor) {
+bool TextureScalerCommon::Scale(u32* &data, int &width, int &height, int factor) {
 	// prevent processing empty or flat textures (this happens a lot in some games)
 	// doesn't hurt the standard case, will be very quick for textures with actual texture
-	if (IsEmptyOrFlat(data, width*height, dstFmt)) {
+	if (IsEmptyOrFlat(data, width*height)) {
 		DEBUG_LOG(G3D, "TextureScaler: early exit -- empty/flat texture");
 		return false;
 	}
 
-	bufOutput.resize(width*height*factor*factor); // used to store the upscaled image
+	bufOutput.resize(width * height * (factor * factor)); // used to store the upscaled image
 	u32 *outputBuf = bufOutput.data();
 
-	if (ScaleInto(outputBuf, data, dstFmt, width, height, factor)) {
+	if (ScaleInto(outputBuf, data, width, height, factor)) {
 		data = outputBuf;
 		return true;
 	}

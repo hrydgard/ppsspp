@@ -19,6 +19,7 @@
 
 #include <string>
 #include <cstdint>
+#include <set>
 
 // Compatibility flags are controlled by assets/compat.ini.
 // Alternatively, if PSP/SYSTEM/compat.ini exists, it is merged on top, to enable editing
@@ -65,6 +66,8 @@ struct CompatFlags {
 	bool YugiohSaveFix;
 	bool ForceUMDDelay;
 	bool ForceMax60FPS;
+	bool GoWFramerateHack60;
+	bool GoWFramerateHack30;
 	bool JitInvalidationHack;
 	bool HideISOFiles;
 	bool MoreAccurateVMMUL;
@@ -81,6 +84,8 @@ struct CompatFlags {
 	bool BlueToAlpha;
 	bool CenteredLines;
 	bool MaliDepthStencilBugWorkaround;
+	bool ZZT3SelectHack;
+	bool AllowLargeFBTextureOffsets;
 };
 
 class IniFile;
@@ -102,4 +107,5 @@ private:
 	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag);
 
 	CompatFlags flags_{};
+	std::set<std::string> ignored_;
 };
