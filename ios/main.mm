@@ -95,14 +95,15 @@ static float g_safeInsetBottom = 0.0;
 // We no longer need to judge if jit is usable or not by according to the ios version.
 /*
 static bool g_jitAvailable = false;
-static int g_iosVersionMajor;
 static int g_iosVersionMinor;
 */
+static int g_iosVersionMajor;
+static std::string version = [[[UIDevice currentDevice] systemVersion] UTF8String];
 
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
 		case SYSPROP_NAME:
-			return StringFromFormat("iOS %s", [[[UIDevice currentDevice] systemVersion] UTF8String]);
+			return StringFromFormat("iOS %s", version.c_str());
 		case SYSPROP_LANGREGION:
 			return [[[NSLocale currentLocale] objectForKey:NSLocaleIdentifier] UTF8String];
 		default:
@@ -258,14 +259,12 @@ int main(int argc, char *argv[])
 
 	// So, we'll just resort to a version check.
 
-/*
-	std::string version = [[[UIDevice currentDevice] systemVersion] UTF8String];
-	if (2 != sscanf(version.c_str(), "%d.%d", &g_iosVersionMajor, &g_iosVersionMinor)) {
+	if (2 != sscanf(version.c_str(), "%d", &g_iosVersionMajor)) {
 		// Just set it to 14.0 if the parsing fails for whatever reason.
 		g_iosVersionMajor = 14;
-		g_iosVersionMinor = 0;
 	}
 
+/*
 	g_jitAvailable = get_debugged();
 
 	if (g_iosVersionMajor > 14 || (g_iosVersionMajor == 14 && g_iosVersionMinor >= 4)) {
