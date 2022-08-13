@@ -46,7 +46,7 @@ TransformUnit::TransformUnit() {
 }
 
 TransformUnit::~TransformUnit() {
-	FreeMemoryPages(decoded_, DECODED_VERTEX_BUFFER_SIZE);
+	FreeMemoryPages(decoded_, TRANSFORM_BUF_SIZE);
 	delete binner_;
 }
 
