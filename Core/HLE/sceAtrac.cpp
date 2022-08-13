@@ -619,10 +619,12 @@ struct Atrac {
 
 	void ConsumeFrame() {
 		bufferPos_ += bytesPerFrame_;
-		if (bufferValidBytes_ > bytesPerFrame_) {
-			bufferValidBytes_ -= bytesPerFrame_;
-		} else {
-			bufferValidBytes_ = 0;
+		if ((bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
+			if (bufferValidBytes_ > bytesPerFrame_) {
+				bufferValidBytes_ -= bytesPerFrame_;
+			} else {
+				bufferValidBytes_ = 0;
+			}
 		}
 		if (bufferPos_ >= StreamBufferEnd()) {
 			// Wrap around... theoretically, this should only happen at exactly StreamBufferEnd.
