@@ -102,7 +102,7 @@ int writeTicketU64Param(u8* buffer, const u16_be type, const u64_be data) {
 
 void notifyNpAuthHandlers(u32 id, u32 result, u32 argAddr) {
 	std::lock_guard<std::recursive_mutex> npAuthGuard(npAuthEvtMtx);
-	npAuthEvents.push_back({ id, result, argAddr });
+	npAuthEvents.push_back({ { id, result, argAddr } });
 }
 
 static int sceNpInit()
