@@ -48,15 +48,19 @@ void VR_TweakMirroring(float* projMatrix) {
 	VR_SetConfig(VR_CONFIG_MIRROR_AXIS_X, projMatrix[0] < 0);
 	VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Y, projMatrix[5] < 0);
 	VR_SetConfig(VR_CONFIG_MIRROR_AXIS_Z, projMatrix[10] > 0);
-	if (projMatrix[10] < 0) { //GTA
-		VR_SetConfig(VR_CONFIG_MIRROR_PITCH, false);
-		VR_SetConfig(VR_CONFIG_MIRROR_YAW, false);
-		VR_SetConfig(VR_CONFIG_MIRROR_ROLL, false);
-	} else if (projMatrix[5] < 0) { //PES
+	if ((projMatrix[0] < 0) && (projMatrix[10] < 0)) { //e.g. Dante's inferno
 		VR_SetConfig(VR_CONFIG_MIRROR_PITCH, true);
 		VR_SetConfig(VR_CONFIG_MIRROR_YAW, true);
 		VR_SetConfig(VR_CONFIG_MIRROR_ROLL, false);
-	} else { //Lego
+	} else if (projMatrix[10] < 0) { //e.g. GTA - Liberty city
+		VR_SetConfig(VR_CONFIG_MIRROR_PITCH, false);
+		VR_SetConfig(VR_CONFIG_MIRROR_YAW, false);
+		VR_SetConfig(VR_CONFIG_MIRROR_ROLL, false);
+	} else if (projMatrix[5] < 0) { //e.g. PES 2014
+		VR_SetConfig(VR_CONFIG_MIRROR_PITCH, true);
+		VR_SetConfig(VR_CONFIG_MIRROR_YAW, true);
+		VR_SetConfig(VR_CONFIG_MIRROR_ROLL, false);
+	} else { //e.g. Lego Pirates
 		VR_SetConfig(VR_CONFIG_MIRROR_PITCH, false);
 		VR_SetConfig(VR_CONFIG_MIRROR_YAW, true);
 		VR_SetConfig(VR_CONFIG_MIRROR_ROLL, true);
