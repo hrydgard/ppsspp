@@ -79,7 +79,6 @@ private:
 	GLRTexture *lastBoundTexture = nullptr;
 
 	FramebufferManagerGLES *framebufferManagerGL_;
-	ShaderManagerGLES *shaderManagerGL_;
 	DrawEngineGLES *drawEngine_;
 
 	enum { INVALID_TEX = -1 };
