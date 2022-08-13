@@ -401,7 +401,7 @@ struct Atrac {
 	// Used by low-level decoding and to track streaming.
 	u32 bufferPos_;
 	u32 bufferValidBytes_;
-	u32 bufferHeaderSize_;
+	u32 bufferHeaderSize_ = 0;
 
 	u16 channels_;
 	u16 outputChannels_;
