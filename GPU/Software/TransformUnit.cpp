@@ -46,7 +46,7 @@ TransformUnit::TransformUnit() {
 }
 
 TransformUnit::~TransformUnit() {
-	FreeMemoryPages(decoded_, DECODED_VERTEX_BUFFER_SIZE);
+	FreeMemoryPages(decoded_, TRANSFORM_BUF_SIZE);
 	delete binner_;
 }
 
@@ -281,6 +281,8 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState
 
 	if (state.readUV) {
 		vreader.ReadUV(vertex.texturecoords.AsArray());
+	} else {
+		vertex.texturecoords.SetZero();
 	}
 
 	Vec3<float> normal;

@@ -120,12 +120,12 @@ jobs:
           cc: clang
           cxx: clang++
           args: ./b.sh --headless --unittest
-          id: clang
+          id: clang-normal
         - os: ubuntu-latest
           cc: gcc
           cxx: g++
           args: ./b.sh --headless --unittest
-          id: gcc
+          id: gcc-normal
 
         - os: ubuntu-latest
           extra: android

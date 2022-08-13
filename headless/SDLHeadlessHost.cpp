@@ -80,8 +80,10 @@ public:
 	}
 
 	void StopThread() override {
-		renderManager_->WaitUntilQueueIdle();
-		renderManager_->StopThread();
+		if (renderManager_) {
+			renderManager_->WaitUntilQueueIdle();
+			renderManager_->StopThread();
+		}
 	}
 
 	void Shutdown() override {}
@@ -90,7 +92,7 @@ public:
 	void SwapBuffers() override {}
 
 private:
-	Draw::DrawContext *draw_;
+	Draw::DrawContext *draw_ = nullptr;
 	GLRenderManager *renderManager_ = nullptr;
 	SDL_Window *screen_;
 	SDL_GLContext glContext_;
@@ -201,7 +203,7 @@ bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext *
 
 void SDLHeadlessHost::ShutdownGraphics() {
 	gfx_->StopThread();
-	while (threadState_ != RenderThreadState::STOPPED)
+	while (threadState_ != RenderThreadState::STOPPED && threadState_ != RenderThreadState::START_FAILED)
 		sleep_ms(1);
 
 	gfx_->Shutdown();
