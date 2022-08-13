@@ -98,7 +98,7 @@ static bool g_jitAvailable = false;
 static int g_iosVersionMinor;
 */
 static int g_iosVersionMajor;
-static std::string version = [[[UIDevice currentDevice] systemVersion] UTF8String];
+static std::string version;
 
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
@@ -259,6 +259,7 @@ int main(int argc, char *argv[])
 
 	// So, we'll just resort to a version check.
 
+	version = [[[UIDevice currentDevice] systemVersion] UTF8String];
 	if (2 != sscanf(version.c_str(), "%d", &g_iosVersionMajor)) {
 		// Just set it to 14.0 if the parsing fails for whatever reason.
 		g_iosVersionMajor = 14;
