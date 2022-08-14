@@ -50,7 +50,7 @@ typedef struct {
 } ovrFramebuffer;
 
 typedef struct {
-	ovrFramebuffer FrameBuffer[ovrMaxNumEyes];
+	ovrFramebuffer FrameBuffer;
 } ovrRenderer;
 
 typedef struct {
@@ -74,7 +74,6 @@ typedef struct {
 	ovrCompositorLayer_Union Layers[ovrMaxLayerCount];
 	int LayerCount;
 
-	int TouchPadDownLastFrame;
 	ovrRenderer Renderer;
 } ovrApp;
 
