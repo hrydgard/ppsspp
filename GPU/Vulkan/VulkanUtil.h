@@ -72,7 +72,7 @@ private:
 
 	struct FrameData {
 		FrameData() : descPool("VulkanComputeShaderManager", true) {
-			descPool.Setup([this] { });
+			descPool.Setup([] { });
 		}
 
 		VulkanDescSetPool descPool;

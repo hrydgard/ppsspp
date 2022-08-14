@@ -209,7 +209,7 @@ static void load_sample(ptrdiff_t w, ptrdiff_t h, ptrdiff_t s, const u8 *pixels,
 	// Check if the sample is inside. NOTE: for b>=0
 	// the expression (UNSIGNED)a<(UNSIGNED)b is
 	// equivalent to a>=0&&a<b.
-	typedef int static_assert_size_matches[sizeof(ptrdiff_t)==sizeof(size_t)?1:-1];
+	static_assert(sizeof(ptrdiff_t) == sizeof(size_t), "Assumes ptrdiff_t same width as size_t");
 
 	if((size_t)x >= (size_t)w||(size_t)y >= (size_t)h) {
 		switch(wrap_mode) {

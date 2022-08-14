@@ -39,7 +39,6 @@ private:
 
 	bool array[ARRAY_SIZE(CustomKey::comboKeyList)];
 	int id_;
-	UI::ChoiceStrip *comboselect;
 	UI::ScrollView *rightScroll_;
 	class ChoiceEventHandler{
 	public:

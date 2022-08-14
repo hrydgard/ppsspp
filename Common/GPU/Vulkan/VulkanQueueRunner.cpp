@@ -1602,16 +1602,16 @@ void VulkanQueueRunner::SetupTransitionToTransferSrc(VKRImage &img, VkImageAspec
 
 	if (img.format == VK_FORMAT_D16_UNORM_S8_UINT || img.format == VK_FORMAT_D24_UNORM_S8_UINT || img.format == VK_FORMAT_D32_SFLOAT_S8_UINT) {
 		// Barrier must specify both for combined depth/stencil buffers.
-		aspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		imageAspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 	} else {
-		aspect = aspect;
+		imageAspect = aspect;
 	}
 
 	recordBarrier->TransitionImage(
 		img.image,
 		0,
 		1,
-		aspect,
+		imageAspect,
 		img.layout,
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 		srcAccessMask,

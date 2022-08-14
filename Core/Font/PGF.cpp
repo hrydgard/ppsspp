@@ -679,6 +679,10 @@ void PGF::SetFontPixel(u32 base, int bpl, int bufWidth, int bufHeight, int x, in
 	}
 
 	static const u8 fontPixelSizeInBytes[] = { 0, 0, 1, 3, 4 }; // 0 means 2 pixels per byte
+	if (pixelformat < 0 || pixelformat > PSP_FONT_PIXELFORMAT_32) {
+		ERROR_LOG_REPORT_ONCE(pfgbadformat, SCEFONT, "Invalid image format in image: %d", (int)pixelformat);
+		return;
+	}
 	int pixelBytes = fontPixelSizeInBytes[pixelformat];
 	int bufMaxWidth = (pixelBytes == 0 ? bpl * 2 : bpl / pixelBytes);
 	if (x >= bufMaxWidth) {

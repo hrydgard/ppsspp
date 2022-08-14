@@ -101,6 +101,10 @@ public:
 		return offset_;
 	}
 
+	const char *Name() const {
+		return name_;
+	}
+
 	// "Zero-copy" variant - you can write the data directly as you compute it.
 	// Recommended.
 	void *Push(size_t size, uint32_t *bindOffset, VkBuffer *vkbuf) {
