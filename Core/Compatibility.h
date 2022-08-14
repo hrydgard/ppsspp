@@ -86,6 +86,7 @@ struct CompatFlags {
 	bool MaliDepthStencilBugWorkaround;
 	bool ZZT3SelectHack;
 	bool AllowLargeFBTextureOffsets;
+	bool AtracLoopHack;
 };
 
 class IniFile;
