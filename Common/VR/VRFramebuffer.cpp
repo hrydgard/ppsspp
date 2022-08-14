@@ -103,10 +103,8 @@ bool ovrFramebuffer_Create(
 		// Create the color buffer texture.
 		const GLuint colorTexture = frameBuffer->ColorSwapChainImage[i].image;
 
-		GLfloat borderColor[] = {0.0f, 0.0f, 0.0f, 0.0f};
 		GLenum textureTarget = GL_TEXTURE_2D_ARRAY;
 		GL(glBindTexture(textureTarget, colorTexture));
-		GL(glTexParameterfv(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_BORDER_COLOR, borderColor));
 		GL(glTexParameteri(textureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
 		GL(glTexParameteri(textureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
 		GL(glTexParameteri(textureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
