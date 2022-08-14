@@ -1171,6 +1171,19 @@ static int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCode
 	Font *optimumFont = 0;
 	Font *nearestFont = 0;
 	float nearestDist = std::numeric_limits<float>::infinity();
+	
+	if (PSP_CoreParameter().compat.flags().Fontltn12Hack && requestedStyle->fontLanguage == 2) {
+		for (size_t j = 0; j < internalFonts.size(); j++) {
+			const auto tempmatchStyle = internalFonts[j]->GetFontStyle();
+			const std::string str(tempmatchStyle.fontFileName);
+			if (str == "ltn12.pgf") {
+				optimumFont = internalFonts[j];
+				*errorCode = 0;
+				return GetInternalFontIndex(optimumFont);
+			}
+		}
+	}
+
 	for (size_t i = 0; i < internalFonts.size(); i++) {
 		MatchQuality q = internalFonts[i]->MatchesStyle(*requestedStyle);
 		if (q != MATCH_NONE) {
