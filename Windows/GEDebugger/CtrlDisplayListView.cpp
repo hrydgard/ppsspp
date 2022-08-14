@@ -72,10 +72,10 @@ CtrlDisplayListView *CtrlDisplayListView::getFrom(HWND hwnd)
 }
 
 CtrlDisplayListView *CtrlDisplayListView::Create(HWND parentWnd) {
-	DWORD style = WS_CHILD;
+	DWORD style = WS_CHILD | WS_VISIBLE | WS_BORDER;
 	RECT tabRect{ 0, 0, 100, 100 };
 
-	HWND hWnd = CreateWindowEx(0, windowClass, L"", style,
+	HWND hWnd = CreateWindowEx(0, windowClass, L"Display List", style,
 		tabRect.left, tabRect.top, tabRect.right - tabRect.left, tabRect.bottom - tabRect.top,
 		parentWnd, 0, MainWindow::GetHInstance(), 0);
 

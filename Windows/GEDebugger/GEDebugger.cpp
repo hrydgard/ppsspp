@@ -141,7 +141,6 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	// up both the size and the aspect ratio
 	RECT frameRect;
 	HWND frameWnd = GetDlgItem(m_hDlg,IDC_GEDBG_FRAME);
-
 	GetWindowRect(frameWnd,&frameRect);
 	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&frameRect,2);
 	MoveWindow(frameWnd,frameRect.left,frameRect.top,512,272,TRUE);
@@ -149,8 +148,8 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	tabs = new TabControl(GetDlgItem(m_hDlg, IDC_GEDBG_MAINTAB));
 	tabsRight_ = new TabControl(GetDlgItem(m_hDlg, IDC_GEDBG_RIGHTTAB));
 
-	HWND wnd = tabs->AddTabWindow(L"CtrlDisplayListView", L"Display List");
-	displayList = CtrlDisplayListView::getFrom(wnd);
+	// HWND wnd = tabs->AddTabWindow(L"CtrlDisplayListView", L"Display List");
+	displayList = CtrlDisplayListView::Create(m_hDlg);
 
 	fbTabs = new TabControl(GetDlgItem(m_hDlg, IDC_GEDBG_FBTABS));
 	fbTabs->SetMinTabWidth(50);
@@ -731,9 +730,18 @@ void CGEDebugger::UpdateSize(WORD width, WORD height) {
 	RECT tabRectRight = tabRect;
 	tabRectRight.left += tabRect.right;
 	tabRectRight.right += tabRect.right;
+
+	RECT frameRect;
+	HWND frameWnd = GetDlgItem(m_hDlg, IDC_GEDBG_FRAME);
+	GetWindowRect(frameWnd, &frameRect);
 	
+	RECT listRect = { frameRect.right + 10, 40, tabRectRight.right, tabRect.top };
+
 	MoveWindow(tabControl, tabRect.left, tabRect.top, tabRect.right - tabRect.left, tabRect.bottom - tabRect.top, TRUE);
 	MoveWindow(tabControlRight, tabRectRight.left, tabRectRight.top, tabRectRight.right - tabRectRight.left, tabRectRight.bottom - tabRectRight.top, TRUE);
+	if (displayList) {
+		MoveWindow(displayList->GetHWND(), listRect.left, listRect.top, listRect.right - listRect.left, listRect.bottom - listRect.top, TRUE);
+	}
 }
 
 void CGEDebugger::SavePosition() {
