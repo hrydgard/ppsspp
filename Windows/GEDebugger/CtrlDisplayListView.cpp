@@ -3,6 +3,7 @@
 #include "Common/System/Display.h"
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
 #include "Windows/GEDebugger/GEDebugger.h"
+#include "Windows/MainWindow.h"
 #include "Windows/InputBox.h"
 #include "Windows/W32Util/ContextMenu.h"
 #include "Windows/main.h"
@@ -68,6 +69,17 @@ CtrlDisplayListView::~CtrlDisplayListView() {
 CtrlDisplayListView *CtrlDisplayListView::getFrom(HWND hwnd)
 {
 	return (CtrlDisplayListView*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
+}
+
+CtrlDisplayListView *CtrlDisplayListView::Create(HWND parentWnd) {
+	DWORD style = WS_CHILD;
+	RECT tabRect{ 0, 0, 100, 100 };
+
+	HWND hWnd = CreateWindowEx(0, windowClass, L"", style,
+		tabRect.left, tabRect.top, tabRect.right - tabRect.left, tabRect.bottom - tabRect.top,
+		parentWnd, 0, MainWindow::GetHInstance(), 0);
+
+	return new CtrlDisplayListView(hWnd);
 }
 
 LRESULT CALLBACK CtrlDisplayListView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
