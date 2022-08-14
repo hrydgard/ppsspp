@@ -272,6 +272,14 @@ void TabControl::HandleNotify(LPARAM lParam)
 	}
 }
 
+int TabControl::HitTest(const POINT &screenPos) {
+	TCHITTESTINFO hitTest{};
+	hitTest.pt = screenPos;
+	ScreenToClient(hwnd, &hitTest.pt);
+
+	return TabCtrl_HitTest(hwnd, &hitTest);
+}
+
 void TabControl::OnResize()
 {
 	RECT tabRect;

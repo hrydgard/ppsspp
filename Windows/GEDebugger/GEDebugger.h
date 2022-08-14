@@ -63,10 +63,13 @@ struct GEDebuggerTab {
 	const wchar_t *name;
 	GETabPosition pos;
 	GETabType type;
-	union {
-		Dialog *dlg;
-		CtrlDisplayListView *displayList;
-		void *ptr;
+	struct {
+		union {
+			Dialog *dlg;
+			CtrlDisplayListView *displayList;
+			void *ptr;
+		};
+		int index = -1;
 	} state[3];
 	void *(*add)(GEDebuggerTab *tab, TabControl *tabs, GETabPosition pos, HINSTANCE inst, HWND parent);
 	void (*remove)(GEDebuggerTab *tab, TabControl *tabs, GETabPosition pos, void *ptr);
@@ -116,6 +119,8 @@ private:
 	void UpdateTab(GEDebuggerTab *tab);
 	void AddTab(GEDebuggerTab *tab, GETabPosition mask);
 	void RemoveTab(GEDebuggerTab *tab, GETabPosition mask);
+	int HasTabIndex(GEDebuggerTab *tab, GETabPosition pos);
+	void CheckTabMessage(TabControl *t, GETabPosition pos, LPARAM lParam);
 
 	u32 TexturePreviewFlags(const GPUgstate &state);
 

@@ -792,6 +792,12 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "Toggle Breakpoint",          ID_DISASM_TOGGLEBREAKPOINT
     END
+    POPUP "getaboptions"
+    BEGIN
+        MENUITEM "Show in &Left Pane"          ID_GEDBG_SHOWONLEFT
+        MENUITEM "Show in &Right Pane"         ID_GEDBG_SHOWONRIGHT
+        MENUITEM "Show in &Top Right Pane"     ID_GEDBG_SHOWONTOPRIGHT
+    END
 END
 
 #endif    // English (United States) resources

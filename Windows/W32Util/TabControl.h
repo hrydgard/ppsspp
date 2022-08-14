@@ -11,6 +11,7 @@ class TabControl
 public:
 	TabControl(HWND handle, bool noDisplayArea = false);
 	void HandleNotify(LPARAM lParam);
+	int HitTest(const POINT &screenPos);
 	HWND AddTabWindow(const wchar_t* className, const wchar_t* title, DWORD style = 0);
 	void AddTabDialog(Dialog* dialog, const wchar_t* title);
 	void AddTab(HWND hwnd, const wchar_t* title);

@@ -328,6 +328,9 @@
 #define IDC_GEDBG_RIGHTTAB               40216
 #define ID_OPTIONS_DIRECT3D11            40217
 #define IDC_GEDBG_TOPRIGHTTAB            40218
+#define ID_GEDBG_SHOWONLEFT              40219
+#define ID_GEDBG_SHOWONRIGHT             40220
+#define ID_GEDBG_SHOWONTOPRIGHT          40221
 
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
@@ -341,7 +344,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        256
-#define _APS_NEXT_COMMAND_VALUE         40219
+#define _APS_NEXT_COMMAND_VALUE         40222
 #define _APS_NEXT_CONTROL_VALUE         1202
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

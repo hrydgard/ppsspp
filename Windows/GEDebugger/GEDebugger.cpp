@@ -59,6 +59,13 @@ enum PrimaryDisplayType {
 	PRIMARY_STENCILBUF,
 };
 
+enum class GEPanelIndex {
+	LEFT,
+	RIGHT,
+	TOPRIGHT,
+	COUNT,
+};
+
 static void *AddDisplayListTab(GEDebuggerTab *tab, TabControl *tabs, GETabPosition pos, HINSTANCE inst, HWND parent) {
 	HWND wnd = tabs->AddTabWindow(L"CtrlDisplayListView", tab->name);
 	return CtrlDisplayListView::getFrom(wnd);
@@ -396,42 +403,64 @@ void CGEDebugger::UpdatePreviews() {
 }
 
 void CGEDebugger::UpdateTab(GEDebuggerTab *tab) {
-	auto doUpdate = [&](GETabPosition pos, TabControl *t, int index) {
+	auto doUpdate = [&](GETabPosition pos, TabControl *t, GEPanelIndex index) {
 		if (tab->pos & pos)
-			tab->update(tab, t, pos, tab->state[index].ptr);
+			tab->update(tab, t, pos, tab->state[(int)index].ptr);
 	};
 
-	doUpdate(GETabPosition::LEFT, tabs, 0);
-	doUpdate(GETabPosition::RIGHT, tabsRight_, 1);
-	doUpdate(GETabPosition::TOPRIGHT, tabsTR_, 2);
+	doUpdate(GETabPosition::LEFT, tabs, GEPanelIndex::LEFT);
+	doUpdate(GETabPosition::RIGHT, tabsRight_, GEPanelIndex::RIGHT);
+	doUpdate(GETabPosition::TOPRIGHT, tabsTR_, GEPanelIndex::TOPRIGHT);
 }
 
 void CGEDebugger::AddTab(GEDebuggerTab *tab, GETabPosition mask) {
-	auto doAdd = [&](GETabPosition pos, TabControl *t, int index) {
+	auto doAdd = [&](GETabPosition pos, TabControl *t, GEPanelIndex pindex) {
+		int index = (int)pindex;
 		// On init, we still have nullptr, but already have pos, so we use that.
 		if ((mask & pos) && tab->state[index].ptr == nullptr) {
+			tab->state[index].index = t->Count();
 			tab->state[index].ptr = tab->add(tab, t, pos, m_hInstance, m_hDlg);
 			tab->pos |= pos;
 		}
 	};
 
-	doAdd(GETabPosition::LEFT, tabs, 0);
-	doAdd(GETabPosition::RIGHT, tabsRight_, 1);
-	doAdd(GETabPosition::TOPRIGHT, tabsTR_, 2);
+	doAdd(GETabPosition::LEFT, tabs, GEPanelIndex::LEFT);
+	doAdd(GETabPosition::RIGHT, tabsRight_, GEPanelIndex::RIGHT);
+	doAdd(GETabPosition::TOPRIGHT, tabsTR_, GEPanelIndex::TOPRIGHT);
 }
 
 void CGEDebugger::RemoveTab(GEDebuggerTab *tab, GETabPosition mask) {
-	auto doRemove = [&](GETabPosition pos, TabControl *t, int index) {
+	auto doRemove = [&](GETabPosition pos, TabControl *t, GEPanelIndex pindex) {
+		int index = (int)pindex;
 		if ((tab->pos & pos) && (mask & pos)) {
 			_assert_(tab->state[index].ptr != nullptr);
 			tab->remove(tab, t, pos, tab->state[index].ptr);
 			tab->pos = GETabPosition((int)tab->pos & ~(int)pos);
+			tab->state[index].index = -1;
 		}
 	};
 
-	doRemove(GETabPosition::LEFT, tabs, 0);
-	doRemove(GETabPosition::RIGHT, tabsRight_, 1);
-	doRemove(GETabPosition::TOPRIGHT, tabsTR_, 2);
+	doRemove(GETabPosition::LEFT, tabs, GEPanelIndex::LEFT);
+	doRemove(GETabPosition::RIGHT, tabsRight_, GEPanelIndex::RIGHT);
+	doRemove(GETabPosition::TOPRIGHT, tabsTR_, GEPanelIndex::TOPRIGHT);
+}
+
+int CGEDebugger::HasTabIndex(GEDebuggerTab *tab, GETabPosition pos) {
+	int stateIndex = 0;
+	switch (pos) {
+	case GETabPosition::LEFT: stateIndex = (int)GEPanelIndex::LEFT; break;
+	case GETabPosition::RIGHT: stateIndex = (int)GEPanelIndex::RIGHT; break;
+	case GETabPosition::TOPRIGHT: stateIndex = (int)GEPanelIndex::TOPRIGHT; break;
+	default: _assert_msg_(false, "Invalid GE tab position"); break;
+	}
+
+	if (tab->pos & pos) {
+		auto &state = tab->state[stateIndex];
+		if (state.ptr == nullptr)
+			return -1;
+		return state.index;
+	}
+	return -1;
 }
 
 u32 CGEDebugger::TexturePreviewFlags(const GPUgstate &state) {
@@ -870,12 +899,15 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 						UpdateTab(&tabState);
 				}
 			}
+			CheckTabMessage(tabs, GETabPosition::LEFT, lParam);
 			break;
 		case IDC_GEDBG_RIGHTTAB:
 			tabsRight_->HandleNotify(lParam);
+			CheckTabMessage(tabsRight_, GETabPosition::RIGHT, lParam);
 			break;
 		case IDC_GEDBG_TOPRIGHTTAB:
 			tabsTR_->HandleNotify(lParam);
+			CheckTabMessage(tabsTR_, GETabPosition::TOPRIGHT, lParam);
 			break;
 		case IDC_GEDBG_FBTABS:
 			fbTabs->HandleNotify(lParam);
@@ -1065,6 +1097,64 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	}
 
 	return FALSE;
+}
+
+void CGEDebugger::CheckTabMessage(TabControl *t, GETabPosition pos, LPARAM lParam) {
+	NMHDR *msg = (LPNMHDR)lParam;
+	if (msg->code != NM_RCLICK)
+		return;
+
+	POINT cursorPos;
+	GetCursorPos(&cursorPos);
+	int tabIndex = t->HitTest(cursorPos);
+	if (tabIndex == -1)
+		return;
+
+	// Find the tabState that was clicked on.
+	GEDebuggerTab *tab = nullptr;
+	for (GEDebuggerTab &tabState : tabStates_) {
+		int foundIndex = HasTabIndex(&tabState, pos);
+		if (foundIndex == tabIndex) {
+			tab = &tabState;
+			break;
+		}
+	}
+	// Shouldn't normally happen... maybe we added some other type of tab.
+	if (!tab)
+		return;
+
+	int currentPanels = 0;
+	for (int i = 0; i < (int)GEPanelIndex::COUNT; ++i) {
+		if (tab && tab->state[i].index != -1 && tab->state[i].ptr)
+			currentPanels++;
+	}
+
+	HMENU subMenu = GetContextMenu(ContextMenuID::GEDBG_TABS);
+	static const int itemIDs[] = { ID_GEDBG_SHOWONLEFT, ID_GEDBG_SHOWONRIGHT, ID_GEDBG_SHOWONTOPRIGHT };
+	for (int i = 0; i < (int)GEPanelIndex::COUNT; ++i) {
+		bool active = tab && tab->state[i].index != -1 && tab->state[i].ptr;
+		bool disabled = active && currentPanels == 1;
+		CheckMenuItem(subMenu, itemIDs[i], active ? MF_CHECKED : MF_UNCHECKED);
+		EnableMenuItem(subMenu, itemIDs[i], disabled ? MF_GRAYED : MF_ENABLED);
+	}
+
+	switch (TriggerContextMenu(ContextMenuID::GEDBG_TABS, m_hDlg, ContextPoint::FromCursor())) {
+	case ID_GEDBG_SHOWONLEFT:
+		// TODO
+		break;
+
+	case ID_GEDBG_SHOWONRIGHT:
+		// TODO
+		break;
+
+	case ID_GEDBG_SHOWONTOPRIGHT:
+		// TODO
+		break;
+
+	default:
+		// Cancel, that's fine.
+		break;
+	}
 }
 
 void CGEDebugger::UpdateMenus() {
