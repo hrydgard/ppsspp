@@ -34,6 +34,7 @@
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceAtrac.h"
+#include "Core/System.h"
 
 // Notes about sceAtrac buffer management
 //
@@ -1170,7 +1171,7 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 	atrac->first_.offset += bytesToAdd;
 	atrac->bufferValidBytes_ += bytesToAdd;
 
-	if (g_Config.bHackSound && atrac->bufferState_ == ATRAC_STATUS_STREAMED_LOOP_FROM_END && atrac->RemainingFrames() > 2) { // Code Lyoko don't like SeekToSample for unknown reason
+	if (PSP_CoreParameter().compat.flags().AtracLoopHack && atrac->bufferState_ == ATRAC_STATUS_STREAMED_LOOP_FROM_END && atrac->RemainingFrames() > 2) {
 		atrac->loopNum_++;
 		atrac->SeekToSample(atrac->loopStartSample_ - atrac->FirstOffsetExtra() - atrac->firstSampleOffset_);
 	}
