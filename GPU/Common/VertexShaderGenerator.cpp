@@ -421,6 +421,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 		WRITE(p, "};\n");
 	} else {
+#ifdef OPENXR
+		WRITE(p, "#define NUM_VIEWS 2\n");
+		WRITE(p, "#extension GL_OVR_multiview2 : enable\n");
+#endif
 		if (enableBones) {
 			const char * const * boneWeightDecl = boneWeightAttrDecl;
 			if (!strcmp(compat.attribute, "in")) {
@@ -469,7 +473,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "uniform mat4 u_proj_through;\n");
 			*uniformMask |= DIRTY_PROJTHROUGHMATRIX;
 		} else if (useHWTransform) {
+#ifdef OPENXR
+			WRITE(p, "layout(shared) uniform ProjectionMatrix { uniform mat4 u_proj; };\n");
+#else
 			WRITE(p, "uniform mat4 u_proj;\n");
+#endif
 			*uniformMask |= DIRTY_PROJMATRIX;
 		}
 
@@ -477,7 +485,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			// When transforming by hardware, we need a great deal more uniforms...
 			// TODO: Use 4x3 matrices where possible. Though probably doesn't matter much.
 			WRITE(p, "uniform mat4 u_world;\n");
+#ifdef OPENXR
+			WRITE(p, "layout(shared) uniform ViewMatrices { uniform mat4 u_view; };\n");
+#else
 			WRITE(p, "uniform mat4 u_view;\n");
+#endif
 			*uniformMask |= DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX;
 			if (doTextureTransform) {
 				WRITE(p, "uniform mediump mat4 u_texmtx;\n");
@@ -900,13 +912,18 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  mediump vec3 worldnormal = normalizeOr001(mul(vec4(skinnednormal, 0.0), u_world).xyz);\n");
 		}
 
-		WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view).xyz, 1.0);\n");
+		std::string matrixPostfix;
+#ifdef OPENXR
+		matrixPostfix = "[gl_ViewID_OVR]";
+#endif
+
+		WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view%s).xyz, 1.0);\n", matrixPostfix.c_str());
 
 		// Final view and projection transforms.
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-			WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, viewPos));\n");
+			WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj%s, viewPos));\n", matrixPostfix.c_str());
 		} else {
-			WRITE(p, "  vec4 outPos = mul(u_proj, viewPos);\n");
+			WRITE(p, "  vec4 outPos = mul(u_proj%s, viewPos);\n", matrixPostfix.c_str());
 		}
 
 		// TODO: Declare variables for dots for shade mapping if needed.

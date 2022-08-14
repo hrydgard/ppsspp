@@ -110,6 +110,21 @@ static std::string GetInfoLog(GLuint name, Getiv getiv, GetLog getLog) {
 	return infoLog;
 }
 
+int GLQueueRunner::GetStereoBufferIndex(const char *uniformName) {
+	if (strcmp(uniformName, "u_view") == 0) return 0;
+	else if (strcmp(uniformName, "u_proj") == 0) return 1;
+	else return -1;
+}
+
+std::string GLQueueRunner::GetStereoBufferLayout(const char *uniformName) {
+	if (strcmp(uniformName, "u_view") == 0) return "ViewMatrices";
+	else if (strcmp(uniformName, "u_proj") == 0) return "ProjectionMatrix";
+
+	//undefined
+	assert(false);
+	return "undefined";
+}
+
 void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool skipGLCalls) {
 	if (skipGLCalls) {
 		// Some bookkeeping still needs to be done.
@@ -263,7 +278,25 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 			for (size_t j = 0; j < program->queries_.size(); j++) {
 				auto &query = program->queries_[j];
 				_dbg_assert_(query.name);
+#ifdef OPENXR
+				int location = -1;
+				int index = GetStereoBufferIndex(query.name);
+				if (index) {
+					std::string layout = GetStereoBufferLayout(query.name);
+					glUniformBlockBinding(program->program, glGetUniformBlockIndex(program->program, layout.c_str()), index);
+
+					GLuint buffer = 0;
+					glGenBuffers(1, &buffer);
+					glBindBuffer(GL_UNIFORM_BUFFER, location);
+					glBufferData(GL_UNIFORM_BUFFER,2 * 16 * sizeof(float),NULL, GL_STATIC_DRAW);
+					glBindBuffer(GL_UNIFORM_BUFFER, 0);
+					location = buffer;
+				} else {
+					location = glGetUniformLocation(program->program, query.name);
+				}
+#else
 				int location = glGetUniformLocation(program->program, query.name);
+#endif
 				if (location < 0 && query.required) {
 					WARN_LOG(G3D, "Required uniform query for '%s' failed", query.name);
 				}
@@ -993,6 +1026,26 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				case 3: glUniform3iv(loc, 1, (GLint *)c.uniform4.v); break;
 				case 4: glUniform4iv(loc, 1, (GLint *)c.uniform4.v); break;
 				}
+			}
+			CHECK_GL_ERROR_IF_DEBUG();
+			break;
+		}
+		case GLRRenderCommand::UNIFORMSTEREOMATRIX:
+		{
+			_dbg_assert_(curProgram);
+			int loc = c.uniformMatrix4.loc ? *c.uniformMatrix4.loc : -1;
+			if (c.uniformMatrix4.name) {
+				loc = curProgram->GetUniformLoc(c.uniformMatrix4.name);
+			}
+			if (loc >= 0) {
+				int size = 2 * 16 * sizeof(float);
+				GLuint layout = GetStereoBufferIndex(c.uniformMatrix4.name);
+				glBindBufferBase(GL_UNIFORM_BUFFER, layout, loc);
+				glBindBuffer(GL_UNIFORM_BUFFER, loc);
+				void *viewMatrices = glMapBufferRange(GL_UNIFORM_BUFFER, 0, size, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+				memcpy(viewMatrices, c.uniformMatrix4.m, size);
+				glUnmapBuffer(GL_UNIFORM_BUFFER);
+				glBindBuffer(GL_UNIFORM_BUFFER, 0);
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;

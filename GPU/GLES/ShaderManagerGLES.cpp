@@ -299,6 +299,56 @@ static inline void ScaleProjMatrix(Matrix4x4 &in, bool useBufferedRendering) {
 	in.translateAndScale(trans, scale);
 }
 
+static inline void FlipProjMatrix(Matrix4x4 &in, bool useBufferedRendering) {
+
+	const bool invertedY = useBufferedRendering ? (gstate_c.vpHeight < 0) : (gstate_c.vpHeight > 0);
+	if (invertedY) {
+		in[1] = -in[1];
+		in[5] = -in[5];
+		in[9] = -in[9];
+		in[13] = -in[13];
+	}
+	const bool invertedX = gstate_c.vpWidth < 0;
+	if (invertedX) {
+		in[0] = -in[0];
+		in[4] = -in[4];
+		in[8] = -in[8];
+		in[12] = -in[12];
+	}
+
+	// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
+	// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
+	if (gstate_c.Supports(GPU_USE_DEPTH_RANGE_HACK)) {
+		float zScale = gstate.getViewportZScale() / 65535.0f;
+		float zCenter = gstate.getViewportZCenter() / 65535.0f;
+
+		// if far depth range < 0
+		if (zCenter + zScale < 0.0f) {
+			// if perspective projection
+			if (in[11] < 0.0f) {
+				float depthMax = gstate.getDepthRangeMax() / 65535.0f;
+				float depthMin = gstate.getDepthRangeMin() / 65535.0f;
+
+				float a = in[10];
+				float b = in[14];
+
+				float n = b / (a - 1.0f);
+				float f = b / (a + 1.0f);
+
+				f = (n * f) / (n + ((zCenter + zScale) * (n - f) / (depthMax - depthMin)));
+
+				a = (n + f) / (n - f);
+				b = (2.0f * n * f) / (n - f);
+
+				if (!my_isnan(a) && !my_isnan(b)) {
+					in[10] = a;
+					in[14] = b;
+				}
+			}
+		}
+	}
+}
+
 void LinkedShader::use(const ShaderID &VSID) {
 	render_->BindProgram(program);
 	// Note that we no longer track attr masks here - we do it for the input layouts instead.
@@ -355,68 +405,32 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 
 	// Update any dirty uniforms before we draw
 	if (dirty & DIRTY_PROJMATRIX) {
-		Matrix4x4 flippedMatrix;
 #ifdef OPENXR
+		Matrix4x4 leftEyeMatrix, rightEyeMatrix;
 		if (flatScreen || is2D) {
-			memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
+			memcpy(&leftEyeMatrix, gstate.projMatrix, 16 * sizeof(float));
+			memcpy(&rightEyeMatrix, gstate.projMatrix, 16 * sizeof(float));
 		} else {
-			VR_TweakProjection(gstate.projMatrix, flippedMatrix.m, VR_PROJECTION_MATRIX_LEFT_EYE);
+			VR_TweakProjection(gstate.projMatrix, leftEyeMatrix.m, VR_PROJECTION_MATRIX_LEFT_EYE);
+			VR_TweakProjection(gstate.projMatrix, rightEyeMatrix.m, VR_PROJECTION_MATRIX_RIGHT_EYE);
 			VR_TweakMirroring(gstate.projMatrix);
 		}
+
+		FlipProjMatrix(leftEyeMatrix, useBufferedRendering);
+		FlipProjMatrix(rightEyeMatrix, useBufferedRendering);
+		ScaleProjMatrix(leftEyeMatrix, useBufferedRendering);
+		ScaleProjMatrix(rightEyeMatrix, useBufferedRendering);
+
+		render_->SetUniformM4x4Stereo(&u_proj, leftEyeMatrix.m, rightEyeMatrix.m);
 #else
+		Matrix4x4 flippedMatrix;
 		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
-#endif
 
-		const bool invertedY = useBufferedRendering ? (gstate_c.vpHeight < 0) : (gstate_c.vpHeight > 0);
-		if (invertedY) {
-			flippedMatrix[1] = -flippedMatrix[1];
-			flippedMatrix[5] = -flippedMatrix[5];
-			flippedMatrix[9] = -flippedMatrix[9];
-			flippedMatrix[13] = -flippedMatrix[13];
-		}
-		const bool invertedX = gstate_c.vpWidth < 0;
-		if (invertedX) {
-			flippedMatrix[0] = -flippedMatrix[0];
-			flippedMatrix[4] = -flippedMatrix[4];
-			flippedMatrix[8] = -flippedMatrix[8];
-			flippedMatrix[12] = -flippedMatrix[12];
-		}
-
-		// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
-		// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
-		if (gstate_c.Supports(GPU_USE_DEPTH_RANGE_HACK)) {
-			float zScale = gstate.getViewportZScale() / 65535.0f;
-			float zCenter = gstate.getViewportZCenter() / 65535.0f;
-
-			// if far depth range < 0
-			if (zCenter + zScale < 0.0f) {
-				// if perspective projection
-				if (flippedMatrix[11] < 0.0f) {
-					float depthMax = gstate.getDepthRangeMax() / 65535.0f;
-					float depthMin = gstate.getDepthRangeMin() / 65535.0f;
-
-					float a = flippedMatrix[10];
-					float b = flippedMatrix[14];
-
-					float n = b / (a - 1.0f);
-					float f = b / (a + 1.0f);
-
-					f = (n * f) / (n + ((zCenter + zScale) * (n - f) / (depthMax - depthMin)));
-
-					a = (n + f) / (n - f);
-					b = (2.0f * n * f) / (n - f);
-
-					if (!my_isnan(a) && !my_isnan(b)) {
-						flippedMatrix[10] = a;
-						flippedMatrix[14] = b;
-					}
-				}
-			}
-		}
-
+		FlipProjMatrix(flippedMatrix, useBufferedRendering);
 		ScaleProjMatrix(flippedMatrix, useBufferedRendering);
 
 		render_->SetUniformM4x4(&u_proj, flippedMatrix.m);
+#endif
 		render_->SetUniformF1(&u_rotation, useBufferedRendering ? 0 : (float)g_display_rotation);
 	}
 	if (dirty & DIRTY_PROJTHROUGHMATRIX)
@@ -523,14 +537,15 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	}
 	if (dirty & DIRTY_VIEWMATRIX) {
 #ifdef OPENXR
-		if (flatScreen || is2D) {
-			SetMatrix4x3(render_, &u_view, gstate.viewMatrix);
-		} else {
-			float m4x4[16];
-			ConvertMatrix4x3To4x4Transposed(m4x4, gstate.viewMatrix);
-			VR_TweakView(m4x4, gstate.projMatrix, VR_VIEW_MATRIX_LEFT_EYE);
-			render_->SetUniformM4x4(&u_view, m4x4);
+		float leftEyeView[16];
+		float rightEyeView[16];
+		ConvertMatrix4x3To4x4Transposed(leftEyeView, gstate.viewMatrix);
+		ConvertMatrix4x3To4x4Transposed(rightEyeView, gstate.viewMatrix);
+		if (!flatScreen && !is2D) {
+			VR_TweakView(leftEyeView, gstate.projMatrix, VR_VIEW_MATRIX_LEFT_EYE);
+			VR_TweakView(rightEyeView, gstate.projMatrix, VR_VIEW_MATRIX_RIGHT_EYE);
 		}
+		render_->SetUniformM4x4Stereo(&u_view, leftEyeView, rightEyeView);
 #else
 		SetMatrix4x3(render_, &u_view, gstate.viewMatrix);
 #endif

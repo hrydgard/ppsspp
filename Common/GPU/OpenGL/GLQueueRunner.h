@@ -47,6 +47,7 @@ enum class GLRRenderCommand : uint8_t {
 	UNIFORM4UI,
 	UNIFORM4F,
 	UNIFORMMATRIX,
+	UNIFORMSTEREOMATRIX,
 	TEXTURESAMPLER,
 	TEXTURELOD,
 	VIEWPORT,
@@ -128,7 +129,7 @@ struct GLRRenderData {
 		struct {
 			const char *name;  // if null, use loc
 			const GLint *loc;
-			float m[16];
+			float m[32];
 		} uniformMatrix4;
 		struct {
 			uint32_t clearColor;
@@ -355,6 +356,9 @@ public:
 	void SetDeviceCaps(const Draw::DeviceCaps &caps) {
 		caps_ = caps;
 	}
+
+	int GetStereoBufferIndex(const char *uniformName);
+	std::string GetStereoBufferLayout(const char *uniformName);
 
 	void RunInitSteps(const std::vector<GLRInitStep> &steps, bool skipGLCalls);
 
