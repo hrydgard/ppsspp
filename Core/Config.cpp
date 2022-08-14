@@ -956,6 +956,7 @@ static ConfigSetting soundSettings[] = {
 	ConfigSetting("AltSpeedVolume", &g_Config.iAltSpeedVolume, -1, true, true),
 	ConfigSetting("AudioDevice", &g_Config.sAudioDevice, "", true, false),
 	ConfigSetting("AutoAudioDevice", &g_Config.bAutoAudioDevice, true, true, false),
+	ConfigSetting("HackSound", &g_Config.bHackSound, false, true, false),
 
 	ConfigSetting(false),
 };

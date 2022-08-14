@@ -693,6 +693,7 @@ void GameSettingsScreen::CreateViews() {
 		PopupMultiChoiceDynamic *MicChoice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sMicDevice, a->T("Microphone Device"), micList, nullptr, screenManager()));
 		MicChoice->OnChoice.Handle(this, &GameSettingsScreen::OnMicDeviceChange);
 	}
+	audioSettings->Add(new CheckBox(&g_Config.bHackSound, a->T("Hack sound")));
 
 	// Control
 	LinearLayout *controlsSettings = AddTab("GameSettingsControls", ms->T("Controls"));

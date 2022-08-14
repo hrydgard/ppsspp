@@ -256,6 +256,7 @@ public:
 	bool bExtraAudioBuffering;  // For bluetooth
 	std::string sAudioDevice;
 	bool bAutoAudioDevice;
+	bool bHackSound;
 
 	// UI
 	bool bShowDebuggerOnLoad;
