@@ -93,6 +93,21 @@ void TabControl::AddTab(HWND handle, const wchar_t* title)
 	ShowTab(index);
 }
 
+HWND TabControl::RemoveTab(int index) {
+	int prevIndex = CurrentTabIndex();
+	if (currentTab >= index)
+		--currentTab;
+
+	HWND prevHandle = tabs[index].pageHandle;
+	TabCtrl_DeleteItem(hwnd, index);
+	tabs.erase(tabs.begin() + index);
+
+	if (prevIndex == index)
+		ShowTab(currentTab, true);
+
+	return prevHandle;
+}
+
 int TabControl::AppendPageToControl(const wchar_t *title)
 {
 	TCITEM tcItem;
