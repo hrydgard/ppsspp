@@ -766,12 +766,22 @@ void CGEDebugger::UpdateSize(WORD width, WORD height) {
 	GetWindowRect(tabControl,&tabRect);
 	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&tabRect,2);
 
-	tabRect.right = tabRect.left + (width / 2-tabRect.left*2);				// assume same gap on both sides
-	tabRect.bottom = tabRect.top + (height-tabRect.top-tabRect.left);	// assume same gap on bottom too
+	// Assume the same gap (tabRect.left) on all sides.
+	if (tabsTR_ && tabsTR_->Count() == 0) {
+		tabRect.right = tabRect.left + (width - tabRect.left * 2);
+	} else {
+		tabRect.right = tabRect.left + (width / 2 - tabRect.left * 2);
+	}
+	tabRect.bottom = tabRect.top + (height - tabRect.top - tabRect.left);
 	
 	RECT tabRectRight = tabRect;
-	tabRectRight.left += tabRect.right;
-	tabRectRight.right += tabRect.right;
+	if (tabs && tabsTR_ && tabs->Count() == 0 && tabsTR_->Count() != 0) {
+		tabRect.right = tabRect.left;
+		tabRect.bottom = tabRect.top;
+	} else {
+		tabRectRight.left += tabRect.right;
+		tabRectRight.right += tabRect.right;
+	}
 
 	RECT frameRect;
 	HWND frameWnd = GetDlgItem(m_hDlg, IDC_GEDBG_FRAME);
@@ -779,6 +789,10 @@ void CGEDebugger::UpdateSize(WORD width, WORD height) {
 	MapWindowPoints(HWND_DESKTOP, m_hDlg, (LPPOINT)&frameRect, 2);
 	
 	RECT trRect = { frameRect.right + 10, frameRect.top, tabRectRight.right, tabRectRight.top };
+	if (tabsTR_ && tabsTR_->Count() == 0) {
+		trRect.right = trRect.left;
+		trRect.bottom = trRect.top;
+	}
 
 	MoveWindow(tabControl, tabRect.left, tabRect.top, tabRect.right - tabRect.left, tabRect.bottom - tabRect.top, TRUE);
 	MoveWindow(tabControlRight, tabRectRight.left, tabRectRight.top, tabRectRight.right - tabRectRight.left, tabRectRight.bottom - tabRectRight.top, TRUE);
