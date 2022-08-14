@@ -36,8 +36,6 @@ public:
 	static void registerClass();
 	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	static CtrlDisplayListView * getFrom(HWND wnd);
-
-	static CtrlDisplayListView *Create(HWND parentWnd);
 	
 	HWND GetHWND() {
 		return wnd;

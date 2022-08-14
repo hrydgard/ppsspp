@@ -99,11 +99,17 @@ HWND TabControl::RemoveTab(int index) {
 		--currentTab;
 
 	HWND prevHandle = tabs[index].pageHandle;
-	TabCtrl_DeleteItem(hwnd, index);
-	tabs.erase(tabs.begin() + index);
+	if (tabs.size() == 1) {
+		TabCtrl_DeleteAllItems(hwnd);
+		tabs.clear();
+		currentTab = 0;
+	} else {
+		TabCtrl_DeleteItem(hwnd, index);
+		tabs.erase(tabs.begin() + index);
 
-	if (prevIndex == index)
-		ShowTab(currentTab, true);
+		if (prevIndex == index)
+			ShowTab(currentTab, true);
+	}
 
 	return prevHandle;
 }

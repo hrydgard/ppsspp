@@ -421,6 +421,7 @@ void CGEDebugger::AddTab(GEDebuggerTab *tab, GETabPosition mask) {
 			tab->state[index].index = t->Count();
 			tab->state[index].ptr = tab->add(tab, t, pos, m_hInstance, m_hDlg);
 			tab->pos |= pos;
+			t->ShowTab(tab->state[index].index, true);
 		}
 	};
 
@@ -433,10 +434,18 @@ void CGEDebugger::RemoveTab(GEDebuggerTab *tab, GETabPosition mask) {
 	auto doRemove = [&](GETabPosition pos, TabControl *t, GEPanelIndex pindex) {
 		int index = (int)pindex;
 		if ((tab->pos & pos) && (mask & pos)) {
-			_assert_(tab->state[index].ptr != nullptr);
-			tab->remove(tab, t, pos, tab->state[index].ptr);
+			auto &state = tab->state[index];
+			_assert_(state.ptr != nullptr);
+			t->RemoveTab(state.index);
+			for (auto &tabState : tabStates_) {
+				if (tabState.state[index].index > state.index)
+					--tabState.state[index].index;
+			}
+
+			tab->remove(tab, t, pos, state.ptr);
 			tab->pos = GETabPosition((int)tab->pos & ~(int)pos);
-			tab->state[index].index = -1;
+			state.ptr = nullptr;
+			state.index = -1;
 		}
 	};
 
@@ -1125,30 +1134,42 @@ void CGEDebugger::CheckTabMessage(TabControl *t, GETabPosition pos, LPARAM lPara
 
 	int currentPanels = 0;
 	for (int i = 0; i < (int)GEPanelIndex::COUNT; ++i) {
-		if (tab && tab->state[i].index != -1 && tab->state[i].ptr)
+		if (tab->state[i].index != -1 && tab->state[i].ptr)
 			currentPanels++;
 	}
 
 	HMENU subMenu = GetContextMenu(ContextMenuID::GEDBG_TABS);
 	static const int itemIDs[] = { ID_GEDBG_SHOWONLEFT, ID_GEDBG_SHOWONRIGHT, ID_GEDBG_SHOWONTOPRIGHT };
 	for (int i = 0; i < (int)GEPanelIndex::COUNT; ++i) {
-		bool active = tab && tab->state[i].index != -1 && tab->state[i].ptr;
+		bool active = tab->state[i].index != -1 && tab->state[i].ptr;
 		bool disabled = active && currentPanels == 1;
 		CheckMenuItem(subMenu, itemIDs[i], active ? MF_CHECKED : MF_UNCHECKED);
 		EnableMenuItem(subMenu, itemIDs[i], disabled ? MF_GRAYED : MF_ENABLED);
 	}
 
+	auto toggleState = [&](GEPanelIndex i, GETabPosition pos) {
+		auto &state = tab->state[(int)i];
+		if (state.index != -1 && state.ptr)
+			RemoveTab(tab, pos);
+		else
+			AddTab(tab, pos);
+
+		RECT rc;
+		GetClientRect(m_hDlg, &rc);
+		UpdateSize(rc.right - rc.left, rc.bottom - rc.top);
+	};
+
 	switch (TriggerContextMenu(ContextMenuID::GEDBG_TABS, m_hDlg, ContextPoint::FromCursor())) {
 	case ID_GEDBG_SHOWONLEFT:
-		// TODO
+		toggleState(GEPanelIndex::LEFT, GETabPosition::LEFT);
 		break;
 
 	case ID_GEDBG_SHOWONRIGHT:
-		// TODO
+		toggleState(GEPanelIndex::RIGHT, GETabPosition::RIGHT);
 		break;
 
 	case ID_GEDBG_SHOWONTOPRIGHT:
-		// TODO
+		toggleState(GEPanelIndex::TOPRIGHT, GETabPosition::TOPRIGHT);
 		break;
 
 	default:
