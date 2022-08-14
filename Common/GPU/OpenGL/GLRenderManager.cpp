@@ -209,7 +209,7 @@ bool GLRenderManager::ThreadFrame() {
 
 	// Decide if the scene is 3D or not
 	if (g_Config.bEnableVR && (VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) > 15)) {
-		VR_SetConfig(VR_CONFIG_MODE, VR_MODE_MONO_6DOF);
+		VR_SetConfig(VR_CONFIG_MODE, g_Config.bEnableStereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
 	} else {
 		VR_SetConfig(VR_CONFIG_MODE, VR_MODE_FLAT_SCREEN);
 	}

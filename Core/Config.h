@@ -456,6 +456,7 @@ public:
 	// Virtual reality
 	bool bEnableVR;
 	bool bEnable6DoF;
+	bool bEnableStereo;
 	int iFieldOfViewPercentage;
 
 	// Debugger
