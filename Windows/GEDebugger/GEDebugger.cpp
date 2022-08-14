@@ -422,6 +422,8 @@ void CGEDebugger::AddTab(GEDebuggerTab *tab, GETabPosition mask) {
 			tab->state[index].ptr = tab->add(tab, t, pos, m_hInstance, m_hDlg);
 			tab->pos |= pos;
 			t->ShowTab(tab->state[index].index, true);
+			if (gpuDebug)
+				tab->update(tab, t, pos, tab->state[index].ptr);
 		}
 	};
 
@@ -805,7 +807,7 @@ void CGEDebugger::UpdateSize(WORD width, WORD height) {
 	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&tabRect,2);
 
 	// Assume the same gap (tabRect.left) on all sides.
-	if (tabsTR_ && tabsTR_->Count() == 0) {
+	if (tabsRight_ && tabsRight_->Count() == 0) {
 		tabRect.right = tabRect.left + (width - tabRect.left * 2);
 	} else {
 		tabRect.right = tabRect.left + (width / 2 - tabRect.left * 2);
@@ -813,12 +815,12 @@ void CGEDebugger::UpdateSize(WORD width, WORD height) {
 	tabRect.bottom = tabRect.top + (height - tabRect.top - tabRect.left);
 	
 	RECT tabRectRight = tabRect;
-	if (tabs && tabsTR_ && tabs->Count() == 0 && tabsTR_->Count() != 0) {
+	if (tabs && tabsRight_ && tabs->Count() == 0 && tabsRight_->Count() != 0) {
 		tabRect.right = tabRect.left;
 		tabRect.bottom = tabRect.top;
 	} else {
 		tabRectRight.left += tabRect.right;
-		tabRectRight.right += tabRect.right;
+		tabRectRight.right += tabRect.right + tabRect.left;
 	}
 
 	RECT frameRect;
