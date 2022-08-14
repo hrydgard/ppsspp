@@ -486,8 +486,7 @@ public:
 		// For save states only.
 	}
 
-	FontLib(u32 paramPtr, u32 errorCodePtr) : fontHRes_(128.0f), fontVRes_(128.0f), altCharCode_(0x5F), charInfoBitmapAddress_(0) {
-		nfl_ = 0;
+	FontLib(u32 paramPtr, u32 errorCodePtr) {
 		Memory::ReadStruct(paramPtr, &params_);
 		if (params_.numFonts > 9) {
 			params_.numFonts = 9;
@@ -753,14 +752,14 @@ private:
 	std::vector<u32> fontRefCount_;
 
 	FontNewLibParams params_;
-	float fontHRes_;
-	float fontVRes_;
-	int fileFontHandle_;
-	int handle_;
-	int altCharCode_;
+	float fontHRes_ = 128.0f;
+	float fontVRes_ = 128.0f;
+	int fileFontHandle_ = -1;
+	int handle_ = -1;
+	int altCharCode_ = 0x5F;
 	std::vector<u32> openAllocatedAddresses_;
-	u32 charInfoBitmapAddress_;
-	PSPPointer<NativeFontLib> nfl_;
+	u32 charInfoBitmapAddress_ = 0;
+	PSPPointer<NativeFontLib> nfl_{};
 
 	DISALLOW_COPY_AND_ASSIGN(FontLib);
 };

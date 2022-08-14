@@ -36,7 +36,7 @@ GLRTexture::GLRTexture(const Draw::DeviceCaps &caps, int width, int height, int 
 	}
 	w = width;
 	h = height;
-	depth = depth;
+	d = depth;
 	this->numMips = numMips;
 }
 
