@@ -212,6 +212,27 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	fbTabs->ShowTab(0, true);
 
 	tabStates_ = defaultTabs;
+	// Restore settings, if any set.
+	_assert_msg_(defaultTabs.size() <= 32, "Cannot have more than 32 tabs");
+	if ((g_Config.uGETabsLeft | g_Config.uGETabsRight | g_Config.uGETabsTopRight) != 0) {
+		for (int i = 0; i < (int)tabStates_.size(); ++i) {
+			int mask = 1 << i;
+			tabStates_[i].pos = (GETabPosition)0;
+			if (g_Config.uGETabsLeft & mask)
+				tabStates_[i].pos |= GETabPosition::LEFT;
+			if (g_Config.uGETabsRight & mask)
+				tabStates_[i].pos |= GETabPosition::RIGHT;
+			if (g_Config.uGETabsTopRight & mask)
+				tabStates_[i].pos |= GETabPosition::TOPRIGHT;
+			// If this is a new tab, add it to left.
+			if (tabStates_[i].pos == (GETabPosition)0) {
+				tabStates_[i].pos |= GETabPosition::LEFT;
+				g_Config.uGETabsLeft |= 1 << i;
+			}
+		}
+	} else {
+		g_Config.uGETabsLeft = (1 << tabStates_.size()) - 1;
+	}
 	for (GEDebuggerTab &tabState : tabStates_) {
 		AddTab(&tabState, tabState.pos);
 	}
@@ -1123,10 +1144,13 @@ void CGEDebugger::CheckTabMessage(TabControl *t, GETabPosition pos, LPARAM lPara
 
 	// Find the tabState that was clicked on.
 	GEDebuggerTab *tab = nullptr;
-	for (GEDebuggerTab &tabState : tabStates_) {
+	int tabStateIndex = 0;
+	for (int i = 0; i < (int)tabStates_.size(); ++i) {
+		GEDebuggerTab &tabState = tabStates_[i];
 		int foundIndex = HasTabIndex(&tabState, pos);
 		if (foundIndex == tabIndex) {
 			tab = &tabState;
+			tabStateIndex = i;
 			break;
 		}
 	}
@@ -1149,12 +1173,16 @@ void CGEDebugger::CheckTabMessage(TabControl *t, GETabPosition pos, LPARAM lPara
 		EnableMenuItem(subMenu, itemIDs[i], disabled ? MF_GRAYED : MF_ENABLED);
 	}
 
-	auto toggleState = [&](GEPanelIndex i, GETabPosition pos) {
+	auto toggleState = [&](GEPanelIndex i, GETabPosition pos, uint32_t &configured) {
 		auto &state = tab->state[(int)i];
-		if (state.index != -1 && state.ptr)
+		bool removing = state.index != -1 && state.ptr;
+		if (removing) {
 			RemoveTab(tab, pos);
-		else
+			configured &= ~(1 << tabStateIndex);
+		} else {
 			AddTab(tab, pos);
+			configured |= 1 << tabStateIndex;
+		}
 
 		RECT rc;
 		GetClientRect(m_hDlg, &rc);
@@ -1163,15 +1191,15 @@ void CGEDebugger::CheckTabMessage(TabControl *t, GETabPosition pos, LPARAM lPara
 
 	switch (TriggerContextMenu(ContextMenuID::GEDBG_TABS, m_hDlg, ContextPoint::FromCursor())) {
 	case ID_GEDBG_SHOWONLEFT:
-		toggleState(GEPanelIndex::LEFT, GETabPosition::LEFT);
+		toggleState(GEPanelIndex::LEFT, GETabPosition::LEFT, g_Config.uGETabsLeft);
 		break;
 
 	case ID_GEDBG_SHOWONRIGHT:
-		toggleState(GEPanelIndex::RIGHT, GETabPosition::RIGHT);
+		toggleState(GEPanelIndex::RIGHT, GETabPosition::RIGHT, g_Config.uGETabsRight);
 		break;
 
 	case ID_GEDBG_SHOWONTOPRIGHT:
-		toggleState(GEPanelIndex::TOPRIGHT, GETabPosition::TOPRIGHT);
+		toggleState(GEPanelIndex::TOPRIGHT, GETabPosition::TOPRIGHT, g_Config.uGETabsTopRight);
 		break;
 
 	default:
