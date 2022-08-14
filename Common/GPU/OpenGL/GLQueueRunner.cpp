@@ -1661,7 +1661,7 @@ void GLQueueRunner::fbo_unbind() {
 #endif
 
 #ifdef OPENXR
-	VR_BindFramebuffer(VR_GetEngine(), 0);
+	VR_BindFramebuffer(VR_GetEngine());
 #endif
 
 	currentDrawHandle_ = 0;

@@ -94,7 +94,7 @@ void UIScreen::preRender() {
 	screenManager()->getUIContext()->BeginFrame();
 
 #ifdef OPENXR
-	VR_BindFramebuffer(VR_GetEngine(), 0);
+	VR_BindFramebuffer(VR_GetEngine());
 #endif
 
 	Draw::Viewport viewport;

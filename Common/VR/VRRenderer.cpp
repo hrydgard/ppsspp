@@ -419,7 +419,7 @@ void VR_SetConfig( VRConfig config, int value) {
 	vrConfig[config] = value;
 }
 
-void VR_BindFramebuffer( engine_t* engine, int eye ) {
+void VR_BindFramebuffer(engine_t *engine) {
 	if (!initialized) return;
 	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer;
 	int swapchainIndex = frameBuffer->TextureSwapChainIndex;

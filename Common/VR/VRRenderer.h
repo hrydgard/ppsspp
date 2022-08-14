@@ -42,5 +42,5 @@ void VR_EndFrame( engine_t* engine );
 int VR_GetConfig( VRConfig config );
 void VR_SetConfig( VRConfig config, int value);
 
-void VR_BindFramebuffer( engine_t* engine, int eye );
+void VR_BindFramebuffer(engine_t *engine);
 ovrMatrix4f VR_GetMatrix( VRMatrix matrix );
