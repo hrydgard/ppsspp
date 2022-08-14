@@ -1207,8 +1207,8 @@ static ConfigSetting themeSettings[] = {
 
 static ConfigSetting vrSettings[] = {
 	ConfigSetting("VREnable", &g_Config.bEnableVR, true),
-	ConfigSetting("VREnable6DoF", &g_Config.bEnable6DoF, false),
-	ConfigSetting("VRFieldOfView", &g_Config.iFieldOfViewPercentage, 50),
+	ConfigSetting("VREnable6DoF", &g_Config.bEnable6DoF, true),
+	ConfigSetting("VRFieldOfView", &g_Config.iFieldOfViewPercentage, 100),
 };
 
 static ConfigSectionSettings sections[] = {
