@@ -11,7 +11,6 @@
 #ifdef OPENXR
 #include "Core/Config.h"
 #include "VR/VRBase.h"
-#include "VR/VRInput.h"
 #include "VR/VRRenderer.h"
 #endif
 
@@ -208,7 +207,7 @@ bool GLRenderManager::ThreadFrame() {
 	VR_BeginFrame(VR_GetEngine());
 
 	// Decide if the scene is 3D or not
-	if (g_Config.bEnableVR && (VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) > 15)) {
+	if (g_Config.bEnableVR && !VR_GetConfig(VR_CONFIG_FORCE_2D) && (VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) > 15)) {
 		VR_SetConfig(VR_CONFIG_MODE, g_Config.bEnableStereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
 	} else {
 		VR_SetConfig(VR_CONFIG_MODE, VR_MODE_FLAT_SCREEN);
@@ -217,12 +216,8 @@ bool GLRenderManager::ThreadFrame() {
 
 	// Set customizations
 	VR_SetConfig(VR_CONFIG_6DOF_ENABLED, g_Config.bEnable6DoF);
+	VR_SetConfig(VR_CONFIG_CANVAS_DISTANCE, g_Config.iCanvasDistance);
 	VR_SetConfig(VR_CONFIG_FOV_SCALE, g_Config.iFieldOfViewPercentage);
-
-	// hack to quick enable 2D mode in game
-	if (IN_VRGetButtonState(0) & ovrButton_GripTrigger) {
-		VR_SetConfig(VR_CONFIG_MODE, VR_MODE_FLAT_SCREEN);
-	}
 #endif
 
 	// In case of syncs or other partial completion, we keep going until we complete a frame.
