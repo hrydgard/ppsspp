@@ -16,6 +16,7 @@ GLboolean initialized = GL_FALSE;
 GLboolean stageSupported = GL_FALSE;
 int vrConfig[VR_CONFIG_MAX] = {};
 
+float menuPitch = 0;
 float menuYaw = 0;
 float recenterYaw = 0;
 XrVector3f hmdorientation;
@@ -171,6 +172,7 @@ void VR_Recenter(engine_t* engine) {
 	}
 
 	// Update menu orientation
+	menuPitch = hmdorientation.x;
 	menuYaw = 0;
 }
 
@@ -384,13 +386,14 @@ void VR_EndFrame( engine_t* engine ) {
 		cylinder_layer.subImage.imageRect.extent.height = height;
 		cylinder_layer.subImage.imageArrayIndex = 0;
 		float distance = vrConfig[VR_CONFIG_CANVAS_DISTANCE];
-		const XrVector3f axis = {0.0f, 1.0f, 0.0f};
 		XrVector3f pos = {
 				invViewTransform[0].position.x - sin(ToRadians(menuYaw)) * distance,
 				invViewTransform[0].position.y,
 				invViewTransform[0].position.z - cos(ToRadians(menuYaw)) * distance
 		};
-		cylinder_layer.pose.orientation = XrQuaternionf_CreateFromVectorAngle(axis, ToRadians(menuYaw));
+		XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, -ToRadians(menuPitch));
+		XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, ToRadians(menuYaw));
+		cylinder_layer.pose.orientation = XrQuaternionf_Multiply(pitch, yaw);
 		cylinder_layer.pose.position = pos;
 		cylinder_layer.radius = 12.0f;
 		cylinder_layer.centralAngle = M_PI * 0.5f;
