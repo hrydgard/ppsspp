@@ -388,7 +388,7 @@ void VR_EndFrame( engine_t* engine ) {
 		cylinder_layer.pose.position = pos;
 		cylinder_layer.radius = 12.0f;
 		cylinder_layer.centralAngle = M_PI * 0.5f;
-		cylinder_layer.aspectRatio = height / (float)width;
+		cylinder_layer.aspectRatio = 1;
 
 		engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
 	} else {

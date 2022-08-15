@@ -396,7 +396,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	if (hud) {
 		float scale = 0.5f;
 		render_->SetUniformF1(&u_scaleX, scale);
-		render_->SetUniformF1(&u_scaleY, scale / 16.0f * 9.0f);
+		render_->SetUniformF1(&u_scaleY, scale / 480.0f * 272.0f);
 	} else {
 		render_->SetUniformF1(&u_scaleX, 1.0f);
 		render_->SetUniformF1(&u_scaleY, 1.0f);
