@@ -111,7 +111,7 @@ bool NotifyCommand(u32 pc) {
 	}
 
 	bool process = true;
-	if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE || cmd == GE_CMD_TRANSFERSTART) {
+	if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE) {
 		primsThisFrame++;
 
 		if (!restrictPrimRanges.empty()) {
