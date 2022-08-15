@@ -472,7 +472,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		vfbs_.push_back(vfb);
 		currentRenderVfb_ = vfb;
 
-		if (useBufferedRendering_ && !g_Config.bDisableSlowFramebufEffects) {
+		// Assume that if we're clearing right when switching to a new framebuffer, we don't need to upload.
+		if (useBufferedRendering_ && !g_Config.bDisableSlowFramebufEffects && params.isDrawing) {
 			gpu->PerformMemoryUpload(params.fb_address, byteSize);
 			// Alpha was already done by PerformMemoryUpload.
 			PerformStencilUpload(params.fb_address, byteSize, StencilUpload::STENCIL_IS_ZERO | StencilUpload::IGNORE_ALPHA);
