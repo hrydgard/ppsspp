@@ -238,6 +238,9 @@ void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPU
 	}
 	params->isDrawing = !gstate.isModeClear() || !gstate.isClearModeColorMask() || !gstate.isClearModeAlphaMask();
 	params->isModeThrough = gstate.isModeThrough();
+	const bool alphaBlending = gstate.isAlphaBlendEnabled();
+	const bool logicOpBlending = gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_CLEAR && gstate.getLogicOp() != GE_LOGIC_COPY;
+	params->isBlending = alphaBlending || logicOpBlending;
 
 	// Viewport-X1 and Y1 are not the upper left corner, but half the width/height. A bit confusing.
 	float vpx = gstate.getViewportXScale();
@@ -321,7 +324,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 				vfb->height = drawing_height;
 			}
 			break;
-		} else if (params.fb_address == v->z_address && params.fmt != GE_FORMAT_8888 && params.fb_stride == v->z_stride) {
+		} else if (params.fb_address == v->z_address && params.fmt != GE_FORMAT_8888 && params.fb_stride == v->z_stride && !params.isBlending) {
 			// Looks like the game might be intending to use color to write directly to a Z buffer.
 			// This is seen in Kuroyou 2.
 
