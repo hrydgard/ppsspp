@@ -66,35 +66,7 @@ void StorageFolderBrowser::threadfunc() {
 			cond_.wait(lock);
 		}
 		if (operationRequested_) {
-			switch (operation_.type) {
-			case OpType::LIST_DIRECTORY: {
-
-				/*
-				Streams::Buffer ^buf = ref new Streams::Buffer(operation_.size);
-				operationFailed_ = false;
-				stream_->Seek(operation_.offset);
-				auto task = create_task(stream_->ReadAsync(buf, operation_.size, Streams::InputStreamOptions::None));
-				Streams::IBuffer ^output = nullptr;
-				try {
-					task.wait();
-					output = task.get();
-				}
-				catch (const std::exception& e) {
-					operationFailed_ = true;
-					const char *what = e.what();
-					ILOG("%s", what);
-				}
 				operationRequested_ = false;
-				std::unique_lock<std::mutex> lock(mutexResponse_);
-				response_.buffer = output;
-				responseAvailable_ = true;
-				condResponse_.notify_one();
-				break;*/
-			}
-			default:
-				operationRequested_ = false;
-				break;
-			}
 		}
 	}
 }
