@@ -59,6 +59,60 @@ enum PrimaryDisplayType {
 	PRIMARY_STENCILBUF,
 };
 
+enum class GEPanelIndex {
+	LEFT,
+	RIGHT,
+	TOPRIGHT,
+	COUNT,
+};
+
+static void *AddDisplayListTab(GEDebuggerTab *tab, TabControl *tabs, GETabPosition pos, HINSTANCE inst, HWND parent) {
+	HWND wnd = tabs->AddTabWindow(L"CtrlDisplayListView", tab->name);
+	return CtrlDisplayListView::getFrom(wnd);
+}
+
+static void RemoveDisplayListTab(GEDebuggerTab *tab, TabControl *tabs, GETabPosition pos, void *ptr) {
+	CtrlDisplayListView *view = (CtrlDisplayListView *)ptr;
+	DestroyWindow(view->GetHWND());
+}
+
+static void UpdateDisplayListTab(GEDebuggerTab *tab, TabControl *tabs, GETabPosition pos, void *ptr) {
+	CtrlDisplayListView *view = (CtrlDisplayListView *)ptr;
+	DisplayList list;
+	if (gpuDebug != nullptr && gpuDebug->GetCurrentDisplayList(list)) {
+		view->setDisplayList(list);
+	}
+}
+
+template <typename T>
+static void *AddStateTab(GEDebuggerTab *tab, TabControl *tabs, GETabPosition pos, HINSTANCE inst, HWND parent) {
+	T *w = new T(inst, parent);
+	tabs->AddTabDialog(w, tab->name);
+	return w;
+}
+
+static void RemoveStateTab(GEDebuggerTab *tab, TabControl *tabs, GETabPosition pos, void *ptr) {
+	Dialog *view = (Dialog *)ptr;
+	delete view;
+}
+
+static void UpdateStateTab(GEDebuggerTab *tab, TabControl *tabs, GETabPosition pos, void *ptr) {
+	Dialog *view = (Dialog *)ptr;
+	view->Update();
+}
+
+static const std::vector<GEDebuggerTab> defaultTabs = {
+	{ L"Display List", GETabPosition::LEFT, GETabType::LIST_DISASM, {}, &AddDisplayListTab, &RemoveDisplayListTab, &UpdateDisplayListTab },
+	{ L"Flags", GETabPosition::LEFT, GETabType::STATE, {}, &AddStateTab<TabStateFlags>, &RemoveStateTab, &UpdateStateTab },
+	{ L"Light", GETabPosition::LEFT, GETabType::STATE, {}, &AddStateTab<TabStateLighting>, &RemoveStateTab, &UpdateStateTab },
+	{ L"Texture", GETabPosition::LEFT, GETabType::STATE, {}, &AddStateTab<TabStateTexture>, &RemoveStateTab, &UpdateStateTab },
+	{ L"Settings", GETabPosition::LEFT, GETabType::STATE, {}, &AddStateTab<TabStateSettings>, &RemoveStateTab, &UpdateStateTab },
+	{ L"Verts", GETabPosition::LEFT, GETabType::STATE, {}, &AddStateTab<TabVertices>, &RemoveStateTab, &UpdateStateTab },
+	{ L"Matrices", GETabPosition::LEFT, GETabType::STATE, {}, &AddStateTab<TabMatrices>, &RemoveStateTab, &UpdateStateTab },
+	{ L"Lists", GETabPosition::LEFT, GETabType::LISTS, {}, &AddStateTab<TabDisplayLists>, &RemoveStateTab, &UpdateStateTab },
+	{ L"Watch", GETabPosition::LEFT, GETabType::WATCH, {}, &AddStateTab<TabStateWatch>, &RemoveStateTab, &UpdateStateTab },
+};
+
 StepCountDlg::StepCountDlg(HINSTANCE _hInstance, HWND _hParent) : Dialog((LPCSTR)IDD_GEDBG_STEPCOUNT, _hInstance, _hParent) {
 	DialogManager::AddDlg(this);
 
@@ -147,9 +201,7 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 
 	tabs = new TabControl(GetDlgItem(m_hDlg, IDC_GEDBG_MAINTAB));
 	tabsRight_ = new TabControl(GetDlgItem(m_hDlg, IDC_GEDBG_RIGHTTAB));
-
-	// HWND wnd = tabs->AddTabWindow(L"CtrlDisplayListView", L"Display List");
-	displayList = CtrlDisplayListView::Create(m_hDlg);
+	tabsTR_ = new TabControl(GetDlgItem(m_hDlg, IDC_GEDBG_TOPRIGHTTAB));
 
 	fbTabs = new TabControl(GetDlgItem(m_hDlg, IDC_GEDBG_FBTABS));
 	fbTabs->SetMinTabWidth(50);
@@ -159,43 +211,38 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	fbTabs->AddTab(NULL, L"Stencil");
 	fbTabs->ShowTab(0, true);
 
-	flags = new TabStateFlags(_hInstance, m_hDlg);
-	tabs->AddTabDialog(flags, L"Flags");
+	tabStates_ = defaultTabs;
+	// Restore settings, if any set.
+	_assert_msg_(defaultTabs.size() <= 32, "Cannot have more than 32 tabs");
+	if ((g_Config.uGETabsLeft | g_Config.uGETabsRight | g_Config.uGETabsTopRight) != 0) {
+		for (int i = 0; i < (int)tabStates_.size(); ++i) {
+			int mask = 1 << i;
+			tabStates_[i].pos = (GETabPosition)0;
+			if (g_Config.uGETabsLeft & mask)
+				tabStates_[i].pos |= GETabPosition::LEFT;
+			if (g_Config.uGETabsRight & mask)
+				tabStates_[i].pos |= GETabPosition::RIGHT;
+			if (g_Config.uGETabsTopRight & mask)
+				tabStates_[i].pos |= GETabPosition::TOPRIGHT;
+			// If this is a new tab, add it to left.
+			if (tabStates_[i].pos == (GETabPosition)0) {
+				tabStates_[i].pos |= GETabPosition::LEFT;
+				g_Config.uGETabsLeft |= 1 << i;
+			}
+		}
+	} else {
+		g_Config.uGETabsLeft = (1 << tabStates_.size()) - 1;
+	}
+	for (GEDebuggerTab &tabState : tabStates_) {
+		AddTab(&tabState, tabState.pos);
+	}
 
-	lighting = new TabStateLighting(_hInstance, m_hDlg);
-	tabs->AddTabDialog(lighting, L"Light");
-
-	textureState = new TabStateTexture(_hInstance, m_hDlg);
-	tabs->AddTabDialog(textureState, L"Texture");
-
-	settings = new TabStateSettings(_hInstance, m_hDlg);
-	tabs->AddTabDialog(settings, L"Settings");
-
-	vertices = new TabVertices(_hInstance, m_hDlg);
-	tabs->AddTabDialog(vertices, L"Verts");
-
-	matrices = new TabMatrices(_hInstance, m_hDlg);
-	tabs->AddTabDialog(matrices, L"Matrices");
-
-	lists = new TabDisplayLists(_hInstance, m_hDlg);
-	tabs->AddTabDialog(lists, L"Lists");
-
-	watch = new TabStateWatch(_hInstance, m_hDlg);
-	tabs->AddTabDialog(watch, L"Watch");
-
-	tabs->ShowTab(0, true);
-
-
-	lightingRight_ = new TabStateLighting(_hInstance, m_hDlg);
-	tabsRight_->AddTabDialog(lightingRight_, L"Light");
-
-	textureStateRight_ = new TabStateTexture(_hInstance, m_hDlg);
-	tabsRight_->AddTabDialog(textureStateRight_, L"Texture");
-
-	settingsRight_ = new TabStateSettings(_hInstance, m_hDlg);
-	tabsRight_->AddTabDialog(settingsRight_, L"Settings");
-
-	tabsRight_->ShowTab(0, true);
+	if (tabs->Count() > 0)
+		tabs->ShowTab(0, true);
+	if (tabsRight_->Count() > 0)
+		tabsRight_->ShowTab(0, true);
+	if (tabsTR_->Count() > 0)
+		tabsTR_->ShowTab(0, true);
 
 	// set window position
 	int x = g_Config.iGEWindowX == -1 ? windowRect.left : g_Config.iGEWindowX;
@@ -211,19 +258,14 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 
 CGEDebugger::~CGEDebugger() {
 	CleanupPrimPreview();
-	delete flags;
-	delete lighting;
-	delete lightingRight_;
-	delete textureState;
-	delete textureStateRight_;
-	delete settings;
-	delete settingsRight_;
-	delete vertices;
-	delete matrices;
-	delete lists;
-	delete watch;
+
+	for (GEDebuggerTab &tabState : tabStates_) {
+		RemoveTab(&tabState, GETabPosition::ALL);
+	}
+
 	delete tabs;
 	delete tabsRight_;
+	delete tabsTR_;
 	delete fbTabs;
 }
 
@@ -370,27 +412,87 @@ void CGEDebugger::UpdatePreviews() {
 		UpdatePrimPreview(primOp, 3);
 	}
 
-	DisplayList list;
-	if (gpuDebug != nullptr && gpuDebug->GetCurrentDisplayList(list)) {
-		displayList->setDisplayList(list);
-	}
-
 	wchar_t primCounter[1024]{};
 	swprintf(primCounter, ARRAY_SIZE(primCounter), L"%d/%d", PrimsThisFrame(), PrimsLastFrame());
 	SetDlgItemText(m_hDlg, IDC_GEDBG_PRIMCOUNTER, primCounter);
 
-	flags->Update();
-	lighting->Update();
-	lightingRight_->Update();
-	textureState->Update();
-	textureStateRight_->Update();
-	settings->Update();
-	settingsRight_->Update();
-	vertices->Update();
-	matrices->Update();
-	lists->Update();
-	watch->Update();
+	for (GEDebuggerTab &tabState : tabStates_) {
+		UpdateTab(&tabState);
+	}
+
 	updating_ = false;
+}
+
+void CGEDebugger::UpdateTab(GEDebuggerTab *tab) {
+	auto doUpdate = [&](GETabPosition pos, TabControl *t, GEPanelIndex index) {
+		if (tab->pos & pos)
+			tab->update(tab, t, pos, tab->state[(int)index].ptr);
+	};
+
+	doUpdate(GETabPosition::LEFT, tabs, GEPanelIndex::LEFT);
+	doUpdate(GETabPosition::RIGHT, tabsRight_, GEPanelIndex::RIGHT);
+	doUpdate(GETabPosition::TOPRIGHT, tabsTR_, GEPanelIndex::TOPRIGHT);
+}
+
+void CGEDebugger::AddTab(GEDebuggerTab *tab, GETabPosition mask) {
+	auto doAdd = [&](GETabPosition pos, TabControl *t, GEPanelIndex pindex) {
+		int index = (int)pindex;
+		// On init, we still have nullptr, but already have pos, so we use that.
+		if ((mask & pos) && tab->state[index].ptr == nullptr) {
+			tab->state[index].index = t->Count();
+			tab->state[index].ptr = tab->add(tab, t, pos, m_hInstance, m_hDlg);
+			tab->pos |= pos;
+			t->ShowTab(tab->state[index].index, true);
+			if (gpuDebug)
+				tab->update(tab, t, pos, tab->state[index].ptr);
+		}
+	};
+
+	doAdd(GETabPosition::LEFT, tabs, GEPanelIndex::LEFT);
+	doAdd(GETabPosition::RIGHT, tabsRight_, GEPanelIndex::RIGHT);
+	doAdd(GETabPosition::TOPRIGHT, tabsTR_, GEPanelIndex::TOPRIGHT);
+}
+
+void CGEDebugger::RemoveTab(GEDebuggerTab *tab, GETabPosition mask) {
+	auto doRemove = [&](GETabPosition pos, TabControl *t, GEPanelIndex pindex) {
+		int index = (int)pindex;
+		if ((tab->pos & pos) && (mask & pos)) {
+			auto &state = tab->state[index];
+			_assert_(state.ptr != nullptr);
+			t->RemoveTab(state.index);
+			for (auto &tabState : tabStates_) {
+				if (tabState.state[index].index > state.index)
+					--tabState.state[index].index;
+			}
+
+			tab->remove(tab, t, pos, state.ptr);
+			tab->pos = GETabPosition((int)tab->pos & ~(int)pos);
+			state.ptr = nullptr;
+			state.index = -1;
+		}
+	};
+
+	doRemove(GETabPosition::LEFT, tabs, GEPanelIndex::LEFT);
+	doRemove(GETabPosition::RIGHT, tabsRight_, GEPanelIndex::RIGHT);
+	doRemove(GETabPosition::TOPRIGHT, tabsTR_, GEPanelIndex::TOPRIGHT);
+}
+
+int CGEDebugger::HasTabIndex(GEDebuggerTab *tab, GETabPosition pos) {
+	int stateIndex = 0;
+	switch (pos) {
+	case GETabPosition::LEFT: stateIndex = (int)GEPanelIndex::LEFT; break;
+	case GETabPosition::RIGHT: stateIndex = (int)GEPanelIndex::RIGHT; break;
+	case GETabPosition::TOPRIGHT: stateIndex = (int)GEPanelIndex::TOPRIGHT; break;
+	default: _assert_msg_(false, "Invalid GE tab position"); break;
+	}
+
+	if (tab->pos & pos) {
+		auto &state = tab->state[stateIndex];
+		if (state.ptr == nullptr)
+			return -1;
+		return state.index;
+	}
+	return -1;
 }
 
 u32 CGEDebugger::TexturePreviewFlags(const GPUgstate &state) {
@@ -719,29 +821,43 @@ void CGEDebugger::UpdateSize(WORD width, WORD height) {
 	// only resize the tabs for now
 	HWND tabControl = GetDlgItem(m_hDlg, IDC_GEDBG_MAINTAB);
 	HWND tabControlRight = GetDlgItem(m_hDlg, IDC_GEDBG_RIGHTTAB);
+	HWND tabControlTR = GetDlgItem(m_hDlg, IDC_GEDBG_TOPRIGHTTAB);
 
 	RECT tabRect;
 	GetWindowRect(tabControl,&tabRect);
 	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&tabRect,2);
 
-	tabRect.right = tabRect.left + (width / 2-tabRect.left*2);				// assume same gap on both sides
-	tabRect.bottom = tabRect.top + (height-tabRect.top-tabRect.left);	// assume same gap on bottom too
+	// Assume the same gap (tabRect.left) on all sides.
+	if (tabsRight_ && tabsRight_->Count() == 0) {
+		tabRect.right = tabRect.left + (width - tabRect.left * 2);
+	} else {
+		tabRect.right = tabRect.left + (width / 2 - tabRect.left * 2);
+	}
+	tabRect.bottom = tabRect.top + (height - tabRect.top - tabRect.left);
 	
 	RECT tabRectRight = tabRect;
-	tabRectRight.left += tabRect.right;
-	tabRectRight.right += tabRect.right;
+	if (tabs && tabsRight_ && tabs->Count() == 0 && tabsRight_->Count() != 0) {
+		tabRect.right = tabRect.left;
+		tabRect.bottom = tabRect.top;
+	} else {
+		tabRectRight.left += tabRect.right;
+		tabRectRight.right += tabRect.right + tabRect.left;
+	}
 
 	RECT frameRect;
 	HWND frameWnd = GetDlgItem(m_hDlg, IDC_GEDBG_FRAME);
 	GetWindowRect(frameWnd, &frameRect);
+	MapWindowPoints(HWND_DESKTOP, m_hDlg, (LPPOINT)&frameRect, 2);
 	
-	RECT listRect = { frameRect.right + 10, 40, tabRectRight.right, tabRect.top };
+	RECT trRect = { frameRect.right + 10, frameRect.top, tabRectRight.right, tabRectRight.top };
+	if (tabsTR_ && tabsTR_->Count() == 0) {
+		trRect.right = trRect.left;
+		trRect.bottom = trRect.top;
+	}
 
 	MoveWindow(tabControl, tabRect.left, tabRect.top, tabRect.right - tabRect.left, tabRect.bottom - tabRect.top, TRUE);
 	MoveWindow(tabControlRight, tabRectRight.left, tabRectRight.top, tabRectRight.right - tabRectRight.left, tabRectRight.bottom - tabRectRight.top, TRUE);
-	if (displayList) {
-		MoveWindow(displayList->GetHWND(), listRect.left, listRect.top, listRect.right - listRect.left, listRect.bottom - listRect.top, TRUE);
-	}
+	MoveWindow(tabControlTR, trRect.left, trRect.top, trRect.right - trRect.left, trRect.bottom - trRect.top, TRUE);
 }
 
 void CGEDebugger::SavePosition() {
@@ -810,11 +926,20 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		case IDC_GEDBG_MAINTAB:
 			tabs->HandleNotify(lParam);
 			if (gpuDebug != nullptr) {
-				lists->Update();
+				for (GEDebuggerTab &tabState : tabStates_) {
+					if (tabState.type == GETabType::LISTS)
+						UpdateTab(&tabState);
+				}
 			}
+			CheckTabMessage(tabs, GETabPosition::LEFT, lParam);
 			break;
 		case IDC_GEDBG_RIGHTTAB:
 			tabsRight_->HandleNotify(lParam);
+			CheckTabMessage(tabsRight_, GETabPosition::RIGHT, lParam);
+			break;
+		case IDC_GEDBG_TOPRIGHTTAB:
+			tabsTR_->HandleNotify(lParam);
+			CheckTabMessage(tabsTR_, GETabPosition::TOPRIGHT, lParam);
 			break;
 		case IDC_GEDBG_FBTABS:
 			fbTabs->HandleNotify(lParam);
@@ -996,12 +1121,91 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 	case WM_GEDBG_UPDATE_WATCH:
 		// Just a notification to update.
-		if (watch)
-			watch->Update();
+		for (GEDebuggerTab &tabState : tabStates_) {
+			if (tabState.type == GETabType::WATCH)
+				UpdateTab(&tabState);
+		}
 		break;
 	}
 
 	return FALSE;
+}
+
+void CGEDebugger::CheckTabMessage(TabControl *t, GETabPosition pos, LPARAM lParam) {
+	NMHDR *msg = (LPNMHDR)lParam;
+	if (msg->code != NM_RCLICK)
+		return;
+
+	POINT cursorPos;
+	GetCursorPos(&cursorPos);
+	int tabIndex = t->HitTest(cursorPos);
+	if (tabIndex == -1)
+		return;
+
+	// Find the tabState that was clicked on.
+	GEDebuggerTab *tab = nullptr;
+	int tabStateIndex = 0;
+	for (int i = 0; i < (int)tabStates_.size(); ++i) {
+		GEDebuggerTab &tabState = tabStates_[i];
+		int foundIndex = HasTabIndex(&tabState, pos);
+		if (foundIndex == tabIndex) {
+			tab = &tabState;
+			tabStateIndex = i;
+			break;
+		}
+	}
+	// Shouldn't normally happen... maybe we added some other type of tab.
+	if (!tab)
+		return;
+
+	int currentPanels = 0;
+	for (int i = 0; i < (int)GEPanelIndex::COUNT; ++i) {
+		if (tab->state[i].index != -1 && tab->state[i].ptr)
+			currentPanels++;
+	}
+
+	HMENU subMenu = GetContextMenu(ContextMenuID::GEDBG_TABS);
+	static const int itemIDs[] = { ID_GEDBG_SHOWONLEFT, ID_GEDBG_SHOWONRIGHT, ID_GEDBG_SHOWONTOPRIGHT };
+	for (int i = 0; i < (int)GEPanelIndex::COUNT; ++i) {
+		bool active = tab->state[i].index != -1 && tab->state[i].ptr;
+		bool disabled = active && currentPanels == 1;
+		CheckMenuItem(subMenu, itemIDs[i], active ? MF_CHECKED : MF_UNCHECKED);
+		EnableMenuItem(subMenu, itemIDs[i], disabled ? MF_GRAYED : MF_ENABLED);
+	}
+
+	auto toggleState = [&](GEPanelIndex i, GETabPosition pos, uint32_t &configured) {
+		auto &state = tab->state[(int)i];
+		bool removing = state.index != -1 && state.ptr;
+		if (removing) {
+			RemoveTab(tab, pos);
+			configured &= ~(1 << tabStateIndex);
+		} else {
+			AddTab(tab, pos);
+			configured |= 1 << tabStateIndex;
+		}
+
+		RECT rc;
+		GetClientRect(m_hDlg, &rc);
+		UpdateSize(rc.right - rc.left, rc.bottom - rc.top);
+	};
+
+	switch (TriggerContextMenu(ContextMenuID::GEDBG_TABS, m_hDlg, ContextPoint::FromCursor())) {
+	case ID_GEDBG_SHOWONLEFT:
+		toggleState(GEPanelIndex::LEFT, GETabPosition::LEFT, g_Config.uGETabsLeft);
+		break;
+
+	case ID_GEDBG_SHOWONRIGHT:
+		toggleState(GEPanelIndex::RIGHT, GETabPosition::RIGHT, g_Config.uGETabsRight);
+		break;
+
+	case ID_GEDBG_SHOWONTOPRIGHT:
+		toggleState(GEPanelIndex::TOPRIGHT, GETabPosition::TOPRIGHT, g_Config.uGETabsTopRight);
+		break;
+
+	default:
+		// Cancel, that's fine.
+		break;
+	}
 }
 
 void CGEDebugger::UpdateMenus() {

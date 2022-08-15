@@ -31,6 +31,7 @@ enum class ContextMenuID {
 	GEDBG_STATE = 7,
 	GEDBG_PREVIEW = 8,
 	GEDBG_MATRIX = 9,
+	GEDBG_TABS = 10,
 };
 
 struct ContextPoint {
