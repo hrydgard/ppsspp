@@ -383,11 +383,12 @@ void VR_EndFrame( engine_t* engine ) {
 		cylinder_layer.subImage.imageRect.extent.width = width;
 		cylinder_layer.subImage.imageRect.extent.height = height;
 		cylinder_layer.subImage.imageArrayIndex = 0;
+		float distance = vrConfig[VR_CONFIG_CANVAS_DISTANCE];
 		const XrVector3f axis = {0.0f, 1.0f, 0.0f};
 		XrVector3f pos = {
-				invViewTransform[0].position.x - sin(ToRadians(menuYaw)) * 6.0f,
+				invViewTransform[0].position.x - sin(ToRadians(menuYaw)) * distance,
 				invViewTransform[0].position.y,
-				invViewTransform[0].position.z - cos(ToRadians(menuYaw)) * 6.0f
+				invViewTransform[0].position.z - cos(ToRadians(menuYaw)) * distance
 		};
 		cylinder_layer.pose.orientation = XrQuaternionf_CreateFromVectorAngle(axis, ToRadians(menuYaw));
 		cylinder_layer.pose.position = pos;

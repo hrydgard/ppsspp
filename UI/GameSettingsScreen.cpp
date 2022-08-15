@@ -1119,6 +1119,7 @@ void GameSettingsScreen::CreateViews() {
 		vr6DoF->SetEnabledPtr(&g_Config.bEnableVR);
 		PopupSliderChoice *vrFieldOfView = vrSettings->Add(new PopupSliderChoice(&g_Config.iFieldOfViewPercentage, 100, 150, vr->T("Field of view scale", "Headset's field of view scale"), 10, screenManager(), vr->T("% of native FoV")));
 		vrFieldOfView->SetEnabledPtr(&g_Config.bEnableVR);
+		vrSettings->Add(new PopupSliderChoice(&g_Config.iCanvasDistance, 1, 10, vr->T("Distance to 2D menus and scenes", "Distance to 2D menus and scenes"), 1, screenManager(), ""));
 	}
 }
 
