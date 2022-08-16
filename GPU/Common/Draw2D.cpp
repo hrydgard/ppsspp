@@ -68,24 +68,56 @@ void GenerateDraw2DVS(char *buffer, const ShaderLanguageDesc &lang) {
 	writer.EndVSMain(varyings);
 }
 
-// verts have positions in clip coordinates.
+void FramebufferManagerCommon::Ensure2DResources() {
+	using namespace Draw;
+
+	const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
+
+	if (!draw2DVs_) {
+		char *vsCode = new char[4000];
+		GenerateDraw2DVS(vsCode, shaderLanguageDesc);
+		draw2DVs_ = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)vsCode, strlen(vsCode), "draw2d_vs");
+		_assert_(draw2DVs_);
+		delete[] vsCode;
+	}
+
+	if (!draw2DSamplerLinear_) {
+		SamplerStateDesc descLinear{};
+		descLinear.magFilter = TextureFilter::LINEAR;
+		descLinear.minFilter = TextureFilter::LINEAR;
+		descLinear.mipFilter = TextureFilter::LINEAR;
+		descLinear.wrapU = TextureAddressMode::CLAMP_TO_EDGE;
+		descLinear.wrapV = TextureAddressMode::CLAMP_TO_EDGE;
+		draw2DSamplerLinear_ = draw_->CreateSamplerState(descLinear);
+	}
+
+	if (!draw2DSamplerNearest_) {
+		SamplerStateDesc descNearest{};
+		descNearest.magFilter = TextureFilter::NEAREST;
+		descNearest.minFilter = TextureFilter::NEAREST;
+		descNearest.mipFilter = TextureFilter::NEAREST;
+		descNearest.wrapU = TextureAddressMode::CLAMP_TO_EDGE;
+		descNearest.wrapV = TextureAddressMode::CLAMP_TO_EDGE;
+		draw2DSamplerNearest_ = draw_->CreateSamplerState(descNearest);
+	}
+}
+
 void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, RasterChannel channel) {
 	using namespace Draw;
 
-	if (!draw2DPipelineColor_) {
-		const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
+	Ensure2DResources();
 
+	const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
+
+	if (!draw2DPipelineColor_) {
 		char *fsCode = new char[4000];
 		char *fsDepthCode = new char[4000];
-		char *vsCode = new char[4000];
 		GenerateDraw2DFs(fsCode, shaderLanguageDesc);
 		GenerateDraw2DDepthFs(fsDepthCode, shaderLanguageDesc);
-		GenerateDraw2DVS(vsCode, shaderLanguageDesc);
 
 		draw2DFs_ = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), "draw2d_fs");
-		draw2DVs_ = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)vsCode, strlen(vsCode), "draw2d_vs");
 
-		_assert_(draw2DFs_ && draw2DVs_);
+		_assert_(draw2DFs_);
 
 		if (draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
 			draw2DFsDepth_ = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsDepthCode, strlen(fsDepthCode), "draw2d_depth_fs");
@@ -94,7 +126,8 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 			draw2DFsDepth_ = nullptr;
 		}
 
-		InputLayoutDesc desc = {
+		// verts have positions in 2D clip coordinates.
+		static const InputLayoutDesc desc = {
 			{
 				{ 16, false },
 			},
@@ -139,7 +172,6 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 		}
 
 		delete[] fsCode;
-		delete[] vsCode;
 
 		rasterNoCull->Release();
 		blendOff->Release();
@@ -147,29 +179,20 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 		noDepthStencil->Release();
 		depthWriteAlways->Release();
 		inputLayout->Release();
-
-		SamplerStateDesc descLinear{};
-		descLinear.magFilter = TextureFilter::LINEAR;
-		descLinear.minFilter = TextureFilter::LINEAR;
-		descLinear.mipFilter = TextureFilter::LINEAR;
-		descLinear.wrapU = TextureAddressMode::CLAMP_TO_EDGE;
-		descLinear.wrapV = TextureAddressMode::CLAMP_TO_EDGE;
-		draw2DSamplerLinear_= draw_->CreateSamplerState(descLinear);
-
-		SamplerStateDesc descNearest{};
-		descLinear.magFilter = TextureFilter::NEAREST;
-		descLinear.minFilter = TextureFilter::NEAREST;
-		descLinear.mipFilter = TextureFilter::NEAREST;
-		descLinear.wrapU = TextureAddressMode::CLAMP_TO_EDGE;
-		descLinear.wrapV = TextureAddressMode::CLAMP_TO_EDGE;
-		draw2DSamplerNearest_ = draw_->CreateSamplerState(descNearest);
 	}
 
-	if (channel == RASTER_DEPTH && !draw2DPipelineDepth_) {
-		return;
+	switch (channel) {
+	case RASTER_DEPTH:
+		if (!draw2DPipelineDepth_) {
+			return;
+		}
+		draw_->BindPipeline(draw2DPipelineDepth_);
+		break;
+	case RASTER_COLOR:
+		draw_->BindPipeline(draw2DPipelineColor_);
+		break;
 	}
 
-	draw_->BindPipeline(channel == RASTER_COLOR ? draw2DPipelineColor_ : draw2DPipelineDepth_);
 	if (tex) {
 		draw_->BindTextures(TEX_SLOT_PSP_TEXTURE, 1, &tex);
 	}
