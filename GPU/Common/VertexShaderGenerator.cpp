@@ -151,6 +151,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			gl_exts.push_back("#extension GL_ARB_cull_distance : enable");
 		}
 	}
+#ifdef OPENXR
+	gl_exts.push_back("#extension GL_OVR_multiview2 : enable\nlayout(num_views=2) in;");
+#endif
 	ShaderWriter p(buffer, compat, ShaderStage::Vertex, gl_exts.data(), gl_exts.size());
 
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
@@ -421,10 +424,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 		WRITE(p, "};\n");
 	} else {
-#ifdef OPENXR
-		WRITE(p, "#define NUM_VIEWS 2\n");
-		WRITE(p, "#extension GL_OVR_multiview2 : enable\n");
-#endif
 		if (enableBones) {
 			const char * const * boneWeightDecl = boneWeightAttrDecl;
 			if (!strcmp(compat.attribute, "in")) {

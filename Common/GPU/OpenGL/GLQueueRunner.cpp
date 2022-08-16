@@ -111,7 +111,8 @@ static std::string GetInfoLog(GLuint name, Getiv getiv, GetLog getLog) {
 }
 
 int GLQueueRunner::GetStereoBufferIndex(const char *uniformName) {
-	if (strcmp(uniformName, "u_view") == 0) return 0;
+	if (!uniformName) return -1;
+	else if (strcmp(uniformName, "u_view") == 0) return 0;
 	else if (strcmp(uniformName, "u_proj") == 0) return 1;
 	else return -1;
 }
@@ -281,7 +282,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 #ifdef OPENXR
 				int location = -1;
 				int index = GetStereoBufferIndex(query.name);
-				if (index) {
+				if (index >= 0) {
 					std::string layout = GetStereoBufferLayout(query.name);
 					glUniformBlockBinding(program->program, glGetUniformBlockIndex(program->program, layout.c_str()), index);
 

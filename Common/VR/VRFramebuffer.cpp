@@ -16,14 +16,6 @@ double FromXrTime(const XrTime time) {
 	return (time * 1e-9);
 }
 
-typedef void(GL_APIENTRY* PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVRPROC)(
-		GLenum target,
-		GLenum attachment,
-		GLuint texture,
-		GLint level,
-		GLint baseViewIndex,
-		GLsizei numViews);
-
 /*
 ================================================================================
 
@@ -55,9 +47,19 @@ bool ovrFramebuffer_Create(
 	frameBuffer->Width = width;
 	frameBuffer->Height = height;
 
-	PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVRPROC glFramebufferTextureMultiviewOVR =
-			(PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVRPROC)eglGetProcAddress(
-					"glFramebufferTextureMultiviewOVR");
+	if (strstr((const char*)glGetString(GL_EXTENSIONS), "GL_OVR_multiview") == nullptr)
+	{
+		ALOGE("OpenGL ES 3.0 implementation does not support GL_OVR_multiview extension.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	typedef void (*PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR)(GLenum, GLenum, GLuint, GLint, GLint, GLsizei);
+	auto glFramebufferTextureMultiviewOVR = (PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR)eglGetProcAddress ("glFramebufferTextureMultiviewOVR");
+	if (!glFramebufferTextureMultiviewOVR)
+	{
+		ALOGE("Can not get proc address for glFramebufferTextureMultiviewOVR.\n");
+		exit(EXIT_FAILURE);
+	}
 
 	XrSwapchainCreateInfo swapChainCreateInfo;
 	memset(&swapChainCreateInfo, 0, sizeof(swapChainCreateInfo));
@@ -77,11 +79,9 @@ bool ovrFramebuffer_Create(
 	// Create the swapchain.
 	OXR(xrCreateSwapchain(session, &swapChainCreateInfo, &frameBuffer->ColorSwapChain.Handle));
 	// Get the number of swapchain images.
-	OXR(xrEnumerateSwapchainImages(
-			frameBuffer->ColorSwapChain.Handle, 0, &frameBuffer->TextureSwapChainLength, NULL));
+	OXR(xrEnumerateSwapchainImages(frameBuffer->ColorSwapChain.Handle, 0, &frameBuffer->TextureSwapChainLength, NULL));
 	// Allocate the swapchain images array.
-	frameBuffer->ColorSwapChainImage = (XrSwapchainImageOpenGLESKHR*)malloc(
-			frameBuffer->TextureSwapChainLength * sizeof(XrSwapchainImageOpenGLESKHR));
+	frameBuffer->ColorSwapChainImage = (XrSwapchainImageOpenGLESKHR*)malloc(frameBuffer->TextureSwapChainLength * sizeof(XrSwapchainImageOpenGLESKHR));
 
 	// Populate the swapchain image array.
 	for (uint32_t i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
@@ -94,10 +94,8 @@ bool ovrFramebuffer_Create(
 			&frameBuffer->TextureSwapChainLength,
 			(XrSwapchainImageBaseHeader*)frameBuffer->ColorSwapChainImage));
 
-	frameBuffer->DepthBuffers =
-			(GLuint*)malloc(frameBuffer->TextureSwapChainLength * sizeof(GLuint));
-	frameBuffer->FrameBuffers =
-			(GLuint*)malloc(frameBuffer->TextureSwapChainLength * sizeof(GLuint));
+	frameBuffer->DepthBuffers = (GLuint*)malloc(frameBuffer->TextureSwapChainLength * sizeof(GLuint));
+	frameBuffer->FrameBuffers = (GLuint*)malloc(frameBuffer->TextureSwapChainLength * sizeof(GLuint));
 
 	for (uint32_t i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
 		// Create the color buffer texture.

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-	xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-feature android:glEsVersion="0x00030001" />
     <uses-feature android:name="android.hardware.vr.headtracking" android:version="1" android:required="true" />
 
     <application
