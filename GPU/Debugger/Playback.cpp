@@ -367,6 +367,7 @@ bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
 		Memory::Write_U32((GE_CMD_JUMP << 24) | (execListBuf & 0x00FFFFFF), execListPos + 4);
 
 		execListPos = execListBuf;
+		lastBase_ = execListBuf & 0xFF000000;
 
 		// Don't continue until we've stalled.
 		SyncStall();
@@ -450,9 +451,9 @@ void DumpExecute::Vertices(u32 ptr, u32 sz) {
 		return;
 	}
 
-	if (lastBase_ != (psp & 0x0FF000000)) {
+	if (lastBase_ != (psp & 0xFF000000)) {
 		execListQueue.push_back((GE_CMD_BASE << 24) | ((psp >> 8) & 0x00FF0000));
-		lastBase_ = psp & 0x0FF000000;
+		lastBase_ = psp & 0xFF000000;
 	}
 	execListQueue.push_back((GE_CMD_VADDR << 24) | (psp & 0x00FFFFFF));
 }
@@ -464,9 +465,9 @@ void DumpExecute::Indices(u32 ptr, u32 sz) {
 		return;
 	}
 
-	if (lastBase_ != (psp & 0x0FF000000)) {
+	if (lastBase_ != (psp & 0xFF000000)) {
 		execListQueue.push_back((GE_CMD_BASE << 24) | ((psp >> 8) & 0x00FF0000));
-		lastBase_ = psp & 0x0FF000000;
+		lastBase_ = psp & 0xFF000000;
 	}
 	execListQueue.push_back((GE_CMD_IADDR << 24) | (psp & 0x00FFFFFF));
 }

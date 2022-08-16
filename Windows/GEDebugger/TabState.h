@@ -57,7 +57,7 @@ public:
 	TabStateValues(const TabStateRow *rows, int rowCount, LPCSTR dialogID, HINSTANCE _hInstance, HWND _hParent);
 	~TabStateValues();
 
-	virtual void Update() {
+	void Update() override {
 		values->Update();
 	}
 
