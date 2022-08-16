@@ -451,8 +451,8 @@ void System_SendMessage(const char *command, const char *parameter) {
 		picker->FileTypeFilter->Append(".iso");
 
 		// Can't load these this way currently, they require mounting the underlying folder.
-		// picker->FileTypeFilter->Append(".bin");
-		// picker->FileTypeFilter->Append(".elf");
+		picker->FileTypeFilter->Append(".bin");
+		picker->FileTypeFilter->Append(".elf");
 		picker->SuggestedStartLocation = Pickers::PickerLocationId::DocumentsLibrary;
 
 		create_task(picker->PickSingleFileAsync()).then([](StorageFile ^file){
