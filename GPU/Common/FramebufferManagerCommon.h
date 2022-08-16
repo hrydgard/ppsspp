@@ -482,8 +482,6 @@ protected:
 	// Common implementation of stencil buffer upload. Also not 100% optimal, but not perforamnce
 	// critical either.
 	Draw::Pipeline *stencilUploadPipeline_ = nullptr;
-	Draw::ShaderModule *stencilUploadVs_ = nullptr;
-	Draw::ShaderModule *stencilUploadFs_ = nullptr;
 	Draw::SamplerState *stencilUploadSampler_ = nullptr;
 
 	// Draw2D pipelines
