@@ -531,10 +531,6 @@ void DrawEngineVulkan::DoFlush() {
 
 	gpuStats.numFlushes++;
 	
-	// TODO: Needs to be behind a check for changed render pass, at an appropriate time in this function.
-	// Similar issues as with the lastRenderStepId_ check. Will need a bit of a rethink.
-	lastPipeline_ = nullptr;
-
 	// If have a new render pass, dirty our dynamic state so it gets re-set.
 	// We have to do this again after the last possible place in DoFlush that can cause a renderpass switch
 	// like a shader blend blit or similar. But before we actually set the state!
@@ -544,6 +540,7 @@ void DrawEngineVulkan::DoFlush() {
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 		textureCache_->ForgetLastTexture();
 		lastRenderStepId_ = curRenderStepId;
+		lastPipeline_ = nullptr;
 	}
 
 	bool tess = gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE;
