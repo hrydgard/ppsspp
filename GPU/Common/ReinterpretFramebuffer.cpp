@@ -150,15 +150,13 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 		return;
 	}
 
-	char *vsCode = nullptr;
-	char *fsCode = nullptr;
-
 	if (!reinterpretVS_) {
-		vsCode = new char[4000];
+		char *vsCode = new char[4000];
 		const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
 		GenerateReinterpretVertexShader(vsCode, shaderLanguageDesc);
 		reinterpretVS_ = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)vsCode, strlen(vsCode), "reinterpret_vs");
 		_assert_(reinterpretVS_);
+		delete[] vsCode;
 	}
 
 	if (!reinterpretSampler_) {
@@ -176,11 +174,12 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 
 	Draw::Pipeline *pipeline = reinterpretFromTo_[(int)oldFormat][(int)newFormat];
 	if (!pipeline) {
-		fsCode = new char[4000];
+		char *fsCode = new char[4000];
 		const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
 		GenerateReinterpretFragmentShader(fsCode, oldFormat, newFormat, shaderLanguageDesc);
 		Draw::ShaderModule *reinterpretFS = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), "reinterpret_fs");
 		_assert_(reinterpretFS);
+		delete[] fsCode;
 
 		std::vector<Draw::ShaderModule *> shaders;
 		shaders.push_back(reinterpretVS_);
@@ -239,6 +238,4 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 		// In case ReinterpretFramebuffer was called from the texture manager.
 		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "After reinterpret");
 	}
-	delete[] vsCode;
-	delete[] fsCode;
 }
