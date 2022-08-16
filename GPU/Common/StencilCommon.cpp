@@ -123,7 +123,6 @@ void GenerateStencilVs(char *buffer, const ShaderLanguageDesc &lang) {
 		writer.C("  v_texcoord = a_position * 2.0;\n");    // yes, this should be right. Should be 2.0 in the far corners.
 	}
 	writer.C("  gl_Position = vec4(v_texcoord * 2.0 - vec2(1.0, 1.0), 0.0, 1.0);\n");
-	writer.F("  gl_Position.y *= %s1.0;\n", lang.viewportYSign);
 
 	writer.EndVSMain(varyings);
 }

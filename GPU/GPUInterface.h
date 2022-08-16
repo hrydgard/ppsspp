@@ -253,8 +253,8 @@ public:
 	virtual void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) = 0;
 	virtual const std::list<int>& GetDisplayLists() = 0;
 	// TODO: Currently Qt only, needs to be cleaned up.
-	virtual std::vector<FramebufferInfo> GetFramebufferList() = 0;
-	virtual s64 GetListTicks(int listid) = 0;
+	virtual std::vector<FramebufferInfo> GetFramebufferList() const = 0;
+	virtual s64 GetListTicks(int listid) const = 0;
 
 	// For debugging. The IDs returned are opaque, do not poke in them or display them in any way.
 	virtual std::vector<std::string> DebugGetShaderIDs(DebugShaderType type) = 0;
