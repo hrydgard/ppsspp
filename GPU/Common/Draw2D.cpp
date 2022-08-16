@@ -40,7 +40,7 @@ static const SamplerDef samplers[1] = {
 };
 
 void GenerateDraw2DFs(char *buffer, const ShaderLanguageDesc &lang) {
-	ShaderWriter writer(buffer, lang, ShaderStage::Fragment, nullptr, 0);
+	ShaderWriter writer(buffer, lang, ShaderStage::Fragment);
 	writer.DeclareSamplers(samplers);
 	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_NONE);
 	writer.C("  vec4 outColor = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
@@ -48,7 +48,7 @@ void GenerateDraw2DFs(char *buffer, const ShaderLanguageDesc &lang) {
 }
 
 void GenerateDraw2DDepthFs(char *buffer, const ShaderLanguageDesc &lang) {
-	ShaderWriter writer(buffer, lang, ShaderStage::Fragment, nullptr, 0);
+	ShaderWriter writer(buffer, lang, ShaderStage::Fragment);
 	writer.DeclareSamplers(samplers);
 	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_WRITEDEPTH);
 	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
@@ -57,13 +57,12 @@ void GenerateDraw2DDepthFs(char *buffer, const ShaderLanguageDesc &lang) {
 }
 
 void GenerateDraw2DVS(char *buffer, const ShaderLanguageDesc &lang) {
-	ShaderWriter writer(buffer, lang, ShaderStage::Vertex, nullptr, 0);
+	ShaderWriter writer(buffer, lang, ShaderStage::Vertex);
 
 	writer.BeginVSMain(inputs, Slice<UniformDef>::empty(), varyings);
 
 	writer.C("  v_texcoord = a_texcoord0;\n");    // yes, this should be right. Should be 2.0 in the far corners.
 	writer.C("  gl_Position = vec4(a_position, 0.0, 1.0);\n");
-	writer.F("  gl_Position.y *= %s1.0;\n", lang.viewportYSign);
 
 	writer.EndVSMain(varyings);
 }

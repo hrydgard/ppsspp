@@ -20,12 +20,10 @@ static const SamplerDef samplers[1] = {
 // TODO: We could possibly have an option to preserve any extra color precision? But gonna start without it.
 // Requires full size integer math. It would be possible to make a floating point-only version with lots of
 // modulo and stuff, might do it one day.
-bool GenerateReinterpretFragmentShader(char *buffer, GEBufferFormat from, GEBufferFormat to, const ShaderLanguageDesc &lang) {
-	if (!lang.bitwiseOps) {
-		return false;
-	}
+void GenerateReinterpretFragmentShader(char *buffer, GEBufferFormat from, GEBufferFormat to, const ShaderLanguageDesc &lang) {
+	_assert_(lang.bitwiseOps);
 
-	ShaderWriter writer(buffer, lang, ShaderStage::Fragment, nullptr, 0);
+	ShaderWriter writer(buffer, lang, ShaderStage::Fragment);
 
 	writer.HighPrecisionFloat();
 
@@ -72,26 +70,19 @@ bool GenerateReinterpretFragmentShader(char *buffer, GEBufferFormat from, GEBuff
 	}
 
 	writer.EndFSMain("outColor", FSFLAG_NONE);
-	return true;
 }
 
-bool GenerateReinterpretVertexShader(char *buffer, const ShaderLanguageDesc &lang) {
-	if (!lang.bitwiseOps) {
-		return false;
-	}
-	ShaderWriter writer(buffer, lang, ShaderStage::Vertex, nullptr, 0);
+void GenerateReinterpretVertexShader(char *buffer, const ShaderLanguageDesc &lang) {
+	_assert_(lang.bitwiseOps);
+	ShaderWriter writer(buffer, lang, ShaderStage::Vertex);
 
 	writer.BeginVSMain(Slice<InputDef>::empty(), Slice<UniformDef>::empty(), varyings);
 
 	writer.C("  float x = -1.0 + float((gl_VertexIndex & 1) << 2);\n");
 	writer.C("  float y = -1.0 + float((gl_VertexIndex & 2) << 1);\n");
 	writer.C("  v_texcoord = (vec2(x, y) + vec2(1.0, 1.0)) * 0.5;\n");
-	if (strlen(lang.viewportYSign)) {
-		writer.F("  y *= %s1.0;\n", lang.viewportYSign);
-	}
 	writer.C("  gl_Position = vec4(x, y, 0.0, 1.0);\n");
 	writer.EndVSMain(varyings);
-	return true;
 }
 
 
