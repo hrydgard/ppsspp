@@ -61,6 +61,4 @@ private:
 	int u_depthDownloadFactor = -1;
 	int u_depthDownloadShift = -1;
 	int u_depthDownloadTo8 = -1;
-	
-	DrawEngineGLES *drawEngineGL_ = nullptr;
 };

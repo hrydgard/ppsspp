@@ -249,7 +249,7 @@ public:
 		}
 	}
 	void RebindFramebuffer(const char *tag);
-	std::vector<FramebufferInfo> GetFramebufferList();
+	std::vector<FramebufferInfo> GetFramebufferList() const;
 
 	void CopyDisplayToOutput(bool reallyDirty);
 
@@ -276,25 +276,25 @@ public:
 
 	size_t NumVFBs() const { return vfbs_.size(); }
 
-	u32 PrevDisplayFramebufAddr() {
+	u32 PrevDisplayFramebufAddr() const {
 		return prevDisplayFramebuf_ ? prevDisplayFramebuf_->fb_address : 0;
 	}
-	u32 DisplayFramebufAddr() {
+	u32 DisplayFramebufAddr() const {
 		return displayFramebuf_ ? displayFramebuf_->fb_address : 0;
 	}
 
-	u32 DisplayFramebufStride() {
+	u32 DisplayFramebufStride() const {
 		return displayFramebuf_ ? displayStride_ : 0;
 	}
-	GEBufferFormat DisplayFramebufFormat() {
+	GEBufferFormat DisplayFramebufFormat() const {
 		return displayFramebuf_ ? displayFormat_ : GE_FORMAT_INVALID;
 	}
 
-	bool UseBufferedRendering() {
+	bool UseBufferedRendering() const {
 		return useBufferedRendering_;
 	}
 
-	bool MayIntersectFramebuffer(u32 start) {
+	bool MayIntersectFramebuffer(u32 start) const {
 		// Clear the cache/kernel bits.
 		start = start & 0x3FFFFFFF;
 		// Most games only have two framebuffers at the start.
@@ -308,8 +308,8 @@ public:
 		return currentRenderVfb_;
 	}
 	// TODO: Break out into some form of FBO manager
-	VirtualFramebuffer *GetVFBAt(u32 addr);
-	VirtualFramebuffer *GetDisplayVFB() {
+	VirtualFramebuffer *GetVFBAt(u32 addr) const;
+	VirtualFramebuffer *GetDisplayVFB() const {
 		return GetVFBAt(displayFramebufPtr_);
 	}
 
@@ -349,7 +349,7 @@ public:
 	virtual bool GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer);
 	virtual bool GetOutputFramebuffer(GPUDebugBuffer &buffer);
 
-	const std::vector<VirtualFramebuffer *> &Framebuffers() {
+	const std::vector<VirtualFramebuffer *> &Framebuffers() const {
 		return vfbs_;
 	}
 	void ReinterpretFramebuffer(VirtualFramebuffer *vfb, GEBufferFormat oldFormat, GEBufferFormat newFormat);

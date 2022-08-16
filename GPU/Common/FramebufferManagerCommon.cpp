@@ -114,7 +114,7 @@ void FramebufferManagerCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, G
 	GPURecord::NotifyDisplay(framebuf, stride, format);
 }
 
-VirtualFramebuffer *FramebufferManagerCommon::GetVFBAt(u32 addr) {
+VirtualFramebuffer *FramebufferManagerCommon::GetVFBAt(u32 addr) const {
 	addr &= 0x3FFFFFFF;
 	VirtualFramebuffer *match = nullptr;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
@@ -2480,7 +2480,7 @@ void FramebufferManagerCommon::RebindFramebuffer(const char *tag) {
 	}
 }
 
-std::vector<FramebufferInfo> FramebufferManagerCommon::GetFramebufferList() {
+std::vector<FramebufferInfo> FramebufferManagerCommon::GetFramebufferList() const {
 	std::vector<FramebufferInfo> list;
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {

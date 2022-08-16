@@ -230,11 +230,11 @@ public:
 	const std::list<int>& GetDisplayLists() override {
 		return dlQueue;
 	}
-	std::vector<FramebufferInfo> GetFramebufferList() override;
+	std::vector<FramebufferInfo> GetFramebufferList() const override;
 	void ClearShaderCache() override {}
 	void CleanupBeforeUI() override {}
 
-	s64 GetListTicks(int listid) override {
+	s64 GetListTicks(int listid) const override {
 		if (listid >= 0 && listid < DisplayListMaxCount) {
 			return dls[listid].waitTicks;
 		}
