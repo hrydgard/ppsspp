@@ -207,10 +207,10 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 		GenerateStencilFs(fsCode, shaderLanguageDesc, draw_->GetBugs());
 		GenerateStencilVs(vsCode, shaderLanguageDesc);
 
-		stencilUploadFs_ = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), "stencil_fs");
-		stencilUploadVs_ = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)vsCode, strlen(vsCode), "stencil_vs");
+		ShaderModule *stencilUploadFs = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), "stencil_fs");
+		ShaderModule *stencilUploadVs = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)vsCode, strlen(vsCode), "stencil_vs");
 
-		_assert_(stencilUploadFs_ && stencilUploadVs_);
+		_assert_(stencilUploadFs && stencilUploadVs);
 
 		InputLayoutDesc desc = {
 			{
@@ -234,7 +234,7 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 
 		PipelineDesc stencilWriteDesc{
 			Primitive::TRIANGLE_LIST,
-			{ stencilUploadVs_, stencilUploadFs_ },
+			{ stencilUploadVs, stencilUploadFs },
 			inputLayout, stencilWrite, blendOff, rasterNoCull, &stencilUBDesc,
 		};
 		stencilUploadPipeline_ = draw_->CreateGraphicsPipeline(stencilWriteDesc);
@@ -247,6 +247,9 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 		blendOff->Release();
 		stencilWrite->Release();
 		inputLayout->Release();
+
+		stencilUploadFs->Release();
+		stencilUploadVs->Release();
 
 		SamplerStateDesc descNearest{};
 		stencilUploadSampler_ = draw_->CreateSamplerState(descNearest);

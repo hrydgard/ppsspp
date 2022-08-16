@@ -482,8 +482,6 @@ protected:
 	// Common implementation of stencil buffer upload. Also not 100% optimal, but not perforamnce
 	// critical either.
 	Draw::Pipeline *stencilUploadPipeline_ = nullptr;
-	Draw::ShaderModule *stencilUploadVs_ = nullptr;
-	Draw::ShaderModule *stencilUploadFs_ = nullptr;
 	Draw::SamplerState *stencilUploadSampler_ = nullptr;
 
 	// Draw2D pipelines
@@ -492,6 +490,5 @@ protected:
 	Draw::SamplerState *draw2DSamplerLinear_ = nullptr;
 	Draw::SamplerState *draw2DSamplerNearest_ = nullptr;
 	Draw::ShaderModule *draw2DVs_ = nullptr;
-	Draw::ShaderModule *draw2DFs_ = nullptr;
-	Draw::ShaderModule *draw2DFsDepth_ = nullptr;
+	// The fragment shaders are "owned" by the pipelines since they're 1:1.
 };

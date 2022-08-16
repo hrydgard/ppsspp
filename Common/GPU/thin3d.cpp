@@ -66,10 +66,15 @@ bool DataFormatIsDepthStencil(DataFormat fmt) {
 	}
 }
 
+RefCountedObject::~RefCountedObject() {
+	_dbg_assert_(refcount_ == 0xDEDEDE);
+}
 
 bool RefCountedObject::Release() {
 	if (refcount_ > 0 && refcount_ < 10000) {
 		if (--refcount_ == 0) {
+			// Make it very obvious if we try to free this again.
+			refcount_ = 0xDEDEDE;
 			delete this;
 			return true;
 		}

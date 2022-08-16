@@ -2351,6 +2351,9 @@ static void DoRelease(T *&obj) {
 
 void FramebufferManagerCommon::DeviceLost() {
 	DestroyAllFBOs();
+
+	presentation_->DeviceLost();
+
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 3; j++) {
 			DoRelease(reinterpretFromTo_[i][j]);
@@ -2359,18 +2362,14 @@ void FramebufferManagerCommon::DeviceLost() {
 	DoRelease(reinterpretVBuf_);
 	DoRelease(reinterpretSampler_);
 	DoRelease(reinterpretVS_);
-	DoRelease(stencilUploadFs_);
-	DoRelease(stencilUploadVs_);
 	DoRelease(stencilUploadSampler_);
 	DoRelease(stencilUploadPipeline_);
-	DoRelease(draw2DPipelineColor_);
-	DoRelease(draw2DPipelineDepth_);
 	DoRelease(draw2DSamplerNearest_);
 	DoRelease(draw2DSamplerLinear_);
 	DoRelease(draw2DVs_);
-	DoRelease(draw2DFs_);
-	DoRelease(draw2DFsDepth_);
-	presentation_->DeviceLost();
+	DoRelease(draw2DPipelineColor_);
+	DoRelease(draw2DPipelineDepth_);
+
 	draw_ = nullptr;
 }
 
