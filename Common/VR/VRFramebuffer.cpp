@@ -70,8 +70,12 @@ bool ovrFramebuffer_Create(
 	swapChainCreateInfo.width = width;
 	swapChainCreateInfo.height = height;
 	swapChainCreateInfo.faceCount = 1;
-	swapChainCreateInfo.arraySize = 2;
 	swapChainCreateInfo.mipCount = 1;
+#ifdef OPENXR_MULTIVIEW
+	swapChainCreateInfo.arraySize = 2;
+#else
+	swapChainCreateInfo.arraySize = 1;
+#endif
 
 	frameBuffer->ColorSwapChain.Width = swapChainCreateInfo.width;
 	frameBuffer->ColorSwapChain.Height = swapChainCreateInfo.height;
@@ -98,6 +102,7 @@ bool ovrFramebuffer_Create(
 	frameBuffer->FrameBuffers = (GLuint*)malloc(frameBuffer->TextureSwapChainLength * sizeof(GLuint));
 
 	for (uint32_t i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
+#ifdef OPENXR_MULTIVIEW
 		// Create the color buffer texture.
 		const GLuint colorTexture = frameBuffer->ColorSwapChainImage[i].image;
 
@@ -126,6 +131,35 @@ bool ovrFramebuffer_Create(
 			ALOGE("Incomplete frame buffer object: %d", renderFramebufferStatus);
 			return false;
 		}
+#else
+		// Create the color buffer texture.
+		const GLuint colorTexture = frameBuffer->ColorSwapChainImage[i].image;
+		GLenum colorTextureTarget = GL_TEXTURE_2D;
+		GL(glBindTexture(colorTextureTarget, colorTexture));
+		GL(glTexParameteri(colorTextureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+		GL(glTexParameteri(colorTextureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+		GL(glTexParameteri(colorTextureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+		GL(glTexParameteri(colorTextureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+		GL(glBindTexture(colorTextureTarget, 0));
+
+		// Create depth buffer.
+		GL(glGenRenderbuffers(1, &frameBuffer->DepthBuffers[i]));
+		GL(glBindRenderbuffer(GL_RENDERBUFFER, frameBuffer->DepthBuffers[i]));
+		GL(glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height));
+		GL(glBindRenderbuffer(GL_RENDERBUFFER, 0));
+
+		// Create the frame buffer.
+		GL(glGenFramebuffers(1, &frameBuffer->FrameBuffers[i]));
+		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->FrameBuffers[i]));
+		GL(glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, frameBuffer->DepthBuffers[i]));
+		GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0));
+		GL(GLenum renderFramebufferStatus = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER));
+		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0));
+		if (renderFramebufferStatus != GL_FRAMEBUFFER_COMPLETE) {
+			ALOGE("Incomplete frame buffer object: %d", renderFramebufferStatus);
+			return false;
+		}
+#endif
 	}
 
 	return true;
@@ -170,7 +204,7 @@ void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
 	waitInfo.timeout = 1000; /* timeout in nanoseconds */
 	XrResult res = xrWaitSwapchainImage(frameBuffer->ColorSwapChain.Handle, &waitInfo);
 	int i = 0;
-	while (res != XR_SUCCESS) {
+	while ((res != XR_SUCCESS) && (i < 10)) {
 		res = xrWaitSwapchainImage(frameBuffer->ColorSwapChain.Handle, &waitInfo);
 		i++;
 		ALOGV(

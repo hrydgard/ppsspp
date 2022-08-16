@@ -46,7 +46,11 @@ bool AndroidEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int des
 	}
 	gl->MakeCurrent();
 	if (gl->GetMode() == GLInterfaceMode::MODE_OPENGL)
+#ifdef OPENXR
+		SetGLCoreContext(false);
+#else
 		SetGLCoreContext(true);
+#endif
 	CheckGLExtensions();
 	draw_ = Draw::T3DCreateGLContext();
 	SetGPUBackend(GPUBackend::OPENGL);

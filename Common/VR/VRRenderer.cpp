@@ -328,7 +328,7 @@ void VR_EndFrame( engine_t* engine ) {
 	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer;
 	//TODO:ovrFramebuffer_Resolve(frameBuffer);
 	ovrFramebuffer_Release(frameBuffer);
-	ovrFramebuffer_SetNone();
+	//TODO:ovrFramebuffer_SetNone();
 
 	XrCompositionLayerProjectionView projection_layer_elements[2] = {};
 	int vrMode = vrConfig[VR_CONFIG_MODE];

@@ -151,7 +151,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			gl_exts.push_back("#extension GL_ARB_cull_distance : enable");
 		}
 	}
-#ifdef OPENXR
+#ifdef OPENXR_MULTIVIEW
 	gl_exts.push_back("#extension GL_OVR_multiview2 : enable\nlayout(num_views=2) in;");
 #endif
 	ShaderWriter p(buffer, compat, ShaderStage::Vertex, gl_exts.data(), gl_exts.size());
@@ -472,7 +472,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "uniform mat4 u_proj_through;\n");
 			*uniformMask |= DIRTY_PROJTHROUGHMATRIX;
 		} else if (useHWTransform) {
-#ifdef OPENXR
+#ifdef OPENXR_MULTIVIEW
 			WRITE(p, "layout(shared) uniform ProjectionMatrix { uniform mat4 u_proj; };\n");
 #else
 			WRITE(p, "uniform mat4 u_proj;\n");
@@ -484,7 +484,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			// When transforming by hardware, we need a great deal more uniforms...
 			// TODO: Use 4x3 matrices where possible. Though probably doesn't matter much.
 			WRITE(p, "uniform mat4 u_world;\n");
-#ifdef OPENXR
+#ifdef OPENXR_MULTIVIEW
 			WRITE(p, "layout(shared) uniform ViewMatrices { uniform mat4 u_view; };\n");
 #else
 			WRITE(p, "uniform mat4 u_view;\n");
@@ -912,7 +912,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		std::string matrixPostfix;
-#ifdef OPENXR
+#ifdef OPENXR_MULTIVIEW
 		matrixPostfix = "[gl_ViewID_OVR]";
 #endif
 

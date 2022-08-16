@@ -279,7 +279,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 			for (size_t j = 0; j < program->queries_.size(); j++) {
 				auto &query = program->queries_[j];
 				_dbg_assert_(query.name);
-#ifdef OPENXR
+#ifdef OPENXR_MULTIVIEW
 				int location = -1;
 				int index = GetStereoBufferIndex(query.name);
 				if (index >= 0) {
@@ -1040,11 +1040,13 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			}
 			if (loc >= 0) {
 				int size = 2 * 16 * sizeof(float);
-				GLuint layout = GetStereoBufferIndex(c.uniformMatrix4.name);
+				int layout = GetStereoBufferIndex(c.uniformMatrix4.name);
 				glBindBufferBase(GL_UNIFORM_BUFFER, layout, loc);
 				glBindBuffer(GL_UNIFORM_BUFFER, loc);
 				void *viewMatrices = glMapBufferRange(GL_UNIFORM_BUFFER, 0, size, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
-				memcpy(viewMatrices, c.uniformMatrix4.m, size);
+				if (viewMatrices) {
+					memcpy(viewMatrices, c.uniformMatrix4.m, size);
+				}
 				glUnmapBuffer(GL_UNIFORM_BUFFER);
 				glBindBuffer(GL_UNIFORM_BUFFER, 0);
 			}
