@@ -275,7 +275,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	// As there are no clear "framebuffer width" and "framebuffer height" registers,
 	// we need to infer the size of the current framebuffer somehow.
 	int drawing_width, drawing_height;
-	EstimateDrawingSize(params.fb_address, params.fmt, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, std::max(params.fb_stride, 4), drawing_width, drawing_height);
+	EstimateDrawingSize(params.fb_address, params.fmt, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, std::max(params.fb_stride, (u16)4), drawing_width, drawing_height);
 
 	gstate_c.SetCurRTOffset(0, 0);
 	bool vfbFormatChanged = false;
@@ -530,6 +530,9 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		NotifyRenderFramebufferUpdated(vfb, vfbFormatChanged);
 	}
 
+	vfb->colorBindSeq = GetBindSeqCount();
+	vfb->depthBindSeq = GetBindSeqCount();
+
 	gstate_c.curRTWidth = vfb->width;
 	gstate_c.curRTHeight = vfb->height;
 	gstate_c.curRTRenderWidth = vfb->renderWidth;
@@ -692,8 +695,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer
 void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
 	if (ShouldDownloadFramebuffer(vfb) && !vfb->memoryUpdated) {
 		ReadFramebufferToMemory(vfb, 0, 0, vfb->width, vfb->height);
-		vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
-		vfb->firstFrameSaved = true;
+		vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
 	} else {
 		DownloadFramebufferOnSwitch(prevVfb);
 	}
@@ -1026,14 +1028,13 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 }
 
 void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb) {
-	if (vfb && vfb->safeWidth > 0 && vfb->safeHeight > 0 && !vfb->firstFrameSaved && !vfb->memoryUpdated) {
+	if (vfb && vfb->safeWidth > 0 && vfb->safeHeight > 0 && !(vfb->usageFlags & FB_USAGE_FIRST_FRAME_SAVED) && !vfb->memoryUpdated) {
 		// Some games will draw to some memory once, and use it as a render-to-texture later.
 		// To support this, we save the first frame to memory when we have a safe w/h.
 		// Saving each frame would be slow.
 		if (!g_Config.bDisableSlowFramebufEffects && !PSP_CoreParameter().compat.flags().DisableFirstFrameReadback) {
 			ReadFramebufferToMemory(vfb, 0, 0, vfb->safeWidth, vfb->safeHeight);
-			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
-			vfb->firstFrameSaved = true;
+			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
 			vfb->safeWidth = 0;
 			vfb->safeHeight = 0;
 		}
@@ -1198,8 +1199,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 
 		if (ShouldDownloadFramebuffer(vfb) && age == 0 && !vfb->memoryUpdated) {
 			ReadFramebufferToMemory(vfb, 0, 0, vfb->width, vfb->height);
-			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
-			vfb->firstFrameSaved = true;
+			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
 		}
 
 		// Let's also "decimate" the usageFlags.
@@ -1286,7 +1286,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	}
 
 	if (force1x && g_Config.iInternalResolution != 1) {
-		vfb->renderScaleFactor = 1.0f;
+		vfb->renderScaleFactor = 1;
 		vfb->renderWidth = vfb->bufferWidth;
 		vfb->renderHeight = vfb->bufferHeight;
 	} else {
@@ -1654,7 +1654,7 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 		nvfb->height = vfb->height;
 		nvfb->renderWidth = vfb->bufferWidth;
 		nvfb->renderHeight = vfb->bufferHeight;
-		nvfb->renderScaleFactor = 1.0f;  // For readbacks we resize to the original size, of course.
+		nvfb->renderScaleFactor = 1;  // For readbacks we resize to the original size, of course.
 		nvfb->bufferWidth = vfb->bufferWidth;
 		nvfb->bufferHeight = vfb->bufferHeight;
 		nvfb->format = vfb->format;
@@ -2023,7 +2023,7 @@ void FramebufferManagerCommon::ShowScreenResolution() {
 // * Video file recording(would probably be great if it was async.)
 // * Screenshots(benefit slightly from async.)
 // * Save state screenshots(could probably be async but need to manage the stall.)
-bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes) {
+bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxScaleFactor) {
 	VirtualFramebuffer *vfb = currentRenderVfb_;
 	if (!vfb) {
 		vfb = GetVFBAt(fb_address);
@@ -2042,9 +2042,9 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 	Draw::Framebuffer *bound = nullptr;
 
 	if (vfb->fbo) {
-		if (maxRes > 0 && vfb->renderWidth > vfb->width * maxRes) {
-			w = vfb->width * maxRes;
-			h = vfb->height * maxRes;
+		if (maxScaleFactor > 0 && vfb->renderWidth > vfb->width * maxScaleFactor) {
+			w = vfb->width * maxScaleFactor;
+			h = vfb->height * maxScaleFactor;
 
 			Draw::Framebuffer *tempFBO = GetTempFBO(TempFBO::COPY, w, h);
 			VirtualFramebuffer tempVfb = *vfb;
@@ -2053,7 +2053,7 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 			tempVfb.bufferHeight = vfb->height;
 			tempVfb.renderWidth = w;
 			tempVfb.renderHeight = h;
-			tempVfb.renderScaleFactor = (float)maxRes;
+			tempVfb.renderScaleFactor = maxScaleFactor;
 			BlitFramebuffer(&tempVfb, 0, 0, vfb, 0, 0, vfb->width, vfb->height, 0, "Blit_GetFramebuffer");
 
 			bound = tempFBO;

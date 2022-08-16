@@ -84,7 +84,7 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 	// Pixel size always 4 here because we always request float
 	const u32 bufSize = vfb->z_stride * (h - y) * 4;
 	const u32 z_address = vfb->z_address;
-	const int packWidth = std::min(vfb->z_stride, std::min(x + w, (int)vfb->width));
+	const int packWidth = std::min((int)vfb->z_stride, std::min(x + w, (int)vfb->width));
 
 	if (!convBuf_ || convBufSize_ < bufSize) {
 		delete[] convBuf_;
