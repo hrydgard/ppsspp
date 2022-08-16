@@ -232,7 +232,6 @@ void GPU_D3D11::BeginFrame() {
 
 	textureCacheD3D11_->StartFrame();
 	drawEngine_.BeginFrame();
-	// fragmentTestCache_.Decimate();
 
 	shaderManagerD3D11_->DirtyLastShader();
 
@@ -255,9 +254,7 @@ void GPU_D3D11::CopyDisplayToOutput(bool reallyDirty) {
 	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], blendColor, 0xFFFFFFFF);
 
 	framebufferManagerD3D11_->CopyDisplayToOutput(reallyDirty);
-	framebufferManagerD3D11_->EndFrame();
 
-	// shaderManager_->EndFrame();
 	shaderManagerD3D11_->DirtyLastShader();
 
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);

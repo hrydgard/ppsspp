@@ -280,7 +280,6 @@ void GPU_DX9::ReapplyGfxState() {
 void GPU_DX9::BeginFrame() {
 	textureCacheDX9_->StartFrame();
 	drawEngine_.BeginFrame();
-	// fragmentTestCache_.Decimate();
 
 	GPUCommon::BeginFrame();
 	shaderManagerDX9_->DirtyShader();
