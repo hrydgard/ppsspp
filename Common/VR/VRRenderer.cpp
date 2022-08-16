@@ -177,6 +177,10 @@ void VR_Recenter(engine_t* engine) {
 }
 
 void VR_InitRenderer( engine_t* engine ) {
+	if (initialized) {
+		VR_DestroyRenderer(engine);
+	}
+
 	int eyeW, eyeH;
 	VR_GetResolution(engine, &eyeW, &eyeH);
 
