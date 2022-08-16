@@ -49,8 +49,6 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
 
-namespace DX9 {
-
 GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw),
 	  drawEngine_(draw) {
@@ -393,5 +391,3 @@ std::string GPU_DX9::DebugGetShaderString(std::string id, DebugShaderType type, 
 		return shaderManagerDX9_->DebugGetShaderString(id, type, stringType);
 	}
 }
-
-}  // namespace DX9

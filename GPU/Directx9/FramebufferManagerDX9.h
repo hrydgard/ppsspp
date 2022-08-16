@@ -28,8 +28,6 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 
-namespace DX9 {
-
 class TextureCacheDX9;
 class DrawEngineDX9;
 class ShaderManagerDX9;
@@ -67,5 +65,3 @@ private:
 
 	std::unordered_map<u64, OffscreenSurface> offscreenSurfaces_;
 };
-
-}  // namespace

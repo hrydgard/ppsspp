@@ -45,7 +45,7 @@
 #include <emmintrin.h>
 #endif
 
-namespace DX9 {
+// TODO: De-indent, the day we move all this readback stuff to GPU/Common
 
 	FramebufferManagerDX9::FramebufferManagerDX9(Draw::DrawContext *draw)
 		: FramebufferManagerCommon(draw) {
@@ -396,5 +396,3 @@ namespace DX9 {
 
 		return success;
 	}
-
-}  // namespace DX9

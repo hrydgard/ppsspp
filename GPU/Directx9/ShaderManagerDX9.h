@@ -27,8 +27,6 @@
 #include "GPU/Common/ShaderId.h"
 #include "Common/Math/lin/matrix4x4.h"
 
-namespace DX9 {
-
 class PSShader;
 class VSShader;
 
@@ -125,6 +123,4 @@ private:
 
 	typedef std::map<VShaderID, VSShader *> VSCache;
 	VSCache vsCache_;
-};
-
 };
