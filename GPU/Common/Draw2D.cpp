@@ -39,16 +39,14 @@ static const SamplerDef samplers[1] = {
 	{ "tex" },
 };
 
-void GenerateDraw2DFs(char *buffer, const ShaderLanguageDesc &lang) {
-	ShaderWriter writer(buffer, lang, ShaderStage::Fragment);
+void GenerateDraw2DFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
 	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_NONE);
 	writer.C("  vec4 outColor = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
 	writer.EndFSMain("outColor", FSFLAG_NONE);
 }
 
-void GenerateDraw2DDepthFs(char *buffer, const ShaderLanguageDesc &lang) {
-	ShaderWriter writer(buffer, lang, ShaderStage::Fragment);
+void GenerateDraw2DDepthFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
 	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_WRITEDEPTH);
 	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
@@ -56,9 +54,7 @@ void GenerateDraw2DDepthFs(char *buffer, const ShaderLanguageDesc &lang) {
 	writer.EndFSMain("outColor", FSFLAG_WRITEDEPTH);
 }
 
-void GenerateDraw2DVS(char *buffer, const ShaderLanguageDesc &lang) {
-	ShaderWriter writer(buffer, lang, ShaderStage::Vertex);
-
+void GenerateDraw2DVS(ShaderWriter &writer) {
 	writer.BeginVSMain(inputs, Slice<UniformDef>::empty(), varyings);
 
 	writer.C("  v_texcoord = a_texcoord0;\n");    // yes, this should be right. Should be 2.0 in the far corners.
@@ -74,7 +70,8 @@ void FramebufferManagerCommon::Ensure2DResources() {
 
 	if (!draw2DVs_) {
 		char *vsCode = new char[4000];
-		GenerateDraw2DVS(vsCode, shaderLanguageDesc);
+		ShaderWriter writer(vsCode, shaderLanguageDesc, ShaderStage::Vertex);
+		GenerateDraw2DVS(writer);
 		draw2DVs_ = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)vsCode, strlen(vsCode), "draw2d_vs");
 		_assert_(draw2DVs_);
 		delete[] vsCode;
@@ -101,6 +98,63 @@ void FramebufferManagerCommon::Ensure2DResources() {
 	}
 }
 
+Draw::Pipeline *FramebufferManagerCommon::Create2DPipeline(void (*generate)(ShaderWriter &)) {
+	using namespace Draw;
+	const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
+
+	char *fsCode = new char[4000];
+	ShaderWriter writer(fsCode, shaderLanguageDesc, ShaderStage::Fragment);
+	generate(writer);
+
+	ShaderModule *fs = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), "draw2d_fs");
+	delete[] fsCode;
+
+	_assert_(fs);
+
+	// verts have positions in 2D clip coordinates.
+	static const InputLayoutDesc desc = {
+		{
+			{ 16, false },
+		},
+		{
+			{ 0, SEM_POSITION, DataFormat::R32G32_FLOAT, 0 },
+			{ 0, SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 8 },
+		},
+	};
+	InputLayout *inputLayout = draw_->CreateInputLayout(desc);
+
+	BlendState *blendOff = draw_->CreateBlendState({ false, 0xF });
+	BlendState *blendDiscard = draw_->CreateBlendState({ false, 0x0 });
+
+	DepthStencilState *noDepthStencil = draw_->CreateDepthStencilState(DepthStencilStateDesc{});
+	RasterState *rasterNoCull = draw_->CreateRasterState({});
+
+	DepthStencilStateDesc dsWriteDesc{};
+	dsWriteDesc.depthTestEnabled = true;
+	dsWriteDesc.depthWriteEnabled = true;
+	dsWriteDesc.depthCompare = Draw::Comparison::ALWAYS;
+	DepthStencilState *depthWriteAlways = draw_->CreateDepthStencilState(dsWriteDesc);
+
+	PipelineDesc pipelineDesc{
+		Primitive::TRIANGLE_STRIP,
+		{ draw2DVs_, fs },
+		inputLayout, noDepthStencil, blendOff, rasterNoCull, nullptr,
+	};
+
+	Draw::Pipeline *pipeline = draw_->CreateGraphicsPipeline(pipelineDesc);
+
+	fs->Release();
+
+	rasterNoCull->Release();
+	blendOff->Release();
+	blendDiscard->Release();
+	noDepthStencil->Release();
+	depthWriteAlways->Release();
+	inputLayout->Release();
+
+	return pipeline;
+}
+
 void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, RasterChannel channel) {
 	using namespace Draw;
 
@@ -108,91 +162,23 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 
 	const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
 
-	if (!draw2DPipelineColor_) {
-		char *fsCode = new char[4000];
-		GenerateDraw2DFs(fsCode, shaderLanguageDesc);
-
-		ShaderModule *draw2DFs = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), "draw2d_fs");
-		delete[] fsCode;
-
-		_assert_(draw2DFs);
-
-		ShaderModule *draw2DFsDepth = nullptr;
-		if (draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
-			char *fsDepthCode = new char[4000];
-			GenerateDraw2DDepthFs(fsDepthCode, shaderLanguageDesc);
-			draw2DFsDepth = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsDepthCode, strlen(fsDepthCode), "draw2d_depth_fs");
-			delete[] fsDepthCode;
-			_assert_(draw2DFsDepth);
-		}
-
-		// verts have positions in 2D clip coordinates.
-		static const InputLayoutDesc desc = {
-			{
-				{ 16, false },
-			},
-			{
-				{ 0, SEM_POSITION, DataFormat::R32G32_FLOAT, 0 },
-				{ 0, SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 8 },
-			},
-		};
-		InputLayout *inputLayout = draw_->CreateInputLayout(desc);
-
-		BlendState *blendOff = draw_->CreateBlendState({ false, 0xF });
-		BlendState *blendDiscard = draw_->CreateBlendState({ false, 0x0 });
-
-		DepthStencilState *noDepthStencil = draw_->CreateDepthStencilState(DepthStencilStateDesc{});
-		RasterState *rasterNoCull = draw_->CreateRasterState({});
-
-		DepthStencilStateDesc dsWriteDesc{};
-		dsWriteDesc.depthTestEnabled = true;
-		dsWriteDesc.depthWriteEnabled = true;
-		dsWriteDesc.depthCompare = Draw::Comparison::ALWAYS;
-		DepthStencilState *depthWriteAlways = draw_->CreateDepthStencilState(dsWriteDesc);
-
-		PipelineDesc draw2DColorPipelineDesc{
-			Primitive::TRIANGLE_STRIP,
-			{ draw2DVs_, draw2DFs },
-			inputLayout, noDepthStencil, blendOff, rasterNoCull, nullptr,
-		};
-
-		draw2DPipelineColor_ = draw_->CreateGraphicsPipeline(draw2DColorPipelineDesc);
-
-		PipelineDesc draw2DDepthPipelineDesc{
-			Primitive::TRIANGLE_STRIP,
-			{ draw2DVs_, draw2DFsDepth },
-			inputLayout, depthWriteAlways, blendDiscard, rasterNoCull, nullptr,
-		};
-
-		if (draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
-			draw2DPipelineDepth_ = draw_->CreateGraphicsPipeline(draw2DDepthPipelineDesc);
-			_assert_(draw2DPipelineDepth_);
-		} else {
-			draw2DPipelineDepth_ = nullptr;
-		}
-
-		draw2DFs->Release();
-		if (draw2DFsDepth) {
-			draw2DFsDepth->Release();
-		}
-
-		rasterNoCull->Release();
-		blendOff->Release();
-		blendDiscard->Release();
-		noDepthStencil->Release();
-		depthWriteAlways->Release();
-		inputLayout->Release();
-	}
-
 	switch (channel) {
+	case RASTER_COLOR:
+		if (!draw2DPipelineColor_) {
+			draw2DPipelineColor_ = Create2DPipeline(&GenerateDraw2DFs);
+		}
+		draw_->BindPipeline(draw2DPipelineColor_);
+		break;
+
 	case RASTER_DEPTH:
-		if (!draw2DPipelineDepth_) {
+		if (!draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
+			// Can't do it
 			return;
 		}
+		if (!draw2DPipelineDepth_) {
+			draw2DPipelineDepth_ = Create2DPipeline(&GenerateDraw2DFs);
+		}
 		draw_->BindPipeline(draw2DPipelineDepth_);
-		break;
-	case RASTER_COLOR:
-		draw_->BindPipeline(draw2DPipelineColor_);
 		break;
 	}
 

@@ -55,6 +55,7 @@ namespace Draw {
 }
 
 class VulkanFBO;
+class ShaderWriter;
 
 // We have to track VFBs and depth buffers together, since bits are shared between the color alpha channel
 // and the stencil buffer on the PSP.
@@ -362,6 +363,7 @@ protected:
 
 	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, RasterChannel channel);
 	void Ensure2DResources();
+	Draw::Pipeline *Create2DPipeline(void (*generate)(ShaderWriter &));
 
 	bool UpdateSize();
 
@@ -422,7 +424,7 @@ protected:
 
 	u32 displayFramebufPtr_ = 0;
 	u32 displayStride_ = 0;
-	GEBufferFormat displayFormat_;
+	GEBufferFormat displayFormat_ = GE_FORMAT_565;
 	u32 prevDisplayFramebufPtr_ = 0;
 
 	VirtualFramebuffer *displayFramebuf_ = nullptr;
@@ -450,8 +452,8 @@ protected:
 	float renderWidth_ = 0.0f;
 	float renderHeight_ = 0.0f;
 	float renderScaleFactor_ = 1.0f;
-	int pixelWidth_;
-	int pixelHeight_;
+	int pixelWidth_ = 0;
+	int pixelHeight_ = 0;
 	int bloomHack_ = 0;
 
 	Draw::DataFormat preferredPixelsFormat_ = Draw::DataFormat::R8G8B8A8_UNORM;

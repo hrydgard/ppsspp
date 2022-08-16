@@ -47,7 +47,7 @@
 #include "GPU/GPUState.h"
 
 FramebufferManagerCommon::FramebufferManagerCommon(Draw::DrawContext *draw)
-	: draw_(draw), displayFormat_(GE_FORMAT_565) {
+	: draw_(draw) {
 	presentation_ = new PresentationCommon(draw);
 }
 
