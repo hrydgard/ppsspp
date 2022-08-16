@@ -223,9 +223,6 @@ namespace DX9 {
 		}
 	}
 
-	void FramebufferManagerDX9::EndFrame() {
-	}
-
 	void FramebufferManagerDX9::DecimateFBOs() {
 		FramebufferManagerCommon::DecimateFBOs();
 		for (auto it = offscreenSurfaces_.begin(); it != offscreenSurfaces_.end(); ) {

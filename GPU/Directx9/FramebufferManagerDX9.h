@@ -41,8 +41,6 @@ public:
 
 	void DestroyAllFBOs() override;
 
-	void EndFrame();
-
 	bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes) override;
 	bool GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer) override;
 	bool GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer) override;
@@ -70,4 +68,4 @@ private:
 	std::unordered_map<u64, OffscreenSurface> offscreenSurfaces_;
 };
 
-}
+}  // namespace

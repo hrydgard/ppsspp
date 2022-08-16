@@ -299,9 +299,7 @@ void GPU_DX9::CopyDisplayToOutput(bool reallyDirty) {
 	drawEngine_.Flush();
 
 	framebufferManagerDX9_->CopyDisplayToOutput(reallyDirty);
-	framebufferManagerDX9_->EndFrame();
 
-	// shaderManager_->EndFrame();
 	shaderManagerDX9_->DirtyLastShader();
 
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
