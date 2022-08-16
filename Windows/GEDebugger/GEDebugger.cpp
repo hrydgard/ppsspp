@@ -21,12 +21,18 @@
 #include <string>
 #include <vector>
 
+#include <windowsx.h>
+#include <commctrl.h>
+
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/StringUtils.h"
+#include "Common/System/System.h"
+
 #include "Core/Config.h"
 #include "Core/Screenshot.h"
+
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
@@ -38,6 +44,7 @@
 #include "Windows/InputBox.h"
 #include "Windows/MainWindow.h"
 #include "Windows/main.h"
+
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/GPUStateUtils.h"
@@ -46,8 +53,6 @@
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
 #include "GPU/Debugger/Stepping.h"
-#include <windowsx.h>
-#include <commctrl.h>
 
 using namespace GPUBreakpoints;
 using namespace GPUDebug;
@@ -1048,6 +1053,10 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case IDC_GEDBG_RECORD:
+			GPURecord::SetCallback([](const Path &path) {
+				// Opens a Windows Explorer window with the file.
+				OpenDirectory(path.c_str());
+			});
 			GPURecord::Activate();
 			break;
 
