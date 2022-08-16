@@ -721,6 +721,8 @@ void GameSettingsScreen::CreateViews() {
 		customizeTilt->SetEnabledFunc([] {
 			return g_Config.iTiltInputType != 0;
 		});
+	} else if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_VR) {
+		controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, co->T("HapticFeedback", "Haptic Feedback (vibration)")));
 	}
 
 	// TVs don't have touch control, at least not yet.

@@ -59,18 +59,18 @@ XrTime ToXrTime(const double timeInSeconds) {
 	return (timeInSeconds * 1e9);
 }
 
-void VR_Vibrate( int duration, int chan, float intensity ) {
+void INVR_Vibrate( int duration, int chan, float intensity ) {
 	for (int i = 0; i < 2; ++i) {
-		int channel = (i + 1) & chan;
+		int channel = i & chan;
 		if (channel) {
-			if (vibration_channel_duration[channel-1] > 0.0f)
+			if (vibration_channel_duration[channel] > 0.0f)
 				return;
 
-			if (vibration_channel_duration[channel-1] == -1.0f && duration != 0.0f)
+			if (vibration_channel_duration[channel] == -1.0f && duration != 0.0f)
 				return;
 
-			vibration_channel_duration[channel-1] = duration;
-			vibration_channel_intensity[channel-1] = intensity;
+			vibration_channel_duration[channel] = duration;
+			vibration_channel_intensity[channel] = intensity;
 		}
 	}
 }
