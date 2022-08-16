@@ -44,6 +44,38 @@ class TabMatrices;
 class TabStateWatch;
 struct GPUgstate;
 
+enum class GETabPosition {
+	LEFT = 1,
+	RIGHT = 2,
+	TOPRIGHT = 4,
+	ALL = 7,
+};
+ENUM_CLASS_BITOPS(GETabPosition);
+
+enum class GETabType {
+	LIST_DISASM,
+	LISTS,
+	STATE,
+	WATCH,
+};
+
+struct GEDebuggerTab {
+	const wchar_t *name;
+	GETabPosition pos;
+	GETabType type;
+	struct {
+		union {
+			Dialog *dlg;
+			CtrlDisplayListView *displayList;
+			void *ptr;
+		};
+		int index = -1;
+	} state[3];
+	void *(*add)(GEDebuggerTab *tab, TabControl *tabs, GETabPosition pos, HINSTANCE inst, HWND parent);
+	void (*remove)(GEDebuggerTab *tab, TabControl *tabs, GETabPosition pos, void *ptr);
+	void (*update)(GEDebuggerTab *tab, TabControl *tabs, GETabPosition pos, void *ptr);
+};
+
 class StepCountDlg : public Dialog {
 public:
 	StepCountDlg(HINSTANCE _hInstance, HWND _hParent);
@@ -81,24 +113,23 @@ private:
 	void PrimaryPreviewHover(int x, int y);
 	void SecondPreviewHover(int x, int y);
 	void PreviewExport(const GPUDebugBuffer *buffer);
-	void DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]);
-	void DescribePixelRGBA(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]);
+	static void DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]);
+	static void DescribePixelRGBA(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]);
 	void UpdateMenus();
+	void UpdateTab(GEDebuggerTab *tab);
+	void AddTab(GEDebuggerTab *tab, GETabPosition mask);
+	void RemoveTab(GEDebuggerTab *tab, GETabPosition mask);
+	int HasTabIndex(GEDebuggerTab *tab, GETabPosition pos);
+	void CheckTabMessage(TabControl *t, GETabPosition pos, LPARAM lParam);
 
 	u32 TexturePreviewFlags(const GPUgstate &state);
 
-	CtrlDisplayListView *displayList = nullptr;
-	TabDisplayLists *lists = nullptr;
-	TabStateFlags *flags = nullptr;
-	TabStateLighting *lighting = nullptr;
-	TabStateTexture *textureState = nullptr;
-	TabStateSettings *settings = nullptr;
-	TabVertices *vertices = nullptr;
-	TabMatrices *matrices = nullptr;
 	SimpleGLWindow *primaryWindow = nullptr;
 	SimpleGLWindow *secondWindow = nullptr;
-	TabStateWatch *watch = nullptr;
+	std::vector<GEDebuggerTab> tabStates_;
 	TabControl *tabs = nullptr;
+	TabControl *tabsRight_ = nullptr;
+	TabControl *tabsTR_ = nullptr;
 	TabControl *fbTabs = nullptr;
 	int textureLevel_ = 0;
 	bool showClut_ = false;

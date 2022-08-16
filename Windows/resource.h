@@ -264,7 +264,6 @@
 #define ID_OPTIONS_BUFLINEARFILTER       40152
 #define ID_OPTIONS_BUFNEARESTFILTER      40153
 #define ID_OPTIONS_DIRECT3D9             40154
-#define ID_OPTIONS_DIRECT3D11            40169
 #define ID_OPTIONS_OPENGL                40155
 #define ID_EMULATION_ROTATION_H          40156
 #define ID_EMULATION_ROTATION_V          40157
@@ -326,6 +325,13 @@
 #define IDC_GEDBG_FLUSHAUTO              40213
 #define IDI_BREAKPOINT_SMALL             40214
 #define IDC_GEDBG_SETPRIMFILTER          40215
+#define IDC_GEDBG_RIGHTTAB               40216
+#define ID_OPTIONS_DIRECT3D11            40217
+#define IDC_GEDBG_TOPRIGHTTAB            40218
+#define ID_GEDBG_SHOWONLEFT              40219
+#define ID_GEDBG_SHOWONRIGHT             40220
+#define ID_GEDBG_SHOWONTOPRIGHT          40221
+
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
@@ -338,7 +344,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        256
-#define _APS_NEXT_COMMAND_VALUE         40216
+#define _APS_NEXT_COMMAND_VALUE         40222
 #define _APS_NEXT_CONTROL_VALUE         1202
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

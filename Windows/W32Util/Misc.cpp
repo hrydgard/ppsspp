@@ -204,6 +204,7 @@ GenericListControl::GenericListControl(HWND hwnd, const GenericListViewDef& def)
 }
 
 GenericListControl::~GenericListControl() {
+	SetWindowLongPtr(handle, GWLP_USERDATA, (LONG_PTR)nullptr);
 	// Don't destroy the image list, it's done automatically by the list view.
 }
 
@@ -376,6 +377,8 @@ void GenericListControl::ResizeColumns()
 LRESULT CALLBACK GenericListControl::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	GenericListControl* list = (GenericListControl*) GetWindowLongPtr(hwnd,GWLP_USERDATA);
+	if (!list)
+		return FALSE;
 
 	LRESULT returnValue;
 	if (list->valid && list->WindowMessage(msg,wParam,lParam,returnValue) == true)

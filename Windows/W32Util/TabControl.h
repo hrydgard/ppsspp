@@ -11,9 +11,11 @@ class TabControl
 public:
 	TabControl(HWND handle, bool noDisplayArea = false);
 	void HandleNotify(LPARAM lParam);
+	int HitTest(const POINT &screenPos);
 	HWND AddTabWindow(const wchar_t* className, const wchar_t* title, DWORD style = 0);
 	void AddTabDialog(Dialog* dialog, const wchar_t* title);
 	void AddTab(HWND hwnd, const wchar_t* title);
+	HWND RemoveTab(int index);
 	void ShowTab(int index, bool setControlIndex = true);
 	void ShowTab(HWND pageHandle);
 	void NextTab(bool cycle);
@@ -29,6 +31,10 @@ public:
 	void SetIgnoreBottomMargin(bool enabled) { ignoreBottomMargin = enabled; }
 	bool GetShowTabTitles() { return showTabTitles; }
 	void SetMinTabWidth(int w);
+
+	int Count() {
+		return (int)tabs.size();
+	}
 
 private:
 	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
