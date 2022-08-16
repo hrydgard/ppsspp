@@ -492,6 +492,5 @@ protected:
 	Draw::SamplerState *draw2DSamplerLinear_ = nullptr;
 	Draw::SamplerState *draw2DSamplerNearest_ = nullptr;
 	Draw::ShaderModule *draw2DVs_ = nullptr;
-	Draw::ShaderModule *draw2DFs_ = nullptr;
-	Draw::ShaderModule *draw2DFsDepth_ = nullptr;
+	// The fragment shaders are "owned" by the pipelines since they're 1:1.
 };

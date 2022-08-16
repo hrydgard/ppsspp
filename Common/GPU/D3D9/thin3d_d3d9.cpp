@@ -259,17 +259,23 @@ class D3D9Pipeline : public Pipeline {
 public:
 	D3D9Pipeline() {}
 	~D3D9Pipeline() {
+		if (vshader) {
+			vshader->Release();
+		}
+		if (pshader) {
+			pshader->Release();
+		}
 	}
 
-	D3D9ShaderModule *vshader;
-	D3D9ShaderModule *pshader;
+	D3D9ShaderModule *vshader = nullptr;
+	D3D9ShaderModule *pshader = nullptr;
 
-	D3DPRIMITIVETYPE prim;
+	D3DPRIMITIVETYPE prim{};
 	AutoRef<D3D9InputLayout> inputLayout;
 	AutoRef<D3D9DepthStencilState> depthStencil;
 	AutoRef<D3D9BlendState> blend;
 	AutoRef<D3D9RasterState> raster;
-	UniformBufferDesc dynamicUniforms;
+	UniformBufferDesc dynamicUniforms{};
 
 	void Apply(LPDIRECT3DDEVICE9 device, uint8_t stencilRef, uint8_t stencilWriteMask, uint8_t stencilCompareMask);
 };
@@ -713,9 +719,11 @@ Pipeline *D3D9Context::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		}
 		if (iter->GetStage() == ShaderStage::Fragment) {
 			pipeline->pshader = static_cast<D3D9ShaderModule *>(iter);
+			pipeline->pshader->AddRef();
 		}
 		else if (iter->GetStage() == ShaderStage::Vertex) {
 			pipeline->vshader = static_cast<D3D9ShaderModule *>(iter);
+			pipeline->vshader->AddRef();
 		}
 	}
 	pipeline->prim = primToD3D9[(int)desc.prim];

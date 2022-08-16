@@ -110,19 +110,20 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 
 	if (!draw2DPipelineColor_) {
 		char *fsCode = new char[4000];
-		char *fsDepthCode = new char[4000];
 		GenerateDraw2DFs(fsCode, shaderLanguageDesc);
-		GenerateDraw2DDepthFs(fsDepthCode, shaderLanguageDesc);
 
-		draw2DFs_ = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), "draw2d_fs");
+		ShaderModule *draw2DFs = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), "draw2d_fs");
+		delete[] fsCode;
 
-		_assert_(draw2DFs_);
+		_assert_(draw2DFs);
 
+		ShaderModule *draw2DFsDepth = nullptr;
 		if (draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
-			draw2DFsDepth_ = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsDepthCode, strlen(fsDepthCode), "draw2d_depth_fs");
-			_assert_(draw2DFsDepth_);
-		} else {
-			draw2DFsDepth_ = nullptr;
+			char *fsDepthCode = new char[4000];
+			GenerateDraw2DDepthFs(fsDepthCode, shaderLanguageDesc);
+			draw2DFsDepth = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsDepthCode, strlen(fsDepthCode), "draw2d_depth_fs");
+			delete[] fsDepthCode;
+			_assert_(draw2DFsDepth);
 		}
 
 		// verts have positions in 2D clip coordinates.
@@ -151,7 +152,7 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 
 		PipelineDesc draw2DColorPipelineDesc{
 			Primitive::TRIANGLE_STRIP,
-			{ draw2DVs_, draw2DFs_ },
+			{ draw2DVs_, draw2DFs },
 			inputLayout, noDepthStencil, blendOff, rasterNoCull, nullptr,
 		};
 
@@ -159,7 +160,7 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 
 		PipelineDesc draw2DDepthPipelineDesc{
 			Primitive::TRIANGLE_STRIP,
-			{ draw2DVs_, draw2DFsDepth_ },
+			{ draw2DVs_, draw2DFsDepth },
 			inputLayout, depthWriteAlways, blendDiscard, rasterNoCull, nullptr,
 		};
 
@@ -170,7 +171,10 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 			draw2DPipelineDepth_ = nullptr;
 		}
 
-		delete[] fsCode;
+		draw2DFs->Release();
+		if (draw2DFsDepth) {
+			draw2DFsDepth->Release();
+		}
 
 		rasterNoCull->Release();
 		blendOff->Release();

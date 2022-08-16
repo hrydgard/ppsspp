@@ -341,7 +341,9 @@ public:
 	RefCountedObject() {
 		refcount_ = 1;
 	}
-	virtual ~RefCountedObject() {}
+	RefCountedObject(const RefCountedObject &other) = delete;
+	RefCountedObject& operator=(RefCountedObject const&) = delete;
+	virtual ~RefCountedObject();
 
 	void AddRef() { refcount_++; }
 	bool Release();
