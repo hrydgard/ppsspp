@@ -121,6 +121,7 @@ VirtualFramebuffer *FramebufferManagerCommon::GetVFBAt(u32 addr) const {
 		VirtualFramebuffer *v = vfbs_[i];
 		if (v->fb_address == addr) {
 			// Could check w too but whatever
+			// NOTE: This gets the OLDEST image at the address - is that good?
 			if (match == nullptr || match->last_frame_render < v->last_frame_render) {
 				match = v;
 			}
@@ -2083,6 +2084,7 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer) {
 	VirtualFramebuffer *vfb = currentRenderVfb_;
 	if (!vfb) {
+		// TODO: This is flawed, as it looks for color buffers at the address, not depth.
 		vfb = GetVFBAt(fb_address);
 	}
 

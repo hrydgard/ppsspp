@@ -334,8 +334,10 @@ public:
 	VirtualFramebuffer *GetCurrentRenderVFB() const {
 		return currentRenderVfb_;
 	}
-	// TODO: Break out into some form of FBO manager
+
+	// This only checks for the color channel.
 	VirtualFramebuffer *GetVFBAt(u32 addr) const;
+
 	VirtualFramebuffer *GetDisplayVFB() const {
 		return GetVFBAt(displayFramebufPtr_);
 	}
