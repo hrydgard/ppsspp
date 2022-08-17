@@ -42,8 +42,6 @@
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/GPU_DX9.h"
 
-namespace DX9 {
-
 static const D3DPRIMITIVETYPE d3d_prim[8] = {
 	// Points, which are expanded to triangles.
 	D3DPT_TRIANGLELIST,
@@ -248,7 +246,7 @@ void DrawEngineDX9::MarkUnreliable(VertexArrayInfoDX9 *vai) {
 }
 
 void DrawEngineDX9::ClearTrackedVertexArrays() {
-	vai_.Iterate([&](uint32_t hash, DX9::VertexArrayInfoDX9 *vai) {
+	vai_.Iterate([&](uint32_t hash, VertexArrayInfoDX9 *vai) {
 		delete vai;
 	});
 	vai_.Clear();
@@ -264,7 +262,7 @@ void DrawEngineDX9::DecimateTrackedVertexArrays() {
 	const int threshold = gpuStats.numFlips - VAI_KILL_AGE;
 	const int unreliableThreshold = gpuStats.numFlips - VAI_UNRELIABLE_KILL_AGE;
 	int unreliableLeft = VAI_UNRELIABLE_KILL_MAX;
-	vai_.Iterate([&](uint32_t hash, DX9::VertexArrayInfoDX9 *vai) {
+	vai_.Iterate([&](uint32_t hash, VertexArrayInfoDX9 *vai) {
 		bool kill;
 		if (vai->status == VertexArrayInfoDX9::VAI_UNRELIABLE) {
 			// We limit killing unreliable so we don't rehash too often.
@@ -524,7 +522,7 @@ rotateVBO:
 		ApplyDrawState(prim);
 		ApplyDrawStateLate();
 
-		DX9::VSShader *vshader = shaderManager_->ApplyShader(true, useHWTessellation_, lastVType_, decOptions_.expandAllWeightsToFloat);
+		VSShader *vshader = shaderManager_->ApplyShader(true, useHWTessellation_, lastVType_, decOptions_.expandAllWeightsToFloat);
 		IDirect3DVertexDeclaration9 *pHardwareVertexDecl = SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType());
 
 		if (pHardwareVertexDecl) {
@@ -616,7 +614,7 @@ rotateVBO:
 
 		ApplyDrawStateLate();
 
-		DX9::VSShader *vshader = shaderManager_->ApplyShader(false, false, lastVType_, decOptions_.expandAllWeightsToFloat);
+		VSShader *vshader = shaderManager_->ApplyShader(false, false, lastVType_, decOptions_.expandAllWeightsToFloat);
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (result.setStencil) {
@@ -686,5 +684,3 @@ rotateVBO:
 void TessellationDataTransferDX9::SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) {
 	// TODO
 }
-
-}  // namespace

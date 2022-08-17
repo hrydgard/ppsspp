@@ -32,8 +32,6 @@
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/FramebufferManagerDX9.h"
 
-namespace DX9 {
-
 static const D3DBLEND dxBlendFactorLookup[(size_t)BlendFactor::COUNT] = {
 	D3DBLEND_ZERO,
 	D3DBLEND_ONE,
@@ -297,6 +295,4 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 void DrawEngineDX9::ApplyDrawStateLate() {
 	// At this point, we know if the vertices are full alpha or not.
 	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
-}
-
 }

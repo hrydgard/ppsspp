@@ -4,11 +4,9 @@
 
 #include "Common/GPU/D3D9/D3D9ShaderCompiler.h"
 
-namespace DX9 {
-
 // TODO: Get rid of these somehow.
-extern LPDIRECT3DDEVICE9 pD3Ddevice;
-extern LPDIRECT3DDEVICE9EX pD3DdeviceEx;
+extern LPDIRECT3DDEVICE9 pD3Ddevice9;
+extern LPDIRECT3DDEVICE9EX pD3DdeviceEx9;
 
 class DirectXState {
 private:
@@ -44,7 +42,7 @@ private:
 			return _value;
 		}
 		void restore() {
-			pD3Ddevice->SetRenderState(cap, _value);
+			pD3Ddevice9->SetRenderState(cap, _value);
 		}
 	};
 
@@ -69,7 +67,7 @@ private:
 			p1 = old;
 		}
 		void restore() {
-			pD3Ddevice->SetRenderState(_state1, p1);
+			pD3Ddevice9->SetRenderState(_state1, p1);
 		}
 	};
 
@@ -94,7 +92,7 @@ private:
 			p1 = old;
 		}
 		void restore() {
-			pD3Ddevice->SetSamplerState(0, _state1, p1);
+			pD3Ddevice9->SetSamplerState(0, _state1, p1);
 		}
 	};
 
@@ -123,7 +121,7 @@ private:
 			p1 = old;
 		}
 		void restore() {
-			pD3Ddevice->SetSamplerState(0, _state1, p1d);
+			pD3Ddevice9->SetSamplerState(0, _state1, p1d);
 		}
 	};
 
@@ -141,11 +139,11 @@ private:
 		inline void set(DWORD newp1, DWORD newp2) {
 			if (p1 != newp1) {
 				p1 = newp1;
-				pD3Ddevice->SetRenderState(_state1, p1);
+				pD3Ddevice9->SetRenderState(_state1, p1);
 			}
 			if (p2 != newp2) {
 				p2 = newp2;
-				pD3Ddevice->SetRenderState(_state2, p2);
+				pD3Ddevice9->SetRenderState(_state2, p2);
 			}
 		}
 		void force(DWORD newp1, DWORD newp2) {
@@ -156,8 +154,8 @@ private:
 			p2 = old2;
 		}
 		void restore() {
-			pD3Ddevice->SetRenderState(_state1, p1);
-			pD3Ddevice->SetRenderState(_state2, p2);
+			pD3Ddevice9->SetRenderState(_state1, p1);
+			pD3Ddevice9->SetRenderState(_state2, p2);
 		}
 	};
 
@@ -177,15 +175,15 @@ private:
 		inline void set(DWORD newp1, DWORD newp2, DWORD newp3) {
 			if (p1 != newp1) {
 				p1 = newp1;
-				pD3Ddevice->SetRenderState(_state1, p1);
+				pD3Ddevice9->SetRenderState(_state1, p1);
 			}
 			if (p2 != newp2) {
 				p2 = newp2;
-				pD3Ddevice->SetRenderState(_state2, p2);
+				pD3Ddevice9->SetRenderState(_state2, p2);
 			}
 			if (p3 != newp3) {
 				p3 = newp3;
-				pD3Ddevice->SetRenderState(_state3, p3);
+				pD3Ddevice9->SetRenderState(_state3, p3);
 			}
 		}
 		void force(DWORD newp1, DWORD newp2, DWORD newp3) {
@@ -198,9 +196,9 @@ private:
 			p3 = old3;
 		}
 		void restore() {
-			pD3Ddevice->SetRenderState(_state1, p1);
-			pD3Ddevice->SetRenderState(_state2, p2);
-			pD3Ddevice->SetRenderState(_state3, p3);
+			pD3Ddevice9->SetRenderState(_state1, p1);
+			pD3Ddevice9->SetRenderState(_state2, p2);
+			pD3Ddevice9->SetRenderState(_state3, p3);
 		}
 	};
 
@@ -222,19 +220,19 @@ private:
 		inline void set(DWORD newp1, DWORD newp2, DWORD newp3, DWORD newp4) {
 			if (p1 != newp1) {
 				p1 = newp1;
-				pD3Ddevice->SetRenderState(_state1, p1);
+				pD3Ddevice9->SetRenderState(_state1, p1);
 			}
 			if (p2 != newp2) {
 				p2 = newp2;
-				pD3Ddevice->SetRenderState(_state2, p2);
+				pD3Ddevice9->SetRenderState(_state2, p2);
 			}
 			if (p3 != newp3) {
 				p3 = newp3;
-				pD3Ddevice->SetRenderState(_state3, p3);
+				pD3Ddevice9->SetRenderState(_state3, p3);
 			}
 			if (p4 != newp4) {
 				p4 = newp4;
-				pD3Ddevice->SetRenderState(_state4, p4);
+				pD3Ddevice9->SetRenderState(_state4, p4);
 			}
 		}
 		void force(DWORD newp1, DWORD newp2, DWORD newp3, DWORD newp4) {
@@ -249,10 +247,10 @@ private:
 			p4 = old4;
 		}
 		void restore() {
-			pD3Ddevice->SetRenderState(_state1, p1);
-			pD3Ddevice->SetRenderState(_state2, p2);
-			pD3Ddevice->SetRenderState(_state3, p3);
-			pD3Ddevice->SetRenderState(_state3, p4);
+			pD3Ddevice9->SetRenderState(_state1, p1);
+			pD3Ddevice9->SetRenderState(_state2, p2);
+			pD3Ddevice9->SetRenderState(_state3, p3);
+			pD3Ddevice9->SetRenderState(_state3, p4);
 		}
 	};
 
@@ -284,7 +282,7 @@ private:
 			c = old;
 		}
 		inline void restore() {
-			pD3Ddevice->SetRenderState(D3DRS_BLENDFACTOR, c);
+			pD3Ddevice9->SetRenderState(D3DRS_BLENDFACTOR, c);
 		}
 	};
 
@@ -318,7 +316,7 @@ private:
 		}
 
 		inline void restore() {
-			pD3Ddevice->SetViewport(&viewport);
+			pD3Ddevice9->SetViewport(&viewport);
 		}
 	};
 
@@ -340,7 +338,7 @@ private:
 		}
 
 		inline void restore() {
-			pD3Ddevice->SetScissorRect(&rect);
+			pD3Ddevice9->SetScissorRect(&rect);
 		}
 	};
 
@@ -412,5 +410,3 @@ struct GLExtensions {
 extern GLExtensions gl_extensions;
 
 void CheckGLExtensions();
-
-};

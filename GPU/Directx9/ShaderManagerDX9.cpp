@@ -49,8 +49,6 @@
 
 using namespace Lin;
 
-namespace DX9 {
-
 PSShader::PSShader(LPDIRECT3DDEVICE9 device, FShaderID id, const char *code) : id_(id) {
 	source_ = code;
 #ifdef SHADERLOG
@@ -702,5 +700,3 @@ std::string ShaderManagerDX9::DebugGetShaderString(std::string id, DebugShaderTy
 		return "N/A";
 	}
 }
-
-}  // namespace

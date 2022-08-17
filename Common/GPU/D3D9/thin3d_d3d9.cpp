@@ -152,7 +152,6 @@ public:
 	D3DCMPFUNC stencilCompareOp;
 
 	void Apply(LPDIRECT3DDEVICE9 device, uint8_t stencilRef, uint8_t stencilWriteMask, uint8_t stencilCompareMask) {
-		using namespace DX9;
 		dxstate.depthTest.set(depthTestEnabled);
 		if (depthTestEnabled) {
 			dxstate.depthWrite.set(depthWriteEnabled);
@@ -174,7 +173,6 @@ public:
 	DWORD cullMode;   // D3DCULL_*
 
 	void Apply(LPDIRECT3DDEVICE9 device) {
-		using namespace DX9;
 		dxstate.cullMode.set(cullMode);
 		dxstate.scissorTest.enable();
 	}
@@ -188,7 +186,6 @@ public:
 	uint32_t colorMask;
 
 	void Apply(LPDIRECT3DDEVICE9 device) {
-		using namespace DX9;
 		dxstate.blend.set(enabled);
 		dxstate.blendFunc.set(srcCol, dstCol, srcAlpha, dstAlpha);
 		dxstate.blendEquation.set(eqCol, eqAlpha);
@@ -202,7 +199,6 @@ public:
 	D3DTEXTUREFILTERTYPE magFilt, minFilt, mipFilt;
 
 	void Apply(LPDIRECT3DDEVICE9 device, int index) {
-		using namespace DX9;
 		dxstate.texAddressU.set(wrapS);
 		dxstate.texAddressV.set(wrapT);
 		dxstate.texMagFilter.set(magFilt);
@@ -689,7 +685,7 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 
 	shaderLanguageDesc_.Init(HLSL_D3D9);
 
-	DX9::dxstate.Restore();
+	dxstate.Restore();
 }
 
 D3D9Context::~D3D9Context() {
@@ -1037,15 +1033,11 @@ void D3D9Context::Clear(int mask, uint32_t colorval, float depthVal, int stencil
 }
 
 void D3D9Context::SetScissorRect(int left, int top, int width, int height) {
-	using namespace DX9;
-
 	dxstate.scissorRect.set(left, top, left + width, top + height);
 	dxstate.scissorTest.set(true);
 }
 
 void D3D9Context::SetViewports(int count, Viewport *viewports) {
-	using namespace DX9;
-
 	int x = (int)viewports[0].TopLeftX;
 	int y = (int)viewports[0].TopLeftY;
 	int w = (int)viewports[0].Width;
@@ -1058,7 +1050,6 @@ void D3D9Context::SetBlendFactor(float color[4]) {
 	uint32_t g = (uint32_t)(color[1] * 255.0f);
 	uint32_t b = (uint32_t)(color[2] * 255.0f);
 	uint32_t a = (uint32_t)(color[3] * 255.0f);
-	using namespace DX9;
 	dxstate.blendColor.set(color);
 }
 
@@ -1179,7 +1170,6 @@ D3D9Framebuffer::~D3D9Framebuffer() {
 }
 
 void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) {
-	using namespace DX9;
 	if (fbo) {
 		D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
 		device_->SetRenderTarget(0, fb->surf);
