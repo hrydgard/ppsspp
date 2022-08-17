@@ -218,8 +218,9 @@ struct AttachCandidate {
 	TextureDefinition entry;
 	VirtualFramebuffer *fb;
 	RasterChannel channel;
+	int seqCount;
 
-	std::string ToString();
+	std::string ToString() const;
 };
 
 class FramebufferManagerCommon;

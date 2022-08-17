@@ -636,7 +636,7 @@ std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const 
 	for (VirtualFramebuffer *framebuffer : framebuffers) {
 		FramebufferMatchInfo match{};
 		if (MatchFramebuffer(entry, framebuffer, texAddrOffset, channel, &match)) {
-			candidates.push_back(AttachCandidate{ match, entry, framebuffer, channel });
+			candidates.push_back(AttachCandidate{ match, entry, framebuffer, channel, channel == RASTER_COLOR ? framebuffer->colorBindSeq : framebuffer->depthBindSeq });
 		}
 	}
 
@@ -2150,8 +2150,8 @@ void TextureCacheCommon::ClearNextFrame() {
 	clearCacheNextFrame_ = true;
 }
 
-std::string AttachCandidate::ToString() {
-	return StringFromFormat("[C:%08x/%d Z:%08x/%d X:%d Y:%d reint: %s]", this->fb->fb_address, this->fb->fb_stride, this->fb->z_address, this->fb->z_stride, this->match.xOffset, this->match.yOffset, this->match.reinterpret ? "true" : "false");
+std::string AttachCandidate::ToString() const {
+	return StringFromFormat("[%s seq:%d C:%08x/%d Z:%08x/%d X:%d Y:%d reint: %s]", this->channel == RASTER_COLOR ? "COLOR" : "DEPTH", this->seqCount, this->fb->fb_address, this->fb->fb_stride, this->fb->z_address, this->fb->z_stride, this->match.xOffset, this->match.yOffset, this->match.reinterpret ? "true" : "false");
 }
 
 bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry) {
