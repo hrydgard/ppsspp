@@ -290,8 +290,6 @@ public:
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes);
 	void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride);
 
-	VirtualFramebuffer *GetLatestDepthBufferAt(u32 z_address, u16 z_stride);
-
 	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 
 	size_t NumVFBs() const { return vfbs_.size(); }
@@ -382,7 +380,7 @@ protected:
 	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags);
 
-	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, RasterChannel channel);
+	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DShader channel);
 	void Ensure2DResources();
 	Draw::Pipeline *Create2DPipeline(RasterChannel (*generate)(ShaderWriter &));
 
@@ -398,7 +396,7 @@ protected:
 
 	void BlitUsingRaster(
 		Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
-		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2, bool linearFilter, RasterChannel channel);
+		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2, bool linearFilter, Draw2DShader shader, const char *tag);
 
 	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags);
 
@@ -517,6 +515,7 @@ protected:
 	// Draw2D pipelines
 	Draw::Pipeline *draw2DPipelineColor_ = nullptr;
 	Draw::Pipeline *draw2DPipelineDepth_ = nullptr;
+	Draw::Pipeline *draw2DPipeline565ToDepth_ = nullptr;
 	Draw::SamplerState *draw2DSamplerLinear_ = nullptr;
 	Draw::SamplerState *draw2DSamplerNearest_ = nullptr;
 	Draw::ShaderModule *draw2DVs_ = nullptr;

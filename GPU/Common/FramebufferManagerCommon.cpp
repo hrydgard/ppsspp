@@ -416,9 +416,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		ResizeFramebufFBO(vfb, drawing_width, drawing_height, true);
 		NotifyRenderFramebufferCreated(vfb);
 
-		if (!params.isClearingDepth) {
-			CopyToDepthFromOverlappingFramebuffers(vfb);
-		}
+		// Note that we do not even think about depth right now.
 
 		SetColorUpdated(vfb, skipDrawReason);
 
@@ -504,16 +502,8 @@ void FramebufferManagerCommon::SetDepthFrameBuffer() {
 		return;
 	}
 
-	// Looks up by z_address, so if one is found here and not have last pointers equal to this one,
-	// there is another one.
-	VirtualFramebuffer *prevDepth = GetLatestDepthBufferAt(currentRenderVfb_->z_address, currentRenderVfb_->z_stride);
-
-	if (prevDepth != currentRenderVfb_) {
-		if (!gstate_c.clearingDepth && prevDepth) {
-			BlitFramebufferDepth(prevDepth, currentRenderVfb_);
-		}
-		prevDepth = currentRenderVfb_;
-	}
+	// "Resolve" the depth buffer, by copying from any overlapping buffers with fresher content.
+	CopyToDepthFromOverlappingFramebuffers(currentRenderVfb_);
 
 	currentRenderVfb_->depthBindSeq = GetBindSeqCount();
 }
@@ -538,11 +528,10 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 			continue;
 
 		if (src->fb_address == dest->z_address && src->fb_stride == dest->z_stride && src->format == GE_FORMAT_565) {
-			if (src->colorBindSeq > dest->depthBindSeq) {
-				// Source has older data than the current buffer, ignore.
-				continue;
+			if (src->colorBindSeq < dest->depthBindSeq) {
+				// Source has newer data than the current buffer, use it.
+				sources.push_back(CopySource{ src, RASTER_COLOR });
 			}
-			sources.push_back(CopySource{ src, RASTER_COLOR });
 		} else if (src->z_address == dest->z_address && src->z_stride == dest->z_stride && src->depthBindSeq > dest->depthBindSeq) {
 			sources.push_back(CopySource{ src, RASTER_DEPTH });
 		} else {
@@ -550,16 +539,25 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 		}
 	}
 
-	// TODO: A full depth copy will overwrite anything else. So we can eliminate
+	std::sort(sources.begin(), sources.end());
+
+	// TODO: A full copy will overwrite anything else. So we can eliminate
 	// anything that comes before such a copy.
 
-	for (auto &source : sources) {
+	// For now, let's just do the last thing, if there are multiple.
+
+	// for (auto &source : sources) {
+	if (sources.size()) {
+		auto &source = sources.back();
 		if (source.channel == RASTER_DEPTH) {
 			// Good old depth->depth copy.
 			BlitFramebufferDepth(source.vfb, dest);
-
 			gpuStats.numDepthCopies++;
 			dest->last_frame_depth_updated = gpuStats.numFlips;
+		} else if (source.channel == RASTER_COLOR) {
+			VirtualFramebuffer *src = source.vfb;
+			// Copying color to depth.
+			BlitUsingRaster(src->fbo, 0.0f, 0.0f, src->renderWidth, src->renderHeight, dest->fbo, 0.0f, 0.0f, dest->renderWidth, dest->renderHeight, false, DRAW2D_565_TO_DEPTH, "565_to_depth");
 		}
 	}
 
@@ -636,22 +634,10 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 		draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebufferDepth");
 		RebindFramebuffer("After BlitFramebufferDepth");
 	} else if (useRaster) {
-		BlitUsingRaster(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, false, RasterChannel::RASTER_DEPTH);
+		BlitUsingRaster(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, false, Draw2DShader::DRAW2D_COPY_DEPTH, "BlitDepthRaster");
 	}
 
 	draw_->InvalidateCachedState();
-}
-
-VirtualFramebuffer *FramebufferManagerCommon::GetLatestDepthBufferAt(u32 z_address, u16 z_stride) {
-	int maxSeq = -1;
-	VirtualFramebuffer *latestDepth = nullptr;
-	for (auto vfb : vfbs_) {
-		if (vfb->z_address == z_address && vfb->z_stride == z_stride && vfb->depthBindSeq > maxSeq) {
-			maxSeq = vfb->depthBindSeq;
-			latestDepth = vfb;
-		}
-	}
-	return latestDepth;
 }
 
 void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) {
@@ -701,12 +687,6 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	}
 	textureCache_->ForgetLastTexture();
 	shaderManager_->DirtyLastShader();
-
-	if (!isClearingDepth) {
-		// TODO: We should do this as part of the bind below. Then we can optimize the RPAction properly,
-		// and also do the copies using raster.
-		CopyToDepthFromOverlappingFramebuffers(vfb);
-	}
 
 	if (vfb->drawnFormat != vfb->format) {
 		ReinterpretFramebuffer(vfb, vfb->drawnFormat, vfb->format);
@@ -2355,6 +2335,7 @@ void FramebufferManagerCommon::DeviceLost() {
 	DoRelease(draw2DVs_);
 	DoRelease(draw2DPipelineColor_);
 	DoRelease(draw2DPipelineDepth_);
+	DoRelease(draw2DPipeline565ToDepth_);
 
 	draw_ = nullptr;
 }
@@ -2412,7 +2393,7 @@ void FramebufferManagerCommon::DrawActiveTexture(float x, float y, float w, floa
 	// Rearrange to strip form.
 	std::swap(coord[2], coord[3]);
 
-	DrawStrip2D(nullptr, coord, 4, (flags & DRAWTEX_LINEAR) != 0, RASTER_COLOR);
+	DrawStrip2D(nullptr, coord, 4, (flags & DRAWTEX_LINEAR) != 0, DRAW2D_COPY_COLOR);
 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
@@ -2508,13 +2489,14 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 		draw_->BlitFramebuffer(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2,
 			channel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, tag);
 	} else {
+		Draw2DShader shader = channel == RASTER_COLOR ? DRAW2D_COPY_COLOR : DRAW2D_COPY_DEPTH;
 		Draw::Framebuffer *srcFBO = src->fbo;
 		if (src == dst) {
 			Draw::Framebuffer *tempFBO = GetTempFBO(TempFBO::BLIT, src->renderWidth, src->renderHeight);
-			BlitUsingRaster(src->fbo, srcX1, srcY1, srcX2, srcY2, tempFBO, dstX1, dstY1, dstX2, dstY2, false, channel);
+			BlitUsingRaster(src->fbo, srcX1, srcY1, srcX2, srcY2, tempFBO, dstX1, dstY1, dstX2, dstY2, false, shader, tag);
 			srcFBO = tempFBO;
 		}
-		BlitUsingRaster(srcFBO, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, false, channel);
+		BlitUsingRaster(srcFBO, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, false, shader, tag);
 	}
 
 	draw_->InvalidateCachedState();
@@ -2526,9 +2508,9 @@ void FramebufferManagerCommon::BlitUsingRaster(
 	Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
 	Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
 	bool linearFilter,
-	RasterChannel channel) {
+	Draw2DShader shader, const char *tag) {
 
-	if (channel == RASTER_DEPTH) {
+	if (shader == DRAW2D_COPY_DEPTH || shader == DRAW2D_565_TO_DEPTH) {
 		_dbg_assert_(draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported);
 	}
 
@@ -2550,13 +2532,13 @@ void FramebufferManagerCommon::BlitUsingRaster(
 	// Unbind the texture first to avoid the D3D11 hazard check (can't set render target to things bound as textures and vice versa, not even temporarily).
 	draw_->BindTexture(0, nullptr);
 	// This will get optimized away in case it's already bound (in VK and GL at least..)
-	draw_->BindFramebufferAsRenderTarget(dest, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "BlitUsingRaster");
-	draw_->BindFramebufferAsTexture(src, 0, channel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, 0);
+	draw_->BindFramebufferAsRenderTarget(dest, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, tag ? tag : "BlitUsingRaster");
+	draw_->BindFramebufferAsTexture(src, 0, Draw2DSourceChannel(shader) == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, 0);
 
 	Draw::Viewport vp{ 0.0f, 0.0f, (float)dest->Width(), (float)dest->Height(), 0.0f, 1.0f };
 	draw_->SetViewports(1, &vp);
 	draw_->SetScissorRect(0, 0, (int)dest->Width(), (int)dest->Height());
-	DrawStrip2D(nullptr, vtx, 4, linearFilter, channel);
+	DrawStrip2D(nullptr, vtx, 4, linearFilter, shader);
 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
