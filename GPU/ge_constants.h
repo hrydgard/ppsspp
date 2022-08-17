@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 enum GECommand {
 	GE_CMD_NOP = 0,
 	GE_CMD_VADDR = 0x1,
@@ -276,8 +278,7 @@ enum GECommand {
 	GE_CMD_NOP_FF = 0xFF,
 };
 
-enum GEBufferFormat
-{
+enum GEBufferFormat : uint8_t {
 	GE_FORMAT_565 = 0,
 	GE_FORMAT_5551 = 1,
 	GE_FORMAT_4444 = 2,
