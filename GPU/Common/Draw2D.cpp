@@ -176,7 +176,7 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 			return;
 		}
 		if (!draw2DPipelineDepth_) {
-			draw2DPipelineDepth_ = Create2DPipeline(&GenerateDraw2DFs);
+			draw2DPipelineDepth_ = Create2DPipeline(&GenerateDraw2DDepthFs);
 		}
 		draw_->BindPipeline(draw2DPipelineDepth_);
 		break;
