@@ -36,12 +36,10 @@
 #include "GPU/Debugger/Stepping.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
-#include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 
-FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw, GLRenderManager *render) :
-	FramebufferManagerCommon(draw),
-	render_(render)
+FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw) :
+	FramebufferManagerCommon(draw)
 {
 	needBackBufferYSwap_ = true;
 	presentation_->SetLanguage(draw_->GetShaderLanguageDesc().shaderLanguage);
@@ -49,10 +47,6 @@ FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw, GLRender
 
 FramebufferManagerGLES::~FramebufferManagerGLES() {
 	delete[] convBuf_;
-}
-
-void FramebufferManagerGLES::Init() {
-	FramebufferManagerCommon::Init();
 }
 
 void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
@@ -67,26 +61,19 @@ void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) 
 	}
 }
 
-void FramebufferManagerGLES::EndFrame() {
-}
-
 void FramebufferManagerGLES::DeviceLost() {
 	FramebufferManagerCommon::DeviceLost();
 	if (depthDownloadProgram_) {
-		render_->DeleteProgram(depthDownloadProgram_);
+		GLRenderManager *render = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		render->DeleteProgram(depthDownloadProgram_);
 		depthDownloadProgram_ = nullptr;
 	}
 }
 
-void FramebufferManagerGLES::DeviceRestore(Draw::DrawContext *draw) {
-	FramebufferManagerCommon::DeviceRestore(draw);
-	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-}
-
 void FramebufferManagerGLES::Resized() {
 	FramebufferManagerCommon::Resized();
-
-	render_->Resize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+	GLRenderManager *render = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	render->Resize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 }
 
 bool FramebufferManagerGLES::GetOutputFramebuffer(GPUDebugBuffer &buffer) {

@@ -2969,7 +2969,7 @@ bool GPUCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	return framebufferManager_ ? framebufferManager_->GetOutputFramebuffer(buffer) : false;
 }
 
-std::vector<FramebufferInfo> GPUCommon::GetFramebufferList() {
+std::vector<FramebufferInfo> GPUCommon::GetFramebufferList() const {
 	return framebufferManager_->GetFramebufferList();
 }
 

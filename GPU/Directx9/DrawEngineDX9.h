@@ -30,8 +30,6 @@
 struct DecVtxFormat;
 struct UVScale;
 
-namespace DX9 {
-
 class VSShader;
 class ShaderManagerDX9;
 class TextureCacheDX9;
@@ -175,5 +173,3 @@ private:
 
 	int lastRenderStepId_ = -1;
 };
-
-}  // namespace

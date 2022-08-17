@@ -18,30 +18,21 @@
 #pragma once
 
 #include "Common/GPU/thin3d.h"
-// Keeps track of allocated FBOs.
-// Also provides facilities for drawing and later converting raw
-// pixel data.
-
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
-#include "Common/GPU/OpenGL/GLRenderManager.h"
 
-struct GLSLProgram;
 class TextureCacheGLES;
 class DrawEngineGLES;
 class ShaderManagerGLES;
+class GLRProgram;
 
 class FramebufferManagerGLES : public FramebufferManagerCommon {
 public:
-	FramebufferManagerGLES(Draw::DrawContext *draw, GLRenderManager *render);
+	FramebufferManagerGLES(Draw::DrawContext *draw);
 	~FramebufferManagerGLES();
 
-	virtual void Init() override;
-	void EndFrame();
 	void Resized() override;
-
 	void DeviceLost() override;
-	void DeviceRestore(Draw::DrawContext *draw) override;
 
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
 
@@ -51,8 +42,6 @@ protected:
 private:
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
-	GLRenderManager *render_;
-
 	u8 *convBuf_ = nullptr;
 	u32 convBufSize_ = 0;
 
@@ -61,6 +50,4 @@ private:
 	int u_depthDownloadFactor = -1;
 	int u_depthDownloadShift = -1;
 	int u_depthDownloadTo8 = -1;
-	
-	DrawEngineGLES *drawEngineGL_ = nullptr;
 };

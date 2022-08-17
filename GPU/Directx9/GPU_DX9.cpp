@@ -49,8 +49,6 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
 
-namespace DX9 {
-
 GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw),
 	  drawEngine_(draw) {
@@ -280,7 +278,6 @@ void GPU_DX9::ReapplyGfxState() {
 void GPU_DX9::BeginFrame() {
 	textureCacheDX9_->StartFrame();
 	drawEngine_.BeginFrame();
-	// fragmentTestCache_.Decimate();
 
 	GPUCommon::BeginFrame();
 	shaderManagerDX9_->DirtyShader();
@@ -300,9 +297,7 @@ void GPU_DX9::CopyDisplayToOutput(bool reallyDirty) {
 	drawEngine_.Flush();
 
 	framebufferManagerDX9_->CopyDisplayToOutput(reallyDirty);
-	framebufferManagerDX9_->EndFrame();
 
-	// shaderManager_->EndFrame();
 	shaderManagerDX9_->DirtyLastShader();
 
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
@@ -396,5 +391,3 @@ std::string GPU_DX9::DebugGetShaderString(std::string id, DebugShaderType type, 
 		return shaderManagerDX9_->DebugGetShaderString(id, type, stringType);
 	}
 }
-
-}  // namespace DX9

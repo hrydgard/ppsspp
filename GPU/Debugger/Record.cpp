@@ -29,6 +29,7 @@
 #include "Common/Thread/ParallelLoop.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/System/System.h"
 
 #include "Core/Core.h"
 #include "Core/ELF/ParamSFO.h"

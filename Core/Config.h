@@ -469,6 +469,9 @@ public:
 	int iGEWindowY;
 	int iGEWindowW;
 	int iGEWindowH;
+	uint32_t uGETabsLeft;
+	uint32_t uGETabsRight;
+	uint32_t uGETabsTopRight;
 	int iConsoleWindowX;
 	int iConsoleWindowY;
 	int iFontWidth;

@@ -94,6 +94,7 @@ struct JNIEnv {};
 #include "UI/GameInfoCache.h"
 
 #ifdef OPENXR
+#include "Core/HLE/sceDisplay.h"
 #include "VR/VRBase.h"
 #include "VR/VRInput.h"
 #include "VR/VRRenderer.h"
@@ -818,6 +819,8 @@ retry:
 	java.AppVersion = gitVer.ToInteger();
 	strcpy(java.AppName, "PPSSPP");
 	VR_Init(java);
+
+	__DisplaySetFramerate(72);
 #endif
 }
 

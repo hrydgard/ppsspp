@@ -51,8 +51,6 @@ D3DFORMAT ToD3D9Format(Draw::DataFormat fmt) {
 	}
 }
 
-namespace DX9 {
-
 #define INVALID_TEX (LPDIRECT3DTEXTURE9)(-1)
 
 static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
@@ -443,5 +441,3 @@ bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) 
 
 	return success;
 }
-
-};

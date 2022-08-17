@@ -26,8 +26,6 @@
 #include "GPU/Common/DepalettizeCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
-namespace DX9 {
-
 class ShaderManagerDX9;
 class LinkedShaderDX9;
 class TextureCacheDX9;
@@ -80,7 +78,3 @@ private:
 	DrawEngineDX9 drawEngine_;
 	ShaderManagerDX9 *shaderManagerDX9_;
 };
-
-}  // namespace DX9
-
-typedef DX9::GPU_DX9 DIRECTX9_GPU;

@@ -3,6 +3,7 @@
 #include "Common/System/Display.h"
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
 #include "Windows/GEDebugger/GEDebugger.h"
+#include "Windows/MainWindow.h"
 #include "Windows/InputBox.h"
 #include "Windows/W32Util/ContextMenu.h"
 #include "Windows/main.h"
@@ -149,8 +150,7 @@ void CtrlDisplayListView::redraw()
 	GetClientRect(wnd, &rect);
 	visibleRows = rect.bottom/rowHeight;
 
-	InvalidateRect(wnd, NULL, FALSE);
-	UpdateWindow(wnd); 
+	RedrawWindow(wnd, NULL, NULL, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_INTERNALPAINT | RDW_ALLCHILDREN);
 }
 
 

@@ -100,8 +100,6 @@ public:
 	}
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
 
-	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) override;
-
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
 	void InvalidateCachedState() override;
@@ -1704,21 +1702,6 @@ uint64_t D3D11DrawContext::GetNativeObject(NativeObject obj, void *srcObject) {
 		return (uint64_t)(uintptr_t)featureLevel_;
 	case NativeObject::TEXTURE_VIEW:
 		return (uint64_t)(((D3D11Texture *)srcObject)->view);
-	default:
-		return 0;
-	}
-}
-
-uintptr_t D3D11DrawContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {
-	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
-	switch (channelBit) {
-	case FB_COLOR_BIT: return (uintptr_t)fb->colorTex;
-	case FB_DEPTH_BIT: return (uintptr_t)fb->depthStencilTex;
-	case FB_COLOR_BIT | FB_VIEW_BIT: return (uintptr_t)fb->colorRTView;
-	case FB_DEPTH_BIT | FB_VIEW_BIT: return (uintptr_t)fb->depthStencilRTView;
-	case FB_COLOR_BIT | FB_FORMAT_BIT: return (uintptr_t)fb->colorFormat;
-	case FB_DEPTH_BIT | FB_FORMAT_BIT: return (uintptr_t)fb->depthStencilFormat;
-	case FB_STENCIL_BIT | FB_FORMAT_BIT: return (uintptr_t)fb->depthStencilFormat;
 	default:
 		return 0;
 	}

@@ -264,7 +264,7 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config, c
 }
 
 void GenerateDepalFs(char *buffer, const DepalConfig &config, const ShaderLanguageDesc &lang) {
-	ShaderWriter writer(buffer, lang, ShaderStage::Fragment, nullptr, 0);
+	ShaderWriter writer(buffer, lang, ShaderStage::Fragment);
 	writer.DeclareSamplers(samplers);
 	writer.HighPrecisionFloat();
 	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_NONE);
@@ -289,9 +289,6 @@ void GenerateDepalVs(char *buffer, const ShaderLanguageDesc &lang) {
 	writer.BeginVSMain(vsInputs, Slice<UniformDef>::empty(), varyings);
 	writer.C("  v_texcoord = a_texcoord0;\n");
 	writer.C("  gl_Position = vec4(a_position, 0.0, 1.0);\n");
-	if (strlen(lang.viewportYSign)) {
-		writer.F("  gl_Position.y *= %s1.0;\n", lang.viewportYSign);
-	}
 	writer.EndVSMain(varyings);
 }
 
