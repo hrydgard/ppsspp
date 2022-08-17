@@ -57,12 +57,6 @@
 #include "GPU/Common/PostShader.h"
 #include "GPU/Debugger/Record.h"
 
-#ifdef OPENXR
-#define FRAMELIMIT 72
-#else
-#define FRAMELIMIT 60
-#endif
-
 struct FrameBufferState {
 	u32 topaddr;
 	GEBufferFormat fmt;
@@ -110,8 +104,10 @@ static int height;
 static bool wasPaused;
 static bool flippedThisFrame;
 
+static int framerate = 60;
+
 // 1.001f to compensate for the classic 59.94 NTSC framerate that the PSP seems to have.
-static const double timePerVblank = 1.001f / (float)FRAMELIMIT;
+static double timePerVblank = 1.001f / (float)framerate;
 
 // Don't include this in the state, time increases regardless of state.
 static double curFrameTime;
@@ -133,7 +129,7 @@ const double vblankMs = 0.7315;
 // These are guesses based on tests.
 const double vsyncStartMs = 0.5925;
 const double vsyncEndMs = 0.7265;
-const double frameMs = 1001.0 / (double)FRAMELIMIT;
+double frameMs = 1001.0 / (double)framerate;
 
 enum {
 	PSP_DISPLAY_SETBUF_IMMEDIATE = 0,
@@ -164,7 +160,7 @@ static void ScheduleLagSync(int over = 0) {
 	if (lagSyncScheduled) {
 		// Reset over if it became too high, such as after pausing or initial loading.
 		// There's no real sense in it being more than 1/60th of a second.
-		if (over > 1000000 / FRAMELIMIT) {
+		if (over > 1000000 / framerate) {
 			over = 0;
 		}
 		CoreTiming::ScheduleEvent(usToCycles(1000 + over), lagSyncEvent, 0);
@@ -364,7 +360,7 @@ static int FrameTimingLimit() {
 		return PSP_CoreParameter().analogFpsLimit;
 	if (PSP_CoreParameter().fastForward)
 		return 0;
-	return FRAMELIMIT;
+	return framerate;
 }
 
 static bool FrameTimingThrottled() {
@@ -395,8 +391,8 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 		return;
 
 	float scaledTimestep = timestep;
-	if (fpsLimit > 0 && fpsLimit != FRAMELIMIT) {
-		scaledTimestep *= (float)FRAMELIMIT / fpsLimit;
+	if (fpsLimit > 0 && fpsLimit != framerate) {
+		scaledTimestep *= (float)framerate / fpsLimit;
 	}
 
 	if (lastFrameTime == 0.0 || wasPaused) {
@@ -470,9 +466,9 @@ static void DoFrameIdleTiming() {
 
 	float scaledVblank = timePerVblank;
 	int fpsLimit = FrameTimingLimit();
-	if (fpsLimit != 0 && fpsLimit != FRAMELIMIT) {
+	if (fpsLimit != 0 && fpsLimit != framerate) {
 		// 0 is handled in FrameTimingThrottled().
-		scaledVblank *= (float)FRAMELIMIT / fpsLimit;
+		scaledVblank *= (float)framerate / fpsLimit;
 	}
 
 	// If we have over at least a vblank of spare time, maintain at least 30fps in delay.
@@ -592,7 +588,7 @@ void __DisplayFlip(int cyclesLate) {
 		bool forceNoFlip = false;
 		float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
 		// Avoid skipping on devices that have 58 or 59 FPS, except when alternate speed is set.
-		bool refreshRateNeedsSkip = FrameTimingLimit() != FRAMELIMIT && FrameTimingLimit() > refreshRate;
+		bool refreshRateNeedsSkip = FrameTimingLimit() != framerate && FrameTimingLimit() > refreshRate;
 		// Alternative to frameskip fast-forward, where we draw everything.
 		// Useful if skipping a frame breaks graphics or for checking drawing speed.
 		if (fastForwardSkipFlip && (!FrameTimingThrottled() || refreshRateNeedsSkip)) {
@@ -691,9 +687,9 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 
 	float scale = 1.0f;
 	int fpsLimit = FrameTimingLimit();
-	if (fpsLimit != 0 && fpsLimit != FRAMELIMIT) {
+	if (fpsLimit != 0 && fpsLimit != framerate) {
 		// 0 is handled in FrameTimingThrottled().
-		scale = (float)FRAMELIMIT / fpsLimit;
+		scale = (float)framerate / fpsLimit;
 	}
 
 	const double goal = lastLagSync + (scale / 1000.0f);
@@ -851,7 +847,7 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 		}
 
 		// 1001 to account for NTSC timing (59.94 fps.)
-		u64 expected = msToCycles(1001) / FRAMELIMIT - LEEWAY_CYCLES_PER_FLIP;
+		u64 expected = msToCycles(1001) / framerate - LEEWAY_CYCLES_PER_FLIP;
 		lastFlipCycles = now;
 		nextFlipCycles = std::max(lastFlipCycles, nextFlipCycles) + expected;
 	}
@@ -1082,4 +1078,10 @@ void Register_sceDisplay() {
 
 void Register_sceDisplay_driver() {
 	RegisterModule("sceDisplay_driver", ARRAY_SIZE(sceDisplay), sceDisplay);
+}
+
+void __DisplaySetFramerate(int value) {
+	framerate = value;
+	timePerVblank = 1.001f / (float)framerate;
+	frameMs = 1001.0 / (double)framerate;
 }
