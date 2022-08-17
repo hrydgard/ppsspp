@@ -120,9 +120,8 @@ VirtualFramebuffer *FramebufferManagerCommon::GetVFBAt(u32 addr) const {
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
 		if (v->fb_address == addr) {
-			// Could check w too but whatever
-			// NOTE: This gets the OLDEST image at the address - is that good?
-			if (match == nullptr || match->last_frame_render < v->last_frame_render) {
+			// Could check w too but whatever (actually, might very well make sense to do so, depending on context).
+			if (!match || v->last_frame_render > match->last_frame_render) {
 				match = v;
 			}
 		}

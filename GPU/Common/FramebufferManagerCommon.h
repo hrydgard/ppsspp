@@ -86,8 +86,8 @@ struct VirtualFramebuffer {
 	u16 renderWidth;
 	u16 renderHeight;
 
-	// Attempt to keep track of a bounding rectangle of what's been actually drawn. However, right now these are not
-	// used in a very detailed way (they're only ever 0 or equal to width/height)
+	// Attempt to keep track of a bounding rectangle of what's been actually drawn. Coarse, but might be smaller
+	// than width/height if framebuffer has been enlarged. In PSP pixels.
 	u16 drawnWidth;
 	u16 drawnHeight;
 
@@ -110,7 +110,10 @@ struct VirtualFramebuffer {
 	u16 usageFlags;
 
 	// These are used to track state to try to avoid buffer size shifting back and forth.
-	// Though that shouldn't really happen, should it, since we always grow, don't shrink?
+	// You might think that doesn't happen since we mostly grow framebuffers, but we do resize down,
+	// if the size has shrunk for a while and the framebuffer is also larger than the stride.
+	// At this point, the "safe" size is probably a lie, and we have had various issues with readbacks, so this resizes down to avoid them.
+	// An example would be a game that always uses the address 0x00154000 for temp buffers, and uses it for a full-screen effect for 3 frames, then goes back to using it for character shadows or something much smaller.
 	u16 newWidth;
 	u16 newHeight;
 
