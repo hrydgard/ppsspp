@@ -871,6 +871,12 @@ bool TextureCacheCommon::MatchFramebuffer(
 	static const u32 MAX_SUBAREA_Y_OFFSET_SAFE = 32;
 
 	uint32_t fb_address = channel == RASTER_DEPTH ? framebuffer->z_address : framebuffer->fb_address;
+	uint32_t fb_stride = channel == RASTER_DEPTH ? framebuffer->z_stride : framebuffer->z_address;
+
+	if (channel == RASTER_DEPTH && framebuffer->z_address == framebuffer->fb_address) {
+		// Try to avoid silly matches to somewhat malformed buffers.
+		return false;
+	}
 
 	u32 addr = fb_address & 0x3FFFFFFF;
 	u32 texaddr = entry.addr + texaddrOffset;
@@ -921,8 +927,8 @@ bool TextureCacheCommon::MatchFramebuffer(
 
 	// If they match "exactly", it's non-CLUT and from the top left.
 	if (exactMatch) {
-		if (framebuffer->fb_stride != entry.bufw) {
-			WARN_LOG_ONCE(diffStrides1, G3D, "Texturing from framebuffer with different strides %d != %d", entry.bufw, framebuffer->fb_stride);
+		if (fb_stride != entry.bufw) {
+			WARN_LOG_ONCE(diffStrides1, G3D, "Texturing from framebuffer with different strides %d != %d", entry.bufw, fb_stride);
 		}
 		// NOTE: This check is okay because the first texture formats are the same as the buffer formats.
 		if (IsTextureFormatBufferCompatible(entry.format)) {
@@ -965,9 +971,9 @@ bool TextureCacheCommon::MatchFramebuffer(
 			return false;
 		}
 
-		if (framebuffer->fb_stride != entry.bufw) {
+		if (fb_stride != entry.bufw) {
 			if (noOffset) {
-				WARN_LOG_ONCE(diffStrides2, G3D, "Texturing from framebuffer (matching_clut=%s) different strides %d != %d", matchingClutFormat ? "yes" : "no", entry.bufw, framebuffer->fb_stride);
+				WARN_LOG_ONCE(diffStrides2, G3D, "Texturing from framebuffer (matching_clut=%s) different strides %d != %d", matchingClutFormat ? "yes" : "no", entry.bufw, fb_stride);
 				// Continue on with other checks.
 				// Not actually sure why we even try here. There's no way it'll go well if the strides are different.
 			} else {
@@ -977,7 +983,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 		}
 
 		// Check if it's in bufferWidth (which might be higher than width and may indicate the framebuffer includes the data.)
-		if (matchInfo->xOffset >= framebuffer->bufferWidth && matchInfo->xOffset + w <= (u32)framebuffer->fb_stride) {
+		if (matchInfo->xOffset >= framebuffer->bufferWidth && matchInfo->xOffset + w <= (u32)fb_stride) {
 			// This happens in Brave Story, see #10045 - the texture is in the space between strides, with matching stride.
 			return false;
 		}
