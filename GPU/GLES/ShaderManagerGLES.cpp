@@ -421,11 +421,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		ScaleProjMatrix(leftEyeMatrix, useBufferedRendering);
 		ScaleProjMatrix(rightEyeMatrix, useBufferedRendering);
 
-  #ifdef OPENXR_MULTIVIEW
-		render_->SetUniformM4x4Stereo(&u_proj, leftEyeMatrix.m, rightEyeMatrix.m);
-  #else
-		render_->SetUniformM4x4(&u_proj, leftEyeMatrix.m);
-  #endif
+		render_->SetUniformM4x4Stereo("u_proj", &u_proj, leftEyeMatrix.m, rightEyeMatrix.m);
 #else
 		Matrix4x4 flippedMatrix;
 		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
@@ -549,11 +545,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 			VR_TweakView(leftEyeView, gstate.projMatrix, VR_VIEW_MATRIX_LEFT_EYE);
 			VR_TweakView(rightEyeView, gstate.projMatrix, VR_VIEW_MATRIX_RIGHT_EYE);
 		}
-  #ifdef OPENXR_MULTIVIEW
-		render_->SetUniformM4x4Stereo(&u_view, leftEyeView, rightEyeView);
-  #else
-		render_->SetUniformM4x4(&u_view, leftEyeView);
-  #endif
+		render_->SetUniformM4x4Stereo("u_view", &u_view, leftEyeView, rightEyeView);
 #else
 		SetMatrix4x3(render_, &u_view, gstate.viewMatrix);
 #endif

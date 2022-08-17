@@ -742,17 +742,20 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void SetUniformM4x4Stereo(const GLint *loc, const float *left, const float *right) {
+#ifdef OPENXR
+	void SetUniformM4x4Stereo(const char *name, const GLint *loc, const float *left, const float *right) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG
 		_dbg_assert_(curProgram_);
 #endif
 		GLRRenderData data{ GLRRenderCommand::UNIFORMSTEREOMATRIX };
+		data.uniformMatrix4.name = name;
 		data.uniformMatrix4.loc = loc;
 		memcpy(&data.uniformMatrix4.m[0], left, sizeof(float) * 16);
 		memcpy(&data.uniformMatrix4.m[16], right, sizeof(float) * 16);
 		curRenderStep_->commands.push_back(data);
 	}
+#endif
 
 	void SetUniformM4x4(const char *name, const float *udata) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);

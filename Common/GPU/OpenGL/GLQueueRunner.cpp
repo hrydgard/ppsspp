@@ -279,7 +279,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 			for (size_t j = 0; j < program->queries_.size(); j++) {
 				auto &query = program->queries_[j];
 				_dbg_assert_(query.name);
-#ifdef OPENXR_MULTIVIEW
+#ifdef OPENXR
 				int location = -1;
 				int index = GetStereoBufferIndex(query.name);
 				if (index >= 0) {
@@ -288,7 +288,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 
 					GLuint buffer = 0;
 					glGenBuffers(1, &buffer);
-					glBindBuffer(GL_UNIFORM_BUFFER, location);
+					glBindBuffer(GL_UNIFORM_BUFFER, buffer);
 					glBufferData(GL_UNIFORM_BUFFER,2 * 16 * sizeof(float),NULL, GL_STATIC_DRAW);
 					glBindBuffer(GL_UNIFORM_BUFFER, 0);
 					location = buffer;
@@ -1031,28 +1031,24 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
+#ifdef OPENXR
 		case GLRRenderCommand::UNIFORMSTEREOMATRIX:
 		{
 			_dbg_assert_(curProgram);
-			int loc = c.uniformMatrix4.loc ? *c.uniformMatrix4.loc : -1;
-			if (c.uniformMatrix4.name) {
-				loc = curProgram->GetUniformLoc(c.uniformMatrix4.name);
-			}
-			if (loc >= 0) {
+			int layout = GetStereoBufferIndex(c.uniformMatrix4.name);
+			if (layout >= 0) {
 				int size = 2 * 16 * sizeof(float);
-				int layout = GetStereoBufferIndex(c.uniformMatrix4.name);
-				glBindBufferBase(GL_UNIFORM_BUFFER, layout, loc);
-				glBindBuffer(GL_UNIFORM_BUFFER, loc);
+				glBindBufferBase(GL_UNIFORM_BUFFER, layout, *c.uniformMatrix4.loc);
+				glBindBuffer(GL_UNIFORM_BUFFER, *c.uniformMatrix4.loc);
 				void *viewMatrices = glMapBufferRange(GL_UNIFORM_BUFFER, 0, size, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
-				if (viewMatrices) {
-					memcpy(viewMatrices, c.uniformMatrix4.m, size);
-				}
+				memcpy(viewMatrices, c.uniformMatrix4.m, size);
 				glUnmapBuffer(GL_UNIFORM_BUFFER);
 				glBindBuffer(GL_UNIFORM_BUFFER, 0);
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
+#endif
 		case GLRRenderCommand::UNIFORMMATRIX:
 		{
 			_dbg_assert_(curProgram);

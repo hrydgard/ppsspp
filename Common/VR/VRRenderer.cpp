@@ -417,7 +417,8 @@ void VR_EndFrame( engine_t* engine ) {
 
 	OXR(xrEndFrame(engine->appState.Session, &endFrameInfo));
 	frameBuffer->TextureSwapChainIndex++;
-	frameBuffer->TextureSwapChainIndex %= frameBuffer->TextureSwapChainLength;}
+	frameBuffer->TextureSwapChainIndex %= frameBuffer->TextureSwapChainLength;
+}
 
 int VR_GetConfig( VRConfig config ) {
 	return vrConfig[config];

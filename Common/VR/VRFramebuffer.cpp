@@ -102,7 +102,6 @@ bool ovrFramebuffer_Create(
 	frameBuffer->FrameBuffers = (GLuint*)malloc(frameBuffer->TextureSwapChainLength * sizeof(GLuint));
 
 	for (uint32_t i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
-#ifdef OPENXR_MULTIVIEW
 		// Create the color buffer texture.
 		const GLuint colorTexture = frameBuffer->ColorSwapChainImage[i].image;
 
@@ -114,6 +113,7 @@ bool ovrFramebuffer_Create(
 		GL(glTexParameteri(textureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
 		GL(glBindTexture(textureTarget, 0));
 
+#ifdef OPENXR_MULTIVIEW
 		// Create depth buffer.
 		GL(glGenTextures(1, &frameBuffer->DepthBuffers[i]));
 		GL(glBindTexture(textureTarget, frameBuffer->DepthBuffers[i]));
@@ -132,16 +132,6 @@ bool ovrFramebuffer_Create(
 			return false;
 		}
 #else
-		// Create the color buffer texture.
-		const GLuint colorTexture = frameBuffer->ColorSwapChainImage[i].image;
-		GLenum colorTextureTarget = GL_TEXTURE_2D;
-		GL(glBindTexture(colorTextureTarget, colorTexture));
-		GL(glTexParameteri(colorTextureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-		GL(glTexParameteri(colorTextureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-		GL(glTexParameteri(colorTextureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-		GL(glTexParameteri(colorTextureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-		GL(glBindTexture(colorTextureTarget, 0));
-
 		// Create depth buffer.
 		GL(glGenRenderbuffers(1, &frameBuffer->DepthBuffers[i]));
 		GL(glBindRenderbuffer(GL_RENDERBUFFER, frameBuffer->DepthBuffers[i]));
@@ -153,13 +143,13 @@ bool ovrFramebuffer_Create(
 		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->FrameBuffers[i]));
 		GL(glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, frameBuffer->DepthBuffers[i]));
 		GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0));
+#endif
 		GL(GLenum renderFramebufferStatus = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER));
 		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0));
 		if (renderFramebufferStatus != GL_FRAMEBUFFER_COMPLETE) {
 			ALOGE("Incomplete frame buffer object: %d", renderFramebufferStatus);
 			return false;
 		}
-#endif
 	}
 
 	return true;
