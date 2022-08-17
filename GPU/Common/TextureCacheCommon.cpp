@@ -625,18 +625,15 @@ std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const 
 
 	std::vector<AttachCandidate> candidates;
 
-	RasterChannel channel = Memory::IsDepthTexVRAMAddress(entry.addr) ? RasterChannel::RASTER_DEPTH : RasterChannel::RASTER_COLOR;
-	if (channel == RasterChannel::RASTER_DEPTH && !gstate_c.Supports(GPU_SUPPORTS_DEPTH_TEXTURE)) {
-		// Depth texture not supported. Don't try to match it, fall back to the memory behind..
-		return std::vector<AttachCandidate>();
-	}
-
 	const std::vector<VirtualFramebuffer *> &framebuffers = framebufferManager_->Framebuffers();
 
 	for (VirtualFramebuffer *framebuffer : framebuffers) {
 		FramebufferMatchInfo match{};
-		if (MatchFramebuffer(entry, framebuffer, texAddrOffset, channel, &match)) {
-			candidates.push_back(AttachCandidate{ match, entry, framebuffer, channel, channel == RASTER_COLOR ? framebuffer->colorBindSeq : framebuffer->depthBindSeq });
+		if (MatchFramebuffer(entry, framebuffer, texAddrOffset, RASTER_COLOR, &match)) {
+			candidates.push_back(AttachCandidate{ match, entry, framebuffer, RASTER_COLOR, framebuffer->colorBindSeq });
+		}
+		if (gstate_c.Supports(GPU_SUPPORTS_DEPTH_TEXTURE) && MatchFramebuffer(entry, framebuffer, texAddrOffset, RASTER_DEPTH, &match)) {
+			candidates.push_back(AttachCandidate{ match, entry, framebuffer, RASTER_DEPTH, framebuffer->depthBindSeq });
 		}
 	}
 
