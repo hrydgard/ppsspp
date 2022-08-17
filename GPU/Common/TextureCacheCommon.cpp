@@ -106,13 +106,7 @@ inline int dimHeight(u16 dim) {
 // Vulkan color formats:
 // TODO
 TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw)
-	: draw_(draw),
-		clutLastFormat_(0xFFFFFFFF),
-		clutTotalBytes_(0),
-		clutMaxBytes_(0),
-		clutRenderAddress_(0xFFFFFFFF),
-		clutAlphaLinear_(false),
-		isBgraBackend_(false) {
+	: draw_(draw) {
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 
 	// TODO: Clamp down to 256/1KB?  Need to check mipmapShareClut and clamp loadclut.

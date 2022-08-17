@@ -67,12 +67,8 @@ RasterChannel GenerateDraw2D565ToDepthFs(ShaderWriter &writer) {
 	// have to apply the scaling.
 	DepthScaleFactors factors = GetDepthScaleFactors();
 	writer.C("  vec3 rgb = ").SampleTexture2D("tex", "v_texcoord.xy").C(".xyz;\n");
-	writer.F("  highp float depthValue = (floor(rgb.x * 31.99) + floor(rgb.y * 63.99) * 32.0 + floor(rgb.z * 31.99) * 2048.0) / 65535.0; \n");
-	if (factors.scale != 1.0 || factors.offset != 0.0) {
-		writer.F("  gl_FragDepth = (depthValue / %f) + %f;\n", factors.scale / 65535.0f, factors.offset);
-	} else {
-		writer.C("  gl_FragDepth = depthValue;\n");
-	}
+	writer.F("  highp float depthValue = (floor(rgb.x * 31.99) + floor(rgb.y * 63.99) * 32.0 + floor(rgb.z * 31.99) * 2048.0); \n");
+	writer.F("  gl_FragDepth = (depthValue / %f) + %f;\n", factors.scale, factors.offset);
 	writer.EndFSMain("outColor", FSFLAG_WRITEDEPTH);
 	return RASTER_DEPTH;
 }
@@ -200,6 +196,7 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 		}
 		if (!draw2DPipelineDepth_) {
 			draw2DPipelineDepth_ = Create2DPipeline(&GenerateDraw2DDepthFs);
+			linearFilter = false;
 		}
 		draw_->BindPipeline(draw2DPipelineDepth_);
 		break;
@@ -211,6 +208,7 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 		}
 		if (!draw2DPipeline565ToDepth_) {
 			draw2DPipeline565ToDepth_ = Create2DPipeline(&GenerateDraw2D565ToDepthFs);
+			linearFilter = false;
 		}
 		draw_->BindPipeline(draw2DPipeline565ToDepth_);
 		break;

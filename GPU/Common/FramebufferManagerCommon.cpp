@@ -405,7 +405,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		vfb->lastFrameNewSize = gpuStats.numFlips;
 		vfb->format = params.fmt;
 		vfb->drawnFormat = params.fmt;
-		vfb->usageFlags = FB_USAGE_RENDERTARGET;
+		vfb->usageFlags = FB_USAGE_RENDER_COLOR;
 
 		u32 byteSize = ColorBufferByteSize(vfb);
 		if (Memory::IsVRAMAddress(params.fb_address) && params.fb_address + byteSize > framebufRangeEnd_) {
@@ -454,7 +454,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 			} else if (vfbs_[i]->z_stride != 0 && params.z_address == vfbs_[i]->z_address && params.fb_address != vfbs_[i]->fb_address && !sharingReported) {
 				// This happens a lot, but virtually always it's cleared.
 				// It's possible the other might not clear, but when every game is reported it's not useful.
-				if (params.isWritingDepth) {
+				if (params.isWritingDepth && (vfbs_[i]->usageFlags & FB_USAGE_RENDER_DEPTH)) {
 					WARN_LOG(SCEGE, "FBO reusing depthbuffer, c=%08x/d=%08x and c=%08x/d=%08x", params.fb_address, params.z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
 					sharingReported = true;
 				}
@@ -465,7 +465,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	} else if (vfb != currentRenderVfb_) {
 		// Use it as a render target.
 		DEBUG_LOG(FRAMEBUF, "Switching render target to FBO for %08x: %d x %d x %d ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
-		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
+		vfb->usageFlags |= FB_USAGE_RENDER_COLOR;
 		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed_ = gpuStats.numFlips;
 		vfb->dirtyAfterDisplay = true;
@@ -505,6 +505,7 @@ void FramebufferManagerCommon::SetDepthFrameBuffer() {
 	// "Resolve" the depth buffer, by copying from any overlapping buffers with fresher content.
 	CopyToDepthFromOverlappingFramebuffers(currentRenderVfb_);
 
+	currentRenderVfb_->usageFlags |= FB_USAGE_RENDER_DEPTH;
 	currentRenderVfb_->depthBindSeq = GetBindSeqCount();
 }
 
@@ -523,16 +524,17 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 	};
 
 	std::vector<CopySource> sources;
-	for (auto src: vfbs_) {
+	for (auto src : vfbs_) {
 		if (src == dest)
 			continue;
 
 		if (src->fb_address == dest->z_address && src->fb_stride == dest->z_stride && src->format == GE_FORMAT_565) {
-			if (src->colorBindSeq < dest->depthBindSeq) {
+			if (src->colorBindSeq > dest->depthBindSeq) {
 				// Source has newer data than the current buffer, use it.
 				sources.push_back(CopySource{ src, RASTER_COLOR });
 			}
 		} else if (src->z_address == dest->z_address && src->z_stride == dest->z_stride && src->depthBindSeq > dest->depthBindSeq) {
+			// Don't bother if the buffer was from another frame. This heuristic is old.
 			sources.push_back(CopySource{ src, RASTER_DEPTH });
 		} else {
 			// TODO: Do more detailed overlap checks here.
@@ -1572,7 +1574,7 @@ VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAd
 	vfb->bufferHeight = vfb->height;
 	vfb->format = format;
 	vfb->drawnFormat = GE_FORMAT_8888;
-	vfb->usageFlags = FB_USAGE_RENDERTARGET;
+	vfb->usageFlags = FB_USAGE_RENDER_COLOR;
 	SetColorUpdated(vfb, 0);
 	char name[64];
 	snprintf(name, sizeof(name), "%08x_color_RAM", vfb->fb_address);
@@ -1640,7 +1642,7 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 		UpdateDownloadTempBuffer(nvfb);
 	}
 
-	nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
+	nvfb->usageFlags |= FB_USAGE_RENDER_COLOR;
 	nvfb->last_frame_render = gpuStats.numFlips;
 	nvfb->dirtyAfterDisplay = true;
 
@@ -1957,7 +1959,7 @@ void FramebufferManagerCommon::UpdateFramebufUsage(VirtualFramebuffer *vfb) {
 
 	checkFlag(FB_USAGE_DISPLAYED_FRAMEBUFFER, vfb->last_frame_displayed);
 	checkFlag(FB_USAGE_TEXTURE, vfb->last_frame_used);
-	checkFlag(FB_USAGE_RENDERTARGET, vfb->last_frame_render);
+	checkFlag(FB_USAGE_RENDER_COLOR, vfb->last_frame_render);
 	checkFlag(FB_USAGE_CLUT, vfb->last_frame_clut);
 }
 
