@@ -634,13 +634,9 @@ std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const 
 	const std::vector<VirtualFramebuffer *> &framebuffers = framebufferManager_->Framebuffers();
 
 	for (VirtualFramebuffer *framebuffer : framebuffers) {
-		FramebufferMatchInfo match = MatchFramebuffer(entry, framebuffer, texAddrOffset, channel);
-		switch (match.match) {
-		case FramebufferMatch::VALID:
+		FramebufferMatchInfo match{};
+		if (MatchFramebuffer(entry, framebuffer, texAddrOffset, channel, &match)) {
 			candidates.push_back(AttachCandidate{ match, entry, framebuffer, channel });
-			break;
-		default:
-			break;
 		}
 	}
 
@@ -677,14 +673,7 @@ int TextureCacheCommon::GetBestCandidateIndex(const std::vector<AttachCandidate>
 	// a comparison function.
 	for (int i = 0; i < (int)candidates.size(); i++) {
 		const AttachCandidate &candidate = candidates[i];
-		int relevancy = 0;
-		switch (candidate.match.match) {
-		case FramebufferMatch::VALID:
-			relevancy += 1000;
-			break;
-		default:
-			break;
-		}
+		int relevancy = 1000;
 
 		// Bonus point for matching stride.
 		if (candidate.channel == RASTER_COLOR && candidate.fb->fb_stride == candidate.entry.bufw) {
@@ -876,9 +865,9 @@ void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, Fram
 	}
 }
 
-FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
+bool TextureCacheCommon::MatchFramebuffer(
 	const TextureDefinition &entry,
-	VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel) const {
+	VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel, FramebufferMatchInfo *matchInfo) const {
 	static const u32 MAX_SUBAREA_Y_OFFSET_SAFE = 32;
 
 	uint32_t fb_address = channel == RASTER_DEPTH ? framebuffer->z_address : framebuffer->fb_address;
@@ -891,7 +880,7 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 
 	if (texInVRAM != fbInVRAM) {
 		// Shortcut. Cannot possibly be a match.
-		return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+		return false;
 	}
 
 	if (texInVRAM) {
@@ -907,14 +896,14 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 		case 0x00400000:
 			// Don't match the depth channel with these addresses when texturing.
 			if (channel == RasterChannel::RASTER_DEPTH) {
-				return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+				return false;
 			}
 			break;
 		case 0x00200000:
 		case 0x00600000:
 			// Don't match the color channel with these addresses when texturing.
 			if (channel == RasterChannel::RASTER_COLOR) {
-				return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+				return false;
 			}
 			break;
 		}
@@ -938,22 +927,23 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 		// NOTE: This check is okay because the first texture formats are the same as the buffer formats.
 		if (IsTextureFormatBufferCompatible(entry.format)) {
 			if (TextureFormatMatchesBufferFormat(entry.format, framebuffer->format) || (framebuffer->usageFlags & FB_USAGE_BLUE_TO_ALPHA)) {
-				return FramebufferMatchInfo{ FramebufferMatch::VALID };
+				return true;
 			} else if (IsTextureFormat16Bit(entry.format) && IsBufferFormat16Bit(framebuffer->format)) {
 				WARN_LOG_ONCE(diffFormat1, G3D, "Texturing from framebuffer with reinterpretable format: %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format));
-				return FramebufferMatchInfo{ FramebufferMatch::VALID, 0, 0, true, TextureFormatToBufferFormat(entry.format) };
+				*matchInfo = FramebufferMatchInfo{ 0, 0, true, TextureFormatToBufferFormat(entry.format) };
+				return true;
 			} else {
 				WARN_LOG_ONCE(diffFormat2, G3D, "Texturing from framebuffer with incompatible formats %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format));
-				return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+				return false;
 			}
 		} else {
 			// Format incompatible, ignoring without comment. (maybe some really gnarly hacks will end up here...)
-			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+			return false;
 		}
 	} else {
 		// Apply to buffered mode only.
 		if (!framebufferManager_->UseBufferedRendering()) {
-			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+			return false;
 		}
 
 		// Check works for D16 too (???)
@@ -962,20 +952,17 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 			(channel == RASTER_COLOR && framebuffer->format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT32) ||
 			(channel == RASTER_COLOR && framebuffer->format != GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT16);
 
-		// To avoid ruining git blame, kept the same name as the old struct.
-		FramebufferMatchInfo fbInfo{ FramebufferMatch::VALID };
-
 		const u32 bitOffset = (texaddr - addr) * 8;
 		if (bitOffset != 0) {
 			const u32 pixelOffset = bitOffset / std::max(1U, (u32)textureBitsPerPixel[entry.format]);
 
-			fbInfo.yOffset = entry.bufw == 0 ? 0 : pixelOffset / entry.bufw;
-			fbInfo.xOffset = entry.bufw == 0 ? 0 : pixelOffset % entry.bufw;
+			matchInfo->yOffset = entry.bufw == 0 ? 0 : pixelOffset / entry.bufw;
+			matchInfo->xOffset = entry.bufw == 0 ? 0 : pixelOffset % entry.bufw;
 		}
 
-		if (fbInfo.yOffset + minSubareaHeight >= framebuffer->height) {
+		if (matchInfo->yOffset + minSubareaHeight >= framebuffer->height) {
 			// Can't be inside the framebuffer.
-			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+			return false;
 		}
 
 		if (framebuffer->fb_stride != entry.bufw) {
@@ -985,34 +972,33 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 				// Not actually sure why we even try here. There's no way it'll go well if the strides are different.
 			} else {
 				// Assume any render-to-tex with different bufw + offset is a render from ram.
-				return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+				return false;
 			}
 		}
 
 		// Check if it's in bufferWidth (which might be higher than width and may indicate the framebuffer includes the data.)
-		if (fbInfo.xOffset >= framebuffer->bufferWidth && fbInfo.xOffset + w <= (u32)framebuffer->fb_stride) {
+		if (matchInfo->xOffset >= framebuffer->bufferWidth && matchInfo->xOffset + w <= (u32)framebuffer->fb_stride) {
 			// This happens in Brave Story, see #10045 - the texture is in the space between strides, with matching stride.
-			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+			return false;
 		}
 
 		// Trying to play it safe.  Below 0x04110000 is almost always framebuffers.
 		// TODO: Maybe we can reduce this check and find a better way above 0x04110000?
-		if (fbInfo.yOffset > MAX_SUBAREA_Y_OFFSET_SAFE && addr > 0x04110000 && !PSP_CoreParameter().compat.flags().AllowLargeFBTextureOffsets) {
-			WARN_LOG_REPORT_ONCE(subareaIgnored, G3D, "Ignoring possible texturing from framebuffer at %08x +%dx%d / %dx%d", fb_address, fbInfo.xOffset, fbInfo.yOffset, framebuffer->width, framebuffer->height);
-			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+		if (matchInfo->yOffset > MAX_SUBAREA_Y_OFFSET_SAFE && addr > 0x04110000 && !PSP_CoreParameter().compat.flags().AllowLargeFBTextureOffsets) {
+			WARN_LOG_REPORT_ONCE(subareaIgnored, G3D, "Ignoring possible texturing from framebuffer at %08x +%dx%d / %dx%d", fb_address, matchInfo->xOffset, matchInfo->yOffset, framebuffer->width, framebuffer->height);
+			return false;
 		}
 
 		// Check for CLUT. The framebuffer is always RGB, but it can be interpreted as a CLUT texture.
 		// 3rd Birthday (and a bunch of other games) render to a 16 bit clut texture.
 		if (matchingClutFormat) {
 			if (!noOffset) {
-				WARN_LOG_ONCE(subareaClut, G3D, "Texturing from framebuffer using CLUT with offset at %08x +%dx%d", fb_address, fbInfo.xOffset, fbInfo.yOffset);
+				WARN_LOG_ONCE(subareaClut, G3D, "Texturing from framebuffer using CLUT with offset at %08x +%dx%d", fb_address, matchInfo->xOffset, matchInfo->yOffset);
 			}
-			fbInfo.match = FramebufferMatch::VALID;  // We check the format again later, no need to return a special value here.
-			return fbInfo;
+			return true;
 		} else if (IsClutFormat((GETextureFormat)(entry.format)) || IsDXTFormat((GETextureFormat)(entry.format))) {
 			WARN_LOG_ONCE(fourEightBit, G3D, "%s format not supported when texturing from framebuffer of format %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format));
-			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+			return false;
 		}
 
 		// This is either normal or we failed to generate a shader to depalettize
@@ -1020,15 +1006,15 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 			if ((int)framebuffer->format != (int)entry.format) {
 				WARN_LOG_ONCE(diffFormat2, G3D, "Texturing from framebuffer with different formats %s != %s at %08x",
 					GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format), fb_address);
-				return fbInfo;
+				return true;
 			} else {
-				WARN_LOG_ONCE(subarea, G3D, "Texturing from framebuffer at %08x +%dx%d", fb_address, fbInfo.xOffset, fbInfo.yOffset);
-				return fbInfo;
+				WARN_LOG_ONCE(subarea, G3D, "Texturing from framebuffer at %08x +%dx%d", fb_address, matchInfo->xOffset, matchInfo->yOffset);
+				return true;
 			}
 		} else {
 			WARN_LOG_ONCE(diffFormat2, G3D, "Texturing from framebuffer with incompatible format %s != %s at %08x",
 				GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format), fb_address);
-			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+			return false;
 		}
 	}
 }

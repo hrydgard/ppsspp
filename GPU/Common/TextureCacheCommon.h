@@ -206,15 +206,7 @@ typedef std::map<u64, std::unique_ptr<TexCacheEntry>> TexCache;
 #undef IGNORE
 #endif
 
-enum class FramebufferMatch {
-	// Valid, exact match.
-	VALID = 0,
-	// Not a match, remove if currently attached.
-	NO_MATCH,
-};
-
 struct FramebufferMatchInfo {
-	FramebufferMatch match;
 	u32 xOffset;
 	u32 yOffset;
 	bool reinterpret;
@@ -365,7 +357,7 @@ protected:
 	SamplerCacheKey GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
-	FramebufferMatchInfo MatchFramebuffer(const TextureDefinition &entry, VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel) const;
+	bool MatchFramebuffer(const TextureDefinition &entry, VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel, FramebufferMatchInfo *matchInfo) const;
 
 	std::vector<AttachCandidate> GetFramebufferCandidates(const TextureDefinition &entry, u32 texAddrOffset);
 	int GetBestCandidateIndex(const std::vector<AttachCandidate> &candidates);
