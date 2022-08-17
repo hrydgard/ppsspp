@@ -669,22 +669,22 @@ int TextureCacheCommon::GetBestCandidateIndex(const std::vector<AttachCandidate>
 	// a comparison function.
 	for (int i = 0; i < (int)candidates.size(); i++) {
 		const AttachCandidate &candidate = candidates[i];
-		int relevancy = 1000;
+		int relevancy = candidate.seqCount;
 
 		// Bonus point for matching stride.
 		if (candidate.channel == RASTER_COLOR && candidate.fb->fb_stride == candidate.entry.bufw) {
-			relevancy += 100;
+			relevancy += 1000;
 		}
 
 		// Bonus points for no offset.
 		if (candidate.match.xOffset == 0 && candidate.match.yOffset == 0) {
-			relevancy += 10;
+			relevancy += 100;
 		}
 
 		if (candidate.channel == RASTER_COLOR && candidate.fb->last_frame_render == gpuStats.numFlips) {
-			relevancy += 5;
+			relevancy += 50;
 		} else if (candidate.channel == RASTER_DEPTH && candidate.fb->last_frame_depth_render == gpuStats.numFlips) {
-			relevancy += 5;
+			relevancy += 50;
 		}
 
 		if (relevancy > bestRelevancy) {
@@ -867,7 +867,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 	static const u32 MAX_SUBAREA_Y_OFFSET_SAFE = 32;
 
 	uint32_t fb_address = channel == RASTER_DEPTH ? framebuffer->z_address : framebuffer->fb_address;
-	uint32_t fb_stride = channel == RASTER_DEPTH ? framebuffer->z_stride : framebuffer->z_address;
+	uint32_t fb_stride = channel == RASTER_DEPTH ? framebuffer->z_stride : framebuffer->fb_stride;
 
 	if (channel == RASTER_DEPTH && framebuffer->z_address == framebuffer->fb_address) {
 		// Try to avoid silly matches to somewhat malformed buffers.
@@ -909,7 +909,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 	// If they match "exactly", it's non-CLUT and from the top left.
 	if (exactMatch) {
 		if (fb_stride != entry.bufw) {
-			WARN_LOG_ONCE(diffStrides1, G3D, "Texturing from framebuffer with different strides %d != %d", entry.bufw, fb_stride);
+			WARN_LOG_ONCE(diffStrides1, G3D, "Texturing from framebuffer with different strides %d != %d", entry.bufw, (int)fb_stride);
 		}
 		// NOTE: This check is okay because the first texture formats are the same as the buffer formats.
 		if (IsTextureFormatBufferCompatible(entry.format)) {
