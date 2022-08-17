@@ -348,6 +348,9 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 					break;
 				}
 			} else if (params.fb_address > v->fb_address && params.fb_address < v_fb_end_ptr && PSP_CoreParameter().compat.flags().AllowLargeFBTextureOffsets) {
+				// Fixes Juiced 2, though causes a lot of copying due to self-texturing. A better solution
+				// would be to copy from the overlapping framebuffer on bind.
+
 				if (params.fb_address % params.fb_stride == v->fb_address % params.fb_stride) {
 					// Framebuffers are overlapping on the Y axis.
 					const int y_offset = (params.fb_address - v->fb_address) / (bpp * params.fb_stride);
@@ -2432,6 +2435,7 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 	float srcYFactor = src->renderScaleFactor;
 	const int srcBpp = src->format == GE_FORMAT_8888 ? 4 : 2;
 	if (srcBpp != bpp && bpp != 0) {
+		// If we do this, we're kinda in nonsense territory since the actual formats won't match (unless intentionally blitting black or white).
 		srcXFactor = (srcXFactor * bpp) / srcBpp;
 	}
 	int srcX1 = srcX * srcXFactor;
@@ -2443,6 +2447,7 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 	float dstYFactor = dst->renderScaleFactor;
 	const int dstBpp = dst->format == GE_FORMAT_8888 ? 4 : 2;
 	if (dstBpp != bpp && bpp != 0) {
+		// If we do this, we're kinda in nonsense territory since the actual formats won't match (unless intentionally blitting black or white).
 		dstXFactor = (dstXFactor * bpp) / dstBpp;
 	}
 	int dstX1 = dstX * dstXFactor;
