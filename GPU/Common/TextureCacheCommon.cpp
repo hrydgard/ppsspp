@@ -632,6 +632,7 @@ std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const 
 		if (MatchFramebuffer(entry, framebuffer, texAddrOffset, RASTER_COLOR, &match)) {
 			candidates.push_back(AttachCandidate{ match, entry, framebuffer, RASTER_COLOR, framebuffer->colorBindSeq });
 		}
+		match = {};
 		if (gstate_c.Supports(GPU_SUPPORTS_DEPTH_TEXTURE) && MatchFramebuffer(entry, framebuffer, texAddrOffset, RASTER_DEPTH, &match)) {
 			candidates.push_back(AttachCandidate{ match, entry, framebuffer, RASTER_DEPTH, framebuffer->depthBindSeq });
 		}
@@ -893,28 +894,6 @@ bool TextureCacheCommon::MatchFramebuffer(
 
 	if (texInVRAM) {
 		const u32 mirrorMask = 0x00600000;
-
-		// This bit controls swizzle. The swizzles at 0x00200000 and 0x00600000 are designed
-		// to perfectly match reading depth as color (which one to use I think might be related
-		// to the bpp of the color format used when rendering to it).
-		// It's fairly unlikely that games would screw this up since the result will be garbage so
-		// we use it to filter out unlikely matches.
-		switch (entry.addr & mirrorMask) {
-		case 0x00000000:
-		case 0x00400000:
-			// Don't match the depth channel with these addresses when texturing.
-			if (channel == RasterChannel::RASTER_DEPTH) {
-				return false;
-			}
-			break;
-		case 0x00200000:
-		case 0x00600000:
-			// Don't match the color channel with these addresses when texturing.
-			if (channel == RasterChannel::RASTER_COLOR) {
-				return false;
-			}
-			break;
-		}
 
 		addr &= ~mirrorMask;
 		texaddr &= ~mirrorMask;
