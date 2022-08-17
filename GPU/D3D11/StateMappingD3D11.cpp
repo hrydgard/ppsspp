@@ -293,14 +293,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		GenericStencilFuncState stencilState;
 		ConvertStencilFuncState(stencilState);
 
-		if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
-			// Enforce plain depth writing.
-			keys_.depthStencil.value = 0;
-			keys_.depthStencil.depthTestEnable = true;
-			keys_.depthStencil.depthWriteEnable = true;
-			keys_.depthStencil.stencilTestEnable = false;
-			keys_.depthStencil.depthCompareOp = D3D11_COMPARISON_ALWAYS;
-		} else if (gstate.isModeClear()) {
+		if (gstate.isModeClear()) {
 			keys_.depthStencil.value = 0;
 			keys_.depthStencil.depthTestEnable = true;
 			keys_.depthStencil.depthCompareOp = D3D11_COMPARISON_ALWAYS;

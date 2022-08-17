@@ -1018,16 +1018,6 @@ void ConvertMaskState(GenericMaskState &maskState, bool allowFramebufferRead) {
 		return;
 	}
 
-	if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
-		// Suppress color writes entirely in this mode.
-		maskState.applyFramebufferRead = false;
-		maskState.rgba[0] = false;
-		maskState.rgba[1] = false;
-		maskState.rgba[2] = false;
-		maskState.rgba[3] = false;
-		return;
-	}
-
 	// Invert to convert masks from the PSP's format where 1 is don't draw to PC where 1 is draw.
 	uint32_t colorMask = ~((gstate.pmskc & 0xFFFFFF) | (gstate.pmska << 24));
 

@@ -265,10 +265,6 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 		}
 	}
 
-	if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
-		forceFiltering = TEX_FILTER_FORCE_NEAREST;
-	}
-
 	switch (forceFiltering) {
 	case TEX_FILTER_AUTO:
 		break;
@@ -2244,11 +2240,6 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 
 	// Don't scale the PPGe texture.
 	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd()) {
-		plan.scaleFactor = 1;
-	}
-
-	// Don't upscale textures in color-to-depth mode.
-	if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
 		plan.scaleFactor = 1;
 	}
 
