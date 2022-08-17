@@ -641,15 +641,13 @@ std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const 
 	}
 
 	if (candidates.size() > 1) {
-		bool depth = channel == RasterChannel::RASTER_DEPTH;
-
 		std::string cands;
 		for (auto &candidate : candidates) {
 			cands += candidate.ToString() + " ";
 		}
 
-		WARN_LOG_REPORT_ONCE(multifbcandidate, G3D, "GetFramebufferCandidates(%s): Multiple (%d) candidate framebuffers. First will be chosen. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
-			depth ? "DEPTH" : "COLOR", (int)candidates.size(),
+		WARN_LOG_REPORT_ONCE(multifbcandidate, G3D, "GetFramebufferCandidates: Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
+			(int)candidates.size(),
 			entry.addr, texAddrOffset, dimWidth(entry.dim), dimHeight(entry.dim), entry.bufw, GeTextureFormatToString(entry.format),
 			cands.c_str()
 		);
@@ -875,6 +873,13 @@ bool TextureCacheCommon::MatchFramebuffer(
 
 	if (channel == RASTER_DEPTH && framebuffer->z_address == framebuffer->fb_address) {
 		// Try to avoid silly matches to somewhat malformed buffers.
+		return false;
+	}
+
+	switch (entry.format) {
+	case GE_TFMT_DXT1:
+	case GE_TFMT_DXT3:
+	case GE_TFMT_DXT5:
 		return false;
 	}
 
