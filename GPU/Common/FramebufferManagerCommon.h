@@ -382,7 +382,7 @@ protected:
 
 	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, RasterChannel channel);
 	void Ensure2DResources();
-	Draw::Pipeline *Create2DPipeline(void (*generate)(ShaderWriter &));
+	Draw::Pipeline *Create2DPipeline(RasterChannel (*generate)(ShaderWriter &));
 
 	bool UpdateSize();
 
