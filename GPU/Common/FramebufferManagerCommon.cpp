@@ -416,6 +416,10 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		ResizeFramebufFBO(vfb, drawing_width, drawing_height, true);
 		NotifyRenderFramebufferCreated(vfb);
 
+		if (!params.isClearingDepth) {
+			CopyToDepthFromOverlappingFramebuffers(vfb);
+		}
+
 		SetColorUpdated(vfb, skipDrawReason);
 
 		INFO_LOG(FRAMEBUF, "Creating FBO for %08x (z: %08x) : %d x %d x %s", vfb->fb_address, vfb->z_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->format));
@@ -459,7 +463,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 			}
 		}
 
-	// We already have it!
+		// We already have it!
 	} else if (vfb != currentRenderVfb_) {
 		// Use it as a render target.
 		DEBUG_LOG(FRAMEBUF, "Switching render target to FBO for %08x: %d x %d x %d ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
@@ -512,6 +516,54 @@ void FramebufferManagerCommon::SetDepthFrameBuffer() {
 	}
 
 	currentRenderVfb_->depthBindSeq = GetBindSeqCount();
+}
+
+void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFramebuffer *dest) {
+	struct CopySource {
+		VirtualFramebuffer *vfb;
+		RasterChannel channel;
+
+		int seq() const {
+			return channel == RASTER_DEPTH ? vfb->depthBindSeq : vfb->colorBindSeq;
+		}
+
+		bool operator < (const CopySource &other) const {
+			return seq() < other.seq();
+		}
+	};
+
+	std::vector<CopySource> sources;
+	for (auto src: vfbs_) {
+		if (src == dest)
+			continue;
+
+		if (src->fb_address == dest->z_address && src->fb_stride == dest->z_stride && src->format == GE_FORMAT_565) {
+			if (src->colorBindSeq > dest->depthBindSeq) {
+				// Source has older data than the current buffer, ignore.
+				continue;
+			}
+			sources.push_back(CopySource{ src, RASTER_COLOR });
+		} else if (src->z_address == dest->z_address && src->z_stride == dest->z_stride && src->depthBindSeq > dest->depthBindSeq) {
+			sources.push_back(CopySource{ src, RASTER_DEPTH });
+		} else {
+			// TODO: Do more detailed overlap checks here.
+		}
+	}
+
+	// TODO: A full depth copy will overwrite anything else. So we can eliminate
+	// anything that comes before such a copy.
+
+	for (auto &source : sources) {
+		if (source.channel == RASTER_DEPTH) {
+			// Good old depth->depth copy.
+			BlitFramebufferDepth(source.vfb, dest);
+
+			gpuStats.numDepthCopies++;
+			dest->last_frame_depth_updated = gpuStats.numFlips;
+		}
+	}
+
+	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE);
 }
 
 void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
@@ -588,9 +640,6 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 	}
 
 	draw_->InvalidateCachedState();
-
-	gpuStats.numDepthCopies++;
-	dst->last_frame_depth_updated = gpuStats.numFlips;
 }
 
 VirtualFramebuffer *FramebufferManagerCommon::GetLatestDepthBufferAt(u32 z_address, u16 z_stride) {
@@ -652,6 +701,12 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	}
 	textureCache_->ForgetLastTexture();
 	shaderManager_->DirtyLastShader();
+
+	if (!isClearingDepth) {
+		// TODO: We should do this as part of the bind below. Then we can optimize the RPAction properly,
+		// and also do the copies using raster.
+		CopyToDepthFromOverlappingFramebuffers(vfb);
+	}
 
 	if (vfb->drawnFormat != vfb->format) {
 		ReinterpretFramebuffer(vfb, vfb->drawnFormat, vfb->format);

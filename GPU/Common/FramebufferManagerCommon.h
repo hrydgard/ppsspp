@@ -386,6 +386,8 @@ protected:
 	void Ensure2DResources();
 	Draw::Pipeline *Create2DPipeline(RasterChannel (*generate)(ShaderWriter &));
 
+	void CopyToDepthFromOverlappingFramebuffers(VirtualFramebuffer *dest);
+
 	bool UpdateSize();
 
 	void FlushBeforeCopy();
