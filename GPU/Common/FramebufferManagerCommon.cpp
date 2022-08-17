@@ -71,12 +71,6 @@ FramebufferManagerCommon::~FramebufferManagerCommon() {
 	}
 	bvfbs_.clear();
 
-	// Shouldn't be anything left here in theory, but just in case...
-	for (auto trackedDepth : trackedDepthBuffers_) {
-		delete trackedDepth;
-	}
-	trackedDepthBuffers_.clear();
-
 	delete presentation_;
 }
 
@@ -375,17 +369,11 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		// Lookup in the depth tracking to find which VFB has the latest version of this Z buffer.
 		// Then bind it in color-to-depth mode.
 		//
-		// We are going to do this by having a special render mode where we take color and move to
+		// We do this by having a special render mode where we take color and move to
 		// depth in the fragment shader, and set color writes to off.
 		//
-		// We'll need a special fragment shader flag to convert color to depth.
-
-		for (auto &depth : this->trackedDepthBuffers_) {
-			if (depth->z_address == params.fb_address && depth->z_stride == params.fb_stride) {
-				// Found the matching depth buffer. Use this vfb.
-				vfb = depth->vfb;
-			}
-		}
+		// We use a special fragment shader flag to convert color to depth.
+		vfb = GetLatestDepthBufferAt(params.fb_address /* !!! */, params.fb_stride);
 	}
 
 	gstate_c.SetFramebufferRenderMode(mode);
@@ -453,14 +441,13 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 
 		// Looks up by z_address, so if one is found here and not have last pointers equal to this one,
 		// there is another one.
-		TrackedDepthBuffer *prevDepth = GetOrCreateTrackedDepthBuffer(vfb);
+		VirtualFramebuffer *prevDepth = GetLatestDepthBufferAt(vfb->z_address, vfb->z_stride);
 
 		// We might already want to copy depth, in case this is a temp buffer.  See #7810.
-		if (prevDepth->vfb != vfb) {
-			if (!params.isClearingDepth && prevDepth->vfb) {
-				BlitFramebufferDepth(prevDepth->vfb, vfb);
+		if (prevDepth != vfb) {
+			if (!params.isClearingDepth && prevDepth) {
+				BlitFramebufferDepth(prevDepth, vfb);
 			}
-			prevDepth->vfb = vfb;
 		}
 
 		SetColorUpdated(vfb, skipDrawReason);
@@ -558,13 +545,6 @@ void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
 	if (prevPrevDisplayFramebuf_ == v)
 		prevPrevDisplayFramebuf_ = nullptr;
 
-	// Remove any depth buffer tracking related to this vfb.
-	for (auto it = trackedDepthBuffers_.begin(); it != trackedDepthBuffers_.end(); it++) {
-		if ((*it)->vfb == v) {
-			(*it)->vfb = nullptr;  // Mark for deletion in the next Decimate
-		}
-	}
-
 	delete v;
 }
 
@@ -626,32 +606,16 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 	dst->last_frame_depth_updated = gpuStats.numFlips;
 }
 
-TrackedDepthBuffer *FramebufferManagerCommon::GetOrCreateTrackedDepthBuffer(VirtualFramebuffer *vfb) {
-	for (auto tracked : trackedDepthBuffers_) {
-		// Disable tracking if color of the new vfb is clashing with tracked depth.
-		if (vfb->fb_address == tracked->z_address) {
-			tracked->vfb = nullptr;  // this is checked for. Cheaper than deleting.
-			continue;
-		}
-
-		if (vfb->z_address == tracked->z_address) {
-			if (vfb->z_stride == tracked->z_stride) {
-				return tracked;
-			} else {
-				// Stride has changed, mark as bad.
-				tracked->vfb = nullptr;
-			}
+VirtualFramebuffer *FramebufferManagerCommon::GetLatestDepthBufferAt(u32 z_address, u16 z_stride) {
+	int maxSeq = -1;
+	VirtualFramebuffer *latestDepth = nullptr;
+	for (auto vfb : vfbs_) {
+		if (vfb->z_address == z_address && vfb->z_stride == z_stride && vfb->depthBindSeq > maxSeq) {
+			maxSeq = vfb->depthBindSeq;
+			latestDepth = vfb;
 		}
 	}
-
-	TrackedDepthBuffer *tracked = new TrackedDepthBuffer();
-	tracked->vfb = vfb;
-	tracked->z_address = vfb->z_address;
-	tracked->z_stride = vfb->z_stride;
-
-	trackedDepthBuffers_.push_back(tracked);
-
-	return tracked;
+	return latestDepth;
 }
 
 void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) {
@@ -703,14 +667,14 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	shaderManager_->DirtyLastShader();
 
 	// Copy depth between the framebuffers, if the z_address is the same (checked inside.)
-	TrackedDepthBuffer *prevDepth = GetOrCreateTrackedDepthBuffer(vfb);
+	VirtualFramebuffer * prevDepth = GetLatestDepthBufferAt(vfb->z_address, vfb->z_stride);
 
 	// We might already want to copy depth, in case this is a temp buffer.  See #7810.
-	if (prevDepth->vfb != vfb) {
-		if (!isClearingDepth && prevDepth->vfb) {
-			BlitFramebufferDepth(prevDepth->vfb, vfb);
+	if (prevDepth != vfb) {
+		if (!isClearingDepth && prevDepth) {
+			BlitFramebufferDepth(prevDepth, vfb);
 		}
-		prevDepth->vfb = vfb;
+		prevDepth = vfb;
 	}
 
 	if (vfb->drawnFormat != vfb->format) {
@@ -1232,16 +1196,6 @@ void FramebufferManagerCommon::DecimateFBOs() {
 			INFO_LOG(FRAMEBUF, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
 			DestroyFramebuf(vfb);
 			bvfbs_.erase(bvfbs_.begin() + i--);
-		}
-	}
-
-	// Also clean up the TrackedDepthBuffer array...
-	for (auto it = trackedDepthBuffers_.begin(); it != trackedDepthBuffers_.end();) {
-		if ((*it)->vfb == nullptr) {
-			delete *it;
-			it = trackedDepthBuffers_.erase(it);
-		} else {
-			it++;
 		}
 	}
 }
@@ -2220,6 +2174,7 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
 		if (gameUsesSequentialCopies_) {
 			// Ignore the x/y/etc., read the entire thing.
+			// TODO: What game did we need this for?
 			x = 0;
 			y = 0;
 			w = vfb->width;
