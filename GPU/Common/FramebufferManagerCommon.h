@@ -147,18 +147,6 @@ struct VirtualFramebuffer {
 	int last_frame_depth_render;
 };
 
-struct TrackedDepthBuffer {
-	u32 z_address;
-	int z_stride;
-
-	// Really need to make sure we're killing these TrackedDepthBuffer's off when the VirtualFrameBuffers die.
-	VirtualFramebuffer *vfb;
-
-	// Could do full tracking of which framebuffers are used with this depth buffer,
-	// but probably not necessary.
-	// std::set<std::pair<u32, u32>> seen_fbs;
-};
-
 struct FramebufferHeuristicParams {
 	u32 fb_address;
 	u32 z_address;
@@ -300,7 +288,7 @@ public:
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes);
 	void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride);
 
-	TrackedDepthBuffer *GetOrCreateTrackedDepthBuffer(VirtualFramebuffer *vfb);
+	VirtualFramebuffer *GetLatestDepthBufferAt(u32 z_address, u16 z_stride);
 
 	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 
@@ -480,8 +468,6 @@ protected:
 
 	std::vector<VirtualFramebuffer *> vfbs_;
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
-
-	std::vector<TrackedDepthBuffer *> trackedDepthBuffers_;
 
 	bool gameUsesSequentialCopies_ = false;
 
