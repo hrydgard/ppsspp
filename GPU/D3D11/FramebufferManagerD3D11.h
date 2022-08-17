@@ -34,13 +34,4 @@ class ShaderManagerD3D11;
 class FramebufferManagerD3D11 : public FramebufferManagerCommon {
 public:
 	FramebufferManagerD3D11(Draw::DrawContext *draw);
-
-	void EndFrame();
-
-private:
-	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
-
-	ID3D11Device *device_;
-	ID3D11DeviceContext *context_;
-	D3D_FEATURE_LEVEL featureLevel_;
 };

@@ -266,7 +266,7 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 	u16 indexLowerBound = 0;
 	u16 indexUpperBound = count - 1;
 
-	if (!Memory::IsValidAddress(gstate_c.vertexAddr))
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr) || count == 0)
 		return false;
 
 	bool savedVertexFullAlpha = gstate_c.vertexFullAlpha;

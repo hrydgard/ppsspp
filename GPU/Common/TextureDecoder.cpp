@@ -217,7 +217,7 @@ u32 GetTextureBufw(int level, u32 texaddr, GETextureFormat format) {
 	return bufw;
 }
 
-// Is this compatible with QuickTexHashNEON/SSE?
+// Matches QuickTexHashNEON/SSE, see #7029.
 static u32 QuickTexHashNonSSE(const void *checkp, u32 size) {
 	u32 check = 0;
 
@@ -264,20 +264,6 @@ static u32 QuickTexHashNonSSE(const void *checkp, u32 size) {
 			check += *p++;
 			check ^= *p++;
 		}
-	}
-
-	return check;
-}
-
-static u32 QuickTexHashBasic(const void *checkp, u32 size) {
-	u32 check = 0;
-	const u32 size_u32 = size / 4;
-	const u32 *p = (const u32 *)checkp;
-	for (u32 i = 0; i < size_u32; i += 4) {
-		check += p[i + 0];
-		check ^= p[i + 1];
-		check += p[i + 2];
-		check ^= p[i + 3];
 	}
 
 	return check;

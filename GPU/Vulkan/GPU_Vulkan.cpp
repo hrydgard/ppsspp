@@ -317,7 +317,7 @@ void GPU_Vulkan::BeginHostFrame() {
 	frame.push_->Reset();
 	frame.push_->Begin(vulkan);
 
-	framebufferManagerVulkan_->BeginFrameVulkan();
+	framebufferManagerVulkan_->BeginFrame();
 	textureCacheVulkan_->SetPushBuffer(frameData_[curFrame].push_);
 
 	shaderManagerVulkan_->DirtyShader();
@@ -339,7 +339,6 @@ void GPU_Vulkan::EndHostFrame() {
 	frame.push_->End();
 
 	drawEngine_.EndFrame();
-	framebufferManagerVulkan_->EndFrame();
 	textureCacheVulkan_->EndFrame();
 
 	draw_->InvalidateCachedState();

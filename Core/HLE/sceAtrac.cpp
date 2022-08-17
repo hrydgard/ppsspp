@@ -34,6 +34,7 @@
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceAtrac.h"
+#include "Core/System.h"
 
 // Notes about sceAtrac buffer management
 //
@@ -619,10 +620,12 @@ struct Atrac {
 
 	void ConsumeFrame() {
 		bufferPos_ += bytesPerFrame_;
-		if (bufferValidBytes_ > bytesPerFrame_) {
-			bufferValidBytes_ -= bytesPerFrame_;
-		} else {
-			bufferValidBytes_ = 0;
+		if ((bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
+			if (bufferValidBytes_ > bytesPerFrame_) {
+				bufferValidBytes_ -= bytesPerFrame_;
+			} else {
+				bufferValidBytes_ = 0;
+			}
 		}
 		if (bufferPos_ >= StreamBufferEnd()) {
 			// Wrap around... theoretically, this should only happen at exactly StreamBufferEnd.
@@ -1167,6 +1170,11 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 
 	atrac->first_.offset += bytesToAdd;
 	atrac->bufferValidBytes_ += bytesToAdd;
+
+	if (PSP_CoreParameter().compat.flags().AtracLoopHack && atrac->bufferState_ == ATRAC_STATUS_STREAMED_LOOP_FROM_END && atrac->RemainingFrames() > 2) {
+		atrac->loopNum_++;
+		atrac->SeekToSample(atrac->loopStartSample_ - atrac->FirstOffsetExtra() - atrac->firstSampleOffset_);
+	}
 
 	return hleLogSuccessI(ME, 0);
 }

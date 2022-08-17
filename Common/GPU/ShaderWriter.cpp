@@ -313,6 +313,9 @@ void ShaderWriter::EndVSMain(Slice<VaryingDef> varyings) {
 	case HLSL_D3D11:
 	case HLSL_D3D9:
 		C("  VS_OUTPUT vs_out;\n");
+		if (strlen(lang_.viewportYSign)) {
+			F("  gl_Position.y *= %s1.0;\n", lang_.viewportYSign);
+		}
 		C("  vs_out.pos = gl_Position;\n");
 		for (auto &varying : varyings) {
 			F("  vs_out.%s = %s;\n", varying.name, varying.name);

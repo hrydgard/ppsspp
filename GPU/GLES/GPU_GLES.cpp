@@ -57,10 +57,8 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
 
-	GLRenderManager *render = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-
 	shaderManagerGL_ = new ShaderManagerGLES(draw);
-	framebufferManagerGL_ = new FramebufferManagerGLES(draw, render);
+	framebufferManagerGL_ = new FramebufferManagerGLES(draw);
 	framebufferManager_ = framebufferManagerGL_;
 	textureCacheGL_ = new TextureCacheGLES(draw);
 	textureCache_ = textureCacheGL_;
@@ -375,7 +373,6 @@ void GPU_GLES::CopyDisplayToOutput(bool reallyDirty) {
 	shaderManagerGL_->DirtyLastShader();
 
 	framebufferManagerGL_->CopyDisplayToOutput(reallyDirty);
-	framebufferManagerGL_->EndFrame();
 }
 
 void GPU_GLES::FinishDeferred() {

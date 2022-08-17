@@ -388,6 +388,10 @@ int System_GetPropertyInt(SystemProperty prop) {
 			return KEYBOARD_LAYOUT_QWERTZ;
 		return KEYBOARD_LAYOUT_QWERTY;
 	}
+	case SYSPROP_DISPLAY_XRES:
+		return g_DesktopWidth;
+	case SYSPROP_DISPLAY_YRES:
+		return g_DesktopHeight;
 	default:
 		return -1;
 	}
@@ -1240,7 +1244,7 @@ int main(int argc, char *argv[]) {
 #endif
 
 	glslang::FinalizeProcess();
-	printf("Leaving main");
+	printf("Leaving main\n");
 #ifdef HAVE_LIBNX
 	socketExit();
 #endif

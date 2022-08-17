@@ -84,7 +84,7 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 	// Pixel size always 4 here because we always request float
 	const u32 bufSize = vfb->z_stride * (h - y) * 4;
 	const u32 z_address = vfb->z_address;
-	const int packWidth = std::min(vfb->z_stride, std::min(x + w, (int)vfb->width));
+	const int packWidth = std::min((int)vfb->z_stride, std::min(x + w, (int)vfb->width));
 
 	if (!convBuf_ || convBufSize_ < bufSize) {
 		delete[] convBuf_;
@@ -97,6 +97,8 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 	const bool useColorPath = gl_extensions.IsGLES;
 	bool format16Bit = false;
 
+	GLRenderManager *render = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+
 	if (useColorPath) {
 		if (!depthDownloadProgram_) {
 			std::string errorString;
@@ -104,8 +106,8 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 			vs_code = ApplyGLSLPrelude(depth_vs, GL_VERTEX_SHADER);
 			fs_code = ApplyGLSLPrelude(depth_dl_fs, GL_FRAGMENT_SHADER);
 			std::vector<GLRShader *> shaders;
-			shaders.push_back(render_->CreateShader(GL_VERTEX_SHADER, vs_code, "depth_dl"));
-			shaders.push_back(render_->CreateShader(GL_FRAGMENT_SHADER, fs_code, "depth_dl"));
+			shaders.push_back(render->CreateShader(GL_VERTEX_SHADER, vs_code, "depth_dl"));
+			shaders.push_back(render->CreateShader(GL_FRAGMENT_SHADER, fs_code, "depth_dl"));
 			std::vector<GLRProgram::Semantic> semantics;
 			semantics.push_back({ 0, "a_position" });
 			semantics.push_back({ 1, "a_texcoord0" });
@@ -116,9 +118,9 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 			queries.push_back({ &u_depthDownloadTo8, "u_depthTo8" });
 			std::vector<GLRProgram::Initializer> inits;
 			inits.push_back({ &u_depthDownloadTex, 0, TEX_SLOT_PSP_TEXTURE });
-			depthDownloadProgram_ = render_->CreateProgram(shaders, semantics, queries, inits, false, false);
+			depthDownloadProgram_ = render->CreateProgram(shaders, semantics, queries, inits, false, false);
 			for (auto iter : shaders) {
-				render_->DeleteShader(iter);
+				render->DeleteShader(iter);
 			}
 			if (!depthDownloadProgram_) {
 				ERROR_LOG_REPORT(G3D, "Failed to compile depthDownloadProgram! This shouldn't happen.\n%s", errorString.c_str());
@@ -128,26 +130,26 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 		shaderManager_->DirtyLastShader();
 		auto *blitFBO = GetTempFBO(TempFBO::COPY, vfb->renderWidth, vfb->renderHeight);
 		draw_->BindFramebufferAsRenderTarget(blitFBO, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "PackDepthbuffer");
-		render_->SetViewport({ 0, 0, (float)vfb->renderWidth, (float)vfb->renderHeight, 0.0f, 1.0f });
+		render->SetViewport({ 0, 0, (float)vfb->renderWidth, (float)vfb->renderHeight, 0.0f, 1.0f });
 
 		// We must bind the program after starting the render pass, and set the color mask after clearing.
-		render_->SetScissor({ 0, 0, vfb->renderWidth, vfb->renderHeight });
-		render_->SetDepth(false, false, GL_ALWAYS);
-		render_->SetRaster(false, GL_CCW, GL_FRONT, GL_FALSE, GL_FALSE);
-		render_->BindProgram(depthDownloadProgram_);
+		render->SetScissor({ 0, 0, vfb->renderWidth, vfb->renderHeight });
+		render->SetDepth(false, false, GL_ALWAYS);
+		render->SetRaster(false, GL_CCW, GL_FRONT, GL_FALSE, GL_FALSE);
+		render->BindProgram(depthDownloadProgram_);
 
 		if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
 			float factors[] = { 0.0f, 1.0f };
-			render_->SetUniformF(&u_depthDownloadFactor, 2, factors);
+			render->SetUniformF(&u_depthDownloadFactor, 2, factors);
 		} else {
 			const float factor = DepthSliceFactor();
 			float factors[] = { -0.5f * (factor - 1.0f) * (1.0f / factor), factor };
-			render_->SetUniformF(&u_depthDownloadFactor, 2, factors);
+			render->SetUniformF(&u_depthDownloadFactor, 2, factors);
 		}
 		float shifts[] = { 16777215.0f, 16777215.0f / 256.0f, 16777215.0f / 65536.0f, 16777215.0f / 16777216.0f };
-		render_->SetUniformF(&u_depthDownloadShift, 4, shifts);
+		render->SetUniformF(&u_depthDownloadShift, 4, shifts);
 		float to8[] = { 1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f };
-		render_->SetUniformF(&u_depthDownloadTo8, 4, to8);
+		render->SetUniformF(&u_depthDownloadTo8, 4, to8);
 
 		draw_->BindFramebufferAsTexture(vfb->fbo, TEX_SLOT_PSP_TEXTURE, Draw::FB_DEPTH_BIT, 0);
 		float u1 = 1.0f;

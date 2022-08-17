@@ -26,8 +26,6 @@
 struct VirtualFramebuffer;
 class DepalShaderCache;
 
-namespace DX9 {
-
 class FramebufferManagerDX9;
 class ShaderManagerDX9;
 
@@ -78,5 +76,3 @@ private:
 };
 
 D3DFORMAT getClutDestFormat(GEPaletteFormat format);
-
-};

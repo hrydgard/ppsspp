@@ -102,23 +102,23 @@
 #if PNG_ARM_NEON_OPT > 0
 PNG_INTERNAL_FUNCTION(void,png_read_filter_row_up_neon,
    (png_alloc_size_t row_bytes, unsigned int bpp, png_bytep row,
-    png_const_bytep prev_row),PNG_EMPTY);
+    png_const_bytep prev_row, png_const_bytep prev_pixels),PNG_EMPTY);
 PNG_INTERNAL_FUNCTION(void,png_read_filter_row_sub3_neon,
    (png_alloc_size_t row_bytes, unsigned int bpp, png_bytep row,
-    png_const_bytep prev_row),PNG_EMPTY);
+    png_const_bytep prev_row, png_const_bytep prev_pixels),PNG_EMPTY);
 PNG_INTERNAL_FUNCTION(void,png_read_filter_row_sub4_neon,
    (png_alloc_size_t row_bytes, unsigned int bpp, png_bytep row,
-    png_const_bytep prev_row),PNG_EMPTY);
+    png_const_bytep prev_row, png_const_bytep prev_pixels),PNG_EMPTY);
 PNG_INTERNAL_FUNCTION(void,png_read_filter_row_avg3_neon,
    (png_alloc_size_t row_bytes, unsigned int bpp, png_bytep row,
-    png_const_bytep prev_row),PNG_EMPTY);
+    png_const_bytep prev_row, png_const_bytep prev_pixels),PNG_EMPTY);
 PNG_INTERNAL_FUNCTION(void,png_read_filter_row_avg4_neon,
    (png_alloc_size_t row_bytes, unsigned int bpp, png_bytep row,
-    png_const_bytep prev_row),PNG_EMPTY);
+    png_const_bytep prev_row, png_const_bytep prev_pixels),PNG_EMPTY);
 PNG_INTERNAL_FUNCTION(void,png_read_filter_row_paeth3_neon,
    (png_alloc_size_t row_bytes, unsigned int bpp, png_bytep row,
-    png_const_bytep prev_row),PNG_EMPTY);
+    png_const_bytep prev_row, png_const_bytep prev_pixels),PNG_EMPTY);
 PNG_INTERNAL_FUNCTION(void,png_read_filter_row_paeth4_neon,
    (png_alloc_size_t row_bytes, unsigned int bpp, png_bytep row,
-    png_const_bytep prev_row),PNG_EMPTY);
+    png_const_bytep prev_row, png_const_bytep prev_pixels),PNG_EMPTY);
 #endif

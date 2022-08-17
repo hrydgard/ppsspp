@@ -395,8 +395,6 @@ public:
 	}
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
 
-	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) override;
-
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
 	void SetScissorRect(int left, int top, int width, int height) override;
@@ -1578,24 +1576,6 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChanne
 	}
 	boundTextures_[binding] = nullptr;
 	boundImageView_[binding] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, aspect, attachment);
-}
-
-uintptr_t VKContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {
-	if (!fbo)
-		return 0;
-
-	VKFramebuffer *fb = (VKFramebuffer *)fbo;
-	VkImageView view = VK_NULL_HANDLE;
-	switch (channelBit) {
-	case FB_COLOR_BIT:
-		view = fb->GetFB()->color.imageView;
-		break;
-	case FB_DEPTH_BIT:
-	case FB_STENCIL_BIT:
-		view = fb->GetFB()->depth.imageView;
-		break;
-	}
-	return (uintptr_t)view;
 }
 
 void VKContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {

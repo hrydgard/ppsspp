@@ -43,7 +43,7 @@ enum FSFlags {
 
 class ShaderWriter {
 public:
-	ShaderWriter(char *buffer, const ShaderLanguageDesc &lang, ShaderStage stage, const char **gl_extensions, size_t num_gl_extensions) : p_(buffer), lang_(lang), stage_(stage) {
+	ShaderWriter(char *buffer, const ShaderLanguageDesc &lang, ShaderStage stage, const char **gl_extensions = nullptr, size_t num_gl_extensions = 0) : p_(buffer), lang_(lang), stage_(stage) {
 		Preamble(gl_extensions, num_gl_extensions);
 	}
 	ShaderWriter(const ShaderWriter &) = delete;
