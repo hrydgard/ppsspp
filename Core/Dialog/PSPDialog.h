@@ -99,7 +99,7 @@ protected:
 	void ChangeStatus(DialogStatus newStatus, int delayUs);
 	void ChangeStatusInit(int delayUs);
 	void ChangeStatusShutdown(int delayUs);
-	DialogStatus ReadStatus() {
+	DialogStatus ReadStatus() const {
 		return status;
 	}
 
@@ -117,10 +117,10 @@ protected:
 	unsigned int lastButtons = 0;
 	unsigned int buttons = 0;
 
-	float fadeTimer;
-	bool isFading;
-	bool fadeIn;
-	u32 fadeValue;
+	float fadeTimer = 0.0f;
+	bool isFading = false;
+	bool fadeIn = false;
+	u32 fadeValue = 0;
 
 	ImageID okButtonImg;
 	ImageID cancelButtonImg;
