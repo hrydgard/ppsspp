@@ -49,7 +49,7 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config, con
 	const int shift = config.shift;
 	const int mask = config.mask;
 
-	if (config.pixelFormat == GE_FORMAT_DEPTH16) {
+	if (config.bufferFormat == GE_FORMAT_DEPTH16) {
 		DepthScaleFactors factors = GetDepthScaleFactors();
 		writer.ConstFloat("z_scale", factors.scale);
 		writer.ConstFloat("z_offset", factors.offset);
@@ -71,7 +71,7 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config, con
 	writer.C("  vec4 color = ").SampleTexture2D("tex", "v_texcoord").C(";\n");
 
 	int shiftedMask = mask << shift;
-	switch (config.pixelFormat) {
+	switch (config.bufferFormat) {
 	case GE_FORMAT_8888:
 		if (shiftedMask & 0xFF) writer.C("  int r = int(color.r * 255.99);\n"); else writer.C("  int r = 0;\n");
 		if (shiftedMask & 0xFF00) writer.C("  int g = int(color.g * 255.99);\n"); else writer.C("  int g = 0;\n");
@@ -102,6 +102,17 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config, con
 	case GE_FORMAT_DEPTH16:
 		// Remap depth buffer.
 		writer.C("  float depth = (color.x - z_offset) * z_scale;\n");
+
+		if (config.bufferFormat == GE_FORMAT_DEPTH16 && config.textureFormat == GE_TFMT_5650) {
+			// Convert depth to 565, without going through a CLUT.
+			writer.C("  int idepth = int(clamp(depth, 0.0, 65535.0));\n");
+			writer.C("  float r = (idepth & 31) / 31.0f;\n");
+			writer.C("  float g = ((idepth >> 5) & 63) / 63.0f;\n");
+			writer.C("  float b = ((idepth >> 11) & 31) / 31.0f;\n");
+			writer.C("  vec4 outColor = vec4(r, g, b, 1.0);\n");
+			return;
+		}
+
 		writer.C("  int index = int(clamp(depth, 0.0, 65535.0));\n");
 		break;
 	default:
@@ -135,7 +146,7 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config, c
 	const int shift = config.shift;
 	const int mask = config.mask;
 
-	if (config.pixelFormat == GE_FORMAT_DEPTH16) {
+	if (config.bufferFormat == GE_FORMAT_DEPTH16) {
 		DepthScaleFactors factors = GetDepthScaleFactors();
 		writer.ConstFloat("z_scale", factors.scale);
 		writer.ConstFloat("z_offset", factors.offset);
@@ -144,7 +155,7 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config, c
 	float index_multiplier = 1.0f;
 	// pixelformat is the format of the texture we are sampling.
 	bool formatOK = true;
-	switch (config.pixelFormat) {
+	switch (config.bufferFormat) {
 	case GE_FORMAT_8888:
 		if ((mask & (mask + 1)) == 0) {
 			// If the value has all bits contiguous (bitmask check above), we can mod by it + 1.
@@ -249,7 +260,7 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config, c
 	// index_multiplier -= 0.01f / texturePixels;
 
 	if (!formatOK) {
-		ERROR_LOG_REPORT_ONCE(depal, G3D, "%s depal unsupported: shift=%d mask=%02x offset=%d", GeBufferFormatToString(config.pixelFormat), shift, mask, config.startPos);
+		ERROR_LOG_REPORT_ONCE(depal, G3D, "%s depal unsupported: shift=%d mask=%02x offset=%d", GeBufferFormatToString(config.bufferFormat), shift, mask, config.startPos);
 	}
 
 	// Offset by half a texel (plus clutBase) to turn NEAREST filtering into FLOOR.

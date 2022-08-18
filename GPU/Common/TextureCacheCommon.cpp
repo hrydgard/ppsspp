@@ -525,6 +525,10 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	def.format = format;
 	def.bufw = bufw;
 
+	if (texaddr == 0x04710000) {
+		texaddr = texaddr;
+	}
+
 	std::vector<AttachCandidate> candidates = GetFramebufferCandidates(def, 0);
 	if (candidates.size() > 0) {
 		int index = GetBestCandidateIndex(candidates);
@@ -892,6 +896,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 
 	const bool noOffset = texaddr == addr;
 	const bool exactMatch = noOffset && entry.format < 4 && channel == RASTER_COLOR;
+
 	const u32 w = 1 << ((entry.dim >> 0) & 0xf);
 	const u32 h = 1 << ((entry.dim >> 8) & 0xf);
 	// 512 on a 272 framebuffer is sane, so let's be lenient.
@@ -927,6 +932,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 		// Check works for D16 too (???)
 		const bool matchingClutFormat =
 			(fb_format == GE_FORMAT_DEPTH16 && entry.format == GE_TFMT_CLUT16) ||
+			(fb_format == GE_FORMAT_DEPTH16 && entry.format == GE_TFMT_5650) ||
 			(fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT32) ||
 			(fb_format != GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT16);
 
@@ -971,7 +977,9 @@ bool TextureCacheCommon::MatchFramebuffer(
 		// 3rd Birthday (and a bunch of other games) render to a 16 bit clut texture.
 		if (matchingClutFormat) {
 			if (!noOffset) {
-				WARN_LOG_ONCE(subareaClut, G3D, "Texturing from framebuffer using CLUT with offset at %08x +%dx%d", fb_address, matchInfo->xOffset, matchInfo->yOffset);
+				WARN_LOG_ONCE(subareaClut, G3D, "Texturing from framebuffer (%s) using %s with offset at %08x +%dx%d", channel == RASTER_DEPTH ? "DEPTH" : "COLOR", GeTextureFormatToString(entry.format), fb_address, matchInfo->xOffset, matchInfo->yOffset);
+			} else {
+				WARN_LOG_ONCE(subareaClut, G3D, "Texturing from framebuffer (%s) using %s at %08x", channel == RASTER_DEPTH ? "DEPTH" : "COLOR", GeTextureFormatToString(entry.format), fb_address);
 			}
 			return true;
 		} else if (IsClutFormat((GETextureFormat)(entry.format)) || IsDXTFormat((GETextureFormat)(entry.format))) {
@@ -1823,12 +1831,33 @@ void TextureCacheCommon::ApplyTexture() {
 	gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 }
 
+bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferFormat) {
+	if (IsClutFormat(texFormat)) {
+		switch (bufferFormat) {
+		case GE_FORMAT_4444:
+		case GE_FORMAT_565:
+		case GE_FORMAT_5551:
+		case GE_FORMAT_DEPTH16:
+			return texFormat == GE_TFMT_CLUT16;
+		case GE_FORMAT_8888:
+			return texFormat == GE_TFMT_CLUT32;
+		}
+		WARN_LOG(G3D, "Invalid CLUT/framebuffer combination: %s vs %s", GeTextureFormatToString(texFormat), GeBufferFormatToString(bufferFormat));
+		return false;
+	} else if (texFormat == GE_TFMT_5650 && bufferFormat == GE_FORMAT_DEPTH16) {
+		// We can also "depal" 565 format, this is used to read depth buffers as 565 on occasion (#15491).
+		return true;
+	} else {
+		return false;
+	}
+}
+
 void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel) {
 	DepalShader *depalShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
-	bool need_depalettize = IsClutFormat(texFormat);
 	bool depth = channel == RASTER_DEPTH;
+	bool need_depalettize = CanDepalettize(texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->drawnFormat);
 	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && !depth && !gstate_c.curTextureIs3D;
 
 	// TODO: Implement shader depal in the fragment shader generator for D3D11 at least.
@@ -1878,7 +1907,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			return;
 		}
 
-		depalShader = depalShaderCache_->GetDepalettizeShader(clutMode, depth ? GE_FORMAT_DEPTH16 : framebuffer->drawnFormat);
+		depalShader = depalShaderCache_->GetDepalettizeShader(clutMode, texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->drawnFormat);
 		gstate_c.SetUseShaderDepal(false);
 	}
 

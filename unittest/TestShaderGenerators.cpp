@@ -309,7 +309,8 @@ bool TestDepalShaders() {
 		config.shift = 8;
 		config.startPos = 64;
 		config.mask = 0xFF;
-		config.pixelFormat = GE_FORMAT_8888;
+		config.bufferFormat = GE_FORMAT_8888;
+		config.textureFormat = GE_TFMT_CLUT32;
 
 		GenerateDepalFs(buffer, config, desc);
 		if (!TestCompileShader(buffer, languages[k], ShaderStage::Fragment, &errorMessage)) {

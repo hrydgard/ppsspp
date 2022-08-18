@@ -49,7 +49,7 @@ public:
 	~DepalShaderCache();
 
 	// This also uploads the palette and binds the correct texture.
-	DepalShader *GetDepalettizeShader(uint32_t clutMode, GEBufferFormat pixelFormat);
+	DepalShader *GetDepalettizeShader(uint32_t clutMode, GETextureFormat texFormat, GEBufferFormat pixelFormat);
 	Draw::Texture *GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
 
 	Draw::SamplerState *GetSampler();
@@ -63,8 +63,8 @@ public:
 	void DeviceRestore(Draw::DrawContext *draw);
 
 private:
-	static uint32_t GenerateShaderID(uint32_t clutMode, GEBufferFormat pixelFormat) {
-		return (clutMode & 0xFFFFFF) | (pixelFormat << 24);
+	static uint32_t GenerateShaderID(uint32_t clutMode, GETextureFormat texFormat, GEBufferFormat pixelFormat) {
+		return (clutMode & 0xFFFFFF) | (pixelFormat << 24) | (texFormat << 28);
 	}
 
 	static uint32_t GetClutID(GEPaletteFormat clutFormat, uint32_t clutHash) {
