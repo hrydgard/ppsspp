@@ -511,6 +511,7 @@ protected:
 	Draw::Pipeline *draw2DPipelineColor_ = nullptr;
 	Draw::Pipeline *draw2DPipelineDepth_ = nullptr;
 	Draw::Pipeline *draw2DPipeline565ToDepth_ = nullptr;
+	Draw::Pipeline *draw2DPipeline565ToDepthDeswizzle_ = nullptr;
 	Draw::SamplerState *draw2DSamplerLinear_ = nullptr;
 	Draw::SamplerState *draw2DSamplerNearest_ = nullptr;
 	Draw::ShaderModule *draw2DVs_ = nullptr;

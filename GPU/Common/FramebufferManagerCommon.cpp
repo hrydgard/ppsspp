@@ -560,11 +560,14 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 			dest->last_frame_depth_updated = gpuStats.numFlips;
 		} else if (source.channel == RASTER_COLOR) {
 			VirtualFramebuffer *src = source.vfb;
-			// Copying color to depth.
 			if (src->drawnFormat != GE_FORMAT_565) {
 				WARN_LOG_ONCE(not565, G3D, "Drawn format of buffer at %08x not 565 as expected", src->fb_address);
 			}
-			BlitUsingRaster(src->fbo, 0.0f, 0.0f, src->renderWidth, src->renderHeight, dest->fbo, 0.0f, 0.0f, dest->renderWidth, dest->renderHeight, false, DRAW2D_565_TO_DEPTH, "565_to_depth");
+			// Copying color to depth.
+			BlitUsingRaster(
+				src->fbo, 0.0f, 0.0f, src->renderWidth, src->renderHeight,
+				dest->fbo, 0.0f, 0.0f, src->renderWidth, src->renderHeight,
+				false, DRAW2D_565_TO_DEPTH_DESWIZZLE, "565_to_depth");
 		}
 	}
 
@@ -2343,6 +2346,7 @@ void FramebufferManagerCommon::DeviceLost() {
 	DoRelease(draw2DPipelineColor_);
 	DoRelease(draw2DPipelineDepth_);
 	DoRelease(draw2DPipeline565ToDepth_);
+	DoRelease(draw2DPipeline565ToDepthDeswizzle_);
 
 	draw_ = nullptr;
 }

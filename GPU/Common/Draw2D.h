@@ -14,6 +14,7 @@ enum Draw2DShader {
 	DRAW2D_COPY_COLOR,
 	DRAW2D_COPY_DEPTH,
 	DRAW2D_565_TO_DEPTH,
+	DRAW2D_565_TO_DEPTH_DESWIZZLE,
 };
 
 inline RasterChannel Draw2DSourceChannel(Draw2DShader shader) {
@@ -22,6 +23,7 @@ inline RasterChannel Draw2DSourceChannel(Draw2DShader shader) {
 		return RASTER_DEPTH;
 	case DRAW2D_COPY_COLOR:
 	case DRAW2D_565_TO_DEPTH:
+	case DRAW2D_565_TO_DEPTH_DESWIZZLE:
 	default:
 		return RASTER_COLOR;
 	}
