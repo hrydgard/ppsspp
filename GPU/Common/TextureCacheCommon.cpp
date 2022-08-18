@@ -1838,9 +1838,15 @@ bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferFormat) {
 		case GE_FORMAT_565:
 		case GE_FORMAT_5551:
 		case GE_FORMAT_DEPTH16:
-			return texFormat == GE_TFMT_CLUT16;
+			if (texFormat == GE_TFMT_CLUT16) {
+				return true;
+			}
+			break;
 		case GE_FORMAT_8888:
-			return texFormat == GE_TFMT_CLUT32;
+			if (texFormat == GE_TFMT_CLUT32) {
+				return true;
+			}
+			break;
 		}
 		WARN_LOG(G3D, "Invalid CLUT/framebuffer combination: %s vs %s", GeTextureFormatToString(texFormat), GeBufferFormatToString(bufferFormat));
 		return false;
