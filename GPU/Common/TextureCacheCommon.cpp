@@ -515,6 +515,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			nextNeedsChange_ = false;
 			// Might need a rebuild if the hash fails, but that will be set later.
 			nextNeedsRebuild_ = false;
+			failedTexture_ = false;
 			VERBOSE_LOG(G3D, "Texture at %08x found in cache, applying", texaddr);
 			return entry; //Done!
 		} else {
@@ -610,10 +611,9 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	gstate_c.curTextureHeight = h;
 	gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 
+	failedTexture_ = false;
 	nextTexture_ = entry;
-	if (nextFramebufferTexture_) {
-		nextFramebufferTexture_ = nullptr;  // in case it was accidentally set somehow?
-	}
+	nextFramebufferTexture_ = nullptr;
 	nextNeedsRehash_ = true;
 	// We still need to rebuild, to allocate a texture.  But we'll bail early.
 	nextNeedsRebuild_ = true;
@@ -633,7 +633,7 @@ std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const 
 			candidates.push_back(AttachCandidate{ match, entry, framebuffer, RASTER_COLOR, framebuffer->colorBindSeq });
 		}
 		match = {};
-		if (gstate_c.Supports(GPU_SUPPORTS_DEPTH_TEXTURE) && MatchFramebuffer(entry, framebuffer, texAddrOffset, RASTER_DEPTH, &match)) {
+		if (MatchFramebuffer(entry, framebuffer, texAddrOffset, RASTER_DEPTH, &match)) {
 			candidates.push_back(AttachCandidate{ match, entry, framebuffer, RASTER_DEPTH, framebuffer->depthBindSeq });
 		}
 	}
@@ -1020,10 +1020,10 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 	_dbg_assert_msg_(framebuffer != nullptr, "Framebuffer must not be null.");
 
 	framebuffer->usageFlags |= FB_USAGE_TEXTURE;
-	if (framebufferManager_->UseBufferedRendering()) {
-		// Keep the framebuffer alive.
-		framebuffer->last_frame_used = gpuStats.numFlips;
+	// Keep the framebuffer alive.
+	framebuffer->last_frame_used = gpuStats.numFlips;
 
+	if (framebufferManager_->UseBufferedRendering()) {
 		// We need to force it, since we may have set it on a texture before attaching.
 		gstate_c.curTextureWidth = framebuffer->bufferWidth;
 		gstate_c.curTextureHeight = framebuffer->bufferHeight;
@@ -1042,7 +1042,14 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 			gstate_c.SetNeedShaderTexclamp(true);
 		}
 
-		nextFramebufferTexture_ = framebuffer;
+		if (candidate.channel == RASTER_DEPTH && !gstate_c.Supports(GPU_SUPPORTS_DEPTH_TEXTURE)) {
+			// Flag to bind a null texture if we can't support depth textures.
+			// Should only happen on old OpenGL.
+			nextFramebufferTexture_ = nullptr;
+			failedTexture_ = true;
+		} else {
+			nextFramebufferTexture_ = framebuffer;
+		}
 		nextTexture_ = nullptr;
 	} else {
 		if (framebuffer->fbo) {
@@ -1753,7 +1760,10 @@ void TextureCacheCommon::ApplyTexture() {
 	if (!entry) {
 		// Maybe we bound a framebuffer?
 		InvalidateLastTexture();
-		if (nextFramebufferTexture_) {
+		if (failedTexture_) {
+			// Backends should handle this by binding a black texture with 0 alpha.
+			BindTexture(nullptr);
+		} else if (nextFramebufferTexture_) {
 			bool depth = Memory::IsDepthTexVRAMAddress(gstate.getTextureAddress(0));
 			// ApplyTextureFrameBuffer is responsible for setting SetTextureFullAlpha.
 			ApplyTextureFramebuffer(nextFramebufferTexture_, gstate.getTextureFormat(), depth ? RASTER_DEPTH : RASTER_COLOR);

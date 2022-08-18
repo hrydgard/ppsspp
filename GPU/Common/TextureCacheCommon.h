@@ -433,6 +433,7 @@ protected:
 	SimpleBuf<u32> tmpTexBufRearrange_;
 
 	TexCacheEntry *nextTexture_ = nullptr;
+	bool failedTexture_ = false;
 	VirtualFramebuffer *nextFramebufferTexture_ = nullptr;
 
 	u32 clutHash_ = 0;
