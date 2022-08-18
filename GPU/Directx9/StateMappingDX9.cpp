@@ -216,9 +216,6 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			dxstate.depthTest.enable();
 			dxstate.depthFunc.set(D3DCMP_ALWAYS);
 			dxstate.depthWrite.set(gstate.isClearModeDepthMask());
-			if (gstate.isClearModeDepthMask()) {
-				framebufferManager_->SetDepthUpdated();
-			}
 
 			// Stencil Test
 			bool alphaMask = gstate.isClearModeAlphaMask();
@@ -239,9 +236,6 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 				dxstate.depthTest.enable();
 				dxstate.depthFunc.set(ztests[gstate.getDepthTestFunction()]);
 				dxstate.depthWrite.set(gstate.isDepthWriteEnabled());
-				if (gstate.isDepthWriteEnabled()) {
-					framebufferManager_->SetDepthUpdated();
-				}
 			} else {
 				dxstate.depthTest.disable();
 			}

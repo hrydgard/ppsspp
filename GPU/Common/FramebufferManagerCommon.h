@@ -343,12 +343,6 @@ public:
 	int GetTargetStride() const { return currentRenderVfb_ ? currentRenderVfb_->fb_stride : 512; }
 	GEBufferFormat GetTargetFormat() const { return currentRenderVfb_ ? currentRenderVfb_->format : displayFormat_; }
 
-	void SetDepthUpdated() {
-		if (currentRenderVfb_) {
-			currentRenderVfb_->last_frame_depth_render = gpuStats.numFlips;
-			currentRenderVfb_->last_frame_depth_updated = gpuStats.numFlips;
-		}
-	}
 	void SetColorUpdated(int skipDrawReason) {
 		if (currentRenderVfb_) {
 			SetColorUpdated(currentRenderVfb_, skipDrawReason);

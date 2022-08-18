@@ -298,9 +298,6 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			keys_.depthStencil.depthTestEnable = true;
 			keys_.depthStencil.depthCompareOp = D3D11_COMPARISON_ALWAYS;
 			keys_.depthStencil.depthWriteEnable = gstate.isClearModeDepthMask();
-			if (gstate.isClearModeDepthMask()) {
-				framebufferManager_->SetDepthUpdated();
-			}
 
 			// Stencil Test
 			bool alphaMask = gstate.isClearModeAlphaMask();
@@ -329,9 +326,6 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				keys_.depthStencil.depthTestEnable = true;
 				keys_.depthStencil.depthCompareOp = compareOps[gstate.getDepthTestFunction()];
 				keys_.depthStencil.depthWriteEnable = gstate.isDepthWriteEnabled();
-				if (gstate.isDepthWriteEnabled()) {
-					framebufferManager_->SetDepthUpdated();
-				}
 			} else {
 				keys_.depthStencil.depthTestEnable = false;
 				keys_.depthStencil.depthWriteEnable = false;

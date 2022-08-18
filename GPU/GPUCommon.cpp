@@ -1624,6 +1624,21 @@ void GPUCommon::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_CULLRANGE);
 }
 
+void GPUCommon::CheckDepthUsage(VirtualFramebuffer *vfb) {
+	if (!gstate_c.usingDepth) {
+		bool isClearingDepth = gstate.isModeClear() && gstate.isClearModeDepthMask();
+
+		if ((gstate.isDepthTestEnabled() || isClearingDepth)) {
+			gstate_c.usingDepth = true;
+			gstate_c.clearingDepth = isClearingDepth;
+			vfb->last_frame_depth_render = gpuStats.numFlips;
+			if (isClearingDepth || gstate.isDepthWriteEnabled()) {
+				vfb->last_frame_depth_updated = gpuStats.numFlips;
+			}
+			framebufferManager_->SetDepthFrameBuffer();
+		}
+	}
+}
 
 void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	// This drives all drawing. All other state we just buffer up, then we apply it only
@@ -1685,15 +1700,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 		return;
 	}
 
-	if (!gstate_c.usingDepth) {
-		bool isClearingDepth = gstate.isModeClear() && gstate.isClearModeDepthMask();;
-
-		if ((gstate.isDepthTestEnabled() || isClearingDepth)) {
-			gstate_c.usingDepth = true;
-			gstate_c.clearingDepth = isClearingDepth;
-			framebufferManager_->SetDepthFrameBuffer();
-		}
-	}
+	CheckDepthUsage(vfb);
 
 	const void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *inds = nullptr;
@@ -1893,11 +1900,13 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 	gstate_c.framebufFormat = gstate.FrameBufFormat();
 
 	// This also make skipping drawing very effective.
-	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+	VirtualFramebuffer *vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
 		return;
 	}
+
+	CheckDepthUsage(vfb);
 
 	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
 		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
@@ -1963,11 +1972,13 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 	gstate_c.framebufFormat = gstate.FrameBufFormat();
 
 	// This also make skipping drawing very effective.
-	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+	VirtualFramebuffer *vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
 		return;
 	}
+
+	CheckDepthUsage(vfb);
 
 	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
 		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);

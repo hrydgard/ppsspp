@@ -254,9 +254,6 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			key.depthTestEnable = true;
 			key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
 			key.depthWriteEnable = gstate.isClearModeDepthMask();
-			if (gstate.isClearModeDepthMask()) {
-				fbManager.SetDepthUpdated();
-			}
 
 			// Stencil Test
 			bool alphaMask = gstate.isClearModeAlphaMask();
@@ -287,9 +284,6 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				key.depthTestEnable = true;
 				key.depthCompareOp = compareOps[gstate.getDepthTestFunction()];
 				key.depthWriteEnable = gstate.isDepthWriteEnabled();
-				if (gstate.isDepthWriteEnabled()) {
-					fbManager.SetDepthUpdated();
-				}
 			} else {
 				key.depthTestEnable = false;
 				key.depthWriteEnable = false;

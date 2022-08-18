@@ -317,7 +317,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 			}
 			break;
 		} else if (v->fb_stride == params.fb_stride && v->format == params.fmt) {
-			u32 v_fb_first_line_end_ptr = v->fb_address + v->fb_stride * 4;  // This should be * bpp, but leaving like this until after 1.13 to be safe. The God of War games use this for shadows.
+			u32 v_fb_first_line_end_ptr = v->fb_address + v->fb_stride * bpp;
 			u32 v_fb_end_ptr = v->fb_address + v->fb_stride * v->height * bpp;
 
 			if (params.fb_address > v->fb_address && params.fb_address < v_fb_first_line_end_ptr) {

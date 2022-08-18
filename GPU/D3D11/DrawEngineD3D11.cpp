@@ -693,9 +693,6 @@ rotateVBO:
 			if (gstate.isClearModeAlphaMask()) clearFlag |= Draw::FBChannel::FB_STENCIL_BIT;
 			if (gstate.isClearModeDepthMask()) clearFlag |= Draw::FBChannel::FB_DEPTH_BIT;
 
-			if (clearFlag & Draw::FBChannel::FB_DEPTH_BIT) {
-				framebufferManager_->SetDepthUpdated();
-			}
 			if (clearFlag & Draw::FBChannel::FB_COLOR_BIT) {
 				framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 			}
