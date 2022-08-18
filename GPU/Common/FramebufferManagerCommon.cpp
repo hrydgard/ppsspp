@@ -1941,7 +1941,7 @@ Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u
 
 	bool z_stencil = reason == TempFBO::STENCIL;
 	char name[128];
-	snprintf(name, sizeof(name), "temp_fbo_%dx%d%s", w, h, z_stencil ? "_depth" : "");
+	snprintf(name, sizeof(name), "temp_fbo_%dx%d%s", w / renderScaleFactor_, h / renderScaleFactor_, z_stencil ? "_depth" : "");
 	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, z_stencil, name });
 	if (!fbo) {
 		return nullptr;
