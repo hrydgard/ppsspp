@@ -807,7 +807,7 @@ void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, Fram
 
 	const u32 z_addr = framebuffer->z_address & ~mirrorMask;  // Probably unnecessary.
 
-	const u32 fb_bpp = framebuffer->format == GE_FORMAT_8888 ? 4 : 2;
+	const u32 fb_bpp = BufferFormatBytesPerPixel(framebuffer->format);
 	const u32 z_bpp = 2;  // No other format exists.
 	const u32 fb_stride = framebuffer->fb_stride;
 	const u32 z_stride = framebuffer->z_stride;
@@ -1151,7 +1151,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 			const std::vector<VirtualFramebuffer *> &framebuffers = framebufferManager_->Framebuffers();
 			for (VirtualFramebuffer *framebuffer : framebuffers) {
 				const u32 fb_address = framebuffer->fb_address & 0x3FFFFFFF;
-				const u32 bpp = framebuffer->drawnFormat == GE_FORMAT_8888 ? 4 : 2;
+				const u32 bpp = BufferFormatBytesPerPixel(framebuffer->drawnFormat);
 				u32 offset = clutFramebufAddr - fb_address;
 
 				// Is this inside the framebuffer at all?

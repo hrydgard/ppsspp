@@ -379,6 +379,7 @@ protected:
 	void Ensure2DResources();
 	Draw::Pipeline *Create2DPipeline(RasterChannel (*generate)(ShaderWriter &));
 
+	void CopyToColorFromOverlappingFramebuffers(VirtualFramebuffer *dest);
 	void CopyToDepthFromOverlappingFramebuffers(VirtualFramebuffer *dest);
 
 	bool UpdateSize();
