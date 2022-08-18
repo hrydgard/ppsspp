@@ -59,16 +59,16 @@ private:
 	void CloseCurrentFile();
 	void WriteSfoFile();
 
-	SceUtilityGamedataInstallParam request;
+	SceUtilityGamedataInstallParam request{};
 	PSPPointer<SceUtilityGamedataInstallParam> param;
 	std::vector<std::string> inFileNames;
-	int numFiles;
-	int readFiles;
-	u64 allFilesSize;  // use this to calculate progress value.
-	u64 allReadSize;   // use this to calculate progress value.
-	int progressValue;
+	int numFiles = 0;
+	int readFiles = 0;
+	u64 allFilesSize = 0;  // use this to calculate progress value.
+	u64 allReadSize = 0;   // use this to calculate progress value.
+	int progressValue = 0;
 
-	int currentInputFile;
-	u32 currentInputBytesLeft;
-	int currentOutputFile;
+	int currentInputFile = 0;
+	u32 currentInputBytesLeft = 0;
+	int currentOutputFile = 0;
 };
