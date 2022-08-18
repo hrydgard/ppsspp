@@ -435,6 +435,7 @@ protected:
 	TexCacheEntry *nextTexture_ = nullptr;
 	bool failedTexture_ = false;
 	VirtualFramebuffer *nextFramebufferTexture_ = nullptr;
+	RasterChannel nextFramebufferTextureChannel_ = RASTER_COLOR;
 
 	u32 clutHash_ = 0;
 

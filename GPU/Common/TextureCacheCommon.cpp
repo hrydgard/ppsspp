@@ -1023,6 +1023,8 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 	// Keep the framebuffer alive.
 	framebuffer->last_frame_used = gpuStats.numFlips;
 
+	nextFramebufferTextureChannel_ = RASTER_COLOR;
+
 	if (framebufferManager_->UseBufferedRendering()) {
 		// We need to force it, since we may have set it on a texture before attaching.
 		gstate_c.curTextureWidth = framebuffer->bufferWidth;
@@ -1049,6 +1051,7 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 			failedTexture_ = true;
 		} else {
 			nextFramebufferTexture_ = framebuffer;
+			nextFramebufferTextureChannel_ = candidate.channel;
 		}
 		nextTexture_ = nullptr;
 	} else {
@@ -1764,9 +1767,8 @@ void TextureCacheCommon::ApplyTexture() {
 			// Backends should handle this by binding a black texture with 0 alpha.
 			BindTexture(nullptr);
 		} else if (nextFramebufferTexture_) {
-			bool depth = Memory::IsDepthTexVRAMAddress(gstate.getTextureAddress(0));
 			// ApplyTextureFrameBuffer is responsible for setting SetTextureFullAlpha.
-			ApplyTextureFramebuffer(nextFramebufferTexture_, gstate.getTextureFormat(), depth ? RASTER_DEPTH : RASTER_COLOR);
+			ApplyTextureFramebuffer(nextFramebufferTexture_, gstate.getTextureFormat(), nextFramebufferTextureChannel_);
 			nextFramebufferTexture_ = nullptr;
 		}
 
