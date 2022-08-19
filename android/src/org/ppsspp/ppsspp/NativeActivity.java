@@ -381,6 +381,9 @@ public abstract class NativeActivity extends Activity {
 		}
 
 		int deviceType = NativeApp.DEVICE_TYPE_MOBILE;
+		if (BuildConfig.FLAVOR.compareTo("quest") == 0) {
+			deviceType = NativeApp.DEVICE_TYPE_VR;
+		}
 		UiModeManager uiModeManager = (UiModeManager) getSystemService(UI_MODE_SERVICE);
 		switch (uiModeManager.getCurrentModeType()) {
 		case Configuration.UI_MODE_TYPE_TELEVISION:

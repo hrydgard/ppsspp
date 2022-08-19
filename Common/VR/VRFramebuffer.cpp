@@ -49,9 +49,9 @@ bool ovrFramebuffer_Create(
 	frameBuffer->Width = width;
 	frameBuffer->Height = height;
 
-	if (strstr((const char*)glGetString(GL_EXTENSIONS), "GL_OVR_multiview") == nullptr)
+	if (strstr((const char*)glGetString(GL_EXTENSIONS), "GL_OVR_multiview2") == nullptr)
 	{
-		ALOGE("OpenGL ES 3.0 implementation does not support GL_OVR_multiview extension.\n");
+		ALOGE("OpenGL implementation does not support GL_OVR_multiview2 extension.\n");
 		exit(EXIT_FAILURE);
 	}
 

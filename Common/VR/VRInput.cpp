@@ -25,7 +25,6 @@ XrAction vibrateRightFeedback;
 XrActionSet runningActionSet;
 XrSpace leftControllerAimSpace = XR_NULL_HANDLE;
 XrSpace rightControllerAimSpace = XR_NULL_HANDLE;
-int actionsAttached = 0;
 int inputInitialized = 0;
 int useSimpleProfile = 0;
 
@@ -348,6 +347,14 @@ void IN_VRInit( engine_t *engine ) {
 		suggestedBindings.countSuggestedBindings = currBinding;
 		OXR(xrSuggestInteractionProfileBindings(engine->appState.Instance, &suggestedBindings));
 
+		// Attach actions
+		XrSessionActionSetsAttachInfo attachInfo = {};
+		attachInfo.type = XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO;
+		attachInfo.next = NULL;
+		attachInfo.countActionSets = 1;
+		attachInfo.actionSets = &runningActionSet;
+		OXR(xrAttachSessionActionSets(engine->appState.Session, &attachInfo));
+
 		// Enumerate actions
 		XrPath actionPathsBuffer[32];
 		char stringBuffer[256];
@@ -370,11 +377,11 @@ void IN_VRInit( engine_t *engine ) {
 				handPoseLeftAction,
 				handPoseRightAction
 		};
-		for (size_t i = 0; i < sizeof(actionsToEnumerate) / sizeof(actionsToEnumerate[0]); ++i) {
+		for (XrAction & i : actionsToEnumerate) {
 			XrBoundSourcesForActionEnumerateInfo enumerateInfo = {};
 			enumerateInfo.type = XR_TYPE_BOUND_SOURCES_FOR_ACTION_ENUMERATE_INFO;
 			enumerateInfo.next = NULL;
-			enumerateInfo.action = actionsToEnumerate[i];
+			enumerateInfo.action = i;
 
 			// Get Count
 			uint32_t countOutput = 0;
@@ -425,16 +432,6 @@ void IN_VRInit( engine_t *engine ) {
 }
 
 void IN_VRInputFrame( engine_t* engine ) {
-	// Attach to session
-	if (!actionsAttached) {
-		XrSessionActionSetsAttachInfo attachInfo = {};
-		attachInfo.type = XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO;
-		attachInfo.next = NULL;
-		attachInfo.countActionSets = 1;
-		attachInfo.actionSets = &runningActionSet;
-		OXR(xrAttachSessionActionSets(engine->appState.Session, &attachInfo));
-		actionsAttached = 1;
-	}
 
 	// sync action data
 	XrActiveActionSet activeActionSet = {};

@@ -11,6 +11,7 @@ public class NativeApp {
 	public static final int DEVICE_TYPE_MOBILE = 0;
 	public static final int DEVICE_TYPE_TV = 1;
 	public static final int DEVICE_TYPE_DESKTOP = 2;
+	public static final int DEVICE_TYPE_VR = 3;
 
 	public static native void init(String model, int deviceType, String languageRegion, String apkPath, String dataDir, String externalStorageDir, String extFilesDir, String additionalStorageDirs, String libraryDir, String cacheDir, String shortcutParam, int androidVersion, String board);
 	public static native void audioInit();

@@ -695,9 +695,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	renderer_inited = false;
 	androidVersion = jAndroidVersion;
 	deviceType = jdeviceType;
-#ifdef OPENXR
-	deviceType = DEVICE_TYPE_VR;
-#endif
 
 	left_joystick_x_async = 0;
 	left_joystick_y_async = 0;
@@ -938,13 +935,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 // JavaEGL
 extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
 
-#ifdef OPENXR
-	if (!renderer_inited) {
-		VR_EnterVR(VR_GetEngine());
-		IN_VRInit(VR_GetEngine());
-	}
-	VR_InitRenderer(VR_GetEngine());
-#endif
+	bool firstStart = !renderer_inited;
 
 	// We should be running on the render thread here.
 	std::string errorMessage;
@@ -1006,6 +997,14 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 	}
 	NativeMessageReceived("recreateviews", "");
 
+#ifdef OPENXR
+	if (firstStart) {
+		VR_EnterVR(VR_GetEngine());
+		IN_VRInit(VR_GetEngine());
+	}
+	VR_InitRenderer(VR_GetEngine());
+#endif
+
 	return true;
 }
 
@@ -1045,7 +1044,9 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	pixel_yres = bufh;
 	backbuffer_format = format;
 #ifdef OPENXR
-	VR_GetResolution(VR_GetEngine(), &pixel_xres, &pixel_yres);
+	if (VR_GetEngine()->appState.Instance) {
+		VR_GetResolution(VR_GetEngine(), &pixel_xres, &pixel_yres);
+	}
 #endif
 
 	recalculateDpi();
@@ -1373,11 +1374,13 @@ void getDesiredBackbufferSize(int &sz_x, int &sz_y) {
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JNIEnv *, jclass, jint xres, jint yres, jint dpi, jfloat refreshRate) {
 	INFO_LOG(G3D, "NativeApp.setDisplayParameters(%d x %d, dpi=%d, refresh=%0.2f)", xres, yres, dpi, refreshRate);
 #ifdef OPENXR
-	int width, height;
-	VR_GetResolution(VR_GetEngine(), &width, &height);
-	xres = width;
-	yres = height;
-	dpi = 320;
+	if (VR_GetEngine()->appState.Instance) {
+		int width, height;
+		VR_GetResolution(VR_GetEngine(), &width, &height);
+		xres = width;
+		yres = height;
+		dpi = 320;
+	}
 #endif
 
 	bool changed = false;
