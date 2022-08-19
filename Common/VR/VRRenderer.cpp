@@ -232,7 +232,7 @@ void VR_ClearFrameBuffer( int width, int height) {
 	glEnable( GL_SCISSOR_TEST );
 	glViewport( 0, 0, width, height );
 
-	glClearColor( 0.0f, 0.5f, 1.0f, 1.0f );
+	glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
 
 	glScissor( 0, 0, width, height );
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
@@ -241,13 +241,13 @@ void VR_ClearFrameBuffer( int width, int height) {
 	glDisable( GL_SCISSOR_TEST );
 }
 
-void VR_BeginFrame( engine_t* engine ) {
+bool VR_BeginFrame( engine_t* engine ) {
 	GLboolean stageBoundsDirty = GL_TRUE;
 	if (ovrApp_HandleXrEvents(&engine->appState)) {
 		VR_Recenter(engine);
 	}
 	if (engine->appState.SessionActive == GL_FALSE) {
-		return;
+		return false;
 	}
 
 	if (stageBoundsDirty) {
@@ -267,7 +267,7 @@ void VR_BeginFrame( engine_t* engine ) {
 	OXR(xrWaitFrame(engine->appState.Session, &waitFrameInfo, &frameState));
 	engine->predictedDisplayTime = frameState.predictedDisplayTime;
 	if (!frameState.shouldRender) {
-		return;
+		return false;
 	}
 
 	// Get the HMD pose, predicted for the middle of the time period during which
@@ -315,11 +315,13 @@ void VR_BeginFrame( engine_t* engine ) {
 	ovrFramebuffer_Acquire(frameBuffer);
 	ovrFramebuffer_SetCurrent(frameBuffer);
 	VR_ClearFrameBuffer(frameBuffer->ColorSwapChain.Width, frameBuffer->ColorSwapChain.Height);
+	return true;
 }
 
 void VR_EndFrame( engine_t* engine ) {
 
 	// Clear the alpha channel, other way OpenXR would not transfer the framebuffer fully
+	VR_BindFramebuffer(engine);
 	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT);

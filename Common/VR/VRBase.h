@@ -97,6 +97,7 @@ typedef struct {
 	XrSwapchainImageOpenGLESKHR* ColorSwapChainImage;
 	XrSwapchainImageOpenGLESKHR* DepthSwapChainImage;
 	unsigned int* FrameBuffers;
+	bool Acquired;
 } ovrFramebuffer;
 
 typedef struct {

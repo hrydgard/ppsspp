@@ -381,7 +381,7 @@ public abstract class NativeActivity extends Activity {
 		}
 
 		int deviceType = NativeApp.DEVICE_TYPE_MOBILE;
-		if (BuildConfig.FLAVOR.compareTo("quest") == 0) {
+		if (isVRDevice()) {
 			deviceType = NativeApp.DEVICE_TYPE_VR;
 		}
 		UiModeManager uiModeManager = (UiModeManager) getSystemService(UI_MODE_SERVICE);
@@ -621,7 +621,7 @@ public abstract class NativeActivity extends Activity {
 		if (javaGL) {
 			mGLSurfaceView = new NativeGLView(this);
 			nativeRenderer = new NativeRenderer(this);
-			mGLSurfaceView.setEGLContextClientVersion(2);
+			mGLSurfaceView.setEGLContextClientVersion(isVRDevice() ? 3 : 2);
 			sizeManager.setSurfaceView(mGLSurfaceView);
 
 			// Setup the GLSurface and ask android for the correct
@@ -1544,5 +1544,9 @@ public abstract class NativeActivity extends Activity {
 			startActivity(getIntent());
 			finish();
 		}
+	}
+
+	private boolean isVRDevice() {
+		return BuildConfig.FLAVOR.compareTo("quest") == 0;
 	}
 }

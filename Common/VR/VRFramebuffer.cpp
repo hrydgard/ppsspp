@@ -38,6 +38,7 @@ void ovrFramebuffer_Clear(ovrFramebuffer* frameBuffer) {
 	frameBuffer->DepthSwapChain.Height = 0;
 
 	frameBuffer->FrameBuffers = NULL;
+	frameBuffer->Acquired = false;
 }
 
 bool ovrFramebuffer_Create(
@@ -185,11 +186,15 @@ void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
 				i,
 				waitInfo.timeout * (1E-9));
 	}
+	frameBuffer->Acquired = res == XR_SUCCESS;
 }
 
 void ovrFramebuffer_Release(ovrFramebuffer* frameBuffer) {
-	XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO, NULL};
-	OXR(xrReleaseSwapchainImage(frameBuffer->ColorSwapChain.Handle, &releaseInfo));
+	if (frameBuffer->Acquired) {
+		XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO, NULL};
+		OXR(xrReleaseSwapchainImage(frameBuffer->ColorSwapChain.Handle, &releaseInfo));
+		frameBuffer->Acquired = false;
+	}
 }
 
 /*
