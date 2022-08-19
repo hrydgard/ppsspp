@@ -435,7 +435,7 @@ void VR_BindFramebuffer(engine_t *engine) {
 	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer;
 	int swapchainIndex = frameBuffer->TextureSwapChainIndex;
 	int glFramebuffer = frameBuffer->FrameBuffers[swapchainIndex];
-	glBindFramebuffer(GL_FRAMEBUFFER, glFramebuffer);
+	GL(glBindFramebuffer(GL_FRAMEBUFFER, glFramebuffer));
 }
 
 ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {

@@ -256,7 +256,7 @@ bool GLRenderManager::ThreadFrame() {
 			VR_SetConfig(VR_CONFIG_FOV_SCALE, g_Config.iFieldOfViewPercentage);
 
 			// Render scene
-			Run(threadFrame_);
+			GL(Run(threadFrame_));
 			VR_EndFrame(VR_GetEngine());
 		}
 #else
