@@ -388,14 +388,19 @@ void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 }
 
 void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
-	_assert_(entry);
-	_assert_(entry->vkTex);
+	if (!entry) {
+		imageView_ = VK_NULL_HANDLE;
+		curSampler_ = VK_NULL_HANDLE;
+		return;
+	}
 
+	_dbg_assert_(entry->vkTex);
 	entry->vkTex->Touch();
-	imageView_ = entry->vkTex->GetImageView();
+
 	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
 	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
+	imageView_ = entry->vkTex->GetImageView();
 	drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
 	gstate_c.SetUseShaderDepal(false);
 }

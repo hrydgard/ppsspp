@@ -204,6 +204,10 @@ void TextureCacheDX9::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase
 }
 
 void TextureCacheDX9::BindTexture(TexCacheEntry *entry) {
+	if (!entry) {
+		device_->SetTexture(0, nullptr);
+		return;
+	}
 	LPDIRECT3DBASETEXTURE9 texture = DxTex(entry);
 	if (texture != lastBoundTexture) {
 		device_->SetTexture(0, texture);
@@ -215,7 +219,7 @@ void TextureCacheDX9::BindTexture(TexCacheEntry *entry) {
 }
 
 void TextureCacheDX9::Unbind() {
-	device_->SetTexture(0, NULL);
+	device_->SetTexture(0, nullptr);
 	InvalidateLastTexture();
 }
 

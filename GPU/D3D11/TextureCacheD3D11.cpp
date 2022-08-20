@@ -236,6 +236,11 @@ void TextureCacheD3D11::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBa
 }
 
 void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
+	if (!entry) {
+		ID3D11ShaderResourceView *textureView = nullptr;
+		context_->PSSetShaderResources(0, 1, &textureView);
+		return;
+	}
 	ID3D11ShaderResourceView *textureView = DxView(entry);
 	if (textureView != lastBoundTexture) {
 		context_->PSSetShaderResources(0, 1, &textureView);

@@ -44,7 +44,7 @@ static const VaryingDef varyings[1] = {
 	{ "vec2", "v_texcoord", Draw::SEM_TEXCOORD0, 0, "highp" },
 };
 
-// Uses integer instructions available since OpenGL 3.0. Suitable for ES 3.0 as well.
+// Uses integer instructions available since OpenGL 3.0, ES 3.0 (and 2.0 with extensions), and of course Vulkan and D3D11.
 void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config, const ShaderLanguageDesc &lang) {
 	const int shift = config.shift;
 	const int mask = config.mask;
@@ -128,7 +128,7 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config, con
 	writer.C("  vec4 outColor = ").SampleTexture2D("pal", "uv").C(";\n");
 }
 
-// FP only, to suit GL(ES) 2.0
+// FP only, to suit GL(ES) 2.0 and DX9
 void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config, const ShaderLanguageDesc &lang) {
 	char lookupMethod[128] = "index.r";
 
@@ -249,7 +249,7 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config, c
 	// index_multiplier -= 0.01f / texturePixels;
 
 	if (!formatOK) {
-		ERROR_LOG_REPORT_ONCE(depal, G3D, "%i depal unsupported: shift=%i mask=%02x offset=%d", config.pixelFormat, shift, mask, config.startPos);
+		ERROR_LOG_REPORT_ONCE(depal, G3D, "%s depal unsupported: shift=%d mask=%02x offset=%d", GeBufferFormatToString(config.pixelFormat), shift, mask, config.startPos);
 	}
 
 	// Offset by half a texel (plus clutBase) to turn NEAREST filtering into FLOOR.
