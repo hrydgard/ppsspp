@@ -525,10 +525,6 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	def.format = format;
 	def.bufw = bufw;
 
-	if (texaddr == 0x04710000) {
-		texaddr = texaddr;
-	}
-
 	std::vector<AttachCandidate> candidates = GetFramebufferCandidates(def, 0);
 	if (candidates.size() > 0) {
 		int index = GetBestCandidateIndex(candidates);
@@ -978,8 +974,6 @@ bool TextureCacheCommon::MatchFramebuffer(
 		if (matchingClutFormat) {
 			if (!noOffset) {
 				WARN_LOG_ONCE(subareaClut, G3D, "Texturing from framebuffer (%s) using %s with offset at %08x +%dx%d", channel == RASTER_DEPTH ? "DEPTH" : "COLOR", GeTextureFormatToString(entry.format), fb_address, matchInfo->xOffset, matchInfo->yOffset);
-			} else {
-				WARN_LOG_ONCE(subareaClut, G3D, "Texturing from framebuffer (%s) using %s at %08x", channel == RASTER_DEPTH ? "DEPTH" : "COLOR", GeTextureFormatToString(entry.format), fb_address);
 			}
 			return true;
 		} else if (IsClutFormat((GETextureFormat)(entry.format)) || IsDXTFormat((GETextureFormat)(entry.format))) {
