@@ -537,7 +537,6 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 				sources.push_back(CopySource{ src, RASTER_COLOR });
 			}
 		} else if (src->z_address == dest->z_address && src->z_stride == dest->z_stride && src->depthBindSeq > dest->depthBindSeq) {
-			// Don't bother if the buffer was from another frame. This heuristic is old.
 			sources.push_back(CopySource{ src, RASTER_DEPTH });
 		} else {
 			// TODO: Do more detailed overlap checks here.
@@ -562,6 +561,9 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 		} else if (source.channel == RASTER_COLOR) {
 			VirtualFramebuffer *src = source.vfb;
 			// Copying color to depth.
+			if (src->drawnFormat != GE_FORMAT_565) {
+				WARN_LOG_ONCE(not565, G3D, "Drawn format of buffer at %08x not 565 as expected", src->fb_address);
+			}
 			BlitUsingRaster(src->fbo, 0.0f, 0.0f, src->renderWidth, src->renderHeight, dest->fbo, 0.0f, 0.0f, dest->renderWidth, dest->renderHeight, false, DRAW2D_565_TO_DEPTH, "565_to_depth");
 		}
 	}
