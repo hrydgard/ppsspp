@@ -2566,7 +2566,7 @@ void FramebufferManagerCommon::BlitUsingRaster(
 	Draw::Viewport vp{ 0.0f, 0.0f, (float)dest->Width(), (float)dest->Height(), 0.0f, 1.0f };
 	draw_->SetViewports(1, &vp);
 	draw_->SetScissorRect(0, 0, (int)dest->Width(), (int)dest->Height());
-	DrawStrip2D(nullptr, vtx, 4, linearFilter, shader);
+	DrawStrip2D(nullptr, vtx, 4, linearFilter, shader, src->Width(), src->Height());
 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }

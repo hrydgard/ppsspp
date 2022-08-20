@@ -40,6 +40,20 @@ static const SamplerDef samplers[1] = {
 	{ "tex" },
 };
 
+static const UniformDef uniforms[1] = {
+	{ "vec2", "texSize", 0 },
+};
+
+struct Draw2DUB {
+	float texSizeX;
+	float texSizeY;
+};
+
+const UniformBufferDesc draw2DUBDesc{ sizeof(Draw2DUB), {
+	{ "texSize", -1, 0, UniformType::FLOAT2, 0 },
+} };
+
+
 RasterChannel GenerateDraw2DFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
 	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_NONE);
@@ -79,12 +93,12 @@ static float g_scale;
 
 RasterChannel GenerateDraw2D565ToDepthDeswizzleFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
-	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_WRITEDEPTH);
+	writer.BeginFSMain(uniforms, varyings, FSFLAG_WRITEDEPTH);
 	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
 	// Unlike when just copying a depth buffer, here we're generating new depth values so we'll
 	// have to apply the scaling.
 	DepthScaleFactors factors = GetDepthScaleFactors();
-	writer.GetTextureSize("tsize", "tex").C("\n");
+	writer.C("  vec2 tsize = texSize;\n");
 	writer.C("  vec2 coord = v_texcoord * tsize;\n");
 	writer.F("  float strip = 4.0 * %f;\n", g_scale);
 	writer.C("  float in_strip = mod(coord.y, strip);\n");
@@ -183,7 +197,7 @@ Draw::Pipeline *FramebufferManagerCommon::Create2DPipeline(RasterChannel (*gener
 		{ draw2DVs_, fs },
 		inputLayout,
 		depthStencil,
-		blend, rasterNoCull, nullptr,
+		blend, rasterNoCull, &draw2DUBDesc,
 	};
 
 	Draw::Pipeline *pipeline = draw_->CreateGraphicsPipeline(pipelineDesc);
@@ -198,7 +212,7 @@ Draw::Pipeline *FramebufferManagerCommon::Create2DPipeline(RasterChannel (*gener
 	return pipeline;
 }
 
-void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DShader shader) {
+void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DShader shader, float texW, float texH) {
 	using namespace Draw;
 
 	Ensure2DResources();
@@ -250,6 +264,11 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 		draw_->BindPipeline(draw2DPipeline565ToDepthDeswizzle_);
 		break;
 	}
+
+	Draw2DUB ub;
+	ub.texSizeX = tex ? tex->Width() : texW;
+	ub.texSizeY = tex ? tex->Height() : texH;
+	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 
 	if (tex) {
 		draw_->BindTextures(TEX_SLOT_PSP_TEXTURE, 1, &tex);

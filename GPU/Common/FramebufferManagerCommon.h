@@ -375,7 +375,7 @@ protected:
 	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags);
 
-	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DShader channel);
+	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DShader channel, float texW = 0.0f, float texH = 0.0f);
 	void Ensure2DResources();
 	Draw::Pipeline *Create2DPipeline(RasterChannel (*generate)(ShaderWriter &));
 
