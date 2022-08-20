@@ -15,6 +15,8 @@ class FramebufferManagerCommon;
 class TextureCacheCommon;
 class DrawEngineCommon;
 class GraphicsContext;
+struct VirtualFramebuffer;
+
 namespace Draw {
 	class DrawContext;
 }
@@ -282,16 +284,10 @@ protected:
 	void SlowRunLoop(DisplayList &list);
 	void UpdatePC(u32 currentPC, u32 newPC);
 	void UpdateState(GPURunState state);
-	void PopDLQueue();
-	void CheckDrawSync();
-	int  GetNextListIndex();
-	virtual void FastLoadBoneMatrix(u32 target);
+	void FastLoadBoneMatrix(u32 target);
 
 	// TODO: Unify this.
 	virtual void FinishDeferred() {}
-
-	void DoBlockTransfer(u32 skipDrawReason);
-	void DoExecuteCall(u32 target);
 
 	void AdvanceVerts(u32 vertType, int count, int bytesRead) {
 		if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
@@ -362,6 +358,13 @@ protected:
 
 private:
 	void FlushImm();
+	void CheckDepthUsage(VirtualFramebuffer *vfb);
+	void DoBlockTransfer(u32 skipDrawReason);
+	void DoExecuteCall(u32 target);
+	void PopDLQueue();
+	void CheckDrawSync();
+	int  GetNextListIndex();
+
 	// Debug stats.
 	double timeSteppingStarted_;
 	double timeSpentStepping_;

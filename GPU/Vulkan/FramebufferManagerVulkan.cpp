@@ -75,7 +75,4 @@ void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, boo
 	if (clearColor || clearAlpha) {
 		SetColorUpdated(gstate_c.skipDrawReason);
 	}
-	if (clearDepth) {
-		SetDepthUpdated();
-	}
 }

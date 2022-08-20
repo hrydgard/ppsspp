@@ -444,13 +444,13 @@ protected:
 	u32 *clutBufConverted_;
 	// This is the active one.
 	u32 *clutBuf_;
-	u32 clutLastFormat_;
-	u32 clutTotalBytes_;
-	u32 clutMaxBytes_;
-	u32 clutRenderAddress_;
+	u32 clutLastFormat_ = 0xFFFFFFFF;
+	u32 clutTotalBytes_ = 0;
+	u32 clutMaxBytes_ = 0;
+	u32 clutRenderAddress_ = 0xFFFFFFFF;
 	u32 clutRenderOffset_;
 	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
-	bool clutAlphaLinear_;
+	bool clutAlphaLinear_ = false;
 	u16 clutAlphaLinearColor_;
 
 	int standardScaleFactor_;
@@ -461,7 +461,7 @@ protected:
 	bool nextNeedsChange_;
 	bool nextNeedsRebuild_;
 
-	bool isBgraBackend_;
+	bool isBgraBackend_ = false;
 
 	u32 expandClut_[256];
 };

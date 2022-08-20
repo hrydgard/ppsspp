@@ -423,9 +423,6 @@ void DrawEngineGLES::DoFlush() {
 			bool colorMask = gstate.isClearModeColorMask();
 			bool alphaMask = gstate.isClearModeAlphaMask();
 			bool depthMask = gstate.isClearModeDepthMask();
-			if (depthMask) {
-				framebufferManager_->SetDepthUpdated();
-			}
 
 			GLbitfield target = 0;
 			// Without this, we will clear RGB when clearing stencil, which breaks games.

@@ -25,6 +25,7 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Common/GPUStateUtils.h"
 
 static const InputDef inputs[2] = {
 	{ "vec2", "a_position", Draw::SEM_POSITION },
@@ -55,6 +56,20 @@ RasterChannel GenerateDraw2DDepthFs(ShaderWriter &writer) {
 	writer.C("  gl_FragDepth = ").SampleTexture2D("tex", "v_texcoord.xy").C(".x;\n");
 	writer.EndFSMain("outColor", FSFLAG_WRITEDEPTH);
 
+	return RASTER_DEPTH;
+}
+
+RasterChannel GenerateDraw2D565ToDepthFs(ShaderWriter &writer) {
+	writer.DeclareSamplers(samplers);
+	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_WRITEDEPTH);
+	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
+	// Unlike when just copying a depth buffer, here we're generating new depth values so we'll
+	// have to apply the scaling.
+	DepthScaleFactors factors = GetDepthScaleFactors();
+	writer.C("  vec3 rgb = ").SampleTexture2D("tex", "v_texcoord.xy").C(".xyz;\n");
+	writer.F("  highp float depthValue = (floor(rgb.x * 31.99) + floor(rgb.y * 63.99) * 32.0 + floor(rgb.z * 31.99) * 2048.0); \n");
+	writer.F("  gl_FragDepth = (depthValue / %f) + %f;\n", factors.scale, factors.offset);
+	writer.EndFSMain("outColor", FSFLAG_WRITEDEPTH);
 	return RASTER_DEPTH;
 }
 
@@ -159,30 +174,43 @@ Draw::Pipeline *FramebufferManagerCommon::Create2DPipeline(RasterChannel (*gener
 	return pipeline;
 }
 
-void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, RasterChannel channel) {
+void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DShader shader) {
 	using namespace Draw;
 
 	Ensure2DResources();
 
 	const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
 
-	switch (channel) {
-	case RASTER_COLOR:
+	switch (shader) {
+	case DRAW2D_COPY_COLOR:
 		if (!draw2DPipelineColor_) {
 			draw2DPipelineColor_ = Create2DPipeline(&GenerateDraw2DFs);
 		}
 		draw_->BindPipeline(draw2DPipelineColor_);
 		break;
 
-	case RASTER_DEPTH:
+	case DRAW2D_COPY_DEPTH:
 		if (!draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
 			// Can't do it
 			return;
 		}
 		if (!draw2DPipelineDepth_) {
 			draw2DPipelineDepth_ = Create2DPipeline(&GenerateDraw2DDepthFs);
+			linearFilter = false;
 		}
 		draw_->BindPipeline(draw2DPipelineDepth_);
+		break;
+
+	case DRAW2D_565_TO_DEPTH:
+		if (!draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
+			// Can't do it
+			return;
+		}
+		if (!draw2DPipeline565ToDepth_) {
+			draw2DPipeline565ToDepth_ = Create2DPipeline(&GenerateDraw2D565ToDepthFs);
+			linearFilter = false;
+		}
+		draw_->BindPipeline(draw2DPipeline565ToDepth_);
 		break;
 	}
 

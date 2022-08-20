@@ -106,13 +106,7 @@ inline int dimHeight(u16 dim) {
 // Vulkan color formats:
 // TODO
 TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw)
-	: draw_(draw),
-		clutLastFormat_(0xFFFFFFFF),
-		clutTotalBytes_(0),
-		clutMaxBytes_(0),
-		clutRenderAddress_(0xFFFFFFFF),
-		clutAlphaLinear_(false),
-		isBgraBackend_(false) {
+	: draw_(draw) {
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 
 	// TODO: Clamp down to 256/1KB?  Need to check mipmapShareClut and clamp loadclut.
@@ -263,10 +257,6 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 			}
 			break;
 		}
-	}
-
-	if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
-		forceFiltering = TEX_FILTER_FORCE_NEAREST;
 	}
 
 	switch (forceFiltering) {
@@ -2244,11 +2234,6 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 
 	// Don't scale the PPGe texture.
 	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd()) {
-		plan.scaleFactor = 1;
-	}
-
-	// Don't upscale textures in color-to-depth mode.
-	if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
 		plan.scaleFactor = 1;
 	}
 

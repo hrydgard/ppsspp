@@ -640,9 +640,6 @@ rotateVBO:
 			if (gstate.isClearModeAlphaMask()) mask |= D3DCLEAR_STENCIL;
 			if (gstate.isClearModeDepthMask()) mask |= D3DCLEAR_ZBUFFER;
 
-			if (mask & D3DCLEAR_ZBUFFER) {
-				framebufferManager_->SetDepthUpdated();
-			}
 			if (mask & D3DCLEAR_TARGET) {
 				framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 			}
