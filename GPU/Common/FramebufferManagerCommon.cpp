@@ -560,7 +560,7 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 			BlitFramebufferDepth(source.vfb, dest);
 			gpuStats.numDepthCopies++;
 			dest->last_frame_depth_updated = gpuStats.numFlips;
-		} else if (source.channel == RASTER_COLOR) {
+		} else if (source.channel == RASTER_COLOR && draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
 			VirtualFramebuffer *src = source.vfb;
 			if (src->drawnFormat != GE_FORMAT_565) {
 				WARN_LOG_ONCE(not565, G3D, "Drawn format of buffer at %08x not 565 as expected", src->fb_address);
