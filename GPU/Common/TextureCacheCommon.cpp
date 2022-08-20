@@ -868,6 +868,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 
 	uint32_t fb_address = channel == RASTER_DEPTH ? framebuffer->z_address : framebuffer->fb_address;
 	uint32_t fb_stride = channel == RASTER_DEPTH ? framebuffer->z_stride : framebuffer->fb_stride;
+	GEBufferFormat fb_format = channel == RASTER_DEPTH ? GE_FORMAT_DEPTH16 : framebuffer->format;
 
 	if (channel == RASTER_DEPTH && framebuffer->z_address == framebuffer->fb_address) {
 		// Try to avoid silly matches to somewhat malformed buffers.
@@ -913,14 +914,14 @@ bool TextureCacheCommon::MatchFramebuffer(
 		}
 		// NOTE: This check is okay because the first texture formats are the same as the buffer formats.
 		if (IsTextureFormatBufferCompatible(entry.format)) {
-			if (TextureFormatMatchesBufferFormat(entry.format, framebuffer->format) || (framebuffer->usageFlags & FB_USAGE_BLUE_TO_ALPHA)) {
+			if (TextureFormatMatchesBufferFormat(entry.format, fb_format) || (framebuffer->usageFlags & FB_USAGE_BLUE_TO_ALPHA)) {
 				return true;
-			} else if (IsTextureFormat16Bit(entry.format) && IsBufferFormat16Bit(framebuffer->format)) {
-				WARN_LOG_ONCE(diffFormat1, G3D, "Texturing from framebuffer with reinterpretable format: %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format));
+			} else if (IsTextureFormat16Bit(entry.format) && IsBufferFormat16Bit(fb_format) && channel == RASTER_COLOR) {
+				WARN_LOG_ONCE(diffFormat1, G3D, "Texturing from framebuffer with reinterpretable format: %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format));
 				*matchInfo = FramebufferMatchInfo{ 0, 0, true, TextureFormatToBufferFormat(entry.format) };
 				return true;
 			} else {
-				WARN_LOG_ONCE(diffFormat2, G3D, "Texturing from framebuffer with incompatible formats %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format));
+				WARN_LOG_ONCE(diffFormat2, G3D, "Not texturing from framebuffer with incompatible formats %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format));
 				return false;
 			}
 		} else {
@@ -935,9 +936,9 @@ bool TextureCacheCommon::MatchFramebuffer(
 
 		// Check works for D16 too (???)
 		const bool matchingClutFormat =
-			(channel != RASTER_COLOR && entry.format == GE_TFMT_CLUT16) ||
-			(channel == RASTER_COLOR && framebuffer->format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT32) ||
-			(channel == RASTER_COLOR && framebuffer->format != GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT16);
+			(fb_format == GE_FORMAT_DEPTH16 && entry.format == GE_TFMT_CLUT16) ||
+			(fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT32) ||
+			(fb_format != GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT16);
 
 		const u32 bitOffset = (texaddr - addr) * 8;
 		if (bitOffset != 0) {
@@ -984,15 +985,15 @@ bool TextureCacheCommon::MatchFramebuffer(
 			}
 			return true;
 		} else if (IsClutFormat((GETextureFormat)(entry.format)) || IsDXTFormat((GETextureFormat)(entry.format))) {
-			WARN_LOG_ONCE(fourEightBit, G3D, "%s format not supported when texturing from framebuffer of format %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format));
+			WARN_LOG_ONCE(fourEightBit, G3D, "%s format not supported when texturing from framebuffer of format %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format));
 			return false;
 		}
 
 		// This is either normal or we failed to generate a shader to depalettize
-		if ((int)framebuffer->format == (int)entry.format || matchingClutFormat) {
-			if ((int)framebuffer->format != (int)entry.format) {
+		if ((int)fb_format == (int)entry.format || matchingClutFormat) {
+			if ((int)fb_format  != (int)entry.format) {
 				WARN_LOG_ONCE(diffFormat2, G3D, "Texturing from framebuffer with different formats %s != %s at %08x",
-					GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format), fb_address);
+					GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address);
 				return true;
 			} else {
 				WARN_LOG_ONCE(subarea, G3D, "Texturing from framebuffer at %08x +%dx%d", fb_address, matchInfo->xOffset, matchInfo->yOffset);
@@ -1000,7 +1001,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 			}
 		} else {
 			WARN_LOG_ONCE(diffFormat2, G3D, "Texturing from framebuffer with incompatible format %s != %s at %08x",
-				GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format), fb_address);
+				GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address);
 			return false;
 		}
 	}
