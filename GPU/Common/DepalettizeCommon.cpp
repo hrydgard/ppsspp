@@ -80,11 +80,11 @@ Draw::Texture *DepalShaderCache::GetClutTexture(GEPaletteFormat clutFormat, cons
 		desc.initData.push_back((const uint8_t *)rawClut);
 		break;
 	case GEPaletteFormat::GE_CMODE_16BIT_BGR5650:
-		ConvertRGBA5551ToRGBA8888((u32 *)convTemp, (const u16 *)rawClut, texturePixels);
+		ConvertRGB565ToRGBA8888((u32 *)convTemp, (const u16 *)rawClut, texturePixels);
 		desc.initData.push_back(convTemp);
 		break;
 	case GEPaletteFormat::GE_CMODE_16BIT_ABGR5551:
-		ConvertRGB565ToRGBA8888((u32 *)convTemp, (const u16 *)rawClut, texturePixels);
+		ConvertRGBA5551ToRGBA8888((u32 *)convTemp, (const u16 *)rawClut, texturePixels);
 		desc.initData.push_back(convTemp);
 		break;
 	case GEPaletteFormat::GE_CMODE_16BIT_ABGR4444:
