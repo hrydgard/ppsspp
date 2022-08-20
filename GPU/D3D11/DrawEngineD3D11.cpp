@@ -617,6 +617,13 @@ rotateVBO:
 				framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
 				framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
 				vpAndScissor);
+
+			if (vpAndScissor.dirtyProj) {
+				gstate_c.Dirty(DIRTY_PROJMATRIX);
+			}
+			if (vpAndScissor.dirtyDepth) {
+				gstate_c.Dirty(DIRTY_DEPTHRANGE);
+			}
 		}
 
 		int maxIndex = indexGen.MaxIndex();
