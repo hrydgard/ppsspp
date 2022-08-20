@@ -75,10 +75,16 @@ struct ViewportAndScissor {
 	float viewportH;
 	float depthRangeMin;
 	float depthRangeMax;
-	bool dirtyProj;
-	bool dirtyDepth;
+	float widthScale;
+	float heightScale;
+	float depthScale;
+	float xOffset;
+	float yOffset;
+	float zOffset;
+	bool throughMode;
 };
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out);
+void UpdateCachedViewportState(const ViewportAndScissor &vpAndScissor);
 float ToScaledDepthFromIntegerScale(float z);
 
 struct DepthScaleFactors {
