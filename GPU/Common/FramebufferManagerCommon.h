@@ -267,7 +267,7 @@ public:
 			return vfb;
 		}
 	}
-	void SetDepthFrameBuffer();
+	void SetDepthFrameBuffer(bool isClearingDepth);
 
 	void RebindFramebuffer(const char *tag);
 	std::vector<FramebufferInfo> GetFramebufferList() const;

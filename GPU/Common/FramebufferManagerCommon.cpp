@@ -497,13 +497,16 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 }
 
 // Called on the first use of depth in a render pass.
-void FramebufferManagerCommon::SetDepthFrameBuffer() {
+void FramebufferManagerCommon::SetDepthFrameBuffer(bool isClearingDepth) {
 	if (!currentRenderVfb_) {
 		return;
 	}
 
-	// "Resolve" the depth buffer, by copying from any overlapping buffers with fresher content.
-	CopyToDepthFromOverlappingFramebuffers(currentRenderVfb_);
+	// If this first draw call is anything other than a clear, "resolve" the depth buffer,
+	// by copying from any overlapping buffers with fresher content.
+	if (!isClearingDepth) {
+		CopyToDepthFromOverlappingFramebuffers(currentRenderVfb_);
+	}
 
 	currentRenderVfb_->usageFlags |= FB_USAGE_RENDER_DEPTH;
 	currentRenderVfb_->depthBindSeq = GetBindSeqCount();

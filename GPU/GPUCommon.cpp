@@ -1635,7 +1635,7 @@ void GPUCommon::CheckDepthUsage(VirtualFramebuffer *vfb) {
 			if (isClearingDepth || gstate.isDepthWriteEnabled()) {
 				vfb->last_frame_depth_updated = gpuStats.numFlips;
 			}
-			framebufferManager_->SetDepthFrameBuffer();
+			framebufferManager_->SetDepthFrameBuffer(isClearingDepth);
 		}
 	}
 }
