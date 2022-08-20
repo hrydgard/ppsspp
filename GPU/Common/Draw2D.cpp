@@ -70,6 +70,7 @@ RasterChannel GenerateDraw2D565ToDepthFs(ShaderWriter &writer) {
 	writer.F("  highp float depthValue = (floor(rgb.x * 31.99) + floor(rgb.y * 63.99) * 32.0 + floor(rgb.z * 31.99) * 2048.0); \n");
 	writer.F("  gl_FragDepth = (depthValue / %f) + %f;\n", factors.scale, factors.offset);
 	writer.EndFSMain("outColor", FSFLAG_WRITEDEPTH);
+
 	return RASTER_DEPTH;
 }
 
@@ -83,7 +84,7 @@ RasterChannel GenerateDraw2D565ToDepthDeswizzleFs(ShaderWriter &writer) {
 	// Unlike when just copying a depth buffer, here we're generating new depth values so we'll
 	// have to apply the scaling.
 	DepthScaleFactors factors = GetDepthScaleFactors();
-	writer.C("  vec2 tsize = vec2(textureSize(tex, 0));\n");
+	writer.GetTextureSize("tsize", "tex").C("\n");
 	writer.C("  vec2 coord = v_texcoord * tsize;\n");
 	writer.F("  float strip = 4.0 * %f;\n", g_scale);
 	writer.C("  float in_strip = mod(coord.y, strip);\n");
@@ -255,4 +256,8 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 	}
 	draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, linearFilter ? &draw2DSamplerLinear_ : &draw2DSamplerNearest_);
 	draw_->DrawUP(verts, vertexCount);
+
+	draw_->InvalidateCachedState();
+
+	gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_VERTEXSHADER_STATE);
 }

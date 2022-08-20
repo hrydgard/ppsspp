@@ -552,6 +552,8 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 
 	// for (auto &source : sources) {
 	if (!sources.empty()) {
+		draw_->InvalidateCachedState();
+
 		auto &source = sources.back();
 		if (source.channel == RASTER_DEPTH) {
 			// Good old depth->depth copy.

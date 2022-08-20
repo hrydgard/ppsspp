@@ -83,7 +83,8 @@ public:
 
 	void ConstFloat(const char *name, float value);
 
-	ShaderWriter &SampleTexture2D(const char *sampName, const char *uv);
+	ShaderWriter &SampleTexture2D(const char *texName, const char *uv);
+	ShaderWriter &GetTextureSize(const char *szVariable, const char *texName);
 
 	// Simple shaders with no special tricks.
 	void BeginVSMain(Slice<InputDef> inputs, Slice<UniformDef> uniforms, Slice<VaryingDef> varyings);
