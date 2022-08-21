@@ -173,7 +173,6 @@ DepalShader *DepalShaderCache::GetDepalettizeShader(uint32_t clutMode, GETexture
 	config.mask = gstate.getClutIndexMask();
 	config.bufferFormat = bufferFormat;
 	config.textureFormat = textureFormat;
-	config.resolutionScale = 3;
 
 	GenerateDepalFs(buffer, config, draw_->GetShaderLanguageDesc());
 	

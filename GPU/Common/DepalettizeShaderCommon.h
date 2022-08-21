@@ -31,7 +31,6 @@ struct DepalConfig {
 	GEPaletteFormat clutFormat;
 	GETextureFormat textureFormat;
 	GEBufferFormat bufferFormat;
-	int resolutionScale;
 };
 
 void GenerateDepalFs(char *buffer, const DepalConfig &config, const ShaderLanguageDesc &lang);
