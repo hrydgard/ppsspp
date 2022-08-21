@@ -1908,13 +1908,6 @@ void FramebufferManagerCommon::Resized() {
 	// Might have a new post shader - let's compile it.
 	presentation_->UpdatePostShader();
 
-	// Reset all shaders that might have resolution compiled-in.
-	if (draw2DPipeline565ToDepthDeswizzle_) {
-		draw2DPipeline565ToDepthDeswizzle_->Release();
-		draw2DPipeline565ToDepthDeswizzle_ = nullptr;
-	}
-
-
 #ifdef _WIN32
 	// Seems related - if you're ok with numbers all the time, show some more :)
 	if (g_Config.iShowFPSCounter != 0) {

@@ -40,17 +40,20 @@ static const SamplerDef samplers[1] = {
 	{ "tex" },
 };
 
-static const UniformDef uniforms[1] = {
+static const UniformDef uniforms[2] = {
 	{ "vec2", "texSize", 0 },
+	{ "float", "scaleFactor", 1},
 };
 
 struct Draw2DUB {
 	float texSizeX;
 	float texSizeY;
+	float scaleFactor;
 };
 
 const UniformBufferDesc draw2DUBDesc{ sizeof(Draw2DUB), {
 	{ "texSize", -1, 0, UniformType::FLOAT2, 0 },
+	{ "scaleFactor", -1, 1, UniformType::FLOAT1, 0 },
 } };
 
 
@@ -88,9 +91,6 @@ RasterChannel GenerateDraw2D565ToDepthFs(ShaderWriter &writer) {
 	return RASTER_DEPTH;
 }
 
-// ugly way to get the scale into the function
-static float g_scale;
-
 RasterChannel GenerateDraw2D565ToDepthDeswizzleFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
 	writer.BeginFSMain(uniforms, varyings, FSFLAG_WRITEDEPTH);
@@ -100,7 +100,7 @@ RasterChannel GenerateDraw2D565ToDepthDeswizzleFs(ShaderWriter &writer) {
 	DepthScaleFactors factors = GetDepthScaleFactors();
 	writer.C("  vec2 tsize = texSize;\n");
 	writer.C("  vec2 coord = v_texcoord * tsize;\n");
-	writer.F("  float strip = 4.0 * %f;\n", g_scale);
+	writer.F("  float strip = 4.0 * scaleFactor;\n");
 	writer.C("  float in_strip = mod(coord.y, strip);\n");
 	writer.C("  coord.y = coord.y - in_strip + strip - in_strip;\n");
 	writer.C("  coord /= tsize;\n");
@@ -234,8 +234,8 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 		}
 		if (!draw2DPipelineDepth_) {
 			draw2DPipelineDepth_ = Create2DPipeline(&GenerateDraw2DDepthFs);
-			linearFilter = false;
 		}
+		linearFilter = false;
 		draw_->BindPipeline(draw2DPipelineDepth_);
 		break;
 
@@ -246,8 +246,8 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 		}
 		if (!draw2DPipeline565ToDepth_) {
 			draw2DPipeline565ToDepth_ = Create2DPipeline(&GenerateDraw2D565ToDepthFs);
-			linearFilter = false;
 		}
+		linearFilter = false;
 		draw_->BindPipeline(draw2DPipeline565ToDepth_);
 		break;
 
@@ -257,10 +257,9 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 			return;
 		}
 		if (!draw2DPipeline565ToDepthDeswizzle_) {
-			g_scale = renderScaleFactor_;
 			draw2DPipeline565ToDepthDeswizzle_ = Create2DPipeline(&GenerateDraw2D565ToDepthDeswizzleFs);
-			linearFilter = false;
 		}
+		linearFilter = false;
 		draw_->BindPipeline(draw2DPipeline565ToDepthDeswizzle_);
 		break;
 	}
@@ -268,6 +267,7 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 	Draw2DUB ub;
 	ub.texSizeX = tex ? tex->Width() : texW;
 	ub.texSizeY = tex ? tex->Height() : texH;
+	ub.scaleFactor = (float)renderScaleFactor_;
 	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 
 	if (tex) {
