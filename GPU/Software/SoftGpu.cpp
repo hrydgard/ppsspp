@@ -52,7 +52,7 @@
 const int FB_WIDTH = 480;
 const int FB_HEIGHT = 272;
 
-u32 clut[4096];
+uint8_t clut[1024];
 FormatBuffer fb;
 FormatBuffer depthbuf;
 
@@ -971,7 +971,10 @@ void SoftGPU::Execute_Spline(u32 op, u32 diff) {
 
 void SoftGPU::Execute_LoadClut(u32 op, u32 diff) {
 	u32 clutAddr = gstate.getClutAddress();
-	u32 clutTotalBytes = gstate.getClutLoadBytes();
+	// Avoid the hack in getClutLoadBytes() to inaccurately allow more palette data.
+	u32 clutTotalBytes = (gstate.getClutLoadBlocks() & 0x3F) * 32;
+	if (clutTotalBytes > 1024)
+		clutTotalBytes = 1024;
 
 	// Might be copying drawing into the CLUT, so flush.
 	drawEngine_->transformUnit.FlushIfOverlap("loadclut", clutAddr, clutTotalBytes, clutTotalBytes, 1);

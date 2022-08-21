@@ -454,7 +454,9 @@ static void EmitTransfer(u32 op) {
 
 static void EmitClut(u32 op) {
 	u32 addr = gstate.getClutAddress();
-	u32 bytes = (op & 0x3F) * 32;
+	// Actually should only be 0x3F, but we allow enhanced CLUTs.  See #15727.
+	u32 blocks = (op & 0x7F) == 0x40 ? 0x40 : (op & 0x3F);
+	u32 bytes = blocks * 32;
 	bytes = Memory::ValidSize(addr, bytes);
 
 	if (bytes != 0) {

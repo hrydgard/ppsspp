@@ -300,8 +300,14 @@ struct GPUgstate {
 	bool isTextureFormatIndexed() const { return (texformat & 4) != 0; } // GE_TFMT_CLUT4 - GE_TFMT_CLUT32 are 0b1xx.
 	int getTextureEnvColRGB() const { return texenvcolor & 0x00FFFFFF; }
 	u32 getClutAddress() const { return (clutaddr & 0x00FFFFF0) | ((clutaddrupper << 8) & 0x0F000000); }
-	int getClutLoadBytes() const { return (loadclut & 0x7F) * 32; }
-	int getClutLoadBlocks() const { return (loadclut & 0x7F); }
+	int getClutLoadBytes() const { return getClutLoadBlocks() * 32; }
+	int getClutLoadBlocks() const {
+		// The PSP only supports 0x3F, but Misshitsu no Sacrifice has extra color data (see #15727.)
+		// 0x40 would be 0, which would be a no-op, so we allow it.
+		if ((loadclut & 0x7F) == 0x40)
+			return 0x40;
+		return loadclut & 0x3F;
+	}
 	GEPaletteFormat getClutPaletteFormat() const { return static_cast<GEPaletteFormat>(clutformat & 3); }
 	int getClutIndexShift() const { return (clutformat >> 2) & 0x1F; }
 	int getClutIndexMask() const { return (clutformat >> 8) & 0xFF; }
