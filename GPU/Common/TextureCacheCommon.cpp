@@ -1863,7 +1863,6 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	// TODO: Implement shader depal in the fragment shader generator for D3D11 at least.
 	if (!draw_->GetDeviceCaps().fragmentShaderInt32Supported) {
 		useShaderDepal = false;
-		depth = false;  // Can't support this
 	}
 
 	switch (draw_->GetShaderLanguageDesc().shaderLanguage) {
