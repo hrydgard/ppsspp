@@ -39,6 +39,7 @@ class ClutTexture {
 public:
 	Draw::Texture *texture;
 	int lastFrame;
+	int rampLength;
 };
 
 // For CLUT depal shaders, and other pre-bind texture shaders.
@@ -49,7 +50,7 @@ public:
 	~TextureShaderCache();
 
 	TextureShader *GetDepalettizeShader(uint32_t clutMode, GETextureFormat texFormat, GEBufferFormat pixelFormat);
-	Draw::Texture *GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
+	ClutTexture GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
 
 	Draw::SamplerState *GetSampler();
 

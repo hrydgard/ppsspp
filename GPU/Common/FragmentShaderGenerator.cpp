@@ -90,7 +90,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	bool doFlatShading = id.Bit(FS_BIT_FLATSHADE) && !flatBug;
 	bool shaderDepal = id.Bit(FS_BIT_SHADER_DEPAL) && !texture3D;  // combination with texture3D not supported. Enforced elsewhere too.
-	bool smoothedDepal = PSP_CoreParameter().compat.flags().SmoothedDepal;
+	bool smoothedDepal = id.Bit(FS_BIT_SHADER_SMOOTHED_DEPAL);
 	bool bgraTexture = id.Bit(FS_BIT_BGRA_TEXTURE);
 	bool colorWriteMask = id.Bit(FS_BIT_COLOR_WRITEMASK) && compat.bitwiseOps;
 
