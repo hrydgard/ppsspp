@@ -1447,9 +1447,51 @@ bool ApplyMemoryValidation(const IRWriter &in, IRWriter &out, const IROptions &o
 	if (g_Config.bFastMemory)
 		DISABLE;
 
+	const auto addValidate = [&out](IROp validate, const IRInst &inst, bool isStore) {
+		out.Write({ validate, { 0 }, inst.src1, isStore ? (u8)1 : (u8)0, inst.constant });
+	};
+
+	// TODO: Could be smart about not double-validating an address that has a load / store, etc.
 	bool logBlocks = false;
 	for (IRInst inst : in.GetInstructions()) {
-		// TODO
+		switch (inst.op) {
+		case IROp::Load8:
+		case IROp::Load8Ext:
+		case IROp::Store8:
+			addValidate(IROp::ValidateAddress8, inst, inst.op == IROp::Store8);
+			break;
+
+		case IROp::Load16:
+		case IROp::Load16Ext:
+		case IROp::Store16:
+			addValidate(IROp::ValidateAddress16, inst, inst.op == IROp::Store16);
+			break;
+
+		case IROp::Load32:
+		case IROp::LoadFloat:
+		case IROp::Store32:
+		case IROp::StoreFloat:
+			addValidate(IROp::ValidateAddress32, inst, inst.op == IROp::Store32 || inst.op == IROp::StoreFloat);
+			break;
+
+		case IROp::LoadVec4:
+		case IROp::StoreVec4:
+			addValidate(IROp::ValidateAddress128, inst, inst.op == IROp::StoreVec4);
+			break;
+
+		case IROp::Load32Left:
+		case IROp::Load32Right:
+		case IROp::Store32Left:
+		case IROp::Store32Right:
+			// This explicitly does not require alignment, so validate as an 8-bit operation.
+			addValidate(IROp::ValidateAddress8, inst, inst.op == IROp::Store32Left || inst.op == IROp::Store32Right);
+			break;
+
+		default:
+			break;
+		}
+
+		// Always write out the original.  We're only adding.
 		out.Write(inst);
 	}
 	return logBlocks;

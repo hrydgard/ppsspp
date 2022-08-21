@@ -80,14 +80,20 @@ u32 RunMemCheck(u32 pc, u32 addr) {
 }
 
 template <uint32_t alignment>
-u32 RunValidateAddress(u32 pc, u32 addr) {
-	if (!Memory::IsValidRange(addr, alignment)) {
-		Core_MemoryException(addr, pc, MemoryExceptionType::UNKNOWN);
+u32 RunValidateAddress(u32 pc, u32 addr, u32 isWrite) {
+	const auto toss = [&](MemoryExceptionType t) {
+		Core_MemoryException(addr, pc, t);
 		return coreState != CORE_RUNNING ? 1 : 0;
+	};
+
+	if (!Memory::IsValidRange(addr, alignment)) {
+		MemoryExceptionType t = isWrite == 1 ? MemoryExceptionType::WRITE_WORD : MemoryExceptionType::READ_WORD;
+		if (alignment > 4)
+			t = isWrite ? MemoryExceptionType::WRITE_BLOCK : MemoryExceptionType::READ_BLOCK;
+		return toss(t);
 	}
 	if (alignment > 1 && (addr & (alignment - 1)) != 0) {
-		Core_MemoryException(addr, pc, MemoryExceptionType::UNKNOWN);
-		return coreState != CORE_RUNNING ? 1 : 0;
+		return toss(MemoryExceptionType::ALIGNMENT);
 	}
 	return 0;
 }
@@ -156,25 +162,25 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			break;
 
 		case IROp::ValidateAddress8:
-			if (RunValidateAddress<1>(mips->pc, mips->r[inst->src1] + inst->constant)) {
+			if (RunValidateAddress<1>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
 				CoreTiming::ForceCheck();
 				return mips->pc;
 			}
 		break;
 		case IROp::ValidateAddress16:
-			if (RunValidateAddress<2>(mips->pc, mips->r[inst->src1] + inst->constant)) {
+			if (RunValidateAddress<2>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
 				CoreTiming::ForceCheck();
 				return mips->pc;
 			}
 			break;
 		case IROp::ValidateAddress32:
-			if (RunValidateAddress<4>(mips->pc, mips->r[inst->src1] + inst->constant)) {
+			if (RunValidateAddress<4>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
 				CoreTiming::ForceCheck();
 				return mips->pc;
 			}
 			break;
 		case IROp::ValidateAddress128:
-			if (RunValidateAddress<16>(mips->pc, mips->r[inst->src1] + inst->constant)) {
+			if (RunValidateAddress<16>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
 				CoreTiming::ForceCheck();
 				return mips->pc;
 			}

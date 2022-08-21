@@ -93,6 +93,7 @@ enum class MemoryExceptionType {
 	WRITE_WORD,
 	READ_BLOCK,
 	WRITE_BLOCK,
+	ALIGNMENT,
 };
 enum class ExecExceptionType {
 	JUMP,
