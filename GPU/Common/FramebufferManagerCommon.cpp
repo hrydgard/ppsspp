@@ -551,20 +551,33 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 	// For now, let's just do the last thing, if there are multiple.
 
 	// for (auto &source : sources) {
-	if (sources.size()) {
+	if (!sources.empty()) {
+		draw_->InvalidateCachedState();
+
 		auto &source = sources.back();
 		if (source.channel == RASTER_DEPTH) {
 			// Good old depth->depth copy.
 			BlitFramebufferDepth(source.vfb, dest);
 			gpuStats.numDepthCopies++;
 			dest->last_frame_depth_updated = gpuStats.numFlips;
-		} else if (source.channel == RASTER_COLOR) {
+		} else if (source.channel == RASTER_COLOR && draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
 			VirtualFramebuffer *src = source.vfb;
-			// Copying color to depth.
 			if (src->drawnFormat != GE_FORMAT_565) {
 				WARN_LOG_ONCE(not565, G3D, "Drawn format of buffer at %08x not 565 as expected", src->fb_address);
 			}
-			BlitUsingRaster(src->fbo, 0.0f, 0.0f, src->renderWidth, src->renderHeight, dest->fbo, 0.0f, 0.0f, dest->renderWidth, dest->renderHeight, false, DRAW2D_565_TO_DEPTH, "565_to_depth");
+
+			// Really hate to do this, but tracking the depth swizzle state across multiple
+			// copies is not easy.
+			Draw2DShader shader = DRAW2D_565_TO_DEPTH;
+			if (PSP_CoreParameter().compat.flags().DeswizzleDepth) {
+				shader = DRAW2D_565_TO_DEPTH_DESWIZZLE;
+			}
+
+			// Copying color to depth.
+			BlitUsingRaster(
+				src->fbo, 0.0f, 0.0f, src->renderWidth, src->renderHeight,
+				dest->fbo, 0.0f, 0.0f, src->renderWidth, src->renderHeight,
+				false, shader, "565_to_depth");
 		}
 	}
 
@@ -1941,7 +1954,7 @@ Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u
 
 	bool z_stencil = reason == TempFBO::STENCIL;
 	char name[128];
-	snprintf(name, sizeof(name), "temp_fbo_%dx%d%s", w, h, z_stencil ? "_depth" : "");
+	snprintf(name, sizeof(name), "temp_fbo_%dx%d%s", w / renderScaleFactor_, h / renderScaleFactor_, z_stencil ? "_depth" : "");
 	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, z_stencil, name });
 	if (!fbo) {
 		return nullptr;
@@ -2343,6 +2356,7 @@ void FramebufferManagerCommon::DeviceLost() {
 	DoRelease(draw2DPipelineColor_);
 	DoRelease(draw2DPipelineDepth_);
 	DoRelease(draw2DPipeline565ToDepth_);
+	DoRelease(draw2DPipeline565ToDepthDeswizzle_);
 
 	draw_ = nullptr;
 }
@@ -2545,7 +2559,7 @@ void FramebufferManagerCommon::BlitUsingRaster(
 	Draw::Viewport vp{ 0.0f, 0.0f, (float)dest->Width(), (float)dest->Height(), 0.0f, 1.0f };
 	draw_->SetViewports(1, &vp);
 	draw_->SetScissorRect(0, 0, (int)dest->Width(), (int)dest->Height());
-	DrawStrip2D(nullptr, vtx, 4, linearFilter, shader);
+	DrawStrip2D(nullptr, vtx, 4, linearFilter, shader, src->Width(), src->Height());
 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }

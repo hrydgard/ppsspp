@@ -66,7 +66,7 @@ struct CoreParameter {
 	bool headLess;   // Try to avoid messageboxes etc
 
 	// Internal PSP rendering resolution and scale factor.
-	int renderScaleFactor;
+	int renderScaleFactor = 1;
 	int renderWidth;
 	int renderHeight;
 

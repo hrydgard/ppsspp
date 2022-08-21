@@ -147,10 +147,10 @@ Draw::SamplerState *DepalShaderCache::GetSampler() {
 	return nearestSampler_;
 }
 
-DepalShader *DepalShaderCache::GetDepalettizeShader(uint32_t clutMode, GEBufferFormat pixelFormat) {
+DepalShader *DepalShaderCache::GetDepalettizeShader(uint32_t clutMode, GETextureFormat textureFormat, GEBufferFormat bufferFormat) {
 	using namespace Draw;
 
-	u32 id = GenerateShaderID(clutMode, pixelFormat);
+	u32 id = GenerateShaderID(clutMode, textureFormat, bufferFormat);
 
 	auto shader = cache_.find(id);
 	if (shader != cache_.end()) {
@@ -171,7 +171,8 @@ DepalShader *DepalShaderCache::GetDepalettizeShader(uint32_t clutMode, GEBufferF
 	config.startPos = gstate.getClutIndexStartPos();
 	config.shift = gstate.getClutIndexShift();
 	config.mask = gstate.getClutIndexMask();
-	config.pixelFormat = pixelFormat;
+	config.bufferFormat = bufferFormat;
+	config.textureFormat = textureFormat;
 
 	GenerateDepalFs(buffer, config, draw_->GetShaderLanguageDesc());
 	

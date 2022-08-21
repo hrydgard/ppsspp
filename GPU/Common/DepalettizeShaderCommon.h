@@ -29,7 +29,8 @@ struct DepalConfig {
 	int shift;
 	u32 startPos;
 	GEPaletteFormat clutFormat;
-	GEBufferFormat pixelFormat;
+	GETextureFormat textureFormat;
+	GEBufferFormat bufferFormat;
 };
 
 void GenerateDepalFs(char *buffer, const DepalConfig &config, const ShaderLanguageDesc &lang);

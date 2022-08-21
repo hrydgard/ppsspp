@@ -40,6 +40,23 @@ static const SamplerDef samplers[1] = {
 	{ "tex" },
 };
 
+static const UniformDef uniforms[2] = {
+	{ "vec2", "texSize", 0 },
+	{ "float", "scaleFactor", 1},
+};
+
+struct Draw2DUB {
+	float texSizeX;
+	float texSizeY;
+	float scaleFactor;
+};
+
+const UniformBufferDesc draw2DUBDesc{ sizeof(Draw2DUB), {
+	{ "texSize", -1, 0, UniformType::FLOAT2, 0 },
+	{ "scaleFactor", -1, 1, UniformType::FLOAT1, 0 },
+} };
+
+
 RasterChannel GenerateDraw2DFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
 	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_NONE);
@@ -67,6 +84,27 @@ RasterChannel GenerateDraw2D565ToDepthFs(ShaderWriter &writer) {
 	// have to apply the scaling.
 	DepthScaleFactors factors = GetDepthScaleFactors();
 	writer.C("  vec3 rgb = ").SampleTexture2D("tex", "v_texcoord.xy").C(".xyz;\n");
+	writer.F("  highp float depthValue = (floor(rgb.x * 31.99) + floor(rgb.y * 63.99) * 32.0 + floor(rgb.z * 31.99) * 2048.0); \n");
+	writer.F("  gl_FragDepth = (depthValue / %f) + %f;\n", factors.scale, factors.offset);
+	writer.EndFSMain("outColor", FSFLAG_WRITEDEPTH);
+
+	return RASTER_DEPTH;
+}
+
+RasterChannel GenerateDraw2D565ToDepthDeswizzleFs(ShaderWriter &writer) {
+	writer.DeclareSamplers(samplers);
+	writer.BeginFSMain(uniforms, varyings, FSFLAG_WRITEDEPTH);
+	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
+	// Unlike when just copying a depth buffer, here we're generating new depth values so we'll
+	// have to apply the scaling.
+	DepthScaleFactors factors = GetDepthScaleFactors();
+	writer.C("  vec2 tsize = texSize;\n");
+	writer.C("  vec2 coord = v_texcoord * tsize;\n");
+	writer.F("  float strip = 4.0 * scaleFactor;\n");
+	writer.C("  float in_strip = mod(coord.y, strip);\n");
+	writer.C("  coord.y = coord.y - in_strip + strip - in_strip;\n");
+	writer.C("  coord /= tsize;\n");
+	writer.C("  vec3 rgb = ").SampleTexture2D("tex", "coord").C(".xyz;\n");
 	writer.F("  highp float depthValue = (floor(rgb.x * 31.99) + floor(rgb.y * 63.99) * 32.0 + floor(rgb.z * 31.99) * 2048.0); \n");
 	writer.F("  gl_FragDepth = (depthValue / %f) + %f;\n", factors.scale, factors.offset);
 	writer.EndFSMain("outColor", FSFLAG_WRITEDEPTH);
@@ -159,7 +197,7 @@ Draw::Pipeline *FramebufferManagerCommon::Create2DPipeline(RasterChannel (*gener
 		{ draw2DVs_, fs },
 		inputLayout,
 		depthStencil,
-		blend, rasterNoCull, nullptr,
+		blend, rasterNoCull, &draw2DUBDesc,
 	};
 
 	Draw::Pipeline *pipeline = draw_->CreateGraphicsPipeline(pipelineDesc);
@@ -174,7 +212,7 @@ Draw::Pipeline *FramebufferManagerCommon::Create2DPipeline(RasterChannel (*gener
 	return pipeline;
 }
 
-void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DShader shader) {
+void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DShader shader, float texW, float texH) {
 	using namespace Draw;
 
 	Ensure2DResources();
@@ -196,8 +234,8 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 		}
 		if (!draw2DPipelineDepth_) {
 			draw2DPipelineDepth_ = Create2DPipeline(&GenerateDraw2DDepthFs);
-			linearFilter = false;
 		}
+		linearFilter = false;
 		draw_->BindPipeline(draw2DPipelineDepth_);
 		break;
 
@@ -208,15 +246,37 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 		}
 		if (!draw2DPipeline565ToDepth_) {
 			draw2DPipeline565ToDepth_ = Create2DPipeline(&GenerateDraw2D565ToDepthFs);
-			linearFilter = false;
 		}
+		linearFilter = false;
 		draw_->BindPipeline(draw2DPipeline565ToDepth_);
 		break;
+
+	case DRAW2D_565_TO_DEPTH_DESWIZZLE:
+		if (!draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
+			// Can't do it
+			return;
+		}
+		if (!draw2DPipeline565ToDepthDeswizzle_) {
+			draw2DPipeline565ToDepthDeswizzle_ = Create2DPipeline(&GenerateDraw2D565ToDepthDeswizzleFs);
+		}
+		linearFilter = false;
+		draw_->BindPipeline(draw2DPipeline565ToDepthDeswizzle_);
+		break;
 	}
+
+	Draw2DUB ub;
+	ub.texSizeX = tex ? tex->Width() : texW;
+	ub.texSizeY = tex ? tex->Height() : texH;
+	ub.scaleFactor = (float)renderScaleFactor_;
+	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 
 	if (tex) {
 		draw_->BindTextures(TEX_SLOT_PSP_TEXTURE, 1, &tex);
 	}
 	draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, linearFilter ? &draw2DSamplerLinear_ : &draw2DSamplerNearest_);
 	draw_->DrawUP(verts, vertexCount);
+
+	draw_->InvalidateCachedState();
+
+	gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_VERTEXSHADER_STATE);
 }
