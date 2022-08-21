@@ -201,14 +201,14 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 	{ GE_CMD_CLUTFORMAT, 0, SoftDirty::SAMPLER_BASIC },
 
 	// Morph weights. TODO: Remove precomputation?
-	{ GE_CMD_MORPHWEIGHT0, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
-	{ GE_CMD_MORPHWEIGHT1, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
-	{ GE_CMD_MORPHWEIGHT2, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
-	{ GE_CMD_MORPHWEIGHT3, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
-	{ GE_CMD_MORPHWEIGHT4, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
-	{ GE_CMD_MORPHWEIGHT5, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
-	{ GE_CMD_MORPHWEIGHT6, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
-	{ GE_CMD_MORPHWEIGHT7, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT0, FLAG_EXECUTEONCHANGE, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT1, FLAG_EXECUTEONCHANGE, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT2, FLAG_EXECUTEONCHANGE, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT3, FLAG_EXECUTEONCHANGE, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT4, FLAG_EXECUTEONCHANGE, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT5, FLAG_EXECUTEONCHANGE, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT6, FLAG_EXECUTEONCHANGE, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT7, FLAG_EXECUTEONCHANGE, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
 
 	// No state of flushing required for patch parameters, currently.
 	{ GE_CMD_PATCHDIVISION },
