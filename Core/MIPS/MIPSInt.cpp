@@ -157,7 +157,7 @@ namespace MIPSInt
 	void Int_Break(MIPSOpcode op)
 	{
 		Reporting::ReportMessage("BREAK instruction hit");
-		Core_Break();
+		Core_Break(PC);
 		PC += 4;
 	}
 
