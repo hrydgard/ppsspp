@@ -14,3 +14,4 @@ bool ThreeOpToTwoOp(const IRWriter &in, IRWriter &out, const IROptions &opts);
 bool OptimizeFPMoves(const IRWriter &in, IRWriter &out, const IROptions &opts);
 bool ReorderLoadStore(const IRWriter &in, IRWriter &out, const IROptions &opts);
 bool MergeLoadStore(const IRWriter &in, IRWriter &out, const IROptions &opts);
+bool ApplyMemoryValidation(const IRWriter &in, IRWriter &out, const IROptions &opts);
