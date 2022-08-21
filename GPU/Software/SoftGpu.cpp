@@ -787,8 +787,8 @@ void SoftGPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 	const uint32_t dstSize = height * dstStride * bpp;
 
 	// Need to flush both source and target, so we overwrite properly.
-	drawEngine_->transformUnit.FlushIfOverlap("blockxfer", src, srcStride, width * bpp, height);
-	drawEngine_->transformUnit.FlushIfOverlap("blockxfer", dst, dstStride, width * bpp, height);
+	drawEngine_->transformUnit.FlushIfOverlap("blockxfer", false, src, srcStride, width * bpp, height);
+	drawEngine_->transformUnit.FlushIfOverlap("blockxfer", true, dst, dstStride, width * bpp, height);
 
 	DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
 
@@ -974,7 +974,7 @@ void SoftGPU::Execute_LoadClut(u32 op, u32 diff) {
 	u32 clutTotalBytes = gstate.getClutLoadBytes();
 
 	// Might be copying drawing into the CLUT, so flush.
-	drawEngine_->transformUnit.FlushIfOverlap("loadclut", clutAddr, clutTotalBytes, clutTotalBytes, 1);
+	drawEngine_->transformUnit.FlushIfOverlap("loadclut", false, clutAddr, clutTotalBytes, clutTotalBytes, 1);
 
 	bool changed = false;
 	if (Memory::IsValidAddress(clutAddr)) {
