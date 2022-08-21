@@ -1209,16 +1209,25 @@ PC: %08x
 	} else if (info.type == ExceptionType::BAD_EXEC_ADDR) {
 		snprintf(statbuf, sizeof(statbuf), R"(
 Destination: %s to %08x
-PC: %08x)",
+PC: %08x
+RA: %08x)",
 			ExecExceptionTypeAsString(info.exec_type),
 			info.address,
-			info.pc);
+			info.pc,
+			info.ra);
+		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+		y += 180;
+	} else if (info.type == ExceptionType::BREAK) {
+		snprintf(statbuf, sizeof(statbuf), R"(
+BREAK
+PC: %08x
+)", info.pc);
 		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 		y += 180;
 	} else {
 		snprintf(statbuf, sizeof(statbuf), R"(
-BREAK
-)");
+Invalid / Unknown (%d)
+)", (int)info.type);
 		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 		y += 180;
 	}

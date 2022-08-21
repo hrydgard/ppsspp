@@ -998,7 +998,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		}
 
 		case IROp::Break:
-			Core_Break();
+			Core_Break(mips->pc);
 			return mips->pc + 4;
 
 		case IROp::SetCtrlVFPU:
