@@ -5,6 +5,7 @@
 #include "Common/BitSet.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
+#include "Core/Config.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/MIPS/IR/IRPassSimplify.h"
 #include "Core/MIPS/IR/IRRegCache.h"
@@ -618,6 +619,18 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + inst.constant));
 			} else {
 				gpr.MapInIn(inst.dest, inst.src1);
+				goto doDefault;
+			}
+			break;
+
+		case IROp::ValidateAddress8:
+		case IROp::ValidateAddress16:
+		case IROp::ValidateAddress32:
+		case IROp::ValidateAddress128:
+			if (gpr.IsImm(inst.src1)) {
+				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + inst.constant));
+			} else {
+				gpr.MapIn(inst.src1);
 				goto doDefault;
 			}
 			break;
@@ -1425,6 +1438,19 @@ bool MergeLoadStore(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			prev = inst;
 			break;
 		}
+	}
+	return logBlocks;
+}
+
+bool ApplyMemoryValidation(const IRWriter &in, IRWriter &out, const IROptions &opts) {
+	CONDITIONAL_DISABLE;
+	if (g_Config.bFastMemory)
+		DISABLE;
+
+	bool logBlocks = false;
+	for (IRInst inst : in.GetInstructions()) {
+		// TODO
+		out.Write(inst);
 	}
 	return logBlocks;
 }

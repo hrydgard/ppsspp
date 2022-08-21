@@ -163,6 +163,11 @@ static const IRMeta irMeta[] = {
 	{ IROp::Breakpoint, "Breakpoint", "", IRFLAG_EXIT },
 	{ IROp::MemoryCheck, "MemoryCheck", "_GC", IRFLAG_EXIT },
 
+	{ IROp::ValidateAddress8, "ValidAddr8", "_GC", IRFLAG_EXIT },
+	{ IROp::ValidateAddress16, "ValidAddr16", "_GC", IRFLAG_EXIT },
+	{ IROp::ValidateAddress32, "ValidAddr32", "_GC", IRFLAG_EXIT },
+	{ IROp::ValidateAddress128, "ValidAddr128", "_GC", IRFLAG_EXIT },
+
 	{ IROp::RestoreRoundingMode, "RestoreRoundingMode", "" },
 	{ IROp::ApplyRoundingMode, "ApplyRoundingMode", "" },
 	{ IROp::UpdateRoundingMode, "UpdateRoundingMode", "" },

@@ -79,6 +79,19 @@ u32 RunMemCheck(u32 pc, u32 addr) {
 	return coreState != CORE_RUNNING ? 1 : 0;
 }
 
+template <uint32_t alignment>
+u32 RunValidateAddress(u32 pc, u32 addr) {
+	if (!Memory::IsValidRange(addr, alignment)) {
+		Core_MemoryException(addr, pc, MemoryExceptionType::UNKNOWN);
+		return coreState != CORE_RUNNING ? 1 : 0;
+	}
+	if (alignment > 1 && (addr & (alignment - 1)) != 0) {
+		Core_MemoryException(addr, pc, MemoryExceptionType::UNKNOWN);
+		return coreState != CORE_RUNNING ? 1 : 0;
+	}
+	return 0;
+}
+
 // We cannot use NEON on ARM32 here until we make it a hard dependency. We can, however, on ARM64.
 u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 	const IRInst *end = inst + count;
@@ -140,6 +153,31 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			break;
 		case IROp::ReverseBits:
 			mips->r[inst->dest] = ReverseBits32(mips->r[inst->src1]);
+			break;
+
+		case IROp::ValidateAddress8:
+			if (RunValidateAddress<1>(mips->pc, mips->r[inst->src1] + inst->constant)) {
+				CoreTiming::ForceCheck();
+				return mips->pc;
+			}
+		break;
+		case IROp::ValidateAddress16:
+			if (RunValidateAddress<2>(mips->pc, mips->r[inst->src1] + inst->constant)) {
+				CoreTiming::ForceCheck();
+				return mips->pc;
+			}
+			break;
+		case IROp::ValidateAddress32:
+			if (RunValidateAddress<4>(mips->pc, mips->r[inst->src1] + inst->constant)) {
+				CoreTiming::ForceCheck();
+				return mips->pc;
+			}
+			break;
+		case IROp::ValidateAddress128:
+			if (RunValidateAddress<16>(mips->pc, mips->r[inst->src1] + inst->constant)) {
+				CoreTiming::ForceCheck();
+				return mips->pc;
+			}
 			break;
 
 		case IROp::Load8:
