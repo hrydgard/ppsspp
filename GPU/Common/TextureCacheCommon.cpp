@@ -1670,7 +1670,7 @@ CheckAlphaResult TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int l
 
 	// Misshitsu no Sacrifice has separate CLUT data, this is a hack to allow it.
 	// Normally separate CLUTs are not allowed for 8-bit or higher indices.
-	const bool mipmapShareClut = gstate.isClutSharedForMipmaps() && gstate.getClutLoadBlocks() == 0x40;
+	const bool mipmapShareClut = gstate.isClutSharedForMipmaps() || gstate.getClutLoadBlocks() != 0x40;
 	const int clutSharingOffset = mipmapShareClut ? 0 : (level & 1) * 256;
 
 	GEPaletteFormat palFormat = (GEPaletteFormat)gstate.getClutPaletteFormat();
