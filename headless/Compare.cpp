@@ -326,7 +326,7 @@ std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32
 	int outStride = buffer->GetStride();
 	if (!buffer->GetFlipped()) {
 		// Bitmaps are flipped, so we have to compare backwards in this case.
-		int toLastRow = outStride * (buffer->GetHeight() - 1);
+		int toLastRow = outStride * (h > buffer->GetHeight() ? buffer->GetHeight() - 1 : h - 1);
 		pixels32 += toLastRow;
 		pixels16 += toLastRow;
 		outStride = -outStride;
