@@ -198,6 +198,8 @@ public:
 	void Drain();
 	void Flush(const char *reason);
 	bool HasPendingWrite(uint32_t start, uint32_t stride, uint32_t w, uint32_t h);
+	// Assumes you've also checked for a write (writes are partial so are automatically reads.)
+	bool HasPendingRead(uint32_t start, uint32_t stride, uint32_t w, uint32_t h);
 
 	void GetStats(char *buffer, size_t bufsize);
 	void ResetStats();
@@ -252,6 +254,8 @@ private:
 	BinWaitable *waitable_ = nullptr;
 
 	BinDirtyRange pendingWrites_[2]{};
+	std::unordered_map<uint32_t, BinDirtyRange> pendingReads_;
+
 	bool pendingOverlap_ = false;
 
 	std::unordered_map<const char *, double> flushReasonTimes_;
@@ -262,6 +266,7 @@ private:
 	int enqueues_ = 0;
 	int mostThreads_ = 0;
 
+	void MarkPendingReads(const Rasterizer::RasterizerState &state);
 	bool HasTextureWrite(const Rasterizer::RasterizerState &state);
 	BinCoords Scissor(BinCoords range);
 	BinCoords Range(const VertexData &v0, const VertexData &v1, const VertexData &v2);

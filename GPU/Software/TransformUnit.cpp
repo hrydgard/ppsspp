@@ -797,8 +797,10 @@ void TransformUnit::GetStats(char *buffer, size_t bufsize) {
 	binner_->GetStats(buffer, bufsize);
 }
 
-void TransformUnit::FlushIfOverlap(const char *reason, uint32_t addr, uint32_t stride, uint32_t w, uint32_t h) {
+void TransformUnit::FlushIfOverlap(const char *reason, bool modifying, uint32_t addr, uint32_t stride, uint32_t w, uint32_t h) {
 	if (binner_->HasPendingWrite(addr, stride, w, h))
+		Flush(reason);
+	if (modifying && binner_->HasPendingRead(addr, stride, w, h))
 		Flush(reason);
 }
 
