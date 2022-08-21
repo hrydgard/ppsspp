@@ -557,9 +557,7 @@ DepthScaleFactors GetDepthScaleFactors() {
 }
 
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
-	bool throughmode = gstate.isModeThrough();
-	out.dirtyProj = false;
-	out.dirtyDepth = false;
+	out.throughMode = gstate.isModeThrough();
 
 	float renderWidthFactor, renderHeightFactor;
 	float renderX = 0.0f, renderY = 0.0f;
@@ -610,7 +608,7 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 	float offsetX = gstate.getOffsetX();
 	float offsetY = gstate.getOffsetY();
 
-	if (throughmode) {
+	if (out.throughMode) {
 		out.viewportX = renderX * renderWidthFactor + displayOffsetX;
 		out.viewportY = renderY * renderHeightFactor + displayOffsetY;
 		out.viewportW = curRTWidth * renderWidthFactor;
@@ -647,10 +645,10 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		float right = left + vpWidth;
 		float bottom = top + vpHeight;
 
-		float wScale = 1.0f;
-		float xOffset = 0.0f;
-		float hScale = 1.0f;
-		float yOffset = 0.0f;
+		out.widthScale = 1.0f;
+		out.xOffset = 0.0f;
+		out.heightScale = 1.0f;
+		out.yOffset = 0.0f;
 
 		// If we're within the bounds, we want clipping the viewport way.  So leave it be.
 		{
@@ -678,8 +676,8 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 					right = left + 1.0f;
 				}
 
-				wScale = vpWidth / (right - left);
-				xOffset = drift / (right - left);
+				out.widthScale = vpWidth / (right - left);
+				out.xOffset = drift / (right - left);
 			}
 		}
 
@@ -707,8 +705,8 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 					bottom = top + 1.0f;
 				}
 
-				hScale = vpHeight / (bottom - top);
-				yOffset = drift / (bottom - top);
+				out.heightScale = vpHeight / (bottom - top);
+				out.yOffset = drift / (bottom - top);
 			}
 		}
 
@@ -740,13 +738,13 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		}
 		// Okay.  So, in our shader, -1 will map to minz, and +1 will map to maxz.
 		float halfActualZRange = (maxz - minz) * (1.0f / 2.0f);
-		float zScale = halfActualZRange < std::numeric_limits<float>::epsilon() ? 1.0f : vpZScale / halfActualZRange;
+		out.depthScale = halfActualZRange < std::numeric_limits<float>::epsilon() ? 1.0f : vpZScale / halfActualZRange;
 		// This adjusts the center from halfActualZRange to vpZCenter.
-		float zOffset = halfActualZRange < std::numeric_limits<float>::epsilon() ? 0.0f : (vpZCenter - (minz + halfActualZRange)) / halfActualZRange;
+		out.zOffset = halfActualZRange < std::numeric_limits<float>::epsilon() ? 0.0f : (vpZCenter - (minz + halfActualZRange)) / halfActualZRange;
 
 		if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
-			zScale = 1.0f;
-			zOffset = 0.0f;
+			out.depthScale = 1.0f;
+			out.zOffset = 0.0f;
 			out.depthRangeMin = ToScaledDepthFromIntegerScale(vpZCenter - vpZScale);
 			out.depthRangeMax = ToScaledDepthFromIntegerScale(vpZCenter + vpZScale);
 		} else {
@@ -757,19 +755,27 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		// OpenGL will clamp these for us anyway, and Direct3D will error if not clamped.
 		out.depthRangeMin = std::max(out.depthRangeMin, 0.0f);
 		out.depthRangeMax = std::min(out.depthRangeMax, 1.0f);
+	}
+}
 
-		bool scaleChanged = gstate_c.vpWidthScale != wScale || gstate_c.vpHeightScale != hScale;
-		bool offsetChanged = gstate_c.vpXOffset != xOffset || gstate_c.vpYOffset != yOffset;
-		bool depthChanged = gstate_c.vpDepthScale != zScale || gstate_c.vpZOffset != zOffset;
-		if (scaleChanged || offsetChanged || depthChanged) {
-			gstate_c.vpWidthScale = wScale;
-			gstate_c.vpHeightScale = hScale;
-			gstate_c.vpDepthScale = zScale;
-			gstate_c.vpXOffset = xOffset;
-			gstate_c.vpYOffset = yOffset;
-			gstate_c.vpZOffset = zOffset;
-			out.dirtyProj = true;
-			out.dirtyDepth = depthChanged;
+void UpdateCachedViewportState(const ViewportAndScissor &vpAndScissor) {
+	if (vpAndScissor.throughMode)
+		return;
+
+	bool scaleChanged = gstate_c.vpWidthScale != vpAndScissor.widthScale || gstate_c.vpHeightScale != vpAndScissor.heightScale;
+	bool offsetChanged = gstate_c.vpXOffset != vpAndScissor.xOffset || gstate_c.vpYOffset != vpAndScissor.yOffset;
+	bool depthChanged = gstate_c.vpDepthScale != vpAndScissor.depthScale || gstate_c.vpZOffset != vpAndScissor.zOffset;
+	if (scaleChanged || offsetChanged || depthChanged) {
+		gstate_c.vpWidthScale = vpAndScissor.widthScale;
+		gstate_c.vpHeightScale = vpAndScissor.heightScale;
+		gstate_c.vpDepthScale = vpAndScissor.depthScale;
+		gstate_c.vpXOffset = vpAndScissor.xOffset;
+		gstate_c.vpYOffset = vpAndScissor.yOffset;
+		gstate_c.vpZOffset = vpAndScissor.zOffset;
+
+		gstate_c.Dirty(DIRTY_PROJMATRIX);
+		if (depthChanged) {
+			gstate_c.Dirty(DIRTY_DEPTHRANGE);
 		}
 	}
 }

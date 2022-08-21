@@ -260,6 +260,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
 			framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
 			vpAndScissor);
+		UpdateCachedViewportState(vpAndScissor);
 
 		dxstate.scissorTest.enable();
 		dxstate.scissorRect.set(vpAndScissor.scissorX, vpAndScissor.scissorY, vpAndScissor.scissorX + vpAndScissor.scissorW, vpAndScissor.scissorY + vpAndScissor.scissorH);
@@ -268,12 +269,6 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 		float depthMax = vpAndScissor.depthRangeMax;
 
 		dxstate.viewport.set(vpAndScissor.viewportX, vpAndScissor.viewportY, vpAndScissor.viewportW, vpAndScissor.viewportH, depthMin, depthMax);
-		if (vpAndScissor.dirtyProj) {
-			gstate_c.Dirty(DIRTY_PROJMATRIX);
-		}
-		if (vpAndScissor.dirtyDepth) {
-			gstate_c.Dirty(DIRTY_DEPTHRANGE);
-		}
 	}
 
 	gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_BLEND_STATE);

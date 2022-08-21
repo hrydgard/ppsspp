@@ -364,6 +364,7 @@ void DrawEngineGLES::DoFlush() {
 				framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
 				framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
 				vpAndScissor);
+			UpdateCachedViewportState(vpAndScissor);
 		}
 
 		int maxIndex = indexGen.MaxIndex();
