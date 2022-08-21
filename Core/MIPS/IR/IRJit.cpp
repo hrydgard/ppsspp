@@ -227,9 +227,10 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 			if (opcode == MIPS_EMUHACK_OPCODE) {
 				u32 data = inst & 0xFFFFFF;
 				IRBlock *block = blocks_.GetBlock(data);
+				u32 startPC = mips_->pc;
 				mips_->pc = IRInterpret(mips_, block->GetInstructions(), block->GetNumInstructions());
-				if (!Memory::IsValidAddress(mips_->pc)) {
-					Core_ExecException(mips_->pc, mips_->pc, ExecExceptionType::JUMP);
+				if (!Memory::IsValidAddress(mips_->pc) || (mips_->pc & 3) != 0) {
+					Core_ExecException(mips_->pc, startPC, ExecExceptionType::JUMP);
 					break;
 				}
 			} else {
