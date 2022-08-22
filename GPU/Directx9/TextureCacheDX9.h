@@ -24,7 +24,7 @@
 #include "GPU/Common/TextureCacheCommon.h"
 
 struct VirtualFramebuffer;
-class DepalShaderCache;
+class TextureShaderCache;
 
 class FramebufferManagerDX9;
 class ShaderManagerDX9;

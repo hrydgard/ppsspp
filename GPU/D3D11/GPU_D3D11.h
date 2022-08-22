@@ -23,7 +23,7 @@
 
 #include "GPU/GPUCommon.h"
 #include "GPU/D3D11/DrawEngineD3D11.h"
-#include "GPU/Common/DepalettizeCommon.h"
+#include "GPU/Common/TextureShaderCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
 class FramebufferManagerD3D11;

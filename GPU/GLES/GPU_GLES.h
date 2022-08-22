@@ -23,7 +23,7 @@
 #include "Common/File/Path.h"
 
 #include "GPU/GPUCommon.h"
-#include "GPU/Common/DepalettizeCommon.h"
+#include "GPU/Common/TextureShaderCommon.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/FragmentTestCacheGLES.h"

@@ -41,7 +41,7 @@
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
-#include "GPU/Common/DepalettizeCommon.h"
+#include "GPU/Common/TextureShaderCommon.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -200,7 +200,7 @@ void TextureCacheVulkan::SetFramebufferManager(FramebufferManagerVulkan *fbManag
 }
 
 void TextureCacheVulkan::DeviceLost() {
-	depalShaderCache_->DeviceLost();
+	textureShaderCache_->DeviceLost();
 
 	VulkanContext *vulkan = draw_ ? (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT) : nullptr;
 
@@ -227,7 +227,7 @@ void TextureCacheVulkan::DeviceRestore(Draw::DrawContext *draw) {
 	_assert_(!allocator_);
 
 	samplerCache_.DeviceRestore(vulkan);
-	depalShaderCache_->DeviceRestore(draw);
+	textureShaderCache_->DeviceRestore(draw);
 
 	VkSamplerCreateInfo samp{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -320,7 +320,7 @@ void TextureCacheVulkan::StartFrame() {
 	TextureCacheCommon::StartFrame();
 
 	InvalidateLastTexture();
-	depalShaderCache_->Decimate();
+	textureShaderCache_->Decimate();
 
 	timesInvalidatedAllThisFrame_ = 0;
 	texelsScaledThisFrame_ = 0;

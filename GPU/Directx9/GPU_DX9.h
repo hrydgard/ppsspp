@@ -23,7 +23,7 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/Directx9/FramebufferManagerDX9.h"
 #include "GPU/Directx9/DrawEngineDX9.h"
-#include "GPU/Common/DepalettizeCommon.h"
+#include "GPU/Common/TextureShaderCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
 class ShaderManagerDX9;
