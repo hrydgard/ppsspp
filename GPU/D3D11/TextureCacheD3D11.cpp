@@ -465,6 +465,8 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 			// We may have blitted to a temp FBO.
 			framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
+			if (!retval)
+				ERROR_LOG(G3D, "Failed to get debug texture: copy to memory failed");
 			return retval;
 		} else {
 			return false;
