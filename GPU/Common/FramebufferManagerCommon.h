@@ -376,8 +376,10 @@ protected:
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags);
 
 	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DShader channel, float texW = 0.0f, float texH = 0.0f);
+	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw::Pipeline *pipeline, float texW = 0.0f, float texH = 0.0f);
+
 	void Ensure2DResources();
-	Draw::Pipeline *Create2DPipeline(RasterChannel (*generate)(ShaderWriter &));
+	Draw::Pipeline *Create2DPipeline(std::function<RasterChannel(ShaderWriter &)> generate);
 
 	void CopyToColorFromOverlappingFramebuffers(VirtualFramebuffer *dest);
 	void CopyToDepthFromOverlappingFramebuffers(VirtualFramebuffer *dest);

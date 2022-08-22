@@ -155,7 +155,9 @@ void FramebufferManagerCommon::Ensure2DResources() {
 	}
 }
 
-Draw::Pipeline *FramebufferManagerCommon::Create2DPipeline(RasterChannel (*generate)(ShaderWriter &)) {
+Draw::Pipeline *FramebufferManagerCommon::Create2DPipeline(std::function<RasterChannel (ShaderWriter &)> generate) {
+	Ensure2DResources();
+
 	using namespace Draw;
 	const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
 
@@ -212,62 +214,16 @@ Draw::Pipeline *FramebufferManagerCommon::Create2DPipeline(RasterChannel (*gener
 	return pipeline;
 }
 
-void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DShader shader, float texW, float texH) {
+
+void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw::Pipeline *pipeline, float texW, float texH) {
 	using namespace Draw;
-
-	Ensure2DResources();
-
-	const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
-
-	switch (shader) {
-	case DRAW2D_COPY_COLOR:
-		if (!draw2DPipelineColor_) {
-			draw2DPipelineColor_ = Create2DPipeline(&GenerateDraw2DFs);
-		}
-		draw_->BindPipeline(draw2DPipelineColor_);
-		break;
-
-	case DRAW2D_COPY_DEPTH:
-		if (!draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
-			// Can't do it
-			return;
-		}
-		if (!draw2DPipelineDepth_) {
-			draw2DPipelineDepth_ = Create2DPipeline(&GenerateDraw2DDepthFs);
-		}
-		linearFilter = false;
-		draw_->BindPipeline(draw2DPipelineDepth_);
-		break;
-
-	case DRAW2D_565_TO_DEPTH:
-		if (!draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
-			// Can't do it
-			return;
-		}
-		if (!draw2DPipeline565ToDepth_) {
-			draw2DPipeline565ToDepth_ = Create2DPipeline(&GenerateDraw2D565ToDepthFs);
-		}
-		linearFilter = false;
-		draw_->BindPipeline(draw2DPipeline565ToDepth_);
-		break;
-
-	case DRAW2D_565_TO_DEPTH_DESWIZZLE:
-		if (!draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
-			// Can't do it
-			return;
-		}
-		if (!draw2DPipeline565ToDepthDeswizzle_) {
-			draw2DPipeline565ToDepthDeswizzle_ = Create2DPipeline(&GenerateDraw2D565ToDepthDeswizzleFs);
-		}
-		linearFilter = false;
-		draw_->BindPipeline(draw2DPipeline565ToDepthDeswizzle_);
-		break;
-	}
 
 	Draw2DUB ub;
 	ub.texSizeX = tex ? tex->Width() : texW;
 	ub.texSizeY = tex ? tex->Height() : texH;
 	ub.scaleFactor = (float)renderScaleFactor_;
+
+	draw_->BindPipeline(pipeline);
 	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 
 	if (tex) {
@@ -279,4 +235,61 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 	draw_->InvalidateCachedState();
 
 	gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_VERTEXSHADER_STATE);
+}
+
+void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DShader shader, float texW, float texH) {
+	using namespace Draw;
+
+	const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
+
+	Draw::Pipeline *pipeline = nullptr;
+
+	switch (shader) {
+	case DRAW2D_COPY_COLOR:
+		if (!draw2DPipelineColor_) {
+			draw2DPipelineColor_ = Create2DPipeline(&GenerateDraw2DFs);
+		}
+		pipeline = draw2DPipelineColor_;
+		break;
+
+	case DRAW2D_COPY_DEPTH:
+		if (!draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
+			// Can't do it
+			return;
+		}
+		if (!draw2DPipelineDepth_) {
+			draw2DPipelineDepth_ = Create2DPipeline(&GenerateDraw2DDepthFs);
+		}
+		linearFilter = false;
+		pipeline = draw2DPipelineDepth_;
+		break;
+
+	case DRAW2D_565_TO_DEPTH:
+		if (!draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
+			// Can't do it
+			return;
+		}
+		if (!draw2DPipeline565ToDepth_) {
+			draw2DPipeline565ToDepth_ = Create2DPipeline(&GenerateDraw2D565ToDepthFs);
+		}
+		linearFilter = false;
+		pipeline = draw2DPipeline565ToDepth_;
+		break;
+
+	case DRAW2D_565_TO_DEPTH_DESWIZZLE:
+		if (!draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
+			// Can't do it
+			return;
+		}
+		if (!draw2DPipeline565ToDepthDeswizzle_) {
+			draw2DPipeline565ToDepthDeswizzle_ = Create2DPipeline(&GenerateDraw2D565ToDepthDeswizzleFs);
+		}
+		linearFilter = false;
+		pipeline = draw2DPipeline565ToDepthDeswizzle_;
+		break;
+	}
+
+	if (pipeline) {
+		DrawStrip2D(tex, verts, vertexCount, linearFilter, pipeline, texW, texH);
+	}
 }
