@@ -602,6 +602,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				} else {
 					WRITE(p, "  vec2 uv = %s.xy;\n  vec2 uv_round;\n", texcoord);
 				}
+				// Restrictions on this are checked before setting the smoothed flag.
+				// Only RGB565 and RGBA5551 are supported, and only the specific shifts hitting the
+				// channels directly.
 				WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord);
 				WRITE(p, "  uint depalShift = (u_depal_mask_shift_off_fmt >> 8) & 0xFFU;\n");
 				WRITE(p, "  uint depalFmt = (u_depal_mask_shift_off_fmt >> 24) & 0x3U;\n");

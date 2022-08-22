@@ -1859,6 +1859,31 @@ bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferFormat) {
 	}
 }
 
+// If the palette is detected as a smooth ramp, we can interpolate for higher color precision.
+// But we only do it if the mask/shift exactly matches a color channel, else something different might be going
+// on and we definitely don't want to interpolate.
+// Great enhancement for Test Drive.
+static bool CanUseSmoothDepal(const GPUgstate &gstate, GEBufferFormat framebufferFormat, int rampLength) {
+	if (gstate.getClutIndexStartPos() == 0 &&
+		gstate.getClutIndexMask() <= rampLength) {
+		switch (framebufferFormat) {
+		case GE_FORMAT_565:
+			if (gstate.getClutIndexShift() == 0 || gstate.getClutIndexShift() == 11) {
+				return gstate.getClutIndexMask() == 0x1F;
+			} else if (gstate.getClutIndexShift() == 5) {
+				return gstate.getClutIndexMask() == 0x3F;
+			}
+			break;
+		case GE_FORMAT_5551:
+			if (gstate.getClutIndexShift() == 0 || gstate.getClutIndexShift() == 5 || gstate.getClutIndexShift() == 10) {
+				return gstate.getClutIndexMask() == 0x1F;
+			}
+			break;
+		}
+	}
+	return false;
+}
+
 void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel) {
 	TextureShader *textureShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
@@ -1901,7 +1926,8 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 			// Since we started/ended render passes, might need these.
 			gstate_c.Dirty(DIRTY_DEPAL);
-			gstate_c.SetUseShaderDepal(true, gstate.getClutIndexStartPos() == 0 && gstate.getClutIndexMask() <= clutTexture.rampLength);
+
+			gstate_c.SetUseShaderDepal(true, CanUseSmoothDepal(gstate, framebuffer->drawnFormat, clutTexture.rampLength));
 			gstate_c.depalFramebufferFormat = framebuffer->drawnFormat;
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
