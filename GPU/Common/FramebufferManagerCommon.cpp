@@ -220,7 +220,7 @@ void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPU
 		params->z_stride = 0;
 	}
 
-	params->fmt = gstate_c.framebufFormat;
+	params->fb_format = gstate_c.framebufFormat;
 
 	params->isClearingDepth = gstate.isModeClear() && gstate.isClearModeDepthMask();
 	// Technically, it may write depth later, but we're trying to detect it only when it's really true.
@@ -269,7 +269,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	// As there are no clear "framebuffer width" and "framebuffer height" registers,
 	// we need to infer the size of the current framebuffer somehow.
 	int drawing_width, drawing_height;
-	EstimateDrawingSize(params.fb_address, params.fmt, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, std::max(params.fb_stride, (u16)4), drawing_width, drawing_height);
+	EstimateDrawingSize(params.fb_address, params.fb_format, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, std::max(params.fb_stride, (u16)4), drawing_width, drawing_height);
 
 	gstate_c.SetCurRTOffset(0, 0);
 	bool vfbFormatChanged = false;
@@ -294,8 +294,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 				vfb->fb_stride = params.fb_stride;
 				vfbFormatChanged = true;
 			}
-			if (vfb->format != params.fmt) {
-				vfb->format = params.fmt;
+			if (vfb->format != params.fb_format) {
+				vfb->format = params.fb_format;
 				vfbFormatChanged = true;
 			}
 
@@ -316,7 +316,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 				vfb->height = drawing_height;
 			}
 			break;
-		} else if (v->fb_stride == params.fb_stride && v->format == params.fmt) {
+		} else if (v->fb_stride == params.fb_stride && v->format == params.fb_format) {
 			u32 v_fb_first_line_end_ptr = v->fb_address + v->fb_stride * bpp;
 			u32 v_fb_end_ptr = v->fb_address + v->fb_stride * v->height * bpp;
 
@@ -389,8 +389,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		vfb->newWidth = drawing_width;
 		vfb->newHeight = drawing_height;
 		vfb->lastFrameNewSize = gpuStats.numFlips;
-		vfb->format = params.fmt;
-		vfb->drawnFormat = params.fmt;
+		vfb->format = params.fb_format;
+		vfb->drawnFormat = params.fb_format;
 		vfb->usageFlags = FB_USAGE_RENDER_COLOR;
 
 		u32 byteSize = ColorBufferByteSize(vfb);

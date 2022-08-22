@@ -153,7 +153,7 @@ struct FramebufferHeuristicParams {
 	u32 z_address;
 	u16 fb_stride;
 	u16 z_stride;
-	GEBufferFormat fmt;
+	GEBufferFormat fb_format;
 	bool isClearingDepth;
 	bool isWritingDepth;
 	bool isDrawing;
