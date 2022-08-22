@@ -261,6 +261,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const Draw::Bugs &bugs) {
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
 		bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;
 		bool useShaderDepal = gstate_c.useShaderDepal;
+		bool useSmoothedDepal = gstate_c.useSmoothedShaderDepal;
 		bool colorWriteMask = IsColorWriteMaskComplex(gstate_c.allowFramebufferRead);
 
 		// Note how we here recompute some of the work already done in state mapping.
@@ -290,6 +291,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const Draw::Bugs &bugs) {
 			}
 			id.SetBit(FS_BIT_BGRA_TEXTURE, gstate_c.bgraTexture);
 			id.SetBit(FS_BIT_SHADER_DEPAL, useShaderDepal);
+			id.SetBit(FS_BIT_SHADER_SMOOTHED_DEPAL, useSmoothedDepal);
 			id.SetBit(FS_BIT_3D_TEXTURE, gstate_c.curTextureIs3D);
 		}
 

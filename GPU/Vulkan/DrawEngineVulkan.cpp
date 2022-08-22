@@ -185,8 +185,8 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
 	samp.flags = 0;
-	samp.magFilter = VK_FILTER_NEAREST;
-	samp.minFilter = VK_FILTER_NEAREST;
+	samp.magFilter = VK_FILTER_LINEAR;
+	samp.minFilter = VK_FILTER_LINEAR;
 	res = vkCreateSampler(device, &samp, nullptr, &samplerSecondary_);
 	_dbg_assert_(VK_SUCCESS == res);
 	res = vkCreateSampler(device, &samp, nullptr, &nullSampler_);

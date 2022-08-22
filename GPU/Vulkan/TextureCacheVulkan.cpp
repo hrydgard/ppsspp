@@ -402,7 +402,7 @@ void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
 	imageView_ = entry->vkTex->GetImageView();
 	drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
-	gstate_c.SetUseShaderDepal(false);
+	gstate_c.SetUseShaderDepal(false, false);
 }
 
 void TextureCacheVulkan::ApplySamplingParams(const SamplerCacheKey &key) {

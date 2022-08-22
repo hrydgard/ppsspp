@@ -1859,6 +1859,31 @@ bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferFormat) {
 	}
 }
 
+// If the palette is detected as a smooth ramp, we can interpolate for higher color precision.
+// But we only do it if the mask/shift exactly matches a color channel, else something different might be going
+// on and we definitely don't want to interpolate.
+// Great enhancement for Test Drive.
+static bool CanUseSmoothDepal(const GPUgstate &gstate, GEBufferFormat framebufferFormat, int rampLength) {
+	if (gstate.getClutIndexStartPos() == 0 &&
+		gstate.getClutIndexMask() <= rampLength) {
+		switch (framebufferFormat) {
+		case GE_FORMAT_565:
+			if (gstate.getClutIndexShift() == 0 || gstate.getClutIndexShift() == 11) {
+				return gstate.getClutIndexMask() == 0x1F;
+			} else if (gstate.getClutIndexShift() == 5) {
+				return gstate.getClutIndexMask() == 0x3F;
+			}
+			break;
+		case GE_FORMAT_5551:
+			if (gstate.getClutIndexShift() == 0 || gstate.getClutIndexShift() == 5 || gstate.getClutIndexShift() == 10) {
+				return gstate.getClutIndexMask() == 0x1F;
+			}
+			break;
+		}
+	}
+	return false;
+}
+
 void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel) {
 	TextureShader *textureShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
@@ -1881,13 +1906,18 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		break;
 	}
 
+	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
+	ClutTexture clutTexture{};
+	bool smoothedDepal = false;
+
 	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
+		clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
+		smoothedDepal = CanUseSmoothDepal(gstate, framebuffer->drawnFormat, clutTexture.rampLength);
+
 		if (useShaderDepal) {
-			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 
 			// Very icky conflation here of native and thin3d rendering. This will need careful work per backend in BindAsClutTexture.
-			Draw::Texture *clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
-			BindAsClutTexture(clutTexture);
+			BindAsClutTexture(clutTexture.texture);
 
 			framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 			// Vulkan needs to do some extra work here to pick out the native handle from Draw.
@@ -1901,7 +1931,8 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 			// Since we started/ended render passes, might need these.
 			gstate_c.Dirty(DIRTY_DEPAL);
-			gstate_c.SetUseShaderDepal(true);
+
+			gstate_c.SetUseShaderDepal(true, smoothedDepal);
 			gstate_c.depalFramebufferFormat = framebuffer->drawnFormat;
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
@@ -1913,13 +1944,13 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			return;
 		}
 
-		textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->drawnFormat);
-		gstate_c.SetUseShaderDepal(false);
+		textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->drawnFormat, smoothedDepal);
+		gstate_c.SetUseShaderDepal(false, false);
 	}
 
 	if (textureShader) {
 		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-		Draw::Texture *clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
+		ClutTexture clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
 		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight);
 		draw_->BindTexture(0, nullptr);
 		draw_->BindTexture(1, nullptr);
@@ -1930,10 +1961,11 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		draw_->SetViewports(1, &vp);
 
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, 0);
-		draw_->BindTexture(1, clutTexture);
-		Draw::SamplerState *nearest = textureShaderCache_->GetSampler();
+		draw_->BindTexture(1, clutTexture.texture);
+		Draw::SamplerState *nearest = textureShaderCache_->GetSampler(false);
+		Draw::SamplerState *clutSampler = textureShaderCache_->GetSampler(smoothedDepal);
 		draw_->BindSamplerStates(0, 1, &nearest);
-		draw_->BindSamplerStates(1, 1, &nearest);
+		draw_->BindSamplerStates(1, 1, &clutSampler);
 
 		textureShaderCache_->ApplyShader(textureShader,
 			framebuffer->bufferWidth, framebuffer->bufferHeight, framebuffer->renderWidth, framebuffer->renderHeight,
@@ -1958,7 +1990,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 		BoundFramebufferTexture();
 
-		gstate_c.SetUseShaderDepal(false);
+		gstate_c.SetUseShaderDepal(false, false);
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
 

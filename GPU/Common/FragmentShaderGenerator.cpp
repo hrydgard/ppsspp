@@ -23,8 +23,10 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/ShaderWriter.h"
 #include "Common/GPU/thin3d.h"
+#include "Core/Compatibility.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderUniforms.h"
@@ -88,6 +90,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	bool doFlatShading = id.Bit(FS_BIT_FLATSHADE) && !flatBug;
 	bool shaderDepal = id.Bit(FS_BIT_SHADER_DEPAL) && !texture3D;  // combination with texture3D not supported. Enforced elsewhere too.
+	bool smoothedDepal = id.Bit(FS_BIT_SHADER_SMOOTHED_DEPAL);
 	bool bgraTexture = id.Bit(FS_BIT_BGRA_TEXTURE);
 	bool colorWriteMask = id.Bit(FS_BIT_COLOR_WRITEMASK) && compat.bitwiseOps;
 
@@ -590,6 +593,31 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 						}
 					}
 				}
+			} else if (shaderDepal && smoothedDepal) {
+				// Specific mode for Test Drive. Fixes the banding.
+				if (doTextureProjection) {
+					// We don't use textureProj because we need better control and it's probably not much of a savings anyway.
+					// However it is good for precision on older hardware like PowerVR.
+					WRITE(p, "  vec2 uv = %s.xy/%s.z;\n  vec2 uv_round;\n", texcoord, texcoord);
+				} else {
+					WRITE(p, "  vec2 uv = %s.xy;\n  vec2 uv_round;\n", texcoord);
+				}
+				// Restrictions on this are checked before setting the smoothed flag.
+				// Only RGB565 and RGBA5551 are supported, and only the specific shifts hitting the
+				// channels directly.
+				WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord);
+				WRITE(p, "  uint depalShift = (u_depal_mask_shift_off_fmt >> 8) & 0xFFU;\n");
+				WRITE(p, "  uint depalFmt = (u_depal_mask_shift_off_fmt >> 24) & 0x3U;\n");
+				WRITE(p, "  float index0 = t.r;\n");
+				WRITE(p, "  float mul = 32.0 / 256.0;\n");
+				WRITE(p, "  if (depalFmt == 0) {\n");  // yes, different versions of Test Drive use different formats. Could do compile time by adding more compat flags but meh.
+				WRITE(p, "    if (depalShift == 5) { index0 = t.g; mul = 64.0 / 256.0; }\n");
+				WRITE(p, "    else if (depalShift == 11) { index0 = t.b; }\n");
+				WRITE(p, "  } else {\n");
+				WRITE(p, "    if (depalShift == 5) { index0 = t.g; }\n");
+				WRITE(p, "    else if (depalShift == 10) { index0 = t.b; }\n");
+				WRITE(p, "  }\n");
+				WRITE(p, "  t = %s(pal, vec2(index0 * mul, 0.0));\n", compat.texture);
 			} else {
 				if (doTextureProjection) {
 					// We don't use textureProj because we need better control and it's probably not much of a savings anyway.

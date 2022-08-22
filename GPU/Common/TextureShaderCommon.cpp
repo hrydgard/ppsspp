@@ -51,22 +51,22 @@ void TextureShaderCache::DeviceLost() {
 	Clear();
 }
 
-Draw::Texture *TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut) {
+ClutTexture TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut) {
 	// Simplistic, but works well enough.
 	u32 clutId = clutHash ^ (uint32_t)clutFormat;
 
 	auto oldtex = texCache_.find(clutId);
 	if (oldtex != texCache_.end()) {
 		oldtex->second->lastFrame = gpuStats.numFlips;
-		return oldtex->second->texture;
+		return *oldtex->second;
 	}
 
-	int texturePixels = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512;
+	int maxClutEntries = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512;
 
 	ClutTexture *tex = new ClutTexture();
 
 	Draw::TextureDesc desc{};
-	desc.width = texturePixels;
+	desc.width = maxClutEntries;
 	desc.height = 1;
 	desc.depth = 1;
 	desc.mipLevels = 1;
@@ -81,24 +81,49 @@ Draw::Texture *TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, co
 		desc.initData.push_back((const uint8_t *)rawClut);
 		break;
 	case GEPaletteFormat::GE_CMODE_16BIT_BGR5650:
-		ConvertRGB565ToRGBA8888((u32 *)convTemp, (const u16 *)rawClut, texturePixels);
+		ConvertRGB565ToRGBA8888((u32 *)convTemp, (const u16 *)rawClut, maxClutEntries);
 		desc.initData.push_back(convTemp);
 		break;
 	case GEPaletteFormat::GE_CMODE_16BIT_ABGR5551:
-		ConvertRGBA5551ToRGBA8888((u32 *)convTemp, (const u16 *)rawClut, texturePixels);
+		ConvertRGBA5551ToRGBA8888((u32 *)convTemp, (const u16 *)rawClut, maxClutEntries);
 		desc.initData.push_back(convTemp);
 		break;
 	case GEPaletteFormat::GE_CMODE_16BIT_ABGR4444:
-		ConvertRGBA4444ToRGBA8888((u32 *)convTemp, (const u16 *)rawClut, texturePixels);
+		ConvertRGBA4444ToRGBA8888((u32 *)convTemp, (const u16 *)rawClut, maxClutEntries);
 		desc.initData.push_back(convTemp);
 		break;
 	}
 
+	int lastR = 0;
+	int lastG = 0;
+	int lastB = 0;
+	int lastA = 0;
+
+	int rampLength = 0;
+	// Quick check for how many continouosly growing entries we have at the start.
+	// Bilinearly filtering CLUTs only really makes sense for this kind of ramp.
+	for (int i = 0; i < maxClutEntries; i++) {
+		rampLength = i + 1;
+		int r = desc.initData[0][i * 4];
+		int g = desc.initData[0][i * 4 + 1];
+		int b = desc.initData[0][i * 4 + 2];
+		int a = desc.initData[0][i * 4 + 3];
+		if (r < lastR || g < lastG || b < lastB || a < lastA) {
+			break;
+		} else {
+			lastR = r;
+			lastG = g;
+			lastB = b;
+			lastA = a;
+		}
+	}
+
 	tex->texture = draw_->CreateTexture(desc);
 	tex->lastFrame = gpuStats.numFlips;
+	tex->rampLength = rampLength;
 
 	texCache_[clutId] = tex;
-	return tex->texture;
+	return *tex;
 }
 
 void TextureShaderCache::Clear() {
@@ -122,6 +147,10 @@ void TextureShaderCache::Clear() {
 		nearestSampler_->Release();
 		nearestSampler_ = nullptr;
 	}
+	if (linearSampler_) {
+		linearSampler_->Release();
+		linearSampler_ = nullptr;
+	}
 }
 
 void TextureShaderCache::Decimate() {
@@ -136,15 +165,28 @@ void TextureShaderCache::Decimate() {
 	}
 }
 
-Draw::SamplerState *TextureShaderCache::GetSampler() {
-	if (!nearestSampler_) {
-		Draw::SamplerStateDesc desc{};
-		desc.wrapU = Draw::TextureAddressMode::CLAMP_TO_EDGE;
-		desc.wrapV = Draw::TextureAddressMode::CLAMP_TO_EDGE;
-		desc.wrapW = Draw::TextureAddressMode::CLAMP_TO_EDGE;
-		nearestSampler_ = draw_->CreateSamplerState(desc);
+Draw::SamplerState *TextureShaderCache::GetSampler(bool linearFilter) {
+	if (linearFilter) {
+		if (!linearSampler_) {
+			Draw::SamplerStateDesc desc{};
+			desc.magFilter = Draw::TextureFilter::LINEAR;
+			desc.minFilter = Draw::TextureFilter::LINEAR;
+			desc.wrapU = Draw::TextureAddressMode::CLAMP_TO_EDGE;
+			desc.wrapV = Draw::TextureAddressMode::CLAMP_TO_EDGE;
+			desc.wrapW = Draw::TextureAddressMode::CLAMP_TO_EDGE;
+			linearSampler_ = draw_->CreateSamplerState(desc);
+		}
+		return linearSampler_;
+	} else {
+		if (!nearestSampler_) {
+			Draw::SamplerStateDesc desc{};
+			desc.wrapU = Draw::TextureAddressMode::CLAMP_TO_EDGE;
+			desc.wrapV = Draw::TextureAddressMode::CLAMP_TO_EDGE;
+			desc.wrapW = Draw::TextureAddressMode::CLAMP_TO_EDGE;
+			nearestSampler_ = draw_->CreateSamplerState(desc);
+		}
+		return nearestSampler_;
 	}
-	return nearestSampler_;
 }
 
 TextureShader *TextureShaderCache::CreateShader(const char *fs) {
@@ -195,7 +237,7 @@ TextureShader *TextureShaderCache::CreateShader(const char *fs) {
 	return depal;
 }
 
-TextureShader *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETextureFormat textureFormat, GEBufferFormat bufferFormat) {
+TextureShader *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETextureFormat textureFormat, GEBufferFormat bufferFormat, bool smoothedDepal) {
 	using namespace Draw;
 
 	// Generate an ID for depal shaders.
@@ -215,6 +257,7 @@ TextureShader *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETex
 	config.mask = gstate.getClutIndexMask();
 	config.bufferFormat = bufferFormat;
 	config.textureFormat = textureFormat;
+	config.smoothedDepal = smoothedDepal;
 
 	char *buffer = new char[4096];
 	GenerateDepalFs(buffer, config, draw_->GetShaderLanguageDesc());
