@@ -243,3 +243,52 @@ std::string DepalShaderCache::DebugGetShaderString(std::string idstr, DebugShade
 		return "";
 	}
 }
+
+// TODO: Merge with DepalShaderCache?
+void DepalShaderCache::ApplyShader(DepalShader *shader, float bufferW, float bufferH, int renderW, int renderH, const KnownVertexBounds &bounds, u32 uoff, u32 voff) {
+	Draw2DVertex verts[4] = {
+		{-1, -1, 0, 0 },
+		{ 1, -1, 1, 0 },
+		{-1,  1, 0, 1 },
+		{ 1,  1, 1, 1 },
+	};
+
+	// If min is not < max, then we don't have values (wasn't set during decode.)
+	if (bounds.minV < bounds.maxV) {
+		const float invWidth = 1.0f / bufferW;
+		const float invHeight = 1.0f / bufferH;
+		// Inverse of half = double.
+		const float invHalfWidth = invWidth * 2.0f;
+		const float invHalfHeight = invHeight * 2.0f;
+
+		const int u1 = bounds.minU + uoff;
+		const int v1 = bounds.minV + voff;
+		const int u2 = bounds.maxU + uoff;
+		const int v2 = bounds.maxV + voff;
+
+		const float left = u1 * invHalfWidth - 1.0f;
+		const float right = u2 * invHalfWidth - 1.0f;
+		const float top = v1 * invHalfHeight - 1.0f;
+		const float bottom = v2 * invHalfHeight - 1.0f;
+
+		const float uvleft = u1 * invWidth;
+		const float uvright = u2 * invWidth;
+		const float uvtop = v1 * invHeight;
+		const float uvbottom = v2 * invHeight;
+
+		// Points are: BL, BR, TR, TL.
+		verts[0] = Draw2DVertex{ left, bottom, uvleft, uvbottom };
+		verts[1] = Draw2DVertex{ right, bottom, uvright, uvbottom };
+		verts[2] = Draw2DVertex{ left, top, uvleft, uvtop };
+		verts[3] = Draw2DVertex{ right, top, uvright, uvtop };
+
+		// We need to reapply the texture next time since we cropped UV.
+		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+	}
+
+	Draw::Viewport vp{ 0.0f, 0.0f, (float)renderW, (float)renderH, 0.0f, 1.0f };
+	draw_->BindPipeline(shader->pipeline);
+	draw_->SetViewports(1, &vp);
+	draw_->SetScissorRect(0, 0, renderW, renderH);
+	draw_->DrawUP((const uint8_t *)verts, 4);
+}

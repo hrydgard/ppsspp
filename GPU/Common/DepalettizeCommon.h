@@ -54,6 +54,8 @@ public:
 
 	Draw::SamplerState *GetSampler();
 
+	void ApplyShader(DepalShader *shader, float bufferW, float bufferH, int renderW, int renderH, const KnownVertexBounds &bounds, u32 uoff, u32 voff);
+
 	void Clear();
 	void Decimate();
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
@@ -78,68 +80,4 @@ private:
 
 	std::map<u32, DepalShader *> cache_;
 	std::map<u32, DepalTexture *> texCache_;
-};
-
-// TODO: Merge with DepalShaderCache?
-class TextureShaderApplier {
-public:
-	TextureShaderApplier(Draw::DrawContext *draw, DepalShader *shader, float bufferW, float bufferH, int renderW, int renderH)
-		: draw_(draw), shader_(shader), bufferW_(bufferW), bufferH_(bufferH), renderW_(renderW), renderH_(renderH) {
-		static const Draw2DVertex defaultVerts[4] = {
-			{-1, -1, 0, 0 },
-			{ 1, -1, 1, 0 },
-			{-1,  1, 0, 1 },
-			{ 1,  1, 1, 1 },
-		};
-		memcpy(verts_, defaultVerts, sizeof(defaultVerts));
-	}
-
-	void Shade(const KnownVertexBounds &bounds, u32 uoff, u32 voff) {
-		// If min is not < max, then we don't have values (wasn't set during decode.)
-		if (bounds.minV < bounds.maxV) {
-			const float invWidth = 1.0f / bufferW_;
-			const float invHeight = 1.0f / bufferH_;
-			// Inverse of half = double.
-			const float invHalfWidth = invWidth * 2.0f;
-			const float invHalfHeight = invHeight * 2.0f;
-
-			const int u1 = bounds.minU + uoff;
-			const int v1 = bounds.minV + voff;
-			const int u2 = bounds.maxU + uoff;
-			const int v2 = bounds.maxV + voff;
-
-			const float left = u1 * invHalfWidth - 1.0f;
-			const float right = u2 * invHalfWidth - 1.0f;
-			const float top = v1 * invHalfHeight - 1.0f;
-			const float bottom = v2 * invHalfHeight - 1.0f;
-
-			const float uvleft = u1 * invWidth;
-			const float uvright = u2 * invWidth;
-			const float uvtop = v1 * invHeight;
-			const float uvbottom = v2 * invHeight;
-
-			// Points are: BL, BR, TR, TL.
-			verts_[0] = Draw2DVertex{ left, bottom, uvleft, uvbottom };
-			verts_[1] = Draw2DVertex{ right, bottom, uvright, uvbottom };
-			verts_[2] = Draw2DVertex{ left, top, uvleft, uvtop };
-			verts_[3] = Draw2DVertex{ right, top, uvright, uvtop };
-
-			// We need to reapply the texture next time since we cropped UV.
-			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-		}
-		Draw::Viewport vp{ 0.0f, 0.0f, (float)renderW_, (float)renderH_, 0.0f, 1.0f };
-		draw_->BindPipeline(shader_->pipeline);
-		draw_->SetViewports(1, &vp);
-		draw_->SetScissorRect(0, 0, renderW_, renderH_);
-		draw_->DrawUP((const uint8_t *)verts_, 4);
-	}
-
-protected:
-	Draw::DrawContext *draw_;
-	DepalShader *shader_;
-	Draw2DVertex verts_[4];
-	float bufferW_;
-	float bufferH_;
-	int renderW_;
-	int renderH_;
 };
