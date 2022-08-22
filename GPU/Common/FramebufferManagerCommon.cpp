@@ -274,7 +274,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	EstimateDrawingSize(params.fb_address, params.fb_format, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, std::max(params.fb_stride, (u16)4), drawing_width, drawing_height);
 
 	gstate_c.SetCurRTOffset(0, 0);
-	bool vfbFormatChanged = false;
+	bool vfbStrideChanged = false;
 
 	if (params.fb_address == params.z_address) {
 		// Most likely Z will not be used in this pass, as that would wreak havoc (undefined behavior for sure)
@@ -289,16 +289,17 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 
 		const u32 bpp = BufferFormatBytesPerPixel(v->fb_format);
 
-		if (params.fb_address == v->fb_address) {
+		if (params.fb_address == v->fb_address && params.fb_format == v->fb_format && params.fb_stride == v->fb_stride) {
 			vfb = v;
-			// Update fb stride in case it changed
+
+			// Update fb stride in case it changed.
+			//
+			// In reality, this is probably a new different framebuffer... Can't really share
+			// data between framebuffers with different strides! (or well, we can, with complex
+			// conversion shaders mapping back to and from memory addresses).
 			if (vfb->fb_stride != params.fb_stride) {
 				vfb->fb_stride = params.fb_stride;
-				vfbFormatChanged = true;
-			}
-			if (vfb->fb_format != params.fb_format) {
-				vfb->fb_format = params.fb_format;
-				vfbFormatChanged = true;
+				vfbStrideChanged = true;
 			}
 
 			if (vfb->z_address == 0 && vfb->z_stride == 0 && params.z_stride != 0) {
@@ -392,7 +393,6 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		vfb->newHeight = drawing_height;
 		vfb->lastFrameNewSize = gpuStats.numFlips;
 		vfb->fb_format = params.fb_format;
-		vfb->drawnFormat = params.fb_format;
 		vfb->usageFlags = FB_USAGE_RENDER_COLOR;
 
 		u32 byteSize = ColorBufferByteSize(vfb);
@@ -475,7 +475,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		vfb->dirtyAfterDisplay = true;
 		if ((skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 			vfb->reallyDirtyAfterDisplay = true;
-		NotifyRenderFramebufferUpdated(vfb, vfbFormatChanged);
+		NotifyRenderFramebufferUpdated(vfb, vfbStrideChanged);
 	}
 
 	vfb->colorBindSeq = GetBindSeqCount();
@@ -558,8 +558,8 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 			dest->last_frame_depth_updated = gpuStats.numFlips;
 		} else if (source.channel == RASTER_COLOR && draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
 			VirtualFramebuffer *src = source.vfb;
-			if (src->drawnFormat != GE_FORMAT_565) {
-				WARN_LOG_ONCE(not565, G3D, "Drawn fb_format of buffer at %08x not 565 as expected", src->fb_address);
+			if (src->fb_format != GE_FORMAT_565) {
+				WARN_LOG_ONCE(not565, G3D, "fb_format of buffer at %08x not 565 as expected", src->fb_address);
 			}
 
 			// Really hate to do this, but tracking the depth swizzle state across multiple
@@ -582,20 +582,40 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE);
 }
 
+// Can't easily dynamically create these strings, we just pass along the pointer.
+static const char *reinterpretStrings[3][3] = {
+	{
+		"self_reinterpret_565",
+		"reinterpret_565_to_5551",
+		"reinterpret_565_to_4444",
+	},
+	{
+		"reinterpret_5551_to_565",
+		"self_reinterpret_5551",
+		"reinterpret_5551_to_4444",
+	},
+	{
+		"reinterpret_4444_to_565",
+		"reinterpret_4444_to_5551",
+		"self_reinterpret_4444",
+	},
+};
+
 // Call this after the target has been bound for rendering. For color, raster is probably always going to win over blits/copies.
 void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFramebuffer *dst) {
 	std::vector<CopySource> sources;
 	for (auto src : vfbs_) {
 		// Discard old and equal potential inputs.
-		if (src == dst || src->colorBindSeq < dst->colorBindSeq)
+		if (src == dst || src->colorBindSeq < dst->colorBindSeq) {
 			continue;
+		}
 
 		if (src->fb_address == dst->fb_address && src->fb_stride == dst->fb_stride) {
 			// Another render target at the exact same location but gotta be a different format, otherwise
 			// it would be the same.
 			_dbg_assert_(src->fb_format != dst->fb_format);
-			WARN_LOG_ONCE(reint, G3D, "Reinterpret detected at %08x", src->fb_address);
-			// This is where we'll do reinterprets in the future.
+			// This will result in reinterpret later, if both formats are 16-bit.
+			sources.push_back(CopySource{ src, RASTER_COLOR, 0, 0 });
 		} else if (src->fb_stride == dst->fb_stride && src->fb_format == dst->fb_format) {
 			u32 bytesPerPixel = BufferFormatBytesPerPixel(src->fb_format);
 
@@ -631,9 +651,9 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 				}
 			} else {
 				// Buffers not stride-aligned - ignoring for now.
+				// This is where we'll add the horizontal offset for GoW.
 				continue;
 			}
-			gpuStats.numColorCopies++;
 			sources.push_back(CopySource{ src, RASTER_COLOR, xOffset, yOffset });
 		}
 	}
@@ -657,11 +677,38 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 		int dstX2 = dstX1 + dstWidth;
 		int dstY2 = dstY1 + dstHeight;
 
-		BlitUsingRaster(src->fbo, 0.0f, 0.0f, srcWidth, srcHeight,
-			dst->fbo, dstX1, dstY1, dstX2, dstY2, false, Get2DPipeline(DRAW2D_COPY_COLOR), "copy_color");
-	}
-}
+		if (source.channel == RASTER_COLOR) {
+			if (src->fb_format == dst->fb_format) {
+				gpuStats.numColorCopies++;
 
+				BlitUsingRaster(src->fbo, 0.0f, 0.0f, srcWidth, srcHeight,
+					dst->fbo, dstX1, dstY1, dstX2, dstY2, false, Get2DPipeline(DRAW2D_COPY_COLOR), "copy_color");
+			} else if (IsBufferFormat16Bit(src->fb_format) && IsBufferFormat16Bit(dst->fb_format)) {
+				// Reinterpret!
+				// WARN_LOG(G3D, "Reinterpret detected from %08x_%s to %08x_%s",
+				// 	src->fb_address, GeBufferFormatToString(src->fb_format),
+				//	dst->fb_address, GeBufferFormatToString(dst->fb_format));
+
+				Draw2DPipeline *pipeline = reinterpretFromTo_[(int)src->fb_format][(int)dst->fb_format];
+				if (!pipeline) {
+					pipeline = draw2D_.Create2DPipeline([=](ShaderWriter &shaderWriter) -> Draw2DPipelineInfo {
+						return GenerateReinterpretFragmentShader(shaderWriter, src->fb_format, dst->fb_format);
+					});
+
+					reinterpretFromTo_[(int)src->fb_format][(int)dst->fb_format] = pipeline;
+				}
+				gpuStats.numReinterpretCopies++;
+
+				// OK we have the pipeline, now just do the blit.
+				BlitUsingRaster(src->fbo, 0.0f, 0.0f, srcWidth, srcHeight,
+					dst->fbo, dstX1, dstY1, dstX2, dstY2, false, pipeline, reinterpretStrings[(int)src->fb_format][(int)dst->fb_format]);
+			}
+		}
+	}
+
+	shaderManager_->DirtyLastShader();
+	textureCache_->ForgetLastTexture();
+}
 
 void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
 	// Notify the texture cache of both the color and depth buffers.
@@ -759,12 +806,9 @@ void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer
 	}
 }
 
-void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) {
-	if (vfbFormatChanged) {
+void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbStrideChanged) {
+	if (vfbStrideChanged) {
 		textureCache_->NotifyFramebuffer(vfb, NOTIFY_FB_UPDATED);
-		if (vfb->drawnFormat != vfb->fb_format) {
-			ReinterpretFramebuffer(vfb, vfb->drawnFormat, vfb->fb_format);
-		}
 	}
 
 	// ugly...
@@ -786,10 +830,6 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	}
 	textureCache_->ForgetLastTexture();
 	shaderManager_->DirtyLastShader();
-
-	if (vfb->drawnFormat != vfb->fb_format) {
-		ReinterpretFramebuffer(vfb, vfb->drawnFormat, vfb->fb_format);
-	}
 
 	if (useBufferedRendering_) {
 		if (vfb->fbo) {
@@ -833,10 +873,9 @@ void FramebufferManagerCommon::NotifyVideoUpload(u32 addr, int size, int width, 
 	// TODO: Could possibly be an offset...
 	VirtualFramebuffer *vfb = GetVFBAt(addr);
 	if (vfb) {
-		if (vfb->fb_format != fmt || vfb->drawnFormat != fmt) {
-			DEBUG_LOG(ME, "Changing fb_format for %08x from %d to %d", addr, vfb->drawnFormat, fmt);
+		if (vfb->fb_format != fmt) {
+			DEBUG_LOG(ME, "Changing fb_format for %08x from %d to %d", addr, vfb->fb_format, fmt);
 			vfb->fb_format = fmt;
-			vfb->drawnFormat = fmt;
 
 			// Let's count this as a "render".  This will also force us to use the correct format.
 			vfb->last_frame_render = gpuStats.numFlips;
@@ -1670,7 +1709,6 @@ VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAd
 	vfb->bufferWidth = vfb->width;
 	vfb->bufferHeight = vfb->height;
 	vfb->fb_format = format;
-	vfb->drawnFormat = GE_FORMAT_8888;
 	vfb->usageFlags = FB_USAGE_RENDER_COLOR;
 	SetColorUpdated(vfb, 0);
 	char name[64];
@@ -1724,7 +1762,6 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 		nvfb->fb_format = vfb->fb_format;
 		nvfb->drawnWidth = vfb->drawnWidth;
 		nvfb->drawnHeight = vfb->drawnHeight;
-		nvfb->drawnFormat = vfb->fb_format;
 
 		char name[64];
 		snprintf(name, sizeof(name), "download_temp");
@@ -2340,10 +2377,11 @@ void FramebufferManagerCommon::FlushBeforeCopy() {
 	drawEngine_->DispatchFlush();
 }
 
+// TODO: Replace with with depal, reading the palette from the texture on the GPU directly.
 void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) {
 	VirtualFramebuffer *vfb = GetVFBAt(fb_address);
 	if (vfb && vfb->fb_stride != 0) {
-		const u32 bpp = BufferFormatBytesPerPixel(vfb->drawnFormat);
+		const u32 bpp = BufferFormatBytesPerPixel(vfb->fb_format);
 		int x = 0;
 		int y = 0;
 		int pixels = loadBytes / bpp;
@@ -2640,4 +2678,33 @@ void FramebufferManagerCommon::BlitUsingRaster(
 	draw2D_.DrawStrip2D(nullptr, vtx, 4, linearFilter, pipeline, src->Width(), src->Height(), renderScaleFactor_);
 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
+}
+
+VirtualFramebuffer *FramebufferManagerCommon::ResolveFramebufferColorToFormat(VirtualFramebuffer *src, GEBufferFormat newFormat) {
+	// Look for an identical framebuffer with the new format
+	_dbg_assert_(src->fb_format != newFormat);
+
+	VirtualFramebuffer *vfb = nullptr;
+	for (auto dest : vfbs_) {
+		if (dest == src) {
+			continue;
+		}
+
+		if (dest->fb_address == src->fb_address && dest->fb_stride == src->fb_stride && dest->fb_format == newFormat) {
+			vfb = dest;
+			break;
+		}
+	}
+
+	if (!vfb) {
+		// Create it!
+		_dbg_assert_(false);
+	}
+
+	// OK, now resolve it so we can texture from it.
+	// This will do any necessary reinterprets.
+	CopyToColorFromOverlappingFramebuffers(vfb);
+	// Now we consider the resolved one the latest at the address (though really, we could make them equivalent?).
+	vfb->colorBindSeq = GetBindSeqCount();
+	return vfb;
 }

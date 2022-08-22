@@ -65,8 +65,6 @@ class ShaderWriter;
 // when such a situation is detected. In order to reliably detect this, we separately track depth buffers,
 // and they know which color buffer they were used with last.
 struct VirtualFramebuffer {
-	Draw::Framebuffer *fbo;
-
 	u32 fb_address;
 	u32 z_address;  // If 0, it's a "RAM" framebuffer.
 	u16 fb_stride;
@@ -76,6 +74,8 @@ struct VirtualFramebuffer {
 	// In reality they are all RGBA8888 for better quality but this is what the PSP thinks it is. This is necessary
 	// when we need to interpret the bits directly (depal or buffer aliasing).
 	GEBufferFormat fb_format;
+
+	Draw::Framebuffer *fbo;
 
 	// width/height: The detected size of the current framebuffer, in original PSP pixels.
 	u16 width;
@@ -103,10 +103,6 @@ struct VirtualFramebuffer {
 
 	// The scale factor at which we are rendering (to achieve higher resolution).
 	u8 renderScaleFactor;
-
-	// The configured buffer format at the time of the latest/current draw. This will change first, then
-	// if different we'll "reinterpret" the framebuffer to match 'format' as needed.
-	GEBufferFormat drawnFormat;
 
 	u16 usageFlags;
 
@@ -373,6 +369,11 @@ public:
 		return &draw2D_;
 	}
 
+	// If a vfb with the target format exists, resolve it (run CopyToColorFromOverlappingFramebuffers).
+	// If it doesn't exist, create it and do the same.
+	// Returns the resolved framebuffer.
+	VirtualFramebuffer *ResolveFramebufferColorToFormat(VirtualFramebuffer *vfb, GEBufferFormat newFormat);
+
 protected:
 	virtual void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void SetViewport2D(int x, int y, int w, int h);
@@ -426,7 +427,6 @@ protected:
 		dstBuffer->dirtyAfterDisplay = true;
 		dstBuffer->drawnWidth = dstBuffer->width;
 		dstBuffer->drawnHeight = dstBuffer->height;
-		dstBuffer->drawnFormat = dstBuffer->fb_format;
 		if ((skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 			dstBuffer->reallyDirtyAfterDisplay = true;
 	}

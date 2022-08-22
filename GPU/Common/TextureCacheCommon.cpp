@@ -369,10 +369,10 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
-	GETextureFormat format = gstate.getTextureFormat();
-	if (format >= 11) {
+	GETextureFormat texFormat = gstate.getTextureFormat();
+	if (texFormat >= 11) {
 		// TODO: Better assumption? Doesn't really matter, these are invalid.
-		format = GE_TFMT_5650;
+		texFormat = GE_TFMT_5650;
 	}
 
 	bool hasClut = gstate.isTextureFormatIndexed();
@@ -386,9 +386,9 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	} else {
 		cluthash = 0;
 	}
-	u64 cachekey = TexCacheEntry::CacheKey(texaddr, format, dim, cluthash);
+	u64 cachekey = TexCacheEntry::CacheKey(texaddr, texFormat, dim, cluthash);
 
-	int bufw = GetTextureBufw(0, texaddr, format);
+	int bufw = GetTextureBufw(0, texaddr, texFormat);
 	u8 maxLevel = gstate.getTextureMaxLevel();
 
 	u32 minihash = MiniHash((const u32 *)Memory::GetPointerUnchecked(texaddr));
@@ -408,7 +408,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	if (entryIter != cache_.end()) {
 		entry = entryIter->second.get();
 		// Validate the texture still matches the cache entry.
-		bool match = entry->Matches(dim, format, maxLevel);
+		bool match = entry->Matches(dim, texFormat, maxLevel);
 		const char *reason = "different params";
 
 		// Check for FBO changes.
@@ -502,7 +502,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 			if (rehash) {
 				// Update in case any of these changed.
-				entry->sizeInRAM = (textureBitsPerPixel[format] * bufw * h / 2) / 8;
+				entry->sizeInRAM = (textureBitsPerPixel[texFormat] * bufw * h / 2) / 8;
 				entry->bufw = bufw;
 				entry->cluthash = cluthash;
 			}
@@ -529,7 +529,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	TextureDefinition def{};
 	def.addr = texaddr;
 	def.dim = dim;
-	def.format = format;
+	def.format = texFormat;
 	def.bufw = bufw;
 
 	std::vector<AttachCandidate> candidates = GetFramebufferCandidates(def, 0);
@@ -594,12 +594,12 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	entry->addr = texaddr;
 	entry->minihash = minihash;
 	entry->dim = dim;
-	entry->format = format;
+	entry->format = texFormat;
 	entry->maxLevel = maxLevel;
 
 	// This would overestimate the size in many case so we underestimate instead
 	// to avoid excessive clearing caused by cache invalidations.
-	entry->sizeInRAM = (textureBitsPerPixel[format] * bufw * h / 2) / 8;
+	entry->sizeInRAM = (textureBitsPerPixel[texFormat] * bufw * h / 2) / 8;
 	entry->bufw = bufw;
 
 	entry->cluthash = cluthash;
@@ -638,7 +638,7 @@ std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const 
 	if (candidates.size() > 1) {
 		std::string cands;
 		for (auto &candidate : candidates) {
-			cands += candidate.ToString() + " ";
+			cands += candidate.ToString() + "\n";
 		}
 
 		WARN_LOG_REPORT_ONCE(multifbcandidate, G3D, "GetFramebufferCandidates: Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
@@ -908,18 +908,18 @@ bool TextureCacheCommon::MatchFramebuffer(
 	// If they match "exactly", it's non-CLUT and from the top left.
 	if (exactMatch) {
 		if (fb_stride != entry.bufw) {
-			WARN_LOG_ONCE(diffStrides1, G3D, "Texturing from framebuffer with different strides %d != %d", entry.bufw, (int)fb_stride);
+			WARN_LOG_ONCE(diffStrides1, G3D, "Found matching framebuffer with different strides %d != %d", entry.bufw, (int)fb_stride);
 		}
 		// NOTE: This check is okay because the first texture formats are the same as the buffer formats.
 		if (IsTextureFormatBufferCompatible(entry.format)) {
 			if (TextureFormatMatchesBufferFormat(entry.format, fb_format) || (framebuffer->usageFlags & FB_USAGE_BLUE_TO_ALPHA)) {
 				return true;
 			} else if (IsTextureFormat16Bit(entry.format) && IsBufferFormat16Bit(fb_format) && channel == RASTER_COLOR) {
-				WARN_LOG_ONCE(diffFormat1, G3D, "Texturing from framebuffer with reinterpretable fb_format: %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format));
+				WARN_LOG_ONCE(diffFormat1, G3D, "Found matching framebuffer with reinterpretable fb_format: %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format));
 				*matchInfo = FramebufferMatchInfo{ 0, 0, true, TextureFormatToBufferFormat(entry.format) };
 				return true;
 			} else {
-				WARN_LOG_ONCE(diffFormat2, G3D, "Not texturing from framebuffer with incompatible formats %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format));
+				WARN_LOG_ONCE(diffFormat2, G3D, "Rejecting framebuffer with incompatible formats %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format));
 				return false;
 			}
 		} else {
@@ -954,7 +954,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 
 		if (fb_stride != entry.bufw) {
 			if (noOffset) {
-				WARN_LOG_ONCE(diffStrides2, G3D, "Texturing from framebuffer (matching_clut=%s) different strides %d != %d", matchingClutFormat ? "yes" : "no", entry.bufw, fb_stride);
+				WARN_LOG_ONCE(diffStrides2, G3D, "Matching framebuffer(matching_clut = % s) different strides % d != % d", matchingClutFormat ? "yes" : "no", entry.bufw, fb_stride);
 				// Continue on with other checks.
 				// Not actually sure why we even try here. There's no way it'll go well if the strides are different.
 			} else {
@@ -980,7 +980,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 		// 3rd Birthday (and a bunch of other games) render to a 16 bit clut texture.
 		if (matchingClutFormat) {
 			if (!noOffset) {
-				WARN_LOG_ONCE(subareaClut, G3D, "Texturing from framebuffer (%s) using %s with offset at %08x +%dx%d", channel == RASTER_DEPTH ? "DEPTH" : "COLOR", GeTextureFormatToString(entry.format), fb_address, matchInfo->xOffset, matchInfo->yOffset);
+				WARN_LOG_ONCE(subareaClut, G3D, "Matching framebuffer (%s) using %s with offset at %08x +%dx%d", channel == RASTER_DEPTH ? "DEPTH" : "COLOR", GeTextureFormatToString(entry.format), fb_address, matchInfo->xOffset, matchInfo->yOffset);
 			}
 			return true;
 		} else if (IsClutFormat((GETextureFormat)(entry.format)) || IsDXTFormat((GETextureFormat)(entry.format))) {
@@ -991,15 +991,15 @@ bool TextureCacheCommon::MatchFramebuffer(
 		// This is either normal or we failed to generate a shader to depalettize
 		if ((int)fb_format == (int)entry.format || matchingClutFormat) {
 			if ((int)fb_format  != (int)entry.format) {
-				WARN_LOG_ONCE(diffFormat2, G3D, "Texturing from framebuffer with different formats %s != %s at %08x",
+				WARN_LOG_ONCE(diffFormat2, G3D, "Matching framebuffer with different formats %s != %s at %08x",
 					GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address);
 				return true;
 			} else {
-				WARN_LOG_ONCE(subarea, G3D, "Texturing from framebuffer at %08x +%dx%d", fb_address, matchInfo->xOffset, matchInfo->yOffset);
+				WARN_LOG_ONCE(subarea, G3D, "Matching from framebuffer at %08x +%dx%d", fb_address, matchInfo->xOffset, matchInfo->yOffset);
 				return true;
 			}
 		} else {
-			WARN_LOG_ONCE(diffFormat2, G3D, "Texturing from framebuffer with incompatible format %s != %s at %08x",
+			WARN_LOG_ONCE(diffFormat2, G3D, "Ignoring possible texturing from framebuffer with incompatible format %s != %s at %08x",
 				GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address);
 			return false;
 		}
@@ -1009,11 +1009,10 @@ bool TextureCacheCommon::MatchFramebuffer(
 void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate) {
 	VirtualFramebuffer *framebuffer = candidate.fb;
 	FramebufferMatchInfo fbInfo = candidate.match;
+	RasterChannel channel = candidate.channel;
 
 	if (candidate.match.reinterpret) {
-		GEBufferFormat oldFormat = candidate.fb->fb_format;
-		candidate.fb->fb_format = candidate.match.reinterpretTo;
-		framebufferManager_->ReinterpretFramebuffer(candidate.fb, oldFormat, candidate.match.reinterpretTo);
+		framebuffer = framebufferManager_->ResolveFramebufferColorToFormat(candidate.fb, candidate.match.reinterpretTo);
 	}
 
 	_dbg_assert_msg_(framebuffer != nullptr, "Framebuffer must not be null.");
@@ -1043,7 +1042,7 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 			gstate_c.SetNeedShaderTexclamp(true);
 		}
 
-		if (candidate.channel == RASTER_DEPTH && !gstate_c.Supports(GPU_SUPPORTS_DEPTH_TEXTURE)) {
+		if (channel == RASTER_DEPTH && !gstate_c.Supports(GPU_SUPPORTS_DEPTH_TEXTURE)) {
 			WARN_LOG_ONCE(ndepthtex, G3D, "Depth textures not supported, not binding");
 			// Flag to bind a null texture if we can't support depth textures.
 			// Should only happen on old OpenGL.
@@ -1051,7 +1050,7 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 			failedTexture_ = true;
 		} else {
 			nextFramebufferTexture_ = framebuffer;
-			nextFramebufferTextureChannel_ = candidate.channel;
+			nextFramebufferTextureChannel_ = channel;
 		}
 		nextTexture_ = nullptr;
 	} else {
@@ -1152,7 +1151,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 			const std::vector<VirtualFramebuffer *> &framebuffers = framebufferManager_->Framebuffers();
 			for (VirtualFramebuffer *framebuffer : framebuffers) {
 				const u32 fb_address = framebuffer->fb_address & 0x3FFFFFFF;
-				const u32 bpp = BufferFormatBytesPerPixel(framebuffer->drawnFormat);
+				const u32 bpp = BufferFormatBytesPerPixel(framebuffer->fb_format);
 				u32 offset = clutFramebufAddr - fb_address;
 
 				// Is this inside the framebuffer at all?
@@ -1833,7 +1832,7 @@ void TextureCacheCommon::ApplyTexture() {
 	gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 }
 
-bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferFormat) {
+static bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferFormat) {
 	if (IsClutFormat(texFormat)) {
 		switch (bufferFormat) {
 		case GE_FORMAT_4444:
@@ -1890,7 +1889,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
 	bool depth = channel == RASTER_DEPTH;
-	bool need_depalettize = CanDepalettize(texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->drawnFormat);
+	bool need_depalettize = CanDepalettize(texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->fb_format);
 
 	// Shader depal is not supported during 3D texturing or depth texturing, and requires 32-bit integer instructions in the shader.
 	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer &&
@@ -1914,7 +1913,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
 		clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
-		smoothedDepal = CanUseSmoothDepal(gstate, framebuffer->drawnFormat, clutTexture.rampLength);
+		smoothedDepal = CanUseSmoothDepal(gstate, framebuffer->fb_format, clutTexture.rampLength);
 
 		if (useShaderDepal) {
 			// Very icky conflation here of native and thin3d rendering. This will need careful work per backend in BindAsClutTexture.
@@ -1932,9 +1931,9 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 			// Since we started/ended render passes, might need these.
 			gstate_c.Dirty(DIRTY_DEPAL);
-
 			gstate_c.SetUseShaderDepal(true, smoothedDepal);
-			gstate_c.depalFramebufferFormat = framebuffer->drawnFormat;
+			gstate_c.depalFramebufferFormat = framebuffer->fb_format;
+
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 			CheckAlphaResult alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBufRaw_, clutFormat, clutTotalColors);
@@ -1945,7 +1944,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			return;
 		}
 
-		textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->drawnFormat, smoothedDepal);
+		textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->fb_format, smoothedDepal);
 		gstate_c.SetUseShaderDepal(false, false);
 	}
 
@@ -2204,7 +2203,12 @@ void TextureCacheCommon::ClearNextFrame() {
 }
 
 std::string AttachCandidate::ToString() const {
-	return StringFromFormat("[%s seq:%d C:%08x/%d Z:%08x/%d X:%d Y:%d reint: %s]", this->channel == RASTER_COLOR ? "COLOR" : "DEPTH", this->seqCount, this->fb->fb_address, this->fb->fb_stride, this->fb->z_address, this->fb->z_stride, this->match.xOffset, this->match.yOffset, this->match.reinterpret ? "true" : "false");
+	return StringFromFormat("[%s seq:%d C:%08x/%d(%s) Z:%08x/%d X:%d Y:%d reint: %s]",
+		this->channel == RASTER_COLOR ? "COLOR" : "DEPTH",
+		this->seqCount,
+		this->fb->fb_address, this->fb->fb_stride, GeBufferFormatToString(this->fb->fb_format),
+		this->fb->z_address, this->fb->z_stride,
+		this->match.xOffset, this->match.yOffset, this->match.reinterpret ? "true" : "false");
 }
 
 bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry) {
