@@ -748,7 +748,7 @@ int Config::NextValidBackend() {
 	if (failed.count((GPUBackend)iGPUBackend)) {
 		ERROR_LOG(LOADER, "Graphics backend failed for %d, trying another", iGPUBackend);
 
-#if (PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID)) && !PPSSPP_PLATFORM(UWP)
+#if !PPSSPP_PLATFORM(UWP)
 		if (!failed.count(GPUBackend::VULKAN) && VulkanMayBeAvailable()) {
 			return (int)GPUBackend::VULKAN;
 		}
@@ -796,6 +796,9 @@ bool Config::IsBackendEnabled(GPUBackend backend, bool validate) {
 
 #if PPSSPP_PLATFORM(UWP)
 	if (backend != GPUBackend::DIRECT3D11)
+		return false;
+#elif PPSSPP_PLATFORM(SWITCH)
+	if (backend != GPUBackend::OPENGL)
 		return false;
 #elif PPSSPP_PLATFORM(WINDOWS)
 	if (validate) {
@@ -1113,15 +1116,6 @@ static ConfigSetting networkSettings[] = {
 	ConfigSetting(false),
 };
 
-static int DefaultPSPModel() {
-	// TODO: Can probably default this on, but not sure about its memory differences.
-#if !PPSSPP_ARCH(AMD64) && !defined(_WIN32)
-	return PSP_MODEL_FAT;
-#else
-	return PSP_MODEL_SLIM;
-#endif
-}
-
 static int DefaultSystemParamLanguage() {
 	int defaultLang = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 	if (g_Config.bFirstRun) {
@@ -1135,7 +1129,7 @@ static int DefaultSystemParamLanguage() {
 }
 
 static ConfigSetting systemParamSettings[] = {
-	ReportedConfigSetting("PSPModel", &g_Config.iPSPModel, &DefaultPSPModel, true, true),
+	ReportedConfigSetting("PSPModel", &g_Config.iPSPModel, PSP_MODEL_SLIM, true, true),
 	ReportedConfigSetting("PSPFirmwareVersion", &g_Config.iFirmwareVersion, PSP_DEFAULT_FIRMWARE, true, true),
 	ConfigSetting("NickName", &g_Config.sNickName, "PPSSPP", true, true),
 	ConfigSetting("MacAddress", &g_Config.sMACAddress, "", true, true),

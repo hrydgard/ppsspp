@@ -684,7 +684,7 @@ VkResult VulkanContext::CreateDevice() {
 	} else {
 		VulkanLoadDeviceFunctions(device_, extensionsLookup_);
 	}
-	INFO_LOG(G3D, "Device created.\n");
+	INFO_LOG(G3D, "Vulkan Device created");
 	VulkanSetAvailable(true);
 
 	VmaAllocatorCreateInfo allocatorInfo = {};
