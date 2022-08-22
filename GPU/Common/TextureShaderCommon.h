@@ -49,10 +49,10 @@ public:
 	TextureShaderCache(Draw::DrawContext *draw);
 	~TextureShaderCache();
 
-	TextureShader *GetDepalettizeShader(uint32_t clutMode, GETextureFormat texFormat, GEBufferFormat pixelFormat);
+	TextureShader *GetDepalettizeShader(uint32_t clutMode, GETextureFormat texFormat, GEBufferFormat pixelFormat, bool smoothedDepal);
 	ClutTexture GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
 
-	Draw::SamplerState *GetSampler();
+	Draw::SamplerState *GetSampler(bool linearFilter);
 
 	void ApplyShader(TextureShader *shader, float bufferW, float bufferH, int renderW, int renderH, const KnownVertexBounds &bounds, u32 uoff, u32 voff);
 
@@ -70,6 +70,7 @@ private:
 	Draw::DrawContext *draw_;
 	Draw::ShaderModule *vertexShader_ = nullptr;
 	Draw::SamplerState *nearestSampler_ = nullptr;
+	Draw::SamplerState *linearSampler_ = nullptr;
 
 	std::map<u32, TextureShader *> depalCache_;
 	std::map<u32, ClutTexture *> texCache_;

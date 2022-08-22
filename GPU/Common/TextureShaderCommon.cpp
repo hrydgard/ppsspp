@@ -147,6 +147,10 @@ void TextureShaderCache::Clear() {
 		nearestSampler_->Release();
 		nearestSampler_ = nullptr;
 	}
+	if (linearSampler_) {
+		linearSampler_->Release();
+		linearSampler_ = nullptr;
+	}
 }
 
 void TextureShaderCache::Decimate() {
@@ -161,15 +165,28 @@ void TextureShaderCache::Decimate() {
 	}
 }
 
-Draw::SamplerState *TextureShaderCache::GetSampler() {
-	if (!nearestSampler_) {
-		Draw::SamplerStateDesc desc{};
-		desc.wrapU = Draw::TextureAddressMode::CLAMP_TO_EDGE;
-		desc.wrapV = Draw::TextureAddressMode::CLAMP_TO_EDGE;
-		desc.wrapW = Draw::TextureAddressMode::CLAMP_TO_EDGE;
-		nearestSampler_ = draw_->CreateSamplerState(desc);
+Draw::SamplerState *TextureShaderCache::GetSampler(bool linearFilter) {
+	if (linearFilter) {
+		if (!linearSampler_) {
+			Draw::SamplerStateDesc desc{};
+			desc.magFilter = Draw::TextureFilter::LINEAR;
+			desc.minFilter = Draw::TextureFilter::LINEAR;
+			desc.wrapU = Draw::TextureAddressMode::CLAMP_TO_EDGE;
+			desc.wrapV = Draw::TextureAddressMode::CLAMP_TO_EDGE;
+			desc.wrapW = Draw::TextureAddressMode::CLAMP_TO_EDGE;
+			linearSampler_ = draw_->CreateSamplerState(desc);
+		}
+		return linearSampler_;
+	} else {
+		if (!nearestSampler_) {
+			Draw::SamplerStateDesc desc{};
+			desc.wrapU = Draw::TextureAddressMode::CLAMP_TO_EDGE;
+			desc.wrapV = Draw::TextureAddressMode::CLAMP_TO_EDGE;
+			desc.wrapW = Draw::TextureAddressMode::CLAMP_TO_EDGE;
+			nearestSampler_ = draw_->CreateSamplerState(desc);
+		}
+		return nearestSampler_;
 	}
-	return nearestSampler_;
 }
 
 TextureShader *TextureShaderCache::CreateShader(const char *fs) {
@@ -220,7 +237,7 @@ TextureShader *TextureShaderCache::CreateShader(const char *fs) {
 	return depal;
 }
 
-TextureShader *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETextureFormat textureFormat, GEBufferFormat bufferFormat) {
+TextureShader *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETextureFormat textureFormat, GEBufferFormat bufferFormat, bool smoothedDepal) {
 	using namespace Draw;
 
 	// Generate an ID for depal shaders.
@@ -240,6 +257,7 @@ TextureShader *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETex
 	config.mask = gstate.getClutIndexMask();
 	config.bufferFormat = bufferFormat;
 	config.textureFormat = textureFormat;
+	config.smoothedDepal = smoothedDepal;
 
 	char *buffer = new char[4096];
 	GenerateDepalFs(buffer, config, draw_->GetShaderLanguageDesc());

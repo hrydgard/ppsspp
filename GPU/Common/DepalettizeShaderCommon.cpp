@@ -45,7 +45,7 @@ static const VaryingDef varyings[1] = {
 };
 
 // Uses integer instructions available since OpenGL 3.0, ES 3.0 (and 2.0 with extensions), and of course Vulkan and D3D11.
-void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config, const ShaderLanguageDesc &lang) {
+void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 	const int shift = config.shift;
 	const int mask = config.mask;
 
@@ -140,7 +140,7 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config, con
 }
 
 // FP only, to suit GL(ES) 2.0 and DX9
-void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config, const ShaderLanguageDesc &lang) {
+void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 	char lookupMethod[128] = "index.r";
 
 	const int shift = config.shift;
@@ -288,23 +288,64 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config, c
 	writer.C("  vec4 outColor = ").SampleTexture2D("pal", "vec2(coord, 0.0)").C(";\n");
 }
 
+void GenerateDepalSmoothed(ShaderWriter &writer, const DepalConfig &config) {
+	const char *sourceChannel = "error";
+	float indexMultiplier = 32.0f;
+
+	if (config.bufferFormat == GE_FORMAT_5551) {
+		_dbg_assert_(config.mask == 0x1F);
+		switch (config.shift) {
+		case 0: sourceChannel = "r"; break;
+		case 5: sourceChannel = "g"; break;
+		case 10: sourceChannel = "b"; break;
+		default: _dbg_assert_(false);
+		}
+	} else if (config.bufferFormat == GE_FORMAT_565) {
+		_dbg_assert_(config.mask == 0x1F || config.mask == 0x3F);
+		switch (config.shift) {
+		case 0: sourceChannel = "r"; break;
+		case 5: sourceChannel = "g"; indexMultiplier = 64.0f; break;
+		case 11: sourceChannel = "b"; break;
+		default: _dbg_assert_(false);
+		}
+	} else {
+		_dbg_assert_(false);
+	}
+
+	writer.C("  float index = ").SampleTexture2D("tex", "v_texcoord").F(".%s * %0.1f;\n", sourceChannel, indexMultiplier);
+
+	float texturePixels = 256.f;
+	if (config.clutFormat != GE_CMODE_32BIT_ABGR8888) {
+		texturePixels = 512.f;
+	}
+
+	writer.F("  float coord = (index + 0.5) * %f;\n", 1.0 / texturePixels);
+	writer.C("  vec4 outColor = ").SampleTexture2D("pal", "vec2(coord, 0.0)").C(";\n");
+}
+
 void GenerateDepalFs(char *buffer, const DepalConfig &config, const ShaderLanguageDesc &lang) {
 	ShaderWriter writer(buffer, lang, ShaderStage::Fragment);
 	writer.DeclareSamplers(samplers);
 	writer.HighPrecisionFloat();
 	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_NONE);
-	switch (lang.shaderLanguage) {
-	case HLSL_D3D9:
-	case GLSL_1xx:
-		GenerateDepalShaderFloat(writer, config, lang);
-		break;
-	case GLSL_VULKAN:
-	case GLSL_3xx:
-	case HLSL_D3D11:
-		GenerateDepalShader300(writer, config, lang);
-		break;
-	default:
-		_assert_msg_(false, "Depal shader language not supported: %d", (int)lang.shaderLanguage);
+	if (config.smoothedDepal) {
+		// Handles a limited set of cases, but doesn't need any integer math so we don't
+		// need two variants.
+		GenerateDepalSmoothed(writer, config);
+	} else {
+		switch (lang.shaderLanguage) {
+		case HLSL_D3D9:
+		case GLSL_1xx:
+			GenerateDepalShaderFloat(writer, config);
+			break;
+		case GLSL_VULKAN:
+		case GLSL_3xx:
+		case HLSL_D3D11:
+			GenerateDepalShader300(writer, config);
+			break;
+		default:
+			_assert_msg_(false, "Depal shader language not supported: %d", (int)lang.shaderLanguage);
+		}
 	}
 	writer.EndFSMain("outColor", FSFLAG_NONE);
 }

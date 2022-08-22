@@ -31,6 +31,7 @@ struct DepalConfig {
 	GEPaletteFormat clutFormat;
 	GETextureFormat textureFormat;
 	GEBufferFormat bufferFormat;
+	bool smoothedDepal;
 };
 
 void GenerateDepalFs(char *buffer, const DepalConfig &config, const ShaderLanguageDesc &lang);
