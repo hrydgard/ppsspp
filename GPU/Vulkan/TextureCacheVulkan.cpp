@@ -464,7 +464,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	// Any texture scaling is gonna move away from the original 16-bit format, if any.
 	VkFormat actualFmt = plan.scaleFactor > 1 ? VULKAN_8888_FORMAT : dstFmt;
 	if (plan.replaced->Valid()) {
-		actualFmt = ToVulkanFormat(plan.replaced->Format(0));
+		actualFmt = ToVulkanFormat(plan.replaced->Format(plan.baseLevelSrc));
 	}
 
 	bool computeUpload = false;
@@ -536,7 +536,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	ReplacedTextureDecodeInfo replacedInfo;
 	bool willSaveTex = false;
-	if (replacer_.Enabled() && !plan.replaced->Valid() && plan.depth == 1) {
+	if (replacer_.Enabled() && plan.replaced->IsInvalid() && plan.depth == 1) {
 		replacedInfo.cachekey = entry->CacheKey();
 		replacedInfo.hash = entry->fullhash;
 		replacedInfo.addr = entry->addr;
@@ -565,7 +565,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		int mipWidth = mipUnscaledWidth * plan.scaleFactor;
 		int mipHeight = mipUnscaledHeight * plan.scaleFactor;
 		if (plan.replaced->Valid()) {
-			plan.replaced->GetSize(i, mipWidth, mipHeight);
+			plan.replaced->GetSize(plan.baseLevelSrc + i, mipWidth, mipHeight);
 		}
 
 		int bpp = actualFmt == VULKAN_8888_FORMAT ? 4 : 2;  // output bpp
@@ -595,7 +595,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			// Directly load the replaced image.
 			data = drawEngine_->GetPushBufferForTextureData()->PushAligned(size, &bufferOffset, &texBuf, pushAlignment);
 			double replaceStart = time_now_d();
-			plan.replaced->Load(i, data, stride);  // if it fails, it'll just be garbage data... OK for now.
+			plan.replaced->Load(plan.baseLevelSrc + i, data, stride);  // if it fails, it'll just be garbage data... OK for now.
 			replacementTimeThisFrame_ += time_now_d() - replaceStart;
 			VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT,
 				"Copy Upload (replaced): %dx%d", mipWidth, mipHeight);
@@ -636,7 +636,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				int w = dataScaled ? mipWidth : mipUnscaledWidth;
 				int h = dataScaled ? mipHeight : mipUnscaledHeight;
 				// At this point, data should be saveData, and not slow.
-				replacer_.NotifyTextureDecoded(replacedInfo, data, stride, i, w, h);
+				replacer_.NotifyTextureDecoded(replacedInfo, data, stride, plan.baseLevelSrc + i, w, h);
 			}
 		}
 	}

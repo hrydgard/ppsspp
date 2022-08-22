@@ -49,7 +49,8 @@ static const int VERSION = 1;
 static const int MAX_MIP_LEVELS = 12;  // 12 should be plenty, 8 is the max mip levels supported by the PSP.
 
 TextureReplacer::TextureReplacer() {
-	none_.alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
+	none_.initDone_ = true;
+	none_.prepareDone_ = true;
 }
 
 TextureReplacer::~TextureReplacer() {
@@ -373,7 +374,7 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 	}
 }
 
-ReplacedTexture &TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w, int h) {
+ReplacedTexture &TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w, int h, double budget) {
 	// Only actually replace if we're replacing.  We might just be saving.
 	if (!Enabled() || !g_Config.bReplaceTextures) {
 		return none_;
@@ -382,13 +383,18 @@ ReplacedTexture &TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 	ReplacementCacheKey replacementKey(cachekey, hash);
 	auto it = cache_.find(replacementKey);
 	if (it != cache_.end()) {
+		if (!it->second.prepareDone_ && budget > 0.0) {
+			// We don't do this on a thread, but we only do it while within budget.
+			PopulateReplacement(&it->second, cachekey, hash, w, h);
+		}
 		return it->second;
 	}
 
 	// Okay, let's construct the result.
 	ReplacedTexture &result = cache_[replacementKey];
-	result.alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
-	PopulateReplacement(&result, cachekey, hash, w, h);
+	if (!g_Config.bReplaceTexturesAllowLate || budget > 0.0) {
+		PopulateReplacement(&result, cachekey, hash, w, h);
+	}
 	return result;
 }
 
@@ -433,7 +439,7 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 			break;
 	}
 
-	result->alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
+	result->prepareDone_ = true;
 }
 
 enum class ReplacedImageType {
@@ -815,10 +821,12 @@ bool ReplacedTexture::IsReady(double budget) {
 	}
 
 	// Loaded already, or not yet on a thread?
-	if (!levelData_.empty())
+	if (initDone_ && !levelData_.empty())
 		return true;
 	// Let's not even start a new texture if we're already behind.
 	if (budget < 0.0)
+		return false;
+	if (!prepareDone_)
 		return false;
 
 	if (g_Config.bReplaceTexturesAllowLate) {
@@ -829,10 +837,11 @@ bool ReplacedTexture::IsReady(double budget) {
 
 		if (threadWaitable_->WaitFor(budget)) {
 			// If we finished all the levels, we're done.
-			return !levelData_.empty();
+			return initDone_ && !levelData_.empty();
 		}
 	} else {
 		Prepare();
+		_assert_(initDone_);
 		return true;
 	}
 
@@ -842,16 +851,19 @@ bool ReplacedTexture::IsReady(double budget) {
 
 void ReplacedTexture::Prepare() {
 	std::unique_lock<std::mutex> lock(mutex_);
-	if (cancelPrepare_)
+	if (cancelPrepare_) {
+		initDone_ = true;
 		return;
+	}
 
-	levelData_.resize(NumLevels());
-	for (int i = 0; i < NumLevels(); ++i) {
+	levelData_.resize(levels_.size());
+	for (int i = 0; i < (int)levels_.size(); ++i) {
 		if (cancelPrepare_)
 			break;
 		PrepareData(i);
 	}
 
+	initDone_ = true;
 	if (!cancelPrepare_ && threadWaitable_)
 		threadWaitable_->Notify();
 }
@@ -975,6 +987,8 @@ bool ReplacedTexture::Load(int level, void *out, int rowPitch) {
 	_assert_msg_((size_t)level < levels_.size(), "Invalid miplevel");
 	_assert_msg_(out != nullptr && rowPitch > 0, "Invalid out/pitch");
 
+	if (!initDone_)
+		return false;
 	if (levelData_.empty())
 		return false;
 
