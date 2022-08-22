@@ -338,7 +338,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\ext\xbrz\xbrz.h" />
-    <ClInclude Include="Common\DepalettizeCommon.h" />
+    <ClInclude Include="Common\TextureShaderCommon.h" />
     <ClInclude Include="Common\Draw2D.h" />
     <ClInclude Include="Common\ReinterpretFramebuffer.h" />
     <ClInclude Include="Common\DepalettizeShaderCommon.h" />
@@ -452,7 +452,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\ext\xbrz\xbrz.cpp" />
-    <ClCompile Include="Common\DepalettizeCommon.cpp" />
+    <ClCompile Include="Common\TextureShaderCommon.cpp" />
     <ClCompile Include="Common\Draw2D.cpp" />
     <ClCompile Include="Common\ReinterpretFramebuffer.cpp" />
     <ClCompile Include="Common\DepalettizeShaderCommon.cpp" />

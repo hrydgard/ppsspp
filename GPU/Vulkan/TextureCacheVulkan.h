@@ -22,7 +22,7 @@
 #include "GPU/GPUState.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "GPU/Common/TextureCacheCommon.h"
-#include "GPU/Common/DepalettizeCommon.h"
+#include "GPU/Common/TextureShaderCommon.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
 struct VirtualFramebuffer;

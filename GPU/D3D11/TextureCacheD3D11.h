@@ -28,7 +28,7 @@
 struct VirtualFramebuffer;
 
 class FramebufferManagerD3D11;
-class DepalShaderCache;
+class TextureShaderCache;
 class ShaderManagerD3D11;
 
 class SamplerCacheD3D11 {

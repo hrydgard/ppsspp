@@ -34,4 +34,4 @@ struct DepalConfig {
 };
 
 void GenerateDepalFs(char *buffer, const DepalConfig &config, const ShaderLanguageDesc &lang);
-void GenerateDepalVs(char *buffer, const ShaderLanguageDesc &lang);
+void GenerateVs(char *buffer, const ShaderLanguageDesc &lang);

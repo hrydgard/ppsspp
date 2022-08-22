@@ -29,9 +29,8 @@
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
-class DepalShader {
+class TextureShader {
 public:
-	Draw::ShaderModule *fragShader;
 	Draw::Pipeline *pipeline;
 	std::string code;
 };
@@ -42,19 +41,19 @@ public:
 	int lastFrame;
 };
 
+// For CLUT depal shaders, and other pre-bind texture shaders.
 // Caches both shaders and palette textures.
-class DepalShaderCache {
+class TextureShaderCache {
 public:
-	DepalShaderCache(Draw::DrawContext *draw);
-	~DepalShaderCache();
+	TextureShaderCache(Draw::DrawContext *draw);
+	~TextureShaderCache();
 
-	// This also uploads the palette and binds the correct texture.
-	DepalShader *GetDepalettizeShader(uint32_t clutMode, GETextureFormat texFormat, GEBufferFormat pixelFormat);
+	TextureShader *GetDepalettizeShader(uint32_t clutMode, GETextureFormat texFormat, GEBufferFormat pixelFormat);
 	Draw::Texture *GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
 
 	Draw::SamplerState *GetSampler();
 
-	void ApplyShader(DepalShader *shader, float bufferW, float bufferH, int renderW, int renderH, const KnownVertexBounds &bounds, u32 uoff, u32 voff);
+	void ApplyShader(TextureShader *shader, float bufferW, float bufferH, int renderW, int renderH, const KnownVertexBounds &bounds, u32 uoff, u32 voff);
 
 	void Clear();
 	void Decimate();
@@ -65,19 +64,12 @@ public:
 	void DeviceRestore(Draw::DrawContext *draw);
 
 private:
-	static uint32_t GenerateShaderID(uint32_t clutMode, GETextureFormat texFormat, GEBufferFormat pixelFormat) {
-		return (clutMode & 0xFFFFFF) | (pixelFormat << 24) | (texFormat << 28);
-	}
-
-	static uint32_t GetClutID(GEPaletteFormat clutFormat, uint32_t clutHash) {
-		// Simplistic.
-		return clutHash ^ (uint32_t)clutFormat;
-	}
+	TextureShader *CreateShader(const char *fs);
 
 	Draw::DrawContext *draw_;
 	Draw::ShaderModule *vertexShader_ = nullptr;
 	Draw::SamplerState *nearestSampler_ = nullptr;
 
-	std::map<u32, DepalShader *> cache_;
+	std::map<u32, TextureShader *> depalCache_;
 	std::map<u32, DepalTexture *> texCache_;
 };

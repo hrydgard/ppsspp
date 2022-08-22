@@ -57,7 +57,7 @@
     <ClCompile Include="..\..\GPU\Common\VertexShaderGenerator.cpp" />
     <ClCompile Include="..\..\GPU\Common\ReinterpretFramebuffer.cpp" />
     <ClCompile Include="..\..\GPU\Common\Draw2D.cpp" />
-    <ClCompile Include="..\..\GPU\Common\DepalettizeCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\TextureShaderCommon.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\GPU\Common\DepalettizeShaderCommon.h" />
@@ -117,6 +117,6 @@
     <ClInclude Include="..\..\GPU\Common\VertexShaderGenerator.h" />
     <ClInclude Include="..\..\GPU\Common\ReinterpretFramebuffer.h" />
     <ClInclude Include="..\..\GPU\Common\Draw2D.h" />
-    <ClInclude Include="..\..\GPU\Common\DepalettizeCommon.h" />
+    <ClInclude Include="..\..\GPU\Common\TextureShaderCommon.h" />
   </ItemGroup>
 </Project>

@@ -319,7 +319,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GeConstants.cpp \
   $(SRC)/GPU/GeDisasm.cpp \
   $(SRC)/GPU/Common/Draw2D.cpp \
-  $(SRC)/GPU/Common/DepalettizeCommon.cpp \
+  $(SRC)/GPU/Common/TextureShaderCommon.cpp \
   $(SRC)/GPU/Common/DepalettizeShaderCommon.cpp \
   $(SRC)/GPU/Common/FragmentShaderGenerator.cpp \
   $(SRC)/GPU/Common/FramebufferManagerCommon.cpp \

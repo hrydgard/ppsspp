@@ -34,7 +34,7 @@ static const InputDef vsInputs[2] = {
 	{ "vec2", "a_texcoord0", Draw::SEM_TEXCOORD0, },
 };
 
-// TODO: Deduplicate with DepalettizeCommon.cpp
+// TODO: Deduplicate with TextureShaderCommon.cpp
 static const SamplerDef samplers[2] = {
 	{ "tex" },
 	{ "pal" },
@@ -309,7 +309,7 @@ void GenerateDepalFs(char *buffer, const DepalConfig &config, const ShaderLangua
 	writer.EndFSMain("outColor", FSFLAG_NONE);
 }
 
-void GenerateDepalVs(char *buffer, const ShaderLanguageDesc &lang) {
+void GenerateVs(char *buffer, const ShaderLanguageDesc &lang) {
 	ShaderWriter writer(buffer, lang, ShaderStage::Vertex, nullptr, 0);
 	writer.BeginVSMain(vsInputs, Slice<UniformDef>::empty(), varyings);
 	writer.C("  v_texcoord = a_texcoord0;\n");

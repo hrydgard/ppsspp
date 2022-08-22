@@ -1536,8 +1536,8 @@ set(GPU_SOURCES
 	${GPU_NEON}
 	GPU/Common/Draw2D.cpp
 	GPU/Common/Draw2D.h
-	GPU/Common/DepalettizeCommon.cpp
-	GPU/Common/DepalettizeCommon.h
+	GPU/Common/TextureShaderCommon.cpp
+	GPU/Common/TextureShaderCommon.h
 	GPU/Common/DepalettizeShaderCommon.cpp
 	GPU/Common/DepalettizeShaderCommon.h
 	GPU/Common/FragmentShaderGenerator.cpp

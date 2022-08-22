@@ -321,7 +321,7 @@ bool TestDepalShaders() {
 			printf("===\n%s\n===\n", buffer);
 		}
 
-		GenerateDepalVs(buffer, desc);
+		GenerateVs(buffer, desc);
 		if (!TestCompileShader(buffer, languages[k], ShaderStage::Vertex, &errorMessage)) {
 			printf("Error compiling depal shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
 			failed = true;

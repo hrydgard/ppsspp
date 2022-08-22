@@ -25,8 +25,8 @@
 #include "Core/Reporting.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Common/TextureShaderCommon.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
-#include "GPU/Common/DepalettizeCommon.h"
 
 static const VaryingDef varyings[1] = {
 	{ "vec2", "v_texcoord", Draw::SEM_TEXCOORD0, 0, "highp" },
@@ -37,22 +37,23 @@ static const SamplerDef samplers[2] = {
 	{ "pal" },
 };
 
-DepalShaderCache::DepalShaderCache(Draw::DrawContext *draw) : draw_(draw) { }
+TextureShaderCache::TextureShaderCache(Draw::DrawContext *draw) : draw_(draw) { }
 
-DepalShaderCache::~DepalShaderCache() {
+TextureShaderCache::~TextureShaderCache() {
 	DeviceLost();
 }
 
-void DepalShaderCache::DeviceRestore(Draw::DrawContext *draw) {
+void TextureShaderCache::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
 }
 
-void DepalShaderCache::DeviceLost() {
+void TextureShaderCache::DeviceLost() {
 	Clear();
 }
 
-Draw::Texture *DepalShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut) {
-	u32 clutId = GetClutID(clutFormat, clutHash);
+Draw::Texture *TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut) {
+	// Simplistic, but works well enough.
+	u32 clutId = clutHash ^ (uint32_t)clutFormat;
 
 	auto oldtex = texCache_.find(clutId);
 	if (oldtex != texCache_.end()) {
@@ -100,15 +101,14 @@ Draw::Texture *DepalShaderCache::GetClutTexture(GEPaletteFormat clutFormat, cons
 	return tex->texture;
 }
 
-void DepalShaderCache::Clear() {
-	for (auto shader = cache_.begin(); shader != cache_.end(); ++shader) {
-		shader->second->fragShader->Release();
+void TextureShaderCache::Clear() {
+	for (auto shader = depalCache_.begin(); shader != depalCache_.end(); ++shader) {
 		if (shader->second->pipeline) {
 			shader->second->pipeline->Release();
 		}
 		delete shader->second;
 	}
-	cache_.clear();
+	depalCache_.clear();
 	for (auto tex = texCache_.begin(); tex != texCache_.end(); ++tex) {
 		tex->second->texture->Release();
 		delete tex->second;
@@ -124,7 +124,7 @@ void DepalShaderCache::Clear() {
 	}
 }
 
-void DepalShaderCache::Decimate() {
+void TextureShaderCache::Decimate() {
 	for (auto tex = texCache_.begin(); tex != texCache_.end(); ) {
 		if (tex->second->lastFrame + DEPAL_TEXTURE_OLD_AGE < gpuStats.numFlips) {
 			tex->second->texture->Release();
@@ -136,7 +136,7 @@ void DepalShaderCache::Decimate() {
 	}
 }
 
-Draw::SamplerState *DepalShaderCache::GetSampler() {
+Draw::SamplerState *TextureShaderCache::GetSampler() {
 	if (!nearestSampler_) {
 		Draw::SamplerStateDesc desc{};
 		desc.wrapU = Draw::TextureAddressMode::CLAMP_TO_EDGE;
@@ -147,39 +147,16 @@ Draw::SamplerState *DepalShaderCache::GetSampler() {
 	return nearestSampler_;
 }
 
-DepalShader *DepalShaderCache::GetDepalettizeShader(uint32_t clutMode, GETextureFormat textureFormat, GEBufferFormat bufferFormat) {
+TextureShader *TextureShaderCache::CreateShader(const char *fs) {
 	using namespace Draw;
-
-	u32 id = GenerateShaderID(clutMode, textureFormat, bufferFormat);
-
-	auto shader = cache_.find(id);
-	if (shader != cache_.end()) {
-		DepalShader *depal = shader->second;
-		return shader->second;
-	}
-	
-	char *buffer = new char[4096];
-
 	if (!vertexShader_) {
-		GenerateDepalVs(buffer, draw_->GetShaderLanguageDesc());
+		char *buffer = new char[4096];
+		GenerateVs(buffer, draw_->GetShaderLanguageDesc());
 		vertexShader_ = draw_->CreateShaderModule(ShaderStage::Vertex, draw_->GetShaderLanguageDesc().shaderLanguage, (const uint8_t *)buffer, strlen(buffer), "depal_vs");
+		delete[] buffer;
 	}
 
-	// TODO: Parse these out of clutMode some nice way, to become a bit more stateless.
-	DepalConfig config;
-	config.clutFormat = gstate.getClutPaletteFormat();
-	config.startPos = gstate.getClutIndexStartPos();
-	config.shift = gstate.getClutIndexShift();
-	config.mask = gstate.getClutIndexMask();
-	config.bufferFormat = bufferFormat;
-	config.textureFormat = textureFormat;
-
-	GenerateDepalFs(buffer, config, draw_->GetShaderLanguageDesc());
-	
-	std::string src(buffer);
-	ShaderModule *fragShader = draw_->CreateShaderModule(ShaderStage::Fragment, draw_->GetShaderLanguageDesc().shaderLanguage, (const uint8_t *)buffer, strlen(buffer), "depal_fs");
-
-	DepalShader *depal = new DepalShader();
+	ShaderModule *fragShader = draw_->CreateShaderModule(ShaderStage::Fragment, draw_->GetShaderLanguageDesc().shaderLanguage, (const uint8_t *)fs, strlen(fs), "depal_fs");
 
 	static const InputLayoutDesc desc = {
 		{
@@ -201,38 +178,67 @@ DepalShader *DepalShaderCache::GetDepalettizeShader(uint32_t clutMode, GETexture
 		{ vertexShader_, fragShader },
 		inputLayout, noDepthStencil, blendOff, rasterNoCull, nullptr, samplers
 	};
-	
+
 	Pipeline *pipeline = draw_->CreateGraphicsPipeline(depalPipelineDesc);
 
 	inputLayout->Release();
 	blendOff->Release();
 	noDepthStencil->Release();
 	rasterNoCull->Release();
+	fragShader->Release();
 
 	_assert_(pipeline);
 
+	TextureShader *depal = new TextureShader();
 	depal->pipeline = pipeline;
-	depal->fragShader = fragShader;
-	depal->code = buffer;
-	cache_[id] = depal;
-
-	delete[] buffer;
-	return depal->pipeline ? depal : nullptr;
+	depal->code = fs;  // to std::string
+	return depal;
 }
 
-std::vector<std::string> DepalShaderCache::DebugGetShaderIDs(DebugShaderType type) {
+TextureShader *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETextureFormat textureFormat, GEBufferFormat bufferFormat) {
+	using namespace Draw;
+
+	// Generate an ID for depal shaders.
+	u32 id = (clutMode & 0xFFFFFF) | (textureFormat << 24) | (bufferFormat << 28);
+
+	auto shader = depalCache_.find(id);
+	if (shader != depalCache_.end()) {
+		TextureShader *depal = shader->second;
+		return shader->second;
+	}
+
+	// TODO: Parse these out of clutMode some nice way, to become a bit more stateless.
+	DepalConfig config;
+	config.clutFormat = gstate.getClutPaletteFormat();
+	config.startPos = gstate.getClutIndexStartPos();
+	config.shift = gstate.getClutIndexShift();
+	config.mask = gstate.getClutIndexMask();
+	config.bufferFormat = bufferFormat;
+	config.textureFormat = textureFormat;
+
+	char *buffer = new char[4096];
+	GenerateDepalFs(buffer, config, draw_->GetShaderLanguageDesc());
+	TextureShader *ts = CreateShader(buffer);
+	delete[] buffer;
+
+	depalCache_[id] = ts;
+
+	return ts->pipeline ? ts : nullptr;
+}
+
+std::vector<std::string> TextureShaderCache::DebugGetShaderIDs(DebugShaderType type) {
 	std::vector<std::string> ids;
-	for (auto &iter : cache_) {
+	for (auto &iter : depalCache_) {
 		ids.push_back(StringFromFormat("%08x", iter.first));
 	}
 	return ids;
 }
 
-std::string DepalShaderCache::DebugGetShaderString(std::string idstr, DebugShaderType type, DebugShaderStringType stringType) {
+std::string TextureShaderCache::DebugGetShaderString(std::string idstr, DebugShaderType type, DebugShaderStringType stringType) {
 	uint32_t id;
 	sscanf(idstr.c_str(), "%08x", &id);
-	auto iter = cache_.find(id);
-	if (iter == cache_.end())
+	auto iter = depalCache_.find(id);
+	if (iter == depalCache_.end())
 		return "";
 	switch (stringType) {
 	case SHADER_STRING_SHORT_DESC:
@@ -245,7 +251,7 @@ std::string DepalShaderCache::DebugGetShaderString(std::string idstr, DebugShade
 }
 
 // TODO: Merge with DepalShaderCache?
-void DepalShaderCache::ApplyShader(DepalShader *shader, float bufferW, float bufferH, int renderW, int renderH, const KnownVertexBounds &bounds, u32 uoff, u32 voff) {
+void TextureShaderCache::ApplyShader(TextureShader *shader, float bufferW, float bufferH, int renderW, int renderH, const KnownVertexBounds &bounds, u32 uoff, u32 voff) {
 	Draw2DVertex verts[4] = {
 		{-1, -1, 0, 0 },
 		{ 1, -1, 1, 0 },

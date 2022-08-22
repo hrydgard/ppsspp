@@ -124,7 +124,7 @@ TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw)
 
 	replacer_.Init();
 
-	depalShaderCache_ = new DepalShaderCache(draw);
+	depalShaderCache_ = new TextureShaderCache(draw);
 }
 
 TextureCacheCommon::~TextureCacheCommon() {
@@ -1860,7 +1860,7 @@ bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferFormat) {
 }
 
 void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel) {
-	DepalShader *depalShader = nullptr;
+	TextureShader *depalShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
 	bool depth = channel == RASTER_DEPTH;
