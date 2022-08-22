@@ -35,7 +35,7 @@ public:
 	std::string code;
 };
 
-class DepalTexture {
+class ClutTexture {
 public:
 	Draw::Texture *texture;
 	int lastFrame;
@@ -71,5 +71,5 @@ private:
 	Draw::SamplerState *nearestSampler_ = nullptr;
 
 	std::map<u32, TextureShader *> depalCache_;
-	std::map<u32, DepalTexture *> texCache_;
+	std::map<u32, ClutTexture *> texCache_;
 };

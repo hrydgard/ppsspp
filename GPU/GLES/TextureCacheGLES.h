@@ -42,7 +42,7 @@ public:
 
 	void SetFramebufferManager(FramebufferManagerGLES *fbManager);
 	void SetDepalShaderCache(TextureShaderCache *dpCache) {
-		depalShaderCache_ = dpCache;
+		textureShaderCache_ = dpCache;
 	}
 	void SetDrawEngine(DrawEngineGLES *td) {
 		drawEngine_ = td;

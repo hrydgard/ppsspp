@@ -291,7 +291,7 @@ public:
 	void InvalidateAll(GPUInvalidationType type);
 	void ClearNextFrame();
 
-	TextureShaderCache *GetDepalShaderCache() { return depalShaderCache_; }
+	TextureShaderCache *GetTextureShaderCache() { return textureShaderCache_; }
 
 	virtual void ForgetLastTexture() = 0;
 	virtual void InvalidateLastTexture() = 0;
@@ -403,7 +403,7 @@ protected:
 	TextureReplacer replacer_;
 	TextureScalerCommon scaler_;
 	FramebufferManagerCommon *framebufferManager_;
-	TextureShaderCache *depalShaderCache_;
+	TextureShaderCache *textureShaderCache_;
 	ShaderManagerCommon *shaderManager_;
 
 	bool clearCacheNextFrame_ = false;

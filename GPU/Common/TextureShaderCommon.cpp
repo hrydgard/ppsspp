@@ -63,7 +63,7 @@ Draw::Texture *TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, co
 
 	int texturePixels = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512;
 
-	DepalTexture *tex = new DepalTexture();
+	ClutTexture *tex = new ClutTexture();
 
 	Draw::TextureDesc desc{};
 	desc.width = texturePixels;
@@ -250,7 +250,6 @@ std::string TextureShaderCache::DebugGetShaderString(std::string idstr, DebugSha
 	}
 }
 
-// TODO: Merge with DepalShaderCache?
 void TextureShaderCache::ApplyShader(TextureShader *shader, float bufferW, float bufferH, int renderW, int renderH, const KnownVertexBounds &bounds, u32 uoff, u32 voff) {
 	Draw2DVertex verts[4] = {
 		{-1, -1, 0, 0 },

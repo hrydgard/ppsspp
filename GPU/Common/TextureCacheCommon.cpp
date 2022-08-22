@@ -124,11 +124,11 @@ TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw)
 
 	replacer_.Init();
 
-	depalShaderCache_ = new TextureShaderCache(draw);
+	textureShaderCache_ = new TextureShaderCache(draw);
 }
 
 TextureCacheCommon::~TextureCacheCommon() {
-	delete depalShaderCache_;
+	delete textureShaderCache_;
 
 	FreeAlignedMemory(clutBufConverted_);
 	FreeAlignedMemory(clutBufRaw_);
@@ -1860,7 +1860,7 @@ bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferFormat) {
 }
 
 void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel) {
-	TextureShader *depalShader = nullptr;
+	TextureShader *textureShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
 	bool depth = channel == RASTER_DEPTH;
@@ -1886,7 +1886,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 
 			// Very icky conflation here of native and thin3d rendering. This will need careful work per backend in BindAsClutTexture.
-			Draw::Texture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
+			Draw::Texture *clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
 			BindAsClutTexture(clutTexture);
 
 			framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
@@ -1913,13 +1913,13 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			return;
 		}
 
-		depalShader = depalShaderCache_->GetDepalettizeShader(clutMode, texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->drawnFormat);
+		textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->drawnFormat);
 		gstate_c.SetUseShaderDepal(false);
 	}
 
-	if (depalShader) {
+	if (textureShader) {
 		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-		Draw::Texture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
+		Draw::Texture *clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
 		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight);
 		draw_->BindTexture(0, nullptr);
 		draw_->BindTexture(1, nullptr);
@@ -1931,11 +1931,11 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, 0);
 		draw_->BindTexture(1, clutTexture);
-		Draw::SamplerState *nearest = depalShaderCache_->GetSampler();
+		Draw::SamplerState *nearest = textureShaderCache_->GetSampler();
 		draw_->BindSamplerStates(0, 1, &nearest);
 		draw_->BindSamplerStates(1, 1, &nearest);
 
-		depalShaderCache_->ApplyShader(depalShader,
+		textureShaderCache_->ApplyShader(textureShader,
 			framebuffer->bufferWidth, framebuffer->bufferHeight, framebuffer->renderWidth, framebuffer->renderHeight,
 			gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset);
 
@@ -1970,7 +1970,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 }
 
 void TextureCacheCommon::Clear(bool delete_them) {
-	depalShaderCache_->Clear();
+	textureShaderCache_->Clear();
 
 	ForgetLastTexture();
 	for (TexCache::iterator iter = cache_.begin(); iter != cache_.end(); ++iter) {
@@ -2412,5 +2412,5 @@ CheckAlphaResult TextureCacheCommon::CheckCLUTAlpha(const uint8_t *pixelData, GE
 }
 
 void TextureCacheCommon::StartFrame() {
-	depalShaderCache_->Decimate();
+	textureShaderCache_->Decimate();
 }

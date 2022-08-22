@@ -29,7 +29,7 @@ enum DebugShaderType {
 	SHADER_TYPE_GEOMETRY = 2,
 	SHADER_TYPE_VERTEXLOADER = 3,  // Not really a shader, but might as well re-use this mechanism
 	SHADER_TYPE_PIPELINE = 4,  // Vulkan and DX12 combines a bunch of state into pipeline objects. Might as well make them inspectable.
-	SHADER_TYPE_DEPAL = 5,
+	SHADER_TYPE_TEXTURE = 5,
 	SHADER_TYPE_SAMPLER = 6,  // Not really a shader either. Need to rename this enum...
 };
 
