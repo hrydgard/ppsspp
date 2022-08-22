@@ -482,7 +482,14 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			int h0 = gstate.getTextureHeight(0);
 			int d0 = 1;
 			ReplacedTexture &replaced = FindReplacement(entry, w0, h0, d0);
-			if (replaced.Valid()) {
+			if (replaced.IsInvalid()) {
+				entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
+				if (g_Config.bSaveNewTextures) {
+					// Load once more to actually save.
+					match = false;
+					reason = "replacing";
+				}
+			} else {
 				match = false;
 				reason = "replacing";
 			}
@@ -1303,22 +1310,22 @@ ReplacedTexture &TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &
 	constexpr double MAX_BUDGET_PER_TEX = 0.25 / 60.0;
 
 	double replaceStart = time_now_d();
+	double budget = std::min(MAX_BUDGET_PER_TEX, replacementFrameBudget_ - replacementTimeThisFrame_);
 	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
-	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h);
-	if (replaced.IsReady(std::min(MAX_BUDGET_PER_TEX, replacementFrameBudget_ - replacementTimeThisFrame_))) {
+	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h, budget);
+	if (replaced.IsReady(budget)) {
 		if (replaced.GetSize(0, w, h)) {
-			replacementTimeThisFrame_ += time_now_d() - replaceStart;
-
-			// Consider it already "scaled" and remove any delayed replace flag.
+			// Consider it already "scaled."
 			entry->status |= TexCacheEntry::STATUS_IS_SCALED;
-			entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
-			return replaced;
 		}
-	} else if (replaced.Valid()) {
+
+		// Remove the flag, even if it was invalid.
+		entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
+	} else if (!replaced.IsInvalid()) {
 		entry->status |= TexCacheEntry::STATUS_TO_REPLACE;
 	}
 	replacementTimeThisFrame_ += time_now_d() - replaceStart;
-	return replacer_.FindNone();
+	return replaced;
 }
 
 // This is only used in the GLES backend, where we don't point these to video memory.
@@ -2375,7 +2382,7 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, i
 			}
 		}
 
-		if (replacer_.Enabled()) {
+		if (replacer_.Enabled() && replaced.IsInvalid()) {
 			ReplacedTextureDecodeInfo replacedInfo;
 			replacedInfo.cachekey = entry.CacheKey();
 			replacedInfo.hash = entry.fullhash;

@@ -536,7 +536,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	ReplacedTextureDecodeInfo replacedInfo;
 	bool willSaveTex = false;
-	if (replacer_.Enabled() && !plan.replaced->Valid() && plan.depth == 1) {
+	if (replacer_.Enabled() && plan.replaced->IsInvalid() && plan.depth == 1) {
 		replacedInfo.cachekey = entry->CacheKey();
 		replacedInfo.hash = entry->fullhash;
 		replacedInfo.addr = entry->addr;
