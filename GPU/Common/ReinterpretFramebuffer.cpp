@@ -112,7 +112,7 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 
 	_assert_(newFormat != oldFormat);
 	// The caller is responsible for updating the format.
-	_assert_(newFormat == vfb->format);
+	_assert_(newFormat == vfb->fb_format);
 
 	ShaderLanguage lang = draw_->GetShaderLanguageDesc().shaderLanguage;
 
