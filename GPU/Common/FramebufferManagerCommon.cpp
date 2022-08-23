@@ -573,7 +573,7 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 			BlitUsingRaster(
 				src->fbo, 0.0f, 0.0f, src->renderWidth, src->renderHeight,
 				dest->fbo, 0.0f, 0.0f, src->renderWidth, src->renderHeight,
-				false, shader, "565_to_depth");
+				false, Get2DPipeline(shader), "565_to_depth");
 		}
 	}
 
@@ -656,7 +656,7 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 		int dstY2 = dstY1 + dstHeight;
 
 		BlitUsingRaster(src->fbo, 0.0f, 0.0f, srcWidth, srcHeight,
-			dst->fbo, dstX1, dstY1, dstX2, dstY2, false, DRAW2D_COPY_COLOR, "copy_color");
+			dst->fbo, dstX1, dstY1, dstX2, dstY2, false, Get2DPipeline(DRAW2D_COPY_COLOR), "copy_color");
 	}
 }
 
@@ -731,7 +731,7 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 		draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebufferDepth");
 		RebindFramebuffer("After BlitFramebufferDepth");
 	} else if (useRaster) {
-		BlitUsingRaster(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, false, Draw2DShader::DRAW2D_COPY_DEPTH, "BlitDepthRaster");
+		BlitUsingRaster(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, false, Get2DPipeline(Draw2DShader::DRAW2D_COPY_DEPTH), "BlitDepthRaster");
 	}
 
 	draw_->InvalidateCachedState();
@@ -2491,7 +2491,7 @@ void FramebufferManagerCommon::DrawActiveTexture(float x, float y, float w, floa
 	// Rearrange to strip form.
 	std::swap(coord[2], coord[3]);
 
-	DrawStrip2D(nullptr, coord, 4, (flags & DRAWTEX_LINEAR) != 0, DRAW2D_COPY_COLOR);
+	DrawStrip2D(nullptr, coord, 4, (flags & DRAWTEX_LINEAR) != 0, Get2DPipeline(DRAW2D_COPY_COLOR));
 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
@@ -2587,14 +2587,14 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 		draw_->BlitFramebuffer(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2,
 			channel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, tag);
 	} else {
-		Draw2DShader shader = channel == RASTER_COLOR ? DRAW2D_COPY_COLOR : DRAW2D_COPY_DEPTH;
+		Draw2DPipeline *pipeline = Get2DPipeline(channel == RASTER_COLOR ? DRAW2D_COPY_COLOR : DRAW2D_COPY_DEPTH);
 		Draw::Framebuffer *srcFBO = src->fbo;
 		if (src == dst) {
 			Draw::Framebuffer *tempFBO = GetTempFBO(TempFBO::BLIT, src->renderWidth, src->renderHeight);
-			BlitUsingRaster(src->fbo, srcX1, srcY1, srcX2, srcY2, tempFBO, dstX1, dstY1, dstX2, dstY2, false, shader, tag);
+			BlitUsingRaster(src->fbo, srcX1, srcY1, srcX2, srcY2, tempFBO, dstX1, dstY1, dstX2, dstY2, false, pipeline, tag);
 			srcFBO = tempFBO;
 		}
-		BlitUsingRaster(srcFBO, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, false, shader, tag);
+		BlitUsingRaster(srcFBO, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, false, pipeline, tag);
 	}
 
 	draw_->InvalidateCachedState();
@@ -2607,9 +2607,9 @@ void FramebufferManagerCommon::BlitUsingRaster(
 	Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
 	Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
 	bool linearFilter,
-	Draw2DShader shader, const char *tag) {
+	Draw2DPipeline *pipeline, const char *tag) {
 
-	if (shader == DRAW2D_COPY_DEPTH || shader == DRAW2D_565_TO_DEPTH) {
+	if (pipeline->info.writeChannel == RASTER_DEPTH) {
 		_dbg_assert_(draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported);
 	}
 
@@ -2632,12 +2632,12 @@ void FramebufferManagerCommon::BlitUsingRaster(
 	draw_->BindTexture(0, nullptr);
 	// This will get optimized away in case it's already bound (in VK and GL at least..)
 	draw_->BindFramebufferAsRenderTarget(dest, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, tag ? tag : "BlitUsingRaster");
-	draw_->BindFramebufferAsTexture(src, 0, Draw2DSourceChannel(shader) == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, 0);
+	draw_->BindFramebufferAsTexture(src, 0, pipeline->info.readChannel == RASTER_COLOR ? Draw::FB_COLOR_BIT : Draw::FB_DEPTH_BIT, 0);
 
 	Draw::Viewport vp{ 0.0f, 0.0f, (float)dest->Width(), (float)dest->Height(), 0.0f, 1.0f };
 	draw_->SetViewports(1, &vp);
 	draw_->SetScissorRect(0, 0, (int)dest->Width(), (int)dest->Height());
-	DrawStrip2D(nullptr, vtx, 4, linearFilter, shader, src->Width(), src->Height());
+	DrawStrip2D(nullptr, vtx, 4, linearFilter, pipeline, src->Width(), src->Height());
 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }

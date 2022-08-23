@@ -28,3 +28,17 @@ inline RasterChannel Draw2DSourceChannel(Draw2DShader shader) {
 		return RASTER_COLOR;
 	}
 }
+
+struct Draw2DPipelineInfo {
+	RasterChannel readChannel;
+	RasterChannel writeChannel;
+};
+
+struct Draw2DPipeline {
+	Draw::Pipeline *pipeline;
+	Draw2DPipelineInfo info;
+	void Release() {
+		pipeline->Release();
+		delete this;
+	}
+};
