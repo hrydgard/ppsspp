@@ -94,6 +94,9 @@ public:
 	void EndVSMain(Slice<VaryingDef> varyings);
 	void EndFSMain(const char *vec4_color_variable, FSFlags flags);
 
+	const ShaderLanguageDesc &Lang() const {
+		return lang_;
+	}
 
 	void Rewind(size_t offset) {
 		p_ -= offset;

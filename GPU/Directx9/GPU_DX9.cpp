@@ -58,7 +58,7 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	shaderManagerDX9_ = new ShaderManagerDX9(draw, device_);
 	framebufferManagerDX9_ = new FramebufferManagerDX9(draw);
 	framebufferManager_ = framebufferManagerDX9_;
-	textureCacheDX9_ = new TextureCacheDX9(draw);
+	textureCacheDX9_ = new TextureCacheDX9(draw, framebufferManager_->GetDraw2D());
 	textureCache_ = textureCacheDX9_;
 	drawEngineCommon_ = &drawEngine_;
 	shaderManager_ = shaderManagerDX9_;

@@ -196,7 +196,6 @@ Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (Shade
 	Draw2DPipelineInfo info = generate(writer);
 
 	ShaderModule *fs = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), "draw2d_fs");
-	delete[] fsCode;
 
 	_assert_(fs);
 
@@ -243,7 +242,8 @@ Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (Shade
 
 	return new Draw2DPipeline {
 		pipeline,
-		info
+		info,
+		fsCode,
 	};
 }
 

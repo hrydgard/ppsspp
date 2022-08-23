@@ -29,12 +29,6 @@
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
-class TextureShader {
-public:
-	Draw::Pipeline *pipeline;
-	std::string code;
-};
-
 class ClutTexture {
 public:
 	Draw::Texture *texture;
@@ -46,15 +40,15 @@ public:
 // Caches both shaders and palette textures.
 class TextureShaderCache {
 public:
-	TextureShaderCache(Draw::DrawContext *draw);
+	TextureShaderCache(Draw::DrawContext *draw, Draw2D *draw2D);
 	~TextureShaderCache();
 
-	TextureShader *GetDepalettizeShader(uint32_t clutMode, GETextureFormat texFormat, GEBufferFormat pixelFormat, bool smoothedDepal);
+	Draw2DPipeline *GetDepalettizeShader(uint32_t clutMode, GETextureFormat texFormat, GEBufferFormat pixelFormat, bool smoothedDepal);
 	ClutTexture GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
 
 	Draw::SamplerState *GetSampler(bool linearFilter);
 
-	void ApplyShader(TextureShader *shader, float bufferW, float bufferH, int renderW, int renderH, const KnownVertexBounds &bounds, u32 uoff, u32 voff);
+	void ApplyShader(Draw2DPipeline *pipeline, float bufferW, float bufferH, int renderW, int renderH, const KnownVertexBounds &bounds, u32 uoff, u32 voff);
 
 	void Clear();
 	void Decimate();
@@ -65,13 +59,11 @@ public:
 	void DeviceRestore(Draw::DrawContext *draw);
 
 private:
-	TextureShader *CreateShader(const char *fs);
-
 	Draw::DrawContext *draw_;
-	Draw::ShaderModule *vertexShader_ = nullptr;
 	Draw::SamplerState *nearestSampler_ = nullptr;
 	Draw::SamplerState *linearSampler_ = nullptr;
+	Draw2D *draw2D_;
 
-	std::map<u32, TextureShader *> depalCache_;
+	std::map<u32, Draw2DPipeline *> depalCache_;
 	std::map<u32, ClutTexture *> texCache_;
 };

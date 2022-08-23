@@ -43,7 +43,7 @@ private:
 
 class TextureCacheD3D11 : public TextureCacheCommon {
 public:
-	TextureCacheD3D11(Draw::DrawContext *draw);
+	TextureCacheD3D11(Draw::DrawContext *draw, Draw2D *draw2D);
 	~TextureCacheD3D11();
 
 	void StartFrame() override;

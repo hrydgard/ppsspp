@@ -32,13 +32,16 @@ inline RasterChannel Draw2DSourceChannel(Draw2DShader shader) {
 struct Draw2DPipelineInfo {
 	RasterChannel readChannel;
 	RasterChannel writeChannel;
+	bool secondTexture;
 };
 
 struct Draw2DPipeline {
 	Draw::Pipeline *pipeline;
 	Draw2DPipelineInfo info;
+	char *code;
 	void Release() {
 		pipeline->Release();
+		delete[] code;
 		delete this;
 	}
 };

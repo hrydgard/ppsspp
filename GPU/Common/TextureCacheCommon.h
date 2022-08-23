@@ -31,6 +31,8 @@
 #include "GPU/Common/TextureScalerCommon.h"
 #include "GPU/Common/TextureShaderCommon.h"
 
+class Draw2D;
+
 enum FramebufferNotification {
 	NOTIFY_FB_CREATED,
 	NOTIFY_FB_UPDATED,
@@ -271,7 +273,7 @@ struct BuildTexturePlan {
 
 class TextureCacheCommon {
 public:
-	TextureCacheCommon(Draw::DrawContext *draw);
+	TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D);
 	virtual ~TextureCacheCommon();
 
 	void LoadClut(u32 clutAddr, u32 loadBytes);
@@ -400,6 +402,8 @@ protected:
 	}
 
 	Draw::DrawContext *draw_;
+	Draw2D *draw2D_;
+
 	TextureReplacer replacer_;
 	TextureScalerCommon scaler_;
 	FramebufferManagerCommon *framebufferManager_;

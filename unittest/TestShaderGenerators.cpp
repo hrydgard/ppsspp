@@ -292,17 +292,9 @@ bool TestDepalShaders() {
 		config.bufferFormat = GE_FORMAT_8888;
 		config.textureFormat = GE_TFMT_CLUT32;
 
-		GenerateDepalFs(buffer, config, desc);
+		ShaderWriter writer(buffer, desc, ShaderStage::Fragment);
+		GenerateDepalFs(writer, config);
 		if (!TestCompileShader(buffer, languages[k], ShaderStage::Fragment, &errorMessage)) {
-			printf("Error compiling depal shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
-			failed = true;
-			return false;
-		} else {
-			printf("===\n%s\n===\n", buffer);
-		}
-
-		GenerateVs(buffer, desc);
-		if (!TestCompileShader(buffer, languages[k], ShaderStage::Vertex, &errorMessage)) {
 			printf("Error compiling depal shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
 			failed = true;
 			return false;

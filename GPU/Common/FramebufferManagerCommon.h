@@ -369,6 +369,10 @@ public:
 	}
 	void ReinterpretFramebuffer(VirtualFramebuffer *vfb, GEBufferFormat oldFormat, GEBufferFormat newFormat);
 
+	Draw2D *GetDraw2D() {
+		return &draw2D_;
+	}
+
 protected:
 	virtual void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void SetViewport2D(int x, int y, int w, int h);

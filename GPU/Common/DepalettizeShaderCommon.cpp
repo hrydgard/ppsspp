@@ -27,8 +27,6 @@
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
-#define WRITE p+=sprintf
-
 static const InputDef vsInputs[2] = {
 	{ "vec2", "a_position", Draw::SEM_POSITION, },
 	{ "vec2", "a_texcoord0", Draw::SEM_TEXCOORD0, },
@@ -323,8 +321,7 @@ void GenerateDepalSmoothed(ShaderWriter &writer, const DepalConfig &config) {
 	writer.C("  vec4 outColor = ").SampleTexture2D("pal", "vec2(coord, 0.0)").C(";\n");
 }
 
-void GenerateDepalFs(char *buffer, const DepalConfig &config, const ShaderLanguageDesc &lang) {
-	ShaderWriter writer(buffer, lang, ShaderStage::Fragment);
+void GenerateDepalFs(ShaderWriter &writer, const DepalConfig &config) {
 	writer.DeclareSamplers(samplers);
 	writer.HighPrecisionFloat();
 	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_NONE);
@@ -333,7 +330,7 @@ void GenerateDepalFs(char *buffer, const DepalConfig &config, const ShaderLangua
 		// need two variants.
 		GenerateDepalSmoothed(writer, config);
 	} else {
-		switch (lang.shaderLanguage) {
+		switch (writer.Lang().shaderLanguage) {
 		case HLSL_D3D9:
 		case GLSL_1xx:
 			GenerateDepalShaderFloat(writer, config);
@@ -344,18 +341,8 @@ void GenerateDepalFs(char *buffer, const DepalConfig &config, const ShaderLangua
 			GenerateDepalShader300(writer, config);
 			break;
 		default:
-			_assert_msg_(false, "Depal shader language not supported: %d", (int)lang.shaderLanguage);
+			_assert_msg_(false, "Shader language not supported for depal: %d", (int)writer.Lang().shaderLanguage);
 		}
 	}
 	writer.EndFSMain("outColor", FSFLAG_NONE);
 }
-
-void GenerateVs(char *buffer, const ShaderLanguageDesc &lang) {
-	ShaderWriter writer(buffer, lang, ShaderStage::Vertex, nullptr, 0);
-	writer.BeginVSMain(vsInputs, Slice<UniformDef>::empty(), varyings);
-	writer.C("  v_texcoord = a_texcoord0;\n");
-	writer.C("  gl_Position = vec4(a_position, 0.0, 1.0);\n");
-	writer.EndVSMain(varyings);
-}
-
-#undef WRITE

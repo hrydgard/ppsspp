@@ -54,7 +54,7 @@ private:
 
 class TextureCacheVulkan : public TextureCacheCommon {
 public:
-	TextureCacheVulkan(Draw::DrawContext *draw, VulkanContext *vulkan);
+	TextureCacheVulkan(Draw::DrawContext *draw, Draw2D *draw2D, VulkanContext *vulkan);
 	~TextureCacheVulkan();
 
 	void StartFrame() override;

@@ -22,6 +22,8 @@
 #include "Common/GPU/Shader.h"
 #include "GPU/ge_constants.h"
 
+class ShaderWriter;
+
 static const int DEPAL_TEXTURE_OLD_AGE = 120;
 
 struct DepalConfig {
@@ -34,5 +36,4 @@ struct DepalConfig {
 	bool smoothedDepal;
 };
 
-void GenerateDepalFs(char *buffer, const DepalConfig &config, const ShaderLanguageDesc &lang);
-void GenerateVs(char *buffer, const ShaderLanguageDesc &lang);
+void GenerateDepalFs(ShaderWriter &writer, const DepalConfig &config);
