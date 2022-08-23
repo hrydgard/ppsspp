@@ -47,7 +47,7 @@
 #include "GPU/GPUState.h"
 
 FramebufferManagerCommon::FramebufferManagerCommon(Draw::DrawContext *draw)
-	: draw_(draw) {
+	: draw_(draw), draw2D_(draw_) {
 	presentation_ = new PresentationCommon(draw);
 }
 
@@ -2424,19 +2424,19 @@ void FramebufferManagerCommon::DeviceLost() {
 	}
 	DoRelease(stencilUploadSampler_);
 	DoRelease(stencilUploadPipeline_);
-	DoRelease(draw2DSamplerNearest_);
-	DoRelease(draw2DSamplerLinear_);
-	DoRelease(draw2DVs_);
 	DoRelease(draw2DPipelineColor_);
 	DoRelease(draw2DPipelineDepth_);
 	DoRelease(draw2DPipeline565ToDepth_);
 	DoRelease(draw2DPipeline565ToDepthDeswizzle_);
+
+	draw2D_.DeviceLost();
 
 	draw_ = nullptr;
 }
 
 void FramebufferManagerCommon::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
+	draw2D_.DeviceRestore(draw_);
 	presentation_->DeviceRestore(draw);
 }
 
@@ -2488,7 +2488,7 @@ void FramebufferManagerCommon::DrawActiveTexture(float x, float y, float w, floa
 	// Rearrange to strip form.
 	std::swap(coord[2], coord[3]);
 
-	DrawStrip2D(nullptr, coord, 4, (flags & DRAWTEX_LINEAR) != 0, Get2DPipeline(DRAW2D_COPY_COLOR));
+	draw2D_.DrawStrip2D(nullptr, coord, 4, (flags & DRAWTEX_LINEAR) != 0, Get2DPipeline(DRAW2D_COPY_COLOR));
 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
@@ -2634,7 +2634,8 @@ void FramebufferManagerCommon::BlitUsingRaster(
 	Draw::Viewport vp{ 0.0f, 0.0f, (float)dest->Width(), (float)dest->Height(), 0.0f, 1.0f };
 	draw_->SetViewports(1, &vp);
 	draw_->SetScissorRect(0, 0, (int)dest->Width(), (int)dest->Height());
-	DrawStrip2D(nullptr, vtx, 4, linearFilter, pipeline, src->Width(), src->Height());
+
+	draw2D_.DrawStrip2D(nullptr, vtx, 4, linearFilter, pipeline, src->Width(), src->Height(), renderScaleFactor_);
 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }

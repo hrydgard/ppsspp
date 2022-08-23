@@ -133,7 +133,24 @@ void GenerateDraw2DVS(ShaderWriter &writer) {
 	writer.EndVSMain(varyings);
 }
 
-void FramebufferManagerCommon::Ensure2DResources() {
+template <typename T>
+static void DoRelease(T *&obj) {
+	if (obj)
+		obj->Release();
+	obj = nullptr;
+}
+
+void Draw2D::DeviceLost() {
+	DoRelease(draw2DVs_);
+	DoRelease(draw2DSamplerLinear_);
+	DoRelease(draw2DSamplerNearest_);
+}
+
+void Draw2D::DeviceRestore(Draw::DrawContext *draw) {
+
+}
+
+void Draw2D::Ensure2DResources() {
 	using namespace Draw;
 
 	const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
@@ -168,7 +185,7 @@ void FramebufferManagerCommon::Ensure2DResources() {
 	}
 }
 
-Draw2DPipeline *FramebufferManagerCommon::Create2DPipeline(std::function<Draw2DPipelineInfo (ShaderWriter &)> generate) {
+Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (ShaderWriter &)> generate) {
 	Ensure2DResources();
 
 	using namespace Draw;
@@ -231,7 +248,7 @@ Draw2DPipeline *FramebufferManagerCommon::Create2DPipeline(std::function<Draw2DP
 }
 
 
-void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DPipeline *pipeline, float texW, float texH) {
+void Draw2D::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DPipeline *pipeline, float texW, float texH, int scaleFactor) {
 	using namespace Draw;
 
 	_dbg_assert_(pipeline);
@@ -246,7 +263,7 @@ void FramebufferManagerCommon::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *ver
 	Draw2DUB ub;
 	ub.texSizeX = tex ? tex->Width() : texW;
 	ub.texSizeY = tex ? tex->Height() : texH;
-	ub.scaleFactor = (float)renderScaleFactor_;
+	ub.scaleFactor = (float)scaleFactor;
 
 	draw_->BindPipeline(pipeline->pipeline);
 	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
@@ -272,7 +289,7 @@ Draw2DPipeline *FramebufferManagerCommon::Get2DPipeline(Draw2DShader shader) {
 	switch (shader) {
 	case DRAW2D_COPY_COLOR:
 		if (!draw2DPipelineColor_) {
-			draw2DPipelineColor_ = Create2DPipeline(&GenerateDraw2DCopyColorFs);
+			draw2DPipelineColor_ = draw2D_.Create2DPipeline(&GenerateDraw2DCopyColorFs);
 		}
 		pipeline = draw2DPipelineColor_;
 		break;
@@ -283,7 +300,7 @@ Draw2DPipeline *FramebufferManagerCommon::Get2DPipeline(Draw2DShader shader) {
 			return nullptr;
 		}
 		if (!draw2DPipelineDepth_) {
-			draw2DPipelineDepth_ = Create2DPipeline(&GenerateDraw2DCopyDepthFs);
+			draw2DPipelineDepth_ = draw2D_.Create2DPipeline(&GenerateDraw2DCopyDepthFs);
 		}
 		pipeline = draw2DPipelineDepth_;
 		break;
@@ -294,7 +311,7 @@ Draw2DPipeline *FramebufferManagerCommon::Get2DPipeline(Draw2DShader shader) {
 			return nullptr;
 		}
 		if (!draw2DPipeline565ToDepth_) {
-			draw2DPipeline565ToDepth_ = Create2DPipeline(&GenerateDraw2D565ToDepthFs);
+			draw2DPipeline565ToDepth_ = draw2D_.Create2DPipeline(&GenerateDraw2D565ToDepthFs);
 		}
 		pipeline = draw2DPipeline565ToDepth_;
 		break;
@@ -305,7 +322,7 @@ Draw2DPipeline *FramebufferManagerCommon::Get2DPipeline(Draw2DShader shader) {
 			return nullptr;
 		}
 		if (!draw2DPipeline565ToDepthDeswizzle_) {
-			draw2DPipeline565ToDepthDeswizzle_ = Create2DPipeline(&GenerateDraw2D565ToDepthDeswizzleFs);
+			draw2DPipeline565ToDepthDeswizzle_ = draw2D_.Create2DPipeline(&GenerateDraw2D565ToDepthDeswizzleFs);
 		}
 		pipeline = draw2DPipeline565ToDepthDeswizzle_;
 		break;

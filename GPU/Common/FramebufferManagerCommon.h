@@ -375,11 +375,7 @@ protected:
 	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags);
 
-	Draw2DPipeline *FramebufferManagerCommon::Get2DPipeline(Draw2DShader shader);
-	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DPipeline *pipeline, float texW = 0.0f, float texH = 0.0f);
-
-	void Ensure2DResources();
-	Draw2DPipeline *Create2DPipeline(std::function<Draw2DPipelineInfo(ShaderWriter &)> generate);
+	Draw2DPipeline *Get2DPipeline(Draw2DShader shader);
 
 	void CopyToColorFromOverlappingFramebuffers(VirtualFramebuffer *dest);
 	void CopyToDepthFromOverlappingFramebuffers(VirtualFramebuffer *dest);
@@ -512,8 +508,7 @@ protected:
 	Draw2DPipeline *draw2DPipelineDepth_ = nullptr;
 	Draw2DPipeline *draw2DPipeline565ToDepth_ = nullptr;
 	Draw2DPipeline *draw2DPipeline565ToDepthDeswizzle_ = nullptr;
-	Draw::SamplerState *draw2DSamplerLinear_ = nullptr;
-	Draw::SamplerState *draw2DSamplerNearest_ = nullptr;
-	Draw::ShaderModule *draw2DVs_ = nullptr;
+
+	Draw2D draw2D_;
 	// The fragment shaders are "owned" by the pipelines since they're 1:1.
 };

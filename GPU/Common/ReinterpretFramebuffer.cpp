@@ -141,7 +141,7 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 
 	Draw2DPipeline *pipeline = reinterpretFromTo_[(int)oldFormat][(int)newFormat];
 	if (!pipeline) {
-		pipeline = Create2DPipeline([=](ShaderWriter &shaderWriter) -> Draw2DPipelineInfo {
+		pipeline = draw2D_.Create2DPipeline([=](ShaderWriter &shaderWriter) -> Draw2DPipelineInfo {
 			return GenerateReinterpretFragmentShader(shaderWriter, oldFormat, newFormat);
 		});
 
