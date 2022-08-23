@@ -72,6 +72,11 @@ struct VirtualFramebuffer {
 	u16 fb_stride;
 	u16 z_stride;
 
+	// The original PSP format of the framebuffer.
+	// In reality they are all RGBA8888 for better quality but this is what the PSP thinks it is. This is necessary
+	// when we need to interpret the bits directly (depal or buffer aliasing).
+	GEBufferFormat fb_format;
+
 	// width/height: The detected size of the current framebuffer, in original PSP pixels.
 	u16 width;
 	u16 height;
@@ -98,11 +103,6 @@ struct VirtualFramebuffer {
 
 	// The scale factor at which we are rendering (to achieve higher resolution).
 	u8 renderScaleFactor;
-
-	// The original PSP format of the framebuffer.
-	// In reality they are all RGBA8888 for better quality but this is what the PSP thinks it is. This is necessary
-	// when we need to interpret the bits directly (depal or buffer aliasing).
-	GEBufferFormat format;
 
 	// The configured buffer format at the time of the latest/current draw. This will change first, then
 	// if different we'll "reinterpret" the framebuffer to match 'format' as needed.
@@ -153,7 +153,7 @@ struct FramebufferHeuristicParams {
 	u32 z_address;
 	u16 fb_stride;
 	u16 z_stride;
-	GEBufferFormat fmt;
+	GEBufferFormat fb_format;
 	bool isClearingDepth;
 	bool isWritingDepth;
 	bool isDrawing;
@@ -341,7 +341,7 @@ public:
 	int GetTargetBufferWidth() const { return currentRenderVfb_ ? currentRenderVfb_->bufferWidth : 480; }
 	int GetTargetBufferHeight() const { return currentRenderVfb_ ? currentRenderVfb_->bufferHeight : 272; }
 	int GetTargetStride() const { return currentRenderVfb_ ? currentRenderVfb_->fb_stride : 512; }
-	GEBufferFormat GetTargetFormat() const { return currentRenderVfb_ ? currentRenderVfb_->format : displayFormat_; }
+	GEBufferFormat GetTargetFormat() const { return currentRenderVfb_ ? currentRenderVfb_->fb_format : displayFormat_; }
 
 	void SetColorUpdated(int skipDrawReason) {
 		if (currentRenderVfb_) {
@@ -376,8 +376,10 @@ protected:
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags);
 
 	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DShader channel, float texW = 0.0f, float texH = 0.0f);
+	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw::Pipeline *pipeline, float texW = 0.0f, float texH = 0.0f);
+
 	void Ensure2DResources();
-	Draw::Pipeline *Create2DPipeline(RasterChannel (*generate)(ShaderWriter &));
+	Draw::Pipeline *Create2DPipeline(std::function<RasterChannel(ShaderWriter &)> generate);
 
 	void CopyToColorFromOverlappingFramebuffers(VirtualFramebuffer *dest);
 	void CopyToDepthFromOverlappingFramebuffers(VirtualFramebuffer *dest);
@@ -424,7 +426,7 @@ protected:
 		dstBuffer->dirtyAfterDisplay = true;
 		dstBuffer->drawnWidth = dstBuffer->width;
 		dstBuffer->drawnHeight = dstBuffer->height;
-		dstBuffer->drawnFormat = dstBuffer->format;
+		dstBuffer->drawnFormat = dstBuffer->fb_format;
 		if ((skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 			dstBuffer->reallyDirtyAfterDisplay = true;
 	}

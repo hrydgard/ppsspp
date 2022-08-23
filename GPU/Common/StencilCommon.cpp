@@ -153,7 +153,7 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 	if (!src)
 		return false;
 
-	switch (dstBuffer->format) {
+	switch (dstBuffer->fb_format) {
 	case GE_FORMAT_565:
 		// Well, this doesn't make much sense.
 		return false;
@@ -290,7 +290,7 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 	draw_->SetViewports(1, &viewport);
 
 	// TODO: Switch the format to a single channel format?
-	Draw::Texture *tex = MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->width, dstBuffer->height);
+	Draw::Texture *tex = MakePixelTexture(src, dstBuffer->fb_format, dstBuffer->fb_stride, dstBuffer->width, dstBuffer->height);
 	if (!tex) {
 		// Bad!
 		return false;
@@ -309,10 +309,10 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 			continue;
 		}
 		StencilUB ub{};
-		if (dstBuffer->format == GE_FORMAT_4444) {
+		if (dstBuffer->fb_format == GE_FORMAT_4444) {
 			draw_->SetStencilParams(0xFF, (i << 4) | i, 0xFF);
 			ub.stencilValue = i * (16.0f / 255.0f);
-		} else if (dstBuffer->format == GE_FORMAT_5551) {
+		} else if (dstBuffer->fb_format == GE_FORMAT_5551) {
 			draw_->SetStencilParams(0xFF, 0xFF, 0xFF);
 			ub.stencilValue = i * (128.0f / 255.0f);
 		} else {
