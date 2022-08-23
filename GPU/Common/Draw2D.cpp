@@ -171,6 +171,7 @@ void Draw2D::Ensure2DResources() {
 		descLinear.mipFilter = TextureFilter::LINEAR;
 		descLinear.wrapU = TextureAddressMode::CLAMP_TO_EDGE;
 		descLinear.wrapV = TextureAddressMode::CLAMP_TO_EDGE;
+		descLinear.wrapW = TextureAddressMode::CLAMP_TO_EDGE;
 		draw2DSamplerLinear_ = draw_->CreateSamplerState(descLinear);
 	}
 
@@ -181,6 +182,7 @@ void Draw2D::Ensure2DResources() {
 		descNearest.mipFilter = TextureFilter::NEAREST;
 		descNearest.wrapU = TextureAddressMode::CLAMP_TO_EDGE;
 		descNearest.wrapV = TextureAddressMode::CLAMP_TO_EDGE;
+		descNearest.wrapW = TextureAddressMode::CLAMP_TO_EDGE;
 		draw2DSamplerNearest_ = draw_->CreateSamplerState(descNearest);
 	}
 }
