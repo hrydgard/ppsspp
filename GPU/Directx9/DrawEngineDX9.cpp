@@ -589,12 +589,10 @@ rotateVBO:
 		SoftwareTransform swTransform(params);
 
 		// Half pixel offset hack.
-		float xScale = gstate_c.vpWidth < 0 ? -1.0f : 1.0f;
 		float xOffset = -1.0f / gstate_c.curRTRenderWidth;
-		float yScale = gstate_c.vpHeight > 0 ? -1.0f : 1.0f;
 		float yOffset = 1.0f / gstate_c.curRTRenderHeight;
 
-		const Lin::Vec3 trans(gstate_c.vpXOffset * xScale + xOffset, gstate_c.vpYOffset * yScale + yOffset, gstate_c.vpZOffset * 0.5f + 0.5f);
+		const Lin::Vec3 trans(gstate_c.vpXOffset + xOffset, -gstate_c.vpYOffset + yOffset, gstate_c.vpZOffset * 0.5f + 0.5f);
 		const Lin::Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
 		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, gstate_c.vpHeight > 0, trans, scale);
 
