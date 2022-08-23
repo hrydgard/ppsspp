@@ -369,17 +369,17 @@ public:
 	}
 	void ReinterpretFramebuffer(VirtualFramebuffer *vfb, GEBufferFormat oldFormat, GEBufferFormat newFormat);
 
+	Draw2D *GetDraw2D() {
+		return &draw2D_;
+	}
+
 protected:
 	virtual void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void SetViewport2D(int x, int y, int w, int h);
 	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags);
 
-	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DShader channel, float texW = 0.0f, float texH = 0.0f);
-	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw::Pipeline *pipeline, float texW = 0.0f, float texH = 0.0f);
-
-	void Ensure2DResources();
-	Draw::Pipeline *Create2DPipeline(std::function<RasterChannel(ShaderWriter &)> generate);
+	Draw2DPipeline *Get2DPipeline(Draw2DShader shader);
 
 	void CopyToColorFromOverlappingFramebuffers(VirtualFramebuffer *dest);
 	void CopyToDepthFromOverlappingFramebuffers(VirtualFramebuffer *dest);
@@ -394,7 +394,7 @@ protected:
 
 	void BlitUsingRaster(
 		Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
-		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2, bool linearFilter, Draw2DShader shader, const char *tag);
+		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2, bool linearFilter, Draw2DPipeline *pipeline, const char *tag);
 
 	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags);
 
@@ -500,10 +500,7 @@ protected:
 	// Thin3D stuff for reinterpreting image data between the various 16-bit formats.
 	// Safe, not optimal - there might be input attachment tricks, etc, but we can't use them
 	// since we don't want N different implementations.
-	Draw::Pipeline *reinterpretFromTo_[3][3]{};
-	Draw::ShaderModule *reinterpretVS_ = nullptr;
-	Draw::SamplerState *reinterpretSampler_ = nullptr;
-	Draw::Buffer *reinterpretVBuf_ = nullptr;
+	Draw2DPipeline *reinterpretFromTo_[3][3]{};
 
 	// Common implementation of stencil buffer upload. Also not 100% optimal, but not performance
 	// critical either.
@@ -511,12 +508,11 @@ protected:
 	Draw::SamplerState *stencilUploadSampler_ = nullptr;
 
 	// Draw2D pipelines
-	Draw::Pipeline *draw2DPipelineColor_ = nullptr;
-	Draw::Pipeline *draw2DPipelineDepth_ = nullptr;
-	Draw::Pipeline *draw2DPipeline565ToDepth_ = nullptr;
-	Draw::Pipeline *draw2DPipeline565ToDepthDeswizzle_ = nullptr;
-	Draw::SamplerState *draw2DSamplerLinear_ = nullptr;
-	Draw::SamplerState *draw2DSamplerNearest_ = nullptr;
-	Draw::ShaderModule *draw2DVs_ = nullptr;
+	Draw2DPipeline *draw2DPipelineColor_ = nullptr;
+	Draw2DPipeline *draw2DPipelineDepth_ = nullptr;
+	Draw2DPipeline *draw2DPipeline565ToDepth_ = nullptr;
+	Draw2DPipeline *draw2DPipeline565ToDepthDeswizzle_ = nullptr;
+
+	Draw2D draw2D_;
 	// The fragment shaders are "owned" by the pipelines since they're 1:1.
 };

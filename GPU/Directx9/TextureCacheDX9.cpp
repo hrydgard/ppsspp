@@ -59,8 +59,8 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	D3DDECL_END()
 };
 
-TextureCacheDX9::TextureCacheDX9(Draw::DrawContext *draw)
-	: TextureCacheCommon(draw) {
+TextureCacheDX9::TextureCacheDX9(Draw::DrawContext *draw, Draw2D *draw2D)
+	: TextureCacheCommon(draw, draw2D) {
 	lastBoundTexture = INVALID_TEX;
 	isBgraBackend_ = true;
 

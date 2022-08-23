@@ -28,3 +28,41 @@ inline RasterChannel Draw2DSourceChannel(Draw2DShader shader) {
 		return RASTER_COLOR;
 	}
 }
+
+struct Draw2DPipelineInfo {
+	RasterChannel readChannel;
+	RasterChannel writeChannel;
+	bool secondTexture;
+};
+
+struct Draw2DPipeline {
+	Draw::Pipeline *pipeline;
+	Draw2DPipelineInfo info;
+	char *code;
+	void Release() {
+		pipeline->Release();
+		delete[] code;
+		delete this;
+	}
+};
+
+class ShaderWriter;
+
+class Draw2D {
+public:
+	Draw2D(Draw::DrawContext *draw) : draw_(draw) {}
+	void DeviceLost();
+	void DeviceRestore(Draw::DrawContext *draw);
+
+	Draw2DPipeline *Create2DPipeline(std::function<Draw2DPipelineInfo(ShaderWriter &)> generate);
+
+	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DPipeline *pipeline, float texW = 0.0f, float texH = 0.0f, int scaleFactor = 0);
+	void Ensure2DResources();
+
+private:
+	Draw::DrawContext *draw_;
+
+	Draw::SamplerState *draw2DSamplerLinear_ = nullptr;
+	Draw::SamplerState *draw2DSamplerNearest_ = nullptr;
+	Draw::ShaderModule *draw2DVs_ = nullptr;
+};

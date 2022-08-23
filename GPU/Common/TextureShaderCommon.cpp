@@ -23,6 +23,7 @@
 #include "Common/GPU/ShaderWriter.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Core/Reporting.h"
+#include "GPU/Common/Draw2D.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/TextureShaderCommon.h"
@@ -37,7 +38,7 @@ static const SamplerDef samplers[2] = {
 	{ "pal" },
 };
 
-TextureShaderCache::TextureShaderCache(Draw::DrawContext *draw) : draw_(draw) { }
+TextureShaderCache::TextureShaderCache(Draw::DrawContext *draw, Draw2D *draw2D) : draw_(draw), draw2D_(draw2D) { }
 
 TextureShaderCache::~TextureShaderCache() {
 	DeviceLost();
@@ -139,10 +140,6 @@ void TextureShaderCache::Clear() {
 		delete tex->second;
 	}
 	texCache_.clear();
-	if (vertexShader_) {
-		vertexShader_->Release();
-		vertexShader_ = nullptr;
-	}
 	if (nearestSampler_) {
 		nearestSampler_->Release();
 		nearestSampler_ = nullptr;
@@ -150,18 +147,6 @@ void TextureShaderCache::Clear() {
 	if (linearSampler_) {
 		linearSampler_->Release();
 		linearSampler_ = nullptr;
-	}
-}
-
-void TextureShaderCache::Decimate() {
-	for (auto tex = texCache_.begin(); tex != texCache_.end(); ) {
-		if (tex->second->lastFrame + DEPAL_TEXTURE_OLD_AGE < gpuStats.numFlips) {
-			tex->second->texture->Release();
-			delete tex->second;
-			texCache_.erase(tex++);
-		} else {
-			++tex;
-		}
 	}
 }
 
@@ -189,55 +174,19 @@ Draw::SamplerState *TextureShaderCache::GetSampler(bool linearFilter) {
 	}
 }
 
-TextureShader *TextureShaderCache::CreateShader(const char *fs) {
-	using namespace Draw;
-	if (!vertexShader_) {
-		char *buffer = new char[4096];
-		GenerateVs(buffer, draw_->GetShaderLanguageDesc());
-		vertexShader_ = draw_->CreateShaderModule(ShaderStage::Vertex, draw_->GetShaderLanguageDesc().shaderLanguage, (const uint8_t *)buffer, strlen(buffer), "depal_vs");
-		delete[] buffer;
+void TextureShaderCache::Decimate() {
+	for (auto tex = texCache_.begin(); tex != texCache_.end(); ) {
+		if (tex->second->lastFrame + DEPAL_TEXTURE_OLD_AGE < gpuStats.numFlips) {
+			tex->second->texture->Release();
+			delete tex->second;
+			texCache_.erase(tex++);
+		} else {
+			++tex;
+		}
 	}
-
-	ShaderModule *fragShader = draw_->CreateShaderModule(ShaderStage::Fragment, draw_->GetShaderLanguageDesc().shaderLanguage, (const uint8_t *)fs, strlen(fs), "depal_fs");
-
-	static const InputLayoutDesc desc = {
-		{
-			{ 16, false },
-		},
-		{
-			{ 0, SEM_POSITION, DataFormat::R32G32_FLOAT, 0 },
-			{ 0, SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 8 },
-		},
-	};
-	InputLayout *inputLayout = draw_->CreateInputLayout(desc);
-	BlendState *blendOff = draw_->CreateBlendState({ false, 0xF });
-	DepthStencilStateDesc dsDesc{};
-	DepthStencilState *noDepthStencil = draw_->CreateDepthStencilState(dsDesc);
-	RasterState *rasterNoCull = draw_->CreateRasterState({});
-
-	PipelineDesc depalPipelineDesc{
-		Primitive::TRIANGLE_STRIP,   // Could have use a single triangle too (in which case we'd use LIST here) but want to be prepared to do subrectangles.
-		{ vertexShader_, fragShader },
-		inputLayout, noDepthStencil, blendOff, rasterNoCull, nullptr, samplers
-	};
-
-	Pipeline *pipeline = draw_->CreateGraphicsPipeline(depalPipelineDesc);
-
-	inputLayout->Release();
-	blendOff->Release();
-	noDepthStencil->Release();
-	rasterNoCull->Release();
-	fragShader->Release();
-
-	_assert_(pipeline);
-
-	TextureShader *depal = new TextureShader();
-	depal->pipeline = pipeline;
-	depal->code = fs;  // to std::string
-	return depal;
 }
 
-TextureShader *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETextureFormat textureFormat, GEBufferFormat bufferFormat, bool smoothedDepal) {
+Draw2DPipeline *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETextureFormat textureFormat, GEBufferFormat bufferFormat, bool smoothedDepal) {
 	using namespace Draw;
 
 	// Generate an ID for depal shaders.
@@ -245,7 +194,6 @@ TextureShader *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETex
 
 	auto shader = depalCache_.find(id);
 	if (shader != depalCache_.end()) {
-		TextureShader *depal = shader->second;
 		return shader->second;
 	}
 
@@ -260,8 +208,13 @@ TextureShader *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETex
 	config.smoothedDepal = smoothedDepal;
 
 	char *buffer = new char[4096];
-	GenerateDepalFs(buffer, config, draw_->GetShaderLanguageDesc());
-	TextureShader *ts = CreateShader(buffer);
+	Draw2DPipeline *ts = draw2D_->Create2DPipeline([=](ShaderWriter &writer) -> Draw2DPipelineInfo {
+		GenerateDepalFs(writer, config);
+		return Draw2DPipelineInfo{
+			config.bufferFormat == GE_FORMAT_DEPTH16 ? RASTER_DEPTH : RASTER_COLOR,
+			RASTER_COLOR,
+		};
+	});
 	delete[] buffer;
 
 	depalCache_[id] = ts;
@@ -293,7 +246,7 @@ std::string TextureShaderCache::DebugGetShaderString(std::string idstr, DebugSha
 	}
 }
 
-void TextureShaderCache::ApplyShader(TextureShader *shader, float bufferW, float bufferH, int renderW, int renderH, const KnownVertexBounds &bounds, u32 uoff, u32 voff) {
+void TextureShaderCache::ApplyShader(Draw2DPipeline *pipeline, float bufferW, float bufferH, int renderW, int renderH, const KnownVertexBounds &bounds, u32 uoff, u32 voff) {
 	Draw2DVertex verts[4] = {
 		{-1, -1, 0, 0 },
 		{ 1, -1, 1, 0 },
@@ -335,7 +288,7 @@ void TextureShaderCache::ApplyShader(TextureShader *shader, float bufferW, float
 	}
 
 	Draw::Viewport vp{ 0.0f, 0.0f, (float)renderW, (float)renderH, 0.0f, 1.0f };
-	draw_->BindPipeline(shader->pipeline);
+	draw_->BindPipeline(pipeline->pipeline);
 	draw_->SetViewports(1, &vp);
 	draw_->SetScissorRect(0, 0, renderW, renderH);
 	draw_->DrawUP((const uint8_t *)verts, 4);

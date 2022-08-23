@@ -105,8 +105,8 @@ inline int dimHeight(u16 dim) {
 
 // Vulkan color formats:
 // TODO
-TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw)
-	: draw_(draw) {
+TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D)
+	: draw_(draw), draw2D_(draw2D) {
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 
 	// TODO: Clamp down to 256/1KB?  Need to check mipmapShareClut and clamp loadclut.
@@ -124,7 +124,7 @@ TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw)
 
 	replacer_.Init();
 
-	textureShaderCache_ = new TextureShaderCache(draw);
+	textureShaderCache_ = new TextureShaderCache(draw, draw2D_);
 }
 
 TextureCacheCommon::~TextureCacheCommon() {
@@ -1885,7 +1885,7 @@ static bool CanUseSmoothDepal(const GPUgstate &gstate, GEBufferFormat framebuffe
 }
 
 void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel) {
-	TextureShader *textureShader = nullptr;
+	Draw2DPipeline *textureShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
 	bool depth = channel == RASTER_DEPTH;

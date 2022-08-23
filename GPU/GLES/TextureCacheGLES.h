@@ -34,7 +34,7 @@ class GLRTexture;
 
 class TextureCacheGLES : public TextureCacheCommon {
 public:
-	TextureCacheGLES(Draw::DrawContext *draw);
+	TextureCacheGLES(Draw::DrawContext *draw, Draw2D *draw2D);
 	~TextureCacheGLES();
 
 	void Clear(bool delete_them) override;

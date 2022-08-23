@@ -20,11 +20,7 @@ static const SamplerDef samplers[1] = {
 // TODO: We could possibly have an option to preserve any extra color precision? But gonna start without it.
 // Requires full size integer math. It would be possible to make a floating point-only version with lots of
 // modulo and stuff, might do it one day.
-void GenerateReinterpretFragmentShader(char *buffer, GEBufferFormat from, GEBufferFormat to, const ShaderLanguageDesc &lang) {
-	_assert_(lang.bitwiseOps);
-
-	ShaderWriter writer(buffer, lang, ShaderStage::Fragment);
-
+Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBufferFormat from, GEBufferFormat to) {
 	writer.HighPrecisionFloat();
 
 	writer.DeclareSamplers(samplers);
@@ -70,21 +66,12 @@ void GenerateReinterpretFragmentShader(char *buffer, GEBufferFormat from, GEBuff
 	}
 
 	writer.EndFSMain("outColor", FSFLAG_NONE);
+
+	return Draw2DPipelineInfo{
+		RASTER_COLOR,
+		RASTER_COLOR,
+	};
 }
-
-void GenerateReinterpretVertexShader(char *buffer, const ShaderLanguageDesc &lang) {
-	_assert_(lang.bitwiseOps);
-	ShaderWriter writer(buffer, lang, ShaderStage::Vertex);
-
-	writer.BeginVSMain(Slice<InputDef>::empty(), Slice<UniformDef>::empty(), varyings);
-
-	writer.C("  float x = -1.0 + float((gl_VertexIndex & 1) << 2);\n");
-	writer.C("  float y = -1.0 + float((gl_VertexIndex & 2) << 1);\n");
-	writer.C("  v_texcoord = (vec2(x, y) + vec2(1.0, 1.0)) * 0.5;\n");
-	writer.C("  gl_Position = vec4(x, y, 0.0, 1.0);\n");
-	writer.EndVSMain(varyings);
-}
-
 
 // Can't easily dynamically create these strings, we just pass along the pointer.
 static const char *reinterpretStrings[3][3] = {
@@ -150,60 +137,15 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 		return;
 	}
 
-	if (!reinterpretVS_) {
-		char *vsCode = new char[4000];
-		const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
-		GenerateReinterpretVertexShader(vsCode, shaderLanguageDesc);
-		reinterpretVS_ = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)vsCode, strlen(vsCode), "reinterpret_vs");
-		_assert_(reinterpretVS_);
-		delete[] vsCode;
-	}
-
-	if (!reinterpretSampler_) {
-		Draw::SamplerStateDesc samplerDesc{};
-		samplerDesc.magFilter = Draw::TextureFilter::LINEAR;
-		samplerDesc.minFilter = Draw::TextureFilter::LINEAR;
-		reinterpretSampler_ = draw_->CreateSamplerState(samplerDesc);
-	}
-
-	if (!reinterpretVBuf_) {
-		reinterpretVBuf_ = draw_->CreateBuffer(12 * 3, Draw::BufferUsageFlag::DYNAMIC | Draw::BufferUsageFlag::VERTEXDATA);
-	}
-
 	// See if we need to create a new pipeline.
 
-	Draw::Pipeline *pipeline = reinterpretFromTo_[(int)oldFormat][(int)newFormat];
+	Draw2DPipeline *pipeline = reinterpretFromTo_[(int)oldFormat][(int)newFormat];
 	if (!pipeline) {
-		char *fsCode = new char[4000];
-		const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
-		GenerateReinterpretFragmentShader(fsCode, oldFormat, newFormat, shaderLanguageDesc);
-		Draw::ShaderModule *reinterpretFS = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), "reinterpret_fs");
-		_assert_(reinterpretFS);
-		delete[] fsCode;
+		pipeline = draw2D_.Create2DPipeline([=](ShaderWriter &shaderWriter) -> Draw2DPipelineInfo {
+			return GenerateReinterpretFragmentShader(shaderWriter, oldFormat, newFormat);
+		});
 
-		std::vector<Draw::ShaderModule *> shaders;
-		shaders.push_back(reinterpretVS_);
-		shaders.push_back(reinterpretFS);
-
-		using namespace Draw;
-		Draw::PipelineDesc desc{};
-		// We use a "fullscreen triangle".
-		// TODO: clear the stencil buffer. Hard to actually initialize it with the new alpha, though possible - let's see if
-		// we need it.
-		DepthStencilState *depth = draw_->CreateDepthStencilState({ false, false, Comparison::LESS });
-		BlendState *blendstateOff = draw_->CreateBlendState({ false, 0xF });
-		RasterState *rasterNoCull = draw_->CreateRasterState({});
-
-		// No uniforms for these, only a single texture input.
-		PipelineDesc pipelineDesc{ Primitive::TRIANGLE_LIST, shaders, nullptr, depth, blendstateOff, rasterNoCull, nullptr };
-		pipeline = draw_->CreateGraphicsPipeline(pipelineDesc);
-		_assert_(pipeline != nullptr);
 		reinterpretFromTo_[(int)oldFormat][(int)newFormat] = pipeline;
-
-		depth->Release();
-		blendstateOff->Release();
-		rasterNoCull->Release();
-		reinterpretFS->Release();
 	}
 
 	// Copy to a temp framebuffer.
@@ -213,18 +155,9 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 	// itself while writing.
 	draw_->InvalidateCachedState();
 	draw_->CopyFramebufferImage(vfb->fbo, 0, 0, 0, 0, temp, 0, 0, 0, 0, vfb->renderWidth, vfb->renderHeight, 1, Draw::FBChannel::FB_COLOR_BIT, "reinterpret_prep");
-	draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, reinterpretStrings[(int)oldFormat][(int)newFormat]);
-	draw_->BindPipeline(pipeline);
-	draw_->BindFramebufferAsTexture(temp, 0, Draw::FBChannel::FB_COLOR_BIT, 0);
-	draw_->BindSamplerStates(0, 1, &reinterpretSampler_);
-	draw_->SetScissorRect(0, 0, vfb->renderWidth, vfb->renderHeight);
-	Draw::Viewport vp = Draw::Viewport{ 0.0f, 0.0f, (float)vfb->renderWidth, (float)vfb->renderHeight, 0.0f, 1.0f };
-	draw_->SetViewports(1, &vp);
-	// Vertex buffer not used - vertices generated in shader.
-	// TODO: Switch to a vertex buffer for GLES2/D3D9 compat.
-	draw_->BindVertexBuffers(0, 1, &reinterpretVBuf_, nullptr);
-	draw_->Draw(3, 0);
-	draw_->InvalidateCachedState();
+
+	BlitUsingRaster(temp, 0.0f, 0.0f, vfb->renderWidth, vfb->renderHeight,
+		vfb->fbo, 0.0f, 0.0f, vfb->renderWidth, vfb->renderHeight, false, pipeline, "reinterpret");
 
 	// Unbind.
 	draw_->BindTexture(0, nullptr);
