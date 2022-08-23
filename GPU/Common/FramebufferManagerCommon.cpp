@@ -2422,9 +2422,6 @@ void FramebufferManagerCommon::DeviceLost() {
 			DoRelease(reinterpretFromTo_[i][j]);
 		}
 	}
-	DoRelease(reinterpretVBuf_);
-	DoRelease(reinterpretSampler_);
-	DoRelease(reinterpretVS_);
 	DoRelease(stencilUploadSampler_);
 	DoRelease(stencilUploadPipeline_);
 	DoRelease(draw2DSamplerNearest_);
