@@ -185,11 +185,6 @@ bool TestReinterpretShaders() {
 
 		ShaderLanguageDesc desc(languages[k]);
 
-		// These require bitwise operations.
-		if (!desc.bitwiseOps) {
-			continue;
-		}
-
 		std::string errorMessage;
 
 		for (int i = 0; i < 3; i++) {

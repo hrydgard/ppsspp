@@ -687,7 +687,7 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 				pipeline = Get2DPipeline(DRAW2D_COPY_COLOR);
 				pass_name = "copy_color";
 			} else if (IsBufferFormat16Bit(src->fb_format) && IsBufferFormat16Bit(dst->fb_format)) {
-				if (PSP_CoreParameter().compat.flags().ReinterpretFramebuffers && draw_->GetDeviceCaps().fragmentShaderInt32Supported) {
+				if (PSP_CoreParameter().compat.flags().ReinterpretFramebuffers) {
 					if (PSP_CoreParameter().compat.flags().BlueToAlpha) {
 						WARN_LOG_ONCE(bta, G3D, "WARNING: Reinterpret encountered with BlueToAlpha on");
 					}

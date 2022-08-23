@@ -65,8 +65,44 @@ Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBuf
 			break;
 		}
 	} else {
-		// TODO
-		writer.C("outColor = vec4(1.0, 0.0, 1.0, 1.0);\n");
+		// Floating point can comfortably represent integers up to 16 million, we only need 65536 since these textures are 16-bit.
+		switch (from) {
+		case GE_FORMAT_4444:
+			writer.C("  float color = (floor(val.r * 15.99) + floor(val.g * 15.99) * 16.0) + (floor(val.b * 15.99) * 256.0 + floor(val.a * 15.99) * 4096.0);\n");
+			break;
+		case GE_FORMAT_5551:
+			writer.C("  float color = floor(val.r * 31.99) + floor(val.g * 31.99) * 32.0 + floor(val.b * 31.99) * 1024.0;\n");
+			writer.C("  if (val.a >= 0.5) color += 32768.0;\n");
+			break;
+		case GE_FORMAT_565:
+			writer.C("  float color = floor(val.r * 31.99) + floor(val.g * 63.99) * 32.0 + floor(val.b * 31.99) * 2048.0;\n");
+			break;
+		default:
+			_assert_(false);
+			break;
+		}
+
+		switch (to) {
+		case GE_FORMAT_4444:
+			writer.C("  vec4 outColor = vec4(mod(floor(color), 16.0), mod(floor(color / 16.0), 16.0),");
+			writer.C("                       mod(floor(color / 256.0), 16.0), mod(floor(color / 4096.0), 16.0)); \n");
+			writer.C("  outColor *= 1.0 / 15.0;\n");
+			break;
+		case GE_FORMAT_5551:
+			writer.C("  vec4 outColor = vec4(mod(floor(color), 32.0), mod(floor(color / 32.0), 32.0), mod(floor(color / 1024.0), 32.0), 0.0);\n");
+			writer.C("  outColor.rgb *= 1.0 / 31.0;\n");
+			writer.C("  outColor.a = floor(color / 32768.0);\n");
+			break;
+		case GE_FORMAT_565:
+			writer.C("  vec4 outColor = vec4(mod(floor(color), 32.0), mod(floor(color / 32.0), 64.0), mod(floor(color / 2048.0), 32.0), 0.0);\n");
+			writer.C("  outColor.rb *= 1.0 / 31.0;\n");
+			writer.C("  outColor.g *= 1.0 / 63.0;\n");
+			writer.C("  outColor.a = 1.0;\n");
+			break;
+		default:
+			_assert_(false);
+			break;
+		}
 	}
 
 	writer.EndFSMain("outColor", FSFLAG_NONE);
