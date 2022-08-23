@@ -662,6 +662,8 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 
 	draw_->InvalidateCachedState();
 
+	bool tookActions = false;
+
 	for (const CopySource &source : sources) {
 		VirtualFramebuffer *src = source.vfb;
 
@@ -678,32 +680,61 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 		int dstY2 = dstY1 + dstHeight;
 
 		if (source.channel == RASTER_COLOR) {
+			Draw2DPipeline *pipeline = nullptr;
+			const char *pass_name = "N/A";
 			if (src->fb_format == dst->fb_format) {
 				gpuStats.numColorCopies++;
-
-				BlitUsingRaster(src->fbo, 0.0f, 0.0f, srcWidth, srcHeight,
-					dst->fbo, dstX1, dstY1, dstX2, dstY2, false, Get2DPipeline(DRAW2D_COPY_COLOR), "copy_color");
+				pipeline = Get2DPipeline(DRAW2D_COPY_COLOR);
+				pass_name = "copy_color";
 			} else if (IsBufferFormat16Bit(src->fb_format) && IsBufferFormat16Bit(dst->fb_format)) {
-				// Reinterpret!
-				// WARN_LOG(G3D, "Reinterpret detected from %08x_%s to %08x_%s",
-				// 	src->fb_address, GeBufferFormatToString(src->fb_format),
-				//	dst->fb_address, GeBufferFormatToString(dst->fb_format));
+				if (PSP_CoreParameter().compat.flags().ReinterpretFramebuffers && draw_->GetDeviceCaps().fragmentShaderInt32Supported) {
+					if (PSP_CoreParameter().compat.flags().BlueToAlpha) {
+						WARN_LOG_ONCE(bta, G3D, "WARNING: Reinterpret encountered with BlueToAlpha on");
+					}
 
-				Draw2DPipeline *pipeline = reinterpretFromTo_[(int)src->fb_format][(int)dst->fb_format];
-				if (!pipeline) {
-					pipeline = draw2D_.Create2DPipeline([=](ShaderWriter &shaderWriter) -> Draw2DPipelineInfo {
-						return GenerateReinterpretFragmentShader(shaderWriter, src->fb_format, dst->fb_format);
-					});
+					// Reinterpret!
+					WARN_LOG_N_TIMES(reint, 20, G3D, "Reinterpret detected from %08x_%s to %08x_%s",
+						src->fb_address, GeBufferFormatToString(src->fb_format),
+						dst->fb_address, GeBufferFormatToString(dst->fb_format));
+					pipeline = reinterpretFromTo_[(int)src->fb_format][(int)dst->fb_format];
+					pass_name = reinterpretStrings[(int)src->fb_format][(int)dst->fb_format];
+					if (!pipeline) {
+						pipeline = draw2D_.Create2DPipeline([=](ShaderWriter &shaderWriter) -> Draw2DPipelineInfo {
+							return GenerateReinterpretFragmentShader(shaderWriter, src->fb_format, dst->fb_format);
+						});
+						reinterpretFromTo_[(int)src->fb_format][(int)dst->fb_format] = pipeline;
+					}
+					gpuStats.numReinterpretCopies++;
+				} else {
+					// Fake reinterpret - just clear the way we always did on Vulkan. Just clear color and stencil.
+					if (src->fb_format == GE_FORMAT_565) {
+						// We have to bind here instead of clear, since it can be that no framebuffer is bound.
+						// The backend can sometimes directly optimize it to a clear.
 
-					reinterpretFromTo_[(int)src->fb_format][(int)dst->fb_format] = pipeline;
+						// Games that are marked as doing reinterpret just ignore this - better to keep the data than to clear.
+						// Fixes #13717.
+						if (!PSP_CoreParameter().compat.flags().ReinterpretFramebuffers && !PSP_CoreParameter().compat.flags().BlueToAlpha) {
+							draw_->BindFramebufferAsRenderTarget(dst->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "FakeReinterpret");
+							// Need to dirty anything that has command buffer dynamic state, in case we started a new pass above.
+							// Should find a way to feed that information back, maybe... Or simply correct the issue in the rendermanager.
+							gstate_c.Dirty(DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE);
+						}
+					}
+					tookActions = true;
 				}
-				gpuStats.numReinterpretCopies++;
+			}
 
+			if (pipeline) {
+				tookActions = true;
 				// OK we have the pipeline, now just do the blit.
 				BlitUsingRaster(src->fbo, 0.0f, 0.0f, srcWidth, srcHeight,
-					dst->fbo, dstX1, dstY1, dstX2, dstY2, false, pipeline, reinterpretStrings[(int)src->fb_format][(int)dst->fb_format]);
+					dst->fbo, dstX1, dstY1, dstX2, dstY2, false, pipeline, pass_name);
 			}
 		}
+	}
+
+	if (dst != currentRenderVfb_ && tookActions) {
+		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "After FakeReinterpret");
 	}
 
 	shaderManager_->DirtyLastShader();
@@ -1349,6 +1380,10 @@ void FramebufferManagerCommon::DecimateFBOs() {
 	}
 }
 
+static size_t FormatFramebufferName(VirtualFramebuffer *vfb, char *tag, size_t len) {
+	return snprintf(tag, len, "FB_%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, vfb->bufferWidth, vfb->bufferHeight, GeBufferFormatToString(vfb->fb_format));
+}
+
 // Requires width/height to be set already.
 void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force, bool skipCopy) {
 	_dbg_assert_(w > 0);
@@ -1418,7 +1453,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 
 	shaderManager_->DirtyLastShader();
 	char tag[128];
-	size_t len = snprintf(tag, sizeof(tag), "FB_%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, w, h, GeBufferFormatToString(vfb->fb_format));
+	size_t len = FormatFramebufferName(vfb, tag, sizeof(tag));
 	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, tag });
 	if (Memory::IsVRAMAddress(vfb->fb_address) && vfb->fb_stride != 0) {
 		NotifyMemInfo(MemBlockFlags::ALLOC, vfb->fb_address, ColorBufferByteSize(vfb), tag, len);
@@ -2697,8 +2732,16 @@ VirtualFramebuffer *FramebufferManagerCommon::ResolveFramebufferColorToFormat(Vi
 	}
 
 	if (!vfb) {
-		// Create it!
-		_dbg_assert_(false);
+		WARN_LOG(G3D, "Creating %s clone of %08x/%08x/%s", GeBufferFormatToString(newFormat), src->fb_address, src->z_address, GeBufferFormatToString(src->fb_format));
+
+		// Create a clone!
+		vfb = new VirtualFramebuffer();
+		*vfb = *src;  // Copies everything, but watch out! Can't copy fbo.
+		vfb->fb_format = newFormat;
+		char tag[128];
+		FormatFramebufferName(vfb, tag, sizeof(tag));
+		vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, tag });
+		vfbs_.push_back(vfb);
 	}
 
 	// OK, now resolve it so we can texture from it.
