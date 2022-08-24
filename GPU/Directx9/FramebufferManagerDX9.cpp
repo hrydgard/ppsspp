@@ -140,7 +140,7 @@
 		}
 
 		const u32 fb_address = vfb->fb_address & 0x3FFFFFFF;
-		const int dstBpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
+		const int dstBpp = vfb->fb_format == GE_FORMAT_8888 ? 4 : 2;
 
 		// We always need to convert from the framebuffer native format.
 		// Right now that's always 8888.
@@ -163,7 +163,7 @@
 					// TODO: Handle the other formats?  We don't currently create them, I think.
 					const int dstByteOffset = (y * vfb->fb_stride + x) * dstBpp;
 					// Pixel size always 4 here because we always request BGRA8888.
-					ConvertFromBGRA8888(Memory::GetPointerWrite(fb_address + dstByteOffset), (u8 *)locked.pBits, vfb->fb_stride, locked.Pitch / 4, w, h, vfb->format);
+					ConvertFromBGRA8888(Memory::GetPointerWrite(fb_address + dstByteOffset), (u8 *)locked.pBits, vfb->fb_stride, locked.Pitch / 4, w, h, vfb->fb_format);
 					offscreen->UnlockRect();
 				} else {
 					ERROR_LOG_REPORT(G3D, "Unable to lock rect from %08x: %d,%d %dx%d of %dx%d", fb_address, (int)rect.left, (int)rect.top, (int)rect.right, (int)rect.bottom, vfb->renderWidth, vfb->renderHeight);

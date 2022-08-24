@@ -24,14 +24,14 @@
 #include "GPU/Common/TextureCacheCommon.h"
 
 struct VirtualFramebuffer;
-class DepalShaderCache;
+class TextureShaderCache;
 
 class FramebufferManagerDX9;
 class ShaderManagerDX9;
 
 class TextureCacheDX9 : public TextureCacheCommon {
 public:
-	TextureCacheDX9(Draw::DrawContext *draw);
+	TextureCacheDX9(Draw::DrawContext *draw, Draw2D *draw2D);
 	~TextureCacheDX9();
 
 	void StartFrame() override;

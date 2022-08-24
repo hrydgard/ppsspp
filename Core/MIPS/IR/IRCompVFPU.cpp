@@ -330,6 +330,8 @@ namespace MIPSComp {
 				ir.Write(IROp::LoadVec4, vregs[0], rs, ir.AddConstant(imm));
 			} else {
 				// Let's not even bother with "vertical" loads for now.
+				if (!g_Config.bFastMemory)
+					ir.Write({ IROp::ValidateAddress128, { 0 }, (u8)rs, 0, (u32)imm });
 				ir.Write(IROp::LoadFloat, vregs[0], rs, ir.AddConstant(imm));
 				ir.Write(IROp::LoadFloat, vregs[1], rs, ir.AddConstant(imm + 4));
 				ir.Write(IROp::LoadFloat, vregs[2], rs, ir.AddConstant(imm + 8));
@@ -342,6 +344,8 @@ namespace MIPSComp {
 				ir.Write(IROp::StoreVec4, vregs[0], rs, ir.AddConstant(imm));
 			} else {
 				// Let's not even bother with "vertical" stores for now.
+				if (!g_Config.bFastMemory)
+					ir.Write({ IROp::ValidateAddress128, { 0 }, (u8)rs, 1, (u32)imm });
 				ir.Write(IROp::StoreFloat, vregs[0], rs, ir.AddConstant(imm));
 				ir.Write(IROp::StoreFloat, vregs[1], rs, ir.AddConstant(imm + 4));
 				ir.Write(IROp::StoreFloat, vregs[2], rs, ir.AddConstant(imm + 8));

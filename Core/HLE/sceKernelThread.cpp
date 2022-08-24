@@ -1086,6 +1086,12 @@ void __KernelStartIdleThreads(SceUID moduleId)
 	}
 }
 
+void KernelValidateThreadTarget(uint32_t pc) {
+	if (!Memory::IsValidAddress(pc) || (pc & 3) != 0) {
+		Core_ExecException(pc, currentMIPS->pc, ExecExceptionType::THREAD);
+	}
+}
+
 bool __KernelSwitchOffThread(const char *reason)
 {
 	if (!reason)
@@ -1141,9 +1147,7 @@ bool __KernelSwitchToThread(SceUID threadID, const char *reason)
 		if (current && current->isRunning())
 			__KernelChangeReadyState(current, currentThread, true);
 
-		if (!Memory::IsValidAddress(t->context.pc)) {
-			Core_ExecException(t->context.pc, currentMIPS->pc, ExecExceptionType::THREAD);
-		}
+		KernelValidateThreadTarget(t->context.pc);
 
 		__KernelSwitchContext(t, reason);
 		return true;
@@ -1471,9 +1475,7 @@ void __KernelLoadContext(PSPThreadContext *ctx, bool vfpuEnabled) {
 		memcpy(currentMIPS->vfpuCtrl, ctx->vfpuCtrl, sizeof(ctx->vfpuCtrl));
 	}
 
-	if (!Memory::IsValidAddress(ctx->pc)) {
-		Core_ExecException(ctx->pc, currentMIPS->pc, ExecExceptionType::THREAD);
-	}
+	KernelValidateThreadTarget(ctx->pc);
 
 	memcpy(currentMIPS->other, ctx->other, sizeof(ctx->other));
 	// Not locking here, we assume the jit isn't switched during execution.
@@ -1924,9 +1926,7 @@ SceUID __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int 
 
 	strcpy(thread->nt.name, "root");
 
-	if (!Memory::IsValidAddress(thread->context.pc)) {
-		Core_ExecException(thread->context.pc, currentMIPS->pc, ExecExceptionType::THREAD);
-	}
+	KernelValidateThreadTarget(thread->context.pc);
 
 	__KernelLoadContext(&thread->context, (attr & PSP_THREAD_ATTR_VFPU) != 0);
 	currentMIPS->r[MIPS_REG_A0] = args;
@@ -2057,9 +2057,7 @@ int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bo
 
 	// Smaller is better for priority.  Only switch if the new thread is better.
 	if (cur && cur->nt.currentPriority > startThread->nt.currentPriority) {
-		if (!Memory::IsValidAddress(startThread->context.pc)) {
-			Core_ExecException(startThread->context.pc, currentMIPS->pc, ExecExceptionType::THREAD);
-		}
+		KernelValidateThreadTarget(startThread->context.pc);
 		__KernelChangeReadyState(cur, currentThread, true);
 		if (__InterruptsEnabled())
 			hleReSchedule("thread started");
@@ -2939,9 +2937,7 @@ u32 sceKernelExtendThreadStack(u32 size, u32 entryAddr, u32 entryParameter)
 	Memory::Write_U32(currentMIPS->r[MIPS_REG_SP], thread->currentStack.end - 8);
 	Memory::Write_U32(currentMIPS->pc, thread->currentStack.end - 12);
 
-	if (!Memory::IsValidAddress(entryAddr)) {
-		Core_ExecException(entryAddr, currentMIPS->pc, ExecExceptionType::THREAD);
-	}
+	KernelValidateThreadTarget(entryAddr);
 
 	currentMIPS->pc = entryAddr;
 	currentMIPS->r[MIPS_REG_A0] = entryParameter;
@@ -2975,9 +2971,7 @@ void __KernelReturnFromExtendStack()
 		return;
 	}
 
-	if (!Memory::IsValidAddress(restorePC)) {
-		Core_ExecException(restorePC, currentMIPS->pc, ExecExceptionType::THREAD);
-	}
+	KernelValidateThreadTarget(restorePC);
 
 	DEBUG_LOG(SCEKERNEL, "__KernelReturnFromExtendStack()");
 	currentMIPS->r[MIPS_REG_RA] = restoreRA;
@@ -3259,9 +3253,7 @@ bool __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter)
 	call->savedId = cur->currentMipscallId;
 	call->reschedAfter = reschedAfter;
 
-	if (!Memory::IsValidAddress(call->entryPoint)) {
-		Core_ExecException(call->entryPoint, currentMIPS->pc, ExecExceptionType::THREAD);
-	}
+	KernelValidateThreadTarget(call->entryPoint);
 
 	// Set up the new state
 	currentMIPS->pc = call->entryPoint;
@@ -3312,9 +3304,7 @@ void __KernelReturnFromMipsCall()
 	currentMIPS->r[MIPS_REG_RA] = Memory::Read_U32(sp + MIPS_REG_RA * 4);
 	sp += 32 * 4;
 
-	if (!Memory::IsValidAddress(call->savedPc)) {
-		Core_ExecException(call->savedPc, currentMIPS->pc, ExecExceptionType::THREAD);
-	}
+	KernelValidateThreadTarget(call->savedPc);
 
 	currentMIPS->pc = call->savedPc;
 	// This is how we set the return value.

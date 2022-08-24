@@ -35,7 +35,6 @@
 #include "GPU/GeDisasm.h"
 
 #include "GPU/Common/FramebufferManagerCommon.h"
-#include "GPU/Debugger/Debugger.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
 #include "GPU/D3D11/GPU_D3D11.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"
@@ -60,7 +59,7 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	shaderManagerD3D11_ = new ShaderManagerD3D11(draw, device_, context_, featureLevel);
 	framebufferManagerD3D11_ = new FramebufferManagerD3D11(draw);
 	framebufferManager_ = framebufferManagerD3D11_;
-	textureCacheD3D11_ = new TextureCacheD3D11(draw);
+	textureCacheD3D11_ = new TextureCacheD3D11(draw, framebufferManager_->GetDraw2D());
 	textureCache_ = textureCacheD3D11_;
 	drawEngineCommon_ = &drawEngine_;
 	shaderManager_ = shaderManagerD3D11_;
@@ -239,13 +238,6 @@ void GPU_D3D11::BeginFrame() {
 	gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 }
 
-void GPU_D3D11::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
-	// TODO: Some games like Spongebob - Yellow Avenger, never change framebuffer, they blit to it.
-	// So breaking on frames doesn't work. Might want to move this to sceDisplay vsync.
-	GPUDebug::NotifyDisplay(framebuf, stride, format);
-	framebufferManagerD3D11_->SetDisplayFramebuffer(framebuf, stride, format);
-}
-
 void GPU_D3D11::CopyDisplayToOutput(bool reallyDirty) {
 	// Flush anything left over.
 	drawEngine_.Flush();
@@ -332,8 +324,8 @@ std::vector<std::string> GPU_D3D11::DebugGetShaderIDs(DebugShaderType type) {
 	switch (type) {
 	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngine_.DebugGetVertexLoaderIDs();
-	case SHADER_TYPE_DEPAL:
-		return textureCache_->GetDepalShaderCache()->DebugGetShaderIDs(type);
+	case SHADER_TYPE_TEXTURE:
+		return textureCache_->GetTextureShaderCache()->DebugGetShaderIDs(type);
 	default:
 		return shaderManagerD3D11_->DebugGetShaderIDs(type);
 	}
@@ -343,8 +335,8 @@ std::string GPU_D3D11::DebugGetShaderString(std::string id, DebugShaderType type
 	switch (type) {
 	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
-	case SHADER_TYPE_DEPAL:
-		return textureCache_->GetDepalShaderCache()->DebugGetShaderString(id, type, stringType);
+	case SHADER_TYPE_TEXTURE:
+		return textureCache_->GetTextureShaderCache()->DebugGetShaderString(id, type, stringType);
 	default:
 		return shaderManagerD3D11_->DebugGetShaderString(id, type, stringType);
 	}

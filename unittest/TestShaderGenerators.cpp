@@ -190,34 +190,14 @@ bool TestReinterpretShaders() {
 			continue;
 		}
 
-		GenerateReinterpretVertexShader(buffer, desc);
-		std::string errorMessage;
-		if (!TestCompileShader(buffer, languages[k], ShaderStage::Vertex, &errorMessage)) {
-			printf("Error compiling fragment shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
-			failed = true;
-			return false;
-		} else {
-			//printf("===\n%s\n===\n", buffer);
-		}
-	}
-
-	for (int k = 0; k < ARRAY_SIZE(languages); k++) {
-		printf("=== %s ===\n\n", ShaderLanguageToString(languages[k]));
-
-		ShaderLanguageDesc desc(languages[k]);
-
-		// These require bitwise operations.
-		if (!desc.bitwiseOps) {
-			continue;
-		}
-
 		std::string errorMessage;
 
 		for (int i = 0; i < 3; i++) {
 			for (int j = 0; j < 3; j++) {
 				if (i == j)
 					continue;  // useless shader!
-				GenerateReinterpretFragmentShader(buffer, fmts[i], fmts[j], desc);
+				ShaderWriter writer(buffer, desc, ShaderStage::Fragment, nullptr, 0);
+				GenerateReinterpretFragmentShader(writer, fmts[i], fmts[j]);
 				if (!TestCompileShader(buffer, languages[k], ShaderStage::Fragment, &errorMessage)) {
 					printf("Error compiling fragment shader %d:\n\n%s\n\n%s\n", (int)j, LineNumberString(buffer).c_str(), errorMessage.c_str());
 					failed = true;
@@ -309,19 +289,12 @@ bool TestDepalShaders() {
 		config.shift = 8;
 		config.startPos = 64;
 		config.mask = 0xFF;
-		config.pixelFormat = GE_FORMAT_8888;
+		config.bufferFormat = GE_FORMAT_8888;
+		config.textureFormat = GE_TFMT_CLUT32;
 
-		GenerateDepalFs(buffer, config, desc);
+		ShaderWriter writer(buffer, desc, ShaderStage::Fragment);
+		GenerateDepalFs(writer, config);
 		if (!TestCompileShader(buffer, languages[k], ShaderStage::Fragment, &errorMessage)) {
-			printf("Error compiling depal shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
-			failed = true;
-			return false;
-		} else {
-			printf("===\n%s\n===\n", buffer);
-		}
-
-		GenerateDepalVs(buffer, desc);
-		if (!TestCompileShader(buffer, languages[k], ShaderStage::Vertex, &errorMessage)) {
 			printf("Error compiling depal shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
 			failed = true;
 			return false;

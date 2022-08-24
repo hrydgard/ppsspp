@@ -494,7 +494,6 @@ struct SamplerStateDesc {
 	TextureAddressMode wrapU;
 	TextureAddressMode wrapV;
 	TextureAddressMode wrapW;
-	float maxLod;
 	bool shadowCompareEnabled;
 	Comparison shadowCompareFunc;
 	BorderColor borderColor;

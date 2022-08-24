@@ -218,7 +218,7 @@ private:
 	// Secondary texture for shader blending
 	VkImageView boundSecondary_ = VK_NULL_HANDLE;
 	VkImageView boundDepal_ = VK_NULL_HANDLE;
-	VkSampler samplerSecondary_ = VK_NULL_HANDLE;  // This one is actually never used since we use fetch.
+	VkSampler samplerSecondary_ = VK_NULL_HANDLE;  // This one is actually never used since we use fetch (except in SmoothedDepal mode for Test Drive).
 
 	PrehashMap<VertexArrayInfoVulkan *, nullptr> vai_;
 	VulkanPushBuffer *vertexCache_;

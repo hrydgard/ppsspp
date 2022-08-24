@@ -36,7 +36,7 @@
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/Common/FragmentShaderGenerator.h"
-#include "GPU/Common/DepalettizeCommon.h"
+#include "GPU/Common/TextureShaderCommon.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -45,8 +45,8 @@
 #include <emmintrin.h>
 #endif
 
-TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw)
-	: TextureCacheCommon(draw) {
+TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw, Draw2D *draw2D)
+	: TextureCacheCommon(draw, draw2D) {
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	nextTexture_ = nullptr;
@@ -225,7 +225,7 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
 	ApplySamplingParams(samplerKey);
-	gstate_c.SetUseShaderDepal(false);
+	gstate_c.SetUseShaderDepal(false, false);
 }
 
 void TextureCacheGLES::Unbind() {
@@ -382,19 +382,8 @@ Draw::DataFormat TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPalet
 }
 
 bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
-	GPUgstate saved;
-	if (level != 0) {
-		saved = gstate;
-
-		// The way we set textures is a bit complex.  Let's just override level 0.
-		gstate.texsize[0] = gstate.texsize[level];
-		gstate.texaddr[0] = gstate.texaddr[level];
-		gstate.texbufwidth[0] = gstate.texbufwidth[level];
-	}
-
 	InvalidateLastTexture();
 	SetTexture();
-
 	if (!nextTexture_) {
 		if (nextFramebufferTexture_) {
 			VirtualFramebuffer *vfb = nextFramebufferTexture_;
@@ -427,10 +416,6 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level)
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
-	if (level != 0) {
-		gstate = saved;
-	}
-
 	bool result = entry->textureName != nullptr;
 	if (result) {
 		buffer.Allocate(w, h, GE_FORMAT_8888, false);
@@ -445,7 +430,7 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level)
 }
 
 void TextureCacheGLES::DeviceLost() {
-	depalShaderCache_->DeviceLost();
+	textureShaderCache_->DeviceLost();
 	Clear(false);
 	draw_ = nullptr;
 	render_ = nullptr;
@@ -454,5 +439,5 @@ void TextureCacheGLES::DeviceLost() {
 void TextureCacheGLES::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	depalShaderCache_->DeviceRestore(draw);
+	textureShaderCache_->DeviceRestore(draw);
 }

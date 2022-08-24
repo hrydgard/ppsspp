@@ -118,10 +118,20 @@ struct ReplacedTexture {
 	~ReplacedTexture();
 
 	inline bool Valid() const {
+		if (!initDone_)
+			return false;
 		return !levels_.empty();
 	}
 
+	inline bool IsInvalid() const {
+		if (!initDone_)
+			return false;
+		return levels_.empty();
+	}
+
 	bool GetSize(int level, int &w, int &h) const {
+		if (!initDone_)
+			return false;
 		if ((size_t)level < levels_.size()) {
 			w = levels_[level].w;
 			h = levels_[level].h;
@@ -131,12 +141,16 @@ struct ReplacedTexture {
 	}
 
 	int NumLevels() const {
+		if (!initDone_)
+			return 0;
 		return (int)levels_.size();
 	}
 
 	Draw::DataFormat Format(int level) const {
-		if ((size_t)level < levels_.size()) {
-			return levels_[level].fmt;
+		if (initDone_) {
+			if ((size_t)level < levels_.size()) {
+				return levels_[level].fmt;
+			}
 		}
 		return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
@@ -156,11 +170,13 @@ protected:
 
 	std::vector<ReplacedTextureLevel> levels_;
 	std::vector<std::vector<uint8_t>> levelData_;
-	ReplacedTextureAlpha alphaStatus_;
+	ReplacedTextureAlpha alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
 	double lastUsed_ = 0.0;
 	LimitedWaitable *threadWaitable_ = nullptr;
 	std::mutex mutex_;
 	bool cancelPrepare_ = false;
+	bool initDone_ = false;
+	bool prepareDone_ = false;
 
 	friend TextureReplacer;
 	friend ReplacedTextureTask;
@@ -196,7 +212,7 @@ public:
 
 	u32 ComputeHash(u32 addr, int bufw, int w, int h, GETextureFormat fmt, u16 maxSeenV);
 
-	ReplacedTexture &FindReplacement(u64 cachekey, u32 hash, int w, int h);
+	ReplacedTexture &FindReplacement(u64 cachekey, u32 hash, int w, int h, double budget);
 	bool FindFiltering(u64 cachekey, u32 hash, TextureFiltering *forceFiltering);
 	ReplacedTexture &FindNone() {
 		return none_;

@@ -23,8 +23,10 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/ShaderWriter.h"
 #include "Common/GPU/thin3d.h"
+#include "Core/Compatibility.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderUniforms.h"
@@ -88,9 +90,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	bool doFlatShading = id.Bit(FS_BIT_FLATSHADE) && !flatBug;
 	bool shaderDepal = id.Bit(FS_BIT_SHADER_DEPAL) && !texture3D;  // combination with texture3D not supported. Enforced elsewhere too.
+	bool smoothedDepal = id.Bit(FS_BIT_SHADER_SMOOTHED_DEPAL);
 	bool bgraTexture = id.Bit(FS_BIT_BGRA_TEXTURE);
 	bool colorWriteMask = id.Bit(FS_BIT_COLOR_WRITEMASK) && compat.bitwiseOps;
-	bool colorToDepth = id.Bit(FS_BIT_COLOR_TO_DEPTH);
 
 	GEComparison alphaTestFunc = (GEComparison)id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3);
 	GEComparison colorTestFunc = (GEComparison)id.Bits(FS_BIT_COLOR_TEST_FUNC, 2);
@@ -123,7 +125,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool readFramebufferTex = readFramebuffer && !gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH);
 
 	bool needFragCoord = readFramebuffer || gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
-	bool writeDepth = gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || colorToDepth;
+	bool writeDepth = gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
 
 	if (shaderDepal && !doTexture) {
 		*errorString = "depal requires a texture";
@@ -136,11 +138,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	if (compat.shaderLanguage == ShaderLanguage::GLSL_VULKAN) {
-		if (colorToDepth) {
-			WRITE(p, "precision highp int;\n");
-			WRITE(p, "precision highp float;\n");
-		}
-
 		if (useDiscardStencilBugWorkaround && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
 			WRITE(p, "layout (depth_unchanged) out float gl_FragDepth;\n");
 		}
@@ -293,7 +290,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "};\n");
 		}
 	} else if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
-		if ((shaderDepal || colorWriteMask || colorToDepth) && gl_extensions.IsGLES) {
+		if ((shaderDepal || colorWriteMask) && gl_extensions.IsGLES) {
 			WRITE(p, "precision highp int;\n");
 		}
 
@@ -461,9 +458,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		WRITE(p, "PS_OUT main( PS_IN In ) {\n");
 		WRITE(p, "  PS_OUT outfragment;\n");
 		WRITE(p, "  vec4 target;\n");
-		if (colorToDepth) {
-			WRITE(p, "  float gl_FragDepth;\n");
-		}
 	} else {
 		WRITE(p, "void main() {\n");
 	}
@@ -599,6 +593,31 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 						}
 					}
 				}
+			} else if (shaderDepal && smoothedDepal) {
+				// Specific mode for Test Drive. Fixes the banding.
+				if (doTextureProjection) {
+					// We don't use textureProj because we need better control and it's probably not much of a savings anyway.
+					// However it is good for precision on older hardware like PowerVR.
+					WRITE(p, "  vec2 uv = %s.xy/%s.z;\n  vec2 uv_round;\n", texcoord, texcoord);
+				} else {
+					WRITE(p, "  vec2 uv = %s.xy;\n  vec2 uv_round;\n", texcoord);
+				}
+				// Restrictions on this are checked before setting the smoothed flag.
+				// Only RGB565 and RGBA5551 are supported, and only the specific shifts hitting the
+				// channels directly.
+				WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord);
+				WRITE(p, "  uint depalShift = (u_depal_mask_shift_off_fmt >> 8) & 0xFFU;\n");
+				WRITE(p, "  uint depalFmt = (u_depal_mask_shift_off_fmt >> 24) & 0x3U;\n");
+				WRITE(p, "  float index0 = t.r;\n");
+				WRITE(p, "  float mul = 32.0 / 256.0;\n");
+				WRITE(p, "  if (depalFmt == 0) {\n");  // yes, different versions of Test Drive use different formats. Could do compile time by adding more compat flags but meh.
+				WRITE(p, "    if (depalShift == 5) { index0 = t.g; mul = 64.0 / 256.0; }\n");
+				WRITE(p, "    else if (depalShift == 11) { index0 = t.b; }\n");
+				WRITE(p, "  } else {\n");
+				WRITE(p, "    if (depalShift == 5) { index0 = t.g; }\n");
+				WRITE(p, "    else if (depalShift == 10) { index0 = t.b; }\n");
+				WRITE(p, "  }\n");
+				WRITE(p, "  t = %s(pal, vec2(index0 * mul, 0.0));\n", compat.texture);
 			} else {
 				if (doTextureProjection) {
 					// We don't use textureProj because we need better control and it's probably not much of a savings anyway.
@@ -1068,22 +1087,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	if (blueToAlpha) {
 		WRITE(p, "  %s = vec4(0.0, 0.0, 0.0, %s.z);  // blue to alpha\n", compat.fragColor0, compat.fragColor0);
-	}
-
-	if (colorToDepth) {
-		DepthScaleFactors factors = GetDepthScaleFactors();
-
-		if (compat.bitwiseOps) {
-			WRITE(p, "  highp float depthValue = float(int(%s.x * 31.99) | (int(%s.y * 63.99) << 5) | (int(%s.z * 31.99) << 11)) / 65535.0;\n", "v", "v", "v"); // compat.fragColor0, compat.fragColor0, compat.fragColor0);
-		} else {
-			// D3D9-compatible alternative
-			WRITE(p, "  highp float depthValue = (floor(%s.x * 31.99) + floor(%s.y * 63.99) * 32.0 + floor(%s.z * 31.99) * 2048.0) / 65535.0;\n", "v", "v", "v"); // compat.fragColor0, compat.fragColor0, compat.fragColor0);
-		}
-		if (factors.scale != 1.0 || factors.offset != 0.0) {
-			WRITE(p, "  gl_FragDepth = (depthValue / %f) + %f;\n", factors.scale / 65535.0f, factors.offset);
-		} else {
-			WRITE(p, "  gl_FragDepth = depthValue;\n");
-		}
 	}
 
 	if (gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {

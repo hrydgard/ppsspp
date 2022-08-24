@@ -327,7 +327,7 @@ SOURCES_CXX += \
 	$(GPUCOMMONDIR)/ShaderCommon.cpp \
 	$(GPUCOMMONDIR)/ShaderUniforms.cpp \
 	$(GPUCOMMONDIR)/GPUDebugInterface.cpp \
-	$(GPUCOMMONDIR)/DepalettizeCommon.cpp \
+	$(GPUCOMMONDIR)/TextureShaderCommon.cpp \
 	$(GPUCOMMONDIR)/DepalettizeShaderCommon.cpp \
 	$(GPUCOMMONDIR)/TransformCommon.cpp \
 	$(GPUCOMMONDIR)/IndexGenerator.cpp \

@@ -435,6 +435,11 @@ inline bool IsBufferFormat16Bit(GEBufferFormat bfmt) {
 inline bool IsTextureFormat16Bit(GETextureFormat tfmt) {
 	return (int)tfmt < 3;
 }
+
+inline int BufferFormatBytesPerPixel(GEBufferFormat format) {
+	return format == GE_FORMAT_8888 ? 4 : 2;  // applies to depth as well.
+}
+
 inline bool TextureFormatMatchesBufferFormat(GETextureFormat fmt, GEBufferFormat bfmt) {
 	// First four matches perfectly.
 	if ((int)fmt < 4) {

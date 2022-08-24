@@ -649,11 +649,13 @@ void CGEDebugger::SecondPreviewHover(int x, int y) {
 		}
 		DescribeSecondPreview(state, desc);
 	} else {
-		u32 pix = secondBuffer_->GetRawPixel(x, y);
 		if (showClut_) {
-			// Show the clut index, rather than coords.
-			DescribePixel(pix, secondBuffer_->GetFormat(), y * 16 + x, 0, desc);
+			// Use the clut index, rather than coords.
+			uint32_t clutWidth = secondBuffer_->GetStride() / 16;
+			u32 pix = secondBuffer_->GetRawPixel(y * clutWidth + x, 0);
+			DescribePixel(pix, secondBuffer_->GetFormat(), y * clutWidth + x, 0, desc);
 		} else {
+			u32 pix = secondBuffer_->GetRawPixel(x, y);
 			DescribePixel(pix, secondBuffer_->GetFormat(), x, y, desc);
 		}
 	}
@@ -975,6 +977,10 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 		case IDC_GEDBG_STEPFRAME:
 			SetBreakNext(BreakNext::FRAME);
+			break;
+
+		case IDC_GEDBG_STEPVSYNC:
+			SetBreakNext(BreakNext::VSYNC);
 			break;
 
 		case IDC_GEDBG_STEPPRIM:

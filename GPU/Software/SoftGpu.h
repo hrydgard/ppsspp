@@ -216,7 +216,7 @@ private:
 };
 
 // TODO: These shouldn't be global.
-extern u32 clut[4096];
+extern uint8_t clut[1024];
 extern FormatBuffer fb;
 extern FormatBuffer depthbuf;
 

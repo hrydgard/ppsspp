@@ -250,20 +250,10 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 		GenericStencilFuncState stencilState;
 		ConvertStencilFuncState(stencilState);
 
-		if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
-			// Enforce plain depth writing.
-			key.depthTestEnable = true;
-			key.depthWriteEnable = true;
-			key.stencilTestEnable = false;
-			key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
-			key.depthClampEnable = false;
-		} else if (gstate.isModeClear()) {
+		if (gstate.isModeClear()) {
 			key.depthTestEnable = true;
 			key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
 			key.depthWriteEnable = gstate.isClearModeDepthMask();
-			if (gstate.isClearModeDepthMask()) {
-				fbManager.SetDepthUpdated();
-			}
 
 			// Stencil Test
 			bool alphaMask = gstate.isClearModeAlphaMask();
@@ -294,9 +284,6 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				key.depthTestEnable = true;
 				key.depthCompareOp = compareOps[gstate.getDepthTestFunction()];
 				key.depthWriteEnable = gstate.isDepthWriteEnabled();
-				if (gstate.isDepthWriteEnabled()) {
-					fbManager.SetDepthUpdated();
-				}
 			} else {
 				key.depthTestEnable = false;
 				key.depthWriteEnable = false;
@@ -331,15 +318,13 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			fbManager.GetRenderWidth(), fbManager.GetRenderHeight(),
 			fbManager.GetTargetBufferWidth(), fbManager.GetTargetBufferHeight(),
 			vpAndScissor);
+		UpdateCachedViewportState(vpAndScissor);
 
 		float depthMin = vpAndScissor.depthRangeMin;
 		float depthMax = vpAndScissor.depthRangeMax;
 
 		if (depthMin < 0.0f) depthMin = 0.0f;
 		if (depthMax > 1.0f) depthMax = 1.0f;
-		if (vpAndScissor.dirtyDepth) {
-			gstate_c.Dirty(DIRTY_DEPTHRANGE);
-		}
 
 		VkViewport &vp = dynState.viewport;
 		vp.x = vpAndScissor.viewportX;
@@ -348,10 +333,6 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 		vp.height = vpAndScissor.viewportH;
 		vp.minDepth = vpAndScissor.depthRangeMin;
 		vp.maxDepth = vpAndScissor.depthRangeMax;
-
-		if (vpAndScissor.dirtyProj) {
-			gstate_c.Dirty(DIRTY_PROJMATRIX);
-		}
 
 		ScissorRect &scissor = dynState.scissor;
 		scissor.x = vpAndScissor.scissorX;
