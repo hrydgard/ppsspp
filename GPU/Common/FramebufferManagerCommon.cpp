@@ -1640,8 +1640,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	}
 }
 
-// Can't be const, in case it has to create a vfb unfortunately.
-void FramebufferManagerCommon::FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp) {
+void FramebufferManagerCommon::FindTransferFramebufferSrc(VirtualFramebuffer *&srcBuffer, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int bpp) {
 	u32 dstYOffset = -1;
 	u32 dstXOffset = -1;
 	u32 srcYOffset = -1;
@@ -1649,8 +1648,55 @@ void FramebufferManagerCommon::FindTransferFramebuffers(VirtualFramebuffer *&dst
 	int width = srcWidth;
 	int height = srcHeight;
 
-	dstBasePtr &= 0x3FFFFFFF;
 	srcBasePtr &= 0x3FFFFFFF;
+
+	for (size_t i = 0; i < vfbs_.size(); ++i) {
+		VirtualFramebuffer *vfb = vfbs_[i];
+		const u32 vfb_address = vfb->fb_address & 0x3FFFFFFF;
+		const u32 vfb_size = ColorBufferByteSize(vfb);
+		const u32 vfb_bpp = BufferFormatBytesPerPixel(vfb->fb_format);
+		const u32 vfb_byteStride = vfb->fb_stride * vfb_bpp;
+		const u32 vfb_byteWidth = vfb->width * vfb_bpp;
+
+		if (vfb_address <= srcBasePtr && srcBasePtr < vfb_address + vfb_size) {
+			const u32 byteOffset = srcBasePtr - vfb_address;
+			const u32 byteStride = srcStride * bpp;
+			const u32 yOffset = byteOffset / byteStride;
+			bool match = yOffset < srcYOffset && (int)yOffset <= (int)vfb->bufferHeight - srcHeight;
+			if (match && vfb_byteStride != byteStride) {
+				if (width != srcStride || (byteStride * height != vfb_byteStride && byteStride * height != vfb_byteWidth)) {
+					match = false;
+				} else {
+					srcWidth = byteStride * height / vfb_bpp;
+					srcHeight = 1;
+				}
+			} else if (match) {
+				srcWidth = width;
+				srcHeight = height;
+			}
+			if (match) {
+				srcYOffset = yOffset;
+				srcXOffset = srcStride == 0 ? 0 : (byteOffset / bpp) % srcStride;
+				srcBuffer = vfb;
+			}
+		}
+	}
+
+	if (srcYOffset != (u32)-1) {
+		srcY += srcYOffset;
+		srcX += srcXOffset;
+	}
+}
+
+void FramebufferManagerCommon::FindTransferFramebufferDst(VirtualFramebuffer *&dstBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, int &dstWidth, int &dstHeight, int bpp) {
+	u32 dstYOffset = -1;
+	u32 dstXOffset = -1;
+	u32 srcYOffset = -1;
+	u32 srcXOffset = -1;
+	int width = dstWidth;
+	int height = dstHeight;
+
+	dstBasePtr &= 0x3FFFFFFF;
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
@@ -1698,61 +1744,11 @@ void FramebufferManagerCommon::FindTransferFramebuffers(VirtualFramebuffer *&dst
 				dstBuffer = vfb;
 			}
 		}
-		if (vfb_address <= srcBasePtr && srcBasePtr < vfb_address + vfb_size) {
-			const u32 byteOffset = srcBasePtr - vfb_address;
-			const u32 byteStride = srcStride * bpp;
-			const u32 yOffset = byteOffset / byteStride;
-			bool match = yOffset < srcYOffset && (int)yOffset <= (int)vfb->bufferHeight - srcHeight;
-			if (match && vfb_byteStride != byteStride) {
-				if (width != srcStride || (byteStride * height != vfb_byteStride && byteStride * height != vfb_byteWidth)) {
-					match = false;
-				} else {
-					srcWidth = byteStride * height / vfb_bpp;
-					srcHeight = 1;
-				}
-			} else if (match) {
-				srcWidth = width;
-				srcHeight = height;
-			}
-			if (match) {
-				srcYOffset = yOffset;
-				srcXOffset = srcStride == 0 ? 0 : (byteOffset / bpp) % srcStride;
-				srcBuffer = vfb;
-			}
-		}
 	}
-
-	if (srcBuffer && !dstBuffer) {
-		if (PSP_CoreParameter().compat.flags().BlockTransferAllowCreateFB ||
-			(PSP_CoreParameter().compat.flags().IntraVRAMBlockTransferAllowCreateFB &&
-				Memory::IsVRAMAddress(srcBuffer->fb_address) && Memory::IsVRAMAddress(dstBasePtr))) {
-			GEBufferFormat ramFormat;
-			// Try to guess the appropriate format. We only know the bpp from the block transfer command (16 or 32 bit).
-			if (bpp == 4) {
-				// Only one possibility unless it's doing split pixel tricks (which we could detect through stride maybe).
-				ramFormat = GE_FORMAT_8888;
-			} else if (srcBuffer->fb_format != GE_FORMAT_8888) {
-				// We guess that the game will interpret the data the same as it was in the source of the copy.
-				// Seems like a likely good guess, and works in Test Drive Unlimited.
-				ramFormat = srcBuffer->fb_format;
-			} else {
-				// No info left - just fall back to something. But this is definitely split pixel tricks.
-				ramFormat = GE_FORMAT_5551;
-			}
-			dstBuffer = CreateRAMFramebuffer(dstBasePtr, dstWidth, dstHeight, dstStride, ramFormat);
-		}
-	}
-
-	if (dstBuffer)
-		dstBuffer->last_frame_used = gpuStats.numFlips;
 
 	if (dstYOffset != (u32)-1) {
 		dstY += dstYOffset;
 		dstX += dstXOffset;
-	}
-	if (srcYOffset != (u32)-1) {
-		srcY += srcYOffset;
-		srcX += srcXOffset;
 	}
 }
 
@@ -1957,7 +1953,32 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 	int dstHeight = height;
 
 	// This looks at the compat flags BlockTransferAllowCreateFB*.
-	FindTransferFramebuffers(dstBuffer, srcBuffer, dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, srcWidth, srcHeight, dstWidth, dstHeight, bpp);
+	FindTransferFramebufferSrc(srcBuffer, srcBasePtr, srcStride, srcX, srcY, srcWidth, srcHeight, bpp);
+	FindTransferFramebufferDst(dstBuffer, dstBasePtr, dstStride, dstX, dstY, dstWidth, dstHeight, bpp);
+
+	if (srcBuffer && !dstBuffer) {
+		if (PSP_CoreParameter().compat.flags().BlockTransferAllowCreateFB ||
+			(PSP_CoreParameter().compat.flags().IntraVRAMBlockTransferAllowCreateFB &&
+				Memory::IsVRAMAddress(srcBuffer->fb_address) && Memory::IsVRAMAddress(dstBasePtr))) {
+			GEBufferFormat ramFormat;
+			// Try to guess the appropriate format. We only know the bpp from the block transfer command (16 or 32 bit).
+			if (bpp == 4) {
+				// Only one possibility unless it's doing split pixel tricks (which we could detect through stride maybe).
+				ramFormat = GE_FORMAT_8888;
+			} else if (srcBuffer->fb_format != GE_FORMAT_8888) {
+				// We guess that the game will interpret the data the same as it was in the source of the copy.
+				// Seems like a likely good guess, and works in Test Drive Unlimited.
+				ramFormat = srcBuffer->fb_format;
+			} else {
+				// No info left - just fall back to something. But this is definitely split pixel tricks.
+				ramFormat = GE_FORMAT_5551;
+			}
+			dstBuffer = CreateRAMFramebuffer(dstBasePtr, dstWidth, dstHeight, dstStride, ramFormat);
+		}
+	}
+
+	if (dstBuffer)
+		dstBuffer->last_frame_used = gpuStats.numFlips;
 
 	if (dstBuffer && srcBuffer) {
 		if (srcBuffer == dstBuffer) {
@@ -2032,13 +2053,15 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 	}
 
 	if (MayIntersectFramebuffer(srcBasePtr) || MayIntersectFramebuffer(dstBasePtr)) {
+		// TODO: Figure out how we can avoid repeating the search here.
 		VirtualFramebuffer *dstBuffer = 0;
 		VirtualFramebuffer *srcBuffer = 0;
 		int srcWidth = width;
 		int srcHeight = height;
 		int dstWidth = width;
 		int dstHeight = height;
-		FindTransferFramebuffers(dstBuffer, srcBuffer, dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, srcWidth, srcHeight, dstWidth, dstHeight, bpp);
+		FindTransferFramebufferSrc(srcBuffer, srcBasePtr, srcStride, srcX, srcY, srcWidth, srcHeight, bpp);
+		FindTransferFramebufferDst(dstBuffer, dstBasePtr, dstStride, dstX, dstY, dstWidth, dstHeight, bpp);
 
 		// A few games use this INSTEAD of actually drawing the video image to the screen, they just blast it to
 		// the backbuffer. Detect this and have the framebuffermanager draw the pixels.

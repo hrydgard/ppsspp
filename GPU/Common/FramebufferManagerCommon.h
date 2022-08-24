@@ -412,7 +412,10 @@ protected:
 
 	bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;
 	void DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb);
-	void FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp);
+
+	void FindTransferFramebufferSrc(VirtualFramebuffer *&srcBuffer, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int bpp);
+	void FindTransferFramebufferDst(VirtualFramebuffer *&dstBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, int &dstWidth, int &dstHeight, int bpp);
+
 	VirtualFramebuffer *FindDownloadTempBuffer(VirtualFramebuffer *vfb);
 	virtual void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {}
 
