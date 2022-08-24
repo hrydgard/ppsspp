@@ -218,6 +218,11 @@ void TextureCacheGLES::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBas
 }
 
 void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
+	if (!entry) {
+		render_->BindTexture(0, nullptr);
+		lastBoundTexture = nullptr;
+		return;
+	}
 	if (entry->textureName != lastBoundTexture) {
 		render_->BindTexture(0, entry->textureName);
 		lastBoundTexture = entry->textureName;

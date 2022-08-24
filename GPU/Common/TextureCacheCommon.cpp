@@ -1044,6 +1044,7 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 		}
 
 		if (candidate.channel == RASTER_DEPTH && !gstate_c.Supports(GPU_SUPPORTS_DEPTH_TEXTURE)) {
+			WARN_LOG_ONCE(ndepthtex, G3D, "Depth textures not supported, not binding");
 			// Flag to bind a null texture if we can't support depth textures.
 			// Should only happen on old OpenGL.
 			nextFramebufferTexture_ = nullptr;

@@ -533,12 +533,14 @@ OpenGLContext::OpenGLContext() {
 			}
 		}
 		caps_.texture3DSupported = gl_extensions.OES_texture_3D;
+		caps_.textureDepthSupported = gl_extensions.GLES3 || gl_extensions.OES_depth_texture;
 	} else {
 		if (gl_extensions.VersionGEThan(3, 3, 0)) {
 			caps_.fragmentShaderInt32Supported = true;
 		}
 		caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
 		caps_.texture3DSupported = true;
+		caps_.textureDepthSupported = true;
 	}
 
 	caps_.dualSourceBlend = gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended;
