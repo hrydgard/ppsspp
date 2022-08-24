@@ -50,6 +50,7 @@ void TextureShaderCache::DeviceRestore(Draw::DrawContext *draw) {
 
 void TextureShaderCache::DeviceLost() {
 	Clear();
+	draw_ = nullptr;
 }
 
 ClutTexture TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut) {

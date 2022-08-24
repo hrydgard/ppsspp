@@ -168,6 +168,7 @@ void SamplerCache::DeviceLost() {
 		vulkan_->Delete().QueueDeleteSampler(sampler);
 	});
 	cache_.Clear();
+	vulkan_ = nullptr;
 }
 
 void SamplerCache::DeviceRestore(VulkanContext *vulkan) {

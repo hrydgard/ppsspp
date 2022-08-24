@@ -91,6 +91,8 @@ DrawEngineGLES::~DrawEngineGLES() {
 
 void DrawEngineGLES::DeviceLost() {
 	DestroyDeviceObjects();
+	draw_ = nullptr;
+	render_ = nullptr;
 }
 
 void DrawEngineGLES::DeviceRestore(Draw::DrawContext *draw) {

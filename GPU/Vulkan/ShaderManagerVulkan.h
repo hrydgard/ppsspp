@@ -86,6 +86,7 @@ public:
 	ShaderManagerVulkan(Draw::DrawContext *draw);
 	~ShaderManagerVulkan();
 
+	void DeviceLost();
 	void DeviceRestore(Draw::DrawContext *draw);
 
 	void GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat);

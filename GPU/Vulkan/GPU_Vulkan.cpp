@@ -534,7 +534,7 @@ void GPU_Vulkan::DeviceLost() {
 	drawEngine_.DeviceLost();
 	pipelineManager_->DeviceLost();
 	textureCacheVulkan_->DeviceLost();
-	shaderManagerVulkan_->ClearShaders();
+	shaderManagerVulkan_->DeviceLost();
 
 	GPUCommon::DeviceLost();
 }
