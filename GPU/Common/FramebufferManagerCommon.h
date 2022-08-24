@@ -363,7 +363,6 @@ public:
 	const std::vector<VirtualFramebuffer *> &Framebuffers() const {
 		return vfbs_;
 	}
-	void ReinterpretFramebuffer(VirtualFramebuffer *vfb, GEBufferFormat oldFormat, GEBufferFormat newFormat);
 
 	Draw2D *GetDraw2D() {
 		return &draw2D_;
@@ -399,7 +398,7 @@ protected:
 
 	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags);
 
-	void EstimateDrawingSize(u32 fb_address, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int fb_stride, int &drawing_width, int &drawing_height);
+	void EstimateDrawingSize(u32 fb_address, int fb_stride, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int &drawing_width, int &drawing_height);
 	u32 ColorBufferByteSize(const VirtualFramebuffer *vfb) const;
 
 	void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb);
