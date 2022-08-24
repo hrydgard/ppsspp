@@ -1109,6 +1109,7 @@ void GPUCommon::BeginFrame() {
 	} else if (dumpThisFrame_) {
 		dumpThisFrame_ = false;
 	}
+	GPUDebug::NotifyBeginFrame();
 	GPURecord::NotifyBeginFrame();
 }
 

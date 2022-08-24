@@ -430,10 +430,6 @@ void GPU_Vulkan::InitClear() {
 	}
 }
 
-void GPU_Vulkan::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
-	framebufferManager_->SetDisplayFramebuffer(framebuf, stride, format);
-}
-
 void GPU_Vulkan::CopyDisplayToOutput(bool reallyDirty) {
 	// Flush anything left over.
 	drawEngine_.Flush();
