@@ -213,6 +213,7 @@ Draw2DPipeline *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETe
 		return Draw2DPipelineInfo{
 			config.bufferFormat == GE_FORMAT_DEPTH16 ? RASTER_DEPTH : RASTER_COLOR,
 			RASTER_COLOR,
+			samplers
 		};
 	});
 	delete[] buffer;

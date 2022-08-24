@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GPU/GPU.h"
+#include "Common/GPU/Shader.h"
 
 // For framebuffer copies and similar things that just require passthrough.
 struct Draw2DVertex {
@@ -32,7 +33,7 @@ inline RasterChannel Draw2DSourceChannel(Draw2DShader shader) {
 struct Draw2DPipelineInfo {
 	RasterChannel readChannel;
 	RasterChannel writeChannel;
-	bool secondTexture;
+	Slice<SamplerDef> samplers;
 };
 
 struct Draw2DPipeline {

@@ -1035,15 +1035,17 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				activeSlot = slot;
 			}
 			if (c.bind_fb_texture.aspect == GL_COLOR_BUFFER_BIT) {
-				if (curTex[slot] != &c.bind_fb_texture.framebuffer->color_texture)
+				if (curTex[slot] != &c.bind_fb_texture.framebuffer->color_texture) {
 					glBindTexture(GL_TEXTURE_2D, c.bind_fb_texture.framebuffer->color_texture.texture);
-				curTex[slot] = &c.bind_fb_texture.framebuffer->color_texture;
+					curTex[slot] = &c.bind_fb_texture.framebuffer->color_texture;
+				}
 			} else if (c.bind_fb_texture.aspect == GL_DEPTH_BUFFER_BIT) {
-				if (curTex[slot] != &c.bind_fb_texture.framebuffer->z_stencil_texture)
+				if (curTex[slot] != &c.bind_fb_texture.framebuffer->z_stencil_texture) {
 					glBindTexture(GL_TEXTURE_2D, c.bind_fb_texture.framebuffer->z_stencil_texture.texture);
-				curTex[slot] = &c.bind_fb_texture.framebuffer->z_stencil_texture;
+					curTex[slot] = &c.bind_fb_texture.framebuffer->z_stencil_texture;
+				}
 			} else {
-				// TODO: Stencil texturing?
+				// Can't texture from stencil buffers.
 				curTex[slot] = nullptr;
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
