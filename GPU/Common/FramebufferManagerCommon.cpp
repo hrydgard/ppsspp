@@ -1531,6 +1531,8 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	dst &= 0x3FFFFFFF;
 	src &= 0x3FFFFFFF;
 
+	// TODO: Merge the below into FindTransferFramebuffer
+
 	VirtualFramebuffer *dstBuffer = 0;
 	VirtualFramebuffer *srcBuffer = 0;
 	u32 dstY = (u32)-1;
@@ -1670,6 +1672,7 @@ void FramebufferManagerCommon::FindTransferFramebuffer(VirtualFramebuffer *&buff
 			bool match = memYOffset < yOffset && (int)memYOffset <= (int)vfb->bufferHeight - height;
 			if (match && vfb_byteStride != byteStride) {
 				// Grand Knights History copies with a mismatching stride but a full line at a time.
+				// That's why we multiply by height, not width - this copy is a rectangle with the wrong stride but a line with the correct one.
 				// Makes it hard to detect the wrong transfers in e.g. God of War.
 				if (transferWidth != stride || (byteStride * transferHeight != vfb_byteStride && byteStride * transferHeight != vfb_byteWidth)) {
 					if (destination) {
