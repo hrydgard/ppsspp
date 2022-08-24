@@ -120,10 +120,7 @@ int GLQueueRunner::GetStereoBufferIndex(const char *uniformName) {
 std::string GLQueueRunner::GetStereoBufferLayout(const char *uniformName) {
 	if (strcmp(uniformName, "u_view") == 0) return "ViewMatrices";
 	else if (strcmp(uniformName, "u_proj") == 0) return "ProjectionMatrix";
-
-	//undefined
-	assert(false);
-	return "undefined";
+	else return "undefined";
 }
 
 void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool skipGLCalls) {
