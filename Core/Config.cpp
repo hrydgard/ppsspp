@@ -331,7 +331,7 @@ struct ConfigSetting {
 			section->Get(ini5_, &ptr_.customButton->repeat, default_.customButton.repeat);
 			return true;
 		default:
-			_dbg_assert_msg_(false, "Unexpected ini setting type");
+			_dbg_assert_msg_(false, "Get(%s): Unexpected ini setting type: %d", iniKey_, (int)type_);
 			return false;
 		}
 	}
@@ -375,7 +375,7 @@ struct ConfigSetting {
 			section->Set(ini5_, ptr_.customButton->repeat);
 			return;
 		default:
-			_dbg_assert_msg_(false, "Unexpected ini setting type");
+			_dbg_assert_msg_(false, "Set(%s): Unexpected ini setting type: %d", iniKey_, (int)type_);
 			return;
 		}
 	}
@@ -406,22 +406,22 @@ struct ConfigSetting {
 			// Doesn't report.
 			return;
 		default:
-			_dbg_assert_msg_(false, "Unexpected ini setting type");
+			_dbg_assert_msg_(false, "Report(%s): Unexpected ini setting type: %d", iniKey_, (int)type_);
 			return;
 		}
 	}
 
-	const char *iniKey_;
-	const char *ini2_;
-	const char *ini3_;
-	const char *ini4_;
-	const char *ini5_;
+	const char *iniKey_ = nullptr;
+	const char *ini2_ = nullptr;
+	const char *ini3_ = nullptr;
+	const char *ini4_ = nullptr;
+	const char *ini5_ = nullptr;
 	Type type_;
 	bool report_;
 	bool save_;
 	bool perGame_;
 	SettingPtr ptr_;
-	DefaultValue default_;
+	DefaultValue default_{};
 	Callback cb_;
 
 	// We only support transform for ints.
@@ -1207,6 +1207,8 @@ static ConfigSetting vrSettings[] = {
 	ConfigSetting("VREnable6DoF", &g_Config.bEnable6DoF, true),
 	ConfigSetting("VRCanvasDistance", &g_Config.iCanvasDistance, 6),
 	ConfigSetting("VRFieldOfView", &g_Config.iFieldOfViewPercentage, 100),
+
+	ConfigSetting(false),
 };
 
 static ConfigSectionSettings sections[] = {
