@@ -1664,6 +1664,9 @@ void FramebufferManagerCommon::FindTransferFramebuffer(VirtualFramebuffer *&buff
 			// Some games use mismatching bitdepths. But make sure the stride matches.
 			// If it doesn't, generally this means we detected the framebuffer with too large a height.
 			// Use bufferHeight in case of buffers that resize up and down often per frame (Valkyrie Profile.)
+
+			// TODO: Surely this first comparison should be <= ?
+			// Or does the exact match (byteOffset == 0) case get handled elsewhere?
 			bool match = memYOffset < yOffset && (int)memYOffset <= (int)vfb->bufferHeight - height;
 			if (match && vfb_byteStride != byteStride) {
 				// Grand Knights History copies with a mismatching stride but a full line at a time.
@@ -1902,7 +1905,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 	int dstWidth = width;
 	int dstHeight = height;
 
-	// This looks at the compat flags BlockTransferAllowCreateFB*.
+	// These modify the X/Y/W/H parameters depending on the memory offset of the base pointers from the actual buffers.
 	FindTransferFramebuffer(srcBuffer, srcBasePtr, srcStride, srcX, srcY, srcWidth, srcHeight, bpp, false);
 	FindTransferFramebuffer(dstBuffer, dstBasePtr, dstStride, dstX, dstY, dstWidth, dstHeight, bpp, true);
 
