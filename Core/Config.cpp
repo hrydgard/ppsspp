@@ -1201,6 +1201,14 @@ static ConfigSetting themeSettings[] = {
 	ConfigSetting(false),
 };
 
+
+static ConfigSetting vrSettings[] = {
+	ConfigSetting("VREnable", &g_Config.bEnableVR, true),
+	ConfigSetting("VREnable6DoF", &g_Config.bEnable6DoF, true),
+	ConfigSetting("VRCanvasDistance", &g_Config.iCanvasDistance, 6),
+	ConfigSetting("VRFieldOfView", &g_Config.iFieldOfViewPercentage, 100),
+};
+
 static ConfigSectionSettings sections[] = {
 	{"General", generalSettings},
 	{"CPU", cpuSettings},
@@ -1213,6 +1221,7 @@ static ConfigSectionSettings sections[] = {
 	{"JIT", jitSettings},
 	{"Upgrade", upgradeSettings},
 	{"Theme", themeSettings},
+	{"VR", vrSettings},
 };
 
 static void IterateSettings(IniFile &iniFile, std::function<void(Section *section, ConfigSetting *setting)> func) {

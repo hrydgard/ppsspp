@@ -2,13 +2,6 @@
 
 #include "VRBase.h"
 
-// angle indexes
-#define PITCH 0
-#define YAW   1
-#define ROLL  2
-
-typedef float vec3_t[3];
-
 typedef enum ovrButton_ {
 	ovrButton_A = 0x00000001, // Set for trigger pulled on the Gear VR and Go Controllers
 	ovrButton_B = 0x00000002,
@@ -39,5 +32,4 @@ void IN_VRInit( engine_t *engine );
 void IN_VRInputFrame( engine_t* engine );
 uint32_t IN_VRGetButtonState( int controllerIndex );
 XrVector2f IN_VRGetJoystickState( int controllerIndex );
-
-void QuatToYawPitchRoll(XrQuaternionf q, vec3_t rotation, vec3_t out);
+void INVR_Vibrate( int duration, int chan, float intensity );

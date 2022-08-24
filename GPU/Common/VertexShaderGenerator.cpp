@@ -534,6 +534,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "uniform lowp float u_rotation;\n");
 		}
 
+#ifdef OPENXR
+		WRITE(p, "uniform lowp float u_scaleX;\n");
+		WRITE(p, "uniform lowp float u_scaleY;\n");
+#endif
+
 		if (useHWTransform || !hasColor) {
 			WRITE(p, "uniform lowp vec4 u_matambientalpha;\n");  // matambient + matalpha
 			*uniformMask |= DIRTY_MATAMBIENTALPHA;
@@ -1183,6 +1188,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  if (%sgl_Position.z == %sgl_Position.w) %sgl_Position.z *= 0.999999;\n",
 			compat.vsOutPrefix, compat.vsOutPrefix, compat.vsOutPrefix);
 	}
+#ifdef OPENXR
+	WRITE(p, "  if ((u_scaleX < 0.99) || (u_scaleY < 0.99)) {\n");
+	WRITE(p, "    %sgl_Position.x *= u_scaleX;\n", compat.vsOutPrefix);
+	WRITE(p, "    %sgl_Position.y *= u_scaleY;\n", compat.vsOutPrefix);
+	WRITE(p, "  }\n");
+#endif
 
 	if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
 		WRITE(p, "  return Out;\n");

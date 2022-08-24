@@ -1,6 +1,24 @@
 #pragma once
 
 #include "VRFramebuffer.h"
+#include "VRMath.h"
+
+enum VRConfig {
+	VR_CONFIG_MODE,
+	VR_CONFIG_6DOF_ENABLED,
+	VR_CONFIG_6DOF_SCALE,
+	VR_CONFIG_MIRROR_AXIS_X,
+	VR_CONFIG_MIRROR_AXIS_Y,
+	VR_CONFIG_MIRROR_AXIS_Z,
+	VR_CONFIG_MIRROR_PITCH,
+	VR_CONFIG_MIRROR_YAW,
+	VR_CONFIG_MIRROR_ROLL,
+	VR_CONFIG_3D_GEOMETRY_COUNT,
+	VR_CONFIG_FOV_SCALE,
+	VR_CONFIG_FORCE_2D,
+	VR_CONFIG_CANVAS_DISTANCE,
+	VR_CONFIG_MAX
+};
 
 enum VRMatrix {
 	VR_PROJECTION_MATRIX_HUD = 0,
@@ -22,7 +40,9 @@ void VR_DestroyRenderer( engine_t* engine );
 
 void VR_BeginFrame( engine_t* engine );
 void VR_EndFrame( engine_t* engine );
-void VR_SetMode( VRMode mode );
+
+int VR_GetConfig( VRConfig config );
+void VR_SetConfig( VRConfig config, int value);
 
 void VR_BindFramebuffer( engine_t* engine, int eye );
 ovrMatrix4f VR_GetMatrix( VRMatrix matrix );

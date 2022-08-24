@@ -9,6 +9,7 @@
 #include "Common/Math/math_util.h"
 
 #ifdef OPENXR
+#include "Core/Config.h"
 #include "VR/VRBase.h"
 #include "VR/VRRenderer.h"
 #endif
@@ -204,6 +205,19 @@ bool GLRenderManager::ThreadFrame() {
 		return false;
 #ifdef OPENXR
 	VR_BeginFrame(VR_GetEngine());
+
+	// Decide if the scene is 3D or not
+	if (g_Config.bEnableVR && !VR_GetConfig(VR_CONFIG_FORCE_2D) && (VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) > 15)) {
+		VR_SetConfig(VR_CONFIG_MODE, VR_MODE_MONO_6DOF);
+	} else {
+		VR_SetConfig(VR_CONFIG_MODE, VR_MODE_FLAT_SCREEN);
+	}
+	VR_SetConfig(VR_CONFIG_3D_GEOMETRY_COUNT, VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) / 2);
+
+	// Set customizations
+	VR_SetConfig(VR_CONFIG_6DOF_ENABLED, g_Config.bEnable6DoF);
+	VR_SetConfig(VR_CONFIG_CANVAS_DISTANCE, g_Config.iCanvasDistance);
+	VR_SetConfig(VR_CONFIG_FOV_SCALE, g_Config.iFieldOfViewPercentage);
 #endif
 
 	// In case of syncs or other partial completion, we keep going until we complete a frame.

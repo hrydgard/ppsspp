@@ -142,6 +142,10 @@
 #include <mach-o/dyld.h>
 #endif
 
+#ifdef OPENXR
+#include "VR/VRRenderer.h"
+#endif
+
 ScreenManager *screenManager;
 std::string config_filename;
 
@@ -1297,6 +1301,19 @@ bool NativeTouch(const TouchInput &touch) {
 }
 
 bool NativeKey(const KeyInput &key) {
+
+	// Hack to quick enable 2D mode in VR game mode.
+#ifdef OPENXR
+	std::vector<int> nativeKeys;
+	if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &nativeKeys)) {
+		for (int& nativeKey : nativeKeys) {
+			if (nativeKey == CTRL_SCREEN) {
+				VR_SetConfig(VR_CONFIG_FORCE_2D, key.flags & KEY_DOWN);
+			}
+		}
+	}
+#endif
+
 	// INFO_LOG(SYSTEM, "Key code: %i flags: %i", key.keyCode, key.flags);
 #if !defined(MOBILE_DEVICE)
 	if (g_Config.bPauseExitsEmulator) {

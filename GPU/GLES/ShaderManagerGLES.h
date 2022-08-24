@@ -62,6 +62,8 @@ public:
 	int u_cullRangeMax;
 	int u_rotation;
 	int u_mipBias;
+	int u_scaleX;
+	int u_scaleY;
 
 #ifdef USE_BONE_ARRAY
 	int u_bone;  // array, size is numBones

@@ -94,6 +94,7 @@ struct JNIEnv {};
 #include "UI/GameInfoCache.h"
 
 #ifdef OPENXR
+#include "Core/HLE/sceDisplay.h"
 #include "VR/VRBase.h"
 #include "VR/VRInput.h"
 #include "VR/VRRenderer.h"
@@ -818,6 +819,8 @@ retry:
 	java.AppVersion = gitVer.ToInteger();
 	strcpy(java.AppName, "PPSSPP");
 	VR_Init(java);
+
+	__DisplaySetFramerate(72);
 #endif
 }
 
@@ -934,6 +937,15 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 
 // JavaEGL
 extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
+
+#ifdef OPENXR
+	if (!renderer_inited) {
+		VR_EnterVR(VR_GetEngine());
+		IN_VRInit(VR_GetEngine());
+	}
+	VR_InitRenderer(VR_GetEngine());
+#endif
+
 	// We should be running on the render thread here.
 	std::string errorMessage;
 	if (renderer_inited) {
@@ -990,11 +1002,6 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 		}, nullptr);
 
 		graphicsContext->ThreadStart();
-#ifdef OPENXR
-		VR_EnterVR(VR_GetEngine());
-		VR_InitRenderer(VR_GetEngine());
-		IN_VRInit(VR_GetEngine());
-#endif
 		renderer_inited = true;
 	}
 	NativeMessageReceived("recreateviews", "");
@@ -1131,6 +1138,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 			keyInput.deviceId = controllerIds[j];
 
 			if (m.pressed != pressed) {
+				if (pressed && g_Config.bHapticFeedback) {
+					INVR_Vibrate(100, j, 1000);
+				}
 				NativeKey(keyInput);
 				m.pressed = pressed;
 				m.repeat = 0;

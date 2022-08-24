@@ -317,6 +317,7 @@ static const DefMappingStruct defaultVRLeftController[] = {
 	{CTRL_SELECT         , NKCODE_BUTTON_THUMBL},
 	{CTRL_LTRIGGER       , NKCODE_BUTTON_X},
 	{CTRL_RTRIGGER       , NKCODE_BUTTON_Y},
+	{CTRL_SCREEN         , NKCODE_ALT_LEFT},
 };
 
 static const DefMappingStruct defaultVRRightController[] = {

@@ -50,6 +50,12 @@
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 
+#ifdef OPENXR
+#include "VR/VRBase.h"
+#include "VR/VRRenderer.h"
+#include "VR/VRTweaks.h"
+#endif
+
 using namespace Lin;
 
 Shader::Shader(GLRenderManager *render, const char *code, const std::string &desc, const ShaderDescGLES &params)
@@ -126,6 +132,10 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_cullRangeMin, "u_cullRangeMin" });
 	queries.push_back({ &u_cullRangeMax, "u_cullRangeMax" });
 	queries.push_back({ &u_rotation, "u_rotation" });
+#ifdef OPENXR
+	queries.push_back({ &u_scaleX, "u_scaleX" });
+	queries.push_back({ &u_scaleY, "u_scaleY" });
+#endif
 
 #ifdef USE_BONE_ARRAY
 	queries.push_back({ &u_bone, "u_bone" });
@@ -294,6 +304,9 @@ void LinkedShader::use(const ShaderID &VSID) {
 void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBufferedRendering) {
 	u64 dirty = dirtyUniforms & availableUniforms;
 	dirtyUniforms = 0;
+#ifdef OPENXR
+	dirty |= DIRTY_VIEWMATRIX;
+#endif
 	if (!dirty)
 		return;
 
@@ -308,10 +321,48 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		render_->SetUniformUI1(&u_depal_mask_shift_off_fmt, val);
 	}
 
+#ifdef OPENXR
+	// Count 3D instances
+	bool is2D = VR_TweakIsMatrixBigScale(gstate.projMatrix) ||
+			    VR_TweakIsMatrixIdentity(gstate.projMatrix) ||
+			    VR_TweakIsMatrixOneOrtho(gstate.projMatrix) ||
+			    VR_TweakIsMatrixOneScale(gstate.projMatrix) ||
+			    VR_TweakIsMatrixOneTransform(gstate.projMatrix);
+	if (!is2D && !gstate.isModeThrough()) {
+		VR_SetConfig(VR_CONFIG_3D_GEOMETRY_COUNT, VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) + 1);
+	}
+
+	// Set HUD mode
+	bool is3D = gstate.isDepthWriteEnabled();
+	bool flatScreen = VR_GetConfig(VR_CONFIG_MODE) == VR_MODE_FLAT_SCREEN;
+	bool hud = is2D && !is3D && !flatScreen &&
+               gstate.isModeThrough() &&       //2D content requires orthographic projection
+               gstate.isAlphaBlendEnabled() && //2D content has to be blended
+               !gstate.isLightingEnabled() &&  //2D content cannot be rendered with lights on
+               !gstate.isFogEnabled();         //2D content cannot be rendered with fog on
+	if (hud) {
+		float scale = 0.5f;
+		render_->SetUniformF1(&u_scaleX, scale);
+		render_->SetUniformF1(&u_scaleY, scale / 480.0f * 272.0f);
+	} else {
+		render_->SetUniformF1(&u_scaleX, 1.0f);
+		render_->SetUniformF1(&u_scaleY, 1.0f);
+	}
+#endif
+
 	// Update any dirty uniforms before we draw
 	if (dirty & DIRTY_PROJMATRIX) {
 		Matrix4x4 flippedMatrix;
+#ifdef OPENXR
+		if (flatScreen || is2D) {
+			memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
+		} else {
+			VR_TweakProjection(gstate.projMatrix, flippedMatrix.m, VR_PROJECTION_MATRIX_LEFT_EYE);
+			VR_TweakMirroring(gstate.projMatrix);
+		}
+#else
 		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
+#endif
 
 		const bool invertedY = useBufferedRendering ? (gstate_c.vpHeight < 0) : (gstate_c.vpHeight > 0);
 		if (invertedY) {
@@ -468,7 +519,18 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		SetMatrix4x3(render_, &u_world, gstate.worldMatrix);
 	}
 	if (dirty & DIRTY_VIEWMATRIX) {
+#ifdef OPENXR
+		if (flatScreen || is2D) {
+			SetMatrix4x3(render_, &u_view, gstate.viewMatrix);
+		} else {
+			float m4x4[16];
+			ConvertMatrix4x3To4x4Transposed(m4x4, gstate.viewMatrix);
+			VR_TweakView(m4x4, gstate.projMatrix, VR_VIEW_MATRIX_LEFT_EYE);
+			render_->SetUniformM4x4(&u_view, m4x4);
+		}
+#else
 		SetMatrix4x3(render_, &u_view, gstate.viewMatrix);
+#endif
 	}
 	if (dirty & DIRTY_TEXMATRIX) {
 		SetMatrix4x3(render_, &u_texmtx, gstate.tgenMatrix);
