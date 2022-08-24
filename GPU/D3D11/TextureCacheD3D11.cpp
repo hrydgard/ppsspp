@@ -263,10 +263,10 @@ void TextureCacheD3D11::Unbind() {
 	InvalidateLastTexture();
 }
 
-void TextureCacheD3D11::BindAsClutTexture(Draw::Texture *tex) {
+void TextureCacheD3D11::BindAsClutTexture(Draw::Texture *tex, bool smooth) {
 	ID3D11ShaderResourceView *clutTexture = (ID3D11ShaderResourceView *)draw_->GetNativeObject(Draw::NativeObject::TEXTURE_VIEW, tex);
 	context_->PSSetShaderResources(TEX_SLOT_CLUT, 1, &clutTexture);
-	context_->PSSetSamplers(3, 1, &stockD3D11.samplerPoint2DWrap);
+	context_->PSSetSamplers(3, 1, smooth ? &stockD3D11.samplerLinear2DClamp : &stockD3D11.samplerPoint2DClamp);
 }
 
 void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {

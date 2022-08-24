@@ -402,7 +402,7 @@ void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
 	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
 	imageView_ = entry->vkTex->GetImageView();
-	drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
+	drawEngine_->SetDepalTexture(VK_NULL_HANDLE, false);
 	gstate_c.SetUseShaderDepal(false, false);
 }
 
@@ -416,9 +416,9 @@ void TextureCacheVulkan::Unbind() {
 	InvalidateLastTexture();
 }
 
-void TextureCacheVulkan::BindAsClutTexture(Draw::Texture *tex) {
+void TextureCacheVulkan::BindAsClutTexture(Draw::Texture *tex, bool smooth) {
 	VkImageView clutTexture = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::TEXTURE_VIEW, tex);
-	drawEngine_->SetDepalTexture(clutTexture);
+	drawEngine_->SetDepalTexture(clutTexture, smooth);
 }
 
 static Draw::DataFormat FromVulkanFormat(VkFormat fmt) {
