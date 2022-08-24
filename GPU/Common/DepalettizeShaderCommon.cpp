@@ -288,7 +288,7 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 
 void GenerateDepalSmoothed(ShaderWriter &writer, const DepalConfig &config) {
 	const char *sourceChannel = "error";
-	float indexMultiplier = 32.0f;
+	float indexMultiplier = 31.0f;
 
 	if (config.bufferFormat == GE_FORMAT_5551) {
 		_dbg_assert_(config.mask == 0x1F);
@@ -302,7 +302,7 @@ void GenerateDepalSmoothed(ShaderWriter &writer, const DepalConfig &config) {
 		_dbg_assert_(config.mask == 0x1F || config.mask == 0x3F);
 		switch (config.shift) {
 		case 0: sourceChannel = "r"; break;
-		case 5: sourceChannel = "g"; indexMultiplier = 64.0f; break;
+		case 5: sourceChannel = "g"; indexMultiplier = 63.0f; break;
 		case 11: sourceChannel = "b"; break;
 		default: _dbg_assert_(false);
 		}
@@ -311,7 +311,6 @@ void GenerateDepalSmoothed(ShaderWriter &writer, const DepalConfig &config) {
 	}
 
 	writer.C("  float index = ").SampleTexture2D("tex", "v_texcoord").F(".%s * %0.1f;\n", sourceChannel, indexMultiplier);
-
 	float texturePixels = 256.f;
 	if (config.clutFormat != GE_CMODE_32BIT_ABGR8888) {
 		texturePixels = 512.f;

@@ -605,13 +605,15 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				// Restrictions on this are checked before setting the smoothed flag.
 				// Only RGB565 and RGBA5551 are supported, and only the specific shifts hitting the
 				// channels directly.
+				// Also, since we know the CLUT is smooth, we do not need to do the bilinear filter manually, we can just
+				// lookup with the filtered value once.
 				WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord);
 				WRITE(p, "  uint depalShift = (u_depal_mask_shift_off_fmt >> 8) & 0xFFU;\n");
 				WRITE(p, "  uint depalFmt = (u_depal_mask_shift_off_fmt >> 24) & 0x3U;\n");
 				WRITE(p, "  float index0 = t.r;\n");
-				WRITE(p, "  float factor = 32.0 / 256.0;\n");
+				WRITE(p, "  float factor = 31.0 / 256.0;\n");
 				WRITE(p, "  if (depalFmt == 0u) {\n");  // yes, different versions of Test Drive use different formats. Could do compile time by adding more compat flags but meh.
-				WRITE(p, "    if (depalShift == 5u) { index0 = t.g; factor = 64.0 / 256.0; }\n");
+				WRITE(p, "    if (depalShift == 5u) { index0 = t.g; factor = 63.0 / 256.0; }\n");
 				WRITE(p, "    else if (depalShift == 11u) { index0 = t.b; }\n");
 				WRITE(p, "  } else {\n");
 				WRITE(p, "    if (depalShift == 5u) { index0 = t.g; }\n");
