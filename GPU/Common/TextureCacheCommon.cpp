@@ -1044,6 +1044,7 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 		}
 
 		if (candidate.channel == RASTER_DEPTH && !gstate_c.Supports(GPU_SUPPORTS_DEPTH_TEXTURE)) {
+			WARN_LOG_ONCE(ndepthtex, G3D, "Depth textures not supported, not binding");
 			// Flag to bind a null texture if we can't support depth textures.
 			// Should only happen on old OpenGL.
 			nextFramebufferTexture_ = nullptr;
@@ -1890,13 +1891,14 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 	bool depth = channel == RASTER_DEPTH;
 	bool need_depalettize = CanDepalettize(texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->drawnFormat);
-	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && !depth && !gstate_c.curTextureIs3D;
+
+	// Shader depal is not supported during 3D texturing or depth texturing, and requires 32-bit integer instructions in the shader.
+	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer &&
+		!depth &&
+		!gstate_c.curTextureIs3D &&
+		draw_->GetDeviceCaps().fragmentShaderInt32Supported;
 
 	// TODO: Implement shader depal in the fragment shader generator for D3D11 at least.
-	if (!draw_->GetDeviceCaps().fragmentShaderInt32Supported) {
-		useShaderDepal = false;
-	}
-
 	switch (draw_->GetShaderLanguageDesc().shaderLanguage) {
 	case ShaderLanguage::HLSL_D3D11:
 	case ShaderLanguage::HLSL_D3D9:
@@ -1915,7 +1917,6 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		smoothedDepal = CanUseSmoothDepal(gstate, framebuffer->drawnFormat, clutTexture.rampLength);
 
 		if (useShaderDepal) {
-
 			// Very icky conflation here of native and thin3d rendering. This will need careful work per backend in BindAsClutTexture.
 			BindAsClutTexture(clutTexture.texture);
 

@@ -230,7 +230,10 @@ Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (Shade
 		{ draw2DVs_, fs },
 		inputLayout,
 		depthStencil,
-		blend, rasterNoCull, &draw2DUBDesc,
+		blend,
+		rasterNoCull,
+		&draw2DUBDesc,
+		info.samplers.is_empty() ? samplers : info.samplers,
 	};
 
 	Draw::Pipeline *pipeline = draw_->CreateGraphicsPipeline(pipelineDesc);

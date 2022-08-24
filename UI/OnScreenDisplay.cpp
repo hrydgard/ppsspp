@@ -28,18 +28,33 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 		float alpha = (iter->endTime - now) * 4.0f;
 		if (alpha > 1.0) alpha = 1.0f;
 		if (alpha < 0.0) alpha = 0.0f;
+		dc.SetFontScale(1.0f, 1.0f);
 		// Messages that are wider than the screen are left-aligned instead of centered.
+
+		int align = 0;
+		// Simple heuristic: Draw messages that contain line breaks with ASCII_FONT (likely debug output)
+		if (iter->text.find('\n') != 0) {
+			align |= FLAG_DYNAMIC_ASCII;
+		}
+
 		float tw, th;
-		dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, iter->text.c_str(), &tw, &th);
+		dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, iter->text.c_str(), &tw, &th, align);
 		float x = bounds_.centerX();
-		int align = ALIGN_TOP | ALIGN_HCENTER;
 		if (tw > bounds_.w) {
-			align = ALIGN_TOP | ALIGN_LEFT;
+			align |= ALIGN_TOP | ALIGN_LEFT;
 			x = 2;
+		} else {
+			align |= ALIGN_TOP | ALIGN_HCENTER;
+		}
+		float scale = 1.0f;
+		if (th > bounds_.h - y) {
+			// Scale down!
+			scale = std::max(0.15f, (bounds_.h - y) / th);
+			dc.SetFontScale(scale, scale);
 		}
 		dc.SetFontStyle(dc.theme->uiFont);
 		dc.DrawTextShadow(iter->text.c_str(), x, y, colorAlpha(iter->color, alpha), align);
-		y += h;
+		y += th * scale;
 	}
 
 	osm.Unlock();

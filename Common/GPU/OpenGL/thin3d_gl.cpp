@@ -533,12 +533,14 @@ OpenGLContext::OpenGLContext() {
 			}
 		}
 		caps_.texture3DSupported = gl_extensions.OES_texture_3D;
+		caps_.textureDepthSupported = gl_extensions.GLES3 || gl_extensions.OES_depth_texture;
 	} else {
 		if (gl_extensions.VersionGEThan(3, 3, 0)) {
 			caps_.fragmentShaderInt32Supported = true;
 		}
 		caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
 		caps_.texture3DSupported = true;
+		caps_.textureDepthSupported = true;
 	}
 
 	caps_.dualSourceBlend = gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended;
@@ -821,11 +823,14 @@ OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) :
 		return;
 
 	int level = 0;
+	int width = width_;
+	int height = height_;
+	int depth = depth_;
 	for (auto data : desc.initData) {
-		SetImageData(0, 0, 0, width_, height_, depth_, level, 0, data, desc.initDataCallback);
-		width_ = (width_ + 1) / 2;
-		height_ = (height_ + 1) / 2;
-		depth_ = (depth_ + 1) / 2;
+		SetImageData(0, 0, 0, width, height, depth, level, 0, data, desc.initDataCallback);
+		width = (width + 1) / 2;
+		height = (height + 1) / 2;
+		depth = (depth + 1) / 2;
 		level++;
 	}
 	mipLevels_ = desc.generateMips ? desc.mipLevels : level;
@@ -1211,7 +1216,7 @@ bool OpenGLPipeline::LinkShaders() {
 	}
 	std::vector<GLRProgram::Initializer> initialize;
 	for (int i = 0; i < MAX_TEXTURE_SLOTS; ++i) {
-		if (i < queries.size()) {
+		if (i < samplers_.size()) {
 			initialize.push_back({ &samplerLocs_[i], 0, i });
 		} else {
 			samplerLocs_[i] = -1;

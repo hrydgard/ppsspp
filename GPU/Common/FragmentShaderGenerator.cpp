@@ -609,15 +609,15 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "  uint depalShift = (u_depal_mask_shift_off_fmt >> 8) & 0xFFU;\n");
 				WRITE(p, "  uint depalFmt = (u_depal_mask_shift_off_fmt >> 24) & 0x3U;\n");
 				WRITE(p, "  float index0 = t.r;\n");
-				WRITE(p, "  float mul = 32.0 / 256.0;\n");
-				WRITE(p, "  if (depalFmt == 0) {\n");  // yes, different versions of Test Drive use different formats. Could do compile time by adding more compat flags but meh.
-				WRITE(p, "    if (depalShift == 5) { index0 = t.g; mul = 64.0 / 256.0; }\n");
-				WRITE(p, "    else if (depalShift == 11) { index0 = t.b; }\n");
+				WRITE(p, "  float factor = 32.0 / 256.0;\n");
+				WRITE(p, "  if (depalFmt == 0u) {\n");  // yes, different versions of Test Drive use different formats. Could do compile time by adding more compat flags but meh.
+				WRITE(p, "    if (depalShift == 5u) { index0 = t.g; factor = 64.0 / 256.0; }\n");
+				WRITE(p, "    else if (depalShift == 11u) { index0 = t.b; }\n");
 				WRITE(p, "  } else {\n");
-				WRITE(p, "    if (depalShift == 5) { index0 = t.g; }\n");
-				WRITE(p, "    else if (depalShift == 10) { index0 = t.b; }\n");
+				WRITE(p, "    if (depalShift == 5u) { index0 = t.g; }\n");
+				WRITE(p, "    else if (depalShift == 10u) { index0 = t.b; }\n");
 				WRITE(p, "  }\n");
-				WRITE(p, "  t = %s(pal, vec2(index0 * mul, 0.0));\n", compat.texture);
+				WRITE(p, "  t = %s(pal, vec2(index0 * factor, 0.0));\n", compat.texture);
 			} else {
 				if (doTextureProjection) {
 					// We don't use textureProj because we need better control and it's probably not much of a savings anyway.

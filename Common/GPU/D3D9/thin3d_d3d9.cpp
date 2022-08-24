@@ -682,6 +682,7 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 		HRESULT fboINTZ = d3d->CheckDeviceFormat(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, D3DFMT_A8R8G8B8, D3DUSAGE_DEPTHSTENCIL, D3DRTYPE_TEXTURE, FOURCC_INTZ);
 		supportsINTZ = SUCCEEDED(displayINTZ) && SUCCEEDED(fboINTZ);
 	}
+	caps_.textureDepthSupported = supportsINTZ;
 
 	shaderLanguageDesc_.Init(HLSL_D3D9);
 
