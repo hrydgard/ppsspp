@@ -2765,6 +2765,10 @@ void GPUCommon::SetCmdValue(u32 op) {
 	downcount = 0;
 }
 
+void GPUCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
+	framebufferManager_->SetDisplayFramebuffer(framebuf, stride, format);
+}
+
 void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 	// TODO: This is used a lot to copy data around between render targets and textures,
 	// and also to quickly load textures from RAM to VRAM. So we should do checks like the following:

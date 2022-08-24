@@ -41,6 +41,7 @@
 #include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/ReinterpretFramebuffer.h"
+#include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
 #include "GPU/Debugger/Stepping.h"
 #include "GPU/GPUInterface.h"
@@ -105,6 +106,9 @@ void FramebufferManagerCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, G
 	displayFramebufPtr_ = framebuf;
 	displayStride_ = stride;
 	displayFormat_ = format;
+	// TODO: Some games like Spongebob - Yellow Avenger, never change framebuffer, they blit to it.
+	// So breaking on frames doesn't work. Might want to move this to sceDisplay vsync.
+	GPUDebug::NotifyDisplay(framebuf, stride, format);
 	GPURecord::NotifyDisplay(framebuf, stride, format);
 }
 

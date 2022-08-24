@@ -37,7 +37,6 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
-#include "GPU/Debugger/Debugger.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/GPU_Vulkan.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
@@ -432,7 +431,6 @@ void GPU_Vulkan::InitClear() {
 }
 
 void GPU_Vulkan::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
-	GPUDebug::NotifyDisplay(framebuf, stride, format);
 	framebufferManager_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 

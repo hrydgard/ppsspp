@@ -38,7 +38,6 @@
 #include "GPU/GeDisasm.h"
 
 #include "GPU/Common/FramebufferManagerCommon.h"
-#include "GPU/Debugger/Debugger.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/GPU_DX9.h"
 #include "GPU/Directx9/FramebufferManagerDX9.h"
@@ -284,11 +283,6 @@ void GPU_DX9::BeginFrame() {
 	shaderManagerDX9_->DirtyShader();
 
 	framebufferManager_->BeginFrame();
-}
-
-void GPU_DX9::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
-	GPUDebug::NotifyDisplay(framebuf, stride, format);
-	framebufferManagerDX9_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 
 void GPU_DX9::CopyDisplayToOutput(bool reallyDirty) {
