@@ -1678,10 +1678,11 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	if (PSP_CoreParameter().compat.flags().BlueToAlpha) {
 		if (gstate_c.framebufFormat == GEBufferFormat::GE_FORMAT_565 && gstate.getColorMask() == 0x0FFFFF) {
 			blueToAlpha = true;
+			gstate_c.framebufFormat = GEBufferFormat::GE_FORMAT_4444;
 		}
 		if (blueToAlpha != gstate_c.blueToAlpha) {
 			gstate_c.blueToAlpha = blueToAlpha;
-			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_BLEND_STATE);
+			gstate_c.Dirty(DIRTY_FRAMEBUF | DIRTY_FRAGMENTSHADER_STATE | DIRTY_BLEND_STATE);
 		}
 	}
 
