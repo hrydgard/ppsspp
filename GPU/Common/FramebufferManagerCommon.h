@@ -363,7 +363,6 @@ public:
 	const std::vector<VirtualFramebuffer *> &Framebuffers() const {
 		return vfbs_;
 	}
-	void ReinterpretFramebuffer(VirtualFramebuffer *vfb, GEBufferFormat oldFormat, GEBufferFormat newFormat);
 
 	Draw2D *GetDraw2D() {
 		return &draw2D_;
