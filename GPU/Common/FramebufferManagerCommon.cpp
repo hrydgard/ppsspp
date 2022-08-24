@@ -225,15 +225,17 @@ void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, int fb_stride
 		if (fb_address > vfb->fb_address && fb_address < vfb->fb_address + vfb_stride_in_bytes) {
 			// Candidate!
 			if (vfb->height == drawing_height) {
-				// Definitely got a margin texture! Fix the drawing width.
+				// Might have a margin texture! Fix the drawing width if it's too large.
 				int width_in_bytes = vfb->fb_address + vfb_stride_in_bytes - fb_address;
 				int width_in_pixels = width_in_bytes / BufferFormatBytesPerPixel(fb_format);
 
-				drawing_width = width_in_pixels;
-				margin = true;
-
-				// Don't really need to keep looking.
-				break;
+				// Final check
+				if (width_in_pixels <= 32) {
+					drawing_width = std::min(drawing_width, width_in_pixels);
+					margin = true;
+					// Don't really need to keep looking.
+					break;
+				}
 			}
 		}
 	}
