@@ -238,10 +238,10 @@ void TextureCacheGLES::Unbind() {
 	InvalidateLastTexture();
 }
 
-void TextureCacheGLES::BindAsClutTexture(Draw::Texture *tex) {
+void TextureCacheGLES::BindAsClutTexture(Draw::Texture *tex, bool smooth) {
 	GLRTexture *glrTex = (GLRTexture *)draw_->GetNativeObject(Draw::NativeObject::TEXTURE_VIEW, tex);
 	render_->BindTexture(TEX_SLOT_CLUT, glrTex);
-	render_->SetTextureSampler(TEX_SLOT_CLUT, GL_REPEAT, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
+	render_->SetTextureSampler(TEX_SLOT_CLUT, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, smooth ? GL_LINEAR : GL_NEAREST, smooth ? GL_LINEAR : GL_NEAREST, 0.0f);
 }
 
 void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {

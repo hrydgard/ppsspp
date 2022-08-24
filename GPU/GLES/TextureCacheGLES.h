@@ -65,7 +65,7 @@ protected:
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
 
-	void BindAsClutTexture(Draw::Texture *tex) override;
+	void BindAsClutTexture(Draw::Texture *tex, bool smooth) override;
 
 private:
 	void ApplySamplingParams(const SamplerCacheKey &key) override;

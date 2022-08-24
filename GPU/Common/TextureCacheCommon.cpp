@@ -1866,7 +1866,7 @@ bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferFormat) {
 // Great enhancement for Test Drive.
 static bool CanUseSmoothDepal(const GPUgstate &gstate, GEBufferFormat framebufferFormat, int rampLength) {
 	if (gstate.getClutIndexStartPos() == 0 &&
-		gstate.getClutIndexMask() <= rampLength) {
+		gstate.getClutIndexMask() < rampLength) {
 		switch (framebufferFormat) {
 		case GE_FORMAT_565:
 			if (gstate.getClutIndexShift() == 0 || gstate.getClutIndexShift() == 11) {
@@ -1918,7 +1918,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 		if (useShaderDepal) {
 			// Very icky conflation here of native and thin3d rendering. This will need careful work per backend in BindAsClutTexture.
-			BindAsClutTexture(clutTexture.texture);
+			BindAsClutTexture(clutTexture.texture, smoothedDepal);
 
 			framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 			// Vulkan needs to do some extra work here to pick out the native handle from Draw.

@@ -181,6 +181,7 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	if (id.Bit(FS_BIT_FLATSHADE)) desc << "Flat ";
 	if (id.Bit(FS_BIT_BGRA_TEXTURE)) desc << "BGRA ";
 	if (id.Bit(FS_BIT_SHADER_DEPAL)) desc << "Depal ";
+	if (id.Bit(FS_BIT_SHADER_SMOOTHED_DEPAL)) desc << "SmoothDepal ";
 	if (id.Bit(FS_BIT_COLOR_WRITEMASK)) desc << "WriteMask ";
 	if (id.Bit(FS_BIT_SHADER_TEX_CLAMP)) {
 		desc << "TClamp";
