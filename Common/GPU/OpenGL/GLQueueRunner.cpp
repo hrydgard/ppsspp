@@ -758,9 +758,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 	}
 
 	GLRProgram *curProgram = nullptr;
-	int activeSlot = 0;
-	if (first)
-		glActiveTexture(GL_TEXTURE0 + activeSlot);
+	int activeSlot = -1;
 
 	// State filtering tracking.
 	int attrMask = 0;
@@ -1202,8 +1200,13 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 		}
 		case GLRRenderCommand::TEXTURE_SUBIMAGE:
 		{
-			GLRTexture *tex = c.texture_subimage.texture;
+			GLint slot = c.texture_subimage.slot;
+			if (slot != activeSlot) {
+				glActiveTexture(GL_TEXTURE0 + slot);
+				activeSlot = slot;
+			}
 			// TODO: Need bind?
+			GLRTexture *tex = c.texture_subimage.texture;
 			if (!c.texture_subimage.data)
 				Crash();
 			_assert_(tex->target == GL_TEXTURE_2D);
