@@ -617,6 +617,8 @@ void ShaderManagerGLES::ClearCache(bool deleteThem) {
 
 void ShaderManagerGLES::DeviceLost() {
 	Clear();
+	render_ = nullptr;
+	draw_ = nullptr;
 }
 
 void ShaderManagerGLES::DeviceRestore(Draw::DrawContext *draw) {

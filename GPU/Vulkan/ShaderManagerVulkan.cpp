@@ -160,6 +160,10 @@ ShaderManagerVulkan::~ShaderManagerVulkan() {
 	delete[] codeBuffer_;
 }
 
+void ShaderManagerVulkan::DeviceLost() {
+	draw_ = nullptr;
+}
+
 void ShaderManagerVulkan::DeviceRestore(Draw::DrawContext *draw) {
 	VulkanContext *vulkan = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 	draw_ = draw;

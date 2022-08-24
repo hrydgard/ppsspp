@@ -2439,7 +2439,7 @@ void FramebufferManagerCommon::DeviceLost() {
 void FramebufferManagerCommon::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
 	draw2D_.DeviceRestore(draw_);
-	presentation_->DeviceRestore(draw);
+	presentation_->DeviceRestore(draw_);
 }
 
 void FramebufferManagerCommon::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {
