@@ -144,10 +144,11 @@ void Draw2D::DeviceLost() {
 	DoRelease(draw2DVs_);
 	DoRelease(draw2DSamplerLinear_);
 	DoRelease(draw2DSamplerNearest_);
+	draw_ = nullptr;
 }
 
 void Draw2D::DeviceRestore(Draw::DrawContext *draw) {
-
+	draw_ = draw;
 }
 
 void Draw2D::Ensure2DResources() {
