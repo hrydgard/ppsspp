@@ -135,7 +135,7 @@ bool FramebufferManagerCommon::ShouldDownloadFramebuffer(const VirtualFramebuffe
 
 // Heuristics to figure out the size of FBO to create.
 // TODO: Possibly differentiate on whether through mode is used (since in through mode, viewport is meaningless?)
-void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int fb_stride, int &drawing_width, int &drawing_height) {
+void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, int fb_stride, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int &drawing_width, int &drawing_height) {
 	static const int MAX_FRAMEBUF_HEIGHT = 512;
 
 	// Games don't always set any of these.  Take the greatest parameter that looks valid based on stride.
@@ -205,7 +205,40 @@ void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, GEBufferForma
 		}
 	}
 
-	DEBUG_LOG(G3D, "Est: %08x V: %ix%i, R: %ix%i, S: %ix%i, STR: %i, THR:%i, Z:%08x = %ix%i", fb_address, viewport_width,viewport_height, region_width, region_height, scissor_width, scissor_height, fb_stride, gstate.isModeThrough(), gstate.isDepthWriteEnabled() ? gstate.getDepthBufAddress() : 0, drawing_width, drawing_height);
+	bool margin = false;
+	// Let's check if we're in a stride gap of a full-size framebuffer.
+	for (auto vfb : vfbs_) {
+		if (fb_address == vfb->fb_address) {
+			continue;
+		}
+		if (vfb->fb_stride != 512) {
+			continue;
+		}
+
+		int vfb_stride_in_bytes = BufferFormatBytesPerPixel(vfb->fb_format) * vfb->fb_stride;
+		int stride_in_bytes = BufferFormatBytesPerPixel(fb_format) * fb_stride;
+		if (stride_in_bytes != vfb_stride_in_bytes) {
+			// Mismatching stride in bytes, not interesting
+			continue;
+		}
+
+		if (fb_address > vfb->fb_address && fb_address < vfb->fb_address + vfb_stride_in_bytes) {
+			// Candidate!
+			if (vfb->height == drawing_height) {
+				// Definitely got a margin texture! Fix the drawing width.
+				int width_in_bytes = vfb->fb_address + vfb_stride_in_bytes - fb_address;
+				int width_in_pixels = width_in_bytes / BufferFormatBytesPerPixel(fb_format);
+
+				drawing_width = width_in_pixels;
+				margin = true;
+
+				// Don't really need to keep looking.
+				break;
+			}
+		}
+	}
+
+	DEBUG_LOG(G3D, "Est: %08x V: %ix%i, R: %ix%i, S: %ix%i, STR: %i, THR:%i, Z:%08x = %ix%i %s", fb_address, viewport_width,viewport_height, region_width, region_height, scissor_width, scissor_height, fb_stride, gstate.isModeThrough(), gstate.isDepthWriteEnabled() ? gstate.getDepthBufAddress() : 0, drawing_width, drawing_height, margin ? " (margin!)" : "");
 }
 
 void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPUgstate &gstate) {
@@ -271,7 +304,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	// As there are no clear "framebuffer width" and "framebuffer height" registers,
 	// we need to infer the size of the current framebuffer somehow.
 	int drawing_width, drawing_height;
-	EstimateDrawingSize(params.fb_address, params.fb_format, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, std::max(params.fb_stride, (u16)4), drawing_width, drawing_height);
+	EstimateDrawingSize(params.fb_address, std::max(params.fb_stride, (u16)16), params.fb_format, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, drawing_width, drawing_height);
 
 	gstate_c.SetCurRTOffset(0, 0);
 	bool vfbStrideChanged = false;
