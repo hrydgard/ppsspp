@@ -1109,7 +1109,8 @@ void GPUCommon::BeginFrame() {
 	} else if (dumpThisFrame_) {
 		dumpThisFrame_ = false;
 	}
-	GPURecord::NotifyFrame();
+	GPUDebug::NotifyBeginFrame();
+	GPURecord::NotifyBeginFrame();
 }
 
 void GPUCommon::SlowRunLoop(DisplayList &list)
@@ -2707,7 +2708,8 @@ void GPUCommon::ResetListState(int listID, DisplayListState state) {
 
 GPUDebugOp GPUCommon::DissassembleOp(u32 pc, u32 op) {
 	char buffer[1024];
-	GeDisassembleOp(pc, op, Memory::Read_U32(pc - 4), buffer, sizeof(buffer));
+	u32 prev = Memory::IsValidAddress(pc - 4) ? Memory::ReadUnchecked_U32(pc - 4) : 0;
+	GeDisassembleOp(pc, op, prev, buffer, sizeof(buffer));
 
 	GPUDebugOp info;
 	info.pc = pc;
@@ -2763,6 +2765,10 @@ void GPUCommon::SetCmdValue(u32 op) {
 	gstate.cmdmem[cmd] = op;
 	ExecuteOp(op, diff);
 	downcount = 0;
+}
+
+void GPUCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
+	framebufferManager_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 
 void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {

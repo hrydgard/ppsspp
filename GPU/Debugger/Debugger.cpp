@@ -154,6 +154,15 @@ void NotifyDisplay(u32 framebuf, u32 stride, int format) {
 	}
 }
 
+void NotifyBeginFrame() {
+	if (!active)
+		return;
+	if (breakNext == BreakNext::VSYNC) {
+		// Just start stepping as soon as we can once the vblank finishes.
+		breakNext = BreakNext::OP;
+	}
+}
+
 int PrimsThisFrame() {
 	return primsThisFrame;
 }

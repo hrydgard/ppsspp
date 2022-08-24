@@ -979,6 +979,10 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			SetBreakNext(BreakNext::FRAME);
 			break;
 
+		case IDC_GEDBG_STEPVSYNC:
+			SetBreakNext(BreakNext::VSYNC);
+			break;
+
 		case IDC_GEDBG_STEPPRIM:
 			SetBreakNext(BreakNext::PRIM);
 			break;

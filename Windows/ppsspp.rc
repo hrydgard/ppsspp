@@ -202,7 +202,7 @@ EXSTYLE WS_EX_ACCEPTFILES | WS_EX_TOOLWINDOW
 CAPTION "GE"
 FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
-    PUSHBUTTON      "Step &Frame",IDC_GEDBG_STEPFRAME,10,2,44,14
+    PUSHBUTTON      "Step &Frame",IDC_GEDBG_STEPVSYNC,10,2,44,14
     PUSHBUTTON      "Step &Tex",IDC_GEDBG_STEPTEX,60,2,44,14
     PUSHBUTTON      "Step &Draw",IDC_GEDBG_STEPDRAW,105,2,44,14
     PUSHBUTTON      "Step &Prim",IDC_GEDBG_STEPPRIM,150,2,44,14
@@ -679,7 +679,8 @@ BEGIN
         MENUITEM "Next &Curve",                            IDC_GEDBG_STEPCURVE
         MENUITEM "Next &Texture",                          IDC_GEDBG_STEPTEX
         MENUITEM "Next &Draw Flush",                       IDC_GEDBG_STEPDRAW
-        MENUITEM "Next &Frame",                            IDC_GEDBG_STEPFRAME
+        MENUITEM "Next Display &Framebuf",                 IDC_GEDBG_STEPFRAME
+        MENUITEM "Next &Vsync Frame",                      IDC_GEDBG_STEPVSYNC
         MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "&Auto Flush Pending",                    IDC_GEDBG_FLUSHAUTO
     END

@@ -36,7 +36,6 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
-#include "GPU/Debugger/Debugger.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/GPU_GLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
@@ -358,11 +357,6 @@ void GPU_GLES::BeginFrame() {
 	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
 
 	framebufferManagerGL_->BeginFrame();
-}
-
-void GPU_GLES::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
-	GPUDebug::NotifyDisplay(framebuf, stride, format);
-	framebufferManagerGL_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 
 void GPU_GLES::CopyDisplayToOutput(bool reallyDirty) {

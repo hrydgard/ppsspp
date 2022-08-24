@@ -50,6 +50,7 @@ namespace GPURecord {
 static bool active = false;
 static bool nextFrame = false;
 static int flipLastAction = -1;
+static int flipFinishAt = -1;
 static std::function<void(const Path &)> writeCallback;
 
 static std::vector<u8> pushbuf;
@@ -145,6 +146,7 @@ static void BeginRecording() {
 	lastTextures.clear();
 	lastRenderTargets.clear();
 	flipLastAction = gpuStats.numFlips;
+	flipFinishAt = -1;
 
 	u32 ptr = (u32)pushbuf.size();
 	u32 sz = 512 * 4;
@@ -494,6 +496,7 @@ bool Activate() {
 	if (!nextFrame) {
 		nextFrame = true;
 		flipLastAction = gpuStats.numFlips;
+		flipFinishAt = -1;
 		return true;
 	}
 	return false;
@@ -512,6 +515,7 @@ static void FinishRecording() {
 	NOTICE_LOG(SYSTEM, "Recording finished");
 	active = false;
 	flipLastAction = gpuStats.numFlips;
+	flipFinishAt = -1;
 
 	if (writeCallback)
 		writeCallback(filename);
@@ -673,10 +677,10 @@ void NotifyDisplay(u32 framebuf, int stride, int fmt) {
 	}
 }
 
-void NotifyFrame() {
+void NotifyBeginFrame() {
 	const bool noDisplayAction = flipLastAction + 4 < gpuStats.numFlips;
-	// We do this only to catch things that don't call NotifyFrame.
-	if (active && HasDrawCommands() && noDisplayAction) {
+	// We do this only to catch things that don't call NotifyDisplay.
+	if (active && HasDrawCommands() && (noDisplayAction || gpuStats.numFlips == flipFinishAt)) {
 		NOTICE_LOG(SYSTEM, "Recording complete on frame");
 
 		struct DisplayBufData {
@@ -700,6 +704,8 @@ void NotifyFrame() {
 	if (nextFrame && (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0 && noDisplayAction) {
 		NOTICE_LOG(SYSTEM, "Recording starting on frame...");
 		BeginRecording();
+		// If we began on a BeginFrame, end on a BeginFrame.
+		flipFinishAt = gpuStats.numFlips + 1;
 	}
 }
 
