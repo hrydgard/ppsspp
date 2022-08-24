@@ -1109,7 +1109,7 @@ void GPUCommon::BeginFrame() {
 	} else if (dumpThisFrame_) {
 		dumpThisFrame_ = false;
 	}
-	GPURecord::NotifyFrame();
+	GPURecord::NotifyBeginFrame();
 }
 
 void GPUCommon::SlowRunLoop(DisplayList &list)
