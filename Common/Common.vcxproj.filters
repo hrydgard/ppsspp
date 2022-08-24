@@ -421,6 +421,7 @@
     <ClInclude Include="GPU\Vulkan\VulkanBarrier.h">
       <Filter>GPU\Vulkan</Filter>
     </ClInclude>
+    <ClInclude Include="RiscVEmitter.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -798,6 +799,7 @@
     <ClCompile Include="GPU\Vulkan\VulkanBarrier.cpp">
       <Filter>GPU\Vulkan</Filter>
     </ClCompile>
+    <ClCompile Include="RiscVEmitter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
