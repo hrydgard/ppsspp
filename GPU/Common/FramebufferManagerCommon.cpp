@@ -1640,15 +1640,13 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	}
 }
 
-void FramebufferManagerCommon::FindTransferFramebufferSrc(VirtualFramebuffer *&srcBuffer, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int bpp) {
-	u32 dstYOffset = -1;
-	u32 dstXOffset = -1;
+void FramebufferManagerCommon::FindTransferFramebufferSrc(VirtualFramebuffer *&srcBuffer, u32 basePtr, int stride, int &x, int &y, int &width, int &height, int bpp) {
 	u32 srcYOffset = -1;
 	u32 srcXOffset = -1;
-	int width = srcWidth;
-	int height = srcHeight;
+	int transferWidth = width;
+	int transferHeight = height;
 
-	srcBasePtr &= 0x3FFFFFFF;
+	basePtr &= 0x3FFFFFFF;
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
@@ -1658,45 +1656,43 @@ void FramebufferManagerCommon::FindTransferFramebufferSrc(VirtualFramebuffer *&s
 		const u32 vfb_byteStride = vfb->fb_stride * vfb_bpp;
 		const u32 vfb_byteWidth = vfb->width * vfb_bpp;
 
-		if (vfb_address <= srcBasePtr && srcBasePtr < vfb_address + vfb_size) {
-			const u32 byteOffset = srcBasePtr - vfb_address;
-			const u32 byteStride = srcStride * bpp;
+		if (vfb_address <= basePtr && basePtr < vfb_address + vfb_size) {
+			const u32 byteOffset = basePtr - vfb_address;
+			const u32 byteStride = stride * bpp;
 			const u32 yOffset = byteOffset / byteStride;
-			bool match = yOffset < srcYOffset && (int)yOffset <= (int)vfb->bufferHeight - srcHeight;
+			bool match = yOffset < srcYOffset && (int)yOffset <= (int)vfb->bufferHeight - height;
 			if (match && vfb_byteStride != byteStride) {
-				if (width != srcStride || (byteStride * height != vfb_byteStride && byteStride * height != vfb_byteWidth)) {
+				if (transferWidth != stride || (byteStride * transferHeight != vfb_byteStride && byteStride * transferHeight != vfb_byteWidth)) {
 					match = false;
 				} else {
-					srcWidth = byteStride * height / vfb_bpp;
-					srcHeight = 1;
+					width = byteStride * transferHeight / vfb_bpp;
+					height = 1;
 				}
 			} else if (match) {
-				srcWidth = width;
-				srcHeight = height;
+				width = transferWidth;
+				height = transferHeight;
 			}
 			if (match) {
 				srcYOffset = yOffset;
-				srcXOffset = srcStride == 0 ? 0 : (byteOffset / bpp) % srcStride;
+				srcXOffset = stride == 0 ? 0 : (byteOffset / bpp) % stride;
 				srcBuffer = vfb;
 			}
 		}
 	}
 
 	if (srcYOffset != (u32)-1) {
-		srcY += srcYOffset;
-		srcX += srcXOffset;
+		y += srcYOffset;
+		x += srcXOffset;
 	}
 }
 
-void FramebufferManagerCommon::FindTransferFramebufferDst(VirtualFramebuffer *&dstBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, int &dstWidth, int &dstHeight, int bpp) {
+void FramebufferManagerCommon::FindTransferFramebufferDst(VirtualFramebuffer *&dstBuffer, u32 basePtr, int stride, int &x, int &y, int &width, int &height, int bpp) {
 	u32 dstYOffset = -1;
 	u32 dstXOffset = -1;
-	u32 srcYOffset = -1;
-	u32 srcXOffset = -1;
-	int width = dstWidth;
-	int height = dstHeight;
+	int transferWidth = width;
+	int transferHeight = height;
 
-	dstBasePtr &= 0x3FFFFFFF;
+	basePtr &= 0x3FFFFFFF;
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
@@ -1710,45 +1706,45 @@ void FramebufferManagerCommon::FindTransferFramebufferDst(VirtualFramebuffer *&d
 		// The goal is to avoid using GPU block transfers for things that ought to be memory.
 		// Maybe we should even check for textures at these places instead?
 
-		if (vfb_address <= dstBasePtr && dstBasePtr < vfb_address + vfb_size) {
-			const u32 byteOffset = dstBasePtr - vfb_address;
-			const u32 byteStride = dstStride * bpp;
+		if (vfb_address <= basePtr && basePtr < vfb_address + vfb_size) {
+			const u32 byteOffset = basePtr - vfb_address;
+			const u32 byteStride = stride * bpp;
 			const u32 yOffset = byteOffset / byteStride;
 
-			// Some games use mismatching bitdepths.  But make sure the stride matches.
+			// Some games use mismatching bitdepths. But make sure the stride matches.
 			// If it doesn't, generally this means we detected the framebuffer with too large a height.
 			// Use bufferHeight in case of buffers that resize up and down often per frame (Valkyrie Profile.)
-			bool match = yOffset < dstYOffset && (int)yOffset <= (int)vfb->bufferHeight - dstHeight;
+			bool match = yOffset < dstYOffset && (int)yOffset <= (int)vfb->bufferHeight - height;
 			if (match && vfb_byteStride != byteStride) {
 				// Grand Knights History copies with a mismatching stride but a full line at a time.
 				// Makes it hard to detect the wrong transfers in e.g. God of War.
-				if (width != dstStride || (byteStride * height != vfb_byteStride && byteStride * height != vfb_byteWidth)) {
+				if (transferWidth != stride || (byteStride * transferHeight != vfb_byteStride && byteStride * transferHeight != vfb_byteWidth)) {
 					// However, some other games write cluts to framebuffers.
 					// Let's catch this and upload.  Otherwise reject the match.
 					match = (vfb->usageFlags & FB_USAGE_CLUT) != 0;
 					if (match) {
-						dstWidth = byteStride * height / vfb_bpp;
-						dstHeight = 1;
+						width = byteStride * transferHeight / vfb_bpp;
+						height = 1;
 					}
 				} else {
-					dstWidth = byteStride * height / vfb_bpp;
-					dstHeight = 1;
+					width = byteStride * transferHeight / vfb_bpp;
+					height = 1;
 				}
 			} else if (match) {
-				dstWidth = width;
-				dstHeight = height;
+				width = transferWidth;
+				height = transferHeight;
 			}
 			if (match) {
 				dstYOffset = yOffset;
-				dstXOffset = dstStride == 0 ? 0 : (byteOffset / bpp) % dstStride;
+				dstXOffset = stride == 0 ? 0 : (byteOffset / bpp) % stride;
 				dstBuffer = vfb;
 			}
 		}
 	}
 
 	if (dstYOffset != (u32)-1) {
-		dstY += dstYOffset;
-		dstX += dstXOffset;
+		y += dstYOffset;
+		x += dstXOffset;
 	}
 }
 
