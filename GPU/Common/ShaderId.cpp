@@ -181,6 +181,7 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	if (id.Bit(FS_BIT_FLATSHADE)) desc << "Flat ";
 	if (id.Bit(FS_BIT_BGRA_TEXTURE)) desc << "BGRA ";
 	if (id.Bit(FS_BIT_SHADER_DEPAL)) desc << "Depal ";
+	if (id.Bit(FS_BIT_SHADER_SMOOTHED_DEPAL)) desc << "SmoothDepal ";
 	if (id.Bit(FS_BIT_COLOR_WRITEMASK)) desc << "WriteMask ";
 	if (id.Bit(FS_BIT_SHADER_TEX_CLAMP)) {
 		desc << "TClamp";
@@ -240,8 +241,6 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	if (id.Bit(FS_BIT_COLOR_AGAINST_ZERO)) desc << "ColorTest0 " << alphaTestFuncs[id.Bits(FS_BIT_COLOR_TEST_FUNC, 2)] << " ";  // first 4 match;
 	else if (id.Bit(FS_BIT_COLOR_TEST)) desc << "ColorTest " << alphaTestFuncs[id.Bits(FS_BIT_COLOR_TEST_FUNC, 2)] << " ";  // first 4 match
 
-	if (id.Bit(FS_BIT_COLOR_TO_DEPTH)) desc << "ColorToDepth ";
-
 	return desc.str();
 }
 
@@ -263,8 +262,8 @@ void ComputeFragmentShaderID(FShaderID *id_out, const Draw::Bugs &bugs) {
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
 		bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;
 		bool useShaderDepal = gstate_c.useShaderDepal;
+		bool useSmoothedDepal = gstate_c.useSmoothedShaderDepal;
 		bool colorWriteMask = IsColorWriteMaskComplex(gstate_c.allowFramebufferRead);
-		bool colorToDepth = gstate_c.renderMode == RasterMode::RASTER_MODE_COLOR_TO_DEPTH;
 
 		// Note how we here recompute some of the work already done in state mapping.
 		// Not ideal! At least we share the code.
@@ -293,10 +292,9 @@ void ComputeFragmentShaderID(FShaderID *id_out, const Draw::Bugs &bugs) {
 			}
 			id.SetBit(FS_BIT_BGRA_TEXTURE, gstate_c.bgraTexture);
 			id.SetBit(FS_BIT_SHADER_DEPAL, useShaderDepal);
+			id.SetBit(FS_BIT_SHADER_SMOOTHED_DEPAL, useSmoothedDepal);
 			id.SetBit(FS_BIT_3D_TEXTURE, gstate_c.curTextureIs3D);
 		}
-
-		id.SetBit(FS_BIT_COLOR_TO_DEPTH, colorToDepth);
 
 		id.SetBit(FS_BIT_LMODE, lmode);
 		if (enableAlphaTest) {

@@ -29,7 +29,9 @@
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/TextureScalerCommon.h"
-#include "GPU/Common/DepalettizeCommon.h"
+#include "GPU/Common/TextureShaderCommon.h"
+
+class Draw2D;
 
 enum FramebufferNotification {
 	NOTIFY_FB_CREATED,
@@ -206,15 +208,7 @@ typedef std::map<u64, std::unique_ptr<TexCacheEntry>> TexCache;
 #undef IGNORE
 #endif
 
-enum class FramebufferMatch {
-	// Valid, exact match.
-	VALID = 0,
-	// Not a match, remove if currently attached.
-	NO_MATCH,
-};
-
 struct FramebufferMatchInfo {
-	FramebufferMatch match;
 	u32 xOffset;
 	u32 yOffset;
 	bool reinterpret;
@@ -226,8 +220,9 @@ struct AttachCandidate {
 	TextureDefinition entry;
 	VirtualFramebuffer *fb;
 	RasterChannel channel;
+	int seqCount;
 
-	std::string ToString();
+	std::string ToString() const;
 };
 
 class FramebufferManagerCommon;
@@ -278,7 +273,7 @@ struct BuildTexturePlan {
 
 class TextureCacheCommon {
 public:
-	TextureCacheCommon(Draw::DrawContext *draw);
+	TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D);
 	virtual ~TextureCacheCommon();
 
 	void LoadClut(u32 clutAddr, u32 loadBytes);
@@ -298,7 +293,7 @@ public:
 	void InvalidateAll(GPUInvalidationType type);
 	void ClearNextFrame();
 
-	DepalShaderCache *GetDepalShaderCache() { return depalShaderCache_; }
+	TextureShaderCache *GetTextureShaderCache() { return textureShaderCache_; }
 
 	virtual void ForgetLastTexture() = 0;
 	virtual void InvalidateLastTexture() = 0;
@@ -339,7 +334,7 @@ protected:
 	virtual void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) = 0;
 	bool CheckFullHash(TexCacheEntry *entry, bool &doDelete);
 
-	virtual void BindAsClutTexture(Draw::Texture *tex) {}
+	virtual void BindAsClutTexture(Draw::Texture *tex, bool smooth) {}
 
 	CheckAlphaResult DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool expandTo32Bit);
 	void UnswizzleFromMem(u32 *dest, u32 destPitch, const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel);
@@ -365,7 +360,7 @@ protected:
 	SamplerCacheKey GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
-	FramebufferMatchInfo MatchFramebuffer(const TextureDefinition &entry, VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel) const;
+	bool MatchFramebuffer(const TextureDefinition &entry, VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel, FramebufferMatchInfo *matchInfo) const;
 
 	std::vector<AttachCandidate> GetFramebufferCandidates(const TextureDefinition &entry, u32 texAddrOffset);
 	int GetBestCandidateIndex(const std::vector<AttachCandidate> &candidates);
@@ -407,10 +402,12 @@ protected:
 	}
 
 	Draw::DrawContext *draw_;
+	Draw2D *draw2D_;
+
 	TextureReplacer replacer_;
 	TextureScalerCommon scaler_;
 	FramebufferManagerCommon *framebufferManager_;
-	DepalShaderCache *depalShaderCache_;
+	TextureShaderCache *textureShaderCache_;
 	ShaderManagerCommon *shaderManager_;
 
 	bool clearCacheNextFrame_ = false;
@@ -440,7 +437,9 @@ protected:
 	SimpleBuf<u32> tmpTexBufRearrange_;
 
 	TexCacheEntry *nextTexture_ = nullptr;
+	bool failedTexture_ = false;
 	VirtualFramebuffer *nextFramebufferTexture_ = nullptr;
+	RasterChannel nextFramebufferTextureChannel_ = RASTER_COLOR;
 
 	u32 clutHash_ = 0;
 
@@ -449,13 +448,13 @@ protected:
 	u32 *clutBufConverted_;
 	// This is the active one.
 	u32 *clutBuf_;
-	u32 clutLastFormat_;
-	u32 clutTotalBytes_;
-	u32 clutMaxBytes_;
-	u32 clutRenderAddress_;
+	u32 clutLastFormat_ = 0xFFFFFFFF;
+	u32 clutTotalBytes_ = 0;
+	u32 clutMaxBytes_ = 0;
+	u32 clutRenderAddress_ = 0xFFFFFFFF;
 	u32 clutRenderOffset_;
 	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
-	bool clutAlphaLinear_;
+	bool clutAlphaLinear_ = false;
 	u16 clutAlphaLinearColor_;
 
 	int standardScaleFactor_;
@@ -466,7 +465,7 @@ protected:
 	bool nextNeedsChange_;
 	bool nextNeedsRebuild_;
 
-	bool isBgraBackend_;
+	bool isBgraBackend_ = false;
 
 	u32 expandClut_[256];
 };

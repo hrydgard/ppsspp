@@ -41,7 +41,7 @@
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
-#include "GPU/Common/DepalettizeCommon.h"
+#include "GPU/Common/TextureShaderCommon.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -168,6 +168,7 @@ void SamplerCache::DeviceLost() {
 		vulkan_->Delete().QueueDeleteSampler(sampler);
 	});
 	cache_.Clear();
+	vulkan_ = nullptr;
 }
 
 void SamplerCache::DeviceRestore(VulkanContext *vulkan) {
@@ -184,8 +185,8 @@ std::vector<std::string> SamplerCache::DebugGetSamplerIDs() const {
 	return ids;
 }
 
-TextureCacheVulkan::TextureCacheVulkan(Draw::DrawContext *draw, VulkanContext *vulkan)
-	: TextureCacheCommon(draw),
+TextureCacheVulkan::TextureCacheVulkan(Draw::DrawContext *draw, Draw2D *draw2D, VulkanContext *vulkan)
+	: TextureCacheCommon(draw, draw2D),
 		computeShaderManager_(vulkan),
 		samplerCache_(vulkan) {
 	DeviceRestore(draw);
@@ -200,7 +201,7 @@ void TextureCacheVulkan::SetFramebufferManager(FramebufferManagerVulkan *fbManag
 }
 
 void TextureCacheVulkan::DeviceLost() {
-	depalShaderCache_->DeviceLost();
+	textureShaderCache_->DeviceLost();
 
 	VulkanContext *vulkan = draw_ ? (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT) : nullptr;
 
@@ -227,7 +228,7 @@ void TextureCacheVulkan::DeviceRestore(Draw::DrawContext *draw) {
 	_assert_(!allocator_);
 
 	samplerCache_.DeviceRestore(vulkan);
-	depalShaderCache_->DeviceRestore(draw);
+	textureShaderCache_->DeviceRestore(draw);
 
 	VkSamplerCreateInfo samp{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -320,7 +321,7 @@ void TextureCacheVulkan::StartFrame() {
 	TextureCacheCommon::StartFrame();
 
 	InvalidateLastTexture();
-	depalShaderCache_->Decimate();
+	textureShaderCache_->Decimate();
 
 	timesInvalidatedAllThisFrame_ = 0;
 	texelsScaledThisFrame_ = 0;
@@ -388,16 +389,21 @@ void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 }
 
 void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
-	_assert_(entry);
-	_assert_(entry->vkTex);
+	if (!entry) {
+		imageView_ = VK_NULL_HANDLE;
+		curSampler_ = VK_NULL_HANDLE;
+		return;
+	}
 
+	_dbg_assert_(entry->vkTex);
 	entry->vkTex->Touch();
-	imageView_ = entry->vkTex->GetImageView();
+
 	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
 	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
-	drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
-	gstate_c.SetUseShaderDepal(false);
+	imageView_ = entry->vkTex->GetImageView();
+	drawEngine_->SetDepalTexture(VK_NULL_HANDLE, false);
+	gstate_c.SetUseShaderDepal(false, false);
 }
 
 void TextureCacheVulkan::ApplySamplingParams(const SamplerCacheKey &key) {
@@ -410,9 +416,9 @@ void TextureCacheVulkan::Unbind() {
 	InvalidateLastTexture();
 }
 
-void TextureCacheVulkan::BindAsClutTexture(Draw::Texture *tex) {
+void TextureCacheVulkan::BindAsClutTexture(Draw::Texture *tex, bool smooth) {
 	VkImageView clutTexture = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::TEXTURE_VIEW, tex);
-	drawEngine_->SetDepalTexture(clutTexture);
+	drawEngine_->SetDepalTexture(clutTexture, smooth);
 }
 
 static Draw::DataFormat FromVulkanFormat(VkFormat fmt) {
@@ -459,7 +465,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	// Any texture scaling is gonna move away from the original 16-bit format, if any.
 	VkFormat actualFmt = plan.scaleFactor > 1 ? VULKAN_8888_FORMAT : dstFmt;
 	if (plan.replaced->Valid()) {
-		actualFmt = ToVulkanFormat(plan.replaced->Format(0));
+		actualFmt = ToVulkanFormat(plan.replaced->Format(plan.baseLevelSrc));
 	}
 
 	bool computeUpload = false;
@@ -531,7 +537,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	ReplacedTextureDecodeInfo replacedInfo;
 	bool willSaveTex = false;
-	if (replacer_.Enabled() && !plan.replaced->Valid() && plan.depth == 1) {
+	if (replacer_.Enabled() && plan.replaced->IsInvalid() && plan.depth == 1) {
 		replacedInfo.cachekey = entry->CacheKey();
 		replacedInfo.hash = entry->fullhash;
 		replacedInfo.addr = entry->addr;
@@ -560,7 +566,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		int mipWidth = mipUnscaledWidth * plan.scaleFactor;
 		int mipHeight = mipUnscaledHeight * plan.scaleFactor;
 		if (plan.replaced->Valid()) {
-			plan.replaced->GetSize(i, mipWidth, mipHeight);
+			plan.replaced->GetSize(plan.baseLevelSrc + i, mipWidth, mipHeight);
 		}
 
 		int bpp = actualFmt == VULKAN_8888_FORMAT ? 4 : 2;  // output bpp
@@ -590,7 +596,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			// Directly load the replaced image.
 			data = drawEngine_->GetPushBufferForTextureData()->PushAligned(size, &bufferOffset, &texBuf, pushAlignment);
 			double replaceStart = time_now_d();
-			plan.replaced->Load(i, data, stride);  // if it fails, it'll just be garbage data... OK for now.
+			plan.replaced->Load(plan.baseLevelSrc + i, data, stride);  // if it fails, it'll just be garbage data... OK for now.
 			replacementTimeThisFrame_ += time_now_d() - replaceStart;
 			VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT,
 				"Copy Upload (replaced): %dx%d", mipWidth, mipHeight);
@@ -631,7 +637,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				int w = dataScaled ? mipWidth : mipUnscaledWidth;
 				int h = dataScaled ? mipHeight : mipUnscaledHeight;
 				// At this point, data should be saveData, and not slow.
-				replacer_.NotifyTextureDecoded(replacedInfo, data, stride, i, w, h);
+				replacer_.NotifyTextureDecoded(replacedInfo, data, stride, plan.baseLevelSrc + i, w, h);
 			}
 		}
 	}
@@ -772,6 +778,8 @@ bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int leve
 			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 			// We may have blitted to a temp FBO.
 			framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
+			if (!retval)
+				ERROR_LOG(G3D, "Failed to get debug texture: copy to memory failed");
 			return retval;
 		} else {
 			return false;

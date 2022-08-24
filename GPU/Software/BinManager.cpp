@@ -210,6 +210,9 @@ void BinManager::UpdateState() {
 	}
 
 	if (HasDirty(SoftDirty::BINNER_OVERLAP)) {
+		// This is a good place to record any dependencies for block transfer overlap.
+		MarkPendingReads(state);
+
 		// Disallow threads when rendering to the target, even offset.
 		bool selfRender = HasTextureWrite(state);
 		int newMaxTasks = selfRender ? 1 : g_threadManager.GetNumLooperThreads();
@@ -249,6 +252,34 @@ bool BinManager::HasTextureWrite(const RasterizerState &state) {
 	}
 
 	return false;
+}
+
+void BinManager::MarkPendingReads(const Rasterizer::RasterizerState &state) {
+	if (!state.enableTextures)
+		return;
+
+	const uint8_t textureBits = textureBitsPerPixel[state.samplerID.texfmt];
+	for (int i = 0; i <= state.maxTexLevel; ++i) {
+		uint32_t byteStride = (state.texbufw[i] * textureBits) / 8;
+		uint32_t byteWidth = (state.samplerID.cached.sizes[i].w * textureBits) / 8;
+		uint32_t h = state.samplerID.cached.sizes[i].h;
+		auto it = pendingReads_.find(state.texaddr[i]);
+		if (it != pendingReads_.end()) {
+			uint32_t total = byteStride * (h - 1) + byteWidth;
+			uint32_t existing = it->second.strideBytes * (it->second.height - 1) + it->second.widthBytes;
+			if (existing < total) {
+				it->second.strideBytes = std::max(it->second.strideBytes, byteStride);
+				it->second.widthBytes = std::max(it->second.widthBytes, byteWidth);
+				it->second.height = std::max(it->second.height, h);
+			}
+		} else {
+			auto &range = pendingReads_[state.texaddr[i]];
+			range.base = state.texaddr[i];
+			range.strideBytes = byteStride;
+			range.widthBytes = byteWidth;
+			range.height = h;
+		}
+	}
 }
 
 inline void BinDirtyRange::Expand(uint32_t newBase, uint32_t bpp, uint32_t stride, DrawingCoords &tl, DrawingCoords &br) {
@@ -465,9 +496,10 @@ void BinManager::Flush(const char *reason) {
 	for (auto &pending : pendingWrites_)
 		pending.base = 0;
 	pendingOverlap_ = false;
+	pendingReads_.clear();
 
-	// We'll need to set the pending writes again, since we just flushed it.
-	dirty_ |= SoftDirty::BINNER_RANGE;
+	// We'll need to set the pending writes and reads again, since we just flushed it.
+	dirty_ |= SoftDirty::BINNER_RANGE | SoftDirty::BINNER_OVERLAP;
 
 	if (coreCollectDebugStats) {
 		double et = time_now_d();
@@ -486,7 +518,7 @@ bool BinManager::HasPendingWrite(uint32_t start, uint32_t stride, uint32_t w, ui
 	// Ignore mirrors for overlap detection.
 	start &= 0x0FFFFFFF & ~0x00600000;
 
-	uint32_t size = stride * h;
+	uint32_t size = stride * (h - 1) + w;
 	for (const auto &range : pendingWrites_) {
 		if (range.base == 0 || range.strideBytes == 0)
 			continue;
@@ -507,6 +539,28 @@ bool BinManager::HasPendingWrite(uint32_t start, uint32_t stride, uint32_t w, ui
 
 			row += stride;
 		}
+	}
+
+	return false;
+}
+
+bool BinManager::HasPendingRead(uint32_t start, uint32_t stride, uint32_t w, uint32_t h) {
+	if (Memory::IsVRAMAddress(start)) {
+		// Ignore VRAM mirrors.
+		start &= 0x0FFFFFFF & ~0x00600000;
+	} else {
+		// Ignore only regular RAM mirrors.
+		start &= 0x3FFFFFFF;
+	}
+
+	uint32_t size = stride * (h - 1) + w;
+	for (const auto &pair : pendingReads_) {
+		const auto &range = pair.second;
+		if (start >= range.base + range.height * range.strideBytes || start + size <= range.base)
+			continue;
+
+		// Stride gaps are uncommon with reads, so don't bother.
+		return true;
 	}
 
 	return false;

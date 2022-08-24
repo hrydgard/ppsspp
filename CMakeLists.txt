@@ -428,6 +428,15 @@ if(WIN32)
 endif()
 
 
+set(CommonJIT
+	Core/MIPS/JitCommon/JitCommon.cpp
+	Core/MIPS/JitCommon/JitCommon.h
+	Core/MIPS/JitCommon/JitBlockCache.cpp
+	Core/MIPS/JitCommon/JitBlockCache.h
+	Core/MIPS/JitCommon/JitState.cpp
+	Core/MIPS/JitCommon/JitState.h
+)
+
 set(CommonX86
 	Common/ABI.cpp
 	Common/ABI.h
@@ -466,6 +475,7 @@ set(CommonMIPS
 source_group(MIPS FILES ${CommonMIPS})
 
 set(CommonRISCV64
+	${CommonJIT}
 	Common/RiscVCPUDetect.cpp
 	Core/MIPS/fake/FakeJit.cpp
 	Core/MIPS/fake/FakeJit.h
@@ -1532,8 +1542,8 @@ set(GPU_SOURCES
 	${GPU_NEON}
 	GPU/Common/Draw2D.cpp
 	GPU/Common/Draw2D.h
-	GPU/Common/DepalettizeCommon.cpp
-	GPU/Common/DepalettizeCommon.h
+	GPU/Common/TextureShaderCommon.cpp
+	GPU/Common/TextureShaderCommon.h
 	GPU/Common/DepalettizeShaderCommon.cpp
 	GPU/Common/DepalettizeShaderCommon.h
 	GPU/Common/FragmentShaderGenerator.cpp
@@ -1632,6 +1642,7 @@ set(GPU_SOURCES
 # SHARED on ANDROID, STATIC everywhere else
 add_library(${CoreLibName} ${CoreLinkType}
 	${CoreExtra}
+	${CommonJIT}
 	Core/Config.cpp
 	Core/Config.h
 	Core/ConfigValues.h
@@ -1939,12 +1950,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/FileLoaders/RamCachingFileLoader.h
 	Core/FileLoaders/RetryingFileLoader.cpp
 	Core/FileLoaders/RetryingFileLoader.h
-	Core/MIPS/JitCommon/JitCommon.cpp
-	Core/MIPS/JitCommon/JitCommon.h
-	Core/MIPS/JitCommon/JitBlockCache.cpp
-	Core/MIPS/JitCommon/JitBlockCache.h
-	Core/MIPS/JitCommon/JitState.cpp
-	Core/MIPS/JitCommon/JitState.h
 	Core/MIPS/MIPS.cpp
 	Core/MIPS/MIPS.h
 	Core/MIPS/MIPSAnalyst.cpp

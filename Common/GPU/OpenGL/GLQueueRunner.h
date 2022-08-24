@@ -149,11 +149,12 @@ struct GLRRenderData {
 		struct {
 			GLRTexture *texture;
 			Draw::DataFormat format;
-			int level;
-			int x;
-			int y;
-			int width;
-			int height;
+			uint8_t slot;
+			uint8_t level;
+			uint16_t width;
+			uint16_t height;
+			uint16_t x;
+			uint16_t y;
 			GLRAllocType allocType;
 			uint8_t *data;  // owned, delete[]-d
 		} texture_subimage;

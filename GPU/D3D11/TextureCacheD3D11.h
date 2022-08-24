@@ -28,7 +28,7 @@
 struct VirtualFramebuffer;
 
 class FramebufferManagerD3D11;
-class DepalShaderCache;
+class TextureShaderCache;
 class ShaderManagerD3D11;
 
 class SamplerCacheD3D11 {
@@ -43,7 +43,7 @@ private:
 
 class TextureCacheD3D11 : public TextureCacheCommon {
 public:
-	TextureCacheD3D11(Draw::DrawContext *draw);
+	TextureCacheD3D11(Draw::DrawContext *draw, Draw2D *draw2D);
 	~TextureCacheD3D11();
 
 	void StartFrame() override;
@@ -59,7 +59,7 @@ protected:
 	void BindTexture(TexCacheEntry *entry) override;
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
-	void BindAsClutTexture(Draw::Texture *tex) override;
+	void BindAsClutTexture(Draw::Texture *tex, bool smooth) override;
 	void ApplySamplingParams(const SamplerCacheKey &key) override;
 
 private:

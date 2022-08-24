@@ -24,11 +24,6 @@ class GPUInterface;
 class GPUDebugInterface;
 class GraphicsContext;
 
-enum RasterMode {
-	RASTER_MODE_NORMAL = 0,
-	RASTER_MODE_COLOR_TO_DEPTH = 1,
-};
-
 // PSP rasterization has two outputs, color and depth. Stencil is packed
 // into the alpha channel of color (if exists), so possibly RASTER_COLOR
 // should be named RASTER_COLOR_STENCIL but it gets kinda hard to read.
@@ -89,6 +84,8 @@ struct GPUStatistics {
 		numUploads = 0;
 		numClears = 0;
 		numDepthCopies = 0;
+		numReinterpretCopies = 0;
+		numColorCopies = 0;
 		msProcessingDisplayLists = 0;
 		vertexGPUCycles = 0;
 		otherGPUCycles = 0;
@@ -115,6 +112,8 @@ struct GPUStatistics {
 	int numUploads;
 	int numClears;
 	int numDepthCopies;
+	int numReinterpretCopies;
+	int numColorCopies;
 	double msProcessingDisplayLists;
 	int vertexGPUCycles;
 	int otherGPUCycles;

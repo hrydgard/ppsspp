@@ -38,7 +38,6 @@
 #include "GPU/GeDisasm.h"
 
 #include "GPU/Common/FramebufferManagerCommon.h"
-#include "GPU/Debugger/Debugger.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/GPU_DX9.h"
 #include "GPU/Directx9/FramebufferManagerDX9.h"
@@ -58,7 +57,7 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	shaderManagerDX9_ = new ShaderManagerDX9(draw, device_);
 	framebufferManagerDX9_ = new FramebufferManagerDX9(draw);
 	framebufferManager_ = framebufferManagerDX9_;
-	textureCacheDX9_ = new TextureCacheDX9(draw);
+	textureCacheDX9_ = new TextureCacheDX9(draw, framebufferManager_->GetDraw2D());
 	textureCache_ = textureCacheDX9_;
 	drawEngineCommon_ = &drawEngine_;
 	shaderManager_ = shaderManagerDX9_;
@@ -160,6 +159,7 @@ void GPU_DX9::CheckGPUFeatures() {
 	u32 features = 0;
 	features |= GPU_SUPPORTS_16BIT_FORMATS;
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
+	features |= GPU_SUPPORTS_DEPTH_TEXTURE;
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 
 	// Accurate depth is required because the Direct3D API does not support inverse Z.
@@ -285,11 +285,6 @@ void GPU_DX9::BeginFrame() {
 	framebufferManager_->BeginFrame();
 }
 
-void GPU_DX9::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
-	GPUDebug::NotifyDisplay(framebuf, stride, format);
-	framebufferManagerDX9_->SetDisplayFramebuffer(framebuf, stride, format);
-}
-
 void GPU_DX9::CopyDisplayToOutput(bool reallyDirty) {
 	dxstate.depthWrite.set(true);
 	dxstate.colorMask.set(0xF);
@@ -374,8 +369,8 @@ std::vector<std::string> GPU_DX9::DebugGetShaderIDs(DebugShaderType type) {
 	switch (type) {
 	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngine_.DebugGetVertexLoaderIDs();
-	case SHADER_TYPE_DEPAL:
-		return textureCache_->GetDepalShaderCache()->DebugGetShaderIDs(type);
+	case SHADER_TYPE_TEXTURE:
+		return textureCache_->GetTextureShaderCache()->DebugGetShaderIDs(type);
 	default:
 		return shaderManagerDX9_->DebugGetShaderIDs(type);
 	}
@@ -385,8 +380,8 @@ std::string GPU_DX9::DebugGetShaderString(std::string id, DebugShaderType type, 
 	switch (type) {
 	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
-	case SHADER_TYPE_DEPAL:
-		return textureCache_->GetDepalShaderCache()->DebugGetShaderString(id, type, stringType);
+	case SHADER_TYPE_TEXTURE:
+		return textureCache_->GetTextureShaderCache()->DebugGetShaderString(id, type, stringType);
 	default:
 		return shaderManagerDX9_->DebugGetShaderString(id, type, stringType);
 	}

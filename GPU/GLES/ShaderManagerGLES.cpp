@@ -102,8 +102,9 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 
 	std::vector<GLRProgram::UniformLocQuery> queries;
 	queries.push_back({ &u_tex, "tex" });
-	queries.push_back({ &u_proj, "u_proj" });
-	queries.push_back({ &u_proj_through, "u_proj_through" });
+	queries.push_back({ &u_pal, "pal" });
+	queries.push_back({ &u_testtex, "testtex" });
+	queries.push_back({ &u_fbotex, "fbotex" });
 
 	queries.push_back({ &u_proj, "u_proj" });
 	queries.push_back({ &u_proj_through, "u_proj_through" });
@@ -114,13 +115,9 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_alphacolormask, "u_alphacolormask" });
 	queries.push_back({ &u_colorWriteMask, "u_colorWriteMask" });
 	queries.push_back({ &u_stencilReplaceValue, "u_stencilReplaceValue" });
-	queries.push_back({ &u_testtex, "testtex" });
-
-	queries.push_back({ &u_fbotex, "fbotex" });
 	queries.push_back({ &u_blendFixA, "u_blendFixA" });
 	queries.push_back({ &u_blendFixB, "u_blendFixB" });
 	queries.push_back({ &u_fbotexSize, "u_fbotexSize" });
-	queries.push_back({ &u_pal, "pal" });
 
 	// Transform
 	queries.push_back({ &u_view, "u_view" });
@@ -697,6 +694,8 @@ void ShaderManagerGLES::ClearCache(bool deleteThem) {
 
 void ShaderManagerGLES::DeviceLost() {
 	Clear();
+	render_ = nullptr;
+	draw_ = nullptr;
 }
 
 void ShaderManagerGLES::DeviceRestore(Draw::DrawContext *draw) {

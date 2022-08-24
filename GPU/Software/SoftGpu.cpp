@@ -52,7 +52,7 @@
 const int FB_WIDTH = 480;
 const int FB_HEIGHT = 272;
 
-u32 clut[4096];
+uint8_t clut[1024];
 FormatBuffer fb;
 FormatBuffer depthbuf;
 
@@ -201,14 +201,14 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 	{ GE_CMD_CLUTFORMAT, 0, SoftDirty::SAMPLER_BASIC },
 
 	// Morph weights. TODO: Remove precomputation?
-	{ GE_CMD_MORPHWEIGHT0, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
-	{ GE_CMD_MORPHWEIGHT1, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
-	{ GE_CMD_MORPHWEIGHT2, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
-	{ GE_CMD_MORPHWEIGHT3, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
-	{ GE_CMD_MORPHWEIGHT4, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
-	{ GE_CMD_MORPHWEIGHT5, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
-	{ GE_CMD_MORPHWEIGHT6, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
-	{ GE_CMD_MORPHWEIGHT7, 0, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT0, FLAG_EXECUTEONCHANGE, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT1, FLAG_EXECUTEONCHANGE, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT2, FLAG_EXECUTEONCHANGE, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT3, FLAG_EXECUTEONCHANGE, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT4, FLAG_EXECUTEONCHANGE, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT5, FLAG_EXECUTEONCHANGE, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT6, FLAG_EXECUTEONCHANGE, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
+	{ GE_CMD_MORPHWEIGHT7, FLAG_EXECUTEONCHANGE, SoftDirty::NONE, &GPUCommon::Execute_MorphWeight },
 
 	// No state of flushing required for patch parameters, currently.
 	{ GE_CMD_PATCHDIVISION },
@@ -787,8 +787,8 @@ void SoftGPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 	const uint32_t dstSize = height * dstStride * bpp;
 
 	// Need to flush both source and target, so we overwrite properly.
-	drawEngine_->transformUnit.FlushIfOverlap("blockxfer", src, srcStride, width * bpp, height);
-	drawEngine_->transformUnit.FlushIfOverlap("blockxfer", dst, dstStride, width * bpp, height);
+	drawEngine_->transformUnit.FlushIfOverlap("blockxfer", false, src, srcStride, width * bpp, height);
+	drawEngine_->transformUnit.FlushIfOverlap("blockxfer", true, dst, dstStride, width * bpp, height);
 
 	DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
 
@@ -971,10 +971,13 @@ void SoftGPU::Execute_Spline(u32 op, u32 diff) {
 
 void SoftGPU::Execute_LoadClut(u32 op, u32 diff) {
 	u32 clutAddr = gstate.getClutAddress();
-	u32 clutTotalBytes = gstate.getClutLoadBytes();
+	// Avoid the hack in getClutLoadBytes() to inaccurately allow more palette data.
+	u32 clutTotalBytes = (gstate.getClutLoadBlocks() & 0x3F) * 32;
+	if (clutTotalBytes > 1024)
+		clutTotalBytes = 1024;
 
 	// Might be copying drawing into the CLUT, so flush.
-	drawEngine_->transformUnit.FlushIfOverlap("loadclut", clutAddr, clutTotalBytes, clutTotalBytes, 1);
+	drawEngine_->transformUnit.FlushIfOverlap("loadclut", false, clutAddr, clutTotalBytes, clutTotalBytes, 1);
 
 	bool changed = false;
 	if (Memory::IsValidAddress(clutAddr)) {

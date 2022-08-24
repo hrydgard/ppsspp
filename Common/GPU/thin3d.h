@@ -494,7 +494,6 @@ struct SamplerStateDesc {
 	TextureAddressMode wrapU;
 	TextureAddressMode wrapV;
 	TextureAddressMode wrapW;
-	float maxLod;
 	bool shadowCompareEnabled;
 	Comparison shadowCompareFunc;
 	BorderColor borderColor;
@@ -544,6 +543,7 @@ struct DeviceCaps {
 	bool fragmentShaderInt32Supported;
 	bool textureNPOTFullySupported;
 	bool fragmentShaderDepthWriteSupported;
+	bool textureDepthSupported;
 
 	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
 };

@@ -183,11 +183,13 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	samp.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-	samp.flags = 0;
+	samp.magFilter = VK_FILTER_LINEAR;
+	samp.minFilter = VK_FILTER_LINEAR;
+	samp.maxLod = VK_LOD_CLAMP_NONE;  // recommended by best practices, has no effect since we don't use mipmaps.
+	res = vkCreateSampler(device, &samp, nullptr, &samplerSecondaryLinear_);
 	samp.magFilter = VK_FILTER_NEAREST;
 	samp.minFilter = VK_FILTER_NEAREST;
-	res = vkCreateSampler(device, &samp, nullptr, &samplerSecondary_);
+	res = vkCreateSampler(device, &samp, nullptr, &samplerSecondaryNearest_);
 	_dbg_assert_(VK_SUCCESS == res);
 	res = vkCreateSampler(device, &samp, nullptr, &nullSampler_);
 	_dbg_assert_(VK_SUCCESS == res);
@@ -235,8 +237,10 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		frame_[i].Destroy(vulkan);
 	}
-	if (samplerSecondary_ != VK_NULL_HANDLE)
-		vulkan->Delete().QueueDeleteSampler(samplerSecondary_);
+	if (samplerSecondaryNearest_ != VK_NULL_HANDLE)
+		vulkan->Delete().QueueDeleteSampler(samplerSecondaryNearest_);
+	if (samplerSecondaryLinear_ != VK_NULL_HANDLE)
+		vulkan->Delete().QueueDeleteSampler(samplerSecondaryLinear_);
 	if (nullSampler_ != VK_NULL_HANDLE)
 		vulkan->Delete().QueueDeleteSampler(nullSampler_);
 	if (pipelineLayout_ != VK_NULL_HANDLE)
@@ -248,6 +252,7 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 		delete vertexCache_;
 		vertexCache_ = nullptr;
 	}
+
 	// Need to clear this to get rid of all remaining references to the dead buffers.
 	vai_.Iterate([](uint32_t hash, VertexArrayInfoVulkan *vai) {
 		delete vai;
@@ -411,7 +416,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	if (boundSecondary_) {
 		tex[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		tex[1].imageView = boundSecondary_;
-		tex[1].sampler = samplerSecondary_;
+		tex[1].sampler = samplerSecondaryNearest_;
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writes[n].pNext = nullptr;
 		writes[n].dstBinding = DRAW_BINDING_2ND_TEXTURE;
@@ -425,7 +430,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	if (boundDepal_) {
 		tex[2].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		tex[2].imageView = boundDepal_;
-		tex[2].sampler = samplerSecondary_;  // doesn't matter, we use load
+		tex[2].sampler = boundDepalSmoothed_ ? samplerSecondaryLinear_ : samplerSecondaryNearest_;
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writes[n].pNext = nullptr;
 		writes[n].dstBinding = DRAW_BINDING_DEPAL_TEXTURE;
@@ -856,6 +861,7 @@ void DrawEngineVulkan::DoFlush() {
 				framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
 				framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
 				vpAndScissor);
+			UpdateCachedViewportState(vpAndScissor);
 		}
 
 		int maxIndex = indexGen.MaxIndex();

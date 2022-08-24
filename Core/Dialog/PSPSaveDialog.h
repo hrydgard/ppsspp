@@ -139,13 +139,13 @@ private:
 	DisplayState display = DS_NONE;
 
 	SavedataParam param;
-	SceUtilitySavedataParam request;
+	SceUtilitySavedataParam request{};
 	// For detecting changes made by the game.
-	SceUtilitySavedataParam originalRequest;
+	SceUtilitySavedataParam originalRequest{};
 	u32 requestAddr = 0;
 	int currentSelectedSave = 0;
 
-	int yesnoChoice;
+	int yesnoChoice = 0;
 
 	enum SaveIOStatus
 	{

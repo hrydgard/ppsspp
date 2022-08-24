@@ -31,7 +31,7 @@
 #include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
-#include "GPU/Common/DepalettizeCommon.h"
+#include "GPU/Common/TextureShaderCommon.h"
 #include "GPU/D3D11/D3D11Util.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -127,8 +127,8 @@ ID3D11SamplerState *SamplerCacheD3D11::GetOrCreateSampler(ID3D11Device *device, 
 	return sampler;
 }
 
-TextureCacheD3D11::TextureCacheD3D11(Draw::DrawContext *draw)
-	: TextureCacheCommon(draw) {
+TextureCacheD3D11::TextureCacheD3D11(Draw::DrawContext *draw, Draw2D *draw2D)
+	: TextureCacheCommon(draw, draw2D) {
 	device_ = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	context_ = (ID3D11DeviceContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 
@@ -236,6 +236,11 @@ void TextureCacheD3D11::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBa
 }
 
 void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
+	if (!entry) {
+		ID3D11ShaderResourceView *textureView = nullptr;
+		context_->PSSetShaderResources(0, 1, &textureView);
+		return;
+	}
 	ID3D11ShaderResourceView *textureView = DxView(entry);
 	if (textureView != lastBoundTexture) {
 		context_->PSSetShaderResources(0, 1, &textureView);
@@ -258,10 +263,10 @@ void TextureCacheD3D11::Unbind() {
 	InvalidateLastTexture();
 }
 
-void TextureCacheD3D11::BindAsClutTexture(Draw::Texture *tex) {
+void TextureCacheD3D11::BindAsClutTexture(Draw::Texture *tex, bool smooth) {
 	ID3D11ShaderResourceView *clutTexture = (ID3D11ShaderResourceView *)draw_->GetNativeObject(Draw::NativeObject::TEXTURE_VIEW, tex);
 	context_->PSSetShaderResources(TEX_SLOT_CLUT, 1, &clutTexture);
-	context_->PSSetSamplers(3, 1, &stockD3D11.samplerPoint2DWrap);
+	context_->PSSetSamplers(3, 1, smooth ? &stockD3D11.samplerLinear2DClamp : &stockD3D11.samplerPoint2DClamp);
 }
 
 void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
@@ -460,6 +465,8 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 			// We may have blitted to a temp FBO.
 			framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
+			if (!retval)
+				ERROR_LOG(G3D, "Failed to get debug texture: copy to memory failed");
 			return retval;
 		} else {
 			return false;

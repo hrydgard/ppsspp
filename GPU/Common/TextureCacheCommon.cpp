@@ -105,14 +105,8 @@ inline int dimHeight(u16 dim) {
 
 // Vulkan color formats:
 // TODO
-TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw)
-	: draw_(draw),
-		clutLastFormat_(0xFFFFFFFF),
-		clutTotalBytes_(0),
-		clutMaxBytes_(0),
-		clutRenderAddress_(0xFFFFFFFF),
-		clutAlphaLinear_(false),
-		isBgraBackend_(false) {
+TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D)
+	: draw_(draw), draw2D_(draw2D) {
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 
 	// TODO: Clamp down to 256/1KB?  Need to check mipmapShareClut and clamp loadclut.
@@ -130,11 +124,11 @@ TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw)
 
 	replacer_.Init();
 
-	depalShaderCache_ = new DepalShaderCache(draw);
+	textureShaderCache_ = new TextureShaderCache(draw, draw2D_);
 }
 
 TextureCacheCommon::~TextureCacheCommon() {
-	delete depalShaderCache_;
+	delete textureShaderCache_;
 
 	FreeAlignedMemory(clutBufConverted_);
 	FreeAlignedMemory(clutBufRaw_);
@@ -265,10 +259,6 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 		}
 	}
 
-	if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
-		forceFiltering = TEX_FILTER_FORCE_NEAREST;
-	}
-
 	switch (forceFiltering) {
 	case TEX_FILTER_AUTO:
 		break;
@@ -379,10 +369,10 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
-	GETextureFormat format = gstate.getTextureFormat();
-	if (format >= 11) {
+	GETextureFormat texFormat = gstate.getTextureFormat();
+	if (texFormat >= 11) {
 		// TODO: Better assumption? Doesn't really matter, these are invalid.
-		format = GE_TFMT_5650;
+		texFormat = GE_TFMT_5650;
 	}
 
 	bool hasClut = gstate.isTextureFormatIndexed();
@@ -396,9 +386,9 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	} else {
 		cluthash = 0;
 	}
-	u64 cachekey = TexCacheEntry::CacheKey(texaddr, format, dim, cluthash);
+	u64 cachekey = TexCacheEntry::CacheKey(texaddr, texFormat, dim, cluthash);
 
-	int bufw = GetTextureBufw(0, texaddr, format);
+	int bufw = GetTextureBufw(0, texaddr, texFormat);
 	u8 maxLevel = gstate.getTextureMaxLevel();
 
 	u32 minihash = MiniHash((const u32 *)Memory::GetPointerUnchecked(texaddr));
@@ -418,7 +408,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	if (entryIter != cache_.end()) {
 		entry = entryIter->second.get();
 		// Validate the texture still matches the cache entry.
-		bool match = entry->Matches(dim, format, maxLevel);
+		bool match = entry->Matches(dim, texFormat, maxLevel);
 		const char *reason = "different params";
 
 		// Check for FBO changes.
@@ -492,7 +482,14 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			int h0 = gstate.getTextureHeight(0);
 			int d0 = 1;
 			ReplacedTexture &replaced = FindReplacement(entry, w0, h0, d0);
-			if (replaced.Valid()) {
+			if (replaced.IsInvalid()) {
+				entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
+				if (g_Config.bSaveNewTextures) {
+					// Load once more to actually save.
+					match = false;
+					reason = "replacing";
+				}
+			} else {
 				match = false;
 				reason = "replacing";
 			}
@@ -505,7 +502,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 			if (rehash) {
 				// Update in case any of these changed.
-				entry->sizeInRAM = (textureBitsPerPixel[format] * bufw * h / 2) / 8;
+				entry->sizeInRAM = (textureBitsPerPixel[texFormat] * bufw * h / 2) / 8;
 				entry->bufw = bufw;
 				entry->cluthash = cluthash;
 			}
@@ -515,6 +512,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			nextNeedsChange_ = false;
 			// Might need a rebuild if the hash fails, but that will be set later.
 			nextNeedsRebuild_ = false;
+			failedTexture_ = false;
 			VERBOSE_LOG(G3D, "Texture at %08x found in cache, applying", texaddr);
 			return entry; //Done!
 		} else {
@@ -531,7 +529,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	TextureDefinition def{};
 	def.addr = texaddr;
 	def.dim = dim;
-	def.format = format;
+	def.format = texFormat;
 	def.bufw = bufw;
 
 	std::vector<AttachCandidate> candidates = GetFramebufferCandidates(def, 0);
@@ -596,12 +594,12 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	entry->addr = texaddr;
 	entry->minihash = minihash;
 	entry->dim = dim;
-	entry->format = format;
+	entry->format = texFormat;
 	entry->maxLevel = maxLevel;
 
 	// This would overestimate the size in many case so we underestimate instead
 	// to avoid excessive clearing caused by cache invalidations.
-	entry->sizeInRAM = (textureBitsPerPixel[format] * bufw * h / 2) / 8;
+	entry->sizeInRAM = (textureBitsPerPixel[texFormat] * bufw * h / 2) / 8;
 	entry->bufw = bufw;
 
 	entry->cluthash = cluthash;
@@ -610,10 +608,9 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	gstate_c.curTextureHeight = h;
 	gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 
+	failedTexture_ = false;
 	nextTexture_ = entry;
-	if (nextFramebufferTexture_) {
-		nextFramebufferTexture_ = nullptr;  // in case it was accidentally set somehow?
-	}
+	nextFramebufferTexture_ = nullptr;
 	nextNeedsRehash_ = true;
 	// We still need to rebuild, to allocate a texture.  But we'll bail early.
 	nextNeedsRebuild_ = true;
@@ -625,35 +622,27 @@ std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const 
 
 	std::vector<AttachCandidate> candidates;
 
-	RasterChannel channel = Memory::IsDepthTexVRAMAddress(entry.addr) ? RasterChannel::RASTER_DEPTH : RasterChannel::RASTER_COLOR;
-	if (channel == RasterChannel::RASTER_DEPTH && !gstate_c.Supports(GPU_SUPPORTS_DEPTH_TEXTURE)) {
-		// Depth texture not supported. Don't try to match it, fall back to the memory behind..
-		return std::vector<AttachCandidate>();
-	}
-
 	const std::vector<VirtualFramebuffer *> &framebuffers = framebufferManager_->Framebuffers();
 
 	for (VirtualFramebuffer *framebuffer : framebuffers) {
-		FramebufferMatchInfo match = MatchFramebuffer(entry, framebuffer, texAddrOffset, channel);
-		switch (match.match) {
-		case FramebufferMatch::VALID:
-			candidates.push_back(AttachCandidate{ match, entry, framebuffer, channel });
-			break;
-		default:
-			break;
+		FramebufferMatchInfo match{};
+		if (MatchFramebuffer(entry, framebuffer, texAddrOffset, RASTER_COLOR, &match)) {
+			candidates.push_back(AttachCandidate{ match, entry, framebuffer, RASTER_COLOR, framebuffer->colorBindSeq });
+		}
+		match = {};
+		if (MatchFramebuffer(entry, framebuffer, texAddrOffset, RASTER_DEPTH, &match)) {
+			candidates.push_back(AttachCandidate{ match, entry, framebuffer, RASTER_DEPTH, framebuffer->depthBindSeq });
 		}
 	}
 
 	if (candidates.size() > 1) {
-		bool depth = channel == RasterChannel::RASTER_DEPTH;
-
 		std::string cands;
 		for (auto &candidate : candidates) {
-			cands += candidate.ToString() + " ";
+			cands += candidate.ToString() + "\n";
 		}
 
-		WARN_LOG_REPORT_ONCE(multifbcandidate, G3D, "GetFramebufferCandidates(%s): Multiple (%d) candidate framebuffers. First will be chosen. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
-			depth ? "DEPTH" : "COLOR", (int)candidates.size(),
+		WARN_LOG_REPORT_ONCE(multifbcandidate, G3D, "GetFramebufferCandidates: Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
+			(int)candidates.size(),
 			entry.addr, texAddrOffset, dimWidth(entry.dim), dimHeight(entry.dim), entry.bufw, GeTextureFormatToString(entry.format),
 			cands.c_str()
 		);
@@ -677,29 +666,22 @@ int TextureCacheCommon::GetBestCandidateIndex(const std::vector<AttachCandidate>
 	// a comparison function.
 	for (int i = 0; i < (int)candidates.size(); i++) {
 		const AttachCandidate &candidate = candidates[i];
-		int relevancy = 0;
-		switch (candidate.match.match) {
-		case FramebufferMatch::VALID:
-			relevancy += 1000;
-			break;
-		default:
-			break;
-		}
+		int relevancy = candidate.seqCount;
 
 		// Bonus point for matching stride.
 		if (candidate.channel == RASTER_COLOR && candidate.fb->fb_stride == candidate.entry.bufw) {
-			relevancy += 100;
+			relevancy += 1000;
 		}
 
 		// Bonus points for no offset.
 		if (candidate.match.xOffset == 0 && candidate.match.yOffset == 0) {
-			relevancy += 10;
+			relevancy += 100;
 		}
 
 		if (candidate.channel == RASTER_COLOR && candidate.fb->last_frame_render == gpuStats.numFlips) {
-			relevancy += 5;
+			relevancy += 50;
 		} else if (candidate.channel == RASTER_DEPTH && candidate.fb->last_frame_depth_render == gpuStats.numFlips) {
-			relevancy += 5;
+			relevancy += 50;
 		}
 
 		if (relevancy > bestRelevancy) {
@@ -825,7 +807,7 @@ void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, Fram
 
 	const u32 z_addr = framebuffer->z_address & ~mirrorMask;  // Probably unnecessary.
 
-	const u32 fb_bpp = framebuffer->format == GE_FORMAT_8888 ? 4 : 2;
+	const u32 fb_bpp = BufferFormatBytesPerPixel(framebuffer->fb_format);
 	const u32 z_bpp = 2;  // No other format exists.
 	const u32 fb_stride = framebuffer->fb_stride;
 	const u32 z_stride = framebuffer->z_stride;
@@ -876,12 +858,26 @@ void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, Fram
 	}
 }
 
-FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
+bool TextureCacheCommon::MatchFramebuffer(
 	const TextureDefinition &entry,
-	VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel) const {
+	VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel, FramebufferMatchInfo *matchInfo) const {
 	static const u32 MAX_SUBAREA_Y_OFFSET_SAFE = 32;
 
 	uint32_t fb_address = channel == RASTER_DEPTH ? framebuffer->z_address : framebuffer->fb_address;
+	uint32_t fb_stride = channel == RASTER_DEPTH ? framebuffer->z_stride : framebuffer->fb_stride;
+	GEBufferFormat fb_format = channel == RASTER_DEPTH ? GE_FORMAT_DEPTH16 : framebuffer->fb_format;
+
+	if (channel == RASTER_DEPTH && framebuffer->z_address == framebuffer->fb_address) {
+		// Try to avoid silly matches to somewhat malformed buffers.
+		return false;
+	}
+
+	switch (entry.format) {
+	case GE_TFMT_DXT1:
+	case GE_TFMT_DXT3:
+	case GE_TFMT_DXT5:
+		return false;
+	}
 
 	u32 addr = fb_address & 0x3FFFFFFF;
 	u32 texaddr = entry.addr + texaddrOffset;
@@ -891,33 +887,11 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 
 	if (texInVRAM != fbInVRAM) {
 		// Shortcut. Cannot possibly be a match.
-		return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+		return false;
 	}
 
 	if (texInVRAM) {
 		const u32 mirrorMask = 0x00600000;
-
-		// This bit controls swizzle. The swizzles at 0x00200000 and 0x00600000 are designed
-		// to perfectly match reading depth as color (which one to use I think might be related
-		// to the bpp of the color format used when rendering to it).
-		// It's fairly unlikely that games would screw this up since the result will be garbage so
-		// we use it to filter out unlikely matches.
-		switch (entry.addr & mirrorMask) {
-		case 0x00000000:
-		case 0x00400000:
-			// Don't match the depth channel with these addresses when texturing.
-			if (channel == RasterChannel::RASTER_DEPTH) {
-				return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
-			}
-			break;
-		case 0x00200000:
-		case 0x00600000:
-			// Don't match the color channel with these addresses when texturing.
-			if (channel == RasterChannel::RASTER_COLOR) {
-				return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
-			}
-			break;
-		}
 
 		addr &= ~mirrorMask;
 		texaddr &= ~mirrorMask;
@@ -925,6 +899,7 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 
 	const bool noOffset = texaddr == addr;
 	const bool exactMatch = noOffset && entry.format < 4 && channel == RASTER_COLOR;
+
 	const u32 w = 1 << ((entry.dim >> 0) & 0xf);
 	const u32 h = 1 << ((entry.dim >> 8) & 0xf);
 	// 512 on a 272 framebuffer is sane, so let's be lenient.
@@ -932,103 +907,101 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 
 	// If they match "exactly", it's non-CLUT and from the top left.
 	if (exactMatch) {
-		if (framebuffer->fb_stride != entry.bufw) {
-			WARN_LOG_ONCE(diffStrides1, G3D, "Texturing from framebuffer with different strides %d != %d", entry.bufw, framebuffer->fb_stride);
+		if (fb_stride != entry.bufw) {
+			WARN_LOG_ONCE(diffStrides1, G3D, "Found matching framebuffer with different strides %d != %d", entry.bufw, (int)fb_stride);
 		}
 		// NOTE: This check is okay because the first texture formats are the same as the buffer formats.
 		if (IsTextureFormatBufferCompatible(entry.format)) {
-			if (TextureFormatMatchesBufferFormat(entry.format, framebuffer->format) || (framebuffer->usageFlags & FB_USAGE_BLUE_TO_ALPHA)) {
-				return FramebufferMatchInfo{ FramebufferMatch::VALID };
-			} else if (IsTextureFormat16Bit(entry.format) && IsBufferFormat16Bit(framebuffer->format)) {
-				WARN_LOG_ONCE(diffFormat1, G3D, "Texturing from framebuffer with reinterpretable format: %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format));
-				return FramebufferMatchInfo{ FramebufferMatch::VALID, 0, 0, true, TextureFormatToBufferFormat(entry.format) };
+			if (TextureFormatMatchesBufferFormat(entry.format, fb_format) || (framebuffer->usageFlags & FB_USAGE_BLUE_TO_ALPHA)) {
+				return true;
+			} else if (IsTextureFormat16Bit(entry.format) && IsBufferFormat16Bit(fb_format) && channel == RASTER_COLOR) {
+				WARN_LOG_ONCE(diffFormat1, G3D, "Found matching framebuffer with reinterpretable fb_format: %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format));
+				*matchInfo = FramebufferMatchInfo{ 0, 0, true, TextureFormatToBufferFormat(entry.format) };
+				return true;
 			} else {
-				WARN_LOG_ONCE(diffFormat2, G3D, "Texturing from framebuffer with incompatible formats %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format));
-				return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+				WARN_LOG_ONCE(diffFormat2, G3D, "Rejecting framebuffer with incompatible formats %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format));
+				return false;
 			}
 		} else {
 			// Format incompatible, ignoring without comment. (maybe some really gnarly hacks will end up here...)
-			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+			return false;
 		}
 	} else {
 		// Apply to buffered mode only.
 		if (!framebufferManager_->UseBufferedRendering()) {
-			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+			return false;
 		}
 
 		// Check works for D16 too (???)
 		const bool matchingClutFormat =
-			(channel != RASTER_COLOR && entry.format == GE_TFMT_CLUT16) ||
-			(channel == RASTER_COLOR && framebuffer->format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT32) ||
-			(channel == RASTER_COLOR && framebuffer->format != GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT16);
-
-		// To avoid ruining git blame, kept the same name as the old struct.
-		FramebufferMatchInfo fbInfo{ FramebufferMatch::VALID };
+			(fb_format == GE_FORMAT_DEPTH16 && entry.format == GE_TFMT_CLUT16) ||
+			(fb_format == GE_FORMAT_DEPTH16 && entry.format == GE_TFMT_5650) ||
+			(fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT32) ||
+			(fb_format != GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT16);
 
 		const u32 bitOffset = (texaddr - addr) * 8;
 		if (bitOffset != 0) {
 			const u32 pixelOffset = bitOffset / std::max(1U, (u32)textureBitsPerPixel[entry.format]);
 
-			fbInfo.yOffset = entry.bufw == 0 ? 0 : pixelOffset / entry.bufw;
-			fbInfo.xOffset = entry.bufw == 0 ? 0 : pixelOffset % entry.bufw;
+			matchInfo->yOffset = entry.bufw == 0 ? 0 : pixelOffset / entry.bufw;
+			matchInfo->xOffset = entry.bufw == 0 ? 0 : pixelOffset % entry.bufw;
 		}
 
-		if (fbInfo.yOffset + minSubareaHeight >= framebuffer->height) {
+		if (matchInfo->yOffset + minSubareaHeight >= framebuffer->height) {
 			// Can't be inside the framebuffer.
-			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+			return false;
 		}
 
-		if (framebuffer->fb_stride != entry.bufw) {
+		if (fb_stride != entry.bufw) {
 			if (noOffset) {
-				WARN_LOG_ONCE(diffStrides2, G3D, "Texturing from framebuffer (matching_clut=%s) different strides %d != %d", matchingClutFormat ? "yes" : "no", entry.bufw, framebuffer->fb_stride);
+				WARN_LOG_ONCE(diffStrides2, G3D, "Matching framebuffer(matching_clut = % s) different strides % d != % d", matchingClutFormat ? "yes" : "no", entry.bufw, fb_stride);
 				// Continue on with other checks.
 				// Not actually sure why we even try here. There's no way it'll go well if the strides are different.
 			} else {
 				// Assume any render-to-tex with different bufw + offset is a render from ram.
-				return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+				return false;
 			}
 		}
 
 		// Check if it's in bufferWidth (which might be higher than width and may indicate the framebuffer includes the data.)
-		if (fbInfo.xOffset >= framebuffer->bufferWidth && fbInfo.xOffset + w <= (u32)framebuffer->fb_stride) {
+		if (matchInfo->xOffset >= framebuffer->bufferWidth && matchInfo->xOffset + w <= (u32)fb_stride) {
 			// This happens in Brave Story, see #10045 - the texture is in the space between strides, with matching stride.
-			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+			return false;
 		}
 
 		// Trying to play it safe.  Below 0x04110000 is almost always framebuffers.
 		// TODO: Maybe we can reduce this check and find a better way above 0x04110000?
-		if (fbInfo.yOffset > MAX_SUBAREA_Y_OFFSET_SAFE && addr > 0x04110000 && !PSP_CoreParameter().compat.flags().AllowLargeFBTextureOffsets) {
-			WARN_LOG_REPORT_ONCE(subareaIgnored, G3D, "Ignoring possible texturing from framebuffer at %08x +%dx%d / %dx%d", fb_address, fbInfo.xOffset, fbInfo.yOffset, framebuffer->width, framebuffer->height);
-			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+		if (matchInfo->yOffset > MAX_SUBAREA_Y_OFFSET_SAFE && addr > 0x04110000 && !PSP_CoreParameter().compat.flags().AllowLargeFBTextureOffsets) {
+			WARN_LOG_REPORT_ONCE(subareaIgnored, G3D, "Ignoring possible texturing from framebuffer at %08x +%dx%d / %dx%d", fb_address, matchInfo->xOffset, matchInfo->yOffset, framebuffer->width, framebuffer->height);
+			return false;
 		}
 
 		// Check for CLUT. The framebuffer is always RGB, but it can be interpreted as a CLUT texture.
 		// 3rd Birthday (and a bunch of other games) render to a 16 bit clut texture.
 		if (matchingClutFormat) {
 			if (!noOffset) {
-				WARN_LOG_ONCE(subareaClut, G3D, "Texturing from framebuffer using CLUT with offset at %08x +%dx%d", fb_address, fbInfo.xOffset, fbInfo.yOffset);
+				WARN_LOG_ONCE(subareaClut, G3D, "Matching framebuffer (%s) using %s with offset at %08x +%dx%d", channel == RASTER_DEPTH ? "DEPTH" : "COLOR", GeTextureFormatToString(entry.format), fb_address, matchInfo->xOffset, matchInfo->yOffset);
 			}
-			fbInfo.match = FramebufferMatch::VALID;  // We check the format again later, no need to return a special value here.
-			return fbInfo;
+			return true;
 		} else if (IsClutFormat((GETextureFormat)(entry.format)) || IsDXTFormat((GETextureFormat)(entry.format))) {
-			WARN_LOG_ONCE(fourEightBit, G3D, "%s format not supported when texturing from framebuffer of format %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format));
-			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+			WARN_LOG_ONCE(fourEightBit, G3D, "%s fb_format not supported when texturing from framebuffer of format %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format));
+			return false;
 		}
 
 		// This is either normal or we failed to generate a shader to depalettize
-		if ((int)framebuffer->format == (int)entry.format || matchingClutFormat) {
-			if ((int)framebuffer->format != (int)entry.format) {
-				WARN_LOG_ONCE(diffFormat2, G3D, "Texturing from framebuffer with different formats %s != %s at %08x",
-					GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format), fb_address);
-				return fbInfo;
+		if ((int)fb_format == (int)entry.format || matchingClutFormat) {
+			if ((int)fb_format  != (int)entry.format) {
+				WARN_LOG_ONCE(diffFormat2, G3D, "Matching framebuffer with different formats %s != %s at %08x",
+					GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address);
+				return true;
 			} else {
-				WARN_LOG_ONCE(subarea, G3D, "Texturing from framebuffer at %08x +%dx%d", fb_address, fbInfo.xOffset, fbInfo.yOffset);
-				return fbInfo;
+				WARN_LOG_ONCE(subarea, G3D, "Matching from framebuffer at %08x +%dx%d", fb_address, matchInfo->xOffset, matchInfo->yOffset);
+				return true;
 			}
 		} else {
-			WARN_LOG_ONCE(diffFormat2, G3D, "Texturing from framebuffer with incompatible format %s != %s at %08x",
-				GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format), fb_address);
-			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+			WARN_LOG_ONCE(diffFormat2, G3D, "Ignoring possible texturing from framebuffer with incompatible format %s != %s at %08x",
+				GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address);
+			return false;
 		}
 	}
 }
@@ -1036,20 +1009,21 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate) {
 	VirtualFramebuffer *framebuffer = candidate.fb;
 	FramebufferMatchInfo fbInfo = candidate.match;
+	RasterChannel channel = candidate.channel;
 
 	if (candidate.match.reinterpret) {
-		GEBufferFormat oldFormat = candidate.fb->format;
-		candidate.fb->format = candidate.match.reinterpretTo;
-		framebufferManager_->ReinterpretFramebuffer(candidate.fb, oldFormat, candidate.match.reinterpretTo);
+		framebuffer = framebufferManager_->ResolveFramebufferColorToFormat(candidate.fb, candidate.match.reinterpretTo);
 	}
 
 	_dbg_assert_msg_(framebuffer != nullptr, "Framebuffer must not be null.");
 
 	framebuffer->usageFlags |= FB_USAGE_TEXTURE;
-	if (framebufferManager_->UseBufferedRendering()) {
-		// Keep the framebuffer alive.
-		framebuffer->last_frame_used = gpuStats.numFlips;
+	// Keep the framebuffer alive.
+	framebuffer->last_frame_used = gpuStats.numFlips;
 
+	nextFramebufferTextureChannel_ = RASTER_COLOR;
+
+	if (framebufferManager_->UseBufferedRendering()) {
 		// We need to force it, since we may have set it on a texture before attaching.
 		gstate_c.curTextureWidth = framebuffer->bufferWidth;
 		gstate_c.curTextureHeight = framebuffer->bufferHeight;
@@ -1068,7 +1042,16 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 			gstate_c.SetNeedShaderTexclamp(true);
 		}
 
-		nextFramebufferTexture_ = framebuffer;
+		if (channel == RASTER_DEPTH && !gstate_c.Supports(GPU_SUPPORTS_DEPTH_TEXTURE)) {
+			WARN_LOG_ONCE(ndepthtex, G3D, "Depth textures not supported, not binding");
+			// Flag to bind a null texture if we can't support depth textures.
+			// Should only happen on old OpenGL.
+			nextFramebufferTexture_ = nullptr;
+			failedTexture_ = true;
+		} else {
+			nextFramebufferTexture_ = framebuffer;
+			nextFramebufferTextureChannel_ = channel;
+		}
 		nextTexture_ = nullptr;
 	} else {
 		if (framebuffer->fbo) {
@@ -1168,7 +1151,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 			const std::vector<VirtualFramebuffer *> &framebuffers = framebufferManager_->Framebuffers();
 			for (VirtualFramebuffer *framebuffer : framebuffers) {
 				const u32 fb_address = framebuffer->fb_address & 0x3FFFFFFF;
-				const u32 bpp = framebuffer->drawnFormat == GE_FORMAT_8888 ? 4 : 2;
+				const u32 bpp = BufferFormatBytesPerPixel(framebuffer->fb_format);
 				u32 offset = clutFramebufAddr - fb_address;
 
 				// Is this inside the framebuffer at all?
@@ -1327,22 +1310,22 @@ ReplacedTexture &TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int &
 	constexpr double MAX_BUDGET_PER_TEX = 0.25 / 60.0;
 
 	double replaceStart = time_now_d();
+	double budget = std::min(MAX_BUDGET_PER_TEX, replacementFrameBudget_ - replacementTimeThisFrame_);
 	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
-	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h);
-	if (replaced.IsReady(std::min(MAX_BUDGET_PER_TEX, replacementFrameBudget_ - replacementTimeThisFrame_))) {
+	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h, budget);
+	if (replaced.IsReady(budget)) {
 		if (replaced.GetSize(0, w, h)) {
-			replacementTimeThisFrame_ += time_now_d() - replaceStart;
-
-			// Consider it already "scaled" and remove any delayed replace flag.
+			// Consider it already "scaled."
 			entry->status |= TexCacheEntry::STATUS_IS_SCALED;
-			entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
-			return replaced;
 		}
-	} else if (replaced.Valid()) {
+
+		// Remove the flag, even if it was invalid.
+		entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
+	} else if (!replaced.IsInvalid()) {
 		entry->status |= TexCacheEntry::STATUS_TO_REPLACE;
 	}
 	replacementTimeThisFrame_ += time_now_d() - replaceStart;
-	return replacer_.FindNone();
+	return replaced;
 }
 
 // This is only used in the GLES backend, where we don't point these to video memory.
@@ -1692,7 +1675,9 @@ CheckAlphaResult TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int l
 		texptr = (u8 *)tmpTexBuf32_.data();
 	}
 
-	const bool mipmapShareClut = gstate.isClutSharedForMipmaps();
+	// Misshitsu no Sacrifice has separate CLUT data, this is a hack to allow it.
+	// Normally separate CLUTs are not allowed for 8-bit or higher indices.
+	const bool mipmapShareClut = gstate.isClutSharedForMipmaps() || gstate.getClutLoadBlocks() != 0x40;
 	const int clutSharingOffset = mipmapShareClut ? 0 : (level & 1) * 256;
 
 	GEPaletteFormat palFormat = (GEPaletteFormat)gstate.getClutPaletteFormat();
@@ -1779,10 +1764,12 @@ void TextureCacheCommon::ApplyTexture() {
 	if (!entry) {
 		// Maybe we bound a framebuffer?
 		InvalidateLastTexture();
-		if (nextFramebufferTexture_) {
-			bool depth = Memory::IsDepthTexVRAMAddress(gstate.getTextureAddress(0));
+		if (failedTexture_) {
+			// Backends should handle this by binding a black texture with 0 alpha.
+			BindTexture(nullptr);
+		} else if (nextFramebufferTexture_) {
 			// ApplyTextureFrameBuffer is responsible for setting SetTextureFullAlpha.
-			ApplyTextureFramebuffer(nextFramebufferTexture_, gstate.getTextureFormat(), depth ? RASTER_DEPTH : RASTER_COLOR);
+			ApplyTextureFramebuffer(nextFramebufferTexture_, gstate.getTextureFormat(), nextFramebufferTextureChannel_);
 			nextFramebufferTexture_ = nullptr;
 		}
 
@@ -1845,20 +1832,72 @@ void TextureCacheCommon::ApplyTexture() {
 	gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 }
 
+static bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferFormat) {
+	if (IsClutFormat(texFormat)) {
+		switch (bufferFormat) {
+		case GE_FORMAT_4444:
+		case GE_FORMAT_565:
+		case GE_FORMAT_5551:
+		case GE_FORMAT_DEPTH16:
+			if (texFormat == GE_TFMT_CLUT16) {
+				return true;
+			}
+			break;
+		case GE_FORMAT_8888:
+			if (texFormat == GE_TFMT_CLUT32) {
+				return true;
+			}
+			break;
+		}
+		WARN_LOG(G3D, "Invalid CLUT/framebuffer combination: %s vs %s", GeTextureFormatToString(texFormat), GeBufferFormatToString(bufferFormat));
+		return false;
+	} else if (texFormat == GE_TFMT_5650 && bufferFormat == GE_FORMAT_DEPTH16) {
+		// We can also "depal" 565 format, this is used to read depth buffers as 565 on occasion (#15491).
+		return true;
+	} else {
+		return false;
+	}
+}
+
+// If the palette is detected as a smooth ramp, we can interpolate for higher color precision.
+// But we only do it if the mask/shift exactly matches a color channel, else something different might be going
+// on and we definitely don't want to interpolate.
+// Great enhancement for Test Drive.
+static bool CanUseSmoothDepal(const GPUgstate &gstate, GEBufferFormat framebufferFormat, int rampLength) {
+	if (gstate.getClutIndexStartPos() == 0 &&
+		gstate.getClutIndexMask() < rampLength) {
+		switch (framebufferFormat) {
+		case GE_FORMAT_565:
+			if (gstate.getClutIndexShift() == 0 || gstate.getClutIndexShift() == 11) {
+				return gstate.getClutIndexMask() == 0x1F;
+			} else if (gstate.getClutIndexShift() == 5) {
+				return gstate.getClutIndexMask() == 0x3F;
+			}
+			break;
+		case GE_FORMAT_5551:
+			if (gstate.getClutIndexShift() == 0 || gstate.getClutIndexShift() == 5 || gstate.getClutIndexShift() == 10) {
+				return gstate.getClutIndexMask() == 0x1F;
+			}
+			break;
+		}
+	}
+	return false;
+}
+
 void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel) {
-	DepalShader *depalShader = nullptr;
+	Draw2DPipeline *textureShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
-	bool need_depalettize = IsClutFormat(texFormat);
 	bool depth = channel == RASTER_DEPTH;
-	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && !depth && !gstate_c.curTextureIs3D;
+	bool need_depalettize = CanDepalettize(texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->fb_format);
+
+	// Shader depal is not supported during 3D texturing or depth texturing, and requires 32-bit integer instructions in the shader.
+	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer &&
+		!depth &&
+		!gstate_c.curTextureIs3D &&
+		draw_->GetDeviceCaps().fragmentShaderInt32Supported;
 
 	// TODO: Implement shader depal in the fragment shader generator for D3D11 at least.
-	if (!draw_->GetDeviceCaps().fragmentShaderInt32Supported) {
-		useShaderDepal = false;
-		depth = false;  // Can't support this
-	}
-
 	switch (draw_->GetShaderLanguageDesc().shaderLanguage) {
 	case ShaderLanguage::HLSL_D3D11:
 	case ShaderLanguage::HLSL_D3D9:
@@ -1868,13 +1907,17 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		break;
 	}
 
-	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
-		if (useShaderDepal) {
-			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
+	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
+	ClutTexture clutTexture{};
+	bool smoothedDepal = false;
 
+	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
+		clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
+		smoothedDepal = CanUseSmoothDepal(gstate, framebuffer->fb_format, clutTexture.rampLength);
+
+		if (useShaderDepal) {
 			// Very icky conflation here of native and thin3d rendering. This will need careful work per backend in BindAsClutTexture.
-			Draw::Texture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
-			BindAsClutTexture(clutTexture);
+			BindAsClutTexture(clutTexture.texture, smoothedDepal);
 
 			framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 			// Vulkan needs to do some extra work here to pick out the native handle from Draw.
@@ -1888,8 +1931,9 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 			// Since we started/ended render passes, might need these.
 			gstate_c.Dirty(DIRTY_DEPAL);
-			gstate_c.SetUseShaderDepal(true);
-			gstate_c.depalFramebufferFormat = framebuffer->drawnFormat;
+			gstate_c.SetUseShaderDepal(true, smoothedDepal);
+			gstate_c.depalFramebufferFormat = framebuffer->fb_format;
+
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 			CheckAlphaResult alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBufRaw_, clutFormat, clutTotalColors);
@@ -1900,13 +1944,13 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			return;
 		}
 
-		depalShader = depalShaderCache_->GetDepalettizeShader(clutMode, depth ? GE_FORMAT_DEPTH16 : framebuffer->drawnFormat);
-		gstate_c.SetUseShaderDepal(false);
+		textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->fb_format, smoothedDepal);
+		gstate_c.SetUseShaderDepal(false, false);
 	}
 
-	if (depalShader) {
+	if (textureShader) {
 		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-		Draw::Texture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
+		ClutTexture clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
 		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight);
 		draw_->BindTexture(0, nullptr);
 		draw_->BindTexture(1, nullptr);
@@ -1916,17 +1960,17 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		Draw::Viewport vp{ 0.0f, 0.0f, (float)framebuffer->renderWidth, (float)framebuffer->renderHeight, 0.0f, 1.0f };
 		draw_->SetViewports(1, &vp);
 
-		TextureShaderApplier shaderApply(draw_, depalShader, framebuffer->bufferWidth, framebuffer->bufferHeight, framebuffer->renderWidth, framebuffer->renderHeight);
-		shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset);
-		shaderApply.Use();
-
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, 0);
-		draw_->BindTexture(1, clutTexture);
-		Draw::SamplerState *nearest = depalShaderCache_->GetSampler();
+		draw_->BindTexture(1, clutTexture.texture);
+		Draw::SamplerState *nearest = textureShaderCache_->GetSampler(false);
+		Draw::SamplerState *clutSampler = textureShaderCache_->GetSampler(smoothedDepal);
 		draw_->BindSamplerStates(0, 1, &nearest);
-		draw_->BindSamplerStates(1, 1, &nearest);
+		draw_->BindSamplerStates(1, 1, &clutSampler);
 
-		shaderApply.Shade();
+		textureShaderCache_->ApplyShader(textureShader,
+			framebuffer->bufferWidth, framebuffer->bufferHeight, framebuffer->renderWidth, framebuffer->renderHeight,
+			gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset);
+
 		draw_->BindTexture(0, nullptr);
 		framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");
 
@@ -1946,7 +1990,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 		BoundFramebufferTexture();
 
-		gstate_c.SetUseShaderDepal(false);
+		gstate_c.SetUseShaderDepal(false, false);
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
 
@@ -1958,7 +2002,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 }
 
 void TextureCacheCommon::Clear(bool delete_them) {
-	depalShaderCache_->Clear();
+	textureShaderCache_->Clear();
 
 	ForgetLastTexture();
 	for (TexCache::iterator iter = cache_.begin(); iter != cache_.end(); ++iter) {
@@ -2158,8 +2202,13 @@ void TextureCacheCommon::ClearNextFrame() {
 	clearCacheNextFrame_ = true;
 }
 
-std::string AttachCandidate::ToString() {
-	return StringFromFormat("[C:%08x/%d Z:%08x/%d X:%d Y:%d reint: %s]", this->fb->fb_address, this->fb->fb_stride, this->fb->z_address, this->fb->z_stride, this->match.xOffset, this->match.yOffset, this->match.reinterpret ? "true" : "false");
+std::string AttachCandidate::ToString() const {
+	return StringFromFormat("[%s seq:%d C:%08x/%d(%s) Z:%08x/%d X:%d Y:%d reint: %s]",
+		this->channel == RASTER_COLOR ? "COLOR" : "DEPTH",
+		this->seqCount,
+		this->fb->fb_address, this->fb->fb_stride, GeBufferFormatToString(this->fb->fb_format),
+		this->fb->z_address, this->fb->z_stride,
+		this->match.xOffset, this->match.yOffset, this->match.reinterpret ? "true" : "false");
 }
 
 bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry) {
@@ -2258,11 +2307,6 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 
 	// Don't scale the PPGe texture.
 	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd()) {
-		plan.scaleFactor = 1;
-	}
-
-	// Don't upscale textures in color-to-depth mode.
-	if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
 		plan.scaleFactor = 1;
 	}
 
@@ -2374,7 +2418,7 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, i
 			}
 		}
 
-		if (replacer_.Enabled()) {
+		if (replacer_.Enabled() && replaced.IsInvalid()) {
 			ReplacedTextureDecodeInfo replacedInfo;
 			replacedInfo.cachekey = entry.CacheKey();
 			replacedInfo.hash = entry.fullhash;
@@ -2405,5 +2449,5 @@ CheckAlphaResult TextureCacheCommon::CheckCLUTAlpha(const uint8_t *pixelData, GE
 }
 
 void TextureCacheCommon::StartFrame() {
-	depalShaderCache_->Decimate();
+	textureShaderCache_->Decimate();
 }

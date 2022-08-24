@@ -555,7 +555,7 @@ public:
 		initSteps_.push_back(step);
 	}
 
-	void TextureSubImage(GLRTexture *texture, int level, int x, int y, int width, int height, Draw::DataFormat format, uint8_t *data, GLRAllocType allocType = GLRAllocType::NEW) {
+	void TextureSubImage(int slot, GLRTexture *texture, int level, int x, int y, int width, int height, Draw::DataFormat format, uint8_t *data, GLRAllocType allocType = GLRAllocType::NEW) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData _data{ GLRRenderCommand::TEXTURE_SUBIMAGE };
 		_data.texture_subimage.texture = texture;
@@ -567,6 +567,7 @@ public:
 		_data.texture_subimage.width = width;
 		_data.texture_subimage.height = height;
 		_data.texture_subimage.allocType = allocType;
+		_data.texture_subimage.slot = slot;
 		curRenderStep_->commands.push_back(_data);
 	}
 

@@ -93,6 +93,7 @@ enum class MemoryExceptionType {
 	WRITE_WORD,
 	READ_BLOCK,
 	WRITE_BLOCK,
+	ALIGNMENT,
 };
 enum class ExecExceptionType {
 	JUMP,
@@ -105,7 +106,7 @@ void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type);
 void Core_MemoryExceptionInfo(u32 address, u32 pc, MemoryExceptionType type, std::string additionalInfo);
 
 void Core_ExecException(u32 address, u32 pc, ExecExceptionType type);
-void Core_Break();
+void Core_Break(u32 pc);
 // Call when loading save states, etc.
 void Core_ResetException();
 
@@ -124,6 +125,7 @@ struct ExceptionInfo {
 	MemoryExceptionType memory_type;
 	uint32_t pc;
 	uint32_t address;
+	uint32_t ra = 0;
 
 	// Reuses pc and address from memory type, where address is the failed destination.
 	ExecExceptionType exec_type;

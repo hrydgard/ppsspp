@@ -37,13 +37,14 @@
 
 enum {
 	FB_USAGE_DISPLAYED_FRAMEBUFFER = 1,
-	FB_USAGE_RENDERTARGET = 2,
+	FB_USAGE_RENDER_COLOR = 2,
 	FB_USAGE_TEXTURE = 4,
 	FB_USAGE_CLUT = 8,
 	FB_USAGE_DOWNLOAD = 16,
 	FB_USAGE_DOWNLOAD_CLEAR = 32,
 	FB_USAGE_BLUE_TO_ALPHA = 64,
 	FB_USAGE_FIRST_FRAME_SAVED = 128,
+	FB_USAGE_RENDER_DEPTH = 256,
 };
 
 enum {
@@ -64,12 +65,17 @@ class ShaderWriter;
 // when such a situation is detected. In order to reliably detect this, we separately track depth buffers,
 // and they know which color buffer they were used with last.
 struct VirtualFramebuffer {
-	Draw::Framebuffer *fbo;
-
 	u32 fb_address;
 	u32 z_address;  // If 0, it's a "RAM" framebuffer.
 	u16 fb_stride;
 	u16 z_stride;
+
+	// The original PSP format of the framebuffer.
+	// In reality they are all RGBA8888 for better quality but this is what the PSP thinks it is. This is necessary
+	// when we need to interpret the bits directly (depal or buffer aliasing).
+	GEBufferFormat fb_format;
+
+	Draw::Framebuffer *fbo;
 
 	// width/height: The detected size of the current framebuffer, in original PSP pixels.
 	u16 width;
@@ -97,15 +103,6 @@ struct VirtualFramebuffer {
 
 	// The scale factor at which we are rendering (to achieve higher resolution).
 	u8 renderScaleFactor;
-
-	// The original PSP format of the framebuffer.
-	// In reality they are all RGBA8888 for better quality but this is what the PSP thinks it is. This is necessary
-	// when we need to interpret the bits directly (depal or buffer aliasing).
-	GEBufferFormat format;
-
-	// The configured buffer format at the time of the latest/current draw. This will change first, then
-	// if different we'll "reinterpret" the framebuffer to match 'format' as needed.
-	GEBufferFormat drawnFormat;
 
 	u16 usageFlags;
 
@@ -152,7 +149,7 @@ struct FramebufferHeuristicParams {
 	u32 z_address;
 	u16 fb_stride;
 	u16 z_stride;
-	GEBufferFormat fmt;
+	GEBufferFormat fb_format;
 	bool isClearingDepth;
 	bool isWritingDepth;
 	bool isDrawing;
@@ -266,6 +263,8 @@ public:
 			return vfb;
 		}
 	}
+	void SetDepthFrameBuffer(bool isClearingDepth);
+
 	void RebindFramebuffer(const char *tag);
 	std::vector<FramebufferInfo> GetFramebufferList() const;
 
@@ -287,8 +286,6 @@ public:
 
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes);
 	void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride);
-
-	VirtualFramebuffer *GetLatestDepthBufferAt(u32 z_address, u16 z_stride);
 
 	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 
@@ -340,14 +337,8 @@ public:
 	int GetTargetBufferWidth() const { return currentRenderVfb_ ? currentRenderVfb_->bufferWidth : 480; }
 	int GetTargetBufferHeight() const { return currentRenderVfb_ ? currentRenderVfb_->bufferHeight : 272; }
 	int GetTargetStride() const { return currentRenderVfb_ ? currentRenderVfb_->fb_stride : 512; }
-	GEBufferFormat GetTargetFormat() const { return currentRenderVfb_ ? currentRenderVfb_->format : displayFormat_; }
+	GEBufferFormat GetTargetFormat() const { return currentRenderVfb_ ? currentRenderVfb_->fb_format : displayFormat_; }
 
-	void SetDepthUpdated() {
-		if (currentRenderVfb_) {
-			currentRenderVfb_->last_frame_depth_render = gpuStats.numFlips;
-			currentRenderVfb_->last_frame_depth_updated = gpuStats.numFlips;
-		}
-	}
 	void SetColorUpdated(int skipDrawReason) {
 		if (currentRenderVfb_) {
 			SetColorUpdated(currentRenderVfb_, skipDrawReason);
@@ -374,15 +365,25 @@ public:
 	}
 	void ReinterpretFramebuffer(VirtualFramebuffer *vfb, GEBufferFormat oldFormat, GEBufferFormat newFormat);
 
+	Draw2D *GetDraw2D() {
+		return &draw2D_;
+	}
+
+	// If a vfb with the target format exists, resolve it (run CopyToColorFromOverlappingFramebuffers).
+	// If it doesn't exist, create it and do the same.
+	// Returns the resolved framebuffer.
+	VirtualFramebuffer *ResolveFramebufferColorToFormat(VirtualFramebuffer *vfb, GEBufferFormat newFormat);
+
 protected:
 	virtual void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void SetViewport2D(int x, int y, int w, int h);
 	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags);
 
-	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, RasterChannel channel);
-	void Ensure2DResources();
-	Draw::Pipeline *Create2DPipeline(void (*generate)(ShaderWriter &));
+	Draw2DPipeline *Get2DPipeline(Draw2DShader shader);
+
+	void CopyToColorFromOverlappingFramebuffers(VirtualFramebuffer *dest);
+	void CopyToDepthFromOverlappingFramebuffers(VirtualFramebuffer *dest);
 
 	bool UpdateSize();
 
@@ -394,7 +395,7 @@ protected:
 
 	void BlitUsingRaster(
 		Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
-		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2, bool linearFilter, RasterChannel channel);
+		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2, bool linearFilter, Draw2DPipeline *pipeline, const char *tag);
 
 	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags);
 
@@ -426,7 +427,6 @@ protected:
 		dstBuffer->dirtyAfterDisplay = true;
 		dstBuffer->drawnWidth = dstBuffer->width;
 		dstBuffer->drawnHeight = dstBuffer->height;
-		dstBuffer->drawnFormat = dstBuffer->format;
 		if ((skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 			dstBuffer->reallyDirtyAfterDisplay = true;
 	}
@@ -500,10 +500,7 @@ protected:
 	// Thin3D stuff for reinterpreting image data between the various 16-bit formats.
 	// Safe, not optimal - there might be input attachment tricks, etc, but we can't use them
 	// since we don't want N different implementations.
-	Draw::Pipeline *reinterpretFromTo_[3][3]{};
-	Draw::ShaderModule *reinterpretVS_ = nullptr;
-	Draw::SamplerState *reinterpretSampler_ = nullptr;
-	Draw::Buffer *reinterpretVBuf_ = nullptr;
+	Draw2DPipeline *reinterpretFromTo_[3][3]{};
 
 	// Common implementation of stencil buffer upload. Also not 100% optimal, but not performance
 	// critical either.
@@ -511,10 +508,11 @@ protected:
 	Draw::SamplerState *stencilUploadSampler_ = nullptr;
 
 	// Draw2D pipelines
-	Draw::Pipeline *draw2DPipelineColor_ = nullptr;
-	Draw::Pipeline *draw2DPipelineDepth_ = nullptr;
-	Draw::SamplerState *draw2DSamplerLinear_ = nullptr;
-	Draw::SamplerState *draw2DSamplerNearest_ = nullptr;
-	Draw::ShaderModule *draw2DVs_ = nullptr;
+	Draw2DPipeline *draw2DPipelineColor_ = nullptr;
+	Draw2DPipeline *draw2DPipelineDepth_ = nullptr;
+	Draw2DPipeline *draw2DPipeline565ToDepth_ = nullptr;
+	Draw2DPipeline *draw2DPipeline565ToDepthDeswizzle_ = nullptr;
+
+	Draw2D draw2D_;
 	// The fragment shaders are "owned" by the pipelines since they're 1:1.
 };

@@ -57,8 +57,7 @@
 
 static inline void DelayBranchTo(u32 where)
 {
-	if (!Memory::IsValidAddress(where)) {
-		// TODO: What about misaligned?
+	if (!Memory::IsValidAddress(where) || (where & 3) != 0) {
 		Core_ExecException(where, PC, ExecExceptionType::JUMP);
 	}
 	PC += 4;
@@ -158,7 +157,7 @@ namespace MIPSInt
 	void Int_Break(MIPSOpcode op)
 	{
 		Reporting::ReportMessage("BREAK instruction hit");
-		Core_Break();
+		Core_Break(PC);
 		PC += 4;
 	}
 

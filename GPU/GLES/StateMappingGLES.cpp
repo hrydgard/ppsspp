@@ -251,24 +251,14 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		GenericStencilFuncState stencilState;
 		ConvertStencilFuncState(stencilState);
 
-		if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
-			// Enforce plain depth writing.
-			renderManager->SetStencilDisabled();
-			renderManager->SetDepth(true, true, GL_ALWAYS);
-		} else if (gstate.isModeClear()) {
+		if (gstate.isModeClear()) {
 			// Depth Test
-			if (gstate.isClearModeDepthMask()) {
-				framebufferManager_->SetDepthUpdated();
-			}
 			renderManager->SetStencilFunc(gstate.isClearModeAlphaMask(), GL_ALWAYS, 0xFF, 0xFF);
 			renderManager->SetStencilOp(stencilState.writeMask, GL_REPLACE, GL_REPLACE, GL_REPLACE);
 			renderManager->SetDepth(true, gstate.isClearModeDepthMask() ? true : false, GL_ALWAYS);
 		} else {
 			// Depth Test
 			renderManager->SetDepth(gstate.isDepthTestEnabled(), gstate.isDepthWriteEnabled(), compareOps[gstate.getDepthTestFunction()]);
-			if (gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled()) {
-				framebufferManager_->SetDepthUpdated();
-			}
 
 			// Stencil Test
 			if (stencilState.enabled) {
@@ -286,19 +276,13 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
 			framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
 			vpAndScissor);
+		UpdateCachedViewportState(vpAndScissor);
 
 		renderManager->SetScissor(GLRect2D{ vpAndScissor.scissorX, vpAndScissor.scissorY, vpAndScissor.scissorW, vpAndScissor.scissorH });
 		renderManager->SetViewport({
 			vpAndScissor.viewportX, vpAndScissor.viewportY,
 			vpAndScissor.viewportW, vpAndScissor.viewportH,
 			vpAndScissor.depthRangeMin, vpAndScissor.depthRangeMax });
-
-		if (vpAndScissor.dirtyProj) {
-			gstate_c.Dirty(DIRTY_PROJMATRIX);
-		}
-		if (vpAndScissor.dirtyDepth) {
-			gstate_c.Dirty(DIRTY_DEPTHRANGE);
-		}
 	}
 }
 

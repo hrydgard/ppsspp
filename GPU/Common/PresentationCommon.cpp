@@ -405,6 +405,7 @@ void PresentationCommon::ShowPostShaderError(const std::string &errorString) {
 
 void PresentationCommon::DeviceLost() {
 	DestroyDeviceObjects();
+	draw_ = nullptr;
 }
 
 void PresentationCommon::DeviceRestore(Draw::DrawContext *draw) {

@@ -36,7 +36,6 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
-#include "GPU/Debugger/Debugger.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/GPU_GLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
@@ -60,7 +59,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	shaderManagerGL_ = new ShaderManagerGLES(draw);
 	framebufferManagerGL_ = new FramebufferManagerGLES(draw);
 	framebufferManager_ = framebufferManagerGL_;
-	textureCacheGL_ = new TextureCacheGLES(draw);
+	textureCacheGL_ = new TextureCacheGLES(draw, framebufferManager_->GetDraw2D());
 	textureCache_ = textureCacheGL_;
 	drawEngineCommon_ = &drawEngine_;
 	shaderManager_ = shaderManagerGL_;
@@ -202,9 +201,9 @@ void GPU_GLES::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_DEPTH_CLAMP | GPU_SUPPORTS_ACCURATE_DEPTH;
 		// Our implementation of depth texturing needs simple Z range, so can't
 		// use the extension hacks (yet).
-		if (gl_extensions.GLES3)
-			features |= GPU_SUPPORTS_DEPTH_TEXTURE;
 	}
+	if (draw_->GetDeviceCaps().textureDepthSupported)
+		features |= GPU_SUPPORTS_DEPTH_TEXTURE;
 	if (draw_->GetDeviceCaps().clipDistanceSupported)
 		features |= GPU_SUPPORTS_CLIP_DISTANCE;
 	if (draw_->GetDeviceCaps().cullDistanceSupported)
@@ -360,11 +359,6 @@ void GPU_GLES::BeginFrame() {
 	framebufferManagerGL_->BeginFrame();
 }
 
-void GPU_GLES::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
-	GPUDebug::NotifyDisplay(framebuf, stride, format);
-	framebufferManagerGL_->SetDisplayFramebuffer(framebuf, stride, format);
-}
-
 void GPU_GLES::CopyDisplayToOutput(bool reallyDirty) {
 	// Flush anything left over.
 	framebufferManagerGL_->RebindFramebuffer("RebindFramebuffer - CopyDisplayToOutput");
@@ -453,8 +447,8 @@ std::vector<std::string> GPU_GLES::DebugGetShaderIDs(DebugShaderType type) {
 	switch (type) {
 	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngine_.DebugGetVertexLoaderIDs();
-	case SHADER_TYPE_DEPAL:
-		return textureCache_->GetDepalShaderCache()->DebugGetShaderIDs(type);
+	case SHADER_TYPE_TEXTURE:
+		return textureCache_->GetTextureShaderCache()->DebugGetShaderIDs(type);
 	default:
 		return shaderManagerGL_->DebugGetShaderIDs(type);
 	}
@@ -464,8 +458,8 @@ std::string GPU_GLES::DebugGetShaderString(std::string id, DebugShaderType type,
 	switch (type) {
 	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
-	case SHADER_TYPE_DEPAL:
-		return textureCache_->GetDepalShaderCache()->DebugGetShaderString(id, type, stringType);
+	case SHADER_TYPE_TEXTURE:
+		return textureCache_->GetTextureShaderCache()->DebugGetShaderString(id, type, stringType);
 	default:
 		return shaderManagerGL_->DebugGetShaderString(id, type, stringType);
 	}

@@ -27,14 +27,12 @@
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
-#define WRITE p+=sprintf
-
 static const InputDef vsInputs[2] = {
 	{ "vec2", "a_position", Draw::SEM_POSITION, },
 	{ "vec2", "a_texcoord0", Draw::SEM_TEXCOORD0, },
 };
 
-// TODO: Deduplicate with DepalettizeCommon.cpp
+// TODO: Deduplicate with TextureShaderCommon.cpp
 static const SamplerDef samplers[2] = {
 	{ "tex" },
 	{ "pal" },
@@ -44,12 +42,12 @@ static const VaryingDef varyings[1] = {
 	{ "vec2", "v_texcoord", Draw::SEM_TEXCOORD0, 0, "highp" },
 };
 
-// Uses integer instructions available since OpenGL 3.0. Suitable for ES 3.0 as well.
-void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config, const ShaderLanguageDesc &lang) {
+// Uses integer instructions available since OpenGL 3.0, ES 3.0 (and 2.0 with extensions), and of course Vulkan and D3D11.
+void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 	const int shift = config.shift;
 	const int mask = config.mask;
 
-	if (config.pixelFormat == GE_FORMAT_DEPTH16) {
+	if (config.bufferFormat == GE_FORMAT_DEPTH16) {
 		DepthScaleFactors factors = GetDepthScaleFactors();
 		writer.ConstFloat("z_scale", factors.scale);
 		writer.ConstFloat("z_offset", factors.offset);
@@ -71,7 +69,7 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config, con
 	writer.C("  vec4 color = ").SampleTexture2D("tex", "v_texcoord").C(";\n");
 
 	int shiftedMask = mask << shift;
-	switch (config.pixelFormat) {
+	switch (config.bufferFormat) {
 	case GE_FORMAT_8888:
 		if (shiftedMask & 0xFF) writer.C("  int r = int(color.r * 255.99);\n"); else writer.C("  int r = 0;\n");
 		if (shiftedMask & 0xFF00) writer.C("  int g = int(color.g * 255.99);\n"); else writer.C("  int g = 0;\n");
@@ -102,6 +100,17 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config, con
 	case GE_FORMAT_DEPTH16:
 		// Remap depth buffer.
 		writer.C("  float depth = (color.x - z_offset) * z_scale;\n");
+
+		if (config.bufferFormat == GE_FORMAT_DEPTH16 && config.textureFormat == GE_TFMT_5650) {
+			// Convert depth to 565, without going through a CLUT.
+			writer.C("  int idepth = int(clamp(depth, 0.0, 65535.0));\n");
+			writer.C("  float r = (idepth & 31) / 31.0f;\n");
+			writer.C("  float g = ((idepth >> 5) & 63) / 63.0f;\n");
+			writer.C("  float b = ((idepth >> 11) & 31) / 31.0f;\n");
+			writer.C("  vec4 outColor = vec4(r, g, b, 1.0);\n");
+			return;
+		}
+
 		writer.C("  int index = int(clamp(depth, 0.0, 65535.0));\n");
 		break;
 	default:
@@ -128,23 +137,25 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config, con
 	writer.C("  vec4 outColor = ").SampleTexture2D("pal", "uv").C(";\n");
 }
 
-// FP only, to suit GL(ES) 2.0
-void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config, const ShaderLanguageDesc &lang) {
+// FP only, to suit GL(ES) 2.0 and DX9
+void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 	char lookupMethod[128] = "index.r";
 
 	const int shift = config.shift;
 	const int mask = config.mask;
 
-	if (config.pixelFormat == GE_FORMAT_DEPTH16) {
+	if (config.bufferFormat == GE_FORMAT_DEPTH16) {
 		DepthScaleFactors factors = GetDepthScaleFactors();
 		writer.ConstFloat("z_scale", factors.scale);
 		writer.ConstFloat("z_offset", factors.offset);
 	}
 
+	writer.C("  vec4 index = ").SampleTexture2D("tex", "v_texcoord").C(";\n");
+
 	float index_multiplier = 1.0f;
 	// pixelformat is the format of the texture we are sampling.
 	bool formatOK = true;
-	switch (config.pixelFormat) {
+	switch (config.bufferFormat) {
 	case GE_FORMAT_8888:
 		if ((mask & (mask + 1)) == 0) {
 			// If the value has all bits contiguous (bitmask check above), we can mod by it + 1.
@@ -222,6 +233,19 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config, c
 	case GE_FORMAT_DEPTH16:
 	{
 		// TODO: I think we can handle most scenarios here, but texturing from depth buffers requires an extension on ES 2.0 anyway.
+		// Not on D3D9 though, so this path is still relevant.
+
+		if (config.bufferFormat == GE_FORMAT_DEPTH16 && config.textureFormat == GE_TFMT_5650) {
+			// Convert depth to 565, without going through a CLUT.
+			writer.C("  float depth = (index.x - z_offset) * z_scale;\n");
+			writer.C("  float idepth = floor(clamp(depth, 0.0, 65535.0));\n");
+			writer.C("  float r = mod(idepth, 32.0) / 31.0f;\n");
+			writer.C("  float g = mod(floor(idepth / 32.0), 64.0) / 63.0f;\n");
+			writer.C("  float b = mod(floor(idepth / 2048.0), 32.0) / 31.0f;\n");
+			writer.C("  vec4 outColor = vec4(r, g, b, 1.0);\n");
+			return;
+		}
+
 		if (shift < 16) {
 			index_multiplier = 1.0f / (float)(1 << shift);
 			truncate_cpy(lookupMethod, "((index.x - z_offset) * z_scale)");
@@ -249,7 +273,7 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config, c
 	// index_multiplier -= 0.01f / texturePixels;
 
 	if (!formatOK) {
-		ERROR_LOG_REPORT_ONCE(depal, G3D, "%i depal unsupported: shift=%i mask=%02x offset=%d", config.pixelFormat, shift, mask, config.startPos);
+		ERROR_LOG_REPORT_ONCE(depal, G3D, "%s depal unsupported: shift=%d mask=%02x offset=%d", GeBufferFormatToString(config.bufferFormat), shift, mask, config.startPos);
 	}
 
 	// Offset by half a texel (plus clutBase) to turn NEAREST filtering into FLOOR.
@@ -258,38 +282,66 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config, c
 	char offset[128] = "";
 	sprintf(offset, " + %f", texel_offset);
 
-	writer.C("  vec4 index = ").SampleTexture2D("tex", "v_texcoord").C(";\n");
 	writer.F("  float coord = (%s * %f)%s;\n", lookupMethod, index_multiplier, offset);
 	writer.C("  vec4 outColor = ").SampleTexture2D("pal", "vec2(coord, 0.0)").C(";\n");
 }
 
-void GenerateDepalFs(char *buffer, const DepalConfig &config, const ShaderLanguageDesc &lang) {
-	ShaderWriter writer(buffer, lang, ShaderStage::Fragment);
+void GenerateDepalSmoothed(ShaderWriter &writer, const DepalConfig &config) {
+	const char *sourceChannel = "error";
+	float indexMultiplier = 31.0f;
+
+	if (config.bufferFormat == GE_FORMAT_5551) {
+		_dbg_assert_(config.mask == 0x1F);
+		switch (config.shift) {
+		case 0: sourceChannel = "r"; break;
+		case 5: sourceChannel = "g"; break;
+		case 10: sourceChannel = "b"; break;
+		default: _dbg_assert_(false);
+		}
+	} else if (config.bufferFormat == GE_FORMAT_565) {
+		_dbg_assert_(config.mask == 0x1F || config.mask == 0x3F);
+		switch (config.shift) {
+		case 0: sourceChannel = "r"; break;
+		case 5: sourceChannel = "g"; indexMultiplier = 63.0f; break;
+		case 11: sourceChannel = "b"; break;
+		default: _dbg_assert_(false);
+		}
+	} else {
+		_dbg_assert_(false);
+	}
+
+	writer.C("  float index = ").SampleTexture2D("tex", "v_texcoord").F(".%s * %0.1f;\n", sourceChannel, indexMultiplier);
+	float texturePixels = 256.f;
+	if (config.clutFormat != GE_CMODE_32BIT_ABGR8888) {
+		texturePixels = 512.f;
+	}
+
+	writer.F("  float coord = (index + 0.5) * %f;\n", 1.0 / texturePixels);
+	writer.C("  vec4 outColor = ").SampleTexture2D("pal", "vec2(coord, 0.0)").C(";\n");
+}
+
+void GenerateDepalFs(ShaderWriter &writer, const DepalConfig &config) {
 	writer.DeclareSamplers(samplers);
 	writer.HighPrecisionFloat();
 	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_NONE);
-	switch (lang.shaderLanguage) {
-	case HLSL_D3D9:
-	case GLSL_1xx:
-		GenerateDepalShaderFloat(writer, config, lang);
-		break;
-	case GLSL_VULKAN:
-	case GLSL_3xx:
-	case HLSL_D3D11:
-		GenerateDepalShader300(writer, config, lang);
-		break;
-	default:
-		_assert_msg_(false, "Depal shader language not supported: %d", (int)lang.shaderLanguage);
+	if (config.smoothedDepal) {
+		// Handles a limited set of cases, but doesn't need any integer math so we don't
+		// need two variants.
+		GenerateDepalSmoothed(writer, config);
+	} else {
+		switch (writer.Lang().shaderLanguage) {
+		case HLSL_D3D9:
+		case GLSL_1xx:
+			GenerateDepalShaderFloat(writer, config);
+			break;
+		case GLSL_VULKAN:
+		case GLSL_3xx:
+		case HLSL_D3D11:
+			GenerateDepalShader300(writer, config);
+			break;
+		default:
+			_assert_msg_(false, "Shader language not supported for depal: %d", (int)writer.Lang().shaderLanguage);
+		}
 	}
 	writer.EndFSMain("outColor", FSFLAG_NONE);
 }
-
-void GenerateDepalVs(char *buffer, const ShaderLanguageDesc &lang) {
-	ShaderWriter writer(buffer, lang, ShaderStage::Vertex, nullptr, 0);
-	writer.BeginVSMain(vsInputs, Slice<UniformDef>::empty(), varyings);
-	writer.C("  v_texcoord = a_texcoord0;\n");
-	writer.C("  gl_Position = vec4(a_position, 0.0, 1.0);\n");
-	writer.EndVSMain(varyings);
-}
-
-#undef WRITE

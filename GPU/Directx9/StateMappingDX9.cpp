@@ -211,21 +211,11 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 		ConvertStencilFuncState(stencilState);
 
 		// Set Stencil/Depth
-
-		if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
-			// Enforce plain depth writing.
-			dxstate.depthTest.enable();
-			dxstate.depthFunc.set(D3DCMP_ALWAYS);
-			dxstate.depthWrite.set(true);
-			dxstate.stencilTest.disable();
-		} else if (gstate.isModeClear()) {
+		if (gstate.isModeClear()) {
 			// Depth Test
 			dxstate.depthTest.enable();
 			dxstate.depthFunc.set(D3DCMP_ALWAYS);
 			dxstate.depthWrite.set(gstate.isClearModeDepthMask());
-			if (gstate.isClearModeDepthMask()) {
-				framebufferManager_->SetDepthUpdated();
-			}
 
 			// Stencil Test
 			bool alphaMask = gstate.isClearModeAlphaMask();
@@ -246,9 +236,6 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 				dxstate.depthTest.enable();
 				dxstate.depthFunc.set(ztests[gstate.getDepthTestFunction()]);
 				dxstate.depthWrite.set(gstate.isDepthWriteEnabled());
-				if (gstate.isDepthWriteEnabled()) {
-					framebufferManager_->SetDepthUpdated();
-				}
 			} else {
 				dxstate.depthTest.disable();
 			}
@@ -273,6 +260,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
 			framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
 			vpAndScissor);
+		UpdateCachedViewportState(vpAndScissor);
 
 		dxstate.scissorTest.enable();
 		dxstate.scissorRect.set(vpAndScissor.scissorX, vpAndScissor.scissorY, vpAndScissor.scissorX + vpAndScissor.scissorW, vpAndScissor.scissorY + vpAndScissor.scissorH);
@@ -281,12 +269,6 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 		float depthMax = vpAndScissor.depthRangeMax;
 
 		dxstate.viewport.set(vpAndScissor.viewportX, vpAndScissor.viewportY, vpAndScissor.viewportW, vpAndScissor.viewportH, depthMin, depthMax);
-		if (vpAndScissor.dirtyProj) {
-			gstate_c.Dirty(DIRTY_PROJMATRIX);
-		}
-		if (vpAndScissor.dirtyDepth) {
-			gstate_c.Dirty(DIRTY_DEPTHRANGE);
-		}
 	}
 
 	gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_BLEND_STATE);

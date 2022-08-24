@@ -28,7 +28,7 @@
 #include "GPU/Directx9/FramebufferManagerDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "Common/GPU/D3D9/D3D9StateCache.h"
-#include "GPU/Common/DepalettizeCommon.h"
+#include "GPU/Common/TextureShaderCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
@@ -59,8 +59,8 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	D3DDECL_END()
 };
 
-TextureCacheDX9::TextureCacheDX9(Draw::DrawContext *draw)
-	: TextureCacheCommon(draw) {
+TextureCacheDX9::TextureCacheDX9(Draw::DrawContext *draw, Draw2D *draw2D)
+	: TextureCacheCommon(draw, draw2D) {
 	lastBoundTexture = INVALID_TEX;
 	isBgraBackend_ = true;
 
@@ -204,6 +204,10 @@ void TextureCacheDX9::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase
 }
 
 void TextureCacheDX9::BindTexture(TexCacheEntry *entry) {
+	if (!entry) {
+		device_->SetTexture(0, nullptr);
+		return;
+	}
 	LPDIRECT3DBASETEXTURE9 texture = DxTex(entry);
 	if (texture != lastBoundTexture) {
 		device_->SetTexture(0, texture);
@@ -215,15 +219,15 @@ void TextureCacheDX9::BindTexture(TexCacheEntry *entry) {
 }
 
 void TextureCacheDX9::Unbind() {
-	device_->SetTexture(0, NULL);
+	device_->SetTexture(0, nullptr);
 	InvalidateLastTexture();
 }
 
-void TextureCacheDX9::BindAsClutTexture(Draw::Texture *tex) {
+void TextureCacheDX9::BindAsClutTexture(Draw::Texture *tex, bool smooth) {
 	LPDIRECT3DBASETEXTURE9 clutTexture = (LPDIRECT3DBASETEXTURE9)draw_->GetNativeObject(Draw::NativeObject::TEXTURE_VIEW, tex);
 	device_->SetTexture(1, clutTexture);
-	device_->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_POINT);
-	device_->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+	device_->SetSamplerState(1, D3DSAMP_MINFILTER, smooth ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+	device_->SetSamplerState(1, D3DSAMP_MAGFILTER, smooth ? D3DTEXF_LINEAR : D3DTEXF_POINT);
 	device_->SetSamplerState(1, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
 }
 

@@ -87,6 +87,7 @@ struct CompatFlags {
 	bool ZZT3SelectHack;
 	bool AllowLargeFBTextureOffsets;
 	bool AtracLoopHack;
+	bool DeswizzleDepth;
 };
 
 class IniFile;

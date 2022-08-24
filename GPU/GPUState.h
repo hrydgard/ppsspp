@@ -300,8 +300,14 @@ struct GPUgstate {
 	bool isTextureFormatIndexed() const { return (texformat & 4) != 0; } // GE_TFMT_CLUT4 - GE_TFMT_CLUT32 are 0b1xx.
 	int getTextureEnvColRGB() const { return texenvcolor & 0x00FFFFFF; }
 	u32 getClutAddress() const { return (clutaddr & 0x00FFFFF0) | ((clutaddrupper << 8) & 0x0F000000); }
-	int getClutLoadBytes() const { return (loadclut & 0x7F) * 32; }
-	int getClutLoadBlocks() const { return (loadclut & 0x7F); }
+	int getClutLoadBytes() const { return getClutLoadBlocks() * 32; }
+	int getClutLoadBlocks() const {
+		// The PSP only supports 0x3F, but Misshitsu no Sacrifice has extra color data (see #15727.)
+		// 0x40 would be 0, which would be a no-op, so we allow it.
+		if ((loadclut & 0x7F) == 0x40)
+			return 0x40;
+		return loadclut & 0x3F;
+	}
 	GEPaletteFormat getClutPaletteFormat() const { return static_cast<GEPaletteFormat>(clutformat & 3); }
 	int getClutIndexShift() const { return (clutformat >> 2) & 0x1F; }
 	int getClutIndexMask() const { return (clutformat >> 8) & 0xFF; }
@@ -523,9 +529,10 @@ struct GPUStateCache {
 	bool IsDirty(u64 what) const {
 		return (dirty & what) != 0ULL;
 	}
-	void SetUseShaderDepal(bool depal) {
+	void SetUseShaderDepal(bool depal, bool smoothed) {
 		if (depal != useShaderDepal) {
 			useShaderDepal = depal;
+			useSmoothedShaderDepal = smoothed;
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
@@ -555,14 +562,6 @@ struct GPUStateCache {
 			Dirty(DIRTY_FRAGMENTSHADER_STATE | (is3D ? DIRTY_MIPBIAS : 0));
 		}
 	}
-	void SetFramebufferRenderMode(RasterMode mode) {
-		if (mode != renderMode) {
-			// This mode modifies the fragment shader to write depth, the depth state to write without testing, and the blend state to write nothing to color.
-			// So we need to re-evaluate those states.
-			Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_TEXTURE_PARAMS);
-			renderMode = mode;
-		}
-	}
 
 	u32 featureFlags;
 
@@ -571,6 +570,9 @@ struct GPUStateCache {
 	u32 offsetAddr;
 
 	uint64_t dirty;
+
+	bool usingDepth;  // For deferred depth copies.
+	bool clearingDepth;
 
 	bool textureFullAlpha;
 	bool vertexFullAlpha;
@@ -613,9 +615,6 @@ struct GPUStateCache {
 	// We detect this case and go into a special drawing mode.
 	bool blueToAlpha;
 
-	// Some games try to write to the Z buffer using color. Catch that and actually do the writes to the Z buffer instead.
-	RasterMode renderMode;
-
 	// TODO: These should be accessed from the current VFB object directly.
 	u32 curRTWidth;
 	u32 curRTHeight;
@@ -637,6 +636,7 @@ struct GPUStateCache {
 	int spline_num_points_u;
 
 	bool useShaderDepal;
+	bool useSmoothedShaderDepal;
 	GEBufferFormat depalFramebufferFormat;
 
 	u32 getRelativeAddress(u32 data) const;

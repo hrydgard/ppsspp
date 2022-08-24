@@ -265,7 +265,6 @@ struct SceUtilitySavedataParam
 
 	// Function 22 GETSIZES
 	PSPPointer<PspUtilitySavedataSizeInfo> sizeInfo;
-
 };
 
 // Non native, this one we can reorganize as we like
@@ -377,10 +376,10 @@ private:
 	std::set<std::string> GetSecureFileNames(const std::string &dirPath);
 	bool GetExpectedHash(const std::string &dirPath, const std::string &filename, u8 hash[16]);
 
-	SceUtilitySavedataParam* pspParam;
-	int selectedSave;
-	SaveFileInfo *saveDataList;
-	SaveFileInfo *noSaveIcon;
-	int saveDataListCount;
-	int saveNameListDataCount;
+	SceUtilitySavedataParam* pspParam = nullptr;
+	int selectedSave = 0;
+	SaveFileInfo *saveDataList = nullptr;
+	SaveFileInfo *noSaveIcon = nullptr;
+	int saveDataListCount = 0;
+	int saveNameListDataCount = 0;
 };

@@ -1109,7 +1109,8 @@ void GPUCommon::BeginFrame() {
 	} else if (dumpThisFrame_) {
 		dumpThisFrame_ = false;
 	}
-	GPURecord::NotifyFrame();
+	GPUDebug::NotifyBeginFrame();
+	GPURecord::NotifyBeginFrame();
 }
 
 void GPUCommon::SlowRunLoop(DisplayList &list)
@@ -1624,6 +1625,21 @@ void GPUCommon::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_CULLRANGE);
 }
 
+void GPUCommon::CheckDepthUsage(VirtualFramebuffer *vfb) {
+	if (!gstate_c.usingDepth) {
+		bool isClearingDepth = gstate.isModeClear() && gstate.isClearModeDepthMask();
+
+		if ((gstate.isDepthTestEnabled() || isClearingDepth)) {
+			gstate_c.usingDepth = true;
+			gstate_c.clearingDepth = isClearingDepth;
+			vfb->last_frame_depth_render = gpuStats.numFlips;
+			if (isClearingDepth || gstate.isDepthWriteEnabled()) {
+				vfb->last_frame_depth_updated = gpuStats.numFlips;
+			}
+			framebufferManager_->SetDepthFrameBuffer(isClearingDepth);
+		}
+	}
+}
 
 void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	// This drives all drawing. All other state we just buffer up, then we apply it only
@@ -1662,10 +1678,11 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	if (PSP_CoreParameter().compat.flags().BlueToAlpha) {
 		if (gstate_c.framebufFormat == GEBufferFormat::GE_FORMAT_565 && gstate.getColorMask() == 0x0FFFFF) {
 			blueToAlpha = true;
+			gstate_c.framebufFormat = GEBufferFormat::GE_FORMAT_4444;
 		}
 		if (blueToAlpha != gstate_c.blueToAlpha) {
 			gstate_c.blueToAlpha = blueToAlpha;
-			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_BLEND_STATE);
+			gstate_c.Dirty(DIRTY_FRAMEBUF | DIRTY_FRAGMENTSHADER_STATE | DIRTY_BLEND_STATE);
 		}
 	}
 
@@ -1684,6 +1701,8 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 		}
 		return;
 	}
+
+	CheckDepthUsage(vfb);
 
 	const void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *inds = nullptr;
@@ -1883,11 +1902,13 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 	gstate_c.framebufFormat = gstate.FrameBufFormat();
 
 	// This also make skipping drawing very effective.
-	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+	VirtualFramebuffer *vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
 		return;
 	}
+
+	CheckDepthUsage(vfb);
 
 	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
 		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
@@ -1953,11 +1974,13 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 	gstate_c.framebufFormat = gstate.FrameBufFormat();
 
 	// This also make skipping drawing very effective.
-	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+	VirtualFramebuffer *vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
 		return;
 	}
+
+	CheckDepthUsage(vfb);
 
 	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
 		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
@@ -2686,7 +2709,8 @@ void GPUCommon::ResetListState(int listID, DisplayListState state) {
 
 GPUDebugOp GPUCommon::DissassembleOp(u32 pc, u32 op) {
 	char buffer[1024];
-	GeDisassembleOp(pc, op, Memory::Read_U32(pc - 4), buffer, sizeof(buffer));
+	u32 prev = Memory::IsValidAddress(pc - 4) ? Memory::ReadUnchecked_U32(pc - 4) : 0;
+	GeDisassembleOp(pc, op, prev, buffer, sizeof(buffer));
 
 	GPUDebugOp info;
 	info.pc = pc;
@@ -2742,6 +2766,10 @@ void GPUCommon::SetCmdValue(u32 op) {
 	gstate.cmdmem[cmd] = op;
 	ExecuteOp(op, diff);
 	downcount = 0;
+}
+
+void GPUCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
+	framebufferManager_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 
 void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
@@ -3041,7 +3069,8 @@ size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
 		"Vertices: %d cached: %d uncached: %d\n"
 		"FBOs active: %d (evaluations: %d)\n"
 		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
-		"Readbacks: %d, uploads: %d, depth copies: %d\n"
+		"Readbacks: %d, uploads: %d\n"
+		"Copies: depth %d, color %d, reinterpret: %d\n"
 		"GPU cycles executed: %d (%f per vertex)\n",
 		gpuStats.msProcessingDisplayLists * 1000.0f,
 		gpuStats.numDrawCalls,
@@ -3062,6 +3091,8 @@ size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.numReadbacks,
 		gpuStats.numUploads,
 		gpuStats.numDepthCopies,
+		gpuStats.numColorCopies,
+		gpuStats.numReinterpretCopies,
 		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
 		vertexAverageCycles
 	);

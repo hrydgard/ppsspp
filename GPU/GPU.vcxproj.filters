@@ -255,7 +255,7 @@
     <ClInclude Include="Common\Draw2D.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="Common\DepalettizeCommon.h">
+    <ClInclude Include="Common\TextureShaderCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
   </ItemGroup>
@@ -503,7 +503,7 @@
     <ClCompile Include="Common\Draw2D.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="Common\DepalettizeCommon.cpp">
+    <ClCompile Include="Common\TextureShaderCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>

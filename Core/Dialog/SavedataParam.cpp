@@ -193,16 +193,7 @@ void SaveFileInfo::DoState(PointerWrap &p)
 	}
 }
 
-SavedataParam::SavedataParam()
-	: pspParam(0)
-	, selectedSave(0)
-	, saveDataList(0)
-	, noSaveIcon(0)
-	, saveDataListCount(0)
-	, saveNameListDataCount(0)
-{
-
-}
+SavedataParam::SavedataParam() { }
 
 void SavedataParam::Init()
 {

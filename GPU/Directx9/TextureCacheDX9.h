@@ -24,14 +24,14 @@
 #include "GPU/Common/TextureCacheCommon.h"
 
 struct VirtualFramebuffer;
-class DepalShaderCache;
+class TextureShaderCache;
 
 class FramebufferManagerDX9;
 class ShaderManagerDX9;
 
 class TextureCacheDX9 : public TextureCacheCommon {
 public:
-	TextureCacheDX9(Draw::DrawContext *draw);
+	TextureCacheDX9(Draw::DrawContext *draw, Draw2D *draw2D);
 	~TextureCacheDX9();
 
 	void StartFrame() override;
@@ -49,7 +49,7 @@ protected:
 	void BindTexture(TexCacheEntry *entry) override;
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
-	void BindAsClutTexture(Draw::Texture *tex) override;
+	void BindAsClutTexture(Draw::Texture *tex, bool smooth) override;
 
 private:
 	void ApplySamplingParams(const SamplerCacheKey &key) override;

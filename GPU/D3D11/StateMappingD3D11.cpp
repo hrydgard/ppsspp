@@ -293,21 +293,11 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		GenericStencilFuncState stencilState;
 		ConvertStencilFuncState(stencilState);
 
-		if (gstate_c.renderMode == RASTER_MODE_COLOR_TO_DEPTH) {
-			// Enforce plain depth writing.
-			keys_.depthStencil.value = 0;
-			keys_.depthStencil.depthTestEnable = true;
-			keys_.depthStencil.depthWriteEnable = true;
-			keys_.depthStencil.stencilTestEnable = false;
-			keys_.depthStencil.depthCompareOp = D3D11_COMPARISON_ALWAYS;
-		} else if (gstate.isModeClear()) {
+		if (gstate.isModeClear()) {
 			keys_.depthStencil.value = 0;
 			keys_.depthStencil.depthTestEnable = true;
 			keys_.depthStencil.depthCompareOp = D3D11_COMPARISON_ALWAYS;
 			keys_.depthStencil.depthWriteEnable = gstate.isClearModeDepthMask();
-			if (gstate.isClearModeDepthMask()) {
-				framebufferManager_->SetDepthUpdated();
-			}
 
 			// Stencil Test
 			bool alphaMask = gstate.isClearModeAlphaMask();
@@ -336,9 +326,6 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				keys_.depthStencil.depthTestEnable = true;
 				keys_.depthStencil.depthCompareOp = compareOps[gstate.getDepthTestFunction()];
 				keys_.depthStencil.depthWriteEnable = gstate.isDepthWriteEnabled();
-				if (gstate.isDepthWriteEnabled()) {
-					framebufferManager_->SetDepthUpdated();
-				}
 			} else {
 				keys_.depthStencil.depthTestEnable = false;
 				keys_.depthStencil.depthWriteEnable = false;
@@ -387,15 +374,13 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
 			framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
 			vpAndScissor);
+		UpdateCachedViewportState(vpAndScissor);
 
 		float depthMin = vpAndScissor.depthRangeMin;
 		float depthMax = vpAndScissor.depthRangeMax;
 
 		if (depthMin < 0.0f) depthMin = 0.0f;
 		if (depthMax > 1.0f) depthMax = 1.0f;
-		if (vpAndScissor.dirtyDepth) {
-			gstate_c.Dirty(DIRTY_DEPTHRANGE);
-		}
 
 		Draw::Viewport &vp = dynState_.viewport;
 		vp.TopLeftX = vpAndScissor.viewportX;
@@ -404,10 +389,6 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		vp.Height = vpAndScissor.viewportH;
 		vp.MinDepth = depthMin;
 		vp.MaxDepth = depthMax;
-
-		if (vpAndScissor.dirtyProj) {
-			gstate_c.Dirty(DIRTY_PROJMATRIX);
-		}
 
 		D3D11_RECT &scissor = dynState_.scissor;
 		scissor.left = vpAndScissor.scissorX;
