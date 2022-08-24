@@ -113,12 +113,11 @@ void FramebufferManagerCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, G
 VirtualFramebuffer *FramebufferManagerCommon::GetVFBAt(u32 addr) const {
 	addr &= 0x3FFFFFFF;
 	VirtualFramebuffer *match = nullptr;
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *v = vfbs_[i];
-		if (v->fb_address == addr) {
+	for (auto vfb : vfbs_) {
+		if (vfb->fb_address == addr) {
 			// Could check w too but whatever (actually, might very well make sense to do so, depending on context).
-			if (!match || v->last_frame_render > match->last_frame_render) {
-				match = v;
+			if (!match || vfb->last_frame_render > match->last_frame_render) {
+				match = vfb;
 			}
 		}
 	}
@@ -182,8 +181,8 @@ void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, int fb_stride
 	if (viewport_width != region_width) {
 		// The majority of the time, these are equal.  If not, let's check what we know.
 		u32 nearest_address = 0xFFFFFFFF;
-		for (size_t i = 0; i < vfbs_.size(); ++i) {
-			const u32 other_address = vfbs_[i]->fb_address & 0x3FFFFFFF;
+		for (auto vfb : vfbs_) {
+			const u32 other_address = vfb->fb_address & 0x3FFFFFFF;
 			if (other_address > fb_address && other_address < nearest_address) {
 				nearest_address = other_address;
 			}
@@ -319,9 +318,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = nullptr;
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *v = vfbs_[i];
-
+	for (auto v : vfbs_) {
 		const u32 bpp = BufferFormatBytesPerPixel(v->fb_format);
 
 		if (params.fb_address == v->fb_address && params.fb_format == v->fb_format && params.fb_stride == v->fb_stride) {
@@ -460,7 +457,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 			// TODO: Is it worth trying to upload the depth buffer (only if it wasn't copied above..?)
 		}
 
-		// Let's check for depth buffer overlap.  Might be interesting.
+		// Let's check for depth buffer overlap. Might be interesting (not that interesting anymore..)
 		bool sharingReported = false;
 		for (size_t i = 0, end = vfbs_.size(); i < end; ++i) {
 			if (vfbs_[i]->z_stride != 0 && params.fb_address == vfbs_[i]->z_address) {
@@ -1255,8 +1252,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		// "framebuffers" sitting in RAM (created from block transfer or similar) so we only take off the kernel
 		// and uncached bits of the address when comparing.
 		const u32 addr = fbaddr & 0x3FFFFFFF;
-		for (size_t i = 0; i < vfbs_.size(); ++i) {
-			VirtualFramebuffer *v = vfbs_[i];
+		for (auto v : vfbs_) {
 			const u32 v_addr = v->fb_address & 0x3FFFFFFF;
 			const u32 v_size = ColorBufferByteSize(v);
 			if (addr >= v_addr && addr < v_addr + v_size) {
@@ -1539,8 +1535,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	u32 dstH = 0;
 	u32 srcY = (u32)-1;
 	u32 srcH = 0;
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = vfbs_[i];
+	for (auto vfb : vfbs_) {
 		if (vfb->fb_stride == 0) {
 			continue;
 		}
@@ -1643,15 +1638,14 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 }
 
 void FramebufferManagerCommon::FindTransferFramebuffer(VirtualFramebuffer *&buffer, u32 basePtr, int stride, int &x, int &y, int &width, int &height, int bpp, bool destination) {
-	u32 yOffset = -1;
 	u32 xOffset = -1;
+	u32 yOffset = -1;
 	int transferWidth = width;
 	int transferHeight = height;
 
 	basePtr &= 0x3FFFFFFF;
 
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = vfbs_[i];
+	for (auto vfb : vfbs_) {
 		const u32 vfb_address = vfb->fb_address & 0x3FFFFFFF;
 		const u32 vfb_size = ColorBufferByteSize(vfb);
 		const u32 vfb_bpp = BufferFormatBytesPerPixel(vfb->fb_format);
@@ -1695,16 +1689,16 @@ void FramebufferManagerCommon::FindTransferFramebuffer(VirtualFramebuffer *&buff
 				height = transferHeight;
 			}
 			if (match) {
-				yOffset = memYOffset;
 				xOffset = stride == 0 ? 0 : (byteOffset / bpp) % stride;
+				yOffset = memYOffset;
 				buffer = vfb;
 			}
 		}
 	}
 
 	if (yOffset != (u32)-1) {
-		y += yOffset;
 		x += xOffset;
+		y += yOffset;
 	}
 }
 
@@ -2478,9 +2472,7 @@ void FramebufferManagerCommon::RebindFramebuffer(const char *tag) {
 std::vector<FramebufferInfo> FramebufferManagerCommon::GetFramebufferList() const {
 	std::vector<FramebufferInfo> list;
 
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = vfbs_[i];
-
+	for (auto vfb : vfbs_) {
 		FramebufferInfo info;
 		info.fb_address = vfb->fb_address;
 		info.z_address = vfb->z_address;
