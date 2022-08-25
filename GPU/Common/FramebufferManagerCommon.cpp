@@ -677,6 +677,17 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 				continue;
 			}
 			sources.push_back(CopySource{ src, RASTER_COLOR, xOffset, yOffset });
+		} else if (src->fb_address == dst->fb_address && src->FbStrideInBytes() == dst->FbStrideInBytes()) {
+			if (src->fb_stride == dst->fb_stride * 2) {
+				// Reinterpret from 16-bit to 32-bit.
+				WARN_LOG_N_TIMES(i16to32, 50, G3D, "16-bit to 32-bit reinterpret needed: %s to %s", GeBufferFormatToString(src->fb_format), GeBufferFormatToString(dst->fb_format));
+			} else if (dst->fb_stride == src->fb_stride * 2) {
+				// Reinterpret from 32-bit to 16-bit.
+				WARN_LOG_N_TIMES(i32to16, 50, G3D, "16-bit to 32-bit reinterpret needed: %s to %s", GeBufferFormatToString(src->fb_format), GeBufferFormatToString(dst->fb_format));
+			} else {
+				// 16-to-16 reinterpret, surely.
+				WARN_LOG_N_TIMES(i16to16, 50, G3D, "16-bit reinterpret needed: %s to %s", GeBufferFormatToString(src->fb_format), GeBufferFormatToString(dst->fb_format));
+			}
 		}
 	}
 
