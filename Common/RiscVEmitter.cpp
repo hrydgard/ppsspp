@@ -25,10 +25,18 @@ static inline bool SupportsCompressed() {
 	return true;
 }
 
+static inline uint8_t BitsSupported() {
+	// TODO
+	return 64;
+}
+
 enum class Opcode32 {
 	// Note: invalid, just used for FixupBranch.
 	ZERO = 0b0000000,
+	LOAD = 0b0000011,
+	OP_IMM = 0b0010011,
 	AUIPC = 0b0010111,
+	STORE = 0b0100011,
 	BRANCH = 0b1100011,
 	LUI = 0b0110111,
 	JALR = 0b1100111,
@@ -48,6 +56,21 @@ enum class Funct3 {
 	BGE = 0b101,
 	BLTU = 0b110,
 	BGEU = 0b111,
+
+	LS_B = 0b000,
+	LS_H = 0b001,
+	LS_W = 0b010,
+	LS_BU = 0b100,
+	LS_HU = 0b101,
+
+	ADDI = 0b000,
+	SLLI = 0b001,
+	SLTI = 0b010,
+	SLTIU = 0b011,
+	XORI = 0b100,
+	SRLI = 0b101,
+	ORI = 0b110,
+	ANDI = 0b111,
 };
 
 enum class Funct2 {
@@ -227,12 +250,12 @@ void RiscVEmitter::EBREAK() {
 }
 
 void RiscVEmitter::LUI(RiscVReg rd, s32 simm32) {
-	_assert_(rd != R_ZERO);
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
 	Write32(EncodeU(Opcode32::LUI, rd, simm32));
 }
 
 void RiscVEmitter::AUIPC(RiscVReg rd, s32 simm32) {
-	_assert_(rd != R_ZERO);
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
 	Write32(EncodeU(Opcode32::AUIPC, rd, simm32));
 }
 
@@ -330,6 +353,90 @@ FixupBranch RiscVEmitter::BGEU(RiscVReg rs1, RiscVReg rs2) {
 	FixupBranch fixup{ GetCodePointer(), FixupBranchType::B };
 	Write32(EncodeB(Opcode32::BRANCH, Funct3::BGEU, rs1, rs2, 0));
 	return fixup;
+}
+
+void RiscVEmitter::LB(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	Write32(EncodeI(Opcode32::LOAD, rd, Funct3::LS_B, rs1, simm12));
+}
+
+void RiscVEmitter::LH(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	Write32(EncodeI(Opcode32::LOAD, rd, Funct3::LS_H, rs1, simm12));
+}
+
+void RiscVEmitter::LW(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	Write32(EncodeI(Opcode32::LOAD, rd, Funct3::LS_W, rs1, simm12));
+}
+
+void RiscVEmitter::LBU(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	Write32(EncodeI(Opcode32::LOAD, rd, Funct3::LS_BU, rs1, simm12));
+}
+
+void RiscVEmitter::LHU(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	Write32(EncodeI(Opcode32::LOAD, rd, Funct3::LS_HU, rs1, simm12));
+}
+
+void RiscVEmitter::SB(RiscVReg rs2, RiscVReg rs1, s32 simm12) {
+	Write32(EncodeS(Opcode32::STORE, Funct3::LS_B, rs1, rs2, simm12));
+}
+
+void RiscVEmitter::SH(RiscVReg rs2, RiscVReg rs1, s32 simm12) {
+	Write32(EncodeS(Opcode32::STORE, Funct3::LS_H, rs1, rs2, simm12));
+}
+
+void RiscVEmitter::SW(RiscVReg rs2, RiscVReg rs1, s32 simm12) {
+	Write32(EncodeS(Opcode32::STORE, Funct3::LS_W, rs1, rs2, simm12));
+}
+
+void RiscVEmitter::ADDI(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	// Allow NOP form of ADDI.
+	_assert_msg_(rd != R_ZERO || (rs1 == R_ZERO && simm12 == 0), "%s write to zero is a HINT", __func__);
+	Write32(EncodeI(Opcode32::OP_IMM, rd, Funct3::ADDI, rs1, simm12));
+}
+
+void RiscVEmitter::SLTI(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	Write32(EncodeI(Opcode32::OP_IMM, rd, Funct3::SLTI, rs1, simm12));
+}
+
+void RiscVEmitter::SLTIU(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	Write32(EncodeI(Opcode32::OP_IMM, rd, Funct3::SLTIU, rs1, simm12));
+}
+
+void RiscVEmitter::XORI(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	Write32(EncodeI(Opcode32::OP_IMM, rd, Funct3::XORI, rs1, simm12));
+}
+
+void RiscVEmitter::ORI(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	Write32(EncodeI(Opcode32::OP_IMM, rd, Funct3::ORI, rs1, simm12));
+}
+
+void RiscVEmitter::ANDI(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	Write32(EncodeI(Opcode32::OP_IMM, rd, Funct3::ANDI, rs1, simm12));
+}
+
+void RiscVEmitter::SLLI(RiscVReg rd, RiscVReg rs1, u32 shamt) {
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	// Not sure if shamt=0 is legal or not, let's play it safe.
+	_assert_msg_(shamt > 0 && shamt < BitsSupported(), "Shift out of range");
+	Write32(EncodeI(Opcode32::OP_IMM, rd, Funct3::SLLI, rs1, shamt));
+}
+
+void RiscVEmitter::SRLI(RiscVReg rd, RiscVReg rs1, u32 shamt) {
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	// Not sure if shamt=0 is legal or not, let's play it safe.
+	_assert_msg_(shamt > 0 && shamt < BitsSupported(), "Shift out of range");
+	Write32(EncodeI(Opcode32::OP_IMM, rd, Funct3::SRLI, rs1, shamt));
+}
+
+void RiscVEmitter::SRAI(RiscVReg rd, RiscVReg rs1, u32 shamt) {
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	// Not sure if shamt=0 is legal or not, let's play it safe.
+	_assert_msg_(shamt > 0 && shamt < BitsSupported(), "Shift out of range");
+	Write32(EncodeI(Opcode32::OP_IMM, rd, Funct3::SRLI, rs1, shamt | (1 << 10)));
 }
 
 };

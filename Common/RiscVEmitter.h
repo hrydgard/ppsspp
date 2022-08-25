@@ -112,6 +112,37 @@ public:
 	FixupBranch BLTU(RiscVReg rs1, RiscVReg rs2);
 	FixupBranch BGEU(RiscVReg rs1, RiscVReg rs2);
 
+	void LB(RiscVReg rd, RiscVReg rs1, s32 simm12);
+	void LH(RiscVReg rd, RiscVReg rs1, s32 simm12);
+	void LW(RiscVReg rd, RiscVReg rs1, s32 simm12);
+	void LBU(RiscVReg rd, RiscVReg rs1, s32 simm12);
+	void LHU(RiscVReg rd, RiscVReg rs1, s32 simm12);
+
+	void SB(RiscVReg rs2, RiscVReg rs1, s32 simm12);
+	void SH(RiscVReg rs2, RiscVReg rs1, s32 simm12);
+	void SW(RiscVReg rs2, RiscVReg rs1, s32 simm12);
+
+	void ADDI(RiscVReg rd, RiscVReg rs1, s32 simm12);
+	void SLTI(RiscVReg rd, RiscVReg rs1, s32 simm12);
+	void SLTIU(RiscVReg rd, RiscVReg rs1, s32 simm12);
+	void XORI(RiscVReg rd, RiscVReg rs1, s32 simm12);
+	void ORI(RiscVReg rd, RiscVReg rs1, s32 simm12);
+	void ANDI(RiscVReg rd, RiscVReg rs1, s32 simm12);
+
+	void NOP() {
+		ADDI(R_ZERO, R_ZERO, 0);
+	}
+	void MV(RiscVReg rd, RiscVReg rs1) {
+		ADDI(rd, rs1, 0);
+	}
+	void NOT(RiscVReg rd, RiscVReg rs1) {
+		XORI(rd, rs1, -1);
+	}
+
+	void SLLI(RiscVReg rd, RiscVReg rs1, u32 shamt);
+	void SRLI(RiscVReg rd, RiscVReg rs1, u32 shamt);
+	void SRAI(RiscVReg rd, RiscVReg rs1, u32 shamt);
+
 private:
 	void SetJumpTarget(const FixupBranch &branch, const void *dst);
 	bool BInRange(const void *src, const void *dst) const;
