@@ -27,6 +27,7 @@
 #include "Common/Math/math_util.h"
 #include "Common/System/Display.h"
 #include "Common/CommonTypes.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
@@ -1608,68 +1609,118 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	}
 }
 
-void FramebufferManagerCommon::FindTransferFramebuffer(VirtualFramebuffer *&buffer, u32 basePtr, int stride, int &x, int &y, int &width, int &height, int bpp, bool destination) {
-	u32 xOffset = -1;
-	u32 yOffset = -1;
-	int transferWidth = width;
-	int transferHeight = height;
+std::string BlockTransferRect::ToString() const {
+	int bpp = BufferFormatBytesPerPixel(vfb->fb_format);
+	return StringFromFormat("%08x/%d/%s seq:%d  %d,%d %dx%d", vfb->fb_address, vfb->FbStrideInBytes(), GeBufferFormatToString(vfb->fb_format), vfb->colorBindSeq, x_bytes / bpp, y, w_bytes / bpp, h);
+}
 
+// Only looks for color buffers. Due to swizzling and other concerns, games have not been seen using block copies
+// for depth data yet.
+bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_pixels, int x_pixels, int y, int w_pixels, int h, int bpp, bool destination, BlockTransferRect *rect) {
 	basePtr &= 0x3FFFFFFF;
+	rect->vfb = nullptr;
+
+	if (!stride_pixels) {
+		WARN_LOG(G3D, "Zero stride in FindTransferFrameBuffer, ignoring");
+		return false;
+	}
+
+	const u32 byteStride = stride_pixels * bpp;
+	int x_bytes = x_pixels * bpp;
+	int w_bytes = w_pixels * bpp;
+
+	std::vector<BlockTransferRect> candidates;
+
+	// We work entirely in bytes when we do the matching, because games don't consistently use bpps that match
+	// that of their buffers. Then after matching we try to map the copy to the simplest operation that does
+	// what we need.
 
 	for (auto vfb : vfbs_) {
 		const u32 vfb_address = vfb->fb_address & 0x3FFFFFFF;
 		const u32 vfb_size = ColorBufferByteSize(vfb);
+
+		if (basePtr < vfb_address || basePtr > vfb_address + vfb_size) {
+			continue;
+		}
+
 		const u32 vfb_bpp = BufferFormatBytesPerPixel(vfb->fb_format);
-		const u32 vfb_byteStride = vfb->fb_stride * vfb_bpp;
-		const u32 vfb_byteWidth = vfb->width * vfb_bpp;
+		const u32 vfb_byteStride = vfb->FbStrideInBytes();
+		const u32 vfb_byteWidth = vfb->WidthInBytes();
 
-		if (vfb_address <= basePtr && basePtr < vfb_address + vfb_size) {
-			const u32 byteOffset = basePtr - vfb_address;
-			const u32 byteStride = stride * bpp;
-			const u32 memYOffset = byteOffset / byteStride;
+		BlockTransferRect candidate{ vfb };
+		candidate.w_bytes = w_pixels * bpp;
+		candidate.h = h;
 
-			// Some games use mismatching bitdepths. But make sure the stride matches.
-			// If it doesn't, generally this means we detected the framebuffer with too large a height.
-			// Use bufferHeight in case of buffers that resize up and down often per frame (Valkyrie Profile.)
+		const u32 byteOffset = basePtr - vfb_address;
+		const int memXOffset = byteOffset % byteStride;
+		const int memYOffset = byteOffset / byteStride;
 
-			// TODO: Surely this first comparison should be <= ?
-			// Or does the exact match (byteOffset == 0) case get handled elsewhere?
-			bool match = memYOffset < yOffset && (int)memYOffset <= (int)vfb->bufferHeight - height;
-			if (match && vfb_byteStride != byteStride) {
-				// Grand Knights History copies with a mismatching stride but a full line at a time.
-				// That's why we multiply by height, not width - this copy is a rectangle with the wrong stride but a line with the correct one.
-				// Makes it hard to detect the wrong transfers in e.g. God of War.
-				if (transferWidth != stride || (byteStride * transferHeight != vfb_byteStride && byteStride * transferHeight != vfb_byteWidth)) {
-					if (destination) {
-						// However, some other games write cluts to framebuffers.
-						// Let's catch this and upload.  Otherwise reject the match.
-						match = (vfb->usageFlags & FB_USAGE_CLUT) != 0;
-						if (match) {
-							width = byteStride * transferHeight / vfb_bpp;
-							height = 1;
-						}
+		// Some games use mismatching bitdepths. But make sure the stride matches.
+		// If it doesn't, generally this means we detected the framebuffer with too large a height.
+		// Use bufferHeight in case of buffers that resize up and down often per frame (Valkyrie Profile.)
+
+		// If it's outside the vfb by a single pixel, we currently disregard it.
+		if (memYOffset > vfb->bufferHeight - h) {
+			continue;
+		}
+
+		if (byteOffset == vfb->WidthInBytes() && vfb->WidthInBytes() < vfb->FbStrideInBytes()) {
+			// We're in a margin texture of the vfb, which is not the vfb itself.
+			// Ignore the match.
+			continue;
+		}
+
+		if (vfb_byteStride != byteStride) {
+			// Grand Knights History copies with a mismatching stride but a full line at a time.
+			// That's why we multiply by height, not width - this copy is a rectangle with the wrong stride but a line with the correct one.
+			// Makes it hard to detect the wrong transfers in e.g. God of War.
+			if (w_pixels != stride_pixels || (byteStride * h != vfb_byteStride && byteStride * h != vfb_byteWidth)) {
+				if (destination) {
+					// However, some other games write cluts to framebuffers.
+					// Let's catch this and upload.  Otherwise reject the match.
+					bool match = (vfb->usageFlags & FB_USAGE_CLUT) != 0;
+					if (match) {
+						candidate.w_bytes = byteStride * h;
+						h = 1;
 					} else {
-						match = false;
+						continue;
 					}
 				} else {
-					width = byteStride * transferHeight / vfb_bpp;
-					height = 1;
+					continue;
 				}
-			} else if (match) {
-				width = transferWidth;
-				height = transferHeight;
+			} else {
+				// This is the Grand Knights History case.
+				candidate.w_bytes = byteStride * h;
+				candidate.h = 1;
 			}
-			if (match) {
-				xOffset = stride == 0 ? 0 : (byteOffset / bpp) % stride;
-				yOffset = memYOffset;
-				buffer = vfb;
-			}
+		} else {
+			candidate.w_bytes = w_bytes;
+			candidate.h = h;
 		}
+
+		candidate.x_bytes = x_bytes + memXOffset;
+		candidate.y = y + memYOffset;
+		candidate.vfb = vfb;
+		candidates.push_back(candidate);
 	}
 
-	if (yOffset != (u32)-1) {
-		x += xOffset;
-		y += yOffset;
+	// Sort candidates by just recency for now, we might add other.
+	std::sort(candidates.begin(), candidates.end());
+
+	if (candidates.size() > 1) {
+		std::string log;
+		for (auto &candidate : candidates) {
+			log += " - " + candidate.ToString() + "\n";
+		}
+		WARN_LOG_N_TIMES(mulblock, 50, G3D, "Multiple framebuffer candidates for %08x/%d/%d %d,%d %dx%d (dest = %d):\n%s", basePtr, stride_pixels, bpp, x_pixels, y, w_pixels, h, (int)destination, log.c_str());
+	}
+
+	if (!candidates.empty()) {
+		// Pick the last candidate.
+		*rect = candidates.back();
+		return true;
+	} else {
+		return false;
 	}
 }
 
@@ -1866,92 +1917,123 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 		return false;
 	}
 
-	VirtualFramebuffer *dstBuffer = 0;
-	VirtualFramebuffer *srcBuffer = 0;
-	int srcWidth = width;
-	int srcHeight = height;
-	int dstWidth = width;
-	int dstHeight = height;
+	BlockTransferRect dstRect{};
+	BlockTransferRect srcRect{};
 
 	// These modify the X/Y/W/H parameters depending on the memory offset of the base pointers from the actual buffers.
-	FindTransferFramebuffer(srcBuffer, srcBasePtr, srcStride, srcX, srcY, srcWidth, srcHeight, bpp, false);
-	FindTransferFramebuffer(dstBuffer, dstBasePtr, dstStride, dstX, dstY, dstWidth, dstHeight, bpp, true);
+	bool srcBuffer = FindTransferFramebuffer(srcBasePtr, srcStride, srcX, srcY, width, height, bpp, false, &srcRect);
+	bool dstBuffer = FindTransferFramebuffer(dstBasePtr, dstStride, dstX, dstY, width, height, bpp, true, &dstRect);
 
 	if (srcBuffer && !dstBuffer) {
+		// In here, we can't read from dstRect.
+
 		if (PSP_CoreParameter().compat.flags().BlockTransferAllowCreateFB ||
 			(PSP_CoreParameter().compat.flags().IntraVRAMBlockTransferAllowCreateFB &&
-				Memory::IsVRAMAddress(srcBuffer->fb_address) && Memory::IsVRAMAddress(dstBasePtr))) {
+				Memory::IsVRAMAddress(srcRect.vfb->fb_address) && Memory::IsVRAMAddress(dstBasePtr))) {
 			GEBufferFormat ramFormat;
 			// Try to guess the appropriate format. We only know the bpp from the block transfer command (16 or 32 bit).
 			if (bpp == 4) {
 				// Only one possibility unless it's doing split pixel tricks (which we could detect through stride maybe).
 				ramFormat = GE_FORMAT_8888;
-			} else if (srcBuffer->fb_format != GE_FORMAT_8888) {
+			} else if (srcRect.vfb->fb_format != GE_FORMAT_8888) {
 				// We guess that the game will interpret the data the same as it was in the source of the copy.
 				// Seems like a likely good guess, and works in Test Drive Unlimited.
-				ramFormat = srcBuffer->fb_format;
+				ramFormat = srcRect.vfb->fb_format;
 			} else {
 				// No info left - just fall back to something. But this is definitely split pixel tricks.
 				ramFormat = GE_FORMAT_5551;
 			}
-			dstBuffer = CreateRAMFramebuffer(dstBasePtr, dstWidth, dstHeight, dstStride, ramFormat);
+			dstBuffer = CreateRAMFramebuffer(dstBasePtr, width, height, dstStride, ramFormat);
 		}
 	}
 
-	if (dstBuffer)
-		dstBuffer->last_frame_used = gpuStats.numFlips;
+	if (dstBuffer) {
+		dstRect.vfb->last_frame_used = gpuStats.numFlips;
+		// Mark the destination as fresh.
+		dstRect.vfb->colorBindSeq = GetBindSeqCount();
+	}
 
 	if (dstBuffer && srcBuffer) {
-		if (srcBuffer == dstBuffer) {
-			if (srcX != dstX || srcY != dstY) {
-				WARN_LOG_N_TIMES(dstsrc, 100, G3D, "Intra-buffer block transfer %dx%d %dbpp from %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d)",
-					width, height, bpp,
-					srcBasePtr, srcX, srcY, srcStride,
-					dstBasePtr, dstX, dstY, dstStride);
-				FlushBeforeCopy();
-				// Some backends can handle blitting within a framebuffer. Others will just have to deal with it or ignore it, apparently.
-				BlitFramebuffer(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp, "Blit_IntraBufferBlockTransfer");
-				RebindFramebuffer("rebind after intra block transfer");
-				SetColorUpdated(dstBuffer, skipDrawReason);
-				return true;  // Skip the memory copy.
-			} else {
+		if (srcRect.vfb == dstRect.vfb) {
+			// Transfer within the same buffer.
+			// This is a simple case because there will be no format conversion or similar shenanigans needed.
+			// However, the BPP might still mismatch, but in such a case we can convert the coordinates.
+			if (srcX == dstX && srcY == dstY) {
 				// Ignore, nothing to do.  Tales of Phantasia X does this by accident.
-				return true;  // Skip the memory copy.
+				// Returning true to also skip the memory copy.
+				return true;
 			}
-		} else {
-			WARN_LOG_N_TIMES(dstnotsrc, 100, G3D, "Inter-buffer block transfer %dx%d %dbpp from %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d)",
+
+			int buffer_bpp = BufferFormatBytesPerPixel(srcRect.vfb->fb_format);
+
+			if (bpp != buffer_bpp) {
+				WARN_LOG_ONCE(intrabpp, G3D, "Mismatched transfer bpp in intra-buffer block transfer. Was %d, expected %d.", bpp, buffer_bpp);
+				// We just switch to using the buffer's bpp, since we've already converted the rectangle to byte offsets.
+				bpp = buffer_bpp;
+			}
+
+			WARN_LOG_N_TIMES(dstsrc, 50, G3D, "Intra-buffer block transfer %dx%d %dbpp from %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d)",
 				width, height, bpp,
-				srcBasePtr, srcX, srcY, srcStride,
-				dstBasePtr, dstX, dstY, dstStride);
-			// Straightforward blit between two framebuffers.
+				srcBasePtr, srcRect.x_bytes / bpp, srcRect.y, srcStride,
+				dstBasePtr, dstRect.x_bytes / bpp, dstRect.y, dstStride);
 			FlushBeforeCopy();
-			BlitFramebuffer(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp, "Blit_InterBufferBlockTransfer");
-			RebindFramebuffer("RebindFramebuffer - Inter-buffer block transfer");
-			SetColorUpdated(dstBuffer, skipDrawReason);
-			return true;  // No need to actually do the memory copy behind, probably.
+			// Some backends can handle blitting within a framebuffer. Others will just have to deal with it or ignore it, apparently.
+			BlitFramebuffer(dstRect.vfb, dstX, dstY, srcRect.vfb, srcX, srcY, dstRect.w_bytes / bpp, dstRect.h / bpp, bpp, "Blit_IntraBufferBlockTransfer");
+			RebindFramebuffer("rebind after intra block transfer");
+			SetColorUpdated(dstRect.vfb, skipDrawReason);
+			return true;  // Skip the memory copy.
 		}
-		return false;
+
+		if (srcRect.vfb->fb_format == dstRect.vfb->fb_format) {
+			// This is the meat and potatoes, here all kind of shenanigans must be handled.
+			WARN_LOG_N_TIMES(dstnotsrc, 50, G3D, "Inter-buffer block transfer %dx%d %dbpp from %08x (x:%d y:%d stride:%d %s) -> %08x (x:%d y:%d stride:%d %s)",
+				width, height, bpp,
+				srcBasePtr, srcRect.x_bytes / bpp, srcRect.y, srcStride, GeBufferFormatToString(srcRect.vfb->fb_format),
+				dstBasePtr, dstRect.x_bytes / bpp, dstRect.y, dstStride, GeBufferFormatToString(srcRect.vfb->fb_format));
+
+			// Straight blit will do, but check the bpp, we might need to convert coordinates differently.
+			int buffer_bpp = BufferFormatBytesPerPixel(srcRect.vfb->fb_format);
+			if (bpp != buffer_bpp) {
+				WARN_LOG_ONCE(intrabpp, G3D, "Mismatched transfer bpp in inter-buffer block transfer. Was %d, expected %d.", bpp, buffer_bpp);
+				// We just switch to using the buffer's bpp, since we've already converted the rectangle to byte offsets.
+				bpp = buffer_bpp;
+			}
+			FlushBeforeCopy();
+			BlitFramebuffer(dstRect.vfb, dstRect.x_bytes / bpp, dstRect.y, srcRect.vfb, srcRect.x_bytes / bpp, srcRect.y, width, height, bpp, "Blit_InterBufferBlockTransfer");
+			RebindFramebuffer("RebindFramebuffer - Inter-buffer block transfer");
+			SetColorUpdated(dstRect.vfb, skipDrawReason);
+			return true;
+		}
+
+		// Getting to the more complex cases.
+		WARN_LOG_N_TIMES(blockformat, 50, G3D, "Mismatched buffer formats in block transfer: %s->%s (%dx%d)",
+			GeBufferFormatToString(srcRect.vfb->fb_format), GeBufferFormatToString(dstRect.vfb->fb_format),
+			width, height);
+
+		// Straightforward blit between two framebuffers.
+		return true;  // No need to actually do the memory copy behind, probably.
+
 	} else if (dstBuffer) {
 		// Here we should just draw the pixels into the buffer.  Copy first.
 		return false;
 	} else if (srcBuffer) {
 		WARN_LOG_N_TIMES(btd, 100, G3D, "Block transfer readback %dx%d %dbpp from %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d)",
 			width, height, bpp,
-			srcBasePtr, srcX, srcY, srcStride,
-			dstBasePtr, dstX, dstY, dstStride);
+			srcBasePtr, srcRect.x_bytes / bpp, srcRect.y, srcStride,
+			dstBasePtr, dstRect.x_bytes / bpp, dstRect.y, dstStride);
 		FlushBeforeCopy();
-		if (g_Config.bBlockTransferGPU && !srcBuffer->memoryUpdated) {
-			const int srcBpp = BufferFormatBytesPerPixel(srcBuffer->fb_format);
+		if (g_Config.bBlockTransferGPU && !srcRect.vfb->memoryUpdated) {
+			const int srcBpp = BufferFormatBytesPerPixel(srcRect.vfb->fb_format);
 			const float srcXFactor = (float)bpp / srcBpp;
-			const bool tooTall = srcY + srcHeight > srcBuffer->bufferHeight;
-			if (srcHeight <= 0 || (tooTall && srcY != 0)) {
-				WARN_LOG_ONCE(btdheight, G3D, "Block transfer download %08x -> %08x skipped, %d+%d is taller than %d", srcBasePtr, dstBasePtr, srcY, srcHeight, srcBuffer->bufferHeight);
+			const bool tooTall = srcY + srcRect.h > srcRect.vfb->bufferHeight;
+			if (srcRect.h <= 0 || (tooTall && srcY != 0)) {
+				WARN_LOG_ONCE(btdheight, G3D, "Block transfer download %08x -> %08x skipped, %d+%d is taller than %d", srcBasePtr, dstBasePtr, srcRect.y, srcRect.h, srcRect.vfb->bufferHeight);
 			} else {
 				if (tooTall) {
-					WARN_LOG_ONCE(btdheight, G3D, "Block transfer download %08x -> %08x dangerous, %d+%d is taller than %d", srcBasePtr, dstBasePtr, srcY, srcHeight, srcBuffer->bufferHeight);
+					WARN_LOG_ONCE(btdheight, G3D, "Block transfer download %08x -> %08x dangerous, %d+%d is taller than %d", srcBasePtr, dstBasePtr, srcRect.y, srcRect.h, srcRect.vfb->bufferHeight);
 				}
-				ReadFramebufferToMemory(srcBuffer, static_cast<int>(srcX * srcXFactor), srcY, static_cast<int>(srcWidth * srcXFactor), srcHeight);
-				srcBuffer->usageFlags = (srcBuffer->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
+				ReadFramebufferToMemory(srcRect.vfb, static_cast<int>(srcX * srcXFactor), srcY, static_cast<int>(srcRect.w_bytes * srcXFactor), srcRect.h);
+				srcRect.vfb->usageFlags = (srcRect.vfb->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 			}
 		}
 		return false;  // Let the bit copy happen
@@ -1975,18 +2057,17 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 
 	if (MayIntersectFramebuffer(srcBasePtr) || MayIntersectFramebuffer(dstBasePtr)) {
 		// TODO: Figure out how we can avoid repeating the search here.
-		VirtualFramebuffer *dstBuffer = 0;
-		VirtualFramebuffer *srcBuffer = 0;
-		int srcWidth = width;
-		int srcHeight = height;
-		int dstWidth = width;
-		int dstHeight = height;
-		FindTransferFramebuffer(srcBuffer, srcBasePtr, srcStride, srcX, srcY, srcWidth, srcHeight, bpp, false);
-		FindTransferFramebuffer(dstBuffer, dstBasePtr, dstStride, dstX, dstY, dstWidth, dstHeight, bpp, true);
+
+		BlockTransferRect dstRect{};
+		BlockTransferRect srcRect{};
+
+		// These modify the X/Y/W/H parameters depending on the memory offset of the base pointers from the actual buffers.
+		bool srcBuffer = FindTransferFramebuffer(srcBasePtr, srcStride, srcX, srcY, width, height, bpp, false, &srcRect);
+		bool dstBuffer = FindTransferFramebuffer(dstBasePtr, dstStride, dstX, dstY, width, height, bpp, true, &dstRect);
 
 		// A few games use this INSTEAD of actually drawing the video image to the screen, they just blast it to
 		// the backbuffer. Detect this and have the framebuffermanager draw the pixels.
-		if (!useBufferedRendering_ && currentRenderVfb_ != dstBuffer) {
+		if (!useBufferedRendering_ && currentRenderVfb_ != dstRect.vfb) {
 			return;
 		}
 
@@ -1994,21 +2075,21 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 			WARN_LOG_ONCE(btu, G3D, "Block transfer upload %08x -> %08x", srcBasePtr, dstBasePtr);
 			FlushBeforeCopy();
 			const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
-			int dstBpp = BufferFormatBytesPerPixel(dstBuffer->fb_format);
+			int dstBpp = BufferFormatBytesPerPixel(dstRect.vfb->fb_format);
 			float dstXFactor = (float)bpp / dstBpp;
-			if (dstWidth > dstBuffer->width || dstHeight > dstBuffer->height) {
+			if (dstRect.w_bytes / bpp > dstRect.vfb->width || dstRect.h > dstRect.vfb->height) {
 				// The buffer isn't big enough, and we have a clear hint of size.  Resize.
 				// This happens in Valkyrie Profile when uploading video at the ending.
-				ResizeFramebufFBO(dstBuffer, dstWidth, dstHeight, false, true);
+				ResizeFramebufFBO(dstRect.vfb, dstRect.w_bytes / bpp, dstRect.h, false, true);
 				// Make sure we don't flop back and forth.
-				dstBuffer->newWidth = std::max(dstWidth, (int)dstBuffer->width);
-				dstBuffer->newHeight = std::max(dstHeight, (int)dstBuffer->height);
-				dstBuffer->lastFrameNewSize = gpuStats.numFlips;
+				dstRect.vfb->newWidth = std::max(dstRect.w_bytes / bpp, (int)dstRect.vfb->width);
+				dstRect.vfb->newHeight = std::max(dstRect.h, (int)dstRect.vfb->height);
+				dstRect.vfb->lastFrameNewSize = gpuStats.numFlips;
 				// Resizing may change the viewport/etc.
 				gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
 			}
-			DrawPixels(dstBuffer, static_cast<int>(dstX * dstXFactor), dstY, srcBase, dstBuffer->fb_format, static_cast<int>(srcStride * dstXFactor), static_cast<int>(dstWidth * dstXFactor), dstHeight);
-			SetColorUpdated(dstBuffer, skipDrawReason);
+			DrawPixels(dstRect.vfb, static_cast<int>(dstX * dstXFactor), dstY, srcBase, dstRect.vfb->fb_format, static_cast<int>(srcStride * dstXFactor), static_cast<int>(dstRect.w_bytes / bpp * dstXFactor), dstRect.h);
+			SetColorUpdated(dstRect.vfb, skipDrawReason);
 			RebindFramebuffer("RebindFramebuffer - NotifyBlockTransferAfter");
 		}
 	}
