@@ -188,6 +188,22 @@ public:
 		SUBW(rd, R_ZERO, rs);
 	}
 
+	// Integer multiplication and division.
+	void MUL(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void MULH(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void MULHSU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void MULHU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void DIV(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void DIVU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void REM(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void REMU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	// 64-bit only multiply and divide.
+	void MULW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void DIVW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void DIVUW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void REMW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void REMUW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+
 private:
 	void SetJumpTarget(const FixupBranch &branch, const void *dst);
 	bool BInRange(const void *src, const void *dst) const;

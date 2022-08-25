@@ -30,6 +30,11 @@ static inline uint8_t BitsSupported() {
 	return 64;
 }
 
+static inline bool SupportsMulDiv() {
+	// TODO
+	return true;
+}
+
 enum class Opcode32 {
 	// Note: invalid, just used for FixupBranch.
 	ZERO = 0b0000000,
@@ -55,6 +60,7 @@ enum class Funct3 {
 	PRIV = 0b000,
 
 	FENCE = 0b000,
+	FENCE_I = 0b001,
 
 	BEQ = 0b000,
 	BNE = 0b001,
@@ -79,6 +85,15 @@ enum class Funct3 {
 	SRL = 0b101,
 	OR = 0b110,
 	AND = 0b111,
+
+	MUL = 0b000,
+	MULH = 0b001,
+	MULHSU = 0b010,
+	MULHU = 0b011,
+	DIV = 0b100,
+	DIVU = 0b101,
+	REM = 0b110,
+	REMU = 0b111,
 };
 
 enum class Funct2 {
@@ -90,6 +105,8 @@ enum class Funct7 {
 
 	SUB = 0b0100000,
 	SRA = 0b0100000,
+
+	MULDIV = 0b0000001,
 };
 
 enum class Funct12 {
@@ -633,6 +650,97 @@ void RiscVEmitter::SRAW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 	_assert_msg_(BitsSupported() >= 64, "%s is only valid with R64I", __func__);
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
 	Write32(EncodeGR(Opcode32::OP_32, rd, Funct3::SRL, rs1, rs2, Funct7::SRA));
+}
+
+void RiscVEmitter::MUL(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(SupportsMulDiv(), "%s is only valid with R32M", __func__);
+	// Not explicitly a HINT, but seems sensible to restrict just in case.
+	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
+	Write32(EncodeGR(Opcode32::OP, rd, Funct3::MUL, rs1, rs2, Funct7::MULDIV));
+}
+
+void RiscVEmitter::MULH(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(SupportsMulDiv(), "%s is only valid with R32M", __func__);
+	// Not explicitly a HINT, but seems sensible to restrict just in case.
+	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
+	Write32(EncodeGR(Opcode32::OP, rd, Funct3::MULH, rs1, rs2, Funct7::MULDIV));
+}
+
+void RiscVEmitter::MULHSU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(SupportsMulDiv(), "%s is only valid with R32M", __func__);
+	// Not explicitly a HINT, but seems sensible to restrict just in case.
+	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
+	Write32(EncodeGR(Opcode32::OP, rd, Funct3::MULHSU, rs1, rs2, Funct7::MULDIV));
+}
+
+void RiscVEmitter::MULHU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(SupportsMulDiv(), "%s is only valid with R32M", __func__);
+	// Not explicitly a HINT, but seems sensible to restrict just in case.
+	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
+	Write32(EncodeGR(Opcode32::OP, rd, Funct3::MULHU, rs1, rs2, Funct7::MULDIV));
+}
+
+void RiscVEmitter::DIV(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(SupportsMulDiv(), "%s is only valid with R32M", __func__);
+	// Not explicitly a HINT, but seems sensible to restrict just in case.
+	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
+	Write32(EncodeGR(Opcode32::OP, rd, Funct3::DIV, rs1, rs2, Funct7::MULDIV));
+}
+
+void RiscVEmitter::DIVU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(SupportsMulDiv(), "%s is only valid with R32M", __func__);
+	// Not explicitly a HINT, but seems sensible to restrict just in case.
+	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
+	Write32(EncodeGR(Opcode32::OP, rd, Funct3::DIVU, rs1, rs2, Funct7::MULDIV));
+}
+
+void RiscVEmitter::REM(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(SupportsMulDiv(), "%s is only valid with R32M", __func__);
+	// Not explicitly a HINT, but seems sensible to restrict just in case.
+	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
+	Write32(EncodeGR(Opcode32::OP, rd, Funct3::REM, rs1, rs2, Funct7::MULDIV));
+}
+
+void RiscVEmitter::REMU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(SupportsMulDiv(), "%s is only valid with R32M", __func__);
+	// Not explicitly a HINT, but seems sensible to restrict just in case.
+	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
+	Write32(EncodeGR(Opcode32::OP, rd, Funct3::REMU, rs1, rs2, Funct7::MULDIV));
+}
+
+void RiscVEmitter::MULW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(BitsSupported() >= 64 && SupportsMulDiv(), "%s is only valid with R64M", __func__);
+	// Not explicitly a HINT, but seems sensible to restrict just in case.
+	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
+	Write32(EncodeGR(Opcode32::OP_32, rd, Funct3::MUL, rs1, rs2, Funct7::MULDIV));
+}
+
+void RiscVEmitter::DIVW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(BitsSupported() >= 64 && SupportsMulDiv(), "%s is only valid with R64M", __func__);
+	// Not explicitly a HINT, but seems sensible to restrict just in case.
+	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
+	Write32(EncodeGR(Opcode32::OP_32, rd, Funct3::DIV, rs1, rs2, Funct7::MULDIV));
+}
+
+void RiscVEmitter::DIVUW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(BitsSupported() >= 64 && SupportsMulDiv(), "%s is only valid with R64M", __func__);
+	// Not explicitly a HINT, but seems sensible to restrict just in case.
+	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
+	Write32(EncodeGR(Opcode32::OP_32, rd, Funct3::DIVU, rs1, rs2, Funct7::MULDIV));
+}
+
+void RiscVEmitter::REMW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(BitsSupported() >= 64 && SupportsMulDiv(), "%s is only valid with R64M", __func__);
+	// Not explicitly a HINT, but seems sensible to restrict just in case.
+	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
+	Write32(EncodeGR(Opcode32::OP_32, rd, Funct3::REM, rs1, rs2, Funct7::MULDIV));
+}
+
+void RiscVEmitter::REMUW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(BitsSupported() >= 64 && SupportsMulDiv(), "%s is only valid with R64M", __func__);
+	// Not explicitly a HINT, but seems sensible to restrict just in case.
+	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
+	Write32(EncodeGR(Opcode32::OP_32, rd, Funct3::REMU, rs1, rs2, Funct7::MULDIV));
 }
 
 };
