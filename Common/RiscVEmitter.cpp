@@ -35,6 +35,11 @@ static inline bool SupportsMulDiv() {
 	return true;
 }
 
+static inline bool SupportsAtomic() {
+	// TODO
+	return true;
+}
+
 enum class Opcode32 {
 	// Note: invalid, just used for FixupBranch.
 	ZERO = 0b0000000,
@@ -44,6 +49,7 @@ enum class Opcode32 {
 	AUIPC = 0b0010111,
 	OP_IMM_32 = 0b0011011,
 	STORE = 0b0100011,
+	AMO = 0b0101111,
 	OP = 0b0110011,
 	LUI = 0b0110111,
 	OP_32 = 0b0111011,
@@ -109,6 +115,20 @@ enum class Funct7 {
 	MULDIV = 0b0000001,
 };
 
+enum class Funct5 {
+	AMOADD = 0b00000,
+	AMOSWAP = 0b00001,
+	LR = 0b00010,
+	SC = 0b00011,
+	AMOXOR = 0b00100,
+	AMOAND = 0b01100,
+	AMOOR = 0b01000,
+	AMOMIN = 0b10000,
+	AMOMAX = 0b10100,
+	AMOMINU = 0b11000,
+	AMOMAXU = 0b11100,
+};
+
 enum class Funct12 {
 	ECALL = 0b000000000000,
 	EBREAK = 0b000000000001,
@@ -127,6 +147,11 @@ static inline u32 EncodeGR(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg
 	_assert_msg_(IsGPR(rs1), "R instruction rs1 must be GPR");
 	_assert_msg_(IsGPR(rs2), "R instruction rs2 must be GPR");
 	return EncodeR(opcode, rd, funct3, rs1, rs2, funct7);
+}
+
+static inline u32 EncodeAtomicR(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, RiscVReg rs2, Atomic ordering, Funct5 funct5) {
+	u32 funct7 = ((u32)funct5 << 2) | (u32)ordering;
+	return EncodeGR(opcode, rd, funct3, rs1, rs2, (Funct7)funct7);
 }
 
 static inline u32 EncodeR4(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, RiscVReg rs2, Funct2 funct2, RiscVReg rs3) {
@@ -209,6 +234,19 @@ static inline u32 EncodeJ(Opcode32 opcode, RiscVReg rd, s32 simm21) {
 static inline u32 EncodeGJ(Opcode32 opcode, RiscVReg rd, s32 simm21) {
 	_assert_msg_(IsGPR(rd), "J instruction rd must be GPR");
 	return EncodeJ(opcode, rd, simm21);
+}
+
+static inline Funct3 BitsToFunct3(int bits) {
+	switch (bits) {
+	case 32:
+		return Funct3::LS_W;
+	case 64:
+		_assert_msg_(BitsSupported() >= 64, "Cannot use funct3 width %d", bits);
+		return Funct3::LS_D;
+	default:
+		_assert_msg_(false, "Invalid funct3 width %d", bits);
+		return Funct3::LS_W;
+	}
 }
 
 RiscVEmitter::RiscVEmitter(const u8 *ptr, u8 *writePtr) {
@@ -742,5 +780,63 @@ void RiscVEmitter::REMUW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
 	Write32(EncodeGR(Opcode32::OP_32, rd, Funct3::REMU, rs1, rs2, Funct7::MULDIV));
 }
+
+void RiscVEmitter::LR(int bits, RiscVReg rd, RiscVReg rs1, Atomic ordering) {
+	_assert_msg_(SupportsAtomic(), "%s is only valid with R32A", __func__);
+	_assert_msg_(ordering != Atomic::RELEASE, "%s should not use RELEASE ordering", __func__);
+	Write32(EncodeAtomicR(Opcode32::AMO, rd, BitsToFunct3(bits), rs1, R_ZERO, ordering, Funct5::LR));
+}
+
+void RiscVEmitter::SC(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg rs1, Atomic ordering) {
+	_assert_msg_(SupportsAtomic(), "%s is only valid with R32A", __func__);
+	_assert_msg_(ordering != Atomic::ACQUIRE, "%s should not use ACQUIRE ordering", __func__);
+	Write32(EncodeAtomicR(Opcode32::AMO, rd, BitsToFunct3(bits), rs1, rs2, ordering, Funct5::SC));
+}
+
+void RiscVEmitter::AMOSWAP(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg rs1, Atomic ordering) {
+	_assert_msg_(SupportsAtomic(), "%s is only valid with R32A", __func__);
+	Write32(EncodeAtomicR(Opcode32::AMO, rd, BitsToFunct3(bits), rs1, rs2, ordering, Funct5::AMOSWAP));
+}
+
+void RiscVEmitter::AMOADD(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg rs1, Atomic ordering) {
+	_assert_msg_(SupportsAtomic(), "%s is only valid with R32A", __func__);
+	Write32(EncodeAtomicR(Opcode32::AMO, rd, BitsToFunct3(bits), rs1, rs2, ordering, Funct5::AMOADD));
+}
+
+void RiscVEmitter::AMOAND(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg rs1, Atomic ordering) {
+	_assert_msg_(SupportsAtomic(), "%s is only valid with R32A", __func__);
+	Write32(EncodeAtomicR(Opcode32::AMO, rd, BitsToFunct3(bits), rs1, rs2, ordering, Funct5::AMOAND));
+}
+
+void RiscVEmitter::AMOOR(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg rs1, Atomic ordering) {
+	_assert_msg_(SupportsAtomic(), "%s is only valid with R32A", __func__);
+	Write32(EncodeAtomicR(Opcode32::AMO, rd, BitsToFunct3(bits), rs1, rs2, ordering, Funct5::AMOOR));
+}
+
+void RiscVEmitter::AMOXOR(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg rs1, Atomic ordering) {
+	_assert_msg_(SupportsAtomic(), "%s is only valid with R32A", __func__);
+	Write32(EncodeAtomicR(Opcode32::AMO, rd, BitsToFunct3(bits), rs1, rs2, ordering, Funct5::AMOXOR));
+}
+
+void RiscVEmitter::AMOMIN(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg rs1, Atomic ordering) {
+	_assert_msg_(SupportsAtomic(), "%s is only valid with R32A", __func__);
+	Write32(EncodeAtomicR(Opcode32::AMO, rd, BitsToFunct3(bits), rs1, rs2, ordering, Funct5::AMOMIN));
+}
+
+void RiscVEmitter::AMOMAX(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg rs1, Atomic ordering) {
+	_assert_msg_(SupportsAtomic(), "%s is only valid with R32A", __func__);
+	Write32(EncodeAtomicR(Opcode32::AMO, rd, BitsToFunct3(bits), rs1, rs2, ordering, Funct5::AMOMAX));
+}
+
+void RiscVEmitter::AMOMINU(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg rs1, Atomic ordering) {
+	_assert_msg_(SupportsAtomic(), "%s is only valid with R32A", __func__);
+	Write32(EncodeAtomicR(Opcode32::AMO, rd, BitsToFunct3(bits), rs1, rs2, ordering, Funct5::AMOMINU));
+}
+
+void RiscVEmitter::AMOMAXU(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg rs1, Atomic ordering) {
+	_assert_msg_(SupportsAtomic(), "%s is only valid with R32A", __func__);
+	Write32(EncodeAtomicR(Opcode32::AMO, rd, BitsToFunct3(bits), rs1, rs2, ordering, Funct5::AMOMAXU));
+}
+
 
 };

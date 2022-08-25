@@ -57,6 +57,13 @@ enum class Fence {
 };
 ENUM_CLASS_BITOPS(Fence);
 
+enum class Atomic {
+	NONE = 0b00,
+	ACQUIRE = 0b10,
+	RELEASE = 0b01,
+	SEQUENTIAL = 0b11,
+};
+
 struct FixupBranch {
 	FixupBranch(const u8 *p, FixupBranchType t) : ptr(p), type(t) {}
 
@@ -118,15 +125,15 @@ public:
 	FixupBranch BLTU(RiscVReg rs1, RiscVReg rs2);
 	FixupBranch BGEU(RiscVReg rs1, RiscVReg rs2);
 
-	void LB(RiscVReg rd, RiscVReg rs1, s32 simm12);
-	void LH(RiscVReg rd, RiscVReg rs1, s32 simm12);
-	void LW(RiscVReg rd, RiscVReg rs1, s32 simm12);
-	void LBU(RiscVReg rd, RiscVReg rs1, s32 simm12);
-	void LHU(RiscVReg rd, RiscVReg rs1, s32 simm12);
+	void LB(RiscVReg rd, RiscVReg addr, s32 simm12);
+	void LH(RiscVReg rd, RiscVReg addr, s32 simm12);
+	void LW(RiscVReg rd, RiscVReg addr, s32 simm12);
+	void LBU(RiscVReg rd, RiscVReg addr, s32 simm12);
+	void LHU(RiscVReg rd, RiscVReg addr, s32 simm12);
 
-	void SB(RiscVReg rs2, RiscVReg rs1, s32 simm12);
-	void SH(RiscVReg rs2, RiscVReg rs1, s32 simm12);
-	void SW(RiscVReg rs2, RiscVReg rs1, s32 simm12);
+	void SB(RiscVReg rs2, RiscVReg addr, s32 simm12);
+	void SH(RiscVReg rs2, RiscVReg addr, s32 simm12);
+	void SW(RiscVReg rs2, RiscVReg addr, s32 simm12);
 
 	void ADDI(RiscVReg rd, RiscVReg rs1, s32 simm12);
 	void SLTI(RiscVReg rd, RiscVReg rs1, s32 simm12);
@@ -171,9 +178,9 @@ public:
 	void EBREAK();
 
 	// 64-bit instructions - oens ending in W sign extend result to 32 bits.
-	void LWU(RiscVReg rd, RiscVReg rs1, s32 simm12);
-	void LD(RiscVReg rd, RiscVReg rs1, s32 simm12);
-	void SD(RiscVReg rs2, RiscVReg rs1, s32 simm12);
+	void LWU(RiscVReg rd, RiscVReg addr, s32 simm12);
+	void LD(RiscVReg rd, RiscVReg addr, s32 simm12);
+	void SD(RiscVReg rs2, RiscVReg addr, s32 simm12);
 	void ADDIW(RiscVReg rd, RiscVReg rs1, s32 simm12);
 	void SLLIW(RiscVReg rd, RiscVReg rs1, u32 shamt);
 	void SRLIW(RiscVReg rd, RiscVReg rs1, u32 shamt);
@@ -203,6 +210,19 @@ public:
 	void DIVUW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
 	void REMW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
 	void REMUW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+
+	// Atomic memory operations.
+	void LR(int bits, RiscVReg rd, RiscVReg addr, Atomic ordering);
+	void SC(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg addr, Atomic ordering);
+	void AMOSWAP(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg addr, Atomic ordering);
+	void AMOADD(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg addr, Atomic ordering);
+	void AMOAND(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg addr, Atomic ordering);
+	void AMOOR(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg addr, Atomic ordering);
+	void AMOXOR(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg addr, Atomic ordering);
+	void AMOMIN(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg addr, Atomic ordering);
+	void AMOMAX(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg addr, Atomic ordering);
+	void AMOMINU(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg addr, Atomic ordering);
+	void AMOMAXU(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg addr, Atomic ordering);
 
 private:
 	void SetJumpTarget(const FixupBranch &branch, const void *dst);
