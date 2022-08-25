@@ -78,6 +78,40 @@ public:
 
 	void EBREAK();
 
+	void LUI(RiscVReg rd, s32 simm32);
+	void AUIPC(RiscVReg rd, s32 simm32);
+
+	void JAL(RiscVReg rd, const void *dst);
+	void JALR(RiscVReg rd, RiscVReg rs1, s32 simm12);
+	FixupBranch JAL(RiscVReg rd);
+
+	// Psuedo-instructions for convenience/clarity.
+	void J(const void *dst) {
+		JAL(R_ZERO, dst);
+	}
+	void JR(RiscVReg rs1, u32 simm12 = 0) {
+		JALR(R_ZERO, rs1, simm12);
+	}
+	void RET() {
+		JR(R_RA);
+	}
+	FixupBranch J() {
+		return JAL(R_ZERO);
+	}
+
+	void BEQ(RiscVReg rs1, RiscVReg rs2, const void *dst);
+	void BNE(RiscVReg rs1, RiscVReg rs2, const void *dst);
+	void BLT(RiscVReg rs1, RiscVReg rs2, const void *dst);
+	void BGE(RiscVReg rs1, RiscVReg rs2, const void *dst);
+	void BLTU(RiscVReg rs1, RiscVReg rs2, const void *dst);
+	void BGEU(RiscVReg rs1, RiscVReg rs2, const void *dst);
+	FixupBranch BEQ(RiscVReg rs1, RiscVReg rs2);
+	FixupBranch BNE(RiscVReg rs1, RiscVReg rs2);
+	FixupBranch BLT(RiscVReg rs1, RiscVReg rs2);
+	FixupBranch BGE(RiscVReg rs1, RiscVReg rs2);
+	FixupBranch BLTU(RiscVReg rs1, RiscVReg rs2);
+	FixupBranch BGEU(RiscVReg rs1, RiscVReg rs2);
+
 private:
 	void SetJumpTarget(const FixupBranch &branch, const void *dst);
 	bool BInRange(const void *src, const void *dst) const;

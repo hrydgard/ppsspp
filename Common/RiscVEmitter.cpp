@@ -28,13 +28,26 @@ static inline bool SupportsCompressed() {
 enum class Opcode32 {
 	// Note: invalid, just used for FixupBranch.
 	ZERO = 0b0000000,
+	AUIPC = 0b0010111,
+	BRANCH = 0b1100011,
+	LUI = 0b0110111,
+	JALR = 0b1100111,
+	JAL = 0b1101111,
 	SYSTEM = 0b1110011,
 };
 
 enum class Funct3 {
 	// Note: invalid, just used for FixupBranch.
 	ZERO = 0b000,
+
 	PRIV = 0b000,
+
+	BEQ = 0b000,
+	BNE = 0b001,
+	BLT = 0b100,
+	BGE = 0b101,
+	BLTU = 0b110,
+	BGEU = 0b111,
 };
 
 enum class Funct2 {
@@ -211,6 +224,112 @@ bool RiscVEmitter::JInRange(const void *src, const void *dst) const {
 
 void RiscVEmitter::EBREAK() {
 	Write32(EncodeI(Opcode32::SYSTEM, R_ZERO, Funct3::PRIV, R_ZERO, Funct12::EBREAK));
+}
+
+void RiscVEmitter::LUI(RiscVReg rd, s32 simm32) {
+	_assert_(rd != R_ZERO);
+	Write32(EncodeU(Opcode32::LUI, rd, simm32));
+}
+
+void RiscVEmitter::AUIPC(RiscVReg rd, s32 simm32) {
+	_assert_(rd != R_ZERO);
+	Write32(EncodeU(Opcode32::AUIPC, rd, simm32));
+}
+
+void RiscVEmitter::JAL(RiscVReg rd, const void *dst) {
+	_assert_msg_(JInRange(GetCodePointer(), dst), "JAL destination is too far away (%p -> %p)", GetCodePointer(), dst);
+	_assert_msg_(((intptr_t)dst & 1) == 0, "JAL destination should be aligned");
+	_assert_msg_(((intptr_t)dst & 3) == 0 || SupportsCompressed(), "JAL destination should be aligned (no compressed)");
+	ptrdiff_t distance = (intptr_t)dst - (intptr_t)GetCodePointer();
+	Write32(EncodeJ(Opcode32::JAL, rd, (s32)distance));
+}
+
+void RiscVEmitter::JALR(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	Write32(EncodeI(Opcode32::JALR, rd, Funct3::ZERO, rs1, simm12));
+}
+
+FixupBranch RiscVEmitter::JAL(RiscVReg rd) {
+	FixupBranch fixup{ GetCodePointer(), FixupBranchType::J };
+	Write32(EncodeJ(Opcode32::JAL, rd, 0));
+	return fixup;
+}
+
+void RiscVEmitter::BEQ(RiscVReg rs1, RiscVReg rs2, const void *dst) {
+	_assert_msg_(BInRange(GetCodePointer(), dst), "%s destination is too far away (%p -> %p)", __func__, GetCodePointer(), dst);
+	_assert_msg_(((intptr_t)dst & 3) == 0 || SupportsCompressed(), "%s destination should be aligned (no compressed)", __func__);
+	ptrdiff_t distance = (intptr_t)dst - (intptr_t)GetCodePointer();
+	Write32(EncodeB(Opcode32::BRANCH, Funct3::BEQ, rs1, rs2, (s32)distance));
+}
+
+void RiscVEmitter::BNE(RiscVReg rs1, RiscVReg rs2, const void *dst) {
+	_assert_msg_(BInRange(GetCodePointer(), dst), "%s destination is too far away (%p -> %p)", __func__, GetCodePointer(), dst);
+	_assert_msg_(((intptr_t)dst & 3) == 0 || SupportsCompressed(), "%s destination should be aligned (no compressed)", __func__);
+	ptrdiff_t distance = (intptr_t)dst - (intptr_t)GetCodePointer();
+	Write32(EncodeB(Opcode32::BRANCH, Funct3::BNE, rs1, rs2, (s32)distance));
+}
+
+void RiscVEmitter::BLT(RiscVReg rs1, RiscVReg rs2, const void *dst) {
+	_assert_msg_(BInRange(GetCodePointer(), dst), "%s destination is too far away (%p -> %p)", __func__, GetCodePointer(), dst);
+	_assert_msg_(((intptr_t)dst & 3) == 0 || SupportsCompressed(), "%s destination should be aligned (no compressed)", __func__);
+	ptrdiff_t distance = (intptr_t)dst - (intptr_t)GetCodePointer();
+	Write32(EncodeB(Opcode32::BRANCH, Funct3::BLT, rs1, rs2, (s32)distance));
+}
+
+void RiscVEmitter::BGE(RiscVReg rs1, RiscVReg rs2, const void *dst) {
+	_assert_msg_(BInRange(GetCodePointer(), dst), "%s destination is too far away (%p -> %p)", __func__, GetCodePointer(), dst);
+	_assert_msg_(((intptr_t)dst & 3) == 0 || SupportsCompressed(), "%s destination should be aligned (no compressed)", __func__);
+	ptrdiff_t distance = (intptr_t)dst - (intptr_t)GetCodePointer();
+	Write32(EncodeB(Opcode32::BRANCH, Funct3::BGE, rs1, rs2, (s32)distance));
+}
+
+void RiscVEmitter::BLTU(RiscVReg rs1, RiscVReg rs2, const void *dst) {
+	_assert_msg_(BInRange(GetCodePointer(), dst), "%s destination is too far away (%p -> %p)", __func__, GetCodePointer(), dst);
+	_assert_msg_(((intptr_t)dst & 3) == 0 || SupportsCompressed(), "%s destination should be aligned (no compressed)", __func__);
+	ptrdiff_t distance = (intptr_t)dst - (intptr_t)GetCodePointer();
+	Write32(EncodeB(Opcode32::BRANCH, Funct3::BLTU, rs1, rs2, (s32)distance));
+}
+
+void RiscVEmitter::BGEU(RiscVReg rs1, RiscVReg rs2, const void *dst) {
+	_assert_msg_(BInRange(GetCodePointer(), dst), "%s destination is too far away (%p -> %p)", __func__, GetCodePointer(), dst);
+	_assert_msg_(((intptr_t)dst & 3) == 0 || SupportsCompressed(), "%s destination should be aligned (no compressed)", __func__);
+	ptrdiff_t distance = (intptr_t)dst - (intptr_t)GetCodePointer();
+	Write32(EncodeB(Opcode32::BRANCH, Funct3::BGEU, rs1, rs2, (s32)distance));
+}
+
+FixupBranch RiscVEmitter::BEQ(RiscVReg rs1, RiscVReg rs2) {
+	FixupBranch fixup{ GetCodePointer(), FixupBranchType::B };
+	Write32(EncodeB(Opcode32::BRANCH, Funct3::BEQ, rs1, rs2, 0));
+	return fixup;
+}
+
+FixupBranch RiscVEmitter::BNE(RiscVReg rs1, RiscVReg rs2) {
+	FixupBranch fixup{ GetCodePointer(), FixupBranchType::B };
+	Write32(EncodeB(Opcode32::BRANCH, Funct3::BNE, rs1, rs2, 0));
+	return fixup;
+}
+
+FixupBranch RiscVEmitter::BLT(RiscVReg rs1, RiscVReg rs2) {
+	FixupBranch fixup{ GetCodePointer(), FixupBranchType::B };
+	Write32(EncodeB(Opcode32::BRANCH, Funct3::BLT, rs1, rs2, 0));
+	return fixup;
+}
+
+FixupBranch RiscVEmitter::BGE(RiscVReg rs1, RiscVReg rs2) {
+	FixupBranch fixup{ GetCodePointer(), FixupBranchType::B };
+	Write32(EncodeB(Opcode32::BRANCH, Funct3::BGE, rs1, rs2, 0));
+	return fixup;
+}
+
+FixupBranch RiscVEmitter::BLTU(RiscVReg rs1, RiscVReg rs2) {
+	FixupBranch fixup{ GetCodePointer(), FixupBranchType::B };
+	Write32(EncodeB(Opcode32::BRANCH, Funct3::BLTU, rs1, rs2, 0));
+	return fixup;
+}
+
+FixupBranch RiscVEmitter::BGEU(RiscVReg rs1, RiscVReg rs2) {
+	FixupBranch fixup{ GetCodePointer(), FixupBranchType::B };
+	Write32(EncodeB(Opcode32::BRANCH, Funct3::BGEU, rs1, rs2, 0));
+	return fixup;
 }
 
 };
