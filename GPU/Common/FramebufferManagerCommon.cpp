@@ -308,7 +308,6 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	EstimateDrawingSize(params.fb_address, std::max(params.fb_stride, (u16)4), params.fb_format, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, drawing_width, drawing_height);
 
 	gstate_c.SetCurRTOffset(0, 0);
-	bool vfbStrideChanged = false;
 
 	if (params.fb_address == params.z_address) {
 		// Most likely Z will not be used in this pass, as that would wreak havoc (undefined behavior for sure)
@@ -323,16 +322,6 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 
 		if (params.fb_address == v->fb_address && params.fb_format == v->fb_format && params.fb_stride == v->fb_stride) {
 			vfb = v;
-
-			// Update fb stride in case it changed.
-			//
-			// In reality, this is probably a new different framebuffer... Can't really share
-			// data between framebuffers with different strides! (or well, we can, with complex
-			// conversion shaders mapping back to and from memory addresses).
-			if (vfb->fb_stride != params.fb_stride) {
-				vfb->fb_stride = params.fb_stride;
-				vfbStrideChanged = true;
-			}
 
 			if (vfb->z_address == 0 && vfb->z_stride == 0 && params.z_stride != 0) {
 				// Got one that was created by CreateRAMFramebuffer. Since it has no depth buffer,
@@ -507,7 +496,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		vfb->dirtyAfterDisplay = true;
 		if ((skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 			vfb->reallyDirtyAfterDisplay = true;
-		NotifyRenderFramebufferUpdated(vfb, vfbStrideChanged);
+		NotifyRenderFramebufferUpdated(vfb);
 	}
 
 	vfb->colorBindSeq = GetBindSeqCount();
@@ -859,22 +848,10 @@ void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer
 
 	textureCache_->NotifyFramebuffer(vfb, NOTIFY_FB_CREATED);
 
-
-	// Ugly...
-	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
-	}
-	if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
-		gstate_c.Dirty(DIRTY_PROJMATRIX);
-		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
-	}
+	NotifyRenderFramebufferUpdated(vfb);
 }
 
-void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbStrideChanged) {
-	if (vfbStrideChanged) {
-		textureCache_->NotifyFramebuffer(vfb, NOTIFY_FB_UPDATED);
-	}
-
+void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb) {
 	// ugly...
 	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
 		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
@@ -920,14 +897,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	}
 	textureCache_->NotifyFramebuffer(vfb, NOTIFY_FB_UPDATED);
 
-	// ugly... is all this needed?
-	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
-	}
-	if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
-		gstate_c.Dirty(DIRTY_PROJMATRIX);
-		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
-	}
+	NotifyRenderFramebufferUpdated(vfb);
 }
 
 void FramebufferManagerCommon::NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt) {
