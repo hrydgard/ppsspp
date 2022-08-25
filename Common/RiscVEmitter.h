@@ -42,8 +42,6 @@ enum RiscVReg {
 	F24, F25, F26, F27, F28, F29, F30, F31,
 };
 
-inline RiscVReg DecodeReg(RiscVReg reg) { return (RiscVReg)(reg & 0x1F); }
-
 enum class FixupBranchType {
 	B,
 	J,
@@ -142,6 +140,17 @@ public:
 	void SLLI(RiscVReg rd, RiscVReg rs1, u32 shamt);
 	void SRLI(RiscVReg rd, RiscVReg rs1, u32 shamt);
 	void SRAI(RiscVReg rd, RiscVReg rs1, u32 shamt);
+
+	void ADD(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void SUB(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void SLL(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void SLT(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void SLTU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void XOR(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void SRL(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void SRA(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void OR(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void AND(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
 
 private:
 	void SetJumpTarget(const FixupBranch &branch, const void *dst);

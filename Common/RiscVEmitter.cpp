@@ -37,8 +37,9 @@ enum class Opcode32 {
 	OP_IMM = 0b0010011,
 	AUIPC = 0b0010111,
 	STORE = 0b0100011,
-	BRANCH = 0b1100011,
+	OP = 0b0110011,
 	LUI = 0b0110111,
+	BRANCH = 0b1100011,
 	JALR = 0b1100111,
 	JAL = 0b1101111,
 	SYSTEM = 0b1110011,
@@ -63,14 +64,14 @@ enum class Funct3 {
 	LS_BU = 0b100,
 	LS_HU = 0b101,
 
-	ADDI = 0b000,
-	SLLI = 0b001,
-	SLTI = 0b010,
-	SLTIU = 0b011,
-	XORI = 0b100,
-	SRLI = 0b101,
-	ORI = 0b110,
-	ANDI = 0b111,
+	ADD = 0b000,
+	SLL = 0b001,
+	SLT = 0b010,
+	SLTU = 0b011,
+	XOR = 0b100,
+	SRL = 0b101,
+	OR = 0b110,
+	AND = 0b111,
 };
 
 enum class Funct2 {
@@ -78,7 +79,10 @@ enum class Funct2 {
 };
 
 enum class Funct7 {
-	// TODO: 0b0000000,
+	ZERO = 0b0000000,
+
+	SUB = 0b0100000,
+	SRA = 0b0100000,
 };
 
 enum class Funct12 {
@@ -86,28 +90,57 @@ enum class Funct12 {
 	EBREAK = 0b000000000001,
 };
 
+static inline RiscVReg DecodeReg(RiscVReg reg) { return (RiscVReg)(reg & 0x1F); }
+static inline bool IsGPR(RiscVReg reg) { return reg < 0x20; }
+static inline bool IsFPR(RiscVReg reg) { return (reg & 0x20) != 0 && (int)reg < 0x40; }
+
 static inline u32 EncodeR(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, RiscVReg rs2, Funct7 funct7) {
-	return (u32)opcode | ((u32)rd << 7) | ((u32)funct3 << 12) | ((u32)rs1 << 15) | ((u32)rs2 << 20) | ((u32)funct7 << 25);
+	return (u32)opcode | ((u32)DecodeReg(rd) << 7) | ((u32)funct3 << 12) | ((u32)DecodeReg(rs1) << 15) | ((u32)DecodeReg(rs2) << 20) | ((u32)funct7 << 25);
+}
+
+static inline u32 EncodeGR(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, RiscVReg rs2, Funct7 funct7) {
+	_assert_msg_(IsGPR(rd), "R instruction rd must be GPR");
+	_assert_msg_(IsGPR(rs1), "R instruction rs1 must be GPR");
+	_assert_msg_(IsGPR(rs2), "R instruction rs2 must be GPR");
+	return EncodeR(opcode, rd, funct3, rs1, rs2, funct7);
 }
 
 static inline u32 EncodeR4(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, RiscVReg rs2, Funct2 funct2, RiscVReg rs3) {
-	return (u32)opcode | ((u32)rd << 7) | ((u32)funct3 << 12) | ((u32)rs1 << 15) | ((u32)rs2 << 20) | ((u32)funct2 << 25) | ((u32)rs3 << 27);
+	return (u32)opcode | ((u32)DecodeReg(rd) << 7) | ((u32)funct3 << 12) | ((u32)DecodeReg(rs1) << 15) | ((u32)DecodeReg(rs2) << 20) | ((u32)funct2 << 25) | ((u32)DecodeReg(rs3) << 27);
 }
 
 static inline u32 EncodeI(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, s32 simm12) {
 	_assert_msg_(((simm12 << 20) >> 20) == simm12, "I immediate must be signed s11.0");
-	return (u32)opcode | ((u32)rd << 7) | ((u32)funct3 << 12) | ((u32)rs1 << 15) | ((u32)simm12 << 20);
+	return (u32)opcode | ((u32)DecodeReg(rd) << 7) | ((u32)funct3 << 12) | ((u32)DecodeReg(rs1) << 15) | ((u32)simm12 << 20);
+}
+
+static inline u32 EncodeGI(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, s32 simm12) {
+	_assert_msg_(IsGPR(rd), "I instruction rd must be GPR");
+	_assert_msg_(IsGPR(rs1), "I instruction rs1 must be GPR");
+	return EncodeI(opcode, rd, funct3, rs1, simm12);
 }
 
 static inline u32 EncodeI(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, Funct12 funct12) {
 	return EncodeI(opcode, rd, funct3, rs1, (s32)funct12);
 }
 
+static inline u32 EncodeGI(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, Funct12 funct12) {
+	_assert_msg_(IsGPR(rd), "I instruction rd must be GPR");
+	_assert_msg_(IsGPR(rs1), "I instruction rs1 must be GPR");
+	return EncodeI(opcode, rd, funct3, rs1, funct12);
+}
+
 static inline u32 EncodeS(Opcode32 opcode, Funct3 funct3, RiscVReg rs1, RiscVReg rs2, s32 simm12) {
 	_assert_msg_(((simm12 << 20) >> 20) == simm12, "S immediate must be signed s11.0");
 	u32 imm4_0 = simm12 & 0x1F;
 	u32 imm11_5 = (simm12 >> 5) & 0x7F;
-	return (u32)opcode | ((u32)imm4_0 << 7) | ((u32)funct3 << 12) | ((u32)rs1 << 15) | ((u32)rs2 << 20) | ((u32)imm11_5 << 25);
+	return (u32)opcode | ((u32)imm4_0 << 7) | ((u32)funct3 << 12) | ((u32)DecodeReg(rs1) << 15) | ((u32)DecodeReg(rs2) << 20) | ((u32)imm11_5 << 25);
+}
+
+static inline u32 EncodeGS(Opcode32 opcode, Funct3 funct3, RiscVReg rs1, RiscVReg rs2, s32 simm12) {
+	_assert_msg_(IsGPR(rs1), "S instruction rs1 must be GPR");
+	_assert_msg_(IsGPR(rs2), "S instruction rs2 must be GPR");
+	return EncodeS(opcode, funct3, rs1, rs2, simm12);
 }
 
 static inline u32 EncodeB(Opcode32 opcode, Funct3 funct3, RiscVReg rs1, RiscVReg rs2, s32 simm13) {
@@ -118,12 +151,23 @@ static inline u32 EncodeB(Opcode32 opcode, Funct3 funct3, RiscVReg rs1, RiscVReg
 	// This weird encoding scheme is to keep most bits the same as S, but keep sign at 31.
 	u32 imm4_1_11 = (simm13 & 0x1E) | imm11;
 	u32 imm12_10_5 = (imm12 << 6) | ((simm13 >> 5) & 0x3F);
-	return (u32)opcode | ((u32)imm4_1_11 << 7) | ((u32)funct3 << 12) | ((u32)rs1 << 15) | ((u32)rs2 << 20) | ((u32)imm12_10_5 << 25);
+	return (u32)opcode | ((u32)imm4_1_11 << 7) | ((u32)funct3 << 12) | ((u32)DecodeReg(rs1) << 15) | ((u32)DecodeReg(rs2) << 20) | ((u32)imm12_10_5 << 25);
+}
+
+static inline u32 EncodeGB(Opcode32 opcode, Funct3 funct3, RiscVReg rs1, RiscVReg rs2, s32 simm13) {
+	_assert_msg_(IsGPR(rs1), "B instruction rs1 must be GPR");
+	_assert_msg_(IsGPR(rs2), "B instruction rs2 must be GPR");
+	return EncodeB(opcode, funct3, rs1, rs2, simm13);
 }
 
 static inline u32 EncodeU(Opcode32 opcode, RiscVReg rd, s32 simm32) {
 	_assert_msg_((simm32 & 0x0FFF) == 0, "U immediate must not have lower 12 bits set");
-	return (u32)opcode | ((u32)rd << 7) | (u32)simm32;
+	return (u32)opcode | ((u32)DecodeReg(rd) << 7) | (u32)simm32;
+}
+
+static inline u32 EncodeGU(Opcode32 opcode, RiscVReg rd, s32 simm32) {
+	_assert_msg_(IsGPR(rd), "I instruction rd must be GPR");
+	return EncodeU(opcode, rd, simm32);
 }
 
 static inline u32 EncodeJ(Opcode32 opcode, RiscVReg rd, s32 simm21) {
@@ -135,7 +179,12 @@ static inline u32 EncodeJ(Opcode32 opcode, RiscVReg rd, s32 simm21) {
 	u32 imm19_12 = (simm21 >> 12) & 0x00FF;
 	// This encoding scheme tries to keep the bits from B in the same places, plus sign.
 	u32 imm20_10_1_11_19_12 = (imm20 << 19) | (imm10_1 << 9) | (imm11 << 8) | imm19_12;
-	return (u32)opcode | ((u32)rd << 7) | ((u32)imm20_10_1_11_19_12 << 12);
+	return (u32)opcode | ((u32)DecodeReg(rd) << 7) | ((u32)imm20_10_1_11_19_12 << 12);
+}
+
+static inline u32 EncodeGJ(Opcode32 opcode, RiscVReg rd, s32 simm21) {
+	_assert_msg_(IsGPR(rd), "J instruction rd must be GPR");
+	return EncodeJ(opcode, rd, simm21);
 }
 
 RiscVEmitter::RiscVEmitter(const u8 *ptr, u8 *writePtr) {
@@ -251,12 +300,12 @@ void RiscVEmitter::EBREAK() {
 
 void RiscVEmitter::LUI(RiscVReg rd, s32 simm32) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
-	Write32(EncodeU(Opcode32::LUI, rd, simm32));
+	Write32(EncodeGU(Opcode32::LUI, rd, simm32));
 }
 
 void RiscVEmitter::AUIPC(RiscVReg rd, s32 simm32) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
-	Write32(EncodeU(Opcode32::AUIPC, rd, simm32));
+	Write32(EncodeGU(Opcode32::AUIPC, rd, simm32));
 }
 
 void RiscVEmitter::JAL(RiscVReg rd, const void *dst) {
@@ -264,16 +313,16 @@ void RiscVEmitter::JAL(RiscVReg rd, const void *dst) {
 	_assert_msg_(((intptr_t)dst & 1) == 0, "JAL destination should be aligned");
 	_assert_msg_(((intptr_t)dst & 3) == 0 || SupportsCompressed(), "JAL destination should be aligned (no compressed)");
 	ptrdiff_t distance = (intptr_t)dst - (intptr_t)GetCodePointer();
-	Write32(EncodeJ(Opcode32::JAL, rd, (s32)distance));
+	Write32(EncodeGJ(Opcode32::JAL, rd, (s32)distance));
 }
 
 void RiscVEmitter::JALR(RiscVReg rd, RiscVReg rs1, s32 simm12) {
-	Write32(EncodeI(Opcode32::JALR, rd, Funct3::ZERO, rs1, simm12));
+	Write32(EncodeGI(Opcode32::JALR, rd, Funct3::ZERO, rs1, simm12));
 }
 
 FixupBranch RiscVEmitter::JAL(RiscVReg rd) {
 	FixupBranch fixup{ GetCodePointer(), FixupBranchType::J };
-	Write32(EncodeJ(Opcode32::JAL, rd, 0));
+	Write32(EncodeGJ(Opcode32::JAL, rd, 0));
 	return fixup;
 }
 
@@ -281,162 +330,212 @@ void RiscVEmitter::BEQ(RiscVReg rs1, RiscVReg rs2, const void *dst) {
 	_assert_msg_(BInRange(GetCodePointer(), dst), "%s destination is too far away (%p -> %p)", __func__, GetCodePointer(), dst);
 	_assert_msg_(((intptr_t)dst & 3) == 0 || SupportsCompressed(), "%s destination should be aligned (no compressed)", __func__);
 	ptrdiff_t distance = (intptr_t)dst - (intptr_t)GetCodePointer();
-	Write32(EncodeB(Opcode32::BRANCH, Funct3::BEQ, rs1, rs2, (s32)distance));
+	Write32(EncodeGB(Opcode32::BRANCH, Funct3::BEQ, rs1, rs2, (s32)distance));
 }
 
 void RiscVEmitter::BNE(RiscVReg rs1, RiscVReg rs2, const void *dst) {
 	_assert_msg_(BInRange(GetCodePointer(), dst), "%s destination is too far away (%p -> %p)", __func__, GetCodePointer(), dst);
 	_assert_msg_(((intptr_t)dst & 3) == 0 || SupportsCompressed(), "%s destination should be aligned (no compressed)", __func__);
 	ptrdiff_t distance = (intptr_t)dst - (intptr_t)GetCodePointer();
-	Write32(EncodeB(Opcode32::BRANCH, Funct3::BNE, rs1, rs2, (s32)distance));
+	Write32(EncodeGB(Opcode32::BRANCH, Funct3::BNE, rs1, rs2, (s32)distance));
 }
 
 void RiscVEmitter::BLT(RiscVReg rs1, RiscVReg rs2, const void *dst) {
 	_assert_msg_(BInRange(GetCodePointer(), dst), "%s destination is too far away (%p -> %p)", __func__, GetCodePointer(), dst);
 	_assert_msg_(((intptr_t)dst & 3) == 0 || SupportsCompressed(), "%s destination should be aligned (no compressed)", __func__);
 	ptrdiff_t distance = (intptr_t)dst - (intptr_t)GetCodePointer();
-	Write32(EncodeB(Opcode32::BRANCH, Funct3::BLT, rs1, rs2, (s32)distance));
+	Write32(EncodeGB(Opcode32::BRANCH, Funct3::BLT, rs1, rs2, (s32)distance));
 }
 
 void RiscVEmitter::BGE(RiscVReg rs1, RiscVReg rs2, const void *dst) {
 	_assert_msg_(BInRange(GetCodePointer(), dst), "%s destination is too far away (%p -> %p)", __func__, GetCodePointer(), dst);
 	_assert_msg_(((intptr_t)dst & 3) == 0 || SupportsCompressed(), "%s destination should be aligned (no compressed)", __func__);
 	ptrdiff_t distance = (intptr_t)dst - (intptr_t)GetCodePointer();
-	Write32(EncodeB(Opcode32::BRANCH, Funct3::BGE, rs1, rs2, (s32)distance));
+	Write32(EncodeGB(Opcode32::BRANCH, Funct3::BGE, rs1, rs2, (s32)distance));
 }
 
 void RiscVEmitter::BLTU(RiscVReg rs1, RiscVReg rs2, const void *dst) {
 	_assert_msg_(BInRange(GetCodePointer(), dst), "%s destination is too far away (%p -> %p)", __func__, GetCodePointer(), dst);
 	_assert_msg_(((intptr_t)dst & 3) == 0 || SupportsCompressed(), "%s destination should be aligned (no compressed)", __func__);
 	ptrdiff_t distance = (intptr_t)dst - (intptr_t)GetCodePointer();
-	Write32(EncodeB(Opcode32::BRANCH, Funct3::BLTU, rs1, rs2, (s32)distance));
+	Write32(EncodeGB(Opcode32::BRANCH, Funct3::BLTU, rs1, rs2, (s32)distance));
 }
 
 void RiscVEmitter::BGEU(RiscVReg rs1, RiscVReg rs2, const void *dst) {
 	_assert_msg_(BInRange(GetCodePointer(), dst), "%s destination is too far away (%p -> %p)", __func__, GetCodePointer(), dst);
 	_assert_msg_(((intptr_t)dst & 3) == 0 || SupportsCompressed(), "%s destination should be aligned (no compressed)", __func__);
 	ptrdiff_t distance = (intptr_t)dst - (intptr_t)GetCodePointer();
-	Write32(EncodeB(Opcode32::BRANCH, Funct3::BGEU, rs1, rs2, (s32)distance));
+	Write32(EncodeGB(Opcode32::BRANCH, Funct3::BGEU, rs1, rs2, (s32)distance));
 }
 
 FixupBranch RiscVEmitter::BEQ(RiscVReg rs1, RiscVReg rs2) {
 	FixupBranch fixup{ GetCodePointer(), FixupBranchType::B };
-	Write32(EncodeB(Opcode32::BRANCH, Funct3::BEQ, rs1, rs2, 0));
+	Write32(EncodeGB(Opcode32::BRANCH, Funct3::BEQ, rs1, rs2, 0));
 	return fixup;
 }
 
 FixupBranch RiscVEmitter::BNE(RiscVReg rs1, RiscVReg rs2) {
 	FixupBranch fixup{ GetCodePointer(), FixupBranchType::B };
-	Write32(EncodeB(Opcode32::BRANCH, Funct3::BNE, rs1, rs2, 0));
+	Write32(EncodeGB(Opcode32::BRANCH, Funct3::BNE, rs1, rs2, 0));
 	return fixup;
 }
 
 FixupBranch RiscVEmitter::BLT(RiscVReg rs1, RiscVReg rs2) {
 	FixupBranch fixup{ GetCodePointer(), FixupBranchType::B };
-	Write32(EncodeB(Opcode32::BRANCH, Funct3::BLT, rs1, rs2, 0));
+	Write32(EncodeGB(Opcode32::BRANCH, Funct3::BLT, rs1, rs2, 0));
 	return fixup;
 }
 
 FixupBranch RiscVEmitter::BGE(RiscVReg rs1, RiscVReg rs2) {
 	FixupBranch fixup{ GetCodePointer(), FixupBranchType::B };
-	Write32(EncodeB(Opcode32::BRANCH, Funct3::BGE, rs1, rs2, 0));
+	Write32(EncodeGB(Opcode32::BRANCH, Funct3::BGE, rs1, rs2, 0));
 	return fixup;
 }
 
 FixupBranch RiscVEmitter::BLTU(RiscVReg rs1, RiscVReg rs2) {
 	FixupBranch fixup{ GetCodePointer(), FixupBranchType::B };
-	Write32(EncodeB(Opcode32::BRANCH, Funct3::BLTU, rs1, rs2, 0));
+	Write32(EncodeGB(Opcode32::BRANCH, Funct3::BLTU, rs1, rs2, 0));
 	return fixup;
 }
 
 FixupBranch RiscVEmitter::BGEU(RiscVReg rs1, RiscVReg rs2) {
 	FixupBranch fixup{ GetCodePointer(), FixupBranchType::B };
-	Write32(EncodeB(Opcode32::BRANCH, Funct3::BGEU, rs1, rs2, 0));
+	Write32(EncodeGB(Opcode32::BRANCH, Funct3::BGEU, rs1, rs2, 0));
 	return fixup;
 }
 
 void RiscVEmitter::LB(RiscVReg rd, RiscVReg rs1, s32 simm12) {
-	Write32(EncodeI(Opcode32::LOAD, rd, Funct3::LS_B, rs1, simm12));
+	Write32(EncodeGI(Opcode32::LOAD, rd, Funct3::LS_B, rs1, simm12));
 }
 
 void RiscVEmitter::LH(RiscVReg rd, RiscVReg rs1, s32 simm12) {
-	Write32(EncodeI(Opcode32::LOAD, rd, Funct3::LS_H, rs1, simm12));
+	Write32(EncodeGI(Opcode32::LOAD, rd, Funct3::LS_H, rs1, simm12));
 }
 
 void RiscVEmitter::LW(RiscVReg rd, RiscVReg rs1, s32 simm12) {
-	Write32(EncodeI(Opcode32::LOAD, rd, Funct3::LS_W, rs1, simm12));
+	Write32(EncodeGI(Opcode32::LOAD, rd, Funct3::LS_W, rs1, simm12));
 }
 
 void RiscVEmitter::LBU(RiscVReg rd, RiscVReg rs1, s32 simm12) {
-	Write32(EncodeI(Opcode32::LOAD, rd, Funct3::LS_BU, rs1, simm12));
+	Write32(EncodeGI(Opcode32::LOAD, rd, Funct3::LS_BU, rs1, simm12));
 }
 
 void RiscVEmitter::LHU(RiscVReg rd, RiscVReg rs1, s32 simm12) {
-	Write32(EncodeI(Opcode32::LOAD, rd, Funct3::LS_HU, rs1, simm12));
+	Write32(EncodeGI(Opcode32::LOAD, rd, Funct3::LS_HU, rs1, simm12));
 }
 
 void RiscVEmitter::SB(RiscVReg rs2, RiscVReg rs1, s32 simm12) {
-	Write32(EncodeS(Opcode32::STORE, Funct3::LS_B, rs1, rs2, simm12));
+	Write32(EncodeGS(Opcode32::STORE, Funct3::LS_B, rs1, rs2, simm12));
 }
 
 void RiscVEmitter::SH(RiscVReg rs2, RiscVReg rs1, s32 simm12) {
-	Write32(EncodeS(Opcode32::STORE, Funct3::LS_H, rs1, rs2, simm12));
+	Write32(EncodeGS(Opcode32::STORE, Funct3::LS_H, rs1, rs2, simm12));
 }
 
 void RiscVEmitter::SW(RiscVReg rs2, RiscVReg rs1, s32 simm12) {
-	Write32(EncodeS(Opcode32::STORE, Funct3::LS_W, rs1, rs2, simm12));
+	Write32(EncodeGS(Opcode32::STORE, Funct3::LS_W, rs1, rs2, simm12));
 }
 
 void RiscVEmitter::ADDI(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 	// Allow NOP form of ADDI.
 	_assert_msg_(rd != R_ZERO || (rs1 == R_ZERO && simm12 == 0), "%s write to zero is a HINT", __func__);
-	Write32(EncodeI(Opcode32::OP_IMM, rd, Funct3::ADDI, rs1, simm12));
+	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::ADD, rs1, simm12));
 }
 
 void RiscVEmitter::SLTI(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
-	Write32(EncodeI(Opcode32::OP_IMM, rd, Funct3::SLTI, rs1, simm12));
+	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::SLT, rs1, simm12));
 }
 
 void RiscVEmitter::SLTIU(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
-	Write32(EncodeI(Opcode32::OP_IMM, rd, Funct3::SLTIU, rs1, simm12));
+	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::SLTU, rs1, simm12));
 }
 
 void RiscVEmitter::XORI(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
-	Write32(EncodeI(Opcode32::OP_IMM, rd, Funct3::XORI, rs1, simm12));
+	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::XOR, rs1, simm12));
 }
 
 void RiscVEmitter::ORI(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
-	Write32(EncodeI(Opcode32::OP_IMM, rd, Funct3::ORI, rs1, simm12));
+	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::OR, rs1, simm12));
 }
 
 void RiscVEmitter::ANDI(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
-	Write32(EncodeI(Opcode32::OP_IMM, rd, Funct3::ANDI, rs1, simm12));
+	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::AND, rs1, simm12));
 }
 
 void RiscVEmitter::SLLI(RiscVReg rd, RiscVReg rs1, u32 shamt) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
 	// Not sure if shamt=0 is legal or not, let's play it safe.
 	_assert_msg_(shamt > 0 && shamt < BitsSupported(), "Shift out of range");
-	Write32(EncodeI(Opcode32::OP_IMM, rd, Funct3::SLLI, rs1, shamt));
+	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::SLL, rs1, shamt));
 }
 
 void RiscVEmitter::SRLI(RiscVReg rd, RiscVReg rs1, u32 shamt) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
 	// Not sure if shamt=0 is legal or not, let's play it safe.
 	_assert_msg_(shamt > 0 && shamt < BitsSupported(), "Shift out of range");
-	Write32(EncodeI(Opcode32::OP_IMM, rd, Funct3::SRLI, rs1, shamt));
+	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::SRL, rs1, shamt));
 }
 
 void RiscVEmitter::SRAI(RiscVReg rd, RiscVReg rs1, u32 shamt) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
 	// Not sure if shamt=0 is legal or not, let's play it safe.
 	_assert_msg_(shamt > 0 && shamt < BitsSupported(), "Shift out of range");
-	Write32(EncodeI(Opcode32::OP_IMM, rd, Funct3::SRLI, rs1, shamt | (1 << 10)));
+	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::SRL, rs1, shamt | (1 << 10)));
+}
+
+void RiscVEmitter::ADD(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	Write32(EncodeGR(Opcode32::OP, rd, Funct3::ADD, rs1, rs2, Funct7::ZERO));
+}
+
+void RiscVEmitter::SUB(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	Write32(EncodeGR(Opcode32::OP, rd, Funct3::ADD, rs1, rs2, Funct7::SUB));
+}
+
+void RiscVEmitter::SLL(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	Write32(EncodeGR(Opcode32::OP, rd, Funct3::SLL, rs1, rs2, Funct7::ZERO));
+}
+
+void RiscVEmitter::SLT(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	Write32(EncodeGR(Opcode32::OP, rd, Funct3::SLT, rs1, rs2, Funct7::ZERO));
+}
+
+void RiscVEmitter::SLTU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	Write32(EncodeGR(Opcode32::OP, rd, Funct3::SLTU, rs1, rs2, Funct7::ZERO));
+}
+
+void RiscVEmitter::XOR(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	Write32(EncodeGR(Opcode32::OP, rd, Funct3::XOR, rs1, rs2, Funct7::ZERO));
+}
+
+void RiscVEmitter::SRL(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	Write32(EncodeGR(Opcode32::OP, rd, Funct3::SRL, rs1, rs2, Funct7::ZERO));
+}
+
+void RiscVEmitter::SRA(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	Write32(EncodeGR(Opcode32::OP, rd, Funct3::SRL, rs1, rs2, Funct7::SRA));
+}
+
+void RiscVEmitter::OR(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	Write32(EncodeGR(Opcode32::OP, rd, Funct3::OR, rs1, rs2, Funct7::ZERO));
+}
+
+void RiscVEmitter::AND(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	Write32(EncodeGR(Opcode32::OP, rd, Funct3::AND, rs1, rs2, Funct7::ZERO));
 }
 
 };
