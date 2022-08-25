@@ -34,11 +34,14 @@ enum class Opcode32 {
 	// Note: invalid, just used for FixupBranch.
 	ZERO = 0b0000000,
 	LOAD = 0b0000011,
+	MISC_MEM = 0b0001111,
 	OP_IMM = 0b0010011,
 	AUIPC = 0b0010111,
+	OP_IMM_32 = 0b0011011,
 	STORE = 0b0100011,
 	OP = 0b0110011,
 	LUI = 0b0110111,
+	OP_32 = 0b0111011,
 	BRANCH = 0b1100011,
 	JALR = 0b1100111,
 	JAL = 0b1101111,
@@ -51,6 +54,8 @@ enum class Funct3 {
 
 	PRIV = 0b000,
 
+	FENCE = 0b000,
+
 	BEQ = 0b000,
 	BNE = 0b001,
 	BLT = 0b100,
@@ -61,8 +66,10 @@ enum class Funct3 {
 	LS_B = 0b000,
 	LS_H = 0b001,
 	LS_W = 0b010,
+	LS_D = 0b011,
 	LS_BU = 0b100,
 	LS_HU = 0b101,
+	LS_WU = 0b110,
 
 	ADD = 0b000,
 	SLL = 0b001,
@@ -292,10 +299,6 @@ bool RiscVEmitter::JInRange(const void *src, const void *dst) const {
 	ptrdiff_t distance = dstp - srcp;
 
 	return distance <= 0x000FFFFE && -distance <= 0x000FFFFE;
-}
-
-void RiscVEmitter::EBREAK() {
-	Write32(EncodeI(Opcode32::SYSTEM, R_ZERO, Funct3::PRIV, R_ZERO, Funct12::EBREAK));
 }
 
 void RiscVEmitter::LUI(RiscVReg rd, s32 simm32) {
@@ -536,6 +539,100 @@ void RiscVEmitter::OR(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 void RiscVEmitter::AND(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::AND, rs1, rs2, Funct7::ZERO));
+}
+
+void RiscVEmitter::FENCE(Fence predecessor, Fence successor) {
+	_assert_msg_((u32)predecessor != 0 && (u32)successor != 0, "FENCE missing pred/succ");
+	s32 simm12 = ((u32)predecessor << 4) | (u32)successor;
+	Write32(EncodeI(Opcode32::MISC_MEM, R_ZERO, Funct3::FENCE, R_ZERO, simm12));
+}
+
+void RiscVEmitter::FENCE_TSO() {
+	s32 simm12 = (0b1000 << 28) | ((u32)Fence::RW << 4) | (u32)Fence::RW;
+	Write32(EncodeI(Opcode32::MISC_MEM, R_ZERO, Funct3::FENCE, R_ZERO, simm12));
+}
+
+void RiscVEmitter::ECALL() {
+	Write32(EncodeI(Opcode32::SYSTEM, R_ZERO, Funct3::PRIV, R_ZERO, Funct12::ECALL));
+}
+
+void RiscVEmitter::EBREAK() {
+	Write32(EncodeI(Opcode32::SYSTEM, R_ZERO, Funct3::PRIV, R_ZERO, Funct12::EBREAK));
+}
+
+void RiscVEmitter::LWU(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	_assert_msg_(BitsSupported() >= 64, "%s is only valid with R64I", __func__);
+	Write32(EncodeGI(Opcode32::LOAD, rd, Funct3::LS_WU, rs1, simm12));
+}
+
+void RiscVEmitter::LD(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	_assert_msg_(BitsSupported() >= 64, "%s is only valid with R64I", __func__);
+	Write32(EncodeGI(Opcode32::LOAD, rd, Funct3::LS_D, rs1, simm12));
+}
+
+void RiscVEmitter::SD(RiscVReg rs2, RiscVReg rs1, s32 simm12) {
+	_assert_msg_(BitsSupported() >= 64, "%s is only valid with R64I", __func__);
+	Write32(EncodeGS(Opcode32::STORE, Funct3::LS_D, rs1, rs2, simm12));
+}
+
+void RiscVEmitter::ADDIW(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	_assert_msg_(BitsSupported() >= 64, "%s is only valid with R64I", __func__);
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	Write32(EncodeGI(Opcode32::OP_IMM_32, rd, Funct3::ADD, rs1, simm12));
+}
+
+void RiscVEmitter::SLLIW(RiscVReg rd, RiscVReg rs1, u32 shamt) {
+	_assert_msg_(BitsSupported() >= 64, "%s is only valid with R64I", __func__);
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	// Not sure if shamt=0 is legal or not, let's play it safe.
+	_assert_msg_(shamt > 0 && shamt < 32, "Shift out of range");
+	Write32(EncodeGI(Opcode32::OP_IMM_32, rd, Funct3::SLL, rs1, shamt));
+}
+
+void RiscVEmitter::SRLIW(RiscVReg rd, RiscVReg rs1, u32 shamt) {
+	_assert_msg_(BitsSupported() >= 64, "%s is only valid with R64I", __func__);
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	// Not sure if shamt=0 is legal or not, let's play it safe.
+	_assert_msg_(shamt > 0 && shamt < 32, "Shift out of range");
+	Write32(EncodeGI(Opcode32::OP_IMM_32, rd, Funct3::SRL, rs1, shamt));
+}
+
+void RiscVEmitter::SRAIW(RiscVReg rd, RiscVReg rs1, u32 shamt) {
+	_assert_msg_(BitsSupported() >= 64, "%s is only valid with R64I", __func__);
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	// Not sure if shamt=0 is legal or not, let's play it safe.
+	_assert_msg_(shamt > 0 && shamt < 32, "Shift out of range");
+	Write32(EncodeGI(Opcode32::OP_IMM_32, rd, Funct3::SRL, rs1, shamt | (1 << 10)));
+}
+
+void RiscVEmitter::ADDW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(BitsSupported() >= 64, "%s is only valid with R64I", __func__);
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	Write32(EncodeGR(Opcode32::OP_32, rd, Funct3::ADD, rs1, rs2, Funct7::ZERO));
+}
+
+void RiscVEmitter::SUBW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(BitsSupported() >= 64, "%s is only valid with R64I", __func__);
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	Write32(EncodeGR(Opcode32::OP_32, rd, Funct3::ADD, rs1, rs2, Funct7::SUB));
+}
+
+void RiscVEmitter::SLLW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(BitsSupported() >= 64, "%s is only valid with R64I", __func__);
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	Write32(EncodeGR(Opcode32::OP_32, rd, Funct3::SLL, rs1, rs2, Funct7::ZERO));
+}
+
+void RiscVEmitter::SRLW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(BitsSupported() >= 64, "%s is only valid with R64I", __func__);
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	Write32(EncodeGR(Opcode32::OP_32, rd, Funct3::SRL, rs1, rs2, Funct7::ZERO));
+}
+
+void RiscVEmitter::SRAW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(BitsSupported() >= 64, "%s is only valid with R64I", __func__);
+	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+	Write32(EncodeGR(Opcode32::OP_32, rd, Funct3::SRL, rs1, rs2, Funct7::SRA));
 }
 
 };

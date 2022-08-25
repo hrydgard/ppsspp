@@ -19,7 +19,7 @@
 
 #include <cstdint>
 #include "Common/CodeBlock.h"
-#include "Common/CommonTypes.h"
+#include "Common/Common.h"
 
 namespace RiscVGen {
 
@@ -47,6 +47,16 @@ enum class FixupBranchType {
 	J,
 };
 
+enum class Fence {
+	I = 0b1000,
+	O = 0b0100,
+	R = 0b0010,
+	W = 0b0001,
+	RW = R | W,
+	IO = I | O,
+};
+ENUM_CLASS_BITOPS(Fence);
+
 struct FixupBranch {
 	FixupBranch(const u8 *p, FixupBranchType t) : ptr(p), type(t) {}
 
@@ -73,8 +83,6 @@ public:
 	void SetJumpTarget(const FixupBranch &branch);
 	bool BInRange(const void *func) const;
 	bool JInRange(const void *func) const;
-
-	void EBREAK();
 
 	void LUI(RiscVReg rd, s32 simm32);
 	void AUIPC(RiscVReg rd, s32 simm32);
@@ -151,6 +159,34 @@ public:
 	void SRA(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
 	void OR(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
 	void AND(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+
+	void NEG(RiscVReg rd, RiscVReg rs) {
+		SUB(rd, R_ZERO, rs);
+	}
+
+	void FENCE(Fence predecessor, Fence successor);
+	void FENCE_TSO();
+
+	void ECALL();
+	void EBREAK();
+
+	// 64-bit instructions - oens ending in W sign extend result to 32 bits.
+	void LWU(RiscVReg rd, RiscVReg rs1, s32 simm12);
+	void LD(RiscVReg rd, RiscVReg rs1, s32 simm12);
+	void SD(RiscVReg rs2, RiscVReg rs1, s32 simm12);
+	void ADDIW(RiscVReg rd, RiscVReg rs1, s32 simm12);
+	void SLLIW(RiscVReg rd, RiscVReg rs1, u32 shamt);
+	void SRLIW(RiscVReg rd, RiscVReg rs1, u32 shamt);
+	void SRAIW(RiscVReg rd, RiscVReg rs1, u32 shamt);
+	void ADDW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void SUBW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void SLLW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void SRLW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void SRAW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+
+	void NEGW(RiscVReg rd, RiscVReg rs) {
+		SUBW(rd, R_ZERO, rs);
+	}
 
 private:
 	void SetJumpTarget(const FixupBranch &branch, const void *dst);
