@@ -26,6 +26,7 @@
 #include "Core/Reporting.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
+#include "GPU/Common/Draw2D.h"
 
 static const InputDef vsInputs[2] = {
 	{ "vec2", "a_position", Draw::SEM_POSITION, },
@@ -54,10 +55,11 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 		writer.ConstFloat("z_scale", factors.scale);
 		writer.ConstFloat("z_offset", factors.offset);
 		if (config.depthUpperBits == 0x2) {
-			writer.C("  int x = int(texcoord.x * texSize.x);\n");
-			writer.C("  int bit1 = x & 0x10; int bit2 = x & 0x100;\n");
-			writer.C("  x = (x & 0xFFFFFEEF) | (bit1 << 4) | (bit2 >> 4);\n");
-			writer.C("  texcoord.x = float(x) / texSize.x;\n");
+			writer.C("  int x = int((texcoord.x / scaleFactor) * texSize.x);\n");
+			writer.C("  int b1 = 4; int b2 = 8; int diff = (b2 - b1);\n");
+			writer.C("  int bit1 = x & (1 << b1); int bit2 = x & (1 << b2);\n");
+			writer.C("  x = (x & ~((1 << b1) | (1 << b2))) | (b1 << diff) | (b2 >> diff);\n");
+			writer.C("  texcoord.x = (float(x) / texSize.x) * scaleFactor;\n");
 		}
 	}
 
@@ -336,7 +338,7 @@ void GenerateDepalSmoothed(ShaderWriter &writer, const DepalConfig &config) {
 void GenerateDepalFs(ShaderWriter &writer, const DepalConfig &config) {
 	writer.DeclareSamplers(samplers);
 	writer.HighPrecisionFloat();
-	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_NONE);
+	writer.BeginFSMain(config.bufferFormat == GE_FORMAT_DEPTH16 ? g_draw2Duniforms : Slice<UniformDef>::empty(), varyings, FSFLAG_NONE);
 	if (config.smoothedDepal) {
 		// Handles a limited set of cases, but doesn't need any integer math so we don't
 		// need two variants.
