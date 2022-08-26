@@ -680,13 +680,13 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 		} else if (src->fb_address == dst->fb_address && src->FbStrideInBytes() == dst->FbStrideInBytes()) {
 			if (src->fb_stride == dst->fb_stride * 2) {
 				// Reinterpret from 16-bit to 32-bit.
-				WARN_LOG_N_TIMES(i16to32, 50, G3D, "16-bit to 32-bit reinterpret needed: %s to %s", GeBufferFormatToString(src->fb_format), GeBufferFormatToString(dst->fb_format));
+				sources.push_back(CopySource{ src, RASTER_COLOR, 0, 0 });
 			} else if (dst->fb_stride == src->fb_stride * 2) {
 				// Reinterpret from 32-bit to 16-bit.
-				WARN_LOG_N_TIMES(i32to16, 50, G3D, "16-bit to 32-bit reinterpret needed: %s to %s", GeBufferFormatToString(src->fb_format), GeBufferFormatToString(dst->fb_format));
+				sources.push_back(CopySource{ src, RASTER_COLOR, 0, 0 });
 			} else {
-				// 16-to-16 reinterpret, surely.
-				WARN_LOG_N_TIMES(i16to16, 50, G3D, "16-bit reinterpret needed: %s to %s", GeBufferFormatToString(src->fb_format), GeBufferFormatToString(dst->fb_format));
+				// 16-to-16 reinterpret, should have been caught above already.
+				WARN_LOG(G3D, "Reinterpret: Shouldn't get here");
 			}
 		}
 	}
@@ -719,12 +719,26 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 				gpuStats.numColorCopies++;
 				pipeline = Get2DPipeline(DRAW2D_COPY_COLOR);
 				pass_name = "copy_color";
-			} else if (IsBufferFormat16Bit(src->fb_format) && IsBufferFormat16Bit(dst->fb_format)) {
-				if (PSP_CoreParameter().compat.flags().ReinterpretFramebuffers) {
-					if (PSP_CoreParameter().compat.flags().BlueToAlpha) {
-						WARN_LOG_ONCE(bta, G3D, "WARNING: Reinterpret encountered with BlueToAlpha on");
-					}
+			} else if (PSP_CoreParameter().compat.flags().ReinterpretFramebuffers) {
+				if (PSP_CoreParameter().compat.flags().BlueToAlpha) {
+					WARN_LOG_ONCE(bta, G3D, "WARNING: Reinterpret encountered with BlueToAlpha on");
+				}
 
+				if (IsBufferFormat16Bit(src->fb_format) && !IsBufferFormat16Bit(dst->fb_format)) {
+					WARN_LOG_N_TIMES(i16to32, 50, G3D, "16-bit to 32-bit reinterpret needed: %s to %s", GeBufferFormatToString(src->fb_format), GeBufferFormatToString(dst->fb_format));
+					// We halve the X coordinates in the destination framebuffer.
+					// The shader will collect two pixels worth of input data and merge into one.
+					dstX1 *= 0.5f;
+					dstX2 *= 0.5f;
+				} else if (!IsBufferFormat16Bit(src->fb_format) && IsBufferFormat16Bit(dst->fb_format)) {
+					WARN_LOG_N_TIMES(i32to16, 50, G3D, "32-bit to 16-bit reinterpret needed: %s to %s", GeBufferFormatToString(src->fb_format), GeBufferFormatToString(dst->fb_format));
+					// We double the X coordinates in the destination framebuffer.
+					// The shader will sample and depending on the X coordinate & 1, use the upper or lower bits.
+					dstX1 *= 2.0f;
+					dstX2 *= 2.0f;
+				}
+
+				if (IsBufferFormat16Bit(src->fb_format) && IsBufferFormat16Bit(dst->fb_format)) {
 					// Reinterpret!
 					WARN_LOG_N_TIMES(reint, 20, G3D, "Reinterpret detected from %08x_%s to %08x_%s",
 						src->fb_address, GeBufferFormatToString(src->fb_format),
@@ -737,26 +751,26 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 						});
 						reinterpretFromTo_[(int)src->fb_format][(int)dst->fb_format] = pipeline;
 					}
-					gpuStats.numReinterpretCopies++;
-				} else {
-					// Fake reinterpret - just clear the way we always did on Vulkan. Just clear color and stencil.
-					if (src->fb_format == GE_FORMAT_565) {
-						// We have to bind here instead of clear, since it can be that no framebuffer is bound.
-						// The backend can sometimes directly optimize it to a clear.
-
-						// Games that are marked as doing reinterpret just ignore this - better to keep the data than to clear.
-						// Fixes #13717.
-						if (!PSP_CoreParameter().compat.flags().ReinterpretFramebuffers && !PSP_CoreParameter().compat.flags().BlueToAlpha) {
-							draw_->BindFramebufferAsRenderTarget(dst->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "FakeReinterpret");
-							// Need to dirty anything that has command buffer dynamic state, in case we started a new pass above.
-							// Should find a way to feed that information back, maybe... Or simply correct the issue in the rendermanager.
-							gstate_c.Dirty(DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE);
-						}
-					}
-					tookActions = true;
 				}
-			}
+				gpuStats.numReinterpretCopies++;
+			} else if (IsBufferFormat16Bit(src->fb_format) && IsBufferFormat16Bit(dst->fb_format)) {
+				// Fake reinterpret - just clear the way we always did on Vulkan. Just clear color and stencil.
+				if (src->fb_format == GE_FORMAT_565) {
+					// We have to bind here instead of clear, since it can be that no framebuffer is bound.
+					// The backend can sometimes directly optimize it to a clear.
 
+					// Games that are marked as doing reinterpret just ignore this - better to keep the data than to clear.
+					// Fixes #13717.
+					if (!PSP_CoreParameter().compat.flags().ReinterpretFramebuffers && !PSP_CoreParameter().compat.flags().BlueToAlpha) {
+						draw_->BindFramebufferAsRenderTarget(dst->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "FakeReinterpret");
+						// Need to dirty anything that has command buffer dynamic state, in case we started a new pass above.
+						// Should find a way to feed that information back, maybe... Or simply correct the issue in the rendermanager.
+						gstate_c.Dirty(DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE);
+					}
+				}
+				tookActions = true;
+			}
+			
 			if (pipeline) {
 				tookActions = true;
 				// OK we have the pipeline, now just do the blit.
