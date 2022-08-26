@@ -187,12 +187,10 @@ void TextureShaderCache::Decimate() {
 	}
 }
 
-Draw2DPipeline *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETextureFormat textureFormat, GEBufferFormat bufferFormat, bool smoothedDepal) {
+Draw2DPipeline *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETextureFormat textureFormat, GEBufferFormat bufferFormat, bool smoothedDepal, u32 depthUpperBits) {
 	using namespace Draw;
 
 	// Generate an ID for depal shaders.
-	u64 depthUpperBits = bufferFormat == GE_FORMAT_DEPTH16 ? ((gstate.getTextureAddress(0) & 0x600000) >> 20) : 0;
-
 	u64 id = (depthUpperBits << 32) | (clutMode & 0xFFFFFF) | (textureFormat << 24) | (bufferFormat << 28);
 
 	auto shader = depalCache_.find(id);

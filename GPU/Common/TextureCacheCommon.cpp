@@ -1035,8 +1035,8 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 	nextFramebufferTextureChannel_ = RASTER_COLOR;
 
 	if (framebufferManager_->UseBufferedRendering()) {
-		// Hack!
-		u64 depthUpperBits = channel == RASTER_DEPTH ? ((gstate.getTextureAddress(0) & 0x600000) >> 20) : 0;
+		// Detect when we need to apply the horizontal texture swizzle.
+		u64 depthUpperBits = (channel == RASTER_DEPTH && framebuffer->fb_format == GE_FORMAT_8888) ? ((gstate.getTextureAddress(0) & 0x600000) >> 20) : 0;
 		bool needsSpecialSwizzle = depthUpperBits == 2;
 
 		// We need to force it, since we may have set it on a texture before attaching.
@@ -1931,6 +1931,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 	ClutTexture clutTexture{};
 	bool smoothedDepal = false;
+	u32 depthUpperBits = 0;
 
 	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
 		clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
@@ -1965,7 +1966,9 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			return;
 		}
 
-		textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->fb_format, smoothedDepal);
+		depthUpperBits = (depth && framebuffer->fb_format == GE_FORMAT_8888) ? ((gstate.getTextureAddress(0) & 0x600000) >> 20) : 0;
+
+		textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->fb_format, smoothedDepal, depthUpperBits);
 		gstate_c.SetUseShaderDepal(false, false);
 	}
 
@@ -1973,7 +1976,6 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 		ClutTexture clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
 
-		u64 depthUpperBits = depth ? ((gstate.getTextureAddress(0) & 0x600000) >> 20) : 0;
 		bool needsSpecialSwizzle = depthUpperBits == 2;
 
 		int depalWidth = framebuffer->renderWidth;
