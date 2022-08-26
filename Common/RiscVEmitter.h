@@ -92,8 +92,9 @@ enum class FMv {
 
 struct FixupBranch {
 	FixupBranch(const u8 *p, FixupBranchType t) : ptr(p), type(t) {}
+	~FixupBranch();
 
-	const u8 *ptr;
+	const u8 *ptr = nullptr;
 	FixupBranchType type;
 };
 
@@ -113,7 +114,7 @@ public:
 	void FlushIcache();
 	void FlushIcacheSection(const u8 *start, const u8 *end);
 
-	void SetJumpTarget(const FixupBranch &branch);
+	void SetJumpTarget(FixupBranch &branch);
 	bool BInRange(const void *func) const;
 	bool JInRange(const void *func) const;
 
@@ -297,7 +298,7 @@ public:
 	void FCLASS(int bits, RiscVReg rd, RiscVReg rs1);
 
 private:
-	void SetJumpTarget(const FixupBranch &branch, const void *dst);
+	void SetJumpTarget(FixupBranch &branch, const void *dst);
 	bool BInRange(const void *src, const void *dst) const;
 	bool JInRange(const void *src, const void *dst) const;
 

@@ -17,6 +17,7 @@
 
 #include "ppsspp_config.h"
 #include <algorithm>
+#include <cstring>
 #include "Common/RiscVEmitter.h"
 
 namespace RiscVGen {
@@ -415,15 +416,25 @@ void RiscVEmitter::FlushIcacheSection(const u8 *start, const u8 *end) {
 #endif
 }
 
-void RiscVEmitter::SetJumpTarget(const FixupBranch &branch) {
+FixupBranch::~FixupBranch() {
+	_assert_msg_(ptr == nullptr, "FixupBranch never set (left infinite loop)");
+}
+
+void RiscVEmitter::SetJumpTarget(FixupBranch &branch) {
 	SetJumpTarget(branch, code_);
 }
 
-void RiscVEmitter::SetJumpTarget(const FixupBranch &branch, const void *dst) {
+void RiscVEmitter::SetJumpTarget(FixupBranch &branch, const void *dst) {
+	_assert_msg_(branch.ptr != nullptr, "Invalid FixupBranch (SetJumpTarget twice?)");
+
 	const intptr_t srcp = (intptr_t)branch.ptr;
 	const intptr_t dstp = (intptr_t)dst;
 	const ptrdiff_t writable_delta = writable_ - code_;
-	u32 *fixup = (u32 *)(branch.ptr + writable_delta);
+	u32 *writableSrc = (u32 *)(branch.ptr + writable_delta);
+
+	// If compressed, this may be an unaligned 32-bit value.
+	u32 fixup;
+	memcpy(&fixup, writableSrc, sizeof(u32));
 
 	_assert_msg_((dstp & 1) == 0, "Destination should be aligned");
 	_assert_msg_((dstp & 3) == 0 || SupportsCompressed(), "Destination should be aligned (no compressed)");
@@ -435,14 +446,17 @@ void RiscVEmitter::SetJumpTarget(const FixupBranch &branch, const void *dst) {
 	switch (branch.type) {
 	case FixupBranchType::B:
 		_assert_msg_(BInRange(branch.ptr, dst), "B destination is too far away (%p -> %p)", branch.ptr, dst);
-		*fixup = (*fixup & 0x01FFF07F) | EncodeB(Opcode32::ZERO, Funct3::ZERO, R_ZERO, R_ZERO, (s32)distance);
+		fixup = (fixup & 0x01FFF07F) | EncodeB(Opcode32::ZERO, Funct3::ZERO, R_ZERO, R_ZERO, (s32)distance);
 		break;
 
 	case FixupBranchType::J:
 		_assert_msg_(JInRange(branch.ptr, dst), "J destination is too far away (%p -> %p)", branch.ptr, dst);
-		*fixup = (*fixup & 0x00000FFF) | EncodeJ(Opcode32::ZERO, R_ZERO, (s32)distance);
+		fixup = (fixup & 0x00000FFF) | EncodeJ(Opcode32::ZERO, R_ZERO, (s32)distance);
 		break;
 	}
+
+	memcpy(writableSrc, &fixup, sizeof(u32));
+	branch.ptr = nullptr;
 }
 
 bool RiscVEmitter::BInRange(const void *func) const {
