@@ -50,6 +50,8 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 
 	writer.C("  vec2 texcoord = v_texcoord;\n");
 
+	// Implement the swizzle we need to simulate, if a game uses any other mode than "6" to access depth textures.
+	// For now, only implement the "2" mode here.
 	if (config.bufferFormat == GE_FORMAT_DEPTH16) {
 		DepthScaleFactors factors = GetDepthScaleFactors();
 		writer.ConstFloat("z_scale", factors.scale);

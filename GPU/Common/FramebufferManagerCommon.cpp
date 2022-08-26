@@ -737,7 +737,7 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 				}
 
 				// Reinterpret!
-				WARN_LOG_N_TIMES(reint, 20, G3D, "Reinterpret detected from %08x_%s to %08x_%s",
+				WARN_LOG_N_TIMES(reint, 5, G3D, "Reinterpret detected from %08x_%s to %08x_%s",
 					src->fb_address, GeBufferFormatToString(src->fb_format),
 					dst->fb_address, GeBufferFormatToString(dst->fb_format));
 				pipeline = reinterpretFromTo_[(int)src->fb_format][(int)dst->fb_format];
@@ -1734,7 +1734,7 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 		for (auto &candidate : candidates) {
 			log += " - " + candidate.ToString() + "\n";
 		}
-		WARN_LOG_N_TIMES(mulblock, 50, G3D, "Multiple framebuffer candidates for %08x/%d/%d %d,%d %dx%d (dest = %d):\n%s", basePtr, stride_pixels, bpp, x_pixels, y, w_pixels, h, (int)destination, log.c_str());
+		WARN_LOG_N_TIMES(mulblock, 5, G3D, "Multiple framebuffer candidates for %08x/%d/%d %d,%d %dx%d (dest = %d):\n%s", basePtr, stride_pixels, bpp, x_pixels, y, w_pixels, h, (int)destination, log.c_str());
 	}
 
 	if (!candidates.empty()) {
@@ -1742,6 +1742,9 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 		*rect = candidates.back();
 		return true;
 	} else {
+		if (Memory::IsVRAMAddress(basePtr) && destination) {
+			WARN_LOG_N_TIMES(nocands, 50, G3D, "Didn't find a destination candidate for %08x/%d/%d %d,%d %dx%d", basePtr, stride_pixels, bpp, x_pixels, y, w_pixels, h);
+		}
 		return false;
 	}
 }
@@ -1948,7 +1951,6 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 
 	if (srcBuffer && !dstBuffer) {
 		// In here, we can't read from dstRect.
-
 		if (PSP_CoreParameter().compat.flags().BlockTransferAllowCreateFB ||
 			(PSP_CoreParameter().compat.flags().IntraVRAMBlockTransferAllowCreateFB &&
 				Memory::IsVRAMAddress(srcRect.vfb->fb_address) && Memory::IsVRAMAddress(dstBasePtr))) {
@@ -1965,7 +1967,8 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				// No info left - just fall back to something. But this is definitely split pixel tricks.
 				ramFormat = GE_FORMAT_5551;
 			}
-			dstBuffer = CreateRAMFramebuffer(dstBasePtr, width, height, dstStride, ramFormat);
+			dstBuffer = true;
+			dstRect.vfb = CreateRAMFramebuffer(dstBasePtr, width, height, dstStride, ramFormat);
 		}
 	}
 
