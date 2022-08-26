@@ -64,6 +64,32 @@ enum class Atomic {
 	SEQUENTIAL = 0b11,
 };
 
+enum class Round {
+	NEAREST_EVEN = 0b000,
+	TOZERO = 0b001,
+	DOWN = 0b010,
+	UP = 0b011,
+	NEAREST_MAX = 0b100,
+	DYNAMIC = 0b111,
+};
+
+enum class FConv {
+	W = 0x0000,
+	WU = 0x0001,
+	L = 0x0002,
+	LU = 0x0003,
+
+	S = 0x1000,
+	D = 0x1001,
+	Q = 0x1003,
+};
+
+enum class FMv {
+	X,
+	W,
+	D,
+};
+
 struct FixupBranch {
 	FixupBranch(const u8 *p, FixupBranchType t) : ptr(p), type(t) {}
 
@@ -223,6 +249,52 @@ public:
 	void AMOMAX(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg addr, Atomic ordering);
 	void AMOMINU(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg addr, Atomic ordering);
 	void AMOMAXU(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg addr, Atomic ordering);
+
+	// Floating point (same funcs for single/double/quad, if supported.)
+	void FL(int bits, RiscVReg rd, RiscVReg addr, s32 simm12);
+	void FS(int bits, RiscVReg rs2, RiscVReg addr, s32 simm12);
+	void FLW(RiscVReg rd, RiscVReg addr, s32 simm12) {
+		FL(32, rd, addr, simm12);
+	}
+	void FSW(RiscVReg rs2, RiscVReg addr, s32 simm12) {
+		FS(32, rs2, addr, simm12);
+	}
+
+	void FMADD(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2, RiscVReg rs3, Round rm = Round::DYNAMIC);
+	void FMSUB(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2, RiscVReg rs3, Round rm = Round::DYNAMIC);
+	void FNMSUB(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2, RiscVReg rs3, Round rm = Round::DYNAMIC);
+	void FNMADD(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2, RiscVReg rs3, Round rm = Round::DYNAMIC);
+
+	void FADD(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2, Round rm = Round::DYNAMIC);
+	void FSUB(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2, Round rm = Round::DYNAMIC);
+	void FMUL(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2, Round rm = Round::DYNAMIC);
+	void FDIV(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2, Round rm = Round::DYNAMIC);
+	void FSQRT(int bits, RiscVReg rd, RiscVReg rs1, Round rm = Round::DYNAMIC);
+
+	void FSGNJ(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void FSGNJN(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void FSGNJX(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+
+	void FMV(int bits, RiscVReg rd, RiscVReg rs) {
+		FSGNJ(bits, rd, rs, rs);
+	}
+	void FNEG(int bits, RiscVReg rd, RiscVReg rs) {
+		FSGNJN(bits, rd, rs, rs);
+	}
+	void FABS(int bits, RiscVReg rd, RiscVReg rs) {
+		FSGNJX(bits, rd, rs, rs);
+	}
+
+	void FMIN(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void FMAX(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+
+	void FCVT(FConv to, FConv from, RiscVReg rd, RiscVReg rs1, Round rm = Round::DYNAMIC);
+	void FMV(FMv to, FMv from, RiscVReg rd, RiscVReg rs1);
+
+	void FEQ(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void FLT(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void FLE(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void FCLASS(int bits, RiscVReg rd, RiscVReg rs1);
 
 private:
 	void SetJumpTarget(const FixupBranch &branch, const void *dst);

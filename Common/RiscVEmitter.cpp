@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+#include <algorithm>
 #include "Common/RiscVEmitter.h"
 
 namespace RiscVGen {
@@ -27,6 +28,11 @@ static inline bool SupportsCompressed() {
 
 static inline uint8_t BitsSupported() {
 	// TODO
+	return 64;
+}
+
+static inline uint8_t FloatBitsSupported() {
+	// TODO: 0 if not.
 	return 64;
 }
 
@@ -44,15 +50,22 @@ enum class Opcode32 {
 	// Note: invalid, just used for FixupBranch.
 	ZERO = 0b0000000,
 	LOAD = 0b0000011,
+	LOAD_FP = 0b0000111,
 	MISC_MEM = 0b0001111,
 	OP_IMM = 0b0010011,
 	AUIPC = 0b0010111,
 	OP_IMM_32 = 0b0011011,
 	STORE = 0b0100011,
+	STORE_FP = 0b0100111,
 	AMO = 0b0101111,
 	OP = 0b0110011,
 	LUI = 0b0110111,
 	OP_32 = 0b0111011,
+	FMADD = 0b1000011,
+	FMSUB = 0b1000111,
+	FNMSUB = 0b1001011,
+	FNMADD = 0b1001111,
+	OP_FP = 0b1010011,
 	BRANCH = 0b1100011,
 	JALR = 0b1100111,
 	JAL = 0b1101111,
@@ -100,10 +113,26 @@ enum class Funct3 {
 	DIVU = 0b101,
 	REM = 0b110,
 	REMU = 0b111,
+
+	FSGNJ = 0b000,
+	FSGNJN = 0b001,
+	FSGNJX = 0b010,
+
+	FMIN = 0b000,
+	FMAX = 0b001,
+
+	FMV = 0b000,
+	FCLASS = 0b001,
+
+	FLE = 0b000,
+	FLT = 0b001,
+	FEQ = 0b010,
 };
 
 enum class Funct2 {
-	// TODO: 0b00,
+	S = 0b00,
+	D = 0b01,
+	Q = 0b11,
 };
 
 enum class Funct7 {
@@ -127,6 +156,20 @@ enum class Funct5 {
 	AMOMAX = 0b10100,
 	AMOMINU = 0b11000,
 	AMOMAXU = 0b11100,
+
+	FADD = 0b00000,
+	FSUB = 0b00001,
+	FMUL = 0b00010,
+	FDIV = 0b00011,
+	FSGNJ = 0b00100,
+	FMINMAX = 0b00101,
+	FCVT_SZ = 0b01000,
+	FSQRT = 0b01011,
+	FCMP = 0b10100,
+	FCVT_TOX = 0b11000,
+	FCVT_FROMX = 0b11010,
+	FMV_TOX = 0b11100,
+	FMV_FROMX = 0b11110,
 };
 
 enum class Funct12 {
@@ -156,6 +199,25 @@ static inline u32 EncodeAtomicR(Opcode32 opcode, RiscVReg rd, Funct3 funct3, Ris
 
 static inline u32 EncodeR4(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, RiscVReg rs2, Funct2 funct2, RiscVReg rs3) {
 	return (u32)opcode | ((u32)DecodeReg(rd) << 7) | ((u32)funct3 << 12) | ((u32)DecodeReg(rs1) << 15) | ((u32)DecodeReg(rs2) << 20) | ((u32)funct2 << 25) | ((u32)DecodeReg(rs3) << 27);
+}
+
+static inline u32 EncodeFR4(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, RiscVReg rs2, Funct2 funct2, RiscVReg rs3) {
+	_assert_msg_(IsFPR(rd), "R4 instruction rd must be FPR");
+	_assert_msg_(IsFPR(rs1), "R4 instruction rs1 must be FPR");
+	_assert_msg_(IsFPR(rs2), "R4 instruction rs2 must be FPR");
+	_assert_msg_(IsFPR(rs3), "R4 instruction rs3 must be FPR");
+	return EncodeR4(opcode, rd, funct3, rs1, rs2, funct2, rs3);
+}
+
+static inline u32 EncodeR(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, RiscVReg rs2, Funct2 funct2, Funct5 funct5) {
+	return EncodeR(opcode, rd, funct3, rs1, rs2, (Funct7)(((u32)funct5 << 2) | (u32)funct2));
+}
+
+static inline u32 EncodeFR(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, RiscVReg rs2, Funct2 funct2, Funct5 funct5) {
+	_assert_msg_(IsFPR(rd), "R4 instruction rd must be FPR");
+	_assert_msg_(IsFPR(rs1), "R4 instruction rs1 must be FPR");
+	_assert_msg_(IsFPR(rs2), "R4 instruction rs2 must be FPR");
+	return EncodeR(opcode, rd, funct3, rs1, rs2, (Funct7)(((u32)funct5 << 2) | (u32)funct2));
 }
 
 static inline u32 EncodeI(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, s32 simm12) {
@@ -236,17 +298,68 @@ static inline u32 EncodeGJ(Opcode32 opcode, RiscVReg rd, s32 simm21) {
 	return EncodeJ(opcode, rd, simm21);
 }
 
-static inline Funct3 BitsToFunct3(int bits) {
+static inline Funct3 BitsToFunct3(int bits, bool useFloat = false) {
+	int bitsSupported = useFloat ? FloatBitsSupported() : BitsSupported();
+	_assert_msg_(bitsSupported >= bits, "Cannot use funct3 width %d, only have %d", bits, bitsSupported);
 	switch (bits) {
 	case 32:
 		return Funct3::LS_W;
 	case 64:
-		_assert_msg_(BitsSupported() >= 64, "Cannot use funct3 width %d", bits);
 		return Funct3::LS_D;
 	default:
 		_assert_msg_(false, "Invalid funct3 width %d", bits);
 		return Funct3::LS_W;
 	}
+}
+
+static inline Funct2 BitsToFunct2(int bits) {
+	_assert_msg_(FloatBitsSupported() >= bits, "Cannot use funct2 width %d, only have %d", bits, FloatBitsSupported());
+	switch (bits) {
+	case 32:
+		return Funct2::S;
+	case 64:
+		return Funct2::D;
+	case 128:
+		return Funct2::Q;
+	default:
+		_assert_msg_(false, "Invalid funct2 width %d", bits);
+		return Funct2::S;
+	}
+}
+
+static inline int FConvToFloatBits(FConv c) {
+	switch (c) {
+	case FConv::W:
+	case FConv::WU:
+	case FConv::L:
+	case FConv::LU:
+		break;
+
+	case FConv::S:
+		return 32;
+	case FConv::D:
+		return 64;
+	case FConv::Q:
+		return 128;
+	}
+	return 0;
+}
+
+static inline int FConvToIntegerBits(FConv c) {
+	switch (c) {
+	case FConv::S:
+	case FConv::D:
+	case FConv::Q:
+		break;
+
+	case FConv::W:
+	case FConv::WU:
+		return 32;
+	case FConv::L:
+	case FConv::LU:
+		return 64;
+	}
+	return 0;
 }
 
 RiscVEmitter::RiscVEmitter(const u8 *ptr, u8 *writePtr) {
@@ -838,5 +951,136 @@ void RiscVEmitter::AMOMAXU(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg rs1, At
 	Write32(EncodeAtomicR(Opcode32::AMO, rd, BitsToFunct3(bits), rs1, rs2, ordering, Funct5::AMOMAXU));
 }
 
+void RiscVEmitter::FL(int bits, RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	_assert_msg_(IsGPR(rs1) && IsFPR(rd), "FL with incorrect register types");
+	Write32(EncodeI(Opcode32::LOAD_FP, rd, BitsToFunct3(bits, true), rs1, simm12));
+}
+
+void RiscVEmitter::FS(int bits, RiscVReg rs2, RiscVReg rs1, s32 simm12) {
+	_assert_msg_(IsGPR(rs1) && IsFPR(rs2), "FS with incorrect register types");
+	Write32(EncodeS(Opcode32::STORE_FP, BitsToFunct3(bits, true), rs1, rs2, simm12));
+}
+
+void RiscVEmitter::FMADD(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2, RiscVReg rs3, Round rm) {
+	Write32(EncodeFR4(Opcode32::FMADD, rd, (Funct3)rm, rs1, rs2, BitsToFunct2(bits), rs3));
+}
+
+void RiscVEmitter::FMSUB(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2, RiscVReg rs3, Round rm) {
+	Write32(EncodeFR4(Opcode32::FMSUB, rd, (Funct3)rm, rs1, rs2, BitsToFunct2(bits), rs3));
+}
+
+void RiscVEmitter::FNMSUB(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2, RiscVReg rs3, Round rm) {
+	Write32(EncodeFR4(Opcode32::FNMSUB, rd, (Funct3)rm, rs1, rs2, BitsToFunct2(bits), rs3));
+}
+
+void RiscVEmitter::FNMADD(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2, RiscVReg rs3, Round rm) {
+	Write32(EncodeFR4(Opcode32::FNMADD, rd, (Funct3)rm, rs1, rs2, BitsToFunct2(bits), rs3));
+}
+
+void RiscVEmitter::FADD(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2, Round rm) {
+	Write32(EncodeFR(Opcode32::OP_FP, rd, (Funct3)rm, rs1, rs2, BitsToFunct2(bits), Funct5::FADD));
+}
+
+void RiscVEmitter::FSUB(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2, Round rm) {
+	Write32(EncodeFR(Opcode32::OP_FP, rd, (Funct3)rm, rs1, rs2, BitsToFunct2(bits), Funct5::FSUB));
+}
+
+void RiscVEmitter::FMUL(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2, Round rm) {
+	Write32(EncodeFR(Opcode32::OP_FP, rd, (Funct3)rm, rs1, rs2, BitsToFunct2(bits), Funct5::FMUL));
+}
+
+void RiscVEmitter::FDIV(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2, Round rm) {
+	Write32(EncodeFR(Opcode32::OP_FP, rd, (Funct3)rm, rs1, rs2, BitsToFunct2(bits), Funct5::FDIV));
+}
+
+void RiscVEmitter::FSQRT(int bits, RiscVReg rd, RiscVReg rs1, Round rm) {
+	Write32(EncodeFR(Opcode32::OP_FP, rd, (Funct3)rm, rs1, F0, BitsToFunct2(bits), Funct5::FSQRT));
+}
+
+void RiscVEmitter::FSGNJ(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	Write32(EncodeFR(Opcode32::OP_FP, rd, Funct3::FSGNJ, rs1, rs2, BitsToFunct2(bits), Funct5::FSGNJ));
+}
+
+void RiscVEmitter::FSGNJN(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	Write32(EncodeFR(Opcode32::OP_FP, rd, Funct3::FSGNJN, rs1, rs2, BitsToFunct2(bits), Funct5::FSGNJ));
+}
+
+void RiscVEmitter::FSGNJX(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	Write32(EncodeFR(Opcode32::OP_FP, rd, Funct3::FSGNJX, rs1, rs2, BitsToFunct2(bits), Funct5::FSGNJ));
+}
+
+void RiscVEmitter::FMIN(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	Write32(EncodeFR(Opcode32::OP_FP, rd, Funct3::FMIN, rs1, rs2, BitsToFunct2(bits), Funct5::FMINMAX));
+}
+
+void RiscVEmitter::FMAX(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	Write32(EncodeFR(Opcode32::OP_FP, rd, Funct3::FMAX, rs1, rs2, BitsToFunct2(bits), Funct5::FMINMAX));
+}
+
+void RiscVEmitter::FCVT(FConv to, FConv from, RiscVReg rd, RiscVReg rs1, Round rm) {
+	int floatBits = std::max(FConvToFloatBits(from), FConvToFloatBits(to));
+	int integerBits = std::max(FConvToIntegerBits(from), FConvToIntegerBits(to));
+
+	_assert_msg_(floatBits > 0, "FCVT can't be used with only GPRs");
+	_assert_msg_(integerBits <= BitsSupported(), "FCVT for %d integer bits, only %d supported", integerBits, BitsSupported());
+	_assert_msg_(floatBits <= FloatBitsSupported(), "FCVT for %d float bits, only %d supported", floatBits, FloatBitsSupported());
+
+	if (integerBits == 0) {
+		// Convert between float widths.
+		Funct2 fromFmt = BitsToFunct2(FConvToFloatBits(from));
+		Funct2 toFmt = BitsToFunct2(FConvToFloatBits(to));
+		Write32(EncodeR(Opcode32::OP_FP, rd, (Funct3)rm, rs1, (RiscVReg)fromFmt, toFmt, Funct5::FCVT_SZ));
+	} else {
+		Funct5 funct5 = FConvToIntegerBits(to) == 0 ? Funct5::FCVT_FROMX : Funct5::FCVT_TOX;
+		FConv integerFmt = FConvToIntegerBits(to) == 0 ? from : to;
+		Funct2 floatFmt = BitsToFunct2(floatBits);
+		_assert_msg_(((int)integerFmt & ~3) == 0, "Got wrong integer bits");
+		Write32(EncodeR(Opcode32::OP_FP, rd, (Funct3)rm, rs1, (RiscVReg)integerFmt, floatFmt, funct5));
+	}
+}
+
+void RiscVEmitter::FMV(FMv to, FMv from, RiscVReg rd, RiscVReg rs1) {
+	int bits = 0;
+	switch (to == FMv::X ? from : to) {
+	case FMv::D: bits = 64; break;
+	case FMv::W: bits = 32; break;
+	case FMv::X: bits = 0; break;
+	}
+
+	_assert_msg_(BitsSupported() >= bits && FloatBitsSupported() >= bits, "FMV cannot be used for %d bits, only %d/%d supported", bits, BitsSupported(), FloatBitsSupported());
+	_assert_msg_((to == FMv::X && from != FMv::X) || (to != FMv::X && from == FMv::X), "%s can only transfer between FPR/GPR", __func__);
+	_assert_msg_(to == FMv::X ? IsGPR(rd) : IsFPR(rd), "%s rd of wrong type", __func__);
+	_assert_msg_(from == FMv::X ? IsGPR(rs1) : IsFPR(rs1), "%s rs1 of wrong type", __func__);
+
+	Funct5 funct5 = to == FMv::X ? Funct5::FMV_TOX : Funct5::FMV_FROMX;
+	Write32(EncodeR(Opcode32::OP_FP, rd, Funct3::FMV, rs1, F0, BitsToFunct2(bits), funct5));
+}
+
+void RiscVEmitter::FEQ(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(IsGPR(rd), "%s rd must be GPR", __func__);
+	_assert_msg_(IsFPR(rs1), "%s rs1 must be FPR", __func__);
+	_assert_msg_(IsFPR(rs2), "%s rs2 must be FPR", __func__);
+	Write32(EncodeR(Opcode32::OP_FP, rd, Funct3::FEQ, rs1, rs2, BitsToFunct2(bits), Funct5::FCMP));
+}
+
+void RiscVEmitter::FLT(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(IsGPR(rd), "%s rd must be GPR", __func__);
+	_assert_msg_(IsFPR(rs1), "%s rs1 must be FPR", __func__);
+	_assert_msg_(IsFPR(rs2), "%s rs2 must be FPR", __func__);
+	Write32(EncodeR(Opcode32::OP_FP, rd, Funct3::FLT, rs1, rs2, BitsToFunct2(bits), Funct5::FCMP));
+}
+
+void RiscVEmitter::FLE(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(IsGPR(rd), "%s rd must be GPR", __func__);
+	_assert_msg_(IsFPR(rs1), "%s rs1 must be FPR", __func__);
+	_assert_msg_(IsFPR(rs2), "%s rs2 must be FPR", __func__);
+	Write32(EncodeR(Opcode32::OP_FP, rd, Funct3::FLE, rs1, rs2, BitsToFunct2(bits), Funct5::FCMP));
+}
+
+void RiscVEmitter::FCLASS(int bits, RiscVReg rd, RiscVReg rs1) {
+	_assert_msg_(IsGPR(rd), "%s rd must be GPR", __func__);
+	_assert_msg_(IsFPR(rs1), "%s rs1 must be FPR", __func__);
+	Write32(EncodeR(Opcode32::OP_FP, rd, Funct3::FCLASS, rs1, F0, BitsToFunct2(bits), Funct5::FMV_TOX));
+}
 
 };
