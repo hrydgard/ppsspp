@@ -286,6 +286,7 @@ bool TestDepalShaders() {
 		config.mask = 0xFF;
 		config.bufferFormat = GE_FORMAT_8888;
 		config.textureFormat = GE_TFMT_CLUT32;
+		config.depthUpperBits = 0;
 
 		ShaderWriter writer(buffer, desc, ShaderStage::Fragment);
 		GenerateDepalFs(writer, config);

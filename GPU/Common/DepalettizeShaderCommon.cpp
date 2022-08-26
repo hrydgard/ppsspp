@@ -47,10 +47,18 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 	const int shift = config.shift;
 	const int mask = config.mask;
 
+	writer.C("  vec2 texcoord = v_texcoord;\n");
+
 	if (config.bufferFormat == GE_FORMAT_DEPTH16) {
 		DepthScaleFactors factors = GetDepthScaleFactors();
 		writer.ConstFloat("z_scale", factors.scale);
 		writer.ConstFloat("z_offset", factors.offset);
+		if (config.depthUpperBits == 0x2) {
+			writer.C("  int x = int(texcoord.x * texSize.x);\n");
+			writer.C("  int bit1 = x & 0x10; int bit2 = x & 0x100;\n");
+			writer.C("  x = (x & 0xFFFFFEEF) | (bit1 << 4) | (bit2 >> 4);\n");
+			writer.C("  texcoord.x = float(x) / texSize.x;\n");
+		}
 	}
 
 	// Sampling turns our texture into floating point. To avoid this, might be able
@@ -66,7 +74,7 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 	// An alternative would be to have a special mode where we keep some extra precision here and sample the CLUT linearly - works for ramps such
 	// as those that Test Drive uses for its color remapping. But would need game specific flagging.
 
-	writer.C("  vec4 color = ").SampleTexture2D("tex", "v_texcoord").C(";\n");
+	writer.C("  vec4 color = ").SampleTexture2D("tex", "texcoord").C(";\n");
 
 	int shiftedMask = mask << shift;
 	switch (config.bufferFormat) {
@@ -98,6 +106,11 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 		writer.C("  int index = (a << 15) | (b << 10) | (g << 5) | (r);\n");
 		break;
 	case GE_FORMAT_DEPTH16:
+		// Byteswap experiment, seems to be wrong.
+		// writer.C("  int d = int(color.x * 65535.0);\n");
+		// writer.C("  d = ((d >> 8) & 0xFF) | ((d << 8) & 0xFF00);\n");
+		// float(d) / 65535.0
+
 		// Remap depth buffer.
 		writer.C("  float depth = (color.x - z_offset) * z_scale;\n");
 

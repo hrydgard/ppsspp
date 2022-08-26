@@ -62,6 +62,6 @@ private:
 	Draw::SamplerState *linearSampler_ = nullptr;
 	Draw2D *draw2D_;
 
-	std::map<u32, Draw2DPipeline *> depalCache_;
+	std::map<u64, Draw2DPipeline *> depalCache_;
 	std::map<u32, ClutTexture *> texCache_;
 };
