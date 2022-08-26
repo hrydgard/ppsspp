@@ -253,6 +253,20 @@ Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (Shade
 	};
 }
 
+void Draw2D::Blit(Draw2DPipeline *pipeline, float srcX1, float srcY1, float srcX2, float srcY2, float dstX1, float dstY1, float dstX2, float dstY2, float srcWidth, float srcHeight, float dstWidth, float dstHeight, bool linear, int scaleFactor) {
+	float dX = 1.0f / (float)dstWidth;
+	float dY = 1.0f / (float)dstHeight;
+	float sX = 1.0f / (float)srcWidth;
+	float sY = 1.0f / (float)srcHeight;
+	Draw2DVertex vtx[4] = {
+		{ -1.0f + 2.0f * dX * dstX1, -(1.0f - 2.0f * dY * dstY1), sX * srcX1, sY * srcY1 },
+		{ -1.0f + 2.0f * dX * dstX2, -(1.0f - 2.0f * dY * dstY1), sX * srcX2, sY * srcY1 },
+		{ -1.0f + 2.0f * dX * dstX1, -(1.0f - 2.0f * dY * dstY2), sX * srcX1, sY * srcY2 },
+		{ -1.0f + 2.0f * dX * dstX2, -(1.0f - 2.0f * dY * dstY2), sX * srcX2, sY * srcY2 },
+	};
+
+	DrawStrip2D(nullptr, vtx, 4, linear, pipeline, srcWidth, srcHeight, scaleFactor);
+}
 
 void Draw2D::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DPipeline *pipeline, float texW, float texH, int scaleFactor) {
 	using namespace Draw;

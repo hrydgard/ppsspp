@@ -48,8 +48,6 @@ public:
 
 	Draw::SamplerState *GetSampler(bool linearFilter);
 
-	void ApplyShader(Draw2DPipeline *pipeline, float bufferW, float bufferH, int renderW, int renderH, const KnownVertexBounds &bounds, u32 uoff, u32 voff);
-
 	void Clear();
 	void Decimate();
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);

@@ -2666,17 +2666,6 @@ void FramebufferManagerCommon::BlitUsingRaster(
 	draw_->GetFramebufferDimensions(src, &srcW, &srcH);
 	draw_->GetFramebufferDimensions(dest, &destW, &destH);
 
-	float dX = 1.0f / (float)destW;
-	float dY = 1.0f / (float)destH;
-	float sX = 1.0f / (float)srcW;
-	float sY = 1.0f / (float)srcH;
-	Draw2DVertex vtx[4] = {
-		{ -1.0f + 2.0f * dX * destX1, -(1.0f - 2.0f * dY * destY1), sX * srcX1, sY * srcY1 },
-		{ -1.0f + 2.0f * dX * destX2, -(1.0f - 2.0f * dY * destY1), sX * srcX2, sY * srcY1 },
-		{ -1.0f + 2.0f * dX * destX1, -(1.0f - 2.0f * dY * destY2), sX * srcX1, sY * srcY2 },
-		{ -1.0f + 2.0f * dX * destX2, -(1.0f - 2.0f * dY * destY2), sX * srcX2, sY * srcY2 },
-	};
-
 	// Unbind the texture first to avoid the D3D11 hazard check (can't set render target to things bound as textures and vice versa, not even temporarily).
 	draw_->BindTexture(0, nullptr);
 	// This will get optimized away in case it's already bound (in VK and GL at least..)
@@ -2687,7 +2676,7 @@ void FramebufferManagerCommon::BlitUsingRaster(
 	draw_->SetViewports(1, &vp);
 	draw_->SetScissorRect(0, 0, (int)dest->Width(), (int)dest->Height());
 
-	draw2D_.DrawStrip2D(nullptr, vtx, 4, linearFilter, pipeline, src->Width(), src->Height(), renderScaleFactor_);
+	draw2D_.Blit(pipeline, srcX1, srcY1, srcX2, srcY2, destX1, destY1, destX2, destY2, (float)srcW, (float)srcH, (float)destW, (float)destH, linearFilter , renderScaleFactor_);
 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
