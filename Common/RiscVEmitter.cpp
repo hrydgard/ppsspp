@@ -47,6 +47,11 @@ static inline bool SupportsAtomic() {
 	return true;
 }
 
+static inline bool SupportsZicsr() {
+	// TODO
+	return true;
+}
+
 enum class Opcode32 {
 	// Note: invalid, just used for FixupBranch.
 	ZERO = 0b0000000,
@@ -128,6 +133,13 @@ enum class Funct3 {
 	FLE = 0b000,
 	FLT = 0b001,
 	FEQ = 0b010,
+
+	CSRRW = 0b001,
+	CSRRS = 0b010,
+	CSRRC = 0b011,
+	CSRRWI = 0b101,
+	CSRRSI = 0b110,
+	CSRRCI = 0b111,
 };
 
 enum class Funct2 {
@@ -233,7 +245,7 @@ static inline u32 EncodeGI(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg
 }
 
 static inline u32 EncodeI(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, Funct12 funct12) {
-	return EncodeI(opcode, rd, funct3, rs1, (s32)funct12);
+	return EncodeI(opcode, rd, funct3, rs1, ((s32)funct12 << 20) >> 20);
 }
 
 static inline u32 EncodeGI(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, Funct12 funct12) {
@@ -1043,6 +1055,10 @@ void RiscVEmitter::FCVT(FConv to, FConv from, RiscVReg rd, RiscVReg rs1, Round r
 		// Convert between float widths.
 		Funct2 fromFmt = BitsToFunct2(FConvToFloatBits(from));
 		Funct2 toFmt = BitsToFunct2(FConvToFloatBits(to));
+		if (FConvToFloatBits(to) > FConvToFloatBits(from)) {
+			_assert_msg_(rm == Round::DYNAMIC || rm == Round::NEAREST_EVEN, "Invalid rounding mode for widening FCVT");
+			rm = Round::NEAREST_EVEN;
+		}
 		Write32(EncodeR(Opcode32::OP_FP, rd, (Funct3)rm, rs1, (RiscVReg)fromFmt, toFmt, Funct5::FCVT_SZ));
 	} else {
 		Funct5 funct5 = FConvToIntegerBits(to) == 0 ? Funct5::FCVT_FROMX : Funct5::FCVT_TOX;
@@ -1095,6 +1111,45 @@ void RiscVEmitter::FCLASS(int bits, RiscVReg rd, RiscVReg rs1) {
 	_assert_msg_(IsGPR(rd), "%s rd must be GPR", __func__);
 	_assert_msg_(IsFPR(rs1), "%s rs1 must be FPR", __func__);
 	Write32(EncodeR(Opcode32::OP_FP, rd, Funct3::FCLASS, rs1, F0, BitsToFunct2(bits), Funct5::FMV_TOX));
+}
+
+void RiscVEmitter::CSRRW(RiscVReg rd, Csr csr, RiscVReg rs1) {
+	_assert_msg_(SupportsZicsr(), "%s instruction not supported", __func__);
+	_assert_msg_((u32)csr <= 0x00000FFF, "%s with invalid CSR number", __func__);
+	Write32(EncodeGI(Opcode32::SYSTEM, rd, Funct3::CSRRW, rs1, (Funct12)csr));
+}
+
+void RiscVEmitter::CSRRS(RiscVReg rd, Csr csr, RiscVReg rs1) {
+	_assert_msg_(SupportsZicsr(), "%s instruction not supported", __func__);
+	_assert_msg_((u32)csr <= 0x00000FFF, "%s with invalid CSR number", __func__);
+	Write32(EncodeGI(Opcode32::SYSTEM, rd, Funct3::CSRRS, rs1, (Funct12)csr));
+}
+
+void RiscVEmitter::CSRRC(RiscVReg rd, Csr csr, RiscVReg rs1) {
+	_assert_msg_(SupportsZicsr(), "%s instruction not supported", __func__);
+	_assert_msg_((u32)csr <= 0x00000FFF, "%s with invalid CSR number", __func__);
+	Write32(EncodeGI(Opcode32::SYSTEM, rd, Funct3::CSRRC, rs1, (Funct12)csr));
+}
+
+void RiscVEmitter::CSRRWI(RiscVReg rd, Csr csr, u8 uimm5) {
+	_assert_msg_(SupportsZicsr(), "%s instruction not supported", __func__);
+	_assert_msg_((u32)csr <= 0x00000FFF, "%s with invalid CSR number", __func__);
+	_assert_msg_((u32)uimm5 <= 0x1F, "%s can only specify lowest 5 bits", __func__);
+	Write32(EncodeGI(Opcode32::SYSTEM, rd, Funct3::CSRRWI, (RiscVReg)uimm5, (Funct12)csr));
+}
+
+void RiscVEmitter::CSRRSI(RiscVReg rd, Csr csr, u8 uimm5) {
+	_assert_msg_(SupportsZicsr(), "%s instruction not supported", __func__);
+	_assert_msg_((u32)csr <= 0x00000FFF, "%s with invalid CSR number", __func__);
+	_assert_msg_((u32)uimm5 <= 0x1F, "%s can only set lowest 5 bits", __func__);
+	Write32(EncodeGI(Opcode32::SYSTEM, rd, Funct3::CSRRSI, (RiscVReg)uimm5, (Funct12)csr));
+}
+
+void RiscVEmitter::CSRRCI(RiscVReg rd, Csr csr, u8 uimm5) {
+	_assert_msg_(SupportsZicsr(), "%s instruction not supported", __func__);
+	_assert_msg_((u32)csr <= 0x00000FFF, "%s with invalid CSR number", __func__);
+	_assert_msg_((u32)uimm5 <= 0x1F, "%s can only clear lowest 5 bits", __func__);
+	Write32(EncodeGI(Opcode32::SYSTEM, rd, Funct3::CSRRCI, (RiscVReg)uimm5, (Funct12)csr));
 }
 
 };

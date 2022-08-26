@@ -90,6 +90,19 @@ enum class FMv {
 	D,
 };
 
+enum class Csr {
+	FFlags = 0x001,
+	FRm = 0x002,
+	FCsr = 0x003,
+
+	Cycle = 0xC00,
+	Time = 0xC01,
+	InstRet = 0xC02,
+	CycleH = 0xC80,
+	TimeH = 0xC81,
+	InstRetH = 0xC82,
+};
+
 struct FixupBranch {
 	FixupBranch(const u8 *p, FixupBranchType t) : ptr(p), type(t) {}
 	~FixupBranch();
@@ -296,6 +309,28 @@ public:
 	void FLT(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
 	void FLE(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
 	void FCLASS(int bits, RiscVReg rd, RiscVReg rs1);
+
+	// Control state register manipulation.
+	void CSRRW(RiscVReg rd, Csr csr, RiscVReg rs1);
+	void CSRRS(RiscVReg rd, Csr csr, RiscVReg rs1);
+	void CSRRC(RiscVReg rd, Csr csr, RiscVReg rs1);
+	void CSRRWI(RiscVReg rd, Csr csr, u8 uimm5);
+	void CSRRSI(RiscVReg rd, Csr csr, u8 uimm5);
+	void CSRRCI(RiscVReg rd, Csr csr, u8 uimm5);
+
+	void FRRM(RiscVReg rd) {
+		CSRRS(rd, Csr::FRm, X0);
+	}
+	void FSRM(RiscVReg rs) {
+		CSRRW(X0, Csr::FRm, rs);
+	}
+	void FSRMI(RiscVReg rd, Round rm) {
+		_assert_msg_(rm != Round::DYNAMIC, "Cannot set FRm to DYNAMIC");
+		CSRRWI(rd, Csr::FRm, (uint8_t)rm);
+	}
+	void FSRMI(Round rm) {
+		FSRMI(X0, rm);
+	}
 
 private:
 	void SetJumpTarget(FixupBranch &branch, const void *dst);
