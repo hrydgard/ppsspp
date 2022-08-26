@@ -55,11 +55,13 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 		writer.ConstFloat("z_scale", factors.scale);
 		writer.ConstFloat("z_offset", factors.offset);
 		if (config.depthUpperBits == 0x2) {
-			writer.C("  int x = int((texcoord.x / scaleFactor) * texSize.x);\n");
-			writer.C("  int b1 = 4; int b2 = 8; int diff = (b2 - b1);\n");
-			writer.C("  int bit1 = x & (1 << b1); int bit2 = x & (1 << b2);\n");
-			writer.C("  x = (x & ~((1 << b1) | (1 << b2))) | (b1 << diff) | (b2 >> diff);\n");
-			writer.C("  texcoord.x = (float(x) / texSize.x) * scaleFactor;\n");
+			writer.C(R"(
+  int x = int((texcoord.x / scaleFactor) * texSize.x);
+  int temp = x & 0xFFFFFE0F;
+  temp |= (x >> 1) & 0xF0;
+  temp |= (x << 4) & 0x100;
+  texcoord.x = (float(temp) / texSize.x) * scaleFactor;
+)");
 		}
 	}
 
