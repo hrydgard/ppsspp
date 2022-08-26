@@ -103,6 +103,17 @@ inline int dimHeight(u16 dim) {
 	return 1 << ((dim >> 8) & 0xFF);
 }
 
+int nextPow2(unsigned int v) {
+	v--;
+	v |= v >> 1;
+	v |= v >> 2;
+	v |= v >> 4;
+	v |= v >> 8;
+	v |= v >> 16;
+	v++;
+	return v;
+}
+
 // Vulkan color formats:
 // TODO
 TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D)
@@ -1024,9 +1035,18 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 	nextFramebufferTextureChannel_ = RASTER_COLOR;
 
 	if (framebufferManager_->UseBufferedRendering()) {
+		// Hack!
+		u64 depthUpperBits = channel == RASTER_DEPTH ? ((gstate.getTextureAddress(0) & 0x600000) >> 20) : 0;
+		bool needsSpecialSwizzle = depthUpperBits == 2;
+
 		// We need to force it, since we may have set it on a texture before attaching.
 		gstate_c.curTextureWidth = framebuffer->bufferWidth;
 		gstate_c.curTextureHeight = framebuffer->bufferHeight;
+
+		if (needsSpecialSwizzle) {
+			gstate_c.curTextureWidth = nextPow2(gstate_c.curTextureWidth);
+		}
+
 		if (gstate_c.bgraTexture) {
 			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		} else if ((gstate_c.curTextureXOffset == 0) != (fbInfo.xOffset == 0) || (gstate_c.curTextureYOffset == 0) != (fbInfo.yOffset == 0)) {
@@ -1884,6 +1904,7 @@ static bool CanUseSmoothDepal(const GPUgstate &gstate, GEBufferFormat framebuffe
 	return false;
 }
 
+
 void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel) {
 	Draw2DPipeline *textureShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
@@ -1951,13 +1972,25 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	if (textureShader) {
 		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 		ClutTexture clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
-		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight);
+
+		u64 depthUpperBits = depth ? ((gstate.getTextureAddress(0) & 0x600000) >> 20) : 0;
+		bool needsSpecialSwizzle = depthUpperBits == 2;
+
+		int depalWidth = framebuffer->renderWidth;
+		int texWidth = framebuffer->width;
+		if (needsSpecialSwizzle) {
+			texWidth = nextPow2(framebuffer->width);
+			depalWidth = texWidth * framebuffer->renderScaleFactor;
+			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+		}
+
+		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(TempFBO::DEPAL, depalWidth, framebuffer->renderHeight);
 		draw_->BindTexture(0, nullptr);
 		draw_->BindTexture(1, nullptr);
 		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
 
-		draw_->SetScissorRect(0, 0, (int)framebuffer->renderWidth, (int)framebuffer->renderHeight);
-		Draw::Viewport vp{ 0.0f, 0.0f, (float)framebuffer->renderWidth, (float)framebuffer->renderHeight, 0.0f, 1.0f };
+		draw_->SetScissorRect(0, 0, (int)depalWidth, (int)framebuffer->renderHeight);
+		Draw::Viewport vp{ 0.0f, 0.0f, (float)depalWidth, (float)framebuffer->renderHeight, 0.0f, 1.0f };
 		draw_->SetViewports(1, &vp);
 
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, 0);
@@ -1971,7 +2004,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		const KnownVertexBounds &bounds = gstate_c.vertBounds;
 		float u1 = 0.0f;
 		float v1 = 0.0f;
-		float u2 = framebuffer->renderWidth;
+		float u2 = depalWidth;
 		float v2 = framebuffer->renderHeight;
 		if (bounds.minV < bounds.maxV) {
 			u1 = bounds.minU + gstate_c.curTextureXOffset;
@@ -1986,7 +2019,9 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		u2 *= framebuffer->renderScaleFactor;
 		v2 *= framebuffer->renderScaleFactor;
 
-		draw2D_->Blit(textureShader, u1, v1, u2, v2, u1, v1, u2, v2, framebuffer->renderWidth, framebuffer->renderHeight, framebuffer->renderWidth, framebuffer->renderHeight, false, framebuffer->renderScaleFactor);
+		draw2D_->Blit(textureShader, u1, v1, u2, v2, u1, v1, u2, v2, framebuffer->renderWidth, framebuffer->renderHeight, depalWidth, framebuffer->renderHeight, false, framebuffer->renderScaleFactor);
+
+		gstate_c.curTextureWidth = texWidth;
 
 		draw_->BindTexture(0, nullptr);
 		framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");
