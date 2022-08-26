@@ -40,7 +40,7 @@ static const SamplerDef samplers[1] = {
 	{ "tex" },
 };
 
-static const UniformDef uniforms[2] = {
+const UniformDef g_draw2Duniforms[2] = {
 	{ "vec2", "texSize", 0 },
 	{ "float", "scaleFactor", 1},
 };
@@ -102,7 +102,7 @@ Draw2DPipelineInfo GenerateDraw2D565ToDepthFs(ShaderWriter &writer) {
 
 Draw2DPipelineInfo GenerateDraw2D565ToDepthDeswizzleFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
-	writer.BeginFSMain(uniforms, varyings, FSFLAG_WRITEDEPTH);
+	writer.BeginFSMain(g_draw2Duniforms, varyings, FSFLAG_WRITEDEPTH);
 	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
 	// Unlike when just copying a depth buffer, here we're generating new depth values so we'll
 	// have to apply the scaling.

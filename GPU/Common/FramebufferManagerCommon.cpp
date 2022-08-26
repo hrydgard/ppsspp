@@ -725,33 +725,30 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 				}
 
 				if (IsBufferFormat16Bit(src->fb_format) && !IsBufferFormat16Bit(dst->fb_format)) {
-					WARN_LOG_N_TIMES(i16to32, 50, G3D, "16-bit to 32-bit reinterpret needed: %s to %s", GeBufferFormatToString(src->fb_format), GeBufferFormatToString(dst->fb_format));
 					// We halve the X coordinates in the destination framebuffer.
 					// The shader will collect two pixels worth of input data and merge into one.
 					dstX1 *= 0.5f;
 					dstX2 *= 0.5f;
 				} else if (!IsBufferFormat16Bit(src->fb_format) && IsBufferFormat16Bit(dst->fb_format)) {
-					WARN_LOG_N_TIMES(i32to16, 50, G3D, "32-bit to 16-bit reinterpret needed: %s to %s", GeBufferFormatToString(src->fb_format), GeBufferFormatToString(dst->fb_format));
 					// We double the X coordinates in the destination framebuffer.
 					// The shader will sample and depending on the X coordinate & 1, use the upper or lower bits.
 					dstX1 *= 2.0f;
 					dstX2 *= 2.0f;
 				}
 
-				if (IsBufferFormat16Bit(src->fb_format) && IsBufferFormat16Bit(dst->fb_format)) {
-					// Reinterpret!
-					WARN_LOG_N_TIMES(reint, 20, G3D, "Reinterpret detected from %08x_%s to %08x_%s",
-						src->fb_address, GeBufferFormatToString(src->fb_format),
-						dst->fb_address, GeBufferFormatToString(dst->fb_format));
-					pipeline = reinterpretFromTo_[(int)src->fb_format][(int)dst->fb_format];
-					pass_name = reinterpretStrings[(int)src->fb_format][(int)dst->fb_format];
-					if (!pipeline) {
-						pipeline = draw2D_.Create2DPipeline([=](ShaderWriter &shaderWriter) -> Draw2DPipelineInfo {
-							return GenerateReinterpretFragmentShader(shaderWriter, src->fb_format, dst->fb_format);
-						});
-						reinterpretFromTo_[(int)src->fb_format][(int)dst->fb_format] = pipeline;
-					}
+				// Reinterpret!
+				WARN_LOG_N_TIMES(reint, 20, G3D, "Reinterpret detected from %08x_%s to %08x_%s",
+					src->fb_address, GeBufferFormatToString(src->fb_format),
+					dst->fb_address, GeBufferFormatToString(dst->fb_format));
+				pipeline = reinterpretFromTo_[(int)src->fb_format][(int)dst->fb_format];
+				pass_name = reinterpretStrings[(int)src->fb_format][(int)dst->fb_format];
+				if (!pipeline) {
+					pipeline = draw2D_.Create2DPipeline([=](ShaderWriter &shaderWriter) -> Draw2DPipelineInfo {
+						return GenerateReinterpretFragmentShader(shaderWriter, src->fb_format, dst->fb_format);
+					});
+					reinterpretFromTo_[(int)src->fb_format][(int)dst->fb_format] = pipeline;
 				}
+
 				gpuStats.numReinterpretCopies++;
 			} else if (IsBufferFormat16Bit(src->fb_format) && IsBufferFormat16Bit(dst->fb_format)) {
 				// Fake reinterpret - just clear the way we always did on Vulkan. Just clear color and stencil.
@@ -2575,8 +2572,8 @@ void FramebufferManagerCommon::DeviceLost() {
 
 	presentation_->DeviceLost();
 
-	for (int i = 0; i < 3; i++) {
-		for (int j = 0; j < 3; j++) {
+	for (int i = 0; i < ARRAY_SIZE(reinterpretFromTo_); i++) {
+		for (int j = 0; j < ARRAY_SIZE(reinterpretFromTo_); j++) {
 			DoRelease(reinterpretFromTo_[i][j]);
 		}
 	}

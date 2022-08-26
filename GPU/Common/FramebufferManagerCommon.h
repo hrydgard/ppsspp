@@ -533,10 +533,10 @@ protected:
 		FBO_OLD_USAGE_FLAG = 15,
 	};
 
-	// Thin3D stuff for reinterpreting image data between the various 16-bit formats.
+	// Thin3D stuff for reinterpreting image data between the various 16-bit color formats.
 	// Safe, not optimal - there might be input attachment tricks, etc, but we can't use them
 	// since we don't want N different implementations.
-	Draw2DPipeline *reinterpretFromTo_[3][3]{};
+	Draw2DPipeline *reinterpretFromTo_[4][4]{};
 
 	// Common implementation of stencil buffer upload. Also not 100% optimal, but not performance
 	// critical either.

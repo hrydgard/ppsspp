@@ -22,12 +22,6 @@ struct InputDef {
 	int semantic;
 };
 
-struct UniformDef {
-	const char *type;
-	const char *name;
-	int index;
-};
-
 struct VaryingDef {
 	const char *type;
 	const char *name;
