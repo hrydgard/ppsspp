@@ -169,8 +169,8 @@ Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBuf
 	} else if (IsBufferFormat16Bit(from) && !IsBufferFormat16Bit(to)) {
 		// 16-to-32-bit (two pixels, draw size is halved)
 
-		writer.C("  vec4 valLeft = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
-		writer.C("  vec4 valRight = ").SampleTexture2D("tex", "v_texcoord.xy + vec2(0.5 / texSize.x, 0.0)").C(";\n");
+		writer.C("  vec4 valLeft = ").SampleTexture2D("tex", "v_texcoord.xy + vec2(-0.25 / texSize.x, 0.0)").C(";\n");
+		writer.C("  vec4 valRight = ").SampleTexture2D("tex", "v_texcoord.xy + vec2(0.25 / texSize.x, 0.0)").C(";\n");
 		writer.C("  vec4 outColor = unpackColor(packColor(valLeft), packColor(valRight));\n");
 
 		_assert_("not yet implemented");
