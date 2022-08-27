@@ -293,6 +293,34 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				keys_.depthStencil.stencilWriteMask = stencilState.writeMask;
 				dynState_.useStencil = true;
 				dynState_.stencilRef = stencilState.testRef;
+
+				// Nasty special case for Spongebob and similar where it tries to write zeros to alpha/stencil during
+				// depth-fail. We can't write to alpha then because the pixel is killed. However, we can invert the depth
+				// test and modify the alpha function...
+				if (gstate.isDepthTestEnabled() && !gstate.isDepthWriteEnabled() && stencilState.zFail == GE_STENCILOP_ZERO &&
+					stencilState.sFail == GE_STENCILOP_KEEP && stencilState.zPass == GE_STENCILOP_KEEP &&
+					stencilState.testFunc == GE_COMP_ALWAYS &&
+					stencilState.writeMask == 0xFF && stencilState.testMask == 0xFF && stencilState.testRef == 0xFF) {
+					keys_.blend.blendEnable = true;
+					keys_.blend.blendOpAlpha = D3D11_BLEND_OP_ADD;
+					keys_.blend.blendOpColor = D3D11_BLEND_OP_ADD;
+					keys_.blend.srcColor = D3D11_BLEND_ZERO;
+					keys_.blend.destColor = D3D11_BLEND_ZERO;
+					keys_.blend.logicOpEnable = false;
+					keys_.blend.srcAlpha = D3D11_BLEND_ZERO;
+					keys_.blend.destAlpha = D3D11_BLEND_ZERO;
+					keys_.blend.colorWriteMask = D3D11_COLOR_WRITE_ENABLE_ALPHA;
+
+					keys_.depthStencil.depthCompareOp = D3D11_COMPARISON_LESS;  // Inverse of GREATER_EQUAL
+					keys_.depthStencil.stencilCompareFunc = D3D11_COMPARISON_ALWAYS;
+					// Invert
+					keys_.depthStencil.stencilPassOp = D3D11_STENCIL_OP_ZERO;
+					keys_.depthStencil.stencilFailOp = D3D11_STENCIL_OP_ZERO;
+					keys_.depthStencil.stencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+
+					// TODO: Need to set in a way that carries over to the next draw..
+					gstate_c.Dirty(DIRTY_BLEND_STATE);
+				}
 			} else {
 				keys_.depthStencil.stencilTestEnable = false;
 				dynState_.useStencil = false;

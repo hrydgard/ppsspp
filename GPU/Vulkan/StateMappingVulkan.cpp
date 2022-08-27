@@ -301,6 +301,33 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				dynState.stencilRef = stencilState.testRef;
 				dynState.stencilCompareMask = stencilState.testMask;
 				dynState.stencilWriteMask = stencilState.writeMask;
+
+				// Nasty special case for Spongebob and similar where it tries to write zeros to alpha/stencil during
+				// depth-fail. We can't write to alpha then because the pixel is killed. However, we can invert the depth
+				// test and modify the alpha function...
+				if (gstate.isDepthTestEnabled() && !gstate.isDepthWriteEnabled() && stencilState.zFail == GE_STENCILOP_ZERO &&
+					stencilState.sFail == GE_STENCILOP_KEEP && stencilState.zPass == GE_STENCILOP_KEEP &&
+					stencilState.testFunc == GE_COMP_ALWAYS &&
+					stencilState.writeMask == 0xFF && stencilState.testMask == 0xFF && stencilState.testRef == 0xFF) {
+					key.blendEnable = true;
+					key.blendOpAlpha = VK_BLEND_OP_ADD;
+					key.blendOpColor = VK_BLEND_OP_ADD;
+					key.srcColor = VK_BLEND_FACTOR_ZERO;
+					key.destColor = VK_BLEND_FACTOR_ZERO;
+					key.logicOpEnable = false;
+					key.srcAlpha = VK_BLEND_FACTOR_ZERO;
+					key.destAlpha = VK_BLEND_FACTOR_ZERO;
+					key.colorWriteMask = VK_COLOR_COMPONENT_A_BIT;
+					key.depthCompareOp = VK_COMPARE_OP_LESS;  // Inverse of GREATER_EQUAL
+					key.stencilCompareOp = VK_COMPARE_OP_ALWAYS;
+					// Invert
+					key.stencilPassOp = VK_STENCIL_OP_ZERO;
+					key.stencilFailOp = VK_STENCIL_OP_ZERO;
+					key.stencilDepthFailOp = VK_STENCIL_OP_KEEP;
+
+					// TODO: Need to set in a way that carries over to the next draw..
+					gstate_c.Dirty(DIRTY_BLEND_STATE);
+				}
 			} else {
 				key.stencilTestEnable = false;
 				key.stencilCompareOp = VK_COMPARE_OP_ALWAYS;
