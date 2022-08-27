@@ -447,32 +447,6 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 			// TODO: Is it worth trying to upload the depth buffer (only if it wasn't copied above..?)
 		}
 
-		// Let's check for depth buffer overlap. Might be interesting (not that interesting anymore..)
-		bool sharingReported = false;
-		for (size_t i = 0, end = vfbs_.size(); i < end; ++i) {
-			if (vfbs_[i]->z_stride != 0 && params.fb_address == vfbs_[i]->z_address) {
-				// If it's clearing it, most likely it just needs more video memory.
-				// Technically it could write something interesting and the other might not clear, but that's not likely.
-				if (params.isDrawing) {
-					if (params.fb_address != params.z_address && vfbs_[i]->fb_address != vfbs_[i]->z_address) {
-						WARN_LOG_REPORT(SCEGE, "FBO created from existing depthbuffer as color, %08x/%08x and %08x/%08x", params.fb_address, params.z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
-					}
-				}
-			} else if (params.z_stride != 0 && params.z_address == vfbs_[i]->fb_address) {
-				// If it's clearing it, then it's probably just the reverse of the above case.
-				if (params.isWritingDepth) {
-					WARN_LOG_REPORT(SCEGE, "FBO using existing buffer as depthbuffer, %08x/%08x and %08x/%08x", params.fb_address, params.z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
-				}
-			} else if (vfbs_[i]->z_stride != 0 && params.z_address == vfbs_[i]->z_address && params.fb_address != vfbs_[i]->fb_address && !sharingReported) {
-				// This happens a lot, but virtually always it's cleared.
-				// It's possible the other might not clear, but when every game is reported it's not useful.
-				if (params.isWritingDepth && (vfbs_[i]->usageFlags & FB_USAGE_RENDER_DEPTH)) {
-					WARN_LOG(SCEGE, "FBO reusing depthbuffer, c=%08x/d=%08x and c=%08x/d=%08x", params.fb_address, params.z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
-					sharingReported = true;
-				}
-			}
-		}
-
 		// We already have it!
 	} else if (vfb != currentRenderVfb_) {
 		// Use it as a render target.
