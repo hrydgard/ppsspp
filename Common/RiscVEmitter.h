@@ -47,6 +47,8 @@ enum RiscVReg {
 enum class FixupBranchType {
 	B,
 	J,
+	CB,
+	CJ,
 };
 
 enum class Fence {
@@ -345,10 +347,72 @@ public:
 		FSRMI(R_ZERO, rm);
 	}
 
+	// Compressed instructions.
+	void C_ADDI4SPN(RiscVReg rd, u32 nzuimm10);
+	void C_FLD(RiscVReg rd, RiscVReg addr, u8 uimm8);
+	void C_LW(RiscVReg rd, RiscVReg addr, u8 uimm7);
+	void C_FLW(RiscVReg rd, RiscVReg addr, u8 uimm7);
+	void C_LD(RiscVReg rd, RiscVReg addr, u8 uimm8);
+	void C_FSD(RiscVReg rs2, RiscVReg addr, u8 uimm8);
+	void C_SW(RiscVReg rs2, RiscVReg addr, u8 uimm7);
+	void C_FSW(RiscVReg rs2, RiscVReg addr, u8 uimm7);
+	void C_SD(RiscVReg rs2, RiscVReg addr, u8 uimm8);
+
+	void C_NOP();
+	void C_ADDI(RiscVReg rd, s8 nzsimm6);
+	void C_JAL(const void *dst);
+	FixupBranch C_JAL();
+	void C_ADDIW(RiscVReg rd, s8 simm6);
+	void C_LI(RiscVReg rd, s8 simm6);
+	void C_ADDI16SP(s32 nzsimm10);
+	void C_LUI(RiscVReg rd, s32 nzsimm18);
+	void C_SRLI(RiscVReg rd, u8 nzuimm6);
+	void C_SRAI(RiscVReg rd, u8 nzuimm6);
+	void C_ANDI(RiscVReg rd, s8 simm6);
+	void C_SUB(RiscVReg rd, RiscVReg rs2);
+	void C_XOR(RiscVReg rd, RiscVReg rs2);
+	void C_OR(RiscVReg rd, RiscVReg rs2);
+	void C_AND(RiscVReg rd, RiscVReg rs2);
+	void C_SUBW(RiscVReg rd, RiscVReg rs2);
+	void C_ADDW(RiscVReg rd, RiscVReg rs2);
+	void C_J(const void *dst);
+	void C_BEQZ(RiscVReg rs1, const void *dst);
+	void C_BNEZ(RiscVReg rs1, const void *dst);
+	FixupBranch C_J();
+	FixupBranch C_BEQZ(RiscVReg rs1);
+	FixupBranch C_BNEZ(RiscVReg rs1);
+
+	void C_SLLI(RiscVReg rd, u8 nzuimm6);
+	void C_FLDSP(RiscVReg rd, u32 uimm9);
+	void C_LWSP(RiscVReg rd, u8 uimm8);
+	void C_FLWSP(RiscVReg rd, u8 uimm8);
+	void C_LDSP(RiscVReg rd, u32 uimm9);
+	void C_JR(RiscVReg rs1);
+	void C_MV(RiscVReg rd, RiscVReg rs2);
+	void C_EBREAK();
+	void C_JALR(RiscVReg rs1);
+	void C_ADD(RiscVReg rd, RiscVReg rs2);
+	void C_FSDSP(RiscVReg rs2, u32 uimm9);
+	void C_SWSP(RiscVReg rs2, u8 uimm8);
+	void C_FSWSP(RiscVReg rs2, u8 uimm8);
+	void C_SDSP(RiscVReg rs2, u32 uimm9);
+
+	bool CBInRange(const void *func) const;
+	bool CJInRange(const void *func) const;
+
+	bool SetAutoCompress(bool flag) {
+		bool prev = autoCompress_;
+		autoCompress_ = flag;
+		return prev;
+	}
+	bool AutoCompress() const;
+
 private:
 	void SetJumpTarget(FixupBranch &branch, const void *dst);
 	bool BInRange(const void *src, const void *dst) const;
 	bool JInRange(const void *src, const void *dst) const;
+	bool CBInRange(const void *src, const void *dst) const;
+	bool CJInRange(const void *src, const void *dst) const;
 
 	void SetRegToImmediate(RiscVReg rd, uint64_t value, RiscVReg temp);
 
@@ -385,9 +449,8 @@ private:
 	}
 
 	inline void Write32(u32 value) {
-		*(u32 *)writable_ = value;
-		code_ += 4;
-		writable_ += 4;
+		Write16(value & 0x0000FFFF);
+		Write16(value >> 16);
 	}
 	inline void Write16(u16 value) {
 		*(u16 *)writable_ = value;
@@ -398,6 +461,7 @@ private:
 	const u8 *code_ = nullptr;
 	u8 *writable_ = nullptr;
 	const u8 *lastCacheFlushEnd_ = nullptr;
+	bool autoCompress_ = false;
 };
 
 class MIPSCodeBlock : public CodeBlock<RiscVEmitter> {

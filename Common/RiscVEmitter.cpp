@@ -79,6 +79,12 @@ enum class Opcode32 {
 	SYSTEM = 0b1110011,
 };
 
+enum class Opcode16 {
+	C0 = 0b00,
+	C1 = 0b01,
+	C2 = 0b10,
+};
+
 enum class Funct3 {
 	// Note: invalid, just used for FixupBranch.
 	ZERO = 0b000,
@@ -141,12 +147,56 @@ enum class Funct3 {
 	CSRRWI = 0b101,
 	CSRRSI = 0b110,
 	CSRRCI = 0b111,
+
+	C_ADDI4SPN = 0b000,
+	C_FLD = 0b001,
+	C_LW = 0b010,
+	C_FLW = 0b011,
+	C_LD = 0b011,
+	C_FSD = 0b101,
+	C_SW = 0b110,
+	C_FSW = 0b111,
+	C_SD = 0b111,
+
+	C_ADDI = 0b000,
+	C_JAL = 0b001,
+	C_ADDIW = 0b001,
+	C_LI = 0b010,
+	C_LUI = 0b011,
+	C_ARITH = 0b100,
+	C_J = 0b101,
+	C_BEQZ = 0b110,
+	C_BNEZ = 0b111,
+
+	C_SLLI = 0b000,
+	C_FLDSP = 0b001,
+	C_LWSP = 0b010,
+	C_FLWSP = 0b011,
+	C_LDSP = 0b011,
+	C_ADD = 0b100,
+	C_FSDSP = 0b101,
+	C_SWSP = 0b110,
+	C_FSWSP = 0b111,
+	C_SDSP = 0b111,
 };
 
 enum class Funct2 {
 	S = 0b00,
 	D = 0b01,
 	Q = 0b11,
+
+	C_SRLI = 0b00,
+	C_SRAI = 0b01,
+	C_ANDI = 0b10,
+	C_REGARITH = 0b11,
+
+	C_SUB = 0b00,
+	C_XOR = 0b01,
+	C_OR = 0b10,
+	C_AND = 0b11,
+
+	C_SUBW = 0b00,
+	C_ADDW = 0b01,
 };
 
 enum class Funct7 {
@@ -186,14 +236,38 @@ enum class Funct5 {
 	FMV_FROMX = 0b11110,
 };
 
+enum class Funct4 {
+	C_JR = 0b1000,
+	C_MV = 0b1000,
+	C_JALR = 0b1001,
+	C_ADD = 0b1001,
+};
+
+enum class Funct6 {
+	C_OP = 0b100011,
+	C_OP_32 = 0b100111,
+};
+
 enum class Funct12 {
 	ECALL = 0b000000000000,
 	EBREAK = 0b000000000001,
 };
 
+enum class RiscCReg {
+	X8, X9, X10, X11, X12, X13, X14, X15,
+};
+
 static inline RiscVReg DecodeReg(RiscVReg reg) { return (RiscVReg)(reg & 0x1F); }
 static inline bool IsGPR(RiscVReg reg) { return reg < 0x20; }
 static inline bool IsFPR(RiscVReg reg) { return (reg & 0x20) != 0 && (int)reg < 0x40; }
+
+static inline bool CanCompress(RiscVReg reg) {
+	return (DecodeReg(reg) & 0x18) == 0x08;
+}
+static inline RiscCReg CompressReg(RiscVReg reg) {
+	_assert_msg_(CanCompress(reg), "Compressed reg must be between 8 and 15");
+	return (RiscCReg)(reg & 0x07);
+}
 
 static inline s32 SignReduce32(s32 v, int width) {
 	int shift = 32 - width;
@@ -343,6 +417,104 @@ static inline u32 EncodeGJ(Opcode32 opcode, RiscVReg rd, s32 simm21) {
 	return EncodeJ(opcode, rd, simm21);
 }
 
+static inline u16 EncodeCR(Opcode16 op, RiscVReg rs2, RiscVReg rd, Funct4 funct4) {
+	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
+	return (u16)op | ((u16)rs2 << 2) | ((u16)rd << 7) | ((u16)funct4 << 12);
+}
+
+static inline u16 EncodeCI(Opcode16 op, u8 uimm6, RiscVReg rd, Funct3 funct3) {
+	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
+	_assert_msg_(uimm6 <= 0x3F, "CI immediate overflow: %04x", uimm6);
+	u16 imm4_0 = ImmBits16(uimm6, 0, 5);
+	u16 imm5 = ImmBit16(uimm6, 5);
+	return (u16)op | (imm4_0 << 2) | ((u16)rd << 7) | (imm5 << 12) | ((u16)funct3 << 13);
+}
+
+static inline u16 EncodeCSS(Opcode16 op, RiscVReg rs2, u8 uimm6, Funct3 funct3) {
+	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
+	_assert_msg_(uimm6 <= 0x3F, "CI immediate overflow: %04x", uimm6);
+	return (u16)op | ((u16)rs2 << 2) | ((u16)uimm6 << 7) | ((u16)funct3 << 13);
+}
+
+static inline u16 EncodeCIW(Opcode16 op, RiscCReg rd, u8 uimm8, Funct3 funct3) {
+	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
+	return (u16)op | ((u16)rd << 2) | ((u16)uimm8 << 5) | ((u16)funct3 << 13);
+}
+
+static inline u16 EncodeCL(Opcode16 op, RiscCReg rd, u8 uimm2, RiscCReg rs1, u8 uimm3, Funct3 funct3) {
+	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
+	_assert_msg_(uimm2 <= 3, "CL immediate1 overflow: %04x", uimm2);
+	_assert_msg_(uimm3 <= 7, "CL immediate2 overflow: %04x", uimm3);
+	return (u16)op | ((u16)rd << 2) | ((u16)uimm2 << 5) | ((u16)rs1 << 7) | ((u16)uimm3 << 10) | ((u16)funct3 << 13);
+}
+
+static inline u16 EncodeCL8(Opcode16 op, RiscCReg rd, RiscCReg rs1, u8 uimm8, Funct3 funct3) {
+	_assert_msg_((uimm8 & 0xF8) == uimm8, "CL immediate must fit in 8 bits and be a multiple of 8: %d", (int)uimm8);
+	u8 imm7_6 = ImmBits8(uimm8, 6, 2);
+	u8 imm5_4_3 = ImmBits8(uimm8, 3, 3);
+	return EncodeCL(op, rd, imm7_6, rs1, imm5_4_3, funct3);
+}
+
+static inline u16 EncodeCL4(Opcode16 op, RiscCReg rd, RiscCReg rs1, u8 uimm7, Funct3 funct3) {
+	_assert_msg_((uimm7 & 0x7C) == uimm7, "CL immediate must fit in 7 bits and be a multiple of 4: %d", (int)uimm7);
+	u8 imm2_6 = (ImmBit8(uimm7, 2) << 1) | ImmBit8(uimm7, 6);
+	u8 imm5_4_3 = ImmBits8(uimm7, 3, 3);
+	return EncodeCL(op, rd, imm2_6, rs1, imm5_4_3, funct3);
+}
+
+static inline u16 EncodeCS(Opcode16 op, RiscCReg rs2, u8 uimm2, RiscCReg rs1, u8 uimm3, Funct3 funct3) {
+	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
+	_assert_msg_(uimm2 <= 3, "CS immediate1 overflow: %04x", uimm2);
+	_assert_msg_(uimm3 <= 7, "CS immediate2 overflow: %04x", uimm3);
+	return (u16)op | ((u16)rs2 << 2) | ((u16)uimm2 << 5) | ((u16)rs1 << 7) | ((u16)uimm3 << 10) | ((u16)funct3 << 13);
+}
+
+static inline u16 EncodeCS8(Opcode16 op, RiscCReg rd, RiscCReg rs1, u8 uimm8, Funct3 funct3) {
+	_assert_msg_((uimm8 & 0xF8) == uimm8, "CS immediate must fit in 8 bits and be a multiple of 8: %d", (int)uimm8);
+	u8 imm7_6 = ImmBits8(uimm8, 6, 2);
+	u8 imm5_4_3 = ImmBits8(uimm8, 3, 3);
+	return EncodeCS(op, rd, imm7_6, rs1, imm5_4_3, funct3);
+}
+
+static inline u16 EncodeCS4(Opcode16 op, RiscCReg rd, RiscCReg rs1, u8 uimm7, Funct3 funct3) {
+	_assert_msg_((uimm7 & 0x7C) == uimm7, "CS immediate must fit in 7 bits and be a multiple of 4: %d", (int)uimm7);
+	u8 imm2_6 = (ImmBit8(uimm7, 2) << 1) | ImmBit8(uimm7, 6);
+	u8 imm5_4_3 = ImmBits8(uimm7, 3, 3);
+	return EncodeCS(op, rd, imm2_6, rs1, imm5_4_3, funct3);
+}
+
+static inline u16 EncodeCA(Opcode16 op, RiscCReg rs2, Funct2 funct2a, RiscCReg rd, Funct6 funct6) {
+	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
+	return (u16)op | ((u16)rs2 << 2) | ((u16)funct2a << 5) | ((u16)rd << 7) | ((u16)funct6 << 10);
+}
+
+static inline u16 EncodeCB(Opcode16 op, u8 uimm6, RiscCReg rd, Funct2 funct2, Funct3 funct3) {
+	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
+	_assert_msg_(uimm6 <= 0x3F, "CI immediate overflow: %04x", uimm6);
+	u16 imm4_0 = ImmBits16(uimm6, 0, 5);
+	u16 imm5 = ImmBit16(uimm6, 5);
+	return (u16)op | (imm4_0 << 2) | ((u16)rd << 7) | ((u16)funct2 << 10) | (imm5 << 12) | ((u16)funct3 << 13);
+}
+static inline u16 EncodeCB(Opcode16 op, s32 simm9, RiscCReg rs1, Funct3 funct3) {
+	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
+	_assert_msg_(SignReduce32(simm9, 9) == simm9, "CB immediate must be signed s8.0: %d", simm9);
+	_assert_msg_((simm9 & 1) == 0, "CB immediate must be even: %d", simm9);
+	u16 imm76_21_5 = (ImmBits16(simm9, 6, 2) << 3) | (ImmBits16(simm9, 1, 2) << 1) | ImmBit16(simm9, 5);
+	u16 imm8_43 = (ImmBit16(simm9, 8) << 2) | ImmBits16(simm9, 3, 2);
+	return (u16)op | (imm76_21_5 << 2) | ((u16)rs1 << 7) | (imm8_43 << 10) | ((u16)funct3 << 13);
+}
+
+static inline u16 EncodeCJ(Opcode16 op, s32 simm12, Funct3 funct3) {
+	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
+	_assert_msg_(SignReduce32(simm12, 12) == simm12, "CJ immediate must be signed s11.0: %d", simm12);
+	_assert_msg_((simm12 & 1) == 0, "CJ immediate must be even: %d", simm12);
+	u16 imm7_3_2_1_5 = (ImmBit16(simm12, 7) << 4) | (ImmBits16(simm12, 1, 3) << 1) | ImmBit16(simm12, 5);
+	u16 imm9_8_10_6 = (ImmBits16(simm12, 8, 2) << 2) | (ImmBit16(simm12, 10) << 1) | ImmBit16(simm12, 6);
+	u16 imm11_4 = (ImmBit16(simm12, 11) << 1) | ImmBit16(simm12, 4);
+	u16 imm11_4_9_8_10_6_7_3_2_1_5 = (imm11_4 << 9) | (imm9_8_10_6 << 5) | imm7_3_2_1_5;
+	return (u16)op | (imm11_4_9_8_10_6_7_3_2_1_5 << 2) | ((u16)funct3 << 13);
+}
+
 static inline Funct3 BitsToFunct3(int bits, bool useFloat = false) {
 	int bitsSupported = useFloat ? FloatBitsSupported() : BitsSupported();
 	_assert_msg_(bitsSupported >= bits, "Cannot use funct3 width %d, only have %d", bits, bitsSupported);
@@ -476,9 +648,9 @@ void RiscVEmitter::SetJumpTarget(FixupBranch &branch, const void *dst) {
 	const ptrdiff_t writable_delta = writable_ - code_;
 	u32 *writableSrc = (u32 *)(branch.ptr + writable_delta);
 
-	// If compressed, this may be an unaligned 32-bit value.
+	// If compressed, this may be an unaligned 32-bit value, so we modify a copy.
 	u32 fixup;
-	memcpy(&fixup, writableSrc, sizeof(u32));
+	u16 fixup16;
 
 	_assert_msg_((dstp & 1) == 0, "Destination should be aligned");
 	_assert_msg_((dstp & 3) == 0 || SupportsCompressed(), "Destination should be aligned (no compressed)");
@@ -490,16 +662,33 @@ void RiscVEmitter::SetJumpTarget(FixupBranch &branch, const void *dst) {
 	switch (branch.type) {
 	case FixupBranchType::B:
 		_assert_msg_(BInRange(branch.ptr, dst), "B destination is too far away (%p -> %p)", branch.ptr, dst);
+		memcpy(&fixup, writableSrc, sizeof(u32));
 		fixup = (fixup & 0x01FFF07F) | EncodeB(Opcode32::ZERO, Funct3::ZERO, R_ZERO, R_ZERO, (s32)distance);
+		memcpy(writableSrc, &fixup, sizeof(u32));
 		break;
 
 	case FixupBranchType::J:
 		_assert_msg_(JInRange(branch.ptr, dst), "J destination is too far away (%p -> %p)", branch.ptr, dst);
+		memcpy(&fixup, writableSrc, sizeof(u32));
 		fixup = (fixup & 0x00000FFF) | EncodeJ(Opcode32::ZERO, R_ZERO, (s32)distance);
+		memcpy(writableSrc, &fixup, sizeof(u32));
+		break;
+
+	case FixupBranchType::CB:
+		_assert_msg_(CBInRange(branch.ptr, dst), "C.B destination is too far away (%p -> %p)", branch.ptr, dst);
+		memcpy(&fixup16, writableSrc, sizeof(u16));
+		fixup16 = (fixup16 & 0xE383) | EncodeCB(Opcode16::C0, (s32)distance, RiscCReg::X8, Funct3::ZERO);
+		memcpy(writableSrc, &fixup16, sizeof(u16));
+		break;
+
+	case FixupBranchType::CJ:
+		_assert_msg_(CJInRange(branch.ptr, dst), "C.J destination is too far away (%p -> %p)", branch.ptr, dst);
+		memcpy(&fixup16, writableSrc, sizeof(u16));
+		fixup16 = (fixup16 & 0xE003) | EncodeCJ(Opcode16::C0, (s32)distance, Funct3::ZERO);
+		memcpy(writableSrc, &fixup16, sizeof(u16));
 		break;
 	}
 
-	memcpy(writableSrc, &fixup, sizeof(u32));
 	branch.ptr = nullptr;
 }
 
@@ -511,24 +700,35 @@ bool RiscVEmitter::JInRange(const void *func) const {
 	return JInRange(code_, func);
 }
 
-bool RiscVEmitter::BInRange(const void *src, const void *dst) const {
-	const intptr_t srcp = (intptr_t)src;
-	const intptr_t dstp = (intptr_t)dst;
-	ptrdiff_t distance = dstp - srcp;
+bool RiscVEmitter::CBInRange(const void *func) const {
+	return CBInRange(code_, func);
+}
 
+bool RiscVEmitter::CJInRange(const void *func) const {
+	return CJInRange(code_, func);
+}
+
+static inline bool BJInRange(const void *src, const void *dst, int bits) {
+	ptrdiff_t distance = (intptr_t)dst - (intptr_t)src;
 	// Get rid of bits and sign extend to validate range.
-	s32 encodable = SignReduce32((s32)distance, 13);
+	s32 encodable = SignReduce32((s32)distance, bits);
 	return distance == encodable;
 }
 
-bool RiscVEmitter::JInRange(const void *src, const void *dst) const {
-	const intptr_t srcp = (intptr_t)src;
-	const intptr_t dstp = (intptr_t)dst;
-	ptrdiff_t distance = dstp - srcp;
+bool RiscVEmitter::BInRange(const void *src, const void *dst) const {
+	return BJInRange(src, dst, 13);
+}
 
-	// Get rid of bits and sign extend to validate range.
-	s32 encodable = SignReduce32((s32)distance, 21);
-	return distance == encodable;
+bool RiscVEmitter::JInRange(const void *src, const void *dst) const {
+	return BJInRange(src, dst, 21);
+}
+
+bool RiscVEmitter::CBInRange(const void *src, const void *dst) const {
+	return BJInRange(src, dst, 9);
+}
+
+bool RiscVEmitter::CJInRange(const void *src, const void *dst) const {
+	return BJInRange(src, dst, 12);
 }
 
 void RiscVEmitter::SetRegToImmediate(RiscVReg rd, uint64_t value, RiscVReg temp) {
@@ -591,7 +791,7 @@ void RiscVEmitter::SetRegToImmediate(RiscVReg rd, uint64_t value, RiscVReg temp)
 	if (temp != R_ZERO) {
 		int32_t lower = (int32_t)svalue;
 		int32_t upper = (svalue - lower) >> 32;
-		_assert_msg_(((int64_t)upper << 32) + lower == svalue, "LI + SLLI + LI + ADDI immediate math mistake?");
+		_assert_msg_(((int64_t)upper << 32) + lower == svalue, "LI + SLLI + LI + ADD immediate math mistake?");
 
 		// This could be a bit more optimal, in case a different shamt could simplify an LI.
 		LI(rd, (int64_t)upper);
@@ -631,6 +831,12 @@ void RiscVEmitter::SetRegToImmediate(RiscVReg rd, uint64_t value, RiscVReg temp)
 
 void RiscVEmitter::LUI(RiscVReg rd, s32 simm32) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+
+	if (AutoCompress() && rd != R_SP && simm32 != 0 && SignReduce32(simm32 & 0x0003F000, 18) == simm32) {
+		C_LUI(rd, simm32);
+		return;
+	}
+
 	Write32(EncodeGU(Opcode32::LUI, rd, simm32));
 }
 
@@ -640,6 +846,16 @@ void RiscVEmitter::AUIPC(RiscVReg rd, s32 simm32) {
 }
 
 void RiscVEmitter::JAL(RiscVReg rd, const void *dst) {
+	if (AutoCompress() && CJInRange(GetCodePointer(), dst)) {
+		if (BitsSupported() == 32 && rd == R_RA) {
+			C_JAL(dst);
+			return;
+		} else if (rd == R_ZERO) {
+			C_J(dst);
+			return;
+		}
+	}
+
 	_assert_msg_(JInRange(GetCodePointer(), dst), "JAL destination is too far away (%p -> %p)", GetCodePointer(), dst);
 	_assert_msg_(((intptr_t)dst & 1) == 0, "JAL destination should be aligned");
 	_assert_msg_(((intptr_t)dst & 3) == 0 || SupportsCompressed(), "JAL destination should be aligned (no compressed)");
@@ -648,6 +864,16 @@ void RiscVEmitter::JAL(RiscVReg rd, const void *dst) {
 }
 
 void RiscVEmitter::JALR(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	if (AutoCompress() && rs1 != R_ZERO && simm12 == 0) {
+		if (rd == R_ZERO) {
+			C_JR(rs1);
+			return;
+		} else if (rd == R_RA) {
+			C_JALR(rs1);
+			return;
+		}
+	}
+
 	Write32(EncodeGI(Opcode32::JALR, rd, Funct3::ZERO, rs1, simm12));
 }
 
@@ -658,6 +884,16 @@ FixupBranch RiscVEmitter::JAL(RiscVReg rd) {
 }
 
 void RiscVEmitter::BEQ(RiscVReg rs1, RiscVReg rs2, const void *dst) {
+	if (AutoCompress() && CBInRange(GetCodePointer(), dst)) {
+		if (rs2 == R_ZERO) {
+			C_BEQZ(rs1, dst);
+			return;
+		} else if (rs1 == R_ZERO) {
+			C_BEQZ(rs2, dst);
+			return;
+		}
+	}
+
 	_assert_msg_(BInRange(GetCodePointer(), dst), "%s destination is too far away (%p -> %p)", __func__, GetCodePointer(), dst);
 	_assert_msg_(((intptr_t)dst & 3) == 0 || SupportsCompressed(), "%s destination should be aligned (no compressed)", __func__);
 	ptrdiff_t distance = (intptr_t)dst - (intptr_t)GetCodePointer();
@@ -665,6 +901,16 @@ void RiscVEmitter::BEQ(RiscVReg rs1, RiscVReg rs2, const void *dst) {
 }
 
 void RiscVEmitter::BNE(RiscVReg rs1, RiscVReg rs2, const void *dst) {
+	if (AutoCompress() && CBInRange(GetCodePointer(), dst)) {
+		if (rs2 == R_ZERO) {
+			C_BNEZ(rs1, dst);
+			return;
+		} else if (rs1 == R_ZERO) {
+			C_BNEZ(rs2, dst);
+			return;
+		}
+	}
+
 	_assert_msg_(BInRange(GetCodePointer(), dst), "%s destination is too far away (%p -> %p)", __func__, GetCodePointer(), dst);
 	_assert_msg_(((intptr_t)dst & 3) == 0 || SupportsCompressed(), "%s destination should be aligned (no compressed)", __func__);
 	ptrdiff_t distance = (intptr_t)dst - (intptr_t)GetCodePointer();
@@ -744,6 +990,16 @@ void RiscVEmitter::LH(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 }
 
 void RiscVEmitter::LW(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	if (AutoCompress()) {
+		if (CanCompress(rd) && CanCompress(rs1) && (simm12 & 0x7C) == simm12) {
+			C_LW(rd, rs1, (u8)simm12);
+			return;
+		} else if (rd != R_ZERO && rs1 == R_SP && (simm12 & 0xFC) == simm12) {
+			C_LWSP(rd, (u8)simm12);
+			return;
+		}
+	}
+
 	Write32(EncodeGI(Opcode32::LOAD, rd, Funct3::LS_W, rs1, simm12));
 }
 
@@ -764,12 +1020,42 @@ void RiscVEmitter::SH(RiscVReg rs2, RiscVReg rs1, s32 simm12) {
 }
 
 void RiscVEmitter::SW(RiscVReg rs2, RiscVReg rs1, s32 simm12) {
+	if (AutoCompress()) {
+		if (CanCompress(rs2) && CanCompress(rs1) && (simm12 & 0x7C) == simm12) {
+			C_SW(rs2, rs1, (u8)simm12);
+			return;
+		} else if (rs1 == R_SP && (simm12 & 0xFC) == simm12) {
+			C_LWSP(rs2, (u8)simm12);
+			return;
+		}
+	}
+
 	Write32(EncodeGS(Opcode32::STORE, Funct3::LS_W, rs1, rs2, simm12));
 }
 
 void RiscVEmitter::ADDI(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 	// Allow NOP form of ADDI.
 	_assert_msg_(rd != R_ZERO || (rs1 == R_ZERO && simm12 == 0), "%s write to zero is a HINT", __func__);
+
+	if (AutoCompress()) {
+		if (CanCompress(rd) && rs1 == R_SP && simm12 != 0 && (simm12 & 0x03FC) == simm12) {
+			C_ADDI4SPN(rd, (u32)simm12);
+			return;
+		} else if (rd != R_ZERO && rd == rs1 && simm12 != 0 && SignReduce32(simm12, 6) == simm12) {
+			C_ADDI(rd, (s8)simm12);
+			return;
+		} else if (rd != R_ZERO && rs1 == R_ZERO && SignReduce32(simm12, 6) == simm12) {
+			C_LI(rd, (s8)simm12);
+			return;
+		} else if (rd == R_SP && rd == rs1 && simm12 != 0 && SignReduce32(simm12 & ~0xF, 10) == simm12) {
+			C_ADDI16SP(simm12);
+			return;
+		} else if (rd != R_ZERO && rs1 != R_ZERO && simm12 == 0) {
+			C_MV(rd, rs1);
+			return;
+		}
+	}
+
 	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::ADD, rs1, simm12));
 }
 
@@ -790,11 +1076,25 @@ void RiscVEmitter::XORI(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 
 void RiscVEmitter::ORI(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+
+	if (AutoCompress()) {
+		if (rd != R_ZERO && rs1 != R_ZERO && simm12 == 0) {
+			C_MV(rd, rs1);
+			return;
+		}
+	}
+
 	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::OR, rs1, simm12));
 }
 
 void RiscVEmitter::ANDI(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+
+	if (AutoCompress() && CanCompress(rd) && rd == rs1 && SignReduce32(simm12, 6) == simm12) {
+		C_ANDI(rd, (s8)simm12);
+		return;
+	}
+
 	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::AND, rs1, simm12));
 }
 
@@ -802,6 +1102,12 @@ void RiscVEmitter::SLLI(RiscVReg rd, RiscVReg rs1, u32 shamt) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
 	// Not sure if shamt=0 is legal or not, let's play it safe.
 	_assert_msg_(shamt > 0 && shamt < BitsSupported(), "Shift out of range");
+
+	if (AutoCompress() && rd == rs1 && shamt <= (u32)(BitsSupported() == 64 ? 63 : 31)) {
+		C_SLLI(rd, (u8)shamt);
+		return;
+	}
+
 	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::SLL, rs1, shamt));
 }
 
@@ -809,6 +1115,12 @@ void RiscVEmitter::SRLI(RiscVReg rd, RiscVReg rs1, u32 shamt) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
 	// Not sure if shamt=0 is legal or not, let's play it safe.
 	_assert_msg_(shamt > 0 && shamt < BitsSupported(), "Shift out of range");
+
+	if (AutoCompress() && CanCompress(rd) && rd == rs1 && shamt <= (u32)(BitsSupported() == 64 ? 63 : 31)) {
+		C_SRLI(rd, (u8)shamt);
+		return;
+	}
+
 	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::SRL, rs1, shamt));
 }
 
@@ -816,16 +1128,45 @@ void RiscVEmitter::SRAI(RiscVReg rd, RiscVReg rs1, u32 shamt) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
 	// Not sure if shamt=0 is legal or not, let's play it safe.
 	_assert_msg_(shamt > 0 && shamt < BitsSupported(), "Shift out of range");
+
+	if (AutoCompress() && CanCompress(rd) && rd == rs1 && shamt <= (u32)(BitsSupported() == 64 ? 63 : 31)) {
+		C_SRAI(rd, (u8)shamt);
+		return;
+	}
+
 	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::SRL, rs1, shamt | (1 << 10)));
 }
 
 void RiscVEmitter::ADD(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+
+	if (AutoCompress()) {
+		if (rs1 != R_ZERO && rs2 == R_ZERO) {
+			C_MV(rd, rs1);
+			return;
+		} else if (rs1 == R_ZERO && rs2 != R_ZERO) {
+			C_MV(rd, rs2);
+			return;
+		} else if (rd == rs1 && rs2 != R_ZERO) {
+			C_ADD(rd, rs2);
+			return;
+		} else if (rd == rs2 && rs1 != R_ZERO) {
+			C_ADD(rd, rs1);
+			return;
+		}
+	}
+
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::ADD, rs1, rs2, Funct7::ZERO));
 }
 
 void RiscVEmitter::SUB(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+
+	if (AutoCompress() && CanCompress(rd) && rd == rs1 && CanCompress(rs2)) {
+		C_SUB(rd, rs2);
+		return;
+	}
+
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::ADD, rs1, rs2, Funct7::SUB));
 }
 
@@ -846,6 +1187,12 @@ void RiscVEmitter::SLTU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 
 void RiscVEmitter::XOR(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+
+	if (AutoCompress() && CanCompress(rd) && rd == rs1 && CanCompress(rs2)) {
+		C_XOR(rd, rs2);
+		return;
+	}
+
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::XOR, rs1, rs2, Funct7::ZERO));
 }
 
@@ -861,11 +1208,31 @@ void RiscVEmitter::SRA(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 
 void RiscVEmitter::OR(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+
+	if (AutoCompress()) {
+		if (CanCompress(rd) && rd == rs1 && CanCompress(rs2)) {
+			C_OR(rd, rs2);
+			return;
+		} else if (rs1 != R_ZERO && rs2 == R_ZERO) {
+			C_MV(rd, rs1);
+			return;
+		} else if (rs1 == R_ZERO && rs2 != R_ZERO) {
+			C_MV(rd, rs2);
+			return;
+		}
+	}
+
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::OR, rs1, rs2, Funct7::ZERO));
 }
 
 void RiscVEmitter::AND(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+
+	if (AutoCompress() && CanCompress(rd) && rd == rs1 && CanCompress(rs2)) {
+		C_AND(rd, rs2);
+		return;
+	}
+
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::AND, rs1, rs2, Funct7::ZERO));
 }
 
@@ -895,17 +1262,44 @@ void RiscVEmitter::LWU(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 
 void RiscVEmitter::LD(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 	_assert_msg_(BitsSupported() >= 64, "%s is only valid with R64I", __func__);
+
+	if (AutoCompress() && (BitsSupported() == 64 || BitsSupported() == 128)) {
+		if (CanCompress(rd) && CanCompress(rs1) && (simm12 & 0xF8) == simm12) {
+			C_LD(rd, rs1, (u8)simm12);
+			return;
+		} else if (rd != R_ZERO && rs1 == R_SP && (simm12 & 0x01F8) == simm12) {
+			C_LDSP(rd, (u8)simm12);
+			return;
+		}
+	}
+
 	Write32(EncodeGI(Opcode32::LOAD, rd, Funct3::LS_D, rs1, simm12));
 }
 
 void RiscVEmitter::SD(RiscVReg rs2, RiscVReg rs1, s32 simm12) {
 	_assert_msg_(BitsSupported() >= 64, "%s is only valid with R64I", __func__);
+
+	if (AutoCompress() && (BitsSupported() == 64 || BitsSupported() == 128)) {
+		if (CanCompress(rs2) && CanCompress(rs1) && (simm12 & 0xF8) == simm12) {
+			C_SD(rs2, rs1, (u8)simm12);
+			return;
+		} else if (rs1 == R_SP && (simm12 & 0x01F8) == simm12) {
+			C_SDSP(rs2, (u8)simm12);
+			return;
+		}
+	}
+
 	Write32(EncodeGS(Opcode32::STORE, Funct3::LS_D, rs1, rs2, simm12));
 }
 
 void RiscVEmitter::ADDIW(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 	if (BitsSupported() == 32) {
 		ADDI(rd, rs1, simm12);
+		return;
+	}
+
+	if (AutoCompress() && rd != R_ZERO && rd == rs1 && SignReduce32(simm12, 6) == simm12) {
+		C_ADDIW(rd, (s8)simm12);
 		return;
 	}
 
@@ -955,6 +1349,11 @@ void RiscVEmitter::ADDW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 		return;
 	}
 
+	if (AutoCompress() && CanCompress(rd) && rd == rs1 && CanCompress(rs2)) {
+		C_ADDW(rd, rs2);
+		return;
+	}
+
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
 	Write32(EncodeGR(Opcode32::OP_32, rd, Funct3::ADD, rs1, rs2, Funct7::ZERO));
 }
@@ -962,6 +1361,11 @@ void RiscVEmitter::ADDW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 void RiscVEmitter::SUBW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 	if (BitsSupported() == 32) {
 		SUB(rd, rs1, rs2);
+		return;
+	}
+
+	if (AutoCompress() && CanCompress(rd) && rd == rs1 && CanCompress(rs2)) {
+		C_SUBW(rd, rs2);
 		return;
 	}
 
@@ -1149,11 +1553,49 @@ void RiscVEmitter::AMOMAXU(int bits, RiscVReg rd, RiscVReg rs2, RiscVReg rs1, At
 
 void RiscVEmitter::FL(int bits, RiscVReg rd, RiscVReg rs1, s32 simm12) {
 	_assert_msg_(IsGPR(rs1) && IsFPR(rd), "FL with incorrect register types");
+
+	if (AutoCompress() && CanCompress(rd) && CanCompress(rs1)) {
+		if (bits == 64 && BitsSupported() <= 64 && (simm12 & 0xF8) == simm12) {
+			C_FLD(rd, rs1, (u8)simm12);
+			return;
+		} else if (bits == 32 && BitsSupported() == 32 && (simm12 & 0x7C) == simm12) {
+			C_FLW(rd, rs1, (u8)simm12);
+			return;
+		}
+	} else if (AutoCompress() && rs1 == R_SP) {
+		if (bits == 64 && BitsSupported() <= 64 && (simm12 & 0x01F8) == simm12) {
+			C_FLDSP(rd, (u32)simm12);
+			return;
+		} else if (bits == 32 && BitsSupported() == 32 && (simm12 & 0xFC) == simm12) {
+			C_FLWSP(rd, (u8)simm12);
+			return;
+		}
+	}
+
 	Write32(EncodeI(Opcode32::LOAD_FP, rd, BitsToFunct3(bits, true), rs1, simm12));
 }
 
 void RiscVEmitter::FS(int bits, RiscVReg rs2, RiscVReg rs1, s32 simm12) {
 	_assert_msg_(IsGPR(rs1) && IsFPR(rs2), "FS with incorrect register types");
+
+	if (AutoCompress() && CanCompress(rs2) && CanCompress(rs1)) {
+		if (bits == 64 && BitsSupported() <= 64 && (simm12 & 0xF8) == simm12) {
+			C_FSD(rs2, rs1, (u8)simm12);
+			return;
+		} else if (bits == 32 && BitsSupported() == 32 && (simm12 & 0x7C) == simm12) {
+			C_FSW(rs2, rs1, (u8)simm12);
+			return;
+		} else if (AutoCompress() && rs1 == R_SP) {
+			if (bits == 64 && BitsSupported() <= 64 && (simm12 & 0x01F8) == simm12) {
+				C_FSDSP(rs2, (u32)simm12);
+				return;
+			} else if (bits == 32 && BitsSupported() == 32 && (simm12 & 0xFC) == simm12) {
+				C_FSWSP(rs2, (u8)simm12);
+				return;
+			}
+		}
+	}
+
 	Write32(EncodeS(Opcode32::STORE_FP, BitsToFunct3(bits, true), rs1, rs2, simm12));
 }
 
@@ -1320,6 +1762,342 @@ void RiscVEmitter::CSRRCI(RiscVReg rd, Csr csr, u8 uimm5) {
 	_assert_msg_((u32)csr <= 0x00000FFF, "%s with invalid CSR number", __func__);
 	_assert_msg_((u32)uimm5 <= 0x1F, "%s can only clear lowest 5 bits", __func__);
 	Write32(EncodeGI(Opcode32::SYSTEM, rd, Funct3::CSRRCI, (RiscVReg)uimm5, (Funct12)csr));
+}
+
+bool RiscVEmitter::AutoCompress() const {
+	return SupportsCompressed() && autoCompress_;
+}
+
+void RiscVEmitter::C_ADDI4SPN(RiscVReg rd, u32 uimm10) {
+	_assert_msg_(IsGPR(rd) && CanCompress(rd), "%s requires rd as GPR between X8 and X15", __func__);
+	_assert_msg_((uimm10 & 0x03FC) == uimm10 && uimm10 != 0, "%s offset must fit in 10 bits and be a non-zero multiple of 4: %d", __func__, (int)uimm10);
+	u8 imm2_3 = (ImmBit8(uimm10, 2) << 1) | ImmBit8(uimm10, 3);
+	u8 imm9_8_7_6 = ImmBits8(uimm10, 6, 4);
+	u8 imm5_4 = ImmBits8(uimm10, 4, 2);
+	u8 imm_5_4_9_8_7_6_2_3 = (imm5_4 << 6) | (imm9_8_7_6 << 2) | imm2_3;
+	Write16(EncodeCIW(Opcode16::C0, CompressReg(rd), imm_5_4_9_8_7_6_2_3, Funct3::C_ADDI4SPN));
+}
+
+void RiscVEmitter::C_FLD(RiscVReg rd, RiscVReg rs1, u8 uimm8) {
+	_assert_msg_(BitsSupported() <= 64 && FloatBitsSupported() == 64, "%s is only valid with RV32DC/RV64DC", __func__);
+	_assert_msg_(IsFPR(rd) && CanCompress(rd), "%s requires rd as FPR between X8 and X15", __func__);
+	_assert_msg_(IsGPR(rs1) && CanCompress(rs1), "%s requires rs1 as GPR between X8 and X15", __func__);
+	Write16(EncodeCL8(Opcode16::C0, CompressReg(rd), CompressReg(rs1), uimm8, Funct3::C_FLD));
+}
+
+void RiscVEmitter::C_LW(RiscVReg rd, RiscVReg rs1, u8 uimm7) {
+	_assert_msg_(IsGPR(rd) && CanCompress(rd), "%s requires rd as GPR between X8 and X15", __func__);
+	_assert_msg_(IsGPR(rs1) && CanCompress(rs1), "%s requires rs1 as GPR between X8 and X15", __func__);
+	Write16(EncodeCL4(Opcode16::C0, CompressReg(rd), CompressReg(rs1), uimm7, Funct3::C_LW));
+}
+
+void RiscVEmitter::C_FLW(RiscVReg rd, RiscVReg rs1, u8 uimm7) {
+	_assert_msg_(BitsSupported() == 32 && FloatBitsSupported() >= 32, "%s is only valid with RV32FC", __func__);
+	_assert_msg_(IsFPR(rd) && CanCompress(rd), "%s requires rd as FPR between X8 and X15", __func__);
+	_assert_msg_(IsGPR(rs1) && CanCompress(rs1), "%s requires rs1 as GPR between X8 and X15", __func__);
+	Write16(EncodeCL4(Opcode16::C0, CompressReg(rd), CompressReg(rs1), uimm7, Funct3::C_FLW));
+}
+
+void RiscVEmitter::C_LD(RiscVReg rd, RiscVReg rs1, u8 uimm8) {
+	_assert_msg_(BitsSupported() == 64 || BitsSupported() == 128, "%s is only valid with RV64/RV128", __func__);
+	_assert_msg_(IsGPR(rd) && CanCompress(rd), "%s requires rd as GPR between X8 and X15", __func__);
+	_assert_msg_(IsGPR(rs1) && CanCompress(rs1), "%s requires rs1 as GPR between X8 and X15", __func__);
+	Write16(EncodeCL8(Opcode16::C0, CompressReg(rd), CompressReg(rs1), uimm8, Funct3::C_LD));
+}
+
+void RiscVEmitter::C_FSD(RiscVReg rs2, RiscVReg rs1, u8 uimm8) {
+	_assert_msg_(BitsSupported() <= 64 && FloatBitsSupported() == 64, "%s is only valid with RV32DC/RV64DC", __func__);
+	_assert_msg_(IsFPR(rs2) && CanCompress(rs2), "%s requires rs2 as FPR between X8 and X15", __func__);
+	_assert_msg_(IsGPR(rs1) && CanCompress(rs1), "%s requires rs1 as GPR between X8 and X15", __func__);
+	Write16(EncodeCL8(Opcode16::C0, CompressReg(rs2), CompressReg(rs1), uimm8, Funct3::C_FSD));
+}
+
+void RiscVEmitter::C_SW(RiscVReg rs2, RiscVReg rs1, u8 uimm7) {
+	_assert_msg_(IsGPR(rs2) && CanCompress(rs2), "%s requires rs2 as GPR between X8 and X15", __func__);
+	_assert_msg_(IsGPR(rs1) && CanCompress(rs1), "%s requires rs1 as GPR between X8 and X15", __func__);
+	Write16(EncodeCS4(Opcode16::C0, CompressReg(rs2), CompressReg(rs1), uimm7, Funct3::C_SW));
+}
+
+void RiscVEmitter::C_FSW(RiscVReg rs2, RiscVReg rs1, u8 uimm7) {
+	_assert_msg_(BitsSupported() == 32 && FloatBitsSupported() >= 32, "%s is only valid with RV32FC", __func__);
+	_assert_msg_(IsFPR(rs2) && CanCompress(rs2), "%s requires rs2 as FPR between X8 and X15", __func__);
+	_assert_msg_(IsGPR(rs1) && CanCompress(rs1), "%s requires rs1 as GPR between X8 and X15", __func__);
+	Write16(EncodeCS4(Opcode16::C0, CompressReg(rs2), CompressReg(rs1), uimm7, Funct3::C_FSW));
+}
+
+void RiscVEmitter::C_SD(RiscVReg rs2, RiscVReg rs1, u8 uimm8) {
+	_assert_msg_(BitsSupported() == 64 || BitsSupported() == 128, "%s is only valid with RV64/RV128", __func__);
+	_assert_msg_(IsGPR(rs2) && CanCompress(rs2), "%s requires rs2 as GPR between X8 and X15", __func__);
+	_assert_msg_(IsGPR(rs1) && CanCompress(rs1), "%s requires rs1 as GPR between X8 and X15", __func__);
+	Write16(EncodeCS8(Opcode16::C0, CompressReg(rs2), CompressReg(rs1), uimm8, Funct3::C_SD));
+}
+
+void RiscVEmitter::C_NOP() {
+	Write16(EncodeCI(Opcode16::C1, 0, R_ZERO, Funct3::C_ADDI));
+}
+
+void RiscVEmitter::C_ADDI(RiscVReg rd, s8 simm6) {
+	_assert_msg_(IsGPR(rd) && rd != R_ZERO, "%s must write to GPR other than X0", __func__);
+	_assert_msg_(simm6 != 0 && SignReduce32(simm6, 6) == (s32)simm6, "%s immediate must be non-zero and s5.0: %d", __func__, simm6);
+	Write16(EncodeCI(Opcode16::C1, ImmBits8(simm6, 0, 6), rd, Funct3::C_ADDI));
+}
+
+void RiscVEmitter::C_JAL(const void *dst) {
+	_assert_msg_(BitsSupported() == 32, "%s is only valid with RV32C", __func__);
+	_assert_msg_(CJInRange(GetCodePointer(), dst), "C_JAL destination is too far away (%p -> %p)", GetCodePointer(), dst);
+	_assert_msg_(((intptr_t)dst & 1) == 0, "C_JAL destination should be aligned");
+	ptrdiff_t distance = (intptr_t)dst - (intptr_t)GetCodePointer();
+	Write32(EncodeCJ(Opcode16::C1, (s32)distance, Funct3::C_JAL));
+}
+
+FixupBranch RiscVEmitter::C_JAL() {
+	_assert_msg_(BitsSupported() == 32, "%s is only valid with RV32C", __func__);
+	FixupBranch fixup{ GetCodePointer(), FixupBranchType::CJ };
+	Write16(EncodeCJ(Opcode16::C1, 0, Funct3::C_JAL));
+	return fixup;
+}
+
+void RiscVEmitter::C_ADDIW(RiscVReg rd, s8 simm6) {
+	if (BitsSupported() == 32) {
+		C_ADDI(rd, simm6);
+		return;
+	}
+
+	_assert_msg_(IsGPR(rd) && rd != R_ZERO, "%s must write to GPR other than X0", __func__);
+	_assert_msg_(SignReduce32(simm6, 6) == (s32)simm6, "%s immediate must be s5.0: %d", __func__, simm6);
+	Write16(EncodeCI(Opcode16::C1, ImmBits8(simm6, 0, 6), rd, Funct3::C_ADDIW));
+}
+
+void RiscVEmitter::C_LI(RiscVReg rd, s8 simm6) {
+	_assert_msg_(IsGPR(rd) && rd != R_ZERO, "%s must write to GPR other than X0", __func__);
+	_assert_msg_(SignReduce32(simm6, 6) == (s32)simm6, "%s immediate must be s5.0: %d", __func__, simm6);
+	Write16(EncodeCI(Opcode16::C1, ImmBits8(simm6, 0, 6), rd, Funct3::C_LI));
+}
+
+void RiscVEmitter::C_ADDI16SP(s32 simm10) {
+	_assert_msg_(simm10 != 0 && SignReduce32(simm10, 10) == simm10, "%s immediate must be non-zero and s9.0: %d", __func__, simm10);
+	_assert_msg_((simm10 & 0xF) == 0, "%s immediate must be multiple of 16: %d", __func__, simm10);
+	u8 imm8_7_5 = (ImmBits8(simm10, 7, 2) << 1) | ImmBit8(simm10, 5);
+	u8 imm4_6 = (ImmBit8(simm10, 4) << 1) | ImmBit8(simm10, 6);
+	u8 imm9_4_6_8_7_5 = (ImmBit8(simm10, 9) << 5) | (imm4_6 << 3) | imm8_7_5;
+	Write16(EncodeCI(Opcode16::C1, imm9_4_6_8_7_5, R_SP, Funct3::C_LUI));
+}
+
+void RiscVEmitter::C_LUI(RiscVReg rd, s32 simm18) {
+	_assert_msg_(IsGPR(rd) && rd != R_ZERO && rd != R_SP, "%s must write to GPR other than X0/X2", __func__);
+	_assert_msg_(simm18 != 0 && SignReduce32(simm18, 18) == simm18, "%s immediate must be non-zero and s17.0: %d", __func__, simm18);
+	_assert_msg_((simm18 & 0x0FFF) == 0, "%s immediate must not have lower 12 bits set: %d", __func__, simm18);
+	u8 imm17_12 = ImmBits8(simm18, 12, 6);
+	Write16(EncodeCI(Opcode16::C1, imm17_12, rd, Funct3::C_LUI));
+}
+
+void RiscVEmitter::C_SRLI(RiscVReg rd, u8 uimm6) {
+	_assert_msg_(IsGPR(rd), "%s must write to GPR", __func__);
+	_assert_msg_(uimm6 != 0 && uimm6 <= (BitsSupported() == 64 ? 63 : 31), "%s immediate must be between 1 and %d: %d", __func__, BitsSupported() == 64 ? 63 : 31, uimm6);
+	Write16(EncodeCB(Opcode16::C1, uimm6, CompressReg(rd), Funct2::C_SRLI, Funct3::C_ARITH));
+}
+
+void RiscVEmitter::C_SRAI(RiscVReg rd, u8 uimm6) {
+	_assert_msg_(IsGPR(rd), "%s must write to GPR", __func__);
+	_assert_msg_(uimm6 != 0 && uimm6 <= (BitsSupported() == 64 ? 63 : 31), "%s immediate must be between 1 and %d: %d", __func__, BitsSupported() == 64 ? 63 : 31, uimm6);
+	Write16(EncodeCB(Opcode16::C1, uimm6, CompressReg(rd), Funct2::C_SRAI, Funct3::C_ARITH));
+}
+
+void RiscVEmitter::C_ANDI(RiscVReg rd, s8 simm6) {
+	_assert_msg_(IsGPR(rd), "%s must write to GPR", __func__);
+	// It seems like a mistake that this allows simm6 == 0 when c.li can be used...
+	_assert_msg_(SignReduce32(simm6, 6) == (s32)simm6, "%s immediate must be s5.0: %d", __func__, simm6);
+	Write16(EncodeCB(Opcode16::C1, ImmBits8(simm6, 0, 6), CompressReg(rd), Funct2::C_ANDI, Funct3::C_ARITH));
+}
+
+void RiscVEmitter::C_SUB(RiscVReg rd, RiscVReg rs2) {
+	_assert_msg_(IsGPR(rd) && IsGPR(rs2), "%s must use GPRs", __func__);
+	Write16(EncodeCA(Opcode16::C1, CompressReg(rs2), Funct2::C_SUB, CompressReg(rd), Funct6::C_OP));
+}
+
+void RiscVEmitter::C_XOR(RiscVReg rd, RiscVReg rs2) {
+	_assert_msg_(IsGPR(rd) && IsGPR(rs2), "%s must use GPRs", __func__);
+	Write16(EncodeCA(Opcode16::C1, CompressReg(rs2), Funct2::C_XOR, CompressReg(rd), Funct6::C_OP));
+}
+
+void RiscVEmitter::C_OR(RiscVReg rd, RiscVReg rs2) {
+	_assert_msg_(IsGPR(rd) && IsGPR(rs2), "%s must use GPRs", __func__);
+	Write16(EncodeCA(Opcode16::C1, CompressReg(rs2), Funct2::C_OR, CompressReg(rd), Funct6::C_OP));
+}
+void RiscVEmitter::C_AND(RiscVReg rd, RiscVReg rs2) {
+	_assert_msg_(IsGPR(rd) && IsGPR(rs2), "%s must use GPRs", __func__);
+	Write16(EncodeCA(Opcode16::C1, CompressReg(rs2), Funct2::C_AND, CompressReg(rd), Funct6::C_OP));
+}
+
+void RiscVEmitter::C_SUBW(RiscVReg rd, RiscVReg rs2) {
+	if (BitsSupported() == 32) {
+		C_SUB(rd, rs2);
+		return;
+	}
+
+	_assert_msg_(IsGPR(rd) && IsGPR(rs2), "%s must use GPRs", __func__);
+	Write16(EncodeCA(Opcode16::C1, CompressReg(rs2), Funct2::C_SUBW, CompressReg(rd), Funct6::C_OP_32));
+}
+
+void RiscVEmitter::C_ADDW(RiscVReg rd, RiscVReg rs2) {
+	if (BitsSupported() == 32) {
+		C_ADD(rd, rs2);
+		return;
+	}
+
+	_assert_msg_(IsGPR(rd) && IsGPR(rs2), "%s must use GPRs", __func__);
+	Write16(EncodeCA(Opcode16::C1, CompressReg(rs2), Funct2::C_ADDW, CompressReg(rd), Funct6::C_OP_32));
+}
+
+void RiscVEmitter::C_J(const void *dst) {
+	_assert_msg_(CJInRange(GetCodePointer(), dst), "C_J destination is too far away (%p -> %p)", GetCodePointer(), dst);
+	_assert_msg_(((intptr_t)dst & 1) == 0, "C_J destination should be aligned");
+	ptrdiff_t distance = (intptr_t)dst - (intptr_t)GetCodePointer();
+	Write16(EncodeCJ(Opcode16::C1, (s32)distance, Funct3::C_J));
+}
+
+void RiscVEmitter::C_BEQZ(RiscVReg rs1, const void *dst) {
+	_assert_msg_(IsGPR(rs1), "%s must use a GPR", __func__);
+	_assert_msg_(CBInRange(GetCodePointer(), dst), "%s destination is too far away (%p -> %p)", __func__, GetCodePointer(), dst);
+	ptrdiff_t distance = (intptr_t)dst - (intptr_t)GetCodePointer();
+	Write16(EncodeCB(Opcode16::C1, (s32)distance, CompressReg(rs1), Funct3::C_BEQZ));
+}
+
+void RiscVEmitter::C_BNEZ(RiscVReg rs1, const void *dst) {
+	_assert_msg_(IsGPR(rs1), "%s must use a GPR", __func__);
+	_assert_msg_(CBInRange(GetCodePointer(), dst), "%s destination is too far away (%p -> %p)", __func__, GetCodePointer(), dst);
+	ptrdiff_t distance = (intptr_t)dst - (intptr_t)GetCodePointer();
+	Write16(EncodeCB(Opcode16::C1, (s32)distance, CompressReg(rs1), Funct3::C_BNEZ));
+}
+
+FixupBranch RiscVEmitter::C_J() {
+	FixupBranch fixup{ GetCodePointer(), FixupBranchType::CJ };
+	Write16(EncodeCJ(Opcode16::C1, 0, Funct3::C_J));
+	return fixup;
+}
+
+FixupBranch RiscVEmitter::C_BEQZ(RiscVReg rs1) {
+	_assert_msg_(IsGPR(rs1), "%s must use a GPR", __func__);
+	FixupBranch fixup{ GetCodePointer(), FixupBranchType::CB };
+	Write16(EncodeCB(Opcode16::C1, 0, CompressReg(rs1), Funct3::C_BEQZ));
+	return fixup;
+}
+
+FixupBranch RiscVEmitter::C_BNEZ(RiscVReg rs1) {
+	_assert_msg_(IsGPR(rs1), "%s must use a GPR", __func__);
+	FixupBranch fixup{ GetCodePointer(), FixupBranchType::CB };
+	Write16(EncodeCB(Opcode16::C1, 0, CompressReg(rs1), Funct3::C_BNEZ));
+	return fixup;
+}
+
+void RiscVEmitter::C_SLLI(RiscVReg rd, u8 uimm6) {
+	_assert_msg_(IsGPR(rd) && rd != R_ZERO, "%s must write to GPR other than X0", __func__);
+	_assert_msg_(uimm6 != 0 && uimm6 <= (BitsSupported() == 64 ? 63 : 31), "%s immediate must be between 1 and %d: %d", __func__, BitsSupported() == 64 ? 63 : 31, uimm6);
+	Write16(EncodeCI(Opcode16::C2, uimm6, rd, Funct3::C_SLLI));
+}
+
+void RiscVEmitter::C_FLDSP(RiscVReg rd, u32 uimm9) {
+	_assert_msg_(BitsSupported() <= 64 && FloatBitsSupported() == 64, "%s is only valid with RV32DC/RV64DC", __func__);
+	_assert_msg_(IsFPR(rd), "%s must write to FPR", __func__);
+	_assert_msg_((uimm9 & 0x01F8) == uimm9, "%s offset must fit in 9 bits and be a multiple of 8: %d", __func__, (int)uimm9);
+	u8 imm8_7_6 = ImmBits8(uimm9, 6, 3);
+	u8 imm5_4_3 = ImmBits8(uimm9, 3, 3);
+	u8 imm5_4_3_8_7_6 = (imm5_4_3 << 3) | imm8_7_6;
+	Write16(EncodeCI(Opcode16::C2, imm5_4_3_8_7_6, rd, Funct3::C_FLDSP));
+}
+
+void RiscVEmitter::C_LWSP(RiscVReg rd, u8 uimm8) {
+	_assert_msg_(IsGPR(rd) && rd != R_ZERO, "%s must write to GPR other than X0", __func__);
+	_assert_msg_((uimm8 & 0xFC) == uimm8, "%s offset must fit in 8 bits and be a multiple of 4: %d", __func__, (int)uimm8);
+	u8 imm7_6 = ImmBits8(uimm8, 6, 2);
+	u8 imm5_4_3_2 = ImmBits8(uimm8, 2, 4);
+	u8 imm5_4_3_2_7_6 = (imm5_4_3_2 << 2) | imm7_6;
+	Write16(EncodeCI(Opcode16::C2, imm5_4_3_2_7_6, rd, Funct3::C_LWSP));
+}
+
+void RiscVEmitter::C_FLWSP(RiscVReg rd, u8 uimm8) {
+	_assert_msg_(BitsSupported() == 32 && FloatBitsSupported() >= 32, "%s is only valid with RV32FC", __func__);
+	_assert_msg_(IsFPR(rd), "%s must write to FPR", __func__);
+	_assert_msg_((uimm8 & 0xFC) == uimm8, "%s offset must fit in 8 bits and be a multiple of 4: %d", __func__, (int)uimm8);
+	u8 imm7_6 = ImmBits8(uimm8, 6, 2);
+	u8 imm5_4_3_2 = ImmBits8(uimm8, 2, 4);
+	u8 imm5_4_3_2_7_6 = (imm5_4_3_2 << 2) | imm7_6;
+	Write16(EncodeCI(Opcode16::C2, imm5_4_3_2_7_6, rd, Funct3::C_FLWSP));
+}
+
+void RiscVEmitter::C_LDSP(RiscVReg rd, u32 uimm9) {
+	_assert_msg_(BitsSupported() == 64 || BitsSupported() == 128, "%s is only valid with RV64/RV128", __func__);
+	_assert_msg_(IsGPR(rd) && rd != R_ZERO, "%s must write to GPR other than X0", __func__);
+	_assert_msg_((uimm9 & 0x01F8) == uimm9, "%s offset must fit in 9 bits and be a multiple of 8: %d", __func__, (int)uimm9);
+	u8 imm8_7_6 = ImmBits8(uimm9, 6, 3);
+	u8 imm5_4_3 = ImmBits8(uimm9, 3, 3);
+	u8 imm5_4_3_8_7_6 = (imm5_4_3 << 3) | imm8_7_6;
+	Write16(EncodeCI(Opcode16::C2, imm5_4_3_8_7_6, rd, Funct3::C_LDSP));
+}
+
+void RiscVEmitter::C_JR(RiscVReg rs1) {
+	_assert_msg_(IsGPR(rs1) && rs1 != R_ZERO, "%s must read from GPR other than X0", __func__);
+	Write16(EncodeCR(Opcode16::C2, R_ZERO, rs1, Funct4::C_JR));
+}
+
+void RiscVEmitter::C_MV(RiscVReg rd, RiscVReg rs2) {
+	_assert_msg_(IsGPR(rd) && rd != R_ZERO, "%s must write to GPR other than X0", __func__);
+	_assert_msg_(IsGPR(rs2) && rs2 != R_ZERO, "%s must read from GPR other than X0", __func__);
+	Write16(EncodeCR(Opcode16::C2, rs2, rd, Funct4::C_MV));
+}
+
+void RiscVEmitter::C_EBREAK() {
+	Write16(EncodeCR(Opcode16::C2, R_ZERO, R_ZERO, Funct4::C_JALR));
+}
+
+void RiscVEmitter::C_JALR(RiscVReg rs1) {
+	_assert_msg_(IsGPR(rs1) && rs1 != R_ZERO, "%s must read from GPR other than X0", __func__);
+	Write16(EncodeCR(Opcode16::C2, R_ZERO, rs1, Funct4::C_JALR));
+}
+
+void RiscVEmitter::C_ADD(RiscVReg rd, RiscVReg rs2) {
+	_assert_msg_(IsGPR(rd) && rd != R_ZERO, "%s must write to GPR other than X0", __func__);
+	_assert_msg_(IsGPR(rs2) && rs2 != R_ZERO, "%s must read from a GPR other than X0", __func__);
+	Write16(EncodeCR(Opcode16::C2, rs2, rd, Funct4::C_ADD));
+}
+
+void RiscVEmitter::C_FSDSP(RiscVReg rs2, u32 uimm9) {
+	_assert_msg_(BitsSupported() <= 64 && FloatBitsSupported() == 64, "%s is only valid with RV32DC/RV64DC", __func__);
+	_assert_msg_(IsFPR(rs2), "%s must read from FPR", __func__);
+	_assert_msg_((uimm9 & 0x01F8) == uimm9, "%s offset must fit in 9 bits and be a multiple of 8: %d", __func__, (int)uimm9);
+	u8 imm8_7_6 = ImmBits8(uimm9, 6, 3);
+	u8 imm5_4_3 = ImmBits8(uimm9, 3, 3);
+	u8 imm5_4_3_8_7_6 = (imm5_4_3 << 3) | imm8_7_6;
+	Write16(EncodeCSS(Opcode16::C2, rs2, imm5_4_3_8_7_6, Funct3::C_FSDSP));
+}
+
+void RiscVEmitter::C_SWSP(RiscVReg rs2, u8 uimm8) {
+	_assert_msg_(IsGPR(rs2), "%s must read from GPR", __func__);
+	_assert_msg_((uimm8 & 0xFC) == uimm8, "%s offset must fit in 8 bits and be a multiple of 4: %d", __func__, (int)uimm8);
+	u8 imm7_6 = ImmBits8(uimm8, 6, 2);
+	u8 imm5_4_3_2 = ImmBits8(uimm8, 2, 4);
+	u8 imm5_4_3_2_7_6 = (imm5_4_3_2 << 2) | imm7_6;
+	Write16(EncodeCSS(Opcode16::C2, rs2, imm5_4_3_2_7_6, Funct3::C_SWSP));
+}
+
+void RiscVEmitter::C_FSWSP(RiscVReg rs2, u8 uimm8) {
+	_assert_msg_(BitsSupported() == 32 && FloatBitsSupported() >= 32, "%s is only valid with RV32FC", __func__);
+	_assert_msg_(IsFPR(rs2), "%s must read from FPR", __func__);
+	_assert_msg_((uimm8 & 0xFC) == uimm8, "%s offset must fit in 8 bits and be a multiple of 4: %d", __func__, (int)uimm8);
+	u8 imm7_6 = ImmBits8(uimm8, 6, 2);
+	u8 imm5_4_3_2 = ImmBits8(uimm8, 2, 4);
+	u8 imm5_4_3_2_7_6 = (imm5_4_3_2 << 2) | imm7_6;
+	Write16(EncodeCSS(Opcode16::C2, rs2, imm5_4_3_2_7_6, Funct3::C_FSWSP));
+}
+
+void RiscVEmitter::C_SDSP(RiscVReg rs2, u32 uimm9) {
+	_assert_msg_(BitsSupported() == 64 || BitsSupported() == 128, "%s is only valid with RV64/RV128", __func__);
+	_assert_msg_(IsGPR(rs2), "%s must read from GPR", __func__);
+	_assert_msg_((uimm9 & 0x01F8) == uimm9, "%s offset must fit in 9 bits and be a multiple of 8: %d", __func__, (int)uimm9);
+	u8 imm8_7_6 = ImmBits8(uimm9, 6, 3);
+	u8 imm5_4_3 = ImmBits8(uimm9, 3, 3);
+	u8 imm5_4_3_8_7_6 = (imm5_4_3 << 3) | imm8_7_6;
+	Write16(EncodeCSS(Opcode16::C2, rs2, imm5_4_3_8_7_6, Funct3::C_SDSP));
 }
 
 };
