@@ -25,20 +25,20 @@ void UpdateVRView(float* projMatrix, float* leftEye, float* rightEye);
 #else //dummy integration
 
 // VR app flow integration
-bool IsVRBuild() { return false; }
-void InitVROnAndroid(void* vm, void* activity, int version, char* name) {}
-void EnterVR(bool firstTime) {}
-void GetVRResolutionPerEye(int* width, int* height) {}
-void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool haptics) {}
-void UpdateVRScreenKey(const KeyInput &key) {}
+inline bool IsVRBuild() { return false; }
+inline void InitVROnAndroid(void* vm, void* activity, int version, char* name) {}
+inline void EnterVR(bool firstTime) {}
+inline void GetVRResolutionPerEye(int* width, int* height) {}
+inline void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool haptics) {}
+inline void UpdateVRScreenKey(const KeyInput &key) {}
 
 // VR rendering integration
-void BindVRFramebuffer() {}
-bool PreVRRender() { return false; }
-void PostVRRender() {}
-bool IsFlatVRScene() { return true; }
-bool Is2DVRObject(float* projMatrix, bool ortho) { return false; }
-void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {}
-void UpdateVRView(float* projMatrix, float* leftEye, float* rightEye) {}
+inline void BindVRFramebuffer() {}
+inline bool PreVRRender() { return false; }
+inline void PostVRRender() {}
+inline bool IsFlatVRScene() { return true; }
+inline bool Is2DVRObject(float* projMatrix, bool ortho) { return false; }
+inline void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {}
+inline void UpdateVRView(float* projMatrix, float* leftEye, float* rightEye) {}
 
 #endif
