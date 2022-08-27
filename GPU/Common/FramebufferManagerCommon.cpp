@@ -2809,6 +2809,17 @@ VirtualFramebuffer *FramebufferManagerCommon::ResolveFramebufferColorToFormat(Vi
 		// Create a clone!
 		vfb = new VirtualFramebuffer();
 		*vfb = *src;  // Copies everything, but watch out! Can't copy fbo.
+
+		// Adjust width by bpp.
+		float widthFactor = (float)BufferFormatBytesPerPixel(vfb->fb_format) / (float)BufferFormatBytesPerPixel(newFormat);
+
+		vfb->width *= widthFactor;
+		vfb->bufferWidth *= widthFactor;
+		vfb->renderWidth *= widthFactor;
+		vfb->drawnWidth *= widthFactor;
+		vfb->newWidth *= widthFactor;
+		vfb->safeWidth *= widthFactor;
+
 		vfb->fb_format = newFormat;
 		char tag[128];
 		FormatFramebufferName(vfb, tag, sizeof(tag));
