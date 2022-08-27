@@ -925,13 +925,10 @@ bool TextureCacheCommon::MatchFramebuffer(
 		if (IsTextureFormatBufferCompatible(entry.format)) {
 			if (TextureFormatMatchesBufferFormat(entry.format, fb_format) || (framebuffer->usageFlags & FB_USAGE_BLUE_TO_ALPHA)) {
 				return true;
-			} else if (IsTextureFormat16Bit(entry.format) && IsBufferFormat16Bit(fb_format) && channel == RASTER_COLOR) {
-				WARN_LOG_ONCE(diffFormat1, G3D, "Found matching framebuffer with reinterpretable fb_format: %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format));
+			} else {
+				WARN_LOG_ONCE(diffFormat1, G3D, "Found matching framebuffer with reinterpretable fb_format: %s != %s at %08x", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address);
 				*matchInfo = FramebufferMatchInfo{ 0, 0, true, TextureFormatToBufferFormat(entry.format) };
 				return true;
-			} else {
-				WARN_LOG_ONCE(diffFormat2, G3D, "Rejecting framebuffer with incompatible formats %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format));
-				return false;
 			}
 		} else {
 			// Format incompatible, ignoring without comment. (maybe some really gnarly hacks will end up here...)
