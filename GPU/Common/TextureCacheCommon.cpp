@@ -103,17 +103,6 @@ inline int dimHeight(u16 dim) {
 	return 1 << ((dim >> 8) & 0xFF);
 }
 
-int nextPow2(unsigned int v) {
-	v--;
-	v |= v >> 1;
-	v |= v >> 2;
-	v |= v >> 4;
-	v |= v >> 8;
-	v |= v >> 16;
-	v++;
-	return v;
-}
-
 // Vulkan color formats:
 // TODO
 TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D)
@@ -1018,14 +1007,14 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 	if (framebufferManager_->UseBufferedRendering()) {
 		// Detect when we need to apply the horizontal texture swizzle.
 		u64 depthUpperBits = (channel == RASTER_DEPTH && framebuffer->fb_format == GE_FORMAT_8888) ? ((gstate.getTextureAddress(0) & 0x600000) >> 20) : 0;
-		bool needsSpecialSwizzle = depthUpperBits == 2;
+		bool needsDepthXSwizzle = depthUpperBits == 2;
 
 		// We need to force it, since we may have set it on a texture before attaching.
 		gstate_c.curTextureWidth = framebuffer->bufferWidth;
 		gstate_c.curTextureHeight = framebuffer->bufferHeight;
 
-		if (needsSpecialSwizzle) {
-			gstate_c.curTextureWidth = nextPow2(gstate_c.curTextureWidth);
+		if (needsDepthXSwizzle) {
+			gstate_c.curTextureWidth = RoundUpToPowerOf2(gstate_c.curTextureWidth);
 		}
 
 		if (gstate_c.bgraTexture) {
@@ -1957,12 +1946,12 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 		ClutTexture clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
 
-		bool needsSpecialSwizzle = depthUpperBits == 2;
+		bool needsDepthXSwizzle = depthUpperBits == 2;
 
 		int depalWidth = framebuffer->renderWidth;
 		int texWidth = framebuffer->width;
-		if (needsSpecialSwizzle) {
-			texWidth = nextPow2(framebuffer->width);
+		if (needsDepthXSwizzle) {
+			texWidth = RoundUpToPowerOf2(framebuffer->width);
 			depalWidth = texWidth * framebuffer->renderScaleFactor;
 			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 		}

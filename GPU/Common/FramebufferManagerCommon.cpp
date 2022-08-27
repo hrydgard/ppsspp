@@ -579,21 +579,30 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 }
 
 // Can't easily dynamically create these strings, we just pass along the pointer.
-static const char *reinterpretStrings[3][3] = {
+static const char *reinterpretStrings[4][4] = {
 	{
 		"self_reinterpret_565",
 		"reinterpret_565_to_5551",
 		"reinterpret_565_to_4444",
+		"reinterpret_565_to_8888",
 	},
 	{
 		"reinterpret_5551_to_565",
 		"self_reinterpret_5551",
 		"reinterpret_5551_to_4444",
+		"reinterpret_5551_to_8888",
 	},
 	{
 		"reinterpret_4444_to_565",
 		"reinterpret_4444_to_5551",
 		"self_reinterpret_4444",
+		"reinterpret_4444_to_8888",
+	},
+	{
+		"reinterpret_8888_to_565",
+		"reinterpret_8888_to_5551",
+		"reinterpret_8888_to_4444",
+		"self_reinterpret_8888",
 	},
 };
 
@@ -677,6 +686,9 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 
 		// Copy a rectangle from the original to the new buffer.
 		// Yes, we mean to look at src->width/height for the dest rectangle.
+
+		// TODO: Try to bound the blit using gstate_c.vertBounds like depal does.
+
 		int srcWidth = src->width * src->renderScaleFactor;
 		int srcHeight = src->height * src->renderScaleFactor;
 		int dstWidth = src->width * dst->renderScaleFactor;

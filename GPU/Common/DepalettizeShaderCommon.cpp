@@ -112,16 +112,12 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 		writer.C("  int index = (a << 15) | (b << 10) | (g << 5) | (r);\n");
 		break;
 	case GE_FORMAT_DEPTH16:
-		// Byteswap experiment, seems to be wrong.
-		// writer.C("  int d = int(color.x * 65535.0);\n");
-		// writer.C("  d = ((d >> 8) & 0xFF) | ((d << 8) & 0xFF00);\n");
-		// float(d) / 65535.0
-
 		// Remap depth buffer.
 		writer.C("  float depth = (color.x - z_offset) * z_scale;\n");
 
 		if (config.bufferFormat == GE_FORMAT_DEPTH16 && config.textureFormat == GE_TFMT_5650) {
 			// Convert depth to 565, without going through a CLUT.
+			// TODO: Make "depal without a CLUT" a separate concept, to avoid redundantly creating a CLUT texture.
 			writer.C("  int idepth = int(clamp(depth, 0.0, 65535.0));\n");
 			writer.C("  float r = float(idepth & 31) / 31.0f;\n");
 			writer.C("  float g = float((idepth >> 5) & 63) / 63.0f;\n");
