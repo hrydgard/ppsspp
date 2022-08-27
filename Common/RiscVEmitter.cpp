@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 #include <algorithm>
 #include <cstring>
+#include "Common/BitScan.h"
 #include "Common/RiscVEmitter.h"
 
 namespace RiscVGen {
@@ -484,7 +485,9 @@ bool RiscVEmitter::BInRange(const void *src, const void *dst) const {
 	const intptr_t dstp = (intptr_t)dst;
 	ptrdiff_t distance = dstp - srcp;
 
-	return distance <= 0x00000FFE && -distance <= 0x00000FFE;
+	// Get rid of bits and sign extend to validate range.
+	s32 encodable = ((s32)distance << 19) >> 19;
+	return distance == encodable;
 }
 
 bool RiscVEmitter::JInRange(const void *src, const void *dst) const {
@@ -492,7 +495,107 @@ bool RiscVEmitter::JInRange(const void *src, const void *dst) const {
 	const intptr_t dstp = (intptr_t)dst;
 	ptrdiff_t distance = dstp - srcp;
 
-	return distance <= 0x000FFFFE && -distance <= 0x000FFFFE;
+	// Get rid of bits and sign extend to validate range.
+	s32 encodable = ((s32)distance << 11) >> 11;
+	return distance == encodable;
+}
+
+void RiscVEmitter::SetRegToImmediate(RiscVReg rd, uint64_t value, RiscVReg temp) {
+	int64_t svalue = (int64_t)value;
+	_assert_msg_(IsGPR(rd) && IsGPR(temp), "SetRegToImmediate only supports GPRs");
+	_assert_msg_(rd != temp, "SetRegToImmediate cannot use same register for temp and rd");
+	_assert_msg_(((svalue << 32) >> 32) == svalue || (value & 0xFFFFFFFF) == value || BitsSupported() >= 64, "64-bit immediate unsupported");
+
+	if (((svalue << 52) >> 52) == svalue) {
+		// Nice and simple, small immediate fits in a single ADDI against zero.
+		ADDI(rd, R_ZERO, (s32)svalue);
+		return;
+	}
+
+	auto useUpper = [&](int64_t v, void (RiscVEmitter::*upperOp)(RiscVReg, s32), bool force = false) {
+		if (((v << 32) >> 32) == v || force) {
+			int32_t lower = (v << 52) >> 52;
+			int32_t upper = ((v - lower) >> 12) << 12;
+			_assert_msg_(force || upper + lower == v, "Upper + ADDI immediate math mistake?");
+
+			// Should be fused on some processors.
+			(this->*upperOp)(rd, upper);
+			if (lower != 0)
+				ADDI(rd, rd, lower);
+			return true;
+		}
+		return false;
+	};
+
+	// If this is a simple 32-bit immediate, we can use LUI + ADDI.
+	if (useUpper(svalue, &RiscVEmitter::LUI, BitsSupported() == 32))
+		return;
+	_assert_msg_(BitsSupported() > 32, "Should have stopped at LUI + ADDI on 32-bit");
+
+	// Common case, within 32 bits of PC, use AUIPC + ADDI.
+	intptr_t pc = (intptr_t)GetCodePointer();
+	if (sizeof(pc) <= 8 && useUpper(svalue - (int64_t)pc, &RiscVEmitter::AUIPC))
+		return;
+
+	// Check if it's just a shifted 32 bit immediate, those are cheap.
+	for (uint32_t start = 1; start <= 32; ++start) {
+		// Take the value (shifted by start) and extend sign from 32 bits.
+		int32_t simm32 = (int32_t)(svalue >> start);
+		if (((int64_t)simm32 << start) == svalue) {
+			LI(rd, simm32);
+			SLLI(rd, rd, start);
+			return;
+		}
+	}
+
+	// If this is just a 32-bit unsigned value, use a wall to mask.
+	if ((svalue >> 32) == 0) {
+		LI(rd, (int32_t)(svalue & 0xFFFFFFFF));
+		SLLI(rd, rd, BitsSupported() - 32);
+		SRLI(rd, rd, BitsSupported() - 32);
+		return;
+	}
+
+	// If we have a temporary, let's use it to shorten.
+	if (temp != R_ZERO) {
+		int32_t lower = (svalue << 32) >> 32;
+		int32_t upper = (svalue - lower) >> 32;
+		_assert_msg_(((int64_t)upper << 32) + lower == svalue, "LI + SLLI + LI + ADDI immediate math mistake?");
+
+		// This could be a bit more optimal, in case a different shamt could simplify an LI.
+		LI(rd, (int64_t)upper);
+		SLLI(rd, rd, 32);
+		LI(temp, (int64_t)lower);
+		ADD(rd, rd, temp);
+		return;
+	}
+
+	// Okay, let's just start with the upper 32 bits and add the rest via ORI.
+	int64_t upper = svalue >> 32;
+	LI(rd, upper);
+
+	uint32_t remaining = svalue & 0xFFFFFFFF;
+	uint32_t shifted = 0;
+
+	while (remaining != 0) {
+		// Skip any zero bits, just set the first ones actually needed.
+		uint32_t zeroBits = clz32_nonzero(remaining);
+		// We do chunks of 11 to avoid compensating for sign.
+		uint32_t targetShift = std::min(zeroBits + 11, 32U);
+		uint32_t sourceShift = 32 - targetShift;
+		int32_t chunk = (remaining >> sourceShift) & 0x07FF;
+
+		SLLI(rd, rd, targetShift - shifted);
+		ORI(rd, rd, chunk);
+
+		// Okay, increase shift and clear the bits we've deposited.
+		shifted = targetShift;
+		remaining &= ~(chunk << sourceShift);
+	}
+
+	// Move into place in case the lowest bits weren't set.
+	if (shifted < 32)
+		SLLI(rd, rd, 32 - shifted);
 }
 
 void RiscVEmitter::LUI(RiscVReg rd, s32 simm32) {

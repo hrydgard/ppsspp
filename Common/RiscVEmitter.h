@@ -18,6 +18,8 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
+#include <type_traits>
 #include "Common/CodeBlock.h"
 #include "Common/Common.h"
 
@@ -104,6 +106,7 @@ enum class Csr {
 };
 
 struct FixupBranch {
+	FixupBranch() {}
 	FixupBranch(const u8 *p, FixupBranchType t) : ptr(p), type(t) {}
 	~FixupBranch();
 
@@ -190,6 +193,16 @@ public:
 	}
 	void NOT(RiscVReg rd, RiscVReg rs1) {
 		XORI(rd, rs1, -1);
+	}
+
+	// The temp reg is only possibly used for 64-bit values.
+	template <typename T>
+	void LI(RiscVReg rd, const T &v, RiscVReg temp = R_ZERO) {
+		_assert_msg_(rd != R_ZERO, "LI to X0");
+		_assert_msg_(rd < F0 && temp < F0, "LI to non-GPR");
+
+		uint64_t value = AsImmediate<T, std::is_signed<T>::value>(v);
+		SetRegToImmediate(rd, value, temp);
 	}
 
 	void SLLI(RiscVReg rd, RiscVReg rs1, u32 shamt);
@@ -319,23 +332,57 @@ public:
 	void CSRRCI(RiscVReg rd, Csr csr, u8 uimm5);
 
 	void FRRM(RiscVReg rd) {
-		CSRRS(rd, Csr::FRm, X0);
+		CSRRS(rd, Csr::FRm, R_ZERO);
 	}
 	void FSRM(RiscVReg rs) {
-		CSRRW(X0, Csr::FRm, rs);
+		CSRRW(R_ZERO, Csr::FRm, rs);
 	}
 	void FSRMI(RiscVReg rd, Round rm) {
 		_assert_msg_(rm != Round::DYNAMIC, "Cannot set FRm to DYNAMIC");
 		CSRRWI(rd, Csr::FRm, (uint8_t)rm);
 	}
 	void FSRMI(Round rm) {
-		FSRMI(X0, rm);
+		FSRMI(R_ZERO, rm);
 	}
 
 private:
 	void SetJumpTarget(FixupBranch &branch, const void *dst);
 	bool BInRange(const void *src, const void *dst) const;
 	bool JInRange(const void *src, const void *dst) const;
+
+	void SetRegToImmediate(RiscVReg rd, uint64_t value, RiscVReg temp);
+
+	template <typename T, bool extend>
+	uint64_t AsImmediate(const T &v) {
+		static_assert(std::is_trivial<T>::value, "Immediate argument must be a simple type");
+		static_assert(sizeof(T) <= 8, "Immediate argument size should be 8, 16, 32, or 64 bits");
+
+		// Copy the type to allow floats and avoid endian issues.
+		if (sizeof(T) == 8) {
+			uint64_t value;
+			memcpy(&value, &v, sizeof(value));
+			return value;
+		} else if (sizeof(T) == 4) {
+			uint32_t value;
+			memcpy(&value, &v, sizeof(value));
+			if (extend)
+				return (int64_t)(int32_t)value;
+			return value;
+		} else if (sizeof(T) == 2) {
+			uint16_t value;
+			memcpy(&value, &v, sizeof(value));
+			if (extend)
+				return (int64_t)(int16_t)value;
+			return value;
+		} else if (sizeof(T) == 1) {
+			uint8_t value;
+			memcpy(&value, &v, sizeof(value));
+			if (extend)
+				return (int64_t)(int8_t)value;
+			return value;
+		}
+		return (uint64_t)v;
+	}
 
 	inline void Write32(u32 value) {
 		*(u32 *)writable_ = value;
