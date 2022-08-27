@@ -349,7 +349,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 				const int x_offset = (params.fb_address - v->fb_address) / bpp;
 				if (x_offset < params.fb_stride && v->height >= drawing_height) {
 					// Pretty certainly a pure render-to-X-offset.
-					WARN_LOG_REPORT_ONCE(renderoffset, HLE, "Rendering to framebuffer offset: %08x +%dx%d", v->fb_address, x_offset, 0);
+					WARN_LOG_REPORT_ONCE(renderoffset, HLE, "Rendering to framebuffer offset at %08x +%dx%d (stride %d)", v->fb_address, x_offset, 0, v->fb_stride);
 					vfb = v;
 					gstate_c.SetCurRTOffset(x_offset, 0);
 					vfb->width = std::max((int)vfb->width, x_offset + drawing_width);
@@ -1432,6 +1432,9 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 		vfb->renderHeight = (u16)(vfb->bufferHeight * renderScaleFactor_);
 	}
 
+	bool creating = old.bufferWidth == 0;
+	WARN_LOG(FRAMEBUF, "%s %s FBO at %08x/%d from %dx%d to %dx%d (force=%d)", creating ? "Creating" : "Resizing", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->fb_stride, old.bufferWidth, old.bufferHeight, vfb->bufferWidth, vfb->bufferHeight, (int)force);
+
 	// During hardware rendering, we always render at full color depth even if the game wouldn't on real hardware.
 	// It's not worth the trouble trying to support lower bit-depth rendering, just
 	// more cases to test that nobody will ever use.
@@ -1716,8 +1719,8 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 		*rect = candidates.back();
 		return true;
 	} else {
-		if (Memory::IsVRAMAddress(basePtr) && destination) {
-			WARN_LOG_N_TIMES(nocands, 50, G3D, "Didn't find a destination candidate for %08x/%d/%d %d,%d %dx%d", basePtr, stride_pixels, bpp, x_pixels, y, w_pixels, h);
+		if (Memory::IsVRAMAddress(basePtr) && destination && h >= 128) {
+			WARN_LOG_N_TIMES(nocands, 5, G3D, "Didn't find a destination candidate for %08x/%d/%d %d,%d %dx%d", basePtr, stride_pixels, bpp, x_pixels, y, w_pixels, h);
 		}
 		return false;
 	}
@@ -1971,7 +1974,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				bpp = buffer_bpp;
 			}
 
-			WARN_LOG_N_TIMES(dstsrc, 50, G3D, "Intra-buffer block transfer %dx%d %dbpp from %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d)",
+			WARN_LOG_N_TIMES(dstsrc, 5, G3D, "Intra-buffer block transfer %dx%d %dbpp from %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d)",
 				width, height, bpp,
 				srcBasePtr, srcRect.x_bytes / bpp, srcRect.y, srcStride,
 				dstBasePtr, dstRect.x_bytes / bpp, dstRect.y, dstStride);
@@ -1985,7 +1988,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 
 		if (srcRect.vfb->fb_format == dstRect.vfb->fb_format) {
 			// This is the meat and potatoes, here all kind of shenanigans must be handled.
-			WARN_LOG_N_TIMES(dstnotsrc, 50, G3D, "Inter-buffer block transfer %dx%d %dbpp from %08x (x:%d y:%d stride:%d %s) -> %08x (x:%d y:%d stride:%d %s)",
+			WARN_LOG_N_TIMES(dstnotsrc, 5, G3D, "Inter-buffer block transfer %dx%d %dbpp from %08x (x:%d y:%d stride:%d %s) -> %08x (x:%d y:%d stride:%d %s)",
 				width, height, bpp,
 				srcBasePtr, srcRect.x_bytes / bpp, srcRect.y, srcStride, GeBufferFormatToString(srcRect.vfb->fb_format),
 				dstBasePtr, dstRect.x_bytes / bpp, dstRect.y, dstStride, GeBufferFormatToString(srcRect.vfb->fb_format));
@@ -2005,7 +2008,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 		}
 
 		// Getting to the more complex cases.
-		WARN_LOG_N_TIMES(blockformat, 50, G3D, "Mismatched buffer formats in block transfer: %s->%s (%dx%d)",
+		WARN_LOG_N_TIMES(blockformat, 5, G3D, "Mismatched buffer formats in block transfer: %s->%s (%dx%d)",
 			GeBufferFormatToString(srcRect.vfb->fb_format), GeBufferFormatToString(dstRect.vfb->fb_format),
 			width, height);
 
