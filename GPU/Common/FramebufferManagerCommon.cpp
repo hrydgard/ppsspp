@@ -2774,7 +2774,7 @@ VirtualFramebuffer *FramebufferManagerCommon::ResolveFramebufferColorToFormat(Vi
 			continue;
 		}
 
-		if (dest->fb_address == src->fb_address && dest->fb_stride == src->fb_stride && dest->fb_format == newFormat) {
+		if (dest->fb_address == src->fb_address && dest->FbStrideInBytes() == src->FbStrideInBytes() && dest->fb_format == newFormat) {
 			vfb = dest;
 			break;
 		}
