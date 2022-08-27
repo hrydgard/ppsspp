@@ -195,6 +195,39 @@ static inline RiscVReg DecodeReg(RiscVReg reg) { return (RiscVReg)(reg & 0x1F); 
 static inline bool IsGPR(RiscVReg reg) { return reg < 0x20; }
 static inline bool IsFPR(RiscVReg reg) { return (reg & 0x20) != 0 && (int)reg < 0x40; }
 
+static inline s32 SignReduce32(s32 v, int width) {
+	int shift = 32 - width;
+	return (v << shift) >> shift;
+}
+
+static inline s64 SignReduce64(s64 v, int width) {
+	int shift = 64 - width;
+	return (v << shift) >> shift;
+}
+
+// Compressed encodings have weird immediate bit order, trying to make it more readable.
+static inline u8 ImmBit8(int imm, int bit) {
+	return (imm >> bit) & 1;
+}
+static inline u8 ImmBits8(int imm, int start, int sz) {
+	int mask = (1 << sz) - 1;
+	return (imm >> start) & mask;
+}
+static inline u16 ImmBit16(int imm, int bit) {
+	return (imm >> bit) & 1;
+}
+static inline u16 ImmBits16(int imm, int start, int sz) {
+	int mask = (1 << sz) - 1;
+	return (imm >> start) & mask;
+}
+static inline u32 ImmBit32(int imm, int bit) {
+	return (imm >> bit) & 1;
+}
+static inline u32 ImmBits32(int imm, int start, int sz) {
+	int mask = (1 << sz) - 1;
+	return (imm >> start) & mask;
+}
+
 static inline u32 EncodeR(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, RiscVReg rs2, Funct7 funct7) {
 	return (u32)opcode | ((u32)DecodeReg(rd) << 7) | ((u32)funct3 << 12) | ((u32)DecodeReg(rs1) << 15) | ((u32)DecodeReg(rs2) << 20) | ((u32)funct7 << 25);
 }
@@ -235,7 +268,7 @@ static inline u32 EncodeFR(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg
 }
 
 static inline u32 EncodeI(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, s32 simm12) {
-	_assert_msg_(((simm12 << 20) >> 20) == simm12, "I immediate must be signed s11.0");
+	_assert_msg_(SignReduce32(simm12, 12) == simm12, "I immediate must be signed s11.0: %d", simm12);
 	return (u32)opcode | ((u32)DecodeReg(rd) << 7) | ((u32)funct3 << 12) | ((u32)DecodeReg(rs1) << 15) | ((u32)simm12 << 20);
 }
 
@@ -246,7 +279,7 @@ static inline u32 EncodeGI(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg
 }
 
 static inline u32 EncodeI(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, Funct12 funct12) {
-	return EncodeI(opcode, rd, funct3, rs1, ((s32)funct12 << 20) >> 20);
+	return EncodeI(opcode, rd, funct3, rs1, SignReduce32((s32)funct12, 12));
 }
 
 static inline u32 EncodeGI(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg rs1, Funct12 funct12) {
@@ -256,10 +289,10 @@ static inline u32 EncodeGI(Opcode32 opcode, RiscVReg rd, Funct3 funct3, RiscVReg
 }
 
 static inline u32 EncodeS(Opcode32 opcode, Funct3 funct3, RiscVReg rs1, RiscVReg rs2, s32 simm12) {
-	_assert_msg_(((simm12 << 20) >> 20) == simm12, "S immediate must be signed s11.0");
-	u32 imm4_0 = simm12 & 0x1F;
-	u32 imm11_5 = (simm12 >> 5) & 0x7F;
-	return (u32)opcode | ((u32)imm4_0 << 7) | ((u32)funct3 << 12) | ((u32)DecodeReg(rs1) << 15) | ((u32)DecodeReg(rs2) << 20) | ((u32)imm11_5 << 25);
+	_assert_msg_(SignReduce32(simm12, 12) == simm12, "S immediate must be signed s11.0: %d", simm12);
+	u32 imm4_0 = ImmBits32(simm12, 0, 5);
+	u32 imm11_5 = ImmBits32(simm12, 5, 7);
+	return (u32)opcode | (imm4_0 << 7) | ((u32)funct3 << 12) | ((u32)DecodeReg(rs1) << 15) | ((u32)DecodeReg(rs2) << 20) | (imm11_5 << 25);
 }
 
 static inline u32 EncodeGS(Opcode32 opcode, Funct3 funct3, RiscVReg rs1, RiscVReg rs2, s32 simm12) {
@@ -269,13 +302,11 @@ static inline u32 EncodeGS(Opcode32 opcode, Funct3 funct3, RiscVReg rs1, RiscVRe
 }
 
 static inline u32 EncodeB(Opcode32 opcode, Funct3 funct3, RiscVReg rs1, RiscVReg rs2, s32 simm13) {
-	_assert_msg_(((simm13 << 19) >> 19) == simm13, "B immediate must be signed s12.0");
+	_assert_msg_(SignReduce32(simm13, 13) == simm13, "B immediate must be signed s12.0: %d", simm13);
 	_assert_msg_((simm13 & 1) == 0, "B immediate must be even");
-	u32 imm11 = (simm13 >> 11) & 1;
-	u32 imm12 = (simm13 >> 12) & 1;
 	// This weird encoding scheme is to keep most bits the same as S, but keep sign at 31.
-	u32 imm4_1_11 = (simm13 & 0x1E) | imm11;
-	u32 imm12_10_5 = (imm12 << 6) | ((simm13 >> 5) & 0x3F);
+	u32 imm4_1_11 = (ImmBits32(simm13, 1, 4) << 1) | ImmBit32(simm13, 11);
+	u32 imm12_10_5 = (ImmBit32(simm13, 12) << 6) | ImmBits32(simm13, 5, 6);
 	return (u32)opcode | ((u32)imm4_1_11 << 7) | ((u32)funct3 << 12) | ((u32)DecodeReg(rs1) << 15) | ((u32)DecodeReg(rs2) << 20) | ((u32)imm12_10_5 << 25);
 }
 
@@ -296,15 +327,15 @@ static inline u32 EncodeGU(Opcode32 opcode, RiscVReg rd, s32 simm32) {
 }
 
 static inline u32 EncodeJ(Opcode32 opcode, RiscVReg rd, s32 simm21) {
-	_assert_msg_(((simm21 << 11) >> 11) == simm21, "J immediate must be signed s20.0");
+	_assert_msg_(SignReduce32(simm21, 21) == simm21, "J immediate must be signed s20.0: %d", simm21);
 	_assert_msg_((simm21 & 1) == 0, "J immediate must be even");
-	u32 imm11 = (simm21 >> 11) & 1;
-	u32 imm20 = (simm21 >> 20) & 1;
-	u32 imm10_1 = (simm21 >> 1) & 0x03FF;
-	u32 imm19_12 = (simm21 >> 12) & 0x00FF;
+	u32 imm11 = ImmBit32(simm21, 11);
+	u32 imm20 = ImmBit32(simm21, 20);
+	u32 imm10_1 = ImmBits32(simm21, 1, 10);
+	u32 imm19_12 = ImmBits32(simm21, 12, 8);
 	// This encoding scheme tries to keep the bits from B in the same places, plus sign.
 	u32 imm20_10_1_11_19_12 = (imm20 << 19) | (imm10_1 << 9) | (imm11 << 8) | imm19_12;
-	return (u32)opcode | ((u32)DecodeReg(rd) << 7) | ((u32)imm20_10_1_11_19_12 << 12);
+	return (u32)opcode | ((u32)DecodeReg(rd) << 7) | (imm20_10_1_11_19_12 << 12);
 }
 
 static inline u32 EncodeGJ(Opcode32 opcode, RiscVReg rd, s32 simm21) {
@@ -486,7 +517,7 @@ bool RiscVEmitter::BInRange(const void *src, const void *dst) const {
 	ptrdiff_t distance = dstp - srcp;
 
 	// Get rid of bits and sign extend to validate range.
-	s32 encodable = ((s32)distance << 19) >> 19;
+	s32 encodable = SignReduce32((s32)distance, 13);
 	return distance == encodable;
 }
 
@@ -496,7 +527,7 @@ bool RiscVEmitter::JInRange(const void *src, const void *dst) const {
 	ptrdiff_t distance = dstp - srcp;
 
 	// Get rid of bits and sign extend to validate range.
-	s32 encodable = ((s32)distance << 11) >> 11;
+	s32 encodable = SignReduce32((s32)distance, 21);
 	return distance == encodable;
 }
 
@@ -504,17 +535,17 @@ void RiscVEmitter::SetRegToImmediate(RiscVReg rd, uint64_t value, RiscVReg temp)
 	int64_t svalue = (int64_t)value;
 	_assert_msg_(IsGPR(rd) && IsGPR(temp), "SetRegToImmediate only supports GPRs");
 	_assert_msg_(rd != temp, "SetRegToImmediate cannot use same register for temp and rd");
-	_assert_msg_(((svalue << 32) >> 32) == svalue || (value & 0xFFFFFFFF) == value || BitsSupported() >= 64, "64-bit immediate unsupported");
+	_assert_msg_(SignReduce64(svalue, 32) == svalue || (value & 0xFFFFFFFF) == value || BitsSupported() >= 64, "64-bit immediate unsupported");
 
-	if (((svalue << 52) >> 52) == svalue) {
+	if (SignReduce64(svalue, 12) == svalue) {
 		// Nice and simple, small immediate fits in a single ADDI against zero.
 		ADDI(rd, R_ZERO, (s32)svalue);
 		return;
 	}
 
 	auto useUpper = [&](int64_t v, void (RiscVEmitter::*upperOp)(RiscVReg, s32), bool force = false) {
-		if (((v << 32) >> 32) == v || force) {
-			int32_t lower = (v << 52) >> 52;
+		if (SignReduce64(v, 32) == v || force) {
+			int32_t lower = (int32_t)SignReduce64(svalue, 12);
 			int32_t upper = ((v - lower) >> 12) << 12;
 			_assert_msg_(force || upper + lower == v, "Upper + ADDI immediate math mistake?");
 
@@ -558,7 +589,7 @@ void RiscVEmitter::SetRegToImmediate(RiscVReg rd, uint64_t value, RiscVReg temp)
 
 	// If we have a temporary, let's use it to shorten.
 	if (temp != R_ZERO) {
-		int32_t lower = (svalue << 32) >> 32;
+		int32_t lower = (int32_t)svalue;
 		int32_t upper = (svalue - lower) >> 32;
 		_assert_msg_(((int64_t)upper << 32) + lower == svalue, "LI + SLLI + LI + ADDI immediate math mistake?");
 
