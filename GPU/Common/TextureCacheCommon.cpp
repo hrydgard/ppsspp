@@ -903,7 +903,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 	if (exactMatch) {
 		// TODO: Better checks for compatible strides here.
 		if (fb_stride != entry.bufw) {
-			WARN_LOG_ONCE(diffStrides1, G3D, "Found matching framebuffer with different strides %d != %d", entry.bufw, (int)fb_stride);
+			WARN_LOG_ONCE(diffStrides1, G3D, "Found matching framebuffer at %08x with different strides %d != %d", fb_address, entry.bufw, (int)fb_stride);
 		}
 		// NOTE: This check is okay because the first texture formats are the same as the buffer formats.
 		if (IsTextureFormatBufferCompatible(entry.format)) {
@@ -946,7 +946,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 
 		if (fb_stride != entry.bufw) {
 			if (noOffset) {
-				WARN_LOG_ONCE(diffStrides2, G3D, "Matching framebuffer(matching_clut = % s) different strides % d != % d", matchingClutFormat ? "yes" : "no", entry.bufw, fb_stride);
+				WARN_LOG_ONCE(diffStrides2, G3D, "Matching framebuffer(matching_clut = %s) different strides %d != %d", matchingClutFormat ? "yes" : "no", entry.bufw, fb_stride);
 				// Continue on with other checks.
 				// Not actually sure why we even try here. There's no way it'll go well if the strides are different.
 			} else {
@@ -976,7 +976,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 			}
 			return true;
 		} else if (IsClutFormat((GETextureFormat)(entry.format)) || IsDXTFormat((GETextureFormat)(entry.format))) {
-			WARN_LOG_ONCE(fourEightBit, G3D, "%s fb_format not supported when texturing from framebuffer of format %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format));
+			WARN_LOG_ONCE(fourEightBit, G3D, "%s fb_format not matching framebuffer of format %s at %08x/%d", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address, fb_stride);
 			return false;
 		}
 

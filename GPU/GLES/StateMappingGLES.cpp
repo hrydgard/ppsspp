@@ -268,7 +268,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 					stencilState.testFunc == GE_COMP_ALWAYS &&
 					stencilState.writeMask == 0xFF && stencilState.testMask == 0xFF && stencilState.testRef == 0xFF) {
 
-					renderManager->SetBlendAndMask(0x8, true, GL_ZERO, GL_ZERO, GL_ZERO, GL_ZERO, GL_ADD, GL_ADD);
+					renderManager->SetBlendAndMask(0x8, true, GL_ZERO, GL_ZERO, GL_ZERO, GL_ZERO, GL_FUNC_ADD, GL_FUNC_ADD);
 					renderManager->SetDepth(true, false, GL_LESS);
 					renderManager->SetStencilFunc(true, GL_ALWAYS, 0xFF, 0xFF);
 					renderManager->SetStencilOp(0xFF, GL_ZERO, GL_KEEP, GL_ZERO);
