@@ -2804,8 +2804,6 @@ VirtualFramebuffer *FramebufferManagerCommon::ResolveFramebufferColorToFormat(Vi
 	}
 
 	if (!vfb) {
-		WARN_LOG(G3D, "Creating %s clone of %08x/%08x/%s", GeBufferFormatToString(newFormat), src->fb_address, src->z_address, GeBufferFormatToString(src->fb_format));
-
 		// Create a clone!
 		vfb = new VirtualFramebuffer();
 		*vfb = *src;  // Copies everything, but watch out! Can't copy fbo.
@@ -2821,6 +2819,9 @@ VirtualFramebuffer *FramebufferManagerCommon::ResolveFramebufferColorToFormat(Vi
 		vfb->safeWidth *= widthFactor;
 
 		vfb->fb_format = newFormat;
+
+		WARN_LOG(G3D, "Creating %s clone of %08x/%08x/%s (%dx%d -> %dx%d)", GeBufferFormatToString(newFormat), src->fb_address, src->z_address, GeBufferFormatToString(src->fb_format), src->width, src->height, vfb->width, vfb->height);
+
 		char tag[128];
 		FormatFramebufferName(vfb, tag, sizeof(tag));
 		vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, tag });
