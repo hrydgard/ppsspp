@@ -1992,7 +1992,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 			WARN_LOG_N_TIMES(dstnotsrc, 5, G3D, "Inter-buffer block transfer %dx%d %dbpp from %08x (x:%d y:%d stride:%d %s) -> %08x (x:%d y:%d stride:%d %s)",
 				width, height, bpp,
 				srcBasePtr, srcRect.x_bytes / bpp, srcRect.y, srcStride, GeBufferFormatToString(srcRect.vfb->fb_format),
-				dstBasePtr, dstRect.x_bytes / bpp, dstRect.y, dstStride, GeBufferFormatToString(srcRect.vfb->fb_format));
+				dstBasePtr, dstRect.x_bytes / bpp, dstRect.y, dstStride, GeBufferFormatToString(dstRect.vfb->fb_format));
 
 			// Straight blit will do, but check the bpp, we might need to convert coordinates differently.
 			int buffer_bpp = BufferFormatBytesPerPixel(srcRect.vfb->fb_format);
@@ -2002,7 +2002,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				bpp = buffer_bpp;
 			}
 			FlushBeforeCopy();
-			BlitFramebuffer(dstRect.vfb, dstRect.x_bytes / bpp, dstRect.y, srcRect.vfb, srcRect.x_bytes / bpp, srcRect.y, width, height, bpp, "Blit_InterBufferBlockTransfer");
+			BlitFramebuffer(dstRect.vfb, dstRect.x_bytes / bpp, dstRect.y, srcRect.vfb, srcRect.x_bytes / bpp, srcRect.y, srcRect.w_bytes / bpp, height, bpp, "Blit_InterBufferBlockTransfer");
 			RebindFramebuffer("RebindFramebuffer - Inter-buffer block transfer");
 			SetColorUpdated(dstRect.vfb, skipDrawReason);
 			return true;
