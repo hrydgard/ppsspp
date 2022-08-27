@@ -104,9 +104,9 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 		if (config.bufferFormat == GE_FORMAT_DEPTH16 && config.textureFormat == GE_TFMT_5650) {
 			// Convert depth to 565, without going through a CLUT.
 			writer.C("  int idepth = int(clamp(depth, 0.0, 65535.0));\n");
-			writer.C("  float r = (idepth & 31) / 31.0f;\n");
-			writer.C("  float g = ((idepth >> 5) & 63) / 63.0f;\n");
-			writer.C("  float b = ((idepth >> 11) & 31) / 31.0f;\n");
+			writer.C("  float r = float(idepth & 31) / 31.0f;\n");
+			writer.C("  float g = float((idepth >> 5) & 63) / 63.0f;\n");
+			writer.C("  float b = float((idepth >> 11) & 31) / 31.0f;\n");
 			writer.C("  vec4 outColor = vec4(r, g, b, 1.0);\n");
 			return;
 		}

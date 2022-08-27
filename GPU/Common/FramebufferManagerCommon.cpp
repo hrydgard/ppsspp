@@ -113,12 +113,11 @@ void FramebufferManagerCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, G
 VirtualFramebuffer *FramebufferManagerCommon::GetVFBAt(u32 addr) const {
 	addr &= 0x3FFFFFFF;
 	VirtualFramebuffer *match = nullptr;
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *v = vfbs_[i];
-		if (v->fb_address == addr) {
+	for (auto vfb : vfbs_) {
+		if (vfb->fb_address == addr) {
 			// Could check w too but whatever (actually, might very well make sense to do so, depending on context).
-			if (!match || v->last_frame_render > match->last_frame_render) {
-				match = v;
+			if (!match || vfb->last_frame_render > match->last_frame_render) {
+				match = vfb;
 			}
 		}
 	}
@@ -182,8 +181,8 @@ void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, int fb_stride
 	if (viewport_width != region_width) {
 		// The majority of the time, these are equal.  If not, let's check what we know.
 		u32 nearest_address = 0xFFFFFFFF;
-		for (size_t i = 0; i < vfbs_.size(); ++i) {
-			const u32 other_address = vfbs_[i]->fb_address & 0x3FFFFFFF;
+		for (auto vfb : vfbs_) {
+			const u32 other_address = vfb->fb_address & 0x3FFFFFFF;
 			if (other_address > fb_address && other_address < nearest_address) {
 				nearest_address = other_address;
 			}
@@ -306,10 +305,9 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	// As there are no clear "framebuffer width" and "framebuffer height" registers,
 	// we need to infer the size of the current framebuffer somehow.
 	int drawing_width, drawing_height;
-	EstimateDrawingSize(params.fb_address, std::max(params.fb_stride, (u16)16), params.fb_format, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, drawing_width, drawing_height);
+	EstimateDrawingSize(params.fb_address, std::max(params.fb_stride, (u16)4), params.fb_format, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, drawing_width, drawing_height);
 
 	gstate_c.SetCurRTOffset(0, 0);
-	bool vfbStrideChanged = false;
 
 	if (params.fb_address == params.z_address) {
 		// Most likely Z will not be used in this pass, as that would wreak havoc (undefined behavior for sure)
@@ -319,23 +317,11 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = nullptr;
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *v = vfbs_[i];
-
+	for (auto v : vfbs_) {
 		const u32 bpp = BufferFormatBytesPerPixel(v->fb_format);
 
 		if (params.fb_address == v->fb_address && params.fb_format == v->fb_format && params.fb_stride == v->fb_stride) {
 			vfb = v;
-
-			// Update fb stride in case it changed.
-			//
-			// In reality, this is probably a new different framebuffer... Can't really share
-			// data between framebuffers with different strides! (or well, we can, with complex
-			// conversion shaders mapping back to and from memory addresses).
-			if (vfb->fb_stride != params.fb_stride) {
-				vfb->fb_stride = params.fb_stride;
-				vfbStrideChanged = true;
-			}
 
 			if (vfb->z_address == 0 && vfb->z_stride == 0 && params.z_stride != 0) {
 				// Got one that was created by CreateRAMFramebuffer. Since it has no depth buffer,
@@ -460,7 +446,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 			// TODO: Is it worth trying to upload the depth buffer (only if it wasn't copied above..?)
 		}
 
-		// Let's check for depth buffer overlap.  Might be interesting.
+		// Let's check for depth buffer overlap. Might be interesting (not that interesting anymore..)
 		bool sharingReported = false;
 		for (size_t i = 0, end = vfbs_.size(); i < end; ++i) {
 			if (vfbs_[i]->z_stride != 0 && params.fb_address == vfbs_[i]->z_address) {
@@ -510,7 +496,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		vfb->dirtyAfterDisplay = true;
 		if ((skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 			vfb->reallyDirtyAfterDisplay = true;
-		NotifyRenderFramebufferUpdated(vfb, vfbStrideChanged);
+		NotifyRenderFramebufferUpdated(vfb);
 	}
 
 	vfb->colorBindSeq = GetBindSeqCount();
@@ -862,21 +848,10 @@ void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer
 
 	textureCache_->NotifyFramebuffer(vfb, NOTIFY_FB_CREATED);
 
-	// Ugly...
-	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
-	}
-	if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
-		gstate_c.Dirty(DIRTY_PROJMATRIX);
-		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
-	}
+	NotifyRenderFramebufferUpdated(vfb);
 }
 
-void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbStrideChanged) {
-	if (vfbStrideChanged) {
-		textureCache_->NotifyFramebuffer(vfb, NOTIFY_FB_UPDATED);
-	}
-
+void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb) {
 	// ugly...
 	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
 		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
@@ -922,14 +897,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	}
 	textureCache_->NotifyFramebuffer(vfb, NOTIFY_FB_UPDATED);
 
-	// ugly... is all this needed?
-	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
-	}
-	if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
-		gstate_c.Dirty(DIRTY_PROJMATRIX);
-		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
-	}
+	NotifyRenderFramebufferUpdated(vfb);
 }
 
 void FramebufferManagerCommon::NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt) {
@@ -1255,8 +1223,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		// "framebuffers" sitting in RAM (created from block transfer or similar) so we only take off the kernel
 		// and uncached bits of the address when comparing.
 		const u32 addr = fbaddr & 0x3FFFFFFF;
-		for (size_t i = 0; i < vfbs_.size(); ++i) {
-			VirtualFramebuffer *v = vfbs_[i];
+		for (auto v : vfbs_) {
 			const u32 v_addr = v->fb_address & 0x3FFFFFFF;
 			const u32 v_size = ColorBufferByteSize(v);
 			if (addr >= v_addr && addr < v_addr + v_size) {
@@ -1531,14 +1498,15 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	dst &= 0x3FFFFFFF;
 	src &= 0x3FFFFFFF;
 
+	// TODO: Merge the below into FindTransferFramebuffer
+
 	VirtualFramebuffer *dstBuffer = 0;
 	VirtualFramebuffer *srcBuffer = 0;
 	u32 dstY = (u32)-1;
 	u32 dstH = 0;
 	u32 srcY = (u32)-1;
 	u32 srcH = 0;
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = vfbs_[i];
+	for (auto vfb : vfbs_) {
 		if (vfb->fb_stride == 0) {
 			continue;
 		}
@@ -1640,119 +1608,68 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	}
 }
 
-// Can't be const, in case it has to create a vfb unfortunately.
-void FramebufferManagerCommon::FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp) {
-	u32 dstYOffset = -1;
-	u32 dstXOffset = -1;
-	u32 srcYOffset = -1;
-	u32 srcXOffset = -1;
-	int width = srcWidth;
-	int height = srcHeight;
+void FramebufferManagerCommon::FindTransferFramebuffer(VirtualFramebuffer *&buffer, u32 basePtr, int stride, int &x, int &y, int &width, int &height, int bpp, bool destination) {
+	u32 xOffset = -1;
+	u32 yOffset = -1;
+	int transferWidth = width;
+	int transferHeight = height;
 
-	dstBasePtr &= 0x3FFFFFFF;
-	srcBasePtr &= 0x3FFFFFFF;
+	basePtr &= 0x3FFFFFFF;
 
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = vfbs_[i];
+	for (auto vfb : vfbs_) {
 		const u32 vfb_address = vfb->fb_address & 0x3FFFFFFF;
 		const u32 vfb_size = ColorBufferByteSize(vfb);
 		const u32 vfb_bpp = BufferFormatBytesPerPixel(vfb->fb_format);
 		const u32 vfb_byteStride = vfb->fb_stride * vfb_bpp;
 		const u32 vfb_byteWidth = vfb->width * vfb_bpp;
 
-		// These heuristics are a bit annoying.
-		// The goal is to avoid using GPU block transfers for things that ought to be memory.
-		// Maybe we should even check for textures at these places instead?
+		if (vfb_address <= basePtr && basePtr < vfb_address + vfb_size) {
+			const u32 byteOffset = basePtr - vfb_address;
+			const u32 byteStride = stride * bpp;
+			const u32 memYOffset = byteOffset / byteStride;
 
-		if (vfb_address <= dstBasePtr && dstBasePtr < vfb_address + vfb_size) {
-			const u32 byteOffset = dstBasePtr - vfb_address;
-			const u32 byteStride = dstStride * bpp;
-			const u32 yOffset = byteOffset / byteStride;
-
-			// Some games use mismatching bitdepths.  But make sure the stride matches.
+			// Some games use mismatching bitdepths. But make sure the stride matches.
 			// If it doesn't, generally this means we detected the framebuffer with too large a height.
 			// Use bufferHeight in case of buffers that resize up and down often per frame (Valkyrie Profile.)
-			bool match = yOffset < dstYOffset && (int)yOffset <= (int)vfb->bufferHeight - dstHeight;
+
+			// TODO: Surely this first comparison should be <= ?
+			// Or does the exact match (byteOffset == 0) case get handled elsewhere?
+			bool match = memYOffset < yOffset && (int)memYOffset <= (int)vfb->bufferHeight - height;
 			if (match && vfb_byteStride != byteStride) {
 				// Grand Knights History copies with a mismatching stride but a full line at a time.
+				// That's why we multiply by height, not width - this copy is a rectangle with the wrong stride but a line with the correct one.
 				// Makes it hard to detect the wrong transfers in e.g. God of War.
-				if (width != dstStride || (byteStride * height != vfb_byteStride && byteStride * height != vfb_byteWidth)) {
-					// However, some other games write cluts to framebuffers.
-					// Let's catch this and upload.  Otherwise reject the match.
-					match = (vfb->usageFlags & FB_USAGE_CLUT) != 0;
-					if (match) {
-						dstWidth = byteStride * height / vfb_bpp;
-						dstHeight = 1;
+				if (transferWidth != stride || (byteStride * transferHeight != vfb_byteStride && byteStride * transferHeight != vfb_byteWidth)) {
+					if (destination) {
+						// However, some other games write cluts to framebuffers.
+						// Let's catch this and upload.  Otherwise reject the match.
+						match = (vfb->usageFlags & FB_USAGE_CLUT) != 0;
+						if (match) {
+							width = byteStride * transferHeight / vfb_bpp;
+							height = 1;
+						}
+					} else {
+						match = false;
 					}
 				} else {
-					dstWidth = byteStride * height / vfb_bpp;
-					dstHeight = 1;
+					width = byteStride * transferHeight / vfb_bpp;
+					height = 1;
 				}
 			} else if (match) {
-				dstWidth = width;
-				dstHeight = height;
+				width = transferWidth;
+				height = transferHeight;
 			}
 			if (match) {
-				dstYOffset = yOffset;
-				dstXOffset = dstStride == 0 ? 0 : (byteOffset / bpp) % dstStride;
-				dstBuffer = vfb;
-			}
-		}
-		if (vfb_address <= srcBasePtr && srcBasePtr < vfb_address + vfb_size) {
-			const u32 byteOffset = srcBasePtr - vfb_address;
-			const u32 byteStride = srcStride * bpp;
-			const u32 yOffset = byteOffset / byteStride;
-			bool match = yOffset < srcYOffset && (int)yOffset <= (int)vfb->bufferHeight - srcHeight;
-			if (match && vfb_byteStride != byteStride) {
-				if (width != srcStride || (byteStride * height != vfb_byteStride && byteStride * height != vfb_byteWidth)) {
-					match = false;
-				} else {
-					srcWidth = byteStride * height / vfb_bpp;
-					srcHeight = 1;
-				}
-			} else if (match) {
-				srcWidth = width;
-				srcHeight = height;
-			}
-			if (match) {
-				srcYOffset = yOffset;
-				srcXOffset = srcStride == 0 ? 0 : (byteOffset / bpp) % srcStride;
-				srcBuffer = vfb;
+				xOffset = stride == 0 ? 0 : (byteOffset / bpp) % stride;
+				yOffset = memYOffset;
+				buffer = vfb;
 			}
 		}
 	}
 
-	if (srcBuffer && !dstBuffer) {
-		if (PSP_CoreParameter().compat.flags().BlockTransferAllowCreateFB ||
-			(PSP_CoreParameter().compat.flags().IntraVRAMBlockTransferAllowCreateFB &&
-				Memory::IsVRAMAddress(srcBuffer->fb_address) && Memory::IsVRAMAddress(dstBasePtr))) {
-			GEBufferFormat ramFormat;
-			// Try to guess the appropriate format. We only know the bpp from the block transfer command (16 or 32 bit).
-			if (bpp == 4) {
-				// Only one possibility unless it's doing split pixel tricks (which we could detect through stride maybe).
-				ramFormat = GE_FORMAT_8888;
-			} else if (srcBuffer->fb_format != GE_FORMAT_8888) {
-				// We guess that the game will interpret the data the same as it was in the source of the copy.
-				// Seems like a likely good guess, and works in Test Drive Unlimited.
-				ramFormat = srcBuffer->fb_format;
-			} else {
-				// No info left - just fall back to something. But this is definitely split pixel tricks.
-				ramFormat = GE_FORMAT_5551;
-			}
-			dstBuffer = CreateRAMFramebuffer(dstBasePtr, dstWidth, dstHeight, dstStride, ramFormat);
-		}
-	}
-
-	if (dstBuffer)
-		dstBuffer->last_frame_used = gpuStats.numFlips;
-
-	if (dstYOffset != (u32)-1) {
-		dstY += dstYOffset;
-		dstX += dstXOffset;
-	}
-	if (srcYOffset != (u32)-1) {
-		srcY += srcYOffset;
-		srcX += srcXOffset;
+	if (yOffset != (u32)-1) {
+		x += xOffset;
+		y += yOffset;
 	}
 }
 
@@ -1956,8 +1873,33 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 	int dstWidth = width;
 	int dstHeight = height;
 
-	// This looks at the compat flags BlockTransferAllowCreateFB*.
-	FindTransferFramebuffers(dstBuffer, srcBuffer, dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, srcWidth, srcHeight, dstWidth, dstHeight, bpp);
+	// These modify the X/Y/W/H parameters depending on the memory offset of the base pointers from the actual buffers.
+	FindTransferFramebuffer(srcBuffer, srcBasePtr, srcStride, srcX, srcY, srcWidth, srcHeight, bpp, false);
+	FindTransferFramebuffer(dstBuffer, dstBasePtr, dstStride, dstX, dstY, dstWidth, dstHeight, bpp, true);
+
+	if (srcBuffer && !dstBuffer) {
+		if (PSP_CoreParameter().compat.flags().BlockTransferAllowCreateFB ||
+			(PSP_CoreParameter().compat.flags().IntraVRAMBlockTransferAllowCreateFB &&
+				Memory::IsVRAMAddress(srcBuffer->fb_address) && Memory::IsVRAMAddress(dstBasePtr))) {
+			GEBufferFormat ramFormat;
+			// Try to guess the appropriate format. We only know the bpp from the block transfer command (16 or 32 bit).
+			if (bpp == 4) {
+				// Only one possibility unless it's doing split pixel tricks (which we could detect through stride maybe).
+				ramFormat = GE_FORMAT_8888;
+			} else if (srcBuffer->fb_format != GE_FORMAT_8888) {
+				// We guess that the game will interpret the data the same as it was in the source of the copy.
+				// Seems like a likely good guess, and works in Test Drive Unlimited.
+				ramFormat = srcBuffer->fb_format;
+			} else {
+				// No info left - just fall back to something. But this is definitely split pixel tricks.
+				ramFormat = GE_FORMAT_5551;
+			}
+			dstBuffer = CreateRAMFramebuffer(dstBasePtr, dstWidth, dstHeight, dstStride, ramFormat);
+		}
+	}
+
+	if (dstBuffer)
+		dstBuffer->last_frame_used = gpuStats.numFlips;
 
 	if (dstBuffer && srcBuffer) {
 		if (srcBuffer == dstBuffer) {
@@ -2032,13 +1974,15 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 	}
 
 	if (MayIntersectFramebuffer(srcBasePtr) || MayIntersectFramebuffer(dstBasePtr)) {
+		// TODO: Figure out how we can avoid repeating the search here.
 		VirtualFramebuffer *dstBuffer = 0;
 		VirtualFramebuffer *srcBuffer = 0;
 		int srcWidth = width;
 		int srcHeight = height;
 		int dstWidth = width;
 		int dstHeight = height;
-		FindTransferFramebuffers(dstBuffer, srcBuffer, dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, srcWidth, srcHeight, dstWidth, dstHeight, bpp);
+		FindTransferFramebuffer(srcBuffer, srcBasePtr, srcStride, srcX, srcY, srcWidth, srcHeight, bpp, false);
+		FindTransferFramebuffer(dstBuffer, dstBasePtr, dstStride, dstX, dstY, dstWidth, dstHeight, bpp, true);
 
 		// A few games use this INSTEAD of actually drawing the video image to the screen, they just blast it to
 		// the backbuffer. Detect this and have the framebuffermanager draw the pixels.
@@ -2499,9 +2443,7 @@ void FramebufferManagerCommon::RebindFramebuffer(const char *tag) {
 std::vector<FramebufferInfo> FramebufferManagerCommon::GetFramebufferList() const {
 	std::vector<FramebufferInfo> list;
 
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = vfbs_[i];
-
+	for (auto vfb : vfbs_) {
 		FramebufferInfo info;
 		info.fb_address = vfb->fb_address;
 		info.z_address = vfb->z_address;
@@ -2724,17 +2666,6 @@ void FramebufferManagerCommon::BlitUsingRaster(
 	draw_->GetFramebufferDimensions(src, &srcW, &srcH);
 	draw_->GetFramebufferDimensions(dest, &destW, &destH);
 
-	float dX = 1.0f / (float)destW;
-	float dY = 1.0f / (float)destH;
-	float sX = 1.0f / (float)srcW;
-	float sY = 1.0f / (float)srcH;
-	Draw2DVertex vtx[4] = {
-		{ -1.0f + 2.0f * dX * destX1, -(1.0f - 2.0f * dY * destY1), sX * srcX1, sY * srcY1 },
-		{ -1.0f + 2.0f * dX * destX2, -(1.0f - 2.0f * dY * destY1), sX * srcX2, sY * srcY1 },
-		{ -1.0f + 2.0f * dX * destX1, -(1.0f - 2.0f * dY * destY2), sX * srcX1, sY * srcY2 },
-		{ -1.0f + 2.0f * dX * destX2, -(1.0f - 2.0f * dY * destY2), sX * srcX2, sY * srcY2 },
-	};
-
 	// Unbind the texture first to avoid the D3D11 hazard check (can't set render target to things bound as textures and vice versa, not even temporarily).
 	draw_->BindTexture(0, nullptr);
 	// This will get optimized away in case it's already bound (in VK and GL at least..)
@@ -2745,7 +2676,7 @@ void FramebufferManagerCommon::BlitUsingRaster(
 	draw_->SetViewports(1, &vp);
 	draw_->SetScissorRect(0, 0, (int)dest->Width(), (int)dest->Height());
 
-	draw2D_.DrawStrip2D(nullptr, vtx, 4, linearFilter, pipeline, src->Width(), src->Height(), renderScaleFactor_);
+	draw2D_.Blit(pipeline, srcX1, srcY1, srcX2, srcY2, destX1, destY1, destX2, destY2, (float)srcW, (float)srcH, (float)destW, (float)destH, linearFilter , renderScaleFactor_);
 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }

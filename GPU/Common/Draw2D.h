@@ -58,6 +58,8 @@ public:
 	Draw2DPipeline *Create2DPipeline(std::function<Draw2DPipelineInfo(ShaderWriter &)> generate);
 
 	void DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DPipeline *pipeline, float texW = 0.0f, float texH = 0.0f, int scaleFactor = 0);
+
+	void Blit(Draw2DPipeline *pipeline, float srcX1, float srcY1, float srcX2, float srcY2, float dstX1, float dstY1, float dstX2, float dstY2, float srcWidth, float srcHeight, float dstWidth, float dstHeight, bool linear, int scaleFactor);
 	void Ensure2DResources();
 
 private:
