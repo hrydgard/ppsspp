@@ -123,7 +123,7 @@ Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBuf
 	} else {
 		switch (to) {
 		case GE_FORMAT_4444:
-			writer.C("vec4 unpackColor(float val) {\n");
+			writer.C("vec4 unpackColor(float color) {\n");
 			writer.C("  vec4 outColor = vec4(mod(floor(color), 16.0), mod(floor(color / 16.0), 16.0),");
 			writer.C("                       mod(floor(color / 256.0), 16.0), mod(floor(color / 4096.0), 16.0)); \n");
 			writer.C("  outColor *= 1.0 / 15.0;\n");
@@ -131,7 +131,7 @@ Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBuf
 			writer.C("}\n");
 			break;
 		case GE_FORMAT_5551:
-			writer.C("vec4 unpackColor(float val) {\n");
+			writer.C("vec4 unpackColor(float color) {\n");
 			writer.C("  vec4 outColor = vec4(mod(floor(color), 32.0), mod(floor(color / 32.0), 32.0), mod(floor(color / 1024.0), 32.0), 0.0);\n");
 			writer.C("  outColor.rgb *= 1.0 / 31.0;\n");
 			writer.C("  outColor.a = floor(color / 32768.0);\n");
@@ -139,7 +139,7 @@ Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBuf
 			writer.C("}\n");
 			break;
 		case GE_FORMAT_565:
-			writer.C("vec4 unpackColor(float val) {\n");
+			writer.C("vec4 unpackColor(float color) {\n");
 			writer.C("  vec4 outColor = vec4(mod(floor(color), 32.0), mod(floor(color / 32.0), 64.0), mod(floor(color / 2048.0), 32.0), 0.0);\n");
 			writer.C("  outColor.rb *= 1.0 / 31.0;\n");
 			writer.C("  outColor.g *= 1.0 / 63.0;\n");
