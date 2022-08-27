@@ -671,6 +671,7 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 
 	bool tookActions = false;
 
+	// TODO: Only do the latest one.
 	for (const CopySource &source : sources) {
 		VirtualFramebuffer *src = source.vfb;
 
@@ -737,9 +738,9 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 						// Need to dirty anything that has command buffer dynamic state, in case we started a new pass above.
 						// Should find a way to feed that information back, maybe... Or simply correct the issue in the rendermanager.
 						gstate_c.Dirty(DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE);
+						tookActions = true;
 					}
 				}
-				tookActions = true;
 			}
 			
 			if (pipeline) {
@@ -1986,8 +1987,8 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 			return true;  // Skip the memory copy.
 		}
 
+		// Straightforward blit between two same-format framebuffers.
 		if (srcRect.vfb->fb_format == dstRect.vfb->fb_format) {
-			// This is the meat and potatoes, here all kind of shenanigans must be handled.
 			WARN_LOG_N_TIMES(dstnotsrc, 5, G3D, "Inter-buffer block transfer %dx%d %dbpp from %08x (x:%d y:%d stride:%d %s) -> %08x (x:%d y:%d stride:%d %s)",
 				width, height, bpp,
 				srcBasePtr, srcRect.x_bytes / bpp, srcRect.y, srcStride, GeBufferFormatToString(srcRect.vfb->fb_format),
@@ -2007,13 +2008,15 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 			return true;
 		}
 
-		// Getting to the more complex cases.
+		// Getting to the more complex cases. Have not actually seen much of these yet.
 		WARN_LOG_N_TIMES(blockformat, 5, G3D, "Mismatched buffer formats in block transfer: %s->%s (%dx%d)",
 			GeBufferFormatToString(srcRect.vfb->fb_format), GeBufferFormatToString(dstRect.vfb->fb_format),
 			width, height);
 
-		// Straightforward blit between two framebuffers.
-		return true;  // No need to actually do the memory copy behind, probably.
+		// TODO
+
+		// No need to actually do the memory copy behind, probably.
+		return true;
 
 	} else if (dstBuffer) {
 		// Here we should just draw the pixels into the buffer.  Copy first.
