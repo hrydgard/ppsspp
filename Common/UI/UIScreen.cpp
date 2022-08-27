@@ -12,14 +12,10 @@
 #include "Common/UI/Root.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Render/DrawBuffer.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
-
-#ifdef OPENXR
-#include "VR/VRBase.h"
-#include "VR/VRRenderer.h"
-#endif
 
 static const bool ClickDebug = false;
 
@@ -93,9 +89,9 @@ void UIScreen::preRender() {
 	draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 }, "UI");
 	screenManager()->getUIContext()->BeginFrame();
 
-#ifdef OPENXR
-	VR_BindFramebuffer(VR_GetEngine());
-#endif
+	if (IsVRBuild()) {
+		BindVRFramebuffer();
+	}
 
 	Draw::Viewport viewport;
 	viewport.TopLeftX = 0;

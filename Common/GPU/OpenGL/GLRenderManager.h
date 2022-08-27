@@ -743,7 +743,6 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-#ifdef OPENXR
 	void SetUniformM4x4Stereo(const char *name, const GLint *loc, const float *left, const float *right) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG
@@ -756,7 +755,6 @@ public:
 		memcpy(&data.uniformMatrix4.m[16], right, sizeof(float) * 16);
 		curRenderStep_->commands.push_back(data);
 	}
-#endif
 
 	void SetUniformM4x4(const char *name, const float *udata) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);

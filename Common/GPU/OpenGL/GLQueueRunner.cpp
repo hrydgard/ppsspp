@@ -6,6 +6,7 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/OpenGL/DataFormatGL.h"
 #include "Common/Math/math_util.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
@@ -28,11 +29,6 @@ static constexpr int TEXCACHE_NAME_CACHE_SIZE = 16;
 
 #if PPSSPP_PLATFORM(IOS)
 extern void bindDefaultFBO();
-#endif
-
-#ifdef OPENXR
-#include "VR/VRBase.h"
-#include "VR/VRRenderer.h"
 #endif
 
 // Workaround for Retroarch. Simply declare
@@ -276,25 +272,27 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 			for (size_t j = 0; j < program->queries_.size(); j++) {
 				auto &query = program->queries_[j];
 				_dbg_assert_(query.name);
-#ifdef OPENXR
-				int location = -1;
-				int index = GetStereoBufferIndex(query.name);
-				if (index >= 0) {
-					std::string layout = GetStereoBufferLayout(query.name);
-					glUniformBlockBinding(program->program, glGetUniformBlockIndex(program->program, layout.c_str()), index);
 
-					GLuint buffer = 0;
-					glGenBuffers(1, &buffer);
-					glBindBuffer(GL_UNIFORM_BUFFER, buffer);
-					glBufferData(GL_UNIFORM_BUFFER,2 * 16 * sizeof(float),NULL, GL_STATIC_DRAW);
-					glBindBuffer(GL_UNIFORM_BUFFER, 0);
-					location = buffer;
+				int location = -1;
+				if (IsVRBuild()) {
+					int index = GetStereoBufferIndex(query.name);
+					if (index >= 0) {
+						std::string layout = GetStereoBufferLayout(query.name);
+						glUniformBlockBinding(program->program, glGetUniformBlockIndex(program->program, layout.c_str()), index);
+
+						GLuint buffer = 0;
+						glGenBuffers(1, &buffer);
+						glBindBuffer(GL_UNIFORM_BUFFER, buffer);
+						glBufferData(GL_UNIFORM_BUFFER,2 * 16 * sizeof(float),NULL, GL_STATIC_DRAW);
+						glBindBuffer(GL_UNIFORM_BUFFER, 0);
+						location = buffer;
+					} else {
+						location = glGetUniformLocation(program->program, query.name);
+					}
 				} else {
 					location = glGetUniformLocation(program->program, query.name);
 				}
-#else
-				int location = glGetUniformLocation(program->program, query.name);
-#endif
+
 				if (location < 0 && query.required) {
 					WARN_LOG(G3D, "Required uniform query for '%s' failed", query.name);
 				}
@@ -1026,7 +1024,6 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
-#ifdef OPENXR
 		case GLRRenderCommand::UNIFORMSTEREOMATRIX:
 		{
 			_dbg_assert_(curProgram);
@@ -1043,7 +1040,6 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
-#endif
 		case GLRRenderCommand::UNIFORMMATRIX:
 		{
 			_dbg_assert_(curProgram);
@@ -1714,9 +1710,9 @@ void GLQueueRunner::fbo_unbind() {
 	bindDefaultFBO();
 #endif
 
-#ifdef OPENXR
-	VR_BindFramebuffer(VR_GetEngine());
-#endif
+	if (IsVRBuild()) {
+		BindVRFramebuffer();
+	}
 
 	currentDrawHandle_ = 0;
 	currentReadHandle_ = 0;

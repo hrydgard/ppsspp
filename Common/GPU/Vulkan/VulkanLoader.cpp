@@ -23,6 +23,7 @@
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/Log.h"
 #include "Common/System/System.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #if !PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(SWITCH)
 #include <dlfcn.h>
@@ -306,10 +307,10 @@ void VulkanSetAvailable(bool available) {
 
 bool VulkanMayBeAvailable() {
 
-#ifdef OPENXR
-	//unsupported at the moment
-	return false;
-#endif
+	//unsupported in VR at the moment
+	if (IsVRBuild()) {
+		return false;
+	}
 
 	if (g_vulkanAvailabilityChecked) {
 		return g_vulkanMayBeAvailable;

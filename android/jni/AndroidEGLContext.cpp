@@ -3,6 +3,7 @@
 
 #include "Common/Log.h"
 #include "Common/System/System.h"
+#include "Common/VR/PPSSPPVR.h"
 #include "AndroidEGLContext.h"
 #include "GL/GLInterface/EGLAndroid.h"
 #include "Core/Config.h"
@@ -46,11 +47,7 @@ bool AndroidEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int des
 	}
 	gl->MakeCurrent();
 	if (gl->GetMode() == GLInterfaceMode::MODE_OPENGL)
-#ifdef OPENXR
-		SetGLCoreContext(false);
-#else
-		SetGLCoreContext(true);
-#endif
+		SetGLCoreContext(!IsVRBuild());
 	CheckGLExtensions();
 	draw_ = Draw::T3DCreateGLContext();
 	SetGPUBackend(GPUBackend::OPENGL);

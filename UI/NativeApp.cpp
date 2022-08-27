@@ -78,6 +78,7 @@
 #include "Common/GraphicsContext.h"
 #include "Common/OSVersion.h"
 #include "Common/GPU/ShaderTranslation.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #include "Core/ControlMapper.h"
 #include "Core/Config.h"
@@ -140,10 +141,6 @@
 #include "ios/iOSCoreAudio.h"
 #elif defined(__APPLE__)
 #include <mach-o/dyld.h>
-#endif
-
-#ifdef OPENXR
-#include "VR/VRRenderer.h"
 #endif
 
 ScreenManager *screenManager;
@@ -1302,17 +1299,10 @@ bool NativeTouch(const TouchInput &touch) {
 
 bool NativeKey(const KeyInput &key) {
 
-	// Hack to quick enable 2D mode in VR game mode.
-#ifdef OPENXR
-	std::vector<int> nativeKeys;
-	if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &nativeKeys)) {
-		for (int& nativeKey : nativeKeys) {
-			if (nativeKey == CTRL_SCREEN) {
-				VR_SetConfig(VR_CONFIG_FORCE_2D, key.flags & KEY_DOWN);
-			}
-		}
+	// Hack to quickly enable 2D mode in VR game mode.
+	if (IsVRBuild()) {
+		UpdateVRScreenKey(key);
 	}
-#endif
 
 	// INFO_LOG(SYSTEM, "Key code: %i flags: %i", key.keyCode, key.flags);
 #if !defined(MOBILE_DEVICE)

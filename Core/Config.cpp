@@ -44,6 +44,7 @@
 #include "Common/System/System.h"
 #include "Common/StringUtils.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
+#include "Common/VR/PPSSPPVR.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Loaders.h"
@@ -695,9 +696,9 @@ const char * const vulkanDefaultBlacklist[] = {
 };
 
 static int DefaultGPUBackend() {
-#ifdef OPENXR
-	return (int)GPUBackend::OPENGL;
-#endif
+	if (IsVRBuild()) {
+		return (int)GPUBackend::OPENGL;
+	}
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	// If no Vulkan, use Direct3D 11 on Windows 8+ (most importantly 10.)

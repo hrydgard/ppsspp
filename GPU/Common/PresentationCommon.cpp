@@ -24,6 +24,7 @@
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/File/VFS/VFS.h"
+#include "Common/VR/PPSSPPVR.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
@@ -34,10 +35,6 @@
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/PresentationCommon.h"
 #include "Common/GPU/ShaderTranslation.h"
-
-#ifdef OPENXR
-#include "VR/VRRenderer.h"
-#endif
 
 struct Vertex {
 	float x, y, z;
@@ -77,13 +74,13 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 
 	bool rotated = rotation == ROTATION_LOCKED_VERTICAL || rotation == ROTATION_LOCKED_VERTICAL180;
 
-#ifdef OPENXR
-	if (VR_GetConfig(VR_CONFIG_MODE) == VR_MODE_FLAT_SCREEN) {
-		g_Config.iSmallDisplayZoomType = (int)SmallDisplayZoom::AUTO;
-	} else {
-		g_Config.iSmallDisplayZoomType = (int)SmallDisplayZoom::STRETCH;
+	if (IsVRBuild()) {
+		if (IsFlatVRScene()) {
+			g_Config.iSmallDisplayZoomType = (int)SmallDisplayZoom::AUTO;
+		} else {
+			g_Config.iSmallDisplayZoomType = (int)SmallDisplayZoom::STRETCH;
+		}
 	}
-#endif
 
 	if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::STRETCH) {
 		outW = frame.w;

@@ -1084,6 +1084,8 @@ if(ANDROID)
 
 	if (OPENXR)
 		set(nativeExtra ${nativeExtra}
+			Common/VR/PPSSPPVR.cpp
+			Common/VR/PPSSPPVR.h
 			Common/VR/VRBase.cpp
 			Common/VR/VRBase.h
 			Common/VR/VRFramebuffer.cpp

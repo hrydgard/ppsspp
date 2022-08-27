@@ -70,6 +70,7 @@ struct JNIEnv {};
 #include "Common/Profiler/Profiler.h"
 #include "Common/Math/math_util.h"
 #include "Common/Data/Text/Parsers.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Log.h"
 #include "Common/GraphicsContext.h"
@@ -92,58 +93,6 @@ struct JNIEnv {};
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
 #include "UI/GameInfoCache.h"
-
-#ifdef OPENXR
-#include "Core/HLE/sceDisplay.h"
-#include "VR/VRBase.h"
-#include "VR/VRInput.h"
-#include "VR/VRRenderer.h"
-
-struct ButtonMapping {
-	ovrButton ovr;
-	int keycode;
-	bool pressed;
-	int repeat;
-
-	ButtonMapping(int keycode, ovrButton ovr) {
-		this->keycode = keycode;
-		this->ovr = ovr;
-		pressed = false;
-		repeat = 0;
-	}
-};
-
-static std::vector<ButtonMapping> leftControllerMapping = {
-	ButtonMapping(NKCODE_BUTTON_X, ovrButton_X),
-	ButtonMapping(NKCODE_BUTTON_Y, ovrButton_Y),
-	ButtonMapping(NKCODE_ALT_LEFT, ovrButton_GripTrigger),
-	ButtonMapping(NKCODE_DPAD_UP, ovrButton_Up),
-	ButtonMapping(NKCODE_DPAD_DOWN, ovrButton_Down),
-	ButtonMapping(NKCODE_DPAD_LEFT, ovrButton_Left),
-	ButtonMapping(NKCODE_DPAD_RIGHT, ovrButton_Right),
-	ButtonMapping(NKCODE_BUTTON_THUMBL, ovrButton_LThumb),
-	ButtonMapping(NKCODE_ENTER, ovrButton_Trigger),
-	ButtonMapping(NKCODE_BACK, ovrButton_Enter),
-};
-
-static std::vector<ButtonMapping> rightControllerMapping = {
-	ButtonMapping(NKCODE_BUTTON_A, ovrButton_A),
-	ButtonMapping(NKCODE_BUTTON_B, ovrButton_B),
-	ButtonMapping(NKCODE_ALT_RIGHT, ovrButton_GripTrigger),
-	ButtonMapping(NKCODE_DPAD_UP, ovrButton_Up),
-	ButtonMapping(NKCODE_DPAD_DOWN, ovrButton_Down),
-	ButtonMapping(NKCODE_DPAD_LEFT, ovrButton_Left),
-	ButtonMapping(NKCODE_DPAD_RIGHT, ovrButton_Right),
-	ButtonMapping(NKCODE_BUTTON_THUMBR, ovrButton_RThumb),
-	ButtonMapping(NKCODE_ENTER, ovrButton_Trigger),
-};
-
-static const int controllerIds[] = {DEVICE_ID_XR_CONTROLLER_LEFT, DEVICE_ID_XR_CONTROLLER_RIGHT};
-static std::vector<ButtonMapping> controllerMapping[2] = {
-	leftControllerMapping,
-	rightControllerMapping
-};
-#endif
 
 #include "app-android.h"
 
@@ -808,17 +757,10 @@ retry:
 		EmuThreadStart();
 	}
 
-#ifdef OPENXR
-	Version gitVer(PPSSPP_GIT_VERSION);
-	ovrJava java;
-	java.Vm = gJvm;
-	java.ActivityObject = nativeActivity;
-	java.AppVersion = gitVer.ToInteger();
-	strcpy(java.AppName, "PPSSPP");
-	VR_Init(java);
-
-	__DisplaySetFramerate(72);
-#endif
+	if (IsVRBuild()) {
+		Version gitVer(PPSSPP_GIT_VERSION);
+		InitVROnAndroid(gJvm, nativeActivity, gitVer.ToInteger(), "PPSSPP");
+	}
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioInit(JNIEnv *, jclass) {
@@ -997,13 +939,9 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 	}
 	NativeMessageReceived("recreateviews", "");
 
-#ifdef OPENXR
-	if (firstStart) {
-		VR_EnterVR(VR_GetEngine());
-		IN_VRInit(VR_GetEngine());
+	if (IsVRBuild()) {
+		EnterVR(firstStart);
 	}
-	VR_InitRenderer(VR_GetEngine());
-#endif
 
 	return true;
 }
@@ -1043,11 +981,10 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	pixel_xres = bufw;
 	pixel_yres = bufh;
 	backbuffer_format = format;
-#ifdef OPENXR
-	if (VR_GetEngine()->appState.Instance) {
-		VR_GetResolution(VR_GetEngine(), &pixel_xres, &pixel_yres);
+
+	if (IsVRBuild()) {
+		GetVRResolutionPerEye(&pixel_xres, &pixel_yres);
 	}
-#endif
 
 	recalculateDpi();
 
@@ -1128,33 +1065,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 		UpdateRunLoopAndroid(env);
 	}
 
-#ifdef OPENXR
-	KeyInput keyInput = {};
-	for (int j = 0; j < 2; j++) {
-		int status = IN_VRGetButtonState(j);
-		for (ButtonMapping& m : controllerMapping[j]) {
-			bool pressed = status & m.ovr;
-			keyInput.flags = pressed ? KEY_DOWN : KEY_UP;
-			keyInput.keyCode = m.keycode;
-			keyInput.deviceId = controllerIds[j];
-
-			if (m.pressed != pressed) {
-				if (pressed && g_Config.bHapticFeedback) {
-					INVR_Vibrate(100, j, 1000);
-				}
-				NativeKey(keyInput);
-				m.pressed = pressed;
-				m.repeat = 0;
-			} else if (pressed && (m.repeat > 30)) {
-				keyInput.flags |= KEY_IS_REPEAT;
-				NativeKey(keyInput);
-				m.repeat = 0;
-			} else {
-				m.repeat++;
-			}
-		}
+	if (IsVRBuild()) {
+		UpdateVRInput(NativeKey, g_Config.bHapticFeedback);
 	}
-#endif
 }
 
 void System_AskForPermission(SystemPermission permission) {
@@ -1373,15 +1286,14 @@ void getDesiredBackbufferSize(int &sz_x, int &sz_y) {
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JNIEnv *, jclass, jint xres, jint yres, jint dpi, jfloat refreshRate) {
 	INFO_LOG(G3D, "NativeApp.setDisplayParameters(%d x %d, dpi=%d, refresh=%0.2f)", xres, yres, dpi, refreshRate);
-#ifdef OPENXR
-	if (VR_GetEngine()->appState.Instance) {
+
+	if (IsVRBuild()) {
 		int width, height;
-		VR_GetResolution(VR_GetEngine(), &width, &height);
+		GetVRResolutionPerEye(&width, &height);
 		xres = width;
 		yres = height;
 		dpi = 320;
 	}
-#endif
 
 	bool changed = false;
 	changed = changed || display_xres != xres || display_yres != yres;

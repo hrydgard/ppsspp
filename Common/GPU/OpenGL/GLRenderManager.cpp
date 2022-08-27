@@ -3,16 +3,11 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
 #include "Common/Math/math_util.h"
-
-#ifdef OPENXR
-#include "Core/Config.h"
-#include "VR/VRBase.h"
-#include "VR/VRRenderer.h"
-#endif
 
 #if 0 // def _DEBUG
 #define VLOG(...) INFO_LOG(G3D, __VA_ARGS__)
@@ -239,29 +234,15 @@ bool GLRenderManager::ThreadFrame() {
 			firstFrame = false;
 		}
 
-#ifdef OPENXR
-		if (VR_BeginFrame(VR_GetEngine())) {
-
-			// Decide if the scene is 3D or not
-			if (g_Config.bEnableVR && !VR_GetConfig(VR_CONFIG_FORCE_2D) && (VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) > 15)) {
-				VR_SetConfig(VR_CONFIG_MODE, g_Config.bEnableStereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
-			} else {
-				VR_SetConfig(VR_CONFIG_MODE, VR_MODE_FLAT_SCREEN);
+		if (IsVRBuild()) {
+			if (PreVRRender()) {
+				Run(threadFrame_);
+				PostVRRender();
 			}
-			VR_SetConfig(VR_CONFIG_3D_GEOMETRY_COUNT, VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) / 2);
-
-			// Set customizations
-			VR_SetConfig(VR_CONFIG_6DOF_ENABLED, g_Config.bEnable6DoF);
-			VR_SetConfig(VR_CONFIG_CANVAS_DISTANCE, g_Config.iCanvasDistance);
-			VR_SetConfig(VR_CONFIG_FOV_SCALE, g_Config.iFieldOfViewPercentage);
-
-			// Render scene
-			GL(Run(threadFrame_));
-			VR_EndFrame(VR_GetEngine());
+		} else {
+			Run(threadFrame_);
 		}
-#else
-		Run(threadFrame_);
-#endif
+
 		VLOG("PULL: Finished frame %d", threadFrame_);
 	} while (!nextFrame);
 
