@@ -273,6 +273,32 @@ void ovrApp_HandleSessionStateChanges(ovrApp* app, XrSessionState state) {
 		OXR(result = xrBeginSession(app->Session, &sessionBeginInfo));
 
 		app->SessionActive = (result == XR_SUCCESS);
+
+		// Set session state once we have entered VR mode and have a valid session object.
+#ifdef OPENXR_HAS_PERFORMANCE_EXTENSION
+		if (app->SessionActive) {
+			XrPerfSettingsLevelEXT cpuPerfLevel = XR_PERF_SETTINGS_LEVEL_BOOST_EXT;
+			XrPerfSettingsLevelEXT gpuPerfLevel = XR_PERF_SETTINGS_LEVEL_BOOST_EXT;
+
+			PFN_xrPerfSettingsSetPerformanceLevelEXT pfnPerfSettingsSetPerformanceLevelEXT = NULL;
+			OXR(xrGetInstanceProcAddr(
+					app->Instance,
+					"xrPerfSettingsSetPerformanceLevelEXT",
+					(PFN_xrVoidFunction*)(&pfnPerfSettingsSetPerformanceLevelEXT)));
+
+			OXR(pfnPerfSettingsSetPerformanceLevelEXT(app->Session, XR_PERF_SETTINGS_DOMAIN_CPU_EXT, cpuPerfLevel));
+			OXR(pfnPerfSettingsSetPerformanceLevelEXT(app->Session, XR_PERF_SETTINGS_DOMAIN_GPU_EXT, gpuPerfLevel));
+
+			PFN_xrSetAndroidApplicationThreadKHR pfnSetAndroidApplicationThreadKHR = NULL;
+			OXR(xrGetInstanceProcAddr(
+					app->Instance,
+					"xrSetAndroidApplicationThreadKHR",
+					(PFN_xrVoidFunction*)(&pfnSetAndroidApplicationThreadKHR)));
+
+			OXR(pfnSetAndroidApplicationThreadKHR(app->Session, XR_ANDROID_THREAD_TYPE_APPLICATION_MAIN_KHR, app->MainThreadTid));
+			OXR(pfnSetAndroidApplicationThreadKHR(app->Session, XR_ANDROID_THREAD_TYPE_RENDERER_MAIN_KHR, app->RenderThreadTid));
+		}
+#endif
 	} else if (state == XR_SESSION_STATE_STOPPING) {
 		assert(app->SessionActive);
 

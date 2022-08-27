@@ -10,6 +10,10 @@ int vr_initialized = 0;
 
 const char* const requiredExtensionNames[] = {
 		XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME,
+#ifdef OPENXR_HAS_PERFORMANCE_EXTENSION
+		XR_EXT_PERFORMANCE_SETTINGS_EXTENSION_NAME,
+		XR_KHR_ANDROID_THREAD_SETTINGS_EXTENSION_NAME,
+#endif
 		XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME};
 const uint32_t numRequiredExtensions =
 		sizeof(requiredExtensionNames) / sizeof(requiredExtensionNames[0]);
