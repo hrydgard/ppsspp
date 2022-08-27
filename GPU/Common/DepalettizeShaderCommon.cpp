@@ -50,8 +50,10 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 
 	writer.C("  vec2 texcoord = v_texcoord;\n");
 
-	// Implement the swizzle we need to simulate, if a game uses any other mode than "6" to access depth textures.
-	// For now, only implement the "2" mode here.
+	// Implement the swizzle we need to simulate, if a game uses 8888 framebuffers and any other mode than "6" to access depth textures.
+	// This implements the "2" mode swizzle (it fixes up the Y direction but not X. See comments on issue #15898)
+	// NOTE: This swizzle can be made to work with any power-of-2 resolution scaleFactor by shifting
+	// the bits around, but not sure how to handle 3x scaling. For now this is 1x-only (rough edges at higher resolutions).
 	if (config.bufferFormat == GE_FORMAT_DEPTH16) {
 		DepthScaleFactors factors = GetDepthScaleFactors();
 		writer.ConstFloat("z_scale", factors.scale);
@@ -59,9 +61,7 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 		if (config.depthUpperBits == 0x2) {
 			writer.C(R"(
   int x = int((texcoord.x / scaleFactor) * texSize.x);
-  int temp = x & 0xFFFFFE0F;
-  temp |= (x >> 1) & 0xF0;
-  temp |= (x << 4) & 0x100;
+  int temp = (x & 0xFFFFFE0F) | ((x >> 1) & 0xF0) | ((x << 4) & 0x100);
   texcoord.x = (float(temp) / texSize.x) * scaleFactor;
 )");
 		}

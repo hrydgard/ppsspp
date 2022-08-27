@@ -229,7 +229,6 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			} else {
 				dxstate.stencilTest.disable();
 			}
-
 		} else {
 			// Depth Test
 			if (gstate.isDepthTestEnabled()) {
