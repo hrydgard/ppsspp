@@ -673,27 +673,10 @@ int TextureCacheCommon::GetBestCandidateIndex(const std::vector<AttachCandidate>
 	int bestRelevancy = -1;
 	int bestIndex = -1;
 
-	// TODO: Instead of scores, we probably want to use std::min_element to pick the top element, using 
-	// a comparison function.
+	// We simply use the sequence counter as relevancy nowadays.
 	for (int i = 0; i < (int)candidates.size(); i++) {
 		const AttachCandidate &candidate = candidates[i];
 		int relevancy = candidate.seqCount;
-
-		// Bonus point for matching stride.
-		if (candidate.channel == RASTER_COLOR && candidate.fb->fb_stride == candidate.entry.bufw) {
-			relevancy += 1000;
-		}
-
-		// Bonus points for no offset.
-		if (candidate.match.xOffset == 0 && candidate.match.yOffset == 0) {
-			relevancy += 100;
-		}
-
-		if (candidate.channel == RASTER_COLOR && candidate.fb->last_frame_render == gpuStats.numFlips) {
-			relevancy += 50;
-		} else if (candidate.channel == RASTER_DEPTH && candidate.fb->last_frame_depth_render == gpuStats.numFlips) {
-			relevancy += 50;
-		}
 
 		if (relevancy > bestRelevancy) {
 			bestRelevancy = relevancy;
@@ -918,6 +901,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 
 	// If they match "exactly", it's non-CLUT and from the top left.
 	if (exactMatch) {
+		// TODO: Better checks for compatible strides here.
 		if (fb_stride != entry.bufw) {
 			WARN_LOG_ONCE(diffStrides1, G3D, "Found matching framebuffer with different strides %d != %d", entry.bufw, (int)fb_stride);
 		}
