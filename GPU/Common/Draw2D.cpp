@@ -53,7 +53,7 @@ struct Draw2DUB {
 
 const UniformBufferDesc draw2DUBDesc{ sizeof(Draw2DUB), {
 	{ "texSize", -1, 0, UniformType::FLOAT2, 0 },
-	{ "scaleFactor", -1, 1, UniformType::FLOAT1, 0 },
+	{ "scaleFactor", -1, 1, UniformType::FLOAT1, 8 },
 } };
 
 

@@ -259,7 +259,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			if (stencilState.enabled) {
 				renderManager->SetStencilFunc(stencilState.enabled, compareOps[stencilState.testFunc], stencilState.testRef, stencilState.testMask);
 				renderManager->SetStencilOp(stencilState.writeMask, stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass]);
-			} else {
+
 				// Nasty special case for Spongebob and similar where it tries to write zeros to alpha/stencil during
 				// depth-fail. We can't write to alpha then because the pixel is killed. However, we can invert the depth
 				// test and modify the alpha function...
@@ -276,7 +276,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 					// TODO: Need to set in a way that carries over to the next draw..
 					gstate_c.Dirty(DIRTY_BLEND_STATE);
 				}
-
+			} else {
 				renderManager->SetStencilDisabled();
 			}
 		}
