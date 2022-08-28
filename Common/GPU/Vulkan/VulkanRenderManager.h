@@ -361,6 +361,31 @@ public:
 
 	void Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask);
 
+	// Cheaply set that we don't care about the contents of a surface at the start of the current render pass.
+	// This set the corresponding load-op of the current render pass to DONT_CARE.
+	// Useful when we don't know at bind-time whether we will overwrite the surface or not.
+	void SetLoadDontCare(VkImageAspectFlags aspects) {
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
+		if (aspects & VK_IMAGE_ASPECT_COLOR_BIT)
+			curRenderStep_->render.colorLoad = VKRRenderPassLoadAction::DONT_CARE;
+		if (aspects & VK_IMAGE_ASPECT_DEPTH_BIT)
+			curRenderStep_->render.depthLoad = VKRRenderPassLoadAction::DONT_CARE;
+		if (aspects & VK_IMAGE_ASPECT_STENCIL_BIT)
+			curRenderStep_->render.stencilLoad = VKRRenderPassLoadAction::DONT_CARE;
+	}
+
+	// Cheaply set that we don't care about the contents of a surface at the end of the current render pass.
+	// This set the corresponding store-op of the current render pass to DONT_CARE.
+	void SetStoreDontCare(VkImageAspectFlags aspects) {
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
+		if (aspects & VK_IMAGE_ASPECT_COLOR_BIT)
+			curRenderStep_->render.colorStore = VKRRenderPassStoreAction::DONT_CARE;
+		if (aspects & VK_IMAGE_ASPECT_DEPTH_BIT)
+			curRenderStep_->render.depthStore = VKRRenderPassStoreAction::DONT_CARE;
+		if (aspects & VK_IMAGE_ASPECT_STENCIL_BIT)
+			curRenderStep_->render.stencilStore = VKRRenderPassStoreAction::DONT_CARE;
+	}
+
 	void Draw(VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count, int offset = 0) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
 		VkRenderData data{ VKRRenderCommand::DRAW };

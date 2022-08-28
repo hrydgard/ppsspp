@@ -121,10 +121,16 @@ enum class VKRStepType : uint8_t {
 	READBACK_IMAGE,
 };
 
+// Must be the same order as Draw::RPAction
 enum class VKRRenderPassLoadAction : uint8_t {
-	DONT_CARE,
+	KEEP,  // default. avoid when possible.
 	CLEAR,
-	KEEP,
+	DONT_CARE,
+};
+
+enum class VKRRenderPassStoreAction : uint8_t {
+	STORE,  // default. avoid when possible.
+	DONT_CARE,
 };
 
 struct TransitionRequest {
@@ -156,6 +162,9 @@ struct VKRStep {
 			VKRRenderPassLoadAction colorLoad;
 			VKRRenderPassLoadAction depthLoad;
 			VKRRenderPassLoadAction stencilLoad;
+			VKRRenderPassStoreAction colorStore;
+			VKRRenderPassStoreAction depthStore;
+			VKRRenderPassStoreAction stencilStore;
 			u8 clearStencil;
 			uint32_t clearColor;
 			float clearDepth;
@@ -232,14 +241,10 @@ public:
 		VKRRenderPassLoadAction colorLoadAction;
 		VKRRenderPassLoadAction depthLoadAction;
 		VKRRenderPassLoadAction stencilLoadAction;
+		VKRRenderPassStoreAction colorStoreAction;
+		VKRRenderPassStoreAction depthStoreAction;
+		VKRRenderPassStoreAction stencilStoreAction;
 	};
-
-	// Only call this from the render thread! Also ok during initialization (LoadCache).
-	VkRenderPass GetRenderPass(
-		VKRRenderPassLoadAction colorLoadAction, VKRRenderPassLoadAction depthLoadAction, VKRRenderPassLoadAction stencilLoadAction) {
-		RPKey key{ colorLoadAction, depthLoadAction, stencilLoadAction };
-		return GetRenderPass(key);
-	}
 
 	VkRenderPass GetRenderPass(const RPKey &key);
 

@@ -499,6 +499,8 @@ public:
 
 	void InvalidateCachedState() override;
 
+	void InvalidateFramebuffer(FBInvalidationStage stage, uint32_t channels) override;
+
 private:
 	VulkanTexture *GetNullTexture();
 	VulkanContext *vulkan_ = nullptr;
@@ -1601,6 +1603,21 @@ void VKContext::HandleEvent(Event ev, int width, int height, void *param1, void 
 	default:
 		_assert_(false);
 		break;
+	}
+}
+
+void VKContext::InvalidateFramebuffer(FBInvalidationStage stage, uint32_t channels) {
+	VkImageAspectFlags flags = 0;
+	if (channels & FBChannel::FB_COLOR_BIT)
+		flags |= VK_IMAGE_ASPECT_COLOR_BIT;
+	if (channels & FBChannel::FB_DEPTH_BIT)
+		flags |= VK_IMAGE_ASPECT_DEPTH_BIT;
+	if (channels & FBChannel::FB_STENCIL_BIT)
+		flags |= VK_IMAGE_ASPECT_STENCIL_BIT;
+	if (stage == FB_INVALIDATION_LOAD) {
+		renderManager_.SetLoadDontCare(flags);
+	} else if (stage == FB_INVALIDATION_STORE) {
+		renderManager_.SetStoreDontCare(flags);
 	}
 }
 
