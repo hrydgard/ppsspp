@@ -721,11 +721,13 @@ ifeq ($(UNITTEST),1)
     TESTARMEMITTER_FILE = \
       $(SRC)/Common/ArmEmitter.cpp \
       $(SRC)/Common/Arm64Emitter.cpp \
+      $(SRC)/Common/RiscVEmitter.cpp \
       $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
       $(SRC)/Core/Util/DisArm64.cpp \
       $(SRC)/ext/disarm.cpp \
       $(SRC)/unittest/TestArmEmitter.cpp \
       $(SRC)/unittest/TestArm64Emitter.cpp \
+      $(SRC)/unittest/TestRiscVEmitter.cpp \
       $(SRC)/unittest/TestX64Emitter.cpp
   endif
 

@@ -754,6 +754,7 @@ struct TestItem {
 bool TestArmEmitter();
 bool TestArm64Emitter();
 bool TestX64Emitter();
+bool TestRiscVEmitter();
 bool TestShaderGenerators();
 bool TestSoftwareGPUJit();
 bool TestIRPassSimplify();
@@ -768,6 +769,9 @@ TestItem availableTests[] = {
 #endif
 #if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	TEST_ITEM(X64Emitter),
+#endif
+#if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86) || PPSSPP_ARCH(RISCV64)
+	TEST_ITEM(RiscVEmitter),
 #endif
 	TEST_ITEM(VertexJit),
 	TEST_ITEM(Asin),
