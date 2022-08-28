@@ -669,7 +669,7 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 				sources.push_back(CopySource{ src, RASTER_COLOR, 0, 0 });
 			} else {
 				// 16-to-16 reinterpret, should have been caught above already.
-				_assert_("Reinterpret: Shouldn't get here");
+				_assert_msg_(false, "Reinterpret: Shouldn't get here");
 			}
 		}
 	}
