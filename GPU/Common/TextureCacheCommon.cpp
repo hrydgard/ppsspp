@@ -1956,12 +1956,26 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 		}
 
+		// If min is not < max, then we don't have values (wasn't set during decode.)
+		const KnownVertexBounds &bounds = gstate_c.vertBounds;
+		float u1 = 0.0f;
+		float v1 = 0.0f;
+		float u2 = depalWidth;
+		float v2 = framebuffer->renderHeight;
+		if (bounds.minV < bounds.maxV) {
+			u1 = (bounds.minU + gstate_c.curTextureXOffset) * framebuffer->renderScaleFactor;
+			v1 = (bounds.minV + gstate_c.curTextureYOffset) * framebuffer->renderScaleFactor;
+			u2 = (bounds.maxU + gstate_c.curTextureXOffset) * framebuffer->renderScaleFactor;
+			v2 = (bounds.maxV + gstate_c.curTextureYOffset) * framebuffer->renderScaleFactor;
+			// We need to reapply the texture next time since we cropped UV.
+			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+		}
+
 		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(TempFBO::DEPAL, depalWidth, framebuffer->renderHeight);
 		draw_->BindTexture(0, nullptr);
 		draw_->BindTexture(1, nullptr);
 		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
-
-		draw_->SetScissorRect(0, 0, (int)depalWidth, (int)framebuffer->renderHeight);
+		draw_->SetScissorRect(u1, v1, u2 - u1, v2 - v1);
 		Draw::Viewport vp{ 0.0f, 0.0f, (float)depalWidth, (float)framebuffer->renderHeight, 0.0f, 1.0f };
 		draw_->SetViewports(1, &vp);
 
@@ -1971,25 +1985,6 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		Draw::SamplerState *clutSampler = textureShaderCache_->GetSampler(smoothedDepal);
 		draw_->BindSamplerStates(0, 1, &nearest);
 		draw_->BindSamplerStates(1, 1, &clutSampler);
-
-		// If min is not < max, then we don't have values (wasn't set during decode.)
-		const KnownVertexBounds &bounds = gstate_c.vertBounds;
-		float u1 = 0.0f;
-		float v1 = 0.0f;
-		float u2 = depalWidth;
-		float v2 = framebuffer->renderHeight;
-		if (bounds.minV < bounds.maxV) {
-			u1 = bounds.minU + gstate_c.curTextureXOffset;
-			v1 = bounds.minV + gstate_c.curTextureYOffset;
-			u2 = bounds.maxU + gstate_c.curTextureXOffset;
-			v2 = bounds.maxV + gstate_c.curTextureYOffset;
-			// We need to reapply the texture next time since we cropped UV.
-			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-		}
-		u1 *= framebuffer->renderScaleFactor;
-		v1 *= framebuffer->renderScaleFactor;
-		u2 *= framebuffer->renderScaleFactor;
-		v2 *= framebuffer->renderScaleFactor;
 
 		draw2D_->Blit(textureShader, u1, v1, u2, v2, u1, v1, u2, v2, framebuffer->renderWidth, framebuffer->renderHeight, depalWidth, framebuffer->renderHeight, false, framebuffer->renderScaleFactor);
 
