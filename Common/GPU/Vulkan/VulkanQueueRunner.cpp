@@ -31,7 +31,9 @@ void VulkanQueueRunner::CreateDeviceObjects() {
 	INFO_LOG(G3D, "VulkanQueueRunner::CreateDeviceObjects");
 	InitBackbufferRenderPass();
 
-	framebufferRenderPass_ = GetRenderPass(VKRRenderPassLoadAction::CLEAR, VKRRenderPassLoadAction::CLEAR, VKRRenderPassLoadAction::CLEAR);
+	RPKey key{ VKRRenderPassLoadAction::CLEAR, VKRRenderPassLoadAction::CLEAR, VKRRenderPassLoadAction::CLEAR,
+		VKRRenderPassStoreAction::STORE, VKRRenderPassStoreAction::DONT_CARE, VKRRenderPassStoreAction::DONT_CARE };
+	framebufferRenderPass_ = GetRenderPass(key);
 
 #if 0
 	// Just to check whether it makes sense to split some of these. drawidx is way bigger than the others...
@@ -189,6 +191,21 @@ void VulkanQueueRunner::InitBackbufferRenderPass() {
 	_assert_(res == VK_SUCCESS);
 }
 
+static VkAttachmentLoadOp ConvertLoadAction(VKRRenderPassLoadAction action) {
+	switch (action) {
+	case VKRRenderPassLoadAction::CLEAR:     return VK_ATTACHMENT_LOAD_OP_CLEAR;
+	case VKRRenderPassLoadAction::KEEP:      return VK_ATTACHMENT_LOAD_OP_LOAD;
+	default:                                 return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	}
+}
+
+static VkAttachmentStoreOp ConvertStoreAction(VKRRenderPassStoreAction action) {
+	switch (action) {
+	case VKRRenderPassStoreAction::STORE: return VK_ATTACHMENT_STORE_OP_STORE;
+	default:                              return VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	}
+}
+
 VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 	auto pass = renderPasses_.Get(key);
 	if (pass) {
@@ -198,19 +215,8 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 	VkAttachmentDescription attachments[2] = {};
 	attachments[0].format = VK_FORMAT_R8G8B8A8_UNORM;
 	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
-	switch (key.colorLoadAction) {
-	case VKRRenderPassLoadAction::CLEAR:
-		attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		break;
-	case VKRRenderPassLoadAction::KEEP:
-		attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-		break;
-	case VKRRenderPassLoadAction::DONT_CARE:
-	default:
-		attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		break;
-	}
-	attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachments[0].loadOp = ConvertLoadAction(key.colorLoadAction);
+	attachments[0].storeOp = ConvertStoreAction(key.colorStoreAction);
 	attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	attachments[0].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -219,30 +225,10 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 
 	attachments[1].format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
 	attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
-	switch (key.depthLoadAction) {
-	case VKRRenderPassLoadAction::CLEAR:
-		attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		break;
-	case VKRRenderPassLoadAction::KEEP:
-		attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-		break;
-	case VKRRenderPassLoadAction::DONT_CARE:
-		attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		break;
-	}
-	switch (key.stencilLoadAction) {
-	case VKRRenderPassLoadAction::CLEAR:
-		attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		break;
-	case VKRRenderPassLoadAction::KEEP:
-		attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-		break;
-	case VKRRenderPassLoadAction::DONT_CARE:
-		attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		break;
-	}
-	attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachments[1].loadOp = ConvertLoadAction(key.depthLoadAction);
+	attachments[1].storeOp = ConvertStoreAction(key.depthStoreAction);
+	attachments[1].stencilLoadOp = ConvertLoadAction(key.stencilLoadAction);
+	attachments[1].stencilStoreOp = ConvertStoreAction(key.stencilStoreAction);
 	attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	attachments[1].flags = 0;
@@ -1385,7 +1371,11 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 
 		TransitionToOptimal(cmd, fb->color.image, fb->color.layout, fb->depth.image, fb->depth.layout, &recordBarrier_);
 
-		renderPass = GetRenderPass(step.render.colorLoad, step.render.depthLoad, step.render.stencilLoad);
+		RPKey key{
+			step.render.colorLoad, step.render.depthLoad, step.render.stencilLoad,
+			step.render.colorStore, step.render.depthStore, step.render.stencilStore,
+		};
+		renderPass = GetRenderPass(key);
 
 		// The transition from the optimal format happens after EndRenderPass, now that we don't
 		// do it as part of the renderpass itself anymore.
