@@ -207,7 +207,6 @@ inline bool SpongebobDepthInverseConditions(const GenericStencilFuncState &stenc
 		gstate.getDepthTestFunction() == GE_COMP_GEQUAL &&
 		stencilState.zFail == GE_STENCILOP_ZERO && stencilState.sFail == GE_STENCILOP_KEEP && stencilState.zPass == GE_STENCILOP_KEEP &&
 		stencilState.testFunc == GE_COMP_ALWAYS &&
-		stencilState.writeMask == 0xFF && stencilState.testMask == 0xFF && stencilState.testRef == 0xFF &&
 		// And also verify no color is written. The game does this through simple alpha blending with a constant zero alpha.
 		// We also check for color mask, since it's more natural, in case another game does it.
 		(gstate.isAlphaBlendEnabled() &&
