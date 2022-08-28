@@ -141,6 +141,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 	// Start profiling here to skip SetTexture which is already accounted for
 	PROFILE_THIS_SCOPE("applydrawstate");
 
+	uint64_t dirtyRequiresRecheck_ = 0;
 	bool useBufferedRendering = framebufferManager_->UseBufferedRendering();
 
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
@@ -177,17 +178,21 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 
 					framebufferManager_->RebindFramebuffer("RebindFramebuffer - ApplyDrawState");
 					// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
+					dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE;
 					gstate_c.Dirty(DIRTY_BLEND_STATE);
 				}
+				dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			} else if (blendState.resetFramebufferRead) {
 				ResetFramebufferRead();
+				dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			}
 
 			if (blendState.enabled) {
 				if (blendState.dirtyShaderBlendFixValues) {
 					// Not quite sure how necessary this is.
+					dirtyRequiresRecheck_ |= DIRTY_SHADERBLEND;
 					gstate_c.Dirty(DIRTY_SHADERBLEND);
 				}
 				if (blendState.useBlendColor) {
@@ -269,7 +274,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 					renderManager->SetStencilFunc(true, GL_ALWAYS, 0xFF, 0xFF);
 					renderManager->SetStencilOp(0xFF, GL_ZERO, GL_KEEP, GL_ZERO);
 
-					// TODO: Need to set in a way that carries over to the next draw..
+					dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE;
 					gstate_c.Dirty(DIRTY_BLEND_STATE);
 				}
 			} else {
@@ -293,6 +298,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 	}
 
 	gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_BLEND_STATE);
+	gstate_c.Dirty(dirtyRequiresRecheck_);
+	dirtyRequiresRecheck_ = 0;
 }
 
 void DrawEngineGLES::ApplyDrawStateLate(bool setStencilValue, int stencilValue) {
