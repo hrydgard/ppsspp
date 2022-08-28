@@ -11,6 +11,7 @@
 #include "Common/Render/DrawBuffer.h"
 #include "Common/Render/Text/draw_text.h"
 #include "Common/Log.h"
+#include "Common/LogReporting.h"
 #include "UI/TextureUtil.h"
 
 UIContext::UIContext() {
@@ -167,6 +168,14 @@ void UIContext::ActivateTopScissor() {
 		int y = floorf(scale_y * bounds.y);
 		int w = std::max(0.0f, ceilf(scale_x * bounds.w));
 		int h = std::max(0.0f, ceilf(scale_y * bounds.h));
+		if (x < 0 || y < 0 || x + w > pixel_xres || y + h > pixel_yres) {
+			// This won't actually report outside a game, but we can try.
+			ERROR_LOG_REPORT(G3D, "UI scissor out of bounds: %d,%d-%d,%d / %d,%d", x, y, w, h, pixel_xres, pixel_yres);
+			x = std::max(0, x);
+			y = std::max(0, y);
+			w = std::min(w, pixel_xres - x);
+			h = std::min(h, pixel_yres - y);
+		}
 		draw_->SetScissorRect(x, y, w, h);
 	} else {
 		// Avoid rounding errors
