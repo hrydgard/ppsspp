@@ -26,8 +26,7 @@ void VR_UpdateStageBounds(ovrApp* pappState) {
 	XrExtent2Df stageBounds = {};
 
 	XrResult result;
-	OXR(result = xrGetReferenceSpaceBoundsRect(
-			pappState->Session, XR_REFERENCE_SPACE_TYPE_STAGE, &stageBounds));
+	OXR(result = xrGetReferenceSpaceBoundsRect(pappState->Session, XR_REFERENCE_SPACE_TYPE_STAGE, &stageBounds));
 	if (result != XR_SUCCESS) {
 		ALOGV("Stage bounds query failed: using small defaults");
 		stageBounds.width = 1.0f;
@@ -328,9 +327,9 @@ void VR_EndFrame( engine_t* engine ) {
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer;
-	//TODO:ovrFramebuffer_Resolve(frameBuffer);
+	//ovrFramebuffer_Resolve(frameBuffer);
 	ovrFramebuffer_Release(frameBuffer);
-	//TODO:ovrFramebuffer_SetNone();
+	ovrFramebuffer_SetNone();
 
 	XrCompositionLayerProjectionView projection_layer_elements[2] = {};
 	int vrMode = vrConfig[VR_CONFIG_MODE];

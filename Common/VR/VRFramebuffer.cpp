@@ -38,7 +38,8 @@ void ovrFramebuffer_Clear(ovrFramebuffer* frameBuffer) {
 	frameBuffer->DepthSwapChain.Height = 0;
 
 	frameBuffer->FrameBuffers = NULL;
-	frameBuffer->Acquired = false;
+	frameBuffer->Acquired[0] = false;
+	frameBuffer->Acquired[1] = false;
 }
 
 bool ovrFramebuffer_Create(
@@ -72,11 +73,7 @@ bool ovrFramebuffer_Create(
 	swapChainCreateInfo.height = height;
 	swapChainCreateInfo.faceCount = 1;
 	swapChainCreateInfo.mipCount = 1;
-#ifdef OPENXR_MULTIVIEW
-	swapChainCreateInfo.arraySize = 2;
-#else
-	swapChainCreateInfo.arraySize = 1;
-#endif
+	swapChainCreateInfo.arraySize = 1; //TODO:set to 2 to enable multiview
 
 	frameBuffer->ColorSwapChain.Width = swapChainCreateInfo.width;
 	frameBuffer->ColorSwapChain.Height = swapChainCreateInfo.height;
@@ -123,13 +120,13 @@ bool ovrFramebuffer_Create(
 		// Create the frame buffer.
 		GL(glGenFramebuffers(1, &frameBuffer->FrameBuffers[i]));
 		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->FrameBuffers[i]));
-#ifdef OPENXR_MULTIVIEW
-		GL(glFramebufferTextureMultiviewOVR(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthTexture, 0, 0, 2));
-		GL(glFramebufferTextureMultiviewOVR(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, colorTexture, 0, 0, 2));
-#else
-		GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0));
-		GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0));
-#endif
+		if (swapChainCreateInfo.arraySize > 1) {
+			GL(glFramebufferTextureMultiviewOVR(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthTexture, 0, 0, 2));
+			GL(glFramebufferTextureMultiviewOVR(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, colorTexture, 0, 0, 2));
+		} else {
+			GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0));
+			GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0));
+		}
 		GL(GLenum renderFramebufferStatus = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER));
 		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0));
 		if (renderFramebufferStatus != GL_FRAMEBUFFER_COMPLETE) {
@@ -167,33 +164,38 @@ void ovrFramebuffer_Resolve(ovrFramebuffer* frameBuffer) {
 }
 
 void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
-	// Acquire the swapchain image
-	XrSwapchainImageAcquireInfo acquireInfo = {XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO, NULL};
-	OXR(xrAcquireSwapchainImage(
-			frameBuffer->ColorSwapChain.Handle, &acquireInfo, &frameBuffer->TextureSwapChainIndex));
+	ovrSwapChain swapChains[2] = {frameBuffer->ColorSwapChain, frameBuffer->DepthSwapChain};
 
-	XrSwapchainImageWaitInfo waitInfo;
-	waitInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO;
-	waitInfo.next = NULL;
-	waitInfo.timeout = 1000; /* timeout in nanoseconds */
-	XrResult res = xrWaitSwapchainImage(frameBuffer->ColorSwapChain.Handle, &waitInfo);
-	int i = 0;
-	while ((res != XR_SUCCESS) && (i < 10)) {
-		res = xrWaitSwapchainImage(frameBuffer->ColorSwapChain.Handle, &waitInfo);
-		i++;
-		ALOGV(
-				" Retry xrWaitSwapchainImage %d times due to XR_TIMEOUT_EXPIRED (duration %f micro seconds)",
-				i,
-				waitInfo.timeout * (1E-9));
+	for (int index = 0; index < 2; index++) {
+		XrSwapchainImageAcquireInfo acquireInfo = {XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO, NULL};
+		OXR(xrAcquireSwapchainImage(swapChains[index].Handle, &acquireInfo, &frameBuffer->TextureSwapChainIndex));
+
+		XrSwapchainImageWaitInfo waitInfo;
+		waitInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO;
+		waitInfo.next = NULL;
+		waitInfo.timeout = 1000; /* timeout in nanoseconds */
+		XrResult res = xrWaitSwapchainImage(swapChains[index].Handle, &waitInfo);
+		int i = 0;
+		while ((res != XR_SUCCESS) && (i < 10)) {
+			res = xrWaitSwapchainImage(swapChains[index].Handle, &waitInfo);
+			i++;
+			ALOGV(
+					" Retry xrWaitSwapchainImage %d times due to XR_TIMEOUT_EXPIRED (duration %f micro seconds)",
+					i,
+					waitInfo.timeout * (1E-9));
+		}
+		frameBuffer->Acquired[index] = res == XR_SUCCESS;
 	}
-	frameBuffer->Acquired = res == XR_SUCCESS;
 }
 
 void ovrFramebuffer_Release(ovrFramebuffer* frameBuffer) {
-	if (frameBuffer->Acquired) {
-		XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO, NULL};
-		OXR(xrReleaseSwapchainImage(frameBuffer->ColorSwapChain.Handle, &releaseInfo));
-		frameBuffer->Acquired = false;
+	ovrSwapChain swapChains[2] = {frameBuffer->ColorSwapChain, frameBuffer->DepthSwapChain};
+	for (int index = 0; index < 2; index++) {
+		if (frameBuffer->Acquired[index]) {
+			XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO, NULL};
+			OXR(xrReleaseSwapchainImage(swapChains[index].Handle, &releaseInfo));
+			frameBuffer->Acquired[index] = false;
+		}
 	}
 }
 
