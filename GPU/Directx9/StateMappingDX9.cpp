@@ -265,8 +265,8 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 					// Invert
 					dxstate.stencilOp.set(D3DSTENCILOP_ZERO, D3DSTENCILOP_KEEP, D3DSTENCILOP_ZERO);
 
-					dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE;
-					gstate_c.Dirty(DIRTY_BLEND_STATE);
+					dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE;
+					gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 				}
 			} else {
 				dxstate.stencilTest.disable();

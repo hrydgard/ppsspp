@@ -325,8 +325,8 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 					key.stencilFailOp = VK_STENCIL_OP_ZERO;
 					key.stencilDepthFailOp = VK_STENCIL_OP_KEEP;
 
-					dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE;
-					gstate_c.Dirty(DIRTY_BLEND_STATE);
+					dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE;
+					gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 				}
 			} else {
 				key.stencilTestEnable = false;

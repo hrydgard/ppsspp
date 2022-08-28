@@ -319,8 +319,8 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 					keys_.depthStencil.stencilFailOp = D3D11_STENCIL_OP_ZERO;
 					keys_.depthStencil.stencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
 
-					dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE;
-					gstate_c.Dirty(DIRTY_BLEND_STATE);
+					dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE;
+					gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 				}
 			} else {
 				keys_.depthStencil.stencilTestEnable = false;
