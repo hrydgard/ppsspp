@@ -195,15 +195,17 @@ static VkAttachmentLoadOp ConvertLoadAction(VKRRenderPassLoadAction action) {
 	switch (action) {
 	case VKRRenderPassLoadAction::CLEAR:     return VK_ATTACHMENT_LOAD_OP_CLEAR;
 	case VKRRenderPassLoadAction::KEEP:      return VK_ATTACHMENT_LOAD_OP_LOAD;
-	default:                                 return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	case VKRRenderPassLoadAction::DONT_CARE: return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	}
+	return VK_ATTACHMENT_LOAD_OP_DONT_CARE;  // avoid compiler warning
 }
 
 static VkAttachmentStoreOp ConvertStoreAction(VKRRenderPassStoreAction action) {
 	switch (action) {
-	case VKRRenderPassStoreAction::STORE: return VK_ATTACHMENT_STORE_OP_STORE;
-	default:                              return VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	case VKRRenderPassStoreAction::STORE:     return VK_ATTACHMENT_STORE_OP_STORE;
+	case VKRRenderPassStoreAction::DONT_CARE: return VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	}
+	return VK_ATTACHMENT_STORE_OP_DONT_CARE;  // avoid compiler warning
 }
 
 VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
