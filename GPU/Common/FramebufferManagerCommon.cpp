@@ -664,12 +664,12 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 			if (src->fb_stride == dst->fb_stride * 2) {
 				// Reinterpret from 16-bit to 32-bit.
 				sources.push_back(CopySource{ src, RASTER_COLOR, 0, 0 });
-			} else if (dst->fb_stride == src->fb_stride * 2) {
+			} else if (src->fb_stride * 2 == dst->fb_stride) {
 				// Reinterpret from 32-bit to 16-bit.
 				sources.push_back(CopySource{ src, RASTER_COLOR, 0, 0 });
 			} else {
 				// 16-to-16 reinterpret, should have been caught above already.
-				WARN_LOG(G3D, "Reinterpret: Shouldn't get here");
+				_assert_("Reinterpret: Shouldn't get here");
 			}
 		}
 	}
@@ -1651,7 +1651,7 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 		const u32 vfb_address = vfb->fb_address & 0x3FFFFFFF;
 		const u32 vfb_size = ColorBufferByteSize(vfb);
 
-		if (basePtr < vfb_address || basePtr > vfb_address + vfb_size) {
+		if (basePtr < vfb_address || basePtr >= vfb_address + vfb_size) {
 			continue;
 		}
 
@@ -1676,14 +1676,14 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 			continue;
 		}
 
-		if (byteOffset == vfb->WidthInBytes() && vfb->WidthInBytes() < vfb->FbStrideInBytes()) {
-			// We're in a margin texture of the vfb, which is not the vfb itself.
+		if (byteOffset == vfb->WidthInBytes() && w_bytes < vfb->FbStrideInBytes()) {
+			// Looks like we're in a margin texture of the vfb, which is not the vfb itself.
 			// Ignore the match.
 			continue;
 		}
 
 		if (vfb_byteStride != byteStride) {
-			// Grand Knights History copies with a mismatching stride but a full line at a time.
+			// Grand Knights History occasionally copies with a mismatching stride but a full line at a time.
 			// That's why we multiply by height, not width - this copy is a rectangle with the wrong stride but a line with the correct one.
 			// Makes it hard to detect the wrong transfers in e.g. God of War.
 			if (w_pixels != stride_pixels || (byteStride * h != vfb_byteStride && byteStride * h != vfb_byteWidth)) {
