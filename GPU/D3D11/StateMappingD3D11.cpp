@@ -174,12 +174,15 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 
 					framebufferManager_->RebindFramebuffer("RebindFramebuffer - ApplyDrawState");
 					// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
+					dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE;
 					gstate_c.Dirty(DIRTY_BLEND_STATE);
 				}
 
+				dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			} else if (blendState.resetFramebufferRead) {
 				ResetFramebufferRead();
+				dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			}
 
@@ -193,6 +196,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				keys_.blend.destColor = d3d11BlendFactorLookup[(size_t)blendState.dstColor];
 				keys_.blend.destAlpha = d3d11BlendFactorLookup[(size_t)blendState.dstAlpha];
 				if (blendState.dirtyShaderBlendFixValues) {
+					dirtyRequiresRecheck_ |= DIRTY_SHADERBLEND;
 					gstate_c.Dirty(DIRTY_SHADERBLEND);
 				}
 				dynState_.useBlendColor = blendState.useBlendColor;
@@ -315,8 +319,8 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 					keys_.depthStencil.stencilFailOp = D3D11_STENCIL_OP_ZERO;
 					keys_.depthStencil.stencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
 
-					// TODO: Need to set in a way that carries over to the next draw..
-					gstate_c.Dirty(DIRTY_BLEND_STATE);
+					dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE;
+					gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 				}
 			} else {
 				keys_.depthStencil.stencilTestEnable = false;
@@ -464,8 +468,6 @@ void DrawEngineD3D11::ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRe
 		context_->OMSetDepthStencilState(depthStencilState_, applyStencilRef ? stencilRef : dynState_.stencilRef);
 	}
 	gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_BLEND_STATE);
-
-	// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
-	if (fboTexBound_)
-		gstate_c.Dirty(DIRTY_BLEND_STATE);
+	gstate_c.Dirty(dirtyRequiresRecheck_);
+	dirtyRequiresRecheck_ = 0;
 }

@@ -18,6 +18,8 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
+#include <type_traits>
 #include "Common/CodeBlock.h"
 #include "Common/Common.h"
 
@@ -45,6 +47,8 @@ enum RiscVReg {
 enum class FixupBranchType {
 	B,
 	J,
+	CB,
+	CJ,
 };
 
 enum class Fence {
@@ -104,6 +108,7 @@ enum class Csr {
 };
 
 struct FixupBranch {
+	FixupBranch() {}
 	FixupBranch(const u8 *p, FixupBranchType t) : ptr(p), type(t) {}
 	~FixupBranch();
 
@@ -190,6 +195,16 @@ public:
 	}
 	void NOT(RiscVReg rd, RiscVReg rs1) {
 		XORI(rd, rs1, -1);
+	}
+
+	// The temp reg is only possibly used for 64-bit values.
+	template <typename T>
+	void LI(RiscVReg rd, const T &v, RiscVReg temp = R_ZERO) {
+		_assert_msg_(rd != R_ZERO, "LI to X0");
+		_assert_msg_(rd < F0 && temp < F0, "LI to non-GPR");
+
+		uint64_t value = AsImmediate<T, std::is_signed<T>::value>(v);
+		SetRegToImmediate(rd, value, temp);
 	}
 
 	void SLLI(RiscVReg rd, RiscVReg rs1, u32 shamt);
@@ -319,28 +334,123 @@ public:
 	void CSRRCI(RiscVReg rd, Csr csr, u8 uimm5);
 
 	void FRRM(RiscVReg rd) {
-		CSRRS(rd, Csr::FRm, X0);
+		CSRRS(rd, Csr::FRm, R_ZERO);
 	}
 	void FSRM(RiscVReg rs) {
-		CSRRW(X0, Csr::FRm, rs);
+		CSRRW(R_ZERO, Csr::FRm, rs);
 	}
 	void FSRMI(RiscVReg rd, Round rm) {
 		_assert_msg_(rm != Round::DYNAMIC, "Cannot set FRm to DYNAMIC");
 		CSRRWI(rd, Csr::FRm, (uint8_t)rm);
 	}
 	void FSRMI(Round rm) {
-		FSRMI(X0, rm);
+		FSRMI(R_ZERO, rm);
 	}
+
+	// Compressed instructions.
+	void C_ADDI4SPN(RiscVReg rd, u32 nzuimm10);
+	void C_FLD(RiscVReg rd, RiscVReg addr, u8 uimm8);
+	void C_LW(RiscVReg rd, RiscVReg addr, u8 uimm7);
+	void C_FLW(RiscVReg rd, RiscVReg addr, u8 uimm7);
+	void C_LD(RiscVReg rd, RiscVReg addr, u8 uimm8);
+	void C_FSD(RiscVReg rs2, RiscVReg addr, u8 uimm8);
+	void C_SW(RiscVReg rs2, RiscVReg addr, u8 uimm7);
+	void C_FSW(RiscVReg rs2, RiscVReg addr, u8 uimm7);
+	void C_SD(RiscVReg rs2, RiscVReg addr, u8 uimm8);
+
+	void C_NOP();
+	void C_ADDI(RiscVReg rd, s8 nzsimm6);
+	void C_JAL(const void *dst);
+	FixupBranch C_JAL();
+	void C_ADDIW(RiscVReg rd, s8 simm6);
+	void C_LI(RiscVReg rd, s8 simm6);
+	void C_ADDI16SP(s32 nzsimm10);
+	void C_LUI(RiscVReg rd, s32 nzsimm18);
+	void C_SRLI(RiscVReg rd, u8 nzuimm6);
+	void C_SRAI(RiscVReg rd, u8 nzuimm6);
+	void C_ANDI(RiscVReg rd, s8 simm6);
+	void C_SUB(RiscVReg rd, RiscVReg rs2);
+	void C_XOR(RiscVReg rd, RiscVReg rs2);
+	void C_OR(RiscVReg rd, RiscVReg rs2);
+	void C_AND(RiscVReg rd, RiscVReg rs2);
+	void C_SUBW(RiscVReg rd, RiscVReg rs2);
+	void C_ADDW(RiscVReg rd, RiscVReg rs2);
+	void C_J(const void *dst);
+	void C_BEQZ(RiscVReg rs1, const void *dst);
+	void C_BNEZ(RiscVReg rs1, const void *dst);
+	FixupBranch C_J();
+	FixupBranch C_BEQZ(RiscVReg rs1);
+	FixupBranch C_BNEZ(RiscVReg rs1);
+
+	void C_SLLI(RiscVReg rd, u8 nzuimm6);
+	void C_FLDSP(RiscVReg rd, u32 uimm9);
+	void C_LWSP(RiscVReg rd, u8 uimm8);
+	void C_FLWSP(RiscVReg rd, u8 uimm8);
+	void C_LDSP(RiscVReg rd, u32 uimm9);
+	void C_JR(RiscVReg rs1);
+	void C_MV(RiscVReg rd, RiscVReg rs2);
+	void C_EBREAK();
+	void C_JALR(RiscVReg rs1);
+	void C_ADD(RiscVReg rd, RiscVReg rs2);
+	void C_FSDSP(RiscVReg rs2, u32 uimm9);
+	void C_SWSP(RiscVReg rs2, u8 uimm8);
+	void C_FSWSP(RiscVReg rs2, u8 uimm8);
+	void C_SDSP(RiscVReg rs2, u32 uimm9);
+
+	bool CBInRange(const void *func) const;
+	bool CJInRange(const void *func) const;
+
+	bool SetAutoCompress(bool flag) {
+		bool prev = autoCompress_;
+		autoCompress_ = flag;
+		return prev;
+	}
+	bool AutoCompress() const;
 
 private:
 	void SetJumpTarget(FixupBranch &branch, const void *dst);
 	bool BInRange(const void *src, const void *dst) const;
 	bool JInRange(const void *src, const void *dst) const;
+	bool CBInRange(const void *src, const void *dst) const;
+	bool CJInRange(const void *src, const void *dst) const;
+
+	void SetRegToImmediate(RiscVReg rd, uint64_t value, RiscVReg temp);
+
+	template <typename T, bool extend>
+	uint64_t AsImmediate(const T &v) {
+		static_assert(std::is_trivial<T>::value, "Immediate argument must be a simple type");
+		static_assert(sizeof(T) <= 8, "Immediate argument size should be 8, 16, 32, or 64 bits");
+
+		// Copy the type to allow floats and avoid endian issues.
+		if (sizeof(T) == 8) {
+			uint64_t value;
+			memcpy(&value, &v, sizeof(value));
+			return value;
+		} else if (sizeof(T) == 4) {
+			uint32_t value;
+			memcpy(&value, &v, sizeof(value));
+			if (extend)
+				return (int64_t)(int32_t)value;
+			return value;
+		} else if (sizeof(T) == 2) {
+			uint16_t value;
+			memcpy(&value, &v, sizeof(value));
+			if (extend)
+				return (int64_t)(int16_t)value;
+			return value;
+		} else if (sizeof(T) == 1) {
+			uint8_t value;
+			memcpy(&value, &v, sizeof(value));
+			if (extend)
+				return (int64_t)(int8_t)value;
+			return value;
+		}
+		return (uint64_t)v;
+	}
 
 	inline void Write32(u32 value) {
-		*(u32 *)writable_ = value;
-		code_ += 4;
-		writable_ += 4;
+		Write16(value & 0x0000FFFF);
+		Write16(value >> 16);
 	}
 	inline void Write16(u16 value) {
 		*(u16 *)writable_ = value;
@@ -351,6 +461,7 @@ private:
 	const u8 *code_ = nullptr;
 	u8 *writable_ = nullptr;
 	const u8 *lastCacheFlushEnd_ = nullptr;
+	bool autoCompress_ = false;
 };
 
 class MIPSCodeBlock : public CodeBlock<RiscVEmitter> {

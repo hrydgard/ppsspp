@@ -796,11 +796,9 @@ void DrawEngineVulkan::DoFlush() {
 			}
 			ApplyDrawStateLate(renderManager, false, 0, pipeline->UsesBlendConstant());
 			gstate_c.Clean(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
+			gstate_c.Dirty(dirtyRequiresRecheck_);
+			dirtyRequiresRecheck_ = 0;
 			lastPipeline_ = pipeline;
-
-			// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
-			if (fboTexBound_)
-				gstate_c.Dirty(DIRTY_BLEND_STATE);
 		}
 		lastPrim_ = prim;
 
@@ -928,11 +926,9 @@ void DrawEngineVulkan::DoFlush() {
 				}
 				ApplyDrawStateLate(renderManager, result.setStencil, result.stencilValue, pipeline->UsesBlendConstant());
 				gstate_c.Clean(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
+				gstate_c.Dirty(dirtyRequiresRecheck_);
+				dirtyRequiresRecheck_ = 0;
 				lastPipeline_ = pipeline;
-
-				// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
-				if (fboTexBound_)
-					gstate_c.Dirty(DIRTY_BLEND_STATE);
 			}
 
 			lastPrim_ = prim;

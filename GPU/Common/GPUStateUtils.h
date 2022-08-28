@@ -202,18 +202,40 @@ void ConvertStencilFuncState(GenericStencilFuncState &stencilFuncState);
 
 // See issue #15898
 inline bool SpongebobDepthInverseConditions(const GenericStencilFuncState &stencilState) {
-	// Check that the depth/stencil state matches the conditions exactly
-	return gstate.isDepthTestEnabled() && !gstate.isDepthWriteEnabled() &&
-		gstate.getDepthTestFunction() == GE_COMP_GEQUAL &&
-		stencilState.zFail == GE_STENCILOP_ZERO && stencilState.sFail == GE_STENCILOP_KEEP && stencilState.zPass == GE_STENCILOP_KEEP &&
-		stencilState.testFunc == GE_COMP_ALWAYS && stencilState.writeMask == 0xFF &&
-		// And also verify no color is written. The game does this through simple alpha blending with a constant zero alpha.
-		// We also check for color mask, since it's more natural, in case another game does it.
-		(gstate.isAlphaBlendEnabled() &&
-			gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA &&
-			gstate.getBlendFuncB() == GE_DSTBLEND_INVSRCALPHA &&
-			gstate.getMaterialAmbientA() == 0x0 &&  // our accessor is kinda misnamed here, but material diffuse A is both used as default color and as ambient alpha
-			gstate.getMaterialUpdate() == 0 &&
-			!gstate.isTextureMapEnabled()
-		) || gstate.getColorMask() == 0xFFFFFF00;  // note that PSP masks are "inverted"
+	// Check that the depth/stencil state matches the conditions exactly.
+	// Always with a depth test that's not writing to the depth buffer (only stencil.)
+	if (!gstate.isDepthTestEnabled() || gstate.isDepthWriteEnabled())
+		return false;
+	// Always GREATER_EQUAL, which we flip to LESS.
+	if (gstate.getDepthTestFunction() != GE_COMP_GEQUAL)
+		return false;
+
+	// The whole purpose here is a depth fail that we need to write to alpha.
+	if (stencilState.zFail != GE_STENCILOP_ZERO || stencilState.sFail != GE_STENCILOP_KEEP || stencilState.zPass != GE_STENCILOP_KEEP)
+		return false;
+	if (stencilState.testFunc != GE_COMP_ALWAYS || stencilState.writeMask != 0xFF)
+		return false;
+
+	// Lastly, verify no color is written.  Natural way is a mask, in case another game uses it.
+	// Note that the PSP masks are reversed compared to typical APIs.
+	if (gstate.getColorMask() == 0xFFFFFF00)
+		return true;
+
+	// These games specifically use simple alpha blending with a constant zero alpha.
+	if (!gstate.isAlphaBlendEnabled() || gstate.getBlendFuncA() != GE_SRCBLEND_SRCALPHA || gstate.getBlendFuncB() != GE_DSTBLEND_INVSRCALPHA)
+		return false;
+
+	// Also make sure there's no texture, in case its alpha gets involved.
+	if (gstate.isTextureMapEnabled())
+		return false;
+
+	// Spongebob uses material alpha.
+	if (gstate.getMaterialAmbientA() == 0x00 && gstate.getMaterialUpdate() == 0)
+		return true;
+	// MX vs ATV : Reflex uses vertex colors, should really check them...
+	if (gstate.getMaterialUpdate() == 1)
+		return true;
+
+	// Okay, color is most likely being used if we didn't hit the above.
+	return false;
 }
