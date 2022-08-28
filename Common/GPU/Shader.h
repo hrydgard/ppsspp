@@ -85,6 +85,12 @@ struct UniformBufferDesc {
 	std::vector<UniformDesc> uniforms;
 };
 
+struct UniformDef {
+	const char *type;
+	const char *name;
+	int index;
+};
+
 struct SamplerDef {
 	const char *name;
 	// TODO: Might need unsigned samplers, 3d samplers, or other types in the future.

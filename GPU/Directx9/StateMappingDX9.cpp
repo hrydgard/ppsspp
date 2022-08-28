@@ -229,7 +229,6 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			} else {
 				dxstate.stencilTest.disable();
 			}
-
 		} else {
 			// Depth Test
 			if (gstate.isDepthTestEnabled()) {
@@ -248,6 +247,24 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 				dxstate.stencilCompareMask.set(stencilState.testMask);
 				dxstate.stencilOp.set(stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass]);
 				dxstate.stencilWriteMask.set(stencilState.writeMask);
+
+				// Nasty special case for Spongebob and similar where it tries to write zeros to alpha/stencil during
+				// depth-fail. We can't write to alpha then because the pixel is killed. However, we can invert the depth
+				// test and modify the alpha function...
+				if (SpongebobDepthInverseConditions(stencilState)) {
+					dxstate.blend.set(true);
+					dxstate.blendEquation.set(D3DBLENDOP_ADD, D3DBLENDOP_ADD);
+					dxstate.blendFunc.set(D3DBLEND_ZERO, D3DBLEND_ZERO, D3DBLEND_ZERO, D3DBLEND_ZERO);
+					dxstate.colorMask.set(8);
+
+					dxstate.depthFunc.set(D3DCMP_LESS);
+					dxstate.stencilFunc.set(D3DCMP_ALWAYS);
+					// Invert
+					dxstate.stencilOp.set(D3DSTENCILOP_ZERO, D3DSTENCILOP_KEEP, D3DSTENCILOP_ZERO);
+
+					// TODO: Need to set in a way that carries over to the next draw..
+					gstate_c.Dirty(DIRTY_BLEND_STATE);
+				}
 			} else {
 				dxstate.stencilTest.disable();
 			}

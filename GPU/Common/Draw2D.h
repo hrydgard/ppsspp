@@ -36,6 +36,8 @@ struct Draw2DPipelineInfo {
 	Slice<SamplerDef> samplers;
 };
 
+extern const UniformDef g_draw2Duniforms[2];
+
 struct Draw2DPipeline {
 	Draw::Pipeline *pipeline;
 	Draw2DPipelineInfo info;

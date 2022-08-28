@@ -144,7 +144,6 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 	bool useBufferedRendering = framebufferManager_->UseBufferedRendering();
 
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
-		gstate_c.Clean(DIRTY_BLEND_STATE);
 		gstate_c.SetAllowFramebufferRead(!g_Config.bDisableSlowFramebufEffects);
 
 		if (gstate.isModeClear()) {
@@ -208,7 +207,6 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			} else {
 				renderManager->SetNoBlendAndMask(mask);
 			}
-
 #ifndef USING_GLES2
 			if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
 				renderManager->SetLogicOp(gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY,
@@ -219,8 +217,6 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 	}
 
 	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
-		gstate_c.Clean(DIRTY_RASTER_STATE);
-
 		// Dither
 		bool dither = gstate.isDitherEnabled();
 		bool cullEnable;
@@ -247,7 +243,6 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 	}
 
 	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
-		gstate_c.Clean(DIRTY_DEPTHSTENCIL_STATE);
 		GenericStencilFuncState stencilState;
 		ConvertStencilFuncState(stencilState);
 
@@ -264,6 +259,19 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			if (stencilState.enabled) {
 				renderManager->SetStencilFunc(stencilState.enabled, compareOps[stencilState.testFunc], stencilState.testRef, stencilState.testMask);
 				renderManager->SetStencilOp(stencilState.writeMask, stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass]);
+
+				// Nasty special case for Spongebob and similar where it tries to write zeros to alpha/stencil during
+				// depth-fail. We can't write to alpha then because the pixel is killed. However, we can invert the depth
+				// test and modify the alpha function...
+				if (SpongebobDepthInverseConditions(stencilState)) {
+					renderManager->SetBlendAndMask(0x8, true, GL_ZERO, GL_ZERO, GL_ZERO, GL_ZERO, GL_FUNC_ADD, GL_FUNC_ADD);
+					renderManager->SetDepth(true, false, GL_LESS);
+					renderManager->SetStencilFunc(true, GL_ALWAYS, 0xFF, 0xFF);
+					renderManager->SetStencilOp(0xFF, GL_ZERO, GL_KEEP, GL_ZERO);
+
+					// TODO: Need to set in a way that carries over to the next draw..
+					gstate_c.Dirty(DIRTY_BLEND_STATE);
+				}
 			} else {
 				renderManager->SetStencilDisabled();
 			}
@@ -271,7 +279,6 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 	}
 
 	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
-		gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE);
 		ConvertViewportAndScissor(useBufferedRendering,
 			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
 			framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
@@ -284,6 +291,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			vpAndScissor.viewportW, vpAndScissor.viewportH,
 			vpAndScissor.depthRangeMin, vpAndScissor.depthRangeMax });
 	}
+
+	gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_BLEND_STATE);
 }
 
 void DrawEngineGLES::ApplyDrawStateLate(bool setStencilValue, int stencilValue) {

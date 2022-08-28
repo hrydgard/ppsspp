@@ -24,41 +24,29 @@ Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBuf
 
 	writer.DeclareSamplers(samplers);
 
-	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_NONE);
-
-	writer.C("  vec4 val = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
-
 	if (writer.Lang().bitwiseOps) {
 		switch (from) {
 		case GE_FORMAT_4444:
-			writer.C("  uint color = uint(val.r * 15.99) | (uint(val.g * 15.99) << 4u) | (uint(val.b * 15.99) << 8u) | (uint(val.a * 15.99) << 12u);\n");
+			writer.C("uint packColor(vec4 val) {\n");
+			writer.C("  return uint(val.r * 15.99) | (uint(val.g * 15.99) << 4u) | (uint(val.b * 15.99) << 8u) | (uint(val.a * 15.99) << 12u);\n");
+			writer.C("}\n");
 			break;
 		case GE_FORMAT_5551:
+			writer.C("uint packColor(vec4 val) {\n");
 			writer.C("  uint color = uint(val.r * 31.99) | (uint(val.g * 31.99) << 5u) | (uint(val.b * 31.99) << 10u);\n");
 			writer.C("  if (val.a >= 0.5) color |= 0x8000U;\n");
+			writer.C("  return color;\n");
+			writer.C("}\n");
 			break;
 		case GE_FORMAT_565:
-			writer.C("  uint color = uint(val.r * 31.99) | (uint(val.g * 63.99) << 5u) | (uint(val.b * 31.99) << 11u);\n");
+			writer.C("uint packColor(vec4 val) {\n");
+			writer.C("  return uint(val.r * 31.99) | (uint(val.g * 63.99) << 5u) | (uint(val.b * 31.99) << 11u);\n");
+			writer.C("}\n");
 			break;
-		default:
-			_assert_(false);
-			break;
-		}
-
-		switch (to) {
-		case GE_FORMAT_4444:
-			writer.C("  vec4 outColor = vec4(float(color & 0xFU), float((color >> 4u) & 0xFU), float((color >> 8u) & 0xFU), float((color >> 12u) & 0xFU));\n");
-			writer.C("  outColor *= 1.0 / 15.0;\n");
-			break;
-		case GE_FORMAT_5551:
-			writer.C("  vec4 outColor = vec4(float(color & 0x1FU), float((color >> 5u) & 0x1FU), float((color >> 10u) & 0x1FU), 0.0);\n");
-			writer.C("  outColor.rgb *= 1.0 / 31.0;\n");
-			writer.C("  outColor.a = float(color >> 15);\n");
-			break;
-		case GE_FORMAT_565:
-			writer.C("  vec4 outColor = vec4(float(color & 0x1FU), float((color >> 5u) & 0x3FU), float((color >> 11u) & 0x1FU), 1.0);\n");
-			writer.C("  outColor.rb *= 1.0 / 31.0;\n");
-			writer.C("  outColor.g *= 1.0 / 63.0;\n");
+		case GE_FORMAT_8888:
+			writer.C("uint packColor(vec2 val) {\n");
+			writer.C("  return uint(val.r * 255.99) | (uint(val.g * 255.99) << 8u);\n");
+			writer.C("}\n");
 			break;
 		default:
 			_assert_(false);
@@ -68,41 +56,130 @@ Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBuf
 		// Floating point can comfortably represent integers up to 16 million, we only need 65536 since these textures are 16-bit.
 		switch (from) {
 		case GE_FORMAT_4444:
-			writer.C("  float color = (floor(val.r * 15.99) + floor(val.g * 15.99) * 16.0) + (floor(val.b * 15.99) * 256.0 + floor(val.a * 15.99) * 4096.0);\n");
+			writer.C("float packColor(vec4 val) {\n");
+			writer.C("  return (floor(val.r * 15.99) + floor(val.g * 15.99) * 16.0) + (floor(val.b * 15.99) * 256.0 + floor(val.a * 15.99) * 4096.0);\n");
+			writer.C("}\n");
 			break;
 		case GE_FORMAT_5551:
+			writer.C("float packColor(vec4 val) {\n");
 			writer.C("  float color = floor(val.r * 31.99) + floor(val.g * 31.99) * 32.0 + floor(val.b * 31.99) * 1024.0;\n");
 			writer.C("  if (val.a >= 0.5) color += 32768.0;\n");
+			writer.C("  return color;\n");
+			writer.C("}\n");
 			break;
 		case GE_FORMAT_565:
-			writer.C("  float color = floor(val.r * 31.99) + floor(val.g * 63.99) * 32.0 + floor(val.b * 31.99) * 2048.0;\n");
+			writer.C("float packColor(vec4 val) {\n");
+			writer.C("  return floor(val.r * 31.99) + floor(val.g * 63.99) * 32.0 + floor(val.b * 31.99) * 2048.0;\n");
+			writer.C("}\n");
+			break;
+		case GE_FORMAT_8888:
+			writer.C("float packColor(vec2 val) {\n");
+			writer.C("  return floor(val.r * 255.99) + floor(val.g * 255.99) * 256.0;\n");
+			writer.C("}\n");
 			break;
 		default:
 			_assert_(false);
 			break;
 		}
+	}
 
+	if (writer.Lang().bitwiseOps) {
 		switch (to) {
 		case GE_FORMAT_4444:
+			writer.C("vec4 unpackColor(uint color) {\n");
+			writer.C("  vec4 outColor = vec4(float(color & 0xFU), float((color >> 4u) & 0xFU), float((color >> 8u) & 0xFU), float((color >> 12u) & 0xFU));\n");
+			writer.C("  outColor *= 1.0 / 15.0;\n");
+			writer.C("  return outColor;\n");
+			writer.C("}\n");
+			break;
+		case GE_FORMAT_5551:
+			writer.C("vec4 unpackColor(uint color) {\n");
+			writer.C("  vec4 outColor = vec4(float(color & 0x1FU), float((color >> 5u) & 0x1FU), float((color >> 10u) & 0x1FU), 0.0);\n");
+			writer.C("  outColor.rgb *= 1.0 / 31.0;\n");
+			writer.C("  outColor.a = float(color >> 15);\n");
+			writer.C("  return outColor;\n");
+			writer.C("}\n");
+			break;
+		case GE_FORMAT_565:
+			writer.C("vec4 unpackColor(uint color) {\n");
+			writer.C("  vec4 outColor = vec4(float(color & 0x1FU), float((color >> 5u) & 0x3FU), float((color >> 11u) & 0x1FU), 1.0);\n");
+			writer.C("  outColor.rb *= 1.0 / 31.0;\n");
+			writer.C("  outColor.g *= 1.0 / 63.0;\n");
+			writer.C("  return outColor;\n");
+			writer.C("}\n");
+			break;
+		case GE_FORMAT_8888:
+			writer.C("vec4 unpackColor(uint colorLeft, uint colorRight) {\n");
+			writer.C("  vec4 outColor = vec4(float(colorLeft & 0xFFu),  float((colorLeft >> 8u)  & 0xFFu),\n");
+			writer.C("                       float(colorRight & 0xFFu), float((colorRight >> 8u) & 0xFFu));\n");
+			writer.C("  outColor *= 1.0 / 255.0;\n");
+			writer.C("  return outColor;\n");
+			writer.C("}\n");
+			break;
+		default:
+			_assert_(false);
+			break;
+		}
+	} else {
+		switch (to) {
+		case GE_FORMAT_4444:
+			writer.C("vec4 unpackColor(float color) {\n");
 			writer.C("  vec4 outColor = vec4(mod(floor(color), 16.0), mod(floor(color / 16.0), 16.0),");
 			writer.C("                       mod(floor(color / 256.0), 16.0), mod(floor(color / 4096.0), 16.0)); \n");
 			writer.C("  outColor *= 1.0 / 15.0;\n");
+			writer.C("  return outColor;\n");
+			writer.C("}\n");
 			break;
 		case GE_FORMAT_5551:
+			writer.C("vec4 unpackColor(float color) {\n");
 			writer.C("  vec4 outColor = vec4(mod(floor(color), 32.0), mod(floor(color / 32.0), 32.0), mod(floor(color / 1024.0), 32.0), 0.0);\n");
 			writer.C("  outColor.rgb *= 1.0 / 31.0;\n");
 			writer.C("  outColor.a = floor(color / 32768.0);\n");
+			writer.C("  return outColor;\n");
+			writer.C("}\n");
 			break;
 		case GE_FORMAT_565:
+			writer.C("vec4 unpackColor(float color) {\n");
 			writer.C("  vec4 outColor = vec4(mod(floor(color), 32.0), mod(floor(color / 32.0), 64.0), mod(floor(color / 2048.0), 32.0), 0.0);\n");
 			writer.C("  outColor.rb *= 1.0 / 31.0;\n");
 			writer.C("  outColor.g *= 1.0 / 63.0;\n");
 			writer.C("  outColor.a = 1.0;\n");
+			writer.C("  return outColor;\n");
+			writer.C("}\n");
+			break;
+		case GE_FORMAT_8888:
+			writer.C("vec4 unpackColor(float colorLeft, float colorRight) {\n");
+			writer.C("  vec4 outColor = vec4(mod(floor(colorLeft), 256.0), mod(floor(colorLeft / 256.0), 256.0),\n");
+			writer.C("                       mod(floor(colorRight), 256.0), mod(floor(colorRight / 256.0), 256.0));\n");
+			writer.C("  outColor *= 1.0 / 255.0;\n");
+			writer.C("  return outColor;\n");
+			writer.C("}\n");
 			break;
 		default:
 			_assert_(false);
 			break;
 		}
+	}
+
+	writer.BeginFSMain(g_draw2Duniforms, varyings, FSFLAG_NONE);
+
+	if (IsBufferFormat16Bit(from) && IsBufferFormat16Bit(to)) {
+		writer.C("  vec4 val = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
+		writer.C("  vec4 outColor = unpackColor(packColor(val));\n");
+	} else if (IsBufferFormat16Bit(from) && !IsBufferFormat16Bit(to)) {
+		// 16-to-32-bit (two pixels, draw size is halved)
+
+		writer.C("  vec4 valLeft = ").SampleTexture2D("tex", "v_texcoord.xy + vec2(-0.25 / texSize.x, 0.0)").C(";\n");
+		writer.C("  vec4 valRight = ").SampleTexture2D("tex", "v_texcoord.xy + vec2(0.25 / texSize.x, 0.0)").C(";\n");
+		writer.C("  vec4 outColor = unpackColor(packColor(valLeft), packColor(valRight));\n");
+
+		_assert_("not yet implemented");
+	} else if (!IsBufferFormat16Bit(from) && IsBufferFormat16Bit(to)) {
+		// 32-to-16-bit (half of the pixel, draw size is doubled).
+
+		writer.C("  vec4 val = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
+		writer.C("  float u = mod(floor(v_texcoord.x * texSize.x * 2.0), 2.0);\n");
+		writer.C("  vec4 outColor = unpackColor(u == 0.0 ? packColor(val.rg) : packColor(val.ba));\n");
 	}
 
 	writer.EndFSMain("outColor", FSFLAG_NONE);

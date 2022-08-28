@@ -142,6 +142,11 @@ struct VirtualFramebuffer {
 	int last_frame_failed;
 	int last_frame_depth_updated;
 	int last_frame_depth_render;
+
+	// Convenience methods
+	inline int WidthInBytes() const { return width * BufferFormatBytesPerPixel(fb_format); }
+	inline int FbStrideInBytes() const { return fb_stride * BufferFormatBytesPerPixel(fb_format); }
+	inline int ZStrideInBytes() const { return z_stride * 2; }
 };
 
 struct FramebufferHeuristicParams {
@@ -212,6 +217,31 @@ inline Draw::DataFormat GEFormatToThin3D(int geFormat) {
 		return Draw::DataFormat::UNDEFINED;
 	}
 }
+
+// Dimensions are in bytes, later steps get to convert back into real coordinates as appropriate.
+// Makes it easy to see if blits match etc.
+struct BlockTransferRect {
+	VirtualFramebuffer *vfb;
+	// RasterChannel channel;  // We currently only deal with color for block copies.
+
+	int x_bytes;
+	int y;
+	int w_bytes;
+	int h;
+
+	std::string ToString() const;
+
+	int w_pixels() const {
+		return w_bytes / BufferFormatBytesPerPixel(vfb->fb_format);
+	}
+	int x_pixels() const {
+		return x_bytes / BufferFormatBytesPerPixel(vfb->fb_format);
+	}
+
+	bool operator < (const BlockTransferRect &other) const {
+		return vfb->colorBindSeq < other.vfb->colorBindSeq;
+	}
+};
 
 namespace Draw {
 class DrawContext;
@@ -418,7 +448,7 @@ protected:
 	bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;
 	void DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb);
 
-	void FindTransferFramebuffer(VirtualFramebuffer *&srcBuffer, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int bpp, bool destination);
+	bool FindTransferFramebuffer(u32 basePtr, int stride, int x, int y, int w, int h, int bpp, bool destination, BlockTransferRect *rect);
 
 	VirtualFramebuffer *FindDownloadTempBuffer(VirtualFramebuffer *vfb);
 	virtual void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {}
@@ -503,10 +533,10 @@ protected:
 		FBO_OLD_USAGE_FLAG = 15,
 	};
 
-	// Thin3D stuff for reinterpreting image data between the various 16-bit formats.
+	// Thin3D stuff for reinterpreting image data between the various 16-bit color formats.
 	// Safe, not optimal - there might be input attachment tricks, etc, but we can't use them
 	// since we don't want N different implementations.
-	Draw2DPipeline *reinterpretFromTo_[3][3]{};
+	Draw2DPipeline *reinterpretFromTo_[4][4]{};
 
 	// Common implementation of stencil buffer upload. Also not 100% optimal, but not performance
 	// critical either.
