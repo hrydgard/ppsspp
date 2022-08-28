@@ -217,44 +217,6 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 
 			keys_.blend.colorWriteMask = (maskState.rgba[0] ? 1 : 0) | (maskState.rgba[1] ? 2 : 0) | (maskState.rgba[2] ? 4 : 0) | (maskState.rgba[3] ? 8 : 0);
 		}
-
-		if (!device1_) {
-			ID3D11BlendState *bs = blendCache_.Get(keys_.blend.value);
-			if (bs == nullptr) {
-				D3D11_BLEND_DESC desc{};
-				D3D11_RENDER_TARGET_BLEND_DESC &rt = desc.RenderTarget[0];
-				rt.BlendEnable = keys_.blend.blendEnable;
-				rt.BlendOp = (D3D11_BLEND_OP)keys_.blend.blendOpColor;
-				rt.BlendOpAlpha = (D3D11_BLEND_OP)keys_.blend.blendOpAlpha;
-				rt.SrcBlend = (D3D11_BLEND)keys_.blend.srcColor;
-				rt.DestBlend = (D3D11_BLEND)keys_.blend.destColor;
-				rt.SrcBlendAlpha = (D3D11_BLEND)keys_.blend.srcAlpha;
-				rt.DestBlendAlpha = (D3D11_BLEND)keys_.blend.destAlpha;
-				rt.RenderTargetWriteMask = keys_.blend.colorWriteMask;
-				ASSERT_SUCCESS(device_->CreateBlendState(&desc, &bs));
-				blendCache_.Insert(keys_.blend.value, bs);
-			}
-			blendState_ = bs;
-		} else {
-			ID3D11BlendState1 *bs1 = blendCache1_.Get(keys_.blend.value);
-			if (bs1 == nullptr) {
-				D3D11_BLEND_DESC1 desc1{};
-				D3D11_RENDER_TARGET_BLEND_DESC1 &rt = desc1.RenderTarget[0];
-				rt.BlendEnable = keys_.blend.blendEnable;
-				rt.BlendOp = (D3D11_BLEND_OP)keys_.blend.blendOpColor;
-				rt.BlendOpAlpha = (D3D11_BLEND_OP)keys_.blend.blendOpAlpha;
-				rt.SrcBlend = (D3D11_BLEND)keys_.blend.srcColor;
-				rt.DestBlend = (D3D11_BLEND)keys_.blend.destColor;
-				rt.SrcBlendAlpha = (D3D11_BLEND)keys_.blend.srcAlpha;
-				rt.DestBlendAlpha = (D3D11_BLEND)keys_.blend.destAlpha;
-				rt.RenderTargetWriteMask = keys_.blend.colorWriteMask;
-				rt.LogicOpEnable = keys_.blend.logicOpEnable;
-				rt.LogicOp = (D3D11_LOGIC_OP)keys_.blend.logicOp;
-				ASSERT_SUCCESS(device1_->CreateBlendState1(&desc1, &bs1));
-				blendCache1_.Insert(keys_.blend.value, bs1);
-			}
-			blendState1_ = bs1;
-		}
 	}
 
 	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
@@ -275,18 +237,6 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				keys_.raster.depthClipEnable = 1;
 			}
 		}
-		ID3D11RasterizerState *rs = rasterCache_.Get(keys_.raster.value);
-		if (rs == nullptr) {
-			D3D11_RASTERIZER_DESC desc{};
-			desc.CullMode = (D3D11_CULL_MODE)(keys_.raster.cullMode);
-			desc.FillMode = D3D11_FILL_SOLID;
-			desc.ScissorEnable = TRUE;
-			desc.FrontCounterClockwise = TRUE;
-			desc.DepthClipEnable = keys_.raster.depthClipEnable;
-			ASSERT_SUCCESS(device_->CreateRasterizerState(&desc, &rs));
-			rasterCache_.Insert(keys_.raster.value, rs);
-		}
-		rasterState_ = rs;
 	}
 
 	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
@@ -343,29 +293,36 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				keys_.depthStencil.stencilWriteMask = stencilState.writeMask;
 				dynState_.useStencil = true;
 				dynState_.stencilRef = stencilState.testRef;
+
+				// Nasty special case for Spongebob and similar where it tries to write zeros to alpha/stencil during
+				// depth-fail. We can't write to alpha then because the pixel is killed. However, we can invert the depth
+				// test and modify the alpha function...
+				if (SpongebobDepthInverseConditions(stencilState)) {
+					keys_.blend.blendEnable = true;
+					keys_.blend.blendOpAlpha = D3D11_BLEND_OP_ADD;
+					keys_.blend.blendOpColor = D3D11_BLEND_OP_ADD;
+					keys_.blend.srcColor = D3D11_BLEND_ZERO;
+					keys_.blend.destColor = D3D11_BLEND_ZERO;
+					keys_.blend.logicOpEnable = false;
+					keys_.blend.srcAlpha = D3D11_BLEND_ZERO;
+					keys_.blend.destAlpha = D3D11_BLEND_ZERO;
+					keys_.blend.colorWriteMask = D3D11_COLOR_WRITE_ENABLE_ALPHA;
+
+					keys_.depthStencil.depthCompareOp = D3D11_COMPARISON_LESS;  // Inverse of GREATER_EQUAL
+					keys_.depthStencil.stencilCompareFunc = D3D11_COMPARISON_ALWAYS;
+					// Invert
+					keys_.depthStencil.stencilPassOp = D3D11_STENCIL_OP_ZERO;
+					keys_.depthStencil.stencilFailOp = D3D11_STENCIL_OP_ZERO;
+					keys_.depthStencil.stencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+
+					// TODO: Need to set in a way that carries over to the next draw..
+					gstate_c.Dirty(DIRTY_BLEND_STATE);
+				}
 			} else {
 				keys_.depthStencil.stencilTestEnable = false;
 				dynState_.useStencil = false;
 			}
 		}
-		ID3D11DepthStencilState *ds = depthStencilCache_.Get(keys_.depthStencil.value);
-		if (ds == nullptr) {
-			D3D11_DEPTH_STENCIL_DESC desc{};
-			desc.DepthEnable = keys_.depthStencil.depthTestEnable;
-			desc.DepthWriteMask = keys_.depthStencil.depthWriteEnable ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
-			desc.DepthFunc = (D3D11_COMPARISON_FUNC)keys_.depthStencil.depthCompareOp;
-			desc.StencilEnable = keys_.depthStencil.stencilTestEnable;
-			desc.StencilReadMask = keys_.depthStencil.stencilCompareMask;
-			desc.StencilWriteMask = keys_.depthStencil.stencilWriteMask;
-			desc.FrontFace.StencilFailOp = (D3D11_STENCIL_OP)keys_.depthStencil.stencilFailOp;
-			desc.FrontFace.StencilPassOp = (D3D11_STENCIL_OP)keys_.depthStencil.stencilPassOp;
-			desc.FrontFace.StencilDepthFailOp = (D3D11_STENCIL_OP)keys_.depthStencil.stencilDepthFailOp;
-			desc.FrontFace.StencilFunc = (D3D11_COMPARISON_FUNC)keys_.depthStencil.stencilCompareFunc;
-			desc.BackFace = desc.FrontFace;
-			ASSERT_SUCCESS(device_->CreateDepthStencilState(&desc, &ds));
-			depthStencilCache_.Insert(keys_.depthStencil.value, ds);
-		}
-		depthStencilState_ = ds;
 	}
 
 	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
@@ -395,6 +352,84 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		scissor.top = vpAndScissor.scissorY;
 		scissor.right = vpAndScissor.scissorX + std::max(0, vpAndScissor.scissorW);
 		scissor.bottom = vpAndScissor.scissorY + std::max(0, vpAndScissor.scissorH);
+	}
+
+	// Actually create/set the state objects only after we're done mapping all the state.
+	// There might have been interactions between depth and blend above.
+	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
+		if (!device1_) {
+			ID3D11BlendState *bs = blendCache_.Get(keys_.blend.value);
+			if (bs == nullptr) {
+				D3D11_BLEND_DESC desc{};
+				D3D11_RENDER_TARGET_BLEND_DESC &rt = desc.RenderTarget[0];
+				rt.BlendEnable = keys_.blend.blendEnable;
+				rt.BlendOp = (D3D11_BLEND_OP)keys_.blend.blendOpColor;
+				rt.BlendOpAlpha = (D3D11_BLEND_OP)keys_.blend.blendOpAlpha;
+				rt.SrcBlend = (D3D11_BLEND)keys_.blend.srcColor;
+				rt.DestBlend = (D3D11_BLEND)keys_.blend.destColor;
+				rt.SrcBlendAlpha = (D3D11_BLEND)keys_.blend.srcAlpha;
+				rt.DestBlendAlpha = (D3D11_BLEND)keys_.blend.destAlpha;
+				rt.RenderTargetWriteMask = keys_.blend.colorWriteMask;
+				ASSERT_SUCCESS(device_->CreateBlendState(&desc, &bs));
+				blendCache_.Insert(keys_.blend.value, bs);
+			}
+			blendState_ = bs;
+		} else {
+			ID3D11BlendState1 *bs1 = blendCache1_.Get(keys_.blend.value);
+			if (bs1 == nullptr) {
+				D3D11_BLEND_DESC1 desc1{};
+				D3D11_RENDER_TARGET_BLEND_DESC1 &rt = desc1.RenderTarget[0];
+				rt.BlendEnable = keys_.blend.blendEnable;
+				rt.BlendOp = (D3D11_BLEND_OP)keys_.blend.blendOpColor;
+				rt.BlendOpAlpha = (D3D11_BLEND_OP)keys_.blend.blendOpAlpha;
+				rt.SrcBlend = (D3D11_BLEND)keys_.blend.srcColor;
+				rt.DestBlend = (D3D11_BLEND)keys_.blend.destColor;
+				rt.SrcBlendAlpha = (D3D11_BLEND)keys_.blend.srcAlpha;
+				rt.DestBlendAlpha = (D3D11_BLEND)keys_.blend.destAlpha;
+				rt.RenderTargetWriteMask = keys_.blend.colorWriteMask;
+				rt.LogicOpEnable = keys_.blend.logicOpEnable;
+				rt.LogicOp = (D3D11_LOGIC_OP)keys_.blend.logicOp;
+				ASSERT_SUCCESS(device1_->CreateBlendState1(&desc1, &bs1));
+				blendCache1_.Insert(keys_.blend.value, bs1);
+			}
+			blendState1_ = bs1;
+		}
+	}
+
+	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
+		ID3D11RasterizerState *rs = rasterCache_.Get(keys_.raster.value);
+		if (rs == nullptr) {
+			D3D11_RASTERIZER_DESC desc{};
+			desc.CullMode = (D3D11_CULL_MODE)(keys_.raster.cullMode);
+			desc.FillMode = D3D11_FILL_SOLID;
+			desc.ScissorEnable = TRUE;
+			desc.FrontCounterClockwise = TRUE;
+			desc.DepthClipEnable = keys_.raster.depthClipEnable;
+			ASSERT_SUCCESS(device_->CreateRasterizerState(&desc, &rs));
+			rasterCache_.Insert(keys_.raster.value, rs);
+		}
+		rasterState_ = rs;
+	}
+
+	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
+		ID3D11DepthStencilState *ds = depthStencilCache_.Get(keys_.depthStencil.value);
+		if (ds == nullptr) {
+			D3D11_DEPTH_STENCIL_DESC desc{};
+			desc.DepthEnable = keys_.depthStencil.depthTestEnable;
+			desc.DepthWriteMask = keys_.depthStencil.depthWriteEnable ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
+			desc.DepthFunc = (D3D11_COMPARISON_FUNC)keys_.depthStencil.depthCompareOp;
+			desc.StencilEnable = keys_.depthStencil.stencilTestEnable;
+			desc.StencilReadMask = keys_.depthStencil.stencilCompareMask;
+			desc.StencilWriteMask = keys_.depthStencil.stencilWriteMask;
+			desc.FrontFace.StencilFailOp = (D3D11_STENCIL_OP)keys_.depthStencil.stencilFailOp;
+			desc.FrontFace.StencilPassOp = (D3D11_STENCIL_OP)keys_.depthStencil.stencilPassOp;
+			desc.FrontFace.StencilDepthFailOp = (D3D11_STENCIL_OP)keys_.depthStencil.stencilDepthFailOp;
+			desc.FrontFace.StencilFunc = (D3D11_COMPARISON_FUNC)keys_.depthStencil.stencilCompareFunc;
+			desc.BackFace = desc.FrontFace;
+			ASSERT_SUCCESS(device_->CreateDepthStencilState(&desc, &ds));
+			depthStencilCache_.Insert(keys_.depthStencil.value, ds);
+		}
+		depthStencilState_ = ds;
 	}
 
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {

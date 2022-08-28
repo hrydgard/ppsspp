@@ -27,13 +27,14 @@ class ShaderWriter;
 static const int DEPAL_TEXTURE_OLD_AGE = 120;
 
 struct DepalConfig {
-	int mask;
-	int shift;
 	u32 startPos;
+	u8 mask;
+	u8 shift;
+	bool smoothedDepal;
+	u8 depthUpperBits;
 	GEPaletteFormat clutFormat;
 	GETextureFormat textureFormat;
 	GEBufferFormat bufferFormat;
-	bool smoothedDepal;
 };
 
 void GenerateDepalFs(ShaderWriter &writer, const DepalConfig &config);

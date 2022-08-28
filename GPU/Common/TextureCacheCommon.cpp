@@ -662,27 +662,10 @@ int TextureCacheCommon::GetBestCandidateIndex(const std::vector<AttachCandidate>
 	int bestRelevancy = -1;
 	int bestIndex = -1;
 
-	// TODO: Instead of scores, we probably want to use std::min_element to pick the top element, using 
-	// a comparison function.
+	// We simply use the sequence counter as relevancy nowadays.
 	for (int i = 0; i < (int)candidates.size(); i++) {
 		const AttachCandidate &candidate = candidates[i];
 		int relevancy = candidate.seqCount;
-
-		// Bonus point for matching stride.
-		if (candidate.channel == RASTER_COLOR && candidate.fb->fb_stride == candidate.entry.bufw) {
-			relevancy += 1000;
-		}
-
-		// Bonus points for no offset.
-		if (candidate.match.xOffset == 0 && candidate.match.yOffset == 0) {
-			relevancy += 100;
-		}
-
-		if (candidate.channel == RASTER_COLOR && candidate.fb->last_frame_render == gpuStats.numFlips) {
-			relevancy += 50;
-		} else if (candidate.channel == RASTER_DEPTH && candidate.fb->last_frame_depth_render == gpuStats.numFlips) {
-			relevancy += 50;
-		}
 
 		if (relevancy > bestRelevancy) {
 			bestRelevancy = relevancy;
@@ -907,20 +890,18 @@ bool TextureCacheCommon::MatchFramebuffer(
 
 	// If they match "exactly", it's non-CLUT and from the top left.
 	if (exactMatch) {
+		// TODO: Better checks for compatible strides here.
 		if (fb_stride != entry.bufw) {
-			WARN_LOG_ONCE(diffStrides1, G3D, "Found matching framebuffer with different strides %d != %d", entry.bufw, (int)fb_stride);
+			WARN_LOG_ONCE(diffStrides1, G3D, "Found matching framebuffer at %08x with different strides %d != %d", fb_address, entry.bufw, (int)fb_stride);
 		}
 		// NOTE: This check is okay because the first texture formats are the same as the buffer formats.
 		if (IsTextureFormatBufferCompatible(entry.format)) {
 			if (TextureFormatMatchesBufferFormat(entry.format, fb_format) || (framebuffer->usageFlags & FB_USAGE_BLUE_TO_ALPHA)) {
 				return true;
-			} else if (IsTextureFormat16Bit(entry.format) && IsBufferFormat16Bit(fb_format) && channel == RASTER_COLOR) {
-				WARN_LOG_ONCE(diffFormat1, G3D, "Found matching framebuffer with reinterpretable fb_format: %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format));
+			} else {
+				WARN_LOG_ONCE(diffFormat1, G3D, "Found matching framebuffer with reinterpretable fb_format: %s != %s at %08x", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address);
 				*matchInfo = FramebufferMatchInfo{ 0, 0, true, TextureFormatToBufferFormat(entry.format) };
 				return true;
-			} else {
-				WARN_LOG_ONCE(diffFormat2, G3D, "Rejecting framebuffer with incompatible formats %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format));
-				return false;
 			}
 		} else {
 			// Format incompatible, ignoring without comment. (maybe some really gnarly hacks will end up here...)
@@ -954,7 +935,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 
 		if (fb_stride != entry.bufw) {
 			if (noOffset) {
-				WARN_LOG_ONCE(diffStrides2, G3D, "Matching framebuffer(matching_clut = % s) different strides % d != % d", matchingClutFormat ? "yes" : "no", entry.bufw, fb_stride);
+				WARN_LOG_ONCE(diffStrides2, G3D, "Matching framebuffer(matching_clut = %s) different strides %d != %d", matchingClutFormat ? "yes" : "no", entry.bufw, fb_stride);
 				// Continue on with other checks.
 				// Not actually sure why we even try here. There's no way it'll go well if the strides are different.
 			} else {
@@ -984,7 +965,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 			}
 			return true;
 		} else if (IsClutFormat((GETextureFormat)(entry.format)) || IsDXTFormat((GETextureFormat)(entry.format))) {
-			WARN_LOG_ONCE(fourEightBit, G3D, "%s fb_format not supported when texturing from framebuffer of format %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format));
+			WARN_LOG_ONCE(fourEightBit, G3D, "%s fb_format not matching framebuffer of format %s at %08x/%d", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address, fb_stride);
 			return false;
 		}
 
@@ -1024,9 +1005,18 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 	nextFramebufferTextureChannel_ = RASTER_COLOR;
 
 	if (framebufferManager_->UseBufferedRendering()) {
+		// Detect when we need to apply the horizontal texture swizzle.
+		u64 depthUpperBits = (channel == RASTER_DEPTH && framebuffer->fb_format == GE_FORMAT_8888) ? ((gstate.getTextureAddress(0) & 0x600000) >> 20) : 0;
+		bool needsDepthXSwizzle = depthUpperBits == 2;
+
 		// We need to force it, since we may have set it on a texture before attaching.
 		gstate_c.curTextureWidth = framebuffer->bufferWidth;
 		gstate_c.curTextureHeight = framebuffer->bufferHeight;
+
+		if (needsDepthXSwizzle) {
+			gstate_c.curTextureWidth = RoundUpToPowerOf2(gstate_c.curTextureWidth);
+		}
+
 		if (gstate_c.bgraTexture) {
 			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		} else if ((gstate_c.curTextureXOffset == 0) != (fbInfo.xOffset == 0) || (gstate_c.curTextureYOffset == 0) != (fbInfo.yOffset == 0)) {
@@ -1884,6 +1874,7 @@ static bool CanUseSmoothDepal(const GPUgstate &gstate, GEBufferFormat framebuffe
 	return false;
 }
 
+
 void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel) {
 	Draw2DPipeline *textureShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
@@ -1910,6 +1901,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 	ClutTexture clutTexture{};
 	bool smoothedDepal = false;
+	u32 depthUpperBits = 0;
 
 	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
 		clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
@@ -1944,20 +1936,33 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			return;
 		}
 
-		textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->fb_format, smoothedDepal);
+		depthUpperBits = (depth && framebuffer->fb_format == GE_FORMAT_8888) ? ((gstate.getTextureAddress(0) & 0x600000) >> 20) : 0;
+
+		textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->fb_format, smoothedDepal, depthUpperBits);
 		gstate_c.SetUseShaderDepal(false, false);
 	}
 
 	if (textureShader) {
 		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 		ClutTexture clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
-		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight);
+
+		bool needsDepthXSwizzle = depthUpperBits == 2;
+
+		int depalWidth = framebuffer->renderWidth;
+		int texWidth = framebuffer->width;
+		if (needsDepthXSwizzle) {
+			texWidth = RoundUpToPowerOf2(framebuffer->width);
+			depalWidth = texWidth * framebuffer->renderScaleFactor;
+			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+		}
+
+		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(TempFBO::DEPAL, depalWidth, framebuffer->renderHeight);
 		draw_->BindTexture(0, nullptr);
 		draw_->BindTexture(1, nullptr);
 		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
 
-		draw_->SetScissorRect(0, 0, (int)framebuffer->renderWidth, (int)framebuffer->renderHeight);
-		Draw::Viewport vp{ 0.0f, 0.0f, (float)framebuffer->renderWidth, (float)framebuffer->renderHeight, 0.0f, 1.0f };
+		draw_->SetScissorRect(0, 0, (int)depalWidth, (int)framebuffer->renderHeight);
+		Draw::Viewport vp{ 0.0f, 0.0f, (float)depalWidth, (float)framebuffer->renderHeight, 0.0f, 1.0f };
 		draw_->SetViewports(1, &vp);
 
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, 0);
@@ -1971,7 +1976,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		const KnownVertexBounds &bounds = gstate_c.vertBounds;
 		float u1 = 0.0f;
 		float v1 = 0.0f;
-		float u2 = framebuffer->renderWidth;
+		float u2 = depalWidth;
 		float v2 = framebuffer->renderHeight;
 		if (bounds.minV < bounds.maxV) {
 			u1 = bounds.minU + gstate_c.curTextureXOffset;
@@ -1986,7 +1991,9 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		u2 *= framebuffer->renderScaleFactor;
 		v2 *= framebuffer->renderScaleFactor;
 
-		draw2D_->Blit(textureShader, u1, v1, u2, v2, u1, v1, u2, v2, framebuffer->renderWidth, framebuffer->renderHeight, framebuffer->renderWidth, framebuffer->renderHeight, false, framebuffer->renderScaleFactor);
+		draw2D_->Blit(textureShader, u1, v1, u2, v2, u1, v1, u2, v2, framebuffer->renderWidth, framebuffer->renderHeight, depalWidth, framebuffer->renderHeight, false, framebuffer->renderScaleFactor);
+
+		gstate_c.curTextureWidth = texWidth;
 
 		draw_->BindTexture(0, nullptr);
 		framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");

@@ -4,6 +4,7 @@
 #include "Common/CommonTypes.h"
 
 #include "GPU/ge_constants.h"
+#include "GPU/GPUState.h"
 
 // TODO: Replace enums and structs with same from thin3d.h, for convenient mapping.
 
@@ -198,3 +199,21 @@ struct GenericStencilFuncState {
 };
 
 void ConvertStencilFuncState(GenericStencilFuncState &stencilFuncState);
+
+// See issue #15898
+inline bool SpongebobDepthInverseConditions(const GenericStencilFuncState &stencilState) {
+	// Check that the depth/stencil state matches the conditions exactly
+	return gstate.isDepthTestEnabled() && !gstate.isDepthWriteEnabled() &&
+		gstate.getDepthTestFunction() == GE_COMP_GEQUAL &&
+		stencilState.zFail == GE_STENCILOP_ZERO && stencilState.sFail == GE_STENCILOP_KEEP && stencilState.zPass == GE_STENCILOP_KEEP &&
+		stencilState.testFunc == GE_COMP_ALWAYS && stencilState.writeMask == 0xFF &&
+		// And also verify no color is written. The game does this through simple alpha blending with a constant zero alpha.
+		// We also check for color mask, since it's more natural, in case another game does it.
+		(gstate.isAlphaBlendEnabled() &&
+			gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA &&
+			gstate.getBlendFuncB() == GE_DSTBLEND_INVSRCALPHA &&
+			gstate.getMaterialAmbientA() == 0x0 &&  // our accessor is kinda misnamed here, but material diffuse A is both used as default color and as ambient alpha
+			gstate.getMaterialUpdate() == 0 &&
+			!gstate.isTextureMapEnabled()
+		) || gstate.getColorMask() == 0xFFFFFF00;  // note that PSP masks are "inverted"
+}

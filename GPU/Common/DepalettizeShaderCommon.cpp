@@ -26,6 +26,7 @@
 #include "Core/Reporting.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
+#include "GPU/Common/Draw2D.h"
 
 static const InputDef vsInputs[2] = {
 	{ "vec2", "a_position", Draw::SEM_POSITION, },
@@ -47,10 +48,23 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 	const int shift = config.shift;
 	const int mask = config.mask;
 
+	writer.C("  vec2 texcoord = v_texcoord;\n");
+
+	// Implement the swizzle we need to simulate, if a game uses 8888 framebuffers and any other mode than "6" to access depth textures.
+	// This implements the "2" mode swizzle (it fixes up the Y direction but not X. See comments on issue #15898)
+	// NOTE: This swizzle can be made to work with any power-of-2 resolution scaleFactor by shifting
+	// the bits around, but not sure how to handle 3x scaling. For now this is 1x-only (rough edges at higher resolutions).
 	if (config.bufferFormat == GE_FORMAT_DEPTH16) {
 		DepthScaleFactors factors = GetDepthScaleFactors();
 		writer.ConstFloat("z_scale", factors.scale);
 		writer.ConstFloat("z_offset", factors.offset);
+		if (config.depthUpperBits == 0x2) {
+			writer.C(R"(
+  int x = int((texcoord.x / scaleFactor) * texSize.x);
+  int temp = (x & 0xFFFFFE0F) | ((x >> 1) & 0xF0) | ((x << 4) & 0x100);
+  texcoord.x = (float(temp) / texSize.x) * scaleFactor;
+)");
+		}
 	}
 
 	// Sampling turns our texture into floating point. To avoid this, might be able
@@ -66,7 +80,7 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 	// An alternative would be to have a special mode where we keep some extra precision here and sample the CLUT linearly - works for ramps such
 	// as those that Test Drive uses for its color remapping. But would need game specific flagging.
 
-	writer.C("  vec4 color = ").SampleTexture2D("tex", "v_texcoord").C(";\n");
+	writer.C("  vec4 color = ").SampleTexture2D("tex", "texcoord").C(";\n");
 
 	int shiftedMask = mask << shift;
 	switch (config.bufferFormat) {
@@ -103,6 +117,7 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 
 		if (config.bufferFormat == GE_FORMAT_DEPTH16 && config.textureFormat == GE_TFMT_5650) {
 			// Convert depth to 565, without going through a CLUT.
+			// TODO: Make "depal without a CLUT" a separate concept, to avoid redundantly creating a CLUT texture.
 			writer.C("  int idepth = int(clamp(depth, 0.0, 65535.0));\n");
 			writer.C("  float r = float(idepth & 31) / 31.0f;\n");
 			writer.C("  float g = float((idepth >> 5) & 63) / 63.0f;\n");
@@ -323,7 +338,7 @@ void GenerateDepalSmoothed(ShaderWriter &writer, const DepalConfig &config) {
 void GenerateDepalFs(ShaderWriter &writer, const DepalConfig &config) {
 	writer.DeclareSamplers(samplers);
 	writer.HighPrecisionFloat();
-	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings, FSFLAG_NONE);
+	writer.BeginFSMain(config.bufferFormat == GE_FORMAT_DEPTH16 ? g_draw2Duniforms : Slice<UniformDef>::empty(), varyings, FSFLAG_NONE);
 	if (config.smoothedDepal) {
 		// Handles a limited set of cases, but doesn't need any integer math so we don't
 		// need two variants.
