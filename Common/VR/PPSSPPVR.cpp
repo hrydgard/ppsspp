@@ -174,6 +174,10 @@ void PostVRRender() {
 	VR_EndFrame(VR_GetEngine());
 }
 
+bool IsMultiviewSupported() {
+	return false;
+}
+
 bool IsFlatVRScene() {
 	return VR_GetConfig(VR_CONFIG_MODE) == VR_MODE_FLAT_SCREEN;
 }

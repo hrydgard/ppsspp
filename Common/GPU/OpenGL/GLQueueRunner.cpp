@@ -274,7 +274,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 				_dbg_assert_(query.name);
 
 				int location = -1;
-				if (IsVRBuild()) {
+				if (IsVRBuild() && IsMultiviewSupported()) {
 					int index = GetStereoBufferIndex(query.name);
 					if (index >= 0) {
 						std::string layout = GetStereoBufferLayout(query.name);
