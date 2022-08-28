@@ -153,9 +153,11 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 					device_->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
 					fboTexBound_ = true;
 					fboTexNeedsBind_ = false;
+					dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE;
 					gstate_c.Dirty(DIRTY_BLEND_STATE);
 				}
 
+				dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			} else if (blendState.resetFramebufferRead) {
 				ResetFramebufferRead();
@@ -169,6 +171,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 					dxBlendFactorLookup[(size_t)blendState.srcColor], dxBlendFactorLookup[(size_t)blendState.dstColor],
 					dxBlendFactorLookup[(size_t)blendState.srcAlpha], dxBlendFactorLookup[(size_t)blendState.dstAlpha]);
 				if (blendState.dirtyShaderBlendFixValues) {
+					dirtyRequiresRecheck_ |= DIRTY_SHADERBLEND;
 					gstate_c.Dirty(DIRTY_SHADERBLEND);
 				}
 				if (blendState.useBlendColor) {
@@ -262,8 +265,8 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 					// Invert
 					dxstate.stencilOp.set(D3DSTENCILOP_ZERO, D3DSTENCILOP_KEEP, D3DSTENCILOP_ZERO);
 
-					// TODO: Need to set in a way that carries over to the next draw..
-					gstate_c.Dirty(DIRTY_BLEND_STATE);
+					dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE;
+					gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 				}
 			} else {
 				dxstate.stencilTest.disable();
@@ -289,6 +292,8 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 	}
 
 	gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_BLEND_STATE);
+	gstate_c.Dirty(dirtyRequiresRecheck_);
+	dirtyRequiresRecheck_ = 0;
 }
 
 void DrawEngineDX9::ApplyDrawStateLate() {

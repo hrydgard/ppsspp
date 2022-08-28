@@ -173,9 +173,11 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				ApplyFramebufferRead(&fboTexNeedsBind_);
 				// The shader takes over the responsibility for blending, so recompute.
 				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
+				dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			} else if (blendState.resetFramebufferRead) {
 				ResetFramebufferRead();
+				dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			}
 
@@ -188,6 +190,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				key.destColor = vkBlendFactorLookup[(size_t)blendState.dstColor];
 				key.destAlpha = vkBlendFactorLookup[(size_t)blendState.dstAlpha];
 				if (blendState.dirtyShaderBlendFixValues) {
+					dirtyRequiresRecheck_ |= DIRTY_SHADERBLEND;
 					gstate_c.Dirty(DIRTY_SHADERBLEND);
 				}
 				dynState.useBlendColor = blendState.useBlendColor;
@@ -322,8 +325,8 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 					key.stencilFailOp = VK_STENCIL_OP_ZERO;
 					key.stencilDepthFailOp = VK_STENCIL_OP_KEEP;
 
-					// TODO: Need to set in a way that carries over to the next draw..
-					gstate_c.Dirty(DIRTY_BLEND_STATE);
+					dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE;
+					gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 				}
 			} else {
 				key.stencilTestEnable = false;
@@ -375,6 +378,9 @@ void DrawEngineVulkan::BindShaderBlendTex() {
 			boundSecondary_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE1_IMAGEVIEW);
 			fboTexBound_ = true;
 			fboTexNeedsBind_ = false;
+
+			// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
+			dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE;
 		}
 	}
 }

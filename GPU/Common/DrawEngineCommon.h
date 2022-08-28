@@ -189,6 +189,9 @@ protected:
 	bool fboTexNeedsBind_ = false;
 	bool fboTexBound_ = false;
 
+	// Sometimes, unusual situations mean we need to reset dirty flags after state calc finishes.
+	uint64_t dirtyRequiresRecheck_ = 0;
+
 	// Hardware tessellation
 	TessellationDataTransfer *tessDataTransfer;
 };
