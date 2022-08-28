@@ -4,6 +4,7 @@
 #include "Common/CommonTypes.h"
 
 #include "GPU/ge_constants.h"
+#include "GPU/GPUState.h"
 
 // TODO: Replace enums and structs with same from thin3d.h, for convenient mapping.
 
@@ -198,3 +199,13 @@ struct GenericStencilFuncState {
 };
 
 void ConvertStencilFuncState(GenericStencilFuncState &stencilFuncState);
+
+// See issue #15898
+inline bool SpongebobDepthInverseConditions(const GenericStencilFuncState &stencilState) {
+	return gstate.isDepthTestEnabled() && !gstate.isDepthWriteEnabled() && stencilState.zFail == GE_STENCILOP_ZERO &&
+		stencilState.sFail == GE_STENCILOP_KEEP && stencilState.zPass == GE_STENCILOP_KEEP &&
+		stencilState.testFunc == GE_COMP_ALWAYS &&
+		stencilState.writeMask == 0xFF && stencilState.testMask == 0xFF && stencilState.testRef == 0xFF &&
+		// Also verify no color is written.
+		true;
+}

@@ -263,11 +263,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 				// Nasty special case for Spongebob and similar where it tries to write zeros to alpha/stencil during
 				// depth-fail. We can't write to alpha then because the pixel is killed. However, we can invert the depth
 				// test and modify the alpha function...
-				if (gstate.isDepthTestEnabled() && !gstate.isDepthWriteEnabled() && stencilState.zFail == GE_STENCILOP_ZERO &&
-					stencilState.sFail == GE_STENCILOP_KEEP && stencilState.zPass == GE_STENCILOP_KEEP &&
-					stencilState.testFunc == GE_COMP_ALWAYS &&
-					stencilState.writeMask == 0xFF && stencilState.testMask == 0xFF && stencilState.testRef == 0xFF) {
-
+				if (SpongebobDepthInverseConditions(stencilState)) {
 					renderManager->SetBlendAndMask(0x8, true, GL_ZERO, GL_ZERO, GL_ZERO, GL_ZERO, GL_FUNC_ADD, GL_FUNC_ADD);
 					renderManager->SetDepth(true, false, GL_LESS);
 					renderManager->SetStencilFunc(true, GL_ALWAYS, 0xFF, 0xFF);

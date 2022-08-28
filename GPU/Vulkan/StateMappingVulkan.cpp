@@ -305,10 +305,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				// Nasty special case for Spongebob and similar where it tries to write zeros to alpha/stencil during
 				// depth-fail. We can't write to alpha then because the pixel is killed. However, we can invert the depth
 				// test and modify the alpha function...
-				if (gstate.isDepthTestEnabled() && !gstate.isDepthWriteEnabled() && stencilState.zFail == GE_STENCILOP_ZERO &&
-					stencilState.sFail == GE_STENCILOP_KEEP && stencilState.zPass == GE_STENCILOP_KEEP &&
-					stencilState.testFunc == GE_COMP_ALWAYS &&
-					stencilState.writeMask == 0xFF && stencilState.testMask == 0xFF && stencilState.testRef == 0xFF) {
+				if (SpongebobDepthInverseConditions(stencilState)) {
 					key.blendEnable = true;
 					key.blendOpAlpha = VK_BLEND_OP_ADD;
 					key.blendOpColor = VK_BLEND_OP_ADD;
