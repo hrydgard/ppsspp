@@ -724,6 +724,9 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	step->render.colorLoad = color;
 	step->render.depthLoad = depth;
 	step->render.stencilLoad = stencil;
+	step->render.colorStore = VKRRenderPassStoreAction::STORE;
+	step->render.depthStore = VKRRenderPassStoreAction::STORE;
+	step->render.stencilStore = VKRRenderPassStoreAction::STORE;
 	step->render.clearColor = clearColor;
 	step->render.clearDepth = clearDepth;
 	step->render.clearStencil = clearStencil;

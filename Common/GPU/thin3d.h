@@ -261,6 +261,11 @@ enum FBChannel {
 	FB_FORMAT_BIT = 128,  // Actually retrieves the native format instead. D3D11 only.
 };
 
+enum FBInvalidationStage {
+	FB_INVALIDATION_LOAD = 1,
+	FB_INVALIDATION_STORE = 2,
+};
+
 enum FBBlitFilter {
 	FB_BLIT_NEAREST = 0,
 	FB_BLIT_LINEAR = 1,
@@ -568,9 +573,9 @@ struct TextureDesc {
 };
 
 enum class RPAction {
-	DONT_CARE,
-	CLEAR,
-	KEEP,
+	KEEP = 0,
+	CLEAR = 1,
+	DONT_CARE = 2,
 };
 
 struct RenderPassInfo {
@@ -655,8 +660,11 @@ public:
 
 	virtual void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) = 0;
 
-	// Useful in OpenGL ES to give hints about framebuffers on tiler GPUs.
-	virtual void InvalidateFramebuffer(Framebuffer *fbo) {}
+	// Could be useful in OpenGL ES to give hints about framebuffers on tiler GPUs
+	// using glInvalidateFramebuffer, although drivers are known to botch that so we currently don't use it.
+	// In Vulkan, this sets the LOAD_OP or the STORE_OP (depending on stage) of the current render pass instance to DONT_CARE.
+	// channels is a bitwise combination of FBChannel::COLOR, DEPTH and STENCIL.
+	virtual void InvalidateFramebuffer(FBInvalidationStage stage, uint32_t channels) {}
 
 	// Dynamic state
 	virtual void SetScissorRect(int left, int top, int width, int height) = 0;

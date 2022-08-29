@@ -2936,17 +2936,18 @@ void GPUCommon::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
 
 	if (type != GPU_INVALIDATE_ALL && framebufferManager_->MayIntersectFramebuffer(addr)) {
 		// Vempire invalidates (with writeback) after drawing, but before blitting.
+		// TODO: Investigate whether we can get this to work some other way.
 		if (type == GPU_INVALIDATE_SAFE) {
 			framebufferManager_->UpdateFromMemory(addr, size, type == GPU_INVALIDATE_SAFE);
 		}
 	}
 }
 
-void GPUCommon::NotifyVideoUpload(u32 addr, int size, int width, int format) {
+void GPUCommon::NotifyVideoUpload(u32 addr, int size, int frameWidth, int format) {
 	if (Memory::IsVRAMAddress(addr)) {
-		framebufferManager_->NotifyVideoUpload(addr, size, width, (GEBufferFormat)format);
+		framebufferManager_->NotifyVideoUpload(addr, size, frameWidth, (GEBufferFormat)format);
 	}
-	textureCache_->NotifyVideoUpload(addr, size, width, (GEBufferFormat)format);
+	textureCache_->NotifyVideoUpload(addr, size, frameWidth, (GEBufferFormat)format);
 	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
 }
 
@@ -3060,8 +3061,8 @@ size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
 		"Vertices: %d cached: %d uncached: %d\n"
 		"FBOs active: %d (evaluations: %d)\n"
 		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
-		"Readbacks: %d, uploads: %d\n"
-		"Copies: depth %d, color %d, reinterpret: %d\n"
+		"readbacks %d, uploads %d, depal %d\n"
+		"Copies: depth %d, color %d, reint %d, blend %d, selftex %d\n"
 		"GPU cycles executed: %d (%f per vertex)\n",
 		gpuStats.msProcessingDisplayLists * 1000.0f,
 		gpuStats.numDrawCalls,
@@ -3081,9 +3082,12 @@ size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.numTextureDataBytesHashed / 1024,
 		gpuStats.numReadbacks,
 		gpuStats.numUploads,
+		gpuStats.numDepal,
 		gpuStats.numDepthCopies,
 		gpuStats.numColorCopies,
 		gpuStats.numReinterpretCopies,
+		gpuStats.numCopiesForShaderBlend,
+		gpuStats.numCopiesForSelfTex,
 		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
 		vertexAverageCycles
 	);

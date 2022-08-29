@@ -60,8 +60,8 @@ inline unsigned int toFloat24(float f) {
 
 struct GPUStatistics {
 	void Reset() {
-		// Never add a vtable :)
-		memset(this, 0, sizeof(*this));
+		ResetFrame();
+		numFlips = 0;
 	}
 
 	void ResetFrame() {
@@ -82,10 +82,13 @@ struct GPUStatistics {
 		numFramebufferEvaluations = 0;
 		numReadbacks = 0;
 		numUploads = 0;
+		numDepal = 0;
 		numClears = 0;
 		numDepthCopies = 0;
 		numReinterpretCopies = 0;
 		numColorCopies = 0;
+		numCopiesForShaderBlend = 0;
+		numCopiesForSelfTex = 0;
 		msProcessingDisplayLists = 0;
 		vertexGPUCycles = 0;
 		otherGPUCycles = 0;
@@ -110,10 +113,13 @@ struct GPUStatistics {
 	int numFramebufferEvaluations;
 	int numReadbacks;
 	int numUploads;
+	int numDepal;
 	int numClears;
 	int numDepthCopies;
 	int numReinterpretCopies;
 	int numColorCopies;
+	int numCopiesForShaderBlend;
+	int numCopiesForSelfTex;
 	double msProcessingDisplayLists;
 	int vertexGPUCycles;
 	int otherGPUCycles;
