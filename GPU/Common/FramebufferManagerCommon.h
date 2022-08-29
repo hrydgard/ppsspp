@@ -64,6 +64,8 @@ class ShaderWriter;
 // Sometimes, virtual framebuffers need to share a Z buffer. We emulate this by copying from on to the next
 // when such a situation is detected. In order to reliably detect this, we separately track depth buffers,
 // and they know which color buffer they were used with last.
+// Two VirtualFramebuffer can occupy the same address range as long as they have different fb_format.
+// In that case, the one with the highest colorBindSeq number is the valid one.
 struct VirtualFramebuffer {
 	u32 fb_address;
 	u32 z_address;  // If 0, it's a "RAM" framebuffer.
@@ -73,6 +75,7 @@ struct VirtualFramebuffer {
 	// The original PSP format of the framebuffer.
 	// In reality they are all RGBA8888 for better quality but this is what the PSP thinks it is. This is necessary
 	// when we need to interpret the bits directly (depal or buffer aliasing).
+	// NOTE: CANNOT be changed after creation anymore!
 	GEBufferFormat fb_format;
 
 	Draw::Framebuffer *fbo;
@@ -320,7 +323,7 @@ public:
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes);
-	void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride);
+	void DrawFramebufferToOutput(const u8 *srcPixels, int srcStride, GEBufferFormat srcPixelFormat);
 
 	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 
@@ -358,12 +361,20 @@ public:
 		return currentRenderVfb_;
 	}
 
-	// This only checks for the color channel.
+	// This only checks for the color channel, and if there are multiple overlapping ones
+	// with different color depth, this might get things wrong.
+	// DEPRECATED FOR NEW USES - avoid whenever possible.
 	VirtualFramebuffer *GetVFBAt(u32 addr) const;
 
-	VirtualFramebuffer *GetDisplayVFB() const {
-		return GetVFBAt(displayFramebufPtr_);
-	}
+	// This will only return exact matches of addr+stride+format.
+	VirtualFramebuffer *GetExactVFB(u32 addr, int stride, GEBufferFormat format) const;
+
+	// If this doesn't find the exact VFB, but one with a different color format with matching stride,
+	// it'll resolve the newest one at address to the format requested, and return that.
+	VirtualFramebuffer *ResolveVFB(u32 addr, int stride, GEBufferFormat format);
+
+	// Utility to get the display VFB.
+	VirtualFramebuffer *GetDisplayVFB();
 
 	int GetRenderWidth() const { return currentRenderVfb_ ? currentRenderVfb_->renderWidth : 480; }
 	int GetRenderHeight() const { return currentRenderVfb_ ? currentRenderVfb_->renderHeight : 272; }

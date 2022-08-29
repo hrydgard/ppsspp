@@ -2936,17 +2936,18 @@ void GPUCommon::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
 
 	if (type != GPU_INVALIDATE_ALL && framebufferManager_->MayIntersectFramebuffer(addr)) {
 		// Vempire invalidates (with writeback) after drawing, but before blitting.
+		// TODO: Investigate whether we can get this to work some other way.
 		if (type == GPU_INVALIDATE_SAFE) {
 			framebufferManager_->UpdateFromMemory(addr, size, type == GPU_INVALIDATE_SAFE);
 		}
 	}
 }
 
-void GPUCommon::NotifyVideoUpload(u32 addr, int size, int width, int format) {
+void GPUCommon::NotifyVideoUpload(u32 addr, int size, int frameWidth, int format) {
 	if (Memory::IsVRAMAddress(addr)) {
-		framebufferManager_->NotifyVideoUpload(addr, size, width, (GEBufferFormat)format);
+		framebufferManager_->NotifyVideoUpload(addr, size, frameWidth, (GEBufferFormat)format);
 	}
-	textureCache_->NotifyVideoUpload(addr, size, width, (GEBufferFormat)format);
+	textureCache_->NotifyVideoUpload(addr, size, frameWidth, (GEBufferFormat)format);
 	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
 }
 
