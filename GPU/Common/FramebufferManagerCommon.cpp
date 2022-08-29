@@ -746,7 +746,7 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 				gpuStats.numColorCopies++;
 				pipeline = Get2DPipeline(DRAW2D_COPY_COLOR);
 				pass_name = "copy_color";
-			} else if (PSP_CoreParameter().compat.flags().ReinterpretFramebuffers) {
+			} else {
 				if (PSP_CoreParameter().compat.flags().BlueToAlpha) {
 					WARN_LOG_ONCE(bta, G3D, "WARNING: Reinterpret encountered with BlueToAlpha on");
 				}
@@ -777,22 +777,6 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 				}
 
 				gpuStats.numReinterpretCopies++;
-			} else if (IsBufferFormat16Bit(src->fb_format) && IsBufferFormat16Bit(dst->fb_format)) {
-				// Fake reinterpret - just clear the way we always did on Vulkan. Just clear color and stencil.
-				if (src->fb_format == GE_FORMAT_565) {
-					// We have to bind here instead of clear, since it can be that no framebuffer is bound.
-					// The backend can sometimes directly optimize it to a clear.
-
-					// Games that are marked as doing reinterpret just ignore this - better to keep the data than to clear.
-					// Fixes #13717.
-					if (!PSP_CoreParameter().compat.flags().ReinterpretFramebuffers && !PSP_CoreParameter().compat.flags().BlueToAlpha) {
-						draw_->BindFramebufferAsRenderTarget(dst->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "FakeReinterpret");
-						// Need to dirty anything that has command buffer dynamic state, in case we started a new pass above.
-						// Should find a way to feed that information back, maybe... Or simply correct the issue in the rendermanager.
-						gstate_c.Dirty(DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE);
-						tookActions = true;
-					}
-				}
 			}
 			
 			if (pipeline) {
