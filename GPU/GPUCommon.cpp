@@ -3061,8 +3061,8 @@ size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
 		"Vertices: %d cached: %d uncached: %d\n"
 		"FBOs active: %d (evaluations: %d)\n"
 		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
-		"Readbacks: %d, uploads: %d\n"
-		"Copies: depth %d, color %d, reinterpret: %d\n"
+		"Readbacks: %d, uploads: %d, depal: %d\n"
+		"Copies: depth %d, color %d, reint: %d, sh_blend: %d\n"
 		"GPU cycles executed: %d (%f per vertex)\n",
 		gpuStats.msProcessingDisplayLists * 1000.0f,
 		gpuStats.numDrawCalls,
@@ -3082,9 +3082,11 @@ size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.numTextureDataBytesHashed / 1024,
 		gpuStats.numReadbacks,
 		gpuStats.numUploads,
+		gpuStats.numDepal,
 		gpuStats.numDepthCopies,
 		gpuStats.numColorCopies,
 		gpuStats.numReinterpretCopies,
+		gpuStats.numCopiesForShaderBlend,
 		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
 		vertexAverageCycles
 	);

@@ -1989,6 +1989,8 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 		draw2D_->Blit(textureShader, u1, v1, u2, v2, u1, v1, u2, v2, framebuffer->renderWidth, framebuffer->renderHeight, depalWidth, framebuffer->renderHeight, false, framebuffer->renderScaleFactor);
 
+		gpuStats.numDepal++;
+
 		gstate_c.curTextureWidth = texWidth;
 
 		draw_->BindTexture(0, nullptr);
