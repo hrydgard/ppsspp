@@ -125,6 +125,43 @@ VirtualFramebuffer *FramebufferManagerCommon::GetVFBAt(u32 addr) const {
 	return match;
 }
 
+VirtualFramebuffer *FramebufferManagerCommon::GetExactVFB(u32 addr, int stride, GEBufferFormat format) const {
+	for (auto vfb : vfbs_) {
+		if (vfb->fb_address == addr && vfb->fb_stride == stride && vfb->fb_format == format) {
+			// There'll only be one exact match, we don't allow duplicates with these conditions.
+			return vfb;
+		}
+	}
+	return nullptr;
+}
+
+VirtualFramebuffer *FramebufferManagerCommon::ResolveVFB(u32 addr, int stride, GEBufferFormat format) {
+	// Find the newest one matching addr and stride.
+	VirtualFramebuffer *newest = nullptr;
+	for (auto vfb : vfbs_) {
+		if (vfb->fb_address == addr && vfb->FbStrideInBytes() == stride * BufferFormatBytesPerPixel(format)) {
+			if (newest) {
+				if (vfb->colorBindSeq > newest->colorBindSeq) {
+					newest = vfb;
+				}
+			} else {
+				newest = vfb;
+			}
+		}
+	}
+
+	if (newest && newest->fb_format != format) {
+		WARN_LOG_ONCE(resolvevfb, G3D, "ResolveVFB: Resolving from %s to %s at %08x/%d", GeBufferFormatToString(newest->fb_format), GeBufferFormatToString(format), addr, stride);
+		return ResolveFramebufferColorToFormat(newest, format);
+	}
+
+	return newest;
+}
+
+VirtualFramebuffer *FramebufferManagerCommon::GetDisplayVFB() {
+	return GetExactVFB(displayFramebufPtr_, displayStride_, displayFormat_);
+}
+
 u32 FramebufferManagerCommon::ColorBufferByteSize(const VirtualFramebuffer *vfb) const {
 	return vfb->fb_stride * vfb->height * (vfb->fb_format == GE_FORMAT_8888 ? 4 : 2);
 }
@@ -316,7 +353,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		WARN_LOG_ONCE(color_equal_z, G3D, "Framebuffer bound with color addr == z addr, likely will not use Z in this pass: %08x", params.fb_address);
 	}
 
-	// Find a matching framebuffer
+	// Find a matching framebuffer.
 	VirtualFramebuffer *vfb = nullptr;
 	for (auto v : vfbs_) {
 		const u32 bpp = BufferFormatBytesPerPixel(v->fb_format);
@@ -616,11 +653,14 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 		}
 
 		if (src->fb_address == dst->fb_address && src->fb_stride == dst->fb_stride) {
-			// Another render target at the exact same location but gotta be a different format, otherwise
-			// it would be the same.
-			_dbg_assert_(src->fb_format != dst->fb_format);
-			// This will result in reinterpret later, if both formats are 16-bit.
-			sources.push_back(CopySource{ src, RASTER_COLOR, 0, 0 });
+			// Another render target at the exact same location but gotta be a different format or a different stride, otherwise
+			// it would be the same, and should have been detected in DoSetRenderFrameBuffer.
+			if (src->fb_format != dst->fb_format) {
+				// This will result in reinterpret later, if both formats are 16-bit.
+				sources.push_back(CopySource{ src, RASTER_COLOR, 0, 0 });
+			} else {
+				// Happens in Prince of Persia - Revelations. Ignoring.
+			}
 		} else if (src->fb_stride == dst->fb_stride && src->fb_format == dst->fb_format) {
 			u32 bytesPerPixel = BufferFormatBytesPerPixel(src->fb_format);
 
@@ -910,30 +950,27 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	NotifyRenderFramebufferUpdated(vfb);
 }
 
-void FramebufferManagerCommon::NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt) {
+void FramebufferManagerCommon::NotifyVideoUpload(u32 addr, int size, int stride, GEBufferFormat fmt) {
 	// Note: UpdateFromMemory() is still called later.
 	// This is a special case where we have extra information prior to the invalidation.
 
 	// TODO: Could possibly be an offset...
-	VirtualFramebuffer *vfb = GetVFBAt(addr);
+	// Also, stride needs better handling.
+	VirtualFramebuffer *vfb = ResolveVFB(addr, stride, fmt);
 	if (vfb) {
-		if (vfb->fb_format != fmt) {
-			DEBUG_LOG(ME, "Changing fb_format for %08x from %d to %d", addr, vfb->fb_format, fmt);
-			vfb->fb_format = fmt;
+		// Let's count this as a "render".  This will also force us to use the correct format.
+		vfb->last_frame_render = gpuStats.numFlips;
+		vfb->colorBindSeq = GetBindSeqCount();
 
-			// Let's count this as a "render".  This will also force us to use the correct format.
-			vfb->last_frame_render = gpuStats.numFlips;
-		}
-
-		if (vfb->fb_stride < width) {
-			DEBUG_LOG(ME, "Changing stride for %08x from %d to %d", addr, vfb->fb_stride, width);
+		if (vfb->fb_stride < stride) {
+			DEBUG_LOG(ME, "Changing stride for %08x from %d to %d", addr, vfb->fb_stride, stride);
 			const int bpp = BufferFormatBytesPerPixel(fmt);
-			ResizeFramebufFBO(vfb, width, size / (bpp * width));
+			ResizeFramebufFBO(vfb, stride, size / (bpp * stride));
 			// Resizing may change the viewport/etc.
 			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
-			vfb->fb_stride = width;
+			vfb->fb_stride = stride;
 			// This might be a bit wider than necessary, but we'll redetect on next render.
-			vfb->width = width;
+			vfb->width = stride;
 		}
 	}
 }
@@ -943,6 +980,7 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size, bool safe) {
 	addr &= 0x3FFFFFFF;
 	// TODO: Could go through all FBOs, but probably not important?
 	// TODO: Could also check for inner changes, but video is most important.
+	// TODO: This shouldn't care if it's a display framebuf or not, should work exactly the same.
 	bool isDisplayBuf = addr == DisplayFramebufAddr() || addr == PrevDisplayFramebufAddr();
 	if (isDisplayBuf || safe) {
 		// TODO: Deleting the FBO is a heavy hammer solution, so let's only do it if it'd help.
@@ -1153,7 +1191,7 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 	return tex;
 }
 
-void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride) {
+void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, int srcStride, GEBufferFormat srcPixelFormat) {
 	textureCache_->ForgetLastTexture();
 	shaderManager_->DirtyLastShader();
 
@@ -1227,7 +1265,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 	u32 fbaddr = reallyDirty ? displayFramebufPtr_ : prevDisplayFramebufPtr_;
 	prevDisplayFramebufPtr_ = fbaddr;
 
-	VirtualFramebuffer *vfb = GetVFBAt(fbaddr);
+	VirtualFramebuffer *vfb = ResolveVFB(fbaddr, displayStride_, displayFormat_);
 	if (!vfb) {
 		// Let's search for a framebuf within this range. Note that we also look for
 		// "framebuffers" sitting in RAM (created from block transfer or similar) so we only take off the kernel
@@ -1260,20 +1298,11 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		}
 	}
 
-	if (vfb && vfb->fb_format != displayFormat_) {
-		if (vfb->last_frame_render + FBO_OLD_AGE < gpuStats.numFlips) {
-			// The game probably switched formats on us.
-			vfb->fb_format = displayFormat_;
-		} else {
-			vfb = 0;
-		}
-	}
-
 	if (!vfb) {
 		if (Memory::IsValidAddress(fbaddr)) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
 			if (!vfb) {
-				DrawFramebufferToOutput(Memory::GetPointer(fbaddr), displayFormat_, displayStride_);
+				DrawFramebufferToOutput(Memory::GetPointer(fbaddr), displayStride_, displayFormat_);
 				return;
 			}
 		} else {
@@ -1361,7 +1390,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 
 		if (vfb != displayFramebuf_ && vfb != prevDisplayFramebuf_ && vfb != prevPrevDisplayFramebuf_) {
 			if (age > FBO_OLD_AGE) {
-				INFO_LOG(FRAMEBUF, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->fb_format, age);
+				INFO_LOG(FRAMEBUF, "Decimating FBO for %08x (%ix%i %s), age %i", vfb->fb_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format), age);
 				DestroyFramebuf(vfb);
 				vfbs_.erase(vfbs_.begin() + i--);
 			}
@@ -1383,7 +1412,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 		VirtualFramebuffer *vfb = bvfbs_[i];
 		int age = frameLastFramebufUsed_ - vfb->last_frame_render;
 		if (age > FBO_OLD_AGE) {
-			INFO_LOG(FRAMEBUF, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->fb_format, age);
+			INFO_LOG(FRAMEBUF, "Decimating FBO for %08x (%dx%d %s), age %i", vfb->fb_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format), age);
 			DestroyFramebuf(vfb);
 			bvfbs_.erase(bvfbs_.begin() + i--);
 		}
@@ -1444,7 +1473,11 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	}
 
 	bool creating = old.bufferWidth == 0;
-	WARN_LOG(FRAMEBUF, "%s %s FBO at %08x/%d from %dx%d to %dx%d (force=%d)", creating ? "Creating" : "Resizing", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->fb_stride, old.bufferWidth, old.bufferHeight, vfb->bufferWidth, vfb->bufferHeight, (int)force);
+	if (creating) {
+		WARN_LOG(FRAMEBUF, "Creating %s FBO at %08x/%d %dx%d (force=%d)", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->fb_stride, vfb->bufferWidth, vfb->bufferHeight, (int)force);
+	} else {
+		WARN_LOG(FRAMEBUF, "Resizing %s FBO at %08x/%d from %dx%d to %dx%d (force=%d)", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->fb_stride, old.bufferWidth, old.bufferHeight, vfb->bufferWidth, vfb->bufferHeight, (int)force);
+	}
 
 	// During hardware rendering, we always render at full color depth even if the game wouldn't on real hardware.
 	// It's not worth the trouble trying to support lower bit-depth rendering, just
@@ -2065,7 +2098,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 		bool isDisplayBuffer = DisplayFramebufAddr() == dstBasePtr;
 		if (isPrevDisplayBuffer || isDisplayBuffer) {
 			FlushBeforeCopy();
-			DrawFramebufferToOutput(Memory::GetPointerUnchecked(dstBasePtr), displayFormat_, dstStride);
+			DrawFramebufferToOutput(Memory::GetPointerUnchecked(dstBasePtr), dstStride, displayFormat_);
 			return;
 		}
 	}
@@ -2479,12 +2512,14 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 void FramebufferManagerCommon::FlushBeforeCopy() {
 	// Flush anything not yet drawn before blitting, downloading, or uploading.
 	// This might be a stalled list, or unflushed before a block transfer, etc.
-
-	// TODO: It's really bad that we are calling SetRenderFramebuffer here with
-	// all the irrelevant state checking it'll use to decide what to do. Should
-	// do something more focused here.
-	SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
-	drawEngine_->DispatchFlush();
+	// Only bother if any draws are pending.
+	if (drawEngine_->GetNumDrawCalls() > 0) {
+		// TODO: It's really bad that we are calling SetRenderFramebuffer here with
+		// all the irrelevant state checking it'll use to decide what to do. Should
+		// do something more focused here.
+		SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+		drawEngine_->DispatchFlush();
+	}
 }
 
 // TODO: Replace with with depal, reading the palette from the texture on the GPU directly.
@@ -2792,6 +2827,11 @@ VirtualFramebuffer *FramebufferManagerCommon::ResolveFramebufferColorToFormat(Vi
 			continue;
 		}
 
+		// Sanity check for things that shouldn't exist.
+		if (dest->fb_address == src->fb_address && dest->fb_format == src->fb_format && dest->fb_stride == src->fb_stride) {
+			_dbg_assert_msg_(false, "illegal clone of src found");
+		}
+
 		if (dest->fb_address == src->fb_address && dest->FbStrideInBytes() == src->FbStrideInBytes() && dest->fb_format == newFormat) {
 			vfb = dest;
 			break;
@@ -2814,6 +2854,7 @@ VirtualFramebuffer *FramebufferManagerCommon::ResolveFramebufferColorToFormat(Vi
 		vfb->safeWidth *= widthFactor;
 
 		vfb->fb_format = newFormat;
+		// stride stays the same since it's in pixels.
 
 		WARN_LOG(G3D, "Creating %s clone of %08x/%08x/%s (%dx%d -> %dx%d)", GeBufferFormatToString(newFormat), src->fb_address, src->z_address, GeBufferFormatToString(src->fb_format), src->width, src->height, vfb->width, vfb->height);
 
