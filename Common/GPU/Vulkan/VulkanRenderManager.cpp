@@ -836,6 +836,7 @@ bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, VkIma
 	} else {
 		_assert_(false);
 	}
+
 	// Need to call this after FlushSync so the pixels are guaranteed to be ready in CPU-accessible VRAM.
 	queueRunner_.CopyReadbackBuffer(w, h, srcFormat, destFormat, pixelStride, pixels);
 	return true;

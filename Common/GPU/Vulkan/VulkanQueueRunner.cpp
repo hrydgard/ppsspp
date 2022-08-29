@@ -1793,6 +1793,8 @@ void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataForm
 		}
 	} else if (destFormat == Draw::DataFormat::D32F) {
 		ConvertToD32F(pixels, (const uint8_t *)mappedData, pixelStride, width, width, height, srcFormat);
+	} else if (destFormat == Draw::DataFormat::D16) {
+		ConvertToD16(pixels, (const uint8_t *)mappedData, pixelStride, width, width, height, srcFormat);
 	} else {
 		// TODO: Maybe a depth conversion or something?
 		ERROR_LOG(G3D, "CopyReadbackBuffer: Unknown format");

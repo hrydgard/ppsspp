@@ -206,7 +206,7 @@ enum class TempFBO {
 	STENCIL,
 };
 
-inline Draw::DataFormat GEFormatToThin3D(int geFormat) {
+inline Draw::DataFormat GEFormatToThin3D(GEBufferFormat geFormat) {
 	switch (geFormat) {
 	case GE_FORMAT_4444:
 		return Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
@@ -216,7 +216,10 @@ inline Draw::DataFormat GEFormatToThin3D(int geFormat) {
 		return Draw::DataFormat::R5G6B5_UNORM_PACK16;
 	case GE_FORMAT_8888:
 		return Draw::DataFormat::R8G8B8A8_UNORM;
+	case GE_FORMAT_DEPTH16:
+		return Draw::DataFormat::D16;
 	default:
+		// TODO: Assert?
 		return Draw::DataFormat::UNDEFINED;
 	}
 }
@@ -320,7 +323,7 @@ public:
 	void NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp, u32 skipDrawReason);
 
 	bool BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
-	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h);
+	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel);
 
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes);
 	void DrawFramebufferToOutput(const u8 *srcPixels, int srcStride, GEBufferFormat srcPixelFormat);
@@ -420,7 +423,7 @@ public:
 	VirtualFramebuffer *ResolveFramebufferColorToFormat(VirtualFramebuffer *vfb, GEBufferFormat newFormat);
 
 protected:
-	virtual void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
+	virtual void PackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel);
 	void SetViewport2D(int x, int y, int w, int h);
 	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags);
@@ -436,7 +439,7 @@ protected:
 	virtual void DecimateFBOs();  // keeping it virtual to let D3D do a little extra
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
-	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag);
+	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, RasterChannel channel, const char *tag);
 
 	void BlitUsingRaster(
 		Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
@@ -461,7 +464,7 @@ protected:
 
 	bool FindTransferFramebuffer(u32 basePtr, int stride, int x, int y, int w, int h, int bpp, bool destination, BlockTransferRect *rect);
 
-	VirtualFramebuffer *FindDownloadTempBuffer(VirtualFramebuffer *vfb);
+	VirtualFramebuffer *FindDownloadTempBuffer(VirtualFramebuffer *vfb, RasterChannel channel);
 	virtual void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {}
 
 	VirtualFramebuffer *CreateRAMFramebuffer(uint32_t fbAddress, int width, int height, int stride, GEBufferFormat format);
