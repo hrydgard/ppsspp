@@ -12,9 +12,5 @@ void ovrFramebuffer_Release(ovrFramebuffer* frameBuffer);
 void ovrFramebuffer_SetCurrent(ovrFramebuffer* frameBuffer);
 void ovrFramebuffer_SetNone();
 
-void ovrRenderer_Create(
-		XrSession session,
-		ovrRenderer* renderer,
-		int suggestedEyeTextureWidth,
-		int suggestedEyeTextureHeight);
+void ovrRenderer_Create(XrSession session, ovrRenderer* renderer, int width, int height, bool multiview);
 void ovrRenderer_Destroy(ovrRenderer* renderer);

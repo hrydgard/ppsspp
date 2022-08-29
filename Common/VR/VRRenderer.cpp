@@ -175,7 +175,7 @@ void VR_Recenter(engine_t* engine) {
 	menuYaw = 0;
 }
 
-void VR_InitRenderer( engine_t* engine ) {
+void VR_InitRenderer( engine_t* engine, bool multiview ) {
 	if (initialized) {
 		VR_DestroyRenderer(engine);
 	}
@@ -185,18 +185,12 @@ void VR_InitRenderer( engine_t* engine ) {
 
 	// Get the viewport configuration info for the chosen viewport configuration type.
 	engine->appState.ViewportConfig.type = XR_TYPE_VIEW_CONFIGURATION_PROPERTIES;
-
-	OXR(xrGetViewConfigurationProperties(
-			engine->appState.Instance, engine->appState.SystemId, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, &engine->appState.ViewportConfig));
+	OXR(xrGetViewConfigurationProperties(engine->appState.Instance, engine->appState.SystemId, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, &engine->appState.ViewportConfig));
 
 	uint32_t numOutputSpaces = 0;
 	OXR(xrEnumerateReferenceSpaces(engine->appState.Session, 0, &numOutputSpaces, NULL));
-
-	XrReferenceSpaceType* referenceSpaces =
-			(XrReferenceSpaceType*)malloc(numOutputSpaces * sizeof(XrReferenceSpaceType));
-
-	OXR(xrEnumerateReferenceSpaces(
-			engine->appState.Session, numOutputSpaces, &numOutputSpaces, referenceSpaces));
+	XrReferenceSpaceType* referenceSpaces = (XrReferenceSpaceType*)malloc(numOutputSpaces * sizeof(XrReferenceSpaceType));
+	OXR(xrEnumerateReferenceSpaces(engine->appState.Session, numOutputSpaces, &numOutputSpaces, referenceSpaces));
 
 	for (uint32_t i = 0; i < numOutputSpaces; i++) {
 		if (referenceSpaces[i] == XR_REFERENCE_SPACE_TYPE_STAGE) {
@@ -217,7 +211,8 @@ void VR_InitRenderer( engine_t* engine ) {
 			engine->appState.Session,
 			&engine->appState.Renderer,
 			engine->appState.ViewConfigurationView[0].recommendedImageRectWidth,
-			engine->appState.ViewConfigurationView[0].recommendedImageRectHeight);
+			engine->appState.ViewConfigurationView[0].recommendedImageRectHeight,
+			multiview);
 	initialized = GL_TRUE;
 }
 
@@ -432,9 +427,9 @@ void VR_SetConfig( VRConfig config, int value) {
 void VR_BindFramebuffer(engine_t *engine) {
 	if (!initialized) return;
 	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer;
-	int swapchainIndex = frameBuffer->TextureSwapChainIndex;
-	int glFramebuffer = frameBuffer->FrameBuffers[swapchainIndex];
-	GL(glBindFramebuffer(GL_FRAMEBUFFER, glFramebuffer));
+	unsigned int swapchainIndex = frameBuffer->TextureSwapChainIndex;
+	unsigned int glFramebuffer = frameBuffer->FrameBuffers[swapchainIndex];
+	GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, glFramebuffer));
 }
 
 ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {

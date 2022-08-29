@@ -90,7 +90,7 @@ void EnterVR(bool firstStart) {
 		VR_EnterVR(VR_GetEngine());
 		IN_VRInit(VR_GetEngine());
 	}
-	VR_InitRenderer(VR_GetEngine());
+	VR_InitRenderer(VR_GetEngine(), IsMultiviewSupported());
 }
 
 void GetVRResolutionPerEye(int* width, int* height) {

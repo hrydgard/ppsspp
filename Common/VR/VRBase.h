@@ -92,14 +92,14 @@ typedef struct {
 typedef struct {
 	int Width;
 	int Height;
+	bool Multiview;
 	uint32_t TextureSwapChainLength;
 	uint32_t TextureSwapChainIndex;
 	ovrSwapChain ColorSwapChain;
-	ovrSwapChain DepthSwapChain;
 	XrSwapchainImageOpenGLESKHR* ColorSwapChainImage;
-	XrSwapchainImageOpenGLESKHR* DepthSwapChainImage;
+	unsigned int* DepthBuffers;
 	unsigned int* FrameBuffers;
-	bool Acquired[2];
+	bool Acquired;
 } ovrFramebuffer;
 
 typedef struct {
