@@ -88,6 +88,7 @@ struct GPUStatistics {
 		numReinterpretCopies = 0;
 		numColorCopies = 0;
 		numCopiesForShaderBlend = 0;
+		numCopiesForSelfTex = 0;
 		msProcessingDisplayLists = 0;
 		vertexGPUCycles = 0;
 		otherGPUCycles = 0;
@@ -118,6 +119,7 @@ struct GPUStatistics {
 	int numReinterpretCopies;
 	int numColorCopies;
 	int numCopiesForShaderBlend;
+	int numCopiesForSelfTex;
 	double msProcessingDisplayLists;
 	int vertexGPUCycles;
 	int otherGPUCycles;
