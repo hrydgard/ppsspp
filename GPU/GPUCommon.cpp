@@ -2938,7 +2938,7 @@ void GPUCommon::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
 		// Vempire invalidates (with writeback) after drawing, but before blitting.
 		// TODO: Investigate whether we can get this to work some other way.
 		if (type == GPU_INVALIDATE_SAFE) {
-			framebufferManager_->UpdateFromMemory(addr, size, type == GPU_INVALIDATE_SAFE);
+			framebufferManager_->UpdateFromMemory(addr, size);
 		}
 	}
 }
