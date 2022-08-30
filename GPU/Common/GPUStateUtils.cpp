@@ -581,8 +581,9 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		renderHeightFactor = renderHeight / 272.0f;
 	}
 
-	renderX = gstate_c.curRTOffsetX;
-	renderY = gstate_c.curRTOffsetY;
+	// negative offsets we take care of in the projection matrix.
+	renderX = std::max(gstate_c.curRTOffsetX, 0);
+	renderY = std::max(gstate_c.curRTOffsetY, 0);
 
 	// Scissor
 	int scissorX1 = gstate.getScissorX1();
@@ -609,6 +610,9 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 	float offsetY = gstate.getOffsetY();
 
 	if (out.throughMode) {
+		// If renderX/renderY are offset to compensate for a split framebuffer,
+		// applying the offset to the viewport isn't enough, since the viewport clips.
+		// We need to apply either directly to the vertices, or to the "through" projection matrix.
 		out.viewportX = renderX * renderWidthFactor + displayOffsetX;
 		out.viewportY = renderY * renderHeightFactor + displayOffsetY;
 		out.viewportW = curRTWidth * renderWidthFactor;
