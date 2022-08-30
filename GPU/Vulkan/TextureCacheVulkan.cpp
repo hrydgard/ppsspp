@@ -464,7 +464,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	// Any texture scaling is gonna move away from the original 16-bit format, if any.
 	VkFormat actualFmt = plan.scaleFactor > 1 ? VULKAN_8888_FORMAT : dstFmt;
-	if (plan.replaced->Valid()) {
+	if (plan.replaceValid) {
 		actualFmt = ToVulkanFormat(plan.replaced->Format(plan.baseLevelSrc));
 	}
 
@@ -542,7 +542,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	ReplacedTextureDecodeInfo replacedInfo;
 	bool willSaveTex = false;
-	if (replacer_.Enabled() && plan.replaced->IsInvalid() && plan.depth == 1) {
+	if (replacer_.Enabled() && !plan.replaceValid && plan.depth == 1) {
+		// TODO: Do we handle the race where a replacement becomes valid AFTER this but before we save?
 		replacedInfo.cachekey = entry->CacheKey();
 		replacedInfo.hash = entry->fullhash;
 		replacedInfo.addr = entry->addr;
@@ -596,7 +597,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		};
 
 		bool dataScaled = true;
-		if (plan.replaced->Valid()) {
+		if (plan.replaceValid) {
 			// Directly load the replaced image.
 			data = drawEngine_->GetPushBufferForTextureData()->PushAligned(uploadSize, &bufferOffset, &texBuf, pushAlignment);
 			double replaceStart = time_now_d();
@@ -668,7 +669,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		entry->status |= TexCacheEntry::STATUS_3D;
 	}
 
-	if (plan.replaced->Valid()) {
+	if (plan.replaceValid) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
 	}
 }

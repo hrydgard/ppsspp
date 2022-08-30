@@ -273,9 +273,11 @@ struct BuildTexturePlan {
 
 	// The replacement for the texture.
 	ReplacedTexture *replaced;
+	// Need to only check once since it can change during the load!
+	bool replaceValid;
 
 	void GetMipSize(int level, int *w, int *h) const {
-		if (replaced->Valid()) {
+		if (replaceValid) {
 			replaced->GetSize(level, *w, *h);
 		} else if (depth == 1) {
 			*w = createW >> level;

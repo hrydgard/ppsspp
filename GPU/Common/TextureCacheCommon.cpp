@@ -2360,11 +2360,13 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 
 	if (plan.isVideo || isPPGETexture) {
 		plan.replaced = &replacer_.FindNone();
+		plan.replaceValid = false;
 	} else {
 		plan.replaced = &FindReplacement(entry, plan.w, plan.h, plan.depth);
+		plan.replaceValid = plan.replaced->Valid();
 	}
 
-	if (plan.replaced->Valid()) {
+	if (plan.replaceValid) {
 		// We're replacing, so we won't scale.
 		plan.scaleFactor = 1;
 		plan.levelsToLoad = plan.replaced->NumLevels();

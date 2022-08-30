@@ -277,7 +277,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	DXGI_FORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-	if (plan.replaced->Valid()) {
+	if (plan.replaceValid) {
 		dstFmt = ToDXGIFormat(plan.replaced->Format(plan.baseLevelSrc));
 	} else if (plan.scaleFactor > 1) {
 		dstFmt = DXGI_FORMAT_B8G8R8A8_UNORM;
@@ -347,7 +347,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 
 		// For UpdateSubresource, we can't decode directly into the texture so we allocate a buffer :(
 		// NOTE: Could reuse it between levels or textures!
-		if (plan.replaced->Valid()) {
+		if (plan.replaceValid) {
 			bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format(srcLevel));
 		} else {
 			if (plan.scaleFactor > 1) {
@@ -390,7 +390,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		entry->status &= ~TexCacheEntry::STATUS_NO_MIPS;
 	}
 
-	if (plan.replaced->Valid()) {
+	if (plan.replaceValid) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
 	}
 }
