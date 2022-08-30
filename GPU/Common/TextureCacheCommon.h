@@ -209,8 +209,8 @@ typedef std::map<u64, std::unique_ptr<TexCacheEntry>> TexCache;
 #endif
 
 struct FramebufferMatchInfo {
-	u32 xOffset;
-	u32 yOffset;
+	int xOffset;
+	int yOffset;
 	bool reinterpret;
 	GEBufferFormat reinterpretTo;
 };

@@ -341,7 +341,7 @@ void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPU
 	}
 }
 
-VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const FramebufferHeuristicParams &params, u32 skipDrawReason) {
+VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(FramebufferHeuristicParams &params, u32 skipDrawReason) {
 	gstate_c.Clean(DIRTY_FRAMEBUF);
 
 	// Collect all parameters. This whole function has really become a cesspool of heuristics...
@@ -358,6 +358,19 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		// Most likely Z will not be used in this pass, as that would wreak havoc (undefined behavior for sure)
 		// We probably don't need to do anything about that, but let's log it.
 		WARN_LOG_ONCE(color_equal_z, G3D, "Framebuffer bound with color addr == z addr, likely will not use Z in this pass: %08x", params.fb_address);
+	}
+
+	if (PSP_CoreParameter().compat.flags().SplitFramebufferMargin && params.fb_format == GE_FORMAT_8888) {
+		// Detect whether we're rendering to the margin.
+		if (params.scissorWidth == 32 || params.scissorWidth == 512) {
+			gstate_c.SetCurRTOffset(-480, 0);
+			// Modify the fb_address and z_address too to avoid matching below.
+			params.fb_address += 480 * 4;
+			params.z_address += 480 * 2;
+			drawing_width = 32;
+		} else if (params.scissorWidth == 480) {
+			drawing_width = 480;
+		}
 	}
 
 	// Find a matching framebuffer.
@@ -385,7 +398,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 				vfb->height = drawing_height;
 			}
 			break;
-		} else if (v->fb_stride == params.fb_stride && v->fb_format == params.fb_format) {
+		} else if (v->fb_stride == params.fb_stride && v->fb_format == params.fb_format && !PSP_CoreParameter().compat.flags().SplitFramebufferMargin) {
 			u32 v_fb_first_line_end_ptr = v->fb_address + v->fb_stride * bpp;
 			u32 v_fb_end_ptr = v->fb_address + v->fb_stride * v->height * bpp;
 
