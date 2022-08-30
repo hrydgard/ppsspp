@@ -97,6 +97,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "AllowLargeFBTextureOffsets", &flags_.AllowLargeFBTextureOffsets);
 	CheckSetting(iniFile, gameID, "AtracLoopHack", &flags_.AtracLoopHack);
 	CheckSetting(iniFile, gameID, "DeswizzleDepth", &flags_.DeswizzleDepth);
+	CheckSetting(iniFile, gameID, "VRClearFramebuffer", &flags_.VRClearFramebuffer);
 }
 
 void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag) {

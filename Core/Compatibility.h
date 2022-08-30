@@ -87,6 +87,7 @@ struct CompatFlags {
 	bool AllowLargeFBTextureOffsets;
 	bool AtracLoopHack;
 	bool DeswizzleDepth;
+	bool VRClearFramebuffer;
 };
 
 class IniFile;
