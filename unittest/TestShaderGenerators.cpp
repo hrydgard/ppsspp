@@ -102,7 +102,7 @@ bool TestCompileShader(const char *buffer, ShaderLanguage lang, ShaderStage stag
 	}
 	case ShaderLanguage::HLSL_D3D9:
 	{
-		LPD3DBLOB blob = CompileShaderToByteCodeD3D9(buffer, stage == ShaderStage::Vertex ? "vs_2_0" : "ps_2_0", errorMessage);
+		LPD3DBLOB blob = CompileShaderToByteCodeD3D9(buffer, stage == ShaderStage::Vertex ? "vs_3_0" : "ps_3_0", errorMessage);
 		if (blob) {
 			blob->Release();
 			return true;
