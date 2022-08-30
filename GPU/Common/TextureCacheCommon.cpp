@@ -2319,16 +2319,10 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	plan.w = gstate.getTextureWidth(0);
 	plan.h = gstate.getTextureHeight(0);
 
-	plan.replaced = &FindReplacement(entry, plan.w, plan.h, plan.depth);
-	if (plan.replaced->Valid()) {
-		// We're replacing, so we won't scale.
-		plan.scaleFactor = 1;
-		plan.levelsToLoad = plan.replaced->NumLevels();
-		plan.badMipSizes = false;
-	}
+	bool isPPGETexture = entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd();
 
 	// Don't scale the PPGe texture.
-	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd()) {
+	if (isPPGETexture) {
 		plan.scaleFactor = 1;
 	}
 
@@ -2364,6 +2358,25 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		}
 	}
 
+	if (plan.isVideo || isPPGETexture) {
+		plan.replaced = &replacer_.FindNone();
+	} else {
+		plan.replaced = &FindReplacement(entry, plan.w, plan.h, plan.depth);
+	}
+
+	if (plan.replaced->Valid()) {
+		// We're replacing, so we won't scale.
+		plan.scaleFactor = 1;
+		plan.levelsToLoad = plan.replaced->NumLevels();
+		plan.levelsToCreate = std::min(plan.levelsToLoad, plan.levelsToCreate);
+		plan.badMipSizes = false;
+		// But, we still need to create the texture at a larger size.
+		plan.replaced->GetSize(0, plan.createW, plan.createH);
+	} else {
+		plan.createW = plan.w * plan.scaleFactor;
+		plan.createH = plan.h * plan.scaleFactor;
+	}
+
 	// Always load base level texture here 
 	plan.baseLevelSrc = 0;
 	if (IsFakeMipmapChange()) {
@@ -2376,7 +2389,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	if (plan.isVideo || plan.depth != 1) {
 		plan.maxPossibleLevels = 1;
 	} else {
-		plan.maxPossibleLevels = log2i(std::min(plan.w * plan.scaleFactor, plan.h * plan.scaleFactor)) + 1;
+		plan.maxPossibleLevels = log2i(std::min(plan.createW, plan.createH)) + 1;
 	}
 
 	if (plan.levelsToCreate == 1) {
