@@ -952,7 +952,12 @@ bool TextureCacheCommon::MatchFramebuffer(
 			}
 		}
 
-		if (matchInfo->yOffset + minSubareaHeight >= framebuffer->height) {
+		if (matchInfo->yOffset > 0 && matchInfo->yOffset + minSubareaHeight >= framebuffer->height) {
+			// Can't be inside the framebuffer.
+			return false;
+		}
+
+		if (matchInfo->yOffset < 0 && matchInfo->yOffset - minSubareaHeight <= 0) {
 			// Can't be inside the framebuffer.
 			return false;
 		}

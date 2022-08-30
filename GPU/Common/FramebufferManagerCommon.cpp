@@ -352,7 +352,6 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 	int drawing_width, drawing_height;
 	EstimateDrawingSize(params.fb_address, std::max(params.fb_stride, (u16)4), params.fb_format, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, drawing_width, drawing_height);
 
-	gstate_c.SetCurRTOffset(0, 0);
 
 	if (params.fb_address == params.z_address) {
 		// Most likely Z will not be used in this pass, as that would wreak havoc (undefined behavior for sure)
@@ -362,15 +361,46 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 
 	if (PSP_CoreParameter().compat.flags().SplitFramebufferMargin && params.fb_format == GE_FORMAT_8888) {
 		// Detect whether we're rendering to the margin.
-		if (params.scissorWidth == 32 || params.scissorWidth == 512) {
+		bool margin;
+		if (params.scissorWidth == 32) {
+			// title screen
+			margin = true;
+		} else if (params.scissorWidth == 480) {
+			margin = false;
+		} else {
+			// Go deep, look at the vertices.
+			margin = false;
+			if ((gstate.vertType & 0xFFFFFF) == 0x00800102) {  // through, u16, s16
+				u16 *vdata = (u16 *)Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+				int v0PosU = vdata[0];
+				int v0PosV = vdata[1];
+				int v0PosX = vdata[2];
+				int v0PosY = vdata[3];
+				int v1PosU = vdata[5];
+				int v1PosV = vdata[6];
+				int v1PosX = vdata[7];
+				int v1PosY = vdata[8];
+				//INFO_LOG(G3D, "v0: %d, %d (uv = %d, %d)", v0PosX, v0PosY, v0PosU, v0PosV);
+				//INFO_LOG(G3D, "v1: %d, %d (uv = %d, %d)", v1PosX, v1PosY, v1PosU, v1PosV);
+				// Texturing from surface to margin
+				if (v0PosX >= 480 && v0PosU < 480) {
+					margin = true;
+				}
+			}
+		}
+
+		if (margin) {
 			gstate_c.SetCurRTOffset(-480, 0);
 			// Modify the fb_address and z_address too to avoid matching below.
 			params.fb_address += 480 * 4;
 			params.z_address += 480 * 2;
 			drawing_width = 32;
-		} else if (params.scissorWidth == 480) {
+		} else {
+			gstate_c.SetCurRTOffset(0, 0);
 			drawing_width = 480;
 		}
+	} else {
+		gstate_c.SetCurRTOffset(0, 0);
 	}
 
 	// Find a matching framebuffer.
