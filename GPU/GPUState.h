@@ -592,8 +592,8 @@ struct GPUStateCache {
 	u32 curTextureHeight;
 	u32 actualTextureHeight;
 	// Only applied when needShaderTexClamp = true.
-	u32 curTextureXOffset;
-	u32 curTextureYOffset;
+	int curTextureXOffset;
+	int curTextureYOffset;
 	bool curTextureIs3D;
 
 	float vpWidth;
