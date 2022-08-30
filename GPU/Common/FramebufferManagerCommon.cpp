@@ -679,7 +679,8 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 				// This will result in reinterpret later, if both formats are 16-bit.
 				sources.push_back(CopySource{ src, RASTER_COLOR, 0, 0 });
 			} else {
-				// Likely irrelevant or old, if the game is changing color depth for example.
+				// This shouldn't happen anymore. I think when it happened last, we still had
+				// lax stride checking when video was incoming, and a resize happened causing a duplicate.
 			}
 		} else if (src->fb_stride == dst->fb_stride && src->fb_format == dst->fb_format) {
 			u32 bytesPerPixel = BufferFormatBytesPerPixel(src->fb_format);

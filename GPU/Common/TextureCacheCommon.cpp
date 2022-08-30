@@ -664,6 +664,8 @@ int TextureCacheCommon::GetBestCandidateIndex(const std::vector<AttachCandidate>
 	int bestRelevancy = -1;
 	int bestIndex = -1;
 
+	bool kzCompat = PSP_CoreParameter().compat.flags().SplitFramebufferMargin;
+
 	// We simply use the sequence counter as relevancy nowadays.
 	for (int i = 0; i < (int)candidates.size(); i++) {
 		const AttachCandidate &candidate = candidates[i];
@@ -677,7 +679,10 @@ int TextureCacheCommon::GetBestCandidateIndex(const std::vector<AttachCandidate>
 			relevancy -= 2;
 		}
 
-		if (candidate.fb == framebufferManager_->GetCurrentRenderVFB()) {
+		// Avoid binding as texture the framebuffer we're rendering to.
+		// In Killzone, we split the framebuffer but the matching algorithm can still pick the wrong one,
+		// which this avoids completely.
+		if (kzCompat && candidate.fb == framebufferManager_->GetCurrentRenderVFB()) {
 			continue;
 		}
 
