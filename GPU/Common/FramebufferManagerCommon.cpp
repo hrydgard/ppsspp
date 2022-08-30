@@ -352,38 +352,30 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 	int drawing_width, drawing_height;
 	EstimateDrawingSize(params.fb_address, std::max(params.fb_stride, (u16)4), params.fb_format, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, drawing_width, drawing_height);
 
-
 	if (params.fb_address == params.z_address) {
 		// Most likely Z will not be used in this pass, as that would wreak havoc (undefined behavior for sure)
 		// We probably don't need to do anything about that, but let's log it.
 		WARN_LOG_ONCE(color_equal_z, G3D, "Framebuffer bound with color addr == z addr, likely will not use Z in this pass: %08x", params.fb_address);
 	}
 
+	// Compatibility hack for Killzone, see issue #6207.
 	if (PSP_CoreParameter().compat.flags().SplitFramebufferMargin && params.fb_format == GE_FORMAT_8888) {
 		// Detect whether we're rendering to the margin.
 		bool margin;
 		if (params.scissorWidth == 32) {
-			// title screen
+			// Title screen has this easy case.
 			margin = true;
 		} else if (params.scissorWidth == 480) {
 			margin = false;
 		} else {
-			// Go deep, look at the vertices.
+			// Go deep, look at the vertices. Killzone-specific, of course.
 			margin = false;
 			if ((gstate.vertType & 0xFFFFFF) == 0x00800102) {  // through, u16, s16
 				u16 *vdata = (u16 *)Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 				int v0PosU = vdata[0];
-				int v0PosV = vdata[1];
 				int v0PosX = vdata[2];
-				int v0PosY = vdata[3];
-				int v1PosU = vdata[5];
-				int v1PosV = vdata[6];
-				int v1PosX = vdata[7];
-				int v1PosY = vdata[8];
-				//INFO_LOG(G3D, "v0: %d, %d (uv = %d, %d)", v0PosX, v0PosY, v0PosU, v0PosV);
-				//INFO_LOG(G3D, "v1: %d, %d (uv = %d, %d)", v1PosX, v1PosY, v1PosU, v1PosV);
-				// Texturing from surface to margin
 				if (v0PosX >= 480 && v0PosU < 480) {
+					// Texturing from surface, writing to margin
 					margin = true;
 				}
 			}
