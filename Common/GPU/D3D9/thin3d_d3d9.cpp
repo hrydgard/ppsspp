@@ -1069,11 +1069,7 @@ bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, si
 	auto compile = [&](const char *profile) -> HRESULT {
 		return dyn_D3DCompile(source, (UINT)strlen(source), nullptr, defines, includes, "main", profile, 0, 0, &codeBuffer, &errorBuffer);
 	};
-	HRESULT hr = compile(stage_ == ShaderStage::Fragment ? "ps_2_0" : "vs_2_0");
-	if (FAILED(hr) && hr == D3DXERR_INVALIDDATA) {
-		// Might be a post shader.  Let's try using shader model 3.
-		hr = compile(stage_ == ShaderStage::Fragment ? "ps_3_0" : "vs_3_0");
-	}
+	HRESULT hr = compile(stage_ == ShaderStage::Fragment ? "ps_3_0" : "vs_3_0");
 	if (FAILED(hr)) {
 		const char *error = errorBuffer ? (const char *)errorBuffer->GetBufferPointer() : "(no errorbuffer returned)";
 		if (hr == ERROR_MOD_NOT_FOUND) {
