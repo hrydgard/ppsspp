@@ -667,6 +667,14 @@ int TextureCacheCommon::GetBestCandidateIndex(const std::vector<AttachCandidate>
 		const AttachCandidate &candidate = candidates[i];
 		int relevancy = candidate.seqCount;
 
+		// Add a small negative penalty if the texture is currently bound as a framebuffer, and offset is not zero.
+		// Should avoid problems when pingponging two nearby buffers, like in Wipeout Pure in #15927
+		if (candidate.channel == RASTER_COLOR &&
+			(candidate.match.yOffset != 0 || candidate.match.xOffset != 0) &&
+			(candidate.fb->fb_address & 0x1FFFFF) == (gstate.getFrameBufAddress() & 0x1FFFFF)) {
+			relevancy -= 2;
+		}
+
 		if (relevancy > bestRelevancy) {
 			bestRelevancy = relevancy;
 			bestIndex = i;
