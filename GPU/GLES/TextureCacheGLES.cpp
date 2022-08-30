@@ -309,7 +309,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 			int stride = 0;
 			int bpp;
 
-			if (plan.replaced->Valid()) {
+			if (plan.replaceValid) {
 				bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format(srcLevel));
 			} else {
 				if (plan.scaleFactor > 1) {
@@ -358,7 +358,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		render_->FinalizeTexture(entry->textureName, 1, false);
 	}
 
-	if (plan.replaced->Valid()) {
+	if (plan.replaceValid) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
 	}
 }
