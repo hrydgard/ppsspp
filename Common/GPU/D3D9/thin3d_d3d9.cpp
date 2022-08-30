@@ -775,6 +775,7 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	caps_.framebufferSeparateDepthCopySupported = false;
 	caps_.texture3DSupported = true;
 	caps_.fragmentShaderDepthWriteSupported = true;
+	caps_.requiresHalfPixelOffset = true;
 	caps_.fragmentShaderStencilWriteSupported = false;
 	caps_.blendMinMaxSupported = true;
 	caps_.isTilingGPU = false;
