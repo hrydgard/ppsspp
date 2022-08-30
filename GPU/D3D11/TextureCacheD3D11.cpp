@@ -276,26 +276,27 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		return;
 	}
 
-	int tw = plan.w;
-	int th = plan.h;
-
 	DXGI_FORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-	if (plan.replaced->GetSize(plan.baseLevelSrc, tw, th)) {
+	if (plan.replaced->Valid()) {
 		dstFmt = ToDXGIFormat(plan.replaced->Format(plan.baseLevelSrc));
 	} else if (plan.scaleFactor > 1) {
-		tw *= plan.scaleFactor;
-		th *= plan.scaleFactor;
 		dstFmt = DXGI_FORMAT_B8G8R8A8_UNORM;
 	}
 
-	// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
-	int levels;;
+	int levels;
 
 	ID3D11ShaderResourceView *view;
 	ID3D11Resource *texture = DxTex(entry);
 	_assert_(texture == nullptr);
 
+	int tw;
+	int th;
+	plan.GetMipSize(0, &tw, &th);
+
 	if (plan.depth == 1) {
+		// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
+		levels = std::min(plan.levelsToCreate, plan.levelsToLoad);
+
 		ID3D11Texture2D *tex;
 		D3D11_TEXTURE2D_DESC desc{};
 		desc.CPUAccessFlags = 0;
@@ -305,13 +306,11 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		desc.Width = tw;
 		desc.Height = th;
 		desc.Format = dstFmt;
-		desc.MipLevels = plan.levelsToCreate;
+		desc.MipLevels = levels;
 		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
 		ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &tex));
 		texture = tex;
-
-		levels = std::min(plan.levelsToCreate, plan.levelsToLoad);
 	} else {
 		ID3D11Texture3D *tex;
 		D3D11_TEXTURE3D_DESC desc{};
@@ -338,45 +337,43 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	for (int i = 0; i < levels; i++) {
 		int srcLevel = (i == 0) ? plan.baseLevelSrc : i;
 
-		int w = gstate.getTextureWidth(srcLevel);
-		int h = gstate.getTextureHeight(srcLevel);
+		int mipWidth;
+		int mipHeight;
+		plan.GetMipSize(i, &mipWidth, &mipHeight);
 
 		u8 *data = nullptr;
 		int stride = 0;
+		int bpp = 0;
 
 		// For UpdateSubresource, we can't decode directly into the texture so we allocate a buffer :(
 		// NOTE: Could reuse it between levels or textures!
-		if (plan.replaced->GetSize(srcLevel, w, h)) {
-			int bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format(srcLevel));
-			stride = w * bpp;
-			data = (u8 *)AllocateAlignedMemory(stride * h, 16);
+		if (plan.replaced->Valid()) {
+			bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format(srcLevel));
 		} else {
 			if (plan.scaleFactor > 1) {
-				data = (u8 *)AllocateAlignedMemory(4 * (w * plan.scaleFactor) * (h * plan.scaleFactor), 16);
-				stride = w * plan.scaleFactor * 4;
+				bpp = 4;
 			} else {
-				int bpp = dstFmt == DXGI_FORMAT_B8G8R8A8_UNORM ? 4 : 2;
-
-				stride = std::max(w * bpp, 16);
-				data = (u8 *)AllocateAlignedMemory(stride * h, 16);
+				bpp = dstFmt == DXGI_FORMAT_B8G8R8A8_UNORM ? 4 : 2;
 			}
 		}
 
+		stride = std::max(mipWidth * bpp, 16);
+		data = (u8 *)AllocateAlignedMemory(stride * mipHeight, 16);
+
 		if (!data) {
-			ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", w, h);
+			ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", mipWidth, mipHeight);
 			return;
 		}
 
 		LoadTextureLevel(*entry, data, stride, *plan.replaced, srcLevel, plan.scaleFactor, texFmt, false);
-
 		if (plan.depth == 1) {
 			context_->UpdateSubresource(texture, i, nullptr, data, stride, 0);
 		} else {
 			D3D11_BOX box{};
 			box.front = i;
 			box.back = i + 1;
-			box.right = w * plan.scaleFactor;
-			box.bottom = h * plan.scaleFactor;
+			box.right = mipWidth;
+			box.bottom = mipHeight;
 			context_->UpdateSubresource(texture, 0, &box, data, stride, 0);
 		}
 		FreeAlignedMemory(data);

@@ -264,11 +264,28 @@ struct BuildTexturePlan {
 	int w;
 	int h;
 
+	// Scaled (or replaced) size of the 0-mip of the final texture.
+	int createW;
+	int createH;
+
 	// Used for 3D textures only. If not a 3D texture, will be 1.
 	int depth;
 
 	// The replacement for the texture.
 	ReplacedTexture *replaced;
+
+	void GetMipSize(int level, int *w, int *h) const {
+		if (replaced->Valid()) {
+			replaced->GetSize(level, *w, *h);
+		} else if (depth == 1) {
+			*w = createW >> level;
+			*h = createH >> level;
+		} else {
+			// 3D texture, we look for layers instead of levels.
+			*w = createW;
+			*h = createH;
+		}
+	}
 };
 
 class TextureCacheCommon {
