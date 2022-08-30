@@ -126,13 +126,19 @@ VirtualFramebuffer *FramebufferManagerCommon::GetVFBAt(u32 addr) const {
 }
 
 VirtualFramebuffer *FramebufferManagerCommon::GetExactVFB(u32 addr, int stride, GEBufferFormat format) const {
+	VirtualFramebuffer *newest = nullptr;
 	for (auto vfb : vfbs_) {
 		if (vfb->fb_address == addr && vfb->fb_stride == stride && vfb->fb_format == format) {
-			// There'll only be one exact match, we don't allow duplicates with these conditions.
-			return vfb;
+			if (newest) {
+				if (vfb->colorBindSeq > newest->colorBindSeq) {
+					newest = vfb;
+				}
+			} else {
+				newest = vfb;
+			}
 		}
 	}
-	return nullptr;
+	return newest;
 }
 
 VirtualFramebuffer *FramebufferManagerCommon::ResolveVFB(u32 addr, int stride, GEBufferFormat format) {
@@ -660,7 +666,7 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 				// This will result in reinterpret later, if both formats are 16-bit.
 				sources.push_back(CopySource{ src, RASTER_COLOR, 0, 0 });
 			} else {
-				// Happens in Prince of Persia - Revelations. Ignoring.
+				// Likely irrelevant or old, if the game is changing color depth for example.
 			}
 		} else if (src->fb_stride == dst->fb_stride && src->fb_format == dst->fb_format) {
 			u32 bytesPerPixel = BufferFormatBytesPerPixel(src->fb_format);
@@ -960,41 +966,41 @@ void FramebufferManagerCommon::NotifyVideoUpload(u32 addr, int size, int stride,
 	}
 }
 
-void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size, bool safe) {
+void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size) {
 	// Take off the uncached flag from the address. Not to be confused with the start of VRAM.
 	addr &= 0x3FFFFFFF;
 	// TODO: Could go through all FBOs, but probably not important?
 	// TODO: Could also check for inner changes, but video is most important.
 	// TODO: This shouldn't care if it's a display framebuf or not, should work exactly the same.
 	bool isDisplayBuf = addr == DisplayFramebufAddr() || addr == PrevDisplayFramebufAddr();
-	if (isDisplayBuf || safe) {
-		// TODO: Deleting the FBO is a heavy hammer solution, so let's only do it if it'd help.
-		if (!Memory::IsValidAddress(displayFramebufPtr_))
-			return;
+	// TODO: Deleting the FBO is a heavy hammer solution, so let's only do it if it'd help.
+	if (!Memory::IsValidAddress(displayFramebufPtr_))
+		return;
 
-		for (size_t i = 0; i < vfbs_.size(); ++i) {
-			VirtualFramebuffer *vfb = vfbs_[i];
-			if (vfb->fb_address == addr) {
-				FlushBeforeCopy();
+	for (size_t i = 0; i < vfbs_.size(); ++i) {
+		VirtualFramebuffer *vfb = vfbs_[i];
+		if (vfb->fb_address == addr) {
+			FlushBeforeCopy();
 
-				if (useBufferedRendering_ && vfb->fbo) {
-					GEBufferFormat fmt = vfb->fb_format;
-					if (vfb->last_frame_render + 1 < gpuStats.numFlips && isDisplayBuf) {
-						// If we're not rendering to it, format may be wrong.  Use displayFormat_ instead.
-						fmt = displayFormat_;
-					}
-					DrawPixels(vfb, 0, 0, Memory::GetPointer(addr), fmt, vfb->fb_stride, vfb->width, vfb->height);
-					SetColorUpdated(vfb, gstate_c.skipDrawReason);
-				} else {
-					INFO_LOG(FRAMEBUF, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->fb_format);
-					DestroyFramebuf(vfb);
-					vfbs_.erase(vfbs_.begin() + i--);
+			if (useBufferedRendering_ && vfb->fbo) {
+				GEBufferFormat fmt = vfb->fb_format;
+				if (vfb->last_frame_render + 1 < gpuStats.numFlips && isDisplayBuf) {
+					// If we're not rendering to it, format may be wrong.  Use displayFormat_ instead.
+					// TODO: This doesn't seem quite right anymore.
+					fmt = displayFormat_;
 				}
+				DrawPixels(vfb, 0, 0, Memory::GetPointer(addr), fmt, vfb->fb_stride, vfb->width, vfb->height);
+				SetColorUpdated(vfb, gstate_c.skipDrawReason);
+			} else {
+				INFO_LOG(FRAMEBUF, "Invalidating FBO for %08x (%dx%d %s)", vfb->fb_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format));
+				DestroyFramebuf(vfb);
+				vfbs_.erase(vfbs_.begin() + i--);
 			}
 		}
-
-		RebindFramebuffer("RebindFramebuffer - UpdateFromMemory");
 	}
+
+	RebindFramebuffer("RebindFramebuffer - UpdateFromMemory");
+
 	// TODO: Necessary?
 	gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 }
@@ -1838,7 +1844,7 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 		char name[64];
 		snprintf(name, sizeof(name), "download_temp");
 		// TODO: We don't have a way to create a depth-only framebuffer yet.
-		// Also on many
+		// Also, at least on Vulkan we always create both depth and color, need to rework how we handle renderpasses.
 		nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, channel == RASTER_DEPTH ? true : false, name });
 		if (!nvfb->fbo) {
 			ERROR_LOG(FRAMEBUF, "Error creating FBO! %d x %d", nvfb->renderWidth, nvfb->renderHeight);
@@ -2417,7 +2423,9 @@ void FramebufferManagerCommon::PackFramebufferSync(VirtualFramebuffer *vfb, int 
 	int stride = channel == RASTER_COLOR ? vfb->fb_stride : vfb->z_stride;
 
 	const int dstByteOffset = (y * stride + x) * dstBpp;
-	const int dstSize = (h * stride + w - 1) * dstBpp;  // TODO: What's that "w - 1" doing here?
+	// Leave the gap between the end of the last line and the full stride.
+	// This is only used for the NotifyMemInfo range.
+	const int dstSize = (h * stride + w - 1) * dstBpp;
 
 	if (!Memory::IsValidRange(fb_address + dstByteOffset, dstSize)) {
 		ERROR_LOG_REPORT(G3D, "PackFramebufferSync would write outside of memory, ignoring");

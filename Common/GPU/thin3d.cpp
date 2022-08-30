@@ -623,6 +623,8 @@ void ConvertToD32F(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_
 	}
 }
 
+// TODO: This is missing the conversion to the quarter-range we use if depth clamp is not available.
+// That conversion doesn't necessarily belong here in thin3d, though.
 void ConvertToD16(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format) {
 	if (format == Draw::DataFormat::D32F) {
 		const float *src32 = (const float *)src;
