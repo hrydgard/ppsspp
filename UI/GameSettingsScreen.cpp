@@ -507,7 +507,7 @@ void GameSettingsScreen::CreateViews() {
 	});
 	texSecondary_->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	CheckBox *framebufferSlowEffects = graphicsSettings->Add(new CheckBox(&g_Config.bDisableSlowFramebufEffects, gr->T("Disable slower effects (speedup)")));
+	CheckBox *framebufferSlowEffects = graphicsSettings->Add(new CheckBox(&g_Config.bDisableShaderBlending, gr->T("Disable slower effects (speedup)")));
 	framebufferSlowEffects->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	// Seems solid, so we hide the setting.
