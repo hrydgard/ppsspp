@@ -581,7 +581,9 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		renderHeightFactor = renderHeight / 272.0f;
 	}
 
-	// negative offsets we take care of in the projection matrix.
+	// We take care negative offsets of in the projection matrix.
+	// These come from split framebuffers (Killzone).
+	// TODO: Might be safe to do get rid of this here and do the same for positive offsets?
 	renderX = std::max(gstate_c.curRTOffsetX, 0);
 	renderY = std::max(gstate_c.curRTOffsetY, 0);
 

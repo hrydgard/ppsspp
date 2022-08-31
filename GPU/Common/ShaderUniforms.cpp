@@ -152,10 +152,11 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		if (!useBufferedRendering && g_display_rotation != DisplayRotation::ROTATE_0) {
 			proj_through = proj_through * g_display_rot_matrix;
 		}
+
+		// Negative RT offsets come from split framebuffers (Killzone)
 		if (gstate_c.curRTOffsetX < 0 || gstate_c.curRTOffsetY < 0) {
-			Matrix4x4 xlate;
-			xlate.setTranslation(Lin::Vec3(2.0f * gstate_c.curRTOffsetX / (int)gstate_c.curRTWidth, 2.0f * gstate_c.curRTOffsetY / (int)gstate_c.curRTHeight, 0.0f));
-			proj_through = proj_through * xlate;
+			proj_through.wx += 2.0f * (float)gstate_c.curRTOffsetX / (float)gstate_c.curRTWidth;
+			proj_through.wy += 2.0f * (float)gstate_c.curRTOffsetY / (float)gstate_c.curRTHeight;
 		}
 
 		CopyMatrix4x4(ub->proj_through, proj_through.getReadPtr());
