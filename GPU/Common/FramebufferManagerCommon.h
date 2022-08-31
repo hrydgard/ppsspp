@@ -165,10 +165,12 @@ struct FramebufferHeuristicParams {
 	bool isBlending;
 	int viewportWidth;
 	int viewportHeight;
-	int regionWidth;
-	int regionHeight;
-	int scissorWidth;
-	int scissorHeight;
+	int16_t regionWidth;
+	int16_t regionHeight;
+	int16_t scissorLeft;
+	int16_t scissorTop;
+	int16_t scissorRight;
+	int16_t scissorBottom;
 };
 
 struct GPUgstate;

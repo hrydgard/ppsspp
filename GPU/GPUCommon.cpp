@@ -1686,9 +1686,14 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 		}
 	}
 
-	if ((gstate.vertType & 0xFFFFFF) == 0x00800102 && PSP_CoreParameter().compat.flags().SplitFramebufferMargin) {
-		// Need to re-check the framebuffer every draw.
-		gstate_c.Dirty(DIRTY_FRAMEBUF);
+	if (PSP_CoreParameter().compat.flags().SplitFramebufferMargin) {
+		switch (gstate.vertType & 0xFFFFFF) {
+		case 0x00800102:  // through, u16 uv, u16 pos (used for the framebuffer effect in-game)
+		case 0x0080011c:  // through, 8888 color, s16 pos (used for clearing in the margin of the title screen)
+		case 0x00000183:  // float uv, float pos (used for drawing in the margin of the title screen)
+			// Need to re-check the framebuffer every one of these draws, to update the split if needed.
+			gstate_c.Dirty(DIRTY_FRAMEBUF);
+		}
 	}
 
 	// This also makes skipping drawing very effective.

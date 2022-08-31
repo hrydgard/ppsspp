@@ -333,8 +333,11 @@ void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPU
 	params->viewportHeight = (int)(fabsf(vpy) * 2.0f);
 	params->regionWidth = gstate.getRegionX2() + 1;
 	params->regionHeight = gstate.getRegionY2() + 1;
-	params->scissorWidth = gstate.getScissorX2() + 1;
-	params->scissorHeight = gstate.getScissorY2() + 1;
+
+	params->scissorLeft = gstate.getScissorX1();
+	params->scissorTop = gstate.getScissorY1();
+	params->scissorRight = gstate.getScissorX2() + 1;
+	params->scissorBottom = gstate.getScissorY2() + 1;
 
 	if (gstate.getRegionRateX() != 0x100 || gstate.getRegionRateY() != 0x100) {
 		WARN_LOG_REPORT_ONCE(regionRate, G3D, "Drawing region rate add non-zero: %04x, %04x of %04x, %04x", gstate.getRegionRateX(), gstate.getRegionRateY(), gstate.getRegionX2(), gstate.getRegionY2());
@@ -352,7 +355,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 	// As there are no clear "framebuffer width" and "framebuffer height" registers,
 	// we need to infer the size of the current framebuffer somehow.
 	int drawing_width, drawing_height;
-	EstimateDrawingSize(params.fb_address, std::max(params.fb_stride, (u16)4), params.fb_format, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, drawing_width, drawing_height);
+	EstimateDrawingSize(params.fb_address, std::max(params.fb_stride, (u16)4), params.fb_format, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorRight, params.scissorBottom, drawing_width, drawing_height);
 
 	if (params.fb_address == params.z_address) {
 		// Most likely Z will not be used in this pass, as that would wreak havoc (undefined behavior for sure)
@@ -2876,10 +2879,10 @@ VirtualFramebuffer *FramebufferManagerCommon::ResolveFramebufferColorToFormat(Vi
 static void ApplyKillzoneFramebufferSplit(FramebufferHeuristicParams *params, int *drawing_width) {
 	// Detect whether we're rendering to the margin.
 	bool margin;
-	if (params->scissorWidth == 32) {
-		// Title screen has this easy case.
+	if ((params->scissorRight - params->scissorLeft) == 32) {
+		// Title screen has this easy case. It also uses non-through verts, so lucky for us that we have this.
 		margin = true;
-	} else if (params->scissorWidth == 480) {
+	} else if (params->scissorRight == 480) {
 		margin = false;
 	} else {
 		// Go deep, look at the vertices. Killzone-specific, of course.
