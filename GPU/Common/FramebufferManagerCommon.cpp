@@ -341,6 +341,8 @@ void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPU
 	}
 }
 
+static void ApplyKillzoneFramebufferSplit(FramebufferHeuristicParams *params, int *drawing_width);
+
 VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(FramebufferHeuristicParams &params, u32 skipDrawReason) {
 	gstate_c.Clean(DIRTY_FRAMEBUF);
 
@@ -360,37 +362,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 
 	// Compatibility hack for Killzone, see issue #6207.
 	if (PSP_CoreParameter().compat.flags().SplitFramebufferMargin && params.fb_format == GE_FORMAT_8888) {
-		// Detect whether we're rendering to the margin.
-		bool margin;
-		if (params.scissorWidth == 32) {
-			// Title screen has this easy case.
-			margin = true;
-		} else if (params.scissorWidth == 480) {
-			margin = false;
-		} else {
-			// Go deep, look at the vertices. Killzone-specific, of course.
-			margin = false;
-			if ((gstate.vertType & 0xFFFFFF) == 0x00800102) {  // through, u16, s16
-				u16 *vdata = (u16 *)Memory::GetPointerUnchecked(gstate_c.vertexAddr);
-				int v0PosU = vdata[0];
-				int v0PosX = vdata[2];
-				if (v0PosX >= 480 && v0PosU < 480) {
-					// Texturing from surface, writing to margin
-					margin = true;
-				}
-			}
-		}
-
-		if (margin) {
-			gstate_c.SetCurRTOffset(-480, 0);
-			// Modify the fb_address and z_address too to avoid matching below.
-			params.fb_address += 480 * 4;
-			params.z_address += 480 * 2;
-			drawing_width = 32;
-		} else {
-			gstate_c.SetCurRTOffset(0, 0);
-			drawing_width = 480;
-		}
+		ApplyKillzoneFramebufferSplit(&params, &drawing_width);
 	} else {
 		gstate_c.SetCurRTOffset(0, 0);
 	}
@@ -2899,4 +2871,38 @@ VirtualFramebuffer *FramebufferManagerCommon::ResolveFramebufferColorToFormat(Vi
 	// Now we consider the resolved one the latest at the address (though really, we could make them equivalent?).
 	vfb->colorBindSeq = GetBindSeqCount();
 	return vfb;
+}
+
+static void ApplyKillzoneFramebufferSplit(FramebufferHeuristicParams *params, int *drawing_width) {
+	// Detect whether we're rendering to the margin.
+	bool margin;
+	if (params->scissorWidth == 32) {
+		// Title screen has this easy case.
+		margin = true;
+	} else if (params->scissorWidth == 480) {
+		margin = false;
+	} else {
+		// Go deep, look at the vertices. Killzone-specific, of course.
+		margin = false;
+		if ((gstate.vertType & 0xFFFFFF) == 0x00800102) {  // through, u16, s16
+			u16 *vdata = (u16 *)Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+			int v0PosU = vdata[0];
+			int v0PosX = vdata[2];
+			if (v0PosX >= 480 && v0PosU < 480) {
+				// Texturing from surface, writing to margin
+				margin = true;
+			}
+		}
+	}
+
+	if (margin) {
+		gstate_c.SetCurRTOffset(-480, 0);
+		// Modify the fb_address and z_address too to avoid matching below.
+		params->fb_address += 480 * 4;
+		params->z_address += 480 * 2;
+		*drawing_width = 32;
+	} else {
+		gstate_c.SetCurRTOffset(0, 0);
+		*drawing_width = 480;
+	}
 }
