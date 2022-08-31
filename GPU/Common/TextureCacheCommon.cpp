@@ -636,16 +636,18 @@ std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const 
 	}
 
 	if (candidates.size() > 1) {
-		std::string cands;
-		for (auto &candidate : candidates) {
-			cands += candidate.ToString() + "\n";
-		}
+		if (Reporting::ShouldLogNTimes("multifbcandidate", 5)) {
+			std::string cands;
+				for (auto &candidate : candidates) {
+					cands += candidate.ToString() + "\n";
+				}
 
-		WARN_LOG_REPORT_ONCE(multifbcandidate, G3D, "GetFramebufferCandidates: Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
-			(int)candidates.size(),
-			entry.addr, texAddrOffset, dimWidth(entry.dim), dimHeight(entry.dim), entry.bufw, GeTextureFormatToString(entry.format),
-			cands.c_str()
-		);
+			WARN_LOG_N_TIMES(multifbcandidate, 5, G3D, "GetFramebufferCandidates: Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
+				(int)candidates.size(),
+				entry.addr, texAddrOffset, dimWidth(entry.dim), dimHeight(entry.dim), entry.bufw, GeTextureFormatToString(entry.format),
+				cands.c_str()
+			);
+		}
 	}
 
 	return candidates;
@@ -662,6 +664,8 @@ int TextureCacheCommon::GetBestCandidateIndex(const std::vector<AttachCandidate>
 	int bestRelevancy = -1;
 	int bestIndex = -1;
 
+	bool kzCompat = PSP_CoreParameter().compat.flags().SplitFramebufferMargin;
+
 	// We simply use the sequence counter as relevancy nowadays.
 	for (int i = 0; i < (int)candidates.size(); i++) {
 		const AttachCandidate &candidate = candidates[i];
@@ -673,6 +677,13 @@ int TextureCacheCommon::GetBestCandidateIndex(const std::vector<AttachCandidate>
 			(candidate.match.yOffset != 0 || candidate.match.xOffset != 0) &&
 			(candidate.fb->fb_address & 0x1FFFFF) == (gstate.getFrameBufAddress() & 0x1FFFFF)) {
 			relevancy -= 2;
+		}
+
+		// Avoid binding as texture the framebuffer we're rendering to.
+		// In Killzone, we split the framebuffer but the matching algorithm can still pick the wrong one,
+		// which this avoids completely.
+		if (kzCompat && candidate.fb == framebufferManager_->GetCurrentRenderVFB()) {
+			continue;
 		}
 
 		if (relevancy > bestRelevancy) {
@@ -928,15 +939,25 @@ bool TextureCacheCommon::MatchFramebuffer(
 			(fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT32) ||
 			(fb_format != GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT16);
 
-		const u32 bitOffset = (texaddr - addr) * 8;
+		const int bitOffset = (texaddr - addr) * 8;
 		if (bitOffset != 0) {
-			const u32 pixelOffset = bitOffset / std::max(1U, (u32)textureBitsPerPixel[entry.format]);
+			const int pixelOffset = bitOffset / (int)std::max(1U, (u32)textureBitsPerPixel[entry.format]);
 
-			matchInfo->yOffset = entry.bufw == 0 ? 0 : pixelOffset / entry.bufw;
-			matchInfo->xOffset = entry.bufw == 0 ? 0 : pixelOffset % entry.bufw;
+			if (pixelOffset > 0) {
+				matchInfo->yOffset = entry.bufw == 0 ? 0 : pixelOffset / (int)entry.bufw;
+				matchInfo->xOffset = entry.bufw == 0 ? 0 : pixelOffset % (int)entry.bufw;
+			} else if (pixelOffset < 0) {
+				matchInfo->yOffset = entry.bufw == 0 ? 0 : pixelOffset / (int)entry.bufw;
+				matchInfo->xOffset = entry.bufw == 0 ? 0 : -(-pixelOffset % (int)entry.bufw);
+			}
 		}
 
-		if (matchInfo->yOffset + minSubareaHeight >= framebuffer->height) {
+		if (matchInfo->yOffset > 0 && matchInfo->yOffset + minSubareaHeight >= framebuffer->height) {
+			// Can't be inside the framebuffer.
+			return false;
+		}
+
+		if (matchInfo->yOffset < 0 && matchInfo->yOffset - minSubareaHeight <= 0) {
 			// Can't be inside the framebuffer.
 			return false;
 		}

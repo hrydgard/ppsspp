@@ -1686,6 +1686,11 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 		}
 	}
 
+	if ((gstate.vertType & 0xFFFFFF) == 0x00800102 && PSP_CoreParameter().compat.flags().SplitFramebufferMargin) {
+		// Need to re-check the framebuffer every draw.
+		gstate_c.Dirty(DIRTY_FRAMEBUF);
+	}
+
 	// This also makes skipping drawing very effective.
 	VirtualFramebuffer *vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (blueToAlpha) {

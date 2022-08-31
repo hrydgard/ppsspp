@@ -341,7 +341,9 @@ void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPU
 	}
 }
 
-VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const FramebufferHeuristicParams &params, u32 skipDrawReason) {
+static void ApplyKillzoneFramebufferSplit(FramebufferHeuristicParams *params, int *drawing_width);
+
+VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(FramebufferHeuristicParams &params, u32 skipDrawReason) {
 	gstate_c.Clean(DIRTY_FRAMEBUF);
 
 	// Collect all parameters. This whole function has really become a cesspool of heuristics...
@@ -352,12 +354,17 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	int drawing_width, drawing_height;
 	EstimateDrawingSize(params.fb_address, std::max(params.fb_stride, (u16)4), params.fb_format, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, drawing_width, drawing_height);
 
-	gstate_c.SetCurRTOffset(0, 0);
-
 	if (params.fb_address == params.z_address) {
 		// Most likely Z will not be used in this pass, as that would wreak havoc (undefined behavior for sure)
 		// We probably don't need to do anything about that, but let's log it.
 		WARN_LOG_ONCE(color_equal_z, G3D, "Framebuffer bound with color addr == z addr, likely will not use Z in this pass: %08x", params.fb_address);
+	}
+
+	// Compatibility hack for Killzone, see issue #6207.
+	if (PSP_CoreParameter().compat.flags().SplitFramebufferMargin && params.fb_format == GE_FORMAT_8888) {
+		ApplyKillzoneFramebufferSplit(&params, &drawing_width);
+	} else {
+		gstate_c.SetCurRTOffset(0, 0);
 	}
 
 	// Find a matching framebuffer.
@@ -385,7 +392,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 				vfb->height = drawing_height;
 			}
 			break;
-		} else if (v->fb_stride == params.fb_stride && v->fb_format == params.fb_format) {
+		} else if (v->fb_stride == params.fb_stride && v->fb_format == params.fb_format && !PSP_CoreParameter().compat.flags().SplitFramebufferMargin) {
 			u32 v_fb_first_line_end_ptr = v->fb_address + v->fb_stride * bpp;
 			u32 v_fb_end_ptr = v->fb_address + v->fb_stride * v->height * bpp;
 
@@ -666,7 +673,8 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 				// This will result in reinterpret later, if both formats are 16-bit.
 				sources.push_back(CopySource{ src, RASTER_COLOR, 0, 0 });
 			} else {
-				// Likely irrelevant or old, if the game is changing color depth for example.
+				// This shouldn't happen anymore. I think when it happened last, we still had
+				// lax stride checking when video was incoming, and a resize happened causing a duplicate.
 			}
 		} else if (src->fb_stride == dst->fb_stride && src->fb_format == dst->fb_format) {
 			u32 bytesPerPixel = BufferFormatBytesPerPixel(src->fb_format);
@@ -2863,4 +2871,38 @@ VirtualFramebuffer *FramebufferManagerCommon::ResolveFramebufferColorToFormat(Vi
 	// Now we consider the resolved one the latest at the address (though really, we could make them equivalent?).
 	vfb->colorBindSeq = GetBindSeqCount();
 	return vfb;
+}
+
+static void ApplyKillzoneFramebufferSplit(FramebufferHeuristicParams *params, int *drawing_width) {
+	// Detect whether we're rendering to the margin.
+	bool margin;
+	if (params->scissorWidth == 32) {
+		// Title screen has this easy case.
+		margin = true;
+	} else if (params->scissorWidth == 480) {
+		margin = false;
+	} else {
+		// Go deep, look at the vertices. Killzone-specific, of course.
+		margin = false;
+		if ((gstate.vertType & 0xFFFFFF) == 0x00800102) {  // through, u16, s16
+			u16 *vdata = (u16 *)Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+			int v0PosU = vdata[0];
+			int v0PosX = vdata[2];
+			if (v0PosX >= 480 && v0PosU < 480) {
+				// Texturing from surface, writing to margin
+				margin = true;
+			}
+		}
+	}
+
+	if (margin) {
+		gstate_c.SetCurRTOffset(-480, 0);
+		// Modify the fb_address and z_address too to avoid matching below.
+		params->fb_address += 480 * 4;
+		params->z_address += 480 * 2;
+		*drawing_width = 32;
+	} else {
+		gstate_c.SetCurRTOffset(0, 0);
+		*drawing_width = 480;
+	}
 }
