@@ -381,8 +381,7 @@ protected:
 
 	bool MatchFramebuffer(const TextureDefinition &entry, VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel, FramebufferMatchInfo *matchInfo) const;
 
-	std::vector<AttachCandidate> GetFramebufferCandidates(const TextureDefinition &entry, u32 texAddrOffset);
-	int GetBestCandidateIndex(const std::vector<AttachCandidate> &candidates);
+	bool GetBestFramebufferCandidate(const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate) const;
 
 	void SetTextureFramebuffer(const AttachCandidate &candidate);
 

@@ -532,21 +532,17 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	def.format = texFormat;
 	def.bufw = bufw;
 
-	std::vector<AttachCandidate> candidates = GetFramebufferCandidates(def, 0);
-	if (candidates.size() > 0) {
-		int index = GetBestCandidateIndex(candidates);
-		if (index != -1) {
-			// If we had a texture entry here, let's get rid of it.
-			if (entryIter != cache_.end()) {
-				DeleteTexture(entryIter);
-			}
-
-			const AttachCandidate &candidate = candidates[index];
-			nextTexture_ = nullptr;
-			nextNeedsRebuild_ = false;
-			SetTextureFramebuffer(candidate);  // sets curTexture3D
-			return nullptr;
+	AttachCandidate bestCandidate;
+	if (GetBestFramebufferCandidate(def, 0, &bestCandidate)) {
+		// If we had a texture entry here, let's get rid of it.
+		if (entryIter != cache_.end()) {
+			DeleteTexture(entryIter);
 		}
+
+		nextTexture_ = nullptr;
+		nextNeedsRebuild_ = false;
+		SetTextureFramebuffer(bestCandidate);  // sets curTexture3D
+		return nullptr;
 	}
 
 	// Didn't match a framebuffer, keep going.
@@ -617,7 +613,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	return entry;
 }
 
-std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const TextureDefinition &entry, u32 texAddrOffset) {
+bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate) const {
 	gpuStats.numFramebufferEvaluations++;
 
 	std::vector<AttachCandidate> candidates;
@@ -635,29 +631,24 @@ std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const 
 		}
 	}
 
-	if (candidates.size() > 1) {
-		if (Reporting::ShouldLogNTimes("multifbcandidate", 5)) {
-			std::string cands;
-				for (auto &candidate : candidates) {
-					cands += candidate.ToString() + "\n";
-				}
-
-			WARN_LOG_N_TIMES(multifbcandidate, 5, G3D, "GetFramebufferCandidates: Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
-				(int)candidates.size(),
-				entry.addr, texAddrOffset, dimWidth(entry.dim), dimHeight(entry.dim), entry.bufw, GeTextureFormatToString(entry.format),
-				cands.c_str()
-			);
-		}
+	if (candidates.size() == 0) {
+		return false;
+	} else if (candidates.size() == 1) {
+		*bestCandidate = candidates[0];
+		return true;
 	}
 
-	return candidates;
-}
+	if (Reporting::ShouldLogNTimes("multifbcandidate", 5)) {
+		std::string cands;
+			for (auto &candidate : candidates) {
+				cands += candidate.ToString() + "\n";
+			}
 
-int TextureCacheCommon::GetBestCandidateIndex(const std::vector<AttachCandidate> &candidates) {
-	_dbg_assert_(!candidates.empty());
-
-	if (candidates.size() == 1) {
-		return 0;
+		WARN_LOG_N_TIMES(multifbcandidate, 5, G3D, "GetFramebufferCandidates: Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
+			(int)candidates.size(),
+			entry.addr, texAddrOffset, dimWidth(entry.dim), dimHeight(entry.dim), entry.bufw, GeTextureFormatToString(entry.format),
+			cands.c_str()
+		);
 	}
 
 	// OK, multiple possible candidates. Will need to figure out which one is the most relevant.
@@ -692,7 +683,12 @@ int TextureCacheCommon::GetBestCandidateIndex(const std::vector<AttachCandidate>
 		}
 	}
 
-	return bestIndex;
+	if (bestIndex != -1) {
+		*bestCandidate = candidates[bestIndex];
+		return true;
+	} else {
+		return false;
+	}
 }
 
 // Removes old textures.
@@ -1111,15 +1107,13 @@ bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
 	def.bufw = GetTextureBufw(0, texaddr, fmt);
 	def.dim = gstate.getTextureDimension(0);
 
-	std::vector<AttachCandidate> candidates = GetFramebufferCandidates(def, texaddrOffset);
-	if (candidates.size() > 0) {
-		int index = GetBestCandidateIndex(candidates);
-		if (index != -1) {
-			SetTextureFramebuffer(candidates[index]);
-			return true;
-		}
+	AttachCandidate bestCandidate;
+	if (GetBestFramebufferCandidate(def, texaddrOffset, &bestCandidate)) {
+		SetTextureFramebuffer(bestCandidate);
+		return true;
+	} else {
+		return false;
 	}
-	return false;
 }
 
 void TextureCacheCommon::NotifyConfigChanged() {
