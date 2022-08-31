@@ -245,10 +245,6 @@ struct BlockTransferRect {
 	int x_pixels() const {
 		return x_bytes / BufferFormatBytesPerPixel(vfb->fb_format);
 	}
-
-	bool operator < (const BlockTransferRect &other) const {
-		return vfb->colorBindSeq < other.vfb->colorBindSeq;
-	}
 };
 
 namespace Draw {

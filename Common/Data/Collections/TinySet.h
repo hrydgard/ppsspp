@@ -3,10 +3,12 @@
 #include <vector>
 
 // Insert-only small-set implementation. Performs no allocation unless MaxFastSize is exceeded.
+// Can also be used as a small vector, then use push_back (or push_in_place) instead of insert.
+// Duplicates are thus allowed if you use that, but not if you exclusively use insert.
 template <class T, int MaxFastSize>
 struct TinySet {
 	~TinySet() { delete slowLookup_; }
-	inline void insert(T t) {
+	inline void insert(const T &t) {
 		// Fast linear scan.
 		for (int i = 0; i < fastCount; i++) {
 			if (fastLookup_[i] == t)
@@ -19,6 +21,27 @@ struct TinySet {
 		}
 		// Fall back to slow path.
 		insertSlow(t);
+	}
+	inline void push_back(const T &t) {
+		if (fastCount < MaxFastSize) {
+			fastLookup_[fastCount++] = t;
+			return;
+		}
+		if (!slowLookup_) {
+			slowLookup_ = new std::vector<T>();
+		}
+		slowLookup_->push_back(t);
+	}
+	inline T *add_back() {
+		if (fastCount < MaxFastSize) {
+			return &fastLookup_[fastCount++];
+		}
+		if (!slowLookup_) {
+			slowLookup_ = new std::vector<T>();
+		}
+		T t;
+		slowLookup_->push_back(t);
+		return slowLookup_->back();
 	}
 	bool contains(T t) const {
 		for (int i = 0; i < fastCount; i++) {
@@ -51,6 +74,23 @@ struct TinySet {
 		delete slowLookup_;
 		slowLookup_ = nullptr;
 		fastCount = 0;
+	}
+	bool empty() const {
+		return fastCount == 0;
+	}
+	size_t size() const {
+		if (fastCount <= MaxFastSize) {
+			return fastCount;
+		} else {
+			return slowLookup_->size() + MaxFastSize;
+		}
+	}
+	const T &operator[] (size_t index) const {
+		if (index < MaxFastSize) {
+			return fastLookup_[index];
+		} else {
+			return (*slowLookup_)[index - MaxFastSize];
+		}
 	}
 
 private:
