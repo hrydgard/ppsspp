@@ -134,8 +134,8 @@ enum class VKRRenderPassStoreAction : uint8_t {
 };
 
 struct TransitionRequest {
-	VkImageAspectFlags aspect;  // COLOR or DEPTH
 	VKRFramebuffer *fb;
+	VkImageAspectFlags aspect;  // COLOR or DEPTH
 	VkImageLayout targetLayout;
 };
 
@@ -153,7 +153,7 @@ struct VKRStep {
 
 	VKRStepType stepType;
 	std::vector<VkRenderData> commands;
-	std::vector<TransitionRequest> preTransitions;
+	TinySet<TransitionRequest, 4> preTransitions;
 	TinySet<VKRFramebuffer *, 8> dependencies;
 	const char *tag;
 	union {

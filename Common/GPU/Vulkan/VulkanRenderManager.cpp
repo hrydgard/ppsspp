@@ -1189,7 +1189,7 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 		// We're done.
 		return aspectBit == VK_IMAGE_ASPECT_COLOR_BIT ? fb->color.imageView : fb->depth.depthSampleView;
 	} else {
-		curRenderStep_->preTransitions.push_back({ aspectBit, fb, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
+		curRenderStep_->preTransitions.push_back({ fb, aspectBit, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
 		return aspectBit == VK_IMAGE_ASPECT_COLOR_BIT ? fb->color.imageView : fb->depth.depthSampleView;
 	}
 }

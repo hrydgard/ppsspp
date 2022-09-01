@@ -685,7 +685,7 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 	auto mergeRenderSteps = [](VKRStep *dst, VKRStep *src) {
 		// OK. Now, if it's a render, slurp up all the commands and kill the step.
 		// Also slurp up any pretransitions.
-		dst->preTransitions.insert(dst->preTransitions.end(), src->preTransitions.begin(), src->preTransitions.end());
+		dst->preTransitions.append(src->preTransitions);
 		dst->commands.insert(dst->commands.end(), src->commands.begin(), src->commands.end());
 		MergeRenderAreaRectInto(&dst->render.renderArea, src->render.renderArea);
 		// So we don't consider it for other things, maybe doesn't matter.
@@ -1060,7 +1060,8 @@ void TransitionFromOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayou
 }
 
 void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd) {
-	for (const auto &iter : step.preTransitions) {
+	for (size_t i = 0; i < step.preTransitions.size(); i++) {
+		const TransitionRequest &iter = step.preTransitions[i];
 		if (iter.aspect == VK_IMAGE_ASPECT_COLOR_BIT && iter.fb->color.layout != iter.targetLayout) {
 			recordBarrier_.TransitionImageAuto(
 				iter.fb->color.image,
