@@ -1,6 +1,7 @@
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/VR/VRBase.h"
 #include "Common/VR/VRInput.h"
+#include "Common/VR/VRMath.h"
 #include "Common/VR/VRRenderer.h"
 #include "Common/VR/VRTweaks.h"
 
@@ -28,6 +29,16 @@ struct ButtonMapping {
 		this->ovr = ovr;
 		pressed = false;
 		repeat = 0;
+	}
+};
+
+struct MouseActivator {
+	bool activate;
+	ovrButton ovr;
+
+	MouseActivator(bool activate, ovrButton ovr) {
+		this->activate = activate;
+		this->ovr = ovr;
 	}
 };
 
@@ -60,6 +71,16 @@ static const int controllerIds[] = {DEVICE_ID_XR_CONTROLLER_LEFT, DEVICE_ID_XR_C
 static std::vector<ButtonMapping> controllerMapping[2] = {
 		leftControllerMapping,
 		rightControllerMapping
+};
+static int mouseController = -1;
+static bool mousePressed[] = {false, false};
+
+static std::vector<MouseActivator> mouseActivators = {
+		MouseActivator(true, ovrButton_Trigger),
+		MouseActivator(false, ovrButton_Up),
+		MouseActivator(false, ovrButton_Down),
+		MouseActivator(false, ovrButton_Left),
+		MouseActivator(false, ovrButton_Right),
 };
 
 /*
@@ -99,7 +120,8 @@ void GetVRResolutionPerEye(int* width, int* height) {
 	}
 }
 
-void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool haptics) {
+void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale) {
+	//buttons
 	KeyInput keyInput = {};
 	for (int j = 0; j < 2; j++) {
 		int status = IN_VRGetButtonState(j);
@@ -124,6 +146,53 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool haptics) {
 				m.repeat++;
 			}
 		}
+	}
+
+	//enable or disable mouse
+	for (int j = 0; j < 2; j++) {
+		int status = IN_VRGetButtonState(j);
+		for (MouseActivator& m : mouseActivators) {
+			if (status & m.ovr) {
+				mouseController = m.activate ? j : -1;
+			}
+		}
+	}
+
+	//mouse cursor
+	if (mouseController >= 0) {
+		//get position on screen
+		XrPosef pose = IN_VRGetPose(mouseController);
+		XrVector3f angles = XrQuaternionf_ToEulerAngles(pose.orientation);
+		float width = (float)VR_GetConfig(VR_CONFIG_VIEWPORT_WIDTH);
+		float height = (float)VR_GetConfig(VR_CONFIG_VIEWPORT_HEIGHT);
+		float cx = width / 2;
+		float cy = height / 2;
+		float speed = (cx + cy) / 2;
+		float x = cx - tan(ToRadians(angles.y - (float)VR_GetConfig(VR_CONFIG_MENU_YAW))) * speed;
+		float y = cy - tan(ToRadians(angles.x)) * speed;
+
+		//set renderer
+		VR_SetConfig(VR_CONFIG_MOUSE_X, (int)x);
+		VR_SetConfig(VR_CONFIG_MOUSE_Y, (int)y);
+		VR_SetConfig(VR_CONFIG_MOUSE_SIZE, 6 * (int)pow(VR_GetConfig(VR_CONFIG_CANVAS_DISTANCE), 0.25f));
+
+		//inform engine about the status
+		TouchInput touch;
+		touch.id = mouseController;
+		touch.x = x * dp_xscale;
+		touch.y = (height - y - 1) * dp_yscale;
+		bool pressed = IN_VRGetButtonState(mouseController) & ovrButton_Trigger;
+		if (mousePressed[mouseController] != pressed) {
+			if (!pressed) {
+				touch.flags = TOUCH_DOWN;
+				NativeTouch(touch);
+				touch.flags = TOUCH_UP;
+				NativeTouch(touch);
+			}
+			mousePressed[mouseController] = pressed;
+		}
+	} else {
+		VR_SetConfig(VR_CONFIG_MOUSE_SIZE, 0);
 	}
 }
 

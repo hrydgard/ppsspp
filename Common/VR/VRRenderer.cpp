@@ -16,9 +16,6 @@ GLboolean initialized = GL_FALSE;
 GLboolean stageSupported = GL_FALSE;
 int vrConfig[VR_CONFIG_MAX] = {};
 
-float menuPitch = 0;
-float menuYaw = 0;
-float recenterYaw = 0;
 XrVector3f hmdorientation;
 XrVector3f hmdposition;
 
@@ -135,7 +132,8 @@ void VR_Recenter(engine_t* engine) {
 		OXR(xrLocateSpace(engine->appState.HeadSpace, engine->appState.CurrentSpace, engine->predictedDisplayTime, &loc));
 		hmdorientation = XrQuaternionf_ToEulerAngles(loc.pose.orientation);
 
-		recenterYaw += ToRadians(hmdorientation.y);
+		vrConfig[VR_CONFIG_RECENTER_YAW] += (int)hmdorientation.y;
+		float recenterYaw = ToRadians((float)vrConfig[VR_CONFIG_RECENTER_YAW]);
 		spaceCreateInfo.poseInReferenceSpace.orientation.x = 0;
 		spaceCreateInfo.poseInReferenceSpace.orientation.y = sin(recenterYaw / 2);
 		spaceCreateInfo.poseInReferenceSpace.orientation.z = 0;
@@ -171,8 +169,8 @@ void VR_Recenter(engine_t* engine) {
 	}
 
 	// Update menu orientation
-	menuPitch = hmdorientation.x;
-	menuYaw = 0;
+	vrConfig[VR_CONFIG_MENU_PITCH] = (int)hmdorientation.x;
+	vrConfig[VR_CONFIG_MENU_YAW] = 0;
 }
 
 void VR_InitRenderer( engine_t* engine, bool multiview ) {
@@ -182,6 +180,8 @@ void VR_InitRenderer( engine_t* engine, bool multiview ) {
 
 	int eyeW, eyeH;
 	VR_GetResolution(engine, &eyeW, &eyeH);
+	vrConfig[VR_CONFIG_VIEWPORT_WIDTH] = eyeW;
+	vrConfig[VR_CONFIG_VIEWPORT_HEIGHT] = eyeH;
 
 	// Get the viewport configuration info for the chosen viewport configuration type.
 	engine->appState.ViewportConfig.type = XR_TYPE_VIEW_CONFIGURATION_PROPERTIES;
@@ -321,15 +321,26 @@ void VR_EndFrame( engine_t* engine ) {
 	glClear(GL_COLOR_BUFFER_BIT);
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
+	// Show mouse cursor
+	int vrMode = vrConfig[VR_CONFIG_MODE];
+	int size = vrConfig[VR_CONFIG_MOUSE_SIZE];
+	if ((vrMode == VR_MODE_FLAT_SCREEN) && (size > 0)) {
+		glEnable(GL_SCISSOR_TEST);
+		glScissor(vrConfig[VR_CONFIG_MOUSE_X], vrConfig[VR_CONFIG_MOUSE_Y], size, size);
+		glViewport(vrConfig[VR_CONFIG_MOUSE_X], vrConfig[VR_CONFIG_MOUSE_Y], size, size);
+		glClearColor(1, 1, 1, 1);
+		glClear(GL_COLOR_BUFFER_BIT);
+		glDisable(GL_SCISSOR_TEST);
+	}
+
 	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer;
 	//ovrFramebuffer_Resolve(frameBuffer);
 	ovrFramebuffer_Release(frameBuffer);
 	ovrFramebuffer_SetNone();
 
 	XrCompositionLayerProjectionView projection_layer_elements[2] = {};
-	int vrMode = vrConfig[VR_CONFIG_MODE];
 	if ((vrMode == VR_MODE_MONO_6DOF) || (vrMode == VR_MODE_STEREO_6DOF)) {
-		menuYaw = hmdorientation.y;
+		vrConfig[VR_CONFIG_MENU_YAW] = (int)hmdorientation.y;
 
 		for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
 			int imageLayer = eye;
@@ -379,14 +390,16 @@ void VR_EndFrame( engine_t* engine ) {
 		cylinder_layer.subImage.imageRect.extent.width = width;
 		cylinder_layer.subImage.imageRect.extent.height = height;
 		cylinder_layer.subImage.imageArrayIndex = 0;
-		float distance = vrConfig[VR_CONFIG_CANVAS_DISTANCE];
+		float distance = (float)vrConfig[VR_CONFIG_CANVAS_DISTANCE];
+		float menuPitch = ToRadians((float)vrConfig[VR_CONFIG_MENU_PITCH]);
+		float menuYaw = ToRadians((float)vrConfig[VR_CONFIG_MENU_YAW]);
 		XrVector3f pos = {
-				invViewTransform[0].position.x - sin(ToRadians(menuYaw)) * distance,
+				invViewTransform[0].position.x - sin(menuYaw) * distance,
 				invViewTransform[0].position.y,
-				invViewTransform[0].position.z - cos(ToRadians(menuYaw)) * distance
+				invViewTransform[0].position.z - cos(menuYaw) * distance
 		};
-		XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, -ToRadians(menuPitch));
-		XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, ToRadians(menuYaw));
+		XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, -menuPitch);
+		XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, menuYaw);
 		cylinder_layer.pose.orientation = XrQuaternionf_Multiply(pitch, yaw);
 		cylinder_layer.pose.position = pos;
 		cylinder_layer.radius = 12.0f;

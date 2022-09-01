@@ -10,7 +10,7 @@ bool IsVRBuild();
 void InitVROnAndroid(void* vm, void* activity, int version, char* name);
 void EnterVR(bool firstStart);
 void GetVRResolutionPerEye(int* width, int* height);
-void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool haptics);
+void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale);
 void UpdateVRScreenKey(const KeyInput &key);
 
 // VR rendering integration
