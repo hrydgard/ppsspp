@@ -111,7 +111,7 @@ void EnterVR(bool firstStart) {
 		VR_EnterVR(VR_GetEngine());
 		IN_VRInit(VR_GetEngine());
 	}
-	VR_InitRenderer(VR_GetEngine(), IsMultiviewSupported());
+	VR_SetConfig(VR_CONFIG_VIEWPORT_VALID, false);
 }
 
 void GetVRResolutionPerEye(int* width, int* height) {
@@ -220,6 +220,11 @@ void BindVRFramebuffer() {
 }
 
 bool PreVRRender() {
+	if (!VR_GetConfig(VR_CONFIG_VIEWPORT_VALID)) {
+		VR_InitRenderer(VR_GetEngine(), IsMultiviewSupported());
+		VR_SetConfig(VR_CONFIG_VIEWPORT_VALID, true);
+	}
+
 	if (VR_BeginFrame(VR_GetEngine())) {
 
 		// Decide if the scene is 3D or not
