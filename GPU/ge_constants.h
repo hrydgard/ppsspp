@@ -405,7 +405,7 @@ enum GELightComputation
 	GE_LIGHTCOMP_ONLYPOWDIFFUSE = 2,
 };
 
-enum GETextureFormat
+enum GETextureFormat : uint8_t
 {
 	GE_TFMT_5650 = 0,
 	GE_TFMT_5551 = 1,
