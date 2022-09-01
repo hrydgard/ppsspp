@@ -573,7 +573,7 @@ public:
 		if (png.warning_or_error >= 2) {
 			ERROR_LOG(COMMON, "Saving screenshot to PNG produced errors.");
 		} else if (success) {
-			NOTICE_LOG(G3D, "Saving texture for replacement: %08x / %dx%d", replacedInfoHash, w, h);
+			NOTICE_LOG(G3D, "Saving texture for replacement: %08x / %dx%d in '%s'", replacedInfoHash, w, h, saveFilename.ToVisualString().c_str());
 		}
 	}
 };

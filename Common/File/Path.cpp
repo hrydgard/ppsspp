@@ -258,8 +258,13 @@ std::wstring Path::ToWString() const {
 std::string Path::ToVisualString() const {
 	if (type_ == PathType::CONTENT_URI) {
 		return AndroidContentURI(path_).ToVisualString();
+#if PPSSPP_PLATFORM(WINDOWS)
+	} else if (type_ == PathType::NATIVE) {
+		return ReplaceAll(path_, "/", "\\");
+#endif
+	} else {
+		return path_;
 	}
-	return path_;
 }
 
 bool Path::CanNavigateUp() const {

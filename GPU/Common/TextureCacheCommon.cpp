@@ -2388,6 +2388,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		plan.replaceValid = plan.replaced->Valid();
 	}
 
+	plan.saveTexture = false;
 	if (plan.replaceValid) {
 		// We're replacing, so we won't scale.
 		plan.scaleFactor = 1;
@@ -2397,6 +2398,18 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		// But, we still need to create the texture at a larger size.
 		plan.replaced->GetSize(0, plan.createW, plan.createH);
 	} else {
+		if (replacer_.Enabled() && !plan.replaceValid && plan.depth == 1) {
+			ReplacedTextureDecodeInfo replacedInfo;
+			// TODO: Do we handle the race where a replacement becomes valid AFTER this but before we save?
+			replacedInfo.cachekey = entry->CacheKey();
+			replacedInfo.hash = entry->fullhash;
+			replacedInfo.addr = entry->addr;
+			replacedInfo.isVideo = plan.isVideo;
+			replacedInfo.isFinal = (entry->status & TexCacheEntry::STATUS_TO_SCALE) == 0;
+			replacedInfo.scaleFactor = plan.scaleFactor;
+			replacedInfo.fmt = Draw::DataFormat::R8G8B8A8_UNORM;
+			plan.saveTexture = replacer_.WillSave(replacedInfo);
+		}
 		plan.createW = plan.w * plan.scaleFactor;
 		plan.createH = plan.h * plan.scaleFactor;
 	}
@@ -2454,7 +2467,7 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, i
 			decPitch = stride;
 		}
 
-		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || scaleFactor > 1;
+		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || dstFmt == Draw::DataFormat::R8G8B8A8_UNORM;
 
 		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, srcLevel, bufw, reverseColors, expand32);
 		entry.SetAlphaStatus(alphaResult, srcLevel);
