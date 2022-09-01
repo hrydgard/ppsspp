@@ -657,10 +657,8 @@ int sceKernelUnlockMutex(SceUID id, int count)
 
 	if (mutex->nm.lockLevel == 0)
 	{
-		if (__KernelUnlockMutex(mutex, error)) {
+		if (__KernelUnlockMutex(mutex, error))
 			hleReSchedule("mutex unlocked");
-			return hleDelayResult(0, "unlock", 150);
-		}
 	}
 
 	return 0;
