@@ -947,17 +947,15 @@ bool TextureCacheCommon::MatchFramebuffer(
 				matchInfo->yOffset = entry.bufw == 0 ? 0 : pixelOffset / (int)entry.bufw;
 				matchInfo->xOffset = entry.bufw == 0 ? 0 : pixelOffset % (int)entry.bufw;
 			} else if (pixelOffset < 0) {
-				matchInfo->yOffset = entry.bufw == 0 ? 0 : pixelOffset / (int)entry.bufw;
+				// We don't support negative Y offsets, and negative X offsets are only for the Killzone workaround.
+				if (pixelOffset < -(int)entry.bufw || !PSP_CoreParameter().compat.flags().SplitFramebufferMargin) {
+					return false;
+				}
 				matchInfo->xOffset = entry.bufw == 0 ? 0 : -(-pixelOffset % (int)entry.bufw);
 			}
 		}
 
 		if (matchInfo->yOffset > 0 && matchInfo->yOffset + minSubareaHeight >= framebuffer->height) {
-			// Can't be inside the framebuffer.
-			return false;
-		}
-
-		if (matchInfo->yOffset < 0 && matchInfo->yOffset - minSubareaHeight <= 0) {
 			// Can't be inside the framebuffer.
 			return false;
 		}
