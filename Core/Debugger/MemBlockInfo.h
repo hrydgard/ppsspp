@@ -68,7 +68,9 @@ inline void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, co
 std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size);
 std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start, uint32_t size);
 
-std::string GetMemWriteTagAt(uint32_t start, uint32_t size);
+std::string GetMemWriteTagAt(const char *prefix, uint32_t start, uint32_t size);
+// Same as above but allocation-free.
+size_t FormatMemWriteTagAt(char *buf, size_t sz, const char *prefix, uint32_t start, uint32_t size);
 
 void MemBlockInfoInit();
 void MemBlockInfoShutdown();

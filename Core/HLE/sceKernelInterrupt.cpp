@@ -656,7 +656,7 @@ static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 	}
 
 	if (MemBlockInfoDetailed(size)) {
-		const std::string tag = "KernelMemcpy/" + GetMemWriteTagAt(src, size);
+		const std::string tag = GetMemWriteTagAt("KernelMemcpy/", src, size);
 		NotifyMemInfo(MemBlockFlags::READ, src, size, tag.c_str(), tag.size());
 		NotifyMemInfo(MemBlockFlags::WRITE, dst, size, tag.c_str(), tag.size());
 	}
@@ -691,7 +691,7 @@ static u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {
 		memcpy(Memory::GetPointerWriteUnchecked(dst), Memory::GetPointerUnchecked(src), size);
 	}
 	if (MemBlockInfoDetailed(size)) {
-		const std::string tag = "KernelMemcpy/" + GetMemWriteTagAt(src, size);
+		const std::string tag = GetMemWriteTagAt("KernelMemcpy/", src, size);
 		NotifyMemInfo(MemBlockFlags::READ, src, size, tag.c_str(), tag.size());
 		NotifyMemInfo(MemBlockFlags::WRITE, dst, size, tag.c_str(), tag.size());
 	}
@@ -794,7 +794,7 @@ static u32 sysclib_memmove(u32 dst, u32 src, u32 size) {
 		memmove(Memory::GetPointerWriteUnchecked(dst), Memory::GetPointerUnchecked(src), size);
 	}
 	if (MemBlockInfoDetailed(size)) {
-		const std::string tag = "KernelMemmove/" + GetMemWriteTagAt(src, size);
+		const std::string tag = GetMemWriteTagAt("KernelMemmove/", src, size);
 		NotifyMemInfo(MemBlockFlags::READ, src, size, tag.c_str(), tag.size());
 		NotifyMemInfo(MemBlockFlags::WRITE, dst, size, tag.c_str(), tag.size());
 	}

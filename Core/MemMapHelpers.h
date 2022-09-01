@@ -20,6 +20,7 @@
 #include <cstring>
 
 #include "Common/CommonTypes.h"
+#include "Common/StringUtils.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
@@ -70,9 +71,9 @@ inline void Memcpy(const u32 to_address, const u32 from_address, const u32 len, 
 	if (MemBlockInfoDetailed(len)) {
 		char tagData[128];
 		if (!tag) {
-			const std::string srcTag = GetMemWriteTagAt(from_address, len);
+			const std::string srcTag = GetMemWriteTagAt("Memcpy/", from_address, len);
 			tag = tagData;
-			tagLen = snprintf(tagData, sizeof(tagData), "Memcpy/%s", srcTag.c_str());
+			tagLen = truncate_cpy(tagData, srcTag.c_str());
 		}
 		NotifyMemInfo(MemBlockFlags::READ, from_address, len, tag, tagLen);
 		NotifyMemInfo(MemBlockFlags::WRITE, to_address, len, tag, tagLen);
