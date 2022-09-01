@@ -701,12 +701,11 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	DeferredDrawCall &dc = drawCalls[numDrawCalls];
 	dc.verts = verts;
 	dc.inds = inds;
+	dc.vertexCount = vertexCount;
 	dc.indexType = (vertTypeID & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
 	dc.prim = prim;
-	dc.vertexCount = vertexCount;
-	dc.uvScale = gstate_c.uv;
 	dc.cullMode = cullMode;
-
+	dc.uvScale = gstate_c.uv;
 	if (inds) {
 		GetIndexBounds(inds, vertexCount, vertTypeID, &dc.indexLowerBound, &dc.indexUpperBound);
 	} else {

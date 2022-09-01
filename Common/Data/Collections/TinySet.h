@@ -43,6 +43,20 @@ struct TinySet {
 		slowLookup_->push_back(t);
 		return slowLookup_->back();
 	}
+	void append(const TinySet<T, MaxFastSize> &other) {
+		size_t otherSize = other.size();
+		if (size() + otherSize <= MaxFastSize) {
+			// Fast case
+			for (int i = 0; i < otherSize; i++) {
+				fastLookup_[fastCount + i] = other.fastLookup_[i];
+			}
+			fastCount += other.fastCount;
+		} else {
+			for (int i = 0; i < otherSize; i++) {
+				push_back(other[i]);
+			}
+		}
+	}
 	bool contains(T t) const {
 		for (int i = 0; i < fastCount; i++) {
 			if (fastLookup_[i] == t)
@@ -79,7 +93,7 @@ struct TinySet {
 		return fastCount == 0;
 	}
 	size_t size() const {
-		if (fastCount <= MaxFastSize) {
+		if (!slowLookup_) {
 			return fastCount;
 		} else {
 			return slowLookup_->size() + MaxFastSize;
@@ -91,6 +105,9 @@ struct TinySet {
 		} else {
 			return (*slowLookup_)[index - MaxFastSize];
 		}
+	}
+	const T &back() const {
+		return (*this)[size() - 1];
 	}
 
 private:

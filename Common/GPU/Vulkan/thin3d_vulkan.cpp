@@ -1339,7 +1339,7 @@ void VKContext::Draw(int vertexCount, int offset) {
 
 	BindCompatiblePipeline();
 	ApplyDynamicState();
-	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount, offset);
+	renderManager_.Draw(descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount, offset);
 }
 
 void VKContext::DrawIndexed(int vertexCount, int offset) {
@@ -1359,7 +1359,7 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 
 	BindCompatiblePipeline();
 	ApplyDynamicState();
-	renderManager_.DrawIndexed(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vulkanIbuf, (int)ibBindOffset + offset * sizeof(uint32_t), vertexCount, 1, VK_INDEX_TYPE_UINT16);
+	renderManager_.DrawIndexed(descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vulkanIbuf, (int)ibBindOffset + offset * sizeof(uint32_t), vertexCount, 1, VK_INDEX_TYPE_UINT16);
 }
 
 void VKContext::DrawUP(const void *vdata, int vertexCount) {
@@ -1375,15 +1375,15 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 
 	BindCompatiblePipeline();
 	ApplyDynamicState();
-	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount);
+	renderManager_.Draw(descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount);
 }
 
 void VKContext::BindCompatiblePipeline() {
 	VkRenderPass renderPass = renderManager_.GetCompatibleRenderPass();
 	if (renderPass == renderManager_.GetBackbufferRenderPass()) {
-		renderManager_.BindPipeline(curPipeline_->backbufferPipeline, curPipeline_->flags);
+		renderManager_.BindPipeline(curPipeline_->backbufferPipeline, curPipeline_->flags, pipelineLayout_);
 	} else {
-		renderManager_.BindPipeline(curPipeline_->framebufferPipeline, curPipeline_->flags);
+		renderManager_.BindPipeline(curPipeline_->framebufferPipeline, curPipeline_->flags, pipelineLayout_);
 	}
 }
 

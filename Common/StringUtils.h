@@ -78,10 +78,10 @@ std::string ReplaceAll(std::string input, const std::string& src, const std::str
 
 void SkipSpace(const char **ptr);
 
-void truncate_cpy(char *dest, size_t destSize, const char *src);
+size_t truncate_cpy(char *dest, size_t destSize, const char *src);
 template<size_t Count>
-inline void truncate_cpy(char(&out)[Count], const char *src) {
-	truncate_cpy(out, Count, src);
+inline size_t truncate_cpy(char(&out)[Count], const char *src) {
+	return truncate_cpy(out, Count, src);
 }
 
 const char* safe_string(const char* s);

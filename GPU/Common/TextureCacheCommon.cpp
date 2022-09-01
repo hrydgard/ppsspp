@@ -21,6 +21,7 @@
 
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
+#include "Common/Data/Collections/TinySet.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/MemoryUtil.h"
 #include "Common/StringUtils.h"
@@ -616,18 +617,18 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate) const {
 	gpuStats.numFramebufferEvaluations++;
 
-	std::vector<AttachCandidate> candidates;
+	TinySet<AttachCandidate, 6> candidates;
 
 	const std::vector<VirtualFramebuffer *> &framebuffers = framebufferManager_->Framebuffers();
 
 	for (VirtualFramebuffer *framebuffer : framebuffers) {
 		FramebufferMatchInfo match{};
 		if (MatchFramebuffer(entry, framebuffer, texAddrOffset, RASTER_COLOR, &match)) {
-			candidates.push_back(AttachCandidate{ match, entry, framebuffer, RASTER_COLOR, framebuffer->colorBindSeq });
+			candidates.push_back(AttachCandidate{ framebuffer, match, RASTER_COLOR });
 		}
 		match = {};
 		if (MatchFramebuffer(entry, framebuffer, texAddrOffset, RASTER_DEPTH, &match)) {
-			candidates.push_back(AttachCandidate{ match, entry, framebuffer, RASTER_DEPTH, framebuffer->depthBindSeq });
+			candidates.push_back(AttachCandidate{ framebuffer, match, RASTER_DEPTH });
 		}
 	}
 
@@ -640,11 +641,11 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 
 	if (Reporting::ShouldLogNTimes("multifbcandidate", 5)) {
 		std::string cands;
-			for (auto &candidate : candidates) {
-				cands += candidate.ToString() + "\n";
-			}
+		for (size_t i = 0; i < candidates.size(); i++) {
+			cands += candidates[i].ToString() + "\n";
+		}
 
-		WARN_LOG_N_TIMES(multifbcandidate, 5, G3D, "GetFramebufferCandidates: Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
+		WARN_LOG(G3D, "GetFramebufferCandidates: Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
 			(int)candidates.size(),
 			entry.addr, texAddrOffset, dimWidth(entry.dim), dimHeight(entry.dim), entry.bufw, GeTextureFormatToString(entry.format),
 			cands.c_str()
@@ -653,17 +654,17 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 
 	// OK, multiple possible candidates. Will need to figure out which one is the most relevant.
 	int bestRelevancy = -1;
-	int bestIndex = -1;
+	size_t bestIndex = -1;
 
 	bool kzCompat = PSP_CoreParameter().compat.flags().SplitFramebufferMargin;
 
 	// We simply use the sequence counter as relevancy nowadays.
-	for (int i = 0; i < (int)candidates.size(); i++) {
+	for (size_t i = 0; i < candidates.size(); i++) {
 		const AttachCandidate &candidate = candidates[i];
-		int relevancy = candidate.seqCount;
+		int relevancy = candidate.channel == RASTER_COLOR ? candidate.fb->colorBindSeq : candidate.fb->depthBindSeq;
 
 		// Add a small negative penalty if the texture is currently bound as a framebuffer, and offset is not zero.
-		// Should avoid problems when pingponging two nearby buffers, like in Wipeout Pure in #15927
+		// Should avoid problems when pingponging two nearby buffers, like in Wipeout Pure in #15927.
 		if (candidate.channel == RASTER_COLOR &&
 			(candidate.match.yOffset != 0 || candidate.match.xOffset != 0) &&
 			(candidate.fb->fb_address & 0x1FFFFF) == (gstate.getFrameBufAddress() & 0x1FFFFF)) {
@@ -865,7 +866,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 	uint32_t fb_stride = channel == RASTER_DEPTH ? framebuffer->z_stride : framebuffer->fb_stride;
 	GEBufferFormat fb_format = channel == RASTER_DEPTH ? GE_FORMAT_DEPTH16 : framebuffer->fb_format;
 
-	if (channel == RASTER_DEPTH && framebuffer->z_address == framebuffer->fb_address) {
+	if (channel == RASTER_DEPTH && (framebuffer->z_address == framebuffer->fb_address || framebuffer->z_address == 0)) {
 		// Try to avoid silly matches to somewhat malformed buffers.
 		return false;
 	}
@@ -2248,7 +2249,7 @@ void TextureCacheCommon::ClearNextFrame() {
 std::string AttachCandidate::ToString() const {
 	return StringFromFormat("[%s seq:%d C:%08x/%d(%s) Z:%08x/%d X:%d Y:%d reint: %s]",
 		this->channel == RASTER_COLOR ? "COLOR" : "DEPTH",
-		this->seqCount,
+		this->channel == RASTER_COLOR ? this->fb->colorBindSeq : this->fb->depthBindSeq,
 		this->fb->fb_address, this->fb->fb_stride, GeBufferFormatToString(this->fb->fb_format),
 		this->fb->z_address, this->fb->z_stride,
 		this->match.xOffset, this->match.yOffset, this->match.reinterpret ? "true" : "false");

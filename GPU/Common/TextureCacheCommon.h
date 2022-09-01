@@ -93,11 +93,10 @@ class VulkanTexture;
 // Enough information about a texture to match it to framebuffers.
 struct TextureDefinition {
 	u32 addr;
+	u16 bufw;
+	u16 dim;
 	GETextureFormat format;
-	u32 dim;
-	u32 bufw;
 };
-
 
 // TODO: Shrink this struct. There is some fluff.
 
@@ -209,18 +208,16 @@ typedef std::map<u64, std::unique_ptr<TexCacheEntry>> TexCache;
 #endif
 
 struct FramebufferMatchInfo {
-	int xOffset;
-	int yOffset;
+	int16_t xOffset;
+	int16_t yOffset;
 	bool reinterpret;
 	GEBufferFormat reinterpretTo;
 };
 
 struct AttachCandidate {
-	FramebufferMatchInfo match;
-	TextureDefinition entry;
 	VirtualFramebuffer *fb;
+	FramebufferMatchInfo match;
 	RasterChannel channel;
-	int seqCount;
 
 	std::string ToString() const;
 };

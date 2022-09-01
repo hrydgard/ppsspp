@@ -52,15 +52,17 @@ struct VkRenderData {
 	union {
 		struct {
 			VkPipeline pipeline;
+			VkPipelineLayout pipelineLayout;
 		} pipeline;
 		struct {
 			VKRGraphicsPipeline *pipeline;
+			VkPipelineLayout pipelineLayout;
 		} graphics_pipeline;
 		struct {
 			VKRComputePipeline *pipeline;
+			VkPipelineLayout pipelineLayout;
 		} compute_pipeline;
 		struct {
-			VkPipelineLayout pipelineLayout;
 			VkDescriptorSet ds;
 			int numUboOffsets;
 			uint32_t uboOffsets[3];
@@ -70,17 +72,16 @@ struct VkRenderData {
 			uint32_t offset;
 		} draw;
 		struct {
-			VkPipelineLayout pipelineLayout;
 			VkDescriptorSet ds;
 			int numUboOffsets;
 			uint32_t uboOffsets[3];
 			VkBuffer vbuffer;  // might need to increase at some point
-			VkDeviceSize voffset;
 			VkBuffer ibuffer;
-			VkDeviceSize ioffset;
+			uint32_t voffset;
+			uint32_t ioffset;
 			uint32_t count;
 			int16_t instances;
-			VkIndexType indexType;
+			int16_t indexType;
 		} drawIndexed;
 		struct {
 			uint32_t clearColor;
@@ -103,7 +104,6 @@ struct VkRenderData {
 			uint32_t color;
 		} blendColor;
 		struct {
-			VkPipelineLayout pipelineLayout;
 			VkShaderStageFlags stages;
 			uint8_t offset;
 			uint8_t size;
@@ -134,8 +134,8 @@ enum class VKRRenderPassStoreAction : uint8_t {
 };
 
 struct TransitionRequest {
-	VkImageAspectFlags aspect;  // COLOR or DEPTH
 	VKRFramebuffer *fb;
+	VkImageAspectFlags aspect;  // COLOR or DEPTH
 	VkImageLayout targetLayout;
 };
 
@@ -153,7 +153,7 @@ struct VKRStep {
 
 	VKRStepType stepType;
 	std::vector<VkRenderData> commands;
-	std::vector<TransitionRequest> preTransitions;
+	TinySet<TransitionRequest, 4> preTransitions;
 	TinySet<VKRFramebuffer *, 8> dependencies;
 	const char *tag;
 	union {
