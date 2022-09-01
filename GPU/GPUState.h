@@ -592,8 +592,8 @@ struct GPUStateCache {
 	u32 curTextureHeight;
 	u32 actualTextureHeight;
 	// Only applied when needShaderTexClamp = true.
-	u32 curTextureXOffset;
-	u32 curTextureYOffset;
+	int curTextureXOffset;
+	int curTextureYOffset;
 	bool curTextureIs3D;
 
 	float vpWidth;
@@ -621,15 +621,15 @@ struct GPUStateCache {
 	u32 curRTRenderWidth;
 	u32 curRTRenderHeight;
 
-	void SetCurRTOffset(u32 xoff, u32 yoff) {
+	void SetCurRTOffset(int xoff, int yoff) {
 		if (xoff != curRTOffsetX || yoff != curRTOffsetY) {
 			curRTOffsetX = xoff;
 			curRTOffsetY = yoff;
-			Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
+			Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_PROJTHROUGHMATRIX);
 		}
 	}
-	u32 curRTOffsetX;
-	u32 curRTOffsetY;
+	int curRTOffsetX;
+	int curRTOffsetY;
 
 	// Set if we are doing hardware bezier/spline.
 	SubmitType submitType;

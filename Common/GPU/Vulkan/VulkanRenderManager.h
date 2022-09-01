@@ -242,29 +242,32 @@ public:
 		return pipeline;
 	}
 
-	void BindPipeline(VkPipeline pipeline, PipelineFlags flags) {
+	void BindPipeline(VkPipeline pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(pipeline != VK_NULL_HANDLE);
 		VkRenderData data{ VKRRenderCommand::BIND_PIPELINE };
 		data.pipeline.pipeline = pipeline;
+		data.pipeline.pipelineLayout = pipelineLayout;
 		curPipelineFlags_ |= flags;
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void BindPipeline(VKRGraphicsPipeline *pipeline, PipelineFlags flags) {
+	void BindPipeline(VKRGraphicsPipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(pipeline != nullptr);
 		VkRenderData data{ VKRRenderCommand::BIND_GRAPHICS_PIPELINE };
 		data.graphics_pipeline.pipeline = pipeline;
+		data.graphics_pipeline.pipelineLayout = pipelineLayout;
 		curPipelineFlags_ |= flags;
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void BindPipeline(VKRComputePipeline *pipeline, PipelineFlags flags) {
+	void BindPipeline(VKRComputePipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(pipeline != nullptr);
 		VkRenderData data{ VKRRenderCommand::BIND_COMPUTE_PIPELINE };
 		data.compute_pipeline.pipeline = pipeline;
+		data.compute_pipeline.pipelineLayout = pipelineLayout;
 		curPipelineFlags_ |= flags;
 		curRenderStep_->commands.push_back(data);
 	}
@@ -351,7 +354,6 @@ public:
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(size + offset < 40);
 		VkRenderData data{ VKRRenderCommand::PUSH_CONSTANTS };
-		data.push.pipelineLayout = pipelineLayout;
 		data.push.stages = stages;
 		data.push.offset = offset;
 		data.push.size = size;
@@ -386,12 +388,11 @@ public:
 			curRenderStep_->render.stencilStore = VKRRenderPassStoreAction::DONT_CARE;
 	}
 
-	void Draw(VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count, int offset = 0) {
+	void Draw(VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count, int offset = 0) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
 		VkRenderData data{ VKRRenderCommand::DRAW };
 		data.draw.count = count;
 		data.draw.offset = offset;
-		data.draw.pipelineLayout = layout;
 		data.draw.ds = descSet;
 		data.draw.vbuffer = vbuffer;
 		data.draw.voffset = voffset;
@@ -403,12 +404,11 @@ public:
 		curRenderStep_->render.numDraws++;
 	}
 
-	void DrawIndexed(VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, VkBuffer ibuffer, int ioffset, int count, int numInstances, VkIndexType indexType) {
+	void DrawIndexed(VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, VkBuffer ibuffer, int ioffset, int count, int numInstances, VkIndexType indexType) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
 		VkRenderData data{ VKRRenderCommand::DRAW_INDEXED };
 		data.drawIndexed.count = count;
 		data.drawIndexed.instances = numInstances;
-		data.drawIndexed.pipelineLayout = layout;
 		data.drawIndexed.ds = descSet;
 		data.drawIndexed.vbuffer = vbuffer;
 		data.drawIndexed.voffset = voffset;

@@ -301,37 +301,36 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		for (int i = 0; i < plan.levelsToLoad; i++) {
 			int srcLevel = i == 0 ? plan.baseLevelSrc : i;
 
-			int w = gstate.getTextureWidth(srcLevel);
-			int h = gstate.getTextureHeight(srcLevel);
+			int mipWidth;
+			int mipHeight;
+			plan.GetMipSize(i, &mipWidth, &mipHeight);
 
 			u8 *data = nullptr;
 			int stride = 0;
+			int bpp;
 
-			if (plan.replaced->GetSize(srcLevel, w, h)) {
-				int bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format(srcLevel));
-				stride = w * bpp;
-				data = (u8 *)AllocateAlignedMemory(stride * h, 16);
+			if (plan.replaceValid) {
+				bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format(srcLevel));
 			} else {
 				if (plan.scaleFactor > 1) {
-					data = (u8 *)AllocateAlignedMemory(4 * (w * plan.scaleFactor) * (h * plan.scaleFactor), 16);
-					stride = w * plan.scaleFactor * 4;
+					bpp = 4;
 				} else {
-					int bpp = dstFmt == Draw::DataFormat::R8G8B8A8_UNORM ? 4 : 2;
-
-					stride = std::max(w * bpp, 4);
-					data = (u8 *)AllocateAlignedMemory(stride * h, 16);
+					bpp = dstFmt == Draw::DataFormat::R8G8B8A8_UNORM ? 4 : 2;
 				}
 			}
 
+			stride = mipWidth * bpp;
+			data = (u8 *)AllocateAlignedMemory(stride * mipHeight, 16);
+
 			if (!data) {
-				ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", w, h);
+				ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", mipWidth, mipHeight);
 				return;
 			}
 
 			LoadTextureLevel(*entry, data, stride, *plan.replaced, srcLevel, plan.scaleFactor, dstFmt, true);
 
 			// NOTE: TextureImage takes ownership of data, so we don't free it afterwards.
-			render_->TextureImage(entry->textureName, i, w * plan.scaleFactor, h * plan.scaleFactor, 1, dstFmt, data, GLRAllocType::ALIGNED);
+			render_->TextureImage(entry->textureName, i, mipWidth, mipHeight, 1, dstFmt, data, GLRAllocType::ALIGNED);
 		}
 
 		bool genMips = plan.levelsToCreate > plan.levelsToLoad;
@@ -359,7 +358,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		render_->FinalizeTexture(entry->textureName, 1, false);
 	}
 
-	if (plan.replaced->Valid()) {
+	if (plan.replaceValid) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
 	}
 }

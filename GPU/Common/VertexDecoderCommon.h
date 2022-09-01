@@ -125,10 +125,13 @@ public:
 		case DEC_FLOAT_3:
 			{
 				const float *f = (const float *)(data_ + decFmt_.posoff);
-				memcpy(pos, f, 12);
-				if (isThrough()) {
+				pos[0] = f[0];
+				pos[1] = f[1];
+				if (!isThrough()) {
+					pos[2] = f[2];
+				} else {
 					// Integer value passed in a float. Clamped to 0, 65535.
-					const float z = (int)pos[2] * (1.0f / 65535.0f);
+					const float z = (int)f[2] * (1.0f / 65535.0f);
 					pos[2] = z > 1.0f ? 1.0f : (z < 0.0f ? 0.0f : z);
 				}
 			}
@@ -443,8 +446,6 @@ struct VertexDecoderOptions {
 
 class VertexDecoder {
 public:
-	VertexDecoder();
-
 	// A jit cache is not mandatory.
 	void SetVertexType(u32 vtype, const VertexDecoderOptions &options, VertexDecoderJitCache *jitCache = nullptr);
 
@@ -549,11 +550,10 @@ public:
 	int ToString(char *output) const;
 
 	// Mutable decoder state
-	mutable u8 *decoded_;
-	mutable const u8 *ptr_;
-
-	JittedVertexDecoder jitted_;
-	int32_t jittedSize_;
+	mutable u8 *decoded_ = nullptr;
+	mutable const u8 *ptr_ = nullptr;
+	JittedVertexDecoder jitted_ = 0;
+	int32_t jittedSize_ = 0;
 
 	// "Immutable" state, set at startup
 

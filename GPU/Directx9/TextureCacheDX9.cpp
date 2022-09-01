@@ -238,27 +238,28 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 		return;
 	}
 
-	int tw = plan.w;
-	int th = plan.h;
-
 	D3DFORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-	if (plan.replaced->GetSize(plan.baseLevelSrc, tw, th)) {
+	if (plan.replaceValid) {
 		dstFmt = ToD3D9Format(plan.replaced->Format(plan.baseLevelSrc));
 	} else if (plan.scaleFactor > 1) {
-		tw *= plan.scaleFactor;
-		th *= plan.scaleFactor;
 		dstFmt = D3DFMT_A8R8G8B8;
 	}
 
-	// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
-	int levels = std::min(plan.levelsToCreate, plan.levelsToLoad);
+	int levels;
 
 	LPDIRECT3DBASETEXTURE9 &texture = DxTex(entry);
 	D3DPOOL pool = D3DPOOL_DEFAULT;
 	int usage = D3DUSAGE_DYNAMIC;
 
+	int tw;
+	int th;
+	plan.GetMipSize(0, &tw, &th);
+
 	HRESULT hr;
 	if (plan.depth == 1) {
+		// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
+		levels = std::min(plan.levelsToCreate, plan.levelsToLoad);
+
 		LPDIRECT3DTEXTURE9 tex;
 		hr = device_->CreateTexture(tw, th, levels, usage, dstFmt, pool, &tex, nullptr);
 		texture = tex;
@@ -266,6 +267,8 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 		LPDIRECT3DVOLUMETEXTURE9 tex;
 		hr = device_->CreateVolumeTexture(tw, th, plan.depth, 1, usage, dstFmt, pool, &tex, nullptr);
 		texture = tex;
+
+		levels = 1;
 	}
 
 	if (FAILED(hr)) {
@@ -322,7 +325,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 		entry->status |= TexCacheEntry::STATUS_3D;
 	}
 
-	if (plan.replaced->Valid()) {
+	if (plan.replaceValid) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
 	}
 }

@@ -21,6 +21,7 @@
 
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
+#include "Common/Data/Collections/TinySet.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/MemoryUtil.h"
 #include "Common/StringUtils.h"
@@ -532,21 +533,17 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	def.format = texFormat;
 	def.bufw = bufw;
 
-	std::vector<AttachCandidate> candidates = GetFramebufferCandidates(def, 0);
-	if (candidates.size() > 0) {
-		int index = GetBestCandidateIndex(candidates);
-		if (index != -1) {
-			// If we had a texture entry here, let's get rid of it.
-			if (entryIter != cache_.end()) {
-				DeleteTexture(entryIter);
-			}
-
-			const AttachCandidate &candidate = candidates[index];
-			nextTexture_ = nullptr;
-			nextNeedsRebuild_ = false;
-			SetTextureFramebuffer(candidate);  // sets curTexture3D
-			return nullptr;
+	AttachCandidate bestCandidate;
+	if (GetBestFramebufferCandidate(def, 0, &bestCandidate)) {
+		// If we had a texture entry here, let's get rid of it.
+		if (entryIter != cache_.end()) {
+			DeleteTexture(entryIter);
 		}
+
+		nextTexture_ = nullptr;
+		nextNeedsRebuild_ = false;
+		SetTextureFramebuffer(bestCandidate);  // sets curTexture3D
+		return nullptr;
 	}
 
 	// Didn't match a framebuffer, keep going.
@@ -617,55 +614,69 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	return entry;
 }
 
-std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const TextureDefinition &entry, u32 texAddrOffset) {
+bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate) const {
 	gpuStats.numFramebufferEvaluations++;
 
-	std::vector<AttachCandidate> candidates;
+	TinySet<AttachCandidate, 6> candidates;
 
 	const std::vector<VirtualFramebuffer *> &framebuffers = framebufferManager_->Framebuffers();
 
 	for (VirtualFramebuffer *framebuffer : framebuffers) {
 		FramebufferMatchInfo match{};
 		if (MatchFramebuffer(entry, framebuffer, texAddrOffset, RASTER_COLOR, &match)) {
-			candidates.push_back(AttachCandidate{ match, entry, framebuffer, RASTER_COLOR, framebuffer->colorBindSeq });
+			candidates.push_back(AttachCandidate{ framebuffer, match, RASTER_COLOR });
 		}
 		match = {};
 		if (MatchFramebuffer(entry, framebuffer, texAddrOffset, RASTER_DEPTH, &match)) {
-			candidates.push_back(AttachCandidate{ match, entry, framebuffer, RASTER_DEPTH, framebuffer->depthBindSeq });
+			candidates.push_back(AttachCandidate{ framebuffer, match, RASTER_DEPTH });
 		}
 	}
 
-	if (candidates.size() > 1) {
+	if (candidates.size() == 0) {
+		return false;
+	} else if (candidates.size() == 1) {
+		*bestCandidate = candidates[0];
+		return true;
+	}
+
+	if (Reporting::ShouldLogNTimes("multifbcandidate", 5)) {
 		std::string cands;
-		for (auto &candidate : candidates) {
-			cands += candidate.ToString() + "\n";
+		for (size_t i = 0; i < candidates.size(); i++) {
+			cands += candidates[i].ToString() + "\n";
 		}
 
-		WARN_LOG_REPORT_ONCE(multifbcandidate, G3D, "GetFramebufferCandidates: Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
+		WARN_LOG(G3D, "GetFramebufferCandidates: Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
 			(int)candidates.size(),
 			entry.addr, texAddrOffset, dimWidth(entry.dim), dimHeight(entry.dim), entry.bufw, GeTextureFormatToString(entry.format),
 			cands.c_str()
 		);
 	}
 
-	return candidates;
-}
-
-int TextureCacheCommon::GetBestCandidateIndex(const std::vector<AttachCandidate> &candidates) {
-	_dbg_assert_(!candidates.empty());
-
-	if (candidates.size() == 1) {
-		return 0;
-	}
-
 	// OK, multiple possible candidates. Will need to figure out which one is the most relevant.
 	int bestRelevancy = -1;
-	int bestIndex = -1;
+	size_t bestIndex = -1;
+
+	bool kzCompat = PSP_CoreParameter().compat.flags().SplitFramebufferMargin;
 
 	// We simply use the sequence counter as relevancy nowadays.
-	for (int i = 0; i < (int)candidates.size(); i++) {
+	for (size_t i = 0; i < candidates.size(); i++) {
 		const AttachCandidate &candidate = candidates[i];
-		int relevancy = candidate.seqCount;
+		int relevancy = candidate.channel == RASTER_COLOR ? candidate.fb->colorBindSeq : candidate.fb->depthBindSeq;
+
+		// Add a small negative penalty if the texture is currently bound as a framebuffer, and offset is not zero.
+		// Should avoid problems when pingponging two nearby buffers, like in Wipeout Pure in #15927.
+		if (candidate.channel == RASTER_COLOR &&
+			(candidate.match.yOffset != 0 || candidate.match.xOffset != 0) &&
+			(candidate.fb->fb_address & 0x1FFFFF) == (gstate.getFrameBufAddress() & 0x1FFFFF)) {
+			relevancy -= 2;
+		}
+
+		// Avoid binding as texture the framebuffer we're rendering to.
+		// In Killzone, we split the framebuffer but the matching algorithm can still pick the wrong one,
+		// which this avoids completely.
+		if (kzCompat && candidate.fb == framebufferManager_->GetCurrentRenderVFB()) {
+			continue;
+		}
 
 		if (relevancy > bestRelevancy) {
 			bestRelevancy = relevancy;
@@ -673,7 +684,12 @@ int TextureCacheCommon::GetBestCandidateIndex(const std::vector<AttachCandidate>
 		}
 	}
 
-	return bestIndex;
+	if (bestIndex != -1) {
+		*bestCandidate = candidates[bestIndex];
+		return true;
+	} else {
+		return false;
+	}
 }
 
 // Removes old textures.
@@ -850,7 +866,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 	uint32_t fb_stride = channel == RASTER_DEPTH ? framebuffer->z_stride : framebuffer->fb_stride;
 	GEBufferFormat fb_format = channel == RASTER_DEPTH ? GE_FORMAT_DEPTH16 : framebuffer->fb_format;
 
-	if (channel == RASTER_DEPTH && framebuffer->z_address == framebuffer->fb_address) {
+	if (channel == RASTER_DEPTH && (framebuffer->z_address == framebuffer->fb_address || framebuffer->z_address == 0)) {
 		// Try to avoid silly matches to somewhat malformed buffers.
 		return false;
 	}
@@ -920,15 +936,23 @@ bool TextureCacheCommon::MatchFramebuffer(
 			(fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT32) ||
 			(fb_format != GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT16);
 
-		const u32 bitOffset = (texaddr - addr) * 8;
+		const int bitOffset = (texaddr - addr) * 8;
 		if (bitOffset != 0) {
-			const u32 pixelOffset = bitOffset / std::max(1U, (u32)textureBitsPerPixel[entry.format]);
+			const int pixelOffset = bitOffset / (int)std::max(1U, (u32)textureBitsPerPixel[entry.format]);
 
-			matchInfo->yOffset = entry.bufw == 0 ? 0 : pixelOffset / entry.bufw;
-			matchInfo->xOffset = entry.bufw == 0 ? 0 : pixelOffset % entry.bufw;
+			if (pixelOffset > 0) {
+				matchInfo->yOffset = entry.bufw == 0 ? 0 : pixelOffset / (int)entry.bufw;
+				matchInfo->xOffset = entry.bufw == 0 ? 0 : pixelOffset % (int)entry.bufw;
+			} else if (pixelOffset < 0) {
+				// We don't support negative Y offsets, and negative X offsets are only for the Killzone workaround.
+				if (pixelOffset < -(int)entry.bufw || !PSP_CoreParameter().compat.flags().SplitFramebufferMargin) {
+					return false;
+				}
+				matchInfo->xOffset = entry.bufw == 0 ? 0 : -(-pixelOffset % (int)entry.bufw);
+			}
 		}
 
-		if (matchInfo->yOffset + minSubareaHeight >= framebuffer->height) {
+		if (matchInfo->yOffset > 0 && matchInfo->yOffset + minSubareaHeight >= framebuffer->height) {
 			// Can't be inside the framebuffer.
 			return false;
 		}
@@ -1082,15 +1106,13 @@ bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
 	def.bufw = GetTextureBufw(0, texaddr, fmt);
 	def.dim = gstate.getTextureDimension(0);
 
-	std::vector<AttachCandidate> candidates = GetFramebufferCandidates(def, texaddrOffset);
-	if (candidates.size() > 0) {
-		int index = GetBestCandidateIndex(candidates);
-		if (index != -1) {
-			SetTextureFramebuffer(candidates[index]);
-			return true;
-		}
+	AttachCandidate bestCandidate;
+	if (GetBestFramebufferCandidate(def, texaddrOffset, &bestCandidate)) {
+		SetTextureFramebuffer(bestCandidate);
+		return true;
+	} else {
+		return false;
 	}
-	return false;
 }
 
 void TextureCacheCommon::NotifyConfigChanged() {
@@ -1164,7 +1186,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 
 		// It's possible for a game to (successfully) access outside valid memory.
 		u32 bytes = Memory::ValidSize(clutAddr, loadBytes);
-		if (clutRenderAddress_ != 0xFFFFFFFF && !g_Config.bDisableSlowFramebufEffects) {
+		if (clutRenderAddress_ != 0xFFFFFFFF && !g_Config.bBlockTransferGPU) {
 			framebufferManager_->DownloadFramebufferForClut(clutRenderAddress_, clutRenderOffset_ + bytes);
 			Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
 			if (bytes < loadBytes) {
@@ -1903,7 +1925,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	bool smoothedDepal = false;
 	u32 depthUpperBits = 0;
 
-	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
+	if (need_depalettize) {
 		clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
 		smoothedDepal = CanUseSmoothDepal(gstate, framebuffer->fb_format, clutTexture.rampLength);
 
@@ -2227,7 +2249,7 @@ void TextureCacheCommon::ClearNextFrame() {
 std::string AttachCandidate::ToString() const {
 	return StringFromFormat("[%s seq:%d C:%08x/%d(%s) Z:%08x/%d X:%d Y:%d reint: %s]",
 		this->channel == RASTER_COLOR ? "COLOR" : "DEPTH",
-		this->seqCount,
+		this->channel == RASTER_COLOR ? this->fb->colorBindSeq : this->fb->depthBindSeq,
 		this->fb->fb_address, this->fb->fb_stride, GeBufferFormatToString(this->fb->fb_format),
 		this->fb->z_address, this->fb->z_stride,
 		this->match.xOffset, this->match.yOffset, this->match.reinterpret ? "true" : "false");
@@ -2319,16 +2341,10 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	plan.w = gstate.getTextureWidth(0);
 	plan.h = gstate.getTextureHeight(0);
 
-	plan.replaced = &FindReplacement(entry, plan.w, plan.h, plan.depth);
-	if (plan.replaced->Valid()) {
-		// We're replacing, so we won't scale.
-		plan.scaleFactor = 1;
-		plan.levelsToLoad = plan.replaced->NumLevels();
-		plan.badMipSizes = false;
-	}
+	bool isPPGETexture = entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd();
 
 	// Don't scale the PPGe texture.
-	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd()) {
+	if (isPPGETexture) {
 		plan.scaleFactor = 1;
 	}
 
@@ -2364,6 +2380,27 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		}
 	}
 
+	if (plan.isVideo || isPPGETexture) {
+		plan.replaced = &replacer_.FindNone();
+		plan.replaceValid = false;
+	} else {
+		plan.replaced = &FindReplacement(entry, plan.w, plan.h, plan.depth);
+		plan.replaceValid = plan.replaced->Valid();
+	}
+
+	if (plan.replaceValid) {
+		// We're replacing, so we won't scale.
+		plan.scaleFactor = 1;
+		plan.levelsToLoad = plan.replaced->NumLevels();
+		plan.levelsToCreate = std::min(plan.levelsToLoad, plan.levelsToCreate);
+		plan.badMipSizes = false;
+		// But, we still need to create the texture at a larger size.
+		plan.replaced->GetSize(0, plan.createW, plan.createH);
+	} else {
+		plan.createW = plan.w * plan.scaleFactor;
+		plan.createH = plan.h * plan.scaleFactor;
+	}
+
 	// Always load base level texture here 
 	plan.baseLevelSrc = 0;
 	if (IsFakeMipmapChange()) {
@@ -2376,7 +2413,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	if (plan.isVideo || plan.depth != 1) {
 		plan.maxPossibleLevels = 1;
 	} else {
-		plan.maxPossibleLevels = log2i(std::min(plan.w * plan.scaleFactor, plan.h * plan.scaleFactor)) + 1;
+		plan.maxPossibleLevels = log2i(std::min(plan.createW, plan.createH)) + 1;
 	}
 
 	if (plan.levelsToCreate == 1) {

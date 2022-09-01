@@ -93,11 +93,10 @@ class VulkanTexture;
 // Enough information about a texture to match it to framebuffers.
 struct TextureDefinition {
 	u32 addr;
+	u16 bufw;
+	u16 dim;
 	GETextureFormat format;
-	u32 dim;
-	u32 bufw;
 };
-
 
 // TODO: Shrink this struct. There is some fluff.
 
@@ -209,18 +208,16 @@ typedef std::map<u64, std::unique_ptr<TexCacheEntry>> TexCache;
 #endif
 
 struct FramebufferMatchInfo {
-	u32 xOffset;
-	u32 yOffset;
+	int16_t xOffset;
+	int16_t yOffset;
 	bool reinterpret;
 	GEBufferFormat reinterpretTo;
 };
 
 struct AttachCandidate {
-	FramebufferMatchInfo match;
-	TextureDefinition entry;
 	VirtualFramebuffer *fb;
+	FramebufferMatchInfo match;
 	RasterChannel channel;
-	int seqCount;
 
 	std::string ToString() const;
 };
@@ -264,11 +261,30 @@ struct BuildTexturePlan {
 	int w;
 	int h;
 
+	// Scaled (or replaced) size of the 0-mip of the final texture.
+	int createW;
+	int createH;
+
 	// Used for 3D textures only. If not a 3D texture, will be 1.
 	int depth;
 
 	// The replacement for the texture.
 	ReplacedTexture *replaced;
+	// Need to only check once since it can change during the load!
+	bool replaceValid;
+
+	void GetMipSize(int level, int *w, int *h) const {
+		if (replaceValid) {
+			replaced->GetSize(level, *w, *h);
+		} else if (depth == 1) {
+			*w = createW >> level;
+			*h = createH >> level;
+		} else {
+			// 3D texture, we look for layers instead of levels.
+			*w = createW;
+			*h = createH;
+		}
+	}
 };
 
 class TextureCacheCommon {
@@ -362,8 +378,7 @@ protected:
 
 	bool MatchFramebuffer(const TextureDefinition &entry, VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel, FramebufferMatchInfo *matchInfo) const;
 
-	std::vector<AttachCandidate> GetFramebufferCandidates(const TextureDefinition &entry, u32 texAddrOffset);
-	int GetBestCandidateIndex(const std::vector<AttachCandidate> &candidates);
+	bool GetBestFramebufferCandidate(const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate) const;
 
 	void SetTextureFramebuffer(const AttachCandidate &candidate);
 

@@ -57,7 +57,6 @@ struct CompatFlags {
 	bool RequireBufferedRendering;
 	bool RequireBlockTransfer;
 	bool RequireDefaultCPUClock;
-	bool DisableReadbacks;
 	bool DisableAccurateDepth;
 	bool MGS2AcidHack;
 	bool SonicRivalsHack;
@@ -87,6 +86,7 @@ struct CompatFlags {
 	bool AllowLargeFBTextureOffsets;
 	bool AtracLoopHack;
 	bool DeswizzleDepth;
+	bool SplitFramebufferMargin;
 };
 
 class IniFile;
