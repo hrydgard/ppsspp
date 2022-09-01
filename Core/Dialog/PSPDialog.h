@@ -129,6 +129,6 @@ protected:
 
 private:
 	DialogStatus status = SCE_UTILITY_STATUS_NONE;
-	UtilityDialogType dialogType_;
+	UtilityDialogType dialogType_ = UtilityDialogType::NONE;
 	bool volatileLocked_ = false;
 };

@@ -165,10 +165,10 @@ protected:
 		u32 vertexCount;
 		u8 indexType;
 		s8 prim;
+		u8 cullMode;
 		u16 indexLowerBound;
 		u16 indexUpperBound;
 		UVScale uvScale;
-		int cullMode;
 	};
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
