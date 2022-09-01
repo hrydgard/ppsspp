@@ -379,7 +379,7 @@ class LibretroHost : public Host
       void InitSound() override {}
       void UpdateSound() override
       {
-         extern int hostAttemptBlockSize;
+         extern const int hostAttemptBlockSize;
          const int blockSizeMax = 512;
          static int16_t audio[blockSizeMax * 2];
          assert(hostAttemptBlockSize <= blockSizeMax);
