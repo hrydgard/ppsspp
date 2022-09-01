@@ -499,12 +499,29 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 	}
 
+	ReplacedTextureDecodeInfo replacedInfo;
+	bool willSaveTex = false;
+	if (replacer_.Enabled() && !plan.replaceValid && plan.depth == 1) {
+		// TODO: Do we handle the race where a replacement becomes valid AFTER this but before we save?
+		replacedInfo.cachekey = entry->CacheKey();
+		replacedInfo.hash = entry->fullhash;
+		replacedInfo.addr = entry->addr;
+		replacedInfo.isVideo = plan.isVideo;
+		replacedInfo.isFinal = (entry->status & TexCacheEntry::STATUS_TO_SCALE) == 0;
+		replacedInfo.scaleFactor = plan.scaleFactor;
+		replacedInfo.fmt = FromVulkanFormat(VULKAN_8888_FORMAT);
+		willSaveTex = replacer_.WillSave(replacedInfo);
+		if (willSaveTex) {
+			actualFmt = VULKAN_8888_FORMAT;
+		}
+	}
+
 	char texName[128]{};
 	snprintf(texName, sizeof(texName), "tex_%08x_%s", entry->addr, GeTextureFormatToString((GETextureFormat)entry->format, gstate.getClutPaletteFormat()));
 	image->SetTag(texName);
 
 	bool allocSuccess = image->CreateDirect(cmdInit, plan.createW, plan.createH, plan.depth, plan.levelsToCreate, actualFmt, imageLayout, usage, mapping);
-	if (!allocSuccess && !lowMemoryMode_) {
+	if (!allocSuccess && !lowMemoryMode_ && !replacer_.Enabled()) {
 		WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
 		lowMemoryMode_ = true;
 		decimationCounter_ = 0;
@@ -538,20 +555,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	if (!entry->vkTex) {
 		return;
-	}
-
-	ReplacedTextureDecodeInfo replacedInfo;
-	bool willSaveTex = false;
-	if (replacer_.Enabled() && !plan.replaceValid && plan.depth == 1) {
-		// TODO: Do we handle the race where a replacement becomes valid AFTER this but before we save?
-		replacedInfo.cachekey = entry->CacheKey();
-		replacedInfo.hash = entry->fullhash;
-		replacedInfo.addr = entry->addr;
-		replacedInfo.isVideo = plan.isVideo;
-		replacedInfo.isFinal = (entry->status & TexCacheEntry::STATUS_TO_SCALE) == 0;
-		replacedInfo.scaleFactor = plan.scaleFactor;
-		replacedInfo.fmt = FromVulkanFormat(actualFmt);
-		willSaveTex = replacer_.WillSave(replacedInfo);
 	}
 
 	VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -591,7 +594,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			} else {
 				data = drawEngine_->GetPushBufferForTextureData()->PushAligned(sz, &bufferOffset, &texBuf, pushAlignment);
 			}
-			LoadTextureLevel(*entry, (uint8_t *)data, lstride, srcLevel, lfactor, dstFmt);
+			LoadTextureLevel(*entry, (uint8_t *)data, lstride, srcLevel, lfactor, actualFmt);
 			if (willSaveTex)
 				bufferOffset = drawEngine_->GetPushBufferForTextureData()->PushAligned(&saveData[0], sz, pushAlignment, &texBuf);
 		};
