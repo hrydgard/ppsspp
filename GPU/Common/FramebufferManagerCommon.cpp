@@ -21,6 +21,7 @@
 
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/Data/Collections/TinySet.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Math/lin/matrix4x4.h"
@@ -494,7 +495,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		currentRenderVfb_ = vfb;
 
 		// Assume that if we're clearing right when switching to a new framebuffer, we don't need to upload.
-		if (useBufferedRendering_ && !g_Config.bDisableSlowFramebufEffects && params.isDrawing) {
+		if (useBufferedRendering_ && params.isDrawing) {
 			gpu->PerformMemoryUpload(params.fb_address, byteSize);
 			// Alpha was already done by PerformMemoryUpload.
 			PerformStencilUpload(params.fb_address, byteSize, StencilUpload::STENCIL_IS_ZERO | StencilUpload::IGNORE_ALPHA);
@@ -1233,7 +1234,7 @@ void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *v
 		// Some games will draw to some memory once, and use it as a render-to-texture later.
 		// To support this, we save the first frame to memory when we have a safe w/h.
 		// Saving each frame would be slow.
-		if (!g_Config.bDisableSlowFramebufEffects && !PSP_CoreParameter().compat.flags().DisableFirstFrameReadback) {
+		if (g_Config.bBlockTransferGPU && !PSP_CoreParameter().compat.flags().DisableFirstFrameReadback) {
 			ReadFramebufferToMemory(vfb, 0, 0, vfb->safeWidth, vfb->safeHeight, RASTER_COLOR);
 			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
 			vfb->safeWidth = 0;
@@ -1677,7 +1678,7 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 	int x_bytes = x_pixels * bpp;
 	int w_bytes = w_pixels * bpp;
 
-	std::vector<BlockTransferRect> candidates;
+	TinySet<BlockTransferRect, 4> candidates;
 
 	// We work entirely in bytes when we do the matching, because games don't consistently use bpps that match
 	// that of their buffers. Then after matching we try to map the copy to the simplest operation that does
@@ -1752,20 +1753,27 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 		candidates.push_back(candidate);
 	}
 
+	const BlockTransferRect *best = nullptr;
 	// Sort candidates by just recency for now, we might add other.
-	std::sort(candidates.begin(), candidates.end());
+	for (size_t i = 0; i < candidates.size(); i++) {
+		const BlockTransferRect *candidate = &candidates[i];
+		if (!best || candidate->vfb->colorBindSeq > best->vfb->colorBindSeq) {
+			best = candidate;
+		}
+	}
 
 	if (candidates.size() > 1) {
-		std::string log;
-		for (auto &candidate : candidates) {
-			log += " - " + candidate.ToString() + "\n";
+		if (Reporting::ShouldLogNTimes("mulblock", 5)) {
+			std::string log;
+			for (size_t i = 0; i < candidates.size(); i++) {
+				log += " - " + candidates[i].ToString() + "\n";
+			}
+			WARN_LOG(G3D, "Multiple framebuffer candidates for %08x/%d/%d %d,%d %dx%d (dest = %d):\n%s", basePtr, stride_pixels, bpp, x_pixels, y, w_pixels, h, (int)destination, log.c_str());
 		}
-		WARN_LOG_N_TIMES(mulblock, 5, G3D, "Multiple framebuffer candidates for %08x/%d/%d %d,%d %dx%d (dest = %d):\n%s", basePtr, stride_pixels, bpp, x_pixels, y, w_pixels, h, (int)destination, log.c_str());
 	}
 
 	if (!candidates.empty()) {
-		// Pick the last candidate.
-		*rect = candidates.back();
+		*rect = *best;
 		return true;
 	} else {
 		if (Memory::IsVRAMAddress(basePtr) && destination && h >= 128) {

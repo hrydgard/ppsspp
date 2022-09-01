@@ -119,7 +119,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 	bool useBufferedRendering = framebufferManager_->UseBufferedRendering();
 
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
-		gstate_c.SetAllowFramebufferRead(!g_Config.bDisableSlowFramebufEffects);
+		gstate_c.SetAllowFramebufferRead(!g_Config.bDisableShaderBlending);
 		if (gstate.isModeClear()) {
 			dxstate.blend.disable();
 			// Color Mask

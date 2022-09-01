@@ -142,7 +142,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	bool useBufferedRendering = framebufferManager_->UseBufferedRendering();
 	// Blend
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
-		gstate_c.SetAllowFramebufferRead(!g_Config.bDisableSlowFramebufEffects);
+		gstate_c.SetAllowFramebufferRead(!g_Config.bDisableShaderBlending);
 		if (gstate.isModeClear()) {
 			keys_.blend.value = 0;  // full wipe
 			keys_.blend.blendEnable = false;

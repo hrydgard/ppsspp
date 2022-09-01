@@ -136,7 +136,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	bool useBufferedRendering = framebufferManager_->UseBufferedRendering();
 
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
-		gstate_c.SetAllowFramebufferRead(!g_Config.bDisableSlowFramebufEffects);
+		gstate_c.SetAllowFramebufferRead(!g_Config.bDisableShaderBlending);
 		if (gstate.isModeClear()) {
 			key.logicOpEnable = false;
 			key.logicOp = VK_LOGIC_OP_CLEAR;
