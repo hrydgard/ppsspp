@@ -30,7 +30,7 @@ inline bool IsVRBuild() { return false; }
 inline void InitVROnAndroid(void* vm, void* activity, int version, char* name) {}
 inline void EnterVR(bool firstTime) {}
 inline void GetVRResolutionPerEye(int* width, int* height) {}
-inline void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool haptics) {}
+inline void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale) {}
 inline void UpdateVRScreenKey(const KeyInput &key) {}
 
 // VR rendering integration
