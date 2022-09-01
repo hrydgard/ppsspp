@@ -82,6 +82,11 @@ static bool m_logAudio;
 static int chanQueueMaxSizeFactor;
 static int chanQueueMinSizeFactor;
 
+// Accessor for libretro
+int __AudioGetHostAttemptBlockSize() {
+	return hostAttemptBlockSize;
+}
+
 static void hleAudioUpdate(u64 userdata, int cyclesLate) {
 	// Schedule the next cycle first.  __AudioUpdate() may consume cycles.
 	CoreTiming::ScheduleEvent(audioIntervalCycles - cyclesLate, eventAudioUpdate, 0);
