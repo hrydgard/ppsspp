@@ -499,21 +499,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 	}
 
-	ReplacedTextureDecodeInfo replacedInfo;
-	bool willSaveTex = false;
-	if (replacer_.Enabled() && !plan.replaceValid && plan.depth == 1) {
-		// TODO: Do we handle the race where a replacement becomes valid AFTER this but before we save?
-		replacedInfo.cachekey = entry->CacheKey();
-		replacedInfo.hash = entry->fullhash;
-		replacedInfo.addr = entry->addr;
-		replacedInfo.isVideo = plan.isVideo;
-		replacedInfo.isFinal = (entry->status & TexCacheEntry::STATUS_TO_SCALE) == 0;
-		replacedInfo.scaleFactor = plan.scaleFactor;
-		replacedInfo.fmt = FromVulkanFormat(VULKAN_8888_FORMAT);
-		willSaveTex = replacer_.WillSave(replacedInfo);
-		if (willSaveTex) {
-			actualFmt = VULKAN_8888_FORMAT;
-		}
+	if (plan.saveTexture) {
+		actualFmt = VULKAN_8888_FORMAT;
 	}
 
 	char texName[128]{};
@@ -588,14 +575,14 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		std::vector<uint8_t> saveData;
 
 		auto loadLevel = [&](int sz, int srcLevel, int lstride, int lfactor) {
-			if (willSaveTex) {
+			if (plan.saveTexture) {
 				saveData.resize(sz);
 				data = &saveData[0];
 			} else {
 				data = drawEngine_->GetPushBufferForTextureData()->PushAligned(sz, &bufferOffset, &texBuf, pushAlignment);
 			}
 			LoadTextureLevel(*entry, (uint8_t *)data, lstride, srcLevel, lfactor, actualFmt);
-			if (willSaveTex)
+			if (plan.saveTexture)
 				bufferOffset = drawEngine_->GetPushBufferForTextureData()->PushAligned(&saveData[0], sz, pushAlignment, &texBuf);
 		};
 
@@ -646,6 +633,15 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				int w = dataScaled ? mipWidth : mipUnscaledWidth;
 				int h = dataScaled ? mipHeight : mipUnscaledHeight;
 				// At this point, data should be saveData, and not slow.
+				ReplacedTextureDecodeInfo replacedInfo;
+				replacedInfo.cachekey = entry->CacheKey();
+				replacedInfo.hash = entry->fullhash;
+				replacedInfo.addr = entry->addr;
+				replacedInfo.isVideo = IsVideo(entry->addr);
+				replacedInfo.isFinal = (entry->status & TexCacheEntry::STATUS_TO_SCALE) == 0;
+				replacedInfo.scaleFactor = plan.scaleFactor;
+				replacedInfo.fmt = FromVulkanFormat(actualFmt);
+
 				replacer_.NotifyTextureDecoded(replacedInfo, data, stride, plan.baseLevelSrc + i, w, h);
 			}
 		}

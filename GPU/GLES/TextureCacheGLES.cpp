@@ -258,15 +258,13 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	// the bottom few levels or rely on OpenGL's autogen mipmaps instead, which might not
 	// be as good quality as the game's own (might even be better in some cases though).
 
-	int tw = plan.w;
-	int th = plan.h;
+	int tw = plan.createW;
+	int th = plan.createH;
 
 	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 	if (plan.replaced->GetSize(plan.baseLevelSrc, tw, th)) {
 		dstFmt = plan.replaced->Format(plan.baseLevelSrc);
-	} else if (plan.scaleFactor > 1) {
-		tw *= plan.scaleFactor;
-		th *= plan.scaleFactor;
+	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
 		dstFmt = Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 
