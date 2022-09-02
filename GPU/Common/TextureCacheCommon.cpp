@@ -2380,7 +2380,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		}
 	}
 
-	if (plan.isVideo || isPPGETexture) {
+	if (isPPGETexture) {
 		plan.replaced = &replacer_.FindNone();
 		plan.replaceValid = false;
 	} else {
