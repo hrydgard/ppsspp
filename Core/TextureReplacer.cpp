@@ -970,6 +970,7 @@ void ReplacedTexture::PrepareData(int level) {
 void ReplacedTexture::PurgeIfOlder(double t) {
 	if (lastUsed_ < t && (!threadWaitable_ || threadWaitable_->WaitFor(0.0))) {
 		levelData_.clear();
+		initDone_ = false;
 	}
 }
 
