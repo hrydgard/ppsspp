@@ -154,11 +154,9 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		} else {
 			keys_.blend.value = 0;
 
-			GenericMaskState maskState;
+			GenericMaskState &maskState = pipelineState_.maskState;
+			GenericBlendState &blendState = pipelineState_.blendState;
 			ConvertMaskState(maskState, gstate_c.allowFramebufferRead);
-
-			// Set blend - unless we need to do it in the shader.
-			GenericBlendState blendState;
 			ConvertBlendState(blendState, gstate_c.allowFramebufferRead, maskState.applyFramebufferRead);
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
@@ -186,7 +184,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			}
 
-			if (blendState.enabled) {
+			if (blendState.blendEnabled) {
 				keys_.blend.blendEnable = true;
 				keys_.blend.logicOpEnable = false;
 				keys_.blend.blendOpColor = d3d11BlendEqLookup[(size_t)blendState.eqColor];
@@ -219,7 +217,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				}
 			}
 
-			keys_.blend.colorWriteMask = (maskState.rgba[0] ? 1 : 0) | (maskState.rgba[1] ? 2 : 0) | (maskState.rgba[2] ? 4 : 0) | (maskState.rgba[3] ? 8 : 0);
+			keys_.blend.colorWriteMask = (maskState.maskRGBA[0] ? 1 : 0) | (maskState.maskRGBA[1] ? 2 : 0) | (maskState.maskRGBA[2] ? 4 : 0) | (maskState.maskRGBA[3] ? 8 : 0);
 		}
 	}
 

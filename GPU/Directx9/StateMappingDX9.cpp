@@ -132,11 +132,9 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			}
 			dxstate.colorMask.set(mask);
 		} else {
-			GenericMaskState maskState;
+			GenericMaskState &maskState = pipelineState_.maskState;
+			GenericBlendState &blendState = pipelineState_.blendState;
 			ConvertMaskState(maskState, gstate_c.allowFramebufferRead);
-
-			// Set blend - unless we need to do it in the shader.
-			GenericBlendState blendState;
 			ConvertBlendState(blendState, gstate_c.allowFramebufferRead, maskState.applyFramebufferRead);
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
@@ -162,7 +160,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 				ResetFramebufferRead();
 			}
 
-			if (blendState.enabled) {
+			if (blendState.blendEnabled) {
 				dxstate.blend.enable();
 				dxstate.blendSeparate.enable();
 				dxstate.blendEquation.set(dxBlendEqLookup[(size_t)blendState.eqColor], dxBlendEqLookup[(size_t)blendState.eqAlpha]);
@@ -182,7 +180,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 
 			u32 mask = 0;
 			for (int i = 0; i < 4; i++) {
-				if (maskState.rgba[i])
+				if (maskState.maskRGBA[i])
 					mask |= 1 << i;
 			}
 			dxstate.colorMask.set(mask);

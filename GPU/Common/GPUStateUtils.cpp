@@ -956,7 +956,7 @@ void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithS
 	case STENCIL_VALUE_INCR_4:
 	case STENCIL_VALUE_INCR_8:
 		// We'll add the incremented value output by the shader.
-		blendState.enabled = true;
+		blendState.blendEnabled = true;
 		blendState.setFactors(srcBlend, dstBlend, BlendFactor::ONE, BlendFactor::ONE);
 		blendState.setEquation(blendEq, BlendEq::ADD);
 		break;
@@ -964,23 +964,23 @@ void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithS
 	case STENCIL_VALUE_DECR_4:
 	case STENCIL_VALUE_DECR_8:
 		// We'll subtract the incremented value output by the shader.
-		blendState.enabled = true;
+		blendState.blendEnabled = true;
 		blendState.setFactors(srcBlend, dstBlend, BlendFactor::ONE, BlendFactor::ONE);
 		blendState.setEquation(blendEq, BlendEq::SUBTRACT);
 		break;
 
 	case STENCIL_VALUE_INVERT:
 		// The shader will output one, and reverse subtracting will essentially invert.
-		blendState.enabled = true;
+		blendState.blendEnabled = true;
 		blendState.setFactors(srcBlend, dstBlend, BlendFactor::ONE, BlendFactor::ONE);
 		blendState.setEquation(blendEq, BlendEq::REVERSE_SUBTRACT);
 		break;
 
 	default:
 		if (srcBlend == BlendFactor::ONE && dstBlend == BlendFactor::ZERO && blendEq == BlendEq::ADD) {
-			blendState.enabled = false;
+			blendState.blendEnabled = false;
 		} else {
-			blendState.enabled = true;
+			blendState.blendEnabled = true;
 			blendState.setFactors(srcBlend, dstBlend, BlendFactor::ONE, BlendFactor::ZERO);
 			blendState.setEquation(blendEq, BlendEq::ADD);
 		}
@@ -1023,10 +1023,10 @@ bool IsColorWriteMaskComplex(bool allowFramebufferRead) {
 void ConvertMaskState(GenericMaskState &maskState, bool allowFramebufferRead) {
 	if (gstate_c.blueToAlpha) {
 		maskState.applyFramebufferRead = false;
-		maskState.rgba[0] = false;
-		maskState.rgba[1] = false;
-		maskState.rgba[2] = false;
-		maskState.rgba[3] = true;
+		maskState.maskRGBA[0] = false;
+		maskState.maskRGBA[1] = false;
+		maskState.maskRGBA[2] = false;
+		maskState.maskRGBA[3] = true;
 		return;
 	}
 
@@ -1038,20 +1038,20 @@ void ConvertMaskState(GenericMaskState &maskState, bool allowFramebufferRead) {
 		int channelMask = colorMask & 0xFF;
 		switch (channelMask) {
 		case 0x0:
-			maskState.rgba[i] = false;
+			maskState.maskRGBA[i] = false;
 			break;
 		case 0xFF:
-			maskState.rgba[i] = true;
+			maskState.maskRGBA[i] = true;
 			break;
 		default:
 			if (allowFramebufferRead) {
 				// Instead of just 'true', restrict shader bitmasks to Outrun temporarily.
 				// TODO: This check must match the one in IsColorWriteMaskComplex.
 				maskState.applyFramebufferRead = PSP_CoreParameter().compat.flags().ShaderColorBitmask;
-				maskState.rgba[i] = true;
+				maskState.maskRGBA[i] = true;
 			} else {
 				// Use the old heuristic.
-				maskState.rgba[i] = channelMask >= 128;
+				maskState.maskRGBA[i] = channelMask >= 128;
 			}
 		}
 		colorMask >>= 8;
@@ -1059,10 +1059,10 @@ void ConvertMaskState(GenericMaskState &maskState, bool allowFramebufferRead) {
 
 	// Let's not write to alpha if stencil isn't enabled.
 	if (IsStencilTestOutputDisabled()) {
-		maskState.rgba[3] = false;
+		maskState.maskRGBA[3] = false;
 	} else if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
 		// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
-		maskState.rgba[3] = false;
+		maskState.maskRGBA[3] = false;
 	}
 }
 
@@ -1101,12 +1101,12 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead,
 
 	case REPLACE_BLEND_BLUE_TO_ALPHA:
 		blueToAlpha = true;
-		blendState.enabled = gstate.isAlphaBlendEnabled();
+		blendState.blendEnabled = gstate.isAlphaBlendEnabled();
 		// We'll later convert the color blend to blend in the alpha channel.
 		break;
 
 	case REPLACE_BLEND_COPY_FBO:
-		blendState.enabled = true;
+		blendState.blendEnabled = true;
 		blendState.applyFramebufferRead = true;
 		blendState.resetFramebufferRead = false;
 		blendState.replaceAlphaWithStencil = replaceAlphaWithStencil;
@@ -1114,14 +1114,14 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead,
 
 	case REPLACE_BLEND_PRE_SRC:
 	case REPLACE_BLEND_PRE_SRC_2X_ALPHA:
-		blendState.enabled = true;
+		blendState.blendEnabled = true;
 		usePreSrc = true;
 		break;
 
 	case REPLACE_BLEND_STANDARD:
 	case REPLACE_BLEND_2X_ALPHA:
 	case REPLACE_BLEND_2X_SRC:
-		blendState.enabled = true;
+		blendState.blendEnabled = true;
 		break;
 	}
 

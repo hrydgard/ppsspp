@@ -153,13 +153,9 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			bool alphaMask = gstate.isClearModeAlphaMask();
 			renderManager->SetNoBlendAndMask((colorMask ? 7 : 0) | (alphaMask ? 8 : 0));
 		} else {
-			// Do the large chunks of state conversion. We might be able to hide these two behind a dirty-flag each,
-			// to avoid recomputing heavy stuff unnecessarily every draw call.
-
-			GenericMaskState maskState;
+			GenericMaskState &maskState = pipelineState_.maskState;
+			GenericBlendState &blendState = pipelineState_.blendState;
 			ConvertMaskState(maskState, gstate_c.allowFramebufferRead);
-
-			GenericBlendState blendState;
 			ConvertBlendState(blendState, gstate_c.allowFramebufferRead, maskState.applyFramebufferRead);
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
@@ -189,7 +185,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			}
 
-			if (blendState.enabled) {
+			if (blendState.blendEnabled) {
 				if (blendState.dirtyShaderBlendFixValues) {
 					// Not quite sure how necessary this is.
 					dirtyRequiresRecheck_ |= DIRTY_SHADERBLEND;
@@ -203,9 +199,9 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 				}
 			}
 
-			int mask = (int)maskState.rgba[0] | ((int)maskState.rgba[1] << 1) | ((int)maskState.rgba[2] << 2) | ((int)maskState.rgba[3] << 3);
-			if (blendState.enabled) {
-				renderManager->SetBlendAndMask(mask, blendState.enabled,
+			int mask = (int)maskState.maskRGBA[0] | ((int)maskState.maskRGBA[1] << 1) | ((int)maskState.maskRGBA[2] << 2) | ((int)maskState.maskRGBA[3] << 3);
+			if (blendState.blendEnabled) {
+				renderManager->SetBlendAndMask(mask, blendState.blendEnabled,
 					glBlendFactorLookup[(size_t)blendState.srcColor], glBlendFactorLookup[(size_t)blendState.dstColor],
 					glBlendFactorLookup[(size_t)blendState.srcAlpha], glBlendFactorLookup[(size_t)blendState.dstAlpha],
 					glBlendEqLookup[(size_t)blendState.eqColor], glBlendEqLookup[(size_t)blendState.eqAlpha]);

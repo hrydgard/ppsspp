@@ -137,12 +137,17 @@ enum class BlendEq : uint8_t {
 	COUNT
 };
 
+// Computed blend setup, including shader stuff.
 struct GenericBlendState {
-	bool enabled;
 	bool resetFramebufferRead;
 	bool applyFramebufferRead;
 	bool dirtyShaderBlendFixValues;
+
+	// Shader generation state
 	ReplaceAlphaType replaceAlphaWithStencil;
+
+	// Resulting hardware blend state
+	bool blendEnabled;
 
 	BlendFactor srcColor;
 	BlendFactor dstColor;
@@ -181,7 +186,7 @@ void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithS
 struct GenericMaskState {
 	bool applyFramebufferRead;
 	uint32_t uniformMask;  // For each bit, opposite to the PSP.
-	bool rgba[4];  // true = draw, false = don't draw this channel
+	bool maskRGBA[4];  // true = draw, false = don't draw this channel
 };
 
 void ConvertMaskState(GenericMaskState &maskState, bool allowFramebufferRead);
@@ -197,8 +202,13 @@ struct GenericStencilFuncState {
 	GEStencilOp zFail;
 	GEStencilOp zPass;
 };
-
 void ConvertStencilFuncState(GenericStencilFuncState &stencilFuncState);
+
+struct ComputedPipelineState {
+	GenericBlendState blendState;
+	GenericMaskState maskState;
+	// TODO: Add logic and possibly stencil here.
+};
 
 // See issue #15898
 inline bool SpongebobDepthInverseConditions(const GenericStencilFuncState &stencilState) {
