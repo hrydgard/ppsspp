@@ -191,7 +191,6 @@ struct GenericMaskState {
 };
 
 void ConvertMaskState(GenericMaskState &maskState, bool allowFramebufferRead);
-bool IsColorWriteMaskComplex(bool allowFramebufferRead);
 
 struct GenericStencilFuncState {
 	bool enabled;

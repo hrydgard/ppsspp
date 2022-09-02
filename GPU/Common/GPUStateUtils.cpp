@@ -988,33 +988,6 @@ void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithS
 	}
 }
 
-bool IsColorWriteMaskComplex(bool allowFramebufferRead) {
-	// Restrict to Outrun temporarily (by uglily reusing the ReinterpretFramebuffers flag)
-	// This check must match the one in ConvertMaskState.
-	if (!allowFramebufferRead || !PSP_CoreParameter().compat.flags().ShaderColorBitmask) {
-		// Don't have a choice - we'll make do but it won't always be right.
-		return false;
-	}
-
-	if (gstate_c.blueToAlpha) {
-		// We'll generate a simple ___A mask.
-		return false;
-	}
-
-	uint32_t colorMask = (gstate.pmskc & 0xFFFFFF) | (gstate.pmska << 24);
-
-	for (int i = 0; i < 4; i++) {
-		switch (colorMask & 0xFF) {
-		case 0x0:
-		case 0xFF:
-			break;
-		default:
-			return true;
-		}
-		colorMask >>= 8;
-	}
-	return false;
-}
 
 // If we can we emulate the colorMask by simply toggling the full R G B A masks offered
 // by modern hardware, we do that. This is 99.9% of the time.
