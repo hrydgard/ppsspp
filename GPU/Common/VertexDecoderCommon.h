@@ -171,36 +171,10 @@ public:
 	}
 
 	void ReadUV(float uv[2]) const {
-		switch (decFmt_.uvfmt) {
-		case DEC_U8_2:
-			{
-				const u8 *b = (const u8 *)(data_ + decFmt_.uvoff);
-				uv[0] = b[0] * (1.f / 128.f);
-				uv[1] = b[1] * (1.f / 128.f);
-			}
-			break;
-
-		case DEC_U16_2:
-			{
-				const u16 *s = (const u16 *)(data_ + decFmt_.uvoff);
-				uv[0] = s[0] * (1.f / 32768.f);
-				uv[1] = s[1] * (1.f / 32768.f);
-			}
-			break;
-
-		case DEC_FLOAT_2:
-			{
-				const float *f = (const float *)(data_ + decFmt_.uvoff);
-				uv[0] = f[0];
-				uv[1] = f[1];
-			}
-			break;
-
-		default:
-			ERROR_LOG_REPORT_ONCE(fmtuv, G3D, "Reader: Unsupported UV Format %d", decFmt_.uvfmt);
-			memset(uv, 0, sizeof(float) * 2);
-			break;
-		}
+		// Only DEC_FLOAT_2 is supported.
+		const float *f = (const float *)(data_ + decFmt_.uvoff);
+		uv[0] = f[0];
+		uv[1] = f[1];
 	}
 
 	void ReadColor0(float color[4]) const {

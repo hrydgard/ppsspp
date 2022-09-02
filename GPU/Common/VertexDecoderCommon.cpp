@@ -1265,6 +1265,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 	}
 
 	_assert_msg_(decFmt.posfmt == DEC_FLOAT_3, "Reader only supports float pos");
+	_assert_msg_(decFmt.uvfmt == DEC_FLOAT_2 || decFmt.uvfmt == DEC_NONE, "Reader only supports float UV");
 
 	// Attempt to JIT as well. But only do that if the main CPU JIT is enabled, in order to aid
 	// debugging attempts - if the main JIT doesn't work, this one won't do any better, probably.
