@@ -890,11 +890,11 @@ void DrawEngineVulkan::DoFlush() {
 					sampler = nullSampler_;
 			}
 			if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE) || prim != lastPrim_) {
-				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat);  // usehwtransform
-				_dbg_assert_msg_(!vshader->UseHWTransform(), "Bad vshader");
 				if (prim != lastPrim_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
 					ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
 				}
+				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat);  // usehwtransform
+				_dbg_assert_msg_(!vshader->UseHWTransform(), "Bad vshader");
 				Draw::NativeObject object = framebufferManager_->UseBufferedRendering() ? Draw::NativeObject::FRAMEBUFFER_RENDERPASS : Draw::NativeObject::BACKBUFFER_RENDERPASS;
 				VkRenderPass renderPass = (VkRenderPass)draw_->GetNativeObject(object);
 				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, renderPass, pipelineKey_, &dec_->decFmt, vshader, fshader, false);

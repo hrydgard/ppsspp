@@ -127,7 +127,6 @@ void DrawEngineVulkan::ResetFramebufferRead() {
 	fboTexBound_ = false;
 }
 
-// TODO: Do this more progressively. No need to compute the entire state if the entire state hasn't changed.
 // In Vulkan, we simply collect all the state together into a "pipeline key" - we don't actually set any state here
 // (the caller is responsible for setting the little dynamic state that is supported, dynState).
 void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState) {
