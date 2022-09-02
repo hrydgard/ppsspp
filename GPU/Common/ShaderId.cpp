@@ -269,7 +269,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		// Not ideal! At least we share the code.
 		ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowFramebufferRead, gstate_c.framebufFormat);
 		if (colorWriteMask) {
-			replaceBlend = REPLACE_BLEND_COPY_FBO;
+			replaceBlend = REPLACE_BLEND_READ_FRAMEBUFFER;
 		}
 		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
 
