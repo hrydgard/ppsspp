@@ -508,7 +508,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	image->SetTag(texName);
 
 	bool allocSuccess = image->CreateDirect(cmdInit, plan.createW, plan.createH, plan.depth, plan.levelsToCreate, actualFmt, imageLayout, usage, mapping);
-	if (!allocSuccess && !lowMemoryMode_ && !replacer_.Enabled()) {
+	if (!allocSuccess && !lowMemoryMode_) {
 		WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
 		lowMemoryMode_ = true;
 		decimationCounter_ = 0;
@@ -628,7 +628,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, 0, texBuf, bufferOffset, stride / bpp);
 				VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
 			}
-			if (replacer_.Enabled()) {
+			// Format might be wrong in lowMemoryMode_, so don't save.
+			if (replacer_.Enabled() && plan.replaced->IsInvalid() && !lowMemoryMode_) {
 				// When hardware texture scaling is enabled, this saves the original.
 				int w = dataScaled ? mipWidth : mipUnscaledWidth;
 				int h = dataScaled ? mipHeight : mipUnscaledHeight;
