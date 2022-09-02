@@ -1020,9 +1020,12 @@ bool IsColorWriteMaskComplex(bool allowFramebufferRead) {
 // by modern hardware, we do that. This is 99.9% of the time.
 // When that's not enough, we fall back on a technique similar to shader blending,
 // we read from the framebuffer (or a copy of it).
+// We also prepare uniformMask so that if doing this in the shader gets forced-on,
+// we have the right mask already.
 void ConvertMaskState(GenericMaskState &maskState, bool allowFramebufferRead) {
 	if (gstate_c.blueToAlpha) {
 		maskState.applyFramebufferRead = false;
+		maskState.uniformMask = 0xFF000000;
 		maskState.maskRGBA[0] = false;
 		maskState.maskRGBA[1] = false;
 		maskState.maskRGBA[2] = false;
@@ -1033,6 +1036,7 @@ void ConvertMaskState(GenericMaskState &maskState, bool allowFramebufferRead) {
 	// Invert to convert masks from the PSP's format where 1 is don't draw to PC where 1 is draw.
 	uint32_t colorMask = ~((gstate.pmskc & 0xFFFFFF) | (gstate.pmska << 24));
 
+	maskState.uniformMask = colorMask;
 	maskState.applyFramebufferRead = false;
 	for (int i = 0; i < 4; i++) {
 		int channelMask = colorMask & 0xFF;
@@ -1087,6 +1091,8 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead,
 	if (forceReplaceBlend) {
 		replaceBlend = REPLACE_BLEND_READ_FRAMEBUFFER;
 	}
+	blendState.replaceBlend = replaceBlend;
+
 	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
 	bool usePreSrc = false;
 
