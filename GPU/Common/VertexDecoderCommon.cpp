@@ -1264,6 +1264,8 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		ERROR_LOG_REPORT(G3D, "Vertices without position found: (%08x) %s", fmt_, temp);
 	}
 
+	_assert_msg_(decFmt.posfmt == DEC_FLOAT_3, "Reader only supports float pos");
+
 	// Attempt to JIT as well. But only do that if the main CPU JIT is enabled, in order to aid
 	// debugging attempts - if the main JIT doesn't work, this one won't do any better, probably.
 	if (jitCache && g_Config.bVertexDecoderJit && g_Config.iCpuCore == (int)CPUCore::JIT) {
