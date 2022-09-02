@@ -628,7 +628,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, 0, texBuf, bufferOffset, stride / bpp);
 				VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
 			}
-			if (replacer_.Enabled()) {
+			if (replacer_.Enabled() && plan.replaced->IsInvalid()) {
 				// When hardware texture scaling is enabled, this saves the original.
 				int w = dataScaled ? mipWidth : mipUnscaledWidth;
 				int h = dataScaled ? mipHeight : mipUnscaledHeight;
