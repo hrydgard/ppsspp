@@ -60,7 +60,7 @@ bool IsStencilTestOutputDisabled();
 
 StencilValueType ReplaceAlphaWithStencilType();
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
-ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bufferFormat);
+ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat);
 
 LogicOpReplaceType ReplaceLogicOpType();
 
@@ -181,7 +181,7 @@ struct GenericBlendState {
 	}
 };
 
-void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend, bool forceReplaceBlend);
+void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBlend);
 void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState);
 
 struct GenericMaskState {
@@ -190,7 +190,7 @@ struct GenericMaskState {
 	bool maskRGBA[4];  // true = draw, false = don't draw this channel
 };
 
-void ConvertMaskState(GenericMaskState &maskState, bool allowFramebufferRead);
+void ConvertMaskState(GenericMaskState &maskState);
 
 struct GenericStencilFuncState {
 	bool enabled;
