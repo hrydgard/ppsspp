@@ -136,7 +136,6 @@ static const JitLookup jitLookup[] = {
 
 	{&VertexDecoder::Step_PosS8Through, &VertexDecoderJitCache::Jit_PosS8Through},
 	{&VertexDecoder::Step_PosS16Through, &VertexDecoderJitCache::Jit_PosS16Through},
-	{&VertexDecoder::Step_PosFloatThrough, &VertexDecoderJitCache::Jit_PosFloat},
 
 	{&VertexDecoder::Step_PosS8, &VertexDecoderJitCache::Jit_PosS8},
 	{&VertexDecoder::Step_PosS16, &VertexDecoderJitCache::Jit_PosS16},
@@ -882,7 +881,7 @@ void VertexDecoderJitCache::Jit_PosS8Through() {
 	// TODO: SIMD
 	LDRSB(tempReg1, srcReg, dec_->posoff);
 	LDRSB(tempReg2, srcReg, dec_->posoff + 1);
-	LDRSB(tempReg3, srcReg, dec_->posoff + 2);  // signed?
+	LDRB(tempReg3, srcReg, dec_->posoff + 2);
 	static const ARMReg tr[3] = { tempReg1, tempReg2, tempReg3 };
 	static const ARMReg fr[3] = { fpScratchReg, fpScratchReg2, fpScratchReg3 };
 	ADD(scratchReg, dstReg, dec_->decFmt.posoff);

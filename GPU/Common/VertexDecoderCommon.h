@@ -131,8 +131,7 @@ public:
 					pos[2] = f[2];
 				} else {
 					// Integer value passed in a float. Clamped to 0, 65535.
-					const float z = (int)f[2] * (1.0f / 65535.0f);
-					pos[2] = z > 1.0f ? 1.0f : (z < 0.0f ? 0.0f : z);
+					pos[2] = (int)f[2] * (1.0f / 65535.0f);
 				}
 			}
 			break;
@@ -179,11 +178,6 @@ public:
 			{
 				const float *f = (const float *)(data_ + decFmt_.posoff);
 				memcpy(pos, f, 12);
-				if (isThrough()) {
-					// Integer value passed in a float. Clamped to 0, 65535.
-					const float z = (int)pos[2];
-					pos[2] = z > 65535.0f ? 65535.0f : (z < 0.0f ? 0.0f : z);
-				}
 			}
 			break;
 		case DEC_S16_3:
@@ -666,6 +660,7 @@ public:
 	void Jit_PosFloat();
 	void Jit_PosS8Through();
 	void Jit_PosS16Through();
+	void Jit_PosFloatThrough();
 
 	void Jit_PosS8Skin();
 	void Jit_PosS16Skin();
