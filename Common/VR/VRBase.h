@@ -96,8 +96,9 @@ typedef struct {
 	uint32_t TextureSwapChainLength;
 	uint32_t TextureSwapChainIndex;
 	ovrSwapChain ColorSwapChain;
+	ovrSwapChain DepthSwapChain;
 	XrSwapchainImageOpenGLESKHR* ColorSwapChainImage;
-	unsigned int* DepthBuffers;
+	XrSwapchainImageOpenGLESKHR* DepthSwapChainImage;
 	unsigned int* FrameBuffers;
 	bool Acquired;
 } ovrFramebuffer;
