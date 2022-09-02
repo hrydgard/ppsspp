@@ -263,15 +263,15 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;
 		bool useShaderDepal = gstate_c.useShaderDepal;
 		bool useSmoothedDepal = gstate_c.useSmoothedShaderDepal;
-		bool colorWriteMask = IsColorWriteMaskComplex(gstate_c.allowFramebufferRead);
+		bool colorWriteMask = pipelineState.maskState.applyFramebufferRead;
 
-		// Note how we here recompute some of the work already done in state mapping.
-		// Not ideal! At least we share the code.
-		ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowFramebufferRead, gstate_c.framebufFormat);
-		if (colorWriteMask) {
-			replaceBlend = REPLACE_BLEND_READ_FRAMEBUFFER;
-		}
-		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
+		ReplaceBlendType replaceBlend = pipelineState.blendState.replaceBlend;
+		ReplaceAlphaType stencilToAlpha = pipelineState.blendState.replaceAlphaWithStencil;
+
+		// For debugging, can probably delete soon.
+		// _assert_(colorWriteMask == IsColorWriteMaskComplex(gstate_c.allowFramebufferRead));
+		// _assert_(replaceBlend == ReplaceBlendWithShader(gstate_c.allowFramebufferRead, gstate_c.framebufFormat);
+		// _assert_(stencilToAlpha == ReplaceAlphaWithStencil(replaceBlend));
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		// Note that checking this means that we must dirty the fragment shader ID whenever textureFullAlpha changes.

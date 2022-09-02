@@ -1085,7 +1085,6 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead,
 	blendState.applyFramebufferRead = false;
 	blendState.dirtyShaderBlendFixValues = false;
 	blendState.useBlendColor = false;
-	blendState.replaceAlphaWithStencil = REPLACE_ALPHA_NO;
 
 	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(allowFramebufferRead, gstate_c.framebufFormat);
 	if (forceReplaceBlend) {
@@ -1094,6 +1093,8 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead,
 	blendState.replaceBlend = replaceBlend;
 
 	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
+	blendState.replaceAlphaWithStencil = replaceAlphaWithStencil;
+
 	bool usePreSrc = false;
 
 	bool blueToAlpha = false;
@@ -1115,7 +1116,6 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead,
 		blendState.blendEnabled = true;
 		blendState.applyFramebufferRead = true;
 		blendState.resetFramebufferRead = false;
-		blendState.replaceAlphaWithStencil = replaceAlphaWithStencil;
 		break;
 
 	case REPLACE_BLEND_PRE_SRC:
