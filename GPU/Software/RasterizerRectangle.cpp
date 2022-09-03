@@ -225,8 +225,6 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 			!pixelID.dithering &&
 			pixelID.alphaBlend &&
 			AlphaTestIsNeedless(pixelID) &&
-			samplerID.useTextureAlpha &&
-			samplerID.TexFunc() == GE_TEXFUNC_MODULATE &&
 			!pixelID.applyColorWriteMask &&
 			pixelID.FBFormat() == GE_FORMAT_5551) {
 			if (v1.color0.a() == 0)
