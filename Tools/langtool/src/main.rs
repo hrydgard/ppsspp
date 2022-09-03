@@ -19,6 +19,7 @@ enum Command {
     CommentUnknownLines {},
     RemoveUnknownLines {},
     MoveKey { old: String, new: String, key: String },
+    RemoveKey { section: String, key: String },
 }
 
 fn copy_missing_lines(reference_ini: &IniFile, target_ini: &mut IniFile) -> io::Result<()> {
@@ -79,6 +80,20 @@ fn move_key(
     Ok(())
 }
 
+fn remove_key(
+    target_ini: &mut IniFile,
+    section: &str,
+    key: &str,
+) -> io::Result<()> {
+    // Insert any missing full sections.
+    if let Some(old_section) = target_ini.get_section_mut(section) {
+        let _ = old_section.remove_line(key);
+    } else {
+        println!("No section {}", section);
+    }
+    Ok(())
+}
+
 fn main() {
     let opt = Opt::from_args();
 
@@ -129,6 +144,9 @@ fn main() {
             }
             Command::MoveKey { ref old, ref new,ref key,  } => {
                 move_key(&mut target_ini,  &old, &new, &key).unwrap();
+            }
+            Command::RemoveKey { ref section, ref key } => {
+                remove_key(&mut target_ini, section, key).unwrap();
             }
         }
 
