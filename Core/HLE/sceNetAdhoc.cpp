@@ -1303,8 +1303,10 @@ static u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	if (netAdhocctlInited)
 		return ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED;
 
-	if (Memory::IsValidAddress(productAddr)) {
-		Memory::ReadStruct(productAddr, &product_code);
+	auto product = PSPPointer<SceNetAdhocctlAdhocId>::Create(productAddr);
+	if (product.IsValid()) {
+		product_code = *product;
+		product.NotifyRead("NetAdhocctlInit");
 	}
 
 	adhocctlEvents.clear();
@@ -1539,21 +1541,17 @@ static int sceNetAdhocctlGetParameter(u32 paramAddr) {
 	}
 
 	// Library initialized
-	if (netAdhocctlInited) {
-		// Valid Arguments
-		if (Memory::IsValidAddress(paramAddr)) {
-			// Copy Parameter
-			Memory::WriteStruct(paramAddr,&parameter);
-			// Return Success
-			return 0;
-		}
-
-		// Invalid Arguments
-		return ERROR_NET_ADHOCCTL_INVALID_ARG;
+	if (!netAdhocctlInited) {
+		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_NOT_INITIALIZED);
 	}
 
-	// Library uninitialized
-	return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
+	auto ptr = PSPPointer<SceNetAdhocctlParameter>::Create(paramAddr);
+	if (!ptr.IsValid())
+		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_INVALID_ARG);
+
+	*ptr = parameter;
+	ptr.NotifyWrite("NetAdhocctlGetParameter");
+	return 0;
 }
 
 /**
@@ -2258,25 +2256,17 @@ static int sceNetAdhocPdpDelete(int id, int unknown) {
 static int sceNetAdhocctlGetAdhocId(u32 productStructAddr) {
 	INFO_LOG(SCENET, "sceNetAdhocctlGetAdhocId(%08x) at %08x", productStructAddr, currentMIPS->pc);
 	
-	// Library initialized
-	if (netAdhocctlInited)
-	{
-		// Valid Arguments
-		if (Memory::IsValidAddress(productStructAddr))
-		{
-			// Copy Product ID
-			Memory::WriteStruct(productStructAddr, &product_code);
+	if (!netAdhocctlInited)
+		return hleLogDebug(SCENET, ERROR_NET_ADHOCCTL_NOT_INITIALIZED, "not initialized");
 
-			// Return Success
-			return hleLogDebug(SCENET, 0, "type = %d, code = %s", product_code.type, product_code.data);
-		}
-
-		// Invalid Arguments
+	auto productStruct = PSPPointer<SceNetAdhocctlAdhocId>::Create(productStructAddr);
+	if (!productStruct.IsValid())
 		return hleLogDebug(SCENET, ERROR_NET_ADHOCCTL_INVALID_ARG, "invalid arg");
-	}
 
-	// Library uninitialized
-	return hleLogDebug(SCENET, ERROR_NET_ADHOCCTL_NOT_INITIALIZED, "not initialized");
+	*productStruct = product_code;
+	productStruct.NotifyWrite("NetAdhocctlGetAdhocId");
+
+	return hleLogDebug(SCENET, 0, "type = %d, code = %s", product_code.type, product_code.data);
 }
 
 // FIXME: Scan probably not a blocking function since there is ADHOCCTL_STATE_SCANNING state that can be polled by the game, right? But apparently it need to be delayed for Naruto Shippuden Ultimate Ninja Heroes 3
