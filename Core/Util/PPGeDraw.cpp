@@ -182,13 +182,13 @@ static void Vertex(float x, float y, float u, float v, int tw, int th, u32 color
 		vtx->x = x; vtx->y = y; vtx->z = 0;
 		vtx->u = u * tw; vtx->v = v * th;
 		vtx->color = color;
-		dataWritePtr += sizeof(vtx);
+		dataWritePtr += (u32)vtx.ElementSize();
 	} else {
 		auto vtx = PSPPointer<PPGeVertex>::Create(dataWritePtr);
 		vtx->x = x; vtx->y = y; vtx->z = 0;
 		vtx->u = u * tw; vtx->v = v * th;
 		vtx->color = color;
-		dataWritePtr += sizeof(vtx);
+		dataWritePtr += (u32)vtx.ElementSize();
 	}
 	_dbg_assert_(dataWritePtr <= dataPtr + dataSize);
 	vertexCount++;

@@ -467,6 +467,11 @@ struct PSPPointer
 		PSPPointerNotifyRW(2, (uint32_t)ptr, (uint32_t)sizeof(T), tag, tagLen - 1);
 	}
 
+	size_t ElementSize() const
+	{
+		return sizeof(T);
+	}
+
 	static PSPPointer<T> Create(u32 ptr) {
 		PSPPointer<T> p;
 		p = ptr;
