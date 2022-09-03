@@ -23,6 +23,7 @@
 #include "Common/Data/Collections/Hashmaps.h"
 
 #include "GPU/GPUState.h"
+#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
@@ -191,6 +192,8 @@ protected:
 
 	// Sometimes, unusual situations mean we need to reset dirty flags after state calc finishes.
 	uint64_t dirtyRequiresRecheck_ = 0;
+
+	ComputedPipelineState pipelineState_;
 
 	// Hardware tessellation
 	TessellationDataTransfer *tessDataTransfer;
