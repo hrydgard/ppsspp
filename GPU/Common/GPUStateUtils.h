@@ -180,6 +180,8 @@ struct GenericBlendState {
 		blendColor = 0xFFFFFF | ((uint32_t)alpha << 24);
 		useBlendColor = true;
 	}
+
+	void Log();
 };
 
 void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBlend);
@@ -198,6 +200,8 @@ struct GenericMaskState {
 		channelMask = 0xF;
 		applyFramebufferRead = true;
 	}
+
+	void Log();
 };
 
 void ConvertMaskState(GenericMaskState &maskState, bool shaderBitOpsSupported);

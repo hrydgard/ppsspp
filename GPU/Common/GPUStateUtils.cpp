@@ -1514,6 +1514,14 @@ void ConvertStencilFuncState(GenericStencilFuncState &state) {
 	}
 }
 
+void GenericMaskState::Log() {
+	WARN_LOG(G3D, "Mask: %01X readfb=%d", uniformMask, channelMask, applyFramebufferRead);
+}
+
+void GenericBlendState::Log() {
+    WARN_LOG(G3D, "Blend: hwenable=%d readfb=%d replblend=%d replalpha=%d", blendEnabled, applyFramebufferRead, replaceBlend, (int)replaceAlphaWithStencil);
+}
+
 void ComputedPipelineState::Convert(bool shaderBitOpsSuppported) {
 	ConvertMaskState(maskState, shaderBitOpsSuppported);
 	ConvertBlendState(blendState, maskState.applyFramebufferRead);
