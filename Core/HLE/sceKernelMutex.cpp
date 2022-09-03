@@ -664,31 +664,27 @@ int sceKernelUnlockMutex(SceUID id, int count)
 	return 0;
 }
 
-int sceKernelReferMutexStatus(SceUID id, u32 infoAddr)
-{
+int sceKernelReferMutexStatus(SceUID id, u32 infoAddr) {
 	u32 error;
 	PSPMutex *m = kernelObjects.Get<PSPMutex>(id, error);
-	if (!m)
-	{
-		ERROR_LOG(SCEKERNEL, "sceKernelReferMutexStatus(%i, %08x): invalid mutex id", id, infoAddr);
-		return error;
+	if (!m) {
+		return hleLogError(SCEKERNEL, error, "invalid mutex id");
 	}
 
-	DEBUG_LOG(SCEKERNEL, "sceKernelReferMutexStatus(%08x, %08x)", id, infoAddr);
-
 	// Should we crash the thread somehow?
-	if (!Memory::IsValidAddress(infoAddr))
-		return -1;
+	auto info = PSPPointer<NativeMutex>::Create(infoAddr);
+	if (!info.IsValid())
+		return hleLogError(SCEKERNEL, -1, "invalid pointer");
 
 	// Don't write if the size is 0.  Anything else is A-OK, though, apparently.
-	if (Memory::Read_U32(infoAddr) != 0)
-	{
+	if (info->size != 0) {
 		HLEKernel::CleanupWaitingThreads(WAITTYPE_MUTEX, id, m->waitingThreads);
 
 		m->nm.numWaitThreads = (int) m->waitingThreads.size();
-		Memory::WriteStruct(infoAddr, &m->nm);
+		*info = m->nm;
+		info.NotifyWrite("MutexStatus");
 	}
-	return 0;
+	return hleLogSuccessI(SCEKERNEL, 0);
 }
 
 int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int initialCount, u32 optionsPtr)
@@ -1075,18 +1071,18 @@ int sceKernelUnlockLwMutex(u32 workareaPtr, int count)
 	return 0;
 }
 
-static int __KernelReferLwMutexStatus(SceUID uid, u32 infoPtr)
-{
+static int __KernelReferLwMutexStatus(SceUID uid, u32 infoPtr) {
 	u32 error;
 	LwMutex *m = kernelObjects.Get<LwMutex>(uid, error);
 	if (!m)
-		return error;
+		return hleLogError(SCEKERNEL, error, "invalid id");
 
 	// Should we crash the thread somehow?
-	if (!Memory::IsValidAddress(infoPtr))
-		return -1;
+	auto info = PSPPointer<NativeLwMutex>::Create(infoPtr);
+	if (!info.IsValid())
+		return hleLogError(SCEKERNEL, -1, "invalid pointer");
 
-	if (Memory::Read_U32(infoPtr) != 0)
+	if (info->size != 0)
 	{
 		auto workarea = m->nm.workarea;
 
@@ -1096,44 +1092,21 @@ static int __KernelReferLwMutexStatus(SceUID uid, u32 infoPtr)
 		m->nm.currentCount = workarea->lockLevel;
 		m->nm.lockThread = workarea->lockThread == 0 ? SceUID_le(-1) : workarea->lockThread;
 		m->nm.numWaitThreads = (int) m->waitingThreads.size();
-		Memory::WriteStruct(infoPtr, &m->nm);
+		*info = m->nm;
+		info.NotifyWrite("LwMutexStatus");
 	}
-	return 0;
+	return hleLogSuccessI(SCEKERNEL, 0);
 }
 
-int sceKernelReferLwMutexStatusByID(SceUID uid, u32 infoPtr)
-{
-	int error = __KernelReferLwMutexStatus(uid, infoPtr);
-	if (error >= 0)
-	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelReferLwMutexStatusByID(%08x, %08x)", uid, infoPtr);
-		return error;
-	}
-	else
-	{
-		ERROR_LOG(SCEKERNEL, "%08x=sceKernelReferLwMutexStatusByID(%08x, %08x)", error, uid, infoPtr);
-		return error;
-	}
+int sceKernelReferLwMutexStatusByID(SceUID uid, u32 infoPtr) {
+	return __KernelReferLwMutexStatus(uid, infoPtr);
 }
 
-int sceKernelReferLwMutexStatus(u32 workareaPtr, u32 infoPtr)
-{
-	if (!Memory::IsValidAddress(workareaPtr)) {
-		ERROR_LOG(SCEKERNEL, "Bad workarea pointer for LwMutex");
-		return SCE_KERNEL_ERROR_ACCESS_ERROR;
-	}
-
+int sceKernelReferLwMutexStatus(u32 workareaPtr, u32 infoPtr) {
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
+	if (!workarea.IsValid()) {
+		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_ACCESS_ERROR, "bad workarea pointer for LwMutex");
+	}
 
-	int error = __KernelReferLwMutexStatus(workarea->uid, infoPtr);
-	if (error >= 0)
-	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelReferLwMutexStatus(%08x, %08x)", workareaPtr, infoPtr);
-		return error;
-	}
-	else
-	{
-		ERROR_LOG(SCEKERNEL, "%08x=sceKernelReferLwMutexStatus(%08x, %08x)", error, workareaPtr, infoPtr);
-		return error;
-	}
+	return __KernelReferLwMutexStatus(workarea->uid, infoPtr);
 }

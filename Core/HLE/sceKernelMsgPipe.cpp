@@ -1006,19 +1006,14 @@ int sceKernelCancelMsgPipe(SceUID uid, u32 numSendThreadsAddr, u32 numReceiveThr
 	return 0;
 }
 
-int sceKernelReferMsgPipeStatus(SceUID uid, u32 statusPtr)
-{
+int sceKernelReferMsgPipeStatus(SceUID uid, u32 statusPtr) {
 	u32 error;
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
-	if (m)
-	{
-		if (!Memory::IsValidAddress(statusPtr))
-		{
-			ERROR_LOG(SCEKERNEL, "sceKernelReferMsgPipeStatus(%i, %08x): invalid address", uid, statusPtr);
-			return -1;
+	if (m) {
+		auto status = PSPPointer<NativeMsgPipe>::Create(statusPtr);
+		if (!status.IsValid()) {
+			return hleLogError(SCEKERNEL, -1, "invalid address");
 		}
-
-		DEBUG_LOG(SCEKERNEL, "sceKernelReferMsgPipeStatus(%i, %08x)", uid, statusPtr);
 
 		// Clean up any that have timed out.
 		m->SortReceiveThreads();
@@ -1026,13 +1021,12 @@ int sceKernelReferMsgPipeStatus(SceUID uid, u32 statusPtr)
 
 		m->nmp.numSendWaitThreads = (int) m->sendWaitingThreads.size();
 		m->nmp.numReceiveWaitThreads = (int) m->receiveWaitingThreads.size();
-		if (Memory::Read_U32(statusPtr) != 0)
-			Memory::WriteStruct(statusPtr, &m->nmp);
-		return 0;
-	}
-	else
-	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelReferMsgPipeStatus(%i, %08x): bad message pipe", uid, statusPtr);
-		return error;
+		if (status->size != 0) {
+			*status = m->nmp;
+			status.NotifyWrite("MsgPipeStatus");
+		}
+		return hleLogSuccessI(SCEKERNEL, 0);
+	} else {
+		return hleLogError(SCEKERNEL, error, "bad message pipe");
 	}
 }
