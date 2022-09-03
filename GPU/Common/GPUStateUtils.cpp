@@ -489,27 +489,6 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 	return REPLACE_BLEND_STANDARD;
 }
 
-LogicOpReplaceType ReplaceLogicOpType() {
-	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP) && gstate.isLogicOpEnabled()) {
-		switch (gstate.getLogicOp()) {
-		case GE_LOGIC_COPY_INVERTED:
-		case GE_LOGIC_AND_INVERTED:
-		case GE_LOGIC_OR_INVERTED:
-		case GE_LOGIC_NOR:
-		case GE_LOGIC_NAND:
-		case GE_LOGIC_EQUIV:
-			return LOGICOPTYPE_INVERT;
-		case GE_LOGIC_INVERTED:
-			return LOGICOPTYPE_ONE;
-		case GE_LOGIC_SET:
-			return LOGICOPTYPE_ONE;
-		default:
-			return LOGICOPTYPE_NORMAL;
-		}
-	}
-	return LOGICOPTYPE_NORMAL;
-}
-
 static const float DEPTH_SLICE_FACTOR_HIGH = 4.0f;
 static const float DEPTH_SLICE_FACTOR_16BIT = 256.0f;
 
@@ -874,8 +853,10 @@ static inline bool blendColorSimilar(uint32_t a, uint32_t b, int margin = 25) { 
 	return false;
 }
 
-// Try to simulate some common logic ops.
-static void ApplyLogicOp(BlendFactor &srcBlend, BlendFactor &dstBlend, BlendEq &blendEq) {
+// Try to simulate some common logic ops by using blend, if needed.
+// The shader might also need modification, the below function SimulateLogicOpShaderTypeIfNeeded
+// takes care of that.
+static void SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend, BlendEq &blendEq) {
 	// Note: our shader solution applies logic ops BEFORE blending, not correctly after.
 	// This is however fine for the most common ones, like CLEAR/NOOP/SET, etc.
 	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
@@ -937,6 +918,28 @@ static void ApplyLogicOp(BlendFactor &srcBlend, BlendFactor &dstBlend, BlendEq &
 	}
 }
 
+// Choose the shader part of the above logic op fallback simulation.
+SimulateLogicOpType SimulateLogicOpShaderTypeIfNeeded() {
+	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP) && gstate.isLogicOpEnabled()) {
+		switch (gstate.getLogicOp()) {
+		case GE_LOGIC_COPY_INVERTED:
+		case GE_LOGIC_AND_INVERTED:
+		case GE_LOGIC_OR_INVERTED:
+		case GE_LOGIC_NOR:
+		case GE_LOGIC_NAND:
+		case GE_LOGIC_EQUIV:
+			return LOGICOPTYPE_INVERT;
+		case GE_LOGIC_INVERTED:
+			return LOGICOPTYPE_ONE;
+		case GE_LOGIC_SET:
+			return LOGICOPTYPE_ONE;
+		default:
+			return LOGICOPTYPE_NORMAL;
+		}
+	}
+	return LOGICOPTYPE_NORMAL;
+}
+
 void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState) {
 	StencilValueType stencilType = STENCIL_VALUE_KEEP;
 	if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
@@ -947,7 +950,7 @@ void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithS
 	BlendFactor srcBlend = BlendFactor::ONE;
 	BlendFactor dstBlend = BlendFactor::ZERO;
 	BlendEq blendEq = BlendEq::ADD;
-	ApplyLogicOp(srcBlend, dstBlend, blendEq);
+	SimulateLogicOpIfNeeded(srcBlend, dstBlend, blendEq);
 
 	// We're not blending, but we may still want to "blend" for stencil.
 	// This is only useful for INCR/DECR/INVERT.  Others can write directly.
@@ -1245,8 +1248,8 @@ void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBlend) {
 		colorEq = eqLookupNoMinMax[blendFuncEq];
 	}
 
-	// Attempt to apply the logic op, if any.
-	ApplyLogicOp(glBlendFuncA, glBlendFuncB, colorEq);
+	// Attempt to apply simulated logic ops, if any and if needed.
+	SimulateLogicOpIfNeeded(glBlendFuncA, glBlendFuncB, colorEq);
 
 	// The stencil-to-alpha in fragment shader doesn't apply here (blending is enabled), and we shouldn't
 	// do any blending in the alpha channel as that doesn't seem to happen on PSP.  So, we attempt to
@@ -1507,4 +1510,9 @@ void ConvertStencilFuncState(GenericStencilFuncState &state) {
 		// Hard to do anything useful for 4444, and 8888 is fine.
 		break;
 	}
+}
+
+void ComputedPipelineState::Convert(bool shaderBitOpsSuppported) {
+	ConvertMaskState(maskState, shaderBitOpsSuppported);
+	ConvertBlendState(blendState, maskState.applyFramebufferRead);
 }

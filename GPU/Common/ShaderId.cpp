@@ -267,16 +267,13 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 
 		ReplaceBlendType replaceBlend = pipelineState.blendState.replaceBlend;
 		ReplaceAlphaType stencilToAlpha = pipelineState.blendState.replaceAlphaWithStencil;
-
-		// For debugging, can probably delete soon.
-		// _assert_(colorWriteMask == IsColorWriteMaskComplex());
-		// _assert_(replaceBlend == ReplaceBlendWithShader(gstate_c.framebufFormat);
-		// _assert_(stencilToAlpha == ReplaceAlphaWithStencil(replaceBlend));
+		SimulateLogicOpType simulateLogicOpType = SimulateLogicOpShaderTypeIfNeeded();
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		// Note that checking this means that we must dirty the fragment shader ID whenever textureFullAlpha changes.
-		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
+		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE) {
 			doTextureAlpha = false;
+		}
 
 		if (gstate.isTextureMapEnabled()) {
 			id.SetBit(FS_BIT_DO_TEXTURE);
@@ -326,7 +323,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		}
 
 		// 2 bits.
-		id.SetBits(FS_BIT_REPLACE_LOGIC_OP_TYPE, 2, ReplaceLogicOpType());
+		id.SetBits(FS_BIT_SIMULATE_LOGIC_OP_TYPE, 2, simulateLogicOpType);
 
 		// If replaceBlend == REPLACE_BLEND_STANDARD (or REPLACE_BLEND_NO) nothing is done, so we kill these bits.
 		if (replaceBlend == REPLACE_BLEND_BLUE_TO_ALPHA) {

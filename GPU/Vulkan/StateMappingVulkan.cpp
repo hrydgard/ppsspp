@@ -147,18 +147,9 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			bool alphaMask = gstate.isClearModeAlphaMask();
 			key.colorWriteMask = (colorMask ? (VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT) : 0) | (alphaMask ? VK_COLOR_COMPONENT_A_BIT : 0);
 		} else {
-			if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP) && gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
-				key.logicOpEnable = true;
-				key.logicOp = logicOps[gstate.getLogicOp()];
-			} else {
-				key.logicOpEnable = false;
-				key.logicOp = VK_LOGIC_OP_CLEAR;
-			}
-
+			pipelineState_.Convert(draw_->GetDeviceCaps().fragmentShaderInt32Supported);
 			GenericMaskState &maskState = pipelineState_.maskState;
 			GenericBlendState &blendState = pipelineState_.blendState;
-			ConvertMaskState(maskState, draw_->GetDeviceCaps().fragmentShaderInt32Supported);
-			ConvertBlendState(blendState, maskState.applyFramebufferRead);
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
 				ApplyFramebufferRead(&fboTexNeedsBind_);
@@ -217,6 +208,14 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				key.blendOpColor = VK_BLEND_OP_ADD;
 				key.srcColor = VK_BLEND_FACTOR_ZERO;
 				key.destColor = VK_BLEND_FACTOR_ONE;
+			}
+
+			if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP) && gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
+				key.logicOpEnable = true;
+				key.logicOp = logicOps[gstate.getLogicOp()];
+			} else {
+				key.logicOpEnable = false;
+				key.logicOp = VK_LOGIC_OP_CLEAR;
 			}
 		}
 	}

@@ -45,7 +45,7 @@ enum ReplaceBlendType {
 	REPLACE_BLEND_BLUE_TO_ALPHA,
 };
 
-enum LogicOpReplaceType {
+enum SimulateLogicOpType {
 	LOGICOPTYPE_NORMAL,
 	LOGICOPTYPE_ONE,
 	LOGICOPTYPE_INVERT,
@@ -62,7 +62,8 @@ StencilValueType ReplaceAlphaWithStencilType();
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
 ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat);
 
-LogicOpReplaceType ReplaceLogicOpType();
+// This is for the fallback path if real logic ops are not available.
+SimulateLogicOpType SimulateLogicOpShaderTypeIfNeeded();
 
 // Common representation, should be able to set this directly with any modern API.
 struct ViewportAndScissor {
@@ -186,7 +187,16 @@ void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithS
 struct GenericMaskState {
 	bool applyFramebufferRead;
 	uint32_t uniformMask;  // For each bit, opposite to the PSP.
+
+	// The hardware channel masks, 1 bit per color component. From bit 0, order is RGBA like in all APIs!
 	uint8_t channelMask;
+
+	void ConvertToShaderBlend() {
+		// If we have to do it in the shader, we simply pass through all channels but mask only in the shader instead.
+		// Some GPUs have minor penalties for masks that are not all-channels-on or all-channels-off.
+		channelMask = 0xF;
+		applyFramebufferRead = true;
+	}
 };
 
 void ConvertMaskState(GenericMaskState &maskState, bool shaderBitOpsSupported);
@@ -207,6 +217,8 @@ struct ComputedPipelineState {
 	GenericBlendState blendState;
 	GenericMaskState maskState;
 	// TODO: Add logic and possibly stencil here.
+
+	void Convert(bool shaderBitOpsSupported);
 };
 
 // See issue #15898

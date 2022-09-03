@@ -143,10 +143,9 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			bool alphaMask = gstate.isClearModeAlphaMask();
 			renderManager->SetNoBlendAndMask((colorMask ? 7 : 0) | (alphaMask ? 8 : 0));
 		} else {
+			pipelineState_.Convert(draw_->GetDeviceCaps().fragmentShaderInt32Supported);
 			GenericMaskState &maskState = pipelineState_.maskState;
 			GenericBlendState &blendState = pipelineState_.blendState;
-			ConvertMaskState(maskState, draw_->GetDeviceCaps().fragmentShaderInt32Supported);
-			ConvertBlendState(blendState, maskState.applyFramebufferRead);
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
 				bool fboTexNeedsBind = false;

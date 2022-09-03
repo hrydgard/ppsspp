@@ -1060,9 +1060,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		return false;
 	}
 
-	// TODO: This could support more ops using the shader blending mechanism.
-	LogicOpReplaceType replaceLogicOpType = (LogicOpReplaceType)id.Bits(FS_BIT_REPLACE_LOGIC_OP_TYPE, 2);
-	switch (replaceLogicOpType) {
+	// TODO: We could have a separate mechanism to support more ops using the shader blending mechanism,
+	// on hardware that can do proper bit math in fragment shaders.
+	SimulateLogicOpType simulateLogicOpType = (SimulateLogicOpType)id.Bits(FS_BIT_SIMULATE_LOGIC_OP_TYPE, 2);
+	switch (simulateLogicOpType) {
 	case LOGICOPTYPE_ONE:
 		WRITE(p, "  %s.rgb = splat3(1.0);\n", compat.fragColor0);
 		break;
