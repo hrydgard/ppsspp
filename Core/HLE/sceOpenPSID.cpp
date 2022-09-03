@@ -38,9 +38,10 @@ static int sceOpenPSIDGetOpenPSID(u32 OpenPSIDPtr)
 {
 	WARN_LOG(HLE, "UNTESTED %s(%08x)", __FUNCTION__, OpenPSIDPtr);
 
-	if (Memory::IsValidAddress(OpenPSIDPtr))
-	{
-		Memory::WriteStruct(OpenPSIDPtr, &dummyOpenPSID);
+	auto ptr = PSPPointer<SceOpenPSID>::Create(OpenPSIDPtr);
+	if (ptr.IsValid()) {
+		*ptr = dummyOpenPSID;
+		ptr.NotifyWrite("OpenPSIDGetOpenPSID");
 	}
 	return 0;
 }
@@ -49,9 +50,10 @@ static int sceOpenPSIDGetPSID(u32 OpenPSIDPtr,u32 unknown)
 {
 	WARN_LOG(HLE, "UNTESTED %s(%08x, %08x)", __FUNCTION__, OpenPSIDPtr, unknown);
 
-	if (Memory::IsValidAddress(OpenPSIDPtr))
-	{
-		Memory::WriteStruct(OpenPSIDPtr, &dummyOpenPSID);
+	auto ptr = PSPPointer<SceOpenPSID>::Create(OpenPSIDPtr);
+	if (ptr.IsValid()) {
+		*ptr = dummyOpenPSID;
+		ptr.NotifyWrite("OpenPSIDGetPSID");
 	}
 	return 0;
 }

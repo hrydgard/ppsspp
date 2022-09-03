@@ -328,6 +328,9 @@ inline bool IsValidRange(const u32 address, const u32 size) {
 
 }  // namespace Memory
 
+// Avoiding a global include for NotifyMemInfo.
+void PSPPointerNotifyRW(int rw, uint32_t ptr, uint32_t bytes, const char *tag, size_t tagLen);
+
 template <typename T>
 struct PSPPointer
 {
@@ -440,7 +443,17 @@ struct PSPPointer
 
 	bool IsValid() const
 	{
-		return Memory::IsValidAddress(ptr);
+		return Memory::IsValidRange(ptr, (u32)sizeof(T));
+	}
+
+	template <size_t tagLen>
+	void NotifyWrite(const char(&tag)[tagLen]) const {
+		PSPPointerNotifyRW(1, (uint32_t)ptr, (uint32_t)sizeof(T), tag, tagLen - 1);
+	}
+
+	template <size_t tagLen>
+	void NotifyRead(const char(&tag)[tagLen]) const {
+		PSPPointerNotifyRW(2, (uint32_t)ptr, (uint32_t)sizeof(T), tag, tagLen - 1);
 	}
 
 	static PSPPointer<T> Create(u32 ptr) {
