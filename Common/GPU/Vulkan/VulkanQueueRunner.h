@@ -55,11 +55,11 @@ struct VkRenderData {
 			VkPipelineLayout pipelineLayout;
 		} pipeline;
 		struct {
-			Promise<VkPipeline> *pipeline;
+			VKRGraphicsPipeline *pipeline;
 			VkPipelineLayout pipelineLayout;
 		} graphics_pipeline;
 		struct {
-			Promise<VkPipeline> *pipeline;
+			VKRComputePipeline *pipeline;
 			VkPipelineLayout pipelineLayout;
 		} compute_pipeline;
 		struct {

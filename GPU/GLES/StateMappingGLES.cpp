@@ -143,10 +143,10 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			bool alphaMask = gstate.isClearModeAlphaMask();
 			renderManager->SetNoBlendAndMask((colorMask ? 7 : 0) | (alphaMask ? 8 : 0));
 		} else {
+			pipelineState_.Convert(draw_->GetDeviceCaps().fragmentShaderInt32Supported);
 			GenericMaskState &maskState = pipelineState_.maskState;
 			GenericBlendState &blendState = pipelineState_.blendState;
-			ConvertMaskState(maskState);
-			ConvertBlendState(blendState, maskState.applyFramebufferRead);
+			GenericLogicState &logicState = pipelineState_.logicState;
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
 				bool fboTexNeedsBind = false;
@@ -193,7 +193,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 				}
 			}
 
-			int mask = (int)maskState.maskRGBA[0] | ((int)maskState.maskRGBA[1] << 1) | ((int)maskState.maskRGBA[2] << 2) | ((int)maskState.maskRGBA[3] << 3);
+			int mask = (int)maskState.channelMask;
 			if (blendState.blendEnabled) {
 				renderManager->SetBlendAndMask(mask, blendState.blendEnabled,
 					glBlendFactorLookup[(size_t)blendState.srcColor], glBlendFactorLookup[(size_t)blendState.dstColor],
@@ -202,10 +202,11 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			} else {
 				renderManager->SetNoBlendAndMask(mask);
 			}
+
+			// TODO: Get rid of the ifdef
 #ifndef USING_GLES2
 			if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
-				renderManager->SetLogicOp(gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY,
-					logicOps[gstate.getLogicOp()]);
+				renderManager->SetLogicOp(logicState.logicOpEnabled, logicOps[(int)logicState.logicOp]);
 			}
 #endif
 		}

@@ -127,10 +127,10 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			}
 			dxstate.colorMask.set(mask);
 		} else {
+			pipelineState_.Convert(draw_->GetDeviceCaps().fragmentShaderInt32Supported);
 			GenericMaskState &maskState = pipelineState_.maskState;
 			GenericBlendState &blendState = pipelineState_.blendState;
-			ConvertMaskState(maskState);
-			ConvertBlendState(blendState, maskState.applyFramebufferRead);
+			// We ignore the logicState on D3D since there's no support, the emulation of it is blend-and-shader only.
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
 				bool fboTexNeedsBind = false;
@@ -177,12 +177,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 				dxstate.blend.disable();
 			}
 
-			u32 mask = 0;
-			for (int i = 0; i < 4; i++) {
-				if (maskState.maskRGBA[i])
-					mask |= 1 << i;
-			}
-			dxstate.colorMask.set(mask);
+			dxstate.colorMask.set(maskState.channelMask);
 		}
 	}
 

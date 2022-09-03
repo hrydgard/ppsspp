@@ -1144,8 +1144,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 	VKRFramebuffer *fb = step.render.framebuffer;
 
-	VkPipeline lastGraphicsPipeline = VK_NULL_HANDLE;
-	VkPipeline lastComputePipeline = VK_NULL_HANDLE;
+	VKRGraphicsPipeline *lastGraphicsPipeline = nullptr;
+	VKRComputePipeline *lastComputePipeline = nullptr;
 
 	auto &commands = step.commands;
 
@@ -1168,40 +1168,43 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		case VKRRenderCommand::BIND_PIPELINE:
 		{
 			VkPipeline pipeline = c.pipeline.pipeline;
-			if (pipeline != lastGraphicsPipeline) {
-				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-				pipelineLayout = c.pipeline.pipelineLayout;
-				lastGraphicsPipeline = pipeline;
-				// Reset dynamic state so it gets refreshed with the new pipeline.
-				lastStencilWriteMask = -1;
-				lastStencilCompareMask = -1;
-				lastStencilReference = -1;
-			}
+			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+			pipelineLayout = c.pipeline.pipelineLayout;
+			// Reset dynamic state so it gets refreshed with the new pipeline.
+			lastStencilWriteMask = -1;
+			lastStencilCompareMask = -1;
+			lastStencilReference = -1;
 			break;
 		}
 
 		case VKRRenderCommand::BIND_GRAPHICS_PIPELINE:
 		{
-			VkPipeline pipeline = c.graphics_pipeline.pipeline->BlockUntilReady();
-			if (pipeline != lastGraphicsPipeline && pipeline != VK_NULL_HANDLE) {
-				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-				pipelineLayout = c.pipeline.pipelineLayout;
-				lastGraphicsPipeline = pipeline;
-				// Reset dynamic state so it gets refreshed with the new pipeline.
-				lastStencilWriteMask = -1;
-				lastStencilCompareMask = -1;
-				lastStencilReference = -1;
+			VKRGraphicsPipeline *graphicsPipeline = c.graphics_pipeline.pipeline;
+			if (graphicsPipeline != lastGraphicsPipeline) {
+				VkPipeline pipeline = graphicsPipeline->pipeline->BlockUntilReady();
+				if (pipeline != VK_NULL_HANDLE) {
+					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+					pipelineLayout = c.pipeline.pipelineLayout;
+					lastGraphicsPipeline = graphicsPipeline;
+					// Reset dynamic state so it gets refreshed with the new pipeline.
+					lastStencilWriteMask = -1;
+					lastStencilCompareMask = -1;
+					lastStencilReference = -1;
+				}
 			}
 			break;
 		}
 
 		case VKRRenderCommand::BIND_COMPUTE_PIPELINE:
 		{
-			VkPipeline pipeline = c.graphics_pipeline.pipeline->BlockUntilReady();
-			if (pipeline != lastComputePipeline && pipeline != VK_NULL_HANDLE) {
-				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-				pipelineLayout = c.pipeline.pipelineLayout;
-				lastComputePipeline = pipeline;
+			VKRComputePipeline *computePipeline = c.compute_pipeline.pipeline;
+			if (computePipeline != lastComputePipeline) {
+				VkPipeline pipeline = computePipeline->pipeline->BlockUntilReady();
+				if (pipeline != VK_NULL_HANDLE) {
+					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+					pipelineLayout = c.pipeline.pipelineLayout;
+					lastComputePipeline = computePipeline;
+				}
 			}
 			break;
 		}

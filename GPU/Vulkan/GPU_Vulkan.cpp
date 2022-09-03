@@ -254,7 +254,7 @@ void GPU_Vulkan::CheckGPUFeatures() {
 			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 		}
 	}
-	if (enabledFeatures.logicOp) {
+	if (draw_->GetDeviceCaps().logicOpSupported) {
 		features |= GPU_SUPPORTS_LOGIC_OP;
 	}
 	if (draw_->GetDeviceCaps().anisoSupported) {

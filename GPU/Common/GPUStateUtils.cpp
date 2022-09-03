@@ -489,27 +489,6 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 	return REPLACE_BLEND_STANDARD;
 }
 
-LogicOpReplaceType ReplaceLogicOpType() {
-	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP) && gstate.isLogicOpEnabled()) {
-		switch (gstate.getLogicOp()) {
-		case GE_LOGIC_COPY_INVERTED:
-		case GE_LOGIC_AND_INVERTED:
-		case GE_LOGIC_OR_INVERTED:
-		case GE_LOGIC_NOR:
-		case GE_LOGIC_NAND:
-		case GE_LOGIC_EQUIV:
-			return LOGICOPTYPE_INVERT;
-		case GE_LOGIC_INVERTED:
-			return LOGICOPTYPE_ONE;
-		case GE_LOGIC_SET:
-			return LOGICOPTYPE_ONE;
-		default:
-			return LOGICOPTYPE_NORMAL;
-		}
-	}
-	return LOGICOPTYPE_NORMAL;
-}
-
 static const float DEPTH_SLICE_FACTOR_HIGH = 4.0f;
 static const float DEPTH_SLICE_FACTOR_16BIT = 256.0f;
 
@@ -874,8 +853,10 @@ static inline bool blendColorSimilar(uint32_t a, uint32_t b, int margin = 25) { 
 	return false;
 }
 
-// Try to simulate some common logic ops.
-static void ApplyLogicOp(BlendFactor &srcBlend, BlendFactor &dstBlend, BlendEq &blendEq) {
+// Try to simulate some common logic ops by using blend, if needed.
+// The shader might also need modification, the below function SimulateLogicOpShaderTypeIfNeeded
+// takes care of that.
+static void SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend, BlendEq &blendEq) {
 	// Note: our shader solution applies logic ops BEFORE blending, not correctly after.
 	// This is however fine for the most common ones, like CLEAR/NOOP/SET, etc.
 	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
@@ -937,7 +918,28 @@ static void ApplyLogicOp(BlendFactor &srcBlend, BlendFactor &dstBlend, BlendEq &
 	}
 }
 
-// Try to simulate some common logic ops.
+// Choose the shader part of the above logic op fallback simulation.
+SimulateLogicOpType SimulateLogicOpShaderTypeIfNeeded() {
+	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP) && gstate.isLogicOpEnabled()) {
+		switch (gstate.getLogicOp()) {
+		case GE_LOGIC_COPY_INVERTED:
+		case GE_LOGIC_AND_INVERTED:
+		case GE_LOGIC_OR_INVERTED:
+		case GE_LOGIC_NOR:
+		case GE_LOGIC_NAND:
+		case GE_LOGIC_EQUIV:
+			return LOGICOPTYPE_INVERT;
+		case GE_LOGIC_INVERTED:
+			return LOGICOPTYPE_ONE;
+		case GE_LOGIC_SET:
+			return LOGICOPTYPE_ONE;
+		default:
+			return LOGICOPTYPE_NORMAL;
+		}
+	}
+	return LOGICOPTYPE_NORMAL;
+}
+
 void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState) {
 	StencilValueType stencilType = STENCIL_VALUE_KEEP;
 	if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
@@ -948,7 +950,7 @@ void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithS
 	BlendFactor srcBlend = BlendFactor::ONE;
 	BlendFactor dstBlend = BlendFactor::ZERO;
 	BlendEq blendEq = BlendEq::ADD;
-	ApplyLogicOp(srcBlend, dstBlend, blendEq);
+	SimulateLogicOpIfNeeded(srcBlend, dstBlend, blendEq);
 
 	// We're not blending, but we may still want to "blend" for stencil.
 	// This is only useful for INCR/DECR/INVERT.  Others can write directly.
@@ -994,14 +996,11 @@ void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithS
 // we read from the framebuffer (or a copy of it).
 // We also prepare uniformMask so that if doing this in the shader gets forced-on,
 // we have the right mask already.
-void ConvertMaskState(GenericMaskState &maskState) {
+void ConvertMaskState(GenericMaskState &maskState, bool shaderBitOpsSupported) {
 	if (gstate_c.blueToAlpha) {
 		maskState.applyFramebufferRead = false;
 		maskState.uniformMask = 0xFF000000;
-		maskState.maskRGBA[0] = false;
-		maskState.maskRGBA[1] = false;
-		maskState.maskRGBA[2] = false;
-		maskState.maskRGBA[3] = true;
+		maskState.channelMask = 0x8;
 		return;
 	}
 
@@ -1010,29 +1009,35 @@ void ConvertMaskState(GenericMaskState &maskState) {
 
 	maskState.uniformMask = colorMask;
 	maskState.applyFramebufferRead = false;
+	maskState.channelMask = 0;
 	for (int i = 0; i < 4; i++) {
 		int channelMask = colorMask & 0xFF;
 		switch (channelMask) {
 		case 0x0:
-			maskState.maskRGBA[i] = false;
 			break;
 		case 0xFF:
-			maskState.maskRGBA[i] = true;
+			maskState.channelMask |= 1 << i;
 			break;
 		default:
-			maskState.applyFramebufferRead = PSP_CoreParameter().compat.flags().ShaderColorBitmask;
-			maskState.maskRGBA[i] = true;
-			break;
+			if (shaderBitOpsSupported && PSP_CoreParameter().compat.flags().ShaderColorBitmask) {
+				// Shaders can emulate masking accurately. Let's make use of that.
+				maskState.applyFramebufferRead = true;
+				maskState.channelMask |= 1 << i;
+			} else {
+				// Use the old inaccurate heuristic.
+				if (channelMask >= 128) {
+					maskState.channelMask |= 1 << i;
+				}
+			}
 		}
 		colorMask >>= 8;
 	}
 
 	// Let's not write to alpha if stencil isn't enabled.
-	if (IsStencilTestOutputDisabled()) {
-		maskState.maskRGBA[3] = false;
-	} else if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
-		// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
-		maskState.maskRGBA[3] = false;
+	// Also if the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
+	if (IsStencilTestOutputDisabled() || ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
+		maskState.channelMask &= ~8;
+		maskState.uniformMask &= ~0xFF000000;
 	}
 }
 
@@ -1057,6 +1062,8 @@ void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBlend) {
 		replaceBlend = REPLACE_BLEND_READ_FRAMEBUFFER;
 	}
 	blendState.replaceBlend = replaceBlend;
+
+	blendState.simulateLogicOpType = SimulateLogicOpShaderTypeIfNeeded();
 
 	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
 	blendState.replaceAlphaWithStencil = replaceAlphaWithStencil;
@@ -1243,8 +1250,8 @@ void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBlend) {
 		colorEq = eqLookupNoMinMax[blendFuncEq];
 	}
 
-	// Attempt to apply the logic op, if any.
-	ApplyLogicOp(glBlendFuncA, glBlendFuncB, colorEq);
+	// Attempt to apply simulated logic ops, if any and if needed.
+	SimulateLogicOpIfNeeded(glBlendFuncA, glBlendFuncB, colorEq);
 
 	// The stencil-to-alpha in fragment shader doesn't apply here (blending is enabled), and we shouldn't
 	// do any blending in the alpha channel as that doesn't seem to happen on PSP.  So, we attempt to
@@ -1459,6 +1466,19 @@ static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
 	}
 }
 
+void ConvertLogicOpState(GenericLogicState &logicOpState, bool logicSupported, bool shaderBitOpsSupported) {
+	// Just do the non-shader case for now.
+	if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
+		logicOpState.logicOpEnabled = gstate.isLogicOpEnabled() && logicSupported;
+		logicOpState.logicOp = gstate.isLogicOpEnabled() ? gstate.getLogicOp() : GE_LOGIC_COPY;
+		logicOpState.applyFramebufferRead = false;
+	} else {
+		logicOpState.logicOpEnabled = false;
+		logicOpState.logicOp = GE_LOGIC_COPY;
+		logicOpState.applyFramebufferRead = false;  // true later?
+	}
+}
+
 static void ConvertStencilMask5551(GenericStencilFuncState &state) {
 	state.writeMask = state.writeMask >= 0x80 ? 0xff : 0x00;
 }
@@ -1505,4 +1525,19 @@ void ConvertStencilFuncState(GenericStencilFuncState &state) {
 		// Hard to do anything useful for 4444, and 8888 is fine.
 		break;
 	}
+}
+
+void GenericMaskState::Log() {
+	WARN_LOG(G3D, "Mask: %01X readfb=%d", uniformMask, channelMask, applyFramebufferRead);
+}
+
+void GenericBlendState::Log() {
+	WARN_LOG(G3D, "Blend: hwenable=%d readfb=%d replblend=%d replalpha=%d",
+		blendEnabled, applyFramebufferRead, replaceBlend, (int)replaceAlphaWithStencil);
+}
+
+void ComputedPipelineState::Convert(bool shaderBitOpsSuppported) {
+	ConvertMaskState(maskState, shaderBitOpsSuppported);
+	ConvertLogicOpState(logicState, gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP), shaderBitOpsSuppported);
+	ConvertBlendState(blendState, maskState.applyFramebufferRead);
 }
