@@ -78,6 +78,27 @@ static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4I
 	return ToVec4IntResult(out);
 }
 
+// Check if we can safely ignore the alpha test.
+static inline bool AlphaTestIsNeedless(const PixelFuncID &pixelID) {
+	switch (pixelID.AlphaTestFunc()) {
+	case GE_COMP_NEVER:
+	case GE_COMP_EQUAL:
+	case GE_COMP_LESS:
+	case GE_COMP_LEQUAL:
+		return false;
+
+	case GE_COMP_ALWAYS:
+		return true;
+
+	case GE_COMP_NOTEQUAL:
+	case GE_COMP_GREATER:
+	case GE_COMP_GEQUAL:
+		return pixelID.alphaBlend && pixelID.alphaTestRef == 0 && !pixelID.hasAlphaTestMask;
+	}
+
+	return false;
+}
+
 void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
 	const u8 *texptr = state.texptr[0];
 
@@ -132,11 +153,8 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 			!pixelID.applyLogicOp &&
 			!pixelID.colorTest &&
 			!pixelID.dithering &&
-			// TODO: Safe?
-			pixelID.AlphaTestFunc() != GE_COMP_ALWAYS &&
-			pixelID.alphaTestRef == 0 &&
-			!pixelID.hasAlphaTestMask &&
 			pixelID.alphaBlend &&
+			AlphaTestIsNeedless(pixelID) &&
 			samplerID.useTextureAlpha &&
 			samplerID.TexFunc() == GE_TEXFUNC_MODULATE &&
 			!pixelID.applyColorWriteMask &&
@@ -205,11 +223,8 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 			!pixelID.applyLogicOp &&
 			!pixelID.colorTest &&
 			!pixelID.dithering &&
-			// TODO: Safe?
-			pixelID.AlphaTestFunc() != GE_COMP_ALWAYS &&
-			pixelID.alphaTestRef == 0 &&
-			!pixelID.hasAlphaTestMask &&
 			pixelID.alphaBlend &&
+			AlphaTestIsNeedless(pixelID) &&
 			samplerID.useTextureAlpha &&
 			samplerID.TexFunc() == GE_TEXFUNC_MODULATE &&
 			!pixelID.applyColorWriteMask &&
