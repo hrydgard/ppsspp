@@ -563,7 +563,6 @@ static RetroOption<bool> ppsspp_lazy_texture_caching("ppsspp_lazy_texture_cachin
 static RetroOption<bool> ppsspp_retain_changed_textures("ppsspp_retain_changed_textures", "Retain changed textures (Speedup, mem hog)", false);
 static RetroOption<bool> ppsspp_force_lag_sync("ppsspp_force_lag_sync", "Force real clock sync (Slower, less lag)", false);
 static RetroOption<int> ppsspp_spline_quality("ppsspp_spline_quality", "Spline/Bezier curves quality", { {"Low", 0}, {"Medium", 1}, {"High", 2} });
-static RetroOption<bool> ppsspp_disable_shader_blending("ppsspp_disable_slow_framebuffer_effects", "Disable shader blending (speedup)", false);
 static RetroOption<bool> ppsspp_enable_wlan("ppsspp_enable_wlan", "Enable Networking/WLAN (beta, may break games)", false);
 static RetroOption<std::string> ppsspp_change_mac_address[] = {
     {"ppsspp_change_mac_address01", "MAC address Pt  1: X-:--:--:--:--:--", MAC_INITIALIZER_LIST},
@@ -699,7 +698,6 @@ void retro_set_environment(retro_environment_t cb)
    vars.push_back(ppsspp_lazy_texture_caching.GetOptions());
    vars.push_back(ppsspp_retain_changed_textures.GetOptions());
    vars.push_back(ppsspp_force_lag_sync.GetOptions());
-   vars.push_back(ppsspp_disable_shader_blending.GetOptions());
    vars.push_back(ppsspp_lower_resolution_for_effects.GetOptions());
    vars.push_back(ppsspp_texture_scaling_level.GetOptions());
    vars.push_back(ppsspp_texture_scaling_type.GetOptions());
@@ -831,7 +829,6 @@ static void check_variables(CoreParameter &coreParam)
    ppsspp_retain_changed_textures.Update(&g_Config.bTextureSecondaryCache);
    ppsspp_force_lag_sync.Update(&g_Config.bForceLagSync);
    ppsspp_spline_quality.Update(&g_Config.iSplineBezierQuality);
-   ppsspp_disable_shader_blending.Update(&g_Config.bDisableShaderBlending);
    ppsspp_inflight_frames.Update(&g_Config.iInflightFrames);
    const bool do_scaling_type_update = ppsspp_texture_scaling_type.Update(&g_Config.iTexScalingType);
    const bool do_scaling_level_update = ppsspp_texture_scaling_level.Update(&g_Config.iTexScalingLevel);

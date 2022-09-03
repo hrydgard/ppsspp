@@ -269,8 +269,8 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		ReplaceAlphaType stencilToAlpha = pipelineState.blendState.replaceAlphaWithStencil;
 
 		// For debugging, can probably delete soon.
-		// _assert_(colorWriteMask == IsColorWriteMaskComplex(gstate_c.allowFramebufferRead));
-		// _assert_(replaceBlend == ReplaceBlendWithShader(gstate_c.allowFramebufferRead, gstate_c.framebufFormat);
+		// _assert_(colorWriteMask == IsColorWriteMaskComplex());
+		// _assert_(replaceBlend == ReplaceBlendWithShader(gstate_c.framebufFormat);
 		// _assert_(stencilToAlpha == ReplaceAlphaWithStencil(replaceBlend));
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.

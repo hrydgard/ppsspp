@@ -142,7 +142,6 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	bool useBufferedRendering = framebufferManager_->UseBufferedRendering();
 	// Blend
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
-		gstate_c.SetAllowFramebufferRead(!g_Config.bDisableShaderBlending);
 		if (gstate.isModeClear()) {
 			keys_.blend.value = 0;  // full wipe
 			keys_.blend.blendEnable = false;
@@ -156,8 +155,8 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 
 			GenericMaskState &maskState = pipelineState_.maskState;
 			GenericBlendState &blendState = pipelineState_.blendState;
-			ConvertMaskState(maskState, gstate_c.allowFramebufferRead);
-			ConvertBlendState(blendState, gstate_c.allowFramebufferRead, maskState.applyFramebufferRead);
+			ConvertMaskState(maskState);
+			ConvertBlendState(blendState, maskState.applyFramebufferRead);
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
 				ApplyFramebufferRead(&fboTexNeedsBind_);

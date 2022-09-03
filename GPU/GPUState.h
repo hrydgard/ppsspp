@@ -550,12 +550,6 @@ struct GPUStateCache {
 				Dirty(DIRTY_TEXCLAMP);
 		}
 	}
-	void SetAllowFramebufferRead(bool allow) {
-		if (allowFramebufferRead != allow) {
-			allowFramebufferRead = allow;
-			Dirty(DIRTY_FRAGMENTSHADER_STATE);
-		}
-	}
 	void SetTextureIs3D(bool is3D) {
 		if (is3D != curTextureIs3D) {
 			curTextureIs3D = is3D;
@@ -583,7 +577,6 @@ struct GPUStateCache {
 
 	bool bgraTexture;
 	bool needShaderTexClamp;
-	bool allowFramebufferRead;
 
 	float morphWeights[8];
 	u32 deferredVertTypeDirty;
