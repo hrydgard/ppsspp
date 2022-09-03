@@ -139,7 +139,6 @@ enum class BlendEq : uint8_t {
 
 // Computed blend setup, including shader stuff.
 struct GenericBlendState {
-	bool resetFramebufferRead;
 	bool applyFramebufferRead;
 	bool dirtyShaderBlendFixValues;
 

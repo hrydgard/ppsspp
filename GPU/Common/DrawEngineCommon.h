@@ -187,7 +187,6 @@ protected:
 	GEPrimitiveType prevPrim_ = GE_PRIM_INVALID;
 
 	// Shader blending state
-	bool fboTexNeedsBind_ = false;
 	bool fboTexBound_ = false;
 
 	// Sometimes, unusual situations mean we need to reset dirty flags after state calc finishes.

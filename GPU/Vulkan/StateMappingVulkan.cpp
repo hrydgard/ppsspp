@@ -122,11 +122,6 @@ static const VkLogicOp logicOps[] = {
 	VK_LOGIC_OP_SET,
 };
 
-void DrawEngineVulkan::ResetFramebufferRead() {
-	boundSecondary_ = VK_NULL_HANDLE;
-	fboTexBound_ = false;
-}
-
 // In Vulkan, we simply collect all the state together into a "pipeline key" - we don't actually set any state here
 // (the caller is responsible for setting the little dynamic state that is supported, dynState).
 void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState) {
@@ -172,10 +167,13 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 				dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
-			} else if (blendState.resetFramebufferRead) {
-				ResetFramebufferRead();
-				dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
-				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+			} else {
+				if (fboTexBound_) {
+					boundSecondary_ = VK_NULL_HANDLE;
+					fboTexBound_ = false;
+					dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
+					gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+				}
 			}
 
 			if (blendState.blendEnabled) {
