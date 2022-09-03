@@ -246,7 +246,6 @@ struct ComputedPipelineState {
 	GenericBlendState blendState;
 	GenericMaskState maskState;
 	GenericLogicState logicState;
-	// TODO: Add logic and possibly stencil here.
 
 	void Convert(bool shaderBitOpsSupported);
 };

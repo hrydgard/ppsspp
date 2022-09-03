@@ -1532,7 +1532,8 @@ void GenericMaskState::Log() {
 }
 
 void GenericBlendState::Log() {
-    WARN_LOG(G3D, "Blend: hwenable=%d readfb=%d replblend=%d replalpha=%d", blendEnabled, applyFramebufferRead, replaceBlend, (int)replaceAlphaWithStencil);
+	WARN_LOG(G3D, "Blend: hwenable=%d readfb=%d replblend=%d replalpha=%d",
+		blendEnabled, applyFramebufferRead, replaceBlend, (int)replaceAlphaWithStencil);
 }
 
 void ComputedPipelineState::Convert(bool shaderBitOpsSuppported) {
