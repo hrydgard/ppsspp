@@ -1466,6 +1466,19 @@ static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
 	}
 }
 
+void ConvertLogicOpState(GenericLogicState &logicOpState, bool logicSupported, bool shaderBitOpsSupported) {
+	// Just do the non-shader case for now.
+	if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
+		logicOpState.logicOpEnabled = gstate.isLogicOpEnabled() && logicSupported;
+		logicOpState.logicOp = gstate.isLogicOpEnabled() ? gstate.getLogicOp() : GE_LOGIC_COPY;
+		logicOpState.applyFramebufferRead = false;
+	} else {
+		logicOpState.logicOpEnabled = false;
+		logicOpState.logicOp = GE_LOGIC_COPY;
+		logicOpState.applyFramebufferRead = false;  // true later?
+	}
+}
+
 static void ConvertStencilMask5551(GenericStencilFuncState &state) {
 	state.writeMask = state.writeMask >= 0x80 ? 0xff : 0x00;
 }
@@ -1524,5 +1537,6 @@ void GenericBlendState::Log() {
 
 void ComputedPipelineState::Convert(bool shaderBitOpsSuppported) {
 	ConvertMaskState(maskState, shaderBitOpsSuppported);
+	ConvertLogicOpState(logicState, gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP), shaderBitOpsSuppported);
 	ConvertBlendState(blendState, maskState.applyFramebufferRead);
 }

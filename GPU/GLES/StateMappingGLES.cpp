@@ -146,6 +146,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			pipelineState_.Convert(draw_->GetDeviceCaps().fragmentShaderInt32Supported);
 			GenericMaskState &maskState = pipelineState_.maskState;
 			GenericBlendState &blendState = pipelineState_.blendState;
+			GenericLogicState &logicState = pipelineState_.logicState;
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
 				bool fboTexNeedsBind = false;
@@ -201,10 +202,11 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			} else {
 				renderManager->SetNoBlendAndMask(mask);
 			}
+
+			// TODO: Get rid of the ifdef
 #ifndef USING_GLES2
 			if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
-				renderManager->SetLogicOp(gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY,
-					logicOps[gstate.getLogicOp()]);
+				renderManager->SetLogicOp(logicState.logicOpEnabled, logicOps[(int)logicState.logicOp]);
 			}
 #endif
 		}

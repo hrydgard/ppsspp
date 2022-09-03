@@ -218,9 +218,34 @@ struct GenericStencilFuncState {
 };
 void ConvertStencilFuncState(GenericStencilFuncState &stencilFuncState);
 
+struct GenericLogicState {
+	// If set, logic op is applied in the shader INSTEAD of in hardware.
+	// In this case, simulateLogicOpType and all that should be off.
+	bool applyFramebufferRead;
+
+	// Hardware
+	bool logicOpEnabled;
+
+	// Hardware and shader generation
+	GELogicOp logicOp;
+
+	void ConvertToShaderBlend() {
+		if (logicOp != GE_LOGIC_COPY) {
+			logicOpEnabled = false;
+			applyFramebufferRead = true;
+			// Same logicOp is kept.
+		}
+	}
+
+	void Log();
+};
+
+void ConvertLogicOpState(GenericLogicState &logicOpState, bool logicSupported, bool shaderBitOpsSupported);
+
 struct ComputedPipelineState {
 	GenericBlendState blendState;
 	GenericMaskState maskState;
+	GenericLogicState logicState;
 	// TODO: Add logic and possibly stencil here.
 
 	void Convert(bool shaderBitOpsSupported);
