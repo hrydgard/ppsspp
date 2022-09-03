@@ -400,7 +400,7 @@ static bool TestVertexFloatThrough() {
 		dec.Execute(vtype, 0, jit == 1);
 		dec.AssertFloat("TestVertexFloatThrough-TC", 1.0f, -1.0f);
 		dec.AssertFloat("TestVertexFloatThrough-Nrm", 1.0f, 0.5f, -1.0f);
-		dec.AssertFloat("TestVertexFloatThrough-Pos", 1.0f, 0.5f, -1.0f);
+		dec.AssertFloat("TestVertexFloatThrough-Pos", 1.0f, 0.5f, 0.0f);
 	}
 
 	return !dec.HasFailed();
