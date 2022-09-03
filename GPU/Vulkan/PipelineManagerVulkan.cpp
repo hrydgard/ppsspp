@@ -36,7 +36,7 @@ void PipelineManagerVulkan::Clear() {
 
 	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
 		if (value->pipeline) {
-			VkPipeline pipeline = value->pipeline->pipeline;
+			VkPipeline pipeline = value->pipeline->pipeline->BlockUntilReady();
 			vulkan_->Delete().QueueDeletePipeline(pipeline);
 			vulkan_->Delete().QueueCallback([](void *p) {
 				VKRGraphicsPipeline *pipeline = (VKRGraphicsPipeline *)p;
@@ -256,28 +256,8 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	ms.pSampleMask = nullptr;
 	ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-	VkPipelineShaderStageCreateInfo *ss = &desc->shaderStageInfo[0];
-	ss[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	ss[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-	ss[0].pSpecializationInfo = nullptr;
-	ss[0].module = vs->GetModule();
-	ss[0].pName = "main";
-	ss[0].flags = 0;
-	ss[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	ss[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	ss[1].pSpecializationInfo = nullptr;
-	ss[1].module = fs->GetModule();
-	ss[1].pName = "main";
-	ss[1].flags = 0;
-
-	if (!ss[0].module || !ss[1].module) {
-		ERROR_LOG(G3D, "Failed creating graphics pipeline - bad shaders");
-		// Create a placeholder to avoid creating over and over if shader compiler broken.
-		VulkanPipeline *nullPipeline = new VulkanPipeline();
-		nullPipeline->pipeline = VK_NULL_HANDLE;
-		nullPipeline->flags = 0;
-		return nullPipeline;
-	}
+	desc->fragmentShader = fs->GetModule();
+	desc->vertexShader = vs->GetModule();
 
 	VkPipelineInputAssemblyStateCreateInfo &inputAssembly = desc->inputAssembly;
 	inputAssembly.flags = 0;
@@ -321,7 +301,6 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	VkGraphicsPipelineCreateInfo &pipe = desc->pipe;
 	pipe.flags = 0;
 	pipe.stageCount = 2;
-	pipe.pStages = ss;
 	pipe.basePipelineIndex = 0;
 
 	pipe.pColorBlendState = &desc->cbs;
@@ -633,8 +612,8 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 	pipelines_.Iterate([&](const VulkanPipelineKey &pkey, VulkanPipeline *value) {
 		if (failed)
 			return;
-		VulkanVertexShader *vshader = shaderManager->GetVertexShaderFromModule(pkey.vShader);
-		VulkanFragmentShader *fshader = shaderManager->GetFragmentShaderFromModule(pkey.fShader);
+		VulkanVertexShader *vshader = shaderManager->GetVertexShaderFromModule(pkey.vShader->BlockUntilReady());
+		VulkanFragmentShader *fshader = shaderManager->GetFragmentShaderFromModule(pkey.fShader->BlockUntilReady());
 		if (!vshader || !fshader) {
 			failed = true;
 			return;
