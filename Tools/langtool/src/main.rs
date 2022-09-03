@@ -18,13 +18,20 @@ enum Command {
     CopyMissingLines {},
     CommentUnknownLines {},
     RemoveUnknownLines {},
-    MoveKey { old: String, new: String, key: String },
-    RemoveKey { section: String, key: String },
+    MoveKey {
+        old: String,
+        new: String,
+        key: String,
+    },
+    RemoveKey {
+        section: String,
+        key: String,
+    },
 }
 
 fn copy_missing_lines(reference_ini: &IniFile, target_ini: &mut IniFile) -> io::Result<()> {
-    // Insert any missing full sections.
     for reference_section in &reference_ini.sections {
+        // Insert any missing full sections.
         if !target_ini.insert_section_if_missing(reference_section) {
             if let Some(target_section) = target_ini.get_section_mut(&reference_section.name) {
                 for line in &reference_section.lines {
@@ -44,7 +51,6 @@ fn deal_with_unknown_lines(
     target_ini: &mut IniFile,
     remove: bool,
 ) -> io::Result<()> {
-    // Insert any missing full sections.
     for reference_section in &reference_ini.sections {
         if let Some(target_section) = target_ini.get_section_mut(&reference_section.name) {
             if remove {
@@ -57,13 +63,7 @@ fn deal_with_unknown_lines(
     Ok(())
 }
 
-fn move_key(
-    target_ini: &mut IniFile,
-    old: &str,
-    new: &str,
-    key: &str,
-) -> io::Result<()> {
-    // Insert any missing full sections.
+fn move_key(target_ini: &mut IniFile, old: &str, new: &str, key: &str) -> io::Result<()> {
     if let Some(old_section) = target_ini.get_section_mut(old) {
         if let Some(line) = old_section.remove_line(key) {
             if let Some(new_section) = target_ini.get_section_mut(new) {
@@ -80,12 +80,7 @@ fn move_key(
     Ok(())
 }
 
-fn remove_key(
-    target_ini: &mut IniFile,
-    section: &str,
-    key: &str,
-) -> io::Result<()> {
-    // Insert any missing full sections.
+fn remove_key(target_ini: &mut IniFile, section: &str, key: &str) -> io::Result<()> {
     if let Some(old_section) = target_ini.get_section_mut(section) {
         let _ = old_section.remove_line(key);
     } else {
@@ -142,10 +137,17 @@ fn main() {
             Command::RemoveUnknownLines {} => {
                 deal_with_unknown_lines(&reference_ini, &mut target_ini, true).unwrap();
             }
-            Command::MoveKey { ref old, ref new,ref key,  } => {
-                move_key(&mut target_ini,  &old, &new, &key).unwrap();
+            Command::MoveKey {
+                ref old,
+                ref new,
+                ref key,
+            } => {
+                move_key(&mut target_ini, &old, &new, &key).unwrap();
             }
-            Command::RemoveKey { ref section, ref key } => {
+            Command::RemoveKey {
+                ref section,
+                ref key,
+            } => {
                 remove_key(&mut target_ini, section, key).unwrap();
             }
         }

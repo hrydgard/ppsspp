@@ -1,6 +1,6 @@
-use std::path::{Path, PathBuf};
-use std::io::{self, Write};
 use std::fs::File;
+use std::io::{self, Write};
+use std::path::{Path, PathBuf};
 
 use crate::section::Section;
 
