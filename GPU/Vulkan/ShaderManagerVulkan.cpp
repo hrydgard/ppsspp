@@ -45,7 +45,7 @@
 // Most drivers treat vkCreateShaderModule as pretty much a memcpy. What actually
 // takes time here, and makes this worthy of parallelization, is GLSLtoSPV.
 Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code) {
-	return Promise<VkShaderModule>::Spawn(&g_threadManager, [=] {
+	auto compile = [=] {
 		PROFILE_THIS_SCOPE("shadercomp");
 
 		std::string errorMessage;
@@ -78,7 +78,14 @@ Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, VkShade
 		}
 
 		return shaderModule;
-	}, TaskType::CPU_COMPUTE);
+	};
+
+#ifdef _DEBUG
+	// Don't parallelize in debug mode, pathological behavior due to mutex locks in allocator.
+	return Promise<VkShaderModule>::AlreadyDone(compile());
+#else
+	return Promise<VkShaderModule>::Spawn(&g_threadManager, compile, TaskType::CPU_COMPUTE);
+#endif
 }
 
 
