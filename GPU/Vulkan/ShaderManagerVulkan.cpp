@@ -88,7 +88,6 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, 
 	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_FRAGMENT_BIT, source_.c_str());
 	if (!module_) {
 		failed_ = true;
-		return;
 	} else {
 		VERBOSE_LOG(G3D, "Compiled fragment shader:\n%s\n", (const char *)code);
 	}
@@ -119,9 +118,8 @@ VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, cons
 	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_VERTEX_BIT, source_.c_str());
 	if (!module_) {
 		failed_ = true;
-		return;
 	} else {
-		VERBOSE_LOG(G3D, "Compiled fragment shader:\n%s\n", (const char *)code);
+		VERBOSE_LOG(G3D, "Compiled vertex shader:\n%s\n", (const char *)code);
 	}
 }
 

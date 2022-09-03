@@ -62,7 +62,7 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan) {
 	VkPipeline vkpipeline;
 	VkResult result = vkCreateGraphicsPipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &desc->pipe, nullptr, &vkpipeline);
 
-	NOTICE_LOG(G3D, "Pipeline creation time: %0.2f ms", (time_now_d() - start) * 1000.0);
+	INFO_LOG(G3D, "Pipeline creation time: %0.2f ms", (time_now_d() - start) * 1000.0);
 
 	bool success = true;
 	if (result == VK_INCOMPLETE) {
@@ -482,7 +482,7 @@ void VulkanRenderManager::CompileThreadFunc() {
 			break;
 		}
 
-		NOTICE_LOG(G3D, "Compilation thread has %d pipelines to create", (int)toCompile.size());
+		INFO_LOG(G3D, "Compilation thread has %d pipelines to create", (int)toCompile.size());
 
 		// TODO: Here we can sort the pending pipelines by vertex and fragment shaders,
 		// and split up further.
