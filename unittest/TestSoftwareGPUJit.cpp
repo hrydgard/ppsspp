@@ -50,6 +50,8 @@ static bool TestSamplerJit() {
 	u8 **tptr = new u8 *[8];
 	int *bufw = new int[8];
 	u8 *clut = new u8[1024];
+	memset(clut, 0, 1024);
+
 	for (int i = 0; i < 8; ++i) {
 		tptr[i] = new u8[1024 * 1024 * 4];
 		memset(tptr[i], 0, 1024 * 1024 * 4);
@@ -119,6 +121,8 @@ static bool TestPixelJit() {
 	u16 *zb_data = new u16[512 * 2];
 	fb.as32 = fb_data;
 	depthbuf.as16 = zb_data;
+	memset(fb_data, 0, sizeof(u32) * 512 * 2);
+	memset(zb_data, 0, sizeof(u16) * 512 * 2);
 
 	for (int i = 0; i < count; ) {
 		PixelFuncID id;

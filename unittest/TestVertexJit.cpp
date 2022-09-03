@@ -45,8 +45,8 @@ public:
 		gstate_c.uv.vScale = 1.0f;
 	}
 	~VertexDecoderTestHarness() {
-		delete src_;
-		delete dst_;
+		delete [] src_;
+		delete [] dst_;
 		delete cache_;
 		delete dec_;
 	}
