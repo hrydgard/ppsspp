@@ -88,10 +88,6 @@ static const D3DSTENCILOP stencilOps[] = {
 	D3DSTENCILOP_KEEP, // reserved
 };
 
-inline void DrawEngineDX9::ResetFramebufferRead() {
-	fboTexBound_ = false;
-}
-
 void DrawEngineDX9::ApplyDrawState(int prim) {
 	if (!gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
 		// nothing to do
@@ -137,26 +133,30 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			ConvertBlendState(blendState, maskState.applyFramebufferRead);
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
-				ApplyFramebufferRead(&fboTexNeedsBind_);
+				bool fboTexNeedsBind = false;
+				ApplyFramebufferRead(&fboTexNeedsBind);
 				// The shader takes over the responsibility for blending, so recompute.
 				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 
-				if (fboTexNeedsBind_) {
+				if (fboTexNeedsBind) {
 					// Note that this is positions, not UVs, that we need the copy from.
 					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 					// If we are rendering at a higher resolution, linear is probably best for the dest color.
 					device_->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
 					device_->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
 					fboTexBound_ = true;
-					fboTexNeedsBind_ = false;
 					dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE;
 					gstate_c.Dirty(DIRTY_BLEND_STATE);
 				}
 
 				dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
-			} else if (blendState.resetFramebufferRead) {
-				ResetFramebufferRead();
+			} else {
+				if (fboTexBound_) {
+					dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
+					gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+					fboTexBound_ = false;
+				}
 			}
 
 			if (blendState.blendEnabled) {

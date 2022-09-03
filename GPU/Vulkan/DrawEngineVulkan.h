@@ -195,7 +195,6 @@ private:
 	void ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant);
 	void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState);
 	void BindShaderBlendTex();
-	void ResetFramebufferRead();
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
@@ -282,6 +281,7 @@ private:
 	VulkanDynamicState dynState_{};
 
 	int tessOffset_ = 0;
+	bool fboTexNeedsBind_ = false;
 
 	// Hardware tessellation
 	TessellationDataTransferVulkan *tessDataTransferVulkan;

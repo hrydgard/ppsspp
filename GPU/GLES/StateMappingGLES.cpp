@@ -122,14 +122,6 @@ static const GLushort logicOps[] = {
 };
 #endif
 
-inline void DrawEngineGLES::ResetFramebufferRead() {
-	if (fboTexBound_) {
-		GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		renderManager->BindTexture(TEX_SLOT_SHADERBLEND_SRC, nullptr);
-		fboTexBound_ = false;
-	}
-}
-
 void DrawEngineGLES::ApplyDrawState(int prim) {
 	GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
@@ -157,18 +149,18 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			ConvertBlendState(blendState, maskState.applyFramebufferRead);
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
-				ApplyFramebufferRead(&fboTexNeedsBind_);
+				bool fboTexNeedsBind = false;
+				ApplyFramebufferRead(&fboTexNeedsBind);
 				// The shader takes over the responsibility for blending, so recompute.
 				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 
 				// We copy the framebuffer here, as doing so will wipe any blend state if we do it later.
-				if (fboTexNeedsBind_) {
+				if (fboTexNeedsBind) {
 					// Note that this is positions, not UVs, that we need the copy from.
 					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 					// If we are rendering at a higher resolution, linear is probably best for the dest color.
 					renderManager->SetTextureSampler(1, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, 0.0f);
 					fboTexBound_ = true;
-					fboTexNeedsBind_ = false;
 
 					framebufferManager_->RebindFramebuffer("RebindFramebuffer - ApplyDrawState");
 					// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
@@ -177,10 +169,14 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 				}
 				dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
-			} else if (blendState.resetFramebufferRead) {
-				ResetFramebufferRead();
-				dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
-				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+			} else {
+				if (fboTexBound_) {
+					GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+					renderManager->BindTexture(TEX_SLOT_SHADERBLEND_SRC, nullptr);
+					fboTexBound_ = false;
+					dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
+					gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+				}
 			}
 
 			if (blendState.blendEnabled) {

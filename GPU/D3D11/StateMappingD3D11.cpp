@@ -122,12 +122,6 @@ static const D3D11_LOGIC_OP logicOps[] = {
 	D3D11_LOGIC_OP_SET,
 };
 
-void DrawEngineD3D11::ResetFramebufferRead() {
-	if (fboTexBound_) {
-		fboTexBound_ = false;
-	}
-}
-
 class FramebufferManagerD3D11;
 class ShaderManagerD3D11;
 
@@ -159,15 +153,15 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			ConvertBlendState(blendState, maskState.applyFramebufferRead);
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
-				ApplyFramebufferRead(&fboTexNeedsBind_);
+				bool fboTexNeedsBind = false;
+				ApplyFramebufferRead(&fboTexNeedsBind);
 				// The shader takes over the responsibility for blending, so recompute.
 				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 
-				if (fboTexNeedsBind_) {
+				if (fboTexNeedsBind) {
 					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 					// No sampler required, we do a plain Load in the pixel shader.
 					fboTexBound_ = true;
-					fboTexNeedsBind_ = false;
 
 					framebufferManager_->RebindFramebuffer("RebindFramebuffer - ApplyDrawState");
 					// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
@@ -177,10 +171,12 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 
 				dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
-			} else if (blendState.resetFramebufferRead) {
-				ResetFramebufferRead();
-				dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
-				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+			} else {
+				if (fboTexBound_) {
+					fboTexBound_ = false;
+					dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
+					gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+				}
 			}
 
 			if (blendState.blendEnabled) {

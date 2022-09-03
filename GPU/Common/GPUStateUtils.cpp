@@ -1067,7 +1067,6 @@ void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBlend) {
 
 	switch (replaceBlend) {
 	case REPLACE_BLEND_NO:
-		blendState.resetFramebufferRead = true;
 		// We may still want to do something about stencil -> alpha.
 		ApplyStencilReplaceAndLogicOpIgnoreBlend(replaceAlphaWithStencil, blendState);
 		return;
@@ -1081,7 +1080,6 @@ void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBlend) {
 	case REPLACE_BLEND_READ_FRAMEBUFFER:
 		blendState.blendEnabled = true;
 		blendState.applyFramebufferRead = true;
-		blendState.resetFramebufferRead = false;
 		break;
 
 	case REPLACE_BLEND_PRE_SRC:
@@ -1096,8 +1094,6 @@ void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBlend) {
 		blendState.blendEnabled = true;
 		break;
 	}
-
-	blendState.resetFramebufferRead = true;
 
 	const GEBlendMode blendFuncEq = gstate.getBlendEq();
 	GEBlendSrcFactor blendFuncA = gstate.getBlendFuncA();
