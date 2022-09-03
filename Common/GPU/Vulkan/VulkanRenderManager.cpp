@@ -80,8 +80,11 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan) {
 		pipeline->Post(vkpipeline);
 	}
 
+	// Having the desc stick around can be useful for debugging.
+#ifndef _DEBUG
 	delete desc;
 	desc = nullptr;
+#endif
 	return success;
 }
 

@@ -141,20 +141,19 @@ struct VKRComputePipelineDesc {
 	VkComputePipelineCreateInfo pipe{ VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
 };
 
-// Wrapped pipeline, which will later allow for background compilation while emulating the rest of the frame.
+// Wrapped pipeline.
 struct VKRGraphicsPipeline {
 	VKRGraphicsPipeline() {
 		pipeline = Promise<VkPipeline>::CreateEmpty();
 	}
+	~VKRGraphicsPipeline() {
+		delete desc;
+	}
 
-	VKRGraphicsPipelineDesc *desc = nullptr;  // While non-zero, is pending and pipeline isn't valid.
-
+	VKRGraphicsPipelineDesc *desc = nullptr;
 	Promise<VkPipeline> *pipeline;
 
 	bool Create(VulkanContext *vulkan);
-	bool Pending() const {
-		return pipeline == VK_NULL_HANDLE && desc != nullptr;
-	}
 };
 
 struct VKRComputePipeline {
@@ -263,7 +262,7 @@ public:
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(pipeline != nullptr);
 		VkRenderData data{ VKRRenderCommand::BIND_GRAPHICS_PIPELINE };
-		data.graphics_pipeline.pipeline = pipeline->pipeline;
+		data.graphics_pipeline.pipeline = pipeline;
 		data.graphics_pipeline.pipelineLayout = pipelineLayout;
 		curPipelineFlags_ |= flags;
 		curRenderStep_->commands.push_back(data);
@@ -273,7 +272,7 @@ public:
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(pipeline != nullptr);
 		VkRenderData data{ VKRRenderCommand::BIND_COMPUTE_PIPELINE };
-		data.compute_pipeline.pipeline = pipeline->pipeline;
+		data.compute_pipeline.pipeline = pipeline;
 		data.compute_pipeline.pipelineLayout = pipelineLayout;
 		curPipelineFlags_ |= flags;
 		curRenderStep_->commands.push_back(data);
