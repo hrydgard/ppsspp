@@ -146,6 +146,7 @@ struct GenericBlendState {
 	// Shader generation state
 	ReplaceAlphaType replaceAlphaWithStencil;
 	ReplaceBlendType replaceBlend;
+	SimulateLogicOpType simulateLogicOpType;
 
 	// Resulting hardware blend state
 	bool blendEnabled;

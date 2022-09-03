@@ -1063,6 +1063,8 @@ void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBlend) {
 	}
 	blendState.replaceBlend = replaceBlend;
 
+	blendState.simulateLogicOpType = SimulateLogicOpShaderTypeIfNeeded();
+
 	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
 	blendState.replaceAlphaWithStencil = replaceAlphaWithStencil;
 

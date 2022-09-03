@@ -267,7 +267,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 
 		ReplaceBlendType replaceBlend = pipelineState.blendState.replaceBlend;
 		ReplaceAlphaType stencilToAlpha = pipelineState.blendState.replaceAlphaWithStencil;
-		SimulateLogicOpType simulateLogicOpType = SimulateLogicOpShaderTypeIfNeeded();
+		SimulateLogicOpType simulateLogicOpType = pipelineState.blendState.simulateLogicOpType;
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		// Note that checking this means that we must dirty the fragment shader ID whenever textureFullAlpha changes.
