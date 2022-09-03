@@ -145,7 +145,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		} else {
 			GenericMaskState &maskState = pipelineState_.maskState;
 			GenericBlendState &blendState = pipelineState_.blendState;
-			ConvertMaskState(maskState);
+			ConvertMaskState(maskState, draw_->GetDeviceCaps().fragmentShaderInt32Supported);
 			ConvertBlendState(blendState, maskState.applyFramebufferRead);
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
@@ -193,7 +193,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 				}
 			}
 
-			int mask = (int)maskState.maskRGBA[0] | ((int)maskState.maskRGBA[1] << 1) | ((int)maskState.maskRGBA[2] << 2) | ((int)maskState.maskRGBA[3] << 3);
+			int mask = (int)maskState.channelMask;
 			if (blendState.blendEnabled) {
 				renderManager->SetBlendAndMask(mask, blendState.blendEnabled,
 					glBlendFactorLookup[(size_t)blendState.srcColor], glBlendFactorLookup[(size_t)blendState.dstColor],

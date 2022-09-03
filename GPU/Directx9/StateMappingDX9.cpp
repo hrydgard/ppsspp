@@ -129,7 +129,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 		} else {
 			GenericMaskState &maskState = pipelineState_.maskState;
 			GenericBlendState &blendState = pipelineState_.blendState;
-			ConvertMaskState(maskState);
+			ConvertMaskState(maskState, draw_->GetDeviceCaps().fragmentShaderInt32Supported);
 			ConvertBlendState(blendState, maskState.applyFramebufferRead);
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
@@ -177,12 +177,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 				dxstate.blend.disable();
 			}
 
-			u32 mask = 0;
-			for (int i = 0; i < 4; i++) {
-				if (maskState.maskRGBA[i])
-					mask |= 1 << i;
-			}
-			dxstate.colorMask.set(mask);
+			dxstate.colorMask.set(maskState.channelMask);
 		}
 	}
 

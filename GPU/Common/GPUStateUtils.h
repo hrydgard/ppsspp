@@ -186,10 +186,10 @@ void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithS
 struct GenericMaskState {
 	bool applyFramebufferRead;
 	uint32_t uniformMask;  // For each bit, opposite to the PSP.
-	bool maskRGBA[4];  // true = draw, false = don't draw this channel
+	uint8_t channelMask;
 };
 
-void ConvertMaskState(GenericMaskState &maskState);
+void ConvertMaskState(GenericMaskState &maskState, bool shaderBitOpsSupported);
 
 struct GenericStencilFuncState {
 	bool enabled;

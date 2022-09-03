@@ -149,7 +149,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 
 			GenericMaskState &maskState = pipelineState_.maskState;
 			GenericBlendState &blendState = pipelineState_.blendState;
-			ConvertMaskState(maskState);
+			ConvertMaskState(maskState, draw_->GetDeviceCaps().fragmentShaderInt32Supported);
 			ConvertBlendState(blendState, maskState.applyFramebufferRead);
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
@@ -212,7 +212,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				}
 			}
 
-			keys_.blend.colorWriteMask = (maskState.maskRGBA[0] ? 1 : 0) | (maskState.maskRGBA[1] ? 2 : 0) | (maskState.maskRGBA[2] ? 4 : 0) | (maskState.maskRGBA[3] ? 8 : 0);
+			keys_.blend.colorWriteMask = maskState.channelMask;
 		}
 	}
 

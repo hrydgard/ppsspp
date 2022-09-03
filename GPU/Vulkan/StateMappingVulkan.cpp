@@ -157,7 +157,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 
 			GenericMaskState &maskState = pipelineState_.maskState;
 			GenericBlendState &blendState = pipelineState_.blendState;
-			ConvertMaskState(maskState);
+			ConvertMaskState(maskState, draw_->GetDeviceCaps().fragmentShaderInt32Supported);
 			ConvertBlendState(blendState, maskState.applyFramebufferRead);
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
@@ -203,11 +203,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				dynState.useBlendColor = false;
 			}
 
-			key.colorWriteMask =
-				(maskState.maskRGBA[0] ? VK_COLOR_COMPONENT_R_BIT : 0) |
-				(maskState.maskRGBA[1] ? VK_COLOR_COMPONENT_G_BIT : 0) |
-				(maskState.maskRGBA[2] ? VK_COLOR_COMPONENT_B_BIT : 0) |
-				(maskState.maskRGBA[3] ? VK_COLOR_COMPONENT_A_BIT : 0);
+			key.colorWriteMask = maskState.channelMask;  // flags match
 
 			// Workaround proposed in #10421, for bug where the color write mask is not applied correctly on Adreno.
 			if ((gstate.pmskc & 0x00FFFFFF) == 0x00FFFFFF && g_Config.bVendorBugChecksEnabled && draw_->GetBugs().Has(Draw::Bugs::COLORWRITEMASK_BROKEN_WITH_DEPTHTEST)) {

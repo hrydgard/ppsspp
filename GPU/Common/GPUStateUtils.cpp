@@ -993,14 +993,11 @@ void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithS
 // we read from the framebuffer (or a copy of it).
 // We also prepare uniformMask so that if doing this in the shader gets forced-on,
 // we have the right mask already.
-void ConvertMaskState(GenericMaskState &maskState) {
+void ConvertMaskState(GenericMaskState &maskState, bool shaderBitOpsSupported) {
 	if (gstate_c.blueToAlpha) {
 		maskState.applyFramebufferRead = false;
 		maskState.uniformMask = 0xFF000000;
-		maskState.maskRGBA[0] = false;
-		maskState.maskRGBA[1] = false;
-		maskState.maskRGBA[2] = false;
-		maskState.maskRGBA[3] = true;
+		maskState.channelMask = 0x8;
 		return;
 	}
 
@@ -1009,29 +1006,35 @@ void ConvertMaskState(GenericMaskState &maskState) {
 
 	maskState.uniformMask = colorMask;
 	maskState.applyFramebufferRead = false;
+	maskState.channelMask = 0;
 	for (int i = 0; i < 4; i++) {
 		int channelMask = colorMask & 0xFF;
 		switch (channelMask) {
 		case 0x0:
-			maskState.maskRGBA[i] = false;
 			break;
 		case 0xFF:
-			maskState.maskRGBA[i] = true;
+			maskState.channelMask |= 1 << i;
 			break;
 		default:
-			maskState.applyFramebufferRead = PSP_CoreParameter().compat.flags().ShaderColorBitmask;
-			maskState.maskRGBA[i] = true;
-			break;
+			if (shaderBitOpsSupported && PSP_CoreParameter().compat.flags().ShaderColorBitmask) {
+				// Shaders can emulate masking accurately. Let's make use of that.
+				maskState.applyFramebufferRead = true;
+				maskState.channelMask |= 1 << i;
+			} else {
+				// Use the old inaccurate heuristic.
+				if (channelMask >= 128) {
+					maskState.channelMask |= 1 << i;
+				}
+			}
 		}
 		colorMask >>= 8;
 	}
 
 	// Let's not write to alpha if stencil isn't enabled.
-	if (IsStencilTestOutputDisabled()) {
-		maskState.maskRGBA[3] = false;
-	} else if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
-		// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
-		maskState.maskRGBA[3] = false;
+	// Also if the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
+	if (IsStencilTestOutputDisabled() || ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
+		maskState.channelMask &= ~8;
+		maskState.uniformMask &= ~0xFF000000;
 	}
 }
 
