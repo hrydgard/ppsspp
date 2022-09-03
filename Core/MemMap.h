@@ -441,9 +441,20 @@ struct PSPPointer
 #endif
 	}
 
-	bool IsValid() const
-	{
+	bool IsValid() const {
 		return Memory::IsValidRange(ptr, (u32)sizeof(T));
+	}
+
+	T *PtrOrNull() {
+		if (IsValid())
+			return (T *)*this;
+		return nullptr;
+	}
+
+	const T *PtrOrNull() const {
+		if (IsValid())
+			return (const T *)*this;
+		return nullptr;
 	}
 
 	template <size_t tagLen>
