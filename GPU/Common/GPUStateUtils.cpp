@@ -937,7 +937,6 @@ static void ApplyLogicOp(BlendFactor &srcBlend, BlendFactor &dstBlend, BlendEq &
 	}
 }
 
-// Try to simulate some common logic ops.
 void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState) {
 	StencilValueType stencilType = STENCIL_VALUE_KEEP;
 	if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {

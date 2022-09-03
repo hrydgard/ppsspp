@@ -569,6 +569,10 @@ OpenGLContext::OpenGLContext() {
 		caps_.fragmentShaderDepthWriteSupported = true;
 	}
 
+#ifndef USING_GLES2
+	caps_.logicOpSupported = true;
+#endif
+
 	// Interesting potential hack for emulating GL_DEPTH_CLAMP (use a separate varying, force depth in fragment shader):
 	// This will induce a performance penalty on many architectures though so a blanket enable of this
 	// is probably not a good idea.
