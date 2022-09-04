@@ -108,11 +108,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		blueToAlpha = true;
 	}
 
-	GEBlendSrcFactor replaceBlendFuncA = (GEBlendSrcFactor)id.Bits(FS_BIT_BLENDFUNC_A, 4);
-	GEBlendDstFactor replaceBlendFuncB = (GEBlendDstFactor)id.Bits(FS_BIT_BLENDFUNC_B, 4);
-	GEBlendMode replaceBlendEq = (GEBlendMode)id.Bits(FS_BIT_BLENDEQ, 3);
-	StencilValueType replaceAlphaWithStencilType = (StencilValueType)id.Bits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4);
-
 	bool isModeClear = id.Bit(FS_BIT_CLEARMODE);
 
 	const char *shading = "";
@@ -121,7 +116,16 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	bool useDiscardStencilBugWorkaround = id.Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL);
 
-	bool readFramebuffer = replaceBlend == REPLACE_BLEND_READ_FRAMEBUFFER || colorWriteMask;
+	GEBlendSrcFactor replaceBlendFuncA = (GEBlendSrcFactor)id.Bits(FS_BIT_BLENDFUNC_A, 4);
+	GEBlendDstFactor replaceBlendFuncB = (GEBlendDstFactor)id.Bits(FS_BIT_BLENDFUNC_B, 4);
+	GEBlendMode replaceBlendEq = (GEBlendMode)id.Bits(FS_BIT_BLENDEQ, 3);
+	StencilValueType replaceAlphaWithStencilType = (StencilValueType)id.Bits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4);
+
+	// Distinct from the logic op simulation support.
+	GELogicOp replaceLogicOpType = isModeClear ? GE_LOGIC_COPY : (GELogicOp)id.Bits(FS_BIT_REPLACE_LOGIC_OP, 4);
+	bool replaceLogicOp = replaceLogicOpType != GE_LOGIC_COPY && compat.bitwiseOps;
+
+	bool readFramebuffer = replaceBlend == REPLACE_BLEND_READ_FRAMEBUFFER || colorWriteMask || replaceLogicOp;
 	bool readFramebufferTex = readFramebuffer && !gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH);
 
 	bool needFragCoord = readFramebuffer || gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
@@ -425,7 +429,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	// Provide implementations of packUnorm4x8 and unpackUnorm4x8 if not available.
-	if (colorWriteMask && !hasPackUnorm4x8) {
+	if ((colorWriteMask || replaceLogicOp) && !hasPackUnorm4x8) {
 		WRITE(p, "uint packUnorm4x8(%svec4 v) {\n", compat.shaderLanguage == GLSL_VULKAN ? "highp " : "");
 		WRITE(p, "  highp vec4 f = clamp(v, 0.0, 1.0);\n");
 		WRITE(p, "  uvec4 u = uvec4(255.0 * f);\n");
@@ -1078,16 +1082,37 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		return false;
 	}
 
-	// Final color computed - apply color write mask.
-	// TODO: Maybe optimize to only do math on the affected channels?
-	// Or .. meh. That would require more shader bits. Though we could
-	// of course optimize for the common mask 0xF00000, though again, blue-to-alpha
-	// does a better job with that.
-	if (colorWriteMask) {
+	// Final color computed - apply logic ops and bitwise color write mask, through shader blending, if specified.
+	if (colorWriteMask || replaceLogicOp) {
 		WRITE(p, "  highp uint v32 = packUnorm4x8(%s);\n", compat.fragColor0);
 		WRITE(p, "  highp uint d32 = packUnorm4x8(destColor);\n");
-		// Note that the mask has been flipped to the PC way - 1 means write.
-		WRITE(p, "  v32 = (v32 & u_colorWriteMask) | (d32 & ~u_colorWriteMask);\n");
+
+		// v32 is both the "s" to the logical operation, and the value that we'll merge to the destination with masking later.
+		// d32 is the "d" to the logical operation.
+		// NOTE: Alpha of v32 needs to be preserved. Same equations as in the software renderer.
+		switch (replaceLogicOpType) {
+		case GE_LOGIC_CLEAR:         p.C("  v32 &= 0xFF000000u;\n"); break;
+		case GE_LOGIC_AND:           p.C("  v32 = v32 & (d32 | 0xFF000000u);\n"); break;
+		case GE_LOGIC_AND_REVERSE:   p.C("  v32 = v32 & (~d32 | 0xFF000000u);\n"); break;
+		case GE_LOGIC_COPY: break;  // source to dest, do nothing. Will be set to this, if not used.
+		case GE_LOGIC_AND_INVERTED:  p.C("  v32 = (~v32 & (d32 & 0x00FFFFFFu)) | (v32 & 0xFF000000u);\n"); break;
+		case GE_LOGIC_NOOP:          p.C("  v32 = (d32 & 0x00FFFFFFu) | (v32 & 0xFF000000u);\n"); break;
+		case GE_LOGIC_XOR:           p.C("  v32 = v32 ^ (d32 & 0x00FFFFFFu);\n"); break;
+		case GE_LOGIC_OR:            p.C("  v32 = v32 | (d32 & 0x00FFFFFFu);\n"); break;
+		case GE_LOGIC_NOR:           p.C("  v32 = (~(v32 | d32) & 0x00FFFFFFu) | (v32 & 0xFF000000u);\n"); break;
+		case GE_LOGIC_EQUIV:         p.C("  v32 = (~(v32 ^ d32) & 0x00FFFFFFu) | (v32 & 0xFF000000u);\n"); break;
+		case GE_LOGIC_INVERTED:      p.C("  v32 = (~d32 & 0x00FFFFFFu) | (v32 & 0xFF000000u);\n"); break;
+		case GE_LOGIC_OR_REVERSE:    p.C("  v32 = v32 | (~d32 & 0x00FFFFFFu);\n"); break;
+		case GE_LOGIC_COPY_INVERTED: p.C("  v32 = (~v32 & 0x00FFFFFFu) | (v32 &0xFF000000u);\n"); break;
+		case GE_LOGIC_OR_INVERTED:   p.C("  v32 = ((~v32 | d32) & 0x00FFFFFFu) | (v32 & 0xFF000000u);\n"); break;
+		case GE_LOGIC_NAND:          p.C("  v32 = (~(v32 & d32) & 0x00FFFFFFu) | (v32 & 0xFF000000u);\n"); break;
+		case GE_LOGIC_SET:           p.C("  v32 |= 0x00FFFFFF;\n"); break;
+		}
+
+		// Note that the mask has already been flipped to the PC way - 1 means write.
+		if (colorWriteMask) {
+			WRITE(p, "  v32 = (v32 & u_colorWriteMask) | (d32 & ~u_colorWriteMask);\n");
+		}
 		WRITE(p, "  %s = unpackUnorm4x8(v32);\n", compat.fragColor0);
 	}
 
