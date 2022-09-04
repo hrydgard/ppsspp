@@ -243,6 +243,10 @@ struct ComputedPipelineState {
 	GenericLogicState logicState;
 
 	void Convert(bool shaderBitOpsSupported);
+
+	bool FramebufferRead() const {
+		return blendState.applyFramebufferRead;
+	}
 };
 
 // See issue #15898

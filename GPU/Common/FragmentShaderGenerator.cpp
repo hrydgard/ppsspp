@@ -1103,7 +1103,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		case GE_LOGIC_EQUIV:         p.C("  v32 = (~(v32 ^ d32) & 0x00FFFFFFu) | (v32 & 0xFF000000u);\n"); break;
 		case GE_LOGIC_INVERTED:      p.C("  v32 = (~d32 & 0x00FFFFFFu) | (v32 & 0xFF000000u);\n"); break;
 		case GE_LOGIC_OR_REVERSE:    p.C("  v32 = v32 | (~d32 & 0x00FFFFFFu);\n"); break;
-		case GE_LOGIC_COPY_INVERTED: p.C("  v32 = (~v32 & 0x00FFFFFFu) | (v32 &0xFF000000u);\n"); break;
+		case GE_LOGIC_COPY_INVERTED: p.C("  v32 = (~v32 & 0x00FFFFFFu) | (v32 & 0xFF000000u);\n"); break;
 		case GE_LOGIC_OR_INVERTED:   p.C("  v32 = ((~v32 | d32) & 0x00FFFFFFu) | (v32 & 0xFF000000u);\n"); break;
 		case GE_LOGIC_NAND:          p.C("  v32 = (~(v32 & d32) & 0x00FFFFFFu) | (v32 & 0xFF000000u);\n"); break;
 		case GE_LOGIC_SET:           p.C("  v32 |= 0x00FFFFFF;\n"); break;

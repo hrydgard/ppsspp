@@ -1011,7 +1011,7 @@ static void ConvertMaskState(GenericMaskState &maskState, bool shaderBitOpsSuppo
 	maskState.applyFramebufferRead = false;
 	maskState.channelMask = 0;
 	for (int i = 0; i < 4; i++) {
-		int channelMask = colorMask & 0xFF;
+		uint32_t channelMask = (colorMask >> (i * 8)) & 0xFF;
 		switch (channelMask) {
 		case 0x0:
 			break;
@@ -1030,7 +1030,6 @@ static void ConvertMaskState(GenericMaskState &maskState, bool shaderBitOpsSuppo
 				}
 			}
 		}
-		colorMask >>= 8;
 	}
 
 	// Let's not write to alpha if stencil isn't enabled.
@@ -1087,6 +1086,7 @@ static void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBl
 	case REPLACE_BLEND_READ_FRAMEBUFFER:
 		blendState.blendEnabled = true;
 		blendState.applyFramebufferRead = true;
+		blendState.simulateLogicOpType = LOGICOPTYPE_NORMAL;
 		break;
 
 	case REPLACE_BLEND_PRE_SRC:
@@ -1251,7 +1251,9 @@ static void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBl
 	}
 
 	// Attempt to apply simulated logic ops, if any and if needed.
-	SimulateLogicOpIfNeeded(glBlendFuncA, glBlendFuncB, colorEq);
+	if (!forceReplaceBlend) {
+		SimulateLogicOpIfNeeded(glBlendFuncA, glBlendFuncB, colorEq);
+	}
 
 	// The stencil-to-alpha in fragment shader doesn't apply here (blending is enabled), and we shouldn't
 	// do any blending in the alpha channel as that doesn't seem to happen on PSP.  So, we attempt to
@@ -1337,7 +1339,15 @@ static void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBl
 static void ConvertLogicOpState(GenericLogicState &logicOpState, bool logicSupported, bool shaderBitOpsSupported, bool forceApplyFramebuffer) {
 	// TODO: We can get more detailed with checks here. Some logic ops don't involve the destination at all.
 	// Several can be trivially supported even without any bitwise logic.
-	if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY && forceApplyFramebuffer && shaderBitOpsSupported) {
+	if (!gstate.isLogicOpEnabled() || gstate.getLogicOp() == GE_LOGIC_COPY) {
+		// No matter what, don't need to do anything.
+		logicOpState.logicOpEnabled = false;
+		logicOpState.logicOp = GE_LOGIC_COPY;
+		logicOpState.applyFramebufferRead = forceApplyFramebuffer;
+		return;
+	}
+
+	if (forceApplyFramebuffer && shaderBitOpsSupported) {
 		// We have to emulate logic ops in the shader.
 		logicOpState.logicOpEnabled = false;  // Don't use any hardware logic op, supported or not.
 		logicOpState.applyFramebufferRead = true;
@@ -1352,6 +1362,13 @@ static void ConvertLogicOpState(GenericLogicState &logicOpState, bool logicSuppo
 			logicOpState.logicOpEnabled = false;
 			logicOpState.logicOp = GE_LOGIC_COPY;
 		}
+	} else if (shaderBitOpsSupported) {
+		// D3D11 and some OpenGL versions will end up here.
+		// Logic ops not support, bitops supported. Let's punt to the shader.
+		// We should possibly always do this and never use the hardware ops, since they'll mishandle the alpha channel..
+		logicOpState.logicOpEnabled = false;  // Don't use any hardware logic op, supported or not.
+		logicOpState.applyFramebufferRead = true;
+		logicOpState.logicOp = gstate.getLogicOp();
 	} else {
 		// In this case, the SIMULATE fallback should kick in.
 		// Need to make sure this is checking for the same things though...
@@ -1551,13 +1568,15 @@ void GenericBlendState::Log() {
 }
 
 void ComputedPipelineState::Convert(bool shaderBitOpsSuppported) {
+	// Passing on the previous applyFramebufferRead as forceFrameBuffer read in the next one,
+	// thus propagating forward.
 	ConvertMaskState(maskState, shaderBitOpsSuppported);
 	ConvertLogicOpState(logicState, gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP), shaderBitOpsSuppported, maskState.applyFramebufferRead);
-	ConvertBlendState(blendState, maskState.applyFramebufferRead);
+	ConvertBlendState(blendState, logicState.applyFramebufferRead);
 
 	// Note: If the blend state decided it had to use framebuffer reads,
-	// we need to switch mask and logic over to also use it, otherwise things will go wrong.
-	if (blendState.applyFramebufferRead) {
+	// we need to make sure that both mask and logic also use it, otherwise things will go wrong.
+	if (blendState.applyFramebufferRead || logicState.applyFramebufferRead) {
 		maskState.ConvertToShaderBlend();
 		logicState.ConvertToShaderBlend();
 	}
