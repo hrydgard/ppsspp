@@ -102,5 +102,10 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag) {
 	if (ignored_.find(option) == ignored_.end()) {
 		iniFile.Get(option, gameID.c_str(), flag, *flag);
+
+		// Shortcut for debugging, sometimes useful to globally enable compat flags.
+		bool all = false;
+		iniFile.Get(option, "ALL", &all, false);
+		*flag |= all;
 	}
 }
