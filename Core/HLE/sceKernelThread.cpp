@@ -2902,13 +2902,14 @@ int sceKernelGetCallbackCount(SceUID cbId)
 	}
 }
 
-int sceKernelReferCallbackStatus(SceUID cbId, u32 statusAddr)
-{
+int sceKernelReferCallbackStatus(SceUID cbId, u32 statusAddr) {
 	u32 error;
 	PSPCallback *c = kernelObjects.Get<PSPCallback>(cbId, error);
 	if (c) {
-		if (Memory::IsValidAddress(statusAddr) && Memory::Read_U32(statusAddr) != 0) {
-			Memory::WriteStruct(statusAddr, &c->nc);
+		auto status = PSPPointer<NativeCallback>::Create(statusAddr);
+		if (status.IsValid() && status->size != 0) {
+			*status = c->nc;
+			status.NotifyWrite("CallbackStatus");
 			return hleLogSuccessI(SCEKERNEL, 0);
 		} else {
 			return hleLogDebug(SCEKERNEL, 0, "struct size was 0");
@@ -3789,8 +3790,10 @@ int sceKernelReferThreadEventHandlerStatus(SceUID uid, u32 infoPtr) {
 		return hleReportError(SCEKERNEL, error, "bad handler id");
 	}
 
-	if (Memory::IsValidAddress(infoPtr) && Memory::Read_U32(infoPtr) != 0) {
-		Memory::WriteStruct(infoPtr, &teh->nteh);
+	auto info = PSPPointer<NativeThreadEventHandler>::Create(infoPtr);
+	if (info.IsValid() && info->size != 0) {
+		*info = teh->nteh;
+		info.NotifyWrite("ThreadEventHandlerStatus");
 		return hleLogSuccessI(SCEKERNEL, 0);
 	} else {
 		return hleLogDebug(SCEKERNEL, 0, "struct size was 0");

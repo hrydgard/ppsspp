@@ -275,10 +275,11 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	if (SUCCEEDED(result)) {
 		if (options.OutputMergerLogicOp) {
 			// Actually, need to check that the format supports logic ops as well.
-			// Which normal UNORM formats don't seem to do. So meh.
+			// Which normal UNORM formats don't seem to do in D3D11. So meh. We can't enable logicOp support.
 			// caps_.logicOpSupported = true;
 		}
 	}
+
 	IDXGIDevice* dxgiDevice = nullptr;
 	IDXGIAdapter* adapter = nullptr;
 	HRESULT hr = device_->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&dxgiDevice));

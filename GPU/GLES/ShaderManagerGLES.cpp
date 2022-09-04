@@ -410,7 +410,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 			if (IsMultiviewSupported()) {
 				render_->SetUniformM4x4Stereo("u_proj", &u_proj, leftEyeMatrix.m, rightEyeMatrix.m);
 			} else {
-				render_->SetUniformM4x4(&u_proj, leftEyeMatrix.m);
+				render_->SetUniformM4x4(&u_proj, GetVRFBOIndex() == 0 ? leftEyeMatrix.m : rightEyeMatrix.m);
 			}
 		} else {
 			Matrix4x4 flippedMatrix;
@@ -537,7 +537,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 			if (IsMultiviewSupported()) {
 				render_->SetUniformM4x4Stereo("u_view", &u_view, leftEyeView, rightEyeView);
 			} else {
-				render_->SetUniformM4x4(&u_view, leftEyeView);
+				render_->SetUniformM4x4(&u_view, GetVRFBOIndex() == 0 ? leftEyeView : rightEyeView);
 			}
 		} else {
 			SetMatrix4x3(render_, &u_view, gstate.viewMatrix);
@@ -784,7 +784,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTess
 	return vs;
 }
 
-LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, u32 vertType, bool useBufferedRendering) {
+LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, u32 vertType, bool useBufferedRendering) {
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty) {
 		if (lastShader_)
@@ -796,7 +796,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	FShaderID FSID;
 	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
-		ComputeFragmentShaderID(&FSID, draw_->GetBugs());
+		ComputeFragmentShaderID(&FSID, pipelineState, draw_->GetBugs());
 	} else {
 		FSID = lastFSID_;
 	}

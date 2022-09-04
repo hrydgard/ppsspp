@@ -486,8 +486,8 @@ public:
 		// For save states only.
 	}
 
-	FontLib(u32 paramPtr, u32 errorCodePtr) {
-		Memory::ReadStruct(paramPtr, &params_);
+	FontLib(FontNewLibParams *params, u32 errorCodePtr) {
+		params_ = *params;
 		if (params_.numFonts > 9) {
 			params_.numFonts = 9;
 		}
@@ -998,7 +998,7 @@ static u32 sceFontNewLib(u32 paramPtr, u32 errorCodePtr) {
 	INFO_LOG(SCEFONT, "sceFontNewLib(%08x, %08x)", paramPtr, errorCodePtr);
 	*errorCode = 0;
 
-	FontLib *newLib = new FontLib(paramPtr, errorCodePtr);
+	FontLib *newLib = new FontLib(params, errorCodePtr);
 	fontLibList.push_back(newLib);
 	// The game should never see this value, the return value is replaced
 	// by the action. Except if we disable the alloc, in this case we return

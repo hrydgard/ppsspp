@@ -65,10 +65,15 @@ static inline void DelayBranchTo(u32 where)
 	mipsr4k.inDelaySlot = true;
 }
 
-static inline void SkipLikely()
-{
-	PC += 8;
-	--mipsr4k.downcount;
+static inline void SkipLikely() {
+	MIPSInfo delaySlot = MIPSGetInfo(Memory::Read_Instruction(PC + 4, true));
+	// Don't actually skip if it is a jump (seen in Brooktown High.)
+	if (delaySlot & IS_JUMP) {
+		PC += 4;
+	} else {
+		PC += 8;
+		--mipsr4k.downcount;
+	}
 }
 
 int MIPS_SingleStep()
@@ -246,17 +251,21 @@ namespace MIPSInt
 	void Int_JumpType(MIPSOpcode op)
 	{
 		if (mipsr4k.inDelaySlot)
-			_dbg_assert_msg_(false,"Jump in delay slot :(");
+			ERROR_LOG(CPU, "Jump in delay slot :(");
 
 		u32 off = ((op & 0x03FFFFFF) << 2);
 		u32 addr = (currentMIPS->pc & 0xF0000000) | off;
 
 		switch (op>>26) 
 		{
-		case 2: DelayBranchTo(addr); break; //j
+		case 2: //j
+			if (!mipsr4k.inDelaySlot)
+				DelayBranchTo(addr);
+			break;
 		case 3: //jal
-			R(31) = PC + 8;
-			DelayBranchTo(addr);
+			R(MIPS_REG_RA) = PC + 8;
+			if (!mipsr4k.inDelaySlot)
+				DelayBranchTo(addr);
 			break;
 		default:
 			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
@@ -268,11 +277,8 @@ namespace MIPSInt
 	{
 		if (mipsr4k.inDelaySlot)
 		{
-			// There's one of these in Star Soldier at 0881808c, which seems benign - it should probably be ignored.
-			if (op == 0x03e00008)
-				return;
+			// There's one of these in Star Soldier at 0881808c, which seems benign.
 			ERROR_LOG(CPU, "Jump in delay slot :(");
-			_dbg_assert_msg_(false,"Jump in delay slot :(");
 		}
 
 		int rs = _RS;
@@ -281,12 +287,15 @@ namespace MIPSInt
 		switch (op & 0x3f) 
 		{
 		case 8: //jr
-			DelayBranchTo(addr);
+			if (!mipsr4k.inDelaySlot)
+				DelayBranchTo(addr);
 			break;
 		case 9: //jalr
 			if (rd != 0)
 				R(rd) = PC + 8;
-			DelayBranchTo(addr);
+			// Update rd, but otherwise do not take the branch if we're branching.
+			if (!mipsr4k.inDelaySlot)
+				DelayBranchTo(addr);
 			break;
 		}
 	}

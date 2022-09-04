@@ -16,9 +16,6 @@ GLboolean initialized = GL_FALSE;
 GLboolean stageSupported = GL_FALSE;
 int vrConfig[VR_CONFIG_MAX] = {};
 
-float menuPitch = 0;
-float menuYaw = 0;
-float recenterYaw = 0;
 XrVector3f hmdorientation;
 XrVector3f hmdposition;
 
@@ -135,7 +132,8 @@ void VR_Recenter(engine_t* engine) {
 		OXR(xrLocateSpace(engine->appState.HeadSpace, engine->appState.CurrentSpace, engine->predictedDisplayTime, &loc));
 		hmdorientation = XrQuaternionf_ToEulerAngles(loc.pose.orientation);
 
-		recenterYaw += ToRadians(hmdorientation.y);
+		vrConfig[VR_CONFIG_RECENTER_YAW] += (int)hmdorientation.y;
+		float recenterYaw = ToRadians((float)vrConfig[VR_CONFIG_RECENTER_YAW]);
 		spaceCreateInfo.poseInReferenceSpace.orientation.x = 0;
 		spaceCreateInfo.poseInReferenceSpace.orientation.y = sin(recenterYaw / 2);
 		spaceCreateInfo.poseInReferenceSpace.orientation.z = 0;
@@ -171,8 +169,8 @@ void VR_Recenter(engine_t* engine) {
 	}
 
 	// Update menu orientation
-	menuPitch = hmdorientation.x;
-	menuYaw = 0;
+	vrConfig[VR_CONFIG_MENU_PITCH] = (int)hmdorientation.x;
+	vrConfig[VR_CONFIG_MENU_YAW] = 0;
 }
 
 void VR_InitRenderer( engine_t* engine, bool multiview ) {
@@ -182,6 +180,8 @@ void VR_InitRenderer( engine_t* engine, bool multiview ) {
 
 	int eyeW, eyeH;
 	VR_GetResolution(engine, &eyeW, &eyeH);
+	vrConfig[VR_CONFIG_VIEWPORT_WIDTH] = eyeW;
+	vrConfig[VR_CONFIG_VIEWPORT_HEIGHT] = eyeH;
 
 	// Get the viewport configuration info for the chosen viewport configuration type.
 	engine->appState.ViewportConfig.type = XR_TYPE_VIEW_CONFIGURATION_PROPERTIES;
@@ -235,7 +235,7 @@ void VR_ClearFrameBuffer( int width, int height) {
 	glDisable( GL_SCISSOR_TEST );
 }
 
-bool VR_BeginFrame( engine_t* engine ) {
+bool VR_InitFrame( engine_t* engine ) {
 	GLboolean stageBoundsDirty = GL_TRUE;
 	if (ovrApp_HandleXrEvents(&engine->appState)) {
 		VR_Recenter(engine);
@@ -304,15 +304,20 @@ bool VR_BeginFrame( engine_t* engine ) {
 
 	engine->appState.LayerCount = 0;
 	memset(engine->appState.Layers, 0, sizeof(ovrCompositorLayer_Union) * ovrMaxLayerCount);
-
-	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer;
-	ovrFramebuffer_Acquire(frameBuffer);
-	ovrFramebuffer_SetCurrent(frameBuffer);
-	VR_ClearFrameBuffer(frameBuffer->ColorSwapChain.Width, frameBuffer->ColorSwapChain.Height);
 	return true;
 }
 
+void VR_BeginFrame( engine_t* engine, int fboIndex ) {
+	vrConfig[VR_CONFIG_CURRENT_FBO] = fboIndex;
+	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[fboIndex];
+	ovrFramebuffer_Acquire(frameBuffer);
+	ovrFramebuffer_SetCurrent(frameBuffer);
+	VR_ClearFrameBuffer(frameBuffer->ColorSwapChain.Width, frameBuffer->ColorSwapChain.Height);
+}
+
 void VR_EndFrame( engine_t* engine ) {
+
+	int fboIndex = vrConfig[VR_CONFIG_CURRENT_FBO];
 
 	// Clear the alpha channel, other way OpenXR would not transfer the framebuffer fully
 	VR_BindFramebuffer(engine);
@@ -321,22 +326,38 @@ void VR_EndFrame( engine_t* engine ) {
 	glClear(GL_COLOR_BUFFER_BIT);
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
-	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer;
+	// Show mouse cursor
+	int size = vrConfig[VR_CONFIG_MOUSE_SIZE];
+	if ((vrConfig[VR_CONFIG_MODE] == VR_MODE_FLAT_SCREEN) && (size > 0)) {
+		glEnable(GL_SCISSOR_TEST);
+		glScissor(vrConfig[VR_CONFIG_MOUSE_X], vrConfig[VR_CONFIG_MOUSE_Y], size, size);
+		glViewport(vrConfig[VR_CONFIG_MOUSE_X], vrConfig[VR_CONFIG_MOUSE_Y], size, size);
+		glClearColor(1, 1, 1, 1);
+		glClear(GL_COLOR_BUFFER_BIT);
+		glDisable(GL_SCISSOR_TEST);
+	}
+
+	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[fboIndex];
 	//ovrFramebuffer_Resolve(frameBuffer);
 	ovrFramebuffer_Release(frameBuffer);
 	ovrFramebuffer_SetNone();
+}
 
-	XrCompositionLayerProjectionView projection_layer_elements[2] = {};
+void VR_FinishFrame( engine_t* engine ) {
+
 	int vrMode = vrConfig[VR_CONFIG_MODE];
+	XrCompositionLayerProjectionView projection_layer_elements[2] = {};
 	if ((vrMode == VR_MODE_MONO_6DOF) || (vrMode == VR_MODE_STEREO_6DOF)) {
-		menuYaw = hmdorientation.y;
+		vrConfig[VR_CONFIG_MENU_YAW] = (int)hmdorientation.y;
 
 		for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
-			int imageLayer = eye;
+			int imageLayer = engine->appState.Renderer.Multiview ? eye : 0;
+			ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[0];
 			XrFovf fov = projections[eye].fov;
 			if (vrMode == VR_MODE_MONO_6DOF) {
 				fov = projections[0].fov;
-				imageLayer = 0;
+			} else if (!engine->appState.Renderer.Multiview) {
+				frameBuffer = &engine->appState.Renderer.FrameBuffer[eye];
 			}
 
 			memset(&projection_layer_elements[eye], 0, sizeof(XrCompositionLayerProjectionView));
@@ -365,28 +386,30 @@ void VR_EndFrame( engine_t* engine ) {
 	} else if (vrMode == VR_MODE_FLAT_SCREEN) {
 
 		// Build the cylinder layer
-		int width = engine->appState.Renderer.FrameBuffer.ColorSwapChain.Width;
-		int height = engine->appState.Renderer.FrameBuffer.ColorSwapChain.Height;
+		int width = engine->appState.Renderer.FrameBuffer[0].ColorSwapChain.Width;
+		int height = engine->appState.Renderer.FrameBuffer[0].ColorSwapChain.Height;
 		XrCompositionLayerCylinderKHR cylinder_layer = {};
 		cylinder_layer.type = XR_TYPE_COMPOSITION_LAYER_CYLINDER_KHR;
 		cylinder_layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
 		cylinder_layer.space = engine->appState.CurrentSpace;
 		cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
 		memset(&cylinder_layer.subImage, 0, sizeof(XrSwapchainSubImage));
-		cylinder_layer.subImage.swapchain = engine->appState.Renderer.FrameBuffer.ColorSwapChain.Handle;
+		cylinder_layer.subImage.swapchain = engine->appState.Renderer.FrameBuffer[0].ColorSwapChain.Handle;
 		cylinder_layer.subImage.imageRect.offset.x = 0;
 		cylinder_layer.subImage.imageRect.offset.y = 0;
 		cylinder_layer.subImage.imageRect.extent.width = width;
 		cylinder_layer.subImage.imageRect.extent.height = height;
 		cylinder_layer.subImage.imageArrayIndex = 0;
-		float distance = vrConfig[VR_CONFIG_CANVAS_DISTANCE];
+		float distance = (float)vrConfig[VR_CONFIG_CANVAS_DISTANCE];
+		float menuPitch = ToRadians((float)vrConfig[VR_CONFIG_MENU_PITCH]);
+		float menuYaw = ToRadians((float)vrConfig[VR_CONFIG_MENU_YAW]);
 		XrVector3f pos = {
-				invViewTransform[0].position.x - sin(ToRadians(menuYaw)) * distance,
+				invViewTransform[0].position.x - sin(menuYaw) * distance,
 				invViewTransform[0].position.y,
-				invViewTransform[0].position.z - cos(ToRadians(menuYaw)) * distance
+				invViewTransform[0].position.z - cos(menuYaw) * distance
 		};
-		XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, -ToRadians(menuPitch));
-		XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, ToRadians(menuYaw));
+		XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, -menuPitch);
+		XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, menuYaw);
 		cylinder_layer.pose.orientation = XrQuaternionf_Multiply(pitch, yaw);
 		cylinder_layer.pose.position = pos;
 		cylinder_layer.radius = 12.0f;
@@ -412,8 +435,12 @@ void VR_EndFrame( engine_t* engine ) {
 	endFrameInfo.layers = layers;
 
 	OXR(xrEndFrame(engine->appState.Session, &endFrameInfo));
-	frameBuffer->TextureSwapChainIndex++;
-	frameBuffer->TextureSwapChainIndex %= frameBuffer->TextureSwapChainLength;
+	int instances = engine->appState.Renderer.Multiview ? 1 : ovrMaxNumEyes;
+	for (int i = 0; i < instances; i++) {
+		ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[instances];
+		frameBuffer->TextureSwapChainIndex++;
+		frameBuffer->TextureSwapChainIndex %= frameBuffer->TextureSwapChainLength;
+	}
 }
 
 int VR_GetConfig( VRConfig config ) {
@@ -426,7 +453,8 @@ void VR_SetConfig( VRConfig config, int value) {
 
 void VR_BindFramebuffer(engine_t *engine) {
 	if (!initialized) return;
-	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer;
+	int fboIndex = vrConfig[VR_CONFIG_CURRENT_FBO];
+	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[fboIndex];
 	unsigned int swapchainIndex = frameBuffer->TextureSwapChainIndex;
 	unsigned int glFramebuffer = frameBuffer->FrameBuffers[swapchainIndex];
 	GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, glFramebuffer));

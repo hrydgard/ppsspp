@@ -263,28 +263,24 @@ int sceKernelDeleteSema(SceUID id)
 	}
 }
 
-int sceKernelReferSemaStatus(SceUID id, u32 infoPtr)
-{
+int sceKernelReferSemaStatus(SceUID id, u32 infoPtr) {
 	u32 error;
 	PSPSemaphore *s = kernelObjects.Get<PSPSemaphore>(id, error);
-	if (s)
-	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelReferSemaStatus(%i, %08x)", id, infoPtr);
-
-		if (!Memory::IsValidAddress(infoPtr))
-			return -1;
+	if (s) {
+		auto info = PSPPointer<NativeSemaphore>::Create(infoPtr);
+		if (!info.IsValid())
+			return hleLogWarning(SCEKERNEL, -1, "invalid pointer");
 
 		HLEKernel::CleanupWaitingThreads(WAITTYPE_SEMA, id, s->waitingThreads);
 
 		s->ns.numWaitThreads = (int) s->waitingThreads.size();
-		if (Memory::Read_U32(infoPtr) != 0)
-			Memory::WriteStruct(infoPtr, &s->ns);
-		return 0;
-	}
-	else
-	{
-		ERROR_LOG(SCEKERNEL, "sceKernelReferSemaStatus: error %08x", error);
-		return error;
+		if (info->size != 0) {
+			*info = s->ns;
+			info.NotifyWrite("SemaStatus");
+		}
+		return hleLogSuccessI(SCEKERNEL, 0);
+	} else {
+		return hleLogError(SCEKERNEL, error);
 	}
 }
 

@@ -133,9 +133,10 @@
 		}
 	}
 
-	void FramebufferManagerDX9::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
-		if (!vfb->fbo) {
-			ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferDirectx9_: vfb->fbo == 0");
+	void FramebufferManagerDX9::PackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel) {
+		if (channel != RASTER_COLOR) {
+			// Unsupported
+			WARN_LOG_ONCE(d3ddepthreadback, G3D, "Not yet supporting depth readbacks on DX9");
 			return;
 		}
 
@@ -175,11 +176,6 @@
 	}
 
 	void FramebufferManagerDX9::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
-		if (!vfb->fbo) {
-			ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackDepthbuffer: vfb->fbo == 0");
-			return;
-		}
-
 		// We always read the depth buffer in 24_8 format.
 		const u32 z_address = vfb->z_address;
 

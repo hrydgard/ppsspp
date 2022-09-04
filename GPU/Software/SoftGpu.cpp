@@ -813,7 +813,7 @@ void SoftGPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 	}
 
 	if (MemBlockInfoDetailed(srcSize, dstSize)) {
-		const std::string tag = "GPUBlockTransfer/" + GetMemWriteTagAt(src, srcSize);
+		const std::string tag = GetMemWriteTagAt("GPUBlockTransfer/", src, srcSize);
 		NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag.c_str(), tag.size());
 		NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag.c_str(), tag.size());
 	}

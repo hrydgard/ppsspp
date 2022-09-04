@@ -506,3 +506,12 @@ uint32_t IN_VRGetButtonState( int controllerIndex ) {
 XrVector2f IN_VRGetJoystickState( int controllerIndex ) {
 	return moveJoystickState[controllerIndex].currentState;
 }
+
+XrPosef IN_VRGetPose( int controllerIndex ) {
+	engine_t* engine = VR_GetEngine();
+	XrSpaceLocation loc = {};
+	loc.type = XR_TYPE_SPACE_LOCATION;
+	XrSpace aimSpace[] = { leftControllerAimSpace, rightControllerAimSpace };
+	xrLocateSpace(aimSpace[controllerIndex], engine->appState.CurrentSpace, engine->predictedDisplayTime, &loc);
+	return loc.pose;
+}

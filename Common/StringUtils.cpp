@@ -44,15 +44,16 @@
 #include "Common/Buffer.h"
 #include "Common/StringUtils.h"
 
-void truncate_cpy(char *dest, size_t destSize, const char *src) {
+size_t truncate_cpy(char *dest, size_t destSize, const char *src) {
 	size_t len = strlen(src);
 	if (len >= destSize - 1) {
 		memcpy(dest, src, destSize - 1);
-		dest[destSize - 1] = '\0';
+		len = destSize - 1;
 	} else {
 		memcpy(dest, src, len);
-		dest[len] = '\0';
 	}
+	dest[len] = '\0';
+	return len;
 }
 
 const char* safe_string(const char* s) {

@@ -125,7 +125,7 @@ struct SceMpegLLI
 };
 
 void SceMpegAu::read(u32 addr) {
-	Memory::ReadStruct(addr, this);
+	Memory::Memcpy(this, addr, sizeof(this), "SceMpegAu");
 	pts = (pts & 0xFFFFFFFFULL) << 32 | (((u64)pts) >> 32);
 	dts = (dts & 0xFFFFFFFFULL) << 32 | (((u64)dts) >> 32);
 }
@@ -133,7 +133,7 @@ void SceMpegAu::read(u32 addr) {
 void SceMpegAu::write(u32 addr) {
 	pts = (pts & 0xFFFFFFFFULL) << 32 | (((u64)pts) >> 32);
 	dts = (dts & 0xFFFFFFFFULL) << 32 | (((u64)dts) >> 32);
-	Memory::WriteStruct(addr, this);
+	Memory::Memcpy(addr, this, sizeof(this), "SceMpegAu");
 }
 
 /*
@@ -2410,15 +2410,15 @@ static u32 sceMpegBasePESpacketCopy(u32 p)
 {
 	pmp_videoSource = p;
 	pmp_nBlocks = 0;
-	SceMpegLLI lli;
-	while (1){
-		Memory::ReadStruct(p, &lli);
+
+	auto lli = PSPPointer<SceMpegLLI>::Create(p);
+	while (lli.IsValid()) {
 		pmp_nBlocks++;
 		// lli.Next ==0 for last block
-		if (lli.Next == 0){
+		if (lli->Next == 0){
 			break;
 		}
-		p = p + sizeof(SceMpegLLI);
+		++lli;
 	}
 	
 	DEBUG_LOG(ME, "sceMpegBasePESpacketCopy(%08x), received %d block(s)", pmp_videoSource, pmp_nBlocks);

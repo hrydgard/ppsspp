@@ -1,7 +1,9 @@
 #pragma once
 
 #include <functional>
+#include <mutex>
 
+#include "Common/Log.h"
 #include "Common/Thread/Channel.h"
 #include "Common/Thread/ThreadManager.h"
 
@@ -33,6 +35,7 @@ public:
 // Has ownership over the data. Single use.
 // TODO: Split Mailbox (rx_ and tx_) up into separate proxy objects.
 // NOTE: Poll/BlockUntilReady should only be used from one thread.
+// TODO: Make movable?
 template<class T>
 class Promise {
 public:
@@ -47,15 +50,36 @@ public:
 		return promise;
 	}
 
+	static Promise<T> *AlreadyDone(T data) {
+		Promise<T> *promise = new Promise<T>();
+		promise->data_ = data;
+		promise->ready_ = true;
+		return promise;
+	}
+
+	static Promise<T> *CreateEmpty() {
+		Mailbox<T> *mailbox = new Mailbox<T>();
+		Promise<T> *promise = new Promise<T>();
+		promise->rx_ = mailbox;
+		return promise;
+	}
+
+	// Allow an empty promise to spawn, too, in case we want to delay it.
+	void SpawnEmpty(ThreadManager *threadman, std::function<T()> fun, TaskType taskType) {
+		PromiseTask<T> *task = new PromiseTask<T>(fun, rx_, taskType);
+		threadman->EnqueueTask(task);
+	}
+
 	~Promise() {
+		std::lock_guard<std::mutex> guard(readyMutex_);
 		// A promise should have been fulfilled before it's destroyed.
 		_assert_(ready_);
 		_assert_(!rx_);
-		delete data_;
 	}
 
 	// Returns T if the data is ready, nullptr if it's not.
 	T Poll() {
+		std::lock_guard<std::mutex> guard(readyMutex_);
 		if (ready_) {
 			return data_;
 		} else {
@@ -71,6 +95,7 @@ public:
 	}
 
 	T BlockUntilReady() {
+		std::lock_guard<std::mutex> guard(readyMutex_);
 		if (ready_) {
 			return data_;
 		} else {
@@ -82,10 +107,17 @@ public:
 		}
 	}
 
+	// For outside injection of data, when not using Spawn
+	void Post(T data) {
+		rx_->Send(data);
+	}
+
 private:
 	Promise() {}
 
-	T data_ = nullptr;
+	// Promise can only be constructed in Spawn (or AlreadyDone).
+	T data_{};
 	bool ready_ = false;
-	Mailbox<T> *rx_;
+	std::mutex readyMutex_;
+	Mailbox<T> *rx_ = nullptr;
 };

@@ -280,10 +280,12 @@ static int sceNpMatching2GetMemoryStat(u32 memStatPtr)
 	if (!npMatching2Inited)
 		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
-	if (!Memory::IsValidAddress(memStatPtr))
+	auto memStat = PSPPointer<SceNpAuthMemoryStat>::Create(memStatPtr);
+	if (!memStat.IsValid())
 		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT);
 
-	Memory::WriteStruct(memStatPtr, &npMatching2MemStat);
+	*memStat = npMatching2MemStat;
+	memStat.NotifyWrite("NpMatching2GetMemoryStat");
 
 	return 0;
 }

@@ -508,9 +508,6 @@ void GameSettingsScreen::CreateViews() {
 	});
 	texSecondary_->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	CheckBox *framebufferSlowEffects = graphicsSettings->Add(new CheckBox(&g_Config.bDisableSlowFramebufEffects, gr->T("Disable slower effects (speedup)")));
-	framebufferSlowEffects->SetDisabledPtr(&g_Config.bSoftwareRendering);
-
 	// Seems solid, so we hide the setting.
 	/*CheckBox *vtxJit = graphicsSettings->Add(new CheckBox(&g_Config.bVertexDecoderJit, gr->T("Vertex Decoder JIT")));
 
@@ -1120,10 +1117,8 @@ void GameSettingsScreen::CreateViews() {
 		vrSettings->Add(new CheckBox(&g_Config.bEnableVR, vr->T("Enable virtual reality")));
 		CheckBox *vr6DoF = vrSettings->Add(new CheckBox(&g_Config.bEnable6DoF, vr->T("Enable 6 degrees of freedom movement")));
 		vr6DoF->SetEnabledPtr(&g_Config.bEnableVR);
-		if (IsMultiviewSupported()) {
-			CheckBox *vrStereo = vrSettings->Add(new CheckBox(&g_Config.bEnableStereo, vr->T("Enable stereoscopic vision")));
-			vrStereo->SetEnabledPtr(&g_Config.bEnableVR);
-		}
+		CheckBox *vrStereo = vrSettings->Add(new CheckBox(&g_Config.bEnableStereo, vr->T("Enable stereoscopic vision")));
+		vrStereo->SetEnabledPtr(&g_Config.bEnableVR);
 		PopupSliderChoice *vrFieldOfView = vrSettings->Add(new PopupSliderChoice(&g_Config.iFieldOfViewPercentage, 100, 150, vr->T("Field of view scale", "Headset's field of view scale"), 10, screenManager(), vr->T("% of native FoV")));
 		vrFieldOfView->SetEnabledPtr(&g_Config.bEnableVR);
 		vrSettings->Add(new PopupSliderChoice(&g_Config.iCanvasDistance, 1, 10, vr->T("Distance to 2D menus and scenes", "Distance to 2D menus and scenes"), 1, screenManager(), ""));

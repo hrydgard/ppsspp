@@ -64,8 +64,8 @@ int srcFrequency = 0;
 
 const int hwSampleRate = 44100;
 
-int hwBlockSize = 64;
-int hostAttemptBlockSize = 512;
+const int hwBlockSize = 64;
+const int hostAttemptBlockSize = 512;
 
 static int audioIntervalCycles;
 static int audioHostIntervalCycles;
@@ -81,6 +81,11 @@ static bool m_logAudio;
 // TODO: Tweak. Hm, there aren't actually even used currently...
 static int chanQueueMaxSizeFactor;
 static int chanQueueMinSizeFactor;
+
+// Accessor for libretro
+int __AudioGetHostAttemptBlockSize() {
+	return hostAttemptBlockSize;
+}
 
 static void hleAudioUpdate(u64 userdata, int cyclesLate) {
 	// Schedule the next cycle first.  __AudioUpdate() may consume cycles.
@@ -110,8 +115,6 @@ void __AudioInit() {
 
 	chanQueueMaxSizeFactor = 2;
 	chanQueueMinSizeFactor = 1;
-	hwBlockSize = 64;
-	hostAttemptBlockSize = 512;
 
 	__AudioCPUMHzChange();
 
@@ -338,7 +341,8 @@ void __AudioUpdate(bool resetRecording) {
 	// to the CPU. Much better to throttle the frame rate on frame display and just throw away audio
 	// if the buffer somehow gets full.
 	bool firstChannel = true;
-	std::vector<int16_t> srcBuffer;
+	const int16_t srcBufferSize = hwBlockSize * 2;
+	int16_t srcBuffer[srcBufferSize];
 
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)	{
 		if (!chans[i].reserved)
@@ -351,7 +355,7 @@ void __AudioUpdate(bool resetRecording) {
 		}
 
 		bool needsResample = i == PSP_AUDIO_CHANNEL_SRC && srcFrequency != 0 && srcFrequency != mixFrequency;
-		size_t sz = needsResample ? (hwBlockSize * 2 * srcFrequency) / mixFrequency : hwBlockSize * 2;
+		size_t sz = needsResample ? (srcBufferSize * srcFrequency) / mixFrequency : srcBufferSize;
 		if (sz > chanSampleQueues[i].size()) {
 			ERROR_LOG(SCEAUDIO, "Channel %i buffer underrun at %i of %i", i, (int)chanSampleQueues[i].size() / 2, (int)sz / 2);
 		}
@@ -372,13 +376,11 @@ void __AudioUpdate(bool resetRecording) {
 				return buf1[sz1 - 1];
 			};
 
-			srcBuffer.resize(hwBlockSize * 2);
-
 			// TODO: This is terrible, since it's doing it by small chunk and discarding frac.
 			const uint32_t ratio = (uint32_t)(65536.0 * srcFrequency / (double)mixFrequency);
 			uint32_t frac = 0;
 			size_t readIndex = 0;
-			for (size_t outIndex = 0; readIndex < sz && outIndex < srcBuffer.size(); outIndex += 2) {
+			for (size_t outIndex = 0; readIndex < sz && outIndex < srcBufferSize; outIndex += 2) {
 				size_t readIndex2 = readIndex + 2;
 				int16_t l1 = read(readIndex);
 				int16_t r1 = read(readIndex + 1);
@@ -393,8 +395,8 @@ void __AudioUpdate(bool resetRecording) {
 				frac &= 0xffff;
 			}
 
-			buf1 = srcBuffer.data();
-			sz1 = srcBuffer.size();
+			buf1 = srcBuffer;
+			sz1 = srcBufferSize;
 			buf2 = nullptr;
 			sz2 = 0;
 		}

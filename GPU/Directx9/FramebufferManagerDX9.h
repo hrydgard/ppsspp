@@ -51,7 +51,7 @@ protected:
 	void DecimateFBOs() override;
 
 private:
-	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) override;
+	void PackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel) override;
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	bool GetRenderTargetFramebuffer(LPDIRECT3DSURFACE9 renderTarget, LPDIRECT3DSURFACE9 offscreen, int w, int h, GPUDebugBuffer &buffer);
 

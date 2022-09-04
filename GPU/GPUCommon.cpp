@@ -1686,6 +1686,16 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 		}
 	}
 
+	if (PSP_CoreParameter().compat.flags().SplitFramebufferMargin) {
+		switch (gstate.vertType & 0xFFFFFF) {
+		case 0x00800102:  // through, u16 uv, u16 pos (used for the framebuffer effect in-game)
+		case 0x0080011c:  // through, 8888 color, s16 pos (used for clearing in the margin of the title screen)
+		case 0x00000183:  // float uv, float pos (used for drawing in the margin of the title screen)
+			// Need to re-check the framebuffer every one of these draws, to update the split if needed.
+			gstate_c.Dirty(DIRTY_FRAMEBUF);
+		}
+	}
+
 	// This also makes skipping drawing very effective.
 	VirtualFramebuffer *vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (blueToAlpha) {
@@ -2854,9 +2864,10 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 	if (MemBlockInfoDetailed(numBytes, numBytes)) {
 		const uint32_t src = srcBasePtr + (srcY * srcStride + srcX) * bpp;
 		const uint32_t dst = dstBasePtr + (dstY * dstStride + dstX) * bpp;
-		const std::string tag = "GPUBlockTransfer/" + GetMemWriteTagAt(src, srcSize);
-		NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag.c_str(), tag.size());
-		NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag.c_str(), tag.size());
+		char tag[128];
+		size_t tagSize = FormatMemWriteTagAt(tag, sizeof(tag), "GPUBlockTransfer/", src, srcSize);
+		NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag, tagSize);
+		NotifyMemInfo(MemBlockFlags::WRITE, dst, dstSize, tag, tagSize);
 	}
 
 	// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
@@ -2871,7 +2882,7 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size) {
 			// Since they're identical we don't need to copy.
 			if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
 				if (MemBlockInfoDetailed(size)) {
-					const std::string tag = "GPUMemcpy/" + GetMemWriteTagAt(src, size);
+					const std::string tag = GetMemWriteTagAt("GPUMemcpy/", src, size);
 					Memory::Memcpy(dest, src, size, tag.c_str(), tag.size());
 				} else {
 					Memory::Memcpy(dest, src, size, "GPUMemcpy");
@@ -2883,7 +2894,7 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size) {
 	}
 
 	if (MemBlockInfoDetailed(size)) {
-		const std::string tag = "GPUMemcpy/" + GetMemWriteTagAt(src, size);
+		const std::string tag = GetMemWriteTagAt("GPUMemcpy/", src, size);
 		NotifyMemInfo(MemBlockFlags::READ, src, size, tag.c_str(), tag.size());
 		NotifyMemInfo(MemBlockFlags::WRITE, dest, size, tag.c_str(), tag.size());
 	}
@@ -2938,7 +2949,7 @@ void GPUCommon::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
 		// Vempire invalidates (with writeback) after drawing, but before blitting.
 		// TODO: Investigate whether we can get this to work some other way.
 		if (type == GPU_INVALIDATE_SAFE) {
-			framebufferManager_->UpdateFromMemory(addr, size, type == GPU_INVALIDATE_SAFE);
+			framebufferManager_->UpdateFromMemory(addr, size);
 		}
 	}
 }

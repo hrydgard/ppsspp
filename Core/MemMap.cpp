@@ -490,3 +490,12 @@ void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength, const char
 }
 
 } // namespace
+
+void PSPPointerNotifyRW(int rw, uint32_t ptr, uint32_t bytes, const char * tag, size_t tagLen) {
+	if (MemBlockInfoDetailed(bytes)) {
+		if (rw & 1)
+			NotifyMemInfo(MemBlockFlags::WRITE, ptr, bytes, tag, tagLen);
+		if (rw & 2)
+			NotifyMemInfo(MemBlockFlags::READ, ptr, bytes, tag, tagLen);
+	}
+}

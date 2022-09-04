@@ -122,12 +122,6 @@ static const D3D11_LOGIC_OP logicOps[] = {
 	D3D11_LOGIC_OP_SET,
 };
 
-void DrawEngineD3D11::ResetFramebufferRead() {
-	if (fboTexBound_) {
-		fboTexBound_ = false;
-	}
-}
-
 class FramebufferManagerD3D11;
 class ShaderManagerD3D11;
 
@@ -142,7 +136,6 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	bool useBufferedRendering = framebufferManager_->UseBufferedRendering();
 	// Blend
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
-		gstate_c.SetAllowFramebufferRead(!g_Config.bDisableSlowFramebufEffects);
 		if (gstate.isModeClear()) {
 			keys_.blend.value = 0;  // full wipe
 			keys_.blend.blendEnable = false;
@@ -154,23 +147,21 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		} else {
 			keys_.blend.value = 0;
 
-			GenericMaskState maskState;
-			ConvertMaskState(maskState, gstate_c.allowFramebufferRead);
-
-			// Set blend - unless we need to do it in the shader.
-			GenericBlendState blendState;
-			ConvertBlendState(blendState, gstate_c.allowFramebufferRead, maskState.applyFramebufferRead);
+			pipelineState_.Convert(draw_->GetDeviceCaps().fragmentShaderInt32Supported);
+			GenericMaskState &maskState = pipelineState_.maskState;
+			GenericBlendState &blendState = pipelineState_.blendState;
+			// We ignore the logicState on D3D since there's no support, the emulation of it is blend-and-shader only.
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
-				ApplyFramebufferRead(&fboTexNeedsBind_);
+				bool fboTexNeedsBind = false;
+				ApplyFramebufferRead(&fboTexNeedsBind);
 				// The shader takes over the responsibility for blending, so recompute.
 				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 
-				if (fboTexNeedsBind_) {
+				if (fboTexNeedsBind) {
 					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 					// No sampler required, we do a plain Load in the pixel shader.
 					fboTexBound_ = true;
-					fboTexNeedsBind_ = false;
 
 					framebufferManager_->RebindFramebuffer("RebindFramebuffer - ApplyDrawState");
 					// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
@@ -180,13 +171,15 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 
 				dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
-			} else if (blendState.resetFramebufferRead) {
-				ResetFramebufferRead();
-				dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
-				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+			} else {
+				if (fboTexBound_) {
+					fboTexBound_ = false;
+					dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
+					gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+				}
 			}
 
-			if (blendState.enabled) {
+			if (blendState.blendEnabled) {
 				keys_.blend.blendEnable = true;
 				keys_.blend.logicOpEnable = false;
 				keys_.blend.blendOpColor = d3d11BlendEqLookup[(size_t)blendState.eqColor];
@@ -219,7 +212,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				}
 			}
 
-			keys_.blend.colorWriteMask = (maskState.rgba[0] ? 1 : 0) | (maskState.rgba[1] ? 2 : 0) | (maskState.rgba[2] ? 4 : 0) | (maskState.rgba[3] ? 8 : 0);
+			keys_.blend.colorWriteMask = maskState.channelMask;
 		}
 	}
 

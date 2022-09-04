@@ -92,18 +92,19 @@ typedef struct {
 typedef struct {
 	int Width;
 	int Height;
-	bool Multiview;
 	uint32_t TextureSwapChainLength;
 	uint32_t TextureSwapChainIndex;
 	ovrSwapChain ColorSwapChain;
+	ovrSwapChain DepthSwapChain;
 	XrSwapchainImageOpenGLESKHR* ColorSwapChainImage;
-	unsigned int* DepthBuffers;
+	XrSwapchainImageOpenGLESKHR* DepthSwapChainImage;
 	unsigned int* FrameBuffers;
 	bool Acquired;
 } ovrFramebuffer;
 
 typedef struct {
-	ovrFramebuffer FrameBuffer;
+	bool Multiview;
+	ovrFramebuffer FrameBuffer[ovrMaxNumEyes];
 } ovrRenderer;
 
 typedef struct {

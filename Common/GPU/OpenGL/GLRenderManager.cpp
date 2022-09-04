@@ -5,6 +5,8 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/VR/PPSSPPVR.h"
 
+#include "Core/Config.h"
+
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
 #include "Common/Math/math_util.h"
@@ -233,15 +235,7 @@ bool GLRenderManager::ThreadFrame() {
 			INFO_LOG(G3D, "Running first frame (%d)", threadFrame_);
 			firstFrame = false;
 		}
-
-		if (IsVRBuild()) {
-			if (PreVRRender()) {
-				Run(threadFrame_);
-				PostVRRender();
-			}
-		} else {
-			Run(threadFrame_);
-		}
+		Run(threadFrame_);
 
 		VLOG("PULL: Finished frame %d", threadFrame_);
 	} while (!nextFrame);
@@ -567,6 +561,7 @@ void GLRenderManager::EndSubmitFrame(int frame) {
 void GLRenderManager::Run(int frame) {
 	BeginSubmitFrame(frame);
 
+
 	FrameData &frameData = frameData_[frame];
 
 	auto &stepsOnThread = frameData_[frame].steps;
@@ -583,14 +578,30 @@ void GLRenderManager::Run(int frame) {
 		}
 	}
 
-	queueRunner_.RunSteps(stepsOnThread, skipGLCalls_);
-	stepsOnThread.clear();
+	if (IsVRBuild()) {
+		if (PreVRRender()) {
+			int passes = 1;
+			if (!IsMultiviewSupported() && g_Config.bEnableStereo) {
+				passes = 2;
+			}
+			for (int i = 0; i < passes; i++) {
+				PreVRFrameRender(i);
+				queueRunner_.RunSteps(stepsOnThread, skipGLCalls_, i < passes - 1);
+				PostVRFrameRender();
+			}
+			PostVRRender();
+		}
+	} else {
+		queueRunner_.RunSteps(stepsOnThread, skipGLCalls_);
+	}
 
 	if (!skipGLCalls_) {
 		for (auto iter : frameData.activePushBuffers) {
 			iter->MapDevice(bufferStrategy_);
 		}
 	}
+
+	stepsOnThread.clear();
 
 	switch (frameData.type) {
 	case GLRRunType::END:

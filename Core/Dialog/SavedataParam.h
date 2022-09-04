@@ -285,9 +285,6 @@ struct SaveFileInfo
 
 	PPGeImage *texture = nullptr;
 
-	SaveFileInfo() {
-	}
-
 	void DoState(PointerWrap &p);
 };
 

@@ -12,6 +12,7 @@
 #include <thread>
 #include <queue>
 
+#include "Common/Thread/Promise.h"
 #include "Common/System/Display.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
@@ -121,7 +122,11 @@ struct VKRGraphicsPipelineDesc {
 	VkPipelineDynamicStateCreateInfo ds{ VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
 	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
 	VkPipelineMultisampleStateCreateInfo ms{ VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
-	VkPipelineShaderStageCreateInfo shaderStageInfo[2]{};
+
+	// Replaced the ShaderStageInfo with promises here so we can wait for compiles to finish.
+	Promise<VkShaderModule> *vertexShader;
+	Promise<VkShaderModule> *fragmentShader;
+
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{ VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
 	VkVertexInputAttributeDescription attrs[8]{};
 	VkVertexInputBindingDescription ibd{};
@@ -136,18 +141,19 @@ struct VKRComputePipelineDesc {
 	VkComputePipelineCreateInfo pipe{ VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
 };
 
-// Wrapped pipeline, which will later allow for background compilation while emulating the rest of the frame.
+// Wrapped pipeline.
 struct VKRGraphicsPipeline {
 	VKRGraphicsPipeline() {
-		pipeline = VK_NULL_HANDLE;
+		pipeline = Promise<VkPipeline>::CreateEmpty();
 	}
-	VKRGraphicsPipelineDesc *desc = nullptr;  // While non-zero, is pending and pipeline isn't valid.
-	std::atomic<VkPipeline> pipeline;
+	~VKRGraphicsPipeline() {
+		delete desc;
+	}
+
+	VKRGraphicsPipelineDesc *desc = nullptr;
+	Promise<VkPipeline> *pipeline;
 
 	bool Create(VulkanContext *vulkan);
-	bool Pending() const {
-		return pipeline == VK_NULL_HANDLE && desc != nullptr;
-	}
 };
 
 struct VKRComputePipeline {
@@ -155,7 +161,7 @@ struct VKRComputePipeline {
 		pipeline = VK_NULL_HANDLE;
 	}
 	VKRComputePipelineDesc *desc = nullptr;
-	std::atomic<VkPipeline> pipeline;
+	Promise<VkPipeline> *pipeline;
 
 	bool Create(VulkanContext *vulkan);
 	bool Pending() const {
@@ -242,29 +248,32 @@ public:
 		return pipeline;
 	}
 
-	void BindPipeline(VkPipeline pipeline, PipelineFlags flags) {
+	void BindPipeline(VkPipeline pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(pipeline != VK_NULL_HANDLE);
 		VkRenderData data{ VKRRenderCommand::BIND_PIPELINE };
 		data.pipeline.pipeline = pipeline;
+		data.pipeline.pipelineLayout = pipelineLayout;
 		curPipelineFlags_ |= flags;
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void BindPipeline(VKRGraphicsPipeline *pipeline, PipelineFlags flags) {
+	void BindPipeline(VKRGraphicsPipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(pipeline != nullptr);
 		VkRenderData data{ VKRRenderCommand::BIND_GRAPHICS_PIPELINE };
 		data.graphics_pipeline.pipeline = pipeline;
+		data.graphics_pipeline.pipelineLayout = pipelineLayout;
 		curPipelineFlags_ |= flags;
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void BindPipeline(VKRComputePipeline *pipeline, PipelineFlags flags) {
+	void BindPipeline(VKRComputePipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(pipeline != nullptr);
 		VkRenderData data{ VKRRenderCommand::BIND_COMPUTE_PIPELINE };
 		data.compute_pipeline.pipeline = pipeline;
+		data.compute_pipeline.pipelineLayout = pipelineLayout;
 		curPipelineFlags_ |= flags;
 		curRenderStep_->commands.push_back(data);
 	}
@@ -351,7 +360,6 @@ public:
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(size + offset < 40);
 		VkRenderData data{ VKRRenderCommand::PUSH_CONSTANTS };
-		data.push.pipelineLayout = pipelineLayout;
 		data.push.stages = stages;
 		data.push.offset = offset;
 		data.push.size = size;
@@ -386,12 +394,11 @@ public:
 			curRenderStep_->render.stencilStore = VKRRenderPassStoreAction::DONT_CARE;
 	}
 
-	void Draw(VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count, int offset = 0) {
+	void Draw(VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count, int offset = 0) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
 		VkRenderData data{ VKRRenderCommand::DRAW };
 		data.draw.count = count;
 		data.draw.offset = offset;
-		data.draw.pipelineLayout = layout;
 		data.draw.ds = descSet;
 		data.draw.vbuffer = vbuffer;
 		data.draw.voffset = voffset;
@@ -403,12 +410,11 @@ public:
 		curRenderStep_->render.numDraws++;
 	}
 
-	void DrawIndexed(VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, VkBuffer ibuffer, int ioffset, int count, int numInstances, VkIndexType indexType) {
+	void DrawIndexed(VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, VkBuffer ibuffer, int ioffset, int count, int numInstances, VkIndexType indexType) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
 		VkRenderData data{ VKRRenderCommand::DRAW_INDEXED };
 		data.drawIndexed.count = count;
 		data.drawIndexed.instances = numInstances;
-		data.drawIndexed.pipelineLayout = layout;
 		data.drawIndexed.ds = descSet;
 		data.drawIndexed.vbuffer = vbuffer;
 		data.drawIndexed.voffset = voffset;

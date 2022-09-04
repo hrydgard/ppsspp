@@ -23,6 +23,7 @@
 #include "Common/Data/Collections/Hashmaps.h"
 
 #include "GPU/GPUState.h"
+#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
@@ -165,10 +166,10 @@ protected:
 		u32 vertexCount;
 		u8 indexType;
 		s8 prim;
+		u8 cullMode;
 		u16 indexLowerBound;
 		u16 indexUpperBound;
 		UVScale uvScale;
-		int cullMode;
 	};
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
@@ -186,11 +187,12 @@ protected:
 	GEPrimitiveType prevPrim_ = GE_PRIM_INVALID;
 
 	// Shader blending state
-	bool fboTexNeedsBind_ = false;
 	bool fboTexBound_ = false;
 
 	// Sometimes, unusual situations mean we need to reset dirty flags after state calc finishes.
 	uint64_t dirtyRequiresRecheck_ = 0;
+
+	ComputedPipelineState pipelineState_;
 
 	// Hardware tessellation
 	TessellationDataTransfer *tessDataTransfer;

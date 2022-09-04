@@ -40,6 +40,7 @@
 #include <jni.h>
 #endif
 
+#include "Common/Data/Collections/TinySet.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Text/WrapText.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -305,6 +306,44 @@ bool TestParsers() {
 	EXPECT_TRUE(mac[3] == 255);
 	EXPECT_TRUE(mac[4] == 254);
 	EXPECT_TRUE(mac[5] == 253);
+	return true;
+}
+
+bool TestTinySet() {
+	TinySet<int, 4> a;
+	EXPECT_EQ_INT((int)a.size(), 0);
+	a.push_back(1);
+	EXPECT_EQ_INT((int)a.size(), 1);
+	a.push_back(2);
+	EXPECT_EQ_INT((int)a.size(), 2);
+	TinySet<int, 4> b;
+	b.push_back(8);
+	b.push_back(9);
+	b.push_back(10);
+	EXPECT_EQ_INT((int)b.size(), 3);
+
+	a.append(b);
+	EXPECT_EQ_INT((int)a.size(), 5);
+	EXPECT_EQ_INT((int)b.size(), 3);
+
+	b.append(b);
+	EXPECT_EQ_INT((int)b.size(), 6);
+
+	EXPECT_EQ_INT(a[0], 1);
+	EXPECT_EQ_INT(a[1], 2);
+	EXPECT_EQ_INT(a[2], 8);
+	EXPECT_EQ_INT(a[3], 9);
+	EXPECT_EQ_INT(a[4], 10);
+	a.append(a);
+	EXPECT_EQ_INT(a.size(), 10);
+	EXPECT_EQ_INT(a[9], 10);
+
+	b.push_back(11);
+	EXPECT_EQ_INT((int)b.size(), 7);
+	b.push_back(12);
+	EXPECT_EQ_INT((int)b.size(), 8);
+	b.push_back(13);
+	EXPECT_EQ_INT(b.size(), 9);
 	return true;
 }
 
@@ -792,6 +831,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(AndroidContentURI),
 	TEST_ITEM(ThreadManager),
 	TEST_ITEM(WrapText),
+	TEST_ITEM(TinySet),
 };
 
 int main(int argc, const char *argv[]) {

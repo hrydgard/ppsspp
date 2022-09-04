@@ -881,30 +881,26 @@ int sceKernelCancelFpl(SceUID uid, u32 numWaitThreadsPtr)
 	}
 }
 
-int sceKernelReferFplStatus(SceUID uid, u32 statusPtr)
-{
+int sceKernelReferFplStatus(SceUID uid, u32 statusPtr) {
 	u32 error;
 	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
-	if (fpl)
-	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelReferFplStatus(%i, %08x)", uid, statusPtr);
+	if (fpl) {
 		// Refresh waiting threads and free block count.
 		__KernelSortFplThreads(fpl);
 		fpl->nf.numWaitThreads = (int) fpl->waitingThreads.size();
 		fpl->nf.numFreeBlocks = 0;
-		for (int i = 0; i < (int)fpl->nf.numBlocks; ++i)
-		{
+		for (int i = 0; i < (int)fpl->nf.numBlocks; ++i) {
 			if (!fpl->blocks[i])
 				++fpl->nf.numFreeBlocks;
 		}
-		if (Memory::Read_U32(statusPtr) != 0)
-			Memory::WriteStruct(statusPtr, &fpl->nf);
-		return 0;
-	}
-	else
-	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelReferFplStatus(%i, %08x): invalid fpl", uid, statusPtr);
-		return error;
+		auto status = PSPPointer<NativeFPL>::Create(statusPtr);
+		if (status.IsValid() && status->size != 0) {
+			*status = fpl->nf;
+			status.NotifyWrite("FplStatus");
+		}
+		return hleLogSuccessI(SCEKERNEL, 0);
+	} else {
+		return hleLogError(SCEKERNEL, error, "invalid fpl");
 	}
 }
 
@@ -1782,8 +1778,6 @@ int sceKernelReferVplStatus(SceUID uid, u32 infoPtr) {
 	u32 error;
 	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 	if (vpl) {
-		DEBUG_LOG(SCEKERNEL, "sceKernelReferVplStatus(%i, %08x)", uid, infoPtr);
-
 		__KernelSortVplThreads(vpl);
 		vpl->nv.numWaitThreads = (int) vpl->waitingThreads.size();
 		if (vpl->header.IsValid()) {
@@ -1791,12 +1785,14 @@ int sceKernelReferVplStatus(SceUID uid, u32 infoPtr) {
 		} else {
 			vpl->nv.freeSize = vpl->alloc.GetTotalFreeBytes();
 		}
-		if (Memory::IsValidAddress(infoPtr) && Memory::Read_U32(infoPtr) != 0) {
-			Memory::WriteStruct(infoPtr, &vpl->nv);
+		auto info = PSPPointer<SceKernelVplInfo>::Create(infoPtr);
+		if (info.IsValid() && info->size != 0) {
+			*info = vpl->nv;
+			info.NotifyWrite("VplStatus");
 		}
-		return 0;
+		return hleLogSuccessI(SCEKERNEL, 0);
 	} else {
-		return error;
+		return hleLogError(SCEKERNEL, error, "invalid vpl");
 	}
 }
 
@@ -2270,23 +2266,23 @@ int sceKernelFreeTlspl(SceUID uid)
 		return error;
 }
 
-int sceKernelReferTlsplStatus(SceUID uid, u32 infoPtr)
-{
-	DEBUG_LOG(SCEKERNEL, "sceKernelReferTlsplStatus(%08x, %08x)", uid, infoPtr);
+int sceKernelReferTlsplStatus(SceUID uid, u32 infoPtr) {
 	u32 error;
 	TLSPL *tls = kernelObjects.Get<TLSPL>(uid, error);
-	if (tls)
-	{
+	if (tls) {
 		// Update the waiting threads in case of deletions, etc.
 		__KernelSortTlsplThreads(tls);
 		tls->ntls.numWaitThreads = (int) tls->waitingThreads.size();
 
-		if (Memory::Read_U32(infoPtr) != 0)
-			Memory::WriteStruct(infoPtr, &tls->ntls);
-		return 0;
+		auto info = PSPPointer<NativeTlspl>::Create(infoPtr);
+		if (info.IsValid() && info->size != 0) {
+			*info = tls->ntls;
+			info.NotifyWrite("TlsplStatus");
+		}
+		return hleLogSuccessI(SCEKERNEL, 0);
+	} else {
+		return hleLogError(SCEKERNEL, error, "invalid tlspl");
 	}
-	else
-		return error;
 }
 
 const HLEFunction SysMemUserForUser[] = {

@@ -159,7 +159,7 @@ static int Replace_memcpy() {
 	RETURN(destPtr);
 
 	if (MemBlockInfoDetailed(bytes)) {
-		const std::string tag = "ReplaceMemcpy/" + GetMemWriteTagAt(srcPtr, bytes);
+		const std::string tag = GetMemWriteTagAt("ReplaceMemcpy/", srcPtr, bytes);
 		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
 		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
 
@@ -211,7 +211,7 @@ static int Replace_memcpy_jak() {
 	RETURN(destPtr);
 
 	if (MemBlockInfoDetailed(bytes)) {
-		const std::string tag = "ReplaceMemcpy/" + GetMemWriteTagAt(srcPtr, bytes);
+		const std::string tag = GetMemWriteTagAt("ReplaceMemcpy/", srcPtr, bytes);
 		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
 		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
 
@@ -249,7 +249,7 @@ static int Replace_memcpy16() {
 	RETURN(destPtr);
 
 	if (MemBlockInfoDetailed(bytes)) {
-		const std::string tag = "ReplaceMemcpy16/" + GetMemWriteTagAt(srcPtr, bytes);
+		const std::string tag = GetMemWriteTagAt("ReplaceMemcpy16/", srcPtr, bytes);
 		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
 		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
 	}
@@ -290,7 +290,7 @@ static int Replace_memcpy_swizzled() {
 	RETURN(0);
 
 	if (MemBlockInfoDetailed(pitch * h)) {
-		const std::string tag = "ReplaceMemcpySwizzle/" + GetMemWriteTagAt(srcPtr, pitch * h);
+		const std::string tag = GetMemWriteTagAt("ReplaceMemcpySwizzle/", srcPtr, pitch * h);
 		NotifyMemInfo(MemBlockFlags::READ, srcPtr, pitch * h, tag.c_str(), tag.size());
 		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, pitch * h, tag.c_str(), tag.size());
 	}
@@ -321,7 +321,7 @@ static int Replace_memmove() {
 	RETURN(destPtr);
 
 	if (MemBlockInfoDetailed(bytes)) {
-		const std::string tag = "ReplaceMemmove/" + GetMemWriteTagAt(srcPtr, bytes);
+		const std::string tag = GetMemWriteTagAt("ReplaceMemmove/", srcPtr, bytes);
 		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
 		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
 	}

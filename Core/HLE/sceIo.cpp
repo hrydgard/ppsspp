@@ -931,12 +931,12 @@ static u32 sceIoGetstat(const char *filename, u32 addr) {
 	// TODO: Improve timing (although this seems normally slow..)
 	int usec = 1000;
 
-	SceIoStat stat;
+	auto stat = PSPPointer<SceIoStat>::Create(addr);
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 	if (info.exists) {
-		__IoGetStat(&stat, info);
-		if (Memory::IsValidAddress(addr)) {
-			Memory::WriteStruct(addr, &stat);
+		if (stat.IsValid()) {
+			__IoGetStat(stat, info);
+			stat.NotifyWrite("IoGetstat");
 			DEBUG_LOG(SCEIO, "sceIoGetstat(%s, %08x) : sector = %08x", filename, addr, info.startSector);
 			return hleDelayResult(0, "io getstat", usec);
 		} else {
@@ -1798,19 +1798,23 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				return SCE_KERNEL_ERROR_ERRNO_DEVICE_NOT_FOUND;
 			}
 			// TODO: Pretend we have a 2GB memory stick?  Should we check MemoryStick_FreeSpace?
-			if (Memory::IsValidAddress(argAddr) && argLen >= 4) {  // NOTE: not outPtr
-				u32 pointer = Memory::Read_U32(argAddr);
+			if (Memory::IsValidRange(argAddr, 4) && argLen >= 4) {  // NOTE: not outPtr
+				u32 pointer = Memory::ReadUnchecked_U32(argAddr);
 				u32 sectorSize = 0x200;
 				u32 memStickSectorSize = 32 * 1024;
 				u32 sectorCount = memStickSectorSize / sectorSize;
 				u64 freeSize = 1 * 1024 * 1024 * 1024;
-				DeviceSize deviceSize;
-				deviceSize.maxClusters = (u32)((freeSize  * 95 / 100) / (sectorSize * sectorCount));
-				deviceSize.freeClusters = deviceSize.maxClusters;
-				deviceSize.maxSectors = deviceSize.maxClusters;
-				deviceSize.sectorSize = sectorSize;
-				deviceSize.sectorCount = sectorCount;
-				Memory::WriteStruct(pointer, &deviceSize);
+
+				auto deviceSize = PSPPointer<DeviceSize>::Create(pointer);
+				if (deviceSize.IsValid()) {
+					deviceSize->maxClusters = (u32)((freeSize * 95 / 100) / (sectorSize * sectorCount));
+					deviceSize->freeClusters = deviceSize->maxClusters;
+					deviceSize->maxSectors = deviceSize->maxClusters;
+					deviceSize->sectorSize = sectorSize;
+					deviceSize->sectorCount = sectorCount;
+					deviceSize.NotifyWrite("ms0:02425818");
+				}
+
 				return 0;
 			} else {
 				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
@@ -1821,8 +1825,8 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			if (MemoryStick_State() != PSP_MEMORYSTICK_STATE_INSERTED) {
 				return SCE_KERNEL_ERROR_ERRNO_DEVICE_NOT_FOUND;
 			}
-			if (Memory::IsValidAddress(outPtr) && outLen == 4) {
-				Memory::Write_U32(0, outPtr);
+			if (Memory::IsValidRange(outPtr, 4) && outLen == 4) {
+				Memory::WriteUnchecked_U32(0, outPtr);
 				return 0;
 			} else {
 				ERROR_LOG(SCEIO, "Failed 0x02425824 fat");
@@ -1939,13 +1943,16 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				u32 memStickSectorSize = 32 * 1024;
 				u32 sectorCount = memStickSectorSize / sectorSize;
 				u64 freeSize = 1 * 1024 * 1024 * 1024;
-				DeviceSize deviceSize;
-				deviceSize.maxClusters = (u32)((freeSize  * 95 / 100) / (sectorSize * sectorCount));
-				deviceSize.freeClusters = deviceSize.maxClusters;
-				deviceSize.maxSectors = deviceSize.maxClusters;
-				deviceSize.sectorSize = sectorSize;
-				deviceSize.sectorCount = sectorCount;
-				Memory::WriteStruct(pointer, &deviceSize);
+
+				auto deviceSize = PSPPointer<DeviceSize>::Create(pointer);
+				if (deviceSize.IsValid()) {
+					deviceSize->maxClusters = (u32)((freeSize  * 95 / 100) / (sectorSize * sectorCount));
+					deviceSize->freeClusters = deviceSize->maxClusters;
+					deviceSize->maxSectors = deviceSize->maxClusters;
+					deviceSize->sectorSize = sectorSize;
+					deviceSize->sectorCount = sectorCount;
+					deviceSize.NotifyWrite("fatms0:02425818");
+				}
 				return 0;
 			} else {
 				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;

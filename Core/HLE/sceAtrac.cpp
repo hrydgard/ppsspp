@@ -1268,7 +1268,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 							if (outbufPtr != 0) {
 								u32 outBytes = numSamples * atrac->outputChannels_ * sizeof(s16);
 								if (packetAddr != 0 && MemBlockInfoDetailed()) {
-									const std::string tag = "AtracDecode/" + GetMemWriteTagAt(packetAddr, packetSize);
+									const std::string tag = GetMemWriteTagAt("AtracDecode/", packetAddr, packetSize);
 									NotifyMemInfo(MemBlockFlags::READ, packetAddr, packetSize, tag.c_str(), tag.size());
 									NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, tag.c_str(), tag.size());
 								} else {

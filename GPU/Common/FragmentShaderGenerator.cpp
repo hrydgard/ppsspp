@@ -121,7 +121,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	bool useDiscardStencilBugWorkaround = id.Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL);
 
-	bool readFramebuffer = replaceBlend == REPLACE_BLEND_COPY_FBO || colorWriteMask;
+	bool readFramebuffer = replaceBlend == REPLACE_BLEND_READ_FRAMEBUFFER || colorWriteMask;
 	bool readFramebufferTex = readFramebuffer && !gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH);
 
 	bool needFragCoord = readFramebuffer || gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
@@ -129,11 +129,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	if (shaderDepal && !doTexture) {
 		*errorString = "depal requires a texture";
-		return false;
-	}
-
-	if (readFramebuffer && compat.shaderLanguage == HLSL_D3D9) {
-		*errorString = "Framebuffer read not yet supported in HLSL D3D9";
 		return false;
 	}
 
@@ -227,7 +222,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 			if (readFramebufferTex) {
 				// No sampler required, we Load
-				WRITE(p, "Texture2D<vec4> fboTex : register(t1);\n");
+				WRITE(p, "Texture2D<vec4> fbotex : register(t1);\n");
 			}
 			WRITE(p, "cbuffer base : register(b0) {\n%s};\n", ub_baseStr);
 
@@ -264,8 +259,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (enableFog) {
 			WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
 		}
-		if (compat.shaderLanguage == HLSL_D3D11 && needFragCoord) {
-			WRITE(p, "  vec4 pixelPos : SV_POSITION;\n");
+		if (needFragCoord) {
+			if (compat.shaderLanguage == HLSL_D3D11) {
+				WRITE(p, "  vec4 pixelPos : SV_POSITION;\n");
+			} else if (compat.shaderLanguage == HLSL_D3D9) {
+				WRITE(p, "  vec4 pixelPos : VPOS;\n");  // VPOS is only supported for Shader Model 3.0, but we can probably forget about D3D9 SM2.0 at this point...
+			}
 		}
 		WRITE(p, "};\n");
 
@@ -457,7 +456,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	} else if (compat.shaderLanguage == HLSL_D3D9) {
 		WRITE(p, "PS_OUT main( PS_IN In ) {\n");
 		WRITE(p, "  PS_OUT outfragment;\n");
-		WRITE(p, "  vec4 target;\n");
+		if (needFragCoord) {
+			WRITE(p, "  vec4 gl_FragCoord = In.pixelPos;\n");
+		}
 	} else {
 		WRITE(p, "void main() {\n");
 	}
@@ -477,7 +478,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	// Two things read from the old framebuffer - shader replacement blending and bit-level masking.
 	if (readFramebuffer) {
 		if (compat.shaderLanguage == HLSL_D3D11) {
-			WRITE(p, "  vec4 destColor = fboTex.Load(int3((int)gl_FragCoord.x, (int)gl_FragCoord.y, 0));\n");
+			WRITE(p, "  vec4 destColor = fbotex.Load(int3((int)gl_FragCoord.x, (int)gl_FragCoord.y, 0));\n");
+		} else if (compat.shaderLanguage == HLSL_D3D9) {
+			WRITE(p, "  vec4 destColor = tex2D(fbotex, gl_FragCoord.xy * u_fbotexSize.xy);\n", compat.texture);
 		} else if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
 			// If we have EXT_shader_framebuffer_fetch / ARM_shader_framebuffer_fetch, we skip the blit.
 			// We can just read the prev value more directly.
@@ -940,7 +943,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
 		}
 
-		if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
+		if (replaceBlend == REPLACE_BLEND_READ_FRAMEBUFFER) {
 			const char *srcFactor = nullptr;
 			const char *dstFactor = nullptr;
 
@@ -1057,9 +1060,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		return false;
 	}
 
-	// TODO: This could support more ops using the shader blending mechanism.
-	LogicOpReplaceType replaceLogicOpType = (LogicOpReplaceType)id.Bits(FS_BIT_REPLACE_LOGIC_OP_TYPE, 2);
-	switch (replaceLogicOpType) {
+	// TODO: We could have a separate mechanism to support more ops using the shader blending mechanism,
+	// on hardware that can do proper bit math in fragment shaders.
+	SimulateLogicOpType simulateLogicOpType = (SimulateLogicOpType)id.Bits(FS_BIT_SIMULATE_LOGIC_OP_TYPE, 2);
+	switch (simulateLogicOpType) {
 	case LOGICOPTYPE_ONE:
 		WRITE(p, "  %s.rgb = splat3(1.0);\n", compat.fragColor0);
 		break;
