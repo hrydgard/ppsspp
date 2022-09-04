@@ -3,6 +3,7 @@
 #include "UI/OnScreenDisplay.h"
 
 #include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Render/DrawBuffer.h"
 
@@ -33,9 +34,10 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 		// Messages that are wider than the screen are left-aligned instead of centered.
 
 		int align = 0;
-		// Simple heuristic: Draw messages that contain line breaks with ASCII_FONT (likely debug output)
+		// If we have newlines, we may be looking at ASCII debug output.  But let's verify.
 		if (iter->text.find('\n') != 0) {
-			align |= FLAG_DYNAMIC_ASCII;
+			if (!UTF8StringHasNonASCII(iter->text.c_str()))
+				align |= FLAG_DYNAMIC_ASCII;
 		}
 
 		float tw, th;
