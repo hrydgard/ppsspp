@@ -474,10 +474,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			*uniformMask |= DIRTY_PROJTHROUGHMATRIX;
 		} else if (useHWTransform) {
 			if (IsVRBuild() && IsMultiviewSupported()) {
-				WRITE(p, "layout(shared) uniform ProjectionMatrix { uniform mat4 u_proj[2]; };\n");
+				WRITE(p, "layout(shared) uniform ProjectionMatrix { uniform mat4 u_proj_lens[2]; };\n");
 			} else {
-				WRITE(p, "uniform mat4 u_proj;\n");
+				WRITE(p, "uniform mat4 u_proj_lens;\n");
 			}
+			WRITE(p, "uniform mat4 u_proj;\n");
 			*uniformMask |= DIRTY_PROJMATRIX;
 		}
 
@@ -921,9 +922,19 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		// Final view and projection transforms.
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-			WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj%s, viewPos));\n", matrixPostfix.c_str());
+			if (IsVRBuild()) {
+				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj_lens%s, viewPos));\n", matrixPostfix.c_str());
+				WRITE(p, "  vec4 orgPos = depthRoundZVP(mul(u_proj, viewPos));\n", matrixPostfix.c_str());
+			} else {
+				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, viewPos));\n", matrixPostfix.c_str());
+			}
 		} else {
-			WRITE(p, "  vec4 outPos = mul(u_proj%s, viewPos);\n", matrixPostfix.c_str());
+			if (IsVRBuild()) {
+				WRITE(p, "  vec4 outPos = mul(u_proj_lens%s, viewPos);\n", matrixPostfix.c_str());
+				WRITE(p, "  vec4 orgPos = mul(u_proj%s, viewPos);\n", matrixPostfix.c_str());
+			} else {
+				WRITE(p, "  vec4 outPos = mul(u_proj%s, viewPos);\n", matrixPostfix.c_str());
+			}
 		}
 
 		// TODO: Declare variables for dots for shade mapping if needed.
@@ -1161,7 +1172,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  %sv_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n", compat.vsOutPrefix);
 	}
 
-	if (vertexRangeCulling) {
+	if (vertexRangeCulling && !IsVRBuild()) {
 		WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w;\n");
 		WRITE(p, "  float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
 		// Vertex range culling doesn't happen when Z clips, note sign of w is important.
@@ -1200,17 +1211,23 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	// We've named the output gl_Position in HLSL as well.
 	WRITE(p, "  %sgl_Position = outPos;\n", compat.vsOutPrefix);
 
-	if (needsZWHack) {
-		// See comment in thin3d_vulkan.cpp.
-		WRITE(p, "  if (%sgl_Position.z == %sgl_Position.w) %sgl_Position.z *= 0.999999;\n",
-			compat.vsOutPrefix, compat.vsOutPrefix, compat.vsOutPrefix);
-	}
-
 	if (IsVRBuild()) {
+		// Z correction for the depth buffer
+		if (useHWTransform) {
+			WRITE(p, "  %sgl_Position.z = orgPos.z / abs(orgPos.w) * abs(outPos.w);\n", compat.vsOutPrefix);
+		}
+
+		// HUD scaling
 		WRITE(p, "  if ((u_scaleX < 0.99) || (u_scaleY < 0.99)) {\n");
 		WRITE(p, "    %sgl_Position.x *= u_scaleX;\n", compat.vsOutPrefix);
 		WRITE(p, "    %sgl_Position.y *= u_scaleY;\n", compat.vsOutPrefix);
 		WRITE(p, "  }\n");
+	}
+
+	if (needsZWHack) {
+		// See comment in thin3d_vulkan.cpp.
+		WRITE(p, "  if (%sgl_Position.z == %sgl_Position.w) %sgl_Position.z *= 0.999999;\n",
+			compat.vsOutPrefix, compat.vsOutPrefix, compat.vsOutPrefix);
 	}
 
 	if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {

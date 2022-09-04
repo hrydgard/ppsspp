@@ -109,13 +109,13 @@ static std::string GetInfoLog(GLuint name, Getiv getiv, GetLog getLog) {
 int GLQueueRunner::GetStereoBufferIndex(const char *uniformName) {
 	if (!uniformName) return -1;
 	else if (strcmp(uniformName, "u_view") == 0) return 0;
-	else if (strcmp(uniformName, "u_proj") == 0) return 1;
+	else if (strcmp(uniformName, "u_proj_lens") == 0) return 1;
 	else return -1;
 }
 
 std::string GLQueueRunner::GetStereoBufferLayout(const char *uniformName) {
 	if (strcmp(uniformName, "u_view") == 0) return "ViewMatrices";
-	else if (strcmp(uniformName, "u_proj") == 0) return "ProjectionMatrix";
+	else if (strcmp(uniformName, "u_proj_lens") == 0) return "ProjectionMatrix";
 	else return "undefined";
 }
 
@@ -1034,8 +1034,8 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				int size = 2 * 16 * sizeof(float);
 				glBindBufferBase(GL_UNIFORM_BUFFER, layout, *c.uniformMatrix4.loc);
 				glBindBuffer(GL_UNIFORM_BUFFER, *c.uniformMatrix4.loc);
-				void *viewMatrices = glMapBufferRange(GL_UNIFORM_BUFFER, 0, size, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
-				memcpy(viewMatrices, c.uniformMatrix4.m, size);
+				void *matrices = glMapBufferRange(GL_UNIFORM_BUFFER, 0, size, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+				memcpy(matrices, c.uniformMatrix4.m, size);
 				glUnmapBuffer(GL_UNIFORM_BUFFER);
 				glBindBuffer(GL_UNIFORM_BUFFER, 0);
 			}

@@ -102,6 +102,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_fbotex, "fbotex" });
 
 	queries.push_back({ &u_proj, "u_proj" });
+	queries.push_back({ &u_proj_lens, "u_proj_lens" });
 	queries.push_back({ &u_proj_through, "u_proj_through" });
 	queries.push_back({ &u_texenv, "u_texenv" });
 	queries.push_back({ &u_fogcolor, "u_fogcolor" });
@@ -408,19 +409,19 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 			ScaleProjMatrix(rightEyeMatrix, useBufferedRendering);
 
 			if (IsMultiviewSupported()) {
-				render_->SetUniformM4x4Stereo("u_proj", &u_proj, leftEyeMatrix.m, rightEyeMatrix.m);
+				render_->SetUniformM4x4Stereo("u_proj_lens", &u_proj_lens, leftEyeMatrix.m, rightEyeMatrix.m);
 			} else {
-				render_->SetUniformM4x4(&u_proj, GetVRFBOIndex() == 0 ? leftEyeMatrix.m : rightEyeMatrix.m);
+				render_->SetUniformM4x4(&u_proj_lens, GetVRFBOIndex() == 0 ? leftEyeMatrix.m : rightEyeMatrix.m);
 			}
-		} else {
-			Matrix4x4 flippedMatrix;
-			memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
-
-			FlipProjMatrix(flippedMatrix, useBufferedRendering);
-			ScaleProjMatrix(flippedMatrix, useBufferedRendering);
-
-			render_->SetUniformM4x4(&u_proj, flippedMatrix.m);
 		}
+
+		Matrix4x4 flippedMatrix;
+		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
+
+		FlipProjMatrix(flippedMatrix, useBufferedRendering);
+		ScaleProjMatrix(flippedMatrix, useBufferedRendering);
+
+		render_->SetUniformM4x4(&u_proj, flippedMatrix.m);
 		render_->SetUniformF1(&u_rotation, useBufferedRendering ? 0 : (float)g_display_rotation);
 	}
 	if (dirty & DIRTY_PROJTHROUGHMATRIX)
