@@ -568,10 +568,13 @@ void GLRenderManager::Run(int frame) {
 	auto &initStepsOnThread = frameData_[frame].initSteps;
 	// queueRunner_.LogSteps(stepsOnThread);
 	queueRunner_.RunInitSteps(initStepsOnThread, skipGLCalls_);
+	initStepsOnThread.clear();
 
+	// Run this after RunInitSteps so any fresh GLRBuffers for the pushbuffers can get created.
 	if (!skipGLCalls_) {
 		for (auto iter : frameData.activePushBuffers) {
-			iter->MapDevice(bufferStrategy_);
+			iter->Flush();
+			iter->UnmapDevice();
 		}
 	}
 
@@ -592,18 +595,15 @@ void GLRenderManager::Run(int frame) {
 		queueRunner_.RunSteps(stepsOnThread, skipGLCalls_);
 	}
 
-	// Run this after RunInitSteps so any fresh GLRBuffers for the pushbuffers can get created.
 	if (!skipGLCalls_) {
 		for (auto iter : frameData.activePushBuffers) {
-			iter->Flush();
-			iter->UnmapDevice();
+			iter->MapDevice(bufferStrategy_);
 		}
 	}
 
-	initStepsOnThread.clear();
 	stepsOnThread.clear();
 
-	switch (frameData_[frame].type) {
+	switch (frameData.type) {
 	case GLRRunType::END:
 		EndSubmitFrame(frame);
 		break;
