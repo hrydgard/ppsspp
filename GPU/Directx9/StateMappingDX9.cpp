@@ -132,7 +132,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			GenericBlendState &blendState = pipelineState_.blendState;
 			// We ignore the logicState on D3D since there's no support, the emulation of it is blend-and-shader only.
 
-			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
+			if (pipelineState_.FramebufferRead()) {
 				bool fboTexNeedsBind = false;
 				ApplyFramebufferRead(&fboTexNeedsBind);
 				// The shader takes over the responsibility for blending, so recompute.
