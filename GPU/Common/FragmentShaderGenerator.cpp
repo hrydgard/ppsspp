@@ -429,7 +429,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	// Provide implementations of packUnorm4x8 and unpackUnorm4x8 if not available.
-	if (colorWriteMask && !hasPackUnorm4x8) {
+	if ((colorWriteMask || replaceLogicOp) && !hasPackUnorm4x8) {
 		WRITE(p, "uint packUnorm4x8(%svec4 v) {\n", compat.shaderLanguage == GLSL_VULKAN ? "highp " : "");
 		WRITE(p, "  highp vec4 f = clamp(v, 0.0, 1.0);\n");
 		WRITE(p, "  uvec4 u = uvec4(255.0 * f);\n");
@@ -1089,24 +1089,24 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		// v32 is both the "s" to the logical operation, and the value that we'll merge to the destination with masking later.
 		// d32 is the "d" to the logical operation.
-		// TODO: Do logical ops work on just RGB or also A on the PSP?
+		// NOTE: Alpha of v32 needs to be preserved. Same equations as in the software renderer.
 		switch (replaceLogicOpType) {
-		case GE_LOGIC_CLEAR:         p.C("  v32 = 0;\n"); break;
-		case GE_LOGIC_AND:           p.C("  v32 = v32 & d32;\n"); break;
-		case GE_LOGIC_AND_REVERSE:   p.C("  v32 = v32 & ~d32;\n"); break;
+		case GE_LOGIC_CLEAR:         p.C("  v32 &= 0xFF000000u;\n"); break;
+		case GE_LOGIC_AND:           p.C("  v32 = v32 & (d32 | 0xFF000000u);\n"); break;
+		case GE_LOGIC_AND_REVERSE:   p.C("  v32 = v32 & (~d32 | 0xFF000000u);\n"); break;
 		case GE_LOGIC_COPY: break;  // source to dest, do nothing. Will be set to this, if not used.
-		case GE_LOGIC_AND_INVERTED:  p.C("  v32 = ~v32 & d32;\n"); break;
-		case GE_LOGIC_NOOP:          p.C("  v32 = d32;\n"); break;
-		case GE_LOGIC_XOR:           p.C("  v32 = v32 ^ d32;\n"); break;
-		case GE_LOGIC_OR:            p.C("  v32 = v32 | d32;\n"); break;
-		case GE_LOGIC_NOR:           p.C("  v32 = ~(v32 | d32);\n"); break;
-		case GE_LOGIC_EQUIV:         p.C("  v32 = ~(v32 ^ d32);\n"); break;
-		case GE_LOGIC_INVERTED:      p.C("  v32 = ~d32;\n"); break;
-		case GE_LOGIC_OR_REVERSE:    p.C("  v32 = v32 | ~d32;\n"); break;
-		case GE_LOGIC_COPY_INVERTED: p.C("  v32 = ~v32;\n"); break;
-		case GE_LOGIC_OR_INVERTED:   p.C("  v32 = (~v32) | d32;\n"); break;
-		case GE_LOGIC_NAND:          p.C("  v32 = ~(v32 & d32);\n"); break;
-		case GE_LOGIC_SET:           p.C("  v32 = 0xFFFFFFFF;\n"); break;
+		case GE_LOGIC_AND_INVERTED:  p.C("  v32 = (~v32 & (d32 & 0x00FFFFFFu)) | (v32 & 0xFF000000u);\n"); break;
+		case GE_LOGIC_NOOP:          p.C("  v32 = (d32 & 0x00FFFFFFu) | (v32 & 0xFF000000u);\n"); break;
+		case GE_LOGIC_XOR:           p.C("  v32 = v32 ^ (d32 & 0x00FFFFFFu);\n"); break;
+		case GE_LOGIC_OR:            p.C("  v32 = v32 | (d32 & 0x00FFFFFFu);\n"); break;
+		case GE_LOGIC_NOR:           p.C("  v32 = (~(v32 | d32) & 0x00FFFFFFu) | (v32 & 0xFF000000u);\n"); break;
+		case GE_LOGIC_EQUIV:         p.C("  v32 = (~(v32 ^ d32) & 0x00FFFFFFu) | (v32 & 0xFF000000u);\n"); break;
+		case GE_LOGIC_INVERTED:      p.C("  v32 = (~d32 & 0x00FFFFFFu) | (v32 & 0xFF000000u);\n"); break;
+		case GE_LOGIC_OR_REVERSE:    p.C("  v32 = v32 | (~d32 & 0x00FFFFFFu);\n"); break;
+		case GE_LOGIC_COPY_INVERTED: p.C("  v32 = (~v32 & 0x00FFFFFFu) | (v32 &0xFF000000u);\n"); break;
+		case GE_LOGIC_OR_INVERTED:   p.C("  v32 = ((~v32 | d32) & 0x00FFFFFFu) | (v32 & 0xFF000000u);\n"); break;
+		case GE_LOGIC_NAND:          p.C("  v32 = (~(v32 & d32) & 0x00FFFFFFu) | (v32 & 0xFF000000u);\n"); break;
+		case GE_LOGIC_SET:           p.C("  v32 |= 0x00FFFFFF;\n"); break;
 		}
 
 		// Note that the mask has already been flipped to the PC way - 1 means write.
