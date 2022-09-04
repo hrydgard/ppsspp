@@ -230,8 +230,8 @@ private:
 	}
 	void CompITypeMemUnpairedLR(MIPSOpcode op, bool isStore);
 	void CompITypeMemUnpairedLRInner(MIPSOpcode op, Gen::X64Reg shiftReg);
-	void CompBranchExits(Gen::CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool delaySlotIsNice, bool likely, bool andLink);
-	void CompBranchExit(bool taken, u32 targetAddr, u32 notTakenAddr, bool delaySlotIsNice, bool likely, bool andLink);
+	void CompBranchExits(Gen::CCFlags cc, u32 targetAddr, u32 notTakenAddr, const BranchInfo &branchInfo);
+	void CompBranchExit(bool taken, u32 targetAddr, u32 notTakenAddr, const BranchInfo &branchInfo);
 	static Gen::CCFlags FlipCCFlag(Gen::CCFlags flag);
 	static Gen::CCFlags SwapCCFlag(Gen::CCFlags flag);
 
