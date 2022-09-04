@@ -39,13 +39,13 @@ enum ReplaceBlendType {
 
 	// Full blend equation runs in shader.
 	// We might have to make a copy of the framebuffer target to read from.
-	REPLACE_BLEND_COPY_FBO,
+	REPLACE_BLEND_READ_FRAMEBUFFER,
 
 	// Color blend mode and color gets copied to alpha blend mode.
 	REPLACE_BLEND_BLUE_TO_ALPHA,
 };
 
-enum LogicOpReplaceType {
+enum SimulateLogicOpType {
 	LOGICOPTYPE_NORMAL,
 	LOGICOPTYPE_ONE,
 	LOGICOPTYPE_INVERT,
@@ -60,9 +60,10 @@ bool IsStencilTestOutputDisabled();
 
 StencilValueType ReplaceAlphaWithStencilType();
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
-ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bufferFormat);
+ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat);
 
-LogicOpReplaceType ReplaceLogicOpType();
+// This is for the fallback path if real logic ops are not available.
+SimulateLogicOpType SimulateLogicOpShaderTypeIfNeeded();
 
 // Common representation, should be able to set this directly with any modern API.
 struct ViewportAndScissor {
@@ -137,12 +138,18 @@ enum class BlendEq : uint8_t {
 	COUNT
 };
 
+// Computed blend setup, including shader stuff.
 struct GenericBlendState {
-	bool enabled;
-	bool resetFramebufferRead;
 	bool applyFramebufferRead;
 	bool dirtyShaderBlendFixValues;
+
+	// Shader generation state
 	ReplaceAlphaType replaceAlphaWithStencil;
+	ReplaceBlendType replaceBlend;
+	SimulateLogicOpType simulateLogicOpType;
+
+	// Resulting hardware blend state
+	bool blendEnabled;
 
 	BlendFactor srcColor;
 	BlendFactor dstColor;
@@ -173,19 +180,31 @@ struct GenericBlendState {
 		blendColor = 0xFFFFFF | ((uint32_t)alpha << 24);
 		useBlendColor = true;
 	}
+
+	void Log();
 };
 
-void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend, bool forceReplaceBlend);
+void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBlend);
 void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState);
 
 struct GenericMaskState {
 	bool applyFramebufferRead;
 	uint32_t uniformMask;  // For each bit, opposite to the PSP.
-	bool rgba[4];  // true = draw, false = don't draw this channel
+
+	// The hardware channel masks, 1 bit per color component. From bit 0, order is RGBA like in all APIs!
+	uint8_t channelMask;
+
+	void ConvertToShaderBlend() {
+		// If we have to do it in the shader, we simply pass through all channels but mask only in the shader instead.
+		// Some GPUs have minor penalties for masks that are not all-channels-on or all-channels-off.
+		channelMask = 0xF;
+		applyFramebufferRead = true;
+	}
+
+	void Log();
 };
 
-void ConvertMaskState(GenericMaskState &maskState, bool allowFramebufferRead);
-bool IsColorWriteMaskComplex(bool allowFramebufferRead);
+void ConvertMaskState(GenericMaskState &maskState, bool shaderBitOpsSupported);
 
 struct GenericStencilFuncState {
 	bool enabled;
@@ -197,8 +216,39 @@ struct GenericStencilFuncState {
 	GEStencilOp zFail;
 	GEStencilOp zPass;
 };
-
 void ConvertStencilFuncState(GenericStencilFuncState &stencilFuncState);
+
+struct GenericLogicState {
+	// If set, logic op is applied in the shader INSTEAD of in hardware.
+	// In this case, simulateLogicOpType and all that should be off.
+	bool applyFramebufferRead;
+
+	// Hardware
+	bool logicOpEnabled;
+
+	// Hardware and shader generation
+	GELogicOp logicOp;
+
+	void ConvertToShaderBlend() {
+		if (logicOp != GE_LOGIC_COPY) {
+			logicOpEnabled = false;
+			applyFramebufferRead = true;
+			// Same logicOp is kept.
+		}
+	}
+
+	void Log();
+};
+
+void ConvertLogicOpState(GenericLogicState &logicOpState, bool logicSupported, bool shaderBitOpsSupported);
+
+struct ComputedPipelineState {
+	GenericBlendState blendState;
+	GenericMaskState maskState;
+	GenericLogicState logicState;
+
+	void Convert(bool shaderBitOpsSupported);
+};
 
 // See issue #15898
 inline bool SpongebobDepthInverseConditions(const GenericStencilFuncState &stencilState) {

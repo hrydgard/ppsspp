@@ -121,106 +121,22 @@ public:
 	VertexReader(u8 *base, const DecVtxFormat &decFmt, int vtype) : base_(base), data_(base), decFmt_(decFmt), vtype_(vtype) {}
 
 	void ReadPos(float pos[3]) const {
-		switch (decFmt_.posfmt) {
-		case DEC_FLOAT_3:
-			{
-				const float *f = (const float *)(data_ + decFmt_.posoff);
-				pos[0] = f[0];
-				pos[1] = f[1];
-				if (!isThrough()) {
-					pos[2] = f[2];
-				} else {
-					// Integer value passed in a float. Clamped to 0, 65535.
-					const float z = (int)f[2] * (1.0f / 65535.0f);
-					pos[2] = z > 1.0f ? 1.0f : (z < 0.0f ? 0.0f : z);
-				}
-			}
-			break;
-		case DEC_S16_3:
-			{
-				// X and Y are signed 16 bit, Z is unsigned 16 bit
-				const s16 *s = (const s16 *)(data_ + decFmt_.posoff);
-				const u16 *u = (const u16 *)(data_ + decFmt_.posoff);
-				if (isThrough()) {
-					for (int i = 0; i < 2; i++)
-						pos[i] = s[i];
-					pos[2] = u[2] * (1.0f / 65535.0f);
-				} else {
-					for (int i = 0; i < 3; i++)
-						pos[i] = s[i] * (1.0f / 32768.0f);
-				}
-			}
-			break;
-		case DEC_S8_3:
-			{
-				// X and Y are signed 8 bit, Z is unsigned 8 bit
-				const s8 *b = (const s8 *)(data_ + decFmt_.posoff);
-				const u8 *u = (const u8 *)(data_ + decFmt_.posoff);
-				if (isThrough()) {
-					for (int i = 0; i < 2; i++)
-						pos[i] = b[i];
-					pos[2] = u[2] * (1.0f / 255.0f);
-				} else {
-					for (int i = 0; i < 3; i++)
-						pos[i] = b[i] * (1.0f / 128.0f);
-				}
-			}
-			break;
-		default:
-			ERROR_LOG_REPORT_ONCE(fmtpos, G3D, "Reader: Unsupported Pos Format %d", decFmt_.posfmt);
-			memset(pos, 0, sizeof(float) * 3);
-			break;
+		// Only DEC_FLOAT_3 is supported.
+		const float *f = (const float *)(data_ + decFmt_.posoff);
+		pos[0] = f[0];
+		pos[1] = f[1];
+		if (!isThrough()) {
+			pos[2] = f[2];
+		} else {
+			// Integer value passed in a float. Clamped to 0, 65535.
+			pos[2] = (int)f[2] * (1.0f / 65535.0f);
 		}
 	}
 
 	void ReadPosThroughZ16(float pos[3]) const {
-		switch (decFmt_.posfmt) {
-		case DEC_FLOAT_3:
-			{
-				const float *f = (const float *)(data_ + decFmt_.posoff);
-				memcpy(pos, f, 12);
-				if (isThrough()) {
-					// Integer value passed in a float. Clamped to 0, 65535.
-					const float z = (int)pos[2];
-					pos[2] = z > 65535.0f ? 65535.0f : (z < 0.0f ? 0.0f : z);
-				}
-			}
-			break;
-		case DEC_S16_3:
-			{
-				// X and Y are signed 16 bit, Z is unsigned 16 bit
-				const s16 *s = (const s16 *)(data_ + decFmt_.posoff);
-				const u16 *u = (const u16 *)(data_ + decFmt_.posoff);
-				if (isThrough()) {
-					for (int i = 0; i < 2; i++)
-						pos[i] = s[i];
-					pos[2] = u[2];
-				} else {
-					for (int i = 0; i < 3; i++)
-						pos[i] = s[i] * (1.0f / 32768.0f);
-				}
-			}
-			break;
-		case DEC_S8_3:
-			{
-				// X and Y are signed 8 bit, Z is unsigned 8 bit
-				const s8 *b = (const s8 *)(data_ + decFmt_.posoff);
-				const u8 *u = (const u8 *)(data_ + decFmt_.posoff);
-				if (isThrough()) {
-					for (int i = 0; i < 2; i++)
-						pos[i] = b[i];
-					pos[2] = u[2];
-				} else {
-					for (int i = 0; i < 3; i++)
-						pos[i] = b[i] * (1.0f / 128.0f);
-				}
-			}
-			break;
-		default:
-			ERROR_LOG_REPORT_ONCE(fmtz16, G3D, "Reader: Unsupported Pos Format %d", decFmt_.posfmt);
-			memset(pos, 0, sizeof(float) * 3);
-			break;
-		}
+		// Only DEC_FLOAT_3 is supported.
+		const float *f = (const float *)(data_ + decFmt_.posoff);
+		memcpy(pos, f, 12);
 	}
 
 	void ReadNrm(float nrm[3]) const {
@@ -255,36 +171,10 @@ public:
 	}
 
 	void ReadUV(float uv[2]) const {
-		switch (decFmt_.uvfmt) {
-		case DEC_U8_2:
-			{
-				const u8 *b = (const u8 *)(data_ + decFmt_.uvoff);
-				uv[0] = b[0] * (1.f / 128.f);
-				uv[1] = b[1] * (1.f / 128.f);
-			}
-			break;
-
-		case DEC_U16_2:
-			{
-				const u16 *s = (const u16 *)(data_ + decFmt_.uvoff);
-				uv[0] = s[0] * (1.f / 32768.f);
-				uv[1] = s[1] * (1.f / 32768.f);
-			}
-			break;
-
-		case DEC_FLOAT_2:
-			{
-				const float *f = (const float *)(data_ + decFmt_.uvoff);
-				uv[0] = f[0];
-				uv[1] = f[1];
-			}
-			break;
-
-		default:
-			ERROR_LOG_REPORT_ONCE(fmtuv, G3D, "Reader: Unsupported UV Format %d", decFmt_.uvfmt);
-			memset(uv, 0, sizeof(float) * 2);
-			break;
-		}
+		// Only DEC_FLOAT_2 is supported.
+		const float *f = (const float *)(data_ + decFmt_.uvoff);
+		uv[0] = f[0];
+		uv[1] = f[1];
 	}
 
 	void ReadColor0(float color[4]) const {
@@ -666,6 +556,7 @@ public:
 	void Jit_PosFloat();
 	void Jit_PosS8Through();
 	void Jit_PosS16Through();
+	void Jit_PosFloatThrough();
 
 	void Jit_PosS8Skin();
 	void Jit_PosS16Skin();

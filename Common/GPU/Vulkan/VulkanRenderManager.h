@@ -12,6 +12,7 @@
 #include <thread>
 #include <queue>
 
+#include "Common/Thread/Promise.h"
 #include "Common/System/Display.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
@@ -121,7 +122,11 @@ struct VKRGraphicsPipelineDesc {
 	VkPipelineDynamicStateCreateInfo ds{ VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
 	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
 	VkPipelineMultisampleStateCreateInfo ms{ VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
-	VkPipelineShaderStageCreateInfo shaderStageInfo[2]{};
+
+	// Replaced the ShaderStageInfo with promises here so we can wait for compiles to finish.
+	Promise<VkShaderModule> *vertexShader;
+	Promise<VkShaderModule> *fragmentShader;
+
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{ VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
 	VkVertexInputAttributeDescription attrs[8]{};
 	VkVertexInputBindingDescription ibd{};
@@ -136,18 +141,19 @@ struct VKRComputePipelineDesc {
 	VkComputePipelineCreateInfo pipe{ VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
 };
 
-// Wrapped pipeline, which will later allow for background compilation while emulating the rest of the frame.
+// Wrapped pipeline.
 struct VKRGraphicsPipeline {
 	VKRGraphicsPipeline() {
-		pipeline = VK_NULL_HANDLE;
+		pipeline = Promise<VkPipeline>::CreateEmpty();
 	}
-	VKRGraphicsPipelineDesc *desc = nullptr;  // While non-zero, is pending and pipeline isn't valid.
-	std::atomic<VkPipeline> pipeline;
+	~VKRGraphicsPipeline() {
+		delete desc;
+	}
+
+	VKRGraphicsPipelineDesc *desc = nullptr;
+	Promise<VkPipeline> *pipeline;
 
 	bool Create(VulkanContext *vulkan);
-	bool Pending() const {
-		return pipeline == VK_NULL_HANDLE && desc != nullptr;
-	}
 };
 
 struct VKRComputePipeline {
@@ -155,7 +161,7 @@ struct VKRComputePipeline {
 		pipeline = VK_NULL_HANDLE;
 	}
 	VKRComputePipelineDesc *desc = nullptr;
-	std::atomic<VkPipeline> pipeline;
+	Promise<VkPipeline> *pipeline;
 
 	bool Create(VulkanContext *vulkan);
 	bool Pending() const {

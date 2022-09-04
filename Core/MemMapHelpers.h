@@ -109,31 +109,4 @@ inline void Memcpy(const u32 to_address, const u32 from_address, const u32 len) 
 
 void Memset(const u32 _Address, const u8 _Data, const u32 _iLength, const char *tag = "Memset");
 
-template<class T>
-void ReadStruct(u32 address, T *ptr)
-{
-	const u32 sz = (u32)sizeof(*ptr);
-	Memcpy(ptr, address, sz);
-}
-
-template<class T>
-void ReadStructUnchecked(u32 address, T *ptr)
-{
-	const u32 sz = (u32)sizeof(*ptr);
-	MemcpyUnchecked(ptr, address, sz);
-}
-
-template<class T>
-void WriteStruct(u32 address, T *ptr)
-{
-	const u32 sz = (u32)sizeof(*ptr);
-	Memcpy(address, ptr, sz);
-}
-
-template<class T>
-void WriteStructUnchecked(u32 address, T *ptr)
-{
-	const u32 sz = (u32)sizeof(*ptr);
-	MemcpyUnchecked(address, ptr, sz);
-}
 }

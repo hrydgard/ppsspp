@@ -427,8 +427,6 @@ static int sceGeBreak(u32 mode, u32 unknownPtr) {
 }
 
 static u32 sceGeSetCallback(u32 structAddr) {
-	DEBUG_LOG(SCEGE, "sceGeSetCallback(struct=%08x)", structAddr);
-
 	int cbID = -1;
 	for (size_t i = 0; i < ARRAY_SIZE(ge_used_callbacks); ++i) {
 		if (!ge_used_callbacks[i]) {
@@ -438,12 +436,13 @@ static u32 sceGeSetCallback(u32 structAddr) {
 	}
 
 	if (cbID == -1) {
-		WARN_LOG(SCEGE, "sceGeSetCallback(): out of callback ids");
-		return SCE_KERNEL_ERROR_OUT_OF_MEMORY;
+		return hleLogWarning(SCEGE, SCE_KERNEL_ERROR_OUT_OF_MEMORY, "out of callback ids");
 	}
 
 	ge_used_callbacks[cbID] = true;
-	Memory::ReadStruct(structAddr, &ge_callback_data[cbID]);
+	auto callbackData = PSPPointer<PspGeCallbackData>::Create(structAddr);
+	ge_callback_data[cbID] = *callbackData;
+	callbackData.NotifyRead("GeSetCallback");
 
 	int subIntrBase = __GeSubIntrBase(cbID);
 
@@ -458,7 +457,7 @@ static u32 sceGeSetCallback(u32 structAddr) {
 		sceKernelEnableSubIntr(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_SIGNAL);
 	}
 
-	return cbID;
+	return hleLogSuccessI(SCEGE, cbID);
 }
 
 static int sceGeUnsetCallback(u32 cbID) {
@@ -603,7 +602,7 @@ const HLEFunction sceGe_user[] = {
 	{0XB287BD61, &WrapU_U<sceGeDrawSync>,                "sceGeDrawSync",                'x', "x"   },
 	{0XB448EC0D, &WrapI_UU<sceGeBreak>,                  "sceGeBreak",                   'i', "xx"  },
 	{0X4C06E472, &WrapI_V<sceGeContinue>,                "sceGeContinue",                'i', ""    },
-	{0XA4FC06A4, &WrapU_U<sceGeSetCallback>,             "sceGeSetCallback",             'x', "x"   },
+	{0XA4FC06A4, &WrapU_U<sceGeSetCallback>,             "sceGeSetCallback",             'i', "p"   },
 	{0X05DB22CE, &WrapI_U<sceGeUnsetCallback>,           "sceGeUnsetCallback",           'i', "x"   },
 	{0X1F6752AD, &WrapU_V<sceGeEdramGetSize>,            "sceGeEdramGetSize",            'x', ""    },
 	{0XB77905EA, &WrapU_I<sceGeEdramSetAddrTranslation>, "sceGeEdramSetAddrTranslation", 'x', "i"   },

@@ -116,9 +116,9 @@ int PSPGamedataInstallDialog::Update(int animSpeed) {
 		WriteSfoFile();
 
 		// TODO: What is this?  Should one of these update per file or anything?
-		request.unknownResult1 = readFiles;
-		request.unknownResult2 = readFiles;
-		Memory::WriteStruct(param.ptr, &request);
+		param->unknownResult1 = readFiles;
+		param->unknownResult2 = readFiles;
+		param.NotifyWrite("DialogResult");
 
 		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 	}
@@ -250,8 +250,9 @@ void PSPGamedataInstallDialog::UpdateProgress() {
 		progressValue = (int)((allReadSize * 100) / allFilesSize);
 	else 
 		progressValue = 100;
-	request.progress = progressValue;
-	Memory::WriteStruct(param.ptr, &request);
+
+	param->progress = progressValue;
+	param.NotifyWrite("DialogResult");
 }
 
 void PSPGamedataInstallDialog::DoState(PointerWrap &p) {

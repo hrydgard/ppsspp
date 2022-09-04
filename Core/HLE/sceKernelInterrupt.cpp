@@ -677,7 +677,7 @@ const HLEFunction Kernel_Library[] =
 	{0XBEA46419, &WrapI_UIU<sceKernelLockLwMutex>,             "sceKernelLockLwMutex",                'i', "xix", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
 	{0X1FC64E09, &WrapI_UIU<sceKernelLockLwMutexCB>,           "sceKernelLockLwMutexCB",              'i', "xix", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
 	{0X15B6446B, &WrapI_UI<sceKernelUnlockLwMutex>,            "sceKernelUnlockLwMutex",              'i', "xi"   },
-	{0XC1734599, &WrapI_UU<sceKernelReferLwMutexStatus>,       "sceKernelReferLwMutexStatus",         'i', "xx"   },
+	{0XC1734599, &WrapI_UU<sceKernelReferLwMutexStatus>,       "sceKernelReferLwMutexStatus",         'i', "xp"   },
 	{0X293B45B8, &WrapI_V<sceKernelGetThreadId>,               "sceKernelGetThreadId",                'i', ""     },
 	{0XD13BDE95, &WrapI_V<sceKernelCheckThreadStack>,          "sceKernelCheckThreadStack",           'i', ""     },
 	{0X1839852A, &WrapU_UUU<sceKernelMemcpy>,                  "sceKernelMemcpy",                     'x', "xxx"  },

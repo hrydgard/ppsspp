@@ -148,7 +148,6 @@ private:
 
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();
-	void ResetFramebufferRead();
 
 	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 
@@ -172,4 +171,6 @@ private:
 	TessellationDataTransferDX9 *tessDataTransferDX9;
 
 	int lastRenderStepId_ = -1;
+
+	bool fboTexNeedsBind_ = false;
 };

@@ -83,7 +83,7 @@ enum FShaderBit : uint8_t {
 	FS_BIT_COLOR_DOUBLE = 23,
 	FS_BIT_STENCIL_TO_ALPHA = 24,  // 2 bits
 	FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE = 26,  // 4 bits    (ReplaceAlphaType)
-	FS_BIT_REPLACE_LOGIC_OP_TYPE = 30,  // 2 bits
+	FS_BIT_SIMULATE_LOGIC_OP_TYPE = 30,  // 2 bits
 	FS_BIT_REPLACE_BLEND = 32,  // 3 bits  (ReplaceBlendType)
 	FS_BIT_BLENDEQ = 35,  // 3 bits
 	FS_BIT_BLENDFUNC_A = 38,  // 4 bits
@@ -226,11 +226,11 @@ namespace Draw {
 class Bugs;
 }
 
-
 void ComputeVertexShaderID(VShaderID *id, uint32_t vertexType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat);
 // Generates a compact string that describes the shader. Useful in a list to get an overview
 // of the current flora of shaders.
 std::string VertexShaderDesc(const VShaderID &id);
 
-void ComputeFragmentShaderID(FShaderID *id, const Draw::Bugs &bugs);
+struct ComputedPipelineState;
+void ComputeFragmentShaderID(FShaderID *id, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs);
 std::string FragmentShaderDesc(const FShaderID &id);

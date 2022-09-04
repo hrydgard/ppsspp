@@ -279,7 +279,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	DXGI_FORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 	if (plan.replaceValid) {
 		dstFmt = ToDXGIFormat(plan.replaced->Format(plan.baseLevelSrc));
-	} else if (plan.scaleFactor > 1) {
+	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
 		dstFmt = DXGI_FORMAT_B8G8R8A8_UNORM;
 	}
 

@@ -4,7 +4,7 @@
 #include <mutex>
 #include <condition_variable>
 
-
+#include "Common/Thread/Promise.h"
 #include "Common/Data/Collections/Hashmaps.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanBarrier.h"

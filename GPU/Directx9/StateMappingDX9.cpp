@@ -88,10 +88,6 @@ static const D3DSTENCILOP stencilOps[] = {
 	D3DSTENCILOP_KEEP, // reserved
 };
 
-inline void DrawEngineDX9::ResetFramebufferRead() {
-	fboTexBound_ = false;
-}
-
 void DrawEngineDX9::ApplyDrawState(int prim) {
 	if (!gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
 		// nothing to do
@@ -119,7 +115,6 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 	bool useBufferedRendering = framebufferManager_->UseBufferedRendering();
 
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
-		gstate_c.SetAllowFramebufferRead(!g_Config.bDisableShaderBlending);
 		if (gstate.isModeClear()) {
 			dxstate.blend.disable();
 			// Color Mask
@@ -132,37 +127,39 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			}
 			dxstate.colorMask.set(mask);
 		} else {
-			GenericMaskState maskState;
-			ConvertMaskState(maskState, gstate_c.allowFramebufferRead);
-
-			// Set blend - unless we need to do it in the shader.
-			GenericBlendState blendState;
-			ConvertBlendState(blendState, gstate_c.allowFramebufferRead, maskState.applyFramebufferRead);
+			pipelineState_.Convert(draw_->GetDeviceCaps().fragmentShaderInt32Supported);
+			GenericMaskState &maskState = pipelineState_.maskState;
+			GenericBlendState &blendState = pipelineState_.blendState;
+			// We ignore the logicState on D3D since there's no support, the emulation of it is blend-and-shader only.
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
-				ApplyFramebufferRead(&fboTexNeedsBind_);
+				bool fboTexNeedsBind = false;
+				ApplyFramebufferRead(&fboTexNeedsBind);
 				// The shader takes over the responsibility for blending, so recompute.
 				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 
-				if (fboTexNeedsBind_) {
+				if (fboTexNeedsBind) {
 					// Note that this is positions, not UVs, that we need the copy from.
 					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 					// If we are rendering at a higher resolution, linear is probably best for the dest color.
 					device_->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
 					device_->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
 					fboTexBound_ = true;
-					fboTexNeedsBind_ = false;
 					dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE;
 					gstate_c.Dirty(DIRTY_BLEND_STATE);
 				}
 
 				dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
-			} else if (blendState.resetFramebufferRead) {
-				ResetFramebufferRead();
+			} else {
+				if (fboTexBound_) {
+					dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
+					gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+					fboTexBound_ = false;
+				}
 			}
 
-			if (blendState.enabled) {
+			if (blendState.blendEnabled) {
 				dxstate.blend.enable();
 				dxstate.blendSeparate.enable();
 				dxstate.blendEquation.set(dxBlendEqLookup[(size_t)blendState.eqColor], dxBlendEqLookup[(size_t)blendState.eqAlpha]);
@@ -180,12 +177,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 				dxstate.blend.disable();
 			}
 
-			u32 mask = 0;
-			for (int i = 0; i < 4; i++) {
-				if (maskState.rgba[i])
-					mask |= 1 << i;
-			}
-			dxstate.colorMask.set(mask);
+			dxstate.colorMask.set(maskState.channelMask);
 		}
 	}
 

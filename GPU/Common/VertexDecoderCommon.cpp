@@ -776,10 +776,11 @@ void VertexDecoder::Step_PosFloatSkin() const
 void VertexDecoder::Step_PosS8Through() const
 {
 	float *v = (float *)(decoded_ + decFmt.posoff);
-	const s8 *sv = (const s8*)(ptr_ + posoff);
+	const s8 *sv = (const s8 *)(ptr_ + posoff);
+	const u8 *uv = (const u8 *)(ptr_ + posoff);
 	v[0] = sv[0];
 	v[1] = sv[1];
-	v[2] = sv[2];
+	v[2] = uv[2];
 }
 
 void VertexDecoder::Step_PosS16Through() const
@@ -794,9 +795,10 @@ void VertexDecoder::Step_PosS16Through() const
 
 void VertexDecoder::Step_PosFloatThrough() const
 {
-	u8 *v = (u8 *)(decoded_ + decFmt.posoff);
-	const u8 *fv = (const u8 *)(ptr_ + posoff);
-	memcpy(v, fv, 12);
+	float *v = (float *)(decoded_ + decFmt.posoff);
+	const float *fv = (const float *)(ptr_ + posoff);
+	memcpy(v, fv, 8);
+	v[2] = fv[2] > 65535.0f ? 65535.0f : (fv[2] < 0.0f ? 0.0f : fv[2]);
 }
 
 void VertexDecoder::Step_PosS8Morph() const
@@ -1261,6 +1263,9 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		ToString(temp);
 		ERROR_LOG_REPORT(G3D, "Vertices without position found: (%08x) %s", fmt_, temp);
 	}
+
+	_assert_msg_(decFmt.posfmt == DEC_FLOAT_3, "Reader only supports float pos");
+	_assert_msg_(decFmt.uvfmt == DEC_FLOAT_2 || decFmt.uvfmt == DEC_NONE, "Reader only supports float UV");
 
 	// Attempt to JIT as well. But only do that if the main CPU JIT is enabled, in order to aid
 	// debugging attempts - if the main JIT doesn't work, this one won't do any better, probably.

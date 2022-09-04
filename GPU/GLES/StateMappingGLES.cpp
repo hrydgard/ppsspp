@@ -122,14 +122,6 @@ static const GLushort logicOps[] = {
 };
 #endif
 
-inline void DrawEngineGLES::ResetFramebufferRead() {
-	if (fboTexBound_) {
-		GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		renderManager->BindTexture(TEX_SLOT_SHADERBLEND_SRC, nullptr);
-		fboTexBound_ = false;
-	}
-}
-
 void DrawEngineGLES::ApplyDrawState(int prim) {
 	GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
@@ -145,36 +137,30 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 	bool useBufferedRendering = framebufferManager_->UseBufferedRendering();
 
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
-		gstate_c.SetAllowFramebufferRead(!g_Config.bDisableShaderBlending);
-
 		if (gstate.isModeClear()) {
 			// Color Test
 			bool colorMask = gstate.isClearModeColorMask();
 			bool alphaMask = gstate.isClearModeAlphaMask();
 			renderManager->SetNoBlendAndMask((colorMask ? 7 : 0) | (alphaMask ? 8 : 0));
 		} else {
-			// Do the large chunks of state conversion. We might be able to hide these two behind a dirty-flag each,
-			// to avoid recomputing heavy stuff unnecessarily every draw call.
-
-			GenericMaskState maskState;
-			ConvertMaskState(maskState, gstate_c.allowFramebufferRead);
-
-			GenericBlendState blendState;
-			ConvertBlendState(blendState, gstate_c.allowFramebufferRead, maskState.applyFramebufferRead);
+			pipelineState_.Convert(draw_->GetDeviceCaps().fragmentShaderInt32Supported);
+			GenericMaskState &maskState = pipelineState_.maskState;
+			GenericBlendState &blendState = pipelineState_.blendState;
+			GenericLogicState &logicState = pipelineState_.logicState;
 
 			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
-				ApplyFramebufferRead(&fboTexNeedsBind_);
+				bool fboTexNeedsBind = false;
+				ApplyFramebufferRead(&fboTexNeedsBind);
 				// The shader takes over the responsibility for blending, so recompute.
 				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 
 				// We copy the framebuffer here, as doing so will wipe any blend state if we do it later.
-				if (fboTexNeedsBind_) {
+				if (fboTexNeedsBind) {
 					// Note that this is positions, not UVs, that we need the copy from.
 					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 					// If we are rendering at a higher resolution, linear is probably best for the dest color.
 					renderManager->SetTextureSampler(1, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, 0.0f);
 					fboTexBound_ = true;
-					fboTexNeedsBind_ = false;
 
 					framebufferManager_->RebindFramebuffer("RebindFramebuffer - ApplyDrawState");
 					// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
@@ -183,13 +169,17 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 				}
 				dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
-			} else if (blendState.resetFramebufferRead) {
-				ResetFramebufferRead();
-				dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
-				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+			} else {
+				if (fboTexBound_) {
+					GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+					renderManager->BindTexture(TEX_SLOT_SHADERBLEND_SRC, nullptr);
+					fboTexBound_ = false;
+					dirtyRequiresRecheck_ |= DIRTY_FRAGMENTSHADER_STATE;
+					gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+				}
 			}
 
-			if (blendState.enabled) {
+			if (blendState.blendEnabled) {
 				if (blendState.dirtyShaderBlendFixValues) {
 					// Not quite sure how necessary this is.
 					dirtyRequiresRecheck_ |= DIRTY_SHADERBLEND;
@@ -203,19 +193,20 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 				}
 			}
 
-			int mask = (int)maskState.rgba[0] | ((int)maskState.rgba[1] << 1) | ((int)maskState.rgba[2] << 2) | ((int)maskState.rgba[3] << 3);
-			if (blendState.enabled) {
-				renderManager->SetBlendAndMask(mask, blendState.enabled,
+			int mask = (int)maskState.channelMask;
+			if (blendState.blendEnabled) {
+				renderManager->SetBlendAndMask(mask, blendState.blendEnabled,
 					glBlendFactorLookup[(size_t)blendState.srcColor], glBlendFactorLookup[(size_t)blendState.dstColor],
 					glBlendFactorLookup[(size_t)blendState.srcAlpha], glBlendFactorLookup[(size_t)blendState.dstAlpha],
 					glBlendEqLookup[(size_t)blendState.eqColor], glBlendEqLookup[(size_t)blendState.eqAlpha]);
 			} else {
 				renderManager->SetNoBlendAndMask(mask);
 			}
+
+			// TODO: Get rid of the ifdef
 #ifndef USING_GLES2
 			if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
-				renderManager->SetLogicOp(gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY,
-					logicOps[gstate.getLogicOp()]);
+				renderManager->SetLogicOp(logicState.logicOpEnabled, logicOps[(int)logicState.logicOp]);
 			}
 #endif
 		}

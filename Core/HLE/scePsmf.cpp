@@ -766,20 +766,21 @@ static u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData) {
 
 	// Note: this structure changes between versions.
 	// TODO: These values are not right, but games probably don't read them.
-	PsmfData data = {0};
-	data.version = psmf->version;
-	data.headerSize = 0x800;
-	data.streamSize = psmf->streamSize;
+	auto data = PSPPointer<PsmfData>::Create(psmfStruct);
+	memset((PsmfData *)data, 0, sizeof(PsmfData));
+	data->version = psmf->version;
+	data->headerSize = 0x800;
+	data->streamSize = psmf->streamSize;
 	// This should be and needs to be the current stream.
-	data.streamNum = psmf->currentStreamNum;
-	data.headerOffset = psmf->headerOffset;
-	Memory::WriteStruct(psmfStruct, &data);
+	data->streamNum = psmf->currentStreamNum;
+	data->headerOffset = psmf->headerOffset;
+	data.NotifyWrite("PsmfSetPsmf");
 
 	// Because the Psmf struct is sometimes copied, we use a value inside as an id.
-	auto iter = psmfMap.find(data.headerOffset);
+	auto iter = psmfMap.find(data->headerOffset);
 	if (iter != psmfMap.end())
 		delete iter->second;
-	psmfMap[data.headerOffset] = psmf;
+	psmfMap[data->headerOffset] = psmf;
 
 	return hleLogSuccessI(ME, 0);
 }
@@ -1046,45 +1047,43 @@ static u32 scePsmfGetEPWithId(u32 psmfStruct, int epid, u32 entryAddr)
 {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(ME, "scePsmfGetEPWithId(%08x, %i, %08x): invalid psmf", psmfStruct, epid, entryAddr);
-		return ERROR_PSMF_NOT_INITIALIZED;
+		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
-	DEBUG_LOG(ME, "scePsmfGetEPWithId(%08x, %i, %08x)", psmfStruct, epid, entryAddr);
 
 	if (epid < 0 || epid >= (int)psmf->EPMap.size()) {
-		ERROR_LOG(ME, "scePsmfGetEPWithId(%08x, %i): invalid id", psmfStruct, epid);
-		return ERROR_PSMF_NOT_FOUND;
+		return hleLogError(ME, ERROR_PSMF_NOT_FOUND, "invalid id");
 	}
-	if (Memory::IsValidAddress(entryAddr)) {
-		Memory::WriteStruct(entryAddr, &psmf->EPMap[epid]);
+
+	auto entry = PSPPointer<PsmfEntry>::Create(entryAddr);
+	if (entry.IsValid()) {
+		*entry = psmf->EPMap[epid];
+		entry.NotifyWrite("PsmfGetEPWithId");
 	}
-	return 0;
+	return hleLogSuccessI(ME, 0);
 }
 
 static u32 scePsmfGetEPWithTimestamp(u32 psmfStruct, u32 ts, u32 entryAddr)
 {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(ME, "scePsmfGetEPWithTimestamp(%08x, %i, %08x): invalid psmf", psmfStruct, ts, entryAddr);
-		return ERROR_PSMF_NOT_INITIALIZED;
+		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
-	DEBUG_LOG(ME, "scePsmfGetEPWithTimestamp(%08x, %i, %08x)", psmfStruct, ts, entryAddr);
 
 	if (ts < psmf->presentationStartTime) {
-		ERROR_LOG(ME, "scePsmfGetEPWithTimestamp(%08x, %i): invalid timestamp", psmfStruct, ts);
-		return ERROR_PSMF_NOT_FOUND;
+		return hleLogError(ME, ERROR_PSMF_NOT_FOUND, "invalid timestamp");
 	}
 
 	int epid = psmf->FindEPWithTimestamp(ts);
 	if (epid < 0 || epid >= (int)psmf->EPMap.size()) {
-		ERROR_LOG(ME, "scePsmfGetEPWithTimestamp(%08x, %i): invalid id", psmfStruct, epid);
-		return ERROR_PSMF_NOT_FOUND;
+		return hleLogError(ME, ERROR_PSMF_NOT_FOUND, "invalid id");
 	}
 
-	if (Memory::IsValidAddress(entryAddr)) {
-		Memory::WriteStruct(entryAddr, &psmf->EPMap[epid]);
+	auto entry = PSPPointer<PsmfEntry>::Create(entryAddr);
+	if (entry.IsValid()) {
+		*entry = psmf->EPMap[epid];
+		entry.NotifyWrite("PsmfGetEPWithTimestamp");
 	}
-	return 0;
+	return hleLogSuccessI(ME, 0);
 }
 
 static u32 scePsmfGetEPidWithTimestamp(u32 psmfStruct, u32 ts)

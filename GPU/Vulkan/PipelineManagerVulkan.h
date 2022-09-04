@@ -18,7 +18,9 @@
 #pragma once
 
 #include <cstring>
+
 #include "Common/Data/Collections/Hashmaps.h"
+#include "Common/Thread/Promise.h"
 
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/ShaderId.h"
@@ -33,8 +35,8 @@ class VulkanRenderManager;
 struct VulkanPipelineKey {
 	VulkanPipelineRasterStateKey raster;  // prim is included here
 	VkRenderPass renderPass;
-	VkShaderModule vShader;
-	VkShaderModule fShader;
+	Promise<VkShaderModule> *vShader;
+	Promise<VkShaderModule> *fShader;
 	uint32_t vtxFmtId;
 	bool useHWTransform;
 

@@ -569,6 +569,9 @@ OpenGLContext::OpenGLContext() {
 		caps_.fragmentShaderDepthWriteSupported = true;
 	}
 
+	// GLES has no support for logic framebuffer operations. There doesn't even seem to exist any such extensions.
+	caps_.logicOpSupported = !gl_extensions.IsGLES;
+
 	// Interesting potential hack for emulating GL_DEPTH_CLAMP (use a separate varying, force depth in fragment shader):
 	// This will induce a performance penalty on many architectures though so a blanket enable of this
 	// is probably not a good idea.

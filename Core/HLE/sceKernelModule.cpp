@@ -247,6 +247,10 @@ enum NativeModuleStatus {
 
 class PSPModule : public KernelObject {
 public:
+	PSPModule() {
+		modulePtr.ptr = 0;
+	}
+
 	~PSPModule() {
 		if (memoryBlockAddr) {
 			// If it's either below user memory, or using a high kernel bit, it's in kernel.
@@ -258,9 +262,9 @@ public:
 			g_symbolMap->UnloadModule(memoryBlockAddr, memoryBlockSize);
 		}
 
-		if (modulePtr) {
+		if (modulePtr.ptr) {
 			//Only alloc at kernel memory.
-			kernelMemory.Free(modulePtr);
+			kernelMemory.Free(modulePtr.ptr);
 		}
 	}
 	const char *GetName() override { return nm.name; }
@@ -320,7 +324,7 @@ public:
 		}
 
 		if (s >= 5) {
-			Do(p, modulePtr);
+			Do(p, modulePtr.ptr);
 		}
 
 		ModuleWaitingThread mwt = {0};
@@ -454,7 +458,7 @@ public:
 
 	u32 memoryBlockAddr = 0;
 	u32 memoryBlockSize = 0;
-	u32 modulePtr = 0;
+	PSPPointer<NativeModule> modulePtr;
 	bool isFake = false;
 };
 
@@ -1616,11 +1620,13 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	u32 moduleSize = sizeof(module->nm);
 	char tag[32];
 	snprintf(tag, sizeof(tag), "SceModule-%d", module->nm.modid);
-	module->modulePtr = kernelMemory.Alloc(moduleSize, true, tag);
+	module->modulePtr.ptr = kernelMemory.Alloc(moduleSize, true, tag);
 
 	// Fill the struct.
-	if (Memory::IsValidAddress(module->modulePtr))
-		Memory::WriteStruct(module->modulePtr, &module->nm);
+	if (module->modulePtr.IsValid()) {
+		*module->modulePtr = module->nm;
+		module->modulePtr.NotifyWrite("KernelModule");
+	}
 
 	error = 0;
 	return module;
@@ -1763,17 +1769,18 @@ void __KernelLoadReset() {
 }
 
 bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string) {
-	SceKernelLoadExecParam param;
+	SceKernelLoadExecParam param{};
 
 	PSP_SetLoading("Loading exec...");
 
-	if (paramPtr)
-		Memory::ReadStruct(paramPtr, &param);
-	else
-		memset(&param, 0, sizeof(SceKernelLoadExecParam));
+	auto paramData = PSPPointer<SceKernelLoadExecParam>::Create(paramPtr);
+	if (paramData.IsValid()) {
+		param = *paramData;
+		paramData.NotifyRead("KernelLoadExec");
+	}
 
-	u8 *param_argp = 0;
-	u8 *param_key = 0;
+	u8 *param_argp = nullptr;
+	u8 *param_key = nullptr;
 	if (param.args > 0) {
 		u32 argpAddr = param.argp;
 		param_argp = new u8[param.args];
@@ -1792,10 +1799,8 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	if (!info.exists) {
 		ERROR_LOG(LOADER, "Failed to load executable %s - file doesn't exist", filename);
 		*error_string = StringFromFormat("Could not find executable %s", filename);
-		if (paramPtr) {
-			if (param_argp) delete[] param_argp;
-			if (param_key) delete[] param_key;
-		}
+		delete[] param_argp;
+		delete[] param_key;
 		__KernelShutdown();
 		return false;
 	}
@@ -1817,10 +1822,8 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 		ERROR_LOG(LOADER, "Failed to load module %s", filename);
 		*error_string = "Failed to load executable: " + *error_string;
 		delete [] temp;
-		if (paramPtr) {
-			if (param_argp) delete[] param_argp;
-			if (param_key) delete[] param_key;
-		}
+		delete[] param_argp;
+		delete[] param_key;
 		return false;
 	}
 
@@ -1857,8 +1860,8 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 
 	__KernelStartIdleThreads(module->GetUID());
 
-	if (param_argp) delete[] param_argp;
-	if (param_key) delete[] param_key;
+	delete[] param_argp;
+	delete[] param_key;
 
 	hleSkipDeadbeef();
 	return true;
@@ -1989,11 +1992,13 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 			u32 moduleSize = sizeof(module->nm);
 			char tag[32];
 			snprintf(tag, sizeof(tag), "SceModule-%d", module->nm.modid);
-			module->modulePtr = kernelMemory.Alloc(moduleSize, true, tag);
+			module->modulePtr.ptr = kernelMemory.Alloc(moduleSize, true, tag);
 
 			// Fill the struct.
-			if(Memory::IsValidAddress(module->modulePtr))
-				Memory::WriteStruct(module->modulePtr, &module->nm);
+			if (module->modulePtr.IsValid()) {
+				*module->modulePtr = module->nm;
+				module->modulePtr.NotifyWrite("KernelModule");
+			}
 
 			// TODO: It would be more ideal to allocate memory for this module.
 
@@ -2147,10 +2152,7 @@ int KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValue
 
 static void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
 {
-	SceKernelSMOption smoption = {0};
-	if (optionAddr) {
-		Memory::ReadStruct(optionAddr, &smoption);
-	}
+	auto smoption = PSPPointer<SceKernelSMOption>::Create(optionAddr);
 	u32 error;
 	PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
 	if (!module) {
@@ -2176,7 +2178,7 @@ static void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 ret
 		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 
 		bool needsWait;
-		int ret = KernelStartModule(moduleId, argsize, argAddr, returnValueAddr, optionAddr ? &smoption : nullptr, &needsWait);
+		int ret = KernelStartModule(moduleId, argsize, argAddr, returnValueAddr, smoption.PtrOrNull(), &needsWait);
 
 		if (needsWait) {
 			__KernelWaitCurThread(WAITTYPE_MODULE, moduleId, 1, 0, false, "started module");
@@ -2464,8 +2466,8 @@ u32 sceKernelFindModuleByUID(u32 uid)
 		ERROR_LOG(SCEMODULE, "0 = sceKernelFindModuleByUID(%d): Module Not Found or Fake", uid);
 		return 0;
 	}
-	INFO_LOG(SCEMODULE, "%d = sceKernelFindModuleByUID(%d)", module->modulePtr, uid);
-	return module->modulePtr;
+	INFO_LOG(SCEMODULE, "%d = sceKernelFindModuleByUID(%d)", module->modulePtr.ptr, uid);
+	return module->modulePtr.ptr;
 }
 
 u32 sceKernelFindModuleByName(const char *name)
@@ -2477,8 +2479,8 @@ u32 sceKernelFindModuleByName(const char *name)
 			continue;
 		if (strcmp(name, module->nm.name) == 0) {
 			if (!module->isFake) {
-				INFO_LOG(SCEMODULE, "%d = sceKernelFindModuleByName(%s)", module->modulePtr, name);
-				return module->modulePtr;
+				INFO_LOG(SCEMODULE, "%d = sceKernelFindModuleByName(%s)", module->modulePtr.ptr, name);
+				return module->modulePtr.ptr;
 			}
 			else {
 				WARN_LOG(SCEMODULE, "0 = sceKernelFindModuleByName(%s): Module Fake", name);

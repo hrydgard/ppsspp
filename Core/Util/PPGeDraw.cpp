@@ -178,27 +178,28 @@ static void BeginVertexData() {
 
 static void Vertex(float x, float y, float u, float v, int tw, int th, u32 color = 0xFFFFFFFF) {
 	if (g_RemasterMode) {
-		PPGeRemasterVertex vtx;
-		vtx.x = x; vtx.y = y; vtx.z = 0;
-		vtx.u = u * tw; vtx.v = v * th;
-		vtx.color = color;
-		Memory::WriteStruct(dataWritePtr, &vtx);
-		dataWritePtr += sizeof(vtx);
+		auto vtx = PSPPointer<PPGeRemasterVertex>::Create(dataWritePtr);
+		vtx->x = x; vtx->y = y; vtx->z = 0;
+		vtx->u = u * tw; vtx->v = v * th;
+		vtx->color = color;
+		dataWritePtr += (u32)vtx.ElementSize();
 	} else {
-		PPGeVertex vtx;
-		vtx.x = x; vtx.y = y; vtx.z = 0;
-		vtx.u = u * tw; vtx.v = v * th;
-		vtx.color = color;
-		Memory::WriteStruct(dataWritePtr, &vtx);
-		dataWritePtr += sizeof(vtx);
+		auto vtx = PSPPointer<PPGeVertex>::Create(dataWritePtr);
+		vtx->x = x; vtx->y = y; vtx->z = 0;
+		vtx->u = u * tw; vtx->v = v * th;
+		vtx->color = color;
+		dataWritePtr += (u32)vtx.ElementSize();
 	}
 	_dbg_assert_(dataWritePtr <= dataPtr + dataSize);
 	vertexCount++;
 }
 
 static void EndVertexDataAndDraw(int prim) {
+	_assert_msg_(vertexStart != 0, "Missing matching call to BeginVertexData()");
+	NotifyMemInfo(MemBlockFlags::WRITE, vertexStart, dataWritePtr - vertexStart, "PPGe Vertex");
 	WriteCmdAddrWithBase(GE_CMD_VADDR, vertexStart);
 	WriteCmd(GE_CMD_PRIM, (prim << 16) | vertexCount);
+	vertexStart = 0;
 }
 
 bool PPGeIsFontTextureAddress(u32 addr) {
@@ -272,6 +273,7 @@ void __PPGeInit() {
 		int val = i;
 		palette[i] = (val << 12) | 0xFFF;
 	}
+	NotifyMemInfo(MemBlockFlags::WRITE, palette.ptr, 16 * sizeof(u16_le), "PPGe Palette");
 
 	const u32_le *imagePtr = (u32_le *)imageData[0];
 	u8 *ramPtr = atlasPtr == 0 ? nullptr : (u8 *)Memory::GetPointer(atlasPtr);
@@ -286,7 +288,10 @@ void __PPGeInit() {
 		u8 cval = (a2 << 4) | a1;
 		ramPtr[i] = cval;
 	}
-	atlasHash = XXH3_64bits(ramPtr, atlasWidth * atlasHeight / 2);
+	if (atlasPtr != 0) {
+		atlasHash = XXH3_64bits(ramPtr, atlasSize);
+		NotifyMemInfo(MemBlockFlags::WRITE, atlasPtr, atlasSize, "PPGe Atlas");
+	}
 
 	free(imageData[0]);
 
@@ -457,6 +462,7 @@ void PPGeEnd()
 	if (dataWritePtr > dataPtr) {
 		// We actually drew something
 		gpu->EnableInterrupts(false);
+		NotifyMemInfo(MemBlockFlags::WRITE, dlPtr, dlWritePtr - dlPtr, "PPGe ListCmds");
 		u32 list = sceGeListEnQueue(dlPtr, dlWritePtr, -1, listArgs.ptr);
 		DEBUG_LOG(SCEGE, "PPGe enqueued display list %i", list);
 		gpu->EnableInterrupts(true);

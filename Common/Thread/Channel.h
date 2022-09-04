@@ -19,7 +19,7 @@ struct Mailbox {
 
 	std::mutex mutex_;
 	std::condition_variable condvar_;
-	T data_ = nullptr;
+	T data_{};
 
 	T Wait() {
 		std::unique_lock<std::mutex> lock(mutex_);
@@ -43,7 +43,7 @@ struct Mailbox {
 		std::unique_lock<std::mutex> lock(mutex_);
 		if (!data_) {
 			data_ = data;
-			condvar_.notify_one();
+			condvar_.notify_all();
 			return true;
 		} else {
 			// Already has value.

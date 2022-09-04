@@ -78,6 +78,27 @@ static inline Vec4IntResult SOFTRAST_CALL ModulateRGBA(Vec4IntArg prim_in, Vec4I
 	return ToVec4IntResult(out);
 }
 
+// Check if we can safely ignore the alpha test.
+static inline bool AlphaTestIsNeedless(const PixelFuncID &pixelID) {
+	switch (pixelID.AlphaTestFunc()) {
+	case GE_COMP_NEVER:
+	case GE_COMP_EQUAL:
+	case GE_COMP_LESS:
+	case GE_COMP_LEQUAL:
+		return false;
+
+	case GE_COMP_ALWAYS:
+		return true;
+
+	case GE_COMP_NOTEQUAL:
+	case GE_COMP_GREATER:
+	case GE_COMP_GEQUAL:
+		return pixelID.alphaBlend && pixelID.alphaTestRef == 0 && !pixelID.hasAlphaTestMask;
+	}
+
+	return false;
+}
+
 void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
 	const u8 *texptr = state.texptr[0];
 
@@ -132,11 +153,8 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 			!pixelID.applyLogicOp &&
 			!pixelID.colorTest &&
 			!pixelID.dithering &&
-			// TODO: Safe?
-			pixelID.AlphaTestFunc() != GE_COMP_ALWAYS &&
-			pixelID.alphaTestRef == 0 &&
-			!pixelID.hasAlphaTestMask &&
 			pixelID.alphaBlend &&
+			AlphaTestIsNeedless(pixelID) &&
 			samplerID.useTextureAlpha &&
 			samplerID.TexFunc() == GE_TEXFUNC_MODULATE &&
 			!pixelID.applyColorWriteMask &&
@@ -205,13 +223,8 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 			!pixelID.applyLogicOp &&
 			!pixelID.colorTest &&
 			!pixelID.dithering &&
-			// TODO: Safe?
-			pixelID.AlphaTestFunc() != GE_COMP_ALWAYS &&
-			pixelID.alphaTestRef == 0 &&
-			!pixelID.hasAlphaTestMask &&
 			pixelID.alphaBlend &&
-			samplerID.useTextureAlpha &&
-			samplerID.TexFunc() == GE_TEXFUNC_MODULATE &&
+			AlphaTestIsNeedless(pixelID) &&
 			!pixelID.applyColorWriteMask &&
 			pixelID.FBFormat() == GE_FORMAT_5551) {
 			if (v1.color0.a() == 0)
@@ -272,7 +285,9 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	bool orient_check = xdiff >= 0 && ydiff >= 0;
 	// We already have a fast path for clear in ClearRectangle.
 	bool state_check = !state.pixelID.clearMode && !state.samplerID.hasAnyMips && NoClampOrWrap(state, v0.texturecoords) && NoClampOrWrap(state, v1.texturecoords);
-	if ((coord_check || !state.enableTextures) && orient_check && state_check) {
+	// This doesn't work well with offset drawing, see #15876.  Through never has a subpixel offset.
+	bool subpixel_check = ((v0.screenpos.x | v0.screenpos.y | v1.screenpos.x | v1.screenpos.y) & 0xF) != 0;
+	if ((coord_check || !state.enableTextures) && orient_check && state_check && subpixel_check) {
 		binner.AddSprite(v0, v1);
 		return true;
 	}
