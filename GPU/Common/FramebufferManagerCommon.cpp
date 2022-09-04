@@ -84,14 +84,17 @@ void FramebufferManagerCommon::Init() {
 
 bool FramebufferManagerCommon::UpdateSize() {
 	const bool newRender = renderWidth_ != (float)PSP_CoreParameter().renderWidth || renderHeight_ != (float)PSP_CoreParameter().renderHeight;
-	const bool newSettings = bloomHack_ != g_Config.iBloomHack || useBufferedRendering_ != (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+
+	const int effectiveBloomHack = PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOn ? 3 : g_Config.iBloomHack;
+
+	const bool newSettings = bloomHack_ != effectiveBloomHack || useBufferedRendering_ != (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 
 	renderWidth_ = (float)PSP_CoreParameter().renderWidth;
 	renderHeight_ = (float)PSP_CoreParameter().renderHeight;
 	renderScaleFactor_ = (float)PSP_CoreParameter().renderScaleFactor;
 	pixelWidth_ = PSP_CoreParameter().pixelWidth;
 	pixelHeight_ = PSP_CoreParameter().pixelHeight;
-	bloomHack_ = g_Config.iBloomHack;
+	bloomHack_ = effectiveBloomHack;
 	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
 	presentation_->UpdateSize(pixelWidth_, pixelHeight_, renderWidth_, renderHeight_);
