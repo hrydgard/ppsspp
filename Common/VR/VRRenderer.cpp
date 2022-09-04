@@ -235,7 +235,7 @@ void VR_ClearFrameBuffer( int width, int height) {
 	glDisable( GL_SCISSOR_TEST );
 }
 
-bool VR_BeginFrame( engine_t* engine ) {
+bool VR_InitFrame( engine_t* engine ) {
 	GLboolean stageBoundsDirty = GL_TRUE;
 	if (ovrApp_HandleXrEvents(&engine->appState)) {
 		VR_Recenter(engine);
@@ -304,15 +304,20 @@ bool VR_BeginFrame( engine_t* engine ) {
 
 	engine->appState.LayerCount = 0;
 	memset(engine->appState.Layers, 0, sizeof(ovrCompositorLayer_Union) * ovrMaxLayerCount);
-
-	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer;
-	ovrFramebuffer_Acquire(frameBuffer);
-	ovrFramebuffer_SetCurrent(frameBuffer);
-	VR_ClearFrameBuffer(frameBuffer->ColorSwapChain.Width, frameBuffer->ColorSwapChain.Height);
 	return true;
 }
 
+void VR_BeginFrame( engine_t* engine, int fboIndex ) {
+	vrConfig[VR_CONFIG_CURRENT_FBO] = fboIndex;
+	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[fboIndex];
+	ovrFramebuffer_Acquire(frameBuffer);
+	ovrFramebuffer_SetCurrent(frameBuffer);
+	VR_ClearFrameBuffer(frameBuffer->ColorSwapChain.Width, frameBuffer->ColorSwapChain.Height);
+}
+
 void VR_EndFrame( engine_t* engine ) {
+
+	int fboIndex = vrConfig[VR_CONFIG_CURRENT_FBO];
 
 	// Clear the alpha channel, other way OpenXR would not transfer the framebuffer fully
 	VR_BindFramebuffer(engine);
@@ -322,9 +327,8 @@ void VR_EndFrame( engine_t* engine ) {
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 	// Show mouse cursor
-	int vrMode = vrConfig[VR_CONFIG_MODE];
 	int size = vrConfig[VR_CONFIG_MOUSE_SIZE];
-	if ((vrMode == VR_MODE_FLAT_SCREEN) && (size > 0)) {
+	if ((vrConfig[VR_CONFIG_MODE] == VR_MODE_FLAT_SCREEN) && (size > 0)) {
 		glEnable(GL_SCISSOR_TEST);
 		glScissor(vrConfig[VR_CONFIG_MOUSE_X], vrConfig[VR_CONFIG_MOUSE_Y], size, size);
 		glViewport(vrConfig[VR_CONFIG_MOUSE_X], vrConfig[VR_CONFIG_MOUSE_Y], size, size);
@@ -333,21 +337,27 @@ void VR_EndFrame( engine_t* engine ) {
 		glDisable(GL_SCISSOR_TEST);
 	}
 
-	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer;
+	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[fboIndex];
 	//ovrFramebuffer_Resolve(frameBuffer);
 	ovrFramebuffer_Release(frameBuffer);
 	ovrFramebuffer_SetNone();
+}
 
+void VR_FinishFrame( engine_t* engine ) {
+
+	int vrMode = vrConfig[VR_CONFIG_MODE];
 	XrCompositionLayerProjectionView projection_layer_elements[2] = {};
 	if ((vrMode == VR_MODE_MONO_6DOF) || (vrMode == VR_MODE_STEREO_6DOF)) {
 		vrConfig[VR_CONFIG_MENU_YAW] = (int)hmdorientation.y;
 
 		for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
-			int imageLayer = eye;
+			int imageLayer = engine->appState.Renderer.Multiview ? eye : 0;
+			ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[0];
 			XrFovf fov = projections[eye].fov;
 			if (vrMode == VR_MODE_MONO_6DOF) {
 				fov = projections[0].fov;
-				imageLayer = 0;
+			} else if (!engine->appState.Renderer.Multiview) {
+				frameBuffer = &engine->appState.Renderer.FrameBuffer[eye];
 			}
 
 			memset(&projection_layer_elements[eye], 0, sizeof(XrCompositionLayerProjectionView));
@@ -376,15 +386,15 @@ void VR_EndFrame( engine_t* engine ) {
 	} else if (vrMode == VR_MODE_FLAT_SCREEN) {
 
 		// Build the cylinder layer
-		int width = engine->appState.Renderer.FrameBuffer.ColorSwapChain.Width;
-		int height = engine->appState.Renderer.FrameBuffer.ColorSwapChain.Height;
+		int width = engine->appState.Renderer.FrameBuffer[0].ColorSwapChain.Width;
+		int height = engine->appState.Renderer.FrameBuffer[0].ColorSwapChain.Height;
 		XrCompositionLayerCylinderKHR cylinder_layer = {};
 		cylinder_layer.type = XR_TYPE_COMPOSITION_LAYER_CYLINDER_KHR;
 		cylinder_layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
 		cylinder_layer.space = engine->appState.CurrentSpace;
 		cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
 		memset(&cylinder_layer.subImage, 0, sizeof(XrSwapchainSubImage));
-		cylinder_layer.subImage.swapchain = engine->appState.Renderer.FrameBuffer.ColorSwapChain.Handle;
+		cylinder_layer.subImage.swapchain = engine->appState.Renderer.FrameBuffer[0].ColorSwapChain.Handle;
 		cylinder_layer.subImage.imageRect.offset.x = 0;
 		cylinder_layer.subImage.imageRect.offset.y = 0;
 		cylinder_layer.subImage.imageRect.extent.width = width;
@@ -425,8 +435,12 @@ void VR_EndFrame( engine_t* engine ) {
 	endFrameInfo.layers = layers;
 
 	OXR(xrEndFrame(engine->appState.Session, &endFrameInfo));
-	frameBuffer->TextureSwapChainIndex++;
-	frameBuffer->TextureSwapChainIndex %= frameBuffer->TextureSwapChainLength;
+	int instances = engine->appState.Renderer.Multiview ? 1 : ovrMaxNumEyes;
+	for (int i = 0; i < instances; i++) {
+		ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[instances];
+		frameBuffer->TextureSwapChainIndex++;
+		frameBuffer->TextureSwapChainIndex %= frameBuffer->TextureSwapChainLength;
+	}
 }
 
 int VR_GetConfig( VRConfig config ) {
@@ -439,7 +453,8 @@ void VR_SetConfig( VRConfig config, int value) {
 
 void VR_BindFramebuffer(engine_t *engine) {
 	if (!initialized) return;
-	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer;
+	int fboIndex = vrConfig[VR_CONFIG_CURRENT_FBO];
+	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[fboIndex];
 	unsigned int swapchainIndex = frameBuffer->TextureSwapChainIndex;
 	unsigned int glFramebuffer = frameBuffer->FrameBuffers[swapchainIndex];
 	GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, glFramebuffer));

@@ -92,7 +92,6 @@ typedef struct {
 typedef struct {
 	int Width;
 	int Height;
-	bool Multiview;
 	uint32_t TextureSwapChainLength;
 	uint32_t TextureSwapChainIndex;
 	ovrSwapChain ColorSwapChain;
@@ -104,7 +103,8 @@ typedef struct {
 } ovrFramebuffer;
 
 typedef struct {
-	ovrFramebuffer FrameBuffer;
+	bool Multiview;
+	ovrFramebuffer FrameBuffer[ovrMaxNumEyes];
 } ovrRenderer;
 
 typedef struct {

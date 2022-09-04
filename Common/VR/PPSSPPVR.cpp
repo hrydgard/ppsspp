@@ -225,7 +225,7 @@ bool PreVRRender() {
 		VR_SetConfig(VR_CONFIG_VIEWPORT_VALID, true);
 	}
 
-	if (VR_BeginFrame(VR_GetEngine())) {
+	if (VR_InitFrame(VR_GetEngine())) {
 
 		// Decide if the scene is 3D or not
 		if (g_Config.bEnableVR && !VR_GetConfig(VR_CONFIG_FORCE_2D) && (VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) > 15)) {
@@ -245,7 +245,19 @@ bool PreVRRender() {
 }
 
 void PostVRRender() {
+	VR_FinishFrame(VR_GetEngine());
+}
+
+void PreVRFrameRender(int fboIndex) {
+	VR_BeginFrame(VR_GetEngine(), fboIndex);
+}
+
+void PostVRFrameRender() {
 	VR_EndFrame(VR_GetEngine());
+}
+
+int GetVRFBOIndex() {
+	return VR_GetConfig(VR_CONFIG_CURRENT_FBO);
 }
 
 bool IsMultiviewSupported() {

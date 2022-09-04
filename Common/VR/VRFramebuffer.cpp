@@ -47,12 +47,10 @@ bool ovrFramebuffer_Create(XrSession session, ovrFramebuffer* frameBuffer, int w
 
 	frameBuffer->Width = width;
 	frameBuffer->Height = height;
-	frameBuffer->Multiview = multiview;
 
 	if (strstr((const char*)glGetString(GL_EXTENSIONS), "GL_OVR_multiview2") == nullptr)
 	{
 		ALOGE("OpenGL implementation does not support GL_OVR_multiview2 extension.\n");
-		exit(EXIT_FAILURE);
 	}
 
 	typedef void (*PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR)(GLenum, GLenum, GLuint, GLint, GLint, GLsizei);
@@ -60,7 +58,6 @@ bool ovrFramebuffer_Create(XrSession session, ovrFramebuffer* frameBuffer, int w
 	if (!glFramebufferTextureMultiviewOVR)
 	{
 		ALOGE("Can not get proc address for glFramebufferTextureMultiviewOVR.\n");
-		exit(EXIT_FAILURE);
 	}
 
 	XrSwapchainCreateInfo swapChainCreateInfo;
@@ -200,15 +197,24 @@ ovrRenderer
 */
 
 void ovrRenderer_Clear(ovrRenderer* renderer) {
-	ovrFramebuffer_Clear(&renderer->FrameBuffer);
+	for (int i = 0; i < ovrMaxNumEyes; i++) {
+		ovrFramebuffer_Clear(&renderer->FrameBuffer[i]);
+	}
 }
 
 void ovrRenderer_Create(XrSession session, ovrRenderer* renderer, int width, int height, bool multiview) {
-	ovrFramebuffer_Create(session, &renderer->FrameBuffer, width, height, multiview);
+	renderer->Multiview = multiview;
+	int instances = renderer->Multiview ? 1 : ovrMaxNumEyes;
+	for (int i = 0; i < instances; i++) {
+		ovrFramebuffer_Create(session, &renderer->FrameBuffer[i], width, height, multiview);
+	}
 }
 
 void ovrRenderer_Destroy(ovrRenderer* renderer) {
-	ovrFramebuffer_Destroy(&renderer->FrameBuffer);
+	int instances = renderer->Multiview ? 1 : ovrMaxNumEyes;
+	for (int i = 0; i < instances; i++) {
+		ovrFramebuffer_Destroy(&renderer->FrameBuffer[i]);
+	}
 }
 
 /*

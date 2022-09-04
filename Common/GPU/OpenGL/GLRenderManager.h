@@ -377,6 +377,7 @@ public:
 	void BeginFrame();
 	// Can run on a different thread!
 	void Finish();
+	void Render(int frame);
 	void Run(int frame);
 
 	// Zaps queued up commands. Use if you know there's a risk you've queued up stuff that has already been deleted. Can happen during in-game shutdown.

@@ -17,6 +17,9 @@ void UpdateVRScreenKey(const KeyInput &key);
 void BindVRFramebuffer();
 bool PreVRRender();
 void PostVRRender();
+void PreVRFrameRender(int fboIndex);
+void PostVRFrameRender();
+int GetVRFBOIndex();
 bool IsMultiviewSupported();
 bool IsFlatVRScene();
 bool Is2DVRObject(float* projMatrix, bool ortho);
@@ -37,6 +40,9 @@ inline void UpdateVRScreenKey(const KeyInput &key) {}
 inline void BindVRFramebuffer() {}
 inline bool PreVRRender() { return false; }
 inline void PostVRRender() {}
+inline void PreVRFrameRender(int fboIndex) {}
+inline void PostVRFrameRender() {}
+inline int GetVRFBOIndex() { return 0; }
 inline bool IsMultiviewSupported() { return false; }
 inline bool IsFlatVRScene() { return true; }
 inline bool Is2DVRObject(float* projMatrix, bool ortho) { return false; }

@@ -410,7 +410,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 			if (IsMultiviewSupported()) {
 				render_->SetUniformM4x4Stereo("u_proj", &u_proj, leftEyeMatrix.m, rightEyeMatrix.m);
 			} else {
-				render_->SetUniformM4x4(&u_proj, leftEyeMatrix.m);
+				render_->SetUniformM4x4(&u_proj, GetVRFBOIndex() == 0 ? leftEyeMatrix.m : rightEyeMatrix.m);
 			}
 		} else {
 			Matrix4x4 flippedMatrix;
@@ -537,7 +537,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 			if (IsMultiviewSupported()) {
 				render_->SetUniformM4x4Stereo("u_view", &u_view, leftEyeView, rightEyeView);
 			} else {
-				render_->SetUniformM4x4(&u_view, leftEyeView);
+				render_->SetUniformM4x4(&u_view, GetVRFBOIndex() == 0 ? leftEyeView : rightEyeView);
 			}
 		} else {
 			SetMatrix4x3(render_, &u_view, gstate.viewMatrix);

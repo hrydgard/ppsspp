@@ -5,6 +5,8 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/VR/PPSSPPVR.h"
 
+#include "Core/Config.h"
+
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
 #include "Common/Math/math_util.h"
@@ -233,15 +235,7 @@ bool GLRenderManager::ThreadFrame() {
 			INFO_LOG(G3D, "Running first frame (%d)", threadFrame_);
 			firstFrame = false;
 		}
-
-		if (IsVRBuild()) {
-			if (PreVRRender()) {
-				Run(threadFrame_);
-				PostVRRender();
-			}
-		} else {
-			Run(threadFrame_);
-		}
+		Run(threadFrame_);
 
 		VLOG("PULL: Finished frame %d", threadFrame_);
 	} while (!nextFrame);
@@ -564,8 +558,7 @@ void GLRenderManager::EndSubmitFrame(int frame) {
 }
 
 // Render thread
-void GLRenderManager::Run(int frame) {
-	BeginSubmitFrame(frame);
+void GLRenderManager::Render(int frame) {
 
 	FrameData &frameData = frameData_[frame];
 
@@ -584,6 +577,7 @@ void GLRenderManager::Run(int frame) {
 	}
 
 	queueRunner_.RunSteps(stepsOnThread, skipGLCalls_);
+
 	stepsOnThread.clear();
 
 	if (!skipGLCalls_) {
@@ -591,8 +585,30 @@ void GLRenderManager::Run(int frame) {
 			iter->MapDevice(bufferStrategy_);
 		}
 	}
+}
 
-	switch (frameData.type) {
+// Render thread
+void GLRenderManager::Run(int frame) {
+	BeginSubmitFrame(frame);
+
+	if (IsVRBuild()) {
+		if (PreVRRender()) {
+			int passes = 1;
+			if (!IsMultiviewSupported() && g_Config.bEnableStereo) {
+				passes = 2;
+			}
+			for (int i = 0; i < passes; i++) {
+				PreVRFrameRender(i);
+				Render(frame);
+				PostVRFrameRender();
+			}
+			PostVRRender();
+		}
+	} else {
+		Render(frame);
+	}
+
+	switch (frameData_[frame].type) {
 	case GLRRunType::END:
 		EndSubmitFrame(frame);
 		break;
