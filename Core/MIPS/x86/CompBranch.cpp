@@ -548,8 +548,9 @@ void Jit::BranchFPFlag(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 
 	BranchInfo branchInfo(GetCompilerPC(), op, GetOffsetInstruction(1), false, likely);
 	branchInfo.delaySlotIsNice = IsDelaySlotNiceFPU(op, branchInfo.delaySlotOp);
-	js.downcountAmount += MIPSGetInstructionCycleEstimate(branchInfo.delaySlotOp);
 	CONDITIONAL_NICE_DELAYSLOT;
+
+	js.downcountAmount += MIPSGetInstructionCycleEstimate(branchInfo.delaySlotOp);
 	if (!likely && branchInfo.delaySlotIsNice && !branchInfo.delaySlotIsBranch)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
@@ -592,10 +593,10 @@ void Jit::BranchVFPUFlag(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 	// Sometimes there's a VFPU branch in a delay slot (Disgaea 2: Dark Hero Days, Zettai Hero Project, La Pucelle)
 	// The behavior is undefined - the CPU may take the second branch even if the first one passes.
 	// However, it does consistently try each branch, which these games seem to expect.
-	branchInfo.delaySlotIsNice = !branchInfo.delaySlotIsBranch && IsDelaySlotNiceVFPU(op, branchInfo.delaySlotOp);
-	js.downcountAmount += MIPSGetInstructionCycleEstimate(branchInfo.delaySlotOp);
-
+	branchInfo.delaySlotIsNice = IsDelaySlotNiceVFPU(op, branchInfo.delaySlotOp);
 	CONDITIONAL_NICE_DELAYSLOT;
+
+	js.downcountAmount += MIPSGetInstructionCycleEstimate(branchInfo.delaySlotOp);
 	if (!likely && branchInfo.delaySlotIsNice && !branchInfo.delaySlotIsBranch)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
