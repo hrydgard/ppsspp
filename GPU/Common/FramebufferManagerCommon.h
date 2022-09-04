@@ -441,7 +441,10 @@ protected:
 
 	void BlitUsingRaster(
 		Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
-		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2, bool linearFilter, Draw2DPipeline *pipeline, const char *tag);
+		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
+		bool linearFilter,
+		int scaleFactor,  // usually unused, except for swizzle...
+		Draw2DPipeline *pipeline, const char *tag);
 
 	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags);
 

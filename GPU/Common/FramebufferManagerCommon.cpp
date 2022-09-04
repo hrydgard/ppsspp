@@ -626,7 +626,7 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 			BlitUsingRaster(
 				src->fbo, 0.0f, 0.0f, src->renderWidth, src->renderHeight,
 				dest->fbo, 0.0f, 0.0f, src->renderWidth, src->renderHeight,
-				false, Get2DPipeline(shader), "565_to_depth");
+				false, dest->renderScaleFactor, Get2DPipeline(shader), "565_to_depth");
 		}
 	}
 
@@ -802,7 +802,7 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 				tookActions = true;
 				// OK we have the pipeline, now just do the blit.
 				BlitUsingRaster(src->fbo, 0.0f, 0.0f, srcWidth, srcHeight,
-					dst->fbo, dstX1, dstY1, dstX2, dstY2, false, pipeline, pass_name);
+					dst->fbo, dstX1, dstY1, dstX2, dstY2, false, dst->renderScaleFactor, pipeline, pass_name);
 			}
 		}
 	}
@@ -886,7 +886,7 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 		draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebufferDepth");
 		RebindFramebuffer("After BlitFramebufferDepth");
 	} else if (useRaster) {
-		BlitUsingRaster(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, false, Get2DPipeline(Draw2DShader::DRAW2D_COPY_DEPTH), "BlitDepthRaster");
+		BlitUsingRaster(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, false, dst->renderScaleFactor, Get2DPipeline(Draw2DShader::DRAW2D_COPY_DEPTH), "BlitDepthRaster");
 	}
 
 	draw_->InvalidateCachedState();
@@ -2784,10 +2784,10 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 		Draw::Framebuffer *srcFBO = src->fbo;
 		if (src == dst) {
 			Draw::Framebuffer *tempFBO = GetTempFBO(TempFBO::BLIT, src->renderWidth, src->renderHeight);
-			BlitUsingRaster(src->fbo, srcX1, srcY1, srcX2, srcY2, tempFBO, dstX1, dstY1, dstX2, dstY2, false, pipeline, tag);
+			BlitUsingRaster(src->fbo, srcX1, srcY1, srcX2, srcY2, tempFBO, dstX1, dstY1, dstX2, dstY2, false, dst->renderScaleFactor, pipeline, tag);
 			srcFBO = tempFBO;
 		}
-		BlitUsingRaster(srcFBO, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, false, pipeline, tag);
+		BlitUsingRaster(srcFBO, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, false, dst->renderScaleFactor, pipeline, tag);
 	}
 
 	draw_->InvalidateCachedState();
@@ -2800,6 +2800,7 @@ void FramebufferManagerCommon::BlitUsingRaster(
 	Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
 	Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
 	bool linearFilter,
+	int scaleFactor,
 	Draw2DPipeline *pipeline, const char *tag) {
 
 	if (pipeline->info.writeChannel == RASTER_DEPTH) {
@@ -2825,7 +2826,7 @@ void FramebufferManagerCommon::BlitUsingRaster(
 	draw_->SetViewports(1, &vp);
 	draw_->SetScissorRect(0, 0, (int)dest->Width(), (int)dest->Height());
 
-	draw2D_.Blit(pipeline, srcX1, srcY1, srcX2, srcY2, destX1, destY1, destX2, destY2, (float)srcW, (float)srcH, (float)destW, (float)destH, linearFilter , renderScaleFactor_);
+	draw2D_.Blit(pipeline, srcX1, srcY1, srcX2, srcY2, destX1, destY1, destX2, destY2, (float)srcW, (float)srcH, (float)destW, (float)destH, linearFilter, scaleFactor);
 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
