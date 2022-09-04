@@ -642,7 +642,7 @@ retry_depth:
 	currentReadHandle_ = fbo->handle;
 }
 
-void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls) {
+void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls, bool keepSteps) {
 	if (skipGLCalls) {
 		// Dry run
 		for (size_t i = 0; i < steps.size(); i++) {
@@ -724,7 +724,9 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 			glPopDebugGroup();
 #endif
 
-		delete steps[i];
+		if (!keepSteps) {
+			delete steps[i];
+		}
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
 }

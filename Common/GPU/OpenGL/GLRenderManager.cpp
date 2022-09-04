@@ -558,7 +558,9 @@ void GLRenderManager::EndSubmitFrame(int frame) {
 }
 
 // Render thread
-void GLRenderManager::Render(int frame) {
+void GLRenderManager::Run(int frame) {
+	BeginSubmitFrame(frame);
+
 
 	FrameData &frameData = frameData_[frame];
 
@@ -566,30 +568,12 @@ void GLRenderManager::Render(int frame) {
 	auto &initStepsOnThread = frameData_[frame].initSteps;
 	// queueRunner_.LogSteps(stepsOnThread);
 	queueRunner_.RunInitSteps(initStepsOnThread, skipGLCalls_);
-	initStepsOnThread.clear();
-
-	// Run this after RunInitSteps so any fresh GLRBuffers for the pushbuffers can get created.
-	if (!skipGLCalls_) {
-		for (auto iter : frameData.activePushBuffers) {
-			iter->Flush();
-			iter->UnmapDevice();
-		}
-	}
-
-	queueRunner_.RunSteps(stepsOnThread, skipGLCalls_);
-
-	stepsOnThread.clear();
 
 	if (!skipGLCalls_) {
 		for (auto iter : frameData.activePushBuffers) {
 			iter->MapDevice(bufferStrategy_);
 		}
 	}
-}
-
-// Render thread
-void GLRenderManager::Run(int frame) {
-	BeginSubmitFrame(frame);
 
 	if (IsVRBuild()) {
 		if (PreVRRender()) {
@@ -599,14 +583,25 @@ void GLRenderManager::Run(int frame) {
 			}
 			for (int i = 0; i < passes; i++) {
 				PreVRFrameRender(i);
-				Render(frame);
+				queueRunner_.RunSteps(stepsOnThread, skipGLCalls_, i < passes - 1);
 				PostVRFrameRender();
 			}
 			PostVRRender();
 		}
 	} else {
-		Render(frame);
+		queueRunner_.RunSteps(stepsOnThread, skipGLCalls_);
 	}
+
+	// Run this after RunInitSteps so any fresh GLRBuffers for the pushbuffers can get created.
+	if (!skipGLCalls_) {
+		for (auto iter : frameData.activePushBuffers) {
+			iter->Flush();
+			iter->UnmapDevice();
+		}
+	}
+
+	initStepsOnThread.clear();
+	stepsOnThread.clear();
 
 	switch (frameData_[frame].type) {
 	case GLRRunType::END:

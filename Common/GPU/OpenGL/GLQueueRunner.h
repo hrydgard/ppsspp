@@ -363,7 +363,7 @@ public:
 
 	void RunInitSteps(const std::vector<GLRInitStep> &steps, bool skipGLCalls);
 
-	void RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls);
+	void RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls, bool keepSteps = false);
 	void LogSteps(const std::vector<GLRStep *> &steps);
 
 	void CreateDeviceObjects();
