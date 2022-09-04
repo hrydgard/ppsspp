@@ -268,6 +268,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		ReplaceBlendType replaceBlend = pipelineState.blendState.replaceBlend;
 		ReplaceAlphaType stencilToAlpha = pipelineState.blendState.replaceAlphaWithStencil;
 		SimulateLogicOpType simulateLogicOpType = pipelineState.blendState.simulateLogicOpType;
+		GELogicOp replaceLogicOpType = GE_LOGIC_COPY;
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		// Note that checking this means that we must dirty the fragment shader ID whenever textureFullAlpha changes.
@@ -324,6 +325,9 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 
 		// 2 bits.
 		id.SetBits(FS_BIT_SIMULATE_LOGIC_OP_TYPE, 2, simulateLogicOpType);
+
+		// 4 bits. Set to GE_LOGIC_COPY if not used, which does nothing in the shader generator.
+		id.SetBits(FS_BIT_REPLACE_LOGIC_OP, 4, (int)replaceLogicOpType);
 
 		// If replaceBlend == REPLACE_BLEND_STANDARD (or REPLACE_BLEND_NO) nothing is done, so we kill these bits.
 		if (replaceBlend == REPLACE_BLEND_BLUE_TO_ALPHA) {
