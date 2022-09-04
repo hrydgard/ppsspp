@@ -926,16 +926,16 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
 			if (IsVRBuild()) {
 				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj_lens%s, viewPos));\n", matrixPostfix.c_str());
-				WRITE(p, "  vec4 orgPos = depthRoundZVP(mul(u_proj, viewPos));\n", matrixPostfix.c_str());
+				WRITE(p, "  vec4 orgPos = depthRoundZVP(mul(u_proj, viewPos));\n");
 			} else {
-				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, viewPos));\n", matrixPostfix.c_str());
+				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, viewPos));\n");
 			}
 		} else {
 			if (IsVRBuild()) {
 				WRITE(p, "  vec4 outPos = mul(u_proj_lens%s, viewPos);\n", matrixPostfix.c_str());
-				WRITE(p, "  vec4 orgPos = mul(u_proj%s, viewPos);\n", matrixPostfix.c_str());
+				WRITE(p, "  vec4 orgPos = mul(u_proj, viewPos);\n");
 			} else {
-				WRITE(p, "  vec4 outPos = mul(u_proj%s, viewPos);\n", matrixPostfix.c_str());
+				WRITE(p, "  vec4 outPos = mul(u_proj, viewPos);\n");
 			}
 		}
 
