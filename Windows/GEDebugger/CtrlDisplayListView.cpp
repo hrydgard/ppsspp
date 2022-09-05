@@ -1,5 +1,7 @@
 #include <algorithm>
 #include <tchar.h>
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/StringUtils.h"
 #include "Common/System/Display.h"
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
 #include "Windows/GEDebugger/GEDebugger.h"
@@ -369,15 +371,23 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			break;
 		case ID_GEDBG_GOTOADDR:
 			{
-				u32 newAddress = curAddress;
-				if (!InputBox_GetHex(GetModuleHandle(NULL), wnd, L"Address", curAddress, newAddress)) {
+				std::string expression = StringFromFormat("%08x", curAddress);
+				if (!InputBox_GetString(GetModuleHandle(NULL), wnd, L"Address", expression, expression, true)) {
 					break;
 				}
-				if (Memory::IsValidAddress(newAddress)) {
-					setCurAddress(newAddress);
-					scrollAddressIntoView();
-					redraw();
+				uint32_t newAddress = curAddress;
+				if (!GPUDebugExecExpression(gpuDebug, expression.c_str(), newAddress)) {
+					MessageBox(wnd, ConvertUTF8ToWString(getExpressionError()).c_str(), L"Invalid expression", MB_OK | MB_ICONEXCLAMATION);
+					break;
 				}
+				if (!Memory::IsValidAddress(newAddress)) {
+					MessageBox(wnd, L"Address not in valid memory", L"Invalid address", MB_OK | MB_ICONEXCLAMATION);
+					break;
+				}
+
+				setCurAddress(newAddress);
+				scrollAddressIntoView();
+				redraw();
 			}
 			break;
 		}
