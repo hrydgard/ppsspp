@@ -1590,6 +1590,8 @@ set(GPU_SOURCES
 	GPU/Debugger/Breakpoints.h
 	GPU/Debugger/Debugger.cpp
 	GPU/Debugger/Debugger.h
+	GPU/Debugger/GECommandTable.cpp
+	GPU/Debugger/GECommandTable.h
 	GPU/Debugger/Playback.cpp
 	GPU/Debugger/Playback.h
 	GPU/Debugger/Record.cpp

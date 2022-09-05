@@ -351,6 +351,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/VertexShaderGenerator.cpp \
   $(SRC)/GPU/Debugger/Breakpoints.cpp \
   $(SRC)/GPU/Debugger/Debugger.cpp \
+  $(SRC)/GPU/Debugger/GECommandTable.cpp \
   $(SRC)/GPU/Debugger/Playback.cpp \
   $(SRC)/GPU/Debugger/Record.cpp \
   $(SRC)/GPU/Debugger/Stepping.cpp \

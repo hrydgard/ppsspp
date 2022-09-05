@@ -258,6 +258,9 @@
     <ClInclude Include="Common\TextureShaderCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Debugger\GECommandTable.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -505,6 +508,9 @@
     </ClCompile>
     <ClCompile Include="Common\TextureShaderCommon.cpp">
       <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\GECommandTable.cpp">
+      <Filter>Debugger</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
