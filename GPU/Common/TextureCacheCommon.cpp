@@ -922,9 +922,6 @@ bool TextureCacheCommon::MatchFramebuffer(
 
 	// If they match "exactly", it's non-CLUT and from the top left.
 	if (exactMatch) {
-		if (fb_stride_in_bytes != tex_stride_in_bytes && TextureFormatMatchesBufferFormat(entry.format, fb_format)) {
-			WARN_LOG_ONCE(diffStrides1, G3D, "Found exact-matching framebuffer at %08x with different byte strides %d != %d", fb_address, tex_stride_in_bytes, fb_stride_in_bytes);
-		}
 		// NOTE: This check is okay because the first texture formats are the same as the buffer formats.
 		if (IsTextureFormatBufferCompatible(entry.format)) {
 			if (TextureFormatMatchesBufferFormat(entry.format, fb_format) || (framebuffer->usageFlags & FB_USAGE_BLUE_TO_ALPHA)) {
