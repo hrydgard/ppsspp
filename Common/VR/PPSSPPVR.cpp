@@ -239,6 +239,7 @@ bool PreVRRender() {
 		VR_SetConfig(VR_CONFIG_6DOF_ENABLED, g_Config.bEnable6DoF);
 		VR_SetConfig(VR_CONFIG_CANVAS_DISTANCE, g_Config.iCanvasDistance);
 		VR_SetConfig(VR_CONFIG_FOV_SCALE, g_Config.iFieldOfViewPercentage);
+		VR_SetConfig(VR_CONFIG_STEREO_SEPARATION, g_Config.iStereoSeparation);
 		return true;
 	}
 	return false;
