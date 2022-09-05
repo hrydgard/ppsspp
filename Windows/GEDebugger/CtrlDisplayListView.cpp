@@ -267,6 +267,17 @@ void CtrlDisplayListView::toggleBreakpoint()
 	SendMessage(GetParent(wnd),WM_GEDBG_TOGGLEPCBREAKPOINT,curAddress,0);
 }
 
+void CtrlDisplayListView::PromptBreakpointCond() {
+	std::string expression;
+	GPUBreakpoints::GetAddressBreakpointCond(curAddress, &expression);
+	if (!InputBox_GetString(GetModuleHandle(NULL), wnd, L"Expression", expression, expression))
+		return;
+
+	std::string error;
+	if (!GPUBreakpoints::SetAddressBreakpointCond(curAddress, expression, &error))
+		MessageBox(wnd, ConvertUTF8ToWString(error).c_str(), L"Invalid expression", MB_OK | MB_ICONEXCLAMATION);
+}
+
 void CtrlDisplayListView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 {
 	int y = HIWORD(lParam);
@@ -298,6 +309,9 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 {
 	if (button == 2)
 	{
+		HMENU menu = GetContextMenu(ContextMenuID::DISPLAYLISTVIEW);
+		EnableMenuItem(menu, ID_GEDBG_SETCOND, GPUBreakpoints::IsAddressBreakpoint(curAddress) ? MF_ENABLED : MF_GRAYED);
+
 		switch (TriggerContextMenu(ContextMenuID::DISPLAYLISTVIEW, wnd, ContextPoint::FromEvent(lParam)))
 		{
 		case ID_DISASM_GOTOINMEMORYVIEW:
@@ -307,6 +321,9 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		case ID_DISASM_TOGGLEBREAKPOINT:
 			toggleBreakpoint();
 			redraw();
+			break;
+		case ID_GEDBG_SETCOND:
+			PromptBreakpointCond();
 			break;
 		case ID_DISASM_COPYINSTRUCTIONDISASM:
 			{

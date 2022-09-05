@@ -763,6 +763,7 @@ BEGIN
         MENUITEM "Jump to Cursor",             ID_DISASM_SETPCTOHERE
         MENUITEM "Set Stall",                  ID_GEDBG_SETSTALLADDR
         MENUITEM "Toggle Breakpoint",          ID_DISASM_TOGGLEBREAKPOINT
+        MENUITEM "Set Breakpoint Condition",   ID_GEDBG_SETCOND
         MENUITEM SEPARATOR
         MENUITEM "Go to Displaylist PC",       ID_GEDBG_GOTOPC
         MENUITEM "Go to Address...",           ID_GEDBG_GOTOADDR
