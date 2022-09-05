@@ -695,7 +695,7 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 
 	if (bestIndex != -1) {
 		if (logging) {
-			WARN_LOG(G3D, "Chose candidate %d:\n%s\n", bestIndex, candidates[bestIndex].ToString().c_str());
+			WARN_LOG(G3D, "Chose candidate %d:\n%s\n", (int)bestIndex, candidates[bestIndex].ToString().c_str());
 		}
 		*bestCandidate = candidates[bestIndex];
 		return true;
@@ -888,6 +888,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 	case GE_TFMT_DXT3:
 	case GE_TFMT_DXT5:
 		return false;
+	default: break;
 	}
 
 	uint32_t fb_stride_in_bytes = fb_stride * BufferFormatBytesPerPixel(fb_format);
@@ -1868,9 +1869,10 @@ static bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferForma
 				return true;
 			}
 			break;
+		default:
+			WARN_LOG(G3D, "Invalid CLUT/framebuffer combination: %s vs %s", GeTextureFormatToString(texFormat), GeBufferFormatToString(bufferFormat));
+			return false;
 		}
-		WARN_LOG(G3D, "Invalid CLUT/framebuffer combination: %s vs %s", GeTextureFormatToString(texFormat), GeBufferFormatToString(bufferFormat));
-		return false;
 	} else if (texFormat == GE_TFMT_5650 && bufferFormat == GE_FORMAT_DEPTH16) {
 		// We can also "depal" 565 format, this is used to read depth buffers as 565 on occasion (#15491).
 		return true;
@@ -1898,6 +1900,9 @@ static bool CanUseSmoothDepal(const GPUgstate &gstate, GEBufferFormat framebuffe
 			if (gstate.getClutIndexShift() == 0 || gstate.getClutIndexShift() == 5 || gstate.getClutIndexShift() == 10) {
 				return gstate.getClutIndexMask() == 0x1F;
 			}
+			break;
+		default:
+			// No uses for the other formats yet, add if needed.
 			break;
 		}
 	}

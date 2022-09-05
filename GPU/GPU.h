@@ -19,6 +19,7 @@
 #pragma once
 
 #include <cstring>
+#include <cstdint>
 
 class GPUInterface;
 class GPUDebugInterface;
