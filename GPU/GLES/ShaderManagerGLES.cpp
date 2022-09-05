@@ -408,11 +408,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 			ScaleProjMatrix(leftEyeMatrix, useBufferedRendering);
 			ScaleProjMatrix(rightEyeMatrix, useBufferedRendering);
 
-			if (IsMultiviewSupported()) {
-				render_->SetUniformM4x4Stereo("u_proj_lens", &u_proj_lens, leftEyeMatrix.m, rightEyeMatrix.m);
-			} else {
-				render_->SetUniformM4x4(&u_proj_lens, GetVRFBOIndex() == 0 ? leftEyeMatrix.m : rightEyeMatrix.m);
-			}
+			render_->SetUniformM4x4Stereo("u_proj_lens", &u_proj_lens, leftEyeMatrix.m, rightEyeMatrix.m);
 		}
 
 		Matrix4x4 flippedMatrix;
@@ -535,11 +531,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 			if (!flatScreen && !is2D) {
 				UpdateVRView(gstate.projMatrix, leftEyeView, rightEyeView);
 			}
-			if (IsMultiviewSupported()) {
-				render_->SetUniformM4x4Stereo("u_view", &u_view, leftEyeView, rightEyeView);
-			} else {
-				render_->SetUniformM4x4(&u_view, GetVRFBOIndex() == 0 ? leftEyeView : rightEyeView);
-			}
+			render_->SetUniformM4x4Stereo("u_view", &u_view, leftEyeView, rightEyeView);
 		} else {
 			SetMatrix4x3(render_, &u_view, gstate.viewMatrix);
 		}

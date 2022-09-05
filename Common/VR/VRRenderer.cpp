@@ -467,7 +467,7 @@ ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {
 		float near = (float)vrConfig[VR_CONFIG_FOV_SCALE] / 200.0f;
 		output = ovrMatrix4f_CreateProjectionFov(fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown, near, 0.0f );
 	} else if ((matrix == VR_VIEW_MATRIX_LEFT_EYE) || (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
-		XrPosef invView = matrix == VR_VIEW_MATRIX_LEFT_EYE ? invViewTransform[0] : invViewTransform[1];
+		XrPosef invView = invViewTransform[0];
 
 		// get axis mirroring configuration
 		float mx = vrConfig[VR_CONFIG_MIRROR_PITCH] ? -1 : 1;
@@ -498,6 +498,12 @@ ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {
 			output.M[0][3] -= hmdposition.x * (vrConfig[VR_CONFIG_MIRROR_AXIS_X] ? -1.0f : 1.0f) * scale;
 			output.M[1][3] -= hmdposition.y * (vrConfig[VR_CONFIG_MIRROR_AXIS_Y] ? -1.0f : 1.0f) * scale;
 			output.M[2][3] -= hmdposition.z * (vrConfig[VR_CONFIG_MIRROR_AXIS_Z] ? -1.0f : 1.0f) * scale;
+		}
+		if (matrix == VR_VIEW_MATRIX_RIGHT_EYE) {
+			float ipdScale = 1.0f;
+			output.M[0][3] += (invViewTransform[1].position.x - invViewTransform[0].position.x) * ipdScale;
+			output.M[1][3] += (invViewTransform[1].position.y - invViewTransform[0].position.y) * ipdScale;
+			output.M[2][3] += (invViewTransform[1].position.z - invViewTransform[0].position.z) * ipdScale;
 		}
 	} else {
 		assert(false);
