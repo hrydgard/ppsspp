@@ -1,12 +1,7 @@
 LOCAL_PATH := $(call my-dir)
-
-include $(CLEAR_VARS)
-
-#TARGET_PLATFORM := android-8
-
-NATIVE := ../../ext/native
 SRC := ../..
 
+include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
 
 # http://software.intel.com/en-us/articles/getting-started-on-optimizing-ndk-project-for-multiple-cpu-architectures
@@ -17,88 +12,27 @@ ARCH_FILES := \
   $(SRC)/Common/x64Emitter.cpp \
   $(SRC)/Common/x64Analyzer.cpp \
   $(SRC)/Common/Math/fast/fast_matrix_sse.c \
-  $(SRC)/Common/Thunk.cpp \
-  $(SRC)/Core/MIPS/x86/CompALU.cpp \
-  $(SRC)/Core/MIPS/x86/CompBranch.cpp \
-  $(SRC)/Core/MIPS/x86/CompFPU.cpp \
-  $(SRC)/Core/MIPS/x86/CompLoadStore.cpp \
-  $(SRC)/Core/MIPS/x86/CompVFPU.cpp \
-  $(SRC)/Core/MIPS/x86/CompReplace.cpp \
-  $(SRC)/Core/MIPS/x86/Asm.cpp \
-  $(SRC)/Core/MIPS/x86/Jit.cpp \
-  $(SRC)/Core/MIPS/x86/JitSafeMem.cpp \
-  $(SRC)/Core/MIPS/x86/RegCache.cpp \
-  $(SRC)/Core/MIPS/x86/RegCacheFPU.cpp \
-  $(SRC)/GPU/Common/VertexDecoderX86.cpp \
-  $(SRC)/GPU/Software/DrawPixelX86.cpp \
-  $(SRC)/GPU/Software/SamplerX86.cpp
-endif
-
-ifeq ($(TARGET_ARCH_ABI),x86_64)
+  $(SRC)/Common/Thunk.cpp
+else ifeq ($(TARGET_ARCH_ABI),x86_64)
 ARCH_FILES := \
   $(SRC)/Common/ABI.cpp \
   $(SRC)/Common/x64Emitter.cpp \
   $(SRC)/Common/x64Analyzer.cpp \
   $(SRC)/Common/Math/fast/fast_matrix_sse.c \
-  $(SRC)/Common/Thunk.cpp \
-  $(SRC)/Core/MIPS/x86/CompALU.cpp \
-  $(SRC)/Core/MIPS/x86/CompBranch.cpp \
-  $(SRC)/Core/MIPS/x86/CompFPU.cpp \
-  $(SRC)/Core/MIPS/x86/CompLoadStore.cpp \
-  $(SRC)/Core/MIPS/x86/CompVFPU.cpp \
-  $(SRC)/Core/MIPS/x86/CompReplace.cpp \
-  $(SRC)/Core/MIPS/x86/Asm.cpp \
-  $(SRC)/Core/MIPS/x86/Jit.cpp \
-  $(SRC)/Core/MIPS/x86/JitSafeMem.cpp \
-  $(SRC)/Core/MIPS/x86/RegCache.cpp \
-  $(SRC)/Core/MIPS/x86/RegCacheFPU.cpp \
-  $(SRC)/GPU/Common/VertexDecoderX86.cpp \
-  $(SRC)/GPU/Software/DrawPixelX86.cpp \
-  $(SRC)/GPU/Software/SamplerX86.cpp
-endif
-
-ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
+  $(SRC)/Common/Thunk.cpp
+else ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
 ARCH_FILES := \
   $(SRC)/Common/ArmEmitter.cpp \
   $(SRC)/Common/Math/fast/fast_matrix_neon.S.neon \
-  $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompBranch.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompFPU.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompLoadStore.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompVFPU.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompVFPUNEON.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompVFPUNEONUtil.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompReplace.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmAsm.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
-  $(SRC)/GPU/Common/VertexDecoderArm.cpp \
   $(SRC)/ext/disarm.cpp \
   $(SRC)/ext/libpng17/arm/arm_init.c \
   $(SRC)/ext/libpng17/arm/filter_neon_intrinsics.c \
-  $(SRC)/ext/libpng17/arm/filter_neon.S.neon \
-  ArmEmitterTest.cpp
-endif
-
-ifeq ($(findstring arm64-v8a,$(TARGET_ARCH_ABI)),arm64-v8a)
+  $(SRC)/ext/libpng17/arm/filter_neon.S.neon
+else ifeq ($(findstring arm64-v8a,$(TARGET_ARCH_ABI)),arm64-v8a)
 ARCH_FILES := \
   $(SRC)/Common/Arm64Emitter.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64CompALU.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64CompBranch.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64CompFPU.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64CompLoadStore.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64CompVFPU.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64CompReplace.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64Asm.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64Jit.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64RegCache.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64RegCacheFPU.cpp \
-  $(SRC)/Core/Util/DisArm64.cpp \
-  $(SRC)/GPU/Common/VertexDecoderArm64.cpp \
   $(SRC)/ext/libpng17/arm/arm_init.c \
-  $(SRC)/ext/libpng17/arm/filter_neon_intrinsics.c \
-  Arm64EmitterTest.cpp
+  $(SRC)/ext/libpng17/arm/filter_neon_intrinsics.c
 endif
 
 NATIVE_FILES :=\
@@ -126,17 +60,7 @@ VULKAN_FILES := \
   $(SRC)/Common/GPU/Vulkan/VulkanImage.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanMemory.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanProfiler.cpp \
-  $(SRC)/Common/GPU/Vulkan/VulkanBarrier.cpp \
-  $(SRC)/GPU/Vulkan/DrawEngineVulkan.cpp \
-  $(SRC)/GPU/Vulkan/FramebufferManagerVulkan.cpp \
-  $(SRC)/GPU/Vulkan/GPU_Vulkan.cpp \
-  $(SRC)/GPU/Vulkan/PipelineManagerVulkan.cpp \
-  $(SRC)/GPU/Vulkan/ShaderManagerVulkan.cpp \
-  $(SRC)/GPU/Vulkan/StateMappingVulkan.cpp \
-  $(SRC)/GPU/Vulkan/TextureCacheVulkan.cpp \
-  $(SRC)/GPU/Vulkan/VulkanUtil.cpp \
-  $(SRC)/GPU/Vulkan/DebugVisVulkan.cpp
-#endif
+  $(SRC)/Common/GPU/Vulkan/VulkanBarrier.cpp
 
 VMA_FILES := \
   $(SRC)/ext/vma/vk_mem_alloc.cpp
@@ -161,7 +85,6 @@ EXT_FILES := \
   $(SRC)/ext/libpng17/pngrtran.c \
   $(SRC)/ext/libpng17/pngrutil.c \
   $(SRC)/ext/libpng17/pngset.c \
-  $(SRC)/ext/libpng17/pngtest.c \
   $(SRC)/ext/libpng17/pngtrans.c \
   $(SRC)/ext/libpng17/pngwio.c \
   $(SRC)/ext/libpng17/pngwrite.c \
@@ -188,9 +111,7 @@ EXT_FILES := \
   $(SRC)/ext/udis86/syn-intel.c \
   $(SRC)/ext/udis86/syn.c \
   $(SRC)/ext/udis86/udis86.c \
-  $(SRC)/ext/xbrz/xbrz.cpp \
-  $(SRC)/ext/xxhash.c \
-
+  $(SRC)/ext/xbrz/xbrz.cpp
 
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
@@ -200,30 +121,6 @@ EXEC_AND_LIB_FILES := \
   $(SPIRV_CROSS_FILES) \
   $(EXT_FILES) \
   $(NATIVE_FILES) \
-  TestRunner.cpp \
-  $(SRC)/Core/MIPS/MIPS.cpp.arm \
-  $(SRC)/Core/MIPS/MIPSAnalyst.cpp \
-  $(SRC)/Core/MIPS/MIPSDis.cpp \
-  $(SRC)/Core/MIPS/MIPSDisVFPU.cpp \
-  $(SRC)/Core/MIPS/MIPSAsm.cpp \
-  $(SRC)/Core/MIPS/MIPSInt.cpp.arm \
-  $(SRC)/Core/MIPS/MIPSIntVFPU.cpp.arm \
-  $(SRC)/Core/MIPS/MIPSStackWalk.cpp \
-  $(SRC)/Core/MIPS/MIPSTables.cpp \
-  $(SRC)/Core/MIPS/MIPSVFPUUtils.cpp.arm \
-  $(SRC)/Core/MIPS/MIPSCodeUtils.cpp.arm \
-  $(SRC)/Core/MIPS/MIPSDebugInterface.cpp \
-  $(SRC)/Core/MIPS/IR/IRFrontend.cpp \
-  $(SRC)/Core/MIPS/IR/IRJit.cpp \
-  $(SRC)/Core/MIPS/IR/IRCompALU.cpp \
-  $(SRC)/Core/MIPS/IR/IRCompBranch.cpp \
-  $(SRC)/Core/MIPS/IR/IRCompFPU.cpp \
-  $(SRC)/Core/MIPS/IR/IRCompLoadStore.cpp \
-  $(SRC)/Core/MIPS/IR/IRCompVFPU.cpp \
-  $(SRC)/Core/MIPS/IR/IRInst.cpp \
-  $(SRC)/Core/MIPS/IR/IRInterpreter.cpp \
-  $(SRC)/Core/MIPS/IR/IRPassSimplify.cpp \
-  $(SRC)/Core/MIPS/IR/IRRegCache.cpp \
   $(SRC)/Common/Buffer.cpp \
   $(SRC)/Common/Crypto/md5.cpp \
   $(SRC)/Common/Crypto/sha1.cpp \
@@ -311,7 +208,121 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/MipsCPUDetect.cpp \
   $(SRC)/Common/StringUtils.cpp \
   $(SRC)/Common/SysError.cpp \
-  $(SRC)/Common/TimeUtil.cpp \
+  $(SRC)/Common/TimeUtil.cpp
+
+LOCAL_MODULE := ppsspp_common
+LOCAL_SRC_FILES := $(EXEC_AND_LIB_FILES)
+include $(BUILD_STATIC_LIBRARY)
+
+# Next up, Core, GPU, and other core parts shared by headless.
+include $(CLEAR_VARS)
+include $(LOCAL_PATH)/Locals.mk
+LOCAL_WHOLE_STATIC_LIBRARIES += ppsspp_common
+
+ifeq ($(TARGET_ARCH_ABI),x86)
+ARCH_FILES := \
+  $(SRC)/Core/MIPS/x86/CompALU.cpp \
+  $(SRC)/Core/MIPS/x86/CompBranch.cpp \
+  $(SRC)/Core/MIPS/x86/CompFPU.cpp \
+  $(SRC)/Core/MIPS/x86/CompLoadStore.cpp \
+  $(SRC)/Core/MIPS/x86/CompVFPU.cpp \
+  $(SRC)/Core/MIPS/x86/CompReplace.cpp \
+  $(SRC)/Core/MIPS/x86/Asm.cpp \
+  $(SRC)/Core/MIPS/x86/Jit.cpp \
+  $(SRC)/Core/MIPS/x86/JitSafeMem.cpp \
+  $(SRC)/Core/MIPS/x86/RegCache.cpp \
+  $(SRC)/Core/MIPS/x86/RegCacheFPU.cpp \
+  $(SRC)/GPU/Common/VertexDecoderX86.cpp \
+  $(SRC)/GPU/Software/DrawPixelX86.cpp \
+  $(SRC)/GPU/Software/SamplerX86.cpp
+else ifeq ($(TARGET_ARCH_ABI),x86_64)
+ARCH_FILES := \
+  $(SRC)/Core/MIPS/x86/CompALU.cpp \
+  $(SRC)/Core/MIPS/x86/CompBranch.cpp \
+  $(SRC)/Core/MIPS/x86/CompFPU.cpp \
+  $(SRC)/Core/MIPS/x86/CompLoadStore.cpp \
+  $(SRC)/Core/MIPS/x86/CompVFPU.cpp \
+  $(SRC)/Core/MIPS/x86/CompReplace.cpp \
+  $(SRC)/Core/MIPS/x86/Asm.cpp \
+  $(SRC)/Core/MIPS/x86/Jit.cpp \
+  $(SRC)/Core/MIPS/x86/JitSafeMem.cpp \
+  $(SRC)/Core/MIPS/x86/RegCache.cpp \
+  $(SRC)/Core/MIPS/x86/RegCacheFPU.cpp \
+  $(SRC)/GPU/Common/VertexDecoderX86.cpp \
+  $(SRC)/GPU/Software/DrawPixelX86.cpp \
+  $(SRC)/GPU/Software/SamplerX86.cpp
+else ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
+ARCH_FILES := \
+  $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompBranch.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompLoadStore.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompVFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompVFPUNEON.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompVFPUNEONUtil.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompReplace.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmAsm.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
+  $(SRC)/GPU/Common/VertexDecoderArm.cpp \
+  ArmEmitterTest.cpp
+else ifeq ($(findstring arm64-v8a,$(TARGET_ARCH_ABI)),arm64-v8a)
+ARCH_FILES := \
+  $(SRC)/Core/MIPS/ARM64/Arm64CompALU.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64CompBranch.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64CompFPU.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64CompLoadStore.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64CompVFPU.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64CompReplace.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64Asm.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64Jit.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64RegCache.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64RegCacheFPU.cpp \
+  $(SRC)/Core/Util/DisArm64.cpp \
+  $(SRC)/GPU/Common/VertexDecoderArm64.cpp \
+  Arm64EmitterTest.cpp
+endif
+
+VULKAN_FILES := \
+  $(SRC)/GPU/Vulkan/DrawEngineVulkan.cpp \
+  $(SRC)/GPU/Vulkan/FramebufferManagerVulkan.cpp \
+  $(SRC)/GPU/Vulkan/GPU_Vulkan.cpp \
+  $(SRC)/GPU/Vulkan/PipelineManagerVulkan.cpp \
+  $(SRC)/GPU/Vulkan/ShaderManagerVulkan.cpp \
+  $(SRC)/GPU/Vulkan/StateMappingVulkan.cpp \
+  $(SRC)/GPU/Vulkan/TextureCacheVulkan.cpp \
+  $(SRC)/GPU/Vulkan/VulkanUtil.cpp \
+  $(SRC)/GPU/Vulkan/DebugVisVulkan.cpp
+
+EXEC_AND_LIB_FILES := \
+  $(ARCH_FILES) \
+  $(VULKAN_FILES) \
+  $(SRC)/ext/xxhash.c \
+  TestRunner.cpp \
+  $(SRC)/Core/MIPS/MIPS.cpp.arm \
+  $(SRC)/Core/MIPS/MIPSAnalyst.cpp \
+  $(SRC)/Core/MIPS/MIPSDis.cpp \
+  $(SRC)/Core/MIPS/MIPSDisVFPU.cpp \
+  $(SRC)/Core/MIPS/MIPSAsm.cpp \
+  $(SRC)/Core/MIPS/MIPSInt.cpp.arm \
+  $(SRC)/Core/MIPS/MIPSIntVFPU.cpp.arm \
+  $(SRC)/Core/MIPS/MIPSStackWalk.cpp \
+  $(SRC)/Core/MIPS/MIPSTables.cpp \
+  $(SRC)/Core/MIPS/MIPSVFPUUtils.cpp.arm \
+  $(SRC)/Core/MIPS/MIPSCodeUtils.cpp.arm \
+  $(SRC)/Core/MIPS/MIPSDebugInterface.cpp \
+  $(SRC)/Core/MIPS/IR/IRFrontend.cpp \
+  $(SRC)/Core/MIPS/IR/IRJit.cpp \
+  $(SRC)/Core/MIPS/IR/IRCompALU.cpp \
+  $(SRC)/Core/MIPS/IR/IRCompBranch.cpp \
+  $(SRC)/Core/MIPS/IR/IRCompFPU.cpp \
+  $(SRC)/Core/MIPS/IR/IRCompLoadStore.cpp \
+  $(SRC)/Core/MIPS/IR/IRCompVFPU.cpp \
+  $(SRC)/Core/MIPS/IR/IRInst.cpp \
+  $(SRC)/Core/MIPS/IR/IRInterpreter.cpp \
+  $(SRC)/Core/MIPS/IR/IRPassSimplify.cpp \
+  $(SRC)/Core/MIPS/IR/IRRegCache.cpp \
   $(SRC)/GPU/Math3D.cpp \
   $(SRC)/GPU/GPU.cpp \
   $(SRC)/GPU/GPUCommon.cpp \
@@ -637,7 +648,7 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
-LOCAL_STATIC_LIBRARIES += ppsspp_core libarmips libzstd
+LOCAL_STATIC_LIBRARIES += ppsspp_common ppsspp_core libarmips libzstd
 
 # These are the files just for ppsspp_jni
 LOCAL_MODULE := ppsspp_jni
@@ -689,7 +700,7 @@ endif
 ifeq ($(HEADLESS),1)
   include $(CLEAR_VARS)
   include $(LOCAL_PATH)/Locals.mk
-  LOCAL_STATIC_LIBRARIES += ppsspp_core libarmips libzstd
+  LOCAL_STATIC_LIBRARIES += ppsspp_common ppsspp_core libarmips libzstd
 
   # Android 5.0 requires PIE for executables.  Only supported on 4.1+, but this is testing anyway.
   LOCAL_CFLAGS += -fPIE
@@ -707,7 +718,7 @@ endif
 ifeq ($(UNITTEST),1)
   include $(CLEAR_VARS)
   include $(LOCAL_PATH)/Locals.mk
-  LOCAL_STATIC_LIBRARIES += ppsspp_core libarmips libzstd
+  LOCAL_STATIC_LIBRARIES += ppsspp_common ppsspp_core libarmips libzstd
 
   # Android 5.0 requires PIE for executables.  Only supported on 4.1+, but this is testing anyway.
   LOCAL_CFLAGS += -fPIE
