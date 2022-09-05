@@ -16,9 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <functional>
-#include <map>
 #include <mutex>
 #include <set>
+#include <unordered_map>
 #include <vector>
 
 #include "Common/CommonFuncs.h"
@@ -30,14 +30,15 @@
 namespace GPUBreakpoints {
 
 struct BreakpointInfo {
-	bool isConditional;
+	bool isConditional = false;
 	PostfixExpression expression;
 	std::string expressionString;
 };
 
 static std::mutex breaksLock;
 static bool breakCmds[256];
-static std::map<u32, BreakpointInfo> breakPCs;
+static BreakpointInfo breakCmdsInfo[256];
+static std::unordered_map<u32, BreakpointInfo> breakPCs;
 static std::set<u32> breakTextures;
 static std::set<u32> breakRenderTargets;
 // Small optimization to avoid a lock/lookup for the common case.
@@ -185,8 +186,24 @@ static bool HitAddressBreakpoint(u32 pc) {
 	return true;
 }
 
+static bool HitOpBreakpoint(u32 op) {
+	u8 cmd = op >> 24;
+	if (!IsCmdBreakpoint(cmd))
+		return false;
+
+	if (breakCmdsInfo[cmd].isConditional) {
+		std::lock_guard<std::mutex> guard(breaksLock);
+		u32 result = 1;
+		if (!GPUDebugExecExpression(gpuDebug, breakCmdsInfo[cmd].expression, result))
+			return false;
+		return result != 0;
+	}
+
+	return true;
+}
+
 bool IsBreakpoint(u32 pc, u32 op) {
-	if (HitAddressBreakpoint(pc) || IsOpBreakpoint(op)) {
+	if (HitAddressBreakpoint(pc) || HitOpBreakpoint(op)) {
 		return true;
 	}
 
@@ -308,7 +325,7 @@ void AddAddressBreakpoint(u32 addr, bool temp) {
 	} else {
 		// Remove the temporary marking.
 		breakPCsTemp.erase(addr);
-		breakPCs[addr].isConditional = false;
+		breakPCs.insert(std::make_pair(addr, BreakpointInfo{}));
 	}
 
 	breakPCsCount = breakPCs.size();
@@ -320,12 +337,16 @@ void AddCmdBreakpoint(u8 cmd, bool temp) {
 		if (!breakCmds[cmd]) {
 			breakCmdsTemp[cmd] = true;
 			breakCmds[cmd] = true;
+			breakCmdsInfo[cmd].isConditional = false;
 		}
 		// Ignore adding a temp breakpoint when a normal one exists.
 	} else {
 		// This is no longer temporary.
 		breakCmdsTemp[cmd] = false;
-		breakCmds[cmd] = true;
+		if (!breakCmds[cmd]) {
+			breakCmds[cmd] = true;
+			breakCmdsInfo[cmd].isConditional = false;
+		}
 	}
 	notifyBreakpoints(true);
 }
@@ -432,7 +453,7 @@ static bool SetupCond(BreakpointInfo &bp, const std::string &expression, std::st
 			bp.isConditional = true;
 			bp.expressionString = expression;
 		} else {
-			bp.isConditional = false;
+			// Don't change if it failed.
 			if (error)
 				*error = getExpressionError();
 			success = false;
@@ -458,6 +479,25 @@ bool GetAddressBreakpointCond(u32 addr, std::string *expression) {
 	if (entry != breakPCs.end() && entry->second.isConditional) {
 		if (expression)
 			*expression = entry->second.expressionString;
+		return true;
+	}
+	return false;
+}
+
+bool SetCmdBreakpointCond(u8 cmd, const std::string &expression, std::string *error) {
+	// Must have one in the first place, make sure it's not temporary.
+	AddCmdBreakpoint(cmd);
+
+	std::lock_guard<std::mutex> guard(breaksLock);
+	return SetupCond(breakCmdsInfo[cmd], expression, error);
+}
+
+bool GetCmdBreakpointCond(u8 cmd, std::string *expression) {
+	if (breakCmds[cmd] && breakCmdsInfo[cmd].isConditional) {
+		if (expression) {
+			std::lock_guard<std::mutex> guard(breaksLock);
+			*expression = breakCmdsInfo[cmd].expressionString;
+		}
 		return true;
 	}
 	return false;

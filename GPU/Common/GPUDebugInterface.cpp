@@ -29,6 +29,8 @@ enum class GEReferenceIndex : uint32_t {
 	PC,
 	STALL,
 	BFLAG,
+	OP,
+	DATA,
 
 	BONE_MATRIX = 0x200,
 	WORLD_MATRIX = 0x260,
@@ -52,6 +54,8 @@ static constexpr ReferenceName referenceNames[] = {
 	{ GEReferenceIndex::STALL, "stall" },
 	{ GEReferenceIndex::BFLAG, "bflag" },
 	{ GEReferenceIndex::BFLAG, "boundflag" },
+	{ GEReferenceIndex::OP, "op" },
+	{ GEReferenceIndex::DATA, "data" },
 };
 
 class GEExpressionFunctions : public IExpressionFunctions {
@@ -179,6 +183,17 @@ uint32_t GEExpressionFunctions::getReferenceValue(uint32_t referenceIndex) {
 	case GEReferenceIndex::BFLAG:
 		if (gpu_->GetCurrentDisplayList(list)) {
 			return list.bboxResult ? 1 : 0;
+		}
+		return 0;
+	case GEReferenceIndex::OP:
+		// TODO: Support fields under this as per the cmd format?
+		if (gpu_->GetCurrentDisplayList(list)) {
+			return Memory::Read_U32(list.pc);
+		}
+		return 0;
+	case GEReferenceIndex::DATA:
+		if (gpu_->GetCurrentDisplayList(list)) {
+			return Memory::Read_U32(list.pc) & 0x00FFFFFF;
 		}
 		return 0;
 

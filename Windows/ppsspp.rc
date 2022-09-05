@@ -778,6 +778,7 @@ BEGIN
         MENUITEM "Copy Entire Tab (Formatted)",ID_GEDBG_COPYALL
         MENUITEM SEPARATOR
         MENUITEM "Toggle Breakpoint",          ID_DISASM_TOGGLEBREAKPOINT
+        MENUITEM "Set Breakpoint Condition",   ID_GEDBG_SETCOND
         MENUITEM "Add Watch",                  ID_GEDBG_WATCH
     END
     POPUP "gepreviewoptions"
@@ -793,6 +794,7 @@ BEGIN
         MENUITEM "Copy Entire Tab (Formatted)",ID_GEDBG_COPYALL
         MENUITEM SEPARATOR
         MENUITEM "Toggle Breakpoint",          ID_DISASM_TOGGLEBREAKPOINT
+        MENUITEM "Set Breakpoint Condition",   ID_GEDBG_SETCOND
     END
     POPUP "getaboptions"
     BEGIN
