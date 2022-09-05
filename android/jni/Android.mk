@@ -642,6 +642,10 @@ LIBZSTD_FILES := \
   $(SRC)/ext/zstd/lib/dictBuilder/fastcover.c \
   $(SRC)/ext/zstd/lib/dictBuilder/zdict.c
 
+ifeq ($(TARGET_ARCH_ABI),x86_64)
+LIBZSTD_FILES += $(SRC)/ext/zstd/lib/decompress/huf_decompress_amd64.S
+endif
+
 LOCAL_MODULE := libzstd
 LOCAL_SRC_FILES := $(LIBZSTD_FILES)
 include $(BUILD_STATIC_LIBRARY)
