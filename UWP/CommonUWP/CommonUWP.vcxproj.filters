@@ -225,13 +225,7 @@
     <ClCompile Include="..\..\Common\Math\math_util.cpp">
       <Filter>Math</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Common\Math\fast\fast_math.c">
-      <Filter>Math\fast</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Common\Math\fast\fast_matrix.c">
-      <Filter>Math\fast</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Common\Math\fast\fast_matrix_sse.c">
       <Filter>Math\fast</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Common\Math\lin\matrix4x4.cpp">
@@ -528,9 +522,6 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\Math\math_util.h">
       <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Common\Math\fast\fast_math.h">
-      <Filter>Math\fast</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\Math\fast\fast_matrix.h">
       <Filter>Math\fast</Filter>

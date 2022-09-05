@@ -1559,7 +1559,7 @@ void ConvertStencilFuncState(GenericStencilFuncState &state) {
 }
 
 void GenericMaskState::Log() {
-	WARN_LOG(G3D, "Mask: %01X readfb=%d", uniformMask, channelMask, applyFramebufferRead);
+	WARN_LOG(G3D, "Mask: %08x %01X readfb=%d", uniformMask, channelMask, applyFramebufferRead);
 }
 
 void GenericBlendState::Log() {

@@ -452,7 +452,6 @@
     <ClInclude Include="Input\KeyCodes.h" />
     <ClInclude Include="Math\curves.h" />
     <ClInclude Include="Math\expression_parser.h" />
-    <ClInclude Include="Math\fast\fast_math.h" />
     <ClInclude Include="Math\fast\fast_matrix.h" />
     <ClInclude Include="Math\geom2d.h" />
     <ClInclude Include="Math\lin\matrix4x4.h" />
@@ -873,9 +872,7 @@
     <ClCompile Include="Log.cpp" />
     <ClCompile Include="Math\curves.cpp" />
     <ClCompile Include="Math\expression_parser.cpp" />
-    <ClCompile Include="Math\fast\fast_math.c" />
     <ClCompile Include="Math\fast\fast_matrix.c" />
-    <ClCompile Include="Math\fast\fast_matrix_sse.c" />
     <ClCompile Include="Math\lin\matrix4x4.cpp" />
     <ClCompile Include="Math\lin\vec3.cpp" />
     <ClCompile Include="Math\math_util.cpp" />
@@ -992,7 +989,6 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Math\fast\fast_matrix_neon.S" />
     <None Include="Math\lin\matrix_neon.s" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

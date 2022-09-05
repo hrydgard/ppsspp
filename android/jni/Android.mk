@@ -11,19 +11,16 @@ ARCH_FILES := \
   $(SRC)/Common/ABI.cpp \
   $(SRC)/Common/x64Emitter.cpp \
   $(SRC)/Common/x64Analyzer.cpp \
-  $(SRC)/Common/Math/fast/fast_matrix_sse.c \
   $(SRC)/Common/Thunk.cpp
 else ifeq ($(TARGET_ARCH_ABI),x86_64)
 ARCH_FILES := \
   $(SRC)/Common/ABI.cpp \
   $(SRC)/Common/x64Emitter.cpp \
   $(SRC)/Common/x64Analyzer.cpp \
-  $(SRC)/Common/Math/fast/fast_matrix_sse.c \
   $(SRC)/Common/Thunk.cpp
 else ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
 ARCH_FILES := \
   $(SRC)/Common/ArmEmitter.cpp \
-  $(SRC)/Common/Math/fast/fast_matrix_neon.S.neon \
   $(SRC)/ext/disarm.cpp \
   $(SRC)/ext/libpng17/arm/arm_init.c \
   $(SRC)/ext/libpng17/arm/filter_neon_intrinsics.c \
@@ -164,7 +161,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Render/Text/draw_text_android.cpp \
   $(SRC)/Common/Input/GestureDetector.cpp \
   $(SRC)/Common/Input/InputState.cpp \
-  $(SRC)/Common/Math/fast/fast_math.c \
   $(SRC)/Common/Math/fast/fast_matrix.c \
   $(SRC)/Common/Math/math_util.cpp \
   $(SRC)/Common/Math/curves.cpp \
