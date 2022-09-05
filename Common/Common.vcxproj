@@ -988,9 +988,6 @@
       <Project>{f761046e-6c38-4428-a5f1-38391a37bb34}</Project>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup>
-    <None Include="Math\lin\matrix_neon.s" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

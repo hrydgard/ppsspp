@@ -901,9 +901,4 @@
       <Filter>ext\libpng17</Filter>
     </Text>
   </ItemGroup>
-  <ItemGroup>
-    <None Include="Math\lin\matrix_neon.s">
-      <Filter>Math\lin</Filter>
-    </None>
-  </ItemGroup>
 </Project>
