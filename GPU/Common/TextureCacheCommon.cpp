@@ -639,18 +639,7 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 		return true;
 	}
 
-	if (Reporting::ShouldLogNTimes("multifbcandidate", 5)) {
-		std::string cands;
-		for (size_t i = 0; i < candidates.size(); i++) {
-			cands += candidates[i].ToString() + "\n";
-		}
-
-		WARN_LOG(G3D, "GetFramebufferCandidates: Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
-			(int)candidates.size(),
-			entry.addr, texAddrOffset, dimWidth(entry.dim), dimHeight(entry.dim), entry.bufw, GeTextureFormatToString(entry.format),
-			cands.c_str()
-		);
-	}
+	bool logging = Reporting::ShouldLogNTimes("multifbcandidate", 5);
 
 	// OK, multiple possible candidates. Will need to figure out which one is the most relevant.
 	int bestRelevancy = -1;
@@ -660,7 +649,7 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 
 	// We simply use the sequence counter as relevancy nowadays.
 	for (size_t i = 0; i < candidates.size(); i++) {
-		const AttachCandidate &candidate = candidates[i];
+		AttachCandidate &candidate = candidates[i];
 		int relevancy = candidate.channel == RASTER_COLOR ? candidate.fb->colorBindSeq : candidate.fb->depthBindSeq;
 
 		// Add a small negative penalty if the texture is currently bound as a framebuffer, and offset is not zero.
@@ -678,13 +667,36 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 			continue;
 		}
 
+		if (logging) {
+			candidate.relevancy = relevancy;
+		}
+
 		if (relevancy > bestRelevancy) {
 			bestRelevancy = relevancy;
 			bestIndex = i;
 		}
 	}
 
+	if (logging) {
+		std::string cands;
+		for (size_t i = 0; i < candidates.size(); i++) {
+			cands += candidates[i].ToString();
+			if (i != candidates.size() - 1)
+				cands += "\n";
+		}
+
+		WARN_LOG(G3D, "GetFramebufferCandidates: Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
+			(int)candidates.size(),
+			entry.addr, texAddrOffset, dimWidth(entry.dim), dimHeight(entry.dim), entry.bufw, GeTextureFormatToString(entry.format),
+			cands.c_str()
+		);
+		logging = true;
+	}
+
 	if (bestIndex != -1) {
+		if (logging) {
+			WARN_LOG(G3D, "Chose candidate %d:\n%s\n", bestIndex, candidates[bestIndex].ToString().c_str());
+		}
 		*bestCandidate = candidates[bestIndex];
 		return true;
 	} else {
@@ -878,6 +890,9 @@ bool TextureCacheCommon::MatchFramebuffer(
 		return false;
 	}
 
+	uint32_t fb_stride_in_bytes = fb_stride * BufferFormatBytesPerPixel(fb_format);
+	uint32_t tex_stride_in_bytes = entry.bufw * textureBitsPerPixel[entry.format] / 8;  // Note, we're looking up bits here so need to divide by 8.
+
 	u32 addr = fb_address & 0x3FFFFFFF;
 	u32 texaddr = entry.addr + texaddrOffset;
 
@@ -897,7 +912,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 	}
 
 	const bool noOffset = texaddr == addr;
-	const bool exactMatch = noOffset && entry.format < 4 && channel == RASTER_COLOR;
+	const bool exactMatch = noOffset && entry.format < 4 && channel == RASTER_COLOR && fb_stride_in_bytes == tex_stride_in_bytes;
 
 	const u32 w = 1 << ((entry.dim >> 0) & 0xf);
 	const u32 h = 1 << ((entry.dim >> 8) & 0xf);
@@ -906,9 +921,8 @@ bool TextureCacheCommon::MatchFramebuffer(
 
 	// If they match "exactly", it's non-CLUT and from the top left.
 	if (exactMatch) {
-		// TODO: Better checks for compatible strides here.
-		if (fb_stride != entry.bufw) {
-			WARN_LOG_ONCE(diffStrides1, G3D, "Found matching framebuffer at %08x with different strides %d != %d", fb_address, entry.bufw, (int)fb_stride);
+		if (fb_stride_in_bytes != tex_stride_in_bytes && TextureFormatMatchesBufferFormat(entry.format, fb_format)) {
+			WARN_LOG_ONCE(diffStrides1, G3D, "Found exact-matching framebuffer at %08x with different byte strides %d != %d", fb_address, tex_stride_in_bytes, fb_stride_in_bytes);
 		}
 		// NOTE: This check is okay because the first texture formats are the same as the buffer formats.
 		if (IsTextureFormatBufferCompatible(entry.format)) {
@@ -957,15 +971,9 @@ bool TextureCacheCommon::MatchFramebuffer(
 			return false;
 		}
 
-		if (fb_stride != entry.bufw) {
-			if (noOffset) {
-				WARN_LOG_ONCE(diffStrides2, G3D, "Matching framebuffer(matching_clut = %s) different strides %d != %d", matchingClutFormat ? "yes" : "no", entry.bufw, fb_stride);
-				// Continue on with other checks.
-				// Not actually sure why we even try here. There's no way it'll go well if the strides are different.
-			} else {
-				// Assume any render-to-tex with different bufw + offset is a render from ram.
-				return false;
-			}
+		if (fb_stride_in_bytes != tex_stride_in_bytes) {
+			// Probably irrelevant.
+			return false;
 		}
 
 		// Check if it's in bufferWidth (which might be higher than width and may indicate the framebuffer includes the data.)
@@ -2247,9 +2255,10 @@ void TextureCacheCommon::ClearNextFrame() {
 }
 
 std::string AttachCandidate::ToString() const {
-	return StringFromFormat("[%s seq:%d C:%08x/%d(%s) Z:%08x/%d X:%d Y:%d reint: %s]",
+	return StringFromFormat("[%s seq:%d rel:%d C:%08x/%d(%s) Z:%08x/%d X:%d Y:%d reint: %s]",
 		this->channel == RASTER_COLOR ? "COLOR" : "DEPTH",
 		this->channel == RASTER_COLOR ? this->fb->colorBindSeq : this->fb->depthBindSeq,
+		this->relevancy,
 		this->fb->fb_address, this->fb->fb_stride, GeBufferFormatToString(this->fb->fb_format),
 		this->fb->z_address, this->fb->z_stride,
 		this->match.xOffset, this->match.yOffset, this->match.reinterpret ? "true" : "false");

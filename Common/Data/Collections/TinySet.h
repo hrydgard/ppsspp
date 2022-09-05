@@ -99,6 +99,13 @@ struct TinySet {
 			return slowLookup_->size() + MaxFastSize;
 		}
 	}
+	T &operator[] (size_t index) {
+		if (index < MaxFastSize) {
+			return fastLookup_[index];
+		} else {
+			return (*slowLookup_)[index - MaxFastSize];
+		}
+	}
 	const T &operator[] (size_t index) const {
 		if (index < MaxFastSize) {
 			return fastLookup_[index];

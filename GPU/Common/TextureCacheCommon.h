@@ -218,6 +218,7 @@ struct AttachCandidate {
 	VirtualFramebuffer *fb;
 	FramebufferMatchInfo match;
 	RasterChannel channel;
+	int relevancy;
 
 	std::string ToString() const;
 };
