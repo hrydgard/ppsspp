@@ -234,6 +234,7 @@ bool DrawEngineCommon::TestBoundingBox(const void* control_points, int vertexCou
 	float worldviewproj[16];
 	ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
 	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+	// TODO: Create a Matrix4x3ByMatrix4x3, and Matrix4x4ByMatrix4x3?
 	Matrix4ByMatrix4(worldview, world, view);
 	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
 	PlanesFromMatrix(worldviewproj, planes);

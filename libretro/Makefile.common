@@ -163,7 +163,6 @@ ifeq ($(PLATFORM_EXT), android)
 	endif
 
 	SOURCES_C +=\
-		$(COMMONDIR)/Math/fast/fast_math.c \
 		$(COMMONDIR)/Math/fast/fast_matrix.c
 endif
 
@@ -633,8 +632,7 @@ ifeq ($(WITH_DYNAREC),1)
 
 			SOURCES_C += $(EXTDIR)/libpng17/arm/arm_init.c \
 				     $(EXTDIR)/libpng17/arm/filter_neon_intrinsics.c
-			ASMFILES   += $(COMMONDIR)/Math/fast/fast_matrix_neon.S \
-				      $(EXTDIR)/libpng17/arm/filter_neon.S
+			ASMFILES   += $(EXTDIR)/libpng17/arm/filter_neon.S
 		endif
 	else ifeq ($(TARGET_ARCH),arm64)
       DYNAFLAGS += -D_ARCH_64
