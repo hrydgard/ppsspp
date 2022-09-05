@@ -17,7 +17,7 @@ float ToRadians(float deg);
 // ovrMatrix4f
 float ovrMatrix4f_Minor(const ovrMatrix4f* m, int r0, int r1, int r2, int c0, int c1, int c2);
 ovrMatrix4f ovrMatrix4f_CreateFromQuaternion(const XrQuaternionf* q);
-ovrMatrix4f ovrMatrix4f_CreateProjectionFov(const float fovDegreesX, const float fovDegreesY, const float offsetX, const float offsetY, const float nearZ, const float farZ);
+ovrMatrix4f ovrMatrix4f_CreateProjectionFov(const float angleLeft, const float angleRight, const float angleUp, const float angleDown, const float nearZ, const float farZ);
 ovrMatrix4f ovrMatrix4f_CreateRotation(const float radiansX, const float radiansY, const float radiansZ);
 ovrMatrix4f ovrMatrix4f_Inverse(const ovrMatrix4f* m);
 ovrMatrix4f ovrMatrix4f_Multiply(const ovrMatrix4f* a, const ovrMatrix4f* b);

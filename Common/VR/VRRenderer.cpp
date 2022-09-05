@@ -462,17 +462,10 @@ void VR_BindFramebuffer(engine_t *engine) {
 
 ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {
 	ovrMatrix4f output;
-	if (matrix == VR_PROJECTION_MATRIX_HUD) {
-		float hudScale = ToRadians(15.0f);
-		output = ovrMatrix4f_CreateProjectionFov(-hudScale, hudScale, hudScale, -hudScale, 1.0f, 0.0f );
-	} else if ((matrix == VR_PROJECTION_MATRIX_LEFT_EYE) || (matrix == VR_PROJECTION_MATRIX_RIGHT_EYE)) {
+	if ((matrix == VR_PROJECTION_MATRIX_LEFT_EYE) || (matrix == VR_PROJECTION_MATRIX_RIGHT_EYE)) {
 		XrFovf fov = matrix == VR_PROJECTION_MATRIX_LEFT_EYE ? projections[0].fov : projections[1].fov;
-		float fovScale = vrConfig[VR_CONFIG_FOV_SCALE] * 0.01f;
-		fov.angleLeft *= fovScale;
-		fov.angleRight *= fovScale;
-		fov.angleUp *= fovScale;
-		fov.angleDown *= fovScale;
-		output = ovrMatrix4f_CreateProjectionFov(fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown, 1.0f, 0.0f );
+		float near = (float)vrConfig[VR_CONFIG_FOV_SCALE] / 200.0f;
+		output = ovrMatrix4f_CreateProjectionFov(fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown, near, 0.0f );
 	} else if ((matrix == VR_VIEW_MATRIX_LEFT_EYE) || (matrix == VR_VIEW_MATRIX_RIGHT_EYE)) {
 		XrPosef invView = matrix == VR_VIEW_MATRIX_LEFT_EYE ? invViewTransform[0] : invViewTransform[1];
 

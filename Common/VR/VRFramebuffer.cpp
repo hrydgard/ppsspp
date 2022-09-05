@@ -166,7 +166,7 @@ void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
 	XrSwapchainImageWaitInfo waitInfo;
 	waitInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO;
 	waitInfo.next = NULL;
-	waitInfo.timeout = 1000; /* timeout in nanoseconds */
+	waitInfo.timeout = 1000000; /* timeout in nanoseconds */
 	XrResult res = xrWaitSwapchainImage(frameBuffer->ColorSwapChain.Handle, &waitInfo);
 	int i = 0;
 	while ((res != XR_SUCCESS) && (i < 10)) {
