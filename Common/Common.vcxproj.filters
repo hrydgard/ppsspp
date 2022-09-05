@@ -161,9 +161,6 @@
     <ClInclude Include="Math\lin\vec3.h">
       <Filter>Math\lin</Filter>
     </ClInclude>
-    <ClInclude Include="Math\fast\fast_math.h">
-      <Filter>Math\fast</Filter>
-    </ClInclude>
     <ClInclude Include="Math\fast\fast_matrix.h">
       <Filter>Math\fast</Filter>
     </ClInclude>
@@ -568,13 +565,7 @@
     <ClCompile Include="Math\lin\vec3.cpp">
       <Filter>Math\lin</Filter>
     </ClCompile>
-    <ClCompile Include="Math\fast\fast_math.c">
-      <Filter>Math\fast</Filter>
-    </ClCompile>
     <ClCompile Include="Math\fast\fast_matrix.c">
-      <Filter>Math\fast</Filter>
-    </ClCompile>
-    <ClCompile Include="Math\fast\fast_matrix_sse.c">
       <Filter>Math\fast</Filter>
     </ClCompile>
     <ClCompile Include="Data\Format\RIFF.cpp">
@@ -913,9 +904,6 @@
   <ItemGroup>
     <None Include="Math\lin\matrix_neon.s">
       <Filter>Math\lin</Filter>
-    </None>
-    <None Include="Math\fast\fast_matrix_neon.S">
-      <Filter>Math\fast</Filter>
     </None>
   </ItemGroup>
 </Project>

@@ -95,6 +95,7 @@ enum FShaderBit : uint8_t {
 	FS_BIT_COLOR_WRITEMASK = 50,
 	FS_BIT_3D_TEXTURE = 51,
 	FS_BIT_SHADER_SMOOTHED_DEPAL = 52,
+	FS_BIT_REPLACE_LOGIC_OP = 53,  // 4 bits. GE_LOGIC_COPY means no-op/off.
 };
 
 static inline FShaderBit operator +(FShaderBit bit, int i) {

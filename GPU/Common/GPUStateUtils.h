@@ -184,7 +184,6 @@ struct GenericBlendState {
 	void Log();
 };
 
-void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBlend);
 void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState);
 
 struct GenericMaskState {
@@ -203,8 +202,6 @@ struct GenericMaskState {
 
 	void Log();
 };
-
-void ConvertMaskState(GenericMaskState &maskState, bool shaderBitOpsSupported);
 
 struct GenericStencilFuncState {
 	bool enabled;
@@ -240,14 +237,16 @@ struct GenericLogicState {
 	void Log();
 };
 
-void ConvertLogicOpState(GenericLogicState &logicOpState, bool logicSupported, bool shaderBitOpsSupported);
-
 struct ComputedPipelineState {
 	GenericBlendState blendState;
 	GenericMaskState maskState;
 	GenericLogicState logicState;
 
 	void Convert(bool shaderBitOpsSupported);
+
+	bool FramebufferRead() const {
+		return blendState.applyFramebufferRead;
+	}
 };
 
 // See issue #15898

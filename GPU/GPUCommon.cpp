@@ -1676,7 +1676,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	// See the documentation for gstate_c.blueToAlpha.
 	bool blueToAlpha = false;
 	if (PSP_CoreParameter().compat.flags().BlueToAlpha) {
-		if (gstate_c.framebufFormat == GEBufferFormat::GE_FORMAT_565 && gstate.getColorMask() == 0x0FFFFF) {
+		if (gstate_c.framebufFormat == GEBufferFormat::GE_FORMAT_565 && gstate.getColorMask() == 0x0FFFFF && !gstate.isLogicOpEnabled()) {
 			blueToAlpha = true;
 			gstate_c.framebufFormat = GEBufferFormat::GE_FORMAT_4444;
 		}

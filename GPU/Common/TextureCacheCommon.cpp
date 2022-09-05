@@ -2348,6 +2348,12 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		plan.scaleFactor = 1;
 	}
 
+	if (PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOn && gstate.FrameBufStride() < 0x1E0) {
+		// A bit of an esoteric workaround - force off upscaling for static textures that participate directly in small-resolution framebuffer effects.
+		// This fixes the water in Outrun/DiRT 2 with upscaling enabled.
+		plan.scaleFactor = 1;
+	}
+
 	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0 && plan.scaleFactor != 1 && plan.slowScaler) {
 		// Remember for later that we /wanted/ to scale this texture.
 		entry->status |= TexCacheEntry::STATUS_TO_SCALE;

@@ -97,10 +97,16 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "AtracLoopHack", &flags_.AtracLoopHack);
 	CheckSetting(iniFile, gameID, "DeswizzleDepth", &flags_.DeswizzleDepth);
 	CheckSetting(iniFile, gameID, "SplitFramebufferMargin", &flags_.SplitFramebufferMargin);
+	CheckSetting(iniFile, gameID, "ForceLowerResolutionForEffectsOn", &flags_.ForceLowerResolutionForEffectsOn);
 }
 
 void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag) {
 	if (ignored_.find(option) == ignored_.end()) {
 		iniFile.Get(option, gameID.c_str(), flag, *flag);
+
+		// Shortcut for debugging, sometimes useful to globally enable compat flags.
+		bool all = false;
+		iniFile.Get(option, "ALL", &all, false);
+		*flag |= all;
 	}
 }
