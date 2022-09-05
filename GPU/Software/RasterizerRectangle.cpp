@@ -286,7 +286,7 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	// We already have a fast path for clear in ClearRectangle.
 	bool state_check = !state.pixelID.clearMode && !state.samplerID.hasAnyMips && NoClampOrWrap(state, v0.texturecoords) && NoClampOrWrap(state, v1.texturecoords);
 	// This doesn't work well with offset drawing, see #15876.  Through never has a subpixel offset.
-	bool subpixel_check = ((v0.screenpos.x | v0.screenpos.y | v1.screenpos.x | v1.screenpos.y) & 0xF) != 0;
+	bool subpixel_check = ((v0.screenpos.x | v0.screenpos.y | v1.screenpos.x | v1.screenpos.y) & 0xF) == 0;
 	if ((coord_check || !state.enableTextures) && orient_check && state_check && subpixel_check) {
 		binner.AddSprite(v0, v1);
 		return true;
