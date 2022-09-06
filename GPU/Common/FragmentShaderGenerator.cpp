@@ -36,8 +36,11 @@
 
 #define WRITE(p, ...) p.F(__VA_ARGS__)
 
-bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint64_t *uniformMask, std::string *errorString) {
+bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint64_t *uniformMask, FragmentShaderFlags *fragmentShaderFlags, std::string *errorString) {
 	*uniformMask = 0;
+	if (fragmentShaderFlags) {
+		*fragmentShaderFlags = (FragmentShaderFlags)0;
+	}
 	errorString->clear();
 
 	bool highpFog = false;

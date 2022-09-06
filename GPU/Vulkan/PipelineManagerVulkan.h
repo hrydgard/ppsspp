@@ -34,7 +34,7 @@ class VulkanRenderManager;
 
 struct VulkanPipelineKey {
 	VulkanPipelineRasterStateKey raster;  // prim is included here
-	VkRenderPass renderPass;
+	VKRRenderPass *renderPass;
 	Promise<VkShaderModule> *vShader;
 	Promise<VkShaderModule> *fShader;
 	uint32_t vtxFmtId;
@@ -71,7 +71,7 @@ public:
 	PipelineManagerVulkan(VulkanContext *ctx);
 	~PipelineManagerVulkan();
 
-	VulkanPipeline *GetOrCreatePipeline(VulkanRenderManager *renderManager, VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform);
+	VulkanPipeline *GetOrCreatePipeline(VulkanRenderManager *renderManager, VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform);
 	int GetNumPipelines() const { return (int)pipelines_.size(); }
 
 	void Clear();

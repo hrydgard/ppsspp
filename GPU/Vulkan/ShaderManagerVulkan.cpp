@@ -89,8 +89,8 @@ Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, VkShade
 }
 
 
-VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, const char *code)
-	: vulkan_(vulkan), id_(id) {
+VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, FragmentShaderFlags flags, const char *code)
+	: vulkan_(vulkan), id_(id), flags_(flags) {
 	source_ = code;
 	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_FRAGMENT_BIT, source_.c_str());
 	if (!module_) {
@@ -276,9 +276,10 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 		// Fragment shader not in cache. Let's compile it.
 		std::string genErrorString;
 		uint64_t uniformMask = 0;  // Not used
-		bool success = GenerateFragmentShader(FSID, codeBuffer_, compat_, draw_->GetBugs(), &uniformMask, &genErrorString);
+		FragmentShaderFlags flags;
+		bool success = GenerateFragmentShader(FSID, codeBuffer_, compat_, draw_->GetBugs(), &uniformMask, &flags, &genErrorString);
 		_assert_msg_(success, "FS gen error: %s", genErrorString.c_str());
-		fs = new VulkanFragmentShader(vulkan, FSID, codeBuffer_);
+		fs = new VulkanFragmentShader(vulkan, FSID, flags, codeBuffer_);
 		fsCache_.Insert(FSID, fs);
 	}
 
@@ -370,7 +371,7 @@ VulkanFragmentShader *ShaderManagerVulkan::GetFragmentShaderFromModule(VkShaderM
 // instantaneous.
 
 #define CACHE_HEADER_MAGIC 0xff51f420 
-#define CACHE_VERSION 22
+#define CACHE_VERSION 24
 struct VulkanCacheHeader {
 	uint32_t magic;
 	uint32_t version;
@@ -388,6 +389,10 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 	if (header.version != CACHE_VERSION)
 		return false;
 	if (header.featureFlags != gstate_c.featureFlags)
+		return false;
+
+	// Temporarily disable shader cache.
+	if (true)
 		return false;
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
@@ -417,10 +422,11 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		}
 		std::string genErrorString;
 		uint64_t uniformMask = 0;
-		if (!GenerateFragmentShader(id, codeBuffer_, compat_, draw_->GetBugs(), &uniformMask, &genErrorString)) {
+		FragmentShaderFlags flags;
+		if (!GenerateFragmentShader(id, codeBuffer_, compat_, draw_->GetBugs(), &uniformMask, &flags, &genErrorString)) {
 			return false;
 		}
-		VulkanFragmentShader *fs = new VulkanFragmentShader(vulkan, id, codeBuffer_);
+		VulkanFragmentShader *fs = new VulkanFragmentShader(vulkan, id, flags, codeBuffer_);
 		fsCache_.Insert(id, fs);
 	}
 

@@ -39,4 +39,9 @@ struct FShaderID;
 // For stencil upload
 #define CONST_PS_STENCILVALUE 11
 
-bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint64_t *uniformMask, std::string *errorString);
+// Can technically be deduced from the fragment shader ID, but this is safer.
+enum FragmentShaderFlags {
+	FS_FLAG_INPUT_ATTACHMENT,
+};
+
+bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint64_t *uniformMask, FragmentShaderFlags *fragmentShaderFlags, std::string *errorString);

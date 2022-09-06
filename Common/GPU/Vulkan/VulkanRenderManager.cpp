@@ -25,7 +25,8 @@
 
 using namespace PPSSPP_VK;
 
-bool VKRGraphicsPipeline::Create(VulkanContext *vulkan) {
+// renderPass is an example of the "compatibility class" or RenderPassType type.
+bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType) {
 	if (!desc) {
 		// Already failed to create this one.
 		return false;
@@ -55,12 +56,30 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan) {
 	ss[1].pName = "main";
 	ss[1].flags = 0;
 
-	desc->pipe.pStages = ss;
-	desc->pipe.stageCount = 2;
+	VkGraphicsPipelineCreateInfo pipe{ VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
+	pipe.pStages = ss;
+	pipe.stageCount = 2;
+	pipe.renderPass = compatibleRenderPass;
+	pipe.basePipelineIndex = 0;
+	pipe.pColorBlendState = &desc->cbs;
+	pipe.pDepthStencilState = &desc->dss;
+	pipe.pRasterizationState = &desc->rs;
+
+	// We will use dynamic viewport state.
+	pipe.pVertexInputState = &desc->vis;
+	pipe.pViewportState = &desc->views;
+	pipe.pTessellationState = nullptr;
+	pipe.pDynamicState = &desc->ds;
+	pipe.pInputAssemblyState = &desc->inputAssembly;
+	pipe.pMultisampleState = &desc->ms;
+	pipe.layout = desc->pipelineLayout;
+	pipe.basePipelineHandle = VK_NULL_HANDLE;
+	pipe.basePipelineIndex = 0;
+	pipe.subpass = 0;
 
 	double start = time_now_d();
 	VkPipeline vkpipeline;
-	VkResult result = vkCreateGraphicsPipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &desc->pipe, nullptr, &vkpipeline);
+	VkResult result = vkCreateGraphicsPipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &pipe, nullptr, &vkpipeline);
 
 	INFO_LOG(G3D, "Pipeline creation time: %0.2f ms", (time_now_d() - start) * 1000.0);
 
@@ -70,14 +89,14 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan) {
 		// Would really like to log more here, we could probably attach more info to desc.
 		//
 		// At least create a null placeholder to avoid creating over and over if something is broken.
-		pipeline->Post(VK_NULL_HANDLE);
+		pipeline[rpType]->Post(VK_NULL_HANDLE);
 		success = false;
 	} else if (result != VK_SUCCESS) {
-		pipeline->Post(VK_NULL_HANDLE);
+		pipeline[rpType]->Post(VK_NULL_HANDLE);
 		ERROR_LOG(G3D, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
 		success = false;
 	} else {
-		pipeline->Post(vkpipeline);
+		pipeline[rpType]->Post(vkpipeline);
 	}
 
 	// Having the desc stick around can be useful for debugging.
@@ -110,33 +129,35 @@ bool VKRComputePipeline::Create(VulkanContext *vulkan) {
 	return success;
 }
 
-VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VkRenderPass renderPass, int _width, int _height, const char *tag) : vulkan_(vk) {
+VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, const char *tag) : vulkan_(vk) {
 	width = _width;
 	height = _height;
 
 	CreateImage(vulkan_, initCmd, color, width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
 	CreateImage(vulkan_, initCmd, depth, width, height, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
 
-	VkFramebufferCreateInfo fbci{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-	VkImageView views[2]{};
+	for (int i = 0; i < RP_TYPE_COUNT; i++) {
+		VkFramebufferCreateInfo fbci{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
+		VkImageView views[2]{};
 
-	fbci.renderPass = renderPass;
-	fbci.attachmentCount = 2;
-	fbci.pAttachments = views;
-	views[0] = color.imageView;
-	views[1] = depth.imageView;
-	fbci.width = width;
-	fbci.height = height;
-	fbci.layers = 1;
+		fbci.renderPass = compatibleRenderPass->pass[i];
+		fbci.attachmentCount = 2;
+		fbci.pAttachments = views;
+		views[0] = color.imageView;
+		views[1] = depth.imageView;
+		fbci.width = width;
+		fbci.height = height;
+		fbci.layers = 1;
 
-	VkResult res = vkCreateFramebuffer(vulkan_->GetDevice(), &fbci, nullptr, &framebuf);
-	_assert_(res == VK_SUCCESS);
+		VkResult res = vkCreateFramebuffer(vulkan_->GetDevice(), &fbci, nullptr, &framebuf[i]);
+		_assert_(res == VK_SUCCESS);
 
-	if (tag && vk->Extensions().EXT_debug_utils) {
-		vk->SetDebugName(color.image, VK_OBJECT_TYPE_IMAGE, StringFromFormat("fb_color_%s", tag).c_str());
-		vk->SetDebugName(depth.image, VK_OBJECT_TYPE_IMAGE, StringFromFormat("fb_depth_%s", tag).c_str());
-		vk->SetDebugName(framebuf, VK_OBJECT_TYPE_FRAMEBUFFER, StringFromFormat("fb_%s", tag).c_str());
-		this->tag = tag;
+		if (tag && vk->Extensions().EXT_debug_utils) {
+			vk->SetDebugName(color.image, VK_OBJECT_TYPE_IMAGE, StringFromFormat("fb_color_%s", tag).c_str());
+			vk->SetDebugName(depth.image, VK_OBJECT_TYPE_IMAGE, StringFromFormat("fb_depth_%s", tag).c_str());
+			vk->SetDebugName(framebuf[i], VK_OBJECT_TYPE_FRAMEBUFFER, StringFromFormat("fb_%s", tag).c_str());
+			this->tag = tag;
+		}
 	}
 }
 
@@ -155,8 +176,10 @@ VKRFramebuffer::~VKRFramebuffer() {
 	}
 	if (depth.depthSampleView)
 		vulkan_->Delete().QueueDeleteImageView(depth.depthSampleView);
-	if (framebuf)
-		vulkan_->Delete().QueueDeleteFramebuffer(framebuf);
+	for (auto &fb : framebuf) {
+		if (fb)
+			vulkan_->Delete().QueueDeleteFramebuffer(fb);
+	}
 }
 
 void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag) {
@@ -493,7 +516,7 @@ void VulkanRenderManager::CompileThreadFunc() {
 		for (auto &entry : toCompile) {
 			switch (entry.type) {
 			case CompileQueueEntry::Type::GRAPHICS:
-				entry.graphics->Create(vulkan_);
+				entry.graphics->Create(vulkan_, entry.compatibleRenderPass, entry.renderPassType);
 				break;
 			case CompileQueueEntry::Type::COMPUTE:
 				entry.compute->Create(vulkan_);
@@ -664,23 +687,45 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 }
 
 void VulkanRenderManager::EndCurRenderStep() {
+	if (!curRenderStep_)
+		return;
+
+	RPKey key{
+		curRenderStep_->render.colorLoad, curRenderStep_->render.depthLoad, curRenderStep_->render.stencilLoad,
+		curRenderStep_->render.colorStore, curRenderStep_->render.depthStore, curRenderStep_->render.stencilStore,
+	};
+	RenderPassType rpType = RP_TYPE_COLOR_DEPTH;
+	curRenderStep_->render.pipelineFlags = curPipelineFlags_;
+	if (!curRenderStep_->render.framebuffer) {
+		rpType = RP_TYPE_BACKBUFFER;
+	}
+
+	VKRRenderPass *renderPass = queueRunner_.GetRenderPass(key);
+	curRenderStep_->render.renderPassType = rpType;
+
 	// Save the accumulated pipeline flags so we can use that to configure the render pass.
 	// We'll often be able to avoid loading/saving the depth/stencil buffer.
-	if (curRenderStep_) {
-		curRenderStep_->render.pipelineFlags = curPipelineFlags_;
-		// We don't do this optimization for very small targets, probably not worth it.
-		if (!curRenderArea_.Empty() && (curWidth_ > 32 && curHeight_ > 32)) {
-			curRenderStep_->render.renderArea = curRenderArea_.ToVkRect2D();
-		} else {
-			curRenderStep_->render.renderArea.offset = {};
-			curRenderStep_->render.renderArea.extent = { (uint32_t)curWidth_, (uint32_t)curHeight_ };
-		}
-		curRenderArea_.Reset();
-
-		// We no longer have a current render step.
-		curRenderStep_ = nullptr;
-		curPipelineFlags_ = 0;
+	compileMutex_.lock();
+	for (VKRGraphicsPipeline *pipeline : pipelinesToCreate_) {
+		pipeline->pipeline[rpType] = Promise<VkPipeline>::CreateEmpty();
+		compileQueue_.push_back(CompileQueueEntry(pipeline, renderPass->pass[rpType], rpType));
 	}
+	compileCond_.notify_one();
+	compileMutex_.unlock();
+	pipelinesToCreate_.clear();
+
+	// We don't do this optimization for very small targets, probably not worth it.
+	if (!curRenderArea_.Empty() && (curWidth_ > 32 && curHeight_ > 32)) {
+		curRenderStep_->render.renderArea = curRenderArea_.ToVkRect2D();
+	} else {
+		curRenderStep_->render.renderArea.offset = {};
+		curRenderStep_->render.renderArea.extent = { (uint32_t)curWidth_, (uint32_t)curHeight_ };
+	}
+	curRenderArea_.Reset();
+
+	// We no longer have a current render step.
+	curRenderStep_ = nullptr;
+	curPipelineFlags_ = 0;
 }
 
 void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction color, VKRRenderPassLoadAction depth, VKRRenderPassLoadAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {
@@ -909,7 +954,7 @@ bool VulkanRenderManager::InitBackbufferFramebuffers(int width, int height) {
 
 	VLOG("InitFramebuffers: %dx%d", width, height);
 	VkFramebufferCreateInfo fb_info = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-	fb_info.renderPass = queueRunner_.GetBackbufferRenderPass();
+	fb_info.renderPass = queueRunner_.GetCompatibleRenderPass()->pass[RP_TYPE_BACKBUFFER];
 	fb_info.attachmentCount = 2;
 	fb_info.pAttachments = attachments;
 	fb_info.width = width;

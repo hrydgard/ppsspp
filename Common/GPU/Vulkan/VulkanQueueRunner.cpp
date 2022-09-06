@@ -29,11 +29,12 @@ static void MergeRenderAreaRectInto(VkRect2D *dest, VkRect2D &src) {
 
 void VulkanQueueRunner::CreateDeviceObjects() {
 	INFO_LOG(G3D, "VulkanQueueRunner::CreateDeviceObjects");
-	InitBackbufferRenderPass();
 
-	RPKey key{ VKRRenderPassLoadAction::CLEAR, VKRRenderPassLoadAction::CLEAR, VKRRenderPassLoadAction::CLEAR,
-		VKRRenderPassStoreAction::STORE, VKRRenderPassStoreAction::DONT_CARE, VKRRenderPassStoreAction::DONT_CARE };
-	framebufferRenderPass_ = GetRenderPass(key);
+	RPKey key{
+		VKRRenderPassLoadAction::CLEAR, VKRRenderPassLoadAction::CLEAR, VKRRenderPassLoadAction::CLEAR,
+		VKRRenderPassStoreAction::STORE, VKRRenderPassStoreAction::DONT_CARE, VKRRenderPassStoreAction::DONT_CARE,
+	};
+	compatibleRenderPass_ = GetRenderPass(key);
 
 #if 0
 	// Just to check whether it makes sense to split some of these. drawidx is way bigger than the others...
@@ -117,78 +118,14 @@ void VulkanQueueRunner::DestroyDeviceObjects() {
 	}
 	readbackBufferSize_ = 0;
 
-	renderPasses_.Iterate([&](const RPKey &rpkey, VkRenderPass rp) {
-		_assert_(rp != VK_NULL_HANDLE);
-		vulkan_->Delete().QueueDeleteRenderPass(rp);
+	renderPasses_.IterateMut([&](const RPKey &rpkey, VKRRenderPass *rp) {
+		_assert_(rp);
+		for (int i = 0; i < RP_TYPE_COUNT; i++) {
+			vulkan_->Delete().QueueDeleteRenderPass(rp->pass[i]);
+		}
+		delete rp;
 	});
 	renderPasses_.Clear();
-
-	_assert_(backbufferRenderPass_ != VK_NULL_HANDLE);
-	vulkan_->Delete().QueueDeleteRenderPass(backbufferRenderPass_);
-	backbufferRenderPass_ = VK_NULL_HANDLE;
-}
-
-void VulkanQueueRunner::InitBackbufferRenderPass() {
-	VkAttachmentDescription attachments[2];
-	attachments[0].format = vulkan_->GetSwapchainFormat();
-	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
-	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;  // We don't want to preserve the backbuffer between frames so we really don't care.
-	attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;  // We only render once to the backbuffer per frame so we can do this here.
-	attachments[0].flags = 0;
-
-	attachments[1].format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;  // must use this same format later for the back depth buffer.
-	attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
-	attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;  // Don't care about storing backbuffer Z - we clear it anyway.
-	attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	attachments[1].flags = 0;
-
-	VkAttachmentReference color_reference{};
-	color_reference.attachment = 0;
-	color_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	VkAttachmentReference depth_reference{};
-	depth_reference.attachment = 1;
-	depth_reference.layout = attachments[1].finalLayout;
-
-	VkSubpassDescription subpass{};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.flags = 0;
-	subpass.inputAttachmentCount = 0;
-	subpass.pInputAttachments = nullptr;
-	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &color_reference;
-	subpass.pResolveAttachments = nullptr;
-	subpass.pDepthStencilAttachment = &depth_reference;
-	subpass.preserveAttachmentCount = 0;
-	subpass.pPreserveAttachments = nullptr;
-
-	// For the built-in layout transitions.
-	VkSubpassDependency dep{};
-	dep.srcSubpass = VK_SUBPASS_EXTERNAL;
-	dep.dstSubpass = 0;
-	dep.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dep.srcAccessMask = 0;
-	dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-	VkRenderPassCreateInfo rp_info{ VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
-	rp_info.attachmentCount = 2;
-	rp_info.pAttachments = attachments;
-	rp_info.subpassCount = 1;
-	rp_info.pSubpasses = &subpass;
-	rp_info.dependencyCount = 1;
-	rp_info.pDependencies = &dep;
-
-	VkResult res = vkCreateRenderPass(vulkan_->GetDevice(), &rp_info, nullptr, &backbufferRenderPass_);
-	_assert_(res == VK_SUCCESS);
 }
 
 static VkAttachmentLoadOp ConvertLoadAction(VKRRenderPassLoadAction action) {
@@ -208,21 +145,16 @@ static VkAttachmentStoreOp ConvertStoreAction(VKRRenderPassStoreAction action) {
 	return VK_ATTACHMENT_STORE_OP_DONT_CARE;  // avoid compiler warning
 }
 
-VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
-	auto pass = renderPasses_.Get(key);
-	if (pass) {
-		return pass;
-	}
-
+VkRenderPass VulkanQueueRunner::CreateRP(const RPKey &key, RenderPassType rpType) {
 	VkAttachmentDescription attachments[2] = {};
-	attachments[0].format = VK_FORMAT_R8G8B8A8_UNORM;
+	attachments[0].format = rpType == RP_TYPE_BACKBUFFER ? vulkan_->GetSwapchainFormat() : VK_FORMAT_R8G8B8A8_UNORM;
 	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
 	attachments[0].loadOp = ConvertLoadAction(key.colorLoadAction);
 	attachments[0].storeOp = ConvertStoreAction(key.colorStoreAction);
 	attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	attachments[0].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	attachments[0].initialLayout = rpType == RP_TYPE_BACKBUFFER ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	attachments[0].finalLayout = rpType == RP_TYPE_BACKBUFFER ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	attachments[0].flags = 0;
 
 	attachments[1].format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
@@ -255,15 +187,48 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 	subpass.preserveAttachmentCount = 0;
 	subpass.pPreserveAttachments = nullptr;
 
+	// Not sure if this is really necessary.
+	VkSubpassDependency dep{};
+	dep.srcSubpass = VK_SUBPASS_EXTERNAL;
+	dep.dstSubpass = 0;
+	dep.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dep.srcAccessMask = 0;
+	dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
 	VkRenderPassCreateInfo rp{ VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
 	rp.attachmentCount = 2;
 	rp.pAttachments = attachments;
 	rp.subpassCount = 1;
 	rp.pSubpasses = &subpass;
+	if (rpType == RP_TYPE_BACKBUFFER) {
+		rp.dependencyCount = 1;
+		rp.pDependencies = &dep;
+	}
 
+	VkRenderPass pass;
 	VkResult res = vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &pass);
 	_assert_(res == VK_SUCCESS);
 	_assert_(pass != VK_NULL_HANDLE);
+	return pass;
+}
+
+// Self-dependency: https://github.com/gpuweb/gpuweb/issues/442#issuecomment-547604827
+// Also see https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#synchronization-pipeline-barriers-subpass-self-dependencies
+VKRRenderPass *VulkanQueueRunner::GetRenderPass(const RPKey &key) {
+	auto foundPass = renderPasses_.Get(key);
+	if (foundPass) {
+		return foundPass;
+	}
+
+	VKRRenderPass *pass = new VKRRenderPass();
+	// When we create a render pass, we create all "types" of it immediately,
+	// practical later when referring to it. Could change to on-demand if it feels motivated
+	// but I think the render pass objects are cheap.
+	for (int i = 0; i < RP_TYPE_COUNT; i++) {
+		pass->pass[i] = CreateRP(key, (RenderPassType)i);
+	}
+
 	renderPasses_.Insert(key, pass);
 	return pass;
 }
@@ -272,7 +237,8 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 	// Optimizes renderpasses, then sequences them.
 	// Planned optimizations: 
 	//  * Create copies of render target that are rendered to multiple times and textured from in sequence, and push those render passes
-	//    as early as possible in the frame (Wipeout billboards).
+	//    as early as possible in the frame (Wipeout billboards). This will require taking over more of descriptor management so we can
+	//    substitute descriptors, alternatively using texture array layers creatively.
 
 	for (int j = 0; j < (int)steps.size(); j++) {
 		if (steps[j]->stepType == VKRStepType::RENDER &&
@@ -1159,6 +1125,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 	int lastStencilCompareMask = -1;
 	int lastStencilReference = -1;
 
+	const RenderPassType rpType = step.render.renderPassType;
+
 	for (const auto &c : commands) {
 		switch (c.cmd) {
 		case VKRRenderCommand::REMOVED:
@@ -1181,7 +1149,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		{
 			VKRGraphicsPipeline *graphicsPipeline = c.graphics_pipeline.pipeline;
 			if (graphicsPipeline != lastGraphicsPipeline) {
-				VkPipeline pipeline = graphicsPipeline->pipeline->BlockUntilReady();
+				_dbg_assert_(graphicsPipeline->pipeline[rpType]);
+				VkPipeline pipeline = graphicsPipeline->pipeline[rpType]->BlockUntilReady();
 				if (pipeline != VK_NULL_HANDLE) {
 					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 					pipelineLayout = c.pipeline.pipelineLayout;
@@ -1338,7 +1307,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 }
 
 void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step, VkCommandBuffer cmd) {
-	VkRenderPass renderPass;
+	VKRRenderPass *renderPass;
 	int numClearVals = 0;
 	VkClearValue clearVal[2]{};
 	VkFramebuffer framebuf;
@@ -1349,7 +1318,7 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 		_dbg_assert_(step.render.finalDepthStencilLayout != VK_IMAGE_LAYOUT_UNDEFINED);
 
 		VKRFramebuffer *fb = step.render.framebuffer;
-		framebuf = fb->framebuf;
+		framebuf = fb->framebuf[step.render.renderPassType];
 		w = fb->width;
 		h = fb->height;
 
@@ -1395,7 +1364,13 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 		// Raw, rotated backbuffer size.
 		w = vulkan_->GetBackbufferWidth();
 		h = vulkan_->GetBackbufferHeight();
-		renderPass = GetBackbufferRenderPass();
+
+		RPKey key{
+			VKRRenderPassLoadAction::CLEAR, VKRRenderPassLoadAction::CLEAR, VKRRenderPassLoadAction::CLEAR,
+			VKRRenderPassStoreAction::STORE, VKRRenderPassStoreAction::DONT_CARE, VKRRenderPassStoreAction::DONT_CARE,
+		};
+		renderPass = GetRenderPass(key);
+
 		Uint8x4ToFloat4(clearVal[0].color.float32, step.render.clearColor);
 		numClearVals = 2;  // We don't bother with a depth buffer here.
 		clearVal[1].depthStencil.depth = 0.0f;
@@ -1403,7 +1378,7 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 	}
 
 	VkRenderPassBeginInfo rp_begin = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
-	rp_begin.renderPass = renderPass;
+	rp_begin.renderPass = renderPass->pass[(int)step.render.renderPassType];
 	rp_begin.framebuffer = framebuf;
 
 	VkRect2D rc = step.render.renderArea;

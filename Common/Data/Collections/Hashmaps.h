@@ -127,6 +127,15 @@ public:
 		}
 	}
 
+	template<class T>
+	inline void IterateMut(T func) {
+		for (size_t i = 0; i < map.size(); i++) {
+			if (state[i] == BucketState::TAKEN) {
+				func(map[i].key, map[i].value);
+			}
+		}
+	}
+
 	void Clear() {
 		memset(state.data(), (int)BucketState::FREE, state.size());
 		count_ = 0;
