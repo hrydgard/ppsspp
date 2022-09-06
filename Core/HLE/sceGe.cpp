@@ -565,8 +565,32 @@ static int sceGeGetMtx(int type, u32 matrixPtr) {
 
 static u32 sceGeGetCmd(int cmd) {
 	if (cmd >= 0 && cmd < (int)ARRAY_SIZE(gstate.cmdmem)) {
-		// Does not mask away the high bits.
-		return hleLogSuccessInfoX(SCEGE, gstate.cmdmem[cmd]);
+		// Does not mask away the high bits.  But matrix regs don't read back.
+		u32 val = gstate.cmdmem[cmd];
+		switch (cmd) {
+		case GE_CMD_BONEMATRIXDATA:
+		case GE_CMD_WORLDMATRIXDATA:
+		case GE_CMD_VIEWMATRIXDATA:
+		case GE_CMD_PROJMATRIXDATA:
+		case GE_CMD_TGENMATRIXDATA:
+			val &= 0xFF000000;
+			break;
+
+		case GE_CMD_BONEMATRIXNUMBER:
+			val &= 0xFF00007F;
+			break;
+
+		case GE_CMD_WORLDMATRIXNUMBER:
+		case GE_CMD_VIEWMATRIXNUMBER:
+		case GE_CMD_PROJMATRIXNUMBER:
+		case GE_CMD_TGENMATRIXNUMBER:
+			val &= 0xFF00000F;
+			break;
+
+		default:
+			break;
+		}
+		return hleLogSuccessInfoX(SCEGE, val);
 	}
 	return hleLogError(SCEGE, SCE_KERNEL_ERROR_INVALID_INDEX);
 }
