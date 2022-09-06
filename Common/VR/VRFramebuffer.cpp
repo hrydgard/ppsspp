@@ -24,6 +24,7 @@ ovrFramebuffer
 ================================================================================
 */
 
+
 void ovrFramebuffer_Clear(ovrFramebuffer* frameBuffer) {
 	frameBuffer->Width = 0;
 	frameBuffer->Height = 0;
@@ -33,87 +34,99 @@ void ovrFramebuffer_Clear(ovrFramebuffer* frameBuffer) {
 	frameBuffer->ColorSwapChain.Width = 0;
 	frameBuffer->ColorSwapChain.Height = 0;
 	frameBuffer->ColorSwapChainImage = NULL;
-	frameBuffer->DepthBuffers = NULL;
+	frameBuffer->DepthSwapChain.Handle = XR_NULL_HANDLE;
+	frameBuffer->DepthSwapChain.Width = 0;
+	frameBuffer->DepthSwapChain.Height = 0;
+	frameBuffer->DepthSwapChainImage = NULL;
+
 	frameBuffer->FrameBuffers = NULL;
+	frameBuffer->Acquired = false;
 }
 
-bool ovrFramebuffer_Create(
-		XrSession session,
-		ovrFramebuffer* frameBuffer,
-		const int width,
-		const int height) {
+bool ovrFramebuffer_Create(XrSession session, ovrFramebuffer* frameBuffer, int width, int height, bool multiview) {
 
 	frameBuffer->Width = width;
 	frameBuffer->Height = height;
 
+	if (strstr((const char*)glGetString(GL_EXTENSIONS), "GL_OVR_multiview2") == nullptr)
+	{
+		ALOGE("OpenGL implementation does not support GL_OVR_multiview2 extension.\n");
+	}
+
+	typedef void (*PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR)(GLenum, GLenum, GLuint, GLint, GLint, GLsizei);
+	auto glFramebufferTextureMultiviewOVR = (PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR)eglGetProcAddress ("glFramebufferTextureMultiviewOVR");
+	if (!glFramebufferTextureMultiviewOVR)
+	{
+		ALOGE("Can not get proc address for glFramebufferTextureMultiviewOVR.\n");
+	}
+
 	XrSwapchainCreateInfo swapChainCreateInfo;
 	memset(&swapChainCreateInfo, 0, sizeof(swapChainCreateInfo));
 	swapChainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
-	swapChainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
-	swapChainCreateInfo.format = GL_RGBA8;
 	swapChainCreateInfo.sampleCount = 1;
 	swapChainCreateInfo.width = width;
 	swapChainCreateInfo.height = height;
 	swapChainCreateInfo.faceCount = 1;
-	swapChainCreateInfo.arraySize = 1;
 	swapChainCreateInfo.mipCount = 1;
+	swapChainCreateInfo.arraySize = multiview ? 2 : 1;
 
 	frameBuffer->ColorSwapChain.Width = swapChainCreateInfo.width;
 	frameBuffer->ColorSwapChain.Height = swapChainCreateInfo.height;
+	frameBuffer->DepthSwapChain.Width = swapChainCreateInfo.width;
+	frameBuffer->DepthSwapChain.Height = swapChainCreateInfo.height;
 
-	// Create the swapchain.
+	// Create the color swapchain.
+	swapChainCreateInfo.format = GL_RGBA8;
+	swapChainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
 	OXR(xrCreateSwapchain(session, &swapChainCreateInfo, &frameBuffer->ColorSwapChain.Handle));
-	// Get the number of swapchain images.
-	OXR(xrEnumerateSwapchainImages(
-			frameBuffer->ColorSwapChain.Handle, 0, &frameBuffer->TextureSwapChainLength, NULL));
-	// Allocate the swapchain images array.
-	frameBuffer->ColorSwapChainImage = (XrSwapchainImageOpenGLESKHR*)malloc(
-			frameBuffer->TextureSwapChainLength * sizeof(XrSwapchainImageOpenGLESKHR));
+	OXR(xrEnumerateSwapchainImages(frameBuffer->ColorSwapChain.Handle, 0, &frameBuffer->TextureSwapChainLength, NULL));
+	frameBuffer->ColorSwapChainImage = (XrSwapchainImageOpenGLESKHR*)malloc(frameBuffer->TextureSwapChainLength * sizeof(XrSwapchainImageOpenGLESKHR));
+
+	// Create the depth swapchain.
+	swapChainCreateInfo.format = GL_DEPTH24_STENCIL8;
+	swapChainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	OXR(xrCreateSwapchain(session, &swapChainCreateInfo, &frameBuffer->DepthSwapChain.Handle));
+	frameBuffer->DepthSwapChainImage = (XrSwapchainImageOpenGLESKHR*)malloc(frameBuffer->TextureSwapChainLength * sizeof(XrSwapchainImageOpenGLESKHR));
 
 	// Populate the swapchain image array.
 	for (uint32_t i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
 		frameBuffer->ColorSwapChainImage[i].type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR;
 		frameBuffer->ColorSwapChainImage[i].next = NULL;
+		frameBuffer->DepthSwapChainImage[i].type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR;
+		frameBuffer->DepthSwapChainImage[i].next = NULL;
 	}
 	OXR(xrEnumerateSwapchainImages(
 			frameBuffer->ColorSwapChain.Handle,
 			frameBuffer->TextureSwapChainLength,
 			&frameBuffer->TextureSwapChainLength,
 			(XrSwapchainImageBaseHeader*)frameBuffer->ColorSwapChainImage));
+	OXR(xrEnumerateSwapchainImages(
+			frameBuffer->DepthSwapChain.Handle,
+			frameBuffer->TextureSwapChainLength,
+			&frameBuffer->TextureSwapChainLength,
+			(XrSwapchainImageBaseHeader*)frameBuffer->DepthSwapChainImage));
 
-	frameBuffer->DepthBuffers =
-			(GLuint*)malloc(frameBuffer->TextureSwapChainLength * sizeof(GLuint));
-	frameBuffer->FrameBuffers =
-			(GLuint*)malloc(frameBuffer->TextureSwapChainLength * sizeof(GLuint));
-
+	frameBuffer->FrameBuffers = (GLuint*)malloc(frameBuffer->TextureSwapChainLength * sizeof(GLuint));
 	for (uint32_t i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
-		// Create the color buffer texture.
 		const GLuint colorTexture = frameBuffer->ColorSwapChainImage[i].image;
-		GLenum colorTextureTarget = GL_TEXTURE_2D;
-		GL(glBindTexture(colorTextureTarget, colorTexture));
-		GL(glTexParameteri(colorTextureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-		GL(glTexParameteri(colorTextureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-		GL(glTexParameteri(colorTextureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-		GL(glTexParameteri(colorTextureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-		GL(glBindTexture(colorTextureTarget, 0));
-
-		// Create depth buffer.
-		GL(glGenRenderbuffers(1, &frameBuffer->DepthBuffers[i]));
-		GL(glBindRenderbuffer(GL_RENDERBUFFER, frameBuffer->DepthBuffers[i]));
-		GL(glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height));
-		GL(glBindRenderbuffer(GL_RENDERBUFFER, 0));
+		const GLuint depthTexture = frameBuffer->DepthSwapChainImage[i].image;
 
 		// Create the frame buffer.
 		GL(glGenFramebuffers(1, &frameBuffer->FrameBuffers[i]));
 		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->FrameBuffers[i]));
-		GL(glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, frameBuffer->DepthBuffers[i]));
-		GL(glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, frameBuffer->DepthBuffers[i]));
-		GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0));
+		if (multiview) {
+			GL(glFramebufferTextureMultiviewOVR(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, depthTexture, 0, 0, 2));
+			GL(glFramebufferTextureMultiviewOVR(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthTexture, 0, 0, 2));
+			GL(glFramebufferTextureMultiviewOVR(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, colorTexture, 0, 0, 2));
+		} else {
+			GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0));
+			GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0));
+			GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0));
+		}
 		GL(GLenum renderFramebufferStatus = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER));
 		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0));
 		if (renderFramebufferStatus != GL_FRAMEBUFFER_COMPLETE) {
-			ALOGE(
-					"Incomplete frame buffer object: %d", renderFramebufferStatus);
+			ALOGE("Incomplete frame buffer object: %d", renderFramebufferStatus);
 			return false;
 		}
 	}
@@ -123,19 +136,17 @@ bool ovrFramebuffer_Create(
 
 void ovrFramebuffer_Destroy(ovrFramebuffer* frameBuffer) {
 	GL(glDeleteFramebuffers(frameBuffer->TextureSwapChainLength, frameBuffer->FrameBuffers));
-	GL(glDeleteRenderbuffers(frameBuffer->TextureSwapChainLength, frameBuffer->DepthBuffers));
 	OXR(xrDestroySwapchain(frameBuffer->ColorSwapChain.Handle));
+	OXR(xrDestroySwapchain(frameBuffer->DepthSwapChain.Handle));
 	free(frameBuffer->ColorSwapChainImage);
-
-	free(frameBuffer->DepthBuffers);
+	free(frameBuffer->DepthSwapChainImage);
 	free(frameBuffer->FrameBuffers);
 
 	ovrFramebuffer_Clear(frameBuffer);
 }
 
 void ovrFramebuffer_SetCurrent(ovrFramebuffer* frameBuffer) {
-	GL(glBindFramebuffer(
-			GL_DRAW_FRAMEBUFFER, frameBuffer->FrameBuffers[frameBuffer->TextureSwapChainIndex]));
+	GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->FrameBuffers[frameBuffer->TextureSwapChainIndex]));
 }
 
 void ovrFramebuffer_SetNone() {
@@ -149,18 +160,16 @@ void ovrFramebuffer_Resolve(ovrFramebuffer* frameBuffer) {
 }
 
 void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
-	// Acquire the swapchain image
 	XrSwapchainImageAcquireInfo acquireInfo = {XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO, NULL};
-	OXR(xrAcquireSwapchainImage(
-			frameBuffer->ColorSwapChain.Handle, &acquireInfo, &frameBuffer->TextureSwapChainIndex));
+	OXR(xrAcquireSwapchainImage(frameBuffer->ColorSwapChain.Handle, &acquireInfo, &frameBuffer->TextureSwapChainIndex));
 
 	XrSwapchainImageWaitInfo waitInfo;
 	waitInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO;
 	waitInfo.next = NULL;
-	waitInfo.timeout = 1000; /* timeout in nanoseconds */
+	waitInfo.timeout = 1000000; /* timeout in nanoseconds */
 	XrResult res = xrWaitSwapchainImage(frameBuffer->ColorSwapChain.Handle, &waitInfo);
 	int i = 0;
-	while (res != XR_SUCCESS) {
+	while ((res != XR_SUCCESS) && (i < 10)) {
 		res = xrWaitSwapchainImage(frameBuffer->ColorSwapChain.Handle, &waitInfo);
 		i++;
 		ALOGV(
@@ -168,11 +177,15 @@ void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
 				i,
 				waitInfo.timeout * (1E-9));
 	}
+	frameBuffer->Acquired = res == XR_SUCCESS;
 }
 
 void ovrFramebuffer_Release(ovrFramebuffer* frameBuffer) {
-	XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO, NULL};
-	OXR(xrReleaseSwapchainImage(frameBuffer->ColorSwapChain.Handle, &releaseInfo));
+	if (frameBuffer->Acquired) {
+		XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO, NULL};
+		OXR(xrReleaseSwapchainImage(frameBuffer->ColorSwapChain.Handle, &releaseInfo));
+		frameBuffer->Acquired = false;
+	}
 }
 
 /*
@@ -184,29 +197,23 @@ ovrRenderer
 */
 
 void ovrRenderer_Clear(ovrRenderer* renderer) {
-	for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
-		ovrFramebuffer_Clear(&renderer->FrameBuffer[eye]);
+	for (int i = 0; i < ovrMaxNumEyes; i++) {
+		ovrFramebuffer_Clear(&renderer->FrameBuffer[i]);
 	}
 }
 
-void ovrRenderer_Create(
-		XrSession session,
-		ovrRenderer* renderer,
-		int suggestedEyeTextureWidth,
-		int suggestedEyeTextureHeight) {
-	// Create the frame buffers.
-	for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
-		ovrFramebuffer_Create(
-				session,
-				&renderer->FrameBuffer[eye],
-				suggestedEyeTextureWidth,
-				suggestedEyeTextureHeight);
+void ovrRenderer_Create(XrSession session, ovrRenderer* renderer, int width, int height, bool multiview) {
+	renderer->Multiview = multiview;
+	int instances = renderer->Multiview ? 1 : ovrMaxNumEyes;
+	for (int i = 0; i < instances; i++) {
+		ovrFramebuffer_Create(session, &renderer->FrameBuffer[i], width, height, multiview);
 	}
 }
 
 void ovrRenderer_Destroy(ovrRenderer* renderer) {
-	for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
-		ovrFramebuffer_Destroy(&renderer->FrameBuffer[eye]);
+	int instances = renderer->Multiview ? 1 : ovrMaxNumEyes;
+	for (int i = 0; i < instances; i++) {
+		ovrFramebuffer_Destroy(&renderer->FrameBuffer[i]);
 	}
 }
 
@@ -235,7 +242,6 @@ void ovrApp_Clear(ovrApp* app) {
 	app->LayerCount = 0;
 	app->MainThreadTid = 0;
 	app->RenderThreadTid = 0;
-	app->TouchPadDownLastFrame = false;
 
 	ovrRenderer_Clear(&app->Renderer);
 }
@@ -258,6 +264,32 @@ void ovrApp_HandleSessionStateChanges(ovrApp* app, XrSessionState state) {
 		OXR(result = xrBeginSession(app->Session, &sessionBeginInfo));
 
 		app->SessionActive = (result == XR_SUCCESS);
+
+		// Set session state once we have entered VR mode and have a valid session object.
+#ifdef OPENXR_HAS_PERFORMANCE_EXTENSION
+		if (app->SessionActive) {
+			XrPerfSettingsLevelEXT cpuPerfLevel = XR_PERF_SETTINGS_LEVEL_BOOST_EXT;
+			XrPerfSettingsLevelEXT gpuPerfLevel = XR_PERF_SETTINGS_LEVEL_BOOST_EXT;
+
+			PFN_xrPerfSettingsSetPerformanceLevelEXT pfnPerfSettingsSetPerformanceLevelEXT = NULL;
+			OXR(xrGetInstanceProcAddr(
+					app->Instance,
+					"xrPerfSettingsSetPerformanceLevelEXT",
+					(PFN_xrVoidFunction*)(&pfnPerfSettingsSetPerformanceLevelEXT)));
+
+			OXR(pfnPerfSettingsSetPerformanceLevelEXT(app->Session, XR_PERF_SETTINGS_DOMAIN_CPU_EXT, cpuPerfLevel));
+			OXR(pfnPerfSettingsSetPerformanceLevelEXT(app->Session, XR_PERF_SETTINGS_DOMAIN_GPU_EXT, gpuPerfLevel));
+
+			PFN_xrSetAndroidApplicationThreadKHR pfnSetAndroidApplicationThreadKHR = NULL;
+			OXR(xrGetInstanceProcAddr(
+					app->Instance,
+					"xrSetAndroidApplicationThreadKHR",
+					(PFN_xrVoidFunction*)(&pfnSetAndroidApplicationThreadKHR)));
+
+			OXR(pfnSetAndroidApplicationThreadKHR(app->Session, XR_ANDROID_THREAD_TYPE_APPLICATION_MAIN_KHR, app->MainThreadTid));
+			OXR(pfnSetAndroidApplicationThreadKHR(app->Session, XR_ANDROID_THREAD_TYPE_RENDERER_MAIN_KHR, app->RenderThreadTid));
+		}
+#endif
 	} else if (state == XR_SESSION_STATE_STOPPING) {
 		assert(app->SessionActive);
 

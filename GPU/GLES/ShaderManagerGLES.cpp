@@ -34,6 +34,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/System/Display.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Log.h"
 #include "Common/File/FileUtil.h"
@@ -49,12 +50,6 @@
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
-
-#ifdef OPENXR
-#include "VR/VRBase.h"
-#include "VR/VRRenderer.h"
-#include "VR/VRTweaks.h"
-#endif
 
 using namespace Lin;
 
@@ -107,6 +102,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_fbotex, "fbotex" });
 
 	queries.push_back({ &u_proj, "u_proj" });
+	queries.push_back({ &u_proj_lens, "u_proj_lens" });
 	queries.push_back({ &u_proj_through, "u_proj_through" });
 	queries.push_back({ &u_texenv, "u_texenv" });
 	queries.push_back({ &u_fogcolor, "u_fogcolor" });
@@ -132,10 +128,11 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_cullRangeMin, "u_cullRangeMin" });
 	queries.push_back({ &u_cullRangeMax, "u_cullRangeMax" });
 	queries.push_back({ &u_rotation, "u_rotation" });
-#ifdef OPENXR
-	queries.push_back({ &u_scaleX, "u_scaleX" });
-	queries.push_back({ &u_scaleY, "u_scaleY" });
-#endif
+
+	if (IsVRBuild()) {
+		queries.push_back({ &u_scaleX, "u_scaleX" });
+		queries.push_back({ &u_scaleY, "u_scaleY" });
+	}
 
 #ifdef USE_BONE_ARRAY
 	queries.push_back({ &u_bone, "u_bone" });
@@ -296,6 +293,56 @@ static inline void ScaleProjMatrix(Matrix4x4 &in, bool useBufferedRendering) {
 	in.translateAndScale(trans, scale);
 }
 
+static inline void FlipProjMatrix(Matrix4x4 &in, bool useBufferedRendering) {
+
+	const bool invertedY = useBufferedRendering ? (gstate_c.vpHeight < 0) : (gstate_c.vpHeight > 0);
+	if (invertedY) {
+		in[1] = -in[1];
+		in[5] = -in[5];
+		in[9] = -in[9];
+		in[13] = -in[13];
+	}
+	const bool invertedX = gstate_c.vpWidth < 0;
+	if (invertedX) {
+		in[0] = -in[0];
+		in[4] = -in[4];
+		in[8] = -in[8];
+		in[12] = -in[12];
+	}
+
+	// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
+	// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
+	if (gstate_c.Supports(GPU_USE_DEPTH_RANGE_HACK)) {
+		float zScale = gstate.getViewportZScale() / 65535.0f;
+		float zCenter = gstate.getViewportZCenter() / 65535.0f;
+
+		// if far depth range < 0
+		if (zCenter + zScale < 0.0f) {
+			// if perspective projection
+			if (in[11] < 0.0f) {
+				float depthMax = gstate.getDepthRangeMax() / 65535.0f;
+				float depthMin = gstate.getDepthRangeMin() / 65535.0f;
+
+				float a = in[10];
+				float b = in[14];
+
+				float n = b / (a - 1.0f);
+				float f = b / (a + 1.0f);
+
+				f = (n * f) / (n + ((zCenter + zScale) * (n - f) / (depthMax - depthMin)));
+
+				a = (n + f) / (n - f);
+				b = (2.0f * n * f) / (n - f);
+
+				if (!my_isnan(a) && !my_isnan(b)) {
+					in[10] = a;
+					in[14] = b;
+				}
+			}
+		}
+	}
+}
+
 void LinkedShader::use(const ShaderID &VSID) {
 	render_->BindProgram(program);
 	// Note that we no longer track attr masks here - we do it for the input layouts instead.
@@ -304,9 +351,10 @@ void LinkedShader::use(const ShaderID &VSID) {
 void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBufferedRendering) {
 	u64 dirty = dirtyUniforms & availableUniforms;
 	dirtyUniforms = 0;
-#ifdef OPENXR
-	dirty |= DIRTY_VIEWMATRIX;
-#endif
+
+	if (IsVRBuild()) {
+		dirty |= DIRTY_VIEWMATRIX;
+	}
 	if (!dirty)
 		return;
 
@@ -321,96 +369,52 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		render_->SetUniformUI1(&u_depal_mask_shift_off_fmt, val);
 	}
 
-#ifdef OPENXR
-	// Count 3D instances
-	bool is2D = VR_TweakIsMatrixBigScale(gstate.projMatrix) ||
-			    VR_TweakIsMatrixIdentity(gstate.projMatrix) ||
-			    VR_TweakIsMatrixOneOrtho(gstate.projMatrix) ||
-			    VR_TweakIsMatrixOneScale(gstate.projMatrix) ||
-			    VR_TweakIsMatrixOneTransform(gstate.projMatrix);
-	if (!is2D && !gstate.isModeThrough()) {
-		VR_SetConfig(VR_CONFIG_3D_GEOMETRY_COUNT, VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) + 1);
-	}
+	bool is2D, flatScreen;
+	if (IsVRBuild()) {
+		// Analyze scene
+		is2D = Is2DVRObject(gstate.projMatrix, gstate.isModeThrough());
+		flatScreen = IsFlatVRScene();
 
-	// Set HUD mode
-	bool is3D = gstate.isDepthWriteEnabled();
-	bool flatScreen = VR_GetConfig(VR_CONFIG_MODE) == VR_MODE_FLAT_SCREEN;
-	bool hud = is2D && !is3D && !flatScreen &&
-               gstate.isModeThrough() &&       //2D content requires orthographic projection
-               gstate.isAlphaBlendEnabled() && //2D content has to be blended
-               !gstate.isLightingEnabled() &&  //2D content cannot be rendered with lights on
-               !gstate.isFogEnabled();         //2D content cannot be rendered with fog on
-	if (hud) {
-		float scale = 0.5f;
-		render_->SetUniformF1(&u_scaleX, scale);
-		render_->SetUniformF1(&u_scaleY, scale / 480.0f * 272.0f);
-	} else {
-		render_->SetUniformF1(&u_scaleX, 1.0f);
-		render_->SetUniformF1(&u_scaleY, 1.0f);
+		// Set HUD mode
+		bool is3D = gstate.isDepthWriteEnabled();
+		bool hud = is2D && !is3D && !flatScreen &&
+		           gstate.isModeThrough() &&       //2D content requires orthographic projection
+		           gstate.isAlphaBlendEnabled() && //2D content has to be blended
+		           !gstate.isLightingEnabled() &&  //2D content cannot be rendered with lights on
+		           !gstate.isFogEnabled();         //2D content cannot be rendered with fog on
+		if (hud) {
+			float scale = 0.5f;
+			render_->SetUniformF1(&u_scaleX, scale);
+			render_->SetUniformF1(&u_scaleY, scale / 480.0f * 272.0f);
+		} else {
+			render_->SetUniformF1(&u_scaleX, 1.0f);
+			render_->SetUniformF1(&u_scaleY, 1.0f);
+		}
 	}
-#endif
 
 	// Update any dirty uniforms before we draw
 	if (dirty & DIRTY_PROJMATRIX) {
-		Matrix4x4 flippedMatrix;
-#ifdef OPENXR
-		if (flatScreen || is2D) {
-			memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
-		} else {
-			VR_TweakProjection(gstate.projMatrix, flippedMatrix.m, VR_PROJECTION_MATRIX_LEFT_EYE);
-			VR_TweakMirroring(gstate.projMatrix);
-		}
-#else
-		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
-#endif
-
-		const bool invertedY = useBufferedRendering ? (gstate_c.vpHeight < 0) : (gstate_c.vpHeight > 0);
-		if (invertedY) {
-			flippedMatrix[1] = -flippedMatrix[1];
-			flippedMatrix[5] = -flippedMatrix[5];
-			flippedMatrix[9] = -flippedMatrix[9];
-			flippedMatrix[13] = -flippedMatrix[13];
-		}
-		const bool invertedX = gstate_c.vpWidth < 0;
-		if (invertedX) {
-			flippedMatrix[0] = -flippedMatrix[0];
-			flippedMatrix[4] = -flippedMatrix[4];
-			flippedMatrix[8] = -flippedMatrix[8];
-			flippedMatrix[12] = -flippedMatrix[12];
-		}
-
-		// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
-		// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
-		if (gstate_c.Supports(GPU_USE_DEPTH_RANGE_HACK)) {
-			float zScale = gstate.getViewportZScale() / 65535.0f;
-			float zCenter = gstate.getViewportZCenter() / 65535.0f;
-
-			// if far depth range < 0
-			if (zCenter + zScale < 0.0f) {
-				// if perspective projection
-				if (flippedMatrix[11] < 0.0f) {
-					float depthMax = gstate.getDepthRangeMax() / 65535.0f;
-					float depthMin = gstate.getDepthRangeMin() / 65535.0f;
-
-					float a = flippedMatrix[10];
-					float b = flippedMatrix[14];
-
-					float n = b / (a - 1.0f);
-					float f = b / (a + 1.0f);
-
-					f = (n * f) / (n + ((zCenter + zScale) * (n - f) / (depthMax - depthMin)));
-
-					a = (n + f) / (n - f);
-					b = (2.0f * n * f) / (n - f);
-
-					if (!my_isnan(a) && !my_isnan(b)) {
-						flippedMatrix[10] = a;
-						flippedMatrix[14] = b;
-					}
-				}
+		if (IsVRBuild()) {
+			Matrix4x4 leftEyeMatrix, rightEyeMatrix;
+			if (flatScreen || is2D) {
+				memcpy(&leftEyeMatrix, gstate.projMatrix, 16 * sizeof(float));
+				memcpy(&rightEyeMatrix, gstate.projMatrix, 16 * sizeof(float));
+			} else {
+				UpdateVRProjection(gstate.projMatrix, leftEyeMatrix.m, rightEyeMatrix.m);
 			}
+
+			FlipProjMatrix(leftEyeMatrix, useBufferedRendering);
+			FlipProjMatrix(rightEyeMatrix, useBufferedRendering);
+			ScaleProjMatrix(leftEyeMatrix, useBufferedRendering);
+			ScaleProjMatrix(rightEyeMatrix, useBufferedRendering);
+
+			render_->SetUniformM4x4Stereo("u_proj_lens", &u_proj_lens, leftEyeMatrix.m, rightEyeMatrix.m);
 		}
 
+		Matrix4x4 flippedMatrix;
+		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
+
+		FlipProjMatrix(flippedMatrix, useBufferedRendering);
 		ScaleProjMatrix(flippedMatrix, useBufferedRendering);
 
 		render_->SetUniformM4x4(&u_proj, flippedMatrix.m);
@@ -519,18 +523,18 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		SetMatrix4x3(render_, &u_world, gstate.worldMatrix);
 	}
 	if (dirty & DIRTY_VIEWMATRIX) {
-#ifdef OPENXR
-		if (flatScreen || is2D) {
-			SetMatrix4x3(render_, &u_view, gstate.viewMatrix);
+		if (IsVRBuild()) {
+			float leftEyeView[16];
+			float rightEyeView[16];
+			ConvertMatrix4x3To4x4Transposed(leftEyeView, gstate.viewMatrix);
+			ConvertMatrix4x3To4x4Transposed(rightEyeView, gstate.viewMatrix);
+			if (!flatScreen && !is2D) {
+				UpdateVRView(gstate.projMatrix, leftEyeView, rightEyeView);
+			}
+			render_->SetUniformM4x4Stereo("u_view", &u_view, leftEyeView, rightEyeView);
 		} else {
-			float m4x4[16];
-			ConvertMatrix4x3To4x4Transposed(m4x4, gstate.viewMatrix);
-			VR_TweakView(m4x4, gstate.projMatrix, VR_VIEW_MATRIX_LEFT_EYE);
-			render_->SetUniformM4x4(&u_view, m4x4);
+			SetMatrix4x3(render_, &u_view, gstate.viewMatrix);
 		}
-#else
-		SetMatrix4x3(render_, &u_view, gstate.viewMatrix);
-#endif
 	}
 	if (dirty & DIRTY_TEXMATRIX) {
 		SetMatrix4x3(render_, &u_texmtx, gstate.tgenMatrix);

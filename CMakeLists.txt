@@ -221,7 +221,9 @@ include_directories(ext/glslang)
 # Anyway, glew will be going away anyway.
 include_directories(ext/glew)
 
-if(NOT OPENGL_LIBRARIES AND USING_GLES2)
+if(OPENXR)
+	set(OPENGL_LIBRARIES GLESv3 EGL)
+elseif(NOT OPENGL_LIBRARIES AND USING_GLES2)
 	set(OPENGL_LIBRARIES GLESv2 EGL)
 endif()
 
@@ -1079,6 +1081,8 @@ if(ANDROID)
 
 	if (OPENXR)
 		set(nativeExtra ${nativeExtra}
+			Common/VR/PPSSPPVR.cpp
+			Common/VR/PPSSPPVR.h
 			Common/VR/VRBase.cpp
 			Common/VR/VRBase.h
 			Common/VR/VRFramebuffer.cpp

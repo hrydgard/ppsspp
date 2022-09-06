@@ -3,16 +3,13 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/VR/PPSSPPVR.h"
+
+#include "Core/Config.h"
 
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
 #include "Common/Math/math_util.h"
-
-#ifdef OPENXR
-#include "Core/Config.h"
-#include "VR/VRBase.h"
-#include "VR/VRRenderer.h"
-#endif
 
 #if 0 // def _DEBUG
 #define VLOG(...) INFO_LOG(G3D, __VA_ARGS__)
@@ -203,22 +200,6 @@ bool GLRenderManager::ThreadFrame() {
 	std::unique_lock<std::mutex> lock(mutex_);
 	if (!run_)
 		return false;
-#ifdef OPENXR
-	VR_BeginFrame(VR_GetEngine());
-
-	// Decide if the scene is 3D or not
-	if (g_Config.bEnableVR && !VR_GetConfig(VR_CONFIG_FORCE_2D) && (VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) > 15)) {
-		VR_SetConfig(VR_CONFIG_MODE, VR_MODE_MONO_6DOF);
-	} else {
-		VR_SetConfig(VR_CONFIG_MODE, VR_MODE_FLAT_SCREEN);
-	}
-	VR_SetConfig(VR_CONFIG_3D_GEOMETRY_COUNT, VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) / 2);
-
-	// Set customizations
-	VR_SetConfig(VR_CONFIG_6DOF_ENABLED, g_Config.bEnable6DoF);
-	VR_SetConfig(VR_CONFIG_CANVAS_DISTANCE, g_Config.iCanvasDistance);
-	VR_SetConfig(VR_CONFIG_FOV_SCALE, g_Config.iFieldOfViewPercentage);
-#endif
 
 	// In case of syncs or other partial completion, we keep going until we complete a frame.
 	do {
@@ -255,11 +236,10 @@ bool GLRenderManager::ThreadFrame() {
 			firstFrame = false;
 		}
 		Run(threadFrame_);
+
 		VLOG("PULL: Finished frame %d", threadFrame_);
 	} while (!nextFrame);
-#ifdef OPENXR
-	VR_EndFrame(VR_GetEngine());
-#endif
+
 	return true;
 }
 
@@ -581,6 +561,7 @@ void GLRenderManager::EndSubmitFrame(int frame) {
 void GLRenderManager::Run(int frame) {
 	BeginSubmitFrame(frame);
 
+
 	FrameData &frameData = frameData_[frame];
 
 	auto &stepsOnThread = frameData_[frame].steps;
@@ -597,7 +578,22 @@ void GLRenderManager::Run(int frame) {
 		}
 	}
 
-	queueRunner_.RunSteps(stepsOnThread, skipGLCalls_);
+	if (IsVRBuild()) {
+		if (PreVRRender()) {
+			int passes = 1;
+			if (!IsMultiviewSupported() && g_Config.bEnableStereo) {
+				passes = 2;
+			}
+			for (int i = 0; i < passes; i++) {
+				PreVRFrameRender(i);
+				queueRunner_.RunSteps(stepsOnThread, skipGLCalls_, i < passes - 1);
+				PostVRFrameRender();
+			}
+			PostVRRender();
+		}
+	} else {
+		queueRunner_.RunSteps(stepsOnThread, skipGLCalls_);
+	}
 	stepsOnThread.clear();
 
 	if (!skipGLCalls_) {

@@ -23,6 +23,7 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/ShaderWriter.h"
 #include "Common/GPU/thin3d.h"
+#include "Common/VR/PPSSPPVR.h"
 #include "Core/Config.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
@@ -150,6 +151,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (gl_extensions.ARB_cull_distance && id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) {
 			gl_exts.push_back("#extension GL_ARB_cull_distance : enable");
 		}
+	}
+	if (IsVRBuild() && IsMultiviewSupported()) {
+		gl_exts.push_back("#extension GL_OVR_multiview2 : enable\nlayout(num_views=2) in;");
 	}
 	ShaderWriter p(buffer, compat, ShaderStage::Vertex, gl_exts.data(), gl_exts.size());
 
@@ -469,6 +473,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "uniform mat4 u_proj_through;\n");
 			*uniformMask |= DIRTY_PROJTHROUGHMATRIX;
 		} else if (useHWTransform) {
+			if (IsVRBuild()) {
+				if (IsMultiviewSupported()) {
+					WRITE(p, "layout(shared) uniform ProjectionMatrix { uniform mat4 u_proj_lens[2]; };\n");
+				} else {
+					WRITE(p, "uniform mat4 u_proj_lens;\n");
+				}
+			}
 			WRITE(p, "uniform mat4 u_proj;\n");
 			*uniformMask |= DIRTY_PROJMATRIX;
 		}
@@ -477,7 +488,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			// When transforming by hardware, we need a great deal more uniforms...
 			// TODO: Use 4x3 matrices where possible. Though probably doesn't matter much.
 			WRITE(p, "uniform mat4 u_world;\n");
-			WRITE(p, "uniform mat4 u_view;\n");
+			if (IsVRBuild() && IsMultiviewSupported()) {
+				WRITE(p, "layout(shared) uniform ViewMatrices { uniform mat4 u_view[2]; };\n");
+			} else {
+				WRITE(p, "uniform mat4 u_view;\n");
+			}
 			*uniformMask |= DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX;
 			if (doTextureTransform) {
 				WRITE(p, "uniform mediump mat4 u_texmtx;\n");
@@ -534,10 +549,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "uniform lowp float u_rotation;\n");
 		}
 
-#ifdef OPENXR
-		WRITE(p, "uniform lowp float u_scaleX;\n");
-		WRITE(p, "uniform lowp float u_scaleY;\n");
-#endif
+		if (IsVRBuild()) {
+			WRITE(p, "uniform lowp float u_scaleX;\n");
+			WRITE(p, "uniform lowp float u_scaleY;\n");
+		}
 
 		if (useHWTransform || !hasColor) {
 			WRITE(p, "uniform lowp vec4 u_matambientalpha;\n");  // matambient + matalpha
@@ -900,13 +915,28 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  mediump vec3 worldnormal = normalizeOr001(mul(vec4(skinnednormal, 0.0), u_world).xyz);\n");
 		}
 
-		WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view).xyz, 1.0);\n");
+		std::string matrixPostfix;
+		if (IsVRBuild() && IsMultiviewSupported()) {
+			matrixPostfix = "[gl_ViewID_OVR]";
+		}
+
+		WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view%s).xyz, 1.0);\n", matrixPostfix.c_str());
 
 		// Final view and projection transforms.
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-			WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, viewPos));\n");
+			if (IsVRBuild()) {
+				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj_lens%s, viewPos));\n", matrixPostfix.c_str());
+				WRITE(p, "  vec4 orgPos = depthRoundZVP(mul(u_proj, viewPos));\n");
+			} else {
+				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, viewPos));\n");
+			}
 		} else {
-			WRITE(p, "  vec4 outPos = mul(u_proj, viewPos);\n");
+			if (IsVRBuild()) {
+				WRITE(p, "  vec4 outPos = mul(u_proj_lens%s, viewPos);\n", matrixPostfix.c_str());
+				WRITE(p, "  vec4 orgPos = mul(u_proj, viewPos);\n");
+			} else {
+				WRITE(p, "  vec4 outPos = mul(u_proj, viewPos);\n");
+			}
 		}
 
 		// TODO: Declare variables for dots for shade mapping if needed.
@@ -1144,7 +1174,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  %sv_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n", compat.vsOutPrefix);
 	}
 
-	if (vertexRangeCulling) {
+	if (vertexRangeCulling && !IsVRBuild()) {
 		WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w;\n");
 		WRITE(p, "  float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
 		// Vertex range culling doesn't happen when Z clips, note sign of w is important.
@@ -1183,17 +1213,24 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	// We've named the output gl_Position in HLSL as well.
 	WRITE(p, "  %sgl_Position = outPos;\n", compat.vsOutPrefix);
 
+	if (IsVRBuild()) {
+		// Z correction for the depth buffer
+		if (useHWTransform) {
+			WRITE(p, "  %sgl_Position.z = orgPos.z / abs(orgPos.w) * abs(outPos.w);\n", compat.vsOutPrefix);
+		}
+
+		// HUD scaling
+		WRITE(p, "  if ((u_scaleX < 0.99) || (u_scaleY < 0.99)) {\n");
+		WRITE(p, "    %sgl_Position.x *= u_scaleX;\n", compat.vsOutPrefix);
+		WRITE(p, "    %sgl_Position.y *= u_scaleY;\n", compat.vsOutPrefix);
+		WRITE(p, "  }\n");
+	}
+
 	if (needsZWHack) {
 		// See comment in thin3d_vulkan.cpp.
 		WRITE(p, "  if (%sgl_Position.z == %sgl_Position.w) %sgl_Position.z *= 0.999999;\n",
 			compat.vsOutPrefix, compat.vsOutPrefix, compat.vsOutPrefix);
 	}
-#ifdef OPENXR
-	WRITE(p, "  if ((u_scaleX < 0.99) || (u_scaleY < 0.99)) {\n");
-	WRITE(p, "    %sgl_Position.x *= u_scaleX;\n", compat.vsOutPrefix);
-	WRITE(p, "    %sgl_Position.y *= u_scaleY;\n", compat.vsOutPrefix);
-	WRITE(p, "  }\n");
-#endif
 
 	if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
 		WRITE(p, "  return Out;\n");

@@ -6,6 +6,7 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/OpenGL/DataFormatGL.h"
 #include "Common/Math/math_util.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
@@ -28,11 +29,6 @@ static constexpr int TEXCACHE_NAME_CACHE_SIZE = 16;
 
 #if PPSSPP_PLATFORM(IOS)
 extern void bindDefaultFBO();
-#endif
-
-#ifdef OPENXR
-#include "VR/VRBase.h"
-#include "VR/VRRenderer.h"
 #endif
 
 // Workaround for Retroarch. Simply declare
@@ -108,6 +104,19 @@ static std::string GetInfoLog(GLuint name, Getiv getiv, GetLog getLog) {
 
 	infoLog.resize(len);
 	return infoLog;
+}
+
+int GLQueueRunner::GetStereoBufferIndex(const char *uniformName) {
+	if (!uniformName) return -1;
+	else if (strcmp(uniformName, "u_view") == 0) return 0;
+	else if (strcmp(uniformName, "u_proj_lens") == 0) return 1;
+	else return -1;
+}
+
+std::string GLQueueRunner::GetStereoBufferLayout(const char *uniformName) {
+	if (strcmp(uniformName, "u_view") == 0) return "ViewMatrices";
+	else if (strcmp(uniformName, "u_proj_lens") == 0) return "ProjectionMatrix";
+	else return "undefined";
 }
 
 void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool skipGLCalls) {
@@ -263,7 +272,27 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 			for (size_t j = 0; j < program->queries_.size(); j++) {
 				auto &query = program->queries_[j];
 				_dbg_assert_(query.name);
-				int location = glGetUniformLocation(program->program, query.name);
+
+				int location = -1;
+				if (IsVRBuild() && IsMultiviewSupported()) {
+					int index = GetStereoBufferIndex(query.name);
+					if (index >= 0) {
+						std::string layout = GetStereoBufferLayout(query.name);
+						glUniformBlockBinding(program->program, glGetUniformBlockIndex(program->program, layout.c_str()), index);
+
+						GLuint buffer = 0;
+						glGenBuffers(1, &buffer);
+						glBindBuffer(GL_UNIFORM_BUFFER, buffer);
+						glBufferData(GL_UNIFORM_BUFFER,2 * 16 * sizeof(float),NULL, GL_STATIC_DRAW);
+						glBindBuffer(GL_UNIFORM_BUFFER, 0);
+						location = buffer;
+					} else {
+						location = glGetUniformLocation(program->program, query.name);
+					}
+				} else {
+					location = glGetUniformLocation(program->program, query.name);
+				}
+
 				if (location < 0 && query.required) {
 					WARN_LOG(G3D, "Required uniform query for '%s' failed", query.name);
 				}
@@ -613,7 +642,7 @@ retry_depth:
 	currentReadHandle_ = fbo->handle;
 }
 
-void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls) {
+void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls, bool keepSteps) {
 	if (skipGLCalls) {
 		// Dry run
 		for (size_t i = 0; i < steps.size(); i++) {
@@ -695,7 +724,9 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 			glPopDebugGroup();
 #endif
 
-		delete steps[i];
+		if (!keepSteps) {
+			delete steps[i];
+		}
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
 }
@@ -990,6 +1021,36 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				case 2: glUniform2iv(loc, 1, (GLint *)c.uniform4.v); break;
 				case 3: glUniform3iv(loc, 1, (GLint *)c.uniform4.v); break;
 				case 4: glUniform4iv(loc, 1, (GLint *)c.uniform4.v); break;
+				}
+			}
+			CHECK_GL_ERROR_IF_DEBUG();
+			break;
+		}
+		case GLRRenderCommand::UNIFORMSTEREOMATRIX:
+		{
+			_dbg_assert_(curProgram);
+			if (IsMultiviewSupported()) {
+				int layout = GetStereoBufferIndex(c.uniformMatrix4.name);
+				if (layout >= 0) {
+					int size = 2 * 16 * sizeof(float);
+					glBindBufferBase(GL_UNIFORM_BUFFER, layout, *c.uniformMatrix4.loc);
+					glBindBuffer(GL_UNIFORM_BUFFER, *c.uniformMatrix4.loc);
+					void *matrices = glMapBufferRange(GL_UNIFORM_BUFFER, 0, size, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+					memcpy(matrices, c.uniformMatrix4.m, size);
+					glUnmapBuffer(GL_UNIFORM_BUFFER);
+					glBindBuffer(GL_UNIFORM_BUFFER, 0);
+				}
+			} else {
+				int loc = c.uniformMatrix4.loc ? *c.uniformMatrix4.loc : -1;
+				if (c.uniformMatrix4.name) {
+					loc = curProgram->GetUniformLoc(c.uniformMatrix4.name);
+				}
+				if (loc >= 0) {
+					if (GetVRFBOIndex() == 0) {
+						glUniformMatrix4fv(loc, 1, false, c.uniformMatrix4.m);
+					} else {
+						glUniformMatrix4fv(loc, 1, false, &c.uniformMatrix4.m[16]);
+					}
 				}
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
@@ -1665,9 +1726,9 @@ void GLQueueRunner::fbo_unbind() {
 	bindDefaultFBO();
 #endif
 
-#ifdef OPENXR
-	VR_BindFramebuffer(VR_GetEngine(), 0);
-#endif
+	if (IsVRBuild()) {
+		BindVRFramebuffer();
+	}
 
 	currentDrawHandle_ = 0;
 	currentReadHandle_ = 0;

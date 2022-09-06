@@ -27,6 +27,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/Context.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #include "Common/System/Display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
 #include "Common/System/System.h"
@@ -1114,11 +1115,15 @@ void GameSettingsScreen::CreateViews() {
 		LinearLayout *vrSettings = AddTab("GameSettingsVR", ms->T("VR"));
 		vrSettings->Add(new ItemHeader(vr->T("Virtual reality")));
 		vrSettings->Add(new CheckBox(&g_Config.bEnableVR, vr->T("Enable virtual reality")));
+		vrSettings->Add(new PopupSliderChoice(&g_Config.iCanvasDistance, 1, 10, vr->T("Distance to 2D menus and scenes", "Distance to 2D menus and scenes"), 1, screenManager(), ""));
 		CheckBox *vr6DoF = vrSettings->Add(new CheckBox(&g_Config.bEnable6DoF, vr->T("Enable 6 degrees of freedom movement")));
 		vr6DoF->SetEnabledPtr(&g_Config.bEnableVR);
-		PopupSliderChoice *vrFieldOfView = vrSettings->Add(new PopupSliderChoice(&g_Config.iFieldOfViewPercentage, 100, 150, vr->T("Field of view scale", "Headset's field of view scale"), 10, screenManager(), vr->T("% of native FoV")));
+		PopupSliderChoice *vrFieldOfView = vrSettings->Add(new PopupSliderChoice(&g_Config.iFieldOfViewPercentage, 100, 200, vr->T("Field of view scale", "Headset's field of view scale"), 10, screenManager(), vr->T("% of native FoV")));
 		vrFieldOfView->SetEnabledPtr(&g_Config.bEnableVR);
-		vrSettings->Add(new PopupSliderChoice(&g_Config.iCanvasDistance, 1, 10, vr->T("Distance to 2D menus and scenes", "Distance to 2D menus and scenes"), 1, screenManager(), ""));
+		CheckBox *vrStereo = vrSettings->Add(new CheckBox(&g_Config.bEnableStereo, vr->T("Enable stereoscopic vision (Experimental)")));
+		vrStereo->SetEnabledPtr(&g_Config.bEnableVR);
+		PopupSliderChoice *vrStereoSepararation = vrSettings->Add(new PopupSliderChoice(&g_Config.iStereoSeparation, 1, 50, vr->T("Stereo separation (differs per game)", "Stereo separation (differs per game)"), 1, screenManager(), "x"));
+		vrStereoSepararation->SetEnabledPtr(&g_Config.bEnableStereo);
 	}
 }
 
