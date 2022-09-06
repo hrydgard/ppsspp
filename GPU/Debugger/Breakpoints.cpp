@@ -18,17 +18,27 @@
 #include <functional>
 #include <mutex>
 #include <set>
+#include <unordered_map>
 #include <vector>
 
 #include "Common/CommonFuncs.h"
+#include "Common/Math/expression_parser.h"
+#include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Debugger/Breakpoints.h"
 #include "GPU/GPUState.h"
 
 namespace GPUBreakpoints {
 
+struct BreakpointInfo {
+	bool isConditional = false;
+	PostfixExpression expression;
+	std::string expressionString;
+};
+
 static std::mutex breaksLock;
 static bool breakCmds[256];
-static std::set<u32> breakPCs;
+static BreakpointInfo breakCmdsInfo[256];
+static std::unordered_map<u32, BreakpointInfo> breakPCs;
 static std::set<u32> breakTextures;
 static std::set<u32> breakRenderTargets;
 // Small optimization to avoid a lock/lookup for the common case.
@@ -158,8 +168,42 @@ bool IsRenderTargetCmdBreakpoint(u32 op) {
 	return false;
 }
 
+static bool HitAddressBreakpoint(u32 pc) {
+	if (breakPCsCount == 0)
+		return false;
+
+	std::lock_guard<std::mutex> guard(breaksLock);
+	auto entry = breakPCs.find(pc);
+	if (entry == breakPCs.end())
+		return false;
+
+	if (entry->second.isConditional) {
+		u32 result = 1;
+		if (!GPUDebugExecExpression(gpuDebug, breakPCs[pc].expression, result))
+			return false;
+		return result != 0;
+	}
+	return true;
+}
+
+static bool HitOpBreakpoint(u32 op) {
+	u8 cmd = op >> 24;
+	if (!IsCmdBreakpoint(cmd))
+		return false;
+
+	if (breakCmdsInfo[cmd].isConditional) {
+		std::lock_guard<std::mutex> guard(breaksLock);
+		u32 result = 1;
+		if (!GPUDebugExecExpression(gpuDebug, breakCmdsInfo[cmd].expression, result))
+			return false;
+		return result != 0;
+	}
+
+	return true;
+}
+
 bool IsBreakpoint(u32 pc, u32 op) {
-	if (IsAddressBreakpoint(pc) || IsOpBreakpoint(op)) {
+	if (HitAddressBreakpoint(pc) || HitOpBreakpoint(op)) {
 		return true;
 	}
 
@@ -275,13 +319,13 @@ void AddAddressBreakpoint(u32 addr, bool temp) {
 	if (temp) {
 		if (breakPCs.find(addr) == breakPCs.end()) {
 			breakPCsTemp.insert(addr);
-			breakPCs.insert(addr);
+			breakPCs[addr].isConditional = false;
 		}
 		// Already normal breakpoint, let's not make it temporary.
 	} else {
 		// Remove the temporary marking.
 		breakPCsTemp.erase(addr);
-		breakPCs.insert(addr);
+		breakPCs.insert(std::make_pair(addr, BreakpointInfo{}));
 	}
 
 	breakPCsCount = breakPCs.size();
@@ -293,12 +337,16 @@ void AddCmdBreakpoint(u8 cmd, bool temp) {
 		if (!breakCmds[cmd]) {
 			breakCmdsTemp[cmd] = true;
 			breakCmds[cmd] = true;
+			breakCmdsInfo[cmd].isConditional = false;
 		}
 		// Ignore adding a temp breakpoint when a normal one exists.
 	} else {
 		// This is no longer temporary.
 		breakCmdsTemp[cmd] = false;
-		breakCmds[cmd] = true;
+		if (!breakCmds[cmd]) {
+			breakCmds[cmd] = true;
+			breakCmdsInfo[cmd].isConditional = false;
+		}
 	}
 	notifyBreakpoints(true);
 }
@@ -396,6 +444,63 @@ void RemoveTextureChangeTempBreakpoint() {
 
 	textureChangeTemp = false;
 	notifyBreakpoints(HasAnyBreakpoints());
+}
+
+static bool SetupCond(BreakpointInfo &bp, const std::string &expression, std::string *error) {
+	bool success = true;
+	if (expression.length() != 0) {
+		if (GPUDebugInitExpression(gpuDebug, expression.c_str(), bp.expression)) {
+			bp.isConditional = true;
+			bp.expressionString = expression;
+		} else {
+			// Don't change if it failed.
+			if (error)
+				*error = getExpressionError();
+			success = false;
+		}
+	} else {
+		bp.isConditional = false;
+	}
+	return success;
+}
+
+bool SetAddressBreakpointCond(u32 addr, const std::string &expression, std::string *error) {
+	// Must have one in the first place, make sure it's not temporary.
+	AddAddressBreakpoint(addr);
+
+	std::lock_guard<std::mutex> guard(breaksLock);
+	auto &bp = breakPCs[addr];
+	return SetupCond(breakPCs[addr], expression, error);
+}
+
+bool GetAddressBreakpointCond(u32 addr, std::string *expression) {
+	std::lock_guard<std::mutex> guard(breaksLock);
+	auto entry = breakPCs.find(addr);
+	if (entry != breakPCs.end() && entry->second.isConditional) {
+		if (expression)
+			*expression = entry->second.expressionString;
+		return true;
+	}
+	return false;
+}
+
+bool SetCmdBreakpointCond(u8 cmd, const std::string &expression, std::string *error) {
+	// Must have one in the first place, make sure it's not temporary.
+	AddCmdBreakpoint(cmd);
+
+	std::lock_guard<std::mutex> guard(breaksLock);
+	return SetupCond(breakCmdsInfo[cmd], expression, error);
+}
+
+bool GetCmdBreakpointCond(u8 cmd, std::string *expression) {
+	if (breakCmds[cmd] && breakCmdsInfo[cmd].isConditional) {
+		if (expression) {
+			std::lock_guard<std::mutex> guard(breaksLock);
+			*expression = breakCmdsInfo[cmd].expressionString;
+		}
+		return true;
+	}
+	return false;
 }
 
 void UpdateLastTexture(u32 addr) {

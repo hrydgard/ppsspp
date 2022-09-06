@@ -47,6 +47,7 @@ protected:
 private:
 	bool RowValuesChanged(int row);
 	void SetCmdValue(u32 op);
+	void PromptBreakpointCond(const TabStateRow &info);
 
 	const TabStateRow *rows_;
 	int rowCount_;

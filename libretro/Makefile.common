@@ -333,6 +333,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Data/Convert/ColorConv.cpp \
 	$(GPUDIR)/Debugger/Breakpoints.cpp \
 	$(GPUDIR)/Debugger/Debugger.cpp \
+	$(GPUDIR)/Debugger/GECommandTable.cpp \
 	$(GPUDIR)/Debugger/Playback.cpp \
 	$(GPUDIR)/Debugger/Record.cpp \
 	$(GPUDIR)/Debugger/Stepping.cpp \
