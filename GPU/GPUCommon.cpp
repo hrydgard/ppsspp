@@ -2410,7 +2410,8 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 
 void GPUCommon::FlushImm() {
 	SetDrawType(DRAW_PRIM, immPrim_);
-	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+	if (framebufferManager_)
+		framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// No idea how many cycles to skip, heh.
 		return;
