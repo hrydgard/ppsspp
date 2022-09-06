@@ -59,7 +59,15 @@ static const D3D11_INPUT_ELEMENT_DESC g_QuadVertexElements[] = {
 
 Draw::DataFormat FromD3D11Format(u32 fmt) {
 	switch (fmt) {
-	case DXGI_FORMAT_B8G8R8A8_UNORM: default: return Draw::DataFormat::R8G8B8A8_UNORM;
+	case DXGI_FORMAT_B4G4R4A4_UNORM:
+		return Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
+	case DXGI_FORMAT_B5G5R5A1_UNORM:
+		return Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+	case DXGI_FORMAT_B5G6R5_UNORM:
+		return Draw::DataFormat::R5G6B5_UNORM_PACK16;
+	case DXGI_FORMAT_B8G8R8A8_UNORM:
+	default:
+		return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 }
 
