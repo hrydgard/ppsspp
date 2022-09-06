@@ -266,6 +266,14 @@ static const TabStateRow stateSettingsRows[] = {
 	{ L"Dither 1",             GE_CMD_DITH1,                   CMD_FMT_HEX, GE_CMD_DITHERENABLE },
 	{ L"Dither 2",             GE_CMD_DITH2,                   CMD_FMT_HEX, GE_CMD_DITHERENABLE },
 	{ L"Dither 3",             GE_CMD_DITH3,                   CMD_FMT_HEX, GE_CMD_DITHERENABLE },
+	{ L"Imm vertex XY",        GE_CMD_VSCX,                    CMD_FMT_F16_XY, 0, GE_CMD_VSCY },
+	{ L"Imm vertex Z",         GE_CMD_VSCZ,                    CMD_FMT_HEX },
+	{ L"Imm vertex tex STQ",   GE_CMD_VTCS,                    CMD_FMT_XYZ, 0, GE_CMD_VTCT, GE_CMD_VTCQ },
+	{ L"Imm vertex color0",    GE_CMD_VCV,                     CMD_FMT_HEX },
+	{ L"Imm vertex color1",    GE_CMD_VSCV,                    CMD_FMT_HEX },
+	{ L"Imm vertex fog",       GE_CMD_VFC,                     CMD_FMT_HEX },
+	// TODO: Format?
+	{ L"Imm vertex prim",      GE_CMD_VAP,                     CMD_FMT_HEX },
 };
 
 // TODO: Commands not present in the above lists (some because they don't have meaningful values...):
