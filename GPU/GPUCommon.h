@@ -286,6 +286,7 @@ protected:
 	void UpdatePC(u32 currentPC, u32 newPC);
 	void UpdateState(GPURunState state);
 	void FastLoadBoneMatrix(u32 target);
+	void FlushImm();
 
 	// TODO: Unify this.
 	virtual void FinishDeferred() {}
@@ -352,13 +353,12 @@ protected:
 
 	TransformedVertex immBuffer_[MAX_IMMBUFFER_SIZE];
 	int immCount_ = 0;
-	GEPrimitiveType immPrim_;
+	GEPrimitiveType immPrim_ = GE_PRIM_INVALID;
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;
 
 private:
-	void FlushImm();
 	void CheckDepthUsage(VirtualFramebuffer *vfb);
 	void DoBlockTransfer(u32 skipDrawReason);
 	void DoExecuteCall(u32 target);

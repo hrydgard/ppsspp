@@ -1530,6 +1530,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 			break;
 
 		default:
+			FlushImm();
 			currentList->subIntrToken = prev & 0xFFFF;
 			UpdateState(GPUSTATE_DONE);
 			// Since we marked done, we have to restore the context now before the next list runs.
@@ -1651,6 +1652,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	u32 count = data & 0xFFFF;
 	if (count == 0)
 		return;
+	FlushImm();
 
 	// Upper bits are ignored.
 	GEPrimitiveType prim = static_cast<GEPrimitiveType>((data >> 16) & 7);
@@ -2379,13 +2381,25 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 		return;
 	}
 
+	int prim = (op >> 8) & 0x7;
+	if (prim != GE_PRIM_KEEP_PREVIOUS) {
+		// Flush before changing the prim type.  Only continue can be used to continue a prim.
+		FlushImm();
+	}
+
 	TransformedVertex &v = immBuffer_[immCount_++];
 
-	// Formula deduced from ThrillVille's clear.
-	int offsetX = gstate.getOffsetX16();
-	int offsetY = gstate.getOffsetY16();
-	v.x = ((gstate.imm_vscx & 0xFFFFFF) - offsetX) / 16.0f;
-	v.y = ((gstate.imm_vscy & 0xFFFFFF) - offsetY) / 16.0f;
+	// ThrillVille does a clear with this, additional parameters found via tests.
+	// The current vtype affects how the coordinate is processed.
+	if (gstate.isModeThrough()) {
+		v.x = ((int)(gstate.imm_vscx & 0xFFFF) - 0x8000) / 16.0f;
+		v.y = ((int)(gstate.imm_vscy & 0xFFFF) - 0x8000) / 16.0f;
+	} else {
+		int offsetX = gstate.getOffsetX16();
+		int offsetY = gstate.getOffsetY16();
+		v.x = ((int)(gstate.imm_vscx & 0xFFFF) - offsetX) / 16.0f;
+		v.y = ((int)(gstate.imm_vscy & 0xFFFF) - offsetY) / 16.0f;
+	}
 	v.z = gstate.imm_vscz & 0xFFFF;
 	v.pos_w = 1.0f;
 	v.u = getFloat24(gstate.imm_vtcs);
@@ -2394,26 +2408,29 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 	v.color0_32 = (gstate.imm_cv & 0xFFFFFF) | (gstate.imm_ap << 24);
 	v.fog = 0.0f; // we have no information about the scale here
 	v.color1_32 = gstate.imm_scv & 0xFFFFFF;
-	int prim = (op >> 8) & 0x7;
 	if (prim != GE_PRIM_KEEP_PREVIOUS) {
 		immPrim_ = (GEPrimitiveType)prim;
-	} else if (prim == GE_PRIM_KEEP_PREVIOUS && immCount_ == 2) {
+	} else if (prim == GE_PRIM_KEEP_PREVIOUS && immPrim_ != GE_PRIM_INVALID) {
+		static constexpr int flushPrimCount[] = { 1, 2, 0, 3, 0, 0, 2, 0 };
 		// Instead of finding a proper point to flush, we just emit a full rectangle every time one
 		// is finished.
-		FlushImm();
-		// Need to reset immCount_ here. If we do it in FlushImm it could get skipped by gstate_c.skipDrawReason.
-		immCount_ = 0;
+		if (immCount_ == flushPrimCount[immPrim_ & 7])
+			FlushImm();
 	} else {
 		ERROR_LOG_REPORT_ONCE(imm_draw_prim, G3D, "Immediate draw: Unexpected primitive %d at count %d", prim, immCount_);
 	}
 }
 
 void GPUCommon::FlushImm() {
+	if (immCount_ == 0 || immPrim_ == GE_PRIM_INVALID)
+		return;
+
 	SetDrawType(DRAW_PRIM, immPrim_);
 	if (framebufferManager_)
 		framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// No idea how many cycles to skip, heh.
+		immCount_ = 0;
 		return;
 	}
 	UpdateUVScaleOffset();
@@ -2423,23 +2440,28 @@ void GPUCommon::FlushImm() {
 	// through vertices.
 	// Since the only known use is Thrillville and it only uses it to clear, we just use color and pos.
 	struct ImmVertex {
+		float uv[2];
 		uint32_t color;
 		float xyz[3];
 	};
 	ImmVertex temp[MAX_IMMBUFFER_SIZE];
 	for (int i = 0; i < immCount_; i++) {
+		// Since we're sending through, scale back up to w/h.
+		temp[i].uv[0] = immBuffer_[i].u * gstate.getTextureWidth(0);
+		temp[i].uv[1] = immBuffer_[i].v * gstate.getTextureHeight(0);
 		temp[i].color = immBuffer_[i].color0_32;
 		temp[i].xyz[0] = immBuffer_[i].pos[0];
 		temp[i].xyz[1] = immBuffer_[i].pos[1];
 		temp[i].xyz[2] = immBuffer_[i].pos[2];
 	}
-	int vtype = GE_VTYPE_POS_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_THROUGH;
+	int vtype = GE_VTYPE_TC_FLOAT | GE_VTYPE_POS_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_THROUGH;
 
 	int bytesRead;
 	uint32_t vertTypeID = GetVertTypeID(vtype, 0);
 	drawEngineCommon_->DispatchSubmitImm(temp, nullptr, immPrim_, immCount_, vertTypeID, gstate.getCullMode(), &bytesRead);
 	// TOOD: In the future, make a special path for these.
 	// drawEngineCommon_->DispatchSubmitImm(immBuffer_, immCount_);
+	immCount_ = 0;
 }
 
 void GPUCommon::ExecuteOp(u32 op, u32 diff) {
