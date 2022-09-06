@@ -775,11 +775,8 @@ SOURCES_C +=   $(ZSTDDIR)/common/debug.c \
                $(ZSTDDIR)/common/error_private.c \
                $(ZSTDDIR)/common/fse_decompress.c \
                $(ZSTDDIR)/common/pool.c \
-               $(ZSTDDIR)/common/threading.c
-
-#SOURCES_C +=   $(ZSTDDIR)/common/xxhash.c
-
-SOURCES_C +=   \
+               $(ZSTDDIR)/common/threading.c \
+               $(ZSTDDIR)/common/xxhash.c \
                $(ZSTDDIR)/common/zstd_common.c \
                $(ZSTDDIR)/compress/fse_compress.c \
                $(ZSTDDIR)/compress/hist.c \
