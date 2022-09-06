@@ -354,6 +354,7 @@ protected:
 	TransformedVertex immBuffer_[MAX_IMMBUFFER_SIZE];
 	int immCount_ = 0;
 	GEPrimitiveType immPrim_ = GE_PRIM_INVALID;
+	uint32_t immFlags_ = 0;
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;

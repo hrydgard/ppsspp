@@ -2410,6 +2410,8 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 	v.color1_32 = gstate.imm_scv & 0xFFFFFF;
 	if (prim != GE_PRIM_KEEP_PREVIOUS) {
 		immPrim_ = (GEPrimitiveType)prim;
+		// Flags seem to only be respected from the first prim.
+		immFlags_ = op & 0x00FFF800;
 	} else if (prim == GE_PRIM_KEEP_PREVIOUS && immPrim_ != GE_PRIM_INVALID) {
 		static constexpr int flushPrimCount[] = { 1, 2, 0, 3, 0, 0, 2, 0 };
 		// Instead of finding a proper point to flush, we just emit a full rectangle every time one
@@ -2456,12 +2458,42 @@ void GPUCommon::FlushImm() {
 	}
 	int vtype = GE_VTYPE_TC_FLOAT | GE_VTYPE_POS_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_THROUGH;
 
+	static constexpr int GE_IMM_CULLENABLE = 0x00080000;
+	static constexpr int GE_IMM_CULLFACE = 0x00100000;
+	static constexpr int GE_IMM_TEXTURE = 0x00200000;
+	static constexpr int GE_IMM_DITHER = 0x00800000;
+
+	bool texturing = (immFlags_ & GE_IMM_TEXTURE) != 0;
+	bool prevTexturing = gstate.isTextureMapEnabled();
+	bool cullEnable = (immFlags_ & GE_IMM_CULLENABLE) != 0;
+	bool prevCullEnable = gstate.isCullEnabled();
+	int cullMode = (immFlags_ & GE_IMM_CULLFACE) != 0 ? 1 : 0;
+	bool prevDither = gstate.isDitherEnabled();
+	bool dither = (immFlags_ & GE_IMM_DITHER) != 0;
+	// Some notes say there's a flag to control this, but it seems to be flat regardless.
+	GEShadeMode prevShadeMode = gstate.getShadeMode();
+
+	if (texturing != prevTexturing || cullEnable != prevCullEnable || dither != prevDither || prevShadeMode != GE_SHADE_FLAT) {
+		DispatchFlush();
+		gstate.textureMapEnable = (GE_CMD_TEXTUREMAPENABLE << 24) | (int)texturing;
+		gstate.cullfaceEnable = (GE_CMD_CULLFACEENABLE << 24) | (int)cullEnable;
+		gstate.shademodel = (GE_CMD_SHADEMODE << 24) | GE_SHADE_FLAT;
+		gstate.ditherEnable = (GE_CMD_DITHERENABLE << 24) | (int)dither;
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
+	}
+
 	int bytesRead;
 	uint32_t vertTypeID = GetVertTypeID(vtype, 0);
-	drawEngineCommon_->DispatchSubmitImm(temp, nullptr, immPrim_, immCount_, vertTypeID, gstate.getCullMode(), &bytesRead);
+	drawEngineCommon_->DispatchSubmitImm(temp, nullptr, immPrim_, immCount_, vertTypeID, cullMode, &bytesRead);
 	// TOOD: In the future, make a special path for these.
 	// drawEngineCommon_->DispatchSubmitImm(immBuffer_, immCount_);
 	immCount_ = 0;
+
+	gstate.textureMapEnable = (GE_CMD_TEXTUREMAPENABLE << 24) | (int)prevTexturing;
+	gstate.cullfaceEnable = (GE_CMD_CULLFACEENABLE << 24) | (int)prevCullEnable;
+	gstate.shademodel = (GE_CMD_SHADEMODE << 24) | prevShadeMode;
+	gstate.ditherEnable = (GE_CMD_DITHERENABLE << 24) | (int)prevDither;
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
 }
 
 void GPUCommon::ExecuteOp(u32 op, u32 diff) {

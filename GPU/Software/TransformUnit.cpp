@@ -71,10 +71,12 @@ void SoftwareDrawEngine::DispatchSubmitPrim(const void *verts, const void *inds,
 }
 
 void SoftwareDrawEngine::DispatchSubmitImm(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
-	_assert_msg_(cullMode == gstate.getCullMode(), "Mixed cull mode not supported.");
+	int flipCull = cullMode != gstate.getCullMode() ? 1 : 0;
 	// TODO: For now, just setting all dirty.
 	transformUnit.SetDirty(SoftDirty(-1));
+	gstate.cullmode ^= flipCull;
 	transformUnit.SubmitPrimitive(verts, inds, prim, vertexCount, vertTypeID, bytesRead, this);
+	gstate.cullmode ^= flipCull;
 	// TODO: Should really clear, but the vertex type is faked so things might need resetting...
 	transformUnit.SetDirty(SoftDirty(-1));
 }
