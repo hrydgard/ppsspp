@@ -120,9 +120,7 @@ void VulkanQueueRunner::DestroyDeviceObjects() {
 
 	renderPasses_.IterateMut([&](const RPKey &rpkey, VKRRenderPass *rp) {
 		_assert_(rp);
-		for (int i = 0; i < RP_TYPE_COUNT; i++) {
-			vulkan_->Delete().QueueDeleteRenderPass(rp->pass[i]);
-		}
+		rp->Destroy(vulkan_);
 		delete rp;
 	});
 	renderPasses_.Clear();
@@ -145,9 +143,9 @@ static VkAttachmentStoreOp ConvertStoreAction(VKRRenderPassStoreAction action) {
 	return VK_ATTACHMENT_STORE_OP_DONT_CARE;  // avoid compiler warning
 }
 
-VkRenderPass VulkanQueueRunner::CreateRP(const RPKey &key, RenderPassType rpType) {
+VkRenderPass CreateRP(VulkanContext *vulkan, const RPKey &key, RenderPassType rpType) {
 	VkAttachmentDescription attachments[2] = {};
-	attachments[0].format = rpType == RP_TYPE_BACKBUFFER ? vulkan_->GetSwapchainFormat() : VK_FORMAT_R8G8B8A8_UNORM;
+	attachments[0].format = rpType == RP_TYPE_BACKBUFFER ? vulkan->GetSwapchainFormat() : VK_FORMAT_R8G8B8A8_UNORM;
 	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
 	attachments[0].loadOp = ConvertLoadAction(key.colorLoadAction);
 	attachments[0].storeOp = ConvertStoreAction(key.colorStoreAction);
@@ -157,7 +155,7 @@ VkRenderPass VulkanQueueRunner::CreateRP(const RPKey &key, RenderPassType rpType
 	attachments[0].finalLayout = rpType == RP_TYPE_BACKBUFFER ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	attachments[0].flags = 0;
 
-	attachments[1].format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
+	attachments[1].format = vulkan->GetDeviceInfo().preferredDepthStencilFormat;
 	attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
 	attachments[1].loadOp = ConvertLoadAction(key.depthLoadAction);
 	attachments[1].storeOp = ConvertStoreAction(key.depthStoreAction);
@@ -207,10 +205,20 @@ VkRenderPass VulkanQueueRunner::CreateRP(const RPKey &key, RenderPassType rpType
 	}
 
 	VkRenderPass pass;
-	VkResult res = vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &pass);
+	VkResult res = vkCreateRenderPass(vulkan->GetDevice(), &rp, nullptr, &pass);
 	_assert_(res == VK_SUCCESS);
 	_assert_(pass != VK_NULL_HANDLE);
 	return pass;
+}
+
+VkRenderPass VKRRenderPass::Get(VulkanContext *vulkan, RenderPassType rpType) {
+	// When we create a render pass, we create all "types" of it immediately,
+	// practical later when referring to it. Could change to on-demand if it feels motivated
+	// but I think the render pass objects are cheap.
+	if (!pass[(int)rpType]) {
+		pass[(int)rpType] = CreateRP(vulkan, key_, (RenderPassType)rpType);
+	}
+	return pass[(int)rpType];
 }
 
 // Self-dependency: https://github.com/gpuweb/gpuweb/issues/442#issuecomment-547604827
@@ -221,14 +229,7 @@ VKRRenderPass *VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 		return foundPass;
 	}
 
-	VKRRenderPass *pass = new VKRRenderPass();
-	// When we create a render pass, we create all "types" of it immediately,
-	// practical later when referring to it. Could change to on-demand if it feels motivated
-	// but I think the render pass objects are cheap.
-	for (int i = 0; i < RP_TYPE_COUNT; i++) {
-		pass->pass[i] = CreateRP(key, (RenderPassType)i);
-	}
-
+	VKRRenderPass *pass = new VKRRenderPass(key);
 	renderPasses_.Insert(key, pass);
 	return pass;
 }
@@ -1378,7 +1379,7 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 	}
 
 	VkRenderPassBeginInfo rp_begin = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
-	rp_begin.renderPass = renderPass->pass[(int)step.render.renderPassType];
+	rp_begin.renderPass = renderPass->Get(vulkan_, step.render.renderPassType);
 	rp_begin.framebuffer = framebuf;
 
 	VkRect2D rc = step.render.renderArea;

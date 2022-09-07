@@ -155,7 +155,7 @@ struct QueueProfileContext {
 	double cpuEndTime;
 };
 
-struct VKRRenderPass;
+class VKRRenderPass;
 
 struct VKRStep {
 	VKRStep(VKRStepType _type) : stepType(_type) {}
@@ -218,10 +218,6 @@ struct VKRStep {
 	};
 };
 
-struct VKRRenderPass {
-	VkRenderPass pass[RP_TYPE_COUNT];
-};
-
 struct RPKey {
 	// Only render-pass-compatibility-volatile things can be here.
 	VKRRenderPassLoadAction colorLoadAction;
@@ -230,6 +226,24 @@ struct RPKey {
 	VKRRenderPassStoreAction colorStoreAction;
 	VKRRenderPassStoreAction depthStoreAction;
 	VKRRenderPassStoreAction stencilStoreAction;
+};
+
+class VKRRenderPass {
+public:
+	VKRRenderPass(const RPKey &key) : key_(key) {}
+
+	VkRenderPass Get(VulkanContext *vulkan, RenderPassType rpType);
+	void Destroy(VulkanContext *vulkan) {
+		for (int i = 0; i < RP_TYPE_COUNT; i++) {
+			if (pass[i]) {
+				vulkan->Delete().QueueDeleteRenderPass(pass[i]);
+			}
+		}
+	}
+
+private:
+	VkRenderPass pass[RP_TYPE_COUNT]{};
+	RPKey key_;
 };
 
 class VulkanQueueRunner {
@@ -289,8 +303,6 @@ public:
 	}
 
 private:
-	VkRenderPass CreateRP(const RPKey &key, RenderPassType rpType);
-
 	void PerformBindFramebufferAsRenderTarget(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformRenderPass(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformCopy(const VKRStep &pass, VkCommandBuffer cmd);

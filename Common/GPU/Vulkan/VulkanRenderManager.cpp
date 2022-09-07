@@ -147,7 +147,7 @@ VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPas
 	VkFramebufferCreateInfo fbci{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
 	VkImageView views[2]{};
 
-	fbci.renderPass = compatibleRenderPass->pass[(int)renderPassType];
+	fbci.renderPass = compatibleRenderPass->Get(vulkan_, renderPassType);
 	fbci.attachmentCount = 2;
 	fbci.pAttachments = views;
 	views[0] = color.imageView;
@@ -715,7 +715,7 @@ void VulkanRenderManager::EndCurRenderStep() {
 	compileMutex_.lock();
 	for (VKRGraphicsPipeline *pipeline : pipelinesToCreate_) {
 		pipeline->pipeline[rpType] = Promise<VkPipeline>::CreateEmpty();
-		compileQueue_.push_back(CompileQueueEntry(pipeline, renderPass->pass[rpType], rpType));
+		compileQueue_.push_back(CompileQueueEntry(pipeline, renderPass->Get(vulkan_, rpType), rpType));
 	}
 	compileCond_.notify_one();
 	compileMutex_.unlock();
@@ -961,7 +961,7 @@ bool VulkanRenderManager::InitBackbufferFramebuffers(int width, int height) {
 
 	VLOG("InitFramebuffers: %dx%d", width, height);
 	VkFramebufferCreateInfo fb_info = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-	fb_info.renderPass = queueRunner_.GetCompatibleRenderPass()->pass[RP_TYPE_BACKBUFFER];
+	fb_info.renderPass = queueRunner_.GetCompatibleRenderPass()->Get(vulkan_, RP_TYPE_BACKBUFFER);
 	fb_info.attachmentCount = 2;
 	fb_info.pAttachments = attachments;
 	fb_info.width = width;
