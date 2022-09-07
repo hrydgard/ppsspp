@@ -101,8 +101,8 @@ static inline Vec4<float> Interpolate(const float &c0, const float &c1, const fl
 	return Interpolate(c0, c1, c2, w0.Cast<float>(), w1.Cast<float>(), w2.Cast<float>(), wsum_recip);
 }
 
-void ComputeRasterizerState(RasterizerState *state) {
-	ComputePixelFuncID(&state->pixelID);
+void ComputeRasterizerState(RasterizerState *state, bool throughMode) {
+	ComputePixelFuncID(&state->pixelID, throughMode);
 	state->drawPixel = Rasterizer::GetSingleFunc(state->pixelID);
 
 	state->enableTextures = gstate.isTextureMapEnabled() && !state->pixelID.clearMode;
@@ -140,7 +140,7 @@ void ComputeRasterizerState(RasterizerState *state) {
 	}
 
 	state->shadeGouraud = gstate.getShadeMode() == GE_SHADE_GOURAUD;
-	state->throughMode = gstate.isModeThrough();
+	state->throughMode = throughMode;
 	state->antialiasLines = gstate.isAntiAliasEnabled();
 
 	state->screenOffsetX = gstate.getOffsetX16();

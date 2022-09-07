@@ -21,7 +21,7 @@
 #include <string>
 #include <vector>
 
-#include <windowsx.h>
+#include "Common/CommonWindows.h"
 #include <commctrl.h>
 
 #include "Common/Data/Convert/ColorConv.h"
@@ -1114,7 +1114,13 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			bool temp;
 			bool isBreak = IsAddressBreakpoint(pc, temp);
 			if (isBreak && !temp) {
-				RemoveAddressBreakpoint(pc);
+				if (GetAddressBreakpointCond(pc, nullptr)) {
+					int ret = MessageBox(m_hDlg, L"This breakpoint has a custom condition.\nDo you want to remove it?", L"Confirmation", MB_YESNO);
+					if (ret == IDYES)
+						RemoveAddressBreakpoint(pc);
+				} else {
+					RemoveAddressBreakpoint(pc);
+				}
 			} else {
 				AddAddressBreakpoint(pc);
 			}

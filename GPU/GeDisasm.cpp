@@ -1354,11 +1354,36 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		break;
 
 	case GE_CMD_VAP:
-		snprintf(buffer, bufsize, "Vertex draw: alpha=%02x, prim=%s, other=%06x", data & 0xFF, primTypes[(data >> 8) & 7], data & ~0x0007FF);
+		{
+			bool antialias = (data & GE_IMM_ANTIALIAS) != 0;
+			int clip = (data & GE_IMM_CLIPMASK) >> 12;
+			bool shading = (data & GE_IMM_SHADING) != 0;
+			bool cullEnable = (data & GE_IMM_CULLENABLE) != 0;
+			int cullMode = (data & GE_IMM_CULLFACE) != 0 ? 1 : 0;
+			bool texturing = (data & GE_IMM_TEXTURE) != 0;
+			bool dither = (data & GE_IMM_DITHER) != 0;
+			char *p = buffer;
+			p += snprintf(p, bufsize - (p - buffer), "Vertex draw: alpha=%02x, prim=%s", data & 0xFF, primTypes[(data >> 8) & 7]);
+			if (antialias)
+				p += snprintf(p, bufsize - (p - buffer), ", antialias");
+			if (clip != 0)
+				p += snprintf(p, bufsize - (p - buffer), ", clip=%02x", clip);
+			if (shading)
+				p += snprintf(p, bufsize - (p - buffer), ", shading");
+			if (cullEnable)
+				p += snprintf(p, bufsize - (p - buffer), ", cull=%s", cullMode == 1 ? "back (CCW)" : "front (CW)");
+			if (texturing)
+				p += snprintf(p, bufsize - (p - buffer), ", texturing");
+			if (dither)
+				p += snprintf(p, bufsize - (p - buffer), ", dither");
+		}
 		break;
 
 	case GE_CMD_VFC:
-		snprintf(buffer, bufsize, "Vertex fog: %06x", data);
+		if (data & ~0xFF)
+			snprintf(buffer, bufsize, "Vertex fog: %02x / %f (extra %04x)", data & 0xFF, (data & 0xFF) / 255.0f, data >> 8);
+		else
+			snprintf(buffer, bufsize, "Vertex fog: %02x / %f", data & 0xFF, (data & 0xFF) / 255.0f);
 		break;
 
 	case GE_CMD_VSCV:

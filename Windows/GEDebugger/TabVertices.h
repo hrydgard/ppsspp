@@ -90,6 +90,7 @@ private:
 	bool GetValue(const GPUgstate &state, int row, int col, float &val);
 	bool ColChanged(const GPUgstate &lastState, const GPUgstate &state, int row, int col);
 	void ToggleBreakpoint(int row);
+	void PromptBreakpointCond(int row);
 };
 
 class TabMatrices : public Dialog {
