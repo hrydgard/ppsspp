@@ -19,6 +19,7 @@
 #pragma once
 
 #include <cstring>
+#include <cstdint>
 
 class GPUInterface;
 class GPUDebugInterface;
@@ -27,7 +28,7 @@ class GraphicsContext;
 // PSP rasterization has two outputs, color and depth. Stencil is packed
 // into the alpha channel of color (if exists), so possibly RASTER_COLOR
 // should be named RASTER_COLOR_STENCIL but it gets kinda hard to read.
-enum RasterChannel {
+enum RasterChannel : uint8_t {
 	RASTER_COLOR = 0,
 	RASTER_DEPTH = 1,
 };

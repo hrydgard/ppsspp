@@ -295,6 +295,7 @@ bool CPU_Init(std::string *errorString) {
 		HLEPlugins::Init();
 	if (!Memory::Init()) {
 		// We're screwed.
+		*errorString = "Memory init failed";
 		return false;
 	}
 	mipsr4k.Reset();

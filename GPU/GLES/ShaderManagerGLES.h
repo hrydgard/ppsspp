@@ -52,6 +52,7 @@ public:
 	int u_stencilReplaceValue;
 	int u_tex;
 	int u_proj;
+	int u_proj_lens;
 	int u_proj_through;
 	int u_texenv;
 	int u_view;

@@ -152,7 +152,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			GenericBlendState &blendState = pipelineState_.blendState;
 			GenericLogicState &logicState = pipelineState_.logicState;
 
-			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
+			if (pipelineState_.FramebufferRead()) {
 				ApplyFramebufferRead(&fboTexNeedsBind_);
 				// The shader takes over the responsibility for blending, so recompute.
 				// We might still end up using blend to write something to alpha.

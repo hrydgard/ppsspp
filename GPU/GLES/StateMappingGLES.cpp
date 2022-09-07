@@ -148,7 +148,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			GenericBlendState &blendState = pipelineState_.blendState;
 			GenericLogicState &logicState = pipelineState_.logicState;
 
-			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
+			if (pipelineState_.FramebufferRead()) {
 				bool fboTexNeedsBind = false;
 				ApplyFramebufferRead(&fboTexNeedsBind);
 				// The shader takes over the responsibility for blending, so recompute.

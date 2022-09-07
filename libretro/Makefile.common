@@ -161,10 +161,6 @@ ifeq ($(PLATFORM_EXT), android)
 			$(EXTDIR)/libzip/zip_source_file_stdio_named.c \
 			$(EXTDIR)/libzip/zip_random_unix.c
 	endif
-
-	SOURCES_C +=\
-		$(COMMONDIR)/Math/fast/fast_math.c \
-		$(COMMONDIR)/Math/fast/fast_matrix.c
 endif
 
 SOURCES_C += $(LIBRETRODIR)/ext/glew/glew.c
@@ -312,7 +308,8 @@ SOURCES_CXX += \
 	$(COMMONDIR)/TimeUtil.cpp
 
 SOURCES_C +=\
-	$(COMMONDIR)/GPU/OpenGL/gl3stub.c
+	$(COMMONDIR)/GPU/OpenGL/gl3stub.c \
+	$(COMMONDIR)/Math/fast/fast_matrix.c
 
 SOURCES_CXX += \
 	$(GPUCOMMONDIR)/Draw2D.cpp \
@@ -633,8 +630,7 @@ ifeq ($(WITH_DYNAREC),1)
 
 			SOURCES_C += $(EXTDIR)/libpng17/arm/arm_init.c \
 				     $(EXTDIR)/libpng17/arm/filter_neon_intrinsics.c
-			ASMFILES   += $(COMMONDIR)/Math/fast/fast_matrix_neon.S \
-				      $(EXTDIR)/libpng17/arm/filter_neon.S
+			ASMFILES   += $(EXTDIR)/libpng17/arm/filter_neon.S
 		endif
 	else ifeq ($(TARGET_ARCH),arm64)
       DYNAFLAGS += -D_ARCH_64
@@ -659,8 +655,7 @@ ifeq ($(WITH_DYNAREC),1)
 
 			SOURCES_C += $(EXTDIR)/libpng17/arm/arm_init.c \
 				     $(EXTDIR)/libpng17/arm/filter_neon_intrinsics.c
-			ASMFILES   += $(COMMONDIR)/math/fast/fast_matrix_neon.S \
-				      $(EXTDIR)/libpng17/arm/filter_neon.S
+			ASMFILES   += $(EXTDIR)/libpng17/arm/filter_neon.S
 		endif
    else
 	ifneq (,$(findstring msvc,$(platform)))
@@ -696,7 +691,6 @@ ifeq ($(WITH_DYNAREC),1)
 						$(COREDIR)/MIPS/x86/RegCache.cpp \
 						$(COREDIR)/MIPS/x86/RegCacheFPU.cpp \
 						$(GPUDIR)/Common/VertexDecoderX86.cpp
-		SOURCES_C   += $(COMMONDIR)/Math/fast/fast_matrix_sse.c
    endif
 endif
 #UDIS86
@@ -781,11 +775,8 @@ SOURCES_C +=   $(ZSTDDIR)/common/debug.c \
                $(ZSTDDIR)/common/error_private.c \
                $(ZSTDDIR)/common/fse_decompress.c \
                $(ZSTDDIR)/common/pool.c \
-               $(ZSTDDIR)/common/threading.c
-
-#SOURCES_C +=   $(ZSTDDIR)/common/xxhash.c
-
-SOURCES_C +=   \
+               $(ZSTDDIR)/common/threading.c \
+               $(ZSTDDIR)/common/xxhash.c \
                $(ZSTDDIR)/common/zstd_common.c \
                $(ZSTDDIR)/compress/fse_compress.c \
                $(ZSTDDIR)/compress/hist.c \

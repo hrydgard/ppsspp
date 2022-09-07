@@ -628,10 +628,7 @@ add_library(Common STATIC
 	Common/Input/KeyCodes.h
 	Common/Input/InputState.cpp
 	Common/Input/InputState.h
-	Common/Math/fast/fast_math.c
 	Common/Math/fast/fast_matrix.c
-	Common/Math/fast/fast_matrix_neon.S
-	Common/Math/fast/fast_matrix_sse.c
 	Common/Math/curves.cpp
 	Common/Math/curves.h
 	Common/Math/expression_parser.cpp

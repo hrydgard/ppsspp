@@ -1676,7 +1676,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	// See the documentation for gstate_c.blueToAlpha.
 	bool blueToAlpha = false;
 	if (PSP_CoreParameter().compat.flags().BlueToAlpha) {
-		if (gstate_c.framebufFormat == GEBufferFormat::GE_FORMAT_565 && gstate.getColorMask() == 0x0FFFFF) {
+		if (gstate_c.framebufFormat == GEBufferFormat::GE_FORMAT_565 && gstate.getColorMask() == 0x0FFFFF && !gstate.isLogicOpEnabled()) {
 			blueToAlpha = true;
 			gstate_c.framebufFormat = GEBufferFormat::GE_FORMAT_4444;
 		}
@@ -2143,6 +2143,7 @@ void GPUCommon::Execute_WorldMtxData(u32 op, u32 diff) {
 	}
 	num++;
 	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0xF);
+	gstate.worldmtxdata = GE_CMD_WORLDMATRIXDATA << 24;
 }
 
 void GPUCommon::Execute_ViewMtxNum(u32 op, u32 diff) {
@@ -2190,6 +2191,7 @@ void GPUCommon::Execute_ViewMtxData(u32 op, u32 diff) {
 	}
 	num++;
 	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0xF);
+	gstate.viewmtxdata = GE_CMD_VIEWMATRIXDATA << 24;
 }
 
 void GPUCommon::Execute_ProjMtxNum(u32 op, u32 diff) {
@@ -2238,6 +2240,7 @@ void GPUCommon::Execute_ProjMtxData(u32 op, u32 diff) {
 	num++;
 	if (num <= 16)
 		gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
+	gstate.projmtxdata = GE_CMD_PROJMATRIXDATA << 24;
 }
 
 void GPUCommon::Execute_TgenMtxNum(u32 op, u32 diff) {
@@ -2285,6 +2288,7 @@ void GPUCommon::Execute_TgenMtxData(u32 op, u32 diff) {
 	}
 	num++;
 	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0xF);
+	gstate.texmtxdata = GE_CMD_TGENMATRIXDATA << 24;
 }
 
 void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
@@ -2356,6 +2360,7 @@ void GPUCommon::Execute_BoneMtxData(u32 op, u32 diff) {
 	}
 	num++;
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
+	gstate.boneMatrixData = GE_CMD_BONEMATRIXDATA << 24;
 }
 
 void GPUCommon::Execute_MorphWeight(u32 op, u32 diff) {

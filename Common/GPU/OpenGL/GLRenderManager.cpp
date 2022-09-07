@@ -594,14 +594,13 @@ void GLRenderManager::Run(int frame) {
 	} else {
 		queueRunner_.RunSteps(stepsOnThread, skipGLCalls_);
 	}
+	stepsOnThread.clear();
 
 	if (!skipGLCalls_) {
 		for (auto iter : frameData.activePushBuffers) {
 			iter->MapDevice(bufferStrategy_);
 		}
 	}
-
-	stepsOnThread.clear();
 
 	switch (frameData.type) {
 	case GLRRunType::END:

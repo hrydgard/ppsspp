@@ -62,7 +62,6 @@
 #include "Common/System/NativeApp.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Input/InputState.h"
-#include "Common/Math/fast/fast_math.h"
 #include "Common/Math/math_util.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Profiler/Profiler.h"
@@ -460,7 +459,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	ShaderTranslationInit();
 
-	InitFastMath();
 	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
 
 	g_Discord.SetPresenceMenu();

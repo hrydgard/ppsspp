@@ -432,7 +432,6 @@
     <ClInclude Include="..\..\Common\Input\KeyCodes.h" />
     <ClInclude Include="..\..\Common\Math\curves.h" />
     <ClInclude Include="..\..\Common\Math\expression_parser.h" />
-    <ClInclude Include="..\..\Common\Math\fast\fast_math.h" />
     <ClInclude Include="..\..\Common\Math\fast\fast_matrix.h" />
     <ClInclude Include="..\..\Common\Math\geom2d.h" />
     <ClInclude Include="..\..\Common\Math\lin\matrix4x4.h" />
@@ -555,9 +554,7 @@
     <ClCompile Include="..\..\Common\Input\InputState.cpp" />
     <ClCompile Include="..\..\Common\Math\curves.cpp" />
     <ClCompile Include="..\..\Common\Math\expression_parser.cpp" />
-    <ClCompile Include="..\..\Common\Math\fast\fast_math.c" />
     <ClCompile Include="..\..\Common\Math\fast\fast_matrix.c" />
-    <ClCompile Include="..\..\Common\Math\fast\fast_matrix_sse.c" />
     <ClCompile Include="..\..\Common\Math\lin\matrix4x4.cpp" />
     <ClCompile Include="..\..\Common\Math\lin\vec3.cpp" />
     <ClCompile Include="..\..\Common\Math\math_util.cpp" />

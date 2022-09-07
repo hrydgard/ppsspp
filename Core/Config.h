@@ -458,6 +458,7 @@ public:
 	bool bEnableStereo;
 	int iCanvasDistance;
 	int iFieldOfViewPercentage;
+	int iStereoSeparation;
 
 	// Debugger
 	int iDisasmWindowX;

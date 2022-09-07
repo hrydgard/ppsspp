@@ -87,6 +87,7 @@ struct CompatFlags {
 	bool AtracLoopHack;
 	bool DeswizzleDepth;
 	bool SplitFramebufferMargin;
+	bool ForceLowerResolutionForEffectsOn;
 	bool VRClearFramebuffer;
 };
 
