@@ -810,7 +810,7 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 		}
 	}
 
-	if (dst != currentRenderVfb_ && tookActions) {
+	if (currentRenderVfb_ && dst != currentRenderVfb_ && tookActions) {
 		// Will probably just change the name of the current renderpass, since one was started by the reinterpret itself.
 		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "After Reinterpret");
 	}

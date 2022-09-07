@@ -71,10 +71,12 @@ void SoftwareDrawEngine::DispatchSubmitPrim(const void *verts, const void *inds,
 }
 
 void SoftwareDrawEngine::DispatchSubmitImm(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
-	_assert_msg_(cullMode == gstate.getCullMode(), "Mixed cull mode not supported.");
+	int flipCull = cullMode != gstate.getCullMode() ? 1 : 0;
 	// TODO: For now, just setting all dirty.
 	transformUnit.SetDirty(SoftDirty(-1));
+	gstate.cullmode ^= flipCull;
 	transformUnit.SubmitPrimitive(verts, inds, prim, vertexCount, vertTypeID, bytesRead, this);
+	gstate.cullmode ^= flipCull;
 	// TODO: Should really clear, but the vertex type is faked so things might need resetting...
 	transformUnit.SetDirty(SoftDirty(-1));
 }
@@ -200,11 +202,11 @@ struct TransformState {
 };
 
 void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
-	state->enableTransform = !gstate.isModeThrough();
+	state->enableTransform = !vreader.isThrough();
 	state->enableLighting = gstate.isLightingEnabled();
 	state->enableFog = gstate.isFogEnabled();
 	state->readUV = !gstate.isModeClear() && gstate.isTextureMapEnabled() && vreader.hasUV();
-	state->readWeights = vertTypeIsSkinningEnabled(gstate.vertType) && state->enableTransform;
+	state->readWeights = vreader.skinningEnabled() && state->enableTransform;
 	state->negateNormals = gstate.areNormalsReversed();
 
 	state->uvGenMode = gstate.getUVGenMode();
@@ -300,7 +302,7 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState
 		Vec3<float> tmppos(0.f, 0.f, 0.f);
 		Vec3<float> tmpnrm(0.f, 0.f, 0.f);
 
-		for (int i = 0; i < vertTypeGetNumBoneWeights(gstate.vertType); ++i) {
+		for (int i = 0; i < vreader.numBoneWeights(); ++i) {
 			Vec3<float> step = Vec3ByMatrix43(pos, gstate.boneMatrix + i * 12);
 			tmppos += step * W[i];
 			if (vreader.hasNormal()) {
@@ -504,7 +506,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 	// TODO: Do this in two passes - first process the vertices (before indexing/stripping),
 	// then resolve the indices. This lets us avoid transforming shared vertices twice.
 
-	binner_->UpdateState();
+	binner_->UpdateState(vreader.isThrough());
 
 	static TransformState transformState;
 	if (binner_->HasDirty(SoftDirty::LIGHT_ALL | SoftDirty::TRANSFORM_ALL)) {
@@ -593,7 +595,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				}
 			}
 
-			if (data_index == 4 && gstate.isModeThrough() && cullType == CullType::OFF) {
+			if (data_index == 4 && vreader.isThrough() && cullType == CullType::OFF) {
 				if (Rasterizer::DetectRectangleThroughModeSlices(binner_->State(), data)) {
 					data[1] = data[3];
 					data_index = 2;

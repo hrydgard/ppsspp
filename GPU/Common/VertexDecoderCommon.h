@@ -28,6 +28,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/GPUCommon.h"
+#include "GPU/GPUState.h"
 
 #if PPSSPP_ARCH(ARM)
 #include "Common/ArmEmitter.h"
@@ -299,6 +300,8 @@ public:
 	bool hasNormal() const { return decFmt_.nrmfmt != 0; }
 	bool hasUV() const { return decFmt_.uvfmt != 0; }
 	bool isThrough() const { return (vtype_ & GE_VTYPE_THROUGH) != 0; }
+	bool skinningEnabled() const { return vertTypeIsSkinningEnabled(vtype_); }
+	int numBoneWeights() const { return vertTypeGetNumBoneWeights(vtype_); }
 	void Goto(int index) {
 		data_ = base_ + index * decFmt_.stride;
 	}
