@@ -157,8 +157,6 @@ struct VKRComputePipelineDesc {
 
 // Wrapped pipeline. Doesn't own desc.
 struct VKRGraphicsPipeline {
-	~VKRGraphicsPipeline() {}
-
 	bool Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType);
 
 	// This deletes the whole VKRGraphicsPipeline, you must remove your last pointer to it when doing this.

@@ -1132,7 +1132,6 @@ static void CleanupRenderCommands(std::vector<VkRenderData> *cmds) {
 		case VKRRenderCommand::REMOVED:
 			continue;
 
-		case VKRRenderCommand::BIND_PIPELINE:
 		case VKRRenderCommand::VIEWPORT:
 		case VKRRenderCommand::SCISSOR:
 		case VKRRenderCommand::BLEND:

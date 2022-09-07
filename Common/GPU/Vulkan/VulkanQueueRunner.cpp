@@ -624,7 +624,13 @@ std::string VulkanQueueRunner::StepToString(const VKRStep &step) const {
 		int h = step.render.framebuffer ? step.render.framebuffer->height : vulkan_->GetBackbufferHeight();
 		int actual_w = step.render.renderArea.extent.width;
 		int actual_h = step.render.renderArea.extent.height;
-		snprintf(buffer, sizeof(buffer), "RENDER %s (draws: %d, %dx%d/%dx%d, fb: %p, )", step.tag, step.render.numDraws, actual_w, actual_h, w, h, step.render.framebuffer);
+		const char *renderCmd;
+		switch (step.render.renderPassType) {
+		case RP_TYPE_BACKBUFFER: renderCmd = "BACKBUF"; break;
+		case RP_TYPE_COLOR_DEPTH: renderCmd = "RENDER"; break;
+		default: renderCmd = "N/A";
+		}
+		snprintf(buffer, sizeof(buffer), "%s %s (draws: %d, %dx%d/%dx%d, fb: %p, )", renderCmd, step.tag, step.render.numDraws, actual_w, actual_h, w, h, step.render.framebuffer);
 		break;
 	}
 	case VKRStepType::COPY:
@@ -810,9 +816,6 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass, bool verbose) {
 			switch (cmd.cmd) {
 			case VKRRenderCommand::REMOVED:
 				INFO_LOG(G3D, "  (Removed)");
-				break;
-			case VKRRenderCommand::BIND_PIPELINE:
-				INFO_LOG(G3D, "  BindPipeline(%x)", (int)(intptr_t)cmd.pipeline.pipeline);
 				break;
 			case VKRRenderCommand::BIND_GRAPHICS_PIPELINE:
 				INFO_LOG(G3D, "  BindGraphicsPipeline(%x)", (int)(intptr_t)cmd.graphics_pipeline.pipeline);
@@ -1146,19 +1149,6 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		switch (c.cmd) {
 		case VKRRenderCommand::REMOVED:
 			break;
-
-		// Still here to support binding of non-async pipelines.
-		case VKRRenderCommand::BIND_PIPELINE:
-		{
-			VkPipeline pipeline = c.pipeline.pipeline;
-			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-			pipelineLayout = c.pipeline.pipelineLayout;
-			// Reset dynamic state so it gets refreshed with the new pipeline.
-			lastStencilWriteMask = -1;
-			lastStencilCompareMask = -1;
-			lastStencilReference = -1;
-			break;
-		}
 
 		case VKRRenderCommand::BIND_GRAPHICS_PIPELINE:
 		{

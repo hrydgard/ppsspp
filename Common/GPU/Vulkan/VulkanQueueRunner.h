@@ -26,7 +26,6 @@ enum {
 
 enum class VKRRenderCommand : uint8_t {
 	REMOVED,
-	BIND_PIPELINE,  // raw pipeline
 	BIND_GRAPHICS_PIPELINE,  // async
 	BIND_COMPUTE_PIPELINE,  // async
 	STENCIL,
