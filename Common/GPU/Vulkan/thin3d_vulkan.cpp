@@ -219,7 +219,7 @@ bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, con
 	std::vector<uint32_t> spirv;
 	std::string errorMessage;
 	if (!GLSLtoSPV(vkstage_, source_.c_str(), GLSLVariant::VULKAN, spirv, &errorMessage)) {
-		WARN_LOG(G3D, "Shader compile to module failed: %s", errorMessage.c_str());
+		WARN_LOG(G3D, "Shader compile to module failed (%s): %s", tag_.c_str(), errorMessage.c_str());
 		return false;
 	}
 
@@ -235,7 +235,7 @@ bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, con
 	if (vulkan->CreateShaderModule(spirv, &module_, vkstage_ == VK_SHADER_STAGE_VERTEX_BIT ? "thin3d_vs" : "thin3d_fs")) {
 		ok_ = true;
 	} else {
-		WARN_LOG(G3D, "vkCreateShaderModule failed");
+		WARN_LOG(G3D, "vkCreateShaderModule failed (%s)", tag_.c_str());
 		ok_ = false;
 	}
 	return ok_;
@@ -384,8 +384,8 @@ public:
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
-	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
-	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) override;
+	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const char *tag) override;
 
 	Texture *CreateTexture(const TextureDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
@@ -1039,7 +1039,7 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	return descSet;
 }
 
-Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
+Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) {
 	VKInputLayout *input = (VKInputLayout *)desc.inputLayout;
 	VKBlendState *blend = (VKBlendState *)desc.blend;
 	VKDepthStencilState *depth = (VKDepthStencilState *)desc.depthStencil;
@@ -1050,7 +1050,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		pipelineFlags |= PIPELINE_FLAG_USES_DEPTH_STENCIL;
 	}
 
-	VKPipeline *pipeline = new VKPipeline(vulkan_, desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float), (PipelineFlags)pipelineFlags, "thin3d");
+	VKPipeline *pipeline = new VKPipeline(vulkan_, desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float), (PipelineFlags)pipelineFlags, tag);
 
 	VKRGraphicsPipelineDesc &gDesc = pipeline->vkrDesc;
 
@@ -1122,7 +1122,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
 	raster->ToVulkan(&gDesc.rs);
 
-	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, 1 << RP_TYPE_BACKBUFFER, "thin3d");
+	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, 1 << RP_TYPE_BACKBUFFER, tag ? tag : "thin3d");
 
 	if (desc.uniformDesc) {
 		pipeline->dynamicUniformSize = (int)desc.uniformDesc->uniformBufferSize;
@@ -1280,12 +1280,12 @@ void VKContext::BindTextures(int start, int count, Texture **textures) {
 	}
 }
 
-ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size, const std::string &tag) {
+ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size, const char *tag) {
 	VKShaderModule *shader = new VKShaderModule(stage, tag);
 	if (shader->Compile(vulkan_, language, data, size)) {
 		return shader;
 	} else {
-		ERROR_LOG(G3D,  "Failed to compile shader:\n%s", (const char *)LineNumberString((const char *)data).c_str());
+		ERROR_LOG(G3D, "Failed to compile shader %s:\n%s", tag, (const char *)LineNumberString((const char *)data).c_str());
 		shader->Release();
 		return nullptr;
 	}

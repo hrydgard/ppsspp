@@ -439,7 +439,7 @@ Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModul
 	RasterState *rasterNoCull = draw_->CreateRasterState({});
 
 	PipelineDesc pipelineDesc{ Primitive::TRIANGLE_LIST, shaders, inputLayout, depth, blendstateOff, rasterNoCull, uniformDesc };
-	Pipeline *pipeline = draw_->CreateGraphicsPipeline(pipelineDesc);
+	Pipeline *pipeline = draw_->CreateGraphicsPipeline(pipelineDesc, "presentation");
 
 	inputLayout->Release();
 	depth->Release();
