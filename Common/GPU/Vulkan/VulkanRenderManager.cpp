@@ -118,11 +118,11 @@ void VKRGraphicsPipeline::QueueForDeletion(VulkanContext *vulkan) {
 			continue;
 		VkPipeline pipeline = this->pipeline[i]->BlockUntilReady();
 		vulkan->Delete().QueueDeletePipeline(pipeline);
-		vulkan->Delete().QueueCallback([](void *p) {
-			VKRGraphicsPipeline *pipeline = (VKRGraphicsPipeline *)p;
-			delete pipeline;
-		}, this);
 	}
+	vulkan->Delete().QueueCallback([](void *p) {
+		VKRGraphicsPipeline *pipeline = (VKRGraphicsPipeline *)p;
+		delete pipeline;
+	}, this);
 }
 
 u32 VKRGraphicsPipeline::GetVariantsBitmask() const {
@@ -634,7 +634,9 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 
 	VLOG("PUSH: Fencing %d", curFrame);
 
-	vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX);
+	if (vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX) == VK_ERROR_DEVICE_LOST) {
+		_assert_msg_(false, "Device lost in vkWaitForFences");
+	}
 	vkResetFences(device, 1, &frameData.fence);
 
 	// Can't set this until after the fence.

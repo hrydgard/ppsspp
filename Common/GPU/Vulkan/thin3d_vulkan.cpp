@@ -231,7 +231,7 @@ bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, con
 	}
 #endif
 
-	if (vulkan->CreateShaderModule(spirv, &module_)) {
+	if (vulkan->CreateShaderModule(spirv, &module_, vkstage_ == VK_SHADER_STAGE_VERTEX_BIT ? "thin3d_vs" : "thin3d_fs")) {
 		ok_ = true;
 	} else {
 		WARN_LOG(G3D, "vkCreateShaderModule failed");

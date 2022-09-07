@@ -38,9 +38,9 @@ void PipelineManagerVulkan::Clear() {
 		if (!value->pipeline) {
 			// Something went wrong.
 			ERROR_LOG(G3D, "Null pipeline found in PipelineManagerVulkan::Clear - didn't wait for asyncs?");
-			delete value;
+		} else {
+			value->pipeline->QueueForDeletion(vulkan_);
 		}
-		value->pipeline->QueueForDeletion(vulkan_);
 		delete value;
 	});
 

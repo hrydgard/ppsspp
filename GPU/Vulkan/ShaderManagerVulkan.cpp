@@ -71,7 +71,7 @@ Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, VkShade
 
 		VkShaderModule shaderModule = VK_NULL_HANDLE;
 		if (success) {
-			success = vulkan->CreateShaderModule(spirv, &shaderModule);
+			success = vulkan->CreateShaderModule(spirv, &shaderModule, stage == VK_SHADER_STAGE_VERTEX_BIT ? "game_vertex" : "game_fragment");
 #ifdef SHADERLOG
 			OutputDebugStringA("OK");
 #endif
@@ -81,7 +81,7 @@ Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, VkShade
 	};
 
 #ifdef _DEBUG
-	// Don't parallelize in debug mode, pathological behavior due to mutex locks in allocator.
+	// Don't parallelize in debug mode, pathological behavior due to mutex locks in allocator which is HEAVILY used by glslang.
 	return Promise<VkShaderModule>::AlreadyDone(compile());
 #else
 	return Promise<VkShaderModule>::Spawn(&g_threadManager, compile, TaskType::CPU_COMPUTE);
