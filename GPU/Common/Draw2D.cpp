@@ -198,7 +198,7 @@ Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (Shade
 	ShaderWriter writer(fsCode, shaderLanguageDesc, ShaderStage::Fragment);
 	Draw2DPipelineInfo info = generate(writer);
 
-	ShaderModule *fs = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), "draw2d_fs");
+	ShaderModule *fs = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), info.tag);
 
 	_assert_(fs);
 

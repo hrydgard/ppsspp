@@ -193,6 +193,7 @@ public:
 	const std::string &GetSource() const { return source_; }
 	~VKShaderModule() {
 		if (module_) {
+			DEBUG_LOG(G3D, "Queueing %s (shmodule %p) for release", tag_.c_str(), module_);
 			vulkan_->Delete().QueueDeleteShaderModule(module_);
 		}
 	}
@@ -249,13 +250,17 @@ public:
 
 class VKPipeline : public Pipeline {
 public:
-	VKPipeline(VulkanContext *vulkan, size_t size, PipelineFlags _flags) : vulkan_(vulkan), flags(_flags) {
+	VKPipeline(VulkanContext *vulkan, size_t size, PipelineFlags _flags, const char *tag) : vulkan_(vulkan), flags(_flags), tag_(tag) {
 		uboSize_ = (int)size;
 		ubo_ = new uint8_t[uboSize_];
 	}
 	~VKPipeline() {
+		DEBUG_LOG(G3D, "Queueing %s (pipeline) for release", tag_.c_str());
 		if (pipeline) {
 			pipeline->QueueForDeletion(vulkan_);
+		}
+		for (auto dep : deps) {
+			dep->Release();
 		}
 		delete[] ubo_;
 	}
@@ -278,6 +283,8 @@ public:
 	VKRGraphicsPipelineDesc vkrDesc;
 	PipelineFlags flags;
 
+	std::vector<VKShaderModule *> deps;
+
 	int stride[4]{};
 	int dynamicUniformSize = 0;
 
@@ -287,6 +294,7 @@ private:
 	VulkanContext *vulkan_;
 	uint8_t *ubo_;
 	int uboSize_;
+	std::string tag_;
 };
 
 class VKTexture;
@@ -1042,7 +1050,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		pipelineFlags |= PIPELINE_FLAG_USES_DEPTH_STENCIL;
 	}
 
-	VKPipeline *pipeline = new VKPipeline(vulkan_, desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float), (PipelineFlags)pipelineFlags);
+	VKPipeline *pipeline = new VKPipeline(vulkan_, desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float), (PipelineFlags)pipelineFlags, "thin3d");
 
 	VKRGraphicsPipelineDesc &gDesc = pipeline->vkrDesc;
 
@@ -1051,6 +1059,8 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 
 	for (auto &iter : desc.shaders) {
 		VKShaderModule *vkshader = (VKShaderModule *)iter;
+		vkshader->AddRef();
+		pipeline->deps.push_back(vkshader);
 		if (vkshader->GetStage() == ShaderStage::Vertex) {
 			gDesc.vertexShader = Promise<VkShaderModule>::AlreadyDone(vkshader->Get());
 		} else if (vkshader->GetStage() == ShaderStage::Fragment) {
