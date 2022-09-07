@@ -27,6 +27,18 @@ static void MergeRenderAreaRectInto(VkRect2D *dest, VkRect2D &src) {
 	}
 }
 
+// We need to take the "max" of the features used in the two render passes.
+RenderPassType MergeRPTypes(RenderPassType a, RenderPassType b) {
+	// Either both are backbuffer type, or neither are.
+	_dbg_assert_((a == RP_TYPE_BACKBUFFER) == (b == RP_TYPE_BACKBUFFER));
+	if (a == b) {
+		// Trivial merging case.
+		return a;
+	}
+	// More cases to be added later.
+	return a;
+}
+
 void VulkanQueueRunner::CreateDeviceObjects() {
 	INFO_LOG(G3D, "VulkanQueueRunner::CreateDeviceObjects");
 
@@ -279,7 +291,7 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 						steps[i]->render.clearStencil = steps[j]->render.clearStencil;
 					}
 					MergeRenderAreaRectInto(&steps[i]->render.renderArea, steps[j]->render.renderArea);
-
+					steps[i]->render.renderPassType = MergeRPTypes(steps[i]->render.renderPassType, steps[j]->render.renderPassType);
 					// Cheaply skip the first step.
 					steps[j]->stepType = VKRStepType::RENDER_SKIP;
 					break;
@@ -659,6 +671,8 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 		// So we don't consider it for other things, maybe doesn't matter.
 		src->dependencies.clear();
 		src->stepType = VKRStepType::RENDER_SKIP;
+		dst->render.pipelineFlags |= src->render.pipelineFlags;
+		dst->render.renderPassType = MergeRPTypes(dst->render.renderPassType, src->render.renderPassType);
 	};
 	auto renderHasClear = [](const VKRStep *step) {
 		const auto &r = step->render;
@@ -1104,7 +1118,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 	// This reads the layout of the color and depth images, and chooses a render pass using them that
 	// will transition to the desired final layout.
 	// NOTE: Flushes recordBarrier_.
-	PerformBindFramebufferAsRenderTarget(step, cmd);
+	VKRRenderPass *renderPass = PerformBindFramebufferAsRenderTarget(step, cmd);
 
 	int curWidth = step.render.framebuffer ? step.render.framebuffer->width : vulkan_->GetBackbufferWidth();
 	int curHeight = step.render.framebuffer ? step.render.framebuffer->height : vulkan_->GetBackbufferHeight();
@@ -1150,7 +1164,16 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		{
 			VKRGraphicsPipeline *graphicsPipeline = c.graphics_pipeline.pipeline;
 			if (graphicsPipeline != lastGraphicsPipeline) {
-				_dbg_assert_(graphicsPipeline->pipeline[rpType]);
+				if (!graphicsPipeline->pipeline[rpType]) {
+					// NOTE: If render steps got merged, it can happen that, as they ended during recording,
+					// they didn't know their final render pass type so they created the wrong pipelines in EndCurRenderStep().
+					// Unfortunately I don't know if we can fix it in any more sensible place than here.
+					// Maybe a middle pass. But let's try to just block and compile here for now, this doesn't
+					// happen all that much.
+					graphicsPipeline->pipeline[rpType] = Promise<VkPipeline>::CreateEmpty();
+					graphicsPipeline->Create(vulkan_, renderPass->Get(vulkan_, rpType), rpType);
+				}
+
 				VkPipeline pipeline = graphicsPipeline->pipeline[rpType]->BlockUntilReady();
 				if (pipeline != VK_NULL_HANDLE) {
 					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
@@ -1307,7 +1330,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 	}
 }
 
-void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step, VkCommandBuffer cmd) {
+VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step, VkCommandBuffer cmd) {
 	VKRRenderPass *renderPass;
 	int numClearVals = 0;
 	VkClearValue clearVal[2]{};
@@ -1400,6 +1423,8 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 	rp_begin.clearValueCount = numClearVals;
 	rp_begin.pClearValues = numClearVals ? clearVal : nullptr;
 	vkCmdBeginRenderPass(cmd, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
+
+	return renderPass;
 }
 
 void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {

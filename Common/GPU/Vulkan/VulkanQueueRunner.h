@@ -303,7 +303,7 @@ public:
 	}
 
 private:
-	void PerformBindFramebufferAsRenderTarget(const VKRStep &pass, VkCommandBuffer cmd);
+	VKRRenderPass *PerformBindFramebufferAsRenderTarget(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformRenderPass(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformCopy(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformBlit(const VKRStep &pass, VkCommandBuffer cmd);
