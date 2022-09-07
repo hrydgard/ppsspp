@@ -88,7 +88,7 @@ struct CompatFlags {
 	bool DeswizzleDepth;
 	bool SplitFramebufferMargin;
 	bool ForceLowerResolutionForEffectsOn;
-	bool VRClearFramebuffer;
+	bool VRSkyplane;
 };
 
 class IniFile;

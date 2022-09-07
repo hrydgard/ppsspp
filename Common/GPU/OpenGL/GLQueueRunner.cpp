@@ -14,7 +14,6 @@
 #include "Common/Data/Convert/SmallDataConvert.h"
 
 #include "Core/Reporting.h"
-#include "Core/System.h"
 #include "GLQueueRunner.h"
 #include "GLRenderManager.h"
 #include "DataFormatGL.h"
@@ -771,11 +770,8 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 
 	PerformBindFramebufferAsRenderTarget(step);
 
-	if (IsVRBuild() && PSP_CoreParameter().compat.flags().VRClearFramebuffer) {
-		if ((strcmp(step.tag, "FramebufferSwitch") == 0) && (step.commands.size() > 50)) {
-			glClearColor(0.5f, 0.75f, 1.0f, 1.0f);
-			glClear(GL_COLOR_BUFFER_BIT);
-		}
+	if (IsVRBuild()) {
+		PreGLRenderPass(step);
 	}
 
 	if (first) {

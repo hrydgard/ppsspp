@@ -2,6 +2,15 @@
 
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
+#include "GPU/OpenGL/GLQueueRunner.h"
+
+enum VRCompat {
+	//compatibility tweaks
+	VR_COMPAT_SKYPLANE,
+
+	//end
+	VR_COMPAT_MAX
+};
 
 #ifdef OPENXR
 
@@ -12,6 +21,11 @@ void EnterVR(bool firstStart);
 void GetVRResolutionPerEye(int* width, int* height);
 void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale);
 void UpdateVRScreenKey(const KeyInput &key);
+
+// VR games compatibility
+void PreGLRenderPass(const GLRStep& step);
+long GetVRCompat(VRCompat flag);
+void SetVRCompat(VRCompat flag, long value);
 
 // VR rendering integration
 void BindVRFramebuffer();
@@ -35,6 +49,11 @@ inline void EnterVR(bool firstTime) {}
 inline void GetVRResolutionPerEye(int* width, int* height) {}
 inline void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(const TouchInput &touch), bool haptics, float dp_xscale, float dp_yscale) {}
 inline void UpdateVRScreenKey(const KeyInput &key) {}
+
+// VR games compatibility
+inline void PreGLRenderPass(const GLRStep& step) {}
+inline long GetVRCompat(VRCompat flag) { return 0; }
+inline void SetVRCompat(VRCompat flag, long value) {}
 
 // VR rendering integration
 inline void BindVRFramebuffer() {}

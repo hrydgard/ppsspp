@@ -98,7 +98,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "DeswizzleDepth", &flags_.DeswizzleDepth);
 	CheckSetting(iniFile, gameID, "SplitFramebufferMargin", &flags_.SplitFramebufferMargin);
 	CheckSetting(iniFile, gameID, "ForceLowerResolutionForEffectsOn", &flags_.ForceLowerResolutionForEffectsOn);
-	CheckSetting(iniFile, gameID, "VRClearFramebuffer", &flags_.VRClearFramebuffer);
+	CheckSetting(iniFile, gameID, "VRSkyplane", &flags_.VRSkyplane);
 }
 
 void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag) {

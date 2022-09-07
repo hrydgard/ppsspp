@@ -8,7 +8,9 @@
 #include "Core/HLE/sceDisplay.h"
 #include "Core/Config.h"
 #include "Core/KeyMap.h"
+#include "Core/System.h"
 
+static long vrCompat[VR_COMPAT_MAX];
 
 /*
 ================================================================================
@@ -210,6 +212,31 @@ void UpdateVRScreenKey(const KeyInput &key) {
 /*
 ================================================================================
 
+// VR games compatibility
+
+================================================================================
+*/
+
+void PreGLRenderPass(const GLRStep& step) {
+	if (vrCompat[VR_COMPAT_SKYPLANE]) {
+		if (strcmp(step.tag, "FramebufferSwitch") == 0) {
+			glClearColor(0, 0, 0, 1);
+			glClear(GL_COLOR_BUFFER_BIT);
+		}
+	}
+}
+
+long GetVRCompat(VRCompat flag) {
+	return vrCompat[flag];
+}
+
+void SetVRCompat(VRCompat flag, long value) {
+	vrCompat[flag] = value;
+}
+
+/*
+================================================================================
+
 VR rendering integration
 
 ================================================================================
@@ -234,6 +261,9 @@ bool PreVRRender() {
 			VR_SetConfig(VR_CONFIG_MODE, VR_MODE_FLAT_SCREEN);
 		}
 		VR_SetConfig(VR_CONFIG_3D_GEOMETRY_COUNT, VR_GetConfig(VR_CONFIG_3D_GEOMETRY_COUNT) / 2);
+
+		// Set compatibility
+		vrCompat[VR_COMPAT_SKYPLANE] = PSP_CoreParameter().compat.flags().VRSkyplane;
 
 		// Set customizations
 		VR_SetConfig(VR_CONFIG_6DOF_ENABLED, g_Config.bEnable6DoF);
