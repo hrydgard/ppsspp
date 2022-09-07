@@ -2406,7 +2406,9 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 	v.v = getFloat24(gstate.imm_vtct);
 	v.uv_w = getFloat24(gstate.imm_vtcq);
 	v.color0_32 = (gstate.imm_cv & 0xFFFFFF) | (gstate.imm_ap << 24);
-	v.fog = 0.0f; // we have no information about the scale here
+	// TODO: When !gstate.isModeThrough(), direct fog coefficient (0 = entirely fog), ignore fog flag (also GE_IMM_FOG.)
+	v.fog = (gstate.imm_fc & 0xFF) / 255.0f;
+	// TODO: Apply if gstate.isUsingSecondaryColor() && !gstate.isModeThrough(), ignore lighting flag.
 	v.color1_32 = gstate.imm_scv & 0xFFFFFF;
 	if (prim != GE_PRIM_KEEP_PREVIOUS) {
 		immPrim_ = (GEPrimitiveType)prim;
@@ -2458,26 +2460,26 @@ void GPUCommon::FlushImm() {
 	}
 	int vtype = GE_VTYPE_TC_FLOAT | GE_VTYPE_POS_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_THROUGH;
 
-	static constexpr int GE_IMM_CULLENABLE = 0x00080000;
-	static constexpr int GE_IMM_CULLFACE = 0x00100000;
-	static constexpr int GE_IMM_TEXTURE = 0x00200000;
-	static constexpr int GE_IMM_DITHER = 0x00800000;
+	// TODO: Handle fog and secondary color somehow?
 
-	bool texturing = (immFlags_ & GE_IMM_TEXTURE) != 0;
-	bool prevTexturing = gstate.isTextureMapEnabled();
+	bool antialias = (immFlags_ & GE_IMM_ANTIALIAS) != 0;
+	bool prevAntialias = gstate.isAntiAliasEnabled();
+	bool shading = (immFlags_ & GE_IMM_SHADING) != 0;
+	bool prevShading = gstate.getShadeMode() == GE_SHADE_GOURAUD;
 	bool cullEnable = (immFlags_ & GE_IMM_CULLENABLE) != 0;
 	bool prevCullEnable = gstate.isCullEnabled();
 	int cullMode = (immFlags_ & GE_IMM_CULLFACE) != 0 ? 1 : 0;
-	bool prevDither = gstate.isDitherEnabled();
+	bool texturing = (immFlags_ & GE_IMM_TEXTURE) != 0;
+	bool prevTexturing = gstate.isTextureMapEnabled();
 	bool dither = (immFlags_ & GE_IMM_DITHER) != 0;
-	// Some notes say there's a flag to control this, but it seems to be flat regardless.
-	GEShadeMode prevShadeMode = gstate.getShadeMode();
+	bool prevDither = gstate.isDitherEnabled();
 
-	if (texturing != prevTexturing || cullEnable != prevCullEnable || dither != prevDither || prevShadeMode != GE_SHADE_FLAT) {
+	if (texturing != prevTexturing || cullEnable != prevCullEnable || dither != prevDither || prevShading != shading) {
 		DispatchFlush();
-		gstate.textureMapEnable = (GE_CMD_TEXTUREMAPENABLE << 24) | (int)texturing;
+		gstate.antiAliasEnable = (GE_CMD_ANTIALIASENABLE << 24) | (int)antialias;
+		gstate.shademodel = (GE_CMD_SHADEMODE << 24) | (int)shading;
 		gstate.cullfaceEnable = (GE_CMD_CULLFACEENABLE << 24) | (int)cullEnable;
-		gstate.shademodel = (GE_CMD_SHADEMODE << 24) | GE_SHADE_FLAT;
+		gstate.textureMapEnable = (GE_CMD_TEXTUREMAPENABLE << 24) | (int)texturing;
 		gstate.ditherEnable = (GE_CMD_DITHERENABLE << 24) | (int)dither;
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
 	}
@@ -2489,9 +2491,10 @@ void GPUCommon::FlushImm() {
 	// drawEngineCommon_->DispatchSubmitImm(immBuffer_, immCount_);
 	immCount_ = 0;
 
-	gstate.textureMapEnable = (GE_CMD_TEXTUREMAPENABLE << 24) | (int)prevTexturing;
+	gstate.antiAliasEnable = (GE_CMD_ANTIALIASENABLE << 24) | (int)prevAntialias;
+	gstate.shademodel = (GE_CMD_SHADEMODE << 24) | (int)prevShading;
 	gstate.cullfaceEnable = (GE_CMD_CULLFACEENABLE << 24) | (int)prevCullEnable;
-	gstate.shademodel = (GE_CMD_SHADEMODE << 24) | prevShadeMode;
+	gstate.textureMapEnable = (GE_CMD_TEXTUREMAPENABLE << 24) | (int)prevTexturing;
 	gstate.ditherEnable = (GE_CMD_DITHERENABLE << 24) | (int)prevDither;
 	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
 }
