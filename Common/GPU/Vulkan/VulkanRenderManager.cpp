@@ -693,6 +693,48 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 	return frameData_[curFrame].initCmd;
 }
 
+VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, uint32_t variantBitmask) {
+	VKRGraphicsPipeline *pipeline = new VKRGraphicsPipeline();
+	_dbg_assert_(desc->vertexShader);
+	_dbg_assert_(desc->fragmentShader);
+	pipeline->desc = desc;
+	if (curRenderStep_) {
+		// The common case
+		pipelinesToCheck_.push_back(pipeline);
+	} else {
+		if (!variantBitmask) {
+			WARN_LOG(G3D, "WARNING: Will not compile any variants of pipeline, not in renderpass and empty variantBitmask");
+		}
+		// Presumably we're in initialization, loading the shader cache.
+		// Look at variantBitmask to see what variants we should queue up.
+		RPKey key{
+			VKRRenderPassLoadAction::CLEAR, VKRRenderPassLoadAction::CLEAR, VKRRenderPassLoadAction::CLEAR,
+			VKRRenderPassStoreAction::STORE, VKRRenderPassStoreAction::DONT_CARE, VKRRenderPassStoreAction::DONT_CARE,
+		};
+		VKRRenderPass *compatibleRenderPass = queueRunner_.GetRenderPass(key);
+		compileMutex_.lock();
+		for (int i = 0; i < RP_TYPE_COUNT; i++) {
+			if (!(variantBitmask & (1 << i)))
+				continue;
+			RenderPassType rpType = (RenderPassType)i;
+			pipeline->pipeline[rpType] = Promise<VkPipeline>::CreateEmpty();
+			compileQueue_.push_back(CompileQueueEntry(pipeline, compatibleRenderPass->Get(vulkan_, rpType), rpType));
+		}
+		compileMutex_.unlock();
+	}
+	return pipeline;
+}
+
+VKRComputePipeline *VulkanRenderManager::CreateComputePipeline(VKRComputePipelineDesc *desc) {
+	VKRComputePipeline *pipeline = new VKRComputePipeline();
+	pipeline->desc = desc;
+	compileMutex_.lock();
+	compileQueue_.push_back(CompileQueueEntry(pipeline));
+	compileCond_.notify_one();
+	compileMutex_.unlock();
+	return pipeline;
+}
+
 void VulkanRenderManager::EndCurRenderStep() {
 	if (!curRenderStep_)
 		return;
@@ -713,13 +755,15 @@ void VulkanRenderManager::EndCurRenderStep() {
 	// Save the accumulated pipeline flags so we can use that to configure the render pass.
 	// We'll often be able to avoid loading/saving the depth/stencil buffer.
 	compileMutex_.lock();
-	for (VKRGraphicsPipeline *pipeline : pipelinesToCreate_) {
-		pipeline->pipeline[rpType] = Promise<VkPipeline>::CreateEmpty();
-		compileQueue_.push_back(CompileQueueEntry(pipeline, renderPass->Get(vulkan_, rpType), rpType));
+	for (VKRGraphicsPipeline *pipeline : pipelinesToCheck_) {
+		if (!pipeline->pipeline[rpType]) {
+			pipeline->pipeline[rpType] = Promise<VkPipeline>::CreateEmpty();
+			compileQueue_.push_back(CompileQueueEntry(pipeline, renderPass->Get(vulkan_, rpType), rpType));
+		}
 	}
 	compileCond_.notify_one();
 	compileMutex_.unlock();
-	pipelinesToCreate_.clear();
+	pipelinesToCheck_.clear();
 
 	// We don't do this optimization for very small targets, probably not worth it.
 	if (!curRenderArea_.Empty() && (curWidth_ > 32 && curHeight_ > 32)) {
@@ -959,7 +1003,6 @@ bool VulkanRenderManager::InitBackbufferFramebuffers(int width, int height) {
 	// We share the same depth buffer but have multiple color buffers, see the loop below.
 	VkImageView attachments[2] = { VK_NULL_HANDLE, depth_.view };
 
-	VLOG("InitFramebuffers: %dx%d", width, height);
 	VkFramebufferCreateInfo fb_info = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
 	fb_info.renderPass = queueRunner_.GetCompatibleRenderPass()->Get(vulkan_, RP_TYPE_BACKBUFFER);
 	fb_info.attachmentCount = 2;

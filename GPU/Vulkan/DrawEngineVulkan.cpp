@@ -768,7 +768,7 @@ void DrawEngineVulkan::DoFlush() {
 			}
 			_dbg_assert_msg_(vshader->UseHWTransform(), "Bad vshader");
 
-			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, true);
+			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, true, 0);
 			if (!pipeline || !pipeline->pipeline) {
 				// Already logged, let's bail out.
 				return;
@@ -893,7 +893,7 @@ void DrawEngineVulkan::DoFlush() {
 				}
 				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat);  // usehwtransform
 				_dbg_assert_msg_(!vshader->UseHWTransform(), "Bad vshader");
-				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, false);
+				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, false, 0);
 				if (!pipeline || !pipeline->pipeline) {
 					// Already logged, let's bail out.
 					decodedVerts_ = 0;

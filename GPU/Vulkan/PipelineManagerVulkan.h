@@ -58,6 +58,8 @@ struct VulkanPipeline {
 	bool UsesBlendConstant() const { return (flags & PIPELINE_FLAG_USES_BLEND_CONSTANT) != 0; }
 	bool UsesLines() const { return (flags & PIPELINE_FLAG_USES_LINES) != 0; }
 	bool UsesDepthStencil() const { return (flags & PIPELINE_FLAG_USES_DEPTH_STENCIL) != 0; }
+
+	u32 GetVariantsBitmask() const;
 };
 
 class VulkanContext;
@@ -71,7 +73,8 @@ public:
 	PipelineManagerVulkan(VulkanContext *ctx);
 	~PipelineManagerVulkan();
 
-	VulkanPipeline *GetOrCreatePipeline(VulkanRenderManager *renderManager, VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform);
+	// variantMask is only used when loading pipelines from cache.
+	VulkanPipeline *GetOrCreatePipeline(VulkanRenderManager *renderManager, VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform, u32 variantMask);
 	int GetNumPipelines() const { return (int)pipelines_.size(); }
 
 	void Clear();

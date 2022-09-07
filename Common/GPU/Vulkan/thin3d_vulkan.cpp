@@ -1110,7 +1110,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
 	raster->ToVulkan(&gDesc.rs);
 
-	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc);;
+	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, 1 << RP_TYPE_BACKBUFFER);
 
 	if (desc.uniformDesc) {
 		pipeline->dynamicUniformSize = (int)desc.uniformDesc->uniformBufferSize;

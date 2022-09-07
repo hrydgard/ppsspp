@@ -166,6 +166,16 @@ struct VKRGraphicsPipeline {
 		delete desc;
 	}
 
+	u32 GetVariantsBitmask() const {
+		u32 bitmask = 0;
+		for (int i = 0; i < RP_TYPE_COUNT; i++) {
+			if (pipeline[i]) {
+				bitmask |= 1 << i;
+			}
+		}
+		return bitmask;
+	}
+
 	VKRGraphicsPipelineDesc *desc = nullptr;
 	Promise<VkPipeline> *pipeline[RP_TYPE_COUNT];
 
@@ -248,30 +258,22 @@ public:
 	// Deferred creation, like in GL. Unlike GL though, the purpose is to allow background creation and avoiding
 	// stalling the emulation thread as much as possible.
 	// We delay creating pipelines until the end of the current render pass, so we can create the right type immediately.
-	// WARNING: desc must stick around! It's not enough to build it on the stack.
-	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc) {
-		VKRGraphicsPipeline *pipeline = new VKRGraphicsPipeline();
-		_dbg_assert_(desc->vertexShader);
-		_dbg_assert_(desc->fragmentShader);
-		pipeline->desc = desc;
-		pipelinesToCreate_.push_back(pipeline);
-		return pipeline;
-	}
+	// Unless a variantBitmask is passed in, in which case we can just go ahead.
+	// WARNING: desc must stick around during the lifetime of the pipeline! It's not enough to build it on the stack and drop it.
+	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, uint32_t variantBitmask);
+	VKRComputePipeline *CreateComputePipeline(VKRComputePipelineDesc *desc);
 
-	VKRComputePipeline *CreateComputePipeline(VKRComputePipelineDesc *desc) {
-		VKRComputePipeline *pipeline = new VKRComputePipeline();
-		pipeline->desc = desc;
+	void NudgeCompilerThread() {
 		compileMutex_.lock();
-		compileQueue_.push_back(CompileQueueEntry(pipeline));
 		compileCond_.notify_one();
 		compileMutex_.unlock();
-		return pipeline;
 	}
 
 	void BindPipeline(VKRGraphicsPipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(pipeline != nullptr);
 		VkRenderData data{ VKRRenderCommand::BIND_GRAPHICS_PIPELINE };
+		pipelinesToCheck_.push_back(pipeline);
 		data.graphics_pipeline.pipeline = pipeline;
 		data.graphics_pipeline.pipelineLayout = pipelineLayout;
 		curPipelineFlags_ |= flags;
@@ -577,8 +579,8 @@ private:
 	std::mutex compileMutex_;
 	std::vector<CompileQueueEntry> compileQueue_;
 
-	// pipelines to create at the end of the current render pass.
-	std::vector<VKRGraphicsPipeline *> pipelinesToCreate_;
+	// pipelines to check and possibly create at the end of the current render pass.
+	std::vector<VKRGraphicsPipeline *> pipelinesToCheck_;
 
 	// Swap chain management
 	struct SwapchainImageData {

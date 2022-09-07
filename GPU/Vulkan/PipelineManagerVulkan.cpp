@@ -18,6 +18,10 @@
 
 using namespace PPSSPP_VK;
 
+u32 VulkanPipeline::GetVariantsBitmask() const {
+	return pipeline->GetVariantsBitmask();
+}
+
 PipelineManagerVulkan::PipelineManagerVulkan(VulkanContext *vulkan) : pipelines_(256), vulkan_(vulkan) {
 	// The pipeline cache is created on demand (or explicitly through Load).
 }
@@ -30,10 +34,6 @@ PipelineManagerVulkan::~PipelineManagerVulkan() {
 }
 
 void PipelineManagerVulkan::Clear() {
-	// This should kill off all the shaders at once.
-	// This could also be an opportunity to store the whole cache to disk. Will need to also
-	// store the keys.
-
 	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
 		for (int i = 0; i < RP_TYPE_COUNT; i++) {
 			if (value->pipeline) {
@@ -180,7 +180,7 @@ static std::string CutFromMain(std::string str) {
 
 static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, VkPipelineCache pipelineCache,
 		VkPipelineLayout layout, const VulkanPipelineRasterStateKey &key,
-		const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
+		const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform, u32 variantBitmask) {
 	VKRGraphicsPipelineDesc *desc = new VKRGraphicsPipelineDesc();
 	desc->pipelineCache = pipelineCache;
 
@@ -304,7 +304,7 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 
 	desc->pipelineLayout = layout;
 
-	VKRGraphicsPipeline *pipeline = renderManager->CreateGraphicsPipeline(desc);
+	VKRGraphicsPipeline *pipeline = renderManager->CreateGraphicsPipeline(desc, variantBitmask);
 
 	VulkanPipeline *vulkanPipeline = new VulkanPipeline();
 	vulkanPipeline->pipeline = pipeline;
@@ -319,7 +319,7 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	return vulkanPipeline;
 }
 
-VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *renderManager, VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
+VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *renderManager, VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform, u32 variantBitmask) {
 	if (!pipelineCache_) {
 		VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 		VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
@@ -340,7 +340,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *
 
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
 		renderManager, pipelineCache_, layout,
-		rasterKey, decFmt, vs, fs, useHwTransform);
+		rasterKey, decFmt, vs, fs, useHwTransform, variantBitmask);
 	pipelines_.Insert(key, pipeline);
 
 	// Don't return placeholder null pipelines.
@@ -546,7 +546,8 @@ struct StoredVulkanPipelineKey {
 	VShaderID vShaderID;
 	FShaderID fShaderID;
 	uint32_t vtxFmtId;
-	bool useHWTransform;
+	uint32_t variants;
+	bool useHWTransform;  // TODO: Still needed?
 
 	// For std::set. Better zero-initialize the struct properly for this to work.
 	bool operator < (const StoredVulkanPipelineKey &other) const {
@@ -603,6 +604,7 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 		key.useHWTransform = pkey.useHWTransform;
 		key.fShaderID = fshader->GetID();
 		key.vShaderID = vshader->GetID();
+		key.variants = value->GetVariantsBitmask();
 		if (key.useHWTransform) {
 			// NOTE: This is not a vtype, but a decoded vertex format.
 			key.vtxFmtId = pkey.vtxFmtId;
@@ -714,11 +716,14 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 
 		DecVtxFormat fmt;
 		fmt.InitializeFromID(key.vtxFmtId);
-		VulkanPipeline *pipeline = GetOrCreatePipeline(rm, layout, key.raster, key.useHWTransform ? &fmt : 0, vs, fs, key.useHWTransform);
+		VulkanPipeline *pipeline = GetOrCreatePipeline(rm, layout, key.raster, key.useHWTransform ? &fmt : 0, vs, fs, key.useHWTransform, key.variants);
 		if (!pipeline) {
 			pipelineCreateFailCount += 1;
 		}
 	}
+
+	rm->NudgeCompilerThread();
+
 	NOTICE_LOG(G3D, "Recreated Vulkan pipeline cache (%d pipelines, %d failed).", (int)size, pipelineCreateFailCount);
 	return true;
 }

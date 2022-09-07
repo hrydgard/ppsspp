@@ -1866,10 +1866,9 @@ static bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferForma
 				return true;
 			}
 			break;
-		default:
-			WARN_LOG(G3D, "Invalid CLUT/framebuffer combination: %s vs %s", GeTextureFormatToString(texFormat), GeBufferFormatToString(bufferFormat));
-			return false;
 		}
+		WARN_LOG(G3D, "Invalid CLUT/framebuffer combination: %s vs %s", GeTextureFormatToString(texFormat), GeBufferFormatToString(bufferFormat));
+		return false;
 	} else if (texFormat == GE_TFMT_5650 && bufferFormat == GE_FORMAT_DEPTH16) {
 		// We can also "depal" 565 format, this is used to read depth buffers as 565 on occasion (#15491).
 		return true;

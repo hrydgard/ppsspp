@@ -371,7 +371,7 @@ VulkanFragmentShader *ShaderManagerVulkan::GetFragmentShaderFromModule(VkShaderM
 // instantaneous.
 
 #define CACHE_HEADER_MAGIC 0xff51f420 
-#define CACHE_VERSION 24
+#define CACHE_VERSION 25
 struct VulkanCacheHeader {
 	uint32_t magic;
 	uint32_t version;
@@ -389,10 +389,6 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 	if (header.version != CACHE_VERSION)
 		return false;
 	if (header.featureFlags != gstate_c.featureFlags)
-		return false;
-
-	// Temporarily disable shader cache.
-	if (true)
 		return false;
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
