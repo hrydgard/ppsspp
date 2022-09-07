@@ -66,7 +66,7 @@ enum class GECmdFormat {
 	BLEND_MODE, // 4 bits srcfactor, 4 bits dstfactor, 3 bits equation.
 	DITHER_ROW, // 4 s.3.0 fixed point dither offsets.
 	LOGIC_OP, // 4 bits logic operation.
-	ALPHA_PRIM, // 8 bits alpha, 3 bits primitive type.
+	ALPHA_PRIM, // 8 bits alpha, 3 bits primitive type, 1 bit antialias, 6 bit clip?, 1 bit shading, 1 bit cullenable, 1 bit cullface, 1 bit tex enable, 1 bit fog, 1 bit dither.
 };
 
 struct GECmdInfo {

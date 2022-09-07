@@ -2449,6 +2449,7 @@ void GPUCommon::FlushImm() {
 		float xyz[3];
 	};
 	ImmVertex temp[MAX_IMMBUFFER_SIZE];
+	uint32_t color1Used = 0;
 	for (int i = 0; i < immCount_; i++) {
 		// Since we're sending through, scale back up to w/h.
 		temp[i].uv[0] = immBuffer_[i].u * gstate.getTextureWidth(0);
@@ -2457,6 +2458,7 @@ void GPUCommon::FlushImm() {
 		temp[i].xyz[0] = immBuffer_[i].pos[0];
 		temp[i].xyz[1] = immBuffer_[i].pos[1];
 		temp[i].xyz[2] = immBuffer_[i].pos[2];
+		color1Used |= immBuffer_[i].color1_32;
 	}
 	int vtype = GE_VTYPE_TC_FLOAT | GE_VTYPE_POS_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_THROUGH;
 
@@ -2474,6 +2476,14 @@ void GPUCommon::FlushImm() {
 	bool dither = (immFlags_ & GE_IMM_DITHER) != 0;
 	bool prevDither = gstate.isDitherEnabled();
 
+	if ((immFlags_ & GE_IMM_CLIPMASK) != 0) {
+		WARN_LOG_REPORT_ONCE(geimmclipvalue, G3D, "Imm vertex used clip value, flags=%06x", immFlags_);
+	} else if ((immFlags_ & GE_IMM_FOG) != 0) {
+		WARN_LOG_REPORT_ONCE(geimmfog, G3D, "Imm vertex used fog, flags=%06x", immFlags_);
+	} else if (color1Used != 0 && gstate.isUsingSecondaryColor()) {
+		WARN_LOG_REPORT_ONCE(geimmcolor1, G3D, "Imm vertex used secondary color, flags=%06x", immFlags_);
+	}
+
 	if (texturing != prevTexturing || cullEnable != prevCullEnable || dither != prevDither || prevShading != shading) {
 		DispatchFlush();
 		gstate.antiAliasEnable = (GE_CMD_ANTIALIASENABLE << 24) | (int)antialias;
@@ -2487,7 +2497,7 @@ void GPUCommon::FlushImm() {
 	int bytesRead;
 	uint32_t vertTypeID = GetVertTypeID(vtype, 0);
 	drawEngineCommon_->DispatchSubmitImm(temp, nullptr, immPrim_, immCount_, vertTypeID, cullMode, &bytesRead);
-	// TOOD: In the future, make a special path for these.
+	// TODO: In the future, make a special path for these.
 	// drawEngineCommon_->DispatchSubmitImm(immBuffer_, immCount_);
 	immCount_ = 0;
 

@@ -275,9 +275,7 @@ static constexpr GECmdInfo geCmdInfo[] = {
 	{ GE_CMD_VTCT, "immt", GECmdFormat::FLOAT },
 	{ GE_CMD_VTCQ, "immq", GECmdFormat::FLOAT },
 	{ GE_CMD_VCV, "immrgb", GECmdFormat::RGB },
-	// TODO: Confirm if any other bits are used?
 	{ GE_CMD_VAP, "imma_prim", GECmdFormat::ALPHA_PRIM },
-	// TODO: Confirm it's 8 bit?
 	{ GE_CMD_VFC, "immfog", GECmdFormat::DATA8 },
 	{ GE_CMD_VSCV, "immrgb1", GECmdFormat::RGB },
 	{ GE_CMD_UNKNOWN_FA, "unknownfa", GECmdFormat::NONE },
