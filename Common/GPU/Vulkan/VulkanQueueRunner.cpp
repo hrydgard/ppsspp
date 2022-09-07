@@ -683,6 +683,7 @@ std::string VulkanQueueRunner::StepToString(const VKRStep &step) const {
 		switch (step.render.renderPassType) {
 		case RP_TYPE_BACKBUFFER: renderCmd = "BACKBUF"; break;
 		case RP_TYPE_COLOR_DEPTH: renderCmd = "RENDER"; break;
+		case RP_TYPE_COLOR_DEPTH_INPUT: renderCmd = "RENDER_INPUT"; break;
 		default: renderCmd = "N/A";
 		}
 		snprintf(buffer, sizeof(buffer), "%s %s (draws: %d, %dx%d/%dx%d, fb: %p, )", renderCmd, step.tag, step.render.numDraws, actual_w, actual_h, w, h, step.render.framebuffer);
