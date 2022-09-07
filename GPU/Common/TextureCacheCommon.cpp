@@ -1873,9 +1873,8 @@ static bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferForma
 	} else if (texFormat == GE_TFMT_5650 && bufferFormat == GE_FORMAT_DEPTH16) {
 		// We can also "depal" 565 format, this is used to read depth buffers as 565 on occasion (#15491).
 		return true;
-	} else {
-		return false;
 	}
+	return false;
 }
 
 // If the palette is detected as a smooth ramp, we can interpolate for higher color precision.
