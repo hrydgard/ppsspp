@@ -10,6 +10,9 @@
 #include "Core/KeyMap.h"
 #include "Core/System.h"
 
+#include "GPU/OpenGL/GLRenderManager.h"
+#include "GPU/GPUState.h"
+
 static long vrCompat[VR_COMPAT_MAX];
 
 /*
@@ -217,11 +220,48 @@ void UpdateVRScreenKey(const KeyInput &key) {
 ================================================================================
 */
 
+bool IsSkyPlane(const GLRRenderData& data) {
+	if ((data.drawIndexed.count <= 60) && !vrCompat[VR_USE_CLIP]) {
+		//TODO:fix HUD items
+		return true;
+	}
+	return false;
+}
+
 void PreGLRenderPass(const GLRStep& step) {
-	if (vrCompat[VR_COMPAT_SKYPLANE]) {
-		if (strcmp(step.tag, "FramebufferSwitch") == 0) {
-			glClearColor(0, 0, 0, 1);
-			glClear(GL_COLOR_BUFFER_BIT);
+	if (IsFlatVRScene()) {
+		return;
+	}
+	vrCompat[VR_COMPAT_GEOMETRY] = strcmp(step.tag, "FramebufferSwitch") == 0;
+
+	// Clear the screen with fog color, only for passes containing geometry (and no lens flares)
+	if (vrCompat[VR_COMPAT_SKYPLANE] && vrCompat[VR_COMPAT_GEOMETRY] && (step.commands.size() > 50)) {
+		float color[4];
+		Uint8x3ToFloat4(color, gstate.fogcolor);
+		glClearColor(color[0], color[1], color[2], 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
+		glClearColor(0, 0, 0, 1);
+	}
+}
+
+void PreGLCommand(const GLRRenderData& data) {
+	if (IsFlatVRScene()) {
+		return;
+	} else if (vrCompat[VR_COMPAT_SKYPLANE] && vrCompat[VR_COMPAT_GEOMETRY]) {
+		if (data.cmd == GLRRenderCommand::BINDPROGRAM) {
+			vrCompat[VR_USE_CLIP] = data.program.program->use_clip_distance0;
+		} else if ((data.cmd == GLRRenderCommand::DRAW_INDEXED) && IsSkyPlane(data)) {
+			glColorMask(false, false, false, false);
+		}
+	}
+}
+
+void PostGLCommand(const GLRRenderData& data) {
+	if (IsFlatVRScene()) {
+		return;
+	} else if (vrCompat[VR_COMPAT_SKYPLANE] && vrCompat[VR_COMPAT_GEOMETRY]) {
+		if ((data.cmd == GLRRenderCommand::DRAW_INDEXED) && IsSkyPlane(data)) {
+			glColorMask(true, true, true, true);
 		}
 	}
 }

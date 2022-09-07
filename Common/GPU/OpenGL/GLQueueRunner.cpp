@@ -821,6 +821,9 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 	CHECK_GL_ERROR_IF_DEBUG();
 	auto &commands = step.commands;
 	for (const auto &c : commands) {
+		if (IsVRBuild()) {
+			PreGLCommand(c);
+		}
 		switch (c.cmd) {
 		case GLRRenderCommand::DEPTH:
 			if (c.depth.enabled) {
@@ -1327,6 +1330,9 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 		default:
 			Crash();
 			break;
+		}
+		if (IsVRBuild()) {
+			PostGLCommand(c);
 		}
 	}
 

@@ -8,6 +8,9 @@ enum VRCompat {
 	//compatibility tweaks
 	VR_COMPAT_SKYPLANE,
 
+	//render state
+	VR_COMPAT_GEOMETRY, VR_USE_CLIP,
+
 	//end
 	VR_COMPAT_MAX
 };
@@ -24,6 +27,8 @@ void UpdateVRScreenKey(const KeyInput &key);
 
 // VR games compatibility
 void PreGLRenderPass(const GLRStep& step);
+void PreGLCommand(const GLRRenderData& data);
+void PostGLCommand(const GLRRenderData& data);
 long GetVRCompat(VRCompat flag);
 void SetVRCompat(VRCompat flag, long value);
 
@@ -52,6 +57,8 @@ inline void UpdateVRScreenKey(const KeyInput &key) {}
 
 // VR games compatibility
 inline void PreGLRenderPass(const GLRStep& step) {}
+inline void PreGLCommand(const GLRRenderData& data) {}
+inline void PostGLCommand(const GLRRenderData& data) {}
 inline long GetVRCompat(VRCompat flag) { return 0; }
 inline void SetVRCompat(VRCompat flag, long value) {}
 
