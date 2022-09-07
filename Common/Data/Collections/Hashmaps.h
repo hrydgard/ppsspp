@@ -136,6 +136,7 @@ public:
 		}
 	}
 
+	// Note! Does NOT delete any pointed-to data (in case you stored pointers in the map).
 	void Clear() {
 		memset(state.data(), (int)BucketState::FREE, state.size());
 		count_ = 0;

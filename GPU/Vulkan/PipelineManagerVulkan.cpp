@@ -35,21 +35,12 @@ PipelineManagerVulkan::~PipelineManagerVulkan() {
 
 void PipelineManagerVulkan::Clear() {
 	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
-		for (int i = 0; i < RP_TYPE_COUNT; i++) {
-			if (value->pipeline) {
-				if (value->pipeline->pipeline[i]) {
-					VkPipeline pipeline = value->pipeline->pipeline[i]->BlockUntilReady();
-					vulkan_->Delete().QueueDeletePipeline(pipeline);
-					vulkan_->Delete().QueueCallback([](void *p) {
-						VKRGraphicsPipeline *pipeline = (VKRGraphicsPipeline *)p;
-						delete pipeline;
-					}, value->pipeline);
-				}
-			} else {
-				// Something went wrong.
-				ERROR_LOG(G3D, "Null pipeline found in PipelineManagerVulkan::Clear - didn't wait for asyncs?");
-			}
+		if (!value->pipeline) {
+			// Something went wrong.
+			ERROR_LOG(G3D, "Null pipeline found in PipelineManagerVulkan::Clear - didn't wait for asyncs?");
+			delete value;
 		}
+		value->pipeline->QueueForDeletion(vulkan_);
 		delete value;
 	});
 
@@ -181,7 +172,8 @@ static std::string CutFromMain(std::string str) {
 static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, VkPipelineCache pipelineCache,
 		VkPipelineLayout layout, const VulkanPipelineRasterStateKey &key,
 		const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform, u32 variantBitmask) {
-	VKRGraphicsPipelineDesc *desc = new VKRGraphicsPipelineDesc();
+	VulkanPipeline *vulkanPipeline = new VulkanPipeline();
+	VKRGraphicsPipelineDesc *desc = &vulkanPipeline->desc;
 	desc->pipelineCache = pipelineCache;
 
 	PROFILE_THIS_SCOPE("pipelinebuild");
@@ -304,9 +296,8 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 
 	desc->pipelineLayout = layout;
 
-	VKRGraphicsPipeline *pipeline = renderManager->CreateGraphicsPipeline(desc, variantBitmask);
+	VKRGraphicsPipeline *pipeline = renderManager->CreateGraphicsPipeline(desc, variantBitmask, "game");
 
-	VulkanPipeline *vulkanPipeline = new VulkanPipeline();
 	vulkanPipeline->pipeline = pipeline;
 	vulkanPipeline->flags = 0;
 	if (useBlendConstant)

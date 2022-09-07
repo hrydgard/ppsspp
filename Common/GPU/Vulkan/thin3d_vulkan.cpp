@@ -249,12 +249,14 @@ public:
 
 class VKPipeline : public Pipeline {
 public:
-	VKPipeline(VulkanRenderManager *rm, size_t size, PipelineFlags _flags) : rm_(rm), flags(_flags) {
+	VKPipeline(VulkanContext *vulkan, size_t size, PipelineFlags _flags) : vulkan_(vulkan), flags(_flags) {
 		uboSize_ = (int)size;
 		ubo_ = new uint8_t[uboSize_];
 	}
 	~VKPipeline() {
-		// TODO: Right now we just leak the pipeline! This is not good.
+		if (pipeline) {
+			pipeline->QueueForDeletion(vulkan_);
+		}
 		delete[] ubo_;
 	}
 
@@ -282,7 +284,7 @@ public:
 	bool usesStencil = false;
 
 private:
-	VulkanRenderManager *rm_;
+	VulkanContext *vulkan_;
 	uint8_t *ubo_;
 	int uboSize_;
 };
@@ -1040,7 +1042,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		pipelineFlags |= PIPELINE_FLAG_USES_DEPTH_STENCIL;
 	}
 
-	VKPipeline *pipeline = new VKPipeline(&renderManager_, desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float), (PipelineFlags)pipelineFlags);
+	VKPipeline *pipeline = new VKPipeline(vulkan_, desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float), (PipelineFlags)pipelineFlags);
 
 	VKRGraphicsPipelineDesc &gDesc = pipeline->vkrDesc;
 
@@ -1110,7 +1112,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
 	raster->ToVulkan(&gDesc.rs);
 
-	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, 1 << RP_TYPE_BACKBUFFER);
+	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, 1 << RP_TYPE_BACKBUFFER, "thin3d");
 
 	if (desc.uniformDesc) {
 		pipeline->dynamicUniformSize = (int)desc.uniformDesc->uniformBufferSize;

@@ -28,6 +28,7 @@
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "GPU/Vulkan/StateMappingVulkan.h"
 #include "GPU/Vulkan/VulkanQueueRunner.h"
+#include "GPU/Vulkan/VulkanRenderManager.h"
 
 struct VKRGraphicsPipeline;
 class VulkanRenderManager;
@@ -53,6 +54,7 @@ struct VulkanPipelineKey {
 // Simply wraps a Vulkan pipeline, providing some metadata.
 struct VulkanPipeline {
 	VKRGraphicsPipeline *pipeline;
+	VKRGraphicsPipelineDesc desc;
 	int flags;  // PipelineFlags enum above.
 
 	bool UsesBlendConstant() const { return (flags & PIPELINE_FLAG_USES_BLEND_CONSTANT) != 0; }

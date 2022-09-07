@@ -96,8 +96,13 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 		ERROR_LOG(G3D, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
 		success = false;
 	} else {
+		// Success!
+		if (!tag.empty()) {
+			vulkan->SetDebugName(vkpipeline, VK_OBJECT_TYPE_PIPELINE, tag.c_str());
+		}
 		pipeline[rpType]->Post(vkpipeline);
 	}
+
 
 	// Having the desc stick around can be useful for debugging.
 #ifndef _DEBUG
@@ -105,6 +110,29 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	desc = nullptr;
 #endif
 	return success;
+}
+
+void VKRGraphicsPipeline::QueueForDeletion(VulkanContext *vulkan) {
+	for (int i = 0; i < RP_TYPE_COUNT; i++) {
+		if (!pipeline[i])
+			continue;
+		VkPipeline pipeline = this->pipeline[i]->BlockUntilReady();
+		vulkan->Delete().QueueDeletePipeline(pipeline);
+		vulkan->Delete().QueueCallback([](void *p) {
+			VKRGraphicsPipeline *pipeline = (VKRGraphicsPipeline *)p;
+			delete pipeline;
+		}, this);
+	}
+}
+
+u32 VKRGraphicsPipeline::GetVariantsBitmask() const {
+	u32 bitmask = 0;
+	for (int i = 0; i < RP_TYPE_COUNT; i++) {
+		if (pipeline[i]) {
+			bitmask |= 1 << i;
+		}
+	}
+	return bitmask;
 }
 
 bool VKRComputePipeline::Create(VulkanContext *vulkan) {
@@ -693,11 +721,12 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 	return frameData_[curFrame].initCmd;
 }
 
-VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, uint32_t variantBitmask) {
+VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, uint32_t variantBitmask, const char *tag) {
 	VKRGraphicsPipeline *pipeline = new VKRGraphicsPipeline();
 	_dbg_assert_(desc->vertexShader);
 	_dbg_assert_(desc->fragmentShader);
 	pipeline->desc = desc;
+	pipeline->tag = tag;
 	if (curRenderStep_) {
 		// The common case
 		pipelinesToCheck_.push_back(pipeline);

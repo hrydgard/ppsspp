@@ -155,31 +155,20 @@ struct VKRComputePipelineDesc {
 	VkComputePipelineCreateInfo pipe{ VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
 };
 
-// Wrapped pipeline.
+// Wrapped pipeline. Doesn't own desc.
 struct VKRGraphicsPipeline {
-	VKRGraphicsPipeline() {
-		for (int i = 0; i < RP_TYPE_COUNT; i++) {
-			pipeline[i] = nullptr;
-		}
-	}
-	~VKRGraphicsPipeline() {
-		delete desc;
-	}
-
-	u32 GetVariantsBitmask() const {
-		u32 bitmask = 0;
-		for (int i = 0; i < RP_TYPE_COUNT; i++) {
-			if (pipeline[i]) {
-				bitmask |= 1 << i;
-			}
-		}
-		return bitmask;
-	}
-
-	VKRGraphicsPipelineDesc *desc = nullptr;
-	Promise<VkPipeline> *pipeline[RP_TYPE_COUNT];
+	~VKRGraphicsPipeline() {}
 
 	bool Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType);
+
+	// This deletes the whole VKRGraphicsPipeline, you must remove your last pointer to it when doing this.
+	void QueueForDeletion(VulkanContext *vulkan);
+
+	u32 GetVariantsBitmask() const;
+
+	VKRGraphicsPipelineDesc *desc = nullptr;
+	Promise<VkPipeline> *pipeline[RP_TYPE_COUNT]{};
+	std::string tag;
 };
 
 struct VKRComputePipeline {
@@ -260,7 +249,7 @@ public:
 	// We delay creating pipelines until the end of the current render pass, so we can create the right type immediately.
 	// Unless a variantBitmask is passed in, in which case we can just go ahead.
 	// WARNING: desc must stick around during the lifetime of the pipeline! It's not enough to build it on the stack and drop it.
-	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, uint32_t variantBitmask);
+	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, uint32_t variantBitmask, const char *tag);
 	VKRComputePipeline *CreateComputePipeline(VKRComputePipelineDesc *desc);
 
 	void NudgeCompilerThread() {
