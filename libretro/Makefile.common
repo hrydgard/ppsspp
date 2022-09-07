@@ -801,8 +801,10 @@ SOURCES_C +=   $(ZSTDDIR)/common/debug.c \
                $(ZSTDDIR)/dictBuilder/fastcover.c \
                $(ZSTDDIR)/dictBuilder/zdict.c
 
+ifneq (,$(findstring msvc,$(platform)))
 ifeq ($(TARGET_ARCH),x86_64)
 SOURCES_C +=   $(ZSTDDIR)/decompress/huf_decompress_amd64.S
+endif
 endif
 
 ifneq ($(STATIC_LINKING), 1)
