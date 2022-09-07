@@ -800,6 +800,10 @@ SOURCES_C +=   $(ZSTDDIR)/common/debug.c \
                $(ZSTDDIR)/dictBuilder/fastcover.c \
                $(ZSTDDIR)/dictBuilder/zdict.c
 
+ifeq ($(TARGET_ARCH),x86_64)
+SOURCES_C +=   $(ZSTDDIR)/decompress/huf_decompress_amd64.S
+endif
+
 ifneq ($(STATIC_LINKING), 1)
 SOURCES_C += \
 		$(EXTDIR)/zlib/adler32.c \
