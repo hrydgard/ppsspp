@@ -129,36 +129,43 @@ bool VKRComputePipeline::Create(VulkanContext *vulkan) {
 	return success;
 }
 
-VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, const char *tag) : vulkan_(vk) {
+VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, const char *tag) : vulkan_(vk), tag_(tag) {
 	width = _width;
 	height = _height;
 
 	CreateImage(vulkan_, initCmd, color, width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
 	CreateImage(vulkan_, initCmd, depth, width, height, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
 
-	for (int i = 0; i < RP_TYPE_COUNT; i++) {
-		VkFramebufferCreateInfo fbci{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-		VkImageView views[2]{};
+	// We create the actual framebuffer objects on demand, because some combinations might not make sense.
+}
 
-		fbci.renderPass = compatibleRenderPass->pass[i];
-		fbci.attachmentCount = 2;
-		fbci.pAttachments = views;
-		views[0] = color.imageView;
-		views[1] = depth.imageView;
-		fbci.width = width;
-		fbci.height = height;
-		fbci.layers = 1;
-
-		VkResult res = vkCreateFramebuffer(vulkan_->GetDevice(), &fbci, nullptr, &framebuf[i]);
-		_assert_(res == VK_SUCCESS);
-
-		if (tag && vk->Extensions().EXT_debug_utils) {
-			vk->SetDebugName(color.image, VK_OBJECT_TYPE_IMAGE, StringFromFormat("fb_color_%s", tag).c_str());
-			vk->SetDebugName(depth.image, VK_OBJECT_TYPE_IMAGE, StringFromFormat("fb_depth_%s", tag).c_str());
-			vk->SetDebugName(framebuf[i], VK_OBJECT_TYPE_FRAMEBUFFER, StringFromFormat("fb_%s", tag).c_str());
-			this->tag = tag;
-		}
+VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPassType renderPassType) {
+	if (framebuf[(int)renderPassType]) {
+		return framebuf[(int)renderPassType];
 	}
+
+	VkFramebufferCreateInfo fbci{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
+	VkImageView views[2]{};
+
+	fbci.renderPass = compatibleRenderPass->pass[(int)renderPassType];
+	fbci.attachmentCount = 2;
+	fbci.pAttachments = views;
+	views[0] = color.imageView;
+	views[1] = depth.imageView;
+	fbci.width = width;
+	fbci.height = height;
+	fbci.layers = 1;
+
+	VkResult res = vkCreateFramebuffer(vulkan_->GetDevice(), &fbci, nullptr, &framebuf[(int)renderPassType]);
+	_assert_(res == VK_SUCCESS);
+
+	if (!tag_.empty() && vulkan_->Extensions().EXT_debug_utils) {
+		vulkan_->SetDebugName(color.image, VK_OBJECT_TYPE_IMAGE, StringFromFormat("fb_color_%s", tag_.c_str()).c_str());
+		vulkan_->SetDebugName(depth.image, VK_OBJECT_TYPE_IMAGE, StringFromFormat("fb_depth_%s", tag_.c_str()).c_str());
+		vulkan_->SetDebugName(framebuf[(int)renderPassType], VK_OBJECT_TYPE_FRAMEBUFFER, StringFromFormat("fb_%s", tag_.c_str()).c_str());
+	}
+
+	return framebuf[(int)renderPassType];
 }
 
 VKRFramebuffer::~VKRFramebuffer() {

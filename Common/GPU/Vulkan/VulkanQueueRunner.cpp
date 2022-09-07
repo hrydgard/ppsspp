@@ -615,13 +615,13 @@ std::string VulkanQueueRunner::StepToString(const VKRStep &step) const {
 		break;
 	}
 	case VKRStepType::COPY:
-		snprintf(buffer, sizeof(buffer), "COPY '%s' %s -> %s (%dx%d, %s)", step.tag, step.copy.src->tag.c_str(), step.copy.dst->tag.c_str(), step.copy.srcRect.extent.width, step.copy.srcRect.extent.height, AspectToString(step.copy.aspectMask));
+		snprintf(buffer, sizeof(buffer), "COPY '%s' %s -> %s (%dx%d, %s)", step.tag, step.copy.src->Tag(), step.copy.dst->Tag(), step.copy.srcRect.extent.width, step.copy.srcRect.extent.height, AspectToString(step.copy.aspectMask));
 		break;
 	case VKRStepType::BLIT:
-		snprintf(buffer, sizeof(buffer), "BLIT '%s' %s -> %s (%dx%d->%dx%d, %s)", step.tag, step.copy.src->tag.c_str(), step.copy.dst->tag.c_str(), step.blit.srcRect.extent.width, step.blit.srcRect.extent.height, step.blit.dstRect.extent.width, step.blit.dstRect.extent.height, AspectToString(step.blit.aspectMask));
+		snprintf(buffer, sizeof(buffer), "BLIT '%s' %s -> %s (%dx%d->%dx%d, %s)", step.tag, step.copy.src->Tag(), step.copy.dst->Tag(), step.blit.srcRect.extent.width, step.blit.srcRect.extent.height, step.blit.dstRect.extent.width, step.blit.dstRect.extent.height, AspectToString(step.blit.aspectMask));
 		break;
 	case VKRStepType::READBACK:
-		snprintf(buffer, sizeof(buffer), "READBACK '%s' %s (%dx%d, %s)", step.tag, step.readback.src->tag.c_str(), step.readback.srcRect.extent.width, step.readback.srcRect.extent.height, AspectToString(step.readback.aspectMask));
+		snprintf(buffer, sizeof(buffer), "READBACK '%s' %s (%dx%d, %s)", step.tag, step.readback.src->Tag(), step.readback.srcRect.extent.width, step.readback.srcRect.extent.height, AspectToString(step.readback.aspectMask));
 		break;
 	case VKRStepType::READBACK_IMAGE:
 		snprintf(buffer, sizeof(buffer), "READBACK_IMAGE '%s' (%dx%d)", step.tag, step.readback_image.srcRect.extent.width, step.readback_image.srcRect.extent.height);
@@ -780,14 +780,14 @@ const char *ImageLayoutToString(VkImageLayout layout) {
 
 void VulkanQueueRunner::LogRenderPass(const VKRStep &pass, bool verbose) {
 	const auto &r = pass.render;
-	const char *framebuf = r.framebuffer ? r.framebuffer->tag.c_str() : "backbuffer";
+	const char *framebuf = r.framebuffer ? r.framebuffer->Tag() : "backbuffer";
 	int w = r.framebuffer ? r.framebuffer->width : vulkan_->GetBackbufferWidth();
 	int h = r.framebuffer ? r.framebuffer->height : vulkan_->GetBackbufferHeight();
 
 	INFO_LOG(G3D, "RENDER %s Begin(%s, draws: %d, %dx%d, %s, %s, %s)", pass.tag, framebuf, r.numDraws, w, h, RenderPassActionName(r.colorLoad), RenderPassActionName(r.depthLoad), RenderPassActionName(r.stencilLoad));
 	// TODO: Log these in detail.
 	for (int i = 0; i < (int)pass.preTransitions.size(); i++) {
-		INFO_LOG(G3D, "  PRETRANSITION: %s %s -> %s", pass.preTransitions[i].fb->tag.c_str(), AspectToString(pass.preTransitions[i].aspect), ImageLayoutToString(pass.preTransitions[i].targetLayout));
+		INFO_LOG(G3D, "  PRETRANSITION: %s %s -> %s", pass.preTransitions[i].fb->Tag(), AspectToString(pass.preTransitions[i].aspect), ImageLayoutToString(pass.preTransitions[i].targetLayout));
 	}
 
 	if (verbose) {
@@ -1317,8 +1317,14 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 		_dbg_assert_(step.render.finalColorLayout != VK_IMAGE_LAYOUT_UNDEFINED);
 		_dbg_assert_(step.render.finalDepthStencilLayout != VK_IMAGE_LAYOUT_UNDEFINED);
 
+		RPKey key{
+			step.render.colorLoad, step.render.depthLoad, step.render.stencilLoad,
+			step.render.colorStore, step.render.depthStore, step.render.stencilStore,
+		};
+		renderPass = GetRenderPass(key);
+
 		VKRFramebuffer *fb = step.render.framebuffer;
-		framebuf = fb->framebuf[step.render.renderPassType];
+		framebuf = fb->Get(renderPass, step.render.renderPassType);
 		w = fb->width;
 		h = fb->height;
 
@@ -1340,12 +1346,6 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 
 		TransitionToOptimal(cmd, fb->color.image, fb->color.layout, fb->depth.image, fb->depth.layout, &recordBarrier_);
 
-		RPKey key{
-			step.render.colorLoad, step.render.depthLoad, step.render.stencilLoad,
-			step.render.colorStore, step.render.depthStore, step.render.stencilStore,
-		};
-		renderPass = GetRenderPass(key);
-
 		// The transition from the optimal format happens after EndRenderPass, now that we don't
 		// do it as part of the renderpass itself anymore.
 
@@ -1359,17 +1359,17 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 			numClearVals = 2;
 		}
 	} else {
-		framebuf = backbuffer_;
-
-		// Raw, rotated backbuffer size.
-		w = vulkan_->GetBackbufferWidth();
-		h = vulkan_->GetBackbufferHeight();
-
 		RPKey key{
 			VKRRenderPassLoadAction::CLEAR, VKRRenderPassLoadAction::CLEAR, VKRRenderPassLoadAction::CLEAR,
 			VKRRenderPassStoreAction::STORE, VKRRenderPassStoreAction::DONT_CARE, VKRRenderPassStoreAction::DONT_CARE,
 		};
 		renderPass = GetRenderPass(key);
+
+		framebuf = backbuffer_;
+
+		// Raw, rotated backbuffer size.
+		w = vulkan_->GetBackbufferWidth();
+		h = vulkan_->GetBackbufferHeight();
 
 		Uint8x4ToFloat4(clearVal[0].color.float32, step.render.clearColor);
 		numClearVals = 2;  // We don't bother with a depth buffer here.

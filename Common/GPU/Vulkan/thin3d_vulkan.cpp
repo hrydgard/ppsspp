@@ -273,6 +273,7 @@ public:
 	}
 
 	VKRGraphicsPipeline *pipeline = nullptr;
+	VKRGraphicsPipelineDesc vkrDesc;
 	PipelineFlags flags;
 
 	int stride[4]{};
@@ -1041,7 +1042,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 
 	VKPipeline *pipeline = new VKPipeline(&renderManager_, desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float), (PipelineFlags)pipelineFlags);
 
-	VKRGraphicsPipelineDesc gDesc{};
+	VKRGraphicsPipelineDesc &gDesc = pipeline->vkrDesc;
 
 	std::vector<VkPipelineShaderStageCreateInfo> stages;
 	stages.resize(desc.shaders.size());
@@ -1079,6 +1080,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 
 	gDesc.blend0 = blend->attachments[0];
 	gDesc.cbs = blend->info;
+	gDesc.cbs.pAttachments = &gDesc.blend0;
 
 	gDesc.dss = depth->info;
 
@@ -1090,7 +1092,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	// We treat the three stencil states as a unit in other places, so let's do that here too.
 	const VkDynamicState dynamics[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK, VK_DYNAMIC_STATE_STENCIL_REFERENCE, VK_DYNAMIC_STATE_STENCIL_WRITE_MASK };
 	gDesc.ds.dynamicStateCount = depth->info.stencilTestEnable ? ARRAY_SIZE(dynamics) : 2;
-	for (int i = 0; i < gDesc.ds.dynamicStateCount; i++) {
+	for (size_t i = 0; i < gDesc.ds.dynamicStateCount; i++) {
 		gDesc.dynamicStates[i] = dynamics[i];
 	}
 	gDesc.ds.pDynamicStates = gDesc.dynamicStates;

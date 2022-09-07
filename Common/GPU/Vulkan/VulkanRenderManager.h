@@ -46,14 +46,23 @@ public:
 	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, const char *tag);
 	~VKRFramebuffer();
 
-	VkFramebuffer framebuf[RP_TYPE_COUNT]{};
-	VKRImage color{};
-	VKRImage depth{};
+	VkFramebuffer Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType);
+
 	int width = 0;
 	int height = 0;
+	VKRImage color{};
+	VKRImage depth{};
 
+	const char *Tag() const {
+		return tag_.c_str();
+	}
+
+	// TODO: Hide.
 	VulkanContext *vulkan_;
-	std::string tag;
+private:
+	VkFramebuffer framebuf[RP_TYPE_COUNT]{};
+
+	std::string tag_;
 };
 
 enum class VKRRunType {
@@ -124,8 +133,8 @@ struct VKRGraphicsPipelineDesc {
 	VkPipelineMultisampleStateCreateInfo ms{ VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
 
 	// Replaced the ShaderStageInfo with promises here so we can wait for compiles to finish.
-	Promise<VkShaderModule> *vertexShader;
-	Promise<VkShaderModule> *fragmentShader;
+	Promise<VkShaderModule> *vertexShader = nullptr;
+	Promise<VkShaderModule> *fragmentShader = nullptr;
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{ VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
 	VkVertexInputAttributeDescription attrs[8]{};
@@ -133,11 +142,11 @@ struct VKRGraphicsPipelineDesc {
 	VkPipelineVertexInputStateCreateInfo vis{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
 	VkPipelineViewportStateCreateInfo views{ VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
 
-	VkPipelineLayout pipelineLayout;
+	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 
 	// Does not include the render pass type, it's passed in separately since the
 	// desc is persistent.
-	RPKey rpKey;
+	RPKey rpKey{};
 };
 
 // All the data needed to create a compute pipeline.
@@ -239,6 +248,7 @@ public:
 	// Deferred creation, like in GL. Unlike GL though, the purpose is to allow background creation and avoiding
 	// stalling the emulation thread as much as possible.
 	// We delay creating pipelines until the end of the current render pass, so we can create the right type immediately.
+	// WARNING: desc must stick around! It's not enough to build it on the stack.
 	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc) {
 		VKRGraphicsPipeline *pipeline = new VKRGraphicsPipeline();
 		_dbg_assert_(desc->vertexShader);
