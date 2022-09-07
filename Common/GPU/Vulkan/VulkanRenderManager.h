@@ -166,7 +166,7 @@ struct VKRGraphicsPipeline {
 
 	u32 GetVariantsBitmask() const;
 
-	VKRGraphicsPipelineDesc *desc = nullptr;
+	VKRGraphicsPipelineDesc *desc = nullptr;  // not owned!
 	Promise<VkPipeline> *pipeline[RP_TYPE_COUNT]{};
 	std::string tag;
 };

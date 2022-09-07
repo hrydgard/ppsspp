@@ -27,11 +27,6 @@ using namespace PPSSPP_VK;
 
 // renderPass is an example of the "compatibility class" or RenderPassType type.
 bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType) {
-	if (!desc) {
-		// Already failed to create this one.
-		return false;
-	}
-
 	// Fill in the last part of the desc since now it's time to block.
 	VkShaderModule vs = desc->vertexShader->BlockUntilReady();
 	VkShaderModule fs = desc->fragmentShader->BlockUntilReady();
@@ -103,12 +98,6 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 		pipeline[rpType]->Post(vkpipeline);
 	}
 
-
-	// Having the desc stick around can be useful for debugging.
-#ifndef _DEBUG
-	delete desc;
-	desc = nullptr;
-#endif
 	return success;
 }
 
