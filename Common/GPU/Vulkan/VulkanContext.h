@@ -201,7 +201,7 @@ public:
 
 	// Utility functions for shorter code
 	VkFence CreateFence(bool presignalled);
-	bool CreateShaderModule(const std::vector<uint32_t> &spirv, VkShaderModule *shaderModule);
+	bool CreateShaderModule(const std::vector<uint32_t> &spirv, VkShaderModule *shaderModule, const char *tag);
 
 	int GetBackbufferWidth() { return (int)swapChainExtent_.width; }
 	int GetBackbufferHeight() { return (int)swapChainExtent_.height; }

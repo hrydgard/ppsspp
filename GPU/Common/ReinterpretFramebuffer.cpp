@@ -185,6 +185,7 @@ Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBuf
 	writer.EndFSMain("outColor", FSFLAG_NONE);
 
 	return Draw2DPipelineInfo{
+		"reinterpret",
 		RASTER_COLOR,
 		RASTER_COLOR,
 	};

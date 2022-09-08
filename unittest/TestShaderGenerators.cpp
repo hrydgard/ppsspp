@@ -30,27 +30,27 @@ bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs
 	case ShaderLanguage::GLSL_VULKAN:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::GLSL_VULKAN);
-		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, errorString);
+		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, nullptr, errorString);
 	}
 	case ShaderLanguage::GLSL_1xx:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::GLSL_1xx);
-		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, errorString);
+		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, nullptr, errorString);
 	}
 	case ShaderLanguage::GLSL_3xx:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::GLSL_1xx);
-		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, errorString);
+		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, nullptr, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D9:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D9);
-		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, errorString);
+		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, nullptr, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D11:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D11);
-		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, errorString);
+		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, nullptr, errorString);
 	}
 	default:
 		return false;

@@ -950,13 +950,13 @@ bool CreateGlobalPipelines() {
 		inputLayout, depth, blendNormal, rasterNoCull, &vsTexColBufDesc,
 	};
 
-	colorPipeline = g_draw->CreateGraphicsPipeline(colorDesc);
+	colorPipeline = g_draw->CreateGraphicsPipeline(colorDesc, "global_color");
 	if (!colorPipeline) {
 		// Something really critical is wrong, don't care much about correct releasing of the states.
 		return false;
 	}
 
-	texColorPipeline = g_draw->CreateGraphicsPipeline(texColorDesc);
+	texColorPipeline = g_draw->CreateGraphicsPipeline(texColorDesc, "global_texcolor");
 	if (!texColorPipeline) {
 		// Something really critical is wrong, don't care much about correct releasing of the states.
 		return false;

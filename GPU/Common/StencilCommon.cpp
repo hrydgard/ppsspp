@@ -237,7 +237,7 @@ bool FramebufferManagerCommon::PerformStencilUpload(u32 addr, int size, StencilU
 			{ stencilUploadVs, stencilUploadFs },
 			inputLayout, stencilWrite, blendOff, rasterNoCull, &stencilUBDesc,
 		};
-		stencilUploadPipeline_ = draw_->CreateGraphicsPipeline(stencilWriteDesc);
+		stencilUploadPipeline_ = draw_->CreateGraphicsPipeline(stencilWriteDesc, "stencil_upload");
 		_assert_(stencilUploadPipeline_);
 
 		delete[] fsCode;
