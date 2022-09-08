@@ -770,8 +770,8 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 
 	PerformBindFramebufferAsRenderTarget(step);
 
-	bool isVR = IsVRBuild();
-	if (isVR) PreGLRenderPass(step);
+	const bool isVR = IsVRBuild();
+	if (isVR) PreGLRenderPass(&step);
 
 	if (first) {
 		glDisable(GL_DEPTH_TEST);
@@ -820,7 +820,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 	CHECK_GL_ERROR_IF_DEBUG();
 	auto &commands = step.commands;
 	for (const auto &c : commands) {
-		if (isVR) PreGLCommand(c);
+		if (isVR) PreGLCommand(&c);
 		switch (c.cmd) {
 		case GLRRenderCommand::DEPTH:
 			if (c.depth.enabled) {
@@ -1328,7 +1328,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			Crash();
 			break;
 		}
-		if (isVR) PostGLCommand(c);
+		if (isVR) PostGLCommand(&c);
 	}
 
 	for (int i = 0; i < 7; i++) {

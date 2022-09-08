@@ -1,3 +1,5 @@
+#include "Common/GPU/OpenGL/GLRenderManager.h"
+
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/VR/VRBase.h"
 #include "Common/VR/VRInput.h"
@@ -217,22 +219,23 @@ void UpdateVRScreenKey(const KeyInput &key) {
 ================================================================================
 */
 
-bool IsSkyPlane(const GLRRenderData& data) {
-	if ((data.drawIndexed.count <= 60) && !vrCompat[VR_USE_CLIP]) {
+bool IsSkyPlane(const GLRRenderData* data) {
+	if ((data->drawIndexed.count <= 60) && !vrCompat[VR_USE_CLIP]) {
 		//TODO:fix HUD items
 		return true;
 	}
 	return false;
 }
 
-void PreGLRenderPass(const GLRStep& step) {
+void PreGLRenderPass(const void* step) {
 	if (IsFlatVRScene()) {
 		return;
 	}
-	vrCompat[VR_COMPAT_GEOMETRY] = strcmp(step.tag, "FramebufferSwitch") == 0;
+	const auto* glrStep = (const GLRStep*)step;
+	vrCompat[VR_COMPAT_GEOMETRY] = strcmp(glrStep->tag, "FramebufferSwitch") == 0;
 
 	// Clear the screen with fog color, only for passes containing geometry (and no lens flares)
-	if (vrCompat[VR_COMPAT_SKYPLANE] && vrCompat[VR_COMPAT_GEOMETRY] && (step.commands.size() > 50)) {
+	if (vrCompat[VR_COMPAT_SKYPLANE] && vrCompat[VR_COMPAT_GEOMETRY] && (glrStep->commands.size() > 50)) {
 		float color[4];
 		Uint8x3ToFloat4(color, vrCompat[VR_COMPAT_FOG_COLOR]);
 		glClearColor(color[0], color[1], color[2], 1.0f);
@@ -241,23 +244,25 @@ void PreGLRenderPass(const GLRStep& step) {
 	}
 }
 
-void PreGLCommand(const GLRRenderData& data) {
+void PreGLCommand(const void* data) {
 	if (IsFlatVRScene()) {
 		return;
 	} else if (vrCompat[VR_COMPAT_SKYPLANE] && vrCompat[VR_COMPAT_GEOMETRY]) {
-		if (data.cmd == GLRRenderCommand::BINDPROGRAM) {
-			vrCompat[VR_USE_CLIP] = data.program.program->use_clip_distance0;
-		} else if ((data.cmd == GLRRenderCommand::DRAW_INDEXED) && IsSkyPlane(data)) {
+		const auto* glrData = (const GLRRenderData*)data;
+		if (glrData->cmd == GLRRenderCommand::BINDPROGRAM) {
+			vrCompat[VR_USE_CLIP] = glrData->program.program->use_clip_distance0;
+		} else if ((glrData->cmd == GLRRenderCommand::DRAW_INDEXED) && IsSkyPlane(glrData)) {
 			glColorMask(false, false, false, false);
 		}
 	}
 }
 
-void PostGLCommand(const GLRRenderData& data) {
+void PostGLCommand(const void* data) {
 	if (IsFlatVRScene()) {
 		return;
 	} else if (vrCompat[VR_COMPAT_SKYPLANE] && vrCompat[VR_COMPAT_GEOMETRY]) {
-		if ((data.cmd == GLRRenderCommand::DRAW_INDEXED) && IsSkyPlane(data)) {
+		const auto* glrData = (const GLRRenderData*)data;
+		if ((glrData->cmd == GLRRenderCommand::DRAW_INDEXED) && IsSkyPlane(glrData)) {
 			glColorMask(true, true, true, true);
 		}
 	}

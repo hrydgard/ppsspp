@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
 
@@ -29,9 +28,9 @@ void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTouch)(con
 void UpdateVRScreenKey(const KeyInput &key);
 
 // VR games compatibility
-void PreGLRenderPass(const GLRStep& step);
-void PreGLCommand(const GLRRenderData& data);
-void PostGLCommand(const GLRRenderData& data);
+void PreGLRenderPass(const void* step);
+void PreGLCommand(const void* data);
+void PostGLCommand(const void* data);
 void SetVRCompat(VRCompat flag, long value);
 
 // VR rendering integration
@@ -58,9 +57,9 @@ inline void UpdateVRInput(bool(*NativeKey)(const KeyInput &key), bool(*NativeTou
 inline void UpdateVRScreenKey(const KeyInput &key) {}
 
 // VR games compatibility
-inline void PreGLRenderPass(const GLRStep& step) {}
-inline void PreGLCommand(const GLRRenderData& data) {}
-inline void PostGLCommand(const GLRRenderData& data) {}
+inline void PreGLRenderPass(const void* step) {}
+inline void PreGLCommand(const void* data) {}
+inline void PostGLCommand(const void* data) {}
 inline void SetVRCompat(VRCompat flag, long value) {}
 
 // VR rendering integration
