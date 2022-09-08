@@ -93,7 +93,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// Update again after init to be sure of any silly driver problems.
 	UpdateVsyncInterval(true);
 
-	textureCacheGL_->NotifyConfigChanged();
+	textureCache_->NotifyConfigChanged();
 
 	// Load shader cache.
 	std::string discID = g_paramSFO.GetDiscID();
@@ -325,7 +325,7 @@ void GPU_GLES::BeginHostFrame() {
 		framebufferManager_->Resized();
 		drawEngine_.Resized();
 		shaderManagerGL_->DirtyShader();
-		textureCacheGL_->NotifyConfigChanged();
+		textureCache_->NotifyConfigChanged();
 		resized_ = false;
 	}
 
