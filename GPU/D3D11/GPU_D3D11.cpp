@@ -209,7 +209,7 @@ void GPU_D3D11::BeginHostFrame() {
 		CheckGPUFeatures();
 		framebufferManager_->Resized();
 		drawEngine_.Resized();
-		textureCacheD3D11_->NotifyConfigChanged();
+		textureCache_->NotifyConfigChanged();
 		shaderManagerD3D11_->DirtyLastShader();
 		resized_ = false;
 	}

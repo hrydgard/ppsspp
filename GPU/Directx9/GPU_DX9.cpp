@@ -265,7 +265,7 @@ void GPU_DX9::BeginHostFrame() {
 		framebufferManager_->Resized();
 		drawEngine_.Resized();
 		shaderManagerDX9_->DirtyShader();
-		textureCacheDX9_->NotifyConfigChanged();
+		textureCache_->NotifyConfigChanged();
 		resized_ = false;
 	}
 }

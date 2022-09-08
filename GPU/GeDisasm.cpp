@@ -94,7 +94,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
 
-	static constexpr char *primTypes[8] = {
+	static const char * const primTypes[8] = {
 		"POINTS",
 		"LINES",
 		"LINE_STRIP",
@@ -765,7 +765,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 			float g = (float)((data>>8) & 0xff)/255.0f;
 			float b = (float)(data>>16)/255.0f;
 
-			static constexpr char *lightColorTypes[] = {
+			static const char * const lightColorTypes[] = {
 				"ambient",
 				"diffuse",
 				"specular",

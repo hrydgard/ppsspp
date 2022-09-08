@@ -489,13 +489,13 @@ public:
 	}
 	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
 
-	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const char *tag) override;
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
-	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
+	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) override;
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
 	Texture *CreateTexture(const TextureDesc &desc) override;
 
@@ -692,7 +692,7 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 D3D9Context::~D3D9Context() {
 }
 
-ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size, const std::string &tag) {
+ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size, const char *tag) {
 	D3D9ShaderModule *shader = new D3D9ShaderModule(stage, tag);
 	if (shader->Compile(device_, data, size)) {
 		return shader;
@@ -702,15 +702,15 @@ ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, ShaderLanguage 
 	}
 }
 
-Pipeline *D3D9Context::CreateGraphicsPipeline(const PipelineDesc &desc) {
+Pipeline *D3D9Context::CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) {
 	if (!desc.shaders.size()) {
-		ERROR_LOG(G3D,  "Pipeline requires at least one shader");
+		ERROR_LOG(G3D,  "Pipeline %s requires at least one shader", tag);
 		return NULL;
 	}
 	D3D9Pipeline *pipeline = new D3D9Pipeline();
 	for (auto iter : desc.shaders) {
 		if (!iter) {
-			ERROR_LOG(G3D,  "NULL shader passed to CreateGraphicsPipeline");
+			ERROR_LOG(G3D,  "NULL shader passed to CreateGraphicsPipeline(%s)", tag);
 			delete pipeline;
 			return NULL;
 		}

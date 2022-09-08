@@ -82,9 +82,9 @@ public:
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
-	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
+	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) override;
 	Texture *CreateTexture(const TextureDesc &desc) override;
-	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const char *tag) override;
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
@@ -920,7 +920,7 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 	return tex;
 }
 
-ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) {
+ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const char *tag) {
 	if (language != ShaderLanguage::HLSL_D3D11) {
 		ERROR_LOG(G3D, "Unsupported shader language");
 		return nullptr;
@@ -965,7 +965,7 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 	}
 	if (errorMsgs) {
 		errors = std::string((const char *)errorMsgs->GetBufferPointer(), errorMsgs->GetBufferSize());
-		ERROR_LOG(G3D, "Failed compiling:\n%s\n%s", data, errors.c_str());
+		ERROR_LOG(G3D, "Failed compiling %s:\n%s\n%s", tag, data, errors.c_str());
 		errorMsgs->Release();
 	}
 
@@ -1003,7 +1003,7 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 	return nullptr;
 }
 
-Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
+Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) {
 	D3D11Pipeline *dPipeline = new D3D11Pipeline();
 	dPipeline->blend = (D3D11BlendState *)desc.blend;
 	dPipeline->depthStencil = (D3D11DepthStencilState *)desc.depthStencil;

@@ -44,7 +44,7 @@ VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits 
 		return VK_NULL_HANDLE;
 	} else {
 		VkShaderModule module;
-		if (vulkan->CreateShaderModule(spirv, &module)) {
+		if (vulkan->CreateShaderModule(spirv, &module, stage == VK_SHADER_STAGE_VERTEX_BIT ? "system_vs" : "system_fs")) {
 			return module;
 		} else {
 			return VK_NULL_HANDLE;
