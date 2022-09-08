@@ -10,19 +10,6 @@
 #include "Core/KeyMap.h"
 #include "Core/System.h"
 
-#include "GPU/GPUState.h"
-
-enum VRCompat {
-	//compatibility tweaks
-	VR_COMPAT_SKYPLANE,
-
-	//render state
-	VR_COMPAT_GEOMETRY, VR_USE_CLIP,
-
-	//end
-	VR_COMPAT_MAX
-};
-
 static long vrCompat[VR_COMPAT_MAX];
 
 /*
@@ -247,7 +234,7 @@ void PreGLRenderPass(const GLRStep& step) {
 	// Clear the screen with fog color, only for passes containing geometry (and no lens flares)
 	if (vrCompat[VR_COMPAT_SKYPLANE] && vrCompat[VR_COMPAT_GEOMETRY] && (step.commands.size() > 50)) {
 		float color[4];
-		Uint8x3ToFloat4(color, gstate.fogcolor);
+		Uint8x3ToFloat4(color, vrCompat[VR_COMPAT_FOG_COLOR]);
 		glClearColor(color[0], color[1], color[2], 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 		glClearColor(0, 0, 0, 1);
@@ -274,6 +261,10 @@ void PostGLCommand(const GLRRenderData& data) {
 			glColorMask(true, true, true, true);
 		}
 	}
+}
+
+void SetVRCompat(VRCompat flag, long value) {
+	vrCompat[flag] = value;
 }
 
 /*

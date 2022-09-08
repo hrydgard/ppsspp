@@ -4,6 +4,20 @@
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
 
+enum VRCompat {
+	//compatibility tweaks
+	VR_COMPAT_SKYPLANE,
+
+	//render state
+	VR_COMPAT_GEOMETRY, VR_USE_CLIP,
+
+	//uniforms
+	VR_COMPAT_FOG_COLOR,
+
+	//end
+	VR_COMPAT_MAX
+};
+
 #ifdef OPENXR
 
 // VR app flow integration
@@ -18,6 +32,7 @@ void UpdateVRScreenKey(const KeyInput &key);
 void PreGLRenderPass(const GLRStep& step);
 void PreGLCommand(const GLRRenderData& data);
 void PostGLCommand(const GLRRenderData& data);
+void SetVRCompat(VRCompat flag, long value);
 
 // VR rendering integration
 void BindVRFramebuffer();
@@ -46,6 +61,7 @@ inline void UpdateVRScreenKey(const KeyInput &key) {}
 inline void PreGLRenderPass(const GLRStep& step) {}
 inline void PreGLCommand(const GLRRenderData& data) {}
 inline void PostGLCommand(const GLRRenderData& data) {}
+inline void SetVRCompat(VRCompat flag, long value) {}
 
 // VR rendering integration
 inline void BindVRFramebuffer() {}
