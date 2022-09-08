@@ -181,7 +181,7 @@ public:
 	BinManager();
 	~BinManager();
 
-	void UpdateState();
+	void UpdateState(bool throughMode);
 	void UpdateClut(const void *src);
 
 	const Rasterizer::RasterizerState &State() {

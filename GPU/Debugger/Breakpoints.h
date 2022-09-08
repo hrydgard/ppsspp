@@ -47,6 +47,11 @@ namespace GPUBreakpoints {
 	void RemoveTextureChangeTempBreakpoint();
 	void RemoveRenderTargetBreakpoint(u32 addr);
 
+	bool SetAddressBreakpointCond(u32 addr, const std::string &expression, std::string *error);
+	bool GetAddressBreakpointCond(u32 addr, std::string *expression);
+	bool SetCmdBreakpointCond(u8 cmd, const std::string &expression, std::string *error);
+	bool GetCmdBreakpointCond(u8 cmd, std::string *expression);
+
 	void UpdateLastTexture(u32 addr);
 
 	void ClearAllBreakpoints();

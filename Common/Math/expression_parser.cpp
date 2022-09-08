@@ -580,8 +580,7 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 	return true;
 }
 
-bool parseExpression(char* exp, IExpressionFunctions* funcs, uint32_t& dest)
-{
+bool parseExpression(const char *exp, IExpressionFunctions *funcs, uint32_t &dest) {
 	PostfixExpression postfix;
 	if (initPostfixExpression(exp,funcs,postfix) == false) return false;
 	return parsePostfixExpression(postfix,funcs,dest);

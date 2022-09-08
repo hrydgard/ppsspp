@@ -161,13 +161,13 @@ BinManager::~BinManager() {
 	}
 }
 
-void BinManager::UpdateState() {
+void BinManager::UpdateState(bool throughMode) {
 	PROFILE_THIS_SCOPE("bin_state");
 	if (HasDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL)) {
 		if (states_.Full())
 			Flush("states");
 		stateIndex_ = (int)states_.Push(RasterizerState());
-		ComputeRasterizerState(&states_[stateIndex_]);
+		ComputeRasterizerState(&states_[stateIndex_], throughMode);
 		states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
 
 		ClearDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL);

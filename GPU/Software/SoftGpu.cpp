@@ -831,6 +831,7 @@ void SoftGPU::Execute_Prim(u32 op, u32 diff) {
 	GEPrimitiveType prim = static_cast<GEPrimitiveType>((op >> 16) & 7);
 	if (count == 0)
 		return;
+	FlushImm();
 
 	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
 		ERROR_LOG_REPORT(G3D, "Software: Bad vertex address %08x!", gstate_c.vertexAddr);

@@ -370,6 +370,7 @@
     <ClInclude Include="D3D11\TextureCacheD3D11.h" />
     <ClInclude Include="Debugger\Breakpoints.h" />
     <ClInclude Include="Debugger\Debugger.h" />
+    <ClInclude Include="Debugger\GECommandTable.h" />
     <ClInclude Include="Debugger\Playback.h" />
     <ClInclude Include="Debugger\Record.h" />
     <ClInclude Include="Debugger\RecordFormat.h" />
@@ -510,6 +511,7 @@
     <ClCompile Include="D3D11\TextureCacheD3D11.cpp" />
     <ClCompile Include="Debugger\Breakpoints.cpp" />
     <ClCompile Include="Debugger\Debugger.cpp" />
+    <ClCompile Include="Debugger\GECommandTable.cpp" />
     <ClCompile Include="Debugger\Playback.cpp" />
     <ClCompile Include="Debugger\Record.cpp" />
     <ClCompile Include="Debugger\Stepping.cpp" />
