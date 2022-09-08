@@ -896,6 +896,8 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	VkResult res = vkCreateDescriptorSetLayout(device_, &dsl, nullptr, &descriptorSetLayout_);
 	_assert_(VK_SUCCESS == res);
 
+	vulkan_->SetDebugName(descriptorSetLayout_, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, "thin3d_d_layout");
+
 	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pl.pPushConstantRanges = nullptr;
 	pl.pushConstantRangeCount = 0;
@@ -903,6 +905,8 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	pl.pSetLayouts = &descriptorSetLayout_;
 	res = vkCreatePipelineLayout(device_, &pl, nullptr, &pipelineLayout_);
 	_assert_(VK_SUCCESS == res);
+
+	vulkan_->SetDebugName(pipelineLayout_, VK_OBJECT_TYPE_PIPELINE_LAYOUT, "thin3d_p_layout");
 
 	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 	res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);

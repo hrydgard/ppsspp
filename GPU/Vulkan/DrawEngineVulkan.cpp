@@ -141,6 +141,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	dsl.pBindings = bindings;
 	VkResult res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
 	_dbg_assert_(VK_SUCCESS == res);
+	vulkan->SetDebugName(descriptorSetLayout_, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, "drawengine_d_layout");
 
 	static constexpr int DEFAULT_DESC_POOL_SIZE = 512;
 	std::vector<VkDescriptorPoolSize> dpTypes;
@@ -178,6 +179,8 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	pl.flags = 0;
 	res = vkCreatePipelineLayout(device, &pl, nullptr, &pipelineLayout_);
 	_dbg_assert_(VK_SUCCESS == res);
+
+	vulkan->SetDebugName(pipelineLayout_, VK_OBJECT_TYPE_PIPELINE_LAYOUT, "drawengine_p_layout");
 
 	VkSamplerCreateInfo samp{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
