@@ -10,8 +10,18 @@
 #include "Core/KeyMap.h"
 #include "Core/System.h"
 
-#include "GPU/OpenGL/GLRenderManager.h"
 #include "GPU/GPUState.h"
+
+enum VRCompat {
+	//compatibility tweaks
+	VR_COMPAT_SKYPLANE,
+
+	//render state
+	VR_COMPAT_GEOMETRY, VR_USE_CLIP,
+
+	//end
+	VR_COMPAT_MAX
+};
 
 static long vrCompat[VR_COMPAT_MAX];
 
@@ -264,14 +274,6 @@ void PostGLCommand(const GLRRenderData& data) {
 			glColorMask(true, true, true, true);
 		}
 	}
-}
-
-long GetVRCompat(VRCompat flag) {
-	return vrCompat[flag];
-}
-
-void SetVRCompat(VRCompat flag, long value) {
-	vrCompat[flag] = value;
 }
 
 /*
