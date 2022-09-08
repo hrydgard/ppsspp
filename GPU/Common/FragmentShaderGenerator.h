@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "Common/Common.h"
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/thin3d.h"
 
@@ -40,8 +41,9 @@ struct FShaderID;
 #define CONST_PS_STENCILVALUE 11
 
 // Can technically be deduced from the fragment shader ID, but this is safer.
-enum FragmentShaderFlags {
-	FS_FLAG_INPUT_ATTACHMENT,
+enum class FragmentShaderFlags : u32 {
+	FS_FLAG_INPUT_ATTACHMENT = 1,
 };
+ENUM_CLASS_BITOPS(FragmentShaderFlags);
 
 bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint64_t *uniformMask, FragmentShaderFlags *fragmentShaderFlags, std::string *errorString);
