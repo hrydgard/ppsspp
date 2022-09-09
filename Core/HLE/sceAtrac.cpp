@@ -1940,7 +1940,12 @@ static int _AtracSetData(Atrac *atrac, u32 buffer, u32 readSize, u32 bufferSize,
 	const char *codecName = atrac->codecType_ == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
 	const char *channelName = atrac->channels_ == 1 ? "mono" : "stereo";
 
-	atrac->dataBuf_ = new u8[atrac->first_.filesize];
+	// Over-allocate databuf to prevent going off the end if the bitstream is bad or if there are
+	// bugs in the decoder. This happens, see issue #15788. Arbitrary, but let's make it a whole page on the popular
+	// architecture that has the largest pages (M1).
+	const size_t overAllocBytes = 16384;
+	atrac->dataBuf_ = new u8[atrac->first_.filesize + overAllocBytes];
+	memset(atrac->dataBuf_, 0, atrac->first_.filesize + overAllocBytes);
 	if (!atrac->ignoreDataBuf_) {
 		u32 copybytes = std::min(bufferSize, atrac->first_.filesize);
 		Memory::Memcpy(atrac->dataBuf_, buffer, copybytes, "AtracSetData");
