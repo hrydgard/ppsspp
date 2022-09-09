@@ -25,6 +25,12 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.13.2
+====================
+* Crashfix on Android 12 when playing certain background music ([#15990])
+* Fix Star Ocean battles in D3D backends (#[15889])
+* Minor fixes that might fix some other crashes
+
 What's new in 1.13.1
 ====================
 
@@ -518,3 +524,4 @@ Credit goes to:
 [#15740]: https://github.com/hrydgard/ppsspp/issues/15740 "Replacement: Clear cache on disable"
 [#15734]: https://github.com/hrydgard/ppsspp/issues/15734 "Better pt-pt translation"
 [#15733]: https://github.com/hrydgard/ppsspp/issues/15733 "Fix bug in blue-to-alpha - alpha blending could be on when it shouldn't be."
+[#15990]: https://github.com/hrydgard/ppsspp/issues/15990 "Atrac3+: Allocate some extra bytes for the data buffer to workaround decoder bug."
