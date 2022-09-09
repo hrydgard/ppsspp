@@ -534,7 +534,9 @@ void VulkanRenderManager::CompileThreadFunc() {
 			break;
 		}
 
-		INFO_LOG(G3D, "Compilation thread has %d pipelines to create", (int)toCompile.size());
+		if (!toCompile.empty()) {
+			INFO_LOG(G3D, "Compilation thread has %d pipelines to create", (int)toCompile.size());
+		}
 
 		// TODO: Here we can sort the pending pipelines by vertex and fragment shaders,
 		// and split up further.
