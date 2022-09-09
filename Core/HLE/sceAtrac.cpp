@@ -115,6 +115,8 @@ const int PSP_ATRAC_LOOP_STREAM_DATA_IS_ON_MEMORY = -3;
 const u32 ATRAC3_MAX_SAMPLES = 0x400;
 const u32 ATRAC3PLUS_MAX_SAMPLES = 0x800;
 
+const size_t overAllocBytes = 16384;
+
 static const int atracDecodeDelay = 2300;
 
 #ifdef USE_FFMPEG
@@ -263,7 +265,8 @@ struct Atrac {
 			if (p.mode == p.MODE_READ) {
 				if (dataBuf_)
 					delete [] dataBuf_;
-				dataBuf_ = new u8[first_.filesize];
+				dataBuf_ = new u8[first_.filesize + overAllocBytes];
+				memset(dataBuf_, 0, first_.filesize + overAllocBytes);
 			}
 			DoArray(p, dataBuf_, first_.filesize);
 		}
@@ -452,7 +455,7 @@ struct Atrac {
 #else
 		// Future versions may add other things to free, but avcodec_free_context didn't exist yet here.
 		// Some old versions crash when we try to free extradata and subtitle_header, so let's not. A minor
-		// leak is better than a segfualt.
+		// leak is better than a segfault.
 		// av_freep(&codecCtx_->extradata);
 		// av_freep(&codecCtx_->subtitle_header);
 		avcodec_close(codecCtx_);
@@ -1943,7 +1946,6 @@ static int _AtracSetData(Atrac *atrac, u32 buffer, u32 readSize, u32 bufferSize,
 	// Over-allocate databuf to prevent going off the end if the bitstream is bad or if there are
 	// bugs in the decoder. This happens, see issue #15788. Arbitrary, but let's make it a whole page on the popular
 	// architecture that has the largest pages (M1).
-	const size_t overAllocBytes = 16384;
 	atrac->dataBuf_ = new u8[atrac->first_.filesize + overAllocBytes];
 	memset(atrac->dataBuf_, 0, atrac->first_.filesize + overAllocBytes);
 	if (!atrac->ignoreDataBuf_) {
@@ -2452,7 +2454,9 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 	atrac->first_.size = 0;
 	atrac->first_.filesize = atrac->bytesPerFrame_;
 	atrac->bufferState_ = ATRAC_STATUS_LOW_LEVEL;
-	atrac->dataBuf_ = new u8[atrac->first_.filesize];
+
+	atrac->dataBuf_ = new u8[atrac->first_.filesize + overAllocBytes];
+	memset(atrac->dataBuf_, 0, atrac->first_.filesize + overAllocBytes);
 	atrac->currentSample_ = 0;
 	int ret = __AtracSetContext(atrac);
 
