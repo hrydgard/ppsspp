@@ -95,7 +95,7 @@ bool IsVRBuild() {
 	return true;
 }
 
-void InitVROnAndroid(void* vm, void* activity, int version, char* name) {
+void InitVROnAndroid(void* vm, void* activity, int version, const char* name) {
 	ovrJava java;
 	java.Vm = (JavaVM*)vm;
 	java.ActivityObject = (jobject)activity;
