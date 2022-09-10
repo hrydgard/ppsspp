@@ -1177,6 +1177,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 				// And is it inside the rendered area?  Sometimes games pack data outside.
 				bool matchRegion = ((offset / bpp) % framebuffer->fb_stride) < framebuffer->width;
 				if (matchRange && matchRegion && offset < clutRenderOffset_) {
+					WARN_LOG_N_TIMES(clutfb, 5, G3D, "LoadCLUT(%d bytes) from framebuffer %08x (%s), byte offset %d", loadBytes, fb_address, GeBufferFormatToString(framebuffer->fb_format), offset);
 					framebuffer->last_frame_clut = gpuStats.numFlips;
 					framebuffer->usageFlags |= FB_USAGE_CLUT;
 					clutRenderAddress_ = framebuffer->fb_address;
