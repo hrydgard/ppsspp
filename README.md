@@ -25,6 +25,12 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.13.2
+====================
+* Crashfix on Android 12 when playing certain background music ([#15990])
+* Fix Star Ocean battles in D3D backends (#[15889])
+* Minor fixes that might fix some other crashes
+
 What's new in 1.13.1
 ====================
 
