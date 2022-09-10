@@ -571,9 +571,11 @@ void CtrlMatrixList::ToggleBreakpoint(int row) {
 	if (state) {
 		GPUBreakpoints::AddCmdBreakpoint(info->cmd);
 	} else {
-		int ret = MessageBox(GetHandle(), L"This breakpoint has a custom condition.\nDo you want to remove it?", L"Confirmation", MB_YESNO);
-		if (ret != IDYES)
-			return;
+		if (GPUBreakpoints::GetCmdBreakpointCond(info->cmd, nullptr)) {
+			int ret = MessageBox(GetHandle(), L"This breakpoint has a custom condition.\nDo you want to remove it?", L"Confirmation", MB_YESNO);
+			if (ret != IDYES)
+				return;
+		}
 		GPUBreakpoints::RemoveCmdBreakpoint(info->cmd);
 	}
 

@@ -910,7 +910,7 @@ void CtrlStateValues::OnDoubleClick(int row, int column) {
 
 	if (column == STATEVALUES_COL_BREAKPOINT) {
 		bool proceed = true;
-		if (IsCmdBreakpoint(info.cmd)) {
+		if (GetCmdBreakpointCond(info.cmd, nullptr)) {
 			int ret = MessageBox(GetHandle(), L"This breakpoint has a custom condition.\nDo you want to remove it?", L"Confirmation", MB_YESNO);
 			proceed = ret == IDYES;
 		}
@@ -993,7 +993,7 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 	{
 	case ID_DISASM_TOGGLEBREAKPOINT: {
 		bool proceed = true;
-		if (IsCmdBreakpoint(info.cmd)) {
+		if (GetCmdBreakpointCond(info.cmd, nullptr)) {
 			int ret = MessageBox(GetHandle(), L"This breakpoint has a custom condition.\nDo you want to remove it?", L"Confirmation", MB_YESNO);
 			proceed = ret == IDYES;
 		}
