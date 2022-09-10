@@ -605,7 +605,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		{
 			int w = 1 << (data & 0xf);
 			int h = 1 << ((data>>8) & 0xf);
-			if ((data & ~0x0F0F) && w <= 512 && h <= 512)
+			if ((data & ~0x0F0F) == 0 && w <= 512 && h <= 512)
 				snprintf(buffer, bufsize, "Texture size %d: %dx%d", cmd - GE_CMD_TEXSIZE0, w, h);
 			else
 				snprintf(buffer, bufsize, "Texture size %d: %dx%d (extra %06x)", cmd - GE_CMD_TEXSIZE0, w, h, data);
