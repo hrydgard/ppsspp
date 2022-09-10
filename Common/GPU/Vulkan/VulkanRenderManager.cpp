@@ -553,6 +553,7 @@ void VulkanRenderManager::CompileThreadFunc() {
 
 void VulkanRenderManager::DrainCompileQueue() {
 	std::unique_lock<std::mutex> lock(compileMutex_);
+	compileCond_.notify_all();
 	while (!compileQueue_.empty()) {
 		queueRunner_.WaitForCompileNotification();
 	}
@@ -733,13 +734,17 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 		};
 		VKRRenderPass *compatibleRenderPass = queueRunner_.GetRenderPass(key);
 		compileMutex_.lock();
+		bool needsCompile = false;
 		for (int i = 0; i < RP_TYPE_COUNT; i++) {
 			if (!(variantBitmask & (1 << i)))
 				continue;
 			RenderPassType rpType = (RenderPassType)i;
 			pipeline->pipeline[rpType] = Promise<VkPipeline>::CreateEmpty();
 			compileQueue_.push_back(CompileQueueEntry(pipeline, compatibleRenderPass->Get(vulkan_, rpType), rpType));
+			needsCompile = true;
 		}
+		if (needsCompile)
+			compileCond_.notify_one();
 		compileMutex_.unlock();
 	}
 	return pipeline;
@@ -775,13 +780,16 @@ void VulkanRenderManager::EndCurRenderStep() {
 	// Save the accumulated pipeline flags so we can use that to configure the render pass.
 	// We'll often be able to avoid loading/saving the depth/stencil buffer.
 	compileMutex_.lock();
+	bool needsCompile = false;
 	for (VKRGraphicsPipeline *pipeline : pipelinesToCheck_) {
 		if (!pipeline->pipeline[rpType]) {
 			pipeline->pipeline[rpType] = Promise<VkPipeline>::CreateEmpty();
 			compileQueue_.push_back(CompileQueueEntry(pipeline, renderPass->Get(vulkan_, rpType), rpType));
+			needsCompile = true;
 		}
 	}
-	compileCond_.notify_one();
+	if (needsCompile)
+		compileCond_.notify_one();
 	compileMutex_.unlock();
 	pipelinesToCheck_.clear();
 
