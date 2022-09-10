@@ -414,14 +414,14 @@ bool DetectRectangleFromFan(const RasterizerState &state, const VertexData *data
 
 	// Check for the common case: a single TL-TR-BR-BL.
 	if (c == 4) {
-		const auto &tl = data[0].screenpos, &tr = data[1].screenpos;
-		const auto &bl = data[3].screenpos, &br = data[2].screenpos;
-		if (tl.x == bl.x && tr.x == br.x && tl.y == tr.y && bl.y == br.y) {
+		const auto &pos0 = data[0].screenpos, &pos1 = data[1].screenpos;
+		const auto &pos2 = data[2].screenpos, &pos3 = data[3].screenpos;
+		if (pos0.x == pos3.x && pos1.x == pos2.x && pos0.y == pos1.y && pos3.y == pos2.y) {
 			// Looking like yes.  Set TL/BR based on y order first...
-			*tlIndex = tl.y > bl.y ? 2 : 0;
-			*brIndex = tl.y > bl.y ? 0 : 2;
+			*tlIndex = pos0.y > pos3.y ? 2 : 0;
+			*brIndex = pos0.y > pos3.y ? 0 : 2;
 			// And if it's horizontally flipped, trade to the actual TL/BR.
-			if (tl.x > tr.x) {
+			if (pos0.x > pos1.x) {
 				*tlIndex ^= 1;
 				*brIndex ^= 1;
 			}
