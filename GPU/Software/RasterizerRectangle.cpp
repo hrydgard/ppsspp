@@ -321,26 +321,32 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	return false;
 }
 
+static bool AreCoordsRectangleCompatible(const RasterizerState &state, const VertexData &data0, const VertexData &data1) {
+	if (!(data1.color0 == data0.color0))
+		return false;
+	if (!(data1.screenpos.z == data0.screenpos.z)) {
+		// Sometimes, we don't actually care about z.
+		if (state.pixelID.depthWrite || state.pixelID.DepthTestFunc() != GE_COMP_ALWAYS)
+			return false;
+	}
+	if (!state.throughMode) {
+		if (!state.throughMode && !(data1.color1 == data0.color1))
+			return false;
+		// Do we have to think about perspective correction or slope mip level?
+		if (state.enableTextures && data1.clippos.w != data0.clippos.w)
+			return false;
+		if (state.pixelID.applyFog && data1.fogdepth != data0.fogdepth)
+			return false;
+	}
+	return true;
+}
+
 bool DetectRectangleFromStrip(const RasterizerState &state, const VertexData data[4], int *tlIndex, int *brIndex) {
 	// Color and Z must be flat.  Also find the TL and BR meanwhile.
 	int tl = 0, br = 0;
 	for (int i = 1; i < 4; ++i) {
-		if (!(data[i].color0 == data[0].color0))
+		if (!AreCoordsRectangleCompatible(state, data[i], data[0]))
 			return false;
-		if (!(data[i].screenpos.z == data[0].screenpos.z)) {
-			// Sometimes, we don't actually care about z.
-			if (state.pixelID.depthWrite || state.pixelID.DepthTestFunc() != GE_COMP_ALWAYS)
-				return false;
-		}
-		if (!state.throughMode) {
-			if (!state.throughMode && !(data[i].color1 == data[0].color1))
-				return false;
-			// Do we have to think about perspective correction or slope mip level?
-			if (state.enableTextures && data[i].clippos.w != data[0].clippos.w)
-				return false;
-			if (state.pixelID.applyFog && data[i].fogdepth != data[0].fogdepth)
-				return false;
-		}
 
 		if (data[i].screenpos.x <= data[tl].screenpos.x && data[i].screenpos.y <= data[tl].screenpos.y)
 			tl = i;
@@ -394,22 +400,8 @@ bool DetectRectangleFromStrip(const RasterizerState &state, const VertexData dat
 bool DetectRectangleFromFan(const RasterizerState &state, const VertexData *data, int c, int *tlIndex, int *brIndex) {
 	// Color and Z must be flat.
 	for (int i = 1; i < c; ++i) {
-		if (!(data[i].color0 == data[0].color0))
+		if (!AreCoordsRectangleCompatible(state, data[i], data[0]))
 			return false;
-		if (!(data[i].screenpos.z == data[0].screenpos.z)) {
-			// Sometimes, we don't actually care about z.
-			if (state.pixelID.depthWrite || state.pixelID.DepthTestFunc() != GE_COMP_ALWAYS)
-				return false;
-		}
-		if (!state.throughMode) {
-			if (!state.throughMode && !(data[i].color1 == data[0].color1))
-				return false;
-			// Do we have to think about perspective correction or slope mip level?
-			if (state.enableTextures && data[i].clippos.w != data[0].clippos.w)
-				return false;
-			if (state.pixelID.applyFog && data[i].fogdepth != data[0].fogdepth)
-				return false;
-		}
 	}
 
 	// Check for the common case: a single TL-TR-BR-BL.

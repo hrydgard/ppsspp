@@ -838,7 +838,7 @@ void SoftGPU::Execute_Prim(u32 op, u32 diff) {
 		return;
 	}
 
-	const void *verts = Memory::GetPointer(gstate_c.vertexAddr);
+	const void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *indices = NULL;
 	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
