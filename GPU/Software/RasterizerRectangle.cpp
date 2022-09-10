@@ -435,7 +435,9 @@ bool DetectRectangleFromFan(const RasterizerState &state, const VertexData *data
 
 			if (textl.x == texbl.x && textr.x == texbr.x && textl.y == textr.y && texbl.y == texbr.y) {
 				// Okay, the texture is also good, but let's avoid rotation issues.
-				return textl.y < texbr.y && textl.x < texbr.x;
+				const auto &postl = data[*tlIndex].screenpos;
+				const auto &posbr = data[*brIndex].screenpos;
+				return textl.y < texbr.y && postl.y < posbr.y && textl.x < texbr.x && postl.x < posbr.x;
 			}
 		}
 	}
