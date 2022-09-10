@@ -25,6 +25,8 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+This branch is just to fix a weird issue where the v1.13.1b tag is being recreated by GitHub Actions.
+
 What's new in 1.13.1
 ====================
 
