@@ -333,10 +333,18 @@ static bool AreCoordsRectangleCompatible(const RasterizerState &state, const Ver
 		if (!state.throughMode && !(data1.color1 == data0.color1))
 			return false;
 		// Do we have to think about perspective correction or slope mip level?
-		if (state.enableTextures && data1.clippos.w != data0.clippos.w)
-			return false;
-		if (state.pixelID.applyFog && data1.fogdepth != data0.fogdepth)
-			return false;
+		if (state.enableTextures && data1.clippos.w != data0.clippos.w) {
+			// If the w is off by less than a factor of 1/512, it should be safe to treat as a rectangle.
+			static constexpr float halftexel = 0.5f / 512.0f;
+			if (data1.clippos.w - halftexel > data0.clippos.w || data1.clippos.w + halftexel < data0.clippos.w)
+				return false;
+		}
+		if (state.pixelID.applyFog && data1.fogdepth != data0.fogdepth) {
+			// Similar to w, this only matters if they're farther apart than 1/255.
+			static constexpr float foghalfstep = 0.5f / 255.0f;
+			if (data1.fogdepth - foghalfstep > data0.fogdepth || data1.fogdepth + foghalfstep < data0.fogdepth)
+				return false;
+		}
 	}
 	return true;
 }
