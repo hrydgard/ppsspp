@@ -402,7 +402,6 @@ bool TestFragmentShaders() {
 
 		// bits we don't need to test because they are irrelevant on d3d11
 		id.SetBit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL, false);
-		id.SetBit(FS_BIT_SHADER_DEPAL, false);
 
 		// DX9 disabling:
 		if (static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2)) == ReplaceAlphaType::REPLACE_ALPHA_DUALSOURCE)

@@ -258,7 +258,7 @@ void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
 	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, samplerKey);
 	context_->PSSetSamplers(0, 1, &state);
-	gstate_c.SetUseShaderDepal(false, false);
+	gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
 }
 
 void TextureCacheD3D11::ApplySamplingParams(const SamplerCacheKey &key) {

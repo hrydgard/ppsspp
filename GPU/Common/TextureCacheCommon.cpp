@@ -1956,7 +1956,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 			// Since we started/ended render passes, might need these.
 			gstate_c.Dirty(DIRTY_DEPAL);
-			gstate_c.SetUseShaderDepal(true, smoothedDepal);
+			gstate_c.SetUseShaderDepal(smoothedDepal ? ShaderDepalMode::SMOOTHED : ShaderDepalMode::NORMAL);
 			gstate_c.depalFramebufferFormat = framebuffer->fb_format;
 
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
@@ -1972,7 +1972,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		depthUpperBits = (depth && framebuffer->fb_format == GE_FORMAT_8888) ? ((gstate.getTextureAddress(0) & 0x600000) >> 20) : 0;
 
 		textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->fb_format, smoothedDepal, depthUpperBits);
-		gstate_c.SetUseShaderDepal(false, false);
+		gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
 	}
 
 	if (textureShader) {
@@ -2045,7 +2045,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 		BoundFramebufferTexture();
 
-		gstate_c.SetUseShaderDepal(false, false);
+		gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
 

@@ -40,6 +40,13 @@ enum SkipDrawReasonFlags {
 	SKIPDRAW_WINDOW_MINIMIZED = 8, // Don't draw when the host window is minimized.
 };
 
+enum class ShaderDepalMode {
+	OFF = 0,
+	NORMAL = 1,
+	SMOOTHED = 2,
+	CLUT8_8888 = 3,  // Read 8888 framebuffer as 8-bit CLUT.
+};
+
 // Global GPU-related utility functions. 
 // Nothing directly Ge-related in here.
 

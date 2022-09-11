@@ -92,8 +92,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
 
 	bool doFlatShading = id.Bit(FS_BIT_FLATSHADE) && !flatBug;
-	bool shaderDepal = id.Bit(FS_BIT_SHADER_DEPAL) && !texture3D;  // combination with texture3D not supported. Enforced elsewhere too.
-	bool smoothedDepal = id.Bit(FS_BIT_SHADER_SMOOTHED_DEPAL);
+	ShaderDepalMode shaderDepalMode = (ShaderDepalMode)id.Bits(FS_BIT_SHADER_DEPAL_MODE, 2);
+	if (texture3D) {
+		shaderDepalMode = ShaderDepalMode::OFF;
+	}
+
 	bool bgraTexture = id.Bit(FS_BIT_BGRA_TEXTURE);
 	bool colorWriteMask = id.Bit(FS_BIT_COLOR_WRITEMASK) && compat.bitwiseOps;
 
@@ -134,7 +137,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool needFragCoord = readFramebuffer || gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
 	bool writeDepth = gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
 
-	if (shaderDepal && !doTexture) {
+	if (shaderDepalMode != ShaderDepalMode::OFF && !doTexture) {
 		*errorString = "depal requires a texture";
 		return false;
 	}
@@ -153,7 +156,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "layout (binding = 1) uniform sampler2D fbotex;\n");
 		}
 
-		if (shaderDepal) {
+		if (shaderDepalMode != ShaderDepalMode::OFF) {
 			WRITE(p, "layout (binding = 2) uniform sampler2D pal;\n");
 		}
 
@@ -232,16 +235,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "Texture2D<vec4> fbotex : register(t1);\n");
 			}
 
-			if (shaderDepal) {
+			if (shaderDepalMode != ShaderDepalMode::OFF) {
 				WRITE(p, "SamplerState palSamp : register(s3);\n");
 				WRITE(p, "Texture2D<vec4> pal : register(t3);\n");
+				WRITE(p, "float2 textureSize(Texture2D<float4> tex, int mip) { float2 size; tex.GetDimensions(size.x, size.y); return size; }\n");
 			}
 
 			WRITE(p, "cbuffer base : register(b0) {\n%s};\n", ub_baseStr);
-
-			if (shaderDepal) {
-				WRITE(p, "float2 textureSize(Texture2D<float4> tex, int mip) { float2 size; tex.GetDimensions(size.x, size.y); return size; }\n");
-			}
 		}
 
 		if (enableAlphaTest) {
@@ -302,7 +302,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "};\n");
 		}
 	} else if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
-		if ((shaderDepal || colorWriteMask) && gl_extensions.IsGLES) {
+		if ((shaderDepalMode != ShaderDepalMode::OFF || colorWriteMask) && gl_extensions.IsGLES) {
 			WRITE(p, "precision highp int;\n");
 		}
 
@@ -353,7 +353,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 		}
 
-		if (shaderDepal) {
+		if (shaderDepalMode != ShaderDepalMode::OFF) {
 			WRITE(p, "uniform sampler2D pal;\n");
 			WRITE(p, "uniform uint u_depal_mask_shift_off_fmt;\n");
 			*uniformMask |= DIRTY_DEPAL;
@@ -563,7 +563,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				doTextureProjection = false;
 			}
 
-			if (!shaderDepal) {
+			switch (shaderDepalMode) {
+			case ShaderDepalMode::OFF:
 				if (compat.shaderLanguage == HLSL_D3D11) {
 					if (texture3D) {
 						if (doTextureProjection) {
@@ -609,7 +610,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 						}
 					}
 				}
-			} else if (shaderDepal && smoothedDepal) {
+				break;
+			case ShaderDepalMode::SMOOTHED:
 				// Specific mode for Test Drive. Fixes the banding.
 				if (doTextureProjection) {
 					// We don't use textureProj because we need better control and it's probably not much of a savings anyway.
@@ -636,7 +638,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				p.C("    else if (depalShift == 10u) { index0 = t.b; }\n");
 				p.C("  }\n");
 				p.F("  t = ").SampleTexture2D("pal", "vec2(index0 * factor, 0.0)").C(";\n");
-			} else {
+				break;
+			case ShaderDepalMode::NORMAL:
 				if (doTextureProjection) {
 					// We don't use textureProj because we need better control and it's probably not much of a savings anyway.
 					// However it is good for precision on older hardware like PowerVR.
@@ -726,6 +729,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "    t2 = mix(t2, t3, fraction.x);\n");
 				WRITE(p, "    t = mix(t, t2, fraction.y);\n");
 				WRITE(p, "  }\n");
+				break;
+			case ShaderDepalMode::CLUT8_8888:
+				// Not yet implemented.
+				WRITE(p, "    t = vec4(0.0, 0.0, 0.0, 0.0);\n");
+				break;
 			}
 
 			if (texFunc != GE_TEXFUNC_REPLACE || !doTextureAlpha)
