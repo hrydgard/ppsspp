@@ -883,6 +883,11 @@ bool TextureCacheCommon::MatchFramebuffer(
 		return false;
 	}
 
+	if (!fb_stride) {
+		// Hard to make decisions.
+		return false;
+	}
+
 	switch (entry.format) {
 	case GE_TFMT_DXT1:
 	case GE_TFMT_DXT3:
@@ -947,23 +952,21 @@ bool TextureCacheCommon::MatchFramebuffer(
 			(fb_format == GE_FORMAT_DEPTH16 && entry.format == GE_TFMT_CLUT16) ||
 			(fb_format == GE_FORMAT_DEPTH16 && entry.format == GE_TFMT_5650) ||
 			(fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT32) ||
-			(fb_format != GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT16);
+			(fb_format != GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT16) ||
+			(fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT8);  // Mixed byte size, format, reinterpret in depal!
 
 		const int texBitsPerPixel = std::max(1U, (u32)textureBitsPerPixel[entry.format]);
 		const int byteOffset = texaddr - addr;
-		if (byteOffset != 0) {
-			const int texelOffset = byteOffset * 8 / texBitsPerPixel;
-
-			if (texelOffset > 0) {
-				matchInfo->yOffset = entry.bufw == 0 ? 0 : texelOffset / (int)entry.bufw;
-				matchInfo->xOffset = entry.bufw == 0 ? 0 : texelOffset % (int)entry.bufw;
-			} else if (texelOffset < 0) {
-				// We don't support negative Y offsets, and negative X offsets are only for the Killzone workaround.
-				if (texelOffset < -(int)entry.bufw || !PSP_CoreParameter().compat.flags().SplitFramebufferMargin) {
-					return false;
-				}
-				matchInfo->xOffset = entry.bufw == 0 ? 0 : -(-texelOffset % (int)entry.bufw);
+		if (byteOffset > 0) {
+			matchInfo->yOffset = byteOffset / fb_stride_in_bytes;
+			matchInfo->xOffset = 8 * (byteOffset % fb_stride_in_bytes) / texBitsPerPixel;
+		} else if (byteOffset < 0) {
+			int texelOffset = 8 * byteOffset / texBitsPerPixel;
+			// We don't support negative Y offsets, and negative X offsets are only for the Killzone workaround.
+			if (texelOffset < -(int)entry.bufw || !PSP_CoreParameter().compat.flags().SplitFramebufferMargin) {
+				return false;
 			}
+			matchInfo->xOffset = entry.bufw == 0 ? 0 : -(-texelOffset % (int)entry.bufw);
 		}
 
 		if (matchInfo->yOffset > 0 && matchInfo->yOffset + minSubareaHeight >= framebuffer->height) {
