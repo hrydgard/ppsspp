@@ -321,26 +321,40 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	return false;
 }
 
+static bool AreCoordsRectangleCompatible(const RasterizerState &state, const VertexData &data0, const VertexData &data1) {
+	if (!(data1.color0 == data0.color0))
+		return false;
+	if (!(data1.screenpos.z == data0.screenpos.z)) {
+		// Sometimes, we don't actually care about z.
+		if (state.pixelID.depthWrite || state.pixelID.DepthTestFunc() != GE_COMP_ALWAYS)
+			return false;
+	}
+	if (!state.throughMode) {
+		if (!state.throughMode && !(data1.color1 == data0.color1))
+			return false;
+		// Do we have to think about perspective correction or slope mip level?
+		if (state.enableTextures && data1.clippos.w != data0.clippos.w) {
+			// If the w is off by less than a factor of 1/512, it should be safe to treat as a rectangle.
+			static constexpr float halftexel = 0.5f / 512.0f;
+			if (data1.clippos.w - halftexel > data0.clippos.w || data1.clippos.w + halftexel < data0.clippos.w)
+				return false;
+		}
+		if (state.pixelID.applyFog && data1.fogdepth != data0.fogdepth) {
+			// Similar to w, this only matters if they're farther apart than 1/255.
+			static constexpr float foghalfstep = 0.5f / 255.0f;
+			if (data1.fogdepth - foghalfstep > data0.fogdepth || data1.fogdepth + foghalfstep < data0.fogdepth)
+				return false;
+		}
+	}
+	return true;
+}
+
 bool DetectRectangleFromStrip(const RasterizerState &state, const VertexData data[4], int *tlIndex, int *brIndex) {
 	// Color and Z must be flat.  Also find the TL and BR meanwhile.
 	int tl = 0, br = 0;
 	for (int i = 1; i < 4; ++i) {
-		if (!(data[i].color0 == data[0].color0))
+		if (!AreCoordsRectangleCompatible(state, data[i], data[0]))
 			return false;
-		if (!(data[i].screenpos.z == data[0].screenpos.z)) {
-			// Sometimes, we don't actually care about z.
-			if (state.pixelID.depthWrite || state.pixelID.DepthTestFunc() != GE_COMP_ALWAYS)
-				return false;
-		}
-		if (!state.throughMode) {
-			if (!state.throughMode && !(data[i].color1 == data[0].color1))
-				return false;
-			// Do we have to think about perspective correction or slope mip level?
-			if (state.enableTextures && data[i].clippos.w != data[0].clippos.w)
-				return false;
-			if (state.pixelID.applyFog && data[i].fogdepth != data[0].fogdepth)
-				return false;
-		}
 
 		if (data[i].screenpos.x <= data[tl].screenpos.x && data[i].screenpos.y <= data[tl].screenpos.y)
 			tl = i;
@@ -394,34 +408,20 @@ bool DetectRectangleFromStrip(const RasterizerState &state, const VertexData dat
 bool DetectRectangleFromFan(const RasterizerState &state, const VertexData *data, int c, int *tlIndex, int *brIndex) {
 	// Color and Z must be flat.
 	for (int i = 1; i < c; ++i) {
-		if (!(data[i].color0 == data[0].color0))
+		if (!AreCoordsRectangleCompatible(state, data[i], data[0]))
 			return false;
-		if (!(data[i].screenpos.z == data[0].screenpos.z)) {
-			// Sometimes, we don't actually care about z.
-			if (state.pixelID.depthWrite || state.pixelID.DepthTestFunc() != GE_COMP_ALWAYS)
-				return false;
-		}
-		if (!state.throughMode) {
-			if (!state.throughMode && !(data[i].color1 == data[0].color1))
-				return false;
-			// Do we have to think about perspective correction or slope mip level?
-			if (state.enableTextures && data[i].clippos.w != data[0].clippos.w)
-				return false;
-			if (state.pixelID.applyFog && data[i].fogdepth != data[0].fogdepth)
-				return false;
-		}
 	}
 
 	// Check for the common case: a single TL-TR-BR-BL.
 	if (c == 4) {
-		const auto &tl = data[0].screenpos, &tr = data[1].screenpos;
-		const auto &bl = data[3].screenpos, &br = data[2].screenpos;
-		if (tl.x == bl.x && tr.x == br.x && tl.y == tr.y && bl.y == br.y) {
+		const auto &pos0 = data[0].screenpos, &pos1 = data[1].screenpos;
+		const auto &pos2 = data[2].screenpos, &pos3 = data[3].screenpos;
+		if (pos0.x == pos3.x && pos1.x == pos2.x && pos0.y == pos1.y && pos3.y == pos2.y) {
 			// Looking like yes.  Set TL/BR based on y order first...
-			*tlIndex = tl.y > bl.y ? 2 : 0;
-			*brIndex = tl.y > bl.y ? 0 : 2;
+			*tlIndex = pos0.y > pos3.y ? 2 : 0;
+			*brIndex = pos0.y > pos3.y ? 0 : 2;
 			// And if it's horizontally flipped, trade to the actual TL/BR.
-			if (tl.x > tr.x) {
+			if (pos0.x > pos1.x) {
 				*tlIndex ^= 1;
 				*brIndex ^= 1;
 			}
@@ -435,7 +435,9 @@ bool DetectRectangleFromFan(const RasterizerState &state, const VertexData *data
 
 			if (textl.x == texbl.x && textr.x == texbr.x && textl.y == textr.y && texbl.y == texbr.y) {
 				// Okay, the texture is also good, but let's avoid rotation issues.
-				return textl.y < texbr.y && textl.x < texbr.x;
+				const auto &postl = data[*tlIndex].screenpos;
+				const auto &posbr = data[*brIndex].screenpos;
+				return textl.y < texbr.y && postl.y < posbr.y && textl.x < texbr.x && postl.x < posbr.x;
 			}
 		}
 	}
