@@ -952,8 +952,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 			(fb_format == GE_FORMAT_DEPTH16 && entry.format == GE_TFMT_CLUT16) ||
 			(fb_format == GE_FORMAT_DEPTH16 && entry.format == GE_TFMT_5650) ||
 			(fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT32) ||
-			(fb_format != GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT16) ||
-			(fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT8);  // Mixed byte size, format, reinterpret in depal!
+			(fb_format != GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT16);
 
 		const int texBitsPerPixel = std::max(1U, (u32)textureBitsPerPixel[entry.format]);
 		const int byteOffset = texaddr - addr;
