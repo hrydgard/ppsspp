@@ -149,7 +149,7 @@ RegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 	if (!regCache_.Has(RegCache::GEN_COLOR_OFF)) {
 		Describe("GetColorOff");
 		if (id.useStandardStride && !id.dithering) {
-			bool loadDepthOff = id.depthWrite || id.DepthTestFunc() != GE_COMP_ALWAYS;
+			bool loadDepthOff = id.depthWrite || (id.DepthTestFunc() != GE_COMP_ALWAYS && !id.earlyZChecks);
 			X64Reg depthTemp = INVALID_REG;
 			X64Reg argYReg = regCache_.Find(RegCache::GEN_ARG_Y);
 			X64Reg argXReg = regCache_.Find(RegCache::GEN_ARG_X);
@@ -345,7 +345,7 @@ void PixelJitCache::WriteConstantPool(const PixelFuncID &id) {
 }
 
 bool PixelJitCache::Jit_ApplyDepthRange(const PixelFuncID &id) {
-	if (id.applyDepthRange) {
+	if (id.applyDepthRange && !id.earlyZChecks) {
 		Describe("ApplyDepthR");
 		X64Reg argZReg = regCache_.Find(RegCache::GEN_ARG_Z);
 		X64Reg idReg = GetPixelID();
@@ -365,7 +365,7 @@ bool PixelJitCache::Jit_ApplyDepthRange(const PixelFuncID &id) {
 	// Since this is early on, try to free up the z reg if we don't need it anymore.
 	if (id.clearMode && !id.DepthClear())
 		regCache_.ForceRelease(RegCache::GEN_ARG_Z);
-	else if (!id.clearMode && !id.depthWrite && id.DepthTestFunc() == GE_COMP_ALWAYS)
+	else if (!id.clearMode && !id.depthWrite && (id.DepthTestFunc() == GE_COMP_ALWAYS || id.earlyZChecks))
 		regCache_.ForceRelease(RegCache::GEN_ARG_Z);
 
 	return true;
@@ -721,7 +721,7 @@ bool PixelJitCache::Jit_StencilTest(const PixelFuncID &id, RegCache::Reg stencil
 }
 
 bool PixelJitCache::Jit_DepthTestForStencil(const PixelFuncID &id, RegCache::Reg stencilReg) {
-	if (id.DepthTestFunc() == GE_COMP_ALWAYS)
+	if (id.DepthTestFunc() == GE_COMP_ALWAYS || id.earlyZChecks)
 		return true;
 
 	X64Reg depthOffReg = GetDepthOff(id);
@@ -964,7 +964,7 @@ bool PixelJitCache::Jit_WriteStencilOnly(const PixelFuncID &id, RegCache::Reg st
 }
 
 bool PixelJitCache::Jit_DepthTest(const PixelFuncID &id) {
-	if (id.DepthTestFunc() == GE_COMP_ALWAYS)
+	if (id.DepthTestFunc() == GE_COMP_ALWAYS || id.earlyZChecks)
 		return true;
 
 	if (id.DepthTestFunc() == GE_COMP_NEVER) {

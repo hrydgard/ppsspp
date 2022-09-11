@@ -710,6 +710,11 @@ void DrawTriangleSlice(
 	const bool flatColor1 = flatColorAll || (v0.color1 == v1.color1 && v0.color1 == v2.color1);
 	const bool noFog = clearMode || !pixelID.applyFog || (v0.fogdepth >= 1.0f && v1.fogdepth >= 1.0f && v2.fogdepth >= 1.0f);
 
+	if (pixelID.applyDepthRange && flatZ) {
+		if (v0.screenpos.z < pixelID.cached.minz || v0.screenpos.z > pixelID.cached.maxz)
+			return;
+	}
+
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	uint32_t bpp = pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
 	std::string tag = StringFromFormat("DisplayListT_%08x", state.listPC);
@@ -753,6 +758,32 @@ void DrawTriangleSlice(
 			Vec4<int> mask = MakeMask(w0, w1, w2, bias0, bias1, bias2, scissor_mask);
 			if (AnyMask<useSSE4>(mask)) {
 				Vec4<float> wsum_recip = EdgeRecip(w0, w1, w2);
+
+				Vec4<int> z;
+				if (flatZ) {
+					z = Vec4<int>::AssignToAll(v2.screenpos.z);
+				} else {
+					// Z is interpolated pretty much directly.
+					Vec4<float> zfloats = w0.Cast<float>() * v0.screenpos.z + w1.Cast<float>() * v1.screenpos.z + w2.Cast<float>() * v2.screenpos.z;
+					z = (zfloats * wsum_recip).Cast<int>();
+				}
+
+				if (pixelID.earlyZChecks) {
+					for (int i = 0; i < 4; ++i) {
+						if (pixelID.applyDepthRange) {
+							if (z[i] < pixelID.cached.minz || z[i] > pixelID.cached.maxz)
+								mask[i] = -1;
+						}
+						if (mask[i] < 0)
+							continue;
+
+						int x = p.x + (i & 1);
+						int y = p.y + (i / 2);
+						if (!CheckDepthTestPassed(pixelID.DepthTestFunc(), x, y, pixelID.cached.depthbufStride, z[i])) {
+							mask[i] = -1;
+						}
+					}
+				}
 
 				// Color interpolation is not perspective corrected on the PSP.
 				Vec4<int> prim_color[4];
@@ -814,15 +845,6 @@ void DrawTriangleSlice(
 					for (int i = 0; i < 4; ++i) {
 						fog[i] = ClampFogDepth(fogdepths[i]);
 					}
-				}
-
-				Vec4<int> z;
-				if (flatZ) {
-					z = Vec4<int>::AssignToAll(v2.screenpos.z);
-				} else {
-					// Z is interpolated pretty much directly.
-					Vec4<float> zfloats = w0.Cast<float>() * v0.screenpos.z + w1.Cast<float>() * v1.screenpos.z + w2.Cast<float>() * v2.screenpos.z;
-					z = (zfloats * wsum_recip).Cast<int>();
 				}
 
 				PROFILE_THIS_SCOPE("draw_tri_px");
@@ -947,6 +969,12 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	Vec4<int> z = Vec4<int>::AssignToAll(v1.screenpos.z);
 	Vec3<int> sec_color = v1.color1;
 
+	if (state.pixelID.applyDepthRange) {
+		// We can bail early since the Z is flat.
+		if (v1.screenpos.z < state.pixelID.cached.minz || v1.screenpos.z > state.pixelID.cached.maxz)
+			return;
+	}
+
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	uint32_t bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
 	std::string tag = StringFromFormat("DisplayListR_%08x", state.listPC);
@@ -970,6 +998,19 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 			Vec4<int> prim_color[4];
 			for (int i = 0; i < 4; ++i) {
 				prim_color[i] = v1.color0;
+			}
+
+			if (state.pixelID.earlyZChecks) {
+				for (int i = 0; i < 4; ++i) {
+					if (mask[i] < 0)
+						continue;
+
+					int x = p.x + (i & 1);
+					int y = p.y + (i / 2);
+					if (!CheckDepthTestPassed(state.pixelID.DepthTestFunc(), x, y, state.pixelID.cached.depthbufStride, z[i])) {
+						mask[i] = -1;
+					}
+				}
 			}
 
 			if (state.enableTextures) {
@@ -1038,6 +1079,20 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
 
+	DrawingCoords p = TransformUnit::ScreenToDrawing(pos);
+	u16 z = pos.z;
+
+	if (pixelID.earlyZChecks) {
+		if (pixelID.applyDepthRange) {
+			if (z < pixelID.cached.minz || z > pixelID.cached.maxz)
+				return;
+		}
+
+		if (!CheckDepthTestPassed(pixelID.DepthTestFunc(), p.x, p.y, pixelID.cached.depthbufStride, z)) {
+			return;
+		}
+	}
+
 	if (state.enableTextures) {
 		float s = v0.texturecoords.s();
 		float t = v0.texturecoords.t();
@@ -1059,9 +1114,6 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 
 	if (!pixelID.clearMode)
 		prim_color += Vec4<int>(sec_color, 0);
-
-	DrawingCoords p = TransformUnit::ScreenToDrawing(pos);
-	u16 z = pos.z;
 
 	u8 fog = 255;
 	if (pixelID.applyFog) {
@@ -1302,7 +1354,23 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 	double z = a.z;
 	const int steps1 = steps == 0 ? 1 : steps;
 	for (int i = 0; i < steps; i++) {
-		if (x >= range.x1 && y >= range.y1 && x <= range.x2 && y <= range.y2) {
+		DrawingCoords p = TransformUnit::ScreenToDrawing(x, y);
+
+		bool maskOK = x >= range.x1 && y >= range.y1 && x <= range.x2 && y <= range.y2;
+		if (maskOK) {
+			if (pixelID.earlyZChecks) {
+				if (pixelID.applyDepthRange) {
+					if (z < pixelID.cached.minz || z > pixelID.cached.maxz)
+						maskOK = false;
+				}
+
+				if (!CheckDepthTestPassed(pixelID.DepthTestFunc(), x, y, pixelID.cached.depthbufStride, z)) {
+					maskOK = false;
+				}
+			}
+		}
+
+		if (maskOK) {
 			// Interpolate between the two points.
 			Vec4<int> prim_color;
 			Vec3<int> sec_color;
@@ -1368,7 +1436,6 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 				prim_color += Vec4<int>(sec_color, 0);
 
 			PROFILE_THIS_SCOPE("draw_px");
-			DrawingCoords p = TransformUnit::ScreenToDrawing(x, y);
 			state.drawPixel(p.x, p.y, z, fog, ToVec4IntArg(prim_color), pixelID);
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
