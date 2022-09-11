@@ -389,13 +389,12 @@ void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 }
 
 void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
-	if (!entry) {
+	if (!entry || !entry->vkTex) {
 		imageView_ = VK_NULL_HANDLE;
 		curSampler_ = VK_NULL_HANDLE;
 		return;
 	}
 
-	_dbg_assert_(entry->vkTex);
 	entry->vkTex->Touch();
 
 	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;

@@ -301,6 +301,10 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	int tw;
 	int th;
 	plan.GetMipSize(0, &tw, &th);
+	if (tw > 16384)
+		tw = 16384;
+	if (th > 16384)
+		th = 16384;
 
 	if (plan.depth == 1) {
 		// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
