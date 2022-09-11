@@ -31,6 +31,18 @@ enum class GEReferenceIndex : uint32_t {
 	BFLAG,
 	OP,
 	DATA,
+	CLUTADDR,
+	TRANSFERSRC,
+	TRANSFERDST,
+
+	TEXADDR0,
+	TEXADDR1,
+	TEXADDR2,
+	TEXADDR3,
+	TEXADDR4,
+	TEXADDR5,
+	TEXADDR6,
+	TEXADDR7,
 
 	BONE_MATRIX = 0x200,
 	WORLD_MATRIX = 0x260,
@@ -56,6 +68,17 @@ static constexpr ReferenceName referenceNames[] = {
 	{ GEReferenceIndex::BFLAG, "boundflag" },
 	{ GEReferenceIndex::OP, "op" },
 	{ GEReferenceIndex::DATA, "data" },
+	{ GEReferenceIndex::CLUTADDR, "clutaddr" },
+	{ GEReferenceIndex::TRANSFERSRC, "transfersrc" },
+	{ GEReferenceIndex::TRANSFERDST, "transferdst" },
+	{ GEReferenceIndex::TEXADDR0, "texaddr0" },
+	{ GEReferenceIndex::TEXADDR1, "texaddr1" },
+	{ GEReferenceIndex::TEXADDR2, "texaddr2" },
+	{ GEReferenceIndex::TEXADDR3, "texaddr3" },
+	{ GEReferenceIndex::TEXADDR4, "texaddr4" },
+	{ GEReferenceIndex::TEXADDR5, "texaddr5" },
+	{ GEReferenceIndex::TEXADDR6, "texaddr6" },
+	{ GEReferenceIndex::TEXADDR7, "texaddr7" },
 };
 
 class GEExpressionFunctions : public IExpressionFunctions {
@@ -133,15 +156,15 @@ bool GEExpressionFunctions::parseSymbol(char *str, uint32_t &symbolValue) {
 }
 
 uint32_t GEExpressionFunctions::getReferenceValue(uint32_t referenceIndex) {
+	GPUgstate state = gpu_->GetGState();
 	if (referenceIndex < 0x100) {
-		uint32_t value = gpu_->GetGState().cmdmem[referenceIndex];
+		uint32_t value = state.cmdmem[referenceIndex];
 		// TODO: Later, support float values and similar.
 		return value & 0x00FFFFFF;
 	}
 
 	// We return the matrix value as float bits, which gets interpreted correctly in the parser.
 	if (referenceIndex >= (uint32_t)GEReferenceIndex::BONE_MATRIX && referenceIndex < (uint32_t)GEReferenceIndex::MATRIX_END) {
-		GPUgstate state = gpu_->GetGState();
 		float value;
 		if (referenceIndex >= (uint32_t)GEReferenceIndex::TGEN_MATRIX) {
 			value = state.tgenMatrix[referenceIndex - (uint32_t)GEReferenceIndex::TGEN_MATRIX];
@@ -196,6 +219,25 @@ uint32_t GEExpressionFunctions::getReferenceValue(uint32_t referenceIndex) {
 			return Memory::Read_U32(list.pc) & 0x00FFFFFF;
 		}
 		return 0;
+
+	case GEReferenceIndex::CLUTADDR:
+		return state.getClutAddress();
+
+	case GEReferenceIndex::TRANSFERSRC:
+		return state.getTransferSrcAddress();
+
+	case GEReferenceIndex::TRANSFERDST:
+		return state.getTransferDstAddress();
+
+	case GEReferenceIndex::TEXADDR0:
+	case GEReferenceIndex::TEXADDR1:
+	case GEReferenceIndex::TEXADDR2:
+	case GEReferenceIndex::TEXADDR3:
+	case GEReferenceIndex::TEXADDR4:
+	case GEReferenceIndex::TEXADDR5:
+	case GEReferenceIndex::TEXADDR6:
+	case GEReferenceIndex::TEXADDR7:
+		return state.getTextureAddress((int)ref - (int)GEReferenceIndex::TEXADDR0);
 
 	case GEReferenceIndex::BONE_MATRIX:
 	case GEReferenceIndex::WORLD_MATRIX:
