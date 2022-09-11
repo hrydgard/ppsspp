@@ -63,6 +63,7 @@ enum CmdFormatType {
 	CMD_FMT_XY,
 	CMD_FMT_XYXY,
 	CMD_FMT_XYZ,
+	CMD_FMT_XYPLUS1,
 	CMD_FMT_TEXSIZE,
 	CMD_FMT_F16_XY,
 	CMD_FMT_VERTEXTYPE,
@@ -233,7 +234,7 @@ static const TabStateRow stateSettingsRows[] = {
 	{ L"Transfer src pos",     GE_CMD_TRANSFERSRCPOS,          CMD_FMT_XY },
 	{ L"Transfer dst",         GE_CMD_TRANSFERDST,             CMD_FMT_PTRWIDTH, 0, GE_CMD_TRANSFERDSTW },
 	{ L"Transfer dst pos",     GE_CMD_TRANSFERDSTPOS,          CMD_FMT_XY },
-	{ L"Transfer size",        GE_CMD_TRANSFERSIZE,            CMD_FMT_XY },
+	{ L"Transfer size",        GE_CMD_TRANSFERSIZE,            CMD_FMT_XYPLUS1 },
 	{ L"Vertex type",          GE_CMD_VERTEXTYPE,              CMD_FMT_VERTEXTYPE },
 	{ L"Offset addr",          GE_CMD_OFFSETADDR,              CMD_FMT_OFFSETADDR },
 	{ L"Vertex addr",          GE_CMD_VADDR,                   CMD_FMT_VADDR },
@@ -373,6 +374,14 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			int x = value & 0x3FF;
 			int y = value >> 10;
 			swprintf(dest, 255, L"%d,%d", x, y);
+		}
+		break;
+
+	case CMD_FMT_XYPLUS1:
+		{
+			int x = value & 0x3FF;
+			int y = value >> 10;
+			swprintf(dest, 255, L"%d,%d", x + 1, y + 1);
 		}
 		break;
 
