@@ -221,7 +221,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "float u_mipBias : register(c%i);\n", CONST_PS_MIPBIAS);
 			}
 		} else {
-			WRITE(p, "SamplerState samp : register(s0);\n");
+			WRITE(p, "SamplerState texSamp : register(s0);\n");
 			if (texture3D) {
 				WRITE(p, "Texture3D<vec4> tex : register(t0);\n");
 			} else {
@@ -231,6 +231,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				// No sampler required, we Load
 				WRITE(p, "Texture2D<vec4> fbotex : register(t1);\n");
 			}
+
+			if (shaderDepal) {
+				WRITE(p, "SamplerState palSamp : register(s3);\n");
+				WRITE(p, "Texture2D<vec4> pal : register(t3);\n");
+			}
+
 			WRITE(p, "cbuffer base : register(b0) {\n%s};\n", ub_baseStr);
 
 			if (shaderDepal) {
@@ -561,15 +567,15 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				if (compat.shaderLanguage == HLSL_D3D11) {
 					if (texture3D) {
 						if (doTextureProjection) {
-							WRITE(p, "  vec4 t = tex.Sample(samp, vec3(v_texcoord.xy / v_texcoord.z, u_mipBias))%s;\n", bgraTexture ? ".bgra" : "");
+							WRITE(p, "  vec4 t = tex.Sample(texSamp, vec3(v_texcoord.xy / v_texcoord.z, u_mipBias))%s;\n", bgraTexture ? ".bgra" : "");
 						} else {
-							WRITE(p, "  vec4 t = tex.Sample(samp, vec3(%s.xy, u_mipBias))%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+							WRITE(p, "  vec4 t = tex.Sample(texSamp, vec3(%s.xy, u_mipBias))%s;\n", texcoord, bgraTexture ? ".bgra" : "");
 						}
 					} else {
 						if (doTextureProjection) {
-							WRITE(p, "  vec4 t = tex.Sample(samp, v_texcoord.xy / v_texcoord.z)%s;\n", bgraTexture ? ".bgra" : "");
+							WRITE(p, "  vec4 t = tex.Sample(texSamp, v_texcoord.xy / v_texcoord.z)%s;\n", bgraTexture ? ".bgra" : "");
 						} else {
-							WRITE(p, "  vec4 t = tex.Sample(samp, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+							WRITE(p, "  vec4 t = tex.Sample(texSamp, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
 						}
 					}
 				} else if (compat.shaderLanguage == HLSL_D3D9) {
@@ -608,28 +614,28 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				if (doTextureProjection) {
 					// We don't use textureProj because we need better control and it's probably not much of a savings anyway.
 					// However it is good for precision on older hardware like PowerVR.
-					WRITE(p, "  vec2 uv = %s.xy/%s.z;\n  vec2 uv_round;\n", texcoord, texcoord);
+					p.F("  vec2 uv = %s.xy/%s.z;\n  vec2 uv_round;\n", texcoord, texcoord);
 				} else {
-					WRITE(p, "  vec2 uv = %s.xy;\n  vec2 uv_round;\n", texcoord);
+					p.F("  vec2 uv = %s.xy;\n  vec2 uv_round;\n", texcoord);
 				}
 				// Restrictions on this are checked before setting the smoothed flag.
 				// Only RGB565 and RGBA5551 are supported, and only the specific shifts hitting the
 				// channels directly.
 				// Also, since we know the CLUT is smooth, we do not need to do the bilinear filter manually, we can just
 				// lookup with the filtered value once.
-				WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord);
-				WRITE(p, "  uint depalShift = (u_depal_mask_shift_off_fmt >> 8) & 0xFFU;\n");
-				WRITE(p, "  uint depalFmt = (u_depal_mask_shift_off_fmt >> 24) & 0x3U;\n");
-				WRITE(p, "  float index0 = t.r;\n");
-				WRITE(p, "  float factor = 31.0 / 256.0;\n");
-				WRITE(p, "  if (depalFmt == 0u) {\n");  // yes, different versions of Test Drive use different formats. Could do compile time by adding more compat flags but meh.
-				WRITE(p, "    if (depalShift == 5u) { index0 = t.g; factor = 63.0 / 256.0; }\n");
-				WRITE(p, "    else if (depalShift == 11u) { index0 = t.b; }\n");
-				WRITE(p, "  } else {\n");
-				WRITE(p, "    if (depalShift == 5u) { index0 = t.g; }\n");
-				WRITE(p, "    else if (depalShift == 10u) { index0 = t.b; }\n");
-				WRITE(p, "  }\n");
-				WRITE(p, "  t = %s(pal, vec2(index0 * factor, 0.0));\n", compat.texture);
+				p.F("  vec4 t = ").SampleTexture2D("tex", "uv").C(";\n");
+				p.C("  uint depalShift = (u_depal_mask_shift_off_fmt >> 8) & 0xFFU;\n");
+				p.C("  uint depalFmt = (u_depal_mask_shift_off_fmt >> 24) & 0x3U;\n");
+				p.C("  float index0 = t.r;\n");
+				p.C("  float factor = 31.0 / 256.0;\n");
+				p.C("  if (depalFmt == 0u) {\n");  // yes, different versions of Test Drive use different formats. Could do compile time by adding more compat flags but meh.
+				p.C("    if (depalShift == 5u) { index0 = t.g; factor = 63.0 / 256.0; }\n");
+				p.C("    else if (depalShift == 11u) { index0 = t.b; }\n");
+				p.C("  } else {\n");
+				p.C("    if (depalShift == 5u) { index0 = t.g; }\n");
+				p.C("    else if (depalShift == 10u) { index0 = t.b; }\n");
+				p.C("  }\n");
+				p.F("  t = ").SampleTexture2D("pal", "vec2(index0 * factor, 0.0)").C(";\n");
 			} else {
 				if (doTextureProjection) {
 					// We don't use textureProj because we need better control and it's probably not much of a savings anyway.
@@ -648,10 +654,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "  } else {\n");
 				WRITE(p, "    uv_round = uv;\n");
 				WRITE(p, "  }\n");
-				WRITE(p, "  highp vec4 t = %s(tex, uv_round);\n", compat.texture);
-				WRITE(p, "  highp vec4 t1 = %sOffset(tex, uv_round, ivec2(1, 0));\n", compat.texture);
-				WRITE(p, "  highp vec4 t2 = %sOffset(tex, uv_round, ivec2(0, 1));\n", compat.texture);
-				WRITE(p, "  highp vec4 t3 = %sOffset(tex, uv_round, ivec2(1, 1));\n", compat.texture);
+				p.C("  highp vec4 t = ").SampleTexture2D("tex", "uv_round").C(";\n");
+				p.C("  highp vec4 t1 = ").SampleTexture2DOffset("tex", "uv_round", 1, 0).C(";\n");
+				p.C("  highp vec4 t2 = ").SampleTexture2DOffset("tex", "uv_round", 0, 1).C(";\n");
+				p.C("  highp vec4 t3 = ").SampleTexture2DOffset("tex", "uv_round", 1, 1).C(";\n");
 				WRITE(p, "  uint depalMask = (u_depal_mask_shift_off_fmt & 0xFFU);\n");
 				WRITE(p, "  uint depalShift = (u_depal_mask_shift_off_fmt >> 8) & 0xFFU;\n");
 				WRITE(p, "  uint depalOffset = ((u_depal_mask_shift_off_fmt >> 16) & 0xFFU) << 4;\n");
@@ -708,14 +714,14 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "    break;\n");
 				WRITE(p, "  };\n");
 				WRITE(p, "  index0 = ((index0 >> depalShift) & depalMask) | depalOffset;\n");
-				WRITE(p, "  t = texelFetch(pal, ivec2(index0, 0), 0);\n");
+				p.C("  t = ").LoadTexture2D("pal", "ivec2(index0, 0)", 0).C(";\n");
 				WRITE(p, "  if (bilinear && !(index0 == index1 && index1 == index2 && index2 == index3)) {\n");
 				WRITE(p, "    index1 = ((index1 >> depalShift) & depalMask) | depalOffset;\n");
 				WRITE(p, "    index2 = ((index2 >> depalShift) & depalMask) | depalOffset;\n");
 				WRITE(p, "    index3 = ((index3 >> depalShift) & depalMask) | depalOffset;\n");
-				WRITE(p, "    t1 = texelFetch(pal, ivec2(index1, 0), 0);\n");
-				WRITE(p, "    t2 = texelFetch(pal, ivec2(index2, 0), 0);\n");
-				WRITE(p, "    t3 = texelFetch(pal, ivec2(index3, 0), 0);\n");
+				p.C("  t1 = ").LoadTexture2D("pal", "ivec2(index1, 0)", 0).C(";\n");
+				p.C("  t2 = ").LoadTexture2D("pal", "ivec2(index2, 0)", 0).C(";\n");
+				p.C("  t3 = ").LoadTexture2D("pal", "ivec2(index3, 0)", 0).C(";\n");
 				WRITE(p, "    t = mix(t, t1, fraction.x);\n");
 				WRITE(p, "    t2 = mix(t2, t3, fraction.x);\n");
 				WRITE(p, "    t = mix(t, t2, fraction.y);\n");

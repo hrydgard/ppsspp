@@ -1924,7 +1924,6 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 	// TODO: Implement shader depal in the fragment shader generator for D3D11 at least.
 	switch (draw_->GetShaderLanguageDesc().shaderLanguage) {
-	case ShaderLanguage::HLSL_D3D11:
 	case ShaderLanguage::HLSL_D3D9:
 		useShaderDepal = false;
 		break;

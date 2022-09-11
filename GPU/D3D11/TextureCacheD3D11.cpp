@@ -180,8 +180,8 @@ void TextureCacheD3D11::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 void TextureCacheD3D11::ForgetLastTexture() {
 	InvalidateLastTexture();
 
-	ID3D11ShaderResourceView *nullTex[2]{};
-	context_->PSSetShaderResources(0, 2, nullTex);
+	ID3D11ShaderResourceView *nullTex[4]{};
+	context_->PSSetShaderResources(0, 4, nullTex);
 }
 
 void TextureCacheD3D11::InvalidateLastTexture() {
@@ -258,6 +258,7 @@ void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
 	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, samplerKey);
 	context_->PSSetSamplers(0, 1, &state);
+	gstate_c.SetUseShaderDepal(false, false);
 }
 
 void TextureCacheD3D11::ApplySamplingParams(const SamplerCacheKey &key) {

@@ -24,6 +24,7 @@ const char * const hlsl_preamble_fs =
 "#define vec4 float4\n"
 "#define uvec3 uint3\n"
 "#define uvec4 uint4\n"
+"#define ivec2 int2\n"
 "#define ivec3 int3\n"
 "#define ivec4 int4\n"
 "#define mat4 float4x4\n"
@@ -419,6 +420,40 @@ ShaderWriter &ShaderWriter::SampleTexture2D(const char *sampName, const char *uv
 	default:
 		// Note: we ignore the sampler. make sure you bound samplers to the textures correctly.
 		F("%s(%s, %s)", lang_.texture, sampName, uv);
+		break;
+	}
+	return *this;
+}
+
+ShaderWriter &ShaderWriter::SampleTexture2DOffset(const char *sampName, const char *uv, int offX, int offY) {
+	switch (lang_.shaderLanguage) {
+	case HLSL_D3D11:
+		F("%s.Sample(%sSamp, %s, int2(%d, %d))", sampName, sampName, uv, offX, offY);
+		break;
+	case HLSL_D3D9:
+		// Not supported, we do a normal sample here to not crash or something
+		F("tex2D(%s, %s)", sampName, uv);
+		break;
+	default:
+		// Note: we ignore the sampler. make sure you bound samplers to the textures correctly.
+		F("%sOffset(%s, %s, ivec2(%d, %d))", lang_.texture, sampName, uv, offX, offY);
+		break;
+	}
+	return *this;
+}
+
+ShaderWriter &ShaderWriter::LoadTexture2D(const char *sampName, const char *uv, int level) {
+	switch (lang_.shaderLanguage) {
+	case HLSL_D3D11:
+		F("%s.Load(ivec3(%s, %d))", sampName, uv, level);
+		break;
+	case HLSL_D3D9:
+		// Not supported, we return a bad value
+		C("float4(1.0, 0.0, 1.0, 1.0)");
+		break;
+	default:
+		// Note: we ignore the sampler. make sure you bound samplers to the textures correctly.
+		F("texelFetch(%s, %s, %d)", lang_.texture, sampName, uv, level);
 		break;
 	}
 	return *this;
