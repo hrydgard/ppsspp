@@ -106,8 +106,6 @@ private:
 
 	const u8 *constBlendHalf_11_4s_ = nullptr;
 	const u8 *constBlendInvert_11_4s_ = nullptr;
-	const u8 *const255_16s_ = nullptr;
-	const u8 *constBy255i_ = nullptr;
 
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	void Discard();

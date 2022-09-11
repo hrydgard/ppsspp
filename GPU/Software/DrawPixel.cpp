@@ -415,7 +415,9 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 	// Fog is applied prior to color test.
 	if (pixelID.applyFog && !clearMode) {
 		Vec3<int> fogColor = Vec3<int>::FromRGB(pixelID.cached.fogColor);
-		fogColor = (prim_color.rgb() * fog + fogColor * (255 - fog)) / 255;
+		// This is very similar to the BLEND texfunc, and simply always rounds up.
+		static constexpr Vec3<int> roundup = Vec3<int>::AssignToAll(255);
+		fogColor = (prim_color.rgb() * fog + fogColor * (255 - fog) + roundup) / 256;
 		prim_color.r() = fogColor.r();
 		prim_color.g() = fogColor.g();
 		prim_color.b() = fogColor.b();
@@ -548,8 +550,6 @@ void PixelJitCache::Clear() {
 
 	constBlendHalf_11_4s_ = nullptr;
 	constBlendInvert_11_4s_ = nullptr;
-	const255_16s_ = nullptr;
-	constBy255i_ = nullptr;
 }
 
 std::string PixelJitCache::DescribeCodePtr(const u8 *ptr) {

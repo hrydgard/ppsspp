@@ -267,8 +267,6 @@ static inline bool NoClampOrWrap(const RasterizerState &state, const Vec2f &tc) 
 		return false;
 	if (state.samplerID.cached.sizes[0].w > 512 || state.samplerID.cached.sizes[0].h > 512)
 		return false;
-	if (!state.throughMode)
-		return tc.x <= 1.0f && tc.y <= 1.0f;
 	return tc.x <= state.samplerID.cached.sizes[0].w && tc.y <= state.samplerID.cached.sizes[0].h;
 }
 
@@ -288,7 +286,7 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	// Currently only works for TL/BR, which is the most common but not required.
 	bool orient_check = xdiff >= 0 && ydiff >= 0;
 	// We already have a fast path for clear in ClearRectangle.
-	bool state_check = !state.pixelID.clearMode && !state.samplerID.hasAnyMips && NoClampOrWrap(state, v0.texturecoords) && NoClampOrWrap(state, v1.texturecoords);
+	bool state_check = state.throughMode && !state.pixelID.clearMode && !state.samplerID.hasAnyMips && NoClampOrWrap(state, v0.texturecoords) && NoClampOrWrap(state, v1.texturecoords);
 	// This doesn't work well with offset drawing, see #15876.  Through never has a subpixel offset.
 	bool subpixel_check = ((v0.screenpos.x | v0.screenpos.y | v1.screenpos.x | v1.screenpos.y) & 0xF) == 0;
 	if ((coord_check || !state.enableTextures) && orient_check && state_check && subpixel_check) {
