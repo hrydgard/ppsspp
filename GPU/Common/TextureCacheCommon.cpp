@@ -1177,7 +1177,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 				// And is it inside the rendered area?  Sometimes games pack data outside.
 				bool matchRegion = ((offset / bpp) % framebuffer->fb_stride) < framebuffer->width;
 				if (matchRange && matchRegion && offset < clutRenderOffset_) {
-					WARN_LOG_N_TIMES(clutfb, 5, G3D, "LoadCLUT(%d bytes) from framebuffer %08x (%s), byte offset %d", loadBytes, fb_address, GeBufferFormatToString(framebuffer->fb_format), offset);
+					WARN_LOG_N_TIMES(clutfb, 5, G3D, "Detected LoadCLUT(%d bytes) from framebuffer %08x (%s), byte offset %d", loadBytes, fb_address, GeBufferFormatToString(framebuffer->fb_format), offset);
 					framebuffer->last_frame_clut = gpuStats.numFlips;
 					framebuffer->usageFlags |= FB_USAGE_CLUT;
 					clutRenderAddress_ = framebuffer->fb_address;
@@ -1191,15 +1191,18 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 			NotifyMemInfo(MemBlockFlags::ALLOC, clutAddr, loadBytes, "CLUT");
 		}
 
-		// It's possible for a game to (successfully) access outside valid memory.
+		// It's possible for a game to load CLUT outside valid memory without crashing, should result in zeroes.
 		u32 bytes = Memory::ValidSize(clutAddr, loadBytes);
-		if (clutRenderAddress_ != 0xFFFFFFFF && !g_Config.bBlockTransferGPU) {
+		if (clutRenderAddress_ != 0xFFFFFFFF && PSP_CoreParameter().compat.flags().AllowDownloadCLUT) {
 			framebufferManager_->DownloadFramebufferForClut(clutRenderAddress_, clutRenderOffset_ + bytes);
 			Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
 			if (bytes < loadBytes) {
 				memset((u8 *)clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
 			}
 		} else {
+			// Here we could check for clutRenderAddres_ != 0xFFFFFFFF and zero the CLUT or something,
+			// but choosing not to for now. Though the results of loading the CLUT from RAM here is
+			// almost certainly going to be bogus.
 #ifdef _M_SSE
 			if (bytes == loadBytes) {
 				const __m128i *source = (const __m128i *)Memory::GetPointerUnchecked(clutAddr);
