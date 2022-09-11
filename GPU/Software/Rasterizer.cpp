@@ -1401,7 +1401,11 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
-	if (!texaddr || !Memory::IsValidRange(texaddr, (textureBitsPerPixel[texfmt] * texbufw * h) / 8))
+	u32 sizeInBits = textureBitsPerPixel[texfmt] * (texbufw * (h - 1) + w);
+	if (!texaddr || !Memory::IsValidRange(texaddr, sizeInBits / 8))
+		return false;
+	// We'll break trying to allocate this much.
+	if (w >= 0x8000 && h >= 0x8000)
 		return false;
 
 	buffer.Allocate(w, h, GE_FORMAT_8888, false);
