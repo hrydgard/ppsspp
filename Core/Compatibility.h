@@ -88,6 +88,7 @@ struct CompatFlags {
 	bool DeswizzleDepth;
 	bool SplitFramebufferMargin;
 	bool ForceLowerResolutionForEffectsOn;
+	bool AllowDownloadCLUT;
 };
 
 class IniFile;
