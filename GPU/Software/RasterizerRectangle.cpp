@@ -265,6 +265,10 @@ bool g_needsClearAfterDialog = false;
 static inline bool NoClampOrWrap(const RasterizerState &state, const Vec2f &tc) {
 	if (tc.x < 0 || tc.y < 0)
 		return false;
+	if (state.samplerID.cached.sizes[0].w > 512 || state.samplerID.cached.sizes[0].h > 512)
+		return false;
+	if (!state.throughMode)
+		return tc.x <= 1.0f && tc.y <= 1.0f;
 	return tc.x <= state.samplerID.cached.sizes[0].w && tc.y <= state.samplerID.cached.sizes[0].h;
 }
 
