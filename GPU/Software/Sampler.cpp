@@ -383,13 +383,15 @@ inline static Nearest4 SOFTRAST_CALL SampleNearest(const int u[N], const int v[N
 static inline int ClampUV(int v, int height) {
 	if (v >= height - 1)
 		return height - 1;
+	if (v >= 511)
+		return 511;
 	else if (v < 0)
 		return 0;
 	return v;
 }
 
 static inline int WrapUV(int v, int height) {
-	return v & (height - 1);
+	return v & (height - 1) & 511;
 }
 
 template <int N>
