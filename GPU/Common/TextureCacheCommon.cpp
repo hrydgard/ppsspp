@@ -947,12 +947,13 @@ bool TextureCacheCommon::MatchFramebuffer(
 			return false;
 		}
 
-		// Check works for D16 too (???)
+		// Check works for D16 too.
 		const bool matchingClutFormat =
 			(fb_format == GE_FORMAT_DEPTH16 && entry.format == GE_TFMT_CLUT16) ||
 			(fb_format == GE_FORMAT_DEPTH16 && entry.format == GE_TFMT_5650) ||
 			(fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT32) ||
-			(fb_format != GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT16);
+			(fb_format != GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT16) ||
+			(fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT8);
 
 		const int texBitsPerPixel = std::max(1U, (u32)textureBitsPerPixel[entry.format]);
 		const int byteOffset = texaddr - addr;
@@ -991,6 +992,10 @@ bool TextureCacheCommon::MatchFramebuffer(
 
 		if (fb_stride_in_bytes != tex_stride_in_bytes) {
 			// Probably irrelevant. Although, as we shall see soon, there are exceptions.
+			// Burnout Dominator lens flare trick special case.
+			if (fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT8 && texWidth == 4 && texHeight == 1) {
+				return true;
+			}
 			return false;
 		}
 
@@ -1876,7 +1881,7 @@ static bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferForma
 			}
 			break;
 		case GE_FORMAT_8888:
-			if (texFormat == GE_TFMT_CLUT32) {
+			if (texFormat == GE_TFMT_CLUT32 || texFormat == GE_TFMT_CLUT8) {  // clut8 takes a special depal mode.
 				return true;
 			}
 			break;
@@ -1964,9 +1969,17 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			samplerKey.mipEnable = false;
 			ApplySamplingParams(samplerKey);
 
+			ShaderDepalMode mode = ShaderDepalMode::NORMAL;
+			if (texFormat == GE_TFMT_CLUT8 && framebuffer->fb_format == GE_FORMAT_8888) {
+				mode = ShaderDepalMode::CLUT8_8888;
+				smoothedDepal = false;  // just in case
+			} else if (smoothedDepal) {
+				mode = ShaderDepalMode::SMOOTHED;
+			}
+
 			// Since we started/ended render passes, might need these.
 			gstate_c.Dirty(DIRTY_DEPAL);
-			gstate_c.SetUseShaderDepal(smoothedDepal ? ShaderDepalMode::SMOOTHED : ShaderDepalMode::NORMAL);
+			gstate_c.SetUseShaderDepal(mode);
 			gstate_c.depalFramebufferFormat = framebuffer->fb_format;
 
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);

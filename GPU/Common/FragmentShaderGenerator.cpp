@@ -734,8 +734,26 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "  }\n");
 				break;
 			case ShaderDepalMode::CLUT8_8888:
-				// Not yet implemented.
-				WRITE(p, "    vec4 t = vec4(0.0, 0.0, 0.0, 0.0);\n");
+				if (doTextureProjection) {
+					// We don't use textureProj because we need better control and it's probably not much of a savings anyway.
+					// However it is good for precision on older hardware like PowerVR.
+					p.F("  vec2 uv = %s.xy/%s.z;\n  vec2 uv_round;\n", texcoord, texcoord);
+				} else {
+					p.F("  vec2 uv = %s.xy;\n  vec2 uv_round;\n", texcoord);
+				}
+				p.C("  vec2 tsize = vec2(textureSize(tex, 0).xy);\n");
+				p.C("  uv_round = floor(uv * tsize);\n");
+				p.C("  int component = int(uv_round.x) & 3;\n");
+				p.C("  uv_round.x *= 0.25;\n");
+				p.C("  vec4 t = ivec4(").LoadTexture2D("tex", "ivec2(uv_round)", 0).C(");\n");
+				p.C("  int index;\n");
+				p.C("  switch (component) {\n");
+				p.C("  case 0: index = int(t.x * 255.99); break;\n");
+				p.C("  case 1: index = int(t.y * 255.99); break;\n");
+				p.C("  case 2: index = int(t.z * 255.99); break;\n");
+				p.C("  case 3: index = int(t.w * 255.99); break;\n");
+				p.C("  }\n");
+				p.C("  t = ").LoadTexture2D("pal", "ivec2(index, 0)", 0).C(";\n");
 				break;
 			}
 
