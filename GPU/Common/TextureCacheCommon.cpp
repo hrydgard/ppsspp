@@ -915,10 +915,11 @@ bool TextureCacheCommon::MatchFramebuffer(
 	const bool noOffset = texaddr == addr;
 	const bool exactMatch = noOffset && entry.format < 4 && channel == RASTER_COLOR && fb_stride_in_bytes == tex_stride_in_bytes;
 
-	const u32 w = 1 << ((entry.dim >> 0) & 0xf);
-	const u32 h = 1 << ((entry.dim >> 8) & 0xf);
+	const u32 texWidth = 1 << ((entry.dim >> 0) & 0xf);
+	const u32 texHeight = 1 << ((entry.dim >> 8) & 0xf);
+
 	// 512 on a 272 framebuffer is sane, so let's be lenient.
-	const u32 minSubareaHeight = h / 4;
+	const u32 minSubareaHeight = texHeight / 4;
 
 	// If they match "exactly", it's non-CLUT and from the top left.
 	if (exactMatch) {
@@ -948,19 +949,20 @@ bool TextureCacheCommon::MatchFramebuffer(
 			(fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT32) ||
 			(fb_format != GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT16);
 
-		const int bitOffset = (texaddr - addr) * 8;
-		if (bitOffset != 0) {
-			const int pixelOffset = bitOffset / (int)std::max(1U, (u32)textureBitsPerPixel[entry.format]);
+		const int texBitsPerPixel = std::max(1U, (u32)textureBitsPerPixel[entry.format]);
+		const int byteOffset = texaddr - addr;
+		if (byteOffset != 0) {
+			const int texelOffset = byteOffset * 8 / texBitsPerPixel;
 
-			if (pixelOffset > 0) {
-				matchInfo->yOffset = entry.bufw == 0 ? 0 : pixelOffset / (int)entry.bufw;
-				matchInfo->xOffset = entry.bufw == 0 ? 0 : pixelOffset % (int)entry.bufw;
-			} else if (pixelOffset < 0) {
+			if (texelOffset > 0) {
+				matchInfo->yOffset = entry.bufw == 0 ? 0 : texelOffset / (int)entry.bufw;
+				matchInfo->xOffset = entry.bufw == 0 ? 0 : texelOffset % (int)entry.bufw;
+			} else if (texelOffset < 0) {
 				// We don't support negative Y offsets, and negative X offsets are only for the Killzone workaround.
-				if (pixelOffset < -(int)entry.bufw || !PSP_CoreParameter().compat.flags().SplitFramebufferMargin) {
+				if (texelOffset < -(int)entry.bufw || !PSP_CoreParameter().compat.flags().SplitFramebufferMargin) {
 					return false;
 				}
-				matchInfo->xOffset = entry.bufw == 0 ? 0 : -(-pixelOffset % (int)entry.bufw);
+				matchInfo->xOffset = entry.bufw == 0 ? 0 : -(-texelOffset % (int)entry.bufw);
 			}
 		}
 
@@ -969,13 +971,11 @@ bool TextureCacheCommon::MatchFramebuffer(
 			return false;
 		}
 
-		if (fb_stride_in_bytes != tex_stride_in_bytes) {
-			// Probably irrelevant.
-			return false;
-		}
-
 		// Check if it's in bufferWidth (which might be higher than width and may indicate the framebuffer includes the data.)
-		if (matchInfo->xOffset >= framebuffer->bufferWidth && matchInfo->xOffset + w <= (u32)fb_stride) {
+		// Do the computation in bytes so that it's valid even in case of weird reinterpret scenarios.
+		const int xOffsetInBytes = matchInfo->xOffset * 8 / texBitsPerPixel;
+		const int texWidthInBytes = texWidth * 8 / texBitsPerPixel;
+		if (xOffsetInBytes >= framebuffer->BufferWidthInBytes() && xOffsetInBytes + texWidthInBytes <= (int)fb_stride_in_bytes) {
 			// This happens in Brave Story, see #10045 - the texture is in the space between strides, with matching stride.
 			return false;
 		}
@@ -984,6 +984,11 @@ bool TextureCacheCommon::MatchFramebuffer(
 		// TODO: Maybe we can reduce this check and find a better way above 0x04110000?
 		if (matchInfo->yOffset > MAX_SUBAREA_Y_OFFSET_SAFE && addr > 0x04110000 && !PSP_CoreParameter().compat.flags().AllowLargeFBTextureOffsets) {
 			WARN_LOG_REPORT_ONCE(subareaIgnored, G3D, "Ignoring possible texturing from framebuffer at %08x +%dx%d / %dx%d", fb_address, matchInfo->xOffset, matchInfo->yOffset, framebuffer->width, framebuffer->height);
+			return false;
+		}
+
+		if (fb_stride_in_bytes != tex_stride_in_bytes) {
+			// Probably irrelevant. Although, as we shall see soon, there are exceptions.
 			return false;
 		}
 
