@@ -29,6 +29,9 @@
 
 namespace GPUBreakpoints {
 
+static void NothingToDo(bool) {
+}
+
 struct BreakpointInfo {
 	bool isConditional = false;
 	PostfixExpression expression;
@@ -45,7 +48,7 @@ static std::set<u32> breakRenderTargets;
 static size_t breakPCsCount = 0;
 static size_t breakTexturesCount = 0;
 static size_t breakRenderTargetsCount = 0;
-static std::function<void(bool)> notifyBreakpoints;
+static std::function<void(bool)> notifyBreakpoints = &NothingToDo;
 
 // If these are set, the above are also, but they should be temporary.
 static bool breakCmdsTemp[256];
