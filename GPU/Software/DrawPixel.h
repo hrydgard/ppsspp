@@ -41,6 +41,8 @@ SingleFunc GetSingleFunc(const PixelFuncID &id);
 void Init();
 void Shutdown();
 
+bool CheckDepthTestPassed(GEComparison func, int x, int y, int stride, u16 z);
+
 bool DescribeCodePtr(const u8 *ptr, std::string &name);
 
 struct PixelBlendState {
