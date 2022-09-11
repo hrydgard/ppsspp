@@ -482,16 +482,11 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 	VertexReader vreader(decoded_, vtxfmt, vertex_type);
 
-	static VertexData data[4];  // Normally max verts per prim is 3, but we temporarily need 4 to detect rectangles from strips.
-	// This is the index of the next vert in data (or higher, may need modulus.)
-	static int data_index = 0;
-
-	static GEPrimitiveType prev_prim = GE_PRIM_POINTS;
 	if (prim_type != GE_PRIM_KEEP_PREVIOUS) {
-		data_index = 0;
-		prev_prim = prim_type;
+		data_index_ = 0;
+		prev_prim_ = prim_type;
 	} else {
-		prim_type = prev_prim;
+		prim_type = prev_prim_;
 	}
 
 	int vtcs_per_prim;
@@ -530,14 +525,14 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 					vreader.Goto(vtx);
 				}
 
-				data[data_index++] = ReadVertex(vreader, transformState, outside_range_flag);
-				if (data_index < vtcs_per_prim) {
+				data_[data_index_++] = ReadVertex(vreader, transformState, outside_range_flag);
+				if (data_index_ < vtcs_per_prim) {
 					// Keep reading.  Note: an incomplete prim will stay read for GE_PRIM_KEEP_PREVIOUS.
 					continue;
 				}
 
 				// Okay, we've got enough verts.  Reset the index for next time.
-				data_index = 0;
+				data_index_ = 0;
 				if (outside_range_flag) {
 					// Cull the prim if it was outside, and move to the next prim.
 					outside_range_flag = false;
@@ -548,22 +543,22 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				case GE_PRIM_TRIANGLES:
 				{
 					if (cullType == CullType::OFF) {
-						Clipper::ProcessTriangle(data[0], data[1], data[2], data[2], *binner_);
-						Clipper::ProcessTriangle(data[2], data[1], data[0], data[2], *binner_);
+						Clipper::ProcessTriangle(data_[0], data_[1], data_[2], data_[2], *binner_);
+						Clipper::ProcessTriangle(data_[2], data_[1], data_[0], data_[2], *binner_);
 					} else if (cullType == CullType::CW) {
-						Clipper::ProcessTriangle(data[2], data[1], data[0], data[2], *binner_);
+						Clipper::ProcessTriangle(data_[2], data_[1], data_[0], data_[2], *binner_);
 					} else {
-						Clipper::ProcessTriangle(data[0], data[1], data[2], data[2], *binner_);
+						Clipper::ProcessTriangle(data_[0], data_[1], data_[2], data_[2], *binner_);
 					}
 					break;
 				}
 
 				case GE_PRIM_LINES:
-					Clipper::ProcessLine(data[0], data[1], *binner_);
+					Clipper::ProcessLine(data_[0], data_[1], *binner_);
 					break;
 
 				case GE_PRIM_POINTS:
-					Clipper::ProcessPoint(data[0], *binner_);
+					Clipper::ProcessPoint(data_[0], *binner_);
 					break;
 
 				default:
@@ -581,45 +576,45 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				vreader.Goto(vtx);
 			}
 
-			data[data_index++] = ReadVertex(vreader, transformState, outside_range_flag);
+			data_[data_index_++] = ReadVertex(vreader, transformState, outside_range_flag);
 			if (outside_range_flag) {
 				outside_range_flag = false;
 				// Note: this is the post increment index.  If odd, we set the first vert.
-				if (data_index & 1) {
+				if (data_index_ & 1) {
 					// Skip the next one and forget this one.
 					vtx++;
-					data_index--;
+					data_index_--;
 				} else {
 					// Forget both of the last 2.
-					data_index -= 2;
+					data_index_ -= 2;
 				}
 			}
 
-			if (data_index == 4 && vreader.isThrough() && cullType == CullType::OFF) {
-				if (Rasterizer::DetectRectangleThroughModeSlices(binner_->State(), data)) {
-					data[1] = data[3];
-					data_index = 2;
+			if (data_index_ == 4 && vreader.isThrough() && cullType == CullType::OFF) {
+				if (Rasterizer::DetectRectangleThroughModeSlices(binner_->State(), data_)) {
+					data_[1] = data_[3];
+					data_index_ = 2;
 				}
 			}
 
-			if (data_index == 4) {
-				Clipper::ProcessRect(data[0], data[1], *binner_);
-				Clipper::ProcessRect(data[2], data[3], *binner_);
-				data_index = 0;
+			if (data_index_ == 4) {
+				Clipper::ProcessRect(data_[0], data_[1], *binner_);
+				Clipper::ProcessRect(data_[2], data_[3], *binner_);
+				data_index_ = 0;
 			}
 		}
 
-		if (data_index >= 2) {
-			Clipper::ProcessRect(data[0], data[1], *binner_);
-			data_index -= 2;
+		if (data_index_ >= 2) {
+			Clipper::ProcessRect(data_[0], data_[1], *binner_);
+			data_index_ -= 2;
 		}
 		break;
 
 	case GE_PRIM_LINE_STRIP:
 		{
 			// Don't draw a line when loading the first vertex.
-			// If data_index is 1 or 2, etc., it means we're continuing a line strip.
-			int skip_count = data_index == 0 ? 1 : 0;
+			// If data_index_ is 1 or 2, etc., it means we're continuing a line strip.
+			int skip_count = data_index_ == 0 ? 1 : 0;
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
 				if (indices) {
 					vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
@@ -627,7 +622,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 					vreader.Goto(vtx);
 				}
 
-				data[(data_index++) & 1] = ReadVertex(vreader, transformState, outside_range_flag);
+				data_[(data_index_++) & 1] = ReadVertex(vreader, transformState, outside_range_flag);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;
@@ -638,8 +633,8 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				if (skip_count) {
 					--skip_count;
 				} else {
-					// We already incremented data_index, so data_index & 1 is previous one.
-					Clipper::ProcessLine(data[data_index & 1], data[(data_index & 1) ^ 1], *binner_);
+					// We already incremented data_index_, so data_index_ & 1 is previous one.
+					Clipper::ProcessLine(data_[data_index_ & 1], data_[(data_index_ & 1) ^ 1], *binner_);
 				}
 			}
 			break;
@@ -648,11 +643,11 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 	case GE_PRIM_TRIANGLE_STRIP:
 		{
 			// Don't draw a triangle when loading the first two vertices.
-			int skip_count = data_index >= 2 ? 0 : 2 - data_index;
+			int skip_count = data_index_ >= 2 ? 0 : 2 - data_index_;
 
 			// If index count == 4, check if we can convert to a rectangle.
 			// This is for Darkstalkers (and should speed up many 2D games).
-			if (data_index == 0 && vertex_count == 4 && cullType == CullType::OFF) {
+			if (data_index_ == 0 && vertex_count == 4 && cullType == CullType::OFF) {
 				for (int vtx = 0; vtx < 4; ++vtx) {
 					if (indices) {
 						vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
@@ -660,13 +655,13 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 					else {
 						vreader.Goto(vtx);
 					}
-					data[vtx] = ReadVertex(vreader, transformState, outside_range_flag);
+					data_[vtx] = ReadVertex(vreader, transformState, outside_range_flag);
 				}
 
 				// If a strip is effectively a rectangle, draw it as such!
 				int tl = -1, br = -1;
-				if (!outside_range_flag && Rasterizer::DetectRectangleFromStrip(binner_->State(), data, &tl, &br)) {
-					Clipper::ProcessRect(data[tl], data[br], *binner_);
+				if (!outside_range_flag && Rasterizer::DetectRectangleFromStrip(binner_->State(), data_, &tl, &br)) {
+					Clipper::ProcessRect(data_[tl], data_[br], *binner_);
 					break;
 				}
 			}
@@ -679,8 +674,8 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 					vreader.Goto(vtx);
 				}
 
-				int provoking_index = (data_index++) % 3;
-				data[provoking_index] = ReadVertex(vreader, transformState, outside_range_flag);
+				int provoking_index = (data_index_++) % 3;
+				data_[provoking_index] = ReadVertex(vreader, transformState, outside_range_flag);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;
@@ -694,14 +689,14 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				}
 
 				if (cullType == CullType::OFF) {
-					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index], *binner_);
-					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index], *binner_);
-				} else if ((!(int)cullType) ^ ((data_index - 1) % 2)) {
+					Clipper::ProcessTriangle(data_[0], data_[1], data_[2], data_[provoking_index], *binner_);
+					Clipper::ProcessTriangle(data_[2], data_[1], data_[0], data_[provoking_index], *binner_);
+				} else if ((!(int)cullType) ^ ((data_index_ - 1) % 2)) {
 					// We need to reverse the vertex order for each second primitive,
 					// but we additionally need to do that for every primitive if CCW cullmode is used.
-					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index], *binner_);
+					Clipper::ProcessTriangle(data_[2], data_[1], data_[0], data_[provoking_index], *binner_);
 				} else {
-					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index], *binner_);
+					Clipper::ProcessTriangle(data_[0], data_[1], data_[2], data_[provoking_index], *binner_);
 				}
 			}
 			break;
@@ -711,18 +706,18 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		{
 			// Don't draw a triangle when loading the first two vertices.
 			// (this doesn't count the central one.)
-			int skip_count = data_index <= 1 ? 1 : 0;
+			int skip_count = data_index_ <= 1 ? 1 : 0;
 			int start_vtx = 0;
 
 			// Only read the central vertex if we're not continuing.
-			if (data_index == 0) {
+			if (data_index_ == 0) {
 				if (indices) {
 					vreader.Goto(ConvertIndex(0) - index_lower_bound);
 				} else {
 					vreader.Goto(0);
 				}
-				data[0] = ReadVertex(vreader, transformState, outside_range_flag);
-				data_index++;
+				data_[0] = ReadVertex(vreader, transformState, outside_range_flag);
+				data_index_++;
 				start_vtx = 1;
 
 				// If the central vertex is outside range, all the points are toast.
@@ -730,19 +725,19 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 					break;
 			}
 
-			if (data_index == 1 && vertex_count == 4 && cullType == CullType::OFF) {
+			if (data_index_ == 1 && vertex_count == 4 && cullType == CullType::OFF) {
 				for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
 					if (indices) {
 						vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
 					} else {
 						vreader.Goto(vtx);
 					}
-					data[vtx] = ReadVertex(vreader, transformState, outside_range_flag);
+					data_[vtx] = ReadVertex(vreader, transformState, outside_range_flag);
 				}
 
 				int tl = -1, br = -1;
-				if (!outside_range_flag && Rasterizer::DetectRectangleFromFan(binner_->State(), data, vertex_count, &tl, &br)) {
-					Clipper::ProcessRect(data[tl], data[br], *binner_);
+				if (!outside_range_flag && Rasterizer::DetectRectangleFromFan(binner_->State(), data_, vertex_count, &tl, &br)) {
+					Clipper::ProcessRect(data_[tl], data_[br], *binner_);
 					break;
 				}
 			}
@@ -755,8 +750,8 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 					vreader.Goto(vtx);
 				}
 
-				int provoking_index = 2 - ((data_index++) % 2);
-				data[provoking_index] = ReadVertex(vreader, transformState, outside_range_flag);
+				int provoking_index = 2 - ((data_index_++) % 2);
+				data_[provoking_index] = ReadVertex(vreader, transformState, outside_range_flag);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;
@@ -770,14 +765,14 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				}
 
 				if (cullType == CullType::OFF) {
-					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index], *binner_);
-					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index], *binner_);
-				} else if ((!(int)cullType) ^ ((data_index - 1) % 2)) {
+					Clipper::ProcessTriangle(data_[0], data_[1], data_[2], data_[provoking_index], *binner_);
+					Clipper::ProcessTriangle(data_[2], data_[1], data_[0], data_[provoking_index], *binner_);
+				} else if ((!(int)cullType) ^ ((data_index_ - 1) % 2)) {
 					// We need to reverse the vertex order for each second primitive,
 					// but we additionally need to do that for every primitive if CCW cullmode is used.
-					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index], *binner_);
+					Clipper::ProcessTriangle(data_[2], data_[1], data_[0], data_[provoking_index], *binner_);
 				} else {
-					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index], *binner_);
+					Clipper::ProcessTriangle(data_[0], data_[1], data_[2], data_[provoking_index], *binner_);
 				}
 			}
 			break;

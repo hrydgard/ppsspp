@@ -136,6 +136,12 @@ private:
 
 	u8 *decoded_ = nullptr;
 	BinManager *binner_ = nullptr;
+
+	// Normally max verts per prim is 3, but we temporarily need 4 to detect rectangles from strips.
+	VertexData data_[4];
+	// This is the index of the next vert in data (or higher, may need modulus.)
+	int data_index_ = 0;
+	GEPrimitiveType prev_prim_ = GE_PRIM_POINTS;
 };
 
 class SoftwareDrawEngine : public DrawEngineCommon {
