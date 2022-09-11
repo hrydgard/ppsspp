@@ -96,7 +96,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	if (texture3D) {
 		shaderDepalMode = ShaderDepalMode::OFF;
 	}
-
+	if (!compat.bitwiseOps && shaderDepalMode != ShaderDepalMode::OFF) {
+		*errorString = "depal requires bitwise ops";
+		return false;
+	}
 	bool bgraTexture = id.Bit(FS_BIT_BGRA_TEXTURE);
 	bool colorWriteMask = id.Bit(FS_BIT_COLOR_WRITEMASK) && compat.bitwiseOps;
 
@@ -732,7 +735,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				break;
 			case ShaderDepalMode::CLUT8_8888:
 				// Not yet implemented.
-				WRITE(p, "    t = vec4(0.0, 0.0, 0.0, 0.0);\n");
+				WRITE(p, "    vec4 t = vec4(0.0, 0.0, 0.0, 0.0);\n");
 				break;
 			}
 

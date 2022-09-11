@@ -453,7 +453,7 @@ ShaderWriter &ShaderWriter::LoadTexture2D(const char *sampName, const char *uv, 
 		break;
 	default:
 		// Note: we ignore the sampler. make sure you bound samplers to the textures correctly.
-		F("texelFetch(%s, %s, %d)", lang_.texture, sampName, uv, level);
+		F("texelFetch(%s, %s, %d)", sampName, uv, level);
 		break;
 	}
 	return *this;
