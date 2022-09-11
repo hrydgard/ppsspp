@@ -171,7 +171,24 @@ bool IsRenderTargetCmdBreakpoint(u32 op) {
 	return false;
 }
 
-static bool HitAddressBreakpoint(u32 pc) {
+static bool HitBreakpointCond(BreakpointInfo &bp, u32 op) {
+	u8 cmd = op >> 24;
+
+	// Temporarily set the value while running the breakpoint.
+	// It makes more intuitive sense for the referenced data to already be set.
+	// Note this won't perform actions, like matrix uploads.
+	u32 diff = gstate.cmdmem[cmd] ^ op;
+	gstate.cmdmem[cmd] ^= diff;
+
+	u32 result = 1;
+	if (!GPUDebugExecExpression(gpuDebug, bp.expression, result))
+		result = 0;
+
+	gstate.cmdmem[cmd] ^= diff;
+	return result != 0;
+}
+
+static bool HitAddressBreakpoint(u32 pc, u32 op) {
 	if (breakPCsCount == 0)
 		return false;
 
@@ -181,10 +198,7 @@ static bool HitAddressBreakpoint(u32 pc) {
 		return false;
 
 	if (entry->second.isConditional) {
-		u32 result = 1;
-		if (!GPUDebugExecExpression(gpuDebug, breakPCs[pc].expression, result))
-			return false;
-		return result != 0;
+		return HitBreakpointCond(entry->second, op);
 	}
 	return true;
 }
@@ -196,17 +210,14 @@ static bool HitOpBreakpoint(u32 op) {
 
 	if (breakCmdsInfo[cmd].isConditional) {
 		std::lock_guard<std::mutex> guard(breaksLock);
-		u32 result = 1;
-		if (!GPUDebugExecExpression(gpuDebug, breakCmdsInfo[cmd].expression, result))
-			return false;
-		return result != 0;
+		return HitBreakpointCond(breakCmdsInfo[cmd], op);
 	}
 
 	return true;
 }
 
 bool IsBreakpoint(u32 pc, u32 op) {
-	if (HitAddressBreakpoint(pc) || HitOpBreakpoint(op)) {
+	if (HitAddressBreakpoint(pc, op) || HitOpBreakpoint(op)) {
 		return true;
 	}
 
