@@ -529,10 +529,9 @@ struct GPUStateCache {
 	bool IsDirty(u64 what) const {
 		return (dirty & what) != 0ULL;
 	}
-	void SetUseShaderDepal(bool depal, bool smoothed) {
-		if (depal != useShaderDepal) {
-			useShaderDepal = depal;
-			useSmoothedShaderDepal = smoothed;
+	void SetUseShaderDepal(ShaderDepalMode mode) {
+		if (mode != shaderDepalMode) {
+			shaderDepalMode = mode;
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
@@ -628,8 +627,7 @@ struct GPUStateCache {
 	SubmitType submitType;
 	int spline_num_points_u;
 
-	bool useShaderDepal;
-	bool useSmoothedShaderDepal;
+	ShaderDepalMode shaderDepalMode;
 	GEBufferFormat depalFramebufferFormat;
 
 	u32 getRelativeAddress(u32 data) const;

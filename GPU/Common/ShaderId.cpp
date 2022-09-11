@@ -180,8 +180,12 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	if (id.Bit(FS_BIT_COLOR_DOUBLE)) desc << "2x ";
 	if (id.Bit(FS_BIT_FLATSHADE)) desc << "Flat ";
 	if (id.Bit(FS_BIT_BGRA_TEXTURE)) desc << "BGRA ";
-	if (id.Bit(FS_BIT_SHADER_DEPAL)) desc << "Depal ";
-	if (id.Bit(FS_BIT_SHADER_SMOOTHED_DEPAL)) desc << "SmoothDepal ";
+	switch ((ShaderDepalMode)id.Bit(FS_BIT_SHADER_DEPAL_MODE)) {
+	case ShaderDepalMode::OFF: break;
+	case ShaderDepalMode::NORMAL: desc << "Depal ";  break;
+	case ShaderDepalMode::SMOOTHED: desc << "SmoothDepal "; break;
+	case ShaderDepalMode::CLUT8_8888: desc << "CLUT8From8888Depal"; break;
+	}
 	if (id.Bit(FS_BIT_COLOR_WRITEMASK)) desc << "WriteMask ";
 	if (id.Bit(FS_BIT_SHADER_TEX_CLAMP)) {
 		desc << "TClamp";
@@ -261,8 +265,9 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		bool doTextureProjection = (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX && MatrixNeedsProjection(gstate.tgenMatrix));
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
 		bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;
-		bool useShaderDepal = gstate_c.useShaderDepal;
-		bool useSmoothedDepal = gstate_c.useSmoothedShaderDepal;
+
+		ShaderDepalMode shaderDepalMode = gstate_c.shaderDepalMode;
+
 		bool colorWriteMask = pipelineState.maskState.applyFramebufferRead;
 
 		ReplaceBlendType replaceBlend = pipelineState.blendState.replaceBlend;
@@ -289,8 +294,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 				id.SetBit(FS_BIT_TEXTURE_AT_OFFSET, textureAtOffset);
 			}
 			id.SetBit(FS_BIT_BGRA_TEXTURE, gstate_c.bgraTexture);
-			id.SetBit(FS_BIT_SHADER_DEPAL, useShaderDepal);
-			id.SetBit(FS_BIT_SHADER_SMOOTHED_DEPAL, useSmoothedDepal);
+			id.SetBits(FS_BIT_SHADER_DEPAL_MODE, 2, (int)shaderDepalMode);
 			id.SetBit(FS_BIT_3D_TEXTURE, gstate_c.curTextureIs3D);
 		}
 
