@@ -48,7 +48,7 @@ enum class GECmdFormat {
 	STRIDE, // 11 bits.
 	STRIDE_HIGH_ADDR, // 11 bits stride, 5 ignored, 8 bits high address.
 	TEX_SIZE, // 4 bits width power, 4 bits ignored, 4 bits height power.
-	TEX_MAP_MODE, // 8 bits mode (2 bits), 2 bits environment factor.
+	TEX_MAP_MODE, // 8 bits mode (2 bits), 2 bits matrix factor.
 	TEX_LIGHT_SRC, // 8 bits lightu (2 bits), 2 bits lightv.
 	TEX_MODE, // 8 bits swizzle (1 bit), 8 bits separate clut4 (1 bit), 3 bits max level.
 	TEX_FORMAT, // 4 bits format.
