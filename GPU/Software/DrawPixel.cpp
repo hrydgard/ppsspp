@@ -550,8 +550,6 @@ void PixelJitCache::Clear() {
 
 	constBlendHalf_11_4s_ = nullptr;
 	constBlendInvert_11_4s_ = nullptr;
-	const255_16s_ = nullptr;
-	constBy255i_ = nullptr;
 }
 
 std::string PixelJitCache::DescribeCodePtr(const u8 *ptr) {
