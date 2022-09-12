@@ -245,7 +245,9 @@ struct ComputedPipelineState {
 	void Convert(bool shaderBitOpsSupported);
 
 	bool FramebufferRead() const {
-		return blendState.applyFramebufferRead;
+		// If blending is off, its applyFramebufferRead can be false even after state propagation.
+		// So it's not enough to check just that one.
+		return blendState.applyFramebufferRead || maskState.applyFramebufferRead || logicState.applyFramebufferRead;
 	}
 };
 
