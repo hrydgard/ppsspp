@@ -93,13 +93,6 @@ void ComputePixelFuncID(PixelFuncID *id, bool throughMode) {
 			if (gstate.FrameBufFormat() != GE_FORMAT_565 && gstate.getStencilOpZPass() <= GE_STENCILOP_DECR)
 				id->zPass = gstate.getStencilOpZPass();
 
-			// Always treat zPass/zFail the same if there's no depth test.
-			if (!gstate.isDepthTestEnabled() || gstate.getDepthTestFunction() == GE_COMP_ALWAYS)
-				id->zFail = id->zPass;
-			// And same for sFail if there's no stencil test.
-			if (id->StencilTestFunc() == GE_COMP_ALWAYS)
-				id->sFail = id->zPass;
-
 			// Normalize REPLACE 00 to ZERO, especially if using a mask.
 			if (gstate.getStencilTestRef() == 0) {
 				if (id->SFail() == GE_STENCILOP_REPLACE)
@@ -119,6 +112,13 @@ void ComputePixelFuncID(PixelFuncID *id, bool throughMode) {
 				if (id->ZPass() == GE_STENCILOP_DECR)
 					id->zPass = GE_STENCILOP_ZERO;
 			}
+
+			// Always treat zPass/zFail the same if there's no depth test.
+			if (!gstate.isDepthTestEnabled() || gstate.getDepthTestFunction() == GE_COMP_ALWAYS)
+				id->zFail = id->zPass;
+			// And same for sFail if there's no stencil test.  Prefer KEEP, though.
+			if (id->StencilTestFunc() == GE_COMP_ALWAYS)
+				id->sFail = id->ZFail() == GE_STENCILOP_KEEP ? GE_STENCILOP_KEEP : id->zPass;
 
 			// Turn off stencil testing if it's doing nothing.
 			if (id->SFail() == GE_STENCILOP_KEEP && id->ZFail() == GE_STENCILOP_KEEP && id->ZPass() == GE_STENCILOP_KEEP) {
