@@ -37,6 +37,12 @@ typedef Vec4<float> ClipCoords; // Range: -w <= x/y/z <= w
 class BinManager;
 struct TransformState;
 
+enum class CullType {
+	CW = 0,
+	CCW = 1,
+	OFF = 2,
+};
+
 struct ScreenCoords
 {
 	ScreenCoords() {}
@@ -133,6 +139,7 @@ public:
 
 private:
 	VertexData ReadVertex(VertexReader &vreader, const TransformState &lstate, bool &outside_range_flag);
+	void SendTriangle(CullType cullType, const VertexData *verts, int provoking = 2);
 
 	u8 *decoded_ = nullptr;
 	BinManager *binner_ = nullptr;
