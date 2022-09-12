@@ -1017,7 +1017,7 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size) {
 					// TODO: This doesn't seem quite right anymore.
 					fmt = displayFormat_;
 				}
-				DrawPixels(vfb, 0, 0, Memory::GetPointer(addr), fmt, vfb->fb_stride, vfb->width, vfb->height);
+				DrawPixels(vfb, 0, 0, Memory::GetPointer(addr), fmt, vfb->fb_stride, vfb->width, vfb->height, RASTER_COLOR, "UpdateFromMemory_DrawPixels");
 				SetColorUpdated(vfb, gstate_c.skipDrawReason);
 			} else {
 				INFO_LOG(FRAMEBUF, "Invalidating FBO for %08x (%dx%d %s)", vfb->fb_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format));
@@ -1033,7 +1033,10 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size) {
 	gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 }
 
-void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
+void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, RasterChannel channel, const char *tag) {
+	// Add depth support later for depth uploads.
+	_dbg_assert_(channel == RASTER_COLOR);
+
 	textureCache_->ForgetLastTexture();
 	shaderManager_->DirtyLastShader();  // On GL, important that this is BEFORE drawing
 	float u0 = 0.0f, u1 = 1.0f;
@@ -1042,7 +1045,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	DrawTextureFlags flags;
 	if (useBufferedRendering_ && vfb && vfb->fbo) {
 		flags = DRAWTEX_LINEAR;
-		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "DrawPixels");
+		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, tag);
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 		SetViewport2D(0, 0, vfb->renderWidth, vfb->renderHeight);
 		draw_->SetScissorRect(0, 0, vfb->renderWidth, vfb->renderHeight);
@@ -1063,6 +1066,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	Draw::Texture *pixelsTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 	if (pixelsTex) {
 		draw_->BindTextures(0, 1, &pixelsTex);
+		// TODO: Replace with BlitUsingRaster for simplicity.
 		DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
 		gpuStats.numUploads++;
 		pixelsTex->Release();
@@ -1210,7 +1214,7 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 	// better be fast.
 	Draw::Texture *tex = draw_->CreateTexture(desc);
 	if (!tex)
-		ERROR_LOG(G3D, "Failed to create drawpixels texture");
+		ERROR_LOG(G3D, "Failed to create DrawPixels texture");
 	return tex;
 }
 
@@ -1654,7 +1658,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		WARN_LOG_ONCE(btucpy, G3D, "Memcpy fbo upload %08x -> %08x (size: %x)", src, dst, size);
 		FlushBeforeCopy();
 		const u8 *srcBase = Memory::GetPointerUnchecked(src);
-		DrawPixels(dstBuffer, 0, dstY, srcBase, dstBuffer->fb_format, dstBuffer->fb_stride, dstBuffer->width, dstH);
+		DrawPixels(dstBuffer, 0, dstY, srcBase, dstBuffer->fb_format, dstBuffer->fb_stride, dstBuffer->width, dstH, RASTER_COLOR, "MemcpyFboUpload_DrawPixels");
 		SetColorUpdated(dstBuffer, skipDrawReason);
 		RebindFramebuffer("RebindFramebuffer - Memcpy fbo upload");
 		// This is a memcpy, let's still copy just in case.
@@ -1700,7 +1704,16 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 	// that of their buffers. Then after matching we try to map the copy to the simplest operation that does
 	// what we need.
 
+	// We are only looking at color for now, have not found any block transfers of depth data (although it's plausible).
+
 	for (auto vfb : vfbs_) {
+		// Check for easily detected depth copies for logging purposes.
+		// Depth copies are not that useful though because you manually need to account for swizzle, so
+		// not sure if games will use them.
+		if ((vfb->z_address & 0x3FFFFFFF) == basePtr) {
+			WARN_LOG_N_TIMES(z_xfer, 5, G3D, "FindTransferFramebuffer: found matching depth buffer, %08x (dest=%d, bpp=%d)", basePtr, (int)destination, bpp);
+		}
+
 		const u32 vfb_address = vfb->fb_address & 0x3FFFFFFF;
 		const u32 vfb_size = ColorBufferByteSize(vfb);
 
@@ -1773,7 +1786,14 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 	// Sort candidates by just recency for now, we might add other.
 	for (size_t i = 0; i < candidates.size(); i++) {
 		const BlockTransferRect *candidate = &candidates[i];
-		if (!best || candidate->vfb->colorBindSeq > best->vfb->colorBindSeq) {
+
+		bool better = !best || candidate->vfb->colorBindSeq > best->vfb->colorBindSeq;
+		if ((candidate->vfb->usageFlags & FB_USAGE_CLUT) && candidate->x_bytes == 0 && candidate->y == 0 && destination) {
+			// Hack to prioritize copies to clut buffers.
+			best = candidate;
+			break;
+		}
+		if (better) {
 			best = candidate;
 		}
 	}
@@ -2153,6 +2173,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 			WARN_LOG_ONCE(btu, G3D, "Block transfer upload %08x -> %08x", srcBasePtr, dstBasePtr);
 			FlushBeforeCopy();
 			const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
+
 			int dstBpp = BufferFormatBytesPerPixel(dstRect.vfb->fb_format);
 			float dstXFactor = (float)bpp / dstBpp;
 			if (dstRect.w_bytes / bpp > dstRect.vfb->width || dstRect.h > dstRect.vfb->height) {
@@ -2166,7 +2187,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 				// Resizing may change the viewport/etc.
 				gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
 			}
-			DrawPixels(dstRect.vfb, static_cast<int>(dstX * dstXFactor), dstY, srcBase, dstRect.vfb->fb_format, static_cast<int>(srcStride * dstXFactor), static_cast<int>(dstRect.w_bytes / bpp * dstXFactor), dstRect.h);
+			DrawPixels(dstRect.vfb, static_cast<int>(dstX * dstXFactor), dstY, srcBase, dstRect.vfb->fb_format, static_cast<int>(srcStride * dstXFactor), static_cast<int>(dstRect.w_bytes / bpp * dstXFactor), dstRect.h, RASTER_COLOR, "BlockTransferCopy_DrawPixels");
 			SetColorUpdated(dstRect.vfb, skipDrawReason);
 			RebindFramebuffer("RebindFramebuffer - NotifyBlockTransferAfter");
 		}
