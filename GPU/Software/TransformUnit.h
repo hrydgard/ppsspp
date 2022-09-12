@@ -79,15 +79,15 @@ struct VertexData {
 		texturecoords = ::Lerp(a.texturecoords, b.texturecoords, t);
 		fogdepth = ::Lerp(a.fogdepth, b.fogdepth, t);
 
-		u16 t_int = (u16)(t*256);
-		color0 = LerpInt<Vec4<int>,256>(a.color0, b.color0, t_int);
-		color1 = LerpInt<Vec3<int>,256>(a.color1, b.color1, t_int);
+		u16 t_int = (u16)(t * 256);
+		color0 = LerpInt<Vec4<int>, 256>(Vec4<int>::FromRGBA(a.color0), Vec4<int>::FromRGBA(b.color0), t_int).ToRGBA();
+		color1 = LerpInt<Vec3<int>, 256>(Vec3<int>::FromRGB(a.color1), Vec3<int>::FromRGB(b.color1), t_int).ToRGB();
 	}
 
 	ClipCoords clippos;
 	Vec2<float> texturecoords;
-	Vec4<int> color0;
-	Vec3<int> color1;
+	uint32_t color0;
+	uint32_t color1;
 	ScreenCoords screenpos; // TODO: Shouldn't store this ?
 	float fogdepth;
 };
