@@ -59,12 +59,13 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 			} else {
 				ERROR_LOG(G3D, "Error in shader compilation!");
 			}
+			std::string numberedSource = LineNumberString(code);
 			ERROR_LOG(G3D, "Messages: %s", errorMessage.c_str());
-			ERROR_LOG(G3D, "Shader source:\n%s", code);
-#ifdef SHADERLOG
-			OutputDebugStringA(LineNumberString(code).c_str());
+			ERROR_LOG(G3D, "Shader source:\n%s", numberedSource.c_str());
+#if PPSSPP_PLATFORM(WINDOWS)
 			OutputDebugStringA("Error messages:\n");
 			OutputDebugStringA(errorMessage.c_str());
+			OutputDebugStringA(numberedSource.c_str());
 #endif
 			Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
 		}
