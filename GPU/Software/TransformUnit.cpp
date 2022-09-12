@@ -686,30 +686,44 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		{
 			// Don't draw a triangle when loading the first two vertices.
 			int skip_count = data_index_ >= 2 ? 0 : 2 - data_index_;
+			int start_vtx = 0;
 
 			// If index count == 4, check if we can convert to a rectangle.
 			// This is for Darkstalkers (and should speed up many 2D games).
-			if (data_index_ == 0 && vertex_count == 4 && cullType == CullType::OFF) {
-				for (int vtx = 0; vtx < 4; ++vtx) {
-					if (indices) {
-						vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
+			if (data_index_ == 0 && vertex_count >= 4 && (vertex_count & 1) == 0 && cullType == CullType::OFF) {
+				for (int base = 0; base < vertex_count - 2; base += 2) {
+					for (int vtx = base == 0 ? 0 : 2; vtx < 4; ++vtx) {
+						if (indices) {
+							vreader.Goto(ConvertIndex(base + vtx) - index_lower_bound);
+						} else {
+							vreader.Goto(base + vtx);
+						}
+						data_[vtx] = ReadVertex(vreader, transformState, outside_range_flag);
 					}
-					else {
-						vreader.Goto(vtx);
-					}
-					data_[vtx] = ReadVertex(vreader, transformState, outside_range_flag);
-				}
 
-				// If a strip is effectively a rectangle, draw it as such!
-				int tl = -1, br = -1;
-				if (!outside_range_flag && Rasterizer::DetectRectangleFromStrip(binner_->State(), data_, &tl, &br)) {
-					Clipper::ProcessRect(data_[tl], data_[br], *binner_);
-					break;
+					// If a strip is effectively a rectangle, draw it as such!
+					int tl = -1, br = -1;
+					if (!outside_range_flag && Rasterizer::DetectRectangleFromStrip(binner_->State(), data_, &tl, &br)) {
+						Clipper::ProcessRect(data_[tl], data_[br], *binner_);
+						start_vtx += 2;
+						if (base + 4 >= vertex_count) {
+							start_vtx = vertex_count;
+							break;
+						}
+
+						// Just copy the first two so we can detect easier.
+						// TODO: Maybe should give detection two halves?
+						data_[0] = data_[2];
+						data_[1] = data_[3];
+					} else {
+						// Go into triangle mode.  Unfortunately, we re-read the verts.
+						break;
+					}
 				}
 			}
 
 			outside_range_flag = false;
-			for (int vtx = 0; vtx < vertex_count; ++vtx) {
+			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
 				if (indices) {
 					vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
 				} else {
