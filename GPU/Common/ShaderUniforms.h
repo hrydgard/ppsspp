@@ -36,14 +36,14 @@ struct UB_VS_FS_Base {
 	uint32_t spline_counts; uint32_t depal_mask_shift_off_fmt;  // 4 params packed into one.
 	uint32_t colorWriteMask; float mipBias;
 	// Fragment data
-	float fogColor[4];
-	float texEnvColor[4];
+	float fogColor[4];     // .w is unused
+	float texEnvColor[4];  // .w is unused
 	int alphaColorRef[4];
 	int colorTestMask[4];
-	float blendFixA[4];
-	float blendFixB[4];
+	float blendFixA[4];  // .w is unused
+	float blendFixB[4];  // .w is unused
 	float texClamp[4];
-	float texClampOffset[4];
+	float texClampOffset[4];  // .zw are unused
 };
 
 static const char *ub_baseStr =
