@@ -435,12 +435,6 @@ SoftDirty TransformUnit::GetDirty() {
 	return binner_->GetDirty();
 }
 
-enum class CullType {
-	CW,
-	CCW,
-	OFF,
-};
-
 void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine)
 {
 	VertexDecoder &vdecoder = *drawEngine->FindVertexDecoder(vertex_type);
@@ -501,6 +495,63 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 	const CullType cullType = skipCull ? CullType::OFF : (gstate.getCullMode() ? CullType::CCW : CullType::CW);
 
 	bool outside_range_flag = false;
+
+	if (vreader.isThrough() && cullType == CullType::OFF && prim_type == GE_PRIM_TRIANGLES && data_index_ + vertex_count >= 6 && ((data_index_ + vertex_count) % 6) == 0) {
+		// Some games send rectangles as a series of regular triangles.
+		// We look for this, but only in throughmode.
+		VertexData buf[6];
+		int buf_index = data_index_;
+		for (int i = 0; i < data_index_; ++i) {
+			buf[i] = data_[i];
+		}
+
+		for (int vtx = 0; vtx < vertex_count; ++vtx) {
+			if (indices) {
+				vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
+			} else {
+				vreader.Goto(vtx);
+			}
+
+			buf[buf_index++] = ReadVertex(vreader, transformState, outside_range_flag);
+			if (buf_index >= 3 && outside_range_flag) {
+				// Cull, just pretend it didn't happen.
+				buf_index -= 3;
+				outside_range_flag = false;
+				continue;
+			}
+
+			if (buf_index < 6)
+				continue;
+
+			int tl = -1, br = -1;
+			if (Rasterizer::DetectRectangleFromPair(binner_->State(), buf, &tl, &br)) {
+				Clipper::ProcessRect(buf[tl], buf[br], *binner_);
+			} else {
+				SendTriangle(cullType, &buf[0]);
+				SendTriangle(cullType, &buf[3]);
+			}
+
+			buf_index = 0;
+		}
+
+		if (buf_index >= 3) {
+			SendTriangle(cullType, &buf[0]);
+			data_index_ = 0;
+			for (int i = 3; i < buf_index; ++i) {
+				data_[data_index_++] = buf[i];
+			}
+		} else if (buf_index > 0) {
+			for (int i = 0; i < buf_index; ++i) {
+				data_[i] = buf[i];
+			}
+			data_index_ = buf_index;
+		} else {
+			data_index_ = 0;
+		}
+
+		return;
+	}
+
 	switch (prim_type) {
 	case GE_PRIM_POINTS:
 	case GE_PRIM_LINES:
@@ -529,17 +580,8 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 				switch (prim_type) {
 				case GE_PRIM_TRIANGLES:
-				{
-					if (cullType == CullType::OFF) {
-						Clipper::ProcessTriangle(data_[0], data_[1], data_[2], data_[2], *binner_);
-						Clipper::ProcessTriangle(data_[2], data_[1], data_[0], data_[2], *binner_);
-					} else if (cullType == CullType::CW) {
-						Clipper::ProcessTriangle(data_[2], data_[1], data_[0], data_[2], *binner_);
-					} else {
-						Clipper::ProcessTriangle(data_[0], data_[1], data_[2], data_[2], *binner_);
-					}
+					SendTriangle(cullType, &data_[0]);
 					break;
-				}
 
 				case GE_PRIM_LINES:
 					Clipper::ProcessLine(data_[0], data_[1], *binner_);
@@ -632,30 +674,44 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		{
 			// Don't draw a triangle when loading the first two vertices.
 			int skip_count = data_index_ >= 2 ? 0 : 2 - data_index_;
+			int start_vtx = 0;
 
 			// If index count == 4, check if we can convert to a rectangle.
 			// This is for Darkstalkers (and should speed up many 2D games).
-			if (data_index_ == 0 && vertex_count == 4 && cullType == CullType::OFF) {
-				for (int vtx = 0; vtx < 4; ++vtx) {
-					if (indices) {
-						vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
+			if (data_index_ == 0 && vertex_count >= 4 && (vertex_count & 1) == 0 && cullType == CullType::OFF) {
+				for (int base = 0; base < vertex_count - 2; base += 2) {
+					for (int vtx = base == 0 ? 0 : 2; vtx < 4; ++vtx) {
+						if (indices) {
+							vreader.Goto(ConvertIndex(base + vtx) - index_lower_bound);
+						} else {
+							vreader.Goto(base + vtx);
+						}
+						data_[vtx] = ReadVertex(vreader, transformState, outside_range_flag);
 					}
-					else {
-						vreader.Goto(vtx);
-					}
-					data_[vtx] = ReadVertex(vreader, transformState, outside_range_flag);
-				}
 
-				// If a strip is effectively a rectangle, draw it as such!
-				int tl = -1, br = -1;
-				if (!outside_range_flag && Rasterizer::DetectRectangleFromStrip(binner_->State(), data_, &tl, &br)) {
-					Clipper::ProcessRect(data_[tl], data_[br], *binner_);
-					break;
+					// If a strip is effectively a rectangle, draw it as such!
+					int tl = -1, br = -1;
+					if (!outside_range_flag && Rasterizer::DetectRectangleFromStrip(binner_->State(), data_, &tl, &br)) {
+						Clipper::ProcessRect(data_[tl], data_[br], *binner_);
+						start_vtx += 2;
+						if (base + 4 >= vertex_count) {
+							start_vtx = vertex_count;
+							break;
+						}
+
+						// Just copy the first two so we can detect easier.
+						// TODO: Maybe should give detection two halves?
+						data_[0] = data_[2];
+						data_[1] = data_[3];
+					} else {
+						// Go into triangle mode.  Unfortunately, we re-read the verts.
+						break;
+					}
 				}
 			}
 
 			outside_range_flag = false;
-			for (int vtx = 0; vtx < vertex_count; ++vtx) {
+			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
 				if (indices) {
 					vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
 				} else {
@@ -676,16 +732,9 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 					continue;
 				}
 
-				if (cullType == CullType::OFF) {
-					Clipper::ProcessTriangle(data_[0], data_[1], data_[2], data_[provoking_index], *binner_);
-					Clipper::ProcessTriangle(data_[2], data_[1], data_[0], data_[provoking_index], *binner_);
-				} else if ((!(int)cullType) ^ ((data_index_ - 1) % 2)) {
-					// We need to reverse the vertex order for each second primitive,
-					// but we additionally need to do that for every primitive if CCW cullmode is used.
-					Clipper::ProcessTriangle(data_[2], data_[1], data_[0], data_[provoking_index], *binner_);
-				} else {
-					Clipper::ProcessTriangle(data_[0], data_[1], data_[2], data_[provoking_index], *binner_);
-				}
+				int wind = (data_index_ - 1) % 2;
+				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
+				SendTriangle(altCullType, &data_[0], provoking_index);
 			}
 			break;
 		}
@@ -752,16 +801,9 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 					continue;
 				}
 
-				if (cullType == CullType::OFF) {
-					Clipper::ProcessTriangle(data_[0], data_[1], data_[2], data_[provoking_index], *binner_);
-					Clipper::ProcessTriangle(data_[2], data_[1], data_[0], data_[provoking_index], *binner_);
-				} else if ((!(int)cullType) ^ ((data_index_ - 1) % 2)) {
-					// We need to reverse the vertex order for each second primitive,
-					// but we additionally need to do that for every primitive if CCW cullmode is used.
-					Clipper::ProcessTriangle(data_[2], data_[1], data_[0], data_[provoking_index], *binner_);
-				} else {
-					Clipper::ProcessTriangle(data_[0], data_[1], data_[2], data_[provoking_index], *binner_);
-				}
+				int wind = (data_index_ - 1) % 2;
+				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
+				SendTriangle(altCullType, &data_[0], provoking_index);
 			}
 			break;
 		}
@@ -769,6 +811,17 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 	default:
 		ERROR_LOG(G3D, "Unexpected prim type: %d", prim_type);
 		break;
+	}
+}
+
+void TransformUnit::SendTriangle(CullType cullType, const VertexData *verts, int provoking) {
+	if (cullType == CullType::OFF) {
+		Clipper::ProcessTriangle(verts[0], verts[1], verts[2], verts[provoking], *binner_);
+		Clipper::ProcessTriangle(verts[2], verts[1], verts[0], verts[provoking], *binner_);
+	} else if (cullType == CullType::CW) {
+		Clipper::ProcessTriangle(verts[2], verts[1], verts[0], verts[provoking], *binner_);
+	} else {
+		Clipper::ProcessTriangle(verts[0], verts[1], verts[2], verts[provoking], *binner_);
 	}
 }
 

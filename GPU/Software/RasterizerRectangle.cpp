@@ -448,6 +448,53 @@ bool DetectRectangleFromFan(const RasterizerState &state, const VertexData *data
 	return false;
 }
 
+bool DetectRectangleFromPair(const RasterizerState &state, const VertexData data[6], int *tlIndex, int *brIndex) {
+	// Color and Z must be flat.  Also find the TL and BR meanwhile.
+	int tl = 0, br = 0;
+	for (int i = 1; i < 6; ++i) {
+		if (!AreCoordsRectangleCompatible(state, data[i], data[0]))
+			return false;
+
+		if (data[i].screenpos.x <= data[tl].screenpos.x && data[i].screenpos.y <= data[tl].screenpos.y)
+			tl = i;
+		if (data[i].screenpos.x >= data[br].screenpos.x && data[i].screenpos.y >= data[br].screenpos.y)
+			br = i;
+	}
+
+	*tlIndex = tl;
+	*brIndex = br;
+
+	auto xat = [&](int i) { return data[i].screenpos.x; };
+	auto yat = [&](int i) { return data[i].screenpos.y; };
+	auto uat = [&](int i) { return data[i].texturecoords.x; };
+	auto vat = [&](int i) { return data[i].texturecoords.y; };
+
+	// A likely order would be: TL, TR, BR, TL, BR, BL.  We'd have the last index of each.
+	// TODO: Make more generic.
+	if (tl == 3 && br == 4) {
+		bool x1_match = xat(0) == xat(3) && xat(0) == xat(5);
+		bool x2_match = xat(1) == xat(2) && xat(1) == xat(4);
+		bool y1_match = yat(0) == yat(1) && yat(0) == yat(3);
+		bool y2_match = yat(2) == yat(4) && yat(2) == yat(5);
+		if (x1_match && y1_match && x2_match && y2_match) {
+			// Do we need to think about rotation or UVs?
+			if (!state.enableTextures)
+				return true;
+
+			x1_match = uat(0) == uat(3) && uat(0) == uat(5);
+			x2_match = uat(1) == uat(2) && uat(1) == uat(4);
+			y1_match = vat(0) == vat(1) && vat(0) == vat(3);
+			y2_match = vat(2) == vat(4) && vat(2) == vat(5);
+			if (x1_match && y1_match && x2_match && y2_match) {
+				// Double check rotation direction.
+				return vat(tl) < vat(br) && yat(tl) < yat(br) && uat(tl) < uat(br) && xat(tl) < xat(br);
+			}
+		}
+	}
+
+	return false;
+}
+
 bool DetectRectangleThroughModeSlices(const RasterizerState &state, const VertexData data[4]) {
 	// Color and Z must be flat.
 	for (int i = 1; i < 4; ++i) {

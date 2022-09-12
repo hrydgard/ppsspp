@@ -286,6 +286,8 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 		desc = "INVALID:" + desc;
 	}
 
+	if (id.earlyZChecks)
+		desc += "ZEarly:";
 	if (id.DepthTestFunc() != GE_COMP_ALWAYS) {
 		if (id.clearMode)
 			desc = "INVALID:" + desc;
