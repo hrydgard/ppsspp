@@ -79,14 +79,10 @@ void VR_TweakProjection(float* src, float* dst, VRMatrix matrix) {
 	memcpy(dst, hmdProjection.M, 16 * sizeof(float));
 }
 
-void VR_TweakView(float* view, float* projMatrix, VRMatrix matrix) {
+void VR_TweakView(float* view, VRMatrix matrix) {
 	// Get view matrix from the game
 	ovrMatrix4f gameView;
 	memcpy(gameView.M, view, 16 * sizeof(float));
-
-	// Set 6DoF scale
-	float scale = pow(fabs(projMatrix[14]), 1.15f);
-	VR_SetConfig(VR_CONFIG_6DOF_SCALE, (int)(scale * 1000));
 
 	// Get view matrix from the headset
 	ovrMatrix4f hmdView = VR_GetMatrix(matrix);

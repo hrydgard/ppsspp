@@ -43,6 +43,14 @@ void Compatibility::Load(const std::string &gameID) {
 	}
 
 	{
+		IniFile compat;
+		// This loads from assets.
+		if (compat.LoadFromVFS("compatvr.ini")) {
+			CheckSetting(compat, gameID, "UnitsPerMeter", &vrCompat_.UnitsPerMeter);
+		}
+	}
+
+	{
 		IniFile compat2;
 		// This one is user-editable. Need to load it after the system one.
 		Path path = GetSysDirectory(DIRECTORY_SYSTEM) / "compat.ini";
@@ -54,6 +62,7 @@ void Compatibility::Load(const std::string &gameID) {
 
 void Compatibility::Clear() {
 	memset(&flags_, 0, sizeof(flags_));
+	memset(&vrCompat_, 0, sizeof(vrCompat_));
 }
 
 void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
@@ -109,4 +118,10 @@ void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, co
 		iniFile.Get(option, "ALL", &all, false);
 		*flag |= all;
 	}
+}
+
+void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, float *flag) {
+	std::string value;
+	iniFile.Get(option, gameID.c_str(), &value, "0");
+	*flag = stof(value);
 }

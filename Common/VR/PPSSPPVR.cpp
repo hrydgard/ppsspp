@@ -8,6 +8,7 @@
 #include "Core/HLE/sceDisplay.h"
 #include "Core/Config.h"
 #include "Core/KeyMap.h"
+#include "Core/System.h"
 
 
 /*
@@ -239,7 +240,6 @@ bool PreVRRender() {
 		VR_SetConfig(VR_CONFIG_6DOF_ENABLED, g_Config.bEnable6DoF);
 		VR_SetConfig(VR_CONFIG_CANVAS_DISTANCE, g_Config.iCanvasDistance);
 		VR_SetConfig(VR_CONFIG_FOV_SCALE, g_Config.iFieldOfViewPercentage);
-		VR_SetConfig(VR_CONFIG_STEREO_SEPARATION, g_Config.iStereoSeparation);
 		return true;
 	}
 	return false;
@@ -285,9 +285,19 @@ void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {
 	VR_TweakProjection(projMatrix, leftEye, VR_PROJECTION_MATRIX_LEFT_EYE);
 	VR_TweakProjection(projMatrix, rightEye, VR_PROJECTION_MATRIX_RIGHT_EYE);
 	VR_TweakMirroring(projMatrix);
+
+	// Set 6DoF scale
+	float scale = pow(fabs(projMatrix[14]), 1.15f);
+	if (PSP_CoreParameter().compat.vrCompat().UnitsPerMeter > 0) {
+		scale = PSP_CoreParameter().compat.vrCompat().UnitsPerMeter;
+		VR_SetConfig(VR_CONFIG_6DOF_PRECISE, true);
+	} else {
+		VR_SetConfig(VR_CONFIG_6DOF_PRECISE, false);
+	}
+	VR_SetConfig(VR_CONFIG_6DOF_SCALE, (int)(scale * 1000000));
 }
 
-void UpdateVRView(float* projMatrix, float* leftEye, float* rightEye) {
-	VR_TweakView(leftEye, projMatrix, VR_VIEW_MATRIX_LEFT_EYE);
-	VR_TweakView(rightEye, projMatrix, VR_VIEW_MATRIX_RIGHT_EYE);
+void UpdateVRView(float* leftEye, float* rightEye) {
+	VR_TweakView(leftEye, VR_VIEW_MATRIX_LEFT_EYE);
+	VR_TweakView(rightEye, VR_VIEW_MATRIX_RIGHT_EYE);
 }
