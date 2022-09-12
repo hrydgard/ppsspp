@@ -44,7 +44,8 @@
 
 // Most drivers treat vkCreateShaderModule as pretty much a memcpy. What actually
 // takes time here, and makes this worthy of parallelization, is GLSLtoSPV.
-static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code, const char *tag) {
+// Takes ownership over tag.
+static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code, std::string *tag) {
 	auto compile = [=] {
 		PROFILE_THIS_SCOPE("shadercomp");
 
@@ -77,7 +78,8 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 			OutputDebugStringA("OK");
 #endif
 			if (tag) {
-				vulkan->SetDebugName(shaderModule, VK_OBJECT_TYPE_SHADER_MODULE, tag);
+				vulkan->SetDebugName(shaderModule, VK_OBJECT_TYPE_SHADER_MODULE, tag->c_str());
+				delete tag;
 			}
 		}
 
@@ -96,7 +98,7 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, FragmentShaderFlags flags, const char *code)
 	: vulkan_(vulkan), id_(id), flags_(flags) {
 	source_ = code;
-	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_FRAGMENT_BIT, source_.c_str(), FragmentShaderDesc(id).c_str());
+	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_FRAGMENT_BIT, source_.c_str(), new std::string(FragmentShaderDesc(id)));
 	if (!module_) {
 		failed_ = true;
 	} else {
@@ -126,7 +128,7 @@ std::string VulkanFragmentShader::GetShaderString(DebugShaderStringType type) co
 VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, const char *code, bool useHWTransform)
 	: vulkan_(vulkan), useHWTransform_(useHWTransform), id_(id) {
 	source_ = code;
-	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_VERTEX_BIT, source_.c_str(), VertexShaderDesc(id).c_str());
+	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_VERTEX_BIT, source_.c_str(), new std::string(VertexShaderDesc(id).c_str()));
 	if (!module_) {
 		failed_ = true;
 	} else {
