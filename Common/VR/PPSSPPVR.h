@@ -3,7 +3,7 @@
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
 
-enum VRCompat {
+enum VRCompatFlag {
 	//compatibility tweaks
 	VR_COMPAT_SKYPLANE,
 
@@ -31,7 +31,7 @@ void UpdateVRScreenKey(const KeyInput &key);
 void PreGLRenderPass(const void* step);
 void PreGLCommand(const void* data);
 void PostGLCommand(const void* data);
-void SetVRCompat(VRCompat flag, long value);
+void SetVRCompat(VRCompatFlag flag, long value);
 
 // VR rendering integration
 void BindVRFramebuffer();
@@ -60,7 +60,7 @@ inline void UpdateVRScreenKey(const KeyInput &key) {}
 inline void PreGLRenderPass(const void* step) {}
 inline void PreGLCommand(const void* data) {}
 inline void PostGLCommand(const void* data) {}
-inline void SetVRCompat(VRCompat flag, long value) {}
+inline void SetVRCompat(VRCompatFlag flag, long value) {}
 
 // VR rendering integration
 inline void BindVRFramebuffer() {}

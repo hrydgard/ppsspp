@@ -268,7 +268,7 @@ void PostGLCommand(const void* data) {
 	}
 }
 
-void SetVRCompat(VRCompat flag, long value) {
+void SetVRCompat(VRCompatFlag flag, long value) {
 	vrCompat[flag] = value;
 }
 
