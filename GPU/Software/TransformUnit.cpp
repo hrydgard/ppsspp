@@ -317,24 +317,12 @@ VertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState
 	}
 
 	if (vreader.hasColor0()) {
-#ifdef _M_SSE
-		vreader.ReadColor0_8888((u8 *)vertex.color0.AsArray());
-		vertex.color0.ivec = _mm_unpacklo_epi8(vertex.color0.ivec, _mm_setzero_si128());
-		vertex.color0.ivec = _mm_unpacklo_epi16(vertex.color0.ivec, _mm_setzero_si128());
-#else
-		float col[4];
-		vreader.ReadColor0(col);
-		vertex.color0 = Vec4<int>(col[0]*255, col[1]*255, col[2]*255, col[3]*255);
-#endif
+		vreader.ReadColor0_8888((u8 *)&vertex.color0);
 	} else {
-		vertex.color0 = Vec4<int>::FromRGBA(gstate.getMaterialAmbientRGBA());
+		vertex.color0 = gstate.getMaterialAmbientRGBA();
 	}
 
-#ifdef _M_SSE
-	vertex.color1 = _mm_setzero_si128();
-#else
-	vertex.color1 = Vec3<int>(0, 0, 0);
-#endif
+	vertex.color1 = 0;
 
 	if (state.enableTransform) {
 		WorldCoords worldpos;

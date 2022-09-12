@@ -721,6 +721,13 @@ void DrawTriangleSlice(
 	std::string ztag = StringFromFormat("DisplayListTZ_%08x", state.listPC);
 #endif
 
+	const Vec4<int> v0_c0 = Vec4<int>::FromRGBA(v0.color0);
+	const Vec4<int> v1_c0 = Vec4<int>::FromRGBA(v1.color0);
+	const Vec4<int> v2_c0 = Vec4<int>::FromRGBA(v2.color0);
+	const Vec3<int> v0_c1 = Vec3<int>::FromRGB(v0.color1);
+	const Vec3<int> v1_c1 = Vec3<int>::FromRGB(v1.color1);
+	const Vec3<int> v2_c1 = Vec3<int>::FromRGB(v2.color1);
+
 	for (int64_t curY = minY; curY <= maxY; curY += SCREEN_SCALE_FACTOR * 2,
 										w0_base = e0.StepY(w0_base),
 										w1_base = e1.StepY(w1_base),
@@ -790,22 +797,22 @@ void DrawTriangleSlice(
 				if (!flatColor0) {
 					for (int i = 0; i < 4; ++i) {
 						if (mask[i] >= 0)
-							prim_color[i] = Interpolate(v0.color0, v1.color0, v2.color0, w0[i], w1[i], w2[i], wsum_recip[i]);
+							prim_color[i] = Interpolate(v0_c0, v1_c0, v2_c0, w0[i], w1[i], w2[i], wsum_recip[i]);
 					}
 				} else {
 					for (int i = 0; i < 4; ++i) {
-						prim_color[i] = v2.color0;
+						prim_color[i] = v2_c0;
 					}
 				}
 				Vec3<int> sec_color[4];
 				if (!flatColor1) {
 					for (int i = 0; i < 4; ++i) {
 						if (mask[i] >= 0)
-							sec_color[i] = Interpolate(v0.color1, v1.color1, v2.color1, w0[i], w1[i], w2[i], wsum_recip[i]);
+							sec_color[i] = Interpolate(v0_c1, v1_c1, v2_c1, w0[i], w1[i], w2[i], wsum_recip[i]);
 					}
 				} else {
 					for (int i = 0; i < 4; ++i) {
-						sec_color[i] = v2.color1;
+						sec_color[i] = v2_c1;
 					}
 				}
 
@@ -965,9 +972,10 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	const Vec4f tto4(0.0f, 0.5f * stx.t(), 0.5f * sty.t(), 0.5f * stx.t() + 0.5f * sty.t());
 
 	ScreenCoords pprime(minX, minY, 0);
-	Vec4<int> fog = Vec4<int>::AssignToAll(ClampFogDepth(v1.fogdepth));
-	Vec4<int> z = Vec4<int>::AssignToAll(v1.screenpos.z);
-	Vec3<int> sec_color = v1.color1;
+	const Vec4<int> fog = Vec4<int>::AssignToAll(ClampFogDepth(v1.fogdepth));
+	const Vec4<int> z = Vec4<int>::AssignToAll(v1.screenpos.z);
+	const Vec4<int> c0 = Vec4<int>::FromRGBA(v1.color0);
+	const Vec3<int> sec_color = Vec3<int>::FromRGB(v1.color1);
 
 	if (state.pixelID.applyDepthRange) {
 		// We can bail early since the Z is flat.
@@ -997,7 +1005,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 
 			Vec4<int> prim_color[4];
 			for (int i = 0; i < 4; ++i) {
-				prim_color[i] = v1.color0;
+				prim_color[i] = c0;
 			}
 
 			if (state.pixelID.earlyZChecks) {
@@ -1073,8 +1081,8 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 
 void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerState &state) {
 	ScreenCoords pos = v0.screenpos;
-	Vec4<int> prim_color = v0.color0;
-	Vec3<int> sec_color = v0.color1;
+	Vec4<int> prim_color = Vec4<int>::FromRGBA(v0.color0);
+	Vec3<int> sec_color = Vec3<int>::FromRGB(v0.color1);
 
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
@@ -1218,7 +1226,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 		keepOldMask |= pixelID.cached.colorWriteMask;
 	}
 
-	const u32 new_color = v1.color0.ToRGBA();
+	const u32 new_color = v1.color0;
 	u16 new_color16;
 	switch (pixelID.FBFormat()) {
 	case GE_FORMAT_565:
@@ -1343,6 +1351,10 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 	auto &samplerID = state.samplerID;
 
 	const bool interpolateColor = !state.shadeGouraud || (v0.color0 == v1.color0 && v0.color1 == v1.color1);
+	const Vec4<int> v0_c0 = Vec4<int>::FromRGBA(v0.color0);
+	const Vec4<int> v1_c0 = Vec4<int>::FromRGBA(v1.color0);
+	const Vec3<int> v0_c1 = Vec3<int>::FromRGB(v0.color1);
+	const Vec3<int> v1_c1 = Vec3<int>::FromRGB(v1.color1);
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	std::string tag = StringFromFormat("DisplayListL_%08x", state.listPC);
@@ -1375,11 +1387,11 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 			Vec4<int> prim_color;
 			Vec3<int> sec_color;
 			if (interpolateColor) {
-				prim_color = (v0.color0 * (steps - i) + v1.color0 * i) / steps1;
-				sec_color = (v0.color1 * (steps - i) + v1.color1 * i) / steps1;
+				prim_color = (v0_c0 * (steps - i) + v1_c0 * i) / steps1;
+				sec_color = (v0_c1 * (steps - i) + v1_c1 * i) / steps1;
 			} else {
-				prim_color = v1.color0;
-				sec_color = v1.color1;
+				prim_color = v1_c0;
+				sec_color = v1_c1;
 			}
 
 			u8 fog = 255;

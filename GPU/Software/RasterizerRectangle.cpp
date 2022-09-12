@@ -119,7 +119,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 	int z = v1.screenpos.z;
 	int fog = 255;
 
-	bool isWhite = v1.color0 == Vec4<int>(255, 255, 255, 255);
+	bool isWhite = v1.color0 == 0xFFFFFFFF;
 
 	if (state.enableTextures) {
 		// 1:1 (but with mirror support) texture mapping!
@@ -176,11 +176,12 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 				}
 			} else {
 				int t = t_start;
+				const Vec4<int> c0 = Vec4<int>::FromRGBA(v1.color0);
 				for (int y = pos0.y; y < pos1.y; y++) {
 					int s = s_start;
 					u16 *pixel = fb.Get16Ptr(pos0.x, y, pixelID.cached.framebufStride);
 					for (int x = pos0.x; x < pos1.x; x++) {
-						Vec4<int> prim_color = v1.color0;
+						Vec4<int> prim_color = c0;
 						Vec4<int> tex_color = fetchFunc(s, t, texptr, texbufw, 0, state.samplerID);
 						prim_color = Vec4<int>(ModulateRGBA(ToVec4IntArg(prim_color), ToVec4IntArg(tex_color), state.samplerID));
 						if (prim_color.a() > 0) {
@@ -202,11 +203,12 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 			float tf_start = t_start * (1.0f / (float)(1 << state.samplerID.height0Shift));
 
 			float t = tf_start;
+			const Vec4<int> c0 = Vec4<int>::FromRGBA(v1.color0);
 			for (int y = pos0.y; y < pos1.y; y++) {
 				float s = sf_start;
 				// Not really that fast but faster than triangle.
 				for (int x = pos0.x; x < pos1.x; x++) {
-					Vec4<int> prim_color = state.nearest(s, t, xoff, yoff, ToVec4IntArg(v1.color0), &texptr, &texbufw, 0, 0, state.samplerID);
+					Vec4<int> prim_color = state.nearest(s, t, xoff, yoff, ToVec4IntArg(c0), &texptr, &texbufw, 0, 0, state.samplerID);
 					state.drawPixel(x, y, z, 255, ToVec4IntArg(prim_color), pixelID);
 					s += dsf;
 				}
@@ -227,21 +229,20 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 			AlphaTestIsNeedless(pixelID) &&
 			!pixelID.applyColorWriteMask &&
 			pixelID.FBFormat() == GE_FORMAT_5551) {
-			if (v1.color0.a() == 0)
+			if (Vec4<int>::FromRGBA(v1.color0).a() == 0)
 				return;
 
 			for (int y = pos0.y; y < pos1.y; y++) {
 				u16 *pixel = fb.Get16Ptr(pos0.x, y, pixelID.cached.framebufStride);
 				for (int x = pos0.x; x < pos1.x; x++) {
-					Vec4<int> prim_color = v1.color0;
-					DrawSinglePixel5551(pixel, prim_color.ToRGBA(), pixelID);
+					DrawSinglePixel5551(pixel, v1.color0, pixelID);
 					pixel++;
 				}
 			}
 		} else {
+			const Vec4<int> prim_color = Vec4<int>::FromRGBA(v1.color0);
 			for (int y = pos0.y; y < pos1.y; y++) {
 				for (int x = pos0.x; x < pos1.x; x++) {
-					Vec4<int> prim_color = v1.color0;
 					state.drawPixel(x, y, z, fog, ToVec4IntArg(prim_color), pixelID);
 				}
 			}
@@ -311,7 +312,7 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 				// Afterwards, we also need to clear the actual destination. Can do a fast rectfill.
 				gstate.textureMapEnable &= ~1;
 				VertexData newV1 = v1;
-				newV1.color0 = Vec4<int>(0, 0, 0, 255);
+				newV1.color0 = 0xFF000000;
 				binner.AddSprite(v0, newV1);
 				gstate.textureMapEnable |= 1;
 			}
