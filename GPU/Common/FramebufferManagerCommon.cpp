@@ -2974,6 +2974,10 @@ static void ApplyKillzoneFramebufferSplit(FramebufferHeuristicParams *params, in
 				margin = true;
 			}
 		}
+
+		// TODO: Implement this for Burnout Dominator. It has to handle self-reads inside
+		// the margin framebuffer though, so framebuffer copies are still needed, just smaller.
+		// It uses 0x0080019f (through, float texcoords, ABGR 8888 colors, float positions).
 	}
 
 	if (margin) {
