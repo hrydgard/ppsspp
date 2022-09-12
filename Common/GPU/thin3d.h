@@ -557,6 +557,7 @@ typedef std::function<bool(uint8_t *data, const uint8_t *initData, uint32_t w, u
 struct TextureDesc {
 	TextureType type;
 	DataFormat format;
+
 	int width;
 	int height;
 	int depth;

@@ -89,6 +89,7 @@ struct CompatFlags {
 	bool SplitFramebufferMargin;
 	bool ForceLowerResolutionForEffectsOn;
 	bool AllowDownloadCLUT;
+	bool UploadDepthForCLUTTextures;
 };
 
 struct VRCompat {

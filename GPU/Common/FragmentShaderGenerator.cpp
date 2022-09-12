@@ -745,13 +745,14 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				p.C("  uv_round = floor(uv * tsize);\n");
 				p.C("  int component = int(uv_round.x) & 3;\n");
 				p.C("  uv_round.x *= 0.25;\n");
-				p.C("  vec4 t = ivec4(").LoadTexture2D("tex", "ivec2(uv_round)", 0).C(");\n");
+				p.C("  uv_round /= tsize;\n");
+				p.C("  vec4 t = ").SampleTexture2D("tex", "uv_round").C(";\n");
 				p.C("  int index;\n");
 				p.C("  switch (component) {\n");
-				p.C("  case 0: index = int(t.x * 255.99); break;\n");
-				p.C("  case 1: index = int(t.y * 255.99); break;\n");
-				p.C("  case 2: index = int(t.z * 255.99); break;\n");
-				p.C("  case 3: index = int(t.w * 255.99); break;\n");
+				p.C("  case 0: index = int(t.x * 254.99); break;\n");  // TODO: Not sure why 254.99 instead of 255.99, but it's currently needed.
+				p.C("  case 1: index = int(t.y * 254.99); break;\n");
+				p.C("  case 2: index = int(t.z * 254.99); break;\n");
+				p.C("  case 3: index = int(t.w * 254.99); break;\n");
 				p.C("  }\n");
 				p.C("  t = ").LoadTexture2D("pal", "ivec2(index, 0)", 0).C(";\n");
 				break;

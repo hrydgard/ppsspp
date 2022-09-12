@@ -475,9 +475,9 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		vfb->fb_format = params.fb_format;
 		vfb->usageFlags = FB_USAGE_RENDER_COLOR;
 
-		u32 byteSize = ColorBufferByteSize(vfb);
-		if (Memory::IsVRAMAddress(params.fb_address) && params.fb_address + byteSize > framebufRangeEnd_) {
-			framebufRangeEnd_ = params.fb_address + byteSize;
+		u32 colorByteSize = ColorBufferByteSize(vfb);
+		if (Memory::IsVRAMAddress(params.fb_address) && params.fb_address + colorByteSize > framebufRangeEnd_) {
+			framebufRangeEnd_ = params.fb_address + colorByteSize;
 		}
 
 		// This is where we actually create the framebuffer. The true is "force".
@@ -499,9 +499,9 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 
 		// Assume that if we're clearing right when switching to a new framebuffer, we don't need to upload.
 		if (useBufferedRendering_ && params.isDrawing) {
-			gpu->PerformMemoryUpload(params.fb_address, byteSize);
+			gpu->PerformMemoryUpload(params.fb_address, colorByteSize);
 			// Alpha was already done by PerformMemoryUpload.
-			PerformStencilUpload(params.fb_address, byteSize, StencilUpload::STENCIL_IS_ZERO | StencilUpload::IGNORE_ALPHA);
+			PerformStencilUpload(params.fb_address, colorByteSize, StencilUpload::STENCIL_IS_ZERO | StencilUpload::IGNORE_ALPHA);
 			// TODO: Is it worth trying to upload the depth buffer (only if it wasn't copied above..?)
 		}
 
@@ -551,9 +551,20 @@ void FramebufferManagerCommon::SetDepthFrameBuffer(bool isClearingDepth) {
 	// by copying from any overlapping buffers with fresher content.
 	if (!isClearingDepth) {
 		CopyToDepthFromOverlappingFramebuffers(currentRenderVfb_);
-	}
 
+		// Special compatibility trick for Burnout Dominator lens flares. Not sure how to best generalize this. See issue #11100
+		if (PSP_CoreParameter().compat.flags().UploadDepthForCLUTTextures && (currentRenderVfb_->usageFlags & FB_USAGE_CLUT) != 0) {
+			// Set the flag, then upload memory contents to depth channel.
+			// Sanity check the depth buffer pointer.
+			if (currentRenderVfb_->z_address != 0 && currentRenderVfb_->z_address != currentRenderVfb_->fb_address) {
+				const u16 *src = (const u16 *)Memory::GetPointerUnchecked(currentRenderVfb_->z_address);
+				DrawPixels(currentRenderVfb_, 0, 0, (const u8 *)src, GE_FORMAT_DEPTH16, currentRenderVfb_->z_stride, currentRenderVfb_->width, currentRenderVfb_->height, RASTER_DEPTH, "Depth Upload");
+			}
+		}
+	}
+	// First time use of this framebuffer's depth buffer.
 	currentRenderVfb_->usageFlags |= FB_USAGE_RENDER_DEPTH;
+
 	currentRenderVfb_->depthBindSeq = GetBindSeqCount();
 }
 
@@ -1034,22 +1045,19 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size) {
 }
 
 void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, RasterChannel channel, const char *tag) {
-	// Add depth support later for depth uploads.
-	_dbg_assert_(channel == RASTER_COLOR);
-
 	textureCache_->ForgetLastTexture();
-	shaderManager_->DirtyLastShader();  // On GL, important that this is BEFORE drawing
+	shaderManager_->DirtyLastShader();
 	float u0 = 0.0f, u1 = 1.0f;
 	float v0 = 0.0f, v1 = 1.0f;
 
 	DrawTextureFlags flags;
 	if (useBufferedRendering_ && vfb && vfb->fbo) {
-		flags = DRAWTEX_LINEAR;
+		flags = channel == RASTER_COLOR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, tag);
-		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 		SetViewport2D(0, 0, vfb->renderWidth, vfb->renderHeight);
 		draw_->SetScissorRect(0, 0, vfb->renderWidth, vfb->renderHeight);
 	} else {
+		_dbg_assert_(channel == RASTER_COLOR);
 		// We are drawing directly to the back buffer so need to flip.
 		// Should more of this be handled by the presentation engine?
 		if (needBackBufferYSwap_)
@@ -1063,11 +1071,18 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 		draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 	}
 
+	if (channel == RASTER_DEPTH) {
+		_dbg_assert_(srcPixelFormat == GE_FORMAT_DEPTH16);
+		flags = flags | DRAWTEX_DEPTH;
+	}
+
 	Draw::Texture *pixelsTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 	if (pixelsTex) {
 		draw_->BindTextures(0, 1, &pixelsTex);
-		// TODO: Replace with BlitUsingRaster for simplicity.
+
+		// TODO: Replace with draw2D_.Blit() directly.
 		DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
+
 		gpuStats.numUploads++;
 		pixelsTex->Release();
 		draw_->InvalidateCachedState();
@@ -1157,6 +1172,7 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 			const u16_le *src16 = (const u16_le *)srcPixels + srcStride * y;
 			const u32_le *src32 = (const u32_le *)srcPixels + srcStride * y;
 			u32 *dst = (u32 *)(data + byteStride * y);
+			u16 *dst16 = (u16 *)(data + byteStride * y);
 			switch (srcPixelFormat) {
 			case GE_FORMAT_565:
 				if (preferredPixelsFormat_ == Draw::DataFormat::B8G8R8A8_UNORM)
@@ -1189,18 +1205,28 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 					memcpy(dst, src32, width * 4);
 				break;
 
-			case GE_FORMAT_INVALID:
 			case GE_FORMAT_DEPTH16:
-				_dbg_assert_msg_(false, "Invalid pixelFormat passed to DrawPixels().");
+				// TODO: Must take the depth range into account, unless it's already 0-1.
+				// TODO: Depending on the color buffer format used with this depth buffer, we need
+				// to do one of two different swizzle operations. However, for the only use of this so far,
+				// the Burnout lens flare trickery, swizzle doesn't matter since it's just a 0, 7fff, 0, 7fff pattern
+				// which comes out the same.
+				memcpy(dst16, src16, w * 2);
+				break;
+
+			case GE_FORMAT_INVALID:
+				// Bad
 				break;
 			}
 		}
 		return true;
 	};
 
+	// Note: For depth, we create an R16_UNORM texture, that'll be just fine for uploading depth through a shader,
+	// and likely more efficient.
 	Draw::TextureDesc desc{
 		Draw::TextureType::LINEAR2D,
-		preferredPixelsFormat_,
+		srcPixelFormat == GE_FORMAT_DEPTH16 ? Draw::DataFormat::R16_UNORM : preferredPixelsFormat_,
 		width,
 		height,
 		1,
@@ -1210,6 +1236,7 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 		{ (uint8_t *)srcPixels },
 		generateTexture,
 	};
+
 	// Hot Shots Golf (#12355) does tons of these in a frame in some situations! So creating textures
 	// better be fast.
 	Draw::Texture *tex = draw_->CreateTexture(desc);
@@ -1233,7 +1260,7 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, int 
 	if (needBackBufferYSwap_) {
 		flags |= OutputFlags::BACKBUFFER_FLIPPED;
 	}
-	// DrawActiveTexture reverses these, probably to match "up".
+	// CopyToOutput reverses these, probably to match "up".
 	if (GetGPUBackend() == GPUBackend::DIRECT3D9 || GetGPUBackend() == GPUBackend::DIRECT3D11) {
 		flags |= OutputFlags::POSITION_FLIPPED;
 	}
@@ -2727,7 +2754,7 @@ void FramebufferManagerCommon::DrawActiveTexture(float x, float y, float w, floa
 	// Rearrange to strip form.
 	std::swap(coord[2], coord[3]);
 
-	draw2D_.DrawStrip2D(nullptr, coord, 4, (flags & DRAWTEX_LINEAR) != 0, Get2DPipeline(DRAW2D_COPY_COLOR));
+	draw2D_.DrawStrip2D(nullptr, coord, 4, (flags & DRAWTEX_LINEAR) != 0, Get2DPipeline((flags & DRAWTEX_DEPTH) ? DRAW2D_COPY_DEPTH : DRAW2D_COPY_COLOR));
 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }

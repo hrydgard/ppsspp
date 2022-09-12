@@ -192,6 +192,7 @@ enum DrawTextureFlags {
 	DRAWTEX_NEAREST = 0,
 	DRAWTEX_LINEAR = 1,
 	DRAWTEX_TO_BACKBUFFER = 8,
+	DRAWTEX_DEPTH = 16,
 };
 
 inline DrawTextureFlags operator | (const DrawTextureFlags &lhs, const DrawTextureFlags &rhs) {

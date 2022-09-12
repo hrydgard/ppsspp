@@ -4,9 +4,15 @@
 namespace Draw {
 
 // TODO: Also output storage format (GL_RGBA8 etc) for modern GL usage.
-bool Thin3DFormatToFormatAndType(DataFormat fmt, GLuint &internalFormat, GLuint &format, GLuint &type, int &alignment) {
+bool Thin3DFormatToGLFormatAndType(DataFormat fmt, GLuint &internalFormat, GLuint &format, GLuint &type, int &alignment) {
 	alignment = 4;
 	switch (fmt) {
+	case DataFormat::R16_UNORM:
+		internalFormat = GL_R16;
+		format = GL_R;
+		type = GL_UNSIGNED_SHORT;
+		break;
+
 	case DataFormat::R8G8B8A8_UNORM:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;

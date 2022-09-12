@@ -114,6 +114,7 @@ static const D3DSTENCILOP stencilOpToD3D9[] = {
 
 D3DFORMAT FormatToD3DFMT(DataFormat fmt) {
 	switch (fmt) {
+	case DataFormat::R16_UNORM: return D3DFMT_L16;  // closest match, should be a fine substitution if we ignore channels except R.
 	case DataFormat::R8G8B8A8_UNORM: return D3DFMT_A8R8G8B8;
 	case DataFormat::B8G8R8A8_UNORM: return D3DFMT_A8R8G8B8;
 	case DataFormat::R4G4B4A4_UNORM_PACK16: return D3DFMT_A4R4G4B4;  // emulated
