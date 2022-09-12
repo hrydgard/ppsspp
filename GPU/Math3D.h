@@ -228,11 +228,11 @@ public:
 
 	Vec3() {}
 	Vec3(const T a[3]) : x(a[0]), y(a[1]), z(a[2]) {}
-	Vec3(const T& _x, const T& _y, const T& _z) : x(_x), y(_y), z(_z) {}
+	constexpr Vec3(const T& _x, const T& _y, const T& _z) : x(_x), y(_y), z(_z) {}
 	Vec3(const Vec2<T>& _xy, const T& _z) : x(_xy.x), y(_xy.y), z(_z) {}
 #if defined(_M_SSE)
-	Vec3(const __m128 &_vec) : vec(_vec) {}
-	Vec3(const __m128i &_ivec) : ivec(_ivec) {}
+	constexpr Vec3(const __m128 &_vec) : vec(_vec) {}
+	constexpr Vec3(const __m128i &_ivec) : ivec(_ivec) {}
 	Vec3(const Vec3Packed<T> &_xyz) {
 		vec = _mm_loadu_ps(_xyz.AsArray());
 	}
@@ -249,7 +249,7 @@ public:
 #endif
 
 	template<typename T2>
-	Vec3<T2> Cast() const
+	constexpr Vec3<T2> Cast() const
 	{
 		return Vec3<T2>((T2)x, (T2)y, (T2)z);
 	}
@@ -258,7 +258,7 @@ public:
 	static Vec3 FromRGB(unsigned int rgb);
 	unsigned int ToRGB() const; // alpha bits set to zero
 
-	static Vec3 AssignToAll(const T& f)
+	static constexpr Vec3 AssignToAll(const T& f)
 	{
 		return Vec3<T>(f, f, f);
 	}

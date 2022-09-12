@@ -114,6 +114,7 @@ private:
 	const u8 *constVNext_ = nullptr;
 	const u8 *constOnes32_ = nullptr;
 	const u8 *constOnes16_ = nullptr;
+	const u8 *constMaxTexel32_ = nullptr;
 	const u8 *const10All16_ = nullptr;
 	const u8 *const10Low_ = nullptr;
 	const u8 *const10All8_ = nullptr;

@@ -1058,8 +1058,10 @@ static void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBl
 
 	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.framebufFormat);
 	if (forceReplaceBlend) {
-		replaceBlend = REPLACE_BLEND_READ_FRAMEBUFFER;
+		// Enforce blend replacement if enabled. If not, shouldn't do anything of course.
+		replaceBlend = gstate.isAlphaBlendEnabled() ? REPLACE_BLEND_READ_FRAMEBUFFER : REPLACE_BLEND_NO;
 	}
+
 	blendState.replaceBlend = replaceBlend;
 
 	blendState.simulateLogicOpType = SimulateLogicOpShaderTypeIfNeeded();

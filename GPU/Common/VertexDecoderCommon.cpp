@@ -1083,7 +1083,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		DEBUG_LOG(G3D, "VTYPE: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc, col, pos, nrm, weighttype, nweights, idx, morphcount);
 	}
 
-	bool skinInDecode = weighttype != 0 && g_Config.bSoftwareSkinning;
+	skinInDecode = weighttype != 0 && g_Config.bSoftwareSkinning;
 
 	if (weighttype) { // && nweights?
 		weightoff = size;

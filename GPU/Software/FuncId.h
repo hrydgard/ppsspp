@@ -107,7 +107,8 @@ struct PixelFuncID {
 			uint8_t sFail : 3;
 			uint8_t zFail : 3;
 			uint8_t zPass : 3;
-			// 60 bits, 4 free.
+			bool earlyZChecks : 1;
+			// 61 bits, 3 free.
 		};
 	};
 

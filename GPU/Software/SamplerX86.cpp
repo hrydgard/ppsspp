@@ -903,6 +903,8 @@ void SamplerJitCache::WriteConstantPool(const SamplerID &id) {
 
 	WriteSimpleConst4x32(constOnes32_, 1);
 	WriteSimpleConst8x16(constOnes16_, 1);
+	// This is the mask for clamp or wrap, the max texel in the S or T direction.
+	WriteSimpleConst4x32(constMaxTexel32_, 511);
 
 	if (constUNext_ == nullptr) {
 		constUNext_ = AlignCode16();
@@ -927,8 +929,8 @@ void SamplerJitCache::WriteConstantPool(const SamplerID &id) {
 		Write32(*(uint32_t *)&w256f);
 		Write32(*(uint32_t *)&h256f);
 
-		WriteDynamicConst4x32(constWidthMinus1i_, (1 << id.width0Shift) - 1);
-		WriteDynamicConst4x32(constHeightMinus1i_, (1 << id.height0Shift) - 1);
+		WriteDynamicConst4x32(constWidthMinus1i_, id.width0Shift > 9 ? 511 : (1 << id.width0Shift) - 1);
+		WriteDynamicConst4x32(constHeightMinus1i_, id.height0Shift > 9 ? 511 : (1 << id.height0Shift) - 1);
 	} else {
 		constWidthHeight256f_ = nullptr;
 		constWidthMinus1i_ = nullptr;
@@ -2651,6 +2653,7 @@ bool SamplerJitCache::Jit_GetTexelCoords(const SamplerID &id) {
 			}
 
 			SUB(32, R(tempReg), Imm8(1));
+			AND(32, R(tempReg), Imm32(0x000001FF));
 			if (clamp) {
 				CMP(32, R(dest), R(tempReg));
 				CMOVcc(32, dest, R(tempReg), CC_G);
@@ -2710,6 +2713,10 @@ bool SamplerJitCache::Jit_GetTexelCoords(const SamplerID &id) {
 		AND(32, R(uReg), R(uReg));
 
 		auto applyClampWrap = [this](X64Reg dest, bool clamp, uint8_t shift) {
+			// Clamp and wrap both max out at 512.
+			if (shift > 9)
+				shift = 9;
+
 			if (clamp) {
 				X64Reg tempReg = regCache_.Alloc(RegCache::GEN_TEMP0);
 				MOV(32, R(tempReg), Imm32((1 << shift) - 1));
@@ -2802,6 +2809,7 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 
 		// For wrap/clamp purposes, we want width or height minus one.  Do that now.
 		PSUBD(sizesReg, M(constOnes32_));
+		PAND(sizesReg, M(constMaxTexel32_));
 	} else {
 		// Easy mode.
 		UNPCKLPS(sReg, R(tReg));

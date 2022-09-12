@@ -149,7 +149,7 @@ RegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 	if (!regCache_.Has(RegCache::GEN_COLOR_OFF)) {
 		Describe("GetColorOff");
 		if (id.useStandardStride && !id.dithering) {
-			bool loadDepthOff = id.depthWrite || id.DepthTestFunc() != GE_COMP_ALWAYS;
+			bool loadDepthOff = id.depthWrite || (id.DepthTestFunc() != GE_COMP_ALWAYS && !id.earlyZChecks);
 			X64Reg depthTemp = INVALID_REG;
 			X64Reg argYReg = regCache_.Find(RegCache::GEN_ARG_Y);
 			X64Reg argXReg = regCache_.Find(RegCache::GEN_ARG_X);
@@ -336,16 +336,10 @@ void PixelJitCache::WriteConstantPool(const PixelFuncID &id) {
 
 	// This is used for shifted blend factors, to inverse them.
 	WriteSimpleConst8x16(constBlendInvert_11_4s_, 0xFF << 4);
-
-	// A set of 255s, used to inverse fog.
-	WriteSimpleConst8x16(const255_16s_, 0xFF);
-
-	// This is used for a multiply that divides by 255 with shifting.
-	WriteSimpleConst8x16(constBy255i_, 0x8081);
 }
 
 bool PixelJitCache::Jit_ApplyDepthRange(const PixelFuncID &id) {
-	if (id.applyDepthRange) {
+	if (id.applyDepthRange && !id.earlyZChecks) {
 		Describe("ApplyDepthR");
 		X64Reg argZReg = regCache_.Find(RegCache::GEN_ARG_Z);
 		X64Reg idReg = GetPixelID();
@@ -365,7 +359,7 @@ bool PixelJitCache::Jit_ApplyDepthRange(const PixelFuncID &id) {
 	// Since this is early on, try to free up the z reg if we don't need it anymore.
 	if (id.clearMode && !id.DepthClear())
 		regCache_.ForceRelease(RegCache::GEN_ARG_Z);
-	else if (!id.clearMode && !id.depthWrite && id.DepthTestFunc() == GE_COMP_ALWAYS)
+	else if (!id.clearMode && !id.depthWrite && (id.DepthTestFunc() == GE_COMP_ALWAYS || id.earlyZChecks))
 		regCache_.ForceRelease(RegCache::GEN_ARG_Z);
 
 	return true;
@@ -535,7 +529,8 @@ bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 
 	// Load a set of 255s at 16 bit into a reg for later...
 	X64Reg invertReg = regCache_.Alloc(RegCache::VEC_TEMP2);
-	MOVDQA(invertReg, M(const255_16s_));
+	PCMPEQW(invertReg, R(invertReg));
+	PSRLW(invertReg, 8);
 
 	// Expand (we clamped) color to 16 bit as well, so we can multiply with fog.
 	X64Reg argColorReg = regCache_.Find(RegCache::VEC_ARG_COLOR);
@@ -568,21 +563,24 @@ bool PixelJitCache::Jit_ApplyFog(const PixelFuncID &id) {
 	// We can free up the actual fog reg now.
 	regCache_.ForceRelease(RegCache::GEN_ARG_FOG);
 
+	// Our goal here is to calculate this formula:
+	// (argColor * fog + fogColor * (255 - fog) + 255) / 256
+
 	// Now we multiply the existing color by fog...
 	PMULLW(argColorReg, R(fogMultReg));
-	// And then inverse the fog value using those 255s we loaded, and multiply by fog color.
-	PSUBUSW(invertReg, R(fogMultReg));
+	// Before inversing, let's add that 255 we loaded in as well, since we have it.
+	PADDW(argColorReg, R(invertReg));
+	// And then inverse the fog value using those 255s, and multiply by fog color.
+	PSUBW(invertReg, R(fogMultReg));
 	PMULLW(fogColorReg, R(invertReg));
 	// At this point, argColorReg and fogColorReg are multiplied at 16-bit, so we need to sum.
-	PADDUSW(argColorReg, R(fogColorReg));
+	PADDW(argColorReg, R(fogColorReg));
 	regCache_.Release(fogColorReg, RegCache::VEC_TEMP1);
 	regCache_.Release(invertReg, RegCache::VEC_TEMP2);
 	regCache_.Release(fogMultReg, RegCache::VEC_TEMP3);
 
-	// Now to divide by 255, we use bit tricks: multiply by 0x8081, and shift right by 16+7.
-	PMULHUW(argColorReg, M(constBy255i_));
-	// Now shift right by 7 (PMULHUW already did 16 of the shift.)
-	PSRLW(argColorReg, 7);
+	// Now we simply divide by 256, or in other words shift by 8.
+	PSRLW(argColorReg, 8);
 
 	// Okay, put A back in, we'll shrink it to 8888 when needed.
 	PINSRW(argColorReg, R(alphaReg), 3);
@@ -721,7 +719,7 @@ bool PixelJitCache::Jit_StencilTest(const PixelFuncID &id, RegCache::Reg stencil
 }
 
 bool PixelJitCache::Jit_DepthTestForStencil(const PixelFuncID &id, RegCache::Reg stencilReg) {
-	if (id.DepthTestFunc() == GE_COMP_ALWAYS)
+	if (id.DepthTestFunc() == GE_COMP_ALWAYS || id.earlyZChecks)
 		return true;
 
 	X64Reg depthOffReg = GetDepthOff(id);
@@ -964,7 +962,7 @@ bool PixelJitCache::Jit_WriteStencilOnly(const PixelFuncID &id, RegCache::Reg st
 }
 
 bool PixelJitCache::Jit_DepthTest(const PixelFuncID &id) {
-	if (id.DepthTestFunc() == GE_COMP_ALWAYS)
+	if (id.DepthTestFunc() == GE_COMP_ALWAYS || id.earlyZChecks)
 		return true;
 
 	if (id.DepthTestFunc() == GE_COMP_NEVER) {

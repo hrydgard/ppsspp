@@ -190,7 +190,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 	// Add code to convert matrices to 4x4.
 	// Later we might want to do this when the matrices are loaded instead.
-	if (dec.weighttype && g_Config.bSoftwareSkinning) {
+	if (dec.skinInDecode) {
 		// Copying from R3 to R4
 		MOVP2R(X3, gstate.boneMatrix);
 		MOVP2R(X4, bones);

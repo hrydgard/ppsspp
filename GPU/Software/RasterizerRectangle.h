@@ -22,5 +22,6 @@ namespace Rasterizer {
 
 	bool DetectRectangleFromStrip(const RasterizerState &state, const VertexData data[4], int *tlIndex, int *brIndex);
 	bool DetectRectangleFromFan(const RasterizerState &state, const VertexData *data, int c, int *tlIndex, int *brIndex);
+	bool DetectRectangleFromPair(const RasterizerState &state, const VertexData data[6], int *tlIndex, int *brIndex);
 	bool DetectRectangleThroughModeSlices(const RasterizerState &state, const VertexData data[4]);
 }

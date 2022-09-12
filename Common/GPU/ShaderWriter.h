@@ -78,6 +78,8 @@ public:
 	void ConstFloat(const char *name, float value);
 
 	ShaderWriter &SampleTexture2D(const char *texName, const char *uv);
+	ShaderWriter &SampleTexture2DOffset(const char *texName, const char *uv, int offX, int offY);
+	ShaderWriter &LoadTexture2D(const char *texName, const char *integer_uv, int level);
 	ShaderWriter &GetTextureSize(const char *szVariable, const char *texName);
 
 	// Simple shaders with no special tricks.
