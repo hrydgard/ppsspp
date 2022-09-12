@@ -507,6 +507,63 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 	const CullType cullType = skipCull ? CullType::OFF : (gstate.getCullMode() ? CullType::CCW : CullType::CW);
 
 	bool outside_range_flag = false;
+
+	if (vreader.isThrough() && cullType == CullType::OFF && prim_type == GE_PRIM_TRIANGLES && data_index_ + vertex_count >= 6 && ((data_index_ + vertex_count) % 6) == 0) {
+		// Some games send rectangles as a series of regular triangles.
+		// We look for this, but only in throughmode.
+		VertexData buf[6];
+		int buf_index = data_index_;
+		for (int i = 0; i < data_index_; ++i) {
+			buf[i] = data_[i];
+		}
+
+		for (int vtx = 0; vtx < vertex_count; ++vtx) {
+			if (indices) {
+				vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
+			} else {
+				vreader.Goto(vtx);
+			}
+
+			buf[buf_index++] = ReadVertex(vreader, transformState, outside_range_flag);
+			if (buf_index >= 3 && outside_range_flag) {
+				// Cull, just pretend it didn't happen.
+				buf_index -= 3;
+				outside_range_flag = false;
+				continue;
+			}
+
+			if (buf_index < 6)
+				continue;
+
+			int tl = -1, br = -1;
+			if (Rasterizer::DetectRectangleFromPair(binner_->State(), buf, &tl, &br)) {
+				Clipper::ProcessRect(buf[tl], buf[br], *binner_);
+			} else {
+				SendTriangle(cullType, &buf[0]);
+				SendTriangle(cullType, &buf[3]);
+			}
+
+			buf_index = 0;
+		}
+
+		if (buf_index >= 3) {
+			SendTriangle(cullType, &buf[0]);
+			data_index_ = 0;
+			for (int i = 3; i < buf_index; ++i) {
+				data_[data_index_++] = buf[i];
+			}
+		} else if (buf_index > 0) {
+			for (int i = 0; i < buf_index; ++i) {
+				data_[i] = buf[i];
+			}
+			data_index_ = buf_index;
+		} else {
+			data_index_ = 0;
+		}
+
+		return;
+	}
+
 	switch (prim_type) {
 	case GE_PRIM_POINTS:
 	case GE_PRIM_LINES:
