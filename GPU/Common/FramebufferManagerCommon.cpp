@@ -666,6 +666,10 @@ static const char *reinterpretStrings[4][4] = {
 
 // Call this after the target has been bound for rendering. For color, raster is probably always going to win over blits/copies.
 void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFramebuffer *dst) {
+	if (!useBufferedRendering_) {
+		return;
+	}
+
 	std::vector<CopySource> sources;
 	for (auto src : vfbs_) {
 		// Discard old and equal potential inputs.
