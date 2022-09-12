@@ -8,8 +8,8 @@ bool Thin3DFormatToGLFormatAndType(DataFormat fmt, GLuint &internalFormat, GLuin
 	alignment = 4;
 	switch (fmt) {
 	case DataFormat::R16_UNORM:
-		internalFormat = GL_R16;
-		format = GL_R;
+		internalFormat = GL_RGBA;
+		format = GL_RED;
 		type = GL_UNSIGNED_SHORT;
 		break;
 
