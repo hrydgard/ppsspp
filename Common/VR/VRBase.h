@@ -12,10 +12,12 @@
 //OpenXR
 #define XR_USE_PLATFORM_ANDROID 1
 #define XR_USE_GRAPHICS_API_OPENGL_ES 1
+#define XR_USE_GRAPHICS_API_VULKAN 1
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <jni.h>
 #include <math.h>
+#include <vulkan/vulkan.h>
 #include <openxr.h>
 #include <openxr_platform.h>
 #include <GLES3/gl3.h>
@@ -146,7 +148,7 @@ typedef struct {
 	float predictedDisplayTime;
 } engine_t;
 
-void VR_Init( ovrJava java );
+void VR_Init( ovrJava java, bool useVulkan );
 void VR_Destroy( engine_t* engine );
 void VR_EnterVR( engine_t* engine );
 void VR_LeaveVR( engine_t* engine );

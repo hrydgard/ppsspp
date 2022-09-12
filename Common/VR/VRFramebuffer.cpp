@@ -9,8 +9,6 @@
 #include <pthread.h>
 #include <sys/prctl.h>
 #include <assert.h>
-#include <GLES3/gl3.h>
-#include <GLES3/gl3ext.h>
 
 double FromXrTime(const XrTime time) {
 	return (time * 1e-9);
@@ -178,6 +176,15 @@ void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
 				waitInfo.timeout * (1E-9));
 	}
 	frameBuffer->Acquired = res == XR_SUCCESS;
+
+	ovrFramebuffer_SetCurrent(frameBuffer);
+	GL(glEnable( GL_SCISSOR_TEST ));
+	GL(glViewport( 0, 0, frameBuffer->Width, frameBuffer->Height ));
+	GL(glClearColor( 0.0f, 0.0f, 0.0f, 1.0f ));
+	GL(glScissor( 0, 0, frameBuffer->Width, frameBuffer->Height ));
+	GL(glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT ));
+	GL(glScissor( 0, 0, 0, 0 ));
+	GL(glDisable( GL_SCISSOR_TEST ));
 }
 
 void ovrFramebuffer_Release(ovrFramebuffer* frameBuffer) {
@@ -185,6 +192,12 @@ void ovrFramebuffer_Release(ovrFramebuffer* frameBuffer) {
 		XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO, NULL};
 		OXR(xrReleaseSwapchainImage(frameBuffer->ColorSwapChain.Handle, &releaseInfo));
 		frameBuffer->Acquired = false;
+
+		// Clear the alpha channel, other way OpenXR would not transfer the framebuffer fully
+		GL(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE));
+		GL(glClearColor(0.0f, 0.0f, 0.0f, 1.0f));
+		GL(glClear(GL_COLOR_BUFFER_BIT));
+		GL(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
 	}
 }
 
@@ -215,6 +228,15 @@ void ovrRenderer_Destroy(ovrRenderer* renderer) {
 	for (int i = 0; i < instances; i++) {
 		ovrFramebuffer_Destroy(&renderer->FrameBuffer[i]);
 	}
+}
+
+void ovrRenderer_MouseCursor(ovrRenderer* renderer, int x, int y, int size) {
+	GL(glEnable(GL_SCISSOR_TEST));
+	GL(glScissor(x, y, size, size));
+	GL(glViewport(x, y, size, size));
+	GL(glClearColor(1.0f, 1.0f, 1.0f, 1.0f));
+	GL(glClear(GL_COLOR_BUFFER_BIT));
+	GL(glDisable(GL_SCISSOR_TEST));
 }
 
 /*

@@ -97,12 +97,14 @@ bool IsVRBuild() {
 }
 
 void InitVROnAndroid(void* vm, void* activity, int version, const char* name) {
+	bool useVulkan = (GPUBackend)g_Config.iGPUBackend == GPUBackend::VULKAN;
+
 	ovrJava java;
 	java.Vm = (JavaVM*)vm;
 	java.ActivityObject = (jobject)activity;
 	java.AppVersion = version;
 	strcpy(java.AppName, name);
-	VR_Init(java);
+	VR_Init(java, useVulkan);
 
 	__DisplaySetFramerate(72);
 }

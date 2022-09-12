@@ -4,21 +4,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <vector>
 
 static engine_t vr_engine;
 int vr_initialized = 0;
 
-const char* const requiredExtensionNames[] = {
-		XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME,
-#ifdef OPENXR_HAS_PERFORMANCE_EXTENSION
-		XR_EXT_PERFORMANCE_SETTINGS_EXTENSION_NAME,
-		XR_KHR_ANDROID_THREAD_SETTINGS_EXTENSION_NAME,
-#endif
-		XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME};
-const uint32_t numRequiredExtensions =
-		sizeof(requiredExtensionNames) / sizeof(requiredExtensionNames[0]);
-
-void VR_Init( ovrJava java ) {
+void VR_Init( ovrJava java, bool useVulkan ) {
 	if (vr_initialized)
 		return;
 
@@ -37,6 +28,18 @@ void VR_Init( ovrJava java ) {
 		xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*)&loaderInitializeInfoAndroid);
 	}
 
+	std::vector<char*> extensions;
+	if (useVulkan) {
+		extensions.push_back(XR_KHR_VULKAN_ENABLE_EXTENSION_NAME);
+	} else {
+		extensions.push_back(XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME);
+	}
+	extensions.push_back(XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME);
+#ifdef OPENXR_HAS_PERFORMANCE_EXTENSION
+	extensions.push_back(XR_EXT_PERFORMANCE_SETTINGS_EXTENSION_NAME);
+	extensions.push_back(XR_KHR_ANDROID_THREAD_SETTINGS_EXTENSION_NAME);
+#endif
+
 	// Create the OpenXR instance.
 	XrApplicationInfo appInfo;
 	memset(&appInfo, 0, sizeof(appInfo));
@@ -54,8 +57,8 @@ void VR_Init( ovrJava java ) {
 	instanceCreateInfo.applicationInfo = appInfo;
 	instanceCreateInfo.enabledApiLayerCount = 0;
 	instanceCreateInfo.enabledApiLayerNames = NULL;
-	instanceCreateInfo.enabledExtensionCount = numRequiredExtensions;
-	instanceCreateInfo.enabledExtensionNames = requiredExtensionNames;
+	instanceCreateInfo.enabledExtensionCount = extensions.size();
+	instanceCreateInfo.enabledExtensionNames = extensions.data();
 
 	XrResult initResult;
 	OXR(initResult = xrCreateInstance(&instanceCreateInfo, &vr_engine.appState.Instance));
@@ -89,15 +92,27 @@ void VR_Init( ovrJava java ) {
 	}
 
 	// Get the graphics requirements.
-	PFN_xrGetOpenGLESGraphicsRequirementsKHR pfnGetOpenGLESGraphicsRequirementsKHR = NULL;
-	OXR(xrGetInstanceProcAddr(
-			vr_engine.appState.Instance,
-			"xrGetOpenGLESGraphicsRequirementsKHR",
-			(PFN_xrVoidFunction*)(&pfnGetOpenGLESGraphicsRequirementsKHR)));
+	if (useVulkan) {
+		PFN_xrGetVulkanGraphicsRequirementsKHR pfnGetVulkanGraphicsRequirementsKHR = NULL;
+		OXR(xrGetInstanceProcAddr(
+				vr_engine.appState.Instance,
+				"xrGetVulkanGraphicsRequirementsKHR",
+				(PFN_xrVoidFunction*)(&pfnGetVulkanGraphicsRequirementsKHR)));
 
-	XrGraphicsRequirementsOpenGLESKHR graphicsRequirements = {};
-	graphicsRequirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR;
-	OXR(pfnGetOpenGLESGraphicsRequirementsKHR(vr_engine.appState.Instance, systemId, &graphicsRequirements));
+		XrGraphicsRequirementsVulkanKHR graphicsRequirements = {};
+		graphicsRequirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_VULKAN_KHR;
+		OXR(pfnGetVulkanGraphicsRequirementsKHR(vr_engine.appState.Instance, systemId, &graphicsRequirements));
+	} else {
+		PFN_xrGetOpenGLESGraphicsRequirementsKHR pfnGetOpenGLESGraphicsRequirementsKHR = NULL;
+		OXR(xrGetInstanceProcAddr(
+				vr_engine.appState.Instance,
+				"xrGetOpenGLESGraphicsRequirementsKHR",
+				(PFN_xrVoidFunction*)(&pfnGetOpenGLESGraphicsRequirementsKHR)));
+
+		XrGraphicsRequirementsOpenGLESKHR graphicsRequirements = {};
+		graphicsRequirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR;
+		OXR(pfnGetOpenGLESGraphicsRequirementsKHR(vr_engine.appState.Instance, systemId, &graphicsRequirements));
+	}
 
 	vr_engine.appState.MainThreadTid = gettid();
 	vr_engine.appState.SystemId = systemId;

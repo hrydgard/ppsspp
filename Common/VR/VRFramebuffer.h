@@ -14,3 +14,4 @@ void ovrFramebuffer_SetNone();
 
 void ovrRenderer_Create(XrSession session, ovrRenderer* renderer, int width, int height, bool multiview);
 void ovrRenderer_Destroy(ovrRenderer* renderer);
+void ovrRenderer_MouseCursor(ovrRenderer* renderer, int x, int y, int size);

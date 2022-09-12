@@ -6,14 +6,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <GLES3/gl3.h>
-#include <GLES3/gl3ext.h>
-
 XrView* projections;
 XrPosef invViewTransform[2];
 XrFrameState frameState = {};
-GLboolean initialized = GL_FALSE;
-GLboolean stageSupported = GL_FALSE;
+bool initialized = false;
+bool stageSupported = false;
 int vrConfig[VR_CONFIG_MAX] = {};
 
 XrVector3f hmdorientation;
@@ -194,7 +191,7 @@ void VR_InitRenderer( engine_t* engine, bool multiview ) {
 
 	for (uint32_t i = 0; i < numOutputSpaces; i++) {
 		if (referenceSpaces[i] == XR_REFERENCE_SPACE_TYPE_STAGE) {
-			stageSupported = GL_TRUE;
+			stageSupported = true;
 			break;
 		}
 	}
@@ -213,40 +210,27 @@ void VR_InitRenderer( engine_t* engine, bool multiview ) {
 			engine->appState.ViewConfigurationView[0].recommendedImageRectWidth,
 			engine->appState.ViewConfigurationView[0].recommendedImageRectHeight,
 			multiview);
-	initialized = GL_TRUE;
+	initialized = true;
 }
 
 void VR_DestroyRenderer( engine_t* engine ) {
 	ovrRenderer_Destroy(&engine->appState.Renderer);
 	free(projections);
-	initialized = GL_FALSE;
-}
-
-void VR_ClearFrameBuffer( int width, int height) {
-	glEnable( GL_SCISSOR_TEST );
-	glViewport( 0, 0, width, height );
-
-	glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
-
-	glScissor( 0, 0, width, height );
-	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-
-	glScissor( 0, 0, 0, 0 );
-	glDisable( GL_SCISSOR_TEST );
+	initialized = false;
 }
 
 bool VR_InitFrame( engine_t* engine ) {
-	GLboolean stageBoundsDirty = GL_TRUE;
+	bool stageBoundsDirty = true;
 	if (ovrApp_HandleXrEvents(&engine->appState)) {
 		VR_Recenter(engine);
 	}
-	if (engine->appState.SessionActive == GL_FALSE) {
+	if (engine->appState.SessionActive == false) {
 		return false;
 	}
 
 	if (stageBoundsDirty) {
 		VR_UpdateStageBounds(&engine->appState);
-		stageBoundsDirty = GL_FALSE;
+		stageBoundsDirty = false;
 	}
 
 	// NOTE: OpenXR does not use the concept of frame indices. Instead,
@@ -309,32 +293,19 @@ bool VR_InitFrame( engine_t* engine ) {
 
 void VR_BeginFrame( engine_t* engine, int fboIndex ) {
 	vrConfig[VR_CONFIG_CURRENT_FBO] = fboIndex;
-	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[fboIndex];
-	ovrFramebuffer_Acquire(frameBuffer);
-	ovrFramebuffer_SetCurrent(frameBuffer);
-	VR_ClearFrameBuffer(frameBuffer->ColorSwapChain.Width, frameBuffer->ColorSwapChain.Height);
+	ovrFramebuffer_Acquire(&engine->appState.Renderer.FrameBuffer[fboIndex]);
 }
 
 void VR_EndFrame( engine_t* engine ) {
-
 	int fboIndex = vrConfig[VR_CONFIG_CURRENT_FBO];
-
-	// Clear the alpha channel, other way OpenXR would not transfer the framebuffer fully
 	VR_BindFramebuffer(engine);
-	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
-	glClearColor(0.0, 0.0, 0.0, 1.0);
-	glClear(GL_COLOR_BUFFER_BIT);
-	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 	// Show mouse cursor
 	int size = vrConfig[VR_CONFIG_MOUSE_SIZE];
 	if ((vrConfig[VR_CONFIG_MODE] == VR_MODE_FLAT_SCREEN) && (size > 0)) {
-		glEnable(GL_SCISSOR_TEST);
-		glScissor(vrConfig[VR_CONFIG_MOUSE_X], vrConfig[VR_CONFIG_MOUSE_Y], size, size);
-		glViewport(vrConfig[VR_CONFIG_MOUSE_X], vrConfig[VR_CONFIG_MOUSE_Y], size, size);
-		glClearColor(1, 1, 1, 1);
-		glClear(GL_COLOR_BUFFER_BIT);
-		glDisable(GL_SCISSOR_TEST);
+		int x = vrConfig[VR_CONFIG_MOUSE_X];
+		int y = vrConfig[VR_CONFIG_MOUSE_Y];
+		ovrRenderer_MouseCursor(&engine->appState.Renderer, x, y, size);
 	}
 
 	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[fboIndex];
@@ -454,10 +425,7 @@ void VR_SetConfig( VRConfig config, int value) {
 void VR_BindFramebuffer(engine_t *engine) {
 	if (!initialized) return;
 	int fboIndex = vrConfig[VR_CONFIG_CURRENT_FBO];
-	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[fboIndex];
-	unsigned int swapchainIndex = frameBuffer->TextureSwapChainIndex;
-	unsigned int glFramebuffer = frameBuffer->FrameBuffers[swapchainIndex];
-	GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, glFramebuffer));
+	ovrFramebuffer_SetCurrent(&engine->appState.Renderer.FrameBuffer[fboIndex]);
 }
 
 ovrMatrix4f VR_GetMatrix( VRMatrix matrix ) {
