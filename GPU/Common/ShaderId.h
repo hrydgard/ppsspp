@@ -66,7 +66,7 @@ enum FShaderBit : uint8_t {
 	FS_BIT_DO_TEXTURE = 1,
 	FS_BIT_TEXFUNC = 2,  // 3 bits
 	FS_BIT_TEXALPHA = 5,
-	FS_BIT_SHADER_DEPAL = 6,
+	FS_BIT_3D_TEXTURE = 6,
 	FS_BIT_SHADER_TEX_CLAMP = 7,
 	FS_BIT_CLAMP_S = 8,
 	FS_BIT_CLAMP_T = 9,
@@ -93,9 +93,8 @@ enum FShaderBit : uint8_t {
 	FS_BIT_TEST_DISCARD_TO_ZERO = 48,
 	FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL = 49,
 	FS_BIT_COLOR_WRITEMASK = 50,
-	FS_BIT_3D_TEXTURE = 51,
-	FS_BIT_SHADER_SMOOTHED_DEPAL = 52,
-	FS_BIT_REPLACE_LOGIC_OP = 53,  // 4 bits. GE_LOGIC_COPY means no-op/off.
+	FS_BIT_REPLACE_LOGIC_OP = 51,  // 4 bits. GE_LOGIC_COPY means no-op/off.
+	FS_BIT_SHADER_DEPAL_MODE = 55,  // 2 bits (ShaderDepalMode)
 };
 
 static inline FShaderBit operator +(FShaderBit bit, int i) {

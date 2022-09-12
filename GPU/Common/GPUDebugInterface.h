@@ -20,9 +20,10 @@
 #include <vector>
 #include <string>
 
+#include "Common/Math/expression_parser.h"
+#include "Core/MemMap.h"
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
-#include "Core/MemMap.h"
 
 struct GPUDebugOp {
 	u32 pc;
@@ -251,3 +252,7 @@ public:
 	// get content of specific framebuffer / texture?
 	// vertex / texture decoding?
 };
+
+bool GPUDebugInitExpression(GPUDebugInterface *g, const char *str, PostfixExpression &exp);
+bool GPUDebugExecExpression(GPUDebugInterface *g, PostfixExpression &exp, uint32_t &result);
+bool GPUDebugExecExpression(GPUDebugInterface *g, const char *str, uint32_t &result);

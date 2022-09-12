@@ -73,6 +73,7 @@ void SetBreakNext(BreakNext next) {
 		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_PRIM, true);
 		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_BEZIER, true);
 		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_SPLINE, true);
+		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_VAP, true);
 	} else if (next == BreakNext::CURVE) {
 		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_BEZIER, true);
 		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_SPLINE, true);
@@ -111,7 +112,7 @@ bool NotifyCommand(u32 pc) {
 	}
 
 	bool process = true;
-	if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE) {
+	if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE || cmd == GE_CMD_VAP) {
 		primsThisFrame++;
 
 		if (!restrictPrimRanges.empty()) {

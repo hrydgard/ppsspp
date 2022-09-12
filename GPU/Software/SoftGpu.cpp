@@ -831,13 +831,14 @@ void SoftGPU::Execute_Prim(u32 op, u32 diff) {
 	GEPrimitiveType prim = static_cast<GEPrimitiveType>((op >> 16) & 7);
 	if (count == 0)
 		return;
+	FlushImm();
 
 	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
 		ERROR_LOG_REPORT(G3D, "Software: Bad vertex address %08x!", gstate_c.vertexAddr);
 		return;
 	}
 
-	const void *verts = Memory::GetPointer(gstate_c.vertexAddr);
+	const void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *indices = NULL;
 	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
@@ -1033,57 +1034,79 @@ void SoftGPU::Execute_VertexType(u32 op, u32 diff) {
 
 void SoftGPU::Execute_WorldMtxData(u32 op, u32 diff) {
 	int num = gstate.worldmtxnum & 0xF;
+	u32 *target = num < 12 ? (u32 *)&gstate.worldMatrix[num] : (u32 *)&gstate.viewMatrix[num - 12];
 	u32 newVal = op << 8;
-	if (num < 12 && newVal != ((const u32 *)gstate.worldMatrix)[num]) {
-		((u32 *)gstate.worldMatrix)[num] = newVal;
+	if (newVal != *target) {
+		*target = newVal;
 		dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
 	}
 	num++;
 	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0xF);
+	gstate.worldmtxdata = GE_CMD_WORLDMATRIXDATA << 24;
 }
 
 void SoftGPU::Execute_ViewMtxData(u32 op, u32 diff) {
 	int num = gstate.viewmtxnum & 0xF;
+	u32 *target = num < 12 ? (u32 *)&gstate.viewMatrix[num] : (u32 *)&gstate.projMatrix[num - 12];
 	u32 newVal = op << 8;
-	if (num < 12 && newVal != ((const u32 *)gstate.viewMatrix)[num]) {
-		((u32 *)gstate.viewMatrix)[num] = newVal;
+	if (newVal != *target) {
+		*target = newVal;
 		dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
 	}
 	num++;
 	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0xF);
+	gstate.viewmtxdata = GE_CMD_VIEWMATRIXDATA << 24;
 }
 
 void SoftGPU::Execute_ProjMtxData(u32 op, u32 diff) {
-	// NOTE: Changed from 0xF to catch overflows.
-	int num = gstate.projmtxnum & 0x1F;
+	int num = gstate.projmtxnum & 0xF;
+	u32 *target = (u32 *)&gstate.projMatrix[num];
 	u32 newVal = op << 8;
-	if (num < 0x10 && newVal != ((const u32 *)gstate.projMatrix)[num]) {
-		((u32 *)gstate.projMatrix)[num] = newVal;
+	if (newVal != *target) {
+		*target = newVal;
 		dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
 	}
 	num++;
-	if (num <= 16)
-		gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
+	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
+	gstate.projmtxdata = GE_CMD_PROJMATRIXDATA << 24;
 }
 
 void SoftGPU::Execute_TgenMtxData(u32 op, u32 diff) {
 	int num = gstate.texmtxnum & 0xF;
 	u32 newVal = op << 8;
+	// Doesn't wrap to any other matrix.
 	if (num < 12 && newVal != ((const u32 *)gstate.tgenMatrix)[num]) {
 		((u32 *)gstate.tgenMatrix)[num] = newVal;
+		// No dirtying, read during vertex read.
 	}
 	num++;
 	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0xF);
+	gstate.texmtxdata = GE_CMD_TGENMATRIXDATA << 24;
 }
 
 void SoftGPU::Execute_BoneMtxData(u32 op, u32 diff) {
 	int num = gstate.boneMatrixNumber & 0x7F;
+	u32 *target;
+	if (num < 96) {
+		target = (u32 *)&gstate.boneMatrix[num];
+	} else if (num < 96 + 12) {
+		target = (u32 *)&gstate.worldMatrix[num - 96];
+	} else if (num < 96 + 12 + 12) {
+		target = (u32 *)&gstate.viewMatrix[num - 96 - 12];
+	} else {
+		target = (u32 *)&gstate.projMatrix[num - 96 - 12 - 12];
+	}
+
 	u32 newVal = op << 8;
-	if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
-		((u32 *)gstate.boneMatrix)[num] = newVal;
+	if (newVal != *target) {
+		*target = newVal;
+		// Dirty if it overflowed.  We read bone data during vertex read.
+		if (num >= 96)
+			dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
 	}
 	num++;
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
+	gstate.boneMatrixData  = GE_CMD_BONEMATRIXDATA << 24;
 }
 
 void SoftGPU::Execute_Call(u32 op, u32 diff) {

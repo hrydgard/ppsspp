@@ -36,7 +36,7 @@ class VulkanPushBuffer;
 
 class VulkanFragmentShader {
 public:
-	VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, const char *code);
+	VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, FragmentShaderFlags flags, const char *code);
 	~VulkanFragmentShader();
 
 	const std::string &source() const { return source_; }
@@ -45,7 +45,9 @@ public:
 
 	std::string GetShaderString(DebugShaderStringType type) const;
 	Promise<VkShaderModule> *GetModule() { return module_; }
-	const FShaderID &GetID() { return id_; }
+	const FShaderID &GetID() const { return id_; }
+
+	FragmentShaderFlags Flags() const { return flags_;  }
 
 protected:	
 	Promise<VkShaderModule> *module_ = nullptr;
@@ -54,6 +56,7 @@ protected:
 	std::string source_;
 	bool failed_ = false;
 	FShaderID id_;
+	FragmentShaderFlags flags_;
 };
 
 class VulkanVertexShader {
@@ -68,7 +71,7 @@ public:
 
 	std::string GetShaderString(DebugShaderStringType type) const;
 	Promise<VkShaderModule> *GetModule() { return module_; }
-	const VShaderID &GetID() { return id_; }
+	const VShaderID &GetID() const { return id_; }
 
 protected:
 	Promise<VkShaderModule> *module_ = nullptr;

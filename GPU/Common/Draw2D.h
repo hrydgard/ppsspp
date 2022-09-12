@@ -31,6 +31,7 @@ inline RasterChannel Draw2DSourceChannel(Draw2DShader shader) {
 }
 
 struct Draw2DPipelineInfo {
+	const char *tag;
 	RasterChannel readChannel;
 	RasterChannel writeChannel;
 	Slice<SamplerDef> samplers;

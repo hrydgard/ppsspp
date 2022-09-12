@@ -325,6 +325,10 @@ static inline bool DepthTestPassed(GEComparison func, int x, int y, int stride, 
 	}
 }
 
+bool CheckDepthTestPassed(GEComparison func, int x, int y, int stride, u16 z) {
+	return DepthTestPassed(func, x, y, stride, z);
+}
+
 static inline u32 ApplyLogicOp(GELogicOp op, u32 old_color, u32 new_color) {
 	// All of the operations here intentionally preserve alpha/stencil.
 	switch (op) {
@@ -400,7 +404,7 @@ template <bool clearMode, GEBufferFormat fbFormat>
 void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg color_in, const PixelFuncID &pixelID) {
 	Vec4<int> prim_color = Vec4<int>(color_in).Clamp(0, 255);
 	// Depth range test - applied in clear mode, if not through mode.
-	if (pixelID.applyDepthRange)
+	if (pixelID.applyDepthRange && !pixelID.earlyZChecks)
 		if (z < pixelID.cached.minz || z > pixelID.cached.maxz)
 			return;
 
@@ -411,7 +415,9 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 	// Fog is applied prior to color test.
 	if (pixelID.applyFog && !clearMode) {
 		Vec3<int> fogColor = Vec3<int>::FromRGB(pixelID.cached.fogColor);
-		fogColor = (prim_color.rgb() * fog + fogColor * (255 - fog)) / 255;
+		// This is very similar to the BLEND texfunc, and simply always rounds up.
+		static constexpr Vec3<int> roundup = Vec3<int>::AssignToAll(255);
+		fogColor = (prim_color.rgb() * fog + fogColor * (255 - fog) + roundup) / 256;
 		prim_color.r() = fogColor.r();
 		prim_color.g() = fogColor.g();
 		prim_color.b() = fogColor.b();
@@ -436,14 +442,14 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 		}
 
 		// Also apply depth at the same time.  If disabled, same as passing.
-		if (pixelID.DepthTestFunc() != GE_COMP_ALWAYS && !DepthTestPassed(pixelID.DepthTestFunc(), x, y, pixelID.cached.depthbufStride, z)) {
+		if (!pixelID.earlyZChecks && pixelID.DepthTestFunc() != GE_COMP_ALWAYS && !DepthTestPassed(pixelID.DepthTestFunc(), x, y, pixelID.cached.depthbufStride, z)) {
 			stencil = ApplyStencilOp(fbFormat, stencilReplace, pixelID.ZFail(), stencil);
 			SetPixelStencil(fbFormat, pixelID.cached.framebufStride, targetWriteMask, x, y, stencil);
 			return;
 		}
 
 		stencil = ApplyStencilOp(fbFormat, stencilReplace, pixelID.ZPass(), stencil);
-	} else {
+	} else if (!pixelID.earlyZChecks) {
 		if (pixelID.DepthTestFunc() != GE_COMP_ALWAYS && !DepthTestPassed(pixelID.DepthTestFunc(), x, y, pixelID.cached.depthbufStride, z)) {
 			return;
 		}
@@ -544,8 +550,6 @@ void PixelJitCache::Clear() {
 
 	constBlendHalf_11_4s_ = nullptr;
 	constBlendInvert_11_4s_ = nullptr;
-	const255_16s_ = nullptr;
-	constBy255i_ = nullptr;
 }
 
 std::string PixelJitCache::DescribeCodePtr(const u8 *ptr) {

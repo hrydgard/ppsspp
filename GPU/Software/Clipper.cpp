@@ -132,7 +132,7 @@ static inline bool CheckOutsideZ(ClipCoords p, int &pos, int &neg) {
 }
 
 void ProcessRect(const VertexData &v0, const VertexData &v1, BinManager &binner) {
-	if (!gstate.isModeThrough()) {
+	if (!binner.State().throughMode) {
 		// We may discard the entire rect based on depth values.
 		int outsidePos = 0, outsideNeg = 0;
 		CheckOutsideZ(v0.clippos, outsidePos, outsideNeg);
@@ -181,7 +181,7 @@ void ProcessPoint(const VertexData &v0, BinManager &binner) {
 }
 
 void ProcessLine(const VertexData &v0, const VertexData &v1, BinManager &binner) {
-	if (gstate.isModeThrough()) {
+	if (binner.State().throughMode) {
 		// Actually, should clip this one too so we don't need to do bounds checks in the rasterizer.
 		binner.AddLine(v0, v1);
 		return;
@@ -221,7 +221,7 @@ void ProcessLine(const VertexData &v0, const VertexData &v1, BinManager &binner)
 
 void ProcessTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const VertexData &provoking, BinManager &binner) {
 	int mask = 0;
-	if (!gstate.isModeThrough()) {
+	if (!binner.State().throughMode) {
 		mask |= CalcClipMask(v0.clippos);
 		mask |= CalcClipMask(v1.clippos);
 		mask |= CalcClipMask(v2.clippos);

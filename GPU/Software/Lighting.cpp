@@ -276,12 +276,12 @@ void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords 
 	}
 
 	if (state.setColor1) {
-		vertex.color0 = final_color.Clamp(0, 255);
-		vertex.color1 = specular_color.Clamp(0, 255).rgb();
+		vertex.color0 = final_color.Clamp(0, 255).ToRGBA();
+		vertex.color1 = specular_color.Clamp(0, 255).rgb().ToRGB();
 	} else if (state.addColor1) {
-		vertex.color0 = (final_color + specular_color).Clamp(0, 255);
+		vertex.color0 = (final_color + specular_color).Clamp(0, 255).ToRGBA();
 	} else {
-		vertex.color0 = final_color.Clamp(0, 255);
+		vertex.color0 = final_color.Clamp(0, 255).ToRGBA();
 	}
 }
 

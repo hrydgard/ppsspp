@@ -24,7 +24,7 @@
 struct BinWaitable;
 class DrawBinItemsTask;
 
-enum class BinItemType {
+enum class BinItemType : uint8_t {
 	TRIANGLE,
 	CLEAR_RECT,
 	RECT,
@@ -48,7 +48,7 @@ struct BinCoords {
 
 struct BinItem {
 	BinItemType type;
-	int stateIndex;
+	uint16_t stateIndex;
 	BinCoords range;
 	VertexData v0;
 	VertexData v1;
@@ -181,7 +181,7 @@ public:
 	BinManager();
 	~BinManager();
 
-	void UpdateState();
+	void UpdateState(bool throughMode);
 	void UpdateClut(const void *src);
 
 	const Rasterizer::RasterizerState &State() {
@@ -237,9 +237,9 @@ protected:
 
 private:
 	BinStateQueue states_;
-	int stateIndex_;
 	BinClutQueue cluts_;
-	int clutIndex_;
+	uint16_t stateIndex_;
+	uint16_t clutIndex_;
 	BinCoords scissor_;
 	BinItemQueue queue_;
 	BinCoords queueRange_;

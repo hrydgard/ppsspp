@@ -1888,6 +1888,7 @@ void DeveloperToolsScreen::CreateViews() {
 
 void DeveloperToolsScreen::onFinish(DialogResult result) {
 	g_Config.Save("DeveloperToolsScreen::onFinish");
+	NativeMessageReceived("gpu_resized", "");
 }
 
 void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {

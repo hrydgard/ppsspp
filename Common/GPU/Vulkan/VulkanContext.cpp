@@ -1196,12 +1196,15 @@ void VulkanContext::DestroyDevice() {
 	device_ = nullptr;
 }
 
-bool VulkanContext::CreateShaderModule(const std::vector<uint32_t> &spirv, VkShaderModule *shaderModule) {
+bool VulkanContext::CreateShaderModule(const std::vector<uint32_t> &spirv, VkShaderModule *shaderModule, const char *tag) {
 	VkShaderModuleCreateInfo sm{ VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
 	sm.pCode = spirv.data();
 	sm.codeSize = spirv.size() * sizeof(uint32_t);
 	sm.flags = 0;
 	VkResult result = vkCreateShaderModule(device_, &sm, nullptr, shaderModule);
+	if (tag) {
+		SetDebugName(*shaderModule, VK_OBJECT_TYPE_SHADER_MODULE, tag);
+	}
 	if (result != VK_SUCCESS) {
 		return false;
 	} else {

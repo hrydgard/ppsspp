@@ -19,6 +19,7 @@
 #pragma once
 
 #include <cstring>
+#include <cstdint>
 
 class GPUInterface;
 class GPUDebugInterface;
@@ -27,7 +28,7 @@ class GraphicsContext;
 // PSP rasterization has two outputs, color and depth. Stencil is packed
 // into the alpha channel of color (if exists), so possibly RASTER_COLOR
 // should be named RASTER_COLOR_STENCIL but it gets kinda hard to read.
-enum RasterChannel {
+enum RasterChannel : uint8_t {
 	RASTER_COLOR = 0,
 	RASTER_DEPTH = 1,
 };
@@ -37,6 +38,13 @@ enum SkipDrawReasonFlags {
 	SKIPDRAW_NON_DISPLAYED_FB = 2,   // Skip drawing to FBO:s that have not been displayed.
 	SKIPDRAW_BAD_FB_TEXTURE = 4,
 	SKIPDRAW_WINDOW_MINIMIZED = 8, // Don't draw when the host window is minimized.
+};
+
+enum class ShaderDepalMode {
+	OFF = 0,
+	NORMAL = 1,
+	SMOOTHED = 2,
+	CLUT8_8888 = 3,  // Read 8888 framebuffer as 8-bit CLUT.
 };
 
 // Global GPU-related utility functions. 

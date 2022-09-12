@@ -41,6 +41,8 @@ SingleFunc GetSingleFunc(const PixelFuncID &id);
 void Init();
 void Shutdown();
 
+bool CheckDepthTestPassed(GEComparison func, int x, int y, int stride, u16 z);
+
 bool DescribeCodePtr(const u8 *ptr, std::string &name);
 
 struct PixelBlendState {
@@ -104,8 +106,6 @@ private:
 
 	const u8 *constBlendHalf_11_4s_ = nullptr;
 	const u8 *constBlendInvert_11_4s_ = nullptr;
-	const u8 *const255_16s_ = nullptr;
-	const u8 *constBy255i_ = nullptr;
 
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	void Discard();

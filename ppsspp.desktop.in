@@ -4,4 +4,4 @@ Exec=@TargetBin@
 Icon=ppsspp
 Type=Application
 Comment=ppsspp (fast and portable PSP emulator)
-Categories=Game
+Categories=Game;Emulator

@@ -148,6 +148,7 @@ struct VirtualFramebuffer {
 
 	// Convenience methods
 	inline int WidthInBytes() const { return width * BufferFormatBytesPerPixel(fb_format); }
+	inline int BufferWidthInBytes() const { return bufferWidth * BufferFormatBytesPerPixel(fb_format); }
 	inline int FbStrideInBytes() const { return fb_stride * BufferFormatBytesPerPixel(fb_format); }
 	inline int ZStrideInBytes() const { return z_stride * 2; }
 };

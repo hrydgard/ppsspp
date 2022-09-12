@@ -230,7 +230,7 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
 	ApplySamplingParams(samplerKey);
-	gstate_c.SetUseShaderDepal(false, false);
+	gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
 }
 
 void TextureCacheGLES::Unbind() {

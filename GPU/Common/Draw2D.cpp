@@ -64,6 +64,7 @@ Draw2DPipelineInfo GenerateDraw2DCopyColorFs(ShaderWriter &writer) {
 	writer.EndFSMain("outColor", FSFLAG_NONE);
 
 	return Draw2DPipelineInfo{
+		"draw2d_copy_color",
 		RASTER_COLOR,
 		RASTER_COLOR,
 	};
@@ -77,6 +78,7 @@ Draw2DPipelineInfo GenerateDraw2DCopyDepthFs(ShaderWriter &writer) {
 	writer.EndFSMain("outColor", FSFLAG_WRITEDEPTH);
 
 	return Draw2DPipelineInfo{
+		"draw2d_copy_depth",
 		RASTER_DEPTH,
 		RASTER_DEPTH,
 	};
@@ -95,6 +97,7 @@ Draw2DPipelineInfo GenerateDraw2D565ToDepthFs(ShaderWriter &writer) {
 	writer.EndFSMain("outColor", FSFLAG_WRITEDEPTH);
 
 	return Draw2DPipelineInfo{
+		"draw2d_565_to_depth",
 		RASTER_COLOR,
 		RASTER_DEPTH,
 	};
@@ -119,6 +122,7 @@ Draw2DPipelineInfo GenerateDraw2D565ToDepthDeswizzleFs(ShaderWriter &writer) {
 	writer.EndFSMain("outColor", FSFLAG_WRITEDEPTH);
 	
 	return Draw2DPipelineInfo{
+		"draw2d_565_to_depth_deswizzle",
 		RASTER_COLOR,
 		RASTER_DEPTH
 	};
@@ -198,7 +202,7 @@ Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (Shade
 	ShaderWriter writer(fsCode, shaderLanguageDesc, ShaderStage::Fragment);
 	Draw2DPipelineInfo info = generate(writer);
 
-	ShaderModule *fs = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), "draw2d_fs");
+	ShaderModule *fs = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), info.tag);
 
 	_assert_(fs);
 
@@ -237,7 +241,7 @@ Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (Shade
 		info.samplers.is_empty() ? samplers : info.samplers,
 	};
 
-	Draw::Pipeline *pipeline = draw_->CreateGraphicsPipeline(pipelineDesc);
+	Draw::Pipeline *pipeline = draw_->CreateGraphicsPipeline(pipelineDesc, info.tag);
 
 	fs->Release();
 

@@ -1530,6 +1530,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 			break;
 
 		default:
+			FlushImm();
 			currentList->subIntrToken = prev & 0xFFFF;
 			UpdateState(GPUSTATE_DONE);
 			// Since we marked done, we have to restore the context now before the next list runs.
@@ -1651,6 +1652,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	u32 count = data & 0xFFFF;
 	if (count == 0)
 		return;
+	FlushImm();
 
 	// Upper bits are ignored.
 	GEPrimitiveType prim = static_cast<GEPrimitiveType>((data >> 16) & 7);
@@ -2143,6 +2145,7 @@ void GPUCommon::Execute_WorldMtxData(u32 op, u32 diff) {
 	}
 	num++;
 	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0xF);
+	gstate.worldmtxdata = GE_CMD_WORLDMATRIXDATA << 24;
 }
 
 void GPUCommon::Execute_ViewMtxNum(u32 op, u32 diff) {
@@ -2190,6 +2193,7 @@ void GPUCommon::Execute_ViewMtxData(u32 op, u32 diff) {
 	}
 	num++;
 	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0xF);
+	gstate.viewmtxdata = GE_CMD_VIEWMATRIXDATA << 24;
 }
 
 void GPUCommon::Execute_ProjMtxNum(u32 op, u32 diff) {
@@ -2238,6 +2242,7 @@ void GPUCommon::Execute_ProjMtxData(u32 op, u32 diff) {
 	num++;
 	if (num <= 16)
 		gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
+	gstate.projmtxdata = GE_CMD_PROJMATRIXDATA << 24;
 }
 
 void GPUCommon::Execute_TgenMtxNum(u32 op, u32 diff) {
@@ -2285,6 +2290,7 @@ void GPUCommon::Execute_TgenMtxData(u32 op, u32 diff) {
 	}
 	num++;
 	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0xF);
+	gstate.texmtxdata = GE_CMD_TGENMATRIXDATA << 24;
 }
 
 void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
@@ -2356,6 +2362,7 @@ void GPUCommon::Execute_BoneMtxData(u32 op, u32 diff) {
 	}
 	num++;
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
+	gstate.boneMatrixData = GE_CMD_BONEMATRIXDATA << 24;
 }
 
 void GPUCommon::Execute_MorphWeight(u32 op, u32 diff) {
@@ -2374,40 +2381,60 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 		return;
 	}
 
+	int prim = (op >> 8) & 0x7;
+	if (prim != GE_PRIM_KEEP_PREVIOUS) {
+		// Flush before changing the prim type.  Only continue can be used to continue a prim.
+		FlushImm();
+	}
+
 	TransformedVertex &v = immBuffer_[immCount_++];
 
-	// Formula deduced from ThrillVille's clear.
-	int offsetX = gstate.getOffsetX16();
-	int offsetY = gstate.getOffsetY16();
-	v.x = ((gstate.imm_vscx & 0xFFFFFF) - offsetX) / 16.0f;
-	v.y = ((gstate.imm_vscy & 0xFFFFFF) - offsetY) / 16.0f;
+	// ThrillVille does a clear with this, additional parameters found via tests.
+	// The current vtype affects how the coordinate is processed.
+	if (gstate.isModeThrough()) {
+		v.x = ((int)(gstate.imm_vscx & 0xFFFF) - 0x8000) / 16.0f;
+		v.y = ((int)(gstate.imm_vscy & 0xFFFF) - 0x8000) / 16.0f;
+	} else {
+		int offsetX = gstate.getOffsetX16();
+		int offsetY = gstate.getOffsetY16();
+		v.x = ((int)(gstate.imm_vscx & 0xFFFF) - offsetX) / 16.0f;
+		v.y = ((int)(gstate.imm_vscy & 0xFFFF) - offsetY) / 16.0f;
+	}
 	v.z = gstate.imm_vscz & 0xFFFF;
 	v.pos_w = 1.0f;
 	v.u = getFloat24(gstate.imm_vtcs);
 	v.v = getFloat24(gstate.imm_vtct);
 	v.uv_w = getFloat24(gstate.imm_vtcq);
 	v.color0_32 = (gstate.imm_cv & 0xFFFFFF) | (gstate.imm_ap << 24);
-	v.fog = 0.0f; // we have no information about the scale here
+	// TODO: When !gstate.isModeThrough(), direct fog coefficient (0 = entirely fog), ignore fog flag (also GE_IMM_FOG.)
+	v.fog = (gstate.imm_fc & 0xFF) / 255.0f;
+	// TODO: Apply if gstate.isUsingSecondaryColor() && !gstate.isModeThrough(), ignore lighting flag.
 	v.color1_32 = gstate.imm_scv & 0xFFFFFF;
-	int prim = (op >> 8) & 0x7;
 	if (prim != GE_PRIM_KEEP_PREVIOUS) {
 		immPrim_ = (GEPrimitiveType)prim;
-	} else if (prim == GE_PRIM_KEEP_PREVIOUS && immCount_ == 2) {
+		// Flags seem to only be respected from the first prim.
+		immFlags_ = op & 0x00FFF800;
+	} else if (prim == GE_PRIM_KEEP_PREVIOUS && immPrim_ != GE_PRIM_INVALID) {
+		static constexpr int flushPrimCount[] = { 1, 2, 0, 3, 0, 0, 2, 0 };
 		// Instead of finding a proper point to flush, we just emit a full rectangle every time one
 		// is finished.
-		FlushImm();
-		// Need to reset immCount_ here. If we do it in FlushImm it could get skipped by gstate_c.skipDrawReason.
-		immCount_ = 0;
+		if (immCount_ == flushPrimCount[immPrim_ & 7])
+			FlushImm();
 	} else {
 		ERROR_LOG_REPORT_ONCE(imm_draw_prim, G3D, "Immediate draw: Unexpected primitive %d at count %d", prim, immCount_);
 	}
 }
 
 void GPUCommon::FlushImm() {
+	if (immCount_ == 0 || immPrim_ == GE_PRIM_INVALID)
+		return;
+
 	SetDrawType(DRAW_PRIM, immPrim_);
-	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+	if (framebufferManager_)
+		framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// No idea how many cycles to skip, heh.
+		immCount_ = 0;
 		return;
 	}
 	UpdateUVScaleOffset();
@@ -2417,23 +2444,69 @@ void GPUCommon::FlushImm() {
 	// through vertices.
 	// Since the only known use is Thrillville and it only uses it to clear, we just use color and pos.
 	struct ImmVertex {
+		float uv[2];
 		uint32_t color;
 		float xyz[3];
 	};
 	ImmVertex temp[MAX_IMMBUFFER_SIZE];
+	uint32_t color1Used = 0;
 	for (int i = 0; i < immCount_; i++) {
+		// Since we're sending through, scale back up to w/h.
+		temp[i].uv[0] = immBuffer_[i].u * gstate.getTextureWidth(0);
+		temp[i].uv[1] = immBuffer_[i].v * gstate.getTextureHeight(0);
 		temp[i].color = immBuffer_[i].color0_32;
 		temp[i].xyz[0] = immBuffer_[i].pos[0];
 		temp[i].xyz[1] = immBuffer_[i].pos[1];
 		temp[i].xyz[2] = immBuffer_[i].pos[2];
+		color1Used |= immBuffer_[i].color1_32;
 	}
-	int vtype = GE_VTYPE_POS_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_THROUGH;
+	int vtype = GE_VTYPE_TC_FLOAT | GE_VTYPE_POS_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_THROUGH;
+
+	// TODO: Handle fog and secondary color somehow?
+
+	bool antialias = (immFlags_ & GE_IMM_ANTIALIAS) != 0;
+	bool prevAntialias = gstate.isAntiAliasEnabled();
+	bool shading = (immFlags_ & GE_IMM_SHADING) != 0;
+	bool prevShading = gstate.getShadeMode() == GE_SHADE_GOURAUD;
+	bool cullEnable = (immFlags_ & GE_IMM_CULLENABLE) != 0;
+	bool prevCullEnable = gstate.isCullEnabled();
+	int cullMode = (immFlags_ & GE_IMM_CULLFACE) != 0 ? 1 : 0;
+	bool texturing = (immFlags_ & GE_IMM_TEXTURE) != 0;
+	bool prevTexturing = gstate.isTextureMapEnabled();
+	bool dither = (immFlags_ & GE_IMM_DITHER) != 0;
+	bool prevDither = gstate.isDitherEnabled();
+
+	if ((immFlags_ & GE_IMM_CLIPMASK) != 0) {
+		WARN_LOG_REPORT_ONCE(geimmclipvalue, G3D, "Imm vertex used clip value, flags=%06x", immFlags_);
+	} else if ((immFlags_ & GE_IMM_FOG) != 0) {
+		WARN_LOG_REPORT_ONCE(geimmfog, G3D, "Imm vertex used fog, flags=%06x", immFlags_);
+	} else if (color1Used != 0 && gstate.isUsingSecondaryColor()) {
+		WARN_LOG_REPORT_ONCE(geimmcolor1, G3D, "Imm vertex used secondary color, flags=%06x", immFlags_);
+	}
+
+	if (texturing != prevTexturing || cullEnable != prevCullEnable || dither != prevDither || prevShading != shading) {
+		DispatchFlush();
+		gstate.antiAliasEnable = (GE_CMD_ANTIALIASENABLE << 24) | (int)antialias;
+		gstate.shademodel = (GE_CMD_SHADEMODE << 24) | (int)shading;
+		gstate.cullfaceEnable = (GE_CMD_CULLFACEENABLE << 24) | (int)cullEnable;
+		gstate.textureMapEnable = (GE_CMD_TEXTUREMAPENABLE << 24) | (int)texturing;
+		gstate.ditherEnable = (GE_CMD_DITHERENABLE << 24) | (int)dither;
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
+	}
 
 	int bytesRead;
 	uint32_t vertTypeID = GetVertTypeID(vtype, 0);
-	drawEngineCommon_->DispatchSubmitImm(temp, nullptr, immPrim_, immCount_, vertTypeID, gstate.getCullMode(), &bytesRead);
-	// TOOD: In the future, make a special path for these.
+	drawEngineCommon_->DispatchSubmitImm(temp, nullptr, immPrim_, immCount_, vertTypeID, cullMode, &bytesRead);
+	// TODO: In the future, make a special path for these.
 	// drawEngineCommon_->DispatchSubmitImm(immBuffer_, immCount_);
+	immCount_ = 0;
+
+	gstate.antiAliasEnable = (GE_CMD_ANTIALIASENABLE << 24) | (int)prevAntialias;
+	gstate.shademodel = (GE_CMD_SHADEMODE << 24) | (int)prevShading;
+	gstate.cullfaceEnable = (GE_CMD_CULLFACEENABLE << 24) | (int)prevCullEnable;
+	gstate.textureMapEnable = (GE_CMD_TEXTUREMAPENABLE << 24) | (int)prevTexturing;
+	gstate.ditherEnable = (GE_CMD_DITHERENABLE << 24) | (int)prevDither;
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
 }
 
 void GPUCommon::ExecuteOp(u32 op, u32 diff) {

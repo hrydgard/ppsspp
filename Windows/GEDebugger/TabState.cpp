@@ -18,8 +18,9 @@
 #include <commctrl.h>
 #include "Common/CommonFuncs.h"
 #include "Common/CommonTypes.h"
-#include "Common/Log.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/Parsers.h"
+#include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Windows/resource.h"
 #include "Windows/InputBox.h"
@@ -62,6 +63,7 @@ enum CmdFormatType {
 	CMD_FMT_XY,
 	CMD_FMT_XYXY,
 	CMD_FMT_XYZ,
+	CMD_FMT_XYPLUS1,
 	CMD_FMT_TEXSIZE,
 	CMD_FMT_F16_XY,
 	CMD_FMT_VERTEXTYPE,
@@ -232,7 +234,7 @@ static const TabStateRow stateSettingsRows[] = {
 	{ L"Transfer src pos",     GE_CMD_TRANSFERSRCPOS,          CMD_FMT_XY },
 	{ L"Transfer dst",         GE_CMD_TRANSFERDST,             CMD_FMT_PTRWIDTH, 0, GE_CMD_TRANSFERDSTW },
 	{ L"Transfer dst pos",     GE_CMD_TRANSFERDSTPOS,          CMD_FMT_XY },
-	{ L"Transfer size",        GE_CMD_TRANSFERSIZE,            CMD_FMT_XY },
+	{ L"Transfer size",        GE_CMD_TRANSFERSIZE,            CMD_FMT_XYPLUS1 },
 	{ L"Vertex type",          GE_CMD_VERTEXTYPE,              CMD_FMT_VERTEXTYPE },
 	{ L"Offset addr",          GE_CMD_OFFSETADDR,              CMD_FMT_OFFSETADDR },
 	{ L"Vertex addr",          GE_CMD_VADDR,                   CMD_FMT_VADDR },
@@ -265,6 +267,14 @@ static const TabStateRow stateSettingsRows[] = {
 	{ L"Dither 1",             GE_CMD_DITH1,                   CMD_FMT_HEX, GE_CMD_DITHERENABLE },
 	{ L"Dither 2",             GE_CMD_DITH2,                   CMD_FMT_HEX, GE_CMD_DITHERENABLE },
 	{ L"Dither 3",             GE_CMD_DITH3,                   CMD_FMT_HEX, GE_CMD_DITHERENABLE },
+	{ L"Imm vertex XY",        GE_CMD_VSCX,                    CMD_FMT_F16_XY, 0, GE_CMD_VSCY },
+	{ L"Imm vertex Z",         GE_CMD_VSCZ,                    CMD_FMT_HEX },
+	{ L"Imm vertex tex STQ",   GE_CMD_VTCS,                    CMD_FMT_XYZ, 0, GE_CMD_VTCT, GE_CMD_VTCQ },
+	{ L"Imm vertex color0",    GE_CMD_VCV,                     CMD_FMT_HEX },
+	{ L"Imm vertex color1",    GE_CMD_VSCV,                    CMD_FMT_HEX },
+	{ L"Imm vertex fog",       GE_CMD_VFC,                     CMD_FMT_HEX },
+	// TODO: Format?
+	{ L"Imm vertex prim",      GE_CMD_VAP,                     CMD_FMT_HEX },
 };
 
 // TODO: Commands not present in the above lists (some because they don't have meaningful values...):
@@ -364,6 +374,14 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			int x = value & 0x3FF;
 			int y = value >> 10;
 			swprintf(dest, 255, L"%d,%d", x, y);
+		}
+		break;
+
+	case CMD_FMT_XYPLUS1:
+		{
+			int x = value & 0x3FF;
+			int y = value >> 10;
+			swprintf(dest, 255, L"%d,%d", x + 1, y + 1);
 		}
 		break;
 
@@ -900,7 +918,13 @@ void CtrlStateValues::OnDoubleClick(int row, int column) {
 	const auto info = rows_[row];
 
 	if (column == STATEVALUES_COL_BREAKPOINT) {
-		SetItemState(row, ToggleBreakpoint(info) ? 1 : 0);
+		bool proceed = true;
+		if (GetCmdBreakpointCond(info.cmd, nullptr)) {
+			int ret = MessageBox(GetHandle(), L"This breakpoint has a custom condition.\nDo you want to remove it?", L"Confirmation", MB_YESNO);
+			proceed = ret == IDYES;
+		}
+		if (proceed)
+			SetItemState(row, ToggleBreakpoint(info) ? 1 : 0);
 		return;
 	}
 
@@ -960,6 +984,7 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 
 	HMENU subMenu = GetContextMenu(ContextMenuID::GEDBG_STATE);
 	SetMenuDefaultItem(subMenu, ID_REGLIST_CHANGE, FALSE);
+	EnableMenuItem(subMenu, ID_GEDBG_SETCOND, GPUBreakpoints::IsCmdBreakpoint(info.cmd) ? MF_ENABLED : MF_GRAYED);
 
 	// Ehh, kinda ugly.
 	if (!watchList.empty() && rows_ == &watchList[0]) {
@@ -975,8 +1000,19 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 
 	switch (TriggerContextMenu(ContextMenuID::GEDBG_STATE, GetHandle(), ContextPoint::FromClient(point)))
 	{
-	case ID_DISASM_TOGGLEBREAKPOINT:
-		SetItemState(row, ToggleBreakpoint(info) ? 1 : 0);
+	case ID_DISASM_TOGGLEBREAKPOINT: {
+		bool proceed = true;
+		if (GetCmdBreakpointCond(info.cmd, nullptr)) {
+			int ret = MessageBox(GetHandle(), L"This breakpoint has a custom condition.\nDo you want to remove it?", L"Confirmation", MB_YESNO);
+			proceed = ret == IDYES;
+		}
+		if (proceed)
+			SetItemState(row, ToggleBreakpoint(info) ? 1 : 0);
+		break;
+	}
+
+	case ID_GEDBG_SETCOND:
+		PromptBreakpointCond(info);
 		break;
 
 	case ID_DISASM_COPYINSTRUCTIONHEX: {
@@ -1041,6 +1077,24 @@ bool CtrlStateValues::RowValuesChanged(int row) {
 		return true;
 
 	return false;
+}
+
+void CtrlStateValues::PromptBreakpointCond(const TabStateRow &info) {
+	std::string expression;
+	GPUBreakpoints::GetCmdBreakpointCond(info.cmd, &expression);
+	if (!InputBox_GetString(GetModuleHandle(NULL), GetHandle(), L"Expression", expression, expression))
+		return;
+
+	std::string error;
+	if (!GPUBreakpoints::SetCmdBreakpointCond(info.cmd, expression, &error)) {
+		MessageBox(GetHandle(), ConvertUTF8ToWString(error).c_str(), L"Invalid expression", MB_OK | MB_ICONEXCLAMATION);
+	} else {
+		if (info.otherCmd)
+			GPUBreakpoints::SetCmdBreakpointCond(info.otherCmd, expression, &error);
+		if (info.otherCmd2)
+			GPUBreakpoints::SetCmdBreakpointCond(info.otherCmd2, expression, &error);
+	}
+
 }
 
 TabStateValues::TabStateValues(const TabStateRow *rows, int rowCount, LPCSTR dialogID, HINSTANCE _hInstance, HWND _hParent)

@@ -390,39 +390,39 @@ void GPUDriverTestScreen::DiscardTest() {
 			{ draw->GetVshaderPreset(VS_TEXTURE_COLOR_2D), discardFragShader_ },
 			inputLayout, depthStencilWrite, blendOffNoColor, rasterNoCull, &vsColBufDesc,
 		};
-		discardWriteDepthStencil_ = draw->CreateGraphicsPipeline(discardDesc);
+		discardWriteDepthStencil_ = draw->CreateGraphicsPipeline(discardDesc, "test");
 		discardDesc.depthStencil = depthWrite;
-		discardWriteDepth_ = draw->CreateGraphicsPipeline(discardDesc);
+		discardWriteDepth_ = draw->CreateGraphicsPipeline(discardDesc, "test");
 		discardDesc.depthStencil = stencilWrite;
-		discardWriteStencil_ = draw->CreateGraphicsPipeline(discardDesc);
+		discardWriteStencil_ = draw->CreateGraphicsPipeline(discardDesc, "test");
 
 		PipelineDesc testDesc{
 			Primitive::TRIANGLE_LIST,
 			{ draw->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw->GetFshaderPreset(FS_TEXTURE_COLOR_2D) },
 			inputLayout, stencilEqual, blendOff, rasterNoCull, &vsColBufDesc,
 		};
-		drawTestStencilEqual_ = draw->CreateGraphicsPipeline(testDesc);
+		drawTestStencilEqual_ = draw->CreateGraphicsPipeline(testDesc, "test");
 
 		testDesc.depthStencil = stencilEqualDepthAlways;
-		drawTestStencilEqualDepthAlways_ = draw->CreateGraphicsPipeline(testDesc);
+		drawTestStencilEqualDepthAlways_ = draw->CreateGraphicsPipeline(testDesc, "test");
 
 		testDesc.depthStencil = stencilNotEqual;
-		drawTestStencilNotEqual_ = draw->CreateGraphicsPipeline(testDesc);
+		drawTestStencilNotEqual_ = draw->CreateGraphicsPipeline(testDesc, "test");
 
 		testDesc.depthStencil = stenciNotEqualDepthAlways;
-		drawTestStencilNotEqualDepthAlways_ = draw->CreateGraphicsPipeline(testDesc);
+		drawTestStencilNotEqualDepthAlways_ = draw->CreateGraphicsPipeline(testDesc, "test");
 
 		testDesc.depthStencil = stencilAlwaysDepthTestGreater;
-		drawTestStencilAlwaysDepthGreater_ = draw->CreateGraphicsPipeline(testDesc);
+		drawTestStencilAlwaysDepthGreater_ = draw->CreateGraphicsPipeline(testDesc, "test");
 
 		testDesc.depthStencil = stencilAlwaysDepthTestLessEqual;
-		drawTestStencilAlwaysDepthLessEqual_ = draw->CreateGraphicsPipeline(testDesc);
+		drawTestStencilAlwaysDepthLessEqual_ = draw->CreateGraphicsPipeline(testDesc, "test");
 
 		testDesc.depthStencil = depthTestGreater;
-		drawTestDepthGreater_ = draw->CreateGraphicsPipeline(testDesc);
+		drawTestDepthGreater_ = draw->CreateGraphicsPipeline(testDesc, "test");
 
 		testDesc.depthStencil = depthTestLessEqual;
-		drawTestDepthLessEqual_ = draw->CreateGraphicsPipeline(testDesc);
+		drawTestDepthLessEqual_ = draw->CreateGraphicsPipeline(testDesc, "test");
 
 		inputLayout->Release();
 		blendOff->Release();
@@ -557,14 +557,14 @@ void GPUDriverTestScreen::ShaderTest() {
 			{ adrenoLogicDiscardVertShader_, adrenoLogicDiscardFragShader_ },
 			inputLayout, depthStencilOff, blendOff, rasterNoCull, &vsColBufDesc,
 		};
-		adrenoLogicDiscardPipeline_ = draw->CreateGraphicsPipeline(adrenoLogicDiscardDesc);
+		adrenoLogicDiscardPipeline_ = draw->CreateGraphicsPipeline(adrenoLogicDiscardDesc, "test");
 
 		PipelineDesc flatDesc{
 			Primitive::TRIANGLE_LIST,
 			{ flatVertShader_, flatFragShader_ },
 			inputLayout, depthStencilOff, blendOff, rasterNoCull, &vsColBufDesc,
 		};
-		flatShadingPipeline_ = draw->CreateGraphicsPipeline(flatDesc);
+		flatShadingPipeline_ = draw->CreateGraphicsPipeline(flatDesc, "test");
 
 		inputLayout->Release();
 		blendOff->Release();

@@ -119,7 +119,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 	int z = v1.screenpos.z;
 	int fog = 255;
 
-	bool isWhite = v1.color0 == Vec4<int>(255, 255, 255, 255);
+	bool isWhite = v1.color0 == 0xFFFFFFFF;
 
 	if (state.enableTextures) {
 		// 1:1 (but with mirror support) texture mapping!
@@ -176,11 +176,12 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 				}
 			} else {
 				int t = t_start;
+				const Vec4<int> c0 = Vec4<int>::FromRGBA(v1.color0);
 				for (int y = pos0.y; y < pos1.y; y++) {
 					int s = s_start;
 					u16 *pixel = fb.Get16Ptr(pos0.x, y, pixelID.cached.framebufStride);
 					for (int x = pos0.x; x < pos1.x; x++) {
-						Vec4<int> prim_color = v1.color0;
+						Vec4<int> prim_color = c0;
 						Vec4<int> tex_color = fetchFunc(s, t, texptr, texbufw, 0, state.samplerID);
 						prim_color = Vec4<int>(ModulateRGBA(ToVec4IntArg(prim_color), ToVec4IntArg(tex_color), state.samplerID));
 						if (prim_color.a() > 0) {
@@ -202,11 +203,12 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 			float tf_start = t_start * (1.0f / (float)(1 << state.samplerID.height0Shift));
 
 			float t = tf_start;
+			const Vec4<int> c0 = Vec4<int>::FromRGBA(v1.color0);
 			for (int y = pos0.y; y < pos1.y; y++) {
 				float s = sf_start;
 				// Not really that fast but faster than triangle.
 				for (int x = pos0.x; x < pos1.x; x++) {
-					Vec4<int> prim_color = state.nearest(s, t, xoff, yoff, ToVec4IntArg(v1.color0), &texptr, &texbufw, 0, 0, state.samplerID);
+					Vec4<int> prim_color = state.nearest(s, t, xoff, yoff, ToVec4IntArg(c0), &texptr, &texbufw, 0, 0, state.samplerID);
 					state.drawPixel(x, y, z, 255, ToVec4IntArg(prim_color), pixelID);
 					s += dsf;
 				}
@@ -227,21 +229,20 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 			AlphaTestIsNeedless(pixelID) &&
 			!pixelID.applyColorWriteMask &&
 			pixelID.FBFormat() == GE_FORMAT_5551) {
-			if (v1.color0.a() == 0)
+			if (Vec4<int>::FromRGBA(v1.color0).a() == 0)
 				return;
 
 			for (int y = pos0.y; y < pos1.y; y++) {
 				u16 *pixel = fb.Get16Ptr(pos0.x, y, pixelID.cached.framebufStride);
 				for (int x = pos0.x; x < pos1.x; x++) {
-					Vec4<int> prim_color = v1.color0;
-					DrawSinglePixel5551(pixel, prim_color.ToRGBA(), pixelID);
+					DrawSinglePixel5551(pixel, v1.color0, pixelID);
 					pixel++;
 				}
 			}
 		} else {
+			const Vec4<int> prim_color = Vec4<int>::FromRGBA(v1.color0);
 			for (int y = pos0.y; y < pos1.y; y++) {
 				for (int x = pos0.x; x < pos1.x; x++) {
-					Vec4<int> prim_color = v1.color0;
 					state.drawPixel(x, y, z, fog, ToVec4IntArg(prim_color), pixelID);
 				}
 			}
@@ -265,6 +266,8 @@ bool g_needsClearAfterDialog = false;
 static inline bool NoClampOrWrap(const RasterizerState &state, const Vec2f &tc) {
 	if (tc.x < 0 || tc.y < 0)
 		return false;
+	if (state.samplerID.cached.sizes[0].w > 512 || state.samplerID.cached.sizes[0].h > 512)
+		return false;
 	return tc.x <= state.samplerID.cached.sizes[0].w && tc.y <= state.samplerID.cached.sizes[0].h;
 }
 
@@ -284,9 +287,9 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	// Currently only works for TL/BR, which is the most common but not required.
 	bool orient_check = xdiff >= 0 && ydiff >= 0;
 	// We already have a fast path for clear in ClearRectangle.
-	bool state_check = !state.pixelID.clearMode && !state.samplerID.hasAnyMips && NoClampOrWrap(state, v0.texturecoords) && NoClampOrWrap(state, v1.texturecoords);
+	bool state_check = state.throughMode && !state.pixelID.clearMode && !state.samplerID.hasAnyMips && NoClampOrWrap(state, v0.texturecoords) && NoClampOrWrap(state, v1.texturecoords);
 	// This doesn't work well with offset drawing, see #15876.  Through never has a subpixel offset.
-	bool subpixel_check = ((v0.screenpos.x | v0.screenpos.y | v1.screenpos.x | v1.screenpos.y) & 0xF) != 0;
+	bool subpixel_check = ((v0.screenpos.x | v0.screenpos.y | v1.screenpos.x | v1.screenpos.y) & 0xF) == 0;
 	if ((coord_check || !state.enableTextures) && orient_check && state_check && subpixel_check) {
 		binner.AddSprite(v0, v1);
 		return true;
@@ -309,7 +312,7 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 				// Afterwards, we also need to clear the actual destination. Can do a fast rectfill.
 				gstate.textureMapEnable &= ~1;
 				VertexData newV1 = v1;
-				newV1.color0 = Vec4<int>(0, 0, 0, 255);
+				newV1.color0 = 0xFF000000;
 				binner.AddSprite(v0, newV1);
 				gstate.textureMapEnable |= 1;
 			}
@@ -321,26 +324,40 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	return false;
 }
 
+static bool AreCoordsRectangleCompatible(const RasterizerState &state, const VertexData &data0, const VertexData &data1) {
+	if (!(data1.color0 == data0.color0))
+		return false;
+	if (!(data1.screenpos.z == data0.screenpos.z)) {
+		// Sometimes, we don't actually care about z.
+		if (state.pixelID.depthWrite || state.pixelID.DepthTestFunc() != GE_COMP_ALWAYS)
+			return false;
+	}
+	if (!state.throughMode) {
+		if (!state.throughMode && !(data1.color1 == data0.color1))
+			return false;
+		// Do we have to think about perspective correction or slope mip level?
+		if (state.enableTextures && data1.clippos.w != data0.clippos.w) {
+			// If the w is off by less than a factor of 1/512, it should be safe to treat as a rectangle.
+			static constexpr float halftexel = 0.5f / 512.0f;
+			if (data1.clippos.w - halftexel > data0.clippos.w || data1.clippos.w + halftexel < data0.clippos.w)
+				return false;
+		}
+		if (state.pixelID.applyFog && data1.fogdepth != data0.fogdepth) {
+			// Similar to w, this only matters if they're farther apart than 1/255.
+			static constexpr float foghalfstep = 0.5f / 255.0f;
+			if (data1.fogdepth - foghalfstep > data0.fogdepth || data1.fogdepth + foghalfstep < data0.fogdepth)
+				return false;
+		}
+	}
+	return true;
+}
+
 bool DetectRectangleFromStrip(const RasterizerState &state, const VertexData data[4], int *tlIndex, int *brIndex) {
 	// Color and Z must be flat.  Also find the TL and BR meanwhile.
 	int tl = 0, br = 0;
 	for (int i = 1; i < 4; ++i) {
-		if (!(data[i].color0 == data[0].color0))
+		if (!AreCoordsRectangleCompatible(state, data[i], data[0]))
 			return false;
-		if (!(data[i].screenpos.z == data[0].screenpos.z)) {
-			// Sometimes, we don't actually care about z.
-			if (state.pixelID.depthWrite || state.pixelID.DepthTestFunc() != GE_COMP_ALWAYS)
-				return false;
-		}
-		if (!state.throughMode) {
-			if (!state.throughMode && !(data[i].color1 == data[0].color1))
-				return false;
-			// Do we have to think about perspective correction or slope mip level?
-			if (state.enableTextures && data[i].clippos.w != data[0].clippos.w)
-				return false;
-			if (state.pixelID.applyFog && data[i].fogdepth != data[0].fogdepth)
-				return false;
-		}
 
 		if (data[i].screenpos.x <= data[tl].screenpos.x && data[i].screenpos.y <= data[tl].screenpos.y)
 			tl = i;
@@ -394,34 +411,20 @@ bool DetectRectangleFromStrip(const RasterizerState &state, const VertexData dat
 bool DetectRectangleFromFan(const RasterizerState &state, const VertexData *data, int c, int *tlIndex, int *brIndex) {
 	// Color and Z must be flat.
 	for (int i = 1; i < c; ++i) {
-		if (!(data[i].color0 == data[0].color0))
+		if (!AreCoordsRectangleCompatible(state, data[i], data[0]))
 			return false;
-		if (!(data[i].screenpos.z == data[0].screenpos.z)) {
-			// Sometimes, we don't actually care about z.
-			if (state.pixelID.depthWrite || state.pixelID.DepthTestFunc() != GE_COMP_ALWAYS)
-				return false;
-		}
-		if (!state.throughMode) {
-			if (!state.throughMode && !(data[i].color1 == data[0].color1))
-				return false;
-			// Do we have to think about perspective correction or slope mip level?
-			if (state.enableTextures && data[i].clippos.w != data[0].clippos.w)
-				return false;
-			if (state.pixelID.applyFog && data[i].fogdepth != data[0].fogdepth)
-				return false;
-		}
 	}
 
 	// Check for the common case: a single TL-TR-BR-BL.
 	if (c == 4) {
-		const auto &tl = data[0].screenpos, &tr = data[1].screenpos;
-		const auto &bl = data[3].screenpos, &br = data[2].screenpos;
-		if (tl.x == bl.x && tr.x == br.x && tl.y == tr.y && bl.y == br.y) {
+		const auto &pos0 = data[0].screenpos, &pos1 = data[1].screenpos;
+		const auto &pos2 = data[2].screenpos, &pos3 = data[3].screenpos;
+		if (pos0.x == pos3.x && pos1.x == pos2.x && pos0.y == pos1.y && pos3.y == pos2.y) {
 			// Looking like yes.  Set TL/BR based on y order first...
-			*tlIndex = tl.y > bl.y ? 2 : 0;
-			*brIndex = tl.y > bl.y ? 0 : 2;
+			*tlIndex = pos0.y > pos3.y ? 2 : 0;
+			*brIndex = pos0.y > pos3.y ? 0 : 2;
 			// And if it's horizontally flipped, trade to the actual TL/BR.
-			if (tl.x > tr.x) {
+			if (pos0.x > pos1.x) {
 				*tlIndex ^= 1;
 				*brIndex ^= 1;
 			}
@@ -435,7 +438,56 @@ bool DetectRectangleFromFan(const RasterizerState &state, const VertexData *data
 
 			if (textl.x == texbl.x && textr.x == texbr.x && textl.y == textr.y && texbl.y == texbr.y) {
 				// Okay, the texture is also good, but let's avoid rotation issues.
-				return textl.y < texbr.y && textl.x < texbr.x;
+				const auto &postl = data[*tlIndex].screenpos;
+				const auto &posbr = data[*brIndex].screenpos;
+				return textl.y < texbr.y && postl.y < posbr.y && textl.x < texbr.x && postl.x < posbr.x;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool DetectRectangleFromPair(const RasterizerState &state, const VertexData data[6], int *tlIndex, int *brIndex) {
+	// Color and Z must be flat.  Also find the TL and BR meanwhile.
+	int tl = 0, br = 0;
+	for (int i = 1; i < 6; ++i) {
+		if (!AreCoordsRectangleCompatible(state, data[i], data[0]))
+			return false;
+
+		if (data[i].screenpos.x <= data[tl].screenpos.x && data[i].screenpos.y <= data[tl].screenpos.y)
+			tl = i;
+		if (data[i].screenpos.x >= data[br].screenpos.x && data[i].screenpos.y >= data[br].screenpos.y)
+			br = i;
+	}
+
+	*tlIndex = tl;
+	*brIndex = br;
+
+	auto xat = [&](int i) { return data[i].screenpos.x; };
+	auto yat = [&](int i) { return data[i].screenpos.y; };
+	auto uat = [&](int i) { return data[i].texturecoords.x; };
+	auto vat = [&](int i) { return data[i].texturecoords.y; };
+
+	// A likely order would be: TL, TR, BR, TL, BR, BL.  We'd have the last index of each.
+	// TODO: Make more generic.
+	if (tl == 3 && br == 4) {
+		bool x1_match = xat(0) == xat(3) && xat(0) == xat(5);
+		bool x2_match = xat(1) == xat(2) && xat(1) == xat(4);
+		bool y1_match = yat(0) == yat(1) && yat(0) == yat(3);
+		bool y2_match = yat(2) == yat(4) && yat(2) == yat(5);
+		if (x1_match && y1_match && x2_match && y2_match) {
+			// Do we need to think about rotation or UVs?
+			if (!state.enableTextures)
+				return true;
+
+			x1_match = uat(0) == uat(3) && uat(0) == uat(5);
+			x2_match = uat(1) == uat(2) && uat(1) == uat(4);
+			y1_match = vat(0) == vat(1) && vat(0) == vat(3);
+			y2_match = vat(2) == vat(4) && vat(2) == vat(5);
+			if (x1_match && y1_match && x2_match && y2_match) {
+				// Double check rotation direction.
+				return vat(tl) < vat(br) && yat(tl) < yat(br) && uat(tl) < uat(br) && xat(tl) < xat(br);
 			}
 		}
 	}

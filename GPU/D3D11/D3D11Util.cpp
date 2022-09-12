@@ -26,13 +26,14 @@ std::vector<uint8_t> CompileShaderToBytecodeD3D11(const char *code, size_t codeS
 	std::string errors;
 	if (errorMsgs) {
 		errors = std::string((const char *)errorMsgs->GetBufferPointer(), errorMsgs->GetBufferSize());
+		std::string numberedCode = LineNumberString(code);
 		if (SUCCEEDED(result)) {
 			WARN_LOG(G3D, "%s: %s", "warnings", errors.c_str());
 		} else {
-			ERROR_LOG(G3D, "%s: %s", "errors", errors.c_str());
+			ERROR_LOG(G3D, "%s: %s\n\n%s", "errors", errors.c_str(), numberedCode.c_str());
 		}
-		OutputDebugStringA(LineNumberString(code).c_str());
 		OutputDebugStringA(errors.c_str());
+		OutputDebugStringA(numberedCode.c_str());
 		errorMsgs->Release();
 	}
 	if (compiledCode) {

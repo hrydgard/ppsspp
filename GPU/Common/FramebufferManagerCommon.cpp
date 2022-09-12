@@ -810,7 +810,7 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 		}
 	}
 
-	if (dst != currentRenderVfb_ && tookActions) {
+	if (currentRenderVfb_ && dst != currentRenderVfb_ && tookActions) {
 		// Will probably just change the name of the current renderpass, since one was started by the reinterpret itself.
 		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "After Reinterpret");
 	}
@@ -2551,6 +2551,11 @@ void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 lo
 		// The height will be 1 for each stride or part thereof.
 		int w = std::min(pixels % vfb->fb_stride, (int)vfb->width);
 		int h = std::min((pixels + vfb->fb_stride - 1) / vfb->fb_stride, (int)vfb->height);
+
+		if (w == 0 || h > 1) {
+			// Exactly aligned, or more than one row.
+			w = std::min(vfb->fb_stride, vfb->width);
+		}
 
 		// We might still have a pending draw to the fb in question, flush if so.
 		FlushBeforeCopy();

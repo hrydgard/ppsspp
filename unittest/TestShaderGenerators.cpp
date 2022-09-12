@@ -30,27 +30,27 @@ bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs
 	case ShaderLanguage::GLSL_VULKAN:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::GLSL_VULKAN);
-		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, errorString);
+		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, nullptr, errorString);
 	}
 	case ShaderLanguage::GLSL_1xx:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::GLSL_1xx);
-		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, errorString);
+		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, nullptr, errorString);
 	}
 	case ShaderLanguage::GLSL_3xx:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::GLSL_1xx);
-		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, errorString);
+		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, nullptr, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D9:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D9);
-		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, errorString);
+		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, nullptr, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D11:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D11);
-		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, errorString);
+		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, nullptr, errorString);
 	}
 	default:
 		return false;
@@ -402,7 +402,6 @@ bool TestFragmentShaders() {
 
 		// bits we don't need to test because they are irrelevant on d3d11
 		id.SetBit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL, false);
-		id.SetBit(FS_BIT_SHADER_DEPAL, false);
 
 		// DX9 disabling:
 		if (static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2)) == ReplaceAlphaType::REPLACE_ALPHA_DUALSOURCE)

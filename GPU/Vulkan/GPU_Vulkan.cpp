@@ -91,7 +91,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// Update again after init to be sure of any silly driver problems.
 	UpdateVsyncInterval(true);
 
-	textureCacheVulkan_->NotifyConfigChanged();
+	textureCache_->NotifyConfigChanged();
 
 	// Load shader cache.
 	std::string discID = g_paramSFO.GetDiscID();
@@ -303,7 +303,7 @@ void GPU_Vulkan::BeginHostFrame() {
 		BuildReportingInfo();
 		framebufferManager_->Resized();
 		drawEngine_.Resized();
-		textureCacheVulkan_->NotifyConfigChanged();
+		textureCache_->NotifyConfigChanged();
 		resized_ = false;
 	}
 

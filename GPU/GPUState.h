@@ -407,7 +407,7 @@ struct GPUgstate {
 	float getViewportYCenter() const { return getFloat24(viewportycenter); }
 	float getViewportZCenter() const { return getFloat24(viewportzcenter); }
 
-	// Fixed 16 point.
+	// Fixed 12.4 point.
 	int getOffsetX16() const { return offsetx & 0xFFFF; }
 	int getOffsetY16() const { return offsety & 0xFFFF; }
 	float getOffsetX() const { return (float)getOffsetX16() / 16.0f; }
@@ -529,10 +529,9 @@ struct GPUStateCache {
 	bool IsDirty(u64 what) const {
 		return (dirty & what) != 0ULL;
 	}
-	void SetUseShaderDepal(bool depal, bool smoothed) {
-		if (depal != useShaderDepal) {
-			useShaderDepal = depal;
-			useSmoothedShaderDepal = smoothed;
+	void SetUseShaderDepal(ShaderDepalMode mode) {
+		if (mode != shaderDepalMode) {
+			shaderDepalMode = mode;
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
@@ -628,8 +627,7 @@ struct GPUStateCache {
 	SubmitType submitType;
 	int spline_num_points_u;
 
-	bool useShaderDepal;
-	bool useSmoothedShaderDepal;
+	ShaderDepalMode shaderDepalMode;
 	GEBufferFormat depalFramebufferFormat;
 
 	u32 getRelativeAddress(u32 data) const;

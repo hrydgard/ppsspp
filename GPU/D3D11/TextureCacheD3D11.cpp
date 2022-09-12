@@ -59,7 +59,15 @@ static const D3D11_INPUT_ELEMENT_DESC g_QuadVertexElements[] = {
 
 Draw::DataFormat FromD3D11Format(u32 fmt) {
 	switch (fmt) {
-	case DXGI_FORMAT_B8G8R8A8_UNORM: default: return Draw::DataFormat::R8G8B8A8_UNORM;
+	case DXGI_FORMAT_B4G4R4A4_UNORM:
+		return Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
+	case DXGI_FORMAT_B5G5R5A1_UNORM:
+		return Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+	case DXGI_FORMAT_B5G6R5_UNORM:
+		return Draw::DataFormat::R5G6B5_UNORM_PACK16;
+	case DXGI_FORMAT_B8G8R8A8_UNORM:
+	default:
+		return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 }
 
@@ -172,8 +180,8 @@ void TextureCacheD3D11::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 void TextureCacheD3D11::ForgetLastTexture() {
 	InvalidateLastTexture();
 
-	ID3D11ShaderResourceView *nullTex[2]{};
-	context_->PSSetShaderResources(0, 2, nullTex);
+	ID3D11ShaderResourceView *nullTex[4]{};
+	context_->PSSetShaderResources(0, 4, nullTex);
 }
 
 void TextureCacheD3D11::InvalidateLastTexture() {
@@ -250,6 +258,7 @@ void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
 	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, samplerKey);
 	context_->PSSetSamplers(0, 1, &state);
+	gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
 }
 
 void TextureCacheD3D11::ApplySamplingParams(const SamplerCacheKey &key) {
@@ -292,6 +301,10 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	int tw;
 	int th;
 	plan.GetMipSize(0, &tw, &th);
+	if (tw > 16384)
+		tw = 16384;
+	if (th > 16384)
+		th = 16384;
 
 	if (plan.depth == 1) {
 		// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.

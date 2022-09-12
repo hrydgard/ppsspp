@@ -59,6 +59,8 @@ bool VulkanPushBuffer::AddBuffer() {
 		return false;
 	}
 
+	vulkan_->SetDebugName(info.buffer, VK_OBJECT_TYPE_BUFFER, name_);
+
 	buffers_.push_back(info);
 	buf_ = buffers_.size() - 1;
 	return true;
@@ -222,5 +224,9 @@ VkResult VulkanDescSetPool::Recreate(bool grow) {
 	info_.pPoolSizes = &sizes_[0];
 	info_.poolSizeCount = (uint32_t)sizes_.size();
 
-	return vkCreateDescriptorPool(vulkan_->GetDevice(), &info_, nullptr, &descPool_);
+	VkResult result = vkCreateDescriptorPool(vulkan_->GetDevice(), &info_, nullptr, &descPool_);
+	if (result == VK_SUCCESS) {
+		vulkan_->SetDebugName(descPool_, VK_OBJECT_TYPE_DESCRIPTOR_POOL, tag_);
+	}
+	return result;
 }

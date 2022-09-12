@@ -213,6 +213,7 @@ Draw2DPipeline *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETe
 	Draw2DPipeline *ts = draw2D_->Create2DPipeline([=](ShaderWriter &writer) -> Draw2DPipelineInfo {
 		GenerateDepalFs(writer, config);
 		return Draw2DPipelineInfo{
+			"depal",
 			config.bufferFormat == GE_FORMAT_DEPTH16 ? RASTER_DEPTH : RASTER_COLOR,
 			RASTER_COLOR,
 			samplers

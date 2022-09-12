@@ -37,6 +37,12 @@ typedef Vec4<float> ClipCoords; // Range: -w <= x/y/z <= w
 class BinManager;
 struct TransformState;
 
+enum class CullType {
+	CW = 0,
+	CCW = 1,
+	OFF = 2,
+};
+
 struct ScreenCoords
 {
 	ScreenCoords() {}
@@ -79,15 +85,15 @@ struct VertexData {
 		texturecoords = ::Lerp(a.texturecoords, b.texturecoords, t);
 		fogdepth = ::Lerp(a.fogdepth, b.fogdepth, t);
 
-		u16 t_int = (u16)(t*256);
-		color0 = LerpInt<Vec4<int>,256>(a.color0, b.color0, t_int);
-		color1 = LerpInt<Vec3<int>,256>(a.color1, b.color1, t_int);
+		u16 t_int = (u16)(t * 256);
+		color0 = LerpInt<Vec4<int>, 256>(Vec4<int>::FromRGBA(a.color0), Vec4<int>::FromRGBA(b.color0), t_int).ToRGBA();
+		color1 = LerpInt<Vec3<int>, 256>(Vec3<int>::FromRGB(a.color1), Vec3<int>::FromRGB(b.color1), t_int).ToRGB();
 	}
 
 	ClipCoords clippos;
 	Vec2<float> texturecoords;
-	Vec4<int> color0;
-	Vec3<int> color1;
+	uint32_t color0;
+	uint32_t color1;
 	ScreenCoords screenpos; // TODO: Shouldn't store this ?
 	float fogdepth;
 };
@@ -133,9 +139,16 @@ public:
 
 private:
 	VertexData ReadVertex(VertexReader &vreader, const TransformState &lstate, bool &outside_range_flag);
+	void SendTriangle(CullType cullType, const VertexData *verts, int provoking = 2);
 
 	u8 *decoded_ = nullptr;
 	BinManager *binner_ = nullptr;
+
+	// Normally max verts per prim is 3, but we temporarily need 4 to detect rectangles from strips.
+	VertexData data_[4];
+	// This is the index of the next vert in data (or higher, may need modulus.)
+	int data_index_ = 0;
+	GEPrimitiveType prev_prim_ = GE_PRIM_POINTS;
 };
 
 class SoftwareDrawEngine : public DrawEngineCommon {

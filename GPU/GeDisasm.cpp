@@ -94,6 +94,17 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
 
+	static const char * const primTypes[8] = {
+		"POINTS",
+		"LINES",
+		"LINE_STRIP",
+		"TRIANGLES",
+		"TRIANGLE_STRIP",
+		"TRIANGLE_FAN",
+		"RECTANGLES",
+		"CONTINUE_PREVIOUS",
+	};
+
 	// Handle control and drawing commands here directly. The others we delegate.
 	switch (cmd)
 	{
@@ -132,20 +143,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		{
 			u32 count = data & 0xFFFF;
 			u32 type = (data >> 16) & 7;
-			static const char* types[8] = {
-				"POINTS",
-				"LINES",
-				"LINE_STRIP",
-				"TRIANGLES",
-				"TRIANGLE_STRIP",
-				"TRIANGLE_FAN",
-				"RECTANGLES",
-				"CONTINUE_PREVIOUS",
-			};
 			if (gstate.vertType & GE_VTYPE_IDX_MASK)
-				snprintf(buffer, bufsize, "DRAW PRIM %s: count= %i vaddr= %08x, iaddr= %08x", type < 7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
+				snprintf(buffer, bufsize, "DRAW PRIM %s: count= %i vaddr= %08x, iaddr= %08x", type < 7 ? primTypes[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
 			else
-				snprintf(buffer, bufsize, "DRAW PRIM %s: count= %i vaddr= %08x", type < 7 ? types[type] : "INVALID", count, gstate_c.vertexAddr);
+				snprintf(buffer, bufsize, "DRAW PRIM %s: count= %i vaddr= %08x", type < 7 ? primTypes[type] : "INVALID", count, gstate_c.vertexAddr);
 		}
 		break;
 
@@ -347,11 +348,17 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		break;
 
 	case GE_CMD_OFFSETX:
-		snprintf(buffer, bufsize, "Offset X: %i", data);
+		if (data & ~0xFFFF)
+			snprintf(buffer, bufsize, "Offset X: %04x / %d with sub %d (extra %02x)", data & 0xFFFF, data >> 4, data & 0xF, data >> 16);
+		else
+			snprintf(buffer, bufsize, "Offset X: %04x / %d with sub %d", data & 0xFFFF, data >> 4, data & 0xF);
 		break;
 
 	case GE_CMD_OFFSETY:
-		snprintf(buffer, bufsize, "Offset Y: %i", data);
+		if (data & ~0xFFFF)
+			snprintf(buffer, bufsize, "Offset Y: %04x / %d with sub %d (extra %02x)", data & 0xFFFF, data >> 4, data & 0xF, data >> 16);
+		else
+			snprintf(buffer, bufsize, "Offset Y: %04x / %d with sub %d", data & 0xFFFF, data >> 4, data & 0xF);
 		break;
 
 	case GE_CMD_TEXSCALEU:
@@ -598,7 +605,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		{
 			int w = 1 << (data & 0xf);
 			int h = 1 << ((data>>8) & 0xf);
-			if ((data & ~0x0F0F) && w <= 512 && h <= 512)
+			if ((data & ~0x0F0F) == 0 && w <= 512 && h <= 512)
 				snprintf(buffer, bufsize, "Texture size %d: %dx%d", cmd - GE_CMD_TEXSIZE0, w, h);
 			else
 				snprintf(buffer, bufsize, "Texture size %d: %dx%d (extra %06x)", cmd - GE_CMD_TEXSIZE0, w, h, data);
@@ -736,6 +743,20 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		}
 		break;
 
+	case GE_CMD_LKS0:
+	case GE_CMD_LKS1:
+	case GE_CMD_LKS2:
+	case GE_CMD_LKS3:
+		snprintf(buffer, bufsize, "Light %d spot exponent: %f", cmd - GE_CMD_LKS0, getFloat24(data));
+		break;
+
+	case GE_CMD_LKO0:
+	case GE_CMD_LKO1:
+	case GE_CMD_LKO2:
+	case GE_CMD_LKO3:
+		snprintf(buffer, bufsize, "Light %d spot cutoff: %f", cmd - GE_CMD_LKO0, getFloat24(data));
+		break;
+
 	case GE_CMD_LAC0:case GE_CMD_LAC1:case GE_CMD_LAC2:case GE_CMD_LAC3:
 	case GE_CMD_LDC0:case GE_CMD_LDC1:case GE_CMD_LDC2:case GE_CMD_LDC3:
 	case GE_CMD_LSC0:case GE_CMD_LSC1:case GE_CMD_LSC2:case GE_CMD_LSC3:
@@ -744,9 +765,15 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 			float g = (float)((data>>8) & 0xff)/255.0f;
 			float b = (float)(data>>16)/255.0f;
 
+			static const char * const lightColorTypes[] = {
+				"ambient",
+				"diffuse",
+				"specular",
+			};
+
 			int l = (cmd - GE_CMD_LAC0) / 3;
 			int t = (cmd - GE_CMD_LAC0) % 3;
-			snprintf(buffer, bufsize, "Light %i color %i: %f %f %f", l, t, r, g, b);
+			snprintf(buffer, bufsize, "Light %d %s color: %f %f %f", l, lightColorTypes[t], r, g, b);
 		}
 		break;
 
@@ -1287,6 +1314,80 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_BONEMATRIXDATA:
 		snprintf(buffer, bufsize, "BONE data # %f", getFloat24(data));
+		break;
+
+	case GE_CMD_VSCX:
+		if (data & ~0xFFFF)
+			snprintf(buffer, bufsize, "Vertex screen X: %04x / %d with sub %d (extra %02x)", data & 0xFFFF, data >> 4, data & 0xF, data >> 16);
+		else
+			snprintf(buffer, bufsize, "Vertex screen X: %04x / %d with sub %d", data & 0xFFFF, data >> 4, data & 0xF);
+		break;
+
+	case GE_CMD_VSCY:
+		if (data & ~0xFFFF)
+			snprintf(buffer, bufsize, "Vertex screen Y: %04x / %d with sub %d (extra %02x)", data & 0xFFFF, data >> 4, data & 0xF, data >> 16);
+		else
+			snprintf(buffer, bufsize, "Vertex screen Y: %04x / %d with sub %d", data & 0xFFFF, data >> 4, data & 0xF);
+		break;
+
+	case GE_CMD_VSCZ:
+		if (data & ~0xFFFF)
+			snprintf(buffer, bufsize, "Vertex Z: %04x (extra %02x)", data & 0xFFFF, data >> 16);
+		else
+			snprintf(buffer, bufsize, "Vertex Z: %04x", data & 0xFFFF);
+		break;
+
+	case GE_CMD_VTCS:
+		snprintf(buffer, bufsize, "Vertex tex S: %f", getFloat24(data));
+		break;
+
+	case GE_CMD_VTCT:
+		snprintf(buffer, bufsize, "Vertex tex T: %f", getFloat24(data));
+		break;
+
+	case GE_CMD_VTCQ:
+		snprintf(buffer, bufsize, "Vertex tex Q: %f", getFloat24(data));
+		break;
+
+	case GE_CMD_VCV:
+		snprintf(buffer, bufsize, "Vertex color: %06x", data);
+		break;
+
+	case GE_CMD_VAP:
+		{
+			bool antialias = (data & GE_IMM_ANTIALIAS) != 0;
+			int clip = (data & GE_IMM_CLIPMASK) >> 12;
+			bool shading = (data & GE_IMM_SHADING) != 0;
+			bool cullEnable = (data & GE_IMM_CULLENABLE) != 0;
+			int cullMode = (data & GE_IMM_CULLFACE) != 0 ? 1 : 0;
+			bool texturing = (data & GE_IMM_TEXTURE) != 0;
+			bool dither = (data & GE_IMM_DITHER) != 0;
+			char *p = buffer;
+			p += snprintf(p, bufsize - (p - buffer), "Vertex draw: alpha=%02x, prim=%s", data & 0xFF, primTypes[(data >> 8) & 7]);
+			if (antialias)
+				p += snprintf(p, bufsize - (p - buffer), ", antialias");
+			if (clip != 0)
+				p += snprintf(p, bufsize - (p - buffer), ", clip=%02x", clip);
+			if (shading)
+				p += snprintf(p, bufsize - (p - buffer), ", shading");
+			if (cullEnable)
+				p += snprintf(p, bufsize - (p - buffer), ", cull=%s", cullMode == 1 ? "back (CCW)" : "front (CW)");
+			if (texturing)
+				p += snprintf(p, bufsize - (p - buffer), ", texturing");
+			if (dither)
+				p += snprintf(p, bufsize - (p - buffer), ", dither");
+		}
+		break;
+
+	case GE_CMD_VFC:
+		if (data & ~0xFF)
+			snprintf(buffer, bufsize, "Vertex fog: %02x / %f (extra %04x)", data & 0xFF, (data & 0xFF) / 255.0f, data >> 8);
+		else
+			snprintf(buffer, bufsize, "Vertex fog: %02x / %f", data & 0xFF, (data & 0xFF) / 255.0f);
+		break;
+
+	case GE_CMD_VSCV:
+		snprintf(buffer, bufsize, "Vertex secondary color: %06x", data);
 		break;
 
 	default:
