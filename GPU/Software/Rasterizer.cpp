@@ -135,9 +135,6 @@ void ComputeRasterizerState(RasterizerState *state, bool throughMode) {
 	state->throughMode = throughMode;
 	state->antialiasLines = gstate.isAntiAliasEnabled();
 
-	state->screenOffsetX = gstate.getOffsetX16();
-	state->screenOffsetY = gstate.getOffsetY16();
-
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	DisplayList currentList{};
 	if (gpuDebug)

@@ -300,9 +300,9 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && v0.texturecoords.x == 64.0f && v0.texturecoords.y == 16.0f && v1.texturecoords.x == 448.0f && v1.texturecoords.y == 240.0f) {
 		// check for save/load dialog.
 		if (!currentDialogActive) {
-			if (v0.screenpos.x + state.screenOffsetX == 0x7100 && v0.screenpos.y + state.screenOffsetY == 0x7780 && v1.screenpos.x + state.screenOffsetX == 0x8f00 && v1.screenpos.y + state.screenOffsetY == 0x8880) {
+			if (v0.screenpos.x + gstate.getOffsetX16() == 0x7100 && v0.screenpos.y + gstate.getOffsetY16() == 0x7780 && v1.screenpos.x + gstate.getOffsetX16() == 0x8f00 && v1.screenpos.y + gstate.getOffsetY16() == 0x8880) {
 				g_DarkStalkerStretch = DSStretch::Wide;
-			} else if (v0.screenpos.x + state.screenOffsetX == 0x7400 && v0.screenpos.y + state.screenOffsetY == 0x7780 && v1.screenpos.x + state.screenOffsetX == 0x8C00 && v1.screenpos.y + state.screenOffsetY == 0x8880) {
+			} else if (v0.screenpos.x + gstate.getOffsetX16() == 0x7400 && v0.screenpos.y + gstate.getOffsetY16() == 0x7780 && v1.screenpos.x + gstate.getOffsetX16() == 0x8C00 && v1.screenpos.y + gstate.getOffsetY16() == 0x8880) {
 				g_DarkStalkerStretch = DSStretch::Normal;
 			} else {
 				return false;
