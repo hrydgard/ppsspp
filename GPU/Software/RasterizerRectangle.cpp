@@ -103,7 +103,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 	const u8 *texptr = state.texptr[0];
 
 	GETextureFormat texfmt = state.samplerID.TexFmt();
-	int texbufw = state.texbufw[0];
+	uint16_t texbufw = state.texbufw[0];
 
 	Sampler::FetchFunc fetchFunc = Sampler::GetFetchFunc(state.samplerID);
 	auto &pixelID = state.pixelID;

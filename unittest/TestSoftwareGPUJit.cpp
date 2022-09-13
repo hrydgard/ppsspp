@@ -48,7 +48,7 @@ static bool TestSamplerJit() {
 	bool header = false;
 
 	u8 **tptr = new u8 *[8];
-	int *bufw = new int[8];
+	uint16_t *bufw = new uint16_t[8];
 	u8 *clut = new u8[1024];
 	memset(clut, 0, 1024);
 

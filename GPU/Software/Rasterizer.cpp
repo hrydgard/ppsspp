@@ -116,7 +116,7 @@ void ComputeRasterizerState(RasterizerState *state, bool throughMode) {
 		for (uint8_t i = 0; i <= state->maxTexLevel; i++) {
 			u32 texaddr = gstate.getTextureAddress(i);
 			state->texaddr[i] = texaddr;
-			state->texbufw[i] = GetTextureBufw(i, texaddr, texfmt);
+			state->texbufw[i] = (uint16_t)GetTextureBufw(i, texaddr, texfmt);
 			if (Memory::IsValidAddress(texaddr))
 				state->texptr[i] = Memory::GetPointerUnchecked(texaddr);
 			else
@@ -413,7 +413,7 @@ Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int> &sourc
 
 static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(float s, float t, int x, int y, Vec4IntArg prim_color, int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
 	const u8 **tptr0 = const_cast<const u8 **>(&state.texptr[texlevel]);
-	const int *bufw0 = &state.texbufw[texlevel];
+	const uint16_t *bufw0 = &state.texbufw[texlevel];
 
 	if (!bilinear) {
 		return state.nearest(s, t, x, y, prim_color, tptr0, bufw0, texlevel, frac_texlevel, state.samplerID);
@@ -1468,7 +1468,7 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 
 	GETextureFormat texfmt = gstate.getTextureFormat();
 	u32 texaddr = gstate.getTextureAddress(level);
-	int texbufw = GetTextureBufw(level, texaddr, texfmt);
+	u32 texbufw = GetTextureBufw(level, texaddr, texfmt);
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 

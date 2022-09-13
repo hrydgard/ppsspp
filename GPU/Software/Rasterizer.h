@@ -39,7 +39,7 @@ struct RasterizerState {
 	Sampler::LinearFunc linear;
 	Sampler::NearestFunc nearest;
 	uint32_t texaddr[8]{};
-	int texbufw[8]{};
+	uint16_t texbufw[8]{};
 	const u8 *texptr[8]{};
 	float textureLodSlope;
 	int screenOffsetX;
